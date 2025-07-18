@@ -1,0 +1,19 @@
+port: 8080
+servers:
+  - name: "go-lsp"
+    languages: ["go"]
+    command: "gopls"
+    args: []
+    transport: "stdio"
+    
+  - name: "python-lsp"
+    languages: ["python"]
+    command: "python"
+    args: ["-m", "pylsp"]
+    transport: "stdio"
+    
+  - name: "typescript-lsp"
+    languages: ["typescript", "javascript"]
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    transport: "stdio"

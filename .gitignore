@@ -4,6 +4,8 @@
 *.iws
 *.ipr
 out/
+
+# Binaries
 *.exe
 *.exe~
 *.dll
@@ -11,8 +13,56 @@ out/
 *.dylib
 *.test
 *.out
+
+# Go workspace
 go.work
 go.work.sum
+
+# Environment
 .env
-*.md
+
+# Coverage files and reports
+coverage/
+coverage.out
+coverage.html
+*.coverprofile
+c.out
+
+# Test reports
+test-reports/
+junit.xml
+
+# Build artifacts
+dist/
+bin/
+build/
+
+# IDE and editor files
+.vscode/
+.vs/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Log files
+*.log
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Dependency directories
+vendor/
+
+# Other
 .*
