@@ -51,6 +51,14 @@ func init() {
 }
 
 func runServer(cmd *cobra.Command, args []string) error {
+	return runServerWithContext(cmd.Context(), cmd, args)
+}
+
+func runServerWithContext(ctx context.Context, cmd *cobra.Command, args []string) error {
+	// Handle nil context by creating a background context
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	// Load configuration
 	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
@@ -74,10 +82,10 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 
 	// Start gateway
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	gatewayCtx, gatewayCancel := context.WithCancel(ctx)
+	defer gatewayCancel()
 
-	if err := gw.Start(ctx); err != nil {
+	if err := gw.Start(gatewayCtx); err != nil {
 		return fmt.Errorf("failed to start gateway: %w", err)
 	}
 	defer func() {
@@ -97,19 +105,30 @@ func runServer(cmd *cobra.Command, args []string) error {
 	}
 
 	// Start server in goroutine
+	serverErr := make(chan error, 1)
 	go func() {
 		log.Printf("Starting LSP Gateway server on port %d", cfg.Port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Printf("Server error: %v", err)
+			serverErr <- err
 		}
 	}()
 
-	// Wait for interrupt signal
+	// Setup signal handling for graceful shutdown
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-	<-sigCh
+	defer signal.Stop(sigCh)
 
-	log.Println("Shutting down server...")
+	// Wait for context cancellation, signal, or server error
+	select {
+	case <-ctx.Done():
+		log.Println("Context cancelled, shutting down server...")
+	case <-sigCh:
+		log.Println("Received shutdown signal, shutting down server...")
+	case err := <-serverErr:
+		log.Printf("Server error: %v", err)
+		return err
+	}
 
 	// Shutdown server
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)

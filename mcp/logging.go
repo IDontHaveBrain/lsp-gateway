@@ -92,7 +92,7 @@ type StructuredLogger struct {
 	// Metrics tracking
 	logCounts map[LogLevel]int64
 	lastReset time.Time
-	metricsMu sync.RWMutex
+	metricsMu *sync.RWMutex
 }
 
 // NewStructuredLogger creates a new structured logger
@@ -125,6 +125,7 @@ func NewStructuredLogger(config *LoggerConfig) *StructuredLogger {
 		baseLogger: log.New(config.Output, "", 0),
 		logCounts:  make(map[LogLevel]int64),
 		lastReset:  time.Now(),
+		metricsMu:  &sync.RWMutex{},
 	}
 
 	// Initialize async logging if enabled
@@ -152,6 +153,7 @@ func (l *StructuredLogger) WithField(key string, value interface{}) *StructuredL
 		asyncDone:  l.asyncDone,
 		logCounts:  l.logCounts,
 		lastReset:  l.lastReset,
+		metricsMu:  l.metricsMu,
 	}
 
 	// Copy existing fields
@@ -179,6 +181,7 @@ func (l *StructuredLogger) WithFields(fields map[string]interface{}) *Structured
 		asyncDone:  l.asyncDone,
 		logCounts:  l.logCounts,
 		lastReset:  l.lastReset,
+		metricsMu:  l.metricsMu,
 	}
 
 	// Copy existing fields
@@ -274,10 +277,15 @@ func (l *StructuredLogger) Errorf(format string, args ...interface{}) {
 
 // ErrorWithStack logs an error with stack trace
 func (l *StructuredLogger) ErrorWithStack(message string, err error) {
+	if LogLevelError < l.config.Level {
+		return
+	}
+
 	entry := l.createEntry(LogLevelError, message, err)
 	if l.config.EnableStackTrace {
 		entry.StackTrace = l.getStackTrace()
 	}
+	l.updateLogCounts(LogLevelError)
 	l.writeEntry(entry)
 }
 
@@ -365,6 +373,7 @@ func (l *StructuredLogger) log(level LogLevel, message string, err error) {
 	}
 
 	entry := l.createEntry(level, message, err)
+	l.updateLogCounts(level)
 	l.writeEntry(entry)
 }
 
@@ -425,9 +434,6 @@ func (l *StructuredLogger) createEntry(level LogLevel, message string, err error
 	if l.config.EnableMetrics && entry.Metrics == nil {
 		entry.Metrics = l.gatherRuntimeMetrics()
 	}
-
-	// Update log counts
-	l.updateLogCounts(level)
 
 	return entry
 }
@@ -532,7 +538,7 @@ func (l *StructuredLogger) getStackTrace() []string {
 
 	// Skip some frames to get to the actual caller
 	pcs := make([]uintptr, l.config.MaxStackTraceDepth)
-	n := runtime.Callers(5, pcs)
+	n := runtime.Callers(3, pcs)
 
 	frames := runtime.CallersFrames(pcs[:n])
 	for {

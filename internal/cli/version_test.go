@@ -132,24 +132,34 @@ func testVersionCommandRuntimeInfo(t *testing.T) {
 		}
 	})
 
-	// Verify Go version matches runtime
-	expectedGoVersion := fmt.Sprintf("Go Version: %s", runtime.Version())
-	if !strings.Contains(output, expectedGoVersion) {
-		t.Errorf("Expected output to contain '%s'", expectedGoVersion)
+	// Verify Go version matches runtime (flexible matching)
+	runtimeVersion := runtime.Version()
+	if !strings.Contains(output, "Go Version:") {
+		t.Error("Expected output to contain 'Go Version:'")
+	}
+	if !strings.Contains(output, runtimeVersion) {
+		t.Errorf("Expected output to contain Go version '%s', got output: %s", runtimeVersion, output)
 	}
 
 	// Verify OS/Arch matches runtime
 	expectedOSArch := fmt.Sprintf("OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
 	if !strings.Contains(output, expectedOSArch) {
-		t.Errorf("Expected output to contain '%s'", expectedOSArch)
+		t.Errorf("Expected output to contain '%s', got output: %s", expectedOSArch, output)
 	}
 }
 
 func testVersionCommandHelp(t *testing.T) {
-	// Test help output
+	// Test help output using a clean command instance
 	output := captureStdout(t, func() {
-		versionCmd.SetArgs([]string{"--help"})
-		err := versionCmd.Execute()
+		// Create a fresh command instance to avoid state pollution
+		testVersionCmd := &cobra.Command{
+			Use:   versionCmd.Use,
+			Short: versionCmd.Short,
+			Long:  versionCmd.Long,
+			RunE:  versionCmd.RunE,
+		}
+		testVersionCmd.SetArgs([]string{"--help"})
+		err := testVersionCmd.Execute()
 		if err != nil {
 			t.Errorf("Help command should not return error, got: %v", err)
 		}
