@@ -403,7 +403,7 @@ func TestConcurrentAccess(t *testing.T) {
 			router.GetSupportedExtensions()
 			router.GetServerByLanguage("go")
 			router.GetLanguageByExtension("py")
-			router.RouteRequest("file:///test.go")
+			_, _ = router.RouteRequest("file:///test.go")
 		}
 		done <- true
 	}()

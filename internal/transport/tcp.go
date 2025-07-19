@@ -39,7 +39,7 @@ type TCPClient struct {
 
 // NewTCPClient creates a new TCP-based LSP client
 func NewTCPClient(config ClientConfig) (LSPClient, error) {
-	if config.Transport != "tcp" {
+	if config.Transport != TransportTCP {
 		return nil, fmt.Errorf("invalid transport for TCP client: %s", config.Transport)
 	}
 	
@@ -102,7 +102,7 @@ func (c *TCPClient) Stop() error {
 	
 	// Close connection
 	if c.conn != nil {
-		c.conn.Close()
+		_ = c.conn.Close()
 	}
 	
 	// Clear pending requests
@@ -258,7 +258,7 @@ func (c *TCPClient) sendMessage(msg JSONRPCMessage) error {
 func (c *TCPClient) handleMessages() {
 	defer func() {
 		// Clean up on exit
-		c.Stop()
+		_ = c.Stop()
 	}()
 	
 	for {

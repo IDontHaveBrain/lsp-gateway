@@ -1,0 +1,71 @@
+# golangci-lint configuration for LSP Gateway
+# MVP/ALPHA stage: Focus on critical issues first
+
+version: "2"
+
+run:
+  timeout: 5m
+  skip-dirs:
+    - vendor
+
+linters:
+  enable:
+    # Critical security and correctness
+    - errcheck        # Check error handling (critical)
+    # - gosec           # Security issues (critical) - Disabled: Expected file/process access in LSP Gateway
+    - staticcheck     # Advanced static analysis
+    - govet           # Vet examines Go source code
+    
+    # Code quality essentials
+    - unused          # Find unused code
+    - ineffassign     # Detect ineffectual assignments
+    - misspell        # Fix spelling mistakes
+    
+    # Moderate complexity checking (relaxed for MVP)
+    - gocyclo         # Cyclomatic complexity
+    - gocognit        # Cognitive complexity
+    
+    # Style (relaxed)
+    - goconst         # Repeated strings as constants
+    - unconvert       # Remove unnecessary conversions
+
+linters-settings:
+  gocyclo:
+    min-complexity: 15  # Relaxed from 10 for MVP
+  gocognit:
+    min-complexity: 20  # Relaxed from 15 for MVP
+  funlen:
+    lines: 100         # Relaxed from 50 for MVP
+    statements: 50     # Relaxed from 30 for MVP
+  lll:
+    line-length: 140   # Relaxed from 120 for MVP
+  nestif:
+    min-complexity: 6  # Relaxed from 4 for MVP
+  dupl:
+    threshold: 150     # Relaxed from 100 for MVP
+  gosec:
+    # Allow some common patterns in development tools
+    excludes:
+      - G304  # File inclusion via variable (common in config loading)
+      - G204  # Subprocess launch (LSP servers need this)
+
+issues:
+  # Exclude test files from some checks
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - funlen
+        - gocognit
+        - dupl
+    - path: _test\.go
+      text: "cognitive complexity"
+    - path: _test\.go  
+      text: "cyclomatic complexity"
+    # Exclude specific gosec rules for expected behavior in LSP Gateway
+    - path: internal/config/loader\.go
+      text: "G304"
+    - path: internal/transport/stdio\.go
+      text: "G204"
+
+severity:
+  default: warning  # Changed from error to warning for MVP

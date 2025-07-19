@@ -39,12 +39,17 @@ type LSPClient interface {
 	IsActive() bool
 }
 
+const (
+	TransportStdio = "stdio"
+	TransportTCP   = "tcp"
+)
+
 // NewLSPClient creates a new LSP client based on transport type
 func NewLSPClient(config ClientConfig) (LSPClient, error) {
 	switch config.Transport {
-	case "stdio":
+	case TransportStdio:
 		return NewStdioClient(config)
-	case "tcp":
+	case TransportTCP:
 		return NewTCPClient(config)
 	default:
 		return nil, fmt.Errorf("unsupported transport: %s", config.Transport)

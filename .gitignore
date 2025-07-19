@@ -63,6 +63,3 @@ temp/
 
 # Dependency directories
 vendor/
-
-# Other
-.*

@@ -1,0 +1,116 @@
+name: Coverage
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+    
+    - name: Install dependencies
+      run: |
+        go mod tidy
+        go mod download
+        
+        # Install additional tools
+        sudo apt-get update
+        sudo apt-get install -y bc jq
+    
+    - name: Run tests with coverage
+      run: |
+        make test-coverage-threshold
+      env:
+        COVERAGE_THRESHOLD: 90
+        CI: true
+        VERBOSE: true
+    
+    - name: Generate coverage reports
+      run: |
+        make coverage-ci
+      env:
+        CI: true
+        COVERAGE_THRESHOLD: 90
+    
+    - name: Generate coverage dashboard
+      run: |
+        ./test/coverage/dashboard.sh -v
+    
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-reports
+        path: |
+          coverage/
+          !coverage/*.out
+        retention-days: 30
+    
+    - name: Upload coverage dashboard
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-dashboard
+        path: coverage/dashboard/
+        retention-days: 30
+    
+    - name: Comment coverage on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          try {
+            const coverageData = JSON.parse(fs.readFileSync('coverage/coverage.json', 'utf8'));
+            const overall = coverageData.overall;
+            
+            const comment = `## 📊 Coverage Report
+            
+            **Overall Coverage:** ${overall.coverage}%
+            **Threshold:** ${overall.threshold}%
+            **Status:** ${overall.status === 'PASS' ? '✅ PASS' : '❌ FAIL'}
+            
+            ### Module Coverage
+            ${Object.entries(coverageData.packages || {})
+              .map(([pkg, data]) => `- \`${pkg}\`: ${data.coverage}% ${data.status === 'PASS' ? '✅' : '❌'}`)
+              .join('\n')}
+            
+            ### Critical Modules
+            ${Object.entries(coverageData.critical_modules || {})
+              .map(([pkg, data]) => `- \`${pkg}\`: ${data.coverage}% ${data.status === 'PASS' ? '✅' : '❌'}`)
+              .join('\n')}
+            
+            ${overall.status === 'PASS' ? 
+              '🎉 All coverage thresholds met!' : 
+              '⚠️ Coverage thresholds not met. Please add more tests.'}
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          } catch (error) {
+            console.error('Error creating coverage comment:', error);
+          }
+    
+    - name: Fail on coverage threshold
+      run: |
+        if [ -f coverage/coverage.json ]; then
+          COVERAGE_STATUS=$(jq -r '.overall.status' coverage/coverage.json)
+          if [ "$COVERAGE_STATUS" != "PASS" ]; then
+            echo "❌ Coverage threshold not met"
+            exit 1
+          fi
+        fi

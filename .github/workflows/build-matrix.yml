@@ -1,0 +1,282 @@
+name: Build Matrix
+
+on:
+  schedule:
+    - cron: '0 2 * * *' # Daily at 2 AM UTC
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Platforms to build (comma-separated)'
+        required: false
+        default: 'linux/amd64,linux/arm64,darwin/amd64,darwin/arm64,windows/amd64,windows/arm64'
+      go_versions:
+        description: 'Go versions to test (comma-separated)'
+        required: false
+        default: '1.22,1.23,1.24'
+
+jobs:
+  matrix-build:
+    name: Build Matrix
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+          - os: macos-13
+            goos: darwin
+            goarch: amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+          - os: windows-latest
+            goos: windows
+            goarch: arm64
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: 1.24
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-1.24-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-1.24-
+
+    - name: Install build dependencies (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bc
+
+    - name: Install build dependencies (macOS)
+      if: matrix.os == 'macos-13' || matrix.os == 'macos-latest'
+      run: |
+        brew install bc
+
+    - name: Install build dependencies (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        choco install gnuwin32-coreutils.install
+
+    - name: Build binary
+      env:
+        GOOS: ${{ matrix.goos }}
+        GOARCH: ${{ matrix.goarch }}
+        CGO_ENABLED: 0
+      run: |
+        VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+        BUILD_TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        COMMIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+        
+        EXECUTABLE_SUFFIX=""
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          EXECUTABLE_SUFFIX=".exe"
+        fi
+        
+        OUTPUT_NAME="lsp-gateway-${VERSION}-${{ matrix.goos }}-${{ matrix.goarch }}${EXECUTABLE_SUFFIX}"
+        
+        mkdir -p dist
+        
+        go build \
+          -trimpath \
+          -ldflags="-s -w -X main.version=${VERSION} -X main.buildTime=${BUILD_TIME} -X main.commitHash=${COMMIT_HASH}" \
+          -o "dist/${OUTPUT_NAME}" \
+          ./cmd/lsp-gateway
+
+    - name: Test binary
+      run: |
+        VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+        
+        EXECUTABLE_SUFFIX=""
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          EXECUTABLE_SUFFIX=".exe"
+        fi
+        
+        OUTPUT_NAME="lsp-gateway-${VERSION}-${{ matrix.goos }}-${{ matrix.goarch }}${EXECUTABLE_SUFFIX}"
+        
+        # Only test on native platform
+        if [ "${{ matrix.goos }}" = "$(go env GOOS)" ] && [ "${{ matrix.goarch }}" = "$(go env GOARCH)" ]; then
+          ./dist/${OUTPUT_NAME} --version
+        fi
+
+    - name: Generate checksums
+      run: |
+        cd dist
+        VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+        
+        EXECUTABLE_SUFFIX=""
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          EXECUTABLE_SUFFIX=".exe"
+        fi
+        
+        OUTPUT_NAME="lsp-gateway-${VERSION}-${{ matrix.goos }}-${{ matrix.goarch }}${EXECUTABLE_SUFFIX}"
+        
+        if [ "${{ matrix.goos }}" = "windows" ]; then
+          certutil -hashfile ${OUTPUT_NAME} SHA256 > ${OUTPUT_NAME}.sha256
+        else
+          sha256sum ${OUTPUT_NAME} > ${OUTPUT_NAME}.sha256
+        fi
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: lsp-gateway-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: dist/
+        retention-days: 7
+
+  go-version-matrix:
+    name: Go Version Matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: [1.22, 1.23, 1.24]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go ${{ matrix.go-version }}
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ matrix.go-version }}-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-${{ matrix.go-version }}-
+
+    - name: Download dependencies
+      run: go mod download
+
+    - name: Verify dependencies
+      run: go mod verify
+
+    - name: Run tests
+      run: make test
+
+    - name: Build for current platform
+      run: make build
+
+    - name: Test binary
+      run: ./dist/lsp-gateway --version
+
+  compatibility-test:
+    name: Compatibility Test
+    runs-on: ubuntu-latest
+    needs: [matrix-build]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: dist/
+        pattern: lsp-gateway-*
+        merge-multiple: true
+
+    - name: Test Linux AMD64 binary
+      run: |
+        VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+        chmod +x dist/lsp-gateway-${VERSION}-linux-amd64
+        ./dist/lsp-gateway-${VERSION}-linux-amd64 --version
+
+    - name: Verify all binaries exist
+      run: |
+        VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
+        
+        EXPECTED_BINARIES=(
+          "lsp-gateway-${VERSION}-linux-amd64"
+          "lsp-gateway-${VERSION}-linux-arm64"
+          "lsp-gateway-${VERSION}-darwin-amd64"
+          "lsp-gateway-${VERSION}-darwin-arm64"
+          "lsp-gateway-${VERSION}-windows-amd64.exe"
+          "lsp-gateway-${VERSION}-windows-arm64.exe"
+        )
+        
+        for binary in "${EXPECTED_BINARIES[@]}"; do
+          if [ ! -f "dist/${binary}" ]; then
+            echo "ERROR: Binary not found: ${binary}"
+            exit 1
+          else
+            echo "✓ Found: ${binary}"
+          fi
+        done
+
+    - name: Check binary sizes
+      run: |
+        echo "Binary sizes:"
+        ls -lh dist/ | grep -E "lsp-gateway-.*-(linux|darwin|windows)"
+
+    - name: Verify checksums
+      run: |
+        cd dist
+        for checksum_file in *.sha256; do
+          if [ -f "$checksum_file" ]; then
+            echo "Verifying $checksum_file..."
+            if command -v sha256sum &> /dev/null; then
+              sha256sum -c "$checksum_file"
+            else
+              echo "sha256sum not available, skipping checksum verification"
+            fi
+          fi
+        done
+
+  summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    needs: [matrix-build, go-version-matrix, compatibility-test]
+    if: always()
+
+    steps:
+    - name: Generate summary
+      run: |
+        echo "## Build Matrix Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Platform Builds" >> $GITHUB_STEP_SUMMARY
+        echo "- Linux AMD64: ${{ needs.matrix-build.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Linux ARM64: ${{ needs.matrix-build.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- macOS AMD64: ${{ needs.matrix-build.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- macOS ARM64: ${{ needs.matrix-build.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Windows AMD64: ${{ needs.matrix-build.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Windows ARM64: ${{ needs.matrix-build.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Go Version Tests" >> $GITHUB_STEP_SUMMARY
+        echo "- Go 1.22: ${{ needs.go-version-matrix.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Go 1.23: ${{ needs.go-version-matrix.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "- Go 1.24: ${{ needs.go-version-matrix.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Compatibility Test" >> $GITHUB_STEP_SUMMARY
+        echo "- Status: ${{ needs.compatibility-test.result }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Overall Status" >> $GITHUB_STEP_SUMMARY
+        if [ "${{ needs.matrix-build.result }}" = "success" ] && [ "${{ needs.go-version-matrix.result }}" = "success" ] && [ "${{ needs.compatibility-test.result }}" = "success" ]; then
+          echo "✅ All builds successful" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "❌ Some builds failed" >> $GITHUB_STEP_SUMMARY
+        fi

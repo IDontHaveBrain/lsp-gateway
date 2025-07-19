@@ -127,7 +127,7 @@ func TestTCPClientConnectionFailure(t *testing.T) {
 	err = client.Start(ctx)
 	if err == nil {
 		t.Error("Start should fail for invalid address")
-		client.Stop()
+		_ = client.Stop()
 	}
 	
 	if client.IsActive() {
@@ -141,7 +141,7 @@ func TestTCPClientWithMockServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start mock server: %v", err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 	
 	// Get the actual port
 	port := listener.Addr().(*net.TCPAddr).Port
@@ -155,7 +155,7 @@ func TestTCPClientWithMockServer(t *testing.T) {
 			}
 			
 			// Echo server - just close the connection for this test
-			conn.Close()
+			_ = conn.Close()
 		}
 	}()
 	
@@ -201,7 +201,7 @@ func TestTCPClientDoubleStart(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start mock server: %v", err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 	
 	// Get the actual port
 	port := listener.Addr().(*net.TCPAddr).Port
@@ -213,7 +213,7 @@ func TestTCPClientDoubleStart(t *testing.T) {
 			if err != nil {
 				return
 			}
-			conn.Close()
+			_ = conn.Close()
 		}
 	}()
 	
@@ -242,7 +242,7 @@ func TestTCPClientDoubleStart(t *testing.T) {
 	}
 	
 	// Cleanup
-	client.Stop()
+	_ = client.Stop()
 }
 
 func TestTCPClientRequestWhenInactive(t *testing.T) {

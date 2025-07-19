@@ -66,7 +66,11 @@ func runServer(cmd *cobra.Command, args []string) error {
 	if err := gw.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start gateway: %w", err)
 	}
-	defer gw.Stop()
+	defer func() {
+		if err := gw.Stop(); err != nil {
+			fmt.Printf("Error stopping gateway: %v\n", err)
+		}
+	}()
 	
 	// Setup HTTP server
 	http.HandleFunc("/jsonrpc", gw.HandleJSONRPC)

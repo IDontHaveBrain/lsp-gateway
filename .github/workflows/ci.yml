@@ -1,0 +1,385 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+env:
+  GO_VERSION: 1.24
+  COVERAGE_THRESHOLD: 90
+
+jobs:
+  # Code quality checks
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: make deps
+
+    - name: Run code quality checks
+      run: make check
+
+    - name: Install golangci-lint
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin latest
+
+    - name: Run golangci-lint
+      run: golangci-lint run --timeout 5m
+
+  # Unit and integration tests
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: make deps
+
+    - name: Run tests with coverage
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bc jq
+        ./scripts/test.sh -t all -c -v --threshold ${{ env.COVERAGE_THRESHOLD }}
+      env:
+        CI: true
+
+    - name: Generate comprehensive coverage reports
+      run: |
+        ./scripts/coverage.sh --format all --threshold ${{ env.COVERAGE_THRESHOLD }} --ci
+      env:
+        CI: true
+
+    - name: Generate coverage dashboard
+      run: |
+        ./test/coverage/dashboard.sh -v
+      env:
+        CI: true
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage/coverage.out
+        flags: unittests
+        name: codecov-umbrella
+
+    - name: Create coverage badge
+      run: |
+        if [ -f coverage/coverage.json ]; then
+          COVERAGE=$(jq -r '.overall.coverage' coverage/coverage.json)
+          echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
+        fi
+
+    - name: Comment coverage on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          try {
+            const coverageData = JSON.parse(fs.readFileSync('coverage/coverage.json', 'utf8'));
+            const overall = coverageData.overall;
+            
+            const comment = `## 📊 Coverage Report
+            
+            **Overall Coverage:** ${overall.coverage}%
+            **Threshold:** ${overall.threshold}%
+            **Status:** ${overall.status === 'PASS' ? '✅ PASS' : '❌ FAIL'}
+            
+            ### Module Coverage
+            ${Object.entries(coverageData.packages || {})
+              .slice(0, 10)
+              .map(([pkg, data]) => `- \`${pkg}\`: ${data.coverage}% ${data.status === 'PASS' ? '✅' : '❌'}`)
+              .join('\n')}
+            ${Object.keys(coverageData.packages || {}).length > 10 ? '\n_...and more modules_' : ''}
+            
+            ### Critical Modules
+            ${Object.entries(coverageData.critical_modules || {})
+              .map(([pkg, data]) => `- \`${pkg}\`: ${data.coverage}% ${data.status === 'PASS' ? '✅' : '❌'}`)
+              .join('\n')}
+            
+            ${overall.status === 'PASS' ? 
+              '🎉 All coverage thresholds met!' : 
+              '⚠️ Coverage thresholds not met. Please add more tests.'}
+            
+            📋 [View detailed coverage dashboard](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          } catch (error) {
+            console.error('Error creating coverage comment:', error);
+          }
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: |
+          coverage/
+          test-reports/
+
+    - name: Upload coverage dashboard
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: coverage-dashboard
+        path: coverage/dashboard/
+        retention-days: 30
+
+  # Build binaries for multiple platforms
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: [quality, test]
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: make deps
+
+    - name: Build binary
+      run: make build-${{ matrix.goos }}-${{ matrix.goarch }}
+
+    - name: Upload binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: lsp-gateway-${{ matrix.goos }}-${{ matrix.goarch }}
+        path: dist/lsp-gateway-${{ matrix.goos }}-${{ matrix.goarch }}*
+
+
+  # Release (only on tags)
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [quality, test, build]
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: artifacts
+
+    - name: Prepare release assets
+      run: |
+        mkdir -p dist
+        find artifacts -name "lsp-gateway-*" -type f -exec cp {} dist/ \;
+        cd dist
+        for file in lsp-gateway-*; do
+          if [ -f "$file" ]; then
+            sha256sum "$file" > "$file.sha256"
+          fi
+        done
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Extract version from tag
+        VERSION=${GITHUB_REF#refs/tags/}
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        
+        # Generate changelog (you can customize this)
+        cat > RELEASE_NOTES.md << EOF
+        # LSP Gateway $VERSION
+        
+        ## What's New
+        
+        This release includes improvements to the LSP Gateway functionality.
+        
+        ## Installation
+        
+        Download the appropriate binary for your platform from the release assets below.
+        
+        ## Verification
+        
+        Each binary includes a SHA256 checksum file for verification.
+        EOF
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: LSP Gateway ${{ steps.changelog.outputs.version }}
+        body_path: RELEASE_NOTES.md
+        files: |
+          dist/*
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Performance benchmarks
+  benchmark:
+    name: Benchmarks
+    runs-on: ubuntu-latest
+    needs: quality
+    if: github.event_name == 'pull_request'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: make deps
+
+    - name: Run benchmarks
+      run: make bench > benchmark.txt
+
+    - name: Comment PR with benchmarks
+      uses: actions/github-script@v7
+      if: github.event_name == 'pull_request'
+      with:
+        script: |
+          const fs = require('fs');
+          const benchmark = fs.readFileSync('benchmark.txt', 'utf8');
+          
+          const body = `## Benchmark Results
+          
+          \`\`\`
+          ${benchmark}
+          \`\`\`
+          `;
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: body
+          });
+
+  # Cleanup
+  cleanup:
+    name: Cleanup
+    runs-on: ubuntu-latest
+    needs: [quality, test, build]
+    if: always()
+    steps:
+    - name: Delete old artifacts
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const artifacts = await github.rest.actions.listArtifactsForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            per_page: 100
+          });
+          
+          const oldArtifacts = artifacts.data.artifacts
+            .filter(artifact => {
+              const createdAt = new Date(artifact.created_at);
+              const daysOld = (Date.now() - createdAt) / (1000 * 60 * 60 * 24);
+              return daysOld > 30; // Keep artifacts for 30 days
+            })
+            .slice(0, 10); // Delete max 10 at a time
+          
+          for (const artifact of oldArtifacts) {
+            console.log(`Deleting artifact: ${artifact.name}`);
+            await github.rest.actions.deleteArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: artifact.id
+            });
+          }

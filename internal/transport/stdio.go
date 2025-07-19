@@ -181,7 +181,7 @@ func (c *StdioClient) Stop() error {
 	
 	// Close stdin to signal the process to stop
 	if c.stdin != nil {
-		c.stdin.Close()
+		_ = c.stdin.Close()
 	}
 	
 	// Wait for process to exit or kill it
@@ -206,10 +206,10 @@ func (c *StdioClient) Stop() error {
 	
 	// Close pipes
 	if c.stdout != nil {
-		c.stdout.Close()
+		_ = c.stdout.Close()
 	}
 	if c.stderr != nil {
-		c.stderr.Close()
+		_ = c.stderr.Close()
 	}
 	
 	// Wait for goroutines to finish

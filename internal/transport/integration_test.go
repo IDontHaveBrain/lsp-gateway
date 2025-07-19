@@ -6,15 +6,15 @@ import (
 	"time"
 )
 
-// TestTransportIntegration tests the complete integration of both transport types
-func TestTransportIntegration(t *testing.T) {
+// TestClientCreation tests client creation through the factory for all transport types
+func TestClientCreation(t *testing.T) {
 	tests := []struct {
 		name      string
 		config    ClientConfig
 		shouldErr bool
 	}{
 		{
-			name: "STDIO transport integration",
+			name: "STDIO transport creation",
 			config: ClientConfig{
 				Command:   "cat",
 				Args:      []string{},
@@ -23,7 +23,7 @@ func TestTransportIntegration(t *testing.T) {
 			shouldErr: false,
 		},
 		{
-			name: "TCP transport integration (connection will fail but client creation should succeed)",
+			name: "TCP transport creation",
 			config: ClientConfig{
 				Command:   "localhost:8080",
 				Args:      []string{},
@@ -44,7 +44,6 @@ func TestTransportIntegration(t *testing.T) {
 	
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test client creation through factory
 			client, err := NewLSPClient(tt.config)
 			
 			if tt.shouldErr {
@@ -69,43 +68,114 @@ func TestTransportIntegration(t *testing.T) {
 			if client.IsActive() {
 				t.Error("Client should not be active initially")
 			}
-			
-			// Test that we can attempt to start (may fail for TCP due to no server)
-			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			defer cancel()
-			
-			err = client.Start(ctx)
-			
-			if tt.config.Transport == "stdio" {
-				// STDIO should start successfully with cat command
-				if err != nil {
-					t.Fatalf("STDIO client should start successfully: %v", err)
-				}
-				
-				if !client.IsActive() {
-					t.Error("STDIO client should be active after start")
-				}
-				
-				// Test stop
-				if err := client.Stop(); err != nil {
-					t.Fatalf("STDIO client stop failed: %v", err)
-				}
-				
-				if client.IsActive() {
-					t.Error("STDIO client should not be active after stop")
-				}
-			} else if tt.config.Transport == "tcp" {
-				// TCP should fail to start (no server running)
-				if err == nil {
-					t.Error("TCP client should fail to start without server")
-					client.Stop()
-				}
-				
-				if client.IsActive() {
-					t.Error("TCP client should not be active after failed start")
-				}
-			}
 		})
+	}
+}
+
+// TestStdioTransportIntegration tests the complete lifecycle of STDIO transport
+func TestStdioTransportIntegration(t *testing.T) {
+	config := ClientConfig{
+		Command:   "cat",
+		Args:      []string{},
+		Transport: "stdio",
+	}
+	
+	client, err := NewLSPClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create STDIO client: %v", err)
+	}
+	
+	// Test initial state
+	if client.IsActive() {
+		t.Error("Client should not be active initially")
+	}
+	
+	// Test start
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	
+	err = client.Start(ctx)
+	if err != nil {
+		t.Fatalf("STDIO client should start successfully: %v", err)
+	}
+	
+	if !client.IsActive() {
+		t.Error("STDIO client should be active after start")
+	}
+	
+	// Test stop
+	if err := client.Stop(); err != nil {
+		t.Fatalf("STDIO client stop failed: %v", err)
+	}
+	
+	if client.IsActive() {
+		t.Error("STDIO client should not be active after stop")
+	}
+}
+
+// TestTcpTransportIntegration tests the complete lifecycle of TCP transport
+func TestTcpTransportIntegration(t *testing.T) {
+	config := ClientConfig{
+		Command:   "localhost:8080",
+		Args:      []string{},
+		Transport: "tcp",
+	}
+	
+	client, err := NewLSPClient(config)
+	if err != nil {
+		t.Fatalf("Failed to create TCP client: %v", err)
+	}
+	
+	// Test initial state
+	if client.IsActive() {
+		t.Error("Client should not be active initially")
+	}
+	
+	// Test start behavior (may succeed or fail depending on whether server is running)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	
+	err = client.Start(ctx)
+	
+	// TCP behavior depends on whether a server is running on localhost:8080
+	if err != nil {
+		// Expected case: no server running, start should fail
+		if client.IsActive() {
+			t.Error("TCP client should not be active after failed start")
+		}
+	} else {
+		// Unexpected case: server might be running, but we should clean up
+		t.Logf("TCP client started successfully (server might be running on localhost:8080)")
+		if !client.IsActive() {
+			t.Error("TCP client should be active after successful start")
+		}
+		
+		// Clean up
+		if err := client.Stop(); err != nil {
+			t.Fatalf("TCP client stop failed: %v", err)
+		}
+		
+		if client.IsActive() {
+			t.Error("TCP client should not be active after stop")
+		}
+	}
+}
+
+// TestUnsupportedTransport tests error handling for unsupported transport types
+func TestUnsupportedTransport(t *testing.T) {
+	config := ClientConfig{
+		Command:   "test",
+		Args:      []string{},
+		Transport: "websocket",
+	}
+	
+	client, err := NewLSPClient(config)
+	
+	if err == nil {
+		t.Error("Expected error for unsupported transport")
+	}
+	if client != nil {
+		t.Error("Client should be nil for unsupported transport")
 	}
 }
 
