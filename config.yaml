@@ -17,3 +17,9 @@ servers:
     command: "typescript-language-server"
     args: ["--stdio"]
     transport: "stdio"
+    
+  - name: "java-lsp"
+    languages: ["java"]
+    command: "jdtls"
+    args: []
+    transport: "stdio"

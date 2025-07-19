@@ -1,0 +1,101 @@
+{
+  "name": "lsp-gateway",
+  "version": "0.1.0",
+  "description": "A gateway that provides a single endpoint for symbol navigation across multiple open-source language servers",
+  "main": "lib/index.js",
+  "bin": {
+    "lsp-gateway": "bin/lsp-gateway"
+  },
+  "scripts": {
+    "install": "node lib/installer.js",
+    "postinstall": "node lib/installer.js",
+    "preuninstall": "echo 'Thank you for using LSP Gateway!'",
+    "test": "node lib/test.js",
+    "test:install": "node lib/test.js && node lib/installer.js",
+    "build": "node scripts/build.js",
+    "start": "./bin/lsp-gateway server",
+    "server": "./bin/lsp-gateway server",
+    "version": "./bin/lsp-gateway version",
+    "help": "./bin/lsp-gateway --help",
+    "check-servers": "node lib/package-manager.js check-servers",
+    "create-config": "node -e \"require('./lib/config-helper').createDefaultConfig('./config.yaml')\"",
+    "validate-config": "node -e \"require('./lib/config-helper').validateConfig('./config.yaml').then(r => console.log(JSON.stringify(r, null, 2)))\"",
+    "platform-info": "node -e \"const p = require('./lib/platform'); const info = new p(); console.log(JSON.stringify({platform: info.getCurrentPlatform(), name: info.getPlatformName(), supported: info.isSupported(), binaryPath: info.getBinaryPath()}, null, 2))\"",
+    "status": "node lib/package-manager.js status",
+    "cleanup": "node lib/package-manager.js cleanup",
+    "recommendations": "node lib/package-manager.js recommendations",
+    "info": "node lib/package-manager.js info",
+    "diagnostics": "node lib/package-manager.js diagnostics"
+  },
+  "keywords": [
+    "lsp",
+    "language-server",
+    "gateway",
+    "symbol-navigation",
+    "definition",
+    "references",
+    "go",
+    "python",
+    "typescript",
+    "javascript",
+    "java",
+    "gopls",
+    "pylsp",
+    "jdtls"
+  ],
+  "author": "LSP Gateway Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lsp-gateway/lsp-gateway.git"
+  },
+  "homepage": "https://github.com/lsp-gateway/lsp-gateway",
+  "bugs": {
+    "url": "https://github.com/lsp-gateway/lsp-gateway/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "files": [
+    "lib/",
+    "bin/",
+    "config.yaml",
+    "README.md"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "jest": "^29.0.0"
+  },
+  "optionalDependencies": {
+    "lsp-gateway-linux-x64": "^0.1.0",
+    "lsp-gateway-darwin-x64": "^0.1.0",
+    "lsp-gateway-darwin-arm64": "^0.1.0",
+    "lsp-gateway-win32-x64": "^0.1.0"
+  },
+  "preferGlobal": true,
+  "publishConfig": {
+    "access": "public"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/lsp-gateway"
+  },
+  "type": "commonjs",
+  "directories": {
+    "lib": "lib",
+    "bin": "bin",
+    "test": "test"
+  },
+  "config": {
+    "unsafe-perm": true
+  }
+}
