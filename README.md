@@ -1,16 +1,17 @@
-# LSP Gateway MVP (ALPHA)
+# LSP Gateway
 
-⚠️ **This is an MVP/ALPHA version** - Basic functionality only.
+> **⚠️ Development Status**: MVP/ALPHA - Use with caution for development and testing purposes.
 
-## What is this?
+LSP Gateway provides dual protocol access to language servers:
 
-A **generic LSP gateway** that provides a single endpoint for any Language Server Protocol method across multiple language servers. Routes requests based on file extensions with automatic server selection.
+- **LSP Gateway**: HTTP JSON-RPC server for IDEs and development tools
+- **MCP Server**: Model Context Protocol server for AI models (Claude, GPT, etc.)
 
-**Architecture:**
-- **Generic LSP Proxy**: Forwards any LSP method to appropriate servers
-- **Multi-Language Support**: 4 languages currently supported (Go, Python, JavaScript/TypeScript, Java)
-- **Hybrid Go+Node.js**: High-performance Go core with NPM package distribution
-- **Cross-Platform**: Linux, Windows, macOS (Intel/ARM) binaries
+**Features:**
+- Routes LSP methods to appropriate language servers
+- AI integration via MCP protocol
+- 4 languages supported: Go, Python, JavaScript/TypeScript, Java
+- Cross-platform binaries (Linux, Windows, macOS Intel/ARM)
 
 ## Installation
 
@@ -38,20 +39,38 @@ go build -o lsp-gateway cmd/lsp-gateway/main.go
 
 ## Quick Start
 
-### CLI Usage
+### LSP Gateway Server
 
 ```bash
-# Start server with default config
+# Start LSP server with default config
 lsp-gateway server
 
 # Start with custom config and port
 lsp-gateway server --config config.yaml --port 8080
 
 # Check version
-lsp-gateway --version
+lsp-gateway version
 
 # Get help
 lsp-gateway --help
+```
+
+### MCP Server for AI Integration
+
+```bash
+# Start MCP server (for Claude, GPT, etc.)
+lsp-gateway mcp
+
+# Start MCP server with custom config
+lsp-gateway mcp --config config.yaml
+```
+
+### Run Both Servers
+
+```bash
+# Run separately in different terminals
+lsp-gateway server &
+lsp-gateway mcp &
 ```
 
 ### Programmatic Usage
@@ -72,20 +91,9 @@ await gateway.start();
 await gateway.stop();
 ```
 
-## Platform Support
-
-The LSP Gateway supports the following platforms:
-
-- **Linux x64** - Linux AMD64 systems
-- **Windows x64** - Windows AMD64 systems  
-- **macOS Intel** - macOS AMD64 systems
-- **macOS Apple Silicon** - macOS ARM64 systems
-
-The NPM package automatically detects your platform and installs the appropriate binary.
-
 ## Requirements
 
-- **Node.js** 14.0.0 or higher (for NPM package)
+- **Node.js** 18.0.0 or higher (for NPM package)
 - **Language Servers** (install as needed):
   - Go: `go install golang.org/x/tools/gopls@latest`
   - Python: `pip install python-lsp-server`
@@ -124,9 +132,11 @@ servers:
     transport: "stdio"
 ```
 
-**Language Support**: The gateway currently supports 4 languages: Go, Python, TypeScript/JavaScript, and Java. The architecture is extensible for future language additions.
+**Language Support**: Currently supports 4 languages: Go, Python, JavaScript/TypeScript, and Java.
 
 ## Usage
+
+### LSP Gateway Usage
 
 Send JSON-RPC requests to `http://localhost:8080/jsonrpc`:
 
@@ -157,6 +167,38 @@ curl -X POST http://localhost:8080/jsonrpc \
   -d '{"jsonrpc":"2.0","id":5,"method":"textDocument/definition","params":{"textDocument":{"uri":"file:///test.java"},"position":{"line":15,"character":8}}}'
 ```
 
+### MCP Server Usage (AI Integration)
+
+The MCP server exposes LSP functions to AI models. Connect your AI tool (Claude, GPT, etc.) to the MCP server:
+
+**MCP Server Configuration** for AI tools:
+```json
+{
+  "mcpServers": {
+    "lsp-gateway": {
+      "command": "lsp-gateway",
+      "args": ["mcp"],
+      "env": {}
+    }
+  }
+}
+```
+
+**Available MCP Tools** for AI models:
+- `goto_definition` - Navigate to symbol definitions
+- `find_references` - Find all references to a symbol
+- `get_hover_info` - Get hover information for symbols
+- `get_document_symbols` - List symbols in a document
+- `search_workspace_symbols` - Search workspace symbols
+
+**Example AI Integration**:
+```bash
+# AI models can now call LSP functions directly:
+# "Find the definition of MyClass in main.go"
+# "Show me all references to the calculateTotal function" 
+# "What symbols are available in utils.py?"
+```
+
 ## Build System
 
 The project includes comprehensive build tools:
@@ -178,41 +220,14 @@ make test
 make clean
 ```
 
-## MVP Limitations
+## Current Limitations
 
-- Basic error handling only
-- No authentication/authorization
-- No advanced features (caching, pooling, etc.)
-- STDIO transport primary (TCP available but less mature)
-- No performance optimizations
-
-## Status
-
-### Core Features
-- ✅ Generic LSP gateway (forwards any LSP method)
-- ✅ Multi-language server support (4 languages: Go, Python, TypeScript/JavaScript, Java)
-- ✅ LSP 1:1 protocol mapping
-- ✅ File extension-based routing
-- ✅ JSON-RPC 2.0 compliant
-- ✅ Cross-platform build system
-
-### NPM Package Features
-- ✅ Automatic platform detection (Linux, Windows, macOS Intel/ARM)
-- ✅ Binary download and installation
-- ✅ CLI wrapper for easy usage
-- ✅ Programmatic API for Node.js integration
-- ✅ Configuration helpers and validation
-- ✅ Comprehensive test suite
-
-### Limitations (MVP/ALPHA)
-- ❌ Advanced features not implemented
-- ❌ No authentication/authorization
-- ❌ No caching or connection pooling
-- ❌ No performance optimizations
+- MVP/ALPHA stage - not production-ready
+- No caching or connection pooling
+- Limited to 4 languages currently
+- STDIO transport primary (TCP available)
 
 ## Troubleshooting
-
-### Common Issues
 
 **LSP Gateway not starting:**
 ```bash
@@ -230,17 +245,3 @@ which gopls    # For Go
 which pylsp    # For Python
 which typescript-language-server  # For TypeScript
 ```
-
-**Configuration errors:**
-```bash
-# Validate configuration
-lsp-gateway server --config config.yaml --dry-run
-```
-
-## LSP Protocol Compliance
-
-The gateway implements exact 1:1 LSP protocol mapping:
-- Forwards any LSP method without modification
-- Maintains standard JSON-RPC 2.0 format
-- Routes based on file extensions
-- Preserves all LSP semantics
