@@ -2,22 +2,33 @@ package config
 
 import (
 	"fmt"
+	"lsp-gateway/internal/transport"
+)
+
+// Configuration file constants
+const (
+	DefaultConfigFile = "config.yaml"
+)
+
+// Default transport constants
+const (
+	DefaultTransport = "stdio"
 )
 
 // ServerConfig represents the configuration for a single LSP server
 type ServerConfig struct {
 	// Name is the unique identifier for this LSP server
 	Name string `yaml:"name" json:"name"`
-	
+
 	// Languages is the list of programming languages this server supports
 	Languages []string `yaml:"languages" json:"languages"`
-	
+
 	// Command is the executable command to start the LSP server
 	Command string `yaml:"command" json:"command"`
-	
+
 	// Args are the command-line arguments passed to the LSP server
 	Args []string `yaml:"args" json:"args"`
-	
+
 	// Transport specifies the communication method (stdio, tcp, etc.)
 	Transport string `yaml:"transport" json:"transport"`
 }
@@ -26,7 +37,7 @@ type ServerConfig struct {
 type GatewayConfig struct {
 	// Servers is the list of LSP servers to manage
 	Servers []ServerConfig `yaml:"servers" json:"servers"`
-	
+
 	// Port is the port number the gateway will listen on
 	Port int `yaml:"port" json:"port"`
 }
@@ -41,7 +52,7 @@ func DefaultConfig() *GatewayConfig {
 				Languages: []string{"go"},
 				Command:   "gopls",
 				Args:      []string{},
-				Transport: "stdio",
+				Transport: DefaultTransport,
 			},
 		},
 	}
@@ -52,24 +63,24 @@ func (c *GatewayConfig) Validate() error {
 	if c.Port <= 0 || c.Port > 65535 {
 		return fmt.Errorf("invalid port: %d, must be between 1 and 65535", c.Port)
 	}
-	
+
 	if len(c.Servers) == 0 {
 		return fmt.Errorf("at least one server must be configured")
 	}
-	
+
 	// Check for duplicate server names
 	names := make(map[string]bool)
 	for _, server := range c.Servers {
 		if err := server.Validate(); err != nil {
 			return fmt.Errorf("server %s: %w", server.Name, err)
 		}
-		
+
 		if names[server.Name] {
 			return fmt.Errorf("duplicate server name: %s", server.Name)
 		}
 		names[server.Name] = true
 	}
-	
+
 	return nil
 }
 
@@ -78,30 +89,30 @@ func (s *ServerConfig) Validate() error {
 	if s.Name == "" {
 		return fmt.Errorf("server name cannot be empty")
 	}
-	
+
 	if len(s.Languages) == 0 {
 		return fmt.Errorf("server must support at least one language")
 	}
-	
+
 	if s.Command == "" {
 		return fmt.Errorf("server command cannot be empty")
 	}
-	
+
 	if s.Transport == "" {
 		return fmt.Errorf("server transport cannot be empty")
 	}
-	
+
 	// Validate transport type
 	validTransports := map[string]bool{
-		"stdio": true,
-		"tcp":   true,
-		"http":  true,
+		transport.TransportStdio: true,
+		transport.TransportTCP:   true,
+		transport.TransportHTTP:  true,
 	}
-	
+
 	if !validTransports[s.Transport] {
 		return fmt.Errorf("invalid transport type: %s, must be one of: stdio, tcp, http", s.Transport)
 	}
-	
+
 	return nil
 }
 

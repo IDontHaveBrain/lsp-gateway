@@ -42,6 +42,7 @@ type LSPClient interface {
 const (
 	TransportStdio = "stdio"
 	TransportTCP   = "tcp"
+	TransportHTTP  = "http"
 )
 
 // NewLSPClient creates a new LSP client based on transport type
@@ -55,4 +56,3 @@ func NewLSPClient(config ClientConfig) (LSPClient, error) {
 		return nil, fmt.Errorf("unsupported transport: %s", config.Transport)
 	}
 }
-

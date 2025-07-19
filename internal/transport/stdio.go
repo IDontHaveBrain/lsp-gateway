@@ -21,16 +21,15 @@ type StdioClient struct {
 	stdin  io.WriteCloser
 	stdout io.ReadCloser
 	stderr io.ReadCloser
-	
+
 	mu       sync.RWMutex
 	active   bool
 	requests map[string]chan json.RawMessage
 	nextID   int
-	
+
 	stopCh chan struct{}
 	done   chan struct{}
 }
-
 
 // NewStdioClient creates a new STDIO-based LSP client
 func NewStdioClient(config ClientConfig) (*StdioClient, error) {
@@ -46,42 +45,42 @@ func NewStdioClient(config ClientConfig) (*StdioClient, error) {
 func (c *StdioClient) Start(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	if c.active {
 		return fmt.Errorf("client already active")
 	}
-	
+
 	// Start LSP server process
 	c.cmd = exec.CommandContext(ctx, c.config.Command, c.config.Args...)
-	
+
 	var err error
 	c.stdin, err = c.cmd.StdinPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stdin pipe: %w", err)
 	}
-	
+
 	c.stdout, err = c.cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
-	
+
 	c.stderr, err = c.cmd.StderrPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
-	
+
 	if err := c.cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start LSP server: %w", err)
 	}
-	
+
 	c.active = true
-	
+
 	// Start response handler
 	go c.handleResponses()
-	
+
 	// Start stderr logger
 	go c.logStderr()
-	
+
 	return nil
 }
 
@@ -93,20 +92,20 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 		return nil, fmt.Errorf("client not active")
 	}
 	c.mu.RUnlock()
-	
+
 	// Generate unique request ID
 	c.mu.Lock()
 	c.nextID++
 	id := fmt.Sprintf("req_%d", c.nextID)
 	c.mu.Unlock()
-	
+
 	// Create response channel
 	respCh := make(chan json.RawMessage, 1)
-	
+
 	c.mu.Lock()
 	c.requests[id] = respCh
 	c.mu.Unlock()
-	
+
 	// Cleanup on function exit
 	defer func() {
 		c.mu.Lock()
@@ -114,7 +113,7 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 		close(respCh)
 		c.mu.Unlock()
 	}()
-	
+
 	// Create JSON-RPC request
 	request := JSONRPCMessage{
 		JSONRPC: "2.0",
@@ -122,12 +121,12 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 		Method:  method,
 		Params:  params,
 	}
-	
+
 	// Send request
 	if err := c.writeMessage(request); err != nil {
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
-	
+
 	// Wait for response
 	select {
 	case response := <-respCh:
@@ -149,19 +148,19 @@ func (c *StdioClient) SendNotification(ctx context.Context, method string, param
 		return fmt.Errorf("client not active")
 	}
 	c.mu.RUnlock()
-	
+
 	// Create JSON-RPC notification (no ID)
 	notification := JSONRPCMessage{
 		JSONRPC: "2.0",
 		Method:  method,
 		Params:  params,
 	}
-	
+
 	// Send notification
 	if err := c.writeMessage(notification); err != nil {
 		return fmt.Errorf("failed to send notification: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -169,28 +168,28 @@ func (c *StdioClient) SendNotification(ctx context.Context, method string, param
 func (c *StdioClient) Stop() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	if !c.active {
 		return nil
 	}
-	
+
 	c.active = false
-	
+
 	// Signal stop to goroutines
 	close(c.stopCh)
-	
+
 	// Close stdin to signal the process to stop
 	if c.stdin != nil {
 		_ = c.stdin.Close()
 	}
-	
+
 	// Wait for process to exit or kill it
 	if c.cmd != nil && c.cmd.Process != nil {
 		done := make(chan error, 1)
 		go func() {
 			done <- c.cmd.Wait()
 		}()
-		
+
 		select {
 		case err := <-done:
 			if err != nil {
@@ -203,7 +202,7 @@ func (c *StdioClient) Stop() error {
 			}
 		}
 	}
-	
+
 	// Close pipes
 	if c.stdout != nil {
 		_ = c.stdout.Close()
@@ -211,10 +210,10 @@ func (c *StdioClient) Stop() error {
 	if c.stderr != nil {
 		_ = c.stderr.Close()
 	}
-	
+
 	// Wait for goroutines to finish
 	<-c.done
-	
+
 	return nil
 }
 
@@ -228,16 +227,16 @@ func (c *StdioClient) IsActive() bool {
 // handleResponses handles incoming messages from the LSP server
 func (c *StdioClient) handleResponses() {
 	defer close(c.done)
-	
+
 	reader := bufio.NewReader(c.stdout)
-	
+
 	for {
 		select {
 		case <-c.stopCh:
 			return
 		default:
 		}
-		
+
 		// Read LSP message (Content-Length header + JSON body)
 		message, err := c.readMessage(reader)
 		if err != nil {
@@ -248,14 +247,14 @@ func (c *StdioClient) handleResponses() {
 			log.Printf("Error reading message: %v", err)
 			continue
 		}
-		
+
 		// Parse JSON-RPC message
 		var jsonrpcMsg JSONRPCMessage
 		if err := json.Unmarshal(message, &jsonrpcMsg); err != nil {
 			log.Printf("Error parsing JSON-RPC message: %v", err)
 			continue
 		}
-		
+
 		// Handle response or notification
 		if jsonrpcMsg.ID != nil {
 			// This is a response to a request
@@ -272,18 +271,18 @@ func (c *StdioClient) handleResponse(msg JSONRPCMessage) {
 	if msg.ID == nil {
 		return
 	}
-	
+
 	idStr := fmt.Sprintf("%v", msg.ID)
-	
+
 	c.mu.RLock()
 	respCh, exists := c.requests[idStr]
 	c.mu.RUnlock()
-	
+
 	if !exists {
 		log.Printf("Received response for unknown request ID: %v", msg.ID)
 		return
 	}
-	
+
 	// Send response to waiting goroutine
 	var result json.RawMessage
 	if msg.Error != nil {
@@ -295,7 +294,7 @@ func (c *StdioClient) handleResponse(msg JSONRPCMessage) {
 		resultData, _ := json.Marshal(msg.Result)
 		result = resultData
 	}
-	
+
 	select {
 	case respCh <- result:
 	default:
@@ -307,7 +306,7 @@ func (c *StdioClient) handleResponse(msg JSONRPCMessage) {
 func (c *StdioClient) handleNotification(msg JSONRPCMessage) {
 	// Log notifications for debugging
 	log.Printf("Received notification: %s", msg.Method)
-	
+
 	// In a full implementation, you might want to handle specific notifications
 	// like textDocument/publishDiagnostics, window/showMessage, etc.
 }
@@ -319,16 +318,16 @@ func (c *StdioClient) writeMessage(msg JSONRPCMessage) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal message: %w", err)
 	}
-	
+
 	// Create LSP message with Content-Length header
 	content := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(jsonData), jsonData)
-	
+
 	// Write to stdin
 	_, err = c.stdin.Write([]byte(content))
 	if err != nil {
 		return fmt.Errorf("failed to write message: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -336,19 +335,19 @@ func (c *StdioClient) writeMessage(msg JSONRPCMessage) error {
 func (c *StdioClient) readMessage(reader *bufio.Reader) ([]byte, error) {
 	// Read Content-Length header
 	var contentLength int
-	
+
 	for {
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			return nil, err
 		}
-		
+
 		line = strings.TrimSpace(line)
 		if line == "" {
 			// Empty line indicates end of headers
 			break
 		}
-		
+
 		if strings.HasPrefix(line, "Content-Length: ") {
 			lengthStr := strings.TrimPrefix(line, "Content-Length: ")
 			contentLength, err = strconv.Atoi(lengthStr)
@@ -357,18 +356,18 @@ func (c *StdioClient) readMessage(reader *bufio.Reader) ([]byte, error) {
 			}
 		}
 	}
-	
+
 	if contentLength == 0 {
 		return nil, fmt.Errorf("no Content-Length header found")
 	}
-	
+
 	// Read message body
 	body := make([]byte, contentLength)
 	_, err := io.ReadFull(reader, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read message body: %w", err)
 	}
-	
+
 	return body, nil
 }
 

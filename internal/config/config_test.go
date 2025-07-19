@@ -7,6 +7,7 @@ import (
 )
 
 func TestGatewayConfig_Validate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		config  *GatewayConfig
@@ -129,6 +130,7 @@ func TestGatewayConfig_Validate(t *testing.T) {
 }
 
 func TestServerConfig_Validate(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		config  *ServerConfig
@@ -227,37 +229,38 @@ func TestServerConfig_Validate(t *testing.T) {
 }
 
 func TestDefaultConfig(t *testing.T) {
+	t.Parallel()
 	config := DefaultConfig()
-	
+
 	if config == nil {
 		t.Fatal("DefaultConfig() returned nil")
 	}
-	
+
 	if config.Port != 8080 {
 		t.Errorf("Expected default port 8080, got %d", config.Port)
 	}
-	
+
 	if len(config.Servers) != 1 {
 		t.Errorf("Expected 1 server, got %d", len(config.Servers))
 	}
-	
+
 	server := config.Servers[0]
 	if server.Name != "go-lsp" {
 		t.Errorf("Expected server name 'go-lsp', got '%s'", server.Name)
 	}
-	
+
 	if len(server.Languages) != 1 || server.Languages[0] != "go" {
 		t.Errorf("Expected language 'go', got %v", server.Languages)
 	}
-	
+
 	if server.Command != "gopls" {
 		t.Errorf("Expected command 'gopls', got '%s'", server.Command)
 	}
-	
+
 	if server.Transport != "stdio" {
 		t.Errorf("Expected transport 'stdio', got '%s'", server.Transport)
 	}
-	
+
 	// Validate that default config is valid
 	if err := config.Validate(); err != nil {
 		t.Errorf("Default config should be valid: %v", err)
@@ -265,6 +268,7 @@ func TestDefaultConfig(t *testing.T) {
 }
 
 func TestGetServerByLanguage(t *testing.T) {
+	t.Parallel()
 	config := &GatewayConfig{
 		Port: 8080,
 		Servers: []ServerConfig{
@@ -288,11 +292,11 @@ func TestGetServerByLanguage(t *testing.T) {
 			},
 		},
 	}
-	
+
 	tests := []struct {
-		language      string
-		expectedName  string
-		shouldExist   bool
+		language     string
+		expectedName string
+		shouldExist  bool
 	}{
 		{"go", "go-lsp", true},
 		{"python", "python-lsp", true},
@@ -301,11 +305,11 @@ func TestGetServerByLanguage(t *testing.T) {
 		{"rust", "", false},
 		{"", "", false},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.language, func(t *testing.T) {
 			server, err := config.GetServerByLanguage(tt.language)
-			
+
 			if tt.shouldExist {
 				if err != nil {
 					t.Errorf("Expected server for language '%s', got error: %v", tt.language, err)
@@ -328,6 +332,7 @@ func TestGetServerByLanguage(t *testing.T) {
 }
 
 func TestGetServerByName(t *testing.T) {
+	t.Parallel()
 	config := &GatewayConfig{
 		Port: 8080,
 		Servers: []ServerConfig{
@@ -345,7 +350,7 @@ func TestGetServerByName(t *testing.T) {
 			},
 		},
 	}
-	
+
 	tests := []struct {
 		name        string
 		shouldExist bool
@@ -355,11 +360,11 @@ func TestGetServerByName(t *testing.T) {
 		{"nonexistent", false},
 		{"", false},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server, err := config.GetServerByName(tt.name)
-			
+
 			if tt.shouldExist {
 				if err != nil {
 					t.Errorf("Expected server with name '%s', got error: %v", tt.name, err)
@@ -384,16 +389,17 @@ func TestGetServerByName(t *testing.T) {
 func createTempConfigFile(t *testing.T, content string) string {
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "config.yaml")
-	
+
 	err := os.WriteFile(configFile, []byte(content), 0600)
 	if err != nil {
 		t.Fatalf("Failed to write temp config file: %v", err)
 	}
-	
+
 	return configFile
 }
 
 func TestLoadConfig(t *testing.T) {
+	t.Parallel()
 	validConfig := `
 port: 8080
 servers:
@@ -406,7 +412,7 @@ servers:
     command: pylsp
     transport: stdio
 `
-	
+
 	invalidYAML := `
 port: 8080
 servers:
@@ -415,86 +421,86 @@ servers:
     command: gopls
     transport: stdio
 `
-	
+
 	configWithDefaults := `
 servers:
   - name: go-lsp
     languages: [go]
     command: gopls
 `
-	
+
 	tests := []struct {
-		name        string
-		configPath  string
-		configData  string
-		wantErr     bool
-		expectedPort int
+		name              string
+		configPath        string
+		configData        string
+		wantErr           bool
+		expectedPort      int
 		expectedTransport string
 	}{
 		{
-			name:        "Valid configuration",
-			configData:  validConfig,
-			wantErr:     false,
-			expectedPort: 8080,
+			name:              "Valid configuration",
+			configData:        validConfig,
+			wantErr:           false,
+			expectedPort:      8080,
 			expectedTransport: "stdio",
 		},
 		{
-			name:        "Invalid YAML",
-			configData:  invalidYAML,
-			wantErr:     true,
+			name:       "Invalid YAML",
+			configData: invalidYAML,
+			wantErr:    true,
 		},
 		{
-			name:        "Configuration with defaults",
-			configData:  configWithDefaults,
-			wantErr:     false,
-			expectedPort: 8080,
+			name:              "Configuration with defaults",
+			configData:        configWithDefaults,
+			wantErr:           false,
+			expectedPort:      8080,
 			expectedTransport: "stdio",
 		},
 		{
-			name:        "Nonexistent file",
-			configPath:  "/nonexistent/config.yaml",
-			wantErr:     true,
+			name:       "Nonexistent file",
+			configPath: "/nonexistent/config.yaml",
+			wantErr:    true,
 		},
 		{
-			name:        "Empty config path (should use config.yaml)",
-			configPath:  "",
-			wantErr:     true, // because default config.yaml doesn't exist
+			name:       "Empty config path (should use config.yaml)",
+			configPath: "",
+			wantErr:    true, // because default config.yaml doesn't exist
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var configPath string
-			
+
 			if tt.configData != "" {
 				configPath = createTempConfigFile(t, tt.configData)
 			} else {
 				configPath = tt.configPath
 			}
-			
+
 			config, err := LoadConfig(configPath)
-			
+
 			if tt.wantErr {
 				if err == nil {
 					t.Error("Expected error but got none")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 				return
 			}
-			
+
 			if config == nil {
 				t.Error("Expected config but got nil")
 				return
 			}
-			
+
 			if config.Port != tt.expectedPort {
 				t.Errorf("Expected port %d, got %d", tt.expectedPort, config.Port)
 			}
-			
+
 			if len(config.Servers) > 0 && config.Servers[0].Transport != tt.expectedTransport {
 				t.Errorf("Expected transport %s, got %s", tt.expectedTransport, config.Servers[0].Transport)
 			}
@@ -503,6 +509,7 @@ servers:
 }
 
 func TestValidateConfig(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		config  *GatewayConfig
@@ -537,7 +544,7 @@ func TestValidateConfig(t *testing.T) {
 			wantErr: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateConfig(tt.config)
@@ -549,6 +556,7 @@ func TestValidateConfig(t *testing.T) {
 }
 
 func TestLoadAndValidateConfig(t *testing.T) {
+	t.Parallel()
 	validConfig := `
 port: 8080
 servers:
@@ -557,12 +565,12 @@ servers:
     command: gopls
     transport: stdio
 `
-	
+
 	invalidConfig := `
 port: 0
 servers: []
 `
-	
+
 	tests := []struct {
 		name       string
 		configData string
@@ -579,25 +587,25 @@ servers: []
 			wantErr:    true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configPath := createTempConfigFile(t, tt.configData)
-			
+
 			config, err := LoadAndValidateConfig(configPath)
-			
+
 			if tt.wantErr {
 				if err == nil {
 					t.Error("Expected error but got none")
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 				return
 			}
-			
+
 			if config == nil {
 				t.Error("Expected config but got nil")
 			}
@@ -606,6 +614,7 @@ servers: []
 }
 
 func TestLoadConfigComplexConfiguration(t *testing.T) {
+	t.Parallel()
 	complexConfig := `
 port: 9090
 servers:
@@ -630,40 +639,40 @@ servers:
     args: []
     transport: stdio
 `
-	
+
 	configPath := createTempConfigFile(t, complexConfig)
-	
+
 	config, err := LoadConfig(configPath)
 	if err != nil {
 		t.Fatalf("Failed to load complex config: %v", err)
 	}
-	
+
 	// Test port
 	if config.Port != 9090 {
 		t.Errorf("Expected port 9090, got %d", config.Port)
 	}
-	
+
 	// Test servers count
 	if len(config.Servers) != 4 {
 		t.Errorf("Expected 4 servers, got %d", len(config.Servers))
 	}
-	
+
 	// Test first server details
 	goServer := config.Servers[0]
 	if goServer.Name != "go-lsp" {
 		t.Errorf("Expected first server name 'go-lsp', got '%s'", goServer.Name)
 	}
-	
+
 	if len(goServer.Args) != 3 {
 		t.Errorf("Expected 3 args for go-lsp, got %d", len(goServer.Args))
 	}
-	
+
 	// Test multi-language server
 	tsServer := config.Servers[2]
 	if len(tsServer.Languages) != 2 {
 		t.Errorf("Expected 2 languages for typescript-lsp, got %d", len(tsServer.Languages))
 	}
-	
+
 	// Validate the loaded config
 	if err := ValidateConfig(config); err != nil {
 		t.Errorf("Complex config should be valid: %v", err)

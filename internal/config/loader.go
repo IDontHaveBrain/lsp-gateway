@@ -2,15 +2,15 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"gopkg.in/yaml.v3"
+	"os"
 )
 
 // LoadConfig loads configuration from a YAML file with fallback to "config.yaml"
 func LoadConfig(configPath string) (*GatewayConfig, error) {
 	// Use default config file if no path provided
 	if configPath == "" {
-		configPath = "config.yaml"
+		configPath = DefaultConfigFile
 	}
 
 	// Check if the config file exists
@@ -38,7 +38,7 @@ func LoadConfig(configPath string) (*GatewayConfig, error) {
 	// Set default transport for servers if not specified
 	for i := range config.Servers {
 		if config.Servers[i].Transport == "" {
-			config.Servers[i].Transport = "stdio"
+			config.Servers[i].Transport = DefaultTransport
 		}
 	}
 
