@@ -48,6 +48,15 @@ help:
 	@echo "  tidy         - Tidy go modules"
 	@echo "  format       - Format code"
 	@echo "  lint         - Run linter (requires golangci-lint)"
+	@echo "  deadcode     - Run dead code analysis (requires deadcode tool)"
+	@echo "  lint-unused  - Run only unused code detection"
+	@echo "  check-deadcode - Complete dead code analysis (both tools)"
+	@echo "  deadcode-report - Generate timestamped dead code report"
+	@echo "  security     - Run security analysis (requires gosec)"
+	@echo "  security-report - Generate timestamped security report"
+	@echo "  security-check - Quick security check (strict mode for CI)"
+	@echo "  security-sarif - Generate SARIF security report for GitHub"
+	@echo "  security-full - Comprehensive security analysis (all formats)"
 	@echo "  install      - Install binary to GOPATH/bin"
 	@echo "  release      - Create release build with version"
 	@echo "  help         - Show this help message"
@@ -144,6 +153,82 @@ lint:
 	@echo "Running linter..."
 	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found. Install it with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; exit 1; }
 	golangci-lint run ./...
+
+# Enhanced dead code detection
+.PHONY: deadcode
+deadcode:
+	@echo "Running comprehensive dead code analysis..."
+	@command -v deadcode >/dev/null 2>&1 || { echo "deadcode not found. Install it with: go install golang.org/x/tools/cmd/deadcode@latest"; exit 1; }
+	deadcode -test ./...
+
+# Dead code detection with detailed output
+.PHONY: deadcode-report
+deadcode-report:
+	@echo "Generating dead code analysis report..."
+	@command -v deadcode >/dev/null 2>&1 || { echo "deadcode not found. Install it with: go install golang.org/x/tools/cmd/deadcode@latest"; exit 1; }
+	@mkdir -p reports
+	deadcode -test ./... > reports/deadcode-$(shell date +%Y%m%d-%H%M%S).txt 2>&1 || true
+	@echo "Report saved to reports/deadcode-$(shell date +%Y%m%d-%H%M%S).txt"
+
+# Focused unused code detection via golangci-lint
+.PHONY: lint-unused
+lint-unused:
+	@echo "Running unused code detection..."
+	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found. Install it with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; exit 1; }
+	golangci-lint run --enable-only unused,ineffassign ./...
+
+# Complete dead code analysis (combines both tools)
+.PHONY: check-deadcode
+check-deadcode:
+	@echo "=== Comprehensive Dead Code Analysis ==="
+	@echo "1. Running golangci-lint unused detection..."
+	@$(MAKE) lint-unused || true
+	@echo ""
+	@echo "2. Running official deadcode analysis..."
+	@$(MAKE) deadcode || true
+	@echo ""
+	@echo "=== Analysis Complete ==="
+
+# Security analysis
+.PHONY: security
+security:
+	@echo "Running security analysis..."
+	@command -v gosec >/dev/null 2>&1 || { echo "gosec not found. Install it with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; exit 1; }
+	gosec -conf .gosec.json ./...
+
+# Security analysis with detailed report
+.PHONY: security-report
+security-report:
+	@echo "Generating security analysis report..."
+	@command -v gosec >/dev/null 2>&1 || { echo "gosec not found. Install it with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; exit 1; }
+	@mkdir -p reports
+	gosec -conf .gosec.json -fmt json -out reports/security-$(shell date +%Y%m%d-%H%M%S).json ./... || true
+	gosec -conf .gosec.json -fmt text -out reports/security-$(shell date +%Y%m%d-%H%M%S).txt ./... || true
+	@echo "Reports saved to reports/security-$(shell date +%Y%m%d-%H%M%S).{json,txt}"
+
+# Quick security check (strict mode for CI)
+.PHONY: security-check
+security-check:
+	@echo "Running strict security check..."
+	@command -v gosec >/dev/null 2>&1 || { echo "gosec not found. Install it with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; exit 1; }
+	gosec -conf .gosec.json -severity high -confidence high -quiet ./...
+
+# Security scan with SARIF output for GitHub Security tab
+.PHONY: security-sarif
+security-sarif:
+	@echo "Generating SARIF security report..."
+	@command -v gosec >/dev/null 2>&1 || { echo "gosec not found. Install it with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; exit 1; }
+	@mkdir -p reports
+	gosec -conf .gosec.json -fmt sarif -out reports/security.sarif ./... || true
+	@echo "SARIF report saved to reports/security.sarif"
+
+# Comprehensive security analysis
+.PHONY: security-full
+security-full:
+	@echo "=== Comprehensive Security Analysis ==="
+	@$(MAKE) security-report
+	@$(MAKE) security-sarif
+	@echo "=== Security Analysis Complete ==="
 
 # Install binary
 .PHONY: install

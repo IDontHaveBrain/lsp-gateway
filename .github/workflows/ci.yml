@@ -50,6 +50,16 @@ jobs:
     - name: Run golangci-lint
       run: golangci-lint run --timeout 5m
 
+    - name: Install gosec
+      run: |
+        go install github.com/securego/gosec/v2/cmd/gosec@latest
+
+    - name: Run security scan with gosec
+      run: |
+        echo "Running security analysis..."
+        gosec -severity medium -confidence high -fmt json -out security-report.json ./... || true
+        gosec -severity high -confidence medium -fmt text ./...
+
   # Unit and integration tests
   test:
     name: Tests

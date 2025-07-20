@@ -7,25 +7,10 @@
     "lsp-gateway": "bin/lsp-gateway"
   },
   "scripts": {
-    "install": "node lib/installer.js",
-    "postinstall": "node lib/installer.js",
-    "preuninstall": "echo 'Thank you for using LSP Gateway!'",
-    "test": "node lib/test.js",
-    "test:install": "node lib/test.js && node lib/installer.js",
-    "build": "node scripts/build.js",
-    "start": "./bin/lsp-gateway server",
+    "postinstall": "node lib/index.js install-binary",
     "server": "./bin/lsp-gateway server",
-    "version": "./bin/lsp-gateway version",
-    "help": "./bin/lsp-gateway --help",
-    "check-servers": "node lib/package-manager.js check-servers",
-    "create-config": "node -e \"require('./lib/config-helper').createDefaultConfig('./config.yaml')\"",
-    "validate-config": "node -e \"require('./lib/config-helper').validateConfig('./config.yaml').then(r => console.log(JSON.stringify(r, null, 2)))\"",
-    "platform-info": "node -e \"const p = require('./lib/platform'); const info = new p(); console.log(JSON.stringify({platform: info.getCurrentPlatform(), name: info.getPlatformName(), supported: info.isSupported(), binaryPath: info.getBinaryPath()}, null, 2))\"",
-    "status": "node lib/package-manager.js status",
-    "cleanup": "node lib/package-manager.js cleanup",
-    "recommendations": "node lib/package-manager.js recommendations",
-    "info": "node lib/package-manager.js info",
-    "diagnostics": "node lib/package-manager.js diagnostics"
+    "diagnose": "./bin/lsp-gateway diagnose",
+    "version": "./bin/lsp-gateway version"
   },
   "keywords": [
     "lsp",

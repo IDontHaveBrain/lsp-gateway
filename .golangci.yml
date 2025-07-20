@@ -26,10 +26,23 @@ linters:
     - gocognit        # Cognitive complexity
     
     # Style (relaxed)
+    - revive
     - goconst         # Repeated strings as constants
     - unconvert       # Remove unnecessary conversions
 
 linters-settings:
+  # Enhanced dead code detection settings
+  unused:
+    field-writes-are-uses: true      # Mark struct fields written to as used
+    post-statements-are-reads: false  # Treat i++ as read+write vs just write
+    exported-fields-are-used: true   # Consider exported fields as used
+    exported-is-used: true          # Consider exported functions/vars as used
+    parameters-are-used: true        # Consider function parameters as used
+    local-variables-are-used: true   # Consider local variables as used
+
+  staticcheck:
+    checks: ["all"]                  # Enable all staticcheck rules including unused code
+
   gocyclo:
     min-complexity: 15  # Relaxed from 10 for MVP
   gocognit:
