@@ -18,13 +18,9 @@ import (
 	"lsp-gateway/internal/config"
 )
 
-// MockLSPServer represents a simple mock LSP server for testing
-// Note: Now uses shell script approach instead of compilation
 type MockLSPServer struct {
-	// Reserved for future use if process-based mocking is needed
 }
 
-// LSPMessage represents an LSP protocol message
 type LSPMessage struct {
 	JSONRPC string      `json:"jsonrpc"`
 	ID      interface{} `json:"id,omitempty"`
@@ -34,17 +30,14 @@ type LSPMessage struct {
 	Error   interface{} `json:"error,omitempty"`
 }
 
-// TestEndToEndIntegration tests the complete HTTP → Gateway → LSP Server → Response flow
 func TestEndToEndIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping end-to-end integration test in short mode")
 	}
 
-	// Create in-memory mock LSP server
 	mockServer, cleanup := createInMemoryMockLSPServer(t)
 	defer cleanup()
 
-	// Find available port
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatalf("Failed to find available port: %v", err)
@@ -54,7 +47,6 @@ func TestEndToEndIntegration(t *testing.T) {
 		t.Logf("cleanup error closing listener: %v", err)
 	}
 
-	// Create test configuration
 	testConfig := &config.GatewayConfig{
 		Port: port,
 		Servers: []config.ServerConfig{
@@ -68,12 +60,10 @@ func TestEndToEndIntegration(t *testing.T) {
 		},
 	}
 
-	// Validate test configuration
 	if err := testConfig.Validate(); err != nil {
 		t.Fatalf("Invalid test configuration: %v", err)
 	}
 
-	// Create and start gateway
 	gw, err := NewGateway(testConfig)
 	if err != nil {
 		t.Fatalf("Failed to create gateway: %v", err)
@@ -91,7 +81,6 @@ func TestEndToEndIntegration(t *testing.T) {
 		}
 	}()
 
-	// Start HTTP server with custom mux
 	mux := http.NewServeMux()
 	mux.HandleFunc("/jsonrpc", gw.HandleJSONRPC)
 	server := &http.Server{
@@ -114,10 +103,8 @@ func TestEndToEndIntegration(t *testing.T) {
 		}
 	}()
 
-	// Wait for server to start
 	time.Sleep(100 * time.Millisecond)
 
-	// Test the complete end-to-end flow
 	baseURL := fmt.Sprintf("http://localhost:%d", port)
 
 	t.Run("textDocument/definition", func(t *testing.T) {
@@ -145,7 +132,6 @@ func TestEndToEndIntegration(t *testing.T) {
 	})
 }
 
-// testTextDocumentDefinition tests the textDocument/definition request flow
 func testTextDocumentDefinition(t *testing.T, baseURL string) {
 	request := JSONRPCRequest{
 		JSONRPC: JSONRPCVersion,
@@ -164,12 +150,10 @@ func testTextDocumentDefinition(t *testing.T, baseURL string) {
 
 	response := makeJSONRPCRequest(t, baseURL, request)
 
-	// Validate response structure
 	if response.JSONRPC != JSONRPCVersion {
 		t.Errorf("Expected JSON-RPC 2.0, got: %s", response.JSONRPC)
 	}
 
-	// JSON unmarshaling can result in float64 for numbers
 	expectedID := float64(1)
 	if response.ID == nil {
 		t.Error("Expected ID in response, got nil")
@@ -185,7 +169,6 @@ func testTextDocumentDefinition(t *testing.T, baseURL string) {
 		t.Error("Expected result in response")
 	}
 
-	// Validate that the result contains expected mock data
 	resultMap, ok := response.Result.(map[string]interface{})
 	if !ok {
 		t.Fatalf("Expected result to be a map, got: %T", response.Result)
@@ -200,7 +183,6 @@ func testTextDocumentDefinition(t *testing.T, baseURL string) {
 	}
 }
 
-// testTextDocumentReferences tests the textDocument/references request flow
 func testTextDocumentReferences(t *testing.T, baseURL string) {
 	request := JSONRPCRequest{
 		JSONRPC: JSONRPCVersion,
@@ -222,7 +204,6 @@ func testTextDocumentReferences(t *testing.T, baseURL string) {
 
 	response := makeJSONRPCRequest(t, baseURL, request)
 
-	// Validate response
 	if response.Error != nil {
 		t.Errorf("Unexpected error in response: %v", response.Error)
 	}
@@ -232,7 +213,6 @@ func testTextDocumentReferences(t *testing.T, baseURL string) {
 	}
 }
 
-// testTextDocumentSymbol tests the textDocument/documentSymbol request flow
 func testTextDocumentSymbol(t *testing.T, baseURL string) {
 	request := JSONRPCRequest{
 		JSONRPC: JSONRPCVersion,
@@ -247,7 +227,6 @@ func testTextDocumentSymbol(t *testing.T, baseURL string) {
 
 	response := makeJSONRPCRequest(t, baseURL, request)
 
-	// Validate response
 	if response.Error != nil {
 		t.Errorf("Unexpected error in response: %v", response.Error)
 	}
@@ -257,7 +236,6 @@ func testTextDocumentSymbol(t *testing.T, baseURL string) {
 	}
 }
 
-// testWorkspaceSymbol tests the workspace/symbol request flow
 func testWorkspaceSymbol(t *testing.T, baseURL string) {
 	request := JSONRPCRequest{
 		JSONRPC: JSONRPCVersion,
@@ -270,7 +248,6 @@ func testWorkspaceSymbol(t *testing.T, baseURL string) {
 
 	response := makeJSONRPCRequest(t, baseURL, request)
 
-	// Validate response
 	if response.Error != nil {
 		t.Errorf("Unexpected error in response: %v", response.Error)
 	}
@@ -280,7 +257,6 @@ func testWorkspaceSymbol(t *testing.T, baseURL string) {
 	}
 }
 
-// testTextDocumentHover tests the textDocument/hover request flow
 func testTextDocumentHover(t *testing.T, baseURL string) {
 	request := JSONRPCRequest{
 		JSONRPC: JSONRPCVersion,
@@ -299,12 +275,10 @@ func testTextDocumentHover(t *testing.T, baseURL string) {
 
 	response := makeJSONRPCRequest(t, baseURL, request)
 
-	// Validate response structure
 	if response.JSONRPC != JSONRPCVersion {
 		t.Errorf("Expected JSON-RPC 2.0, got: %s", response.JSONRPC)
 	}
 
-	// JSON unmarshaling can result in float64 for numbers
 	expectedID := float64(5)
 	if response.ID == nil {
 		t.Error("Expected ID in response, got nil")
@@ -320,7 +294,6 @@ func testTextDocumentHover(t *testing.T, baseURL string) {
 		t.Error("Expected result in response")
 	}
 
-	// Validate that the result contains expected mock data for hover
 	resultMap, ok := response.Result.(map[string]interface{})
 	if !ok {
 		t.Fatalf("Expected result to be a map, got: %T", response.Result)
@@ -334,7 +307,6 @@ func testTextDocumentHover(t *testing.T, baseURL string) {
 		t.Errorf("Expected method in result, got: %v", resultMap["method"])
 	}
 
-	// Validate hover-specific fields
 	if contents, ok := resultMap["contents"]; !ok {
 		t.Error("Expected contents field in hover result")
 	} else if contentsMap, ok := contents.(map[string]interface{}); !ok {
@@ -356,7 +328,6 @@ func testTextDocumentHover(t *testing.T, baseURL string) {
 	}
 }
 
-// testErrorHandling tests various error scenarios
 func testErrorHandling(t *testing.T, baseURL string) {
 	t.Run("unsupported_file_extension", func(t *testing.T) {
 		request := JSONRPCRequest{
@@ -376,7 +347,6 @@ func testErrorHandling(t *testing.T, baseURL string) {
 
 		response := makeJSONRPCRequest(t, baseURL, request)
 
-		// Should return an error for unsupported extension
 		if response.Error == nil {
 			t.Error("Expected error for unsupported file extension")
 		}
@@ -400,14 +370,12 @@ func testErrorHandling(t *testing.T, baseURL string) {
 
 		response := makeJSONRPCRequest(t, baseURL, request)
 
-		// Should return an error for unsupported extension
 		if response.Error == nil {
 			t.Error("Expected error for hover with unsupported file extension")
 		}
 	})
 
 	t.Run("invalid_json_rpc", func(t *testing.T) {
-		// Send invalid JSON-RPC request
 		requestBody := `{"invalid": "request"}`
 
 		resp, err := http.Post(baseURL+"/jsonrpc", "application/json", strings.NewReader(requestBody))
@@ -425,14 +393,12 @@ func testErrorHandling(t *testing.T, baseURL string) {
 			t.Fatalf("Failed to decode response: %v", err)
 		}
 
-		// Should return a JSON-RPC error
 		if response.Error == nil {
 			t.Error("Expected error for invalid JSON-RPC request")
 		}
 	})
 }
 
-// makeJSONRPCRequest makes a JSON-RPC request to the gateway and returns the response
 func makeJSONRPCRequest(t *testing.T, baseURL string, request JSONRPCRequest) JSONRPCResponse {
 	requestBody, err := json.Marshal(request)
 	if err != nil {
@@ -458,36 +424,27 @@ func makeJSONRPCRequest(t *testing.T, baseURL string, request JSONRPCRequest) JS
 }
 
 var (
-	// Cache for compiled mock LSP server to avoid recompilation
 	cachedMockServerPath string
 	cachedMockServerOnce sync.Once
 )
 
-// createInMemoryMockLSPServer creates an efficient mock LSP server with compilation caching
-// This eliminates the 2-5 second compilation overhead per test by using a cached binary
 func createInMemoryMockLSPServer(t *testing.T) (string, func()) {
-	// Use cached binary if available, otherwise compile once
 	cachedMockServerOnce.Do(func() {
 		cachedMockServerPath = compileMockLSPServerOnce(t)
 	})
 
-	// Return cached binary path with no-op cleanup (binary is reused across tests)
 	cleanup := func() {
-		// No cleanup needed - binary is cached for reuse
 	}
 
 	return cachedMockServerPath, cleanup
 }
 
-// compileMockLSPServerOnce compiles the mock LSP server once and caches it
 func compileMockLSPServerOnce(t *testing.T) string {
-	// Create temporary directory for cached binary
 	tempDir, err := os.MkdirTemp("", "lsp-gateway-cached-mock-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
 
-	// Create mock LSP server source code with fixed JSONRPCVersion
 	mockServerSource := `package main
 
 import (
@@ -516,7 +473,6 @@ func main() {
 	writer := bufio.NewWriter(os.Stdout)
 
 	for {
-		// Read Content-Length header
 		var contentLength int
 		for {
 			line, err := reader.ReadString('\n')
@@ -544,19 +500,16 @@ func main() {
 			continue
 		}
 
-		// Read message body
 		body := make([]byte, contentLength)
 		if _, err := io.ReadFull(reader, body); err != nil {
 			continue
 		}
 
-		// Parse message
 		var msg LSPMessage
 		if err := json.Unmarshal(body, &msg); err != nil {
 			continue
 		}
 
-		// Handle different LSP methods
 		var response LSPMessage
 		switch msg.Method {
 		case "initialize":
@@ -574,7 +527,6 @@ func main() {
 				},
 			}
 		case "initialized":
-			// No response needed for initialized notification
 			continue
 		case "textDocument/definition":
 			response = LSPMessage{
@@ -658,7 +610,6 @@ func main() {
 				},
 			}
 		default:
-			// Return error for unsupported methods
 			response = LSPMessage{
 				JSONRPC: JSONRPCVersion,
 				ID:      msg.ID,
@@ -669,7 +620,6 @@ func main() {
 			}
 		}
 
-		// Send response
 		responseData, _ := json.Marshal(response)
 		responseContent := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(responseData), responseData)
 		writer.WriteString(responseContent)
@@ -701,7 +651,6 @@ func extractURI(params interface{}) string {
 }
 `
 
-	// Write mock server source to file
 	sourceFile := filepath.Join(tempDir, "mock_lsp_server.go")
 	if err := os.WriteFile(sourceFile, []byte(mockServerSource), 0644); err != nil {
 		if rmErr := os.RemoveAll(tempDir); rmErr != nil {
@@ -710,7 +659,6 @@ func extractURI(params interface{}) string {
 		t.Fatalf("Failed to write mock server source: %v", err)
 	}
 
-	// Compile the mock server
 	binaryPath := filepath.Join(tempDir, "mock_lsp_server")
 	cmd := exec.Command("go", "build", "-o", binaryPath, sourceFile)
 	if err := cmd.Run(); err != nil {
@@ -720,6 +668,5 @@ func extractURI(params interface{}) string {
 		t.Fatalf("Failed to compile mock LSP server: %v", err)
 	}
 
-	// Binary is cached and reused across all tests
 	return binaryPath
 }

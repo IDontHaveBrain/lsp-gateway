@@ -6,13 +6,10 @@ import (
 	"testing"
 )
 
-// Test port constants
 const (
 	DefaultMCPPort = 3000 // Default MCP server port for testing
 )
 
-// AllocateTestPort returns a dynamically allocated port for testing.
-// This function ensures tests don't conflict when run in parallel.
 func AllocateTestPort(t *testing.T) int {
 	t.Helper()
 	listener, err := net.Listen("tcp", "localhost:0")
@@ -27,8 +24,6 @@ func AllocateTestPort(t *testing.T) int {
 	return listener.Addr().(*net.TCPAddr).Port
 }
 
-// AllocateTestPortBench returns a dynamically allocated port for benchmarking.
-// This function ensures benchmarks don't conflict when run in parallel.
 func AllocateTestPortBench(b *testing.B) int {
 	b.Helper()
 	listener, err := net.Listen("tcp", "localhost:0")
@@ -43,8 +38,6 @@ func AllocateTestPortBench(b *testing.B) int {
 	return listener.Addr().(*net.TCPAddr).Port
 }
 
-// CreateConfigWithPort creates a test configuration with the specified port.
-// This helper ensures consistent config generation across tests.
 func CreateConfigWithPort(port int) string {
 	return fmt.Sprintf(`port: %d
 servers:
@@ -56,8 +49,6 @@ servers:
 `, port)
 }
 
-// CreateMinimalConfigWithPort creates a minimal test configuration with the specified port.
-// Used for tests that need minimal configuration without full server definitions.
 func CreateMinimalConfigWithPort(port int) string {
 	return fmt.Sprintf(`port: %d
 servers: []

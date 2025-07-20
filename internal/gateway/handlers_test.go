@@ -13,7 +13,6 @@ import (
 	"lsp-gateway/internal/transport"
 )
 
-// Helper function to create a test gateway with mock clients for handlers testing
 func createTestGatewayForHandlers(t *testing.T) (*Gateway, map[string]*MockLSPClient) {
 	cfg := &config.GatewayConfig{
 		Port: 8080,
@@ -55,10 +54,8 @@ func createTestGatewayForHandlers(t *testing.T) (*Gateway, map[string]*MockLSPCl
 		router:  NewRouter(),
 	}
 
-	// Create mock clients map for easy access
 	mockClients := make(map[string]*MockLSPClient)
 
-	// Add mock clients
 	mockClients["gopls"] = NewMockLSPClient()
 	mockClients["pyright"] = NewMockLSPClient()
 	mockClients["typescript-lsp"] = NewMockLSPClient()
@@ -69,13 +66,11 @@ func createTestGatewayForHandlers(t *testing.T) (*Gateway, map[string]*MockLSPCl
 	gateway.clients["typescript-lsp"] = mockClients["typescript-lsp"]
 	gateway.clients["jdtls"] = mockClients["jdtls"]
 
-	// Register servers with router
 	gateway.router.RegisterServer("gopls", []string{"go"})
 	gateway.router.RegisterServer("pyright", []string{"python"})
 	gateway.router.RegisterServer("typescript-lsp", []string{"typescript", "javascript"})
 	gateway.router.RegisterServer("jdtls", []string{"java"})
 
-	// Start the mock clients so they're active
 	for _, mockClient := range mockClients {
 		if err := mockClient.Start(context.TODO()); err != nil {
 			t.Logf("error starting mock client: %v", err)
@@ -282,7 +277,6 @@ func TestHandleJSONRPC_JSONRPCValidation(t *testing.T) {
 				t.Errorf("Expected error message '%s', got '%s'", tt.expectedError, response.Error.Message)
 			}
 
-			// Convert both to string for comparison since JSON unmarshaling might affect types
 			if fmt.Sprintf("%v", response.ID) != fmt.Sprintf("%v", tt.request.ID) {
 				t.Errorf("Expected response ID %v, got %v", tt.request.ID, response.ID)
 			}
@@ -442,9 +436,7 @@ func TestHandleJSONRPC_LSPClientHandling(t *testing.T) {
 	t.Parallel()
 	gateway, mockClients := createTestGatewayForHandlers(t)
 
-	// Test with inactive client
 	t.Run("inactive client", func(t *testing.T) {
-		// Make the gopls client inactive by stopping it
 		mockClient := mockClients["gopls"]
 		if err := mockClient.Stop(); err != nil {
 			t.Logf("error stopping mock client: %v", err)
@@ -489,15 +481,12 @@ func TestHandleJSONRPC_LSPClientHandling(t *testing.T) {
 			t.Errorf("Expected error code %d, got %d", InternalError, response.Error.Code)
 		}
 
-		// Reset for other tests
 		if err := mockClient.Start(context.TODO()); err != nil {
 			t.Logf("error restarting mock client: %v", err)
 		}
 	})
 
-	// Test with missing server
 	t.Run("missing server", func(t *testing.T) {
-		// Remove the gopls client temporarily
 		originalClient := gateway.clients["gopls"]
 		delete(gateway.clients, "gopls")
 
@@ -540,7 +529,6 @@ func TestHandleJSONRPC_LSPClientHandling(t *testing.T) {
 			t.Errorf("Expected error code %d, got %d", InternalError, response.Error.Code)
 		}
 
-		// Restore client
 		gateway.clients["gopls"] = originalClient
 	})
 }
@@ -568,11 +556,9 @@ func TestHandleJSONRPC_NotificationHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Set up mock client
 			mockClient := mockClients["gopls"]
 			mockClient.SetNotificationError(tt.notificationError)
 
-			// Create notification request (no ID)
 			request := JSONRPCRequest{
 				JSONRPC: JSONRPCVersion,
 				Method:  "textDocument/didOpen",
@@ -598,12 +584,10 @@ func TestHandleJSONRPC_NotificationHandling(t *testing.T) {
 			}
 
 			if tt.notificationError == nil {
-				// Successful notifications should have empty body
 				if w.Body.Len() != 0 {
 					t.Errorf("Expected empty response body for successful notification, got: %s", w.Body.String())
 				}
 			} else {
-				// Failed notifications should return JSON-RPC error
 				var response JSONRPCResponse
 				if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 					t.Fatalf("Failed to decode response: %v", err)
@@ -618,13 +602,11 @@ func TestHandleJSONRPC_NotificationHandling(t *testing.T) {
 				}
 			}
 
-			// Reset mock
 			mockClient.SetNotificationError(nil)
 		})
 	}
 }
 
-// Helper function to determine mock client name based on URI
 func getMockClientName(method string, params interface{}) string {
 	if method == "textDocument/definition" || method == LSPMethodHover {
 		paramsMap := params.(map[string]interface{})
@@ -643,7 +625,6 @@ func getMockClientName(method string, params interface{}) string {
 	return ""
 }
 
-// Helper function to execute and validate JSON-RPC test case
 func executeJSONRPCTest(t *testing.T, gateway *Gateway, mockClients map[string]*MockLSPClient, method string, params interface{}, mockResponse json.RawMessage, expectedResult interface{}) {
 	mockClientName := getMockClientName(method, params)
 	mockClient := mockClients[mockClientName]
@@ -818,7 +799,6 @@ func TestHandleJSONRPC_RequestErrors(t *testing.T) {
 	t.Parallel()
 	gateway, mockClients := createTestGatewayForHandlers(t)
 
-	// Test LSP client request errors
 	t.Run("LSP client request error", func(t *testing.T) {
 		mockClient := mockClients["gopls"]
 		mockClient.SetRequestError(fmt.Errorf("LSP server error"))
@@ -862,7 +842,6 @@ func TestHandleJSONRPC_RequestErrors(t *testing.T) {
 			t.Errorf("Expected error code %d, got %d", InternalError, response.Error.Code)
 		}
 
-		// Reset mock
 		mockClient.SetRequestError(nil)
 	})
 }
@@ -871,7 +850,6 @@ func TestHandleJSONRPC_SpecialMethods(t *testing.T) {
 	t.Parallel()
 	gateway, _ := createTestGatewayForHandlers(t)
 
-	// Test methods that don't require URI routing
 	specialMethods := []string{
 		"initialize",
 		"initialized",
@@ -888,7 +866,6 @@ func TestHandleJSONRPC_SpecialMethods(t *testing.T) {
 	}
 }
 
-// testSpecialMethodSuccess tests a single special method for success
 func testSpecialMethodSuccess(t *testing.T, gateway *Gateway, method string) {
 	request := JSONRPCRequest{
 		JSONRPC: JSONRPCVersion,
@@ -913,7 +890,6 @@ func testSpecialMethodSuccess(t *testing.T, gateway *Gateway, method string) {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
 
-	// These methods should succeed (route to first available server)
 	if response.Error != nil {
 		t.Errorf("Unexpected error for method %s: %v", method, response.Error)
 	}
@@ -944,7 +920,6 @@ func TestHandleJSONRPC_ContentTypeHeader(t *testing.T) {
 
 	gateway.HandleJSONRPC(w, req)
 
-	// Check Content-Type header is set
 	contentType := w.Header().Get("Content-Type")
 	if contentType != "application/json" {
 		t.Errorf("Expected Content-Type 'application/json', got '%s'", contentType)

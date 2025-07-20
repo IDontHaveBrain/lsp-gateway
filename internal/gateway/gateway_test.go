@@ -11,9 +11,9 @@ import (
 
 	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/transport"
+	"lsp-gateway/mcp"
 )
 
-// MockLSPClient is a mock implementation of the LSPClient interface for testing
 type MockLSPClient struct {
 	mu           sync.RWMutex
 	active       bool
@@ -28,14 +28,12 @@ type MockLSPClient struct {
 	responses    map[string]json.RawMessage
 }
 
-// NewMockLSPClient creates a new mock LSP client
 func NewMockLSPClient() *MockLSPClient {
 	return &MockLSPClient{
 		responses: make(map[string]json.RawMessage),
 	}
 }
 
-// Start implements LSPClient interface
 func (m *MockLSPClient) Start(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -49,7 +47,6 @@ func (m *MockLSPClient) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop implements LSPClient interface
 func (m *MockLSPClient) Stop() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -63,7 +60,6 @@ func (m *MockLSPClient) Stop() error {
 	return nil
 }
 
-// SendRequest implements LSPClient interface
 func (m *MockLSPClient) SendRequest(ctx context.Context, method string, params interface{}) (json.RawMessage, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -80,7 +76,6 @@ func (m *MockLSPClient) SendRequest(ctx context.Context, method string, params i
 	return json.RawMessage(`{"result":"mock"}`), nil
 }
 
-// SendNotification implements LSPClient interface
 func (m *MockLSPClient) SendNotification(ctx context.Context, method string, params interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -89,7 +84,6 @@ func (m *MockLSPClient) SendNotification(ctx context.Context, method string, par
 	return m.notifyErr
 }
 
-// IsActive implements LSPClient interface
 func (m *MockLSPClient) IsActive() bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -97,84 +91,89 @@ func (m *MockLSPClient) IsActive() bool {
 	return m.active
 }
 
-// SetStartError sets an error to be returned by Start
 func (m *MockLSPClient) SetStartError(err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.startErr = err
 }
 
-// SetStopError sets an error to be returned by Stop
 func (m *MockLSPClient) SetStopError(err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.stopErr = err
 }
 
-// SetRequestError sets an error to be returned by SendRequest
 func (m *MockLSPClient) SetRequestError(err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.requestErr = err
 }
 
-// SetNotificationError sets an error to be returned by SendNotification
 func (m *MockLSPClient) SetNotificationError(err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.notifyErr = err
 }
 
-// SetResponse sets a mock response for a specific method
 func (m *MockLSPClient) SetResponse(method string, response json.RawMessage) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.responses[method] = response
 }
 
-// GetStartCount returns the number of times Start was called
 func (m *MockLSPClient) GetStartCount() int {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.startCount
 }
 
-// GetStopCount returns the number of times Stop was called
 func (m *MockLSPClient) GetStopCount() int {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.stopCount
 }
 
-// GetRequestCount returns the number of times SendRequest was called
 func (m *MockLSPClient) GetRequestCount() int {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.requestCount
 }
 
-// GetNotificationCount returns the number of times SendNotification was called
 func (m *MockLSPClient) GetNotificationCount() int {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.notifyCount
 }
 
-// TestableGateway extends Gateway with dependency injection for testing
 type TestableGateway struct {
 	*Gateway
 	clientFactory func(transport.ClientConfig) (transport.LSPClient, error)
 }
 
-// NewTestableGateway creates a Gateway with injectable client factory for testing
 func NewTestableGateway(config *config.GatewayConfig, clientFactory func(transport.ClientConfig) (transport.LSPClient, error)) (*TestableGateway, error) {
+	logConfig := &mcp.LoggerConfig{
+		Level:              mcp.LogLevelInfo,
+		Component:          "gateway",
+		EnableJSON:         false,
+		EnableStackTrace:   false,
+		EnableCaller:       true,
+		EnableMetrics:      false,
+		Output:             nil, // Uses default (stderr)
+		IncludeTimestamp:   true,
+		TimestampFormat:    "2006-01-02T15:04:05Z07:00",
+		MaxStackTraceDepth: 10,
+		EnableAsyncLogging: false,
+		AsyncBufferSize:    1000,
+	}
+	logger := mcp.NewStructuredLogger(logConfig)
+
 	gateway := &Gateway{
 		config:  config,
 		clients: make(map[string]transport.LSPClient),
 		router:  NewRouter(),
+		logger:  logger,
 	}
 
-	// Initialize LSP clients using injected factory
 	for _, serverConfig := range config.Servers {
 		client, err := clientFactory(transport.ClientConfig{
 			Command:   serverConfig.Command,
@@ -192,7 +191,6 @@ func NewTestableGateway(config *config.GatewayConfig, clientFactory func(transpo
 	return &TestableGateway{Gateway: gateway, clientFactory: clientFactory}, nil
 }
 
-// Helper function to create test configuration
 func createTestConfig() *config.GatewayConfig {
 	return &config.GatewayConfig{
 		Port: 8080,
@@ -222,7 +220,6 @@ func createTestConfig() *config.GatewayConfig {
 	}
 }
 
-// Helper function to create test configuration with single server
 func createSingleServerConfig() *config.GatewayConfig {
 	return &config.GatewayConfig{
 		Port: 8080,
@@ -240,7 +237,6 @@ func createSingleServerConfig() *config.GatewayConfig {
 
 func TestNewGateway(t *testing.T) {
 	t.Parallel()
-	// Setup mock client factory
 	mockClients := make(map[string]*MockLSPClient)
 	mockClientFactory := func(config transport.ClientConfig) (transport.LSPClient, error) {
 		mock := NewMockLSPClient()
@@ -261,7 +257,6 @@ func TestNewGateway(t *testing.T) {
 	})
 }
 
-// testValidGatewayConfig tests gateway creation with valid configuration
 func testValidGatewayConfig(t *testing.T, mockClientFactory func(transport.ClientConfig) (transport.LSPClient, error)) {
 	config := createTestConfig()
 	testableGateway, err := NewTestableGateway(config, mockClientFactory)
@@ -276,7 +271,6 @@ func testValidGatewayConfig(t *testing.T, mockClientFactory func(transport.Clien
 	validateRouterConfiguration(t, gateway)
 }
 
-// testEmptyGatewayConfig tests gateway creation with empty configuration
 func testEmptyGatewayConfig(t *testing.T, mockClientFactory func(transport.ClientConfig) (transport.LSPClient, error)) {
 	config := &config.GatewayConfig{
 		Port:    8080,
@@ -300,9 +294,7 @@ func testEmptyGatewayConfig(t *testing.T, mockClientFactory func(transport.Clien
 	}
 }
 
-// testClientCreationError tests error handling during client creation
 func testClientCreationError(t *testing.T) {
-	// Mock client factory that returns error
 	errorClientFactory := func(config transport.ClientConfig) (transport.LSPClient, error) {
 		return nil, errors.New("mock client creation error")
 	}
@@ -324,8 +316,6 @@ func testClientCreationError(t *testing.T) {
 	}
 }
 
-// Helper functions for validation
-
 func validateGatewayBasics(t *testing.T, gateway *Gateway, config *config.GatewayConfig) {
 	if gateway == nil {
 		t.Fatal("NewGateway() returned nil gateway")
@@ -345,7 +335,6 @@ func validateGatewayBasics(t *testing.T, gateway *Gateway, config *config.Gatewa
 }
 
 func validateGatewayClients(t *testing.T, gateway *Gateway) {
-	// Check that all servers were registered as clients
 	expectedServers := []string{"go-lsp", "python-lsp", "typescript-lsp"}
 	for _, serverName := range expectedServers {
 		client, exists := gateway.GetClient(serverName)
@@ -359,7 +348,6 @@ func validateGatewayClients(t *testing.T, gateway *Gateway) {
 }
 
 func validateRouterConfiguration(t *testing.T, gateway *Gateway) {
-	// Check router registration
 	server, err := gateway.router.RouteRequest("file:///test.go")
 	if err != nil {
 		t.Fatalf("Router not configured correctly: %v", err)
@@ -394,7 +382,6 @@ func TestGatewayStart(t *testing.T) {
 			t.Fatalf("Gateway.Start() failed: %v", err)
 		}
 
-		// Check that all clients were started
 		for command, mock := range mockClients {
 			if mock.GetStartCount() != 1 {
 				t.Fatalf("Client %s Start() called %d times, expected 1", command, mock.GetStartCount())
@@ -421,7 +408,6 @@ func TestGatewayStart(t *testing.T) {
 
 		gateway := testableGateway.Gateway
 
-		// Set error on first client
 		var firstMock *MockLSPClient
 		for _, mock := range mockClientsLocal {
 			firstMock = mock
@@ -481,7 +467,6 @@ func TestGatewayStop(t *testing.T) {
 
 		gateway := testableGateway.Gateway
 
-		// Start gateway first
 		ctx := context.Background()
 		if err := gateway.Start(ctx); err != nil {
 			t.Fatalf("Gateway.Start() failed: %v", err)
@@ -493,7 +478,6 @@ func TestGatewayStop(t *testing.T) {
 			t.Fatalf("Gateway.Stop() failed: %v", err)
 		}
 
-		// Check that all clients were stopped
 		for command, mock := range mockClients {
 			if mock.GetStopCount() != 1 {
 				t.Fatalf("Client %s Stop() called %d times, expected 1", command, mock.GetStopCount())
@@ -520,7 +504,6 @@ func TestGatewayStop(t *testing.T) {
 
 		gateway := testableGateway.Gateway
 
-		// Set error on first client
 		var firstMock *MockLSPClient
 		for _, mock := range mockClientsLocal {
 			firstMock = mock
@@ -588,7 +571,6 @@ func TestGatewayGetClient(t *testing.T) {
 			t.Fatal("GetClient() returned nil client")
 		}
 
-		// Verify it's the correct client by checking its type
 		if _, ok := client.(*MockLSPClient); !ok {
 			t.Fatal("GetClient() returned wrong client type")
 		}
@@ -651,7 +633,6 @@ func TestGatewayLifecycleIntegration(t *testing.T) {
 	t.Run("FullLifecycle", func(t *testing.T) {
 		config := createTestConfig()
 
-		// Create gateway
 		testableGateway, err := NewTestableGateway(config, mockClientFactory)
 		if err != nil {
 			t.Fatalf("NewTestableGateway() failed: %v", err)
@@ -659,7 +640,6 @@ func TestGatewayLifecycleIntegration(t *testing.T) {
 
 		gateway := testableGateway.Gateway
 
-		// Verify initial state
 		client, exists := gateway.GetClient("go-lsp")
 		if !exists {
 			t.Fatal("go-lsp client not found after creation")
@@ -668,28 +648,23 @@ func TestGatewayLifecycleIntegration(t *testing.T) {
 			t.Fatal("Client should not be active before Start()")
 		}
 
-		// Start gateway
 		ctx := context.Background()
 		if err := gateway.Start(ctx); err != nil {
 			t.Fatalf("Gateway.Start() failed: %v", err)
 		}
 
-		// Verify clients are active
 		if !client.IsActive() {
 			t.Fatal("Client should be active after Start()")
 		}
 
-		// Stop gateway
 		if err := gateway.Stop(); err != nil {
 			t.Fatalf("Gateway.Stop() failed: %v", err)
 		}
 
-		// Verify clients are inactive
 		if client.IsActive() {
 			t.Fatal("Client should not be active after Stop()")
 		}
 
-		// Verify call counts
 		mock := mockClients["gopls"]
 		if mock.GetStartCount() != 1 {
 			t.Fatalf("Expected 1 Start() call, got %d", mock.GetStartCount())
@@ -716,7 +691,6 @@ func TestGatewayConcurrentAccess(t *testing.T) {
 
 	gateway := testableGateway.Gateway
 
-	// Test concurrent GetClient calls
 	done := make(chan bool)
 	const numGoroutines = 10
 	const numIterations = 100
@@ -726,14 +700,12 @@ func TestGatewayConcurrentAccess(t *testing.T) {
 			defer func() { done <- true }()
 
 			for j := 0; j < numIterations; j++ {
-				// Test GetClient
 				client, exists := gateway.GetClient("go-lsp")
 				if !exists || client == nil {
 					t.Errorf("GetClient failed in concurrent test")
 					return
 				}
 
-				// Test GetClient for non-existent client
 				_, exists = gateway.GetClient("nonexistent")
 				if exists {
 					t.Errorf("GetClient should not find nonexistent client")
@@ -743,7 +715,6 @@ func TestGatewayConcurrentAccess(t *testing.T) {
 		}()
 	}
 
-	// Wait for all goroutines to complete
 	for i := 0; i < numGoroutines; i++ {
 		select {
 		case <-done:
@@ -771,11 +742,9 @@ func TestGatewayStartStopConcurrency(t *testing.T) {
 
 	gateway := testableGateway.Gateway
 
-	// Test concurrent Start/Stop calls
 	const numOperations = 5
 	done := make(chan error, numOperations*2)
 
-	// Start operations
 	for i := 0; i < numOperations; i++ {
 		go func() {
 			ctx := context.Background()
@@ -783,18 +752,15 @@ func TestGatewayStartStopConcurrency(t *testing.T) {
 		}()
 	}
 
-	// Stop operations
 	for i := 0; i < numOperations; i++ {
 		go func() {
 			done <- gateway.Stop()
 		}()
 	}
 
-	// Collect results
 	for i := 0; i < numOperations*2; i++ {
 		select {
 		case err := <-done:
-			// Some operations may fail due to concurrency, but should not panic
 			_ = err
 		case <-time.After(5 * time.Second):
 			t.Fatal("Concurrent start/stop test timed out")

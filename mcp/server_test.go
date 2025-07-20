@@ -16,13 +16,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"lsp-gateway/internal/gateway"
 )
 
-// Mock implementations for testing
-
-// LSPClientInterface defines the interface for LSP clients
 type LSPClientInterface interface {
 	SendLSPRequest(ctx context.Context, method string, params interface{}) (json.RawMessage, error)
 	GetMetrics() ConnectionMetrics
@@ -30,13 +25,11 @@ type LSPClientInterface interface {
 	IsHealthy() bool
 }
 
-// ToolHandlerInterface defines the interface for tool handlers
 type ToolHandlerInterface interface {
 	ListTools() []Tool
 	CallTool(ctx context.Context, call ToolCall) (*ToolResult, error)
 }
 
-// MockLSPGatewayClient implements a mock LSP Gateway client
 type MockLSPGatewayClient struct {
 	mu           sync.RWMutex
 	requestCount int64
@@ -65,7 +58,6 @@ func (m *MockLSPGatewayClient) SendLSPRequest(ctx context.Context, method string
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	// Simulate delay if configured
 	if delay, exists := m.delays[method]; exists {
 		select {
 		case <-time.After(delay):
@@ -74,23 +66,19 @@ func (m *MockLSPGatewayClient) SendLSPRequest(ctx context.Context, method string
 		}
 	}
 
-	// Check failure condition
 	if m.maxFails >= 0 && m.failCount < m.maxFails {
 		m.failCount++
 		return nil, errors.New("mock failure")
 	}
 
-	// Return configured error if exists
 	if err, exists := m.errors[method]; exists {
 		return nil, err
 	}
 
-	// Return configured response if exists
 	if response, exists := m.responses[method]; exists {
 		return response, nil
 	}
 
-	// Default successful response
 	defaultResponse := map[string]interface{}{
 		"success": true,
 		"method":  method,
@@ -129,7 +117,16 @@ func (m *MockLSPGatewayClient) GetRequestCount() int64 {
 func (m *MockLSPGatewayClient) GetMetrics() ConnectionMetrics {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	return m.metrics
+	return ConnectionMetrics{
+		totalRequests:    m.metrics.totalRequests,
+		successfulReqs:   m.metrics.successfulReqs,
+		failedRequests:   m.metrics.failedRequests,
+		timeoutCount:     m.metrics.timeoutCount,
+		connectionErrors: m.metrics.connectionErrors,
+		averageLatency:   m.metrics.averageLatency,
+		lastRequestTime:  m.metrics.lastRequestTime,
+		lastSuccessTime:  m.metrics.lastSuccessTime,
+	}
 }
 
 func (m *MockLSPGatewayClient) GetHealth(ctx context.Context) error {
@@ -161,7 +158,6 @@ func (m *MockLSPGatewayClient) SetMaxFails(maxFails int) {
 	m.failCount = 0
 }
 
-// MockToolHandler implements a mock tool handler
 type MockToolHandler struct {
 	mu      sync.RWMutex
 	tools   []Tool
@@ -189,7 +185,6 @@ func (m *MockToolHandler) CallTool(ctx context.Context, call ToolCall) (*ToolRes
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	// Simulate delay if configured
 	if delay, exists := m.delays[call.Name]; exists {
 		select {
 		case <-time.After(delay):
@@ -198,17 +193,14 @@ func (m *MockToolHandler) CallTool(ctx context.Context, call ToolCall) (*ToolRes
 		}
 	}
 
-	// Return configured error if exists
 	if err, exists := m.errors[call.Name]; exists {
 		return nil, err
 	}
 
-	// Return configured result if exists
 	if result, exists := m.results[call.Name]; exists {
 		return result, nil
 	}
 
-	// Default successful result
 	return &ToolResult{
 		Content: []ContentBlock{{
 			Type: "text",
@@ -242,8 +234,6 @@ func (m *MockToolHandler) SetDelay(toolName string, delay time.Duration) {
 	m.delays[toolName] = delay
 }
 
-// Test utilities
-
 func createTestServer() *Server {
 	config := &ServerConfig{
 		Name:          "test-server",
@@ -255,20 +245,9 @@ func createTestServer() *Server {
 	return NewServer(config)
 }
 
-// Helper function to create a test server with mocked dependencies
-func createTestServerWithMocks() (*Server, *MockLSPGatewayClient, *MockToolHandler) {
-	server := createTestServer()
-	mockClient := NewMockLSPGatewayClient()
-	mockToolHandler := NewMockToolHandler()
-
-	// Note: In a production system, we would use dependency injection
-	// For testing, we'll create tests that don't require replacing private fields
-	return server, mockClient, mockToolHandler
-}
-
 func createTestMessage(id interface{}, method string, params interface{}) string {
 	msg := MCPMessage{
-		JSONRPC: gateway.JSONRPCVersion,
+		JSONRPC: JSONRPCVersion,
 		ID:      id,
 		Method:  method,
 		Params:  params,
@@ -279,7 +258,6 @@ func createTestMessage(id interface{}, method string, params interface{}) string
 }
 
 func parseResponseMessage(output string) (*MCPMessage, error) {
-	// Find the JSON content after headers
 	jsonStart := strings.Index(output, "\r\n\r\n")
 	if jsonStart == -1 {
 		return nil, errors.New("no double CRLF found")
@@ -294,8 +272,6 @@ func parseResponseMessage(output string) (*MCPMessage, error) {
 
 	return &msg, nil
 }
-
-// Test cases
 
 func TestNewServer(t *testing.T) {
 	t.Run("ValidConfig", func(t *testing.T) {
@@ -337,7 +313,6 @@ func TestNewServer(t *testing.T) {
 			t.Error("Expected logger to be initialized")
 		}
 
-		// Test default I/O streams
 		if server.input != os.Stdin {
 			t.Error("Expected default input to be os.Stdin")
 		}
@@ -358,7 +333,6 @@ func TestNewServer(t *testing.T) {
 			t.Error("Expected default config to be set")
 		}
 
-		// Check default config values
 		if server.config.Name != "lsp-gateway-mcp" {
 			t.Errorf("Expected default name, got: %s", server.config.Name)
 		}
@@ -390,32 +364,26 @@ func TestServerLifecycle(t *testing.T) {
 	t.Run("StartStop", func(t *testing.T) {
 		server := createTestServer()
 
-		// Test initial state
 		if !server.IsRunning() {
 			t.Error("Expected server to be running initially")
 		}
 
-		// Set up test I/O - empty input so server exits quickly
 		inputReader := strings.NewReader("")
 		outputBuffer := &bytes.Buffer{}
 		server.SetIO(inputReader, outputBuffer)
 
-		// Start server in goroutine
 		done := make(chan error, 1)
 		go func() {
 			done <- server.Start()
 		}()
 
-		// Give server time to start
 		time.Sleep(10 * time.Millisecond)
 
-		// Stop server
 		err := server.Stop()
 		if err != nil {
 			t.Errorf("Unexpected error stopping server: %v", err)
 		}
 
-		// Wait for server to finish
 		select {
 		case startErr := <-done:
 			if startErr != nil {
@@ -425,7 +393,6 @@ func TestServerLifecycle(t *testing.T) {
 			t.Error("Server did not stop within timeout")
 		}
 
-		// Test final state
 		if server.IsRunning() {
 			t.Error("Expected server to be stopped")
 		}
@@ -434,15 +401,12 @@ func TestServerLifecycle(t *testing.T) {
 	t.Run("IsRunning", func(t *testing.T) {
 		server := createTestServer()
 
-		// Initially running
 		if !server.IsRunning() {
 			t.Error("Expected new server to be running")
 		}
 
-		// After cancellation
 		server.cancel()
 
-		// Give time for context to propagate
 		time.Sleep(10 * time.Millisecond)
 
 		if server.IsRunning() {
@@ -454,14 +418,12 @@ func TestServerLifecycle(t *testing.T) {
 		server := createTestServer()
 		server.SetIO(strings.NewReader(""), &bytes.Buffer{})
 
-		// Start and immediately stop
 		go func() {
 			_ = server.Start()
 		}()
 
 		time.Sleep(10 * time.Millisecond)
 
-		// Multiple stop calls should not cause issues
 		err1 := server.Stop()
 		err2 := server.Stop()
 		err3 := server.Stop()
@@ -581,7 +543,7 @@ func TestMessageValidation(t *testing.T) {
 		{
 			name: "ValidRequest",
 			message: MCPMessage{
-				JSONRPC: gateway.JSONRPCVersion,
+				JSONRPC: JSONRPCVersion,
 				ID:      1,
 				Method:  "initialize",
 				Params:  map[string]interface{}{"test": true},
@@ -590,7 +552,7 @@ func TestMessageValidation(t *testing.T) {
 		{
 			name: "ValidResponse",
 			message: MCPMessage{
-				JSONRPC: gateway.JSONRPCVersion,
+				JSONRPC: JSONRPCVersion,
 				ID:      1,
 				Result:  map[string]interface{}{"success": true},
 			},
@@ -608,7 +570,7 @@ func TestMessageValidation(t *testing.T) {
 		{
 			name: "MethodTooLong",
 			message: MCPMessage{
-				JSONRPC: gateway.JSONRPCVersion,
+				JSONRPC: JSONRPCVersion,
 				ID:      1,
 				Method:  strings.Repeat("a", 300),
 			},
@@ -618,7 +580,7 @@ func TestMessageValidation(t *testing.T) {
 		{
 			name: "InvalidMethodName",
 			message: MCPMessage{
-				JSONRPC: gateway.JSONRPCVersion,
+				JSONRPC: JSONRPCVersion,
 				ID:      1,
 				Method:  "invalid@method!name",
 			},
@@ -628,7 +590,7 @@ func TestMessageValidation(t *testing.T) {
 		{
 			name: "BothRequestAndResponse",
 			message: MCPMessage{
-				JSONRPC: gateway.JSONRPCVersion,
+				JSONRPC: JSONRPCVersion,
 				ID:      1,
 				Method:  "test",
 				Result:  map[string]interface{}{"test": true},
@@ -639,7 +601,7 @@ func TestMessageValidation(t *testing.T) {
 		{
 			name: "NeitherRequestNorResponse",
 			message: MCPMessage{
-				JSONRPC: gateway.JSONRPCVersion,
+				JSONRPC: JSONRPCVersion,
 				ID:      1,
 			},
 			expectError: true,
@@ -648,7 +610,7 @@ func TestMessageValidation(t *testing.T) {
 		{
 			name: "MissingRequiredID",
 			message: MCPMessage{
-				JSONRPC: gateway.JSONRPCVersion,
+				JSONRPC: JSONRPCVersion,
 				Method:  "initialize",
 			},
 			expectError: true,
@@ -681,9 +643,6 @@ func TestMessageValidation(t *testing.T) {
 
 func TestMessageHandling(t *testing.T) {
 	server := createTestServer()
-
-	// Note: We can't easily mock the dependencies without modifying the Server struct
-	// These tests will use the real dependencies but with controlled I/O
 
 	tests := []struct {
 		name           string
@@ -785,8 +744,8 @@ func TestResponseSending(t *testing.T) {
 			t.Fatalf("Failed to parse response: %v", err)
 		}
 
-		if response.JSONRPC != gateway.JSONRPCVersion {
-			t.Errorf("Expected JSONRPC %s, got: %s", gateway.JSONRPCVersion, response.JSONRPC)
+		if response.JSONRPC != JSONRPCVersion {
+			t.Errorf("Expected JSONRPC %s, got: %s", JSONRPCVersion, response.JSONRPC)
 		}
 
 		if response.ID != 123 {
@@ -830,7 +789,6 @@ func TestResponseSending(t *testing.T) {
 		outputBuffer := &bytes.Buffer{}
 		server.SetIO(nil, outputBuffer)
 
-		// Create a very large result that exceeds protocol limits
 		largeData := strings.Repeat("a", 15*1024*1024) // 15MB
 		result := map[string]interface{}{
 			"data": largeData,
@@ -851,7 +809,6 @@ func TestRecoveryContext(t *testing.T) {
 	server := createTestServer()
 
 	t.Run("UpdateRecoveryContext", func(t *testing.T) {
-		// Test malformed error tracking
 		server.updateRecoveryContext("malformed")
 		server.updateRecoveryContext("malformed")
 		server.updateRecoveryContext("malformed")
@@ -869,7 +826,6 @@ func TestRecoveryContext(t *testing.T) {
 	t.Run("ParseErrorTracking", func(t *testing.T) {
 		server := createTestServer()
 
-		// Trigger parse errors
 		for i := 0; i < 6; i++ {
 			server.updateRecoveryContext("parse_error")
 		}
@@ -887,13 +843,11 @@ func TestRecoveryContext(t *testing.T) {
 	t.Run("RecoveryModeExit", func(t *testing.T) {
 		server := createTestServer()
 
-		// Force recovery mode
 		server.recoveryContext.recoveryMode = true
 		server.recoveryContext.recoveryStart = time.Now().Add(-70 * time.Second) // 70 seconds ago
 		server.recoveryContext.malformedCount = 5
 		server.recoveryContext.parseErrors = 5
 
-		// Update should exit recovery mode
 		server.updateRecoveryContext("malformed")
 
 		metrics := server.GetRecoveryMetrics()
@@ -911,7 +865,6 @@ func TestAttemptRecovery(t *testing.T) {
 	server := createTestServer()
 
 	t.Run("SuccessfulRecovery", func(t *testing.T) {
-		// Create input with Content-Length somewhere in the stream
 		input := "garbage data\nmore garbage\nContent-Length: 20\r\n\r\nsomething"
 		reader := bufio.NewReader(strings.NewReader(input))
 
@@ -924,7 +877,6 @@ func TestAttemptRecovery(t *testing.T) {
 	})
 
 	t.Run("FailedRecovery", func(t *testing.T) {
-		// Create input without Content-Length
 		input := "garbage data\nmore garbage\nno content length here"
 		reader := bufio.NewReader(strings.NewReader(input))
 
@@ -941,23 +893,19 @@ func TestMessageLoop(t *testing.T) {
 	t.Run("NormalOperation", func(t *testing.T) {
 		server := createTestServer()
 
-		// Create input with valid message followed by EOF
 		input := createTestMessage(1, "ping", nil)
 		inputReader := strings.NewReader(input)
 		outputBuffer := &bytes.Buffer{}
 		server.SetIO(inputReader, outputBuffer)
 
-		// Start server
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
 			_ = server.Start()
 		}()
 
-		// Wait for processing
 		select {
 		case <-done:
-			// Server should exit gracefully on EOF
 		case <-time.After(1 * time.Second):
 			t.Error("Server did not exit on EOF within timeout")
 		}
@@ -971,31 +919,24 @@ func TestMessageLoop(t *testing.T) {
 	t.Run("ContextCancellation", func(t *testing.T) {
 		server := createTestServer()
 
-		// Set up input that would block forever
 		pr, pw := io.Pipe()
 		outputBuffer := &bytes.Buffer{}
 		server.SetIO(pr, outputBuffer)
 
-		// Start server
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
 			_ = server.Start()
 		}()
 
-		// Give server time to start
 		time.Sleep(10 * time.Millisecond)
 
-		// Cancel context
 		server.cancel()
 
-		// Close pipe to avoid hanging
 		_ = pw.Close()
 
-		// Wait for server to exit
 		select {
 		case <-done:
-			// Good, server exited
 		case <-time.After(1 * time.Second):
 			t.Error("Server did not exit on context cancellation within timeout")
 		}
@@ -1004,7 +945,6 @@ func TestMessageLoop(t *testing.T) {
 	t.Run("ConsecutiveErrors", func(t *testing.T) {
 		server := createTestServer()
 
-		// Create input with multiple malformed messages
 		malformedInput := "Content-Length: invalid\r\n\r\n{}\n" +
 			"Content-Length: -1\r\n\r\n{}\n" +
 			"garbage\n" +
@@ -1014,17 +954,14 @@ func TestMessageLoop(t *testing.T) {
 		outputBuffer := &bytes.Buffer{}
 		server.SetIO(inputReader, outputBuffer)
 
-		// Start server
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
 			_ = server.Start()
 		}()
 
-		// Wait for server to handle errors and exit
 		select {
 		case <-done:
-			// Server should exit after too many consecutive errors
 		case <-time.After(2 * time.Second):
 			t.Error("Server did not exit after consecutive errors within timeout")
 			server.cancel()
@@ -1035,7 +972,6 @@ func TestMessageLoop(t *testing.T) {
 func TestConcurrentAccess(t *testing.T) {
 	server := createTestServer()
 
-	// Test concurrent calls to IsRunning
 	t.Run("ConcurrentIsRunning", func(t *testing.T) {
 		var wg sync.WaitGroup
 		results := make([]bool, 100)
@@ -1050,7 +986,6 @@ func TestConcurrentAccess(t *testing.T) {
 
 		wg.Wait()
 
-		// All should return true initially
 		for i, result := range results {
 			if !result {
 				t.Errorf("Expected result %d to be true", i)
@@ -1058,7 +993,6 @@ func TestConcurrentAccess(t *testing.T) {
 		}
 	})
 
-	// Test concurrent recovery context updates
 	t.Run("ConcurrentRecoveryUpdates", func(t *testing.T) {
 		var wg sync.WaitGroup
 
@@ -1091,7 +1025,6 @@ func TestConcurrentAccess(t *testing.T) {
 }
 
 func TestIntegration(t *testing.T) {
-	// Create a mock HTTP server to simulate LSP Gateway
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/jsonrpc" {
 			w.WriteHeader(http.StatusNotFound)
@@ -1111,7 +1044,9 @@ func TestIntegration(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			t.Errorf("Failed to encode response: %v", err)
+		}
 	}))
 	defer mockServer.Close()
 
@@ -1126,7 +1061,6 @@ func TestIntegration(t *testing.T) {
 
 		server := NewServer(config)
 
-		// Create input with initialize, tools/list, and tools/call messages
 		messages := []string{
 			createTestMessage(1, "initialize", map[string]interface{}{
 				"protocolVersion": "2024-11-05",
@@ -1144,17 +1078,14 @@ func TestIntegration(t *testing.T) {
 		outputBuffer := &bytes.Buffer{}
 		server.SetIO(inputReader, outputBuffer)
 
-		// Start server
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
 			_ = server.Start()
 		}()
 
-		// Wait for processing
 		select {
 		case <-done:
-			// Check responses
 			output := outputBuffer.String()
 			responseCount := strings.Count(output, "Content-Length:")
 			if responseCount < 3 {
@@ -1285,7 +1216,6 @@ func TestUtilityFunctions(t *testing.T) {
 func TestGetRecoveryMetrics(t *testing.T) {
 	server := createTestServer()
 
-	// Update some metrics
 	server.updateRecoveryContext("malformed")
 	server.updateRecoveryContext("parse_error")
 	server.updateRecoveryContext("parse_error")
@@ -1312,12 +1242,10 @@ func TestGetRecoveryMetrics(t *testing.T) {
 	}
 }
 
-// Benchmarks
-
 func BenchmarkMessageValidation(b *testing.B) {
 	server := createTestServer()
 	message := MCPMessage{
-		JSONRPC: gateway.JSONRPCVersion,
+		JSONRPC: JSONRPCVersion,
 		ID:      1,
 		Method:  "initialize",
 		Params:  map[string]interface{}{"test": true},
@@ -1334,7 +1262,7 @@ func BenchmarkSendMessage(b *testing.B) {
 	server.SetIO(nil, io.Discard)
 
 	message := MCPMessage{
-		JSONRPC: gateway.JSONRPCVersion,
+		JSONRPC: JSONRPCVersion,
 		ID:      1,
 		Result:  map[string]interface{}{"test": "value"},
 	}

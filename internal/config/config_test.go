@@ -261,7 +261,6 @@ func TestDefaultConfig(t *testing.T) {
 		t.Errorf("Expected transport 'stdio', got '%s'", server.Transport)
 	}
 
-	// Validate that default config is valid
 	if err := config.Validate(); err != nil {
 		t.Errorf("Default config should be valid: %v", err)
 	}
@@ -592,7 +591,10 @@ servers: []
 		t.Run(tt.name, func(t *testing.T) {
 			configPath := createTempConfigFile(t, tt.configData)
 
-			config, err := LoadAndValidateConfig(configPath)
+			config, err := LoadConfig(configPath)
+			if err == nil {
+				err = ValidateConfig(config)
+			}
 
 			if tt.wantErr {
 				if err == nil {
@@ -647,17 +649,14 @@ servers:
 		t.Fatalf("Failed to load complex config: %v", err)
 	}
 
-	// Test port
 	if config.Port != 9090 {
 		t.Errorf("Expected port 9090, got %d", config.Port)
 	}
 
-	// Test servers count
 	if len(config.Servers) != 4 {
 		t.Errorf("Expected 4 servers, got %d", len(config.Servers))
 	}
 
-	// Test first server details
 	goServer := config.Servers[0]
 	if goServer.Name != "go-lsp" {
 		t.Errorf("Expected first server name 'go-lsp', got '%s'", goServer.Name)
@@ -667,13 +666,11 @@ servers:
 		t.Errorf("Expected 3 args for go-lsp, got %d", len(goServer.Args))
 	}
 
-	// Test multi-language server
 	tsServer := config.Servers[2]
 	if len(tsServer.Languages) != 2 {
 		t.Errorf("Expected 2 languages for typescript-lsp, got %d", len(tsServer.Languages))
 	}
 
-	// Validate the loaded config
 	if err := ValidateConfig(config); err != nil {
 		t.Errorf("Complex config should be valid: %v", err)
 	}

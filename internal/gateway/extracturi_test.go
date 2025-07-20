@@ -6,19 +6,16 @@ import (
 	"lsp-gateway/internal/transport"
 )
 
-// Helper function to create a test gateway
 func createTestGateway() *Gateway {
 	gateway := &Gateway{
 		clients: make(map[string]transport.LSPClient),
 		router:  NewRouter(),
 	}
-	// Add nil clients for testing special methods (we don't need actual clients for URI extraction)
 	gateway.clients["server1"] = nil
 	gateway.clients["server2"] = nil
 	return gateway
 }
 
-// Helper function to check special method results
 func checkSpecialMethodResult(t *testing.T, gateway *Gateway, uri string) {
 	found := false
 	for serverName := range gateway.clients {
@@ -436,7 +433,6 @@ func TestExtractURI_EdgeCases(t *testing.T) {
 
 func TestExtractURI_NoServersAvailable(t *testing.T) {
 	t.Parallel()
-	// Create a gateway with no clients for testing special methods
 	gateway := &Gateway{
 		clients: make(map[string]transport.LSPClient),
 		router:  NewRouter(),
@@ -499,7 +495,6 @@ func TestExtractURI_NoServersAvailable(t *testing.T) {
 	}
 }
 
-// Test with real-world LSP method examples
 func TestExtractURI_RealWorldExamples(t *testing.T) {
 	t.Parallel()
 	gateway := &Gateway{

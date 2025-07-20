@@ -8,24 +8,19 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"lsp-gateway/internal/gateway"
 )
 
-// TestableToolHandler wraps ToolHandler to make it testable with mocks
 type TestableToolHandler struct {
 	*ToolHandler
 	mockClient LSPClientInterface
 }
 
 func NewTestableToolHandler(mockClient LSPClientInterface) *TestableToolHandler {
-	// Create an empty tool handler structure
 	handler := &ToolHandler{
 		client: nil, // We'll override this
 		tools:  make(map[string]Tool),
 	}
 
-	// Register default tools
 	handler.registerDefaultTools()
 
 	return &TestableToolHandler{
@@ -34,7 +29,6 @@ func NewTestableToolHandler(mockClient LSPClientInterface) *TestableToolHandler 
 	}
 }
 
-// Override the methods that use the client
 func (th *TestableToolHandler) handleGotoDefinition(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
@@ -114,7 +108,7 @@ func (th *TestableToolHandler) handleGetHoverInfo(ctx context.Context, args map[
 		},
 	}
 
-	result, err := th.mockClient.SendLSPRequest(ctx, gateway.LSPMethodHover, params)
+	result, err := th.mockClient.SendLSPRequest(ctx, LSPMethodHover, params)
 	if err != nil {
 		return &ToolResult{
 			Content: []ContentBlock{{
@@ -183,7 +177,6 @@ func (th *TestableToolHandler) handleSearchWorkspaceSymbols(ctx context.Context,
 	}, nil
 }
 
-// Override CallTool to use our testable handlers
 func (th *TestableToolHandler) CallTool(ctx context.Context, call ToolCall) (*ToolResult, error) {
 	tool, exists := th.tools[call.Name]
 	if !exists {
@@ -218,9 +211,7 @@ func (th *TestableToolHandler) CallTool(ctx context.Context, call ToolCall) (*To
 	}
 }
 
-// Test ToolHandler creation and initialization
 func TestNewToolHandler(t *testing.T) {
-	// Use a real LSPGatewayClient for this test
 	config := &ServerConfig{
 		LSPGatewayURL: "http://localhost:8080",
 		Timeout:       5 * time.Second,
@@ -241,7 +232,6 @@ func TestNewToolHandler(t *testing.T) {
 		t.Fatal("Expected tools map to be initialized")
 	}
 
-	// Check that default tools are registered
 	expectedTools := []string{
 		"goto_definition",
 		"find_references",
@@ -257,7 +247,6 @@ func TestNewToolHandler(t *testing.T) {
 	}
 }
 
-// Test tool listing
 func TestListTools(t *testing.T) {
 	mockClient := NewMockLSPGatewayClient()
 	handler := NewTestableToolHandler(mockClient)
@@ -267,12 +256,10 @@ func TestListTools(t *testing.T) {
 		t.Errorf("Expected 5 tools, got %d", len(tools))
 	}
 
-	// Check that all expected tools are present
 	toolNames := make(map[string]bool)
 	for _, tool := range tools {
 		toolNames[tool.Name] = true
 
-		// Validate tool structure
 		if tool.Name == "" {
 			t.Error("Tool name should not be empty")
 		}
@@ -283,7 +270,6 @@ func TestListTools(t *testing.T) {
 			t.Error("Tool input schema should not be nil")
 		}
 
-		// Validate input schema structure
 		schema, ok := tool.InputSchema["type"]
 		if !ok || schema != "object" {
 			t.Errorf("Expected input schema type 'object', got %v", schema)
@@ -299,12 +285,10 @@ func TestListTools(t *testing.T) {
 			t.Error("Expected input schema to have required fields")
 		}
 
-		// Validate required fields are arrays
 		if reflect.TypeOf(required).Kind() != reflect.Slice {
 			t.Error("Expected required fields to be an array")
 		}
 
-		// Validate properties structure
 		if reflect.TypeOf(properties).Kind() != reflect.Map {
 			t.Error("Expected properties to be a map")
 		}
@@ -325,7 +309,6 @@ func TestListTools(t *testing.T) {
 	}
 }
 
-// Test goto_definition tool
 func TestGotoDefinitionTool(t *testing.T) {
 	mockClient := NewMockLSPGatewayClient()
 	handler := NewTestableToolHandler(mockClient)
@@ -365,7 +348,6 @@ func TestGotoDefinitionTool(t *testing.T) {
 		t.Errorf("Expected content type 'text', got %s", result.Content[0].Type)
 	}
 
-	// JSON formatting may differ (spaces), so validate by unmarshaling and comparing
 	var expectedData, actualData interface{}
 	if err := json.Unmarshal(expectedResponse, &expectedData); err != nil {
 		t.Fatalf("Failed to unmarshal expected response: %v", err)
@@ -378,11 +360,8 @@ func TestGotoDefinitionTool(t *testing.T) {
 		t.Errorf("Expected response data %v, got %v", expectedData, actualData)
 	}
 
-	// Note: Parameter validation is handled by the individual tool handler methods
-	// The important part is that the tool call succeeded and returned the expected result
 }
 
-// Test find_references tool
 func TestFindReferencesTool(t *testing.T) {
 	mockClient := NewMockLSPGatewayClient()
 	handler := NewTestableToolHandler(mockClient)
@@ -411,10 +390,8 @@ func TestFindReferencesTool(t *testing.T) {
 		t.Error("Expected successful result, got error result")
 	}
 
-	// Note: Parameter validation is handled by the tool handler methods
 }
 
-// Test find_references tool with default includeDeclaration
 func TestFindReferencesToolDefaultIncludeDeclaration(t *testing.T) {
 	mockClient := NewMockLSPGatewayClient()
 	handler := NewTestableToolHandler(mockClient)
@@ -435,16 +412,14 @@ func TestFindReferencesToolDefaultIncludeDeclaration(t *testing.T) {
 		t.Fatalf("Expected successful tool call, got error: %v", err)
 	}
 
-	// Note: Default parameter validation is handled by the tool handler methods
 }
 
-// Test get_hover_info tool
 func TestGetHoverInfoTool(t *testing.T) {
 	mockClient := NewMockLSPGatewayClient()
 	handler := NewTestableToolHandler(mockClient)
 
 	expectedResponse := json.RawMessage(`{"contents": {"kind": "markdown", "value": "function description"}}`)
-	mockClient.SetResponse(gateway.LSPMethodHover, expectedResponse)
+	mockClient.SetResponse(LSPMethodHover, expectedResponse)
 
 	args := map[string]interface{}{
 		"uri":       "file:///test.go",
@@ -466,10 +441,8 @@ func TestGetHoverInfoTool(t *testing.T) {
 		t.Error("Expected successful result, got error result")
 	}
 
-	// Note: Method validation is handled by the tool handler implementation
 }
 
-// Test get_document_symbols tool
 func TestGetDocumentSymbolsTool(t *testing.T) {
 	mockClient := NewMockLSPGatewayClient()
 	handler := NewTestableToolHandler(mockClient)
@@ -495,10 +468,8 @@ func TestGetDocumentSymbolsTool(t *testing.T) {
 		t.Error("Expected successful result, got error result")
 	}
 
-	// Note: Parameter structure validation is handled by the tool handler implementation
 }
 
-// Test search_workspace_symbols tool
 func TestSearchWorkspaceSymbolsTool(t *testing.T) {
 	mockClient := NewMockLSPGatewayClient()
 	handler := NewTestableToolHandler(mockClient)
@@ -524,10 +495,8 @@ func TestSearchWorkspaceSymbolsTool(t *testing.T) {
 		t.Error("Expected successful result, got error result")
 	}
 
-	// Note: Parameter structure validation is handled by the tool handler implementation
 }
 
-// Test unknown tool handling
 func TestUnknownTool(t *testing.T) {
 	mockClient := NewMockLSPGatewayClient()
 	handler := NewTestableToolHandler(mockClient)
@@ -555,7 +524,6 @@ func TestUnknownTool(t *testing.T) {
 	}
 }
 
-// Test error handling for LSP client errors
 func TestLSPClientError(t *testing.T) {
 	mockClient := NewMockLSPGatewayClient()
 	handler := NewTestableToolHandler(mockClient)
@@ -596,7 +564,6 @@ func TestLSPClientError(t *testing.T) {
 	}
 }
 
-// Test error handling for each tool type
 func TestToolSpecificErrors(t *testing.T) {
 	tests := []struct {
 		toolName      string
@@ -616,7 +583,7 @@ func TestToolSpecificErrors(t *testing.T) {
 		{
 			toolName:      "get_hover_info",
 			expectedError: "Error getting hover info",
-			lspMethod:     gateway.LSPMethodHover,
+			lspMethod:     LSPMethodHover,
 		},
 		{
 			toolName:      "get_document_symbols",
@@ -665,15 +632,12 @@ func TestToolSpecificErrors(t *testing.T) {
 	}
 }
 
-// Test tool schema validation
 func TestToolSchemaValidation(t *testing.T) {
 	mockClient := NewMockLSPGatewayClient()
 	handler := NewTestableToolHandler(mockClient)
 
-	// Test goto_definition schema
 	tool := handler.tools["goto_definition"]
 
-	// Check required fields
 	required, ok := tool.InputSchema["required"].([]string)
 	if !ok {
 		t.Fatal("Expected required fields to be []string")
@@ -684,13 +648,11 @@ func TestToolSchemaValidation(t *testing.T) {
 		t.Errorf("Expected required fields %v, got %v", expectedRequired, required)
 	}
 
-	// Check properties
 	properties, ok := tool.InputSchema["properties"].(map[string]interface{})
 	if !ok {
 		t.Fatal("Expected properties to be map[string]interface{}")
 	}
 
-	// Validate uri property
 	uriProp, ok := properties["uri"].(map[string]interface{})
 	if !ok {
 		t.Fatal("Expected uri property to be map[string]interface{}")
@@ -700,7 +662,6 @@ func TestToolSchemaValidation(t *testing.T) {
 		t.Errorf("Expected uri type 'string', got %v", uriProp["type"])
 	}
 
-	// Validate line property
 	lineProp, ok := properties["line"].(map[string]interface{})
 	if !ok {
 		t.Fatal("Expected line property to be map[string]interface{}")
@@ -710,7 +671,6 @@ func TestToolSchemaValidation(t *testing.T) {
 		t.Errorf("Expected line type 'integer', got %v", lineProp["type"])
 	}
 
-	// Validate character property
 	charProp, ok := properties["character"].(map[string]interface{})
 	if !ok {
 		t.Fatal("Expected character property to be map[string]interface{}")
@@ -721,7 +681,6 @@ func TestToolSchemaValidation(t *testing.T) {
 	}
 }
 
-// Test find_references schema with includeDeclaration
 func TestFindReferencesSchema(t *testing.T) {
 	mockClient := NewMockLSPGatewayClient()
 	handler := NewTestableToolHandler(mockClient)
@@ -732,7 +691,6 @@ func TestFindReferencesSchema(t *testing.T) {
 		t.Fatal("Expected properties to be map[string]interface{}")
 	}
 
-	// Check includeDeclaration property
 	includeProp, ok := properties["includeDeclaration"].(map[string]interface{})
 	if !ok {
 		t.Fatal("Expected includeDeclaration property")
@@ -746,7 +704,6 @@ func TestFindReferencesSchema(t *testing.T) {
 		t.Errorf("Expected includeDeclaration default true, got %v", includeProp["default"])
 	}
 
-	// Check that includeDeclaration is not in required fields
 	required, ok := tool.InputSchema["required"].([]string)
 	if !ok {
 		t.Fatal("Expected required fields to be []string")
@@ -759,14 +716,12 @@ func TestFindReferencesSchema(t *testing.T) {
 	}
 }
 
-// Test workspace symbols schema
 func TestWorkspaceSymbolsSchema(t *testing.T) {
 	mockClient := NewMockLSPGatewayClient()
 	handler := NewTestableToolHandler(mockClient)
 
 	tool := handler.tools["search_workspace_symbols"]
 
-	// Check required fields (should only have query)
 	required, ok := tool.InputSchema["required"].([]string)
 	if !ok {
 		t.Fatal("Expected required fields to be []string")
@@ -777,13 +732,11 @@ func TestWorkspaceSymbolsSchema(t *testing.T) {
 		t.Errorf("Expected required fields %v, got %v", expectedRequired, required)
 	}
 
-	// Check properties
 	properties, ok := tool.InputSchema["properties"].(map[string]interface{})
 	if !ok {
 		t.Fatal("Expected properties to be map[string]interface{}")
 	}
 
-	// Should only have query property
 	if len(properties) != 1 {
 		t.Errorf("Expected 1 property, got %d", len(properties))
 	}
@@ -798,14 +751,12 @@ func TestWorkspaceSymbolsSchema(t *testing.T) {
 	}
 }
 
-// Test document symbols schema
 func TestDocumentSymbolsSchema(t *testing.T) {
 	mockClient := NewMockLSPGatewayClient()
 	handler := NewTestableToolHandler(mockClient)
 
 	tool := handler.tools["get_document_symbols"]
 
-	// Check required fields (should only have uri)
 	required, ok := tool.InputSchema["required"].([]string)
 	if !ok {
 		t.Fatal("Expected required fields to be []string")
@@ -816,33 +767,28 @@ func TestDocumentSymbolsSchema(t *testing.T) {
 		t.Errorf("Expected required fields %v, got %v", expectedRequired, required)
 	}
 
-	// Check properties
 	properties, ok := tool.InputSchema["properties"].(map[string]interface{})
 	if !ok {
 		t.Fatal("Expected properties to be map[string]interface{}")
 	}
 
-	// Should only have uri property
 	if len(properties) != 1 {
 		t.Errorf("Expected 1 property, got %d", len(properties))
 	}
 }
 
-// Test concurrent tool calls
 func TestConcurrentToolCalls(t *testing.T) {
 	mockClient := NewMockLSPGatewayClient()
 	handler := NewTestableToolHandler(mockClient)
 
-	// Set up responses for all methods
 	mockClient.SetResponse("textDocument/definition", json.RawMessage(`{"result": "definition"}`))
 	mockClient.SetResponse("textDocument/references", json.RawMessage(`{"result": "references"}`))
-	mockClient.SetResponse(gateway.LSPMethodHover, json.RawMessage(`{"result": "hover"}`))
+	mockClient.SetResponse(LSPMethodHover, json.RawMessage(`{"result": "hover"}`))
 
 	const numCalls = 100
 	results := make(chan *ToolResult, numCalls)
 	errors := make(chan error, numCalls)
 
-	// Launch concurrent tool calls
 	for i := 0; i < numCalls; i++ {
 		go func(index int) {
 			args := map[string]interface{}{
@@ -865,7 +811,6 @@ func TestConcurrentToolCalls(t *testing.T) {
 		}(i)
 	}
 
-	// Collect results
 	successCount := 0
 	for i := 0; i < numCalls; i++ {
 		select {
@@ -884,24 +829,20 @@ func TestConcurrentToolCalls(t *testing.T) {
 		t.Errorf("Expected %d successful calls, got %d", numCalls, successCount)
 	}
 
-	// Verify total request count
 	totalRequests := mockClient.GetRequestCount()
 	if totalRequests < int64(numCalls) {
 		t.Errorf("Expected at least %d total requests, got %d", numCalls, totalRequests)
 	}
 }
 
-// Test context cancellation
 func TestToolCallContextCancellation(t *testing.T) {
 	mockClient := NewMockLSPGatewayClient()
 	handler := NewTestableToolHandler(mockClient)
 
-	// Set up mock to simulate slow response by setting a delay
 	mockClient.SetDelay("textDocument/definition", 1*time.Second)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Cancel context immediately
 	cancel()
 
 	args := map[string]interface{}{
@@ -929,7 +870,6 @@ func TestToolCallContextCancellation(t *testing.T) {
 	}
 }
 
-// Test tool result structure
 func TestToolResultStructure(t *testing.T) {
 	mockClient := NewMockLSPGatewayClient()
 	handler := NewTestableToolHandler(mockClient)
@@ -953,7 +893,6 @@ func TestToolResultStructure(t *testing.T) {
 		t.Fatalf("Expected successful tool call, got error: %v", err)
 	}
 
-	// Validate result structure
 	if result.IsError {
 		t.Error("Expected successful result")
 	}
@@ -971,7 +910,6 @@ func TestToolResultStructure(t *testing.T) {
 		t.Errorf("Expected content type 'text', got %s", content.Type)
 	}
 
-	// JSON formatting may differ (spaces), so validate by unmarshaling and comparing
 	var expectedData, actualData interface{}
 	if err := json.Unmarshal(expectedResponse, &expectedData); err != nil {
 		t.Fatalf("Failed to unmarshal expected response: %v", err)
@@ -993,7 +931,6 @@ func TestToolResultStructure(t *testing.T) {
 	}
 }
 
-// Benchmark tool calls
 func BenchmarkToolCall(b *testing.B) {
 	mockClient := NewMockLSPGatewayClient()
 	handler := NewTestableToolHandler(mockClient)
@@ -1033,10 +970,8 @@ func BenchmarkListTools(b *testing.B) {
 	}
 }
 
-// Test error code constants
 func TestErrorCodeConstants(t *testing.T) {
 
-	// Validate that error codes have expected values
 	if MCPErrorParseError != -32700 {
 		t.Errorf("Expected MCPErrorParseError to be -32700, got %d", MCPErrorParseError)
 	}
@@ -1045,7 +980,6 @@ func TestErrorCodeConstants(t *testing.T) {
 		t.Errorf("Expected MCPErrorServerError to be -32000, got %d", MCPErrorServerError)
 	}
 
-	// Test LSP error codes
 	if LSPErrorRequestFailed != -32803 {
 		t.Errorf("Expected LSPErrorRequestFailed to be -32803, got %d", LSPErrorRequestFailed)
 	}
@@ -1055,7 +989,6 @@ func TestErrorCodeConstants(t *testing.T) {
 	}
 }
 
-// Test structured error
 func TestStructuredError(t *testing.T) {
 	err := &StructuredError{
 		Code:        MCPErrorInvalidParams,
@@ -1083,7 +1016,6 @@ func TestStructuredError(t *testing.T) {
 	}
 }
 
-// Test validation error
 func TestValidationError(t *testing.T) {
 	valErr := &ValidationError{
 		Field:    "line",

@@ -3,29 +3,27 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"lsp-gateway/internal/gateway"
 )
 
-// Tool represents an MCP tool that can be called by clients
+const (
+	LSPMethodHover = "textDocument/hover"
+)
+
 type Tool struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
 	InputSchema map[string]interface{} `json:"inputSchema"`
 }
 
-// MCPErrorCode represents MCP protocol error codes
 type MCPErrorCode int
 
-// MCP Error Code Constants
 const (
-	// Standard JSON-RPC 2.0 error codes
 	MCPErrorParseError     MCPErrorCode = -32700
 	MCPErrorInvalidRequest MCPErrorCode = -32600
 	MCPErrorMethodNotFound MCPErrorCode = -32601
 	MCPErrorInvalidParams  MCPErrorCode = -32602
 	MCPErrorInternalError  MCPErrorCode = -32603
 
-	// MCP-specific error codes (starting from -32000)
 	MCPErrorServerError        MCPErrorCode = -32000
 	MCPErrorInvalidURI         MCPErrorCode = -32001
 	MCPErrorUnsupportedFeature MCPErrorCode = -32002
@@ -37,10 +35,8 @@ const (
 	MCPErrorTooManyRequests    MCPErrorCode = -32008
 )
 
-// LSPErrorCode represents LSP protocol error codes
 type LSPErrorCode int
 
-// LSP Error Code Constants (from LSP specification)
 const (
 	LSPErrorUnknownErrorCode      LSPErrorCode = -32001
 	LSPErrorRequestFailed         LSPErrorCode = -32803
@@ -55,7 +51,6 @@ const (
 	LSPErrorWorkspaceNotAvailable LSPErrorCode = -32904
 )
 
-// StructuredError represents a structured error with contextual information
 type StructuredError struct {
 	Code        MCPErrorCode           `json:"code"`
 	Message     string                 `json:"message"`
@@ -65,7 +60,6 @@ type StructuredError struct {
 	Retryable   bool                   `json:"retryable"`
 }
 
-// ValidationError represents a parameter validation error
 type ValidationError struct {
 	Field    string      `json:"field"`
 	Value    interface{} `json:"value"`
@@ -74,13 +68,11 @@ type ValidationError struct {
 	Message  string      `json:"message"`
 }
 
-// ToolCall represents a call to an MCP tool
 type ToolCall struct {
 	Name      string                 `json:"name"`
 	Arguments map[string]interface{} `json:"arguments"`
 }
 
-// ToolResult represents the result of a tool call
 type ToolResult struct {
 	Content []ContentBlock    `json:"content"`
 	IsError bool              `json:"isError,omitempty"`
@@ -88,7 +80,6 @@ type ToolResult struct {
 	Meta    *ResponseMetadata `json:"meta,omitempty"`
 }
 
-// ResponseMetadata provides additional context about the response
 type ResponseMetadata struct {
 	Timestamp   string                 `json:"timestamp"`
 	Duration    string                 `json:"duration,omitempty"`
@@ -98,7 +89,6 @@ type ResponseMetadata struct {
 	RequestInfo map[string]interface{} `json:"requestInfo,omitempty"`
 }
 
-// ContentBlock represents a piece of content in a tool result
 type ContentBlock struct {
 	Type        string                 `json:"type"`
 	Text        string                 `json:"text,omitempty"`
@@ -106,26 +96,22 @@ type ContentBlock struct {
 	Annotations map[string]interface{} `json:"annotations,omitempty"`
 }
 
-// ToolHandler manages MCP tools and their execution
 type ToolHandler struct {
 	client *LSPGatewayClient
 	tools  map[string]Tool
 }
 
-// NewToolHandler creates a new tool handler with the LSP Gateway client
 func NewToolHandler(client *LSPGatewayClient) *ToolHandler {
 	handler := &ToolHandler{
 		client: client,
 		tools:  make(map[string]Tool),
 	}
 
-	// Register default tools
 	handler.registerDefaultTools()
 
 	return handler
 }
 
-// registerDefaultTools registers the built-in LSP tools
 func (h *ToolHandler) registerDefaultTools() {
 	h.tools["goto_definition"] = Tool{
 		Name:        "goto_definition",
@@ -232,7 +218,6 @@ func (h *ToolHandler) registerDefaultTools() {
 	}
 }
 
-// ListTools returns all available tools
 func (h *ToolHandler) ListTools() []Tool {
 	tools := make([]Tool, 0, len(h.tools))
 	for _, tool := range h.tools {
@@ -241,7 +226,6 @@ func (h *ToolHandler) ListTools() []Tool {
 	return tools
 }
 
-// CallTool executes a tool call
 func (h *ToolHandler) CallTool(ctx context.Context, call ToolCall) (*ToolResult, error) {
 	tool, exists := h.tools[call.Name]
 	if !exists {
@@ -275,10 +259,6 @@ func (h *ToolHandler) CallTool(ctx context.Context, call ToolCall) (*ToolResult,
 		}, nil
 	}
 }
-
-// Helper functions for tool management
-
-// Helper functions for each tool implementation
 
 func (h *ToolHandler) handleGotoDefinition(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
 	params := map[string]interface{}{
@@ -359,7 +339,7 @@ func (h *ToolHandler) handleGetHoverInfo(ctx context.Context, args map[string]in
 		},
 	}
 
-	result, err := h.client.SendLSPRequest(ctx, gateway.LSPMethodHover, params)
+	result, err := h.client.SendLSPRequest(ctx, LSPMethodHover, params)
 	if err != nil {
 		return &ToolResult{
 			Content: []ContentBlock{{
@@ -427,5 +407,3 @@ func (h *ToolHandler) handleSearchWorkspaceSymbols(ctx context.Context, args map
 		}},
 	}, nil
 }
-
-// Utility functions

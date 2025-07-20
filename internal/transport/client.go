@@ -6,7 +6,6 @@ import (
 	"fmt"
 )
 
-// JSONRPCMessage represents a JSON-RPC message
 type JSONRPCMessage struct {
 	JSONRPC string      `json:"jsonrpc"`
 	ID      interface{} `json:"id,omitempty"`
@@ -16,21 +15,18 @@ type JSONRPCMessage struct {
 	Error   *RPCError   `json:"error,omitempty"`
 }
 
-// RPCError represents a JSON-RPC error
 type RPCError struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 }
 
-// ClientConfig defines configuration for LSP client
 type ClientConfig struct {
 	Command   string
 	Args      []string
 	Transport string
 }
 
-// LSPClient defines the interface for LSP server communication
 type LSPClient interface {
 	Start(ctx context.Context) error
 	Stop() error
@@ -45,7 +41,14 @@ const (
 	TransportHTTP  = "http"
 )
 
-// NewLSPClient creates a new LSP client based on transport type
+const (
+	JSONRPCVersion = "2.0"
+)
+
+const (
+	ErrorUnsupportedTransport = "unsupported transport"
+)
+
 func NewLSPClient(config ClientConfig) (LSPClient, error) {
 	switch config.Transport {
 	case TransportStdio:
@@ -53,6 +56,6 @@ func NewLSPClient(config ClientConfig) (LSPClient, error) {
 	case TransportTCP:
 		return NewTCPClient(config)
 	default:
-		return nil, fmt.Errorf("unsupported transport: %s", config.Transport)
+		return nil, fmt.Errorf("%s: %s", ErrorUnsupportedTransport, config.Transport)
 	}
 }

@@ -25,10 +25,8 @@ func TestRegisterServer(t *testing.T) {
 	t.Parallel()
 	router := NewRouter()
 
-	// Register a Go server
 	router.RegisterServer("gopls", []string{"go"})
 
-	// Check if language is registered
 	server, exists := router.GetServerByLanguage("go")
 	if !exists {
 		t.Fatal("Go language not registered")
@@ -38,7 +36,6 @@ func TestRegisterServer(t *testing.T) {
 		t.Fatalf("Expected gopls, got %s", server)
 	}
 
-	// Check if extensions are registered
 	lang, exists := router.GetLanguageByExtension("go")
 	if !exists {
 		t.Fatal("Go extension not registered")
@@ -53,7 +50,6 @@ func TestRouteRequest(t *testing.T) {
 	t.Parallel()
 	router := NewRouter()
 
-	// Register servers
 	router.RegisterServer("gopls", []string{"go"})
 	router.RegisterServer("pyright", []string{"python"})
 	router.RegisterServer("typescript-language-server", []string{"typescript", "javascript"})
@@ -211,23 +207,19 @@ func TestGetSupportedLanguages(t *testing.T) {
 	t.Parallel()
 	router := NewRouter()
 
-	// Initially should be empty
 	languages := router.GetSupportedLanguages()
 	if len(languages) != 0 {
 		t.Fatalf("Expected 0 languages, got %d", len(languages))
 	}
 
-	// Register servers
 	router.RegisterServer("gopls", []string{"go"})
 	router.RegisterServer("pyright", []string{"python"})
 
-	// Should now have 2 languages
 	languages = router.GetSupportedLanguages()
 	if len(languages) != 2 {
 		t.Fatalf("Expected 2 languages, got %d", len(languages))
 	}
 
-	// Check if both languages are present
 	languageSet := make(map[string]bool)
 	for _, lang := range languages {
 		languageSet[lang] = true
@@ -242,22 +234,18 @@ func TestGetSupportedExtensions(t *testing.T) {
 	t.Parallel()
 	router := NewRouter()
 
-	// Initially should be empty
 	extensions := router.GetSupportedExtensions()
 	if len(extensions) != 0 {
 		t.Fatalf("Expected 0 extensions, got %d", len(extensions))
 	}
 
-	// Register a server
 	router.RegisterServer("gopls", []string{"go"})
 
-	// Should now have go extensions
 	extensions = router.GetSupportedExtensions()
 	if len(extensions) == 0 {
 		t.Fatal("Expected some extensions, got 0")
 	}
 
-	// Check if go extension is present
 	extensionSet := make(map[string]bool)
 	for _, ext := range extensions {
 		extensionSet[ext] = true
@@ -272,7 +260,6 @@ func TestGetLanguageByExtension(t *testing.T) {
 	t.Parallel()
 	router := NewRouter()
 
-	// Register servers
 	router.RegisterServer("gopls", []string{"go"})
 	router.RegisterServer("pyright", []string{"python"})
 
@@ -337,7 +324,6 @@ func TestGetServerByLanguage(t *testing.T) {
 	t.Parallel()
 	router := NewRouter()
 
-	// Register servers
 	router.RegisterServer("gopls", []string{"go"})
 	router.RegisterServer("pyright", []string{"python"})
 	router.RegisterServer("typescript-language-server", []string{"typescript", "javascript"})
@@ -397,14 +383,11 @@ func TestGetServerByLanguage(t *testing.T) {
 func TestConcurrentAccess(t *testing.T) {
 	router := NewRouter()
 
-	// Register servers
 	router.RegisterServer("gopls", []string{"go"})
 	router.RegisterServer("pyright", []string{"python"})
 
-	// Test concurrent access
 	done := make(chan bool)
 
-	// Goroutine for reading
 	go func() {
 		for i := 0; i < 100; i++ {
 			router.GetSupportedLanguages()
@@ -416,7 +399,6 @@ func TestConcurrentAccess(t *testing.T) {
 		done <- true
 	}()
 
-	// Goroutine for writing
 	go func() {
 		for i := 0; i < 100; i++ {
 			router.RegisterServer("test-server", []string{"test"})
@@ -424,10 +406,8 @@ func TestConcurrentAccess(t *testing.T) {
 		done <- true
 	}()
 
-	// Wait for both goroutines to complete
 	<-done
 	<-done
 
-	// Test should not panic or deadlock
 	t.Log("Concurrent access test passed")
 }

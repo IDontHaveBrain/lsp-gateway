@@ -49,19 +49,16 @@ func testVersionCommandMetadata(t *testing.T) {
 		t.Errorf("Expected Long to be '%s', got '%s'", expectedLong, versionCmd.Long)
 	}
 
-	// Verify RunE function is set
 	if versionCmd.RunE == nil {
 		t.Error("Expected RunE function to be set")
 	}
 
-	// Verify Run function is not set (we use RunE)
 	if versionCmd.Run != nil {
 		t.Error("Expected Run function to be nil (using RunE instead)")
 	}
 }
 
 func testVersionCommandExecution(t *testing.T) {
-	// Capture stdout
 	output := captureStdout(t, func() {
 		err := versionCmd.RunE(versionCmd, []string{})
 		if err != nil {
@@ -69,12 +66,10 @@ func testVersionCommandExecution(t *testing.T) {
 		}
 	})
 
-	// Verify output is not empty
 	if output == "" {
 		t.Error("Expected version command to produce output")
 	}
 
-	// Verify output contains expected text
 	if !strings.Contains(output, "LSP Gateway MVP") {
 		t.Errorf("Expected output to contain 'LSP Gateway MVP', got: %s", output)
 	}
@@ -90,12 +85,10 @@ func testVersionCommandOutputFormat(t *testing.T) {
 
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 
-	// Should have exactly 3 lines
 	if len(lines) != 3 {
 		t.Errorf("Expected 3 lines of output, got %d: %v", len(lines), lines)
 	}
 
-	// Test each line format
 	expectedPatterns := []struct {
 		line    int
 		pattern string
@@ -132,7 +125,6 @@ func testVersionCommandRuntimeInfo(t *testing.T) {
 		}
 	})
 
-	// Verify Go version matches runtime (flexible matching)
 	runtimeVersion := runtime.Version()
 	if !strings.Contains(output, "Go Version:") {
 		t.Error("Expected output to contain 'Go Version:'")
@@ -141,7 +133,6 @@ func testVersionCommandRuntimeInfo(t *testing.T) {
 		t.Errorf("Expected output to contain Go version '%s', got output: %s", runtimeVersion, output)
 	}
 
-	// Verify OS/Arch matches runtime
 	expectedOSArch := fmt.Sprintf("OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
 	if !strings.Contains(output, expectedOSArch) {
 		t.Errorf("Expected output to contain '%s', got output: %s", expectedOSArch, output)
@@ -149,9 +140,7 @@ func testVersionCommandRuntimeInfo(t *testing.T) {
 }
 
 func testVersionCommandHelp(t *testing.T) {
-	// Test help output using a clean command instance
 	output := captureStdout(t, func() {
-		// Create a fresh command instance to avoid state pollution
 		testVersionCmd := &cobra.Command{
 			Use:   versionCmd.Use,
 			Short: versionCmd.Short,
@@ -165,7 +154,6 @@ func testVersionCommandHelp(t *testing.T) {
 		}
 	})
 
-	// Verify help output contains expected elements
 	expectedElements := []string{
 		"Show version information",
 		"version",
@@ -181,7 +169,6 @@ func testVersionCommandHelp(t *testing.T) {
 }
 
 func testVersionCommandIntegration(t *testing.T) {
-	// Test that version command is properly added to root
 	found := false
 	for _, cmd := range rootCmd.Commands() {
 		if cmd.Name() == CmdVersion {
@@ -194,9 +181,7 @@ func testVersionCommandIntegration(t *testing.T) {
 		t.Error("version command should be added to root command")
 	}
 
-	// Test execution through root command
 	output := captureStdout(t, func() {
-		// Create a copy to avoid modifying global state
 		testRoot := &cobra.Command{
 			Use:   rootCmd.Use,
 			Short: rootCmd.Short,
@@ -239,7 +224,6 @@ func TestVersionCommandEdgeCases(t *testing.T) {
 }
 
 func testVersionCommandWithArgs(t *testing.T) {
-	// Version command should ignore arguments
 	output := captureStdout(t, func() {
 		err := versionCmd.RunE(versionCmd, []string{"extra", "args"})
 		if err != nil {
@@ -253,7 +237,6 @@ func testVersionCommandWithArgs(t *testing.T) {
 }
 
 func testVersionCommandMultipleExecutions(t *testing.T) {
-	// Test multiple executions produce consistent output
 	var outputs []string
 
 	for i := 0; i < 3; i++ {
@@ -266,7 +249,6 @@ func testVersionCommandMultipleExecutions(t *testing.T) {
 		outputs = append(outputs, output)
 	}
 
-	// All outputs should be identical
 	for i := 1; i < len(outputs); i++ {
 		if outputs[i] != outputs[0] {
 			t.Errorf("Execution %d output differs from first execution:\nFirst: %s\nCurrent: %s",
@@ -276,27 +258,22 @@ func testVersionCommandMultipleExecutions(t *testing.T) {
 }
 
 func testVersionCommandOutputBuffering(t *testing.T) {
-	// Test that output is properly flushed
 	var buf bytes.Buffer
 
-	// Temporarily redirect stdout
 	oldStdout := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	// Execute command
 	err := versionCmd.RunE(versionCmd, []string{})
 	if err != nil {
 		t.Errorf("Version command execution failed: %v", err)
 	}
 
-	// Close writer and restore stdout
 	if err := w.Close(); err != nil {
 		t.Logf("cleanup error closing writer: %v", err)
 	}
 	os.Stdout = oldStdout
 
-	// Read all output
 	if _, err := io.Copy(&buf, r); err != nil {
 		t.Logf("error copying output: %v", err)
 	}
@@ -307,66 +284,54 @@ func testVersionCommandOutputBuffering(t *testing.T) {
 	}
 }
 
-// TestVersionCommandCompleteness verifies all expected functionality
 func TestVersionCommandCompleteness(t *testing.T) {
 	t.Parallel()
-	// Verify command structure
 	if versionCmd.Name() != CmdVersion {
 		t.Errorf("Expected command name 'version', got '%s'", versionCmd.Name())
 	}
 
-	// Verify no persistent flags
 	if versionCmd.HasPersistentFlags() {
 		t.Error("Version command should not have persistent flags")
 	}
 
-	// Verify no local flags
-	if versionCmd.HasLocalFlags() {
-		t.Error("Version command should not have local flags")
+	if !versionCmd.HasLocalFlags() {
+		t.Error("Version command should have local flags (--json)")
 	}
 
-	// Verify no subcommands
+	if versionCmd.Flag("json") == nil {
+		t.Error("Version command should have --json flag")
+	}
+
 	if versionCmd.HasSubCommands() {
 		t.Error("Version command should not have subcommands")
 	}
 
-	// Verify help is available (help is automatically added by Cobra)
-	// We can test this by checking if help flag is recognized
 	if versionCmd.Flag("help") == nil {
-		// This is expected - help flag is added by cobra framework
-		// Just verify the command structure is valid
 		if versionCmd.Use == "" {
 			t.Error("Command use should not be empty")
 		}
 	}
 }
 
-// Helper function to capture stdout during function execution
 func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
 
-	// Save original stdout
 	oldStdout := os.Stdout
 
-	// Create pipe
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("Failed to create pipe: %v", err)
 	}
 
-	// Replace stdout
 	os.Stdout = w
 
-	// Execute function
 	fn()
 
-	// Close writer and restore stdout
 	if err := w.Close(); err != nil {
 		t.Logf("cleanup error closing writer: %v", err)
 	}
 	os.Stdout = oldStdout
 
-	// Read captured output
 	var buf bytes.Buffer
 	_, err = io.Copy(&buf, r)
 	if err != nil {
@@ -376,10 +341,8 @@ func captureStdout(t *testing.T, fn func()) string {
 	return buf.String()
 }
 
-// Benchmark version command execution
 func BenchmarkVersionCommandExecution(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		// Capture output to avoid printing during benchmark
 		captureStdout(&testing.T{}, func() {
 			if err := versionCmd.RunE(versionCmd, []string{}); err != nil {
 				b.Logf("version command error: %v", err)
@@ -388,9 +351,7 @@ func BenchmarkVersionCommandExecution(b *testing.B) {
 	}
 }
 
-// Benchmark version command output parsing
 func BenchmarkVersionCommandOutputParsing(b *testing.B) {
-	// Pre-generate output
 	output := captureStdout(&testing.T{}, func() {
 		if err := versionCmd.RunE(versionCmd, []string{}); err != nil {
 			b.Logf("version command error: %v", err)
@@ -401,7 +362,6 @@ func BenchmarkVersionCommandOutputParsing(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		lines := strings.Split(strings.TrimSpace(output), "\n")
 		for _, line := range lines {
-			// Simulate parsing each line
 			_ = strings.Contains(line, ":")
 		}
 	}

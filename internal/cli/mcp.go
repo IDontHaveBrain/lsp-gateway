@@ -10,9 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/spf13/cobra"
 	"lsp-gateway/internal/transport"
 	"lsp-gateway/mcp"
+
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -24,7 +25,6 @@ var (
 	mcpMaxRetries int
 )
 
-// mcpCmd represents the mcp command
 var mcpCmd = &cobra.Command{
 	Use:   CmdMCP,
 	Short: "Start the MCP server",
@@ -58,101 +58,33 @@ Examples:
 
 func init() {
 	mcpCmd.Flags().StringVarP(&mcpConfigPath, "config", "c", "", "MCP configuration file path (optional)")
-	mcpCmd.Flags().StringVarP(&mcpGatewayURL, "gateway", "g", DefaultLSPGatewayURL, "LSP Gateway URL")
-	mcpCmd.Flags().IntVarP(&mcpPort, "port", "p", 3000, "MCP server port (for HTTP transport)")
-	mcpCmd.Flags().StringVarP(&mcpTransport, "transport", "t", transport.TransportStdio, "Transport type (stdio, http)")
-	mcpCmd.Flags().DurationVar(&mcpTimeout, "timeout", 30*time.Second, "Request timeout duration")
+	mcpCmd.Flags().StringVarP(&mcpGatewayURL, FLAG_GATEWAY, "g", DefaultLSPGatewayURL, "LSP Gateway URL")
+	mcpCmd.Flags().IntVarP(&mcpPort, FLAG_PORT, "p", 3000, "MCP server port (for HTTP transport)")
+	mcpCmd.Flags().StringVarP(&mcpTransport, FLAG_DESCRIPTION_TRANSPORT, "t", transport.TransportStdio, "Transport type (stdio, http)")
+	mcpCmd.Flags().DurationVar(&mcpTimeout, FLAG_TIMEOUT, 30*time.Second, "Request timeout duration")
 	mcpCmd.Flags().IntVar(&mcpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
 
-	// Add mcp command to root
 	rootCmd.AddCommand(mcpCmd)
 }
 
 func runMCPServer(cmd *cobra.Command, args []string) error {
-	// Create MCP server configuration
-	cfg := &mcp.ServerConfig{
-		Name:          "lsp-gateway-mcp",
-		Description:   "MCP server providing LSP functionality through LSP Gateway",
-		Version:       "0.1.0",
-		LSPGatewayURL: mcpGatewayURL,
-		Transport:     mcpTransport,
-		Timeout:       mcpTimeout,
-		MaxRetries:    mcpMaxRetries,
+	log.Printf("[INFO] Starting MCP server with transport=%s, gateway_url=%s\n", mcpTransport, mcpGatewayURL)
+
+	logger := createMCPLogger()
+	server, err := setupMCPServer(logger)
+	if err != nil {
+		return err
 	}
 
-	// Load configuration from file if specified
-	if mcpConfigPath != "" {
-		// Note: This could be extended to load from YAML file if needed
-		// For now, we use command-line flags as primary configuration
-		log.Printf("Configuration file specified: %s (currently using command-line flags)", mcpConfigPath)
-	}
-
-	// Validate configuration
-	if err := cfg.Validate(); err != nil {
-		return fmt.Errorf("invalid MCP configuration: %w", err)
-	}
-
-	// Create MCP server
-	server := mcp.NewServer(cfg)
-
-	// Setup context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// For HTTP transport, setup HTTP server
-	if mcpTransport == transport.TransportHTTP {
-		return runMCPHTTPServer(ctx, server, mcpPort)
-	}
-
-	// For stdio transport (default), run directly
-	return runMCPStdioServer(ctx, server)
+	return runMCPTransport(ctx, server, logger)
 }
 
-func runMCPStdioServer(ctx context.Context, server *mcp.Server) error {
-	log.Println("Starting MCP server with stdio transport")
-	log.Printf("LSP Gateway URL: %s", mcpGatewayURL)
-
-	// Start server in goroutine
-	serverErr := make(chan error, 1)
-	go func() {
-		if err := server.Start(); err != nil {
-			serverErr <- fmt.Errorf("MCP server error: %w", err)
-		}
-	}()
-
-	// Wait for interrupt signal or server error
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	select {
-	case <-sigCh:
-		log.Println("Received shutdown signal")
-	case err := <-serverErr:
-		return err
-	case <-ctx.Done():
-		log.Println("Context cancelled")
-	}
-
-	log.Println("Shutting down MCP server...")
-
-	// Stop server
-	if err := server.Stop(); err != nil {
-		log.Printf("Error stopping MCP server: %v", err)
-	}
-
-	log.Println("MCP server stopped")
-	return nil
-}
-
-func runMCPHTTPServer(ctx context.Context, server *mcp.Server, port int) error {
-	log.Printf("Starting MCP server with HTTP transport on port %d", port)
-
-	// Create HTTP handler for MCP over HTTP
-	// Note: This is a placeholder for HTTP transport implementation
-	// The current MCP server implementation primarily uses stdio
+func createMCPHTTPServer(server *mcp.Server, port int) *http.Server {
 	mux := http.NewServeMux()
 
-	// Health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		if server.IsRunning() {
 			w.WriteHeader(http.StatusOK)
@@ -163,52 +95,190 @@ func runMCPHTTPServer(ctx context.Context, server *mcp.Server, port int) error {
 		}
 	})
 
-	// MCP endpoint (placeholder for future HTTP MCP implementation)
 	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Content-Type", transport.HTTP_CONTENT_TYPE_JSON)
 		w.WriteHeader(http.StatusNotImplemented)
 		_, _ = fmt.Fprintf(w, `{"error":"HTTP MCP transport not yet implemented","message":"Use stdio transport for now"}`)
 	})
 
-	httpServer := &http.Server{
+	return &http.Server{
 		Addr:         fmt.Sprintf(":%d", port),
 		Handler:      mux,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
+}
 
-	// Start HTTP server in goroutine
-	serverErr := make(chan error, 1)
+func runMCPHTTPLifecycle(ctx context.Context, httpServer *http.Server, port int, logger *mcp.StructuredLogger) error {
+	serverErr := createServerErrorChannel()
 	go func() {
-		log.Printf("MCP HTTP server listening on :%d", port)
+		logger.WithField("port", port).Info("MCP HTTP server listening")
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			serverErr <- fmt.Errorf("HTTP server error: %w", err)
+			logger.WithError(err).Error("MCP HTTP server error")
+			serverErr <- HandleServerStartError(err, port)
 		}
 	}()
 
-	// Wait for interrupt signal or server error
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	select {
-	case <-sigCh:
-		log.Println("Received shutdown signal")
-	case err := <-serverErr:
-		return err
-	case <-ctx.Done():
-		log.Println("Context cancelled")
+	config := &ServerLifecycleConfig{
+		ServerName:      "MCP HTTP server",
+		Port:            port,
+		ShutdownFunc:    func() error { return shutdownMCPHTTPServerInternal(httpServer) },
+		ShutdownTimeout: 30 * time.Second,
 	}
 
-	log.Println("Shutting down MCP HTTP server...")
+	logger.WithField("port", port).Info("MCP HTTP server started successfully, waiting for requests")
+	return waitForShutdownSignal(ctx, config, serverErr)
+}
 
-	// Shutdown HTTP server
+func shutdownMCPHTTPServerInternal(httpServer *http.Server) error {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
-		log.Printf("HTTP server shutdown error: %v", err)
+		return err
+	}
+	return nil
+}
+
+func runMCPStdioServer(ctx context.Context, server *mcp.Server) error {
+	log.Printf("[INFO] Starting MCP server with stdio transport, gateway_url=%s\n", mcpGatewayURL)
+
+	serverErr := make(chan error, 1)
+	go func() {
+		log.Printf("[DEBUG] Starting MCP server\n")
+		if err := server.Start(); err != nil {
+			log.Printf("[ERROR] MCP server startup failed: %v\n", err)
+			serverErr <- NewMCPServerError("failed to start", err)
+		} else {
+			log.Printf("[INFO] MCP server started successfully\n")
+		}
+	}()
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+	log.Printf("[INFO] MCP server is running, waiting for requests\n")
+
+	select {
+	case <-sigCh:
+		log.Printf("[INFO] Received shutdown signal\n")
+	case err := <-serverErr:
+		return err
+	case <-ctx.Done():
+		log.Printf("[INFO] Context cancelled\n")
 	}
 
-	log.Println("MCP HTTP server stopped")
+	log.Printf("[INFO] Shutting down MCP server\n")
+
+	if err := server.Stop(); err != nil {
+		log.Printf("[WARN] Error stopping MCP server during shutdown: %v\n", err)
+	} else {
+		log.Printf("[INFO] MCP server stopped successfully\n")
+	}
+
 	return nil
+}
+
+func runMCPHTTPServer(ctx context.Context, server *mcp.Server, port int, logger *mcp.StructuredLogger) error {
+	log.Printf("[INFO] Starting MCP server with HTTP transport on port %d\n", port)
+
+	httpServer := createMCPHTTPServer(server, port)
+	return runMCPHTTPLifecycle(ctx, httpServer, port, logger)
+}
+
+func createMCPLogger() *mcp.StructuredLogger {
+	logConfig := &mcp.LoggerConfig{
+		Level:              mcp.LogLevelInfo,
+		Component:          "mcp-cli",
+		EnableJSON:         false,
+		EnableStackTrace:   false,
+		EnableCaller:       true,
+		EnableMetrics:      false,
+		Output:             os.Stderr,
+		IncludeTimestamp:   true,
+		TimestampFormat:    time.RFC3339,
+		MaxStackTraceDepth: 10,
+		EnableAsyncLogging: false,
+		AsyncBufferSize:    1000,
+	}
+	return mcp.NewStructuredLogger(logConfig)
+}
+
+func setupMCPServer(logger *mcp.StructuredLogger) (*mcp.Server, error) {
+	if err := validateMCPParams(); err != nil {
+		log.Printf("[ERROR] MCP parameter validation failed: %v\n", err)
+		return nil, err
+	}
+
+	cfg := &mcp.ServerConfig{
+		Name:          "lsp-gateway-mcp",
+		Description:   "MCP server providing LSP functionality through LSP Gateway",
+		Version:       "0.1.0",
+		LSPGatewayURL: mcpGatewayURL,
+		Transport:     mcpTransport,
+		Timeout:       mcpTimeout,
+		MaxRetries:    mcpMaxRetries,
+	}
+
+	log.Printf("[DEBUG] MCP server configuration created\n")
+
+	if mcpConfigPath != "" {
+		log.Printf("[INFO] Configuration file specified (currently using command-line flags): %s\n", mcpConfigPath)
+	}
+
+	logger.Debug("Validating MCP configuration")
+	if err := cfg.Validate(); err != nil {
+		logger.WithError(err).Error("MCP configuration validation failed")
+		return nil, NewValidationError("MCP configuration", []string{err.Error()})
+	}
+	logger.Info("MCP configuration validated successfully")
+
+	logger.Debug("Creating MCP server")
+	server := mcp.NewServer(cfg)
+	logger.Info("MCP server created successfully")
+
+	return server, nil
+}
+
+func runMCPTransport(ctx context.Context, server *mcp.Server, logger *mcp.StructuredLogger) error {
+	if mcpTransport == transport.TransportHTTP {
+		logger.WithField("port", mcpPort).Info("Using HTTP transport for MCP server")
+		return runMCPHTTPServer(ctx, server, mcpPort, logger)
+	}
+
+	logger.Info("Using stdio transport for MCP server")
+	return runMCPStdioServer(ctx, server)
+}
+
+func validateMCPParams() error {
+	err := ValidateMultiple(
+		func() *ValidationError {
+			return ValidateTransport(mcpTransport, FLAG_DESCRIPTION_TRANSPORT)
+		},
+		func() *ValidationError {
+			return ValidateURL(mcpGatewayURL, FLAG_GATEWAY)
+		},
+		func() *ValidationError {
+			if mcpTransport == transport.TransportHTTP {
+				return ValidatePortAvailability(mcpPort, FLAG_PORT)
+			}
+			return ValidatePort(mcpPort, "port")
+		},
+		func() *ValidationError {
+			return ValidateTimeout(mcpTimeout, FLAG_TIMEOUT)
+		},
+		func() *ValidationError {
+			return ValidateIntRange(mcpMaxRetries, 0, 10, "max-retries")
+		},
+		func() *ValidationError {
+			if mcpConfigPath != "" {
+				return ValidateFilePath(mcpConfigPath, "config", "read")
+			}
+			return nil
+		},
+	)
+	if err == nil {
+		return nil
+	}
+	return err
 }

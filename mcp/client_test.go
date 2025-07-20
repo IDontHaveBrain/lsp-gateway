@@ -11,20 +11,36 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"lsp-gateway/internal/gateway"
 )
 
-// Test server configurations
 func createTestConfig() *ServerConfig {
 	return &ServerConfig{
 		LSPGatewayURL: "http://localhost:8080",
-		Timeout:       5 * time.Second,
-		MaxRetries:    3,
+		Timeout:       100 * time.Millisecond, // Reduced from 5s
+		MaxRetries:    2, // Reduced from 3
 	}
 }
 
-// Test LSPGatewayClient creation and configuration
+// createFastTestClient creates a client with very fast retry settings for tests
+func createFastTestClient(config *ServerConfig) *LSPGatewayClient {
+	client := NewLSPGatewayClient(config)
+	// Override retry policy for much faster tests
+	client.retryPolicy = &RetryPolicy{
+		InitialBackoff:  1 * time.Millisecond,  // Much faster than default 100ms
+		MaxBackoff:      5 * time.Millisecond,  // Much faster than default 2s
+		BackoffFactor:   1.5,                   // Smaller factor
+		JitterEnabled:   false,                 // Disable jitter for predictable timing
+		MaxRetries:      config.MaxRetries,
+		RetryableErrors: map[ErrorCategory]bool{
+			ErrorCategoryNetwork:   true,
+			ErrorCategoryTimeout:   true,
+			ErrorCategoryServer:    true,
+			ErrorCategoryRateLimit: true,
+		},
+	}
+	return client
+}
+
 func TestNewLSPGatewayClient(t *testing.T) {
 	config := createTestConfig()
 	client := NewLSPGatewayClient(config)
@@ -45,7 +61,6 @@ func TestNewLSPGatewayClient(t *testing.T) {
 		t.Errorf("Expected maxRetries %d, got %d", config.MaxRetries, client.maxRetries)
 	}
 
-	// Test circuit breaker initialization
 	if client.circuitBreaker == nil {
 		t.Fatal("Expected circuit breaker to be initialized")
 	}
@@ -54,7 +69,6 @@ func TestNewLSPGatewayClient(t *testing.T) {
 		t.Errorf("Expected circuit breaker state to be closed, got %v", client.circuitBreaker.state)
 	}
 
-	// Test retry policy initialization
 	if client.retryPolicy == nil {
 		t.Fatal("Expected retry policy to be initialized")
 	}
@@ -63,43 +77,36 @@ func TestNewLSPGatewayClient(t *testing.T) {
 		t.Errorf("Expected retry policy max retries %d, got %d", config.MaxRetries, client.retryPolicy.MaxRetries)
 	}
 
-	// Test metrics initialization
 	if client.metrics == nil {
 		t.Fatal("Expected metrics to be initialized")
 	}
 }
 
-// Test Circuit Breaker functionality
 func TestCircuitBreakerStates(t *testing.T) {
 	cb := &CircuitBreaker{
 		state:       CircuitClosed,
-		timeout:     1 * time.Second,
+		timeout:     10 * time.Millisecond, // Reduced from 1s
 		maxFailures: 3,
 		maxRequests: 2,
 	}
 
-	// Test closed state allows requests
 	if !cb.AllowRequest() {
 		t.Error("Expected closed circuit to allow requests")
 	}
 
-	// Test failure recording
 	for i := 0; i < 3; i++ {
 		cb.RecordFailure()
 	}
 
-	// Should be open now
 	if cb.state != CircuitOpen {
 		t.Errorf("Expected circuit to be open after %d failures", cb.maxFailures)
 	}
 
-	// Test open state rejects requests
 	if cb.AllowRequest() {
 		t.Error("Expected open circuit to reject requests")
 	}
 
-	// Test half-open transition after timeout
-	time.Sleep(1100 * time.Millisecond) // Wait for timeout
+	time.Sleep(15 * time.Millisecond) // Reduced wait time
 	if !cb.AllowRequest() {
 		t.Error("Expected circuit to allow request after timeout (half-open)")
 	}
@@ -108,7 +115,6 @@ func TestCircuitBreakerStates(t *testing.T) {
 		t.Error("Expected circuit to be half-open after timeout")
 	}
 
-	// Test success recording in half-open state
 	cb.RecordSuccess()
 	cb.RecordSuccess() // Should close circuit after maxRequests successes
 
@@ -120,7 +126,7 @@ func TestCircuitBreakerStates(t *testing.T) {
 func TestCircuitBreakerConcurrency(t *testing.T) {
 	cb := &CircuitBreaker{
 		state:       CircuitClosed,
-		timeout:     100 * time.Millisecond,
+		timeout:     5 * time.Millisecond, // Reduced from 100ms
 		maxFailures: 5,
 		maxRequests: 3,
 	}
@@ -128,7 +134,6 @@ func TestCircuitBreakerConcurrency(t *testing.T) {
 	var wg sync.WaitGroup
 	var successCount, failureCount int64
 
-	// Concurrent access test
 	for i := 0; i < 100; i++ {
 		wg.Add(1)
 		go func() {
@@ -152,12 +157,10 @@ func TestCircuitBreakerConcurrency(t *testing.T) {
 	}
 }
 
-// Test HTTP request functionality
 func TestSendLSPRequestSuccess(t *testing.T) {
 	expectedResponse := json.RawMessage(`{"result": "test success"}`)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Validate request method and path
 		if r.Method != "POST" {
 			t.Errorf("Expected POST method, got %s", r.Method)
 		}
@@ -165,21 +168,21 @@ func TestSendLSPRequestSuccess(t *testing.T) {
 			t.Errorf("Expected /jsonrpc path, got %s", r.URL.Path)
 		}
 
-		// Validate headers
 		if r.Header.Get("Content-Type") != "application/json" {
 			t.Errorf("Expected Content-Type application/json, got %s", r.Header.Get("Content-Type"))
 		}
 
-		// Set the correct content type in response
 		w.Header().Set("Content-Type", "application/json")
 
 		response := JSONRPCResponse{
-			JSONRPC: gateway.JSONRPCVersion,
+			JSONRPC: JSONRPCVersion,
 			ID:      1,
 			Result:  expectedResponse,
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			t.Errorf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -202,7 +205,6 @@ func TestSendLSPRequestSuccess(t *testing.T) {
 		t.Errorf("Expected result %s, got %s", expectedResponse, result)
 	}
 
-	// Check metrics
 	metrics := client.GetMetrics()
 	if metrics.totalRequests != 1 {
 		t.Errorf("Expected 1 total request, got %d", metrics.totalRequests)
@@ -216,7 +218,7 @@ func TestSendLSPRequestJSONRPCError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		response := JSONRPCResponse{
-			JSONRPC: gateway.JSONRPCVersion,
+			JSONRPC: JSONRPCVersion,
 			ID:      1,
 			Error: &JSONRPCError{
 				Code:    -32601,
@@ -224,7 +226,9 @@ func TestSendLSPRequestJSONRPCError(t *testing.T) {
 			},
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			t.Errorf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -244,7 +248,6 @@ func TestSendLSPRequestJSONRPCError(t *testing.T) {
 		t.Errorf("Expected method not found error, got: %v", err)
 	}
 
-	// Check metrics
 	metrics := client.GetMetrics()
 	if metrics.failedRequests != 1 {
 		t.Errorf("Expected 1 failed request, got %d", metrics.failedRequests)
@@ -254,13 +257,15 @@ func TestSendLSPRequestJSONRPCError(t *testing.T) {
 func TestSendLSPRequestHTTPError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("Internal server error"))
+		if _, err := w.Write([]byte("Internal server error")); err != nil {
+			t.Errorf("Failed to write error response: %v", err)
+		}
 	}))
 	defer server.Close()
 
 	config := createTestConfig()
 	config.LSPGatewayURL = server.URL
-	client := NewLSPGatewayClient(config)
+	client := createFastTestClient(config) // Use fast client for quick retries
 
 	ctx := context.Background()
 	params := map[string]interface{}{}
@@ -275,34 +280,33 @@ func TestSendLSPRequestHTTPError(t *testing.T) {
 	}
 }
 
-// Test retry logic
 func TestRetryLogicSuccess(t *testing.T) {
 	var attemptCount int32
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attempt := atomic.AddInt32(&attemptCount, 1)
 		if attempt < 3 {
-			// Fail first two attempts
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		// Succeed on third attempt
 		w.Header().Set("Content-Type", "application/json")
 		response := JSONRPCResponse{
-			JSONRPC: gateway.JSONRPCVersion,
+			JSONRPC: JSONRPCVersion,
 			ID:      1,
 			Result:  json.RawMessage(`{"success": true}`),
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			t.Errorf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
 	config := createTestConfig()
 	config.LSPGatewayURL = server.URL
 	config.MaxRetries = 3
-	client := NewLSPGatewayClient(config)
+	client := createFastTestClient(config) // Use fast client for quick retries
 
 	ctx := context.Background()
 	params := map[string]interface{}{}
@@ -333,7 +337,7 @@ func TestRetryLogicFailure(t *testing.T) {
 	config := createTestConfig()
 	config.LSPGatewayURL = server.URL
 	config.MaxRetries = 2
-	client := NewLSPGatewayClient(config)
+	client := createFastTestClient(config) // Use fast client for quick retries
 
 	ctx := context.Background()
 	params := map[string]interface{}{}
@@ -353,7 +357,6 @@ func TestRetryLogicFailure(t *testing.T) {
 	}
 }
 
-// Test error categorization
 func TestErrorCategorization(t *testing.T) {
 	config := createTestConfig()
 	client := NewLSPGatewayClient(config)
@@ -420,7 +423,6 @@ func TestErrorCategorization(t *testing.T) {
 	}
 }
 
-// Test backoff calculation
 func TestBackoffCalculation(t *testing.T) {
 	retryPolicy := &RetryPolicy{
 		InitialBackoff:  100 * time.Millisecond,
@@ -432,7 +434,6 @@ func TestBackoffCalculation(t *testing.T) {
 
 	client := &LSPGatewayClient{retryPolicy: retryPolicy}
 
-	// Test exponential backoff
 	tests := []struct {
 		attempt  int
 		expected time.Duration
@@ -466,10 +467,8 @@ func TestBackoffWithJitter(t *testing.T) {
 
 	client := &LSPGatewayClient{retryPolicy: retryPolicy}
 
-	// Test that jitter adds some variation
 	baseBackoff := client.calculateBackoff(2)
 
-	// Calculate multiple backoffs and ensure they're not all identical
 	backoffs := make([]time.Duration, 10)
 	for i := 0; i < 10; i++ {
 		backoffs[i] = client.calculateBackoff(2)
@@ -487,7 +486,6 @@ func TestBackoffWithJitter(t *testing.T) {
 		t.Error("Expected jitter to create variation in backoff times")
 	}
 
-	// Ensure backoff is within reasonable range (base ± 10%)
 	minExpected := time.Duration(float64(baseBackoff) * 0.9)
 	maxExpected := time.Duration(float64(baseBackoff) * 1.1)
 
@@ -498,18 +496,16 @@ func TestBackoffWithJitter(t *testing.T) {
 	}
 }
 
-// Test timeout handling
 func TestTimeoutHandling(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Simulate slow server
-		time.Sleep(2 * time.Second)
+		time.Sleep(50 * time.Millisecond) // Reduced from 2s
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
 
 	config := createTestConfig()
 	config.LSPGatewayURL = server.URL
-	config.Timeout = 500 * time.Millisecond // Short timeout
+	config.Timeout = 10 * time.Millisecond // Much shorter timeout
 	client := NewLSPGatewayClient(config)
 
 	ctx := context.Background()
@@ -528,7 +524,7 @@ func TestTimeoutHandling(t *testing.T) {
 
 func TestContextCancellation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(1 * time.Second)
+		time.Sleep(50 * time.Millisecond) // Reduced from 1s
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
@@ -539,9 +535,8 @@ func TestContextCancellation(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Cancel context after short delay
 	go func() {
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(5 * time.Millisecond) // Reduced from 100ms
 		cancel()
 	}()
 
@@ -556,19 +551,20 @@ func TestContextCancellation(t *testing.T) {
 	}
 }
 
-// Test metrics collection
 func TestMetricsCollection(t *testing.T) {
 	successCount := int32(0)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&successCount, 1)
 		w.Header().Set("Content-Type", "application/json")
 		response := JSONRPCResponse{
-			JSONRPC: gateway.JSONRPCVersion,
+			JSONRPC: JSONRPCVersion,
 			ID:      1,
 			Result:  json.RawMessage(`{"success": true}`),
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			t.Errorf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -579,7 +575,6 @@ func TestMetricsCollection(t *testing.T) {
 	ctx := context.Background()
 	params := map[string]interface{}{}
 
-	// Make multiple requests
 	for i := 0; i < 5; i++ {
 		_, err := client.SendLSPRequest(ctx, "textDocument/definition", params)
 		if err != nil {
@@ -602,7 +597,6 @@ func TestMetricsCollection(t *testing.T) {
 	}
 }
 
-// Test health checking
 func TestHealthCheck(t *testing.T) {
 	healthCheckCount := int32(0)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -633,13 +627,11 @@ func TestHealthCheck(t *testing.T) {
 		t.Error("Expected client to be healthy")
 	}
 
-	// Test rate limiting of health checks
 	err = client.GetHealth(ctx) // Should be rate limited
 	if err != nil {
 		t.Fatalf("Expected successful health check (rate limited), got error: %v", err)
 	}
 
-	// Should not increment counter due to rate limiting
 	if healthCheckCount != 1 {
 		t.Errorf("Expected health check to be rate limited, got %d calls", healthCheckCount)
 	}
@@ -666,9 +658,7 @@ func TestHealthCheckFailure(t *testing.T) {
 	}
 }
 
-// Test network error handling
 func TestNetworkErrorHandling(t *testing.T) {
-	// Test connection refused
 	config := createTestConfig()
 	config.LSPGatewayURL = "http://localhost:99999" // Invalid port
 	client := NewLSPGatewayClient(config)
@@ -687,11 +677,12 @@ func TestNetworkErrorHandling(t *testing.T) {
 	}
 }
 
-// Test invalid JSON response handling
 func TestInvalidJSONResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("invalid json response"))
+		if _, err := w.Write([]byte("invalid json response")); err != nil {
+			t.Errorf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -712,11 +703,12 @@ func TestInvalidJSONResponse(t *testing.T) {
 	}
 }
 
-// Test wrong content type handling
 func TestWrongContentType(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte("plain text response"))
+		if _, err := w.Write([]byte("plain text response")); err != nil {
+			t.Errorf("Failed to write response: %v", err)
+		}
 	}))
 	defer server.Close()
 
@@ -737,7 +729,6 @@ func TestWrongContentType(t *testing.T) {
 	}
 }
 
-// Test circuit breaker integration with client
 func TestCircuitBreakerIntegration(t *testing.T) {
 	var requestCount int32
 
@@ -752,14 +743,12 @@ func TestCircuitBreakerIntegration(t *testing.T) {
 	config.MaxRetries = 0 // No retries to test circuit breaker faster
 	client := NewLSPGatewayClient(config)
 
-	// Override circuit breaker settings for faster testing
 	client.circuitBreaker.maxFailures = 3
-	client.circuitBreaker.timeout = 100 * time.Millisecond
+	client.circuitBreaker.timeout = 5 * time.Millisecond // Reduced from 100ms
 
 	ctx := context.Background()
 	params := map[string]interface{}{}
 
-	// Make requests until circuit opens
 	for i := 0; i < 5; i++ {
 		_, err := client.SendLSPRequest(ctx, "textDocument/definition", params)
 		if err != nil && strings.Contains(err.Error(), "circuit breaker is open") {
@@ -767,27 +756,22 @@ func TestCircuitBreakerIntegration(t *testing.T) {
 		}
 	}
 
-	// Circuit should be open now
 	_, err := client.SendLSPRequest(ctx, "textDocument/definition", params)
 	if err == nil || !strings.Contains(err.Error(), "circuit breaker is open") {
 		t.Errorf("Expected circuit breaker to be open, got error: %v", err)
 	}
 
-	// Wait for circuit to go half-open
-	time.Sleep(150 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond) // Reduced from 150ms
 
-	// Should allow one request in half-open state
 	_, err = client.SendLSPRequest(ctx, "textDocument/definition", params)
 	if err != nil && strings.Contains(err.Error(), "circuit breaker is open") {
 		t.Error("Expected circuit to allow request in half-open state")
 	}
 }
 
-// Test request ID generation
 func TestRequestIDGeneration(t *testing.T) {
 	ids := make(map[interface{}]bool)
 
-	// Generate multiple IDs and ensure they're unique
 	for i := 0; i < 1000; i++ {
 		id := generateRequestID()
 		if ids[id] {
@@ -797,7 +781,6 @@ func TestRequestIDGeneration(t *testing.T) {
 	}
 }
 
-// Test HTTP client configuration
 func TestHTTPClientConfiguration(t *testing.T) {
 	config := createTestConfig()
 	client := NewLSPGatewayClient(config)
@@ -810,7 +793,6 @@ func TestHTTPClientConfiguration(t *testing.T) {
 		t.Errorf("Expected HTTP client timeout %v, got %v", config.Timeout, client.httpClient.Timeout)
 	}
 
-	// Test transport configuration
 	transport, ok := client.httpClient.Transport.(*http.Transport)
 	if !ok {
 		t.Fatal("Expected HTTP transport to be configured")
@@ -825,16 +807,17 @@ func TestHTTPClientConfiguration(t *testing.T) {
 	}
 }
 
-// Benchmark tests for performance validation
 func BenchmarkSendLSPRequest(b *testing.B) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response := JSONRPCResponse{
-			JSONRPC: gateway.JSONRPCVersion,
+			JSONRPC: JSONRPCVersion,
 			ID:      1,
 			Result:  json.RawMessage(`{"benchmark": true}`),
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			b.Errorf("Failed to encode response: %v", err)
+		}
 	}))
 	defer server.Close()
 

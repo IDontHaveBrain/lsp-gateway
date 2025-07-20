@@ -13,9 +13,11 @@ import (
 	"time"
 )
 
-// Test utilities and helpers
+const (
+	testLogLevelInfo  = "INFO"
+	testLogLevelError = "ERROR"
+)
 
-// mockWriter implements io.Writer for capturing log output
 type mockWriter struct {
 	mu     sync.RWMutex
 	buffer bytes.Buffer
@@ -39,7 +41,6 @@ func (m *mockWriter) Write(p []byte) (n int, err error) {
 		time.Sleep(m.delay)
 	}
 
-	// Store each write for verification
 	m.writes = append(m.writes, append([]byte{}, p...))
 	m.buffer.Write(p)
 
@@ -77,7 +78,6 @@ func (m *mockWriter) GetWriteCount() int {
 	return len(m.writes)
 }
 
-// parseLogEntry parses a JSON log entry from output
 func parseLogEntry(output string) (*LogEntry, error) {
 	output = strings.TrimSpace(output)
 	if output == "" {
@@ -92,7 +92,6 @@ func parseLogEntry(output string) (*LogEntry, error) {
 	return &entry, nil
 }
 
-// parseAllLogEntries parses multiple JSON log entries from output
 func parseAllLogEntries(output string) ([]*LogEntry, error) {
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	entries := make([]*LogEntry, 0, len(lines))
@@ -113,8 +112,6 @@ func parseAllLogEntries(output string) ([]*LogEntry, error) {
 
 	return entries, nil
 }
-
-// Test Logger Configuration and Creation
 
 func TestNewStructuredLogger(t *testing.T) {
 	tests := []struct {
@@ -228,15 +225,14 @@ func TestNewStructuredLogger(t *testing.T) {
 
 			tt.validate(t, logger)
 
-			// Clean up async logger if created
 			if logger.config.EnableAsyncLogging {
-				logger.Close()
+				if err := logger.Close(); err != nil {
+					t.Errorf("Failed to close logger: %v", err)
+				}
 			}
 		})
 	}
 }
-
-// Test Log Level Filtering
 
 func TestLogLevelFiltering(t *testing.T) {
 	tests := []struct {
@@ -279,7 +275,6 @@ func TestLogLevelFiltering(t *testing.T) {
 
 			logger := NewStructuredLogger(config)
 
-			// Log at the specified level
 			switch tt.logLevel {
 			case LogLevelTrace:
 				logger.Trace(tt.message)
@@ -322,8 +317,6 @@ func TestLogLevelFiltering(t *testing.T) {
 		})
 	}
 }
-
-// Test Structured Field Context
 
 func TestStructuredFieldContext(t *testing.T) {
 	tests := []struct {
@@ -476,8 +469,6 @@ func TestStructuredFieldContext(t *testing.T) {
 	}
 }
 
-// Test Async Logging Performance and Behavior
-
 func TestAsyncLogging(t *testing.T) {
 	t.Run("async logging writes to channel", func(t *testing.T) {
 		output := newMockWriter()
@@ -491,11 +482,14 @@ func TestAsyncLogging(t *testing.T) {
 		}
 
 		logger := NewStructuredLogger(config)
-		defer logger.Close()
+		defer func() {
+			if err := logger.Close(); err != nil {
+				t.Errorf("Failed to close logger: %v", err)
+			}
+		}()
 
 		logger.Info("test message")
 
-		// Give async writer time to process
 		time.Sleep(10 * time.Millisecond)
 
 		outputStr := output.GetOutput()
@@ -527,14 +521,16 @@ func TestAsyncLogging(t *testing.T) {
 		}
 
 		logger := NewStructuredLogger(config)
-		defer logger.Close()
+		defer func() {
+			if err := logger.Close(); err != nil {
+				t.Errorf("Failed to close logger: %v", err)
+			}
+		}()
 
-		// Fill the buffer
 		logger.Info("message 1")
 		logger.Info("message 2")
 		logger.Info("message 3") // This should trigger sync write
 
-		// Wait for some processing
 		time.Sleep(50 * time.Millisecond)
 
 		writeCount := output.GetWriteCount()
@@ -555,7 +551,11 @@ func TestAsyncLogging(t *testing.T) {
 		}
 
 		logger := NewStructuredLogger(config)
-		defer logger.Close()
+		defer func() {
+			if err := logger.Close(); err != nil {
+				t.Errorf("Failed to close logger: %v", err)
+			}
+		}()
 
 		const numGoroutines = 10
 		const messagesPerGoroutine = 100
@@ -574,7 +574,6 @@ func TestAsyncLogging(t *testing.T) {
 
 		wg.Wait()
 
-		// Give async writer time to process all messages
 		time.Sleep(100 * time.Millisecond)
 
 		writeCount := output.GetWriteCount()
@@ -598,12 +597,10 @@ func TestAsyncLogging(t *testing.T) {
 
 		logger := NewStructuredLogger(config)
 
-		// Log some messages
 		for i := 0; i < 10; i++ {
 			logger.WithField("index", i).Info("shutdown test")
 		}
 
-		// Close should wait for all messages to be processed
 		err := logger.Close()
 		if err != nil {
 			t.Errorf("Unexpected error during close: %v", err)
@@ -615,8 +612,6 @@ func TestAsyncLogging(t *testing.T) {
 		}
 	})
 }
-
-// Test JSON vs Human-Readable Output Formats
 
 func TestOutputFormats(t *testing.T) {
 	t.Run("JSON format validation", func(t *testing.T) {
@@ -638,14 +633,12 @@ func TestOutputFormats(t *testing.T) {
 			t.Fatal("Expected log output but got none")
 		}
 
-		// Validate JSON structure
 		entry, err := parseLogEntry(outputStr)
 		if err != nil {
 			t.Fatalf("Failed to parse JSON log entry: %v", err)
 		}
 
-		// Validate required fields
-		if entry.Level != "INFO" {
+		if entry.Level != testLogLevelInfo {
 			t.Errorf("Expected level 'INFO', got %s", entry.Level)
 		}
 		if entry.Component != "json-test" {
@@ -685,7 +678,6 @@ func TestOutputFormats(t *testing.T) {
 			t.Fatal("Expected log output but got none")
 		}
 
-		// Check for expected components in human-readable format
 		if !strings.Contains(outputStr, "[INFO]") {
 			t.Error("Expected '[INFO]' in human-readable output")
 		}
@@ -714,7 +706,6 @@ func TestOutputFormats(t *testing.T) {
 
 		logger := NewStructuredLogger(config)
 
-		// Create a logger with a field that can't be marshaled to JSON
 		badLogger := logger.WithField("bad_field", make(chan int))
 		badLogger.Info("test with unmarshalable field")
 
@@ -723,7 +714,6 @@ func TestOutputFormats(t *testing.T) {
 			t.Fatal("Expected fallback output but got none")
 		}
 
-		// Should fallback to simple format
 		if !strings.Contains(outputStr, "[INFO]") {
 			t.Error("Expected fallback format with '[INFO]'")
 		}
@@ -732,8 +722,6 @@ func TestOutputFormats(t *testing.T) {
 		}
 	})
 }
-
-// Test Error Handling and Stack Traces
 
 func TestErrorHandlingAndStackTraces(t *testing.T) {
 	t.Run("ErrorWithStack includes stack trace", func(t *testing.T) {
@@ -764,7 +752,7 @@ func TestErrorHandlingAndStackTraces(t *testing.T) {
 			t.Fatalf("Failed to parse log entry: %v", err)
 		}
 
-		if entry.Level != "ERROR" {
+		if entry.Level != testLogLevelError {
 			t.Errorf("Expected level 'ERROR', got %s", entry.Level)
 		}
 		if entry.Message != "error occurred" {
@@ -780,7 +768,6 @@ func TestErrorHandlingAndStackTraces(t *testing.T) {
 			t.Errorf("Expected stack trace depth <= 5, got %d", len(entry.StackTrace))
 		}
 
-		// Verify stack trace format
 		for i, frame := range entry.StackTrace {
 			if !strings.Contains(frame, "(") || !strings.Contains(frame, ":") {
 				t.Errorf("Stack frame %d has unexpected format: %s", i, frame)
@@ -859,8 +846,6 @@ func TestErrorHandlingAndStackTraces(t *testing.T) {
 		}
 	})
 }
-
-// Test Metrics and Performance Tracking
 
 func TestMetricsAndPerformance(t *testing.T) {
 	t.Run("runtime metrics are included when enabled", func(t *testing.T) {
@@ -962,7 +947,6 @@ func TestMetricsAndPerformance(t *testing.T) {
 
 		logger := NewStructuredLogger(config)
 
-		// Log messages at different levels
 		logger.Trace("trace message")
 		logger.Debug("debug message")
 		logger.Info("info message")
@@ -999,7 +983,6 @@ func TestMetricsAndPerformance(t *testing.T) {
 
 		logger := NewStructuredLogger(config)
 
-		// Log some messages
 		logger.Info("message 1")
 		logger.Error("error 1")
 
@@ -1008,7 +991,6 @@ func TestMetricsAndPerformance(t *testing.T) {
 			t.Fatal("Initial counts are incorrect")
 		}
 
-		// Reset counts
 		logger.ResetLogCounts()
 
 		resetCounts := logger.GetLogCounts()
@@ -1020,9 +1002,7 @@ func TestMetricsAndPerformance(t *testing.T) {
 	})
 }
 
-// Test Specialized Logging Methods
-
-func TestSpecializedLoggingMethods(t *testing.T) {
+func setupSpecializedLoggingTest() (*StructuredLogger, *mockWriter) {
 	output := newMockWriter()
 	config := &LoggerConfig{
 		Level:      LogLevelInfo,
@@ -1030,191 +1010,189 @@ func TestSpecializedLoggingMethods(t *testing.T) {
 		EnableJSON: true,
 		Output:     output,
 	}
-
 	logger := NewStructuredLogger(config)
-
-	t.Run("LogRequest captures request details", func(t *testing.T) {
-		output.Clear()
-		startTime := time.Now().Add(-100 * time.Millisecond)
-
-		logger.LogRequest("textDocument/definition", "req-123", map[string]interface{}{
-			"uri": "file:///test.go",
-		}, startTime)
-
-		outputStr := output.GetOutput()
-		if outputStr == "" {
-			t.Fatal("Expected log output but got none")
-		}
-
-		entry, err := parseLogEntry(outputStr)
-		if err != nil {
-			t.Fatalf("Failed to parse log entry: %v", err)
-		}
-
-		if entry.Level != "INFO" {
-			t.Errorf("Expected level 'INFO', got %s", entry.Level)
-		}
-		if entry.Message != "Processing request" {
-			t.Errorf("Expected message 'Processing request', got %s", entry.Message)
-		}
-		if entry.Context["method"] != "textDocument/definition" {
-			t.Error("Expected method in context")
-		}
-		if entry.RequestID != "req-123" {
-			t.Error("Expected request_id in entry.RequestID")
-		}
-		if entry.Context["type"] != "request" {
-			t.Error("Expected type 'request' in context")
-		}
-		if entry.Duration == "" {
-			t.Error("Expected duration in entry.Duration")
-		}
-	})
-
-	t.Run("LogResponse captures response details", func(t *testing.T) {
-		output.Clear()
-
-		logger.LogResponse("textDocument/definition", "req-456", true, 1024, 50*time.Millisecond)
-
-		outputStr := output.GetOutput()
-		if outputStr == "" {
-			t.Fatal("Expected log output but got none")
-		}
-
-		entry, err := parseLogEntry(outputStr)
-		if err != nil {
-			t.Fatalf("Failed to parse log entry: %v", err)
-		}
-
-		if entry.Level != "INFO" {
-			t.Errorf("Expected level 'INFO', got %s", entry.Level)
-		}
-		if entry.Message != "Request completed" {
-			t.Errorf("Expected message 'Request completed', got %s", entry.Message)
-		}
-		if entry.Context["success"] != true {
-			t.Error("Expected success true in context")
-		}
-		if entry.Context["response_size"] != float64(1024) {
-			t.Error("Expected response_size in context")
-		}
-	})
-
-	t.Run("LogResponse with failure logs as error", func(t *testing.T) {
-		output.Clear()
-
-		logger.LogResponse("textDocument/definition", "req-789", false, 0, 25*time.Millisecond)
-
-		outputStr := output.GetOutput()
-		if outputStr == "" {
-			t.Fatal("Expected log output but got none")
-		}
-
-		entry, err := parseLogEntry(outputStr)
-		if err != nil {
-			t.Fatalf("Failed to parse log entry: %v", err)
-		}
-
-		if entry.Level != "ERROR" {
-			t.Errorf("Expected level 'ERROR' for failed response, got %s", entry.Level)
-		}
-		if entry.Context["success"] != false {
-			t.Error("Expected success false in context")
-		}
-	})
-
-	t.Run("LogConnectionEvent captures connection events", func(t *testing.T) {
-		output.Clear()
-
-		logger.LogConnectionEvent("client_connected", map[string]interface{}{
-			"client_id": "client-123",
-			"transport": "stdio",
-		})
-
-		outputStr := output.GetOutput()
-		if outputStr == "" {
-			t.Fatal("Expected log output but got none")
-		}
-
-		entry, err := parseLogEntry(outputStr)
-		if err != nil {
-			t.Fatalf("Failed to parse log entry: %v", err)
-		}
-
-		if entry.Level != "INFO" {
-			t.Errorf("Expected level 'INFO', got %s", entry.Level)
-		}
-		if entry.Message != "Connection event" {
-			t.Errorf("Expected message 'Connection event', got %s", entry.Message)
-		}
-		if entry.Context["event"] != "client_connected" {
-			t.Error("Expected event in context")
-		}
-		if entry.Context["type"] != "connection" {
-			t.Error("Expected type 'connection' in context")
-		}
-		if entry.Context["client_id"] != "client-123" {
-			t.Error("Expected client_id in context")
-		}
-	})
-
-	t.Run("LogErrorRecovery tracks recovery attempts", func(t *testing.T) {
-		output.Clear()
-
-		logger.LogErrorRecovery("connection_timeout", "reconnect", true)
-
-		outputStr := output.GetOutput()
-		if outputStr == "" {
-			t.Fatal("Expected log output but got none")
-		}
-
-		entry, err := parseLogEntry(outputStr)
-		if err != nil {
-			t.Fatalf("Failed to parse log entry: %v", err)
-		}
-
-		if entry.Level != "INFO" {
-			t.Errorf("Expected level 'INFO' for successful recovery, got %s", entry.Level)
-		}
-		if entry.Context["error_type"] != "connection_timeout" {
-			t.Error("Expected error_type in context")
-		}
-		if entry.Context["recovery_action"] != "reconnect" {
-			t.Error("Expected recovery_action in context")
-		}
-		if entry.Context["success"] != true {
-			t.Error("Expected success true in context")
-		}
-		if entry.Context["type"] != "recovery" {
-			t.Error("Expected type 'recovery' in context")
-		}
-	})
-
-	t.Run("LogErrorRecovery with failure logs as warning", func(t *testing.T) {
-		output.Clear()
-
-		logger.LogErrorRecovery("network_error", "retry", false)
-
-		outputStr := output.GetOutput()
-		if outputStr == "" {
-			t.Fatal("Expected log output but got none")
-		}
-
-		entry, err := parseLogEntry(outputStr)
-		if err != nil {
-			t.Fatalf("Failed to parse log entry: %v", err)
-		}
-
-		if entry.Level != "WARN" {
-			t.Errorf("Expected level 'WARN' for failed recovery, got %s", entry.Level)
-		}
-		if entry.Context["success"] != false {
-			t.Error("Expected success false in context")
-		}
-	})
+	return logger, output
 }
 
-// Test Formatter Methods
+func TestLogRequest(t *testing.T) {
+	logger, output := setupSpecializedLoggingTest()
+	startTime := time.Now().Add(-100 * time.Millisecond)
+
+	logger.LogRequest("textDocument/definition", "req-123", map[string]interface{}{
+		"uri": "file:///test.go",
+	}, startTime)
+
+	outputStr := output.GetOutput()
+	if outputStr == "" {
+		t.Fatal("Expected log output but got none")
+	}
+
+	entry, err := parseLogEntry(outputStr)
+	if err != nil {
+		t.Fatalf("Failed to parse log entry: %v", err)
+	}
+
+	if entry.Level != testLogLevelInfo {
+		t.Errorf("Expected level 'INFO', got %s", entry.Level)
+	}
+	if entry.Message != "Processing request" {
+		t.Errorf("Expected message 'Processing request', got %s", entry.Message)
+	}
+	if entry.Context["method"] != "textDocument/definition" {
+		t.Error("Expected method in context")
+	}
+	if entry.RequestID != "req-123" {
+		t.Error("Expected request_id in entry.RequestID")
+	}
+	if entry.Context["type"] != "request" {
+		t.Error("Expected type 'request' in context")
+	}
+	if entry.Duration == "" {
+		t.Error("Expected duration in entry.Duration")
+	}
+}
+
+func TestLogResponse(t *testing.T) {
+	logger, output := setupSpecializedLoggingTest()
+
+	logger.LogResponse("textDocument/definition", "req-456", true, 1024, 50*time.Millisecond)
+
+	outputStr := output.GetOutput()
+	if outputStr == "" {
+		t.Fatal("Expected log output but got none")
+	}
+
+	entry, err := parseLogEntry(outputStr)
+	if err != nil {
+		t.Fatalf("Failed to parse log entry: %v", err)
+	}
+
+	if entry.Level != testLogLevelInfo {
+		t.Errorf("Expected level 'INFO', got %s", entry.Level)
+	}
+	if entry.Message != "Request completed" {
+		t.Errorf("Expected message 'Request completed', got %s", entry.Message)
+	}
+	if entry.Context["success"] != true {
+		t.Error("Expected success true in context")
+	}
+	if entry.Context["response_size"] != float64(1024) {
+		t.Error("Expected response_size in context")
+	}
+}
+
+func TestLogResponseFailure(t *testing.T) {
+	logger, output := setupSpecializedLoggingTest()
+
+	logger.LogResponse("textDocument/definition", "req-789", false, 0, 25*time.Millisecond)
+
+	outputStr := output.GetOutput()
+	if outputStr == "" {
+		t.Fatal("Expected log output but got none")
+	}
+
+	entry, err := parseLogEntry(outputStr)
+	if err != nil {
+		t.Fatalf("Failed to parse log entry: %v", err)
+	}
+
+	if entry.Level != testLogLevelError {
+		t.Errorf("Expected level 'ERROR' for failed response, got %s", entry.Level)
+	}
+	if entry.Context["success"] != false {
+		t.Error("Expected success false in context")
+	}
+}
+
+func TestLogConnectionEvent(t *testing.T) {
+	logger, output := setupSpecializedLoggingTest()
+
+	logger.LogConnectionEvent("client_connected", map[string]interface{}{
+		"client_id": "client-123",
+		"transport": "stdio",
+	})
+
+	outputStr := output.GetOutput()
+	if outputStr == "" {
+		t.Fatal("Expected log output but got none")
+	}
+
+	entry, err := parseLogEntry(outputStr)
+	if err != nil {
+		t.Fatalf("Failed to parse log entry: %v", err)
+	}
+
+	if entry.Level != testLogLevelInfo {
+		t.Errorf("Expected level 'INFO', got %s", entry.Level)
+	}
+	if entry.Message != "Connection event" {
+		t.Errorf("Expected message 'Connection event', got %s", entry.Message)
+	}
+	if entry.Context["event"] != "client_connected" {
+		t.Error("Expected event in context")
+	}
+	if entry.Context["type"] != "connection" {
+		t.Error("Expected type 'connection' in context")
+	}
+	if entry.Context["client_id"] != "client-123" {
+		t.Error("Expected client_id in context")
+	}
+}
+
+func TestLogErrorRecovery(t *testing.T) {
+	logger, output := setupSpecializedLoggingTest()
+
+	logger.LogErrorRecovery("connection_timeout", "reconnect", true)
+
+	outputStr := output.GetOutput()
+	if outputStr == "" {
+		t.Fatal("Expected log output but got none")
+	}
+
+	entry, err := parseLogEntry(outputStr)
+	if err != nil {
+		t.Fatalf("Failed to parse log entry: %v", err)
+	}
+
+	if entry.Level != testLogLevelInfo {
+		t.Errorf("Expected level 'INFO' for successful recovery, got %s", entry.Level)
+	}
+	if entry.Context["error_type"] != "connection_timeout" {
+		t.Error("Expected error_type in context")
+	}
+	if entry.Context["recovery_action"] != "reconnect" {
+		t.Error("Expected recovery_action in context")
+	}
+	if entry.Context["success"] != true {
+		t.Error("Expected success true in context")
+	}
+	if entry.Context["type"] != "recovery" {
+		t.Error("Expected type 'recovery' in context")
+	}
+}
+
+func TestLogErrorRecoveryFailure(t *testing.T) {
+	logger, output := setupSpecializedLoggingTest()
+
+	logger.LogErrorRecovery("network_error", "retry", false)
+
+	outputStr := output.GetOutput()
+	if outputStr == "" {
+		t.Fatal("Expected log output but got none")
+	}
+
+	entry, err := parseLogEntry(outputStr)
+	if err != nil {
+		t.Fatalf("Failed to parse log entry: %v", err)
+	}
+
+	if entry.Level != "WARN" {
+		t.Errorf("Expected level 'WARN' for failed recovery, got %s", entry.Level)
+	}
+	if entry.Context["success"] != false {
+		t.Error("Expected success false in context")
+	}
+}
 
 func TestFormatterMethods(t *testing.T) {
 	tests := []struct {
@@ -1289,8 +1267,6 @@ func TestFormatterMethods(t *testing.T) {
 	}
 }
 
-// Test Level Management
-
 func TestLevelManagement(t *testing.T) {
 	t.Run("SetLevel changes effective level", func(t *testing.T) {
 		output := newMockWriter()
@@ -1303,16 +1279,13 @@ func TestLevelManagement(t *testing.T) {
 
 		logger := NewStructuredLogger(config)
 
-		// Initially debug should be filtered
 		logger.Debug("debug message")
 		if output.GetOutput() != "" {
 			t.Error("Expected debug message to be filtered at Info level")
 		}
 
-		// Change level to debug
 		logger.SetLevel(LogLevelDebug)
 
-		// Now debug should be logged
 		logger.Debug("debug message after level change")
 		outputStr := output.GetOutput()
 		if outputStr == "" {
@@ -1378,63 +1351,6 @@ func TestLevelManagement(t *testing.T) {
 		}
 	})
 }
-
-// Test ParseLogLevel
-
-func TestParseLogLevel(t *testing.T) {
-	tests := []struct {
-		name        string
-		input       string
-		expected    LogLevel
-		expectError bool
-	}{
-		{"trace level", "TRACE", LogLevelTrace, false},
-		{"debug level", "DEBUG", LogLevelDebug, false},
-		{"info level", "INFO", LogLevelInfo, false},
-		{"warn level", "WARN", LogLevelWarn, false},
-		{"warning level", "WARNING", LogLevelWarn, false},
-		{"error level", "ERROR", LogLevelError, false},
-		{"fatal level", "FATAL", LogLevelFatal, false},
-
-		{"lowercase trace", "trace", LogLevelTrace, false},
-		{"lowercase debug", "debug", LogLevelDebug, false},
-		{"lowercase info", "info", LogLevelInfo, false},
-		{"lowercase warn", "warn", LogLevelWarn, false},
-		{"lowercase warning", "warning", LogLevelWarn, false},
-		{"lowercase error", "error", LogLevelError, false},
-		{"lowercase fatal", "fatal", LogLevelFatal, false},
-
-		{"mixed case", "InFo", LogLevelInfo, false},
-		{"invalid level", "INVALID", LogLevelInfo, true},
-		{"empty string", "", LogLevelInfo, true},
-		{"numeric", "123", LogLevelInfo, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			level, err := ParseLogLevel(tt.input)
-
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("Expected error for input '%s', but got none", tt.input)
-				}
-				// For invalid levels, should return default Info level
-				if level != LogLevelInfo {
-					t.Errorf("Expected default level Info for invalid input, got %v", level)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Expected no error for input '%s', but got: %v", tt.input, err)
-				}
-				if level != tt.expected {
-					t.Errorf("Expected level %v for input '%s', got %v", tt.expected, tt.input, level)
-				}
-			}
-		})
-	}
-}
-
-// Test Thread Safety
 
 func TestThreadSafety(t *testing.T) {
 	t.Run("concurrent logging is thread-safe", func(t *testing.T) {
@@ -1530,13 +1446,11 @@ func TestThreadSafety(t *testing.T) {
 		var wg sync.WaitGroup
 		const numGoroutines = 10
 
-		// Goroutines changing log level
 		wg.Add(numGoroutines)
 		for i := 0; i < numGoroutines; i++ {
 			go func(id int) {
 				defer wg.Done()
 				for j := 0; j < 100; j++ {
-					// Cycle through different levels
 					level := LogLevel(j % 6)
 					logger.SetLevel(level)
 					currentLevel := logger.GetLevel()
@@ -1547,7 +1461,6 @@ func TestThreadSafety(t *testing.T) {
 			}(i)
 		}
 
-		// Goroutines logging messages
 		wg.Add(numGoroutines)
 		for i := 0; i < numGoroutines; i++ {
 			go func(id int) {
@@ -1560,7 +1473,6 @@ func TestThreadSafety(t *testing.T) {
 
 		wg.Wait()
 
-		// Should not panic and should have some output
 		writeCount := output.GetWriteCount()
 		if writeCount < 0 {
 			t.Error("Expected non-negative write count")
@@ -1587,14 +1499,12 @@ func TestThreadSafety(t *testing.T) {
 			go func(id int) {
 				defer wg.Done()
 				for j := 0; j < messagesPerGoroutine; j++ {
-					// Alternate between different log levels
 					if j%2 == 0 {
 						logger.Info("info message")
 					} else {
 						logger.Error("error message")
 					}
 
-					// Occasionally check and reset counts
 					if j%10 == 0 {
 						counts := logger.GetLogCounts()
 						_ = counts
@@ -1608,18 +1518,14 @@ func TestThreadSafety(t *testing.T) {
 
 		wg.Wait()
 
-		// Check final counts
 		finalCounts := logger.GetLogCounts()
 		totalLogs := finalCounts[LogLevelInfo] + finalCounts[LogLevelError]
 
-		// Should have some logs (exact count depends on reset timing)
 		if totalLogs < 0 {
 			t.Error("Expected non-negative total log count")
 		}
 	})
 }
-
-// Test Edge Cases and Error Conditions
 
 func TestEdgeCasesAndErrorConditions(t *testing.T) {
 	t.Run("WithError handles nil error gracefully", func(t *testing.T) {
@@ -1634,7 +1540,6 @@ func TestEdgeCasesAndErrorConditions(t *testing.T) {
 		logger := NewStructuredLogger(config)
 		resultLogger := logger.WithError(nil)
 
-		// Should return the same logger instance
 		if resultLogger != logger {
 			t.Error("Expected WithError(nil) to return the same logger")
 		}
@@ -1651,7 +1556,6 @@ func TestEdgeCasesAndErrorConditions(t *testing.T) {
 			t.Fatalf("Failed to parse log entry: %v", err)
 		}
 
-		// Should not have error field in context
 		if entry.Context != nil && entry.Context["error"] != nil {
 			t.Error("Expected no error field when nil error provided")
 		}
@@ -1668,7 +1572,6 @@ func TestEdgeCasesAndErrorConditions(t *testing.T) {
 
 		logger := NewStructuredLogger(config)
 
-		// Create a large string value
 		largeValue := strings.Repeat("x", 10000)
 		logger.WithField("large_field", largeValue).Info("test with large field")
 
@@ -1765,13 +1668,11 @@ func TestEdgeCasesAndErrorConditions(t *testing.T) {
 			Output:     nil, // This should default to os.Stderr
 		}
 
-		// Should not panic
 		logger := NewStructuredLogger(config)
 		if logger == nil {
 			t.Fatal("Expected logger to be created even with nil output")
 		}
 
-		// Should use default output (os.Stderr)
 		if logger.config.Output == nil {
 			t.Error("Expected default output to be set")
 		}
@@ -1790,7 +1691,6 @@ func TestEdgeCasesAndErrorConditions(t *testing.T) {
 
 		logger := NewStructuredLogger(config)
 
-		// Create a recursive function to generate deep stack
 		var deepFunction func(int)
 		deepFunction = func(depth int) {
 			if depth > 0 {
@@ -1816,14 +1716,11 @@ func TestEdgeCasesAndErrorConditions(t *testing.T) {
 			t.Error("Expected stack trace to be populated")
 		}
 
-		// Should respect max depth
 		if len(entry.StackTrace) > 100 {
 			t.Errorf("Expected stack trace depth <= 100, got %d", len(entry.StackTrace))
 		}
 	})
 }
-
-// Performance Tests
 
 func TestPerformance(t *testing.T) {
 	if testing.Short() {
@@ -1883,8 +1780,9 @@ func TestPerformance(t *testing.T) {
 			logger.WithField("iteration", i).Info("async performance test message")
 		}
 
-		// Close to wait for all async writes to complete
-		logger.Close()
+		if err := logger.Close(); err != nil {
+			t.Errorf("Failed to close logger: %v", err)
+		}
 		duration := time.Since(start)
 		messagesPerSecond := float64(numMessages) / duration.Seconds()
 
@@ -1915,7 +1813,6 @@ func TestPerformance(t *testing.T) {
 		runtime.GC()
 		runtime.ReadMemStats(&m1)
 
-		// Log a significant number of messages
 		for i := 0; i < 1000; i++ {
 			logger.WithField("iteration", i).
 				WithField("data", strings.Repeat("x", 100)).
@@ -1933,14 +1830,11 @@ func TestPerformance(t *testing.T) {
 		}
 		t.Logf("Memory allocated during test: %d bytes", allocDiff)
 
-		// Should not use excessive memory (allowing for test overhead)
 		if allocDiff > 50*1024*1024 { // 50MB threshold
 			t.Errorf("Memory usage too high: %d bytes", allocDiff)
 		}
 	})
 }
-
-// Integration Tests
 
 func TestIntegrationScenarios(t *testing.T) {
 	t.Run("complete request lifecycle logging", func(t *testing.T) {
@@ -1954,11 +1848,9 @@ func TestIntegrationScenarios(t *testing.T) {
 
 		logger := NewStructuredLogger(config)
 
-		// Simulate a complete request lifecycle
 		requestID := "req-integration-123"
 		startTime := time.Now()
 
-		// Request started
 		logger.LogRequest("textDocument/definition", requestID, map[string]interface{}{
 			"uri": "file:///project/main.go",
 			"position": map[string]interface{}{
@@ -1967,24 +1859,19 @@ func TestIntegrationScenarios(t *testing.T) {
 			},
 		}, startTime)
 
-		// Processing steps
 		procLogger := logger.WithRequestID(requestID).WithOperation("textDocument/definition")
 
 		procLogger.Debug("validating request parameters")
 		procLogger.Info("routing to language server")
 		procLogger.WithField("server", "gopls").Debug("sending LSP request")
 
-		// Simulate some processing time
 		time.Sleep(10 * time.Millisecond)
 
-		// Warning during processing
 		procLogger.Warn("language server response delayed")
 
-		// Request completed
 		duration := time.Since(startTime)
 		logger.LogResponse("textDocument/definition", requestID, true, 512, duration)
 
-		// Verify all logs were written
 		entries, err := parseAllLogEntries(output.GetOutput())
 		if err != nil {
 			t.Fatalf("Failed to parse log entries: %v", err)
@@ -1994,7 +1881,6 @@ func TestIntegrationScenarios(t *testing.T) {
 			t.Errorf("Expected at least 5 log entries, got %d", len(entries))
 		}
 
-		// Verify request ID is present in relevant entries
 		requestEntries := 0
 		for _, entry := range entries {
 			if entry.RequestID == requestID || (entry.Context != nil && entry.Context["request_id"] == requestID) {
@@ -2020,20 +1906,16 @@ func TestIntegrationScenarios(t *testing.T) {
 
 		logger := NewStructuredLogger(config)
 
-		// Simulate error recovery scenario
 		connLogger := logger.WithOperation("connection.maintain")
 
 		connLogger.Info("establishing connection to language server")
 
-		// First failure
 		connLogger.LogErrorRecovery("connection_timeout", "retry", false)
 		connLogger.WithError(errors.New("connection timeout after 5s")).Error("failed to connect")
 
-		// Retry with success
 		connLogger.LogErrorRecovery("connection_timeout", "retry_with_backoff", true)
 		connLogger.Info("connection established successfully")
 
-		// Log metrics
 		metrics := &LogMetrics{
 			BytesProcessed: 2048,
 			ItemsProcessed: 15,
@@ -2050,13 +1932,11 @@ func TestIntegrationScenarios(t *testing.T) {
 		}
 		logger.LogMetrics(metrics)
 
-		// Verify comprehensive logging
 		entries, err := parseAllLogEntries(output.GetOutput())
 		if err != nil {
 			t.Fatalf("Failed to parse log entries: %v", err)
 		}
 
-		// Should have multiple types of logs
 		var hasInfo, hasError, hasRecovery, hasMetrics bool
 		for _, entry := range entries {
 			switch entry.Level {

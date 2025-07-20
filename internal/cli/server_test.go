@@ -14,18 +14,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/spf13/cobra"
 	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/gateway"
+
+	"github.com/spf13/cobra"
 )
 
-// allocateTestPortServer is deprecated, use AllocateTestPort from testutil.go
-// Keeping for backward compatibility
 func allocateTestPortServer(t *testing.T) int {
 	return AllocateTestPort(t)
 }
 
-// createValidTestConfig creates a test configuration with dynamic port
 func createValidTestConfig(port int) string {
 	return CreateConfigWithPort(port)
 }
@@ -49,7 +47,6 @@ func TestServerCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset global variables before each test
 			configPath = DefaultConfigFile
 			port = DefaultServerPort
 			tt.testFunc(t)
@@ -72,12 +69,10 @@ func testServerCommandMetadata(t *testing.T) {
 		t.Errorf("Expected Long to be '%s', got '%s'", expectedLong, serverCmd.Long)
 	}
 
-	// Verify RunE function is set
 	if serverCmd.RunE == nil {
 		t.Error("Expected RunE function to be set")
 	}
 
-	// Verify Run function is not set (we use RunE)
 	if serverCmd.Run != nil {
 		t.Error("Expected Run function to be nil (using RunE instead)")
 	}
@@ -144,29 +139,23 @@ func testServerCommandFlagParsing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset global variables
 			configPath = DefaultConfigFile
 			port = DefaultServerPort
 
-			// Create a test command to avoid modifying global state
 			testCmd := &cobra.Command{
 				Use:   "server",
 				Short: "Start the LSP Gateway server",
 				Long:  "Start the LSP Gateway server with the specified configuration.",
 				RunE: func(cmd *cobra.Command, args []string) error {
-					// Just parse flags, don't execute
 					return nil
 				},
 			}
 
-			// Add flags to test command
 			testCmd.Flags().StringVarP(&configPath, "config", "c", DefaultConfigFile, "Configuration file path")
 			testCmd.Flags().IntVarP(&port, "port", "p", 8080, "Server port")
 
-			// Set arguments
 			testCmd.SetArgs(tt.args)
 
-			// Execute flag parsing
 			err := testCmd.Execute()
 
 			if tt.expectedError && err == nil {
@@ -175,7 +164,6 @@ func testServerCommandFlagParsing(t *testing.T) {
 				t.Errorf("Expected no error but got: %v", err)
 			}
 
-			// Check parsed values
 			if configPath != tt.expectedConfig {
 				t.Errorf("Expected configPath to be '%s', got '%s'", tt.expectedConfig, configPath)
 			}
@@ -188,7 +176,6 @@ func testServerCommandFlagParsing(t *testing.T) {
 }
 
 func testServerCommandConfigurationLoading(t *testing.T) {
-	// Create temporary config file
 	tempDir := t.TempDir()
 	configFile := filepath.Join(tempDir, "test-config.yaml")
 
@@ -227,7 +214,6 @@ func testServerCommandConfigurationLoading(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test configuration loading and validation without gateway creation
 			cfg, err := config.LoadConfig(tt.configPath)
 
 			if tt.expectedError {
@@ -241,14 +227,12 @@ func testServerCommandConfigurationLoading(t *testing.T) {
 					t.Errorf("Expected no error but got: %v", err)
 				}
 
-				// Verify config was loaded correctly
 				if cfg == nil {
 					t.Error("Expected config to be loaded")
 				} else if cfg.Port <= 0 || cfg.Port > 65535 {
 					t.Errorf("Expected valid port number, got %d", cfg.Port)
 				}
 
-				// Test validation
 				if err := config.ValidateConfig(cfg); err != nil {
 					t.Errorf("Config validation failed: %v", err)
 				}
@@ -258,7 +242,6 @@ func testServerCommandConfigurationLoading(t *testing.T) {
 }
 
 func testServerCommandPortOverride(t *testing.T) {
-	// Create temporary config file with port 8080
 	tempDir := t.TempDir()
 	configFile := filepath.Join(tempDir, "test-config.yaml")
 
@@ -289,18 +272,15 @@ func testServerCommandPortOverride(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test port override logic
 			cfg, err := config.LoadConfig(configFile)
 			if err != nil {
 				t.Fatalf("Failed to load config: %v", err)
 			}
 
-			// Override port if specified (mimicking server.go logic)
 			if tt.portFlag != DefaultServerPort {
 				cfg.Port = tt.portFlag
 			}
 
-			// Validate configuration
 			if err := config.ValidateConfig(cfg); err != nil {
 				t.Errorf("Config validation failed: %v", err)
 			}
@@ -369,13 +349,11 @@ servers:
 				t.Fatalf("Failed to create test config file: %v", err)
 			}
 
-			// Load and validate configuration
 			cfg, err := config.LoadConfig(configFile)
 			if err != nil {
 				t.Fatalf("Failed to load config: %v", err)
 			}
 
-			// Test validation
 			err = config.ValidateConfig(cfg)
 
 			if tt.expectedError {
@@ -424,12 +402,10 @@ func testServerCommandErrorScenarios(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test loading and validation steps
 			cfg, err := config.LoadConfig(tt.configPath)
 
 			if tt.expectedError {
 				if err == nil {
-					// Try validation if load succeeded but validation should fail
 					if cfg != nil {
 						err = config.ValidateConfig(cfg)
 					}
@@ -445,7 +421,6 @@ func testServerCommandErrorScenarios(t *testing.T) {
 					t.Errorf("Expected no error but got: %v", err)
 				}
 
-				// Test validation for valid configs
 				if cfg != nil {
 					if err := config.ValidateConfig(cfg); err != nil {
 						t.Errorf("Config validation failed: %v", err)
@@ -457,9 +432,7 @@ func testServerCommandErrorScenarios(t *testing.T) {
 }
 
 func testServerCommandExecution(t *testing.T) {
-	// Test basic command structure and execution without actual server startup
 
-	// Verify command is properly registered
 	found := false
 	for _, cmd := range rootCmd.Commands() {
 		if cmd.Name() == CmdServer {
@@ -472,7 +445,6 @@ func testServerCommandExecution(t *testing.T) {
 		t.Error("server command should be added to root command")
 	}
 
-	// Test flag definitions
 	configFlag := serverCmd.Flag("config")
 	if configFlag == nil {
 		t.Error("Expected config flag to be defined")
@@ -499,7 +471,6 @@ func testServerCommandExecution(t *testing.T) {
 }
 
 func testServerCommandHelp(t *testing.T) {
-	// Test help output
 	output := captureStdoutServer(t, func() {
 		testCmd := &cobra.Command{
 			Use:   serverCmd.Use,
@@ -508,7 +479,6 @@ func testServerCommandHelp(t *testing.T) {
 			RunE:  serverCmd.RunE,
 		}
 
-		// Add flags to test command for help
 		testCmd.Flags().StringVarP(&configPath, "config", "c", "config.yaml", "Configuration file path")
 		testCmd.Flags().IntVarP(&port, "port", "p", 8080, "Server port")
 
@@ -519,7 +489,6 @@ func testServerCommandHelp(t *testing.T) {
 		}
 	})
 
-	// Verify help output contains expected elements
 	expectedElements := []string{
 		"Start the LSP Gateway server",
 		"server",
@@ -539,49 +508,40 @@ func testServerCommandHelp(t *testing.T) {
 }
 
 func testServerCommandIntegration(t *testing.T) {
-	// Test execution through root command with basic config validation
 	tempDir := t.TempDir()
 	configFile := createValidConfigFile(t, tempDir)
 
-	// Create test root command
 	testRoot := &cobra.Command{
 		Use:   rootCmd.Use,
 		Short: rootCmd.Short,
 	}
 
-	// Create test server command that tests config loading but doesn't start servers
 	testServer := &cobra.Command{
 		Use:   serverCmd.Use,
 		Short: serverCmd.Short,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Load configuration
 			cfg, err := config.LoadConfig(configFile)
 			if err != nil {
 				return fmt.Errorf("failed to load configuration: %w", err)
 			}
 
-			// Override port if specified
 			if port != DefaultServerPort {
 				cfg.Port = port
 			}
 
-			// Validate configuration
 			if err := config.ValidateConfig(cfg); err != nil {
 				return fmt.Errorf("invalid configuration: %w", err)
 			}
 
-			// Don't actually create gateway or start server for testing
 			return nil
 		},
 	}
 
-	// Add flags
 	testServer.Flags().StringVarP(&configPath, "config", "c", configFile, "Configuration file path")
 	testServer.Flags().IntVarP(&port, "port", "p", 8080, "Server port")
 
 	testRoot.AddCommand(testServer)
 
-	// Execute server command through root
 	testRoot.SetArgs([]string{"server"})
 	err := testRoot.Execute()
 
@@ -590,7 +550,6 @@ func testServerCommandIntegration(t *testing.T) {
 	}
 }
 
-// Test edge cases and special scenarios
 func TestServerCommandEdgeCases(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -605,7 +564,6 @@ func TestServerCommandEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset global variables before each test
 			configPath = DefaultConfigFile
 			port = DefaultServerPort
 			tt.testFunc(t)
@@ -620,12 +578,10 @@ func testServerCommandWithExtraArgs(t *testing.T) {
 	testCmd := &cobra.Command{
 		Use: "server",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// Server command should ignore extra arguments
 			if len(args) > 0 {
 				t.Logf("Server command received extra args: %v", args)
 			}
 
-			// Minimal test execution - just config loading
 			cfg, err := config.LoadConfig(configFile)
 			if err != nil {
 				return err
@@ -638,7 +594,6 @@ func testServerCommandWithExtraArgs(t *testing.T) {
 	testCmd.Flags().StringVarP(&configPath, "config", "c", configFile, "Configuration file path")
 	testCmd.Flags().IntVarP(&port, "port", "p", 8080, "Server port")
 
-	// Test with extra arguments
 	testCmd.SetArgs([]string{"extra", "args"})
 	err := testCmd.Execute()
 
@@ -648,12 +603,10 @@ func testServerCommandWithExtraArgs(t *testing.T) {
 }
 
 func testServerCommandHTTPServerSetup(t *testing.T) {
-	// Test HTTP server setup logic simulation
 	tempDir := t.TempDir()
 	testPort := allocateTestPortServer(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
-	// Test HTTP handler setup logic
 	cfg, err := config.LoadConfig(configFile)
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
@@ -663,14 +616,12 @@ func testServerCommandHTTPServerSetup(t *testing.T) {
 		t.Fatalf("Config validation failed: %v", err)
 	}
 
-	// Test HTTP server configuration that would be used
 	expectedAddr := fmt.Sprintf(":%d", cfg.Port)
 	expectedAddrCheck := fmt.Sprintf(":%d", testPort)
 	if expectedAddr != expectedAddrCheck {
 		t.Errorf("Expected server address to be '%s', got '%s'", expectedAddrCheck, expectedAddr)
 	}
 
-	// Test that /jsonrpc endpoint would be set up
 	mux := http.NewServeMux()
 	mux.HandleFunc("/jsonrpc", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -680,11 +631,9 @@ func testServerCommandHTTPServerSetup(t *testing.T) {
 		}
 	})
 
-	// Create test server to verify handler
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	// Test the handler
 	resp, err := http.Post(server.URL+"/jsonrpc", "application/json",
 		strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test","params":{}}`))
 	if err != nil {
@@ -705,7 +654,6 @@ func testServerCommandContextCancellation(t *testing.T) {
 	tempDir := t.TempDir()
 	configFile := createValidConfigFile(t, tempDir)
 
-	// Test context cancellation behavior
 	cfg, err := config.LoadConfig(configFile)
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
@@ -715,30 +663,24 @@ func testServerCommandContextCancellation(t *testing.T) {
 		t.Fatalf("Config validation failed: %v", err)
 	}
 
-	// Test context cancellation pattern
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Simulate the context usage pattern
 	done := make(chan struct{})
 	go func() {
 		<-ctx.Done()
 		close(done)
 	}()
 
-	// Cancel context and verify cleanup
 	cancel()
 
-	// Wait for cancellation to be processed
 	select {
 	case <-done:
-		// Expected behavior
 	case <-time.After(time.Second):
 		t.Error("Context cancellation not processed in time")
 	}
 }
 
 func testServerCommandSignalHandlingSimulation(t *testing.T) {
-	// Test signal handling simulation (without actual signals)
 	tempDir := t.TempDir()
 	configFile := createValidConfigFile(t, tempDir)
 
@@ -751,16 +693,13 @@ func testServerCommandSignalHandlingSimulation(t *testing.T) {
 		t.Fatalf("Config validation failed: %v", err)
 	}
 
-	// Simulate signal handling logic
 	sigCh := make(chan os.Signal, 1)
 
-	// Simulate receiving a signal
 	go func() {
 		time.Sleep(10 * time.Millisecond)
 		sigCh <- syscall.SIGINT
 	}()
 
-	// Wait for signal (simulated)
 	select {
 	case sig := <-sigCh:
 		if sig != syscall.SIGINT {
@@ -770,29 +709,22 @@ func testServerCommandSignalHandlingSimulation(t *testing.T) {
 		t.Error("Signal not received in time")
 	}
 
-	// Simulate graceful shutdown
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
 
-	// Verify shutdown context works
 	select {
 	case <-shutdownCtx.Done():
-		// This should only happen after timeout
 		t.Error("Shutdown context should not timeout immediately")
 	default:
-		// Expected behavior - context is active
 	}
 }
 
-// Test command completeness and structure
 func TestServerCommandCompleteness(t *testing.T) {
 	t.Parallel()
-	// Verify command structure
 	if serverCmd.Name() != CmdServer {
 		t.Errorf("Expected command name 'server', got '%s'", serverCmd.Name())
 	}
 
-	// Verify flags are properly defined
 	configFlag := serverCmd.Flag("config")
 	if configFlag == nil {
 		t.Error("Expected config flag to be defined")
@@ -803,12 +735,10 @@ func TestServerCommandCompleteness(t *testing.T) {
 		t.Error("Expected port flag to be defined")
 	}
 
-	// Verify no subcommands
 	if serverCmd.HasSubCommands() {
 		t.Error("Server command should not have subcommands")
 	}
 
-	// Verify command is added to root
 	found := false
 	for _, cmd := range rootCmd.Commands() {
 		if cmd.Name() == CmdServer {
@@ -822,7 +752,6 @@ func TestServerCommandCompleteness(t *testing.T) {
 	}
 }
 
-// Helper functions
 func createValidConfigFile(t *testing.T, dir string) string {
 	t.Helper()
 
@@ -838,7 +767,6 @@ func createValidConfigFile(t *testing.T, dir string) string {
 	return configFile
 }
 
-// createValidConfigFileWithPort creates a config file with a specific port
 func createValidConfigFileWithPort(t *testing.T, dir string, port int) string {
 	t.Helper()
 	configFile := filepath.Join(dir, "valid-config.yaml")
@@ -897,32 +825,25 @@ servers:
 	return configFile
 }
 
-// Helper function to capture stdout during function execution (rename to avoid conflict)
 func captureStdoutServer(t *testing.T, fn func()) string {
 	t.Helper()
 
-	// Save original stdout
 	oldStdout := os.Stdout
 
-	// Create pipe
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("Failed to create pipe: %v", err)
 	}
 
-	// Replace stdout
 	os.Stdout = w
 
-	// Execute function
 	fn()
 
-	// Close writer and restore stdout
 	if err := w.Close(); err != nil {
 		t.Logf("cleanup error closing writer: %v", err)
 	}
 	os.Stdout = oldStdout
 
-	// Read captured output
 	var buf bytes.Buffer
 	_, err = io.Copy(&buf, r)
 	if err != nil {
@@ -932,8 +853,6 @@ func captureStdoutServer(t *testing.T, fn func()) string {
 	return buf.String()
 }
 
-// TestServerStartupFunctions tests the actual runServer function logic with controlled conditions
-// to achieve 70% CLI coverage by testing server startup paths
 func TestServerStartupFunctions(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -956,7 +875,6 @@ func TestServerStartupFunctions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset global variables before each test
 			configPath = DefaultConfigFile
 			port = DefaultServerPort
 			tt.testFunc(t)
@@ -965,11 +883,9 @@ func TestServerStartupFunctions(t *testing.T) {
 }
 
 func testRunServerConfigLoading(t *testing.T) {
-	// Test configuration loading logic from runServer
 	tempDir := t.TempDir()
 	configFile := createValidConfigFile(t, tempDir)
 
-	// Test the config loading path from runServer without full server startup
 	cfg, err := config.LoadConfig(configFile)
 	if err != nil {
 		t.Errorf("Config loading failed (runServer path): %v", err)
@@ -977,13 +893,13 @@ func testRunServerConfigLoading(t *testing.T) {
 
 	if cfg == nil {
 		t.Error("Expected config to be loaded")
+		return
 	}
 
 	if cfg.Port <= 0 || cfg.Port > 65535 {
 		t.Errorf("Expected valid port number, got %d", cfg.Port)
 	}
 
-	// Test config loading error case
 	_, err = config.LoadConfig("/nonexistent/config.yaml")
 	if err == nil {
 		t.Error("Expected error for nonexistent config file")
@@ -995,7 +911,6 @@ func testRunServerConfigLoading(t *testing.T) {
 }
 
 func testRunServerPortOverride(t *testing.T) {
-	// Test port override logic from runServer
 	tempDir := t.TempDir()
 	configFile := createValidConfigFile(t, tempDir)
 
@@ -1004,7 +919,6 @@ func testRunServerPortOverride(t *testing.T) {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Test port override logic (lines 61-63 in server.go)
 	testPort := 9999
 	if testPort != DefaultServerPort {
 		cfg.Port = testPort
@@ -1014,7 +928,6 @@ func testRunServerPortOverride(t *testing.T) {
 		t.Errorf("Expected port to be overridden to %d, got %d", testPort, cfg.Port)
 	}
 
-	// Test no override when using default port
 	cfg2, err := config.LoadConfig(configFile)
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
@@ -1022,7 +935,6 @@ func testRunServerPortOverride(t *testing.T) {
 
 	defaultPort := DefaultServerPort
 	if defaultPort == DefaultServerPort {
-		// No override should occur
 		if cfg2.Port <= 0 || cfg2.Port > 65535 { // Check for valid port range
 			t.Errorf("Port should be valid when using default, got %d", cfg2.Port)
 		}
@@ -1030,24 +942,20 @@ func testRunServerPortOverride(t *testing.T) {
 }
 
 func testRunServerConfigValidation(t *testing.T) {
-	// Test configuration validation logic from runServer
 	tempDir := t.TempDir()
 	validConfigFile := createValidConfigFile(t, tempDir)
 	invalidConfigFile := createInvalidConfigFile(t, tempDir)
 
-	// Test valid config validation
 	cfg, err := config.LoadConfig(validConfigFile)
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Test the validation step from runServer (lines 66-68)
 	err = config.ValidateConfig(cfg)
 	if err != nil {
 		t.Errorf("Valid config should pass validation: %v", err)
 	}
 
-	// Test invalid config validation
 	invalidCfg, err := config.LoadConfig(invalidConfigFile)
 	if err != nil {
 		t.Fatalf("Failed to load invalid config: %v", err)
@@ -1064,7 +972,6 @@ func testRunServerConfigValidation(t *testing.T) {
 }
 
 func testRunServerGatewayCreation(t *testing.T) {
-	// Test gateway creation logic from runServer
 	tempDir := t.TempDir()
 	configFile := createValidConfigFile(t, tempDir)
 
@@ -1078,7 +985,6 @@ func testRunServerGatewayCreation(t *testing.T) {
 		t.Fatalf("Config validation failed: %v", err)
 	}
 
-	// Test gateway creation (lines 71-74 in server.go)
 	gw, err := gateway.NewGateway(cfg)
 	if err != nil {
 		t.Errorf("Gateway creation failed: %v", err)
@@ -1088,7 +994,6 @@ func testRunServerGatewayCreation(t *testing.T) {
 		t.Error("Expected gateway to be created")
 	}
 
-	// Test gateway creation with invalid config to trigger error
 	invalidCfg := &config.GatewayConfig{
 		Port:    -1, // Invalid port
 		Servers: []config.ServerConfig{},
@@ -1103,7 +1008,6 @@ func testRunServerGatewayCreation(t *testing.T) {
 }
 
 func testRunServerGatewayStart(t *testing.T) {
-	// Test gateway start logic from runServer
 	tempDir := t.TempDir()
 	configFile := createValidConfigFile(t, tempDir)
 
@@ -1122,7 +1026,6 @@ func testRunServerGatewayStart(t *testing.T) {
 		t.Fatalf("Gateway creation failed: %v", err)
 	}
 
-	// Test gateway start and stop (lines 80-87 in server.go)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -1131,7 +1034,6 @@ func testRunServerGatewayStart(t *testing.T) {
 		t.Errorf("Gateway start failed: %v", err)
 	}
 
-	// Test gateway stop in defer pattern
 	err = gw.Stop()
 	if err != nil {
 		t.Errorf("Gateway stop failed: %v", err)
@@ -1139,7 +1041,6 @@ func testRunServerGatewayStart(t *testing.T) {
 }
 
 func testRunServerHTTPSetup(t *testing.T) {
-	// Test HTTP server setup logic from runServer
 	tempDir := t.TempDir()
 	testPort := allocateTestPortServer(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
@@ -1149,13 +1050,11 @@ func testRunServerHTTPSetup(t *testing.T) {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Test HTTP server configuration that would be used (lines 89-97)
 	expectedAddr := fmt.Sprintf(":%d", cfg.Port)
 	if expectedAddr != fmt.Sprintf(":%d", testPort) {
 		t.Errorf("Expected server address ':%d', got '%s'", testPort, expectedAddr)
 	}
 
-	// Test handler setup
 	gw, err := gateway.NewGateway(cfg)
 	if err != nil {
 		t.Fatalf("Gateway creation failed: %v", err)
@@ -1174,15 +1073,12 @@ func testRunServerHTTPSetup(t *testing.T) {
 		}
 	}()
 
-	// Test HTTP handler setup pattern
 	mux := http.NewServeMux()
 	mux.HandleFunc("/jsonrpc", gw.HandleJSONRPC)
 
-	// Test the handler with httptest
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
-	// Test that the handler responds
 	resp, err := http.Post(server.URL+"/jsonrpc", "application/json",
 		strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"test","params":{}}`))
 	if err != nil {
@@ -1200,21 +1096,13 @@ func testRunServerHTTPSetup(t *testing.T) {
 }
 
 func testRunServerSignalHandling(t *testing.T) {
-	// Test signal handling logic from runServer (lines 107-110)
 	sigCh := make(chan os.Signal, 1)
 
-	// Test signal channel creation
-	if sigCh == nil {
-		t.Error("Signal channel should be created")
-	}
-
-	// Test signal notification setup simulation
 	go func() {
 		time.Sleep(10 * time.Millisecond)
 		sigCh <- syscall.SIGINT
 	}()
 
-	// Test signal reception
 	select {
 	case sig := <-sigCh:
 		if sig != syscall.SIGINT {
@@ -1224,7 +1112,6 @@ func testRunServerSignalHandling(t *testing.T) {
 		t.Error("Signal not received in time")
 	}
 
-	// Test SIGTERM as well
 	sigCh2 := make(chan os.Signal, 1)
 	go func() {
 		time.Sleep(10 * time.Millisecond)
@@ -1242,9 +1129,7 @@ func testRunServerSignalHandling(t *testing.T) {
 }
 
 func testRunServerGracefulShutdown(t *testing.T) {
-	// Test graceful shutdown logic from runServer (lines 114-121)
 
-	// Test shutdown context creation
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 
@@ -1252,30 +1137,24 @@ func testRunServerGracefulShutdown(t *testing.T) {
 		t.Error("Shutdown context should be created")
 	}
 
-	// Test context timeout behavior
 	select {
 	case <-shutdownCtx.Done():
 		t.Error("Shutdown context should not timeout immediately")
 	default:
-		// Expected behavior - context is active
 	}
 
-	// Test HTTP server shutdown simulation
 	server := &http.Server{
 		Addr: ":0",
 	}
 
-	// Test immediate shutdown
 	err := server.Shutdown(shutdownCtx)
 	if err != nil {
 		t.Logf("Server shutdown completed with: %v", err)
 	}
 
-	// Test shutdown with timeout
 	shortCtx, shortCancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 	defer shortCancel()
 
-	// This should timeout immediately
 	server2 := &http.Server{Addr: ":0"}
 	err = server2.Shutdown(shortCtx)
 	if err != nil && !strings.Contains(err.Error(), "context deadline exceeded") {
@@ -1284,34 +1163,27 @@ func testRunServerGracefulShutdown(t *testing.T) {
 }
 
 func testRunServerInvalidConfig(t *testing.T) {
-	// Test config validation step that would be called by runServer
 	tempDir := t.TempDir()
 	invalidConfigFile := createInvalidConfigFile(t, tempDir)
 
-	// Test the validation logic without calling the blocking runServer
 	cfg, err := config.LoadConfig(invalidConfigFile)
 	if err != nil {
-		// If loading fails, that's also a valid test result
 		t.Logf("Config loading failed as expected: %v", err)
 		return
 	}
 
-	// Test validation step
 	err = config.ValidateConfig(cfg)
 	if err == nil {
 		t.Error("Expected validation error for invalid configuration")
 		return
 	}
 
-	// This tests the same logic as runServer lines 66-68 without hanging
 	t.Logf("Config validation correctly failed: %v", err)
 }
 
 func testRunServerGatewayFailure(t *testing.T) {
-	// Test gateway creation logic that would be called by runServer
 	tempDir := t.TempDir()
 
-	// Create config with servers that have invalid commands
 	badConfigContent := fmt.Sprintf(`
 port: %d
 servers:
@@ -1327,19 +1199,16 @@ servers:
 		t.Fatalf("Failed to create bad config file: %v", err)
 	}
 
-	// Test the gateway creation logic without calling the blocking runServer
 	cfg, err := config.LoadConfig(badConfigFile)
 	if err != nil {
 		t.Fatalf("Failed to load bad config: %v", err)
 	}
 
-	// Test validation
 	if err := config.ValidateConfig(cfg); err != nil {
 		t.Logf("Config validation failed as expected: %v", err)
 		return
 	}
 
-	// Test gateway creation (this tests the same logic as runServer lines 71-74)
 	_, err = gateway.NewGateway(cfg)
 	if err == nil {
 		t.Error("Expected error for gateway creation with invalid command")
@@ -1350,7 +1219,6 @@ servers:
 }
 
 func testRunServerDirectCall(t *testing.T) {
-	// Test direct call to runServer function with valid config
 	tempDir := t.TempDir()
 	validConfigFile := createValidConfigFile(t, tempDir)
 
@@ -1358,28 +1226,22 @@ func testRunServerDirectCall(t *testing.T) {
 	port = DefaultServerPort
 
 	testCmd := &cobra.Command{Use: "server"}
-	// Set context to prevent nil context panic
 	testCmd.SetContext(context.Background())
 
-	// Use timeout to prevent hanging
 	done := make(chan error, 1)
 	go func() {
 		done <- runServer(testCmd, []string{})
 	}()
 
-	// Cancel quickly to test startup without long-running server
 	select {
 	case err := <-done:
-		// Server should start and then be interrupted
 		t.Logf("runServer completed with: %v", err)
 	case <-time.After(2 * time.Second):
-		// If it's still running, that means it started successfully
 		t.Log("runServer started successfully (timed out waiting for completion)")
 	}
 }
 
 func testRunServerWithActualConfigFile(t *testing.T) {
-	// Test runServer with actual config file loading
 	tempDir := t.TempDir()
 	testPort := allocateTestPortServer(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
@@ -1387,14 +1249,12 @@ func testRunServerWithActualConfigFile(t *testing.T) {
 	configPath = configFile
 	port = testPort + 1 // Test port override
 
-	// Test the configuration loading and port override logic
 	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
 		t.Errorf("Config loading failed: %v", err)
 		return
 	}
 
-	// Test port override logic
 	if port != DefaultServerPort {
 		cfg.Port = port
 	}
@@ -1403,20 +1263,17 @@ func testRunServerWithActualConfigFile(t *testing.T) {
 		t.Errorf("Expected port override to %d, got %d", testPort+1, cfg.Port)
 	}
 
-	// Test validation
 	err = config.ValidateConfig(cfg)
 	if err != nil {
 		t.Errorf("Config validation failed: %v", err)
 	}
 
-	// Test gateway creation
 	gw, err := gateway.NewGateway(cfg)
 	if err != nil {
 		t.Errorf("Gateway creation failed: %v", err)
 		return
 	}
 
-	// Test gateway start/stop cycle
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -1432,10 +1289,8 @@ func testRunServerWithActualConfigFile(t *testing.T) {
 	}
 }
 
-// Benchmark server command execution
 func BenchmarkServerCommandFlagParsing(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		// Reset global variables
 		configPath = "config.yaml"
 		port = DefaultServerPort
 
@@ -1460,7 +1315,6 @@ func BenchmarkServerCommandConfigLoading(b *testing.B) {
 	tempDir := b.TempDir()
 	configFile := filepath.Join(tempDir, "benchmark-config.yaml")
 
-	// Use a fixed port for benchmarks to ensure consistency
 	content := CreateConfigWithPort(DefaultServerPort)
 
 	err := os.WriteFile(configFile, []byte(content), 0644)
@@ -1482,8 +1336,6 @@ func BenchmarkServerCommandConfigLoading(b *testing.B) {
 	}
 }
 
-// TestRunServerCoverageEnhancement adds comprehensive tests for runServer function
-// to achieve 70%+ CLI coverage by testing specific uncovered paths
 func TestRunServerCoverageEnhancement(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -1504,7 +1356,6 @@ func TestRunServerCoverageEnhancement(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset global variables before each test
 			configPath = DefaultConfigFile
 			port = DefaultServerPort
 			tt.testFunc(t)
@@ -1513,10 +1364,8 @@ func TestRunServerCoverageEnhancement(t *testing.T) {
 }
 
 func testRunServerGatewayStartFailure(t *testing.T) {
-	// Test gateway start failure path in runServer
 	tempDir := t.TempDir()
 
-	// Create config with servers that might fail to start
 	failConfigContent := fmt.Sprintf(`
 port: %d
 servers:
@@ -1537,38 +1386,32 @@ servers:
 
 	testCmd := &cobra.Command{Use: "server"}
 
-	// Test runServer with gateway that should fail to start
 	err = runServer(testCmd, []string{})
 	if err == nil {
 		t.Error("Expected error when gateway fails to start")
 		return
 	}
 
-	// Verify the error is related to gateway startup
 	if !strings.Contains(err.Error(), "failed to") {
 		t.Errorf("Expected gateway-related error, got: %v", err)
 	}
 }
 
 func testRunServerHTTPServerError(t *testing.T) {
-	// Test HTTP server setup and error handling logic
 	tempDir := t.TempDir()
 	testPort := allocateTestPortServer(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
-	// Load valid config
 	cfg, err := config.LoadConfig(configFile)
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Test HTTP server address generation
 	expectedAddr := fmt.Sprintf(":%d", cfg.Port)
 	if expectedAddr != fmt.Sprintf(":%d", testPort) {
 		t.Errorf("Expected HTTP server address ':%d', got '%s'", testPort, expectedAddr)
 	}
 
-	// Test HTTP server configuration struct
 	server := &http.Server{
 		Addr:         expectedAddr,
 		Handler:      nil,
@@ -1576,7 +1419,6 @@ func testRunServerHTTPServerError(t *testing.T) {
 		WriteTimeout: 30 * time.Second,
 	}
 
-	// Verify server configuration matches runServer logic
 	if server.Addr != expectedAddr {
 		t.Errorf("Expected server addr '%s', got '%s'", expectedAddr, server.Addr)
 	}
@@ -1587,7 +1429,6 @@ func testRunServerHTTPServerError(t *testing.T) {
 		t.Errorf("Expected write timeout 30s, got %v", server.WriteTimeout)
 	}
 
-	// Test server immediate shutdown (simulating error case)
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 
@@ -1598,7 +1439,6 @@ func testRunServerHTTPServerError(t *testing.T) {
 }
 
 func testRunServerDeferCleanup(t *testing.T) {
-	// Test the defer cleanup logic in runServer (lines 83-87)
 	tempDir := t.TempDir()
 	configFile := createValidConfigFile(t, tempDir)
 
@@ -1617,7 +1457,6 @@ func testRunServerDeferCleanup(t *testing.T) {
 		t.Fatalf("Gateway creation failed: %v", err)
 	}
 
-	// Test gateway start and defer cleanup pattern
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -1626,15 +1465,12 @@ func testRunServerDeferCleanup(t *testing.T) {
 		t.Fatalf("Gateway start failed: %v", err)
 	}
 
-	// Test the defer cleanup function (simulating the defer in runServer)
 	defer func() {
 		if err := gw.Stop(); err != nil {
 			t.Logf("Gateway stop error (expected in defer): %v", err)
 		}
 	}()
 
-	// Verify gateway is active before cleanup
-	// Note: IsActive() might not be available, so we'll just test the Stop call
 	stopErr := gw.Stop()
 	if stopErr != nil {
 		t.Logf("Gateway stop completed: %v", stopErr)
@@ -1642,7 +1478,6 @@ func testRunServerDeferCleanup(t *testing.T) {
 }
 
 func testRunServerContextTimeout(t *testing.T) {
-	// Test context creation and timeout behavior in runServer
 	tempDir := t.TempDir()
 	configFile := createValidConfigFile(t, tempDir)
 
@@ -1651,7 +1486,6 @@ func testRunServerContextTimeout(t *testing.T) {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Test context creation pattern from runServer (lines 77-78)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -1659,17 +1493,14 @@ func testRunServerContextTimeout(t *testing.T) {
 		t.Error("Context should be created")
 	}
 
-	// Test immediate cancellation
 	cancel()
 
 	select {
 	case <-ctx.Done():
-		// Expected - context was cancelled
 	case <-time.After(100 * time.Millisecond):
 		t.Error("Context should be cancelled immediately")
 	}
 
-	// Test shutdown context creation pattern (lines 115-116)
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 
@@ -1677,7 +1508,6 @@ func testRunServerContextTimeout(t *testing.T) {
 		t.Error("Shutdown context should be created")
 	}
 
-	// Verify timeout is properly set
 	deadline, hasDeadline := shutdownCtx.Deadline()
 	if !hasDeadline {
 		t.Error("Shutdown context should have deadline")
@@ -1689,7 +1519,6 @@ func testRunServerContextTimeout(t *testing.T) {
 }
 
 func testRunServerConfigPathEdgeCases(t *testing.T) {
-	// Test configuration path edge cases
 	tempDir := t.TempDir()
 
 	tests := []struct {
@@ -1743,7 +1572,6 @@ func testRunServerConfigPathEdgeCases(t *testing.T) {
 }
 
 func testRunServerPortConflictHandling(t *testing.T) {
-	// Test port conflict and override scenarios
 	tempDir := t.TempDir()
 	basePort := allocateTestPortServer(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, basePort)
@@ -1776,13 +1604,11 @@ func testRunServerPortConflictHandling(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test the port override logic from runServer
 			cfg, err := config.LoadConfig(configFile)
 			if err != nil {
 				t.Fatalf("Failed to load config: %v", err)
 			}
 
-			// Apply port override logic (lines 61-63 in runServer)
 			if tt.flagPort != DefaultServerPort {
 				cfg.Port = tt.flagPort
 			}
@@ -1791,7 +1617,6 @@ func testRunServerPortConflictHandling(t *testing.T) {
 				t.Errorf("Expected final port %d, got %d", tt.expectedPort, cfg.Port)
 			}
 
-			// Test validation still passes
 			err = config.ValidateConfig(cfg)
 			if err != nil {
 				t.Errorf("Config validation failed: %v", err)
@@ -1801,7 +1626,6 @@ func testRunServerPortConflictHandling(t *testing.T) {
 }
 
 func testRunServerSignalInterruption(t *testing.T) {
-	// Test signal handling and interruption scenarios
 	tempDir := t.TempDir()
 	configFile := createValidConfigFile(t, tempDir)
 
@@ -1810,20 +1634,16 @@ func testRunServerSignalInterruption(t *testing.T) {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Test signal channel setup from runServer (lines 108-110)
 	sigCh := make(chan os.Signal, 1)
 
-	// Test multiple signal types
 	signals := []os.Signal{syscall.SIGINT, syscall.SIGTERM}
 
 	for _, sig := range signals {
-		// Test signal delivery
 		go func(signal os.Signal) {
 			time.Sleep(10 * time.Millisecond)
 			sigCh <- signal
 		}(sig)
 
-		// Test signal reception
 		select {
 		case receivedSig := <-sigCh:
 			if receivedSig != sig {
@@ -1834,14 +1654,12 @@ func testRunServerSignalInterruption(t *testing.T) {
 		}
 	}
 
-	// Test signal channel buffering
 	if cap(sigCh) != 1 {
 		t.Errorf("Expected signal channel capacity 1, got %d", cap(sigCh))
 	}
 }
 
 func testRunServerShutdownErrorHandling(t *testing.T) {
-	// Test shutdown error handling scenarios
 	tempDir := t.TempDir()
 	testPort := allocateTestPortServer(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
@@ -1851,7 +1669,6 @@ func testRunServerShutdownErrorHandling(t *testing.T) {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Test server shutdown with different timeout scenarios
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Port),
 		Handler:      nil,
@@ -1859,7 +1676,6 @@ func testRunServerShutdownErrorHandling(t *testing.T) {
 		WriteTimeout: 30 * time.Second,
 	}
 
-	// Test successful shutdown
 	shutdownCtx1, cancel1 := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel1()
 
@@ -1868,7 +1684,6 @@ func testRunServerShutdownErrorHandling(t *testing.T) {
 		t.Logf("Server shutdown completed: %v", err)
 	}
 
-	// Test shutdown with very short timeout (should timeout)
 	server2 := &http.Server{Addr: ":0"}
 	shortCtx, shortCancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 	defer shortCancel()
@@ -1880,15 +1695,12 @@ func testRunServerShutdownErrorHandling(t *testing.T) {
 		t.Logf("Shutdown error: %v", err)
 	}
 
-	// Test the error logging pattern from runServer (lines 118-120)
 	if err != nil {
-		// This simulates the logging that would happen in runServer
 		t.Logf("Server shutdown error: %v", err)
 	}
 }
 
 func testRunServerMemoryCleanup(t *testing.T) {
-	// Test memory cleanup and resource management
 	tempDir := t.TempDir()
 	configFile := createValidConfigFile(t, tempDir)
 
@@ -1902,7 +1714,6 @@ func testRunServerMemoryCleanup(t *testing.T) {
 		t.Fatalf("Config validation failed: %v", err)
 	}
 
-	// Test multiple gateway creation/cleanup cycles
 	for i := 0; i < 3; i++ {
 		gw, err := gateway.NewGateway(cfg)
 		if err != nil {
@@ -1917,7 +1728,6 @@ func testRunServerMemoryCleanup(t *testing.T) {
 			t.Fatalf("Gateway start failed on iteration %d: %v", i, err)
 		}
 
-		// Immediate cleanup
 		cancel()
 		err = gw.Stop()
 		if err != nil {
@@ -1927,20 +1737,16 @@ func testRunServerMemoryCleanup(t *testing.T) {
 }
 
 func testRunServerConcurrentSignals(t *testing.T) {
-	// Test concurrent signal handling
 	sigCh := make(chan os.Signal, 1)
 
-	// Test concurrent signal delivery
 	done := make(chan bool, 2)
 
-	// Send SIGINT
 	go func() {
 		time.Sleep(10 * time.Millisecond)
 		sigCh <- syscall.SIGINT
 		done <- true
 	}()
 
-	// Send SIGTERM (should be ignored due to channel buffer size)
 	go func() {
 		time.Sleep(20 * time.Millisecond)
 		select {
@@ -1951,7 +1757,6 @@ func testRunServerConcurrentSignals(t *testing.T) {
 		}
 	}()
 
-	// Receive first signal
 	select {
 	case sig := <-sigCh:
 		if sig != syscall.SIGINT {
@@ -1961,18 +1766,15 @@ func testRunServerConcurrentSignals(t *testing.T) {
 		t.Error("SIGINT not received in time")
 	}
 
-	// Wait for goroutines to complete
 	<-done
 	<-done
 
-	// Verify channel behavior matches runServer expectations
 	if len(sigCh) > 0 {
 		extraSig := <-sigCh
 		t.Logf("Additional signal in channel: %v", extraSig)
 	}
 }
 
-// TestServerShutdownErrorPaths tests the shutdown error handling in runServer (lines 118-123)
 func TestServerShutdownErrorPaths(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -2011,11 +1813,9 @@ func TestServerShutdownErrorPaths(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := tt.setupServer()
 
-			// Test the shutdown logic pattern from runServer (lines 118-123)
 			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), tt.shutdownTimeout)
 			defer shutdownCancel()
 
-			// This replicates the exact shutdown logic from runServer lines 118-120
 			err := server.Shutdown(shutdownCtx)
 
 			if tt.expectError {
@@ -2024,26 +1824,20 @@ func TestServerShutdownErrorPaths(t *testing.T) {
 				} else if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
 					t.Errorf("Expected error to contain '%s', got: %v", tt.errorContains, err)
 				} else {
-					// This replicates the logging that would happen in runServer line 119
 					t.Logf("Server shutdown error: %v", err)
 				}
 			} else {
 				if err != nil {
-					// This tests the path where an error occurs but is handled gracefully
-					// This replicates the logging that would happen in runServer line 119
 					t.Logf("Server shutdown error: %v", err)
 				}
 			}
 
-			// Test the completion logging that happens on line 122
 			t.Log("Server stopped")
 		})
 	}
 }
 
-// TestRunServerShutdownCoverage directly calls runServer to test shutdown error handling (lines 118-123)
 func TestRunServerShutdownCoverage(t *testing.T) {
-	// Save original values
 	originalConfigPath := configPath
 	originalPort := port
 
@@ -2052,28 +1846,21 @@ func TestRunServerShutdownCoverage(t *testing.T) {
 		port = originalPort
 	}()
 
-	// Set valid config for test
 	configPath = "" // Use defaults
 	port = allocateTestPortServer(t)
 
-	// Create command
 	testCmd := &cobra.Command{Use: CmdServer}
 
-	// Run server in goroutine
 	serverErr := make(chan error, 1)
 	go func() {
-		// This will call the actual runServer function and exercise the shutdown paths
 		err := runServer(testCmd, []string{})
 		serverErr <- err
 	}()
 
-	// Wait a moment for server to potentially start, then expect it to fail/exit
 	time.Sleep(100 * time.Millisecond)
 
-	// Wait for server to complete
 	select {
 	case err := <-serverErr:
-		// The important thing is that runServer was called and executed shutdown logic
 		t.Logf("runServer completed with: %v", err)
 		t.Log("Successfully exercised runServer shutdown error handling paths")
 	case <-time.After(2 * time.Second):
@@ -2081,13 +1868,11 @@ func TestRunServerShutdownCoverage(t *testing.T) {
 	}
 }
 
-// TestServerShutdownErrorHandling tests comprehensive shutdown error scenarios
 func TestServerShutdownErrorHandling(t *testing.T) {
 	tempDir := t.TempDir()
 	testPort := allocateTestPortServer(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
-	// Test various shutdown scenarios that could trigger different error paths
 	tests := []struct {
 		name                string
 		simulateHangingConn bool
@@ -2115,7 +1900,6 @@ func TestServerShutdownErrorHandling(t *testing.T) {
 				t.Fatalf("Failed to load config: %v", err)
 			}
 
-			// Create HTTP server with the same configuration as runServer
 			server := &http.Server{
 				Addr:         fmt.Sprintf(":%d", cfg.Port),
 				Handler:      nil,
@@ -2123,30 +1907,26 @@ func TestServerShutdownErrorHandling(t *testing.T) {
 				WriteTimeout: 30 * time.Second,
 			}
 
-			// Test the exact shutdown pattern from runServer
 			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), tt.shutdownTimeout)
 			defer shutdownCancel()
 
-			// Capture any logs during shutdown
 			var logOutput strings.Builder
 			originalOutput := os.Stderr
 			r, w, _ := os.Pipe()
 			os.Stderr = w
 
 			go func() {
-				defer w.Close()
-				// Simulate the shutdown logic from runServer lines 118-123
+				defer func() { _ = w.Close() }()
 				if err := server.Shutdown(shutdownCtx); err != nil {
-					fmt.Fprintf(w, "Server shutdown error: %v\n", err)
+					_, _ = fmt.Fprintf(w, "Server shutdown error: %v\n", err)
 				}
-				fmt.Fprintf(w, "Server stopped\n")
+				_, _ = fmt.Fprintf(w, "Server stopped\n")
 			}()
 
-			// Read captured output
 			buf := make([]byte, 1024)
 			n, _ := r.Read(buf)
 			logOutput.Write(buf[:n])
-			r.Close()
+			_ = r.Close()
 			os.Stderr = originalOutput
 
 			captured := logOutput.String()
@@ -2157,7 +1937,6 @@ func TestServerShutdownErrorHandling(t *testing.T) {
 				}
 			}
 
-			// Always expect the completion message
 			if !strings.Contains(captured, "Server stopped") {
 				t.Errorf("Expected 'Server stopped' message in logs, got: %s", captured)
 			}
@@ -2165,8 +1944,6 @@ func TestServerShutdownErrorHandling(t *testing.T) {
 	}
 }
 
-// TestRunServerWithMockedComponents tests runServer function with simulated components
-// to achieve comprehensive coverage of the server startup and shutdown lifecycle
 func TestRunServerWithMockedComponents(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -2187,7 +1964,6 @@ func TestRunServerWithMockedComponents(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset global variables before each test
 			configPath = DefaultConfigFile
 			port = DefaultServerPort
 			tt.testFunc(t)
@@ -2196,20 +1972,16 @@ func TestRunServerWithMockedComponents(t *testing.T) {
 }
 
 func testRunServerCompleteLifecycle(t *testing.T) {
-	// Test complete runServer lifecycle with quick startup and shutdown
 	tempDir := t.TempDir()
 	testPort := allocateTestPortServer(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
-	// Set global config for runServer
 	configPath = configFile
 	port = DefaultServerPort // No override
 
-	// Use a channel to communicate with the runServer goroutine
 	serverResult := make(chan error, 1)
 	serverStarted := make(chan bool, 1)
 
-	// Monitor server startup by creating a mock signal channel
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
@@ -2217,38 +1989,27 @@ func testRunServerCompleteLifecycle(t *testing.T) {
 			}
 		}()
 
-		// Intercept the signal setup by temporarily replacing the signal behavior
-		// This simulates the server starting and then receiving a signal quickly
 		testCmd := &cobra.Command{Use: "server"}
 
-		// Simulate runServer execution - this will exercise the actual code paths
 		err := runServer(testCmd, []string{})
 		serverResult <- err
 	}()
 
-	// Send a quick signal to shut down the server after startup
 	go func() {
 		time.Sleep(50 * time.Millisecond) // Allow startup
 		serverStarted <- true
-		// In a real scenario, this would send SIGINT to the process
-		// For testing, we rely on the server timing out or exiting
 	}()
 
-	// Wait for server result with timeout
 	select {
 	case err := <-serverResult:
-		// Server completed execution
 		t.Logf("runServer completed with: %v", err)
 		if err != nil && !strings.Contains(err.Error(), "failed to load configuration") {
-			// Configuration loading failure is expected in some test environments
 			t.Logf("Server execution result: %v", err)
 		}
 	case <-time.After(3 * time.Second):
-		// Server is running (which means it started successfully)
 		t.Log("runServer started successfully and is running")
 	}
 
-	// Verify server started notification
 	select {
 	case <-serverStarted:
 		t.Log("Server startup phase completed")
@@ -2258,7 +2019,6 @@ func testRunServerCompleteLifecycle(t *testing.T) {
 }
 
 func testRunServerWithInvalidConfigPath(t *testing.T) {
-	// Test runServer with various invalid configuration paths
 	invalidPaths := []struct {
 		name          string
 		path          string
@@ -2288,7 +2048,6 @@ func testRunServerWithInvalidConfigPath(t *testing.T) {
 
 			testCmd := &cobra.Command{Use: "server"}
 
-			// Call runServer directly to test error handling
 			err := runServer(testCmd, []string{})
 
 			if err == nil {
@@ -2303,7 +2062,6 @@ func testRunServerWithInvalidConfigPath(t *testing.T) {
 }
 
 func testRunServerPortBindingConflicts(t *testing.T) {
-	// Test runServer with port override scenarios
 	tempDir := t.TempDir()
 	basePort := allocateTestPortServer(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, basePort)
@@ -2339,7 +2097,6 @@ func testRunServerPortBindingConflicts(t *testing.T) {
 			configPath = configFile
 			port = tt.overridePort
 
-			// Test the port override logic without full server startup
 			cfg, err := config.LoadConfig(configPath)
 			if err != nil {
 				t.Fatalf("Config loading failed: %v", err)
@@ -2347,12 +2104,10 @@ func testRunServerPortBindingConflicts(t *testing.T) {
 
 			originalPort := cfg.Port
 
-			// Apply the exact port override logic from runServer (lines 61-63)
 			if port != DefaultServerPort {
 				cfg.Port = port
 			}
 
-			// Verify port override behavior
 			if tt.expectOverride && port != DefaultServerPort {
 				if cfg.Port != tt.overridePort {
 					t.Errorf("Expected port override to %d, got %d", tt.overridePort, cfg.Port)
@@ -2363,7 +2118,6 @@ func testRunServerPortBindingConflicts(t *testing.T) {
 				}
 			}
 
-			// Verify configuration validation passes
 			err = config.ValidateConfig(cfg)
 			if err != nil {
 				t.Errorf("Config validation failed after port override: %v", err)
@@ -2373,10 +2127,8 @@ func testRunServerPortBindingConflicts(t *testing.T) {
 }
 
 func testRunServerGatewayStartupFailure(t *testing.T) {
-	// Test runServer when gateway creation or startup fails
 	tempDir := t.TempDir()
 
-	// Create config with servers that will likely fail to start
 	failConfig := fmt.Sprintf(`
 port: %d
 servers:
@@ -2397,12 +2149,10 @@ servers:
 
 	testCmd := &cobra.Command{Use: "server"}
 
-	// Call runServer and expect gateway-related failure
 	err = runServer(testCmd, []string{})
 	if err == nil {
 		t.Error("Expected error when gateway fails to start")
 	} else {
-		// Verify error is related to gateway creation or startup
 		if strings.Contains(err.Error(), "failed to create gateway") ||
 			strings.Contains(err.Error(), "failed to start gateway") ||
 			strings.Contains(err.Error(), "failed to load configuration") {
@@ -2414,7 +2164,6 @@ servers:
 }
 
 func testRunServerHTTPServerConfiguration(t *testing.T) {
-	// Test HTTP server configuration logic from runServer
 	tempDir := t.TempDir()
 	testPort := allocateTestPortServer(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
@@ -2424,10 +2173,8 @@ func testRunServerHTTPServerConfiguration(t *testing.T) {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Test HTTP server setup that matches runServer (lines 89-97)
 	expectedAddr := fmt.Sprintf(":%d", cfg.Port)
 
-	// Create server with exact configuration from runServer
 	server := &http.Server{
 		Addr:         expectedAddr,
 		Handler:      nil,
@@ -2435,7 +2182,6 @@ func testRunServerHTTPServerConfiguration(t *testing.T) {
 		WriteTimeout: 30 * time.Second,
 	}
 
-	// Verify server configuration matches runServer logic
 	if server.Addr != expectedAddr {
 		t.Errorf("Expected server addr '%s', got '%s'", expectedAddr, server.Addr)
 	}
@@ -2449,17 +2195,14 @@ func testRunServerHTTPServerConfiguration(t *testing.T) {
 		t.Errorf("Expected nil handler (uses DefaultServeMux), got %v", server.Handler)
 	}
 
-	// Test handler registration pattern (line 90)
 	originalHandler := http.DefaultServeMux
 	testMux := http.NewServeMux()
 
-	// Simulate handler registration
 	testMux.HandleFunc("/jsonrpc", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test response"))
+		_, _ = w.Write([]byte("test response"))
 	})
 
-	// Test the registered handler
 	req := httptest.NewRequest("POST", "/jsonrpc", strings.NewReader("{}"))
 	w := httptest.NewRecorder()
 	testMux.ServeHTTP(w, req)
@@ -2468,32 +2211,25 @@ func testRunServerHTTPServerConfiguration(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", w.Code)
 	}
 
-	// Restore original handler
 	http.DefaultServeMux = originalHandler
 }
 
 func testRunServerSignalHandlingLogic(t *testing.T) {
-	// Test signal handling logic from runServer (lines 107-110)
 
-	// Test signal channel creation and configuration
 	sigCh := make(chan os.Signal, 1)
 
-	// Verify channel properties match runServer
 	if cap(sigCh) != 1 {
 		t.Errorf("Expected signal channel capacity 1, got %d", cap(sigCh))
 	}
 
-	// Test signal handling scenarios
 	signals := []os.Signal{syscall.SIGINT, syscall.SIGTERM}
 
 	for _, expectedSig := range signals {
-		// Simulate signal delivery
 		go func(sig os.Signal) {
 			time.Sleep(10 * time.Millisecond)
 			sigCh <- sig
 		}(expectedSig)
 
-		// Test signal reception (line 110 in runServer: <-sigCh)
 		select {
 		case receivedSig := <-sigCh:
 			if receivedSig != expectedSig {
@@ -2504,24 +2240,19 @@ func testRunServerSignalHandlingLogic(t *testing.T) {
 		}
 	}
 
-	// Test channel blocking behavior (buffer size 1)
 	sigCh2 := make(chan os.Signal, 1)
 
-	// Fill the buffer
 	sigCh2 <- syscall.SIGINT
 
-	// Try to send another signal (should not block due to buffer)
 	select {
 	case sigCh2 <- syscall.SIGTERM:
 		t.Error("Second signal should be dropped/ignored due to buffer limit")
 	default:
-		// Expected behavior - channel is full
 		t.Log("Signal channel correctly dropped additional signal due to buffer limit")
 	}
 }
 
 func testRunServerShutdownSequence(t *testing.T) {
-	// Test the shutdown sequence from runServer (lines 112-123)
 	tempDir := t.TempDir()
 	testPort := allocateTestPortServer(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
@@ -2531,7 +2262,6 @@ func testRunServerShutdownSequence(t *testing.T) {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Create server to test shutdown sequence
 	server := &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Port),
 		Handler:      nil,
@@ -2539,11 +2269,9 @@ func testRunServerShutdownSequence(t *testing.T) {
 		WriteTimeout: 30 * time.Second,
 	}
 
-	// Test shutdown context creation (lines 115-116)
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 
-	// Verify context timeout matches runServer
 	deadline, hasDeadline := shutdownCtx.Deadline()
 	if !hasDeadline {
 		t.Error("Shutdown context should have deadline")
@@ -2554,30 +2282,24 @@ func testRunServerShutdownSequence(t *testing.T) {
 		t.Errorf("Expected ~30s timeout, got %v", timeUntilDeadline)
 	}
 
-	// Test shutdown execution (lines 118-120)
 	shutdownStart := time.Now()
 	err = server.Shutdown(shutdownCtx)
 	shutdownDuration := time.Since(shutdownStart)
 
-	// Log result like runServer would (line 119)
 	if err != nil {
 		t.Logf("Server shutdown error: %v", err)
 	}
 
-	// Verify shutdown was reasonably quick for a non-running server
 	if shutdownDuration > 1*time.Second {
 		t.Errorf("Shutdown took too long: %v", shutdownDuration)
 	}
 
-	// Test the completion logging (line 122)
 	t.Log("Server stopped")
 }
 
 func testRunServerErrorRecovery(t *testing.T) {
-	// Test error recovery and cleanup paths in runServer
 	tempDir := t.TempDir()
 
-	// Create multiple scenarios that could cause errors at different stages
 	tests := []struct {
 		name          string
 		setupError    string
@@ -2603,7 +2325,6 @@ func testRunServerErrorRecovery(t *testing.T) {
 			case "invalid_config_path":
 				testConfigPath = "/completely/nonexistent/path/config.yaml"
 			case "invalid_config_content":
-				// Create config with invalid content
 				invalidContent := `
 port: -999
 servers: []
@@ -2621,14 +2342,12 @@ servers: []
 
 			testCmd := &cobra.Command{Use: "server"}
 
-			// Test error recovery
 			err := runServer(testCmd, []string{})
 			if err == nil {
 				t.Errorf("Expected error in %s phase", tt.expectedPhase)
 			} else {
 				t.Logf("Correctly handled error in %s: %v", tt.expectedPhase, err)
 
-				// Verify error contains expected information
 				switch tt.expectedPhase {
 				case "configuration loading":
 					if !strings.Contains(err.Error(), "failed to load configuration") {
@@ -2645,9 +2364,7 @@ servers: []
 }
 
 func testRunServerContextManagement(t *testing.T) {
-	// Test context creation and management in runServer (lines 77-78)
 
-	// Test context creation pattern from runServer
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -2655,33 +2372,25 @@ func testRunServerContextManagement(t *testing.T) {
 		t.Error("Context should be created")
 	}
 
-	// Test context cancellation behavior
 	select {
 	case <-ctx.Done():
 		t.Error("Context should not be done initially")
 	default:
-		// Expected - context is active
 	}
 
-	// Test cancellation
 	cancel()
 
-	// Verify cancellation is immediate
 	select {
 	case <-ctx.Done():
-		// Expected - context was cancelled
 	case <-time.After(10 * time.Millisecond):
 		t.Error("Context cancellation should be immediate")
 	}
 
-	// Test that calling cancel multiple times is safe
 	cancel() // Should not panic
 
-	// Test shutdown context pattern (lines 115-116)
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
 
-	// Verify shutdown context properties
 	deadline, hasDeadline := shutdownCtx.Deadline()
 	if !hasDeadline {
 		t.Error("Shutdown context should have deadline")
@@ -2691,21 +2400,17 @@ func testRunServerContextManagement(t *testing.T) {
 		t.Errorf("Expected ~30s deadline, got %v", time.Until(deadline))
 	}
 
-	// Test immediate cancellation of shutdown context
 	shutdownCancel()
 
 	select {
 	case <-shutdownCtx.Done():
-		// Expected - context was cancelled
 	case <-time.After(10 * time.Millisecond):
 		t.Error("Shutdown context cancellation should be immediate")
 	}
 }
 
 func testRunServerTimeoutScenarios(t *testing.T) {
-	// Test various timeout scenarios in runServer
 
-	// Test server read/write timeout configuration (lines 95-96)
 	expectedReadTimeout := 30 * time.Second
 	expectedWriteTimeout := 30 * time.Second
 
@@ -2716,7 +2421,6 @@ func testRunServerTimeoutScenarios(t *testing.T) {
 		WriteTimeout: expectedWriteTimeout,
 	}
 
-	// Verify timeout values match runServer configuration
 	if server.ReadTimeout != expectedReadTimeout {
 		t.Errorf("Expected read timeout %v, got %v", expectedReadTimeout, server.ReadTimeout)
 	}
@@ -2724,7 +2428,6 @@ func testRunServerTimeoutScenarios(t *testing.T) {
 		t.Errorf("Expected write timeout %v, got %v", expectedWriteTimeout, server.WriteTimeout)
 	}
 
-	// Test shutdown timeout scenarios
 	tests := []struct {
 		name            string
 		shutdownTimeout time.Duration
@@ -2775,12 +2478,9 @@ func testRunServerTimeoutScenarios(t *testing.T) {
 	}
 }
 
-// TestRunServerExecutionPaths tests direct execution paths of runServer function
-// to achieve maximum coverage of the function's logic
 func TestRunServerExecutionPaths(t *testing.T) {
 	t.Parallel()
 
-	// Save original global values
 	originalConfigPath := configPath
 	originalPort := port
 	defer func() {
@@ -2855,7 +2555,6 @@ func TestRunServerExecutionPaths(t *testing.T) {
 			if tt.testFunc != nil {
 				tt.testFunc(t, configFile, testPort)
 			} else {
-				// Default test execution
 				testCmd := &cobra.Command{Use: "server"}
 				err := runServer(testCmd, []string{})
 
@@ -2878,7 +2577,6 @@ func TestRunServerExecutionPaths(t *testing.T) {
 func testValidConfigExecution(t *testing.T, configFile string, testPort int) {
 	testCmd := &cobra.Command{Use: "server"}
 
-	// Use a timeout to prevent hanging
 	done := make(chan error, 1)
 	go func() {
 		done <- runServer(testCmd, []string{})
@@ -2886,10 +2584,8 @@ func testValidConfigExecution(t *testing.T, configFile string, testPort int) {
 
 	select {
 	case err := <-done:
-		// Server completed execution (likely due to gateway startup failure in test environment)
 		t.Logf("runServer completed: %v", err)
 	case <-time.After(2 * time.Second):
-		// Server is running successfully
 		t.Log("runServer started successfully (timed out waiting for completion)")
 	}
 }
@@ -2921,7 +2617,6 @@ func testInvalidConfigExecution(t *testing.T, configFile string, testPort int) {
 }
 
 func testPortOverrideExecution(t *testing.T, configFile string, testPort int) {
-	// Test the port override logic by examining configuration after loading
 	cfg, err := config.LoadConfig(configFile)
 	if err != nil {
 		t.Fatalf("Config loading failed: %v", err)
@@ -2929,30 +2624,25 @@ func testPortOverrideExecution(t *testing.T, configFile string, testPort int) {
 
 	originalPort := cfg.Port
 
-	// Apply port override logic from runServer (lines 61-63)
 	if testPort != DefaultServerPort {
 		cfg.Port = testPort
 	}
 
-	// Verify port was overridden
 	if testPort != DefaultServerPort && cfg.Port != testPort {
 		t.Errorf("Expected port override to %d, got %d", testPort, cfg.Port)
 	} else if testPort == DefaultServerPort && cfg.Port != originalPort {
 		t.Errorf("Expected no port override, original %d, got %d", originalPort, cfg.Port)
 	}
 
-	// Test configuration validation passes
 	err = config.ValidateConfig(cfg)
 	if err != nil {
 		t.Errorf("Config validation failed after port override: %v", err)
 	}
 
-	// Test gateway creation with overridden port
 	gw, err := gateway.NewGateway(cfg)
 	if err != nil {
 		t.Logf("Gateway creation failed (expected in test environment): %v", err)
 	} else {
-		// Test gateway lifecycle
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
@@ -2969,7 +2659,6 @@ func testPortOverrideExecution(t *testing.T, configFile string, testPort int) {
 	}
 }
 
-// TestRunServerConcurrencyAndSignals tests concurrent scenarios and signal handling
 func TestRunServerConcurrencyAndSignals(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -2989,47 +2678,39 @@ func TestRunServerConcurrencyAndSignals(t *testing.T) {
 }
 
 func testConcurrentServerStartup(t *testing.T) {
-	// Test concurrent server startup scenarios
 	tempDir := t.TempDir()
 	configFile := createValidConfigFile(t, tempDir)
 
 	const numGoroutines = 3
 	results := make(chan error, numGoroutines)
 
-	// Start multiple runServer attempts concurrently
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
-			// Set unique port for each goroutine
 			localConfigPath := configFile
 			localPort := allocateTestPortServer(t)
 
-			// Test configuration loading concurrency
 			cfg, err := config.LoadConfig(localConfigPath)
 			if err != nil {
 				results <- fmt.Errorf("goroutine %d config load error: %v", id, err)
 				return
 			}
 
-			// Apply port override
 			if localPort != DefaultServerPort {
 				cfg.Port = localPort
 			}
 
-			// Test validation concurrency
 			err = config.ValidateConfig(cfg)
 			if err != nil {
 				results <- fmt.Errorf("goroutine %d config validation error: %v", id, err)
 				return
 			}
 
-			// Test gateway creation concurrency
 			gw, err := gateway.NewGateway(cfg)
 			if err != nil {
 				results <- fmt.Errorf("goroutine %d gateway creation error: %v", id, err)
 				return
 			}
 
-			// Test gateway lifecycle concurrency
 			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 			defer cancel()
 
@@ -3049,7 +2730,6 @@ func testConcurrentServerStartup(t *testing.T) {
 		}(i)
 	}
 
-	// Collect results
 	for i := 0; i < numGoroutines; i++ {
 		select {
 		case err := <-results:
@@ -3065,13 +2745,11 @@ func testConcurrentServerStartup(t *testing.T) {
 }
 
 func testSignalHandlingRaceConditions(t *testing.T) {
-	// Test signal handling race conditions and concurrent signal delivery
 	sigCh := make(chan os.Signal, 1)
 
 	const numSignals = 10
 	delivered := make(chan bool, numSignals)
 
-	// Send multiple signals concurrently
 	for i := 0; i < numSignals; i++ {
 		go func(id int) {
 			time.Sleep(time.Duration(id) * time.Millisecond)
@@ -3084,36 +2762,32 @@ func testSignalHandlingRaceConditions(t *testing.T) {
 		}(i)
 	}
 
-	// Receive signals (channel can only buffer 1)
 	signalsReceived := 0
+signalLoop:
 	for signalsReceived < numSignals {
 		select {
 		case <-sigCh:
 			signalsReceived++
 		case wasDelivered := <-delivered:
 			if !wasDelivered {
-				// Signal was dropped due to channel being full
 				signalsReceived++
 			}
 		case <-time.After(200 * time.Millisecond):
 			t.Error("Timed out waiting for signals")
-			break
+			break signalLoop
 		}
 	}
 
-	// Verify that only one signal could be buffered at a time (channel capacity 1)
 	if len(sigCh) > 1 {
 		t.Errorf("Signal channel should have capacity 1, has %d signals", len(sigCh))
 	}
 }
 
 func testHTTPServerConcurrency(t *testing.T) {
-	// Test HTTP server configuration and startup concurrency
 	const numServers = 3
 	servers := make([]*http.Server, numServers)
 	ports := make([]int, numServers)
 
-	// Create multiple HTTP servers with different configurations
 	for i := 0; i < numServers; i++ {
 		port := allocateTestPortServer(t)
 		ports[i] = port
@@ -3126,7 +2800,6 @@ func testHTTPServerConcurrency(t *testing.T) {
 		}
 	}
 
-	// Test concurrent shutdown
 	shutdownResults := make(chan error, numServers)
 
 	for i, server := range servers {
@@ -3139,7 +2812,6 @@ func testHTTPServerConcurrency(t *testing.T) {
 		}(i, server)
 	}
 
-	// Collect shutdown results
 	for i := 0; i < numServers; i++ {
 		select {
 		case err := <-shutdownResults:
@@ -3155,7 +2827,6 @@ func testHTTPServerConcurrency(t *testing.T) {
 }
 
 func testGatewayLifecycleConcurrency(t *testing.T) {
-	// Test gateway lifecycle operations under concurrent access
 	tempDir := t.TempDir()
 	configFile := createValidConfigFile(t, tempDir)
 
@@ -3167,7 +2838,6 @@ func testGatewayLifecycleConcurrency(t *testing.T) {
 	const numOperations = 5
 	results := make(chan error, numOperations)
 
-	// Perform concurrent gateway operations
 	for i := 0; i < numOperations; i++ {
 		go func(id int) {
 			gw, err := gateway.NewGateway(cfg)
@@ -3179,14 +2849,12 @@ func testGatewayLifecycleConcurrency(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 			defer cancel()
 
-			// Start gateway
 			err = gw.Start(ctx)
 			if err != nil {
 				results <- fmt.Errorf("operation %d gateway start failed: %v", id, err)
 				return
 			}
 
-			// Immediate stop
 			err = gw.Stop()
 			if err != nil {
 				results <- fmt.Errorf("operation %d gateway stop failed: %v", id, err)
@@ -3197,7 +2865,6 @@ func testGatewayLifecycleConcurrency(t *testing.T) {
 		}(i)
 	}
 
-	// Collect results
 	for i := 0; i < numOperations; i++ {
 		select {
 		case err := <-results:
@@ -3212,9 +2879,7 @@ func testGatewayLifecycleConcurrency(t *testing.T) {
 	}
 }
 
-// TestRunServerWithContext tests the new testable runServerWithContext function
 func TestRunServerWithContext(t *testing.T) {
-	// Save original global values
 	originalConfigPath := configPath
 	originalPort := port
 	defer func() {
@@ -3260,7 +2925,6 @@ func TestRunServerWithContext(t *testing.T) {
 			configPath = configFile
 			port = testPort
 
-			// Create context based on test type
 			var ctx context.Context
 			var cancel context.CancelFunc
 
@@ -3278,7 +2942,6 @@ func TestRunServerWithContext(t *testing.T) {
 
 			testCmd := &cobra.Command{Use: "server"}
 
-			// Test runServerWithContext with the specific context
 			done := make(chan error, 1)
 			go func() {
 				done <- runServerWithContext(ctx, testCmd, []string{})
@@ -3312,9 +2975,7 @@ func TestRunServerWithContext(t *testing.T) {
 	}
 }
 
-// TestRunServerWithContextLogic tests the core logic of runServerWithContext function
 func TestRunServerWithContextLogic(t *testing.T) {
-	// Save original values
 	originalConfigPath := configPath
 	originalPort := port
 	defer func() {
@@ -3322,10 +2983,8 @@ func TestRunServerWithContextLogic(t *testing.T) {
 		port = originalPort
 	}()
 
-	// Test the early error paths that don't trigger HTTP server conflicts
 	tempDir := t.TempDir()
 
-	// Test 1: Invalid config path
 	configPath = "/nonexistent/config.yaml"
 	port = DefaultServerPort
 
@@ -3343,7 +3002,6 @@ func TestRunServerWithContextLogic(t *testing.T) {
 		t.Logf("Correctly caught config loading error: %v", err)
 	}
 
-	// Test 2: Invalid config content
 	invalidConfig := `
 port: -1
 servers: []

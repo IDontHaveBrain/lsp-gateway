@@ -6,14 +6,16 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/transport"
+	"lsp-gateway/mcp"
 )
 
-// JSONRPCRequest represents a JSON-RPC 2.0 request
 type JSONRPCRequest struct {
 	JSONRPC string      `json:"jsonrpc"`
 	ID      interface{} `json:"id,omitempty"`
@@ -21,7 +23,6 @@ type JSONRPCRequest struct {
 	Params  interface{} `json:"params,omitempty"`
 }
 
-// JSONRPCResponse represents a JSON-RPC 2.0 response
 type JSONRPCResponse struct {
 	JSONRPC string      `json:"jsonrpc"`
 	ID      interface{} `json:"id,omitempty"`
@@ -29,14 +30,12 @@ type JSONRPCResponse struct {
 	Error   *RPCError   `json:"error,omitempty"`
 }
 
-// RPCError represents a JSON-RPC error
 type RPCError struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 }
 
-// JSON-RPC error codes
 const (
 	ParseError     = -32700
 	InvalidRequest = -32600
@@ -45,12 +44,23 @@ const (
 	InternalError  = -32603
 )
 
-// JSON-RPC protocol constants
 const (
 	JSONRPCVersion = "2.0"
 )
 
-// LSP method constants
+const (
+	HTTPContentTypeJSON = "application/json"
+	HTTPMethodPOST      = "POST"
+	URIPrefixFile       = "file://"
+	PathJSONRPC         = "/jsonrpc"
+)
+
+const (
+	LoggerComponentGateway = "gateway"
+	LoggerFieldServerName  = "server_name"
+	TimestampFormatISO8601 = "2006-01-02T15:04:05Z07:00"
+)
+
 const (
 	LSPMethodHover           = "textDocument/hover"
 	LSPMethodDefinition      = "textDocument/definition"
@@ -59,7 +69,6 @@ const (
 	LSPMethodWorkspaceSymbol = "workspace/symbol"
 )
 
-// LSP lifecycle method constants
 const (
 	LSPMethodInitialize              = "initialize"
 	LSPMethodInitialized             = "initialized"
@@ -68,14 +77,12 @@ const (
 	LSPMethodWorkspaceExecuteCommand = "workspace/executeCommand"
 )
 
-// Router handles request routing to appropriate LSP servers
 type Router struct {
 	langToServer map[string]string
 	extToLang    map[string]string
 	mu           sync.RWMutex
 }
 
-// NewRouter creates a new Router instance
 func NewRouter() *Router {
 	return &Router{
 		langToServer: make(map[string]string),
@@ -83,7 +90,6 @@ func NewRouter() *Router {
 	}
 }
 
-// RegisterServer registers a server for specific languages
 func (r *Router) RegisterServer(serverName string, languages []string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -91,7 +97,6 @@ func (r *Router) RegisterServer(serverName string, languages []string) {
 	for _, lang := range languages {
 		r.langToServer[lang] = serverName
 
-		// Map common file extensions to languages
 		extensions := getExtensionsForLanguage(lang)
 		for _, ext := range extensions {
 			r.extToLang[ext] = lang
@@ -99,33 +104,27 @@ func (r *Router) RegisterServer(serverName string, languages []string) {
 	}
 }
 
-// RouteRequest determines which server should handle a request based on file URI
 func (r *Router) RouteRequest(uri string) (string, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	// Handle file:// URIs
 	filePath := uri
-	if strings.HasPrefix(uri, "file://") {
-		filePath = strings.TrimPrefix(uri, "file://")
+	if strings.HasPrefix(uri, URIPrefixFile) {
+		filePath = strings.TrimPrefix(uri, URIPrefixFile)
 	}
 
-	// Extract file extension from URI
 	ext := strings.ToLower(filepath.Ext(filePath))
 	if ext == "" {
 		return "", fmt.Errorf("cannot determine file type from URI: %s", uri)
 	}
 
-	// Remove leading dot from extension
 	ext = strings.TrimPrefix(ext, ".")
 
-	// Find language for extension
 	lang, exists := r.extToLang[ext]
 	if !exists {
 		return "", fmt.Errorf("unsupported file extension: %s", ext)
 	}
 
-	// Find server for language
 	server, exists := r.langToServer[lang]
 	if !exists {
 		return "", fmt.Errorf("no server configured for language: %s", lang)
@@ -134,7 +133,6 @@ func (r *Router) RouteRequest(uri string) (string, error) {
 	return server, nil
 }
 
-// GetSupportedLanguages returns a list of all supported languages
 func (r *Router) GetSupportedLanguages() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -146,7 +144,6 @@ func (r *Router) GetSupportedLanguages() []string {
 	return languages
 }
 
-// GetSupportedExtensions returns a list of all supported file extensions
 func (r *Router) GetSupportedExtensions() []string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -158,7 +155,6 @@ func (r *Router) GetSupportedExtensions() []string {
 	return extensions
 }
 
-// GetServerByLanguage returns the server name for a given language
 func (r *Router) GetServerByLanguage(language string) (string, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -167,66 +163,47 @@ func (r *Router) GetServerByLanguage(language string) (string, bool) {
 	return server, exists
 }
 
-// GetLanguageByExtension returns the language for a given file extension
 func (r *Router) GetLanguageByExtension(extension string) (string, bool) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	// Remove leading dot if present
 	extension = strings.TrimPrefix(strings.ToLower(extension), ".")
 	lang, exists := r.extToLang[extension]
 	return lang, exists
 }
 
-// getExtensionsForLanguage returns common file extensions for a language
 func getExtensionsForLanguage(language string) []string {
 	extensions := map[string][]string{
-		// Go programming language
 		"go": {"go", "mod", "sum", "work"},
 
-		// Python programming language
 		"python": {"py", "pyi", "pyx", "pyz", "pyw", "pyc", "pyo", "pyd"},
 
-		// TypeScript programming language
 		"typescript": {"ts", "tsx", "mts", "cts"},
 
-		// JavaScript programming language
 		"javascript": {"js", "jsx", "mjs", "cjs", "es", "es6", "es2015", "es2017", "es2018", "es2019", "es2020", "es2021", "es2022"},
 
-		// Java programming language
 		"java": {"java", "class", "jar", "war", "ear", "jsp", "jspx"},
 
-		// C programming language
 		"c": {"c", "h", "i"},
 
-		// C++ programming language
 		"cpp": {"cpp", "cxx", "cc", "c++", "hpp", "hxx", "h++", "hh", "ipp", "ixx", "txx", "tpp", "tcc"},
 
-		// Rust programming language
 		"rust": {"rs", "rlib"},
 
-		// Ruby programming language
 		"ruby": {"rb", "rbw", "rake", "gemspec", "podspec", "thor", "irb"},
 
-		// PHP programming language
 		"php": {"php", "php3", "php4", "php5", "php7", "php8", "phtml", "phar"},
 
-		// Swift programming language
 		"swift": {"swift", "swiftmodule", "swiftdoc", "swiftsourceinfo"},
 
-		// Kotlin programming language
 		"kotlin": {"kt", "kts", "ktm"},
 
-		// Scala programming language
 		"scala": {"scala", "sc", "sbt"},
 
-		// C# programming language
 		"csharp": {"cs", "csx", "csproj", "sln", "vb", "vbproj"},
 
-		// F# programming language
 		"fsharp": {"fs", "fsi", "fsx", "fsscript", "fsproj"},
 
-		// Additional languages
 		"html":         {"html", "htm", "xhtml", "shtml", "svg"},
 		"css":          {"css", "scss", "sass", "less", "styl", "stylus"},
 		"json":         {"json", "jsonc", "json5"},
@@ -385,69 +362,131 @@ func getExtensionsForLanguage(language string) []string {
 	return extensions[language]
 }
 
-// Gateway manages LSP server connections and request routing
 type Gateway struct {
 	config  *config.GatewayConfig
 	clients map[string]transport.LSPClient
 	router  *Router
+	logger  *mcp.StructuredLogger
 	mu      sync.RWMutex
 }
 
-// NewGateway creates a new Gateway instance
 func NewGateway(config *config.GatewayConfig) (*Gateway, error) {
+	logConfig := &mcp.LoggerConfig{
+		Level:              mcp.LogLevelInfo,
+		Component:          LoggerComponentGateway,
+		EnableJSON:         false,
+		EnableStackTrace:   false,
+		EnableCaller:       true,
+		EnableMetrics:      false,
+		Output:             nil, // Uses default (stderr)
+		IncludeTimestamp:   true,
+		TimestampFormat:    TimestampFormatISO8601,
+		MaxStackTraceDepth: 10,
+		EnableAsyncLogging: false,
+		AsyncBufferSize:    1000,
+	}
+	logger := mcp.NewStructuredLogger(logConfig)
+
 	gateway := &Gateway{
 		config:  config,
 		clients: make(map[string]transport.LSPClient),
 		router:  NewRouter(),
+		logger:  logger,
 	}
 
-	// Initialize LSP clients
+	logger.Infof("Initializing %d LSP server clients", len(config.Servers))
 	for _, serverConfig := range config.Servers {
+		serverLogger := logger.WithField(LoggerFieldServerName, serverConfig.Name)
+
+		serverLogger.Debugf("Creating LSP client: command=%s, transport=%s",
+			serverConfig.Command, serverConfig.Transport)
+
 		client, err := transport.NewLSPClient(transport.ClientConfig{
 			Command:   serverConfig.Command,
 			Args:      serverConfig.Args,
 			Transport: serverConfig.Transport,
 		})
 		if err != nil {
+			serverLogger.WithError(err).Error("Failed to create LSP client")
 			return nil, fmt.Errorf("failed to create client for %s: %w", serverConfig.Name, err)
 		}
 
 		gateway.clients[serverConfig.Name] = client
 		gateway.router.RegisterServer(serverConfig.Name, serverConfig.Languages)
+
+		serverLogger.WithField("languages", serverConfig.Languages).
+			Info("LSP client registered successfully")
 	}
 
 	return gateway, nil
 }
 
-// Start initializes all LSP server connections
 func (g *Gateway) Start(ctx context.Context) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
+	if g.logger != nil {
+		g.logger.Infof("Starting gateway with %d LSP server clients", len(g.clients))
+	}
+
 	for name, client := range g.clients {
+		var clientLogger *mcp.StructuredLogger
+		if g.logger != nil {
+			clientLogger = g.logger.WithField(LoggerFieldServerName, name)
+			clientLogger.Debug("Starting LSP client")
+		}
+
 		if err := client.Start(ctx); err != nil {
+			if clientLogger != nil {
+				clientLogger.WithError(err).Error("Failed to start LSP client")
+			}
 			return fmt.Errorf("failed to start client %s: %w", name, err)
+		}
+
+		if clientLogger != nil {
+			clientLogger.Info("LSP client started successfully")
 		}
 	}
 
+	if g.logger != nil {
+		g.logger.Info("Gateway started successfully")
+	}
 	return nil
 }
 
-// Stop shuts down all LSP server connections
 func (g *Gateway) Stop() error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
+	if g.logger != nil {
+		g.logger.Info("Stopping gateway and all LSP clients")
+	}
+
 	for name, client := range g.clients {
+		var clientLogger *mcp.StructuredLogger
+		if g.logger != nil {
+			clientLogger = g.logger.WithField(LoggerFieldServerName, name)
+			clientLogger.Debug("Stopping LSP client")
+		}
+
 		if err := client.Stop(); err != nil {
+			if clientLogger != nil {
+				clientLogger.WithError(err).Error("Failed to stop LSP client")
+			}
 			return fmt.Errorf("failed to stop client %s: %w", name, err)
+		}
+
+		if clientLogger != nil {
+			clientLogger.Info("LSP client stopped successfully")
 		}
 	}
 
+	if g.logger != nil {
+		g.logger.Info("Gateway stopped successfully")
+	}
 	return nil
 }
 
-// GetClient returns the LSP client for a given server name
 func (g *Gateway) GetClient(serverName string) (transport.LSPClient, bool) {
 	g.mu.RLock()
 	defer g.mu.RUnlock()
@@ -456,81 +495,267 @@ func (g *Gateway) GetClient(serverName string) (transport.LSPClient, bool) {
 	return client, exists
 }
 
-// HandleJSONRPC handles JSON-RPC requests over HTTP
 func (g *Gateway) HandleJSONRPC(w http.ResponseWriter, r *http.Request) {
-	// Only allow POST requests
+	startTime := time.Now()
+	requestLogger := g.initializeRequestLogger(r)
+
+	if !g.validateHTTPMethod(w, r, requestLogger) {
+		return
+	}
+
+	w.Header().Set("Content-Type", HTTPContentTypeJSON)
+
+	req, ok := g.parseAndValidateJSONRPC(w, r, requestLogger)
+	if !ok {
+		return
+	}
+
+	if requestLogger != nil {
+		requestLogger = requestLogger.WithField("lsp_method", req.Method)
+	}
+
+	serverName, ok := g.handleRequestRouting(w, req, requestLogger)
+	if !ok {
+		return
+	}
+
+	if requestLogger != nil {
+		requestLogger = requestLogger.WithField(LoggerFieldServerName, serverName)
+		requestLogger.Debug("Routed request to LSP server")
+	}
+
+	g.processLSPRequest(w, r, req, serverName, requestLogger, startTime)
+}
+
+func (g *Gateway) routeRequest(req JSONRPCRequest) (string, error) {
+	uri, err := g.extractURI(req)
+	if err != nil {
+		return "", err
+	}
+
+	switch req.Method {
+	case LSPMethodInitialize, LSPMethodInitialized, LSPMethodShutdown, LSPMethodExit, LSPMethodWorkspaceSymbol, LSPMethodWorkspaceExecuteCommand:
+		return uri, nil
+	default:
+		return g.router.RouteRequest(uri)
+	}
+}
+
+func (g *Gateway) extractURI(req JSONRPCRequest) (string, error) {
+	if g.isServerManagementMethod(req.Method) {
+		return g.getAnyAvailableServer()
+	}
+
+	return g.extractURIFromParams(req)
+}
+
+func (g *Gateway) isServerManagementMethod(method string) bool {
+	switch method {
+	case LSPMethodInitialize, LSPMethodInitialized, LSPMethodShutdown, LSPMethodExit,
+		LSPMethodWorkspaceSymbol, LSPMethodWorkspaceExecuteCommand:
+		return true
+	default:
+		return false
+	}
+}
+
+func (g *Gateway) getAnyAvailableServer() (string, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	for serverName := range g.clients {
+		return serverName, nil
+	}
+	return "", fmt.Errorf("no servers available")
+}
+
+func (g *Gateway) extractURIFromParams(req JSONRPCRequest) (string, error) {
+	if req.Params == nil {
+		return "", fmt.Errorf("missing parameters for method %s", req.Method)
+	}
+
+	paramsMap, ok := req.Params.(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("invalid parameters format for method %s", req.Method)
+	}
+
+	if uri, found := g.extractURIFromTextDocument(paramsMap); found {
+		return uri, nil
+	}
+
+	if uri, found := g.extractURIFromDirectParam(paramsMap); found {
+		return uri, nil
+	}
+
+	return "", fmt.Errorf("could not extract URI from parameters for method %s", req.Method)
+}
+
+func (g *Gateway) extractURIFromTextDocument(paramsMap map[string]interface{}) (string, bool) {
+	textDoc, exists := paramsMap["textDocument"]
+	if !exists {
+		return "", false
+	}
+
+	textDocMap, ok := textDoc.(map[string]interface{})
+	if !ok {
+		return "", false
+	}
+
+	uri, exists := textDocMap["uri"]
+	if !exists {
+		return "", false
+	}
+
+	uriStr, ok := uri.(string)
+	if !ok {
+		return "", false
+	}
+
+	return uriStr, true
+}
+
+func (g *Gateway) extractURIFromDirectParam(paramsMap map[string]interface{}) (string, bool) {
+	uri, exists := paramsMap["uri"]
+	if exists {
+		if uriStr, ok := uri.(string); ok {
+			return uriStr, true
+		}
+	}
+	return "", false
+}
+
+func (g *Gateway) initializeRequestLogger(r *http.Request) *mcp.StructuredLogger {
+	requestID := "req_" + strconv.FormatInt(time.Now().UnixNano(), 10)
+	var requestLogger *mcp.StructuredLogger
+	if g.logger != nil {
+		requestLogger = g.logger.WithRequestID(requestID)
+		requestLogger.WithFields(map[string]interface{}{
+			"method":      r.Method,
+			"remote_addr": r.RemoteAddr,
+			"user_agent":  r.UserAgent(),
+		}).Info("Received HTTP request")
+	}
+	return requestLogger
+}
+
+func (g *Gateway) validateHTTPMethod(w http.ResponseWriter, r *http.Request, logger *mcp.StructuredLogger) bool {
 	if r.Method != http.MethodPost {
+		if logger != nil {
+			logger.Warn("Invalid HTTP method, rejecting request")
+		}
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
+		return false
 	}
+	return true
+}
 
-	// Set response headers
-	w.Header().Set("Content-Type", "application/json")
-
-	// Parse JSON-RPC request
+func (g *Gateway) parseAndValidateJSONRPC(w http.ResponseWriter, r *http.Request, logger *mcp.StructuredLogger) (JSONRPCRequest, bool) {
 	var req JSONRPCRequest
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if logger != nil {
+			logger.WithError(err).Error("Failed to parse JSON-RPC request")
+		}
 		g.writeError(w, nil, ParseError, "Parse error", err)
-		return
+		return req, false
 	}
 
-	// Validate JSON-RPC version
 	if req.JSONRPC != JSONRPCVersion {
-		g.writeError(w, req.ID, InvalidRequest, "Invalid request",
-			fmt.Errorf("invalid JSON-RPC version: %s", req.JSONRPC))
-		return
+		if logger != nil {
+			logger.WithField("jsonrpc_version", req.JSONRPC).Error("Invalid JSON-RPC version")
+		}
+		g.writeError(w, req.ID, InvalidRequest, ERROR_INVALID_REQUEST,
+			fmt.Errorf(FORMAT_INVALID_JSON_RPC, req.JSONRPC))
+		return req, false
 	}
 
-	// Validate method
 	if req.Method == "" {
-		g.writeError(w, req.ID, InvalidRequest, "Invalid request",
+		if logger != nil {
+			logger.Error("Missing method field in JSON-RPC request")
+		}
+		g.writeError(w, req.ID, InvalidRequest, ERROR_INVALID_REQUEST,
 			fmt.Errorf("missing method field"))
-		return
+		return req, false
 	}
 
-	// Route request to appropriate LSP server
+	return req, true
+}
+
+func (g *Gateway) handleRequestRouting(w http.ResponseWriter, req JSONRPCRequest, logger *mcp.StructuredLogger) (string, bool) {
 	serverName, err := g.routeRequest(req)
 	if err != nil {
+		if logger != nil {
+			logger.WithError(err).Error("Failed to route request to LSP server")
+		}
 		g.writeError(w, req.ID, MethodNotFound, "Method not found", err)
-		return
+		return "", false
 	}
+	return serverName, true
+}
 
-	// Get LSP client
+func (g *Gateway) processLSPRequest(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, serverName string, logger *mcp.StructuredLogger, startTime time.Time) {
 	client, exists := g.GetClient(serverName)
 	if !exists {
-		g.writeError(w, req.ID, InternalError, "Internal error",
-			fmt.Errorf("server not found: %s", serverName))
+		if logger != nil {
+			logger.Error("LSP server not found")
+		}
+		g.writeError(w, req.ID, InternalError, ERROR_INTERNAL,
+			fmt.Errorf(ERROR_SERVER_NOT_FOUND, serverName))
 		return
 	}
 
-	// Check if client is active
 	if !client.IsActive() {
+		if logger != nil {
+			logger.Error("LSP server is not active")
+		}
 		g.writeError(w, req.ID, InternalError, "Internal error",
 			fmt.Errorf("server %s is not active", serverName))
 		return
 	}
 
-	// Handle notifications (requests without ID)
 	if req.ID == nil {
-		err := client.SendNotification(r.Context(), req.Method, req.Params)
-		if err != nil {
-			g.writeError(w, req.ID, InternalError, "Internal error", err)
-			return
-		}
-
-		// Notifications don't return responses
-		w.WriteHeader(http.StatusOK)
+		g.handleNotification(w, r, req, client, logger, startTime)
 		return
 	}
 
-	// Forward request to LSP server
-	result, err := client.SendRequest(r.Context(), req.Method, req.Params)
+	g.handleRequest(w, r, req, client, logger, startTime)
+}
+
+func (g *Gateway) handleNotification(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, client transport.LSPClient, logger *mcp.StructuredLogger, startTime time.Time) {
+	if logger != nil {
+		logger.Debug("Processing LSP notification (no response expected)")
+	}
+
+	err := client.SendNotification(r.Context(), req.Method, req.Params)
 	if err != nil {
+		if logger != nil {
+			logger.WithError(err).Error("Failed to send LSP notification")
+		}
 		g.writeError(w, req.ID, InternalError, "Internal error", err)
 		return
 	}
 
-	// Send successful response
+	duration := time.Since(startTime)
+	if logger != nil {
+		logger.WithField("duration", duration.String()).Info("LSP notification processed successfully")
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (g *Gateway) handleRequest(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, client transport.LSPClient, logger *mcp.StructuredLogger, startTime time.Time) {
+	if logger != nil {
+		logger.Debug("Sending request to LSP server")
+	}
+
+	result, err := client.SendRequest(r.Context(), req.Method, req.Params)
+	if err != nil {
+		if logger != nil {
+			logger.WithError(err).Error("LSP server request failed")
+		}
+		g.writeError(w, req.ID, InternalError, "Internal error", err)
+		return
+	}
+
 	response := JSONRPCResponse{
 		JSONRPC: JSONRPCVersion,
 		ID:      req.ID,
@@ -538,102 +763,24 @@ func (g *Gateway) HandleJSONRPC(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
+		if logger != nil {
+			logger.WithError(err).Error("Failed to encode JSON response")
+		}
 		g.writeError(w, req.ID, InternalError, "Internal error",
 			fmt.Errorf("failed to encode response: %w", err))
 		return
 	}
-}
 
-// routeRequest determines which server should handle the request
-func (g *Gateway) routeRequest(req JSONRPCRequest) (string, error) {
-	// Extract URI from request parameters
-	uri, err := g.extractURI(req)
-	if err != nil {
-		return "", err
-	}
-
-	// For special methods, extractURI returns server name directly
-	// For file-based methods, extractURI returns URI, so we need to route it
-	switch req.Method {
-	case LSPMethodInitialize, LSPMethodInitialized, LSPMethodShutdown, LSPMethodExit, LSPMethodWorkspaceSymbol, LSPMethodWorkspaceExecuteCommand:
-		// extractURI already returned the server name for these methods
-		return uri, nil
-	default:
-		// For other methods, route the URI through the router
-		return g.router.RouteRequest(uri)
+	duration := time.Since(startTime)
+	responseData, _ := json.Marshal(response)
+	if logger != nil {
+		logger.WithFields(map[string]interface{}{
+			"duration":      duration.String(),
+			"response_size": len(responseData),
+		}).Info("Request processed successfully")
 	}
 }
 
-// extractURI extracts the file URI from request parameters based on LSP method
-func (g *Gateway) extractURI(req JSONRPCRequest) (string, error) {
-	// Handle special methods that don't require URI
-	switch req.Method {
-	case LSPMethodInitialize, LSPMethodInitialized, LSPMethodShutdown, LSPMethodExit:
-		// These methods don't require specific file routing
-		// Route to the first available server
-		g.mu.RLock()
-		defer g.mu.RUnlock()
-
-		for serverName := range g.clients {
-			return serverName, nil
-		}
-		return "", fmt.Errorf("no servers available")
-
-	case "workspace/symbol", "workspace/executeCommand":
-		// Workspace methods - route to first available server
-		g.mu.RLock()
-		defer g.mu.RUnlock()
-
-		for serverName := range g.clients {
-			return serverName, nil
-		}
-		return "", fmt.Errorf("no servers available")
-	}
-
-	// Extract URI from parameters based on method type
-	if req.Params == nil {
-		return "", fmt.Errorf("missing parameters for method %s", req.Method)
-	}
-
-	// Convert params to map for easier access
-	paramsMap, ok := req.Params.(map[string]interface{})
-	if !ok {
-		return "", fmt.Errorf("invalid parameters format for method %s", req.Method)
-	}
-
-	// Try to extract URI from textDocument parameter
-	if textDoc, exists := paramsMap["textDocument"]; exists {
-		if textDocMap, ok := textDoc.(map[string]interface{}); ok {
-			if uri, exists := textDocMap["uri"]; exists {
-				if uriStr, ok := uri.(string); ok {
-					return uriStr, nil
-				}
-			}
-		}
-	}
-
-	// Try to extract URI from uri parameter (for some methods)
-	if uri, exists := paramsMap["uri"]; exists {
-		if uriStr, ok := uri.(string); ok {
-			return uriStr, nil
-		}
-	}
-
-	// Try to extract URI from textDocument.uri in different structures
-	if params, exists := paramsMap["textDocument"]; exists {
-		if doc, ok := params.(map[string]interface{}); ok {
-			if uri, exists := doc["uri"]; exists {
-				if uriStr, ok := uri.(string); ok {
-					return uriStr, nil
-				}
-			}
-		}
-	}
-
-	return "", fmt.Errorf("could not extract URI from parameters for method %s", req.Method)
-}
-
-// writeError writes a JSON-RPC error response
 func (g *Gateway) writeError(w http.ResponseWriter, id interface{}, code int, message string, err error) {
 	var data interface{}
 	if err != nil {
@@ -650,11 +797,9 @@ func (g *Gateway) writeError(w http.ResponseWriter, id interface{}, code int, me
 		},
 	}
 
-	// Always return 200 OK for JSON-RPC (errors are in the response body)
 	w.WriteHeader(http.StatusOK)
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		// If we can't encode the error response, log it and return a simple HTTP error
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 }

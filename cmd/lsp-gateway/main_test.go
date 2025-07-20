@@ -14,7 +14,10 @@ import (
 	"time"
 )
 
-// allocateTestPort returns a dynamically allocated port for testing
+const (
+	testBinaryPath = "../../lsp-gateway"
+)
+
 func allocateTestPort(t *testing.T) int {
 	t.Helper()
 	listener, err := net.Listen("tcp", "localhost:0")
@@ -29,26 +32,12 @@ func allocateTestPort(t *testing.T) int {
 	return listener.Addr().(*net.TCPAddr).Port
 }
 
-// createConfigWithPort creates a test configuration with the specified port
-func createConfigWithPort(port int) string {
-	return fmt.Sprintf(`port: %d
-servers:
-  - name: "test-lsp"
-    languages: ["test"]
-    command: "nonexistent-command"
-    args: ["hello"]
-    transport: "stdio"
-`, port)
-}
-
-// createMinimalConfigWithPort creates a minimal test configuration with the specified port
 func createMinimalConfigWithPort(port int) string {
 	return fmt.Sprintf(`port: %d
 servers: []
 `, port)
 }
 
-// TestMainBinary tests the main binary execution in various scenarios
 func TestMainBinary(t *testing.T) {
 	t.Parallel()
 
@@ -75,7 +64,6 @@ func TestMainBinary(t *testing.T) {
 	}
 }
 
-// testInvalidCommands tests invalid command scenarios
 func testInvalidCommands(t *testing.T) {
 	t.Parallel()
 
@@ -155,7 +143,6 @@ func testInvalidCommands(t *testing.T) {
 	}
 }
 
-// testMalformedArguments tests malformed argument scenarios
 func testMalformedArguments(t *testing.T) {
 	t.Parallel()
 
@@ -239,17 +226,28 @@ func testMalformedArguments(t *testing.T) {
 	}
 }
 
-// testMissingConfigs tests missing configuration scenarios
 func testMissingConfigs(t *testing.T) {
 	t.Parallel()
 
-	testCases := []struct {
-		name       string
-		args       []string
-		setupFiles func(t *testing.T, tmpDir string)
-		wantExit   int
-		wantErr    string
-	}{
+	testCases := getMissingConfigTestCases()
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			runMissingConfigTest(t, tc)
+		})
+	}
+}
+
+type missingConfigTestCase struct {
+	name       string
+	args       []string
+	setupFiles func(t *testing.T, tmpDir string)
+	wantExit   int
+	wantErr    string
+}
+
+func getMissingConfigTestCases() []missingConfigTestCase {
+	return []missingConfigTestCase{
 		{
 			name:     "MissingConfigFile",
 			args:     []string{"server", "--config", "/nonexistent/config.yaml"},
@@ -257,58 +255,71 @@ func testMissingConfigs(t *testing.T) {
 			wantErr:  "failed to load configuration",
 		},
 		{
-			name: "EmptyConfigFile",
-			args: []string{"server", "--config", "empty.yaml"},
-			setupFiles: func(t *testing.T, tmpDir string) {
-				configPath := filepath.Join(tmpDir, "empty.yaml")
-				err := os.WriteFile(configPath, []byte(""), 0644)
-				if err != nil {
-					t.Fatalf("Failed to create empty config: %v", err)
-				}
-			},
-			wantExit: 1,
-			wantErr:  "invalid configuration",
+			name:       "EmptyConfigFile",
+			args:       []string{"server", "--config", "empty.yaml"},
+			setupFiles: setupEmptyConfigFile,
+			wantExit:   1,
+			wantErr:    "invalid configuration",
 		},
 		{
-			name: "InvalidYAMLConfig",
-			args: []string{"server", "--config", "invalid.yaml"},
-			setupFiles: func(t *testing.T, tmpDir string) {
-				configPath := filepath.Join(tmpDir, "invalid.yaml")
-				invalidYAML := `
+			name:       "InvalidYAMLConfig",
+			args:       []string{"server", "--config", "invalid.yaml"},
+			setupFiles: setupInvalidYAMLConfigFile,
+			wantExit:   1,
+			wantErr:    "failed to load configuration",
+		},
+		{
+			name:       "ConfigWithoutServers",
+			args:       []string{"server", "--config", "no-servers.yaml"},
+			setupFiles: setupConfigWithoutServers,
+			wantExit:   1,
+			wantErr:    "invalid configuration",
+		},
+		{
+			name:       "ConfigWithInvalidServer",
+			args:       []string{"server", "--config", "invalid-server.yaml"},
+			setupFiles: setupConfigWithInvalidServer,
+			wantExit:   1,
+			wantErr:    "invalid configuration",
+		},
+	}
+}
+
+func setupEmptyConfigFile(t *testing.T, tmpDir string) {
+	configPath := filepath.Join(tmpDir, "empty.yaml")
+	err := os.WriteFile(configPath, []byte(""), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create empty config: %v", err)
+	}
+}
+
+func setupInvalidYAMLConfigFile(t *testing.T, tmpDir string) {
+	configPath := filepath.Join(tmpDir, "invalid.yaml")
+	invalidYAML := `
 				servers:
 				  - name: "test
 				    invalid yaml syntax
 				`
-				err := os.WriteFile(configPath, []byte(invalidYAML), 0644)
-				if err != nil {
-					t.Fatalf("Failed to create invalid config: %v", err)
-				}
-			},
-			wantExit: 1,
-			wantErr:  "failed to load configuration",
-		},
-		{
-			name: "ConfigWithoutServers",
-			args: []string{"server", "--config", "no-servers.yaml"},
-			setupFiles: func(t *testing.T, tmpDir string) {
-				configPath := filepath.Join(tmpDir, "no-servers.yaml")
-				testPort := allocateTestPort(t)
-				configContent := createMinimalConfigWithPort(testPort)
-				err := os.WriteFile(configPath, []byte(configContent), 0644)
-				if err != nil {
-					t.Fatalf("Failed to create config: %v", err)
-				}
-			},
-			wantExit: 1,
-			wantErr:  "invalid configuration",
-		},
-		{
-			name: "ConfigWithInvalidServer",
-			args: []string{"server", "--config", "invalid-server.yaml"},
-			setupFiles: func(t *testing.T, tmpDir string) {
-				configPath := filepath.Join(tmpDir, "invalid-server.yaml")
-				testPort := allocateTestPort(t)
-				configContent := fmt.Sprintf(`
+	err := os.WriteFile(configPath, []byte(invalidYAML), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create invalid config: %v", err)
+	}
+}
+
+func setupConfigWithoutServers(t *testing.T, tmpDir string) {
+	configPath := filepath.Join(tmpDir, "no-servers.yaml")
+	testPort := allocateTestPort(t)
+	configContent := createMinimalConfigWithPort(testPort)
+	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create config: %v", err)
+	}
+}
+
+func setupConfigWithInvalidServer(t *testing.T, tmpDir string) {
+	configPath := filepath.Join(tmpDir, "invalid-server.yaml")
+	testPort := allocateTestPort(t)
+	configContent := fmt.Sprintf(`
 port: %d
 servers:
   - name: ""
@@ -317,71 +328,85 @@ servers:
     args: []
     transport: "invalid"
 `, testPort)
-				err := os.WriteFile(configPath, []byte(configContent), 0644)
-				if err != nil {
-					t.Fatalf("Failed to create config: %v", err)
-				}
-			},
-			wantExit: 1,
-			wantErr:  "invalid configuration",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			tmpDir := t.TempDir()
-
-			if tc.setupFiles != nil {
-				tc.setupFiles(t, tmpDir)
-			}
-
-			cmd := buildTestBinary(t)
-			cmd.Dir = tmpDir
-
-			// Replace relative paths with absolute paths
-			var args []string
-			for _, arg := range tc.args {
-				if strings.HasSuffix(arg, ".yaml") && !filepath.IsAbs(arg) {
-					arg = filepath.Join(tmpDir, arg)
-				}
-				args = append(args, arg)
-			}
-			cmd.Args = append([]string{cmd.Path}, args...)
-
-			stderr, err := cmd.StderrPipe()
-			if err != nil {
-				t.Fatalf("Failed to create stderr pipe: %v", err)
-			}
-
-			err = cmd.Start()
-			if err != nil {
-				t.Fatalf("Failed to start command: %v", err)
-			}
-
-			stderrData, _ := io.ReadAll(stderr)
-			err = cmd.Wait()
-
-			var exitCode int
-			if err != nil {
-				if exitError, ok := err.(*exec.ExitError); ok {
-					exitCode = exitError.ExitCode()
-				} else {
-					t.Fatalf("Unexpected error type: %v", err)
-				}
-			}
-
-			if exitCode != tc.wantExit {
-				t.Errorf("Expected exit code %d, got %d", tc.wantExit, exitCode)
-			}
-
-			if tc.wantErr != "" && !strings.Contains(string(stderrData), tc.wantErr) {
-				t.Errorf("Expected stderr to contain '%s', got: %s", tc.wantErr, string(stderrData))
-			}
-		})
+	err := os.WriteFile(configPath, []byte(configContent), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create config: %v", err)
 	}
 }
 
-// testSignalHandling tests signal handling for graceful shutdown
+func runMissingConfigTest(t *testing.T, tc missingConfigTestCase) {
+	tmpDir := t.TempDir()
+
+	if tc.setupFiles != nil {
+		tc.setupFiles(t, tmpDir)
+	}
+
+	cmd := prepareMissingConfigCommand(t, tmpDir, tc.args)
+	result := executeMissingConfigCommand(t, cmd)
+	validateMissingConfigResult(t, result, tc)
+}
+
+func prepareMissingConfigCommand(t *testing.T, tmpDir string, inputArgs []string) *exec.Cmd {
+	cmd := buildTestBinary(t)
+	cmd.Dir = tmpDir
+
+	var args []string
+	for _, arg := range inputArgs {
+		if strings.HasSuffix(arg, ".yaml") && !filepath.IsAbs(arg) {
+			arg = filepath.Join(tmpDir, arg)
+		}
+		args = append(args, arg)
+	}
+	cmd.Args = append([]string{cmd.Path}, args...)
+	return cmd
+}
+
+type missingConfigResult struct {
+	exitCode   int
+	stderrData []byte
+	err        error
+}
+
+func executeMissingConfigCommand(t *testing.T, cmd *exec.Cmd) missingConfigResult {
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		t.Fatalf("Failed to create stderr pipe: %v", err)
+	}
+
+	err = cmd.Start()
+	if err != nil {
+		t.Fatalf("Failed to start command: %v", err)
+	}
+
+	stderrData, _ := io.ReadAll(stderr)
+	err = cmd.Wait()
+
+	var exitCode int
+	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			exitCode = exitError.ExitCode()
+		} else {
+			t.Fatalf("Unexpected error type: %v", err)
+		}
+	}
+
+	return missingConfigResult{
+		exitCode:   exitCode,
+		stderrData: stderrData,
+		err:        err,
+	}
+}
+
+func validateMissingConfigResult(t *testing.T, result missingConfigResult, tc missingConfigTestCase) {
+	if result.exitCode != tc.wantExit {
+		t.Errorf("Expected exit code %d, got %d", tc.wantExit, result.exitCode)
+	}
+
+	if tc.wantErr != "" && !strings.Contains(string(result.stderrData), tc.wantErr) {
+		t.Errorf("Expected stderr to contain '%s', got: %s", tc.wantErr, string(result.stderrData))
+	}
+}
+
 func testSignalHandling(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping signal handling test in short mode")
@@ -414,16 +439,13 @@ func testSignalHandling(t *testing.T) {
 				t.Fatalf("Failed to start command: %v", err)
 			}
 
-			// Give the process a moment to start
 			time.Sleep(100 * time.Millisecond)
 
-			// Send signal
 			err = cmd.Process.Signal(tc.signal)
 			if err != nil {
 				t.Fatalf("Failed to send signal: %v", err)
 			}
 
-			// Wait for process to finish with timeout
 			done := make(chan error, 1)
 			go func() {
 				done <- cmd.Wait()
@@ -431,18 +453,14 @@ func testSignalHandling(t *testing.T) {
 
 			select {
 			case err := <-done:
-				// Process finished - check if it was killed by signal
 				if err != nil {
 					if exitError, ok := err.(*exec.ExitError); ok {
-						// For version command, it should exit with 0 even with signal
-						// since it completes quickly before signal handling
 						if exitError.ExitCode() != 0 && exitError.ExitCode() != 1 {
 							t.Logf("Process killed by signal (expected for signal handling test)")
 						}
 					}
 				}
 			case <-time.After(5 * time.Second):
-				// Force kill if it doesn't respond to signal
 				_ = cmd.Process.Kill()
 				t.Error("Process did not respond to signal within timeout")
 			}
@@ -450,7 +468,6 @@ func testSignalHandling(t *testing.T) {
 	}
 }
 
-// testExitCodes tests that appropriate exit codes are returned
 func testExitCodes(t *testing.T) {
 	t.Parallel()
 
@@ -509,7 +526,6 @@ func testExitCodes(t *testing.T) {
 	}
 }
 
-// testHelpCommands tests help command functionality
 func testHelpCommands(t *testing.T) {
 	t.Parallel()
 
@@ -601,7 +617,6 @@ func testHelpCommands(t *testing.T) {
 	}
 }
 
-// testVersionCommand tests version command functionality
 func testVersionCommand(t *testing.T) {
 	t.Parallel()
 
@@ -639,7 +654,6 @@ func testVersionCommand(t *testing.T) {
 	}
 }
 
-// testConfigValidation tests configuration validation scenarios
 func testConfigValidation(t *testing.T) {
 	t.Parallel()
 
@@ -750,11 +764,10 @@ servers:
 				t.Fatalf("Failed to create config file: %v", err)
 			}
 
-			// Add timeout context to prevent hanging
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
-			binaryPath := "../../lsp-gateway"
+			binaryPath := testBinaryPath
 			cmd := exec.CommandContext(ctx, binaryPath, "server", "--config", configPath)
 
 			stderr, err := cmd.StderrPipe()
@@ -790,7 +803,6 @@ servers:
 	}
 }
 
-// testPermissionErrors tests permission-related error scenarios
 func testPermissionErrors(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("Skipping permission tests when running as root")
@@ -800,13 +812,16 @@ func testPermissionErrors(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	// Create a directory with no read permissions
 	noReadDir := filepath.Join(tmpDir, "no-read")
 	err := os.Mkdir(noReadDir, 0000)
 	if err != nil {
 		t.Fatalf("Failed to create no-read directory: %v", err)
 	}
-	defer os.Chmod(noReadDir, 0755) // Cleanup
+	defer func() {
+		if err := os.Chmod(noReadDir, 0755); err != nil {
+			t.Logf("Failed to restore directory permissions during cleanup: %v", err)
+		}
+	}()
 
 	configPath := filepath.Join(noReadDir, "config.yaml")
 
@@ -829,7 +844,6 @@ func testPermissionErrors(t *testing.T) {
 	}
 }
 
-// testResourceLimits tests resource limit scenarios
 func testResourceLimits(t *testing.T) {
 	t.Parallel()
 
@@ -857,11 +871,10 @@ func testResourceLimits(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Add timeout context to prevent hanging
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
-			binaryPath := "../../lsp-gateway"
+			binaryPath := testBinaryPath
 			cmd := exec.CommandContext(ctx, binaryPath)
 			cmd.Args = append([]string{cmd.Path}, tc.args...)
 
@@ -872,14 +885,12 @@ func testResourceLimits(t *testing.T) {
 				if exitError, ok := err.(*exec.ExitError); ok {
 					exitCode = exitError.ExitCode()
 				} else if err == context.DeadlineExceeded {
-					// Timeout is acceptable for resource limit tests
 					exitCode = -1
 				} else {
 					t.Fatalf("Unexpected error type: %v", err)
 				}
 			}
 
-			// For resource limits, accept either the expected exit code or timeout (-1)
 			if exitCode != tc.wantExit && exitCode != -1 {
 				t.Errorf("Expected exit code %d or -1 (timeout), got %d", tc.wantExit, exitCode)
 			}
@@ -887,14 +898,11 @@ func testResourceLimits(t *testing.T) {
 	}
 }
 
-// buildTestBinary builds the test binary and returns the command to execute it
 func buildTestBinary(t *testing.T) *exec.Cmd {
 	t.Helper()
 
-	// Use the already built binary if it exists, otherwise build it
-	binaryPath := "../../lsp-gateway"
+	binaryPath := testBinaryPath
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
-		// Build the binary
 		buildCmd := exec.Command("go", "build", "-o", binaryPath, ".")
 		buildCmd.Dir = "../../"
 		err := buildCmd.Run()
@@ -902,49 +910,33 @@ func buildTestBinary(t *testing.T) *exec.Cmd {
 			t.Fatalf("Failed to build test binary: %v", err)
 		}
 
-		// Ensure cleanup
 		t.Cleanup(func() {
-			os.Remove(binaryPath)
+			if err := os.Remove(binaryPath); err != nil {
+				t.Logf("Failed to remove test binary during cleanup: %v", err)
+			}
 		})
 	}
 
 	return exec.Command(binaryPath)
 }
 
-// TestMainFunctionCoverage tests the main function directly for 100% coverage
 func TestMainFunctionCoverage(t *testing.T) {
-	// This test ensures that the main function is covered
-	// Since main() just calls cli.Execute(), we test the execution path
-
-	// We can't directly test main() without os.Exit being called,
-	// but we can verify that cli.Execute() is accessible and works
-	// with valid commands through the binary tests above.
-
-	// This test serves to document that main() is a simple wrapper
-	// and the real logic is tested through the CLI package tests
-	// and the integration tests in this file.
 
 	t.Log("Main function coverage achieved through integration tests")
 
-	// Verify the main function exists and can be called
-	// (this will be covered by the build process in buildTestBinary)
 	if testing.Short() {
 		t.Skip("Skipping main function test in short mode")
 	}
 
-	// Simple smoke test to ensure the binary can be built and executed
 	cmd := buildTestBinary(t)
 	cmd.Args = []string{cmd.Path, "version"}
 
 	err := cmd.Run()
 	if err != nil {
-		// Version command should work, but even if it fails,
-		// it shows that main() was called successfully
 		t.Logf("Binary execution completed (expected for main coverage): %v", err)
 	}
 }
 
-// BenchmarkMainExecution benchmarks the main binary execution
 func BenchmarkMainExecution(b *testing.B) {
 	if testing.Short() {
 		b.Skip("Skipping benchmark in short mode")
@@ -956,7 +948,11 @@ func BenchmarkMainExecution(b *testing.B) {
 	if err != nil {
 		b.Fatalf("Failed to build test binary: %v", err)
 	}
-	defer os.Remove(binaryPath)
+	defer func() {
+		if err := os.Remove(binaryPath); err != nil {
+			b.Logf("Failed to remove test binary during cleanup: %v", err)
+		}
+	}()
 
 	b.ResetTimer()
 

@@ -14,7 +14,6 @@ import (
 	"time"
 )
 
-// allocateTestPort returns a dynamically allocated port for testing
 func allocateTestPort(t *testing.T) int {
 	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
@@ -28,7 +27,6 @@ func allocateTestPort(t *testing.T) int {
 	return listener.Addr().(*net.TCPAddr).Port
 }
 
-// TestClientCreation tests client creation through the factory for all transport types
 func TestClientCreation(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -86,7 +84,6 @@ func TestClientCreation(t *testing.T) {
 				t.Fatal("Client should not be nil for supported transport")
 			}
 
-			// Test initial state
 			if client.IsActive() {
 				t.Error("Client should not be active initially")
 			}
@@ -94,7 +91,6 @@ func TestClientCreation(t *testing.T) {
 	}
 }
 
-// TestStdioTransportIntegration tests the complete lifecycle of STDIO transport
 func TestStdioTransportIntegration(t *testing.T) {
 	config := ClientConfig{
 		Command:   "cat",
@@ -107,12 +103,10 @@ func TestStdioTransportIntegration(t *testing.T) {
 		t.Fatalf("Failed to create STDIO client: %v", err)
 	}
 
-	// Test initial state
 	if client.IsActive() {
 		t.Error("Client should not be active initially")
 	}
 
-	// Test start
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -125,7 +119,6 @@ func TestStdioTransportIntegration(t *testing.T) {
 		t.Error("STDIO client should be active after start")
 	}
 
-	// Test stop
 	if err := client.Stop(); err != nil {
 		t.Fatalf("STDIO client stop failed: %v", err)
 	}
@@ -135,7 +128,6 @@ func TestStdioTransportIntegration(t *testing.T) {
 	}
 }
 
-// TestTcpTransportIntegration tests the complete lifecycle of TCP transport
 func TestTcpTransportIntegration(t *testing.T) {
 	testPort := allocateTestPort(t)
 	config := ClientConfig{
@@ -149,31 +141,25 @@ func TestTcpTransportIntegration(t *testing.T) {
 		t.Fatalf("Failed to create TCP client: %v", err)
 	}
 
-	// Test initial state
 	if client.IsActive() {
 		t.Error("Client should not be active initially")
 	}
 
-	// Test start behavior (may succeed or fail depending on whether server is running)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	err = client.Start(ctx)
 
-	// TCP behavior depends on whether a server is running on the test port
 	if err != nil {
-		// Expected case: no server running, start should fail
 		if client.IsActive() {
 			t.Error("TCP client should not be active after failed start")
 		}
 	} else {
-		// Unexpected case: server might be running, but we should clean up
 		t.Logf("TCP client started successfully (server might be running on port %d)", testPort)
 		if !client.IsActive() {
 			t.Error("TCP client should be active after successful start")
 		}
 
-		// Clean up
 		if err := client.Stop(); err != nil {
 			t.Fatalf("TCP client stop failed: %v", err)
 		}
@@ -184,7 +170,6 @@ func TestTcpTransportIntegration(t *testing.T) {
 	}
 }
 
-// TestUnsupportedTransport tests error handling for unsupported transport types
 func TestUnsupportedTransport(t *testing.T) {
 	config := ClientConfig{
 		Command:   "test",
@@ -202,9 +187,7 @@ func TestUnsupportedTransport(t *testing.T) {
 	}
 }
 
-// TestTransportTypeVerification verifies that the factory returns the correct transport type
 func TestTransportTypeVerification(t *testing.T) {
-	// Test STDIO transport returns StdioClient
 	stdioConfig := ClientConfig{
 		Command:   "cat",
 		Transport: "stdio",
@@ -219,7 +202,6 @@ func TestTransportTypeVerification(t *testing.T) {
 		t.Error("STDIO transport should return StdioClient")
 	}
 
-	// Test TCP transport returns TCPClient
 	tcpConfig := ClientConfig{
 		Command:   fmt.Sprintf("localhost:%d", allocateTestPort(t)),
 		Transport: TransportTCP,
@@ -235,13 +217,10 @@ func TestTransportTypeVerification(t *testing.T) {
 	}
 }
 
-// TestClientInterfaceCompliance verifies that all transport implementations satisfy the LSPClient interface
 func TestClientInterfaceCompliance(t *testing.T) {
-	// Test that both client types implement the LSPClient interface
 	var _ LSPClient = &StdioClient{}
 	var _ LSPClient = &TCPClient{}
 
-	// Test interface methods are callable
 	configs := []ClientConfig{
 		{
 			Command:   "cat",
@@ -259,7 +238,6 @@ func TestClientInterfaceCompliance(t *testing.T) {
 			t.Fatalf("Failed to create client for %s: %v", config.Transport, err)
 		}
 
-		// Test all interface methods are callable
 		if client.IsActive() {
 			t.Errorf("Client should not be active initially for %s", config.Transport)
 		}
@@ -267,14 +245,12 @@ func TestClientInterfaceCompliance(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 
-		// These should not panic (though they may return errors)
 		_, _ = client.SendRequest(ctx, "test", nil)
 		_ = client.SendNotification(ctx, "test", nil)
 		_ = client.Stop()
 	}
 }
 
-// TestConfigurationVariants tests different configuration options
 func TestConfigurationVariants(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -347,11 +323,6 @@ func TestConfigurationVariants(t *testing.T) {
 	}
 }
 
-// ==============================================
-// ENHANCED INTEGRATION TESTS - EDGE CASES
-// ==============================================
-
-// TestProtocolCompliance tests JSON-RPC protocol compliance
 func TestProtocolCompliance(t *testing.T) {
 	t.Run("STDIO_JSON_RPC_Format", func(t *testing.T) {
 		testJSONRPCFormat(t, "stdio")
@@ -361,11 +332,9 @@ func TestProtocolCompliance(t *testing.T) {
 		if testing.Short() {
 			t.Skip("Skipping TCP test in short mode")
 		}
-		// Add timeout to prevent hanging tests
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		// Try the test, but skip if it still has issues
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
@@ -374,7 +343,6 @@ func TestProtocolCompliance(t *testing.T) {
 
 		select {
 		case <-done:
-			// Test completed
 		case <-time.After(8 * time.Second):
 			t.Skip("Skipping TCP test due to timeout (known issue being investigated)")
 		}
@@ -413,7 +381,6 @@ func testJSONRPCFormatWithTimeout(t *testing.T, transport string, ctx context.Co
 		}
 	}()
 
-	// Test valid JSON-RPC request format
 	testParams := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": "file:///test.go",
@@ -431,7 +398,6 @@ func testJSONRPCFormatWithTimeout(t *testing.T, transport string, ctx context.Co
 	}
 
 	if response != nil {
-		// Verify response is valid JSON
 		var parsed interface{}
 		if err := json.Unmarshal(response, &parsed); err != nil {
 			t.Errorf("Response is not valid JSON for %s: %v", transport, err)
@@ -439,7 +405,6 @@ func testJSONRPCFormatWithTimeout(t *testing.T, transport string, ctx context.Co
 	}
 }
 
-// TestErrorRecoveryScenarios tests various error conditions
 func TestErrorRecoveryScenarios(t *testing.T) {
 	t.Run("Invalid_Command_STDIO", testInvalidCommandStdio)
 	t.Run("Connection_Refused_TCP", testConnectionRefusedTcp)
@@ -447,7 +412,6 @@ func TestErrorRecoveryScenarios(t *testing.T) {
 	t.Run("Double_Stop", testDoubleStop)
 }
 
-// testInvalidCommandStdio tests STDIO client with invalid command
 func testInvalidCommandStdio(t *testing.T) {
 	config := ClientConfig{
 		Command:   "nonexistent_command_12345",
@@ -458,7 +422,6 @@ func testInvalidCommandStdio(t *testing.T) {
 	client := createClientOrFail(t, config)
 	ctx := createTestContext(2 * time.Second)
 
-	// Start should fail with nonexistent command
 	err := client.Start(ctx)
 	if err == nil {
 		t.Error("Expected error when starting with invalid command")
@@ -469,7 +432,6 @@ func testInvalidCommandStdio(t *testing.T) {
 	}
 }
 
-// testConnectionRefusedTcp tests TCP client with refused connection
 func testConnectionRefusedTcp(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping TCP test in short mode")
@@ -484,7 +446,6 @@ func testConnectionRefusedTcp(t *testing.T) {
 	client := createClientOrFail(t, config)
 	ctx := createTestContext(2 * time.Second)
 
-	// Start should fail with connection refused
 	err := client.Start(ctx)
 	if err == nil {
 		t.Error("Expected error when connecting to refused port")
@@ -495,7 +456,6 @@ func testConnectionRefusedTcp(t *testing.T) {
 	}
 }
 
-// testDoubleStart tests starting a client twice
 func testDoubleStart(t *testing.T) {
 	config := ClientConfig{
 		Command:   "cat",
@@ -505,20 +465,17 @@ func testDoubleStart(t *testing.T) {
 	client := createClientOrFail(t, config)
 	ctx := createTestContext(5 * time.Second)
 
-	// First start should succeed
 	if err := client.Start(ctx); err != nil {
 		t.Fatalf("First start failed: %v", err)
 	}
 	defer stopClientSafely(t, client)
 
-	// Second start should fail
 	err := client.Start(ctx)
 	if err == nil {
 		t.Error("Expected error on double start")
 	}
 }
 
-// testDoubleStop tests stopping a client twice
 func testDoubleStop(t *testing.T) {
 	config := ClientConfig{
 		Command:   "cat",
@@ -532,20 +489,15 @@ func testDoubleStop(t *testing.T) {
 		t.Fatalf("Start failed: %v", err)
 	}
 
-	// First stop should succeed
 	if err := client.Stop(); err != nil {
 		t.Errorf("First stop failed: %v", err)
 	}
 
-	// Second stop should not error
 	if err := client.Stop(); err != nil {
 		t.Errorf("Second stop should not error: %v", err)
 	}
 }
 
-// Helper functions for error recovery tests
-
-// createClientOrFail creates a client or fails the test
 func createClientOrFail(t *testing.T, config ClientConfig) LSPClient {
 	client, err := NewLSPClient(config)
 	if err != nil {
@@ -554,21 +506,18 @@ func createClientOrFail(t *testing.T, config ClientConfig) LSPClient {
 	return client
 }
 
-// createTestContext creates a context with timeout
 func createTestContext(timeout time.Duration) context.Context {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	_ = cancel // Cancel is handled by the context timeout
 	return ctx
 }
 
-// stopClientSafely stops a client and logs any errors
 func stopClientSafely(t *testing.T, client LSPClient) {
 	if err := client.Stop(); err != nil {
 		t.Logf("Error stopping client: %v", err)
 	}
 }
 
-// TestConcurrentRequestHandling tests multiple simultaneous requests
 func TestConcurrentRequestHandling(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping concurrent tests in short mode")
@@ -600,7 +549,6 @@ func TestConcurrentRequestHandling(t *testing.T) {
 	var wg sync.WaitGroup
 	errors := make(chan error, numRequests)
 
-	// Send multiple concurrent requests
 	for i := 0; i < numRequests; i++ {
 		wg.Add(1)
 		go func(id int) {
@@ -624,19 +572,16 @@ func TestConcurrentRequestHandling(t *testing.T) {
 	wg.Wait()
 	close(errors)
 
-	// Check for any unexpected errors
 	for err := range errors {
 		t.Errorf("Concurrent request error: %v", err)
 	}
 }
 
-// TestLargeMessageHandling tests buffer management with large payloads
 func TestLargeMessageHandling(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping large message tests in short mode")
 	}
 
-	// Test with progressively larger messages
 	sizes := []int{1024, 10240, 102400, 1048576} // 1KB, 10KB, 100KB, 1MB
 
 	for _, size := range sizes {
@@ -663,7 +608,6 @@ func TestLargeMessageHandling(t *testing.T) {
 				}
 			}()
 
-			// Create large payload
 			largeData := strings.Repeat("x", size)
 			testParams := map[string]interface{}{
 				"largeField": largeData,
@@ -678,7 +622,6 @@ func TestLargeMessageHandling(t *testing.T) {
 	}
 }
 
-// TestRequestTimeoutAndCancellation tests context handling
 func TestRequestTimeoutAndCancellation(t *testing.T) {
 	t.Run("Context_Timeout", func(t *testing.T) {
 		config := ClientConfig{
@@ -704,7 +647,6 @@ func TestRequestTimeoutAndCancellation(t *testing.T) {
 			}
 		}()
 
-		// Use very short timeout for request
 		requestCtx, requestCancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer requestCancel()
 
@@ -744,7 +686,6 @@ func TestRequestTimeoutAndCancellation(t *testing.T) {
 			}
 		}()
 
-		// Create context and cancel it immediately
 		requestCtx, requestCancel := context.WithCancel(context.Background())
 		requestCancel() // Cancel immediately
 
@@ -759,7 +700,6 @@ func TestRequestTimeoutAndCancellation(t *testing.T) {
 	})
 }
 
-// TestMemoryLeakAndResourceCleanup tests resource management
 func TestMemoryLeakAndResourceCleanup(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping resource cleanup tests in short mode")
@@ -769,22 +709,17 @@ func TestMemoryLeakAndResourceCleanup(t *testing.T) {
 	t.Run("Goroutine_Cleanup_Check", testGoroutineCleanupCheck)
 }
 
-// testMultipleStartStopCycles tests multiple start/stop cycles
 func testMultipleStartStopCycles(t *testing.T) {
 	config := ClientConfig{
 		Command:   "cat",
 		Transport: "stdio",
 	}
 
-	// Test multiple start/stop cycles by creating new clients
-	// NOTE: Current implementation has a bug where channels are not reset
-	// between cycles, so we create new clients for each cycle
 	for i := 0; i < 5; i++ {
 		testSingleStartStopCycle(t, config, i)
 	}
 }
 
-// testSingleStartStopCycle tests a single start/stop cycle
 func testSingleStartStopCycle(t *testing.T, config ClientConfig, cycleNum int) {
 	client, err := NewLSPClient(config)
 	if err != nil {
@@ -806,11 +741,9 @@ func testSingleStartStopCycle(t *testing.T, config ClientConfig, cycleNum int) {
 
 	verifyClientActive(t, client, cycleNum, false)
 
-	// Small delay to allow cleanup
 	time.Sleep(100 * time.Millisecond)
 }
 
-// verifyClientActive verifies client active state
 func verifyClientActive(t *testing.T, client LSPClient, cycleNum int, shouldBeActive bool) {
 	if shouldBeActive && !client.IsActive() {
 		t.Errorf("Client should be active after start cycle %d", cycleNum)
@@ -820,7 +753,6 @@ func verifyClientActive(t *testing.T, client LSPClient, cycleNum int, shouldBeAc
 	}
 }
 
-// testGoroutineCleanupCheck tests goroutine cleanup
 func testGoroutineCleanupCheck(t *testing.T) {
 	initialGoroutines := runtime.NumGoroutine()
 
@@ -829,7 +761,6 @@ func testGoroutineCleanupCheck(t *testing.T) {
 		Transport: "stdio",
 	}
 
-	// Create and cleanup multiple clients
 	for i := 0; i < 3; i++ {
 		testClientLifecycle(t, config)
 	}
@@ -838,7 +769,6 @@ func testGoroutineCleanupCheck(t *testing.T) {
 	checkGoroutineLeak(t, initialGoroutines)
 }
 
-// testClientLifecycle tests a single client lifecycle
 func testClientLifecycle(t *testing.T, config ClientConfig) {
 	client, err := NewLSPClient(config)
 	if err != nil {
@@ -857,24 +787,20 @@ func testClientLifecycle(t *testing.T, config ClientConfig) {
 	}
 }
 
-// allowGoroutineCleanup waits for goroutines to cleanup
 func allowGoroutineCleanup() {
 	time.Sleep(500 * time.Millisecond)
 	runtime.GC()
 	time.Sleep(100 * time.Millisecond)
 }
 
-// checkGoroutineLeak checks for potential goroutine leaks
 func checkGoroutineLeak(t *testing.T, initialGoroutines int) {
 	finalGoroutines := runtime.NumGoroutine()
 
-	// Allow some tolerance for background goroutines
 	if finalGoroutines > initialGoroutines+2 {
 		t.Errorf("Potential goroutine leak: initial=%d, final=%d", initialGoroutines, finalGoroutines)
 	}
 }
 
-// TestCrossTransportComparison tests behavior consistency across transports
 func TestCrossTransportComparison(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping cross-transport tests in short mode")
@@ -909,13 +835,10 @@ func TestCrossTransportComparison(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// Test STDIO behavior
 			stdioResult := testClientBehavior(t, "stdio", tc.method, tc.params)
 
-			// Test TCP behavior (if available)
 			tcpResult := testClientBehavior(t, TransportTCP, tc.method, tc.params)
 
-			// Compare results (both should behave consistently)
 			if stdioResult.errorOccurred != tcpResult.errorOccurred {
 				t.Logf("Different error behavior between transports for %s: stdio=%v, tcp=%v",
 					tc.name, stdioResult.errorOccurred, tcpResult.errorOccurred)
@@ -975,7 +898,6 @@ func testClientBehavior(t *testing.T, transport, method string, params interface
 	}
 }
 
-// TestErrorPropagation tests how errors flow through the system
 func TestErrorPropagation(t *testing.T) {
 	t.Run("Send_Request_On_Inactive_Client", func(t *testing.T) {
 		config := ClientConfig{
@@ -988,7 +910,6 @@ func TestErrorPropagation(t *testing.T) {
 			t.Fatalf("NewLSPClient failed: %v", err)
 		}
 
-		// Don't start the client, try to send request
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
 
@@ -1027,13 +948,7 @@ func TestErrorPropagation(t *testing.T) {
 	})
 }
 
-// ==============================================
-// HELPER FUNCTIONS FOR ENHANCED TESTS
-// ==============================================
-
-// createMockStdioEchoClient creates a simple echo client for testing
 func createMockStdioEchoClient(t *testing.T) (LSPClient, error) {
-	// Use cat as a simple echo command that will reflect input
 	config := ClientConfig{
 		Command:   "cat",
 		Args:      []string{},
@@ -1043,14 +958,12 @@ func createMockStdioEchoClient(t *testing.T) (LSPClient, error) {
 	return NewLSPClient(config)
 }
 
-// createMockTCPEchoServer creates a mock TCP server and returns a client for it
 func createMockTCPEchoServer(t *testing.T) (LSPClient, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	return createMockTCPEchoServerWithTimeout(t, ctx)
 }
 
-// createMockTCPEchoServerWithTimeout creates a mock TCP server with timeout and returns a client for it
 func createMockTCPEchoServerWithTimeout(t *testing.T, ctx context.Context) (LSPClient, error) {
 	listener, err := createTCPListener()
 	if err != nil {
@@ -1064,7 +977,6 @@ func createMockTCPEchoServerWithTimeout(t *testing.T, ctx context.Context) (LSPC
 	return createTCPClient(addr)
 }
 
-// createTCPListener creates a TCP listener on localhost:0
 func createTCPListener() (net.Listener, error) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
@@ -1073,7 +985,6 @@ func createTCPListener() (net.Listener, error) {
 	return listener, nil
 }
 
-// startTCPEchoServerWithTimeout starts the echo server goroutine with timeout
 func startTCPEchoServerWithTimeout(t *testing.T, listener net.Listener, ctx context.Context) {
 	go func() {
 		defer func() {
@@ -1089,7 +1000,6 @@ func startTCPEchoServerWithTimeout(t *testing.T, listener net.Listener, ctx cont
 			default:
 			}
 
-			// Set accept timeout
 			if tcpListener, ok := listener.(*net.TCPListener); ok {
 				if err := tcpListener.SetDeadline(time.Now().Add(100 * time.Millisecond)); err != nil {
 					t.Logf("failed to set accept deadline: %v", err)
@@ -1108,7 +1018,6 @@ func startTCPEchoServerWithTimeout(t *testing.T, listener net.Listener, ctx cont
 	}()
 }
 
-// handleTCPConnectionWithTimeout handles a single TCP connection with timeout
 func handleTCPConnectionWithTimeout(t *testing.T, conn net.Conn, ctx context.Context) {
 	defer func() {
 		if err := conn.Close(); err != nil {
@@ -1116,7 +1025,6 @@ func handleTCPConnectionWithTimeout(t *testing.T, conn net.Conn, ctx context.Con
 		}
 	}()
 
-	// Set connection timeout
 	if err := conn.SetDeadline(time.Now().Add(2 * time.Second)); err != nil {
 		t.Logf("failed to set connection deadline: %v", err)
 	}
@@ -1152,7 +1060,6 @@ func handleTCPConnectionWithTimeout(t *testing.T, conn net.Conn, ctx context.Con
 	}
 }
 
-// readLSPHeadersWithTimeout reads LSP headers with timeout and returns content length
 func readLSPHeadersWithTimeout(reader *bufio.Reader, ctx context.Context) (int, error) {
 	var contentLength int
 	timeout := time.NewTimer(1 * time.Second)
@@ -1188,11 +1095,9 @@ func readLSPHeadersWithTimeout(reader *bufio.Reader, ctx context.Context) (int, 
 	return contentLength, nil
 }
 
-// readLSPBodyWithTimeout reads the LSP message body with timeout
 func readLSPBodyWithTimeout(reader *bufio.Reader, contentLength int, ctx context.Context) ([]byte, error) {
 	body := make([]byte, contentLength)
 
-	// Use a channel to handle the read with timeout
 	type readResult struct {
 		n   int
 		err error
@@ -1217,14 +1122,12 @@ func readLSPBodyWithTimeout(reader *bufio.Reader, contentLength int, ctx context
 	}
 }
 
-// handleLSPMessage processes an LSP message and sends response
 func handleLSPMessage(t *testing.T, body []byte, writer *bufio.Writer) {
 	var msg JSONRPCMessage
 	if err := json.Unmarshal(body, &msg); err != nil {
 		return
 	}
 
-	// Create echo response if it's a request (has ID)
 	if msg.ID == nil {
 		return
 	}
@@ -1235,7 +1138,6 @@ func handleLSPMessage(t *testing.T, body []byte, writer *bufio.Writer) {
 	}
 }
 
-// createEchoResponse creates an echo response for the message
 func createEchoResponse(msg JSONRPCMessage) JSONRPCMessage {
 	return JSONRPCMessage{
 		JSONRPC: "2.0",
@@ -1247,7 +1149,6 @@ func createEchoResponse(msg JSONRPCMessage) JSONRPCMessage {
 	}
 }
 
-// sendLSPResponse sends an LSP response over the writer
 func sendLSPResponse(writer *bufio.Writer, response JSONRPCMessage) error {
 	responseData, _ := json.Marshal(response)
 	responseContent := fmt.Sprintf("Content-Length: %d\r\n\r\n%s",
@@ -1259,7 +1160,6 @@ func sendLSPResponse(writer *bufio.Writer, response JSONRPCMessage) error {
 	return writer.Flush()
 }
 
-// setupServerCleanup sets up cleanup for the server
 func setupServerCleanup(t *testing.T, listener net.Listener) {
 	t.Cleanup(func() {
 		if err := listener.Close(); err != nil {
@@ -1268,7 +1168,6 @@ func setupServerCleanup(t *testing.T, listener net.Listener) {
 	})
 }
 
-// createTCPClient creates a TCP client for the given address
 func createTCPClient(addr string) (LSPClient, error) {
 	config := ClientConfig{
 		Command:   addr,

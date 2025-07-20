@@ -17,10 +17,11 @@ import (
 	"syscall"
 	"time"
 
-	"lsp-gateway/internal/gateway"
+	"lsp-gateway/internal/transport"
 )
 
-// ErrorCategory represents different types of errors for retry logic
+const JSONRPCVersion = "2.0"
+
 type ErrorCategory int
 
 const (
@@ -33,7 +34,6 @@ const (
 	ErrorCategoryUnknown
 )
 
-// RetryPolicy defines retry behavior for different error categories
 type RetryPolicy struct {
 	MaxRetries      int
 	InitialBackoff  time.Duration
@@ -43,7 +43,6 @@ type RetryPolicy struct {
 	RetryableErrors map[ErrorCategory]bool
 }
 
-// CircuitBreakerState represents the state of the circuit breaker
 type CircuitBreakerState int
 
 const (
@@ -52,7 +51,6 @@ const (
 	CircuitHalfOpen
 )
 
-// CircuitBreaker implements circuit breaker pattern for connection failures
 type CircuitBreaker struct {
 	mu              sync.RWMutex
 	state           CircuitBreakerState
@@ -64,7 +62,6 @@ type CircuitBreaker struct {
 	maxRequests     int
 }
 
-// ConnectionMetrics tracks connection health metrics
 type ConnectionMetrics struct {
 	mu               sync.RWMutex
 	totalRequests    int64
@@ -77,7 +74,6 @@ type ConnectionMetrics struct {
 	lastSuccessTime  time.Time
 }
 
-// LSPGatewayClient handles communication with the LSP Gateway HTTP server
 type LSPGatewayClient struct {
 	baseURL         string
 	httpClient      *http.Client
@@ -92,7 +88,6 @@ type LSPGatewayClient struct {
 	healthCheckMu   sync.RWMutex
 }
 
-// JSONRPCRequest represents a JSON-RPC 2.0 request
 type JSONRPCRequest struct {
 	JSONRPC string      `json:"jsonrpc"`
 	ID      interface{} `json:"id"`
@@ -100,7 +95,6 @@ type JSONRPCRequest struct {
 	Params  interface{} `json:"params"`
 }
 
-// JSONRPCResponse represents a JSON-RPC 2.0 response
 type JSONRPCResponse struct {
 	JSONRPC string          `json:"jsonrpc"`
 	ID      interface{}     `json:"id"`
@@ -108,18 +102,15 @@ type JSONRPCResponse struct {
 	Error   *JSONRPCError   `json:"error,omitempty"`
 }
 
-// JSONRPCError represents a JSON-RPC 2.0 error
 type JSONRPCError struct {
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 }
 
-// NewLSPGatewayClient creates a new LSP Gateway HTTP client with enhanced error handling
 func NewLSPGatewayClient(config *ServerConfig) *LSPGatewayClient {
 	logger := log.New(log.Writer(), "[LSPClient] ", log.LstdFlags|log.Lshortfile)
 
-	// Configure HTTP client with optimized settings
 	transport := &http.Transport{
 		DialContext: (&net.Dialer{
 			Timeout:   10 * time.Second,
@@ -138,7 +129,6 @@ func NewLSPGatewayClient(config *ServerConfig) *LSPGatewayClient {
 		Timeout:   config.Timeout,
 	}
 
-	// Configure retry policy
 	retryPolicy := &RetryPolicy{
 		MaxRetries:     config.MaxRetries,
 		InitialBackoff: 500 * time.Millisecond,
@@ -156,7 +146,6 @@ func NewLSPGatewayClient(config *ServerConfig) *LSPGatewayClient {
 		},
 	}
 
-	// Configure circuit breaker
 	circuitBreaker := &CircuitBreaker{
 		state:       CircuitClosed,
 		timeout:     60 * time.Second,
@@ -177,17 +166,14 @@ func NewLSPGatewayClient(config *ServerConfig) *LSPGatewayClient {
 	}
 }
 
-// SendLSPRequest sends a JSON-RPC request to the LSP Gateway with enhanced error handling
 func (c *LSPGatewayClient) SendLSPRequest(ctx context.Context, method string, params interface{}) (json.RawMessage, error) {
 	start := time.Now()
 
-	// Update metrics
 	c.metrics.mu.Lock()
 	c.metrics.totalRequests++
 	c.metrics.lastRequestTime = start
 	c.metrics.mu.Unlock()
 
-	// Check circuit breaker
 	if !c.circuitBreaker.AllowRequest() {
 		c.logger.Printf("Circuit breaker is open, rejecting request for method: %s", method)
 		c.updateFailureMetrics()
@@ -195,7 +181,7 @@ func (c *LSPGatewayClient) SendLSPRequest(ctx context.Context, method string, pa
 	}
 
 	request := JSONRPCRequest{
-		JSONRPC: gateway.JSONRPCVersion,
+		JSONRPC: JSONRPCVersion,
 		ID:      generateRequestID(),
 		Method:  method,
 		Params:  params,
@@ -206,7 +192,6 @@ func (c *LSPGatewayClient) SendLSPRequest(ctx context.Context, method string, pa
 	var response JSONRPCResponse
 	err := c.sendRequestWithRetry(ctx, request, &response)
 
-	// Update latency metrics
 	latency := time.Since(start)
 	c.updateLatencyMetrics(latency)
 
@@ -231,13 +216,11 @@ func (c *LSPGatewayClient) SendLSPRequest(ctx context.Context, method string, pa
 	return response.Result, nil
 }
 
-// sendRequestWithRetry performs the actual HTTP request with sophisticated retry logic
 func (c *LSPGatewayClient) sendRequestWithRetry(ctx context.Context, request JSONRPCRequest, response *JSONRPCResponse) error {
 	var lastErr error
 
 	for attempt := 0; attempt <= c.retryPolicy.MaxRetries; attempt++ {
 		if attempt > 0 {
-			// Calculate backoff with exponential backoff and jitter
 			waitTime := c.calculateBackoff(attempt)
 			c.logger.Printf("Retrying request (attempt %d/%d) after %v: method=%s", attempt+1, c.retryPolicy.MaxRetries+1, waitTime, request.Method)
 
@@ -261,13 +244,11 @@ func (c *LSPGatewayClient) sendRequestWithRetry(ctx context.Context, request JSO
 
 		c.logger.Printf("Request attempt %d failed: method=%s, error=%v, category=%v", attempt+1, request.Method, err, errorCategory)
 
-		// Check if we should retry based on error category
 		if !c.shouldRetryError(errorCategory) {
 			c.logger.Printf("Not retrying due to error category: %v", errorCategory)
 			break
 		}
 
-		// Don't retry if this is the last attempt
 		if attempt >= c.retryPolicy.MaxRetries {
 			break
 		}
@@ -277,32 +258,26 @@ func (c *LSPGatewayClient) sendRequestWithRetry(ctx context.Context, request JSO
 	return fmt.Errorf("request failed after %d attempts: %w", c.retryPolicy.MaxRetries+1, lastErr)
 }
 
-// sendSingleRequest performs a single HTTP request attempt with comprehensive error handling
 func (c *LSPGatewayClient) sendSingleRequest(ctx context.Context, request JSONRPCRequest, response *JSONRPCResponse) error {
-	// Marshal request body
 	requestBody, err := json.Marshal(request)
 	if err != nil {
 		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	// Create HTTP request
 	url := c.baseURL + "/jsonrpc"
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(requestBody))
 	if err != nil {
 		return fmt.Errorf("failed to create HTTP request: %w", err)
 	}
 
-	// Set headers
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Accept", "application/json")
+	httpReq.Header.Set(HTTP_HEADER_CONTENT_TYPE, transport.HTTP_CONTENT_TYPE_JSON)
+	httpReq.Header.Set("Accept", transport.HTTP_CONTENT_TYPE_JSON)
 	httpReq.Header.Set("User-Agent", "LSP-Gateway-MCP-Client/1.0")
 	httpReq.Header.Set("Content-Length", strconv.Itoa(len(requestBody)))
 
-	// Add request tracing
 	requestID := fmt.Sprintf("%v", request.ID)
 	httpReq.Header.Set("X-Request-ID", requestID)
 
-	// Send request with timeout context
 	requestStart := time.Now()
 	httpResp, err := c.httpClient.Do(httpReq)
 	if err != nil {
@@ -314,7 +289,6 @@ func (c *LSPGatewayClient) sendSingleRequest(ctx context.Context, request JSONRP
 		}
 	}()
 
-	// Check status code with detailed error handling
 	if httpResp.StatusCode != http.StatusOK {
 		body, readErr := io.ReadAll(httpResp.Body)
 		if readErr != nil {
@@ -329,27 +303,23 @@ func (c *LSPGatewayClient) sendSingleRequest(ctx context.Context, request JSONRP
 		return c.createHTTPStatusError(httpResp.StatusCode, errorMsg, url)
 	}
 
-	// Validate Content-Type
-	contentType := httpResp.Header.Get("Content-Type")
-	if !strings.Contains(contentType, "application/json") {
-		return fmt.Errorf("unexpected content type: %s, expected application/json", contentType)
+	contentType := httpResp.Header.Get(HTTP_HEADER_CONTENT_TYPE)
+	if !strings.Contains(contentType, transport.HTTP_CONTENT_TYPE_JSON) {
+		return fmt.Errorf("unexpected content type: %s, expected %s", contentType, transport.HTTP_CONTENT_TYPE_JSON)
 	}
 
-	// Parse response with size limit
 	limitedReader := io.LimitReader(httpResp.Body, 10*1024*1024) // 10MB limit
 	if err := json.NewDecoder(limitedReader).Decode(response); err != nil {
 		return fmt.Errorf("failed to decode JSON response: %w", err)
 	}
 
-	// Validate JSON-RPC response structure
-	if response.JSONRPC != gateway.JSONRPCVersion {
+	if response.JSONRPC != JSONRPCVersion {
 		return fmt.Errorf("invalid JSON-RPC version: %s", response.JSONRPC)
 	}
 
 	return nil
 }
 
-// shouldRetryError determines if an error category is retryable
 func (c *LSPGatewayClient) shouldRetryError(category ErrorCategory) bool {
 	retryable, exists := c.retryPolicy.RetryableErrors[category]
 	if !exists {
@@ -358,13 +328,9 @@ func (c *LSPGatewayClient) shouldRetryError(category ErrorCategory) bool {
 	return retryable
 }
 
-// generateRequestID generates a unique request ID
 func generateRequestID() interface{} {
-	// Use nanosecond timestamp with random component for uniqueness
 	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), rand.Intn(1000))
 }
-
-// Error handling and categorization functions
 
 func (c *LSPGatewayClient) categorizeError(err error) ErrorCategory {
 	if err == nil {
@@ -373,7 +339,6 @@ func (c *LSPGatewayClient) categorizeError(err error) ErrorCategory {
 
 	errorStr := strings.ToLower(err.Error())
 
-	// Network errors
 	if strings.Contains(errorStr, "connection refused") ||
 		strings.Contains(errorStr, "connection reset") ||
 		strings.Contains(errorStr, "network is unreachable") ||
@@ -382,19 +347,16 @@ func (c *LSPGatewayClient) categorizeError(err error) ErrorCategory {
 		return ErrorCategoryNetwork
 	}
 
-	// Timeout errors
 	if strings.Contains(errorStr, "timeout") ||
 		strings.Contains(errorStr, "deadline exceeded") ||
 		err == context.DeadlineExceeded {
 		return ErrorCategoryTimeout
 	}
 
-	// Context cancellation
 	if err == context.Canceled {
 		return ErrorCategoryClient
 	}
 
-	// HTTP status code based categorization
 	if strings.Contains(errorStr, "http error 5") {
 		return ErrorCategoryServer
 	}
@@ -406,7 +368,6 @@ func (c *LSPGatewayClient) categorizeError(err error) ErrorCategory {
 		return ErrorCategoryClient
 	}
 
-	// Protocol errors
 	if strings.Contains(errorStr, "failed to decode") ||
 		strings.Contains(errorStr, "failed to marshal") ||
 		strings.Contains(errorStr, "invalid json") {
@@ -423,7 +384,6 @@ func (c *LSPGatewayClient) calculateBackoff(attempt int) time.Duration {
 		backoff = c.retryPolicy.MaxBackoff
 	}
 
-	// Add jitter to prevent thundering herd
 	if c.retryPolicy.JitterEnabled {
 		jitter := time.Duration(rand.Float64() * float64(backoff) * 0.1) // 10% jitter
 		backoff += jitter
@@ -437,25 +397,21 @@ func (c *LSPGatewayClient) wrapHTTPError(err error, url string, duration time.Du
 		return nil
 	}
 
-	// Check for specific network errors
 	if netErr, ok := err.(net.Error); ok {
 		if netErr.Timeout() {
 			return fmt.Errorf("HTTP request timeout after %v to %s: %w", duration, url, err)
 		}
 	}
 
-	// Check for URL errors
 	if urlErr, ok := err.(*net.OpError); ok {
 		if urlErr.Timeout() {
 			return fmt.Errorf("URL timeout after %v to %s: %w", duration, url, err)
 		}
-		// Check for connection refused
 		if opErr, ok := urlErr.Err.(*net.OpError); ok {
 			if opErr.Op == "dial" {
 				return fmt.Errorf("connection failed to %s: %w", url, err)
 			}
 		}
-		// Check for syscall errors
 		if syscallErr, ok := urlErr.Err.(*net.OpError); ok {
 			if errno, ok := syscallErr.Err.(syscall.Errno); ok {
 				switch errno {
@@ -525,8 +481,6 @@ func (c *LSPGatewayClient) enhanceJSONRPCError(rpcErr *JSONRPCError, method stri
 	}
 }
 
-// Circuit Breaker implementation
-
 func (cb *CircuitBreaker) AllowRequest() bool {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
@@ -576,8 +530,6 @@ func (cb *CircuitBreaker) RecordFailure() {
 	}
 }
 
-// Metrics and monitoring functions
-
 func (c *LSPGatewayClient) updateSuccessMetrics() {
 	c.metrics.mu.Lock()
 	defer c.metrics.mu.Unlock()
@@ -597,7 +549,6 @@ func (c *LSPGatewayClient) updateLatencyMetrics(latency time.Duration) {
 	c.metrics.mu.Lock()
 	defer c.metrics.mu.Unlock()
 
-	// Simple moving average for latency
 	if c.metrics.averageLatency == 0 {
 		c.metrics.averageLatency = latency
 	} else {
@@ -605,12 +556,10 @@ func (c *LSPGatewayClient) updateLatencyMetrics(latency time.Duration) {
 	}
 }
 
-// GetMetrics returns current connection metrics
 func (c *LSPGatewayClient) GetMetrics() ConnectionMetrics {
 	c.metrics.mu.RLock()
 	defer c.metrics.mu.RUnlock()
 
-	// Create a copy without the mutex to avoid copy lock value issue
 	return ConnectionMetrics{
 		totalRequests:    c.metrics.totalRequests,
 		successfulReqs:   c.metrics.successfulReqs,
@@ -623,12 +572,10 @@ func (c *LSPGatewayClient) GetMetrics() ConnectionMetrics {
 	}
 }
 
-// GetHealth returns connection health status
 func (c *LSPGatewayClient) GetHealth(ctx context.Context) error {
 	c.healthCheckMu.Lock()
 	defer c.healthCheckMu.Unlock()
 
-	// Rate limit health checks
 	if time.Since(c.lastHealthCheck) < 30*time.Second {
 		return nil
 	}
@@ -655,7 +602,6 @@ func (c *LSPGatewayClient) GetHealth(ctx context.Context) error {
 	return nil
 }
 
-// IsHealthy returns true if the client is healthy
 func (c *LSPGatewayClient) IsHealthy() bool {
 	c.circuitBreaker.mu.RLock()
 	defer c.circuitBreaker.mu.RUnlock()

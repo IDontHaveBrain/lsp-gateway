@@ -13,7 +13,6 @@ import (
 	"time"
 )
 
-// SimpleTCPEchoServer for basic TCP functionality testing
 type SimpleTCPEchoServer struct {
 	listener net.Listener
 	port     int
@@ -21,7 +20,6 @@ type SimpleTCPEchoServer struct {
 	closed   chan bool
 }
 
-// NewSimpleTCPEchoServer creates a simple echo server for testing
 func NewSimpleTCPEchoServer() (*SimpleTCPEchoServer, error) {
 	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
@@ -38,23 +36,19 @@ func NewSimpleTCPEchoServer() (*SimpleTCPEchoServer, error) {
 	}, nil
 }
 
-// Start begins accepting connections
 func (s *SimpleTCPEchoServer) Start() {
 	go s.acceptConnections()
 }
 
-// Stop closes the server
 func (s *SimpleTCPEchoServer) Stop() error {
 	close(s.closed)
 	return s.listener.Close()
 }
 
-// Port returns the port
 func (s *SimpleTCPEchoServer) Port() int {
 	return s.port
 }
 
-// GetMessages returns received messages
 func (s *SimpleTCPEchoServer) GetMessages() [][]byte {
 	var messages [][]byte
 	for {
@@ -89,7 +83,6 @@ func (s *SimpleTCPEchoServer) handleConnection(conn net.Conn) {
 
 	reader := bufio.NewReader(conn)
 
-	// Read Content-Length header
 	contentLength := 0
 	for {
 		line, err := reader.ReadString('\n')
@@ -117,9 +110,7 @@ func (s *SimpleTCPEchoServer) handleConnection(conn net.Conn) {
 	}
 }
 
-// Test TCP client sendMessage functionality
 func TestTCPClientSendMessage(t *testing.T) {
-	// Create a simple echo server
 	server, err := NewSimpleTCPEchoServer()
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
@@ -128,7 +119,6 @@ func TestTCPClientSendMessage(t *testing.T) {
 
 	server.Start()
 
-	// Create and start TCP client
 	config := ClientConfig{
 		Command:   fmt.Sprintf("localhost:%d", server.Port()),
 		Transport: "tcp",
@@ -147,7 +137,6 @@ func TestTCPClientSendMessage(t *testing.T) {
 	}
 	defer func() { _ = client.Stop() }()
 
-	// Test sendMessage directly
 	tcpClient := client.(*TCPClient)
 	testMessage := JSONRPCMessage{
 		JSONRPC: "2.0",
@@ -161,10 +150,8 @@ func TestTCPClientSendMessage(t *testing.T) {
 		t.Fatalf("sendMessage failed: %v", err)
 	}
 
-	// Give time for message to be received
 	time.Sleep(100 * time.Millisecond)
 
-	// Verify message was received
 	messages := server.GetMessages()
 	if len(messages) != 1 {
 		t.Fatalf("Expected 1 message, got %d", len(messages))
@@ -184,9 +171,7 @@ func TestTCPClientSendMessage(t *testing.T) {
 	}
 }
 
-// Test TCP client handleMessage functionality directly
 func TestTCPClientHandleMessage(t *testing.T) {
-	// Create and test TCP client
 	testPort := allocateTestPort(t)
 	config := ClientConfig{
 		Command:   fmt.Sprintf("localhost:%d", testPort), // Won't actually connect
@@ -200,14 +185,11 @@ func TestTCPClientHandleMessage(t *testing.T) {
 
 	tcpClient := client.(*TCPClient)
 
-	// Initialize requests map
 	tcpClient.requests = make(map[string]chan json.RawMessage)
 
-	// Create a response channel for request ID "1"
 	respCh := make(chan json.RawMessage, 1)
 	tcpClient.requests["1"] = respCh
 
-	// Test handling a successful response
 	responseMsg := &JSONRPCMessage{
 		JSONRPC: "2.0",
 		ID:      "1",
@@ -216,7 +198,6 @@ func TestTCPClientHandleMessage(t *testing.T) {
 
 	tcpClient.handleMessage(responseMsg)
 
-	// Check if response was delivered to the channel
 	select {
 	case response := <-respCh:
 		var result map[string]string
@@ -230,7 +211,6 @@ func TestTCPClientHandleMessage(t *testing.T) {
 		t.Fatal("Response not received within timeout")
 	}
 
-	// Test handling an error response
 	errorRespCh := make(chan json.RawMessage, 1)
 	tcpClient.requests["2"] = errorRespCh
 
@@ -245,7 +225,6 @@ func TestTCPClientHandleMessage(t *testing.T) {
 
 	tcpClient.handleMessage(errorMsg)
 
-	// Check if error was delivered to the channel
 	select {
 	case errorResponse := <-errorRespCh:
 		var errorResult RPCError
@@ -259,23 +238,19 @@ func TestTCPClientHandleMessage(t *testing.T) {
 		t.Fatal("Error response not received within timeout")
 	}
 
-	// Test handling a notification (no ID) - should not crash
 	notificationMsg := &JSONRPCMessage{
 		JSONRPC: "2.0",
 		Method:  "textDocument/publishDiagnostics",
 		Params:  map[string]interface{}{"uri": "file:///test.go"},
 	}
 
-	// This should not crash or block
 	tcpClient.handleMessage(notificationMsg)
 
 	close(respCh)
 	close(errorRespCh)
 }
 
-// Test SendNotification functionality
 func TestTCPClientSendNotificationBasic(t *testing.T) {
-	// Create a simple echo server
 	server, err := NewSimpleTCPEchoServer()
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
@@ -284,7 +259,6 @@ func TestTCPClientSendNotificationBasic(t *testing.T) {
 
 	server.Start()
 
-	// Create and start TCP client
 	config := ClientConfig{
 		Command:   fmt.Sprintf("localhost:%d", server.Port()),
 		Transport: "tcp",
@@ -303,7 +277,6 @@ func TestTCPClientSendNotificationBasic(t *testing.T) {
 	}
 	defer func() { _ = client.Stop() }()
 
-	// Send notification
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri":     "file:///test.go",
@@ -316,10 +289,8 @@ func TestTCPClientSendNotificationBasic(t *testing.T) {
 		t.Fatalf("SendNotification failed: %v", err)
 	}
 
-	// Give time for message to be received
 	time.Sleep(100 * time.Millisecond)
 
-	// Verify notification was received
 	messages := server.GetMessages()
 	if len(messages) != 1 {
 		t.Fatalf("Expected 1 notification, got %d", len(messages))
@@ -339,9 +310,7 @@ func TestTCPClientSendNotificationBasic(t *testing.T) {
 	}
 }
 
-// Test TCP client with simple message handling verification
 func TestTCPClientMessageHandling(t *testing.T) {
-	// Create a server that sends a response
 	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatalf("Failed to create listener: %v", err)
@@ -350,7 +319,6 @@ func TestTCPClientMessageHandling(t *testing.T) {
 
 	port := listener.Addr().(*net.TCPAddr).Port
 
-	// Handle connection and echo back
 	go func() {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -358,11 +326,9 @@ func TestTCPClientMessageHandling(t *testing.T) {
 		}
 		defer func() { _ = conn.Close() }()
 
-		// Just keep connection alive to test basic handling
 		time.Sleep(200 * time.Millisecond)
 	}()
 
-	// Create and start TCP client
 	config := ClientConfig{
 		Command:   fmt.Sprintf("localhost:%d", port),
 		Transport: "tcp",
@@ -380,10 +346,8 @@ func TestTCPClientMessageHandling(t *testing.T) {
 		t.Fatalf("Start failed: %v", err)
 	}
 
-	// Give time for connection to establish
 	time.Sleep(100 * time.Millisecond)
 
-	// Verify client is active (basic message handling is working)
 	if !client.IsActive() {
 		t.Error("Client should be active with good connection")
 	}

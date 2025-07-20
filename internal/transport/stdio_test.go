@@ -48,7 +48,6 @@ func TestStdioClientLifecycle(t *testing.T) {
 		t.Fatalf("NewStdioClient failed: %v", err)
 	}
 
-	// Test Start
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -60,7 +59,6 @@ func TestStdioClientLifecycle(t *testing.T) {
 		t.Error("Client should be active after Start()")
 	}
 
-	// Test Stop
 	if err := client.Stop(); err != nil {
 		t.Fatalf("Stop failed: %v", err)
 	}
@@ -71,7 +69,6 @@ func TestStdioClientLifecycle(t *testing.T) {
 }
 
 func TestLSPClientFactory(t *testing.T) {
-	// Test STDIO transport
 	config := ClientConfig{
 		Command:   "echo",
 		Args:      []string{"test"},
@@ -87,7 +84,6 @@ func TestLSPClientFactory(t *testing.T) {
 		t.Fatal("NewLSPClient returned nil client")
 	}
 
-	// Test unsupported transport
 	config.Transport = "unsupported"
 	client, err = NewLSPClient(config)
 	if err == nil {
@@ -98,7 +94,6 @@ func TestLSPClientFactory(t *testing.T) {
 		t.Error("NewLSPClient should return nil for unsupported transport")
 	}
 
-	// Test TCP transport (should work since it's implemented)
 	config.Transport = "tcp"
 	client, err = NewLSPClient(config)
 	if err != nil {
@@ -110,9 +105,7 @@ func TestLSPClientFactory(t *testing.T) {
 	}
 }
 
-// TestStdioSendRequestSuccess tests successful request-response cycle
 func TestStdioSendRequestSuccess(t *testing.T) {
-	// Create mock LSP server program
 	mockServer := createMockLSPServerProgram(t, false, 0, false, 0, 0)
 	defer func() {
 		if err := os.Remove(mockServer); err != nil {
@@ -143,7 +136,6 @@ func TestStdioSendRequestSuccess(t *testing.T) {
 		}
 	}()
 
-	// Test initialization request
 	initParams := map[string]interface{}{
 		"processId":    nil,
 		"rootUri":      "file:///test",
@@ -155,7 +147,6 @@ func TestStdioSendRequestSuccess(t *testing.T) {
 		t.Fatalf("SendRequest failed: %v", err)
 	}
 
-	// Verify response structure
 	var result map[string]interface{}
 	if err := json.Unmarshal(response, &result); err != nil {
 		t.Fatalf("Failed to unmarshal response: %v", err)
@@ -171,7 +162,6 @@ func TestStdioSendRequestSuccess(t *testing.T) {
 		}
 	}
 
-	// Test hover request
 	hoverParams := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": "file:///test.go",
@@ -187,7 +177,6 @@ func TestStdioSendRequestSuccess(t *testing.T) {
 		t.Fatalf("Hover SendRequest failed: %v", err)
 	}
 
-	// Verify hover response structure
 	var hoverResult map[string]interface{}
 	if err := json.Unmarshal(hoverResponse, &hoverResult); err != nil {
 		t.Fatalf("Failed to unmarshal hover response: %v", err)
@@ -214,12 +203,10 @@ func TestStdioSendRequestSuccess(t *testing.T) {
 	}
 }
 
-// TestStdioSendHoverRequest tests hover-specific request handling
 func TestStdioSendHoverRequest(t *testing.T) {
 	client := setupHoverTestClient(t)
 	ctx := createHoverTestContext()
 
-	// Test hover with different file types
 	testCases := createHoverTestCases()
 
 	for _, tc := range testCases {
@@ -229,7 +216,6 @@ func TestStdioSendHoverRequest(t *testing.T) {
 	}
 }
 
-// HoverTestCase represents a test case for hover requests
 type HoverTestCase struct {
 	name      string
 	uri       string
@@ -237,9 +223,7 @@ type HoverTestCase struct {
 	character int
 }
 
-// setupHoverTestClient sets up a client for hover testing
 func setupHoverTestClient(t *testing.T) *StdioClient {
-	// Create mock LSP server program that supports hover
 	mockServer := createMockLSPServerProgram(t, false, 0, false, 0, 0)
 	t.Cleanup(func() {
 		if err := os.Remove(mockServer); err != nil {
@@ -272,14 +256,12 @@ func setupHoverTestClient(t *testing.T) *StdioClient {
 	return client
 }
 
-// createHoverTestContext creates a context for hover testing
 func createHoverTestContext() context.Context {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	_ = cancel // Cancel is handled by the context timeout
 	return ctx
 }
 
-// createHoverTestCases creates test cases for hover requests
 func createHoverTestCases() []HoverTestCase {
 	return []HoverTestCase{
 		{
@@ -309,7 +291,6 @@ func createHoverTestCases() []HoverTestCase {
 	}
 }
 
-// testSingleHoverRequest tests a single hover request
 func testSingleHoverRequest(t *testing.T, client *StdioClient, ctx context.Context, tc HoverTestCase) {
 	hoverParams := createHoverParams(tc)
 
@@ -321,7 +302,6 @@ func testSingleHoverRequest(t *testing.T, client *StdioClient, ctx context.Conte
 	validateHoverResponse(t, response, tc.name)
 }
 
-// createHoverParams creates hover request parameters
 func createHoverParams(tc HoverTestCase) map[string]interface{} {
 	return map[string]interface{}{
 		"textDocument": map[string]interface{}{
@@ -334,7 +314,6 @@ func createHoverParams(tc HoverTestCase) map[string]interface{} {
 	}
 }
 
-// validateHoverResponse validates the hover response structure
 func validateHoverResponse(t *testing.T, response []byte, testName string) {
 	var result map[string]interface{}
 	if err := json.Unmarshal(response, &result); err != nil {
@@ -345,7 +324,6 @@ func validateHoverResponse(t *testing.T, response []byte, testName string) {
 	validateHoverRange(t, result, testName)
 }
 
-// validateHoverContents validates hover contents field
 func validateHoverContents(t *testing.T, result map[string]interface{}, testName string) {
 	contents, ok := result["contents"]
 	if !ok {
@@ -362,7 +340,6 @@ func validateHoverContents(t *testing.T, result map[string]interface{}, testName
 	validateContentsValue(t, contentsMap, testName)
 }
 
-// validateContentsKind validates the kind field in contents
 func validateContentsKind(t *testing.T, contentsMap map[string]interface{}, testName string) {
 	kind, ok := contentsMap["kind"]
 	if !ok {
@@ -375,7 +352,6 @@ func validateContentsKind(t *testing.T, contentsMap map[string]interface{}, test
 	}
 }
 
-// validateContentsValue validates the value field in contents
 func validateContentsValue(t *testing.T, contentsMap map[string]interface{}, testName string) {
 	value, ok := contentsMap["value"]
 	if !ok {
@@ -394,7 +370,6 @@ func validateContentsValue(t *testing.T, contentsMap map[string]interface{}, tes
 	}
 }
 
-// validateHoverRange validates range information if present
 func validateHoverRange(t *testing.T, result map[string]interface{}, testName string) {
 	rangeField, ok := result["range"]
 	if !ok {
@@ -415,9 +390,7 @@ func validateHoverRange(t *testing.T, result map[string]interface{}, testName st
 	}
 }
 
-// TestStdioSendRequestError tests error response handling
 func TestStdioSendRequestError(t *testing.T) {
-	// Create mock LSP server that returns errors
 	mockServer := createMockLSPServerProgram(t, true, 1, false, 0, 0)
 	defer func() {
 		if err := os.Remove(mockServer); err != nil {
@@ -448,7 +421,6 @@ func TestStdioSendRequestError(t *testing.T) {
 		}
 	}()
 
-	// Send request that will return error
 	response, err := client.SendRequest(ctx, "textDocument/definition", map[string]interface{}{
 		"textDocument": map[string]interface{}{"uri": "file:///test.go"},
 		"position":     map[string]interface{}{"line": 10, "character": 5},
@@ -458,7 +430,6 @@ func TestStdioSendRequestError(t *testing.T) {
 		t.Fatalf("SendRequest failed: %v", err)
 	}
 
-	// Response should contain error information
 	var errorInfo RPCError
 	if err := json.Unmarshal(response, &errorInfo); err != nil {
 		t.Fatalf("Failed to unmarshal error response: %v", err)
@@ -473,9 +444,7 @@ func TestStdioSendRequestError(t *testing.T) {
 	}
 }
 
-// TestStdioSendRequestTimeout tests request timeout handling
 func TestStdioSendRequestTimeout(t *testing.T) {
-	// Create mock server with 35 second delay (longer than timeout)
 	mockServer := createMockLSPServerProgram(t, false, 0, false, 0, 35*time.Second)
 	defer func() {
 		if err := os.Remove(mockServer); err != nil {
@@ -506,7 +475,6 @@ func TestStdioSendRequestTimeout(t *testing.T) {
 		}
 	}()
 
-	// Send request that will timeout
 	requestCtx, requestCancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer requestCancel()
 
@@ -524,7 +492,6 @@ func TestStdioSendRequestTimeout(t *testing.T) {
 	}
 }
 
-// TestStdioSendRequestNotActive tests sending request when client is not active
 func TestStdioSendRequestNotActive(t *testing.T) {
 	config := ClientConfig{
 		Command:   "echo",
@@ -540,7 +507,6 @@ func TestStdioSendRequestNotActive(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Try to send request without starting client
 	_, err = client.SendRequest(ctx, "test", nil)
 	if err == nil {
 		t.Error("Expected error when sending request to inactive client")
@@ -551,7 +517,6 @@ func TestStdioSendRequestNotActive(t *testing.T) {
 	}
 }
 
-// TestStdioSendNotificationSuccess tests notification sending
 func TestStdioSendNotificationSuccess(t *testing.T) {
 	mockServer := createMockLSPServerProgram(t, false, 0, false, 0, 0)
 	defer func() {
@@ -583,7 +548,6 @@ func TestStdioSendNotificationSuccess(t *testing.T) {
 		}
 	}()
 
-	// Send notification
 	err = client.SendNotification(ctx, "textDocument/didOpen", map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri":        "file:///test.go",
@@ -598,7 +562,6 @@ func TestStdioSendNotificationSuccess(t *testing.T) {
 	}
 }
 
-// TestStdioSendNotificationNotActive tests notification when client is not active
 func TestStdioSendNotificationNotActive(t *testing.T) {
 	config := ClientConfig{
 		Command:   "echo",
@@ -614,7 +577,6 @@ func TestStdioSendNotificationNotActive(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Try to send notification without starting client
 	err = client.SendNotification(ctx, "test", nil)
 	if err == nil {
 		t.Error("Expected error when sending notification to inactive client")
@@ -625,9 +587,7 @@ func TestStdioSendNotificationNotActive(t *testing.T) {
 	}
 }
 
-// TestStdioHandleNotifications tests server-initiated notifications
 func TestStdioHandleNotifications(t *testing.T) {
-	// Create mock server that sends notifications
 	mockServer := createMockLSPServerProgram(t, false, 0, true, 0, 0)
 	defer func() {
 		if err := os.Remove(mockServer); err != nil {
@@ -658,7 +618,6 @@ func TestStdioHandleNotifications(t *testing.T) {
 		}
 	}()
 
-	// Send a request to trigger notification
 	_, err = client.SendRequest(ctx, "textDocument/definition", map[string]interface{}{
 		"textDocument": map[string]interface{}{"uri": "file:///test.go"},
 		"position":     map[string]interface{}{"line": 10, "character": 5},
@@ -668,13 +627,10 @@ func TestStdioHandleNotifications(t *testing.T) {
 		t.Fatalf("SendRequest failed: %v", err)
 	}
 
-	// Give time for notification handling
 	time.Sleep(100 * time.Millisecond)
 
-	// Test passes if no panics occur during notification handling
 }
 
-// TestStdioConcurrentRequests tests concurrent request handling
 func TestStdioConcurrentRequests(t *testing.T) {
 	mockServer := createMockLSPServerProgram(t, false, 0, false, 0, 0)
 	defer func() {
@@ -706,7 +662,6 @@ func TestStdioConcurrentRequests(t *testing.T) {
 		}
 	}()
 
-	// Send multiple concurrent requests
 	const numRequests = 10
 	var wg sync.WaitGroup
 	results := make(chan error, numRequests)
@@ -731,7 +686,6 @@ func TestStdioConcurrentRequests(t *testing.T) {
 	wg.Wait()
 	close(results)
 
-	// Check all requests succeeded
 	for err := range results {
 		if err != nil {
 			t.Errorf("Concurrent request failed: %v", err)
@@ -739,11 +693,9 @@ func TestStdioConcurrentRequests(t *testing.T) {
 	}
 }
 
-// TestStdioWriteMessageProtocol tests LSP protocol message writing
 func TestStdioWriteMessageProtocol(t *testing.T) {
 	var buf bytes.Buffer
 
-	// Create a test client with mocked stdin
 	client := &StdioClient{
 		stdin: &writeCloserWrapper{&buf},
 	}
@@ -763,20 +715,16 @@ func TestStdioWriteMessageProtocol(t *testing.T) {
 		t.Fatalf("writeMessage failed: %v", err)
 	}
 
-	// Verify LSP protocol format
 	output := buf.String()
 
-	// Should start with Content-Length header
 	if !strings.HasPrefix(output, "Content-Length: ") {
 		t.Error("Message should start with Content-Length header")
 	}
 
-	// Should have proper header termination
 	if !strings.Contains(output, "\r\n\r\n") {
 		t.Error("Message should have proper header termination (\\r\\n\\r\\n)")
 	}
 
-	// Extract JSON part
 	headerEnd := strings.Index(output, "\r\n\r\n")
 	if headerEnd == -1 {
 		t.Fatal("Could not find header termination")
@@ -784,7 +732,6 @@ func TestStdioWriteMessageProtocol(t *testing.T) {
 
 	jsonPart := output[headerEnd+4:]
 
-	// Verify JSON content
 	var parsedMsg JSONRPCMessage
 	if err := json.Unmarshal([]byte(jsonPart), &parsedMsg); err != nil {
 		t.Fatalf("Failed to parse JSON part: %v", err)
@@ -803,9 +750,7 @@ func TestStdioWriteMessageProtocol(t *testing.T) {
 	}
 }
 
-// TestStdioReadMessageProtocol tests LSP protocol message reading
 func TestStdioReadMessageProtocol(t *testing.T) {
-	// Create test message
 	testJSON := `{"jsonrpc":"2.0","id":"test_456","result":{"uri":"file:///test.go","range":{"start":{"line":10,"character":5},"end":{"line":10,"character":15}}}}`
 	testMessage := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(testJSON), testJSON)
 
@@ -817,7 +762,6 @@ func TestStdioReadMessageProtocol(t *testing.T) {
 		t.Fatalf("readMessage failed: %v", err)
 	}
 
-	// Verify message content
 	var parsedMsg JSONRPCMessage
 	if err := json.Unmarshal(message, &parsedMsg); err != nil {
 		t.Fatalf("Failed to parse message: %v", err)
@@ -832,7 +776,6 @@ func TestStdioReadMessageProtocol(t *testing.T) {
 	}
 }
 
-// TestStdioReadMessageMalformed tests handling of malformed LSP messages
 func TestStdioReadMessageMalformed(t *testing.T) {
 	testCases := []struct {
 		name    string
@@ -865,7 +808,6 @@ func TestStdioReadMessageMalformed(t *testing.T) {
 	}
 }
 
-// TestStdioStartTwice tests starting client twice
 func TestStdioStartTwice(t *testing.T) {
 	config := ClientConfig{
 		Command:   "cat",
@@ -881,12 +823,10 @@ func TestStdioStartTwice(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Start first time
 	if err := client.Start(ctx); err != nil {
 		t.Fatalf("First start failed: %v", err)
 	}
 
-	// Start second time should fail
 	err = client.Start(ctx)
 	if err == nil {
 		t.Error("Second start should fail")
@@ -901,7 +841,6 @@ func TestStdioStartTwice(t *testing.T) {
 	}
 }
 
-// TestStdioStopInactive tests stopping inactive client
 func TestStdioStopInactive(t *testing.T) {
 	config := ClientConfig{
 		Command:   "cat",
@@ -914,14 +853,12 @@ func TestStdioStopInactive(t *testing.T) {
 		t.Fatalf("NewStdioClient failed: %v", err)
 	}
 
-	// Stop without starting should not error
 	err = client.Stop()
 	if err != nil {
 		t.Errorf("Stop on inactive client should not error: %v", err)
 	}
 }
 
-// TestStdioInvalidCommand tests starting client with invalid command
 func TestStdioInvalidCommand(t *testing.T) {
 	config := ClientConfig{
 		Command:   "non-existent-command-12345",
@@ -937,7 +874,6 @@ func TestStdioInvalidCommand(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// Start should fail with invalid command
 	err = client.Start(ctx)
 	if err == nil {
 		t.Error("Start should fail with invalid command")
@@ -947,14 +883,12 @@ func TestStdioInvalidCommand(t *testing.T) {
 	}
 }
 
-// TestStdioWriteMessageMarshalError tests error handling in writeMessage
 func TestStdioWriteMessageMarshalError(t *testing.T) {
 	var buf bytes.Buffer
 	client := &StdioClient{
 		stdin: &writeCloserWrapper{&buf},
 	}
 
-	// Create message with unmarshalable content (channel cannot be marshaled to JSON)
 	message := JSONRPCMessage{
 		JSONRPC: "2.0",
 		ID:      "test",
@@ -972,7 +906,6 @@ func TestStdioWriteMessageMarshalError(t *testing.T) {
 	}
 }
 
-// TestStdioResponseCorrelation tests request-response ID correlation with multiple requests
 func TestStdioResponseCorrelation(t *testing.T) {
 	mockServer := createMockLSPServerProgram(t, false, 0, false, 0, 0)
 	defer func() {
@@ -1004,12 +937,10 @@ func TestStdioResponseCorrelation(t *testing.T) {
 		}
 	}()
 
-	// Send multiple requests rapidly to test ID correlation
 	const numRequests = 5
 	results := make([]json.RawMessage, numRequests)
 	errors := make([]error, numRequests)
 
-	// Send all requests concurrently
 	var wg sync.WaitGroup
 	for i := 0; i < numRequests; i++ {
 		wg.Add(1)
@@ -1027,7 +958,6 @@ func TestStdioResponseCorrelation(t *testing.T) {
 
 	wg.Wait()
 
-	// Verify all requests succeeded and got correct responses
 	for i, err := range errors {
 		if err != nil {
 			t.Errorf("Request %d failed: %v", i, err)
@@ -1038,13 +968,10 @@ func TestStdioResponseCorrelation(t *testing.T) {
 	}
 }
 
-// Helper function to create mock LSP server program
 func createMockLSPServerProgram(t *testing.T, shouldError bool, errorAfterN int, sendNotification bool, closeAfterN int, delay time.Duration) string {
-	// Create temporary directory for mock server
 	tmpDir := t.TempDir()
 	serverPath := fmt.Sprintf("%s/mock_lsp_server", tmpDir)
 
-	// Create mock server program source
 	source := fmt.Sprintf(`package main
 
 import (
@@ -1261,20 +1188,17 @@ func readMessage(reader *bufio.Reader) ([]byte, error) {
 	return body, nil
 }`, shouldError, errorAfterN, sendNotification, closeAfterN, int64(delay))
 
-	// Write source to temporary file
 	sourceFile := serverPath + ".go"
 	if err := os.WriteFile(sourceFile, []byte(source), 0644); err != nil {
 		t.Fatalf("Failed to write mock server source: %v", err)
 	}
 
-	// Initialize module in temp directory
 	modFile := fmt.Sprintf("%s/go.mod", tmpDir)
 	modContent := "module mock-lsp-server\n\ngo 1.24\n"
 	if err := os.WriteFile(modFile, []byte(modContent), 0644); err != nil {
 		t.Fatalf("Failed to write go.mod: %v", err)
 	}
 
-	// Build the mock server
 	cmd := exec.Command("go", "build", "-o", serverPath, sourceFile)
 	cmd.Dir = tmpDir
 	if output, err := cmd.CombinedOutput(); err != nil {
@@ -1284,7 +1208,6 @@ func readMessage(reader *bufio.Reader) ([]byte, error) {
 	return serverPath
 }
 
-// writeCloserWrapper wraps an io.Writer to implement io.WriteCloser
 type writeCloserWrapper struct {
 	io.Writer
 }

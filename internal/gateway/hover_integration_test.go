@@ -14,17 +14,14 @@ import (
 	"lsp-gateway/internal/config"
 )
 
-// TestHoverIntegration tests hover functionality across all configured language servers
 func TestHoverIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping hover integration test in short mode")
 	}
 
-	// Create mock LSP server binary with hover support
 	mockServerPath, cleanup := createMockLSPServerWithHover(t)
 	defer cleanup()
 
-	// Find available port
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatalf("Failed to find available port: %v", err)
@@ -34,7 +31,6 @@ func TestHoverIntegration(t *testing.T) {
 		t.Logf("cleanup error closing listener: %v", err)
 	}
 
-	// Create test configuration with all supported languages
 	testConfig := &config.GatewayConfig{
 		Port: port,
 		Servers: []config.ServerConfig{
@@ -69,12 +65,10 @@ func TestHoverIntegration(t *testing.T) {
 		},
 	}
 
-	// Validate test configuration
 	if err := testConfig.Validate(); err != nil {
 		t.Fatalf("Invalid test configuration: %v", err)
 	}
 
-	// Create and start gateway
 	gw, err := NewGateway(testConfig)
 	if err != nil {
 		t.Fatalf("Failed to create gateway: %v", err)
@@ -92,7 +86,6 @@ func TestHoverIntegration(t *testing.T) {
 		}
 	}()
 
-	// Start HTTP server
 	mux := http.NewServeMux()
 	mux.HandleFunc("/jsonrpc", gw.HandleJSONRPC)
 	server := &http.Server{
@@ -115,10 +108,8 @@ func TestHoverIntegration(t *testing.T) {
 		}
 	}()
 
-	// Wait for server to start
 	time.Sleep(100 * time.Millisecond)
 
-	// Test hover functionality for each language
 	baseURL := fmt.Sprintf("http://localhost:%d", port)
 
 	t.Run("textDocument/hover_go", func(t *testing.T) {
@@ -146,7 +137,6 @@ func TestHoverIntegration(t *testing.T) {
 	})
 }
 
-// testHoverForLanguage tests hover functionality for a specific language
 func testHoverForLanguage(t *testing.T, baseURL, fileURI, expectedLanguage string) {
 	request := JSONRPCRequest{
 		JSONRPC: "2.0",
@@ -165,7 +155,6 @@ func testHoverForLanguage(t *testing.T, baseURL, fileURI, expectedLanguage strin
 
 	response := makeJSONRPCRequest(t, baseURL, request)
 
-	// Validate response structure
 	if response.JSONRPC != "2.0" {
 		t.Errorf("Expected JSON-RPC 2.0, got: %s", response.JSONRPC)
 	}
@@ -182,13 +171,11 @@ func testHoverForLanguage(t *testing.T, baseURL, fileURI, expectedLanguage strin
 		t.Error("Expected result in response")
 	}
 
-	// Validate hover response structure
 	resultMap, ok := response.Result.(map[string]interface{})
 	if !ok {
 		t.Fatalf("Expected result to be a map, got: %T", response.Result)
 	}
 
-	// Check that hover contains expected mock data
 	if resultMap["uri"] != fileURI {
 		t.Errorf("Expected URI %s in result, got: %v", fileURI, resultMap["uri"])
 	}
@@ -201,7 +188,6 @@ func testHoverForLanguage(t *testing.T, baseURL, fileURI, expectedLanguage strin
 		t.Errorf("Expected language %s in result, got: %v", expectedLanguage, resultMap["language"])
 	}
 
-	// Validate hover content structure
 	contents, ok := resultMap["contents"].(map[string]interface{})
 	if !ok {
 		t.Errorf("Expected contents to be a map, got: %T", resultMap["contents"])
@@ -216,13 +202,11 @@ func testHoverForLanguage(t *testing.T, baseURL, fileURI, expectedLanguage strin
 		t.Error("Expected hover content value")
 	}
 
-	// Validate range is present
 	if resultMap["range"] == nil {
 		t.Error("Expected range in hover result")
 	}
 }
 
-// testHoverErrorHandling tests error scenarios for hover requests
 func testHoverErrorHandling(t *testing.T, baseURL string) {
 	t.Run("unsupported_file_extension", func(t *testing.T) {
 		request := JSONRPCRequest{
@@ -242,7 +226,6 @@ func testHoverErrorHandling(t *testing.T, baseURL string) {
 
 		response := makeJSONRPCRequest(t, baseURL, request)
 
-		// Should return an error for unsupported extension
 		if response.Error == nil {
 			t.Error("Expected error for unsupported file extension")
 		}
@@ -257,14 +240,11 @@ func testHoverErrorHandling(t *testing.T, baseURL string) {
 				"textDocument": map[string]interface{}{
 					"uri": "file:///test.go",
 				},
-				// Missing position parameter
 			},
 		}
 
 		response := makeJSONRPCRequest(t, baseURL, request)
 
-		// Should handle gracefully - our mock server should return hover info
-		// even without position (some LSP servers allow this)
 		if response.Error != nil {
 			t.Logf("LSP server returned error for missing position (this is acceptable): %v", response.Error)
 		}
@@ -288,22 +268,18 @@ func testHoverErrorHandling(t *testing.T, baseURL string) {
 
 		response := makeJSONRPCRequest(t, baseURL, request)
 
-		// Should return an error for invalid URI scheme
 		if response.Error == nil {
 			t.Error("Expected error for invalid URI scheme")
 		}
 	})
 }
 
-// createMockLSPServerWithHover creates a mock LSP server that supports hover
 func createMockLSPServerWithHover(t *testing.T) (string, func()) {
-	// Create temporary directory
 	tempDir, err := os.MkdirTemp("", "lsp-gateway-hover-test-*")
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
 
-	// Create mock LSP server source code with hover support
 	mockServerSource := `package main
 
 import (
@@ -331,7 +307,6 @@ func main() {
 	writer := bufio.NewWriter(os.Stdout)
 
 	for {
-		// Read Content-Length header
 		var contentLength int
 		for {
 			line, err := reader.ReadString('\n')
@@ -359,19 +334,16 @@ func main() {
 			continue
 		}
 
-		// Read message body
 		body := make([]byte, contentLength)
 		if _, err := io.ReadFull(reader, body); err != nil {
 			continue
 		}
 
-		// Parse message
 		var msg LSPMessage
 		if err := json.Unmarshal(body, &msg); err != nil {
 			continue
 		}
 
-		// Handle different LSP methods
 		var response LSPMessage
 		switch msg.Method {
 		case "initialize":
@@ -389,7 +361,6 @@ func main() {
 				},
 			}
 		case "initialized":
-			// No response needed for initialized notification
 			continue
 		case "textDocument/hover":
 			uri := extractURI(msg.Params)
@@ -477,7 +448,6 @@ func main() {
 				},
 			}
 		default:
-			// Return error for unsupported methods
 			response = LSPMessage{
 				JSONRPC: "2.0",
 				ID:      msg.ID,
@@ -488,7 +458,6 @@ func main() {
 			}
 		}
 
-		// Send response
 		responseData, _ := json.Marshal(response)
 		responseContent := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(responseData), responseData)
 		writer.WriteString(responseContent)
@@ -542,7 +511,6 @@ func getLanguageFromURI(uri string) string {
 }
 `
 
-	// Write mock server source to file
 	sourceFile := filepath.Join(tempDir, "mock_lsp_server_hover.go")
 	if err := os.WriteFile(sourceFile, []byte(mockServerSource), 0644); err != nil {
 		if rmErr := os.RemoveAll(tempDir); rmErr != nil {
@@ -551,7 +519,6 @@ func getLanguageFromURI(uri string) string {
 		t.Fatalf("Failed to write mock server source: %v", err)
 	}
 
-	// Compile the mock server
 	binaryPath := filepath.Join(tempDir, "mock_lsp_server_hover")
 	cmd := exec.Command("go", "build", "-o", binaryPath, sourceFile)
 	if err := cmd.Run(); err != nil {
@@ -561,10 +528,8 @@ func getLanguageFromURI(uri string) string {
 		t.Fatalf("Failed to compile mock LSP server: %v", err)
 	}
 
-	// Return binary path and cleanup function
 	cleanup := func() {
 		if err := os.RemoveAll(tempDir); err != nil {
-			// Note: In cleanup functions, we typically log but don't fail the test
 			t.Logf("cleanup error removing temp dir: %v", err)
 		}
 	}
