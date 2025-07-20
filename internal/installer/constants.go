@@ -79,9 +79,8 @@ const (
 	BINARY_LSPGATEWAY = "lsp-gateway"
 
 	// Error messages
-	ERROR_DEPENDENCY_INFO_NOT_FOUND = "dependency information not found for server: %s"
-	ERROR_MACOS_NOT_IMPLEMENTED     = "macOS server installation not implemented yet"
-	ERROR_LINUX_NOT_IMPLEMENTED     = "linux server installation not implemented yet"
+	ERROR_MACOS_NOT_IMPLEMENTED = "macOS server installation not implemented yet"
+	ERROR_LINUX_NOT_IMPLEMENTED = "linux server installation not implemented yet"
 
 	// Platform strategy formats
 	FORMAT_PLATFORM_STRATEGY = "%s_platform_strategy"

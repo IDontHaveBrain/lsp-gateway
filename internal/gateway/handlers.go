@@ -411,6 +411,21 @@ func NewGateway(config *config.GatewayConfig) (*Gateway, error) {
 			return nil, fmt.Errorf("failed to create client for %s: %w", serverConfig.Name, err)
 		}
 
+		// Validate client by attempting to start it briefly
+		serverLogger.Debug("Validating LSP client command")
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		if err := client.Start(ctx); err != nil {
+			cancel()
+			serverLogger.WithError(err).Error("Failed to validate LSP client command")
+			return nil, fmt.Errorf("failed to validate client command for %s: %w", serverConfig.Name, err)
+		}
+		cancel()
+
+		// Stop the client after validation
+		if err := client.Stop(); err != nil {
+			serverLogger.WithError(err).Warn("Failed to stop LSP client after validation")
+		}
+
 		gateway.clients[serverConfig.Name] = client
 		gateway.router.RegisterServer(serverConfig.Name, serverConfig.Languages)
 
@@ -462,6 +477,7 @@ func (g *Gateway) Stop() error {
 		g.logger.Info("Stopping gateway and all LSP clients")
 	}
 
+	var errors []error
 	for name, client := range g.clients {
 		var clientLogger *mcp.StructuredLogger
 		if g.logger != nil {
@@ -473,16 +489,21 @@ func (g *Gateway) Stop() error {
 			if clientLogger != nil {
 				clientLogger.WithError(err).Error("Failed to stop LSP client")
 			}
-			return fmt.Errorf("failed to stop client %s: %w", name, err)
-		}
-
-		if clientLogger != nil {
-			clientLogger.Info("LSP client stopped successfully")
+			errors = append(errors, fmt.Errorf("failed to stop client %s: %w", name, err))
+		} else {
+			if clientLogger != nil {
+				clientLogger.Info("LSP client stopped successfully")
+			}
 		}
 	}
 
 	if g.logger != nil {
 		g.logger.Info("Gateway stopped successfully")
+	}
+
+	// If there were any errors, return the first one (maintains backwards compatibility)
+	if len(errors) > 0 {
+		return errors[0]
 	}
 	return nil
 }

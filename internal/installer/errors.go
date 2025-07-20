@@ -154,30 +154,3 @@ type DependencyValidationError struct {
 	VersionIssues []string
 	Cause         error
 }
-
-func (e *DependencyValidationError) Error() string {
-	if len(e.MissingDeps) > 0 && len(e.VersionIssues) > 0 {
-		return fmt.Sprintf("dependency validation failed for %s: missing dependencies %v, version issues %v",
-			e.ServerName, e.MissingDeps, e.VersionIssues)
-	} else if len(e.MissingDeps) > 0 {
-		return fmt.Sprintf("dependency validation failed for %s: missing dependencies %v",
-			e.ServerName, e.MissingDeps)
-	} else if len(e.VersionIssues) > 0 {
-		return fmt.Sprintf("dependency validation failed for %s: version issues %v",
-			e.ServerName, e.VersionIssues)
-	}
-	return fmt.Sprintf("dependency validation failed for %s", e.ServerName)
-}
-
-func (e *DependencyValidationError) Unwrap() error {
-	return e.Cause
-}
-
-func NewDependencyValidationError(serverName string, missingDeps, versionIssues []string, cause error) *DependencyValidationError {
-	return &DependencyValidationError{
-		ServerName:    serverName,
-		MissingDeps:   missingDeps,
-		VersionIssues: versionIssues,
-		Cause:         cause,
-	}
-}

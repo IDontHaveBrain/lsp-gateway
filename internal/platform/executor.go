@@ -190,12 +190,6 @@ func ExecuteShellCommand(executor CommandExecutor, command string, timeout time.
 	return executor.Execute(shell, args, timeout)
 }
 
-func ExecuteShellCommandWithEnv(executor CommandExecutor, command string, env map[string]string, timeout time.Duration) (*Result, error) {
-	shell := executor.GetShell()
-	args := executor.GetShellArgs(command)
-	return executor.ExecuteWithEnv(shell, args, env, timeout)
-}
-
 func isCommandAvailable(command string) bool {
 	_, err := exec.LookPath(command)
 	return err == nil

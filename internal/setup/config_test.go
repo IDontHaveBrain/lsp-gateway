@@ -332,11 +332,11 @@ func TestConfigGenerator_UpdateConfig(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name          string
-		config        *config.GatewayConfig
-		updates       ConfigUpdates
-		expectError   bool
-		validateFunc  func(t *testing.T, result *ConfigUpdateResult)
+		name         string
+		config       *config.GatewayConfig
+		updates      ConfigUpdates
+		expectError  bool
+		validateFunc func(t *testing.T, result *ConfigUpdateResult)
 	}{
 		{
 			name:   "UpdatePort",
@@ -480,9 +480,9 @@ func TestConfigGenerator_UpdateConfig(t *testing.T) {
 			},
 		},
 		{
-			name:   "NilConfig",
-			config: nil,
-			updates: ConfigUpdates{},
+			name:        "NilConfig",
+			config:      nil,
+			updates:     ConfigUpdates{},
 			expectError: true,
 			validateFunc: func(t *testing.T, result *ConfigUpdateResult) {
 				// No validation needed for error case
@@ -504,18 +504,18 @@ func TestConfigGenerator_UpdateConfig(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := generator.UpdateConfig(tc.config, tc.updates)
-			
+
 			if tc.expectError {
 				if err == nil {
 					t.Errorf("Expected error for case %s", tc.name)
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Fatalf("UpdateConfig failed for case %s: %v", tc.name, err)
 			}
-			
+
 			tc.validateFunc(t, result)
 		})
 	}
@@ -722,18 +722,18 @@ func TestConfigGenerator_ValidateConfig(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			result, err := generator.ValidateConfig(tc.config)
-			
+
 			if tc.expectError {
 				if err == nil {
 					t.Errorf("Expected error for case %s", tc.name)
 				}
 				return
 			}
-			
+
 			if err != nil {
 				t.Fatalf("ValidateConfig failed for case %s: %v", tc.name, err)
 			}
-			
+
 			if result.Valid != tc.expectValid {
 				if tc.expectValid {
 					t.Errorf("Expected valid configuration to be marked as valid, issues: %v", result.Issues)
@@ -741,7 +741,7 @@ func TestConfigGenerator_ValidateConfig(t *testing.T) {
 					t.Error("Expected configuration to be marked as invalid")
 				}
 			}
-			
+
 			tc.validateFunc(t, result)
 		})
 	}

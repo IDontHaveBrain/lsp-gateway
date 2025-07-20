@@ -29,13 +29,6 @@ type JavaDetector struct {
 	versionChecker *VersionChecker
 }
 
-func NewJavaDetector(versionChecker *VersionChecker) *JavaDetector {
-	return &JavaDetector{
-		executor:       platform.NewCommandExecutor(),
-		versionChecker: versionChecker,
-	}
-}
-
 func (d *JavaDetector) DetectJava() (*JavaRuntimeInfo, error) {
 	javaInfo := &JavaRuntimeInfo{
 		RuntimeInfo: &RuntimeInfo{

@@ -237,7 +237,7 @@ func TestConfigMemoryExhaustionHandling(t *testing.T) {
 		// Create a very large config file
 		var content strings.Builder
 		content.WriteString("port: 8080\nservers:\n")
-		
+
 		// Add many servers to test memory handling
 		for i := 0; i < 1000; i++ {
 			content.WriteString("  - name: server")

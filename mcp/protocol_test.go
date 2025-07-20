@@ -4,27 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"net"
 	"strings"
 	"testing"
 	"time"
+
+	"lsp-gateway/internal/testutil"
 )
 
-func allocateTestPort(t *testing.T) int {
-	listener, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("Failed to allocate test port: %v", err)
-	}
-	defer func() {
-		if err := listener.Close(); err != nil {
-			t.Logf("Error closing test listener: %v", err)
-		}
-	}()
-	return listener.Addr().(*net.TCPAddr).Port
-}
-
 func TestMCPProtocolCompliance(t *testing.T) {
-	testPort := allocateTestPort(t)
+	testPort := testutil.AllocateTestPort(t)
 	config := &ServerConfig{
 		Name:          "test-server",
 		Version:       "1.0.0",

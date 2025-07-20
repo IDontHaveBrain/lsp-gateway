@@ -235,11 +235,16 @@ func (s *Server) messageLoop() {
 				return
 			}
 
+			if s.isEOFError(err) {
+				s.logger.Println("EOF-related error detected, terminating gracefully")
+				return
+			}
+
 			consecutiveErrors++
 			s.logger.Printf("Error reading message (attempt %d/%d): %v", consecutiveErrors, maxConsecutiveErrors, err)
 
-			if s.attemptRecovery(reader, err) {
-				consecutiveErrors = 0 // Reset on successful recovery
+			if s.shouldAttemptRecovery(err) && s.attemptRecovery(reader, err) {
+				consecutiveErrors = 0
 				continue
 			}
 
@@ -248,7 +253,16 @@ func (s *Server) messageLoop() {
 				return
 			}
 
-			time.Sleep(time.Duration(consecutiveErrors) * 100 * time.Millisecond)
+			backoffDuration := time.Duration(consecutiveErrors) * 100 * time.Millisecond
+			if backoffDuration > 2*time.Second {
+				backoffDuration = 2 * time.Second
+			}
+
+			select {
+			case <-s.ctx.Done():
+				return
+			case <-time.After(backoffDuration):
+			}
 			continue
 		}
 
@@ -278,6 +292,9 @@ func (s *Server) readMessageWithRecovery(reader *bufio.Reader) (string, error) {
 
 		line, err := reader.ReadString('\n')
 		if err != nil {
+			if err == io.EOF {
+				return "", err
+			}
 			return "", fmt.Errorf("failed to read header line: %w", err)
 		}
 
@@ -327,6 +344,9 @@ func (s *Server) readMessageWithRecovery(reader *bufio.Reader) (string, error) {
 	content := make([]byte, contentLength)
 	n, err := io.ReadFull(reader, content)
 	if err != nil {
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return "", err
+		}
 		return "", fmt.Errorf("failed to read message content: %w", err)
 	}
 	if n != contentLength {
@@ -442,12 +462,26 @@ func (s *Server) sendMessage(msg MCPMessage) error {
 	content := string(data)
 	header := ContentLengthHeader + ": " + strconv.Itoa(len(content)) + "\r\n\r\n"
 
+	select {
+	case <-s.ctx.Done():
+		return fmt.Errorf("context cancelled while writing message")
+	default:
+	}
+
 	if _, err := s.output.Write([]byte(header)); err != nil {
+		if s.isConnectionError(err) {
+			s.logger.Printf("Connection closed while writing header: %v", err)
+			return fmt.Errorf("connection closed: %w", err)
+		}
 		s.logger.Printf("Failed to write response header: %v", err)
 		return fmt.Errorf("failed to write header: %w", err)
 	}
 
 	if _, err := s.output.Write([]byte(content)); err != nil {
+		if s.isConnectionError(err) {
+			s.logger.Printf("Connection closed while writing content: %v", err)
+			return fmt.Errorf("connection closed: %w", err)
+		}
 		s.logger.Printf("Failed to write response content: %v", err)
 		return fmt.Errorf("failed to write content: %w", err)
 	}
@@ -632,10 +666,26 @@ func (s *Server) updateRecoveryContext(errorType string) {
 func (s *Server) attemptRecovery(reader *bufio.Reader, originalErr error) bool {
 	s.logger.Printf("Attempting recovery from error: %v", originalErr)
 
-	buffer := make([]byte, 1024)
-	for i := 0; i < 10; i++ { // Max 10 recovery attempts
+	if s.isEOFError(originalErr) {
+		s.logger.Println("EOF detected, no recovery possible")
+		return false
+	}
+
+	buffer := make([]byte, 512)
+	for i := 0; i < 5; i++ {
+		select {
+		case <-s.ctx.Done():
+			s.logger.Println("Recovery cancelled due to context")
+			return false
+		default:
+		}
+
 		n, err := reader.Read(buffer)
 		if err != nil {
+			if err == io.EOF {
+				s.logger.Printf("EOF encountered during recovery attempt %d", i+1)
+				return false
+			}
 			s.logger.Printf("Recovery attempt %d failed: %v", i+1, err)
 			return false
 		}
@@ -645,6 +695,8 @@ func (s *Server) attemptRecovery(reader *bufio.Reader, originalErr error) bool {
 			s.logger.Printf("Found potential message boundary after %d attempts", i+1)
 			return true
 		}
+
+		time.Sleep(50 * time.Millisecond)
 	}
 
 	s.logger.Println("Recovery attempts exhausted")
@@ -762,4 +814,53 @@ func (s *Server) GetRecoveryMetrics() map[string]interface{} {
 		"last_parse_error": s.recoveryContext.lastParseError,
 		"recovery_start":   s.recoveryContext.recoveryStart,
 	}
+}
+
+func (s *Server) isEOFError(err error) bool {
+	if err == nil {
+		return false
+	}
+	
+	errStr := strings.ToLower(err.Error())
+	return err == io.EOF || 
+		err == io.ErrUnexpectedEOF ||
+		strings.Contains(errStr, "eof") ||
+		strings.Contains(errStr, "broken pipe") ||
+		strings.Contains(errStr, "connection reset")
+}
+
+func (s *Server) shouldAttemptRecovery(err error) bool {
+	if s.isEOFError(err) {
+		return false
+	}
+	
+	errStr := strings.ToLower(err.Error())
+	
+	nonRecoverableErrors := []string{
+		"context canceled",
+		"context deadline exceeded",
+		"connection closed",
+		"use of closed network connection",
+		"broken pipe",
+	}
+	
+	for _, nonRecoverable := range nonRecoverableErrors {
+		if strings.Contains(errStr, nonRecoverable) {
+			return false
+		}
+	}
+	
+	return true
+}
+
+func (s *Server) isConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "broken pipe") ||
+		strings.Contains(errStr, "connection reset") ||
+		strings.Contains(errStr, "connection closed") ||
+		strings.Contains(errStr, "use of closed network connection")
 }

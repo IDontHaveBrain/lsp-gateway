@@ -18,7 +18,7 @@ import (
 )
 
 func TestDiagnoseCommand(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 	tests := []struct {
 		name     string
 		testFunc func(t *testing.T)
@@ -228,7 +228,7 @@ func testDiagnoseCommandFlagParsing(t *testing.T) {
 }
 
 func testDiagnoseSystemDiagnostics(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 
 	tmpDir := testutil.TempDir(t)
 	configPath := filepath.Join(tmpDir, "config.yaml")
@@ -285,7 +285,7 @@ func testDiagnoseSystemDiagnostics(t *testing.T) {
 }
 
 func testDiagnoseRuntimesDiagnostics(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 
 	tests := []struct {
 		name        string
@@ -336,7 +336,7 @@ func testDiagnoseRuntimesDiagnostics(t *testing.T) {
 }
 
 func testDiagnoseServersDiagnostics(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 
 	tests := []struct {
 		name        string
@@ -387,7 +387,7 @@ func testDiagnoseServersDiagnostics(t *testing.T) {
 }
 
 func testDiagnoseConfigDiagnostics(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 
 	tmpDir := testutil.TempDir(t)
 
@@ -482,7 +482,7 @@ func testDiagnoseConfigDiagnostics(t *testing.T) {
 }
 
 func testDiagnoseJSONOutput(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 
 	tmpDir := testutil.TempDir(t)
 	configPath := filepath.Join(tmpDir, "config.yaml")
@@ -537,7 +537,7 @@ func testDiagnoseJSONOutput(t *testing.T) {
 }
 
 func testDiagnoseHumanOutput(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 
 	tmpDir := testutil.TempDir(t)
 	configPath := filepath.Join(tmpDir, "config.yaml")
@@ -579,7 +579,7 @@ func testDiagnoseHumanOutput(t *testing.T) {
 }
 
 func testDiagnoseErrorScenarios(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 
 	tests := []struct {
 		name        string
@@ -630,7 +630,7 @@ func testDiagnoseErrorScenarios(t *testing.T) {
 }
 
 func testDiagnoseCommandHelp(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 
 	helpOutput := captureCommandHelp(t, diagnoseCmd)
 	if !strings.Contains(helpOutput, "comprehensive system diagnostics") {
@@ -660,7 +660,7 @@ func testDiagnoseCommandHelp(t *testing.T) {
 }
 
 func testDiagnoseCommandIntegration(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 
 	tmpDir := testutil.TempDir(t)
 	configPath := filepath.Join(tmpDir, "config.yaml")
@@ -731,7 +731,7 @@ func captureCommandHelp(t *testing.T, cmd *cobra.Command) string {
 }
 
 func TestDiagnoseSubcommands(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 
 	subcommandTests := []struct {
 		name         string
@@ -761,7 +761,7 @@ func TestDiagnoseSubcommands(t *testing.T) {
 
 	for _, tt := range subcommandTests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
+			// Removed t.Parallel() to prevent deadlock
 
 			if tt.cmd.Use != tt.expectedUse {
 				t.Errorf("Expected Use to be '%s', got '%s'", tt.expectedUse, tt.cmd.Use)
@@ -785,7 +785,7 @@ func TestDiagnoseSubcommands(t *testing.T) {
 }
 
 func TestDiagnosticStructures(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 
 	result := DiagnosticResult{
 		Name:        "Test Check",
@@ -825,7 +825,7 @@ func TestDiagnosticStructures(t *testing.T) {
 }
 
 func TestDiagnosticOutputFormats(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 
 	results := []DiagnosticResult{
 		{

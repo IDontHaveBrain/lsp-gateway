@@ -97,16 +97,6 @@ func NewRuntimeDetector() *DefaultRuntimeDetector {
 	}
 }
 
-func NewRuntimeDetectorWithConfig(config *DetectionConfig) *DefaultRuntimeDetector {
-	if config == nil {
-		return NewRuntimeDetector()
-	}
-
-	detector := NewRuntimeDetector()
-	detector.config = config
-	return detector
-}
-
 func (d *DefaultRuntimeDetector) SetLogger(logger *SetupLogger) {
 	if logger != nil {
 		d.logger = logger

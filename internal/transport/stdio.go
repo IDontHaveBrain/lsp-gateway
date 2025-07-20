@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
+	"math/rand"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -29,14 +32,24 @@ type StdioClient struct {
 
 	stopCh chan struct{}
 	done   chan struct{}
+
+	// Circuit breaker fields
+	errorCount    int
+	lastErrorTime time.Time
+	circuitOpen   bool
+	maxRetries    int
+	baseDelay     time.Duration
 }
 
 func NewStdioClient(config ClientConfig) (*StdioClient, error) {
 	return &StdioClient{
-		config:   config,
-		requests: make(map[string]chan json.RawMessage),
-		stopCh:   make(chan struct{}),
-		done:     make(chan struct{}),
+		config:      config,
+		requests:    make(map[string]chan json.RawMessage),
+		stopCh:      make(chan struct{}),
+		done:        make(chan struct{}),
+		maxRetries:  3,
+		baseDelay:   100 * time.Millisecond,
+		circuitOpen: false,
 	}, nil
 }
 
@@ -123,8 +136,6 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 		return nil, ctx.Err()
 	case <-c.stopCh:
 		return nil, errors.New(ERROR_CLIENT_STOPPED)
-	case <-time.After(30 * time.Second):
-		return nil, fmt.Errorf("request timeout")
 	}
 }
 
@@ -151,35 +162,64 @@ func (c *StdioClient) SendNotification(ctx context.Context, method string, param
 
 func (c *StdioClient) Stop() error {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if !c.active {
+		c.mu.Unlock()
 		return nil
 	}
 
 	c.active = false
-
-	close(c.stopCh)
+	select {
+	case <-c.stopCh:
+		// Channel is already closed
+	default:
+		close(c.stopCh)
+	}
 
 	if c.stdin != nil {
 		_ = c.stdin.Close()
 	}
 
-	if c.cmd != nil && c.cmd.Process != nil {
+	cmd := c.cmd
+	c.mu.Unlock() // Release mutex before waiting for process
+
+	if cmd != nil && cmd.Process != nil {
 		done := make(chan error, 1)
 		go func() {
-			done <- c.cmd.Wait()
+			done <- cmd.Wait()
 		}()
 
+		// First, try graceful shutdown with extended timeout
 		select {
 		case err := <-done:
 			if err != nil {
 				log.Printf("LSP server exited with error: %v", err)
 			}
-		case <-time.After(5 * time.Second):
-			log.Println("LSP server did not exit gracefully, killing process")
-			if err := c.cmd.Process.Kill(); err != nil {
-				log.Printf("Failed to kill LSP server process: %v", err)
+			log.Println("LSP server exited gracefully")
+		case <-time.After(10 * time.Second):
+			log.Println("LSP server did not exit gracefully within 10 seconds, attempting termination")
+			
+			// Try SIGTERM first (more graceful than SIGKILL)
+			if err := cmd.Process.Signal(os.Interrupt); err != nil {
+				log.Printf("Failed to send interrupt signal: %v", err)
+			}
+			
+			// Wait a bit for graceful termination
+			select {
+			case <-done:
+				log.Println("LSP server terminated gracefully after interrupt")
+			case <-time.After(3 * time.Second):
+				log.Println("LSP server did not respond to interrupt, forcing kill")
+				if err := cmd.Process.Kill(); err != nil {
+					log.Printf("Failed to kill LSP server process: %v", err)
+				}
+				
+				// Final wait for process cleanup with extended timeout
+				select {
+				case <-done:
+					log.Println("LSP server process was successfully killed")
+				case <-time.After(5 * time.Second):
+					log.Println("Warning: Process cleanup may be incomplete after kill")
+				}
 			}
 		}
 	}
@@ -203,9 +243,18 @@ func (c *StdioClient) IsActive() bool {
 }
 
 func (c *StdioClient) handleResponses() {
-	defer close(c.done)
+	defer func() {
+		select {
+		case <-c.done:
+			// Channel is already closed
+		default:
+			close(c.done)
+		}
+	}()
 
 	reader := bufio.NewReader(c.stdout)
+	consecutiveErrors := 0
+	maxConsecutiveErrors := 10
 
 	for {
 		select {
@@ -214,19 +263,49 @@ func (c *StdioClient) handleResponses() {
 		default:
 		}
 
+		// Circuit breaker check
+		if c.isCircuitOpen() {
+			log.Println("Circuit breaker is open, stopping message handling")
+			return
+		}
+
 		message, err := c.readMessage(reader)
 		if err != nil {
 			if err == io.EOF {
 				log.Println("LSP server closed connection")
 				return
 			}
-			log.Printf("Error reading message: %v", err)
+			
+			consecutiveErrors++
+			c.recordError()
+			
+			log.Printf("Error reading message (consecutive: %d/%d): %v", consecutiveErrors, maxConsecutiveErrors, err)
+			
+			// Stop if too many consecutive errors
+			if consecutiveErrors >= maxConsecutiveErrors {
+				log.Printf("Too many consecutive errors (%d), stopping message handling", consecutiveErrors)
+				c.openCircuit()
+				return
+			}
+			
+			// Exponential backoff with jitter
+			delay := c.calculateBackoff(consecutiveErrors)
+			select {
+			case <-time.After(delay):
+			case <-c.stopCh:
+				return
+			}
 			continue
 		}
+
+		// Reset error count on successful read
+		consecutiveErrors = 0
+		c.resetErrorCount()
 
 		var jsonrpcMsg JSONRPCMessage
 		if err := json.Unmarshal(message, &jsonrpcMsg); err != nil {
 			log.Printf("Error parsing JSON-RPC message: %v", err)
+			consecutiveErrors++
 			continue
 		}
 
@@ -245,7 +324,11 @@ func (c *StdioClient) handleResponse(msg JSONRPCMessage) {
 
 	idStr := fmt.Sprintf("%v", msg.ID)
 
-	c.mu.RLock()
+	// Use TryRLock to avoid deadlock during shutdown
+	if !c.mu.TryRLock() {
+		log.Printf("Skipping response handling for ID %v due to shutdown", msg.ID)
+		return
+	}
 	respCh, exists := c.requests[idStr]
 	c.mu.RUnlock()
 
@@ -334,4 +417,61 @@ func (c *StdioClient) logStderr() {
 	if err := scanner.Err(); err != nil {
 		log.Printf("Error reading stderr: %v", err)
 	}
+}
+
+// Circuit breaker methods - using atomic operations to avoid deadlock
+func (c *StdioClient) recordError() {
+	// Use TryLock to avoid deadlock during shutdown
+	if c.mu.TryLock() {
+		c.errorCount++
+		c.lastErrorTime = time.Now()
+		c.mu.Unlock()
+	}
+}
+
+func (c *StdioClient) resetErrorCount() {
+	// Don't take lock if we're already in a critical section
+	if c.mu.TryLock() {
+		c.errorCount = 0
+		c.circuitOpen = false
+		c.mu.Unlock()
+	}
+}
+
+func (c *StdioClient) openCircuit() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.circuitOpen = true
+}
+
+func (c *StdioClient) isCircuitOpen() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	
+	// Circuit breaker: open if too many errors in short time
+	if c.circuitOpen {
+		// Try to close circuit after 30 seconds
+		if time.Since(c.lastErrorTime) > 30*time.Second {
+			c.circuitOpen = false
+			c.errorCount = 0
+		}
+	}
+	
+	return c.circuitOpen || c.errorCount > c.maxRetries
+}
+
+func (c *StdioClient) calculateBackoff(attempt int) time.Duration {
+	// Exponential backoff with jitter
+	backoff := float64(c.baseDelay) * math.Pow(2, float64(attempt-1))
+	
+	// Add jitter (±25%)
+	jitter := 1.0 + (rand.Float64()-0.5)*0.5
+	delay := time.Duration(backoff * jitter)
+	
+	// Cap at 5 seconds
+	if delay > 5*time.Second {
+		delay = 5*time.Second
+	}
+	
+	return delay
 }

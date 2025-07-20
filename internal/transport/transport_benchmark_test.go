@@ -367,16 +367,14 @@ func BenchmarkLSPClientErrorHandling(b *testing.B) {
 	client := setupBenchmarkLSPClient(b)
 	defer teardownBenchmarkLSPClient(b, client)
 
-	mockClient := &ErrorMockLSPClient{}
-
 	ctx := context.Background()
-	params := createLSPParams("textDocument/definition")
+	params := createLSPParams("invalid/method")
 
 	b.ResetTimer()
 	b.ReportAllocs()
 
 	for i := 0; i < b.N; i++ {
-		_, err := mockClient.SendRequest(ctx, "textDocument/definition", params)
+		_, err := client.SendRequest(ctx, "invalid/method", params)
 		_ = err
 	}
 }
@@ -515,26 +513,4 @@ func (m *BenchmarkMockLSPClient) IsActive() bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.active
-}
-
-type ErrorMockLSPClient struct{}
-
-func (m *ErrorMockLSPClient) Start(ctx context.Context) error {
-	return fmt.Errorf("mock start error")
-}
-
-func (m *ErrorMockLSPClient) Stop() error {
-	return fmt.Errorf("mock stop error")
-}
-
-func (m *ErrorMockLSPClient) SendRequest(ctx context.Context, method string, params interface{}) (json.RawMessage, error) {
-	return nil, fmt.Errorf("mock request error")
-}
-
-func (m *ErrorMockLSPClient) SendNotification(ctx context.Context, method string, params interface{}) error {
-	return fmt.Errorf("mock notification error")
-}
-
-func (m *ErrorMockLSPClient) IsActive() bool {
-	return false
 }

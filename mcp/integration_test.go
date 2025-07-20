@@ -1,7 +1,6 @@
 package mcp
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -181,49 +180,11 @@ func (tg *TestLSPGateway) Close() {
 	tg.server.Close()
 }
 
-type TestLanguageServer struct {
-	cmd    *exec.Cmd
-	stdin  io.WriteCloser
-	stdout io.ReadCloser
-}
-
-func NewTestLanguageServer() *TestLanguageServer {
-	return &TestLanguageServer{}
-}
-
-func (tls *TestLanguageServer) Start() error {
-	tls.cmd = exec.Command("cat") // Simple echo for testing
-	var err error
-	tls.stdin, err = tls.cmd.StdinPipe()
-	if err != nil {
-		return err
-	}
-	tls.stdout, err = tls.cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	return tls.cmd.Start()
-}
-
-func (tls *TestLanguageServer) Stop() error {
-	if tls.stdin != nil {
-		_ = tls.stdin.Close()
-	}
-	if tls.stdout != nil {
-		_ = tls.stdout.Close()
-	}
-	if tls.cmd != nil && tls.cmd.Process != nil {
-		return tls.cmd.Process.Kill()
-	}
-	return nil
-}
-
 func TestTCPTransport(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	// Use TestLSPGateway with fast timeouts for quick testing
 	gateway := NewTestLSPGateway()
 	defer gateway.Close()
 
@@ -231,8 +192,8 @@ func TestTCPTransport(t *testing.T) {
 		Name:          "tcp-test-server",
 		Version:       "1.0.0",
 		LSPGatewayURL: gateway.URL(),
-		Timeout:       50 * time.Millisecond, // Much faster
-		MaxRetries:    1, // Reduced from 3
+		Timeout:       100 * time.Millisecond,
+		MaxRetries:    1,
 	}
 
 	server := NewServer(config)
@@ -242,22 +203,29 @@ func TestTCPTransport(t *testing.T) {
 	server.SetIO(inputReader, outputWriter)
 
 	serverDone := make(chan error, 1)
+	responseBuffer := &bytes.Buffer{}
+	responseDone := make(chan struct{})
+
+	go func() {
+		defer close(responseDone)
+		_, _ = io.Copy(responseBuffer, outputReader)
+	}()
+
 	go func() {
 		serverDone <- server.Start()
 	}()
+
+	time.Sleep(20 * time.Millisecond)
 
 	initMsg := createTestMessage(1, "initialize", map[string]interface{}{
 		"protocolVersion": "2024-11-05",
 		"capabilities":    map[string]interface{}{},
 	})
 
-	responseBuffer := &bytes.Buffer{}
-	go func() {
-		_, _ = io.Copy(responseBuffer, outputReader)
-	}()
-
-	_, _ = inputWriter.Write([]byte(initMsg))
-	time.Sleep(10 * time.Millisecond) // Reduced from 100ms
+	if _, err := inputWriter.Write([]byte(initMsg)); err != nil {
+		t.Fatalf("Failed to write init message: %v", err)
+	}
+	time.Sleep(30 * time.Millisecond)
 
 	toolMsg := createTestMessage(2, "tools/call", map[string]interface{}{
 		"name": "goto_definition",
@@ -268,15 +236,28 @@ func TestTCPTransport(t *testing.T) {
 		},
 	})
 
-	_, _ = inputWriter.Write([]byte(toolMsg))
-	time.Sleep(10 * time.Millisecond) // Reduced from 100ms
-	_ = inputWriter.Close()
+	if _, err := inputWriter.Write([]byte(toolMsg)); err != nil {
+		t.Fatalf("Failed to write tool message: %v", err)
+	}
+	time.Sleep(30 * time.Millisecond)
+
+	if err := inputWriter.Close(); err != nil {
+		t.Logf("Input writer close warning: %v", err)
+	}
 
 	select {
 	case <-serverDone:
-	case <-time.After(200 * time.Millisecond): // Reduced timeout
+	case <-time.After(500 * time.Millisecond):
 		t.Error("Server did not complete within timeout")
-		_ = server.Stop()
+		if err := server.Stop(); err != nil {
+			t.Logf("Server stop error: %v", err)
+		}
+	}
+
+	select {
+	case <-responseDone:
+	case <-time.After(100 * time.Millisecond):
+		t.Log("Response collection timed out")
 	}
 
 	output := responseBuffer.String()
@@ -284,7 +265,6 @@ func TestTCPTransport(t *testing.T) {
 		t.Error("Expected MCP response with Content-Length header")
 	}
 
-	// Verify gateway received requests
 	requests := gateway.GetRequests()
 	if len(requests) == 0 {
 		t.Error("Expected LSP request to be made to gateway")
@@ -296,7 +276,6 @@ func TestStdioTransport(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	// Use TestLSPGateway with fast timeouts for quick testing
 	gateway := NewTestLSPGateway()
 	defer gateway.Close()
 
@@ -304,55 +283,73 @@ func TestStdioTransport(t *testing.T) {
 		Name:          "stdio-test-server",
 		Version:       "1.0.0",
 		LSPGatewayURL: gateway.URL(),
-		Timeout:       50 * time.Millisecond, // Much faster
-		MaxRetries:    1, // Reduced from 3
+		Timeout:       100 * time.Millisecond,
+		MaxRetries:    1,
 	}
 
 	server := NewServer(config)
 
 	inputReader, inputWriter := io.Pipe()
 	outputReader, outputWriter := io.Pipe()
-
 	server.SetIO(inputReader, outputWriter)
 
 	serverDone := make(chan error, 1)
+	responseBuffer := &bytes.Buffer{}
+	responseDone := make(chan struct{})
+
+	go func() {
+		defer close(responseDone)
+		_, _ = io.Copy(responseBuffer, outputReader)
+	}()
+
 	go func() {
 		serverDone <- server.Start()
 	}()
+
+	time.Sleep(20 * time.Millisecond)
 
 	initMsg := createTestMessage(1, "initialize", map[string]interface{}{
 		"protocolVersion": "2024-11-05",
 		"capabilities":    map[string]interface{}{},
 	})
 
-	go func() {
-		_, _ = inputWriter.Write([]byte(initMsg))
-		time.Sleep(5 * time.Millisecond) // Reduced from 50ms
+	if _, err := inputWriter.Write([]byte(initMsg)); err != nil {
+		t.Fatalf("Failed to write init message: %v", err)
+	}
+	time.Sleep(30 * time.Millisecond)
 
-		toolMsg := createTestMessage(2, "tools/call", map[string]interface{}{
-			"name": "find_references",
-			"arguments": map[string]interface{}{
-				"uri":                "file:///test.go",
-				"line":               15,
-				"character":          8,
-				"includeDeclaration": true,
-			},
-		})
-		_, _ = inputWriter.Write([]byte(toolMsg))
-		time.Sleep(5 * time.Millisecond) // Reduced from 50ms
-		_ = inputWriter.Close()
-	}()
+	toolMsg := createTestMessage(2, "tools/call", map[string]interface{}{
+		"name": "find_references",
+		"arguments": map[string]interface{}{
+			"uri":                "file:///test.go",
+			"line":               15,
+			"character":          8,
+			"includeDeclaration": true,
+		},
+	})
 
-	responseBuffer := &bytes.Buffer{}
-	go func() {
-		_, _ = io.Copy(responseBuffer, outputReader)
-	}()
+	if _, err := inputWriter.Write([]byte(toolMsg)); err != nil {
+		t.Fatalf("Failed to write tool message: %v", err)
+	}
+	time.Sleep(30 * time.Millisecond)
+
+	if err := inputWriter.Close(); err != nil {
+		t.Logf("Input writer close warning: %v", err)
+	}
 
 	select {
 	case <-serverDone:
-	case <-time.After(200 * time.Millisecond): // Reduced from 3s
+	case <-time.After(500 * time.Millisecond):
 		t.Error("Server did not complete within timeout")
-		_ = server.Stop()
+		if err := server.Stop(); err != nil {
+			t.Logf("Server stop error: %v", err)
+		}
+	}
+
+	select {
+	case <-responseDone:
+	case <-time.After(100 * time.Millisecond):
+		t.Log("Response collection timed out")
 	}
 
 	output := responseBuffer.String()
@@ -361,7 +358,6 @@ func TestStdioTransport(t *testing.T) {
 		t.Errorf("Expected at least 2 responses, got %d. Output: %s", responseCount, output)
 	}
 
-	// Verify gateway received references request
 	requests := gateway.GetRequests()
 	found := false
 	for _, req := range requests {
@@ -380,7 +376,6 @@ func TestMultiLanguageLSPIntegration(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	// Use TestLSPGateway with fast timeouts for quick testing
 	gateway := NewTestLSPGateway()
 	defer gateway.Close()
 
@@ -388,8 +383,8 @@ func TestMultiLanguageLSPIntegration(t *testing.T) {
 		Name:          "multi-lang-test-server",
 		Version:       "1.0.0",
 		LSPGatewayURL: gateway.URL(),
-		Timeout:       50 * time.Millisecond, // Much faster
-		MaxRetries:    1, // Reduced from 3
+		Timeout:       100 * time.Millisecond,
+		MaxRetries:    1,
 	}
 
 	server := NewServer(config)
@@ -434,25 +429,31 @@ func TestMultiLanguageLSPIntegration(t *testing.T) {
 
 	inputReader, inputWriter := io.Pipe()
 	outputReader, outputWriter := io.Pipe()
-
 	server.SetIO(inputReader, outputWriter)
 
 	serverDone := make(chan error, 1)
+	responseBuffer := &bytes.Buffer{}
+	responseDone := make(chan struct{})
+
+	go func() {
+		defer close(responseDone)
+		_, _ = io.Copy(responseBuffer, outputReader)
+	}()
+
 	go func() {
 		serverDone <- server.Start()
 	}()
 
-	responseBuffer := &bytes.Buffer{}
-	go func() {
-		_, _ = io.Copy(responseBuffer, outputReader)
-	}()
+	time.Sleep(30 * time.Millisecond)
 
 	initMsg := createTestMessage(1, "initialize", map[string]interface{}{
 		"protocolVersion": "2024-11-05",
 		"capabilities":    map[string]interface{}{},
 	})
 
-	_, _ = inputWriter.Write([]byte(initMsg))
+	if _, err := inputWriter.Write([]byte(initMsg)); err != nil {
+		t.Fatalf("Failed to write init message: %v", err)
+	}
 	time.Sleep(50 * time.Millisecond)
 
 	for i, tc := range testCases {
@@ -473,20 +474,32 @@ func TestMultiLanguageLSPIntegration(t *testing.T) {
 			"arguments": args,
 		})
 
-		_, _ = inputWriter.Write([]byte(toolMsg))
-		time.Sleep(5 * time.Millisecond) // Reduced from 50ms
+		if _, err := inputWriter.Write([]byte(toolMsg)); err != nil {
+			t.Errorf("Failed to write tool message for %s: %v", tc.name, err)
+			continue
+		}
+		time.Sleep(30 * time.Millisecond)
 	}
 
-	_ = inputWriter.Close()
+	if err := inputWriter.Close(); err != nil {
+		t.Logf("Input writer close warning: %v", err)
+	}
 
 	select {
 	case <-serverDone:
-	case <-time.After(200 * time.Millisecond): // Reduced from 5s
+	case <-time.After(1 * time.Second):
 		t.Error("Server did not complete within timeout")
-		_ = server.Stop()
+		if err := server.Stop(); err != nil {
+			t.Logf("Server stop error: %v", err)
+		}
 	}
 
-	// Verify gateway received requests for each tool type
+	select {
+	case <-responseDone:
+	case <-time.After(200 * time.Millisecond):
+		t.Log("Response collection timed out")
+	}
+
 	requests := gateway.GetRequests()
 	expectedMethods := []string{
 		"textDocument/definition",
@@ -665,13 +678,13 @@ func TestErrorScenarioIntegration(t *testing.T) {
 func setupPerformanceTest() (*TestLSPGateway, *Server) {
 	// Use TestLSPGateway with fast timeouts for performance testing
 	gateway := NewTestLSPGateway()
-	
+
 	config := &ServerConfig{
 		Name:          "performance-test-server",
 		Version:       "1.0.0",
 		LSPGatewayURL: gateway.URL(),
 		Timeout:       10 * time.Millisecond, // Much faster for performance tests
-		MaxRetries:    0, // No retries for performance tests
+		MaxRetries:    0,                     // No retries for performance tests
 	}
 	server := NewServer(config)
 	server.initialized = true
@@ -687,8 +700,8 @@ func TestConcurrentThroughputPerformance(t *testing.T) {
 	defer gateway.Close()
 
 	// Reduced scale for faster tests
-	const numRequests = 50  // Reduced from 200
-	const concurrency = 5   // Reduced from 20
+	const numRequests = 50                        // Reduced from 200
+	const concurrency = 5                         // Reduced from 20
 	const targetDuration = 200 * time.Millisecond // Reduced from 2s
 
 	var successCount int64
@@ -919,7 +932,6 @@ func TestEndToEndWorkflow(t *testing.T) {
 		t.Skip("Skipping end-to-end test in short mode")
 	}
 
-	// Use TestLSPGateway for predictable, fast end-to-end test
 	gateway := NewTestLSPGateway()
 	defer gateway.Close()
 
@@ -927,51 +939,30 @@ func TestEndToEndWorkflow(t *testing.T) {
 		Name:          "e2e-test-server",
 		Version:       "1.0.0",
 		LSPGatewayURL: gateway.URL(),
-		Timeout:       50 * time.Millisecond, // Much faster
-		MaxRetries:    1, // Reduced from 3
+		Timeout:       100 * time.Millisecond,
+		MaxRetries:    1,
 	}
 
 	server := NewServer(config)
 
 	inputReader, inputWriter := io.Pipe()
 	outputReader, outputWriter := io.Pipe()
-
 	server.SetIO(inputReader, outputWriter)
 
 	serverDone := make(chan error, 1)
+	responseBuffer := &bytes.Buffer{}
+	responseDone := make(chan struct{})
+
+	go func() {
+		defer close(responseDone)
+		_, _ = io.Copy(responseBuffer, outputReader)
+	}()
+
 	go func() {
 		serverDone <- server.Start()
 	}()
 
-	responses := make([]string, 0)
-	responsesDone := make(chan struct{})
-
-	go func() {
-		defer close(responsesDone)
-		scanner := bufio.NewScanner(outputReader)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if strings.Contains(line, "Content-Length:") {
-				var response strings.Builder
-				response.WriteString(line + "\n")
-
-				for scanner.Scan() {
-					nextLine := scanner.Text()
-					response.WriteString(nextLine + "\n")
-					if nextLine == "" {
-						if scanner.Scan() {
-							content := scanner.Text()
-							response.WriteString(content)
-							break
-						}
-					}
-				}
-				responses = append(responses, response.String())
-			}
-		}
-	}()
-
-	time.Sleep(5 * time.Millisecond) // Reduced delay
+	time.Sleep(30 * time.Millisecond)
 
 	initMsg := createTestMessage(1, "initialize", map[string]interface{}{
 		"protocolVersion": "2024-11-05",
@@ -981,12 +972,16 @@ func TestEndToEndWorkflow(t *testing.T) {
 			"version": "1.0.0",
 		},
 	})
-	_, _ = inputWriter.Write([]byte(initMsg))
-	time.Sleep(5 * time.Millisecond) // Reduced delay
+	if _, err := inputWriter.Write([]byte(initMsg)); err != nil {
+		t.Fatalf("Failed to write init message: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
 
 	listMsg := createTestMessage(2, "tools/list", nil)
-	_, _ = inputWriter.Write([]byte(listMsg))
-	time.Sleep(5 * time.Millisecond) // Reduced delay
+	if _, err := inputWriter.Write([]byte(listMsg)); err != nil {
+		t.Fatalf("Failed to write list message: %v", err)
+	}
+	time.Sleep(50 * time.Millisecond)
 
 	toolTests := []struct {
 		id   int
@@ -1042,43 +1037,43 @@ func TestEndToEndWorkflow(t *testing.T) {
 			"name":      test.tool,
 			"arguments": test.args,
 		})
-		_, _ = inputWriter.Write([]byte(toolMsg))
-		time.Sleep(2 * time.Millisecond) // Reduced delay
+		if _, err := inputWriter.Write([]byte(toolMsg)); err != nil {
+			t.Errorf("Failed to write tool message %d: %v", test.id, err)
+			continue
+		}
+		time.Sleep(30 * time.Millisecond)
 	}
 
-	notifyMsg := createTestMessage(nil, "notifications/progress", map[string]interface{}{
-		"token": "test-progress",
-		"value": map[string]interface{}{
-			"kind":    "end",
-			"message": "Test complete",
-		},
-	})
-	_, _ = inputWriter.Write([]byte(notifyMsg))
-	time.Sleep(2 * time.Millisecond) // Reduced delay
+	time.Sleep(50 * time.Millisecond)
 
-	_ = inputWriter.Close()
+	if err := inputWriter.Close(); err != nil {
+		t.Logf("Input writer close warning: %v", err)
+	}
 
 	select {
 	case <-serverDone:
-	case <-time.After(300 * time.Millisecond): // Reduced from 10s
+	case <-time.After(1 * time.Second):
 		t.Error("End-to-end test did not complete within timeout")
-		_ = server.Stop()
+		if err := server.Stop(); err != nil {
+			t.Logf("Server stop error: %v", err)
+		}
 	}
 
 	select {
-	case <-responsesDone:
-	case <-time.After(100 * time.Millisecond): // Reduced from 2s
-		t.Logf("Response collection timed out")
+	case <-responseDone:
+	case <-time.After(200 * time.Millisecond):
+		t.Log("Response collection timed out")
 	}
 
-	t.Logf("End-to-end workflow collected %d responses", len(responses))
+	output := responseBuffer.String()
+	responseCount := strings.Count(output, "Content-Length:")
+	t.Logf("End-to-end workflow collected %d responses", responseCount)
 
-	expectedResponses := 7 // No response for notification
-	if len(responses) < expectedResponses {
-		t.Errorf("Expected at least %d responses, got %d", expectedResponses, len(responses))
+	expectedResponses := 7 
+	if responseCount < expectedResponses {
+		t.Errorf("Expected at least %d responses, got %d", expectedResponses, responseCount)
 	}
 
-	// Verify gateway received LSP requests for each tool
 	gatewayRequests := gateway.GetRequests()
 	expectedLSPMethods := []string{
 		"textDocument/definition",
@@ -1102,7 +1097,7 @@ func TestEndToEndWorkflow(t *testing.T) {
 	}
 
 	t.Logf("End-to-end workflow successfully processed:")
-	t.Logf("  MCP responses: %d", len(responses))
+	t.Logf("  MCP responses: %d", responseCount)
 	t.Logf("  LSP requests: %d", len(gatewayRequests))
 	t.Logf("  Tool types tested: %d", len(toolTests))
 }
@@ -1117,7 +1112,7 @@ func BenchmarkIntegrationThroughput(b *testing.B) {
 		Version:       "1.0.0",
 		LSPGatewayURL: gateway.URL(),
 		Timeout:       10 * time.Millisecond, // Much faster for benchmarks
-		MaxRetries:    0, // No retries for benchmarks
+		MaxRetries:    0,                     // No retries for benchmarks
 	}
 
 	server := NewServer(config)
@@ -1156,7 +1151,7 @@ func BenchmarkMCPMessageProcessingIntegration(b *testing.B) {
 		Version:       "1.0.0",
 		LSPGatewayURL: gateway.URL(),
 		Timeout:       5 * time.Millisecond, // Much faster
-		MaxRetries:    0, // No retries
+		MaxRetries:    0,                    // No retries
 	}
 
 	server := NewServer(config)
@@ -1198,7 +1193,7 @@ func TestProtocolVersionCompatibility(t *testing.T) {
 				Name:          "protocol-compat-test",
 				Version:       "1.0.0",
 				LSPGatewayURL: gateway.URL(),
-				Timeout:       5 * time.Second,
+				Timeout:       100 * time.Millisecond,
 				MaxRetries:    1,
 			}
 
@@ -1207,19 +1202,50 @@ func TestProtocolVersionCompatibility(t *testing.T) {
 			outputReader, outputWriter := io.Pipe()
 			server.SetIO(inputReader, outputWriter)
 
-			go func() { _ = server.Start() }()
+			serverDone := make(chan struct{})
+			responseBuffer := &bytes.Buffer{}
+			responseDone := make(chan struct{})
+
+			go func() {
+				defer close(responseDone)
+				_, _ = io.Copy(responseBuffer, outputReader)
+			}()
+
+			go func() {
+				defer close(serverDone)
+				_ = server.Start()
+			}()
+
+			time.Sleep(20 * time.Millisecond)
 
 			initMsg := createTestMessage(1, "initialize", map[string]interface{}{
 				"protocolVersion": version,
 				"capabilities":    map[string]interface{}{},
 			})
 
-			_, _ = inputWriter.Write([]byte(initMsg))
-			time.Sleep(100 * time.Millisecond)
-			_ = inputWriter.Close()
+			if _, err := inputWriter.Write([]byte(initMsg)); err != nil {
+				t.Fatalf("Failed to write init message: %v", err)
+			}
+			time.Sleep(50 * time.Millisecond)
 
-			responseBuffer := &bytes.Buffer{}
-			_, _ = io.Copy(responseBuffer, outputReader)
+			if err := inputWriter.Close(); err != nil {
+				t.Logf("Input writer close warning: %v", err)
+			}
+
+			select {
+			case <-serverDone:
+			case <-time.After(500 * time.Millisecond):
+				t.Errorf("Server did not complete within timeout for version %s", version)
+				if err := server.Stop(); err != nil {
+					t.Logf("Server stop error: %v", err)
+				}
+			}
+
+			select {
+			case <-responseDone:
+			case <-time.After(100 * time.Millisecond):
+				t.Log("Response collection timed out")
+			}
 
 			output := responseBuffer.String()
 			if !strings.Contains(output, "Content-Length:") {

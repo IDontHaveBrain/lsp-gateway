@@ -141,132 +141,6 @@ func NewConfigGenerator() *DefaultConfigGenerator {
 	return generator
 }
 
-func NewConfigGeneratorWithDependencies(detector RuntimeDetector, verifier ServerVerifier, registry ServerRegistry) *DefaultConfigGenerator {
-	generator := &DefaultConfigGenerator{
-		runtimeDetector: detector,
-		serverVerifier:  verifier,
-		serverRegistry:  registry,
-		logger:          NewSetupLogger(nil),
-		templates:       make(map[string]*ServerConfigTemplate),
-	}
-
-	generator.initializeTemplates()
-	return generator
-}
-
-func (g *DefaultConfigGenerator) SetLogger(logger *SetupLogger) {
-	if logger != nil {
-		g.logger = logger
-	}
-}
-
-func (g *DefaultConfigGenerator) GenerateFromDetected(ctx context.Context) (*ConfigGenerationResult, error) {
-	startTime := time.Now()
-
-	g.logger.WithOperation("generate-config-from-detected").Info("Starting configuration generation from detected runtimes")
-
-	result := &ConfigGenerationResult{
-		Config:           nil,
-		DetectionReport:  nil,
-		ServersGenerated: 0,
-		ServersSkipped:   0,
-		AutoDetected:     true,
-		GeneratedAt:      startTime,
-		Messages:         []string{},
-		Warnings:         []string{},
-		Issues:           []string{},
-		Metadata:         make(map[string]interface{}),
-	}
-
-	g.logger.UserInfo("Detecting installed runtimes...")
-	detectionReport, err := g.runtimeDetector.DetectAll(ctx)
-	if err != nil {
-		result.Issues = append(result.Issues, fmt.Sprintf("Runtime detection failed: %v", err))
-		result.Duration = time.Since(startTime)
-		return result, fmt.Errorf("runtime detection failed: %w", err)
-	}
-
-	result.DetectionReport = detectionReport
-	result.Messages = append(result.Messages,
-		fmt.Sprintf("Detected %d runtimes (%d installed, %d compatible)",
-			detectionReport.Summary.TotalRuntimes,
-			detectionReport.Summary.InstalledRuntimes,
-			detectionReport.Summary.CompatibleRuntimes))
-
-	gatewayConfig := &config.GatewayConfig{
-		Port:    8080, // Default port
-		Servers: []config.ServerConfig{},
-	}
-
-	g.logger.UserInfo("Generating server configurations...")
-
-	for runtimeName, runtimeInfo := range detectionReport.Runtimes {
-		if !runtimeInfo.Installed || !runtimeInfo.Compatible {
-			g.logger.WithField("runtime", runtimeName).Debug("Skipping incompatible runtime")
-			result.Messages = append(result.Messages,
-				fmt.Sprintf("Skipped %s: not installed or incompatible", runtimeName))
-			continue
-		}
-
-		servers := g.serverRegistry.GetServersByRuntime(runtimeName)
-		for _, serverDef := range servers {
-			serverConfig, err := g.generateServerConfig(ctx, runtimeInfo, serverDef)
-			if err != nil {
-				g.logger.WithError(err).WithFields(map[string]interface{}{
-					"runtime": runtimeName,
-					"server":  serverDef.Name,
-				}).Warn("Failed to generate server configuration")
-
-				result.Issues = append(result.Issues,
-					fmt.Sprintf("Failed to generate config for %s: %v", serverDef.Name, err))
-				result.ServersSkipped++
-				continue
-			}
-
-			if serverConfig != nil {
-				gatewayConfig.Servers = append(gatewayConfig.Servers, *serverConfig)
-				result.ServersGenerated++
-				result.Messages = append(result.Messages,
-					fmt.Sprintf("Generated configuration for %s (%s)", serverDef.DisplayName, serverDef.Name))
-			} else {
-				result.ServersSkipped++
-				result.Messages = append(result.Messages,
-					fmt.Sprintf("Skipped %s: server not available", serverDef.DisplayName))
-			}
-		}
-	}
-
-	if len(gatewayConfig.Servers) == 0 {
-		result.Warnings = append(result.Warnings, "No servers were auto-detected, adding default Go server")
-		defaultConfig := g.createDefaultGoServer()
-		gatewayConfig.Servers = append(gatewayConfig.Servers, defaultConfig)
-		result.ServersGenerated = 1
-	}
-
-	if err := gatewayConfig.Validate(); err != nil {
-		result.Issues = append(result.Issues, fmt.Sprintf("Generated configuration is invalid: %v", err))
-		result.Duration = time.Since(startTime)
-		return result, fmt.Errorf("generated configuration validation failed: %w", err)
-	}
-
-	result.Config = gatewayConfig
-	result.Duration = time.Since(startTime)
-
-	result.Metadata["detection_summary"] = detectionReport.Summary
-	result.Metadata["generation_method"] = "auto_detected"
-	result.Metadata["total_runtimes_checked"] = detectionReport.Summary.TotalRuntimes
-	result.Metadata["compatible_runtimes"] = detectionReport.Summary.CompatibleRuntimes
-
-	g.logger.UserSuccess(fmt.Sprintf("Configuration generated successfully: %d servers configured", result.ServersGenerated))
-	g.logger.WithFields(map[string]interface{}{
-		"servers_generated": result.ServersGenerated,
-		"servers_skipped":   result.ServersSkipped,
-		"duration":          result.Duration,
-	}).Info("Configuration generation completed")
-
-	return result, nil
-}
-
 func (g *DefaultConfigGenerator) GenerateForRuntime(ctx context.Context, runtime string) (*ConfigGenerationResult, error) {
 	startTime := time.Now()
 
@@ -354,6 +228,108 @@ func (g *DefaultConfigGenerator) GenerateForRuntime(ctx context.Context, runtime
 	result.Metadata["runtime_installed"] = runtimeInfo.Installed
 	result.Metadata["runtime_compatible"] = runtimeInfo.Compatible
 	result.Metadata["runtime_version"] = runtimeInfo.Version
+
+	return result, nil
+}
+
+func (g *DefaultConfigGenerator) GenerateFromDetected(ctx context.Context) (*ConfigGenerationResult, error) {
+	startTime := time.Now()
+
+	g.logger.WithOperation("generate-from-detected").Info("Starting auto-detection and configuration generation")
+
+	result := &ConfigGenerationResult{
+		Config:           nil,
+		ServersGenerated: 0,
+		ServersSkipped:   0,
+		AutoDetected:     true,
+		GeneratedAt:      startTime,
+		Messages:         []string{},
+		Warnings:         []string{},
+		Issues:           []string{},
+		Metadata:         make(map[string]interface{}),
+	}
+
+	// Detect all available runtimes
+	detectionReport, err := g.runtimeDetector.DetectAll(ctx)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Runtime detection failed: %v", err))
+		result.Duration = time.Since(startTime)
+		return result, fmt.Errorf("runtime detection failed: %w", err)
+	}
+
+	result.DetectionReport = detectionReport
+
+	// Create base configuration
+	gatewayConfig := &config.GatewayConfig{
+		Port:    8080,
+		Servers: []config.ServerConfig{},
+	}
+
+	// Generate configuration for each detected and compatible runtime
+	for runtimeName, runtimeInfo := range detectionReport.Runtimes {
+		if !runtimeInfo.Installed || !runtimeInfo.Compatible {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("Skipping %s: installed=%v, compatible=%v",
+					runtimeName, runtimeInfo.Installed, runtimeInfo.Compatible))
+			result.ServersSkipped++
+			continue
+		}
+
+		servers := g.serverRegistry.GetServersByRuntime(runtimeName)
+		for _, serverDef := range servers {
+			serverConfig, err := g.generateServerConfig(ctx, runtimeInfo, serverDef)
+			if err != nil {
+				result.Issues = append(result.Issues,
+					fmt.Sprintf("Failed to generate config for %s: %v", serverDef.Name, err))
+				result.ServersSkipped++
+				continue
+			}
+
+			if serverConfig != nil {
+				gatewayConfig.Servers = append(gatewayConfig.Servers, *serverConfig)
+				result.ServersGenerated++
+				result.Messages = append(result.Messages,
+					fmt.Sprintf("Generated configuration for %s (%s)", serverDef.DisplayName, runtimeName))
+			} else {
+				result.ServersSkipped++
+			}
+		}
+	}
+
+	// If no servers were generated, fall back to default configuration
+	if len(gatewayConfig.Servers) == 0 {
+		result.Warnings = append(result.Warnings, "No compatible runtimes detected, using default configuration")
+		defaultResult, err := g.GenerateDefault()
+		if err != nil {
+			result.Issues = append(result.Issues, fmt.Sprintf("Failed to generate default configuration: %v", err))
+			result.Duration = time.Since(startTime)
+			return result, fmt.Errorf("default configuration generation failed: %w", err)
+		}
+		gatewayConfig = defaultResult.Config
+		result.ServersGenerated = defaultResult.ServersGenerated
+		result.Messages = append(result.Messages, "Used default configuration as fallback")
+	}
+
+	// Validate generated configuration
+	if err := gatewayConfig.Validate(); err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Generated configuration is invalid: %v", err))
+		result.Duration = time.Since(startTime)
+		return result, fmt.Errorf("configuration validation failed: %w", err)
+	}
+
+	result.Config = gatewayConfig
+	result.Duration = time.Since(startTime)
+
+	// Populate metadata
+	result.Metadata["generation_method"] = "auto_detected"
+	result.Metadata["runtimes_detected"] = len(detectionReport.Runtimes)
+	result.Metadata["runtimes_installed"] = detectionReport.Summary.InstalledRuntimes
+	result.Metadata["runtimes_compatible"] = detectionReport.Summary.CompatibleRuntimes
+	result.Metadata["detection_success_rate"] = detectionReport.Summary.SuccessRate
+	result.Metadata["detection_duration"] = detectionReport.Duration
+
+	g.logger.UserSuccess(fmt.Sprintf("Auto-detection completed: %d servers generated from %d detected runtimes",
+		result.ServersGenerated, detectionReport.Summary.InstalledRuntimes))
 
 	return result, nil
 }
@@ -881,16 +857,6 @@ func (g *DefaultConfigGenerator) generateServerConfig(ctx context.Context, runti
 	return serverConfig, nil
 }
 
-func (g *DefaultConfigGenerator) createDefaultGoServer() config.ServerConfig {
-	return config.ServerConfig{
-		Name:      "go-lsp",
-		Languages: []string{"go"},
-		Command:   SERVER_GOPLS,
-		Args:      []string{},
-		Transport: "stdio",
-	}
-}
-
 func (g *DefaultConfigGenerator) initializeTemplates() {
 	g.templates[SERVER_GOPLS] = &ServerConfigTemplate{
 		RuntimeName:       "go",
@@ -958,6 +924,15 @@ func (g *DefaultConfigGenerator) GetTemplate(serverName string) (*ServerConfigTe
 		return template, nil
 	}
 	return nil, fmt.Errorf("template not found for server: %s", serverName)
+}
+
+func (g *DefaultConfigGenerator) SetLogger(logger *SetupLogger) {
+	if logger != nil {
+		g.logger = logger
+		if g.runtimeDetector != nil {
+			g.runtimeDetector.SetLogger(logger)
+		}
+	}
 }
 
 type DefaultServerVerifier struct{}

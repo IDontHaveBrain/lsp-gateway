@@ -4,7 +4,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"time"
 
 	"lsp-gateway/internal/platform"
 )
@@ -281,48 +280,6 @@ type mockMacOSCommandExecutor struct {
 	shell      string
 	shouldFail bool
 	results    map[string]*platform.Result
-}
-
-func (m *mockMacOSCommandExecutor) Execute(cmd string, args []string, timeout time.Duration) (*platform.Result, error) {
-	key := cmd + " " + strings.Join(args, " ")
-	if result, exists := m.results[key]; exists {
-		return result, nil
-	}
-
-	if m.shouldFail {
-		return &platform.Result{
-				ExitCode: 1,
-				Stderr:   "mock command failed",
-			}, &InstallerError{
-				Type:    InstallerErrorTypeInstallation,
-				Message: "mock command execution failed",
-			}
-	}
-
-	var stdout string
-	switch cmd {
-	case "brew":
-		stdout = "Homebrew 4.1.0"
-	case "go":
-		stdout = "go version go1.21.0 darwin/amd64"
-	case "python3":
-		stdout = "Python 3.11.5"
-	case "node":
-		stdout = "v18.17.1"
-	case "java":
-		stdout = "openjdk 17.0.8 2023-07-19"
-	default:
-		stdout = "mock output"
-	}
-
-	return &platform.Result{
-		ExitCode: 0,
-		Stdout:   stdout,
-	}, nil
-}
-
-func (m *mockMacOSCommandExecutor) ExecuteWithEnv(cmd string, args []string, env map[string]string, timeout time.Duration) (*platform.Result, error) {
-	return m.Execute(cmd, args, timeout)
 }
 
 func (m *mockMacOSCommandExecutor) GetShell() string {

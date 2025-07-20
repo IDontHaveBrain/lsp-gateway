@@ -27,6 +27,8 @@ const (
 	ArchUnknown Architecture = "unknown"
 )
 
+// GetCurrentPlatform returns the current operating system platform
+// detected at runtime (Windows, Linux, Darwin/macOS, or Unknown).
 func GetCurrentPlatform() Platform {
 	switch runtime.GOOS {
 	case "windows":
@@ -40,6 +42,8 @@ func GetCurrentPlatform() Platform {
 	}
 }
 
+// GetCurrentArchitecture returns the current system architecture
+// detected at runtime (AMD64, ARM64, 386, ARM, or Unknown).
 func GetCurrentArchitecture() Architecture {
 	switch runtime.GOARCH {
 	case "amd64":

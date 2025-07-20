@@ -328,27 +328,6 @@ func TestMetricsTracking(t *testing.T) {
 	}
 }
 
-func TestFormatBytes(t *testing.T) {
-	testCases := []struct {
-		bytes    int64
-		expected string
-	}{
-		{0, "0 B"},
-		{500, "500 B"},
-		{1024, "1.0 KB"},
-		{1536, "1.5 KB"},
-		{1024 * 1024, "1.0 MB"},
-		{1024 * 1024 * 1024, "1.0 GB"},
-	}
-
-	for _, tc := range testCases {
-		result := formatBytes(tc.bytes)
-		if result != tc.expected {
-			t.Errorf("formatBytes(%d) = %s, expected %s", tc.bytes, result, tc.expected)
-		}
-	}
-}
-
 func BenchmarkLoggerCreation(b *testing.B) {
 	config := &SetupLoggerConfig{
 		Level:     LogLevelInfo,

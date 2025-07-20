@@ -1,56 +1,31 @@
 package cli
 
 import (
-	"fmt"
-	"net"
 	"testing"
+
+	"lsp-gateway/internal/testutil"
 )
 
 const (
 	DefaultMCPPort = 3000 // Default MCP server port for testing
 )
 
+// AllocateTestPort allocates a test port using the centralized testutil implementation
 func AllocateTestPort(t *testing.T) int {
-	t.Helper()
-	listener, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("Failed to allocate test port: %v", err)
-	}
-	defer func() {
-		if err := listener.Close(); err != nil {
-			t.Logf("Error closing test listener: %v", err)
-		}
-	}()
-	return listener.Addr().(*net.TCPAddr).Port
+	return testutil.AllocateTestPort(t)
 }
 
+// AllocateTestPortBench allocates a test port for benchmarks using the centralized testutil implementation
 func AllocateTestPortBench(b *testing.B) int {
-	b.Helper()
-	listener, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		b.Fatalf("Failed to allocate test port: %v", err)
-	}
-	defer func() {
-		if err := listener.Close(); err != nil {
-			b.Logf("Error closing test listener: %v", err)
-		}
-	}()
-	return listener.Addr().(*net.TCPAddr).Port
+	return testutil.AllocateTestPortBench(b)
 }
 
+// CreateConfigWithPort creates a config with the specified port using the centralized testutil implementation
 func CreateConfigWithPort(port int) string {
-	return fmt.Sprintf(`port: %d
-servers:
-  - name: "go-lsp"
-    languages: ["go"]
-    command: "gopls" 
-    args: []
-    transport: "stdio"
-`, port)
+	return testutil.CreateConfigWithPort(port)
 }
 
+// CreateMinimalConfigWithPort creates a minimal config with the specified port using the centralized testutil implementation
 func CreateMinimalConfigWithPort(port int) string {
-	return fmt.Sprintf(`port: %d
-servers: []
-`, port)
+	return testutil.CreateMinimalConfigWithPort(port)
 }

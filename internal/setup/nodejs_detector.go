@@ -396,45 +396,6 @@ func (d *NodeJSDetector) ValidateForTypeScriptLS(info *NodeJSInfo) []string {
 	return issues
 }
 
-func (d *NodeJSDetector) InstallTypeScriptLS(info *NodeJSInfo) error {
-	recommendation := d.GetPackageManagerRecommendation(info)
-	if !recommendation.Available {
-		return fmt.Errorf("no functional package manager available")
-	}
-
-	d.logger.WithField("package_manager", recommendation.Name).Info("Installing TypeScript Language Server")
-
-	var args []string
-	switch recommendation.Name {
-	case "npm":
-		args = []string{"install", "-g", "typescript-language-server", "typescript"}
-	case YARN_COMMAND:
-		args = []string{"global", "add", "typescript-language-server", "typescript"}
-	case "pnpm":
-		args = []string{"add", "-g", "typescript-language-server", "typescript"}
-	default:
-		return fmt.Errorf("unsupported package manager: %s", recommendation.Name)
-	}
-
-	result, err := d.executor.Execute(recommendation.Command, args, 60*time.Second)
-	if err != nil {
-		return fmt.Errorf("failed to install TypeScript Language Server: %w", err)
-	}
-
-	if result.ExitCode != 0 {
-		return fmt.Errorf("TypeScript Language Server installation failed with exit code %d: %s",
-			result.ExitCode, result.Stderr)
-	}
-
-	verifyResult, err := d.executor.Execute("typescript-language-server", []string{"--version"}, 10*time.Second)
-	if err != nil || verifyResult.ExitCode != 0 {
-		return fmt.Errorf("TypeScript Language Server installation verification failed")
-	}
-
-	d.logger.UserSuccess("TypeScript Language Server installed successfully")
-	return nil
-}
-
 func (d *NodeJSDetector) GetInstallationGuidance(info *NodeJSInfo) []string {
 	var guidance []string
 

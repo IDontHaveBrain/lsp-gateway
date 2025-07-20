@@ -11,7 +11,7 @@ import (
 )
 
 func TestSetupCommand(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 	tests := []struct {
 		name     string
 		testFunc func(t *testing.T)
@@ -182,8 +182,8 @@ func testSetupAllCommand(t *testing.T) {
 			skipRuntimes: []string{},
 			skipServers:  []string{},
 			expectedOutput: []string{
-				"Starting complete automated setup",
-				"Setup command structure implemented",
+				"LSP Gateway Manual Setup Guide",
+				"Automated setup has been replaced with individual commands",
 				"Configuration path:",
 			},
 		},
@@ -193,8 +193,7 @@ func testSetupAllCommand(t *testing.T) {
 			skipRuntimes: []string{"python", "java"},
 			skipServers:  []string{},
 			expectedOutput: []string{
-				"Skipping runtimes: [python java]",
-				"Would skip runtimes: [python java]",
+				"Note: Skip runtimes functionality replaced by selective install commands",
 			},
 		},
 		{
@@ -203,8 +202,7 @@ func testSetupAllCommand(t *testing.T) {
 			skipRuntimes: []string{},
 			skipServers:  []string{"jdtls", "pylsp"},
 			expectedOutput: []string{
-				"Skipping servers: [jdtls pylsp]",
-				"Would skip servers: [jdtls pylsp]",
+				"Note: Skip servers functionality replaced by selective install commands",
 			},
 		},
 	}
@@ -247,10 +245,10 @@ func testSetupWizardCommand(t *testing.T) {
 			args:        []string{},
 			interactive: true,
 			expectedOutput: []string{
-				"LSP Gateway Setup Wizard",
-				"Welcome to the LSP Gateway setup wizard",
-				"The wizard will:",
-				"Setup wizard command structure implemented",
+				"LSP Gateway Manual Setup Guide",
+				"The interactive wizard has been replaced with manual commands",
+				"STEP 1: CHECK SYSTEM STATUS",
+				"For detailed help: lsp-gateway <command> --help",
 			},
 		},
 		{
@@ -258,9 +256,9 @@ func testSetupWizardCommand(t *testing.T) {
 			args:        []string{},
 			interactive: false,
 			expectedOutput: []string{
-				"LSP Gateway Setup Wizard",
-				"Welcome to the LSP Gateway setup wizard",
-				"Setup wizard command structure implemented",
+				"LSP Gateway Manual Setup Guide",
+				"The interactive wizard has been replaced with manual commands",
+				"STEP 1: CHECK SYSTEM STATUS",
 			},
 		},
 	}
@@ -287,11 +285,8 @@ func testSetupWizardCommand(t *testing.T) {
 				}
 			}
 
-			if !tc.interactive {
-				if strings.Contains(output, "Press Enter to continue") {
-					t.Error("Non-interactive mode should not show prompts")
-				}
-			}
+			// Interactive prompts have been removed, so no need to check
+			// All modes now show the same manual setup guide
 		})
 	}
 }
@@ -326,9 +321,9 @@ func testSetupCommandHelp(t *testing.T) {
 	helpOutput := buf.String()
 
 	expectedSections := []string{
-		"Setup and configure LSP Gateway",
-		"Available subcommands:",
-		"Examples:",
+		"Manual setup guidance for the LSP Gateway",
+		"MANUAL SETUP PROCESS:",
+		"Install Programming Language Runtimes:",
 		"Flags:",
 		"--force",
 		"--config",

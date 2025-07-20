@@ -1,0 +1,14 @@
+{
+    "name": "lsp-gateway-test-data",
+    "version": "1.0.0",
+    "description": "Test data for LSP Gateway integration testing",
+    "main": "sample.js",
+    "scripts": {
+        "build": "tsc sample.ts",
+        "test": "node sample.js"
+    },
+    "devDependencies": {
+        "typescript": "^5.0.0",
+        "@types/node": "^20.0.0"
+    }
+}

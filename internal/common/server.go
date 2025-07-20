@@ -101,17 +101,3 @@ func (slm *ServerLifecycleManager) RunService(ctx context.Context, config Servic
 
 	return nil
 }
-
-func SetupSignalHandler() (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-sigCh
-		cancel()
-	}()
-
-	return ctx, cancel
-}

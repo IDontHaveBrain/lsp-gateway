@@ -279,7 +279,11 @@ func TestReadReleaseFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Warning: Failed to remove temp dir: %v", err)
+		}
+	}()
 
 	tests := []struct {
 		name        string
@@ -303,18 +307,18 @@ VERSION_CODENAME=focal
 UBUNTU_CODENAME=focal
 `,
 			expected: map[string]string{
-				"NAME":                 "Ubuntu",
-				"VERSION":              "20.04.3 LTS (Focal Fossa)",
-				"ID":                   "ubuntu",
-				"ID_LIKE":              "debian",
-				"PRETTY_NAME":          "Ubuntu 20.04.3 LTS",
-				"VERSION_ID":           "20.04",
-				"HOME_URL":             "https://www.ubuntu.com/",
-				"SUPPORT_URL":          "https://help.ubuntu.com/",
-				"BUG_REPORT_URL":       "https://bugs.launchpad.net/ubuntu/",
-				"PRIVACY_POLICY_URL":   "https://www.ubuntu.com/legal/terms-and-policies/privacy-policy",
-				"VERSION_CODENAME":     "focal",
-				"UBUNTU_CODENAME":      "focal",
+				"NAME":               "Ubuntu",
+				"VERSION":            "20.04.3 LTS (Focal Fossa)",
+				"ID":                 "ubuntu",
+				"ID_LIKE":            "debian",
+				"PRETTY_NAME":        "Ubuntu 20.04.3 LTS",
+				"VERSION_ID":         "20.04",
+				"HOME_URL":           "https://www.ubuntu.com/",
+				"SUPPORT_URL":        "https://help.ubuntu.com/",
+				"BUG_REPORT_URL":     "https://bugs.launchpad.net/ubuntu/",
+				"PRIVACY_POLICY_URL": "https://www.ubuntu.com/legal/terms-and-policies/privacy-policy",
+				"VERSION_CODENAME":   "focal",
+				"UBUNTU_CODENAME":    "focal",
 			},
 			expectError: false,
 		},
@@ -351,8 +355,8 @@ INVALID_LINE_WITHOUT_EQUALS
 NAME="Ubuntu"
 ANOTHER_INVALID=`,
 			expected: map[string]string{
-				"ID":             "ubuntu",
-				"NAME":           "Ubuntu",
+				"ID":              "ubuntu",
+				"NAME":            "Ubuntu",
 				"ANOTHER_INVALID": "",
 			},
 			expectError: false,
@@ -369,14 +373,13 @@ ANOTHER_INVALID=`,
 		t.Run(tt.name, func(t *testing.T) {
 			// Create test file
 			testFile := filepath.Join(tempDir, "test_"+strings.ReplaceAll(tt.name, " ", "_"))
-			err := os.WriteFile(testFile, []byte(tt.content), 0644)
-			if err != nil {
+			if err := os.WriteFile(testFile, []byte(tt.content), 0644); err != nil {
 				t.Fatalf("Failed to write test file: %v", err)
 			}
 
 			// Test the function
 			result, err := readReleaseFile(testFile)
-			
+
 			if tt.expectError {
 				if err == nil {
 					t.Error("Expected error but got none")
@@ -424,7 +427,8 @@ func TestDetectLinuxDistributionErrors(t *testing.T) {
 		t.Errorf("DetectLinuxDistribution failed on valid Linux system: %v", err)
 	}
 	if info == nil {
-		t.Error("DetectLinuxDistribution returned nil info")
+		t.Fatal("DetectLinuxDistribution returned nil info")
+		return
 	}
 	if info.Distribution == DistributionUnknown {
 		t.Logf("Warning: Could not detect specific distribution, got %s", info.Distribution)
@@ -441,16 +445,26 @@ func TestGetHomeDirectoryErrors(t *testing.T) {
 
 	defer func() {
 		// Restore environment
-		os.Setenv("HOME", originalHome)
-		os.Setenv("USERPROFILE", originalUserProfile)
-		os.Setenv("HOMEDRIVE", originalHomeDrive)
-		os.Setenv("HOMEPATH", originalHomePath)
+		if err := os.Setenv("HOME", originalHome); err != nil {
+			t.Logf("Warning: Failed to restore HOME: %v", err)
+		}
+		if err := os.Setenv("USERPROFILE", originalUserProfile); err != nil {
+			t.Logf("Warning: Failed to restore USERPROFILE: %v", err)
+		}
+		if err := os.Setenv("HOMEDRIVE", originalHomeDrive); err != nil {
+			t.Logf("Warning: Failed to restore HOMEDRIVE: %v", err)
+		}
+		if err := os.Setenv("HOMEPATH", originalHomePath); err != nil {
+			t.Logf("Warning: Failed to restore HOMEPATH: %v", err)
+		}
 	}()
 
 	if !IsWindows() {
 		// Test Unix-like systems
 		t.Run("Unix without HOME", func(t *testing.T) {
-			os.Unsetenv("HOME")
+			if err := os.Unsetenv("HOME"); err != nil {
+				t.Fatalf("Failed to unset HOME: %v", err)
+			}
 			_, err := GetHomeDirectory()
 			if err == nil {
 				t.Error("Expected error when HOME is not set on Unix")
@@ -459,9 +473,15 @@ func TestGetHomeDirectoryErrors(t *testing.T) {
 	} else {
 		// Test Windows systems
 		t.Run("Windows without USERPROFILE or HOMEDRIVE/HOMEPATH", func(t *testing.T) {
-			os.Unsetenv("USERPROFILE")
-			os.Unsetenv("HOMEDRIVE")
-			os.Unsetenv("HOMEPATH")
+			if err := os.Unsetenv("USERPROFILE"); err != nil {
+				t.Fatalf("Failed to unset USERPROFILE: %v", err)
+			}
+			if err := os.Unsetenv("HOMEDRIVE"); err != nil {
+				t.Fatalf("Failed to unset HOMEDRIVE: %v", err)
+			}
+			if err := os.Unsetenv("HOMEPATH"); err != nil {
+				t.Fatalf("Failed to unset HOMEPATH: %v", err)
+			}
 			_, err := GetHomeDirectory()
 			if err == nil {
 				t.Error("Expected error when no Windows home variables are set")
@@ -469,9 +489,15 @@ func TestGetHomeDirectoryErrors(t *testing.T) {
 		})
 
 		t.Run("Windows with only HOMEDRIVE", func(t *testing.T) {
-			os.Unsetenv("USERPROFILE")
-			os.Setenv("HOMEDRIVE", "C:")
-			os.Unsetenv("HOMEPATH")
+			if err := os.Unsetenv("USERPROFILE"); err != nil {
+				t.Fatalf("Failed to unset USERPROFILE: %v", err)
+			}
+			if err := os.Setenv("HOMEDRIVE", "C:"); err != nil {
+				t.Fatalf("Failed to set HOMEDRIVE: %v", err)
+			}
+			if err := os.Unsetenv("HOMEPATH"); err != nil {
+				t.Fatalf("Failed to unset HOMEPATH: %v", err)
+			}
 			_, err := GetHomeDirectory()
 			if err == nil {
 				t.Error("Expected error when only HOMEDRIVE is set")
@@ -479,9 +505,15 @@ func TestGetHomeDirectoryErrors(t *testing.T) {
 		})
 
 		t.Run("Windows with only HOMEPATH", func(t *testing.T) {
-			os.Unsetenv("USERPROFILE")
-			os.Unsetenv("HOMEDRIVE")
-			os.Setenv("HOMEPATH", "\\Users\\test")
+			if err := os.Unsetenv("USERPROFILE"); err != nil {
+				t.Fatalf("Failed to unset USERPROFILE: %v", err)
+			}
+			if err := os.Unsetenv("HOMEDRIVE"); err != nil {
+				t.Fatalf("Failed to unset HOMEDRIVE: %v", err)
+			}
+			if err := os.Setenv("HOMEPATH", "\\Users\\test"); err != nil {
+				t.Fatalf("Failed to set HOMEPATH: %v", err)
+			}
 			_, err := GetHomeDirectory()
 			if err == nil {
 				t.Error("Expected error when only HOMEPATH is set")
@@ -499,9 +531,15 @@ func TestGetTempDirectoryVariations(t *testing.T) {
 
 	defer func() {
 		// Restore environment
-		os.Setenv("TMPDIR", originalTmpdir)
-		os.Setenv("TMP", originalTmp)
-		os.Setenv("TEMP", originalTemp)
+		if err := os.Setenv("TMPDIR", originalTmpdir); err != nil {
+			t.Logf("Warning: Failed to restore TMPDIR: %v", err)
+		}
+		if err := os.Setenv("TMP", originalTmp); err != nil {
+			t.Logf("Warning: Failed to restore TMP: %v", err)
+		}
+		if err := os.Setenv("TEMP", originalTemp); err != nil {
+			t.Logf("Warning: Failed to restore TEMP: %v", err)
+		}
 	}()
 
 	tests := []struct {
@@ -550,19 +588,31 @@ func TestGetTempDirectoryVariations(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set environment
 			if tt.tmpdir == "" {
-				os.Unsetenv("TMPDIR")
+				if err := os.Unsetenv("TMPDIR"); err != nil {
+					t.Fatalf("Failed to unset TMPDIR: %v", err)
+				}
 			} else {
-				os.Setenv("TMPDIR", tt.tmpdir)
+				if err := os.Setenv("TMPDIR", tt.tmpdir); err != nil {
+					t.Fatalf("Failed to set TMPDIR: %v", err)
+				}
 			}
 			if tt.tmp == "" {
-				os.Unsetenv("TMP")
+				if err := os.Unsetenv("TMP"); err != nil {
+					t.Fatalf("Failed to unset TMP: %v", err)
+				}
 			} else {
-				os.Setenv("TMP", tt.tmp)
+				if err := os.Setenv("TMP", tt.tmp); err != nil {
+					t.Fatalf("Failed to set TMP: %v", err)
+				}
 			}
 			if tt.temp == "" {
-				os.Unsetenv("TEMP")
+				if err := os.Unsetenv("TEMP"); err != nil {
+					t.Fatalf("Failed to unset TEMP: %v", err)
+				}
 			} else {
-				os.Setenv("TEMP", tt.temp)
+				if err := os.Setenv("TEMP", tt.temp); err != nil {
+					t.Fatalf("Failed to set TEMP: %v", err)
+				}
 			}
 
 			result := GetTempDirectory()
@@ -584,19 +634,19 @@ func TestSupportsShellEdgeCases(t *testing.T) {
 		{"/bin/sh", IsUnix()},
 		{"C:\\Windows\\System32\\cmd.exe", IsWindows()},
 		{"C:/Windows/System32/cmd.exe", IsWindows()},
-		
+
 		// Test case variations
 		{"BASH", IsUnix()},
 		{"SH", IsUnix()},
 		{"CMD", IsWindows()},
 		{"POWERSHELL", IsWindows()},
-		
+
 		// Test empty and invalid inputs
 		{"", false},
 		{" ", false},
 		{"invalid-shell-name", false},
 		{"bash.exe", false}, // bash.exe doesn't exist typically
-		
+
 		// Test shells with spaces (edge case)
 		{"Program Files\\PowerShell\\pwsh.exe", IsWindows()},
 	}
@@ -644,7 +694,7 @@ func TestDetectFromUnameIntegration(t *testing.T) {
 
 	// Create a mock LinuxInfo to test with
 	info := &LinuxInfo{Distribution: DistributionUnknown}
-	
+
 	// Test detectFromUname function
 	err := detectFromUname(info)
 	if err != nil {
@@ -664,7 +714,7 @@ func TestDetectFromDistributionFilesIntegration(t *testing.T) {
 	}
 
 	info := &LinuxInfo{Distribution: DistributionUnknown}
-	
+
 	err := detectFromDistributionFiles(info)
 	if err != nil {
 		t.Logf("detectFromDistributionFiles failed (may be expected): %v", err)
@@ -836,10 +886,10 @@ func TestLinuxDistributionConstants(t *testing.T) {
 // Test cross-platform path handling edge cases
 func TestCrossPlatformPathHandling(t *testing.T) {
 	tests := []struct {
-		name        string
-		platform    Platform
-		expectedSep string
-		expectedExt string
+		name         string
+		platform     Platform
+		expectedSep  string
+		expectedExt  string
 		expectedList string
 	}{
 		{"Windows", PlatformWindows, "\\", ".exe", ";"},
@@ -878,7 +928,11 @@ func TestReadReleaseFileMalformed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			t.Logf("Warning: Failed to remove temp dir: %v", err)
+		}
+	}()
 
 	tests := []struct {
 		name    string
@@ -891,7 +945,7 @@ func TestReadReleaseFileMalformed(t *testing.T) {
 # Comment 3`,
 		},
 		{
-			name: "Only empty lines",
+			name:    "Only empty lines",
 			content: "\n\n\n\n",
 		},
 		{
@@ -911,7 +965,7 @@ VERSION="1.0 α"
 ID=test_unicode`,
 		},
 		{
-			name: "Very long lines",
+			name:    "Very long lines",
 			content: fmt.Sprintf("NAME=%s\nID=test", strings.Repeat("very_long_name_", 100)),
 		},
 	}
@@ -919,8 +973,7 @@ ID=test_unicode`,
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testFile := filepath.Join(tempDir, "test_"+strings.ReplaceAll(tt.name, " ", "_"))
-			err := os.WriteFile(testFile, []byte(tt.content), 0644)
-			if err != nil {
+			if err := os.WriteFile(testFile, []byte(tt.content), 0644); err != nil {
 				t.Fatalf("Failed to write test file: %v", err)
 			}
 

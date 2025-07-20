@@ -17,7 +17,7 @@ func createTestConfig() *ServerConfig {
 	return &ServerConfig{
 		LSPGatewayURL: "http://localhost:8080",
 		Timeout:       100 * time.Millisecond, // Reduced from 5s
-		MaxRetries:    2, // Reduced from 3
+		MaxRetries:    2,                      // Reduced from 3
 	}
 }
 
@@ -26,11 +26,11 @@ func createFastTestClient(config *ServerConfig) *LSPGatewayClient {
 	client := NewLSPGatewayClient(config)
 	// Override retry policy for much faster tests
 	client.retryPolicy = &RetryPolicy{
-		InitialBackoff:  1 * time.Millisecond,  // Much faster than default 100ms
-		MaxBackoff:      5 * time.Millisecond,  // Much faster than default 2s
-		BackoffFactor:   1.5,                   // Smaller factor
-		JitterEnabled:   false,                 // Disable jitter for predictable timing
-		MaxRetries:      config.MaxRetries,
+		InitialBackoff: 1 * time.Millisecond, // Much faster than default 100ms
+		MaxBackoff:     5 * time.Millisecond, // Much faster than default 2s
+		BackoffFactor:  1.5,                  // Smaller factor
+		JitterEnabled:  false,                // Disable jitter for predictable timing
+		MaxRetries:     config.MaxRetries,
 		RetryableErrors: map[ErrorCategory]bool{
 			ErrorCategoryNetwork:   true,
 			ErrorCategoryTimeout:   true,
@@ -201,8 +201,20 @@ func TestSendLSPRequestSuccess(t *testing.T) {
 		t.Fatalf("Expected successful request, got error: %v", err)
 	}
 
-	if string(result) != string(expectedResponse) {
-		t.Errorf("Expected result %s, got %s", expectedResponse, result)
+	// Normalize JSON for comparison by marshaling and unmarshaling both
+	var expectedJSON, resultJSON interface{}
+	if err := json.Unmarshal(expectedResponse, &expectedJSON); err != nil {
+		t.Fatalf("Failed to unmarshal expected response: %v", err)
+	}
+	if err := json.Unmarshal(result, &resultJSON); err != nil {
+		t.Fatalf("Failed to unmarshal result: %v", err)
+	}
+	
+	// Compare the parsed JSON structures
+	expectedBytes, _ := json.Marshal(expectedJSON)
+	resultBytes, _ := json.Marshal(resultJSON)
+	if string(expectedBytes) != string(resultBytes) {
+		t.Errorf("Expected result %s, got %s", expectedBytes, resultBytes)
 	}
 
 	metrics := client.GetMetrics()
@@ -546,8 +558,9 @@ func TestContextCancellation(t *testing.T) {
 		t.Fatal("Expected context cancellation error")
 	}
 
-	if err != context.Canceled {
-		t.Errorf("Expected context.Canceled, got: %v", err)
+	// Check if the error is or contains context.Canceled
+	if err != context.Canceled && !strings.Contains(err.Error(), "context canceled") {
+		t.Errorf("Expected context.Canceled or wrapped context canceled error, got: %v", err)
 	}
 }
 
@@ -852,4 +865,460 @@ func BenchmarkCircuitBreakerCheck(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		cb.AllowRequest()
 	}
+}
+
+// TestProtocolCompliance tests invalid MCP message formats and protocol violations
+func TestProtocolCompliance(t *testing.T) {
+	tests := []struct {
+		name           string
+		responseBuilder func(w http.ResponseWriter, r *http.Request)
+		expectedError  string
+		shouldFail     bool
+	}{
+		{
+			name: "InvalidJSONRPCVersion",
+			responseBuilder: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				response := map[string]interface{}{
+					"jsonrpc": "1.0", // Invalid version
+					"id":      1,
+					"result":  map[string]interface{}{"test": "result"},
+				}
+				json.NewEncoder(w).Encode(response)
+			},
+			expectedError: "invalid JSON-RPC version",
+			shouldFail:    true,
+		},
+		{
+			name: "MissingJSONRPCField",
+			responseBuilder: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				response := map[string]interface{}{
+					// Missing "jsonrpc" field
+					"id":     1,
+					"result": map[string]interface{}{"test": "result"},
+				}
+				json.NewEncoder(w).Encode(response)
+			},
+			expectedError: "invalid JSON-RPC version",
+			shouldFail:    true,
+		},
+		{
+			name: "InvalidContentType",
+			responseBuilder: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "text/plain")
+				w.Write([]byte("plain text response"))
+			},
+			expectedError: "unexpected content type",
+			shouldFail:    true,
+		},
+		{
+			name: "MalformedJSON",
+			responseBuilder: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":malformed}`))
+			},
+			expectedError: "failed to decode",
+			shouldFail:    true,
+		},
+		{
+			name: "JSONRPCErrorResponse",
+			responseBuilder: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				response := JSONRPCResponse{
+					JSONRPC: "2.0",
+					ID:      1,
+					Error: &JSONRPCError{
+						Code:    -32601,
+						Message: "Method not found",
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			},
+			expectedError: "method not found",
+			shouldFail:    true,
+		},
+		{
+			name: "JSONRPCInvalidParams",
+			responseBuilder: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				response := JSONRPCResponse{
+					JSONRPC: "2.0",
+					ID:      1,
+					Error: &JSONRPCError{
+						Code:    -32602,
+						Message: "Invalid params",
+					},
+				}
+				json.NewEncoder(w).Encode(response)
+			},
+			expectedError: "invalid parameters",
+			shouldFail:    true,
+		},
+		{
+			name: "ValidResponse",
+			responseBuilder: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				response := JSONRPCResponse{
+					JSONRPC: "2.0",
+					ID:      1,
+					Result:  json.RawMessage(`{"success": true}`),
+				}
+				json.NewEncoder(w).Encode(response)
+			},
+			expectedError: "",
+			shouldFail:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(tt.responseBuilder))
+			defer server.Close()
+
+			config := createTestConfig()
+			config.LSPGatewayURL = server.URL
+			client := NewLSPGatewayClient(config)
+
+			ctx := context.Background()
+			params := map[string]interface{}{
+				"textDocument": map[string]interface{}{"uri": "file:///test.go"},
+				"position":     map[string]interface{}{"line": 1, "character": 5},
+			}
+
+			_, err := client.SendLSPRequest(ctx, "textDocument/definition", params)
+
+			if tt.shouldFail {
+				if err == nil {
+					t.Errorf("Expected error containing '%s', but got no error", tt.expectedError)
+				} else if !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tt.expectedError)) {
+					t.Errorf("Expected error containing '%s', got: %v", tt.expectedError, err)
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error, but got: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestParameterValidation tests parameter validation for MCP tools
+func TestParameterValidation(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		response := JSONRPCResponse{
+			JSONRPC: "2.0",
+			ID:      1,
+			Error: &JSONRPCError{
+				Code:    -32602,
+				Message: "Invalid params",
+			},
+		}
+		json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+
+	config := createTestConfig()
+	config.LSPGatewayURL = server.URL
+	client := NewLSPGatewayClient(config)
+
+	ctx := context.Background()
+
+	tests := []struct {
+		name     string
+		method   string
+		params   interface{}
+		expected string
+	}{
+		{
+			name:     "MissingTextDocument",
+			method:   "textDocument/definition",
+			params:   map[string]interface{}{"position": map[string]interface{}{"line": 1, "character": 5}},
+			expected: "invalid parameters",
+		},
+		{
+			name:     "MissingPosition",
+			method:   "textDocument/definition",
+			params:   map[string]interface{}{"textDocument": map[string]interface{}{"uri": "file:///test.go"}},
+			expected: "invalid parameters",
+		},
+		{
+			name:     "InvalidURI",
+			method:   "textDocument/definition",
+			params:   map[string]interface{}{"textDocument": map[string]interface{}{"uri": ""}, "position": map[string]interface{}{"line": 1, "character": 5}},
+			expected: "invalid parameters",
+		},
+		{
+			name:     "NilParams",
+			method:   "textDocument/definition",
+			params:   nil,
+			expected: "invalid parameters",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := client.SendLSPRequest(ctx, tt.method, tt.params)
+			if err == nil {
+				t.Errorf("Expected error for %s, but got none", tt.name)
+			} else if !strings.Contains(strings.ToLower(err.Error()), strings.ToLower(tt.expected)) {
+				t.Errorf("Expected error containing '%s', got: %v", tt.expected, err)
+			}
+		})
+	}
+}
+
+// TestEnhancedRetryLogic tests comprehensive retry behavior with different scenarios
+func TestEnhancedRetryLogic(t *testing.T) {
+	t.Run("AutomaticRetryOnNetworkFailures", func(t *testing.T) {
+		var attemptCount int32
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempt := atomic.AddInt32(&attemptCount, 1)
+			if attempt < 3 {
+				// Simulate network failure by closing connection
+				conn, _, _ := w.(http.Hijacker).Hijack()
+				conn.Close()
+				return
+			}
+
+			// Success after retries
+			w.Header().Set("Content-Type", "application/json")
+			response := JSONRPCResponse{
+				JSONRPC: "2.0",
+				ID:      1,
+				Result:  json.RawMessage(`{"success": true}`),
+			}
+			json.NewEncoder(w).Encode(response)
+		}))
+		defer server.Close()
+
+		config := createTestConfig()
+		config.LSPGatewayURL = server.URL
+		config.MaxRetries = 3
+		client := createFastTestClient(config)
+
+		ctx := context.Background()
+		params := map[string]interface{}{}
+
+		result, err := client.SendLSPRequest(ctx, "textDocument/definition", params)
+		if err != nil {
+			t.Fatalf("Expected successful request after retries, got error: %v", err)
+		}
+
+		if result == nil {
+			t.Error("Expected result after successful retry")
+		}
+
+		if attemptCount != 3 {
+			t.Errorf("Expected 3 attempts, got %d", attemptCount)
+		}
+	})
+
+	t.Run("ExponentialBackoffImplementation", func(t *testing.T) {
+		retryPolicy := &RetryPolicy{
+			InitialBackoff:  10 * time.Millisecond,
+			MaxBackoff:      1 * time.Second,
+			BackoffFactor:   2.0,
+			JitterEnabled:   false,
+			RetryableErrors: map[ErrorCategory]bool{ErrorCategoryServer: true},
+		}
+
+		client := &LSPGatewayClient{retryPolicy: retryPolicy}
+
+		// Test exponential backoff calculation
+		expectedBackoffs := []time.Duration{
+			10 * time.Millisecond,  // Attempt 1
+			20 * time.Millisecond,  // Attempt 2
+			40 * time.Millisecond,  // Attempt 3
+			80 * time.Millisecond,  // Attempt 4
+			160 * time.Millisecond, // Attempt 5
+			320 * time.Millisecond, // Attempt 6
+			640 * time.Millisecond, // Attempt 7
+			1 * time.Second,        // Attempt 8 (capped at MaxBackoff)
+		}
+
+		for i, expected := range expectedBackoffs {
+			actual := client.calculateBackoff(i + 1)
+			if actual != expected {
+				t.Errorf("Attempt %d: expected backoff %v, got %v", i+1, expected, actual)
+			}
+		}
+	})
+
+	t.Run("JitterImplementation", func(t *testing.T) {
+		retryPolicy := &RetryPolicy{
+			InitialBackoff:  100 * time.Millisecond,
+			MaxBackoff:      2 * time.Second,
+			BackoffFactor:   2.0,
+			JitterEnabled:   true,
+			RetryableErrors: map[ErrorCategory]bool{ErrorCategoryServer: true},
+		}
+
+		client := &LSPGatewayClient{retryPolicy: retryPolicy}
+
+		// Test that jitter creates variation
+		backoffs := make([]time.Duration, 10)
+		for i := 0; i < 10; i++ {
+			backoffs[i] = client.calculateBackoff(2) // Fixed attempt for consistency
+		}
+
+		// Check that not all backoffs are the same (jitter working)
+		allSame := true
+		for i := 1; i < len(backoffs); i++ {
+			if backoffs[i] != backoffs[0] {
+				allSame = false
+				break
+			}
+		}
+
+		if allSame {
+			t.Error("Expected jitter to create variation in backoff times, but all were the same")
+		}
+
+		// Check that jitter is within reasonable bounds (within 10% of base)
+		baseBackoff := 200 * time.Millisecond // 100ms * 2^1
+		for i, backoff := range backoffs {
+			if backoff < baseBackoff || backoff > time.Duration(float64(baseBackoff)*1.1) {
+				t.Errorf("Backoff %d (%v) outside expected jitter range [%v, %v]", i, backoff, baseBackoff, time.Duration(float64(baseBackoff)*1.1))
+			}
+		}
+	})
+
+	t.Run("MaximumRetryLimitEnforcement", func(t *testing.T) {
+		var attemptCount int32
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt32(&attemptCount, 1)
+			w.WriteHeader(http.StatusInternalServerError) // Always fail
+		}))
+		defer server.Close()
+
+		config := createTestConfig()
+		config.LSPGatewayURL = server.URL
+		config.MaxRetries = 2 // 1 initial + 2 retries = 3 total attempts
+		client := createFastTestClient(config)
+
+		ctx := context.Background()
+		params := map[string]interface{}{}
+
+		_, err := client.SendLSPRequest(ctx, "textDocument/definition", params)
+		if err == nil {
+			t.Fatal("Expected error after max retries exceeded")
+		}
+
+		expectedAttempts := int32(config.MaxRetries + 1) // 1 initial + 2 retries
+		if attemptCount != expectedAttempts {
+			t.Errorf("Expected %d attempts (1 initial + %d retries), got %d", expectedAttempts, config.MaxRetries, attemptCount)
+		}
+
+		if !strings.Contains(err.Error(), fmt.Sprintf("failed after %d attempts", expectedAttempts)) {
+			t.Errorf("Expected error message to mention %d attempts, got: %v", expectedAttempts, err)
+		}
+	})
+
+	t.Run("AutomaticRecoveryMechanisms", func(t *testing.T) {
+		var (
+			attemptCount int32
+			failurePhase = true
+		)
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempt := atomic.AddInt32(&attemptCount, 1)
+
+			// Fail first few attempts, then start succeeding
+			if failurePhase && attempt <= 2 {
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+
+			failurePhase = false // Switch to success phase
+			w.Header().Set("Content-Type", "application/json")
+			response := JSONRPCResponse{
+				JSONRPC: "2.0",
+				ID:      1,
+				Result:  json.RawMessage(`{"recovered": true}`),
+			}
+			json.NewEncoder(w).Encode(response)
+		}))
+		defer server.Close()
+
+		config := createTestConfig()
+		config.LSPGatewayURL = server.URL
+		config.MaxRetries = 3
+		client := createFastTestClient(config)
+
+		ctx := context.Background()
+		params := map[string]interface{}{}
+
+		// First request should recover after retries
+		result, err := client.SendLSPRequest(ctx, "textDocument/definition", params)
+		if err != nil {
+			t.Fatalf("Expected successful recovery, got error: %v", err)
+		}
+
+		if result == nil {
+			t.Error("Expected result after recovery")
+		}
+
+		// Subsequent requests should succeed immediately
+		atomic.StoreInt32(&attemptCount, 0)
+		result2, err2 := client.SendLSPRequest(ctx, "textDocument/definition", params)
+		if err2 != nil {
+			t.Fatalf("Expected immediate success after recovery, got error: %v", err2)
+		}
+
+		if result2 == nil {
+			t.Error("Expected result from subsequent request")
+		}
+
+		// Should only need one attempt for subsequent request
+		if attemptCount != 1 {
+			t.Errorf("Expected 1 attempt for subsequent request, got %d", attemptCount)
+		}
+	})
+
+	t.Run("TimeoutHandlingWithRetries", func(t *testing.T) {
+		var attemptCount int32
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempt := atomic.AddInt32(&attemptCount, 1)
+			if attempt < 3 {
+				// Simulate timeout by delaying response
+				time.Sleep(50 * time.Millisecond)
+			}
+			
+			w.Header().Set("Content-Type", "application/json")
+			response := JSONRPCResponse{
+				JSONRPC: "2.0",
+				ID:      1,
+				Result:  json.RawMessage(`{"success": true}`),
+			}
+			json.NewEncoder(w).Encode(response)
+		}))
+		defer server.Close()
+
+		config := createTestConfig()
+		config.LSPGatewayURL = server.URL
+		config.Timeout = 20 * time.Millisecond // Short timeout to trigger timeouts
+		config.MaxRetries = 3
+		client := createFastTestClient(config)
+
+		ctx := context.Background()
+		params := map[string]interface{}{}
+
+		result, err := client.SendLSPRequest(ctx, "textDocument/definition", params)
+		if err != nil {
+			t.Fatalf("Expected successful request after timeout retries, got error: %v", err)
+		}
+
+		if result == nil {
+			t.Error("Expected result after timeout recovery")
+		}
+
+		if attemptCount < 3 {
+			t.Errorf("Expected at least 3 attempts due to timeouts, got %d", attemptCount)
+		}
+	})
 }

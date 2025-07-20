@@ -203,11 +203,14 @@ func cleanupGateway(gw *gateway.Gateway) {
 
 func createHTTPServer(cfg *config.GatewayConfig, gw *gateway.Gateway) *http.Server {
 	log.Printf("[DEBUG] Setting up HTTP server\n")
-	http.HandleFunc("/jsonrpc", gw.HandleJSONRPC)
+	
+	// Create a new ServeMux to avoid global state conflicts in tests
+	mux := http.NewServeMux()
+	mux.HandleFunc("/jsonrpc", gw.HandleJSONRPC)
 
 	return &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Port),
-		Handler:      nil,
+		Handler:      mux,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}

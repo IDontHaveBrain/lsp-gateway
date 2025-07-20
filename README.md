@@ -3,7 +3,6 @@
 > **⚠️ Development Status**: MVP/ALPHA - Use with caution for development and testing purposes.
 
 LSP Gateway provides dual protocol access to language servers:
-
 - **LSP Gateway**: HTTP JSON-RPC server for IDEs and development tools
 - **MCP Server**: Model Context Protocol server for AI models (Claude, GPT, etc.)
 
@@ -63,13 +62,15 @@ npm install -g typescript-language-server
 ./bin/lsp-gateway status                      # System status
 ./bin/lsp-gateway diagnose                    # System diagnostics
 ./bin/lsp-gateway config validate             # Validate configuration
+./bin/lsp-gateway workflows                   # Usage examples
 ```
 
 ### Build System
 ```bash
 make local        # Build for current platform
 make build        # Build for all platforms (Linux, Windows, macOS x64/arm64)
-make test         # Run tests
+make test         # Run component tests
+make lint         # Code quality check
 make clean        # Clean artifacts
 make help         # Show all targets
 ```
@@ -175,10 +176,10 @@ npm run version     # Show version
 ```bash
 # Installation problems
 ./bin/lsp-gateway install servers       # Install missing language servers
-./bin/lsp-gateway verify runtime go     # Verify specific runtime
+./bin/lsp-gateway verify runtime all    # Verify runtime installations
 
 # Configuration issues  
-./bin/lsp-gateway config generate       # Generate default config
+./bin/lsp-gateway config generate --auto-detect  # Generate config with auto-detection
 ./bin/lsp-gateway config validate       # Validate existing config
 
 # Build problems
@@ -219,8 +220,10 @@ npm install -g typescript-language-server
 ## Dependencies
 
 **Minimal Go dependencies**:
-- `github.com/spf13/cobra` - CLI framework
-- `gopkg.in/yaml.v3` - YAML configuration parsing
+- `github.com/spf13/cobra v1.9.1` - CLI framework
+- `github.com/spf13/pflag v1.0.6` - CLI flag parsing  
+- `golang.org/x/text v0.27.0` - Text processing
+- `gopkg.in/yaml.v3 v3.0.1` - YAML configuration parsing
 - Go 1.24+ standard library
 
 ## Architecture
@@ -233,9 +236,9 @@ MCP → ToolHandler → LSPGatewayClient → HTTP Gateway → Router → LSPClie
 
 **Core Components**:
 - **Router**: Thread-safe request routing (80+ file extensions supported)
-- **Transport**: Pluggable LSP communication (stdio/TCP)
+- **Transport**: Pluggable LSP communication (stdio/TCP) with circuit breakers
 - **Auto-Setup**: Cross-platform installation system
-- **CLI**: Comprehensive management interface
+- **CLI**: Comprehensive management interface with 20+ commands
 
 ## Integration Examples
 

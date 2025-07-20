@@ -3,12 +3,13 @@ package mcp
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"math"
-	"math/rand"
 	"net"
 	"net/http"
 	"strconv"
@@ -329,7 +330,17 @@ func (c *LSPGatewayClient) shouldRetryError(category ErrorCategory) bool {
 }
 
 func generateRequestID() interface{} {
-	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), rand.Intn(1000))
+	// Use crypto/rand for security-sensitive request ID generation
+	randomBytes := make([]byte, 4)
+	_, err := rand.Read(randomBytes)
+	if err != nil {
+		// Fallback to timestamp-only on crypto/rand failure
+		return fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+	
+	// Convert bytes to uint32 for better distribution
+	randomValue := binary.BigEndian.Uint32(randomBytes)
+	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), randomValue%10000)
 }
 
 func (c *LSPGatewayClient) categorizeError(err error) ErrorCategory {
@@ -343,7 +354,11 @@ func (c *LSPGatewayClient) categorizeError(err error) ErrorCategory {
 		strings.Contains(errorStr, "connection reset") ||
 		strings.Contains(errorStr, "network is unreachable") ||
 		strings.Contains(errorStr, "no route to host") ||
-		strings.Contains(errorStr, "connection timeout") {
+		strings.Contains(errorStr, "connection timeout") ||
+		strings.Contains(errorStr, "eof") ||
+		strings.Contains(errorStr, "connection lost") ||
+		strings.Contains(errorStr, "dial tcp") ||
+		strings.Contains(errorStr, "invalid port") {
 		return ErrorCategoryNetwork
 	}
 
@@ -357,7 +372,8 @@ func (c *LSPGatewayClient) categorizeError(err error) ErrorCategory {
 		return ErrorCategoryClient
 	}
 
-	if strings.Contains(errorStr, "http error 5") {
+	if strings.Contains(errorStr, "http error 5") ||
+		strings.Contains(errorStr, "server error 5") {
 		return ErrorCategoryServer
 	}
 	if strings.Contains(errorStr, "http error 429") ||
@@ -385,8 +401,20 @@ func (c *LSPGatewayClient) calculateBackoff(attempt int) time.Duration {
 	}
 
 	if c.retryPolicy.JitterEnabled {
-		jitter := time.Duration(rand.Float64() * float64(backoff) * 0.1) // 10% jitter
-		backoff += jitter
+		// Use crypto/rand for security-sensitive jitter calculation
+		randomBytes := make([]byte, 8)
+		_, err := rand.Read(randomBytes)
+		if err != nil {
+			// Fallback to minimal jitter on crypto/rand failure
+			jitter := time.Duration(float64(backoff) * 0.05) // 5% fixed jitter
+			backoff += jitter
+		} else {
+			// Convert bytes to float64 in range [0.0, 1.0)
+			randomValue := binary.BigEndian.Uint64(randomBytes)
+			randomFloat := float64(randomValue) / float64(^uint64(0))
+			jitter := time.Duration(randomFloat * float64(backoff) * 0.1) // 10% jitter
+			backoff += jitter
+		}
 	}
 
 	return backoff

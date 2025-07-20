@@ -39,31 +39,6 @@ func LoadConfig(configPath string) (*GatewayConfig, error) {
 	return &config, nil
 }
 
-func SaveConfig(config *GatewayConfig, configPath string) error {
-	if config == nil {
-		return fmt.Errorf("configuration cannot be nil")
-	}
-
-	if configPath == "" {
-		configPath = DefaultConfigFile
-	}
-
-	if err := ValidateConfig(config); err != nil {
-		return fmt.Errorf("cannot save invalid configuration: %w", err)
-	}
-
-	data, err := yaml.Marshal(config)
-	if err != nil {
-		return fmt.Errorf("failed to marshal configuration to YAML: %w", err)
-	}
-
-	if err := os.WriteFile(configPath, data, 0644); err != nil {
-		return fmt.Errorf("failed to write configuration file %s: %w", configPath, err)
-	}
-
-	return nil
-}
-
 func ValidateConfig(config *GatewayConfig) error {
 	if config == nil {
 		return fmt.Errorf("configuration cannot be nil")

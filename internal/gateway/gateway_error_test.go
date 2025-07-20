@@ -38,7 +38,7 @@ func TestGatewayResourceCleanupErrors(t *testing.T) {
 		// Add mock clients that will fail during stop
 		failingClient1 := NewMockLSPClient()
 		failingClient2 := NewMockLSPClient()
-		
+
 		failingClient1.SetStopError(fmt.Errorf("client1 stop failed"))
 		failingClient2.SetStopError(fmt.Errorf("client2 stop failed"))
 
@@ -126,7 +126,7 @@ func TestGatewayHighLoadErrorHandling(t *testing.T) {
 
 	// Set up a mock client that occasionally fails
 	mockClient := mockClients["gopls"]
-	
+
 	// Test concurrent requests with some failures
 	const numRequests = 100
 	errors := make(chan error, numRequests)
@@ -151,7 +151,11 @@ func TestGatewayHighLoadErrorHandling(t *testing.T) {
 				},
 			}
 
-			body, _ := json.Marshal(request)
+			body, err := json.Marshal(request)
+		if err != nil {
+			errors <- fmt.Errorf("failed to marshal JSON request: %v", err)
+			return
+		}
 			req := httptest.NewRequest("POST", "/jsonrpc", bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
@@ -275,7 +279,7 @@ func TestGatewayTimeoutHandling(t *testing.T) {
 
 	t.Run("client timeout during request", func(t *testing.T) {
 		mockClient := mockClients["gopls"]
-		
+
 		// Set up a client that will have request errors on timeout
 		mockClient.SetRequestError(fmt.Errorf("timeout error"))
 
@@ -289,10 +293,13 @@ func TestGatewayTimeoutHandling(t *testing.T) {
 			},
 		}
 
-		body, _ := json.Marshal(request)
+		body, err := json.Marshal(request)
+		if err != nil {
+			t.Fatalf("Failed to marshal JSON request: %v", err)
+		}
 		req := httptest.NewRequest("POST", "/jsonrpc", bytes.NewBuffer(body))
 		req.Header.Set("Content-Type", "application/json")
-		
+
 		// Add a short timeout context
 		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 		defer cancel()
@@ -329,12 +336,18 @@ func TestGatewayRaceConditions(t *testing.T) {
 	for i := 0; i < numGoroutines; i++ {
 		go func() {
 			defer wg.Done()
-			
+
 			// Randomly start and stop
 			if i%2 == 0 {
-				gateway.Start(context.Background())
+				if err := gateway.Start(context.Background()); err != nil {
+					// Log but don't fail as this is expected in race condition test
+					t.Logf("Start failed in race test: %v", err)
+				}
 			} else {
-				gateway.Stop()
+				if err := gateway.Stop(); err != nil {
+					// Log but don't fail as this is expected in race condition test
+					t.Logf("Stop failed in race test: %v", err)
+				}
 			}
 		}()
 	}
@@ -344,7 +357,7 @@ func TestGatewayRaceConditions(t *testing.T) {
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			defer wg.Done()
-			
+
 			request := JSONRPCRequest{
 				JSONRPC: JSONRPCVersion,
 				ID:      id,
@@ -355,7 +368,11 @@ func TestGatewayRaceConditions(t *testing.T) {
 				},
 			}
 
-			body, _ := json.Marshal(request)
+			body, err := json.Marshal(request)
+		if err != nil {
+			// Cannot use t.Fatalf in goroutine, so just return
+			return
+		}
 			req := httptest.NewRequest("POST", "/jsonrpc", bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
@@ -406,7 +423,9 @@ func TestGatewayClientLifecycleErrors(t *testing.T) {
 		mockClient := mockClients["gopls"]
 
 		// Stop the client mid-request
-		mockClient.Stop()
+		if err := mockClient.Stop(); err != nil {
+			t.Logf("Warning: Failed to stop mock client: %v", err)
+		}
 
 		request := JSONRPCRequest{
 			JSONRPC: JSONRPCVersion,
@@ -418,7 +437,10 @@ func TestGatewayClientLifecycleErrors(t *testing.T) {
 			},
 		}
 
-		body, _ := json.Marshal(request)
+		body, err := json.Marshal(request)
+		if err != nil {
+			t.Fatalf("Failed to marshal JSON request: %v", err)
+		}
 		req := httptest.NewRequest("POST", "/jsonrpc", bytes.NewBuffer(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
@@ -441,7 +463,7 @@ func TestGatewayClientLifecycleErrors(t *testing.T) {
 func createDeeplyNestedJSON(depth int) string {
 	var result strings.Builder
 	result.WriteString(`{"jsonrpc": "2.0", "method": "test", "id": 1, "params": `)
-	
+
 	for i := 0; i < depth; i++ {
 		result.WriteString(`{"nested": `)
 	}
@@ -450,7 +472,7 @@ func createDeeplyNestedJSON(depth int) string {
 		result.WriteString(`}`)
 	}
 	result.WriteString(`}`)
-	
+
 	return result.String()
 }
 

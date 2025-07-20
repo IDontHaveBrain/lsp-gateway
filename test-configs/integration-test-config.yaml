@@ -1,0 +1,33 @@
+# LSP Gateway Integration Test Configuration
+port: 0  # Dynamic port allocation for tests
+timeout: 30s
+max_connections: 100
+
+servers:
+  # Go Language Server for testing
+  - name: "test-go-lsp"
+    languages: ["go"]
+    command: "gopls"
+    args: []
+    transport: "stdio"
+    
+  # Python Language Server for testing  
+  - name: "test-python-lsp"
+    languages: ["python"]
+    command: "python"
+    args: ["-m", "pylsp"]
+    transport: "stdio"
+    
+  # TypeScript Language Server for testing
+  - name: "test-typescript-lsp"
+    languages: ["typescript", "javascript"]
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    transport: "stdio"
+
+# Integration test specific settings
+integration_test:
+  mock_servers: true
+  timeout_multiplier: 2
+  concurrent_clients: 5
+  test_data_dir: "./test-data"

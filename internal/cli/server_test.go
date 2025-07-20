@@ -20,16 +20,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func allocateTestPortServer(t *testing.T) int {
-	return AllocateTestPort(t)
-}
-
 func createValidTestConfig(port int) string {
 	return CreateConfigWithPort(port)
 }
 
 func TestServerCommand(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock with external dependencies
 	tests := []struct {
 		name     string
 		testFunc func(t *testing.T)
@@ -551,7 +547,7 @@ func testServerCommandIntegration(t *testing.T) {
 }
 
 func TestServerCommandEdgeCases(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock with real HTTP servers
 	tests := []struct {
 		name     string
 		testFunc func(t *testing.T)
@@ -604,7 +600,7 @@ func testServerCommandWithExtraArgs(t *testing.T) {
 
 func testServerCommandHTTPServerSetup(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := allocateTestPortServer(t)
+	testPort := AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	cfg, err := config.LoadConfig(configFile)
@@ -720,7 +716,7 @@ func testServerCommandSignalHandlingSimulation(t *testing.T) {
 }
 
 func TestServerCommandCompleteness(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 	if serverCmd.Name() != CmdServer {
 		t.Errorf("Expected command name 'server', got '%s'", serverCmd.Name())
 	}
@@ -854,7 +850,7 @@ func captureStdoutServer(t *testing.T, fn func()) string {
 }
 
 func TestServerStartupFunctions(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock with real HTTP server operations
 	tests := []struct {
 		name     string
 		testFunc func(t *testing.T)
@@ -1042,7 +1038,7 @@ func testRunServerGatewayStart(t *testing.T) {
 
 func testRunServerHTTPSetup(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := allocateTestPortServer(t)
+	testPort := AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	cfg, err := config.LoadConfig(configFile)
@@ -1243,7 +1239,7 @@ func testRunServerDirectCall(t *testing.T) {
 
 func testRunServerWithActualConfigFile(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := allocateTestPortServer(t)
+	testPort := AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	configPath = configFile
@@ -1337,7 +1333,7 @@ func BenchmarkServerCommandConfigLoading(b *testing.B) {
 }
 
 func TestRunServerCoverageEnhancement(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock with real HTTP server lifecycle
 	tests := []struct {
 		name     string
 		testFunc func(t *testing.T)
@@ -1399,7 +1395,7 @@ servers:
 
 func testRunServerHTTPServerError(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := allocateTestPortServer(t)
+	testPort := AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	cfg, err := config.LoadConfig(configFile)
@@ -1573,7 +1569,7 @@ func testRunServerConfigPathEdgeCases(t *testing.T) {
 
 func testRunServerPortConflictHandling(t *testing.T) {
 	tempDir := t.TempDir()
-	basePort := allocateTestPortServer(t)
+	basePort := AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, basePort)
 
 	tests := []struct {
@@ -1661,7 +1657,7 @@ func testRunServerSignalInterruption(t *testing.T) {
 
 func testRunServerShutdownErrorHandling(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := allocateTestPortServer(t)
+	testPort := AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	cfg, err := config.LoadConfig(configFile)
@@ -1847,7 +1843,7 @@ func TestRunServerShutdownCoverage(t *testing.T) {
 	}()
 
 	configPath = "" // Use defaults
-	port = allocateTestPortServer(t)
+	port = AllocateTestPort(t)
 
 	testCmd := &cobra.Command{Use: CmdServer}
 
@@ -1870,7 +1866,7 @@ func TestRunServerShutdownCoverage(t *testing.T) {
 
 func TestServerShutdownErrorHandling(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := allocateTestPortServer(t)
+	testPort := AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	tests := []struct {
@@ -1945,7 +1941,7 @@ func TestServerShutdownErrorHandling(t *testing.T) {
 }
 
 func TestRunServerWithMockedComponents(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock with mocked components
 	tests := []struct {
 		name     string
 		testFunc func(t *testing.T)
@@ -1973,7 +1969,7 @@ func TestRunServerWithMockedComponents(t *testing.T) {
 
 func testRunServerCompleteLifecycle(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := allocateTestPortServer(t)
+	testPort := AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	configPath = configFile
@@ -2063,7 +2059,7 @@ func testRunServerWithInvalidConfigPath(t *testing.T) {
 
 func testRunServerPortBindingConflicts(t *testing.T) {
 	tempDir := t.TempDir()
-	basePort := allocateTestPortServer(t)
+	basePort := AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, basePort)
 
 	tests := []struct {
@@ -2165,7 +2161,7 @@ servers:
 
 func testRunServerHTTPServerConfiguration(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := allocateTestPortServer(t)
+	testPort := AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	cfg, err := config.LoadConfig(configFile)
@@ -2254,7 +2250,7 @@ func testRunServerSignalHandlingLogic(t *testing.T) {
 
 func testRunServerShutdownSequence(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := allocateTestPortServer(t)
+	testPort := AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	cfg, err := config.LoadConfig(configFile)
@@ -2479,7 +2475,7 @@ func testRunServerTimeoutScenarios(t *testing.T) {
 }
 
 func TestRunServerExecutionPaths(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock with real HTTP server execution
 
 	originalConfigPath := configPath
 	originalPort := port
@@ -2531,7 +2527,7 @@ func TestRunServerExecutionPaths(t *testing.T) {
 			name: "PortOverrideExecution",
 			setupConfig: func(t *testing.T) string {
 				tempDir := t.TempDir()
-				testPort := allocateTestPortServer(t)
+				testPort := AllocateTestPort(t)
 				return createValidConfigFileWithPort(t, tempDir, testPort)
 			},
 			setupPort:     0, // Will be set dynamically
@@ -2546,7 +2542,7 @@ func TestRunServerExecutionPaths(t *testing.T) {
 			testPort := tt.setupPort
 
 			if tt.name == "PortOverrideExecution" {
-				testPort = allocateTestPortServer(t) + 50 // Different from config
+				testPort = AllocateTestPort(t) + 50 // Different from config
 			}
 
 			configPath = configFile
@@ -2687,7 +2683,7 @@ func testConcurrentServerStartup(t *testing.T) {
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			localConfigPath := configFile
-			localPort := allocateTestPortServer(t)
+			localPort := AllocateTestPort(t)
 
 			cfg, err := config.LoadConfig(localConfigPath)
 			if err != nil {
@@ -2789,7 +2785,7 @@ func testHTTPServerConcurrency(t *testing.T) {
 	ports := make([]int, numServers)
 
 	for i := 0; i < numServers; i++ {
-		port := allocateTestPortServer(t)
+		port := AllocateTestPort(t)
 		ports[i] = port
 
 		servers[i] = &http.Server{

@@ -3,8 +3,6 @@ package setup
 import (
 	"fmt"
 	"lsp-gateway/internal/platform"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 )
@@ -259,39 +257,11 @@ func NewCommandError(code platform.ErrorCode, command string, args []string, exi
 	}
 }
 
-func NewCommandNotFoundError(command string) *CommandError {
-	return &CommandError{
-		Code:     ErrCodeCommandNotFound,
-		Command:  command,
-		ExitCode: -1,
-	}
-}
-
 type InstallationError struct {
 	Code      platform.ErrorCode
 	Component string
 	Message   string
 	Cause     error
-}
-
-func (e *InstallationError) Error() string {
-	if e.Cause != nil {
-		return fmt.Sprintf("installation of %s failed: %s (caused by: %v)",
-			e.Component, e.Message, e.Cause)
-	}
-	return fmt.Sprintf("installation of %s failed: %s", e.Component, e.Message)
-}
-
-func (e *InstallationError) Unwrap() error {
-	return e.Cause
-}
-
-func NewInstallationError(code platform.ErrorCode, component, message string) *InstallationError {
-	return &InstallationError{
-		Code:      code,
-		Component: component,
-		Message:   message,
-	}
 }
 
 type ValidationError struct {
@@ -301,41 +271,6 @@ type ValidationError struct {
 	Actual    string
 	Message   string
 	Cause     error
-}
-
-func (e *ValidationError) Error() string {
-	if e.Cause != nil {
-		return fmt.Sprintf("validation of %s failed: %s (expected: %s, actual: %s, caused by: %v)",
-			e.Component, e.Message, e.Expected, e.Actual, e.Cause)
-	}
-	return fmt.Sprintf("validation of %s failed: %s (expected: %s, actual: %s)",
-		e.Component, e.Message, e.Expected, e.Actual)
-}
-
-func (e *ValidationError) Unwrap() error {
-	return e.Cause
-}
-
-func NewValidationError(code platform.ErrorCode, component, expected, message string) *ValidationError {
-	return &ValidationError{
-		Code:      code,
-		Component: component,
-		Expected:  expected,
-		Message:   message,
-	}
-}
-
-func ValidateWritePermissions(path string) error {
-	tempFile := filepath.Join(path, ".temp_permission_test")
-	file, err := os.Create(tempFile)
-	if err != nil {
-		return NewValidationError(platform.ErrCodeInsufficientPermissions, "write_permissions", "writable", fmt.Sprintf("No write permission to %s", path))
-	}
-	if err := file.Close(); err != nil {
-	}
-	if err := os.Remove(tempFile); err != nil {
-	}
-	return nil
 }
 
 func NewRuntimeNotFoundError(runtime string) *SetupError {
@@ -418,17 +353,4 @@ func IsRetryableError(err error) bool {
 		}
 	}
 	return IsTemporaryError(err)
-}
-
-func formatBytes(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }

@@ -259,16 +259,6 @@ func (l *StructuredLogger) ErrorWithStack(message string, err error) {
 	l.writeEntry(entry)
 }
 
-func (l *StructuredLogger) Fatal(message string) {
-	l.log(LogLevelFatal, message, nil)
-	os.Exit(1)
-}
-
-func (l *StructuredLogger) Fatalf(format string, args ...interface{}) {
-	l.log(LogLevelFatal, fmt.Sprintf(format, args...), nil)
-	os.Exit(1)
-}
-
 func (l *StructuredLogger) LogRequest(method, requestID string, params interface{}, startTime time.Time) {
 	duration := time.Since(startTime)
 
@@ -437,7 +427,7 @@ func (l *StructuredLogger) formatEntryHuman(entry *LogEntry) string {
 	parts = append(parts, entry.Component)
 
 	if entry.Operation != "" {
-		parts = append(parts, "(" + entry.Operation + ")")
+		parts = append(parts, "("+entry.Operation+")")
 	}
 
 	if entry.RequestID != "" {
@@ -447,7 +437,7 @@ func (l *StructuredLogger) formatEntryHuman(entry *LogEntry) string {
 	parts = append(parts, entry.Message)
 
 	if entry.Duration != "" {
-		parts = append(parts, "(" + entry.Duration + ")")
+		parts = append(parts, "("+entry.Duration+")")
 	}
 
 	if entry.Error != "" {
@@ -507,8 +497,16 @@ func (l *StructuredLogger) gatherRuntimeMetrics() *LogMetrics {
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
+	// Prevent integer overflow when converting uint64 to int64
+	var memoryUsage int64
+	if memStats.Alloc > 9223372036854775807 { // max int64 value
+		memoryUsage = 9223372036854775807 // clamp to max int64
+	} else {
+		memoryUsage = int64(memStats.Alloc)
+	}
+
 	return &LogMetrics{
-		MemoryUsage:    int64(memStats.Alloc),
+		MemoryUsage:    memoryUsage,
 		GoroutineCount: runtime.NumGoroutine(),
 	}
 }

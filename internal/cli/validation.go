@@ -433,22 +433,6 @@ func ValidateTimeout(timeout time.Duration, fieldName string) *ValidationError {
 	return nil
 }
 
-func ValidatePositiveInt(value int, fieldName string) *ValidationError {
-	if value < 0 {
-		return &ValidationError{
-			Field:   fieldName,
-			Value:   value,
-			Message: "value cannot be negative",
-			Suggestions: []string{
-				"Use a positive number",
-				"Use 0 if zero is acceptable",
-				"Check the parameter documentation for valid ranges",
-			},
-		}
-	}
-	return nil
-}
-
 func ValidateIntRange(value, min, max int, fieldName string) *ValidationError {
 	if value < min || value > max {
 		return &ValidationError{

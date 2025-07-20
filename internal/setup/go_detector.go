@@ -35,15 +35,6 @@ func NewGoDetector() *GoDetector {
 	}
 }
 
-func NewGoDetectorWithConfig(executor platform.CommandExecutor, logger *SetupLogger, timeout time.Duration) *GoDetector {
-	return &GoDetector{
-		executor:       executor,
-		logger:         logger,
-		versionChecker: NewVersionChecker(),
-		timeout:        timeout,
-	}
-}
-
 func (gd *GoDetector) DetectGo() (*RuntimeInfo, error) {
 	return gd.DetectGoWithContext(context.Background())
 }
@@ -367,10 +358,6 @@ func (gd *GoDetector) GetGoRecommendations() []string {
 
 func (gd *GoDetector) SetTimeout(timeout time.Duration) {
 	gd.timeout = timeout
-}
-
-func (gd *GoDetector) SetLogger(logger *SetupLogger) {
-	gd.logger = logger
 }
 
 func (gd *GoDetector) GetMinimumVersion() string {

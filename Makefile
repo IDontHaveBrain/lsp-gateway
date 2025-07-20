@@ -42,7 +42,9 @@ help:
 	@echo "  macos-arm64  - Build for macOS (arm64)"
 	@echo "  local        - Build for current platform"
 	@echo "  clean        - Clean build artifacts"
-	@echo "  test         - Run tests"
+	@echo "  test         - Run all tests"
+	@echo "  test-unit    - Run fast unit tests (<60s, excludes integration/performance)"
+	@echo "  test-integration - Run integration and performance tests"
 	@echo "  test-cover   - Run tests with coverage"
 	@echo "  deps         - Download dependencies"
 	@echo "  tidy         - Tidy go modules"
@@ -125,6 +127,26 @@ clean:
 test:
 	@echo "Running tests..."
 	$(GOTEST) -v ./...
+
+.PHONY: test-unit
+test-unit:
+	@echo "Running fast unit tests (core functionality only)..."
+	$(GOTEST) -v -short -timeout=30s ./internal/config -run "^Test(Default|Load|Validate|Server)"
+	$(GOTEST) -v -short -timeout=30s ./internal/cli -run "^Test(Root|Config|Version|Help|Status|Completion)"
+	$(GOTEST) -v -short -timeout=30s ./internal/setup -run "^Test(Config|Detector|Error)" 
+	@echo "Running basic component tests..."
+	$(GOTEST) -v -short -timeout=30s ./internal/gateway -run "^Test(Router|Handler|Extract)$$"
+	$(GOTEST) -v -short -timeout=30s ./internal/platform -run "^Test(Platform|Executor|Package)$$" 
+	$(GOTEST) -v -short -timeout=30s ./internal/transport -run "^Test(STDIO|TCP)$$" 
+	$(GOTEST) -v -short -timeout=30s ./mcp -run "^Test(Client|Server|Protocol)$$"
+
+.PHONY: test-integration
+test-integration:
+	@echo "Running integration and performance tests..."
+	$(GOTEST) -v -timeout=300s ./internal/platform -run "GCBehavior|AllocationRate|GCPause|MemoryAllocation|Comprehensive|Coverage|Extended|Final|GCEfficiency|ResourcePool"
+	$(GOTEST) -v -timeout=300s ./internal/transport -run "LongRunning|MemoryGrowth|MemoryLeak|Performance|Integration|NetworkTimeout|FileHandle|CircuitBreaker"
+	$(GOTEST) -v -timeout=300s ./mcp -run "Performance|Throughput|Integration|NetworkTimeout"
+	$(GOTEST) -v -timeout=300s ./internal/gateway -run "Integration|E2E|Performance|Memory|Connection|Network|Retry"
 
 .PHONY: test-cover
 test-cover:

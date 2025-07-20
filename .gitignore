@@ -63,3 +63,24 @@ temp/
 
 # Dependency directories
 vendor/
+node_modules/
+
+# Analysis and report files
+*_results*.txt
+*_results*.json
+*_results*.sarif
+*_report*.txt
+*_report*.json
+*_report*.sarif
+security_*.txt
+security_*.json
+security_*.sarif
+lint_*.txt
+errcheck_*.txt
+staticcheck_*.txt
+
+# Binary executables (project-specific)
+lsp-gateway
+
+# Cache directories
+.serena/

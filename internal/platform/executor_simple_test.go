@@ -32,11 +32,11 @@ func TestCommandExecutionErrorsSimple(t *testing.T) {
 			cmd = "sleep"
 			args = []string{"10"}
 		}
-		
+
 		start := time.Now()
 		_, err := executor.Execute(cmd, args, 100*time.Millisecond)
 		duration := time.Since(start)
-		
+
 		if err == nil {
 			t.Error("Expected timeout error")
 		}
@@ -56,7 +56,7 @@ func TestCommandExecutionErrorsSimple(t *testing.T) {
 			cmd = "sh"
 			args = []string{"-c", "exit 1"}
 		}
-		
+
 		result, err := executor.Execute(cmd, args, 5*time.Second)
 		// Either error is returned or exit code is captured in result
 		if err == nil {
@@ -81,7 +81,7 @@ func TestUtilityFunctionsSimple(t *testing.T) {
 		if !isCommandAvailable("echo") {
 			t.Error("echo should be available")
 		}
-		
+
 		// Test with non-existent command
 		if isCommandAvailable("definitely-not-a-real-command-xyz") {
 			t.Error("Fake command should not be available")
@@ -93,7 +93,7 @@ func TestUtilityFunctionsSimple(t *testing.T) {
 		if !IsCommandAvailable("echo") {
 			t.Error("echo should be available via global function")
 		}
-		
+
 		if IsCommandAvailable("fake-command-12345") {
 			t.Error("Fake command should not be available via global function")
 		}
@@ -110,14 +110,14 @@ func TestUtilityFunctionsSimple(t *testing.T) {
 				t.Errorf("Expected exit code 42, got: %d", exitCode)
 			}
 		}
-		
+
 		// Test with non-exit error
 		normalErr := fmt.Errorf("normal error")
 		exitCode := GetExitCodeFromError(normalErr)
 		if exitCode != -1 {
 			t.Errorf("Expected exit code -1 for non-exit error, got: %d", exitCode)
 		}
-		
+
 		// Test with nil error
 		exitCode = GetExitCodeFromError(nil)
 		if exitCode != 0 {
@@ -132,9 +132,9 @@ func TestUtilityFunctionsSimple(t *testing.T) {
 		if err != nil && path == "" {
 			t.Error("echo should have a path or no error")
 		}
-		
+
 		// Test with non-existent command
-		path, err = GetCommandPath("non-existent-command-xyz")
+		_, err = GetCommandPath("non-existent-command-xyz")
 		if err == nil {
 			t.Error("Non-existent command should return error")
 		}
@@ -145,7 +145,7 @@ func TestUtilityFunctionsSimple(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		executor := NewCommandExecutor()
-		
+
 		result, err := ExecuteShellCommandWithContext(executor, ctx, "echo context_test")
 		if err != nil {
 			t.Errorf("ExecuteShellCommandWithContext failed: %v", err)
@@ -160,18 +160,18 @@ func TestUtilityFunctionsSimple(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 		executor := NewCommandExecutor()
-		
+
 		var command string
 		if IsWindows() {
 			command = "ping 127.0.0.1 -n 10"
 		} else {
 			command = "sleep 5"
 		}
-		
+
 		start := time.Now()
 		_, err := ExecuteShellCommandWithContext(executor, ctx, command)
 		duration := time.Since(start)
-		
+
 		if err == nil {
 			t.Error("Expected context timeout error")
 		}
@@ -192,7 +192,7 @@ func TestEnvironmentVariableHandlingSimple(t *testing.T) {
 			"VAR2": "value2",
 			"VAR3": "value with spaces",
 		}
-		
+
 		var cmd string
 		var args []string
 		if IsWindows() {
@@ -202,12 +202,12 @@ func TestEnvironmentVariableHandlingSimple(t *testing.T) {
 			cmd = "sh"
 			args = []string{"-c", "echo $VAR1-$VAR2-$VAR3"}
 		}
-		
+
 		result, err := executor.ExecuteWithEnv(cmd, args, env, 5*time.Second)
 		if err != nil {
 			t.Errorf("ExecuteWithEnv with multiple vars failed: %v", err)
 		}
-		
+
 		output := strings.TrimSpace(result.Stdout)
 		if !strings.Contains(output, "value1") {
 			t.Errorf("Output should contain VAR1 value, got: %s", output)
@@ -226,7 +226,7 @@ func TestEnvironmentVariableHandlingSimple(t *testing.T) {
 		env := map[string]string{
 			"PATH": "/custom/path",
 		}
-		
+
 		var cmd string
 		var args []string
 		if IsWindows() {
@@ -236,12 +236,12 @@ func TestEnvironmentVariableHandlingSimple(t *testing.T) {
 			cmd = "sh"
 			args = []string{"-c", "echo $PATH"}
 		}
-		
+
 		result, err := executor.ExecuteWithEnv(cmd, args, env, 5*time.Second)
 		if err != nil {
 			t.Errorf("ExecuteWithEnv with override failed: %v", err)
 		}
-		
+
 		if !strings.Contains(result.Stdout, "/custom/path") {
 			t.Errorf("Expected custom PATH in output, got: %s", result.Stdout)
 		}
@@ -250,7 +250,7 @@ func TestEnvironmentVariableHandlingSimple(t *testing.T) {
 	// Test empty environment
 	t.Run("Empty environment", func(t *testing.T) {
 		env := map[string]string{}
-		
+
 		result, err := executor.ExecuteWithEnv("echo", []string{"empty_env"}, env, 5*time.Second)
 		if err != nil {
 			t.Errorf("ExecuteWithEnv with empty env failed: %v", err)
@@ -269,14 +269,14 @@ func TestConcurrentCommandExecutionSimple(t *testing.T) {
 	// Test concurrent execution safety
 	t.Run("Concurrent execution safety", func(t *testing.T) {
 		results := make(chan error, numConcurrent)
-		
+
 		for i := 0; i < numConcurrent; i++ {
 			go func(id int) {
 				_, err := executor.Execute("echo", []string{fmt.Sprintf("concurrent_%d", id)}, 5*time.Second)
 				results <- err
 			}(i)
 		}
-		
+
 		// Wait for all goroutines to complete
 		for i := 0; i < numConcurrent; i++ {
 			err := <-results
@@ -296,16 +296,16 @@ func TestConcurrentCommandExecutionSimple(t *testing.T) {
 			{"echo", []string{"test2"}},
 			{"echo", []string{"test3"}},
 		}
-		
+
 		results := make(chan error, len(commands))
-		
+
 		for i, cmdArgs := range commands {
 			go func(cmd string, args []string, id int) {
 				_, err := executor.Execute(cmd, args, 5*time.Second)
 				results <- err
 			}(cmdArgs.cmd, cmdArgs.args, i)
 		}
-		
+
 		// Wait for all commands to complete
 		for i := 0; i < len(commands); i++ {
 			err := <-results
@@ -323,7 +323,7 @@ func TestShellDetectionAndArgsSimple(t *testing.T) {
 	// Test shell detection based on platform
 	t.Run("Shell detection", func(t *testing.T) {
 		shell := executor.GetShell()
-		
+
 		if IsWindows() {
 			expectedShells := []string{"cmd", "cmd.exe", "powershell", "powershell.exe", "pwsh", "pwsh.exe"}
 			found := false
@@ -355,17 +355,17 @@ func TestShellDetectionAndArgsSimple(t *testing.T) {
 	t.Run("Shell argument generation", func(t *testing.T) {
 		testCommand := "echo 'test command'"
 		args := executor.GetShellArgs(testCommand)
-		
+
 		if len(args) == 0 {
 			t.Error("Shell args should not be empty")
 		}
-		
+
 		// Verify command is included in args
 		argsStr := strings.Join(args, " ")
 		if !strings.Contains(argsStr, "echo") {
 			t.Errorf("Shell args should contain command, got: %v", args)
 		}
-		
+
 		if IsWindows() {
 			// Windows should use /c or similar
 			if !strings.Contains(argsStr, "/c") && !strings.Contains(argsStr, "-Command") {

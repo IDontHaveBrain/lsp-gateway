@@ -14,7 +14,7 @@ import (
 )
 
 func TestVersionCommand(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 	tests := []struct {
 		name     string
 		testFunc func(t *testing.T)
@@ -206,7 +206,7 @@ func testVersionCommandIntegration(t *testing.T) {
 }
 
 func TestVersionCommandEdgeCases(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 	tests := []struct {
 		name     string
 		testFunc func(t *testing.T)
@@ -285,7 +285,7 @@ func testVersionCommandOutputBuffering(t *testing.T) {
 }
 
 func TestVersionCommandCompleteness(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 	if versionCmd.Name() != CmdVersion {
 		t.Errorf("Expected command name 'version', got '%s'", versionCmd.Name())
 	}

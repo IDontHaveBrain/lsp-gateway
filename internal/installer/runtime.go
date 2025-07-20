@@ -55,11 +55,18 @@ func NewRuntimeInstaller() *DefaultRuntimeInstaller {
 		registry:   NewRuntimeRegistry(),
 	}
 
-	installer.strategies["windows"] = &WindowsRuntimeStrategy{strategy: NewWindowsStrategy()}
-	if linuxStrategy, err := NewLinuxStrategy(); err == nil {
+	// Add defensive nil checks for strategy creation
+	if windowsStrategy := NewWindowsStrategy(); windowsStrategy != nil {
+		installer.strategies["windows"] = &WindowsRuntimeStrategy{strategy: windowsStrategy}
+	}
+	
+	if linuxStrategy, err := NewLinuxStrategy(); err == nil && linuxStrategy != nil {
 		installer.strategies["linux"] = &LinuxRuntimeStrategy{strategy: linuxStrategy}
 	}
-	installer.strategies["darwin"] = &MacOSRuntimeStrategy{strategy: NewMacOSStrategy()}
+	
+	if macosStrategy := NewMacOSStrategy(); macosStrategy != nil {
+		installer.strategies["darwin"] = &MacOSRuntimeStrategy{strategy: macosStrategy}
+	}
 
 	return installer
 }
@@ -87,12 +94,14 @@ func (r *DefaultRuntimeInstaller) Verify(runtime string) (*types.VerificationRes
 	}
 
 	result := &types.VerificationResult{
-		Installed:  false,
-		Compatible: false,
-		Version:    "",
-		Path:       "",
-		Issues:     []types.Issue{},
-		Details:    make(map[string]interface{}),
+		Installed:       false,
+		Compatible:      false,
+		Version:         "",
+		Path:            "",
+		Issues:          []types.Issue{},
+		Details:         make(map[string]interface{}),
+		EnvironmentVars: make(map[string]string),
+		Metadata:        make(map[string]interface{}),
 	}
 	result.Details["verified_at"] = startTime
 	result.Details["runtime"] = runtime
@@ -122,7 +131,21 @@ func (r *DefaultRuntimeInstaller) GetPlatformStrategy(platform string) types.Run
 	if strategy, exists := r.strategies[platform]; exists {
 		return strategy
 	}
-	return r.strategies["linux"]
+	
+	// Safe fallback - check linux strategy exists before returning
+	if linuxStrategy, exists := r.strategies["linux"]; exists {
+		return linuxStrategy
+	}
+	
+	// Final fallback - try other available strategies
+	for _, strategy := range r.strategies {
+		if strategy != nil {
+			return strategy
+		}
+	}
+	
+	// Return nil if no strategies available - caller must handle this
+	return nil
 }
 
 func (r *DefaultRuntimeInstaller) GetSupportedRuntimes() []string {

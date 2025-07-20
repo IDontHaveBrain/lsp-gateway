@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 )
 
 type ErrorType int
@@ -193,26 +192,6 @@ func NewPermissionError(path string, operation string) *CLIError {
 	}
 }
 
-func NewInstallationError(component string, cause error) *CLIError {
-	return &CLIError{
-		Type:    ErrorTypeInstallation,
-		Message: fmt.Sprintf("Failed to install %s", component),
-		Cause:   cause,
-		Suggestions: []string{
-			"Check internet connectivity: ping google.com",
-			"Retry installation: lsp-gateway install --force",
-			"Run system diagnostics: lsp-gateway diagnose",
-			"Check available disk space: df -h",
-			"Update package managers (apt, brew, etc.)",
-		},
-		RelatedCmds: []string{
-			"install --force",
-			"diagnose",
-			"status",
-		},
-	}
-}
-
 func NewValidationError(item string, issues []string) *CLIError {
 	suggestions := []string{
 		"Fix the validation issues listed above",
@@ -318,42 +297,6 @@ func NewGatewayStartupError(cause error) *CLIError {
 	}
 }
 
-func NewRuntimeValidationError(runtime string, supportedRuntimes []string) *CLIError {
-	return &CLIError{
-		Type:    ErrorTypeValidation,
-		Message: fmt.Sprintf("Unsupported runtime: %s", runtime),
-		Suggestions: []string{
-			fmt.Sprintf("Supported runtimes: %s", strings.Join(supportedRuntimes, ", ")),
-			"Check spelling and try again",
-			"List available runtimes: lsp-gateway status runtimes",
-			"Install a supported runtime: lsp-gateway install runtime <name>",
-		},
-		RelatedCmds: []string{
-			"status runtimes",
-			"install runtime <name>",
-			"diagnose runtimes",
-		},
-	}
-}
-
-func NewServerValidationError(server string, supportedServers []string) *CLIError {
-	return &CLIError{
-		Type:    ErrorTypeValidation,
-		Message: fmt.Sprintf("Unsupported language server: %s", server),
-		Suggestions: []string{
-			fmt.Sprintf("Supported servers: %s", strings.Join(supportedServers, ", ")),
-			"Check spelling and try again",
-			"List available servers: lsp-gateway status servers",
-			"Install a supported server: lsp-gateway install server <name>",
-		},
-		RelatedCmds: []string{
-			"status servers",
-			"install server <name>",
-			"diagnose servers",
-		},
-	}
-}
-
 func NewInstallerNotAvailableError(component string) *CLIError {
 	return &CLIError{
 		Type:    ErrorTypeInstallation,
@@ -391,81 +334,6 @@ func NewFileOperationError(operation string, path string, cause error) *CLIError
 		RelatedCmds: []string{
 			"diagnose",
 			"status",
-		},
-	}
-}
-
-func NewTimeoutError(operation string, timeout time.Duration) *CLIError {
-	return &CLIError{
-		Type:    ErrorTypeGeneral,
-		Message: fmt.Sprintf("Operation timed out after %v: %s", timeout, operation),
-		Suggestions: []string{
-			"Increase timeout with --timeout flag",
-			"Check network connectivity",
-			"Run diagnostics: lsp-gateway diagnose",
-			"Try operation again later",
-		},
-		RelatedCmds: []string{
-			"diagnose",
-			"status",
-		},
-	}
-}
-
-func FormatCLIError(err error) error {
-	if cliErr, ok := err.(*CLIError); ok {
-		return cliErr
-	}
-
-	return &CLIError{
-		Type:    ErrorTypeGeneral,
-		Message: err.Error(),
-		Suggestions: []string{
-			"Run diagnostics for more information: lsp-gateway diagnose",
-			"Check system status: lsp-gateway status",
-			"Consult documentation or report issue if problem persists",
-		},
-		RelatedCmds: []string{
-			"diagnose",
-			"status",
-			"version",
-		},
-	}
-}
-
-func NewConfigParseError(configPath string, cause error) *CLIError {
-	return &CLIError{
-		Type:    ErrorTypeConfig,
-		Message: fmt.Sprintf("Configuration file contains syntax errors: %s", configPath),
-		Cause:   cause,
-		Suggestions: []string{
-			"Check YAML syntax in your config file",
-			"Generate a new config file: lsp-gateway config generate --overwrite",
-			"Validate the config structure online at yamllint.com",
-			"Compare with working config: lsp-gateway config show --json > backup.json",
-		},
-		RelatedCmds: []string{
-			"config generate",
-			"config validate",
-			"config show",
-		},
-	}
-}
-
-func NewConfigReadError(configPath string, cause error) *CLIError {
-	return &CLIError{
-		Type:    ErrorTypeConfig,
-		Message: fmt.Sprintf("Cannot read configuration file: %s", configPath),
-		Cause:   cause,
-		Suggestions: []string{
-			fmt.Sprintf("Check file permissions: ls -la %s", configPath),
-			fmt.Sprintf("Fix file permissions: chmod 644 %s", configPath),
-			"Ensure the file exists and is readable",
-			"Generate a new config file: lsp-gateway config generate",
-		},
-		RelatedCmds: []string{
-			"config generate",
-			"diagnose",
 		},
 	}
 }
@@ -554,43 +422,6 @@ func NewMCPServerError(message string, cause error) *CLIError {
 		RelatedCmds: []string{
 			"config validate",
 			"status servers",
-			"diagnose",
-		},
-	}
-}
-
-func NewMCPProtocolError(issue string, cause error) *CLIError {
-	return &CLIError{
-		Type:    ErrorTypeValidation,
-		Message: fmt.Sprintf("MCP protocol error: %s", issue),
-		Cause:   cause,
-		Suggestions: []string{
-			"Check MCP client compatibility",
-			"Verify message format and encoding",
-			"Try using stdio transport instead of TCP",
-			"Report this as a bug if using supported MCP client",
-		},
-		RelatedCmds: []string{
-			"mcp --transport stdio",
-			"diagnose",
-		},
-	}
-}
-
-func NewMCPTransportError(transport string, cause error) *CLIError {
-	return &CLIError{
-		Type:    ErrorTypeNetwork,
-		Message: fmt.Sprintf("MCP %s transport error", transport),
-		Cause:   cause,
-		Suggestions: []string{
-			"Try using stdio transport: lsp-gateway mcp --transport stdio",
-			"Check if port is available: lsof -i :9090",
-			"Verify network permissions and firewall settings",
-			"Use a different port: lsp-gateway mcp --transport tcp --port 9091",
-		},
-		RelatedCmds: []string{
-			"mcp --transport stdio",
-			"mcp --transport tcp --port <port>",
 			"diagnose",
 		},
 	}

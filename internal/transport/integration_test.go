@@ -12,20 +12,9 @@ import (
 	"sync"
 	"testing"
 	"time"
-)
 
-func allocateTestPort(t *testing.T) int {
-	listener, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatalf("Failed to allocate test port: %v", err)
-	}
-	defer func() {
-		if err := listener.Close(); err != nil {
-			t.Logf("Error closing test listener: %v", err)
-		}
-	}()
-	return listener.Addr().(*net.TCPAddr).Port
-}
+	"lsp-gateway/internal/testutil"
+)
 
 func TestClientCreation(t *testing.T) {
 	tests := []struct {
@@ -45,7 +34,7 @@ func TestClientCreation(t *testing.T) {
 		{
 			name: "TCP transport creation",
 			config: ClientConfig{
-				Command:   fmt.Sprintf("localhost:%d", allocateTestPort(t)),
+				Command:   fmt.Sprintf("localhost:%d", testutil.AllocateTestPort(t)),
 				Args:      []string{},
 				Transport: TransportTCP,
 			},
@@ -129,7 +118,7 @@ func TestStdioTransportIntegration(t *testing.T) {
 }
 
 func TestTcpTransportIntegration(t *testing.T) {
-	testPort := allocateTestPort(t)
+	testPort := testutil.AllocateTestPort(t)
 	config := ClientConfig{
 		Command:   fmt.Sprintf("localhost:%d", testPort),
 		Args:      []string{},
@@ -203,7 +192,7 @@ func TestTransportTypeVerification(t *testing.T) {
 	}
 
 	tcpConfig := ClientConfig{
-		Command:   fmt.Sprintf("localhost:%d", allocateTestPort(t)),
+		Command:   fmt.Sprintf("localhost:%d", testutil.AllocateTestPort(t)),
 		Transport: TransportTCP,
 	}
 
@@ -227,7 +216,7 @@ func TestClientInterfaceCompliance(t *testing.T) {
 			Transport: "stdio",
 		},
 		{
-			Command:   fmt.Sprintf("localhost:%d", allocateTestPort(t)),
+			Command:   fmt.Sprintf("localhost:%d", testutil.AllocateTestPort(t)),
 			Transport: TransportTCP,
 		},
 	}
@@ -269,7 +258,7 @@ func TestConfigurationVariants(t *testing.T) {
 		{
 			name: "TCP with full address",
 			config: ClientConfig{
-				Command:   fmt.Sprintf("example.com:%d", allocateTestPort(t)),
+				Command:   fmt.Sprintf("example.com:%d", testutil.AllocateTestPort(t)),
 				Transport: TransportTCP,
 			},
 			valid: true,
@@ -437,7 +426,7 @@ func testConnectionRefusedTcp(t *testing.T) {
 		t.Skip("Skipping TCP test in short mode")
 	}
 
-	testPort := allocateTestPort(t)
+	testPort := testutil.AllocateTestPort(t)
 	config := ClientConfig{
 		Command:   fmt.Sprintf("localhost:%d", testPort), // Unused port guaranteed by allocation
 		Transport: TransportTCP,

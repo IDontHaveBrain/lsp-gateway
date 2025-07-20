@@ -60,7 +60,7 @@ servers:
 }
 
 func TestConfigCommand(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 	tests := []struct {
 		name     string
 		testFunc func(t *testing.T)
@@ -1169,7 +1169,7 @@ func testConfigShowCommandErrorScenarios(t *testing.T) {
 }
 
 func TestConfigHelperFunctions(t *testing.T) {
-	t.Parallel()
+	// Removed t.Parallel() to prevent deadlock
 
 	t.Run("WriteConfigurationFile", testWriteConfigurationFile)
 	t.Run("OutputValidationJSON", testOutputValidationJSON)
