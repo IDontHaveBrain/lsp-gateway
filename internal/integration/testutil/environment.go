@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sync"
@@ -20,6 +21,7 @@ type TestEnvironment struct {
 	t           *testing.T
 	tempDir     string
 	gateway     *gateway.Gateway
+	httpServer  *http.Server
 	mockServers map[string]*MockLSPServer
 	httpPort    int
 	tcpPorts    map[string]int
@@ -113,15 +115,38 @@ func SetupTestEnvironment(t *testing.T, config *TestEnvironmentConfig) *TestEnvi
 	}
 	env.gateway = gw
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Reduce from 30s to 10s
 	defer cancel()
 
 	if err := gw.Start(ctx); err != nil {
 		t.Fatalf("Failed to start gateway: %v", err)
 	}
 
-	// Add cleanup for gateway shutdown
+	// Start HTTP server
+	mux := http.NewServeMux()
+	mux.HandleFunc("/jsonrpc", gw.HandleJSONRPC)
+	env.httpServer = &http.Server{
+		Addr:         fmt.Sprintf(":%d", env.httpPort),
+		Handler:      mux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
+	}
+
+	go func() {
+		if err := env.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			t.Logf("HTTP server error: %v", err)
+		}
+	}()
+
+	// Add cleanup for gateway and HTTP server shutdown
 	env.addCleanup(func() {
+		if env.httpServer != nil {
+			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer shutdownCancel()
+			if err := env.httpServer.Shutdown(shutdownCtx); err != nil {
+				t.Logf("Error shutting down HTTP server: %v", err)
+			}
+		}
 		if err := gw.Stop(); err != nil {
 			t.Logf("Error stopping gateway: %v", err)
 		}
@@ -136,7 +161,7 @@ func (env *TestEnvironment) setupMockServers(languages []string) {
 		mockServer := NewMockLSPServer(env.t, &MockLSPServerConfig{
 			Language:        lang,
 			Transport:       "stdio",
-			ResponseLatency: 10 * time.Millisecond,
+			ResponseLatency: 1 * time.Millisecond, // Reduce from 10ms to 1ms
 			ErrorRate:       0.0,
 		})
 
@@ -153,11 +178,26 @@ func (env *TestEnvironment) createGatewayConfig(testConfig *TestEnvironmentConfi
 		return testConfig.CustomConfig
 	}
 
-	// Create a simple config without the mock servers for now
-	// This is a temporary workaround for the compilation issue
+	// Create config with mock servers
+	var serverConfigs []config.ServerConfig
+	
+	if testConfig.EnableMockServers {
+		// Add mock server configurations
+		for lang, mockServer := range env.mockServers {
+			serverConfig := config.ServerConfig{
+				Name:      fmt.Sprintf("mock-%s-lsp", lang),
+				Languages: []string{lang},
+				Command:   mockServer.BinaryPath(),
+				Args:      []string{},
+				Transport: "stdio",
+			}
+			serverConfigs = append(serverConfigs, serverConfig)
+		}
+	}
+
 	return &config.GatewayConfig{
 		Port:    env.httpPort,
-		Servers: []config.ServerConfig{},
+		Servers: serverConfigs,
 	}
 }
 

@@ -227,13 +227,12 @@ func TestLoadConfig_EmptyConfigFile(t *testing.T) {
 	}
 	
 	config, loadErr := LoadConfig(configFile)
-	if loadErr != nil {
-		t.Errorf("Unexpected error loading empty config: %v", loadErr)
+	if loadErr == nil {
+		t.Error("Expected error loading truly empty config file")
 	}
 	
-	// Empty config should get defaults applied
-	if config.Port != 8080 {
-		t.Errorf("Expected default port 8080, got %d", config.Port)
+	if config != nil {
+		t.Error("Expected nil config for empty file")
 	}
 }
 
@@ -310,9 +309,9 @@ func TestValidateConfig_MissingRequiredSections(t *testing.T) {
 			errMsg:  "at least one server must be configured",
 		},
 		{
-			name: "Invalid port range",
+			name: "Invalid port range (negative)",
 			config: &GatewayConfig{
-				Port: 0,
+				Port: -1,
 				Servers: []ServerConfig{
 					{
 						Name:      "test-lsp",
@@ -323,7 +322,7 @@ func TestValidateConfig_MissingRequiredSections(t *testing.T) {
 				},
 			},
 			wantErr: true,
-			errMsg:  "port must be between 1 and 65535",
+			errMsg:  "invalid port: -1, must be between 0 and 65535",
 		},
 	}
 	

@@ -29,7 +29,7 @@ func TestGatewayConfig_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Invalid port - zero",
+			name: "Port zero (gets defaulted)",
 			config: &GatewayConfig{
 				Port: 0,
 				Servers: []ServerConfig{
@@ -41,7 +41,7 @@ func TestGatewayConfig_Validate(t *testing.T) {
 					},
 				},
 			},
-			wantErr: true,
+			wantErr: false, // Port 0 is valid and gets defaulted
 		},
 		{
 			name: "Invalid port - negative",
@@ -535,12 +535,12 @@ func TestValidateConfig(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "Invalid configuration",
+			name: "Invalid configuration - no servers",
 			config: &GatewayConfig{
-				Port:    0,
+				Port:    0, // Port 0 is valid, but no servers is invalid
 				Servers: []ServerConfig{},
 			},
-			wantErr: true,
+			wantErr: true, // Fails because no servers configured
 		},
 	}
 

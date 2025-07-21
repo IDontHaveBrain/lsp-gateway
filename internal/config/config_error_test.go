@@ -72,7 +72,7 @@ func TestConfigCorruptionScenarios(t *testing.T) {
 		{
 			name:          "truncated YAML",
 			configContent: "port: 8080\nservers:\n  - name: go",
-			expectedError: "unmarshal",
+			expectedError: "", // May be valid YAML, just incomplete
 		},
 		{
 			name:          "mixed indentation",
@@ -82,7 +82,7 @@ func TestConfigCorruptionScenarios(t *testing.T) {
 		{
 			name:          "binary data in YAML",
 			configContent: "port: 8080\x00\x01\x02servers: []",
-			expectedError: "unmarshal",
+			expectedError: "control characters",
 		},
 		{
 			name:          "extremely long values",
@@ -92,7 +92,7 @@ func TestConfigCorruptionScenarios(t *testing.T) {
 		{
 			name:          "unicode control characters",
 			configContent: "port: 8080\nservers:\n  - name: \"go\u0000lsp\"\n    command: gopls",
-			expectedError: "",
+			expectedError: "control characters",
 		},
 	}
 

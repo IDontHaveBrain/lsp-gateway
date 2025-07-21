@@ -186,6 +186,17 @@ test-lsp-validation-ci:
 	@echo "Running CI-friendly LSP validation test suite..."
 	./scripts/run-lsp-validation-tests.sh ci
 
+# Coverage targets for CI/CD
+.PHONY: test-coverage-threshold
+test-coverage-threshold:
+	@echo "Running coverage check with threshold..."
+	./scripts/coverage-simple.sh
+
+.PHONY: coverage-ci
+coverage-ci:
+	@echo "Generating CI coverage reports..."
+	./scripts/coverage-simple.sh
+
 # Dependency management
 .PHONY: deps
 deps:

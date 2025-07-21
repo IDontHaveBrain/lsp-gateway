@@ -52,13 +52,13 @@ func TestTempDirectoryPermissions(t *testing.T) {
 		// Create a custom temp directory with restricted permissions
 		baseDir := t.TempDir()
 		restrictedTemp := filepath.Join(baseDir, "restricted_temp")
-		
+
 		// Create directory without write permissions
 		err := os.MkdirAll(restrictedTemp, 0555) // read+execute only
 		if err != nil {
 			t.Fatalf("Failed to create restricted temp directory: %v", err)
 		}
-		
+
 		// Ensure cleanup can access directory
 		t.Cleanup(func() {
 			_ = os.Chmod(restrictedTemp, 0755)
@@ -80,25 +80,25 @@ func TestTempDirectoryPermissions(t *testing.T) {
 
 		baseDir := t.TempDir()
 		noExecTemp := filepath.Join(baseDir, "no_exec_temp")
-		
+
 		// Create directory and file first
 		err := os.MkdirAll(noExecTemp, 0755)
 		if err != nil {
 			t.Fatalf("Failed to create temp directory: %v", err)
 		}
-		
+
 		tempFile := filepath.Join(noExecTemp, "existing.tmp")
 		err = os.WriteFile(tempFile, []byte("existing content"), 0644)
 		if err != nil {
 			t.Fatalf("Failed to create temp file: %v", err)
 		}
-		
+
 		// Remove execute permission from directory
 		err = os.Chmod(noExecTemp, 0600) // read+write only, no execute
 		if err != nil {
 			t.Fatalf("Failed to change directory permissions: %v", err)
 		}
-		
+
 		// Ensure cleanup can access directory
 		t.Cleanup(func() {
 			_ = os.Chmod(noExecTemp, 0755)
@@ -121,7 +121,7 @@ func TestTempFileCreationPermissions(t *testing.T) {
 
 	t.Run("create_temp_file_with_secure_permissions", func(t *testing.T) {
 		tempDir := t.TempDir()
-		
+
 		// Create temporary file with secure permissions (600)
 		tempFile := filepath.Join(tempDir, "secure_temp.tmp")
 		err := os.WriteFile(tempFile, []byte("secure temp content"), 0600)
@@ -146,7 +146,7 @@ func TestTempFileCreationPermissions(t *testing.T) {
 
 	t.Run("temp_file_permission_inheritance", func(t *testing.T) {
 		tempDir := t.TempDir()
-		
+
 		// Create temp file and check if it inherits umask
 		tempFile := filepath.Join(tempDir, "inherit_temp.tmp")
 		file, err := os.OpenFile(tempFile, os.O_CREATE|os.O_WRONLY, 0666)
@@ -163,7 +163,7 @@ func TestTempFileCreationPermissions(t *testing.T) {
 
 		mode := info.Mode()
 		t.Logf("Temp file permissions: %o", mode)
-		
+
 		// Permissions should be reasonable (not world-writable for security)
 		if runtime.GOOS != "windows" && mode&0002 != 0 {
 			t.Error("Temp file should not be world-writable for security")
@@ -172,7 +172,7 @@ func TestTempFileCreationPermissions(t *testing.T) {
 
 	t.Run("temp_file_creation_race_condition", func(t *testing.T) {
 		tempDir := t.TempDir()
-		
+
 		var wg sync.WaitGroup
 		var mu sync.Mutex
 		createdFiles := make([]string, 0, 10)
@@ -183,9 +183,9 @@ func TestTempFileCreationPermissions(t *testing.T) {
 			wg.Add(1)
 			go func(id int) {
 				defer wg.Done()
-				
+
 				tempFile := filepath.Join(tempDir, fmt.Sprintf("race_temp_%d_%d.tmp", id, time.Now().UnixNano()))
-				
+
 				// Create with exclusive access
 				file, err := os.OpenFile(tempFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 				if err != nil {
@@ -194,17 +194,17 @@ func TestTempFileCreationPermissions(t *testing.T) {
 					mu.Unlock()
 					return
 				}
-				
+
 				_, writeErr := file.WriteString(fmt.Sprintf("Content from goroutine %d", id))
 				file.Close()
-				
+
 				if writeErr != nil {
 					mu.Lock()
 					errors = append(errors, fmt.Errorf("goroutine %d write: %w", id, writeErr))
 					mu.Unlock()
 					return
 				}
-				
+
 				mu.Lock()
 				createdFiles = append(createdFiles, tempFile)
 				mu.Unlock()
@@ -214,7 +214,7 @@ func TestTempFileCreationPermissions(t *testing.T) {
 		wg.Wait()
 
 		t.Logf("Created %d temp files, %d errors", len(createdFiles), len(errors))
-		
+
 		if len(errors) > 0 {
 			for i, err := range errors {
 				if i < 3 { // Log first few errors
@@ -238,24 +238,24 @@ func TestTempFileCleanupPermissions(t *testing.T) {
 
 	t.Run("cleanup_readonly_temp_files", func(t *testing.T) {
 		tempDir := t.TempDir()
-		
+
 		// Create several temp files with different permissions
 		readOnlyFile := filepath.Join(tempDir, "readonly.tmp")
 		writableFile := filepath.Join(tempDir, "writable.tmp")
 		noPermFile := filepath.Join(tempDir, "noperm.tmp")
-		
+
 		// Create read-only temp file
 		err := os.WriteFile(readOnlyFile, []byte("readonly content"), 0444)
 		if err != nil {
 			t.Fatalf("Failed to create read-only temp file: %v", err)
 		}
-		
+
 		// Create writable temp file
 		err = os.WriteFile(writableFile, []byte("writable content"), 0644)
 		if err != nil {
 			t.Fatalf("Failed to create writable temp file: %v", err)
 		}
-		
+
 		// Create no-permission temp file
 		err = os.WriteFile(noPermFile, []byte("no permission content"), 0000)
 		if err != nil {
@@ -288,26 +288,26 @@ func TestTempFileCleanupPermissions(t *testing.T) {
 
 		baseDir := t.TempDir()
 		tempSubDir := filepath.Join(baseDir, "temp_subdir")
-		
+
 		// Create temp subdirectory
 		err := os.MkdirAll(tempSubDir, 0755)
 		if err != nil {
 			t.Fatalf("Failed to create temp subdirectory: %v", err)
 		}
-		
+
 		// Create files in subdirectory
 		tempFile := filepath.Join(tempSubDir, "file.tmp")
 		err = os.WriteFile(tempFile, []byte("temp content"), 0644)
 		if err != nil {
 			t.Fatalf("Failed to create temp file in subdirectory: %v", err)
 		}
-		
+
 		// Remove write permission from subdirectory
 		err = os.Chmod(tempSubDir, 0555) // read+execute only
 		if err != nil {
 			t.Fatalf("Failed to change subdirectory permissions: %v", err)
 		}
-		
+
 		// Ensure cleanup can access directory
 		t.Cleanup(func() {
 			_ = os.Chmod(tempSubDir, 0755)
@@ -338,25 +338,25 @@ func TestCrossplatformTempPermissions(t *testing.T) {
 			if err != nil {
 				t.Errorf("Failed to create temp file on Windows: %v", err)
 			}
-			
+
 		case "linux", "darwin":
 			// On Unix systems, test permission-based creation
 			err := os.WriteFile(testFile, []byte("unix temp"), 0600)
 			if err != nil {
 				t.Errorf("Failed to create temp file on Unix: %v", err)
 			}
-			
+
 			// Verify permissions
 			info, err := os.Stat(testFile)
 			if err != nil {
 				t.Fatalf("Failed to stat temp file: %v", err)
 			}
-			
+
 			mode := info.Mode()
 			if mode&0077 != 0 {
 				t.Errorf("Expected secure permissions (600), got %o", mode)
 			}
-			
+
 		default:
 			t.Logf("Unknown platform %s, testing basic temp file creation", runtime.GOOS)
 			err := os.WriteFile(testFile, []byte("unknown platform temp"), 0644)
@@ -368,33 +368,33 @@ func TestCrossplatformTempPermissions(t *testing.T) {
 
 	t.Run("temp_directory_detection_permissions", func(t *testing.T) {
 		tempDir := GetTempDirectory()
-		
+
 		// Verify temp directory is accessible
 		info, err := os.Stat(tempDir)
 		if err != nil {
 			t.Fatalf("Cannot access detected temp directory %s: %v", tempDir, err)
 		}
-		
+
 		if !info.IsDir() {
 			t.Errorf("Detected temp path %s is not a directory", tempDir)
 		}
-		
+
 		// Test creating and writing to temp directory
 		testFile := filepath.Join(tempDir, "detection_test_"+generateRandomString(8))
 		defer os.Remove(testFile)
-		
+
 		content := []byte("temp directory detection test")
 		err = os.WriteFile(testFile, content, 0644)
 		if err != nil {
 			t.Errorf("Cannot write to detected temp directory %s: %v", tempDir, err)
 		}
-		
+
 		// Verify we can read back
 		readContent, err := os.ReadFile(testFile)
 		if err != nil {
 			t.Errorf("Cannot read from temp file: %v", err)
 		}
-		
+
 		if string(readContent) != string(content) {
 			t.Error("Read content doesn't match written content")
 		}
@@ -413,7 +413,7 @@ func TestTempFileSecurityPermissions(t *testing.T) {
 		}
 
 		tempDir := t.TempDir()
-		
+
 		// Create temp file with explicit permissions
 		tempFile := filepath.Join(tempDir, "umask_test.tmp")
 		err := os.WriteFile(tempFile, []byte("umask test"), 0666)
@@ -429,7 +429,7 @@ func TestTempFileSecurityPermissions(t *testing.T) {
 
 		mode := info.Mode()
 		t.Logf("Temp file permissions with umask: %o", mode)
-		
+
 		// Should not be world-writable regardless of umask for security
 		if mode&0002 != 0 {
 			t.Error("Temp file should not be world-writable for security")
@@ -442,14 +442,14 @@ func TestTempFileSecurityPermissions(t *testing.T) {
 		}
 
 		tempDir := t.TempDir()
-		
+
 		// Create a target file that attacker might want to overwrite
 		targetFile := filepath.Join(tempDir, "important_file.txt")
 		err := os.WriteFile(targetFile, []byte("important content"), 0644)
 		if err != nil {
 			t.Fatalf("Failed to create target file: %v", err)
 		}
-		
+
 		// Create symbolic link with same name as intended temp file
 		tempFileName := filepath.Join(tempDir, "temp_file.tmp")
 		err = os.Symlink(targetFile, tempFileName)
@@ -463,13 +463,13 @@ func TestTempFileSecurityPermissions(t *testing.T) {
 			file.Close()
 			t.Error("Expected error when creating file over existing symlink")
 		}
-		
+
 		// Verify target file wasn't modified
 		content, err := os.ReadFile(targetFile)
 		if err != nil {
 			t.Fatalf("Failed to read target file: %v", err)
 		}
-		
+
 		if string(content) != "important content" {
 			t.Error("Target file was modified - potential symlink attack succeeded")
 		}
@@ -477,44 +477,44 @@ func TestTempFileSecurityPermissions(t *testing.T) {
 
 	t.Run("temp_file_race_condition_prevention", func(t *testing.T) {
 		tempDir := t.TempDir()
-		
+
 		// Generate unique temp file name
 		tempFileName := filepath.Join(tempDir, "race_test_"+generateRandomString(16)+".tmp")
-		
+
 		var wg sync.WaitGroup
 		var successCount int32
 		var mu sync.Mutex
-		
+
 		// Try to create the same temp file from multiple goroutines
 		for i := 0; i < 5; i++ {
 			wg.Add(1)
 			go func(id int) {
 				defer wg.Done()
-				
+
 				// Use O_EXCL to ensure exclusive creation
 				file, err := os.OpenFile(tempFileName, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 				if err == nil {
 					mu.Lock()
 					successCount++
 					mu.Unlock()
-					
+
 					_, writeErr := file.WriteString(fmt.Sprintf("Created by goroutine %d", id))
 					file.Close()
-					
+
 					if writeErr != nil {
 						t.Errorf("Write error in goroutine %d: %v", id, writeErr)
 					}
 				}
 			}(i)
 		}
-		
+
 		wg.Wait()
-		
+
 		// Only one goroutine should have succeeded
 		if successCount != 1 {
 			t.Errorf("Expected exactly 1 successful creation, got %d", successCount)
 		}
-		
+
 		// Clean up
 		_ = os.Remove(tempFileName)
 	})
@@ -533,7 +533,7 @@ func TestTempPermissionRecovery(t *testing.T) {
 
 		baseDir := t.TempDir()
 		tempSubDir := filepath.Join(baseDir, "recovery_temp")
-		
+
 		// Create temp directory
 		err := os.MkdirAll(tempSubDir, 0755)
 		if err != nil {
@@ -572,13 +572,13 @@ func TestTempPermissionRecovery(t *testing.T) {
 	t.Run("temp_file_permission_change_during_operation", func(t *testing.T) {
 		tempDir := t.TempDir()
 		tempFile := filepath.Join(tempDir, "permission_change.tmp")
-		
+
 		// Create temp file
 		file, err := os.OpenFile(tempFile, os.O_CREATE|os.O_RDWR, 0644)
 		if err != nil {
 			t.Fatalf("Failed to create temp file: %v", err)
 		}
-		
+
 		// Write initial content
 		_, err = file.WriteString("initial content\n")
 		if err != nil {
@@ -598,7 +598,7 @@ func TestTempPermissionRecovery(t *testing.T) {
 		} else {
 			t.Log("Write succeeded despite permission change (file already open)")
 		}
-		
+
 		file.Close()
 
 		// Try to reopen for writing (should fail)
@@ -624,19 +624,19 @@ func assertPermissionError(t *testing.T, err error, expectedSubstring string) {
 		t.Error("Expected permission error but got none")
 		return
 	}
-	
+
 	errMsg := strings.ToLower(err.Error())
 	expectedPatterns := []string{
 		"permission denied",
 		"access is denied",
-		"access denied", 
+		"access denied",
 		"not permitted",
 		"operation not permitted",
 		"read-only file system",
 		"file exists",
 		expectedSubstring,
 	}
-	
+
 	found := false
 	for _, pattern := range expectedPatterns {
 		if strings.Contains(errMsg, pattern) {
@@ -644,7 +644,7 @@ func assertPermissionError(t *testing.T, err error, expectedSubstring string) {
 			break
 		}
 	}
-	
+
 	if !found {
 		t.Errorf("Expected permission error containing one of %v, got: %v", expectedPatterns, err)
 	}
@@ -653,100 +653,16 @@ func assertPermissionError(t *testing.T, err error, expectedSubstring string) {
 func generateRandomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyz0123456789"
 	bytes := make([]byte, length)
-	
+
 	_, err := rand.Read(bytes)
 	if err != nil {
 		// Fallback to timestamp-based generation
 		return fmt.Sprintf("%d", time.Now().UnixNano())[:length]
 	}
-	
+
 	for i, b := range bytes {
 		bytes[i] = charset[b%byte(len(charset))]
 	}
-	
+
 	return string(bytes)
-}
-
-func createTempFileWithPermissions(t *testing.T, dir string, filename string, content []byte, perm os.FileMode) string {
-	t.Helper()
-	
-	tempFile := filepath.Join(dir, filename)
-	err := os.WriteFile(tempFile, content, perm)
-	if err != nil {
-		t.Fatalf("Failed to create temp file with permissions: %v", err)
-	}
-	
-	return tempFile
-}
-
-func verifyFilePermissions(t *testing.T, filePath string, expectedMode os.FileMode) {
-	t.Helper()
-	
-	info, err := os.Stat(filePath)
-	if err != nil {
-		t.Fatalf("Failed to stat file %s: %v", filePath, err)
-	}
-	
-	actualMode := info.Mode()
-	if runtime.GOOS != "windows" {
-		// On Unix systems, check permission bits
-		actualPerm := actualMode & os.ModePerm
-		expectedPerm := expectedMode & os.ModePerm
-		
-		if actualPerm != expectedPerm {
-			t.Errorf("File %s has permissions %o, expected %o", filePath, actualPerm, expectedPerm)
-		}
-	}
-}
-
-func simulateTempFileOperation(t *testing.T, tempDir string, operationName string, operation func(string) error) {
-	t.Helper()
-	
-	tempFile := filepath.Join(tempDir, fmt.Sprintf("%s_%s.tmp", operationName, generateRandomString(8)))
-	defer os.Remove(tempFile)
-	
-	err := operation(tempFile)
-	if err != nil {
-		t.Errorf("Temp file operation %s failed: %v", operationName, err)
-	}
-}
-
-func createSecureTempFile(t *testing.T, dir string, content []byte) string {
-	t.Helper()
-	
-	// Create with secure permissions (0600)
-	tempFile := filepath.Join(dir, "secure_"+generateRandomString(8)+".tmp")
-	
-	file, err := os.OpenFile(tempFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-	if err != nil {
-		t.Fatalf("Failed to create secure temp file: %v", err)
-	}
-	
-	_, err = file.Write(content)
-	if err != nil {
-		file.Close()
-		t.Fatalf("Failed to write to secure temp file: %v", err)
-	}
-	
-	file.Close()
-	return tempFile
-}
-
-func testTempFileCleanup(t *testing.T, tempFiles []string) {
-	t.Helper()
-	
-	var cleanupErrors []error
-	
-	for _, tempFile := range tempFiles {
-		if err := os.Remove(tempFile); err != nil && !os.IsNotExist(err) {
-			cleanupErrors = append(cleanupErrors, fmt.Errorf("failed to cleanup %s: %w", tempFile, err))
-		}
-	}
-	
-	if len(cleanupErrors) > 0 {
-		for _, err := range cleanupErrors {
-			t.Logf("Cleanup error: %v", err)
-		}
-		t.Errorf("Failed to cleanup %d temp files", len(cleanupErrors))
-	}
 }

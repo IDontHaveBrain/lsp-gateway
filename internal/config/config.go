@@ -2,6 +2,8 @@ package config
 
 import (
 	"fmt"
+	"strings"
+	"unicode/utf8"
 	"lsp-gateway/internal/transport"
 )
 
@@ -47,8 +49,8 @@ func DefaultConfig() *GatewayConfig {
 }
 
 func (c *GatewayConfig) Validate() error {
-	if c.Port <= 0 || c.Port > 65535 {
-		return fmt.Errorf("invalid port: %d, must be between 1 and 65535", c.Port)
+	if c.Port < 0 || c.Port > 65535 {
+		return fmt.Errorf("invalid port: %d, must be between 0 and 65535", c.Port)
 	}
 
 	if len(c.Servers) == 0 {
@@ -75,12 +77,32 @@ func (s *ServerConfig) Validate() error {
 		return fmt.Errorf("server name cannot be empty")
 	}
 
+	// Check for extremely long server names
+	if len(s.Name) > 500 {
+		return fmt.Errorf("server name too long: %d characters, maximum 500 allowed", len(s.Name))
+	}
+
 	if len(s.Languages) == 0 {
 		return fmt.Errorf("server must support at least one language")
 	}
 
+	// Validate individual language strings
+	for i, lang := range s.Languages {
+		if strings.TrimSpace(lang) == "" {
+			return fmt.Errorf("language at index %d cannot be empty or whitespace-only", i)
+		}
+	}
+
 	if s.Command == "" {
 		return fmt.Errorf("server command cannot be empty")
+	}
+
+	// Check for invalid characters in command
+	if !utf8.ValidString(s.Command) {
+		return fmt.Errorf("command contains invalid UTF-8 characters")
+	}
+	if strings.ContainsAny(s.Command, "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x0b\x0c\x0e\x0f") {
+		return fmt.Errorf("command contains invalid control characters")
 	}
 
 	if s.Transport == "" {
