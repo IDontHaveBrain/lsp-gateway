@@ -1,9 +1,7 @@
 package cli
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"path/filepath"
@@ -648,76 +646,3 @@ func assertPermissionError(t *testing.T, err error, expectedSubstring string) {
 	}
 }
 
-func createTestLogger(t *testing.T, logFile string) (*log.Logger, io.Closer) {
-	t.Helper()
-	
-	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err != nil {
-		t.Fatalf("Failed to create test logger: %v", err)
-	}
-	
-	logger := log.New(file, "[TEST] ", log.LstdFlags)
-	return logger, file
-}
-
-func simulateLogRotation(t *testing.T, currentLog, backupLog string) error {
-	t.Helper()
-	
-	// Check if current log exists
-	if _, err := os.Stat(currentLog); os.IsNotExist(err) {
-		return fmt.Errorf("current log file does not exist: %s", currentLog)
-	}
-	
-	// Remove existing backup if it exists
-	if _, err := os.Stat(backupLog); err == nil {
-		if err := os.Remove(backupLog); err != nil {
-			return fmt.Errorf("failed to remove existing backup: %w", err)
-		}
-	}
-	
-	// Rotate current to backup
-	return os.Rename(currentLog, backupLog)
-}
-
-func writeLogEntries(t *testing.T, logger *log.Logger, count int, prefix string) {
-	t.Helper()
-	
-	for i := 0; i < count; i++ {
-		logger.Printf("%s entry %d", prefix, i)
-	}
-}
-
-func verifyLogFileExists(t *testing.T, logFile string, shouldExist bool) {
-	t.Helper()
-	
-	_, err := os.Stat(logFile)
-	exists := err == nil
-	
-	if shouldExist && !exists {
-		t.Errorf("Expected log file %s to exist, but it doesn't", logFile)
-	} else if !shouldExist && exists {
-		t.Errorf("Expected log file %s to not exist, but it does", logFile)
-	}
-}
-
-func readLogFileLines(t *testing.T, logFile string) []string {
-	t.Helper()
-	
-	file, err := os.Open(logFile)
-	if err != nil {
-		t.Fatalf("Failed to open log file %s: %v", logFile, err)
-	}
-	defer file.Close()
-	
-	var lines []string
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		lines = append(lines, scanner.Text())
-	}
-	
-	if err := scanner.Err(); err != nil {
-		t.Fatalf("Error reading log file %s: %v", logFile, err)
-	}
-	
-	return lines
-}

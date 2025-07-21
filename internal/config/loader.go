@@ -21,6 +21,11 @@ func LoadConfig(configPath string) (*GatewayConfig, error) {
 		return nil, fmt.Errorf("failed to read configuration file %s: %w", configPath, err)
 	}
 
+	// Handle empty files
+	if len(data) == 0 {
+		return nil, fmt.Errorf("configuration file %s is empty", configPath)
+	}
+
 	var config GatewayConfig
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse configuration file %s: %w", configPath, err)

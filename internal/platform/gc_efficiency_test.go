@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 	"runtime"
-	"runtime/debug"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -24,7 +23,6 @@ type GCMetrics struct {
 	stopCh                chan struct{}
 	monitoringWG          sync.WaitGroup
 	sampleRate            time.Duration
-	lastGCStats           debug.GCStats
 	initialMemStats       runtime.MemStats
 	gcPressureThreshold   float64
 	allocationRateHistory []float64
@@ -32,27 +30,27 @@ type GCMetrics struct {
 
 // GCSample represents a single GC measurement
 type GCSample struct {
-	Timestamp         time.Time
-	HeapAlloc         uint64
-	HeapSys           uint64
-	HeapIdle          uint64
-	HeapInuse         uint64
-	HeapReleased      uint64
-	HeapObjects       uint64
-	StackInuse        uint64
-	NextGC            uint64
-	LastGC            uint64
-	PauseTotalNs      uint64
-	NumGC             uint32
-	NumForcedGC       uint32
-	GCCPUFraction     float64
-	TotalAlloc        uint64
-	Mallocs           uint64
-	Frees             uint64
-	AllocationRate    float64  // bytes per second
-	GCPressure        float64  // ratio of allocations to GC
-	GCEfficiency      float64  // ratio of freed memory to GC pause time
-	MemoryUtilization float64  // ratio of heap in use to heap sys
+	Timestamp          time.Time
+	HeapAlloc          uint64
+	HeapSys            uint64
+	HeapIdle           uint64
+	HeapInuse          uint64
+	HeapReleased       uint64
+	HeapObjects        uint64
+	StackInuse         uint64
+	NextGC             uint64
+	LastGC             uint64
+	PauseTotalNs       uint64
+	NumGC              uint32
+	NumForcedGC        uint32
+	GCCPUFraction      float64
+	TotalAlloc         uint64
+	Mallocs            uint64
+	Frees              uint64
+	AllocationRate     float64 // bytes per second
+	GCPressure         float64 // ratio of allocations to GC
+	GCEfficiency       float64 // ratio of freed memory to GC pause time
+	MemoryUtilization  float64 // ratio of heap in use to heap sys
 	FragmentationRatio float64 // ratio of heap idle to heap sys
 }
 
@@ -123,23 +121,23 @@ func (gm *GCMetrics) takeSample() {
 	duration := now.Sub(gm.startTime).Seconds()
 
 	sample := GCSample{
-		Timestamp:    now,
-		HeapAlloc:    memStats.HeapAlloc,
-		HeapSys:      memStats.HeapSys,
-		HeapIdle:     memStats.HeapIdle,
-		HeapInuse:    memStats.HeapInuse,
-		HeapReleased: memStats.HeapReleased,
-		HeapObjects:  memStats.HeapObjects,
-		StackInuse:   memStats.StackInuse,
-		NextGC:       memStats.NextGC,
-		LastGC:       memStats.LastGC,
-		PauseTotalNs: memStats.PauseTotalNs,
-		NumGC:        memStats.NumGC,
-		NumForcedGC:  memStats.NumForcedGC,
+		Timestamp:     now,
+		HeapAlloc:     memStats.HeapAlloc,
+		HeapSys:       memStats.HeapSys,
+		HeapIdle:      memStats.HeapIdle,
+		HeapInuse:     memStats.HeapInuse,
+		HeapReleased:  memStats.HeapReleased,
+		HeapObjects:   memStats.HeapObjects,
+		StackInuse:    memStats.StackInuse,
+		NextGC:        memStats.NextGC,
+		LastGC:        memStats.LastGC,
+		PauseTotalNs:  memStats.PauseTotalNs,
+		NumGC:         memStats.NumGC,
+		NumForcedGC:   memStats.NumForcedGC,
 		GCCPUFraction: memStats.GCCPUFraction,
-		TotalAlloc:   memStats.TotalAlloc,
-		Mallocs:      memStats.Mallocs,
-		Frees:        memStats.Frees,
+		TotalAlloc:    memStats.TotalAlloc,
+		Mallocs:       memStats.Mallocs,
+		Frees:         memStats.Frees,
 	}
 
 	// Calculate derived metrics
@@ -260,28 +258,28 @@ func (gm *GCMetrics) GetGCEfficiencyReport() map[string]interface{} {
 	performanceScore := gm.calculatePerformanceScore(avgGCPressure, avgGCEfficiency, avgMemUtilization, gcFrequency)
 
 	return map[string]interface{}{
-		"sample_count":            len(gm.samples),
-		"duration_seconds":        duration,
+		"sample_count":           len(gm.samples),
+		"duration_seconds":       duration,
 		"gc_runs":                gcRuns,
-		"gc_frequency_hz":         gcFrequency,
-		"avg_gc_pressure":         avgGCPressure,
-		"avg_gc_efficiency":       avgGCEfficiency,
-		"avg_memory_utilization":  avgMemUtilization,
-		"avg_fragmentation":       avgFragmentation,
-		"avg_allocation_rate":     avgAllocationRate,
-		"allocation_burstiness":   allocationBurstiness,
-		"memory_turnover":         memoryTurnover,
-		"total_gc_time_ms":        totalGCTime.Nanoseconds() / 1e6,
-		"avg_gc_pause_ms":         float64(totalGCTime.Nanoseconds()) / float64(gcRuns) / 1e6,
-		"gc_cpu_fraction":         last.GCCPUFraction,
-		"heap_growth":             int64(last.HeapAlloc) - int64(first.HeapAlloc),
-		"total_allocated":         last.TotalAlloc - first.TotalAlloc,
-		"objects_allocated":       last.Mallocs - first.Mallocs,
-		"objects_freed":           last.Frees - first.Frees,
-		"object_churn_rate":       float64((last.Mallocs-first.Mallocs)+(last.Frees-first.Frees)) / duration,
-		"performance_score":       performanceScore,
-		"high_gc_pressure":        avgGCPressure > gm.gcPressureThreshold,
-		"high_fragmentation":      avgFragmentation > 0.5,
+		"gc_frequency_hz":        gcFrequency,
+		"avg_gc_pressure":        avgGCPressure,
+		"avg_gc_efficiency":      avgGCEfficiency,
+		"avg_memory_utilization": avgMemUtilization,
+		"avg_fragmentation":      avgFragmentation,
+		"avg_allocation_rate":    avgAllocationRate,
+		"allocation_burstiness":  allocationBurstiness,
+		"memory_turnover":        memoryTurnover,
+		"total_gc_time_ms":       totalGCTime.Nanoseconds() / 1e6,
+		"avg_gc_pause_ms":        float64(totalGCTime.Nanoseconds()) / float64(gcRuns) / 1e6,
+		"gc_cpu_fraction":        last.GCCPUFraction,
+		"heap_growth":            int64(last.HeapAlloc) - int64(first.HeapAlloc),
+		"total_allocated":        last.TotalAlloc - first.TotalAlloc,
+		"objects_allocated":      last.Mallocs - first.Mallocs,
+		"objects_freed":          last.Frees - first.Frees,
+		"object_churn_rate":      float64((last.Mallocs-first.Mallocs)+(last.Frees-first.Frees)) / duration,
+		"performance_score":      performanceScore,
+		"high_gc_pressure":       avgGCPressure > gm.gcPressureThreshold,
+		"high_fragmentation":     avgFragmentation > 0.5,
 		"efficient_gc":           avgGCEfficiency > 1000, // objects per second
 	}
 }
@@ -329,7 +327,7 @@ func (gm *GCMetrics) GetGCPauseDistribution() map[string]interface{} {
 	for i := 1; i < len(gm.samples); i++ {
 		pauseDiff := gm.samples[i].PauseTotalNs - gm.samples[i-1].PauseTotalNs
 		gcDiff := gm.samples[i].NumGC - gm.samples[i-1].NumGC
-		
+
 		if gcDiff > 0 {
 			avgPause := float64(pauseDiff) / float64(gcDiff) / 1e6 // Convert to milliseconds
 			pauseTimes = append(pauseTimes, avgPause)
@@ -357,15 +355,15 @@ func (gm *GCMetrics) GetGCPauseDistribution() map[string]interface{} {
 	avg := sum / float64(len(pauseTimes))
 
 	return map[string]interface{}{
-		"pause_count":     len(pauseTimes),
-		"min_pause_ms":    min,
-		"max_pause_ms":    max,
-		"avg_pause_ms":    avg,
-		"p50_pause_ms":    p50,
-		"p95_pause_ms":    p95,
-		"p99_pause_ms":    p99,
-		"pause_variance":  calculateVariance(pauseTimes, avg),
-		"long_pauses":     countLongPauses(pauseTimes, 10.0), // Pauses > 10ms
+		"pause_count":    len(pauseTimes),
+		"min_pause_ms":   min,
+		"max_pause_ms":   max,
+		"avg_pause_ms":   avg,
+		"p50_pause_ms":   p50,
+		"p95_pause_ms":   p95,
+		"p99_pause_ms":   p99,
+		"pause_variance": calculateVariance(pauseTimes, avg),
+		"long_pauses":    countLongPauses(pauseTimes, 10.0), // Pauses > 10ms
 	}
 }
 
@@ -374,15 +372,15 @@ func percentile(data []float64, p float64) float64 {
 	if len(data) == 0 {
 		return 0
 	}
-	
+
 	index := p * float64(len(data)-1)
 	lower := int(index)
 	upper := lower + 1
-	
+
 	if upper >= len(data) {
 		return data[len(data)-1]
 	}
-	
+
 	weight := index - float64(lower)
 	return data[lower]*(1-weight) + data[upper]*weight
 }
@@ -392,13 +390,13 @@ func calculateVariance(data []float64, mean float64) float64 {
 	if len(data) <= 1 {
 		return 0
 	}
-	
+
 	var sum float64
 	for _, value := range data {
 		diff := value - mean
 		sum += diff * diff
 	}
-	
+
 	return sum / float64(len(data)-1)
 }
 
@@ -415,17 +413,17 @@ func countLongPauses(data []float64, threshold float64) int {
 
 // MemoryStressTest simulates various memory allocation patterns
 type MemoryStressTest struct {
-	allocations      [][]byte
-	allocationSizes  []int
-	allocationRate   time.Duration
-	retentionRatio   float64 // Percentage of allocations to keep
-	burstMode        bool
-	burstSize        int
-	burstInterval    time.Duration
-	mu               sync.Mutex
-	running          bool
-	stopCh           chan struct{}
-	wg               sync.WaitGroup
+	allocations     [][]byte
+	allocationSizes []int
+	allocationRate  time.Duration
+	retentionRatio  float64 // Percentage of allocations to keep
+	burstMode       bool
+	burstSize       int
+	burstInterval   time.Duration
+	mu              sync.Mutex
+	running         bool
+	stopCh          chan struct{}
+	wg              sync.WaitGroup
 }
 
 // NewMemoryStressTest creates a configurable memory stress test
@@ -587,23 +585,23 @@ func TestGCBehaviorUnderHighLoad(t *testing.T) {
 			name:            "SmallAllocations_HighFreq",
 			allocationSizes: []int{1024, 2048, 4096}, // 1-4KB
 			allocationRate:  1 * time.Millisecond,
-			retentionRatio:  0.1, // Keep 10%
+			retentionRatio:  0.1,             // Keep 10%
 			testDuration:    2 * time.Second, // Further reduced
-			expectedGCRuns:  2, // Adjusted expectation
+			expectedGCRuns:  2,               // Adjusted expectation
 		},
 		{
 			name:            "MediumAllocations_MedFreq",
 			allocationSizes: []int{64 * 1024, 128 * 1024, 256 * 1024}, // 64-256KB
 			allocationRate:  10 * time.Millisecond,
-			retentionRatio:  0.3, // Keep 30%
+			retentionRatio:  0.3,             // Keep 30%
 			testDuration:    2 * time.Second, // Further reduced
-			expectedGCRuns:  2, // Adjusted expectation
+			expectedGCRuns:  2,               // Adjusted expectation
 		},
 		{
 			name:            "LargeAllocations_LowFreq",
 			allocationSizes: []int{1024 * 1024, 2048 * 1024}, // 1-2MB
 			allocationRate:  100 * time.Millisecond,
-			retentionRatio:  0.5, // Keep 50%
+			retentionRatio:  0.5,             // Keep 50%
 			testDuration:    2 * time.Second, // Further reduced
 			expectedGCRuns:  2,
 		},
@@ -611,9 +609,9 @@ func TestGCBehaviorUnderHighLoad(t *testing.T) {
 			name:            "MixedAllocations_BurstMode",
 			allocationSizes: []int{1024, 64 * 1024, 1024 * 1024}, // Mixed sizes
 			allocationRate:  50 * time.Millisecond,
-			retentionRatio:  0.2, // Keep 20%
+			retentionRatio:  0.2,             // Keep 20%
 			testDuration:    2 * time.Second, // Further reduced
-			expectedGCRuns:  2, // Adjusted expectation
+			expectedGCRuns:  2,               // Adjusted expectation
 		},
 	}
 
@@ -626,13 +624,13 @@ func TestGCBehaviorUnderHighLoad(t *testing.T) {
 
 			// Create and start memory stress test
 			stressTest := NewMemoryStressTest(tc.allocationSizes, tc.allocationRate, tc.retentionRatio)
-			
+
 			if tc.name == "MixedAllocations_BurstMode" {
 				stressTest.EnableBurstMode(20, 2*time.Second)
 			}
 
 			initialGC := getGCCount()
-			
+
 			stressTest.Start()
 			time.Sleep(tc.testDuration)
 			stressTest.Stop()
@@ -705,11 +703,11 @@ func TestGCBehaviorUnderHighLoad(t *testing.T) {
 // Test memory allocation patterns and GC pressure analysis
 func TestMemoryAllocationPatternsGCPressure(t *testing.T) {
 	pressureTests := []struct {
-		name             string
-		pattern          string
-		duration         time.Duration
-		maxPressure      float64
-		maxCPUFraction   float64
+		name           string
+		pattern        string
+		duration       time.Duration
+		maxPressure    float64
+		maxCPUFraction float64
 	}{
 		{
 			name:           "LowPressure_SmallObjects",
@@ -751,14 +749,14 @@ func TestMemoryAllocationPatternsGCPressure(t *testing.T) {
 				)
 			case "mixed_burst":
 				stressTest = NewMemoryStressTest(
-					[]int{1024, 32*1024, 128*1024},
+					[]int{1024, 32 * 1024, 128 * 1024},
 					20*time.Millisecond,
 					0.3,
 				)
 				stressTest.EnableBurstMode(15, 1*time.Second)
 			case "large_continuous":
 				stressTest = NewMemoryStressTest(
-					[]int{512*1024, 1024*1024, 2048*1024},
+					[]int{512 * 1024, 1024 * 1024, 2048 * 1024},
 					50*time.Millisecond,
 					0.7,
 				)
@@ -817,15 +815,15 @@ func TestGCPauseImpactOnLatencyThroughput(t *testing.T) {
 
 	// Simulate concurrent request processing with memory allocation
 	const (
-		workerCount    = 10 // Reduced from 20
-		requestsPerWorker = 25 // Reduced from 50
-		requestDuration = 2 * time.Second // Further reduced
+		workerCount       = 10              // Reduced from 20
+		requestsPerWorker = 25              // Reduced from 50
+		requestDuration   = 2 * time.Second // Further reduced
 	)
 
 	var (
-		completedRequests int64
-		totalLatency      int64
-		maxLatency        int64
+		completedRequests  int64
+		totalLatency       int64
+		maxLatency         int64
 		gcPausesDuringTest int64
 	)
 
@@ -853,7 +851,7 @@ func TestGCPauseImpactOnLatencyThroughput(t *testing.T) {
 				processSimulatedRequest(workerID, j)
 
 				latency := time.Since(startTime).Nanoseconds()
-				
+
 				atomic.AddInt64(&completedRequests, 1)
 				atomic.AddInt64(&totalLatency, latency)
 
@@ -965,9 +963,9 @@ func TestAllocationRateGCFrequencyCorrelation(t *testing.T) {
 
 			// Analyze correlation
 			report := gcMetrics.GetGCEfficiencyReport()
-			
+
 			if frequency, ok := report["gc_frequency_hz"].(float64); ok {
-				t.Logf("Allocation rate: %v, GC frequency: %.2f Hz, Expected: %.2f Hz", 
+				t.Logf("Allocation rate: %v, GC frequency: %.2f Hz, Expected: %.2f Hz",
 					tc.allocationRate, frequency, tc.expectedFrequency)
 
 				// Check if frequency is within tolerance
@@ -982,8 +980,8 @@ func TestAllocationRateGCFrequencyCorrelation(t *testing.T) {
 					expectedAllocRate := 1.0 / tc.allocationRate.Seconds() * 48 * 1024 // ~48KB per allocation
 					allocRateMB := allocRate / (1024 * 1024)
 					expectedMB := expectedAllocRate / (1024 * 1024)
-					
-					t.Logf("Allocation rate: %.2f MB/s, Expected: %.2f MB/s", 
+
+					t.Logf("Allocation rate: %.2f MB/s, Expected: %.2f MB/s",
 						allocRateMB, expectedMB)
 				}
 			}
@@ -1001,11 +999,11 @@ func TestAllocationRateGCFrequencyCorrelation(t *testing.T) {
 // processSimulatedRequest simulates request processing with memory allocation
 func processSimulatedRequest(workerID, requestID int) {
 	// Simulate various allocation patterns during request processing
-	
+
 	// Small temporary allocations
 	temp1 := make([]byte, 1024)
 	temp2 := make([]byte, 2048)
-	
+
 	// Fill with data
 	copy(temp1, fmt.Sprintf("worker_%d_request_%d", workerID, requestID))
 	copy(temp2, temp1)
@@ -1067,11 +1065,11 @@ func BenchmarkGCPerformancePatterns(b *testing.B) {
 			b.ReportAllocs()
 
 			stressTest.Start()
-			
+
 			for i := 0; i < b.N; i++ {
 				processSimulatedRequest(0, i)
 			}
-			
+
 			stressTest.Stop()
 
 			// Report GC metrics
@@ -1136,7 +1134,7 @@ func BenchmarkMemoryAllocationEfficiency(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				result := allocType.fn()
 				results = append(results, result)
-				
+
 				// Periodically clear to prevent excessive memory usage
 				if i%1000 == 999 {
 					results = results[:0]

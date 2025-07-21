@@ -32,7 +32,6 @@ type HTTPClientPool struct {
 	baseURL      string
 	poolSize     int
 	clients      []*http.Client
-	mu           sync.RWMutex
 	nextClient   int64
 	stats        *HTTPStats
 	timeout      time.Duration

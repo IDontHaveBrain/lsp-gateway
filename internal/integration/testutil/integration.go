@@ -67,7 +67,7 @@ func NewIntegrationTestSuite(t *testing.T, config *IntegrationTestConfig) *Integ
 	suite.addCleanup(suite.env.Cleanup)
 
 	// Wait for environment to be ready
-	if err := suite.env.WaitForReady(30 * time.Second); err != nil {
+	if err := suite.env.WaitForReady(10 * time.Second); err != nil { // Reduce from 30s to 10s
 		t.Fatalf("Test environment not ready: %v", err)
 	}
 

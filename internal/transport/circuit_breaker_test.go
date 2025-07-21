@@ -896,25 +896,3 @@ func (cb *CircuitBreaker) GetMetrics() CircuitBreakerMetrics {
 	}
 }
 
-// Additional helper for math.Abs since it might not be imported
-func abs(x float64) float64 {
-	if x < 0 {
-		return -x
-	}
-	return x
-}
-
-// Use abs instead of math.Abs
-func validateExponentialWithJitter(t *testing.T, delays []time.Duration, baseDelay, maxDelay time.Duration, jitterPercent float64) {
-	// Check that jitter is applied (delays shouldn't be identical for exponential sequence)
-	identical := 0
-	for i := 1; i < len(delays); i++ {
-		if delays[i] == delays[i-1] {
-			identical++
-		}
-	}
-	
-	if identical > 1 {
-		t.Errorf("Too many identical delays (%d), jitter should add variance", identical)
-	}
-}

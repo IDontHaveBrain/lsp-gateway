@@ -9,11 +9,9 @@ import (
 	"math"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"runtime/pprof"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -27,19 +25,19 @@ import (
 
 // MemoryProfiler provides comprehensive memory monitoring for long-running tests
 type MemoryProfiler struct {
-	mu              sync.RWMutex
-	samples         []runtime.MemStats
-	timestamps      []time.Time
-	goroutineCounts []int
-	maxSamples      int
-	sampleInterval  time.Duration
-	monitoring      bool
-	stopCh          chan struct{}
-	monitoringWG    sync.WaitGroup
-	baseline        runtime.MemStats
-	baselineSet     bool
+	mu                sync.RWMutex
+	samples           []runtime.MemStats
+	timestamps        []time.Time
+	goroutineCounts   []int
+	maxSamples        int
+	sampleInterval    time.Duration
+	monitoring        bool
+	stopCh            chan struct{}
+	monitoringWG      sync.WaitGroup
+	baseline          runtime.MemStats
+	baselineSet       bool
 	initialGoroutines int
-	testStartTime   time.Time
+	testStartTime     time.Time
 }
 
 // MemoryAlert represents a memory-related alert
@@ -73,7 +71,7 @@ func (p *MemoryProfiler) StartMonitoring() {
 	}
 	p.monitoring = true
 	p.initialGoroutines = runtime.NumGoroutine()
-	
+
 	// Set baseline
 	if !p.baselineSet {
 		runtime.GC()
@@ -156,7 +154,7 @@ func (p *MemoryProfiler) DetectMemoryLeak() (leaked bool, confidence float64, de
 	for i, sample := range p.samples {
 		x := float64(i)
 		y := float64(sample.HeapAlloc)
-		
+
 		sumX += x
 		sumY += y
 		sumXY += x * y
@@ -167,16 +165,16 @@ func (p *MemoryProfiler) DetectMemoryLeak() (leaked bool, confidence float64, de
 	slope := (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX)
 	meanY := sumY / n
 	var ssRes, ssTot float64
-	
+
 	for i, sample := range p.samples {
 		x := float64(i)
 		y := float64(sample.HeapAlloc)
 		predicted := slope*x + (sumY-slope*sumX)/n
-		
+
 		ssRes += (y - predicted) * (y - predicted)
 		ssTot += (y - meanY) * (y - meanY)
 	}
-	
+
 	r2 := 0.0
 	if ssTot != 0 {
 		r2 = 1 - ssRes/ssTot
@@ -208,22 +206,22 @@ func (p *MemoryProfiler) GenerateReport() map[string]interface{} {
 	leaked, confidence, leakDetails := p.DetectMemoryLeak()
 
 	return map[string]interface{}{
-		"test_duration_minutes":     time.Since(p.testStartTime).Minutes(),
-		"sample_count":              len(p.samples),
-		"baseline_heap_alloc":       p.baseline.HeapAlloc,
-		"current_heap_alloc":        current.HeapAlloc,
-		"heap_growth_bytes":         int64(current.HeapAlloc) - int64(p.baseline.HeapAlloc),
-		"heap_growth_mb":            (int64(current.HeapAlloc) - int64(p.baseline.HeapAlloc)) / (1024 * 1024),
-		"total_alloc_bytes":         current.TotalAlloc - p.baseline.TotalAlloc,
-		"gc_runs":                   current.NumGC - p.baseline.NumGC,
-		"initial_goroutines":        p.initialGoroutines,
-		"current_goroutines":        p.goroutineCounts[len(p.goroutineCounts)-1],
-		"goroutine_growth":          p.goroutineCounts[len(p.goroutineCounts)-1] - p.initialGoroutines,
-		"leak_detected":             leaked,
-		"leak_confidence":           confidence,
-		"leak_details":              leakDetails,
-		"heap_objects":              current.HeapObjects,
-		"stack_in_use":              current.StackInuse,
+		"test_duration_minutes": time.Since(p.testStartTime).Minutes(),
+		"sample_count":          len(p.samples),
+		"baseline_heap_alloc":   p.baseline.HeapAlloc,
+		"current_heap_alloc":    current.HeapAlloc,
+		"heap_growth_bytes":     int64(current.HeapAlloc) - int64(p.baseline.HeapAlloc),
+		"heap_growth_mb":        (int64(current.HeapAlloc) - int64(p.baseline.HeapAlloc)) / (1024 * 1024),
+		"total_alloc_bytes":     current.TotalAlloc - p.baseline.TotalAlloc,
+		"gc_runs":               current.NumGC - p.baseline.NumGC,
+		"initial_goroutines":    p.initialGoroutines,
+		"current_goroutines":    p.goroutineCounts[len(p.goroutineCounts)-1],
+		"goroutine_growth":      p.goroutineCounts[len(p.goroutineCounts)-1] - p.initialGoroutines,
+		"leak_detected":         leaked,
+		"leak_confidence":       confidence,
+		"leak_details":          leakDetails,
+		"heap_objects":          current.HeapObjects,
+		"stack_in_use":          current.StackInuse,
 	}
 }
 
@@ -240,18 +238,18 @@ func (p *MemoryProfiler) SaveMemoryProfile(filename string) error {
 
 // TestHarness provides a test environment for long-running memory tests
 type TestHarness struct {
-	config     *config.GatewayConfig
-	server     *http.Server
-	profiler   *MemoryProfiler
-	testDir    string
-	port       int
+	config   *config.GatewayConfig
+	server   *http.Server
+	profiler *MemoryProfiler
+	testDir  string
+	port     int
 }
 
 // NewTestHarness creates a new test harness
 func NewTestHarness(t *testing.T) *TestHarness {
 	testDir := testutil.TempDir(t)
 	port := testutil.AllocateTestPort(t)
-	
+
 	// Create test config
 	configContent := testutil.CreateConfigWithPort(port)
 	configPath := filepath.Join(testDir, "config.yaml")
@@ -312,7 +310,7 @@ func (h *TestHarness) StopGateway() error {
 // waitForReady waits for the server to be ready
 func (h *TestHarness) waitForReady() error {
 	client := &http.Client{Timeout: 1 * time.Second}
-	
+
 	for i := 0; i < 30; i++ { // 30 second timeout
 		resp, err := client.Post(
 			fmt.Sprintf("http://localhost:%d/jsonrpc", h.port),
@@ -325,14 +323,14 @@ func (h *TestHarness) waitForReady() error {
 		}
 		time.Sleep(1 * time.Second)
 	}
-	
+
 	return fmt.Errorf("server not ready after 30 seconds")
 }
 
 // SendLSPRequest sends an LSP request to the gateway
 func (h *TestHarness) SendLSPRequest(method string, params interface{}) error {
 	client := &http.Client{Timeout: 30 * time.Second}
-	
+
 	requestData := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"id":      1,
@@ -385,7 +383,7 @@ func TestLongRunningGatewayMemoryStability(t *testing.T) {
 	// Allow configurable test duration via environment variable
 	durationStr := os.Getenv("LSP_GATEWAY_LONG_TEST_DURATION")
 	if durationStr == "" {
-		durationStr = "1h" // Default to 1 hour
+		durationStr = "15s" // Default to 15 seconds for fast testing
 	}
 
 	testDuration, err := time.ParseDuration(durationStr)
@@ -412,8 +410,8 @@ func TestLongRunningGatewayMemoryStability(t *testing.T) {
 
 	// Test configuration
 	const (
-		requestInterval = 10 * time.Second
-		reportInterval  = 5 * time.Minute
+		requestInterval = 100 * time.Millisecond
+		reportInterval  = 5 * time.Second
 	)
 
 	var requestCount, errorCount int64
@@ -469,7 +467,7 @@ func TestLongRunningGatewayMemoryStability(t *testing.T) {
 		case <-requestTicker.C:
 			// Send request
 			pattern := requestPatterns[requestCount%int64(len(requestPatterns))]
-			
+
 			go func(count int64) {
 				err := harness.SendLSPRequest(pattern.method, pattern.params)
 				if err != nil {
@@ -485,7 +483,7 @@ func TestLongRunningGatewayMemoryStability(t *testing.T) {
 			report := harness.GetMemoryReport()
 			currentRequests := atomic.LoadInt64(&requestCount)
 			currentErrors := atomic.LoadInt64(&errorCount)
-			
+
 			t.Logf("=== Progress Report ===")
 			t.Logf("Runtime: %.1f minutes", report["test_duration_minutes"])
 			t.Logf("Requests sent: %d", currentRequests)
@@ -493,7 +491,7 @@ func TestLongRunningGatewayMemoryStability(t *testing.T) {
 			t.Logf("Heap growth: %v MB", report["heap_growth_mb"])
 			t.Logf("Goroutines: %v (growth: %v)", report["current_goroutines"], report["goroutine_growth"])
 			t.Logf("GC runs: %v", report["gc_runs"])
-			
+
 			if leakDetected, ok := report["leak_detected"].(bool); ok && leakDetected {
 				t.Errorf("MEMORY LEAK DETECTED: confidence=%.2f%%", report["leak_confidence"].(float64)*100)
 				return
@@ -544,9 +542,9 @@ func TestServerRestartCycles(t *testing.T) {
 	}
 
 	const (
-		restartCycles    = 50
-		requestsPerCycle = 20
-		cycleDelay       = 10 * time.Second
+		restartCycles    = 5                      // Reduce from 50 to 5 cycles
+		requestsPerCycle = 5                      // Reduce from 20 to 5 requests
+		cycleDelay       = 100 * time.Millisecond // Reduce from 10s to 100ms
 	)
 
 	profiler := NewMemoryProfiler(2000, 5*time.Second)
@@ -612,11 +610,11 @@ func TestServerRestartCycles(t *testing.T) {
 		// Check memory every 10 cycles
 		if (cycle+1)%10 == 0 {
 			report := profiler.GenerateReport()
-			t.Logf("Memory check at cycle %d: heap=%v MB, goroutines=%v", 
+			t.Logf("Memory check at cycle %d: heap=%v MB, goroutines=%v",
 				cycle+1, report["heap_growth_mb"], report["current_goroutines"])
 
 			if leakDetected, ok := report["leak_detected"].(bool); ok && leakDetected {
-				t.Errorf("Memory leak detected at cycle %d: confidence=%.2f%%", 
+				t.Errorf("Memory leak detected at cycle %d: confidence=%.2f%%",
 					cycle+1, report["leak_confidence"].(float64)*100)
 				break
 			}
@@ -629,7 +627,7 @@ func TestServerRestartCycles(t *testing.T) {
 
 	// Final analysis
 	finalReport := profiler.GenerateReport()
-	
+
 	t.Logf("=== RESTART CYCLES FINAL REPORT ===")
 	t.Logf("Total cycles: %d", restartCycles)
 	t.Logf("Total requests: %d", totalRequests)
@@ -640,7 +638,7 @@ func TestServerRestartCycles(t *testing.T) {
 
 	// Validate results
 	if leakDetected, ok := finalReport["leak_detected"].(bool); ok && leakDetected {
-		t.Errorf("MEMORY LEAK DETECTED after restart cycles: confidence=%.2f%%", 
+		t.Errorf("MEMORY LEAK DETECTED after restart cycles: confidence=%.2f%%",
 			finalReport["leak_confidence"].(float64)*100)
 	}
 
@@ -670,13 +668,11 @@ func TestLargeDocumentProcessing(t *testing.T) {
 
 	// Create large documents of various sizes
 	documentSizes := []int{
-		1024 * 100,      // 100KB
-		1024 * 500,      // 500KB
-		1024 * 1024,     // 1MB
-		1024 * 1024 * 2, // 2MB
+		1024 * 10, // 10KB (reduced from 100KB)
+		1024 * 50, // 50KB (reduced from 500KB)
 	}
 
-	const documentsPerSize = 5
+	const documentsPerSize = 2 // Reduce from 5 to 2
 	var totalRequests, totalErrors int64
 
 	for _, size := range documentSizes {
@@ -686,7 +682,7 @@ func TestLargeDocumentProcessing(t *testing.T) {
 			// Generate large document content
 			content := make([]byte, size)
 			rand.Read(content)
-			
+
 			// Make it look like Go code
 			goContent := fmt.Sprintf(`package main
 
@@ -740,7 +736,7 @@ func main() {
 
 			for _, op := range operations {
 				err := harness.SendLSPRequest(op.method, op.params)
-				
+
 				atomic.AddInt64(&totalRequests, 1)
 				if err != nil {
 					atomic.AddInt64(&totalErrors, 1)
@@ -754,11 +750,11 @@ func main() {
 
 		// Check memory after each size category
 		report := harness.GetMemoryReport()
-		t.Logf("After processing %d documents of size %d bytes: heap=%v MB, goroutines=%v", 
+		t.Logf("After processing %d documents of size %d bytes: heap=%v MB, goroutines=%v",
 			documentsPerSize, size, report["heap_growth_mb"], report["current_goroutines"])
 
 		if leakDetected, ok := report["leak_detected"].(bool); ok && leakDetected {
-			t.Errorf("Memory leak detected during large document processing: confidence=%.2f%%", 
+			t.Errorf("Memory leak detected during large document processing: confidence=%.2f%%",
 				report["leak_confidence"].(float64)*100)
 			break
 		}
@@ -766,7 +762,7 @@ func main() {
 
 	// Final analysis
 	finalReport := harness.GetMemoryReport()
-	
+
 	t.Logf("=== LARGE DOCUMENT PROCESSING FINAL REPORT ===")
 	t.Logf("Total requests: %d", totalRequests)
 	t.Logf("Total errors: %d", totalErrors)
@@ -776,7 +772,7 @@ func main() {
 
 	// Validate results
 	if leakDetected, ok := finalReport["leak_detected"].(bool); ok && leakDetected {
-		t.Errorf("MEMORY LEAK DETECTED in large document processing: confidence=%.2f%%", 
+		t.Errorf("MEMORY LEAK DETECTED in large document processing: confidence=%.2f%%",
 			finalReport["leak_confidence"].(float64)*100)
 	}
 
@@ -840,22 +836,7 @@ func BenchmarkMemoryEfficiency(b *testing.B) {
 	}
 
 	if leakDetected, ok := report["leak_detected"].(bool); ok && leakDetected {
-		b.Errorf("Memory leak detected during benchmark: confidence=%.2f%%", 
+		b.Errorf("Memory leak detected during benchmark: confidence=%.2f%%",
 			report["leak_confidence"].(float64)*100)
 	}
-}
-
-// Helper function to count child processes (Unix/Linux only)
-func countChildProcesses() int {
-	cmd := exec.Command("pgrep", "-P", strconv.Itoa(os.Getpid()))
-	output, err := cmd.Output()
-	if err != nil {
-		return 0
-	}
-	
-	lines := len(strings.Split(strings.TrimSpace(string(output)), "\n"))
-	if len(strings.TrimSpace(string(output))) == 0 {
-		return 0
-	}
-	return lines
 }

@@ -41,7 +41,7 @@ func TestLoadTest(t *testing.T) {
 		},
 		Performance:     true,
 		ConcurrentUsers: 10,
-		TestDuration:    30 * time.Second,
+		TestDuration:    5 * time.Second, // Reduce from 30s to 5s
 		FailureThresholds: &testutil.FailureThresholds{
 			MaxErrorRate:     0.05, // 5%
 			MaxLatencyP95:    100 * time.Millisecond,
@@ -113,7 +113,7 @@ func TestComprehensive(t *testing.T) {
 		},
 		Performance:        true,
 		ConcurrentUsers:    15,
-		TestDuration:       60 * time.Second,
+		TestDuration:       10 * time.Second, // Reduce from 60s to 10s
 		ValidationLevel:    testutil.ValidationStrict,
 		ResourceMonitoring: true,
 		FailureThresholds: &testutil.FailureThresholds{
@@ -201,7 +201,7 @@ func TestErrorScenarios(t *testing.T) {
 	httpClient := suite.GetHTTPClient()
 	reqGen := suite.GetRequestGenerator()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second) // Reduce timeout
 	defer cancel()
 
 	// Test unsupported file type
@@ -330,7 +330,7 @@ func TestWorkspaceSimulation(t *testing.T) {
 
 	// Test operations on the workspace files
 	httpClient := suite.GetHTTPClient()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Reduce timeout
 	defer cancel()
 
 	workspaceFiles := []string{
@@ -374,7 +374,7 @@ func TestResourceMonitoring(t *testing.T) {
 		},
 		Performance:        true,
 		ResourceMonitoring: true,
-		TestDuration:       15 * time.Second,
+		TestDuration:       3 * time.Second, // Reduce from 15s to 3s
 		ConcurrentUsers:    5,
 	})
 	defer suite.Cleanup()

@@ -1,66 +1,10 @@
 package installer
 
 import (
-	"errors"
 	"testing"
-	"time"
 
-	"lsp-gateway/internal/platform"
 	"lsp-gateway/internal/types"
 )
-
-// Mock CommandExecutor for testing
-type mockRuntimeCommandExecutor struct {
-	commands map[string]*platform.Result
-	failNext bool
-}
-
-func newMockRuntimeCommandExecutor() *mockRuntimeCommandExecutor {
-	return &mockRuntimeCommandExecutor{
-		commands: make(map[string]*platform.Result),
-	}
-}
-
-func (m *mockRuntimeCommandExecutor) Execute(command string, args []string, timeout time.Duration) (*platform.Result, error) {
-	if m.failNext {
-		m.failNext = false
-		return &platform.Result{ExitCode: 1, Stderr: "mock error"}, errors.New("mock error")
-	}
-
-	key := command
-	if len(args) > 0 {
-		key = command + " " + args[0]
-	}
-	if result, exists := m.commands[key]; exists {
-		return result, nil
-	}
-
-	return &platform.Result{ExitCode: 0, Stdout: "mock success"}, nil
-}
-
-func (m *mockRuntimeCommandExecutor) ExecuteWithEnv(cmd string, args []string, env map[string]string, timeout time.Duration) (*platform.Result, error) {
-	return m.Execute(cmd, args, timeout)
-}
-
-func (m *mockRuntimeCommandExecutor) GetShell() string {
-	return "bash"
-}
-
-func (m *mockRuntimeCommandExecutor) GetShellArgs(command string) []string {
-	return []string{"-c", command}
-}
-
-func (m *mockRuntimeCommandExecutor) IsCommandAvailable(command string) bool {
-	return true // For simplicity in testing
-}
-
-func (m *mockRuntimeCommandExecutor) SetCommand(command string, result *platform.Result) {
-	m.commands[command] = result
-}
-
-func (m *mockRuntimeCommandExecutor) SetFailNext() {
-	m.failNext = true
-}
 
 // Test WindowsRuntimeStrategy.InstallRuntime with different runtime types
 func TestWindowsRuntimeStrategy_InstallRuntime(t *testing.T) {
