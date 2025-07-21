@@ -1,33 +1,197 @@
-# LSP Gateway Integration Test Configuration
-port: 0  # Dynamic port allocation for tests
-timeout: 30s
-max_connections: 100
+# LSP Gateway Comprehensive Integration Test Configuration
+name: "LSP Gateway Integration Tests"
+description: "Comprehensive LSP server integration and performance testing"
+timeout: 15m
+parallel: true
 
 servers:
-  # Go Language Server for testing
-  - name: "test-go-lsp"
-    languages: ["go"]
+  gopls:
+    name: "gopls"
+    language: "go"
     command: "gopls"
-    args: []
     transport: "stdio"
-    
-  # Python Language Server for testing  
-  - name: "test-python-lsp"
-    languages: ["python"]
-    command: "python"
-    args: ["-m", "pylsp"]
+    start_timeout: 30s
+    pre_warmup: true
+    capabilities:
+      - "textDocument/definition"
+      - "textDocument/references"
+      - "textDocument/hover"
+      - "textDocument/documentSymbol"
+      - "workspace/symbol"
+
+  pylsp:
+    name: "python-lsp-server"
+    language: "python" 
+    command: "pylsp"
     transport: "stdio"
-    
-  # TypeScript Language Server for testing
-  - name: "test-typescript-lsp"
-    languages: ["typescript", "javascript"]
+    start_timeout: 30s
+    pre_warmup: true
+    capabilities:
+      - "textDocument/definition"
+      - "textDocument/references"
+      - "textDocument/hover"
+      - "textDocument/documentSymbol"
+      - "workspace/symbol"
+
+  tsserver:
+    name: "typescript-language-server"
+    language: "typescript"
     command: "typescript-language-server"
     args: ["--stdio"]
     transport: "stdio"
+    start_timeout: 30s
+    pre_warmup: true
+    capabilities:
+      - "textDocument/definition"
+      - "textDocument/references"
+      - "textDocument/hover"
+      - "textDocument/documentSymbol"
+      - "workspace/symbol"
 
+repositories:
+  # Test data repository
+  - name: "test-data"
+    path: "./test-data"
+    language: "go"
+    description: "Basic test data samples"
+    test_cases:
+      # Go test cases
+      - id: "go_basic_definition"
+        name: "Go function definition"
+        method: "textDocument/definition"
+        file: "sample.go"
+        position:
+          line: 8
+          character: 5
+        expected:
+          success: true
+          definition:
+            has_location: true
+        tags: ["basic", "definition"]
+        timeout: 30s
+
+      - id: "go_basic_hover"
+        name: "Go function hover"
+        method: "textDocument/hover"
+        file: "sample.go"
+        position:
+          line: 3
+          character: 10
+        expected:
+          success: true
+          hover:
+            has_content: true
+        tags: ["basic", "hover"]
+        timeout: 30s
+
+      - id: "go_document_symbols"
+        name: "Go document symbols"
+        method: "textDocument/documentSymbol"
+        file: "sample.go"
+        expected:
+          success: true
+          symbols:
+            min_count: 1
+        tags: ["basic", "symbols"]
+        timeout: 30s
+
+  # Python test cases
+  - name: "test-data-python"
+    path: "./test-data"
+    language: "python"
+    description: "Basic Python test samples"
+    test_cases:
+      - id: "python_basic_definition"
+        name: "Python function definition"
+        method: "textDocument/definition"
+        file: "sample.py"
+        position:
+          line: 3
+          character: 4
+        expected:
+          success: true
+          definition:
+            has_location: true
+        tags: ["basic", "definition", "python"]
+        timeout: 30s
+
+      - id: "python_basic_hover"
+        name: "Python function hover"
+        method: "textDocument/hover"
+        file: "sample.py"
+        position:
+          line: 0
+          character: 4
+        expected:
+          success: true
+          hover:
+            has_content: true
+        tags: ["basic", "hover", "python"]
+        timeout: 30s
+
+  # TypeScript test cases
+  - name: "test-data-typescript"
+    path: "./test-data"
+    language: "typescript"
+    description: "Basic TypeScript test samples"
+    test_cases:
+      - id: "typescript_basic_definition"
+        name: "TypeScript function definition"
+        method: "textDocument/definition"
+        file: "sample.ts"
+        position:
+          line: 5
+          character: 10
+        expected:
+          success: true
+          definition:
+            has_location: true
+        tags: ["basic", "definition", "typescript"]
+        timeout: 30s
+
+      - id: "typescript_interface_hover"
+        name: "TypeScript interface hover"
+        method: "textDocument/hover"
+        file: "sample.ts"
+        position:
+          line: 0
+          character: 15
+        expected:
+          success: true
+          hover:
+            has_content: true
+        tags: ["basic", "hover", "typescript"]
+        timeout: 30s
+
+execution:
+  max_concurrency: 4
+  default_timeout: 60s
+  retry_attempts: 2
+  fail_fast: false
+
+validation:
+  strict_mode: false
+  validate_types: true
+  validate_positions: true
+  validate_uris: true
+
+reporting:
+  formats: ["console", "json", "junit"]
+  output_dir: "lsp-results"
+  verbose: true
+  include_timing: true
+
+# Performance benchmarking configuration
+benchmark:
+  enabled: true
+  warmup_iterations: 3
+  test_iterations: 10
+  memory_profiling: true
+  latency_percentiles: [50, 90, 95, 99]
+  
 # Integration test specific settings
 integration_test:
-  mock_servers: true
+  mock_servers: false
   timeout_multiplier: 2
-  concurrent_clients: 5
+  concurrent_clients: 4
   test_data_dir: "./test-data"

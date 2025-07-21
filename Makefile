@@ -46,6 +46,7 @@ help:
 	@echo "  test-unit    - Run fast unit tests (<60s, excludes integration/performance)"
 	@echo "  test-integration - Run integration and performance tests"
 	@echo "  test-cover   - Run tests with coverage"
+	@echo "  lsp-help     - Show LSP testing targets and options"
 	@echo "  deps         - Download dependencies"
 	@echo "  tidy         - Tidy go modules"
 	@echo "  format       - Format code"
@@ -152,6 +153,38 @@ test-integration:
 test-cover:
 	@echo "Running tests with coverage..."
 	$(GOTEST) -v -cover ./...
+
+# LSP validation test targets
+.PHONY: test-lsp-validation
+test-lsp-validation:
+	@echo "Running comprehensive LSP validation tests..."
+	$(GOTEST) -v -timeout=180s ./internal/gateway ./internal/transport ./mcp ./internal/setup -run "LSPValidation"
+
+.PHONY: test-lsp-validation-short
+test-lsp-validation-short:
+	@echo "Running quick LSP validation tests for CI..."
+	$(GOTEST) -v -short -timeout=60s ./internal/gateway ./internal/transport ./mcp -run "LSPValidation"
+
+.PHONY: test-lsp-repositories
+test-lsp-repositories:
+	@echo "Running repository-focused LSP validation tests..."
+	$(GOTEST) -v -timeout=120s ./internal/gateway ./internal/transport ./mcp -run "LSPRepository"
+
+.PHONY: bench-lsp-validation
+bench-lsp-validation:
+	@echo "Running LSP validation performance benchmarks..."
+	$(GOTEST) -v -bench=LSPValidation -benchmem -timeout=300s ./internal/gateway ./internal/transport ./mcp
+
+# LSP validation test script targets
+.PHONY: test-lsp-validation-full
+test-lsp-validation-full:
+	@echo "Running full LSP validation test suite with reporting..."
+	./scripts/run-lsp-validation-tests.sh full
+
+.PHONY: test-lsp-validation-ci
+test-lsp-validation-ci:
+	@echo "Running CI-friendly LSP validation test suite..."
+	./scripts/run-lsp-validation-tests.sh ci
 
 # Coverage targets for CI/CD
 .PHONY: test-coverage-threshold
@@ -303,3 +336,167 @@ check:
 			echo "✗ $$binary missing"; \
 		fi; \
 	done
+
+# ========================================
+# LSP Testing and Validation Targets
+# ========================================
+
+# LSP test dependencies
+.PHONY: lsp-deps
+lsp-deps:
+	@echo "Installing LSP test dependencies..."
+	@command -v jq >/dev/null 2>&1 || { echo "jq is required for LSP testing. Please install jq."; exit 1; }
+	@command -v bc >/dev/null 2>&1 || { echo "bc is required for LSP testing. Please install bc."; exit 1; }
+
+# Setup LSP servers for testing
+.PHONY: lsp-setup
+lsp-setup: lsp-deps
+	@echo "Setting up LSP servers for testing..."
+	@echo "Installing Go language server (gopls)..."
+	@go install golang.org/x/tools/gopls@latest || { echo "Failed to install gopls"; exit 1; }
+	@echo "Installing Python language server..."
+	@pip3 install python-lsp-server || echo "Warning: Failed to install python-lsp-server"
+	@echo "Installing TypeScript language server..."
+	@npm install -g typescript-language-server typescript || echo "Warning: Failed to install typescript-language-server"
+	@echo "✓ LSP servers setup completed"
+
+# Quick LSP validation (for PRs)
+.PHONY: test-lsp-quick
+test-lsp-quick: local lsp-setup
+	@echo "Running quick LSP validation..."
+	@mkdir -p lsp-results
+	./bin/$(BINARY_NAME) test-lsp \
+		--config=test-configs/ci-test-config.yaml \
+		--format=json \
+		--output-dir=lsp-results \
+		--filter="method=textDocument/definition,textDocument/hover" \
+		--timeout=60s \
+		--max-concurrency=2 \
+		--quick-mode || { echo "Quick LSP validation failed"; exit 1; }
+	@echo "✓ Quick LSP validation completed"
+
+# Comprehensive LSP validation (for main branch)  
+.PHONY: test-lsp-comprehensive
+test-lsp-comprehensive: local lsp-setup
+	@echo "Running comprehensive LSP validation..."
+	@mkdir -p lsp-results
+	./bin/$(BINARY_NAME) test-lsp \
+		--config=test-configs/integration-test-config.yaml \
+		--format=json,junit \
+		--output-dir=lsp-results \
+		--timeout=600s \
+		--max-concurrency=4 \
+		--comprehensive-mode \
+		--benchmark-mode || { echo "Comprehensive LSP validation failed"; exit 1; }
+	@echo "✓ Comprehensive LSP validation completed"
+
+# LSP performance benchmarking
+.PHONY: test-lsp-benchmark
+test-lsp-benchmark: local lsp-setup
+	@echo "Running LSP performance benchmarks..."
+	@mkdir -p lsp-results
+	./bin/$(BINARY_NAME) test-lsp \
+		--config=test-configs/performance-test-config.yaml \
+		--format=json \
+		--output-dir=lsp-results \
+		--benchmark-mode \
+		--iterations=5 \
+		--warmup=2 || { echo "LSP benchmarking failed"; exit 1; }
+	@echo "✓ LSP benchmarking completed"
+
+# Generate LSP performance dashboard
+.PHONY: lsp-dashboard
+lsp-dashboard:
+	@echo "Generating LSP performance dashboard..."
+	@if [ ! -f lsp-results/results.json ]; then \
+		echo "No LSP results found. Run 'make test-lsp-comprehensive' first."; \
+		exit 1; \
+	fi
+	@mkdir -p lsp-results/dashboard
+	./internal/testing/lsp/reporters/performance-dashboard.sh \
+		--input=lsp-results/results.json \
+		--output=lsp-results/dashboard \
+		--format=html,json \
+		--verbose
+	@echo "✓ Performance dashboard generated at lsp-results/dashboard/index.html"
+
+# Compare LSP benchmarks against baseline
+.PHONY: lsp-compare
+lsp-compare:
+	@echo "Comparing LSP benchmark results..."
+	@if [ ! -f lsp-results/results.json ]; then \
+		echo "No current results found. Run 'make test-lsp-benchmark' first."; \
+		exit 1; \
+	fi
+	@if [ ! -f lsp-results/benchmark-baseline.json ]; then \
+		echo "No baseline found. Copying current results as new baseline."; \
+		cp lsp-results/results.json lsp-results/benchmark-baseline.json; \
+		echo "✓ Baseline established"; \
+	else \
+		./internal/testing/lsp/reporters/benchmark-compare.sh \
+			--baseline=lsp-results/benchmark-baseline.json \
+			--current=lsp-results/results.json \
+			--output=lsp-results/benchmark-comparison.json \
+			--threshold=10 \
+			--verbose; \
+		echo "✓ Benchmark comparison completed"; \
+	fi
+
+# Repository validation against real codebases
+.PHONY: test-lsp-repos
+test-lsp-repos: local lsp-setup
+	@echo "Running repository validation tests..."
+	@for repo_type in golang python typescript; do \
+		echo "Testing against $$repo_type repositories..."; \
+		mkdir -p repo-validation-$$repo_type; \
+		./bin/$(BINARY_NAME) test-lsp \
+			--config=test-configs/$$repo_type-repo-config.yaml \
+			--format=json \
+			--output-dir=repo-validation-$$repo_type \
+			--timeout=300s \
+			--repository-mode || echo "Warning: $$repo_type repo validation failed"; \
+	done
+	@echo "✓ Repository validation completed"
+
+# Clean LSP test artifacts
+.PHONY: lsp-clean
+lsp-clean:
+	@echo "Cleaning LSP test artifacts..."
+	@rm -rf lsp-results/ repo-validation-*/ 
+	@echo "✓ LSP test artifacts cleaned"
+
+# Full LSP validation suite
+.PHONY: test-lsp-full
+test-lsp-full: lsp-clean test-lsp-comprehensive lsp-dashboard lsp-compare
+	@echo "✓ Full LSP validation suite completed"
+
+# LSP help target
+.PHONY: lsp-help
+lsp-help:
+	@echo "LSP Testing Targets:"
+	@echo "==================="
+	@echo ""
+	@echo "Setup and Dependencies:"
+	@echo "  lsp-deps              - Install LSP testing dependencies (jq, bc)"
+	@echo "  lsp-setup             - Install and setup LSP servers"
+	@echo ""  
+	@echo "Testing Targets:"
+	@echo "  test-lsp-quick        - Quick LSP validation (for PRs)"
+	@echo "  test-lsp-comprehensive - Full LSP validation (for main branch)"
+	@echo "  test-lsp-benchmark    - Performance benchmarking"
+	@echo "  test-lsp-repos        - Repository validation against real codebases"
+	@echo "  test-lsp-full         - Complete LSP validation suite"
+	@echo ""
+	@echo "Analysis and Reporting:"
+	@echo "  lsp-dashboard         - Generate performance dashboard"
+	@echo "  lsp-compare           - Compare benchmarks against baseline"
+	@echo ""
+	@echo "Maintenance:"
+	@echo "  lsp-clean             - Clean LSP test artifacts"
+	@echo "  lsp-help              - Show this help"
+	@echo ""
+	@echo "Examples:"
+	@echo "  make lsp-setup                    # Setup LSP testing environment"
+	@echo "  make test-lsp-quick              # Run quick validation for PR"
+	@echo "  make test-lsp-full               # Run complete validation suite"
+	@echo "  make lsp-dashboard               # Generate performance report"

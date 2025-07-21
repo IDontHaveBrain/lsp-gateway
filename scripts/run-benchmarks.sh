@@ -241,10 +241,31 @@ log "=== Running Load Test Scenarios ==="
 run_benchmark "LoadTest" "./cmd/lsp-gateway" "BenchmarkProductionLoadTest"
 run_benchmark "LoadTest" "./cmd/lsp-gateway" "BenchmarkMemoryLeakDetection"
 
+# Run LSP Validation Performance Benchmarks
+log "=== Running LSP Validation Performance Benchmarks ==="
+run_benchmark "LSPValidation" "./internal/testing/lsp" "BenchmarkLSPDefinition"
+run_benchmark "LSPValidation" "./internal/testing/lsp" "BenchmarkLSPReferences"
+run_benchmark "LSPValidation" "./internal/testing/lsp" "BenchmarkLSPHover"
+run_benchmark "LSPValidation" "./internal/testing/lsp" "BenchmarkLSPDocumentSymbol"
+run_benchmark "LSPValidation" "./internal/testing/lsp" "BenchmarkLSPWorkspaceSymbol"
+run_benchmark "LSPValidation" "./internal/testing/lsp" "BenchmarkLSPConcurrency"
+run_benchmark "LSPValidation" "./internal/testing/lsp" "BenchmarkLSPMemoryProfile"
+run_benchmark "LSPValidation" "./internal/testing/lsp" "BenchmarkLSPThroughput"
+run_benchmark "LSPValidation" "./internal/testing/lsp" "BenchmarkLSPLatencyProfile"
+run_benchmark "LSPValidation" "./internal/testing/lsp" "BenchmarkLSPLargeFiles"
+
+# Run LSP Regression Detection (if enabled)
+if [[ "${LSP_BENCHMARK_REGRESSION:-0}" == "1" ]]; then
+    log "=== Running LSP Regression Detection Benchmarks ==="
+    run_benchmark "LSPRegression" "./internal/testing/lsp" "BenchmarkLSPRegressionDetection"
+fi
+
 # Run profiling on critical paths
 log "=== Running Performance Profiling ==="
 run_memory_profile "Gateway" "./internal/gateway" "BenchmarkGatewayHTTPHandler"
 run_cpu_profile "Gateway" "./internal/gateway" "BenchmarkGatewayHTTPHandler"
+run_memory_profile "LSPValidation" "./internal/testing/lsp" "BenchmarkLSPDefinition"
+run_cpu_profile "LSPValidation" "./internal/testing/lsp" "BenchmarkLSPDefinition"
 
 # Generate summary
 log "Generating performance summary..."
