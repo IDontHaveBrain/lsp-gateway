@@ -1,0 +1,96 @@
+# LSP Gateway Test Repositories Configuration
+# Fixed commit hashes for reproducible testing and LSP server validation
+# Last updated: 2025-01-15
+
+repositories:
+  go:
+    primary:
+      name: "kubernetes"
+      url: "https://github.com/kubernetes/kubernetes.git"
+      commit: "v1.29.0"
+      description: "Kubernetes main repository - comprehensive Go codebase"
+      test_features: ["definitions", "references", "hover", "symbols", "formatting"]
+      size_mb: 500
+    
+    alternative:
+      name: "golang"
+      url: "https://github.com/golang/go.git"
+      commit: "go1.21.5"
+      description: "Go standard library and toolchain"
+      test_features: ["definitions", "references", "hover", "symbols"]
+      size_mb: 200
+
+  python:
+    primary:
+      name: "django"
+      url: "https://github.com/django/django.git"
+      commit: "5.0"
+      description: "Django web framework - complex Python codebase"
+      test_features: ["definitions", "references", "hover", "symbols", "linting"]
+      size_mb: 150
+    
+    alternative:
+      name: "flask"
+      url: "https://github.com/pallets/flask.git"
+      commit: "2.3.3"
+      description: "Flask web framework - lightweight Python framework"
+      test_features: ["definitions", "references", "hover", "symbols"]
+      size_mb: 30
+
+  typescript:
+    primary:
+      name: "vscode"
+      url: "https://github.com/microsoft/vscode.git"
+      commit: "1.85.0"
+      description: "VS Code editor - large TypeScript/JavaScript codebase"
+      test_features: ["definitions", "references", "hover", "symbols", "formatting"]
+      size_mb: 300
+    
+    alternative:
+      name: "typescript"
+      url: "https://github.com/microsoft/TypeScript.git"
+      commit: "v5.3.2"
+      description: "TypeScript compiler implementation"
+      test_features: ["definitions", "references", "hover", "symbols"]
+      size_mb: 50
+
+  java:
+    primary:
+      name: "spring-boot"
+      url: "https://github.com/spring-projects/spring-boot.git"
+      commit: "v3.2.0"
+      description: "Spring Boot framework - comprehensive Java codebase"
+      test_features: ["definitions", "references", "hover", "symbols", "formatting"]
+      size_mb: 200
+    
+    alternative:
+      name: "kafka"
+      url: "https://github.com/apache/kafka.git"
+      commit: "3.6.0"
+      description: "Apache Kafka streaming platform"
+      test_features: ["definitions", "references", "hover", "symbols"]
+      size_mb: 100
+
+# Global configuration
+config:
+  base_directory: "./test-repositories"
+  max_concurrent_clones: 3
+  clone_timeout_minutes: 30
+  shallow_clone: true
+  verify_commits: true
+  cleanup_on_failure: true
+  
+# Test validation settings
+validation:
+  required_files:
+    go: ["go.mod", "go.sum"]
+    python: ["setup.py", "pyproject.toml", "requirements.txt"]
+    typescript: ["package.json", "tsconfig.json"]
+    java: ["pom.xml", "build.gradle"]
+  
+  # Expected directory patterns for validation
+  expected_patterns:
+    go: ["*.go", "**/*.go"]
+    python: ["*.py", "**/*.py"]
+    typescript: ["*.ts", "*.js", "**/*.ts", "**/*.js"]
+    java: ["*.java", "**/*.java"]

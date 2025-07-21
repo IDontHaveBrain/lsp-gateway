@@ -1,0 +1,585 @@
+# Java Language Test Scenarios for LSP Gateway
+# Real-world test cases using Spring Boot and Apache Kafka patterns
+
+name: "Java LSP Scenarios"
+description: "Comprehensive Java language server testing scenarios"
+language: "java"
+
+# Test scenarios for Java using Spring Boot and Kafka repository patterns
+scenarios:
+  # ===================
+  # DEFINITION SCENARIOS
+  # ===================
+  
+  - id: "java_def_annotation_processor"
+    name: "Go to Definition - Spring Annotation"
+    description: "Navigate from annotation usage to annotation definition"
+    method: "textDocument/definition"
+    repository: "spring-boot"
+    file: "spring-boot-project/spring-boot/src/main/java/org/springframework/boot/SpringApplication.java"
+    position: 
+      line: 50  # @SpringBootApplication annotation
+      character: 5
+    expected:
+      success: true
+      definition:
+        has_location: true
+        file_pattern: "spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/SpringBootApplication.java"
+    tags: ["definition", "annotation", "spring-boot"]
+  
+  - id: "java_def_interface_implementation"
+    name: "Go to Definition - Interface Implementation"
+    description: "Navigate from interface to concrete implementation"
+    method: "textDocument/definition"
+    repository: "kafka"
+    file: "clients/src/main/java/org/apache/kafka/clients/producer/KafkaProducer.java"
+    position:
+      line: 100  # Producer interface implementation
+      character: 20
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["definition", "interface", "kafka", "producer"]
+    
+  - id: "java_def_generic_method"
+    name: "Go to Definition - Generic Method"
+    description: "Navigate to generic method definition"
+    method: "textDocument/definition"
+    repository: "spring-boot"
+    file: "spring-boot-project/spring-boot/src/main/java/org/springframework/boot/context/properties/ConfigurationProperties.java"
+    position:
+      line: 80  # Generic method usage
+      character: 25
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["definition", "generic", "method", "spring"]
+
+  - id: "java_def_dependency_injection"
+    name: "Go to Definition - Dependency Injection"
+    description: "Navigate to injected dependency definition"
+    method: "textDocument/definition"
+    repository: "spring-boot"
+    file: "spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/servlet/WebMvcAutoConfiguration.java"
+    position:
+      line: 200  # @Autowired field
+      character: 15
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["definition", "dependency-injection", "autowired"]
+
+  - id: "java_def_maven_dependency"
+    name: "Go to Definition - Maven Dependency"
+    description: "Navigate to external Maven dependency class"
+    method: "textDocument/definition"
+    repository: "kafka"
+    file: "clients/src/main/java/org/apache/kafka/clients/consumer/KafkaConsumer.java"
+    position:
+      line: 50  # Using external library
+      character: 30
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["definition", "maven", "dependency"]
+
+  # ===================
+  # REFERENCES SCENARIOS  
+  # ===================
+  
+  - id: "java_ref_spring_bean"
+    name: "Find References - Spring Bean Usage"
+    description: "Find all references to a Spring bean"
+    method: "textDocument/references"
+    repository: "spring-boot"
+    file: "spring-boot-project/spring-boot/src/main/java/org/springframework/boot/SpringApplication.java"
+    position:
+      line: 300  # SpringApplication class
+      character: 10
+    params:
+      includeDeclaration: true
+    expected:
+      success: true
+      references:
+        min_count: 50  # SpringApplication is widely used
+        include_declaration: true
+    tags: ["references", "spring", "bean", "application"]
+
+  - id: "java_ref_kafka_api"
+    name: "Find References - Kafka API Method"
+    description: "Find all references to Kafka API method"
+    method: "textDocument/references"
+    repository: "kafka"
+    file: "clients/src/main/java/org/apache/kafka/clients/producer/Producer.java"
+    position:
+      line: 100  # send method
+      character: 15
+    params:
+      includeDeclaration: true
+    expected:
+      success: true
+      references:
+        min_count: 30  # send() is core Kafka method
+        include_declaration: true
+    tags: ["references", "kafka", "api", "producer"]
+
+  - id: "java_ref_annotation_usage"
+    name: "Find References - Annotation Usage"
+    description: "Find all usages of a Spring annotation"
+    method: "textDocument/references"
+    repository: "spring-boot"
+    file: "spring-boot-project/spring-boot/src/main/java/org/springframework/boot/autoconfigure/condition/ConditionalOnProperty.java"
+    position:
+      line: 50  # ConditionalOnProperty annotation
+      character: 10
+    params:
+      includeDeclaration: false
+    expected:
+      success: true
+      references:
+        min_count: 100  # Widely used conditional annotation
+        include_declaration: false
+    tags: ["references", "annotation", "conditional"]
+
+  - id: "java_ref_exception_handling"
+    name: "Find References - Exception Class"
+    description: "Find all references to exception class"
+    method: "textDocument/references"
+    repository: "kafka"
+    file: "clients/src/main/java/org/apache/kafka/common/KafkaException.java"
+    position:
+      line: 30  # KafkaException class
+      character: 10
+    params:
+      includeDeclaration: true
+    expected:
+      success: true
+      references:
+        min_count: 20
+        include_declaration: true
+    tags: ["references", "exception", "kafka"]
+
+  # ===================
+  # HOVER SCENARIOS
+  # ===================
+  
+  - id: "java_hover_spring_annotation"
+    name: "Hover - Spring Annotation Details"
+    description: "Get hover info for Spring annotation with JavaDoc"
+    method: "textDocument/hover"
+    repository: "spring-boot"
+    file: "spring-boot-project/spring-boot/src/main/java/org/springframework/boot/autoconfigure/condition/ConditionalOnBean.java"
+    position:
+      line: 40  # @ConditionalOnBean annotation
+      character: 10
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["ConditionalOnBean", "@param", "@return", "condition"]
+        format: "markdown"
+    tags: ["hover", "annotation", "spring", "javadoc"]
+
+  - id: "java_hover_generic_type"
+    name: "Hover - Generic Type Information"
+    description: "Get hover info for generic type with bounds"
+    method: "textDocument/hover"
+    repository: "kafka"
+    file: "clients/src/main/java/org/apache/kafka/clients/producer/ProducerRecord.java"
+    position:
+      line: 60  # Generic type parameter
+      character: 15
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["ProducerRecord", "generic", "<K,", "V>"]
+        format: "markdown"
+    tags: ["hover", "generic", "type", "kafka"]
+
+  - id: "java_hover_method_signature"
+    name: "Hover - Method Signature with Overloads"
+    description: "Get hover info for overloaded method"
+    method: "textDocument/hover"
+    repository: "spring-boot"
+    file: "spring-boot-project/spring-boot/src/main/java/org/springframework/boot/SpringApplication.java"
+    position:
+      line: 500  # run method with multiple overloads
+      character: 20
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["run", "overload", "static"]
+        format: "markdown"
+    tags: ["hover", "method", "overload", "signature"]
+
+  - id: "java_hover_enum_constant"
+    name: "Hover - Enum Constant"
+    description: "Get hover info for enum constant with description"
+    method: "textDocument/hover"
+    repository: "kafka"
+    file: "clients/src/main/java/org/apache/kafka/clients/consumer/OffsetResetStrategy.java"
+    position:
+      line: 30  # Enum constant
+      character: 10
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["enum", "OffsetResetStrategy"]
+        format: "markdown"
+    tags: ["hover", "enum", "constant"]
+
+  # ===================
+  # DOCUMENT SYMBOLS SCENARIOS
+  # ===================
+  
+  - id: "java_docsym_spring_configuration"
+    name: "Document Symbols - Spring Configuration Class"
+    description: "Get all symbols from Spring configuration class"
+    method: "textDocument/documentSymbol"
+    repository: "spring-boot"
+    file: "spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/servlet/WebMvcAutoConfiguration.java"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 30  # Configuration classes have many @Bean methods
+        types: ["class", "method", "field", "annotation"]
+    tags: ["symbols", "document", "spring", "configuration"]
+
+  - id: "java_docsym_kafka_client"
+    name: "Document Symbols - Kafka Client Class"
+    description: "Get symbols from Kafka client implementation"
+    method: "textDocument/documentSymbol"
+    repository: "kafka"
+    file: "clients/src/main/java/org/apache/kafka/clients/producer/KafkaProducer.java"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 25  # Producer has many methods and fields
+        types: ["class", "method", "field", "constructor"]
+    tags: ["symbols", "document", "kafka", "producer"]
+
+  - id: "java_docsym_abstract_class"
+    name: "Document Symbols - Abstract Base Class"
+    description: "Get symbols from abstract class with inheritance"
+    method: "textDocument/documentSymbol"
+    repository: "spring-boot"
+    file: "spring-boot-project/spring-boot/src/main/java/org/springframework/boot/context/event/ApplicationContextInitializedEvent.java"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 5
+        types: ["class", "constructor", "method"]
+    tags: ["symbols", "document", "abstract", "inheritance"]
+
+  - id: "java_docsym_interface_definition"
+    name: "Document Symbols - Interface with Default Methods"
+    description: "Get symbols from interface with default methods"
+    method: "textDocument/documentSymbol"
+    repository: "kafka"
+    file: "clients/src/main/java/org/apache/kafka/clients/consumer/Consumer.java"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 15
+        types: ["interface", "method"]
+    tags: ["symbols", "document", "interface", "default"]
+
+  # ===================
+  # WORKSPACE SYMBOLS SCENARIOS
+  # ===================
+  
+  - id: "java_worksym_spring_search"
+    name: "Workspace Symbol Search - Spring Components"
+    description: "Search for Spring-related symbols across workspace"
+    method: "workspace/symbol"
+    repository: "spring-boot"
+    query: "Configuration"
+    expected:
+      success: true
+      symbols:
+        min_count: 50  # Many configuration classes in Spring Boot
+        types: ["class", "annotation", "interface"]
+    tags: ["symbols", "workspace", "search", "spring"]
+
+  - id: "java_worksym_kafka_search"
+    name: "Workspace Symbol Search - Kafka Components"
+    description: "Search for Kafka symbols"
+    method: "workspace/symbol"
+    repository: "kafka"
+    query: "Producer"
+    expected:
+      success: true
+      symbols:
+        min_count: 20
+        types: ["class", "interface", "method"]
+    tags: ["symbols", "workspace", "kafka"]
+
+  - id: "java_worksym_annotation_search"
+    name: "Workspace Symbol Search - Annotations"
+    description: "Search for annotation definitions"
+    method: "workspace/symbol"
+    repository: "spring-boot"
+    query: "Conditional"
+    expected:
+      success: true
+      symbols:
+        min_count: 25
+        types: ["annotation", "class"]
+    tags: ["symbols", "workspace", "annotation"]
+
+  - id: "java_worksym_exception_search"
+    name: "Workspace Symbol Search - Exception Classes"
+    description: "Search for exception classes"
+    method: "workspace/symbol"
+    repository: "kafka"
+    query: "Exception"
+    expected:
+      success: true
+      symbols:
+        min_count: 30
+        types: ["class"]
+    tags: ["symbols", "workspace", "exception"]
+
+  # ===================
+  # COMPLEX SCENARIOS
+  # ===================
+  
+  - id: "java_complex_lambda_expressions"
+    name: "Complex - Lambda Expression Navigation"
+    description: "Navigate through lambda expressions and method references"
+    method: "textDocument/definition"
+    repository: "kafka"
+    file: "clients/src/main/java/org/apache/kafka/clients/consumer/KafkaConsumer.java"
+    position:
+      line: 1000  # Lambda expression usage
+      character: 20
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["complex", "lambda", "functional"]
+
+  - id: "java_complex_annotation_processing"
+    name: "Complex - Annotation Processing"
+    description: "Test navigation through annotation processors"
+    method: "textDocument/definition"
+    repository: "spring-boot"
+    file: "spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/AutoConfigurationImportSelector.java"
+    position:
+      line: 200  # Annotation processing
+      character: 15
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["complex", "annotation", "processing"]
+
+  - id: "java_complex_reflection_usage"
+    name: "Complex - Reflection API Usage"
+    description: "Navigate through reflection API usage"
+    method: "textDocument/hover"
+    repository: "spring-boot"
+    file: "spring-boot-project/spring-boot/src/main/java/org/springframework/boot/context/properties/bind/JavaBeanBinder.java"
+    position:
+      line: 150  # Reflection usage
+      character: 25
+    expected:
+      success: true
+      hover:
+        has_content: true
+    tags: ["complex", "reflection", "api"]
+
+  - id: "java_complex_stream_api"
+    name: "Complex - Stream API Chain"
+    description: "Navigate through complex Stream API chains"
+    method: "textDocument/definition"
+    repository: "kafka"
+    file: "streams/src/main/java/org/apache/kafka/streams/processor/internals/StreamsPartitionAssignor.java"
+    position:
+      line: 300  # Stream API usage
+      character: 30
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["complex", "stream", "functional"]
+
+  # ===================
+  # SPRING BOOT SPECIFIC SCENARIOS
+  # ===================
+  
+  - id: "java_spring_auto_configuration"
+    name: "Spring Boot - Auto Configuration"
+    description: "Test auto configuration class navigation"
+    method: "textDocument/definition"
+    repository: "spring-boot"
+    file: "spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/jdbc/DataSourceAutoConfiguration.java"
+    position:
+      line: 100  # Auto configuration
+      character: 15
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["spring-boot", "auto-configuration", "jdbc"]
+
+  - id: "java_spring_actuator"
+    name: "Spring Boot - Actuator Endpoint"
+    description: "Test Spring Boot actuator endpoint navigation"
+    method: "textDocument/definition"
+    repository: "spring-boot"
+    file: "spring-boot-project/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/health/HealthEndpoint.java"
+    position:
+      line: 80  # Actuator endpoint
+      character: 20
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["spring-boot", "actuator", "health"]
+
+  - id: "java_spring_test_configuration"
+    name: "Spring Boot - Test Configuration"
+    description: "Test Spring Boot test configuration"
+    method: "textDocument/definition"
+    repository: "spring-boot"
+    file: "spring-boot-project/spring-boot-test/src/main/java/org/springframework/boot/test/context/SpringBootTest.java"
+    position:
+      line: 50  # Test annotation
+      character: 15
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["spring-boot", "test", "configuration"]
+
+  # ===================
+  # KAFKA SPECIFIC SCENARIOS
+  # ===================
+  
+  - id: "java_kafka_streams_dsl"
+    name: "Kafka - Streams DSL Navigation"
+    description: "Test Kafka Streams DSL navigation"
+    method: "textDocument/definition"
+    repository: "kafka"
+    file: "streams/src/main/java/org/apache/kafka/streams/kstream/KStream.java"
+    position:
+      line: 200  # DSL method
+      character: 15
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["kafka", "streams", "dsl"]
+
+  - id: "java_kafka_serialization"
+    name: "Kafka - Serialization Framework"
+    description: "Test Kafka serialization navigation"
+    method: "textDocument/definition"
+    repository: "kafka"
+    file: "clients/src/main/java/org/apache/kafka/common/serialization/Serializer.java"
+    position:
+      line: 60  # Serializer interface
+      character: 20
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["kafka", "serialization", "interface"]
+
+  - id: "java_kafka_admin_client"
+    name: "Kafka - Admin Client Operations"
+    description: "Test Kafka admin client navigation"
+    method: "textDocument/definition"
+    repository: "kafka"
+    file: "clients/src/main/java/org/apache/kafka/clients/admin/AdminClient.java"
+    position:
+      line: 150  # Admin operation
+      character: 25
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["kafka", "admin", "client"]
+
+# Performance test cases
+performance_tests:
+  - id: "java_perf_large_class"
+    name: "Performance - Large Java Class"
+    description: "Test performance on large Java class files"
+    method: "textDocument/definition"
+    repository: "spring-boot"
+    file: "spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/servlet/WebMvcAutoConfiguration.java"
+    position:
+      line: 500
+      character: 20
+    timeout: "15s"
+    tags: ["performance", "large-file", "spring"]
+
+  - id: "java_perf_workspace_symbols"
+    name: "Performance - Large Workspace Symbol Search"
+    description: "Test workspace symbol search performance"
+    method: "workspace/symbol"
+    repository: "spring-boot"
+    query: "Auto"  # Will match many auto-configuration classes
+    timeout: "20s"
+    expected:
+      success: true
+      symbols:
+        min_count: 100
+    tags: ["performance", "workspace", "large-result"]
+
+  - id: "java_perf_complex_inheritance"
+    name: "Performance - Complex Inheritance Chain"
+    description: "Test performance with complex inheritance hierarchies"
+    method: "textDocument/definition"
+    repository: "kafka"
+    file: "clients/src/main/java/org/apache/kafka/clients/consumer/KafkaConsumer.java"
+    position:
+      line: 50  # Complex inheritance
+      character: 25
+    timeout: "10s"
+    tags: ["performance", "inheritance", "complex"]
+
+# Test repository configurations
+test_repositories:
+  spring-boot:
+    path: "./test-repositories/java/spring-boot"
+    setup:
+      commands:
+        - "./gradlew compileJava -x test"
+        - "./gradlew compileTestJava -x test"
+      timeout: "20m"
+      env:
+        JAVA_HOME: "/usr/lib/jvm/java-17-openjdk"
+        GRADLE_OPTS: "-Xmx2048m"
+  
+  kafka:
+    path: "./test-repositories/java/kafka"
+    setup:
+      commands:
+        - "./gradlew jar -x test"
+        - "./gradlew compileTestJava -x test"
+      timeout: "15m"
+      env:
+        JAVA_HOME: "/usr/lib/jvm/java-17-openjdk"
+        GRADLE_OPTS: "-Xmx3072m"

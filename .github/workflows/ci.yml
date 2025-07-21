@@ -360,11 +360,347 @@ jobs:
             body: body
           });
 
+  # LSP Validation - Quick mode for PRs
+  lsp-validation-quick:
+    name: LSP Validation (Quick)
+    runs-on: ubuntu-latest
+    needs: quality
+    if: github.event_name == 'pull_request'
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: make deps
+
+    - name: Setup test environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bc jq
+        # Install language servers for testing
+        go install golang.org/x/tools/gopls@latest
+        pip3 install python-lsp-server
+        npm install -g typescript-language-server typescript
+
+    - name: Build LSP Gateway
+      run: make local
+
+    - name: Run quick LSP validation
+      run: |
+        ./bin/lsp-gateway test-lsp \
+          --config=test-configs/ci-test-config.yaml \
+          --format=json \
+          --output-dir=lsp-results \
+          --filter="method=textDocument/definition,textDocument/hover" \
+          --timeout=60s \
+          --max-concurrency=2 \
+          --quick-mode
+      env:
+        CI: true
+
+    - name: Process LSP validation results
+      run: |
+        if [ -f lsp-results/results.json ]; then
+          # Extract summary statistics
+          jq -r '.summary' lsp-results/results.json > lsp-results/summary.txt
+          
+          # Create performance report
+          jq -r '.performance.total_duration' lsp-results/results.json > lsp-results/duration.txt
+          echo "LSP_DURATION=$(cat lsp-results/duration.txt)" >> $GITHUB_ENV
+          
+          # Extract pass/fail counts
+          TOTAL_TESTS=$(jq -r '.summary.total_tests' lsp-results/results.json)
+          PASSED_TESTS=$(jq -r '.summary.passed_tests' lsp-results/results.json)
+          FAILED_TESTS=$(jq -r '.summary.failed_tests' lsp-results/results.json)
+          
+          echo "LSP_TOTAL=$TOTAL_TESTS" >> $GITHUB_ENV
+          echo "LSP_PASSED=$PASSED_TESTS" >> $GITHUB_ENV
+          echo "LSP_FAILED=$FAILED_TESTS" >> $GITHUB_ENV
+        fi
+
+    - name: Comment LSP validation results on PR
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          
+          try {
+            const results = JSON.parse(fs.readFileSync('lsp-results/results.json', 'utf8'));
+            const summary = results.summary;
+            const performance = results.performance;
+            
+            // Get failed tests details
+            const failedTests = results.test_results
+              .filter(test => !test.passed)
+              .slice(0, 5); // Show max 5 failed tests
+            
+            const failureDetails = failedTests.length > 0 ? 
+              failedTests.map(test => `- **${test.name}**: ${test.error || 'Unknown error'}`).join('\n') :
+              '';
+            
+            const comment = `## 🔍 LSP Validation Results (Quick Mode)
+            
+            **Status:** ${summary.passed_tests === summary.total_tests ? '✅ PASSED' : '❌ FAILED'}
+            **Total Tests:** ${summary.total_tests}
+            **Passed:** ${summary.passed_tests} ✅
+            **Failed:** ${summary.failed_tests} ❌
+            **Duration:** ${performance.total_duration}
+            
+            ### Performance Metrics
+            - **Average Response Time:** ${performance.avg_response_time}ms
+            - **Server Startup Time:** ${performance.server_startup_time}ms
+            - **Total Requests:** ${performance.total_requests}
+            
+            ${failedTests.length > 0 ? `### Failed Tests\n${failureDetails}` : ''}
+            ${summary.failed_tests > 5 ? `\n_...and ${summary.failed_tests - 5} more failures_` : ''}
+            
+            📋 [View detailed LSP validation report](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+          } catch (error) {
+            console.error('Error creating LSP validation comment:', error);
+          }
+
+    - name: Upload LSP validation artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: lsp-validation-quick-results
+        path: |
+          lsp-results/
+        retention-days: 7
+
+    - name: Fail on LSP validation errors
+      run: |
+        if [ -f lsp-results/results.json ]; then
+          FAILED_TESTS=$(jq -r '.summary.failed_tests' lsp-results/results.json)
+          if [ "$FAILED_TESTS" != "0" ]; then
+            echo "❌ LSP validation failed with $FAILED_TESTS failures"
+            exit 1
+          fi
+        fi
+
+  # LSP Validation - Comprehensive mode for main branch
+  lsp-validation-comprehensive:
+    name: LSP Validation (Comprehensive)  
+    runs-on: ubuntu-latest
+    needs: [quality, test]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.ref == 'refs/heads/develop')
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: make deps
+
+    - name: Setup comprehensive test environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bc jq python3-pip nodejs npm default-jdk
+        
+        # Install all language servers
+        go install golang.org/x/tools/gopls@latest
+        pip3 install python-lsp-server
+        npm install -g typescript-language-server typescript
+        
+        # Setup Java LSP (Eclipse JDT)
+        ./scripts/setup-test-environment.sh --install-jdtls
+
+    - name: Build LSP Gateway
+      run: make local
+
+    - name: Clone test repositories
+      run: |
+        ./scripts/clone-repos.sh --max-repos=3 --size-limit=100MB
+      env:
+        CI: true
+
+    - name: Run comprehensive LSP validation
+      run: |
+        ./bin/lsp-gateway test-lsp \
+          --config=test-configs/integration-test-config.yaml \
+          --format=json,junit \
+          --output-dir=lsp-results \
+          --timeout=600s \
+          --max-concurrency=4 \
+          --comprehensive-mode \
+          --include-repos=golang,python,typescript \
+          --benchmark-mode
+      env:
+        CI: true
+
+    - name: Generate LSP performance report
+      run: |
+        if [ -f lsp-results/results.json ]; then
+          # Generate performance dashboard
+          ./internal/testing/lsp/reporters/performance-dashboard.sh \
+            --input=lsp-results/results.json \
+            --output=lsp-results/dashboard \
+            --format=html,json
+          
+          # Generate benchmark comparison if previous results exist
+          if [ -f lsp-results/benchmark-baseline.json ]; then
+            ./internal/testing/lsp/reporters/benchmark-compare.sh \
+              --baseline=lsp-results/benchmark-baseline.json \
+              --current=lsp-results/results.json \
+              --output=lsp-results/benchmark-comparison.json
+          fi
+          
+          # Save current results as new baseline
+          cp lsp-results/results.json lsp-results/benchmark-baseline.json
+        fi
+
+    - name: Upload LSP validation results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: lsp-validation-comprehensive-results
+        path: |
+          lsp-results/
+        retention-days: 30
+
+    - name: Upload LSP performance dashboard
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: lsp-performance-dashboard
+        path: |
+          lsp-results/dashboard/
+        retention-days: 30
+
+    - name: Publish test results
+      uses: dorny/test-reporter@v1
+      if: success() || failure()
+      with:
+        name: LSP Validation Results
+        path: lsp-results/junit.xml
+        reporter: java-junit
+        fail-on-error: true
+
+  # Repository validation - Test against real-world repositories
+  lsp-repository-validation:
+    name: Repository Validation
+    runs-on: ubuntu-latest
+    needs: [quality, test]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    strategy:
+      matrix:
+        repo-type: [golang, python, typescript, java]
+        include:
+          - repo-type: golang
+            test-config: test-configs/go-repo-config.yaml
+          - repo-type: python  
+            test-config: test-configs/python-repo-config.yaml
+          - repo-type: typescript
+            test-config: test-configs/typescript-repo-config.yaml
+          - repo-type: java
+            test-config: test-configs/java-repo-config.yaml
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: make deps
+
+    - name: Setup environment for ${{ matrix.repo-type }}
+      run: |
+        case "${{ matrix.repo-type }}" in
+          golang)
+            go install golang.org/x/tools/gopls@latest
+            ;;
+          python)
+            sudo apt-get update && sudo apt-get install -y python3-pip
+            pip3 install python-lsp-server
+            ;;
+          typescript)
+            sudo apt-get update && sudo apt-get install -y nodejs npm
+            npm install -g typescript-language-server typescript
+            ;;
+          java)
+            sudo apt-get update && sudo apt-get install -y default-jdk
+            ./scripts/setup-test-environment.sh --install-jdtls
+            ;;
+        esac
+
+    - name: Build LSP Gateway
+      run: make local
+
+    - name: Test against ${{ matrix.repo-type }} repositories
+      run: |
+        ./bin/lsp-gateway test-lsp \
+          --config=${{ matrix.test-config }} \
+          --format=json \
+          --output-dir=repo-validation-${{ matrix.repo-type }} \
+          --timeout=300s \
+          --repository-mode
+      env:
+        CI: true
+
+    - name: Upload repository validation results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: repository-validation-${{ matrix.repo-type }}
+        path: |
+          repo-validation-${{ matrix.repo-type }}/
+        retention-days: 14
+
   # Cleanup
   cleanup:
     name: Cleanup
     runs-on: ubuntu-latest
-    needs: [quality, test, build]
+    needs: [quality, test, build, lsp-validation-quick, lsp-validation-comprehensive, lsp-repository-validation]
     if: always()
     steps:
     - name: Delete old artifacts

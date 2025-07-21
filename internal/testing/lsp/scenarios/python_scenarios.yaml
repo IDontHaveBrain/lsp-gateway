@@ -1,0 +1,553 @@
+# Python Language Test Scenarios for LSP Gateway
+# Real-world test cases using Django and Flask patterns
+
+name: "Python LSP Scenarios"
+description: "Comprehensive Python language server testing scenarios"
+language: "python"
+
+# Test scenarios for Python using Django and Flask repository patterns
+scenarios:
+  # ===================
+  # DEFINITION SCENARIOS
+  # ===================
+  
+  - id: "py_def_class_inheritance"
+    name: "Go to Definition - Class Inheritance"
+    description: "Navigate from child class to parent class definition"
+    method: "textDocument/definition"
+    repository: "django"
+    file: "django/db/models/base.py"
+    position: 
+      line: 100  # Example: Model class inheritance
+      character: 15
+    expected:
+      success: true
+      definition:
+        has_location: true
+        file_pattern: "django/db/models/base.py"
+    tags: ["definition", "inheritance", "django", "class"]
+  
+  - id: "py_def_method_override"
+    name: "Go to Definition - Method Override"
+    description: "Navigate to overridden method definition"
+    method: "textDocument/definition"
+    repository: "django"
+    file: "django/contrib/admin/models.py"
+    position:
+      line: 80  # Example: save method override
+      character: 10
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["definition", "method", "override", "django"]
+    
+  - id: "py_def_import_module"
+    name: "Go to Definition - Module Import"
+    description: "Navigate to imported module definition"
+    method: "textDocument/definition"
+    repository: "django"
+    file: "django/views/generic/base.py"
+    position:
+      line: 10  # Import statement
+      character: 20
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["definition", "import", "module"]
+
+  - id: "py_def_decorator_function"
+    name: "Go to Definition - Decorator Function"
+    description: "Navigate to decorator function definition"
+    method: "textDocument/definition"
+    repository: "django"
+    file: "django/views/decorators/http.py"
+    position:
+      line: 50  # Example: @require_http_methods decorator usage
+      character: 5
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["definition", "decorator", "function"]
+
+  - id: "py_def_flask_route"
+    name: "Go to Definition - Flask Route"
+    description: "Navigate to Flask route definition"
+    method: "textDocument/definition"
+    repository: "flask"
+    file: "src/flask/app.py"
+    position:
+      line: 200  # Example: route decorator
+      character: 10
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["definition", "flask", "route", "decorator"]
+
+  # ===================
+  # REFERENCES SCENARIOS  
+  # ===================
+  
+  - id: "py_ref_django_model_usage"
+    name: "Find References - Django Model Usage"
+    description: "Find all references to a Django model"
+    method: "textDocument/references"
+    repository: "django"
+    file: "django/contrib/auth/models.py"
+    position:
+      line: 350  # Example: User model
+      character: 10
+    params:
+      includeDeclaration: true
+    expected:
+      success: true
+      references:
+        min_count: 50  # User model is widely referenced
+        include_declaration: true
+    tags: ["references", "django", "model", "auth"]
+
+  - id: "py_ref_method_calls"
+    name: "Find References - Method Calls"
+    description: "Find all references to a commonly used method"
+    method: "textDocument/references"
+    repository: "django"
+    file: "django/db/models/base.py"
+    position:
+      line: 800  # Example: save method
+      character: 10
+    params:
+      includeDeclaration: true
+    expected:
+      success: true
+      references:
+        min_count: 30  # save() is commonly used
+        include_declaration: true
+    tags: ["references", "method", "django", "model"]
+
+  - id: "py_ref_class_attribute"
+    name: "Find References - Class Attribute"
+    description: "Find all references to class attribute"
+    method: "textDocument/references"
+    repository: "django"
+    file: "django/db/models/fields/__init__.py"
+    position:
+      line: 200  # Example: CharField
+      character: 10
+    params:
+      includeDeclaration: false
+    expected:
+      success: true
+      references:
+        min_count: 20
+        include_declaration: false
+    tags: ["references", "attribute", "class", "django"]
+
+  - id: "py_ref_flask_function"
+    name: "Find References - Flask Function"
+    description: "Find all references to Flask utility function"
+    method: "textDocument/references"
+    repository: "flask"
+    file: "src/flask/helpers.py"
+    position:
+      line: 100  # Example: url_for function
+      character: 10
+    params:
+      includeDeclaration: true
+    expected:
+      success: true
+      references:
+        min_count: 10
+        include_declaration: true
+    tags: ["references", "function", "flask", "utility"]
+
+  # ===================
+  # HOVER SCENARIOS
+  # ===================
+  
+  - id: "py_hover_django_field"
+    name: "Hover - Django Model Field"
+    description: "Get hover info for Django model field"
+    method: "textDocument/hover"
+    repository: "django"
+    file: "django/db/models/fields/__init__.py"
+    position:
+      line: 1200  # Example: CharField definition
+      character: 10
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["CharField", "string", "max_length", "field"]
+        format: "markdown"
+    tags: ["hover", "django", "model", "field"]
+
+  - id: "py_hover_builtin_function"
+    name: "Hover - Python Built-in Function"
+    description: "Get hover info for Python built-in function"
+    method: "textDocument/hover"
+    repository: "django"
+    file: "django/utils/encoding.py"
+    position:
+      line: 50  # Using built-in function like str()
+      character: 10
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["str", "string", "object"]
+        format: "markdown"
+    tags: ["hover", "builtin", "function"]
+
+  - id: "py_hover_class_method"
+    name: "Hover - Class Method Signature"
+    description: "Get hover info for class method with parameters"
+    method: "textDocument/hover"
+    repository: "django"
+    file: "django/db/models/query.py"
+    position:
+      line: 400  # Example: QuerySet method
+      character: 15
+    expected:
+      success: true
+      hover:
+        has_content: true
+        format: "markdown"
+    tags: ["hover", "class", "method", "signature"]
+
+  - id: "py_hover_flask_decorator"
+    name: "Hover - Flask Decorator"
+    description: "Get hover info for Flask decorator"
+    method: "textDocument/hover"
+    repository: "flask"
+    file: "src/flask/app.py"
+    position:
+      line: 1500  # Example: @app.route decorator
+      character: 10
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["route", "decorator", "endpoint"]
+        format: "markdown"
+    tags: ["hover", "flask", "decorator", "route"]
+
+  # ===================
+  # DOCUMENT SYMBOLS SCENARIOS
+  # ===================
+  
+  - id: "py_docsym_django_model"
+    name: "Document Symbols - Django Model File"
+    description: "Get all symbols from a Django model file"
+    method: "textDocument/documentSymbol"
+    repository: "django"
+    file: "django/contrib/auth/models.py"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 20  # Model files have classes, methods, fields
+        types: ["class", "function", "variable"]
+    tags: ["symbols", "document", "django", "model"]
+
+  - id: "py_docsym_views_file"
+    name: "Document Symbols - Django Views File"
+    description: "Get symbols from Django views file"
+    method: "textDocument/documentSymbol"
+    repository: "django"
+    file: "django/views/generic/base.py"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 15  # Views have classes and methods
+        types: ["class", "function", "variable"]
+    tags: ["symbols", "document", "django", "views"]
+
+  - id: "py_docsym_flask_app"
+    name: "Document Symbols - Flask Application"
+    description: "Get symbols from Flask app file"
+    method: "textDocument/documentSymbol"
+    repository: "flask"
+    file: "src/flask/app.py"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 30  # Flask app has many methods and classes
+        types: ["class", "function", "variable"]
+    tags: ["symbols", "document", "flask", "app"]
+
+  - id: "py_docsym_utility_module"
+    name: "Document Symbols - Utility Module"
+    description: "Get symbols from utility module"
+    method: "textDocument/documentSymbol"
+    repository: "django"
+    file: "django/utils/text.py"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 10
+        types: ["function", "variable", "class"]
+    tags: ["symbols", "document", "utility"]
+
+  # ===================
+  # WORKSPACE SYMBOLS SCENARIOS
+  # ===================
+  
+  - id: "py_worksym_model_search"
+    name: "Workspace Symbol Search - Model"
+    description: "Search for Model-related symbols across workspace"
+    method: "workspace/symbol"
+    repository: "django"
+    query: "Model"
+    expected:
+      success: true
+      symbols:
+        min_count: 50  # Model is used extensively in Django
+        types: ["class", "function", "variable"]
+    tags: ["symbols", "workspace", "search", "django"]
+
+  - id: "py_worksym_view_search"
+    name: "Workspace Symbol Search - View"
+    description: "Search for View symbols"
+    method: "workspace/symbol"
+    repository: "django"
+    query: "View"
+    expected:
+      success: true
+      symbols:
+        min_count: 20
+        types: ["class", "function"]
+    tags: ["symbols", "workspace", "view"]
+
+  - id: "py_worksym_flask_search"
+    name: "Workspace Symbol Search - Flask"
+    description: "Search for Flask-related symbols"
+    method: "workspace/symbol"
+    repository: "flask"
+    query: "Flask"
+    expected:
+      success: true
+      symbols:
+        min_count: 10
+        types: ["class", "function", "variable"]
+    tags: ["symbols", "workspace", "flask"]
+
+  - id: "py_worksym_function_search"
+    name: "Workspace Symbol Search - Function Name"
+    description: "Search for specific function name"
+    method: "workspace/symbol"
+    repository: "django"
+    query: "render"
+    expected:
+      success: true
+      symbols:
+        min_count: 15
+        types: ["function"]
+    tags: ["symbols", "workspace", "function"]
+
+  # ===================
+  # COMPLEX SCENARIOS
+  # ===================
+  
+  - id: "py_complex_metaclass"
+    name: "Complex - Metaclass Definition"
+    description: "Navigate through Django's metaclass system"
+    method: "textDocument/definition"
+    repository: "django"
+    file: "django/db/models/base.py"
+    position:
+      line: 80  # ModelBase metaclass
+      character: 10
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["complex", "metaclass", "django"]
+
+  - id: "py_complex_dynamic_attribute"
+    name: "Complex - Dynamic Attribute Access"
+    description: "Test LSP with dynamic attribute access"
+    method: "textDocument/hover"
+    repository: "django"
+    file: "django/db/models/base.py"
+    position:
+      line: 500  # Dynamic attribute in Model
+      character: 20
+    expected:
+      success: true
+      hover:
+        has_content: true
+    tags: ["complex", "dynamic", "attribute"]
+
+  - id: "py_complex_decorator_chain"
+    name: "Complex - Decorator Chain"
+    description: "Navigate through multiple decorators"
+    method: "textDocument/definition"
+    repository: "django"
+    file: "django/views/decorators/csrf.py"
+    position:
+      line: 50  # Chained decorators
+      character: 5
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["complex", "decorator", "chain"]
+
+  - id: "py_complex_class_descriptor"
+    name: "Complex - Class Descriptor"
+    description: "Navigate to descriptor definition"
+    method: "textDocument/definition"
+    repository: "django"
+    file: "django/db/models/fields/__init__.py"
+    position:
+      line: 300  # Field descriptor
+      character: 10
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["complex", "descriptor", "django"]
+
+  # ===================
+  # DJANGO-SPECIFIC SCENARIOS
+  # ===================
+  
+  - id: "py_django_orm_query"
+    name: "Django - ORM Query Method"
+    description: "Test Django ORM query method navigation"
+    method: "textDocument/definition"
+    repository: "django"
+    file: "django/db/models/query.py"
+    position:
+      line: 1000  # Example: filter method
+      character: 10
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["django", "orm", "query"]
+
+  - id: "py_django_admin_interface"
+    name: "Django - Admin Interface"
+    description: "Test Django admin interface navigation"
+    method: "textDocument/definition"
+    repository: "django"
+    file: "django/contrib/admin/options.py"
+    position:
+      line: 200  # AdminSite class
+      character: 15
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["django", "admin", "interface"]
+
+  - id: "py_django_template_context"
+    name: "Django - Template Context"
+    description: "Test Django template context navigation"
+    method: "textDocument/definition"
+    repository: "django"
+    file: "django/template/context.py"
+    position:
+      line: 100  # Context class
+      character: 10
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["django", "template", "context"]
+
+  # ===================
+  # FLASK-SPECIFIC SCENARIOS
+  # ===================
+  
+  - id: "py_flask_blueprint"
+    name: "Flask - Blueprint Definition"
+    description: "Test Flask blueprint navigation"
+    method: "textDocument/definition"
+    repository: "flask"
+    file: "src/flask/blueprints.py"
+    position:
+      line: 150  # Blueprint class
+      character: 10
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["flask", "blueprint", "routing"]
+
+  - id: "py_flask_request_context"
+    name: "Flask - Request Context"
+    description: "Test Flask request context navigation"
+    method: "textDocument/definition"
+    repository: "flask"
+    file: "src/flask/ctx.py"
+    position:
+      line: 200  # RequestContext class
+      character: 15
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["flask", "request", "context"]
+
+# Performance test cases
+performance_tests:
+  - id: "py_perf_large_module"
+    name: "Performance - Large Python Module"
+    description: "Test performance on large Python modules"
+    method: "textDocument/definition"
+    repository: "django"
+    file: "django/db/models/base.py"  # Large complex file
+    position:
+      line: 1000
+      character: 10
+    timeout: "10s"
+    tags: ["performance", "large-file"]
+
+  - id: "py_perf_workspace_symbols"
+    name: "Performance - Large Workspace Symbol Search"
+    description: "Test workspace symbol search performance"
+    method: "workspace/symbol"
+    repository: "django"
+    query: "a"  # Single character to get many results
+    timeout: "15s"
+    expected:
+      success: true
+      symbols:
+        min_count: 200
+    tags: ["performance", "workspace", "large-result"]
+
+# Test repository configurations
+test_repositories:
+  django:
+    path: "./test-repositories/python/django"
+    setup:
+      commands:
+        - "python -m pip install -e ."
+        - "python -m pip install -r tests/requirements/py3.txt"
+      timeout: "10m"
+      env:
+        DJANGO_SETTINGS_MODULE: "django.conf.global_settings"
+  
+  flask:
+    path: "./test-repositories/python/flask"
+    setup:
+      commands:
+        - "python -m pip install -e ."
+        - "python -m pip install -r requirements/dev.txt"
+      timeout: "5m"

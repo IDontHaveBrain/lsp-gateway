@@ -1,0 +1,162 @@
+# TypeScript Repository LSP Validation Configuration
+name: "TypeScript Repository LSP Validation"
+description: "Comprehensive LSP testing against real TypeScript repositories"
+timeout: 10m
+parallel: true
+
+servers:
+  tsserver:
+    name: "typescript-language-server"
+    language: "typescript"
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    transport: "stdio"
+    start_timeout: 30s
+    pre_warmup: true
+    capabilities:
+      - "textDocument/definition"
+      - "textDocument/references"
+      - "textDocument/hover"
+      - "textDocument/documentSymbol"
+      - "workspace/symbol"
+
+repositories:
+  - name: "typescript-repo"
+    path: "./test-repositories/typescript/typescript"
+    language: "typescript"
+    description: "Official TypeScript repository"
+    setup:
+      commands:
+        - "npm install || true"
+        - "npm run build || true"
+      timeout: 10m
+    test_cases:
+      # Definition tests
+      - id: "ts_definition_interface"
+        name: "TypeScript interface definition"
+        method: "textDocument/definition"
+        file: "src/compiler/types.ts"
+        position:
+          line: 100
+          character: 20
+        expected:
+          success: true
+          definition:
+            has_location: true
+        tags: ["definition", "interface"]
+        timeout: 30s
+
+      # Reference tests
+      - id: "ts_references_type"
+        name: "TypeScript type references"
+        method: "textDocument/references"
+        file: "src/compiler/checker.ts"
+        position:
+          line: 500
+          character: 15
+        params:
+          includeDeclaration: true
+        expected:
+          success: true
+          references:
+            min_count: 1
+        tags: ["references", "type"]
+        timeout: 45s
+
+      # Hover tests
+      - id: "ts_hover_method"
+        name: "TypeScript method hover"
+        method: "textDocument/hover"
+        file: "src/compiler/utilities.ts"
+        position:
+          line: 200
+          character: 10
+        expected:
+          success: true
+          hover:
+            has_content: true
+        tags: ["hover", "method"]
+        timeout: 30s
+
+      # Document symbols
+      - id: "ts_document_symbols"
+        name: "TypeScript document symbols"
+        method: "textDocument/documentSymbol"
+        file: "src/compiler/program.ts"
+        expected:
+          success: true
+          symbols:
+            min_count: 5
+        tags: ["symbols", "basic"]
+        timeout: 60s
+
+      # Workspace symbols
+      - id: "ts_workspace_symbols"
+        name: "TypeScript workspace symbol search"
+        method: "workspace/symbol"
+        params:
+          query: "Program"
+        expected:
+          success: true
+          symbols:
+            min_count: 1
+        tags: ["workspace", "symbols"]
+        timeout: 120s
+
+  - name: "vscode-repo"
+    path: "./test-repositories/typescript/vscode"
+    language: "typescript"
+    description: "Visual Studio Code repository"
+    setup:
+      commands:
+        - "npm install || true"
+        - "npm run compile || true"
+      timeout: 15m
+    test_cases:
+      # Definition tests
+      - id: "vscode_definition_api"
+        name: "VSCode API definition"
+        method: "textDocument/definition"
+        file: "src/vs/vscode.d.ts"
+        position:
+          line: 50
+          character: 10
+        expected:
+          success: true
+          definition:
+            has_location: true
+        tags: ["definition", "api"]
+        timeout: 30s
+
+      # Hover tests
+      - id: "vscode_hover_command"
+        name: "VSCode command hover"
+        method: "textDocument/hover"
+        file: "src/vs/workbench/api/common/extHostCommands.ts"
+        position:
+          line: 100
+          character: 20
+        expected:
+          success: true
+          hover:
+            has_content: true
+        tags: ["hover", "command"]
+        timeout: 30s
+
+execution:
+  max_concurrency: 2
+  default_timeout: 60s
+  retry_attempts: 2
+  fail_fast: false
+
+validation:
+  strict_mode: false
+  validate_types: true
+  validate_positions: true
+  validate_uris: true
+
+reporting:
+  formats: ["console", "json", "junit"]
+  output_dir: "repo-validation-typescript"
+  verbose: true
+  include_timing: true
