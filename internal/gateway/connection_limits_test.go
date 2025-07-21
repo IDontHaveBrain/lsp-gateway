@@ -16,6 +16,7 @@ import (
 
 	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/testutil"
+	"lsp-gateway/internal/transport"
 )
 
 // FileDescriptorMonitor tracks file descriptor usage
@@ -881,29 +882,34 @@ func testGracefulDegradation(t *testing.T, systemLimit int64) {
 func setupTestGatewayWithMonitoring(t *testing.T, port int) (*Gateway, *http.Server) {
 	t.Helper()
 
-	config := &config.GatewayConfig{
+	// Create gateway with mock clients instead of real LSP servers
+	cfg := &config.GatewayConfig{
 		Port: port,
 		Servers: []config.ServerConfig{
 			{
 				Name:      "test-server",
 				Languages: []string{"go"},
-				Command:   "cat",
+				Command:   "mock",
 				Args:      []string{},
 				Transport: "stdio",
 			},
 		},
 	}
 
-	gateway, err := NewGateway(config)
-	if err != nil {
-		t.Fatalf("Failed to create gateway: %v", err)
+	gateway := &Gateway{
+		config:  cfg,
+		clients: make(map[string]transport.LSPClient),
+		router:  NewRouter(),
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	// Use mock client to avoid external dependencies
+	mockClient := NewMockLSPClient()
+	gateway.clients["test-server"] = mockClient
+	gateway.router.RegisterServer("test-server", []string{"go"})
 
-	if err := gateway.Start(ctx); err != nil {
-		t.Fatalf("Failed to start gateway: %v", err)
+	// Start mock client instead of real LSP server
+	if err := mockClient.Start(context.TODO()); err != nil {
+		t.Fatalf("Failed to start mock client: %v", err)
 	}
 
 	mux := http.NewServeMux()

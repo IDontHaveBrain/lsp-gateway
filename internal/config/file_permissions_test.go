@@ -602,33 +602,4 @@ func assertPermissionError(t *testing.T, err error, expectedSubstring string) {
 	}
 }
 
-func createTestConfigWithPermissions(t *testing.T, dir string, filename string, content string, perm os.FileMode) string {
-	t.Helper()
-	
-	configFile := filepath.Join(dir, filename)
-	err := os.WriteFile(configFile, []byte(content), perm)
-	if err != nil {
-		t.Fatalf("Failed to create test config file: %v", err)
-	}
-	
-	return configFile
-}
 
-func verifyConfigLoadBehavior(t *testing.T, configFile string, expectSuccess bool, description string) {
-	t.Helper()
-	
-	config, err := LoadConfig(configFile)
-	
-	if expectSuccess {
-		if err != nil {
-			t.Errorf("%s: expected success but got error: %v", description, err)
-		}
-		if config == nil {
-			t.Errorf("%s: expected valid config but got nil", description)
-		}
-	} else {
-		if err == nil {
-			t.Errorf("%s: expected error but loading succeeded", description)
-		}
-	}
-}

@@ -13,13 +13,6 @@ import (
 
 // Mock infrastructure for comprehensive platform strategy testing
 
-type mockLinuxInfo struct {
-	distribution platform.LinuxDistribution
-	version      string
-	name         string
-	id           string
-	idLike       []string
-}
 
 type mockPlatformPackageManager struct {
 	name             string
@@ -997,7 +990,3 @@ func TestPlatformStrategy_TimeoutHandling(t *testing.T) {
 	}
 }
 
-// Helper function for other test files that depend on it
-func createTestInstallerWithMock(executor *MockCommandExecutor) *DefaultRuntimeInstaller {
-	return NewRuntimeInstaller()
-}

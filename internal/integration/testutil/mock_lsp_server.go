@@ -83,7 +83,7 @@ func NewMockLSPServer(t *testing.T, config *MockLSPServerConfig) *MockLSPServer 
 		config = &MockLSPServerConfig{
 			Language:        "go",
 			Transport:       "stdio",
-			ResponseLatency: 10 * time.Millisecond,
+			ResponseLatency: 1 * time.Millisecond, // Reduce from 10ms to 1ms
 			ErrorRate:       0.0,
 			LogRequests:     true,
 			MaxConnections:  10,

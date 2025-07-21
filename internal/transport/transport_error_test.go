@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"os"
-	"os/exec"
 	"strings"
 	"sync"
 	"testing"
@@ -624,71 +622,4 @@ func TestClientCleanupOnErrors(t *testing.T) {
 	})
 }
 
-// simpleMockLSPResponder creates a simple echo command wrapper for testing
-// This avoids the complexity of compiling Go programs and provides faster, more reliable tests
-func createSimpleMockLSPResponder(t *testing.T, delay time.Duration) string {
-	tmpDir := t.TempDir()
-	scriptPath := fmt.Sprintf("%s/mock_lsp.sh", tmpDir)
-	
-	// Create a simple shell script that acts as an LSP server
-	script := fmt.Sprintf(`#!/bin/bash
-# Simple LSP-like responder for testing
-while IFS= read -r line; do
-    if [[ "$line" =~ Content-Length:\ ([0-9]+) ]]; then
-        length=${BASH_REMATCH[1]}
-        read -r  # Read empty line
-        read -r -N $length request
-        
-        # Add delay if specified
-        if [ %d -gt 0 ]; then
-            sleep %f
-        fi
-        
-        # Simple response based on request
-        response='{"jsonrpc":"2.0","id":1,"result":{"message":"test response"}}'
-        echo "Content-Length: ${#response}"
-        echo ""
-        echo "$response"
-    fi
-done
-`, int(delay.Nanoseconds()), delay.Seconds())
-
-	if err := os.WriteFile(scriptPath, []byte(script), 0755); err != nil {
-		t.Fatalf("Failed to create mock LSP script: %v", err)
-	}
-	
-	return scriptPath
-}
-
-// createInMemoryMockLSP creates an in-process mock LSP server that responds via pipes
-func createInMemoryMockLSP(t *testing.T, delay time.Duration, shouldFail bool) (*exec.Cmd, io.WriteCloser, io.ReadCloser) {
-	// Use a simple command that can be controlled
-	cmd := exec.Command("cat")
-	
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		t.Fatalf("Failed to create stdin pipe: %v", err)
-	}
-	
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		t.Fatalf("Failed to create stdout pipe: %v", err)
-	}
-	
-	if err := cmd.Start(); err != nil {
-		t.Fatalf("Failed to start mock command: %v", err)
-	}
-	
-	// Clean up when test completes
-	t.Cleanup(func() {
-		stdin.Close()
-		stdout.Close()
-		if cmd.Process != nil {
-			cmd.Process.Kill()
-			cmd.Wait()
-		}
-	})
-	
-	return cmd, stdin, stdout
-}
 

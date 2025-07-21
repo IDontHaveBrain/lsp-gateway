@@ -101,6 +101,9 @@ func TestFinalCoverageGaps(t *testing.T) {
 		if err != nil {
 			t.Errorf("ExecuteWithEnv failed: %v", err)
 		}
+		if result == nil {
+			t.Error("ExecuteWithEnv result is nil")
+		}
 		
 		// Test shell functions
 		shell := executor.GetShell()
@@ -127,6 +130,9 @@ func TestFinalCoverageGaps(t *testing.T) {
 		result, err = ExecuteShellCommand(executor, "echo shell_test", 5*time.Second)
 		if err != nil {
 			t.Errorf("ExecuteShellCommand failed: %v", err)
+		}
+		if result == nil {
+			t.Error("ExecuteShellCommand result is nil")
 		}
 		
 		// Test exit code function

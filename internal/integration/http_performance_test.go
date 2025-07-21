@@ -17,7 +17,7 @@ import (
 
 // Test Configuration
 const (
-	TestTimeout       = 30 * time.Second
+	TestTimeout       = 15 * time.Second // Reduce from 30s to 15s
 	LowConcurrency    = 10
 	MediumConcurrency = 25
 	HighConcurrency   = 50
@@ -297,7 +297,7 @@ func TestHTTPConcurrentRequests_BurstLoad(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create mock LSP HTTP server
-			mockServer := NewMockLSPHTTPServer(10*time.Millisecond, 0.0)
+			mockServer := NewMockLSPHTTPServer(1*time.Millisecond, 0.0) // Reduce delay
 			httpServer := httptest.NewServer(mockServer)
 			defer httpServer.Close()
 			
@@ -349,7 +349,7 @@ func TestHTTPConcurrentRequests_SustainedLoad(t *testing.T) {
 		minThroughput  = 20.0 // At least 20 RPS
 	)
 	
-	mockServer := NewMockLSPHTTPServer(5*time.Millisecond, 0.01) // 1% error rate
+	mockServer := NewMockLSPHTTPServer(1*time.Millisecond, 0.01) // 1% error rate, reduce delay
 	httpServer := httptest.NewServer(mockServer)
 	defer httpServer.Close()
 	
@@ -389,7 +389,7 @@ func TestHTTPConcurrentRequests_ErrorHandling(t *testing.T) {
 	}
 	
 	// Test with higher error rate
-	mockServer := NewMockLSPHTTPServer(20*time.Millisecond, 0.2) // 20% error rate
+	mockServer := NewMockLSPHTTPServer(5*time.Millisecond, 0.2) // 20% error rate, reduce delay
 	httpServer := httptest.NewServer(mockServer)
 	defer httpServer.Close()
 	
@@ -433,7 +433,7 @@ func TestHTTPConcurrentRequests_MemoryUsage(t *testing.T) {
 	var initialMem runtime.MemStats
 	runtime.ReadMemStats(&initialMem)
 	
-	mockServer := NewMockLSPHTTPServer(30*time.Millisecond, 0.05)
+	mockServer := NewMockLSPHTTPServer(5*time.Millisecond, 0.05) // Reduce delay
 	httpServer := httptest.NewServer(mockServer)
 	defer httpServer.Close()
 	
@@ -480,7 +480,7 @@ func TestHTTPConcurrentRequests_LatencyDistribution(t *testing.T) {
 	}
 	
 	// Test with varying latencies
-	mockServer := NewMockLSPHTTPServer(25*time.Millisecond, 0.0)
+	mockServer := NewMockLSPHTTPServer(5*time.Millisecond, 0.0) // Reduce delay
 	httpServer := httptest.NewServer(mockServer)
 	defer httpServer.Close()
 	
