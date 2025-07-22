@@ -28,7 +28,7 @@ type LoadTestConfig struct {
 
 // TestMetrics tracks performance metrics during load testing
 type TestMetrics struct {
-	TotalRequests     int64
+	TotalRequests      int64
 	SuccessfulRequests int64
 	FailedRequests     int64
 	TotalLatency       time.Duration
@@ -43,14 +43,14 @@ type TestMetrics struct {
 func (m *TestMetrics) AddRequest(latency time.Duration, success bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	atomic.AddInt64(&m.TotalRequests, 1)
 	if success {
 		atomic.AddInt64(&m.SuccessfulRequests, 1)
 	} else {
 		atomic.AddInt64(&m.FailedRequests, 1)
 	}
-	
+
 	m.TotalLatency += latency
 	if latency > m.MaxLatency {
 		m.MaxLatency = latency
@@ -64,7 +64,7 @@ func (m *TestMetrics) AddRequest(latency time.Duration, success bool) {
 func (m *TestMetrics) GetAverageLatency() time.Duration {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if m.TotalRequests == 0 {
 		return 0
 	}
@@ -96,7 +96,7 @@ type CLITestMetrics struct {
 func (m *CLITestMetrics) AddCommandResult(latency time.Duration, success bool, command string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	atomic.AddInt64(&m.TotalCommands, 1)
 	if success {
 		atomic.AddInt64(&m.SuccessfulCommands, 1)
@@ -107,7 +107,7 @@ func (m *CLITestMetrics) AddCommandResult(latency time.Duration, success bool, c
 		}
 		m.ErrorsByCommand[command]++
 	}
-	
+
 	m.TotalLatency += latency
 	if latency > m.MaxLatency {
 		m.MaxLatency = latency
@@ -121,7 +121,7 @@ func (m *CLITestMetrics) AddCommandResult(latency time.Duration, success bool, c
 func (m *CLITestMetrics) GetAverageCommandLatency() time.Duration {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if m.TotalCommands == 0 {
 		return 0
 	}
@@ -133,7 +133,7 @@ func TestConcurrentCLICommandsLight(t *testing.T) {
 	config := CLILoadTestConfig{
 		ConcurrentCommands: 5,
 		CommandsPerWorker:  3,
-		Timeout:           10 * time.Second,
+		Timeout:            10 * time.Second,
 		Commands: [][]string{
 			{"version"},
 			{"help"},
@@ -148,7 +148,7 @@ func TestConcurrentCLICommandsLight(t *testing.T) {
 	var wg sync.WaitGroup
 	errorChan := make(chan error, config.ConcurrentCommands)
 
-	t.Logf("Starting light CLI load test with %d workers, %d commands each", 
+	t.Logf("Starting light CLI load test with %d workers, %d commands each",
 		config.ConcurrentCommands, config.CommandsPerWorker)
 
 	// Launch concurrent CLI command workers
@@ -156,7 +156,7 @@ func TestConcurrentCLICommandsLight(t *testing.T) {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
-			
+
 			for j := 0; j < config.CommandsPerWorker; j++ {
 				select {
 				case <-ctx.Done():
@@ -165,14 +165,14 @@ func TestConcurrentCLICommandsLight(t *testing.T) {
 					// Cycle through available commands
 					cmdIndex := (workerID + j) % len(config.Commands)
 					command := config.Commands[cmdIndex]
-					
+
 					start := time.Now()
 					success := executeCLICommand(command)
 					latency := time.Since(start)
-					
+
 					commandStr := strings.Join(command, " ")
 					metrics.AddCommandResult(latency, success, commandStr)
-					
+
 					if !success {
 						errorChan <- fmt.Errorf("command failed for worker %d: %s", workerID, commandStr)
 					}
@@ -230,7 +230,7 @@ func TestMainFunctionUnderLoad(t *testing.T) {
 	successCount := int64(0)
 	failureCount := int64(0)
 
-	t.Logf("Testing main() function under load: %d workers, %d executions each", 
+	t.Logf("Testing main() function under load: %d workers, %d executions each",
 		concurrentExecutions, executionsPerWorker)
 
 	// Test different CLI paths through main()
@@ -245,7 +245,7 @@ func TestMainFunctionUnderLoad(t *testing.T) {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
-			
+
 			for j := 0; j < executionsPerWorker; j++ {
 				select {
 				case <-ctx.Done():
@@ -254,7 +254,7 @@ func TestMainFunctionUnderLoad(t *testing.T) {
 					// Test main() by executing CLI commands
 					cmdIndex := (workerID + j) % len(commands)
 					cmd := commands[cmdIndex]
-					
+
 					if executeMainFunction(cmd) {
 						atomic.AddInt64(&successCount, 1)
 					} else {
@@ -286,7 +286,7 @@ func TestCLIErrorScenariosUnderLoad(t *testing.T) {
 	config := CLILoadTestConfig{
 		ConcurrentCommands: 4,
 		CommandsPerWorker:  3,
-		Timeout:           15 * time.Second,
+		Timeout:            15 * time.Second,
 		Commands: [][]string{
 			{"invalid-command"},
 			{"config", "validate", "/nonexistent/path"},
@@ -301,14 +301,14 @@ func TestCLIErrorScenariosUnderLoad(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	t.Logf("Testing CLI error scenarios under load: %d workers, %d commands each", 
+	t.Logf("Testing CLI error scenarios under load: %d workers, %d commands each",
 		config.ConcurrentCommands, config.CommandsPerWorker)
 
 	for i := 0; i < config.ConcurrentCommands; i++ {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
-			
+
 			for j := 0; j < config.CommandsPerWorker; j++ {
 				select {
 				case <-ctx.Done():
@@ -316,12 +316,12 @@ func TestCLIErrorScenariosUnderLoad(t *testing.T) {
 				default:
 					cmdIndex := (workerID + j) % len(config.Commands)
 					command := config.Commands[cmdIndex]
-					
+
 					start := time.Now()
 					// These commands should fail gracefully, not crash
 					success := executeCLICommandSafe(command)
 					latency := time.Since(start)
-					
+
 					commandStr := strings.Join(command, " ")
 					// For error scenarios, we expect failures, so invert success logic for metrics
 					metrics.AddCommandResult(latency, !success, commandStr)
@@ -360,7 +360,7 @@ func TestCLIMemoryUsageUnderLoad(t *testing.T) {
 	config := CLILoadTestConfig{
 		ConcurrentCommands: 6,
 		CommandsPerWorker:  4,
-		Timeout:           15 * time.Second,
+		Timeout:            15 * time.Second,
 		Commands: [][]string{
 			{"version"},
 			{"help"},
@@ -374,14 +374,14 @@ func TestCLIMemoryUsageUnderLoad(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	t.Logf("Testing CLI memory usage under load: %d workers, %d commands each", 
+	t.Logf("Testing CLI memory usage under load: %d workers, %d commands each",
 		config.ConcurrentCommands, config.CommandsPerWorker)
 
 	for i := 0; i < config.ConcurrentCommands; i++ {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
-			
+
 			for j := 0; j < config.CommandsPerWorker; j++ {
 				select {
 				case <-ctx.Done():
@@ -389,9 +389,9 @@ func TestCLIMemoryUsageUnderLoad(t *testing.T) {
 				default:
 					cmdIndex := (workerID + j) % len(config.Commands)
 					command := config.Commands[cmdIndex]
-					
+
 					executeCLICommand(command)
-					
+
 					// Check memory usage periodically
 					if j%2 == 0 {
 						var currentMem runtime.MemStats
@@ -426,10 +426,10 @@ func TestCLIMemoryUsageUnderLoad(t *testing.T) {
 // TestCLIBurstLoadPatterns tests different load patterns (burst, sustained, gradual)
 func TestCLIBurstLoadPatterns(t *testing.T) {
 	patterns := []struct {
-		name        string
-		bursts      int
-		burstSize   int
-		burstDelay  time.Duration
+		name       string
+		bursts     int
+		burstSize  int
+		burstDelay time.Duration
 	}{
 		{"Quick Burst", 3, 5, 100 * time.Millisecond},
 		{"Sustained", 6, 3, 50 * time.Millisecond},
@@ -447,7 +447,7 @@ func TestCLIBurstLoadPatterns(t *testing.T) {
 			metrics := &CLITestMetrics{}
 			var wg sync.WaitGroup
 
-			t.Logf("Testing %s pattern: %d bursts of %d commands", 
+			t.Logf("Testing %s pattern: %d bursts of %d commands",
 				pattern.name, pattern.bursts, pattern.burstSize)
 
 			for burst := 0; burst < pattern.bursts; burst++ {
@@ -456,19 +456,19 @@ func TestCLIBurstLoadPatterns(t *testing.T) {
 					wg.Add(1)
 					go func(commandIndex int) {
 						defer wg.Done()
-						
+
 						cmdIndex := commandIndex % len(commands)
 						command := commands[cmdIndex]
-						
+
 						start := time.Now()
 						success := executeCLICommand(command)
 						latency := time.Since(start)
-						
+
 						commandStr := strings.Join(command, " ")
 						metrics.AddCommandResult(latency, success, commandStr)
 					}(i)
 				}
-				
+
 				// Delay between bursts
 				time.Sleep(pattern.burstDelay)
 			}
@@ -511,7 +511,7 @@ func TestCLIGracefulShutdownUnderLoad(t *testing.T) {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
-			
+
 			commandIndex := 0
 			for {
 				select {
@@ -548,12 +548,12 @@ func TestCLIGracefulShutdownUnderLoad(t *testing.T) {
 	case <-done:
 		shutdownDuration := time.Since(shutdownStart)
 		t.Logf("CLI graceful shutdown completed in %v", shutdownDuration)
-		
+
 		// Verify shutdown was reasonably fast for CLI operations
 		if shutdownDuration > 5*time.Second {
 			t.Errorf("CLI shutdown took too long: %v (expected <= 5s)", shutdownDuration)
 		}
-		
+
 	case <-time.After(10 * time.Second):
 		t.Error("CLI graceful shutdown timed out after 10 seconds")
 	}
@@ -567,17 +567,17 @@ func executeCLICommand(args []string) bool {
 	// Save original args and restore after test
 	originalArgs := os.Args
 	defer func() { os.Args = originalArgs }()
-	
+
 	// Set args for CLI execution
 	os.Args = append([]string{"lsp-gateway"}, args...)
-	
+
 	// Capture any panics
 	defer func() {
 		if r := recover(); r != nil {
 			// Command panicked, consider as failure
 		}
 	}()
-	
+
 	// Execute CLI command
 	err := cli.Execute()
 	return err == nil
@@ -588,17 +588,17 @@ func executeMainFunction(args []string) bool {
 	// Save original args and restore after test
 	originalArgs := os.Args
 	defer func() { os.Args = originalArgs }()
-	
+
 	// Set args for main function execution
 	os.Args = append([]string{"lsp-gateway"}, args...)
-	
+
 	// Capture any panics from main()
 	defer func() {
 		if r := recover(); r != nil {
 			// main() panicked, consider as failure
 		}
 	}()
-	
+
 	// Call main function directly (this exercises main.go code path)
 	main()
 	return true
@@ -609,15 +609,15 @@ func executeCLICommandSafe(args []string) bool {
 	// For unit tests, use the same approach as executeCLICommand but with extra safety
 	originalArgs := os.Args
 	defer func() { os.Args = originalArgs }()
-	
+
 	os.Args = append([]string{"lsp-gateway"}, args...)
-	
+
 	defer func() {
 		if r := recover(); r != nil {
 			// Recovered from panic - command handled error safely
 		}
 	}()
-	
+
 	err := cli.Execute()
 	return err == nil
 }
@@ -638,7 +638,7 @@ func TestConcurrentHTTPRequestsEnabled(t *testing.T) {
 	metrics := &TestMetrics{}
 	runtime.ReadMemStats(&metrics.MemoryUsageBefore)
 
-	t.Logf("Starting enabled HTTP load test with %d clients, %d requests each", 
+	t.Logf("Starting enabled HTTP load test with %d clients, %d requests each",
 		config.ConcurrentRequests, config.RequestsPerClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
@@ -653,7 +653,7 @@ func TestConcurrentHTTPRequestsEnabled(t *testing.T) {
 		go func(clientID int) {
 			defer wg.Done()
 			client := &http.Client{Timeout: 5 * time.Second} // Reduced timeout
-			
+
 			for j := 0; j < config.RequestsPerClient; j++ {
 				select {
 				case <-ctx.Done():
@@ -663,7 +663,7 @@ func TestConcurrentHTTPRequestsEnabled(t *testing.T) {
 					success := performHTTPRequest(client, config.TargetURL, clientID, j)
 					latency := time.Since(start)
 					metrics.AddRequest(latency, success)
-					
+
 					if !success {
 						errorChan <- fmt.Errorf("request failed for client %d, request %d", clientID, j)
 					}
@@ -724,7 +724,7 @@ func XTestConcurrentHTTPRequests(t *testing.T) {
 	metrics := &TestMetrics{}
 	runtime.ReadMemStats(&metrics.MemoryUsageBefore)
 
-	t.Logf("Starting concurrent load test with %d clients, %d requests each", 
+	t.Logf("Starting concurrent load test with %d clients, %d requests each",
 		config.ConcurrentRequests, config.RequestsPerClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
@@ -739,7 +739,7 @@ func XTestConcurrentHTTPRequests(t *testing.T) {
 		go func(clientID int) {
 			defer wg.Done()
 			client := &http.Client{Timeout: 10 * time.Second}
-			
+
 			for j := 0; j < config.RequestsPerClient; j++ {
 				select {
 				case <-ctx.Done():
@@ -749,7 +749,7 @@ func XTestConcurrentHTTPRequests(t *testing.T) {
 					success := performHTTPRequest(client, config.TargetURL, clientID, j)
 					latency := time.Since(start)
 					metrics.AddRequest(latency, success)
-					
+
 					if !success {
 						errorChan <- fmt.Errorf("request failed for client %d, request %d", clientID, j)
 					}
@@ -822,7 +822,7 @@ func performHTTPRequest(client *http.Client, url string, clientID, requestID int
 	if err != nil {
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Consider 2xx responses as successful (even if LSP server isn't available)
 	return resp.StatusCode >= 200 && resp.StatusCode < 300
@@ -850,7 +850,7 @@ func XTestMemoryUsageUnderLoad(t *testing.T) {
 		go func(workerID int) {
 			defer wg.Done()
 			client := &http.Client{Timeout: 5 * time.Second}
-			
+
 			for j := 0; j < 100; j++ {
 				select {
 				case <-ctx.Done():
@@ -858,7 +858,7 @@ func XTestMemoryUsageUnderLoad(t *testing.T) {
 				default:
 					// Perform memory-allocating operations
 					performHTTPRequest(client, "http://localhost:8080/jsonrpc", workerID, j)
-					
+
 					// Check memory usage periodically
 					if j%10 == 0 {
 						var currentMem runtime.MemStats
@@ -867,7 +867,7 @@ func XTestMemoryUsageUnderLoad(t *testing.T) {
 							peakMem = currentMem
 						}
 					}
-					
+
 					// Small delay to prevent overwhelming
 					time.Sleep(10 * time.Millisecond)
 				}
@@ -905,17 +905,17 @@ func XTestPerformanceDegradationThresholds(t *testing.T) {
 
 	for _, load := range loadLevels {
 		t.Logf("Testing performance with %d concurrent clients", load)
-		
+
 		metrics := &TestMetrics{}
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
-		
+
 		var wg sync.WaitGroup
 		for i := 0; i < load; i++ {
 			wg.Add(1)
 			go func(clientID int) {
 				defer wg.Done()
 				client := &http.Client{Timeout: 10 * time.Second}
-				
+
 				for j := 0; j < 5; j++ {
 					select {
 					case <-ctx.Done():
@@ -929,10 +929,10 @@ func XTestPerformanceDegradationThresholds(t *testing.T) {
 				}
 			}(i)
 		}
-		
+
 		wg.Wait()
 		cancel()
-		
+
 		avgLatency := metrics.GetAverageLatency()
 		results[load] = avgLatency
 		t.Logf("  Load %d: Average latency %v", load, avgLatency)
@@ -943,10 +943,10 @@ func XTestPerformanceDegradationThresholds(t *testing.T) {
 	for i := 1; i < len(loadLevels); i++ {
 		load := loadLevels[i]
 		latency := results[load]
-		
+
 		// Allow up to 3x degradation from baseline
 		if latency > baselineLatency*3 {
-			t.Errorf("Performance degradation too severe at load %d: %v vs baseline %v", 
+			t.Errorf("Performance degradation too severe at load %d: %v vs baseline %v",
 				load, latency, baselineLatency)
 		}
 	}
@@ -969,7 +969,7 @@ func XTestGracefulShutdownUnderLoad(t *testing.T) {
 		go func(workerID int) {
 			defer wg.Done()
 			client := &http.Client{Timeout: 5 * time.Second}
-			
+
 			for {
 				select {
 				case <-loadCtx.Done():
@@ -1003,12 +1003,12 @@ func XTestGracefulShutdownUnderLoad(t *testing.T) {
 	case <-done:
 		shutdownDuration := time.Since(shutdownStart)
 		t.Logf("Graceful shutdown completed in %v", shutdownDuration)
-		
+
 		// Verify shutdown was reasonably fast
 		if shutdownDuration > 10*time.Second {
 			t.Errorf("Shutdown took too long: %v (expected <= 10s)", shutdownDuration)
 		}
-		
+
 	case <-time.After(15 * time.Second):
 		t.Error("Graceful shutdown timed out after 15 seconds")
 	}

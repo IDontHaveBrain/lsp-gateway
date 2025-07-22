@@ -225,15 +225,15 @@ func stringSlicesEqual(a, b []string) bool {
 func BenchmarkBashCompletion(b *testing.B) {
 	rootCmd = &cobra.Command{Use: "lsp-gateway"}
 	cmd := &cobra.Command{Use: "completion"}
-	
+
 	for i := 0; i < b.N; i++ {
 		// Capture output using pipe
 		oldStdout := os.Stdout
 		r, w, _ := os.Pipe()
 		os.Stdout = w
-		
+
 		runCompletion(cmd, []string{"bash"})
-		
+
 		w.Close()
 		_, _ = io.ReadAll(r)
 		os.Stdout = oldStdout

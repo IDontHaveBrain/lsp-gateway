@@ -276,17 +276,17 @@ func TestErrorHandlingCoverage(t *testing.T) {
 
 		defer func() {
 			// Restore environment
-			os.Setenv("HOME", originalHome)
-			os.Setenv("USERPROFILE", originalUserProfile)
-			os.Setenv("HOMEDRIVE", originalHomeDrive)
-			os.Setenv("HOMEPATH", originalHomePath)
+			_ = os.Setenv("HOME", originalHome)
+			_ = os.Setenv("USERPROFILE", originalUserProfile)
+			_ = os.Setenv("HOMEDRIVE", originalHomeDrive)
+			_ = os.Setenv("HOMEPATH", originalHomePath)
 		}()
 
 		if IsWindows() {
 			// Clear all Windows home environment variables
-			os.Unsetenv("USERPROFILE")
-			os.Unsetenv("HOMEDRIVE")
-			os.Unsetenv("HOMEPATH")
+			_ = os.Unsetenv("USERPROFILE")
+			_ = os.Unsetenv("HOMEDRIVE")
+			_ = os.Unsetenv("HOMEPATH")
 
 			_, err := GetHomeDirectory()
 			if err == nil {

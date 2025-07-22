@@ -773,7 +773,7 @@ func (g *Gateway) handleRequest(w http.ResponseWriter, r *http.Request, req JSON
 		if logger != nil {
 			logger.WithError(err).Error("LSP server request failed")
 		}
-		
+
 		// Check if error is due to context deadline exceeded
 		if err == context.DeadlineExceeded || strings.Contains(err.Error(), "context deadline exceeded") {
 			g.writeError(w, req.ID, InternalError, "Request timeout: context deadline exceeded", err)

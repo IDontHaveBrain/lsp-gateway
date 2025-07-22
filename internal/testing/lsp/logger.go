@@ -11,10 +11,10 @@ import (
 
 // SimpleTestLogger is a simple implementation of TestLogger
 type SimpleTestLogger struct {
-	prefix   string
-	verbose  bool
-	logger   *log.Logger
-	fields   map[string]interface{}
+	prefix  string
+	verbose bool
+	logger  *log.Logger
+	fields  map[string]interface{}
 }
 
 // NewSimpleTestLogger creates a new simple test logger
@@ -56,17 +56,17 @@ func (l *SimpleTestLogger) WithFields(fields map[string]interface{}) TestLogger 
 		logger:  l.logger,
 		fields:  make(map[string]interface{}),
 	}
-	
+
 	// Copy existing fields
 	for k, v := range l.fields {
 		newLogger.fields[k] = v
 	}
-	
+
 	// Add new fields
 	for k, v := range fields {
 		newLogger.fields[k] = v
 	}
-	
+
 	return newLogger
 }
 
@@ -92,7 +92,7 @@ func (l *SimpleTestLogger) WithTestSuite(testSuite *cases.TestSuite) TestLogger 
 // log performs the actual logging with fields
 func (l *SimpleTestLogger) log(level string, format string, args ...interface{}) {
 	message := fmt.Sprintf(format, args...)
-	
+
 	// Add fields to the message if present
 	if len(l.fields) > 0 {
 		fieldStr := ""
@@ -104,12 +104,12 @@ func (l *SimpleTestLogger) log(level string, format string, args ...interface{})
 		}
 		message = fmt.Sprintf("%s [%s]", message, fieldStr)
 	}
-	
+
 	// Add prefix if present
 	if l.prefix != "" {
 		message = fmt.Sprintf("[%s] %s", l.prefix, message)
 	}
-	
+
 	l.logger.Printf("[%s] %s", level, message)
 }
 
@@ -119,7 +119,7 @@ type TestLogger interface {
 	Info(format string, args ...interface{})
 	Warn(format string, args ...interface{})
 	Error(format string, args ...interface{})
-	
+
 	WithFields(fields map[string]interface{}) TestLogger
 	WithTestCase(testCase *cases.TestCase) TestLogger
 	WithTestSuite(testSuite *cases.TestSuite) TestLogger
@@ -136,7 +136,7 @@ func NewNullLogger() *NullLogger {
 // Debug does nothing
 func (l *NullLogger) Debug(format string, args ...interface{}) {}
 
-// Info does nothing  
+// Info does nothing
 func (l *NullLogger) Info(format string, args ...interface{}) {}
 
 // Warn does nothing

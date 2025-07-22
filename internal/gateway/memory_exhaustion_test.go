@@ -23,34 +23,34 @@ import (
 
 // MemoryStats tracks detailed memory usage metrics
 type MemoryStats struct {
-	HeapAlloc      uint64
-	HeapSys        uint64
-	HeapIdle       uint64
-	HeapInuse      uint64
-	HeapReleased   uint64
-	HeapObjects    uint64
-	StackInuse     uint64
-	StackSys       uint64
-	MSpanInuse     uint64
-	MSpanSys       uint64
-	MCacheInuse    uint64
-	MCacheSys      uint64
-	BuckHashSys    uint64
-	GCSys          uint64
-	OtherSys       uint64
-	NextGC         uint64
-	LastGC         uint64
-	PauseTotalNs   uint64
-	PauseNs        [256]uint64
-	PauseEnd       [256]uint64
-	NumGC          uint32
-	NumForcedGC    uint32
-	GCCPUFraction  float64
-	TotalAlloc     uint64
-	Mallocs        uint64
-	Frees          uint64
-	Lookups        uint64
-	Timestamp      time.Time
+	HeapAlloc     uint64
+	HeapSys       uint64
+	HeapIdle      uint64
+	HeapInuse     uint64
+	HeapReleased  uint64
+	HeapObjects   uint64
+	StackInuse    uint64
+	StackSys      uint64
+	MSpanInuse    uint64
+	MSpanSys      uint64
+	MCacheInuse   uint64
+	MCacheSys     uint64
+	BuckHashSys   uint64
+	GCSys         uint64
+	OtherSys      uint64
+	NextGC        uint64
+	LastGC        uint64
+	PauseTotalNs  uint64
+	PauseNs       [256]uint64
+	PauseEnd      [256]uint64
+	NumGC         uint32
+	NumForcedGC   uint32
+	GCCPUFraction float64
+	TotalAlloc    uint64
+	Mallocs       uint64
+	Frees         uint64
+	Lookups       uint64
+	Timestamp     time.Time
 }
 
 // MemoryMonitor provides comprehensive memory monitoring capabilities
@@ -101,7 +101,7 @@ func (m *MemoryMonitor) Stop() {
 // takeSample captures current memory statistics
 func (m *MemoryMonitor) takeSample() {
 	runtime.GC() // Force GC for accurate measurement
-	
+
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
@@ -152,7 +152,7 @@ func (m *MemoryMonitor) GetCurrentMemory() MemoryStats {
 	m.takeSample()
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if len(m.samples) == 0 {
 		return MemoryStats{}
 	}
@@ -314,7 +314,7 @@ func generateLargePayload(sizeBytes int) []byte {
 	// Create large payload with repeated data
 	data := make([]byte, sizeBytes/2)
 	rand.Read(data)
-	
+
 	// Create JSON structure
 	payload := map[string]interface{}{
 		"jsonrpc": "2.0",
@@ -496,12 +496,12 @@ func TestConcurrentLargeRequestsMemoryLeaks(t *testing.T) {
 	defer teardownMemoryTestGateway(t, gateway)
 
 	handler := http.HandlerFunc(gateway.HandleJSONRPC)
-	
+
 	const (
-		workerCount   = 20
+		workerCount       = 20
 		requestsPerWorker = 5
-		payloadSize   = 10 * 1024 * 1024 // 10MB
-		testDuration  = 30 * time.Second
+		payloadSize       = 10 * 1024 * 1024 // 10MB
+		testDuration      = 30 * time.Second
 	)
 
 	var wg sync.WaitGroup
@@ -553,7 +553,7 @@ func TestConcurrentLargeRequestsMemoryLeaks(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 
 	stats := monitor.GetStats()
-	
+
 	t.Logf("Test completed in %v", duration)
 	t.Logf("Total requests: %d, Errors: %d", totalRequests, totalErrors)
 	t.Logf("Memory stats: %+v", stats)
@@ -627,7 +627,7 @@ func TestMemoryPressureWithBoundedQueues(t *testing.T) {
 	wg.Wait()
 
 	stats := monitor.GetStats()
-	
+
 	t.Logf("Processed: %d, Rejected: %d, Total: %d", processedCount, rejectedCount, totalRequests)
 	t.Logf("Memory stats: %+v", stats)
 
@@ -679,7 +679,7 @@ func TestJSONParsingMemoryUsage(t *testing.T) {
 
 			w := httptest.NewRecorder()
 			handler := http.HandlerFunc(gateway.HandleJSONRPC)
-			
+
 			startTime := time.Now()
 			handler.ServeHTTP(w, req)
 			duration := time.Since(startTime)
@@ -751,7 +751,7 @@ func teardownMemoryTestGateway(t *testing.T, gateway *Gateway) {
 	if err := gateway.Stop(); err != nil {
 		t.Logf("Error stopping memory test gateway: %v", err)
 	}
-	
+
 	// Force cleanup
 	runtime.GC()
 	runtime.GC()

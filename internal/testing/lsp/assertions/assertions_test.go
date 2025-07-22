@@ -19,12 +19,12 @@ func TestAssertPosition(t *testing.T) {
 		"line":      float64(10),
 		"character": float64(5),
 	}
-	
+
 	expected := &ExpectedPosition{
 		Line:      intPtr(10),
 		Character: intPtr(5),
 	}
-	
+
 	result := ctx.AssertPosition(validPosition, expected, "test_position")
 	if !result.Passed {
 		t.Errorf("Valid position should pass: %s", result.Message)
@@ -35,7 +35,7 @@ func TestAssertPosition(t *testing.T) {
 		Line:      intPtr(15),
 		Character: intPtr(5),
 	}
-	
+
 	result2 := ctx.AssertPosition(validPosition, wrongExpected, "test_position")
 	if result2.Passed {
 		t.Errorf("Wrong line should fail validation")
@@ -46,7 +46,7 @@ func TestAssertPosition(t *testing.T) {
 		"line": float64(10),
 		// missing character
 	}
-	
+
 	result3 := ctx.AssertPosition(invalidPosition, nil, "test_position")
 	if result3.Passed {
 		t.Errorf("Missing character field should fail validation")
@@ -69,12 +69,12 @@ func TestAssertRange(t *testing.T) {
 			"character": float64(15),
 		},
 	}
-	
+
 	expected := &ExpectedRange{
 		Start: &ExpectedPosition{Line: intPtr(10), Character: intPtr(5)},
 		End:   &ExpectedPosition{Line: intPtr(10), Character: intPtr(15)},
 	}
-	
+
 	results := ctx.AssertRange(validRange, expected, "test_range")
 	allPassed := true
 	for _, result := range results {
@@ -98,7 +98,7 @@ func TestAssertRange(t *testing.T) {
 			"character": float64(15),
 		},
 	}
-	
+
 	results2 := ctx.AssertRange(invalidRange, nil, "test_range")
 	orderValidationPassed := true
 	for _, result := range results2 {
@@ -131,7 +131,7 @@ func TestAssertLocation(t *testing.T) {
 			},
 		},
 	}
-	
+
 	expected := &ExpectedLocation{
 		URI: &ExpectedURI{
 			Contains: stringPtr("file.go"),
@@ -140,7 +140,7 @@ func TestAssertLocation(t *testing.T) {
 			Start: &ExpectedPosition{Line: intPtr(10)},
 		},
 	}
-	
+
 	results := ctx.AssertLocation(validLocation, expected, "test_location")
 	for _, result := range results {
 		if !result.Passed {
@@ -274,7 +274,7 @@ func TestAssertArrayLength(t *testing.T) {
 	// Test array with exact length expectation
 	array := []interface{}{1, 2, 3, 4, 5}
 	exactLength := &ExpectedArrayLength{Exact: intPtr(5)}
-	
+
 	result := ctx.AssertArrayLength(array, exactLength, "references_array")
 	if !result.Passed {
 		t.Errorf("Exact length validation should pass: %s", result.Message)
@@ -335,7 +335,7 @@ func TestAssertDefinitionResponse(t *testing.T) {
 	// Test null response
 	nullResponse := json.RawMessage(`null`)
 	expectedNull := &ExpectedDefinitionResult{HasResult: false}
-	
+
 	results2 := ctx.AssertDefinitionResponse(nullResponse, expectedNull)
 	for _, result := range results2 {
 		if !result.Passed {
@@ -354,8 +354,8 @@ func TestAssertDefinitionResponse(t *testing.T) {
 
 	isArray := true
 	expectedArray := &ExpectedDefinitionResult{
-		HasResult: true,
-		IsArray:   &isArray,
+		HasResult:   true,
+		IsArray:     &isArray,
 		ArrayLength: &ExpectedArrayLength{Exact: intPtr(1)},
 	}
 
@@ -387,9 +387,9 @@ func TestAssertHoverResponse(t *testing.T) {
 	expected := &ExpectedHoverResult{
 		HasResult: true,
 		Content: &ExpectedHoverContent{
-			HasContent:   true,
-			Contains:     []string{"func calculateTotal", "total value"},
-			MarkupKind:   stringPtr("markdown"),
+			HasContent: true,
+			Contains:   []string{"func calculateTotal", "total value"},
+			MarkupKind: stringPtr("markdown"),
 		},
 	}
 
@@ -403,7 +403,7 @@ func TestAssertHoverResponse(t *testing.T) {
 	// Test null hover response
 	nullResponse := json.RawMessage(`null`)
 	expectedNull := &ExpectedHoverResult{HasResult: false}
-	
+
 	results2 := ctx.AssertHoverResponse(nullResponse, expectedNull)
 	for _, result := range results2 {
 		if !result.Passed {
@@ -436,8 +436,8 @@ func TestAssertReferencesResponse(t *testing.T) {
 	]`)
 
 	expected := &ExpectedReferencesResult{
-		HasResult:   true,
-		ArrayLength: &ExpectedArrayLength{Min: intPtr(1), Max: intPtr(5)},
+		HasResult:    true,
+		ArrayLength:  &ExpectedArrayLength{Min: intPtr(1), Max: intPtr(5)},
 		ContainsFile: stringPtr("file1.go"),
 	}
 
@@ -473,31 +473,31 @@ func TestExpectedResultBuilder(t *testing.T) {
 	if expected.Definition == nil || !expected.Definition.HasResult {
 		t.Error("Definition expectation not set correctly")
 	}
-	
+
 	if expected.References == nil || !expected.References.HasResult {
 		t.Error("References expectation not set correctly")
 	}
-	
+
 	if expected.Hover == nil || !expected.Hover.HasResult {
 		t.Error("Hover expectation not set correctly")
 	}
-	
+
 	if expected.DocumentSymbol == nil || !expected.DocumentSymbol.HasResult {
 		t.Error("Document symbol expectation not set correctly")
 	}
-	
+
 	if expected.WorkspaceSymbol == nil || !expected.WorkspaceSymbol.HasResult {
 		t.Error("Workspace symbol expectation not set correctly")
 	}
-	
+
 	if len(expected.Contains) != 1 || expected.Contains[0] != "test" {
 		t.Error("Contains patterns not set correctly")
 	}
-	
+
 	if len(expected.Excludes) != 1 || expected.Excludes[0] != "error" {
 		t.Error("Excludes patterns not set correctly")
 	}
-	
+
 	if expected.ResponseTime == nil || *expected.ResponseTime != 500 {
 		t.Error("Response time not set correctly")
 	}
@@ -516,7 +516,7 @@ func TestErrorValidation(t *testing.T) {
 			"message": "Invalid params: position out of range"
 		}
 	}`)
-	
+
 	expected := NewExpectedResult().
 		Success(false).
 		WithError(true).
@@ -526,7 +526,7 @@ func TestErrorValidation(t *testing.T) {
 
 	validator := NewComprehensiveValidator(config)
 	testCase.Response = errorResponse
-	
+
 	err := validator.ValidateTestCase(testCase, expected)
 	if err != nil {
 		t.Errorf("Error validation should not fail: %v", err)
@@ -540,7 +540,7 @@ func TestErrorValidation(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if !foundErrorValidation {
 		t.Error("Error validation should have passed")
 	}
@@ -580,7 +580,7 @@ func TestComprehensiveValidator(t *testing.T) {
 	summary := GetValidationSummary(testCase.ValidationResults, false)
 	if !summary.AllPassed {
 		t.Errorf("All validations should have passed. Summary: %+v", summary)
-		
+
 		// Print failed validations for debugging
 		for _, result := range testCase.ValidationResults {
 			if !result.Passed {
@@ -628,23 +628,23 @@ func TestValidationSummary(t *testing.T) {
 	}
 
 	summary := GetValidationSummary(results, false)
-	
+
 	if summary.TotalValidations != 4 {
 		t.Errorf("Expected 4 total validations, got %d", summary.TotalValidations)
 	}
-	
+
 	if summary.PassedValidations != 2 {
 		t.Errorf("Expected 2 passed validations, got %d", summary.PassedValidations)
 	}
-	
+
 	if summary.FailedValidations != 2 {
 		t.Errorf("Expected 2 failed validations, got %d", summary.FailedValidations)
 	}
-	
+
 	if summary.PassRate != 50.0 {
 		t.Errorf("Expected 50%% pass rate, got %.1f%%", summary.PassRate)
 	}
-	
+
 	if summary.AllPassed {
 		t.Error("Summary should not indicate all passed when there are failures")
 	}

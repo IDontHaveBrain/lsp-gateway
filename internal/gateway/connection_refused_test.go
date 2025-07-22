@@ -52,7 +52,7 @@ func TestGatewayHTTPClientConnectionFailures(t *testing.T) {
 		}
 
 		if !strings.Contains(strings.ToLower(err.Error()), "connection refused") &&
-		   !strings.Contains(strings.ToLower(err.Error()), "connect") {
+			!strings.Contains(strings.ToLower(err.Error()), "connect") {
 			t.Errorf("Expected connection refused error, got: %v", err)
 		}
 	})
@@ -174,7 +174,7 @@ func TestGatewayBackendLSPServerUnavailable(t *testing.T) {
 		// Create gateway with multiple failing clients
 		mockClient1 := NewMockLSPClient()
 		mockClient2 := NewMockLSPClient()
-		
+
 		mockClient1.SetStartError(fmt.Errorf("connection refused"))
 		mockClient2.SetStartError(fmt.Errorf("connection refused"))
 
@@ -263,7 +263,7 @@ func TestGatewayRetryLogicConnectionFailures(t *testing.T) {
 
 	t.Run("no retry on connection refused", func(t *testing.T) {
 		mockClient := NewMockLSPClient()
-		
+
 		// Simulate connection refused error that should not trigger retries
 		mockClient.SetRequestError(fmt.Errorf("connection refused"))
 

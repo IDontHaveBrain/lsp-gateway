@@ -138,7 +138,7 @@ func (rp *ResourcePool) AcquireResource(ctx context.Context, factory func() (Res
 	// Check if we can create new resource
 	if int(atomic.LoadInt64(&rp.activeCount)) >= rp.maxResources {
 		atomic.AddInt64(&rp.metrics.QueuedRequests, 1)
-		
+
 		select {
 		case resource := <-rp.waitingQueue:
 			if resource.IsValid() {
@@ -268,9 +268,9 @@ func NewSystemResourceMonitor() *SystemResourceMonitor {
 	pid := os.Getpid()
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
-	
+
 	initialFDs := getCurrentFileDescriptorCount(pid)
-	
+
 	return &SystemResourceMonitor{
 		pid:               pid,
 		initialMemory:     memStats.Alloc,
@@ -397,7 +397,7 @@ func testPoolSizeLimits(t *testing.T, monitor *SystemResourceMonitor) {
 
 	pool := NewResourcePool(maxResources, func(r Resource) {
 		atomic.AddInt64(&cleanupCount, 1)
-		r.Close()
+		_ = r.Close()
 	})
 	defer pool.Cleanup()
 
@@ -520,7 +520,7 @@ func testPoolResourceReuse(t *testing.T, monitor *SystemResourceMonitor) {
 	}
 
 	finalMetrics := pool.GetMetrics()
-	
+
 	// Verify reuse efficiency
 	if finalMetrics.PoolHits == 0 && reuseCycles > 1 {
 		t.Error("No pool hits detected - resource reuse not working")
@@ -1027,7 +1027,7 @@ func testPoolSizeAutoAdjustment(t *testing.T, systemFDLimit int64) {
 
 		metrics := pool.GetMetrics()
 		efficiency := float64(metrics.PoolHits) / float64(metrics.TotalRequests)
-		
+
 		t.Logf("Pool size %d metrics - Total requests: %d, Efficiency: %.2f",
 			poolSize, metrics.TotalRequests, efficiency)
 	}
@@ -1098,7 +1098,7 @@ func testSystemResourceMonitoring(t *testing.T, memoryLimit, fdLimit int64) {
 	time.Sleep(500 * time.Millisecond)
 
 	currentMem, maxMem, initialMem, currentFDs, maxFDs, initialFDs := monitor.GetStats()
-	
+
 	t.Logf("Resource monitoring results:")
 	t.Logf("  Memory - Initial: %d, Current: %d, Max: %d, Growth: %d",
 		initialMem, currentMem, maxMem, currentMem-initialMem)

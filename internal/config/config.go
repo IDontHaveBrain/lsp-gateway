@@ -2,9 +2,9 @@ package config
 
 import (
 	"fmt"
+	"lsp-gateway/internal/transport"
 	"strings"
 	"unicode/utf8"
-	"lsp-gateway/internal/transport"
 )
 
 const (

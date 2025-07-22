@@ -423,7 +423,7 @@ func TestJavaRuntimeCorruption(t *testing.T) {
 		{
 			name: "missing JVM shared libraries",
 			setupMock: func(m *MockCommandExecutor) {
-				m.AddFailure("java", []string{"-version"}, 
+				m.AddFailure("java", []string{"-version"},
 					fmt.Errorf("error while loading shared libraries: libjvm.so: cannot open shared object file"))
 			},
 			expectIssue: true,
@@ -556,9 +556,9 @@ func TestExecutableCorruption(t *testing.T) {
 				// Create a minimal but invalid binary for current architecture
 				content := make([]byte, 64)
 				copy(content[:4], []byte{0x7F, 0x45, 0x4C, 0x46}) // ELF header
-				content[4] = 1                                     // 32-bit (might be wrong for current system)
-				content[5] = 1                                     // Little endian
-				content[6] = 1                                     // Current version
+				content[4] = 1                                    // 32-bit (might be wrong for current system)
+				content[5] = 1                                    // Little endian
+				content[6] = 1                                    // Current version
 				return os.WriteFile(path, content, 0755)
 			},
 			expectFailure: true,
@@ -627,7 +627,7 @@ func TestSymlinkCorruption(t *testing.T) {
 			setupLink: func() error {
 				target := filepath.Join(tmpDir, "target")
 				link := filepath.Join(tmpDir, "valid_link")
-				
+
 				err := os.WriteFile(target, []byte("#!/bin/sh\necho 'test'\n"), 0755)
 				if err != nil {
 					return err
@@ -649,7 +649,7 @@ func TestSymlinkCorruption(t *testing.T) {
 			setupLink: func() error {
 				link1 := filepath.Join(tmpDir, "circular1")
 				link2 := filepath.Join(tmpDir, "circular2")
-				
+
 				err := os.Symlink(link2, link1)
 				if err != nil {
 					return err
@@ -663,7 +663,7 @@ func TestSymlinkCorruption(t *testing.T) {
 			setupLink: func() error {
 				target := filepath.Join(tmpDir, "corrupted_target")
 				link := filepath.Join(tmpDir, "link_to_corrupted")
-				
+
 				// Create corrupted binary
 				corruptedContent := []byte{0x7F, 0x45, 0x4C, 0x46, 0xFF, 0xFF} // Corrupted ELF
 				err := os.WriteFile(target, corruptedContent, 0755)
@@ -684,7 +684,7 @@ func TestSymlinkCorruption(t *testing.T) {
 			}
 
 			linkPath := filepath.Join(tmpDir, strings.Replace(tt.name, " ", "_", -1))
-			
+
 			// Test link resolution and execution
 			resolved, err := filepath.EvalSymlinks(linkPath)
 			if tt.expectFailure {
@@ -726,7 +726,7 @@ func TestInstallationIntegrityVerification(t *testing.T) {
 				if err := os.MkdirAll(binDir, 0755); err != nil {
 					return err
 				}
-				
+
 				executable := filepath.Join(binDir, "test-binary")
 				content := []byte("#!/bin/sh\necho 'v1.0.0'\n")
 				return os.WriteFile(executable, content, 0755)
@@ -750,7 +750,7 @@ func TestInstallationIntegrityVerification(t *testing.T) {
 				if err := os.MkdirAll(binDir, 0755); err != nil {
 					return err
 				}
-				
+
 				executable := filepath.Join(binDir, "test-binary")
 				// Create corrupted binary
 				content := make([]byte, 100)
@@ -767,7 +767,7 @@ func TestInstallationIntegrityVerification(t *testing.T) {
 				if err := os.MkdirAll(binDir, 0755); err != nil {
 					return err
 				}
-				
+
 				executable := filepath.Join(binDir, "test-binary")
 				content := []byte("#!/bin/sh\necho 'v1.0.0'\n")
 				err := os.WriteFile(executable, content, 0644) // No execute permission
@@ -975,7 +975,7 @@ func BenchmarkGoRuntimeCorruptionDetection(b *testing.B) {
 func BenchmarkExecutableCorruptionDetection(b *testing.B) {
 	tmpDir := b.TempDir()
 	corruptedFile := filepath.Join(tmpDir, "corrupted")
-	
+
 	// Create corrupted binary
 	content := make([]byte, 100)
 	rand.Read(content)

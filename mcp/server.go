@@ -820,9 +820,9 @@ func (s *Server) isEOFError(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	errStr := strings.ToLower(err.Error())
-	return err == io.EOF || 
+	return err == io.EOF ||
 		err == io.ErrUnexpectedEOF ||
 		strings.Contains(errStr, "eof") ||
 		strings.Contains(errStr, "broken pipe") ||
@@ -833,9 +833,9 @@ func (s *Server) shouldAttemptRecovery(err error) bool {
 	if s.isEOFError(err) {
 		return false
 	}
-	
+
 	errStr := strings.ToLower(err.Error())
-	
+
 	nonRecoverableErrors := []string{
 		"context canceled",
 		"context deadline exceeded",
@@ -843,13 +843,13 @@ func (s *Server) shouldAttemptRecovery(err error) bool {
 		"use of closed network connection",
 		"broken pipe",
 	}
-	
+
 	for _, nonRecoverable := range nonRecoverableErrors {
 		if strings.Contains(errStr, nonRecoverable) {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
@@ -857,7 +857,7 @@ func (s *Server) isConnectionError(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	errStr := strings.ToLower(err.Error())
 	return strings.Contains(errStr, "broken pipe") ||
 		strings.Contains(errStr, "connection reset") ||

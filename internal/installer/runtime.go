@@ -59,11 +59,11 @@ func NewRuntimeInstaller() *DefaultRuntimeInstaller {
 	if windowsStrategy := NewWindowsStrategy(); windowsStrategy != nil {
 		installer.strategies["windows"] = &WindowsRuntimeStrategy{strategy: windowsStrategy}
 	}
-	
+
 	if linuxStrategy, err := NewLinuxStrategy(); err == nil && linuxStrategy != nil {
 		installer.strategies["linux"] = &LinuxRuntimeStrategy{strategy: linuxStrategy}
 	}
-	
+
 	if macosStrategy := NewMacOSStrategy(); macosStrategy != nil {
 		installer.strategies["darwin"] = &MacOSRuntimeStrategy{strategy: macosStrategy}
 	}
@@ -131,19 +131,19 @@ func (r *DefaultRuntimeInstaller) GetPlatformStrategy(platform string) types.Run
 	if strategy, exists := r.strategies[platform]; exists {
 		return strategy
 	}
-	
+
 	// Safe fallback - check linux strategy exists before returning
 	if linuxStrategy, exists := r.strategies["linux"]; exists {
 		return linuxStrategy
 	}
-	
+
 	// Final fallback - try other available strategies
 	for _, strategy := range r.strategies {
 		if strategy != nil {
 			return strategy
 		}
 	}
-	
+
 	// Return nil if no strategies available - caller must handle this
 	return nil
 }

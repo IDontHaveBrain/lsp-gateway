@@ -1031,13 +1031,13 @@ func (m *MockRuntimeDetector) DetectJava(ctx context.Context) (*RuntimeInfo, err
 
 func (m *MockRuntimeDetector) DetectAll(ctx context.Context) (*DetectionReport, error) {
 	runtimes := make(map[string]*RuntimeInfo)
-	
+
 	goInfo, _ := m.DetectGo(ctx)
 	runtimes["go"] = goInfo
-	
+
 	pythonInfo, _ := m.DetectPython(ctx)
 	runtimes["python"] = pythonInfo
-	
+
 	return &DetectionReport{
 		Platform:     "linux",
 		Architecture: "amd64",

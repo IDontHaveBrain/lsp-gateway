@@ -2,7 +2,6 @@ package setup
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,15 +15,15 @@ import (
 
 // MockRuntimeDetector for testing workflow integration
 type MockRuntimeDetector struct {
-	mockResults map[string]*RuntimeInfo
+	mockResults     map[string]*RuntimeInfo
 	detectAllResult *DetectionReport
-	logger *SetupLogger
+	logger          *SetupLogger
 }
 
 func NewMockRuntimeDetector() *MockRuntimeDetector {
 	return &MockRuntimeDetector{
 		mockResults: make(map[string]*RuntimeInfo),
-		logger: NewSetupLogger(nil),
+		logger:      NewSetupLogger(nil),
 	}
 }
 
@@ -41,16 +40,16 @@ func (m *MockRuntimeDetector) DetectGo(ctx context.Context) (*RuntimeInfo, error
 		return result, nil
 	}
 	return &RuntimeInfo{
-		Name: "go",
-		Installed: true,
-		Version: "go1.21.0",
+		Name:       "go",
+		Installed:  true,
+		Version:    "go1.21.0",
 		Compatible: true,
-		Path: "/usr/local/go/bin/go",
+		Path:       "/usr/local/go/bin/go",
 		DetectedAt: time.Now(),
-		Duration: 100 * time.Millisecond,
-		Issues: []string{},
-		Warnings: []string{},
-		Metadata: make(map[string]interface{}),
+		Duration:   100 * time.Millisecond,
+		Issues:     []string{},
+		Warnings:   []string{},
+		Metadata:   make(map[string]interface{}),
 	}, nil
 }
 
@@ -59,16 +58,16 @@ func (m *MockRuntimeDetector) DetectPython(ctx context.Context) (*RuntimeInfo, e
 		return result, nil
 	}
 	return &RuntimeInfo{
-		Name: "python",
-		Installed: false,
-		Version: "",
+		Name:       "python",
+		Installed:  false,
+		Version:    "",
 		Compatible: false,
-		Path: "",
+		Path:       "",
 		DetectedAt: time.Now(),
-		Duration: 50 * time.Millisecond,
-		Issues: []string{"python3 command not found"},
-		Warnings: []string{},
-		Metadata: make(map[string]interface{}),
+		Duration:   50 * time.Millisecond,
+		Issues:     []string{"python3 command not found"},
+		Warnings:   []string{},
+		Metadata:   make(map[string]interface{}),
 	}, nil
 }
 
@@ -77,16 +76,16 @@ func (m *MockRuntimeDetector) DetectNodejs(ctx context.Context) (*RuntimeInfo, e
 		return result, nil
 	}
 	return &RuntimeInfo{
-		Name: "nodejs",
-		Installed: true,
-		Version: "v20.1.0",
+		Name:       "nodejs",
+		Installed:  true,
+		Version:    "v20.1.0",
 		Compatible: true,
-		Path: "/usr/local/bin/node",
+		Path:       "/usr/local/bin/node",
 		DetectedAt: time.Now(),
-		Duration: 75 * time.Millisecond,
-		Issues: []string{},
-		Warnings: []string{},
-		Metadata: make(map[string]interface{}),
+		Duration:   75 * time.Millisecond,
+		Issues:     []string{},
+		Warnings:   []string{},
+		Metadata:   make(map[string]interface{}),
 	}, nil
 }
 
@@ -95,16 +94,16 @@ func (m *MockRuntimeDetector) DetectJava(ctx context.Context) (*RuntimeInfo, err
 		return result, nil
 	}
 	return &RuntimeInfo{
-		Name: "java",
-		Installed: false,
-		Version: "",
+		Name:       "java",
+		Installed:  false,
+		Version:    "",
 		Compatible: false,
-		Path: "",
+		Path:       "",
 		DetectedAt: time.Now(),
-		Duration: 80 * time.Millisecond,
-		Issues: []string{"java command not found"},
-		Warnings: []string{},
-		Metadata: make(map[string]interface{}),
+		Duration:   80 * time.Millisecond,
+		Issues:     []string{"java command not found"},
+		Warnings:   []string{},
+		Metadata:   make(map[string]interface{}),
 	}, nil
 }
 
@@ -112,42 +111,42 @@ func (m *MockRuntimeDetector) DetectAll(ctx context.Context) (*DetectionReport, 
 	if m.detectAllResult != nil {
 		return m.detectAllResult, nil
 	}
-	
+
 	// Create a realistic detection report
 	startTime := time.Now()
 	runtimes := make(map[string]*RuntimeInfo)
-	
+
 	go_info, _ := m.DetectGo(ctx)
 	python_info, _ := m.DetectPython(ctx)
 	nodejs_info, _ := m.DetectNodejs(ctx)
 	java_info, _ := m.DetectJava(ctx)
-	
+
 	runtimes["go"] = go_info
 	runtimes["python"] = python_info
 	runtimes["nodejs"] = nodejs_info
 	runtimes["java"] = java_info
-	
+
 	summary := DetectionSummary{
-		TotalRuntimes: 4,
-		InstalledRuntimes: 2, // go and nodejs
+		TotalRuntimes:      4,
+		InstalledRuntimes:  2, // go and nodejs
 		CompatibleRuntimes: 2,
-		IssuesFound: 2, // python and java not found
-		WarningsFound: 0,
-		SuccessRate: 50.0,
-		AverageDetectTime: 76 * time.Millisecond,
+		IssuesFound:        2, // python and java not found
+		WarningsFound:      0,
+		SuccessRate:        50.0,
+		AverageDetectTime:  76 * time.Millisecond,
 	}
-	
+
 	report := &DetectionReport{
 		Timestamp: startTime,
-		Runtimes: runtimes,
-		Summary: summary,
-		Duration: time.Since(startTime),
-		Issues: []string{},
-		Warnings: []string{},
+		Runtimes:  runtimes,
+		Summary:   summary,
+		Duration:  time.Since(startTime),
+		Issues:    []string{},
+		Warnings:  []string{},
 		SessionID: "test-session-123",
-		Metadata: make(map[string]interface{}),
+		Metadata:  make(map[string]interface{}),
 	}
-	
+
 	return report, nil
 }
 
@@ -162,11 +161,11 @@ func (m *MockRuntimeDetector) SetTimeout(timeout time.Duration) {
 // TestWorkflowIntegration_CompleteSetup tests the complete setup workflow
 func TestWorkflowIntegration_CompleteSetup(t *testing.T) {
 	// Create temporary directory for config files
-	tempDir, err := ioutil.TempDir("", "lsp-gateway-test-")
+	tempDir, err := os.MkdirTemp("", "lsp-gateway-test-")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	configPath := filepath.Join(tempDir, "config.yaml")
 
@@ -212,13 +211,13 @@ func TestWorkflowIntegration_CompleteSetup(t *testing.T) {
 			t.Error("Expected Python to be detected as not installed")
 		}
 
-		t.Logf("Detection completed: %d/%d runtimes installed", 
+		t.Logf("Detection completed: %d/%d runtimes installed",
 			report.Summary.InstalledRuntimes, report.Summary.TotalRuntimes)
 	})
 
 	t.Run("GenerateFromDetected", func(t *testing.T) {
 		result, err := generator.GenerateFromDetected(ctx)
-		
+
 		// This may fail due to the mock implementation not being complete
 		// but we should handle it gracefully
 		if err != nil {
@@ -283,7 +282,7 @@ func TestWorkflowIntegration_CompleteSetup(t *testing.T) {
 		}
 
 		// Write to file
-		err = ioutil.WriteFile(configPath, yamlData, 0644)
+		err = os.WriteFile(configPath, yamlData, 0644)
 		if err != nil {
 			t.Fatalf("Failed to write config file: %v", err)
 		}
@@ -299,7 +298,7 @@ func TestWorkflowIntegration_CompleteSetup(t *testing.T) {
 		}
 
 		// Read back and validate
-		readData, err := ioutil.ReadFile(configPath)
+		readData, err := os.ReadFile(configPath)
 		if err != nil {
 			t.Fatalf("Failed to read config file: %v", err)
 		}
@@ -370,29 +369,29 @@ func TestWorkflowIntegration_InteractiveMode(t *testing.T) {
 
 	// Set up mock results for different scenarios
 	mockDetector.SetMockResult("go", &RuntimeInfo{
-		Name: "go",
-		Installed: true,
-		Version: "go1.21.0",
+		Name:       "go",
+		Installed:  true,
+		Version:    "go1.21.0",
 		Compatible: true,
-		Path: "/usr/local/go/bin/go",
+		Path:       "/usr/local/go/bin/go",
 		DetectedAt: time.Now(),
-		Duration: 100 * time.Millisecond,
-		Issues: []string{},
-		Warnings: []string{},
-		Metadata: make(map[string]interface{}),
+		Duration:   100 * time.Millisecond,
+		Issues:     []string{},
+		Warnings:   []string{},
+		Metadata:   make(map[string]interface{}),
 	})
 
 	mockDetector.SetMockResult("python", &RuntimeInfo{
-		Name: "python",
-		Installed: false,
-		Version: "",
+		Name:       "python",
+		Installed:  false,
+		Version:    "",
 		Compatible: false,
-		Path: "",
+		Path:       "",
 		DetectedAt: time.Now(),
-		Duration: 50 * time.Millisecond,
-		Issues: []string{"Python not found in PATH"},
-		Warnings: []string{},
-		Metadata: make(map[string]interface{}),
+		Duration:   50 * time.Millisecond,
+		Issues:     []string{"Python not found in PATH"},
+		Warnings:   []string{},
+		Metadata:   make(map[string]interface{}),
 	})
 
 	ctx := context.Background()
@@ -437,13 +436,13 @@ func TestWorkflowIntegration_InteractiveMode(t *testing.T) {
 		pythonResult, err := generator.GenerateForRuntime(ctx, "python")
 		if err != nil {
 			t.Logf("Python config generation failed as expected: %v", err)
-			
+
 			if pythonResult == nil {
 				t.Error("Expected non-nil result even for failed Python generation")
 			}
 		}
 
-		t.Logf("Selective generation: Go servers=%d, Python errors=%v", 
+		t.Logf("Selective generation: Go servers=%d, Python errors=%v",
 			goResult.ServersGenerated, err != nil)
 	})
 
@@ -536,17 +535,17 @@ func TestWorkflowIntegration_NonInteractiveMode(t *testing.T) {
 	t.Run("AutoDetectionFallback", func(t *testing.T) {
 		// Simulate auto-detection with fallback to defaults
 		result, err := generator.GenerateFromDetected(ctx)
-		
+
 		// This may fail with mock implementation
 		if err != nil {
 			t.Logf("Auto-detection failed, falling back to default: %v", err)
-			
+
 			// Fall back to default
 			defaultResult, defaultErr := generator.GenerateDefault()
 			if defaultErr != nil {
 				t.Fatalf("Default fallback failed: %v", defaultErr)
 			}
-			
+
 			result = defaultResult
 		}
 
@@ -613,7 +612,7 @@ func TestWorkflowIntegration_NonInteractiveMode(t *testing.T) {
 			t.Errorf("Expected 1 server added, got %d", updateResult.UpdatesApplied.ServersAdded)
 		}
 
-		t.Logf("Batch update completed: port %d, %d servers", 
+		t.Logf("Batch update completed: port %d, %d servers",
 			updateResult.Config.Port, len(updateResult.Config.Servers))
 	})
 }

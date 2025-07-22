@@ -164,7 +164,7 @@ func runInstallRuntime(cmd *cobra.Command, args []string) error {
 	if runtimeInstaller == nil {
 		return NewInstallerCreationError("runtime")
 	}
-	
+
 	// Defensive check for strategy availability
 	if strategy := runtimeInstaller.GetPlatformStrategy(runtime.GOOS); strategy == nil {
 		return NewInstallerCreationError(fmt.Sprintf("platform strategy for %s", runtime.GOOS))
@@ -195,7 +195,7 @@ func installAllRuntimes(ctx context.Context, installer *installer.DefaultRuntime
 	if installer == nil {
 		return nil, NewInstallerCreationError("runtime installer is nil")
 	}
-	
+
 	supportedRuntimes := installer.GetSupportedRuntimes()
 	results := make([]*InstallResult, 0, len(supportedRuntimes))
 	var firstError error
@@ -268,7 +268,7 @@ func installSingleRuntime(ctx context.Context, installer *installer.DefaultRunti
 	if installer == nil {
 		return nil, NewInstallerCreationError("runtime installer is nil")
 	}
-	
+
 	supportedRuntimes := installer.GetSupportedRuntimes()
 	isSupported := false
 	for _, supported := range supportedRuntimes {
@@ -406,7 +406,7 @@ func runInstallServer(cmd *cobra.Command, args []string) error {
 	if runtimeInstaller == nil {
 		return NewInstallerCreationError("runtime")
 	}
-	
+
 	// Defensive check for strategy availability
 	if strategy := runtimeInstaller.GetPlatformStrategy(runtime.GOOS); strategy == nil {
 		return NewInstallerCreationError(fmt.Sprintf("platform strategy for %s", runtime.GOOS))
@@ -439,7 +439,7 @@ func runInstallServers(cmd *cobra.Command, args []string) error {
 	if runtimeInstaller == nil {
 		return NewInstallerCreationError("runtime")
 	}
-	
+
 	// Defensive check for strategy availability
 	if strategy := runtimeInstaller.GetPlatformStrategy(runtime.GOOS); strategy == nil {
 		return NewInstallerCreationError(fmt.Sprintf("platform strategy for %s", runtime.GOOS))
@@ -464,7 +464,7 @@ func installSingleServer(ctx context.Context, installer *installer.DefaultServer
 	if installer == nil {
 		return nil, NewInstallerCreationError("server installer is nil")
 	}
-	
+
 	supportedServers := installer.GetSupportedServers()
 	isSupported := false
 	for _, supported := range supportedServers {
@@ -560,7 +560,7 @@ func installAllServers(ctx context.Context, installer *installer.DefaultServerIn
 	if installer == nil {
 		return nil, NewInstallerCreationError("server installer is nil")
 	}
-	
+
 	supportedServers := installer.GetSupportedServers()
 	results := make([]*InstallResult, 0, len(supportedServers))
 	var firstError error

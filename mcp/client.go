@@ -337,7 +337,7 @@ func generateRequestID() interface{} {
 		// Fallback to timestamp-only on crypto/rand failure
 		return fmt.Sprintf("%d", time.Now().UnixNano())
 	}
-	
+
 	// Convert bytes to uint32 for better distribution
 	randomValue := binary.BigEndian.Uint32(randomBytes)
 	return fmt.Sprintf("%d-%d", time.Now().UnixNano(), randomValue%10000)

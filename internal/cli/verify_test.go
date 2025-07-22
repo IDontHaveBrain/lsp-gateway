@@ -694,10 +694,10 @@ func BenchmarkVerifyAllRuntimes(b *testing.B) {
 		oldStdout := os.Stdout
 		r, w, _ := os.Pipe()
 		os.Stdout = w
-		
+
 		verifyJSON = true
 		verifyAllRuntimes(runtimeInstaller)
-		
+
 		w.Close()
 		_, _ = io.ReadAll(r)
 		os.Stdout = oldStdout
@@ -717,9 +717,9 @@ func BenchmarkDisplayVerificationResult(b *testing.B) {
 		oldStdout := os.Stdout
 		r, w, _ := os.Pipe()
 		os.Stdout = w
-		
+
 		displaySingleVerificationResult("go", result, nil)
-		
+
 		w.Close()
 		_, _ = io.ReadAll(r)
 		os.Stdout = oldStdout

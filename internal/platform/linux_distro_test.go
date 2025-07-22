@@ -225,7 +225,7 @@ LOGO="distributor-logo-Tumbleweed"`
 			}
 
 			tc.setupFiles(testDir)
-			
+
 			// Test readReleaseFile directly with the mocked os-release
 			osReleaseFile := filepath.Join(testDir, "os-release")
 			if _, err := os.Stat(osReleaseFile); err == nil {
@@ -281,11 +281,11 @@ PRETTY_NAME="Ubuntu 20.04.3 LTS"
 ID_LIKE="debian fedora"`,
 			expectError: false,
 			expected: map[string]string{
-				"NAME":         "Ubuntu Server",
-				"ID":           "ubuntu",
-				"VERSION_ID":   "20.04",
-				"PRETTY_NAME":  "Ubuntu 20.04.3 LTS",
-				"ID_LIKE":      "debian fedora",
+				"NAME":        "Ubuntu Server",
+				"ID":          "ubuntu",
+				"VERSION_ID":  "20.04",
+				"PRETTY_NAME": "Ubuntu 20.04.3 LTS",
+				"ID_LIKE":     "debian fedora",
 			},
 		},
 		{
@@ -351,10 +351,10 @@ VERSION_ID = "11"
  PRETTY_NAME = "Debian GNU/Linux 11 (bullseye)" `,
 			expectError: false,
 			expected: map[string]string{
-				"NAME":         "Debian GNU/Linux",
-				"ID":           "debian",
-				"VERSION_ID":   "11",
-				"PRETTY_NAME":  "Debian GNU/Linux 11 (bullseye)",
+				"NAME":        "Debian GNU/Linux",
+				"ID":          "debian",
+				"VERSION_ID":  "11",
+				"PRETTY_NAME": "Debian GNU/Linux 11 (bullseye)",
 			},
 		},
 		{
@@ -526,23 +526,23 @@ func TestDetectFromDistributionFilesMocked(t *testing.T) {
 			}
 
 			tc.setupFiles(testDir)
-			
+
 			t.Logf("Test case: %s", tc.name)
 			t.Logf("Expected distribution: %s", tc.expectedDist)
 			t.Logf("Expected error: %t", tc.expectError)
-			
+
 			// Test the real function (which will use actual /etc files)
 			info := &LinuxInfo{Distribution: DistributionUnknown}
 			err = detectFromDistributionFiles(info)
-			
+
 			// Log actual results (may differ from mocked expectations due to real file system)
 			if err != nil {
 				t.Logf("Real detectFromDistributionFiles result: error = %v", err)
 			} else {
-				t.Logf("Real detectFromDistributionFiles result: distribution = %s, version = %s", 
+				t.Logf("Real detectFromDistributionFiles result: distribution = %s, version = %s",
 					info.Distribution, info.Version)
 			}
-			
+
 			// Verify the test setup worked (check our mock files exist)
 			if tc.name != "No distribution files" {
 				files, err := os.ReadDir(testDir)
@@ -589,7 +589,7 @@ func TestDistributionDetectionErrorScenarios(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Unexpected error reading binary file: %v", err)
 		}
-		
+
 		// Binary data should result in empty or malformed parsing
 		t.Logf("Binary file parsing result: %d entries", len(result))
 		if len(result) > 0 {
@@ -601,12 +601,12 @@ func TestDistributionDetectionErrorScenarios(t *testing.T) {
 		largeFile := filepath.Join(tmpDir, "large-release")
 		var content strings.Builder
 		content.WriteString("ID=test\nNAME=Test\n")
-		
+
 		// Add many repeated lines
 		for i := 0; i < 10000; i++ {
 			content.WriteString(fmt.Sprintf("EXTRA_VAR_%d=value_%d\n", i, i))
 		}
-		
+
 		err := os.WriteFile(largeFile, []byte(content.String()), 0644)
 		if err != nil {
 			t.Fatalf("Failed to create large file: %v", err)
@@ -616,12 +616,12 @@ func TestDistributionDetectionErrorScenarios(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Unexpected error reading large file: %v", err)
 		}
-		
+
 		// Should handle large files gracefully
 		if len(result) < 10000 {
 			t.Errorf("Expected ~10000+ entries in large file, got %d", len(result))
 		}
-		
+
 		// Verify key entries still exist
 		if result["ID"] != "test" {
 			t.Errorf("Expected ID=test, got %s", result["ID"])
@@ -641,7 +641,7 @@ func TestDistributionDetectionErrorScenarios(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Unexpected error reading encoded file: %v", err)
 		}
-		
+
 		// Should handle UTF-8 content (the BOM might cause issues)
 		t.Logf("Encoded file parsing result: %v", result)
 		if result["ID"] != "test" {
@@ -693,9 +693,9 @@ DISTRIB_DESCRIPTION="Ubuntu 20.04.3 LTS"`
 			t.Logf("Real system detection failed: %v", err)
 			// This might be expected on some systems
 		} else {
-			t.Logf("Real system detected: distribution=%s, version=%s, name=%s, id=%s", 
+			t.Logf("Real system detected: distribution=%s, version=%s, name=%s, id=%s",
 				info.Distribution, info.Version, info.Name, info.ID)
-			
+
 			if info.Distribution == DistributionUnknown {
 				t.Log("Warning: Could not determine specific distribution on real system")
 			}
@@ -717,7 +717,7 @@ func TestIDMappingEdgeCases(t *testing.T) {
 		{"rhel", DistributionRHEL},
 		{"arch", DistributionArch},
 		{"alpine", DistributionAlpine},
-		
+
 		// Case variations
 		{"Ubuntu", DistributionUbuntu},
 		{"UBUNTU", DistributionUbuntu},
@@ -727,13 +727,13 @@ func TestIDMappingEdgeCases(t *testing.T) {
 		{"RHEL", DistributionRHEL},
 		{"Arch", DistributionArch},
 		{"ALPINE", DistributionAlpine},
-		
+
 		// RHEL variants
 		{"red", DistributionRHEL},
 		{"redhat", DistributionRHEL},
 		{"RED", DistributionRHEL},
 		{"REDHAT", DistributionRHEL},
-		
+
 		// openSUSE variants
 		{"opensuse", DistributionOpenSUSE},
 		{"suse", DistributionOpenSUSE},
@@ -741,7 +741,7 @@ func TestIDMappingEdgeCases(t *testing.T) {
 		{"SUSE", DistributionOpenSUSE},
 		{"opensuse-tumbleweed", DistributionUnknown}, // Current implementation doesn't handle variants
 		{"opensuse-leap", DistributionUnknown},       // Current implementation doesn't handle variants
-		
+
 		// Unknown/edge cases
 		{"", DistributionUnknown},
 		{"unknown", DistributionUnknown},

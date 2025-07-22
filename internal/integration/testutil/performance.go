@@ -11,13 +11,13 @@ import (
 
 // PerformanceMonitor tracks performance metrics during integration tests
 type PerformanceMonitor struct {
-	t              *testing.T
-	startTime      time.Time
-	metrics        *PerformanceMetrics
-	samplingRate   time.Duration
-	stopCh         chan struct{}
-	wg             sync.WaitGroup
-	mu             sync.RWMutex
+	t            *testing.T
+	startTime    time.Time
+	metrics      *PerformanceMetrics
+	samplingRate time.Duration
+	stopCh       chan struct{}
+	wg           sync.WaitGroup
+	mu           sync.RWMutex
 }
 
 // PerformanceMetrics contains collected performance data
@@ -43,11 +43,11 @@ type PerformanceMetrics struct {
 
 // PerformanceSample represents a single performance sample
 type PerformanceSample struct {
-	Timestamp       time.Time
-	RequestLatency  time.Duration
-	MemoryUsageMB   float64
-	GoroutineCount  int
-	CPUUsagePercent float64
+	Timestamp        time.Time
+	RequestLatency   time.Duration
+	MemoryUsageMB    float64
+	GoroutineCount   int
+	CPUUsagePercent  float64
 	RequestsInFlight int64
 }
 
@@ -75,7 +75,7 @@ func NewPerformanceMonitor(t *testing.T) *PerformanceMonitor {
 func (pm *PerformanceMonitor) Start() {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
-	
+
 	pm.startTime = time.Now()
 	pm.wg.Add(1)
 	go pm.collectSamples()
@@ -85,14 +85,14 @@ func (pm *PerformanceMonitor) Start() {
 func (pm *PerformanceMonitor) Stop() *PerformanceMetrics {
 	close(pm.stopCh)
 	pm.wg.Wait()
-	
+
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
-	
+
 	pm.metrics.TestDuration = time.Since(pm.startTime)
 	pm.calculateLatencyPercentiles()
 	pm.calculateThroughput()
-	
+
 	return pm.metrics
 }
 
@@ -114,9 +114,9 @@ func (lm *LatencyMeasurement) End() {
 func (pm *PerformanceMonitor) recordLatency(latency time.Duration) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
-	
+
 	pm.metrics.RequestCount++
-	
+
 	// Update min/max latency
 	if latency < pm.metrics.MinLatency {
 		pm.metrics.MinLatency = latency
@@ -124,7 +124,7 @@ func (pm *PerformanceMonitor) recordLatency(latency time.Duration) {
 	if latency > pm.metrics.MaxLatency {
 		pm.metrics.MaxLatency = latency
 	}
-	
+
 	// Update average latency using running average
 	if pm.metrics.RequestCount == 1 {
 		pm.metrics.AverageLatency = latency
@@ -144,10 +144,10 @@ func (pm *PerformanceMonitor) RecordError() {
 // collectSamples periodically collects performance samples
 func (pm *PerformanceMonitor) collectSamples() {
 	defer pm.wg.Done()
-	
+
 	ticker := time.NewTicker(pm.samplingRate)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-pm.stopCh:
@@ -162,7 +162,7 @@ func (pm *PerformanceMonitor) collectSamples() {
 func (pm *PerformanceMonitor) takeSample() {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	
+
 	sample := PerformanceSample{
 		Timestamp:      time.Now(),
 		MemoryUsageMB:  float64(m.Alloc) / 1024 / 1024,
@@ -170,15 +170,15 @@ func (pm *PerformanceMonitor) takeSample() {
 		// Note: CPU usage calculation would need additional system-specific code
 		CPUUsagePercent: 0, // Placeholder - would need proper implementation
 	}
-	
+
 	pm.mu.Lock()
 	pm.metrics.Samples = append(pm.metrics.Samples, sample)
-	
+
 	// Update peak memory usage
 	if sample.MemoryUsageMB > pm.metrics.MaxMemoryMB {
 		pm.metrics.MaxMemoryMB = sample.MemoryUsageMB
 	}
-	
+
 	// Update current memory usage
 	pm.metrics.MemoryUsageMB = sample.MemoryUsageMB
 	pm.metrics.GoroutineCount = sample.GoroutineCount
@@ -192,7 +192,7 @@ func (pm *PerformanceMonitor) calculateLatencyPercentiles() {
 	if len(pm.metrics.Samples) == 0 {
 		return
 	}
-	
+
 	// Extract latencies from samples (this is simplified - in real implementation,
 	// we'd need to collect actual request latencies)
 	latencies := make([]time.Duration, 0)
@@ -201,11 +201,11 @@ func (pm *PerformanceMonitor) calculateLatencyPercentiles() {
 			latencies = append(latencies, sample.RequestLatency)
 		}
 	}
-	
+
 	if len(latencies) == 0 {
 		return
 	}
-	
+
 	// Sort latencies for percentile calculation
 	for i := 0; i < len(latencies)-1; i++ {
 		for j := i + 1; j < len(latencies); j++ {
@@ -214,7 +214,7 @@ func (pm *PerformanceMonitor) calculateLatencyPercentiles() {
 			}
 		}
 	}
-	
+
 	// Calculate percentiles
 	pm.metrics.P50Latency = percentile(latencies, 0.50)
 	pm.metrics.P95Latency = percentile(latencies, 0.95)
@@ -233,15 +233,15 @@ func percentile(sorted []time.Duration, p float64) time.Duration {
 	if len(sorted) == 0 {
 		return 0
 	}
-	
+
 	index := p * float64(len(sorted)-1)
 	lower := int(index)
 	upper := lower + 1
-	
+
 	if upper >= len(sorted) {
 		return sorted[len(sorted)-1]
 	}
-	
+
 	// Linear interpolation between lower and upper
 	weight := index - float64(lower)
 	return time.Duration(float64(sorted[lower]) + weight*float64(sorted[upper]-sorted[lower]))
@@ -251,7 +251,7 @@ func percentile(sorted []time.Duration, p float64) time.Duration {
 func (pm *PerformanceMonitor) Report() string {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
-	
+
 	return fmt.Sprintf(`Performance Report:
 Test Duration: %v
 Total Requests: %d
@@ -291,14 +291,14 @@ Samples Collected: %d`,
 
 // LoadTestConfig configures load testing parameters
 type LoadTestConfig struct {
-	ConcurrentUsers    int
-	RequestsPerUser    int
-	TestDuration       time.Duration
-	RampUpTime         time.Duration
-	ThinkTime          time.Duration
-	MaxErrorRate       float64
-	TargetThroughput   float64
-	LatencyThresholds  LatencyThresholds
+	ConcurrentUsers   int
+	RequestsPerUser   int
+	TestDuration      time.Duration
+	RampUpTime        time.Duration
+	ThinkTime         time.Duration
+	MaxErrorRate      float64
+	TargetThroughput  float64
+	LatencyThresholds LatencyThresholds
 }
 
 // LatencyThresholds defines acceptable latency limits
@@ -333,17 +333,18 @@ func (ltr *LoadTestRunner) Run(ctx context.Context) *PerformanceMetrics {
 		metrics := ltr.monitor.Stop()
 		ltr.validateResults(metrics)
 	}()
-	
+
 	userCh := make(chan struct{}, ltr.config.ConcurrentUsers)
 	var wg sync.WaitGroup
-	
+
 	// Ramp up users gradually
 	rampUpInterval := ltr.config.RampUpTime / time.Duration(ltr.config.ConcurrentUsers)
-	
+
 	for i := 0; i < ltr.config.ConcurrentUsers; i++ {
 		select {
 		case <-ctx.Done():
-			break
+			wg.Wait()
+			return ltr.monitor.Stop()
 		case userCh <- struct{}{}:
 			wg.Add(1)
 			go ltr.runUser(ctx, &wg, userCh)
@@ -352,7 +353,7 @@ func (ltr *LoadTestRunner) Run(ctx context.Context) *PerformanceMetrics {
 			}
 		}
 	}
-	
+
 	wg.Wait()
 	return ltr.monitor.Stop()
 }
@@ -361,7 +362,7 @@ func (ltr *LoadTestRunner) Run(ctx context.Context) *PerformanceMetrics {
 func (ltr *LoadTestRunner) runUser(ctx context.Context, wg *sync.WaitGroup, userCh chan struct{}) {
 	defer wg.Done()
 	defer func() { <-userCh }()
-	
+
 	requestCount := 0
 	for requestCount < ltr.config.RequestsPerUser {
 		select {
@@ -369,17 +370,17 @@ func (ltr *LoadTestRunner) runUser(ctx context.Context, wg *sync.WaitGroup, user
 			return
 		default:
 		}
-		
+
 		measurement := ltr.monitor.StartLatencyMeasurement()
 		err := ltr.requestFunc(ctx)
 		measurement.End()
-		
+
 		if err != nil {
 			ltr.monitor.RecordError()
 		}
-		
+
 		requestCount++
-		
+
 		if ltr.config.ThinkTime > 0 {
 			time.Sleep(ltr.config.ThinkTime)
 		}
@@ -389,26 +390,26 @@ func (ltr *LoadTestRunner) runUser(ctx context.Context, wg *sync.WaitGroup, user
 // validateResults checks if performance meets thresholds
 func (ltr *LoadTestRunner) validateResults(metrics *PerformanceMetrics) {
 	errorRate := float64(metrics.ErrorCount) / float64(metrics.RequestCount)
-	
+
 	if errorRate > ltr.config.MaxErrorRate {
-		ltr.t.Errorf("Error rate %.2f%% exceeds threshold %.2f%%", 
+		ltr.t.Errorf("Error rate %.2f%% exceeds threshold %.2f%%",
 			errorRate*100, ltr.config.MaxErrorRate*100)
 	}
-	
+
 	if ltr.config.TargetThroughput > 0 && metrics.ThroughputRPS < ltr.config.TargetThroughput {
-		ltr.t.Errorf("Throughput %.2f RPS below target %.2f RPS", 
+		ltr.t.Errorf("Throughput %.2f RPS below target %.2f RPS",
 			metrics.ThroughputRPS, ltr.config.TargetThroughput)
 	}
-	
+
 	thresholds := ltr.config.LatencyThresholds
 	if thresholds.P50 > 0 && metrics.P50Latency > thresholds.P50 {
 		ltr.t.Errorf("P50 latency %v exceeds threshold %v", metrics.P50Latency, thresholds.P50)
 	}
-	
+
 	if thresholds.P95 > 0 && metrics.P95Latency > thresholds.P95 {
 		ltr.t.Errorf("P95 latency %v exceeds threshold %v", metrics.P95Latency, thresholds.P95)
 	}
-	
+
 	if thresholds.P99 > 0 && metrics.P99Latency > thresholds.P99 {
 		ltr.t.Errorf("P99 latency %v exceeds threshold %v", metrics.P99Latency, thresholds.P99)
 	}

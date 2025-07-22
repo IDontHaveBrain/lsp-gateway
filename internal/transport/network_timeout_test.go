@@ -695,7 +695,7 @@ done
 }
 
 func handleSlowTCPConnection(conn net.Conn, delay time.Duration) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
@@ -757,7 +757,7 @@ func handleSlowTCPConnection(conn net.Conn, delay time.Duration) {
 }
 
 func handleDelayedTCPConnection(conn net.Conn, baseDelay, maxDelay time.Duration) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)

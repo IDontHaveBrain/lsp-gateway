@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
+	config "lsp-gateway/internal/config"
 	"lsp-gateway/internal/gateway"
 	"lsp-gateway/internal/testutil"
-	config "lsp-gateway/internal/config"
 )
 
 // TestEnvironment provides comprehensive integration testing infrastructure
@@ -31,13 +31,13 @@ type TestEnvironment struct {
 
 // TestEnvironmentConfig configures test environment setup
 type TestEnvironmentConfig struct {
-	Languages          []string
-	HTTPPort           int
-	EnableMockServers  bool
-	EnablePerformance  bool
-	CustomConfig       *config.GatewayConfig
-	ResourceLimits     *ResourceLimits
-	NetworkConditions  *NetworkConditions
+	Languages         []string
+	HTTPPort          int
+	EnableMockServers bool
+	EnablePerformance bool
+	CustomConfig      *config.GatewayConfig
+	ResourceLimits    *ResourceLimits
+	NetworkConditions *NetworkConditions
 }
 
 // ResourceLimits defines resource constraints for testing
@@ -107,7 +107,7 @@ func SetupTestEnvironment(t *testing.T, config *TestEnvironmentConfig) *TestEnvi
 
 	// Create gateway configuration
 	gatewayConfig := env.createGatewayConfig(config)
-	
+
 	// Create and start gateway
 	gw, err := gateway.NewGateway(gatewayConfig)
 	if err != nil {
@@ -172,7 +172,7 @@ func (env *TestEnvironment) setupMockServers(languages []string) {
 	}
 }
 
-// createGatewayConfig generates gateway configuration with mock servers  
+// createGatewayConfig generates gateway configuration with mock servers
 func (env *TestEnvironment) createGatewayConfig(testConfig *TestEnvironmentConfig) *config.GatewayConfig {
 	if testConfig.CustomConfig != nil {
 		return testConfig.CustomConfig
@@ -180,7 +180,7 @@ func (env *TestEnvironment) createGatewayConfig(testConfig *TestEnvironmentConfi
 
 	// Create config with mock servers
 	var serverConfigs []config.ServerConfig
-	
+
 	if testConfig.EnableMockServers {
 		// Add mock server configurations
 		for lang, mockServer := range env.mockServers {

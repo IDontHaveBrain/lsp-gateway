@@ -12,10 +12,10 @@ import (
 
 // FixtureManager manages test data and configuration templates
 type FixtureManager struct {
-	baseDir     string
-	tempDirs    []string
-	mu          sync.RWMutex
-	t           *testing.T
+	baseDir  string
+	tempDirs []string
+	mu       sync.RWMutex
+	t        *testing.T
 }
 
 // FixtureType represents different types of test fixtures
@@ -367,7 +367,7 @@ if (require.main === module) {
 // GetGatewayConfig returns a test configuration for the gateway
 func (fm *FixtureManager) GetGatewayConfig(port int, mockServers map[string]string) *config.GatewayConfig {
 	servers := make([]config.ServerConfig, 0, len(mockServers))
-	
+
 	for language, binaryPath := range mockServers {
 		servers = append(servers, config.ServerConfig{
 			Name:      fmt.Sprintf("mock-%s-lsp", language),
@@ -409,10 +409,10 @@ func (fm *FixtureManager) GetGatewayConfigWithErrors() *config.GatewayConfig {
 
 // ExpectedResponses returns expected responses for LSP requests
 type ExpectedResponses struct {
-	Definition     map[string]interface{}
-	Hover          map[string]interface{}
-	References     []map[string]interface{}
-	DocumentSymbol []map[string]interface{}
+	Definition      map[string]interface{}
+	Hover           map[string]interface{}
+	References      []map[string]interface{}
+	DocumentSymbol  []map[string]interface{}
 	WorkspaceSymbol []map[string]interface{}
 }
 
@@ -567,9 +567,9 @@ func (fm *FixtureManager) GetStandardTestScenarios() []*TestScenario {
 }
 
 // CreateTestScenario creates a test scenario with specific parameters
-func (fm *FixtureManager) CreateTestScenario(name, description string, 
+func (fm *FixtureManager) CreateTestScenario(name, description string,
 	requests []LSPRequest, expectations []ResponseExpectation) *TestScenario {
-	
+
 	return &TestScenario{
 		Name:         name,
 		Description:  description,
@@ -630,9 +630,9 @@ func (fm *FixtureManager) GetPerformanceTestData() *PerformanceTestData {
 			},
 		},
 		ExpectedLatencies: map[string]LatencyExpectations{
-			"light": {P50: "10ms", P95: "50ms", P99: "100ms"},
+			"light":  {P50: "10ms", P95: "50ms", P99: "100ms"},
 			"medium": {P50: "20ms", P95: "100ms", P99: "200ms"},
-			"heavy": {P50: "50ms", P95: "200ms", P99: "500ms"},
+			"heavy":  {P50: "50ms", P95: "200ms", P99: "500ms"},
 		},
 	}
 }

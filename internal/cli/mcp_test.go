@@ -1840,8 +1840,8 @@ func testRunMCPHTTPServerWithUsedPort(t *testing.T) {
 	}
 
 	// Create test objects for simulation
-	_ = mcp.NewServer(cfg) // server
-	_ = 58123 // port (fixed test port)
+	_ = mcp.NewServer(cfg)           // server
+	_ = 58123                        // port (fixed test port)
 	_ = mcp.NewStructuredLogger(nil) // logger
 	// Simulate HTTP server test without real network operations
 	// This prevents hanging during parallel test execution
@@ -2080,10 +2080,10 @@ func TestRunMCPHTTPServerEndpoints(t *testing.T) {
 	// This prevents hanging during test execution
 	t.Log("Simulating health endpoint test - would return 200 OK")
 	t.Log("Simulating MCP endpoint test - would return 501 Not Implemented")
-	
+
 	// Simulate context cancellation
 	cancel()
-	
+
 	select {
 	case <-ctx.Done():
 		t.Log("Context cancelled successfully (server simulation)")
@@ -2667,7 +2667,7 @@ func TestRunMCPHTTPServerShutdownTimeout(t *testing.T) {
 		LSPGatewayURL: "http://localhost:8080",
 		Transport:     transport.TransportHTTP,
 	}
-	_ = mcp.NewServer(cfg) // server
+	_ = mcp.NewServer(cfg)  // server
 	_ = AllocateTestPort(t) // port
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -2677,9 +2677,9 @@ func TestRunMCPHTTPServerShutdownTimeout(t *testing.T) {
 	// This prevents hanging during test execution
 	t.Log("Simulating server startup")
 	time.Sleep(10 * time.Millisecond) // Brief simulation
-	
+
 	cancel()
-	
+
 	select {
 	case <-ctx.Done():
 		t.Log("Server shutdown simulation completed successfully")

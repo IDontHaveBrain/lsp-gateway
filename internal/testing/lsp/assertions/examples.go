@@ -48,7 +48,7 @@ func ExampleDefinitionValidation() {
 
 	// Check results
 	summary := GetValidationSummary(testCase.ValidationResults, false)
-	fmt.Printf("Definition validation: %d/%d passed (%.1f%%)\n", 
+	fmt.Printf("Definition validation: %d/%d passed (%.1f%%)\n",
 		summary.PassedValidations, summary.TotalValidations, summary.PassRate)
 }
 
@@ -99,7 +99,7 @@ func ExampleReferencesValidation() {
 
 	// Check results
 	summary := GetValidationSummary(testCase.ValidationResults, false)
-	fmt.Printf("References validation: %d/%d passed (%.1f%%)\n", 
+	fmt.Printf("References validation: %d/%d passed (%.1f%%)\n",
 		summary.PassedValidations, summary.TotalValidations, summary.PassRate)
 }
 
@@ -144,7 +144,7 @@ func ExampleHoverValidation() {
 
 	// Check results
 	summary := GetValidationSummary(testCase.ValidationResults, false)
-	fmt.Printf("Hover validation: %d/%d passed (%.1f%%)\n", 
+	fmt.Printf("Hover validation: %d/%d passed (%.1f%%)\n",
 		summary.PassedValidations, summary.TotalValidations, summary.PassRate)
 }
 
@@ -204,7 +204,7 @@ func ExampleDocumentSymbolValidation() {
 
 	// Check results
 	summary := GetValidationSummary(testCase.ValidationResults, false)
-	fmt.Printf("Document symbol validation: %d/%d passed (%.1f%%)\n", 
+	fmt.Printf("Document symbol validation: %d/%d passed (%.1f%%)\n",
 		summary.PassedValidations, summary.TotalValidations, summary.PassRate)
 }
 
@@ -265,7 +265,7 @@ func ExampleWorkspaceSymbolValidation() {
 
 	// Check results
 	summary := GetValidationSummary(testCase.ValidationResults, false)
-	fmt.Printf("Workspace symbol validation: %d/%d passed (%.1f%%)\n", 
+	fmt.Printf("Workspace symbol validation: %d/%d passed (%.1f%%)\n",
 		summary.PassedValidations, summary.TotalValidations, summary.PassRate)
 }
 
@@ -306,7 +306,7 @@ func ExampleErrorValidation() {
 
 	// Check results
 	summary := GetValidationSummary(testCase.ValidationResults, false)
-	fmt.Printf("Error validation: %d/%d passed (%.1f%%)\n", 
+	fmt.Printf("Error validation: %d/%d passed (%.1f%%)\n",
 		summary.PassedValidations, summary.TotalValidations, summary.PassRate)
 }
 
@@ -319,17 +319,17 @@ func ExampleFlexibleMatching() {
 		ValidatePositions: true,
 		ValidateURIs:      true,
 	}
-	
+
 	testCase := &cases.TestCase{
-		ID: "flexible-001",
+		ID:   "flexible-001",
 		Name: "Flexible matching example",
 	}
-	
+
 	ctx := NewAssertionContext(testCase, config)
 
 	// Example: Flexible URI matching
 	actualURI := "file:///home/user/project/src/main.go"
-	
+
 	// Exact match
 	exactMatch := &ExpectedURI{
 		Exact: &actualURI,
@@ -355,7 +355,7 @@ func ExampleFlexibleMatching() {
 
 	// Example: Flexible array length matching
 	symbols := make([]interface{}, 5) // 5 symbols
-	
+
 	// Range matching
 	rangeLength := &ExpectedArrayLength{
 		Min: intPtr(3),
@@ -384,14 +384,14 @@ func ExampleValidationComparison() {
 	// Create current results (with improvements and regressions)
 	current := []*cases.ValidationResult{
 		{Name: "test1", Passed: true, Message: "Test 1 passed"},
-		{Name: "test2", Passed: true, Message: "Test 2 now passes"},  // Improved
+		{Name: "test2", Passed: true, Message: "Test 2 now passes"}, // Improved
 		{Name: "test3", Passed: false, Message: "Test 3 now fails"}, // Regressed
 		{Name: "test4", Passed: true, Message: "Test 4 is new"},     // Added
 	}
 
 	// Compare results
 	comparison := CompareValidationResults(baseline, current)
-	
+
 	fmt.Printf("Validation comparison summary: %s\n", comparison.Summary())
 	fmt.Printf("Improvements: %d\n", len(comparison.Improved))
 	fmt.Printf("Regressions: %d\n", len(comparison.Regressed))
@@ -402,7 +402,7 @@ func ExampleValidationComparison() {
 	for _, change := range comparison.Improved {
 		fmt.Printf("✅ %s: %s -> %s\n", change.Name, change.Before.Message, change.After.Message)
 	}
-	
+
 	for _, change := range comparison.Regressed {
 		fmt.Printf("❌ %s: %s -> %s\n", change.Name, change.Before.Message, change.After.Message)
 	}
@@ -414,7 +414,7 @@ func ExampleBuilderPatterns() {
 	definitionBuilder := NewExpectedResult().
 		WithDefinition(true).
 		WithDefinitionArray(1, 3). // Expect 1-3 definitions
-		WithMaxResponseTime(500).   // Max 500ms response time
+		WithMaxResponseTime(500).  // Max 500ms response time
 		WithContains("func", "return").
 		WithExcludes("error", "panic")
 
@@ -445,11 +445,11 @@ func ExampleBuilderPatterns() {
 		WithMaxResponseTime(1000).
 		Build()
 
-	fmt.Printf("Definition expectation created with %d expected properties\n", 
+	fmt.Printf("Definition expectation created with %d expected properties\n",
 		len(definitionExpected.Properties))
-	fmt.Printf("Hover expectation has content validation: %t\n", 
+	fmt.Printf("Hover expectation has content validation: %t\n",
 		hoverExpected.Hover.Content.HasContent)
-	fmt.Printf("Workspace symbol expectation count range: %d-%d\n", 
+	fmt.Printf("Workspace symbol expectation count range: %d-%d\n",
 		*workspaceExpected.WorkspaceSymbol.ArrayLength.Min,
 		*workspaceExpected.WorkspaceSymbol.ArrayLength.Max)
 }
@@ -470,7 +470,7 @@ func ExampleCustomValidation() {
 	customValidator := func(testCase *cases.TestCase, response json.RawMessage) *cases.ValidationResult {
 		// Custom business logic validation
 		responseStr := string(response)
-		
+
 		// Example: Validate response doesn't contain sensitive information
 		sensitivePatterns := []string{"password", "secret", "token"}
 		for _, pattern := range sensitivePatterns {
@@ -486,7 +486,7 @@ func ExampleCustomValidation() {
 				}
 			}
 		}
-		
+
 		return &cases.ValidationResult{
 			Name:        "security_check",
 			Description: "Validate response doesn't contain sensitive information",
@@ -498,7 +498,7 @@ func ExampleCustomValidation() {
 	// Example usage
 	testCase := &cases.TestCase{ID: "custom-001"}
 	response := json.RawMessage(`{"result": "user data"}`)
-	
+
 	result := customValidator(testCase, response)
 	fmt.Printf("Custom validation result: %s\n", result.Message)
 }

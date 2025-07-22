@@ -10,17 +10,17 @@ import (
 	"strings"
 	"time"
 
-	"lsp-gateway/internal/testing/lsp"
+	"lsp-gateway/internal/testing/lsp/types"
 )
 
 // PerformanceReporter generates comprehensive performance reports
 type PerformanceReporter struct {
-	outputDir     string
-	enableCSV     bool
-	enableJSON    bool
-	enableHTML    bool
-	colorEnabled  bool
-	verbose       bool
+	outputDir    string
+	enableCSV    bool
+	enableJSON   bool
+	enableHTML   bool
+	colorEnabled bool
+	verbose      bool
 }
 
 // PerformanceReportConfig configures performance reporting
@@ -35,26 +35,26 @@ type PerformanceReportConfig struct {
 
 // BenchmarkSummary contains aggregated benchmark results
 type BenchmarkSummary struct {
-	TotalMethods      int                                      `json:"total_methods"`
-	PassedMethods     int                                      `json:"passed_methods"`
-	FailedMethods     int                                      `json:"failed_methods"`
-	OverallPassRate   float64                                  `json:"overall_pass_rate"`
-	Results           map[string]*lsp.BenchmarkResult          `json:"results"`
-	Aggregated        AggregatedMetrics                        `json:"aggregated"`
-	Regressions       []RegressionAlert                        `json:"regressions"`
-	Timestamp         time.Time                               `json:"timestamp"`
-	TestDuration      time.Duration                           `json:"test_duration"`
+	TotalMethods    int                               `json:"total_methods"`
+	PassedMethods   int                               `json:"passed_methods"`
+	FailedMethods   int                               `json:"failed_methods"`
+	OverallPassRate float64                           `json:"overall_pass_rate"`
+	Results         map[string]*types.BenchmarkResult `json:"results"`
+	Aggregated      AggregatedMetrics                 `json:"aggregated"`
+	Regressions     []RegressionAlert                 `json:"regressions"`
+	Timestamp       time.Time                         `json:"timestamp"`
+	TestDuration    time.Duration                     `json:"test_duration"`
 }
 
 // AggregatedMetrics contains metrics aggregated across all methods
 type AggregatedMetrics struct {
-	TotalRequests      int64                   `json:"total_requests"`
-	TotalErrors        int64                   `json:"total_errors"`
-	OverallErrorRate   float64                 `json:"overall_error_rate"`
-	AverageThroughput  float64                 `json:"average_throughput"`
-	AverageLatency     lsp.LatencyMetrics      `json:"average_latency"`
-	TotalMemoryUsage   int64                   `json:"total_memory_usage"`
-	PeakMemoryUsage    int64                   `json:"peak_memory_usage"`
+	TotalRequests     int64                `json:"total_requests"`
+	TotalErrors       int64                `json:"total_errors"`
+	OverallErrorRate  float64              `json:"overall_error_rate"`
+	AverageThroughput float64              `json:"average_throughput"`
+	AverageLatency    types.LatencyMetrics `json:"average_latency"`
+	TotalMemoryUsage  int64                `json:"total_memory_usage"`
+	PeakMemoryUsage   int64                `json:"peak_memory_usage"`
 }
 
 // RegressionAlert represents a detected performance regression
@@ -81,72 +81,72 @@ func NewPerformanceReporter(config *PerformanceReportConfig) *PerformanceReporte
 			Verbose:      false,
 		}
 	}
-	
+
 	return &PerformanceReporter{
-		outputDir:     config.OutputDir,
-		enableCSV:     config.EnableCSV,
-		enableJSON:    config.EnableJSON,
-		enableHTML:    config.EnableHTML,
-		colorEnabled:  config.ColorEnabled,
-		verbose:       config.Verbose,
+		outputDir:    config.OutputDir,
+		enableCSV:    config.EnableCSV,
+		enableJSON:   config.EnableJSON,
+		enableHTML:   config.EnableHTML,
+		colorEnabled: config.ColorEnabled,
+		verbose:      config.Verbose,
 	}
 }
 
 // GenerateReport creates a comprehensive performance report
-func (pr *PerformanceReporter) GenerateReport(results map[string]*lsp.BenchmarkResult) (*BenchmarkSummary, error) {
+func (pr *PerformanceReporter) GenerateReport(results map[string]*types.BenchmarkResult) (*BenchmarkSummary, error) {
 	if err := os.MkdirAll(pr.outputDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create output directory: %w", err)
 	}
-	
+
 	// Create benchmark summary
 	summary := pr.createBenchmarkSummary(results)
-	
+
 	// Generate different report formats
 	if pr.enableJSON {
 		if err := pr.generateJSONReport(summary); err != nil {
 			return nil, fmt.Errorf("failed to generate JSON report: %w", err)
 		}
 	}
-	
+
 	if pr.enableCSV {
 		if err := pr.generateCSVReport(summary); err != nil {
 			return nil, fmt.Errorf("failed to generate CSV report: %w", err)
 		}
 	}
-	
+
 	if pr.enableHTML {
 		if err := pr.generateHTMLReport(summary); err != nil {
 			return nil, fmt.Errorf("failed to generate HTML report: %w", err)
 		}
 	}
-	
+
 	// Generate console report
 	pr.generateConsoleReport(summary)
-	
+
 	return summary, nil
 }
 
 // createBenchmarkSummary aggregates benchmark results into a summary
-func (pr *PerformanceReporter) createBenchmarkSummary(results map[string]*lsp.BenchmarkResult) *BenchmarkSummary {
+func (pr *PerformanceReporter) createBenchmarkSummary(results map[string]*types.BenchmarkResult) *BenchmarkSummary {
 	summary := &BenchmarkSummary{
 		Results:   results,
 		Timestamp: time.Now(),
 	}
-	
+
 	var totalMethods, passedMethods int
 	var totalRequests, totalErrors int64
 	var totalThroughput float64
 	var totalLatency, minLatency, maxLatency time.Duration
 	var totalMemoryUsage, peakMemoryUsage int64
-	
+
 	minLatency = time.Hour // Initialize to high value
-	
+
 	for method, result := range results {
 		totalMethods++
 		totalRequests += result.TotalRequests
 		totalErrors += result.ErrorCount
 		totalThroughput += result.ThroughputRPS
-		
+
 		// Aggregate latency metrics
 		totalLatency += result.LatencyMetrics.Average
 		if result.LatencyMetrics.Min < minLatency {
@@ -155,35 +155,35 @@ func (pr *PerformanceReporter) createBenchmarkSummary(results map[string]*lsp.Be
 		if result.LatencyMetrics.Max > maxLatency {
 			maxLatency = result.LatencyMetrics.Max
 		}
-		
+
 		// Aggregate memory metrics
 		totalMemoryUsage += result.MemoryMetrics.TotalAlloc
 		if result.MemoryMetrics.PeakMemoryUsage > peakMemoryUsage {
 			peakMemoryUsage = result.MemoryMetrics.PeakMemoryUsage
 		}
-		
+
 		// Check if method passed all thresholds
 		if result.ThresholdResults.OverallPassed {
 			passedMethods++
 		}
-		
+
 		// Detect regressions
 		regressions := pr.detectRegressions(method, result)
 		summary.Regressions = append(summary.Regressions, regressions...)
 	}
-	
+
 	summary.TotalMethods = totalMethods
 	summary.PassedMethods = passedMethods
 	summary.FailedMethods = totalMethods - passedMethods
 	summary.OverallPassRate = float64(passedMethods) / float64(totalMethods) * 100
-	
+
 	// Calculate aggregated metrics
 	summary.Aggregated = AggregatedMetrics{
 		TotalRequests:     totalRequests,
 		TotalErrors:       totalErrors,
 		OverallErrorRate:  float64(totalErrors) / float64(totalRequests) * 100,
 		AverageThroughput: totalThroughput / float64(totalMethods),
-		AverageLatency: lsp.LatencyMetrics{
+		AverageLatency: types.LatencyMetrics{
 			Average: totalLatency / time.Duration(totalMethods),
 			Min:     minLatency,
 			Max:     maxLatency,
@@ -191,37 +191,37 @@ func (pr *PerformanceReporter) createBenchmarkSummary(results map[string]*lsp.Be
 		TotalMemoryUsage: totalMemoryUsage,
 		PeakMemoryUsage:  peakMemoryUsage,
 	}
-	
+
 	return summary
 }
 
 // generateJSONReport creates a detailed JSON report
 func (pr *PerformanceReporter) generateJSONReport(summary *BenchmarkSummary) error {
-	filename := filepath.Join(pr.outputDir, fmt.Sprintf("lsp_benchmark_report_%s.json", 
+	filename := filepath.Join(pr.outputDir, fmt.Sprintf("lsp_benchmark_report_%s.json",
 		summary.Timestamp.Format("20060102_150405")))
-	
+
 	data, err := json.MarshalIndent(summary, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
-	
+
 	return os.WriteFile(filename, data, 0644)
 }
 
 // generateCSVReport creates a CSV report for easy data analysis
 func (pr *PerformanceReporter) generateCSVReport(summary *BenchmarkSummary) error {
-	filename := filepath.Join(pr.outputDir, fmt.Sprintf("lsp_benchmark_results_%s.csv", 
+	filename := filepath.Join(pr.outputDir, fmt.Sprintf("lsp_benchmark_results_%s.csv",
 		summary.Timestamp.Format("20060102_150405")))
-	
+
 	file, err := os.Create(filename)
 	if err != nil {
 		return fmt.Errorf("failed to create CSV file: %w", err)
 	}
 	defer file.Close()
-	
+
 	writer := csv.NewWriter(file)
 	defer writer.Flush()
-	
+
 	// Write CSV header
 	header := []string{
 		"Method", "TotalRequests", "Duration", "ThroughputRPS", "ErrorCount", "ErrorRate",
@@ -229,11 +229,11 @@ func (pr *PerformanceReporter) generateCSVReport(summary *BenchmarkSummary) erro
 		"AllocPerRequest", "TotalAlloc", "PeakMemory", "MemoryGrowth", "GCCount",
 		"LatencyPassed", "ThroughputPassed", "MemoryPassed", "OverallPassed",
 	}
-	
+
 	if err := writer.Write(header); err != nil {
 		return fmt.Errorf("failed to write CSV header: %w", err)
 	}
-	
+
 	// Write benchmark results
 	for method, result := range summary.Results {
 		row := []string{
@@ -259,29 +259,29 @@ func (pr *PerformanceReporter) generateCSVReport(summary *BenchmarkSummary) erro
 			fmt.Sprintf("%t", result.ThresholdResults.MemoryPassed),
 			fmt.Sprintf("%t", result.ThresholdResults.OverallPassed),
 		}
-		
+
 		if err := writer.Write(row); err != nil {
 			return fmt.Errorf("failed to write CSV row: %w", err)
 		}
 	}
-	
+
 	return nil
 }
 
 // generateHTMLReport creates an HTML report with charts and visualizations
 func (pr *PerformanceReporter) generateHTMLReport(summary *BenchmarkSummary) error {
-	filename := filepath.Join(pr.outputDir, fmt.Sprintf("lsp_benchmark_report_%s.html", 
+	filename := filepath.Join(pr.outputDir, fmt.Sprintf("lsp_benchmark_report_%s.html",
 		summary.Timestamp.Format("20060102_150405")))
-	
+
 	html := pr.generateHTMLContent(summary)
-	
+
 	return os.WriteFile(filename, []byte(html), 0644)
 }
 
 // generateHTMLContent creates the HTML content for the report
 func (pr *PerformanceReporter) generateHTMLContent(summary *BenchmarkSummary) string {
 	var sb strings.Builder
-	
+
 	// HTML header
 	sb.WriteString(`<!DOCTYPE html>
 <html lang="en">
@@ -308,7 +308,7 @@ func (pr *PerformanceReporter) generateHTMLContent(summary *BenchmarkSummary) st
     </style>
 </head>
 <body>`)
-	
+
 	// Report header
 	sb.WriteString(fmt.Sprintf(`
     <div class="header">
@@ -316,16 +316,16 @@ func (pr *PerformanceReporter) generateHTMLContent(summary *BenchmarkSummary) st
         <p><strong>Generated:</strong> %s</p>
         <p><strong>Test Duration:</strong> %v</p>
         <p><strong>Overall Pass Rate:</strong> %.1f%% (%d/%d methods passed)</p>
-    </div>`, 
+    </div>`,
 		summary.Timestamp.Format("2006-01-02 15:04:05"),
 		summary.TestDuration,
 		summary.OverallPassRate,
 		summary.PassedMethods,
 		summary.TotalMethods))
-	
+
 	// Summary metrics
 	sb.WriteString(`<div class="summary">`)
-	
+
 	summaryMetrics := []struct {
 		label string
 		value string
@@ -337,7 +337,7 @@ func (pr *PerformanceReporter) generateHTMLContent(summary *BenchmarkSummary) st
 		{"Avg Latency", summary.Aggregated.AverageLatency.Average.String()},
 		{"Peak Memory", fmt.Sprintf("%.1f MB", float64(summary.Aggregated.PeakMemoryUsage)/1024/1024)},
 	}
-	
+
 	for _, metric := range summaryMetrics {
 		sb.WriteString(fmt.Sprintf(`
         <div class="metric">
@@ -345,25 +345,25 @@ func (pr *PerformanceReporter) generateHTMLContent(summary *BenchmarkSummary) st
             <div class="metric-label">%s</div>
         </div>`, metric.value, metric.label))
 	}
-	
+
 	sb.WriteString(`</div>`)
-	
+
 	// Performance charts
 	pr.addChartSection(&sb, summary)
-	
+
 	// Detailed results table
 	pr.addResultsTable(&sb, summary)
-	
+
 	// Regression alerts
 	if len(summary.Regressions) > 0 {
 		pr.addRegressionSection(&sb, summary)
 	}
-	
+
 	// HTML footer
 	sb.WriteString(`
 </body>
 </html>`)
-	
+
 	return sb.String()
 }
 
@@ -385,29 +385,29 @@ func (pr *PerformanceReporter) addChartSection(sb *strings.Builder, summary *Ben
         <h3>Memory Usage</h3>
         <canvas id="memoryChart" width="400" height="200"></canvas>
     </div>`)
-	
+
 	// Add JavaScript for charts
 	sb.WriteString(`<script>`)
-	
+
 	// Prepare data for charts
 	var methods []string
 	var throughputs, p95Latencies, memoryUsages []float64
-	
+
 	// Sort methods for consistent ordering
 	methodNames := make([]string, 0, len(summary.Results))
 	for method := range summary.Results {
 		methodNames = append(methodNames, method)
 	}
 	sort.Strings(methodNames)
-	
+
 	for _, method := range methodNames {
 		result := summary.Results[method]
 		methods = append(methods, method)
 		throughputs = append(throughputs, result.ThroughputRPS)
 		p95Latencies = append(p95Latencies, float64(result.LatencyMetrics.P95.Nanoseconds())/1000000) // Convert to ms
-		memoryUsages = append(memoryUsages, float64(result.MemoryMetrics.AllocPerRequest)/1024) // Convert to KB
+		memoryUsages = append(memoryUsages, float64(result.MemoryMetrics.AllocPerRequest)/1024)       // Convert to KB
 	}
-	
+
 	// Generate chart data
 	sb.WriteString(fmt.Sprintf(`
     const methods = %s;
@@ -418,7 +418,7 @@ func (pr *PerformanceReporter) addChartSection(sb *strings.Builder, summary *Ben
 		toJSONFloatArray(throughputs),
 		toJSONFloatArray(p95Latencies),
 		toJSONFloatArray(memoryUsages)))
-	
+
 	// Throughput chart
 	sb.WriteString(`
     new Chart(document.getElementById('throughputChart'), {
@@ -440,7 +440,7 @@ func (pr *PerformanceReporter) addChartSection(sb *strings.Builder, summary *Ben
             }
         }
     });`)
-	
+
 	// Latency chart
 	sb.WriteString(`
     new Chart(document.getElementById('latencyChart'), {
@@ -462,7 +462,7 @@ func (pr *PerformanceReporter) addChartSection(sb *strings.Builder, summary *Ben
             }
         }
     });`)
-	
+
 	// Memory chart
 	sb.WriteString(`
     new Chart(document.getElementById('memoryChart'), {
@@ -484,7 +484,7 @@ func (pr *PerformanceReporter) addChartSection(sb *strings.Builder, summary *Ben
             }
         }
     });`)
-	
+
 	sb.WriteString(`</script>`)
 }
 
@@ -504,14 +504,14 @@ func (pr *PerformanceReporter) addResultsTable(sb *strings.Builder, summary *Ben
             </tr>
         </thead>
         <tbody>`)
-	
+
 	// Sort methods for consistent ordering
 	methodNames := make([]string, 0, len(summary.Results))
 	for method := range summary.Results {
 		methodNames = append(methodNames, method)
 	}
 	sort.Strings(methodNames)
-	
+
 	for _, method := range methodNames {
 		result := summary.Results[method]
 		statusClass := "status-pass"
@@ -520,7 +520,7 @@ func (pr *PerformanceReporter) addResultsTable(sb *strings.Builder, summary *Ben
 			statusClass = "status-fail"
 			statusText = "FAIL"
 		}
-		
+
 		sb.WriteString(fmt.Sprintf(`
             <tr>
                 <td>%s</td>
@@ -538,20 +538,20 @@ func (pr *PerformanceReporter) addResultsTable(sb *strings.Builder, summary *Ben
 			statusClass,
 			statusText))
 	}
-	
+
 	sb.WriteString(`</tbody></table>`)
 }
 
 // addRegressionSection adds regression alerts to HTML report
 func (pr *PerformanceReporter) addRegressionSection(sb *strings.Builder, summary *BenchmarkSummary) {
 	sb.WriteString(`<h2>Performance Regressions</h2>`)
-	
+
 	for _, regression := range summary.Regressions {
 		cssClass := "regression"
 		if regression.Severity == "severe" {
 			cssClass = "regression-severe"
 		}
-		
+
 		sb.WriteString(fmt.Sprintf(`
         <div class="%s">
             <strong>%s - %s:</strong> %s<br>
@@ -573,7 +573,7 @@ func (pr *PerformanceReporter) generateConsoleReport(summary *BenchmarkSummary) 
 	fmt.Printf("Generated: %s\n", summary.Timestamp.Format("2006-01-02 15:04:05"))
 	fmt.Printf("Overall Pass Rate: %.1f%% (%d/%d methods passed)\n\n",
 		summary.OverallPassRate, summary.PassedMethods, summary.TotalMethods)
-	
+
 	// Summary metrics
 	fmt.Printf("SUMMARY:\n")
 	fmt.Printf("  Total Requests: %d\n", summary.Aggregated.TotalRequests)
@@ -581,7 +581,7 @@ func (pr *PerformanceReporter) generateConsoleReport(summary *BenchmarkSummary) 
 	fmt.Printf("  Average Throughput: %.1f req/sec\n", summary.Aggregated.AverageThroughput)
 	fmt.Printf("  Average Latency: %v\n", summary.Aggregated.AverageLatency.Average)
 	fmt.Printf("  Peak Memory: %.1f MB\n\n", float64(summary.Aggregated.PeakMemoryUsage)/1024/1024)
-	
+
 	// Per-method results
 	fmt.Printf("METHOD RESULTS:\n")
 	methodNames := make([]string, 0, len(summary.Results))
@@ -589,18 +589,18 @@ func (pr *PerformanceReporter) generateConsoleReport(summary *BenchmarkSummary) 
 		methodNames = append(methodNames, method)
 	}
 	sort.Strings(methodNames)
-	
+
 	for _, method := range methodNames {
 		result := summary.Results[method]
 		status := "PASS"
 		if !result.ThresholdResults.OverallPassed {
 			status = "FAIL"
 		}
-		
+
 		fmt.Printf("  %-20s: %s - %.1f req/sec, P95: %v, Errors: %.1f%%\n",
 			method, status, result.ThroughputRPS, result.LatencyMetrics.P95, result.ErrorRate*100)
 	}
-	
+
 	// Regressions
 	if len(summary.Regressions) > 0 {
 		fmt.Printf("\nREGRESSIONS DETECTED:\n")
@@ -609,20 +609,20 @@ func (pr *PerformanceReporter) generateConsoleReport(summary *BenchmarkSummary) 
 				regression.Method, regression.Metric, regression.Description, regression.Change)
 		}
 	}
-	
+
 	fmt.Printf("\n")
 }
 
 // detectRegressions detects performance regressions for a method
-func (pr *PerformanceReporter) detectRegressions(method string, result *lsp.BenchmarkResult) []RegressionAlert {
+func (pr *PerformanceReporter) detectRegressions(method string, result *types.BenchmarkResult) []RegressionAlert {
 	var alerts []RegressionAlert
-	
+
 	// This is a simplified implementation
 	// In a real implementation, you would load historical data and compare
-	
+
 	// For now, return empty slice - regressions would be detected by comparing
 	// with stored historical performance data
-	
+
 	return alerts
 }
 

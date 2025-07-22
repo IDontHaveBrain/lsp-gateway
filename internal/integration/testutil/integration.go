@@ -12,39 +12,39 @@ import (
 
 // IntegrationTestSuite provides comprehensive integration testing capabilities
 type IntegrationTestSuite struct {
-	t               *testing.T
-	env             *TestEnvironment
-	httpClient      *HTTPClientPool
-	requestGen      *RequestGenerator
-	perfMonitor     *PerformanceMonitor
-	fixtures        *fixtures.FixtureManager
-	config          *IntegrationTestConfig
-	cleanupFuncs    []func()
-	mu              sync.RWMutex
+	t            *testing.T
+	env          *TestEnvironment
+	httpClient   *HTTPClientPool
+	requestGen   *RequestGenerator
+	perfMonitor  *PerformanceMonitor
+	fixtures     *fixtures.FixtureManager
+	config       *IntegrationTestConfig
+	cleanupFuncs []func()
+	mu           sync.RWMutex
 }
 
 // IntegrationTestConfig configures the integration test suite
 type IntegrationTestConfig struct {
-	TestName            string
-	Environment         *TestEnvironmentConfig
-	HTTPClientPool      *HTTPClientPoolConfig
-	Performance         bool
-	ConcurrentUsers     int
-	TestDuration        time.Duration
-	RequestPatterns     []RequestPattern
-	ValidationLevel     ValidationLevel
-	FailureThresholds   *FailureThresholds
-	ResourceMonitoring  bool
+	TestName           string
+	Environment        *TestEnvironmentConfig
+	HTTPClientPool     *HTTPClientPoolConfig
+	Performance        bool
+	ConcurrentUsers    int
+	TestDuration       time.Duration
+	RequestPatterns    []RequestPattern
+	ValidationLevel    ValidationLevel
+	FailureThresholds  *FailureThresholds
+	ResourceMonitoring bool
 }
 
 // FailureThresholds defines acceptable failure rates and performance limits
 type FailureThresholds struct {
-	MaxErrorRate        float64       // Maximum acceptable error rate (0.0 to 1.0)
-	MaxLatencyP95       time.Duration // Maximum acceptable P95 latency
-	MaxLatencyP99       time.Duration // Maximum acceptable P99 latency
-	MinThroughput       float64       // Minimum acceptable requests per second
-	MaxMemoryUsageMB    float64       // Maximum acceptable memory usage
-	MaxGoroutines       int           // Maximum acceptable goroutine count
+	MaxErrorRate     float64       // Maximum acceptable error rate (0.0 to 1.0)
+	MaxLatencyP95    time.Duration // Maximum acceptable P95 latency
+	MaxLatencyP99    time.Duration // Maximum acceptable P99 latency
+	MinThroughput    float64       // Minimum acceptable requests per second
+	MaxMemoryUsageMB float64       // Maximum acceptable memory usage
+	MaxGoroutines    int           // Maximum acceptable goroutine count
 }
 
 // NewIntegrationTestSuite creates a new integration test suite
@@ -159,20 +159,20 @@ func (suite *IntegrationTestSuite) RunBasicFunctionalTests() error {
 
 	for _, pattern := range patterns {
 		suite.t.Logf("Testing %s method", pattern.Method)
-		
+
 		request := suite.requestGen.GenerateRequest([]RequestPattern{pattern})
-		
+
 		var measurement *LatencyMeasurement
 		if suite.perfMonitor != nil {
 			measurement = suite.perfMonitor.StartLatencyMeasurement()
 		}
-		
+
 		response, err := suite.httpClient.SendJSONRPCRequest(ctx, request)
-		
+
 		if measurement != nil {
 			measurement.End()
 		}
-		
+
 		if err != nil {
 			if suite.perfMonitor != nil {
 				suite.perfMonitor.RecordError()
@@ -219,13 +219,13 @@ func (suite *IntegrationTestSuite) RunLoadTest() error {
 	requestFunc := func(ctx context.Context) error {
 		patterns := suite.requestGen.GetDefaultRequestPatterns()
 		request := suite.requestGen.GenerateRequest(patterns)
-		
+
 		_, err := suite.httpClient.SendJSONRPCRequest(ctx, request)
 		return err
 	}
 
 	runner := NewLoadTestRunner(suite.t, loadConfig, requestFunc)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), suite.config.TestDuration*2)
 	defer cancel()
 
@@ -251,7 +251,7 @@ func (suite *IntegrationTestSuite) RunReliabilityTest() error {
 				}
 				_, err := suite.httpClient.SendJSONRPCRequest(ctx, invalidRequest)
 				// For reliability test, we expect this to fail gracefully
-				_ = err // Ignore error for reliability test
+				_ = err    // Ignore error for reliability test
 				return nil // Don't propagate the error
 			},
 		},
@@ -267,7 +267,7 @@ func (suite *IntegrationTestSuite) RunReliabilityTest() error {
 					Params:  map[string]interface{}{},
 				}
 				_, err := suite.httpClient.SendJSONRPCRequest(ctx, request)
-				_ = err // Ignore error for reliability test
+				_ = err    // Ignore error for reliability test
 				return nil // Don't propagate the error
 			},
 		},
@@ -276,7 +276,7 @@ func (suite *IntegrationTestSuite) RunReliabilityTest() error {
 			requestFunc: func(ctx context.Context) error {
 				patterns := suite.requestGen.GetDefaultRequestPatterns()
 				request := suite.requestGen.GenerateRequest(patterns)
-				
+
 				_, err := suite.httpClient.SendJSONRPCRequest(ctx, request)
 				return err
 			},
@@ -285,16 +285,16 @@ func (suite *IntegrationTestSuite) RunReliabilityTest() error {
 
 	for _, scenario := range scenarios {
 		suite.t.Logf("Running reliability scenario: %s", scenario.name)
-		
+
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		
+
 		for i := 0; i < 10; i++ {
 			if err := scenario.requestFunc(ctx); err != nil {
 				cancel()
 				return fmt.Errorf("reliability scenario %s failed: %w", scenario.name, err)
 			}
 		}
-		
+
 		cancel()
 		suite.t.Logf("✓ Reliability scenario %s passed", scenario.name)
 	}

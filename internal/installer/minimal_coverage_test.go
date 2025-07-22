@@ -124,7 +124,7 @@ func TestGetSupportedServersMethod(t *testing.T) {
 	t.Logf("Supported servers: %v", servers)
 }
 
-// TestGetPlatformStrategyMethod tests GetPlatformStrategy - currently 0% coverage  
+// TestGetPlatformStrategyMethod tests GetPlatformStrategy - currently 0% coverage
 func TestGetPlatformStrategyMethod(t *testing.T) {
 	runtimeInstaller := NewRuntimeInstaller()
 	serverInstaller := NewServerInstaller(runtimeInstaller)

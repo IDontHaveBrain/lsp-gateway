@@ -55,11 +55,11 @@ func (m *MockServerFileSystem) RemoveExecutable(name string) {
 func (m *MockServerFileSystem) IsExecutableAvailable(name string) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if m.missingExecutable[name] {
 		return false
 	}
-	
+
 	for _, dir := range m.pathDirectories {
 		fullPath := filepath.Join(dir, name)
 		if m.executableFiles[fullPath] {
@@ -72,11 +72,11 @@ func (m *MockServerFileSystem) IsExecutableAvailable(name string) bool {
 func (m *MockServerFileSystem) FindExecutablePath(name string) string {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if m.missingExecutable[name] {
 		return ""
 	}
-	
+
 	for _, dir := range m.pathDirectories {
 		fullPath := filepath.Join(dir, name)
 		if m.executableFiles[fullPath] {
@@ -499,7 +499,7 @@ func TestLanguageServers_MissingDependencyChain(t *testing.T) {
 
 			if result != nil {
 				if result.RuntimeRequired != dependency {
-					t.Errorf("Expected required runtime %s for %s, got %s", 
+					t.Errorf("Expected required runtime %s for %s, got %s",
 						dependency, server, result.RuntimeRequired)
 				}
 

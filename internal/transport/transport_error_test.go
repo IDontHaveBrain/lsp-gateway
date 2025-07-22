@@ -142,12 +142,12 @@ func TestStdioClientResourceExhaustion(t *testing.T) {
 			wg.Add(1)
 			go func(id int) {
 				defer wg.Done()
-				
+
 				// Stagger request starts to reduce resource pressure
 				if id > 0 {
 					time.Sleep(time.Duration(id*5) * time.Millisecond)
 				}
-				
+
 				requestCtx, requestCancel := context.WithTimeout(ctx, 8*time.Second)
 				defer requestCancel()
 
@@ -169,12 +169,12 @@ func TestStdioClientResourceExhaustion(t *testing.T) {
 		// Count results
 		errorCount := 0
 		successCount := 0
-		
+
 		for err := range errors {
 			errorCount++
 			t.Logf("Request error: %v", err)
 		}
-		
+
 		for range successes {
 			successCount++
 		}
@@ -185,7 +185,7 @@ func TestStdioClientResourceExhaustion(t *testing.T) {
 		if successCount == 0 {
 			t.Error("All requests failed - client should handle reasonable concurrent load")
 		}
-		
+
 		// Should not have excessive failures under reasonable load
 		if float64(errorCount)/float64(numRequests) > 0.7 {
 			t.Errorf("Too many failures (%d/%d) - client should handle reasonable load better", errorCount, numRequests)
@@ -223,7 +223,7 @@ func TestStdioClientMalformedMessages(t *testing.T) {
 
 	// Test sending a malformed message (cat will echo it back, causing parse error)
 	malformedMessage := "this is not a valid LSP message"
-	
+
 	// Create a buffer to write the malformed message directly
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(malformedMessage), malformedMessage))
@@ -283,13 +283,13 @@ func TestStdioClientMemoryLeaks(t *testing.T) {
 	// Send many requests in sequence
 	for i := 0; i < 1000; i++ {
 		requestCtx, requestCancel := context.WithTimeout(ctx, 1*time.Second)
-		
+
 		_, err := client.SendRequest(requestCtx, "test", map[string]interface{}{
 			"data": strings.Repeat("x", 1000), // Add some data to test memory handling
 		})
-		
+
 		requestCancel() // Important: cancel the context to prevent leaks
-		
+
 		if err != nil {
 			t.Logf("Request %d failed: %v", i, err)
 		}
@@ -621,5 +621,3 @@ func TestClientCleanupOnErrors(t *testing.T) {
 		}
 	})
 }
-
-

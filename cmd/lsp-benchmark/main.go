@@ -11,6 +11,7 @@ import (
 
 	"lsp-gateway/internal/testing/lsp"
 	"lsp-gateway/internal/testing/lsp/reporters"
+	"lsp-gateway/internal/testing/lsp/types"
 )
 
 // Version information
@@ -22,30 +23,30 @@ var (
 
 func main() {
 	var (
-		configPath     = flag.String("config", "test-configs/lsp-performance-config.yaml", "Path to performance configuration file")
-		outputDir      = flag.String("output", "benchmark-results", "Output directory for results")
-		methods        = flag.String("methods", "", "Comma-separated list of LSP methods to benchmark (all if empty)")
-		verbose        = flag.Bool("verbose", false, "Enable verbose output")
-		enableCSV      = flag.Bool("csv", true, "Generate CSV report")
-		enableHTML     = flag.Bool("html", true, "Generate HTML report")
-		enableJSON     = flag.Bool("json", true, "Generate JSON report")
-		concurrency    = flag.String("concurrency", "1,5,10,20", "Comma-separated list of concurrency levels to test")
-		duration       = flag.Duration("duration", 30*time.Second, "Benchmark duration for each test")
-		warmup         = flag.Int("warmup", 100, "Number of warmup iterations")
-		regression     = flag.Bool("regression", false, "Enable regression detection")
-		profile        = flag.Bool("profile", false, "Enable CPU and memory profiling")
-		showVersion    = flag.Bool("version", false, "Show version information")
-		listMethods    = flag.Bool("list-methods", false, "List supported LSP methods")
+		configPath  = flag.String("config", "test-configs/lsp-performance-config.yaml", "Path to performance configuration file")
+		outputDir   = flag.String("output", "benchmark-results", "Output directory for results")
+		methods     = flag.String("methods", "", "Comma-separated list of LSP methods to benchmark (all if empty)")
+		verbose     = flag.Bool("verbose", false, "Enable verbose output")
+		enableCSV   = flag.Bool("csv", true, "Generate CSV report")
+		enableHTML  = flag.Bool("html", true, "Generate HTML report")
+		enableJSON  = flag.Bool("json", true, "Generate JSON report")
+		concurrency = flag.String("concurrency", "1,5,10,20", "Comma-separated list of concurrency levels to test")
+		duration    = flag.Duration("duration", 30*time.Second, "Benchmark duration for each test")
+		warmup      = flag.Int("warmup", 100, "Number of warmup iterations")
+		regression  = flag.Bool("regression", false, "Enable regression detection")
+		profile     = flag.Bool("profile", false, "Enable CPU and memory profiling")
+		showVersion = flag.Bool("version", false, "Show version information")
+		listMethods = flag.Bool("list-methods", false, "List supported LSP methods")
 	)
-	
+
 	flag.Parse()
-	
+
 	if *showVersion {
-		fmt.Printf("LSP Benchmark Tool\nVersion: %s\nBuild Time: %s\nGit Commit: %s\n", 
+		fmt.Printf("LSP Benchmark Tool\nVersion: %s\nBuild Time: %s\nGit Commit: %s\n",
 			version, buildTime, gitCommit)
 		return
 	}
-	
+
 	if *listMethods {
 		fmt.Println("Supported LSP Methods:")
 		for _, method := range getSupportedMethods() {
@@ -53,24 +54,24 @@ func main() {
 		}
 		return
 	}
-	
+
 	// Validate input
 	if err := validateInputs(*configPath, *outputDir); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Parse method filter
 	var methodFilter []string
 	if *methods != "" {
 		methodFilter = parseCommaSeparatedString(*methods)
 	}
-	
+
 	// Parse concurrency levels
 	concurrencyLevels := parseCommaSeparatedInts(*concurrency)
-	
+
 	// Create benchmark configuration
-	benchmarkConfig := &lsp.BenchmarkConfig{
+	benchmarkConfig := &types.BenchmarkConfig{
 		LatencyThresholds:    createDefaultLatencyThresholds(),
 		ThroughputThresholds: createDefaultThroughputThresholds(),
 		MemoryThresholds:     createDefaultMemoryThresholds(),
@@ -80,10 +81,10 @@ func main() {
 		SamplingRate:         100 * time.Millisecond,
 		EnableCSVOutput:      *enableCSV,
 		EnableReporting:      true,
-		OutputDir:           *outputDir,
-		DetectRegressions:   *regression,
+		OutputDir:            *outputDir,
+		DetectRegressions:    *regression,
 	}
-	
+
 	// Create framework options
 	frameworkOptions := &lsp.FrameworkOptions{
 		ConfigPath:   *configPath,
@@ -94,14 +95,14 @@ func main() {
 		ColorEnabled: true,
 		LogTiming:    true,
 	}
-	
+
 	// Create benchmark framework
 	framework, err := lsp.NewLSPBenchmarkFramework(frameworkOptions, benchmarkConfig)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create benchmark framework: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	fmt.Printf("Starting LSP Performance Benchmarks...\n")
 	fmt.Printf("Configuration: %s\n", *configPath)
 	fmt.Printf("Output Directory: %s\n", *outputDir)
@@ -112,11 +113,11 @@ func main() {
 	}
 	fmt.Printf("Concurrency Levels: %v\n", concurrencyLevels)
 	fmt.Println()
-	
+
 	// Run benchmarks
 	ctx := context.Background()
-	results := make(map[string]*lsp.BenchmarkResult)
-	
+	results := make(map[string]*types.BenchmarkResult)
+
 	if len(methodFilter) == 0 {
 		// Run all methods
 		fmt.Println("Running benchmarks for all LSP methods...")
@@ -136,10 +137,10 @@ func main() {
 			results[method] = result
 		}
 	}
-	
+
 	// Generate reports
 	fmt.Println("\nGenerating performance reports...")
-	
+
 	reportConfig := &reporters.PerformanceReportConfig{
 		OutputDir:    *outputDir,
 		EnableCSV:    *enableCSV,
@@ -148,23 +149,23 @@ func main() {
 		ColorEnabled: true,
 		Verbose:      *verbose,
 	}
-	
+
 	reporter := reporters.NewPerformanceReporter(reportConfig)
 	summary, err := reporter.GenerateReport(results)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to generate reports: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Print summary
 	printBenchmarkSummary(summary)
-	
+
 	// Exit with appropriate code
 	if summary.PassedMethods < summary.TotalMethods {
 		fmt.Printf("\n⚠️  Some performance benchmarks failed to meet thresholds\n")
 		os.Exit(1)
 	}
-	
+
 	fmt.Printf("\n✅ All performance benchmarks passed!\n")
 }
 
@@ -173,12 +174,12 @@ func validateInputs(configPath, outputDir string) error {
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		return fmt.Errorf("configuration file not found: %s", configPath)
 	}
-	
+
 	// Ensure output directory exists
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -197,21 +198,21 @@ func parseCommaSeparatedInts(s string) []int {
 	if s == "" {
 		return []int{1, 5, 10, 20}
 	}
-	
+
 	parts := strings.Split(s, ",")
 	ints := make([]int, 0, len(parts))
-	
+
 	for _, part := range parts {
 		var i int
 		if _, err := fmt.Sscanf(strings.TrimSpace(part), "%d", &i); err == nil {
 			ints = append(ints, i)
 		}
 	}
-	
+
 	if len(ints) == 0 {
 		return []int{1, 5, 10, 20}
 	}
-	
+
 	return ints
 }
 
@@ -225,22 +226,22 @@ func getSupportedMethods() []string {
 	}
 }
 
-func runBenchmarkForMethod(ctx context.Context, framework *lsp.LSPBenchmarkFramework, method string, enableProfiling bool) *lsp.BenchmarkResult {
+func runBenchmarkForMethod(ctx context.Context, framework *lsp.LSPBenchmarkFramework, method string, enableProfiling bool) *types.BenchmarkResult {
 	// This is a simplified implementation
 	// In real implementation, we would need to create a proper benchmark runner
 	// that integrates with Go's testing framework
-	
+
 	start := time.Now()
-	
+
 	// Simulate benchmark execution
-	result := &lsp.BenchmarkResult{
+	result := &types.BenchmarkResult{
 		Method:        method,
 		TotalRequests: 1000,
 		Duration:      30 * time.Second,
 		ThroughputRPS: 33.3,
 		ErrorCount:    5,
 		ErrorRate:     0.005,
-		LatencyMetrics: lsp.LatencyMetrics{
+		LatencyMetrics: types.LatencyMetrics{
 			Average: 30 * time.Millisecond,
 			Min:     10 * time.Millisecond,
 			Max:     150 * time.Millisecond,
@@ -248,7 +249,7 @@ func runBenchmarkForMethod(ctx context.Context, framework *lsp.LSPBenchmarkFrame
 			P95:     75 * time.Millisecond,
 			P99:     120 * time.Millisecond,
 		},
-		MemoryMetrics: lsp.MemoryMetrics{
+		MemoryMetrics: types.MemoryMetrics{
 			AllocPerRequest:     1024,
 			TotalAlloc:          1024000,
 			PeakMemoryUsage:     2048000,
@@ -257,11 +258,11 @@ func runBenchmarkForMethod(ctx context.Context, framework *lsp.LSPBenchmarkFrame
 			TotalGCPause:        50 * time.Millisecond,
 			AvgGCPause:          5 * time.Millisecond,
 		},
-		ConcurrencyResults: []lsp.ConcurrencyResult{
+		ConcurrencyResults: []types.ConcurrencyResult{
 			{
 				ConcurrentUsers: 1,
 				ThroughputRPS:   35.0,
-				LatencyMetrics: lsp.LatencyMetrics{
+				LatencyMetrics: types.LatencyMetrics{
 					Average: 28 * time.Millisecond,
 					P50:     25 * time.Millisecond,
 					P95:     70 * time.Millisecond,
@@ -271,7 +272,7 @@ func runBenchmarkForMethod(ctx context.Context, framework *lsp.LSPBenchmarkFrame
 			{
 				ConcurrentUsers: 5,
 				ThroughputRPS:   150.0,
-				LatencyMetrics: lsp.LatencyMetrics{
+				LatencyMetrics: types.LatencyMetrics{
 					Average: 33 * time.Millisecond,
 					P50:     30 * time.Millisecond,
 					P95:     80 * time.Millisecond,
@@ -279,7 +280,7 @@ func runBenchmarkForMethod(ctx context.Context, framework *lsp.LSPBenchmarkFrame
 				ErrorRate: 0.005,
 			},
 		},
-		ThresholdResults: lsp.ThresholdResults{
+		ThresholdResults: types.ThresholdResults{
 			LatencyPassed:    true,
 			ThroughputPassed: true,
 			MemoryPassed:     true,
@@ -288,26 +289,26 @@ func runBenchmarkForMethod(ctx context.Context, framework *lsp.LSPBenchmarkFrame
 		},
 		Timestamp: start,
 	}
-	
+
 	// Validate against thresholds
 	result.ThresholdResults = validateMethodThresholds(method, result)
-	
+
 	return result
 }
 
-func validateMethodThresholds(method string, result *lsp.BenchmarkResult) lsp.ThresholdResults {
+func validateMethodThresholds(method string, result *types.BenchmarkResult) types.ThresholdResults {
 	thresholds := createDefaultLatencyThresholds()
 	throughputThresholds := createDefaultThroughputThresholds()
 	memoryThresholds := createDefaultMemoryThresholds()
-	
-	thresholdResult := lsp.ThresholdResults{
+
+	thresholdResult := types.ThresholdResults{
 		LatencyPassed:    true,
 		ThroughputPassed: true,
 		MemoryPassed:     true,
 	}
-	
+
 	// Get method-specific thresholds
-	var methodThresholds lsp.MethodThresholds
+	var methodThresholds types.MethodThresholds
 	switch method {
 	case "textDocument/definition":
 		methodThresholds = thresholds.Definition
@@ -322,14 +323,14 @@ func validateMethodThresholds(method string, result *lsp.BenchmarkResult) lsp.Th
 	default:
 		methodThresholds = thresholds.Definition // Default
 	}
-	
+
 	// Validate latency thresholds
 	if methodThresholds.P95 > 0 && result.LatencyMetrics.P95 > methodThresholds.P95 {
 		thresholdResult.LatencyPassed = false
 		thresholdResult.FailureReasons = append(thresholdResult.FailureReasons,
 			fmt.Sprintf("P95 latency %v exceeds threshold %v", result.LatencyMetrics.P95, methodThresholds.P95))
 	}
-	
+
 	// Validate throughput thresholds
 	if result.ThroughputRPS < throughputThresholds.MinRequestsPerSecond {
 		thresholdResult.ThroughputPassed = false
@@ -337,7 +338,7 @@ func validateMethodThresholds(method string, result *lsp.BenchmarkResult) lsp.Th
 			fmt.Sprintf("Throughput %.2f RPS below threshold %.2f RPS",
 				result.ThroughputRPS, throughputThresholds.MinRequestsPerSecond))
 	}
-	
+
 	// Validate memory thresholds
 	if result.MemoryMetrics.AllocPerRequest > memoryThresholds.MaxAllocPerRequest {
 		thresholdResult.MemoryPassed = false
@@ -345,41 +346,41 @@ func validateMethodThresholds(method string, result *lsp.BenchmarkResult) lsp.Th
 			fmt.Sprintf("Memory allocation per request %d bytes exceeds threshold %d bytes",
 				result.MemoryMetrics.AllocPerRequest, memoryThresholds.MaxAllocPerRequest))
 	}
-	
+
 	thresholdResult.OverallPassed = thresholdResult.LatencyPassed &&
 		thresholdResult.ThroughputPassed &&
 		thresholdResult.MemoryPassed
-	
+
 	return thresholdResult
 }
 
-func createDefaultLatencyThresholds() lsp.LatencyThresholds {
-	return lsp.LatencyThresholds{
-		Definition: lsp.MethodThresholds{
+func createDefaultLatencyThresholds() types.LatencyThresholds {
+	return types.LatencyThresholds{
+		Definition: types.MethodThresholds{
 			P50: 50 * time.Millisecond,
 			P95: 100 * time.Millisecond,
 			P99: 200 * time.Millisecond,
 			Max: 500 * time.Millisecond,
 		},
-		References: lsp.MethodThresholds{
+		References: types.MethodThresholds{
 			P50: 100 * time.Millisecond,
 			P95: 200 * time.Millisecond,
 			P99: 500 * time.Millisecond,
 			Max: 1000 * time.Millisecond,
 		},
-		Hover: lsp.MethodThresholds{
+		Hover: types.MethodThresholds{
 			P50: 30 * time.Millisecond,
 			P95: 50 * time.Millisecond,
 			P99: 100 * time.Millisecond,
 			Max: 200 * time.Millisecond,
 		},
-		DocumentSymbol: lsp.MethodThresholds{
+		DocumentSymbol: types.MethodThresholds{
 			P50: 100 * time.Millisecond,
 			P95: 300 * time.Millisecond,
 			P99: 500 * time.Millisecond,
 			Max: 1000 * time.Millisecond,
 		},
-		WorkspaceSymbol: lsp.MethodThresholds{
+		WorkspaceSymbol: types.MethodThresholds{
 			P50: 200 * time.Millisecond,
 			P95: 500 * time.Millisecond,
 			P99: 1000 * time.Millisecond,
@@ -388,17 +389,17 @@ func createDefaultLatencyThresholds() lsp.LatencyThresholds {
 	}
 }
 
-func createDefaultThroughputThresholds() lsp.ThroughputThresholds {
-	return lsp.ThroughputThresholds{
+func createDefaultThroughputThresholds() types.ThroughputThresholds {
+	return types.ThroughputThresholds{
 		MinRequestsPerSecond: 10.0,
 		MaxErrorRate:         0.05,
 	}
 }
 
-func createDefaultMemoryThresholds() lsp.MemoryThresholds {
-	return lsp.MemoryThresholds{
+func createDefaultMemoryThresholds() types.MemoryThresholds {
+	return types.MemoryThresholds{
 		MaxAllocPerRequest: 1024 * 1024, // 1MB
-		MaxMemoryGrowth:    20.0,         // 20%
+		MaxMemoryGrowth:    20.0,        // 20%
 		MaxGCPause:         10 * time.Millisecond,
 	}
 }
@@ -416,7 +417,7 @@ func printBenchmarkSummary(summary *reporters.BenchmarkSummary) {
 	fmt.Printf("  Average Throughput: %.1f req/sec\n", summary.Aggregated.AverageThroughput)
 	fmt.Printf("  Average Latency: %v\n", summary.Aggregated.AverageLatency.Average)
 	fmt.Printf("  Peak Memory: %.1f MB\n", float64(summary.Aggregated.PeakMemoryUsage)/1024/1024)
-	
+
 	if len(summary.Regressions) > 0 {
 		fmt.Printf("\n⚠️  Performance Regressions Detected:\n")
 		for _, regression := range summary.Regressions {
@@ -424,7 +425,7 @@ func printBenchmarkSummary(summary *reporters.BenchmarkSummary) {
 				regression.Method, regression.Metric, regression.Description, regression.Change)
 		}
 	}
-	
+
 	// Print detailed method results
 	fmt.Printf("\nMethod Results:\n")
 	for method, result := range summary.Results {
@@ -435,7 +436,7 @@ func printBenchmarkSummary(summary *reporters.BenchmarkSummary) {
 		fmt.Printf("  %-25s: %s - %.1f req/sec, P95: %v, Errors: %.1f%%\n",
 			method, status, result.ThroughputRPS, result.LatencyMetrics.P95, result.ErrorRate*100)
 	}
-	
+
 	// Print output file locations
 	fmt.Printf("\nGenerated Reports:\n")
 	for _, file := range getGeneratedFiles(summary) {

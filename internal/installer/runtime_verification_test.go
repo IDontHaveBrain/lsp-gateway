@@ -35,7 +35,7 @@ func (m *MockCommandExecutor) ExecuteWithEnv(cmd string, args []string, env map[
 	defer m.mu.RUnlock()
 
 	key := fmt.Sprintf("%s %v", cmd, args)
-	
+
 	// Check for timeout scenario
 	if m.timeouts[key] {
 		return &platform.Result{
@@ -114,8 +114,8 @@ func createTestInstaller() *DefaultRuntimeInstaller {
 // Test Go Environment Verification - Environment Variable Handling
 func TestVerifyGoEnvironment_EnvironmentVariableHandling(t *testing.T) {
 	// Test valid GOPATH and GOROOT
-	t.Setenv("GOPATH", "/tmp")  // Use /tmp as it should exist
-	t.Setenv("GOROOT", "/usr")  // Use /usr as it should exist
+	t.Setenv("GOPATH", "/tmp") // Use /tmp as it should exist
+	t.Setenv("GOROOT", "/usr") // Use /usr as it should exist
 
 	installer := createTestInstaller()
 	result := &types.VerificationResult{
@@ -309,9 +309,9 @@ func TestParseGoEnv_EmptyOutput(t *testing.T) {
 	}
 }
 
-// Test Java Environment Verification - Environment Variable Handling  
+// Test Java Environment Verification - Environment Variable Handling
 func TestVerifyJavaEnvironment_ValidJavaHome(t *testing.T) {
-	t.Setenv("JAVA_HOME", "/tmp")  // Use /tmp as it should exist
+	t.Setenv("JAVA_HOME", "/tmp") // Use /tmp as it should exist
 
 	installer := createTestInstaller()
 	result := &types.VerificationResult{

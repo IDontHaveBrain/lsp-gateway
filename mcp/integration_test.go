@@ -1069,7 +1069,7 @@ func TestEndToEndWorkflow(t *testing.T) {
 	responseCount := strings.Count(output, "Content-Length:")
 	t.Logf("End-to-end workflow collected %d responses", responseCount)
 
-	expectedResponses := 7 
+	expectedResponses := 7
 	if responseCount < expectedResponses {
 		t.Errorf("Expected at least %d responses, got %d", expectedResponses, responseCount)
 	}

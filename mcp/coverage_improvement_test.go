@@ -284,7 +284,7 @@ func TestSendMessage_ConnectionErrors(t *testing.T) {
 
 // Helper type to simulate connection errors during write operations
 type connectionErrorWriter struct {
-	failOn      string // "header" or "content"  
+	failOn      string // "header" or "content"
 	err         error
 	headerCount int
 	contentCall bool
@@ -298,7 +298,7 @@ func (w *connectionErrorWriter) Write(p []byte) (n int, err error) {
 			return 0, w.err
 		}
 	}
-	
+
 	// Check if this looks like content (JSON message)
 	if !strings.Contains(string(p), "Content-Length:") && !strings.Contains(string(p), "\r\n\r\n") && w.failOn == "content" {
 		if !w.contentCall {
@@ -306,7 +306,7 @@ func (w *connectionErrorWriter) Write(p []byte) (n int, err error) {
 			return 0, w.err
 		}
 	}
-	
+
 	return len(p), nil
 }
 
@@ -373,6 +373,7 @@ func TestSendMessage_ValidationFailure(t *testing.T) {
 		})
 	}
 }
+
 // Phase 2 Tests: Protocol Validation Enhancement (+2% coverage)
 
 func TestValidateOutgoingMessage_EdgeCases(t *testing.T) {
@@ -675,15 +676,15 @@ func TestAttemptRecovery_EdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := createTestServer()
-			
+
 			// Special case for context cancellation test
 			if tt.name == "Context cancellation during recovery" {
 				server.cancel() // Cancel context before recovery
 			}
-			
+
 			reader := tt.setupInput()
 			result := server.attemptRecovery(reader, tt.originalError)
-			
+
 			if result != tt.expected {
 				t.Errorf("Expected attemptRecovery to return %v, got %v", tt.expected, result)
 			}
@@ -882,7 +883,7 @@ func TestCallTool_NotImplementedBranch(t *testing.T) {
 	// Create a mock LSP client
 	mockClient := NewMockLSPGatewayClient()
 	toolHandler := NewTestableToolHandler(mockClient)
-	
+
 	// Add a tool that exists in the registry but is not implemented in the switch statement
 	toolHandler.tools["unimplemented_tool"] = Tool{
 		Name:        "unimplemented_tool",
@@ -897,7 +898,7 @@ func TestCallTool_NotImplementedBranch(t *testing.T) {
 			},
 		},
 	}
-	
+
 	tests := []struct {
 		name         string
 		toolCall     ToolCall
@@ -927,40 +928,40 @@ func TestCallTool_NotImplementedBranch(t *testing.T) {
 			expectedText: "Tool another_unimplemented not implemented", // This goes to the not implemented branch
 		},
 	}
-	
+
 	// Add the second unimplemented tool after creating the test cases
 	toolHandler.tools["another_unimplemented"] = Tool{
 		Name:        "another_unimplemented",
 		Description: "Another unimplemented tool",
 		InputSchema: map[string]interface{}{"type": "object"},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := context.Background()
 			result, err := toolHandler.CallTool(ctx, tt.toolCall)
-			
+
 			// The function should not return an error for unimplemented tools, it returns a ToolResult with IsError=true
 			if err != nil {
 				t.Errorf("Expected no error, but got: %v", err)
 			}
-			
+
 			if result == nil {
 				t.Fatal("Expected non-nil result")
 			}
-			
+
 			if result.IsError != tt.expectError {
 				t.Errorf("Expected IsError=%v, got IsError=%v", tt.expectError, result.IsError)
 			}
-			
+
 			if len(result.Content) == 0 {
 				t.Fatal("Expected content in result")
 			}
-			
+
 			if result.Content[0].Text != tt.expectedText {
 				t.Errorf("Expected text %q, got %q", tt.expectedText, result.Content[0].Text)
 			}
-			
+
 			if result.Content[0].Type != "text" {
 				t.Errorf("Expected content type 'text', got %q", result.Content[0].Type)
 			}
@@ -971,78 +972,78 @@ func TestCallTool_NotImplementedBranch(t *testing.T) {
 func TestToolHandler_EdgeCases(t *testing.T) {
 	mockClient := NewMockLSPGatewayClient()
 	toolHandler := NewTestableToolHandler(mockClient)
-	
+
 	t.Run("ListTools returns all registered tools", func(t *testing.T) {
 		tools := toolHandler.ListTools()
-		
+
 		expectedTools := []string{
 			"goto_definition",
-			"find_references", 
+			"find_references",
 			"get_hover_info",
 			"get_document_symbols",
 			"search_workspace_symbols",
 		}
-		
+
 		if len(tools) < len(expectedTools) {
 			t.Errorf("Expected at least %d tools, got %d", len(expectedTools), len(tools))
 		}
-		
+
 		toolMap := make(map[string]bool)
 		for _, tool := range tools {
 			toolMap[tool.Name] = true
 		}
-		
+
 		for _, expectedTool := range expectedTools {
 			if !toolMap[expectedTool] {
 				t.Errorf("Expected tool %q not found in tools list", expectedTool)
 			}
 		}
 	})
-	
+
 	t.Run("CallTool with unknown tool name", func(t *testing.T) {
 		ctx := context.Background()
 		result, err := toolHandler.CallTool(ctx, ToolCall{
-			Name: "completely_unknown_tool",
+			Name:      "completely_unknown_tool",
 			Arguments: map[string]interface{}{"test": "value"},
 		})
-		
+
 		if err != nil {
 			t.Errorf("Expected no error, but got: %v", err)
 		}
-		
+
 		if result == nil {
 			t.Fatal("Expected non-nil result")
 		}
-		
+
 		if !result.IsError {
 			t.Error("Expected IsError=true for unknown tool")
 		}
-		
+
 		if len(result.Content) == 0 {
 			t.Fatal("Expected content in result")
 		}
-		
+
 		expectedText := "Unknown tool: completely_unknown_tool"
 		if result.Content[0].Text != expectedText {
 			t.Errorf("Expected text %q, got %q", expectedText, result.Content[0].Text)
 		}
 	})
-	
+
 	t.Run("Tool handler initialization", func(t *testing.T) {
 		newHandler := NewTestableToolHandler(mockClient)
-		
+
 		if newHandler == nil {
 			t.Fatal("Expected non-nil tool handler")
 		}
-		
+
 		if newHandler.mockClient != mockClient {
 			t.Error("Expected mock client to be set correctly")
 		}
-		
+
 		if newHandler.tools == nil {
 			t.Fatal("Expected tools map to be initialized")
 		}
-		
+
 		// Verify default tools are registered
 		if len(newHandler.tools) == 0 {
 			t.Error("Expected default tools to be registered")

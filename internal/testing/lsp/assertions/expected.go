@@ -34,31 +34,31 @@ type ExpectedArrayLength struct {
 
 // ExpectedDefinitionResult represents expected definition response
 type ExpectedDefinitionResult struct {
-	HasResult    bool                  `json:"has_result"`
-	IsArray      *bool                 `json:"is_array,omitempty"`
-	ArrayLength  *ExpectedArrayLength  `json:"array_length,omitempty"`
-	Locations    []*ExpectedLocation   `json:"locations,omitempty"`
+	HasResult     bool                 `json:"has_result"`
+	IsArray       *bool                `json:"is_array,omitempty"`
+	ArrayLength   *ExpectedArrayLength `json:"array_length,omitempty"`
+	Locations     []*ExpectedLocation  `json:"locations,omitempty"`
 	FirstLocation *ExpectedLocation    `json:"first_location,omitempty"`
 }
 
 // ExpectedReferencesResult represents expected references response
 type ExpectedReferencesResult struct {
-	HasResult        bool                 `json:"has_result"`
-	ArrayLength      *ExpectedArrayLength `json:"array_length,omitempty"`
-	IncludesDeclaration bool              `json:"includes_declaration"`
-	Locations        []*ExpectedLocation  `json:"locations,omitempty"`
-	ContainsFile     *string              `json:"contains_file,omitempty"`
+	HasResult           bool                 `json:"has_result"`
+	ArrayLength         *ExpectedArrayLength `json:"array_length,omitempty"`
+	IncludesDeclaration bool                 `json:"includes_declaration"`
+	Locations           []*ExpectedLocation  `json:"locations,omitempty"`
+	ContainsFile        *string              `json:"contains_file,omitempty"`
 }
 
 // ExpectedHoverContent represents expected hover content patterns
 type ExpectedHoverContent struct {
-	HasContent  bool     `json:"has_content"`
-	Contains    []string `json:"contains,omitempty"`
-	Matches     []string `json:"matches,omitempty"`     // Regex patterns
-	Excludes    []string `json:"excludes,omitempty"`
-	MarkupKind  *string  `json:"markup_kind,omitempty"` // "plaintext" or "markdown"
-	MinLength   *int     `json:"min_length,omitempty"`
-	MaxLength   *int     `json:"max_length,omitempty"`
+	HasContent bool     `json:"has_content"`
+	Contains   []string `json:"contains,omitempty"`
+	Matches    []string `json:"matches,omitempty"` // Regex patterns
+	Excludes   []string `json:"excludes,omitempty"`
+	MarkupKind *string  `json:"markup_kind,omitempty"` // "plaintext" or "markdown"
+	MinLength  *int     `json:"min_length,omitempty"`
+	MaxLength  *int     `json:"max_length,omitempty"`
 }
 
 // ExpectedHoverResult represents expected hover response
@@ -131,7 +131,7 @@ func (k ExpectedSymbolKind) String() string {
 		SymbolKindOperator:      "Operator",
 		SymbolKindTypeParameter: "TypeParameter",
 	}
-	
+
 	if name, exists := kindMap[k]; exists {
 		return name
 	}
@@ -145,13 +145,13 @@ type ExpectedSymbol struct {
 	Location       *ExpectedLocation   `json:"location,omitempty"`
 	ContainerName  *string             `json:"container_name,omitempty"`
 	NameContains   []string            `json:"name_contains,omitempty"`
-	NameMatches    []string            `json:"name_matches,omitempty"`    // Regex patterns
+	NameMatches    []string            `json:"name_matches,omitempty"` // Regex patterns
 	NameExcludes   []string            `json:"name_excludes,omitempty"`
 	Detail         *string             `json:"detail,omitempty"`
 	DetailContains []string            `json:"detail_contains,omitempty"`
-	DetailMatches  []string            `json:"detail_matches,omitempty"`  // Regex patterns
-	Tags           []int               `json:"tags,omitempty"`             // Symbol tags (deprecated, etc.)
-	Children       []*ExpectedSymbol   `json:"children,omitempty"`        // For document symbols
+	DetailMatches  []string            `json:"detail_matches,omitempty"` // Regex patterns
+	Tags           []int               `json:"tags,omitempty"`           // Symbol tags (deprecated, etc.)
+	Children       []*ExpectedSymbol   `json:"children,omitempty"`       // For document symbols
 }
 
 // ExpectedDocumentSymbolResult represents expected document symbol response
@@ -175,9 +175,9 @@ type ExpectedWorkspaceSymbolResult struct {
 
 // ExpectedErrorResult represents expected error response
 type ExpectedErrorResult struct {
-	HasError      bool    `json:"has_error"`
-	Code          *int    `json:"code,omitempty"`
-	Message       *string `json:"message,omitempty"`
+	HasError        bool     `json:"has_error"`
+	Code            *int     `json:"code,omitempty"`
+	Message         *string  `json:"message,omitempty"`
 	MessageContains []string `json:"message_contains,omitempty"`
 	MessageMatches  []string `json:"message_matches,omitempty"` // Regex patterns
 }
@@ -185,24 +185,24 @@ type ExpectedErrorResult struct {
 // ComprehensiveExpectedResult aggregates all possible expected results
 type ComprehensiveExpectedResult struct {
 	// General expectations
-	Success       bool                   `json:"success"`
-	Error         *ExpectedErrorResult   `json:"error,omitempty"`
-	ResponseTime  *int                   `json:"max_response_time_ms,omitempty"`
-	
+	Success      bool                 `json:"success"`
+	Error        *ExpectedErrorResult `json:"error,omitempty"`
+	ResponseTime *int                 `json:"max_response_time_ms,omitempty"`
+
 	// Content validation
-	Contains      []string               `json:"contains,omitempty"`
-	Matches       []string               `json:"matches,omitempty"`     // Regex patterns
-	Excludes      []string               `json:"excludes,omitempty"`
-	
+	Contains []string `json:"contains,omitempty"`
+	Matches  []string `json:"matches,omitempty"` // Regex patterns
+	Excludes []string `json:"excludes,omitempty"`
+
 	// Method-specific expectations
-	Definition    *ExpectedDefinitionResult      `json:"definition,omitempty"`
-	References    *ExpectedReferencesResult      `json:"references,omitempty"`
-	Hover         *ExpectedHoverResult           `json:"hover,omitempty"`
-	DocumentSymbol *ExpectedDocumentSymbolResult `json:"document_symbol,omitempty"`
+	Definition      *ExpectedDefinitionResult      `json:"definition,omitempty"`
+	References      *ExpectedReferencesResult      `json:"references,omitempty"`
+	Hover           *ExpectedHoverResult           `json:"hover,omitempty"`
+	DocumentSymbol  *ExpectedDocumentSymbolResult  `json:"document_symbol,omitempty"`
 	WorkspaceSymbol *ExpectedWorkspaceSymbolResult `json:"workspace_symbol,omitempty"`
-	
+
 	// Custom properties for extensibility
-	Properties    map[string]interface{} `json:"properties,omitempty"`
+	Properties map[string]interface{} `json:"properties,omitempty"`
 }
 
 // ExpectedResultBuilder provides a builder interface for creating expected results
@@ -313,7 +313,7 @@ func (b *ExpectedResultBuilder) WithDefinitionLocation(uri string, startLine, st
 	if b.result.Definition == nil {
 		b.result.Definition = &ExpectedDefinitionResult{HasResult: true}
 	}
-	
+
 	location := &ExpectedLocation{
 		URI: &ExpectedURI{Exact: &uri},
 		Range: &ExpectedRange{
@@ -321,7 +321,7 @@ func (b *ExpectedResultBuilder) WithDefinitionLocation(uri string, startLine, st
 			End:   &ExpectedPosition{Line: &endLine, Character: &endChar},
 		},
 	}
-	
+
 	if b.result.Definition.FirstLocation == nil {
 		b.result.Definition.FirstLocation = location
 	}
@@ -334,7 +334,7 @@ func (b *ExpectedResultBuilder) WithDefinitionArray(minCount, maxCount int) *Exp
 	if b.result.Definition == nil {
 		b.result.Definition = &ExpectedDefinitionResult{HasResult: true}
 	}
-	
+
 	isArray := true
 	b.result.Definition.IsArray = &isArray
 	b.result.Definition.ArrayLength = &ExpectedArrayLength{
@@ -359,7 +359,7 @@ func (b *ExpectedResultBuilder) WithReferencesCount(minCount, maxCount int) *Exp
 	if b.result.References == nil {
 		b.result.References = &ExpectedReferencesResult{HasResult: true}
 	}
-	
+
 	b.result.References.ArrayLength = &ExpectedArrayLength{
 		Min: &minCount,
 		Max: &maxCount,
@@ -372,7 +372,7 @@ func (b *ExpectedResultBuilder) WithReferencesIncludeDeclaration(includeDecl boo
 	if b.result.References == nil {
 		b.result.References = &ExpectedReferencesResult{HasResult: true}
 	}
-	
+
 	b.result.References.IncludesDeclaration = includeDecl
 	return b
 }
@@ -382,7 +382,7 @@ func (b *ExpectedResultBuilder) WithReferencesFromFile(filename string) *Expecte
 	if b.result.References == nil {
 		b.result.References = &ExpectedReferencesResult{HasResult: true}
 	}
-	
+
 	b.result.References.ContainsFile = &filename
 	return b
 }
@@ -402,7 +402,7 @@ func (b *ExpectedResultBuilder) WithHoverContent(hasContent bool, contains ...st
 	if b.result.Hover == nil {
 		b.result.Hover = &ExpectedHoverResult{HasResult: true}
 	}
-	
+
 	b.result.Hover.Content = &ExpectedHoverContent{
 		HasContent: hasContent,
 		Contains:   contains,
@@ -418,7 +418,7 @@ func (b *ExpectedResultBuilder) WithHoverMarkupKind(kind string) *ExpectedResult
 	if b.result.Hover.Content == nil {
 		b.result.Hover.Content = &ExpectedHoverContent{HasContent: true}
 	}
-	
+
 	b.result.Hover.Content.MarkupKind = &kind
 	return b
 }
@@ -438,7 +438,7 @@ func (b *ExpectedResultBuilder) WithDocumentSymbolCount(minCount, maxCount int) 
 	if b.result.DocumentSymbol == nil {
 		b.result.DocumentSymbol = &ExpectedDocumentSymbolResult{HasResult: true}
 	}
-	
+
 	b.result.DocumentSymbol.ArrayLength = &ExpectedArrayLength{
 		Min: &minCount,
 		Max: &maxCount,
@@ -451,12 +451,12 @@ func (b *ExpectedResultBuilder) WithDocumentSymbolOfKind(name string, kind Expec
 	if b.result.DocumentSymbol == nil {
 		b.result.DocumentSymbol = &ExpectedDocumentSymbolResult{HasResult: true}
 	}
-	
+
 	symbol := &ExpectedSymbol{
 		Name: &name,
 		Kind: &kind,
 	}
-	
+
 	if b.result.DocumentSymbol.ContainsSymbol == nil {
 		b.result.DocumentSymbol.ContainsSymbol = symbol
 	}
@@ -479,7 +479,7 @@ func (b *ExpectedResultBuilder) WithWorkspaceSymbolCount(minCount, maxCount int)
 	if b.result.WorkspaceSymbol == nil {
 		b.result.WorkspaceSymbol = &ExpectedWorkspaceSymbolResult{HasResult: true}
 	}
-	
+
 	b.result.WorkspaceSymbol.ArrayLength = &ExpectedArrayLength{
 		Min: &minCount,
 		Max: &maxCount,
@@ -492,12 +492,12 @@ func (b *ExpectedResultBuilder) WithWorkspaceSymbolOfKind(name string, kind Expe
 	if b.result.WorkspaceSymbol == nil {
 		b.result.WorkspaceSymbol = &ExpectedWorkspaceSymbolResult{HasResult: true}
 	}
-	
+
 	symbol := &ExpectedSymbol{
 		Name: &name,
 		Kind: &kind,
 	}
-	
+
 	if b.result.WorkspaceSymbol.ContainsSymbol == nil {
 		b.result.WorkspaceSymbol.ContainsSymbol = symbol
 	}

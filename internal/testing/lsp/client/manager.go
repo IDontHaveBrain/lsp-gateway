@@ -26,14 +26,14 @@ type ManagedLSPServer struct {
 	Config       *config.ServerConfig
 	Client       transport.LSPClient
 	WorkspaceURI string
-	
+
 	mu           sync.RWMutex
 	initialized  bool
 	starting     bool
 	lastActivity time.Time
 	requestCount int
 	errorCount   int
-	
+
 	// Test-specific state
 	PreWarmedUp  bool
 	Capabilities *ServerCapabilities
@@ -41,16 +41,16 @@ type ManagedLSPServer struct {
 
 // ServerCapabilities represents LSP server capabilities relevant to testing
 type ServerCapabilities struct {
-	DefinitionProvider      bool                   `json:"definitionProvider"`
-	ReferencesProvider      bool                   `json:"referencesProvider"`
-	HoverProvider           bool                   `json:"hoverProvider"`
-	DocumentSymbolProvider  bool                   `json:"documentSymbolProvider"`
-	WorkspaceSymbolProvider bool                   `json:"workspaceSymbolProvider"`
-	
+	DefinitionProvider      bool `json:"definitionProvider"`
+	ReferencesProvider      bool `json:"referencesProvider"`
+	HoverProvider           bool `json:"hoverProvider"`
+	DocumentSymbolProvider  bool `json:"documentSymbolProvider"`
+	WorkspaceSymbolProvider bool `json:"workspaceSymbolProvider"`
+
 	// Additional capabilities for completeness
-	CompletionProvider      *CompletionOptions     `json:"completionProvider,omitempty"`
-	SignatureHelpProvider   *SignatureHelpOptions  `json:"signatureHelpProvider,omitempty"`
-	
+	CompletionProvider    *CompletionOptions    `json:"completionProvider,omitempty"`
+	SignatureHelpProvider *SignatureHelpOptions `json:"signatureHelpProvider,omitempty"`
+
 	// Raw capabilities for future extensibility
 	Raw map[string]interface{} `json:"-"`
 }
@@ -65,12 +65,12 @@ type SignatureHelpOptions struct {
 
 // InitializeParams represents LSP initialize request parameters
 type InitializeParams struct {
-	ProcessID    *int                 `json:"processId,omitempty"`
-	RootPath     *string              `json:"rootPath,omitempty"`
-	RootURI      *string              `json:"rootUri,omitempty"`
-	Capabilities *ClientCapabilities  `json:"capabilities"`
-	InitOptions  map[string]interface{} `json:"initializationOptions,omitempty"`
-	WorkspaceFolders []WorkspaceFolder  `json:"workspaceFolders,omitempty"`
+	ProcessID        *int                   `json:"processId,omitempty"`
+	RootPath         *string                `json:"rootPath,omitempty"`
+	RootURI          *string                `json:"rootUri,omitempty"`
+	Capabilities     *ClientCapabilities    `json:"capabilities"`
+	InitOptions      map[string]interface{} `json:"initializationOptions,omitempty"`
+	WorkspaceFolders []WorkspaceFolder      `json:"workspaceFolders,omitempty"`
 }
 
 type ClientCapabilities struct {
@@ -79,9 +79,9 @@ type ClientCapabilities struct {
 }
 
 type TextDocumentClientCapabilities struct {
-	Definition   *DefinitionClientCapabilities   `json:"definition,omitempty"`
-	References   *ReferencesClientCapabilities   `json:"references,omitempty"`
-	Hover        *HoverClientCapabilities        `json:"hover,omitempty"`
+	Definition     *DefinitionClientCapabilities     `json:"definition,omitempty"`
+	References     *ReferencesClientCapabilities     `json:"references,omitempty"`
+	Hover          *HoverClientCapabilities          `json:"hover,omitempty"`
 	DocumentSymbol *DocumentSymbolClientCapabilities `json:"documentSymbol,omitempty"`
 }
 
@@ -104,7 +104,7 @@ type HoverClientCapabilities struct {
 }
 
 type DocumentSymbolClientCapabilities struct {
-	DynamicRegistration    bool `json:"dynamicRegistration,omitempty"`
+	DynamicRegistration               bool `json:"dynamicRegistration,omitempty"`
 	HierarchicalDocumentSymbolSupport bool `json:"hierarchicalDocumentSymbolSupport,omitempty"`
 }
 
@@ -140,9 +140,9 @@ func NewLSPServerManager(config *config.LSPTestConfig) *LSPServerManager {
 func (m *LSPServerManager) GetOrCreateServer(ctx context.Context, serverName string, workspaceURI string) (*ManagedLSPServer, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	serverKey := fmt.Sprintf("%s:%s", serverName, workspaceURI)
-	
+
 	if server, exists := m.servers[serverKey]; exists {
 		if server.Client.IsActive() {
 			server.lastActivity = time.Now()
@@ -151,18 +151,18 @@ func (m *LSPServerManager) GetOrCreateServer(ctx context.Context, serverName str
 		// Server exists but is not active, remove it
 		delete(m.servers, serverKey)
 	}
-	
+
 	// Create new server
 	serverConfig, exists := m.config.Servers[serverName]
 	if !exists {
 		return nil, fmt.Errorf("server configuration not found: %s", serverName)
 	}
-	
+
 	server, err := m.createServer(ctx, serverConfig, workspaceURI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create server %s: %w", serverName, err)
 	}
-	
+
 	m.servers[serverKey] = server
 	return server, nil
 }
@@ -175,13 +175,13 @@ func (m *LSPServerManager) createServer(ctx context.Context, serverConfig *confi
 		Args:      serverConfig.Args,
 		Transport: serverConfig.Transport,
 	}
-	
+
 	// Create LSP client
 	client, err := transport.NewLSPClient(clientConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create LSP client: %w", err)
 	}
-	
+
 	server := &ManagedLSPServer{
 		Name:         serverConfig.Name,
 		Language:     serverConfig.Language,
@@ -190,12 +190,12 @@ func (m *LSPServerManager) createServer(ctx context.Context, serverConfig *confi
 		WorkspaceURI: workspaceURI,
 		lastActivity: time.Now(),
 	}
-	
+
 	// Start the server
 	if err := m.startServer(ctx, server); err != nil {
 		return nil, fmt.Errorf("failed to start server: %w", err)
 	}
-	
+
 	return server, nil
 }
 
@@ -203,30 +203,30 @@ func (m *LSPServerManager) createServer(ctx context.Context, serverConfig *confi
 func (m *LSPServerManager) startServer(ctx context.Context, server *ManagedLSPServer) error {
 	server.mu.Lock()
 	defer server.mu.Unlock()
-	
+
 	if server.starting {
 		return fmt.Errorf("server is already starting")
 	}
-	
+
 	server.starting = true
 	defer func() {
 		server.starting = false
 	}()
-	
+
 	// Start the LSP client with timeout
 	startCtx, cancel := context.WithTimeout(ctx, server.Config.StartTimeout)
 	defer cancel()
-	
+
 	if err := server.Client.Start(startCtx); err != nil {
 		return fmt.Errorf("failed to start LSP client: %w", err)
 	}
-	
+
 	// Initialize the server
 	if err := m.initializeServer(ctx, server); err != nil {
 		_ = server.Client.Stop() // Clean up on initialization failure
 		return fmt.Errorf("failed to initialize server: %w", err)
 	}
-	
+
 	// Pre-warmup if configured
 	if server.Config.PreWarmup {
 		if err := m.warmupServer(ctx, server); err != nil {
@@ -234,7 +234,7 @@ func (m *LSPServerManager) startServer(ctx context.Context, server *ManagedLSPSe
 			// TODO: Use logger when available
 		}
 	}
-	
+
 	server.initialized = true
 	return nil
 }
@@ -246,7 +246,7 @@ func (m *LSPServerManager) initializeServer(ctx context.Context, server *Managed
 		URI:  server.WorkspaceURI,
 		Name: filepath.Base(server.WorkspaceURI),
 	}
-	
+
 	// Build initialize parameters
 	params := InitializeParams{
 		RootURI: &server.WorkspaceURI,
@@ -264,7 +264,7 @@ func (m *LSPServerManager) initializeServer(ctx context.Context, server *Managed
 					ContentFormat:       []string{"markdown", "plaintext"},
 				},
 				DocumentSymbol: &DocumentSymbolClientCapabilities{
-					DynamicRegistration: false,
+					DynamicRegistration:               false,
 					HierarchicalDocumentSymbolSupport: true,
 				},
 			},
@@ -277,31 +277,31 @@ func (m *LSPServerManager) initializeServer(ctx context.Context, server *Managed
 		InitOptions:      server.Config.InitOptions,
 		WorkspaceFolders: []WorkspaceFolder{workspaceFolder},
 	}
-	
+
 	// Send initialize request
 	response, err := server.Client.SendRequest(ctx, "initialize", params)
 	if err != nil {
 		return fmt.Errorf("initialize request failed: %w", err)
 	}
-	
+
 	// Parse initialize result
 	var result InitializeResult
 	if err := json.Unmarshal(response, &result); err != nil {
 		return fmt.Errorf("failed to parse initialize result: %w", err)
 	}
-	
+
 	server.Capabilities = result.Capabilities
-	
+
 	// Send initialized notification
 	if err := server.Client.SendNotification(ctx, "initialized", map[string]interface{}{}); err != nil {
 		return fmt.Errorf("initialized notification failed: %w", err)
 	}
-	
+
 	// Wait for initialize delay if configured
 	if server.Config.InitializeDelay > 0 {
 		time.Sleep(server.Config.InitializeDelay)
 	}
-	
+
 	return nil
 }
 
@@ -311,7 +311,7 @@ func (m *LSPServerManager) warmupServer(ctx context.Context, server *ManagedLSPS
 	// - Opening a dummy file
 	// - Requesting workspace symbols
 	// - Other operations to "warm up" the server
-	
+
 	server.PreWarmedUp = true
 	return nil
 }
@@ -320,24 +320,24 @@ func (m *LSPServerManager) warmupServer(ctx context.Context, server *ManagedLSPS
 func (m *ManagedLSPServer) SendRequest(ctx context.Context, method string, params interface{}) (json.RawMessage, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if !m.initialized {
 		return nil, fmt.Errorf("server not initialized")
 	}
-	
+
 	if !m.Client.IsActive() {
 		return nil, fmt.Errorf("server not active")
 	}
-	
+
 	m.requestCount++
 	m.lastActivity = time.Now()
-	
+
 	response, err := m.Client.SendRequest(ctx, method, params)
 	if err != nil {
 		m.errorCount++
 		return nil, err
 	}
-	
+
 	return response, nil
 }
 
@@ -345,17 +345,17 @@ func (m *ManagedLSPServer) SendRequest(ctx context.Context, method string, param
 func (m *ManagedLSPServer) SendNotification(ctx context.Context, method string, params interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if !m.initialized {
 		return fmt.Errorf("server not initialized")
 	}
-	
+
 	if !m.Client.IsActive() {
 		return fmt.Errorf("server not active")
 	}
-	
+
 	m.lastActivity = time.Now()
-	
+
 	return m.Client.SendNotification(ctx, method, params)
 }
 
@@ -377,15 +377,15 @@ func (m *ManagedLSPServer) GetCapabilities() *ServerCapabilities {
 func (m *ManagedLSPServer) GetStats() map[string]interface{} {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	return map[string]interface{}{
-		"name":           m.Name,
-		"language":       m.Language,
-		"initialized":    m.initialized,
-		"request_count":  m.requestCount,
-		"error_count":    m.errorCount,
-		"last_activity":  m.lastActivity,
-		"pre_warmed_up":  m.PreWarmedUp,
+		"name":          m.Name,
+		"language":      m.Language,
+		"initialized":   m.initialized,
+		"request_count": m.requestCount,
+		"error_count":   m.errorCount,
+		"last_activity": m.lastActivity,
+		"pre_warmed_up": m.PreWarmedUp,
 	}
 }
 
@@ -393,27 +393,27 @@ func (m *ManagedLSPServer) GetStats() map[string]interface{} {
 func (m *ManagedLSPServer) Shutdown(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if !m.initialized {
 		return nil
 	}
-	
+
 	// Send shutdown request
 	_, err := m.Client.SendRequest(ctx, "shutdown", nil)
 	if err != nil {
 		// Log error but continue with shutdown
 	}
-	
+
 	// Send exit notification
 	_ = m.Client.SendNotification(ctx, "exit", nil)
-	
+
 	// Stop the client
 	if stopErr := m.Client.Stop(); stopErr != nil {
 		if err == nil {
 			err = stopErr
 		}
 	}
-	
+
 	m.initialized = false
 	return err
 }
@@ -422,27 +422,27 @@ func (m *ManagedLSPServer) Shutdown(ctx context.Context) error {
 func (m *LSPServerManager) CleanupInactiveServers(ctx context.Context, maxIdleTime time.Duration) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	now := time.Now()
 	var toRemove []string
-	
+
 	for key, server := range m.servers {
 		server.mu.RLock()
 		inactive := now.Sub(server.lastActivity) > maxIdleTime
 		server.mu.RUnlock()
-		
+
 		if inactive {
 			toRemove = append(toRemove, key)
 		}
 	}
-	
+
 	for _, key := range toRemove {
 		if server := m.servers[key]; server != nil {
 			_ = server.Shutdown(ctx)
 			delete(m.servers, key)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -450,16 +450,16 @@ func (m *LSPServerManager) CleanupInactiveServers(ctx context.Context, maxIdleTi
 func (m *LSPServerManager) ShutdownAll(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	var lastErr error
-	
+
 	for key, server := range m.servers {
 		if err := server.Shutdown(ctx); err != nil {
 			lastErr = err
 		}
 		delete(m.servers, key)
 	}
-	
+
 	return lastErr
 }
 
@@ -467,13 +467,13 @@ func (m *LSPServerManager) ShutdownAll(ctx context.Context) error {
 func (m *LSPServerManager) GetActiveServers() map[string]*ManagedLSPServer {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	active := make(map[string]*ManagedLSPServer)
 	for key, server := range m.servers {
 		if server.IsInitialized() && server.Client.IsActive() {
 			active[key] = server
 		}
 	}
-	
+
 	return active
 }

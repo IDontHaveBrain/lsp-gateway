@@ -36,15 +36,15 @@ func (m *MockCommandExecutor) Execute(command string, args []string, timeout tim
 	if len(args) > 0 {
 		key = command + " " + args[0]
 	}
-	
+
 	if err, exists := m.errors[key]; exists {
 		return nil, err
 	}
-	
+
 	if result, exists := m.results[key]; exists {
 		return result, nil
 	}
-	
+
 	// Default success result
 	return &platform.Result{
 		ExitCode: 0,
@@ -132,11 +132,11 @@ func TestRuntimeDetector_DetectAll(t *testing.T) {
 			if info.Name != runtime {
 				t.Errorf("Expected runtime name %s, got %s", runtime, info.Name)
 			}
-			
+
 			if info.DetectedAt.IsZero() {
 				t.Errorf("Expected DetectedAt to be set for runtime %s", runtime)
 			}
-			
+
 			if info.Duration <= 0 {
 				t.Errorf("Expected positive duration for runtime %s", runtime)
 			}
@@ -167,11 +167,11 @@ func TestRuntimeDetector_DetectNodejs(t *testing.T) {
 	detector.executor = mockExecutor
 
 	testCases := []struct {
-		name           string
-		mockResult     *platform.Result
-		mockError      error
+		name            string
+		mockResult      *platform.Result
+		mockError       error
 		expectInstalled bool
-		expectVersion  string
+		expectVersion   string
 	}{
 		{
 			name: "NodeJS Installed",
@@ -184,13 +184,13 @@ func TestRuntimeDetector_DetectNodejs(t *testing.T) {
 			expectVersion:   "v20.1.0",
 		},
 		{
-			name: "NodeJS Not Found",
-			mockError:      fmt.Errorf("command not found: node"),
+			name:            "NodeJS Not Found",
+			mockError:       fmt.Errorf("command not found: node"),
 			expectInstalled: false,
 		},
 		{
-			name: "NodeJS Command Error",
-			mockError:      fmt.Errorf("node command failed with exit code 1"),
+			name:            "NodeJS Command Error",
+			mockError:       fmt.Errorf("node command failed with exit code 1"),
 			expectInstalled: false,
 		},
 	}
@@ -237,35 +237,35 @@ func TestRuntimeDetector_DetectNodejs(t *testing.T) {
 // TestRuntimeDetector_SetLogger tests logger configuration
 func TestRuntimeDetector_SetLogger(t *testing.T) {
 	detector := NewRuntimeDetector()
-	
+
 	// Test setting nil logger (should not crash)
 	detector.SetLogger(nil)
-	
+
 	// Test setting valid logger
 	logger := NewSetupLogger(nil)
 	detector.SetLogger(logger)
-	
+
 	if detector.logger != logger {
 		t.Error("Expected logger to be set")
 	}
-	
+
 	// Test that detection still works with custom logger
 	mockExecutor := NewMockCommandExecutor()
 	detector.executor = mockExecutor
-	
+
 	mockExecutor.SetResult("go version", &platform.Result{
 		ExitCode: 0,
 		Stdout:   "go version go1.21.0 linux/amd64",
 		Stderr:   "",
 	})
-	
+
 	ctx := context.Background()
 	info, err := detector.DetectGo(ctx)
-	
+
 	if err != nil {
 		t.Fatalf("DetectGo failed with custom logger: %v", err)
 	}
-	
+
 	if !info.Installed {
 		t.Error("Expected Go to be detected as installed")
 	}
@@ -279,46 +279,46 @@ func TestRuntimeDetector_ErrorHandling(t *testing.T) {
 
 	t.Run("CommandNotFound", func(t *testing.T) {
 		mockExecutor.SetError("go version", fmt.Errorf("command not found: go"))
-		
+
 		ctx := context.Background()
 		info, err := detector.DetectGo(ctx)
-		
+
 		// May return error for command not found, should handle gracefully
 		if info == nil {
 			t.Fatal("Expected non-nil info even on command not found")
 		}
-		
+
 		if info.Installed {
 			t.Error("Expected Go to be detected as not installed")
 		}
-		
+
 		// If error occurred, info should have issues or the error should be handled appropriately
 		if err == nil && len(info.Issues) == 0 {
 			t.Error("Expected either error or issues for command not found")
 		}
-		
+
 		t.Logf("Command not found handling: error=%v, installed=%v, issues=%d", err != nil, info.Installed, len(info.Issues))
 	})
 
 	t.Run("CommandTimeout", func(t *testing.T) {
 		// Set very short timeout
 		detector.SetTimeout(1 * time.Millisecond)
-		
+
 		// Reset executor to avoid cached results
 		mockExecutor = NewMockCommandExecutor()
 		detector.executor = mockExecutor
-		
+
 		ctx := context.Background()
 		info, err := detector.DetectGo(ctx)
-		
+
 		// Should handle timeout gracefully
 		if info == nil {
 			t.Fatal("Expected non-nil info even on timeout")
 		}
-		
+
 		// Reset timeout for other tests
 		detector.SetTimeout(30 * time.Second)
-		
+
 		t.Logf("Timeout handling test completed: info=%v, err=%v", info != nil, err != nil)
 	})
 
@@ -328,18 +328,18 @@ func TestRuntimeDetector_ErrorHandling(t *testing.T) {
 			Stdout:   "",
 			Stderr:   "openjdk version \"21.0.0\" 2023-09-19",
 		})
-		
+
 		ctx := context.Background()
 		info, err := detector.DetectJava(ctx)
-		
+
 		if err != nil {
 			t.Errorf("Expected no error for Java version detection, got: %v", err)
 		}
-		
+
 		if !info.Installed {
 			t.Error("Expected Java to be detected as installed")
 		}
-		
+
 		if info.Version == "" {
 			t.Error("Expected version to be extracted from stderr")
 		}
@@ -353,33 +353,33 @@ func TestRuntimeDetector_VersionCompatibility(t *testing.T) {
 	detector.executor = mockExecutor
 
 	testCases := []struct {
-		runtime         string
-		versionOutput   string
-		expectInstalled bool
+		runtime          string
+		versionOutput    string
+		expectInstalled  bool
 		expectCompatible bool
 	}{
 		{
-			runtime:         "go",
-			versionOutput:   "go version go1.21.0 linux/amd64",
-			expectInstalled: true,
+			runtime:          "go",
+			versionOutput:    "go version go1.21.0 linux/amd64",
+			expectInstalled:  true,
 			expectCompatible: true,
 		},
 		{
-			runtime:         "go",
-			versionOutput:   "go version go1.18.0 linux/amd64",
-			expectInstalled: true,
+			runtime:          "go",
+			versionOutput:    "go version go1.18.0 linux/amd64",
+			expectInstalled:  true,
 			expectCompatible: true, // 1.18 should be compatible based on actual requirements
 		},
 		{
-			runtime:         "python",
-			versionOutput:   "Python 3.11.0",
-			expectInstalled: true,
+			runtime:          "python",
+			versionOutput:    "Python 3.11.0",
+			expectInstalled:  true,
 			expectCompatible: true,
 		},
 		{
-			runtime:         "python",
-			versionOutput:   "Python 3.7.0",
-			expectInstalled: true,
+			runtime:          "python",
+			versionOutput:    "Python 3.7.0",
+			expectInstalled:  true,
 			expectCompatible: false, // Below minimum version
 		},
 	}

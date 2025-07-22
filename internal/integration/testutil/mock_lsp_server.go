@@ -15,36 +15,39 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // MockLSPServer provides a configurable mock LSP server for testing
 type MockLSPServer struct {
-	t              *testing.T
-	config         *MockLSPServerConfig
-	binaryPath     string
-	listener       net.Listener
-	connections    []*MockConnection
-	requestLog     []LSPMessage
-	responseLog    []LSPMessage
-	requestCount   int64
-	errorCount     int64
-	mu             sync.RWMutex
-	isRunning      bool
-	stopCh         chan struct{}
+	t            *testing.T
+	config       *MockLSPServerConfig
+	binaryPath   string
+	listener     net.Listener
+	connections  []*MockConnection
+	requestLog   []LSPMessage
+	responseLog  []LSPMessage
+	requestCount int64
+	errorCount   int64
+	mu           sync.RWMutex
+	isRunning    bool
+	stopCh       chan struct{}
 }
 
 // MockLSPServerConfig configures mock server behavior
 type MockLSPServerConfig struct {
-	Language         string
-	Transport        string // "stdio", "tcp"
-	Port             int    // For TCP transport
-	ResponseLatency  time.Duration
-	ErrorRate        float64 // 0.0 to 1.0
-	CustomResponses  map[string]interface{}
-	LogRequests      bool
-	MaxConnections   int
-	EnableMetrics    bool
-	FailureMode      FailureMode
+	Language        string
+	Transport       string // "stdio", "tcp"
+	Port            int    // For TCP transport
+	ResponseLatency time.Duration
+	ErrorRate       float64 // 0.0 to 1.0
+	CustomResponses map[string]interface{}
+	LogRequests     bool
+	MaxConnections  int
+	EnableMetrics   bool
+	FailureMode     FailureMode
 }
 
 // FailureMode defines how the server should fail
@@ -114,7 +117,7 @@ func (s *MockLSPServer) createBinary() {
 
 	source := s.generateMockServerSource()
 	sourceFile := filepath.Join(tempDir, "mock_server.go")
-	
+
 	if err := os.WriteFile(sourceFile, []byte(source), 0644); err != nil {
 		s.t.Fatalf("Failed to write mock server source: %v", err)
 	}
@@ -438,7 +441,7 @@ func extractURI(params interface{}) string {
 		s.config.ErrorRate,
 		s.config.Language,
 		s.config.Language,
-		strings.Title(s.config.Language),
+		cases.Title(language.Und).String(s.config.Language),
 		s.config.Language,
 		getFileExtension(s.config.Language))
 }
@@ -681,7 +684,7 @@ func (s *MockLSPServer) Stop() {
 	}
 
 	close(s.stopCh)
-	
+
 	if s.listener != nil {
 		_ = s.listener.Close()
 	}
@@ -714,7 +717,7 @@ func (s *MockLSPServer) GetErrorCount() int64 {
 func (s *MockLSPServer) GetRequestLog() []LSPMessage {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	log := make([]LSPMessage, len(s.requestLog))
 	copy(log, s.requestLog)
 	return log
@@ -724,7 +727,7 @@ func (s *MockLSPServer) GetRequestLog() []LSPMessage {
 func (s *MockLSPServer) GetResponseLog() []LSPMessage {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	log := make([]LSPMessage, len(s.responseLog))
 	copy(log, s.responseLog)
 	return log
@@ -734,7 +737,7 @@ func (s *MockLSPServer) GetResponseLog() []LSPMessage {
 func (s *MockLSPServer) ClearLogs() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	s.requestLog = s.requestLog[:0]
 	s.responseLog = s.responseLog[:0]
 }

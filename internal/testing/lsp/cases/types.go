@@ -17,28 +17,28 @@ type TestCase struct {
 	Method      string
 	Repository  *config.RepositoryConfig
 	Config      *config.TestCaseConfig
-	
+
 	// Test execution context
-	Workspace   string
-	FilePath    string
-	Position    *config.Position
-	Params      map[string]interface{}
-	Expected    *config.ExpectedResult
-	
+	Workspace string
+	FilePath  string
+	Position  *config.Position
+	Params    map[string]interface{}
+	Expected  *config.ExpectedResult
+
 	// Metadata
-	Tags        []string
-	Language    string
-	Timeout     time.Duration
-	
+	Tags     []string
+	Language string
+	Timeout  time.Duration
+
 	// State
-	Status      TestStatus
-	StartTime   time.Time
-	EndTime     time.Time
-	Duration    time.Duration
-	
+	Status    TestStatus
+	StartTime time.Time
+	EndTime   time.Time
+	Duration  time.Duration
+
 	// Results
-	Response    json.RawMessage
-	Error       error
+	Response          json.RawMessage
+	Error             error
 	ValidationResults []*ValidationResult
 }
 
@@ -84,21 +84,21 @@ type ValidationResult struct {
 
 // TestSuite represents a collection of related test cases
 type TestSuite struct {
-	Name         string
-	Description  string
-	Repository   *config.RepositoryConfig
-	TestCases    []*TestCase
-	
+	Name        string
+	Description string
+	Repository  *config.RepositoryConfig
+	TestCases   []*TestCase
+
 	// Execution context
 	WorkspaceDir string
 	ServerConfig *config.ServerConfig
-	
+
 	// State
-	Status       TestStatus
-	StartTime    time.Time
-	EndTime      time.Time
-	Duration     time.Duration
-	
+	Status    TestStatus
+	StartTime time.Time
+	EndTime   time.Time
+	Duration  time.Duration
+
 	// Results
 	TotalCases   int
 	PassedCases  int
@@ -110,22 +110,22 @@ type TestSuite struct {
 // TestRunContext provides context for test execution
 type TestRunContext struct {
 	ctx context.Context
-	
+
 	// Configuration
 	Config       *config.LSPTestConfig
 	Repository   *config.RepositoryConfig
 	ServerConfig *config.ServerConfig
-	
+
 	// Runtime state
 	WorkspaceDir string
 	ServerPID    int
-	
+
 	// Test execution tracking
-	TestResults  map[string]*TestCase
-	
+	TestResults map[string]*TestCase
+
 	// Utilities
-	Logger       TestLogger
-	FileManager  TestFileManager
+	Logger      TestLogger
+	FileManager TestFileManager
 }
 
 // TestLogger interface for test logging
@@ -134,7 +134,7 @@ type TestLogger interface {
 	Info(msg string, args ...interface{})
 	Warn(msg string, args ...interface{})
 	Error(msg string, args ...interface{})
-	
+
 	WithFields(fields map[string]interface{}) TestLogger
 	WithTestCase(testCase *TestCase) TestLogger
 }
@@ -143,11 +143,11 @@ type TestLogger interface {
 type TestFileManager interface {
 	CreateWorkspace(ctx context.Context, repo *config.RepositoryConfig) (string, error)
 	CleanupWorkspace(ctx context.Context, workspaceDir string) error
-	
+
 	GetFilePath(workspaceDir, relativePath string) string
 	FileExists(filePath string) bool
 	ReadFile(filePath string) ([]byte, error)
-	
+
 	ResolvePosition(filePath string, position *config.Position) (*AbsolutePosition, error)
 }
 
@@ -161,7 +161,7 @@ type AbsolutePosition struct {
 // LSPMethod constants for the five core methods we're testing
 const (
 	LSPMethodDefinition      = "textDocument/definition"
-	LSPMethodReferences      = "textDocument/references"  
+	LSPMethodReferences      = "textDocument/references"
 	LSPMethodHover           = "textDocument/hover"
 	LSPMethodDocumentSymbol  = "textDocument/documentSymbol"
 	LSPMethodWorkspaceSymbol = "workspace/symbol"
@@ -190,12 +190,12 @@ func IsMethodSupported(method string) bool {
 
 // TestCaseFilter provides filtering capabilities for test cases
 type TestCaseFilter struct {
-	IDs        []string
-	Names      []string
-	Methods    []string
-	Tags       []string
-	Languages  []string
-	
+	IDs       []string
+	Names     []string
+	Methods   []string
+	Tags      []string
+	Languages []string
+
 	IncludeSkipped bool
 	Pattern        string
 }
@@ -215,7 +215,7 @@ func (f *TestCaseFilter) Matches(testCase *TestCase) bool {
 			return false
 		}
 	}
-	
+
 	// Check names
 	if len(f.Names) > 0 {
 		found := false
@@ -229,7 +229,7 @@ func (f *TestCaseFilter) Matches(testCase *TestCase) bool {
 			return false
 		}
 	}
-	
+
 	// Check methods
 	if len(f.Methods) > 0 {
 		found := false
@@ -243,7 +243,7 @@ func (f *TestCaseFilter) Matches(testCase *TestCase) bool {
 			return false
 		}
 	}
-	
+
 	// Check tags
 	if len(f.Tags) > 0 {
 		found := false
@@ -262,7 +262,7 @@ func (f *TestCaseFilter) Matches(testCase *TestCase) bool {
 			return false
 		}
 	}
-	
+
 	// Check languages
 	if len(f.Languages) > 0 {
 		found := false
@@ -276,12 +276,12 @@ func (f *TestCaseFilter) Matches(testCase *TestCase) bool {
 			return false
 		}
 	}
-	
+
 	// Check if skipped tests should be included
 	if testCase.Config.Skip && !f.IncludeSkipped {
 		return false
 	}
-	
+
 	return true
 }
 
@@ -320,19 +320,19 @@ func (r *TestResult) Summary() string {
 // NewTestCase creates a new test case from configuration
 func NewTestCase(id string, repo *config.RepositoryConfig, testConfig *config.TestCaseConfig) *TestCase {
 	return &TestCase{
-		ID:          id,
-		Name:        testConfig.Name,
-		Description: testConfig.Description,
-		Method:      testConfig.Method,
-		Repository:  repo,
-		Config:      testConfig,
-		Position:    testConfig.Position,
-		Params:      testConfig.Params,
-		Expected:    testConfig.Expected,
-		Tags:        testConfig.Tags,
-		Language:    repo.Language,
-		Timeout:     testConfig.Timeout,
-		Status:      TestStatusPending,
+		ID:                id,
+		Name:              testConfig.Name,
+		Description:       testConfig.Description,
+		Method:            testConfig.Method,
+		Repository:        repo,
+		Config:            testConfig,
+		Position:          testConfig.Position,
+		Params:            testConfig.Params,
+		Expected:          testConfig.Expected,
+		Tags:              testConfig.Tags,
+		Language:          repo.Language,
+		Timeout:           testConfig.Timeout,
+		Status:            TestStatusPending,
 		ValidationResults: make([]*ValidationResult, 0),
 	}
 }
@@ -361,7 +361,7 @@ func (s *TestSuite) UpdateStatus() {
 	s.FailedCases = 0
 	s.SkippedCases = 0
 	s.ErrorCases = 0
-	
+
 	for _, testCase := range s.TestCases {
 		switch testCase.Status {
 		case TestStatusPassed:
@@ -374,7 +374,7 @@ func (s *TestSuite) UpdateStatus() {
 			s.ErrorCases++
 		}
 	}
-	
+
 	if s.FailedCases > 0 || s.ErrorCases > 0 {
 		s.Status = TestStatusFailed
 	} else if s.SkippedCases == s.TotalCases {

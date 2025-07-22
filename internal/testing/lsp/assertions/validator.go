@@ -25,7 +25,7 @@ func NewComprehensiveValidator(validationConfig *lspconfig.ValidationConfig) *Co
 			ValidateURIs:      true,
 		}
 	}
-	
+
 	return &ComprehensiveValidator{
 		config: validationConfig,
 	}
@@ -39,28 +39,28 @@ func (v *ComprehensiveValidator) ValidateTestCase(testCase *cases.TestCase, expe
 
 	// Create assertion context
 	ctx := NewAssertionContext(testCase, v.config)
-	
+
 	// Start timing validation
 	startTime := time.Now()
-	
+
 	// Perform common validations first
 	commonResults := v.performCommonValidations(ctx, testCase.Response, expected)
 	testCase.ValidationResults = append(testCase.ValidationResults, commonResults...)
-	
+
 	// Perform method-specific validation
 	methodResults := v.performMethodValidation(ctx, testCase, expected)
 	testCase.ValidationResults = append(testCase.ValidationResults, methodResults...)
-	
+
 	// Check response time if specified
 	if expected != nil && expected.ResponseTime != nil {
 		duration := time.Since(startTime)
 		timeResult := v.validateResponseTime(duration, *expected.ResponseTime)
 		testCase.ValidationResults = append(testCase.ValidationResults, timeResult)
 	}
-	
+
 	// Determine overall status
 	v.updateTestCaseStatus(testCase)
-	
+
 	return nil
 }
 
@@ -78,7 +78,7 @@ func (v *ComprehensiveValidator) handleNullResponse(testCase *cases.TestCase, ex
 		testCase.Status = cases.TestStatusFailed
 		return fmt.Errorf("no response received")
 	}
-	
+
 	// No response expected and none received - this is success for error cases
 	result := &cases.ValidationResult{
 		Name:        "expected_error",
@@ -94,7 +94,7 @@ func (v *ComprehensiveValidator) handleNullResponse(testCase *cases.TestCase, ex
 // performCommonValidations performs validation checks common to all methods
 func (v *ComprehensiveValidator) performCommonValidations(ctx *AssertionContext, response json.RawMessage, expected *ComprehensiveExpectedResult) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	// Basic JSON structure validation
 	var responseObj interface{}
 	if err := json.Unmarshal(response, &responseObj); err != nil {
@@ -109,7 +109,7 @@ func (v *ComprehensiveValidator) performCommonValidations(ctx *AssertionContext,
 		))
 		return results
 	}
-	
+
 	results = append(results, ctx.CreateValidationResult(
 		"json_validity",
 		"Validate response is valid JSON",
@@ -117,11 +117,11 @@ func (v *ComprehensiveValidator) performCommonValidations(ctx *AssertionContext,
 		true,
 		nil,
 	))
-	
+
 	if expected == nil {
 		return results
 	}
-	
+
 	// Check success expectation
 	if !expected.Success {
 		// Expected error - check for LSP error response
@@ -149,25 +149,25 @@ func (v *ComprehensiveValidator) performCommonValidations(ctx *AssertionContext,
 			))
 		}
 	}
-	
+
 	// Check contains patterns
 	if len(expected.Contains) > 0 {
 		containsResults := ctx.AssertContains(string(response), expected.Contains, "response")
 		results = append(results, containsResults...)
 	}
-	
+
 	// Check regex matches
 	if len(expected.Matches) > 0 {
 		matchResults := ctx.AssertMatches(string(response), expected.Matches, "response")
 		results = append(results, matchResults...)
 	}
-	
+
 	// Check excludes patterns
 	if len(expected.Excludes) > 0 {
 		excludeResults := ctx.AssertExcludes(string(response), expected.Excludes, "response")
 		results = append(results, excludeResults...)
 	}
-	
+
 	return results
 }
 
@@ -180,7 +180,7 @@ func (v *ComprehensiveValidator) checkForLSPError(ctx *AssertionContext, respons
 			Data    interface{} `json:"data,omitempty"`
 		} `json:"error,omitempty"`
 	}
-	
+
 	if err := json.Unmarshal(response, &errorResponse); err != nil {
 		return ctx.CreateValidationResult(
 			"error_check",
@@ -192,13 +192,13 @@ func (v *ComprehensiveValidator) checkForLSPError(ctx *AssertionContext, respons
 			},
 		)
 	}
-	
+
 	if errorResponse.Error != nil {
 		// Found an error - validate against expectations
 		if expectedError != nil {
 			return v.validateErrorDetails(ctx, errorResponse.Error, expectedError)
 		}
-		
+
 		return ctx.CreateValidationResult(
 			"error_presence",
 			"Check for presence of error in response",
@@ -211,7 +211,7 @@ func (v *ComprehensiveValidator) checkForLSPError(ctx *AssertionContext, respons
 			},
 		)
 	}
-	
+
 	// No error found
 	if expectedError != nil && expectedError.HasError {
 		return ctx.CreateValidationResult(
@@ -222,7 +222,7 @@ func (v *ComprehensiveValidator) checkForLSPError(ctx *AssertionContext, respons
 			nil,
 		)
 	}
-	
+
 	return nil
 }
 
@@ -232,7 +232,7 @@ func (v *ComprehensiveValidator) validateErrorDetails(ctx *AssertionContext, act
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
 }, expected *ExpectedErrorResult) *cases.ValidationResult {
-	
+
 	// Check error code
 	if expected.Code != nil && actualError.Code != *expected.Code {
 		return ctx.CreateValidationResult(
@@ -246,7 +246,7 @@ func (v *ComprehensiveValidator) validateErrorDetails(ctx *AssertionContext, act
 			},
 		)
 	}
-	
+
 	// Check error message
 	if expected.Message != nil && actualError.Message != *expected.Message {
 		return ctx.CreateValidationResult(
@@ -260,7 +260,7 @@ func (v *ComprehensiveValidator) validateErrorDetails(ctx *AssertionContext, act
 			},
 		)
 	}
-	
+
 	// Check message contains patterns
 	if len(expected.MessageContains) > 0 {
 		for _, pattern := range expected.MessageContains {
@@ -271,14 +271,14 @@ func (v *ComprehensiveValidator) validateErrorDetails(ctx *AssertionContext, act
 					fmt.Sprintf("Error message '%s' does not contain expected pattern '%s'", actualError.Message, pattern),
 					false,
 					map[string]interface{}{
-						"actual_message":    actualError.Message,
-						"expected_pattern":  pattern,
+						"actual_message":   actualError.Message,
+						"expected_pattern": pattern,
 					},
 				)
 			}
 		}
 	}
-	
+
 	// Check message matches patterns
 	if len(expected.MessageMatches) > 0 {
 		for _, pattern := range expected.MessageMatches {
@@ -289,14 +289,14 @@ func (v *ComprehensiveValidator) validateErrorDetails(ctx *AssertionContext, act
 					fmt.Sprintf("Error message '%s' does not match expected pattern '%s'", actualError.Message, pattern),
 					false,
 					map[string]interface{}{
-						"actual_message":    actualError.Message,
-						"expected_pattern":  pattern,
+						"actual_message":   actualError.Message,
+						"expected_pattern": pattern,
 					},
 				)
 			}
 		}
 	}
-	
+
 	return ctx.CreateValidationResult(
 		"error_validation",
 		"Validate error details",
@@ -314,7 +314,7 @@ func (v *ComprehensiveValidator) performMethodValidation(ctx *AssertionContext, 
 	if expected == nil {
 		return []*cases.ValidationResult{}
 	}
-	
+
 	switch testCase.Method {
 	case cases.LSPMethodDefinition:
 		if expected.Definition != nil {
@@ -337,7 +337,7 @@ func (v *ComprehensiveValidator) performMethodValidation(ctx *AssertionContext, 
 			return ctx.AssertWorkspaceSymbolResponse(testCase.Response, expected.WorkspaceSymbol)
 		}
 	}
-	
+
 	// No method-specific validation performed
 	return []*cases.ValidationResult{
 		ctx.CreateValidationResult(
@@ -356,7 +356,7 @@ func (v *ComprehensiveValidator) performMethodValidation(ctx *AssertionContext, 
 func (v *ComprehensiveValidator) validateResponseTime(actualDuration time.Duration, maxMs int) *cases.ValidationResult {
 	maxDuration := time.Duration(maxMs) * time.Millisecond
 	actualMs := actualDuration.Milliseconds()
-	
+
 	if actualDuration > maxDuration {
 		return &cases.ValidationResult{
 			Name:        "response_time",
@@ -364,20 +364,20 @@ func (v *ComprehensiveValidator) validateResponseTime(actualDuration time.Durati
 			Passed:      false,
 			Message:     fmt.Sprintf("Response time %dms exceeds maximum expected %dms", actualMs, maxMs),
 			Details: map[string]interface{}{
-				"actual_ms":   actualMs,
+				"actual_ms":       actualMs,
 				"expected_max_ms": maxMs,
 				"exceeded_by_ms":  actualMs - int64(maxMs),
 			},
 		}
 	}
-	
+
 	return &cases.ValidationResult{
 		Name:        "response_time",
 		Description: "Validate response time is within expected bounds",
 		Passed:      true,
 		Message:     fmt.Sprintf("Response time %dms is within expected maximum %dms", actualMs, maxMs),
 		Details: map[string]interface{}{
-			"actual_ms":     actualMs,
+			"actual_ms":       actualMs,
 			"expected_max_ms": maxMs,
 		},
 	}
@@ -392,7 +392,7 @@ func (v *ComprehensiveValidator) updateTestCaseStatus(testCase *cases.TestCase) 
 			break
 		}
 	}
-	
+
 	if allPassed {
 		testCase.Status = cases.TestStatusPassed
 	} else {
@@ -402,13 +402,13 @@ func (v *ComprehensiveValidator) updateTestCaseStatus(testCase *cases.TestCase) 
 
 // ValidationSummary provides a summary of validation results
 type ValidationSummary struct {
-	TotalValidations int                        `json:"total_validations"`
+	TotalValidations  int                       `json:"total_validations"`
 	PassedValidations int                       `json:"passed_validations"`
 	FailedValidations int                       `json:"failed_validations"`
-	PassRate         float64                    `json:"pass_rate"`
-	AllPassed        bool                       `json:"all_passed"`
-	FailuresByType   map[string]int             `json:"failures_by_type"`
-	Details          []*cases.ValidationResult  `json:"details,omitempty"`
+	PassRate          float64                   `json:"pass_rate"`
+	AllPassed         bool                      `json:"all_passed"`
+	FailuresByType    map[string]int            `json:"failures_by_type"`
+	Details           []*cases.ValidationResult `json:"details,omitempty"`
 }
 
 // GetValidationSummary returns a comprehensive summary of validation results
@@ -417,7 +417,7 @@ func GetValidationSummary(results []*cases.ValidationResult, includeDetails bool
 	passed := 0
 	failed := 0
 	failuresByType := make(map[string]int)
-	
+
 	for _, result := range results {
 		if result.Passed {
 			passed++
@@ -428,25 +428,25 @@ func GetValidationSummary(results []*cases.ValidationResult, includeDetails bool
 			failuresByType[failureType]++
 		}
 	}
-	
+
 	passRate := float64(0)
 	if total > 0 {
 		passRate = float64(passed) / float64(total) * 100
 	}
-	
+
 	summary := &ValidationSummary{
 		TotalValidations:  total,
 		PassedValidations: passed,
 		FailedValidations: failed,
-		PassRate:         passRate,
-		AllPassed:        failed == 0,
-		FailuresByType:   failuresByType,
+		PassRate:          passRate,
+		AllPassed:         failed == 0,
+		FailuresByType:    failuresByType,
 	}
-	
+
 	if includeDetails {
 		summary.Details = results
 	}
-	
+
 	return summary
 }
 
@@ -466,12 +466,12 @@ func CompareValidationResults(baseline, current []*cases.ValidationResult) *Vali
 	for _, result := range baseline {
 		baselineMap[result.Name] = result
 	}
-	
+
 	currentMap := make(map[string]*cases.ValidationResult)
 	for _, result := range current {
 		currentMap[result.Name] = result
 	}
-	
+
 	comparison := &ValidationComparison{
 		Added:     make([]*cases.ValidationResult, 0),
 		Removed:   make([]*cases.ValidationResult, 0),
@@ -479,7 +479,7 @@ func CompareValidationResults(baseline, current []*cases.ValidationResult) *Vali
 		Regressed: make([]*ValidationChange, 0),
 		Unchanged: make([]*cases.ValidationResult, 0),
 	}
-	
+
 	// Check for added and improved/regressed
 	for name, currentResult := range currentMap {
 		if baselineResult, exists := baselineMap[name]; exists {
@@ -490,7 +490,7 @@ func CompareValidationResults(baseline, current []*cases.ValidationResult) *Vali
 					After:    currentResult,
 					Improved: !baselineResult.Passed && currentResult.Passed,
 				}
-				
+
 				if change.Improved {
 					comparison.Improved = append(comparison.Improved, change)
 				} else {
@@ -503,14 +503,14 @@ func CompareValidationResults(baseline, current []*cases.ValidationResult) *Vali
 			comparison.Added = append(comparison.Added, currentResult)
 		}
 	}
-	
+
 	// Check for removed
 	for name, baselineResult := range baselineMap {
 		if _, exists := currentMap[name]; !exists {
 			comparison.Removed = append(comparison.Removed, baselineResult)
 		}
 	}
-	
+
 	return comparison
 }
 
@@ -525,10 +525,10 @@ type ValidationComparison struct {
 
 // ValidationChange represents a change in validation result
 type ValidationChange struct {
-	Name     string                    `json:"name"`
-	Before   *cases.ValidationResult   `json:"before"`
-	After    *cases.ValidationResult   `json:"after"`
-	Improved bool                     `json:"improved"`
+	Name     string                  `json:"name"`
+	Before   *cases.ValidationResult `json:"before"`
+	After    *cases.ValidationResult `json:"after"`
+	Improved bool                    `json:"improved"`
 }
 
 // Summary returns a summary of the comparison

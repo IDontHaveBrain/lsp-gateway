@@ -29,13 +29,13 @@ type JSONRPCResponse struct {
 
 // HTTPClientPool manages a pool of HTTP clients for concurrent testing
 type HTTPClientPool struct {
-	baseURL      string
-	poolSize     int
-	clients      []*http.Client
-	nextClient   int64
-	stats        *HTTPStats
-	timeout      time.Duration
-	retryConfig  *RetryConfig
+	baseURL     string
+	poolSize    int
+	clients     []*http.Client
+	nextClient  int64
+	stats       *HTTPStats
+	timeout     time.Duration
+	retryConfig *RetryConfig
 }
 
 // HTTPStats tracks HTTP request statistics
@@ -117,7 +117,7 @@ func (pool *HTTPClientPool) SendJSONRPCRequest(ctx context.Context, request inte
 // SendJSONRPCRequestWithStats sends a request and optionally records statistics
 func (pool *HTTPClientPool) SendJSONRPCRequestWithStats(ctx context.Context, request interface{}, recordStats bool) (*JSONRPCResponse, error) {
 	startTime := time.Now()
-	
+
 	requestBody, err := json.Marshal(request)
 	if err != nil {
 		if recordStats {
@@ -175,7 +175,7 @@ func (pool *HTTPClientPool) SendJSONRPCRequestWithStats(ctx context.Context, req
 // doRequest performs a single HTTP request
 func (pool *HTTPClientPool) doRequest(ctx context.Context, requestBody []byte) (*JSONRPCResponse, error) {
 	client := pool.getClient()
-	
+
 	req, err := http.NewRequestWithContext(ctx, "POST", pool.baseURL+"/jsonrpc", bytes.NewReader(requestBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
@@ -459,7 +459,7 @@ func (pool *HTTPClientPool) ExecuteBatch(ctx context.Context, config *BatchReque
 		select {
 		case result := <-executor.Results():
 			results = append(results, result)
-			
+
 			// Record stats if enabled
 			if config.CollectStats {
 				if result.Error != nil {

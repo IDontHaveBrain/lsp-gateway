@@ -15,19 +15,19 @@ import (
 
 // MockRuntimeFileSystem for missing runtime scenarios
 type MockRuntimeFileSystem struct {
-	mu               sync.RWMutex
-	installedPaths   map[string]string
-	missingRuntimes  map[string]bool
+	mu                sync.RWMutex
+	installedPaths    map[string]string
+	missingRuntimes   map[string]bool
 	corruptedRuntimes map[string]bool
-	environmentVars  map[string]string
+	environmentVars   map[string]string
 }
 
 func NewMockRuntimeFileSystem() *MockRuntimeFileSystem {
 	return &MockRuntimeFileSystem{
-		installedPaths:   make(map[string]string),
-		missingRuntimes:  make(map[string]bool),
+		installedPaths:    make(map[string]string),
+		missingRuntimes:   make(map[string]bool),
 		corruptedRuntimes: make(map[string]bool),
-		environmentVars:  make(map[string]string),
+		environmentVars:   make(map[string]string),
 	}
 }
 
@@ -181,7 +181,7 @@ func TestVerifyRuntimeInstallation_MissingGo(t *testing.T) {
 
 	// Add issue for missing Go
 	installer.addIssue(result, types.IssueSeverityCritical, types.IssueCategoryInstallation,
-		"Go Runtime Missing", "Go programming language is not installed", 
+		"Go Runtime Missing", "Go programming language is not installed",
 		"Install Go from https://golang.org/dl/", nil)
 
 	if len(result.Issues) == 0 {
@@ -311,7 +311,7 @@ func TestVerifyRuntimeInstallation_CorruptedGo(t *testing.T) {
 
 	// Add issue for corrupted Go
 	installer.addIssue(result, types.IssueSeverityHigh, types.IssueCategoryCorruption,
-		"Go Runtime Corrupted", "Go installation is corrupted", 
+		"Go Runtime Corrupted", "Go installation is corrupted",
 		"Reinstall Go from https://golang.org/dl/", nil)
 
 	if len(result.Issues) == 0 {
@@ -346,7 +346,7 @@ func TestVerifyRuntimeInstallation_CorruptedPython(t *testing.T) {
 func TestVerifyRuntimeEnvironment_MissingGOPATH(t *testing.T) {
 	installer := createTestInstaller()
 	mockFS := NewMockRuntimeFileSystem()
-	
+
 	// Don't set GOPATH
 	result := &types.VerificationResult{
 		Issues:          []types.Issue{},
@@ -360,7 +360,7 @@ func TestVerifyRuntimeEnvironment_MissingGOPATH(t *testing.T) {
 	if gopath == "" {
 		installer.addIssue(result, types.IssueSeverityMedium, types.IssueCategoryEnvironment,
 			"GOPATH Not Set", "GOPATH environment variable is not configured",
-			"Set GOPATH to your Go workspace directory", 
+			"Set GOPATH to your Go workspace directory",
 			map[string]interface{}{"variable": "GOPATH"})
 	}
 
@@ -438,7 +438,7 @@ func TestVerifyRuntimeEnvironment_MissingJAVA_HOME(t *testing.T) {
 func TestVerifyRuntimeComponents_MissingGoModules(t *testing.T) {
 	executor := NewMockRuntimeCommandExecutor()
 	executor.SetVersionOutput("go", "go version go1.21.0 linux/amd64")
-	
+
 	// Go exists but go mod command fails
 	executor.AddFailure("go", []string{"mod", "version"}, fmt.Errorf("go: modules disabled"))
 
@@ -537,7 +537,7 @@ func TestVerifyRuntimeComponents_MissingNpm(t *testing.T) {
 // Test version compatibility when specific runtime versions are missing
 func TestVerifyRuntimeVersions_IncompatibleVersions(t *testing.T) {
 	executor := NewMockRuntimeCommandExecutor()
-	
+
 	// Test with old/incompatible versions
 	incompatibleVersions := map[string]string{
 		"go":     "go version go1.15.0 linux/amd64", // Too old
@@ -573,7 +573,7 @@ func TestVerifyRuntimeVersions_IncompatibleVersions(t *testing.T) {
 		if versionId == "" {
 			versionId = "unknown"
 		}
-		
+
 		t.Run(fmt.Sprintf("%s_%s", runtime, versionId), func(t *testing.T) {
 			executor.SetVersionOutput(runtime, version)
 

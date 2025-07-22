@@ -474,8 +474,8 @@ func TestTCPClientAdvancedConnectionRefused(t *testing.T) {
 				}
 
 				errStr := strings.ToLower(err.Error())
-				if !strings.Contains(errStr, tt.expectError) && 
-				   !(tt.expectError == "timeout" && strings.Contains(errStr, "context deadline exceeded")) {
+				if !strings.Contains(errStr, tt.expectError) &&
+					!(tt.expectError == "timeout" && strings.Contains(errStr, "context deadline exceeded")) {
 					t.Errorf("Expected error containing '%s', got: %v", tt.expectError, err)
 				}
 			})
@@ -507,7 +507,7 @@ func TestTCPClientPortExhaustionScenarios(t *testing.T) {
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-			
+
 			err = client.Start(ctx)
 			if err == nil {
 				t.Errorf("Expected connection refused on attempt %d", i)
@@ -526,7 +526,7 @@ func TestTCPClientPortExhaustionScenarios(t *testing.T) {
 	})
 }
 
-// TestTCPClientConnectionInterruption tests various connection interruption scenarios  
+// TestTCPClientConnectionInterruption tests various connection interruption scenarios
 func TestTCPClientConnectionInterruption(t *testing.T) {
 	t.Parallel()
 
@@ -596,7 +596,7 @@ func TestTCPClientConnectionInterruption(t *testing.T) {
 			if err != nil {
 				return
 			}
-			
+
 			// Wait a bit to let client connect, then close abruptly
 			time.Sleep(100 * time.Millisecond)
 			if tcpConn, ok := conn.(*net.TCPConn); ok {

@@ -529,10 +529,10 @@ func BenchmarkStatusAll(b *testing.B) {
 		oldStdout := os.Stdout
 		r, w, _ := os.Pipe()
 		os.Stdout = w
-		
+
 		cmd := &cobra.Command{Use: "status"}
 		statusAll(cmd, []string{})
-		
+
 		w.Close()
 		_, _ = io.ReadAll(r)
 		os.Stdout = oldStdout
@@ -545,11 +545,11 @@ func BenchmarkStatusRuntimes(b *testing.B) {
 		oldStdout := os.Stdout
 		r, w, _ := os.Pipe()
 		os.Stdout = w
-		
+
 		statusJSON = false
 		cmd := &cobra.Command{Use: "runtimes"}
 		statusRuntimes(cmd, []string{})
-		
+
 		w.Close()
 		_, _ = io.ReadAll(r)
 		os.Stdout = oldStdout

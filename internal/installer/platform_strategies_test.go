@@ -13,7 +13,6 @@ import (
 
 // Mock infrastructure for comprehensive platform strategy testing
 
-
 type mockPlatformPackageManager struct {
 	name             string
 	available        bool
@@ -118,7 +117,7 @@ func newMockPlatformCommandExecutor() *mockPlatformCommandExecutor {
 func (m *mockPlatformCommandExecutor) Execute(cmd string, args []string, timeout time.Duration) (*platform.Result, error) {
 	callKey := fmt.Sprintf("%s %s", cmd, strings.Join(args, " "))
 	m.execCalls = append(m.execCalls, callKey)
-	
+
 	if result, exists := m.results[callKey]; exists {
 		return result, nil
 	}
@@ -195,12 +194,12 @@ func TestWindowsStrategy_InstallGo_ComprehensiveScenarios(t *testing.T) {
 			expectedPackageName: "golang",
 		},
 		{
-			name:                "all package managers unavailable",
-			version:             "1.21",
-			wingetAvailable:     false,
-			chocoAvailable:      false,
-			expectedError:       true,
-			expectedErrorType:   InstallerErrorTypeUnsupported,
+			name:              "all package managers unavailable",
+			version:           "1.21",
+			wingetAvailable:   false,
+			chocoAvailable:    false,
+			expectedError:     true,
+			expectedErrorType: InstallerErrorTypeUnsupported,
 		},
 		{
 			name:              "all package managers fail",
@@ -224,7 +223,7 @@ func TestWindowsStrategy_InstallGo_ComprehensiveScenarios(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			strategy := createTestWindowsStrategyWithConfig(tc.wingetAvailable, tc.chocoAvailable)
-			
+
 			if tc.wingetShouldFail && len(strategy.packageManagers) > 0 {
 				if mock, ok := strategy.packageManagers[0].(*mockPlatformPackageManager); ok {
 					mock.shouldFail = true
@@ -338,10 +337,10 @@ func TestWindowsStrategy_RetryMechanismWithDifferentErrors(t *testing.T) {
 
 func TestWindowsStrategy_GetPlatformInfo_ArchitectureDetection(t *testing.T) {
 	testCases := []struct {
-		name               string
-		wmicOutput         string
-		envVar             string
-		expectedArch       string
+		name         string
+		wmicOutput   string
+		envVar       string
+		expectedArch string
 	}{
 		{
 			name:         "64-bit from wmic",
@@ -429,7 +428,7 @@ func TestLinuxStrategy_NewLinuxStrategy_DistributionDetection(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Test the package manager preference logic directly
 			managers := platform.GetPreferredPackageManagers(tc.mockDistribution)
-			
+
 			if len(managers) != len(tc.expectedPackageManagers) {
 				t.Errorf("Expected %d package managers, got %d", len(tc.expectedPackageManagers), len(managers))
 			}
@@ -453,11 +452,11 @@ func TestLinuxStrategy_InstallComponent_PreferredManagerOrder(t *testing.T) {
 	}
 
 	strategy := createTestLinuxStrategy(linuxInfo)
-	
+
 	// Configure package managers - apt available, dnf not available
 	aptMgr := strategy.packageManagers["apt"].(*mockPlatformPackageManager)
 	aptMgr.available = true
-	
+
 	if dnfMgr, exists := strategy.packageManagers["dnf"]; exists {
 		dnfMgr.(*mockPlatformPackageManager).available = false
 	}
@@ -485,7 +484,7 @@ func TestLinuxStrategy_InstallWithRetry_VersionCompatibility(t *testing.T) {
 
 	aptMgr := strategy.packageManagers["apt"].(*mockPlatformPackageManager)
 	aptMgr.available = true
-	
+
 	// Mock verification to return incompatible version first, then compatible
 	verifyCallCount := 0
 	aptMgr.verifyFunc = func(component string) (*platform.VerificationResult, error) {
@@ -522,7 +521,7 @@ func TestLinuxStrategy_InstallComponent_AllManagersFail(t *testing.T) {
 	}
 
 	strategy := createTestLinuxStrategy(linuxInfo)
-	
+
 	// Make all managers fail
 	for _, mgr := range strategy.packageManagers {
 		if mockMgr, ok := mgr.(*mockPlatformPackageManager); ok {
@@ -605,11 +604,11 @@ func TestLinuxStrategy_GetPlatformInfo(t *testing.T) {
 
 func TestMacOSStrategy_InstallGo_HomebrewSetup(t *testing.T) {
 	testCases := []struct {
-		name               string
-		homebrewAvailable  bool
+		name                string
+		homebrewAvailable   bool
 		homebrewInstallFail bool
-		expectedError      bool
-		expectedErrorType  InstallerErrorType
+		expectedError       bool
+		expectedErrorType   InstallerErrorType
 	}{
 		{
 			name:              "homebrew available - success",
@@ -721,7 +720,7 @@ func TestMacOSStrategy_PackageNameGeneration_FormulaAvailability(t *testing.T) {
 	})
 
 	packageName := strategy.getPythonPackageName("3.12.0")
-	
+
 	// Should return the versioned package since formula exists
 	if !strings.Contains(packageName, "python@") {
 		t.Errorf("Expected versioned python package, got %s", packageName)
@@ -788,11 +787,11 @@ func createTestWindowsStrategyWithConfig(wingetAvailable, chocoAvailable bool) *
 
 func createTestLinuxStrategy(linuxInfo *platform.LinuxInfo) *LinuxStrategy {
 	packageManagers := make(map[string]platform.PackageManager)
-	
+
 	mockApt := newMockPlatformPackageManager("apt", true)
 	mockDnf := newMockPlatformPackageManager("dnf", true)
 	mockYum := newMockPlatformPackageManager("yum", true)
-	
+
 	packageManagers["apt"] = mockApt
 	packageManagers["dnf"] = mockDnf
 	packageManagers["yum"] = mockYum
@@ -835,7 +834,7 @@ func createTestMacOSStrategy() *MacOSStrategy {
 
 func BenchmarkWindowsStrategy_InstallGo(b *testing.B) {
 	strategy := createTestWindowsStrategyWithConfig(true, false)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = strategy.InstallGo("1.21")
@@ -848,7 +847,7 @@ func BenchmarkLinuxStrategy_InstallGo(b *testing.B) {
 		Version:      "22.04",
 	}
 	strategy := createTestLinuxStrategy(linuxInfo)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = strategy.InstallGo("1.21")
@@ -857,7 +856,7 @@ func BenchmarkLinuxStrategy_InstallGo(b *testing.B) {
 
 func BenchmarkMacOSStrategy_InstallGo(b *testing.B) {
 	strategy := createTestMacOSStrategy()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = strategy.InstallGo("1.21")
@@ -868,10 +867,10 @@ func BenchmarkMacOSStrategy_InstallGo(b *testing.B) {
 
 func TestPlatformStrategy_ErrorHandling_Comprehensive(t *testing.T) {
 	testCases := []struct {
-		name           string
-		strategyType   string
-		errorScenario  string
-		expectedType   InstallerErrorType
+		name          string
+		strategyType  string
+		errorScenario string
+		expectedType  InstallerErrorType
 	}{
 		{
 			name:          "Windows - Network timeout",
@@ -902,14 +901,14 @@ func TestPlatformStrategy_ErrorHandling_Comprehensive(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			var err error
-			
+
 			switch tc.strategyType {
 			case "windows":
 				strategy := createTestWindowsStrategyWithConfig(true, false)
 				mockWinget := strategy.packageManagers[0].(*mockPlatformPackageManager)
 				mockWinget.SetInstallError(errors.New(tc.errorScenario + " error"))
 				err = strategy.InstallGo("1.21")
-				
+
 			case "linux":
 				linuxInfo := &platform.LinuxInfo{Distribution: platform.DistributionUbuntu}
 				strategy := createTestLinuxStrategy(linuxInfo)
@@ -917,7 +916,7 @@ func TestPlatformStrategy_ErrorHandling_Comprehensive(t *testing.T) {
 					strategy.packageManagers = make(map[string]platform.PackageManager)
 				}
 				err = strategy.InstallGo("1.21")
-				
+
 			case "macos":
 				strategy := createTestMacOSStrategy()
 				if tc.errorScenario == "homebrew_fail" {
@@ -989,4 +988,3 @@ func TestPlatformStrategy_TimeoutHandling(t *testing.T) {
 		})
 	}
 }
-

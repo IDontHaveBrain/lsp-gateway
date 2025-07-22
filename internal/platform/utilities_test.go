@@ -14,7 +14,7 @@ func TestGetHomeDirectoryWindowsLogic(t *testing.T) {
 
 	// Save original environment variables
 	originalUserProfile := os.Getenv("USERPROFILE")
-	originalHomeDrive := os.Getenv("HOMEDRIVE") 
+	originalHomeDrive := os.Getenv("HOMEDRIVE")
 	originalHomePath := os.Getenv("HOMEPATH")
 
 	defer func() {
@@ -27,13 +27,13 @@ func TestGetHomeDirectoryWindowsLogic(t *testing.T) {
 		t.Setenv("USERPROFILE", "C:\\Users\\priority")
 		t.Setenv("HOMEDRIVE", "D:")
 		t.Setenv("HOMEPATH", "\\Users\\fallback")
-		
+
 		result, err := GetHomeDirectory()
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 			return
 		}
-		
+
 		if result != "C:\\Users\\priority" {
 			t.Errorf("Expected USERPROFILE to take priority, got: %s", result)
 		}
@@ -43,13 +43,13 @@ func TestGetHomeDirectoryWindowsLogic(t *testing.T) {
 		t.Setenv("USERPROFILE", "")
 		t.Setenv("HOMEDRIVE", "C:")
 		t.Setenv("HOMEPATH", "\\Users\\testuser")
-		
+
 		result, err := GetHomeDirectory()
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 			return
 		}
-		
+
 		expected := "C:\\Users\\testuser"
 		if result != expected {
 			t.Errorf("Expected %s, got %s", expected, result)
@@ -60,7 +60,7 @@ func TestGetHomeDirectoryWindowsLogic(t *testing.T) {
 		t.Setenv("USERPROFILE", "")
 		t.Setenv("HOMEDRIVE", "C:")
 		t.Setenv("HOMEPATH", "")
-		
+
 		_, err := GetHomeDirectory()
 		if err == nil {
 			t.Error("Expected error when HOMEPATH is missing")
@@ -71,7 +71,7 @@ func TestGetHomeDirectoryWindowsLogic(t *testing.T) {
 		t.Setenv("USERPROFILE", "")
 		t.Setenv("HOMEDRIVE", "")
 		t.Setenv("HOMEPATH", "\\Users\\testuser")
-		
+
 		_, err := GetHomeDirectory()
 		if err == nil {
 			t.Error("Expected error when HOMEDRIVE is missing")
@@ -90,13 +90,13 @@ func TestGetHomeDirectoryUnixLogic(t *testing.T) {
 
 	t.Run("HOME variable set", func(t *testing.T) {
 		t.Setenv("HOME", "/home/testuser")
-		
+
 		result, err := GetHomeDirectory()
 		if err != nil {
 			t.Errorf("Unexpected error: %v", err)
 			return
 		}
-		
+
 		if result != "/home/testuser" {
 			t.Errorf("Expected /home/testuser, got %s", result)
 		}
@@ -104,7 +104,7 @@ func TestGetHomeDirectoryUnixLogic(t *testing.T) {
 
 	t.Run("HOME variable empty", func(t *testing.T) {
 		t.Setenv("HOME", "")
-		
+
 		_, err := GetHomeDirectory()
 		if err == nil {
 			t.Error("Expected error when HOME is empty")
@@ -128,7 +128,7 @@ func TestGetTempDirectoryPrecedence(t *testing.T) {
 		t.Setenv("TMPDIR", "/highest/priority")
 		t.Setenv("TMP", "/should/not/use")
 		t.Setenv("TEMP", "/should/not/use/either")
-		
+
 		result := GetTempDirectory()
 		if result != "/highest/priority" {
 			t.Errorf("Expected TMPDIR to have precedence, got: %s", result)
@@ -139,7 +139,7 @@ func TestGetTempDirectoryPrecedence(t *testing.T) {
 		t.Setenv("TMPDIR", "")
 		t.Setenv("TMP", "/second/priority")
 		t.Setenv("TEMP", "/should/not/use")
-		
+
 		result := GetTempDirectory()
 		if result != "/second/priority" {
 			t.Errorf("Expected TMP to be used, got: %s", result)
@@ -150,7 +150,7 @@ func TestGetTempDirectoryPrecedence(t *testing.T) {
 		t.Setenv("TMPDIR", "")
 		t.Setenv("TMP", "")
 		t.Setenv("TEMP", "/third/priority")
-		
+
 		result := GetTempDirectory()
 		if result != "/third/priority" {
 			t.Errorf("Expected TEMP to be used, got: %s", result)
@@ -161,13 +161,13 @@ func TestGetTempDirectoryPrecedence(t *testing.T) {
 		t.Setenv("TMPDIR", "")
 		t.Setenv("TMP", "")
 		t.Setenv("TEMP", "")
-		
+
 		result := GetTempDirectory()
 		expected := "/tmp"
 		if IsWindows() {
 			expected = "C:\\Windows\\Temp"
 		}
-		
+
 		if result != expected {
 			t.Errorf("Expected platform fallback %s, got: %s", expected, result)
 		}
@@ -209,7 +209,7 @@ func TestSupportsShellWindowsSpecific(t *testing.T) {
 		t.Run(test.shell, func(t *testing.T) {
 			result := SupportsShell(test.shell)
 			if result != test.expected {
-				t.Errorf("SupportsShell(%q) on Windows: expected %v, got %v", 
+				t.Errorf("SupportsShell(%q) on Windows: expected %v, got %v",
 					test.shell, test.expected, result)
 			}
 		})
@@ -250,7 +250,7 @@ func TestSupportsShellUnixSpecific(t *testing.T) {
 		t.Run(test.shell, func(t *testing.T) {
 			result := SupportsShell(test.shell)
 			if result != test.expected {
-				t.Errorf("SupportsShell(%q) on Unix: expected %v, got %v", 
+				t.Errorf("SupportsShell(%q) on Unix: expected %v, got %v",
 					test.shell, test.expected, result)
 			}
 		})
@@ -269,13 +269,13 @@ func TestSupportsShellCaseInsensitive(t *testing.T) {
 	for _, shell := range caseMixtures {
 		t.Run(shell, func(t *testing.T) {
 			result := SupportsShell(shell)
-			
+
 			// Verify case insensitivity works
 			lowercase := strings.ToLower(shell)
 			expectedResult := SupportsShell(lowercase)
-			
+
 			if result != expectedResult {
-				t.Errorf("Case insensitivity failed for %q: expected %v, got %v", 
+				t.Errorf("Case insensitivity failed for %q: expected %v, got %v",
 					shell, expectedResult, result)
 			}
 		})
@@ -285,8 +285,8 @@ func TestSupportsShellCaseInsensitive(t *testing.T) {
 // Test GetPreferredPackageManagers ordering for multi-manager distributions
 func TestGetPreferredPackageManagersOrdering(t *testing.T) {
 	multiManagerTests := []struct {
-		distribution LinuxDistribution
-		expectedFirst string
+		distribution   LinuxDistribution
+		expectedFirst  string
 		expectedLength int
 	}{
 		{DistributionCentOS, "dnf", 2},
@@ -297,17 +297,17 @@ func TestGetPreferredPackageManagersOrdering(t *testing.T) {
 	for _, test := range multiManagerTests {
 		t.Run(string(test.distribution), func(t *testing.T) {
 			result := GetPreferredPackageManagers(test.distribution)
-			
+
 			if len(result) != test.expectedLength {
 				t.Errorf("Expected %d package managers, got %d", test.expectedLength, len(result))
 				return
 			}
-			
+
 			if result[0] != test.expectedFirst {
-				t.Errorf("Expected first package manager to be %s, got %s", 
+				t.Errorf("Expected first package manager to be %s, got %s",
 					test.expectedFirst, result[0])
 			}
-			
+
 			// Verify no duplicates
 			seen := make(map[string]bool)
 			for _, manager := range result {
@@ -366,7 +366,7 @@ func TestPlatformPathUtilities(t *testing.T) {
 		if platformStr == "" {
 			t.Error("GetPlatformString should not be empty")
 		}
-		
+
 		if !strings.Contains(platformStr, "-") {
 			t.Errorf("Expected platform-arch format, got %s", platformStr)
 		}
@@ -400,7 +400,7 @@ func TestSupportsShellAdditionalCases(t *testing.T) {
 		t.Run(test.reason, func(t *testing.T) {
 			result := SupportsShell(test.shell)
 			if result != test.expected {
-				t.Errorf("SupportsShell(%q): expected %v, got %v (%s)", 
+				t.Errorf("SupportsShell(%q): expected %v, got %v (%s)",
 					test.shell, test.expected, result, test.reason)
 			}
 		})
@@ -423,11 +423,11 @@ func TestGetTempDirectoryEdgeCases(t *testing.T) {
 		t.Setenv("TMPDIR", "   ")
 		t.Setenv("TMP", "\t")
 		t.Setenv("TEMP", "\n")
-		
+
 		result := GetTempDirectory()
 		// The function returns the first non-empty env var, so it should return "   "
 		expected := "   "
-		
+
 		if result != expected {
 			t.Errorf("Expected whitespace value '   ', got %q", result)
 		}
@@ -437,7 +437,7 @@ func TestGetTempDirectoryEdgeCases(t *testing.T) {
 		t.Setenv("TMPDIR", "")
 		t.Setenv("TMP", "")
 		t.Setenv("TEMP", "/valid/temp")
-		
+
 		result := GetTempDirectory()
 		if result != "/valid/temp" {
 			t.Errorf("Expected /valid/temp, got %s", result)
@@ -448,7 +448,7 @@ func TestGetTempDirectoryEdgeCases(t *testing.T) {
 // Test GetHomeDirectory additional error scenarios for better coverage
 func TestGetHomeDirectoryAdditionalScenarios(t *testing.T) {
 	originalHome := os.Getenv("HOME")
-	originalUserProfile := os.Getenv("USERPROFILE") 
+	originalUserProfile := os.Getenv("USERPROFILE")
 	originalHomeDrive := os.Getenv("HOMEDRIVE")
 	originalHomePath := os.Getenv("HOMEPATH")
 
@@ -464,13 +464,13 @@ func TestGetHomeDirectoryAdditionalScenarios(t *testing.T) {
 			t.Setenv("USERPROFILE", "")
 			t.Setenv("HOMEDRIVE", "D:")
 			t.Setenv("HOMEPATH", "\\Users\\altuser")
-			
+
 			result, err := GetHomeDirectory()
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 				return
 			}
-			
+
 			if result != "D:\\Users\\altuser" {
 				t.Errorf("Expected D:\\Users\\altuser, got %s", result)
 			}
@@ -480,13 +480,13 @@ func TestGetHomeDirectoryAdditionalScenarios(t *testing.T) {
 			t.Setenv("USERPROFILE", "   ")
 			t.Setenv("HOMEDRIVE", "C:")
 			t.Setenv("HOMEPATH", "\\Users\\test")
-			
+
 			result, err := GetHomeDirectory()
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 				return
 			}
-			
+
 			// Function returns the whitespace USERPROFILE value literally
 			if result != "   " {
 				t.Errorf("Expected whitespace USERPROFILE '   ', got %q", result)
@@ -495,13 +495,13 @@ func TestGetHomeDirectoryAdditionalScenarios(t *testing.T) {
 	} else {
 		t.Run("Unix whitespace HOME variable", func(t *testing.T) {
 			t.Setenv("HOME", "   ")
-			
+
 			result, err := GetHomeDirectory()
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 				return
 			}
-			
+
 			// Function returns the whitespace HOME value literally
 			if result != "   " {
 				t.Errorf("Expected whitespace HOME '   ', got %q", result)

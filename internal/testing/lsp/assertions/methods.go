@@ -122,7 +122,7 @@ func (ctx *AssertionContext) assertSingleDefinitionLocation(location map[string]
 // assertDefinitionLocationArray validates an array of definition locations
 func (ctx *AssertionContext) assertDefinitionLocationArray(locations []interface{}, expected *ExpectedDefinitionResult, results []*cases.ValidationResult) []*cases.ValidationResult {
 	count := len(locations)
-	
+
 	results = append(results, ctx.CreateValidationResult(
 		"definition_format",
 		"Validate definition response format",
@@ -168,7 +168,7 @@ func (ctx *AssertionContext) assertDefinitionLocationArray(locations []interface
 		} else if expected != nil && expected.FirstLocation != nil && i == 0 {
 			expectedLoc = expected.FirstLocation
 		}
-		
+
 		locationResults := ctx.AssertLocation(location, expectedLoc, fmt.Sprintf("definition_%d", i))
 		results = append(results, locationResults...)
 	}
@@ -279,7 +279,7 @@ func (ctx *AssertionContext) AssertReferencesResponse(response json.RawMessage, 
 		if expected != nil && expected.Locations != nil && i < len(expected.Locations) {
 			expectedLoc = expected.Locations[i]
 		}
-		
+
 		locationResults := ctx.AssertLocation(location, expectedLoc, fmt.Sprintf("reference_%d", i))
 		results = append(results, locationResults...)
 	}
@@ -319,7 +319,7 @@ func (ctx *AssertionContext) AssertReferencesResponse(response json.RawMessage, 
 					}
 				}
 			}
-			
+
 			results = append(results, ctx.CreateValidationResult(
 				"references_contains_file",
 				fmt.Sprintf("Validate references contain file: %s", *expected.ContainsFile),
@@ -427,7 +427,7 @@ func (ctx *AssertionContext) validateHoverContent(contents interface{}, expected
 
 	// Extract content string based on different possible structures
 	contentStr := ctx.extractHoverContentString(contents)
-	
+
 	if contentStr == "" {
 		if expected != nil && expected.Content != nil && expected.Content.HasContent {
 			results = append(results, ctx.CreateValidationResult(
@@ -490,8 +490,8 @@ func (ctx *AssertionContext) validateHoverContent(contents interface{}, expected
 				fmt.Sprintf("Content length %d is less than expected minimum %d", contentLength, *contentExpected.MinLength),
 				false,
 				map[string]interface{}{
-					"actual_length":   contentLength,
-					"expected_min":    *contentExpected.MinLength,
+					"actual_length": contentLength,
+					"expected_min":  *contentExpected.MinLength,
 				},
 			))
 		}
@@ -503,8 +503,8 @@ func (ctx *AssertionContext) validateHoverContent(contents interface{}, expected
 				fmt.Sprintf("Content length %d exceeds expected maximum %d", contentLength, *contentExpected.MaxLength),
 				false,
 				map[string]interface{}{
-					"actual_length":   contentLength,
-					"expected_max":    *contentExpected.MaxLength,
+					"actual_length": contentLength,
+					"expected_max":  *contentExpected.MaxLength,
 				},
 			))
 		}
@@ -516,7 +516,7 @@ func (ctx *AssertionContext) validateHoverContent(contents interface{}, expected
 			results = append(results, ctx.CreateValidationResult(
 				"hover_content_markup_kind",
 				"Validate hover content markup kind",
-				fmt.Sprintf("Content extracted successfully, assuming markup kind is correct"),
+				"Content extracted successfully, assuming markup kind is correct",
 				true,
 				map[string]interface{}{
 					"expected_kind": *contentExpected.MarkupKind,
@@ -531,7 +531,7 @@ func (ctx *AssertionContext) validateHoverContent(contents interface{}, expected
 		fmt.Sprintf("Found hover content (%d characters)", len(contentStr)),
 		true,
 		map[string]interface{}{
-			"content_length": len(contentStr),
+			"content_length":  len(contentStr),
 			"content_preview": ctx.truncateString(contentStr, 100),
 		},
 	))
@@ -695,7 +695,7 @@ func (ctx *AssertionContext) AssertWorkspaceSymbolResponse(response json.RawMess
 // validateSymbolArray validates an array of symbols (shared between document and workspace symbols)
 func (ctx *AssertionContext) validateSymbolArray(symbols []interface{}, expected interface{}, symbolType string, results []*cases.ValidationResult) []*cases.ValidationResult {
 	count := len(symbols)
-	
+
 	results = append(results, ctx.CreateValidationResult(
 		fmt.Sprintf("%s_format", symbolType),
 		fmt.Sprintf("Validate %s response format", symbolType),

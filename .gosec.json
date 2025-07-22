@@ -4,18 +4,36 @@
     "audit": "enabled",
     "fmt": "json",
     "severity": "medium",
-    "confidence": "medium"
+    "confidence": "medium",
+    "ssa": false
   },
   "exclude": [
     "G304",
     "G306"
+  ],
+  "exclude-generated": [
+    "*_test.go",
+    "*_benchmark_test.go", 
+    "testutil/*.go",
+    "testdata/*.go",
+    "mock_*.go",
+    "**/fixtures/*.go"
   ],
   "exclude-dir": [
     "node_modules",
     "vendor",
     ".git",
     "dist",
-    "bin"
+    "bin",
+    "coverage",
+    "reports",
+    "test-data",
+    "test-repositories",
+    "internal/testing",
+    "internal/integration/testutil",
+    "internal/integration/fixtures",
+    "lsp-results",
+    "repo-validation"
   ],
   "include": [
     "**/*.go"

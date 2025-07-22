@@ -59,7 +59,7 @@ func TestGatewayHTTPTimeouts(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create mock client with configurable delay
 			mockClient := NewMockLSPClientWithDelay(tt.clientDelay)
-			
+
 			gateway := createTimeoutTestGateway(t, map[string]transport.LSPClient{
 				"test-server": mockClient,
 			})
@@ -265,16 +265,16 @@ func TestGatewayConcurrentTimeouts(t *testing.T) {
 
 	// Send concurrent requests with different timeouts
 	timeouts := []time.Duration{
-		500 * time.Millisecond,  // Should timeout
-		1 * time.Second,         // Should timeout  
-		3 * time.Second,         // Should succeed
-		5 * time.Second,         // Should succeed
-		500 * time.Millisecond,  // Should timeout
-		1 * time.Second,         // Should timeout
-		3 * time.Second,         // Should succeed
-		5 * time.Second,         // Should succeed
-		750 * time.Millisecond,  // Should timeout
-		4 * time.Second,         // Should succeed
+		500 * time.Millisecond, // Should timeout
+		1 * time.Second,        // Should timeout
+		3 * time.Second,        // Should succeed
+		5 * time.Second,        // Should succeed
+		500 * time.Millisecond, // Should timeout
+		1 * time.Second,        // Should timeout
+		3 * time.Second,        // Should succeed
+		5 * time.Second,        // Should succeed
+		750 * time.Millisecond, // Should timeout
+		4 * time.Second,        // Should succeed
 	}
 
 	for i, timeout := range timeouts {
@@ -870,14 +870,14 @@ func BenchmarkGatewayTimeout(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-		
+
 		req := httptest.NewRequest("POST", "/jsonrpc", bytes.NewReader(bodyBytes))
 		req = req.WithContext(ctx)
 		req.Header.Set("Content-Type", "application/json")
 
 		w := httptest.NewRecorder()
 		gateway.HandleJSONRPC(w, req)
-		
+
 		cancel()
 	}
 }
@@ -908,14 +908,14 @@ func BenchmarkGatewaySuccess(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-		
+
 		req := httptest.NewRequest("POST", "/jsonrpc", bytes.NewReader(bodyBytes))
 		req = req.WithContext(ctx)
 		req.Header.Set("Content-Type", "application/json")
 
 		w := httptest.NewRecorder()
 		gateway.HandleJSONRPC(w, req)
-		
+
 		cancel()
 	}
 }

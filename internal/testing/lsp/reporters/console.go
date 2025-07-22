@@ -3,7 +3,6 @@ package reporters
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"lsp-gateway/internal/testing/lsp/cases"
 	"lsp-gateway/internal/testing/lsp/validators"
@@ -27,16 +26,16 @@ func NewConsoleReporter(verbose bool, colorEnabled bool) *ConsoleReporter {
 func (r *ConsoleReporter) ReportTestResult(result *cases.TestResult) {
 	r.printHeader("LSP Test Results")
 	r.println("")
-	
+
 	// Print summary
 	r.printSummary(result)
 	r.println("")
-	
+
 	// Print test suite details
 	for _, testSuite := range result.TestSuites {
 		r.reportTestSuite(testSuite)
 	}
-	
+
 	// Print final status
 	r.printFinalStatus(result)
 }
@@ -68,20 +67,20 @@ func (r *ConsoleReporter) reportTestSuite(testSuite *cases.TestSuite) {
 	// Print suite header
 	status := r.getStatusSymbol(testSuite.Status)
 	r.println(fmt.Sprintf("%s Test Suite: %s (%s)", status, testSuite.Name, testSuite.Repository.Language))
-	
+
 	if r.verbose {
 		r.println(fmt.Sprintf("  Description: %s", testSuite.Description))
 		r.println(fmt.Sprintf("  Workspace:   %s", testSuite.WorkspaceDir))
 		r.println(fmt.Sprintf("  Duration:    %v", testSuite.Duration))
-		r.println(fmt.Sprintf("  Results:     %d passed, %d failed, %d skipped, %d errors", 
+		r.println(fmt.Sprintf("  Results:     %d passed, %d failed, %d skipped, %d errors",
 			testSuite.PassedCases, testSuite.FailedCases, testSuite.SkippedCases, testSuite.ErrorCases))
 	}
-	
+
 	// Print test cases
 	for _, testCase := range testSuite.TestCases {
 		r.reportTestCase(testCase)
 	}
-	
+
 	r.println("")
 }
 
@@ -89,17 +88,17 @@ func (r *ConsoleReporter) reportTestSuite(testSuite *cases.TestSuite) {
 func (r *ConsoleReporter) reportTestCase(testCase *cases.TestCase) {
 	status := r.getStatusSymbol(testCase.Status)
 	r.println(fmt.Sprintf("  %s %s (%s)", status, testCase.Name, testCase.Method))
-	
+
 	if r.verbose {
 		r.println(fmt.Sprintf("    File:     %s", testCase.Config.File))
 		r.println(fmt.Sprintf("    Position: line %d, character %d", testCase.Position.Line, testCase.Position.Character))
 		r.println(fmt.Sprintf("    Duration: %v", testCase.Duration))
-		
+
 		if testCase.Error != nil {
 			r.println(fmt.Sprintf("    Error:    %s", r.colorize(testCase.Error.Error(), "red")))
 		}
 	}
-	
+
 	// Print validation results if verbose or there are failures
 	if r.verbose || testCase.Status == cases.TestStatusFailed {
 		r.reportValidationResults(testCase.ValidationResults)
@@ -111,13 +110,13 @@ func (r *ConsoleReporter) reportValidationResults(results []*cases.ValidationRes
 	if len(results) == 0 {
 		return
 	}
-	
+
 	summary := validators.GetValidationSummary(results)
 	if r.verbose {
 		r.println(fmt.Sprintf("    Validations: %d total, %d passed, %d failed (%.1f%% pass rate)",
 			summary["total"], summary["passed"], summary["failed"], summary["pass_rate"]))
 	}
-	
+
 	for _, result := range results {
 		if !result.Passed || r.verbose {
 			symbol := r.getValidationSymbol(result.Passed)
@@ -125,9 +124,9 @@ func (r *ConsoleReporter) reportValidationResults(results []*cases.ValidationRes
 			if result.Passed {
 				color = "green"
 			}
-			r.println(fmt.Sprintf("      %s %s: %s", 
-				symbol, 
-				result.Description, 
+			r.println(fmt.Sprintf("      %s %s: %s",
+				symbol,
+				result.Description,
 				r.colorize(result.Message, color)))
 		}
 	}
@@ -136,13 +135,13 @@ func (r *ConsoleReporter) reportValidationResults(results []*cases.ValidationRes
 // printFinalStatus prints the final status
 func (r *ConsoleReporter) printFinalStatus(result *cases.TestResult) {
 	r.println(strings.Repeat("-", 50))
-	
+
 	if result.Success() {
 		r.println(r.colorize("✓ ALL TESTS PASSED", "green"))
 	} else {
 		r.println(r.colorize("✗ SOME TESTS FAILED", "red"))
 	}
-	
+
 	r.println(fmt.Sprintf("Completed in %v", result.Duration))
 }
 
@@ -179,7 +178,7 @@ func (r *ConsoleReporter) colorize(text, color string) string {
 	if !r.colorEnabled {
 		return text
 	}
-	
+
 	switch color {
 	case "red":
 		return fmt.Sprintf("\033[31m%s\033[0m", text)
@@ -206,10 +205,10 @@ func (r *ConsoleReporter) ReportProgress(completed, total int, currentTest *case
 	if !r.verbose {
 		return
 	}
-	
+
 	percentage := float64(completed) / float64(total) * 100
 	progress := fmt.Sprintf("[%d/%d] %.1f%%", completed, total, percentage)
-	
+
 	if currentTest != nil {
 		fmt.Printf("\r%s - Running: %s (%s)", progress, currentTest.Name, currentTest.Method)
 	} else {
@@ -222,10 +221,10 @@ func (r *ConsoleReporter) ReportTestCaseResult(testCase *cases.TestCase) {
 	if !r.verbose {
 		return
 	}
-	
+
 	status := r.getStatusSymbol(testCase.Status)
 	fmt.Printf("\n%s %s (%s) - %v\n", status, testCase.Name, testCase.Method, testCase.Duration)
-	
+
 	if testCase.Status == cases.TestStatusFailed && testCase.Error != nil {
 		fmt.Printf("  Error: %s\n", r.colorize(testCase.Error.Error(), "red"))
 	}
