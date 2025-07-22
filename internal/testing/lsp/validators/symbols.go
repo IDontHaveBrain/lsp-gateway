@@ -21,22 +21,22 @@ type WorkspaceSymbolValidator struct {
 
 // DocumentSymbol represents a document symbol (hierarchical)
 type DocumentSymbol struct {
-	Name           string            `json:"name"`
-	Detail         string            `json:"detail,omitempty"`
-	Kind           int               `json:"kind"`
-	Deprecated     bool              `json:"deprecated,omitempty"`
-	Range          LSPRange          `json:"range"`
-	SelectionRange LSPRange          `json:"selectionRange"`
-	Children       []DocumentSymbol  `json:"children,omitempty"`
+	Name           string           `json:"name"`
+	Detail         string           `json:"detail,omitempty"`
+	Kind           int              `json:"kind"`
+	Deprecated     bool             `json:"deprecated,omitempty"`
+	Range          LSPRange         `json:"range"`
+	SelectionRange LSPRange         `json:"selectionRange"`
+	Children       []DocumentSymbol `json:"children,omitempty"`
 }
 
 // SymbolInformation represents a symbol information (flat)
 type SymbolInformation struct {
-	Name          string       `json:"name"`
-	Kind          int          `json:"kind"`
-	Deprecated    bool         `json:"deprecated,omitempty"`
+	Name          string         `json:"name"`
+	Kind          int            `json:"kind"`
+	Deprecated    bool           `json:"deprecated,omitempty"`
 	Location      SymbolLocation `json:"location"`
-	ContainerName string       `json:"containerName,omitempty"`
+	ContainerName string         `json:"containerName,omitempty"`
 }
 
 // SymbolLocation represents a symbol location
@@ -101,7 +101,7 @@ func NewWorkspaceSymbolValidator(config *config.ValidationConfig) *WorkspaceSymb
 // ValidateResponse validates a textDocument/documentSymbol response
 func (v *DocumentSymbolValidator) ValidateResponse(testCase *cases.TestCase, response json.RawMessage) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	// Check if response is null or empty
 	if string(response) == "null" || string(response) == "[]" {
 		if testCase.Expected != nil && testCase.Expected.Symbols != nil && testCase.Expected.Symbols.MinCount > 0 {
@@ -121,13 +121,13 @@ func (v *DocumentSymbolValidator) ValidateResponse(testCase *cases.TestCase, res
 		}
 		return results
 	}
-	
+
 	// Try to parse as hierarchical DocumentSymbol array first
 	var docSymbols []DocumentSymbol
 	if err := json.Unmarshal(response, &docSymbols); err == nil {
 		return v.validateDocumentSymbols(docSymbols, testCase, results)
 	}
-	
+
 	// Try to parse as flat SymbolInformation array
 	var symbolInfos []SymbolInformation
 	if err := json.Unmarshal(response, &symbolInfos); err != nil {
@@ -139,14 +139,14 @@ func (v *DocumentSymbolValidator) ValidateResponse(testCase *cases.TestCase, res
 		})
 		return results
 	}
-	
+
 	return v.validateSymbolInformations(symbolInfos, testCase, results)
 }
 
 // ValidateResponse validates a workspace/symbol response
 func (v *WorkspaceSymbolValidator) ValidateResponse(testCase *cases.TestCase, response json.RawMessage) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	// Check if response is null or empty
 	if string(response) == "null" || string(response) == "[]" {
 		if testCase.Expected != nil && testCase.Expected.Symbols != nil && testCase.Expected.Symbols.MinCount > 0 {
@@ -166,7 +166,7 @@ func (v *WorkspaceSymbolValidator) ValidateResponse(testCase *cases.TestCase, re
 		}
 		return results
 	}
-	
+
 	// Parse as WorkspaceSymbol array
 	var workspaceSymbols []WorkspaceSymbol
 	if err := json.Unmarshal(response, &workspaceSymbols); err != nil {
@@ -178,7 +178,7 @@ func (v *WorkspaceSymbolValidator) ValidateResponse(testCase *cases.TestCase, re
 		})
 		return results
 	}
-	
+
 	return v.validateWorkspaceSymbols(workspaceSymbols, testCase, results)
 }
 
@@ -190,26 +190,26 @@ func (v *DocumentSymbolValidator) validateDocumentSymbols(symbols []DocumentSymb
 		Passed:      true,
 		Message:     fmt.Sprintf("Response is a DocumentSymbol array with %d symbols", len(symbols)),
 	})
-	
+
 	// Count all symbols including children
 	totalCount := v.countDocumentSymbols(symbols)
-	
+
 	// Validate count expectations
 	if testCase.Expected != nil && testCase.Expected.Symbols != nil {
 		results = append(results, v.validateSymbolCount(totalCount, testCase.Expected.Symbols, "document")...)
 	}
-	
+
 	// Validate each symbol
 	for i, symbol := range symbols {
 		symbolResults := v.validateDocumentSymbol(symbol, fmt.Sprintf("document_symbol_%d", i))
 		results = append(results, symbolResults...)
 	}
-	
+
 	// Validate symbol types if expected
 	if testCase.Expected != nil && testCase.Expected.Symbols != nil && len(testCase.Expected.Symbols.Types) > 0 {
 		results = append(results, v.validateDocumentSymbolTypes(symbols, testCase.Expected.Symbols.Types)...)
 	}
-	
+
 	return results
 }
 
@@ -221,18 +221,18 @@ func (v *DocumentSymbolValidator) validateSymbolInformations(symbols []SymbolInf
 		Passed:      true,
 		Message:     fmt.Sprintf("Response is a SymbolInformation array with %d symbols", len(symbols)),
 	})
-	
+
 	// Validate count expectations
 	if testCase.Expected != nil && testCase.Expected.Symbols != nil {
 		results = append(results, v.validateSymbolCount(len(symbols), testCase.Expected.Symbols, "document")...)
 	}
-	
+
 	// Validate each symbol
 	for i, symbol := range symbols {
 		symbolResults := v.validateSymbolInformation(symbol, fmt.Sprintf("symbol_info_%d", i))
 		results = append(results, symbolResults...)
 	}
-	
+
 	return results
 }
 
@@ -244,18 +244,18 @@ func (v *WorkspaceSymbolValidator) validateWorkspaceSymbols(symbols []WorkspaceS
 		Passed:      true,
 		Message:     fmt.Sprintf("Response is a WorkspaceSymbol array with %d symbols", len(symbols)),
 	})
-	
+
 	// Validate count expectations
 	if testCase.Expected != nil && testCase.Expected.Symbols != nil {
 		results = append(results, v.validateSymbolCount(len(symbols), testCase.Expected.Symbols, "workspace")...)
 	}
-	
+
 	// Validate each symbol
 	for i, symbol := range symbols {
 		symbolResults := v.validateWorkspaceSymbol(symbol, fmt.Sprintf("workspace_symbol_%d", i))
 		results = append(results, symbolResults...)
 	}
-	
+
 	return results
 }
 
@@ -271,7 +271,7 @@ func (v *DocumentSymbolValidator) countDocumentSymbols(symbols []DocumentSymbol)
 // validateSymbolCount validates symbol count against expectations
 func (v *BaseValidator) validateSymbolCount(count int, expected *config.SymbolsExpected, symbolType string) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	// Check minimum count
 	if expected.MinCount > 0 {
 		if count >= expected.MinCount {
@@ -290,7 +290,7 @@ func (v *BaseValidator) validateSymbolCount(count int, expected *config.SymbolsE
 			})
 		}
 	}
-	
+
 	// Check maximum count
 	if expected.MaxCount > 0 {
 		if count <= expected.MaxCount {
@@ -309,14 +309,14 @@ func (v *BaseValidator) validateSymbolCount(count int, expected *config.SymbolsE
 			})
 		}
 	}
-	
+
 	return results
 }
 
 // validateDocumentSymbol validates a single document symbol
 func (v *DocumentSymbolValidator) validateDocumentSymbol(symbol DocumentSymbol, fieldName string) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	// Validate required fields
 	if symbol.Name == "" {
 		results = append(results, &cases.ValidationResult{
@@ -333,7 +333,7 @@ func (v *DocumentSymbolValidator) validateDocumentSymbol(symbol DocumentSymbol, 
 			Message:     fmt.Sprintf("Symbol name: %s", symbol.Name),
 		})
 	}
-	
+
 	// Validate symbol kind
 	if symbol.Kind < 1 || symbol.Kind > 26 {
 		results = append(results, &cases.ValidationResult{
@@ -350,24 +350,24 @@ func (v *DocumentSymbolValidator) validateDocumentSymbol(symbol DocumentSymbol, 
 			Message:     fmt.Sprintf("Symbol kind: %d (%s)", symbol.Kind, v.getSymbolKindName(symbol.Kind)),
 		})
 	}
-	
+
 	// Validate ranges
 	results = append(results, v.validateSymbolRange(symbol.Range, fmt.Sprintf("%s_range", fieldName))...)
 	results = append(results, v.validateSymbolRange(symbol.SelectionRange, fmt.Sprintf("%s_selection_range", fieldName))...)
-	
+
 	// Validate children if present
 	for i, child := range symbol.Children {
 		childResults := v.validateDocumentSymbol(child, fmt.Sprintf("%s_child_%d", fieldName, i))
 		results = append(results, childResults...)
 	}
-	
+
 	return results
 }
 
 // validateSymbolInformation validates a single symbol information
 func (v *DocumentSymbolValidator) validateSymbolInformation(symbol SymbolInformation, fieldName string) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	// Validate required fields
 	if symbol.Name == "" {
 		results = append(results, &cases.ValidationResult{
@@ -384,7 +384,7 @@ func (v *DocumentSymbolValidator) validateSymbolInformation(symbol SymbolInforma
 			Message:     fmt.Sprintf("Symbol name: %s", symbol.Name),
 		})
 	}
-	
+
 	// Validate symbol kind
 	if symbol.Kind < 1 || symbol.Kind > 26 {
 		results = append(results, &cases.ValidationResult{
@@ -401,18 +401,18 @@ func (v *DocumentSymbolValidator) validateSymbolInformation(symbol SymbolInforma
 			Message:     fmt.Sprintf("Symbol kind: %d", symbol.Kind),
 		})
 	}
-	
+
 	// Validate location
 	results = append(results, v.validateURI(symbol.Location.URI, fmt.Sprintf("%s_location", fieldName)))
 	results = append(results, v.validateSymbolRange(symbol.Location.Range, fmt.Sprintf("%s_location_range", fieldName))...)
-	
+
 	return results
 }
 
 // validateWorkspaceSymbol validates a single workspace symbol
 func (v *WorkspaceSymbolValidator) validateWorkspaceSymbol(symbol WorkspaceSymbol, fieldName string) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	// Validate required fields
 	if symbol.Name == "" {
 		results = append(results, &cases.ValidationResult{
@@ -429,7 +429,7 @@ func (v *WorkspaceSymbolValidator) validateWorkspaceSymbol(symbol WorkspaceSymbo
 			Message:     fmt.Sprintf("Symbol name: %s", symbol.Name),
 		})
 	}
-	
+
 	// Validate symbol kind
 	if symbol.Kind < 1 || symbol.Kind > 26 {
 		results = append(results, &cases.ValidationResult{
@@ -446,44 +446,44 @@ func (v *WorkspaceSymbolValidator) validateWorkspaceSymbol(symbol WorkspaceSymbo
 			Message:     fmt.Sprintf("Symbol kind: %d", symbol.Kind),
 		})
 	}
-	
+
 	// Validate location if present
 	if symbol.Location != nil {
 		results = append(results, v.validateURI(symbol.Location.URI, fmt.Sprintf("%s_location", fieldName)))
 		results = append(results, v.validateSymbolRange(symbol.Location.Range, fmt.Sprintf("%s_location_range", fieldName))...)
 	}
-	
+
 	return results
 }
 
 // validateSymbolRange validates a symbol range
 func (v *BaseValidator) validateSymbolRange(lspRange LSPRange, fieldName string) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	// Validate start position
 	startResult := v.validatePosition(map[string]interface{}{
 		"line":      float64(lspRange.Start.Line),
 		"character": float64(lspRange.Start.Character),
 	}, fmt.Sprintf("%s_start", fieldName))
 	results = append(results, startResult)
-	
+
 	// Validate end position
 	endResult := v.validatePosition(map[string]interface{}{
 		"line":      float64(lspRange.End.Line),
 		"character": float64(lspRange.End.Character),
 	}, fmt.Sprintf("%s_end", fieldName))
 	results = append(results, endResult)
-	
+
 	return results
 }
 
 // validateDocumentSymbolTypes validates expected symbol types are present
 func (v *DocumentSymbolValidator) validateDocumentSymbolTypes(symbols []DocumentSymbol, expectedTypes []string) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	foundTypes := make(map[string]bool)
 	v.collectSymbolTypes(symbols, foundTypes)
-	
+
 	for _, expectedType := range expectedTypes {
 		typeFound := foundTypes[strings.ToLower(expectedType)]
 		results = append(results, &cases.ValidationResult{
@@ -493,7 +493,7 @@ func (v *DocumentSymbolValidator) validateDocumentSymbolTypes(symbols []Document
 			Message:     fmt.Sprintf("Symbol type '%s' found: %t", expectedType, typeFound),
 		})
 	}
-	
+
 	return results
 }
 

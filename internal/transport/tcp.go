@@ -110,7 +110,7 @@ func (c *TCPClient) Stop() error {
 			// Log but continue with cleanup
 			fmt.Printf("Failed to set connection deadline during shutdown: %v\n", err)
 		}
-		
+
 		// Close connection
 		if err := c.conn.Close(); err != nil {
 			fmt.Printf("Failed to close TCP connection: %v\n", err)
@@ -135,7 +135,7 @@ func (c *TCPClient) Stop() error {
 		c.requestMu.Unlock()
 		close(done)
 	}()
-	
+
 	// Wait for request cleanup with timeout
 	select {
 	case <-done:
@@ -164,7 +164,7 @@ func (c *TCPClient) SendRequest(ctx context.Context, method string, params inter
 		c.requestMu.Unlock()
 		close(registered)
 	}()
-	
+
 	select {
 	case <-registered:
 		// Successfully registered
@@ -199,14 +199,14 @@ func (c *TCPClient) SendRequest(ctx context.Context, method string, params inter
 			c.requestMu.Unlock()
 			close(done)
 		}()
-		
+
 		select {
 		case <-done:
 			// Cleanup completed
 		case <-time.After(100 * time.Millisecond):
 			// Timeout during cleanup - continue anyway
 		}
-		
+
 		// Always close the response channel
 		if respCh != nil {
 			close(respCh)
@@ -443,14 +443,14 @@ func (c *TCPClient) handleMessage(msg *JSONRPCMessage) {
 		done := make(chan struct{})
 		var respCh chan json.RawMessage
 		var exists bool
-		
+
 		go func() {
 			c.requestMu.RLock()
 			respCh, exists = c.requests[idStr]
 			c.requestMu.RUnlock()
 			close(done)
 		}()
-		
+
 		// Wait for lock acquisition with timeout
 		if c.ctx != nil {
 			select {
@@ -531,7 +531,7 @@ func (c *TCPClient) recordError() {
 		c.mu.Unlock()
 		close(done)
 	}()
-	
+
 	if c.ctx != nil {
 		select {
 		case <-done:
@@ -561,7 +561,7 @@ func (c *TCPClient) resetErrorCount() {
 		c.mu.Unlock()
 		close(done)
 	}()
-	
+
 	if c.ctx != nil {
 		select {
 		case <-done:
@@ -590,7 +590,7 @@ func (c *TCPClient) openCircuit() {
 func (c *TCPClient) isCircuitOpen() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	// Circuit breaker: open if too many errors in short time
 	if c.circuitOpen {
 		// Try to close circuit after 30 seconds
@@ -599,22 +599,22 @@ func (c *TCPClient) isCircuitOpen() bool {
 			c.errorCount = 0
 		}
 	}
-	
+
 	return c.circuitOpen || c.errorCount > c.maxRetries
 }
 
 func (c *TCPClient) calculateBackoff(attempt int) time.Duration {
 	// Exponential backoff with jitter
 	backoff := float64(c.baseDelay) * math.Pow(2, float64(attempt-1))
-	
+
 	// Add jitter (±25%)
 	jitter := 1.0 + (rand.Float64()-0.5)*0.5
 	delay := time.Duration(backoff * jitter)
-	
+
 	// Cap at 5 seconds
 	if delay > 5*time.Second {
-		delay = 5*time.Second
+		delay = 5 * time.Second
 	}
-	
+
 	return delay
 }

@@ -31,7 +31,7 @@ func NewServerInstaller(runtimeInstaller types.RuntimeInstaller) *DefaultServerI
 	if runtimeInstaller == nil {
 		return nil
 	}
-	
+
 	installer := &DefaultServerInstaller{
 		registry:         NewServerRegistry(),
 		runtimeInstaller: runtimeInstaller,
@@ -137,7 +137,7 @@ func (s *DefaultServerInstaller) Verify(server string) (*types.VerificationResul
 		return nil, NewInstallerError(InstallerErrorTypeNotFound, server,
 			"runtime installer not available", nil)
 	}
-	
+
 	verifier := NewServerVerifier(s.runtimeInstaller)
 	if verifier == nil {
 		return nil, NewInstallerError(InstallerErrorTypeNotFound, server,
@@ -192,7 +192,7 @@ func (s *DefaultServerInstaller) ValidateDependencies(server string) (*types.Dep
 		return nil, NewInstallerError(InstallerErrorTypeNotFound, server,
 			"runtime installer not available", nil)
 	}
-	
+
 	serverDef, err := s.registry.GetServer(server)
 	if err != nil {
 		return nil, NewInstallerError(InstallerErrorTypeNotFound, server,
@@ -250,12 +250,12 @@ func (s *DefaultServerInstaller) GetPlatformStrategy(platform string) types.Serv
 	if strategy, exists := s.strategies[platform]; exists {
 		return strategy
 	}
-	
+
 	// Safe fallback - check linux strategy exists before returning
 	if linuxStrategy, exists := s.strategies["linux"]; exists {
 		return linuxStrategy
 	}
-	
+
 	// Return nil if no strategies available - caller must handle this
 	return nil
 }

@@ -46,13 +46,13 @@ type ServerConfig struct {
 	WorkingDir  string            `yaml:"working_dir"`
 	Env         map[string]string `yaml:"env"`
 	InitOptions map[string]any    `yaml:"init_options"`
-	
+
 	// Server lifecycle settings
 	StartTimeout    time.Duration `yaml:"start_timeout"`
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
-	
+
 	// Testing-specific settings
-	PreWarmup       bool     `yaml:"pre_warmup"`
+	PreWarmup       bool          `yaml:"pre_warmup"`
 	InitializeDelay time.Duration `yaml:"initialize_delay"`
 }
 
@@ -107,25 +107,25 @@ type ExpectedResult struct {
 	Contains    []string               `yaml:"contains,omitempty"`
 	Excludes    []string               `yaml:"excludes,omitempty"`
 	Properties  map[string]interface{} `yaml:"properties,omitempty"`
-	
+
 	// Method-specific expectations
-	Definition  *DefinitionExpected  `yaml:"definition,omitempty"`
-	References  *ReferencesExpected  `yaml:"references,omitempty"`
-	Hover       *HoverExpected       `yaml:"hover,omitempty"`
-	Symbols     *SymbolsExpected     `yaml:"symbols,omitempty"`
+	Definition *DefinitionExpected `yaml:"definition,omitempty"`
+	References *ReferencesExpected `yaml:"references,omitempty"`
+	Hover      *HoverExpected      `yaml:"hover,omitempty"`
+	Symbols    *SymbolsExpected    `yaml:"symbols,omitempty"`
 }
 
 // Method-specific expected result types
 type DefinitionExpected struct {
-	HasLocation bool     `yaml:"has_location"`
-	FileURI     *string  `yaml:"file_uri,omitempty"`
-	Range       *Range   `yaml:"range,omitempty"`
+	HasLocation bool    `yaml:"has_location"`
+	FileURI     *string `yaml:"file_uri,omitempty"`
+	Range       *Range  `yaml:"range,omitempty"`
 }
 
 type ReferencesExpected struct {
-	MinCount    int      `yaml:"min_count"`
-	MaxCount    int      `yaml:"max_count"`
-	IncludeDecl bool     `yaml:"include_declaration"`
+	MinCount    int  `yaml:"min_count"`
+	MaxCount    int  `yaml:"max_count"`
+	IncludeDecl bool `yaml:"include_declaration"`
 }
 
 type HoverExpected struct {
@@ -166,11 +166,11 @@ type ValidationConfig struct {
 
 // ReportingConfig defines reporting settings
 type ReportingConfig struct {
-	Formats    []string `yaml:"formats"`    // console, json, junit
-	OutputDir  string   `yaml:"output_dir"`
-	Verbose    bool     `yaml:"verbose"`
-	IncludeTiming bool  `yaml:"include_timing"`
-	SaveDetails   bool  `yaml:"save_details"`
+	Formats       []string `yaml:"formats"` // console, json, junit
+	OutputDir     string   `yaml:"output_dir"`
+	Verbose       bool     `yaml:"verbose"`
+	IncludeTiming bool     `yaml:"include_timing"`
+	SaveDetails   bool     `yaml:"save_details"`
 }
 
 // DefaultLSPTestConfig returns a default configuration

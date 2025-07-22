@@ -118,10 +118,10 @@ func TestStdioClientServerCrashScenarios(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name         string
-		crashType    string
-		expectedErr  string
-		crashAfter   time.Duration
+		name        string
+		crashType   string
+		expectedErr string
+		crashAfter  time.Duration
 	}{
 		{
 			name:        "immediate exit",
@@ -403,8 +403,8 @@ func TestTCPClientNetworkUnreachable(t *testing.T) {
 
 			// Should contain timeout or unreachable in error
 			errStr := strings.ToLower(err.Error())
-			if !strings.Contains(errStr, "timeout") && !strings.Contains(errStr, "unreachable") && 
-			   !strings.Contains(errStr, "context deadline exceeded") {
+			if !strings.Contains(errStr, "timeout") && !strings.Contains(errStr, "unreachable") &&
+				!strings.Contains(errStr, "context deadline exceeded") {
 				t.Errorf("Expected timeout/unreachable error, got: %v", err)
 			}
 
@@ -499,10 +499,10 @@ func TestTCPClientConnectionReset(t *testing.T) {
 				if err != nil {
 					return
 				}
-				
+
 				go func(c net.Conn) {
 					defer func() { _ = c.Close() }()
-					
+
 					// Read some data then close
 					buffer := make([]byte, 1024)
 					if _, err := c.Read(buffer); err == nil {
@@ -602,7 +602,7 @@ func TestTCPClientIPv4IPv6Scenarios(t *testing.T) {
 			expectedError: "connection refused",
 		},
 		{
-			name:          "IPv6 loopback connection refused", 
+			name:          "IPv6 loopback connection refused",
 			address:       "[::1]:65529",
 			expectedError: "connection refused",
 		},
@@ -672,7 +672,7 @@ func TestLSPClientFactoryConnectionErrors(t *testing.T) {
 		{
 			name: "TCP with port out of range",
 			config: ClientConfig{
-				Transport: "tcp", 
+				Transport: "tcp",
 				Command:   "localhost:99999",
 			},
 			expectedError: "invalid port",
@@ -785,18 +785,18 @@ func TestConcurrentConnectionFailures(t *testing.T) {
 func createNonExecutableFile(t *testing.T) string {
 	tmpDir := t.TempDir()
 	filePath := filepath.Join(tmpDir, "non_executable")
-	
+
 	if err := os.WriteFile(filePath, []byte("#!/bin/bash\necho test"), 0644); err != nil {
 		t.Fatalf("Failed to create non-executable file: %v", err)
 	}
-	
+
 	return filePath
 }
 
 func createCrashingMockLSPServer(t *testing.T, crashType string, crashAfter time.Duration) string {
 	tmpDir := t.TempDir()
 	scriptPath := filepath.Join(tmpDir, "crashing_mock_lsp.sh")
-	
+
 	var script string
 	switch crashType {
 	case "exit_immediate":
@@ -814,7 +814,7 @@ func createCrashingMockLSPServer(t *testing.T, crashType string, crashAfter time
 	if err := os.WriteFile(scriptPath, []byte(script), 0755); err != nil {
 		t.Fatalf("Failed to create crashing mock LSP script: %v", err)
 	}
-	
+
 	return scriptPath
 }
 
@@ -829,4 +829,3 @@ func allocateUnusedPort(t *testing.T) int {
 	}
 	return port
 }
-

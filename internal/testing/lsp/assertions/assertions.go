@@ -29,7 +29,7 @@ func NewAssertionContext(testCase *cases.TestCase, config *lspconfig.ValidationC
 		}
 		config = &defaultConfig
 	}
-	
+
 	return &AssertionContext{
 		config:          config,
 		testCase:        testCase,
@@ -191,7 +191,7 @@ func (ctx *AssertionContext) AssertRange(actual interface{}, expected *ExpectedR
 	if ctx.config.ValidatePositions && startResult.Passed && endResult.Passed {
 		startMap := start.(map[string]interface{})
 		endMap := end.(map[string]interface{})
-		
+
 		startLine := int(startMap["line"].(float64))
 		startChar := int(startMap["character"].(float64))
 		endLine := int(endMap["line"].(float64))
@@ -340,7 +340,7 @@ func (ctx *AssertionContext) AssertURI(actual string, expected *ExpectedURI, fie
 				fmt.Sprintf("URI %s does not contain expected substring %s", actual, *expected.Contains),
 				false,
 				map[string]interface{}{
-					"actual_uri":      actual,
+					"actual_uri":         actual,
 					"expected_substring": *expected.Contains,
 				},
 			)

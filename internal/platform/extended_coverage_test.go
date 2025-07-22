@@ -103,20 +103,20 @@ func TestLinuxDistributionFunctions(t *testing.T) {
 
 	t.Run("mapIDToDistribution", func(t *testing.T) {
 		testCases := map[string]LinuxDistribution{
-			"ubuntu":    DistributionUbuntu,
-			"UBUNTU":    DistributionUbuntu,
-			"debian":    DistributionDebian,
-			"fedora":    DistributionFedora,
-			"centos":    DistributionCentOS,
-			"rhel":      DistributionRHEL,
-			"red":       DistributionRHEL,
-			"redhat":    DistributionRHEL,
-			"arch":      DistributionArch,
-			"opensuse":  DistributionOpenSUSE,
-			"suse":      DistributionOpenSUSE,
-			"alpine":    DistributionAlpine,
-			"unknown":   DistributionUnknown,
-			"invalid":   DistributionUnknown,
+			"ubuntu":   DistributionUbuntu,
+			"UBUNTU":   DistributionUbuntu,
+			"debian":   DistributionDebian,
+			"fedora":   DistributionFedora,
+			"centos":   DistributionCentOS,
+			"rhel":     DistributionRHEL,
+			"red":      DistributionRHEL,
+			"redhat":   DistributionRHEL,
+			"arch":     DistributionArch,
+			"opensuse": DistributionOpenSUSE,
+			"suse":     DistributionOpenSUSE,
+			"alpine":   DistributionAlpine,
+			"unknown":  DistributionUnknown,
+			"invalid":  DistributionUnknown,
 		}
 
 		for id, expected := range testCases {
@@ -371,9 +371,9 @@ func TestPackageManagerSelectionFunctions(t *testing.T) {
 		// Create mock managers
 		homebrew := NewHomebrewManager()
 		apt := NewAptManager()
-		
+
 		available := []PackageManager{apt, homebrew}
-		
+
 		best := getBestDarwinPackageManager(available)
 		if best != homebrew {
 			t.Error("Expected homebrew to be best Darwin package manager")
@@ -456,7 +456,7 @@ func TestExecutorEdgeCases(t *testing.T) {
 
 		executor := &windowsExecutor{}
 		shell := executor.GetShell()
-		
+
 		// Should return cmd, powershell, or pwsh
 		validShells := []string{"cmd", "powershell", "pwsh"}
 		isValid := false
@@ -483,7 +483,7 @@ func TestExecutorEdgeCases(t *testing.T) {
 		}
 
 		executor := &unixExecutor{}
-		
+
 		// Save original SHELL environment variable
 		originalShell := os.Getenv("SHELL")
 		defer func() {
@@ -513,7 +513,7 @@ func TestExecutorEdgeCases(t *testing.T) {
 		if len(args) == 0 {
 			t.Error("No shell args returned")
 		}
-		
+
 		// Should contain -c
 		found := false
 		for _, arg := range args {

@@ -152,10 +152,10 @@ func TestGatewayHighLoadErrorHandling(t *testing.T) {
 			}
 
 			body, err := json.Marshal(request)
-		if err != nil {
-			errors <- fmt.Errorf("failed to marshal JSON request: %v", err)
-			return
-		}
+			if err != nil {
+				errors <- fmt.Errorf("failed to marshal JSON request: %v", err)
+				return
+			}
 			req := httptest.NewRequest("POST", "/jsonrpc", bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
@@ -369,10 +369,10 @@ func TestGatewayRaceConditions(t *testing.T) {
 			}
 
 			body, err := json.Marshal(request)
-		if err != nil {
-			// Cannot use t.Fatalf in goroutine, so just return
-			return
-		}
+			if err != nil {
+				// Cannot use t.Fatalf in goroutine, so just return
+				return
+			}
 			req := httptest.NewRequest("POST", "/jsonrpc", bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()

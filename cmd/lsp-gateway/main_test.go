@@ -1365,14 +1365,14 @@ func TestEnvironmentScenarios(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			cmd := exec.Command(testBinaryPath, tc.args...)
-			
+
 			// Set up environment
 			env := os.Environ()
 			for key, value := range tc.envVars {
 				env = append(env, fmt.Sprintf("%s=%s", key, value))
 			}
 			cmd.Env = env
-			
+
 			output, err := cmd.CombinedOutput()
 			outputStr := string(output)
 
@@ -1598,7 +1598,7 @@ func TestMainFunctionDirect(t *testing.T) {
 
 		// Call main() directly - this exercises the success path
 		main()
-		
+
 		// If we reach here, main() completed successfully without calling os.Exit
 		t.Log("Success path completed successfully")
 	})
@@ -1628,7 +1628,7 @@ func TestRunMain(t *testing.T) {
 
 		// Call runMain() directly - this exercises the success path
 		exitCode := runMain()
-		
+
 		// Verify success exit code
 		if exitCode != 0 {
 			t.Errorf("Expected exit code 0 for success path, got %d", exitCode)
@@ -1640,7 +1640,7 @@ func TestRunMain(t *testing.T) {
 		// Save original state
 		originalArgs := os.Args
 		originalStderr := os.Stderr
-		
+
 		defer func() {
 			os.Args = originalArgs
 			os.Stderr = originalStderr
@@ -1658,9 +1658,9 @@ func TestRunMain(t *testing.T) {
 
 		// Call runMain() directly - this exercises the error path
 		exitCode := runMain()
-		
+
 		// Close write end and read stderr
-		w.Close()
+		_ = w.Close()
 		stderrOutput, err := io.ReadAll(r)
 		if err != nil {
 			t.Fatalf("Failed to read stderr: %v", err)
@@ -1689,7 +1689,7 @@ func TestRunMain(t *testing.T) {
 		// Save original state
 		originalArgs := os.Args
 		originalStderr := os.Stderr
-		
+
 		defer func() {
 			os.Args = originalArgs
 			os.Stderr = originalStderr
@@ -1707,9 +1707,9 @@ func TestRunMain(t *testing.T) {
 
 		// Call runMain() directly
 		exitCode := runMain()
-		
+
 		// Close write end and read stderr
-		w.Close()
+		_ = w.Close()
 		stderrOutput, err := io.ReadAll(r)
 		if err != nil {
 			t.Fatalf("Failed to read stderr: %v", err)
@@ -1750,7 +1750,7 @@ func TestMainFunctionNonExitPath(t *testing.T) {
 	// up to the point where it checks if exitCode != 0, but since exitCode will be 0,
 	// it won't call os.Exit
 	main()
-	
+
 	t.Log("Main function success path completed without calling os.Exit")
 }
 
@@ -1789,8 +1789,8 @@ func TestCombinedMainAndRunMainCoverage(t *testing.T) {
 
 		os.Args = []string{"lsp-gateway", "--invalid-flag"}
 		exitCode := runMain()
-		
-		w.Close()
+
+		_ = w.Close()
 		stderrOutput, _ := io.ReadAll(r)
 		os.Stderr = originalStderr
 

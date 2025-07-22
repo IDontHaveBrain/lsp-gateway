@@ -21,12 +21,12 @@ import (
 
 // FileDescriptorMonitor tracks file descriptor usage
 type FileDescriptorMonitor struct {
-	pid           int
-	initialCount  int64
-	currentCount  int64
-	maxObserved   int64
-	measurements  []int64
-	mu            sync.RWMutex
+	pid          int
+	initialCount int64
+	currentCount int64
+	maxObserved  int64
+	measurements []int64
+	mu           sync.RWMutex
 }
 
 func NewFileDescriptorMonitor() *FileDescriptorMonitor {
@@ -149,7 +149,7 @@ func NewConnectionPool(maxConnections int) *ConnectionPool {
 
 func (cp *ConnectionPool) GetClient(ctx context.Context) (*http.Client, error) {
 	cp.mu.Lock()
-	
+
 	// Check if we have available clients in the pool
 	if len(cp.clients) > 0 {
 		client := cp.clients[len(cp.clients)-1]
@@ -164,7 +164,7 @@ func (cp *ConnectionPool) GetClient(ctx context.Context) (*http.Client, error) {
 	if int(atomic.LoadInt64(&cp.activeConns)) >= cp.maxConnections {
 		atomic.AddInt64(&cp.metrics.QueuedRequests, 1)
 		cp.mu.Unlock() // Release lock before waiting on channel
-		
+
 		select {
 		case client := <-cp.waitingQueue:
 			atomic.AddInt64(&cp.activeConns, 1)
@@ -292,7 +292,7 @@ func TestGatewayConnectionLimits_MaxConcurrentConnections(t *testing.T) {
 
 func testSequentialConnections(t *testing.T, baseURL string, pool *ConnectionPool, fdMonitor *FileDescriptorMonitor, count int) {
 	ctx := context.Background()
-	
+
 	for i := 0; i < count; i++ {
 		client, err := pool.GetClient(ctx)
 		if err != nil {
@@ -319,7 +319,7 @@ func testSequentialConnections(t *testing.T, baseURL string, pool *ConnectionPoo
 func testConcurrentConnections(t *testing.T, baseURL string, pool *ConnectionPool, fdMonitor *FileDescriptorMonitor, maxConnections int) {
 	var wg sync.WaitGroup
 	concurrentRequests := maxConnections * 2
-	
+
 	requestCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -442,7 +442,7 @@ func TestGatewayConnectionLimits_QueueManagement(t *testing.T) {
 func testQueueOverflowHandling(t *testing.T, baseURL string, pool *ConnectionPool) {
 	overflowRequests := 20
 	var wg sync.WaitGroup
-	
+
 	successCount := int64(0)
 	errorCount := int64(0)
 	timeoutCount := int64(0)
@@ -513,7 +513,7 @@ func testQueueFIFOOrder(t *testing.T, baseURL string, pool *ConnectionPool) {
 
 			// Add small delay to ensure queueing behavior
 			time.Sleep(time.Duration(id*10) * time.Millisecond)
-			
+
 			err = sendTestRequest(client, baseURL, fmt.Sprintf("fifo_test_%d", id))
 			if err == nil {
 				results <- id
@@ -530,7 +530,7 @@ func testQueueFIFOOrder(t *testing.T, baseURL string, pool *ConnectionPool) {
 	}
 
 	t.Logf("FIFO test processed %d requests in order: %v", len(resultOrder), resultOrder)
-	
+
 	if len(resultOrder) < requestCount/2 {
 		t.Errorf("Too few requests completed: %d (expected at least %d)", len(resultOrder), requestCount/2)
 	}
@@ -539,7 +539,7 @@ func testQueueFIFOOrder(t *testing.T, baseURL string, pool *ConnectionPool) {
 func testQueueTimeoutHandling(t *testing.T, baseURL string, pool *ConnectionPool) {
 	var wg sync.WaitGroup
 	timeoutRequests := 8
-	
+
 	timeoutCount := int64(0)
 	successCount := int64(0)
 
@@ -571,7 +571,7 @@ func testQueueTimeoutHandling(t *testing.T, baseURL string, pool *ConnectionPool
 	wg.Wait()
 
 	t.Logf("Timeout test - Success: %d, Timeouts: %d", successCount, timeoutCount)
-	
+
 	if timeoutCount == 0 {
 		t.Error("Expected some timeouts due to short context deadline")
 	}
@@ -598,7 +598,7 @@ func TestGatewayConnectionLimits_ResourceCleanup(t *testing.T) {
 func testConnectionCleanupAfterErrors(t *testing.T) {
 	port := testutil.AllocateTestPort(t)
 	// Intentionally don't start a server to cause connection errors
-	
+
 	baseURL := fmt.Sprintf("http://localhost:%d/jsonrpc", port)
 	pool := NewConnectionPool(10)
 	defer pool.Close()
@@ -655,12 +655,12 @@ func testConnectionCleanupAfterErrors(t *testing.T) {
 
 func testPoolCleanupVerification(t *testing.T) {
 	initialFdCount := getCurrentFileDescriptorCount(os.Getpid())
-	
+
 	// Create and destroy multiple pools
 	poolCount := 5
 	for i := 0; i < poolCount; i++ {
 		pool := NewConnectionPool(20)
-		
+
 		// Get some clients
 		ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		for j := 0; j < 5; j++ {
@@ -670,7 +670,7 @@ func testPoolCleanupVerification(t *testing.T) {
 			}
 		}
 		cancel()
-		
+
 		pool.Close()
 		runtime.GC() // Force garbage collection
 		time.Sleep(100 * time.Millisecond)
@@ -696,7 +696,7 @@ func testMemoryLeakDetection(t *testing.T) {
 	iterations := 100
 	for i := 0; i < iterations; i++ {
 		pool := NewConnectionPool(5)
-		
+
 		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		for j := 0; j < 3; j++ {
 			client, err := pool.GetClient(ctx)
@@ -705,9 +705,9 @@ func testMemoryLeakDetection(t *testing.T) {
 			}
 		}
 		cancel()
-		
+
 		pool.Close()
-		
+
 		if i%20 == 0 {
 			runtime.GC()
 		}
@@ -813,7 +813,7 @@ func testRespectSystemLimits(t *testing.T, systemLimit int64) {
 	wg.Wait()
 
 	current, max, initial, _ := fdMonitor.GetStats()
-	
+
 	t.Logf("System limits test - Success: %d, Rejected: %d, FD usage - Initial: %d, Max: %d, Current: %d",
 		successCount, rejectedCount, initial, max, current)
 
@@ -838,10 +838,10 @@ func testGracefulDegradation(t *testing.T, systemLimit int64) {
 
 	// Gradually increase load and monitor behavior
 	loadLevels := []int{int(testLimit / 2), int(testLimit), int(testLimit * 2)}
-	
+
 	for _, loadLevel := range loadLevels {
 		t.Logf("Testing graceful degradation at load level: %d", loadLevel)
-		
+
 		var wg sync.WaitGroup
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 

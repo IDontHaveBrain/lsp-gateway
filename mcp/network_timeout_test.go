@@ -67,7 +67,7 @@ func TestMCPServerMessageTimeout(t *testing.T) {
 
 			server := NewServer(config)
 			server.SetIO(inputReader, outputWriter)
-			
+
 			// Override message timeout for testing
 			server.protocolLimits.MessageTimeout = tt.messageTimeout
 
@@ -107,7 +107,7 @@ func TestMCPServerMessageTimeout(t *testing.T) {
 			responseChan := make(chan string, 1)
 			go func() {
 				reader := bufio.NewReader(outputReader)
-				
+
 				// Read headers
 				var contentLength int
 				for {
@@ -138,7 +138,7 @@ func TestMCPServerMessageTimeout(t *testing.T) {
 			select {
 			case response := <-responseChan:
 				duration := time.Since(start)
-				
+
 				if tt.expectedTimeout {
 					t.Errorf("Expected timeout but got response in %v: %s", duration, response)
 				} else {
@@ -153,7 +153,7 @@ func TestMCPServerMessageTimeout(t *testing.T) {
 
 			case <-time.After(responseTimeout):
 				duration := time.Since(start)
-				
+
 				if !tt.expectedTimeout {
 					t.Errorf("Unexpected timeout after %v", duration)
 				} else {
@@ -214,12 +214,12 @@ func TestMCPClientGatewayTimeout(t *testing.T) {
 			defer mockGateway.Close()
 
 			config := &ServerConfig{
-				Name:            "timeout-test",
-				Version:         "1.0.0",
-				LSPGatewayURL:   mockGateway.URL,
-				Timeout:  tt.requestTimeout,
+				Name:          "timeout-test",
+				Version:       "1.0.0",
+				LSPGatewayURL: mockGateway.URL,
+				Timeout:       tt.requestTimeout,
 				// ConnectTimeout:  5 * time.Second,
-				MaxRetries:      1,
+				MaxRetries: 1,
 				// EnableMetrics:   true,
 				// EnableHealthCheck: false,
 			}
@@ -240,8 +240,8 @@ func TestMCPClientGatewayTimeout(t *testing.T) {
 			if tt.expectedError {
 				if err == nil {
 					t.Error("Expected timeout error")
-				} else if !strings.Contains(strings.ToLower(err.Error()), "timeout") && 
-						  !strings.Contains(strings.ToLower(err.Error()), "context deadline exceeded") {
+				} else if !strings.Contains(strings.ToLower(err.Error()), "timeout") &&
+					!strings.Contains(strings.ToLower(err.Error()), "context deadline exceeded") {
 					t.Errorf("Expected timeout error, got: %v", err)
 				}
 
@@ -271,12 +271,12 @@ func TestMCPToolCallTimeouts(t *testing.T) {
 	defer mockGateway.Close()
 
 	config := &ServerConfig{
-		Name:            "tool-timeout-test",
-		Version:         "1.0.0",
-		LSPGatewayURL:   mockGateway.URL,
-		Timeout:  1 * time.Second, // Short timeout
+		Name:          "tool-timeout-test",
+		Version:       "1.0.0",
+		LSPGatewayURL: mockGateway.URL,
+		Timeout:       1 * time.Second, // Short timeout
 		// ConnectTimeout:  5 * time.Second,
-		MaxRetries:      1,
+		MaxRetries: 1,
 		// EnableMetrics:   false,
 		// EnableHealthCheck: false,
 	}
@@ -351,12 +351,12 @@ func TestMCPConcurrentTimeouts(t *testing.T) {
 	defer mockGateway.Close()
 
 	config := &ServerConfig{
-		Name:            "concurrent-test",
-		Version:         "1.0.0",
-		LSPGatewayURL:   mockGateway.URL,
-		Timeout:  1 * time.Second, // Will timeout
+		Name:          "concurrent-test",
+		Version:       "1.0.0",
+		LSPGatewayURL: mockGateway.URL,
+		Timeout:       1 * time.Second, // Will timeout
 		// ConnectTimeout:  5 * time.Second,
-		MaxRetries:      1,
+		MaxRetries: 1,
 		// EnableMetrics:   true,
 		// EnableHealthCheck: false,
 	}
@@ -375,7 +375,7 @@ func TestMCPConcurrentTimeouts(t *testing.T) {
 	// Launch concurrent tool calls
 	tools := []string{
 		"goto_definition",
-		"find_references", 
+		"find_references",
 		"get_hover_info",
 		"get_document_symbols",
 		"search_workspace_symbols",
@@ -443,12 +443,12 @@ func TestMCPCircuitBreakerWithTimeouts(t *testing.T) {
 	defer mockGateway.Close()
 
 	config := &ServerConfig{
-		Name:            "circuit-breaker-test",
-		Version:         "1.0.0",
-		LSPGatewayURL:   mockGateway.URL,
-		Timeout:  1 * time.Second,
+		Name:          "circuit-breaker-test",
+		Version:       "1.0.0",
+		LSPGatewayURL: mockGateway.URL,
+		Timeout:       1 * time.Second,
 		// ConnectTimeout:  5 * time.Second,
-		MaxRetries:      1,
+		MaxRetries: 1,
 		// EnableMetrics:   true,
 		// EnableHealthCheck: false,
 	}
@@ -459,7 +459,7 @@ func TestMCPCircuitBreakerWithTimeouts(t *testing.T) {
 	// Make several requests that will timeout to trigger circuit breaker
 	for i := 0; i < 5; i++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		
+
 		args := map[string]interface{}{
 			"uri":    fmt.Sprintf("file:///test%d.go", i),
 			"line":   10,
@@ -518,12 +518,12 @@ func TestMCPServerStdioTimeout(t *testing.T) {
 	defer mockGateway.Close()
 
 	config := &ServerConfig{
-		Name:            "stdio-timeout-test",
-		Version:         "1.0.0",
-		LSPGatewayURL:   mockGateway.URL,
-		Timeout:  5 * time.Second,
+		Name:          "stdio-timeout-test",
+		Version:       "1.0.0",
+		LSPGatewayURL: mockGateway.URL,
+		Timeout:       5 * time.Second,
 		// ConnectTimeout:  5 * time.Second,
-		MaxRetries:      1,
+		MaxRetries: 1,
 		// EnableMetrics:   false,
 		// EnableHealthCheck: false,
 	}
@@ -549,7 +549,7 @@ func TestMCPServerStdioTimeout(t *testing.T) {
 		stdinWriter.Write([]byte("Content-Length: 100\r\n\r\n"))
 		// Send partial JSON and hang
 		stdinWriter.Write([]byte(`{"jsonrpc":"2.0","id":"hang","method":"initialize","params":`))
-		
+
 		// Don't complete the message - let it hang (reduced timeout)
 		time.Sleep(1 * time.Second) // Reduced from 10s
 	}()
@@ -597,12 +597,12 @@ func TestMCPTCPTimeout(t *testing.T) {
 	address := listener.Addr().String()
 
 	config := &ServerConfig{
-		Name:            "tcp-timeout-test",
-		Version:         "1.0.0",
-		LSPGatewayURL:   mockGateway.URL,
-		Timeout:  1 * time.Second, // Short timeout
+		Name:          "tcp-timeout-test",
+		Version:       "1.0.0",
+		LSPGatewayURL: mockGateway.URL,
+		Timeout:       1 * time.Second, // Short timeout
 		// ConnectTimeout:  5 * time.Second,
-		MaxRetries:      1,
+		MaxRetries: 1,
 		// EnableMetrics:   false,
 		// EnableHealthCheck: false,
 	}
@@ -656,10 +656,10 @@ func TestMCPTCPTimeout(t *testing.T) {
 
 	// Read response with timeout
 	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
-	
+
 	reader := bufio.NewReader(conn)
 	var contentLength int
-	
+
 	// Read headers
 	for {
 		line, err := reader.ReadString('\n')
@@ -802,12 +802,12 @@ func BenchmarkMCPToolCallTimeout(b *testing.B) {
 	defer mockGateway.Close()
 
 	config := &ServerConfig{
-		Name:            "bench-test",
-		Version:         "1.0.0",
-		LSPGatewayURL:   mockGateway.URL,
-		Timeout:  30 * time.Millisecond, // Will timeout
+		Name:          "bench-test",
+		Version:       "1.0.0",
+		LSPGatewayURL: mockGateway.URL,
+		Timeout:       30 * time.Millisecond, // Will timeout
 		// ConnectTimeout:  5 * time.Second,
-		MaxRetries:      1,
+		MaxRetries: 1,
 		// EnableMetrics:   false,
 		// EnableHealthCheck: false,
 	}
@@ -838,12 +838,12 @@ func BenchmarkMCPToolCallSuccess(b *testing.B) {
 	defer mockGateway.Close()
 
 	config := &ServerConfig{
-		Name:            "bench-success-test",
-		Version:         "1.0.0",
-		LSPGatewayURL:   mockGateway.URL,
-		Timeout:  100 * time.Millisecond,
+		Name:          "bench-success-test",
+		Version:       "1.0.0",
+		LSPGatewayURL: mockGateway.URL,
+		Timeout:       100 * time.Millisecond,
 		// ConnectTimeout:  5 * time.Second,
-		MaxRetries:      1,
+		MaxRetries: 1,
 		// EnableMetrics:   false,
 		// EnableHealthCheck: false,
 	}

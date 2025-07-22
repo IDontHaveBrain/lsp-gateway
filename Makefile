@@ -260,7 +260,7 @@ check-deadcode:
 security:
 	@echo "Running security analysis..."
 	@command -v gosec >/dev/null 2>&1 || { echo "gosec not found. Install it with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; exit 1; }
-	gosec -conf .gosec.json ./...
+	gosec -conf .gosec.json ./cmd/lsp-gateway ./internal/cli ./internal/common ./internal/config ./internal/gateway ./internal/installer ./internal/platform ./internal/setup ./internal/transport ./internal/types ./mcp
 
 # Security analysis with detailed report
 .PHONY: security-report

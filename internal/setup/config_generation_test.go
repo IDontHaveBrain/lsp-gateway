@@ -23,20 +23,20 @@ func TestConfigGenerator_GenerateForRuntime_AllRuntimes(t *testing.T) {
 			// The implementation should handle missing runtimes gracefully
 			if err != nil {
 				t.Logf("GenerateForRuntime for %s returned error (expected for uninstalled runtimes): %v", runtime, err)
-				
+
 				// Verify result is still populated with error information
 				if result == nil {
 					t.Fatalf("Expected non-nil result even on error for runtime %s", runtime)
 				}
-				
+
 				if len(result.Issues) == 0 {
 					t.Errorf("Expected issues to be reported for runtime %s", runtime)
 				}
-				
+
 				if result.ServersGenerated != 0 {
 					t.Errorf("Expected 0 servers generated for failed runtime %s, got %d", runtime, result.ServersGenerated)
 				}
-				
+
 				return
 			}
 
@@ -79,17 +79,17 @@ func TestConfigGenerator_GenerateServerConfig(t *testing.T) {
 
 	// Mock runtime info for Go
 	runtimeInfo := &RuntimeInfo{
-		Name:        "go",
-		Installed:   true,
-		Version:     "go1.21.0",
-		Compatible:  true,
-		Path:        "/usr/local/go/bin/go",
-		WorkingDir:  "",
-		DetectedAt:  time.Now(),
-		Duration:    100 * time.Millisecond,
-		Issues:      []string{},
-		Warnings:    []string{},
-		Metadata:    make(map[string]interface{}),
+		Name:       "go",
+		Installed:  true,
+		Version:    "go1.21.0",
+		Compatible: true,
+		Path:       "/usr/local/go/bin/go",
+		WorkingDir: "",
+		DetectedAt: time.Now(),
+		Duration:   100 * time.Millisecond,
+		Issues:     []string{},
+		Warnings:   []string{},
+		Metadata:   make(map[string]interface{}),
 	}
 
 	testCases := []struct {
@@ -117,7 +117,7 @@ func TestConfigGenerator_GenerateServerConfig(t *testing.T) {
 			name: "Python Language Server",
 			serverDef: &ServerDefinition{
 				Name:        "pylsp",
-				DisplayName: "Python Language Server",  
+				DisplayName: "Python Language Server",
 				Languages:   []string{"python"},
 				DefaultConfig: map[string]interface{}{
 					"command":   "pylsp",
@@ -150,7 +150,7 @@ func TestConfigGenerator_GenerateServerConfig(t *testing.T) {
 				DisplayName: "Java Language Server",
 				Languages:   []string{"java"},
 				DefaultConfig: map[string]interface{}{
-					"command":   "jdtls", 
+					"command":   "jdtls",
 					"transport": "stdio",
 					"args":      []string{},
 				},
@@ -395,7 +395,7 @@ func TestConfigGenerator_GenerateFromDetected(t *testing.T) {
 	// The actual result may vary based on the system, but we should handle it gracefully
 	if err != nil {
 		t.Logf("GenerateFromDetected returned error (may be expected): %v", err)
-		
+
 		if result == nil {
 			t.Error("Expected non-nil result even on error")
 		}
@@ -468,18 +468,18 @@ func TestConfigGenerator_ValidationEdgeCases(t *testing.T) {
 // TestConfigGenerator_SetLogger tests the SetLogger method
 func TestConfigGenerator_SetLogger(t *testing.T) {
 	generator := NewConfigGenerator()
-	
+
 	// Test setting nil logger (should not crash)
 	generator.SetLogger(nil)
-	
+
 	// Test setting valid logger
 	logger := NewSetupLogger(nil)
 	generator.SetLogger(logger)
-	
+
 	if generator.logger != logger {
 		t.Error("Expected logger to be set")
 	}
-	
+
 	// Test that it propagates to runtime detector
 	detector := generator.runtimeDetector.(*DefaultRuntimeDetector)
 	if detector.logger != logger {

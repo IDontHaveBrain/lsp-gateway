@@ -209,7 +209,7 @@ func TestSendLSPRequestSuccess(t *testing.T) {
 	if err := json.Unmarshal(result, &resultJSON); err != nil {
 		t.Fatalf("Failed to unmarshal result: %v", err)
 	}
-	
+
 	// Compare the parsed JSON structures
 	expectedBytes, _ := json.Marshal(expectedJSON)
 	resultBytes, _ := json.Marshal(resultJSON)
@@ -870,10 +870,10 @@ func BenchmarkCircuitBreakerCheck(b *testing.B) {
 // TestProtocolCompliance tests invalid MCP message formats and protocol violations
 func TestProtocolCompliance(t *testing.T) {
 	tests := []struct {
-		name           string
+		name            string
 		responseBuilder func(w http.ResponseWriter, r *http.Request)
-		expectedError  string
-		shouldFail     bool
+		expectedError   string
+		shouldFail      bool
 	}{
 		{
 			name: "InvalidJSONRPCVersion",
@@ -1288,7 +1288,7 @@ func TestEnhancedRetryLogic(t *testing.T) {
 				// Simulate timeout by delaying response
 				time.Sleep(50 * time.Millisecond)
 			}
-			
+
 			w.Header().Set("Content-Type", "application/json")
 			response := JSONRPCResponse{
 				JSONRPC: "2.0",

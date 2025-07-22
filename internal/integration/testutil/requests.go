@@ -13,12 +13,12 @@ import (
 
 // RequestGenerator provides utilities for generating realistic LSP requests
 type RequestGenerator struct {
-	baseURL     string
-	client      *http.Client
-	requestID   int64
-	languages   []string
-	fileURIs    []string
-	positions   []Position
+	baseURL   string
+	client    *http.Client
+	requestID int64
+	languages []string
+	fileURIs  []string
+	positions []Position
 }
 
 // Position represents a position in a document
@@ -33,12 +33,11 @@ type Range struct {
 	End   Position `json:"end"`
 }
 
-
 // RequestPattern defines a pattern for generating requests
 type RequestPattern struct {
-	Method      string
-	Weight      int // Relative frequency of this request type
-	ParamsFunc  func(gen *RequestGenerator) interface{}
+	Method       string
+	Weight       int // Relative frequency of this request type
+	ParamsFunc   func(gen *RequestGenerator) interface{}
 	ValidateFunc func(response *JSONRPCResponse) error
 }
 
@@ -52,7 +51,7 @@ func NewRequestGenerator(baseURL string) *RequestGenerator {
 		languages: []string{"go", "python", "typescript", "javascript", "java"},
 		fileURIs: []string{
 			"file:///test.go",
-			"file:///main.py", 
+			"file:///main.py",
 			"file:///app.ts",
 			"file:///index.js",
 			"file:///Application.java",
@@ -71,33 +70,33 @@ func NewRequestGenerator(baseURL string) *RequestGenerator {
 func (rg *RequestGenerator) GetDefaultRequestPatterns() []RequestPattern {
 	return []RequestPattern{
 		{
-			Method: "textDocument/definition",
-			Weight: 30,
-			ParamsFunc: rg.generateDefinitionParams,
+			Method:       "textDocument/definition",
+			Weight:       30,
+			ParamsFunc:   rg.generateDefinitionParams,
 			ValidateFunc: rg.validateDefinitionResponse,
 		},
 		{
-			Method: "textDocument/hover",
-			Weight: 25,
-			ParamsFunc: rg.generateHoverParams,
+			Method:       "textDocument/hover",
+			Weight:       25,
+			ParamsFunc:   rg.generateHoverParams,
 			ValidateFunc: rg.validateHoverResponse,
 		},
 		{
-			Method: "textDocument/references",
-			Weight: 20,
-			ParamsFunc: rg.generateReferencesParams,
+			Method:       "textDocument/references",
+			Weight:       20,
+			ParamsFunc:   rg.generateReferencesParams,
 			ValidateFunc: rg.validateReferencesResponse,
 		},
 		{
-			Method: "textDocument/documentSymbol",
-			Weight: 15,
-			ParamsFunc: rg.generateDocumentSymbolParams,
+			Method:       "textDocument/documentSymbol",
+			Weight:       15,
+			ParamsFunc:   rg.generateDocumentSymbolParams,
 			ValidateFunc: rg.validateDocumentSymbolResponse,
 		},
 		{
-			Method: "workspace/symbol",
-			Weight: 10,
-			ParamsFunc: rg.generateWorkspaceSymbolParams,
+			Method:       "workspace/symbol",
+			Weight:       10,
+			ParamsFunc:   rg.generateWorkspaceSymbolParams,
 			ValidateFunc: rg.validateWorkspaceSymbolResponse,
 		},
 	}
@@ -171,7 +170,7 @@ func (rg *RequestGenerator) nextRequestID() int64 {
 // GenerateRequest creates a random request based on patterns
 func (rg *RequestGenerator) GenerateRequest(patterns []RequestPattern) *JSONRPCRequest {
 	pattern := rg.selectPattern(patterns)
-	
+
 	return &JSONRPCRequest{
 		JSONRPC: "2.0",
 		ID:      rg.nextRequestID(),
@@ -186,17 +185,17 @@ func (rg *RequestGenerator) selectPattern(patterns []RequestPattern) RequestPatt
 	for _, p := range patterns {
 		totalWeight += p.Weight
 	}
-	
+
 	target := rand.Intn(totalWeight)
 	current := 0
-	
+
 	for _, p := range patterns {
 		current += p.Weight
 		if current > target {
 			return p
 		}
 	}
-	
+
 	return patterns[0] // Fallback
 }
 
@@ -206,14 +205,14 @@ func (rg *RequestGenerator) SendRequest(ctx context.Context, request *JSONRPCReq
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
-	
+
 	req, err := http.NewRequestWithContext(ctx, "POST", rg.baseURL+"/jsonrpc", bytes.NewReader(requestBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
-	
+
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := rg.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to send HTTP request: %w", err)
@@ -223,16 +222,16 @@ func (rg *RequestGenerator) SendRequest(ctx context.Context, request *JSONRPCReq
 			// Log error but don't fail the request
 		}
 	}()
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("HTTP request failed with status: %d", resp.StatusCode)
 	}
-	
+
 	var response JSONRPCResponse
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
-	
+
 	return &response, nil
 }
 
@@ -240,7 +239,7 @@ func (rg *RequestGenerator) SendRequest(ctx context.Context, request *JSONRPCReq
 func (rg *RequestGenerator) SendRequestBatch(ctx context.Context, requests []*JSONRPCRequest) ([]*JSONRPCResponse, error) {
 	responses := make([]*JSONRPCResponse, len(requests))
 	errors := make([]error, len(requests))
-	
+
 	// Use a simple sequential approach for now
 	// Could be enhanced with concurrency if needed
 	for i, req := range requests {
@@ -248,14 +247,14 @@ func (rg *RequestGenerator) SendRequestBatch(ctx context.Context, requests []*JS
 		responses[i] = resp
 		errors[i] = err
 	}
-	
+
 	// Return first error encountered, if any
 	for _, err := range errors {
 		if err != nil {
 			return responses, err
 		}
 	}
-	
+
 	return responses, nil
 }
 
@@ -265,11 +264,11 @@ func (rg *RequestGenerator) validateDefinitionResponse(response *JSONRPCResponse
 	if response.Error != nil {
 		return nil // Errors are acceptable in testing
 	}
-	
+
 	if response.Result == nil {
 		return fmt.Errorf("definition response missing result")
 	}
-	
+
 	// Basic validation - could be enhanced
 	return nil
 }
@@ -278,20 +277,20 @@ func (rg *RequestGenerator) validateHoverResponse(response *JSONRPCResponse) err
 	if response.Error != nil {
 		return nil // Errors are acceptable in testing
 	}
-	
+
 	if response.Result == nil {
 		return fmt.Errorf("hover response missing result")
 	}
-	
+
 	resultMap, ok := response.Result.(map[string]interface{})
 	if !ok {
 		return fmt.Errorf("hover result is not an object")
 	}
-	
+
 	if _, hasContents := resultMap["contents"]; !hasContents {
 		return fmt.Errorf("hover response missing contents")
 	}
-	
+
 	return nil
 }
 
@@ -299,16 +298,16 @@ func (rg *RequestGenerator) validateReferencesResponse(response *JSONRPCResponse
 	if response.Error != nil {
 		return nil // Errors are acceptable in testing
 	}
-	
+
 	if response.Result == nil {
 		return fmt.Errorf("references response missing result")
 	}
-	
+
 	// Result should be an array
 	if _, ok := response.Result.([]interface{}); !ok {
 		return fmt.Errorf("references result is not an array")
 	}
-	
+
 	return nil
 }
 
@@ -316,16 +315,16 @@ func (rg *RequestGenerator) validateDocumentSymbolResponse(response *JSONRPCResp
 	if response.Error != nil {
 		return nil // Errors are acceptable in testing
 	}
-	
+
 	if response.Result == nil {
 		return fmt.Errorf("document symbol response missing result")
 	}
-	
+
 	// Result should be an array
 	if _, ok := response.Result.([]interface{}); !ok {
 		return fmt.Errorf("document symbol result is not an array")
 	}
-	
+
 	return nil
 }
 
@@ -333,16 +332,16 @@ func (rg *RequestGenerator) validateWorkspaceSymbolResponse(response *JSONRPCRes
 	if response.Error != nil {
 		return nil // Errors are acceptable in testing
 	}
-	
+
 	if response.Result == nil {
 		return fmt.Errorf("workspace symbol response missing result")
 	}
-	
+
 	// Result should be an array
 	if _, ok := response.Result.([]interface{}); !ok {
 		return fmt.Errorf("workspace symbol result is not an array")
 	}
-	
+
 	return nil
 }
 
@@ -357,7 +356,7 @@ type RequestSequence struct {
 func (rg *RequestGenerator) GenerateRealisticSequence() *RequestSequence {
 	fileURI := rg.randomFileURI()
 	position := rg.randomPosition()
-	
+
 	// Simulate a user opening a file, hovering, then going to definition
 	requests := []*JSONRPCRequest{
 		{
@@ -407,14 +406,14 @@ func (rg *RequestGenerator) GenerateRealisticSequence() *RequestSequence {
 			},
 		},
 	}
-	
+
 	delays := []time.Duration{
-		0,                    // No delay for first request
+		0,                      // No delay for first request
 		500 * time.Millisecond, // User hovers after seeing symbols
 		200 * time.Millisecond, // Quick go-to-definition
 		300 * time.Millisecond, // Then find references
 	}
-	
+
 	return &RequestSequence{
 		Name:     "realistic_ide_usage",
 		Requests: requests,
@@ -425,7 +424,7 @@ func (rg *RequestGenerator) GenerateRealisticSequence() *RequestSequence {
 // SendSequence sends a sequence of requests with appropriate delays
 func (rg *RequestGenerator) SendSequence(ctx context.Context, sequence *RequestSequence) ([]*JSONRPCResponse, error) {
 	responses := make([]*JSONRPCResponse, len(sequence.Requests))
-	
+
 	for i, req := range sequence.Requests {
 		// Apply delay if specified
 		if i < len(sequence.Delays) && sequence.Delays[i] > 0 {
@@ -435,25 +434,25 @@ func (rg *RequestGenerator) SendSequence(ctx context.Context, sequence *RequestS
 			case <-time.After(sequence.Delays[i]):
 			}
 		}
-		
+
 		resp, err := rg.SendRequest(ctx, req)
 		if err != nil {
 			return responses, fmt.Errorf("request %d in sequence failed: %w", i, err)
 		}
-		
+
 		responses[i] = resp
 	}
-	
+
 	return responses, nil
 }
 
 // BenchmarkConfig configures request generation for benchmarking
 type BenchmarkConfig struct {
-	RequestCount     int
-	ConcurrentUsers  int
-	PatternWeights   map[string]int
-	IncludeErrors    bool
-	ValidationLevel  ValidationLevel
+	RequestCount    int
+	ConcurrentUsers int
+	PatternWeights  map[string]int
+	IncludeErrors   bool
+	ValidationLevel ValidationLevel
 }
 
 // ValidationLevel defines how strict response validation should be
@@ -468,7 +467,7 @@ const (
 // GenerateBenchmarkRequests creates a set of requests for benchmarking
 func (rg *RequestGenerator) GenerateBenchmarkRequests(config *BenchmarkConfig) []*JSONRPCRequest {
 	patterns := rg.GetDefaultRequestPatterns()
-	
+
 	// Adjust weights based on config
 	if config.PatternWeights != nil {
 		for i := range patterns {
@@ -477,11 +476,11 @@ func (rg *RequestGenerator) GenerateBenchmarkRequests(config *BenchmarkConfig) [
 			}
 		}
 	}
-	
+
 	requests := make([]*JSONRPCRequest, config.RequestCount)
 	for i := 0; i < config.RequestCount; i++ {
 		requests[i] = rg.GenerateRequest(patterns)
 	}
-	
+
 	return requests
 }

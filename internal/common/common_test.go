@@ -30,7 +30,7 @@ func TestConfigManager(t *testing.T) {
 	t.Run("LoadAndValidateConfig_Success", func(t *testing.T) {
 		tmpDir := testutil.TempDir(t)
 		configFile := filepath.Join(tmpDir, "config.yaml")
-		
+
 		// Create valid config
 		configContent := testutil.CreateConfigWithPort(8080)
 		err := os.WriteFile(configFile, []byte(configContent), 0644)
@@ -54,12 +54,12 @@ func TestConfigManager(t *testing.T) {
 	t.Run("LoadAndValidateConfig_NotFound", func(t *testing.T) {
 		cm := NewConfigManager()
 		nonexistentFile := "/nonexistent/config.yaml"
-		
+
 		_, err := cm.LoadAndValidateConfig(nonexistentFile)
 		if err == nil {
 			t.Error("Expected error for nonexistent config file")
 		}
-		
+
 		var configErr *ConfigError
 		if !errors.As(err, &configErr) {
 			t.Errorf("Expected ConfigError, got %T", err)
@@ -80,10 +80,10 @@ func TestConfigManager(t *testing.T) {
 		if runtime.GOOS == "windows" || os.Getuid() == 0 {
 			t.Skip("Permission test not applicable on Windows or as root")
 		}
-		
+
 		tmpDir := testutil.TempDir(t)
 		configFile := filepath.Join(tmpDir, "no_read_config.yaml")
-		
+
 		// Create config with no read permissions
 		configContent := testutil.CreateConfigWithPort(8080)
 		err := os.WriteFile(configFile, []byte(configContent), 0000) // No permissions at all
@@ -96,7 +96,7 @@ func TestConfigManager(t *testing.T) {
 		if err == nil {
 			t.Error("Expected permission error")
 		}
-		
+
 		var configErr *ConfigError
 		if errors.As(err, &configErr) {
 			// The actual error type depends on how the system handles no-permission files
@@ -117,7 +117,7 @@ func TestConfigManager(t *testing.T) {
 	t.Run("LoadAndValidateConfig_InvalidYAML", func(t *testing.T) {
 		tmpDir := testutil.TempDir(t)
 		configFile := filepath.Join(tmpDir, "invalid.yaml")
-		
+
 		// Create invalid YAML
 		invalidContent := "invalid: yaml: content: [\nunclosed"
 		err := os.WriteFile(configFile, []byte(invalidContent), 0644)
@@ -130,7 +130,7 @@ func TestConfigManager(t *testing.T) {
 		if err == nil {
 			t.Error("Expected error for invalid YAML")
 		}
-		
+
 		var configErr *ConfigError
 		if errors.As(err, &configErr) {
 			if configErr.Type != ConfigErrorTypeInvalid {
@@ -145,7 +145,7 @@ func TestConfigManager(t *testing.T) {
 	t.Run("LoadAndValidateConfig_ValidationError", func(t *testing.T) {
 		tmpDir := testutil.TempDir(t)
 		configFile := filepath.Join(tmpDir, "invalid_config.yaml")
-		
+
 		// Create config that will fail validation (invalid port)
 		invalidConfig := `port: -1
 servers: []`
@@ -159,7 +159,7 @@ servers: []`
 		if err == nil {
 			t.Error("Expected validation error for invalid port")
 		}
-		
+
 		var configErr *ConfigError
 		if errors.As(err, &configErr) {
 			if configErr.Type != ConfigErrorTypeValidation {
@@ -171,13 +171,13 @@ servers: []`
 	t.Run("OverridePortIfSpecified", func(t *testing.T) {
 		cm := NewConfigManager()
 		cfg := &config.GatewayConfig{Port: 8080}
-		
+
 		// Test no override (same as default)
 		cm.OverridePortIfSpecified(cfg, 8080, 8080)
 		if cfg.Port != 8080 {
 			t.Errorf("Port should remain 8080, got %d", cfg.Port)
 		}
-		
+
 		// Test override
 		cm.OverridePortIfSpecified(cfg, 9090, 8080)
 		if cfg.Port != 9090 {
@@ -337,11 +337,11 @@ func TestServerLifecycleManager(t *testing.T) {
 	t.Run("RunHTTPServer_Success", func(t *testing.T) {
 		port := testutil.AllocateTestPort(t)
 		slm := NewServerLifecycleManager(1 * time.Second)
-		
+
 		mux := http.NewServeMux()
 		mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("OK"))
+			_, _ = w.Write([]byte("OK"))
 		})
 
 		config := HTTPServerConfig{
@@ -365,7 +365,7 @@ func TestServerLifecycleManager(t *testing.T) {
 		if err != nil {
 			t.Errorf("Failed to connect to server: %v", err)
 		} else {
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
 				t.Errorf("Expected status 200, got %d", resp.StatusCode)
 			}
@@ -387,7 +387,7 @@ func TestServerLifecycleManager(t *testing.T) {
 	t.Run("RunHTTPServer_DefaultTimeouts", func(t *testing.T) {
 		port := testutil.AllocateTestPort(t)
 		slm := NewServerLifecycleManager(1 * time.Second)
-		
+
 		config := HTTPServerConfig{
 			Port:    port,
 			Handler: http.NewServeMux(),
@@ -420,7 +420,7 @@ func TestServerLifecycleManager(t *testing.T) {
 
 	t.Run("RunHTTPServer_PortInUse", func(t *testing.T) {
 		port := testutil.AllocateTestPort(t)
-		
+
 		// Start first server to occupy the port
 		slm1 := NewServerLifecycleManager(1 * time.Second)
 		config1 := HTTPServerConfig{
@@ -462,10 +462,10 @@ func TestServerLifecycleManager(t *testing.T) {
 
 	t.Run("RunService_Success", func(t *testing.T) {
 		slm := NewServerLifecycleManager(1 * time.Second)
-		
+
 		startCalled := false
 		stopCalled := false
-		
+
 		config := ServiceConfig{
 			Name: "test-service",
 			StartFunc: func() error {
@@ -488,7 +488,7 @@ func TestServerLifecycleManager(t *testing.T) {
 
 		// Give service time to start
 		time.Sleep(100 * time.Millisecond)
-		
+
 		if !startCalled {
 			t.Error("Expected StartFunc to be called")
 		}
@@ -512,7 +512,7 @@ func TestServerLifecycleManager(t *testing.T) {
 
 	t.Run("RunService_StartError", func(t *testing.T) {
 		slm := NewServerLifecycleManager(1 * time.Second)
-		
+
 		expectedErr := errors.New("start failed")
 		config := ServiceConfig{
 			Name: "failing-service",
@@ -538,7 +538,7 @@ func TestServerLifecycleManager(t *testing.T) {
 
 	t.Run("RunService_NoStopFunc", func(t *testing.T) {
 		slm := NewServerLifecycleManager(1 * time.Second)
-		
+
 		config := ServiceConfig{
 			Name: "no-stop-service",
 			StartFunc: func() error {
@@ -573,7 +573,7 @@ func TestServerLifecycleManager(t *testing.T) {
 
 	t.Run("RunService_StopError", func(t *testing.T) {
 		slm := NewServerLifecycleManager(1 * time.Second)
-		
+
 		stopErr := errors.New("stop failed")
 		config := ServiceConfig{
 			Name: "stop-error-service",
@@ -718,7 +718,7 @@ func TestIntegration_ConfigAndServer(t *testing.T) {
 		tmpDir := testutil.TempDir(t)
 		port := testutil.AllocateTestPort(t)
 		configFile := filepath.Join(tmpDir, "integration_config.yaml")
-		
+
 		// Create config file
 		configContent := testutil.CreateConfigWithPort(port)
 		err := os.WriteFile(configFile, []byte(configContent), 0644)
@@ -741,7 +741,7 @@ func TestIntegration_ConfigAndServer(t *testing.T) {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("integration-test"))
+			_, _ = w.Write([]byte("integration-test"))
 		})
 
 		serverConfig := HTTPServerConfig{
@@ -765,7 +765,7 @@ func TestIntegration_ConfigAndServer(t *testing.T) {
 		if err != nil {
 			t.Errorf("Failed to connect to integration server: %v", err)
 		} else {
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			if resp.StatusCode != http.StatusOK {
 				t.Errorf("Expected status 200, got %d", resp.StatusCode)
 			}

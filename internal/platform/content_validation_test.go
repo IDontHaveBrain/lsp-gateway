@@ -74,7 +74,7 @@ func TestInvalidExecutableFiles(t *testing.T) {
 				content := []byte("#!/bin/sh\necho 'test'\n")
 				// Inject binary data
 				binaryData := make([]byte, 20)
-				rand.Read(binaryData)
+				_, _ = rand.Read(binaryData)
 				content = append(content, binaryData...)
 				content = append(content, []byte("\nexit 0\n")...)
 				return os.WriteFile(path, content, 0755)
@@ -285,17 +285,17 @@ TERM=xterm`,
 			name: "environment file with null bytes",
 			fileContent: `PATH=/usr/bin\x00:/bin
 HOME=/home/user`,
-			expectError: true,
+			expectError:   true,
 			errorContains: "null",
 		},
 		{
-			name: "environment file with invalid UTF-8",
-			fileContent: "PATH=/usr/bin:/bin\nHOME=\xFF\xFE/invalid",
-			expectError: true,
+			name:          "environment file with invalid UTF-8",
+			fileContent:   "PATH=/usr/bin:/bin\nHOME=\xFF\xFE/invalid",
+			expectError:   true,
 			errorContains: "utf",
 		},
 		{
-			name: "environment file with extremely long values",
+			name:        "environment file with extremely long values",
 			fileContent: fmt.Sprintf("PATH=%s\nHOME=/home/user", strings.Repeat("/very/long/path:", 10000)),
 			expectError: false, // Long paths should be handled
 		},
@@ -308,18 +308,18 @@ INVALID_LINE_WITHOUT_EQUALS`,
 			expectError: false, // Should ignore malformed entries
 		},
 		{
-			name: "environment file with binary corruption",
-			fileContent: string([]byte{0xFF, 0xFE, 'P', 'A', 'T', 'H', '=', '/', 'b', 'i', 'n'}),
-			expectError: true,
+			name:          "environment file with binary corruption",
+			fileContent:   string([]byte{0xFF, 0xFE, 'P', 'A', 'T', 'H', '=', '/', 'b', 'i', 'n'}),
+			expectError:   true,
 			errorContains: "utf",
 		},
 		{
-			name: "environment file with control characters",
+			name:        "environment file with control characters",
 			fileContent: "PATH=/usr/bin:/bin\x01\x02\x03\nHOME=/home/user",
 			expectError: false, // Control chars might be stripped
 		},
 		{
-			name: "empty environment file",
+			name:        "empty environment file",
 			fileContent: "",
 			expectError: false,
 		},
@@ -537,7 +537,7 @@ func TestTextFileEncodingCorruption(t *testing.T) {
 		{
 			name:        "Latin-1 encoding",
 			content:     []byte("Hello\xE9 world"), // é in Latin-1
-			expectValid: false, // Invalid in UTF-8 context
+			expectValid: false,                     // Invalid in UTF-8 context
 		},
 		{
 			name:        "Windows line endings with corruption",
@@ -593,9 +593,9 @@ func TestChecksumValidation(t *testing.T) {
 		expectModified bool
 	}{
 		{
-			name:         "no modification",
-			originalData: []byte("Hello, World!"),
-			modifyData:   func(data []byte) []byte { return data },
+			name:           "no modification",
+			originalData:   []byte("Hello, World!"),
+			modifyData:     func(data []byte) []byte { return data },
 			expectModified: false,
 		},
 		{
@@ -731,11 +731,11 @@ func TestConcurrentFileValidation(t *testing.T) {
 	go func() {
 		time.Sleep(2 * time.Millisecond)
 		corruptedContent := []byte("Hello\xFF\xFE World")
-		os.WriteFile(testFile, corruptedContent, 0644)
+		_ = os.WriteFile(testFile, corruptedContent, 0644)
 
 		time.Sleep(2 * time.Millisecond)
 		// Restore original content
-		os.WriteFile(testFile, initialContent, 0644)
+		_ = os.WriteFile(testFile, initialContent, 0644)
 	}()
 
 	// Collect results

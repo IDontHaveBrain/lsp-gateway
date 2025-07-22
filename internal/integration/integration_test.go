@@ -321,7 +321,7 @@ func TestWorkspaceSimulation(t *testing.T) {
 	defer suite.Cleanup()
 
 	fixtures := suite.GetFixtures()
-	
+
 	// Create a temporary workspace with source files
 	workspace := fixtures.CreateTempWorkspace()
 	if err := fixtures.CreateSourceFiles(workspace); err != nil {

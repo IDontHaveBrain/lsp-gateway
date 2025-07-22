@@ -48,9 +48,9 @@ func NewSimplePerformanceMetrics() *SimplePerformanceMetrics {
 func (spm *SimplePerformanceMetrics) RecordRequest(duration time.Duration, success bool, errorType string) {
 	spm.mu.Lock()
 	defer spm.mu.Unlock()
-	
+
 	atomic.AddInt64(&spm.TotalRequests, 1)
-	
+
 	if success {
 		atomic.AddInt64(&spm.SuccessfulReqs, 1)
 	} else {
@@ -59,7 +59,7 @@ func (spm *SimplePerformanceMetrics) RecordRequest(duration time.Duration, succe
 			spm.ErrorTypes[errorType]++
 		}
 	}
-	
+
 	// Store response times for analysis
 	if len(spm.ResponseTimes) < cap(spm.ResponseTimes) {
 		spm.ResponseTimes = append(spm.ResponseTimes, duration)
@@ -98,7 +98,7 @@ func (spm *SimplePerformanceMetrics) ThroughputRPS() float64 {
 func (spm *SimplePerformanceMetrics) Report() string {
 	spm.mu.RLock()
 	defer spm.mu.RUnlock()
-	
+
 	report := fmt.Sprintf(`HTTP Performance Report:
 Duration: %v
 Total Requests: %d
@@ -112,14 +112,14 @@ Throughput: %.2f RPS`,
 		spm.FailedReqs,
 		spm.ErrorRate()*100,
 		spm.ThroughputRPS())
-	
+
 	if len(spm.ErrorTypes) > 0 {
 		report += "\nError Breakdown:\n"
 		for errorType, count := range spm.ErrorTypes {
 			report += fmt.Sprintf("  %s: %d\n", errorType, count)
 		}
 	}
-	
+
 	return report
 }
 
@@ -139,25 +139,25 @@ func NewMockLSPHTTPServer(responseDelay time.Duration, errorRate float64) *MockL
 
 func (m *MockLSPHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	requestID := atomic.AddInt64(&m.requestCount, 1)
-	
+
 	// Simulate processing delay
 	if m.responseDelay > 0 {
 		time.Sleep(m.responseDelay)
 	}
-	
+
 	// Simulate errors
 	if m.errorRate > 0 && float64(requestID%100) < m.errorRate*100 {
 		http.Error(w, "Mock LSP server error", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// Parse JSON-RPC request
 	var jsonRPCReq map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&jsonRPCReq); err != nil {
 		http.Error(w, "Invalid JSON-RPC request", http.StatusBadRequest)
 		return
 	}
-	
+
 	// Create mock response
 	response := map[string]interface{}{
 		"jsonrpc": "2.0",
@@ -171,7 +171,7 @@ func (m *MockLSPHTTPServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			},
 		},
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -194,13 +194,13 @@ func NewHTTPConcurrentGenerator(baseURL string, metrics *SimplePerformanceMetric
 func (hcg *HTTPConcurrentGenerator) SendConcurrentRequests(ctx context.Context, concurrency, totalRequests int) error {
 	semaphore := make(chan struct{}, concurrency)
 	var wg sync.WaitGroup
-	
+
 	for i := 0; i < totalRequests; i++ {
 		wg.Add(1)
-		
+
 		go func(requestID int) {
 			defer wg.Done()
-			
+
 			select {
 			case semaphore <- struct{}{}:
 				defer func() { <-semaphore }()
@@ -210,7 +210,7 @@ func (hcg *HTTPConcurrentGenerator) SendConcurrentRequests(ctx context.Context, 
 			}
 		}(i)
 	}
-	
+
 	wg.Wait()
 	return nil
 }
@@ -219,12 +219,12 @@ func (hcg *HTTPConcurrentGenerator) sendSingleRequest(ctx context.Context, reque
 	start := time.Now()
 	success := false
 	errorType := ""
-	
+
 	defer func() {
 		duration := time.Since(start)
 		hcg.metrics.RecordRequest(duration, success, errorType)
 	}()
-	
+
 	// Create JSON-RPC request
 	jsonRPCReq := map[string]interface{}{
 		"jsonrpc": "2.0",
@@ -240,39 +240,39 @@ func (hcg *HTTPConcurrentGenerator) sendSingleRequest(ctx context.Context, reque
 			},
 		},
 	}
-	
+
 	reqBody, err := json.Marshal(jsonRPCReq)
 	if err != nil {
 		errorType = "marshal_error"
 		return
 	}
-	
+
 	req, err := http.NewRequestWithContext(ctx, "POST", hcg.baseURL, bytes.NewReader(reqBody))
 	if err != nil {
 		errorType = "request_creation_error"
 		return
 	}
-	
+
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := hcg.httpClient.Do(req)
 	if err != nil {
 		errorType = "network_error"
 		return
 	}
 	defer resp.Body.Close()
-	
+
 	_, err = io.ReadAll(resp.Body)
 	if err != nil {
 		errorType = "response_read_error"
 		return
 	}
-	
+
 	if resp.StatusCode != http.StatusOK {
 		errorType = fmt.Sprintf("http_%d", resp.StatusCode)
 		return
 	}
-	
+
 	success = true
 }
 
@@ -282,7 +282,7 @@ func TestHTTPConcurrentRequests_BurstLoad(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping concurrent tests in short mode")
 	}
-	
+
 	testCases := []struct {
 		name        string
 		concurrency int
@@ -293,44 +293,44 @@ func TestHTTPConcurrentRequests_BurstLoad(t *testing.T) {
 		{"High_Burst_50_Concurrent", HighConcurrency, 200},
 		{"Max_Burst_100_Concurrent", MaxConcurrency, 300},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Create mock LSP HTTP server
 			mockServer := NewMockLSPHTTPServer(1*time.Millisecond, 0.0) // Reduce delay
 			httpServer := httptest.NewServer(mockServer)
 			defer httpServer.Close()
-			
+
 			// Initialize metrics and load generator
 			metrics := NewSimplePerformanceMetrics()
 			generator := NewHTTPConcurrentGenerator(httpServer.URL, metrics)
-			
+
 			// Run test with timeout
 			ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 			defer cancel()
-			
+
 			// Execute concurrent requests
 			err := generator.SendConcurrentRequests(ctx, tc.concurrency, tc.totalReqs)
 			if err != nil {
 				t.Fatalf("Failed to send concurrent requests: %v", err)
 			}
-			
+
 			// Finalize metrics
 			metrics.Finalize()
-			
+
 			// Log detailed report
 			t.Logf("Performance Report for %s:\n%s", tc.name, metrics.Report())
-			
+
 			// Validate expectations
 			if metrics.TotalRequests != int64(tc.totalReqs) {
 				t.Errorf("Expected %d total requests, got %d", tc.totalReqs, metrics.TotalRequests)
 			}
-			
+
 			if metrics.ErrorRate() > MaxErrorRate {
-				t.Errorf("Error rate %.2f%% exceeds maximum %.2f%%", 
+				t.Errorf("Error rate %.2f%% exceeds maximum %.2f%%",
 					metrics.ErrorRate()*100, MaxErrorRate*100)
 			}
-			
+
 			if metrics.ThroughputRPS() == 0 {
 				t.Error("Expected non-zero throughput")
 			}
@@ -342,43 +342,43 @@ func TestHTTPConcurrentRequests_SustainedLoad(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping sustained load tests in short mode")
 	}
-	
+
 	const (
-		concurrency    = 25
-		totalRequests  = 250
-		minThroughput  = 20.0 // At least 20 RPS
+		concurrency   = 25
+		totalRequests = 250
+		minThroughput = 20.0 // At least 20 RPS
 	)
-	
+
 	mockServer := NewMockLSPHTTPServer(1*time.Millisecond, 0.01) // 1% error rate, reduce delay
 	httpServer := httptest.NewServer(mockServer)
 	defer httpServer.Close()
-	
+
 	metrics := NewSimplePerformanceMetrics()
 	generator := NewHTTPConcurrentGenerator(httpServer.URL, metrics)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	
+
 	start := time.Now()
 	err := generator.SendConcurrentRequests(ctx, concurrency, totalRequests)
 	duration := time.Since(start)
-	
+
 	if err != nil {
 		t.Fatalf("Sustained load test failed: %v", err)
 	}
-	
+
 	metrics.Finalize()
-	
+
 	t.Logf("Sustained Load Test Report:\n%s", metrics.Report())
-	
+
 	// Validate performance
 	actualRPS := float64(metrics.TotalRequests) / duration.Seconds()
 	if actualRPS < minThroughput {
 		t.Errorf("Throughput %.2f RPS below minimum %.2f RPS", actualRPS, minThroughput)
 	}
-	
+
 	if metrics.ErrorRate() > MaxErrorRate {
-		t.Errorf("Error rate %.2f%% exceeds maximum %.2f%%", 
+		t.Errorf("Error rate %.2f%% exceeds maximum %.2f%%",
 			metrics.ErrorRate()*100, MaxErrorRate*100)
 	}
 }
@@ -387,36 +387,36 @@ func TestHTTPConcurrentRequests_ErrorHandling(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping error handling tests in short mode")
 	}
-	
+
 	// Test with higher error rate
 	mockServer := NewMockLSPHTTPServer(5*time.Millisecond, 0.2) // 20% error rate, reduce delay
 	httpServer := httptest.NewServer(mockServer)
 	defer httpServer.Close()
-	
+
 	metrics := NewSimplePerformanceMetrics()
 	generator := NewHTTPConcurrentGenerator(httpServer.URL, metrics)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	
+
 	const concurrency = 30
 	const totalRequests = 100
-	
+
 	err := generator.SendConcurrentRequests(ctx, concurrency, totalRequests)
 	if err != nil {
 		t.Fatalf("Error handling test failed: %v", err)
 	}
-	
+
 	metrics.Finalize()
-	
+
 	t.Logf("Error Handling Test Report:\n%s", metrics.Report())
-	
+
 	// Should have some errors due to configured error rate
 	if metrics.ErrorRate() < 0.1 {
-		t.Errorf("Expected error rate >= 10%% due to mock server configuration, got %.2f%%", 
+		t.Errorf("Expected error rate >= 10%% due to mock server configuration, got %.2f%%",
 			metrics.ErrorRate()*100)
 	}
-	
+
 	// But should still complete all requests
 	if metrics.TotalRequests != totalRequests {
 		t.Errorf("Expected %d total requests, got %d", totalRequests, metrics.TotalRequests)
@@ -427,49 +427,49 @@ func TestHTTPConcurrentRequests_MemoryUsage(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping memory usage tests in short mode")
 	}
-	
+
 	// Force garbage collection before test
 	runtime.GC()
 	var initialMem runtime.MemStats
 	runtime.ReadMemStats(&initialMem)
-	
+
 	mockServer := NewMockLSPHTTPServer(5*time.Millisecond, 0.05) // Reduce delay
 	httpServer := httptest.NewServer(mockServer)
 	defer httpServer.Close()
-	
+
 	metrics := NewSimplePerformanceMetrics()
 	generator := NewHTTPConcurrentGenerator(httpServer.URL, metrics)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	
+
 	// High concurrency to test memory usage
 	const concurrency = 100
 	const totalRequests = 500
-	
+
 	err := generator.SendConcurrentRequests(ctx, concurrency, totalRequests)
 	if err != nil {
 		t.Fatalf("Memory usage test failed: %v", err)
 	}
-	
+
 	metrics.Finalize()
-	
+
 	// Check final memory
 	var finalMem runtime.MemStats
 	runtime.ReadMemStats(&finalMem)
-	
+
 	memoryIncreaseMB := (finalMem.Alloc - initialMem.Alloc) / (1024 * 1024)
-	
+
 	t.Logf("Memory Usage Test Report:\n%s", metrics.Report())
 	t.Logf("Memory increase: %d MB", memoryIncreaseMB)
-	
+
 	// Check for excessive memory usage (allow up to 25MB increase for HTTP-level testing)
 	if memoryIncreaseMB > 25 {
 		t.Errorf("Excessive memory increase: %d MB", memoryIncreaseMB)
 	}
-	
+
 	if metrics.ErrorRate() > MaxErrorRate {
-		t.Errorf("Error rate %.2f%% exceeds maximum %.2f%%", 
+		t.Errorf("Error rate %.2f%% exceeds maximum %.2f%%",
 			metrics.ErrorRate()*100, MaxErrorRate*100)
 	}
 }
@@ -478,44 +478,44 @@ func TestHTTPConcurrentRequests_LatencyDistribution(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping latency distribution tests in short mode")
 	}
-	
+
 	// Test with varying latencies
 	mockServer := NewMockLSPHTTPServer(5*time.Millisecond, 0.0) // Reduce delay
 	httpServer := httptest.NewServer(mockServer)
 	defer httpServer.Close()
-	
+
 	metrics := NewSimplePerformanceMetrics()
 	generator := NewHTTPConcurrentGenerator(httpServer.URL, metrics)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), TestTimeout)
 	defer cancel()
-	
+
 	const concurrency = 40
 	const totalRequests = 200
-	
+
 	err := generator.SendConcurrentRequests(ctx, concurrency, totalRequests)
 	if err != nil {
 		t.Fatalf("Latency distribution test failed: %v", err)
 	}
-	
+
 	metrics.Finalize()
-	
+
 	t.Logf("Latency Distribution Test Report:\n%s", metrics.Report())
-	
+
 	// Check response time distribution
 	metrics.mu.RLock()
 	responseTimes := metrics.ResponseTimes
 	metrics.mu.RUnlock()
-	
+
 	if len(responseTimes) == 0 {
 		t.Error("No response times recorded")
 		return
 	}
-	
+
 	// Calculate basic statistics
 	var totalTime time.Duration
 	var minTime, maxTime time.Duration = time.Hour, 0
-	
+
 	for _, rt := range responseTimes {
 		totalTime += rt
 		if rt < minTime {
@@ -525,16 +525,16 @@ func TestHTTPConcurrentRequests_LatencyDistribution(t *testing.T) {
 			maxTime = rt
 		}
 	}
-	
+
 	avgTime := totalTime / time.Duration(len(responseTimes))
-	
+
 	t.Logf("Response time stats: min=%v, max=%v, avg=%v", minTime, maxTime, avgTime)
-	
+
 	// Sanity checks
 	if maxTime > 5*time.Second {
 		t.Errorf("Maximum response time %v too high", maxTime)
 	}
-	
+
 	if avgTime > 500*time.Millisecond {
 		t.Errorf("Average response time %v too high", avgTime)
 	}
@@ -544,18 +544,18 @@ func TestHTTPConcurrentRequests_LatencyDistribution(t *testing.T) {
 
 func BenchmarkHTTPConcurrentRequests(b *testing.B) {
 	concurrencyLevels := []int{10, 25, 50, 100}
-	
+
 	for _, concurrency := range concurrencyLevels {
 		b.Run(fmt.Sprintf("Concurrency_%d", concurrency), func(b *testing.B) {
 			mockServer := NewMockLSPHTTPServer(5*time.Millisecond, 0.0)
 			httpServer := httptest.NewServer(mockServer)
 			defer httpServer.Close()
-			
+
 			b.ResetTimer()
 			b.SetParallelism(concurrency)
 			b.RunParallel(func(pb *testing.PB) {
 				client := &http.Client{Timeout: 10 * time.Second}
-				
+
 				for pb.Next() {
 					sendHTTPBenchmarkRequest(b, client, httpServer.URL)
 				}
@@ -579,25 +579,25 @@ func sendHTTPBenchmarkRequest(b *testing.B, client *http.Client, baseURL string)
 			},
 		},
 	}
-	
+
 	reqBody, err := json.Marshal(jsonRPCReq)
 	if err != nil {
 		return // Don't fail benchmark
 	}
-	
+
 	req, err := http.NewRequest("POST", baseURL, bytes.NewReader(reqBody))
 	if err != nil {
 		return
 	}
-	
+
 	req.Header.Set("Content-Type", "application/json")
-	
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return
 	}
 	defer resp.Body.Close()
-	
+
 	_, err = io.ReadAll(resp.Body)
 	if err != nil {
 		return

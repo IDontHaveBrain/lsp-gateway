@@ -26,14 +26,14 @@ func NewLSPResponseValidator(validationConfig *config.ValidationConfig) *LSPResp
 		validators: make(map[string]ResponseValidator),
 		config:     validationConfig,
 	}
-	
+
 	// Register validators for each LSP method
 	validator.validators[cases.LSPMethodDefinition] = NewDefinitionValidator(validationConfig)
 	validator.validators[cases.LSPMethodReferences] = NewReferencesValidator(validationConfig)
 	validator.validators[cases.LSPMethodHover] = NewHoverValidator(validationConfig)
 	validator.validators[cases.LSPMethodDocumentSymbol] = NewDocumentSymbolValidator(validationConfig)
 	validator.validators[cases.LSPMethodWorkspaceSymbol] = NewWorkspaceSymbolValidator(validationConfig)
-	
+
 	return validator
 }
 
@@ -52,7 +52,7 @@ func (v *LSPResponseValidator) ValidateTestCase(testCase *cases.TestCase) error 
 			testCase.Status = cases.TestStatusFailed
 			return fmt.Errorf("no response received")
 		}
-		
+
 		// No response expected and none received - this is success for error cases
 		result := &cases.ValidationResult{
 			Name:        "expected_error",
@@ -63,7 +63,7 @@ func (v *LSPResponseValidator) ValidateTestCase(testCase *cases.TestCase) error 
 		testCase.ValidationResults = append(testCase.ValidationResults, result)
 		return nil
 	}
-	
+
 	// Get appropriate validator for the method
 	validator, exists := v.validators[testCase.Method]
 	if !exists {
@@ -77,15 +77,15 @@ func (v *LSPResponseValidator) ValidateTestCase(testCase *cases.TestCase) error 
 		testCase.Status = cases.TestStatusError
 		return fmt.Errorf("unsupported method for validation: %s", testCase.Method)
 	}
-	
+
 	// Perform validation
 	validationResults := validator.ValidateResponse(testCase, testCase.Response)
 	testCase.ValidationResults = append(testCase.ValidationResults, validationResults...)
-	
+
 	// Perform common validations
 	commonResults := v.performCommonValidations(testCase, testCase.Response)
 	testCase.ValidationResults = append(testCase.ValidationResults, commonResults...)
-	
+
 	// Determine overall status
 	allPassed := true
 	for _, result := range testCase.ValidationResults {
@@ -94,20 +94,20 @@ func (v *LSPResponseValidator) ValidateTestCase(testCase *cases.TestCase) error 
 			break
 		}
 	}
-	
+
 	if allPassed {
 		testCase.Status = cases.TestStatusPassed
 	} else {
 		testCase.Status = cases.TestStatusFailed
 	}
-	
+
 	return nil
 }
 
 // performCommonValidations performs validation checks common to all methods
 func (v *LSPResponseValidator) performCommonValidations(testCase *cases.TestCase, response json.RawMessage) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	// Basic JSON structure validation
 	var responseObj interface{}
 	if err := json.Unmarshal(response, &responseObj); err != nil {
@@ -119,14 +119,14 @@ func (v *LSPResponseValidator) performCommonValidations(testCase *cases.TestCase
 		})
 		return results
 	}
-	
+
 	results = append(results, &cases.ValidationResult{
 		Name:        "json_validity",
 		Description: "Validate response is valid JSON",
 		Passed:      true,
 		Message:     "Response is valid JSON",
 	})
-	
+
 	// Check if expected to be successful
 	if testCase.Expected != nil {
 		if testCase.Expected.Success {
@@ -159,17 +159,17 @@ func (v *LSPResponseValidator) performCommonValidations(testCase *cases.TestCase
 				})
 			}
 		}
-		
+
 		// Check contains/excludes patterns
 		if len(testCase.Expected.Contains) > 0 {
 			results = append(results, v.validateContainsPatterns(response, testCase.Expected.Contains)...)
 		}
-		
+
 		if len(testCase.Expected.Excludes) > 0 {
 			results = append(results, v.validateExcludesPatterns(response, testCase.Expected.Excludes)...)
 		}
 	}
-	
+
 	return results
 }
 
@@ -177,12 +177,12 @@ func (v *LSPResponseValidator) performCommonValidations(testCase *cases.TestCase
 func (v *LSPResponseValidator) checkForLSPError(response json.RawMessage) *cases.ValidationResult {
 	var errorResponse struct {
 		Error *struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
+			Code    int         `json:"code"`
+			Message string      `json:"message"`
 			Data    interface{} `json:"data,omitempty"`
 		} `json:"error,omitempty"`
 	}
-	
+
 	if err := json.Unmarshal(response, &errorResponse); err != nil {
 		return &cases.ValidationResult{
 			Name:        "error_check",
@@ -191,7 +191,7 @@ func (v *LSPResponseValidator) checkForLSPError(response json.RawMessage) *cases
 			Message:     fmt.Sprintf("Failed to parse response for error check: %v", err),
 		}
 	}
-	
+
 	if errorResponse.Error != nil {
 		return &cases.ValidationResult{
 			Name:        "error_presence",
@@ -205,7 +205,7 @@ func (v *LSPResponseValidator) checkForLSPError(response json.RawMessage) *cases
 			},
 		}
 	}
-	
+
 	return nil
 }
 
@@ -213,7 +213,7 @@ func (v *LSPResponseValidator) checkForLSPError(response json.RawMessage) *cases
 func (v *LSPResponseValidator) validateContainsPatterns(response json.RawMessage, patterns []string) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
 	responseStr := string(response)
-	
+
 	for _, pattern := range patterns {
 		found := strings.Contains(responseStr, pattern)
 		results = append(results, &cases.ValidationResult{
@@ -223,7 +223,7 @@ func (v *LSPResponseValidator) validateContainsPatterns(response json.RawMessage
 			Message:     fmt.Sprintf("Pattern '%s' found in response: %t", pattern, found),
 		})
 	}
-	
+
 	return results
 }
 
@@ -231,7 +231,7 @@ func (v *LSPResponseValidator) validateContainsPatterns(response json.RawMessage
 func (v *LSPResponseValidator) validateExcludesPatterns(response json.RawMessage, patterns []string) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
 	responseStr := string(response)
-	
+
 	for _, pattern := range patterns {
 		found := strings.Contains(responseStr, pattern)
 		results = append(results, &cases.ValidationResult{
@@ -241,7 +241,7 @@ func (v *LSPResponseValidator) validateExcludesPatterns(response json.RawMessage
 			Message:     fmt.Sprintf("Pattern '%s' excluded from response: %t", pattern, !found),
 		})
 	}
-	
+
 	return results
 }
 
@@ -256,6 +256,7 @@ func NewBaseValidator(config *config.ValidationConfig) *BaseValidator {
 }
 
 // validateArray validates array responses
+// NOTE: Currently unused but kept for future use by validators that need to validate array-based LSP responses
 func (v *BaseValidator) validateArray(response json.RawMessage, expectedMinCount, expectedMaxCount int) *cases.ValidationResult {
 	var arr []interface{}
 	if err := json.Unmarshal(response, &arr); err != nil {
@@ -266,9 +267,9 @@ func (v *BaseValidator) validateArray(response json.RawMessage, expectedMinCount
 			Message:     fmt.Sprintf("Response is not an array: %v", err),
 		}
 	}
-	
+
 	count := len(arr)
-	
+
 	if expectedMinCount >= 0 && count < expectedMinCount {
 		return &cases.ValidationResult{
 			Name:        "array_min_count",
@@ -276,12 +277,12 @@ func (v *BaseValidator) validateArray(response json.RawMessage, expectedMinCount
 			Passed:      false,
 			Message:     fmt.Sprintf("Array has %d items, expected at least %d", count, expectedMinCount),
 			Details: map[string]interface{}{
-				"actual_count":   count,
-				"expected_min":   expectedMinCount,
+				"actual_count": count,
+				"expected_min": expectedMinCount,
 			},
 		}
 	}
-	
+
 	if expectedMaxCount >= 0 && count > expectedMaxCount {
 		return &cases.ValidationResult{
 			Name:        "array_max_count",
@@ -289,12 +290,12 @@ func (v *BaseValidator) validateArray(response json.RawMessage, expectedMinCount
 			Passed:      false,
 			Message:     fmt.Sprintf("Array has %d items, expected at most %d", count, expectedMaxCount),
 			Details: map[string]interface{}{
-				"actual_count":   count,
-				"expected_max":   expectedMaxCount,
+				"actual_count": count,
+				"expected_max": expectedMaxCount,
 			},
 		}
 	}
-	
+
 	return &cases.ValidationResult{
 		Name:        "array_count",
 		Description: "Validate array item count",
@@ -316,7 +317,7 @@ func (v *BaseValidator) validateURI(uri string, fieldName string) *cases.Validat
 			Message:     "URI validation is disabled",
 		}
 	}
-	
+
 	if uri == "" {
 		return &cases.ValidationResult{
 			Name:        fmt.Sprintf("%s_uri_presence", fieldName),
@@ -325,7 +326,7 @@ func (v *BaseValidator) validateURI(uri string, fieldName string) *cases.Validat
 			Message:     fmt.Sprintf("%s URI is empty", fieldName),
 		}
 	}
-	
+
 	if !strings.HasPrefix(uri, "file://") {
 		return &cases.ValidationResult{
 			Name:        fmt.Sprintf("%s_uri_scheme", fieldName),
@@ -334,7 +335,7 @@ func (v *BaseValidator) validateURI(uri string, fieldName string) *cases.Validat
 			Message:     fmt.Sprintf("%s URI does not have file:// scheme: %s", fieldName, uri),
 		}
 	}
-	
+
 	return &cases.ValidationResult{
 		Name:        fmt.Sprintf("%s_uri_format", fieldName),
 		Description: fmt.Sprintf("Validate %s URI format", fieldName),
@@ -353,7 +354,7 @@ func (v *BaseValidator) validatePosition(pos interface{}, fieldName string) *cas
 			Message:     "Position validation is disabled",
 		}
 	}
-	
+
 	posMap, ok := pos.(map[string]interface{})
 	if !ok {
 		return &cases.ValidationResult{
@@ -363,10 +364,10 @@ func (v *BaseValidator) validatePosition(pos interface{}, fieldName string) *cas
 			Message:     fmt.Sprintf("%s position is not an object", fieldName),
 		}
 	}
-	
+
 	line, hasLine := posMap["line"]
 	character, hasCharacter := posMap["character"]
-	
+
 	if !hasLine || !hasCharacter {
 		return &cases.ValidationResult{
 			Name:        fmt.Sprintf("%s_position_fields", fieldName),
@@ -375,7 +376,7 @@ func (v *BaseValidator) validatePosition(pos interface{}, fieldName string) *cas
 			Message:     fmt.Sprintf("%s position missing required fields (line: %t, character: %t)", fieldName, hasLine, hasCharacter),
 		}
 	}
-	
+
 	// Validate line and character are numbers
 	if _, ok := line.(float64); !ok {
 		return &cases.ValidationResult{
@@ -385,7 +386,7 @@ func (v *BaseValidator) validatePosition(pos interface{}, fieldName string) *cas
 			Message:     fmt.Sprintf("%s position line is not a number: %v", fieldName, line),
 		}
 	}
-	
+
 	if _, ok := character.(float64); !ok {
 		return &cases.ValidationResult{
 			Name:        fmt.Sprintf("%s_position_character_type", fieldName),
@@ -394,7 +395,7 @@ func (v *BaseValidator) validatePosition(pos interface{}, fieldName string) *cas
 			Message:     fmt.Sprintf("%s position character is not a number: %v", fieldName, character),
 		}
 	}
-	
+
 	return &cases.ValidationResult{
 		Name:        fmt.Sprintf("%s_position_format", fieldName),
 		Description: fmt.Sprintf("Validate %s position format", fieldName),
@@ -412,7 +413,7 @@ func GetValidationSummary(results []*cases.ValidationResult) map[string]interfac
 	total := len(results)
 	passed := 0
 	failed := 0
-	
+
 	for _, result := range results {
 		if result.Passed {
 			passed++
@@ -420,12 +421,12 @@ func GetValidationSummary(results []*cases.ValidationResult) map[string]interfac
 			failed++
 		}
 	}
-	
+
 	return map[string]interface{}{
-		"total":       total,
-		"passed":      passed,
-		"failed":      failed,
-		"pass_rate":   float64(passed) / float64(total) * 100,
-		"all_passed":  failed == 0,
+		"total":      total,
+		"passed":     passed,
+		"failed":     failed,
+		"pass_rate":  float64(passed) / float64(total) * 100,
+		"all_passed": failed == 0,
 	}
 }

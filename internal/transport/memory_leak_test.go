@@ -85,7 +85,7 @@ func (mp *MemoryProfile) StopMonitoring() {
 // takeSample captures current memory statistics
 func (mp *MemoryProfile) takeSample() {
 	runtime.GC() // Force GC for consistent measurements
-	
+
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
 
@@ -120,7 +120,7 @@ func (mp *MemoryProfile) GetMemoryTrend() (slope float64, r2 float64, leak bool)
 	for i, sample := range mp.samples {
 		x := float64(i)
 		y := float64(sample.HeapAlloc)
-		
+
 		sumX += x
 		sumY += y
 		sumXY += x * y
@@ -129,20 +129,20 @@ func (mp *MemoryProfile) GetMemoryTrend() (slope float64, r2 float64, leak bool)
 
 	// Calculate slope
 	slope = (n*sumXY - sumX*sumY) / (n*sumX2 - sumX*sumX)
-	
+
 	// Calculate R-squared
 	meanY := sumY / n
 	var ssRes, ssTot float64
-	
+
 	for i, sample := range mp.samples {
 		x := float64(i)
 		y := float64(sample.HeapAlloc)
 		predicted := slope*x + (sumY-slope*sumX)/n
-		
+
 		ssRes += (y - predicted) * (y - predicted)
 		ssTot += (y - meanY) * (y - meanY)
 	}
-	
+
 	if ssTot != 0 {
 		r2 = 1 - ssRes/ssTot
 	}
@@ -167,15 +167,15 @@ func (mp *MemoryProfile) GetLeakReport() map[string]interface{} {
 	slope, r2, leak := mp.GetMemoryTrend()
 
 	return map[string]interface{}{
-		"sample_count":        len(mp.samples),
-		"duration_seconds":    mp.timestamps[len(mp.timestamps)-1].Sub(mp.timestamps[0]).Seconds(),
-		"initial_heap_alloc":  first.HeapAlloc,
-		"final_heap_alloc":    last.HeapAlloc,
-		"heap_growth":         int64(last.HeapAlloc) - int64(first.HeapAlloc),
-		"total_allocations":   last.TotalAlloc - first.TotalAlloc,
+		"sample_count":       len(mp.samples),
+		"duration_seconds":   mp.timestamps[len(mp.timestamps)-1].Sub(mp.timestamps[0]).Seconds(),
+		"initial_heap_alloc": first.HeapAlloc,
+		"final_heap_alloc":   last.HeapAlloc,
+		"heap_growth":        int64(last.HeapAlloc) - int64(first.HeapAlloc),
+		"total_allocations":  last.TotalAlloc - first.TotalAlloc,
 		"gc_runs":            last.NumGC - first.NumGC,
 		"goroutines":         runtime.NumGoroutine(),
-		"memory_trend_slope":  slope,
+		"memory_trend_slope": slope,
 		"correlation_r2":     r2,
 		"leak_detected":      leak,
 		"heap_objects":       last.HeapObjects,
@@ -186,14 +186,14 @@ func (mp *MemoryProfile) GetLeakReport() map[string]interface{} {
 
 // LeakTestMockServer simulates a server for testing memory leaks
 type LeakTestMockServer struct {
-	mu           sync.RWMutex
-	connections  map[string]net.Conn
-	buffers      [][]byte
-	active       bool
-	leakMemory   bool
-	listener     net.Listener
-	stopCh       chan struct{}
-	wg           sync.WaitGroup
+	mu          sync.RWMutex
+	connections map[string]net.Conn
+	buffers     [][]byte
+	active      bool
+	leakMemory  bool
+	listener    net.Listener
+	stopCh      chan struct{}
+	wg          sync.WaitGroup
 }
 
 // NewLeakTestMockServer creates a mock server for leak testing
@@ -249,7 +249,7 @@ func (s *LeakTestMockServer) Stop() error {
 	}
 	s.active = false
 	close(s.stopCh)
-	
+
 	if s.listener != nil {
 		s.listener.Close()
 	}
@@ -278,7 +278,7 @@ func (s *LeakTestMockServer) handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	connID := fmt.Sprintf("%p", conn)
-	
+
 	s.mu.Lock()
 	s.connections[connID] = conn
 	s.mu.Unlock()
@@ -290,7 +290,7 @@ func (s *LeakTestMockServer) handleConnection(conn net.Conn) {
 	}()
 
 	reader := bufio.NewReader(conn)
-	
+
 	for {
 		select {
 		case <-s.stopCh:
@@ -312,7 +312,7 @@ func (s *LeakTestMockServer) handleConnection(conn net.Conn) {
 			// Allocate buffer that won't be freed
 			buffer := make([]byte, 1024*1024) // 1MB
 			rand.Read(buffer)
-			
+
 			s.mu.Lock()
 			s.buffers = append(s.buffers, buffer)
 			s.mu.Unlock()
@@ -332,7 +332,7 @@ func (s *LeakTestMockServer) handleConnection(conn net.Conn) {
 // readMessage reads a JSON-RPC message
 func (s *LeakTestMockServer) readMessage(reader *bufio.Reader) (JSONRPCMessage, error) {
 	var msg JSONRPCMessage
-	
+
 	// Read headers
 	var contentLength int
 	for {
@@ -340,11 +340,11 @@ func (s *LeakTestMockServer) readMessage(reader *bufio.Reader) (JSONRPCMessage, 
 		if err != nil {
 			return msg, err
 		}
-		
+
 		if line == "\r\n" || line == "\n" {
 			break
 		}
-		
+
 		if len(line) > 16 && line[:16] == "Content-Length: " {
 			fmt.Sscanf(line, "Content-Length: %d", &contentLength)
 		}
@@ -392,11 +392,11 @@ func (s *LeakTestMockServer) GetBufferCount() int {
 // Test long-running LSP client connections for memory growth
 func TestLongRunningLSPClientMemoryGrowth(t *testing.T) {
 	testCases := []struct {
-		name          string
-		clientType    string
-		duration      time.Duration
-		requestRate   time.Duration
-		expectedLeak  bool
+		name         string
+		clientType   string
+		duration     time.Duration
+		requestRate  time.Duration
+		expectedLeak bool
 	}{
 		{"StdioClient_ShortTerm", "stdio", 10 * time.Second, 100 * time.Millisecond, false},
 		{"StdioClient_MediumTerm", "stdio", 30 * time.Second, 200 * time.Millisecond, false},
@@ -465,7 +465,7 @@ func TestLongRunningLSPClientMemoryGrowth(t *testing.T) {
 						_, err := client.SendRequest(ctx, "test_method", map[string]interface{}{
 							"test": "data",
 						})
-						
+
 						atomic.AddInt64(&requestCount, 1)
 						if err != nil {
 							atomic.AddInt64(&errorCount, 1)
@@ -491,7 +491,7 @@ func TestLongRunningLSPClientMemoryGrowth(t *testing.T) {
 
 			// Analyze memory profile
 			report := profile.GetLeakReport()
-			
+
 			t.Logf("Requests sent: %d, Errors: %d", requestCount, errorCount)
 			t.Logf("Memory report: %+v", report)
 
@@ -538,7 +538,7 @@ func TestTCPConnectionMemoryCleanup(t *testing.T) {
 	defer mockServer.Stop()
 
 	addr := mockServer.listener.Addr().String()
-	
+
 	const clientCount = 20
 	const requestsPerClient = 10
 
@@ -570,7 +570,7 @@ func TestTCPConnectionMemoryCleanup(t *testing.T) {
 			for j := 0; j < requestsPerClient; j++ {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				_, err := client.SendRequest(ctx, "test_method", map[string]interface{}{
-					"client": clientID,
+					"client":  clientID,
 					"request": j,
 				})
 				cancel()
@@ -615,7 +615,7 @@ func TestTCPConnectionMemoryCleanup(t *testing.T) {
 	}
 }
 
-// Test stdio subprocess memory cleanup after process termination  
+// Test stdio subprocess memory cleanup after process termination
 func TestStdioSubprocessMemoryCleanup(t *testing.T) {
 	profile := NewMemoryProfile(500, 100*time.Millisecond)
 	profile.StartMonitoring()
@@ -654,7 +654,7 @@ func TestStdioSubprocessMemoryCleanup(t *testing.T) {
 			// Perform operations
 			for j := 0; j < operationsPerProcess; j++ {
 				opCtx, opCancel := context.WithTimeout(ctx, 5*time.Second)
-				
+
 				err := client.SendNotification(opCtx, "test_notification", map[string]interface{}{
 					"process":   processID,
 					"operation": j,
@@ -687,7 +687,7 @@ func TestStdioSubprocessMemoryCleanup(t *testing.T) {
 	// Check for process leaks
 	initialProcCount := 5 // Approximate baseline
 	currentProcCount := countChildProcesses()
-	
+
 	if currentProcCount > initialProcCount*2 {
 		t.Errorf("Potential process leak: %d processes running", currentProcCount)
 	}
@@ -720,7 +720,7 @@ func TestGoroutineLeakDetection(t *testing.T) {
 
 	for cycle := 0; cycle < cycleCount; cycle++ {
 		t.Logf("Starting cycle %d", cycle+1)
-		
+
 		var clients []LSPClient
 		var wg sync.WaitGroup
 
@@ -742,10 +742,10 @@ func TestGoroutineLeakDetection(t *testing.T) {
 			wg.Add(1)
 			go func(clientIdx int, c LSPClient) {
 				defer wg.Done()
-				
+
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
-				
+
 				err := c.Start(ctx)
 				if err != nil {
 					t.Logf("Client %d failed to start: %v", clientIdx, err)
@@ -764,7 +764,7 @@ func TestGoroutineLeakDetection(t *testing.T) {
 			wg.Add(1)
 			go func(clientIdx int, c LSPClient) {
 				defer wg.Done()
-				
+
 				err := c.Stop()
 				if err != nil {
 					t.Logf("Client %d failed to stop: %v", clientIdx, err)
@@ -773,7 +773,7 @@ func TestGoroutineLeakDetection(t *testing.T) {
 		}
 
 		wg.Wait()
-		
+
 		// Allow cleanup time
 		runtime.GC()
 		time.Sleep(500 * time.Millisecond)
@@ -790,7 +790,7 @@ func TestGoroutineLeakDetection(t *testing.T) {
 
 	finalGoroutines := runtime.NumGoroutine()
 	totalLeaked := finalGoroutines - initialGoroutines
-	
+
 	t.Logf("Final goroutines: %d, Total leaked: %d", finalGoroutines, totalLeaked)
 
 	if totalLeaked > clientCount/5 { // Allow some tolerance for test infrastructure
@@ -874,7 +874,7 @@ func TestRequestResponseMemoryPatterns(t *testing.T) {
 
 	// Final analysis
 	report := profile.GetLeakReport()
-	
+
 	t.Logf("Total requests: %d, Errors: %d", totalRequests, totalErrors)
 	t.Logf("Memory pattern analysis: %+v", report)
 
@@ -905,7 +905,7 @@ func countChildProcesses() int {
 	if err != nil {
 		return 0
 	}
-	
+
 	lines := len(strings.Split(strings.TrimSpace(string(output)), "\n"))
 	if len(strings.TrimSpace(string(output))) == 0 {
 		return 0

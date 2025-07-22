@@ -197,12 +197,12 @@ func (c *StdioClient) Stop() error {
 			log.Println("LSP server exited gracefully")
 		case <-time.After(10 * time.Second):
 			log.Println("LSP server did not exit gracefully within 10 seconds, attempting termination")
-			
+
 			// Try SIGTERM first (more graceful than SIGKILL)
 			if err := cmd.Process.Signal(os.Interrupt); err != nil {
 				log.Printf("Failed to send interrupt signal: %v", err)
 			}
-			
+
 			// Wait a bit for graceful termination
 			select {
 			case <-done:
@@ -212,7 +212,7 @@ func (c *StdioClient) Stop() error {
 				if err := cmd.Process.Kill(); err != nil {
 					log.Printf("Failed to kill LSP server process: %v", err)
 				}
-				
+
 				// Final wait for process cleanup with extended timeout
 				select {
 				case <-done:
@@ -275,19 +275,19 @@ func (c *StdioClient) handleResponses() {
 				log.Println("LSP server closed connection")
 				return
 			}
-			
+
 			consecutiveErrors++
 			c.recordError()
-			
+
 			log.Printf("Error reading message (consecutive: %d/%d): %v", consecutiveErrors, maxConsecutiveErrors, err)
-			
+
 			// Stop if too many consecutive errors
 			if consecutiveErrors >= maxConsecutiveErrors {
 				log.Printf("Too many consecutive errors (%d), stopping message handling", consecutiveErrors)
 				c.openCircuit()
 				return
 			}
-			
+
 			// Exponential backoff with jitter
 			delay := c.calculateBackoff(consecutiveErrors)
 			select {
@@ -447,7 +447,7 @@ func (c *StdioClient) openCircuit() {
 func (c *StdioClient) isCircuitOpen() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	// Circuit breaker: open if too many errors in short time
 	if c.circuitOpen {
 		// Try to close circuit after 30 seconds
@@ -456,22 +456,22 @@ func (c *StdioClient) isCircuitOpen() bool {
 			c.errorCount = 0
 		}
 	}
-	
+
 	return c.circuitOpen || c.errorCount > c.maxRetries
 }
 
 func (c *StdioClient) calculateBackoff(attempt int) time.Duration {
 	// Exponential backoff with jitter
 	backoff := float64(c.baseDelay) * math.Pow(2, float64(attempt-1))
-	
+
 	// Add jitter (±25%)
 	jitter := 1.0 + (rand.Float64()-0.5)*0.5
 	delay := time.Duration(backoff * jitter)
-	
+
 	// Cap at 5 seconds
 	if delay > 5*time.Second {
-		delay = 5*time.Second
+		delay = 5 * time.Second
 	}
-	
+
 	return delay
 }

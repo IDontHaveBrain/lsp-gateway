@@ -83,8 +83,8 @@ func (m *mockServerRuntimeInstaller) SetRuntimeError(runtime string, err error) 
 
 // Mock CommandExecutor for server verification testing
 type mockServerVerificationExecutor struct {
-	commands        map[string]*platform.Result
-	commandErrors   map[string]error
+	commands          map[string]*platform.Result
+	commandErrors     map[string]error
 	availableCommands map[string]bool
 }
 
@@ -146,12 +146,12 @@ func (m *mockServerVerificationExecutor) SetCommandAvailable(command string, ava
 
 func TestDefaultServerVerifier_verifyServerInstallation(t *testing.T) {
 	tests := []struct {
-		name               string
-		serverName         string
-		runtimeInstalled   bool
-		runtimeCompatible  bool
-		expectedInstalled  bool
-		expectedIssues     int
+		name              string
+		serverName        string
+		runtimeInstalled  bool
+		runtimeCompatible bool
+		expectedInstalled bool
+		expectedIssues    int
 	}{
 		{
 			name:              "Gopls - runtime not installed",
@@ -210,7 +210,7 @@ func TestDefaultServerVerifier_verifyServerInstallation(t *testing.T) {
 
 			// Setup runtime verification
 			runtimeMap := map[string]string{
-				"gopls":                       "go",
+				"gopls":                      "go",
 				"pylsp":                      "python",
 				"typescript-language-server": "nodejs",
 				"jdtls":                      "java",
@@ -318,7 +318,7 @@ func TestDefaultServerVerifier_verifyGoplsInstallation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockExecutor := newMockServerVerificationExecutor()
-			
+
 			// Note: Since we can't mock platform.IsCommandAvailable, we test with actual system state
 
 			if tt.whichResult != nil {
@@ -351,7 +351,7 @@ func TestDefaultServerVerifier_verifyGoplsInstallation(t *testing.T) {
 			if tt.fileExists && tt.whichResult != nil {
 				tempDir := t.TempDir()
 				goplsPath := filepath.Join(tempDir, "gopls")
-				
+
 				file, err := os.Create(goplsPath)
 				if err != nil {
 					t.Fatalf("Failed to create temp file: %v", err)
@@ -441,7 +441,7 @@ func TestDefaultServerVerifier_verifyPylspInstallation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockExecutor := newMockServerVerificationExecutor()
-			
+
 			// Note: Since we can't mock platform.IsCommandAvailable, we test with actual system state
 
 			if tt.whichResult != nil {
@@ -500,13 +500,13 @@ func TestDefaultServerVerifier_verifyPylspInstallation(t *testing.T) {
 
 func TestDefaultServerVerifier_verifyTypeScriptLSInstallation(t *testing.T) {
 	tests := []struct {
-		name                string
-		tsServerAvailable   bool
-		tscAvailable        bool
-		whichResult         *platform.Result
-		whichError          error
-		expectedInstalled   bool
-		expectedIssues      int
+		name              string
+		tsServerAvailable bool
+		tscAvailable      bool
+		whichResult       *platform.Result
+		whichError        error
+		expectedInstalled bool
+		expectedIssues    int
 	}{
 		{
 			name:              "TypeScript Language Server and tsc available",
@@ -544,7 +544,7 @@ func TestDefaultServerVerifier_verifyTypeScriptLSInstallation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockExecutor := newMockServerVerificationExecutor()
-			
+
 			// Note: Since we can't mock platform.IsCommandAvailable, we test with actual system state
 
 			if tt.whichResult != nil {
@@ -634,7 +634,7 @@ func TestDefaultServerVerifier_verifyJdtlsInstallation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tempDir := t.TempDir()
-			
+
 			// Set HOME environment variable to our temp directory
 			originalHome := os.Getenv("HOME")
 			os.Setenv("HOME", tempDir)
@@ -701,7 +701,7 @@ func TestDefaultServerVerifier_verifyJdtlsInstallation(t *testing.T) {
 
 func TestDefaultServerVerifier_verifyJdtlsInstallation_Windows(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	// Mock Windows environment
 	originalAppData := os.Getenv("APPDATA")
 	os.Setenv("APPDATA", tempDir)
@@ -771,16 +771,16 @@ func TestServerVerification_EdgeCases(t *testing.T) {
 		}
 
 		serverDef, _ := verifier.serverRegistry.GetServer("gopls")
-		
+
 		// Should handle nil runtime verifier gracefully
 		defer func() {
 			if r := recover(); r != nil {
 				t.Errorf("Should not panic with nil runtime verifier: %v", r)
 			}
 		}()
-		
+
 		verifier.verifyServerRuntime(result, serverDef)
-		
+
 		// Should have added an issue about runtime verification failure
 		if len(result.Issues) == 0 {
 			t.Error("Expected issue when runtime verifier is nil")
@@ -802,14 +802,14 @@ func TestServerVerification_EdgeCases(t *testing.T) {
 		}
 
 		serverDef, _ := verifier.serverRegistry.GetServer("gopls")
-		
+
 		// Should handle nil executor gracefully
 		defer func() {
 			if r := recover(); r != nil {
 				t.Errorf("Should not panic with nil executor: %v", r)
 			}
 		}()
-		
+
 		verifier.verifyGoplsInstallation(result, serverDef)
 	})
 

@@ -414,7 +414,7 @@ func testMultipleProcessCleanup(t *testing.T, tracker *FileHandleTracker, proces
 
 	processCount := 5
 	clients := make([]LSPClient, processCount)
-	
+
 	// Start multiple processes
 	for i := 0; i < processCount; i++ {
 		config := ClientConfig{
@@ -520,7 +520,7 @@ func testTCPConnectionCleanup(t *testing.T, tracker *FileHandleTracker) {
 	if err != nil {
 		t.Fatalf("Failed to create TCP listener: %v", err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	serverAddr := listener.Addr().String()
 	t.Logf("Mock TCP server listening on: %s", serverAddr)
@@ -666,7 +666,7 @@ func testTCPConnectionTimeoutCleanup(t *testing.T, tracker *FileHandleTracker) {
 	if err != nil {
 		t.Fatalf("Failed to create TCP listener: %v", err)
 	}
-	defer listener.Close()
+	defer func() { _ = listener.Close() }()
 
 	go func() {
 		for {
@@ -676,7 +676,7 @@ func testTCPConnectionTimeoutCleanup(t *testing.T, tracker *FileHandleTracker) {
 			}
 			// Don't handle the connection - just let it timeout
 			time.Sleep(10 * time.Second)
-			conn.Close()
+			_ = conn.Close()
 		}
 	}()
 
@@ -791,7 +791,7 @@ func testSubprocessFileDescriptorInheritance(t *testing.T) {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
 	defer os.Remove(tempFile.Name())
-	defer tempFile.Close()
+	defer func() { _ = tempFile.Close() }()
 
 	config := ClientConfig{
 		Command:   "cat",
@@ -962,7 +962,7 @@ func testSubprocessCleanupVerification(t *testing.T) {
 		// Verify cleanup
 		time.Sleep(300 * time.Millisecond)
 		leaks := tracker.DetectLeaks()
-		
+
 		t.Logf("Round %d cleanup - Leaks: %d", round, len(leaks))
 
 		if len(leaks) > processesPerRound*3 {
@@ -1170,7 +1170,7 @@ servers:
 // Helper functions
 
 func handleMockConnection(conn net.Conn) {
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)

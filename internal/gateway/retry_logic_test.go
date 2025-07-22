@@ -20,35 +20,35 @@ func TestExponentialBackoffImplementation(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name           string
-		baseDelay      time.Duration
-		maxDelay       time.Duration
-		jitterPercent  float64
-		attempts       int
+		name            string
+		baseDelay       time.Duration
+		maxDelay        time.Duration
+		jitterPercent   float64
+		attempts        int
 		expectedPattern string
 	}{
 		{
-			name:           "standard exponential backoff",
-			baseDelay:      100 * time.Millisecond,
-			maxDelay:       5 * time.Second,
-			jitterPercent:  0.25,
-			attempts:       5,
+			name:            "standard exponential backoff",
+			baseDelay:       100 * time.Millisecond,
+			maxDelay:        5 * time.Second,
+			jitterPercent:   0.25,
+			attempts:        5,
 			expectedPattern: "exponential_growth",
 		},
 		{
-			name:           "aggressive backoff with high jitter",
-			baseDelay:      50 * time.Millisecond,
-			maxDelay:       2 * time.Second,
-			jitterPercent:  0.5,
-			attempts:       6,
+			name:            "aggressive backoff with high jitter",
+			baseDelay:       50 * time.Millisecond,
+			maxDelay:        2 * time.Second,
+			jitterPercent:   0.5,
+			attempts:        6,
 			expectedPattern: "exponential_with_jitter",
 		},
 		{
-			name:           "conservative backoff with cap",
-			baseDelay:      200 * time.Millisecond,
-			maxDelay:       1 * time.Second,
-			jitterPercent:  0.1,
-			attempts:       8,
+			name:            "conservative backoff with cap",
+			baseDelay:       200 * time.Millisecond,
+			maxDelay:        1 * time.Second,
+			jitterPercent:   0.1,
+			attempts:        8,
 			expectedPattern: "capped_exponential",
 		},
 	}
@@ -86,32 +86,32 @@ func TestMaximumRetryLimitEnforcement(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name                    string
-		maxRetries              int
-		failureType             string
+		name                      string
+		maxRetries                int
+		failureType               string
 		expectedCircuitActivation bool
-		timeoutDuration         time.Duration
+		timeoutDuration           time.Duration
 	}{
 		{
-			name:                    "circuit breaker on network errors",
-			maxRetries:              3,
-			failureType:             "network_error",
+			name:                      "circuit breaker on network errors",
+			maxRetries:                3,
+			failureType:               "network_error",
 			expectedCircuitActivation: true,
-			timeoutDuration:         10 * time.Second,
+			timeoutDuration:           10 * time.Second,
 		},
 		{
-			name:                    "circuit breaker on timeout errors",
-			maxRetries:              5,
-			failureType:             "timeout_error",
+			name:                      "circuit breaker on timeout errors",
+			maxRetries:                5,
+			failureType:               "timeout_error",
 			expectedCircuitActivation: true,
-			timeoutDuration:         15 * time.Second,
+			timeoutDuration:           15 * time.Second,
 		},
 		{
-			name:                    "no circuit breaker on application errors",
-			maxRetries:              3,
-			failureType:             "application_error",
+			name:                      "no circuit breaker on application errors",
+			maxRetries:                3,
+			failureType:               "application_error",
 			expectedCircuitActivation: false,
-			timeoutDuration:         8 * time.Second,
+			timeoutDuration:           8 * time.Second,
 		},
 	}
 
@@ -146,7 +146,7 @@ func TestMaximumRetryLimitEnforcement(t *testing.T) {
 
 			result, err := retryHandler.ExecuteWithRetry(ctx, request, func(ctx context.Context, req *RetryableRequest) (*RetryResult, error) {
 				attemptCount++
-				
+
 				// Simulate different failure types
 				switch tt.failureType {
 				case "network_error":
@@ -218,7 +218,7 @@ func TestRequestDeduplicationDuringRetries(t *testing.T) {
 			JitterPercent: 0.25,
 		})
 
-		ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
 		// Create identical requests
@@ -296,7 +296,7 @@ func TestRequestDeduplicationDuringRetries(t *testing.T) {
 
 		deduplicator := NewRequestDeduplicator(200 * time.Millisecond) // Short expiration
 
-		ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		request := &RetryableRequest{
@@ -354,11 +354,11 @@ func TestRetryBehaviorForDifferentErrorTypes(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name                 string
-		errorType            string
-		shouldRetry          bool
-		maxRetries           int
-		expectedAttempts     int
+		name             string
+		errorType        string
+		shouldRetry      bool
+		maxRetries       int
+		expectedAttempts int
 	}{
 		{
 			name:             "network connection error",
@@ -423,7 +423,7 @@ func TestRetryBehaviorForDifferentErrorTypes(t *testing.T) {
 				JitterPercent: 0.1,
 			})
 
-			ctx, cancel := context.WithTimeout(context.Background(), 10 * time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
 			request := &RetryableRequest{
@@ -474,7 +474,7 @@ func TestConcurrentRequestRetryHandling(t *testing.T) {
 			JitterPercent: 0.25,
 		})
 
-		ctx, cancel := context.WithTimeout(context.Background(), 20 * time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
 
 		// Test concurrent requests with different failure patterns
@@ -500,7 +500,7 @@ func TestConcurrentRequestRetryHandling(t *testing.T) {
 
 				result, err := retryHandler.ExecuteWithRetry(ctx, request, func(ctx context.Context, req *RetryableRequest) (*RetryResult, error) {
 					count := atomic.AddInt32(&attemptCounts[requestID], 1)
-					
+
 					// Different failure patterns for different requests
 					if requestID%3 == 0 {
 						// Always succeed immediately
@@ -581,38 +581,38 @@ func TestTransientNetworkFailureRecovery(t *testing.T) {
 
 		// Test different transient failure patterns
 		failurePatterns := []struct {
-			name             string
-			failureCount     int
-			recoveryDelay    time.Duration
-			expectedSuccess  bool
+			name                string
+			failureCount        int
+			recoveryDelay       time.Duration
+			expectedSuccess     bool
 			maxExpectedAttempts int
 		}{
 			{
-				name:             "single transient failure",
-				failureCount:     1,
-				recoveryDelay:    200 * time.Millisecond,
-				expectedSuccess:  true,
+				name:                "single transient failure",
+				failureCount:        1,
+				recoveryDelay:       200 * time.Millisecond,
+				expectedSuccess:     true,
 				maxExpectedAttempts: 2,
 			},
 			{
-				name:             "multiple transient failures",
-				failureCount:     3,
-				recoveryDelay:    500 * time.Millisecond,
-				expectedSuccess:  true,
+				name:                "multiple transient failures",
+				failureCount:        3,
+				recoveryDelay:       500 * time.Millisecond,
+				expectedSuccess:     true,
 				maxExpectedAttempts: 4,
 			},
 			{
-				name:             "extended transient failure",
-				failureCount:     6,
-				recoveryDelay:    1 * time.Second,
-				expectedSuccess:  false,
+				name:                "extended transient failure",
+				failureCount:        6,
+				recoveryDelay:       1 * time.Second,
+				expectedSuccess:     false,
 				maxExpectedAttempts: 6,
 			},
 		}
 
 		for _, pattern := range failurePatterns {
 			t.Run(pattern.name, func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(context.Background(), 15 * time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 				defer cancel()
 
 				server.SetFailurePattern(pattern.failureCount, pattern.recoveryDelay)
@@ -734,24 +734,24 @@ func NewExponentialBackoffCalculator(baseDelay, maxDelay time.Duration, jitterPe
 func (e *ExponentialBackoffCalculator) CalculateDelay(attempt int) time.Duration {
 	// Exponential backoff: baseDelay * 2^(attempt-1)
 	backoff := float64(e.baseDelay) * math.Pow(2, float64(attempt-1))
-	
+
 	// Add jitter (±jitterPercent)
 	jitter := 1.0 + (rand.Float64()-0.5)*e.jitterPercent*2
 	delay := time.Duration(backoff * jitter)
-	
+
 	// Cap at maxDelay
 	if delay > e.maxDelay {
 		delay = e.maxDelay
 	}
-	
+
 	return delay
 }
 
 // RetryHandler implements retry logic with exponential backoff
 type RetryHandler struct {
-	config       RetryConfig
-	circuitOpen  bool
-	mu           sync.RWMutex
+	config      RetryConfig
+	circuitOpen bool
+	mu          sync.RWMutex
 }
 
 func NewRetryHandler(config RetryConfig) *RetryHandler {
@@ -762,30 +762,30 @@ func NewRetryHandler(config RetryConfig) *RetryHandler {
 
 func (r *RetryHandler) ExecuteWithRetry(ctx context.Context, request *RetryableRequest, executor func(context.Context, *RetryableRequest) (*RetryResult, error)) (*RetryResult, error) {
 	calculator := NewExponentialBackoffCalculator(r.config.BaseDelay, r.config.MaxDelay, r.config.JitterPercent)
-	
+
 	var lastErr error
 	for attempt := 1; attempt <= r.config.MaxRetries+1; attempt++ {
 		result, err := executor(ctx, request)
 		if err == nil {
 			return result, nil
 		}
-		
+
 		lastErr = err
-		
+
 		// Check if error is retriable
 		if retriable, ok := err.(interface{ IsRetriable() bool }); ok && !retriable.IsRetriable() {
 			return nil, err
 		}
-		
+
 		// Check if we've reached max retries
 		if attempt > r.config.MaxRetries {
 			r.openCircuit()
 			break
 		}
-		
+
 		// Calculate backoff delay
 		delay := calculator.CalculateDelay(attempt)
-		
+
 		// Wait with context cancellation support
 		select {
 		case <-time.After(delay):
@@ -793,7 +793,7 @@ func (r *RetryHandler) ExecuteWithRetry(ctx context.Context, request *RetryableR
 			return nil, ctx.Err()
 		}
 	}
-	
+
 	return nil, lastErr
 }
 
@@ -832,7 +832,7 @@ func NewRequestDeduplicator(expiration time.Duration) *RequestDeduplicator {
 
 func (d *RequestDeduplicator) ExecuteWithDeduplication(ctx context.Context, request *RetryableRequest, executor func(context.Context, *RetryableRequest) (*RetryResult, error)) (*RetryResult, error) {
 	key := d.generateRequestKey(request)
-	
+
 	d.mu.Lock()
 	if pending, exists := d.cache[key]; exists && time.Since(pending.timestamp) < d.expiration {
 		d.mu.Unlock()
@@ -844,7 +844,7 @@ func (d *RequestDeduplicator) ExecuteWithDeduplication(ctx context.Context, requ
 			return nil, ctx.Err()
 		}
 	}
-	
+
 	// Create new pending request
 	pending := &pendingRequest{
 		done:      make(chan struct{}),
@@ -852,13 +852,13 @@ func (d *RequestDeduplicator) ExecuteWithDeduplication(ctx context.Context, requ
 	}
 	d.cache[key] = pending
 	d.mu.Unlock()
-	
+
 	// Execute request
 	go func() {
 		defer close(pending.done)
 		pending.result, pending.err = executor(ctx, request)
 	}()
-	
+
 	// Wait for completion
 	select {
 	case <-pending.done:
@@ -879,7 +879,7 @@ func CreateRetryTestServer(t *testing.T, failureType string, failureCount int) *
 	requestCount := 0
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestCount++
-		
+
 		if requestCount <= failureCount {
 			switch failureType {
 			case "network_error":
@@ -892,7 +892,7 @@ func CreateRetryTestServer(t *testing.T, failureType string, failureCount int) *
 			}
 			return
 		}
-		
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"result": "success"}`))
@@ -996,13 +996,13 @@ func (s *TransientFailureTestServer) SetFailurePattern(failureCount int, recover
 func (s *TransientFailureTestServer) HandleTransientFailure() (*RetryResult, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	s.currentCount++
-	
+
 	if int(s.currentCount) <= s.failureCount {
 		return nil, &NetworkError{Message: fmt.Sprintf("transient failure %d", s.currentCount)}
 	}
-	
+
 	return &RetryResult{Success: true, Data: json.RawMessage(`{"result": "recovered"}`)}, nil
 }
 
@@ -1018,11 +1018,11 @@ func validateExponentialGrowth(t *testing.T, delays []time.Duration, baseDelay, 
 			t.Errorf("Delay should increase exponentially: %v < %v at attempt %d", delays[i], delays[i-1], i+1)
 		}
 	}
-	
+
 	if delays[0] < baseDelay/2 {
 		t.Errorf("First delay %v should be close to base delay %v", delays[0], baseDelay)
 	}
-	
+
 	for _, delay := range delays {
 		if delay > maxDelay {
 			t.Errorf("Delay %v should not exceed max delay %v", delay, maxDelay)
@@ -1038,21 +1038,21 @@ func validateExponentialWithJitter(t *testing.T, delays []time.Duration, baseDel
 			identical++
 		}
 	}
-	
+
 	if identical > 1 {
 		t.Errorf("Too many identical delays (%d), jitter should add variance", identical)
 	}
-	
+
 	// Validate jitter bounds
 	for i, delay := range delays {
 		expectedBase := float64(baseDelay) * math.Pow(2, float64(i))
 		if expectedBase > float64(maxDelay) {
 			expectedBase = float64(maxDelay)
 		}
-		
+
 		minExpected := time.Duration(expectedBase * (1 - jitterPercent))
 		maxExpected := time.Duration(expectedBase * (1 + jitterPercent))
-		
+
 		if delay < minExpected || delay > maxExpected {
 			t.Errorf("Delay %v at attempt %d outside jitter bounds [%v, %v]", delay, i+1, minExpected, maxExpected)
 		}
@@ -1069,7 +1069,7 @@ func validateCappedExponential(t *testing.T, delays []time.Duration, baseDelay, 
 			break
 		}
 	}
-	
+
 	if cappingPoint > 0 {
 		// Check that delays are capped after the capping point
 		for i := cappingPoint; i < len(delays); i++ {

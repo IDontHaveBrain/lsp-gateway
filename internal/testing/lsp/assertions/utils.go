@@ -19,44 +19,44 @@ import (
 // QuickDefinitionTest creates a simple definition test expectation
 func QuickDefinitionTest(hasResult bool, uri string, line, char int) *ComprehensiveExpectedResult {
 	builder := NewExpectedResult().WithDefinition(hasResult)
-	
+
 	if hasResult && uri != "" {
 		builder = builder.WithDefinitionLocation(uri, line, char, line, char+10)
 	}
-	
+
 	return builder.Build()
 }
 
 // QuickReferencesTest creates a simple references test expectation
 func QuickReferencesTest(hasResult bool, minCount, maxCount int) *ComprehensiveExpectedResult {
 	builder := NewExpectedResult().WithReferences(hasResult)
-	
+
 	if hasResult {
 		builder = builder.WithReferencesCount(minCount, maxCount)
 	}
-	
+
 	return builder.Build()
 }
 
 // QuickHoverTest creates a simple hover test expectation
 func QuickHoverTest(hasResult bool, contentPatterns ...string) *ComprehensiveExpectedResult {
 	builder := NewExpectedResult().WithHover(hasResult)
-	
+
 	if hasResult && len(contentPatterns) > 0 {
 		builder = builder.WithHoverContent(true, contentPatterns...)
 	}
-	
+
 	return builder.Build()
 }
 
 // QuickSymbolTest creates a simple document symbol test expectation
 func QuickSymbolTest(hasResult bool, minCount, maxCount int) *ComprehensiveExpectedResult {
 	builder := NewExpectedResult().WithDocumentSymbol(hasResult)
-	
+
 	if hasResult {
 		builder = builder.WithDocumentSymbolCount(minCount, maxCount)
 	}
-	
+
 	return builder.Build()
 }
 
@@ -66,11 +66,11 @@ func QuickErrorTest(errorCode int, messagePatterns ...string) *ComprehensiveExpe
 		Success(false).
 		WithError(true).
 		WithErrorCode(errorCode)
-	
+
 	if len(messagePatterns) > 0 {
 		builder = builder.WithErrorMessageContains(messagePatterns...)
 	}
-	
+
 	return builder.Build()
 }
 
@@ -79,7 +79,7 @@ func QuickErrorTest(errorCode int, messagePatterns ...string) *ComprehensiveExpe
 // FilterResults filters validation results by name patterns
 func FilterResults(results []*cases.ValidationResult, patterns ...string) []*cases.ValidationResult {
 	var filtered []*cases.ValidationResult
-	
+
 	for _, result := range results {
 		for _, pattern := range patterns {
 			if matched, _ := regexp.MatchString(pattern, result.Name); matched {
@@ -88,45 +88,45 @@ func FilterResults(results []*cases.ValidationResult, patterns ...string) []*cas
 			}
 		}
 	}
-	
+
 	return filtered
 }
 
 // GroupResultsByType groups validation results by their type (first part of name)
 func GroupResultsByType(results []*cases.ValidationResult) map[string][]*cases.ValidationResult {
 	groups := make(map[string][]*cases.ValidationResult)
-	
+
 	for _, result := range results {
 		resultType := extractFailureType(result.Name)
 		groups[resultType] = append(groups[resultType], result)
 	}
-	
+
 	return groups
 }
 
 // GetFailedResults returns only the failed validation results
 func GetFailedResults(results []*cases.ValidationResult) []*cases.ValidationResult {
 	var failed []*cases.ValidationResult
-	
+
 	for _, result := range results {
 		if !result.Passed {
 			failed = append(failed, result)
 		}
 	}
-	
+
 	return failed
 }
 
 // GetPassedResults returns only the passed validation results
 func GetPassedResults(results []*cases.ValidationResult) []*cases.ValidationResult {
 	var passed []*cases.ValidationResult
-	
+
 	for _, result := range results {
 		if result.Passed {
 			passed = append(passed, result)
 		}
 	}
-	
+
 	return passed
 }
 
@@ -135,7 +135,7 @@ func GetPassedResults(results []*cases.ValidationResult) []*cases.ValidationResu
 // ExtractLocationFromResponse extracts location information from various LSP response formats
 func ExtractLocationFromResponse(response json.RawMessage) ([]*LocationInfo, error) {
 	var locations []*LocationInfo
-	
+
 	// Try single location first
 	var singleLoc map[string]interface{}
 	if err := json.Unmarshal(response, &singleLoc); err == nil {
@@ -146,7 +146,7 @@ func ExtractLocationFromResponse(response json.RawMessage) ([]*LocationInfo, err
 			}
 		}
 	}
-	
+
 	// Try array of locations
 	var arrayLocs []interface{}
 	if err := json.Unmarshal(response, &arrayLocs); err == nil {
@@ -159,74 +159,74 @@ func ExtractLocationFromResponse(response json.RawMessage) ([]*LocationInfo, err
 		}
 		return locations, nil
 	}
-	
+
 	return nil, fmt.Errorf("unable to extract location information from response")
 }
 
 // LocationInfo represents parsed location information
 type LocationInfo struct {
-	URI        string    `json:"uri"`
-	StartLine  int       `json:"start_line"`
-	StartChar  int       `json:"start_char"`
-	EndLine    int       `json:"end_line"`
-	EndChar    int       `json:"end_char"`
-	Filename   string    `json:"filename"`
+	URI       string `json:"uri"`
+	StartLine int    `json:"start_line"`
+	StartChar int    `json:"start_char"`
+	EndLine   int    `json:"end_line"`
+	EndChar   int    `json:"end_char"`
+	Filename  string `json:"filename"`
 }
 
 // parseLocationFromMap parses location from a map structure
 func parseLocationFromMap(locMap map[string]interface{}) *LocationInfo {
 	uri, hasURI := locMap["uri"]
 	lspRange, hasRange := locMap["range"]
-	
+
 	if !hasURI || !hasRange {
 		return nil
 	}
-	
+
 	uriStr, ok := uri.(string)
 	if !ok {
 		return nil
 	}
-	
+
 	rangeMap, ok := lspRange.(map[string]interface{})
 	if !ok {
 		return nil
 	}
-	
+
 	start, hasStart := rangeMap["start"]
 	end, hasEnd := rangeMap["end"]
-	
+
 	if !hasStart || !hasEnd {
 		return nil
 	}
-	
+
 	startMap, ok := start.(map[string]interface{})
 	if !ok {
 		return nil
 	}
-	
+
 	endMap, ok := end.(map[string]interface{})
 	if !ok {
 		return nil
 	}
-	
+
 	startLine, hasStartLine := startMap["line"]
 	startChar, hasStartChar := startMap["character"]
 	endLine, hasEndLine := endMap["line"]
 	endChar, hasEndChar := endMap["character"]
-	
+
 	if !hasStartLine || !hasStartChar || !hasEndLine || !hasEndChar {
 		return nil
 	}
-	
+
 	// Convert to integers
 	startLineInt := int(startLine.(float64))
 	startCharInt := int(startChar.(float64))
 	endLineInt := int(endLine.(float64))
 	endCharInt := int(endChar.(float64))
-	
+
 	// Extract filename from URI
 	filename := filepath.Base(strings.TrimPrefix(uriStr, "file://"))
-	
+
 	return &LocationInfo{
 		URI:       uriStr,
 		StartLine: startLineInt,
@@ -243,12 +243,12 @@ func ExtractHoverContentFromResponse(response json.RawMessage) (string, string, 
 	if err := json.Unmarshal(response, &hover); err != nil {
 		return "", "", fmt.Errorf("failed to parse hover response: %w", err)
 	}
-	
+
 	contents, hasContents := hover["contents"]
 	if !hasContents {
 		return "", "", fmt.Errorf("hover response missing contents field")
 	}
-	
+
 	content, markupKind := extractHoverContentAndKind(contents)
 	return content, markupKind, nil
 }
@@ -258,7 +258,7 @@ func extractHoverContentAndKind(contents interface{}) (string, string) {
 	switch v := contents.(type) {
 	case string:
 		return v, "plaintext"
-	
+
 	case map[string]interface{}:
 		// MarkupContent format
 		if value, hasValue := v["value"]; hasValue {
@@ -273,12 +273,12 @@ func extractHoverContentAndKind(contents interface{}) (string, string) {
 			}
 		}
 		return "", "plaintext"
-	
+
 	case []interface{}:
 		// Array of content items
 		var parts []string
 		kind := "plaintext"
-		
+
 		for _, item := range v {
 			if itemContent, itemKind := extractHoverContentAndKind(item); itemContent != "" {
 				parts = append(parts, itemContent)
@@ -287,9 +287,9 @@ func extractHoverContentAndKind(contents interface{}) (string, string) {
 				}
 			}
 		}
-		
+
 		return strings.Join(parts, "\n"), kind
-	
+
 	default:
 		return fmt.Sprintf("%v", v), "plaintext"
 	}
@@ -301,7 +301,7 @@ func ExtractSymbolsFromResponse(response json.RawMessage) ([]*SymbolInfo, error)
 	if err := json.Unmarshal(response, &symbols); err != nil {
 		return nil, fmt.Errorf("failed to parse symbols response: %w", err)
 	}
-	
+
 	var symbolInfos []*SymbolInfo
 	for _, symbol := range symbols {
 		if symbolMap, ok := symbol.(map[string]interface{}); ok {
@@ -310,7 +310,7 @@ func ExtractSymbolsFromResponse(response json.RawMessage) ([]*SymbolInfo, error)
 			}
 		}
 	}
-	
+
 	return symbolInfos, nil
 }
 
@@ -329,49 +329,49 @@ type SymbolInfo struct {
 func parseSymbolFromMap(symbolMap map[string]interface{}) *SymbolInfo {
 	name, hasName := symbolMap["name"]
 	kind, hasKind := symbolMap["kind"]
-	
+
 	if !hasName || !hasKind {
 		return nil
 	}
-	
+
 	nameStr, ok := name.(string)
 	if !ok {
 		return nil
 	}
-	
+
 	kindNum, ok := kind.(float64)
 	if !ok {
 		return nil
 	}
-	
+
 	kindInt := int(kindNum)
 	symbolInfo := &SymbolInfo{
 		Name:     nameStr,
 		Kind:     kindInt,
 		KindName: ExpectedSymbolKind(kindInt).String(),
 	}
-	
+
 	// Optional location
 	if location, hasLocation := symbolMap["location"]; hasLocation {
 		if locMap, ok := location.(map[string]interface{}); ok {
 			symbolInfo.Location = parseLocationFromMap(locMap)
 		}
 	}
-	
+
 	// Optional container name
 	if containerName, hasContainer := symbolMap["containerName"]; hasContainer {
 		if containerStr, ok := containerName.(string); ok {
 			symbolInfo.ContainerName = containerStr
 		}
 	}
-	
+
 	// Optional detail
 	if detail, hasDetail := symbolMap["detail"]; hasDetail {
 		if detailStr, ok := detail.(string); ok {
 			symbolInfo.Detail = detailStr
 		}
 	}
-	
+
 	// Optional children (for document symbols)
 	if children, hasChildren := symbolMap["children"]; hasChildren {
 		if childrenArray, ok := children.([]interface{}); ok {
@@ -384,7 +384,7 @@ func parseSymbolFromMap(symbolMap map[string]interface{}) *SymbolInfo {
 			}
 		}
 	}
-	
+
 	return symbolInfo
 }
 
@@ -437,7 +437,7 @@ func MeasureValidationTime(fn func() []*cases.ValidationResult) (time.Duration, 
 func ValidateResponseTime(actual time.Duration, maxMs int, testName string) *cases.ValidationResult {
 	maxDuration := time.Duration(maxMs) * time.Millisecond
 	actualMs := actual.Milliseconds()
-	
+
 	if actual > maxDuration {
 		return &cases.ValidationResult{
 			Name:        fmt.Sprintf("%s_response_time", testName),
@@ -445,20 +445,20 @@ func ValidateResponseTime(actual time.Duration, maxMs int, testName string) *cas
 			Passed:      false,
 			Message:     fmt.Sprintf("Response time %dms exceeds maximum expected %dms", actualMs, maxMs),
 			Details: map[string]interface{}{
-				"actual_ms":      actualMs,
+				"actual_ms":       actualMs,
 				"expected_max_ms": maxMs,
-				"exceeded_by_ms": actualMs - int64(maxMs),
+				"exceeded_by_ms":  actualMs - int64(maxMs),
 			},
 		}
 	}
-	
+
 	return &cases.ValidationResult{
 		Name:        fmt.Sprintf("%s_response_time", testName),
 		Description: "Validate response time is within expected bounds",
 		Passed:      true,
 		Message:     fmt.Sprintf("Response time %dms is within expected maximum %dms", actualMs, maxMs),
 		Details: map[string]interface{}{
-			"actual_ms":      actualMs,
+			"actual_ms":       actualMs,
 			"expected_max_ms": maxMs,
 		},
 	}
@@ -501,10 +501,10 @@ func LenientValidationConfig() *lspconfig.ValidationConfig {
 // CreateTestCase creates a test case with common defaults
 func CreateTestCase(id, name, method string) *cases.TestCase {
 	return &cases.TestCase{
-		ID:          id,
-		Name:        name,
-		Method:      method,
-		Status:      cases.TestStatusPending,
+		ID:                id,
+		Name:              name,
+		Method:            method,
+		Status:            cases.TestStatusPending,
 		ValidationResults: make([]*cases.ValidationResult, 0),
 	}
 }
@@ -514,26 +514,26 @@ func CreateTestCase(id, name, method string) *cases.TestCase {
 // ValidateTestCaseBatch validates multiple test cases in batch
 func ValidateTestCaseBatch(testCases []*cases.TestCase, expectations map[string]*ComprehensiveExpectedResult, config *lspconfig.ValidationConfig) *BatchValidationResult {
 	validator := NewComprehensiveValidator(config)
-	
+
 	result := &BatchValidationResult{
-		TotalCases:    len(testCases),
-		StartTime:     time.Now(),
-		CaseResults:   make(map[string]*TestCaseResult),
+		TotalCases:  len(testCases),
+		StartTime:   time.Now(),
+		CaseResults: make(map[string]*TestCaseResult),
 	}
-	
+
 	for _, testCase := range testCases {
 		caseResult := &TestCaseResult{
 			TestCase:  testCase,
 			StartTime: time.Now(),
 		}
-		
+
 		expected := expectations[testCase.ID]
 		err := validator.ValidateTestCase(testCase, expected)
-		
+
 		caseResult.EndTime = time.Now()
 		caseResult.Duration = caseResult.EndTime.Sub(caseResult.StartTime)
 		caseResult.Error = err
-		
+
 		switch testCase.Status {
 		case cases.TestStatusPassed:
 			result.PassedCases++
@@ -544,13 +544,13 @@ func ValidateTestCaseBatch(testCases []*cases.TestCase, expectations map[string]
 		default:
 			result.ErrorCases++
 		}
-		
+
 		result.CaseResults[testCase.ID] = caseResult
 	}
-	
+
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(result.StartTime)
-	
+
 	return result
 }
 
@@ -582,7 +582,7 @@ func (r *BatchValidationResult) Summary() string {
 	if r.TotalCases > 0 {
 		passRate = float64(r.PassedCases) / float64(r.TotalCases) * 100
 	}
-	
+
 	return fmt.Sprintf("Batch validation: %d total, %d passed (%.1f%%), %d failed, %d skipped, %d errors, duration: %v",
 		r.TotalCases, r.PassedCases, passRate, r.FailedCases, r.SkippedCases, r.ErrorCases, r.Duration)
 }

@@ -20,18 +20,23 @@ type DefinitionValidator struct {
 
 // ValidationMetrics tracks comprehensive validation metrics
 type ValidationMetrics struct {
-	ResponseTime       time.Duration
-	MemoryUsage        int64
-	PositionAccuracy   float64
-	SymbolResolution   int
+	ResponseTime        time.Duration
+	MemoryUsage         int64
+	PositionAccuracy    float64
+	SymbolResolution    int
 	CrossFileNavigation bool
-	ValidationErrors   []string
+	ValidationErrors    []string
+	// References-specific metrics
+	TotalReferences   int
+	CrossFileRefs     int
+	CrossModuleRefs   int
+	ReferenceAccuracy float64
 }
 
 // DefinitionLocation represents a definition location
 type DefinitionLocation struct {
-	URI   string      `json:"uri"`
-	Range LSPRange    `json:"range"`
+	URI   string   `json:"uri"`
+	Range LSPRange `json:"range"`
 }
 
 // LSPRange represents an LSP range
@@ -73,13 +78,13 @@ func (v *DefinitionValidator) ValidateResponse(testCase *cases.TestCase, respons
 	if string(response) == "null" {
 		return v.validateNullResponse(testCase, results)
 	}
-	
+
 	// Try to parse as single location first
 	var singleLocation DefinitionLocation
 	if err := json.Unmarshal(response, &singleLocation); err == nil {
 		return v.validateSingleLocation(testCase, singleLocation, results)
 	}
-	
+
 	// Try to parse as array of locations
 	var locations []DefinitionLocation
 	if err := json.Unmarshal(response, &locations); err != nil {
@@ -91,7 +96,7 @@ func (v *DefinitionValidator) ValidateResponse(testCase *cases.TestCase, respons
 		})
 		return results
 	}
-	
+
 	return v.validateLocationArray(testCase, locations, results)
 }
 
@@ -231,7 +236,7 @@ func (v *DefinitionValidator) validateSingleLocation(testCase *cases.TestCase, l
 		Passed:      true,
 		Message:     "Response is a single location",
 	})
-	
+
 	// Comprehensive location validation
 	results = append(results, v.validateLocation(location, "definition")...)
 
@@ -243,11 +248,11 @@ func (v *DefinitionValidator) validateSingleLocation(testCase *cases.TestCase, l
 
 	// Symbol resolution validation
 	results = append(results, v.validateSymbolResolution(testCase, location)...)
-	
+
 	// Check expected conditions
 	if testCase.Expected != nil && testCase.Expected.Definition != nil {
 		expected := testCase.Expected.Definition
-		
+
 		if !expected.HasLocation {
 			results = append(results, &cases.ValidationResult{
 				Name:        "definition_expectation",
@@ -262,12 +267,12 @@ func (v *DefinitionValidator) validateSingleLocation(testCase *cases.TestCase, l
 				Passed:      true,
 				Message:     "Found definition as expected",
 			})
-			
+
 			// Validate specific expected values
 			results = append(results, v.validateExpectedDefinition(location, expected)...)
 		}
 	}
-	
+
 	return results
 }
 
@@ -279,7 +284,7 @@ func (v *DefinitionValidator) validateLocationArray(testCase *cases.TestCase, lo
 		Passed:      true,
 		Message:     fmt.Sprintf("Response is an array of %d locations", len(locations)),
 	})
-	
+
 	if len(locations) == 0 {
 		if testCase.Expected != nil && testCase.Expected.Definition != nil && testCase.Expected.Definition.HasLocation {
 			results = append(results, &cases.ValidationResult{
@@ -298,7 +303,7 @@ func (v *DefinitionValidator) validateLocationArray(testCase *cases.TestCase, lo
 		}
 		return results
 	}
-	
+
 	// Validate each location with comprehensive checks
 	for i, location := range locations {
 		locationResults := v.validateLocation(location, fmt.Sprintf("definition_%d", i))
@@ -314,11 +319,11 @@ func (v *DefinitionValidator) validateLocationArray(testCase *cases.TestCase, lo
 
 	// Validate definition completeness
 	results = append(results, v.validateDefinitionCompleteness(testCase, locations)...)
-	
+
 	// Check expected conditions
 	if testCase.Expected != nil && testCase.Expected.Definition != nil {
 		expected := testCase.Expected.Definition
-		
+
 		if !expected.HasLocation {
 			results = append(results, &cases.ValidationResult{
 				Name:        "definition_expectation",
@@ -333,58 +338,58 @@ func (v *DefinitionValidator) validateLocationArray(testCase *cases.TestCase, lo
 				Passed:      true,
 				Message:     fmt.Sprintf("Found %d definitions as expected", len(locations)),
 			})
-			
+
 			// For array responses, validate against the first location
 			if len(locations) > 0 {
 				results = append(results, v.validateExpectedDefinition(locations[0], expected)...)
 			}
 		}
 	}
-	
+
 	return results
 }
 
 // validateLocation validates a single definition location structure
 func (v *DefinitionValidator) validateLocation(location DefinitionLocation, fieldName string) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	// Validate URI
 	results = append(results, v.validateURI(location.URI, fmt.Sprintf("%s_location", fieldName)))
-	
+
 	// Validate range structure
 	results = append(results, v.validateRange(location.Range, fmt.Sprintf("%s_range", fieldName))...)
-	
+
 	return results
 }
 
 // validateRange validates an LSP range structure
 func (v *DefinitionValidator) validateRange(lspRange LSPRange, fieldName string) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	// Validate start position
 	startResult := v.validatePosition(map[string]interface{}{
 		"line":      float64(lspRange.Start.Line),
 		"character": float64(lspRange.Start.Character),
 	}, fmt.Sprintf("%s_start", fieldName))
 	results = append(results, startResult)
-	
+
 	// Validate end position
 	endResult := v.validatePosition(map[string]interface{}{
 		"line":      float64(lspRange.End.Line),
 		"character": float64(lspRange.End.Character),
 	}, fmt.Sprintf("%s_end", fieldName))
 	results = append(results, endResult)
-	
+
 	// Validate range logic (start should be before or equal to end)
 	if v.config.ValidatePositions {
-		if lspRange.Start.Line > lspRange.End.Line || 
-		   (lspRange.Start.Line == lspRange.End.Line && lspRange.Start.Character > lspRange.End.Character) {
+		if lspRange.Start.Line > lspRange.End.Line ||
+			(lspRange.Start.Line == lspRange.End.Line && lspRange.Start.Character > lspRange.End.Character) {
 			results = append(results, &cases.ValidationResult{
 				Name:        fmt.Sprintf("%s_order", fieldName),
 				Description: fmt.Sprintf("Validate %s start position is before end position", fieldName),
 				Passed:      false,
-				Message:     fmt.Sprintf("Start position (%d,%d) is after end position (%d,%d)", 
-					lspRange.Start.Line, lspRange.Start.Character, 
+				Message: fmt.Sprintf("Start position (%d,%d) is after end position (%d,%d)",
+					lspRange.Start.Line, lspRange.Start.Character,
 					lspRange.End.Line, lspRange.End.Character),
 			})
 		} else {
@@ -396,14 +401,14 @@ func (v *DefinitionValidator) validateRange(lspRange LSPRange, fieldName string)
 			})
 		}
 	}
-	
+
 	return results
 }
 
 // validateExpectedDefinition validates against specific expected definition values
 func (v *DefinitionValidator) validateExpectedDefinition(location DefinitionLocation, expected *config.DefinitionExpected) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	// Check expected file URI
 	if expected.FileURI != nil {
 		if location.URI == *expected.FileURI {
@@ -422,19 +427,19 @@ func (v *DefinitionValidator) validateExpectedDefinition(location DefinitionLoca
 			})
 		}
 	}
-	
+
 	// Check expected range
 	if expected.Range != nil {
 		results = append(results, v.validateExpectedRange(location.Range, expected.Range)...)
 	}
-	
+
 	return results
 }
 
 // validateExpectedRange validates against expected range values
 func (v *DefinitionValidator) validateExpectedRange(actualRange LSPRange, expectedRange *config.Range) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	if expectedRange.Start != nil {
 		if actualRange.Start.Line == expectedRange.Start.Line && actualRange.Start.Character == expectedRange.Start.Character {
 			results = append(results, &cases.ValidationResult{
@@ -448,13 +453,13 @@ func (v *DefinitionValidator) validateExpectedRange(actualRange LSPRange, expect
 				Name:        "definition_range_start",
 				Description: "Validate definition range start position",
 				Passed:      false,
-				Message:     fmt.Sprintf("Start position (%d,%d) does not match expected (%d,%d)", 
+				Message: fmt.Sprintf("Start position (%d,%d) does not match expected (%d,%d)",
 					actualRange.Start.Line, actualRange.Start.Character,
 					expectedRange.Start.Line, expectedRange.Start.Character),
 			})
 		}
 	}
-	
+
 	if expectedRange.End != nil {
 		if actualRange.End.Line == expectedRange.End.Line && actualRange.End.Character == expectedRange.End.Character {
 			results = append(results, &cases.ValidationResult{
@@ -468,20 +473,20 @@ func (v *DefinitionValidator) validateExpectedRange(actualRange LSPRange, expect
 				Name:        "definition_range_end",
 				Description: "Validate definition range end position",
 				Passed:      false,
-				Message:     fmt.Sprintf("End position (%d,%d) does not match expected (%d,%d)", 
+				Message: fmt.Sprintf("End position (%d,%d) does not match expected (%d,%d)",
 					actualRange.End.Line, actualRange.End.Character,
 					expectedRange.End.Line, expectedRange.End.Character),
 			})
 		}
 	}
-	
+
 	return results
 }
 
 // validateCrossFileNavigation validates cross-file navigation capability
 func (v *DefinitionValidator) validateCrossFileNavigation(testCase *cases.TestCase, location DefinitionLocation) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	if testCase.Repository == nil || testCase.FilePath == "" {
 		return results
 	}
@@ -489,7 +494,7 @@ func (v *DefinitionValidator) validateCrossFileNavigation(testCase *cases.TestCa
 	// Extract file path from URI
 	definitionFile := strings.TrimPrefix(location.URI, "file://")
 	sourceFile := filepath.Join(testCase.Repository.Path, testCase.FilePath)
-	
+
 	// Check if definition is in a different file (cross-file navigation)
 	if definitionFile != sourceFile {
 		v.metrics.CrossFileNavigation = true
@@ -503,7 +508,7 @@ func (v *DefinitionValidator) validateCrossFileNavigation(testCase *cases.TestCa
 				"definition_file": definitionFile,
 			},
 		})
-		
+
 		// Validate that the definition file exists
 		if _, err := os.Stat(definitionFile); err != nil {
 			results = append(results, &cases.ValidationResult{
@@ -535,19 +540,19 @@ func (v *DefinitionValidator) validateCrossFileNavigation(testCase *cases.TestCa
 // validatePositionAccuracy validates the accuracy of position information
 func (v *DefinitionValidator) validatePositionAccuracy(testCase *cases.TestCase, location DefinitionLocation) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	if testCase.Repository == nil {
 		return results
 	}
 
 	// Get the definition file path
 	definitionFile := strings.TrimPrefix(location.URI, "file://")
-	
+
 	// Validate position is within file bounds
 	if _, err := os.Stat(definitionFile); err == nil {
 		if content, err := os.ReadFile(definitionFile); err == nil {
 			results = append(results, v.validatePositionWithinFileBounds(location, content)...)
-			
+
 			// Validate position points to meaningful content
 			results = append(results, v.validatePositionContent(location, content)...)
 		}
@@ -559,10 +564,10 @@ func (v *DefinitionValidator) validatePositionAccuracy(testCase *cases.TestCase,
 // validatePositionWithinFileBounds validates position is within file boundaries
 func (v *DefinitionValidator) validatePositionWithinFileBounds(location DefinitionLocation, content []byte) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	lines := strings.Split(string(content), "\n")
 	totalLines := len(lines)
-	
+
 	// Validate start position
 	if location.Range.Start.Line >= totalLines {
 		results = append(results, &cases.ValidationResult{
@@ -589,7 +594,7 @@ func (v *DefinitionValidator) validatePositionWithinFileBounds(location Definiti
 			})
 		}
 	}
-	
+
 	// Validate end position
 	if location.Range.End.Line >= totalLines {
 		results = append(results, &cases.ValidationResult{
@@ -623,19 +628,19 @@ func (v *DefinitionValidator) validatePositionWithinFileBounds(location Definiti
 // validatePositionContent validates that position points to meaningful content
 func (v *DefinitionValidator) validatePositionContent(location DefinitionLocation, content []byte) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	lines := strings.Split(string(content), "\n")
-	
+
 	if location.Range.Start.Line < len(lines) {
 		lineContent := lines[location.Range.Start.Line]
-		
+
 		// Extract the text at the definition position
 		startChar := location.Range.Start.Character
 		endChar := location.Range.End.Character
-		
+
 		if startChar < len(lineContent) && endChar <= len(lineContent) && startChar <= endChar {
 			definitionText := lineContent[startChar:endChar]
-			
+
 			// Check if definition text is meaningful (not just whitespace)
 			if strings.TrimSpace(definitionText) == "" {
 				results = append(results, &cases.ValidationResult{
@@ -658,7 +663,7 @@ func (v *DefinitionValidator) validatePositionContent(location DefinitionLocatio
 						"definition_text": definitionText,
 					},
 				})
-				
+
 				// Additional validation: check if it looks like a symbol definition
 				results = append(results, v.validateSymbolLikeContent(definitionText)...)
 			}
@@ -671,19 +676,19 @@ func (v *DefinitionValidator) validatePositionContent(location DefinitionLocatio
 // validateSymbolLikeContent validates that content looks like a symbol definition
 func (v *DefinitionValidator) validateSymbolLikeContent(text string) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	text = strings.TrimSpace(text)
-	
+
 	// Basic heuristics for symbol-like content
 	isSymbolLike := false
 	symbolType := "unknown"
-	
+
 	// Check for common symbol patterns
 	if len(text) > 0 {
 		// Identifier pattern (letters, numbers, underscores)
 		if strings.ContainsAny(text, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_") {
 			isSymbolLike = true
-			
+
 			// Try to determine symbol type
 			if strings.Contains(text, "func ") || strings.Contains(text, "function ") {
 				symbolType = "function"
@@ -698,7 +703,7 @@ func (v *DefinitionValidator) validateSymbolLikeContent(text string) []*cases.Va
 			}
 		}
 	}
-	
+
 	if isSymbolLike {
 		results = append(results, &cases.ValidationResult{
 			Name:        "symbol_like_content",
@@ -728,12 +733,12 @@ func (v *DefinitionValidator) validateSymbolLikeContent(text string) []*cases.Va
 // validateSymbolResolution validates symbol resolution accuracy
 func (v *DefinitionValidator) validateSymbolResolution(testCase *cases.TestCase, location DefinitionLocation) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	v.metrics.SymbolResolution++
-	
+
 	// Validate that the definition URI is accessible and valid
 	definitionFile := strings.TrimPrefix(location.URI, "file://")
-	
+
 	if _, err := os.Stat(definitionFile); err != nil {
 		results = append(results, &cases.ValidationResult{
 			Name:        "symbol_resolution_file_access",
@@ -748,7 +753,7 @@ func (v *DefinitionValidator) validateSymbolResolution(testCase *cases.TestCase,
 			Passed:      true,
 			Message:     "Definition file is accessible",
 		})
-		
+
 		// Validate file extension matches language
 		if testCase.Language != "" {
 			results = append(results, v.validateLanguageConsistency(definitionFile, testCase.Language)...)
@@ -761,10 +766,10 @@ func (v *DefinitionValidator) validateSymbolResolution(testCase *cases.TestCase,
 // validateLanguageConsistency validates that definition file matches expected language
 func (v *DefinitionValidator) validateLanguageConsistency(filePath, expectedLang string) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	ext := strings.ToLower(filepath.Ext(filePath))
 	expectedExts := getLanguageExtensions(expectedLang)
-	
+
 	consistent := false
 	for _, expectedExt := range expectedExts {
 		if ext == expectedExt {
@@ -772,7 +777,7 @@ func (v *DefinitionValidator) validateLanguageConsistency(filePath, expectedLang
 			break
 		}
 	}
-	
+
 	if consistent {
 		results = append(results, &cases.ValidationResult{
 			Name:        "language_consistency",
@@ -787,8 +792,8 @@ func (v *DefinitionValidator) validateLanguageConsistency(filePath, expectedLang
 			Passed:      false,
 			Message:     fmt.Sprintf("File extension %s may not match expected language %s", ext, expectedLang),
 			Details: map[string]interface{}{
-				"file_extension":     ext,
-				"expected_language":  expectedLang,
+				"file_extension":      ext,
+				"expected_language":   expectedLang,
 				"expected_extensions": expectedExts,
 			},
 		})
@@ -826,11 +831,11 @@ func getLanguageExtensions(lang string) []string {
 // validateDefinitionCompleteness validates completeness of definition results
 func (v *DefinitionValidator) validateDefinitionCompleteness(testCase *cases.TestCase, locations []DefinitionLocation) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	// Check for duplicate definitions
 	seenURIs := make(map[string]bool)
 	duplicateCount := 0
-	
+
 	for _, location := range locations {
 		key := fmt.Sprintf("%s:%d:%d", location.URI, location.Range.Start.Line, location.Range.Start.Character)
 		if seenURIs[key] {
@@ -839,7 +844,7 @@ func (v *DefinitionValidator) validateDefinitionCompleteness(testCase *cases.Tes
 			seenURIs[key] = true
 		}
 	}
-	
+
 	if duplicateCount > 0 {
 		results = append(results, &cases.ValidationResult{
 			Name:        "definition_uniqueness",
@@ -847,9 +852,9 @@ func (v *DefinitionValidator) validateDefinitionCompleteness(testCase *cases.Tes
 			Passed:      false,
 			Message:     fmt.Sprintf("Found %d duplicate definitions", duplicateCount),
 			Details: map[string]interface{}{
-				"total_definitions": len(locations),
+				"total_definitions":  len(locations),
 				"unique_definitions": len(seenURIs),
-				"duplicates": duplicateCount,
+				"duplicates":         duplicateCount,
 			},
 		})
 	} else {
@@ -870,7 +875,7 @@ func (v *DefinitionValidator) validateDefinitionCompleteness(testCase *cases.Tes
 // validateEdgeCaseHandling validates edge case and error condition handling
 func (v *DefinitionValidator) validateEdgeCaseHandling(testCase *cases.TestCase) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	// Validate handling of invalid positions
 	if testCase.Position != nil {
 		if testCase.Position.Line < 0 {
@@ -881,17 +886,17 @@ func (v *DefinitionValidator) validateEdgeCaseHandling(testCase *cases.TestCase)
 				Message:     "Server correctly handled negative line position by returning null",
 			})
 		}
-		
+
 		if testCase.Position.Character < 0 {
 			results = append(results, &cases.ValidationResult{
 				Name:        "edge_case_negative_character",
-				Description: "Validate handling of negative character positions", 
+				Description: "Validate handling of negative character positions",
 				Passed:      true,
 				Message:     "Server correctly handled negative character position by returning null",
 			})
 		}
 	}
-	
+
 	// Validate handling of non-existent files
 	if testCase.FilePath != "" && testCase.Repository != nil {
 		fullPath := filepath.Join(testCase.Repository.Path, testCase.FilePath)

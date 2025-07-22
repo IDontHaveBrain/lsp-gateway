@@ -306,7 +306,7 @@ func TestWorkflowContent(t *testing.T) {
 			outputStr := string(output)
 			for _, expectedContent := range tt.expectedContent {
 				if !strings.Contains(outputStr, expectedContent) {
-					t.Errorf("Expected workflow %s to contain %q, but it didn't. Output: %s", 
+					t.Errorf("Expected workflow %s to contain %q, but it didn't. Output: %s",
 						tt.name, expectedContent, outputStr)
 				}
 			}
@@ -335,9 +335,9 @@ func BenchmarkAllWorkflows(b *testing.B) {
 		oldStdout := os.Stdout
 		r, w, _ := os.Pipe()
 		os.Stdout = w
-		
+
 		showAllWorkflows()
-		
+
 		w.Close()
 		_, _ = io.ReadAll(r)
 		os.Stdout = oldStdout
@@ -350,9 +350,9 @@ func BenchmarkFirstTimeWorkflow(b *testing.B) {
 		oldStdout := os.Stdout
 		r, w, _ := os.Pipe()
 		os.Stdout = w
-		
+
 		showFirstTimeWorkflow()
-		
+
 		w.Close()
 		_, _ = io.ReadAll(r)
 		os.Stdout = oldStdout

@@ -271,7 +271,7 @@ func TestBinaryDataCorruption(t *testing.T) {
 				for i := 0; i < len(result); i += 50 {
 					if i < len(result) {
 						randomBytes := make([]byte, 1)
-						rand.Read(randomBytes)
+						_, _ = rand.Read(randomBytes)
 						result[i] = randomBytes[0]
 					}
 				}
@@ -461,9 +461,9 @@ func TestBusinessRuleViolations(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name          string
-		configContent string
-		expectLoadOK  bool
+		name                  string
+		configContent         string
+		expectLoadOK          bool
 		expectValidationError bool
 	}{
 		{
@@ -631,11 +631,11 @@ servers:
 	go func() {
 		time.Sleep(2 * time.Millisecond)
 		corruptData := []byte("invalid: yaml: content\x00\x01")
-		os.WriteFile(configFile, corruptData, 0600)
+		_ = os.WriteFile(configFile, corruptData, 0600)
 
 		time.Sleep(2 * time.Millisecond)
 		// Restore valid config
-		os.WriteFile(configFile, []byte(validConfig), 0600)
+		_ = os.WriteFile(configFile, []byte(validConfig), 0600)
 	}()
 
 	// Wait for all readers to complete
@@ -749,33 +749,33 @@ servers:
     transport: stdio`
 
 	tests := []struct {
-		name      string
-		modifier  func(string) string
+		name               string
+		modifier           func(string) string
 		shouldDetectChange bool
 	}{
 		{
-			name:      "no modification",
-			modifier:  func(s string) string { return s },
+			name:               "no modification",
+			modifier:           func(s string) string { return s },
 			shouldDetectChange: false,
 		},
 		{
-			name:      "whitespace addition",
-			modifier:  func(s string) string { return s + "   " },
+			name:               "whitespace addition",
+			modifier:           func(s string) string { return s + "   " },
 			shouldDetectChange: false, // YAML parsing ignores extra whitespace
 		},
 		{
-			name:      "comment addition",
-			modifier:  func(s string) string { return s + "\n# comment" },
+			name:               "comment addition",
+			modifier:           func(s string) string { return s + "\n# comment" },
 			shouldDetectChange: false, // YAML parsing ignores comments
 		},
 		{
-			name:      "port modification",
-			modifier:  func(s string) string { return strings.Replace(s, "8080", "8081", 1) },
+			name:               "port modification",
+			modifier:           func(s string) string { return strings.Replace(s, "8080", "8081", 1) },
 			shouldDetectChange: true,
 		},
 		{
-			name:      "subtle character change",
-			modifier:  func(s string) string { return strings.Replace(s, "gopls", "gop1s", 1) },
+			name:               "subtle character change",
+			modifier:           func(s string) string { return strings.Replace(s, "gopls", "gop1s", 1) },
 			shouldDetectChange: true,
 		},
 	}

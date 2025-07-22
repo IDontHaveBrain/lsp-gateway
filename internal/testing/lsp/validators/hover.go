@@ -19,12 +19,12 @@ type HoverValidator struct {
 
 // HoverMetrics tracks comprehensive hover validation metrics
 type HoverMetrics struct {
-	ResponseTime     time.Duration
-	MemoryUsage      int64
-	ContentRichness  float64
-	TypeInfoPresent  bool
+	ResponseTime         time.Duration
+	MemoryUsage          int64
+	ContentRichness      float64
+	TypeInfoPresent      bool
 	DocumentationPresent bool
-	ValidationErrors []string
+	ValidationErrors     []string
 }
 
 // HoverResponse represents a hover response
@@ -60,7 +60,7 @@ func (v *HoverValidator) ValidateResponse(testCase *cases.TestCase, response jso
 	if string(response) == "null" {
 		return v.validateNullResponse(testCase, results)
 	}
-	
+
 	// Parse hover response
 	var hover HoverResponse
 	if err := json.Unmarshal(response, &hover); err != nil {
@@ -72,17 +72,17 @@ func (v *HoverValidator) ValidateResponse(testCase *cases.TestCase, response jso
 		})
 		return results
 	}
-	
+
 	results = append(results, &cases.ValidationResult{
 		Name:        "hover_format",
 		Description: "Validate hover response format",
 		Passed:      true,
 		Message:     "Hover response has valid format",
 	})
-	
+
 	// Validate contents
 	results = append(results, v.validateHoverContents(hover.Contents, testCase)...)
-	
+
 	// Comprehensive hover validation
 	results = append(results, v.validateContentRichness(hover.Contents, testCase)...)
 	results = append(results, v.validateTypeInformation(hover.Contents, testCase)...)
@@ -93,14 +93,14 @@ func (v *HoverValidator) ValidateResponse(testCase *cases.TestCase, response jso
 		rangeResults := v.validateHoverRange(*hover.Range)
 		results = append(results, rangeResults...)
 	}
-	
+
 	return results
 }
 
 // validateHoverContents validates hover contents
 func (v *HoverValidator) validateHoverContents(contents interface{}, testCase *cases.TestCase) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	if contents == nil {
 		results = append(results, &cases.ValidationResult{
 			Name:        "hover_contents_presence",
@@ -110,10 +110,10 @@ func (v *HoverValidator) validateHoverContents(contents interface{}, testCase *c
 		})
 		return results
 	}
-	
+
 	// Get string representation of contents for validation
 	var contentsStr string
-	
+
 	switch v := contents.(type) {
 	case string:
 		contentsStr = v
@@ -144,7 +144,7 @@ func (v *HoverValidator) validateHoverContents(contents interface{}, testCase *c
 	default:
 		contentsStr = fmt.Sprintf("%v", v)
 	}
-	
+
 	// Basic presence check
 	if contentsStr == "" {
 		results = append(results, &cases.ValidationResult{
@@ -161,11 +161,11 @@ func (v *HoverValidator) validateHoverContents(contents interface{}, testCase *c
 			Message:     fmt.Sprintf("Hover contents have %d characters", len(contentsStr)),
 		})
 	}
-	
+
 	// Check expected conditions
 	if testCase.Expected != nil && testCase.Expected.Hover != nil {
 		expected := testCase.Expected.Hover
-		
+
 		// Check if content was expected
 		if !expected.HasContent {
 			results = append(results, &cases.ValidationResult{
@@ -182,20 +182,20 @@ func (v *HoverValidator) validateHoverContents(contents interface{}, testCase *c
 				Message:     "Found hover content as expected",
 			})
 		}
-		
+
 		// Check expected content patterns
 		if len(expected.Contains) > 0 {
 			results = append(results, v.validateHoverContainsPatterns(contentsStr, expected.Contains)...)
 		}
 	}
-	
+
 	return results
 }
 
 // validateHoverContainsPatterns validates that hover content contains expected patterns
 func (v *HoverValidator) validateHoverContainsPatterns(content string, patterns []string) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	for _, pattern := range patterns {
 		found := strings.Contains(content, pattern)
 		results = append(results, &cases.ValidationResult{
@@ -205,38 +205,38 @@ func (v *HoverValidator) validateHoverContainsPatterns(content string, patterns 
 			Message:     fmt.Sprintf("Pattern '%s' found in hover content: %t", pattern, found),
 		})
 	}
-	
+
 	return results
 }
 
 // validateHoverRange validates hover range
 func (v *HoverValidator) validateHoverRange(lspRange LSPRange) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	// Validate start position
 	startResult := v.validatePosition(map[string]interface{}{
 		"line":      float64(lspRange.Start.Line),
 		"character": float64(lspRange.Start.Character),
 	}, "hover_range_start")
 	results = append(results, startResult)
-	
+
 	// Validate end position
 	endResult := v.validatePosition(map[string]interface{}{
 		"line":      float64(lspRange.End.Line),
 		"character": float64(lspRange.End.Character),
 	}, "hover_range_end")
 	results = append(results, endResult)
-	
+
 	// Validate range logic (start should be before or equal to end)
 	if v.config.ValidatePositions {
-		if lspRange.Start.Line > lspRange.End.Line || 
-		   (lspRange.Start.Line == lspRange.End.Line && lspRange.Start.Character > lspRange.End.Character) {
+		if lspRange.Start.Line > lspRange.End.Line ||
+			(lspRange.Start.Line == lspRange.End.Line && lspRange.Start.Character > lspRange.End.Character) {
 			results = append(results, &cases.ValidationResult{
 				Name:        "hover_range_order",
 				Description: "Validate hover range start position is before end position",
 				Passed:      false,
-				Message:     fmt.Sprintf("Start position (%d,%d) is after end position (%d,%d)", 
-					lspRange.Start.Line, lspRange.Start.Character, 
+				Message: fmt.Sprintf("Start position (%d,%d) is after end position (%d,%d)",
+					lspRange.Start.Line, lspRange.Start.Character,
 					lspRange.End.Line, lspRange.End.Character),
 			})
 		} else {
@@ -248,7 +248,7 @@ func (v *HoverValidator) validateHoverRange(lspRange LSPRange) []*cases.Validati
 			})
 		}
 	}
-	
+
 	return results
 }
 
@@ -490,7 +490,7 @@ func (v *HoverValidator) containsCodeExamples(content string) bool {
 		"interface ",
 		"type ",
 	}
-	
+
 	for _, pattern := range codePatterns {
 		if matched, _ := regexp.MatchString(pattern, content); matched {
 			return true
@@ -509,7 +509,7 @@ func (v *HoverValidator) containsParameterInfo(content string) bool {
 		"\\([^)]*\\).*->",
 		"\\([^)]*\\):",
 	}
-	
+
 	for _, pattern := range paramPatterns {
 		if matched, _ := regexp.MatchString(pattern, content); matched {
 			return true
@@ -528,7 +528,7 @@ func (v *HoverValidator) containsReturnTypeInfo(content string) bool {
 		": [A-Z][a-zA-Z]*",
 		"\\) [A-Z][a-zA-Z]*",
 	}
-	
+
 	for _, pattern := range returnPatterns {
 		if matched, _ := regexp.MatchString(pattern, content); matched {
 			return true
@@ -546,7 +546,7 @@ func (v *HoverValidator) containsDocumentationReferences(content string) bool {
 		"https?://",
 		"\\[.*\\]\\(.*\\)",
 	}
-	
+
 	for _, pattern := range docPatterns {
 		if matched, _ := regexp.MatchString(pattern, content); matched {
 			return true
@@ -565,7 +565,7 @@ func (v *HoverValidator) containsMarkdownFormatting(content string) bool {
 		"\\* ",
 		"\\d+\\. ",
 	}
-	
+
 	for _, pattern := range markdownPatterns {
 		if matched, _ := regexp.MatchString(pattern, content); matched {
 			return true
@@ -585,7 +585,7 @@ func (v *HoverValidator) containsTypeAnnotations(content string) bool {
 		"Optional<",
 		"Promise<",
 	}
-	
+
 	for _, pattern := range typePatterns {
 		if matched, _ := regexp.MatchString(pattern, content); matched {
 			return true
@@ -673,7 +673,7 @@ func (v *HoverValidator) validateTypeInformation(contents interface{}, testCase 
 	} else {
 		// For strongly typed languages, type information should generally be present
 		shouldHaveTypeInfo := v.languageExpectsTypeInfo(testCase.Language)
-		
+
 		results = append(results, &cases.ValidationResult{
 			Name:        "type_information_presence",
 			Description: "Validate presence of type information",
@@ -693,19 +693,19 @@ func (v *HoverValidator) validateTypeInformation(contents interface{}, testCase 
 // containsTypeInformation checks if content contains type information
 func (v *HoverValidator) containsTypeInformation(content string) bool {
 	typePatterns := []string{
-		": [a-zA-Z][a-zA-Z0-9]*",       // Go/TypeScript style
-		"-> [a-zA-Z][a-zA-Z0-9]*",       // Function return types
-		"\\([^)]*\\) [a-zA-Z]+",         // Function signatures
-		"<[a-zA-Z][a-zA-Z0-9]*>",       // Generic types
-		"\\[\\][a-zA-Z]+",               // Array types
-		"Map<.*>",                       // Map types
-		"Array<.*>",                     // Array types
-		"Promise<.*>",                   // Promise types
-		"Optional<.*>",                  // Optional types
-		"func\\([^)]*\\)",               // Go function types
-		"interface\\s+[a-zA-Z]+",       // Interface definitions
-		"class\\s+[a-zA-Z]+",           // Class definitions
-		"type\\s+[a-zA-Z]+",            // Type definitions
+		": [a-zA-Z][a-zA-Z0-9]*",  // Go/TypeScript style
+		"-> [a-zA-Z][a-zA-Z0-9]*", // Function return types
+		"\\([^)]*\\) [a-zA-Z]+",   // Function signatures
+		"<[a-zA-Z][a-zA-Z0-9]*>",  // Generic types
+		"\\[\\][a-zA-Z]+",         // Array types
+		"Map<.*>",                 // Map types
+		"Array<.*>",               // Array types
+		"Promise<.*>",             // Promise types
+		"Optional<.*>",            // Optional types
+		"func\\([^)]*\\)",         // Go function types
+		"interface\\s+[a-zA-Z]+",  // Interface definitions
+		"class\\s+[a-zA-Z]+",      // Class definitions
+		"type\\s+[a-zA-Z]+",       // Type definitions
 	}
 
 	for _, pattern := range typePatterns {
@@ -719,7 +719,7 @@ func (v *HoverValidator) containsTypeInformation(content string) bool {
 // languageExpectsTypeInfo determines if a language should typically provide type information
 func (v *HoverValidator) languageExpectsTypeInfo(language string) bool {
 	typedLanguages := []string{"go", "typescript", "java", "rust", "c", "cpp", "c#", "kotlin", "swift"}
-	
+
 	for _, lang := range typedLanguages {
 		if strings.EqualFold(language, lang) {
 			return true
@@ -751,7 +751,7 @@ func (v *HoverValidator) validateTypeInformationQuality(content string) []*cases
 			Passed:      true,
 			Message:     "Type information is comprehensive",
 			Details: map[string]interface{}{
-				"quality_score": qualityScore,
+				"quality_score":   qualityScore,
 				"has_return_type": hasReturnType,
 				"has_param_types": hasParamTypes,
 			},
@@ -763,7 +763,7 @@ func (v *HoverValidator) validateTypeInformationQuality(content string) []*cases
 			Passed:      false,
 			Message:     "Type information could be more comprehensive",
 			Details: map[string]interface{}{
-				"quality_score": qualityScore,
+				"quality_score":   qualityScore,
 				"has_return_type": hasReturnType,
 				"has_param_types": hasParamTypes,
 			},
@@ -807,16 +807,16 @@ func (v *HoverValidator) validateDocumentationPresence(contents interface{}, tes
 func (v *HoverValidator) containsDocumentation(content string) bool {
 	// Documentation indicators
 	docPatterns := []string{
-		"@.*",                    // JSDoc/Javadoc tags
-		"//.*",                   // Comments
-		"/\\*.*\\*/",             // Block comments  
-		"\"\"\".*\"\"\"",         // Python docstrings
-		"'''.*'''",               // Python docstrings
-		"Description:",           // Explicit description
-		"Summary:",               // Summary section
-		"Overview:",              // Overview section
-		"Example:",               // Examples
-		"Usage:",                 // Usage information
+		"@.*",            // JSDoc/Javadoc tags
+		"//.*",           // Comments
+		"/\\*.*\\*/",     // Block comments
+		"\"\"\".*\"\"\"", // Python docstrings
+		"'''.*'''",       // Python docstrings
+		"Description:",   // Explicit description
+		"Summary:",       // Summary section
+		"Overview:",      // Overview section
+		"Example:",       // Examples
+		"Usage:",         // Usage information
 	}
 
 	for _, pattern := range docPatterns {
@@ -827,11 +827,7 @@ func (v *HoverValidator) containsDocumentation(content string) bool {
 
 	// Check for descriptive text (sentences with periods)
 	sentences := strings.Count(content, ".")
-	if sentences >= 2 {
-		return true
-	}
-
-	return false
+	return sentences >= 2
 }
 
 // validateDocumentationQuality validates the quality of documentation

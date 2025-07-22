@@ -3,6 +3,10 @@ package validators
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"lsp-gateway/internal/testing/lsp/cases"
 	"lsp-gateway/internal/testing/lsp/config"
@@ -11,6 +15,7 @@ import (
 // ReferencesValidator validates textDocument/references responses
 type ReferencesValidator struct {
 	*BaseValidator
+	metrics *ValidationMetrics
 }
 
 // ReferenceLocation represents a reference location (same as DefinitionLocation)
@@ -23,13 +28,21 @@ type ReferenceLocation struct {
 func NewReferencesValidator(config *config.ValidationConfig) *ReferencesValidator {
 	return &ReferencesValidator{
 		BaseValidator: NewBaseValidator(config),
+		metrics:       &ValidationMetrics{},
 	}
 }
 
 // ValidateResponse validates a textDocument/references response
 func (v *ReferencesValidator) ValidateResponse(testCase *cases.TestCase, response json.RawMessage) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+	startTime := time.Now()
+
+	// Performance validation - check response time
+	results = append(results, v.validateResponseTime(startTime))
+
+	// Protocol compliance validation
+	results = append(results, v.validateLSPProtocolCompliance(response)...)
+
 	// References should always return an array (or null)
 	if string(response) == "null" {
 		if testCase.Expected != nil && testCase.Expected.References != nil && testCase.Expected.References.MinCount > 0 {
@@ -47,9 +60,13 @@ func (v *ReferencesValidator) ValidateResponse(testCase *cases.TestCase, respons
 				Message:     "No references found as expected",
 			})
 		}
+		
+		// Validate edge case handling for null responses
+		results = append(results, v.validateEdgeCaseHandling(testCase)...)
+		
 		return results
 	}
-	
+
 	// Parse as array of locations
 	var references []ReferenceLocation
 	if err := json.Unmarshal(response, &references); err != nil {
@@ -61,19 +78,19 @@ func (v *ReferencesValidator) ValidateResponse(testCase *cases.TestCase, respons
 		})
 		return results
 	}
-	
+
 	results = append(results, &cases.ValidationResult{
 		Name:        "references_format",
 		Description: "Validate references response format",
 		Passed:      true,
 		Message:     fmt.Sprintf("Response is an array of %d references", len(references)),
 	})
-	
+
 	// Validate count expectations
 	if testCase.Expected != nil && testCase.Expected.References != nil {
 		results = append(results, v.validateReferenceCount(references, testCase.Expected.References)...)
 	}
-	
+
 	// Validate each reference location
 	for i, ref := range references {
 		refResults := v.validateReferenceLocation(ref, fmt.Sprintf("reference_%d", i))
@@ -87,16 +104,16 @@ func (v *ReferencesValidator) ValidateResponse(testCase *cases.TestCase, respons
 
 	// Update metrics
 	v.metrics.TotalReferences = len(references)
-	
+
 	return results
 }
 
 // validateReferenceCount validates the number of references
 func (v *ReferencesValidator) validateReferenceCount(references []ReferenceLocation, expected *config.ReferencesExpected) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	count := len(references)
-	
+
 	// Check minimum count
 	if expected.MinCount > 0 {
 		if count >= expected.MinCount {
@@ -115,7 +132,7 @@ func (v *ReferencesValidator) validateReferenceCount(references []ReferenceLocat
 			})
 		}
 	}
-	
+
 	// Check maximum count
 	if expected.MaxCount > 0 {
 		if count <= expected.MaxCount {
@@ -134,51 +151,51 @@ func (v *ReferencesValidator) validateReferenceCount(references []ReferenceLocat
 			})
 		}
 	}
-	
+
 	return results
 }
 
 // validateReferenceLocation validates a single reference location
 func (v *ReferencesValidator) validateReferenceLocation(reference ReferenceLocation, fieldName string) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	// Validate URI
 	results = append(results, v.validateURI(reference.URI, fmt.Sprintf("%s_location", fieldName)))
-	
+
 	// Validate range structure (reuse from definition validator)
 	results = append(results, v.validateReferenceRange(reference.Range, fmt.Sprintf("%s_range", fieldName))...)
-	
+
 	return results
 }
 
 // validateReferenceRange validates an LSP range structure for references
 func (v *ReferencesValidator) validateReferenceRange(lspRange LSPRange, fieldName string) []*cases.ValidationResult {
 	var results []*cases.ValidationResult
-	
+
 	// Validate start position
 	startResult := v.validatePosition(map[string]interface{}{
 		"line":      float64(lspRange.Start.Line),
 		"character": float64(lspRange.Start.Character),
 	}, fmt.Sprintf("%s_start", fieldName))
 	results = append(results, startResult)
-	
+
 	// Validate end position
 	endResult := v.validatePosition(map[string]interface{}{
 		"line":      float64(lspRange.End.Line),
 		"character": float64(lspRange.End.Character),
 	}, fmt.Sprintf("%s_end", fieldName))
 	results = append(results, endResult)
-	
+
 	// Validate range logic (start should be before or equal to end)
 	if v.config.ValidatePositions {
-		if lspRange.Start.Line > lspRange.End.Line || 
-		   (lspRange.Start.Line == lspRange.End.Line && lspRange.Start.Character > lspRange.End.Character) {
+		if lspRange.Start.Line > lspRange.End.Line ||
+			(lspRange.Start.Line == lspRange.End.Line && lspRange.Start.Character > lspRange.End.Character) {
 			results = append(results, &cases.ValidationResult{
 				Name:        fmt.Sprintf("%s_order", fieldName),
 				Description: fmt.Sprintf("Validate %s start position is before end position", fieldName),
 				Passed:      false,
-				Message:     fmt.Sprintf("Start position (%d,%d) is after end position (%d,%d)", 
-					lspRange.Start.Line, lspRange.Start.Character, 
+				Message: fmt.Sprintf("Start position (%d,%d) is after end position (%d,%d)",
+					lspRange.Start.Line, lspRange.Start.Character,
 					lspRange.End.Line, lspRange.End.Character),
 			})
 		} else {
@@ -190,7 +207,7 @@ func (v *ReferencesValidator) validateReferenceRange(lspRange LSPRange, fieldNam
 			})
 		}
 	}
-	
+
 	return results
 }
 
@@ -289,29 +306,6 @@ func (v *ReferencesValidator) validateLSPProtocolCompliance(response json.RawMes
 	return results
 }
 
-// validateNullResponse handles null response validation for references
-func (v *ReferencesValidator) validateNullResponse(testCase *cases.TestCase, results []*cases.ValidationResult) []*cases.ValidationResult {
-	if testCase.Expected != nil && testCase.Expected.References != nil && testCase.Expected.References.MinCount > 0 {
-		results = append(results, &cases.ValidationResult{
-			Name:        "references_presence",
-			Description: "Validate references are found",
-			Passed:      false,
-			Message:     "Expected references but response is null",
-		})
-	} else {
-		results = append(results, &cases.ValidationResult{
-			Name:        "references_absence",
-			Description: "Validate no references found (as expected)",
-			Passed:      true,
-			Message:     "No references found as expected",
-		})
-	}
-
-	// Validate edge case handling
-	results = append(results, v.validateEdgeCaseHandling(testCase)...)
-
-	return results
-}
 
 // validateReferenceCompleteness validates completeness of reference results
 func (v *ReferencesValidator) validateReferenceCompleteness(testCase *cases.TestCase, references []ReferenceLocation) []*cases.ValidationResult {
@@ -337,9 +331,9 @@ func (v *ReferencesValidator) validateReferenceCompleteness(testCase *cases.Test
 			Passed:      false,
 			Message:     fmt.Sprintf("Found %d duplicate references", duplicateCount),
 			Details: map[string]interface{}{
-				"total_references": len(references),
+				"total_references":  len(references),
 				"unique_references": len(seenRefs),
-				"duplicates": duplicateCount,
+				"duplicates":        duplicateCount,
 			},
 		})
 	} else {
@@ -421,19 +415,19 @@ func (v *ReferencesValidator) validateCrossModuleReferences(testCase *cases.Test
 	crossFileRefs := 0
 	crossModuleRefs := 0
 	accessibleFiles := 0
-	
+
 	for _, ref := range references {
 		refFile := strings.TrimPrefix(ref.URI, "file://")
-		
+
 		// Check if reference is in a different file
 		if refFile != sourceFile {
 			crossFileRefs++
 			v.metrics.CrossFileRefs++
-			
+
 			// Check if file is accessible
 			if _, err := os.Stat(refFile); err == nil {
 				accessibleFiles++
-				
+
 				// Check if it's a different module/package
 				if v.isDifferentModule(sourceFile, refFile, testCase.Language) {
 					crossModuleRefs++
@@ -473,7 +467,7 @@ func (v *ReferencesValidator) validateCrossModuleReferences(testCase *cases.Test
 	// Validate file accessibility
 	if crossFileRefs > 0 {
 		accessibilityRate := float64(accessibleFiles) / float64(crossFileRefs) * 100
-		
+
 		if accessibilityRate >= 90 {
 			results = append(results, &cases.ValidationResult{
 				Name:        "reference_file_accessibility",
@@ -613,7 +607,7 @@ func (v *ReferencesValidator) validateReferenceAccuracy(testCase *cases.TestCase
 
 	for i, ref := range references {
 		refFile := strings.TrimPrefix(ref.URI, "file://")
-		
+
 		// Validate position is within file bounds
 		if _, err := os.Stat(refFile); err == nil {
 			if content, err := os.ReadFile(refFile); err == nil {
@@ -641,9 +635,9 @@ func (v *ReferencesValidator) validateReferenceAccuracy(testCase *cases.TestCase
 				Passed:      true,
 				Message:     fmt.Sprintf("%.1f%% of references have accurate positions", accuracyRate),
 				Details: map[string]interface{}{
-					"accuracy_rate":  accuracyRate,
-					"accurate_refs":  accurateRefs,
-					"total_refs":     totalRefs,
+					"accuracy_rate": accuracyRate,
+					"accurate_refs": accurateRefs,
+					"total_refs":    totalRefs,
 				},
 			})
 		} else {
@@ -653,9 +647,9 @@ func (v *ReferencesValidator) validateReferenceAccuracy(testCase *cases.TestCase
 				Passed:      false,
 				Message:     fmt.Sprintf("Only %.1f%% of references have accurate positions", accuracyRate),
 				Details: map[string]interface{}{
-					"accuracy_rate":  accuracyRate,
-					"accurate_refs":  accurateRefs,
-					"total_refs":     totalRefs,
+					"accuracy_rate": accuracyRate,
+					"accurate_refs": accurateRefs,
+					"total_refs":    totalRefs,
 				},
 			})
 		}
@@ -667,28 +661,24 @@ func (v *ReferencesValidator) validateReferenceAccuracy(testCase *cases.TestCase
 // validateReferencePositionAccuracy validates a single reference position accuracy
 func (v *ReferencesValidator) validateReferencePositionAccuracy(ref ReferenceLocation, content []byte) bool {
 	lines := strings.Split(string(content), "\n")
-	
+
 	// Check if position is within file bounds
 	if ref.Range.Start.Line >= len(lines) {
 		return false
 	}
-	
+
 	lineContent := lines[ref.Range.Start.Line]
 	if ref.Range.Start.Character > len(lineContent) {
 		return false
 	}
-	
+
 	// Check if end position is valid
 	if ref.Range.End.Line >= len(lines) {
 		return false
 	}
-	
+
 	endLineContent := lines[ref.Range.End.Line]
-	if ref.Range.End.Character > len(endLineContent) {
-		return false
-	}
-	
-	return true
+	return ref.Range.End.Character <= len(endLineContent)
 }
 
 // validateSingleReferenceAccuracy validates a single reference with detailed checks
@@ -696,7 +686,7 @@ func (v *ReferencesValidator) validateSingleReferenceAccuracy(ref ReferenceLocat
 	var results []*cases.ValidationResult
 
 	refFile := strings.TrimPrefix(ref.URI, "file://")
-	
+
 	// Validate file exists
 	if _, err := os.Stat(refFile); err != nil {
 		results = append(results, &cases.ValidationResult{
@@ -711,7 +701,7 @@ func (v *ReferencesValidator) validateSingleReferenceAccuracy(ref ReferenceLocat
 	// Read file and validate position
 	if content, err := os.ReadFile(refFile); err == nil {
 		lines := strings.Split(string(content), "\n")
-		
+
 		// Validate position bounds
 		if ref.Range.Start.Line < len(lines) && ref.Range.Start.Character <= len(lines[ref.Range.Start.Line]) {
 			results = append(results, &cases.ValidationResult{
@@ -720,13 +710,13 @@ func (v *ReferencesValidator) validateSingleReferenceAccuracy(ref ReferenceLocat
 				Passed:      true,
 				Message:     "Reference position is within file bounds",
 			})
-			
+
 			// Check if position contains meaningful content
 			if ref.Range.Start.Line < len(lines) {
 				lineContent := lines[ref.Range.Start.Line]
 				startChar := ref.Range.Start.Character
 				endChar := ref.Range.End.Character
-				
+
 				if startChar < len(lineContent) && endChar <= len(lineContent) && startChar <= endChar {
 					refText := lineContent[startChar:endChar]
 					if strings.TrimSpace(refText) != "" {
@@ -769,7 +759,7 @@ func (v *ReferencesValidator) validateEdgeCaseHandling(testCase *cases.TestCase)
 				Message:     "Server correctly handled negative line position by returning null",
 			})
 		}
-		
+
 		if testCase.Position.Character < 0 {
 			results = append(results, &cases.ValidationResult{
 				Name:        "edge_case_negative_character",

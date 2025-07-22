@@ -19,27 +19,27 @@ func TestStdioClientSubprocessTerminationRecovery(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name           string
-		killDelay      time.Duration
-		expectedErrors int
+		name            string
+		killDelay       time.Duration
+		expectedErrors  int
 		maxRecoveryTime time.Duration
 	}{
 		{
-			name:           "immediate termination",
-			killDelay:      50 * time.Millisecond,
-			expectedErrors: 1,
+			name:            "immediate termination",
+			killDelay:       50 * time.Millisecond,
+			expectedErrors:  1,
 			maxRecoveryTime: 5 * time.Second,
 		},
 		{
-			name:           "delayed termination",
-			killDelay:      200 * time.Millisecond,
-			expectedErrors: 1,
+			name:            "delayed termination",
+			killDelay:       200 * time.Millisecond,
+			expectedErrors:  1,
 			maxRecoveryTime: 5 * time.Second,
 		},
 		{
-			name:           "rapid termination cycles",
-			killDelay:      10 * time.Millisecond,
-			expectedErrors: 3,
+			name:            "rapid termination cycles",
+			killDelay:       10 * time.Millisecond,
+			expectedErrors:  3,
 			maxRecoveryTime: 10 * time.Second,
 		},
 	}
@@ -302,7 +302,7 @@ func TestConnectionPoolingDuringNetworkFailures(t *testing.T) {
 				for i := 0; i < 10; i++ {
 					requestCtx, requestCancel := context.WithTimeout(ctx, 3*time.Second)
 					_, err := c.SendRequest(requestCtx, "test", map[string]interface{}{
-						"client": idx,
+						"client":  idx,
 						"request": i,
 					})
 					requestCancel()
@@ -348,10 +348,10 @@ func TestGracefulDegradationOnRepeatedFailures(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name              string
-		maxFailures       int
-		failureDuration   time.Duration
-		expectedBehavior  string
+		name             string
+		maxFailures      int
+		failureDuration  time.Duration
+		expectedBehavior string
 	}{
 		{
 			name:             "circuit breaker activation",

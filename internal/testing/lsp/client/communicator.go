@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"lsp-gateway/internal/testing/lsp/cases"
-	"lsp-gateway/internal/testing/lsp/config"
 )
 
 // LSPCommunicator handles LSP communication for test cases
@@ -30,26 +29,26 @@ func (c *LSPCommunicator) ExecuteTestCase(ctx context.Context, testCase *cases.T
 	if serverName == "" {
 		return fmt.Errorf("no server configured for language: %s", testCase.Language)
 	}
-	
+
 	// Create workspace URI
 	workspaceURI, err := c.createWorkspaceURI(testCase.Workspace)
 	if err != nil {
 		return fmt.Errorf("failed to create workspace URI: %w", err)
 	}
-	
+
 	// Get or create server
 	server, err := c.serverManager.GetOrCreateServer(ctx, serverName, workspaceURI)
 	if err != nil {
 		return fmt.Errorf("failed to get server: %w", err)
 	}
-	
+
 	// Check server capabilities
 	if !c.isMethodSupported(server, testCase.Method) {
 		testCase.Status = cases.TestStatusSkipped
 		testCase.Error = fmt.Errorf("method %s not supported by server %s", testCase.Method, serverName)
 		return nil
 	}
-	
+
 	// Execute the specific LSP method
 	response, err := c.executeMethod(ctx, server, testCase)
 	if err != nil {
@@ -57,7 +56,7 @@ func (c *LSPCommunicator) ExecuteTestCase(ctx context.Context, testCase *cases.T
 		testCase.Error = err
 		return err
 	}
-	
+
 	testCase.Response = response
 	testCase.Status = cases.TestStatusPassed
 	return nil
@@ -79,13 +78,13 @@ func (c *LSPCommunicator) createWorkspaceURI(workspacePath string) (string, erro
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Convert to file URI
 	uri := url.URL{
 		Scheme: "file",
 		Path:   absPath,
 	}
-	
+
 	return uri.String(), nil
 }
 
@@ -95,7 +94,7 @@ func (c *LSPCommunicator) isMethodSupported(server *ManagedLSPServer, method str
 	if capabilities == nil {
 		return false
 	}
-	
+
 	switch method {
 	case cases.LSPMethodDefinition:
 		return capabilities.DefinitionProvider
@@ -136,7 +135,7 @@ func (c *LSPCommunicator) executeDefinition(ctx context.Context, server *Managed
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file URI: %w", err)
 	}
-	
+
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": fileURI,
@@ -146,12 +145,12 @@ func (c *LSPCommunicator) executeDefinition(ctx context.Context, server *Managed
 			"character": testCase.Position.Character,
 		},
 	}
-	
+
 	// Add any additional parameters from test case
 	for key, value := range testCase.Params {
 		params[key] = value
 	}
-	
+
 	return server.SendRequest(ctx, cases.LSPMethodDefinition, params)
 }
 
@@ -161,7 +160,7 @@ func (c *LSPCommunicator) executeReferences(ctx context.Context, server *Managed
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file URI: %w", err)
 	}
-	
+
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": fileURI,
@@ -174,7 +173,7 @@ func (c *LSPCommunicator) executeReferences(ctx context.Context, server *Managed
 			"includeDeclaration": true, // Default to including declaration
 		},
 	}
-	
+
 	// Override with test case parameters
 	for key, value := range testCase.Params {
 		if key == "includeDeclaration" {
@@ -183,7 +182,7 @@ func (c *LSPCommunicator) executeReferences(ctx context.Context, server *Managed
 			params[key] = value
 		}
 	}
-	
+
 	return server.SendRequest(ctx, cases.LSPMethodReferences, params)
 }
 
@@ -193,7 +192,7 @@ func (c *LSPCommunicator) executeHover(ctx context.Context, server *ManagedLSPSe
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file URI: %w", err)
 	}
-	
+
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": fileURI,
@@ -203,12 +202,12 @@ func (c *LSPCommunicator) executeHover(ctx context.Context, server *ManagedLSPSe
 			"character": testCase.Position.Character,
 		},
 	}
-	
+
 	// Add any additional parameters from test case
 	for key, value := range testCase.Params {
 		params[key] = value
 	}
-	
+
 	return server.SendRequest(ctx, cases.LSPMethodHover, params)
 }
 
@@ -218,18 +217,18 @@ func (c *LSPCommunicator) executeDocumentSymbol(ctx context.Context, server *Man
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file URI: %w", err)
 	}
-	
+
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": fileURI,
 		},
 	}
-	
+
 	// Add any additional parameters from test case
 	for key, value := range testCase.Params {
 		params[key] = value
 	}
-	
+
 	return server.SendRequest(ctx, cases.LSPMethodDocumentSymbol, params)
 }
 
@@ -238,17 +237,17 @@ func (c *LSPCommunicator) executeWorkspaceSymbol(ctx context.Context, server *Ma
 	params := map[string]interface{}{
 		"query": "", // Default empty query
 	}
-	
+
 	// Override with test case parameters
 	for key, value := range testCase.Params {
 		params[key] = value
 	}
-	
+
 	// Ensure query parameter exists
 	if _, exists := params["query"]; !exists {
 		return nil, fmt.Errorf("workspace/symbol requires a 'query' parameter")
 	}
-	
+
 	return server.SendRequest(ctx, cases.LSPMethodWorkspaceSymbol, params)
 }
 
@@ -258,13 +257,13 @@ func (c *LSPCommunicator) createFileURI(filePath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Convert to file URI
 	uri := url.URL{
 		Scheme: "file",
 		Path:   absPath,
 	}
-	
+
 	return uri.String(), nil
 }
 
@@ -274,7 +273,7 @@ func (c *LSPCommunicator) OpenDocument(ctx context.Context, server *ManagedLSPSe
 	if err != nil {
 		return fmt.Errorf("failed to create file URI: %w", err)
 	}
-	
+
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri":        fileURI,
@@ -283,7 +282,7 @@ func (c *LSPCommunicator) OpenDocument(ctx context.Context, server *ManagedLSPSe
 			"text":       content,
 		},
 	}
-	
+
 	return server.SendNotification(ctx, "textDocument/didOpen", params)
 }
 
@@ -293,13 +292,13 @@ func (c *LSPCommunicator) CloseDocument(ctx context.Context, server *ManagedLSPS
 	if err != nil {
 		return fmt.Errorf("failed to create file URI: %w", err)
 	}
-	
+
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": fileURI,
 		},
 	}
-	
+
 	return server.SendNotification(ctx, "textDocument/didClose", params)
 }
 
@@ -309,7 +308,7 @@ func (c *LSPCommunicator) ChangeDocument(ctx context.Context, server *ManagedLSP
 	if err != nil {
 		return fmt.Errorf("failed to create file URI: %w", err)
 	}
-	
+
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri":     fileURI,
@@ -321,7 +320,7 @@ func (c *LSPCommunicator) ChangeDocument(ctx context.Context, server *ManagedLSP
 			},
 		},
 	}
-	
+
 	return server.SendNotification(ctx, "textDocument/didChange", params)
 }
 
@@ -332,29 +331,29 @@ func (c *LSPCommunicator) ExecuteTestCaseWithDocumentLifecycle(ctx context.Conte
 	if serverName == "" {
 		return fmt.Errorf("no server configured for language: %s", testCase.Language)
 	}
-	
+
 	// Create workspace URI
 	workspaceURI, err := c.createWorkspaceURI(testCase.Workspace)
 	if err != nil {
 		return fmt.Errorf("failed to create workspace URI: %w", err)
 	}
-	
+
 	// Get or create server
 	server, err := c.serverManager.GetOrCreateServer(ctx, serverName, workspaceURI)
 	if err != nil {
 		return fmt.Errorf("failed to get server: %w", err)
 	}
-	
+
 	// Open document
 	if err := c.OpenDocument(ctx, server, testCase.FilePath, fileContent, testCase.Language); err != nil {
 		return fmt.Errorf("failed to open document: %w", err)
 	}
-	
+
 	defer func() {
 		// Close document on exit
 		_ = c.CloseDocument(ctx, server, testCase.FilePath)
 	}()
-	
+
 	// Execute the test case
 	return c.ExecuteTestCase(ctx, testCase)
 }
