@@ -302,28 +302,6 @@ func (c *LSPCommunicator) CloseDocument(ctx context.Context, server *ManagedLSPS
 	return server.SendNotification(ctx, "textDocument/didClose", params)
 }
 
-// ChangeDocument sends textDocument/didChange notification
-func (c *LSPCommunicator) ChangeDocument(ctx context.Context, server *ManagedLSPServer, filePath string, content string, version int) error {
-	fileURI, err := c.createFileURI(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to create file URI: %w", err)
-	}
-
-	params := map[string]interface{}{
-		"textDocument": map[string]interface{}{
-			"uri":     fileURI,
-			"version": version,
-		},
-		"contentChanges": []map[string]interface{}{
-			{
-				"text": content,
-			},
-		},
-	}
-
-	return server.SendNotification(ctx, "textDocument/didChange", params)
-}
-
 // ExecuteTestCaseWithDocumentLifecycle executes a test case with proper document lifecycle
 func (c *LSPCommunicator) ExecuteTestCaseWithDocumentLifecycle(ctx context.Context, testCase *cases.TestCase, fileContent string) error {
 	// Get the appropriate server for this test case

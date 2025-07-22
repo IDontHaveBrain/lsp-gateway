@@ -11,6 +11,9 @@ import (
 
 	"lsp-gateway/internal/platform"
 	"lsp-gateway/internal/types"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // MockRuntimeFileSystem for missing runtime scenarios
@@ -46,12 +49,6 @@ func (m *MockRuntimeFileSystem) RemoveRuntime(runtime string) {
 	m.missingRuntimes[runtime] = true
 }
 
-func (m *MockRuntimeFileSystem) CorruptRuntime(runtime string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.corruptedRuntimes[runtime] = true
-}
-
 func (m *MockRuntimeFileSystem) IsRuntimeInstalled(runtime string) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -60,15 +57,6 @@ func (m *MockRuntimeFileSystem) IsRuntimeInstalled(runtime string) bool {
 	}
 	_, exists := m.installedPaths[runtime]
 	return exists
-}
-
-func (m *MockRuntimeFileSystem) GetRuntimePath(runtime string) string {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if m.missingRuntimes[runtime] || m.corruptedRuntimes[runtime] {
-		return ""
-	}
-	return m.installedPaths[runtime]
 }
 
 func (m *MockRuntimeFileSystem) SetEnvironmentVar(key, value string) {
@@ -557,7 +545,7 @@ func TestVerifyRuntimeVersions_IncompatibleVersions(t *testing.T) {
 			if len(fields) >= 3 {
 				versionId = fields[2] // "go1.15.0"
 			}
-		case "python":
+		case RuntimePython:
 			if len(fields) >= 2 {
 				versionId = fields[1] // "2.7.18"
 			}
@@ -565,7 +553,7 @@ func TestVerifyRuntimeVersions_IncompatibleVersions(t *testing.T) {
 			if len(fields) >= 1 {
 				versionId = fields[0] // "v14.21.3"
 			}
-		case "java":
+		case RuntimeJava:
 			if len(fields) >= 3 {
 				versionId = strings.Trim(fields[2], "\"") // Remove quotes from "1.8.0_362"
 			}
@@ -590,7 +578,7 @@ func TestVerifyRuntimeVersions_IncompatibleVersions(t *testing.T) {
 			}
 
 			installer.addIssue(result, types.IssueSeverityHigh, types.IssueCategoryVersion,
-				fmt.Sprintf("Incompatible %s Version", strings.Title(runtime)),
+				fmt.Sprintf("Incompatible %s Version", cases.Title(language.English).String(runtime)),
 				fmt.Sprintf("Installed %s version is too old", runtime),
 				fmt.Sprintf("Upgrade %s to version %s or later", runtime, minVersions[runtime]),
 				map[string]interface{}{
@@ -813,8 +801,15 @@ func TestVerifyRuntimeInstallation_RecoveryAfterInstallation(t *testing.T) {
 	// Remove from missing runtimes
 	delete(executor.missingRuntimes, runtime)
 
-	// Add successful command execution
+	// Add successful command execution for both version and empty args (for IsCommandAvailable check)
 	executor.AddCommand(runtime, []string{"version"}, &platform.Result{
+		ExitCode: 0,
+		Stdout:   "go version go1.21.0 linux/amd64",
+		Duration: 100 * time.Millisecond,
+	})
+	
+	// Add command with empty args for IsCommandAvailable to return true
+	executor.AddCommand(runtime, []string{}, &platform.Result{
 		ExitCode: 0,
 		Stdout:   "go version go1.21.0 linux/amd64",
 		Duration: 100 * time.Millisecond,

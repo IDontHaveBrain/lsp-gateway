@@ -488,14 +488,14 @@ func TestExecutorEdgeCases(t *testing.T) {
 		originalShell := os.Getenv("SHELL")
 		defer func() {
 			if originalShell != "" {
-				os.Setenv("SHELL", originalShell)
+				_ = os.Setenv("SHELL", originalShell)
 			} else {
-				os.Unsetenv("SHELL")
+				_ = os.Unsetenv("SHELL")
 			}
 		}()
 
 		// Test with custom SHELL
-		os.Setenv("SHELL", "/bin/zsh")
+		_ = os.Setenv("SHELL", "/bin/zsh")
 		shell := executor.GetShell()
 		if shell != "/bin/zsh" {
 			t.Errorf("Expected /bin/zsh, got %s", shell)
@@ -539,12 +539,12 @@ func TestHomeDirectoryEdgeCases(t *testing.T) {
 	defer func() {
 		// Restore environment
 		if originalHome != "" {
-			os.Setenv("HOME", originalHome)
+			_ = os.Setenv("HOME", originalHome)
 		} else {
 			os.Unsetenv("HOME")
 		}
 		if originalUserProfile != "" {
-			os.Setenv("USERPROFILE", originalUserProfile)
+			_ = os.Setenv("USERPROFILE", originalUserProfile)
 		} else {
 			os.Unsetenv("USERPROFILE")
 		}

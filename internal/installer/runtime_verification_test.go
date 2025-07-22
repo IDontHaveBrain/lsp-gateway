@@ -67,14 +67,6 @@ func (m *MockCommandExecutor) ExecuteWithEnv(cmd string, args []string, env map[
 	}, fmt.Errorf("command not found: %s", cmd)
 }
 
-func (m *MockCommandExecutor) GetShell() string {
-	return "/bin/bash"
-}
-
-func (m *MockCommandExecutor) GetShellArgs(command string) []string {
-	return []string{"-c", command}
-}
-
 func (m *MockCommandExecutor) IsCommandAvailable(command string) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -95,13 +87,6 @@ func (m *MockCommandExecutor) AddFailure(cmd string, args []string, err error) {
 	defer m.mu.Unlock()
 	key := fmt.Sprintf("%s %v", cmd, args)
 	m.failures[key] = err
-}
-
-func (m *MockCommandExecutor) AddTimeout(cmd string, args []string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	key := fmt.Sprintf("%s %v", cmd, args)
-	m.timeouts[key] = true
 }
 
 // Helper function to create a test installer

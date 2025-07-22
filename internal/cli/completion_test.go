@@ -53,21 +53,39 @@ func TestCompletionCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Capture output
+			// Test argument validation directly first
+			if completionCmd.Args != nil {
+				argsErr := completionCmd.Args(completionCmd, tt.args)
+				if tt.expectError && argsErr == nil {
+					t.Errorf("Expected argument validation error for args %v, but got none", tt.args)
+					return
+				}
+				if !tt.expectError && argsErr != nil {
+					t.Errorf("Unexpected argument validation error for args %v: %v", tt.args, argsErr)
+					return
+				}
+			}
+
+			// If expecting error and got it from args validation, we're done
+			if tt.expectError {
+				return
+			}
+
+			// Capture output for successful cases
 			oldStdout := os.Stdout
 			r, w, _ := os.Pipe()
 			os.Stdout = w
 
-			// Create fresh command
-			cmd := &cobra.Command{
-				Use:       "completion",
-				ValidArgs: []string{"bash", "zsh", "fish", "powershell"},
-				Args:      cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
-				RunE:      runCompletion,
-			}
-
 			// Mock root command for completion generation
 			rootCmd = &cobra.Command{Use: "lsp-gateway"}
+			
+			// Create a copy of the actual completion command to avoid affecting other tests
+			cmd := &cobra.Command{
+				Use:       completionCmd.Use,
+				ValidArgs: completionCmd.ValidArgs,
+				Args:      completionCmd.Args,
+				RunE:      completionCmd.RunE,
+			}
 			rootCmd.AddCommand(cmd)
 
 			cmd.SetArgs(tt.args)
@@ -77,15 +95,12 @@ func TestCompletionCommand(t *testing.T) {
 			output, _ := io.ReadAll(r)
 			os.Stdout = oldStdout
 
-			if tt.expectError && err == nil {
-				t.Errorf("Expected error for args %v, but got none", tt.args)
-			}
-			if !tt.expectError && err != nil {
+			if err != nil {
 				t.Errorf("Unexpected error for args %v: %v", tt.args, err)
 			}
 
 			// For valid shells, check that some completion content was generated
-			if !tt.expectError && len(output) == 0 {
+			if len(output) == 0 {
 				t.Errorf("Expected completion output for shell %v, but got none", tt.args)
 			}
 		})

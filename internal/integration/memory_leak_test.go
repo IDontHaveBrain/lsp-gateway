@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"runtime/pprof"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -223,17 +222,6 @@ func (p *MemoryProfiler) GenerateReport() map[string]interface{} {
 		"heap_objects":          current.HeapObjects,
 		"stack_in_use":          current.StackInuse,
 	}
-}
-
-// SaveMemoryProfile saves a heap profile to file
-func (p *MemoryProfiler) SaveMemoryProfile(filename string) error {
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	return pprof.WriteHeapProfile(f)
 }
 
 // TestHarness provides a test environment for long-running memory tests

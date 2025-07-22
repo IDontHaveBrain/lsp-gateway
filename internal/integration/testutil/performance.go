@@ -18,6 +18,7 @@ type PerformanceMonitor struct {
 	stopCh       chan struct{}
 	wg           sync.WaitGroup
 	mu           sync.RWMutex
+	stopped      bool
 }
 
 // PerformanceMetrics contains collected performance data
@@ -83,7 +84,15 @@ func (pm *PerformanceMonitor) Start() {
 
 // Stop stops performance monitoring and finalizes metrics
 func (pm *PerformanceMonitor) Stop() *PerformanceMetrics {
+	pm.mu.Lock()
+	if pm.stopped {
+		pm.mu.Unlock()
+		return pm.metrics
+	}
+	pm.stopped = true
 	close(pm.stopCh)
+	pm.mu.Unlock()
+
 	pm.wg.Wait()
 
 	pm.mu.Lock()

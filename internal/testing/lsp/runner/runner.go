@@ -251,7 +251,7 @@ func (r *TestRunner) cleanupWorkspaces(ctx context.Context) {
 }
 
 // dryRun performs a dry run without executing tests
-func (r *TestRunner) dryRun(ctx context.Context, options *RunOptions) (*cases.TestResult, error) {
+func (r *TestRunner) dryRun(_ context.Context, options *RunOptions) (*cases.TestResult, error) {
 	r.logger.Info("Performing dry run...")
 
 	for _, testSuite := range r.testSuites {
@@ -378,7 +378,7 @@ func (r *TestRunner) executeTestCase(ctx context.Context, testCase *cases.TestCa
 	// Skip test if configured
 	if testCase.Config.Skip {
 		testCase.Status = cases.TestStatusSkipped
-		testCase.Error = fmt.Errorf(testCase.Config.SkipReason)
+		testCase.Error = fmt.Errorf("%s", testCase.Config.SkipReason)
 		return
 	}
 
@@ -456,15 +456,8 @@ func (r *TestRunner) updateFinalResults() {
 	}
 }
 
-// GetProgress returns the current test execution progress
-func (r *TestRunner) GetProgress() (completed int, total int) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	return r.completedTests, r.totalTests
-}
-
 // CreateWorkspace creates a workspace directory for a repository
-func (fm *TestFileManager) CreateWorkspace(ctx context.Context, repo *config.RepositoryConfig) (string, error) {
+func (fm *TestFileManager) CreateWorkspace(_ context.Context, repo *config.RepositoryConfig) (string, error) {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
 
@@ -519,7 +512,7 @@ func (fm *TestFileManager) copyRepository(srcPath, destPath string) error {
 }
 
 // CleanupWorkspace removes a workspace directory
-func (fm *TestFileManager) CleanupWorkspace(ctx context.Context, workspaceDir string) error {
+func (fm *TestFileManager) CleanupWorkspace(_ context.Context, workspaceDir string) error {
 	fm.mu.Lock()
 	defer fm.mu.Unlock()
 
@@ -537,10 +530,4 @@ func (fm *TestFileManager) CleanupWorkspace(ctx context.Context, workspaceDir st
 // ReadFile reads a file from the workspace
 func (fm *TestFileManager) ReadFile(filePath string) ([]byte, error) {
 	return os.ReadFile(filePath)
-}
-
-// FileExists checks if a file exists
-func (fm *TestFileManager) FileExists(filePath string) bool {
-	_, err := os.Stat(filePath)
-	return err == nil
 }

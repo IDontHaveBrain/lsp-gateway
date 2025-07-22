@@ -109,7 +109,7 @@ func TestMaximumRetryLimitEnforcement(t *testing.T) {
 		{
 			name:                      "no circuit breaker on application errors",
 			maxRetries:                3,
-			failureType:               "application_error",
+			failureType:               APPLICATION_ERROR_TYPE,
 			expectedCircuitActivation: false,
 			timeoutDuration:           8 * time.Second,
 		},
@@ -157,7 +157,7 @@ func TestMaximumRetryLimitEnforcement(t *testing.T) {
 					if attemptCount <= tt.maxRetries {
 						return nil, &TimeoutError{Message: fmt.Sprintf("timeout failure attempt %d", attemptCount)}
 					}
-				case "application_error":
+				case APPLICATION_ERROR_TYPE:
 					if attemptCount <= tt.maxRetries {
 						return nil, &ApplicationError{Message: fmt.Sprintf("application failure attempt %d", attemptCount)}
 					}
@@ -194,7 +194,7 @@ func TestMaximumRetryLimitEnforcement(t *testing.T) {
 					t.Errorf("Retry count exceeded limit for non-retriable errors: %d > %d", attemptCount, tt.maxRetries+1)
 				}
 
-				if tt.failureType == "application_error" && result == nil {
+				if tt.failureType == APPLICATION_ERROR_TYPE && result == nil {
 					t.Error("Application errors should not trigger circuit breaker")
 				}
 			}
@@ -887,7 +887,7 @@ func CreateRetryTestServer(t *testing.T, failureType string, failureCount int) *
 			case "timeout_error":
 				time.Sleep(2 * time.Second)
 				http.Error(w, "Timeout", http.StatusRequestTimeout)
-			case "application_error":
+			case APPLICATION_ERROR_TYPE:
 				http.Error(w, "Application error", http.StatusBadRequest)
 			}
 			return

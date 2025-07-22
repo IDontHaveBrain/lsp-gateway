@@ -176,7 +176,28 @@ func TestFindPackageManagerByName(t *testing.T) {
 				currentPlatform := GetCurrentPlatform()
 				if tt.platformNeeded == PlatformUnknown || currentPlatform == tt.platformNeeded {
 					if manager == nil {
-						t.Errorf("Expected to find manager for %s on platform %s", tt.name, currentPlatform)
+						// Check if the package manager is actually available on this system
+						var managerAvailable bool
+						switch tt.name {
+						case "apt":
+							managerAvailable = NewAptManager().IsAvailable()
+						case "dnf":
+							managerAvailable = NewDnfManager().IsAvailable()
+						case "yum":
+							managerAvailable = NewYumManager().IsAvailable()
+						case "homebrew":
+							managerAvailable = NewHomebrewManager().IsAvailable()
+						case "winget":
+							managerAvailable = NewWingetManager().IsAvailable()
+						case "chocolatey":
+							managerAvailable = NewChocolateyManager().IsAvailable()
+						}
+						
+						if managerAvailable {
+							t.Errorf("Expected to find manager for %s on platform %s", tt.name, currentPlatform)
+						} else {
+							t.Logf("Package manager %s not available on this system - skipping", tt.name)
+						}
 					} else if manager.GetName() != tt.name {
 						t.Errorf("Expected manager name %s, got %s", tt.name, manager.GetName())
 					}

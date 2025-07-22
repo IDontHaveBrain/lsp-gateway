@@ -578,35 +578,3 @@ func (ctx *AssertionContext) IsNullResponse(response json.RawMessage) bool {
 }
 
 // Aggregate result helpers
-
-// AllPassed checks if all validation results passed
-func AllPassed(results []*cases.ValidationResult) bool {
-	for _, result := range results {
-		if !result.Passed {
-			return false
-		}
-	}
-	return true
-}
-
-// CountFailures counts the number of failed validation results
-func CountFailures(results []*cases.ValidationResult) int {
-	count := 0
-	for _, result := range results {
-		if !result.Passed {
-			count++
-		}
-	}
-	return count
-}
-
-// GetFailureMessages extracts failure messages from validation results
-func GetFailureMessages(results []*cases.ValidationResult) []string {
-	var messages []string
-	for _, result := range results {
-		if !result.Passed {
-			messages = append(messages, result.Message)
-		}
-	}
-	return messages
-}

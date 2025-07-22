@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"math/rand"
 	"net"
@@ -476,44 +477,54 @@ func (c *TCPClient) handleMessage(msg *JSONRPCMessage) {
 
 		if exists && respCh != nil {
 			if msg.Result != nil {
-				if result, err := json.Marshal(msg.Result); err == nil {
-					if c.ctx != nil {
-						select {
-						case respCh <- result:
-						case <-time.After(100 * time.Millisecond):
-							// Channel may be closed or full
-						case <-c.ctx.Done():
-							// Client is shutting down
-							return
-						}
-					} else {
-						// No context, simpler select
-						select {
-						case respCh <- result:
-						case <-time.After(100 * time.Millisecond):
-							// Channel may be closed or full
-						}
+				result, err := json.Marshal(msg.Result)
+				if err != nil {
+					log.Printf("Failed to marshal result for TCP response: %v", err)
+					// Create fallback error response
+					result = []byte(`{"code":-32603,"message":"Internal error: failed to marshal result"}`)
+				}
+
+				if c.ctx != nil {
+					select {
+					case respCh <- result:
+					case <-time.After(100 * time.Millisecond):
+						// Channel may be closed or full
+					case <-c.ctx.Done():
+						// Client is shutting down
+						return
+					}
+				} else {
+					// No context, simpler select
+					select {
+					case respCh <- result:
+					case <-time.After(100 * time.Millisecond):
+						// Channel may be closed or full
 					}
 				}
-			} else if msg.Error != nil {
-				if errorData, err := json.Marshal(msg.Error); err == nil {
-					if c.ctx != nil {
-						select {
-						case respCh <- errorData:
-						case <-time.After(100 * time.Millisecond):
-							// Channel may be closed or full
-						case <-c.ctx.Done():
-							// Client is shutting down
-							return
-						}
-					} else {
-						// No context, simpler select
-						select {
-						case respCh <- errorData:
-						case <-time.After(100 * time.Millisecond):
-							// Channel may be closed or full
-						}
-					}
+			}
+		} else if msg.Error != nil {
+			errorData, err := json.Marshal(msg.Error)
+			if err != nil {
+				log.Printf("Failed to marshal error for TCP response: %v", err)
+				// Create fallback error response
+				errorData = []byte(`{"code":-32603,"message":"Internal error: failed to marshal error"}`)
+			}
+
+			if c.ctx != nil {
+				select {
+				case respCh <- errorData:
+				case <-time.After(100 * time.Millisecond):
+					// Channel may be closed or full
+				case <-c.ctx.Done():
+					// Client is shutting down
+					return
+				}
+			} else {
+				// No context, simpler select
+				select {
+				case respCh <- errorData:
+				case <-time.After(100 * time.Millisecond):
+					// Channel may be closed or full
 				}
 			}
 		}

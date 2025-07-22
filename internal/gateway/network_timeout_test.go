@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
@@ -57,82 +59,103 @@ func TestGatewayHTTPTimeouts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create mock client with configurable delay
-			mockClient := NewMockLSPClientWithDelay(tt.clientDelay)
-
-			gateway := createTimeoutTestGateway(t, map[string]transport.LSPClient{
-				"test-server": mockClient,
-			})
-
-			// Create JSON-RPC request
-			requestBody := JSONRPCRequest{
-				JSONRPC: "2.0",
-				ID:      "test-1",
-				Method:  "textDocument/definition",
-				Params: map[string]interface{}{
-					"textDocument": map[string]interface{}{
-						"uri": "file:///test.go",
-					},
-					"position": map[string]interface{}{
-						"line":      10,
-						"character": 5,
-					},
-				},
-			}
-
-			bodyBytes, err := json.Marshal(requestBody)
-			if err != nil {
-				t.Fatalf("Failed to marshal request: %v", err)
-			}
-
-			// Create HTTP request with timeout context
-			ctx, cancel := context.WithTimeout(context.Background(), tt.requestTimeout)
-			defer cancel()
-
-			req := httptest.NewRequest("POST", "/jsonrpc", bytes.NewReader(bodyBytes))
-			req = req.WithContext(ctx)
-			req.Header.Set("Content-Type", "application/json")
-
-			w := httptest.NewRecorder()
-
-			// Record start time
-			start := time.Now()
-			gateway.HandleJSONRPC(w, req)
-			duration := time.Since(start)
+			w, duration := executeTimeoutTest(t, tt.requestTimeout, tt.clientDelay)
 
 			if tt.expectedError {
-				// Should return an error response
-				var response JSONRPCResponse
-				if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
-					t.Fatalf("Failed to decode response: %v", err)
-				}
-
-				if response.Error == nil {
-					t.Error("Expected error response due to timeout")
-				} else if !strings.Contains(strings.ToLower(response.Error.Message), strings.ToLower(tt.errorContains)) {
-					t.Errorf("Expected error containing '%s', got: %s", tt.errorContains, response.Error.Message)
-				}
-
-				// Verify timeout occurred around expected time
-				if duration < tt.requestTimeout-500*time.Millisecond || duration > tt.requestTimeout+2*time.Second {
-					t.Errorf("Timeout occurred at %v, expected around %v", duration, tt.requestTimeout)
-				}
+				validateTimeoutErrorResponse(t, w, tt.errorContains, duration, tt.requestTimeout)
 			} else {
-				// Should succeed
-				if w.Code != 200 {
-					t.Errorf("Expected status 200, got %d", w.Code)
-				}
-
-				var response JSONRPCResponse
-				if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
-					t.Fatalf("Failed to decode response: %v", err)
-				}
-
-				if response.Error != nil {
-					t.Errorf("Expected success, got error: %s", response.Error.Message)
-				}
+				validateSuccessResponse(t, w)
 			}
 		})
+	}
+}
+
+func executeTimeoutTest(t *testing.T, requestTimeout, clientDelay time.Duration) (*httptest.ResponseRecorder, time.Duration) {
+	mockClient := NewMockLSPClientWithDelay(clientDelay)
+	
+	// Start the mock client
+	ctx := context.Background()
+	if err := mockClient.Start(ctx); err != nil {
+		t.Fatalf("Failed to start mock client: %v", err)
+	}
+	
+	gateway := createTimeoutTestGateway(t, map[string]transport.LSPClient{
+		"test-server": mockClient,
+	})
+
+	req := createTimeoutTestRequest(t, requestTimeout)
+	w := httptest.NewRecorder()
+
+	start := time.Now()
+	gateway.HandleJSONRPC(w, req)
+	duration := time.Since(start)
+
+	return w, duration
+}
+
+func createTimeoutTestRequest(t *testing.T, timeout time.Duration) *http.Request {
+	requestBody := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "test-1",
+		Method:  "textDocument/definition",
+		Params: map[string]interface{}{
+			"textDocument": map[string]interface{}{
+				"uri": "file:///test.go",
+			},
+			"position": map[string]interface{}{
+				"line":      10,
+				"character": 5,
+			},
+		},
+	}
+
+	bodyBytes, err := json.Marshal(requestBody)
+	if err != nil {
+		t.Fatalf("Failed to marshal request: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	req := httptest.NewRequest("POST", "/jsonrpc", bytes.NewReader(bodyBytes))
+	req = req.WithContext(ctx)
+	req.Header.Set("Content-Type", "application/json")
+
+	return req
+}
+
+func validateTimeoutErrorResponse(t *testing.T, w *httptest.ResponseRecorder, errorContains string, duration, requestTimeout time.Duration) {
+	var response JSONRPCResponse
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if response.Error == nil {
+		t.Error("Expected error response due to timeout")
+		return
+	}
+
+	if !strings.Contains(strings.ToLower(response.Error.Message), strings.ToLower(errorContains)) {
+		t.Errorf("Expected error containing '%s', got: %s", errorContains, response.Error.Message)
+	}
+
+	if duration < requestTimeout-500*time.Millisecond || duration > requestTimeout+2*time.Second {
+		t.Errorf("Timeout occurred at %v, expected around %v", duration, requestTimeout)
+	}
+}
+
+func validateSuccessResponse(t *testing.T, w *httptest.ResponseRecorder) {
+	if w.Code != 200 {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+
+	var response JSONRPCResponse
+	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+
+	if response.Error != nil {
+		t.Errorf("Expected success, got error: %s", response.Error.Message)
 	}
 }
 
@@ -769,15 +792,35 @@ func (m *MockLSPClientWithDelay) Stop() error {
 
 func (m *MockLSPClientWithDelay) SendRequest(ctx context.Context, method string, params interface{}) (json.RawMessage, error) {
 	m.mu.RLock()
+	active := m.active
 	delay := m.delay
 	m.mu.RUnlock()
 
-	// Simulate delay - but respect context cancellation
-	select {
-	case <-time.After(delay):
-		// Delay completed
-	case <-ctx.Done():
-		return nil, ctx.Err()
+	if !active {
+		return nil, errors.New("client not active")
+	}
+
+	// Simulate delay with proper context cancellation handling
+	if delay > 0 {
+		timer := time.NewTimer(delay)
+		defer timer.Stop()
+		
+		select {
+		case <-timer.C:
+			// Delay completed successfully
+		case <-ctx.Done():
+			// Context cancelled during delay
+			return nil, ctx.Err()
+		}
+	}
+
+	// Check if client is still active after delay
+	m.mu.RLock()
+	active = m.active
+	m.mu.RUnlock()
+
+	if !active {
+		return nil, errors.New("client became inactive during request")
 	}
 
 	// Return mock response
@@ -792,16 +835,38 @@ func (m *MockLSPClientWithDelay) SendRequest(ctx context.Context, method string,
 
 func (m *MockLSPClientWithDelay) SendNotification(ctx context.Context, method string, params interface{}) error {
 	m.mu.RLock()
+	active := m.active
 	delay := m.delay
 	m.mu.RUnlock()
 
-	// Simulate delay - but respect context cancellation
-	select {
-	case <-time.After(delay):
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
+	if !active {
+		return errors.New("client not active")
 	}
+
+	// Simulate delay with proper context cancellation handling
+	if delay > 0 {
+		timer := time.NewTimer(delay)
+		defer timer.Stop()
+		
+		select {
+		case <-timer.C:
+			// Delay completed successfully
+		case <-ctx.Done():
+			// Context cancelled during delay
+			return ctx.Err()
+		}
+	}
+
+	// Check if client is still active after delay
+	m.mu.RLock()
+	active = m.active
+	m.mu.RUnlock()
+
+	if !active {
+		return errors.New("client became inactive during notification")
+	}
+
+	return nil
 }
 
 func (m *MockLSPClientWithDelay) IsActive() bool {

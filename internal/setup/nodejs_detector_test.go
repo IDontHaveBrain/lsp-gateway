@@ -1,6 +1,7 @@
 package setup
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -156,13 +157,15 @@ func TestNodeJSDetector_GetInstallationGuidance(t *testing.T) {
 
 	foundInstallInstructions := false
 	for _, guide := range guidance {
-		if len(guide) > 0 && (guide[0:1] == "1" || guide[0:1] == "2" || guide[0:1] == "3") {
+		// Check for numbered instructions, accounting for possible leading whitespace
+		trimmed := strings.TrimSpace(guide)
+		if len(trimmed) > 0 && (strings.HasPrefix(trimmed, "1.") || strings.HasPrefix(trimmed, "2.") || strings.HasPrefix(trimmed, "3.")) {
 			foundInstallInstructions = true
 			break
 		}
 	}
 
 	if !foundInstallInstructions {
-		t.Error("Expected numbered installation instructions in guidance")
+		t.Errorf("Expected numbered installation instructions in guidance, got: %v", guidance)
 	}
 }

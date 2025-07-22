@@ -247,15 +247,6 @@ func (b *ExpectedResultBuilder) WithErrorCode(code int) *ExpectedResultBuilder {
 	return b
 }
 
-// WithErrorMessage sets expected error message
-func (b *ExpectedResultBuilder) WithErrorMessage(message string) *ExpectedResultBuilder {
-	if b.result.Error == nil {
-		b.result.Error = &ExpectedErrorResult{HasError: true}
-	}
-	b.result.Error.Message = &message
-	return b
-}
-
 // WithErrorMessageContains sets expected error message substrings
 func (b *ExpectedResultBuilder) WithErrorMessageContains(patterns ...string) *ExpectedResultBuilder {
 	if b.result.Error == nil {
@@ -271,12 +262,6 @@ func (b *ExpectedResultBuilder) WithContains(patterns ...string) *ExpectedResult
 	return b
 }
 
-// WithMatches adds regex patterns that should match
-func (b *ExpectedResultBuilder) WithMatches(patterns ...string) *ExpectedResultBuilder {
-	b.result.Matches = append(b.result.Matches, patterns...)
-	return b
-}
-
 // WithExcludes adds patterns that should not be present
 func (b *ExpectedResultBuilder) WithExcludes(patterns ...string) *ExpectedResultBuilder {
 	b.result.Excludes = append(b.result.Excludes, patterns...)
@@ -286,15 +271,6 @@ func (b *ExpectedResultBuilder) WithExcludes(patterns ...string) *ExpectedResult
 // WithMaxResponseTime sets maximum expected response time in milliseconds
 func (b *ExpectedResultBuilder) WithMaxResponseTime(ms int) *ExpectedResultBuilder {
 	b.result.ResponseTime = &ms
-	return b
-}
-
-// WithProperty adds a custom property for validation
-func (b *ExpectedResultBuilder) WithProperty(key string, value interface{}) *ExpectedResultBuilder {
-	if b.result.Properties == nil {
-		b.result.Properties = make(map[string]interface{})
-	}
-	b.result.Properties[key] = value
 	return b
 }
 
@@ -329,21 +305,6 @@ func (b *ExpectedResultBuilder) WithDefinitionLocation(uri string, startLine, st
 	return b
 }
 
-// WithDefinitionArray sets expectation for definition array response
-func (b *ExpectedResultBuilder) WithDefinitionArray(minCount, maxCount int) *ExpectedResultBuilder {
-	if b.result.Definition == nil {
-		b.result.Definition = &ExpectedDefinitionResult{HasResult: true}
-	}
-
-	isArray := true
-	b.result.Definition.IsArray = &isArray
-	b.result.Definition.ArrayLength = &ExpectedArrayLength{
-		Min: &minCount,
-		Max: &maxCount,
-	}
-	return b
-}
-
 // References method builders
 
 // WithReferences sets references-specific expectations
@@ -364,26 +325,6 @@ func (b *ExpectedResultBuilder) WithReferencesCount(minCount, maxCount int) *Exp
 		Min: &minCount,
 		Max: &maxCount,
 	}
-	return b
-}
-
-// WithReferencesIncludeDeclaration sets expectation for declaration inclusion
-func (b *ExpectedResultBuilder) WithReferencesIncludeDeclaration(includeDecl bool) *ExpectedResultBuilder {
-	if b.result.References == nil {
-		b.result.References = &ExpectedReferencesResult{HasResult: true}
-	}
-
-	b.result.References.IncludesDeclaration = includeDecl
-	return b
-}
-
-// WithReferencesFromFile sets expectation for references from specific file
-func (b *ExpectedResultBuilder) WithReferencesFromFile(filename string) *ExpectedResultBuilder {
-	if b.result.References == nil {
-		b.result.References = &ExpectedReferencesResult{HasResult: true}
-	}
-
-	b.result.References.ContainsFile = &filename
 	return b
 }
 
@@ -410,19 +351,6 @@ func (b *ExpectedResultBuilder) WithHoverContent(hasContent bool, contains ...st
 	return b
 }
 
-// WithHoverMarkupKind sets expected hover markup kind
-func (b *ExpectedResultBuilder) WithHoverMarkupKind(kind string) *ExpectedResultBuilder {
-	if b.result.Hover == nil {
-		b.result.Hover = &ExpectedHoverResult{HasResult: true}
-	}
-	if b.result.Hover.Content == nil {
-		b.result.Hover.Content = &ExpectedHoverContent{HasContent: true}
-	}
-
-	b.result.Hover.Content.MarkupKind = &kind
-	return b
-}
-
 // Document Symbol method builders
 
 // WithDocumentSymbol sets document symbol expectations
@@ -446,24 +374,6 @@ func (b *ExpectedResultBuilder) WithDocumentSymbolCount(minCount, maxCount int) 
 	return b
 }
 
-// WithDocumentSymbolOfKind adds expectation for symbol of specific kind
-func (b *ExpectedResultBuilder) WithDocumentSymbolOfKind(name string, kind ExpectedSymbolKind) *ExpectedResultBuilder {
-	if b.result.DocumentSymbol == nil {
-		b.result.DocumentSymbol = &ExpectedDocumentSymbolResult{HasResult: true}
-	}
-
-	symbol := &ExpectedSymbol{
-		Name: &name,
-		Kind: &kind,
-	}
-
-	if b.result.DocumentSymbol.ContainsSymbol == nil {
-		b.result.DocumentSymbol.ContainsSymbol = symbol
-	}
-	b.result.DocumentSymbol.Symbols = append(b.result.DocumentSymbol.Symbols, symbol)
-	return b
-}
-
 // Workspace Symbol method builders
 
 // WithWorkspaceSymbol sets workspace symbol expectations
@@ -484,23 +394,5 @@ func (b *ExpectedResultBuilder) WithWorkspaceSymbolCount(minCount, maxCount int)
 		Min: &minCount,
 		Max: &maxCount,
 	}
-	return b
-}
-
-// WithWorkspaceSymbolOfKind adds expectation for workspace symbol of specific kind
-func (b *ExpectedResultBuilder) WithWorkspaceSymbolOfKind(name string, kind ExpectedSymbolKind) *ExpectedResultBuilder {
-	if b.result.WorkspaceSymbol == nil {
-		b.result.WorkspaceSymbol = &ExpectedWorkspaceSymbolResult{HasResult: true}
-	}
-
-	symbol := &ExpectedSymbol{
-		Name: &name,
-		Kind: &kind,
-	}
-
-	if b.result.WorkspaceSymbol.ContainsSymbol == nil {
-		b.result.WorkspaceSymbol.ContainsSymbol = symbol
-	}
-	b.result.WorkspaceSymbol.Symbols = append(b.result.WorkspaceSymbol.Symbols, symbol)
 	return b
 }

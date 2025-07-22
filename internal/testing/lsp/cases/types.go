@@ -3,7 +3,6 @@ package cases
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"lsp-gateway/internal/testing/lsp/config"
@@ -109,7 +108,6 @@ type TestSuite struct {
 
 // TestRunContext provides context for test execution
 type TestRunContext struct {
-	ctx context.Context
 
 	// Configuration
 	Config       *config.LSPTestConfig
@@ -145,7 +143,6 @@ type TestFileManager interface {
 	CleanupWorkspace(ctx context.Context, workspaceDir string) error
 
 	GetFilePath(workspaceDir, relativePath string) string
-	FileExists(filePath string) bool
 	ReadFile(filePath string) ([]byte, error)
 
 	ResolvePosition(filePath string, position *config.Position) (*AbsolutePosition, error)
@@ -311,12 +308,6 @@ func (r *TestResult) PassRate() float64 {
 	return float64(r.PassedCases) / float64(r.TotalCases) * 100
 }
 
-// Summary returns a summary string of the test results
-func (r *TestResult) Summary() string {
-	return fmt.Sprintf("Tests: %d, Passed: %d, Failed: %d, Skipped: %d, Errors: %d, Pass Rate: %.1f%%, Duration: %v",
-		r.TotalCases, r.PassedCases, r.FailedCases, r.SkippedCases, r.ErrorCases, r.PassRate(), r.Duration)
-}
-
 // NewTestCase creates a new test case from configuration
 func NewTestCase(id string, repo *config.RepositoryConfig, testConfig *config.TestCaseConfig) *TestCase {
 	return &TestCase{
@@ -382,30 +373,4 @@ func (s *TestSuite) UpdateStatus() {
 	} else {
 		s.Status = TestStatusPassed
 	}
-}
-
-// GetContext returns the test run context
-func (c *TestRunContext) GetContext() context.Context {
-	return c.ctx
-}
-
-// WithTimeout creates a new context with timeout
-func (c *TestRunContext) WithTimeout(timeout time.Duration) (context.Context, context.CancelFunc) {
-	return context.WithTimeout(c.ctx, timeout)
-}
-
-// LogTestCase logs information about a test case
-func (c *TestRunContext) LogTestCase(testCase *TestCase, message string) {
-	if c.Logger != nil {
-		logger := c.Logger.WithTestCase(testCase)
-		logger.Info(message)
-	}
-}
-
-// RecordTestResult records a test case result
-func (c *TestRunContext) RecordTestResult(testCase *TestCase) {
-	if c.TestResults == nil {
-		c.TestResults = make(map[string]*TestCase)
-	}
-	c.TestResults[testCase.ID] = testCase
 }

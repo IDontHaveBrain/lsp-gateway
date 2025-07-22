@@ -125,41 +125,6 @@ type TestLogger interface {
 	WithTestSuite(testSuite *cases.TestSuite) TestLogger
 }
 
-// NullLogger is a logger that does nothing (for testing or when logging is disabled)
-type NullLogger struct{}
-
-// NewNullLogger creates a new null logger
-func NewNullLogger() *NullLogger {
-	return &NullLogger{}
-}
-
-// Debug does nothing
-func (l *NullLogger) Debug(format string, args ...interface{}) {}
-
-// Info does nothing
-func (l *NullLogger) Info(format string, args ...interface{}) {}
-
-// Warn does nothing
-func (l *NullLogger) Warn(format string, args ...interface{}) {}
-
-// Error does nothing
-func (l *NullLogger) Error(format string, args ...interface{}) {}
-
-// WithFields returns itself (no-op)
-func (l *NullLogger) WithFields(fields map[string]interface{}) TestLogger {
-	return l
-}
-
-// WithTestCase returns itself (no-op)
-func (l *NullLogger) WithTestCase(testCase *cases.TestCase) TestLogger {
-	return l
-}
-
-// WithTestSuite returns itself (no-op)
-func (l *NullLogger) WithTestSuite(testSuite *cases.TestSuite) TestLogger {
-	return l
-}
-
 // TimedLogger wraps another logger and adds timing information
 type TimedLogger struct {
 	wrapped TestLogger

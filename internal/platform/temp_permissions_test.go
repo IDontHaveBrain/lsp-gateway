@@ -36,7 +36,7 @@ func TestTempDirectoryPermissions(t *testing.T) {
 
 		// Test creating a file in temp directory
 		testFile := filepath.Join(tempDir, "lsp-gateway-test-"+generateRandomString(8))
-		defer os.Remove(testFile)
+		defer func() { _ = os.Remove(testFile) }()
 
 		err = os.WriteFile(testFile, []byte("test content"), 0644)
 		if err != nil {
@@ -153,7 +153,7 @@ func TestTempFileCreationPermissions(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create temp file: %v", err)
 		}
-		file.Close()
+		_ = file.Close()
 
 		// Check actual permissions
 		info, err := os.Stat(tempFile)
@@ -196,7 +196,7 @@ func TestTempFileCreationPermissions(t *testing.T) {
 				}
 
 				_, writeErr := file.WriteString(fmt.Sprintf("Content from goroutine %d", id))
-				file.Close()
+				_ = file.Close()
 
 				if writeErr != nil {
 					mu.Lock()
@@ -460,7 +460,7 @@ func TestTempFileSecurityPermissions(t *testing.T) {
 		// Try to create temp file with O_EXCL to prevent symlink attack
 		file, err := os.OpenFile(tempFileName, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 		if err == nil {
-			file.Close()
+			_ = file.Close()
 			t.Error("Expected error when creating file over existing symlink")
 		}
 

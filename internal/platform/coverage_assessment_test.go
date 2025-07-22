@@ -121,6 +121,7 @@ func TestExecutorFunctionCoverage(t *testing.T) {
 		}
 		if result == nil {
 			t.Error("Result is nil")
+			return
 		}
 		if !strings.Contains(result.Stdout, "context_test") {
 			t.Error("Output doesn't contain expected text")
@@ -158,6 +159,7 @@ func TestLinuxDistributionCoverage(t *testing.T) {
 		}
 		if info == nil {
 			t.Error("Linux info is nil")
+			return
 		}
 		if info.Distribution == "" {
 			t.Error("Distribution is empty")
@@ -294,7 +296,7 @@ func TestErrorHandlingCoverage(t *testing.T) {
 			}
 		} else {
 			// Clear Unix home environment variable
-			os.Unsetenv("HOME")
+			_ = os.Unsetenv("HOME")
 
 			_, err := GetHomeDirectory()
 			if err == nil {
@@ -326,19 +328,19 @@ func TestFileSystemFunctions(t *testing.T) {
 		defer func() {
 			// Restore environment
 			if originalTMPDIR != "" {
-				os.Setenv("TMPDIR", originalTMPDIR)
+				_ = os.Setenv("TMPDIR", originalTMPDIR)
 			} else {
-				os.Unsetenv("TMPDIR")
+				_ = os.Unsetenv("TMPDIR")
 			}
 			if originalTMP != "" {
-				os.Setenv("TMP", originalTMP)
+				_ = os.Setenv("TMP", originalTMP)
 			} else {
-				os.Unsetenv("TMP")
+				_ = os.Unsetenv("TMP")
 			}
 			if originalTEMP != "" {
-				os.Setenv("TEMP", originalTEMP)
+				_ = os.Setenv("TEMP", originalTEMP)
 			} else {
-				os.Unsetenv("TEMP")
+				_ = os.Unsetenv("TEMP")
 			}
 		}()
 

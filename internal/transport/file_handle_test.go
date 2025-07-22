@@ -147,14 +147,6 @@ func (pm *ProcessManager) UpdateProcessStatus(pid int, status ProcessStatus) {
 	}
 }
 
-func (pm *ProcessManager) GetProcessInfo(pid int) (*ProcessInfo, bool) {
-	pm.mu.RLock()
-	defer pm.mu.RUnlock()
-
-	info, exists := pm.processes[pid]
-	return info, exists
-}
-
 func (pm *ProcessManager) GetAllProcesses() map[int]*ProcessInfo {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
@@ -790,7 +782,7 @@ func testSubprocessFileDescriptorInheritance(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp file: %v", err)
 	}
-	defer os.Remove(tempFile.Name())
+	defer func() { _ = os.Remove(tempFile.Name()) }()
 	defer func() { _ = tempFile.Close() }()
 
 	config := ClientConfig{
@@ -1062,7 +1054,7 @@ func testLogFileHandleManagement(t *testing.T, tracker *FileHandleTracker) {
 	if err != nil {
 		t.Fatalf("Failed to create log directory: %v", err)
 	}
-	defer os.RemoveAll(logDir)
+	defer func() { _ = os.RemoveAll(logDir) }()
 
 	logFiles := make([]*os.File, 0, 5)
 
@@ -1130,7 +1122,7 @@ servers:
 	if err != nil {
 		t.Fatalf("Failed to create config file: %v", err)
 	}
-	defer os.Remove(configPath)
+	defer func() { _ = os.Remove(configPath) }()
 
 	// Read config file multiple times (simulating reloads)
 	for i := 0; i < 10; i++ {
@@ -1190,7 +1182,7 @@ func handleMockConnection(conn net.Conn) {
 			}
 
 			if strings.HasPrefix(line, "Content-Length: ") {
-				fmt.Sscanf(line, "Content-Length: %d", &contentLength)
+				_, _ = fmt.Sscanf(line, "Content-Length: %d", &contentLength)
 			}
 		}
 

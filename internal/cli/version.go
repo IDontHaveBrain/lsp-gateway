@@ -67,7 +67,7 @@ For troubleshooting, include version output when reporting issues.`,
 	RunE: runVersion,
 }
 
-func runVersion(cmd *cobra.Command, args []string) error {
+func runVersion(_ *cobra.Command, args []string) error {
 	versionInfo := VersionInfo{
 		Version:      Version,
 		GitCommit:    GitCommit,

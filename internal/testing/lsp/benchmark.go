@@ -114,28 +114,6 @@ func DefaultBenchmarkConfig() *types.BenchmarkConfig {
 	}
 }
 
-// BenchmarkAllMethods runs performance benchmarks for all LSP methods
-func (bf *LSPBenchmarkFramework) BenchmarkAllMethods(ctx context.Context, b *testing.B) map[string]*types.BenchmarkResult {
-	results := make(map[string]*types.BenchmarkResult)
-
-	methods := []string{
-		cases.LSPMethodDefinition,
-		cases.LSPMethodReferences,
-		cases.LSPMethodHover,
-		cases.LSPMethodDocumentSymbol,
-		cases.LSPMethodWorkspaceSymbol,
-	}
-
-	for _, method := range methods {
-		bf.logger.Info("Starting benchmark for method: %s", method)
-		result := bf.BenchmarkMethod(ctx, b, method)
-		results[method] = result
-		bf.logger.Info("Completed benchmark for method: %s", method)
-	}
-
-	return results
-}
-
 // BenchmarkMethod runs performance benchmark for a specific LSP method
 func (bf *LSPBenchmarkFramework) BenchmarkMethod(ctx context.Context, b *testing.B, method string) *types.BenchmarkResult {
 	runner := &BenchmarkRunner{

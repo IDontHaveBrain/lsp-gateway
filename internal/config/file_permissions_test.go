@@ -21,7 +21,7 @@ func TestConfigFileReadPermissionDenied(t *testing.T) {
 		configFile := filepath.Join(tmpDir, "config.yaml")
 
 		// Create file with valid content but no read permissions (write-only)
-		configContent := "port: 8080\nservers:\n  - name: go-lsp\n    languages: [go]\n    command: gopls\n    transport: stdio"
+		configContent := TEST_BASIC_GO_CONFIG
 		err := os.WriteFile(configFile, []byte(configContent), 0200)
 		if err != nil {
 			t.Fatalf("Failed to create test config file: %v", err)
@@ -36,7 +36,7 @@ func TestConfigFileReadPermissionDenied(t *testing.T) {
 		configFile := filepath.Join(tmpDir, "config.yaml")
 
 		// Create file with no permissions at all
-		configContent := "port: 8080\nservers: []"
+		configContent := TEST_EMPTY_SERVERS_CONFIG
 		err := os.WriteFile(configFile, []byte(configContent), 0000)
 		if err != nil {
 			t.Fatalf("Failed to create test config file: %v", err)
@@ -47,7 +47,7 @@ func TestConfigFileReadPermissionDenied(t *testing.T) {
 	})
 
 	t.Run("config_file_execute_only_permission", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == PLATFORM_WINDOWS {
 			t.Skip("Execute-only permissions not meaningful on Windows")
 		}
 
@@ -55,7 +55,7 @@ func TestConfigFileReadPermissionDenied(t *testing.T) {
 		configFile := filepath.Join(tmpDir, "config.yaml")
 
 		// Create file with execute-only permissions
-		configContent := "port: 8080\nservers: []"
+		configContent := TEST_EMPTY_SERVERS_CONFIG
 		err := os.WriteFile(configFile, []byte(configContent), 0100)
 		if err != nil {
 			t.Fatalf("Failed to create test config file: %v", err)
@@ -73,7 +73,7 @@ func TestConfigDirectoryPermissionDenied(t *testing.T) {
 	skipIfRoot(t)
 
 	t.Run("parent_directory_no_read_permission", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == PLATFORM_WINDOWS {
 			t.Skip("Directory permission testing complex on Windows")
 		}
 
@@ -87,7 +87,7 @@ func TestConfigDirectoryPermissionDenied(t *testing.T) {
 			t.Fatalf("Failed to create directory: %v", err)
 		}
 
-		configContent := "port: 8080\nservers: []"
+		configContent := TEST_EMPTY_SERVERS_CONFIG
 		err = os.WriteFile(configFile, []byte(configContent), 0644)
 		if err != nil {
 			t.Fatalf("Failed to create config file: %v", err)
@@ -115,7 +115,7 @@ func TestConfigDirectoryPermissionDenied(t *testing.T) {
 	})
 
 	t.Run("parent_directory_no_execute_permission", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == PLATFORM_WINDOWS {
 			t.Skip("Directory execute permission testing not applicable on Windows")
 		}
 
@@ -129,7 +129,7 @@ func TestConfigDirectoryPermissionDenied(t *testing.T) {
 			t.Fatalf("Failed to create directory: %v", err)
 		}
 
-		configContent := "port: 8080\nservers: []"
+		configContent := TEST_EMPTY_SERVERS_CONFIG
 		err = os.WriteFile(configFile, []byte(configContent), 0644)
 		if err != nil {
 			t.Fatalf("Failed to create config file: %v", err)
@@ -162,7 +162,7 @@ func TestConfigFileWritePermissionScenarios(t *testing.T) {
 		configFile := filepath.Join(tmpDir, "readonly_config.yaml")
 
 		// Create a valid config file
-		configContent := "port: 8080\nservers:\n  - name: go-lsp\n    languages: [go]\n    command: gopls\n    transport: stdio"
+		configContent := TEST_BASIC_GO_CONFIG
 		err := os.WriteFile(configFile, []byte(configContent), 0644)
 		if err != nil {
 			t.Fatalf("Failed to create config file: %v", err)
@@ -191,7 +191,7 @@ func TestConfigFileWritePermissionScenarios(t *testing.T) {
 	})
 
 	t.Run("config_directory_readonly", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == PLATFORM_WINDOWS {
 			t.Skip("Directory write permission testing complex on Windows")
 		}
 
@@ -205,7 +205,7 @@ func TestConfigFileWritePermissionScenarios(t *testing.T) {
 			t.Fatalf("Failed to create config directory: %v", err)
 		}
 
-		configContent := "port: 8080\nservers: []"
+		configContent := TEST_EMPTY_SERVERS_CONFIG
 		err = os.WriteFile(configFile, []byte(configContent), 0644)
 		if err != nil {
 			t.Fatalf("Failed to create config file: %v", err)
@@ -251,7 +251,7 @@ func TestConfigPermissionRecovery(t *testing.T) {
 		configFile := filepath.Join(tmpDir, "recovery_config.yaml")
 
 		// Create file with valid content but no read permissions
-		configContent := "port: 8080\nservers:\n  - name: go-lsp\n    languages: [go]\n    command: gopls\n    transport: stdio"
+		configContent := TEST_BASIC_GO_CONFIG
 		err := os.WriteFile(configFile, []byte(configContent), 0200)
 		if err != nil {
 			t.Fatalf("Failed to create test config file: %v", err)
@@ -276,6 +276,7 @@ func TestConfigPermissionRecovery(t *testing.T) {
 		}
 		if config == nil {
 			t.Error("Expected valid config after permission recovery")
+			return
 		}
 		if config.Port != 8080 {
 			t.Errorf("Expected port 8080, got %d", config.Port)
@@ -287,7 +288,7 @@ func TestConfigPermissionRecovery(t *testing.T) {
 		configFile := filepath.Join(tmpDir, "toctou_config.yaml")
 
 		// Create file with valid permissions
-		configContent := "port: 8080\nservers: []"
+		configContent := TEST_EMPTY_SERVERS_CONFIG
 		err := os.WriteFile(configFile, []byte(configContent), 0644)
 		if err != nil {
 			t.Fatalf("Failed to create config file: %v", err)
@@ -319,94 +320,104 @@ func TestConfigPermissionRecovery(t *testing.T) {
 func TestConfigCrossplatformPermissions(t *testing.T) {
 	t.Parallel()
 
-	t.Run("windows_file_attributes", func(t *testing.T) {
-		if runtime.GOOS != "windows" {
-			t.Skip("Windows-specific test")
-		}
+	t.Run("windows_file_attributes", testWindowsFileAttributes)
+	t.Run("unix_permission_combinations", testUnixPermissionCombinations)
+}
 
-		tmpDir := t.TempDir()
-		configFile := filepath.Join(tmpDir, "windows_config.yaml")
+func testWindowsFileAttributes(t *testing.T) {
+	if runtime.GOOS != PLATFORM_WINDOWS {
+		t.Skip("Windows-specific test")
+	}
 
-		// Create config file
-		configContent := "port: 8080\nservers: []"
-		err := os.WriteFile(configFile, []byte(configContent), 0644)
-		if err != nil {
-			t.Fatalf("Failed to create config file: %v", err)
-		}
+	tmpDir := t.TempDir()
+	configFile := filepath.Join(tmpDir, "windows_config.yaml")
 
-		// On Windows, test with read-only attribute
-		err = os.Chmod(configFile, 0444)
-		if err != nil {
-			t.Fatalf("Failed to set read-only: %v", err)
-		}
+	createConfigFile(t, configFile, TEST_EMPTY_SERVERS_CONFIG)
 
-		// Should still be able to read
-		config, err := LoadConfig(configFile)
-		if err != nil {
-			t.Errorf("Should be able to read read-only file on Windows: %v", err)
-		}
-		if config == nil {
-			t.Error("Expected valid config on Windows")
-		}
-	})
+	err := os.Chmod(configFile, 0444)
+	if err != nil {
+		t.Fatalf("Failed to set read-only: %v", err)
+	}
 
-	t.Run("unix_permission_combinations", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
-			t.Skip("Unix-specific test")
-		}
+	config, err := LoadConfig(configFile)
+	if err != nil {
+		t.Errorf("Should be able to read read-only file on Windows: %v", err)
+	}
+	if config == nil {
+		t.Error("Expected valid config on Windows")
+	}
+}
 
-		skipIfRoot(t)
+func testUnixPermissionCombinations(t *testing.T) {
+	if runtime.GOOS == PLATFORM_WINDOWS {
+		t.Skip("Unix-specific test")
+	}
 
-		tmpDir := t.TempDir()
+	skipIfRoot(t)
+	tmpDir := t.TempDir()
 
-		permissionTests := []struct {
-			name        string
-			mode        os.FileMode
-			shouldRead  bool
-			description string
-		}{
-			{"owner_read_only", 0400, true, "Owner read permission"},
-			{"owner_write_only", 0200, false, "Owner write permission only"},
-			{"owner_execute_only", 0100, false, "Owner execute permission only"},
-			{"group_read_only", 0040, false, "Group read permission only"},
-			{"world_read_only", 0004, false, "World read permission only"},
-			{"owner_read_write", 0600, true, "Owner read+write permissions"},
-			{"all_read", 0444, true, "All read permissions"},
-			{"no_permissions", 0000, false, "No permissions"},
-		}
+	permissionTests := []struct {
+		name        string
+		mode        os.FileMode
+		shouldRead  bool
+		description string
+	}{
+		{"owner_read_only", 0400, true, "Owner read permission"},
+		{"owner_write_only", 0200, false, "Owner write permission only"},
+		{"owner_execute_only", 0100, false, "Owner execute permission only"},
+		{"group_read_only", 0040, false, "Group read permission only"},
+		{"world_read_only", 0004, false, "World read permission only"},
+		{"owner_read_write", 0600, true, "Owner read+write permissions"},
+		{"all_read", 0444, true, "All read permissions"},
+		{"no_permissions", 0000, false, "No permissions"},
+	}
 
-		for _, tt := range permissionTests {
-			t.Run(tt.name, func(t *testing.T) {
-				configFile := filepath.Join(tmpDir, fmt.Sprintf("config_%s.yaml", tt.name))
+	for _, tt := range permissionTests {
+		t.Run(tt.name, func(t *testing.T) {
+			testFilePermissionScenario(t, tmpDir, tt.name, tt.mode, tt.shouldRead, tt.description)
+		})
+	}
+}
 
-				configContent := "port: 8080\nservers: []"
-				err := os.WriteFile(configFile, []byte(configContent), 0644)
-				if err != nil {
-					t.Fatalf("Failed to create config file: %v", err)
-				}
+func createConfigFile(t *testing.T, configFile, content string) {
+	err := os.WriteFile(configFile, []byte(content), 0644)
+	if err != nil {
+		t.Fatalf("Failed to create config file: %v", err)
+	}
+}
 
-				err = os.Chmod(configFile, tt.mode)
-				if err != nil {
-					t.Fatalf("Failed to set permissions %o: %v", tt.mode, err)
-				}
+func testFilePermissionScenario(t *testing.T, tmpDir, name string, mode os.FileMode, shouldRead bool, description string) {
+	configFile := filepath.Join(tmpDir, fmt.Sprintf("config_%s.yaml", name))
 
-				config, err := LoadConfig(configFile)
+	createConfigFile(t, configFile, TEST_EMPTY_SERVERS_CONFIG)
 
-				if tt.shouldRead {
-					if err != nil {
-						t.Errorf("Expected to read file with %s (%o): %v", tt.description, tt.mode, err)
-					}
-					if config == nil {
-						t.Error("Expected valid config")
-					}
-				} else {
-					if err == nil {
-						t.Errorf("Expected error reading file with %s (%o)", tt.description, tt.mode)
-					}
-				}
-			})
-		}
-	})
+	err := os.Chmod(configFile, mode)
+	if err != nil {
+		t.Fatalf("Failed to set permissions %o: %v", mode, err)
+	}
+
+	config, err := LoadConfig(configFile)
+
+	if shouldRead {
+		validateSuccessfulRead(t, config, err, description, mode)
+	} else {
+		validateFailedRead(t, err, description, mode)
+	}
+}
+
+func validateSuccessfulRead(t *testing.T, config *GatewayConfig, err error, description string, mode os.FileMode) {
+	if err != nil {
+		t.Errorf("Expected to read file with %s (%o): %v", description, mode, err)
+	}
+	if config == nil {
+		t.Error("Expected valid config")
+	}
+}
+
+func validateFailedRead(t *testing.T, err error, description string, mode os.FileMode) {
+	if err == nil {
+		t.Errorf("Expected error reading file with %s (%o)", description, mode)
+	}
 }
 
 // TestConfigSecurityPermissions tests security-related permission scenarios
@@ -416,7 +427,7 @@ func TestConfigSecurityPermissions(t *testing.T) {
 	skipIfRoot(t)
 
 	t.Run("world_writable_config_warning", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == PLATFORM_WINDOWS {
 			t.Skip("World-writable concept different on Windows")
 		}
 
@@ -424,7 +435,7 @@ func TestConfigSecurityPermissions(t *testing.T) {
 		configFile := filepath.Join(tmpDir, "world_writable_config.yaml")
 
 		// Create config file with world-writable permissions
-		configContent := "port: 8080\nservers: []"
+		configContent := TEST_EMPTY_SERVERS_CONFIG
 		file, err := os.OpenFile(configFile, os.O_CREATE|os.O_WRONLY, 0666)
 		if err != nil {
 			t.Fatalf("Failed to create config file: %v", err)
@@ -470,7 +481,7 @@ func TestConfigSecurityPermissions(t *testing.T) {
 		configFile := filepath.Join(tmpDir, "secure_config.yaml")
 
 		// Create config file with secure permissions (600)
-		configContent := "port: 8080\nservers: []"
+		configContent := TEST_EMPTY_SERVERS_CONFIG
 		err := os.WriteFile(configFile, []byte(configContent), 0600)
 		if err != nil {
 			t.Fatalf("Failed to create config file: %v", err)
@@ -492,7 +503,7 @@ func TestConfigSecurityPermissions(t *testing.T) {
 		}
 
 		mode := info.Mode()
-		if runtime.GOOS != "windows" {
+		if runtime.GOOS != PLATFORM_WINDOWS {
 			// On Unix, check that group and others have no permissions
 			if mode&0077 != 0 {
 				t.Error("Expected file to have secure permissions (600)")
@@ -511,7 +522,7 @@ func TestConfigConcurrentPermissionAccess(t *testing.T) {
 		tmpDir := t.TempDir()
 		configFile := filepath.Join(tmpDir, "concurrent_perm_config.yaml")
 
-		configContent := "port: 8080\nservers: []"
+		configContent := TEST_EMPTY_SERVERS_CONFIG
 		err := os.WriteFile(configFile, []byte(configContent), 0644)
 		if err != nil {
 			t.Fatalf("Failed to create config file: %v", err)

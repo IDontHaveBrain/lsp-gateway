@@ -49,6 +49,24 @@ const (
 )
 
 const (
+	// Platform constants
+	PlatformLinux   = "linux"
+	PlatformWindows = "windows"
+	PlatformDarwin  = "darwin"
+
+	// Architecture constants
+	ArchAMD64 = "amd64"
+
+	// Version constants
+	UbuntuVersion = "20.04"
+
+	// Java JDTLS output for testing
+	JavaVersionOutput = `openjdk version "17.0.2" 2022-01-18
+OpenJDK Runtime Environment (build 17.0.2+8-Ubuntu-120.04)
+OpenJDK 64-Bit Server VM (build 17.0.2+8-Ubuntu-120.04, mixed mode, sharing)`
+)
+
+const (
 	ENV_VAR_JAVA_HOME = "JAVA_HOME"
 	ENV_VAR_PATH      = "PATH"
 

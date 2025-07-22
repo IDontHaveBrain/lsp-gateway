@@ -127,4 +127,12 @@ const (
 
 	// Progress and status
 	PROGRESS_UNKNOWN = "unknown"
+
+	// Platform constants
+	OS_WINDOWS = "windows"
+	OS_LINUX   = "linux"
+	OS_DARWIN  = "darwin"
+
+	// Node.js related
+	RUNTIME_NODEJS = "nodejs"
 )

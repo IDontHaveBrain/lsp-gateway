@@ -71,7 +71,7 @@ func NewRuntimeInstaller() *DefaultRuntimeInstaller {
 	return installer
 }
 
-func (r *DefaultRuntimeInstaller) Install(runtime string, options types.InstallOptions) (*types.InstallResult, error) {
+func (r *DefaultRuntimeInstaller) Install(runtime string, _ types.InstallOptions) (*types.InstallResult, error) {
 	return &types.InstallResult{
 		Success:  false,
 		Version:  "",
@@ -109,11 +109,11 @@ func (r *DefaultRuntimeInstaller) Verify(runtime string) (*types.VerificationRes
 	switch runtime {
 	case "go":
 		r.verifyGo(result, runtimeDef)
-	case "python":
+	case RuntimePython:
 		r.verifyPython(result, runtimeDef)
-	case "nodejs":
+	case RuntimeNodeJS:
 		r.verifyNodejs(result, runtimeDef)
-	case "java":
+	case RuntimeJava:
 		r.verifyJava(result, runtimeDef)
 	default:
 		return nil, NewInstallerError(InstallerErrorTypeUnsupported, runtime,
@@ -156,7 +156,7 @@ func (r *DefaultRuntimeInstaller) GetRuntimeInfo(runtime string) (*types.Runtime
 	return r.registry.GetRuntime(runtime)
 }
 
-func (r *DefaultRuntimeInstaller) ValidateVersion(runtime, minVersion string) (*types.VersionValidationResult, error) {
+func (r *DefaultRuntimeInstaller) ValidateVersion(_ string, minVersion string) (*types.VersionValidationResult, error) {
 	return &types.VersionValidationResult{
 		Valid:            false,
 		RequiredVersion:  minVersion,
@@ -300,6 +300,13 @@ type WindowsRuntimeStrategy struct {
 }
 
 func (w *WindowsRuntimeStrategy) InstallRuntime(runtime string, options types.InstallOptions) (*types.InstallResult, error) {
+	if w.strategy == nil {
+		return &types.InstallResult{
+			Success: false,
+			Errors:  []string{"Windows strategy is not initialized"},
+		}, fmt.Errorf("Windows strategy is nil")
+	}
+
 	var err error
 	switch runtime {
 	case "go":
@@ -308,7 +315,7 @@ func (w *WindowsRuntimeStrategy) InstallRuntime(runtime string, options types.In
 		err = w.strategy.InstallPython(options.Version)
 	case "nodejs":
 		err = w.strategy.InstallNodejs(options.Version)
-	case "java":
+	case RuntimeJava:
 		err = w.strategy.InstallJava(options.Version)
 	default:
 		return nil, fmt.Errorf("unsupported runtime: %s", runtime)
@@ -328,6 +335,16 @@ func (w *WindowsRuntimeStrategy) InstallRuntime(runtime string, options types.In
 }
 
 func (w *WindowsRuntimeStrategy) VerifyRuntime(runtime string) (*types.VerificationResult, error) {
+	if w.strategy == nil {
+		return &types.VerificationResult{
+			Installed:  false,
+			Compatible: false,
+			Version:    "",
+			Path:       "",
+			Issues:     []types.Issue{{Severity: types.IssueSeverityCritical, Category: types.IssueCategoryInstallation, Title: "Windows strategy is not initialized", Description: "Windows strategy is not initialized"}},
+			Details:    map[string]interface{}{},
+		}, fmt.Errorf("Windows strategy is nil")
+	}
 	return &types.VerificationResult{
 		Installed:  false,
 		Compatible: false,
@@ -339,6 +356,9 @@ func (w *WindowsRuntimeStrategy) VerifyRuntime(runtime string) (*types.Verificat
 }
 
 func (w *WindowsRuntimeStrategy) GetInstallCommand(runtime, version string) ([]string, error) {
+	if w.strategy == nil {
+		return []string{}, fmt.Errorf("Windows strategy is nil")
+	}
 	return []string{}, fmt.Errorf("not implemented")
 }
 
@@ -347,6 +367,13 @@ type LinuxRuntimeStrategy struct {
 }
 
 func (l *LinuxRuntimeStrategy) InstallRuntime(runtime string, options types.InstallOptions) (*types.InstallResult, error) {
+	if l.strategy == nil {
+		return &types.InstallResult{
+			Success: false,
+			Errors:  []string{"Linux strategy is not initialized"},
+		}, fmt.Errorf("Linux strategy is nil")
+	}
+
 	var err error
 	switch runtime {
 	case "go":
@@ -355,7 +382,7 @@ func (l *LinuxRuntimeStrategy) InstallRuntime(runtime string, options types.Inst
 		err = l.strategy.InstallPython(options.Version)
 	case "nodejs":
 		err = l.strategy.InstallNodejs(options.Version)
-	case "java":
+	case RuntimeJava:
 		err = l.strategy.InstallJava(options.Version)
 	default:
 		return nil, fmt.Errorf("unsupported runtime: %s", runtime)
@@ -375,6 +402,16 @@ func (l *LinuxRuntimeStrategy) InstallRuntime(runtime string, options types.Inst
 }
 
 func (l *LinuxRuntimeStrategy) VerifyRuntime(runtime string) (*types.VerificationResult, error) {
+	if l.strategy == nil {
+		return &types.VerificationResult{
+			Installed:  false,
+			Compatible: false,
+			Version:    "",
+			Path:       "",
+			Issues:     []types.Issue{{Severity: types.IssueSeverityCritical, Category: types.IssueCategoryInstallation, Title: "Linux strategy is not initialized", Description: "Linux strategy is not initialized"}},
+			Details:    map[string]interface{}{},
+		}, fmt.Errorf("Linux strategy is nil")
+	}
 	return &types.VerificationResult{
 		Installed:  false,
 		Compatible: false,
@@ -386,6 +423,9 @@ func (l *LinuxRuntimeStrategy) VerifyRuntime(runtime string) (*types.Verificatio
 }
 
 func (l *LinuxRuntimeStrategy) GetInstallCommand(runtime, version string) ([]string, error) {
+	if l.strategy == nil {
+		return []string{}, fmt.Errorf("Linux strategy is nil")
+	}
 	return []string{}, fmt.Errorf("not implemented")
 }
 
@@ -394,6 +434,13 @@ type MacOSRuntimeStrategy struct {
 }
 
 func (m *MacOSRuntimeStrategy) InstallRuntime(runtime string, options types.InstallOptions) (*types.InstallResult, error) {
+	if m.strategy == nil {
+		return &types.InstallResult{
+			Success: false,
+			Errors:  []string{"macOS strategy is not initialized"},
+		}, fmt.Errorf("macOS strategy is nil")
+	}
+
 	var err error
 	switch runtime {
 	case "go":
@@ -402,7 +449,7 @@ func (m *MacOSRuntimeStrategy) InstallRuntime(runtime string, options types.Inst
 		err = m.strategy.InstallPython(options.Version)
 	case "nodejs":
 		err = m.strategy.InstallNodejs(options.Version)
-	case "java":
+	case RuntimeJava:
 		err = m.strategy.InstallJava(options.Version)
 	default:
 		return nil, fmt.Errorf("unsupported runtime: %s", runtime)
@@ -422,6 +469,16 @@ func (m *MacOSRuntimeStrategy) InstallRuntime(runtime string, options types.Inst
 }
 
 func (m *MacOSRuntimeStrategy) VerifyRuntime(runtime string) (*types.VerificationResult, error) {
+	if m.strategy == nil {
+		return &types.VerificationResult{
+			Installed:  false,
+			Compatible: false,
+			Version:    "",
+			Path:       "",
+			Issues:     []types.Issue{{Severity: types.IssueSeverityCritical, Category: types.IssueCategoryInstallation, Title: "macOS strategy is not initialized", Description: "macOS strategy is not initialized"}},
+			Details:    map[string]interface{}{},
+		}, fmt.Errorf("macOS strategy is nil")
+	}
 	return &types.VerificationResult{
 		Installed:  false,
 		Compatible: false,
@@ -433,5 +490,8 @@ func (m *MacOSRuntimeStrategy) VerifyRuntime(runtime string) (*types.Verificatio
 }
 
 func (m *MacOSRuntimeStrategy) GetInstallCommand(runtime, version string) ([]string, error) {
+	if m.strategy == nil {
+		return []string{}, fmt.Errorf("macOS strategy is nil")
+	}
 	return []string{}, fmt.Errorf("not implemented")
 }

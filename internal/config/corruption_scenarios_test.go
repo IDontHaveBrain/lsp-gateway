@@ -324,12 +324,7 @@ func TestBinaryDataCorruption(t *testing.T) {
 		},
 	}
 
-	baseConfig := `port: 8080
-servers:
-  - name: go-lsp
-    languages: [go]
-    command: gopls
-    transport: stdio`
+	baseConfig := TEST_BASIC_CONFIG
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -595,12 +590,7 @@ func TestConcurrentCorruptionDetection(t *testing.T) {
 	configFile := filepath.Join(tmpDir, "concurrent_corrupt.yaml")
 
 	// Create a base valid config
-	validConfig := `port: 8080
-servers:
-  - name: go-lsp
-    command: gopls
-    languages: [go]
-    transport: stdio`
+	validConfig := TEST_BASIC_CONFIG
 
 	err := os.WriteFile(configFile, []byte(validConfig), 0600)
 	if err != nil {
@@ -660,12 +650,7 @@ func TestCorruptionRecoveryScenarios(t *testing.T) {
 	tmpDir := t.TempDir()
 	configFile := filepath.Join(tmpDir, "recovery_test.yaml")
 
-	validConfig := `port: 8080
-servers:
-  - name: go-lsp
-    command: gopls
-    languages: [go]
-    transport: stdio`
+	validConfig := TEST_BASIC_CONFIG
 
 	// Test recovery from various corruption scenarios
 	corruptionScenarios := []struct {
@@ -741,12 +726,7 @@ servers:
 func TestChecksumValidationScenarios(t *testing.T) {
 	t.Parallel()
 
-	baseConfig := `port: 8080
-servers:
-  - name: go-lsp
-    command: gopls
-    languages: [go]
-    transport: stdio`
+	baseConfig := TEST_BASIC_CONFIG
 
 	tests := []struct {
 		name               string

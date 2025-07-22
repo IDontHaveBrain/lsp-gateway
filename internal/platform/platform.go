@@ -31,9 +31,9 @@ const (
 // detected at runtime (Windows, Linux, Darwin/macOS, or Unknown).
 func GetCurrentPlatform() Platform {
 	switch runtime.GOOS {
-	case "windows":
+	case string(PlatformWindows):
 		return PlatformWindows
-	case "linux":
+	case string(PlatformLinux):
 		return PlatformLinux
 	case PLATFORM_DARWIN:
 		return PlatformMacOS
@@ -46,13 +46,13 @@ func GetCurrentPlatform() Platform {
 // detected at runtime (AMD64, ARM64, 386, ARM, or Unknown).
 func GetCurrentArchitecture() Architecture {
 	switch runtime.GOARCH {
-	case "amd64":
+	case string(ArchAMD64):
 		return ArchAMD64
-	case "arm64":
+	case string(ArchARM64):
 		return ArchARM64
-	case "386":
+	case string(Arch386):
 		return Arch386
-	case "arm":
+	case string(ArchARM):
 		return ArchARM
 	default:
 		return ArchUnknown

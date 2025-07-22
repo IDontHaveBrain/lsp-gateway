@@ -255,58 +255,6 @@ func NewBaseValidator(config *config.ValidationConfig) *BaseValidator {
 	return &BaseValidator{config: config}
 }
 
-// validateArray validates array responses
-// NOTE: Currently unused but kept for future use by validators that need to validate array-based LSP responses
-func (v *BaseValidator) validateArray(response json.RawMessage, expectedMinCount, expectedMaxCount int) *cases.ValidationResult {
-	var arr []interface{}
-	if err := json.Unmarshal(response, &arr); err != nil {
-		return &cases.ValidationResult{
-			Name:        "array_format",
-			Description: "Validate response is an array",
-			Passed:      false,
-			Message:     fmt.Sprintf("Response is not an array: %v", err),
-		}
-	}
-
-	count := len(arr)
-
-	if expectedMinCount >= 0 && count < expectedMinCount {
-		return &cases.ValidationResult{
-			Name:        "array_min_count",
-			Description: fmt.Sprintf("Validate array has at least %d items", expectedMinCount),
-			Passed:      false,
-			Message:     fmt.Sprintf("Array has %d items, expected at least %d", count, expectedMinCount),
-			Details: map[string]interface{}{
-				"actual_count": count,
-				"expected_min": expectedMinCount,
-			},
-		}
-	}
-
-	if expectedMaxCount >= 0 && count > expectedMaxCount {
-		return &cases.ValidationResult{
-			Name:        "array_max_count",
-			Description: fmt.Sprintf("Validate array has at most %d items", expectedMaxCount),
-			Passed:      false,
-			Message:     fmt.Sprintf("Array has %d items, expected at most %d", count, expectedMaxCount),
-			Details: map[string]interface{}{
-				"actual_count": count,
-				"expected_max": expectedMaxCount,
-			},
-		}
-	}
-
-	return &cases.ValidationResult{
-		Name:        "array_count",
-		Description: "Validate array item count",
-		Passed:      true,
-		Message:     fmt.Sprintf("Array has %d items", count),
-		Details: map[string]interface{}{
-			"count": count,
-		},
-	}
-}
-
 // validateURI validates URI format
 func (v *BaseValidator) validateURI(uri string, fieldName string) *cases.ValidationResult {
 	if !v.config.ValidateURIs {

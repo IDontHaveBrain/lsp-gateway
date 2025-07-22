@@ -388,7 +388,7 @@ func TestBinaryFileCorruption(t *testing.T) {
 			createFile: func(path string) error {
 				content := make([]byte, 1000)
 				// Fill with random data
-				rand.Read(content)
+				_, _ = rand.Read(content)
 				return os.WriteFile(path, content, 0644)
 			},
 			expectCorrupted: false, // Random data is not necessarily corrupted
@@ -914,7 +914,7 @@ func BenchmarkBinaryCorruptionDetection(b *testing.B) {
 
 	// Create test binary
 	content := make([]byte, 1024)
-	rand.Read(content)
+	_, _ = rand.Read(content)
 	err := os.WriteFile(testFile, content, 0644)
 	if err != nil {
 		b.Fatalf("Failed to create test file: %v", err)

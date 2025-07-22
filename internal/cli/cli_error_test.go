@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -363,7 +364,11 @@ func TestCommandInterruption(t *testing.T) {
 	// Removed t.Parallel() to prevent deadlock
 
 	t.Run("graceful shutdown", func(t *testing.T) {
-		interrupted := false
+		var interrupted int32
+
+		// Create cancellable context upfront
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		cmd := &cobra.Command{
 			Use: "test",
@@ -372,7 +377,7 @@ func TestCommandInterruption(t *testing.T) {
 				for i := 0; i < 100; i++ {
 					select {
 					case <-cmd.Context().Done():
-						interrupted = true
+						atomic.StoreInt32(&interrupted, 1)
 						return cmd.Context().Err()
 					default:
 						time.Sleep(10 * time.Millisecond)
@@ -382,6 +387,9 @@ func TestCommandInterruption(t *testing.T) {
 			},
 		}
 
+		// Set context before execution to avoid race condition
+		cmd.SetContext(ctx)
+
 		// Start command execution
 		done := make(chan error, 1)
 		go func() {
@@ -390,15 +398,11 @@ func TestCommandInterruption(t *testing.T) {
 
 		// Simulate interrupt after a short delay
 		time.Sleep(50 * time.Millisecond)
-		cmd.SetContext(func() context.Context {
-			ctx, cancel := context.WithCancel(context.Background())
-			cancel() // Cancel immediately
-			return ctx
-		}())
+		cancel()
 
 		select {
 		case err := <-done:
-			if err == nil && !interrupted {
+			if err == nil && atomic.LoadInt32(&interrupted) == 0 {
 				t.Error("Expected interruption but command completed normally")
 			}
 		case <-time.After(2 * time.Second):

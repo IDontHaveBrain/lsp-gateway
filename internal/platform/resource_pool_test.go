@@ -21,6 +21,8 @@ type ResourcePool struct {
 	mu              sync.RWMutex
 	metrics         *PoolMetrics
 	cleanupCallback func(Resource)
+	closed          bool
+	closeOnce       sync.Once
 }
 
 type Resource interface {
@@ -117,7 +119,7 @@ func NewResourcePool(maxResources int, cleanupCallback func(Resource)) *Resource
 func (rp *ResourcePool) AcquireResource(ctx context.Context, factory func() (Resource, error)) (Resource, error) {
 	atomic.AddInt64(&rp.metrics.TotalRequests, 1)
 
-	// Try to get from pool first
+	// Try to get from pool first (prioritize resources slice for better reuse)
 	rp.mu.Lock()
 	if len(rp.resources) > 0 {
 		resource := rp.resources[len(rp.resources)-1]
@@ -131,14 +133,30 @@ func (rp *ResourcePool) AcquireResource(ctx context.Context, factory func() (Res
 			atomic.AddInt64(&rp.metrics.PoolHits, 1)
 			return resource, nil
 		}
+		// If resource was invalid, try waiting queue next
 	} else {
 		rp.mu.Unlock()
+	}
+
+	// Try waiting queue for immediate availability
+	select {
+	case resource := <-rp.waitingQueue:
+		if resource.IsValid() {
+			resource.MarkUsed()
+			atomic.AddInt64(&rp.activeCount, 1)
+			atomic.AddInt64(&rp.metrics.ActiveResources, 1)
+			atomic.AddInt64(&rp.metrics.PoolHits, 1)
+			return resource, nil
+		}
+	default:
+		// No resources immediately available in queue
 	}
 
 	// Check if we can create new resource
 	if int(atomic.LoadInt64(&rp.activeCount)) >= rp.maxResources {
 		atomic.AddInt64(&rp.metrics.QueuedRequests, 1)
 
+		// Wait for resource to become available or timeout
 		select {
 		case resource := <-rp.waitingQueue:
 			if resource.IsValid() {
@@ -190,59 +208,86 @@ func (rp *ResourcePool) ReleaseResource(resource Resource) {
 	rp.mu.Lock()
 	defer rp.mu.Unlock()
 
+	// Check if pool is closed to prevent sending on closed channel
+	if rp.closed {
+		if rp.cleanupCallback != nil {
+			rp.cleanupCallback(resource)
+		}
+		atomic.AddInt64(&rp.metrics.CleanupCount, 1)
+		return
+	}
+
+	// Try waiting queue first to serve waiting goroutines immediately
 	select {
 	case rp.waitingQueue <- resource:
-		// Successfully queued for reuse
+		// Successfully sent to waiting goroutine
+		return
 	default:
-		// Queue is full, add to pool or cleanup
+		// No one waiting, try to add to resources slice for later reuse
 		if len(rp.resources) < rp.maxResources {
 			rp.resources = append(rp.resources, resource)
-		} else {
-			if rp.cleanupCallback != nil {
-				rp.cleanupCallback(resource)
-			}
-			atomic.AddInt64(&rp.metrics.CleanupCount, 1)
+			return
 		}
+		
+		// Pool is full, cleanup the resource
+		if rp.cleanupCallback != nil {
+			rp.cleanupCallback(resource)
+		}
+		atomic.AddInt64(&rp.metrics.CleanupCount, 1)
 	}
 }
 
 func (rp *ResourcePool) GetMetrics() PoolMetrics {
 	rp.metrics.mu.RLock()
 	defer rp.metrics.mu.RUnlock()
-	return *rp.metrics
+
+	// Return copy without mutex to avoid copying lock value
+	return PoolMetrics{
+		TotalRequests:    rp.metrics.TotalRequests,
+		ActiveResources:  rp.metrics.ActiveResources,
+		QueuedRequests:   rp.metrics.QueuedRequests,
+		RejectedRequests: rp.metrics.RejectedRequests,
+		PoolHits:         rp.metrics.PoolHits,
+		PoolMisses:       rp.metrics.PoolMisses,
+		CleanupCount:     rp.metrics.CleanupCount,
+		MaxPoolSize:      rp.metrics.MaxPoolSize,
+	}
 }
 
 func (rp *ResourcePool) Cleanup() {
-	rp.mu.Lock()
-	defer rp.mu.Unlock()
+	rp.closeOnce.Do(func() {
+		rp.mu.Lock()
+		defer rp.mu.Unlock()
 
-	// Close waiting queue
-	close(rp.waitingQueue)
-	for resource := range rp.waitingQueue {
-		if rp.cleanupCallback != nil {
-			rp.cleanupCallback(resource)
-		}
-		atomic.AddInt64(&rp.metrics.CleanupCount, 1)
-	}
+		// Mark as closed to prevent new releases
+		rp.closed = true
 
-	// Cleanup pooled resources
-	for _, resource := range rp.resources {
-		if rp.cleanupCallback != nil {
-			rp.cleanupCallback(resource)
+		// Close waiting queue safely
+		close(rp.waitingQueue)
+		
+		// Drain any resources from the waiting queue
+		for resource := range rp.waitingQueue {
+			if rp.cleanupCallback != nil {
+				rp.cleanupCallback(resource)
+			}
+			atomic.AddInt64(&rp.metrics.CleanupCount, 1)
 		}
-		atomic.AddInt64(&rp.metrics.CleanupCount, 1)
-	}
-	rp.resources = nil
+
+		// Cleanup pooled resources
+		for _, resource := range rp.resources {
+			if rp.cleanupCallback != nil {
+				rp.cleanupCallback(resource)
+			}
+			atomic.AddInt64(&rp.metrics.CleanupCount, 1)
+		}
+		rp.resources = nil
+	})
 }
 
 func (rp *ResourcePool) Size() int {
 	rp.mu.RLock()
 	defer rp.mu.RUnlock()
 	return len(rp.resources)
-}
-
-func (rp *ResourcePool) ActiveCount() int64 {
-	return atomic.LoadInt64(&rp.activeCount)
 }
 
 // SystemResourceMonitor tracks system-wide resource usage
@@ -466,7 +511,7 @@ func testPoolSizeLimits(t *testing.T, monitor *SystemResourceMonitor) {
 func testPoolResourceReuse(t *testing.T, monitor *SystemResourceMonitor) {
 	maxResources := 5
 	pool := NewResourcePool(maxResources, func(r Resource) {
-		r.Close()
+		_ = r.Close()
 	})
 	defer pool.Cleanup()
 
@@ -511,6 +556,9 @@ func testPoolResourceReuse(t *testing.T, monitor *SystemResourceMonitor) {
 
 		cancel()
 
+		// Allow time for resources to be properly pooled before next cycle
+		time.Sleep(200 * time.Millisecond)
+
 		metrics := pool.GetMetrics()
 		t.Logf("Cycle %d metrics - Hits: %d, Misses: %d, Pool size: %d",
 			cycle, metrics.PoolHits, metrics.PoolMisses, pool.Size())
@@ -547,7 +595,7 @@ func testPoolCleanupEfficiency(t *testing.T, monitor *SystemResourceMonitor) {
 		t.Logf("Cleanup efficiency round %d/%d", round+1, cleanupRounds)
 
 		pool := NewResourcePool(resourcesPerRound, func(r Resource) {
-			r.Close()
+			_ = r.Close()
 		})
 
 		factory := func() (Resource, error) {
@@ -557,7 +605,7 @@ func testPoolCleanupEfficiency(t *testing.T, monitor *SystemResourceMonitor) {
 			}
 
 			// Write some data to make the file handle more "real"
-			tempFile.WriteString("test data")
+			_, _ = tempFile.WriteString("test data")
 
 			return &FileResource{
 				id:       fmt.Sprintf("file_%d_%p", round, tempFile),
@@ -590,9 +638,14 @@ func testPoolCleanupEfficiency(t *testing.T, monitor *SystemResourceMonitor) {
 		// Cleanup pool
 		pool.Cleanup()
 
-		// Force garbage collection
-		runtime.GC()
-		time.Sleep(100 * time.Millisecond)
+		// Force garbage collection multiple times for better cleanup
+		for i := 0; i < 3; i++ {
+			runtime.GC()
+			time.Sleep(50 * time.Millisecond)
+		}
+		
+		// Additional wait to ensure cleanup completion
+		time.Sleep(200 * time.Millisecond)
 
 		// Check resource usage
 		roundMem, _, _, roundFDs, _, _ := monitor.GetStats()
@@ -646,7 +699,7 @@ func TestResourcePool_ExhaustionHandling(t *testing.T) {
 func testResourceExhaustionRecovery(t *testing.T, monitor *SystemResourceMonitor) {
 	smallPool := 3 // Very small pool to test exhaustion
 	pool := NewResourcePool(smallPool, func(r Resource) {
-		r.Close()
+		_ = r.Close()
 	})
 	defer pool.Cleanup()
 
@@ -754,7 +807,8 @@ func testPoolWaitingQueue(t *testing.T, monitor *SystemResourceMonitor) {
 	waitingCount := 5
 	var wg sync.WaitGroup
 	results := make(chan bool, waitingCount)
-
+	
+	// Start all waiting goroutines
 	for i := 0; i < waitingCount; i++ {
 		wg.Add(1)
 		go func(id int) {
@@ -773,8 +827,14 @@ func testPoolWaitingQueue(t *testing.T, monitor *SystemResourceMonitor) {
 		}(i)
 	}
 
+	// Give goroutines time to start waiting
+	time.Sleep(500 * time.Millisecond)
+
 	// Release resources with delays to test queue behavior
+	releaseWg := sync.WaitGroup{}
+	releaseWg.Add(1)
 	go func() {
+		defer releaseWg.Done()
 		for i, resource := range heldResources {
 			time.Sleep(1 * time.Second)
 			t.Logf("Releasing held resource %d", i)
@@ -783,6 +843,7 @@ func testPoolWaitingQueue(t *testing.T, monitor *SystemResourceMonitor) {
 	}()
 
 	wg.Wait()
+	releaseWg.Wait() // Ensure all releases complete before cleanup
 	close(results)
 
 	successCount := 0
@@ -1063,7 +1124,7 @@ func testSystemResourceMonitoring(t *testing.T, memoryLimit, fdLimit int64) {
 
 		// Write data to increase memory usage
 		data := make([]byte, 1024)
-		tempFile.Write(data)
+		_, _ = tempFile.Write(data)
 
 		return &FileResource{
 			id:       fmt.Sprintf("monitor_%p", tempFile),

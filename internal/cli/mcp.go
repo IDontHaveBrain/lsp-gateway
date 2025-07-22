@@ -67,7 +67,7 @@ func init() {
 	rootCmd.AddCommand(mcpCmd)
 }
 
-func runMCPServer(cmd *cobra.Command, args []string) error {
+func runMCPServer(_ *cobra.Command, args []string) error {
 	log.Printf("[INFO] Starting MCP server with transport=%s, gateway_url=%s\n", mcpTransport, mcpGatewayURL)
 
 	logger := createMCPLogger()
@@ -85,7 +85,7 @@ func runMCPServer(cmd *cobra.Command, args []string) error {
 func createMCPHTTPServer(server *mcp.Server, port int) *http.Server {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		if server.IsRunning() {
 			w.WriteHeader(http.StatusOK)
 			_, _ = fmt.Fprintf(w, `{"status":"ok","timestamp":%d}`, time.Now().Unix())
@@ -95,7 +95,7 @@ func createMCPHTTPServer(server *mcp.Server, port int) *http.Server {
 		}
 	})
 
-	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/mcp", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", transport.HTTP_CONTENT_TYPE_JSON)
 		w.WriteHeader(http.StatusNotImplemented)
 		_, _ = fmt.Fprintf(w, `{"error":"HTTP MCP transport not yet implemented","message":"Use stdio transport for now"}`)

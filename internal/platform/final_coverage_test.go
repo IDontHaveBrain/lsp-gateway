@@ -80,14 +80,17 @@ func TestFinalCoverageGaps(t *testing.T) {
 		executor := NewCommandExecutor()
 
 		// Test basic execution
-		var cmd, arg string
+		var cmd string
+		var args []string
 		if IsWindows() {
-			cmd, arg = "cmd", "/C echo test"
+			cmd = "cmd"
+			args = []string{"/C", "echo test"}
 		} else {
-			cmd, arg = "sh", "-c echo test"
+			cmd = "sh"
+			args = []string{"-c", "echo test"}
 		}
 
-		result, err := executor.Execute(cmd, []string{arg}, 5*time.Second)
+		result, err := executor.Execute(cmd, args, 5*time.Second)
 		if err != nil {
 			t.Errorf("Execute failed: %v", err)
 		}
@@ -97,7 +100,7 @@ func TestFinalCoverageGaps(t *testing.T) {
 
 		// Test with environment
 		env := map[string]string{"TEST_VAR": "value"}
-		result, err = executor.ExecuteWithEnv(cmd, []string{arg}, env, 5*time.Second)
+		result, err = executor.ExecuteWithEnv(cmd, args, env, 5*time.Second)
 		if err != nil {
 			t.Errorf("ExecuteWithEnv failed: %v", err)
 		}
@@ -111,8 +114,8 @@ func TestFinalCoverageGaps(t *testing.T) {
 			t.Error("GetShell returned empty")
 		}
 
-		args := executor.GetShellArgs("echo test")
-		if len(args) == 0 {
+		shellArgs := executor.GetShellArgs("echo test")
+		if len(shellArgs) == 0 {
 			t.Error("GetShellArgs returned empty")
 		}
 
@@ -199,7 +202,7 @@ func TestFinalCoverageGaps(t *testing.T) {
 		// Test mapping function with all known IDs
 		ids := []string{"ubuntu", "debian", "fedora", "centos", "rhel", "arch", "alpine", "unknown"}
 		for _, id := range ids {
-			mapIDToDistribution(id)
+			_ = mapIDToDistribution(id)
 		}
 	})
 

@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	testBinaryPath = "../../lsp-gateway"
+	testBinaryPath = "../../bin/lsp-gateway"
 )
 
 func allocateTestPort(t *testing.T) int {
@@ -551,7 +551,7 @@ func testHelpCommands(t *testing.T) {
 			args:     []string{"server", "--help"},
 			wantExit: 0,
 			wantContain: []string{
-				"Start the LSP Gateway server",
+				"Start the LSP Gateway HTTP server",
 				"--config",
 				"--port",
 			},
@@ -572,7 +572,7 @@ func testHelpCommands(t *testing.T) {
 			args:     []string{"version", "--help"},
 			wantExit: 0,
 			wantContain: []string{
-				"Show version information",
+				"Display comprehensive version and build information",
 			},
 		},
 	}
@@ -643,9 +643,10 @@ func testVersionCommand(t *testing.T) {
 
 	output := string(stdoutData)
 	expectedElements := []string{
-		"LSP Gateway MVP",
+		"LSP Gateway Version Information",
 		"Go Version:",
-		"OS/Arch:",
+		"Platform:",
+		"Architecture:",
 	}
 
 	for _, element := range expectedElements {
@@ -1803,7 +1804,7 @@ func TestCombinedMainAndRunMainCoverage(t *testing.T) {
 	})
 
 	// Test 3: main function success path (won't call os.Exit)
-	t.Run("main_success", func(t *testing.T) {
+	t.Run("main_success", func(_ *testing.T) {
 		os.Args = []string{"lsp-gateway", "help"}
 		main() // This should complete without calling os.Exit
 	})

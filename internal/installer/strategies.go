@@ -2,6 +2,7 @@ package installer
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -478,7 +479,8 @@ func (m *MacOSStrategy) setupJavaEnvironment(version string) error {
 	javaHome := strings.TrimSpace(result.Stdout)
 	if javaHome != "" {
 		if err := os.Setenv(ENV_VAR_JAVA_HOME, javaHome); err != nil {
-			return nil
+			// Log error but don't fail completely since JAVA_HOME is not critical
+			log.Printf("Warning: Failed to set JAVA_HOME environment variable: %v", err)
 		}
 
 		javaBin := filepath.Join(javaHome, "bin")
@@ -486,7 +488,8 @@ func (m *MacOSStrategy) setupJavaEnvironment(version string) error {
 		if !strings.Contains(currentPath, javaBin) {
 			newPath := javaBin + ":" + currentPath
 			if err := os.Setenv(ENV_VAR_PATH, newPath); err != nil {
-				return nil
+				// Log error but don't fail completely since PATH update is not critical for basic Java installation
+				log.Printf("Warning: Failed to update PATH environment variable: %v", err)
 			}
 		}
 	}

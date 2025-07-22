@@ -82,6 +82,7 @@ func extractVersion(output string) string {
 			continue
 		}
 
+		// First, try to find version patterns
 		patterns := []string{
 			"version",
 			"Version",
@@ -92,19 +93,55 @@ func extractVersion(output string) string {
 			if strings.Contains(strings.ToLower(line), strings.ToLower(pattern)) {
 				fields := strings.Fields(line)
 				for _, field := range fields {
-					if strings.Contains(field, ".") || strings.HasPrefix(field, "v") {
+					// Skip the version keyword itself
+					if strings.ToLower(field) == strings.ToLower(pattern) {
+						continue
+					}
+					// Look for version-like strings (containing dots or starting with v)
+					if strings.Contains(field, ".") || strings.HasPrefix(strings.ToLower(field), "v") {
 						return field
 					}
 				}
 			}
 		}
+		
+		// If no version keyword found, look for version-like patterns in any field
+		fields := strings.Fields(line)
+		for _, field := range fields {
+			// Match patterns like "1.2.3", "v1.2.3", "go1.19.1", etc.
+			if strings.Contains(field, ".") && (
+				// Contains digits and dots
+				containsVersionPattern(field) ||
+				// Starts with v and contains dots
+				strings.HasPrefix(strings.ToLower(field), "v") ||
+				// Contains "go" prefix (for Go versions)
+				strings.HasPrefix(strings.ToLower(field), "go")) {
+				return field
+			}
+		}
 	}
 
+	// If no version pattern found, return the first non-empty line
 	if len(lines) > 0 && lines[0] != "" {
 		return lines[0]
 	}
 
 	return "unknown"
+}
+
+// Helper function to check if a field contains a version pattern
+func containsVersionPattern(field string) bool {
+	// Check if it looks like a version number (contains digits and dots)
+	hasDigit := false
+	hasDot := false
+	for _, r := range field {
+		if r >= '0' && r <= '9' {
+			hasDigit = true
+		} else if r == '.' {
+			hasDot = true
+		}
+	}
+	return hasDigit && hasDot
 }
 
 type HomebrewManager struct {

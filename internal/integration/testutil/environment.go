@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
-	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -208,56 +206,9 @@ func (env *TestEnvironment) addCleanup(fn func()) {
 	env.cleanup = append(env.cleanup, fn)
 }
 
-// HTTPPort returns the HTTP port for the gateway
-func (env *TestEnvironment) HTTPPort() int {
-	return env.httpPort
-}
-
 // BaseURL returns the base URL for HTTP requests
 func (env *TestEnvironment) BaseURL() string {
 	return fmt.Sprintf("http://localhost:%d", env.httpPort)
-}
-
-// Gateway returns the gateway instance
-func (env *TestEnvironment) Gateway() *gateway.Gateway {
-	return env.gateway
-}
-
-// TempDir returns the temporary directory for test files
-func (env *TestEnvironment) TempDir() string {
-	return env.tempDir
-}
-
-// GetMockServer returns the mock server for a language
-func (env *TestEnvironment) GetMockServer(language string) *MockLSPServer {
-	env.mu.RLock()
-	defer env.mu.RUnlock()
-	return env.mockServers[language]
-}
-
-// CreateTestFile creates a test file with content in the temp directory
-func (env *TestEnvironment) CreateTestFile(filename, content string) string {
-	filepath := filepath.Join(env.tempDir, filename)
-	if err := os.WriteFile(filepath, []byte(content), 0644); err != nil {
-		env.t.Fatalf("Failed to create test file %s: %v", filename, err)
-	}
-	return filepath
-}
-
-// AllocateTCPPort allocates a TCP port for testing
-func (env *TestEnvironment) AllocateTCPPort(name string) int {
-	port := testutil.AllocateTestPort(env.t)
-	env.mu.Lock()
-	env.tcpPorts[name] = port
-	env.mu.Unlock()
-	return port
-}
-
-// GetTCPPort returns a previously allocated TCP port
-func (env *TestEnvironment) GetTCPPort(name string) int {
-	env.mu.RLock()
-	defer env.mu.RUnlock()
-	return env.tcpPorts[name]
 }
 
 // WaitForReady waits for the gateway to be ready to accept requests
@@ -274,14 +225,14 @@ func (env *TestEnvironment) WaitForReady(timeout time.Duration) error {
 	return fmt.Errorf("gateway not ready after %v", timeout)
 }
 
-// Cleanup performs cleanup of all resources
+// Cleanup performs cleanup of all resources with timeout
 func (env *TestEnvironment) Cleanup() {
 	env.mu.Lock()
 	cleanupFuncs := make([]func(), len(env.cleanup))
 	copy(cleanupFuncs, env.cleanup)
 	env.mu.Unlock()
 
-	// Execute cleanup functions in reverse order
+	// Execute cleanup functions in reverse order with timeout
 	for i := len(cleanupFuncs) - 1; i >= 0; i-- {
 		func() {
 			defer func() {
@@ -289,7 +240,20 @@ func (env *TestEnvironment) Cleanup() {
 					env.t.Logf("Cleanup function panicked: %v", r)
 				}
 			}()
-			cleanupFuncs[i]()
+			
+			// Add timeout for each cleanup function to prevent hanging
+			done := make(chan struct{})
+			go func() {
+				cleanupFuncs[i]()
+				close(done)
+			}()
+			
+			select {
+			case <-done:
+				// Cleanup completed successfully
+			case <-time.After(5 * time.Second):
+				env.t.Logf("Cleanup function %d timed out after 5 seconds", i)
+			}
 		}()
 	}
 }

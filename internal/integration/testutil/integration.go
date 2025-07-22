@@ -232,6 +232,12 @@ func (suite *IntegrationTestSuite) RunLoadTest() error {
 	metrics := runner.Run(ctx)
 	suite.t.Logf("Load test completed: %s", suite.formatMetrics(metrics))
 
+	// If we have a suite performance monitor, update it with load test metrics
+	if suite.perfMonitor != nil {
+		// Update the suite's performance monitor with load test results
+		suite.updatePerformanceMonitor(metrics)
+	}
+
 	return nil
 }
 
@@ -390,6 +396,38 @@ func (suite *IntegrationTestSuite) RunComprehensiveTest() error {
 	}
 
 	return nil
+}
+
+// updatePerformanceMonitor updates the suite's performance monitor with load test metrics
+func (suite *IntegrationTestSuite) updatePerformanceMonitor(loadTestMetrics *PerformanceMetrics) {
+	if suite.perfMonitor == nil || loadTestMetrics == nil {
+		return
+	}
+
+	// Update the suite's performance monitor metrics with load test results
+	suite.perfMonitor.mu.Lock()
+	defer suite.perfMonitor.mu.Unlock()
+
+	// Update key metrics from the load test
+	suite.perfMonitor.metrics.RequestCount += loadTestMetrics.RequestCount
+	suite.perfMonitor.metrics.ErrorCount += loadTestMetrics.ErrorCount
+	suite.perfMonitor.metrics.ThroughputRPS = loadTestMetrics.ThroughputRPS
+	
+	// Update latency metrics if they're better
+	if loadTestMetrics.AverageLatency > 0 {
+		suite.perfMonitor.metrics.AverageLatency = loadTestMetrics.AverageLatency
+	}
+	if loadTestMetrics.P95Latency > 0 {
+		suite.perfMonitor.metrics.P95Latency = loadTestMetrics.P95Latency
+	}
+	if loadTestMetrics.P99Latency > 0 {
+		suite.perfMonitor.metrics.P99Latency = loadTestMetrics.P99Latency
+	}
+
+	// Update memory metrics
+	if loadTestMetrics.MaxMemoryMB > suite.perfMonitor.metrics.MaxMemoryMB {
+		suite.perfMonitor.metrics.MaxMemoryMB = loadTestMetrics.MaxMemoryMB
+	}
 }
 
 // validatePerformanceMetrics validates performance metrics against thresholds

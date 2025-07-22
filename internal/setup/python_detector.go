@@ -96,7 +96,7 @@ type pipInstallation struct {
 }
 
 func (pd *PythonDetector) getPythonCommands() []string {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == OS_WINDOWS {
 		return []string{"py", "python", "python3"}
 	}
 	return []string{"python3", "python"}

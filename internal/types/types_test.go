@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // TestInstallOptions tests the InstallOptions struct
@@ -1165,7 +1167,7 @@ func (m *MockRuntimeInstaller) GetSupportedRuntimes() []string {
 func (m *MockRuntimeInstaller) GetRuntimeInfo(runtime string) (*RuntimeDefinition, error) {
 	return &RuntimeDefinition{
 		Name:               runtime,
-		DisplayName:        strings.Title(runtime),
+		DisplayName:        cases.Title(language.English).String(runtime),
 		MinVersion:         "1.0.0",
 		RecommendedVersion: "2.0.0",
 		InstallMethods:     map[string]InstallMethod{},

@@ -217,7 +217,16 @@ func (cp *ConnectionPool) ReleaseClient(client *http.Client) {
 func (cp *ConnectionPool) GetMetrics() ConnectionMetrics {
 	cp.metrics.mu.RLock()
 	defer cp.metrics.mu.RUnlock()
-	return *cp.metrics
+
+	// Return copy without mutex to avoid copying lock value
+	return ConnectionMetrics{
+		TotalRequests:     cp.metrics.TotalRequests,
+		ActiveConnections: cp.metrics.ActiveConnections,
+		QueuedRequests:    cp.metrics.QueuedRequests,
+		RejectedRequests:  cp.metrics.RejectedRequests,
+		AvgResponseTime:   cp.metrics.AvgResponseTime,
+		MaxResponseTime:   cp.metrics.MaxResponseTime,
+	}
 }
 
 func (cp *ConnectionPool) Close() {

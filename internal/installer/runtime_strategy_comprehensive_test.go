@@ -6,6 +6,10 @@ import (
 	"lsp-gateway/internal/types"
 )
 
+const (
+	errNotImplemented = "not implemented"
+)
+
 // Test WindowsRuntimeStrategy.InstallRuntime with different runtime types
 func TestWindowsRuntimeStrategy_InstallRuntime(t *testing.T) {
 	tests := []struct {
@@ -157,7 +161,7 @@ func TestWindowsRuntimeStrategy_GetInstallCommand(t *testing.T) {
 				return
 			}
 
-			if err.Error() != "not implemented" {
+			if err.Error() != errNotImplemented {
 				t.Errorf("Expected error 'not implemented', got '%s'", err.Error())
 			}
 
@@ -339,7 +343,7 @@ func TestLinuxRuntimeStrategy_GetInstallCommand(t *testing.T) {
 				return
 			}
 
-			if err.Error() != "not implemented" {
+			if err.Error() != errNotImplemented {
 				t.Errorf("Expected error 'not implemented', got '%s'", err.Error())
 			}
 
@@ -500,7 +504,7 @@ func TestMacOSRuntimeStrategy_GetInstallCommand(t *testing.T) {
 				return
 			}
 
-			if err.Error() != "not implemented" {
+			if err.Error() != errNotImplemented {
 				t.Errorf("Expected error 'not implemented', got '%s'", err.Error())
 			}
 
@@ -600,7 +604,7 @@ func TestRuntimeStrategies_EmptyVersion(t *testing.T) {
 }
 
 // Test strategy interface compliance
-func TestRuntimeStrategyInterfaces(t *testing.T) {
+func TestRuntimeStrategyInterfaces(_ *testing.T) {
 	var _ types.RuntimePlatformStrategy = &WindowsRuntimeStrategy{}
 	var _ types.RuntimePlatformStrategy = &LinuxRuntimeStrategy{}
 	var _ types.RuntimePlatformStrategy = &MacOSRuntimeStrategy{}

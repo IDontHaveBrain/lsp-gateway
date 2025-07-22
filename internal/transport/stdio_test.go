@@ -421,7 +421,7 @@ func TestStdioSendRequestError(t *testing.T) {
 		}
 	}()
 
-	response, err := client.SendRequest(ctx, "textDocument/definition", map[string]interface{}{
+	response, err := client.SendRequest(ctx, LSP_METHOD_TEXT_DOCUMENT_DEFINITION, map[string]interface{}{
 		"textDocument": map[string]interface{}{"uri": "file:///test.go"},
 		"position":     map[string]interface{}{"line": 10, "character": 5},
 	})
@@ -478,7 +478,7 @@ func TestStdioSendRequestTimeout(t *testing.T) {
 	requestCtx, requestCancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer requestCancel()
 
-	_, err = client.SendRequest(requestCtx, "textDocument/definition", map[string]interface{}{
+	_, err = client.SendRequest(requestCtx, LSP_METHOD_TEXT_DOCUMENT_DEFINITION, map[string]interface{}{
 		"textDocument": map[string]interface{}{"uri": "file:///test.go"},
 		"position":     map[string]interface{}{"line": 10, "character": 5},
 	})
@@ -618,7 +618,7 @@ func TestStdioHandleNotifications(t *testing.T) {
 		}
 	}()
 
-	_, err = client.SendRequest(ctx, "textDocument/definition", map[string]interface{}{
+	_, err = client.SendRequest(ctx, LSP_METHOD_TEXT_DOCUMENT_DEFINITION, map[string]interface{}{
 		"textDocument": map[string]interface{}{"uri": "file:///test.go"},
 		"position":     map[string]interface{}{"line": 10, "character": 5},
 	})
@@ -674,7 +674,7 @@ func TestStdioConcurrentRequests(t *testing.T) {
 			requestCtx, requestCancel := context.WithTimeout(ctx, 5*time.Second)
 			defer requestCancel()
 
-			_, err := client.SendRequest(requestCtx, "textDocument/definition", map[string]interface{}{
+			_, err := client.SendRequest(requestCtx, LSP_METHOD_TEXT_DOCUMENT_DEFINITION, map[string]interface{}{
 				"textDocument": map[string]interface{}{"uri": fmt.Sprintf("file:///test%d.go", requestNum)},
 				"position":     map[string]interface{}{"line": 10, "character": 5},
 			})
@@ -703,7 +703,7 @@ func TestStdioWriteMessageProtocol(t *testing.T) {
 	message := JSONRPCMessage{
 		JSONRPC: "2.0",
 		ID:      "test_123",
-		Method:  "textDocument/definition",
+		Method:  LSP_METHOD_TEXT_DOCUMENT_DEFINITION,
 		Params: map[string]interface{}{
 			"textDocument": map[string]interface{}{"uri": "file:///test.go"},
 			"position":     map[string]interface{}{"line": 10, "character": 5},
@@ -745,7 +745,7 @@ func TestStdioWriteMessageProtocol(t *testing.T) {
 		t.Errorf("Expected ID 'test_123', got %v", parsedMsg.ID)
 	}
 
-	if parsedMsg.Method != "textDocument/definition" {
+	if parsedMsg.Method != LSP_METHOD_TEXT_DOCUMENT_DEFINITION {
 		t.Errorf("Expected method 'textDocument/definition', got %s", parsedMsg.Method)
 	}
 }
@@ -949,7 +949,7 @@ func TestStdioResponseCorrelation(t *testing.T) {
 			requestCtx, requestCancel := context.WithTimeout(ctx, 5*time.Second)
 			defer requestCancel()
 
-			results[index], errors[index] = client.SendRequest(requestCtx, "textDocument/definition", map[string]interface{}{
+			results[index], errors[index] = client.SendRequest(requestCtx, LSP_METHOD_TEXT_DOCUMENT_DEFINITION, map[string]interface{}{
 				"textDocument": map[string]interface{}{"uri": fmt.Sprintf("file:///test%d.go", index)},
 				"position":     map[string]interface{}{"line": index, "character": 5},
 			})
@@ -1081,7 +1081,7 @@ func main() {
 			
 			var result interface{}
 			switch jsonrpcMsg.Method {
-			case "textDocument/definition":
+			case LSP_METHOD_TEXT_DOCUMENT_DEFINITION:
 				result = []map[string]interface{}{
 					{
 						"uri": "file:///test.go",

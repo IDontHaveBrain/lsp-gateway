@@ -29,19 +29,19 @@ func TestMCPServerMessageTimeout(t *testing.T) {
 		{
 			name:            "fast message within timeout",
 			messageDelay:    100 * time.Millisecond,
-			messageTimeout:  2 * time.Second,
+			messageTimeout:  1 * time.Second, // Reduced for faster tests
 			expectedTimeout: false,
 		},
 		{
 			name:            "slow message exceeds timeout",
-			messageDelay:    3 * time.Second,
-			messageTimeout:  1 * time.Second,
+			messageDelay:    1500 * time.Millisecond, // Reduced from 3s
+			messageTimeout:  500 * time.Millisecond, // Shorter timeout
 			expectedTimeout: true,
 		},
 		{
 			name:            "very slow message exceeds timeout",
-			messageDelay:    3 * time.Second, // Reduced from 10s
-			messageTimeout:  1 * time.Second, // Reduced from 5s
+			messageDelay:    2 * time.Second, // Reduced from 3s
+			messageTimeout:  500 * time.Millisecond, // Shorter timeout
 			expectedTimeout: true,
 		},
 	}
@@ -102,8 +102,8 @@ func TestMCPServerMessageTimeout(t *testing.T) {
 				inputWriter.Write([]byte(message))
 			}()
 
-			// Read response with timeout
-			responseTimeout := tt.messageTimeout + 2*time.Second
+			// Read response with timeout - shorter for faster tests
+			responseTimeout := tt.messageTimeout + 1*time.Second
 			responseChan := make(chan string, 1)
 			go func() {
 				reader := bufio.NewReader(outputReader)
@@ -157,8 +157,8 @@ func TestMCPServerMessageTimeout(t *testing.T) {
 				if !tt.expectedTimeout {
 					t.Errorf("Unexpected timeout after %v", duration)
 				} else {
-					// Verify timeout occurred around expected time
-					if duration < tt.messageTimeout || duration > tt.messageTimeout+time.Second {
+					// Verify timeout occurred around expected time (allow some variance)
+					if duration < tt.messageTimeout || duration > tt.messageTimeout+500*time.Millisecond {
 						t.Logf("Timeout occurred at %v (message timeout: %v)", duration, tt.messageTimeout)
 					}
 				}
@@ -170,7 +170,7 @@ func TestMCPServerMessageTimeout(t *testing.T) {
 
 			select {
 			case <-serverDone:
-			case <-time.After(2 * time.Second):
+			case <-time.After(1 * time.Second): // Reduced timeout
 				t.Error("Server did not stop within timeout")
 			}
 		})
@@ -190,19 +190,19 @@ func TestMCPClientGatewayTimeout(t *testing.T) {
 		{
 			name:           "fast gateway response",
 			gatewayDelay:   100 * time.Millisecond,
-			requestTimeout: 2 * time.Second,
+			requestTimeout: 1 * time.Second, // Reduced for faster tests
 			expectedError:  false,
 		},
 		{
 			name:           "slow gateway exceeds timeout",
-			gatewayDelay:   3 * time.Second,
-			requestTimeout: 1 * time.Second,
+			gatewayDelay:   1500 * time.Millisecond, // Reduced from 3s
+			requestTimeout: 500 * time.Millisecond, // Shorter timeout
 			expectedError:  true,
 		},
 		{
 			name:           "very slow gateway exceeds timeout",
-			gatewayDelay:   3 * time.Second, // Reduced from 10s
-			requestTimeout: 1 * time.Second, // Reduced from 5s
+			gatewayDelay:   2 * time.Second, // Reduced from 3s
+			requestTimeout: 500 * time.Millisecond, // Shorter timeout
 			expectedError:  true,
 		},
 	}
@@ -226,7 +226,7 @@ func TestMCPClientGatewayTimeout(t *testing.T) {
 
 			client := NewLSPGatewayClient(config)
 
-			ctx, cancel := context.WithTimeout(context.Background(), tt.requestTimeout+2*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), tt.requestTimeout+1*time.Second) // Shorter context timeout
 			defer cancel()
 
 			// Test LSP request
@@ -245,8 +245,8 @@ func TestMCPClientGatewayTimeout(t *testing.T) {
 					t.Errorf("Expected timeout error, got: %v", err)
 				}
 
-				// Verify timeout occurred around expected time
-				expectedMax := tt.requestTimeout + 2*time.Second
+				// Verify timeout occurred around expected time (allow for retry delays)
+				expectedMax := tt.requestTimeout + 1500*time.Millisecond // Allow extra time for retries
 				if duration > expectedMax {
 					t.Errorf("Request took too long: %v, expected max: %v", duration, expectedMax)
 				}
@@ -266,19 +266,16 @@ func TestMCPClientGatewayTimeout(t *testing.T) {
 func TestMCPToolCallTimeouts(t *testing.T) {
 	t.Parallel()
 
-	// Create mock LSP gateway with variable delays
-	mockGateway := createMockLSPGateway(t, 500*time.Millisecond) // Reduced from 2s
+	// Create mock LSP gateway with delays that will cause timeout
+	mockGateway := createMockLSPGateway(t, 1500*time.Millisecond) // Longer delay to ensure timeout
 	defer mockGateway.Close()
 
 	config := &ServerConfig{
 		Name:          "tool-timeout-test",
 		Version:       "1.0.0",
 		LSPGatewayURL: mockGateway.URL,
-		Timeout:       1 * time.Second, // Short timeout
-		// ConnectTimeout:  5 * time.Second,
-		MaxRetries: 1,
-		// EnableMetrics:   false,
-		// EnableHealthCheck: false,
+		Timeout:       500 * time.Millisecond, // Short timeout to ensure failure
+		MaxRetries: 1, // Minimal retries
 	}
 
 	client := NewLSPGatewayClient(config)
@@ -438,26 +435,27 @@ func TestMCPCircuitBreakerWithTimeouts(t *testing.T) {
 	}
 	t.Parallel()
 
-	// Create mock gateway that times out
-	mockGateway := createMockLSPGateway(t, 1*time.Second) // Reduced from 5s
+	// Create mock gateway that will always timeout (2 second delay vs 500ms timeout)
+	mockGateway := createMockLSPGateway(t, 2*time.Second) 
 	defer mockGateway.Close()
 
 	config := &ServerConfig{
 		Name:          "circuit-breaker-test",
 		Version:       "1.0.0",
 		LSPGatewayURL: mockGateway.URL,
-		Timeout:       1 * time.Second,
-		// ConnectTimeout:  5 * time.Second,
-		MaxRetries: 1,
-		// EnableMetrics:   true,
-		// EnableHealthCheck: false,
+		Timeout:       500 * time.Millisecond, // Short timeout to ensure failure
+		MaxRetries: 1, // Minimal retries to speed up test
 	}
 
 	client := NewLSPGatewayClient(config)
+	// Override circuit breaker settings for testing
+	client.circuitBreaker.maxFailures = 3 // Reduce threshold for faster triggering
+	client.circuitBreaker.timeout = 2 * time.Second // Short recovery timeout
+	
 	toolHandler := NewToolHandler(client)
 
-	// Make several requests that will timeout to trigger circuit breaker
-	for i := 0; i < 5; i++ {
+	// Make requests that will timeout to trigger circuit breaker
+	for i := 0; i < 3; i++ { // Reduced to match maxFailures
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 
 		args := map[string]interface{}{
@@ -467,21 +465,23 @@ func TestMCPCircuitBreakerWithTimeouts(t *testing.T) {
 		}
 
 		start := time.Now()
-		_, err := toolHandler.CallTool(ctx, ToolCall{Name: "goto_definition", Arguments: args})
+		result, err := toolHandler.CallTool(ctx, ToolCall{Name: "goto_definition", Arguments: args})
 		duration := time.Since(start)
 
 		cancel()
 
-		if err == nil {
+		// All requests should fail due to timeout
+		hasError := (err != nil) || (result != nil && result.IsError)
+		if !hasError {
 			t.Errorf("Expected timeout error for request %d", i)
 		}
 
-		// Should timeout quickly
+		// Should timeout reasonably quickly (considering retries)
 		if duration > 3*time.Second {
-			t.Errorf("Request %d took too long: %v", i, duration)
+			t.Errorf("Request %d took too long: %v (expected ~1-2s with retries)", i, duration)
 		}
 
-		t.Logf("Request %d: error=%v, duration=%v", i, err != nil, duration)
+		t.Logf("Request %d: error=%v, duration=%v", i, hasError, duration)
 	}
 
 	// Circuit breaker should now be open - subsequent requests should fail fast
@@ -503,9 +503,14 @@ func TestMCPCircuitBreakerWithTimeouts(t *testing.T) {
 		t.Error("Expected circuit breaker to reject request")
 	}
 
-	// Should fail very quickly due to circuit breaker
-	if duration > 100*time.Millisecond {
-		t.Logf("Circuit breaker request took %v (may still be opening)", duration)
+	// Should fail very quickly due to circuit breaker (within 50ms)
+	if duration > 50*time.Millisecond {
+		t.Logf("Circuit breaker request took %v (circuit breaker may still be transitioning)", duration)
+	}
+
+	// Verify circuit breaker error message
+	if err != nil && !strings.Contains(err.Error(), "circuit breaker") {
+		t.Logf("Expected circuit breaker error message, got: %v", err)
 	}
 }
 

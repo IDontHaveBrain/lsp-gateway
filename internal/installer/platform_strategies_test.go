@@ -114,7 +114,7 @@ func newMockPlatformCommandExecutor() *mockPlatformCommandExecutor {
 	}
 }
 
-func (m *mockPlatformCommandExecutor) Execute(cmd string, args []string, timeout time.Duration) (*platform.Result, error) {
+func (m *mockPlatformCommandExecutor) Execute(cmd string, args []string, _ time.Duration) (*platform.Result, error) {
 	callKey := fmt.Sprintf("%s %s", cmd, strings.Join(args, " "))
 	m.execCalls = append(m.execCalls, callKey)
 
@@ -135,25 +135,25 @@ func (m *mockPlatformCommandExecutor) Execute(cmd string, args []string, timeout
 	}, nil
 }
 
-func (m *mockPlatformCommandExecutor) ExecuteWithEnv(cmd string, args []string, env map[string]string, timeout time.Duration) (*platform.Result, error) {
+func (m *mockPlatformCommandExecutor) ExecuteWithEnv(cmd string, args []string, _ map[string]string, timeout time.Duration) (*platform.Result, error) {
 	return m.Execute(cmd, args, timeout)
 }
 
 func (m *mockPlatformCommandExecutor) GetShell() string {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == PlatformWindows {
 		return "cmd"
 	}
 	return "bash"
 }
 
 func (m *mockPlatformCommandExecutor) GetShellArgs(command string) []string {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == PlatformWindows {
 		return []string{"/C", command}
 	}
 	return []string{"-c", command}
 }
 
-func (m *mockPlatformCommandExecutor) IsCommandAvailable(command string) bool {
+func (m *mockPlatformCommandExecutor) IsCommandAvailable(_ string) bool {
 	return !m.shouldFail
 }
 
@@ -487,7 +487,7 @@ func TestLinuxStrategy_InstallWithRetry_VersionCompatibility(t *testing.T) {
 
 	// Mock verification to return incompatible version first, then compatible
 	verifyCallCount := 0
-	aptMgr.verifyFunc = func(component string) (*platform.VerificationResult, error) {
+	aptMgr.verifyFunc = func(_ string) (*platform.VerificationResult, error) {
 		verifyCallCount++
 		if verifyCallCount == 1 {
 			return &platform.VerificationResult{

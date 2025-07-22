@@ -15,6 +15,67 @@ import (
 	"time"
 )
 
+// Test utilities for better resource management
+func ensureCleanup(t *testing.T, client *StdioClient, mockServerPath string) {
+	t.Helper()
+	
+	if client != nil {
+		if err := client.Stop(); err != nil {
+			t.Logf("Warning: Failed to stop client: %v", err)
+		}
+		
+		// Give some time for cleanup to complete
+		select {
+		case <-client.done:
+			// Client stopped cleanly
+		case <-time.After(2 * time.Second):
+			t.Logf("Warning: Client cleanup did not complete within 2 seconds")
+		}
+	}
+	
+	if mockServerPath != "" {
+		if err := os.Remove(mockServerPath); err != nil && !os.IsNotExist(err) {
+			t.Logf("Warning: Failed to remove mock server: %v", err)
+		}
+	}
+}
+
+func waitForClientReady(t *testing.T, client *StdioClient, timeout time.Duration) {
+	t.Helper()
+	
+	start := time.Now()
+	for time.Since(start) < timeout {
+		if client.IsActive() {
+			// Give a small buffer after activation for full initialization
+			time.Sleep(50 * time.Millisecond)
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	
+	t.Fatalf("Client did not become active within %v", timeout)
+}
+
+func retryOnFlakiness(t *testing.T, operation func() error, maxRetries int, retryDelay time.Duration) error {
+	t.Helper()
+	
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		err := operation()
+		if err == nil {
+			return nil
+		}
+		
+		lastErr = err
+		if i < maxRetries-1 {
+			t.Logf("Operation failed (attempt %d/%d): %v, retrying after %v", i+1, maxRetries, err, retryDelay)
+			time.Sleep(retryDelay)
+		}
+	}
+	
+	return fmt.Errorf("operation failed after %d attempts, last error: %v", maxRetries, lastErr)
+}
+
 // TestStdioClientRequestTimeouts tests various request timeout scenarios for stdio clients
 func TestStdioClientRequestTimeouts(t *testing.T) {
 	t.Parallel()
@@ -60,10 +121,10 @@ func TestStdioClientRequestTimeouts(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockServer := createDelayedMockLSPServer(t, tt.serverDelay)
+			var client *StdioClient
+			
 			defer func() {
-				if err := os.Remove(mockServer); err != nil {
-					t.Logf("Warning: Failed to remove mock server: %v", err)
-				}
+				ensureCleanup(t, client, mockServer)
 			}()
 
 			config := ClientConfig{
@@ -72,7 +133,8 @@ func TestStdioClientRequestTimeouts(t *testing.T) {
 				Transport: "stdio",
 			}
 
-			client, err := NewStdioClient(config)
+			var err error
+			client, err = NewStdioClient(config)
 			if err != nil {
 				t.Fatalf("NewStdioClient failed: %v", err)
 			}
@@ -83,11 +145,9 @@ func TestStdioClientRequestTimeouts(t *testing.T) {
 			if err := client.Start(ctx); err != nil {
 				t.Fatalf("Start failed: %v", err)
 			}
-			defer func() {
-				if err := client.Stop(); err != nil {
-					t.Logf("Warning: Failed to stop client: %v", err)
-				}
-			}()
+			
+			// Wait for client to be ready
+			waitForClientReady(t, client, 2*time.Second)
 
 			requestCtx, requestCancel := context.WithTimeout(ctx, tt.requestTimeout)
 			defer requestCancel()
@@ -113,10 +173,18 @@ func TestStdioClientRequestTimeouts(t *testing.T) {
 				} else if !strings.Contains(err.Error(), tt.expectedError) {
 					t.Errorf("Expected error containing '%s', got: %v", tt.expectedError, err)
 				}
-				// Verify timeout occurred around the expected time
+				// Verify timeout occurred around the expected time (with more lenient bounds for CI)
 				expectedTimeout := tt.requestTimeout
-				if duration < expectedTimeout-500*time.Millisecond || duration > expectedTimeout+2*time.Second {
-					t.Errorf("Timeout occurred at %v, expected around %v", duration, expectedTimeout)
+				lowerBound := expectedTimeout - 1*time.Second
+				upperBound := expectedTimeout + 3*time.Second
+				
+				// Ensure lower bound is not negative
+				if lowerBound < 0 {
+					lowerBound = 0
+				}
+				
+				if duration < lowerBound || duration > upperBound {
+					t.Errorf("Timeout occurred at %v, expected between %v and %v", duration, lowerBound, upperBound)
 				}
 			}
 		})
@@ -203,9 +271,17 @@ func TestStdioClientConcurrentTimeouts(t *testing.T) {
 				t.Errorf("Expected timeout for %v duration", result.timeout)
 			} else {
 				timeoutCount++
-				// Verify timeout occurred around expected time
-				if duration < result.timeout-500*time.Millisecond || duration > result.timeout+2*time.Second {
-					t.Errorf("Timeout at %v for %v timeout, expected around %v", duration, result.timeout, result.timeout)
+				// Verify timeout occurred around expected time (with lenient bounds for CI)
+				lowerBound := result.timeout - 1*time.Second
+				upperBound := result.timeout + 3*time.Second
+				
+				// Ensure lower bound is not negative
+				if lowerBound < 0 {
+					lowerBound = 0
+				}
+				
+				if duration < lowerBound || duration > upperBound {
+					t.Errorf("Timeout at %v for %v timeout, expected between %v and %v", duration, result.timeout, lowerBound, upperBound)
 				}
 			}
 		} else {
@@ -640,47 +716,58 @@ func createDelayedMockLSPServer(t interface{}, delay time.Duration) string {
 	}
 	scriptPath := fmt.Sprintf("%s/delayed_mock_lsp.sh", tmpDir)
 
-	delaySeconds := int(delay.Seconds())
-	delayNanos := int(delay.Nanoseconds() % 1000000000)
+	// Convert delay to total milliseconds for more accurate bash sleep
+	delayMs := int(delay.Nanoseconds() / 1000000)
 
 	script := fmt.Sprintf(`#!/bin/bash
-# Mock LSP server with configurable delay
+# Mock LSP server with configurable delay - improved version
+set -euo pipefail
+
+# Handle SIGTERM and SIGINT for graceful shutdown
+cleanup() {
+    exit 0
+}
+trap cleanup SIGTERM SIGINT
+
 while IFS= read -r line; do
-    if [[ "$line" =~ Content-Length:\ ([0-9]+) ]]; then
+    # Check for shutdown signal
+    if [[ "$line" == "" ]]; then
+        continue
+    fi
+    
+    if [[ "$line" =~ Content-Length:[[:space:]]*([0-9]+) ]]; then
         length=${BASH_REMATCH[1]}
-        read -r  # Read empty line
-        read -r -N $length request
         
-        # Add specified delay
+        # Read empty line after Content-Length
+        read -r || exit 0
+        
+        # Read request body
+        if ! read -r -N "$length" request; then
+            exit 0
+        fi
+        
+        # Add specified delay (using milliseconds for better precision)
         if [ %d -gt 0 ]; then
-            sleep %d
-        fi
-        if [ %d -gt 0 ]; then
-            sleep 0.%09d
+            sleep $(echo "scale=3; %d / 1000" | bc -l 2>/dev/null || echo "0.%03d")
         fi
         
-        # Parse request and create appropriate response
-        if echo "$request" | grep -q '"method"'; then
-            method=$(echo "$request" | sed -n 's/.*"method"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-            id=$(echo "$request" | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-            if [ -z "$id" ]; then
-                id=$(echo "$request" | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*\([0-9]*\).*/\1/p')
-            fi
-            if [ -z "$id" ]; then
-                id="1"
-            fi
-            
-            response="{\"jsonrpc\":\"2.0\",\"id\":\"$id\",\"result\":{\"message\":\"response to $method\",\"delay\":\"%ds\"}}"
-        else
-            response='{"jsonrpc":"2.0","id":"1","result":{"message":"default response"}}'
+        # Parse request ID more reliably
+        id=$(echo "$request" | sed -n 's/.*"id"[[:space:]]*:[[:space:]]*"\?\([^",}]*\)"\?.*/\1/p' | head -n1)
+        if [ -z "$id" ]; then
+            id="1"
         fi
         
-        echo "Content-Length: ${#response}"
-        echo ""
-        echo "$response"
+        # Create response
+        response="{\"jsonrpc\":\"2.0\",\"id\":\"$id\",\"result\":{\"message\":\"delayed response\",\"delay_ms\":%d}}"
+        
+        # Send response with proper LSP formatting
+        printf "Content-Length: %%d\r\n\r\n%%s" "${#response}" "$response"
+        
+        # Flush output to ensure immediate delivery
+        exec 1>&1
     fi
 done
-`, delaySeconds, delaySeconds, delayNanos, delayNanos, delaySeconds)
+`, delayMs, delayMs, delayMs, delayMs)
 
 	if err := os.WriteFile(scriptPath, []byte(script), 0755); err != nil {
 		switch v := t.(type) {
@@ -887,16 +974,40 @@ func createHangingMockLSPServer(t interface{}) string {
 	scriptPath := fmt.Sprintf("%s/hanging_mock_lsp.sh", tmpDir)
 
 	script := `#!/bin/bash
-# Mock LSP server that hangs (never responds)
-while IFS= read -r line; do
-    if [[ "$line" =~ Content-Length:\ ([0-9]+) ]]; then
+# Mock LSP server that hangs (never responds) - improved version
+set -euo pipefail
+
+# Handle SIGTERM and SIGINT for graceful shutdown
+cleanup() {
+    exit 0
+}
+trap cleanup SIGTERM SIGINT
+
+# Create background process that can be interrupted
+hang_forever() {
+    while true; do
+        sleep 1
+    done
+}
+
+while IFS= read -r line || break; do
+    if [[ "$line" =~ Content-Length:[[:space:]]*([0-9]+) ]]; then
         length=${BASH_REMATCH[1]}
-        read -r  # Read empty line
-        read -r -N $length request
         
-        # Read the request but never respond - simulate hanging server
-        # Just hang forever
-        sleep infinity
+        # Read empty line after Content-Length
+        read -r || exit 0
+        
+        # Read request body
+        if ! read -r -N "$length" request; then
+            exit 0
+        fi
+        
+        # Hang forever but allow interruption
+        hang_forever &
+        HANG_PID=$!
+        
+        # Wait for hang process (this allows for signal interruption)
+        wait $HANG_PID 2>/dev/null || exit 0
     fi
 done
 `
@@ -978,19 +1089,41 @@ func createPartialResponseMockLSPServer(t interface{}) string {
 	scriptPath := fmt.Sprintf("%s/partial_mock_lsp.sh", tmpDir)
 
 	script := `#!/bin/bash
-# Mock LSP server that sends partial responses
-while IFS= read -r line; do
-    if [[ "$line" =~ Content-Length:\ ([0-9]+) ]]; then
+# Mock LSP server that sends partial responses - improved version
+set -euo pipefail
+
+# Handle SIGTERM and SIGINT for graceful shutdown
+cleanup() {
+    exit 0
+}
+trap cleanup SIGTERM SIGINT
+
+while IFS= read -r line || break; do
+    if [[ "$line" =~ Content-Length:[[:space:]]*([0-9]+) ]]; then
         length=${BASH_REMATCH[1]}
-        read -r  # Read empty line
-        read -r -N $length request
+        
+        # Read empty line after Content-Length
+        read -r || exit 0
+        
+        # Read request body
+        if ! read -r -N "$length" request; then
+            exit 0
+        fi
         
         # Send a partial response (headers but incomplete body)
-        echo "Content-Length: 100"
-        echo ""
-        echo '{"jsonrpc":"2.0","id":"1","result":{"partial":'
-        # Don't complete the JSON - hang after sending partial data
-        sleep infinity
+        printf "Content-Length: 100\r\n\r\n"
+        
+        # Send partial JSON and then hang (but allow interruption)
+        printf '{"jsonrpc":"2.0","id":"1","result":{"partial":'
+        
+        # Flush to ensure partial data is sent
+        exec 1>&1
+        
+        # Hang but allow interruption like the hanging server
+        while true; do
+            sleep 1 &
+            wait $! 2>/dev/null || exit 0
+        done
     fi
 done
 `

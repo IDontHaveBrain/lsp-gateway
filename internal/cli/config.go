@@ -379,9 +379,18 @@ func createValidationResult(valid bool, issues []string, warnings []string) map[
 }
 
 func printJSONOutput(data interface{}) {
-	if output, err := json.MarshalIndent(data, "", "  "); err == nil {
-		fmt.Println(string(output))
+	output, err := json.MarshalIndent(data, "", "  ")
+	if err != nil {
+		fmt.Printf("Error: Failed to format JSON output: %v\n", err)
+		// Fallback to basic JSON marshaling
+		if basicOutput, basicErr := json.Marshal(data); basicErr == nil {
+			fmt.Println(string(basicOutput))
+		} else {
+			fmt.Printf("Error: Failed to marshal data: %v\n", basicErr)
+		}
+		return
 	}
+	fmt.Println(string(output))
 }
 
 func outputValidationHuman(valid bool, issues []string, warnings []string, cfg *config.GatewayConfig) {

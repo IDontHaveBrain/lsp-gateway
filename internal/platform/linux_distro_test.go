@@ -42,7 +42,7 @@ BUG_REPORT_URL="https://bugs.launchpad.net/ubuntu/"
 PRIVACY_POLICY_URL="https://www.ubuntu.com/legal/terms-and-policies/privacy-policy"
 VERSION_CODENAME=jammy
 UBUNTU_CODENAME=jammy`
-				os.WriteFile(osReleaseFile, []byte(content), 0644)
+				_ = os.WriteFile(osReleaseFile, []byte(content), 0644)
 			},
 			expectedDist:    DistributionUbuntu,
 			expectedVersion: "22.04",
@@ -72,7 +72,7 @@ REDHAT_BUGZILLA_PRODUCT_VERSION=37
 REDHAT_SUPPORT_PRODUCT="Fedora"
 REDHAT_SUPPORT_PRODUCT_VERSION=37
 PRIVACY_POLICY_URL="https://fedoraproject.org/wiki/Legal:PrivacyPolicy"`
-				os.WriteFile(osReleaseFile, []byte(content), 0644)
+				_ = os.WriteFile(osReleaseFile, []byte(content), 0644)
 			},
 			expectedDist:    DistributionFedora,
 			expectedVersion: "37",
@@ -97,7 +97,7 @@ HOME_URL="https://centos.org/"
 BUG_REPORT_URL="https://bugzilla.redhat.com/"
 REDHAT_SUPPORT_PRODUCT="Red Hat Enterprise Linux"
 REDHAT_SUPPORT_PRODUCT_VERSION="9"`
-				os.WriteFile(osReleaseFile, []byte(content), 0644)
+				_ = os.WriteFile(osReleaseFile, []byte(content), 0644)
 			},
 			expectedDist:    DistributionCentOS,
 			expectedVersion: "9",

@@ -251,12 +251,12 @@ func (s *LeakTestMockServer) Stop() error {
 	close(s.stopCh)
 
 	if s.listener != nil {
-		s.listener.Close()
+		_ = s.listener.Close()
 	}
 
 	// Close all connections
 	for _, conn := range s.connections {
-		conn.Close()
+		_ = conn.Close()
 	}
 	s.mu.Unlock()
 
@@ -275,7 +275,7 @@ func (s *LeakTestMockServer) Stop() error {
 // handleConnection processes client connections
 func (s *LeakTestMockServer) handleConnection(conn net.Conn) {
 	defer s.wg.Done()
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	connID := fmt.Sprintf("%p", conn)
 
@@ -311,7 +311,7 @@ func (s *LeakTestMockServer) handleConnection(conn net.Conn) {
 		if s.leakMemory {
 			// Allocate buffer that won't be freed
 			buffer := make([]byte, 1024*1024) // 1MB
-			rand.Read(buffer)
+			_, _ = rand.Read(buffer)
 
 			s.mu.Lock()
 			s.buffers = append(s.buffers, buffer)
@@ -325,7 +325,7 @@ func (s *LeakTestMockServer) handleConnection(conn net.Conn) {
 			Result:  "mock_response",
 		}
 
-		s.writeMessage(conn, response)
+		_ = s.writeMessage(conn, response)
 	}
 }
 
@@ -346,7 +346,7 @@ func (s *LeakTestMockServer) readMessage(reader *bufio.Reader) (JSONRPCMessage, 
 		}
 
 		if len(line) > 16 && line[:16] == "Content-Length: " {
-			fmt.Sscanf(line, "Content-Length: %d", &contentLength)
+			_, _ = fmt.Sscanf(line, "Content-Length: %d", &contentLength)
 		}
 	}
 
@@ -382,13 +382,6 @@ func (s *LeakTestMockServer) writeMessage(conn net.Conn, msg JSONRPCMessage) err
 	return err
 }
 
-// GetBufferCount returns the number of leaked buffers
-func (s *LeakTestMockServer) GetBufferCount() int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return len(s.buffers)
-}
-
 // Test long-running LSP client connections for memory growth
 func TestLongRunningLSPClientMemoryGrowth(t *testing.T) {
 	testCases := []struct {
@@ -421,7 +414,7 @@ func TestLongRunningLSPClientMemoryGrowth(t *testing.T) {
 				if err != nil {
 					t.Fatalf("Failed to start mock server: %v", err)
 				}
-				defer mockServer.Stop()
+				defer func() { _ = mockServer.Stop() }()
 
 				addr := mockServer.listener.Addr().String()
 				client, err = NewTCPClient(ClientConfig{
@@ -508,7 +501,7 @@ func TestLongRunningLSPClientMemoryGrowth(t *testing.T) {
 
 			// Verify reasonable memory growth
 			if growth, ok := report["heap_growth"].(int64); ok {
-				maxGrowth := int64(requestCount * 10000) // 10KB per request max
+				maxGrowth := requestCount * 10000 // 10KB per request max
 				if growth > maxGrowth {
 					t.Errorf("Excessive memory growth: %d bytes > %d bytes", growth, maxGrowth)
 				}

@@ -799,11 +799,24 @@ func (g *Gateway) handleRequest(w http.ResponseWriter, r *http.Request, req JSON
 	}
 
 	duration := time.Since(startTime)
-	responseData, _ := json.Marshal(response)
+	responseData, err := json.Marshal(response)
+	responseSize := 0
+	if err != nil {
+		if logger != nil {
+			logger.WithError(err).Warn("Failed to marshal response for logging metrics")
+		}
+		// Estimate response size based on result length if marshaling fails
+		if response.Result != nil {
+			responseSize = len(fmt.Sprintf("%v", response.Result))
+		}
+	} else {
+		responseSize = len(responseData)
+	}
+
 	if logger != nil {
 		logger.WithFields(map[string]interface{}{
 			"duration":      duration.String(),
-			"response_size": len(responseData),
+			"response_size": responseSize,
 		}).Info("Request processed successfully")
 	}
 }

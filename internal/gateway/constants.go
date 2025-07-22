@@ -13,4 +13,7 @@ const (
 	LSP_METHOD_DOCUMENT_SYMBOL  = "textDocument/documentSymbol"
 	LSP_METHOD_WORKSPACE_SYMBOL = "workspace/symbol"
 	LSP_METHOD_HOVER            = "textDocument/hover"
+
+	// Error types
+	APPLICATION_ERROR_TYPE = "application_error"
 )

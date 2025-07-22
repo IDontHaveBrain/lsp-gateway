@@ -39,14 +39,14 @@ func testVersionCommandMetadata(t *testing.T) {
 		t.Errorf("Expected Use to be 'version', got '%s'", versionCmd.Use)
 	}
 
-	expectedShort := "Show version information"
+	expectedShort := "Show version and build information"
 	if versionCmd.Short != expectedShort {
 		t.Errorf("Expected Short to be '%s', got '%s'", expectedShort, versionCmd.Short)
 	}
 
-	expectedLong := "Show version information for LSP Gateway."
-	if versionCmd.Long != expectedLong {
-		t.Errorf("Expected Long to be '%s', got '%s'", expectedLong, versionCmd.Long)
+	// Updated to check for key phrases rather than exact match due to comprehensive long description
+	if !strings.Contains(versionCmd.Long, "Display comprehensive version and build information") {
+		t.Errorf("Expected Long to contain comprehensive version information description, got '%s'", versionCmd.Long)
 	}
 
 	if versionCmd.RunE == nil {
@@ -70,8 +70,8 @@ func testVersionCommandExecution(t *testing.T) {
 		t.Error("Expected version command to produce output")
 	}
 
-	if !strings.Contains(output, "LSP Gateway MVP") {
-		t.Errorf("Expected output to contain 'LSP Gateway MVP', got: %s", output)
+	if !strings.Contains(output, "LSP Gateway Version Information") {
+		t.Errorf("Expected output to contain 'LSP Gateway Version Information', got: %s", output)
 	}
 }
 
@@ -83,36 +83,28 @@ func testVersionCommandOutputFormat(t *testing.T) {
 		}
 	})
 
-	lines := strings.Split(strings.TrimSpace(output), "\n")
-
-	if len(lines) != 3 {
-		t.Errorf("Expected 3 lines of output, got %d: %v", len(lines), lines)
-	}
-
-	expectedPatterns := []struct {
-		line    int
+	// Check for expected content patterns in the rich output format
+	requiredPatterns := []struct {
 		pattern string
 		desc    string
 	}{
-		{0, `^LSP Gateway MVP$`, "First line should be 'LSP Gateway MVP'"},
-		{1, `^Go Version: go\d+\.\d+(\.\d+)?.*$`, "Second line should be Go version"},
-		{2, `^OS/Arch: \w+/\w+$`, "Third line should be OS/Arch"},
+		{`LSP Gateway Version Information`, "Should contain main header"},
+		{`Version:\s+\w+`, "Should contain version information"},
+		{`Runtime Information:`, "Should contain runtime section"},
+		{`Go Version:\s+go\d+\.\d+`, "Should contain Go version"},
+		{`Platform:\s+\w+`, "Should contain platform information"},
+		{`Architecture:\s+\w+`, "Should contain architecture information"},
 	}
 
-	for _, ep := range expectedPatterns {
-		if ep.line >= len(lines) {
-			t.Errorf("Missing line %d for %s", ep.line, ep.desc)
-			continue
-		}
-
-		matched, err := regexp.MatchString(ep.pattern, lines[ep.line])
+	for _, ep := range requiredPatterns {
+		matched, err := regexp.MatchString(ep.pattern, output)
 		if err != nil {
 			t.Errorf("Regex error for %s: %v", ep.desc, err)
 			continue
 		}
 
 		if !matched {
-			t.Errorf("%s: expected pattern '%s', got '%s'", ep.desc, ep.pattern, lines[ep.line])
+			t.Errorf("%s: pattern '%s' not found in output:\n%s", ep.desc, ep.pattern, output)
 		}
 	}
 }
@@ -133,9 +125,14 @@ func testVersionCommandRuntimeInfo(t *testing.T) {
 		t.Errorf("Expected output to contain Go version '%s', got output: %s", runtimeVersion, output)
 	}
 
-	expectedOSArch := fmt.Sprintf("OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH)
-	if !strings.Contains(output, expectedOSArch) {
-		t.Errorf("Expected output to contain '%s', got output: %s", expectedOSArch, output)
+	// Check for platform and architecture separately as they are on different lines
+	expectedPlatform := fmt.Sprintf("Platform:     %s", runtime.GOOS)
+	expectedArch := fmt.Sprintf("Architecture: %s", runtime.GOARCH)
+	if !strings.Contains(output, expectedPlatform) {
+		t.Errorf("Expected output to contain '%s', got output: %s", expectedPlatform, output)
+	}
+	if !strings.Contains(output, expectedArch) {
+		t.Errorf("Expected output to contain '%s', got output: %s", expectedArch, output)
 	}
 }
 
@@ -155,7 +152,7 @@ func testVersionCommandHelp(t *testing.T) {
 	})
 
 	expectedElements := []string{
-		"Show version information",
+		"Display comprehensive version and build information",
 		"version",
 		"Usage:",
 		"Flags:",
@@ -200,7 +197,7 @@ func testVersionCommandIntegration(t *testing.T) {
 		}
 	})
 
-	if !strings.Contains(output, "LSP Gateway MVP") {
+	if !strings.Contains(output, "LSP Gateway Version Information") {
 		t.Error("Expected version output when executed through root command")
 	}
 }
@@ -231,7 +228,7 @@ func testVersionCommandWithArgs(t *testing.T) {
 		}
 	})
 
-	if !strings.Contains(output, "LSP Gateway MVP") {
+	if !strings.Contains(output, "LSP Gateway Version Information") {
 		t.Error("Version command should work with extra arguments")
 	}
 }
@@ -279,7 +276,7 @@ func testVersionCommandOutputBuffering(t *testing.T) {
 	}
 	output := buf.String()
 
-	if !strings.Contains(output, "LSP Gateway MVP") {
+	if !strings.Contains(output, "LSP Gateway Version Information") {
 		t.Error("Expected buffered output to contain version information")
 	}
 }

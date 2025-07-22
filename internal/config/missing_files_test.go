@@ -10,60 +10,6 @@ import (
 	"time"
 )
 
-// MockFileSystem provides file system mocking for missing file scenarios
-type MockFileSystem struct {
-	mu           sync.RWMutex
-	files        map[string][]byte
-	missingFiles map[string]bool
-	permissions  map[string]os.FileMode
-}
-
-func NewMockFileSystem() *MockFileSystem {
-	return &MockFileSystem{
-		files:        make(map[string][]byte),
-		missingFiles: make(map[string]bool),
-		permissions:  make(map[string]os.FileMode),
-	}
-}
-
-func (m *MockFileSystem) AddFile(path string, content []byte, mode os.FileMode) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.files[path] = content
-	m.permissions[path] = mode
-	delete(m.missingFiles, path)
-}
-
-func (m *MockFileSystem) RemoveFile(path string) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	delete(m.files, path)
-	m.missingFiles[path] = true
-}
-
-func (m *MockFileSystem) FileExists(path string) bool {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if m.missingFiles[path] {
-		return false
-	}
-	_, exists := m.files[path]
-	return exists
-}
-
-func (m *MockFileSystem) ReadFile(path string) ([]byte, error) {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	if m.missingFiles[path] {
-		return nil, &os.PathError{Op: "open", Path: path, Err: os.ErrNotExist}
-	}
-	content, exists := m.files[path]
-	if !exists {
-		return nil, &os.PathError{Op: "open", Path: path, Err: os.ErrNotExist}
-	}
-	return content, nil
-}
-
 // Helper functions for test configuration creation
 func createValidConfigContent() string {
 	return `
@@ -559,6 +505,7 @@ func TestLoadConfig_LargeConfigurationFile(t *testing.T) {
 
 	if config == nil {
 		t.Error("Expected valid config for large file")
+		return
 	}
 
 	if len(config.Servers) != 100 {

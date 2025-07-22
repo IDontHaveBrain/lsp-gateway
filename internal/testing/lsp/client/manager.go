@@ -359,34 +359,11 @@ func (m *ManagedLSPServer) SendNotification(ctx context.Context, method string, 
 	return m.Client.SendNotification(ctx, method, params)
 }
 
-// IsInitialized returns true if the server is initialized and ready
-func (m *ManagedLSPServer) IsInitialized() bool {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.initialized
-}
-
 // GetCapabilities returns the server capabilities
 func (m *ManagedLSPServer) GetCapabilities() *ServerCapabilities {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.Capabilities
-}
-
-// GetStats returns server statistics
-func (m *ManagedLSPServer) GetStats() map[string]interface{} {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	return map[string]interface{}{
-		"name":          m.Name,
-		"language":      m.Language,
-		"initialized":   m.initialized,
-		"request_count": m.requestCount,
-		"error_count":   m.errorCount,
-		"last_activity": m.lastActivity,
-		"pre_warmed_up": m.PreWarmedUp,
-	}
 }
 
 // Shutdown gracefully shuts down the managed server
@@ -418,34 +395,6 @@ func (m *ManagedLSPServer) Shutdown(ctx context.Context) error {
 	return err
 }
 
-// CleanupInactiveServers removes servers that haven't been used recently
-func (m *LSPServerManager) CleanupInactiveServers(ctx context.Context, maxIdleTime time.Duration) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	now := time.Now()
-	var toRemove []string
-
-	for key, server := range m.servers {
-		server.mu.RLock()
-		inactive := now.Sub(server.lastActivity) > maxIdleTime
-		server.mu.RUnlock()
-
-		if inactive {
-			toRemove = append(toRemove, key)
-		}
-	}
-
-	for _, key := range toRemove {
-		if server := m.servers[key]; server != nil {
-			_ = server.Shutdown(ctx)
-			delete(m.servers, key)
-		}
-	}
-
-	return nil
-}
-
 // ShutdownAll shuts down all managed servers
 func (m *LSPServerManager) ShutdownAll(ctx context.Context) error {
 	m.mu.Lock()
@@ -461,19 +410,4 @@ func (m *LSPServerManager) ShutdownAll(ctx context.Context) error {
 	}
 
 	return lastErr
-}
-
-// GetActiveServers returns a list of active servers
-func (m *LSPServerManager) GetActiveServers() map[string]*ManagedLSPServer {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	active := make(map[string]*ManagedLSPServer)
-	for key, server := range m.servers {
-		if server.IsInitialized() && server.Client.IsActive() {
-			active[key] = server
-		}
-	}
-
-	return active
 }

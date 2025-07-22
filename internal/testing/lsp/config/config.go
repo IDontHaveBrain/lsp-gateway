@@ -10,6 +10,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// contextKey is a custom type to avoid collision with other context keys
+type contextKey string
+
+const lspTestConfigKey contextKey = "lsp_test_config"
+
 // LSPTestConfig defines the configuration for LSP testing
 type LSPTestConfig struct {
 	// General test configuration
@@ -411,13 +416,5 @@ func (t *TestCaseConfig) Validate() error {
 
 // GetConfigContext creates a context with configuration values
 func (c *LSPTestConfig) GetConfigContext(ctx context.Context) context.Context {
-	return context.WithValue(ctx, "lsp_test_config", c)
-}
-
-// GetConfigFromContext retrieves configuration from context
-func GetConfigFromContext(ctx context.Context) *LSPTestConfig {
-	if config, ok := ctx.Value("lsp_test_config").(*LSPTestConfig); ok {
-		return config
-	}
-	return nil
+	return context.WithValue(ctx, lspTestConfigKey, c)
 }

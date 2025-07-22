@@ -119,7 +119,7 @@ func runServer(cmd *cobra.Command, args []string) error {
 	return runServerWithContext(cmd.Context(), cmd, args)
 }
 
-func runServerWithContext(ctx context.Context, cmd *cobra.Command, args []string) error {
+func runServerWithContext(ctx context.Context, _ *cobra.Command, args []string) error {
 	log.Printf("[INFO] Starting LSP Gateway server with config_path=%s\n", configPath)
 
 	if ctx == nil {

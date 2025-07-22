@@ -13,7 +13,7 @@ func TestBasicIntegration(t *testing.T) {
 	suite := testutil.NewIntegrationTestSuite(t, &testutil.IntegrationTestConfig{
 		TestName: "basic_integration",
 		Environment: &testutil.TestEnvironmentConfig{
-			Languages:         []string{"go", "python"},
+			Languages:         []string{"go", "python", "typescript", "javascript", "java"},
 			EnableMockServers: true,
 			EnablePerformance: false,
 		},
@@ -35,7 +35,7 @@ func TestLoadTest(t *testing.T) {
 	suite := testutil.NewIntegrationTestSuite(t, &testutil.IntegrationTestConfig{
 		TestName: "load_test",
 		Environment: &testutil.TestEnvironmentConfig{
-			Languages:         []string{"go", "python", "typescript"},
+			Languages:         []string{"go", "python", "typescript", "javascript", "java"},
 			EnableMockServers: true,
 			EnablePerformance: true,
 		},
@@ -63,7 +63,7 @@ func TestReliability(t *testing.T) {
 	suite := testutil.NewIntegrationTestSuite(t, &testutil.IntegrationTestConfig{
 		TestName: "reliability_test",
 		Environment: &testutil.TestEnvironmentConfig{
-			Languages:         []string{"go"},
+			Languages:         []string{"go", "python", "typescript", "javascript", "java"},
 			EnableMockServers: true,
 			EnablePerformance: false,
 		},
@@ -81,7 +81,7 @@ func TestConcurrency(t *testing.T) {
 	suite := testutil.NewIntegrationTestSuite(t, &testutil.IntegrationTestConfig{
 		TestName: "concurrency_test",
 		Environment: &testutil.TestEnvironmentConfig{
-			Languages:         []string{"go", "python"},
+			Languages:         []string{"go", "python", "typescript", "javascript", "java"},
 			EnableMockServers: true,
 			EnablePerformance: true,
 		},
@@ -175,7 +175,7 @@ func TestCustomRequestPatterns(t *testing.T) {
 	suite := testutil.NewIntegrationTestSuite(t, &testutil.IntegrationTestConfig{
 		TestName: "custom_patterns",
 		Environment: &testutil.TestEnvironmentConfig{
-			Languages:         []string{"go"},
+			Languages:         []string{"go", "python", "typescript", "javascript", "java"},
 			EnableMockServers: true,
 		},
 		RequestPatterns: customPatterns,
@@ -192,7 +192,7 @@ func TestErrorScenarios(t *testing.T) {
 	suite := testutil.NewIntegrationTestSuite(t, &testutil.IntegrationTestConfig{
 		TestName: "error_scenarios",
 		Environment: &testutil.TestEnvironmentConfig{
-			Languages:         []string{"go"},
+			Languages:         []string{"go", "python", "typescript", "javascript", "java"},
 			EnableMockServers: true,
 		},
 	})
@@ -368,7 +368,7 @@ func TestResourceMonitoring(t *testing.T) {
 	suite := testutil.NewIntegrationTestSuite(t, &testutil.IntegrationTestConfig{
 		TestName: "resource_monitoring",
 		Environment: &testutil.TestEnvironmentConfig{
-			Languages:         []string{"go"},
+			Languages:         []string{"go", "python", "typescript", "javascript", "java"},
 			EnableMockServers: true,
 			EnablePerformance: true,
 		},

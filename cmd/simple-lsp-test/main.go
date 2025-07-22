@@ -14,13 +14,13 @@ import (
 
 // Simple configuration structures
 type Config struct {
-	Name    string                  `yaml:"name"`
-	Version string                  `yaml:"version"`
-	Global  GlobalConfig           `yaml:"global"`
-	Servers map[string]ServerConfig `yaml:"servers"`
-	Repositories map[string]RepoConfig `yaml:"repositories"`
-	Features []string               `yaml:"features"`
-	Output  OutputConfig           `yaml:"output"`
+	Name         string                  `yaml:"name"`
+	Version      string                  `yaml:"version"`
+	Global       GlobalConfig            `yaml:"global"`
+	Servers      map[string]ServerConfig `yaml:"servers"`
+	Repositories map[string]RepoConfig   `yaml:"repositories"`
+	Features     []string                `yaml:"features"`
+	Output       OutputConfig            `yaml:"output"`
 }
 
 type GlobalConfig struct {
@@ -49,18 +49,18 @@ type OutputConfig struct {
 
 // Test results structures
 type TestResults struct {
-	Total    int                    `json:"total"`
-	Passed   int                    `json:"passed"`
-	Failed   int                    `json:"failed"`
-	Duration string                 `json:"duration"`
+	Total     int                       `json:"total"`
+	Passed    int                       `json:"passed"`
+	Failed    int                       `json:"failed"`
+	Duration  string                    `json:"duration"`
 	Languages map[string]LanguageResult `json:"languages"`
 }
 
 type LanguageResult struct {
-	Tests   int               `json:"tests"`
-	Passed  int               `json:"passed"`
-	Failed  int               `json:"failed"`
-	Features map[string]int    `json:"features"`
+	Tests    int            `json:"tests"`
+	Passed   int            `json:"passed"`
+	Failed   int            `json:"failed"`
+	Features map[string]int `json:"features"`
 }
 
 func main() {
@@ -151,7 +151,7 @@ func runTests(config *Config, mode string, verbose bool) error {
 		results.Failed += langResult.Failed
 
 		if verbose {
-			fmt.Printf("  %d tests, %d passed, %d failed\n", 
+			fmt.Printf("  %d tests, %d passed, %d failed\n",
 				langResult.Tests, langResult.Passed, langResult.Failed)
 		}
 	}
@@ -198,7 +198,7 @@ func runLanguageTests(config *Config, server ServerConfig, mode string, verbose 
 	for _, feature := range config.Features {
 		// Simulate test execution
 		testCount := testsPerFeature
-		
+
 		// Simple simulation: 85% pass rate
 		passed := int(float64(testCount) * 0.85)
 		failed := testCount - passed
@@ -246,7 +246,7 @@ func generateReports(config *Config, results *TestResults, verbose bool) error {
 
 func generateJSONReport(config *Config, results *TestResults, verbose bool) error {
 	jsonPath := filepath.Join(config.Output.Directory, "test-results.json")
-	
+
 	data, err := json.MarshalIndent(results, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal JSON: %w", err)

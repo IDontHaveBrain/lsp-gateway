@@ -60,10 +60,10 @@ func (v *ReferencesValidator) ValidateResponse(testCase *cases.TestCase, respons
 				Message:     "No references found as expected",
 			})
 		}
-		
+
 		// Validate edge case handling for null responses
 		results = append(results, v.validateEdgeCaseHandling(testCase)...)
-		
+
 		return results
 	}
 
@@ -305,7 +305,6 @@ func (v *ReferencesValidator) validateLSPProtocolCompliance(response json.RawMes
 
 	return results
 }
-
 
 // validateReferenceCompleteness validates completeness of reference results
 func (v *ReferencesValidator) validateReferenceCompleteness(testCase *cases.TestCase, references []ReferenceLocation) []*cases.ValidationResult {

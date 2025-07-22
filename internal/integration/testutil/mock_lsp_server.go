@@ -176,12 +176,18 @@ func runStdioServer() {
 			if err == io.EOF {
 				return
 			}
+			// Log error but continue for robustness
+			fmt.Fprintf(os.Stderr, "Read error: %%v\n", err)
+			time.Sleep(10 * time.Millisecond)
 			continue
 		}
 
 		response := handleMessage(msg)
 		if response != nil {
-			writeMessage(writer, *response)
+			if err := writeMessage(writer, *response); err != nil {
+				fmt.Fprintf(os.Stderr, "Write error: %%v\n", err)
+				time.Sleep(10 * time.Millisecond)
+			}
 		}
 	}
 }
@@ -311,6 +317,7 @@ func handleMessage(msg *LSPMessage) *LSPMessage {
 					"documentSymbolProvider": true,
 					"workspaceSymbolProvider": true,
 					"hoverProvider": true,
+					"textDocumentSync": 1,
 				},
 				"serverInfo": map[string]interface{}{
 					"name":    "mock-%s-lsp",
@@ -320,6 +327,15 @@ func handleMessage(msg *LSPMessage) *LSPMessage {
 		}
 	case "initialized":
 		return nil // No response for notification
+	case "shutdown":
+		return &LSPMessage{
+			JSONRPC: JSONRPCVersion,
+			ID:      msg.ID,
+			Result:  nil,
+		}
+	case "exit":
+		os.Exit(0)
+		return nil
 	case "textDocument/definition":
 		return &LSPMessage{
 			JSONRPC: JSONRPCVersion,
@@ -660,11 +676,94 @@ func (s *MockLSPServer) handleMessage(msg *LSPMessage) *LSPMessage {
 					"documentSymbolProvider":  true,
 					"workspaceSymbolProvider": true,
 					"hoverProvider":           true,
+					"textDocumentSync":        1,
+				},
+				"serverInfo": map[string]interface{}{
+					"name":    fmt.Sprintf("mock-%s-lsp", s.config.Language),
+					"version": "1.0.0",
 				},
 			},
 		}
 	case "initialized":
 		return nil
+	case "shutdown":
+		return &LSPMessage{
+			JSONRPC: "2.0",
+			ID:      msg.ID,
+			Result:  nil,
+		}
+	case "exit":
+		return nil // Don't exit in Go version - let process management handle it
+	case "textDocument/definition":
+		return &LSPMessage{
+			JSONRPC: "2.0",
+			ID:      msg.ID,
+			Result: map[string]interface{}{
+				"uri":    "file:///mock_definition.go",
+				"range": map[string]interface{}{
+					"start": map[string]interface{}{"line": 5, "character": 0},
+					"end":   map[string]interface{}{"line": 5, "character": 10},
+				},
+			},
+		}
+	case "textDocument/hover":
+		return &LSPMessage{
+			JSONRPC: "2.0",
+			ID:      msg.ID,
+			Result: map[string]interface{}{
+				"contents": map[string]interface{}{
+					"kind":  "markdown",
+					"value": fmt.Sprintf("Mock hover for %s", s.config.Language),
+				},
+			},
+		}
+	case "textDocument/references":
+		return &LSPMessage{
+			JSONRPC: "2.0",
+			ID:      msg.ID,
+			Result: []map[string]interface{}{
+				{
+					"uri": "file:///mock_reference.go",
+					"range": map[string]interface{}{
+						"start": map[string]interface{}{"line": 10, "character": 0},
+						"end":   map[string]interface{}{"line": 10, "character": 15},
+					},
+				},
+			},
+		}
+	case "textDocument/documentSymbol":
+		return &LSPMessage{
+			JSONRPC: "2.0",
+			ID:      msg.ID,
+			Result: []map[string]interface{}{
+				{
+					"name": fmt.Sprintf("Mock%sSymbol", cases.Title(language.Und).String(s.config.Language)),
+					"kind": 12, // Function
+					"range": map[string]interface{}{
+						"start": map[string]interface{}{"line": 0, "character": 0},
+						"end":   map[string]interface{}{"line": 10, "character": 0},
+					},
+				},
+			},
+		}
+	case "workspace/symbol":
+		return &LSPMessage{
+			JSONRPC: "2.0",
+			ID:      msg.ID,
+			Result: []map[string]interface{}{
+				{
+					"name": fmt.Sprintf("Mock%sWorkspaceSymbol", cases.Title(language.Und).String(s.config.Language)),
+					"kind": 12, // Function
+					"location": map[string]interface{}{
+						"uri": fmt.Sprintf("file:///mock.%s", getFileExtension(s.config.Language)),
+						"range": map[string]interface{}{
+							"start": map[string]interface{}{"line": 0, "character": 0},
+							"end":   map[string]interface{}{"line": 0, "character": 10},
+						},
+					},
+				},
+			},
+		}
 	default:
 		return &LSPMessage{
 			JSONRPC: "2.0",
@@ -679,11 +778,21 @@ func (s *MockLSPServer) handleMessage(msg *LSPMessage) *LSPMessage {
 
 // Stop stops the mock server and cleans up resources
 func (s *MockLSPServer) Stop() {
+	s.mu.Lock()
 	if !s.isRunning {
+		s.mu.Unlock()
 		return
 	}
+	s.isRunning = false
+	s.mu.Unlock()
 
-	close(s.stopCh)
+	// Close the stop channel if it's not already closed
+	select {
+	case <-s.stopCh:
+		// Already closed
+	default:
+		close(s.stopCh)
+	}
 
 	if s.listener != nil {
 		_ = s.listener.Close()
@@ -699,8 +808,6 @@ func (s *MockLSPServer) Stop() {
 	}
 	s.connections = nil
 	s.mu.Unlock()
-
-	s.isRunning = false
 }
 
 // GetRequestCount returns the total number of requests received

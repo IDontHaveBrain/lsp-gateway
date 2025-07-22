@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -45,6 +46,7 @@ func TestConfigManager(t *testing.T) {
 		}
 		if cfg == nil {
 			t.Error("Expected non-nil config")
+			return
 		}
 		if cfg.Port != 8080 {
 			t.Errorf("Expected port 8080, got %d", cfg.Port)
@@ -317,6 +319,7 @@ func TestServerLifecycleManager(t *testing.T) {
 		slm := NewServerLifecycleManager(0)
 		if slm == nil {
 			t.Error("Expected non-nil ServerLifecycleManager")
+			return
 		}
 		if slm.shutdownTimeout != 30*time.Second {
 			t.Errorf("Expected default timeout 30s, got %v", slm.shutdownTimeout)
@@ -463,17 +466,16 @@ func TestServerLifecycleManager(t *testing.T) {
 	t.Run("RunService_Success", func(t *testing.T) {
 		slm := NewServerLifecycleManager(1 * time.Second)
 
-		startCalled := false
-		stopCalled := false
+		var startCalled, stopCalled int32
 
 		config := ServiceConfig{
 			Name: "test-service",
 			StartFunc: func() error {
-				startCalled = true
+				atomic.StoreInt32(&startCalled, 1)
 				return nil
 			},
 			StopFunc: func() error {
-				stopCalled = true
+				atomic.StoreInt32(&stopCalled, 1)
 				return nil
 			},
 		}
@@ -489,7 +491,7 @@ func TestServerLifecycleManager(t *testing.T) {
 		// Give service time to start
 		time.Sleep(100 * time.Millisecond)
 
-		if !startCalled {
+		if atomic.LoadInt32(&startCalled) == 0 {
 			t.Error("Expected StartFunc to be called")
 		}
 
@@ -505,7 +507,7 @@ func TestServerLifecycleManager(t *testing.T) {
 			t.Error("Service shutdown timed out")
 		}
 
-		if !stopCalled {
+		if atomic.LoadInt32(&stopCalled) == 0 {
 			t.Error("Expected StopFunc to be called")
 		}
 	})

@@ -57,7 +57,7 @@ func NewTestLSPGateway() *TestLSPGateway {
 
 		var result interface{}
 		switch req.Method {
-		case "textDocument/definition":
+		case LSP_METHOD_TEXT_DOCUMENT_DEFINITION:
 			result = []map[string]interface{}{
 				{
 					"uri": "file:///test.go",
@@ -67,7 +67,7 @@ func NewTestLSPGateway() *TestLSPGateway {
 					},
 				},
 			}
-		case "textDocument/references":
+		case LSP_METHOD_TEXT_DOCUMENT_REFERENCES:
 			result = []map[string]interface{}{
 				{
 					"uri": "file:///test.go",

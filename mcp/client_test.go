@@ -164,7 +164,7 @@ func TestSendLSPRequestSuccess(t *testing.T) {
 		if r.Method != "POST" {
 			t.Errorf("Expected POST method, got %s", r.Method)
 		}
-		if r.URL.Path != "/jsonrpc" {
+		if r.URL.Path != JSON_RPC_ENDPOINT {
 			t.Errorf("Expected /jsonrpc path, got %s", r.URL.Path)
 		}
 

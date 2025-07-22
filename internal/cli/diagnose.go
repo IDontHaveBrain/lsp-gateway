@@ -517,7 +517,7 @@ func diagnoseConfig(cmd *cobra.Command, args []string) error {
 	return outputConfigDiagnosticsHuman(results)
 }
 
-func runSystemDiagnostics(ctx context.Context, report *DiagnosticReport) error {
+func runSystemDiagnostics(_ context.Context, report *DiagnosticReport) error {
 	systemResult := DiagnosticResult{
 		Name:      "System Environment",
 		Status:    "passed",
@@ -556,7 +556,7 @@ func runSystemDiagnostics(ctx context.Context, report *DiagnosticReport) error {
 	return nil
 }
 
-func runRuntimeDiagnostics(ctx context.Context, report *DiagnosticReport) error {
+func runRuntimeDiagnostics(_ context.Context, report *DiagnosticReport) error {
 	runtimeInstaller := installer.NewRuntimeInstaller()
 	if runtimeInstaller == nil {
 		report.Results = append(report.Results, DiagnosticResult{
@@ -664,7 +664,7 @@ func runRuntimeDiagnostics(ctx context.Context, report *DiagnosticReport) error 
 	return nil
 }
 
-func runServerDiagnostics(ctx context.Context, report *DiagnosticReport) error {
+func runServerDiagnostics(_ context.Context, report *DiagnosticReport) error {
 	runtimeInstaller := installer.NewRuntimeInstaller()
 	serverInstaller := installer.NewServerInstaller(runtimeInstaller)
 
@@ -1054,7 +1054,7 @@ func getColoredStatus(status string) string {
 	}
 }
 
-func getColoredCount(count int, status string) string {
+func getColoredCount(count int, _ string) string {
 	if count == 0 {
 		return "0"
 	}

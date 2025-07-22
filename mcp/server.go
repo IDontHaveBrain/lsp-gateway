@@ -567,7 +567,15 @@ func (s *Server) validateMessageStructure(msg *MCPMessage) error {
 	}
 
 	if msg.Params != nil {
-		paramsBytes, _ := json.Marshal(msg.Params)
+		paramsBytes, err := json.Marshal(msg.Params)
+		if err != nil {
+			return &MessageValidationError{
+				Field:   MCPValidationFieldParams,
+				Reason:  MCPValidationReasonInvalidFormat,
+				Value:   "unmarshalable",
+				Message: fmt.Sprintf("Failed to marshal params: %v", err),
+			}
+		}
 		if len(paramsBytes) > s.protocolLimits.MaxParamsSize {
 			return &MessageValidationError{
 				Field:   MCPValidationFieldParams,
@@ -706,7 +714,10 @@ func (s *Server) attemptRecovery(reader *bufio.Reader, originalErr error) bool {
 func (s *Server) handleInitializeWithValidation(ctx context.Context, msg MCPMessage) error {
 	var params InitializeParams
 	if msg.Params != nil {
-		paramBytes, _ := json.Marshal(msg.Params)
+		paramBytes, err := json.Marshal(msg.Params)
+		if err != nil {
+			return s.sendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, fmt.Sprintf("Failed to marshal initialize params: %v", err))
+		}
 		if err := json.Unmarshal(paramBytes, &params); err != nil {
 			return s.sendError(msg.ID, JSONRPCErrorCodeInvalidParams, JSONRPCErrorMessageInvalidParams, fmt.Sprintf("Failed to parse initialize params: %v", err))
 		}
@@ -756,7 +767,10 @@ func (s *Server) handleCallToolWithValidation(ctx context.Context, msg MCPMessag
 
 	var call ToolCall
 	if msg.Params != nil {
-		paramBytes, _ := json.Marshal(msg.Params)
+		paramBytes, err := json.Marshal(msg.Params)
+		if err != nil {
+			return s.sendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, fmt.Sprintf("Failed to marshal tool call params: %v", err))
+		}
 		if err := json.Unmarshal(paramBytes, &call); err != nil {
 			return s.sendError(msg.ID, JSONRPCErrorCodeInvalidParams, JSONRPCErrorMessageInvalidParams, fmt.Sprintf("Failed to parse tool call params: %v", err))
 		}

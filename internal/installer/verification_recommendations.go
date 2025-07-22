@@ -257,7 +257,7 @@ func (r *DefaultRuntimeInstaller) generatePathRecommendations(runtime string, is
 	return recommendations
 }
 
-func (r *DefaultRuntimeInstaller) generateConfigurationRecommendations(runtime string, issues []types.Issue) []string {
+func (r *DefaultRuntimeInstaller) generateConfigurationRecommendations(_ string, issues []types.Issue) []string {
 	recommendations := []string{}
 
 	for _, issue := range issues {
@@ -270,7 +270,7 @@ func (r *DefaultRuntimeInstaller) generateConfigurationRecommendations(runtime s
 	return recommendations
 }
 
-func (r *DefaultRuntimeInstaller) generateCorruptionRecommendations(runtime string, issues []types.Issue) []string {
+func (r *DefaultRuntimeInstaller) generateCorruptionRecommendations(runtime string, _ []types.Issue) []string {
 	recommendations := []string{}
 
 	recommendations = append(recommendations, fmt.Sprintf("Reinstall %s to fix corruption issues", runtime))
@@ -297,7 +297,7 @@ func (r *DefaultRuntimeInstaller) getCriticalIssueActions(runtime string) []stri
 	return actions
 }
 
-func (r *DefaultRuntimeInstaller) getPlatformSpecificRecommendations(runtime string) []string {
+func (r *DefaultRuntimeInstaller) getPlatformSpecificRecommendations(_ string) []string {
 	recommendations := []string{}
 
 	currentPlatform := platform.GetCurrentPlatform()

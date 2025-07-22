@@ -137,7 +137,7 @@ func init() {
 	rootCmd.AddCommand(setupCmd)
 }
 
-func setupAll(cmd *cobra.Command, args []string) error {
+func setupAll(cmd *cobra.Command, _ []string) error {
 
 	cmd.Println("=======================================================")
 	cmd.Println("  LSP Gateway Manual Setup Guide")
@@ -177,7 +177,7 @@ func setupAll(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func setupWizard(cmd *cobra.Command, args []string) error {
+func setupWizard(cmd *cobra.Command, _ []string) error {
 
 	if cmd.Flags().Changed("no-interactive") {
 		setupInteractive = false

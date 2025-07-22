@@ -16,4 +16,7 @@ const (
 	ERROR_MARSHAL_MESSAGE                = "failed to marshal message: %w"
 	ERROR_READ_MESSAGE_BODY              = "failed to read message body: %w"
 	ERROR_INVALID_CONTENT_LENGTH         = "invalid Content-Length: %s"
+
+	// LSP method constants
+	LSP_METHOD_TEXT_DOCUMENT_DEFINITION = "textDocument/definition"
 )

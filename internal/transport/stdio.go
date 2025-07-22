@@ -324,13 +324,29 @@ func (c *StdioClient) handleResponse(msg JSONRPCMessage) {
 
 	idStr := fmt.Sprintf("%v", msg.ID)
 
-	// Use TryRLock to avoid deadlock during shutdown
-	if !c.mu.TryRLock() {
-		log.Printf("Skipping response handling for ID %v due to shutdown", msg.ID)
+	// Use regular RLock with timeout to handle potential deadlocks
+	done := make(chan struct{})
+	var respCh chan json.RawMessage
+	var exists bool
+	
+	go func() {
+		defer close(done)
+		c.mu.RLock()
+		defer c.mu.RUnlock()
+		respCh, exists = c.requests[idStr]
+	}()
+
+	// Wait for lock acquisition with timeout
+	select {
+	case <-done:
+		// Lock acquired successfully
+	case <-time.After(100 * time.Millisecond):
+		log.Printf("Timeout acquiring lock for response ID %v, skipping", msg.ID)
+		return
+	case <-c.stopCh:
+		log.Printf("Client stopping, skipping response for ID %v", msg.ID)
 		return
 	}
-	respCh, exists := c.requests[idStr]
-	c.mu.RUnlock()
 
 	if !exists {
 		log.Printf("Received response for unknown request ID: %v", msg.ID)
@@ -339,11 +355,39 @@ func (c *StdioClient) handleResponse(msg JSONRPCMessage) {
 
 	var result json.RawMessage
 	if msg.Error != nil {
-		errorData, _ := json.Marshal(msg.Error)
-		result = errorData
+		errorData, err := json.Marshal(msg.Error)
+		if err != nil {
+			log.Printf("Failed to marshal error response for ID %v: %v", msg.ID, err)
+			// Create fallback error response
+			fallbackError := map[string]interface{}{
+				"code":    -32603,
+				"message": "Internal error: failed to marshal response",
+			}
+			if errorData, fallbackErr := json.Marshal(fallbackError); fallbackErr == nil {
+				result = errorData
+			} else {
+				result = []byte(`{"code":-32603,"message":"Internal error"}`)
+			}
+		} else {
+			result = errorData
+		}
 	} else {
-		resultData, _ := json.Marshal(msg.Result)
-		result = resultData
+		resultData, err := json.Marshal(msg.Result)
+		if err != nil {
+			log.Printf("Failed to marshal result response for ID %v: %v", msg.ID, err)
+			// Create fallback error response
+			fallbackError := map[string]interface{}{
+				"code":    -32603,
+				"message": "Internal error: failed to marshal result",
+			}
+			if errorData, fallbackErr := json.Marshal(fallbackError); fallbackErr == nil {
+				result = errorData
+			} else {
+				result = []byte(`{"code":-32603,"message":"Internal error"}`)
+			}
+		} else {
+			result = resultData
+		}
 	}
 
 	select {
@@ -419,22 +463,52 @@ func (c *StdioClient) logStderr() {
 	}
 }
 
-// Circuit breaker methods - using atomic operations to avoid deadlock
+// Circuit breaker methods - using timeout-based locking to avoid deadlock
 func (c *StdioClient) recordError() {
-	// Use TryLock to avoid deadlock during shutdown
-	if c.mu.TryLock() {
+	// Use timeout-based locking to avoid deadlock during shutdown
+	done := make(chan struct{})
+	
+	go func() {
+		defer close(done)
+		c.mu.Lock()
 		c.errorCount++
 		c.lastErrorTime = time.Now()
 		c.mu.Unlock()
+	}()
+	
+	select {
+	case <-done:
+		// Lock acquired and error recorded
+	case <-time.After(50 * time.Millisecond):
+		// Timeout - log but don't block
+		log.Printf("Timeout recording error, continuing")
+	case <-c.stopCh:
+		// Client stopping
+		return
 	}
 }
 
 func (c *StdioClient) resetErrorCount() {
-	// Don't take lock if we're already in a critical section
-	if c.mu.TryLock() {
+	// Use timeout-based locking to avoid deadlock
+	done := make(chan struct{})
+	
+	go func() {
+		defer close(done)
+		c.mu.Lock()
 		c.errorCount = 0
 		c.circuitOpen = false
 		c.mu.Unlock()
+	}()
+	
+	select {
+	case <-done:
+		// Lock acquired and count reset
+	case <-time.After(50 * time.Millisecond):
+		// Timeout - log but don't block
+		log.Printf("Timeout resetting error count, continuing")
+	case <-c.stopCh:
+		// Client stopping
+		return
 	}
 }
 
@@ -445,19 +519,36 @@ func (c *StdioClient) openCircuit() {
 }
 
 func (c *StdioClient) isCircuitOpen() bool {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	// Circuit breaker: open if too many errors in short time
-	if c.circuitOpen {
-		// Try to close circuit after 30 seconds
-		if time.Since(c.lastErrorTime) > 30*time.Second {
-			c.circuitOpen = false
-			c.errorCount = 0
+	// Use timeout-based locking for consistency
+	done := make(chan bool, 1)
+	
+	go func() {
+		c.mu.RLock()
+		defer c.mu.RUnlock()
+		
+		// Circuit breaker: open if too many errors in short time
+		if c.circuitOpen {
+			// Try to close circuit after 30 seconds
+			if time.Since(c.lastErrorTime) > 30*time.Second {
+				c.circuitOpen = false
+				c.errorCount = 0
+			}
 		}
+		
+		done <- c.circuitOpen || c.errorCount > c.maxRetries
+	}()
+	
+	select {
+	case result := <-done:
+		return result
+	case <-time.After(50 * time.Millisecond):
+		// Timeout - assume circuit is closed to allow operation
+		log.Printf("Timeout checking circuit breaker state, assuming closed")
+		return false
+	case <-c.stopCh:
+		// Client stopping - circuit is effectively open
+		return true
 	}
-
-	return c.circuitOpen || c.errorCount > c.maxRetries
 }
 
 func (c *StdioClient) calculateBackoff(attempt int) time.Duration {
