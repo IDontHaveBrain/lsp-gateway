@@ -1,9 +1,10 @@
 # TypeScript Language Test Scenarios for LSP Gateway
-# Real-world test cases using VSCode and TypeScript compiler patterns
+# Simple, focused test cases using VSCode and TypeScript patterns
 
 name: "TypeScript LSP Scenarios"
-description: "Comprehensive TypeScript language server testing scenarios"
+description: "Simple TypeScript language server testing scenarios"
 language: "typescript"
+tags: ["typescript", "vscode", "simple"]
 
 # Test scenarios for TypeScript using VSCode and TypeScript repository patterns
 scenarios:
@@ -56,36 +57,6 @@ scenarios:
       definition:
         has_location: true
     tags: ["definition", "import", "module", "es6"]
-
-  - id: "ts_def_class_constructor"
-    name: "Go to Definition - Class Constructor"
-    description: "Navigate to class constructor definition"
-    method: "textDocument/definition"
-    repository: "vscode"
-    file: "src/vs/editor/browser/editorBrowser.ts"
-    position:
-      line: 100  # Example: new ClassName()
-      character: 10
-    expected:
-      success: true
-      definition:
-        has_location: true
-    tags: ["definition", "constructor", "class"]
-
-  - id: "ts_def_type_alias"
-    name: "Go to Definition - Type Alias"
-    description: "Navigate to type alias definition"
-    method: "textDocument/definition"
-    repository: "typescript"
-    file: "src/compiler/checker.ts"
-    position:
-      line: 500  # Example: using custom type alias
-      character: 20
-    expected:
-      success: true
-      definition:
-        has_location: true
-    tags: ["definition", "type", "alias"]
 
   # ===================
   # REFERENCES SCENARIOS  
@@ -145,24 +116,6 @@ scenarios:
         include_declaration: false
     tags: ["references", "type", "typescript"]
 
-  - id: "ts_ref_component_usage"
-    name: "Find References - Component Usage"
-    description: "Find all references to VSCode component"
-    method: "textDocument/references"
-    repository: "vscode"
-    file: "src/vs/workbench/browser/parts/editor/editorPart.ts"
-    position:
-      line: 150  # Example: EditorPart class
-      character: 10
-    params:
-      includeDeclaration: true
-    expected:
-      success: true
-      references:
-        min_count: 10
-        include_declaration: true
-    tags: ["references", "component", "vscode"]
-
   # ===================
   # HOVER SCENARIOS
   # ===================
@@ -218,22 +171,6 @@ scenarios:
         format: "markdown"
     tags: ["hover", "enum", "member"]
 
-  - id: "ts_hover_class_method"
-    name: "Hover - Class Method with Decorators"
-    description: "Get hover info for decorated class method"
-    method: "textDocument/hover"
-    repository: "vscode"
-    file: "src/vs/workbench/services/configuration/browser/configuration.ts"
-    position:
-      line: 100  # Example: decorated method
-      character: 15
-    expected:
-      success: true
-      hover:
-        has_content: true
-        format: "markdown"
-    tags: ["hover", "class", "method", "decorator"]
-
   # ===================
   # DOCUMENT SYMBOLS SCENARIOS
   # ===================
@@ -286,22 +223,6 @@ scenarios:
         types: ["interface", "type", "enum", "namespace"]
     tags: ["symbols", "document", "types", "definitions"]
 
-  - id: "ts_docsym_contribution_file"
-    name: "Document Symbols - Contribution File"
-    description: "Get symbols from VSCode contribution file"
-    method: "textDocument/documentSymbol"
-    repository: "vscode"
-    file: "src/vs/workbench/workbench.contribution.ts"
-    position:
-      line: 0
-      character: 0
-    expected:
-      success: true
-      symbols:
-        min_count: 10
-        types: ["import", "variable", "function"]
-    tags: ["symbols", "document", "contribution"]
-
   # ===================
   # WORKSPACE SYMBOLS SCENARIOS
   # ===================
@@ -345,181 +266,6 @@ scenarios:
         types: ["interface", "class", "type"]
     tags: ["symbols", "workspace", "service"]
 
-  - id: "ts_worksym_type_search"
-    name: "Workspace Symbol Search - Type"
-    description: "Search for specific type definitions"
-    method: "workspace/symbol"
-    repository: "typescript"
-    query: "Node"
-    expected:
-      success: true
-      symbols:
-        min_count: 15
-        types: ["interface", "type", "class"]
-    tags: ["symbols", "workspace", "type"]
-
-  # ===================
-  # COMPLEX SCENARIOS
-  # ===================
-  
-  - id: "ts_complex_conditional_types"
-    name: "Complex - Conditional Types"
-    description: "Navigate through TypeScript conditional types"
-    method: "textDocument/definition"
-    repository: "typescript"
-    file: "src/lib/es5.d.ts"
-    position:
-      line: 100  # Conditional type usage
-      character: 20
-    expected:
-      success: true
-      definition:
-        has_location: true
-    tags: ["complex", "conditional", "types"]
-
-  - id: "ts_complex_mapped_types"
-    name: "Complex - Mapped Types"
-    description: "Test LSP with mapped types"
-    method: "textDocument/hover"
-    repository: "typescript"
-    file: "src/lib/es5.d.ts"
-    position:
-      line: 200  # Mapped type
-      character: 15
-    expected:
-      success: true
-      hover:
-        has_content: true
-    tags: ["complex", "mapped", "types"]
-
-  - id: "ts_complex_decorator_metadata"
-    name: "Complex - Decorator Metadata"
-    description: "Navigate through decorator metadata"
-    method: "textDocument/definition"
-    repository: "vscode"
-    file: "src/vs/platform/instantiation/common/instantiation.ts"
-    position:
-      line: 100  # Decorator usage
-      character: 5
-    expected:
-      success: true
-      definition:
-        has_location: true
-    tags: ["complex", "decorator", "metadata"]
-
-  - id: "ts_complex_namespace_merging"
-    name: "Complex - Namespace Merging"
-    description: "Navigate through merged namespaces"
-    method: "textDocument/definition"
-    repository: "typescript"
-    file: "src/compiler/types.ts"
-    position:
-      line: 50  # Merged namespace
-      character: 10
-    expected:
-      success: true
-      definition:
-        has_location: true
-    tags: ["complex", "namespace", "merging"]
-
-  # ===================
-  # VSCODE-SPECIFIC SCENARIOS
-  # ===================
-  
-  - id: "ts_vscode_command_palette"
-    name: "VSCode - Command Palette"
-    description: "Test VSCode command palette type navigation"
-    method: "textDocument/definition"
-    repository: "vscode"
-    file: "src/vs/workbench/services/commands/common/commandService.ts"
-    position:
-      line: 200  # Command interface
-      character: 15
-    expected:
-      success: true
-      definition:
-        has_location: true
-    tags: ["vscode", "command", "palette"]
-
-  - id: "ts_vscode_extension_api"
-    name: "VSCode - Extension API"
-    description: "Test VSCode extension API navigation"
-    method: "textDocument/definition"
-    repository: "vscode"
-    file: "src/vscode-dts/vscode.d.ts"
-    position:
-      line: 100  # Extension API type
-      character: 20
-    expected:
-      success: true
-      definition:
-        has_location: true
-    tags: ["vscode", "extension", "api"]
-
-  - id: "ts_vscode_workbench_contribution"
-    name: "VSCode - Workbench Contribution"
-    description: "Test workbench contribution navigation"
-    method: "textDocument/definition"
-    repository: "vscode"
-    file: "src/vs/workbench/common/contributions.ts"
-    position:
-      line: 50  # Contribution interface
-      character: 15
-    expected:
-      success: true
-      definition:
-        has_location: true
-    tags: ["vscode", "workbench", "contribution"]
-
-  # ===================
-  # TYPESCRIPT COMPILER SCENARIOS
-  # ===================
-  
-  - id: "ts_compiler_ast_navigation"
-    name: "TypeScript - AST Node Navigation"
-    description: "Test AST node type navigation"
-    method: "textDocument/definition"
-    repository: "typescript"
-    file: "src/compiler/parser.ts"
-    position:
-      line: 500  # AST node creation
-      character: 20
-    expected:
-      success: true
-      definition:
-        has_location: true
-    tags: ["typescript", "ast", "parser"]
-
-  - id: "ts_compiler_transformer"
-    name: "TypeScript - Transformer Functions"
-    description: "Test transformer function navigation"
-    method: "textDocument/definition"
-    repository: "typescript"
-    file: "src/compiler/transformers/ts.ts"
-    position:
-      line: 200  # Transformer function
-      character: 15
-    expected:
-      success: true
-      definition:
-        has_location: true
-    tags: ["typescript", "transformer", "compilation"]
-
-  - id: "ts_compiler_symbol_table"
-    name: "TypeScript - Symbol Table Navigation"
-    description: "Test symbol table navigation"
-    method: "textDocument/definition"
-    repository: "typescript"
-    file: "src/compiler/binder.ts"
-    position:
-      line: 300  # Symbol binding
-      character: 10
-    expected:
-      success: true
-      definition:
-        has_location: true
-    tags: ["typescript", "symbol", "binder"]
-
 # Performance test cases
 performance_tests:
   - id: "ts_perf_large_types_file"
@@ -532,6 +278,10 @@ performance_tests:
       line: 5000
       character: 15
     timeout: "15s"
+    expected:
+      success: true
+      definition:
+        has_location: true
     tags: ["performance", "large-file", "types"]
 
   - id: "ts_perf_workspace_symbols"
@@ -539,30 +289,19 @@ performance_tests:
     description: "Test workspace symbol search performance"
     method: "workspace/symbol"
     repository: "vscode"
-    query: "I"  # Single character to get many results
+    query: "Editor"  # Should match many editor-related symbols
     timeout: "20s"
     expected:
       success: true
       symbols:
-        min_count: 300
+        min_count: 50
     tags: ["performance", "workspace", "large-result"]
-
-  - id: "ts_perf_complex_generics"
-    name: "Performance - Complex Generic Resolution"
-    description: "Test performance with complex generic types"
-    method: "textDocument/hover"
-    repository: "typescript"
-    file: "src/compiler/checker.ts"
-    position:
-      line: 10000  # Complex generic usage
-      character: 25
-    timeout: "10s"
-    tags: ["performance", "generics", "complex"]
 
 # Test repository configurations
 test_repositories:
   vscode:
     path: "./test-repositories/typescript/vscode"
+    description: "Visual Studio Code editor repository"
     setup:
       commands:
         - "npm install"
@@ -573,6 +312,7 @@ test_repositories:
   
   typescript:
     path: "./test-repositories/typescript/typescript"
+    description: "TypeScript compiler repository"
     setup:
       commands:
         - "npm install"

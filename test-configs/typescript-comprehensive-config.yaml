@@ -1,0 +1,547 @@
+# Comprehensive TypeScript Language Server Configuration
+# Enterprise-level LSP testing configuration for TypeScript/JavaScript
+# Target: typescript-language-server with VS Code 1.96+, TypeScript 5.6+, Angular 18+
+
+name: "TypeScript Comprehensive LSP Testing"
+description: "Advanced TypeScript/JavaScript language server validation with real-world scenarios"
+version: "2.0.0"
+timeout: 45m
+parallel: true
+tags: ["typescript", "javascript", "comprehensive", "enterprise"]
+
+# Advanced TypeScript language server configuration
+servers:
+  tsserver:
+    name: "typescript-language-server"
+    language: "typescript"
+    command: "typescript-language-server"
+    args: ["--stdio", "--log-level=info"]
+    transport: "stdio"
+    start_timeout: 60s
+    shutdown_timeout: 30s
+    initialize_delay: 2s
+    pre_warmup: true
+    
+    # Advanced initialization options
+    init_options:
+      # TypeScript preferences for enhanced LSP features
+      preferences:
+        includeInlayParameterNameHints: "all"
+        includeInlayVariableTypeHints: true
+        includeInlayPropertyDeclarationTypeHints: true
+        includeInlayFunctionParameterTypeHints: true
+        includeInlayEnumMemberValueHints: true
+        includeInlayFunctionLikeReturnTypeHints: true
+        includeCompletionsForModuleExports: true
+        includeCompletionsForImportStatements: true
+        allowIncompleteCompletions: true
+        allowRenameOfImportPath: true
+        providePrefixAndSuffixTextForRename: true
+        allowTextChangesInNewFiles: true
+        provideRefactorNotApplicableReason: true
+        
+      # TypeScript server configuration
+      tsserver:
+        logLevel: "info"
+        logVerbosity: "normal"
+        maxTsServerMemory: 8192  # 8GB limit for large projects
+        useSyntaxServer: "auto"
+        useSeparateSyntaxServer: true
+        fallbackPolling: "dynamicPriority"
+        watchOptions:
+          watchFile: "useFsEvents"
+          watchDirectory: "useFsEvents"
+          excludeDirectories: 
+            - "**/node_modules"
+            - "**/bower_components" 
+            - "**/.git"
+            - "**/dist"
+            - "**/build"
+            - "**/.vscode"
+        
+        # Plugins for enhanced functionality
+        plugins:
+          - name: "@angular/language-server"
+            enableForWorkspaceTypeScriptVersions: true
+          - name: "typescript-styled-plugin"
+            options:
+              tags: ["styled", "css"]
+              validate: true
+              lint:
+                validProperties: []
+          - name: "typescript-immer-plugin"
+          - name: "typescript-plugin-css-modules"
+            options:
+              classnameTransform: "camelCaseOnly"
+              customMatcher: "\\.module\\.(c|le|sa|sc)ss$"
+        
+      # Host configuration
+      hostInfo: "vscode"
+      locale: "en"
+      processId: null
+      rootPath: null
+      clientInfo:
+        name: "lsp-gateway-test"
+        version: "2.0.0"
+        
+    # Supported LSP capabilities with advanced features
+    capabilities:
+      - "textDocument/definition"
+      - "textDocument/declaration"
+      - "textDocument/typeDefinition"
+      - "textDocument/implementation"
+      - "textDocument/references"
+      - "textDocument/hover"
+      - "textDocument/documentSymbol"
+      - "textDocument/documentHighlight"
+      - "textDocument/codeAction"
+      - "textDocument/codeLens"
+      - "textDocument/completion"
+      - "textDocument/signatureHelp"
+      - "textDocument/rename"
+      - "textDocument/prepareRename"
+      - "textDocument/formatting"
+      - "textDocument/rangeFormatting"
+      - "textDocument/onTypeFormatting"
+      - "textDocument/foldingRange"
+      - "textDocument/selectionRange"
+      - "textDocument/linkedEditingRange"
+      - "textDocument/callHierarchy/incomingCalls"
+      - "textDocument/callHierarchy/outgoingCalls"
+      - "textDocument/semanticTokens/full"
+      - "textDocument/semanticTokens/range"
+      - "textDocument/inlayHint"
+      - "workspace/symbol"
+      - "workspace/executeCommand"
+      - "workspace/applyEdit"
+      - "workspace/willRenameFiles"
+      - "workspace/didChangeWatchedFiles"
+
+# Comprehensive repository configurations
+repositories:
+  # VS Code repository - Primary TypeScript codebase
+  - name: "vscode-primary"
+    path: "./test-repositories/typescript/vscode"
+    language: "typescript"
+    description: "Visual Studio Code - Enterprise TypeScript/JavaScript codebase"
+    priority: "high"
+    
+    setup:
+      commands:
+        - "node --version && npm --version"
+        - "npm ci --no-audit --prefer-offline"
+        - "npm run compile"
+        - "npm run compile-extension-host"
+        - "npm run compile-web"
+        - "npm run watch-web &"  # Background compilation
+      timeout: 25m
+      parallel: true
+      env:
+        NODE_ENV: "development"
+        VSCODE_DEV: "1"
+        NODE_OPTIONS: "--max-old-space-size=8192 --enable-source-maps"
+        ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+        npm_config_cache: ".npm-cache"
+        
+    # Comprehensive test cases for VS Code patterns
+    test_cases:
+      # Definition tests - Advanced TypeScript patterns
+      - id: "vscode_def_service_locator"
+        name: "VSCode Definition - Service Locator Pattern"
+        method: "textDocument/definition"
+        file: "src/vs/platform/instantiation/common/serviceCollection.ts"
+        position:
+          line: 45  # ServiceCollection class definition
+          character: 20
+        expected:
+          success: true
+          definition:
+            has_location: true
+            file_pattern: "src/vs/platform/"
+        tags: ["definition", "service-locator", "dependency-injection"]
+        timeout: 10s
+        
+      - id: "vscode_def_generic_constraint_complex"
+        name: "VSCode Definition - Complex Generic Constraints"
+        method: "textDocument/definition"
+        file: "src/vs/base/common/lifecycle.ts"
+        position:
+          line: 85  # Generic constraint with multiple bounds
+          character: 35
+        expected:
+          success: true
+          definition:
+            has_location: true
+        tags: ["definition", "generic", "constraint", "bounds"]
+        
+      - id: "vscode_def_workbench_contribution"
+        name: "VSCode Definition - Workbench Contribution"
+        method: "textDocument/definition"
+        file: "src/vs/workbench/common/contributions.ts"
+        position:
+          line: 120  # IWorkbenchContribution interface
+          character: 25
+        expected:
+          success: true
+          definition:
+            has_location: true
+        tags: ["definition", "workbench", "contribution", "interface"]
+        
+      # References tests - Cross-module navigation
+      - id: "vscode_ref_event_emitter_pattern"
+        name: "VSCode References - Event Emitter Pattern"
+        method: "textDocument/references"
+        file: "src/vs/base/common/event.ts"
+        position:
+          line: 200  # Emitter class usage
+          character: 15
+        params:
+          includeDeclaration: true
+        expected:
+          success: true
+          references:
+            min_count: 150  # Widely used pattern
+            include_declaration: true
+        tags: ["references", "event-emitter", "pattern", "reactive"]
+        timeout: 20s
+        
+      - id: "vscode_ref_command_registry"
+        name: "VSCode References - Command Registry"
+        method: "textDocument/references"
+        file: "src/vs/platform/commands/common/commands.ts"
+        position:
+          line: 100  # CommandsRegistry usage
+          character: 20
+        params:
+          includeDeclaration: true
+        expected:
+          success: true
+          references:
+            min_count: 100
+            include_declaration: true
+        tags: ["references", "command", "registry", "platform"]
+        
+      # Hover tests - Rich type information
+      - id: "vscode_hover_editor_api"
+        name: "VSCode Hover - Editor API Documentation"
+        method: "textDocument/hover"
+        file: "src/vs/editor/common/core/editOperation.ts"
+        position:
+          line: 50  # EditOperation class
+          character: 20
+        expected:
+          success: true
+          hover:
+            has_content: true
+            contains: ["EditOperation", "range", "text", "@param"]
+            format: "markdown"
+        tags: ["hover", "editor-api", "documentation", "jsdoc"]
+        
+      - id: "vscode_hover_keybinding_service"
+        name: "VSCode Hover - Keybinding Service Types"
+        method: "textDocument/hover"
+        file: "src/vs/platform/keybinding/common/keybinding.ts"
+        position:
+          line: 150  # IKeybindingService interface
+          character: 25
+        expected:
+          success: true
+          hover:
+            has_content: true
+            contains: ["IKeybindingService", "interface", "keybinding"]
+            format: "markdown"
+        tags: ["hover", "keybinding", "service", "interface"]
+        
+      # Document symbols tests
+      - id: "vscode_docsym_extension_host"
+        name: "VSCode Document Symbols - Extension Host"
+        method: "textDocument/documentSymbol"
+        file: "src/vs/workbench/api/common/extHost.ts"
+        expected:
+          success: true
+          symbols:
+            min_count: 40  # Complex extension host file
+            types: ["class", "interface", "method", "property", "function"]
+        tags: ["symbols", "document", "extension-host", "api"]
+        timeout: 15s
+        
+      # Workspace symbols tests
+      - id: "vscode_worksym_configuration_service"
+        name: "VSCode Workspace Symbols - Configuration"
+        method: "workspace/symbol"
+        query: "Configuration"
+        expected:
+          success: true
+          symbols:
+            min_count: 50  # Many configuration-related symbols
+            types: ["class", "interface", "type", "enum"]
+        tags: ["symbols", "workspace", "configuration", "service"]
+        timeout: 25s
+
+  # TypeScript compiler repository
+  - name: "typescript-compiler"
+    path: "./test-repositories/typescript/typescript"
+    language: "typescript"
+    description: "TypeScript Compiler - Advanced language features"
+    priority: "high"
+    
+    setup:
+      commands:
+        - "npm ci --no-audit"
+        - "npm run build"
+        - "npm run build:compiler"
+        - "npm run build:services"
+      timeout: 20m
+      env:
+        NODE_ENV: "development"
+        NODE_OPTIONS: "--max-old-space-size=6144"
+        
+    test_cases:
+      # Advanced TypeScript compiler tests
+      - id: "ts_compiler_type_checker"
+        name: "TypeScript Compiler - Type Checker Navigation"
+        method: "textDocument/definition"
+        file: "src/compiler/checker.ts"
+        position:
+          line: 1500  # checkExpression function
+          character: 25
+        expected:
+          success: true
+          definition:
+            has_location: true
+        tags: ["definition", "compiler", "type-checker", "inference"]
+        timeout: 15s
+        
+      - id: "ts_compiler_ast_transformer"
+        name: "TypeScript Compiler - AST Transformer"
+        method: "textDocument/references"
+        file: "src/compiler/transformers/ts.ts"
+        position:
+          line: 800  # transformSourceFile function
+          character: 30
+        params:
+          includeDeclaration: true
+        expected:
+          success: true
+          references:
+            min_count: 20
+            include_declaration: true
+        tags: ["references", "compiler", "ast", "transformer"]
+        
+      - id: "ts_compiler_emit_resolver"
+        name: "TypeScript Compiler - Emit Resolver"
+        method: "textDocument/hover"
+        file: "src/compiler/emitter.ts"
+        position:
+          line: 2000  # createEmitResolver function
+          character: 20
+        expected:
+          success: true
+          hover:
+            has_content: true
+            contains: ["EmitResolver", "function", "compiler"]
+        tags: ["hover", "compiler", "emit", "resolver"]
+
+  # Angular framework repository
+  - name: "angular-framework"
+    path: "./test-repositories/typescript/angular"
+    language: "typescript"
+    description: "Angular Framework - Modern TypeScript patterns"
+    priority: "medium"
+    
+    setup:
+      commands:
+        - "npm ci --no-audit"
+        - "npm run build"
+        - "npm run build -- packages/core"
+        - "npm run build -- packages/common"
+      timeout: 30m
+      env:
+        NODE_ENV: "development"
+        NODE_OPTIONS: "--max-old-space-size=8192"
+        NG_BUILD_CACHE: "1"
+        
+    test_cases:
+      # Angular-specific TypeScript patterns
+      - id: "angular_def_dependency_injection"
+        name: "Angular Definition - Dependency Injection"
+        method: "textDocument/definition"
+        file: "packages/core/src/di/injector.ts"
+        position:
+          line: 250  # Injector.get method with generic
+          character: 20
+        expected:
+          success: true
+          definition:
+            has_location: true
+            file_pattern: "packages/core/src/"
+        tags: ["definition", "angular", "dependency-injection", "generic"]
+        
+      - id: "angular_ref_component_decorator"
+        name: "Angular References - Component Decorator"
+        method: "textDocument/references"
+        file: "packages/core/src/metadata/directives.ts"
+        position:
+          line: 300  # Component decorator definition
+          character: 15
+        params:
+          includeDeclaration: true
+        expected:
+          success: true
+          references:
+            min_count: 50  # Used throughout Angular
+            include_declaration: true
+        tags: ["references", "angular", "decorator", "component"]
+        
+      - id: "angular_hover_reactive_forms"
+        name: "Angular Hover - Reactive Forms Type"
+        method: "textDocument/hover"
+        file: "packages/forms/src/model/form_control.ts"
+        position:
+          line: 100  # FormControl generic type
+          character: 25
+        expected:
+          success: true
+          hover:
+            has_content: true
+            contains: ["FormControl", "generic", "AbstractControl"]
+            format: "markdown"
+        tags: ["hover", "angular", "forms", "reactive", "type-safety"]
+
+# Execution configuration optimized for comprehensive testing
+execution:
+  max_concurrency: 3  # Balanced for resource usage
+  default_timeout: 120s
+  retry_attempts: 3
+  retry_delay: 5s
+  fail_fast: false
+  randomize_order: false
+  keep_servers_alive: true
+  warm_up_duration: 30s
+  
+  # Resource management
+  memory_limit: "12GB"
+  cpu_limit: "8"
+  disk_space_limit: "50GB"
+  
+  # Progressive timeout strategy
+  timeout_strategy: "progressive"
+  timeout_multipliers:
+    definition: 1.0
+    references: 2.0
+    hover: 0.8
+    document_symbols: 2.5
+    workspace_symbols: 3.0
+
+# Advanced validation configuration
+validation:
+  strict_mode: true
+  validate_types: true
+  validate_positions: true
+  validate_uris: true
+  validate_ranges: true
+  validate_content_changes: true
+  
+  # TypeScript-specific validations
+  typescript_validations:
+    check_syntax: true
+    check_semantics: true
+    check_type_annotations: true
+    check_import_resolution: true
+    check_declaration_maps: true
+    
+  # Performance validations
+  performance_validations:
+    max_response_time: "30s"
+    max_memory_usage: "2GB"
+    max_cpu_usage: "80%"
+    
+  # Quality validations
+  quality_validations:
+    min_definition_accuracy: 95
+    min_reference_completeness: 90
+    min_hover_information_quality: 85
+    min_symbol_extraction_completeness: 90
+
+# Comprehensive reporting configuration
+reporting:
+  formats: ["console", "json", "junit", "html", "markdown"]
+  output_dir: "typescript-comprehensive-results"
+  verbose: true
+  include_timing: true
+  include_memory_usage: true
+  include_performance_metrics: true
+  save_details: true
+  
+  # Report sections
+  sections:
+    - "executive_summary"
+    - "test_results"
+    - "performance_analysis"
+    - "error_analysis"
+    - "recommendations"
+    - "detailed_logs"
+    
+  # Export formats
+  exports:
+    - format: "csv"
+      file: "test_results.csv"
+    - format: "xlsx"
+      file: "comprehensive_report.xlsx"
+    - format: "pdf"
+      file: "executive_summary.pdf"
+
+# Environment configuration
+environment:
+  LSP_TEST_MODE: "comprehensive"
+  LSP_TIMEOUT_MULTIPLIER: "2"
+  LSP_LOG_LEVEL: "INFO"
+  LSP_TRACE_LEVEL: "verbose"
+  NODE_ENV: "development"
+  TYPESCRIPT_LOG_LEVEL: "info"
+  VSCODE_TSJS_EXPERIMENTAL: "1"
+  
+  # Node.js optimizations
+  NODE_OPTIONS: "--max-old-space-size=8192 --enable-source-maps --unhandled-rejections=strict"
+  UV_THREADPOOL_SIZE: "16"
+  
+  # TypeScript specific
+  TSC_NONPOLLING_WATCHER: "1"
+  TSC_WATCHFILE: "useFsEvents"
+  TSC_WATCHDIRECTORY: "useFsEvents"
+
+# Advanced scenario configurations
+scenario_configurations:
+  # Performance-focused scenarios
+  performance_scenarios:
+    enabled: true
+    timeout_multiplier: 3.0
+    memory_monitoring: true
+    cpu_monitoring: true
+    
+  # Stress testing scenarios
+  stress_scenarios:
+    enabled: true
+    concurrent_operations: 10
+    large_file_threshold: "10MB"
+    deep_nesting_threshold: 20
+    
+  # Real-world scenarios
+  real_world_scenarios:
+    enabled: true
+    use_actual_projects: true
+    simulate_user_interactions: true
+
+# Cleanup and maintenance
+cleanup:
+  remove_temp_files: true
+  preserve_logs_on_failure: true
+  cleanup_timeout: 60s
+  max_log_size: "100MB"
+  log_retention_days: 7
+  
+  # Post-test cleanup
+  post_test_cleanup:
+    - "npm cache clean --force"
+    - "rm -rf node_modules/.cache"
+    - "rm -rf dist/temp"

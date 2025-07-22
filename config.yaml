@@ -1,4 +1,14 @@
+# Simple LSP Gateway Configuration
+# References simple-test-repositories.yaml for test repositories
+
 port: 8080
+
+# Test repository configuration
+repositories:
+  config_file: "simple-test-repositories.yaml"
+  base_directory: "./test-repositories"
+
+# LSP Server configurations
 servers:
   - name: "go-lsp"
     languages: ["go"]
@@ -23,3 +33,9 @@ servers:
     command: "jdtls"
     args: []
     transport: "stdio"
+
+# Simple test configuration
+testing:
+  scenarios: ["basic", "standard"]
+  timeout_seconds: 30
+  parallel_execution: true

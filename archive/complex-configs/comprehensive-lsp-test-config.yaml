@@ -1,0 +1,673 @@
+# Comprehensive LSP Test Configuration Master
+# Centralized configuration for orchestrating all LSP testing across languages and features
+# This configuration coordinates comprehensive testing scenarios, performance benchmarks, 
+# and validation across all supported languages and LSP features
+
+name: "Comprehensive LSP Test Suite Master Configuration"
+description: "Master orchestration configuration for comprehensive LSP server validation across all languages"
+version: "1.0"
+timeout: 60m
+parallel: true
+tags: ["comprehensive", "master", "orchestration", "all-languages"]
+
+# Global test execution settings
+global:
+  max_concurrency: 4  # One per language by default
+  resource_limits:
+    memory_limit_mb: 2048
+    cpu_cores: 4
+    disk_space_mb: 5120
+  
+  timeouts:
+    server_start: 60s
+    test_execution: 120s
+    validation: 30s
+    cleanup: 15s
+  
+  retry_policy:
+    max_attempts: 3
+    retry_delay: 5s
+    backoff_multiplier: 2
+    timeout_multiplier: 1.5
+
+# Test execution modes configuration
+execution_modes:
+  quick:
+    description: "Quick validation tests for CI/CD"
+    timeout: 15m
+    concurrency: 2
+    include_benchmarks: false
+    include_integration: false
+    skip_performance: true
+    test_count_limit: 25
+    
+  comprehensive:
+    description: "Full comprehensive test suite"
+    timeout: 60m
+    concurrency: 4
+    include_benchmarks: true
+    include_integration: true
+    skip_performance: false
+    
+  benchmark:
+    description: "Performance and benchmark focused testing"
+    timeout: 45m
+    concurrency: 2
+    include_benchmarks: true
+    include_integration: false
+    focus_on_performance: true
+    
+  filtered:
+    description: "Filtered testing based on criteria"
+    timeout: 30m
+    concurrency: 2
+    include_benchmarks: false
+    include_integration: true
+
+# Language server configurations for all supported languages
+servers:
+  # Go Language Server
+  gopls:
+    name: "gopls"
+    language: "go" 
+    command: "gopls"
+    transport: "stdio"
+    start_timeout: 20s
+    shutdown_timeout: 10s
+    pre_warmup: true
+    initialize_delay: 2s
+    health_check_interval: 30s
+    max_restarts: 3
+    init_options:
+      usePlaceholders: true
+      completeUnimported: true
+      staticcheck: true
+      analyses:
+        fillstruct: true
+        nonewvars: true
+        noimports: true
+      codelenses:
+        generate: true
+        test: true
+        tidy: true
+    feature_support:
+      definition: true
+      references: true
+      hover: true
+      document_symbol: true
+      workspace_symbol: true
+    performance_thresholds:
+      definition: 3s
+      references: 8s
+      hover: 2s
+      document_symbol: 5s
+      workspace_symbol: 10s
+
+  # Python Language Server  
+  pylsp:
+    name: "python-lsp-server"
+    language: "python"
+    command: "pylsp"
+    transport: "stdio"
+    start_timeout: 30s
+    shutdown_timeout: 15s
+    pre_warmup: true
+    initialize_delay: 3s
+    health_check_interval: 45s
+    max_restarts: 3
+    init_options:
+      plugins:
+        flake8:
+          enabled: true
+        mypy:
+          enabled: true
+          live_mode: true
+        pylsp_mypy:
+          enabled: true
+        pycodestyle:
+          enabled: true
+          maxLineLength: 120
+        pydocstyle:
+          enabled: true
+        pylint:
+          enabled: false  # Can be slow
+        rope:
+          enabled: true
+    feature_support:
+      definition: true
+      references: true
+      hover: true
+      document_symbol: true
+      workspace_symbol: true
+    performance_thresholds:
+      definition: 4s
+      references: 10s
+      hover: 3s
+      document_symbol: 7s
+      workspace_symbol: 15s
+
+  # TypeScript Language Server
+  tsserver:
+    name: "typescript-language-server"
+    language: "typescript"
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    transport: "stdio"
+    start_timeout: 25s
+    shutdown_timeout: 10s
+    pre_warmup: true
+    initialize_delay: 2s
+    health_check_interval: 30s
+    max_restarts: 3
+    init_options:
+      preferences:
+        includeInlayParameterNameHints: "all"
+        includeInlayPropertyDeclarationTypeHints: true
+        includeInlayVariableTypeHints: true
+        includeInlayEnumMemberValueHints: true
+        includeInlayFunctionLikeReturnTypeHints: true
+        includeInlayFunctionParameterTypeHints: true
+      typescript:
+        format:
+          enable: true
+        suggest:
+          autoImports: true
+          completeFunctionCalls: true
+    feature_support:
+      definition: true
+      references: true
+      hover: true
+      document_symbol: true
+      workspace_symbol: true
+    performance_thresholds:
+      definition: 3s
+      references: 8s
+      hover: 2s
+      document_symbol: 6s
+      workspace_symbol: 12s
+
+  # Java Language Server (Eclipse JDT LS)
+  jdtls:
+    name: "jdtls"
+    language: "java"
+    command: "jdtls"
+    transport: "stdio"
+    start_timeout: 60s
+    shutdown_timeout: 20s
+    pre_warmup: true
+    initialize_delay: 8s
+    health_check_interval: 60s
+    max_restarts: 2
+    init_options:
+      settings:
+        java:
+          compile:
+            nullAnalysis:
+              mode: "automatic"
+          completion:
+            enabled: true
+            maxResults: 50
+            favoriteStaticMembers:
+              - "org.junit.jupiter.api.Assertions.*"
+              - "org.mockito.Mockito.*"
+          format:
+            enabled: true
+          saveActions:
+            organizeImports: true
+          signatureHelp:
+            enabled: true
+          codeGeneration:
+            generateComments: true
+            useBlocks: true
+    feature_support:
+      definition: true
+      references: true
+      hover: true
+      document_symbol: true
+      workspace_symbol: true
+    performance_thresholds:
+      definition: 8s
+      references: 15s
+      hover: 5s
+      document_symbol: 10s
+      workspace_symbol: 20s
+
+# Repository configurations for comprehensive testing
+repositories:
+  # Primary scenario test repositories
+  go_scenarios:
+    name: "go-comprehensive-scenarios"
+    path: "./internal/testing/lsp/scenarios/testdata/go"
+    language: "go"
+    description: "Go comprehensive test scenarios with Kubernetes patterns"
+    priority: "high"
+    setup:
+      commands:
+        - "go mod init lsp-comprehensive-test"
+        - "go mod tidy"
+        - "go build -o /dev/null ./..."
+      timeout: 5m
+      validate_build: true
+    categories: ["scenarios", "primary"]
+    
+  python_scenarios:
+    name: "python-comprehensive-scenarios"
+    path: "./internal/testing/lsp/scenarios/testdata/python"
+    language: "python"
+    description: "Python comprehensive test scenarios with Django patterns"
+    priority: "high"
+    setup:
+      commands:
+        - "python -m venv .venv"
+        - "source .venv/bin/activate && pip install django requests pytest"
+      timeout: 8m
+      validate_build: false
+    categories: ["scenarios", "primary"]
+    
+  typescript_scenarios:
+    name: "typescript-comprehensive-scenarios"
+    path: "./internal/testing/lsp/scenarios/testdata/typescript"
+    language: "typescript"
+    description: "TypeScript comprehensive test scenarios with VSCode patterns"
+    priority: "high"
+    setup:
+      commands:
+        - "npm init -y"
+        - "npm install --save-dev typescript @types/vscode @types/node"
+        - "npx tsc --init --target es2020 --module commonjs"
+      timeout: 6m
+      validate_build: true
+    categories: ["scenarios", "primary"]
+    
+  java_scenarios:
+    name: "java-comprehensive-scenarios"
+    path: "./internal/testing/lsp/scenarios/testdata/java"
+    language: "java"
+    description: "Java comprehensive test scenarios with Spring Boot patterns"
+    priority: "high"
+    setup:
+      commands:
+        - "mkdir -p src/main/java/com/example/lsp src/main/resources src/test/java"
+        - "echo 'plugins { id \"java\" }' > build.gradle"
+        - "gradle wrapper --gradle-version 7.6"
+      timeout: 10m
+      validate_build: true
+    categories: ["scenarios", "primary"]
+
+  # Real-world repository integration (when available)
+  kubernetes_real:
+    name: "kubernetes-real-integration"
+    path: "./test-repositories/go/kubernetes"
+    language: "go"
+    description: "Real Kubernetes repository integration testing"
+    priority: "medium"
+    skip_if_missing: true
+    setup:
+      commands:
+        - "go mod download"
+        - "make all"
+      timeout: 15m
+      validate_build: true
+    categories: ["integration", "real-world"]
+    
+  django_real:
+    name: "django-real-integration"
+    path: "./test-repositories/python/django"
+    language: "python"
+    description: "Real Django repository integration testing"
+    priority: "medium"
+    skip_if_missing: true
+    setup:
+      commands:
+        - "python -m venv .venv"
+        - "source .venv/bin/activate && pip install -e ."
+      timeout: 12m
+      validate_build: false
+    categories: ["integration", "real-world"]
+
+# Comprehensive test suites organized by feature and complexity
+test_suites:
+  # Core LSP feature validation suites
+  core_features:
+    name: "Core LSP Feature Validation"
+    description: "Comprehensive validation of all 5 core LSP features across all languages"
+    priority: "critical"
+    execution_mode: "parallel"
+    timeout: 30m
+    
+    feature_matrix:
+      definition:
+        description: "Go to Definition validation across all languages"
+        methods: ["textDocument/definition"]
+        languages: ["go", "python", "typescript", "java"]
+        test_cases_per_language: 8
+        performance_critical: true
+        
+      references:
+        description: "Find References validation across all languages"  
+        methods: ["textDocument/references"]
+        languages: ["go", "python", "typescript", "java"]
+        test_cases_per_language: 6
+        performance_critical: true
+        
+      hover:
+        description: "Hover Information validation across all languages"
+        methods: ["textDocument/hover"] 
+        languages: ["go", "python", "typescript", "java"]
+        test_cases_per_language: 5
+        performance_critical: false
+        
+      document_symbols:
+        description: "Document Symbol validation across all languages"
+        methods: ["textDocument/documentSymbol"]
+        languages: ["go", "python", "typescript", "java"]
+        test_cases_per_language: 4
+        performance_critical: false
+        
+      workspace_symbols:
+        description: "Workspace Symbol Search validation across all languages"
+        methods: ["workspace/symbol"]
+        languages: ["go", "python", "typescript", "java"] 
+        test_cases_per_language: 3
+        performance_critical: true
+
+  # Performance and benchmark suites
+  performance_benchmarks:
+    name: "LSP Performance Benchmarks"
+    description: "Performance benchmarking and stress testing for all LSP features"
+    priority: "high"
+    execution_mode: "sequential"  # Avoid resource contention
+    timeout: 45m
+    
+    benchmark_categories:
+      response_time:
+        description: "Response time benchmarks for all methods"
+        metrics: ["p50", "p95", "p99", "max"]
+        target_duration: "15m"
+        
+      throughput:
+        description: "Request throughput benchmarks"
+        concurrent_requests: [1, 5, 10, 20]
+        target_duration: "10m"
+        
+      memory_usage:
+        description: "Memory usage tracking during operations"
+        monitor_gc: true
+        target_duration: "10m"
+        
+      large_workspace:
+        description: "Large workspace performance testing"
+        min_files: 1000
+        target_duration: "10m"
+
+  # Integration and cross-language suites
+  integration_tests:
+    name: "Cross-Language Integration Tests"
+    description: "Multi-language workspace and integration testing"
+    priority: "medium"
+    execution_mode: "mixed"
+    timeout: 25m
+    
+    scenarios:
+      multi_language_workspace:
+        description: "Test LSP servers in multi-language workspaces"
+        languages: ["go", "python", "typescript", "java"]
+        workspace_type: "mixed"
+        
+      server_lifecycle:
+        description: "Server startup, shutdown, and recovery testing"
+        test_crashes: true
+        test_restarts: true
+        test_timeouts: true
+
+# Filtering and execution control
+filters:
+  language_filters:
+    go_only: 
+      languages: ["go"]
+      description: "Execute Go language tests only"
+      
+    python_only:
+      languages: ["python"] 
+      description: "Execute Python language tests only"
+      
+    typescript_only:
+      languages: ["typescript"]
+      description: "Execute TypeScript language tests only"
+      
+    java_only:
+      languages: ["java"]
+      description: "Execute Java language tests only"
+      
+    compiled_languages:
+      languages: ["go", "java"]
+      description: "Execute compiled language tests only"
+      
+    interpreted_languages:
+      languages: ["python", "typescript"]
+      description: "Execute interpreted language tests only"
+
+  feature_filters:
+    navigation_features:
+      methods: ["textDocument/definition", "textDocument/references"]
+      description: "Navigation-focused LSP features"
+      
+    information_features:
+      methods: ["textDocument/hover", "textDocument/documentSymbol", "workspace/symbol"]
+      description: "Information and symbol-focused LSP features"
+      
+    performance_critical:
+      performance_critical: true
+      description: "Performance-critical LSP features only"
+
+  test_type_filters:
+    scenarios_only:
+      categories: ["scenarios"]
+      description: "Scenario-based tests only"
+      
+    integration_only:
+      categories: ["integration"]
+      description: "Integration tests only"
+      
+    real_world_only:
+      categories: ["real-world"]
+      description: "Real-world repository tests only"
+
+# Validation and quality assurance configuration
+validation:
+  strict_mode: true
+  validate_types: true
+  validate_positions: true
+  validate_uris: true
+  validate_performance_thresholds: true
+  
+  quality_gates:
+    minimum_pass_rate: 95.0
+    maximum_performance_regression: 20.0
+    required_coverage_features: ["definition", "references", "hover"]
+    required_coverage_languages: ["go", "python", "typescript", "java"]
+    
+  custom_validations:
+    - name: "cross_language_consistency"
+      description: "Validate consistent behavior across languages"
+      enabled: true
+      
+    - name: "performance_baseline_compliance" 
+      description: "Validate performance meets baseline requirements"
+      enabled: true
+      baseline_file: "./test-results/performance-baseline.json"
+
+# Comprehensive reporting configuration
+reporting:
+  formats: ["console", "json", "junit", "html", "markdown"]
+  output_dir: "test-results/comprehensive-lsp-tests"
+  
+  console:
+    verbose: true
+    show_progress: true
+    colored_output: true
+    include_timing: true
+    
+  json:
+    pretty: true
+    include_raw_responses: false
+    include_validation_details: true
+    
+  junit:
+    merge_suites: false
+    include_system_out: true
+    include_properties: true
+    
+  html:
+    template: "comprehensive"
+    include_graphs: true
+    include_performance_charts: true
+    interactive: true
+    
+  markdown:
+    include_summary: true
+    include_details: true
+    include_recommendations: true
+
+  # Advanced reporting features
+  performance_analysis:
+    enabled: true
+    generate_charts: true
+    trend_analysis: true
+    regression_detection: true
+    baseline_comparison: true
+    
+  coverage_analysis:
+    enabled: true
+    feature_coverage: true
+    language_coverage: true
+    method_coverage: true
+    
+  quality_metrics:
+    enabled: true
+    calculate_reliability_score: true
+    calculate_performance_score: true
+    calculate_compatibility_score: true
+
+# Environment and dependency configuration
+environment:
+  variables:
+    LSP_TEST_MODE: "comprehensive"
+    LSP_TIMEOUT_MULTIPLIER: "2"
+    LSP_LOG_LEVEL: "INFO"  
+    LSP_MEMORY_LIMIT: "2048M"
+    LSP_CONCURRENT_LIMIT: "4"
+    
+  # Language-specific environment setup
+  language_environments:
+    go:
+      GOROOT: "/usr/local/go"
+      GOPATH: "./go-workspace"
+      GO111MODULE: "on"
+      GOPROXY: "direct"
+      
+    python:
+      PYTHON_PATH: "/usr/bin/python3"
+      VIRTUAL_ENV_PATH: "./.venv"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+      
+    typescript:
+      NODE_PATH: "/usr/local/lib/node_modules"
+      TS_NODE_COMPILER_OPTIONS: '{"target":"es2020"}'
+      NPM_CONFIG_FUND: "false"
+      
+    java:
+      JAVA_HOME: "/usr/lib/jvm/java-17-openjdk"
+      MAVEN_OPTS: "-Xmx1024m"
+      GRADLE_OPTS: "-Xmx1024m -Dorg.gradle.daemon=false"
+
+# Resource management and cleanup
+resource_management:
+  workspace_cleanup:
+    cleanup_after_test: true
+    preserve_on_failure: true
+    cleanup_timeout: 30s
+    
+  server_lifecycle:
+    graceful_shutdown_timeout: 10s
+    force_kill_timeout: 5s
+    restart_delay: 2s
+    
+  memory_management:
+    monitor_usage: true
+    gc_between_tests: true
+    memory_threshold_mb: 1536
+    
+  disk_management:
+    monitor_usage: true
+    cleanup_temp_files: true
+    disk_threshold_mb: 1024
+
+# Integration with existing infrastructure
+integration:
+  makefile_targets:
+    quick_tests: "test-lsp-comprehensive-quick"
+    full_tests: "test-lsp-comprehensive-full"
+    benchmark_tests: "test-lsp-comprehensive-benchmark"
+    
+  ci_cd:
+    github_actions_compatible: true
+    generate_artifacts: true
+    fail_fast: false
+    
+  existing_scripts:
+    leverage_existing_validation: true
+    integrate_with_performance_tests: true
+    use_existing_benchmarks: true
+
+# Extensibility configuration
+extensibility:
+  plugin_support:
+    enabled: true
+    plugin_directory: "./test-plugins"
+    
+  custom_validators:
+    enabled: true
+    validator_directory: "./custom-validators"
+    
+  custom_reporters:
+    enabled: true
+    reporter_directory: "./custom-reporters"
+    
+  hooks:
+    pre_test_suite: []
+    post_test_suite: []
+    pre_language_test: []
+    post_language_test: []
+    on_test_failure: []
+
+# Metadata and versioning
+metadata:
+  config_version: "1.0"
+  framework_version: "2.0"
+  supported_lsp_version: "3.17"
+  created_by: "comprehensive-test-orchestrator"
+  created_at: "2025-07-22"
+  last_updated: "2025-07-22"
+  
+  supported_features:
+    - "textDocument/definition"
+    - "textDocument/references" 
+    - "textDocument/hover"
+    - "textDocument/documentSymbol"
+    - "workspace/symbol"
+    
+  supported_languages:
+    - name: "Go"
+      server: "gopls"
+      version: "v0.14+"
+    - name: "Python"
+      server: "python-lsp-server"
+      version: "1.7+"
+    - name: "TypeScript"
+      server: "typescript-language-server"
+      version: "4.0+"  
+    - name: "Java"
+      server: "eclipse.jdt.ls"
+      version: "1.28+"

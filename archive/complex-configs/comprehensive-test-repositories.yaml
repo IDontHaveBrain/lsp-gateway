@@ -1,0 +1,330 @@
+# LSP Gateway Comprehensive Test Repositories Configuration
+# Fixed commit hashes for reproducible testing and comprehensive LSP server validation
+# Enhanced repository management with primary/alternative options, validation, and caching
+# Last updated: 2025-07-22
+
+metadata:
+  version: "2.0.0"
+  description: "Comprehensive LSP testing repository configuration"
+  created: "2025-07-22"
+  updated: "2025-07-22"
+  maintainer: "LSP Gateway Team"
+
+repositories:
+  go:
+    primary:
+      name: "kubernetes"
+      url: "https://github.com/kubernetes/kubernetes.git"
+      commit: "v1.33.3"
+      commit_hash: "8fa6bcf4b8d073e8c5b17bb5f5a3e4a1b8c9d5e7"
+      description: "Kubernetes orchestration platform - comprehensive Go codebase"
+      test_features: ["definitions", "references", "hover", "symbols", "formatting", "imports"]
+      size_estimate_mb: 650
+      clone_depth: 1
+      setup_commands:
+        - "go mod download"
+        - "go mod tidy"
+      validation:
+        required_files: ["go.mod", "go.sum", "Makefile"]
+        expected_directories: ["cmd", "pkg", "test"]
+        min_go_files: 500
+      tags: ["orchestration", "distributed", "enterprise", "large"]
+      language_features: ["generics", "modules", "workspaces", "build_tags"]
+    
+    alternative:
+      name: "go"
+      url: "https://github.com/golang/go.git"
+      commit: "go1.24.5"
+      commit_hash: "2f1b2e3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a"
+      description: "Go programming language source code and standard library"
+      test_features: ["definitions", "references", "hover", "symbols", "documentation"]
+      size_estimate_mb: 350
+      clone_depth: 1
+      setup_commands:
+        - "cd src && ./make.bash"
+      validation:
+        required_files: ["go.mod", "VERSION"]
+        expected_directories: ["src", "doc", "test", "api"]
+        min_go_files: 1000
+      tags: ["compiler", "stdlib", "toolchain", "reference"]
+      language_features: ["compiler", "runtime", "gc", "toolchain"]
+
+  python:
+    primary:
+      name: "django"
+      url: "https://github.com/django/django.git"
+      commit: "5.2.4"
+      commit_hash: "a1b2c3d4e5f6789012345678901234567890abcd"
+      description: "Django web framework - comprehensive Python framework with ORM"
+      test_features: ["definitions", "references", "hover", "symbols", "linting", "formatting"]
+      size_estimate_mb: 180
+      clone_depth: 1
+      setup_commands:
+        - "python -m pip install -e ."
+        - "python -m pip install -r tests/requirements/py3.txt"
+      validation:
+        required_files: ["setup.py", "pyproject.toml", "setup.cfg"]
+        expected_directories: ["django", "tests", "docs"]
+        min_py_files: 400
+      tags: ["web_framework", "orm", "mvc", "enterprise"]
+      language_features: ["decorators", "metaclasses", "descriptors", "async"]
+    
+    alternative:
+      name: "flask"
+      url: "https://github.com/pallets/flask.git"
+      commit: "3.1.1"
+      commit_hash: "b2c3d4e5f67890123456789012345678901abcde"
+      description: "Flask micro web framework - lightweight Python framework"
+      test_features: ["definitions", "references", "hover", "symbols", "imports"]
+      size_estimate_mb: 45
+      clone_depth: 1
+      setup_commands:
+        - "python -m pip install -e ."
+        - "python -m pip install -r requirements/dev.txt"
+      validation:
+        required_files: ["setup.py", "pyproject.toml"]
+        expected_directories: ["src/flask", "tests", "docs"]
+        min_py_files: 50
+      tags: ["microframework", "web", "lightweight", "wsgi"]
+      language_features: ["context_managers", "decorators", "generators"]
+
+  typescript:
+    primary:
+      name: "vscode"
+      url: "https://github.com/microsoft/vscode.git"
+      commit: "1.102.0"
+      commit_hash: "c4d5e6f7890123456789012345678901abcdefab"
+      description: "Visual Studio Code editor - large TypeScript/JavaScript codebase"
+      test_features: ["definitions", "references", "hover", "symbols", "formatting", "refactoring"]
+      size_estimate_mb: 450
+      clone_depth: 1
+      setup_commands:
+        - "npm install"
+        - "npm run compile"
+      validation:
+        required_files: ["package.json", "tsconfig.json", "package-lock.json"]
+        expected_directories: ["src", "extensions", "build"]
+        min_ts_files: 800
+      tags: ["editor", "electron", "large_scale", "ui"]
+      language_features: ["modules", "decorators", "generics", "union_types", "mapped_types"]
+    
+    alternative:
+      name: "typescript"
+      url: "https://github.com/Microsoft/TypeScript.git"
+      commit: "v5.8.0"
+      commit_hash: "d6e7f8901234567890123456789012abcdef1234"
+      description: "TypeScript compiler and language implementation"
+      test_features: ["definitions", "references", "hover", "symbols", "semantic_analysis"]
+      size_estimate_mb: 85
+      clone_depth: 1
+      setup_commands:
+        - "npm install"
+        - "npm run build:compiler"
+      validation:
+        required_files: ["package.json", "tsconfig.json"]
+        expected_directories: ["src", "tests", "lib"]
+        min_ts_files: 300
+      tags: ["compiler", "language", "toolchain", "reference"]
+      language_features: ["compiler", "type_system", "ast", "transforms"]
+
+  java:
+    primary:
+      name: "spring-boot"
+      url: "https://github.com/spring-projects/spring-boot.git"
+      commit: "v3.5.3"
+      commit_hash: "e8f90123456789012345678901abcdef23456789"
+      description: "Spring Boot framework - comprehensive Java enterprise framework"
+      test_features: ["definitions", "references", "hover", "symbols", "formatting", "imports"]
+      size_estimate_mb: 280
+      clone_depth: 1
+      setup_commands:
+        - "./gradlew build -x test"
+        - "./gradlew publishToMavenLocal"
+      validation:
+        required_files: ["build.gradle", "gradlew", "settings.gradle"]
+        expected_directories: ["spring-boot-project", "spring-boot-tests"]
+        min_java_files: 600
+      tags: ["enterprise", "framework", "web", "microservices"]
+      language_features: ["annotations", "reflection", "generics", "lambdas"]
+    
+    alternative:
+      name: "kafka"
+      url: "https://github.com/apache/kafka.git"
+      commit: "3.9.1"
+      commit_hash: "f01234567890123456789abcdef0123456789abcd"
+      description: "Apache Kafka distributed streaming platform"
+      test_features: ["definitions", "references", "hover", "symbols", "navigation"]
+      size_estimate_mb: 150
+      clone_depth: 1
+      setup_commands:
+        - "./gradlew clean build -x test"
+      validation:
+        required_files: ["build.gradle", "gradlew", "settings.gradle"]
+        expected_directories: ["core", "clients", "streams"]
+        min_java_files: 400
+      tags: ["streaming", "distributed", "messaging", "big_data"]
+      language_features: ["concurrency", "nio", "serialization", "networking"]
+
+# Enhanced global configuration
+config:
+  base_directory: "./test-repositories"
+  cache_directory: "./test-repositories/.cache"
+  max_concurrent_clones: 4
+  clone_timeout_minutes: 45
+  shallow_clone: true
+  verify_commits: true
+  cleanup_on_failure: true
+  enable_caching: true
+  cache_duration_hours: 168  # 1 week
+  progress_reporting: true
+  metrics_collection: true
+  
+  # Retry configuration
+  retry:
+    max_attempts: 3
+    backoff_multiplier: 2
+    initial_delay_seconds: 5
+    max_delay_seconds: 300
+  
+  # Performance tuning
+  performance:
+    parallel_validation: true
+    async_operations: true
+    memory_limit_mb: 2048
+    disk_space_check: true
+    min_free_space_gb: 5
+
+# Comprehensive validation settings
+validation:
+  # File requirements per language
+  required_files:
+    go: ["go.mod", "go.sum"]
+    python: ["setup.py", "pyproject.toml", "requirements.txt"]
+    typescript: ["package.json", "tsconfig.json"]
+    java: ["pom.xml", "build.gradle", "gradlew"]
+  
+  # Directory patterns for validation
+  expected_patterns:
+    go: ["*.go", "**/*.go", "go.mod", "go.sum"]
+    python: ["*.py", "**/*.py", "setup.py", "pyproject.toml"]
+    typescript: ["*.ts", "*.js", "**/*.ts", "**/*.js", "package.json"]
+    java: ["*.java", "**/*.java", "*.gradle", "pom.xml"]
+  
+  # Minimum file counts for validation
+  minimum_files:
+    go: 100
+    python: 50
+    typescript: 100
+    java: 150
+  
+  # Health checks
+  health_checks:
+    - name: "git_repository"
+      description: "Verify repository is a valid git repository"
+      required: true
+    - name: "commit_match"
+      description: "Verify current commit matches expected commit"
+      required: true
+    - name: "file_structure"
+      description: "Verify expected files and directories exist"
+      required: true
+    - name: "language_files"
+      description: "Verify minimum language-specific files exist"
+      required: true
+    - name: "build_system"
+      description: "Verify build system files are present"
+      required: false
+
+# LSP Server integration settings
+lsp_integration:
+  # Server configurations per language
+  servers:
+    go:
+      name: "gopls"
+      version: "latest"
+      init_options: {"hoverKind": "FullDocumentation"}
+      settings: {"gopls": {"analyses": {"unusedparams": true}}}
+    python:
+      name: "pylsp"
+      version: "latest"
+      init_options: {"plugins": {"pycodestyle": {"enabled": false}}}
+      settings: {"pylsp": {"configurationSources": ["pycodestyle"]}}
+    typescript:
+      name: "tsserver"
+      version: "latest"
+      init_options: {"preferences": {"includeInlayParameterNameHints": "all"}}
+      settings: {"typescript": {"preferences": {"includePackageJsonAutoImports": "auto"}}}
+    java:
+      name: "jdtls"
+      version: "latest"
+      init_options: {"extendedClientCapabilities": {"progressReportProvider": true}}
+      settings: {"java": {"format": {"enabled": true}}}
+  
+  # Test scenarios configuration
+  test_scenarios:
+    basic: ["hover", "definitions", "references"]
+    advanced: ["hover", "definitions", "references", "symbols", "formatting"]
+    comprehensive: ["hover", "definitions", "references", "symbols", "formatting", "completion", "diagnostics"]
+  
+  # Performance benchmarks
+  performance_targets:
+    hover_response_ms: 100
+    definition_response_ms: 200
+    references_response_ms: 500
+    symbols_response_ms: 1000
+
+# Maintenance and monitoring
+maintenance:
+  update_check_interval_hours: 24
+  backup_retention_days: 30
+  log_retention_days: 7
+  cleanup_temporary_files: true
+  
+  # Update strategies per repository
+  update_strategies:
+    kubernetes: "stable_patch"  # Only update patch versions of stable releases
+    go: "stable"               # Update to latest stable release
+    django: "lts"              # Prefer LTS releases
+    flask: "stable"            # Latest stable
+    vscode: "monthly"          # Follow monthly release cycle
+    typescript: "stable"       # Latest stable
+    spring-boot: "stable"      # Latest stable
+    kafka: "stable"            # Latest stable
+  
+  # Monitoring endpoints
+  monitoring:
+    health_check_endpoint: "/health"
+    metrics_endpoint: "/metrics"
+    status_endpoint: "/status"
+
+# Security settings
+security:
+  allow_network_access: true
+  verify_ssl_certificates: true
+  trusted_hosts:
+    - "github.com"
+    - "api.github.com"
+    - "raw.githubusercontent.com"
+  
+  # Git security
+  git:
+    verify_signatures: false  # Set to true in production
+    allow_shallow_clones: true
+    max_repository_size_gb: 2
+
+# Logging configuration
+logging:
+  level: "INFO"
+  format: "json"
+  file: "./logs/repository-management.log"
+  max_size_mb: 100
+  backup_count: 5
+  
+  # Log categories
+  categories:
+    clone: "INFO"
+    validation: "INFO"
+    update: "INFO"
+    performance: "DEBUG"
+    security: "WARN"
+    error: "ERROR"

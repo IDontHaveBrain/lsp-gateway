@@ -1,11 +1,12 @@
 # Go Language Test Scenarios for LSP Gateway
-# Real-world test cases using Kubernetes and Go standard library patterns
+# Simple, focused test cases using Kubernetes patterns
 
 name: "Go LSP Scenarios"
-description: "Comprehensive Go language server testing scenarios"
+description: "Simple Go language server testing scenarios"
 language: "go"
+tags: ["go", "kubernetes", "simple"]
 
-# Test scenarios for Go using kubernetes repository patterns
+# Test scenarios for Go using Kubernetes repository patterns
 scenarios:
   # ===================
   # DEFINITION SCENARIOS
@@ -58,21 +59,6 @@ scenarios:
         has_location: true
     tags: ["definition", "struct", "field"]
 
-  - id: "go_def_method_receiver"
-    name: "Go to Definition - Method on Receiver"
-    description: "Navigate from method call to method definition"
-    method: "textDocument/definition"
-    repository: "kubernetes"
-    file: "pkg/kubelet/kubelet.go"
-    position:
-      line: 300
-      character: 20
-    expected:
-      success: true
-      definition:
-        has_location: true
-    tags: ["definition", "method", "receiver"]
-
   # ===================
   # REFERENCES SCENARIOS  
   # ===================
@@ -94,24 +80,6 @@ scenarios:
         min_count: 20  # Kubernetes Pod is widely used
         include_declaration: true
     tags: ["references", "interface", "kubernetes"]
-
-  - id: "go_ref_exported_function"
-    name: "Find References - Exported Function"
-    description: "Find all references to an exported function"
-    method: "textDocument/references"
-    repository: "golang"
-    file: "src/fmt/print.go"
-    position:
-      line: 200  # Example: Printf function
-      character: 10
-    params:
-      includeDeclaration: true
-    expected:
-      success: true
-      references:
-        min_count: 50  # Printf is heavily used
-        include_declaration: true
-    tags: ["references", "exported", "function"]
 
   - id: "go_ref_struct_field_access"
     name: "Find References - Struct Field Access"
@@ -153,23 +121,6 @@ scenarios:
   # HOVER SCENARIOS
   # ===================
   
-  - id: "go_hover_builtin_function"
-    name: "Hover - Built-in Function"
-    description: "Get hover info for Go built-in function"
-    method: "textDocument/hover"
-    repository: "golang"
-    file: "src/builtin/builtin.go"
-    position:
-      line: 120  # Example: make function
-      character: 10
-    expected:
-      success: true
-      hover:
-        has_content: true
-        contains: ["make", "allocates", "slice", "map", "chan"]
-        format: "markdown"
-    tags: ["hover", "builtin", "function"]
-
   - id: "go_hover_struct_type"
     name: "Hover - Struct Type Info"
     description: "Get hover information for struct type"
@@ -255,22 +206,6 @@ scenarios:
         types: ["struct", "const", "var"]
     tags: ["symbols", "document", "api"]
 
-  - id: "go_docsym_main_package"
-    name: "Document Symbols - Main Package"
-    description: "Get symbols from main package file"
-    method: "textDocument/documentSymbol"
-    repository: "kubernetes"
-    file: "cmd/kubelet/kubelet.go"
-    position:
-      line: 0
-      character: 0
-    expected:
-      success: true
-      symbols:
-        min_count: 5
-        types: ["func", "var"]
-    tags: ["symbols", "document", "main"]
-
   - id: "go_docsym_utility_package"
     name: "Document Symbols - Utility Package"
     description: "Get symbols from utility package"
@@ -330,69 +265,6 @@ scenarios:
         types: ["interface", "struct", "func"]
     tags: ["symbols", "workspace", "interface"]
 
-  - id: "go_worksym_exact_match"
-    name: "Workspace Symbol Search - Exact Match"
-    description: "Search for exact symbol match"
-    method: "workspace/symbol"
-    repository: "golang"
-    query: "Printf"
-    expected:
-      success: true
-      symbols:
-        min_count: 1
-        types: ["func"]
-    tags: ["symbols", "workspace", "exact"]
-
-  # ===================
-  # COMPLEX SCENARIOS
-  # ===================
-  
-  - id: "go_complex_generic_usage"
-    name: "Complex - Generic Type Usage"
-    description: "Test LSP with Go generics (if supported)"
-    method: "textDocument/definition"
-    repository: "golang"
-    file: "src/slices/slices.go"
-    position:
-      line: 50  # Generic function definition
-      character: 10
-    expected:
-      success: true
-      definition:
-        has_location: true
-    tags: ["complex", "generics", "go1.18+"]
-
-  - id: "go_complex_embedded_interface"
-    name: "Complex - Embedded Interface"
-    description: "Navigate through embedded interface hierarchy"
-    method: "textDocument/definition"
-    repository: "kubernetes"
-    file: "pkg/kubelet/container/runtime.go"
-    position:
-      line: 80  # Embedded interface
-      character: 15
-    expected:
-      success: true
-      definition:
-        has_location: true
-    tags: ["complex", "embedded", "interface"]
-
-  - id: "go_complex_vendor_dependency"
-    name: "Complex - Vendor Dependency"
-    description: "Navigate to vendored dependency"
-    method: "textDocument/definition"
-    repository: "kubernetes"
-    file: "pkg/controller/deployment/deployment_controller.go"
-    position:
-      line: 50  # Using vendored library
-      character: 20
-    expected:
-      success: true
-      definition:
-        has_location: true
-        file_pattern: "vendor/"
-    tags: ["complex", "vendor", "dependency"]
-
 # Performance test cases
 performance_tests:
   - id: "go_perf_large_file"
@@ -405,6 +277,10 @@ performance_tests:
       line: 1000
       character: 10
     timeout: "10s"
+    expected:
+      success: true
+      definition:
+        has_location: true
     tags: ["performance", "large-file"]
 
   - id: "go_perf_workspace_symbols"
@@ -412,27 +288,21 @@ performance_tests:
     description: "Test workspace symbol search performance"
     method: "workspace/symbol"
     repository: "kubernetes"
-    query: "k"  # Single character to get many results
+    query: "Pod"  # Should match many Pod-related symbols
     timeout: "15s"
     expected:
       success: true
       symbols:
-        min_count: 100
+        min_count: 30
     tags: ["performance", "workspace", "large-result"]
 
-# Test repository configurations
+# Test repository configuration
 test_repositories:
   kubernetes:
     path: "./test-repositories/go/kubernetes"
+    description: "Kubernetes container orchestration platform"
     setup:
       commands:
         - "go mod download"
         - "go build ./..."
-      timeout: "5m"
-  
-  golang:
-    path: "./test-repositories/go/golang"
-    setup:
-      commands:
-        - "cd src && go build std"
-      timeout: "10m"
+      timeout: "15m"

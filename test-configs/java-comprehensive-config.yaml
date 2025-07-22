@@ -1,0 +1,589 @@
+# Java Comprehensive LSP Server Configuration
+# Optimized Eclipse JDT Language Server configuration for enterprise Java development
+# Designed for Spring Boot 3.2+, Apache Kafka 3.6+, and large enterprise codebases
+
+name: "Java Comprehensive Enterprise LSP Configuration"
+description: "Optimized jdtls configuration for enterprise Java development with Spring Boot and Kafka"
+version: "1.0.0"
+language: "java"
+tags: ["java", "jdtls", "enterprise", "spring-boot", "kafka", "comprehensive"]
+
+# ===========================================
+# ECLIPSE JDT LANGUAGE SERVER CONFIGURATION
+# ===========================================
+servers:
+  jdtls:
+    name: "eclipse-jdtls"
+    display_name: "Eclipse JDT Language Server"
+    language: "java"
+    command: "jdtls"
+    args: []
+    transport: "stdio"
+    
+    # Timeouts optimized for enterprise codebases
+    start_timeout: 120s      # Extended for large workspaces
+    shutdown_timeout: 30s    # Allow clean shutdown of large workspaces
+    initialize_timeout: 45s  # Time for workspace indexing
+    request_timeout: 90s     # Individual request timeout
+    
+    # Lifecycle management
+    pre_warmup: true         # Pre-warm server for better performance
+    initialize_delay: 10s    # Allow server stabilization
+    keep_alive: true         # Keep server alive between requests
+    max_restarts: 3          # Automatic restart on failures
+    restart_delay: 15s       # Delay between restart attempts
+    
+    # Server capabilities - enable all Java LSP features
+    capabilities:
+      - "initialize"
+      - "textDocument/definition"
+      - "textDocument/references"
+      - "textDocument/hover"
+      - "textDocument/documentSymbol"
+      - "workspace/symbol"
+      - "textDocument/formatting"
+      - "textDocument/rangeFormatting"
+      - "textDocument/completion"
+      - "textDocument/signatureHelp"
+      - "textDocument/codeAction"
+      - "textDocument/codeLens"
+      - "textDocument/rename"
+      - "textDocument/documentHighlight"
+      - "textDocument/publishDiagnostics"
+      - "workspace/didChangeConfiguration"
+      - "workspace/didChangeWatchedFiles"
+      
+    # Eclipse JDT LS specific initialization options
+    init_options:
+      # Core workspace settings
+      workspaceFolders: null
+      
+      # Extended client capabilities
+      extendedClientCapabilities:
+        progressReportProvider: true
+        classFileContentsSupport: true
+        overrideMethodsPromptSupport: true
+        hashCodeEqualsPromptSupport: true
+        advancedExtractRefactoringSupport: true
+        advancedOrganizeImportsSupport: true
+        generateToStringPromptSupport: true
+        advancedGenerateAccessorsSupport: true
+        generateConstructorsPromptSupport: true
+        generateDelegateMethodsPromptSupport: true
+        moveRefactoringSupport: true
+        clientHoverProvider: true
+        clientDocumentSymbolProvider: true
+        gradleChecksumWrapperPromptSupport: true
+        resolveAdditionalTextEditsSupport: true
+        advancedIntroduceParameterRefactoringSupport: true
+        actionableRuntimeNotificationSupport: true
+        shouldLanguageServerExitOnShutdown: true
+        onCompletionItemSelectedCommand: "editor.action.triggerParameterHints"
+        
+      # Java-specific settings for enterprise development
+      settings:
+        java:
+          # Runtime configuration for Java 17+ enterprise development
+          home: "/usr/lib/jvm/java-17-openjdk"
+          
+          # Multiple runtime support for enterprise environments
+          configuration:
+            runtimes:
+              - name: "JavaSE-17"
+                path: "/usr/lib/jvm/java-17-openjdk"
+                default: true
+                sources: "/usr/lib/jvm/java-17-openjdk/lib/src.zip"
+                javadoc: "https://docs.oracle.com/en/java/javase/17/docs/api/"
+              - name: "JavaSE-11"
+                path: "/usr/lib/jvm/java-11-openjdk"
+                default: false
+                sources: "/usr/lib/jvm/java-11-openjdk/lib/src.zip"
+                javadoc: "https://docs.oracle.com/en/java/javase/11/docs/api/"
+            
+            # Workspace configuration
+            workspaceFolders: []
+            workspaceSettings: {}
+            
+            # Import organization for enterprise projects
+            importOrder: 
+              - "java"
+              - "javax" 
+              - "jakarta"
+              - "org.springframework"
+              - "org.apache.kafka"
+              - "com.fasterxml.jackson"
+              - "org.slf4j"
+              - "org.junit"
+              - "org.mockito"
+              - "org"
+              - "com"
+              - ""
+              - "#"
+            
+            # Cleanup rules for enterprise code quality
+            cleanup:
+              actionsOnSave: []
+              
+          # Compilation settings optimized for enterprise projects  
+          compile:
+            nullAnalysis:
+              mode: "automatic"
+              errorprone:
+                enabled: false
+              
+            # Enable advanced error detection
+            problems:
+              enabled: true
+              
+          # Completion settings for large codebases
+          completion:
+            enabled: true
+            maxResults: 150
+            importOrder: 
+              - "java"
+              - "javax"
+              - "jakarta" 
+              - "org.springframework"
+              - "org.apache.kafka"
+            
+            # Favorite static members for enterprise development
+            favoriteStaticMembers:
+              - "org.junit.jupiter.api.Assertions.*"
+              - "org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*"
+              - "org.springframework.test.web.servlet.result.MockMvcResultMatchers.*"
+              - "org.springframework.test.web.servlet.result.MockMvcResultHandlers.*"
+              - "org.mockito.Mockito.*"
+              - "org.mockito.ArgumentMatchers.*"
+              - "org.apache.kafka.clients.producer.ProducerConfig.*"
+              - "org.apache.kafka.clients.consumer.ConsumerConfig.*"
+              - "org.apache.kafka.streams.StreamsConfig.*"
+              - "java.util.stream.Collectors.*"
+              - "java.util.Collections.*"
+              - "org.slf4j.LoggerFactory.*"
+              
+            # Filtering for better completion experience
+            filteredTypes:
+              - "com.sun.*"
+              - "sun.*"
+              - "jdk.*"
+              - "org.graalvm.*"
+              
+          # Content assist settings
+          contentAssist:
+            arguments: "guess"
+            
+          # Eclipse-specific project settings
+          project:
+            # Referenced libraries for enterprise development
+            referencedLibraries:
+              - "lib/**/*.jar"
+              - "libs/**/*.jar"
+              - "dependencies/**/*.jar"
+              - "**/target/dependency/*.jar"
+              - "**/.gradle/caches/**/*.jar"
+              
+            # Source paths configuration
+            sourcePaths: []
+            outputPath: ""
+            
+            # Project encoding
+            encoding: "UTF-8"
+            
+          # Code formatting for enterprise standards
+          format:
+            enabled: true
+            settings:
+              profile: "GoogleStyle"  # or "Eclipse", "Spring"
+              url: null
+              
+            # Organize imports on save
+            organizeImports: true
+            
+            # Code style preferences
+            insertSpaces: true
+            tabSize: 4
+            
+          # Signature help configuration
+          signatureHelp:
+            enabled: true
+            description:
+              enabled: true
+              
+          # Implementation settings
+          implementations:
+            codeGeneration:
+              enabled: true
+              insertionLocation: "afterCursor"
+              
+          # Templates for enterprise development
+          templates:
+            - name: "Spring Controller"
+              pattern: "@RestController\n@RequestMapping(\"/${path}\")\npublic class ${ClassName} {\n\t${cursor}\n}"
+              description: "Spring REST Controller template"
+              context: "java-statements"
+              
+            - name: "Kafka Producer"
+              pattern: "@Service\npublic class ${ClassName} {\n\t@Autowired\n\tprivate KafkaTemplate<String, Object> kafkaTemplate;\n\t${cursor}\n}"
+              description: "Kafka Producer service template"
+              context: "java-statements"
+              
+          # Refactoring settings
+          refactor:
+            renameInComments: true
+            renameInStrings: false
+            
+          # Save actions for enterprise code quality
+          saveActions:
+            organizeImports: true
+            
+          # Selection range settings
+          selectionRange:
+            enabled: true
+            
+          # Folding range settings  
+          foldingRange:
+            enabled: true
+            
+          # Progressive mode for large codebases
+          progressReports: true
+          
+          # Trace settings for debugging
+          trace:
+            server: "verbose"
+            
+        # Maven configuration for enterprise projects
+        maven:
+          downloadSources: true
+          downloadJavadoc: true
+          updateSnapshots: false
+          offline: false
+          
+          # Maven user settings
+          userSettings: null
+          globalSettings: null
+          
+          # Execution environment
+          executionEnvironment: null
+          
+        # Gradle configuration for enterprise projects  
+        gradle:
+          downloadSources: true
+          downloadJavadoc: true
+          
+          # Gradle daemon settings
+          home: null
+          version: null
+          jvmArguments: "-Xmx2048m"
+          arguments: "--no-daemon --parallel"
+          
+          # Gradle wrapper
+          wrapper:
+            enabled: true
+            
+          # Build configuration
+          buildServer: "gradle"
+          importGradleEnabled: true
+          
+        # Lombok support for enterprise development
+        lombok:
+          enabled: true
+          
+        # Checkstyle integration
+        checkstyle:
+          enabled: false
+          configuration: null
+          
+    # JVM arguments for jdtls optimized for enterprise development
+    jvm_args:
+      - "-Xmx8192m"                    # Large heap for enterprise codebases  
+      - "-XX:MaxMetaspaceSize=2048m"   # Large metaspace for many classes
+      - "-XX:+UseG1GC"                 # G1GC for low latency
+      - "-XX:G1HeapRegionSize=16m"     # Optimize G1 region size
+      - "-XX:+UseG1GC"
+      - "-XX:+UnlockExperimentalVMOptions"
+      - "-XX:+UseJVMCICompiler"
+      - "-XX:+UnlockExperimentalVMOptions"
+      - "-XX:+EnableJVMCI"
+      - "-server"
+      - "-Dosgi.bundles.defaultStartLevel=4"
+      - "-Declipse.application=org.eclipse.jdt.ls.core.id1"
+      - "-Dosgi.checkConfiguration=true"
+      - "-Declipse.buildId=4.26.0.202211231800"
+      - "-Dosgi.sharedConfiguration.area=~/.cache/jdtls/config"
+      - "-Dosgi.sharedConfiguration.area.readOnly=true"
+      - "-Dosgi.configuration.cascaded=true"
+      - "-Xms1024m"
+      - "-Dlog.level=INFO"
+      - "--add-modules=ALL-SYSTEM"
+      - "--add-opens"
+      - "java.base/java.util=ALL-UNNAMED" 
+      - "--add-opens"
+      - "java.base/java.lang=ALL-UNNAMED"
+      - "--add-opens"
+      - "java.base/sun.nio.fs=ALL-UNNAMED"
+      - "--add-opens"  
+      - "java.base/java.nio.file=ALL-UNNAMED"
+      
+    # Environment variables for enterprise development
+    env:
+      JAVA_HOME: "/usr/lib/jvm/java-17-openjdk"
+      JAVA_TOOL_OPTIONS: "-Xmx2048m -XX:+UseG1GC"
+      GRADLE_USER_HOME: "~/.gradle"
+      MAVEN_HOME: "/usr/share/maven"
+      LOMBOK_JAR_PATH: "~/.cache/jdtls/lombok.jar"
+      
+    # Working directory settings
+    working_dir: null  # Use project root
+    
+    # Logging configuration for debugging
+    logging:
+      level: "INFO"
+      file: "jdtls.log" 
+      max_size: "50MB"
+      max_files: 5
+      
+# ===========================================
+# WORKSPACE CONFIGURATION 
+# ===========================================
+workspace:
+  # Root directory detection
+  root_markers:
+    - "pom.xml"
+    - "build.gradle"
+    - "build.gradle.kts"
+    - "settings.gradle"
+    - "settings.gradle.kts"
+    - ".project" 
+    - ".classpath"
+    - "src/main/java"
+    
+  # File watching patterns for enterprise projects
+  file_watchers:
+    - "**/*.java"
+    - "**/*.class"
+    - "**/*.jar"
+    - "**/pom.xml"
+    - "**/build.gradle"
+    - "**/build.gradle.kts"
+    - "**/settings.gradle"
+    - "**/settings.gradle.kts"
+    - "**/.project"
+    - "**/.classpath"
+    - "**/application.properties"
+    - "**/application.yml"
+    - "**/application.yaml"
+    - "**/bootstrap.properties"
+    - "**/bootstrap.yml"
+    
+  # Exclusion patterns for large enterprise codebases
+  exclude_patterns:
+    - "**/target/**"
+    - "**/build/**" 
+    - "**/.gradle/**"
+    - "**/.mvn/**"
+    - "**/node_modules/**"
+    - "**/.git/**"
+    - "**/.svn/**"
+    - "**/bin/**"
+    - "**/out/**"
+    - "**/.idea/**"
+    - "**/.vscode/**"
+    - "**/logs/**"
+    - "**/temp/**"
+    - "**/tmp/**"
+    - "**/*.log"
+    
+  # Memory settings for workspace indexing
+  indexing:
+    memory_limit: "4096m"
+    parallel_jobs: 4
+    background_indexing: true
+    
+# ===========================================
+# PERFORMANCE CONFIGURATION
+# ===========================================
+performance:
+  # Cache settings for large codebases
+  cache:
+    enabled: true
+    size_mb: 1024
+    ttl_minutes: 60
+    
+  # Request batching for better performance  
+  batching:
+    enabled: true
+    batch_size: 10
+    timeout_ms: 2000
+    
+  # Background processing
+  background_processing:
+    enabled: true
+    max_threads: 4
+    queue_size: 100
+    
+  # Memory management
+  memory:
+    gc_after_requests: 50
+    heap_check_interval: 300
+    low_memory_threshold: 0.8
+    
+# ===========================================
+# DIAGNOSTICS CONFIGURATION  
+# ===========================================
+diagnostics:
+  enabled: true
+  
+  # Validation rules for enterprise development
+  validation:
+    syntax: true
+    semantic: true
+    references: true
+    unused_imports: true
+    unused_variables: true
+    deprecated_apis: true
+    
+  # Severity levels
+  severity:
+    syntax_error: "error"
+    semantic_error: "error" 
+    warning: "warning"
+    info: "info"
+    hint: "hint"
+    
+  # Publishing settings
+  publish:
+    on_save: true
+    on_change: true
+    debounce_ms: 500
+    
+# ===========================================
+# FEATURE FLAGS
+# ===========================================
+features:
+  # Core LSP features
+  definition: true
+  references: true  
+  hover: true
+  document_symbol: true
+  workspace_symbol: true
+  completion: true
+  signature_help: true
+  
+  # Advanced features
+  code_action: true
+  code_lens: true
+  rename: true
+  formatting: true
+  range_formatting: true
+  document_highlight: true
+  folding_range: true
+  selection_range: true
+  
+  # Experimental features
+  call_hierarchy: true
+  type_hierarchy: true
+  semantic_tokens: true
+  linked_editing: true
+  
+  # Enterprise-specific features
+  spring_boot_support: true
+  lombok_support: true
+  maven_support: true
+  gradle_support: true
+  
+# ===========================================
+# TESTING CONFIGURATION
+# ===========================================
+testing:
+  # Test execution settings
+  timeout:
+    default: 120s
+    definition: 60s
+    references: 90s  
+    hover: 45s
+    symbols: 120s
+    workspace_symbol: 180s
+    completion: 30s
+    
+  # Retry configuration
+  retry:
+    attempts: 3
+    delay: 5s
+    backoff: "exponential"
+    
+  # Validation settings
+  validation:
+    strict_mode: true
+    validate_positions: true
+    validate_ranges: true
+    validate_uris: true
+    
+  # Performance testing
+  performance:
+    enabled: true
+    memory_tracking: true
+    timing_tracking: true
+    
+# ===========================================  
+# LOGGING AND MONITORING
+# ===========================================
+monitoring:
+  # Metrics collection
+  metrics:
+    enabled: true
+    request_timing: true
+    memory_usage: true
+    error_rates: true
+    
+  # Health checks
+  health_checks:
+    enabled: true
+    interval: 60s
+    timeout: 10s
+    
+  # Alerting for enterprise environments
+  alerting:
+    enabled: false
+    memory_threshold: 0.9
+    error_rate_threshold: 0.1
+    response_time_threshold: 10s
+    
+# ===========================================
+# ENTERPRISE INTEGRATION  
+# ===========================================
+enterprise:
+  # Security settings
+  security:
+    tls_enabled: false
+    auth_enabled: false
+    
+  # Integration with enterprise tools
+  integration:
+    sonarqube: false
+    jenkins: false
+    artifactory: false
+    
+  # Compliance and auditing
+  compliance:
+    audit_logging: false
+    data_retention_days: 30
+    
+# ===========================================
+# DEVELOPMENT PROFILES
+# ===========================================
+profiles:
+  development:
+    logging_level: "DEBUG"
+    validation_strict: false
+    performance_monitoring: true
+    
+  testing:
+    logging_level: "INFO"  
+    validation_strict: true
+    performance_monitoring: true
+    
+  production:
+    logging_level: "WARN"
+    validation_strict: true
+    performance_monitoring: true
+    memory_optimization: true

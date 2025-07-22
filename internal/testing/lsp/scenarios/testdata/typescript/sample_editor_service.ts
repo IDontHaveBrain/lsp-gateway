@@ -1,9 +1,107 @@
 /**
- * VSCode Editor Service - Demonstrates TypeScript patterns for LSP testing
+ * Advanced VSCode Editor Service - Demonstrates comprehensive TypeScript patterns for LSP testing
+ * Features: Generics, Conditional Types, Mapped Types, Template Literals, Decorators, Advanced Patterns
+ * Target: TypeScript 5.6+, VS Code 1.96+, Angular 18+ compatibility
  */
 
-import { Disposable, Event, EventEmitter, URI } from 'vscode';
-import { CancellationToken, Position, Range, Selection, TextDocument, TextEditor, ViewColumn } from 'vscode';
+// Advanced type imports and re-exports
+import type { 
+  Observable, 
+  Subject, 
+  BehaviorSubject, 
+  Subscription,
+  OperatorFunction
+} from 'rxjs';
+import type { 
+  DeepReadonly, 
+  DeepPartial, 
+  RequiredKeys, 
+  OptionalKeys,
+  PickByValue,
+  OmitByValue
+} from 'utility-types';
+
+// Conditional types and template literal types
+type EventName<T extends string> = `on${Capitalize<T>}Changed`;
+type HandlerName<T extends string> = `handle${Capitalize<T>}`;
+type AsyncEventName<T extends string> = `${EventName<T>}Async`;
+
+// Advanced utility types
+type IsFunction<T> = T extends (...args: any[]) => any ? true : false;
+type ExtractReturnType<T> = T extends (...args: any[]) => infer R ? R : never;
+type FunctionKeys<T> = {
+  [K in keyof T]: T[K] extends (...args: any[]) => any ? K : never;
+}[keyof T];
+
+// Mapped types with template literals
+type EventMap<T> = {
+  [K in keyof T as EventName<string & K>]: T[K];
+};
+
+type HandlerMap<T> = {
+  [K in keyof T as HandlerName<string & K>]: (value: T[K]) => void;
+};
+
+// Recursive types
+type DeepEventMap<T> = {
+  [K in keyof T]: T[K] extends object 
+    ? DeepEventMap<T[K]>
+    : EventName<string & K>;
+};
+
+// Branded types for type safety
+type EditorId = string & { readonly __brand: 'EditorId' };
+type DocumentId = string & { readonly __brand: 'DocumentId' };
+type WorkspaceId = string & { readonly __brand: 'WorkspaceId' };
+
+// Higher-order types
+type AsyncWrapper<T> = {
+  [K in keyof T]: T[K] extends (...args: infer P) => infer R
+    ? (...args: P) => Promise<R>
+    : T[K];
+};
+
+// Decorator factory types
+type DecoratorFactory<T = any> = (
+  target: any,
+  propertyKey?: string | symbol,
+  descriptor?: PropertyDescriptor
+) => T;
+
+type MethodDecorator<T = any> = DecoratorFactory<T>;
+type PropertyDecorator<T = any> = DecoratorFactory<T>;
+type ClassDecorator<T = any> = <TFunction extends Function>(target: TFunction) => TFunction | void;
+
+// Complex intersection and union types
+type BaseEditor = {
+  readonly id: EditorId;
+  readonly documentId: DocumentId;
+  readonly isActive: boolean;
+};
+
+type TextEditor = BaseEditor & {
+  readonly type: 'text';
+  readonly language: string;
+  readonly encoding: string;
+};
+
+type BinaryEditor = BaseEditor & {
+  readonly type: 'binary';
+  readonly mimeType: string;
+  readonly size: number;
+};
+
+type WebviewEditor = BaseEditor & {
+  readonly type: 'webview';
+  readonly html: string;
+  readonly options: WebviewOptions;
+};
+
+type AnyEditor = TextEditor | BinaryEditor | WebviewEditor;
+
+// Generic constraints with conditional types
+type EditorOfType<T extends AnyEditor['type']> = Extract<AnyEditor, { type: T }>;
+
 
 // Interface definitions for testing
 export interface IEditorService {

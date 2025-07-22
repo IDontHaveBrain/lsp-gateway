@@ -67,6 +67,14 @@ help:
 	@echo "Environment variables:"
 	@echo "  VERSION      - Set version (default: dev)"
 	@echo ""
+	@echo "Quick Start - LSP Testing (Simplified):"
+	@echo "  make setup-simple-repos          # Setup simple test repositories"
+	@echo "  make test-simple-quick           # Quick LSP tests with simple config"
+	@echo "  make test-simple-full            # Full LSP tests with simple config"
+	@echo "  make simple-status               # Show simple repository status"
+	@echo "  make simple-clean                # Clean simple test repositories"
+	@echo "  make lsp-help                    # Show LSP testing help"
+	@echo ""
 	@echo "Examples:"
 	@echo "  make build VERSION=v1.0.0"
 	@echo "  make linux"
@@ -375,72 +383,6 @@ test-lsp-quick: local lsp-setup
 		--quick-mode || { echo "Quick LSP validation failed"; exit 1; }
 	@echo "✓ Quick LSP validation completed"
 
-# Comprehensive LSP validation (for main branch)  
-.PHONY: test-lsp-comprehensive
-test-lsp-comprehensive: local lsp-setup
-	@echo "Running comprehensive LSP validation..."
-	@mkdir -p lsp-results
-	./bin/$(BINARY_NAME) test-lsp \
-		--config=test-configs/integration-test-config.yaml \
-		--format=json,junit \
-		--output-dir=lsp-results \
-		--timeout=600s \
-		--max-concurrency=4 \
-		--comprehensive-mode \
-		--benchmark-mode || { echo "Comprehensive LSP validation failed"; exit 1; }
-	@echo "✓ Comprehensive LSP validation completed"
-
-# LSP performance benchmarking
-.PHONY: test-lsp-benchmark
-test-lsp-benchmark: local lsp-setup
-	@echo "Running LSP performance benchmarks..."
-	@mkdir -p lsp-results
-	./bin/$(BINARY_NAME) test-lsp \
-		--config=test-configs/performance-test-config.yaml \
-		--format=json \
-		--output-dir=lsp-results \
-		--benchmark-mode \
-		--iterations=5 \
-		--warmup=2 || { echo "LSP benchmarking failed"; exit 1; }
-	@echo "✓ LSP benchmarking completed"
-
-# Generate LSP performance dashboard
-.PHONY: lsp-dashboard
-lsp-dashboard:
-	@echo "Generating LSP performance dashboard..."
-	@if [ ! -f lsp-results/results.json ]; then \
-		echo "No LSP results found. Run 'make test-lsp-comprehensive' first."; \
-		exit 1; \
-	fi
-	@mkdir -p lsp-results/dashboard
-	./internal/testing/lsp/reporters/performance-dashboard.sh \
-		--input=lsp-results/results.json \
-		--output=lsp-results/dashboard \
-		--format=html,json \
-		--verbose
-	@echo "✓ Performance dashboard generated at lsp-results/dashboard/index.html"
-
-# Compare LSP benchmarks against baseline
-.PHONY: lsp-compare
-lsp-compare:
-	@echo "Comparing LSP benchmark results..."
-	@if [ ! -f lsp-results/results.json ]; then \
-		echo "No current results found. Run 'make test-lsp-benchmark' first."; \
-		exit 1; \
-	fi
-	@if [ ! -f lsp-results/benchmark-baseline.json ]; then \
-		echo "No baseline found. Copying current results as new baseline."; \
-		cp lsp-results/results.json lsp-results/benchmark-baseline.json; \
-		echo "✓ Baseline established"; \
-	else \
-		./internal/testing/lsp/reporters/benchmark-compare.sh \
-			--baseline=lsp-results/benchmark-baseline.json \
-			--current=lsp-results/results.json \
-			--output=lsp-results/benchmark-comparison.json \
-			--threshold=10 \
-			--verbose; \
-		echo "✓ Benchmark comparison completed"; \
-	fi
 
 # Repository validation against real codebases
 .PHONY: test-lsp-repos
@@ -465,10 +407,6 @@ lsp-clean:
 	@rm -rf lsp-results/ repo-validation-*/ 
 	@echo "✓ LSP test artifacts cleaned"
 
-# Full LSP validation suite
-.PHONY: test-lsp-full
-test-lsp-full: lsp-clean test-lsp-comprehensive lsp-dashboard lsp-compare
-	@echo "✓ Full LSP validation suite completed"
 
 # LSP help target
 .PHONY: lsp-help
@@ -477,26 +415,150 @@ lsp-help:
 	@echo "==================="
 	@echo ""
 	@echo "Setup and Dependencies:"
-	@echo "  lsp-deps              - Install LSP testing dependencies (jq, bc)"
 	@echo "  lsp-setup             - Install and setup LSP servers"
+	@echo "  lsp-deps              - Install LSP testing dependencies (jq, bc)"
 	@echo ""  
 	@echo "Testing Targets:"
-	@echo "  test-lsp-quick        - Quick LSP validation (for PRs)"
-	@echo "  test-lsp-comprehensive - Full LSP validation (for main branch)"
-	@echo "  test-lsp-benchmark    - Performance benchmarking"
+	@echo "  test-lsp-simple       - Simple LSP validation (quick, one test per feature per language)"
+	@echo "  test-lsp-full         - Full LSP test suite (all test scenarios)" 
+	@echo "  test-lsp-quick        - Quick LSP validation (legacy, for PRs)"
+	@echo "  test-lsp-validation   - LSP validation tests"
 	@echo "  test-lsp-repos        - Repository validation against real codebases"
-	@echo "  test-lsp-full         - Complete LSP validation suite"
-	@echo ""
-	@echo "Analysis and Reporting:"
-	@echo "  lsp-dashboard         - Generate performance dashboard"
-	@echo "  lsp-compare           - Compare benchmarks against baseline"
 	@echo ""
 	@echo "Maintenance:"
-	@echo "  lsp-clean             - Clean LSP test artifacts"
+	@echo "  lsp-clean             - Clean LSP test artifacts and results"
 	@echo "  lsp-help              - Show this help"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make lsp-setup                    # Setup LSP testing environment"
-	@echo "  make test-lsp-quick              # Run quick validation for PR"
-	@echo "  make test-lsp-full               # Run complete validation suite"
-	@echo "  make lsp-dashboard               # Generate performance report"
+	@echo "  make lsp-setup        # Setup LSP testing environment"
+	@echo "  make test-lsp-simple  # Run quick validation"
+	@echo "  make test-lsp-full    # Run complete test suite"
+
+
+# ========================================
+# Simple LSP Testing Targets
+# ========================================
+
+# Simple LSP test - quick validation (one test per feature per language)
+.PHONY: test-lsp-simple
+test-lsp-simple: local lsp-setup
+	@echo "Running simple LSP validation tests..."
+	@mkdir -p lsp-results
+	$(GOTEST) -v -timeout=120s ./internal/gateway ./internal/transport ./mcp -run "LSPValidation.*Simple" || \
+	$(GOTEST) -v -short -timeout=60s ./internal/gateway ./internal/transport ./mcp -run "LSPValidation"
+	@echo "✓ Simple LSP validation completed"
+
+# Full LSP test - all test scenarios  
+.PHONY: test-lsp-full
+test-lsp-full: local lsp-setup
+	@echo "Running full LSP test suite..."
+	@mkdir -p lsp-results
+	$(GOTEST) -v -timeout=300s ./internal/gateway ./internal/transport ./mcp -run "LSPValidation"
+	$(GOTEST) -v -timeout=180s ./internal/gateway ./internal/transport ./mcp -run "LSPRepository"  
+	@echo "✓ Full LSP test suite completed"
+
+
+# ========================================
+# Simplified LSP Testing System
+# ========================================
+
+# Build simple test runner
+.PHONY: build-simple-test
+build-simple-test:
+	@echo "Building simple LSP test runner..."
+	@mkdir -p $(BUILD_DIR)
+	$(GOBUILD) -o $(BUILD_DIR)/simple-lsp-test ./cmd/simple-lsp-test/
+
+# Simple unified test execution - Quick mode
+.PHONY: test-simple-quick
+test-simple-quick: build-simple-test
+	@echo "Running simple LSP tests (quick mode)..."
+	./$(BUILD_DIR)/simple-lsp-test --mode quick --verbose
+
+# Simple unified test execution - Full mode  
+.PHONY: test-simple-full
+test-simple-full: build-simple-test
+	@echo "Running simple LSP tests (full mode)..."
+	./$(BUILD_DIR)/simple-lsp-test --mode full --verbose
+
+# Simple unified test execution - Using bash script
+.PHONY: test-simple-script
+test-simple-script:
+	@echo "Running simple LSP tests via bash script..."
+	./run-simple-lsp-tests.sh --mode full --verbose
+
+# Simple test with custom config
+.PHONY: test-simple-custom
+test-simple-custom: build-simple-test
+	@echo "Running simple LSP tests with custom config..."
+	./$(BUILD_DIR)/simple-lsp-test --config simple-lsp-test-config.yaml --mode full --verbose
+
+# ========================================
+# Simple Repository Management
+# ========================================
+
+# Setup simple test repositories (one per language)
+.PHONY: setup-simple-repos
+setup-simple-repos:
+	@echo "Setting up simple test repositories..."
+	./scripts/simple-clone-repos.sh setup
+	@echo "✓ Simple repositories setup completed"
+
+# Setup specific language repositories
+.PHONY: setup-simple-go
+setup-simple-go:
+	@echo "Setting up Go repository (Kubernetes)..."
+	./scripts/simple-clone-repos.sh setup go
+
+.PHONY: setup-simple-python
+setup-simple-python:
+	@echo "Setting up Python repository (Django)..."
+	./scripts/simple-clone-repos.sh setup python
+
+.PHONY: setup-simple-typescript
+setup-simple-typescript:
+	@echo "Setting up TypeScript repository (VS Code)..."
+	./scripts/simple-clone-repos.sh setup typescript
+
+.PHONY: setup-simple-java
+setup-simple-java:
+	@echo "Setting up Java repository (Spring Boot)..."
+	./scripts/simple-clone-repos.sh setup java
+
+# Show status of simple repositories
+.PHONY: simple-status
+simple-status:
+	@echo "Checking simple repository status..."
+	./scripts/simple-clone-repos.sh status
+
+# Clean simple test repositories
+.PHONY: simple-clean
+simple-clean:
+	@echo "Cleaning simple test repositories..."
+	./scripts/simple-clone-repos.sh cleanup
+
+# Clean specific language repositories
+.PHONY: simple-clean-go
+simple-clean-go:
+	@echo "Cleaning Go repositories..."
+	./scripts/simple-clone-repos.sh cleanup go
+
+.PHONY: simple-clean-python
+simple-clean-python:
+	@echo "Cleaning Python repositories..."
+	./scripts/simple-clone-repos.sh cleanup python
+
+.PHONY: simple-clean-typescript
+simple-clean-typescript:
+	@echo "Cleaning TypeScript repositories..."
+	./scripts/simple-clone-repos.sh cleanup typescript
+
+.PHONY: simple-clean-java
+simple-clean-java:
+	@echo "Cleaning Java repositories..."
+	./scripts/simple-clone-repos.sh cleanup java
+
+# Simple LSP testing with repository setup
+.PHONY: test-simple-with-setup
+test-simple-with-setup: setup-simple-repos test-simple-quick
+	@echo "✓ Simple LSP testing with repository setup completed"

@@ -1,0 +1,818 @@
+# Java Comprehensive Enterprise LSP Scenarios
+# Extensive test cases covering all 5 LSP features with Spring Boot and Apache Kafka enterprise patterns
+# Real-world test positions in Spring Boot 3.2+ and Kafka 3.6+ source files
+
+name: "Java Comprehensive Enterprise LSP Scenarios"
+description: "Comprehensive enterprise Java language server testing scenarios with Spring Boot and Apache Kafka patterns"
+language: "java"
+tags: ["java", "enterprise", "spring-boot", "kafka", "comprehensive", "real-world"]
+
+# ===========================================
+# ADVANCED DEFINITION SCENARIOS - Enterprise Java Patterns
+# ===========================================
+scenarios:
+  # Spring Boot Advanced Patterns
+  - id: "java_def_spring_boot_application"
+    name: "Go to Definition - Spring Boot Main Application"
+    description: "Navigate from @SpringBootApplication to annotation definition with meta-annotations"
+    method: "textDocument/definition"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot-samples/spring-boot-sample-web/src/main/java/sample/web/SampleWebApplication.java"
+    position: 
+      line: 30  # @SpringBootApplication annotation
+      character: 8
+    expected:
+      success: true
+      definition:
+        has_location: true
+        file_pattern: "**/SpringBootApplication.java"
+    tags: ["definition", "spring-boot", "annotation", "meta-annotation", "enterprise"]
+    timeout: 60s
+
+  - id: "java_def_conditional_bean_complex"
+    name: "Go to Definition - Complex Conditional Bean"
+    description: "Navigate through complex conditional bean configuration with multiple conditions"
+    method: "textDocument/definition"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/servlet/ServletWebServerFactoryAutoConfiguration.java"
+    position:
+      line: 95   # @ConditionalOnMissingBean with complex conditions
+      character: 25
+    expected:
+      success: true
+      definition:
+        has_location: true
+        file_pattern: "**/ConditionalOnMissingBean.java"
+    tags: ["definition", "conditional", "bean", "auto-configuration", "enterprise"]
+    timeout: 65s
+
+  - id: "java_def_actuator_endpoint_custom"
+    name: "Go to Definition - Custom Actuator Endpoint"
+    description: "Navigate to custom actuator endpoint implementation with enterprise patterns"
+    method: "textDocument/definition"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot-actuator-autoconfigure/src/main/java/org/springframework/boot/actuate/autoconfigure/endpoint/web/WebEndpointAutoConfiguration.java"
+    position:
+      line: 120  # WebEndpointDiscoverer bean definition
+      character: 30
+    expected:
+      success: true
+      definition:
+        has_location: true
+        file_pattern: "**/WebEndpointDiscoverer.java"
+    tags: ["definition", "actuator", "endpoint", "enterprise", "monitoring"]
+    timeout: 70s
+
+  - id: "java_def_reactive_web_flux"
+    name: "Go to Definition - Reactive WebFlux Configuration"
+    description: "Navigate through reactive WebFlux auto-configuration patterns"
+    method: "textDocument/definition"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/reactive/WebFluxAutoConfiguration.java"
+    position:
+      line: 85   # WebFluxConfigurationSupport extension
+      character: 35
+    expected:
+      success: true
+      definition:
+        has_location: true
+        file_pattern: "**/WebFluxConfigurationSupport.java"
+    tags: ["definition", "reactive", "webflux", "auto-configuration", "enterprise"]
+    timeout: 65s
+
+  # Kafka Advanced Patterns
+  - id: "java_def_kafka_producer_interceptor"
+    name: "Go to Definition - Kafka Producer Interceptor"
+    description: "Navigate to producer interceptor implementation for enterprise monitoring"
+    method: "textDocument/definition"
+    repository: "kafka-enterprise"
+    file: "clients/src/main/java/org/apache/kafka/clients/producer/KafkaProducer.java"
+    position:
+      line: 350  # ProducerInterceptors usage
+      character: 40
+    expected:
+      success: true
+      definition:
+        has_location: true
+        file_pattern: "**/ProducerInterceptor.java"
+    tags: ["definition", "kafka", "producer", "interceptor", "enterprise", "monitoring"]
+    timeout: 70s
+
+  - id: "java_def_kafka_streams_topology_builder"
+    name: "Go to Definition - Kafka Streams Topology Builder"
+    description: "Navigate through complex Kafka Streams topology building patterns"
+    method: "textDocument/definition"
+    repository: "kafka-enterprise"
+    file: "streams/src/main/java/org/apache/kafka/streams/StreamsBuilder.java"
+    position:
+      line: 250  # Topology.addSource method call
+      character: 25
+    expected:
+      success: true
+      definition:
+        has_location: true
+        file_pattern: "**/Topology.java"
+    tags: ["definition", "kafka-streams", "topology", "builder-pattern", "enterprise"]
+    timeout: 65s
+
+  - id: "java_def_kafka_admin_cluster_operations"
+    name: "Go to Definition - Kafka Admin Cluster Operations"
+    description: "Navigate to admin client cluster management operations"
+    method: "textDocument/definition"
+    repository: "kafka-enterprise"
+    file: "clients/src/main/java/org/apache/kafka/clients/admin/KafkaAdminClient.java"
+    position:
+      line: 420  # ClusterMetadata usage in admin operations
+      character: 30
+    expected:
+      success: true
+      definition:
+        has_location: true
+        file_pattern: "**/Cluster.java"
+    tags: ["definition", "kafka", "admin", "cluster", "enterprise", "operations"]
+    timeout: 75s
+
+  # Generic and Lambda Expressions
+  - id: "java_def_generic_method_bounds"
+    name: "Go to Definition - Generic Method with Type Bounds"
+    description: "Navigate through complex generic method with multiple type bounds"
+    method: "textDocument/definition"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot/src/main/java/org/springframework/boot/context/properties/bind/Binder.java"
+    position:
+      line: 180  # Generic method with bounded wildcards
+      character: 25
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["definition", "generic", "type-bounds", "wildcards", "enterprise"]
+    timeout: 60s
+
+  - id: "java_def_lambda_method_reference"
+    name: "Go to Definition - Lambda Method Reference"
+    description: "Navigate through lambda expression and method references in streams"
+    method: "textDocument/definition"
+    repository: "kafka-enterprise"
+    file: "streams/src/main/java/org/apache/kafka/streams/kstream/internals/KStreamImpl.java"
+    position:
+      line: 320  # Method reference in stream operations
+      character: 45
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["definition", "lambda", "method-reference", "streams", "functional"]
+    timeout: 65s
+
+# ===========================================
+# ADVANCED REFERENCES SCENARIOS - Enterprise Usage Analysis
+# ===========================================
+
+  # Spring Boot Enterprise References
+  - id: "java_ref_spring_boot_starter_usage"
+    name: "Find References - Spring Boot Starter Usage"
+    description: "Find all references to core Spring Boot starter components"
+    method: "textDocument/references"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot-starters/spring-boot-starter/src/main/java/org/springframework/boot/autoconfigure/AutoConfigurationPackages.java"
+    position:
+      line: 65   # AutoConfigurationPackages.register
+      character: 25
+    params:
+      includeDeclaration: true
+    expected:
+      success: true
+      references:
+        min_count: 25  # Widely used in auto-configuration
+        include_declaration: true
+    tags: ["references", "spring-boot", "starter", "auto-configuration", "enterprise"]
+    timeout: 90s
+
+  - id: "java_ref_actuator_health_indicators"
+    name: "Find References - Actuator Health Indicators"
+    description: "Find all references to health indicator implementations"
+    method: "textDocument/references"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/health/HealthIndicator.java"
+    position:
+      line: 35   # HealthIndicator interface
+      character: 18
+    params:
+      includeDeclaration: false
+    expected:
+      success: true
+      references:
+        min_count: 40  # Many health indicator implementations
+        include_declaration: false
+    tags: ["references", "actuator", "health", "monitoring", "enterprise"]
+    timeout: 85s
+
+  - id: "java_ref_configuration_properties_binding"
+    name: "Find References - Configuration Properties Binding"
+    description: "Find all references to configuration properties binding mechanism"
+    method: "textDocument/references"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot/src/main/java/org/springframework/boot/context/properties/ConfigurationPropertiesBean.java"
+    position:
+      line: 80   # ConfigurationPropertiesBean.get method
+      character: 20
+    params:
+      includeDeclaration: true
+    expected:
+      success: true
+      references:
+        min_count: 30  # Used throughout Spring Boot for configuration
+        include_declaration: true
+    tags: ["references", "configuration-properties", "binding", "enterprise"]
+    timeout: 80s
+
+  # Kafka Enterprise References
+  - id: "java_ref_kafka_consumer_group_protocol"
+    name: "Find References - Kafka Consumer Group Protocol"
+    description: "Find all references to consumer group coordination protocol"
+    method: "textDocument/references"
+    repository: "kafka-enterprise"
+    file: "clients/src/main/java/org/apache/kafka/clients/consumer/internals/AbstractCoordinator.java"
+    position:
+      line: 180  # AbstractCoordinator.joinGroup
+      character: 25
+    params:
+      includeDeclaration: true
+    expected:
+      success: true
+      references:
+        min_count: 20  # Core consumer group functionality
+        include_declaration: true
+    tags: ["references", "kafka", "consumer-group", "coordination", "enterprise"]
+    timeout: 95s
+
+  - id: "java_ref_kafka_record_serialization"
+    name: "Find References - Kafka Record Serialization Usage"
+    description: "Find all references to record serialization across Kafka ecosystem"
+    method: "textDocument/references"
+    repository: "kafka-enterprise"
+    file: "clients/src/main/java/org/apache/kafka/common/serialization/Serializer.java"
+    position:
+      line: 50   # serialize method
+      character: 15
+    params:
+      includeDeclaration: false
+    expected:
+      success: true
+      references:
+        min_count: 60  # Serialization is fundamental to Kafka
+        include_declaration: false
+    tags: ["references", "kafka", "serialization", "records", "enterprise"]
+    timeout: 100s
+
+  - id: "java_ref_kafka_streams_state_store"
+    name: "Find References - Kafka Streams State Store Usage"
+    description: "Find all references to state store operations in stream processing"
+    method: "textDocument/references"
+    repository: "kafka-enterprise"
+    file: "streams/src/main/java/org/apache/kafka/streams/state/StateStore.java"
+    position:
+      line: 65   # StateStore.name method
+      character: 20
+    params:
+      includeDeclaration: true
+    expected:
+      success: true
+      references:
+        min_count: 35  # State stores are widely used in Kafka Streams
+        include_declaration: true
+    tags: ["references", "kafka-streams", "state-store", "stream-processing", "enterprise"]
+    timeout: 90s
+
+# ===========================================
+# ADVANCED HOVER SCENARIOS - Enterprise Documentation
+# ===========================================
+
+  # Spring Boot Enterprise Hover
+  - id: "java_hover_spring_boot_auto_config_complex"
+    name: "Hover - Complex Spring Boot Auto-Configuration"
+    description: "Get hover info for complex auto-configuration with conditional logic"
+    method: "textDocument/hover"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/data/jpa/JpaRepositoriesAutoConfiguration.java"
+    position:
+      line: 95   # Complex conditional configuration
+      character: 20
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["JpaRepositoriesAutoConfiguration", "JPA", "repository", "auto-configuration", "conditional"]
+        format: "markdown"
+    tags: ["hover", "spring-boot", "jpa", "auto-configuration", "enterprise", "documentation"]
+    timeout: 60s
+
+  - id: "java_hover_reactive_netty_configuration"
+    name: "Hover - Reactive Netty Server Configuration"
+    description: "Get hover info for reactive Netty server configuration with performance tuning"
+    method: "textDocument/hover"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/reactive/ReactiveWebServerFactoryAutoConfiguration.java"
+    position:
+      line: 110  # NettyReactiveWebServerFactory configuration
+      character: 35
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["NettyReactiveWebServerFactory", "reactive", "Netty", "server", "factory"]
+        format: "markdown"
+    tags: ["hover", "reactive", "netty", "server", "enterprise", "performance"]
+    timeout: 65s
+
+  - id: "java_hover_security_oauth2_configuration"
+    name: "Hover - Spring Security OAuth2 Configuration"
+    description: "Get hover info for OAuth2 security configuration patterns"
+    method: "textDocument/hover"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/security/oauth2/client/servlet/OAuth2ClientAutoConfiguration.java"
+    position:
+      line: 85   # OAuth2 client configuration
+      character: 25
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["OAuth2ClientAutoConfiguration", "OAuth2", "client", "security", "authentication"]
+        format: "markdown"
+    tags: ["hover", "security", "oauth2", "authentication", "enterprise"]
+    timeout: 70s
+
+  # Kafka Enterprise Hover
+  - id: "java_hover_kafka_streams_dsl_operations"
+    name: "Hover - Kafka Streams DSL Operations"
+    description: "Get hover info for complex Kafka Streams DSL transformation operations"
+    method: "textDocument/hover"
+    repository: "kafka-enterprise"
+    file: "streams/src/main/java/org/apache/kafka/streams/kstream/KStream.java"
+    position:
+      line: 450  # Complex transformation method with generics
+      character: 25
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["KStream", "transformation", "DSL", "stream", "processing", "generic"]
+        format: "markdown"
+    tags: ["hover", "kafka-streams", "dsl", "transformation", "enterprise", "documentation"]
+    timeout: 65s
+
+  - id: "java_hover_kafka_transaction_coordinator"
+    name: "Hover - Kafka Transaction Coordinator"
+    description: "Get hover info for transaction coordinator with ACID properties"
+    method: "textDocument/hover"
+    repository: "kafka-enterprise"
+    file: "clients/src/main/java/org/apache/kafka/clients/producer/KafkaProducer.java"
+    position:
+      line: 650  # Transaction coordinator operations
+      character: 30
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["transaction", "coordinator", "ACID", "producer", "exactly-once"]
+        format: "markdown"
+    tags: ["hover", "kafka", "transactions", "acid", "exactly-once", "enterprise"]
+    timeout: 70s
+
+  - id: "java_hover_kafka_connect_source_connector"
+    name: "Hover - Kafka Connect Source Connector"
+    description: "Get hover info for Kafka Connect source connector with enterprise integration patterns"
+    method: "textDocument/hover"
+    repository: "kafka-enterprise"
+    file: "connect/api/src/main/java/org/apache/kafka/connect/source/SourceConnector.java"
+    position:
+      line: 80   # SourceConnector.taskConfigs method
+      character: 20
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["SourceConnector", "Connect", "integration", "task", "configuration"]
+        format: "markdown"
+    tags: ["hover", "kafka-connect", "source-connector", "integration", "enterprise"]
+    timeout: 60s
+
+# ===========================================
+# ADVANCED DOCUMENT SYMBOLS SCENARIOS - Enterprise Class Analysis
+# ===========================================
+
+  # Spring Boot Enterprise Document Symbols
+  - id: "java_docsym_spring_boot_web_mvc_config"
+    name: "Document Symbols - Spring Boot Web MVC Configuration"
+    description: "Get all symbols from comprehensive Web MVC auto-configuration class"
+    method: "textDocument/documentSymbol"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/servlet/WebMvcAutoConfiguration.java"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 45  # Complex configuration class with many @Bean methods and nested classes
+        types: ["class", "method", "field", "annotation", "interface", "constructor"]
+    tags: ["symbols", "document", "spring-boot", "web-mvc", "auto-configuration", "enterprise"]
+    timeout: 80s
+
+  - id: "java_docsym_actuator_metrics_endpoint"
+    name: "Document Symbols - Actuator Metrics Endpoint"
+    description: "Get symbols from metrics endpoint with enterprise monitoring capabilities"
+    method: "textDocument/documentSymbol"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/metrics/MetricsEndpoint.java"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 25  # Metrics endpoint with multiple operations and data structures
+        types: ["class", "method", "field", "constructor", "annotation"]
+    tags: ["symbols", "document", "actuator", "metrics", "monitoring", "enterprise"]
+    timeout: 75s
+
+  - id: "java_docsym_security_filter_chain"
+    name: "Document Symbols - Spring Security Filter Chain"
+    description: "Get symbols from security filter chain configuration"
+    method: "textDocument/documentSymbol"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/security/servlet/SecurityAutoConfiguration.java"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 20  # Security configuration with filters and beans
+        types: ["class", "method", "field", "annotation"]
+    tags: ["symbols", "document", "security", "filter-chain", "enterprise"]
+    timeout: 70s
+
+  # Kafka Enterprise Document Symbols
+  - id: "java_docsym_kafka_producer_implementation"
+    name: "Document Symbols - Kafka Producer Implementation"
+    description: "Get symbols from complete Kafka producer implementation"
+    method: "textDocument/documentSymbol"
+    repository: "kafka-enterprise"
+    file: "clients/src/main/java/org/apache/kafka/clients/producer/KafkaProducer.java"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 50  # Producer has extensive API with many methods and configurations
+        types: ["class", "method", "field", "constructor", "interface"]
+    tags: ["symbols", "document", "kafka", "producer", "enterprise", "implementation"]
+    timeout: 85s
+
+  - id: "java_docsym_kafka_streams_processor_api"
+    name: "Document Symbols - Kafka Streams Processor API"
+    description: "Get symbols from Kafka Streams processor API implementation"
+    method: "textDocument/documentSymbol"
+    repository: "kafka-enterprise"
+    file: "streams/src/main/java/org/apache/kafka/streams/processor/api/Processor.java"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 15  # Processor interface with lifecycle methods
+        types: ["interface", "method", "annotation"]
+    tags: ["symbols", "document", "kafka-streams", "processor-api", "enterprise"]
+    timeout: 70s
+
+  - id: "java_docsym_kafka_admin_client_operations"
+    name: "Document Symbols - Kafka Admin Client Operations"
+    description: "Get symbols from Kafka admin client with cluster management operations"
+    method: "textDocument/documentSymbol"
+    repository: "kafka-enterprise"
+    file: "clients/src/main/java/org/apache/kafka/clients/admin/KafkaAdminClient.java"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 60  # Admin client has extensive cluster management API
+        types: ["class", "method", "field", "constructor"]
+    tags: ["symbols", "document", "kafka", "admin-client", "cluster-management", "enterprise"]
+    timeout: 90s
+
+# ===========================================
+# ADVANCED WORKSPACE SYMBOLS SCENARIOS - Enterprise Search
+# ===========================================
+
+  # Spring Boot Enterprise Workspace Search
+  - id: "java_worksym_spring_boot_actuator_search"
+    name: "Workspace Symbol Search - Spring Boot Actuator Components"
+    description: "Search for all actuator-related components across Spring Boot workspace"
+    method: "workspace/symbol"
+    repository: "spring-boot-enterprise"
+    query: "Actuator"
+    expected:
+      success: true
+      symbols:
+        min_count: 60  # Many actuator classes, interfaces, and configurations
+        types: ["class", "interface", "annotation", "method"]
+    tags: ["symbols", "workspace", "actuator", "monitoring", "spring-boot", "enterprise"]
+    timeout: 120s
+
+  - id: "java_worksym_spring_security_components"
+    name: "Workspace Symbol Search - Spring Security Components"
+    description: "Search for Spring Security related components and configurations"
+    method: "workspace/symbol"
+    repository: "spring-boot-enterprise"
+    query: "Security"
+    expected:
+      success: true
+      symbols:
+        min_count: 40  # Security-related classes and configurations
+        types: ["class", "interface", "annotation", "method"]
+    tags: ["symbols", "workspace", "security", "authentication", "spring-boot", "enterprise"]
+    timeout: 110s
+
+  - id: "java_worksym_reactive_components"
+    name: "Workspace Symbol Search - Reactive Components"
+    description: "Search for reactive programming components across Spring Boot"
+    method: "workspace/symbol"
+    repository: "spring-boot-enterprise"
+    query: "Reactive"
+    expected:
+      success: true
+      symbols:
+        min_count: 25  # Reactive web, data, and messaging components
+        types: ["class", "interface", "method"]
+    tags: ["symbols", "workspace", "reactive", "webflux", "spring-boot", "enterprise"]
+    timeout: 100s
+
+  # Kafka Enterprise Workspace Search
+  - id: "java_worksym_kafka_streams_components"
+    name: "Workspace Symbol Search - Kafka Streams Components"
+    description: "Search for all Kafka Streams related components and DSL classes"
+    method: "workspace/symbol"
+    repository: "kafka-enterprise"
+    query: "Stream"
+    expected:
+      success: true
+      symbols:
+        min_count: 80  # Extensive Kafka Streams ecosystem
+        types: ["class", "interface", "method", "annotation"]
+    tags: ["symbols", "workspace", "kafka-streams", "dsl", "stream-processing", "enterprise"]
+    timeout: 130s
+
+  - id: "java_worksym_kafka_connect_components"
+    name: "Workspace Symbol Search - Kafka Connect Components"
+    description: "Search for Kafka Connect framework components and connectors"
+    method: "workspace/symbol"
+    repository: "kafka-enterprise"
+    query: "Connect"
+    expected:
+      success: true
+      symbols:
+        min_count: 45  # Connect framework and connector implementations
+        types: ["class", "interface", "method"]
+    tags: ["symbols", "workspace", "kafka-connect", "integration", "enterprise"]
+    timeout: 115s
+
+  - id: "java_worksym_kafka_serialization_search"
+    name: "Workspace Symbol Search - Kafka Serialization Framework"
+    description: "Search for serialization and deserialization components"
+    method: "workspace/symbol"
+    repository: "kafka-enterprise"
+    query: "Serializ"
+    expected:
+      success: true
+      symbols:
+        min_count: 30  # Serialization framework components
+        types: ["class", "interface", "method"]
+    tags: ["symbols", "workspace", "kafka", "serialization", "enterprise"]
+    timeout: 105s
+
+# ===========================================
+# COMPLEX ENTERPRISE SCENARIOS - Advanced Patterns
+# ===========================================
+
+  # Advanced Spring Boot Patterns
+  - id: "java_complex_spring_boot_conditional_matching"
+    name: "Complex - Spring Boot Conditional Matching Logic"
+    description: "Navigate through complex conditional matching in auto-configuration"
+    method: "textDocument/definition"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/condition/OnBeanCondition.java"
+    position:
+      line: 180  # Complex condition evaluation logic
+      character: 25
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["complex", "spring-boot", "conditional", "auto-configuration", "enterprise"]
+    timeout: 80s
+
+  - id: "java_complex_spring_aop_proxy_creation"
+    name: "Complex - Spring AOP Proxy Creation"
+    description: "Navigate through AOP proxy creation with enterprise aspects"
+    method: "textDocument/references"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot/src/main/java/org/springframework/boot/context/event/EventPublishingRunListener.java"
+    position:
+      line: 95   # Event publishing with AOP integration
+      character: 30
+    params:
+      includeDeclaration: true
+    expected:
+      success: true
+      references:
+        min_count: 15  # Event publishing across Spring Boot lifecycle
+        include_declaration: true
+    tags: ["complex", "spring", "aop", "proxy", "events", "enterprise"]
+    timeout: 90s
+
+  - id: "java_complex_actuator_metrics_collection"
+    name: "Complex - Actuator Metrics Collection Chain"
+    description: "Navigate through complex metrics collection and aggregation chain"
+    method: "textDocument/hover"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot-actuator/src/main/java/org/springframework/boot/actuate/metrics/composite/CompositeMeterRegistry.java"
+    position:
+      line: 120  # Composite metrics collection
+      character: 35
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["CompositeMeterRegistry", "metrics", "collection", "registry", "monitoring"]
+    tags: ["complex", "actuator", "metrics", "monitoring", "enterprise"]
+    timeout: 75s
+
+  # Advanced Kafka Patterns
+  - id: "java_complex_kafka_exactly_once_semantics"
+    name: "Complex - Kafka Exactly-Once Semantics"
+    description: "Navigate through exactly-once delivery implementation"
+    method: "textDocument/definition"
+    repository: "kafka-enterprise"
+    file: "streams/src/main/java/org/apache/kafka/streams/processor/internals/StreamsProducer.java"
+    position:
+      line: 280  # Exactly-once transaction handling
+      character: 30
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["complex", "kafka", "exactly-once", "transactions", "enterprise"]
+    timeout: 85s
+
+  - id: "java_complex_kafka_consumer_rebalance"
+    name: "Complex - Kafka Consumer Rebalance Protocol"
+    description: "Navigate through consumer group rebalance protocol implementation"
+    method: "textDocument/references"
+    repository: "kafka-enterprise"
+    file: "clients/src/main/java/org/apache/kafka/clients/consumer/internals/ConsumerCoordinator.java"
+    position:
+      line: 350  # Rebalance protocol coordination
+      character: 25
+    params:
+      includeDeclaration: false
+    expected:
+      success: true
+      references:
+        min_count: 25  # Rebalance protocol is used across consumer implementation
+        include_declaration: false
+    tags: ["complex", "kafka", "consumer", "rebalance", "coordination", "enterprise"]
+    timeout: 95s
+
+  - id: "java_complex_kafka_streams_state_recovery"
+    name: "Complex - Kafka Streams State Store Recovery"
+    description: "Navigate through state store recovery and restoration mechanisms"
+    method: "textDocument/hover"
+    repository: "kafka-enterprise"
+    file: "streams/src/main/java/org/apache/kafka/streams/processor/internals/StateRestorer.java"
+    position:
+      line: 150  # State restoration logic
+      character: 30
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["StateRestorer", "recovery", "state", "restoration", "streams"]
+    tags: ["complex", "kafka-streams", "state", "recovery", "enterprise"]
+    timeout: 80s
+
+# ===========================================
+# PERFORMANCE TEST CASES - Enterprise Scale
+# ===========================================
+performance_tests:
+  - id: "java_perf_spring_boot_large_auto_config"
+    name: "Performance - Large Spring Boot Auto-Configuration"
+    description: "Test performance on Spring Boot's largest auto-configuration class"
+    method: "textDocument/definition"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/web/servlet/WebMvcAutoConfiguration.java"
+    position:
+      line: 800  # Deep in large configuration file
+      character: 20
+    timeout: 20s
+    expected:
+      success: true
+      definition:
+        has_location: true
+    tags: ["performance", "spring-boot", "large-file", "auto-configuration", "enterprise"]
+
+  - id: "java_perf_kafka_large_workspace_search"
+    name: "Performance - Large Kafka Workspace Symbol Search"
+    description: "Test workspace symbol search performance across entire Kafka codebase"
+    method: "workspace/symbol"
+    repository: "kafka-enterprise"
+    query: "Kafka"  # Will match hundreds of classes
+    timeout: 25s
+    expected:
+      success: true
+      symbols:
+        min_count: 200  # Extensive Kafka ecosystem
+    tags: ["performance", "kafka", "workspace", "large-result", "enterprise"]
+
+  - id: "java_perf_complex_generic_inheritance"
+    name: "Performance - Complex Generic Inheritance Navigation"
+    description: "Test performance with deep generic inheritance hierarchies"
+    method: "textDocument/references"
+    repository: "spring-boot-enterprise"
+    file: "spring-boot-project/spring-boot/src/main/java/org/springframework/boot/context/properties/bind/BindResult.java"
+    position:
+      line: 80   # Generic result type with complex bounds
+      character: 25
+    params:
+      includeDeclaration: true
+    timeout: 15s
+    expected:
+      success: true
+      references:
+        min_count: 20
+    tags: ["performance", "generic", "inheritance", "complex-types", "enterprise"]
+
+# ===========================================
+# TEST REPOSITORY CONFIGURATIONS
+# ===========================================
+test_repositories:
+  spring-boot-enterprise:
+    path: "./test-repositories/java/spring-boot"
+    description: "Spring Boot 3.2+ enterprise framework repository"
+    setup:
+      commands:
+        - "./gradlew :spring-boot-project:spring-boot:compileJava -x test --no-daemon"
+        - "./gradlew :spring-boot-project:spring-boot-autoconfigure:compileJava -x test --no-daemon"
+        - "./gradlew :spring-boot-project:spring-boot-actuator:compileJava -x test --no-daemon"
+        - "./gradlew :spring-boot-project:spring-boot-web:compileJava -x test --no-daemon"
+      timeout: "25m"
+      env:
+        JAVA_HOME: "/usr/lib/jvm/java-17-openjdk"
+        GRADLE_OPTS: "-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC"
+        GRADLE_USER_HOME: "./gradle-cache"
+        
+  kafka-enterprise:
+    path: "./test-repositories/java/kafka"
+    description: "Apache Kafka 3.6+ enterprise messaging platform"
+    setup:
+      commands:
+        - "./gradlew :clients:compileJava -x test --no-daemon"
+        - "./gradlew :streams:compileJava -x test --no-daemon"
+        - "./gradlew :connect:api:compileJava -x test --no-daemon"
+        - "./gradlew :core:compileScala -x test --no-daemon"
+      timeout: "30m"
+      env:
+        JAVA_HOME: "/usr/lib/jvm/java-17-openjdk"
+        GRADLE_OPTS: "-Xmx4096m -XX:MaxMetaspaceSize=1024m -XX:+UseG1GC"
+        GRADLE_USER_HOME: "./gradle-cache"
+
+# ===========================================
+# ENTERPRISE VALIDATION RULES
+# ===========================================
+enterprise_validation_rules:
+  - rule: "spring_boot_pattern_validation"
+    description: "Validate Spring Boot enterprise patterns in definitions and references"
+    applicable_tags: ["spring-boot", "enterprise"]
+    enabled: true
+    
+  - rule: "kafka_enterprise_pattern_validation"
+    description: "Validate Kafka enterprise messaging patterns"
+    applicable_tags: ["kafka", "enterprise"]
+    enabled: true
+    
+  - rule: "performance_enterprise_thresholds"
+    description: "Validate performance meets enterprise requirements"
+    applicable_tags: ["performance", "enterprise"]
+    enabled: true
+    thresholds:
+      definition: "10s"
+      references: "15s"
+      hover: "8s"
+      symbols: "20s"
+      workspace_symbol: "30s"

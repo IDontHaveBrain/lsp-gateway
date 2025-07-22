@@ -1,0 +1,840 @@
+# Go Comprehensive Language Test Scenarios for LSP Gateway
+# Extensive real-world test cases using Kubernetes, Go toolchain, and Prometheus patterns
+# Covers all 5 LSP features with complex Go language patterns
+
+name: "Go Comprehensive LSP Scenarios"
+description: "Comprehensive Go language server testing scenarios covering advanced patterns and edge cases"
+language: "go"
+version: "2.0"
+updated: "2025-07-22"
+
+# Test scenarios for comprehensive Go LSP testing
+scenarios:
+  
+  # ===========================================
+  # DEFINITION SCENARIOS - BASIC TO ADVANCED
+  # ===========================================
+  
+  - id: "go_def_interface_method_impl"
+    name: "Go to Definition - Interface Method to Implementation"
+    description: "Navigate from interface method call to concrete implementation in Kubernetes"
+    method: "textDocument/definition"
+    repository: "kubernetes"
+    file: "pkg/kubelet/container/runtime.go"
+    position: 
+      line: 158  # Runtime.CreateContainer method call
+      character: 25
+    expected:
+      success: true
+      definition:
+        has_location: true
+        file_pattern: "pkg/kubelet/dockershim/"
+        method_name: "CreateContainer"
+    tags: ["definition", "interface", "kubernetes", "method_implementation"]
+    timeout: "45s"
+  
+  - id: "go_def_embedded_struct_field"
+    name: "Go to Definition - Embedded Struct Field"
+    description: "Navigate to embedded struct field definition"
+    method: "textDocument/definition"
+    repository: "kubernetes"
+    file: "pkg/apis/core/v1/types.go"
+    position:
+      line: 2840  # ObjectMeta embedded field usage
+      character: 15
+    expected:
+      success: true
+      definition:
+        has_location: true
+        file_pattern: "vendor/k8s.io/apimachinery/pkg/apis/meta/v1/types.go"
+        struct_name: "ObjectMeta"
+    tags: ["definition", "embedded", "struct", "field"]
+    
+  - id: "go_def_generic_function_instantiation"
+    name: "Go to Definition - Generic Function Instantiation"
+    description: "Navigate from generic function usage to definition with type parameters"
+    method: "textDocument/definition"
+    repository: "golang"
+    file: "src/slices/slices.go"
+    position:
+      line: 45  # Generic function Max[T]
+      character: 10
+    expected:
+      success: true
+      definition:
+        has_location: true
+        contains_generics: true
+        type_parameters: ["T"]
+    tags: ["definition", "generics", "go1.18+", "type_parameters"]
+    
+  - id: "go_def_cross_package_const"
+    name: "Go to Definition - Cross Package Constant"
+    description: "Navigate to constant definition in different package"
+    method: "textDocument/definition"
+    repository: "kubernetes"
+    file: "pkg/controller/deployment/deployment_controller.go"
+    position:
+      line: 45  # Using apps.DeploymentProgressing condition
+      character: 35
+    expected:
+      success: true
+      definition:
+        has_location: true
+        file_pattern: "pkg/apis/apps/v1/types.go"
+        symbol_type: "const"
+    tags: ["definition", "cross-package", "constant"]
+
+  - id: "go_def_vendor_dependency"
+    name: "Go to Definition - Vendor Dependency"
+    description: "Navigate to vendored dependency definition"
+    method: "textDocument/definition"
+    repository: "kubernetes"
+    file: "pkg/apiserver/apiserver.go"
+    position:
+      line: 80  # Using third-party library
+      character: 20
+    expected:
+      success: true
+      definition:
+        has_location: true
+        file_pattern: "vendor/"
+    tags: ["definition", "vendor", "dependency", "third-party"]
+
+  - id: "go_def_method_receiver_pointer"
+    name: "Go to Definition - Method with Pointer Receiver"
+    description: "Navigate from method call to method with pointer receiver"
+    method: "textDocument/definition"
+    repository: "prometheus"
+    file: "tsdb/db.go"
+    position:
+      line: 150  # Method call on pointer receiver
+      character: 20
+    expected:
+      success: true
+      definition:
+        has_location: true
+        receiver_type: "pointer"
+    tags: ["definition", "method", "pointer_receiver", "prometheus"]
+
+  - id: "go_def_anonymous_function"
+    name: "Go to Definition - Anonymous Function Variable"
+    description: "Navigate to anonymous function variable definition"
+    method: "textDocument/definition"
+    repository: "prometheus"
+    file: "web/api/v1/api.go"
+    position:
+      line: 200  # Anonymous function usage
+      character: 15
+    expected:
+      success: true
+      definition:
+        has_location: true
+        function_type: "anonymous"
+    tags: ["definition", "anonymous", "function", "closure"]
+
+  # ===========================================
+  # REFERENCES SCENARIOS - COMPREHENSIVE USAGE
+  # ===========================================
+  
+  - id: "go_ref_interface_all_implementations"
+    name: "Find References - Interface All Implementations"
+    description: "Find all implementations of a Kubernetes interface"
+    method: "textDocument/references"
+    repository: "kubernetes"
+    file: "pkg/kubelet/container/runtime.go"
+    position:
+      line: 50  # Runtime interface definition
+      character: 10
+    params:
+      includeDeclaration: true
+    expected:
+      success: true
+      references:
+        min_count: 15  # Multiple implementations exist
+        include_declaration: true
+        implementation_files: ["dockershim", "cri", "remote"]
+    tags: ["references", "interface", "implementations", "kubernetes"]
+
+  - id: "go_ref_exported_type_usage"
+    name: "Find References - Exported Type Usage Across Packages"
+    description: "Find all references to widely used exported type"
+    method: "textDocument/references"
+    repository: "kubernetes"
+    file: "pkg/apis/core/v1/types.go"
+    position:
+      line: 2800  # Pod struct definition
+      character: 10
+    params:
+      includeDeclaration: false
+    expected:
+      success: true
+      references:
+        min_count: 200  # Pod is extensively used
+        cross_package: true
+        include_declaration: false
+    tags: ["references", "exported", "type", "cross-package"]
+
+  - id: "go_ref_generic_type_parameter"
+    name: "Find References - Generic Type Parameter Usage"
+    description: "Find all uses of generic type parameter within function"
+    method: "textDocument/references"
+    repository: "golang"
+    file: "src/maps/maps.go"
+    position:
+      line: 25  # Generic type parameter T
+      character: 15
+    params:
+      includeDeclaration: true
+    expected:
+      success: true
+      references:
+        min_count: 5
+        within_function: true
+        type_parameter: "T"
+    tags: ["references", "generics", "type_parameter", "constraint"]
+
+  - id: "go_ref_embedded_field_access"
+    name: "Find References - Embedded Field Access Patterns"
+    description: "Find all access patterns to embedded struct field"
+    method: "textDocument/references"
+    repository: "kubernetes"
+    file: "pkg/apis/core/v1/types.go"
+    position:
+      line: 2845  # ObjectMeta embedded field
+      character: 8
+    params:
+      includeDeclaration: false
+    expected:
+      success: true
+      references:
+        min_count: 50
+        access_patterns: ["direct", "nested", "method_chaining"]
+    tags: ["references", "embedded", "field", "access_patterns"]
+
+  - id: "go_ref_error_handling_pattern"
+    name: "Find References - Error Handling Pattern"
+    description: "Find all uses of specific error handling pattern"
+    method: "textDocument/references"
+    repository: "prometheus"
+    file: "util/strutil/strutil.go"
+    position:
+      line: 45  # Custom error type
+      character: 10
+    params:
+      includeDeclaration: true
+    expected:
+      success: true
+      references:
+        min_count: 10
+        error_handling: true
+    tags: ["references", "error", "handling", "pattern"]
+
+  - id: "go_ref_context_usage_pattern"
+    name: "Find References - Context Usage Pattern"
+    description: "Find all context.Context usage in concurrent operations"
+    method: "textDocument/references"
+    repository: "prometheus"
+    file: "scrape/scrape.go"
+    position:
+      line: 100  # context.Context parameter
+      character: 20
+    params:
+      includeDeclaration: false
+    expected:
+      success: true
+      references:
+        min_count: 20
+        concurrent_usage: true
+    tags: ["references", "context", "concurrency", "goroutines"]
+
+  # ===========================================
+  # HOVER SCENARIOS - DETAILED INFORMATION
+  # ===========================================
+  
+  - id: "go_hover_builtin_comprehensive"
+    name: "Hover - Built-in Function Comprehensive Info"
+    description: "Get detailed hover info for Go built-in function with examples"
+    method: "textDocument/hover"
+    repository: "golang"
+    file: "src/builtin/builtin.go"
+    position:
+      line: 140  # make function
+      character: 10
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["make", "allocates", "initializes", "slice", "map", "chan"]
+        format: "markdown"
+        includes_signature: true
+        includes_documentation: true
+    tags: ["hover", "builtin", "comprehensive", "documentation"]
+
+  - id: "go_hover_interface_with_methods"
+    name: "Hover - Interface with All Method Signatures"
+    description: "Get hover information showing all interface methods"
+    method: "textDocument/hover"
+    repository: "kubernetes"
+    file: "pkg/kubelet/container/runtime.go"
+    position:
+      line: 50  # Runtime interface
+      character: 10
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["interface", "Runtime", "CreateContainer", "StartContainer"]
+        format: "markdown"
+        shows_all_methods: true
+        method_count: 15
+    tags: ["hover", "interface", "methods", "signatures"]
+
+  - id: "go_hover_generic_function_signature"
+    name: "Hover - Generic Function with Type Constraints"
+    description: "Get hover info for generic function showing type constraints"
+    method: "textDocument/hover"
+    repository: "golang"
+    file: "src/slices/slices.go"
+    position:
+      line: 50  # Generic function with constraints
+      character: 15
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["func", "comparable", "constraints", "type parameter"]
+        format: "markdown"
+        shows_constraints: true
+        shows_type_params: true
+    tags: ["hover", "generics", "constraints", "type_parameters"]
+
+  - id: "go_hover_struct_with_tags"
+    name: "Hover - Struct with Field Tags and Documentation"
+    description: "Get comprehensive struct information including field tags"
+    method: "textDocument/hover"
+    repository: "kubernetes"
+    file: "pkg/apis/core/v1/types.go"
+    position:
+      line: 2850  # Pod struct with comprehensive tags
+      character: 10
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["struct", "Pod", "json", "yaml", "protobuf"]
+        format: "markdown"
+        shows_field_tags: true
+        shows_documentation: true
+    tags: ["hover", "struct", "tags", "json", "yaml"]
+
+  - id: "go_hover_method_with_receiver_info"
+    name: "Hover - Method with Detailed Receiver Information"
+    description: "Get method hover showing receiver type and method details"
+    method: "textDocument/hover"
+    repository: "prometheus"
+    file: "tsdb/db.go"
+    position:
+      line: 200  # Method with complex receiver
+      character: 15
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["func", "receiver", "returns", "error"]
+        format: "markdown"
+        shows_receiver: true
+        shows_parameters: true
+        shows_return_values: true
+    tags: ["hover", "method", "receiver", "parameters"]
+
+  - id: "go_hover_imported_package_info"
+    name: "Hover - Imported Package with Module Information"
+    description: "Get imported package information with module details"
+    method: "textDocument/hover"
+    repository: "kubernetes"
+    file: "cmd/kubelet/kubelet.go"
+    position:
+      line: 15  # Import statement
+      character: 25
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["package", "import", "module"]
+        format: "markdown"
+        shows_module_info: true
+    tags: ["hover", "import", "package", "module"]
+
+  # ===========================================
+  # DOCUMENT SYMBOLS SCENARIOS - COMPREHENSIVE
+  # ===========================================
+  
+  - id: "go_docsym_controller_comprehensive"
+    name: "Document Symbols - Kubernetes Controller Complete Structure"
+    description: "Get all symbols from complex Kubernetes controller file"
+    method: "textDocument/documentSymbol"
+    repository: "kubernetes"
+    file: "pkg/controller/deployment/deployment_controller.go"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 25
+        types: ["struct", "func", "var", "const", "interface"]
+        hierarchical: true
+        includes_methods: true
+        includes_fields: true
+    tags: ["symbols", "document", "controller", "hierarchical"]
+
+  - id: "go_docsym_api_types_extensive"
+    name: "Document Symbols - API Types with Nested Structures"
+    description: "Get symbols from Kubernetes API types with nested struct analysis"
+    method: "textDocument/documentSymbol"
+    repository: "kubernetes"
+    file: "pkg/apis/core/v1/types.go"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 100
+        types: ["struct", "const", "var", "type"]
+        nested_structs: true
+        field_details: true
+    tags: ["symbols", "document", "api", "nested", "extensive"]
+
+  - id: "go_docsym_generic_file_analysis"
+    name: "Document Symbols - Generic Functions and Types"
+    description: "Get symbols from file with generic functions and types"
+    method: "textDocument/documentSymbol"
+    repository: "golang"
+    file: "src/slices/slices.go"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 30
+        types: ["func", "type", "const"]
+        generic_functions: true
+        type_parameters: true
+    tags: ["symbols", "document", "generics", "type_parameters"]
+
+  - id: "go_docsym_interface_definitions"
+    name: "Document Symbols - Interface Definitions with Methods"
+    description: "Get all interface definitions and their methods"
+    method: "textDocument/documentSymbol"
+    repository: "kubernetes"
+    file: "pkg/kubelet/container/runtime.go"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 20
+        types: ["interface", "func", "struct", "var"]
+        interface_methods: true
+        method_signatures: true
+    tags: ["symbols", "document", "interface", "methods"]
+
+  - id: "go_docsym_concurrent_patterns"
+    name: "Document Symbols - Concurrent Programming Patterns"
+    description: "Get symbols showing concurrent programming patterns"
+    method: "textDocument/documentSymbol"
+    repository: "prometheus"
+    file: "scrape/scrape.go"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 15
+        types: ["struct", "func", "var", "chan"]
+        concurrent_patterns: true
+        channel_usage: true
+    tags: ["symbols", "document", "concurrent", "channels"]
+
+  # ===========================================
+  # WORKSPACE SYMBOLS SCENARIOS - ADVANCED SEARCH
+  # ===========================================
+  
+  - id: "go_worksym_interface_implementations_search"
+    name: "Workspace Symbol Search - Interface Implementations"
+    description: "Search for all implementations of specific interface pattern"
+    method: "workspace/symbol"
+    repository: "kubernetes"
+    query: "Runtime"
+    expected:
+      success: true
+      symbols:
+        min_count: 25
+        types: ["interface", "struct", "func"]
+        includes_implementations: true
+        cross_package: true
+    tags: ["symbols", "workspace", "interface", "implementations"]
+
+  - id: "go_worksym_error_types_search"
+    name: "Workspace Symbol Search - Error Types and Handlers"
+    description: "Search for error types and error handling patterns"
+    method: "workspace/symbol"
+    repository: "kubernetes"
+    query: "Error"
+    expected:
+      success: true
+      symbols:
+        min_count: 50
+        types: ["struct", "func", "var", "const"]
+        error_related: true
+    tags: ["symbols", "workspace", "error", "handling"]
+
+  - id: "go_worksym_generic_types_search"
+    name: "Workspace Symbol Search - Generic Types and Functions"
+    description: "Search for generic types and functions across codebase"
+    method: "workspace/symbol"
+    repository: "golang"
+    query: "Comparable"
+    expected:
+      success: true
+      symbols:
+        min_count: 10
+        types: ["type", "func", "interface"]
+        generic_related: true
+        constraint_types: true
+    tags: ["symbols", "workspace", "generics", "constraints"]
+
+  - id: "go_worksym_context_patterns_search"
+    name: "Workspace Symbol Search - Context Usage Patterns"
+    description: "Search for context usage patterns in concurrent code"
+    method: "workspace/symbol"
+    repository: "prometheus"
+    query: "Context"
+    expected:
+      success: true
+      symbols:
+        min_count: 20
+        types: ["func", "var", "struct"]
+        context_usage: true
+        concurrent_patterns: true
+    tags: ["symbols", "workspace", "context", "concurrent"]
+
+  - id: "go_worksym_controller_pattern_search"
+    name: "Workspace Symbol Search - Controller Pattern Components"
+    description: "Search for controller pattern implementations"
+    method: "workspace/symbol"
+    repository: "kubernetes"
+    query: "Controller"
+    expected:
+      success: true
+      symbols:
+        min_count: 40
+        types: ["struct", "func", "interface"]
+        controller_pattern: true
+        includes_managers: true
+    tags: ["symbols", "workspace", "controller", "pattern"]
+
+  - id: "go_worksym_wildcard_search"
+    name: "Workspace Symbol Search - Wildcard Pattern Matching"
+    description: "Test wildcard and fuzzy matching capabilities"
+    method: "workspace/symbol"
+    repository: "kubernetes"
+    query: "Pod*"
+    expected:
+      success: true
+      symbols:
+        min_count: 30
+        types: ["struct", "func", "var", "const"]
+        wildcard_matching: true
+        fuzzy_results: true
+    tags: ["symbols", "workspace", "wildcard", "fuzzy"]
+
+  # ===========================================
+  # COMPLEX INTEGRATION SCENARIOS
+  # ===========================================
+  
+  - id: "go_complex_cross_module_navigation"
+    name: "Complex - Cross Module Navigation"
+    description: "Navigate across different Go modules in workspace"
+    method: "textDocument/definition"
+    repository: "kubernetes"
+    file: "staging/src/k8s.io/client-go/kubernetes/clientset.go"
+    position:
+      line: 100  # Cross-module function call
+      character: 20
+    expected:
+      success: true
+      definition:
+        has_location: true
+        cross_module: true
+        module_boundary: true
+    tags: ["complex", "cross-module", "navigation", "staging"]
+
+  - id: "go_complex_generated_code_navigation"
+    name: "Complex - Generated Code Navigation"
+    description: "Navigate through generated code to original definitions"
+    method: "textDocument/definition"
+    repository: "kubernetes"
+    file: "pkg/generated/clientset/versioned/clientset.go"
+    position:
+      line: 50  # Generated code usage
+      character: 15
+    expected:
+      success: true
+      definition:
+        has_location: true
+        generated_code: true
+    tags: ["complex", "generated", "code", "navigation"]
+
+  - id: "go_complex_reflection_usage"
+    name: "Complex - Reflection and Dynamic Types"
+    description: "Test LSP with reflection and dynamic type usage"
+    method: "textDocument/hover"
+    repository: "kubernetes"
+    file: "pkg/util/runtime/runtime.go"
+    position:
+      line: 200  # reflect.TypeOf usage
+      character: 25
+    expected:
+      success: true
+      hover:
+        has_content: true
+        contains: ["reflect", "Type", "interface{}"]
+        reflection_aware: true
+    tags: ["complex", "reflection", "dynamic", "types"]
+
+  - id: "go_complex_cgo_integration"
+    name: "Complex - CGO Integration"
+    description: "Test LSP capabilities with CGO code"
+    method: "textDocument/definition"
+    repository: "golang"
+    file: "src/runtime/cgo/gcc_context.c"
+    position:
+      line: 20  # C function definition
+      character: 10
+    expected:
+      success: false  # Expected to fail gracefully
+      definition:
+        cgo_boundary: true
+        cross_language: true
+    tags: ["complex", "cgo", "cross-language", "c"]
+
+  - id: "go_complex_build_constraints"
+    name: "Complex - Build Constraints and Conditional Compilation"
+    description: "Test LSP with build constraints and conditional code"
+    method: "textDocument/documentSymbol"
+    repository: "golang"
+    file: "src/runtime/os_linux.go"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        min_count: 10
+        build_constraints: true
+        platform_specific: true
+    tags: ["complex", "build_constraints", "conditional", "platform"]
+
+# Performance test scenarios with realistic expectations
+performance_tests:
+  - id: "go_perf_large_file_navigation_k8s"
+    name: "Performance - Large Kubernetes File Navigation"
+    description: "Test performance on very large Go files"
+    method: "textDocument/definition"
+    repository: "kubernetes"
+    file: "pkg/apis/core/v1/types.go"  # Very large file
+    position:
+      line: 5000
+      character: 20
+    timeout: "15s"
+    expected:
+      success: true
+      performance:
+        max_response_time: "10s"
+        memory_usage_acceptable: true
+    tags: ["performance", "large-file", "kubernetes"]
+
+  - id: "go_perf_workspace_symbols_massive"
+    name: "Performance - Massive Workspace Symbol Search"
+    description: "Test workspace symbol search performance on large codebase"
+    method: "workspace/symbol"
+    repository: "kubernetes"
+    query: "k"  # Single character to get maximum results
+    timeout: "30s"
+    expected:
+      success: true
+      symbols:
+        min_count: 500
+        max_count: 2000  # Reasonable upper limit
+      performance:
+        max_response_time: "25s"
+        memory_efficient: true
+    tags: ["performance", "workspace", "massive-search"]
+
+  - id: "go_perf_references_high_usage"
+    name: "Performance - High Usage Symbol References"
+    description: "Test references performance on heavily used symbols"
+    method: "textDocument/references"
+    repository: "kubernetes"
+    file: "pkg/apis/core/v1/types.go"
+    position:
+      line: 2800  # Pod struct - heavily referenced
+      character: 10
+    params:
+      includeDeclaration: true
+    timeout: "20s"
+    expected:
+      success: true
+      references:
+        min_count: 200
+        max_count: 1000
+      performance:
+        max_response_time: "15s"
+        handles_large_results: true
+    tags: ["performance", "references", "high-usage"]
+
+# Advanced edge case scenarios
+edge_cases:
+  - id: "go_edge_circular_imports"
+    name: "Edge Case - Circular Import Detection"
+    description: "Test LSP behavior with circular import patterns"
+    method: "textDocument/definition"
+    repository: "golang"
+    file: "src/go/types/check.go"
+    position:
+      line: 100
+      character: 15
+    expected:
+      success: true
+      definition:
+        has_location: true
+        handles_circular: true
+    tags: ["edge-case", "circular", "imports"]
+
+  - id: "go_edge_deeply_nested_generics"
+    name: "Edge Case - Deeply Nested Generic Types"
+    description: "Test LSP with complex nested generic type structures"
+    method: "textDocument/hover"
+    repository: "golang"
+    file: "src/go/types/named.go"
+    position:
+      line: 200  # Complex generic type
+      character: 25
+    expected:
+      success: true
+      hover:
+        has_content: true
+        handles_complex_generics: true
+        nested_type_params: true
+    tags: ["edge-case", "generics", "nested", "complex"]
+
+  - id: "go_edge_massive_interface"
+    name: "Edge Case - Interface with Many Methods"
+    description: "Test LSP with interfaces having numerous methods"
+    method: "textDocument/documentSymbol"
+    repository: "kubernetes"
+    file: "pkg/kubelet/kubelet.go"
+    position:
+      line: 0
+      character: 0
+    expected:
+      success: true
+      symbols:
+        handles_large_interfaces: true
+        method_count_threshold: 50
+    tags: ["edge-case", "interface", "many-methods"]
+
+# Test repository configurations with enhanced setup
+test_repositories:
+  kubernetes:
+    path: "./test-repositories/go/kubernetes"
+    setup:
+      commands:
+        - "go mod download"
+        - "go mod verify"
+        - "go build -v ./cmd/kubectl"
+        - "go build -v ./cmd/kubelet"
+      timeout: "15m"
+      environment:
+        CGO_ENABLED: "0"
+        GOOS: "linux"
+        GOARCH: "amd64"
+      validation:
+        required_files: ["go.mod", "go.sum", "Makefile"]
+        required_dirs: ["cmd", "pkg", "staging"]
+  
+  golang:
+    path: "./test-repositories/go/golang"
+    setup:
+      commands:
+        - "cd src && go build std"
+        - "cd src && go build -a std"
+      timeout: "20m"
+      environment:
+        GOROOT_BOOTSTRAP: "$GOROOT"
+        CGO_ENABLED: "1"
+      validation:
+        required_files: ["src/go.mod", "src/make.bash"]
+        required_dirs: ["src", "bin", "pkg"]
+
+  prometheus:
+    path: "./test-repositories/go/prometheus"
+    setup:
+      commands:
+        - "go mod download"
+        - "go mod verify" 
+        - "make build"
+      timeout: "10m"
+      environment:
+        CGO_ENABLED: "0"
+      validation:
+        required_files: ["go.mod", "go.sum", "Makefile"]
+        required_dirs: ["cmd", "pkg", "web"]
+
+# Comprehensive validation rules
+validation_rules:
+  definition_accuracy:
+    description: "Validate definition results accuracy"
+    checks:
+      - "location_exists"
+      - "correct_file"
+      - "correct_line_range"
+      - "symbol_type_match"
+    
+  reference_completeness:
+    description: "Validate reference results completeness"
+    checks:
+      - "includes_all_expected"
+      - "cross_package_coverage"
+      - "no_false_positives"
+      - "declaration_handling"
+    
+  hover_informativeness:
+    description: "Validate hover content quality"
+    checks:
+      - "has_documentation"
+      - "correct_signature"
+      - "proper_formatting"
+      - "includes_examples"
+    
+  symbol_hierarchy:
+    description: "Validate symbol hierarchy correctness"
+    checks:
+      - "proper_nesting"
+      - "all_symbols_found"
+      - "correct_types"
+      - "hierarchical_structure"
+
+# Reporting configuration
+reporting:
+  detailed_results: true
+  performance_metrics: true
+  failure_analysis: true
+  success_rate_tracking: true
+  memory_usage_tracking: true
+  timeout_analysis: true
