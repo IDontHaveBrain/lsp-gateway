@@ -154,6 +154,16 @@ func init() {
 	rootCmd.AddCommand(installCmd)
 }
 
+// GetInstallRuntimeCmd returns the install runtime command for testing purposes
+func GetInstallRuntimeCmd() *cobra.Command {
+	return installRuntimeCmd
+}
+
+// GetInstallServerCmd returns the install server command for testing purposes
+func GetInstallServerCmd() *cobra.Command {
+	return installServerCmd
+}
+
 func runInstallRuntime(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(cmd.Context(), installTimeout)
 	defer cancel()

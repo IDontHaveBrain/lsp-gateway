@@ -1,0 +1,69 @@
+# Simple LSP Test Configuration
+# Simplified configuration for basic LSP server testing
+
+name: "Simple LSP Test Suite"
+version: "1.0"
+
+# Basic execution settings
+global:
+  timeout: 10m
+  max_servers: 4
+
+# Supported Language Servers
+servers:
+  gopls:
+    name: "gopls"
+    language: "go"
+    command: "gopls"
+    timeout: 30s
+    
+  pylsp:
+    name: "pylsp"
+    language: "python"
+    command: "pylsp"
+    timeout: 45s
+    
+  tsserver:
+    name: "typescript-language-server"
+    language: "typescript"
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    timeout: 30s
+    
+  jdtls:
+    name: "jdtls"
+    language: "java"
+    command: "jdtls"
+    timeout: 60s
+
+# Test repositories
+repositories:
+  go_test:
+    language: "go"
+    path: "./tests/data/samples"
+    
+  python_test:
+    language: "python"
+    path: "./tests/data/samples"
+    
+  typescript_test:
+    language: "typescript"
+    path: "./tests/data/samples"
+    
+  java_test:
+    language: "java"
+    path: "./tests/data/samples"
+
+# LSP Features to test
+features:
+  - definition
+  - references
+  - hover
+  - document_symbol
+  - workspace_symbol
+
+# Output settings
+output:
+  directory: "./test-results"
+  formats: ["console", "json"]
+  verbose: true

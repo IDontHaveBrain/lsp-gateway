@@ -352,18 +352,18 @@ func IsRetryableError(err error) bool {
 				strings.Contains(strings.ToLower(se.Message), "timeout")
 		}
 	}
-	
+
 	// Check for CommandError specifically
 	if ce, ok := err.(*CommandError); ok {
 		// Exit code 124 is typically timeout
 		return ce.ExitCode == 124 || strings.Contains(strings.ToLower(ce.Error()), "timeout")
 	}
-	
+
 	// Check error message for timeout patterns
 	errorMsg := strings.ToLower(err.Error())
 	if strings.Contains(errorMsg, "timeout") || strings.Contains(errorMsg, "timed out") {
 		return true
 	}
-	
+
 	return IsTemporaryError(err)
 }

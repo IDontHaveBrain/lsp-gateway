@@ -64,3 +64,8 @@ Get started: lsp-gateway setup all`,
 func Execute() error {
 	return rootCmd.Execute()
 }
+
+// GetRootCmd returns the root command for testing purposes
+func GetRootCmd() *cobra.Command {
+	return rootCmd
+}

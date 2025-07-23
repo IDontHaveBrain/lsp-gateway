@@ -13,20 +13,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	CmdServer   = "server"
-	CmdMCP      = "mcp"
-	CmdVersion  = "version"
-	CmdStatus   = "status"
-	CmdDiagnose = "diagnose"
-	CmdInstall  = "install"
-	CmdVerify   = "verify"
-	CmdSetup    = "setup"
-	CmdConfig   = "config"
-)
 
 const (
-	DefaultConfigFile    = "config.yaml"
 	DefaultServerPort    = 8080
 	DefaultLSPGatewayURL = "http://localhost:8080"
 )
@@ -113,6 +101,11 @@ func init() {
 	serverCmd.Flags().IntVarP(&port, FLAG_PORT, "p", DefaultServerPort, FLAG_DESCRIPTION_SERVER_PORT)
 
 	rootCmd.AddCommand(serverCmd)
+}
+
+// GetServerCmd returns the server command for testing purposes
+func GetServerCmd() *cobra.Command {
+	return serverCmd
 }
 
 func runServer(cmd *cobra.Command, args []string) error {

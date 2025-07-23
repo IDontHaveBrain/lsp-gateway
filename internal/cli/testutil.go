@@ -3,7 +3,7 @@ package cli
 import (
 	"testing"
 
-	"lsp-gateway/internal/testutil"
+	testutil "lsp-gateway/tests/utils/helpers"
 )
 
 const (

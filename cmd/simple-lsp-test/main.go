@@ -65,7 +65,7 @@ type LanguageResult struct {
 
 func main() {
 	var (
-		configPath = flag.String("config", "./simple-test-config.yaml", "Configuration file path")
+		configPath = flag.String("config", "./tests/data/configs/simple-test-config.yaml", "Configuration file path")
 		outputDir  = flag.String("output", "", "Output directory (overrides config)")
 		mode       = flag.String("mode", "full", "Test mode: quick|full")
 		verbose    = flag.Bool("verbose", false, "Verbose output")
@@ -269,7 +269,7 @@ func showHelp() {
 Usage: simple-lsp-test [OPTIONS]
 
 Options:
-  --config PATH    Configuration file (default: ./simple-test-config.yaml)
+  --config PATH    Configuration file (default: ./tests/data/configs/simple-test-config.yaml)
   --output DIR     Output directory (overrides config setting)
   --mode MODE      Test mode: quick|full (default: full)
   --verbose        Enable verbose output

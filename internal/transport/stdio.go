@@ -328,7 +328,7 @@ func (c *StdioClient) handleResponse(msg JSONRPCMessage) {
 	done := make(chan struct{})
 	var respCh chan json.RawMessage
 	var exists bool
-	
+
 	go func() {
 		defer close(done)
 		c.mu.RLock()
@@ -467,7 +467,7 @@ func (c *StdioClient) logStderr() {
 func (c *StdioClient) recordError() {
 	// Use timeout-based locking to avoid deadlock during shutdown
 	done := make(chan struct{})
-	
+
 	go func() {
 		defer close(done)
 		c.mu.Lock()
@@ -475,7 +475,7 @@ func (c *StdioClient) recordError() {
 		c.lastErrorTime = time.Now()
 		c.mu.Unlock()
 	}()
-	
+
 	select {
 	case <-done:
 		// Lock acquired and error recorded
@@ -491,7 +491,7 @@ func (c *StdioClient) recordError() {
 func (c *StdioClient) resetErrorCount() {
 	// Use timeout-based locking to avoid deadlock
 	done := make(chan struct{})
-	
+
 	go func() {
 		defer close(done)
 		c.mu.Lock()
@@ -499,7 +499,7 @@ func (c *StdioClient) resetErrorCount() {
 		c.circuitOpen = false
 		c.mu.Unlock()
 	}()
-	
+
 	select {
 	case <-done:
 		// Lock acquired and count reset
@@ -521,11 +521,11 @@ func (c *StdioClient) openCircuit() {
 func (c *StdioClient) isCircuitOpen() bool {
 	// Use timeout-based locking for consistency
 	done := make(chan bool, 1)
-	
+
 	go func() {
 		c.mu.RLock()
 		defer c.mu.RUnlock()
-		
+
 		// Circuit breaker: open if too many errors in short time
 		if c.circuitOpen {
 			// Try to close circuit after 30 seconds
@@ -534,10 +534,10 @@ func (c *StdioClient) isCircuitOpen() bool {
 				c.errorCount = 0
 			}
 		}
-		
+
 		done <- c.circuitOpen || c.errorCount > c.maxRetries
 	}()
-	
+
 	select {
 	case result := <-done:
 		return result

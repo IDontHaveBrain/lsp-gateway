@@ -97,23 +97,23 @@ type ContentBlock struct {
 }
 
 type ToolHandler struct {
-	client *LSPGatewayClient
-	tools  map[string]Tool
+	Client *LSPGatewayClient
+	Tools  map[string]Tool
 }
 
 func NewToolHandler(client *LSPGatewayClient) *ToolHandler {
 	handler := &ToolHandler{
-		client: client,
-		tools:  make(map[string]Tool),
+		Client: client,
+		Tools:  make(map[string]Tool),
 	}
 
-	handler.registerDefaultTools()
+	handler.RegisterDefaultTools()
 
 	return handler
 }
 
-func (h *ToolHandler) registerDefaultTools() {
-	h.tools["goto_definition"] = Tool{
+func (h *ToolHandler) RegisterDefaultTools() {
+	h.Tools["goto_definition"] = Tool{
 		Name:        "goto_definition",
 		Description: "Navigate to the definition of a symbol at a specific position in a file",
 		InputSchema: map[string]interface{}{
@@ -136,7 +136,7 @@ func (h *ToolHandler) registerDefaultTools() {
 		},
 	}
 
-	h.tools["find_references"] = Tool{
+	h.Tools["find_references"] = Tool{
 		Name:        "find_references",
 		Description: "Find all references to a symbol at a specific position in a file",
 		InputSchema: map[string]interface{}{
@@ -164,7 +164,7 @@ func (h *ToolHandler) registerDefaultTools() {
 		},
 	}
 
-	h.tools["get_hover_info"] = Tool{
+	h.Tools["get_hover_info"] = Tool{
 		Name:        "get_hover_info",
 		Description: "Get hover information for a symbol at a specific position in a file",
 		InputSchema: map[string]interface{}{
@@ -187,7 +187,7 @@ func (h *ToolHandler) registerDefaultTools() {
 		},
 	}
 
-	h.tools["get_document_symbols"] = Tool{
+	h.Tools["get_document_symbols"] = Tool{
 		Name:        "get_document_symbols",
 		Description: "Get all symbols in a document",
 		InputSchema: map[string]interface{}{
@@ -202,7 +202,7 @@ func (h *ToolHandler) registerDefaultTools() {
 		},
 	}
 
-	h.tools["search_workspace_symbols"] = Tool{
+	h.Tools["search_workspace_symbols"] = Tool{
 		Name:        "search_workspace_symbols",
 		Description: "Search for symbols in the workspace",
 		InputSchema: map[string]interface{}{
@@ -219,15 +219,15 @@ func (h *ToolHandler) registerDefaultTools() {
 }
 
 func (h *ToolHandler) ListTools() []Tool {
-	tools := make([]Tool, 0, len(h.tools))
-	for _, tool := range h.tools {
+	tools := make([]Tool, 0, len(h.Tools))
+	for _, tool := range h.Tools {
 		tools = append(tools, tool)
 	}
 	return tools
 }
 
 func (h *ToolHandler) CallTool(ctx context.Context, call ToolCall) (*ToolResult, error) {
-	tool, exists := h.tools[call.Name]
+	tool, exists := h.Tools[call.Name]
 	if !exists {
 		return &ToolResult{
 			Content: []ContentBlock{{
@@ -271,7 +271,7 @@ func (h *ToolHandler) handleGotoDefinition(ctx context.Context, args map[string]
 		},
 	}
 
-	result, err := h.client.SendLSPRequest(ctx, "textDocument/definition", params)
+	result, err := h.Client.SendLSPRequest(ctx, "textDocument/definition", params)
 	if err != nil {
 		return &ToolResult{
 			Content: []ContentBlock{{
@@ -309,7 +309,7 @@ func (h *ToolHandler) handleFindReferences(ctx context.Context, args map[string]
 		},
 	}
 
-	result, err := h.client.SendLSPRequest(ctx, "textDocument/references", params)
+	result, err := h.Client.SendLSPRequest(ctx, "textDocument/references", params)
 	if err != nil {
 		return &ToolResult{
 			Content: []ContentBlock{{
@@ -339,7 +339,7 @@ func (h *ToolHandler) handleGetHoverInfo(ctx context.Context, args map[string]in
 		},
 	}
 
-	result, err := h.client.SendLSPRequest(ctx, LSPMethodHover, params)
+	result, err := h.Client.SendLSPRequest(ctx, LSPMethodHover, params)
 	if err != nil {
 		return &ToolResult{
 			Content: []ContentBlock{{
@@ -365,7 +365,7 @@ func (h *ToolHandler) handleGetDocumentSymbols(ctx context.Context, args map[str
 		},
 	}
 
-	result, err := h.client.SendLSPRequest(ctx, "textDocument/documentSymbol", params)
+	result, err := h.Client.SendLSPRequest(ctx, "textDocument/documentSymbol", params)
 	if err != nil {
 		return &ToolResult{
 			Content: []ContentBlock{{
@@ -389,7 +389,7 @@ func (h *ToolHandler) handleSearchWorkspaceSymbols(ctx context.Context, args map
 		"query": args["query"],
 	}
 
-	result, err := h.client.SendLSPRequest(ctx, "workspace/symbol", params)
+	result, err := h.Client.SendLSPRequest(ctx, "workspace/symbol", params)
 	if err != nil {
 		return &ToolResult{
 			Content: []ContentBlock{{

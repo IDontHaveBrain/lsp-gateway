@@ -78,6 +78,11 @@ func init() {
 	rootCmd.AddCommand(verifyCmd)
 }
 
+// GetVerifyRuntimeCmd returns the verify runtime command for testing purposes
+func GetVerifyRuntimeCmd() *cobra.Command {
+	return verifyRuntimeCmd
+}
+
 func runVerifyRuntime(cmd *cobra.Command, args []string) error {
 	runtimeName := args[0]
 

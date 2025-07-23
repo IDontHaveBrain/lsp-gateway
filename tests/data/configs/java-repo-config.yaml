@@ -1,0 +1,160 @@
+# Java Repository LSP Validation Configuration
+name: "Java Repository LSP Validation"
+description: "Comprehensive LSP testing against real Java repositories"
+timeout: 15m
+parallel: true
+
+servers:
+  jdtls:
+    name: "eclipse-jdtls"
+    language: "java"
+    command: "jdtls"
+    transport: "stdio"
+    start_timeout: 60s
+    pre_warmup: true
+    capabilities:
+      - "textDocument/definition"
+      - "textDocument/references"
+      - "textDocument/hover"
+      - "textDocument/documentSymbol"
+      - "workspace/symbol"
+
+repositories:
+  - name: "kafka-repo"
+    path: "./tests/data/repositories/java/kafka"
+    language: "java"
+    description: "Apache Kafka repository"
+    setup:
+      commands:
+        - "./gradlew compileJava || true"
+        - "./gradlew jar || true"
+      timeout: 10m
+    test_cases:
+      # Definition tests
+      - id: "kafka_definition_producer"
+        name: "Kafka producer definition"
+        method: "textDocument/definition"
+        file: "clients/src/main/java/org/apache/kafka/clients/producer/KafkaProducer.java"
+        position:
+          line: 100
+          character: 20
+        expected:
+          success: true
+          definition:
+            has_location: true
+        tags: ["definition", "producer"]
+        timeout: 45s
+
+      # Reference tests
+      - id: "kafka_references_consumer"
+        name: "Kafka consumer references"
+        method: "textDocument/references"
+        file: "clients/src/main/java/org/apache/kafka/clients/consumer/KafkaConsumer.java"
+        position:
+          line: 200
+          character: 15
+        params:
+          includeDeclaration: true
+        expected:
+          success: true
+          references:
+            min_count: 1
+        tags: ["references", "consumer"]
+        timeout: 60s
+
+      # Hover tests
+      - id: "kafka_hover_config"
+        name: "Kafka config hover"
+        method: "textDocument/hover"
+        file: "clients/src/main/java/org/apache/kafka/clients/CommonClientConfigs.java"
+        position:
+          line: 50
+          character: 25
+        expected:
+          success: true
+          hover:
+            has_content: true
+        tags: ["hover", "config"]
+        timeout: 45s
+
+      # Document symbols
+      - id: "kafka_document_symbols"
+        name: "Kafka document symbols"
+        method: "textDocument/documentSymbol"
+        file: "clients/src/main/java/org/apache/kafka/clients/producer/ProducerRecord.java"
+        expected:
+          success: true
+          symbols:
+            min_count: 3
+        tags: ["symbols", "basic"]
+        timeout: 60s
+
+      # Workspace symbols
+      - id: "kafka_workspace_symbols"
+        name: "Kafka workspace symbol search"
+        method: "workspace/symbol"
+        params:
+          query: "Producer"
+        expected:
+          success: true
+          symbols:
+            min_count: 1
+        tags: ["workspace", "symbols"]
+        timeout: 180s
+
+  - name: "spring-boot-repo"
+    path: "./tests/data/repositories/java/spring-boot"
+    language: "java"
+    description: "Spring Boot framework repository"
+    setup:
+      commands:
+        - "./gradlew compileJava || true"
+      timeout: 15m
+    test_cases:
+      # Definition tests
+      - id: "spring_definition_application"
+        name: "Spring application definition"
+        method: "textDocument/definition"
+        file: "spring-boot-project/spring-boot/src/main/java/org/springframework/boot/SpringApplication.java"
+        position:
+          line: 150
+          character: 30
+        expected:
+          success: true
+          definition:
+            has_location: true
+        tags: ["definition", "spring"]
+        timeout: 45s
+
+      # Hover tests
+      - id: "spring_hover_annotation"
+        name: "Spring annotation hover"
+        method: "textDocument/hover"
+        file: "spring-boot-project/spring-boot-autoconfigure/src/main/java/org/springframework/boot/autoconfigure/EnableAutoConfiguration.java"
+        position:
+          line: 30
+          character: 10
+        expected:
+          success: true
+          hover:
+            has_content: true
+        tags: ["hover", "annotation"]
+        timeout: 45s
+
+execution:
+  max_concurrency: 1
+  default_timeout: 90s
+  retry_attempts: 3
+  fail_fast: false
+
+validation:
+  strict_mode: false
+  validate_types: true
+  validate_positions: true
+  validate_uris: true
+
+reporting:
+  formats: ["console", "json", "junit"]
+  output_dir: "repo-validation-java"
+  verbose: true
+  include_timing: true

@@ -79,7 +79,7 @@ phase_pre_maintenance_checks() {
     mkdir -p "$PROJECT_ROOT/.maintenance-backups"
     tar -czf "$PROJECT_ROOT/.maintenance-backups/pre-maintenance-backup-$TIMESTAMP.tar.gz" \
         -C "$PROJECT_ROOT" \
-        test-repositories.yaml config.yaml test-configs/ || {
+        test-repositories.yaml config.yaml tests/data/configs/ || {
         log_error "Failed to create pre-maintenance backup"
         return 1
     }

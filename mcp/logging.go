@@ -583,3 +583,10 @@ func (l *StructuredLogger) Close() error {
 func (l *StructuredLogger) IsLevelEnabled(level LogLevel) bool {
 	return level >= l.config.Level
 }
+
+// GetConfig returns the logger configuration for testing purposes
+func (l *StructuredLogger) GetConfig() *LoggerConfig {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return l.config
+}

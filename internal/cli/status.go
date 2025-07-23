@@ -192,7 +192,7 @@ func statusRuntimes(cmd *cobra.Command, args []string) error {
 
 		verifyResult, err := runtimeInstaller.Verify(runtimeName)
 		if err != nil {
-			result.Status = STATUS_FAILED
+			result.Status = StatusFailed
 			result.Message = fmt.Sprintf("Failed to verify %s runtime: %v", runtimeName, err)
 		} else {
 			result.Details["installed"] = verifyResult.Installed
@@ -201,13 +201,13 @@ func statusRuntimes(cmd *cobra.Command, args []string) error {
 			result.Details["path"] = verifyResult.Path
 
 			if !verifyResult.Installed {
-				result.Status = STATUS_FAILED
+				result.Status = StatusFailed
 				result.Message = fmt.Sprintf("%s runtime not installed", strings.ToUpper(runtimeName[:1])+runtimeName[1:])
 			} else if !verifyResult.Compatible {
-				result.Status = STATUS_WARNING
+				result.Status = StatusWarning
 				result.Message = fmt.Sprintf("%s version %s does not meet requirements", strings.ToUpper(runtimeName[:1])+runtimeName[1:], verifyResult.Version)
 			} else {
-				result.Status = STATUS_PASSED
+				result.Status = StatusPassed
 				result.Message = fmt.Sprintf("%s runtime %s is properly installed and compatible", strings.ToUpper(runtimeName[:1])+runtimeName[1:], verifyResult.Version)
 			}
 		}

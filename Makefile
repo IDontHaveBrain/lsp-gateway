@@ -140,22 +140,22 @@ test:
 .PHONY: test-unit
 test-unit:
 	@echo "Running fast unit tests (core functionality only)..."
-	$(GOTEST) -v -short -timeout=30s ./internal/config -run "^Test(Default|Load|Validate|Server)"
-	$(GOTEST) -v -short -timeout=30s ./internal/cli -run "^Test(Root|Config|Version|Help|Status|Completion)"
-	$(GOTEST) -v -short -timeout=30s ./internal/setup -run "^Test(Config|Detector|Error)" 
+	$(GOTEST) -v -short -timeout=30s ./tests/unit/internal/config -run "^Test(Default|Load|Validate|Server)"
+	$(GOTEST) -v -short -timeout=30s ./tests/unit/internal/cli -run "^Test(Root|Config|Version|Help|Status|Completion)"
+	$(GOTEST) -v -short -timeout=30s ./tests/unit/internal/setup -run "^Test(Config|Detector|Error)" 
 	@echo "Running basic component tests..."
-	$(GOTEST) -v -short -timeout=30s ./internal/gateway -run "^Test(Router|Handler|Extract)$$"
-	$(GOTEST) -v -short -timeout=30s ./internal/platform -run "^Test(Platform|Executor|Package)$$" 
-	$(GOTEST) -v -short -timeout=30s ./internal/transport -run "^Test(STDIO|TCP)$$" 
-	$(GOTEST) -v -short -timeout=30s ./mcp -run "^Test(Client|Server|Protocol)$$"
+	$(GOTEST) -v -short -timeout=30s ./tests/unit/internal/gateway -run "^Test(Router|Handler|Extract)$$"
+	$(GOTEST) -v -short -timeout=30s ./tests/unit/internal/platform -run "^Test(Platform|Executor|Package)$$" 
+	$(GOTEST) -v -short -timeout=30s ./tests/unit/internal/transport -run "^Test(STDIO|TCP)$$" 
+	$(GOTEST) -v -short -timeout=30s ./tests/unit/mcp -run "^Test(Client|Server|Protocol)$$"
 
 .PHONY: test-integration
 test-integration:
 	@echo "Running integration and performance tests..."
-	$(GOTEST) -v -timeout=300s ./internal/platform -run "GCBehavior|AllocationRate|GCPause|MemoryAllocation|Comprehensive|Coverage|Extended|Final|GCEfficiency|ResourcePool"
-	$(GOTEST) -v -timeout=300s ./internal/transport -run "LongRunning|MemoryGrowth|MemoryLeak|Performance|Integration|NetworkTimeout|FileHandle|CircuitBreaker"
-	$(GOTEST) -v -timeout=300s ./mcp -run "Performance|Throughput|Integration|NetworkTimeout"
-	$(GOTEST) -v -timeout=300s ./internal/gateway -run "Integration|E2E|Performance|Memory|Connection|Network|Retry"
+	$(GOTEST) -v -timeout=300s ./tests/unit/internal/platform ./tests/integration/packagemgr_comprehensive_test.go -run "GCBehavior|AllocationRate|GCPause|MemoryAllocation|Comprehensive|Coverage|Extended|Final|GCEfficiency|ResourcePool"
+	$(GOTEST) -v -timeout=300s ./tests/unit/internal/transport ./tests/integration/transport ./tests/stress/memory ./tests/stress/network -run "LongRunning|MemoryGrowth|MemoryLeak|Performance|Integration|NetworkTimeout|FileHandle|CircuitBreaker"
+	$(GOTEST) -v -timeout=300s ./tests/unit/mcp ./tests/integration/mcp ./tests/benchmark/mcp -run "Performance|Throughput|Integration|NetworkTimeout"
+	$(GOTEST) -v -timeout=300s ./tests/unit/internal/gateway ./tests/integration/gateway ./tests/benchmark/gateway ./tests/stress/memory ./tests/stress/network ./tests/stress/reliability -run "Integration|E2E|Performance|Memory|Connection|Network|Retry"
 
 .PHONY: test-cover
 test-cover:
@@ -166,44 +166,44 @@ test-cover:
 .PHONY: test-lsp-validation
 test-lsp-validation:
 	@echo "Running comprehensive LSP validation tests..."
-	$(GOTEST) -v -timeout=180s ./internal/gateway ./internal/transport ./mcp ./internal/setup -run "LSPValidation"
+	$(GOTEST) -v -timeout=180s ./tests/unit/internal/gateway ./tests/integration/gateway ./tests/unit/internal/transport ./tests/integration/transport ./tests/unit/mcp ./tests/integration/mcp ./tests/unit/internal/setup ./tests/integration/setup -run "LSPValidation"
 
 .PHONY: test-lsp-validation-short
 test-lsp-validation-short:
 	@echo "Running quick LSP validation tests for CI..."
-	$(GOTEST) -v -short -timeout=60s ./internal/gateway ./internal/transport ./mcp -run "LSPValidation"
+	$(GOTEST) -v -short -timeout=60s ./tests/unit/internal/gateway ./tests/integration/gateway ./tests/unit/internal/transport ./tests/integration/transport ./tests/unit/mcp ./tests/integration/mcp -run "LSPValidation"
 
 .PHONY: test-lsp-repositories
 test-lsp-repositories:
 	@echo "Running repository-focused LSP validation tests..."
-	$(GOTEST) -v -timeout=120s ./internal/gateway ./internal/transport ./mcp -run "LSPRepository"
+	$(GOTEST) -v -timeout=120s ./tests/unit/internal/gateway ./tests/integration/gateway ./tests/unit/internal/transport ./tests/integration/transport ./tests/unit/mcp ./tests/integration/mcp -run "LSPRepository"
 
 .PHONY: bench-lsp-validation
 bench-lsp-validation:
 	@echo "Running LSP validation performance benchmarks..."
-	$(GOTEST) -v -bench=LSPValidation -benchmem -timeout=300s ./internal/gateway ./internal/transport ./mcp
+	$(GOTEST) -v -bench=LSPValidation -benchmem -timeout=300s ./tests/benchmark/gateway ./tests/benchmark/transport ./tests/benchmark/mcp
 
 # LSP validation test script targets
 .PHONY: test-lsp-validation-full
 test-lsp-validation-full:
 	@echo "Running full LSP validation test suite with reporting..."
-	./scripts/run-lsp-validation-tests.sh full
+	./tests/scripts/execution/run-lsp-validation-tests.sh full
 
 .PHONY: test-lsp-validation-ci
 test-lsp-validation-ci:
 	@echo "Running CI-friendly LSP validation test suite..."
-	./scripts/run-lsp-validation-tests.sh ci
+	./tests/scripts/execution/run-lsp-validation-tests.sh ci
 
 # Coverage targets for CI/CD
 .PHONY: test-coverage-threshold
 test-coverage-threshold:
 	@echo "Running coverage check with threshold..."
-	./scripts/coverage-simple.sh
+	./tests/scripts/coverage/coverage-simple.sh
 
 .PHONY: coverage-ci
 coverage-ci:
 	@echo "Generating CI coverage reports..."
-	./scripts/coverage-simple.sh
+	./tests/scripts/coverage/coverage-simple.sh
 
 # Dependency management
 .PHONY: deps
@@ -374,7 +374,7 @@ test-lsp-quick: local lsp-setup
 	@echo "Running quick LSP validation..."
 	@mkdir -p lsp-results
 	./bin/$(BINARY_NAME) test-lsp \
-		--config=test-configs/ci-test-config.yaml \
+		--config=tests/data/configs/ci-test-config.yaml \
 		--format=json \
 		--output-dir=lsp-results \
 		--filter="method=textDocument/definition,textDocument/hover" \
@@ -392,7 +392,7 @@ test-lsp-repos: local lsp-setup
 		echo "Testing against $$repo_type repositories..."; \
 		mkdir -p repo-validation-$$repo_type; \
 		./bin/$(BINARY_NAME) test-lsp \
-			--config=test-configs/$$repo_type-repo-config.yaml \
+			--config=tests/data/configs/$$repo_type-repo-config.yaml \
 			--format=json \
 			--output-dir=repo-validation-$$repo_type \
 			--timeout=300s \
@@ -444,8 +444,8 @@ lsp-help:
 test-lsp-simple: local lsp-setup
 	@echo "Running simple LSP validation tests..."
 	@mkdir -p lsp-results
-	$(GOTEST) -v -timeout=120s ./internal/gateway ./internal/transport ./mcp -run "LSPValidation.*Simple" || \
-	$(GOTEST) -v -short -timeout=60s ./internal/gateway ./internal/transport ./mcp -run "LSPValidation"
+	$(GOTEST) -v -timeout=120s ./tests/unit/internal/gateway ./tests/integration/gateway ./tests/unit/internal/transport ./tests/integration/transport ./tests/unit/mcp ./tests/integration/mcp -run "LSPValidation.*Simple" || \
+	$(GOTEST) -v -short -timeout=60s ./tests/unit/internal/gateway ./tests/integration/gateway ./tests/unit/internal/transport ./tests/integration/transport ./tests/unit/mcp ./tests/integration/mcp -run "LSPValidation"
 	@echo "✓ Simple LSP validation completed"
 
 # Full LSP test - all test scenarios  
@@ -453,8 +453,8 @@ test-lsp-simple: local lsp-setup
 test-lsp-full: local lsp-setup
 	@echo "Running full LSP test suite..."
 	@mkdir -p lsp-results
-	$(GOTEST) -v -timeout=300s ./internal/gateway ./internal/transport ./mcp -run "LSPValidation"
-	$(GOTEST) -v -timeout=180s ./internal/gateway ./internal/transport ./mcp -run "LSPRepository"  
+	$(GOTEST) -v -timeout=300s ./tests/unit/internal/gateway ./tests/integration/gateway ./tests/unit/internal/transport ./tests/integration/transport ./tests/unit/mcp ./tests/integration/mcp -run "LSPValidation"
+	$(GOTEST) -v -timeout=180s ./tests/unit/internal/gateway ./tests/integration/gateway ./tests/unit/internal/transport ./tests/integration/transport ./tests/unit/mcp ./tests/integration/mcp -run "LSPRepository"  
 	@echo "✓ Full LSP test suite completed"
 
 
@@ -485,13 +485,13 @@ test-simple-full: build-simple-test
 .PHONY: test-simple-script
 test-simple-script:
 	@echo "Running simple LSP tests via bash script..."
-	./run-simple-lsp-tests.sh --mode full --verbose
+	./tests/scripts/run-simple-lsp-tests.sh --mode full --verbose
 
 # Simple test with custom config
 .PHONY: test-simple-custom
 test-simple-custom: build-simple-test
 	@echo "Running simple LSP tests with custom config..."
-	./$(BUILD_DIR)/simple-lsp-test --config simple-lsp-test-config.yaml --mode full --verbose
+	./$(BUILD_DIR)/simple-lsp-test --config tests/data/configs/simple-lsp-test-config.yaml --mode full --verbose
 
 # ========================================
 # Simple Repository Management
@@ -501,62 +501,62 @@ test-simple-custom: build-simple-test
 .PHONY: setup-simple-repos
 setup-simple-repos:
 	@echo "Setting up simple test repositories..."
-	./scripts/simple-clone-repos.sh setup
+	./tests/scripts/repositories/simple-clone-repos.sh setup
 	@echo "✓ Simple repositories setup completed"
 
 # Setup specific language repositories
 .PHONY: setup-simple-go
 setup-simple-go:
 	@echo "Setting up Go repository (Kubernetes)..."
-	./scripts/simple-clone-repos.sh setup go
+	./tests/scripts/repositories/simple-clone-repos.sh setup go
 
 .PHONY: setup-simple-python
 setup-simple-python:
 	@echo "Setting up Python repository (Django)..."
-	./scripts/simple-clone-repos.sh setup python
+	./tests/scripts/repositories/simple-clone-repos.sh setup python
 
 .PHONY: setup-simple-typescript
 setup-simple-typescript:
 	@echo "Setting up TypeScript repository (VS Code)..."
-	./scripts/simple-clone-repos.sh setup typescript
+	./tests/scripts/repositories/simple-clone-repos.sh setup typescript
 
 .PHONY: setup-simple-java
 setup-simple-java:
 	@echo "Setting up Java repository (Spring Boot)..."
-	./scripts/simple-clone-repos.sh setup java
+	./tests/scripts/repositories/simple-clone-repos.sh setup java
 
 # Show status of simple repositories
 .PHONY: simple-status
 simple-status:
 	@echo "Checking simple repository status..."
-	./scripts/simple-clone-repos.sh status
+	./tests/scripts/repositories/simple-clone-repos.sh status
 
 # Clean simple test repositories
 .PHONY: simple-clean
 simple-clean:
 	@echo "Cleaning simple test repositories..."
-	./scripts/simple-clone-repos.sh cleanup
+	./tests/scripts/repositories/simple-clone-repos.sh cleanup
 
 # Clean specific language repositories
 .PHONY: simple-clean-go
 simple-clean-go:
 	@echo "Cleaning Go repositories..."
-	./scripts/simple-clone-repos.sh cleanup go
+	./tests/scripts/repositories/simple-clone-repos.sh cleanup go
 
 .PHONY: simple-clean-python
 simple-clean-python:
 	@echo "Cleaning Python repositories..."
-	./scripts/simple-clone-repos.sh cleanup python
+	./tests/scripts/repositories/simple-clone-repos.sh cleanup python
 
 .PHONY: simple-clean-typescript
 simple-clean-typescript:
 	@echo "Cleaning TypeScript repositories..."
-	./scripts/simple-clone-repos.sh cleanup typescript
+	./tests/scripts/repositories/simple-clone-repos.sh cleanup typescript
 
 .PHONY: simple-clean-java
 simple-clean-java:
 	@echo "Cleaning Java repositories..."
-	./scripts/simple-clone-repos.sh cleanup java
+	./tests/scripts/repositories/simple-clone-repos.sh cleanup java
 
 # Simple LSP testing with repository setup
 .PHONY: test-simple-with-setup

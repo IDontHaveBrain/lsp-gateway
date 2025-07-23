@@ -1,3 +1,5 @@
+// Package main provides an LSP performance benchmarking tool.
+// NOTE: Currently uses existing test framework infrastructure due to missing benchmark-specific packages.
 package main
 
 import (
@@ -9,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"lsp-gateway/internal/testing/lsp"
-	"lsp-gateway/internal/testing/lsp/reporters"
-	"lsp-gateway/internal/testing/lsp/types"
+	lsp "lsp-gateway/tests/utils/framework"
+	"lsp-gateway/tests/utils/framework/reporters"
+	"lsp-gateway/tests/utils/framework/types"
 )
 
 // Version information
@@ -23,7 +25,7 @@ var (
 
 func main() {
 	var (
-		configPath  = flag.String("config", "test-configs/lsp-performance-config.yaml", "Path to performance configuration file")
+		configPath  = flag.String("config", "tests/data/configs/lsp-performance-config.yaml", "Path to performance configuration file")
 		outputDir   = flag.String("output", "benchmark-results", "Output directory for results")
 		methods     = flag.String("methods", "", "Comma-separated list of LSP methods to benchmark (all if empty)")
 		verbose     = flag.Bool("verbose", false, "Enable verbose output")
@@ -70,8 +72,9 @@ func main() {
 	// Parse concurrency levels
 	concurrencyLevels := parseCommaSeparatedInts(*concurrency)
 
-	// Create benchmark configuration
-	benchmarkConfig := &types.BenchmarkConfig{
+	// TODO: Implement proper benchmark configuration integration
+	// Currently using existing test framework instead of dedicated benchmark framework
+	_ = &types.BenchmarkConfig{
 		LatencyThresholds:    createDefaultLatencyThresholds(),
 		ThroughputThresholds: createDefaultThroughputThresholds(),
 		MemoryThresholds:     createDefaultMemoryThresholds(),
@@ -96,8 +99,8 @@ func main() {
 		LogTiming:    true,
 	}
 
-	// Create benchmark framework
-	framework, err := lsp.NewLSPBenchmarkFramework(frameworkOptions, benchmarkConfig)
+	// Create benchmark framework (using existing test framework)
+	framework, err := lsp.NewLSPTestFramework(frameworkOptions)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create benchmark framework: %v\n", err)
 		os.Exit(1)
@@ -226,7 +229,7 @@ func getSupportedMethods() []string {
 	}
 }
 
-func runBenchmarkForMethod(ctx context.Context, framework *lsp.LSPBenchmarkFramework, method string, enableProfiling bool) *types.BenchmarkResult {
+func runBenchmarkForMethod(ctx context.Context, framework *lsp.LSPTestFramework, method string, enableProfiling bool) *types.BenchmarkResult {
 	// This is a simplified implementation
 	// In real implementation, we would need to create a proper benchmark runner
 	// that integrates with Go's testing framework

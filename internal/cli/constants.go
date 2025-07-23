@@ -1,11 +1,24 @@
 package cli
 
 const (
-	STATUS_FAILED  = "failed"
-	STATUS_WARNING = "warning"
-	STATUS_PASSED  = "passed"
-	STATUS_SKIPPED = "skipped"
-	STATUS_UNKNOWN = "Unknown"
+	StatusFailed  = "failed"
+	StatusWarning = "warning"
+	StatusPassed  = "passed"
+	StatusSkipped = "skipped"
+	StatusUnknown = "Unknown"
+
+	DefaultConfigFile = "config.yaml"
+
+	// Command names
+	CmdServer   = "server"
+	CmdMCP      = "mcp" 
+	CmdVersion  = "version"
+	CmdStatus   = "status"
+	CmdDiagnose = "diagnose"
+	CmdInstall  = "install"
+	CmdVerify   = "verify"
+	CmdSetup    = "setup"
+	CmdConfig   = "config"
 
 	FLAG_TIMEOUT                 = "timeout"
 	FLAG_FORCE                   = "force"

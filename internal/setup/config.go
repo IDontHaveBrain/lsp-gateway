@@ -935,6 +935,14 @@ func (g *DefaultConfigGenerator) SetLogger(logger *SetupLogger) {
 	}
 }
 
+// SetRuntimeDetector sets the runtime detector for testing purposes
+func (g *DefaultConfigGenerator) SetRuntimeDetector(detector RuntimeDetector) {
+	g.runtimeDetector = detector
+	if g.logger != nil {
+		detector.SetLogger(g.logger)
+	}
+}
+
 type DefaultServerVerifier struct{}
 
 func NewDefaultServerVerifier() *DefaultServerVerifier {
