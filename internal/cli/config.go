@@ -9,8 +9,8 @@ import (
 
 	"lsp-gateway/internal/config"
 
+	"github.com/goccy/go-yaml"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -387,8 +387,7 @@ func writeConfigHeader(file *os.File, path string) error {
 }
 
 func writeConfigYAML(file *os.File, cfg *config.GatewayConfig, path string) error {
-	encoder := yaml.NewEncoder(file)
-	encoder.SetIndent(2)
+	encoder := yaml.NewEncoder(file, yaml.Indent(2))
 	defer func() {
 		if err := encoder.Close(); err != nil {
 			log.Printf("Warning: failed to close YAML encoder for %s: %v", path, err)

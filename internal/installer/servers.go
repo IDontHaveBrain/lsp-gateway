@@ -38,7 +38,20 @@ func NewServerInstaller(runtimeInstaller types.RuntimeInstaller) *DefaultServerI
 		strategies:       make(map[string]types.ServerPlatformStrategy),
 	}
 
+	// Initialize server platform strategies
+	installer.initializeStrategies()
+
 	return installer
+}
+
+// initializeStrategies sets up the server platform strategies
+func (s *DefaultServerInstaller) initializeStrategies() {
+	// Use universal strategy for all platforms - it handles cross-platform differences internally
+	universalStrategy := NewUniversalServerStrategy()
+
+	s.strategies["windows"] = universalStrategy
+	s.strategies["linux"] = universalStrategy
+	s.strategies["darwin"] = universalStrategy
 }
 
 func (s *DefaultServerInstaller) Install(server string, options types.ServerInstallOptions) (*types.InstallResult, error) {
@@ -311,7 +324,7 @@ func (s *ServerRegistry) registerDefaults() {
 		Name:        "pylsp",
 		DisplayName: "Python Language Server",
 		Runtime:     "python",
-		MinVersion:  "3.8.0",
+		MinVersion:  "3.9.0",
 		InstallCmd:  []string{"pip", "install", "python-lsp-server"},
 		VerifyCmd:   []string{"pylsp", "--version"},
 		ConfigKey:   "python-lsp",
@@ -325,7 +338,7 @@ func (s *ServerRegistry) registerDefaults() {
 				Method:        "pip_install",
 				Commands:      []string{"pip", "install", "python-lsp-server"},
 				Description:   "Install using pip package manager",
-				Requirements:  []string{"python >= 3.8.0", "pip"},
+				Requirements:  []string{"python >= 3.9.0", "pip"},
 				PreRequisites: []string{"python --version", "pip --version"},
 				Verification:  []string{"pylsp", "--version"},
 				PostInstall:   []string{},
@@ -338,7 +351,7 @@ func (s *ServerRegistry) registerDefaults() {
 		Name:        "typescript-language-server",
 		DisplayName: "TypeScript Language Server",
 		Runtime:     "nodejs",
-		MinVersion:  "18.0.0",
+		MinVersion:  "22.0.0",
 		InstallCmd:  []string{"npm", "install", "-g", "typescript-language-server", "typescript"},
 		VerifyCmd:   []string{"typescript-language-server", "--version"},
 		ConfigKey:   "typescript-lsp",
@@ -352,7 +365,7 @@ func (s *ServerRegistry) registerDefaults() {
 				Method:        "npm_global",
 				Commands:      []string{"npm", "install", "-g", "typescript-language-server", "typescript"},
 				Description:   "Install globally using npm",
-				Requirements:  []string{"nodejs >= 18.0.0", "npm"},
+				Requirements:  []string{"nodejs >= 22.0.0", "npm"},
 				PreRequisites: []string{"node --version", "npm --version"},
 				Verification:  []string{"typescript-language-server", "--version"},
 				PostInstall:   []string{},
@@ -361,31 +374,33 @@ func (s *ServerRegistry) registerDefaults() {
 		VersionCommand: []string{"typescript-language-server", "--version"},
 	}
 
+	jdtlsVerifyCmd := getJDTLSVerificationCommands()
 	s.servers["jdtls"] = &types.ServerDefinition{
-		Name:        "jdtls",
-		DisplayName: "Eclipse JDT Language Server",
-		Runtime:     "java",
-		MinVersion:  "17.0.0",
-		InstallCmd:  []string{"echo", "Manual download from Eclipse JDT Language Server releases"},
-		VerifyCmd:   []string{"java", "--version"},
-		ConfigKey:   "java-lsp",
-		Description: "Eclipse JDT Language Server for Java",
-		Homepage:    "https://github.com/eclipse/eclipse.jdt.ls",
-		Languages:   []string{"java"},
+		Name:              "jdtls",
+		DisplayName:       "Eclipse JDT Language Server",
+		Runtime:           "java",
+		MinVersion:        "1.48.0",
+		MinRuntimeVersion: "21.0.0",
+		InstallCmd:        []string{"# Automated download and installation from Eclipse releases"},
+		VerifyCmd:         jdtlsVerifyCmd,
+		ConfigKey:         "java-lsp",
+		Description:       "Eclipse JDT Language Server for Java with automated installation",
+		Homepage:          "https://github.com/eclipse/eclipse.jdt.ls",
+		Languages:         []string{"java"},
 		InstallMethods: []types.InstallMethod{
 			{
-				Name:          "manual_download",
+				Name:          "automated_download",
 				Platform:      "all",
-				Method:        "manual_download",
-				Commands:      []string{"echo", "Manual download from Eclipse JDT Language Server releases"},
-				Description:   "Manual download and setup from Eclipse releases",
-				Requirements:  []string{"java >= 17.0.0"},
+				Method:        "automated_download",
+				Commands:      []string{"# Automated download with checksum verification"},
+				Description:   "Automated download and installation from Eclipse releases with SHA256 verification",
+				Requirements:  []string{"java >= 21.0.0"},
 				PreRequisites: []string{"java --version"},
-				Verification:  []string{"java", "--version"},
-				PostInstall:   []string{},
+				Verification:  jdtlsVerifyCmd,
+				PostInstall:   []string{"echo", "JDTLS installed successfully. Use 'jdtls <workspace>' to start the language server."},
 			},
 		},
-		VersionCommand: []string{"java", "--version"},
+		VersionCommand: jdtlsVerifyCmd,
 	}
 }
 

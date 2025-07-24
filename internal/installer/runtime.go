@@ -370,7 +370,7 @@ func (r *RuntimeRegistry) registerDefaults() {
 	r.runtimes["python"] = &types.RuntimeDefinition{
 		Name:               "python",
 		DisplayName:        "Python Programming Language",
-		MinVersion:         "3.8.0",
+		MinVersion:         "3.9.0",
 		RecommendedVersion: "3.11.0",
 		InstallMethods:     map[string]types.InstallMethod{},
 		VerificationCmd:    []string{"python3", "--version"},
@@ -380,7 +380,7 @@ func (r *RuntimeRegistry) registerDefaults() {
 	r.runtimes["nodejs"] = &types.RuntimeDefinition{
 		Name:               "nodejs",
 		DisplayName:        "Node.js JavaScript Runtime",
-		MinVersion:         "18.0.0",
+		MinVersion:         "22.0.0",
 		RecommendedVersion: "20.0.0",
 		InstallMethods:     map[string]types.InstallMethod{},
 		VerificationCmd:    []string{"node", "--version"},
