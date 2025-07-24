@@ -498,3 +498,192 @@ func ValidateMultiple(validators ...func() *ValidationError) *CLIError {
 	}
 	return nil
 }
+
+func ValidateProjectPath(path, fieldName string) *ValidationError {
+	if path == "" {
+		return &ValidationError{
+			Field:   fieldName,
+			Value:   path,
+			Message: "project path cannot be empty",
+			Suggestions: []string{
+				"Provide a valid project directory path",
+				"Use absolute paths for clarity: /path/to/project",
+				"Use relative paths from current directory: ./project",
+				"Use current directory: .",
+			},
+		}
+	}
+
+	// Normalize the path
+	normalizedPath, err := NormalizeProjectPath(path)
+	if err != nil {
+		return &ValidationError{
+			Field:   fieldName,
+			Value:   path,
+			Message: fmt.Sprintf("cannot normalize project path: %v", err),
+			Suggestions: []string{
+				"Check if the path format is correct",
+				"Use absolute paths: /full/path/to/project",
+				"Use explicit relative paths: ./relative/path",
+			},
+		}
+	}
+
+	// Check if directory exists
+	info, err := os.Stat(normalizedPath)
+	if os.IsNotExist(err) {
+		return &ValidationError{
+			Field:   fieldName,
+			Value:   path,
+			Message: fmt.Sprintf("project directory does not exist: %s", normalizedPath),
+			Suggestions: []string{
+				"Check if the project path is correct",
+				"Create the project directory if needed",
+				fmt.Sprintf(SUGGESTION_LIST_DIRECTORY, filepath.Dir(normalizedPath)),
+				"Use an existing project directory",
+			},
+		}
+	}
+
+	if err != nil {
+		return &ValidationError{
+			Field:   fieldName,
+			Value:   path,
+			Message: fmt.Sprintf("cannot access project directory: %s (%v)", normalizedPath, err),
+			Suggestions: []string{
+				fmt.Sprintf(SUGGESTION_CHECK_PERMISSIONS, normalizedPath),
+				"Ensure you have read access to the directory",
+				"Check if parent directories are accessible",
+			},
+		}
+	}
+
+	// Check if it's actually a directory
+	if !info.IsDir() {
+		return &ValidationError{
+			Field:   fieldName,
+			Value:   path,
+			Message: fmt.Sprintf("path is not a directory: %s", normalizedPath),
+			Suggestions: []string{
+				"Specify a directory path, not a file",
+				"Remove filename from the path",
+				fmt.Sprintf(SUGGESTION_LIST_DIRECTORY, filepath.Dir(normalizedPath)),
+			},
+		}
+	}
+
+	// Check if directory is readable
+	if err := validateDirectoryReadable(normalizedPath, fieldName); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ValidateProjectStructure(path, fieldName string) *ValidationError {
+	if err := ValidateProjectPath(path, fieldName); err != nil {
+		return err
+	}
+
+	normalizedPath, err := NormalizeProjectPath(path)
+	if err != nil {
+		return &ValidationError{
+			Field:   fieldName,
+			Value:   path,
+			Message: fmt.Sprintf("cannot normalize project path: %v", err),
+			Suggestions: []string{
+				"Check if the path format is correct",
+				"Use absolute paths for clarity",
+			},
+		}
+	}
+
+	// Check for common project markers
+	projectMarkers := []string{
+		"go.mod",           // Go projects
+		"package.json",     // Node.js/JavaScript projects
+		"pyproject.toml",   // Python projects
+		"setup.py",         // Python projects
+		"requirements.txt", // Python projects
+		"Cargo.toml",       // Rust projects
+		"pom.xml",          // Java Maven projects
+		"build.gradle",     // Java Gradle projects
+		".git",             // Git repository
+		"Makefile",         // Make-based projects
+		"CMakeLists.txt",   // CMake projects
+	}
+
+	hasProjectStructure := false
+	foundMarkers := []string{}
+
+	for _, marker := range projectMarkers {
+		markerPath := filepath.Join(normalizedPath, marker)
+		if _, err := os.Stat(markerPath); err == nil {
+			hasProjectStructure = true
+			foundMarkers = append(foundMarkers, marker)
+		}
+	}
+
+	if !hasProjectStructure {
+		return &ValidationError{
+			Field:   fieldName,
+			Value:   path,
+			Message: fmt.Sprintf("directory does not appear to be a project workspace: %s", normalizedPath),
+			Suggestions: []string{
+				"Ensure the directory contains project files (go.mod, package.json, etc.)",
+				"Initialize a project in this directory if needed",
+				"Use a directory that contains a recognized project structure",
+				fmt.Sprintf(SUGGESTION_LIST_DIRECTORY, normalizedPath),
+			},
+		}
+	}
+
+	return nil
+}
+
+func NormalizeProjectPath(path string) (string, error) {
+	if path == "" {
+		return "", fmt.Errorf("path cannot be empty")
+	}
+
+	// Handle special cases
+	if path == "." {
+		return filepath.Abs(".")
+	}
+
+	// Clean the path to remove redundant elements
+	cleanPath := filepath.Clean(path)
+
+	// Convert to absolute path if relative
+	if !filepath.IsAbs(cleanPath) {
+		absPath, err := filepath.Abs(cleanPath)
+		if err != nil {
+			return "", fmt.Errorf("cannot resolve absolute path: %w", err)
+		}
+		return absPath, nil
+	}
+
+	return cleanPath, nil
+}
+
+func validateDirectoryReadable(path, fieldName string) *ValidationError {
+	// Try to read directory contents
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return &ValidationError{
+			Field:   fieldName,
+			Value:   path,
+			Message: fmt.Sprintf("cannot read directory contents: %s (%v)", path, err),
+			Suggestions: []string{
+				fmt.Sprintf(SUGGESTION_CHECK_PERMISSIONS, path),
+				"Ensure you have read access to the directory",
+				fmt.Sprintf("Fix permissions: chmod 755 %s", path),
+			},
+		}
+	}
+
+	// Basic sanity check - directory should be accessible
+	_ = entries // We just need to ensure we can read it
+
+	return nil
+}

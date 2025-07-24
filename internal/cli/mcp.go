@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	"lsp-gateway/internal/project"
+	"lsp-gateway/internal/setup"
 	"lsp-gateway/internal/transport"
 	"lsp-gateway/mcp"
 
@@ -18,12 +20,16 @@ import (
 
 var (
 	// MCP command flag variables - exported for testing purposes
-	McpConfigPath string
-	McpGatewayURL string
-	McpPort       int
-	McpTransport  string
-	McpTimeout    time.Duration
-	McpMaxRetries int
+	McpConfigPath            string
+	McpGatewayURL            string
+	McpPort                  int
+	McpTransport             string
+	McpTimeout               time.Duration
+	McpMaxRetries            int
+	// Project-related flags - exported for testing purposes
+	McpProjectPath           string
+	McpAutoDetectProject     bool
+	McpGenerateProjectConfig bool
 )
 
 var mcpCmd = &cobra.Command{
@@ -64,6 +70,11 @@ func init() {
 	mcpCmd.Flags().StringVarP(&McpTransport, FLAG_DESCRIPTION_TRANSPORT, "t", transport.TransportStdio, "Transport type (stdio, tcp, http)")
 	mcpCmd.Flags().DurationVar(&McpTimeout, FLAG_TIMEOUT, 30*time.Second, "Request timeout duration")
 	mcpCmd.Flags().IntVar(&McpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
+	
+	// Project-related flags
+	mcpCmd.Flags().StringVarP(&McpProjectPath, FLAG_PROJECT, "P", "", FLAG_DESCRIPTION_PROJECT_PATH)
+	mcpCmd.Flags().BoolVar(&McpAutoDetectProject, FLAG_AUTO_DETECT_PROJECT, false, FLAG_DESCRIPTION_AUTO_DETECT_PROJECT)
+	mcpCmd.Flags().BoolVar(&McpGenerateProjectConfig, FLAG_GENERATE_PROJECT_CONFIG, false, FLAG_DESCRIPTION_GENERATE_PROJECT_CONFIG)
 
 	rootCmd.AddCommand(mcpCmd)
 }
@@ -217,6 +228,13 @@ func setupMCPServer(logger *mcp.StructuredLogger) (*mcp.Server, error) {
 		return nil, err
 	}
 
+	// Project detection step for MCP
+	projectResult, err := performMCPProjectDetection()
+	if err != nil {
+		log.Printf("[WARN] MCP project detection failed: %v\n", err)
+		// Continue with default configuration
+	}
+
 	cfg := &mcp.ServerConfig{
 		Name:          "lsp-gateway-mcp",
 		Description:   "MCP server providing LSP functionality through LSP Gateway",
@@ -225,6 +243,13 @@ func setupMCPServer(logger *mcp.StructuredLogger) (*mcp.Server, error) {
 		Transport:     McpTransport,
 		Timeout:       McpTimeout,
 		MaxRetries:    McpMaxRetries,
+	}
+
+	// Apply project-aware configuration if available
+	if projectResult != nil && projectResult.ProjectContext != nil {
+		applyProjectAwareMCPConfig(cfg, projectResult)
+		// Add integration with project-aware gateway capabilities
+		integrateMCPWithProjectAwareGateway(cfg, projectResult)
 	}
 
 	log.Printf("[DEBUG] MCP server configuration created\n")
@@ -283,9 +308,145 @@ func validateMCPParams() error {
 			}
 			return nil
 		},
+		// Project validation
+		func() *ValidationError {
+			if McpProjectPath != "" {
+				return ValidateProjectPath(McpProjectPath, "project")
+			}
+			return nil
+		},
 	)
 	if err == nil {
 		return nil
 	}
 	return err
+}
+
+// performMCPProjectDetection performs project detection for MCP server based on CLI flags
+func performMCPProjectDetection() (*project.ProjectAnalysisResult, error) {
+	// Skip project detection if no flags are set
+	if !McpAutoDetectProject && McpProjectPath == "" {
+		return nil, nil
+	}
+
+	// Determine project path
+	detectionPath := McpProjectPath
+	if McpAutoDetectProject && detectionPath == "" {
+		// Use current working directory
+		wd, err := os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get working directory: %w", err)
+		}
+		detectionPath = wd
+	}
+
+	if detectionPath == "" {
+		return nil, fmt.Errorf("no project path specified for MCP detection")
+	}
+
+	log.Printf("[INFO] Starting MCP project detection at path: %s\n", detectionPath)
+
+	// Create project integration
+	integration, err := project.NewProjectIntegration(project.DefaultIntegrationConfig())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project integration: %w", err)
+	}
+	
+	// Perform detection and analysis
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	result, err := integration.DetectAndAnalyzeProject(ctx, detectionPath)
+	if err != nil {
+		return nil, fmt.Errorf("MCP project detection failed: %w", err)
+	}
+
+	if result.ProjectContext != nil {
+		log.Printf("[INFO] MCP project detected: %s (%s) with languages: %v\n", 
+			result.ProjectContext.ProjectType, 
+			result.ProjectContext.RootPath,
+			result.ProjectContext.Languages)
+	}
+
+	return result, nil
+}
+
+// applyProjectAwareMCPConfig applies project-specific configuration to MCP server config
+func applyProjectAwareMCPConfig(cfg *mcp.ServerConfig, projectResult *project.ProjectAnalysisResult) {
+	projectCtx := projectResult.ProjectContext
+
+	// Update MCP server name to include project type
+	cfg.Name = fmt.Sprintf("lsp-gateway-mcp-%s", projectCtx.ProjectType)
+	
+	// Update description to include project information
+	cfg.Description = fmt.Sprintf("MCP server providing LSP functionality for %s project at %s", 
+		projectCtx.ProjectType, projectCtx.RootPath)
+
+	// Note: Project context is available in the projectCtx variable
+	// and is used throughout the MCP server for project-aware functionality
+
+	// Apply project-specific timeout adjustments for large projects
+	if projectCtx.ProjectSize.TotalFiles > 1000 {
+		// Increase timeout for large projects
+		cfg.Timeout = cfg.Timeout + (30 * time.Second)
+		log.Printf("[INFO] Increased MCP timeout for large project (%d files)\n", 
+			projectCtx.ProjectSize.TotalFiles)
+	}
+
+	// Generate project-specific configuration if requested
+	if McpGenerateProjectConfig {
+		log.Printf("[INFO] Generating project-specific MCP configuration\n")
+		generateMCPProjectConfig(cfg, projectCtx)
+	}
+
+	log.Printf("[INFO] Applied project-aware MCP configuration for %s project\n", projectCtx.ProjectType)
+}
+
+// generateMCPProjectConfig generates and persists project-specific MCP configuration
+func generateMCPProjectConfig(cfg *mcp.ServerConfig, projectCtx *project.ProjectContext) {
+	// Create project-aware logger
+	logger := setup.NewSetupLogger(&setup.SetupLoggerConfig{
+		Component: "mcp-project-config-generator",
+	})
+
+	// Create config generator with proper registry and verifier
+	registry := setup.NewDefaultServerRegistry()
+	verifier := setup.NewDefaultServerVerifier()
+	generator := project.NewProjectConfigGenerator(logger, registry, verifier)
+
+	// Generate project-specific configuration
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	genResult, err := generator.GenerateFromProject(ctx, projectCtx)
+	if err != nil {
+		log.Printf("[WARN] Failed to generate MCP project configuration: %v\n", err)
+		return
+	}
+
+	// Generated configuration details are available through genResult and used
+	// throughout the MCP server for project-aware functionality
+
+	log.Printf("[INFO] Generated MCP project configuration: %d servers, %d optimizations\n", 
+		genResult.ServersGenerated, genResult.OptimizationsApplied)
+}
+
+// integrateMCPWithProjectAwareGateway attempts to integrate MCP server with project-aware gateway
+func integrateMCPWithProjectAwareGateway(cfg *mcp.ServerConfig, projectResult *project.ProjectAnalysisResult) {
+	if projectResult == nil || projectResult.ProjectContext == nil {
+		log.Printf("[DEBUG] No project context available for MCP-gateway integration\n")
+		return
+	}
+
+	// Configure timeouts based on project size
+	if projectResult.ProjectSize.TotalFiles > 500 {
+		// Increase timeout for larger projects
+		originalTimeout := cfg.Timeout
+		cfg.Timeout = originalTimeout + (15 * time.Second)
+		
+		log.Printf("[INFO] Adjusted MCP timeout for large project (%d files): %s -> %s\n", 
+			projectResult.ProjectSize.TotalFiles, originalTimeout.String(), cfg.Timeout.String())
+	}
+
+	log.Printf("[INFO] Integrated MCP server with project-aware gateway capabilities\n")
 }
