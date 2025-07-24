@@ -503,10 +503,6 @@ func (g *GradleProjectParser) ParseSettings(settingsPath string) ([]string, erro
 	return subprojects, nil
 }
 
-// Helper function to detect if it's a Kotlin DSL build file
-func (g *GradleProjectParser) isKotlinDSL(filePath string) bool {
-	return strings.HasSuffix(filePath, ".gradle.kts")
-}
 
 // ValidatePomXML validates Maven pom.xml for common issues
 func (p *MavenProjectParser) ValidatePomXML(pomPath string) []string {

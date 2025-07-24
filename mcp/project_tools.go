@@ -1179,18 +1179,3 @@ func (h *ProjectToolsHandler) getStringArg(args map[string]interface{}, key stri
 	return defaultValue
 }
 
-func (h *ProjectToolsHandler) getIntArg(args map[string]interface{}, key string, defaultValue int) int {
-	if value, exists := args[key]; exists {
-		switch v := value.(type) {
-		case int:
-			return v
-		case float64:
-			return int(v)
-		case string:
-			if intValue, err := strconv.Atoi(v); err == nil {
-				return intValue
-			}
-		}
-	}
-	return defaultValue
-}

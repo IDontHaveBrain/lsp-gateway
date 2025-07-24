@@ -389,62 +389,6 @@ func (d *JavaProjectDetector) findMarkerFiles(path string) []string {
 	return found
 }
 
-func (d *JavaProjectDetector) createProjectMetadata(runtime *JavaRuntimeAnalysis, buildSystem *BuildSystemAnalysis, structure *StructureValidation) interface{} {
-	metadata := &JavaDetectionMetadata{
-		JavaVersion:   runtime.JavaVersion,
-		BuildSystem:   buildSystem.BuildSystem,
-		JavaHome:      runtime.JavaHome,
-		ProjectType:   "application", // Default, could be enhanced
-		SourceDirs:    structure.SourceDirs,
-		TestDirs:      structure.TestDirs,
-		Dependencies:  make(map[string]*JavaDependency),
-		EntryPoints:   make(map[string]string),
-	}
-
-	if buildSystem.MavenInfo != nil {
-		metadata.MavenInfo = buildSystem.MavenInfo
-		// Convert Maven dependencies to Java dependencies
-		for name, version := range buildSystem.MavenInfo.Dependencies {
-			parts := strings.Split(name, ":")
-			if len(parts) >= 2 {
-				metadata.Dependencies[name] = &JavaDependency{
-					GroupId:    parts[0],
-					ArtifactId: parts[1],
-					Version:    version,
-					Source:     "pom.xml",
-				}
-			}
-		}
-	}
-
-	if buildSystem.GradleInfo != nil {
-		metadata.GradleInfo = buildSystem.GradleInfo
-		// Convert Gradle dependencies to Java dependencies
-		for name, version := range buildSystem.GradleInfo.Dependencies {
-			parts := strings.Split(name, ":")
-			if len(parts) >= 2 {
-				metadata.Dependencies[name] = &JavaDependency{
-					GroupId:    parts[0],
-					ArtifactId: parts[1],
-					Version:    version,
-					Source:     "build.gradle",
-				}
-			}
-		}
-	}
-
-	return metadata
-}
-
-func (d *JavaProjectDetector) collectIssues(runtime *JavaRuntimeAnalysis, buildSystem *BuildSystemAnalysis, structure *StructureValidation) []string {
-	var issues []string
-	
-	issues = append(issues, runtime.Issues...)
-	issues = append(issues, buildSystem.Issues...)
-	issues = append(issues, structure.Issues...)
-	
-	return issues
-}
 
 // Supporting types for internal analysis
 
