@@ -572,6 +572,8 @@ func (l *SetupLogger) writeEntry(entry *SetupLogEntry, userOutput bool) {
 	}
 
 	if _, err := writer.Write([]byte(output)); err != nil {
+		// Ignore write errors for log output
+		_ = err
 	}
 }
 

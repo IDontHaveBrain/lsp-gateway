@@ -328,7 +328,7 @@ func (p *PythonConfigParser) ParseRequirements(ctx context.Context, path string)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open requirements.txt: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	dependencies := make(map[string]*types.PythonDependencyInfo)
 	scanner := bufio.NewScanner(file)

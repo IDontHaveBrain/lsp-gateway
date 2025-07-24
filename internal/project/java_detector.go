@@ -244,7 +244,7 @@ func (j *JavaLanguageDetector) parseBuildGradle(gradlePath string, result *types
 	if err != nil {
 		return fmt.Errorf("failed to open build.gradle: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
 	var currentSection string

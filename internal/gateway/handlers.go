@@ -96,8 +96,8 @@ const (
 const (
 	ERROR_INVALID_REQUEST   = "Invalid JSON-RPC request"
 	ERROR_INTERNAL          = "Internal server error"
-	ERROR_SERVER_NOT_FOUND  = "Server %s not found"
-	FORMAT_INVALID_JSON_RPC = "Invalid JSON-RPC version: %s"
+	ERROR_SERVER_NOT_FOUND  = "server %s not found"
+	FORMAT_INVALID_JSON_RPC = "invalid JSON-RPC version: %s"
 )
 
 const (

@@ -465,7 +465,7 @@ func (h *ProjectAwareToolHandler) handleFindProjectSymbols(ctx context.Context, 
 	}
 
 	// Delegate to enhanced workspace symbol search
-	return h.ToolHandler.handleSearchWorkspaceSymbols(ctx, enhancedArgs)
+	return h.handleSearchWorkspaceSymbols(ctx, enhancedArgs)
 }
 
 func (h *ProjectAwareToolHandler) handleGetProjectConfig(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {

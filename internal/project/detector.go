@@ -303,7 +303,7 @@ func (d *DefaultProjectDetector) ValidateProject(ctx context.Context, projectCtx
 		
 		validationError := types.NewValidationError(projectCtx.ProjectType, "Project validation failed", nil)
 		for _, err := range validationErrors {
-			validationError.WithSuggestion(err)
+			validationError = validationError.WithSuggestion(err)
 		}
 		return validationError
 	}

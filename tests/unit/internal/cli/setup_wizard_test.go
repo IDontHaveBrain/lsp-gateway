@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"lsp-gateway/internal/cli"
 	"lsp-gateway/tests/mocks"
 	"lsp-gateway/tests/testdata"
@@ -201,14 +200,22 @@ func TestRunSetupWizard_InteractiveFlow(t *testing.T) {
 
 			// Write user input to pipe
 			go func() {
-				defer w.Close()
-				w.WriteString(userInput)
+				defer func() {
+					if closeErr := w.Close(); closeErr != nil {
+						t.Logf("Warning: failed to close write pipe: %v", closeErr)
+					}
+				}()
+				if _, writeErr := w.WriteString(userInput); writeErr != nil {
+					t.Errorf("Failed to write user input to pipe: %v", writeErr)
+				}
 			}()
 
 			// Restore stdin after test
 			defer func() {
 				os.Stdin = oldStdin
-				r.Close()
+				if closeErr := r.Close(); closeErr != nil {
+					t.Logf("Warning: failed to close read pipe: %v", closeErr)
+				}
 			}()
 
 			// Capture output
@@ -264,13 +271,21 @@ func TestWizardStepFunctions(t *testing.T) {
 				os.Stdin = r
 
 				go func() {
-					defer w.Close()
-					w.WriteString(inp.input)
+					defer func() {
+						if closeErr := w.Close(); closeErr != nil {
+							t.Logf("Warning: failed to close write pipe: %v", closeErr)
+						}
+					}()
+					if _, writeErr := w.WriteString(inp.input); writeErr != nil {
+						t.Errorf("Failed to write input to pipe: %v", writeErr)
+					}
 				}()
 
 				defer func() {
 					os.Stdin = oldStdin
-					r.Close()
+					if closeErr := r.Close(); closeErr != nil {
+						t.Logf("Warning: failed to close read pipe: %v", closeErr)
+					}
 				}()
 
 				// Capture output
@@ -281,13 +296,21 @@ func TestWizardStepFunctions(t *testing.T) {
 
 				// Read output in goroutine
 				go func() {
-					defer wOut.Close()
-					io.Copy(&buf, rOut)
+					defer func() {
+						if closeErr := wOut.Close(); closeErr != nil {
+							t.Logf("Warning: failed to close write output pipe: %v", closeErr)
+						}
+					}()
+					if _, copyErr := io.Copy(&buf, rOut); copyErr != nil {
+						t.Errorf("Failed to copy output: %v", copyErr)
+					}
 				}()
 
 				defer func() {
 					os.Stdout = oldStdout
-					rOut.Close()
+					if closeErr := rOut.Close(); closeErr != nil {
+						t.Logf("Warning: failed to close read output pipe: %v", closeErr)
+					}
 				}()
 
 				// Test would call wizardWelcome function here
@@ -386,11 +409,15 @@ func TestWizardErrorHandling(t *testing.T) {
 		oldStdin := os.Stdin
 		r, w, _ := os.Pipe()
 		os.Stdin = r
-		w.Close() // Close write end to cause EOF
+		if closeErr := w.Close(); closeErr != nil {
+			t.Logf("Warning: failed to close write pipe: %v", closeErr)
+		} // Close write end to cause EOF
 
 		defer func() {
 			os.Stdin = oldStdin
-			r.Close()
+			if closeErr := r.Close(); closeErr != nil {
+				t.Logf("Warning: failed to close read pipe: %v", closeErr)
+			}
 		}()
 
 		testRunner := testdata.NewTestRunner(30 * time.Second)
@@ -426,12 +453,16 @@ func TestWizardErrorHandling(t *testing.T) {
 		go func() {
 			time.Sleep(10 * time.Millisecond)
 			cancel()
-			w.Close()
+			if closeErr := w.Close(); closeErr != nil {
+				t.Logf("Warning: failed to close write pipe: %v", closeErr)
+			}
 		}()
 
 		defer func() {
 			os.Stdin = oldStdin
-			r.Close()
+			if closeErr := r.Close(); closeErr != nil {
+				t.Logf("Warning: failed to close read pipe: %v", closeErr)
+			}
 		}()
 
 		// Store and set flags
@@ -544,13 +575,21 @@ func TestWizardIntegration(t *testing.T) {
 		os.Stdin = r
 
 		go func() {
-			defer w.Close()
-			w.WriteString(userInput)
+			defer func() {
+				if closeErr := w.Close(); closeErr != nil {
+					t.Logf("Warning: failed to close write pipe: %v", closeErr)
+				}
+			}()
+			if _, writeErr := w.WriteString(userInput); writeErr != nil {
+				t.Errorf("Failed to write user input to pipe: %v", writeErr)
+			}
 		}()
 
 		defer func() {
 			os.Stdin = oldStdin
-			r.Close()
+			if closeErr := r.Close(); closeErr != nil {
+				t.Logf("Warning: failed to close read pipe: %v", closeErr)
+			}
 		}()
 
 		// Store and set flags
@@ -599,8 +638,8 @@ func BenchmarkSetupWizard_NonInteractive(b *testing.B) {
 		cmd.SetContext(testRunner.Context())
 
 		// Discard output
-		cmd.SetOut(ioutil.Discard)
-		cmd.SetErr(ioutil.Discard)
+		cmd.SetOut(io.Discard)
+		cmd.SetErr(io.Discard)
 
 		err := cmd.RunE(cmd, []string{})
 		if err != nil {

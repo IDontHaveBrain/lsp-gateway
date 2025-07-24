@@ -907,6 +907,8 @@ func outputDiagnosticTable(results []DiagnosticResult) {
 	}
 
 	if err := w.Flush(); err != nil {
+		// Ignore flush errors for diagnostic output
+		_ = err
 	}
 }
 

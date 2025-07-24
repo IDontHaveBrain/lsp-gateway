@@ -203,7 +203,7 @@ func FormatRuntimeName(name string) string {
 }
 
 func OutputServersTableHeader() {
-	outputServersTableHeader()
+	_ = outputServersTableHeader()
 }
 
 func InitializeStatusData() map[string]interface{} {

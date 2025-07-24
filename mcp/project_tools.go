@@ -7,9 +7,11 @@ import (
 	"lsp-gateway/internal/project"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // ProjectToolsHandler provides advanced project-specific MCP tool implementations
@@ -1008,7 +1010,7 @@ func (h *ProjectToolsHandler) formatProjectAnalysis(analysis map[string]interfac
 func (h *ProjectToolsHandler) formatSymbolSearchResults(symbols []interface{}, query, scope string) string {
 	var result strings.Builder
 	
-	result.WriteString(fmt.Sprintf("# Symbol Search Results\n\n"))
+	result.WriteString("# Symbol Search Results\n\n")
 	result.WriteString(fmt.Sprintf("**Query:** %s\n", query))
 	result.WriteString(fmt.Sprintf("**Scope:** %s\n", scope))
 	result.WriteString(fmt.Sprintf("**Results Found:** %d\n\n", len(symbols)))
@@ -1044,7 +1046,7 @@ func (h *ProjectToolsHandler) formatProjectConfig(config map[string]interface{})
 	if projectInfo, exists := config["project_info"].(map[string]interface{}); exists {
 		result.WriteString("## Project Information\n")
 		for key, value := range projectInfo {
-			result.WriteString(fmt.Sprintf("- **%s:** %v\n", strings.Title(strings.ReplaceAll(key, "_", " ")), value))
+			result.WriteString(fmt.Sprintf("- **%s:** %v\n", cases.Title(language.English).String(strings.ReplaceAll(key, "_", " ")), value))
 		}
 		result.WriteString("\n")
 	}

@@ -186,149 +186,12 @@ func (p *PackageJsonParser) ParsePackageJson(filePath string) (*PackageJsonInfo,
 		Raw:                  raw,
 	}
 
-	// Parse basic fields
-	if name, ok := raw["name"].(string); ok {
-		info.Name = name
-	}
-	if version, ok := raw["version"].(string); ok {
-		info.Version = version
-	}
-	if desc, ok := raw["description"].(string); ok {
-		info.Description = desc
-	}
-	if main, ok := raw["main"].(string); ok {
-		info.Main = main
-	}
-	if module, ok := raw["module"].(string); ok {
-		info.Module = module
-	}
-	if types, ok := raw["types"].(string); ok {
-		info.Types = types
-	}
-	if pkgType, ok := raw["type"].(string); ok {
-		info.Type = pkgType
-	}
-	if private, ok := raw["private"].(bool); ok {
-		info.Private = private
-	}
-	if license, ok := raw["license"].(string); ok {
-		info.License = license
-	}
-	if homepage, ok := raw["homepage"].(string); ok {
-		info.Homepage = homepage
-	}
-	if packageManager, ok := raw["packageManager"].(string); ok {
-		info.PackageManager = packageManager
-	}
-
-	// Parse author (can be string or object)
-	if author := raw["author"]; author != nil {
-		info.Author = author
-	}
-
-	// Parse repository (can be string or object)
-	if repository := raw["repository"]; repository != nil {
-		info.Repository = repository
-	}
-
-	// Parse bugs (can be string or object)
-	if bugs := raw["bugs"]; bugs != nil {
-		info.Bugs = bugs
-	}
-
-	// Parse arrays
-	if keywords, ok := raw["keywords"].([]interface{}); ok {
-		for _, kw := range keywords {
-			if kwStr, ok := kw.(string); ok {
-				info.Keywords = append(info.Keywords, kwStr)
-			}
-		}
-	}
-
-	if files, ok := raw["files"].([]interface{}); ok {
-		for _, file := range files {
-			if fileStr, ok := file.(string); ok {
-				info.Files = append(info.Files, fileStr)
-			}
-		}
-	}
-
-	if contributors, ok := raw["contributors"].([]interface{}); ok {
-		info.Contributors = contributors
-	}
-
-	if osArray, ok := raw["os"].([]interface{}); ok {
-		for _, os := range osArray {
-			if osStr, ok := os.(string); ok {
-				info.OS = append(info.OS, osStr)
-			}
-		}
-	}
-
-	if cpuArray, ok := raw["cpu"].([]interface{}); ok {
-		for _, cpu := range cpuArray {
-			if cpuStr, ok := cpu.(string); ok {
-				info.CPU = append(info.CPU, cpuStr)
-			}
-		}
-	}
-
-	// Parse object fields
-	p.parseStringMap(raw, "scripts", info.Scripts)
-	p.parseStringMap(raw, "dependencies", info.Dependencies)
-	p.parseStringMap(raw, "devDependencies", info.DevDependencies)
-	p.parseStringMap(raw, "peerDependencies", info.PeerDependencies)
-	p.parseStringMap(raw, "optionalDependencies", info.OptionalDependencies)
-	p.parseStringMap(raw, "engines", info.Engines)
-	p.parseStringMap(raw, "directories", info.Directories)
-
-	// Parse bin (can be string or object)
-	if bin := raw["bin"]; bin != nil {
-		switch binValue := bin.(type) {
-		case string:
-			// Single binary with package name
-			if info.Name != "" {
-				info.Bin[info.Name] = binValue
-			}
-		case map[string]interface{}:
-			p.parseStringMapFromInterface(binValue, info.Bin)
-		}
-	}
-
-	// Parse exports and imports
-	if exports := raw["exports"]; exports != nil {
-		info.Exports = exports.(map[string]interface{})
-	}
-	if imports := raw["imports"]; imports != nil {
-		info.Imports = imports.(map[string]interface{})
-	}
-
-	// Parse config
-	if config, ok := raw["config"].(map[string]interface{}); ok {
-		info.Config = config
-	}
-
-	// Parse workspaces
-	if workspaces := raw["workspaces"]; workspaces != nil {
-		switch ws := workspaces.(type) {
-		case []interface{}:
-			// Simple array format
-			for _, w := range ws {
-				if wStr, ok := w.(string); ok {
-					info.Workspaces = append(info.Workspaces, wStr)
-				}
-			}
-		case map[string]interface{}:
-			// Object format with packages field
-			if packages, ok := ws["packages"].([]interface{}); ok {
-				for _, pkg := range packages {
-					if pkgStr, ok := pkg.(string); ok {
-						info.Workspaces = append(info.Workspaces, pkgStr)
-					}
-				}
-			}
-		}
-	}
+	// Parse different field types using helper methods
+	p.parseBasicStringFields(raw, info)
+	p.parseInterfaceFields(raw, info)
+	p.parseArrayFields(raw, info)
+	p.parseDependencyFields(raw, info)
+	p.parseComplexObjectFields(raw, info)
 
 	p.logger.WithFields(map[string]interface{}{
 		"name":              info.Name,
@@ -571,7 +434,6 @@ func (l *LockfileParser) ParseLockfile(filePath string) (*LockfileInfo, error) {
 	l.logger.WithField("file", filePath).Debug("Parsing lockfile")
 
 	fileName := filepath.Base(filePath)
-	var lockType string
 
 	switch fileName {
 	case "package-lock.json":
@@ -586,14 +448,6 @@ func (l *LockfileParser) ParseLockfile(filePath string) (*LockfileInfo, error) {
 		return nil, types.NewDetectionError("lockfile-parser", "unsupported_format", filePath,
 			fmt.Sprintf("Unsupported lockfile format: %s", fileName), nil)
 	}
-
-	info := &LockfileInfo{
-		Type:         lockType,
-		Dependencies: make(map[string]*LockedDependency),
-		Metadata:     make(map[string]interface{}),
-	}
-
-	return info, nil
 }
 
 // parseNPMLockfile parses package-lock.json files
@@ -632,7 +486,7 @@ func (l *LockfileParser) parseYarnLockfile(filePath string) (*LockfileInfo, erro
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	info := &LockfileInfo{
 		Type:         "yarn",
@@ -900,7 +754,148 @@ func (w *WorkspaceParser) parsePNPMWorkspaces(rootPath string) ([]string, error)
 	return packages, nil
 }
 
-// Helper methods
+// Helper methods for parsing different field types
+
+func (p *PackageJsonParser) parseBasicStringFields(raw map[string]interface{}, info *PackageJsonInfo) {
+	if name, ok := raw["name"].(string); ok {
+		info.Name = name
+	}
+	if version, ok := raw["version"].(string); ok {
+		info.Version = version
+	}
+	if desc, ok := raw["description"].(string); ok {
+		info.Description = desc
+	}
+	if main, ok := raw["main"].(string); ok {
+		info.Main = main
+	}
+	if module, ok := raw["module"].(string); ok {
+		info.Module = module
+	}
+	if types, ok := raw["types"].(string); ok {
+		info.Types = types
+	}
+	if pkgType, ok := raw["type"].(string); ok {
+		info.Type = pkgType
+	}
+	if license, ok := raw["license"].(string); ok {
+		info.License = license
+	}
+	if homepage, ok := raw["homepage"].(string); ok {
+		info.Homepage = homepage
+	}
+	if packageManager, ok := raw["packageManager"].(string); ok {
+		info.PackageManager = packageManager
+	}
+	if private, ok := raw["private"].(bool); ok {
+		info.Private = private
+	}
+}
+
+func (p *PackageJsonParser) parseInterfaceFields(raw map[string]interface{}, info *PackageJsonInfo) {
+	if author := raw["author"]; author != nil {
+		info.Author = author
+	}
+	if repository := raw["repository"]; repository != nil {
+		info.Repository = repository
+	}
+	if bugs := raw["bugs"]; bugs != nil {
+		info.Bugs = bugs
+	}
+}
+
+func (p *PackageJsonParser) parseArrayFields(raw map[string]interface{}, info *PackageJsonInfo) {
+	p.parseStringArrayField(raw, "keywords", &info.Keywords)
+	p.parseStringArrayField(raw, "files", &info.Files)
+	p.parseStringArrayField(raw, "os", &info.OS)
+	p.parseStringArrayField(raw, "cpu", &info.CPU)
+	
+	if contributors, ok := raw["contributors"].([]interface{}); ok {
+		info.Contributors = contributors
+	}
+}
+
+func (p *PackageJsonParser) parseStringArrayField(raw map[string]interface{}, key string, target *[]string) {
+	if array, ok := raw[key].([]interface{}); ok {
+		for _, item := range array {
+			if str, ok := item.(string); ok {
+				*target = append(*target, str)
+			}
+		}
+	}
+}
+
+func (p *PackageJsonParser) parseDependencyFields(raw map[string]interface{}, info *PackageJsonInfo) {
+	p.parseStringMap(raw, "scripts", info.Scripts)
+	p.parseStringMap(raw, "dependencies", info.Dependencies)
+	p.parseStringMap(raw, "devDependencies", info.DevDependencies)
+	p.parseStringMap(raw, "peerDependencies", info.PeerDependencies)
+	p.parseStringMap(raw, "optionalDependencies", info.OptionalDependencies)
+	p.parseStringMap(raw, "engines", info.Engines)
+	p.parseStringMap(raw, "directories", info.Directories)
+}
+
+func (p *PackageJsonParser) parseComplexObjectFields(raw map[string]interface{}, info *PackageJsonInfo) {
+	p.parseBinField(raw, info)
+	p.parseExportsImportsFields(raw, info)
+	p.parseConfigField(raw, info)
+	p.parseWorkspacesField(raw, info)
+}
+
+func (p *PackageJsonParser) parseBinField(raw map[string]interface{}, info *PackageJsonInfo) {
+	bin := raw["bin"]
+	if bin == nil {
+		return
+	}
+	
+	switch binValue := bin.(type) {
+	case string:
+		if info.Name != "" {
+			info.Bin[info.Name] = binValue
+		}
+	case map[string]interface{}:
+		p.parseStringMapFromInterface(binValue, info.Bin)
+	}
+}
+
+func (p *PackageJsonParser) parseExportsImportsFields(raw map[string]interface{}, info *PackageJsonInfo) {
+	if exports := raw["exports"]; exports != nil {
+		info.Exports = exports.(map[string]interface{})
+	}
+	if imports := raw["imports"]; imports != nil {
+		info.Imports = imports.(map[string]interface{})
+	}
+}
+
+func (p *PackageJsonParser) parseConfigField(raw map[string]interface{}, info *PackageJsonInfo) {
+	if config, ok := raw["config"].(map[string]interface{}); ok {
+		info.Config = config
+	}
+}
+
+func (p *PackageJsonParser) parseWorkspacesField(raw map[string]interface{}, info *PackageJsonInfo) {
+	workspaces := raw["workspaces"]
+	if workspaces == nil {
+		return
+	}
+	
+	switch ws := workspaces.(type) {
+	case []interface{}:
+		for _, w := range ws {
+			if wStr, ok := w.(string); ok {
+				info.Workspaces = append(info.Workspaces, wStr)
+			}
+		}
+	case map[string]interface{}:
+		if packages, ok := ws["packages"].([]interface{}); ok {
+			for _, pkg := range packages {
+				if pkgStr, ok := pkg.(string); ok {
+					info.Workspaces = append(info.Workspaces, pkgStr)
+				}
+			}
+		}
+	}
+}
 
 func (p *PackageJsonParser) parseStringMap(raw map[string]interface{}, key string, target map[string]string) {
 	if obj, ok := raw[key].(map[string]interface{}); ok {

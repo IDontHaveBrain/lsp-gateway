@@ -25,8 +25,8 @@ func (w *WindowsRuntimeStrategy) InstallRuntime(runtime string, options types.In
 		return &types.InstallResult{
 			Success:  false,
 			Runtime:  runtime,
-			Messages: []string{"Windows strategy is nil"},
-		}, fmt.Errorf("Windows strategy is nil")
+			Messages: []string{"windows strategy is nil"},
+		}, fmt.Errorf("windows strategy is nil")
 	}
 
 	// Delegate to the underlying strategy methods based on runtime type
@@ -68,7 +68,7 @@ func (w *WindowsRuntimeStrategy) VerifyRuntime(runtime string) (*types.Verificat
 		return &types.VerificationResult{
 			Installed: false,
 			Runtime:   runtime,
-		}, fmt.Errorf("Windows strategy is nil")
+		}, fmt.Errorf("windows strategy is nil")
 	}
 
 	// Return basic verification result as expected by tests
@@ -109,8 +109,8 @@ func (l *LinuxRuntimeStrategy) InstallRuntime(runtime string, options types.Inst
 		return &types.InstallResult{
 			Success:  false,
 			Runtime:  runtime,
-			Messages: []string{"Linux strategy is nil"},
-		}, fmt.Errorf("Linux strategy is nil")
+			Messages: []string{"linux strategy is nil"},
+		}, fmt.Errorf("linux strategy is nil")
 	}
 
 	// Delegate to the underlying strategy methods based on runtime type
@@ -152,7 +152,7 @@ func (l *LinuxRuntimeStrategy) VerifyRuntime(runtime string) (*types.Verificatio
 		return &types.VerificationResult{
 			Installed: false,
 			Runtime:   runtime,
-		}, fmt.Errorf("Linux strategy is nil")
+		}, fmt.Errorf("linux strategy is nil")
 	}
 
 	// Return basic verification result as expected by tests

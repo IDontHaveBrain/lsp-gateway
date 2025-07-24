@@ -94,7 +94,7 @@ func extractVersion(output string) string {
 				fields := strings.Fields(line)
 				for _, field := range fields {
 					// Skip the version keyword itself
-					if strings.ToLower(field) == strings.ToLower(pattern) {
+					if strings.EqualFold(field, pattern) {
 						continue
 					}
 					// Look for version-like strings (containing dots or starting with v)

@@ -122,7 +122,7 @@ func (d *BasicLanguageDetector) detectMarkerFiles(rootPath string) []*types.Lang
 func (d *BasicLanguageDetector) countFilesByExtension(ctx context.Context, rootPath string) map[string]int {
 	counts := make(map[string]int)
 	
-	filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()

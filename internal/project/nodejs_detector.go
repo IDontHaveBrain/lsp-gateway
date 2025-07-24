@@ -13,6 +13,54 @@ import (
 	"time"
 )
 
+// Framework mappings for dependency name to framework name lookup
+var frameworkMap = map[string]string{
+	"express":        "Express.js",
+	"koa":            "Koa.js",
+	"fastify":        "Fastify",
+	"hapi":           "Hapi.js",
+	"nestjs":         "NestJS",
+	"react":          "React",
+	"vue":            "Vue.js",
+	"angular":        "Angular",
+	"@angular/core":  "Angular",
+	"svelte":         "Svelte",
+	"next":           "Next.js",
+	"nuxt":           "Nuxt.js",
+	"gatsby":         "Gatsby",
+	"electron":       "Electron",
+	"react-native":   "React Native",
+	"jest":           "Jest",
+	"mocha":          "Mocha",
+	"chai":           "Chai",
+	"cypress":        "Cypress",
+	"playwright":     "Playwright",
+	"webpack":        "Webpack",
+	"vite":           "Vite",
+	"rollup":         "Rollup",
+	"typescript":     "TypeScript",
+	"eslint":         "ESLint",
+	"prettier":       "Prettier",
+}
+
+// Framework to project type mappings
+var frameworkProjectTypes = map[string][]string{
+	"React":        {"frontend"},
+	"Vue.js":       {"frontend"},
+	"Angular":      {"frontend"},
+	"Svelte":       {"frontend"},
+	"Express.js":   {"backend"},
+	"Koa.js":       {"backend"},
+	"Fastify":      {"backend"},
+	"Hapi.js":      {"backend"},
+	"NestJS":       {"backend"},
+	"Next.js":      {"fullstack"},
+	"Nuxt.js":      {"fullstack"},
+	"Gatsby":       {"fullstack"},
+	"Electron":     {"desktop"},
+	"React Native": {"mobile"},
+}
+
 // NodeJSLanguageDetector implements comprehensive Node.js project detection
 type NodeJSLanguageDetector struct {
 	logger   *setup.SetupLogger
@@ -305,6 +353,30 @@ func (n *NodeJSLanguageDetector) detectNodeVersion(ctx context.Context, result *
 	return nil
 }
 
+// getFrameworkName returns the framework name for a given dependency name
+func (n *NodeJSLanguageDetector) getFrameworkName(dep string) (string, bool) {
+	framework, exists := frameworkMap[dep]
+	return framework, exists
+}
+
+// detectProjectTypes determines project types based on detected frameworks
+func (n *NodeJSLanguageDetector) detectProjectTypes(frameworks []string) []string {
+	projectTypesSet := make(map[string]bool)
+	for _, framework := range frameworks {
+		if types, exists := frameworkProjectTypes[framework]; exists {
+			for _, projectType := range types {
+				projectTypesSet[projectType] = true
+			}
+		}
+	}
+	
+	projectTypes := make([]string, 0, len(projectTypesSet))
+	for projectType := range projectTypesSet {
+		projectTypes = append(projectTypes, projectType)
+	}
+	return projectTypes
+}
+
 func (n *NodeJSLanguageDetector) detectNodeFrameworks(result *types.LanguageDetectionResult) {
 	frameworks := []string{}
 	
@@ -318,57 +390,8 @@ func (n *NodeJSLanguageDetector) detectNodeFrameworks(result *types.LanguageDete
 	}
 
 	for dep := range allDeps {
-		switch dep {
-		case "express":
-			frameworks = append(frameworks, "Express.js")
-		case "koa":
-			frameworks = append(frameworks, "Koa.js")
-		case "fastify":
-			frameworks = append(frameworks, "Fastify")
-		case "hapi":
-			frameworks = append(frameworks, "Hapi.js")
-		case "nestjs":
-			frameworks = append(frameworks, "NestJS")
-		case "react":
-			frameworks = append(frameworks, "React")
-		case "vue":
-			frameworks = append(frameworks, "Vue.js")
-		case "angular", "@angular/core":
-			frameworks = append(frameworks, "Angular")
-		case "svelte":
-			frameworks = append(frameworks, "Svelte")
-		case "next":
-			frameworks = append(frameworks, "Next.js")
-		case "nuxt":
-			frameworks = append(frameworks, "Nuxt.js")
-		case "gatsby":
-			frameworks = append(frameworks, "Gatsby")
-		case "electron":
-			frameworks = append(frameworks, "Electron")
-		case "react-native":
-			frameworks = append(frameworks, "React Native")
-		case "jest":
-			frameworks = append(frameworks, "Jest")
-		case "mocha":
-			frameworks = append(frameworks, "Mocha")
-		case "chai":
-			frameworks = append(frameworks, "Chai")
-		case "cypress":
-			frameworks = append(frameworks, "Cypress")
-		case "playwright":
-			frameworks = append(frameworks, "Playwright")
-		case "webpack":
-			frameworks = append(frameworks, "Webpack")
-		case "vite":
-			frameworks = append(frameworks, "Vite")
-		case "rollup":
-			frameworks = append(frameworks, "Rollup")
-		case "typescript":
-			frameworks = append(frameworks, "TypeScript")
-		case "eslint":
-			frameworks = append(frameworks, "ESLint")
-		case "prettier":
-			frameworks = append(frameworks, "Prettier")
+		if framework, exists := n.getFrameworkName(dep); exists {
+			frameworks = append(frameworks, framework)
 		}
 	}
 
@@ -377,22 +400,7 @@ func (n *NodeJSLanguageDetector) detectNodeFrameworks(result *types.LanguageDete
 	}
 
 	// Detect project type based on frameworks
-	projectTypes := []string{}
-	for _, framework := range frameworks {
-		switch framework {
-		case "React", "Vue.js", "Angular", "Svelte":
-			projectTypes = append(projectTypes, "frontend")
-		case "Express.js", "Koa.js", "Fastify", "Hapi.js", "NestJS":
-			projectTypes = append(projectTypes, "backend")
-		case "Next.js", "Nuxt.js", "Gatsby":
-			projectTypes = append(projectTypes, "fullstack")
-		case "Electron":
-			projectTypes = append(projectTypes, "desktop")
-		case "React Native":
-			projectTypes = append(projectTypes, "mobile")
-		}
-	}
-
+	projectTypes := n.detectProjectTypes(frameworks)
 	if len(projectTypes) > 0 {
 		result.Metadata["project_types"] = projectTypes
 	}

@@ -120,7 +120,7 @@ func (g *GoLanguageDetector) parseGoMod(goModPath string, result *types.Language
 	if err != nil {
 		return fmt.Errorf("failed to open go.mod: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
 	var currentSection string
@@ -433,7 +433,7 @@ func (g *GoLanguageDetector) ValidateStructure(ctx context.Context, path string)
 		return types.NewValidationError(types.PROJECT_TYPE_GO, "cannot read go.mod file", err).
 			WithMetadata("invalid_files", []string{types.MARKER_GO_MOD})
 	} else {
-		file.Close()
+		_ = file.Close()
 	}
 
 	// Check for .go files

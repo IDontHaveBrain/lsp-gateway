@@ -264,7 +264,7 @@ func (pg *ProjectAwareGateway) handleProjectAwareRouting(w http.ResponseWriter, 
 
 // handleTraditionalRouting performs traditional request routing for fallback cases
 func (pg *ProjectAwareGateway) handleTraditionalRouting(w http.ResponseWriter, req JSONRPCRequest, logger *mcp.StructuredLogger) (string, bool) {
-	serverName, err := pg.Gateway.routeRequest(req)
+	serverName, err := pg.routeRequest(req)
 	if err != nil {
 		if logger != nil {
 			logger.WithError(err).Error("Failed to route request using traditional routing")
@@ -339,7 +339,7 @@ func (pg *ProjectAwareGateway) processWorkspaceAwareLSPRequest(w http.ResponseWr
 // extractURIForWorkspace extracts URI from request parameters for workspace operations
 func (pg *ProjectAwareGateway) extractURIForWorkspace(req JSONRPCRequest) (string, error) {
 	// Use existing Gateway method for URI extraction
-	return pg.Gateway.extractURIFromParams(req)
+	return pg.extractURIFromParams(req)
 }
 
 // extractLanguageFromURI extracts language from URI using the router

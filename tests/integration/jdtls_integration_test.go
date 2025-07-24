@@ -365,6 +365,7 @@ func TestJDTLSIntegration_ScriptGeneration(t *testing.T) {
 			if tt.platform != runtime.GOOS {
 				// Note: This won't actually change runtime.GOOS, but we can test the platform-specific logic
 				// by examining the generated scripts after installation
+				_ = tt.platform // Placeholder for platform-specific test logic
 			}
 			defer func() {
 				_ = originalGOOS // Keep reference to avoid unused variable warning
@@ -605,10 +606,10 @@ func (env *JDTLSTestEnvironment) SetupPlatformEnvironment(goos string) {
 		_ = os.Setenv("USERPROFILE", env.tempDir)
 		_ = os.Setenv("APPDATA", "")
 	case projecttypes.PLATFORM_DARWIN:
-		os.Setenv("HOME", env.tempDir)
+		_ = os.Setenv("HOME", env.tempDir)
 	default: // linux
-		os.Setenv("HOME", env.tempDir)
-		os.Setenv("XDG_DATA_HOME", "")
+		_ = os.Setenv("HOME", env.tempDir)
+		_ = os.Setenv("XDG_DATA_HOME", "")
 	}
 }
 

@@ -726,13 +726,14 @@ func (j *JavaOptimizer) OptimizeForProject(ctx context.Context, serverConfig *co
 	
 	// Maven/Gradle specific settings
 	if javaCtx, ok := projectContext.Metadata["java_context"].(*JavaProjectContext); ok {
-		if javaCtx.BuildSystem == "maven" {
+		switch javaCtx.BuildSystem {
+		case "maven":
 			jdtSettings["java"].(map[string]interface{})["import"] = map[string]interface{}{
 				"maven": map[string]interface{}{
 					"enabled": true,
 				},
 			}
-		} else if javaCtx.BuildSystem == "gradle" {
+		case "gradle":
 			jdtSettings["java"].(map[string]interface{})["import"] = map[string]interface{}{
 				"gradle": map[string]interface{}{
 					"enabled": true,
