@@ -1,0 +1,897 @@
+# Template: Complete Multi-Language Configuration
+# Use Case: Full-featured setup demonstrating ALL advanced LSP Gateway capabilities
+# Features: Multi-server pools, smart routing, project awareness, circuit breakers, health monitoring
+# Customization: Adjust pool sizes, strategies, and timeouts based on project size and requirements
+# Performance: Optimized for medium-to-large projects with 1000+ files across multiple languages
+
+# =============================================================================
+# GATEWAY CORE CONFIGURATION
+# =============================================================================
+
+# Basic gateway settings
+port: 8080                          # HTTP server port for LSP JSON-RPC endpoints
+timeout: "30s"                      # Default request timeout for LSP operations
+max_concurrent_requests: 200        # Maximum concurrent requests across all servers
+log_level: "info"                   # Logging level: debug, info, warn, error
+enable_metrics: true                # Enable Prometheus-style metrics collection
+metrics_port: 9090                  # Port for metrics endpoint (/metrics)
+
+# Advanced gateway features
+project_aware: true                  # Enable project-aware routing based on file paths
+enable_concurrent_servers: true     # Allow multiple server instances per language
+enable_smart_routing: true          # Enable intelligent request routing strategies
+enable_enhancements: true           # Enable all performance and reliability enhancements
+max_concurrent_servers_per_language: 5  # Maximum server instances per language
+
+# =============================================================================
+# PROJECT CONTEXT CONFIGURATION
+# =============================================================================
+
+# Project context for intelligent routing and resource allocation
+project_context:
+  project_type: "multi-language"    # Project type: monorepo, microservices, multi-language
+  root_directory: "/workspace"      # Primary workspace root directory
+  workspace_root: "/workspace"      # LSP workspace root for initialization
+  
+  # Language distribution and characteristics
+  languages:
+    # Go language configuration
+    - language: "go"
+      file_patterns: ["*.go", "go.mod", "go.sum"]
+      file_count: 250                # Approximate number of Go files
+      estimated_loc: 45000           # Lines of code for resource planning
+      root_markers: ["go.mod", "go.sum"]
+      complexity: "medium"           # Project complexity: low, medium, high
+      
+    # TypeScript/JavaScript configuration  
+    - language: "typescript"
+      file_patterns: ["*.ts", "*.tsx", "*.js", "*.jsx"]
+      file_count: 180
+      estimated_loc: 32000
+      root_markers: ["tsconfig.json", "package.json", "yarn.lock"]
+      complexity: "high"             # High complexity due to framework usage
+      
+    # Python configuration
+    - language: "python"
+      file_patterns: ["*.py", "*.pyi"]
+      file_count: 120
+      estimated_loc: 18000
+      root_markers: ["pyproject.toml", "setup.py", "requirements.txt", "Pipfile"]
+      complexity: "low"
+      
+    # Java configuration
+    - language: "java"
+      file_patterns: ["*.java", "*.kt"]
+      file_count: 95
+      estimated_loc: 28000
+      root_markers: ["pom.xml", "build.gradle", "build.gradle.kts"]
+      complexity: "high"             # High complexity due to enterprise patterns
+
+# =============================================================================
+# GLOBAL MULTI-SERVER CONFIGURATION
+# =============================================================================
+
+# Global settings for multi-server operation
+multi_server_config:
+  selection_strategy: "load_balance" # Global strategy: performance, feature, load_balance, random
+  concurrent_limit: 4               # Maximum concurrent servers across all languages
+  resource_sharing: true            # Enable resource sharing between server instances
+  health_check_interval: "30s"     # Global health check frequency
+  max_retries: 3                    # Maximum retry attempts for failed requests
+  failover_timeout: "10s"          # Time to wait before failing over to backup server
+
+# =============================================================================
+# SMART ROUTER CONFIGURATION
+# =============================================================================
+
+# Advanced routing configuration for intelligent request distribution
+smart_router_config:
+  # Default routing strategy for unlisted methods
+  default_strategy: "single_target_with_fallback"
+  
+  # Method-specific routing strategies
+  method_strategies:
+    # Definition requests: single target with fallback for reliability
+    "textDocument/definition": "single_target_with_fallback"
+    "textDocument/typeDefinition": "single_target_with_fallback"
+    "textDocument/declaration": "single_target_with_fallback"
+    
+    # Reference finding: parallel execution for comprehensive results
+    "textDocument/references": "multi_target_parallel"
+    "textDocument/implementation": "multi_target_parallel"
+    
+    # Symbol search: broadcast to all servers and aggregate results
+    "workspace/symbol": "broadcast_aggregate"
+    "textDocument/documentSymbol": "single_target_with_fallback"
+    
+    # Code completion: single target for speed
+    "textDocument/completion": "single_target_with_fallback"
+    "completionItem/resolve": "single_target_with_fallback"
+    
+    # Hover information: single target with enhancement from multiple sources
+    "textDocument/hover": "primary_with_enhancement"
+    
+    # Diagnostics: load balanced across available servers
+    "textDocument/publishDiagnostics": "load_balanced"
+    
+    # Code actions: broadcast for comprehensive suggestions
+    "textDocument/codeAction": "broadcast_aggregate"
+    "codeAction/resolve": "single_target_with_fallback"
+    
+    # Formatting: single target (consistency requirement)
+    "textDocument/formatting": "single_target_with_fallback"
+    "textDocument/rangeFormatting": "single_target_with_fallback"
+    
+    # Rename operations: broadcast for accuracy
+    "textDocument/prepareRename": "broadcast_aggregate"
+    "textDocument/rename": "broadcast_aggregate"
+
+  # Strategy configuration parameters
+  strategy_config:
+    # Timeout for parallel operations
+    parallel_timeout: "15s"
+    
+    # Aggregation behavior
+    aggregation:
+      max_results_per_server: 100   # Limit results from each server
+      deduplicate_results: true     # Remove duplicate results
+      merge_diagnostics: true       # Merge diagnostic messages
+      priority_weighting: true      # Weight results by server priority
+    
+    # Fallback behavior
+    fallback:
+      enable_cross_language: false  # Don't fallback to different language servers
+      max_fallback_attempts: 2      # Maximum fallback attempts
+      fallback_timeout: "5s"        # Timeout for fallback operations
+
+# =============================================================================
+# LANGUAGE SERVER POOLS
+# =============================================================================
+
+language_pools:
+  # ===========================================================================
+  # GO LANGUAGE SERVER POOL
+  # ===========================================================================
+  - language: "go"
+    default_server: "gopls-primary"
+    
+    # Multiple Go servers with different optimization profiles
+    servers:
+      # Primary Go server - full features, high performance
+      gopls-primary:
+        name: "gopls-primary"
+        languages: ["go"]
+        command: "gopls"
+        args: ["-mode=lsp", "-rpc.trace"]
+        transport: "stdio"
+        priority: 3                  # Highest priority
+        weight: 3.0                  # Higher weight in load balancing
+        max_concurrent_requests: 150
+        
+        # Enhanced pool configuration for high-performance
+        pool_config:
+          min_size: 2                # Always keep 2 instances warm
+          max_size: 8                # Scale up to 8 under load
+          warmup_size: 3             # Pre-warm 3 instances
+          enable_dynamic_sizing: true
+          target_utilization: 0.70   # Target 70% utilization
+          scale_up_threshold: 0.80   # Scale up at 80% utilization
+          scale_down_threshold: 0.50 # Scale down below 50% utilization
+          max_lifetime: 45m          # Refresh instances every 45 minutes
+          idle_timeout: 10m          # Close idle connections after 10 minutes
+          health_check_interval: 30s
+          
+          # Circuit breaker configuration
+          max_retries: 3
+          base_delay: 100ms
+          circuit_timeout: 10s
+          
+          # Resource limits
+          memory_limit_mb: 200       # 200MB memory limit per instance
+          cpu_limit_percent: 85.0    # 85% CPU limit per instance
+        
+        # Go-specific settings
+        root_markers: ["go.mod", "go.sum"]
+        settings:
+          gopls:
+            analyses:
+              unusedparams: true
+              shadow: true
+              fieldalignment: true
+            staticcheck: true
+            gofumpt: true
+            usePlaceholders: true
+            completeUnimported: true
+            experimentalWorkspaceModule: true
+        
+        environment:
+          GOPROXY: "https://proxy.golang.org,direct"
+          GOSUMDB: "sum.golang.org"
+          CGO_ENABLED: "1"
+        
+        working_dir: "/workspace"
+        initialization_timeout: 30s
+      
+      # Secondary Go server - lightweight, fast startup
+      gopls-fast:
+        name: "gopls-fast"
+        languages: ["go"]
+        command: "gopls"
+        args: ["-mode=lsp", "-logfile=/tmp/gopls-fast.log"]
+        transport: "stdio"
+        priority: 2
+        weight: 2.0
+        max_concurrent_requests: 100
+        
+        # Lightweight pool configuration
+        pool_config:
+          min_size: 1
+          max_size: 4
+          warmup_size: 1
+          enable_dynamic_sizing: true
+          target_utilization: 0.75
+          scale_up_threshold: 0.85
+          scale_down_threshold: 0.45
+          max_lifetime: 30m
+          idle_timeout: 8m
+          health_check_interval: 45s
+          
+          max_retries: 2
+          base_delay: 150ms
+          circuit_timeout: 8s
+          
+          memory_limit_mb: 120
+          cpu_limit_percent: 75.0
+        
+        root_markers: ["go.mod", "go.sum"]
+        settings:
+          gopls:
+            analyses:
+              unusedparams: false      # Disable expensive analyses
+              shadow: false
+            staticcheck: false         # Disable staticcheck for speed
+            gofumpt: false
+            usePlaceholders: false
+            completeUnimported: false
+        
+        environment:
+          GOPROXY: "https://proxy.golang.org,direct"
+          CGO_ENABLED: "0"            # Disable CGO for faster startup
+        
+        working_dir: "/workspace"
+        initialization_timeout: 15s
+    
+    # Load balancing configuration for Go servers
+    load_balancing:
+      strategy: "response_time"       # Route to fastest responding server
+      health_threshold: 0.85          # Consider server unhealthy below 85%
+      weight_factors:
+        gopls-primary: 3.0            # Prefer primary server
+        gopls-fast: 2.0               # Secondary preference
+      
+      # Circuit breaker settings
+      circuit_breaker:
+        failure_threshold: 5          # Open circuit after 5 failures
+        success_threshold: 3          # Close circuit after 3 successes
+        timeout: 30s                  # Circuit breaker timeout
+    
+    # Resource limits for entire Go pool
+    resource_limits:
+      max_memory_mb: 1024             # Total memory limit for all Go servers
+      max_concurrent_requests: 250    # Total concurrent requests across pool
+      max_processes: 12               # Maximum Go server processes
+      request_timeout_seconds: 45     # Request timeout for Go operations
+
+  # ===========================================================================
+  # TYPESCRIPT/JAVASCRIPT LANGUAGE SERVER POOL
+  # ===========================================================================
+  - language: "typescript"
+    default_server: "tsserver-optimized"
+    
+    servers:
+      # Optimized TypeScript server for large projects
+      tsserver-optimized:
+        name: "tsserver-optimized"
+        languages: ["typescript", "javascript", "typescriptreact", "javascriptreact"]
+        command: "typescript-language-server"
+        args: ["--stdio", "--log-level", "2"]
+        transport: "stdio"
+        priority: 3
+        weight: 3.0
+        max_concurrent_requests: 120
+        
+        pool_config:
+          min_size: 2
+          max_size: 6
+          warmup_size: 2
+          enable_dynamic_sizing: true
+          target_utilization: 0.75
+          scale_up_threshold: 0.85
+          scale_down_threshold: 0.55
+          max_lifetime: 40m
+          idle_timeout: 12m
+          health_check_interval: 35s
+          
+          max_retries: 3
+          base_delay: 120ms
+          circuit_timeout: 12s
+          
+          memory_limit_mb: 300        # TypeScript needs more memory
+          cpu_limit_percent: 80.0
+        
+        root_markers: ["tsconfig.json", "package.json", "yarn.lock", "pnpm-lock.yaml"]
+        settings:
+          typescript:
+            preferences:
+              disableSuggestions: false
+              includeCompletionsForModuleExports: true
+              includeCompletionsForImportStatements: true
+              includeCompletionsWithSnippetText: true
+            suggest:
+              enabled: true
+              includeCompletionsForImportStatements: true
+              includeCompletionsWithSnippetText: true
+            inlayHints:
+              includeInlayParameterNameHints: "all"
+              includeInlayFunctionParameterTypeHints: true
+              includeInlayVariableTypeHints: true
+        
+        environment:
+          NODE_OPTIONS: "--max-old-space-size=2048"
+          TS_NODE_PROJECT: "tsconfig.json"
+        
+        working_dir: "/workspace"
+        initialization_timeout: 45s
+      
+      # Lightweight TypeScript server for quick operations
+      tsserver-lite:
+        name: "tsserver-lite"
+        languages: ["typescript", "javascript"]
+        command: "typescript-language-server"
+        args: ["--stdio", "--log-level", "1", "--tsserver-log-file", "/tmp/tsserver-lite.log"]
+        transport: "stdio"
+        priority: 1
+        weight: 1.5
+        max_concurrent_requests: 80
+        
+        pool_config:
+          min_size: 1
+          max_size: 3
+          warmup_size: 1
+          enable_dynamic_sizing: true
+          target_utilization: 0.80
+          scale_up_threshold: 0.90
+          scale_down_threshold: 0.50
+          max_lifetime: 25m
+          idle_timeout: 8m
+          health_check_interval: 45s
+          
+          max_retries: 2
+          base_delay: 200ms
+          circuit_timeout: 10s
+          
+          memory_limit_mb: 180
+          cpu_limit_percent: 70.0
+        
+        root_markers: ["tsconfig.json", "package.json"]
+        settings:
+          typescript:
+            preferences:
+              disableSuggestions: true  # Disable for performance
+              includeCompletionsForModuleExports: false
+            suggest:
+              enabled: false           # Minimal suggestions
+            inlayHints:
+              includeInlayParameterNameHints: "none"
+        
+        environment:
+          NODE_OPTIONS: "--max-old-space-size=1024"
+        
+        working_dir: "/workspace"
+        initialization_timeout: 30s
+    
+    load_balancing:
+      strategy: "least_connections"  # Route to server with fewest active connections
+      health_threshold: 0.80
+      weight_factors:
+        tsserver-optimized: 3.0
+        tsserver-lite: 1.5
+      
+      circuit_breaker:
+        failure_threshold: 4
+        success_threshold: 2
+        timeout: 25s
+    
+    resource_limits:
+      max_memory_mb: 2048            # TypeScript projects can be memory-intensive
+      max_concurrent_requests: 200
+      max_processes: 9
+      request_timeout_seconds: 60    # TypeScript operations can be slow
+
+  # ===========================================================================
+  # PYTHON LANGUAGE SERVER POOL  
+  # ===========================================================================
+  - language: "python"
+    default_server: "pylsp-comprehensive"
+    
+    servers:
+      # Comprehensive Python LSP server with full features
+      pylsp-comprehensive:
+        name: "pylsp-comprehensive"
+        languages: ["python"]
+        command: "pylsp"
+        args: ["--log-file", "/tmp/pylsp-comprehensive.log", "--verbose"]
+        transport: "stdio"
+        priority: 3
+        weight: 3.0
+        max_concurrent_requests: 100
+        
+        pool_config:
+          min_size: 1
+          max_size: 4
+          warmup_size: 2
+          enable_dynamic_sizing: true
+          target_utilization: 0.70
+          scale_up_threshold: 0.80
+          scale_down_threshold: 0.50
+          max_lifetime: 35m
+          idle_timeout: 10m
+          health_check_interval: 40s
+          
+          max_retries: 4
+          base_delay: 150ms
+          circuit_timeout: 15s
+          
+          memory_limit_mb: 150
+          cpu_limit_percent: 75.0
+        
+        root_markers: ["pyproject.toml", "setup.py", "requirements.txt", "Pipfile", ".python-version"]
+        settings:
+          pylsp:
+            plugins:
+              # Code completion and navigation
+              jedi_completion:
+                enabled: true
+                include_params: true
+                include_class_objects: true
+                fuzzy: true
+              jedi_definition:
+                enabled: true
+                follow_imports: true
+                follow_builtin_imports: true
+              jedi_hover:
+                enabled: true
+              jedi_references:
+                enabled: true
+              jedi_signature_help:
+                enabled: true
+              
+              # Code quality and linting
+              pycodestyle:
+                enabled: true
+                ignore: ["E501", "W503"]  # Ignore line length and line break rules
+                maxLineLength: 100
+              pyflakes:
+                enabled: true
+              pylint:
+                enabled: true
+                args: ["--disable=C0111,C0103"]  # Disable some verbose warnings
+              mccabe:
+                enabled: true
+                threshold: 15
+              
+              # Code formatting
+              autopep8:
+                enabled: true
+              yapf:
+                enabled: false           # Choose one formatter
+              black:
+                enabled: false
+              
+              # Import sorting
+              pyls_isort:
+                enabled: true
+        
+        environment:
+          PYTHONPATH: "/workspace:/workspace/src"
+          VIRTUAL_ENV: "/workspace/.venv"
+          PYLSP_LOG_LEVEL: "INFO"
+        
+        working_dir: "/workspace"
+        initialization_timeout: 40s
+      
+      # Fast Python server for quick operations
+      pylsp-fast:
+        name: "pylsp-fast"
+        languages: ["python"]
+        command: "pylsp"
+        args: ["--log-file", "/tmp/pylsp-fast.log"]
+        transport: "stdio"
+        priority: 1
+        weight: 2.0
+        max_concurrent_requests: 60
+        
+        pool_config:
+          min_size: 1
+          max_size: 2
+          warmup_size: 1
+          enable_dynamic_sizing: false  # Keep it simple and fast
+          max_lifetime: 20m
+          idle_timeout: 6m
+          health_check_interval: 60s
+          
+          max_retries: 2
+          base_delay: 200ms
+          circuit_timeout: 12s
+          
+          memory_limit_mb: 80
+          cpu_limit_percent: 60.0
+        
+        root_markers: ["pyproject.toml", "setup.py", "requirements.txt"]
+        settings:
+          pylsp:
+            plugins:
+              # Enable only essential plugins for speed
+              jedi_completion:
+                enabled: true
+                include_params: false
+                fuzzy: false
+              jedi_definition:
+                enabled: true
+                follow_imports: false
+              jedi_hover:
+                enabled: true
+              
+              # Disable expensive plugins
+              pycodestyle:
+                enabled: false
+              pyflakes:
+                enabled: true           # Keep basic error detection
+              pylint:
+                enabled: false         # Too slow for fast server
+              mccabe:
+                enabled: false
+        
+        environment:
+          PYTHONPATH: "/workspace"
+          PYLSP_LOG_LEVEL: "WARNING"
+        
+        working_dir: "/workspace"
+        initialization_timeout: 20s
+    
+    load_balancing:
+      strategy: "round_robin"         # Simple round-robin for Python
+      health_threshold: 0.75
+      weight_factors:
+        pylsp-comprehensive: 3.0
+        pylsp-fast: 2.0
+      
+      circuit_breaker:
+        failure_threshold: 3
+        success_threshold: 2
+        timeout: 20s
+    
+    resource_limits:
+      max_memory_mb: 512
+      max_concurrent_requests: 160
+      max_processes: 6
+      request_timeout_seconds: 45
+
+  # ===========================================================================
+  # JAVA LANGUAGE SERVER POOL
+  # ===========================================================================
+  - language: "java"
+    default_server: "jdtls-enterprise"
+    
+    servers:
+      # Enterprise Java Language Server with full features
+      jdtls-enterprise:
+        name: "jdtls-enterprise"
+        languages: ["java"]
+        command: "jdtls"
+        args: [
+          "-configuration", "/tmp/jdtls-config",
+          "-data", "/tmp/jdtls-workspace",
+          "--add-modules=ALL-SYSTEM",
+          "--add-opens", "java.base/java.util=ALL-UNNAMED",
+          "--add-opens", "java.base/java.lang=ALL-UNNAMED"
+        ]
+        transport: "stdio"
+        priority: 2
+        weight: 2.0
+        max_concurrent_requests: 80
+        
+        pool_config:
+          min_size: 1                 # Java servers are resource-heavy
+          max_size: 3
+          warmup_size: 1
+          enable_dynamic_sizing: true
+          target_utilization: 0.65    # Lower utilization due to resource intensity
+          scale_up_threshold: 0.75
+          scale_down_threshold: 0.40
+          max_lifetime: 60m           # Longer lifetime due to expensive startup
+          idle_timeout: 15m
+          health_check_interval: 60s  # Less frequent health checks
+          
+          max_retries: 3
+          base_delay: 300ms           # Longer delays for Java
+          circuit_timeout: 20s
+          
+          memory_limit_mb: 1024       # Java needs substantial memory
+          cpu_limit_percent: 85.0
+        
+        root_markers: ["pom.xml", "build.gradle", "build.gradle.kts", ".project"]
+        settings:
+          java:
+            configuration:
+              updateBuildConfiguration: "automatic"
+            compile:
+              nullAnalysis:
+                mode: "automatic"
+            completion:
+              enabled: true
+              guessMethodArguments: true
+              favoriteStaticMembers: [
+                "org.junit.Assert.*",
+                "org.junit.Assume.*",
+                "org.junit.jupiter.api.Assertions.*"
+              ]
+            contentProvider:
+              preferred: "fernflower"
+            eclipse:
+              downloadSources: true
+            maven:
+              downloadSources: true
+            referencesCodeLens:
+              enabled: true
+            implementationsCodeLens:
+              enabled: true
+            signatureHelp:
+              enabled: true
+            format:
+              enabled: true
+              settings:
+                url: "/workspace/.vscode/java-format.xml"
+        
+        environment:
+          JAVA_HOME: "/usr/lib/jvm/java-17-openjdk"
+          MAVEN_OPTS: "-Xmx1g -XX:+UseG1GC"
+          GRADLE_OPTS: "-Xmx1g -XX:+UseG1GC"
+          JDT_LS_VMARGS: "-XX:+UseG1GC -XX:+UseStringDeduplication"
+        
+        working_dir: "/workspace"
+        initialization_timeout: 90s   # Java initialization is slow
+    
+    load_balancing:
+      strategy: "round_robin"         # Simple strategy for resource-heavy servers
+      health_threshold: 0.70          # Lower threshold for Java servers
+      weight_factors:
+        jdtls-enterprise: 2.0
+      
+      circuit_breaker:
+        failure_threshold: 2          # More sensitive due to resource cost
+        success_threshold: 3
+        timeout: 45s
+    
+    resource_limits:
+      max_memory_mb: 3072            # Java can be very memory-intensive
+      max_concurrent_requests: 80
+      max_processes: 3               # Limit processes due to resource usage
+      request_timeout_seconds: 120   # Java operations can be very slow
+
+# =============================================================================
+# GLOBAL PERFORMANCE AND MONITORING
+# =============================================================================
+
+# Global pool management settings
+pool_management:
+  # Global monitoring and health tracking
+  enable_global_monitoring: true
+  monitoring_interval: 30s
+  health_check_parallel: true        # Run health checks in parallel
+  
+  # Global resource limits (across all servers)
+  max_total_connections: 200         # Total connection limit
+  max_total_memory_mb: 6144          # Total memory limit across all servers
+  max_total_cpu_percent: 400.0       # 4 cores worth of CPU
+  
+  # Cleanup and maintenance
+  enable_orphan_cleanup: true        # Clean up abandoned connections
+  cleanup_interval: 5m               # Cleanup frequency
+  connection_reaper_interval: 2m     # Connection reaper frequency
+  
+  # Metrics and observability
+  enable_detailed_metrics: true      # Collect detailed performance metrics
+  metrics_retention: 24h             # How long to retain metrics
+  metrics_granularity: "1m"          # Metrics collection granularity
+  export_prometheus: true            # Export metrics in Prometheus format
+  
+  # Global circuit breaker
+  global_circuit_breaker:
+    enabled: true
+    failure_threshold: 0.60          # Open circuit at 60% failure rate
+    recovery_timeout: 45s            # Circuit recovery timeout
+    min_requests: 10                 # Minimum requests before circuit evaluation
+  
+  # Emergency mode configuration
+  emergency_mode:
+    enabled: true
+    trigger_error_rate: 0.80         # Trigger at 80% error rate
+    trigger_memory_percent: 90.0     # Trigger at 90% memory usage
+    trigger_cpu_percent: 95.0        # Trigger at 95% CPU usage
+    actions: [
+      "reduce_pool_sizes",           # Reduce all pool sizes by 50%
+      "disable_dynamic_sizing",      # Stop automatic scaling
+      "increase_timeouts",           # Increase timeouts by 50%
+      "disable_expensive_features"   # Disable non-essential features
+    ]
+    recovery_threshold: 0.40         # Recovery when metrics drop below 40%
+
+# =============================================================================
+# LOGGING AND DEBUGGING
+# =============================================================================
+
+# Comprehensive logging configuration
+logging:
+  # Component-specific logging
+  pool_events: true                  # Log pool scaling events
+  connection_lifecycle: false       # Connection create/destroy (verbose)
+  health_checks: true                # Health check results
+  circuit_breaker_events: true      # Circuit breaker state changes
+  performance_metrics: true         # Performance metric updates
+  request_routing: true              # Request routing decisions
+  load_balancing: true               # Load balancing decisions
+  error_details: true                # Detailed error information
+  
+  # Log levels for different components
+  levels:
+    pool_manager: "info"
+    connection_pool: "warn"          # Can be very verbose
+    health_monitor: "info"
+    circuit_breaker: "warn"
+    metrics_collector: "info"
+    smart_router: "info"
+    load_balancer: "info"
+    project_detector: "warn"
+  
+  # Log rotation and retention
+  rotation:
+    enabled: true
+    max_size_mb: 100                 # Rotate when log reaches 100MB
+    max_files: 10                    # Keep 10 rotated files
+    max_age_days: 30                 # Delete logs older than 30 days
+
+# =============================================================================
+# PROJECT-SPECIFIC OVERRIDES
+# =============================================================================
+
+# Optional project-specific configuration overrides
+project_overrides:
+  # High-performance project requiring maximum resources
+  - path: "/workspace/high-performance-service"
+    description: "High-traffic microservice requiring optimal performance"
+    overrides:
+      max_concurrent_requests: 300   # Increase global limit
+      language_pools:
+        - language: "go"
+          servers:
+            gopls-primary:
+              pool_config:
+                max_size: 12         # Increase pool size
+                target_utilization: 0.60  # Lower utilization for faster response
+                memory_limit_mb: 300 # Increase memory limit
+              max_concurrent_requests: 200
+        - language: "typescript"
+          servers:
+            tsserver-optimized:
+              pool_config:
+                max_size: 10
+                memory_limit_mb: 500
+  
+  # Memory-constrained environment
+  - path: "/workspace/legacy-application"
+    description: "Legacy application in memory-constrained environment"
+    overrides:
+      max_concurrent_requests: 50    # Reduce global limit
+      pool_management:
+        max_total_memory_mb: 2048    # Reduce total memory limit
+      language_pools:
+        - language: "java"
+          servers:
+            jdtls-enterprise:
+              pool_config:
+                max_size: 1          # Single instance only
+                memory_limit_mb: 512 # Reduce memory limit
+              environment:
+                MAVEN_OPTS: "-Xmx512m"
+                GRADLE_OPTS: "-Xmx512m"
+  
+  # Development environment with relaxed limits
+  - path: "/workspace/development"
+    description: "Development environment with debug features enabled"
+    overrides:
+      log_level: "debug"             # More verbose logging
+      timeout: "60s"                 # Longer timeouts for debugging
+      logging:
+        connection_lifecycle: true   # Enable verbose connection logging
+        levels:
+          pool_manager: "debug"
+          smart_router: "debug"
+      pool_management:
+        emergency_mode:
+          enabled: false             # Disable emergency mode in development
+
+# =============================================================================
+# INTEGRATION AND COMPATIBILITY
+# =============================================================================
+
+# Integration settings for external tools and IDEs
+integration:
+  # VS Code integration
+  vscode:
+    workspace_configuration: true   # Support VS Code workspace configuration
+    multi_root_workspace: true     # Support multi-root workspaces
+    settings_sync: true             # Sync settings with VS Code
+  
+  # Vim/Neovim integration
+  vim:
+    lsp_client_support: true        # Support Vim LSP clients
+    async_completion: true          # Enable async completion
+  
+  # JetBrains IDEs integration
+  jetbrains:
+    idea_project_support: true     # Support IntelliJ IDEA projects
+    gradle_integration: true       # Enhanced Gradle project support
+    maven_integration: true        # Enhanced Maven project support
+  
+  # Generic LSP client compatibility
+  lsp_compatibility:
+    capability_negotiation: true   # Dynamic capability negotiation
+    progressive_enhancement: true  # Progressive feature enhancement
+    fallback_support: true         # Fallback to basic LSP features
+
+# =============================================================================
+# SECURITY AND COMPLIANCE
+# =============================================================================
+
+# Security configuration
+security:
+  # Access control
+  enable_authentication: false      # Enable if authentication is required
+  allowed_hosts: ["localhost", "127.0.0.1"]  # Allowed client hosts
+  
+  # Resource protection
+  rate_limiting:
+    enabled: true
+    requests_per_minute: 1000       # Rate limit per client
+    burst_size: 100                 # Burst allowance
+  
+  # Data protection
+  log_sanitization: true            # Sanitize sensitive data in logs
+  temp_file_cleanup: true           # Clean up temporary files
+  
+  # Process isolation
+  server_isolation: true            # Isolate server processes
+  resource_quotas: true             # Enforce resource quotas
+
+# =============================================================================
+# EXPERIMENTAL FEATURES
+# =============================================================================
+
+# Experimental features (use with caution)
+experimental:
+  # AI-powered optimizations
+  ai_optimization: false            # AI-based pool sizing optimization
+  predictive_scaling: false        # Predictive auto-scaling
+  
+  # Advanced caching
+  response_caching: false           # Cache LSP responses
+  semantic_caching: false          # Semantic-aware caching
+  
+  # Network optimizations
+  request_batching: false           # Batch multiple requests
+  connection_multiplexing: false   # Multiplex connections
+  
+  # Debugging features
+  request_tracing: false            # Distributed request tracing
+  performance_profiling: false     # Continuous performance profiling

@@ -1,0 +1,13 @@
+{
+  "uri": "file:///workspace/src/handlers/request_handler.py",
+  "range": {
+    "start": {
+      "line": 25,
+      "character": 4
+    },
+    "end": {
+      "line": 25,
+      "character": 18
+    }
+  }
+}

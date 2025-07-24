@@ -1,0 +1,280 @@
+# Architecture Pattern: Single Language Project
+# Use Case: Small to medium projects using one primary language (Go, Python, TypeScript, Java)
+# Team Size: 1-10 developers
+# Project Scale: Small to Medium (< 100k LOC)
+# Complexity: Low
+# Performance Profile: 95th percentile response time < 200ms, throughput 50-100 req/s
+# When to Use: Microservices, single-language libraries, focused applications
+# Migration Path: Scale to full-stack.yaml when adding additional languages
+
+# Simple gateway configuration optimized for single language
+port: 8080
+timeout: "15s"
+max_concurrent_requests: 50
+project_aware: false  # Simplified for single language
+enable_concurrent_servers: false
+enable_metrics: false  # Keep overhead minimal
+log_level: "info"
+
+# Single language server configuration with minimal resource usage
+servers:
+  # Example: Go Language Server (replace with your target language)
+  - name: "go-lsp"
+    languages: ["go"]
+    command: "gopls"
+    transport: "stdio"
+    root_markers: ["go.mod", "go.sum"]
+    
+    # Simple pool configuration optimized for single language development
+    pool_config:
+      # Conservative sizing for development workflow
+      min_size: 1
+      max_size: 3
+      warmup_size: 1
+      
+      # Disable dynamic sizing for predictable resource usage
+      enable_dynamic_sizing: false
+      target_utilization: 0.80
+      
+      # Shorter lifetimes to prevent resource accumulation
+      max_lifetime: 15m
+      idle_timeout: 5m
+      health_check_interval: 60s
+      
+      # Simple retry logic
+      max_retries: 2
+      base_delay: 100ms
+      circuit_timeout: 10s
+      
+      # Minimal resource limits suitable for development
+      memory_limit_mb: 128
+      cpu_limit_percent: 60.0
+      
+      transport_type: "stdio"
+      custom_config:
+        process_isolation: true
+        buffer_management: "basic"
+    
+    # STDIO connection settings optimized for development
+    connection_settings:
+      buffer_size: 8192
+      stdout_buffer_size: 4096
+      stderr_buffer_size: 2048
+      process_timeout: 30s
+    
+    # Basic health checks suitable for single language development
+    health_check_settings:
+      enabled: true
+      interval: 60s
+      timeout: 10s
+      failure_threshold: 2
+      success_threshold: 1
+      method: "initialize"
+      enable_auto_restart: true
+      restart_delay: 3s
+      max_consecutive_fails: 2
+    
+    # Language-specific environment (example for Go)
+    environment:
+      GOPROXY: "https://proxy.golang.org,direct"
+      GOSUMDB: "sum.golang.org"
+    working_dir: "/workspace"
+    initialization_timeout: 30s
+    log_level: "warn"
+    enable_debug: false
+
+# Alternative language examples (uncomment and customize as needed):
+
+# # Python Language Server Configuration
+# - name: "python-lsp"
+#   languages: ["python"]
+#   command: "python"
+#   args: ["-m", "pylsp"]
+#   transport: "stdio"
+#   root_markers: ["pyproject.toml", "setup.py", "requirements.txt", "Pipfile"]
+#   
+#   pool_config:
+#     min_size: 1
+#     max_size: 3
+#     warmup_size: 1
+#     enable_dynamic_sizing: false
+#     max_lifetime: 20m
+#     idle_timeout: 5m
+#     health_check_interval: 60s
+#     max_retries: 2
+#     base_delay: 150ms
+#     circuit_timeout: 12s
+#     memory_limit_mb: 96
+#     cpu_limit_percent: 50.0
+#     transport_type: "stdio"
+#   
+#   connection_settings:
+#     buffer_size: 8192
+#     process_timeout: 45s
+#   
+#   health_check_settings:
+#     enabled: true
+#     interval: 60s
+#     timeout: 15s
+#     failure_threshold: 2
+#     success_threshold: 1
+#     method: "ping"
+#     enable_auto_restart: true
+#     restart_delay: 5s
+#   
+#   environment:
+#     PYTHONPATH: "/workspace"
+#     PYLSP_LOG_LEVEL: "WARNING"
+
+# # TypeScript/JavaScript Language Server Configuration
+# - name: "typescript-lsp"
+#   languages: ["typescript", "javascript"]
+#   command: "typescript-language-server"
+#   args: ["--stdio"]
+#   transport: "stdio"
+#   root_markers: ["tsconfig.json", "package.json", "jsconfig.json"]
+#   
+#   pool_config:
+#     min_size: 1
+#     max_size: 4
+#     warmup_size: 1
+#     enable_dynamic_sizing: false
+#     max_lifetime: 25m
+#     idle_timeout: 8m
+#     health_check_interval: 45s
+#     max_retries: 2
+#     base_delay: 100ms
+#     circuit_timeout: 10s
+#     memory_limit_mb: 256
+#     cpu_limit_percent: 70.0
+#     transport_type: "stdio"
+#   
+#   connection_settings:
+#     buffer_size: 16384
+#     process_timeout: 45s
+#   
+#   health_check_settings:
+#     enabled: true
+#     interval: 45s
+#     timeout: 12s
+#     failure_threshold: 2
+#     success_threshold: 1
+#     method: "initialize"
+#     enable_auto_restart: true
+#     restart_delay: 4s
+#   
+#   settings:
+#     typescript:
+#       preferences:
+#         includeCompletionsForModuleExports: true
+#         includeCompletionsWithInsertText: true
+
+# # Java Language Server Configuration
+# - name: "java-lsp"
+#   languages: ["java"]
+#   command: "jdtls"
+#   transport: "stdio"
+#   root_markers: ["pom.xml", "build.gradle", ".project", "build.xml"]
+#   
+#   pool_config:
+#     min_size: 1
+#     max_size: 2  # Java is resource-heavy
+#     warmup_size: 1
+#     enable_dynamic_sizing: false
+#     max_lifetime: 45m  # Longer for Java due to JVM warmup
+#     idle_timeout: 15m
+#     health_check_interval: 90s
+#     max_retries: 3
+#     base_delay: 200ms
+#     circuit_timeout: 20s
+#     memory_limit_mb: 768  # Java requires more memory
+#     cpu_limit_percent: 80.0
+#     transport_type: "stdio"
+#     custom_config:
+#       jvm_args: ["-Xmx512m", "-XX:+UseG1GC"]
+#   
+#   connection_settings:
+#     buffer_size: 32768  # Larger buffers for Java
+#     process_timeout: 120s  # Java startup can be slow
+#   
+#   health_check_settings:
+#     enabled: true
+#     interval: 90s
+#     timeout: 30s
+#     failure_threshold: 3
+#     success_threshold: 2
+#     method: "initialize"
+#     enable_auto_restart: true
+#     restart_delay: 15s  # Longer restart delay for Java
+#   
+#   environment:
+#     JAVA_HOME: "/usr/lib/jvm/default-java"
+#   initialization_timeout: 120s
+
+# Minimal pool management for single language
+pool_management:
+  enable_global_monitoring: false
+  max_total_connections: 10
+  max_total_memory_mb: 512
+  max_total_cpu_percent: 100.0
+  enable_orphan_cleanup: true
+  cleanup_interval: 10m
+  enable_detailed_metrics: false
+
+# Simple logging configuration
+logging:
+  pool_events: false
+  connection_lifecycle: false
+  health_checks: true
+  circuit_breaker_events: false
+  performance_metrics: false
+  
+  levels:
+    pool_manager: "warn"
+    connection_pool: "error"
+    health_monitor: "info"
+    circuit_breaker: "warn"
+
+# Development-friendly project context
+project_context:
+  project_type: "single_language"
+  development_mode: true
+  auto_restart_on_changes: true
+  workspace_detection: "automatic"
+
+# Simple routing configuration
+routing:
+  strategy: "direct"  # Direct routing for single language
+  enable_caching: false
+  cache_ttl: "0s"
+
+# Development testing configuration
+testing:
+  scenarios: ["basic"]
+  timeout_seconds: 15
+  parallel_execution: false
+
+# Performance expectations for single language development
+performance_targets:
+  initialization_time_max: "5s"
+  response_time_p95: "200ms"
+  memory_usage_max: "512MB"
+  cpu_usage_max: "60%"
+
+# Migration guidance
+migration_notes: |
+  When your project grows beyond single language:
+  
+  1. Add new language servers to the servers section
+  2. Enable project_aware: true
+  3. Consider enable_concurrent_servers: true
+  4. Increase max_concurrent_requests based on team size
+  5. Enable metrics collection for performance monitoring
+  6. Consider migrating to full-stack.yaml template
+  
+  Scaling indicators:
+  - Adding a second programming language
+  - Team size > 10 developers
+  - Multiple microservices or components
+  - Need for cross-language symbol resolution
+  - Performance requirements > 100 req/s

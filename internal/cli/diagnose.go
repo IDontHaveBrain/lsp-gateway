@@ -19,10 +19,21 @@ import (
 )
 
 var (
-	diagnoseJSON    bool
-	diagnoseVerbose bool
-	diagnoseTimeout time.Duration
-	diagnoseAll     bool
+	diagnoseJSON               bool
+	diagnoseVerbose            bool
+	diagnoseTimeout            time.Duration
+	diagnoseAll                bool
+	// Multi-language diagnostic flags
+	diagnoseMultiLanguage      bool
+	diagnosePerformance        bool
+	diagnoseRouting            bool
+	diagnoseResourceLimits     bool
+	diagnoseOptimization       bool
+	diagnoseProjectPath        string
+	diagnoseCheckConsistency   bool
+	diagnosePerformanceMode    string
+	diagnoseComprehensive      bool
+	diagnoseTemplateValidation bool
 )
 
 var diagnoseCmd = &cobra.Command{
@@ -41,6 +52,10 @@ Diagnostic Areas:
 - Configuration validation
 - Network connectivity (for HTTP mode)
 - Common installation issues
+- Multi-language project consistency
+- Performance settings and optimization
+- Smart routing configuration
+- Resource usage and limits
 
 Examples:
   # Run all diagnostics
@@ -53,7 +68,16 @@ Examples:
   lsp-gateway diagnose --verbose
   
   # JSON output for automation
-  lsp-gateway diagnose --json`,
+  lsp-gateway diagnose --json
+  
+  # Multi-language diagnostics
+  lsp-gateway diagnose --multi-language --project-path /path/to/project
+  
+  # Performance diagnostics
+  lsp-gateway diagnose --performance --performance-mode production
+  
+  # Routing diagnostics
+  lsp-gateway diagnose --routing --check-consistency`,
 	RunE: diagnoseSystem,
 }
 
@@ -116,8 +140,38 @@ Examples:
   lsp-gateway diagnose config
   
   # Verbose configuration diagnostics
-  lsp-gateway diagnose config --verbose`,
+  lsp-gateway diagnose config --verbose
+  
+  # Multi-language configuration diagnostics
+  lsp-gateway diagnose config --multi-language --project-path /path/to/project
+  
+  # Performance configuration diagnostics
+  lsp-gateway diagnose config --performance --performance-mode production`,
 	RunE: diagnoseConfig,
+}
+
+var diagnoseOptimizationCmd = &cobra.Command{
+	Use:   "optimization",
+	Short: "Run optimization diagnostics",
+	Long: `Run detailed diagnostics for configuration optimization and performance settings.
+
+This command performs comprehensive checks on optimization including:
+- Performance settings validation
+- Resource limit analysis
+- Optimization mode compatibility
+- Memory and CPU usage projections
+- Concurrent request handling capacity
+
+Examples:
+  # Diagnose optimization settings
+  lsp-gateway diagnose optimization
+  
+  # Check production optimization settings
+  lsp-gateway diagnose optimization --performance-mode production
+  
+  # Comprehensive optimization analysis
+  lsp-gateway diagnose optimization --check-consistency --performance`,
+	RunE: diagnoseOptimization,
 }
 
 func init() {
@@ -125,10 +179,47 @@ func init() {
 	diagnoseCmd.PersistentFlags().BoolVarP(&diagnoseVerbose, "verbose", "v", false, "Verbose diagnostic output")
 	diagnoseCmd.PersistentFlags().DurationVar(&diagnoseTimeout, FLAG_TIMEOUT, 60*time.Second, "Diagnostic timeout")
 	diagnoseCmd.PersistentFlags().BoolVar(&diagnoseAll, "all", false, "Run all available diagnostics")
+	// Multi-language diagnostic flags
+	diagnoseCmd.PersistentFlags().BoolVar(&diagnoseMultiLanguage, "multi-language", false, "Enable multi-language diagnostics")
+	diagnoseCmd.PersistentFlags().BoolVar(&diagnosePerformance, "performance", false, "Enable performance diagnostics")
+	diagnoseCmd.PersistentFlags().BoolVar(&diagnoseRouting, "routing", false, "Enable routing diagnostics")
+	diagnoseCmd.PersistentFlags().BoolVar(&diagnoseResourceLimits, "resource-limits", false, "Enable resource limit diagnostics")
+	diagnoseCmd.PersistentFlags().BoolVar(&diagnoseOptimization, "optimization", false, "Enable optimization diagnostics")
+	diagnoseCmd.PersistentFlags().StringVar(&diagnoseProjectPath, "project-path", "", "Project path for multi-language diagnostics")
+	diagnoseCmd.PersistentFlags().BoolVar(&diagnoseCheckConsistency, "check-consistency", false, "Enable consistency checking")
+	diagnoseCmd.PersistentFlags().StringVar(&diagnosePerformanceMode, "performance-mode", "development", "Performance mode for diagnostics (development, production, analysis)")
+	diagnoseCmd.PersistentFlags().BoolVar(&diagnoseComprehensive, "comprehensive", false, "Enable comprehensive diagnostics with scoring")
+	diagnoseCmd.PersistentFlags().BoolVar(&diagnoseTemplateValidation, "template-validation", false, "Enable template adherence validation")
+
+	// Add enhanced multi-language diagnostic commands
+	diagnoseMultiLanguageCmd := &cobra.Command{
+		Use:   "multi-language",
+		Short: "Run multi-language configuration diagnostics",
+		Long:  `Run detailed diagnostics for multi-language configurations, cross-language consistency, and project structure validation.`,
+		RunE:  diagnoseMultiLanguageConfiguration,
+	}
+
+	diagnosePerformanceCmd := &cobra.Command{
+		Use:   "performance",
+		Short: "Run performance configuration diagnostics",
+		Long:  `Run detailed diagnostics for performance settings, resource limits, and optimization modes.`,
+		RunE:  diagnosePerformanceConfiguration,
+	}
+
+	diagnoseRoutingCmd := &cobra.Command{
+		Use:   "routing",
+		Short: "Run smart routing diagnostics",
+		Long:  `Run detailed diagnostics for smart routing strategies, load balancing, and server selection.`,
+		RunE:  diagnoseRoutingStrategy,
+	}
 
 	diagnoseCmd.AddCommand(diagnoseRuntimesCmd)
 	diagnoseCmd.AddCommand(diagnoseServersCmd)
 	diagnoseCmd.AddCommand(diagnoseConfigCmd)
+	diagnoseCmd.AddCommand(diagnoseOptimizationCmd)
+	diagnoseCmd.AddCommand(diagnoseMultiLanguageCmd)
+	diagnoseCmd.AddCommand(diagnosePerformanceCmd)
+	diagnoseCmd.AddCommand(diagnoseRoutingCmd)
 
 	rootCmd.AddCommand(diagnoseCmd)
 }
@@ -152,12 +243,24 @@ type DiagnosticReport struct {
 }
 
 type DiagnosticSummary struct {
-	TotalChecks   int    `json:"total_checks"`
-	Passed        int    `json:"passed"`
-	Failed        int    `json:"failed"`
-	Warnings      int    `json:"warnings"`
-	Skipped       int    `json:"skipped"`
-	OverallStatus string `json:"overall_status"`
+	TotalChecks   int     `json:"total_checks"`
+	Passed        int     `json:"passed"`
+	Failed        int     `json:"failed"`
+	Warnings      int     `json:"warnings"`
+	Skipped       int     `json:"skipped"`
+	OverallStatus string  `json:"overall_status"`
+	Score         float64 `json:"score,omitempty"`
+	Grade         string  `json:"grade,omitempty"`
+}
+
+// Enhanced diagnostic scoring and grading
+type DiagnosticScoring struct {
+	ConfigurationHealth  float64 `json:"configuration_health"`
+	PerformanceRating    float64 `json:"performance_rating"`
+	ConsistencyScore     float64 `json:"consistency_score"`
+	OptimizationLevel    float64 `json:"optimization_level"`
+	MultiLanguageHealth  float64 `json:"multi_language_health"`
+	RoutingEfficiency    float64 `json:"routing_efficiency"`
 }
 
 func diagnoseSystem(cmd *cobra.Command, args []string) error {
@@ -249,6 +352,76 @@ func diagnoseSystem(cmd *cobra.Command, args []string) error {
 	}
 
 	calculateSummary(report)
+
+	// Run enhanced multi-language diagnostics if enabled
+	if diagnoseMultiLanguage {
+		if err := runMultiLanguageDiagnostics(ctx, report); err != nil {
+			errors = append(errors, &CLIError{
+				Type:    ErrorTypeConfig,
+				Message: "Multi-language diagnostics encountered issues",
+				Cause:   err,
+				Suggestions: []string{
+					"Verify project path is accessible",
+					"Ensure multi-language configuration is valid",
+					"Check language detection and consistency",
+				},
+				RelatedCmds: []string{
+					"diagnose multi-language",
+					"config validate",
+				},
+			})
+		}
+	}
+
+	// Run performance diagnostics if enabled
+	if diagnosePerformance {
+		if err := runPerformanceDiagnostics(ctx, report); err != nil {
+			errors = append(errors, &CLIError{
+				Type:    ErrorTypeConfig,
+				Message: "Performance diagnostics encountered issues",
+				Cause:   err,
+				Suggestions: []string{
+					"Review performance configuration settings",
+					"Check resource limits and constraints",
+					"Validate optimization mode compatibility",
+				},
+				RelatedCmds: []string{
+					"diagnose performance",
+					"diagnose optimization",
+				},
+			})
+		}
+	}
+
+	// Run routing diagnostics if enabled
+	if diagnoseRouting {
+		if err := runRoutingDiagnostics(ctx, report); err != nil {
+			errors = append(errors, &CLIError{
+				Type:    ErrorTypeConfig,
+				Message: "Routing diagnostics encountered issues",
+				Cause:   err,
+				Suggestions: []string{
+					"Review smart routing configuration",
+					"Check for language routing conflicts",
+					"Validate load balancing settings",
+				},
+				RelatedCmds: []string{
+					"diagnose routing",
+					"config validate",
+				},
+			})
+		}
+	}
+
+	// Add enhanced diagnostic summary information
+	if diagnoseMultiLanguage || diagnosePerformance || diagnoseRouting || diagnoseResourceLimits {
+		addEnhancedDiagnosticSummary(report)
+	}
+
+	// Calculate comprehensive scoring if enabled
+	if diagnoseComprehensive {
+		addComprehensiveDiagnosticScoring(report)
+	}
 
 	if diagnoseJSON {
 		return outputDiagnoseJSON(report)
@@ -1076,4 +1249,996 @@ func validateDiagnoseParams() error {
 		return nil
 	}
 	return result
+}
+
+// Enhanced diagnostic command implementations
+
+// New enhanced diagnostic command implementations
+
+func diagnoseMultiLanguageConfiguration(cmd *cobra.Command, args []string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), diagnoseTimeout)
+	defer cancel()
+
+	if !diagnoseJSON {
+		printDiagnoseHeader("Multi-Language Configuration Diagnostics")
+	}
+
+	report := &DiagnosticReport{
+		Timestamp:      time.Now(),
+		Platform:       fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+		GoVersion:      runtime.Version(),
+		LSPGatewayPath: os.Args[0],
+		Results:        []DiagnosticResult{},
+	}
+
+	var errors []error
+
+	// Force multi-language diagnostics
+	diagnoseMultiLanguage = true
+
+	// Run multi-language specific diagnostics
+	if err := runMultiLanguageDiagnostics(ctx, report); err != nil {
+		errors = append(errors, err)
+	}
+
+	// Also run consistency checking
+	diagnoseCheckConsistency = true
+	if err := runConfigDiagnostics(ctx, report); err != nil {
+		errors = append(errors, err)
+	}
+
+	// Add template validation if enabled
+	if diagnoseTemplateValidation {
+		if err := runTemplateValidationDiagnostics(ctx, report); err != nil {
+			errors = append(errors, err)
+		}
+	}
+
+	calculateSummary(report)
+	addEnhancedDiagnosticSummary(report)
+
+	if diagnoseComprehensive {
+		addComprehensiveDiagnosticScoring(report)
+	}
+
+	if diagnoseJSON {
+		return outputDiagnoseJSON(report)
+	}
+
+	if err := outputDiagnoseHuman(report); err != nil {
+		return err
+	}
+
+	if len(errors) > 0 {
+		fmt.Printf("\nErrors encountered during multi-language diagnostics:\n")
+		for _, err := range errors {
+			fmt.Printf("  - %v\n", err)
+		}
+	}
+
+	return nil
+}
+
+func diagnosePerformanceConfiguration(cmd *cobra.Command, args []string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), diagnoseTimeout)
+	defer cancel()
+
+	if !diagnoseJSON {
+		printDiagnoseHeader("Performance Configuration Diagnostics")
+	}
+
+	report := &DiagnosticReport{
+		Timestamp:      time.Now(),
+		Platform:       fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+		GoVersion:      runtime.Version(),
+		LSPGatewayPath: os.Args[0],
+		Results:        []DiagnosticResult{},
+	}
+
+	var errors []error
+
+	// Force performance diagnostics
+	diagnosePerformance = true
+	diagnoseResourceLimits = true
+
+	// Run performance specific diagnostics
+	if err := runPerformanceDiagnostics(ctx, report); err != nil {
+		errors = append(errors, err)
+	}
+
+	// Also run resource limit diagnostics
+	if err := runResourceLimitDiagnostics(ctx, report); err != nil {
+		errors = append(errors, err)
+	}
+
+	// Run optimization diagnostics
+	if err := runOptimizationDiagnostics(ctx, report); err != nil {
+		errors = append(errors, err)
+	}
+
+	calculateSummary(report)
+	addEnhancedDiagnosticSummary(report)
+
+	if diagnoseComprehensive {
+		addComprehensiveDiagnosticScoring(report)
+	}
+
+	if diagnoseJSON {
+		return outputDiagnoseJSON(report)
+	}
+
+	if err := outputDiagnoseHuman(report); err != nil {
+		return err
+	}
+
+	if len(errors) > 0 {
+		fmt.Printf("\nErrors encountered during performance diagnostics:\n")
+		for _, err := range errors {
+			fmt.Printf("  - %v\n", err)
+		}
+	}
+
+	return nil
+}
+
+func diagnoseRoutingStrategy(cmd *cobra.Command, args []string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), diagnoseTimeout)
+	defer cancel()
+
+	if !diagnoseJSON {
+		printDiagnoseHeader("Smart Routing Strategy Diagnostics")
+	}
+
+	report := &DiagnosticReport{
+		Timestamp:      time.Now(),
+		Platform:       fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+		GoVersion:      runtime.Version(),
+		LSPGatewayPath: os.Args[0],
+		Results:        []DiagnosticResult{},
+	}
+
+	var errors []error
+
+	// Force routing diagnostics
+	diagnoseRouting = true
+	diagnoseCheckConsistency = true
+
+	// Run routing specific diagnostics
+	if err := runRoutingDiagnostics(ctx, report); err != nil {
+		errors = append(errors, err)
+	}
+
+	// Also run server diagnostics for routing validation
+	if err := runServerDiagnostics(ctx, report); err != nil {
+		errors = append(errors, err)
+	}
+
+	calculateSummary(report)
+	addEnhancedDiagnosticSummary(report)
+
+	if diagnoseComprehensive {
+		addComprehensiveDiagnosticScoring(report)
+	}
+
+	if diagnoseJSON {
+		return outputDiagnoseJSON(report)
+	}
+
+	if err := outputDiagnoseHuman(report); err != nil {
+		return err
+	}
+
+	if len(errors) > 0 {
+		fmt.Printf("\nErrors encountered during routing diagnostics:\n")
+		for _, err := range errors {
+			fmt.Printf("  - %v\n", err)
+		}
+	}
+
+	return nil
+}
+
+// Template validation diagnostics
+func runTemplateValidationDiagnostics(ctx context.Context, report *DiagnosticReport) error {
+	result := DiagnosticResult{
+		Name:      "Template Adherence Validation",
+		Timestamp: time.Now(),
+		Details:   make(map[string]interface{}),
+	}
+
+	// Load current configuration
+	cfg, err := config.LoadConfig("config.yaml")
+	if err != nil {
+		result.Status = "failed"
+		result.Message = "Cannot load configuration for template validation"
+		result.Suggestions = []string{
+			"Ensure configuration file exists",
+			"Generate configuration: lsp-gateway config generate",
+		}
+	} else {
+		// Validate against built-in templates
+		generator := config.NewConfigGenerator()
+		templateIssues := []string{}
+		templateSuggestions := []string{}
+
+		// Check each server against its language template
+		for _, server := range cfg.Servers {
+			if len(server.Languages) > 0 {
+				language := server.Languages[0]
+				
+				// Compare with template expectations
+				switch language {
+				case "go":
+					if server.Command != "gopls" {
+						templateIssues = append(templateIssues, fmt.Sprintf("Go server uses non-standard command: %s", server.Command))
+						templateSuggestions = append(templateSuggestions, "Consider using 'gopls' for Go language server")
+					}
+				case "python":
+					if server.Command != "python" || len(server.Args) == 0 || server.Args[0] != "-m" || server.Args[1] != "pylsp" {
+						templateIssues = append(templateIssues, "Python server does not follow standard python-lsp-server template")
+						templateSuggestions = append(templateSuggestions, "Use 'python -m pylsp' for Python language server")
+					}
+				case "typescript", "javascript":
+					if server.Command != "typescript-language-server" {
+						templateIssues = append(templateIssues, fmt.Sprintf("TypeScript server uses non-standard command: %s", server.Command))
+						templateSuggestions = append(templateSuggestions, "Consider using 'typescript-language-server' for TypeScript/JavaScript")
+					}
+				case "java":
+					if server.Command != "jdtls" {
+						templateIssues = append(templateIssues, fmt.Sprintf("Java server uses non-standard command: %s", server.Command))
+						templateSuggestions = append(templateSuggestions, "Consider using 'jdtls' for Java language server")
+					}
+				case "rust":
+					if server.Command != "rust-analyzer" {
+						templateIssues = append(templateIssues, fmt.Sprintf("Rust server uses non-standard command: %s", server.Command))
+						templateSuggestions = append(templateSuggestions, "Consider using 'rust-analyzer' for Rust language server")
+					}
+				}
+			}
+		}
+
+		result.Details["template_issues"] = templateIssues
+		result.Details["servers_validated"] = len(cfg.Servers)
+		result.Details["generator_available"] = generator != nil
+
+		if len(templateIssues) > 0 {
+			result.Status = "warning"
+			result.Message = fmt.Sprintf("Found %d template adherence issues", len(templateIssues))
+			result.Suggestions = templateSuggestions
+		} else {
+			result.Status = "passed"
+			result.Message = "Configuration adheres to standard language server templates"
+		}
+	}
+
+	report.Results = append(report.Results, result)
+	return nil
+}
+
+func diagnoseOptimization(cmd *cobra.Command, args []string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), diagnoseTimeout)
+	defer cancel()
+
+	if !diagnoseJSON {
+		printDiagnoseHeader("Optimization Diagnostics")
+	}
+
+	report := &DiagnosticReport{
+		Timestamp:      time.Now(),
+		Platform:       fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+		GoVersion:      runtime.Version(),
+		LSPGatewayPath: os.Args[0],
+		Results:        []DiagnosticResult{},
+	}
+
+	var errors []error
+
+	// Run optimization-specific diagnostics
+	if err := runOptimizationDiagnostics(ctx, report); err != nil {
+		errors = append(errors, err)
+	}
+
+	// Run performance diagnostics if enabled
+	if diagnosePerformance {
+		if err := runPerformanceDiagnostics(ctx, report); err != nil {
+			errors = append(errors, err)
+		}
+	}
+
+	// Run resource limit diagnostics if enabled  
+	if diagnoseResourceLimits {
+		if err := runResourceLimitDiagnostics(ctx, report); err != nil {
+			errors = append(errors, err)
+		}
+	}
+
+	// Run template validation if enabled
+	if diagnoseTemplateValidation {
+		if err := runTemplateValidationDiagnostics(ctx, report); err != nil {
+			errors = append(errors, err)
+		}
+	}
+
+	calculateSummary(report)
+	addEnhancedDiagnosticSummary(report)
+
+	if diagnoseJSON {
+		return outputDiagnoseJSON(report)
+	}
+
+	if err := outputDiagnoseHuman(report); err != nil {
+		return err
+	}
+
+	if len(errors) > 0 {
+		fmt.Printf("\nErrors encountered during optimization diagnostics:\n")
+		for _, err := range errors {
+			fmt.Printf("  - %v\n", err)
+		}
+	}
+
+	return nil
+}
+
+// Enhanced diagnostic helper functions
+
+func runMultiLanguageDiagnostics(ctx context.Context, report *DiagnosticReport) error {
+	result := DiagnosticResult{
+		Name:      "Multi-language Configuration",
+		Timestamp: time.Now(),
+		Details:   make(map[string]interface{}),
+	}
+
+	// Check if project path is provided for multi-language diagnostics
+	if diagnoseProjectPath == "" {
+		// Use current directory as fallback
+		diagnoseProjectPath = "."
+	}
+
+	result.Details["project_path"] = diagnoseProjectPath
+
+	// Attempt to auto-generate multi-language config for analysis
+	multiLangConfig, err := config.AutoGenerateConfigFromPath(diagnoseProjectPath)
+	if err != nil {
+		result.Status = "failed"
+		result.Message = fmt.Sprintf("Failed to analyze multi-language project: %v", err)
+		result.Suggestions = []string{
+			"Ensure project path contains supported language files",
+			"Check directory permissions and accessibility",
+			"Verify project structure contains recognizable language patterns",
+		}
+	} else {
+		// Validate multi-language configuration
+		if validationErr := multiLangConfig.Validate(); validationErr != nil {
+			result.Status = "warning"
+			result.Message = fmt.Sprintf("Multi-language configuration has issues: %v", validationErr)
+			result.Suggestions = []string{
+				"Review detected language configurations",
+				"Check project structure consistency",
+				"Verify language server compatibility",
+			}
+		} else {
+			result.Status = "passed"
+			result.Message = "Multi-language configuration is valid and consistent"
+		}
+
+		// Add detailed analysis
+		result.Details["languages_detected"] = multiLangConfig.GetSupportedLanguages()
+		result.Details["project_type"] = multiLangConfig.ProjectInfo.ProjectType
+		result.Details["server_count"] = len(multiLangConfig.ServerConfigs)
+		result.Details["consistency_check"] = diagnoseCheckConsistency
+		result.Details["generated_at"] = multiLangConfig.GeneratedAt
+
+		// Check language coverage and conflicts
+		languageCoverage := make(map[string]int)
+		for _, serverConfig := range multiLangConfig.ServerConfigs {
+			for _, lang := range serverConfig.Languages {
+				languageCoverage[lang]++
+			}
+		}
+		result.Details["language_coverage"] = languageCoverage
+
+		// Check for language conflicts
+		conflicts := 0
+		for _, count := range languageCoverage {
+			if count > 1 {
+				conflicts++
+			}
+		}
+		if conflicts > 0 {
+			if result.Status == "passed" {
+				result.Status = "warning"
+			}
+			result.Message += fmt.Sprintf("; found %d language routing conflicts", conflicts)
+			result.Suggestions = append(result.Suggestions, "Consider smart routing to resolve language conflicts")
+		}
+
+		// Perform consistency checking if enabled
+		if diagnoseCheckConsistency {
+			gwConfig, convertErr := multiLangConfig.ToGatewayConfig()
+			if convertErr == nil {
+				if consistencyErr := gwConfig.ValidateConsistency(); consistencyErr != nil {
+					if result.Status == "passed" {
+						result.Status = "warning"
+					}
+					result.Message += fmt.Sprintf("; consistency issues: %v", consistencyErr)
+					result.Suggestions = append(result.Suggestions, "Review configuration consistency across languages")
+				}
+				result.Details["consistency_validated"] = true
+			} else {
+				result.Details["consistency_validated"] = false
+				result.Details["consistency_error"] = convertErr.Error()
+			}
+		}
+	}
+
+	report.Results = append(report.Results, result)
+	return nil
+}
+
+func runPerformanceDiagnostics(ctx context.Context, report *DiagnosticReport) error {
+	result := DiagnosticResult{
+		Name:      "Performance Configuration",
+		Timestamp: time.Now(),
+		Details:   make(map[string]interface{}),
+	}
+
+	result.Details["performance_mode"] = diagnosePerformanceMode
+
+	// Load and analyze configuration for performance
+	cfg, err := config.LoadConfig("config.yaml")
+	if err != nil {
+		result.Status = "failed"
+		result.Message = "Cannot load configuration for performance analysis"
+		result.Suggestions = []string{
+			"Ensure configuration file exists",
+			"Generate configuration: lsp-gateway config generate",
+		}
+	} else {
+		// Enhanced performance analysis with optimization manager
+		optManager := config.NewOptimizationManager()
+		strategy, strategyErr := optManager.GetStrategy(diagnosePerformanceMode)
+
+		result.Details["max_concurrent_requests"] = cfg.MaxConcurrentRequests
+		result.Details["timeout"] = cfg.Timeout
+		result.Details["server_count"] = len(cfg.Servers)
+		result.Details["project_aware"] = cfg.ProjectAware
+		result.Details["enable_concurrent_servers"] = cfg.EnableConcurrentServers
+
+		if strategyErr == nil {
+			result.Details["optimization_strategy"] = strategy.GetOptimizationName()
+			result.Details["performance_settings"] = strategy.GetPerformanceSettings()
+			result.Details["memory_settings"] = strategy.GetMemorySettings()
+			result.Details["resource_limits"] = strategy.GetResourceLimits()
+		}
+
+		// Analyze performance settings against current mode
+		performanceIssues := []string{}
+		performanceSuggestions := []string{}
+
+		if cfg.MaxConcurrentRequests <= 0 {
+			performanceIssues = append(performanceIssues, "Invalid MaxConcurrentRequests setting")
+			performanceSuggestions = append(performanceSuggestions, "Set MaxConcurrentRequests to a positive value")
+		} else {
+			// Mode-specific performance validation
+			switch diagnosePerformanceMode {
+			case "production":
+				if cfg.MaxConcurrentRequests < 100 {
+					performanceIssues = append(performanceIssues, "MaxConcurrentRequests too low for production")
+					performanceSuggestions = append(performanceSuggestions, "Increase MaxConcurrentRequests to 100-200 for production")
+				}
+				if cfg.MaxConcurrentRequests > 500 {
+					performanceIssues = append(performanceIssues, "MaxConcurrentRequests may be too high for production stability")
+					performanceSuggestions = append(performanceSuggestions, "Consider reducing MaxConcurrentRequests for production stability")
+				}
+			case "development":
+				if cfg.MaxConcurrentRequests > 100 {
+					performanceIssues = append(performanceIssues, "MaxConcurrentRequests may be too high for development")
+					performanceSuggestions = append(performanceSuggestions, "Consider reducing MaxConcurrentRequests to 50-100 for development")
+				}
+			case "analysis":
+				if cfg.MaxConcurrentRequests > 50 {
+					performanceIssues = append(performanceIssues, "MaxConcurrentRequests may be too high for analysis workloads")
+					performanceSuggestions = append(performanceSuggestions, "Consider reducing MaxConcurrentRequests to 25-50 for analysis mode")
+				}
+				if cfg.Timeout == "30s" {
+					performanceIssues = append(performanceIssues, "Timeout may be too short for analysis workloads")
+					performanceSuggestions = append(performanceSuggestions, "Consider increasing timeout to 60-120s for analysis mode")
+				}
+			}
+		}
+
+		// Validate resource limits for multi-server configurations
+		if cfg.EnableConcurrentServers {
+			if cfg.MaxConcurrentServersPerLanguage <= 0 {
+				performanceIssues = append(performanceIssues, "MaxConcurrentServersPerLanguage not set for concurrent server mode")
+				performanceSuggestions = append(performanceSuggestions, "Set MaxConcurrentServersPerLanguage to appropriate value (2-5 recommended)")
+			} else if cfg.MaxConcurrentServersPerLanguage > 5 {
+				performanceIssues = append(performanceIssues, "MaxConcurrentServersPerLanguage too high, may cause resource contention")
+				performanceSuggestions = append(performanceSuggestions, "Consider reducing MaxConcurrentServersPerLanguage to 2-5")
+			}
+		}
+
+		// Check language pool performance settings
+		if len(cfg.LanguagePools) > 0 {
+			for _, pool := range cfg.LanguagePools {
+				if pool.ResourceLimits != nil {
+					if err := pool.ResourceLimits.Validate(); err != nil {
+						performanceIssues = append(performanceIssues, fmt.Sprintf("Invalid resource limits for %s pool: %v", pool.Language, err))
+						performanceSuggestions = append(performanceSuggestions, fmt.Sprintf("Review resource limits for %s language pool", pool.Language))
+					}
+				}
+			}
+		}
+
+		result.Details["performance_issues"] = performanceIssues
+		result.Details["current_timeout"] = cfg.Timeout
+		result.Details["current_max_concurrent"] = cfg.MaxConcurrentRequests
+
+		if len(performanceIssues) > 0 {
+			result.Status = "warning"
+			result.Message = fmt.Sprintf("Found %d performance optimization opportunities", len(performanceIssues))
+			result.Suggestions = performanceSuggestions
+		} else {
+			result.Status = "passed"
+			result.Message = fmt.Sprintf("Performance configuration is well-optimized for %s mode", diagnosePerformanceMode)
+		}
+	}
+
+	report.Results = append(report.Results, result)
+	return nil
+}
+
+func runRoutingDiagnostics(ctx context.Context, report *DiagnosticReport) error {
+	result := DiagnosticResult{
+		Name:      "Smart Routing Configuration",
+		Timestamp: time.Now(),
+		Details:   make(map[string]interface{}),
+	}
+
+	// Load configuration and analyze routing
+	cfg, err := config.LoadConfig("config.yaml")
+	if err != nil {
+		result.Status = "failed"
+		result.Message = "Cannot load configuration for routing analysis"
+		result.Suggestions = []string{
+			"Ensure configuration file exists",
+			"Generate configuration: lsp-gateway config generate",
+		}
+	} else {
+		// Enhanced routing analysis
+		routingIssues := []string{}
+		routingSuggestions := []string{}
+
+		// Analyze traditional server configuration
+		languageCoverage := make(map[string][]string)
+		serversByLanguage := make(map[string][]*config.ServerConfig)
+		for i, server := range cfg.Servers {
+			for _, lang := range server.Languages {
+				languageCoverage[lang] = append(languageCoverage[lang], server.Name)
+				serversByLanguage[lang] = append(serversByLanguage[lang], &cfg.Servers[i])
+			}
+		}
+
+		result.Details["language_coverage"] = languageCoverage
+		result.Details["total_servers"] = len(cfg.Servers)
+		result.Details["enable_concurrent_servers"] = cfg.EnableConcurrentServers
+		result.Details["max_concurrent_servers_per_language"] = cfg.MaxConcurrentServersPerLanguage
+
+		// Check for routing conflicts in traditional configuration
+		traditionalConflicts := 0
+		for lang, servers := range languageCoverage {
+			if len(servers) > 1 {
+				traditionalConflicts++
+				if !cfg.EnableConcurrentServers {
+					routingIssues = append(routingIssues, fmt.Sprintf("Language %s has multiple servers but concurrent servers not enabled", lang))
+					routingSuggestions = append(routingSuggestions, "Enable concurrent servers or remove duplicate language assignments")
+				}
+			}
+		}
+
+		// Analyze language pool configuration (enhanced multi-server)
+		poolConflicts := 0
+		poolCoverage := make(map[string]string)
+		if len(cfg.LanguagePools) > 0 {
+			for _, pool := range cfg.LanguagePools {
+				if existingPool, exists := poolCoverage[pool.Language]; exists {
+					poolConflicts++
+					routingIssues = append(routingIssues, fmt.Sprintf("Duplicate language pool for %s (conflicts with %s)", pool.Language, existingPool))
+				} else {
+					poolCoverage[pool.Language] = pool.Language
+				}
+
+				// Validate pool's load balancing configuration
+				if pool.LoadBalancingConfig != nil {
+					if err := pool.LoadBalancingConfig.Validate(); err != nil {
+						routingIssues = append(routingIssues, fmt.Sprintf("Invalid load balancing config for %s pool: %v", pool.Language, err))
+						routingSuggestions = append(routingSuggestions, fmt.Sprintf("Fix load balancing configuration for %s language pool", pool.Language))
+					}
+				}
+
+				// Check server transport compatibility within pools
+				if err := pool.ValidateServerTransportCompatibility(); err != nil {
+					routingIssues = append(routingIssues, fmt.Sprintf("Transport compatibility issue in %s pool: %v", pool.Language, err))
+					routingSuggestions = append(routingSuggestions, fmt.Sprintf("Review transport configuration for %s language pool", pool.Language))
+				}
+			}
+
+			result.Details["language_pools"] = len(cfg.LanguagePools)
+			result.Details["pool_coverage"] = poolCoverage
+			result.Details["pool_conflicts"] = poolConflicts
+		}
+
+		// Check for conflicts between traditional servers and language pools
+		crossConfigConflicts := 0
+		if len(cfg.Servers) > 0 && len(cfg.LanguagePools) > 0 {
+			for lang := range languageCoverage {
+				if _, existsInPools := poolCoverage[lang]; existsInPools {
+					crossConfigConflicts++
+					routingIssues = append(routingIssues, fmt.Sprintf("Language %s configured in both servers and language pools", lang))
+				}
+			}
+
+			if crossConfigConflicts > 0 {
+				routingSuggestions = append(routingSuggestions, "Use either traditional servers OR language pools, not both")
+				routingSuggestions = append(routingSuggestions, "Migrate to language pools for enhanced multi-server capabilities")
+			}
+		}
+
+		// Analyze global multi-server configuration
+		if cfg.GlobalMultiServerConfig != nil {
+			if err := cfg.GlobalMultiServerConfig.Validate(); err != nil {
+				routingIssues = append(routingIssues, fmt.Sprintf("Invalid global multi-server config: %v", err))
+				routingSuggestions = append(routingSuggestions, "Review global multi-server configuration settings")
+			}
+
+			// Check for circular dependencies
+			if err := cfg.GlobalMultiServerConfig.ValidateCircularDependencies(); err != nil {
+				routingIssues = append(routingIssues, fmt.Sprintf("Circular dependency in multi-server config: %v", err))
+				routingSuggestions = append(routingSuggestions, "Remove circular references in server configurations")
+			}
+
+			result.Details["global_multi_server_config"] = map[string]interface{}{
+				"selection_strategy": cfg.GlobalMultiServerConfig.SelectionStrategy,
+				"concurrent_limit":   cfg.GlobalMultiServerConfig.ConcurrentLimit,
+				"health_check_interval": cfg.GlobalMultiServerConfig.HealthCheckInterval,
+				"max_retries":        cfg.GlobalMultiServerConfig.MaxRetries,
+			}
+		}
+
+		// Check consistency across all routing configurations
+		if diagnoseCheckConsistency {
+			if err := cfg.ValidateConsistency(); err != nil {
+				routingIssues = append(routingIssues, fmt.Sprintf("Configuration consistency issue: %v", err))
+				routingSuggestions = append(routingSuggestions, "Review and fix configuration consistency issues")
+			}
+		}
+
+		result.Details["routing_issues"] = routingIssues
+		result.Details["traditional_conflicts"] = traditionalConflicts
+		result.Details["cross_config_conflicts"] = crossConfigConflicts
+
+		totalIssues := len(routingIssues)
+		if totalIssues > 0 {
+			result.Status = "warning"
+			result.Message = fmt.Sprintf("Found %d routing configuration issues", totalIssues)
+			result.Suggestions = routingSuggestions
+		} else {
+			result.Status = "passed"
+			result.Message = "Smart routing configuration is optimal"
+			if cfg.EnableConcurrentServers {
+				result.Message += " with concurrent server support"
+			}
+		}
+	}
+
+	report.Results = append(report.Results, result)
+	return nil
+}
+
+func runResourceLimitDiagnostics(ctx context.Context, report *DiagnosticReport) error {
+	result := DiagnosticResult{
+		Name:      "Resource Limits",
+		Timestamp: time.Now(),
+		Details:   make(map[string]interface{}),
+	}
+
+	// Load configuration and analyze resource requirements
+	cfg, err := config.LoadConfig("config.yaml")
+	if err != nil {
+		result.Status = "failed"
+		result.Message = "Cannot load configuration for resource analysis"
+	} else {
+		// Estimate resource requirements
+		estimatedMemoryMB := len(cfg.Servers) * 50 // 50MB per server estimate
+		if cfg.MaxConcurrentRequests > 0 {
+			estimatedMemoryMB += cfg.MaxConcurrentRequests * 2 // 2MB per request
+		}
+
+		result.Details["estimated_memory_mb"] = estimatedMemoryMB
+		result.Details["server_count"] = len(cfg.Servers)
+		result.Details["max_concurrent_requests"] = cfg.MaxConcurrentRequests
+
+		if estimatedMemoryMB > 2000 {
+			result.Status = "warning"
+			result.Message = fmt.Sprintf("High estimated memory usage: %dMB", estimatedMemoryMB)
+			result.Suggestions = []string{
+				"Ensure system has sufficient memory",
+				"Consider reducing MaxConcurrentRequests or server count",
+				"Monitor actual memory usage in production",
+			}
+		} else {
+			result.Status = "passed"
+			result.Message = fmt.Sprintf("Resource requirements look reasonable: ~%dMB", estimatedMemoryMB)
+		}
+	}
+
+	report.Results = append(report.Results, result)
+	return nil
+}
+
+func runOptimizationDiagnostics(ctx context.Context, report *DiagnosticReport) error {
+	result := DiagnosticResult{
+		Name:      "Optimization Analysis",
+		Timestamp: time.Now(),
+		Details:   make(map[string]interface{}),
+	}
+
+	result.Details["performance_mode"] = diagnosePerformanceMode
+
+	// Load configuration and analyze optimization potential
+	cfg, err := config.LoadConfig("config.yaml")
+	if err != nil {
+		result.Status = "failed"
+		result.Message = "Cannot load configuration for optimization analysis"
+	} else {
+		// Analyze current settings vs optimal settings for the performance mode
+		optimizationIssues := []string{}
+		optimizationSuggestions := []string{}
+
+		// Check optimization based on performance mode
+		switch diagnosePerformanceMode {
+		case "production":
+			if cfg.MaxConcurrentRequests < 100 {
+				optimizationIssues = append(optimizationIssues, "MaxConcurrentRequests too low for production")
+				optimizationSuggestions = append(optimizationSuggestions, "Increase MaxConcurrentRequests to 100-200 for production")
+			}
+		case "development":
+			if cfg.MaxConcurrentRequests > 100 {
+				optimizationIssues = append(optimizationIssues, "MaxConcurrentRequests may be too high for development")
+				optimizationSuggestions = append(optimizationSuggestions, "Consider reducing MaxConcurrentRequests to 50-100 for development")
+			}
+		case "analysis":
+			// Analysis mode might need different timeout settings
+			if cfg.Timeout == "30s" {
+				optimizationIssues = append(optimizationIssues, "Timeout may be too short for analysis workloads")
+				optimizationSuggestions = append(optimizationSuggestions, "Consider increasing timeout to 60-120s for analysis mode")
+			}
+		}
+
+		result.Details["optimization_issues"] = optimizationIssues
+		result.Details["current_max_concurrent"] = cfg.MaxConcurrentRequests
+		result.Details["current_timeout"] = cfg.Timeout
+
+		if len(optimizationIssues) > 0 {
+			result.Status = "warning"
+			result.Message = fmt.Sprintf("Found %d optimization opportunities", len(optimizationIssues))
+			result.Suggestions = optimizationSuggestions
+		} else {
+			result.Status = "passed"
+			result.Message = fmt.Sprintf("Configuration is well-optimized for %s mode", diagnosePerformanceMode)
+		}
+	}
+
+	report.Results = append(report.Results, result)
+	return nil
+}
+
+func addEnhancedDiagnosticSummary(report *DiagnosticReport) {
+	// Add summary information about enhanced diagnostics
+	enhancedResult := DiagnosticResult{
+		Name:      "Enhanced Diagnostics Summary",
+		Timestamp: time.Now(),
+		Details:   make(map[string]interface{}),
+	}
+
+	enhancedFeatures := []string{}
+	if diagnoseMultiLanguage {
+		enhancedFeatures = append(enhancedFeatures, "multi-language")
+	}
+	if diagnosePerformance {
+		enhancedFeatures = append(enhancedFeatures, "performance")
+	}
+	if diagnoseRouting {
+		enhancedFeatures = append(enhancedFeatures, "routing")
+	}
+	if diagnoseResourceLimits {
+		enhancedFeatures = append(enhancedFeatures, "resource-limits")
+	}
+	if diagnoseOptimization {
+		enhancedFeatures = append(enhancedFeatures, "optimization")
+	}
+	if diagnoseComprehensive {
+		enhancedFeatures = append(enhancedFeatures, "comprehensive-scoring")
+	}
+	if diagnoseTemplateValidation {
+		enhancedFeatures = append(enhancedFeatures, "template-validation")
+	}
+
+	enhancedResult.Details["enhanced_features_enabled"] = enhancedFeatures
+	enhancedResult.Details["project_path"] = diagnoseProjectPath
+	enhancedResult.Details["performance_mode"] = diagnosePerformanceMode
+	enhancedResult.Details["consistency_checking"] = diagnoseCheckConsistency
+	enhancedResult.Details["comprehensive_mode"] = diagnoseComprehensive
+	enhancedResult.Status = "passed"
+	enhancedResult.Message = fmt.Sprintf("Enhanced diagnostics completed with %d additional features", len(enhancedFeatures))
+
+	report.Results = append(report.Results, enhancedResult)
+}
+
+// Add comprehensive diagnostic scoring
+func addComprehensiveDiagnosticScoring(report *DiagnosticReport) {
+	scoringResult := DiagnosticResult{
+		Name:      "Comprehensive Diagnostic Scoring",
+		Timestamp: time.Now(),
+		Details:   make(map[string]interface{}),
+	}
+
+	// Calculate individual scores
+	scoring := DiagnosticScoring{}
+	totalResults := len(report.Results)
+	passedResults := report.Summary.Passed
+	failedResults := report.Summary.Failed
+	warningResults := report.Summary.Warnings
+
+	if totalResults > 0 {
+		// Configuration health (0-100)
+		scoring.ConfigurationHealth = float64(passedResults) / float64(totalResults) * 100
+		if failedResults > 0 {
+			scoring.ConfigurationHealth -= float64(failedResults) * 10 // Penalty for failures
+		}
+		if warningResults > 0 {
+			scoring.ConfigurationHealth -= float64(warningResults) * 5 // Penalty for warnings
+		}
+
+		// Performance rating based on optimization and resource efficiency
+		scoring.PerformanceRating = scoring.ConfigurationHealth
+		if diagnosePerformance {
+			// Boost score if performance diagnostics were run and passed
+			for _, result := range report.Results {
+				if result.Name == "Performance Configuration" && result.Status == "passed" {
+					scoring.PerformanceRating += 10
+				}
+			}
+		}
+
+		// Consistency score based on multi-language and routing validation
+		scoring.ConsistencyScore = scoring.ConfigurationHealth
+		if diagnoseCheckConsistency {
+			for _, result := range report.Results {
+				if strings.Contains(result.Name, "Multi-language") && result.Status == "passed" {
+					scoring.ConsistencyScore += 15
+				}
+				if strings.Contains(result.Name, "Routing") && result.Status == "passed" {
+					scoring.ConsistencyScore += 10
+				}
+			}
+		}
+
+		// Optimization level based on current mode and settings
+		scoring.OptimizationLevel = 50.0 // Base level
+		switch diagnosePerformanceMode {
+		case "production":
+			scoring.OptimizationLevel = 85.0
+		case "analysis":
+			scoring.OptimizationLevel = 95.0
+		case "development":
+			scoring.OptimizationLevel = 70.0
+		}
+
+		// Multi-language health
+		scoring.MultiLanguageHealth = scoring.ConfigurationHealth
+		if diagnoseMultiLanguage {
+			for _, result := range report.Results {
+				if result.Name == "Multi-language Configuration" {
+					if result.Status == "passed" {
+						scoring.MultiLanguageHealth += 20
+					} else if result.Status == "warning" {
+						scoring.MultiLanguageHealth += 5
+					}
+				}
+			}
+		}
+
+		// Routing efficiency
+		scoring.RoutingEfficiency = scoring.ConfigurationHealth
+		if diagnoseRouting {
+			for _, result := range report.Results {
+				if result.Name == "Smart Routing Configuration" {
+					if result.Status == "passed" {
+						scoring.RoutingEfficiency += 25
+					} else if result.Status == "warning" {
+						scoring.RoutingEfficiency += 10
+					}
+				}
+			}
+		}
+
+		// Ensure scores don't exceed 100
+		if scoring.ConfigurationHealth > 100 {
+			scoring.ConfigurationHealth = 100
+		}
+		if scoring.PerformanceRating > 100 {
+			scoring.PerformanceRating = 100
+		}
+		if scoring.ConsistencyScore > 100 {
+			scoring.ConsistencyScore = 100
+		}
+		if scoring.OptimizationLevel > 100 {
+			scoring.OptimizationLevel = 100
+		}
+		if scoring.MultiLanguageHealth > 100 {
+			scoring.MultiLanguageHealth = 100
+		}
+		if scoring.RoutingEfficiency > 100 {
+			scoring.RoutingEfficiency = 100
+		}
+
+		// Calculate overall score as weighted average
+		overallScore := (scoring.ConfigurationHealth*0.3 + scoring.PerformanceRating*0.2 + 
+			scoring.ConsistencyScore*0.2 + scoring.OptimizationLevel*0.15 + 
+			scoring.MultiLanguageHealth*0.1 + scoring.RoutingEfficiency*0.05)
+
+		// Determine grade
+		var grade string
+		switch {
+		case overallScore >= 90:
+			grade = "A"
+		case overallScore >= 80:
+			grade = "B"
+		case overallScore >= 70:
+			grade = "C"
+		case overallScore >= 60:
+			grade = "D"
+		default:
+			grade = "F"
+		}
+
+		// Update report summary with scoring
+		report.Summary.Score = overallScore
+		report.Summary.Grade = grade
+
+		// Add scoring details
+		scoringResult.Details["scoring"] = scoring
+		scoringResult.Details["overall_score"] = overallScore
+		scoringResult.Details["grade"] = grade
+		scoringResult.Details["total_results"] = totalResults
+		scoringResult.Details["passed_results"] = passedResults
+		scoringResult.Details["failed_results"] = failedResults
+		scoringResult.Details["warning_results"] = warningResults
+
+		if overallScore >= 80 {
+			scoringResult.Status = "passed"
+			scoringResult.Message = fmt.Sprintf("Excellent configuration health with score %.1f (%s grade)", overallScore, grade)
+		} else if overallScore >= 60 {
+			scoringResult.Status = "warning"
+			scoringResult.Message = fmt.Sprintf("Configuration needs improvement with score %.1f (%s grade)", overallScore, grade)
+			scoringResult.Suggestions = []string{
+				"Review failed and warning diagnostic results",
+				"Consider running optimization diagnostics",
+				"Enable comprehensive consistency checking",
+			}
+		} else {
+			scoringResult.Status = "failed"
+			scoringResult.Message = fmt.Sprintf("Configuration requires immediate attention with score %.1f (%s grade)", overallScore, grade)
+			scoringResult.Suggestions = []string{
+				"Address all failed diagnostic results immediately",
+				"Run comprehensive diagnostics to identify issues",
+				"Consider regenerating configuration from scratch",
+				"Review project structure and language server setup",
+			}
+		}
+	}
+
+	report.Results = append(report.Results, scoringResult)
 }

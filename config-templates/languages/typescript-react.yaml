@@ -1,0 +1,569 @@
+# TypeScript React Framework Configuration
+# Language: TypeScript/JavaScript
+# Framework: React with Next.js, testing libraries, and modern tooling
+# Use Case: React applications with SSR/SSG, component libraries, and full-stack development
+# Prerequisites: Node.js 18+, typescript-language-server, @typescript-eslint, prettier
+# Performance Notes: Optimized for large React codebases with hot reloading and type checking
+
+# Gateway configuration for React/TypeScript development
+port: 8080
+timeout: "35s"
+max_concurrent_requests: 180
+project_aware: true
+enable_concurrent_servers: true
+max_concurrent_servers_per_language: 4
+
+# Multi-server configuration for TypeScript/React
+multi_server_config:
+  selection_strategy: "load_balance"
+  concurrent_limit: 4
+  resource_sharing: true
+  health_check_interval: "25s"
+  max_retries: 3
+
+# React project context
+project_context:
+  project_type: "frontend-backend"
+  languages:
+    - language: "typescript"
+      frameworks: ["react", "nextjs", "emotion", "styled-components", "mui"]
+      file_patterns: ["*.ts", "*.tsx", "*.js", "*.jsx", "*.json"]
+      root_markers: ["package.json", "tsconfig.json", "next.config.js", "vite.config.ts"]
+    - language: "javascript"
+      frameworks: ["react", "nextjs", "jest", "storybook"]
+      file_patterns: ["*.js", "*.jsx", "*.mjs", "*.cjs"]
+      root_markers: ["package.json", "jsconfig.json"]
+
+# TypeScript language server pool with React optimizations
+language_pools:
+  - language: "typescript"
+    default_server: "tsserver-react"
+    servers:
+      # React-optimized TypeScript server
+      tsserver-react:
+        name: "tsserver-react"
+        languages: ["typescript", "javascript", "typescriptreact", "javascriptreact"]
+        command: "typescript-language-server"
+        args: ["--stdio", "--log-level=2"]
+        transport: "stdio"
+        priority: 3
+        weight: 3.0
+        max_concurrent_requests: 150
+        root_markers: ["package.json", "tsconfig.json", "next.config.js"]
+        
+        # React-specific TypeScript settings
+        settings:
+          typescript:
+            # Compiler options
+            preferences:
+              disableSuggestions: false
+              quotePreference: "double"
+              includeCompletionsForModuleExports: true
+              includeCompletionsForImportStatements: true
+              includeCompletionsWithSnippetText: true
+              includeAutomaticOptionalChainCompletions: true
+              includeCompletionsWithClassMemberSnippets: true
+              includeCompletionsWithObjectLiteralMethodSnippets: true
+              useLabelDetailsInCompletionEntries: true
+              allowRenameOfImportPath: true
+              allowTextChangesInNewFiles: true
+              
+            # React-specific preferences
+            jsx: "react-jsx"
+            jsxFactory: "React.createElement"
+            jsxFragmentFactory: "React.Fragment"
+            jsxImportSource: "react"
+            
+            # Code suggestions
+            suggest:
+              autoImports: true
+              completeFunctionCalls: true
+              includeCompletionsForModuleExports: true
+              paths: true
+              
+            # Inlay hints
+            inlayHints:
+              includeInlayParameterNameHints: "all"
+              includeInlayParameterNameHintsWhenArgumentMatchesName: false
+              includeInlayFunctionParameterTypeHints: true
+              includeInlayVariableTypeHints: true
+              includeInlayPropertyDeclarationTypeHints: true
+              includeInlayFunctionLikeReturnTypeHints: true
+              includeInlayEnumMemberValueHints: true
+              
+            # Workspace configuration
+            workspaceSymbols:
+              scope: "allOpenProjects"
+              
+            # React-specific formatting
+            format:
+              enable: true
+              insertSpaceAfterCommaDelimiter: true
+              insertSpaceAfterSemicolonInForStatements: true
+              insertSpaceBeforeAndAfterBinaryOperators: true
+              insertSpaceAfterConstructor: false
+              insertSpaceAfterKeywordsInControlFlowStatements: true
+              insertSpaceAfterFunctionKeywordForAnonymousFunctions: false
+              insertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis: false
+              insertSpaceAfterOpeningAndBeforeClosingNonemptyBrackets: false
+              insertSpaceAfterOpeningAndBeforeClosingNonemptyBraces: true
+              insertSpaceAfterOpeningAndBeforeClosingTemplateStringBraces: false
+              semicolons: "insert"
+              
+          # JavaScript settings for JS files in TypeScript projects
+          javascript:
+            preferences:
+              disableSuggestions: false
+              quotePreference: "double"
+            suggest:
+              autoImports: true
+              completeFunctionCalls: true
+            format:
+              enable: true
+              semicolons: "insert"
+              
+        # React development environment
+        environment:
+          NODE_ENV: "development"
+          FAST_REFRESH: "true"
+          TSX_COMPILE_ON_ERROR: "true"
+          GENERATE_SOURCEMAP: "true"
+          
+      # High-performance server for quick responses
+      tsserver-fast:
+        name: "tsserver-fast"
+        languages: ["typescript", "javascript"]
+        command: "typescript-language-server"
+        args: ["--stdio", "--log-level=1"]
+        transport: "stdio"
+        priority: 2
+        weight: 2.0
+        max_concurrent_requests: 100
+        root_markers: ["package.json", "tsconfig.json"]
+        
+        # Lightweight settings for fast responses
+        settings:
+          typescript:
+            preferences:
+              disableSuggestions: false
+              includeCompletionsForModuleExports: true
+            suggest:
+              autoImports: true
+            inlayHints:
+              includeInlayParameterNameHints: "none"
+              includeInlayFunctionParameterTypeHints: false
+              includeInlayVariableTypeHints: false
+            format:
+              enable: false  # Disable formatting for speed
+              
+        environment:
+          NODE_ENV: "development"
+          
+      # Testing-focused server
+      tsserver-test:
+        name: "tsserver-test"
+        languages: ["typescript", "javascript"]
+        command: "typescript-language-server"
+        args: ["--stdio"]
+        transport: "stdio"
+        priority: 2
+        weight: 1.5
+        max_concurrent_requests: 80
+        root_markers: ["package.json", "jest.config.js", "vitest.config.ts"]
+        
+        # Test-optimized settings
+        settings:
+          typescript:
+            preferences:
+              disableSuggestions: false
+              includeCompletionsForModuleExports: true
+            suggest:
+              autoImports: true
+              paths: true
+            # Test-specific compiler options
+            compilerOptions:
+              types: ["jest", "@testing-library/jest-dom", "vitest"]
+              esModuleInterop: true
+              allowSyntheticDefaultImports: true
+              
+        environment:
+          NODE_ENV: "test"
+          
+      # Build-optimized server for production
+      tsserver-build:
+        name: "tsserver-build"
+        languages: ["typescript", "javascript"]
+        command: "typescript-language-server"
+        args: ["--stdio", "--log-level=0"]
+        transport: "stdio"
+        priority: 1
+        weight: 1.0
+        max_concurrent_requests: 60
+        root_markers: ["package.json", "next.config.js", "vite.config.ts", "webpack.config.js"]
+        
+        # Build-focused settings
+        settings:
+          typescript:
+            preferences:
+              disableSuggestions: true  # Focus on type checking only
+            suggest:
+              autoImports: false
+            format:
+              enable: false
+            # Production compiler options
+            compilerOptions:
+              declaration: true
+              declarationMap: true
+              sourceMap: false
+              removeComments: true
+              
+        environment:
+          NODE_ENV: "production"
+          
+    # Load balancing for React/TypeScript workloads
+    load_balancing:
+      strategy: "response_time"
+      health_threshold: 0.85
+      weight_factors:
+        tsserver-react: 3.0
+        tsserver-fast: 2.0
+        tsserver-test: 1.5
+        tsserver-build: 1.0
+        
+    # Resource limits for TypeScript/React
+    resource_limits:
+      max_memory_mb: 3072
+      max_concurrent_requests: 380
+      max_processes: 8
+      request_timeout_seconds: 35
+
+# Enhanced pool configuration for TypeScript servers
+servers:
+  - name: "typescript-react-pool"
+    languages: ["typescript", "javascript", "typescriptreact", "javascriptreact"]
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    transport: "stdio"
+    root_markers: ["package.json", "tsconfig.json", "next.config.js"]
+    
+    # Pool configuration optimized for TypeScript/React
+    pool_config:
+      min_size: 3
+      max_size: 10
+      warmup_size: 4
+      
+      # Aggressive scaling for frontend development
+      enable_dynamic_sizing: true
+      target_utilization: 0.65
+      scale_up_threshold: 0.75
+      scale_down_threshold: 0.45
+      
+      # Connection management for Node.js processes
+      max_lifetime: 45m
+      idle_timeout: 12m
+      health_check_interval: 20s
+      
+      # Fast retry for Node.js stability
+      max_retries: 4
+      base_delay: 80ms
+      circuit_timeout: 15s
+      
+      # Memory limits for Node.js processes
+      memory_limit_mb: 384
+      cpu_limit_percent: 85.0
+      
+      transport_type: "stdio"
+      custom_config:
+        node_options: "--max-old-space-size=4096"
+        typescript_support: true
+        jsx_support: true
+        
+    # Health monitoring for TypeScript servers
+    health_check_settings:
+      enabled: true
+      interval: 20s
+      timeout: 8s
+      failure_threshold: 3
+      success_threshold: 2
+      method: "initialize"
+      enable_auto_restart: true
+      restart_delay: 3s
+      max_consecutive_fails: 4
+      
+    # React/TypeScript environment
+    environment:
+      NODE_OPTIONS: "--max-old-space-size=4096"
+      TS_NODE_COMPILER_OPTIONS: '{"jsx":"react-jsx"}'
+      NODE_ENV: "development"
+
+# Smart routing for React/TypeScript methods
+enable_smart_routing: true
+enable_enhancements: true
+smart_router_config:
+  default_strategy: "single_target_with_fallback"
+  method_strategies:
+    "textDocument/definition": "single_target_with_fallback"
+    "textDocument/references": "multi_target_parallel"
+    "textDocument/hover": "primary_with_enhancement"
+    "textDocument/completion": "single_target_with_fallback"
+    "textDocument/codeAction": "multi_target_parallel"
+    "textDocument/formatting": "single_target_with_fallback"
+    "textDocument/rename": "single_target_with_fallback"
+    "workspace/symbol": "broadcast_aggregate"
+  enable_performance_monitoring: true
+  enable_circuit_breaker: true
+  circuit_breaker_threshold: 3
+  circuit_breaker_timeout: "12s"
+
+# React framework optimizations
+optimizations:
+  typescript:
+    # Package management
+    package_managers:
+      - name: "npm"
+        lock_file: "package-lock.json"
+        install_command: "npm install"
+        
+      - name: "yarn"
+        lock_file: "yarn.lock"
+        install_command: "yarn install"
+        
+      - name: "pnpm"
+        lock_file: "pnpm-lock.yaml"
+        install_command: "pnpm install"
+        
+    # Build tools
+    build_tools:
+      - name: "next"
+        enabled: true
+        config_files: ["next.config.js", "next.config.ts"]
+        settings:
+          fast_refresh: true
+          strict_mode: true
+          swc_minify: true
+          
+      - name: "vite"
+        enabled: true
+        config_files: ["vite.config.ts", "vite.config.js"]
+        settings:
+          hmr: true
+          jsx: "react-jsx"
+          
+      - name: "webpack"
+        enabled: true
+        config_files: ["webpack.config.js"]
+        settings:
+          hot_reload: true
+          
+      - name: "rollup"
+        enabled: true
+        config_files: ["rollup.config.js"]
+        
+    # React-specific features
+    react:
+      version: "18"
+      features:
+        - "hooks"
+        - "concurrent_features"
+        - "suspense"
+        - "server_components"
+        
+      # Component libraries
+      ui_libraries:
+        - name: "mui"
+          import_pattern: "@mui/material"
+          
+        - name: "antd"
+          import_pattern: "antd"
+          
+        - name: "chakra"
+          import_pattern: "@chakra-ui/react"
+          
+      # State management
+      state_management:
+        - name: "redux"
+          enabled: true
+          toolkit: true
+          
+        - name: "zustand"
+          enabled: true
+          
+        - name: "jotai"
+          enabled: true
+          
+    # Code quality tools
+    linting:
+      - name: "eslint"
+        enabled: true
+        config_files: [".eslintrc.js", ".eslintrc.json", "eslint.config.js"]
+        extends: 
+          - "@typescript-eslint/recommended"
+          - "react-hooks/recommended"
+          - "next/core-web-vitals"
+          
+      - name: "prettier"
+        enabled: true
+        config_files: [".prettierrc", "prettier.config.js"]
+        settings:
+          semi: true
+          singleQuote: false
+          tabWidth: 2
+          trailingComma: "es5"
+          
+    # Testing frameworks
+    testing:
+      - name: "jest"
+        enabled: true
+        config_files: ["jest.config.js", "jest.config.ts"]
+        settings:
+          preset: "ts-jest"
+          test_environment: "jsdom"
+          
+      - name: "vitest"
+        enabled: true
+        config_files: ["vitest.config.ts"]
+        settings:
+          environment: "jsdom"
+          
+      - name: "testing_library"
+        enabled: true
+        libraries: ["@testing-library/react", "@testing-library/jest-dom"]
+        
+      - name: "storybook"
+        enabled: true
+        config_directory: ".storybook"
+        
+    # Type checking
+    type_checking:
+      strict_mode: true
+      check_js: false
+      no_emit: true
+      incremental: true
+      
+    # Performance optimization
+    performance:
+      - name: "code_splitting"
+        enabled: true
+        dynamic_imports: true
+        
+      - name: "tree_shaking"
+        enabled: true
+        
+      - name: "bundle_analysis"
+        enabled: true
+        tools: ["webpack-bundle-analyzer", "rollup-plugin-visualizer"]
+
+# Framework-specific patterns for React
+patterns:
+  react:
+    # Component patterns
+    components:
+      - pattern: "const\\s+\\w+\\s*=\\s*\\([^)]*\\)\\s*=>\\s*{"
+        description: "React functional component"
+        
+      - pattern: "function\\s+\\w+\\s*\\([^)]*\\)\\s*{"
+        description: "React function component"
+        
+      - pattern: "class\\s+\\w+\\s+extends\\s+.*Component"
+        description: "React class component"
+        
+    # Hook patterns
+    hooks:
+      - pattern: "use\\w+"
+        description: "React hook usage"
+        
+      - pattern: "const\\s+\\[\\w+,\\s*\\w+\\]\\s*=\\s*useState"
+        description: "useState hook"
+        
+      - pattern: "useEffect\\s*\\("
+        description: "useEffect hook"
+        
+    # JSX patterns
+    jsx:
+      - pattern: "<\\w+[^>]*>"
+        description: "JSX element"
+        
+      - pattern: "\\{[^}]+\\}"
+        description: "JSX expression"
+
+# Development workflow integration
+workflow_integration:
+  # Development server
+  dev_server:
+    next:
+      command: "npm run dev"
+      port: 3000
+      hot_reload: true
+      
+    vite:
+      command: "npm run dev"
+      port: 5173
+      hot_reload: true
+      
+  # Build process
+  build:
+    next:
+      command: "npm run build"
+      output_directory: ".next"
+      
+    vite:
+      command: "npm run build"
+      output_directory: "dist"
+      
+  # Testing
+  testing:
+    unit_tests: "npm test"
+    e2e_tests: "npm run test:e2e"
+    coverage: "npm run test:coverage"
+    
+  # Code quality
+  quality_checks:
+    - "npm run lint"
+    - "npm run type-check"
+    - "npm run format"
+
+# Editor integration
+editor_integration:
+  vscode:
+    extensions:
+      - "ms-vscode.vscode-typescript-next"
+      - "bradlc.vscode-tailwindcss"
+      - "esbenp.prettier-vscode"
+      - "ms-vscode.vscode-eslint"
+      
+    settings:
+      "typescript.preferences.inlayHints.parameterNames.enabled": "all"
+      "typescript.suggest.autoImports": true
+      "editor.formatOnSave": true
+      "editor.codeActionsOnSave": ["source.fixAll.eslint"]
+
+# Logging configuration
+logging:
+  typescript_servers: true
+  react_hot_reload: true
+  build_process: true
+  performance_metrics: true
+  levels:
+    typescript: "info"
+    react: "info"
+    build_tools: "warn"
+    testing: "debug"
+
+# Migration guide from basic TypeScript configuration
+migration:
+  from_basic_typescript:
+    steps:
+      - "Update to TypeScript 4.9+"
+      - "Configure React JSX settings"
+      - "Install @types packages for dependencies"
+      - "Set up ESLint with TypeScript rules"
+      - "Configure build tool (Next.js/Vite)"
+    react_specific:
+      - "Update tsconfig.json for React"
+      - "Configure JSX factory settings"
+      - "Set up testing environment"
+      - "Configure state management"
+    breaking_changes:
+      - "Requires Node.js 18+"
+      - "JSX transform may need updates"
+      - "Some React types may require explicit imports"

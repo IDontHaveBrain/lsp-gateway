@@ -1,0 +1,587 @@
+# Java Spring Boot Framework Configuration
+# Language: Java
+# Framework: Spring Boot with Spring Cloud, JPA, and microservices architecture
+# Use Case: Enterprise Spring Boot applications with cloud-native features and microservices
+# Prerequisites: Java 17+, Eclipse JDT Language Server, Maven/Gradle, Spring Boot 3.0+
+# Performance Notes: Optimized for large Spring Boot projects with multiple modules and database integration
+
+# Gateway configuration for Spring Boot development
+port: 8080
+timeout: "60s"
+max_concurrent_requests: 100
+project_aware: true
+enable_concurrent_servers: true
+max_concurrent_servers_per_language: 3
+
+# Multi-server configuration for Java/Spring Boot
+multi_server_config:
+  selection_strategy: "load_balance"
+  concurrent_limit: 3
+  resource_sharing: true
+  health_check_interval: "45s"
+  max_retries: 4
+
+# Spring Boot project context
+project_context:
+  project_type: "microservices"
+  languages:
+    - language: "java"
+      frameworks: ["spring-boot", "spring-cloud", "spring-data", "spring-security"]
+      file_patterns: ["*.java", "pom.xml", "build.gradle", "application.properties", "application.yml"]
+      root_markers: ["pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle"]
+
+# Java language server pool with Spring Boot optimizations  
+language_pools:
+  - language: "java"
+    default_server: "jdtls-spring"
+    servers:
+      # Spring Boot optimized JDT Language Server
+      jdtls-spring:
+        name: "jdtls-spring"
+        languages: ["java"]
+        command: "jdtls"
+        transport: "stdio"
+        priority: 3
+        weight: 3.0
+        max_concurrent_requests: 80
+        root_markers: ["pom.xml", "build.gradle", "settings.gradle"]
+        
+        # Spring Boot specific JDT settings
+        settings:
+          java:
+            # Eclipse JDT settings
+            eclipse:
+              downloadSources: true
+              downloadJavadoc: true
+              
+            # Configuration options
+            configuration:
+              checkProjectSettings: true
+              updateBuildConfiguration: "automatic"
+              maven:
+                downloadSources: true
+                downloadJavadoc: true
+                updateSnapshots: false
+                
+            # Compiler settings
+            compile:
+              nullAnalysis:
+                mode: "automatic"
+              
+            # Code completion
+            completion:
+              enabled: true
+              overwrite: true
+              guessMethodArguments: true
+              favoriteStaticMembers: [
+                "org.junit.Assert.*",
+                "org.junit.Assume.*", 
+                "org.junit.jupiter.api.Assertions.*",
+                "org.mockito.Mockito.*",
+                "org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*",
+                "org.springframework.test.web.servlet.result.MockMvcResultMatchers.*"
+              ]
+              
+            # Content assist
+            contentAssist:
+              parameters:
+                includeNullAnnotation: true
+                
+            # Error/warning settings
+            errors:
+              incompleteClasspath:
+                severity: "warning"
+                
+            # Import organization
+            saveActions:
+              organizeImports: true
+              
+            # Formatting
+            format:
+              enabled: true
+              settings:
+                url: "file://${workspaceFolder}/.vscode/java-formatter.xml"
+                
+            # Maven integration
+            maven:
+              downloadSources: true
+              downloadJavadoc: true
+              updateSnapshots: false
+              
+            # Spring Boot specific settings
+            boot:
+              ls:
+                checkjvm: false
+                
+            # Signature help
+            signatureHelp:
+              enabled: true
+              description:
+                enabled: true
+                
+            # Symbols
+            symbols:
+              includeSourceMethodDeclarations: true
+              
+        # Spring Boot development environment
+        environment:
+          JAVA_HOME: "/usr/lib/jvm/java-17-openjdk"
+          MAVEN_OPTS: "-Xmx2g -XX:+UseG1GC"
+          GRADLE_OPTS: "-Xmx2g -XX:+UseG1GC -Dorg.gradle.daemon=true"
+          SPRING_PROFILES_ACTIVE: "development"
+          
+      # Lightweight server for quick operations
+      jdtls-fast:
+        name: "jdtls-fast"
+        languages: ["java"]
+        command: "jdtls"
+        args: ["-Dosgi.bundles.defaultStartLevel=4", "-Declipse.product=org.eclipse.jdt.ls.core.product"]
+        transport: "stdio"
+        priority: 2
+        weight: 2.0
+        max_concurrent_requests: 50
+        root_markers: ["pom.xml", "build.gradle"]
+        
+        # Minimal settings for fast responses
+        settings:
+          java:
+            eclipse:
+              downloadSources: false
+              downloadJavadoc: false
+            configuration:
+              updateBuildConfiguration: "disabled"
+            completion:
+              enabled: true
+              overwrite: false
+              guessMethodArguments: false
+            format:
+              enabled: false
+            maven:
+              downloadSources: false
+              downloadJavadoc: false
+              
+        environment:
+          JAVA_HOME: "/usr/lib/jvm/java-17-openjdk"
+          MAVEN_OPTS: "-Xmx1g"
+          
+      # Testing-focused server
+      jdtls-test:
+        name: "jdtls-test"
+        languages: ["java"]
+        command: "jdtls"
+        transport: "stdio"
+        priority: 2
+        weight: 1.5
+        max_concurrent_requests: 40
+        root_markers: ["pom.xml", "build.gradle", "src/test"]
+        
+        # Test-optimized settings
+        settings:
+          java:
+            eclipse:
+              downloadSources: true
+              downloadJavadoc: true
+            completion:
+              favoriteStaticMembers: [
+                "org.junit.jupiter.api.Assertions.*",
+                "org.mockito.Mockito.*",
+                "org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*",
+                "org.springframework.test.web.servlet.result.MockMvcResultMatchers.*",
+                "org.testcontainers.junit.jupiter.Testcontainers.*"
+              ]
+            maven:
+              downloadSources: true
+              updateSnapshots: true
+              
+        environment:
+          JAVA_HOME: "/usr/lib/jvm/java-17-openjdk"
+          MAVEN_OPTS: "-Xmx1g"
+          SPRING_PROFILES_ACTIVE: "test"
+          
+    # Load balancing for Spring Boot workloads
+    load_balancing:
+      strategy: "least_connections"
+      health_threshold: 0.75
+      weight_factors:
+        jdtls-spring: 3.0
+        jdtls-fast: 2.0
+        jdtls-test: 1.5
+        
+    # Resource limits for Java/Spring Boot
+    resource_limits:
+      max_memory_mb: 6144
+      max_concurrent_requests: 170
+      max_processes: 6
+      request_timeout_seconds: 60
+
+# Enhanced pool configuration for Java servers
+servers:
+  - name: "java-spring-pool"
+    languages: ["java"]
+    command: "jdtls"
+    transport: "stdio"
+    root_markers: ["pom.xml", "build.gradle", "build.gradle.kts"]
+    
+    # Pool configuration optimized for Java/Spring Boot
+    pool_config:
+      min_size: 1
+      max_size: 6
+      warmup_size: 2
+      
+      # Conservative scaling for JVM processes
+      enable_dynamic_sizing: true
+      target_utilization: 0.80
+      scale_up_threshold: 0.90
+      scale_down_threshold: 0.60
+      
+      # JVM process lifecycle management
+      max_lifetime: 60m
+      idle_timeout: 20m
+      health_check_interval: 60s
+      
+      # Retry configuration for JVM stability
+      max_retries: 5
+      base_delay: 300ms
+      circuit_timeout: 30s
+      
+      # Memory limits for JVM processes
+      memory_limit_mb: 1024
+      cpu_limit_percent: 90.0
+      
+      transport_type: "stdio"
+      custom_config:
+        jvm_args: ["-Xmx2g", "-XX:+UseG1GC", "-XX:+UseStringDeduplication"]
+        spring_boot_support: true
+        maven_integration: true
+        gradle_integration: true
+        
+    # Health monitoring for Java servers
+    health_check_settings:
+      enabled: true
+      interval: 60s
+      timeout: 25s
+      failure_threshold: 4
+      success_threshold: 2
+      method: "initialize"
+      enable_auto_restart: true
+      restart_delay: 15s
+      max_consecutive_fails: 3
+      
+    # Spring Boot optimized environment
+    environment:
+      JAVA_HOME: "/usr/lib/jvm/java-17-openjdk"
+      MAVEN_OPTS: "-Xmx2g -XX:+UseG1GC -Dmaven.repo.local=${workspaceFolder}/.m2/repository"
+      GRADLE_OPTS: "-Xmx2g -XX:+UseG1GC -Dorg.gradle.daemon=true"
+      SPRING_PROFILES_ACTIVE: "development"
+      SPRING_OUTPUT_ANSI_ENABLED: "always"
+
+# Smart routing for Spring Boot specific methods
+enable_smart_routing: true
+enable_enhancements: true
+smart_router_config:
+  default_strategy: "single_target_with_fallback"
+  method_strategies:
+    "textDocument/definition": "single_target_with_fallback"
+    "textDocument/references": "multi_target_parallel"
+    "textDocument/hover": "primary_with_enhancement"
+    "textDocument/completion": "single_target_with_fallback"
+    "textDocument/codeAction": "multi_target_parallel"
+    "workspace/symbol": "broadcast_aggregate"
+  enable_performance_monitoring: true
+  enable_circuit_breaker: true
+  circuit_breaker_threshold: 5
+  circuit_breaker_timeout: "25s"
+
+# Spring Boot framework optimizations
+optimizations:
+  java:
+    # Build tools
+    build_tools:
+      - name: "maven"
+        enabled: true
+        config_files: ["pom.xml"]
+        settings:
+          download_sources: true
+          download_javadoc: true
+          offline_mode: false
+          profiles: ["development", "test", "production"]
+          
+      - name: "gradle"
+        enabled: true
+        config_files: ["build.gradle", "build.gradle.kts", "settings.gradle"]
+        settings:
+          daemon: true
+          parallel: true
+          caching: true
+          build_cache: true
+          
+    # Spring Boot specific features
+    spring_boot:
+      version: "3.1"
+      features:
+        - "web"
+        - "data-jpa"
+        - "security"
+        - "actuator"
+        - "cloud-config"
+        - "cloud-discovery"
+        
+      # Configuration properties
+      configuration:
+        auto_completion: true
+        validation: true
+        metadata_generation: true
+        
+      # Actuator endpoints
+      actuator:
+        endpoints: ["health", "info", "metrics", "env", "configprops"]
+        security: true
+        
+      # Profile support
+      profiles:
+        - "development"
+        - "test" 
+        - "staging"
+        - "production"
+        
+    # Database integration
+    databases:
+      - name: "h2"
+        enabled: true
+        in_memory: true
+        console: true
+        
+      - name: "postgresql" 
+        enabled: true
+        driver: "org.postgresql.Driver"
+        
+      - name: "mysql"
+        enabled: true
+        driver: "com.mysql.cj.jdbc.Driver"
+        
+    # Testing frameworks
+    testing:
+      - name: "junit5"
+        enabled: true
+        version: "5.9"
+        extensions: ["spring", "mockito", "testcontainers"]
+        
+      - name: "mockito"
+        enabled: true
+        version: "5.3"
+        
+      - name: "testcontainers"
+        enabled: true
+        modules: ["postgresql", "redis", "kafka"]
+        
+      - name: "spring_boot_test"
+        enabled: true
+        annotations: ["@SpringBootTest", "@WebMvcTest", "@DataJpaTest"]
+        
+    # Code quality tools
+    quality:
+      - name: "checkstyle"
+        enabled: true
+        config_file: "checkstyle.xml"
+        
+      - name: "spotbugs"
+        enabled: true
+        effort: "max"
+        
+      - name: "pmd"
+        enabled: true
+        ruleset: "rulesets/java/quickstart.xml"
+        
+    # Microservices support
+    microservices:
+      - name: "spring_cloud"
+        enabled: true
+        version: "2022.0"
+        components: ["config", "discovery", "circuit-breaker", "gateway"]
+        
+      - name: "docker"
+        enabled: true
+        base_images: ["openjdk:17-jre-slim", "eclipse-temurin:17-jre"]
+        
+      - name: "kubernetes"
+        enabled: true
+        manifests: true
+        helm_charts: true
+
+# Framework-specific patterns for Spring Boot
+patterns:
+  spring_boot:
+    # Controller patterns
+    controllers:
+      - pattern: "@RestController"
+        description: "Spring REST controller"
+        
+      - pattern: "@Controller"
+        description: "Spring MVC controller"
+        
+      - pattern: "@RequestMapping"
+        description: "Request mapping annotation"
+        
+    # Service patterns
+    services:
+      - pattern: "@Service"
+        description: "Spring service component"
+        
+      - pattern: "@Component"
+        description: "Spring component"
+        
+      - pattern: "@Repository"
+        description: "Spring repository component"
+        
+    # Configuration patterns
+    configuration:
+      - pattern: "@Configuration"
+        description: "Spring configuration class"
+        
+      - pattern: "@ConfigurationProperties"
+        description: "Configuration properties binding"
+        
+      - pattern: "@Value"
+        description: "Property value injection"
+        
+    # JPA patterns
+    jpa:
+      - pattern: "@Entity"
+        description: "JPA entity class"
+        
+      - pattern: "@Repository"
+        description: "JPA repository interface"
+        
+      - pattern: "@Query"
+        description: "Custom JPA query"
+
+# Development workflow integration
+workflow_integration:
+  # Development server
+  dev_server:
+    spring_boot:
+      command: "./mvnw spring-boot:run"
+      profiles: ["development"]
+      jvm_args: ["-Xmx1g", "-XX:+UseG1GC"]
+      hot_reload: true
+      
+  # Build process
+  build:
+    maven:
+      commands:
+        - "./mvnw clean compile"
+        - "./mvnw package"
+        - "./mvnw install"
+        
+    gradle:
+      commands:
+        - "./gradlew build"
+        - "./gradlew bootJar"
+        - "./gradlew publishToMavenLocal"
+        
+  # Testing
+  testing:
+    unit_tests: "./mvnw test"
+    integration_tests: "./mvnw verify"
+    coverage: "./mvnw jacoco:report"
+    
+  # Database migration
+  database:
+    flyway:
+      migrate: "./mvnw flyway:migrate"
+      info: "./mvnw flyway:info"
+      
+    liquibase:
+      update: "./mvnw liquibase:update"
+      status: "./mvnw liquibase:status"
+
+# Docker integration
+docker_integration:
+  # Multi-stage build
+  dockerfile:
+    base_image: "eclipse-temurin:17-jre"
+    build_image: "eclipse-temurin:17-jdk"
+    
+  # Docker Compose services
+  compose_services:
+    - name: "postgresql"
+      image: "postgres:15"
+      environment:
+        POSTGRES_DB: "springboot"
+        POSTGRES_USER: "developer"
+        POSTGRES_PASSWORD: "password"
+        
+    - name: "redis"
+      image: "redis:7-alpine"
+      
+    - name: "kafka"
+      image: "confluentinc/cp-kafka:latest"
+
+# Logging configuration
+logging:
+  java_servers: true
+  spring_boot_startup: true
+  database_queries: false  # Can be very verbose
+  build_process: true
+  test_execution: true
+  levels:
+    jdtls: "info"
+    spring_boot: "info"
+    maven: "warn"
+    gradle: "warn"
+    database: "warn"
+
+# Performance tuning
+performance_tuning:
+  jvm:
+    # Garbage collection
+    gc:
+      collector: "G1GC"
+      options: ["-XX:+UseG1GC", "-XX:+UseStringDeduplication"]
+      
+    # Memory settings
+    memory:
+      initial_heap: "512m"
+      max_heap: "2g"
+      metaspace: "256m"
+      
+    # JIT compilation
+    compilation:
+      tier_compilation: true
+      options: ["-XX:+TieredCompilation"]
+      
+  # Spring Boot specific tuning
+  spring_boot:
+    # Lazy initialization
+    lazy_initialization: true
+    
+    # Connection pooling
+    connection_pool:
+      initial_size: 5
+      max_active: 20
+      max_idle: 10
+      
+    # Caching
+    caching:
+      enabled: true
+      provider: "caffeine"
+
+# Migration guide from basic Java configuration
+migration:
+  from_basic_java:
+    steps:
+      - "Update to Java 17+"
+      - "Configure Spring Boot 3.x"
+      - "Set up Maven/Gradle build tool"
+      - "Configure database connections"
+      - "Add testing dependencies"
+    spring_specific:
+      - "Configure application.yml/properties"
+      - "Set up Spring profiles"
+      - "Configure JPA repositories"
+      - "Add Spring Security configuration"
+      - "Set up Actuator endpoints"
+    breaking_changes:
+      - "Requires Java 17+ for Spring Boot 3.x"
+      - "JVM memory requirements increased"
+      - "Some Spring Boot 2.x configurations deprecated"

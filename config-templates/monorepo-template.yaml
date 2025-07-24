@@ -1,0 +1,927 @@
+# Template: Monorepo Multi-Workspace Configuration
+# Use Case: Large monorepos with multiple projects, shared libraries, and cross-project dependencies
+# Features: Multi-workspace support, shared library handling, workspace-aware routing, cross-project symbol resolution
+# Customization: Adjust workspace configurations, shared library paths, and cross-project resolution settings
+# Performance: Optimized for monorepos with 10+ projects, shared components, and complex dependency graphs
+
+# =============================================================================
+# MONOREPO GATEWAY CONFIGURATION
+# =============================================================================
+
+# Gateway settings optimized for monorepo complexity
+port: 8080
+timeout: "45s"                      # Longer timeout for cross-project operations
+max_concurrent_requests: 300        # Higher limit for multiple workspace operations
+log_level: "info"
+enable_metrics: true
+metrics_port: 9090
+
+# Monorepo-specific features
+project_aware: true
+enable_concurrent_servers: true
+enable_smart_routing: true
+enable_enhancements: true
+max_concurrent_servers_per_language: 8  # Higher limit for multiple workspaces
+
+# Monorepo workspace management
+workspace_management:
+  multi_workspace: true              # Enable multi-workspace support
+  workspace_detection: "automatic"  # auto, manual, hybrid
+  shared_library_detection: true    # Detect shared libraries and components
+  cross_workspace_references: true  # Enable cross-workspace symbol resolution
+  workspace_isolation: "partial"    # full, partial, none
+  dependency_graph_analysis: true   # Analyze inter-workspace dependencies
+
+# =============================================================================
+# MONOREPO PROJECT CONTEXT
+# =============================================================================
+
+project_context:
+  project_type: "monorepo"
+  root_directory: "/workspace"
+  monorepo_structure: "nx"           # nx, lerna, rush, bazel, custom
+  
+  # Workspace definitions
+  workspaces:
+    # Frontend applications workspace
+    - name: "frontend-apps"
+      path: "/workspace/apps/frontend"
+      type: "applications"
+      languages: ["typescript", "javascript"]
+      file_count: 450
+      estimated_loc: 85000
+      root_markers: ["package.json", "tsconfig.json", "nx.json"]
+      dependencies: ["shared-ui", "shared-utils", "api-types"]
+      build_system: "nx"
+      framework: "react"
+      complexity: "high"
+    
+    # Backend services workspace
+    - name: "backend-services"
+      path: "/workspace/apps/backend"
+      type: "services"
+      languages: ["go", "typescript"]
+      file_count: 320
+      estimated_loc: 68000
+      root_markers: ["go.mod", "package.json", "Dockerfile"]
+      dependencies: ["shared-proto", "shared-db", "shared-auth"]
+      build_system: "bazel"
+      framework: "microservices"
+      complexity: "high"
+    
+    # Mobile applications workspace
+    - name: "mobile-apps"
+      path: "/workspace/apps/mobile"
+      type: "applications"
+      languages: ["typescript", "javascript"]
+      file_count: 280
+      estimated_loc: 52000
+      root_markers: ["package.json", "expo.json", "metro.config.js"]
+      dependencies: ["shared-ui", "api-client", "shared-utils"]
+      build_system: "expo"
+      framework: "react-native"
+      complexity: "medium"
+    
+    # Data processing workspace
+    - name: "data-processing"
+      path: "/workspace/services/data"
+      type: "services"
+      languages: ["python", "go"]
+      file_count: 180
+      estimated_loc: 38000
+      root_markers: ["pyproject.toml", "go.mod", "requirements.txt"]
+      dependencies: ["shared-models", "shared-db"]
+      build_system: "poetry"
+      framework: "airflow"
+      complexity: "medium"
+    
+    # Infrastructure workspace
+    - name: "infrastructure"
+      path: "/workspace/infra"
+      type: "infrastructure"
+      languages: ["typescript", "python"]
+      file_count: 120
+      estimated_loc: 22000
+      root_markers: ["package.json", "cdktf.json", "terraform.tf"]
+      dependencies: ["shared-configs"]
+      build_system: "cdktf"
+      framework: "terraform"
+      complexity: "medium"
+  
+  # Shared libraries and components
+  shared_libraries:
+    # UI component library
+    - name: "shared-ui"
+      path: "/workspace/libs/ui"
+      languages: ["typescript", "javascript"]
+      type: "component_library"
+      consumers: ["frontend-apps", "mobile-apps"]
+      file_count: 85
+      estimated_loc: 18000
+      export_patterns: ["index.ts", "*/index.ts"]
+      build_artifacts: ["dist/", "build/"]
+    
+    # Utility functions library
+    - name: "shared-utils"
+      path: "/workspace/libs/utils"
+      languages: ["typescript", "javascript"]
+      type: "utility_library"
+      consumers: ["frontend-apps", "backend-services", "mobile-apps"]
+      file_count: 45
+      estimated_loc: 8500
+      export_patterns: ["index.ts", "src/*/index.ts"]
+    
+    # API type definitions
+    - name: "api-types"
+      path: "/workspace/libs/types"
+      languages: ["typescript"]
+      type: "type_library"
+      consumers: ["frontend-apps", "backend-services"]
+      file_count: 35
+      estimated_loc: 5200
+      export_patterns: ["*.d.ts", "index.ts"]
+    
+    # Protocol buffer definitions
+    - name: "shared-proto"
+      path: "/workspace/libs/proto"
+      languages: ["go", "typescript", "python"]
+      type: "protocol_library"
+      consumers: ["backend-services", "data-processing"]
+      file_count: 25
+      estimated_loc: 3800
+      export_patterns: ["*.proto", "generated/*/"]
+    
+    # Database models and migrations
+    - name: "shared-db"
+      path: "/workspace/libs/database"
+      languages: ["go", "python"]
+      type: "data_library"
+      consumers: ["backend-services", "data-processing"]
+      file_count: 60
+      estimated_loc: 12000
+      export_patterns: ["models/", "migrations/"]
+    
+    # Authentication and authorization
+    - name: "shared-auth"
+      path: "/workspace/libs/auth"
+      languages: ["go", "typescript"]
+      type: "auth_library"
+      consumers: ["backend-services", "frontend-apps"]
+      file_count: 30
+      estimated_loc: 7500
+      export_patterns: ["index.ts", "auth.go"]
+
+# =============================================================================
+# WORKSPACE-AWARE SMART ROUTING
+# =============================================================================
+
+smart_router_config:
+  # Enhanced routing for monorepo complexity
+  default_strategy: "workspace_aware_single_target"
+  
+  # Cross-workspace operation strategies
+  cross_workspace_strategy: "multi_target_aggregate"
+  shared_library_strategy: "broadcast_to_consumers"
+  dependency_resolution_strategy: "dependency_graph_traversal"
+  
+  # Method-specific strategies for monorepo
+  method_strategies:
+    # Definition lookup with cross-workspace fallback
+    "textDocument/definition": "workspace_aware_with_fallback"
+    "textDocument/typeDefinition": "workspace_aware_with_fallback"
+    
+    # Reference finding across entire monorepo
+    "textDocument/references": "monorepo_wide_search"
+    "textDocument/implementation": "monorepo_wide_search"
+    
+    # Symbol search with workspace prioritization
+    "workspace/symbol": "workspace_prioritized_broadcast"
+    "textDocument/documentSymbol": "workspace_aware_single_target"
+    
+    # Completion with shared library imports
+    "textDocument/completion": "shared_library_aware"
+    "completionItem/resolve": "shared_library_aware"
+    
+    # Hover with cross-workspace type information
+    "textDocument/hover": "cross_workspace_enhanced"
+    
+    # Code actions across workspace boundaries
+    "textDocument/codeAction": "workspace_scoped_broadcast"
+    
+    # Rename operations with impact analysis
+    "textDocument/prepareRename": "impact_analysis_broadcast"
+    "textDocument/rename": "cross_workspace_rename"
+    
+    # Diagnostics with dependency validation
+    "textDocument/publishDiagnostics": "dependency_aware_diagnostics"
+  
+  # Workspace-specific routing configuration
+  workspace_routing:
+    # Prioritize same-workspace results
+    same_workspace_priority: 3.0
+    # Weight for shared library results
+    shared_library_priority: 2.5
+    # Weight for cross-workspace results
+    cross_workspace_priority: 1.0
+    
+    # Timeout configuration
+    same_workspace_timeout: "10s"
+    cross_workspace_timeout: "25s"
+    shared_library_timeout: "15s"
+    
+    # Result limits
+    max_cross_workspace_results: 50
+    max_shared_library_results: 100
+    deduplicate_cross_workspace: true
+
+# =============================================================================
+# MONOREPO-OPTIMIZED LANGUAGE POOLS
+# =============================================================================
+
+language_pools:
+  # ===========================================================================
+  # TYPESCRIPT POOL - Frontend and Full-Stack Applications
+  # ===========================================================================
+  - language: "typescript"
+    default_server: "tsserver-monorepo"
+    
+    servers:
+      # Primary TypeScript server optimized for monorepo
+      tsserver-monorepo:
+        name: "tsserver-monorepo"
+        languages: ["typescript", "javascript", "typescriptreact", "javascriptreact"]
+        command: "typescript-language-server"
+        args: ["--stdio", "--log-level", "2", "--tsserver-log-verbosity", "normal"]
+        transport: "stdio"
+        priority: 3
+        weight: 3.0
+        max_concurrent_requests: 200
+        
+        # Workspace-aware configuration
+        workspace_config:
+          multi_root_support: true    # Support multiple TypeScript projects
+          project_references: true    # Enable TypeScript project references
+          composite_projects: true    # Support composite project builds
+          path_mapping: true          # Enable path mapping resolution
+          monorepo_mode: true         # Enable monorepo-specific optimizations
+        
+        pool_config:
+          min_size: 3                 # Higher minimum for multiple workspaces
+          max_size: 12                # Scale for multiple projects
+          warmup_size: 4
+          enable_dynamic_sizing: true
+          target_utilization: 0.70
+          scale_up_threshold: 0.80
+          scale_down_threshold: 0.50
+          max_lifetime: 50m           # Longer lifetime for complex projects
+          idle_timeout: 15m
+          health_check_interval: 30s
+          
+          max_retries: 3
+          base_delay: 150ms
+          circuit_timeout: 15s
+          
+          memory_limit_mb: 512        # More memory for monorepo complexity
+          cpu_limit_percent: 85.0
+        
+        # Monorepo-specific root markers
+        root_markers: [
+          "tsconfig.json", "tsconfig.base.json", "tsconfig.build.json",
+          "package.json", "nx.json", "lerna.json", "rush.json",
+          "pnpm-workspace.yaml", "yarn.lock", "pnpm-lock.yaml"
+        ]
+        
+        # TypeScript settings optimized for monorepo
+        settings:
+          typescript:
+            preferences:
+              disableSuggestions: false
+              includeCompletionsForModuleExports: true
+              includeCompletionsForImportStatements: true
+              includeCompletionsWithSnippetText: true
+              includePackageJsonAutoImports: "on"
+              includeAutomaticOptionalChainCompletions: true
+            
+            suggest:
+              enabled: true
+              includeCompletionsForImportStatements: true
+              includeCompletionsWithSnippetText: true
+              autoImports: true
+              paths: true               # Enable path mapping suggestions
+            
+            workspaceSymbols:
+              search:
+                includePackages: true   # Include node_modules in search
+                includeSourceFiles: true
+            
+            # Monorepo-specific TypeScript compiler options
+            compilerOptions:
+              composite: true           # Enable composite projects
+              declaration: true
+              declarationMap: true
+              incremental: true
+              tsBuildInfoFile: ".tscache/tsbuildinfo"
+            
+            # Enhanced inlay hints for complex projects
+            inlayHints:
+              includeInlayParameterNameHints: "all"
+              includeInlayFunctionParameterTypeHints: true
+              includeInlayVariableTypeHints: true
+              includeInlayPropertyDeclarationTypeHints: true
+              includeInlayFunctionLikeReturnTypeHints: true
+        
+        environment:
+          NODE_OPTIONS: "--max-old-space-size=4096"  # More memory for monorepo
+          TS_NODE_PROJECT: "tsconfig.json"
+          # Enable TypeScript project references
+          TS_NODE_PROJECT_REFERENCES: "true"
+        
+        working_dir: "/workspace"
+        initialization_timeout: 60s    # Longer initialization for complex projects
+      
+      # Fast TypeScript server for quick operations
+      tsserver-fast:
+        name: "tsserver-fast"
+        languages: ["typescript", "javascript"]
+        command: "typescript-language-server"
+        args: ["--stdio", "--log-level", "1"]
+        transport: "stdio"
+        priority: 1
+        weight: 2.0
+        max_concurrent_requests: 120
+        
+        workspace_config:
+          multi_root_support: false   # Simplified for speed
+          project_references: false
+          composite_projects: false
+          monorepo_mode: false
+        
+        pool_config:
+          min_size: 2
+          max_size: 6
+          warmup_size: 2
+          enable_dynamic_sizing: true
+          target_utilization: 0.75
+          scale_up_threshold: 0.85
+          scale_down_threshold: 0.55
+          max_lifetime: 30m
+          idle_timeout: 10m
+          health_check_interval: 45s
+          
+          max_retries: 2
+          base_delay: 200ms
+          circuit_timeout: 12s
+          
+          memory_limit_mb: 256
+          cpu_limit_percent: 75.0
+        
+        root_markers: ["tsconfig.json", "package.json"]
+        settings:
+          typescript:
+            preferences:
+              disableSuggestions: true  # Disable for speed
+              includeCompletionsForModuleExports: false
+            suggest:
+              enabled: false
+            workspaceSymbols:
+              search:
+                includePackages: false  # Exclude node_modules for speed
+        
+        environment:
+          NODE_OPTIONS: "--max-old-space-size=2048"
+        
+        working_dir: "/workspace"
+        initialization_timeout: 30s
+    
+    # Load balancing optimized for monorepo workloads
+    load_balancing:
+      strategy: "workspace_aware"     # Custom strategy for monorepos
+      health_threshold: 0.80
+      weight_factors:
+        tsserver-monorepo: 3.0
+        tsserver-fast: 2.0
+      
+      # Workspace-specific routing weights
+      workspace_weights:
+        frontend-apps: 3.0            # Primary TypeScript workspace
+        mobile-apps: 2.5
+        backend-services: 2.0
+        infrastructure: 1.5
+      
+      circuit_breaker:
+        failure_threshold: 4
+        success_threshold: 2
+        timeout: 30s
+    
+    resource_limits:
+      max_memory_mb: 3072             # Higher limits for monorepo complexity
+      max_concurrent_requests: 320
+      max_processes: 18
+      request_timeout_seconds: 75
+
+  # ===========================================================================
+  # GO POOL - Backend Services and Infrastructure
+  # ===========================================================================
+  - language: "go"
+    default_server: "gopls-monorepo"
+    
+    servers:
+      # Go server optimized for monorepo with multiple modules
+      gopls-monorepo:
+        name: "gopls-monorepo"
+        languages: ["go"]
+        command: "gopls"
+        args: ["-mode=lsp", "-rpc.trace", "-logfile=/tmp/gopls-monorepo.log"]
+        transport: "stdio"
+        priority: 3
+        weight: 3.0
+        max_concurrent_requests: 180
+        
+        # Multi-module support
+        workspace_config:
+          multi_module_support: true   # Support multiple Go modules
+          module_discovery: "automatic" # Discover modules automatically
+          workspace_mode: true         # Enable Go workspace mode
+          vendor_support: true         # Support vendor directories
+        
+        pool_config:
+          min_size: 2
+          max_size: 8
+          warmup_size: 3
+          enable_dynamic_sizing: true
+          target_utilization: 0.70
+          scale_up_threshold: 0.80
+          scale_down_threshold: 0.50
+          max_lifetime: 45m
+          idle_timeout: 12m
+          health_check_interval: 35s
+          
+          max_retries: 3
+          base_delay: 150ms
+          circuit_timeout: 15s
+          
+          memory_limit_mb: 300
+          cpu_limit_percent: 85.0
+        
+        # Go module and workspace markers
+        root_markers: [
+          "go.mod", "go.sum", "go.work", "go.work.sum",
+          "vendor/", ".git/", "Makefile", "BUILD.bazel"
+        ]
+        
+        # Go settings optimized for monorepo
+        settings:
+          gopls:
+            # Multi-module configuration
+            experimentalWorkspaceModule: true
+            allowModfileModifications: true
+            allowImplicitNetworkAccess: true
+            
+            # Enhanced analysis for monorepo
+            analyses:
+              unusedparams: true
+              shadow: true
+              fieldalignment: true
+              nilness: true
+              unusedwrite: true
+              useany: true
+            
+            staticcheck: true
+            gofumpt: true
+            
+            # Completion settings
+            usePlaceholders: true
+            completeUnimported: true
+            completionBudget: "500ms"   # Higher budget for complex projects
+            
+            # Import organization
+            local: "github.com/company"  # Local module prefix
+            goimports: true
+            
+            # Build configuration
+            buildFlags: ["-tags=integration,e2e"]
+            env: {
+              "GOFLAGS": "-mod=readonly",
+              "GOPROXY": "https://proxy.golang.org,direct"
+            }
+            
+            # Memory optimization
+            memoryMode: "DegradeClosed"  # Degrade closed files to save memory
+            
+            # Workspace symbol configuration
+            symbolMatcher: "CaseInsensitive"
+            symbolStyle: "Package"
+        
+        environment:
+          GOPROXY: "https://proxy.golang.org,direct"
+          GOSUMDB: "sum.golang.org"
+          GOPRIVATE: "github.com/company/*"  # Private module configuration
+          GONOPROXY: "github.com/company/*"
+          GONOSUMDB: "github.com/company/*"
+          CGO_ENABLED: "1"
+          GO111MODULE: "on"
+        
+        working_dir: "/workspace"
+        initialization_timeout: 45s
+    
+    load_balancing:
+      strategy: "module_aware"        # Route based on Go module
+      health_threshold: 0.85
+      weight_factors:
+        gopls-monorepo: 3.0
+      
+      # Module-specific routing weights
+      module_weights:
+        backend-services: 3.0         # Primary Go workspace
+        data-processing: 2.0
+      
+      circuit_breaker:
+        failure_threshold: 3
+        success_threshold: 2
+        timeout: 25s
+    
+    resource_limits:
+      max_memory_mb: 1536
+      max_concurrent_requests: 180
+      max_processes: 8
+      request_timeout_seconds: 60
+
+  # ===========================================================================
+  # PYTHON POOL - Data Processing and Infrastructure
+  # ===========================================================================
+  - language: "python"
+    default_server: "pylsp-monorepo"
+    
+    servers:
+      # Python server with monorepo and multi-environment support
+      pylsp-monorepo:
+        name: "pylsp-monorepo"
+        languages: ["python"]
+        command: "pylsp"
+        args: ["--log-file", "/tmp/pylsp-monorepo.log", "--verbose"]
+        transport: "stdio"
+        priority: 3
+        weight: 3.0
+        max_concurrent_requests: 120
+        
+        # Multi-environment configuration
+        workspace_config:
+          virtual_env_support: true    # Support multiple virtual environments
+          poetry_support: true         # Support Poetry projects
+          pipenv_support: true         # Support Pipenv projects
+          conda_support: true          # Support Conda environments
+          multi_project_support: true  # Support multiple Python projects
+        
+        pool_config:
+          min_size: 2
+          max_size: 6
+          warmup_size: 2
+          enable_dynamic_sizing: true
+          target_utilization: 0.70
+          scale_up_threshold: 0.80
+          scale_down_threshold: 0.50
+          max_lifetime: 40m
+          idle_timeout: 12m
+          health_check_interval: 40s
+          
+          max_retries: 3
+          base_delay: 200ms
+          circuit_timeout: 18s
+          
+          memory_limit_mb: 200
+          cpu_limit_percent: 80.0
+        
+        # Python project markers for monorepo
+        root_markers: [
+          "pyproject.toml", "setup.py", "setup.cfg", "requirements.txt",
+          "Pipfile", "Pipfile.lock", "poetry.lock", "environment.yml",
+          ".python-version", "tox.ini", "pytest.ini"
+        ]
+        
+        # Python LSP settings for monorepo
+        settings:
+          pylsp:
+            # Enhanced plugin configuration
+            plugins:
+              # Code completion and navigation
+              jedi_completion:
+                enabled: true
+                include_params: true
+                include_class_objects: true
+                fuzzy: true
+                eager: true
+                resolve_at_most: 25     # Limit for performance
+              
+              jedi_definition:
+                enabled: true
+                follow_imports: true
+                follow_builtin_imports: true
+              
+              jedi_hover:
+                enabled: true
+              
+              jedi_references:
+                enabled: true
+              
+              jedi_signature_help:
+                enabled: true
+              
+              # Code quality and linting
+              pycodestyle:
+                enabled: true
+                ignore: ["E501", "W503", "E203"]  # Common monorepo ignores
+                maxLineLength: 100
+                aggressive: 1
+              
+              pyflakes:
+                enabled: true
+              
+              pylint:
+                enabled: true
+                args: [
+                  "--disable=C0111,C0103,R0903,R0913",  # Disable verbose warnings
+                  "--load-plugins=pylint_django",       # Django support
+                  "--django-settings-module=settings.local"
+                ]
+              
+              mccabe:
+                enabled: true
+                threshold: 15
+              
+              # Code formatting
+              autopep8:
+                enabled: true
+              
+              black:
+                enabled: true
+                line_length: 100
+                preview: true
+              
+              # Import sorting for monorepo
+              pyls_isort:
+                enabled: true
+                profile: "black"
+                multi_line_output: 3
+                line_length: 100
+                known_first_party: ["shared_models", "shared_db", "shared_auth"]
+              
+              # Type checking
+              pyls_mypy:
+                enabled: true
+                live_mode: false        # Disable live mode for performance
+                strict: false
+        
+        environment:
+          PYTHONPATH: "/workspace:/workspace/libs:/workspace/services/data:/workspace/libs/database"
+          VIRTUAL_ENV: "/workspace/.venv"
+          PYLSP_LOG_LEVEL: "INFO"
+          # Poetry configuration
+          POETRY_VENV_IN_PROJECT: "true"
+          POETRY_CACHE_DIR: "/workspace/.cache/poetry"
+          # Pip configuration
+          PIP_CACHE_DIR: "/workspace/.cache/pip"
+        
+        working_dir: "/workspace"
+        initialization_timeout: 50s
+    
+    load_balancing:
+      strategy: "environment_aware"   # Route based on Python environment
+      health_threshold: 0.75
+      weight_factors:
+        pylsp-monorepo: 3.0
+      
+      # Environment-specific routing
+      environment_weights:
+        data-processing: 3.0          # Primary Python workspace
+        infrastructure: 2.0
+      
+      circuit_breaker:
+        failure_threshold: 3
+        success_threshold: 2
+        timeout: 25s
+    
+    resource_limits:
+      max_memory_mb: 800
+      max_concurrent_requests: 120
+      max_processes: 6
+      request_timeout_seconds: 60
+
+# =============================================================================
+# MONOREPO-SPECIFIC FEATURES
+# =============================================================================
+
+# Dependency graph management
+dependency_management:
+  # Build dependency graph from package managers
+  auto_discovery: true
+  supported_managers: ["npm", "yarn", "pnpm", "go", "poetry", "pip", "maven", "gradle"]
+  
+  # Cross-workspace dependency tracking
+  track_cross_workspace: true
+  track_shared_libraries: true
+  dependency_cache_ttl: "1h"
+  
+  # Impact analysis for changes
+  impact_analysis:
+    enabled: true
+    max_depth: 3                    # Maximum dependency depth to analyze
+    include_dev_dependencies: false # Exclude dev dependencies from impact
+    parallel_analysis: true         # Analyze dependencies in parallel
+
+# Shared library optimization
+shared_library_optimization:
+  # Cache shared library symbols
+  symbol_caching: true
+  cache_ttl: "30m"
+  
+  # Pre-index shared libraries
+  pre_indexing: true
+  index_on_startup: true
+  background_reindexing: true
+  reindex_interval: "2h"
+  
+  # Cross-reference optimization
+  cross_reference_caching: true
+  max_cross_references: 1000
+
+# Workspace synchronization
+workspace_sync:
+  # File watching across workspaces
+  multi_workspace_watching: true
+  watch_shared_libraries: true
+  debounce_interval: "500ms"
+  
+  # Change propagation
+  propagate_changes: true
+  propagation_delay: "1s"          # Delay before propagating changes
+  max_propagation_depth: 2         # Maximum workspace depth for propagation
+
+# Build system integration
+build_integration:
+  # Build system awareness
+  nx_integration: true             # Nx monorepo support
+  lerna_integration: true          # Lerna monorepo support
+  rush_integration: true           # Rush monorepo support
+  bazel_integration: true          # Bazel monorepo support
+  
+  # Build cache awareness
+  build_cache_integration: true
+  cache_locations: [
+    "/workspace/.nx/cache",
+    "/workspace/node_modules/.cache",
+    "/workspace/.cache/bazel",
+    "/workspace/.cache/go-build"
+  ]
+  
+  # Target discovery
+  target_discovery: true
+  build_target_caching: true
+
+# =============================================================================
+# MONOREPO PERFORMANCE OPTIMIZATION
+# =============================================================================
+
+# Performance settings for large monorepos
+performance_optimization:
+  # Memory management
+  shared_memory_pool: true         # Share memory between workspace servers
+  memory_compaction: true          # Compact memory usage
+  lazy_loading: true               # Lazy load workspace components
+  
+  # CPU optimization
+  cpu_affinity: true               # Pin processes to CPU cores
+  parallel_processing: true        # Enable parallel processing
+  work_stealing: true              # Enable work stealing between processes
+  
+  # I/O optimization
+  async_file_operations: true      # Use async I/O for file operations
+  file_caching: true               # Cache frequently accessed files
+  batch_file_operations: true     # Batch multiple file operations
+  
+  # Network optimization
+  connection_pooling: true         # Pool connections between components
+  request_deduplication: true     # Deduplicate similar requests
+  response_compression: true       # Compress responses
+
+# Advanced monitoring for monorepos
+monorepo_monitoring:
+  # Workspace-specific metrics
+  per_workspace_metrics: true
+  shared_library_metrics: true
+  dependency_metrics: true
+  
+  # Performance tracking
+  cross_workspace_timing: true
+  shared_library_timing: true
+  dependency_resolution_timing: true
+  
+  # Resource usage tracking
+  per_workspace_resources: true
+  shared_resource_tracking: true
+  
+  # Health monitoring
+  workspace_health_checks: true
+  dependency_health_checks: true
+  shared_library_health_checks: true
+
+# =============================================================================
+# DEVELOPMENT WORKFLOW INTEGRATION
+# =============================================================================
+
+# Development tool integration
+development_integration:
+  # Version control integration
+  git_integration: true
+  multi_repo_support: false       # Single repo with multiple projects
+  submodule_support: true         # Support Git submodules if present
+  
+  # CI/CD integration
+  ci_cd_awareness: true
+  build_status_integration: true
+  test_result_integration: true
+  
+  # IDE integration
+  multi_project_ide_support: true
+  workspace_switching: true
+  project_specific_settings: true
+
+# Code quality enforcement across monorepo
+code_quality:
+  # Consistent formatting
+  enforce_consistent_formatting: true
+  shared_formatting_config: true
+  
+  # Lint rules consistency
+  shared_lint_rules: true
+  workspace_specific_overrides: true
+  
+  # Type checking consistency
+  shared_type_definitions: true
+  cross_workspace_type_checking: true
+
+# =============================================================================
+# SECURITY AND ACCESS CONTROL
+# =============================================================================
+
+# Monorepo security configuration
+security:
+  # Workspace isolation
+  workspace_isolation: "partial"   # full, partial, none
+  shared_library_access_control: false  # Usually not needed for monorepos
+  
+  # Cross-workspace access
+  allow_cross_workspace_access: true
+  restrict_sensitive_workspaces: []     # List of restricted workspace paths
+  
+  # Build security
+  secure_build_integration: true
+  build_artifact_validation: true
+
+# =============================================================================
+# LOGGING AND DEBUGGING
+# =============================================================================
+
+# Enhanced logging for monorepo debugging
+logging:
+  # Workspace-specific logging
+  per_workspace_logs: true
+  shared_library_logs: true
+  dependency_logs: true
+  cross_workspace_operation_logs: true
+  
+  # Log levels
+  levels:
+    workspace_manager: "info"
+    dependency_resolver: "info"
+    shared_library_manager: "info"
+    cross_workspace_router: "info"
+    build_integration: "warn"
+    performance_monitor: "info"
+  
+  # Log rotation
+  rotation:
+    enabled: true
+    max_size_mb: 200               # Larger logs for complex monorepos
+    max_files: 15
+    max_age_days: 30
+
+# =============================================================================
+# TROUBLESHOOTING AND DIAGNOSTICS
+# =============================================================================
+
+# Monorepo-specific diagnostics
+diagnostics:
+  # Dependency diagnostics
+  dependency_validation: true
+  circular_dependency_detection: true
+  missing_dependency_detection: true
+  
+  # Workspace diagnostics
+  workspace_connectivity_checks: true
+  shared_library_availability_checks: true
+  cross_workspace_symbol_resolution_checks: true
+  
+  # Performance diagnostics
+  monorepo_performance_profiling: true
+  workspace_performance_comparison: true
+  shared_library_performance_analysis: true

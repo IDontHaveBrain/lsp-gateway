@@ -1,0 +1,13 @@
+{
+  "uri": "file:///workspace/src/services/ApiService.ts",
+  "range": {
+    "start": {
+      "line": 32,
+      "character": 8
+    },
+    "end": {
+      "line": 32,
+      "character": 21
+    }
+  }
+}

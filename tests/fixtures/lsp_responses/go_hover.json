@@ -1,0 +1,16 @@
+{
+  "contents": {
+    "kind": "markdown",
+    "value": "```go\nfunc HandleRequest(w http.ResponseWriter, r *http.Request)\n```\n\nHandleRequest processes incoming HTTP requests and returns appropriate responses.\n\n**Parameters:**\n- `w` - HTTP response writer\n- `r` - HTTP request\n\n**Package:** github.com/example/lsp-gateway/pkg/server"
+  },
+  "range": {
+    "start": {
+      "line": 42,
+      "character": 5
+    },
+    "end": {
+      "line": 42,
+      "character": 17
+    }
+  }
+}

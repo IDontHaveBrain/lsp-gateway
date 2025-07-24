@@ -1,0 +1,409 @@
+# Advanced Go Language Server Configuration
+# Language: Go
+# Framework: Multiple module support, build system integration
+# Use Case: Large Go projects with multiple modules, high-performance requirements, microservices
+# Prerequisites: gopls, go 1.19+, optional: golangci-lint, gofumpt
+# Performance Notes: Optimized for large codebases with concurrent analysis and build integration
+
+# Gateway configuration optimized for Go development
+port: 8080
+timeout: "45s"
+max_concurrent_requests: 150
+project_aware: true
+enable_concurrent_servers: true
+max_concurrent_servers_per_language: 4
+
+# Multi-server configuration for Go workloads
+multi_server_config:
+  selection_strategy: "load_balance"
+  concurrent_limit: 4
+  resource_sharing: true
+  health_check_interval: "25s"
+  max_retries: 3
+
+# Project context for Go applications
+project_context:
+  project_type: "multi-language"
+  languages:
+    - language: "go"
+      frameworks: ["gin", "echo", "fiber", "grpc", "cobra"]
+      file_patterns: ["*.go", "go.mod", "go.sum", "go.work"]
+      root_markers: ["go.mod", "go.sum", "go.work"]
+
+# Advanced Go language server pool with specialized instances
+language_pools:
+  - language: "go"
+    default_server: "gopls-primary"
+    servers:
+      # Primary server with full analysis features
+      gopls-primary:
+        name: "gopls-primary"
+        languages: ["go"]
+        command: "gopls"
+        transport: "stdio"
+        priority: 3
+        weight: 3.0
+        max_concurrent_requests: 120
+        root_markers: ["go.mod", "go.sum", "go.work"]
+        
+        # Advanced gopls settings for comprehensive analysis
+        settings:
+          gopls:
+            # Code analysis features
+            analyses:
+              unusedparams: true
+              shadow: true
+              nilness: true
+              unusedresult: true
+              unreachable: true
+              unusedwrite: true
+              simplifycompositelit: true
+              unusedvariable: true
+              
+            # Static analysis integration
+            staticcheck: true
+            
+            # Code formatting
+            gofumpt: true
+            
+            # Code lenses for enhanced IDE integration
+            codelenses:
+              gc_details: true
+              generate: true
+              test: true
+              regenerate_cgo: true
+              tidy: true
+              upgrade_dependency: true
+              vendor: true
+              
+            # Build system integration
+            buildFlags: ["-tags=integration,e2e", "-race"]
+            env:
+              GOPROXY: "https://proxy.golang.org,direct"
+              GOSUMDB: "sum.golang.org"
+              GOFLAGS: "-mod=readonly"
+              
+            # Memory and performance optimization
+            memoryMode: "Normal"
+            experimentalWorkspaceModule: true
+            allowModfileModifications: true
+            
+            # Advanced features
+            semanticTokens: true
+            linksInHover: true
+            usePlaceholders: true
+            completeFunctionCalls: true
+            
+            # Workspace settings for monorepos
+            expandWorkspaceToModule: true
+            experimentalUseInvalidMetadata: false
+            
+        # Resource limits for primary server
+        environment:
+          GOMAXPROCS: "4"
+          GOMEMLIMIT: "2GiB"
+          GODEBUG: "gctrace=0"
+          
+      # High-performance server for quick responses
+      gopls-fast:
+        name: "gopls-fast"
+        languages: ["go"]
+        command: "gopls"
+        args: ["-rpc.trace"]
+        transport: "stdio"
+        priority: 2
+        weight: 2.0
+        max_concurrent_requests: 80
+        root_markers: ["go.mod", "go.sum"]
+        
+        # Lightweight settings for fast responses
+        settings:
+          gopls:
+            analyses:
+              unusedparams: true
+              shadow: false
+              nilness: false
+            staticcheck: false
+            gofumpt: false
+            codelenses:
+              test: true
+              generate: false
+            buildFlags: []
+            memoryMode: "DegradeClosed"
+            semanticTokens: false
+            
+      # Testing-focused server instance
+      gopls-test:
+        name: "gopls-test"
+        languages: ["go"]
+        command: "gopls"
+        args: ["-debug=localhost:6060"]
+        transport: "stdio"
+        priority: 2
+        weight: 1.5
+        max_concurrent_requests: 60
+        root_markers: ["go.mod", "go.sum"]
+        
+        # Test-specific settings
+        settings:
+          gopls:
+            analyses:
+              unusedparams: true
+              unusedresult: true
+            buildFlags: ["-tags=test,integration", "-race"]
+            codelenses:
+              test: true
+              generate: true
+              regenerate_cgo: false
+            env:
+              CGO_ENABLED: "1"
+              
+      # Build and deployment focused server
+      gopls-build:
+        name: "gopls-build"
+        languages: ["go"]
+        command: "gopls"
+        transport: "stdio"
+        priority: 1
+        weight: 1.0
+        max_concurrent_requests: 40
+        root_markers: ["go.mod", "go.sum", "Dockerfile", "Makefile"]
+        
+        # Build-optimized settings
+        settings:
+          gopls:
+            analyses:
+              unusedparams: false
+              shadow: false
+            buildFlags: ["-ldflags=-s -w", "-trimpath"]
+            codelenses:
+              generate: true
+              tidy: true
+              vendor: true
+            env:
+              CGO_ENABLED: "0"
+              GOOS: "linux"
+              GOARCH: "amd64"
+              
+    # Load balancing configuration
+    load_balancing:
+      strategy: "response_time"
+      health_threshold: 0.85
+      weight_factors:
+        gopls-primary: 3.0
+        gopls-fast: 2.0
+        gopls-test: 1.5
+        gopls-build: 1.0
+        
+    # Resource limits for Go pool
+    resource_limits:
+      max_memory_mb: 4096
+      max_concurrent_requests: 300
+      max_processes: 8
+      request_timeout_seconds: 45
+
+# Enhanced pool configuration for Go servers
+servers:
+  - name: "gopls-enhanced-pool"
+    languages: ["go"]
+    command: "gopls"
+    transport: "stdio"
+    root_markers: ["go.mod", "go.sum", "go.work"]
+    
+    # Enhanced pool configuration
+    pool_config:
+      min_size: 3
+      max_size: 12
+      warmup_size: 4
+      
+      # Dynamic scaling for Go workloads
+      enable_dynamic_sizing: true
+      target_utilization: 0.70
+      scale_up_threshold: 0.80
+      scale_down_threshold: 0.50
+      
+      # Connection lifecycle
+      max_lifetime: 60m
+      idle_timeout: 15m
+      health_check_interval: 30s
+      
+      # Circuit breaker tuned for Go LSP
+      max_retries: 5
+      base_delay: 100ms
+      circuit_timeout: 20s
+      
+      # Resource limits optimized for Go
+      memory_limit_mb: 512
+      cpu_limit_percent: 80.0
+      
+      transport_type: "stdio"
+      custom_config:
+        process_isolation: true
+        buffer_management: "adaptive"
+        stderr_logging: true
+        
+    # Health monitoring for Go servers
+    health_check_settings:
+      enabled: true
+      interval: 25s
+      timeout: 10s
+      failure_threshold: 3
+      success_threshold: 2
+      method: "initialize"
+      enable_auto_restart: true
+      restart_delay: 5s
+      max_consecutive_fails: 4
+      
+    # Go-specific environment
+    environment:
+      GOPRIVATE: "*.corp.example.com,rsc.io/private"
+      GOPROXY: "https://proxy.golang.org,direct"
+      GOSUMDB: "sum.golang.org"
+      GOFLAGS: "-mod=readonly"
+      GOMAXPROCS: "0"
+      
+# Smart routing configuration for Go methods
+enable_smart_routing: true
+enable_enhancements: true
+smart_router_config:
+  default_strategy: "single_target_with_fallback"
+  method_strategies:
+    "textDocument/definition": "single_target_with_fallback"
+    "textDocument/references": "multi_target_parallel"
+    "textDocument/documentSymbol": "primary_with_enhancement"
+    "textDocument/hover": "primary_with_enhancement"
+    "textDocument/completion": "single_target_with_fallback"
+    "textDocument/codeAction": "multi_target_parallel"
+    "textDocument/formatting": "single_target_with_fallback"
+    "workspace/symbol": "broadcast_aggregate"
+  enable_performance_monitoring: true
+  enable_circuit_breaker: true
+  circuit_breaker_threshold: 3
+  circuit_breaker_timeout: "15s"
+
+# Framework-specific optimizations
+optimizations:
+  go:
+    # Build system integration
+    build_tools:
+      - name: "go_modules"
+        enabled: true
+        settings:
+          auto_tidy: true
+          vendor_support: true
+          replace_directives: true
+          
+      - name: "make_integration"
+        enabled: true
+        settings:
+          auto_detect_targets: true
+          parallel_builds: true
+          
+      - name: "docker_integration"
+        enabled: true
+        settings:
+          multistage_builds: true
+          alpine_support: true
+          
+    # Code quality tools
+    linting:
+      - name: "golangci-lint"
+        enabled: true
+        config_file: ".golangci.yml"
+        settings:
+          fast: false
+          enable_all: false
+          presets: ["bugs", "performance", "unused"]
+          
+    # Testing frameworks
+    testing:
+      - name: "go_test"
+        enabled: true
+        settings:
+          race_detection: true
+          coverage: true
+          benchmarks: true
+          
+      - name: "testify"
+        enabled: true
+        settings:
+          suite_support: true
+          mock_generation: true
+          
+    # Performance monitoring
+    profiling:
+      - name: "pprof"
+        enabled: true
+        settings:
+          cpu_profiling: true
+          memory_profiling: true
+          block_profiling: true
+          
+    # Microservices support
+    frameworks:
+      gin:
+        enabled: true
+        settings:
+          route_detection: true
+          middleware_analysis: true
+          
+      grpc:
+        enabled: true
+        settings:
+          proto_support: true
+          service_discovery: true
+          
+      cobra:
+        enabled: true
+        settings:
+          command_completion: true
+          flag_analysis: true
+
+# Development workflow integration
+workflow_integration:
+  # Version control
+  git:
+    hooks:
+      pre_commit:
+        - "go fmt ./..."
+        - "go vet ./..."
+        - "golangci-lint run"
+        
+  # CI/CD integration
+  ci_cd:
+    github_actions:
+      go_version_matrix: ["1.19", "1.20", "1.21"]
+      os_matrix: ["ubuntu-latest", "macos-latest", "windows-latest"]
+      
+  # Editor integration
+  vscode:
+    settings:
+      "go.useLanguageServer": true
+      "go.languageServerFlags": ["-rpc.trace"]
+      "go.lintOnSave": "package"
+      "go.buildOnSave": "workspace"
+
+# Logging configuration
+logging:
+  go_servers: true
+  build_integration: true
+  performance_metrics: true
+  levels:
+    gopls: "info"
+    build_tools: "warn"
+    linting: "info"
+    testing: "debug"
+
+# Migration guide from basic configuration
+migration:
+  from_basic:
+    steps:
+      - "Update go.mod to Go 1.19+"
+      - "Install golangci-lint and gofumpt"
+      - "Configure build tags and GOPROXY"
+      - "Set up workspace for monorepos"
+      - "Enable advanced gopls features"
+    breaking_changes:
+      - "Requires gopls v0.11.0+"
+      - "Some analysis settings require Go 1.19+"
+      - "Workspace mode changes project detection"

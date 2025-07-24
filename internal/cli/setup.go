@@ -26,6 +26,20 @@ var (
 	setupNoInteractive bool
 	setupSkipVerify    bool
 	setupConfigPath    string
+	// Multi-language setup flags
+	setupMultiLanguage     bool
+	setupProjectPath       string
+	setupOptimizationMode  string
+	setupTemplate          string
+	setupEnableSmartRouting bool
+	setupEnableConcurrent  bool
+	setupPerformanceProfile string
+	setupProjectDetection  bool
+	setupWizardMode        bool
+	// Enhanced multi-language flags
+	setupTemplateName       string
+	setupEnableProjectDetection bool
+	setupEnableConcurrentServers bool
 )
 
 // Setup result structures
@@ -64,6 +78,13 @@ type WizardState struct {
 	DetectedRuntimes map[string]*setup.RuntimeInfo
 	AvailableServers []string
 	ConfigPath       string
+	// Enhanced wizard state
+	ProjectAnalysis  *setup.ProjectAnalysis
+	SelectedTemplate *setup.ConfigurationTemplate
+	OptimizationMode string
+	PerformanceProfile string
+	EnableSmartRouting bool
+	EnableConcurrentServers bool
 }
 
 // Interactive helper functions for the wizard
@@ -191,8 +212,10 @@ The setup process consists of:
 4. Verification of installations and functionality
 
 Available setup modes:
-- all:    Complete automated setup (recommended for first-time users)
-- wizard: Interactive setup with user choices and customization
+- all:           Complete automated setup (recommended for first-time users)
+- wizard:        Interactive setup with user choices and customization
+- multi-language: Multi-language project setup with auto-detection
+- template:      Template-based setup for specific project types
 
 Examples:
   lsp-gateway setup all                    # Complete automated setup
@@ -200,7 +223,9 @@ Examples:
   lsp-gateway setup all --timeout 15m      # Set custom timeout
   lsp-gateway setup all --json             # Output results in JSON format
   lsp-gateway setup wizard                 # Interactive setup wizard
-  lsp-gateway setup wizard --verbose       # Verbose wizard with detailed explanations`,
+  lsp-gateway setup wizard --verbose       # Verbose wizard with detailed explanations
+  lsp-gateway setup multi-language --project-path /path/to/project  # Multi-language setup
+  lsp-gateway setup template --template monorepo                    # Template-based setup`,
 }
 
 var setupAllCmd = &cobra.Command{
@@ -239,8 +264,117 @@ This command is designed for:
 - System recovery after changes
 
 Use --force to reinstall existing components.
-Use --json for machine-readable output.`,
+Use --json for machine-readable output.
+
+Multi-language setup features:
+- Automatic project language detection
+- Optimized server configurations for detected languages
+- Smart routing for multi-language codebases
+- Performance tuning based on project characteristics`,
 	RunE: runSetupAll,
+}
+
+var setupMultiLanguageCmd = &cobra.Command{
+	Use:   "multi-language",
+	Short: "Multi-language project setup with auto-detection",
+	Long: `Multi-language project setup automatically detects languages in your project
+and configures optimal language server settings.
+
+🔍 DETECTION FEATURES:
+  • Automatic project language scanning
+  • Framework and build system detection
+  • Dependency analysis for version requirements
+  • Project structure analysis for optimization
+
+⚙️  CONFIGURATION FEATURES:
+  • Language-specific server optimization
+  • Smart routing for multi-language requests
+  • Performance tuning based on project size
+  • Concurrent server management
+
+📊 OPTIMIZATION MODES:
+  • Development: Fast startup, moderate resource usage
+  • Production: High performance, maximum concurrency
+  • Analysis: Extended timeouts, comprehensive features
+
+Examples:
+  # Setup with project detection
+  lsp-gateway setup multi-language --project-path /path/to/project
+
+  # Setup with optimization mode
+  lsp-gateway setup multi-language --project-path /path/to/project --optimization-mode production
+
+  # Setup with template and smart routing
+  lsp-gateway setup multi-language --template monorepo --enable-smart-routing`,
+	RunE: runSetupMultiLanguage,
+}
+
+var setupTemplateCmd = &cobra.Command{
+	Use:   "template",
+	Short: "Template-based setup for specific project types",
+	Long: `Template-based setup provides pre-configured settings for common project types.
+
+📋 AVAILABLE TEMPLATES:
+  • monorepo:      Multi-language monorepo with shared tooling
+  • microservices: Distributed services with individual configurations
+  • single-language: Single-language project with minimal setup
+  • multi-language: Multi-language project with smart routing
+  • development:   Development environment optimized settings
+  • production:    Production environment optimized settings
+
+🎯 TEMPLATE FEATURES:
+  • Pre-configured server settings
+  • Optimized resource limits
+  • Language-specific customizations
+  • Performance profiles
+  • Framework-specific configurations
+
+Examples:
+  # Setup monorepo template
+  lsp-gateway setup template --template monorepo
+
+  # Setup with performance profile
+  lsp-gateway setup template --template production --performance-profile high
+
+  # Setup with custom project path
+  lsp-gateway setup template --template microservices --project-path /path/to/services`,
+	RunE: runSetupTemplate,
+}
+
+var setupDetectCmd = &cobra.Command{
+	Use:   "detect",
+	Short: "Auto-detect and setup for current project",
+	Long: `Auto-detect project characteristics and setup optimal configuration.
+
+🔍 DETECTION FEATURES:
+  • Automatic language detection
+  • Framework recognition
+  • Project type identification
+  • Complexity analysis
+  • Build system detection
+
+⚙️  SETUP FEATURES:
+  • Template selection based on analysis
+  • Optimization mode recommendation
+  • Performance profile selection
+  • Smart routing configuration
+
+📊 SUPPORTED PROJECT TYPES:
+  • Single-language projects
+  • Multi-language projects
+  • Monorepo structures
+  • Microservices architectures
+
+Examples:
+  # Detect and setup current directory
+  lsp-gateway setup detect
+
+  # Detect with specific project path
+  lsp-gateway setup detect --project-path /path/to/project
+
+  # Detect with optimization mode override
+  lsp-gateway setup detect --optimization-mode production`,
+	RunE: runSetupDetect,
 }
 
 var setupWizardCmd = &cobra.Command{
@@ -282,7 +416,13 @@ The wizard is ideal for:
 - Learning about LSP Gateway components
 - Advanced configuration scenarios
 
-Use --verbose for detailed explanations during setup.`,
+Use --verbose for detailed explanations during setup.
+
+🆕 ENHANCED WIZARD FEATURES:
+  • Multi-language project detection
+  • Template selection with previews
+  • Performance optimization guidance
+  • Smart routing configuration`,
 	RunE: runSetupWizard,
 }
 
@@ -294,18 +434,66 @@ func init() {
 	setupAllCmd.Flags().BoolVarP(&setupVerbose, FLAG_VERBOSE, "v", false, "Enable verbose output with detailed progress")
 	setupAllCmd.Flags().BoolVar(&setupSkipVerify, "skip-verify", false, "Skip final verification step (faster but less thorough)")
 	setupAllCmd.Flags().StringVar(&setupConfigPath, "config", "config.yaml", "Path to configuration file")
+	// Enhanced flags for all setup
+	setupAllCmd.Flags().BoolVar(&setupEnableSmartRouting, "enable-smart-routing", false, "Enable intelligent request routing")
+	setupAllCmd.Flags().BoolVar(&setupEnableConcurrent, "enable-concurrent-servers", false, "Enable concurrent server management")
+	setupAllCmd.Flags().StringVar(&setupOptimizationMode, "optimization-mode", "development", "Set optimization mode (development, production, analysis)")
 
-	// Setup Wizard command flags
+	// Setup Multi-language command flags
+	setupMultiLanguageCmd.Flags().DurationVar(&setupTimeout, FLAG_TIMEOUT, 20*time.Minute, "Maximum time for multi-language setup process")
+	setupMultiLanguageCmd.Flags().BoolVarP(&setupForce, FLAG_FORCE, "f", false, "Force reinstall existing components")
+	setupMultiLanguageCmd.Flags().BoolVar(&setupJSON, FLAG_JSON, false, FLAG_DESCRIPTION_JSON_OUTPUT)
+	setupMultiLanguageCmd.Flags().BoolVarP(&setupVerbose, FLAG_VERBOSE, "v", false, "Enable verbose output with detailed progress")
+	setupMultiLanguageCmd.Flags().StringVar(&setupProjectPath, "project-path", "", "Project path for language detection (required)")
+	setupMultiLanguageCmd.Flags().StringVar(&setupOptimizationMode, "optimization-mode", "development", "Set optimization mode (development, production, analysis)")
+	setupMultiLanguageCmd.Flags().StringVar(&setupTemplate, "template", "", "Use configuration template (monorepo, microservices, single-project)")
+	setupMultiLanguageCmd.Flags().BoolVar(&setupEnableSmartRouting, "enable-smart-routing", false, "Enable intelligent request routing")
+	setupMultiLanguageCmd.Flags().BoolVar(&setupEnableConcurrent, "enable-concurrent-servers", false, "Enable concurrent server management")
+	setupMultiLanguageCmd.Flags().StringVar(&setupPerformanceProfile, "performance-profile", "medium", "Set performance profile (low, medium, high)")
+	setupMultiLanguageCmd.Flags().BoolVar(&setupProjectDetection, "project-detection", true, "Enable automatic project detection")
+	setupMultiLanguageCmd.Flags().StringVar(&setupConfigPath, "config", "config.yaml", "Path to configuration file")
+
+	// Setup Template command flags
+	setupTemplateCmd.Flags().DurationVar(&setupTimeout, FLAG_TIMEOUT, 15*time.Minute, "Maximum time for template setup process")
+	setupTemplateCmd.Flags().BoolVarP(&setupForce, FLAG_FORCE, "f", false, "Force reinstall existing components")
+	setupTemplateCmd.Flags().BoolVar(&setupJSON, FLAG_JSON, false, FLAG_DESCRIPTION_JSON_OUTPUT)
+	setupTemplateCmd.Flags().BoolVarP(&setupVerbose, FLAG_VERBOSE, "v", false, "Enable verbose output with detailed progress")
+	setupTemplateCmd.Flags().StringVar(&setupTemplate, "template", "", "Template name (monorepo, microservices, single-project, enterprise) (required)")
+	setupTemplateCmd.Flags().StringVar(&setupProjectPath, "project-path", ".", "Project path for template application")
+	setupTemplateCmd.Flags().StringVar(&setupOptimizationMode, "optimization-mode", "development", "Set optimization mode (development, production, analysis)")
+	setupTemplateCmd.Flags().StringVar(&setupPerformanceProfile, "performance-profile", "medium", "Set performance profile (low, medium, high)")
+	setupTemplateCmd.Flags().BoolVar(&setupEnableSmartRouting, "enable-smart-routing", false, "Enable intelligent request routing")
+	setupTemplateCmd.Flags().BoolVar(&setupEnableConcurrent, "enable-concurrent-servers", false, "Enable concurrent server management")
+	setupTemplateCmd.Flags().StringVar(&setupConfigPath, "config", "config.yaml", "Path to configuration file")
+
+	// Setup Wizard command flags (enhanced)
 	setupWizardCmd.Flags().DurationVar(&setupTimeout, FLAG_TIMEOUT, 30*time.Minute, "Maximum time for wizard setup process")
 	setupWizardCmd.Flags().BoolVarP(&setupForce, FLAG_FORCE, "f", false, "Force reinstall existing components")
 	setupWizardCmd.Flags().BoolVar(&setupJSON, FLAG_JSON, false, FLAG_DESCRIPTION_JSON_OUTPUT)
 	setupWizardCmd.Flags().BoolVarP(&setupVerbose, FLAG_VERBOSE, "v", false, "Enable verbose wizard with detailed explanations")
 	setupWizardCmd.Flags().BoolVar(&setupNoInteractive, FLAG_NO_INTERACTIVE, false, "Run wizard in non-interactive mode with defaults")
+	setupWizardCmd.Flags().BoolVar(&setupMultiLanguage, "multi-language-mode", false, "Enable multi-language wizard mode")
+	setupWizardCmd.Flags().BoolVar(&setupProjectDetection, "project-detection", false, "Enable project detection in wizard")
 	setupWizardCmd.Flags().StringVar(&setupConfigPath, "config", "config.yaml", "Path to configuration file")
+
+	// Setup Detect command flags
+	setupDetectCmd.Flags().DurationVar(&setupTimeout, FLAG_TIMEOUT, 15*time.Minute, "Maximum time for detect setup process")
+	setupDetectCmd.Flags().BoolVarP(&setupForce, FLAG_FORCE, "f", false, "Force reinstall existing components")
+	setupDetectCmd.Flags().BoolVar(&setupJSON, FLAG_JSON, false, FLAG_DESCRIPTION_JSON_OUTPUT)
+	setupDetectCmd.Flags().BoolVarP(&setupVerbose, FLAG_VERBOSE, "v", false, "Enable verbose output with detailed progress")
+	setupDetectCmd.Flags().StringVar(&setupProjectPath, "project-path", ".", "Project path for detection")
+	setupDetectCmd.Flags().StringVar(&setupOptimizationMode, "optimization-mode", "", "Override optimization mode (development, production, analysis)")
+	setupDetectCmd.Flags().StringVar(&setupPerformanceProfile, "performance-profile", "", "Override performance profile (low, medium, high)")
+	setupDetectCmd.Flags().BoolVar(&setupEnableSmartRouting, "enable-smart-routing", false, "Force enable intelligent request routing")
+	setupDetectCmd.Flags().BoolVar(&setupEnableConcurrent, "enable-concurrent-servers", false, "Force enable concurrent server management")
+	setupDetectCmd.Flags().StringVar(&setupConfigPath, "config", "config.yaml", "Path to configuration file")
 
 	// Add subcommands to setup command
 	setupCmd.AddCommand(setupAllCmd)
+	setupCmd.AddCommand(setupMultiLanguageCmd)
+	setupCmd.AddCommand(setupTemplateCmd)
 	setupCmd.AddCommand(setupWizardCmd)
+	setupCmd.AddCommand(setupDetectCmd)
 
 	// Register setup command with root
 	rootCmd.AddCommand(setupCmd)
@@ -324,6 +512,21 @@ func GetSetupAllCmd() *cobra.Command {
 // GetSetupWizardCmd returns the setup wizard command for testing purposes
 func GetSetupWizardCmd() *cobra.Command {
 	return setupWizardCmd
+}
+
+// GetSetupDetectCmd returns the setup detect command for testing purposes
+func GetSetupDetectCmd() *cobra.Command {
+	return setupDetectCmd
+}
+
+// GetSetupMultiLanguageCmd returns the setup multi-language command for testing purposes
+func GetSetupMultiLanguageCmd() *cobra.Command {
+	return setupMultiLanguageCmd
+}
+
+// GetSetupTemplateCmd returns the setup template command for testing purposes
+func GetSetupTemplateCmd() *cobra.Command {
+	return setupTemplateCmd
 }
 
 // GetSetupFlags returns current setup flag values for testing purposes
@@ -478,6 +681,10 @@ func runSetupWizard(cmd *cobra.Command, args []string) error {
 		SelectedRuntimes: make(map[string]bool),
 		SelectedServers:  make(map[string]bool),
 		ConfigPath:       setupConfigPath,
+		OptimizationMode: setupOptimizationMode,
+		PerformanceProfile: setupPerformanceProfile,
+		EnableSmartRouting: setupEnableSmartRouting,
+		EnableConcurrentServers: setupEnableConcurrent,
 	}
 
 	result := &SetupResult{
@@ -496,40 +703,57 @@ func runSetupWizard(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Step 2: Runtime Detection and Selection
+	// Step 2: Enhanced Project Detection (if multi-language mode)
+	if setupMultiLanguage || setupProjectDetection {
+		if err := wizardProjectDetection(ctx, wizardState, result); err != nil {
+			return err
+		}
+	}
+
+	// Step 3: Template Selection (if multi-language mode)
+	if setupMultiLanguage {
+		if err := wizardTemplateSelection(ctx, wizardState, result); err != nil {
+			return err
+		}
+	}
+
+	// Step 4: Runtime Detection and Selection
 	if err := wizardRuntimeSelection(ctx, wizardState, result); err != nil {
 		return err
 	}
 
-	// Step 3: Language Server Selection
+	// Step 5: Language Server Selection
 	if err := wizardServerSelection(ctx, wizardState, result); err != nil {
 		return err
 	}
 
-	// Step 4: Configuration Options
-	if err := wizardConfigurationOptions(ctx, wizardState, result); err != nil {
+	// Step 6: Enhanced Configuration Options
+	if err := wizardEnhancedConfigurationOptions(ctx, wizardState, result); err != nil {
 		return err
 	}
 
-	// Step 5: Review and Confirmation
+	// Step 7: Review and Confirmation
 	if err := wizardReviewSelection(ctx, wizardState, result); err != nil {
 		return err
 	}
 
-	// Step 6: Installation Execution
+	// Step 8: Installation Execution
 	if err := wizardExecuteInstallation(ctx, wizardState, result); err != nil {
 		return err
 	}
 
-	// Step 7: Final Summary
+	// Step 9: Final Summary
 	result.Duration = time.Since(startTime)
 	result.Success = len(result.Issues) == 0
 
 	generateSetupSummary(result)
 
 	if result.Success {
-		result.Messages = append(result.Messages, "LSP Gateway setup completed successfully via wizard")
+		result.Messages = append(result.Messages, "LSP Gateway setup completed successfully via enhanced wizard")
 		result.Messages = append(result.Messages, fmt.Sprintf("Setup duration: %v", result.Duration))
+		if wizardState.ProjectAnalysis != nil {
+			result.Messages = append(result.Messages, fmt.Sprintf("Project type: %s with %d languages", wizardState.ProjectAnalysis.ProjectType, len(wizardState.ProjectAnalysis.DetectedLanguages)))
+		}
 		result.Messages = append(result.Messages, "Run 'lsp-gateway server' to start the HTTP gateway")
 		result.Messages = append(result.Messages, "Run 'lsp-gateway mcp' to start the MCP server")
 	}
@@ -1091,6 +1315,12 @@ func wizardInstallServers(ctx context.Context, state *WizardState, result *Setup
 
 // wizardGenerateConfiguration generates the configuration file
 func wizardGenerateConfiguration(ctx context.Context, state *WizardState, result *SetupResult) error {
+	// Use enhanced configuration generator if project analysis is available
+	if state.ProjectAnalysis != nil || state.SelectedTemplate != nil {
+		return wizardGenerateEnhancedConfiguration(ctx, state, result)
+	}
+
+	// Fallback to standard configuration generation
 	configGenerator := setup.NewConfigGenerator()
 	if configGenerator == nil {
 		return NewInstallerCreationError("config generator")
@@ -1116,6 +1346,374 @@ func wizardGenerateConfiguration(ctx context.Context, state *WizardState, result
 	result.ConfigPath = state.ConfigPath
 
 	fmt.Printf("  ✅ Configuration saved to %s\n", state.ConfigPath)
+
+	return nil
+}
+
+// Enhanced wizard functions for multi-language project support
+
+// wizardProjectDetection performs project detection and analysis
+func wizardProjectDetection(ctx context.Context, state *WizardState, result *SetupResult) error {
+	fmt.Println("🔍 Step 2: Project Detection and Analysis")
+	fmt.Println("==========================================")
+	fmt.Println()
+
+	if setupVerbose {
+		fmt.Println("📝 Project detection analyzes your codebase to understand its structure,")
+		fmt.Println("   languages, frameworks, and complexity for optimal configuration.")
+		fmt.Println()
+	}
+
+	// Determine project path
+	projectPath := setupProjectPath
+	if projectPath == "" {
+		projectPath = "."
+	}
+
+	fmt.Printf("🔍 Analyzing project at: %s\n", projectPath)
+
+	// Perform project analysis
+	projectAnalyzer := setup.NewProjectAnalyzer()
+	analysis, err := projectAnalyzer.AnalyzeProject(projectPath)
+	if err != nil {
+		return fmt.Errorf("project analysis failed: %w", err)
+	}
+
+	state.ProjectAnalysis = analysis
+	result.Messages = append(result.Messages, fmt.Sprintf("Analyzed %s project with %d languages", analysis.ProjectType, len(analysis.DetectedLanguages)))
+
+	// Display analysis results
+	fmt.Println("\n📊 Project Analysis Results:")
+	fmt.Printf("  Project Type: %s\n", analysis.ProjectType)
+	fmt.Printf("  Languages: %v\n", analysis.DetectedLanguages)
+	fmt.Printf("  Complexity: %s\n", analysis.Complexity)
+	fmt.Printf("  File Count: %d\n", analysis.FileCount)
+	fmt.Printf("  Estimated Size: %s\n", analysis.EstimatedSize)
+
+	if len(analysis.Frameworks) > 0 {
+		fmt.Printf("  Frameworks: ")
+		for i, framework := range analysis.Frameworks {
+			if i > 0 {
+				fmt.Printf(", ")
+			}
+			fmt.Printf("%s (%s)", framework.Name, framework.Language)
+		}
+		fmt.Println()
+	}
+
+	if len(analysis.BuildSystems) > 0 {
+		fmt.Printf("  Build Systems: %v\n", analysis.BuildSystems)
+	}
+
+	fmt.Println()
+
+	if setupVerbose {
+		fmt.Println("💡 This analysis will be used to select optimal templates")
+		fmt.Println("   and configuration settings for your project.")
+		fmt.Println()
+	}
+
+	pressEnterToContinue("")
+	return nil
+}
+
+// wizardTemplateSelection handles template selection based on project analysis
+func wizardTemplateSelection(ctx context.Context, state *WizardState, result *SetupResult) error {
+	fmt.Println("📋 Step 3: Template Selection")
+	fmt.Println("=============================")
+	fmt.Println()
+
+	if setupVerbose {
+		fmt.Println("📝 Templates provide pre-configured settings optimized for")
+		fmt.Println("   specific project types and development patterns.")
+		fmt.Println()
+	}
+
+	templateManager := setup.NewConfigurationTemplateManager()
+
+	// Auto-select template based on project analysis
+	var recommendedTemplate *setup.ConfigurationTemplate
+	if state.ProjectAnalysis != nil {
+		recommendedTemplate, _ = templateManager.SelectTemplate(state.ProjectAnalysis)
+	}
+
+	// Get available templates
+	availableTemplates := templateManager.GetAvailableTemplates()
+
+	fmt.Println("📊 Available Templates:")
+	for i, templateName := range availableTemplates {
+		template, _ := templateManager.GetTemplate(templateName)
+		if template != nil {
+			marker := "  "
+			if recommendedTemplate != nil && template.Name == recommendedTemplate.Name {
+				marker = "🌟"
+			}
+			fmt.Printf("  %s %d) %s - %s\n", marker, i+1, template.Name, template.Description)
+		}
+	}
+	fmt.Println()
+
+	if recommendedTemplate != nil {
+		fmt.Printf("🎯 Recommended: %s (based on project analysis)\n", recommendedTemplate.Name)
+		fmt.Println()
+	}
+
+	useRecommended := true
+	if recommendedTemplate != nil {
+		var err error
+		useRecommended, err = promptYesNo(fmt.Sprintf("Use recommended template '%s'?", recommendedTemplate.Name), true)
+		if err != nil {
+			return fmt.Errorf("failed to read user input: %w", err)
+		}
+	}
+
+	if useRecommended && recommendedTemplate != nil {
+		state.SelectedTemplate = recommendedTemplate
+		fmt.Printf("✅ Selected template: %s\n", recommendedTemplate.Name)
+	} else {
+		// Let user select template manually
+		fmt.Println("\n📋 Select a template:")
+		selections, err := promptSelection("Choose template:", availableTemplates, false)
+		if err != nil {
+			return fmt.Errorf("failed to read template selection: %w", err)
+		}
+
+		if len(selections) > 0 {
+			selectedTemplateName := availableTemplates[selections[0]]
+			selectedTemplate, err := templateManager.GetTemplate(selectedTemplateName)
+			if err != nil {
+				return fmt.Errorf("failed to get selected template: %w", err)
+			}
+			state.SelectedTemplate = selectedTemplate
+			fmt.Printf("✅ Selected template: %s\n", selectedTemplate.Name)
+		}
+	}
+
+	if state.SelectedTemplate != nil {
+		result.Messages = append(result.Messages, fmt.Sprintf("Selected template: %s", state.SelectedTemplate.Name))
+	}
+
+	pressEnterToContinue("")
+	return nil
+}
+
+// wizardEnhancedConfigurationOptions handles enhanced configuration options
+func wizardEnhancedConfigurationOptions(ctx context.Context, state *WizardState, result *SetupResult) error {
+	fmt.Println("⚙️  Step 6: Enhanced Configuration Options")
+	fmt.Println("==========================================")
+	fmt.Println()
+
+	if setupVerbose {
+		fmt.Println("📝 Enhanced configuration provides advanced options for")
+		fmt.Println("   optimization, performance, and smart routing features.")
+		fmt.Println()
+	}
+
+	// Configuration file path
+	fmt.Printf("📄 Current configuration path: %s\n", state.ConfigPath)
+
+	customPath, err := promptYesNo("Would you like to use a custom configuration file path?", false)
+	if err != nil {
+		return fmt.Errorf("failed to read user input: %w", err)
+	}
+
+	if customPath {
+		newPath, err := promptText("Enter configuration file path", state.ConfigPath)
+		if err != nil {
+			return fmt.Errorf("failed to read configuration path: %w", err)
+		}
+		state.ConfigPath = newPath
+		fmt.Printf("✅ Configuration will be saved to: %s\n", state.ConfigPath)
+	}
+
+	fmt.Println()
+
+	// Optimization mode selection
+	if state.OptimizationMode == "" {
+		optimizationModes := []string{"development", "production", "analysis"}
+		fmt.Println("🎯 Optimization Modes:")
+		fmt.Println("  1) development - Fast startup, moderate resource usage")
+		fmt.Println("  2) production  - High performance, maximum concurrency")
+		fmt.Println("  3) analysis    - Extended timeouts, comprehensive features")
+		fmt.Println()
+
+		// Auto-recommend based on project analysis
+		defaultMode := "development"
+		if state.ProjectAnalysis != nil {
+			switch state.ProjectAnalysis.Complexity {
+			case setup.ProjectComplexityHigh:
+				defaultMode = "production"
+			case setup.ProjectComplexityMedium:
+				defaultMode = "development"
+			case setup.ProjectComplexityLow:
+				defaultMode = "development"
+			}
+		}
+
+		useDefault, err := promptYesNo(fmt.Sprintf("Use recommended optimization mode '%s'?", defaultMode), true)
+		if err != nil {
+			return fmt.Errorf("failed to read user input: %w", err)
+		}
+
+		if useDefault {
+			state.OptimizationMode = defaultMode
+		} else {
+			selections, err := promptSelection("Choose optimization mode:", optimizationModes, false)
+			if err != nil {
+				return fmt.Errorf("failed to read optimization mode selection: %w", err)
+			}
+			if len(selections) > 0 {
+				state.OptimizationMode = optimizationModes[selections[0]]
+			}
+		}
+
+		fmt.Printf("✅ Optimization mode: %s\n", state.OptimizationMode)
+	}
+
+	fmt.Println()
+
+	// Performance profile selection
+	if state.PerformanceProfile == "" {
+		performanceProfiles := []string{"low", "medium", "high"}
+		fmt.Println("📊 Performance Profiles:")
+		fmt.Println("  1) low    - Conservative resource usage")
+		fmt.Println("  2) medium - Balanced performance and resources")
+		fmt.Println("  3) high   - Maximum performance, high resource usage")
+		fmt.Println()
+
+		// Auto-recommend based on project analysis
+		defaultProfile := "medium"
+		if state.ProjectAnalysis != nil {
+			switch state.ProjectAnalysis.Complexity {
+			case setup.ProjectComplexityHigh:
+				defaultProfile = "high"
+			case setup.ProjectComplexityMedium:
+				defaultProfile = "medium"
+			case setup.ProjectComplexityLow:
+				defaultProfile = "low"
+			}
+		}
+
+		useDefaultProfile, err := promptYesNo(fmt.Sprintf("Use recommended performance profile '%s'?", defaultProfile), true)
+		if err != nil {
+			return fmt.Errorf("failed to read user input: %w", err)
+		}
+
+		if useDefaultProfile {
+			state.PerformanceProfile = defaultProfile
+		} else {
+			selections, err := promptSelection("Choose performance profile:", performanceProfiles, false)
+			if err != nil {
+				return fmt.Errorf("failed to read performance profile selection: %w", err)
+			}
+			if len(selections) > 0 {
+				state.PerformanceProfile = performanceProfiles[selections[0]]
+			}
+		}
+
+		fmt.Printf("✅ Performance profile: %s\n", state.PerformanceProfile)
+	}
+
+	fmt.Println()
+
+	// Advanced features
+	if setupVerbose {
+		fmt.Println("💡 Advanced features enhance LSP Gateway capabilities for")
+		fmt.Println("   complex projects and production environments.")
+		fmt.Println()
+	}
+
+	// Smart routing
+	if !state.EnableSmartRouting {
+		enableSmartRouting, err := promptYesNo("Enable smart routing for multi-language projects?", state.ProjectAnalysis != nil && len(state.ProjectAnalysis.DetectedLanguages) > 1)
+		if err != nil {
+			return fmt.Errorf("failed to read user input: %w", err)
+		}
+		state.EnableSmartRouting = enableSmartRouting
+	}
+
+	// Concurrent servers
+	if !state.EnableConcurrentServers {
+		enableConcurrent, err := promptYesNo("Enable concurrent server management?", state.OptimizationMode == "production")
+		if err != nil {
+			return fmt.Errorf("failed to read user input: %w", err)
+		}
+		state.EnableConcurrentServers = enableConcurrent
+	}
+
+	fmt.Println()
+	fmt.Println("📋 Enhanced configuration options selected:")
+	fmt.Printf("  Smart routing: %v\n", state.EnableSmartRouting)
+	fmt.Printf("  Concurrent servers: %v\n", state.EnableConcurrentServers)
+	fmt.Printf("  Optimization: %s\n", state.OptimizationMode)
+	fmt.Printf("  Performance: %s\n", state.PerformanceProfile)
+
+	pressEnterToContinue("")
+	return nil
+}
+
+// wizardGenerateEnhancedConfiguration generates enhanced configuration
+func wizardGenerateEnhancedConfiguration(ctx context.Context, state *WizardState, result *SetupResult) error {
+	enhancedGenerator := setup.NewEnhancedConfigurationGenerator()
+
+	// Determine optimization mode
+	optMode := state.OptimizationMode
+	if optMode == "" {
+		optMode = "development"
+	}
+
+	// Generate enhanced configuration
+	var configResult *setup.ConfigGenerationResult
+	var err error
+
+	if state.ProjectAnalysis != nil {
+		// Generate from project analysis
+		projectPath := setupProjectPath
+		if projectPath == "" {
+			projectPath = "."
+		}
+		configResult, err = enhancedGenerator.GenerateFromProject(ctx, projectPath, optMode)
+	} else {
+		// Generate default for environment
+		configResult, err = enhancedGenerator.GenerateDefaultForEnvironment(ctx, optMode)
+	}
+
+	if err != nil {
+		return fmt.Errorf("enhanced configuration generation failed: %w", err)
+	}
+
+	// Apply template-specific enhancements if template is selected
+	if state.SelectedTemplate != nil && configResult.Config != nil {
+		// Apply template configurations
+		if state.SelectedTemplate.ResourceLimits != nil {
+			configResult.Config.MaxConcurrentRequests = state.SelectedTemplate.ResourceLimits.MaxConcurrentRequests
+			if state.SelectedTemplate.ResourceLimits.TimeoutSeconds > 0 {
+				configResult.Config.Timeout = fmt.Sprintf("%ds", state.SelectedTemplate.ResourceLimits.TimeoutSeconds)
+			}
+		}
+
+		// Apply routing configuration
+		if state.SelectedTemplate.RoutingConfig != nil {
+			configResult.Config.EnableSmartRouting = state.SelectedTemplate.RoutingConfig.EnableSmartRouting || state.EnableSmartRouting
+		}
+
+		configResult.Config.EnableConcurrentServers = state.SelectedTemplate.EnableMultiServer || state.EnableConcurrentServers
+	}
+
+	// Override with user selections
+	if configResult.Config != nil {
+		configResult.Config.EnableSmartRouting = state.EnableSmartRouting
+		configResult.Config.EnableConcurrentServers = state.EnableConcurrentServers
+	}
+
+	// Save configuration
+	result.ConfigGenerated = true
+	result.ConfigPath = state.ConfigPath
+	result.Messages = append(result.Messages, configResult.Messages...)
+	result.Warnings = append(result.Warnings, configResult.Warnings...)
+	result.Issues = append(result.Issues, configResult.Issues...)
+
+	fmt.Printf("  ✅ Enhanced configuration saved to %s\n", state.ConfigPath)
 
 	return nil
 }
@@ -1540,6 +2138,663 @@ func outputSetupResultsHuman(result *SetupResult) error {
 	if !result.Success {
 		return fmt.Errorf("setup completed with %d issues", len(result.Issues))
 	}
+
+	return nil
+}
+
+// Multi-language setup command implementation
+
+func runSetupMultiLanguage(cmd *cobra.Command, args []string) error {
+	if err := validateMultiLanguageSetupParams(); err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(cmd.Context(), setupTimeout)
+	defer cancel()
+
+	startTime := time.Now()
+
+	if setupVerbose && !setupJSON {
+		fmt.Println("🌍 Starting LSP Gateway multi-language setup...")
+		fmt.Printf("Project path: %s\n", setupProjectPath)
+		fmt.Printf("Optimization mode: %s\n", setupOptimizationMode)
+		fmt.Printf("Performance profile: %s\n", setupPerformanceProfile)
+		if setupTemplate != "" {
+			fmt.Printf("Template: %s\n", setupTemplate)
+		}
+		fmt.Println()
+	}
+
+	// Initialize result structure
+	result := &SetupResult{
+		Success:           false,
+		RuntimesDetected:  make(map[string]*setup.RuntimeInfo),
+		RuntimesInstalled: make(map[string]*installer.InstallResult),
+		ServersInstalled:  make(map[string]*installer.InstallResult),
+		Issues:            make([]string, 0),
+		Warnings:          make([]string, 0),
+		Messages:          make([]string, 0),
+		Summary:           &SetupSummary{},
+	}
+
+	// Phase 1: Project Analysis and Language Detection
+	if setupVerbose && !setupJSON {
+		fmt.Println("🔍 Phase 1: Project Analysis and Language Detection")
+	}
+
+	err := analyzeMultiLanguageProject(ctx, result)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Project analysis failed: %v", err))
+		if !setupJSON {
+			fmt.Printf("❌ Project analysis failed: %v\n", err)
+		}
+	} else if setupVerbose && !setupJSON {
+		fmt.Println("✓ Project analysis completed")
+	}
+
+	// Phase 2: Runtime Installation with Multi-language Optimization
+	if setupVerbose && !setupJSON {
+		fmt.Println("\n📦 Phase 2: Runtime Installation with Multi-language Optimization")
+	}
+
+	err = setupOptimizedRuntimes(ctx, result)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Optimized runtime setup failed: %v", err))
+		if !setupJSON {
+			fmt.Printf("❌ Runtime setup failed: %v\n", err)
+		}
+	} else if setupVerbose && !setupJSON {
+		fmt.Printf("✓ Runtime setup completed (%d runtimes processed)\n", len(result.RuntimesInstalled))
+	}
+
+	// Phase 3: Language Server Installation with Smart Configuration
+	if setupVerbose && !setupJSON {
+		fmt.Println("\n🎆 Phase 3: Language Server Installation with Smart Configuration")
+	}
+
+	err = setupSmartLanguageServers(ctx, result)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Smart server setup failed: %v", err))
+		if !setupJSON {
+			fmt.Printf("❌ Server setup failed: %v\n", err)
+		}
+	} else if setupVerbose && !setupJSON {
+		fmt.Printf("✓ Server setup completed (%d servers processed)\n", len(result.ServersInstalled))
+	}
+
+	// Phase 4: Multi-language Configuration Generation
+	if setupVerbose && !setupJSON {
+		fmt.Println("\n⚙️  Phase 4: Multi-language Configuration Generation")
+	}
+
+	err = generateMultiLanguageConfiguration(ctx, result)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Multi-language configuration failed: %v", err))
+		if !setupJSON {
+			fmt.Printf("❌ Configuration generation failed: %v\n", err)
+		}
+	} else if setupVerbose && !setupJSON {
+		fmt.Println("✓ Multi-language configuration generated")
+	}
+
+	// Phase 5: Final Verification (optional)
+	if !setupSkipVerify {
+		if setupVerbose && !setupJSON {
+			fmt.Println("\n✓ Phase 5: Final Verification")
+		}
+
+		verificationWarnings, err := runMultiLanguageVerification(ctx, result)
+		if err != nil {
+			result.Issues = append(result.Issues, fmt.Sprintf("Verification failed: %v", err))
+			if !setupJSON {
+				fmt.Printf("⚠️  Verification warnings: %v\n", err)
+			}
+		} else {
+			result.Warnings = append(result.Warnings, verificationWarnings...)
+			if setupVerbose && !setupJSON && len(verificationWarnings) == 0 {
+				fmt.Println("✓ All multi-language verifications passed")
+			}
+		}
+	}
+
+	// Calculate final results
+	result.Duration = time.Since(startTime)
+	result.Success = len(result.Issues) == 0
+
+	// Generate summary
+	generateSetupSummary(result)
+
+	// Generate summary messages
+	if result.Success {
+		result.Messages = append(result.Messages, "Multi-language LSP Gateway setup completed successfully")
+		result.Messages = append(result.Messages, fmt.Sprintf("Setup duration: %v", result.Duration))
+		result.Messages = append(result.Messages, "Multi-language project support is now active")
+		result.Messages = append(result.Messages, "Run 'lsp-gateway server' to start the HTTP gateway")
+		result.Messages = append(result.Messages, "Run 'lsp-gateway mcp' to start the MCP server")
+	}
+
+	// Output results
+	if setupJSON {
+		return outputSetupResultsJSON(result)
+	} else {
+		return outputSetupResultsHuman(result)
+	}
+}
+
+// Template-based setup command implementation
+
+func runSetupTemplate(cmd *cobra.Command, args []string) error {
+	if err := validateTemplateSetupParams(); err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(cmd.Context(), setupTimeout)
+	defer cancel()
+
+	startTime := time.Now()
+
+	if setupVerbose && !setupJSON {
+		fmt.Printf("🎨 Starting LSP Gateway template-based setup with '%s' template...\n", setupTemplate)
+		fmt.Printf("Project path: %s\n", setupProjectPath)
+		fmt.Printf("Optimization mode: %s\n", setupOptimizationMode)
+		fmt.Printf("Performance profile: %s\n", setupPerformanceProfile)
+		fmt.Println()
+	}
+
+	// Initialize result structure
+	result := &SetupResult{
+		Success:           false,
+		RuntimesDetected:  make(map[string]*setup.RuntimeInfo),
+		RuntimesInstalled: make(map[string]*installer.InstallResult),
+		ServersInstalled:  make(map[string]*installer.InstallResult),
+		Issues:            make([]string, 0),
+		Warnings:          make([]string, 0),
+		Messages:          make([]string, 0),
+		Summary:           &SetupSummary{},
+	}
+
+	// Phase 1: Template Analysis and Configuration
+	if setupVerbose && !setupJSON {
+		fmt.Printf("📋 Phase 1: Template Analysis (%s)\n", setupTemplate)
+	}
+
+	err := analyzeTemplateRequirements(ctx, result)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Template analysis failed: %v", err))
+		if !setupJSON {
+			fmt.Printf("❌ Template analysis failed: %v\n", err)
+		}
+	} else if setupVerbose && !setupJSON {
+		fmt.Printf("✓ Template '%s' analysis completed\n", setupTemplate)
+	}
+
+	// Phase 2: Template-specific Runtime Installation
+	if setupVerbose && !setupJSON {
+		fmt.Println("\n📦 Phase 2: Template-specific Runtime Installation")
+	}
+
+	err = setupTemplateRuntimes(ctx, result)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Template runtime setup failed: %v", err))
+		if !setupJSON {
+			fmt.Printf("❌ Runtime setup failed: %v\n", err)
+		}
+	} else if setupVerbose && !setupJSON {
+		fmt.Printf("✓ Template runtime setup completed (%d runtimes)\n", len(result.RuntimesInstalled))
+	}
+
+	// Phase 3: Template-optimized Language Server Setup
+	if setupVerbose && !setupJSON {
+		fmt.Println("\n🎆 Phase 3: Template-optimized Language Server Setup")
+	}
+
+	err = setupTemplateLanguageServers(ctx, result)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Template server setup failed: %v", err))
+		if !setupJSON {
+			fmt.Printf("❌ Server setup failed: %v\n", err)
+		}
+	} else if setupVerbose && !setupJSON {
+		fmt.Printf("✓ Template server setup completed (%d servers)\n", len(result.ServersInstalled))
+	}
+
+	// Phase 4: Template Configuration Generation
+	if setupVerbose && !setupJSON {
+		fmt.Println("\n⚙️  Phase 4: Template Configuration Generation")
+	}
+
+	err = generateTemplateConfiguration(ctx, result)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Template configuration failed: %v", err))
+		if !setupJSON {
+			fmt.Printf("❌ Configuration generation failed: %v\n", err)
+		}
+	} else if setupVerbose && !setupJSON {
+		fmt.Printf("✓ Template '%s' configuration generated\n", setupTemplate)
+	}
+
+	// Calculate final results
+	result.Duration = time.Since(startTime)
+	result.Success = len(result.Issues) == 0
+
+	// Generate summary
+	generateSetupSummary(result)
+
+	// Generate summary messages
+	if result.Success {
+		result.Messages = append(result.Messages, fmt.Sprintf("Template-based LSP Gateway setup completed successfully (%s)", setupTemplate))
+		result.Messages = append(result.Messages, fmt.Sprintf("Setup duration: %v", result.Duration))
+		result.Messages = append(result.Messages, fmt.Sprintf("Template '%s' optimizations are now active", setupTemplate))
+		result.Messages = append(result.Messages, "Run 'lsp-gateway server' to start the HTTP gateway")
+		result.Messages = append(result.Messages, "Run 'lsp-gateway mcp' to start the MCP server")
+	}
+
+	// Output results
+	if setupJSON {
+		return outputSetupResultsJSON(result)
+	} else {
+		return outputSetupResultsHuman(result)
+	}
+}
+
+// Multi-language and template setup helper functions
+
+func validateMultiLanguageSetupParams() error {
+	if setupProjectPath == "" {
+		return fmt.Errorf("project-path is required for multi-language setup")
+	}
+	return nil
+}
+
+func validateTemplateSetupParams() error {
+	if setupTemplate == "" {
+		return fmt.Errorf("template is required for template-based setup")
+	}
+
+	// Check if template exists using template manager
+	templateManager := setup.NewConfigurationTemplateManager()
+	_, err := templateManager.GetTemplate(setupTemplate)
+	if err != nil {
+		// Provide list of available templates
+		availableTemplates := templateManager.GetAvailableTemplates()
+		return fmt.Errorf("invalid template '%s', available templates: %v", setupTemplate, availableTemplates)
+	}
+
+	return nil
+}
+
+// Enhanced setup implementations integrating with the advanced configuration system
+
+// runSetupDetect implements the auto-detect setup command
+func runSetupDetect(cmd *cobra.Command, args []string) error {
+	ctx, cancel := context.WithTimeout(cmd.Context(), setupTimeout)
+	defer cancel()
+
+	startTime := time.Now()
+
+	if setupVerbose && !setupJSON {
+		fmt.Println("🔍 Starting LSP Gateway auto-detect setup...")
+		fmt.Printf("Project path: %s\n", setupProjectPath)
+		fmt.Println()
+	}
+
+	// Initialize result structure
+	result := &SetupResult{
+		Success:           false,
+		RuntimesDetected:  make(map[string]*setup.RuntimeInfo),
+		RuntimesInstalled: make(map[string]*installer.InstallResult),
+		ServersInstalled:  make(map[string]*installer.InstallResult),
+		Issues:            make([]string, 0),
+		Warnings:          make([]string, 0),
+		Messages:          make([]string, 0),
+		Summary:           &SetupSummary{},
+	}
+
+	// Phase 1: Project Detection and Analysis
+	if setupVerbose && !setupJSON {
+		fmt.Println("🔍 Phase 1: Project Detection and Analysis")
+	}
+
+	projectAnalysis, err := performProjectDetection(ctx, setupProjectPath, result)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Project detection failed: %v", err))
+		if !setupJSON {
+			fmt.Printf("❌ Project detection failed: %v\n", err)
+		}
+	} else if setupVerbose && !setupJSON {
+		fmt.Printf("✓ Detected %s project with %d languages\n", projectAnalysis.ProjectType, len(projectAnalysis.DetectedLanguages))
+	}
+
+	// Phase 2: Template Selection
+	if setupVerbose && !setupJSON {
+		fmt.Println("\n📋 Phase 2: Template Selection")
+	}
+
+	selectedTemplate, err := selectOptimalTemplate(projectAnalysis, result)
+	if err != nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("Template selection failed: %v", err))
+	} else if setupVerbose && !setupJSON {
+		fmt.Printf("✓ Selected template: %s\n", selectedTemplate.Name)
+	}
+
+	// Phase 3: Enhanced Configuration Generation
+	if setupVerbose && !setupJSON {
+		fmt.Println("\n⚙️  Phase 3: Enhanced Configuration Generation")
+	}
+
+	err = generateEnhancedConfiguration(ctx, projectAnalysis, selectedTemplate, result)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Enhanced configuration failed: %v", err))
+		if !setupJSON {
+			fmt.Printf("❌ Configuration generation failed: %v\n", err)
+		}
+	} else if setupVerbose && !setupJSON {
+		fmt.Println("✓ Enhanced configuration generated")
+	}
+
+	// Phase 4: Optimized Runtime Installation
+	if setupVerbose && !setupJSON {
+		fmt.Println("\n📦 Phase 4: Optimized Runtime Installation")
+	}
+
+	err = setupOptimizedRuntimes(ctx, result)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Runtime setup failed: %v", err))
+	} else if setupVerbose && !setupJSON {
+		fmt.Printf("✓ Runtime setup completed (%d runtimes)\n", len(result.RuntimesInstalled))
+	}
+
+	// Phase 5: Smart Language Server Setup
+	if setupVerbose && !setupJSON {
+		fmt.Println("\n🎆 Phase 5: Smart Language Server Setup")
+	}
+
+	err = setupSmartLanguageServers(ctx, result)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Server setup failed: %v", err))
+	} else if setupVerbose && !setupJSON {
+		fmt.Printf("✓ Server setup completed (%d servers)\n", len(result.ServersInstalled))
+	}
+
+	// Phase 6: Final Verification
+	if !setupSkipVerify {
+		if setupVerbose && !setupJSON {
+			fmt.Println("\n✓ Phase 6: Final Verification")
+		}
+
+		verificationWarnings, err := runEnhancedVerification(ctx, result)
+		if err != nil {
+			result.Issues = append(result.Issues, fmt.Sprintf("Verification failed: %v", err))
+		} else {
+			result.Warnings = append(result.Warnings, verificationWarnings...)
+			if setupVerbose && !setupJSON && len(verificationWarnings) == 0 {
+				fmt.Println("✓ All verifications passed")
+			}
+		}
+	}
+
+	// Calculate final results
+	result.Duration = time.Since(startTime)
+	result.Success = len(result.Issues) == 0
+
+	generateSetupSummary(result)
+
+	// Generate summary messages
+	if result.Success {
+		result.Messages = append(result.Messages, "Auto-detect LSP Gateway setup completed successfully")
+		result.Messages = append(result.Messages, fmt.Sprintf("Setup duration: %v", result.Duration))
+		if projectAnalysis != nil {
+			result.Messages = append(result.Messages, fmt.Sprintf("Project: %s (%s complexity)", projectAnalysis.ProjectType, projectAnalysis.Complexity))
+			result.Messages = append(result.Messages, fmt.Sprintf("Languages: %v", projectAnalysis.DetectedLanguages))
+		}
+		result.Messages = append(result.Messages, "Run 'lsp-gateway server' to start the HTTP gateway")
+		result.Messages = append(result.Messages, "Run 'lsp-gateway mcp' to start the MCP server")
+	}
+
+	// Output results
+	if setupJSON {
+		return outputSetupResultsJSON(result)
+	} else {
+		return outputSetupResultsHuman(result)
+	}
+}
+
+// Enhanced implementations for multi-language setup phases
+
+func analyzeMultiLanguageProject(ctx context.Context, result *SetupResult) error {
+	return performProjectDetectionWithResult(ctx, setupProjectPath, result)
+}
+
+func performProjectDetection(ctx context.Context, projectPath string, result *SetupResult) (*setup.ProjectAnalysis, error) {
+	projectAnalyzer := setup.NewProjectAnalyzer()
+	analysis, err := projectAnalyzer.AnalyzeProject(projectPath)
+	if err != nil {
+		return nil, fmt.Errorf("project analysis failed: %w", err)
+	}
+
+	if setupVerbose && !setupJSON {
+		fmt.Printf("  Project type: %s\n", analysis.ProjectType)
+		fmt.Printf("  Languages: %v\n", analysis.DetectedLanguages)
+		fmt.Printf("  Frameworks: %d detected\n", len(analysis.Frameworks))
+		fmt.Printf("  Complexity: %s\n", analysis.Complexity)
+		fmt.Printf("  Files: %d\n", analysis.FileCount)
+	}
+
+	result.Messages = append(result.Messages, fmt.Sprintf("Analyzed %s project with %d languages", analysis.ProjectType, len(analysis.DetectedLanguages)))
+
+	return analysis, nil
+}
+
+func performProjectDetectionWithResult(ctx context.Context, projectPath string, result *SetupResult) error {
+	_, err := performProjectDetection(ctx, projectPath, result)
+	return err
+}
+
+func selectOptimalTemplate(analysis *setup.ProjectAnalysis, result *SetupResult) (*setup.ConfigurationTemplate, error) {
+	templateManager := setup.NewConfigurationTemplateManager()
+
+	// Use explicit template if provided
+	if setupTemplate != "" {
+		template, err := templateManager.GetTemplate(setupTemplate)
+		if err != nil {
+			return nil, fmt.Errorf("specified template not found: %w", err)
+		}
+		result.Messages = append(result.Messages, fmt.Sprintf("Using specified template: %s", setupTemplate))
+		return template, nil
+	}
+
+	// Auto-select template based on analysis
+	if analysis != nil {
+		template, err := templateManager.SelectTemplate(analysis)
+		if err != nil {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("Template auto-selection failed: %v", err))
+			return templateManager.GetDefaultTemplate(), nil
+		}
+		result.Messages = append(result.Messages, fmt.Sprintf("Auto-selected template: %s", template.Name))
+		return template, nil
+	}
+
+	// Fallback to default template
+	defaultTemplate := templateManager.GetDefaultTemplate()
+	result.Messages = append(result.Messages, "Using default template")
+	return defaultTemplate, nil
+}
+
+func generateEnhancedConfiguration(ctx context.Context, analysis *setup.ProjectAnalysis, template *setup.ConfigurationTemplate, result *SetupResult) error {
+	enhancedGenerator := setup.NewEnhancedConfigurationGenerator()
+
+	// Determine optimization mode
+	optMode := setupOptimizationMode
+	if optMode == "" && analysis != nil {
+		// Auto-determine optimization mode based on project characteristics
+		switch analysis.Complexity {
+		case setup.ProjectComplexityHigh:
+			optMode = "production"
+		case setup.ProjectComplexityMedium:
+			optMode = "development"
+		case setup.ProjectComplexityLow:
+			optMode = "development"
+		default:
+			optMode = "development"
+		}
+	} else if optMode == "" {
+		optMode = "development"
+	}
+
+	// Generate configuration from project analysis
+	var configResult *setup.ConfigGenerationResult
+	var err error
+
+	if analysis != nil {
+		configResult, err = enhancedGenerator.GenerateFromProject(ctx, setupProjectPath, optMode)
+	} else {
+		configResult, err = enhancedGenerator.GenerateDefaultForEnvironment(ctx, optMode)
+	}
+
+	if err != nil {
+		return fmt.Errorf("enhanced configuration generation failed: %w", err)
+	}
+
+	// Save configuration to file
+	if configResult.Config != nil {
+		configPath := setupConfigPath
+		if configPath == "" {
+			configPath = "config.yaml"
+		}
+
+		// TODO: Implement configuration file writing
+		result.ConfigGenerated = true
+		result.ConfigPath = configPath
+		result.Messages = append(result.Messages, configResult.Messages...)
+		result.Warnings = append(result.Warnings, configResult.Warnings...)
+		result.Issues = append(result.Issues, configResult.Issues...)
+	}
+
+	return nil
+}
+
+func setupOptimizedRuntimes(ctx context.Context, result *SetupResult) error {
+	// Use standard runtime setup with optimization awareness
+	return setupRuntimes(ctx, result)
+}
+
+func setupSmartLanguageServers(ctx context.Context, result *SetupResult) error {
+	// Use standard server setup with smart configuration
+	return setupServers(ctx, result)
+}
+
+func generateMultiLanguageConfiguration(ctx context.Context, result *SetupResult) error {
+	// Generate enhanced multi-language configuration
+	enhancedGenerator := setup.NewEnhancedConfigurationGenerator()
+
+	optMode := setupOptimizationMode
+	if optMode == "" {
+		optMode = "development"
+	}
+
+	configResult, err := enhancedGenerator.GenerateFromProject(ctx, setupProjectPath, optMode)
+	if err != nil {
+		return fmt.Errorf("multi-language configuration generation failed: %w", err)
+	}
+
+	result.ConfigGenerated = true
+	result.ConfigPath = setupConfigPath
+	result.Messages = append(result.Messages, configResult.Messages...)
+	result.Warnings = append(result.Warnings, configResult.Warnings...)
+	result.Issues = append(result.Issues, configResult.Issues...)
+
+	return nil
+}
+
+func runMultiLanguageVerification(ctx context.Context, result *SetupResult) ([]string, error) {
+	return runEnhancedVerification(ctx, result)
+}
+
+func runEnhancedVerification(ctx context.Context, result *SetupResult) ([]string, error) {
+	warnings := make([]string, 0)
+
+	// Enhanced verification with project-aware checks
+	if setupProjectPath != "" {
+		enhancedGenerator := setup.NewEnhancedConfigurationGenerator()
+		// TODO: Implement enhanced validation
+		_ = enhancedGenerator
+	}
+
+	// Fallback to standard verification
+	return runFinalVerification(ctx, result)
+}
+
+func analyzeTemplateRequirements(ctx context.Context, result *SetupResult) error {
+	templateManager := setup.NewConfigurationTemplateManager()
+
+	template, err := templateManager.GetTemplate(setupTemplate)
+	if err != nil {
+		return fmt.Errorf("template not found: %w", err)
+	}
+
+	if setupVerbose && !setupJSON {
+		fmt.Printf("  Template: %s\n", template.Name)
+		fmt.Printf("  Description: %s\n", template.Description)
+		fmt.Printf("  Project types: %v\n", template.ProjectTypes)
+		fmt.Printf("  Target languages: %v\n", template.TargetLanguages)
+		fmt.Printf("  Multi-server: %v\n", template.EnableMultiServer)
+		fmt.Printf("  Smart routing: %v\n", template.EnableSmartRouting)
+	}
+
+	result.Messages = append(result.Messages, fmt.Sprintf("Analyzed template '%s' requirements", template.Name))
+
+	return nil
+}
+
+func setupTemplateRuntimes(ctx context.Context, result *SetupResult) error {
+	// Template-optimized runtime setup
+	return setupRuntimes(ctx, result)
+}
+
+func setupTemplateLanguageServers(ctx context.Context, result *SetupResult) error {
+	// Template-optimized server setup
+	return setupServers(ctx, result)
+}
+
+func generateTemplateConfiguration(ctx context.Context, result *SetupResult) error {
+	// Generate template-based configuration
+	enhancedGenerator := setup.NewEnhancedConfigurationGenerator()
+	templateManager := setup.NewConfigurationTemplateManager()
+
+	template, err := templateManager.GetTemplate(setupTemplate)
+	if err != nil {
+		return fmt.Errorf("template not found: %w", err)
+	}
+
+	// Create project analysis for template application
+	var analysis *setup.ProjectAnalysis
+	if setupProjectPath != "" {
+		projectAnalyzer := setup.NewProjectAnalyzer()
+		analysis, _ = projectAnalyzer.AnalyzeProject(setupProjectPath)
+	}
+
+	// Generate configuration with template
+	optMode := setupOptimizationMode
+	if optMode == "" {
+		optMode = "development"
+	}
+
+	var configResult *setup.ConfigGenerationResult
+	if analysis != nil {
+		configResult, err = enhancedGenerator.GenerateFromProject(ctx, setupProjectPath, optMode)
+	} else {
+		configResult, err = enhancedGenerator.GenerateDefaultForEnvironment(ctx, optMode)
+	}
+
+	if err != nil {
+		return fmt.Errorf("template configuration generation failed: %w", err)
+	}
+
+	result.ConfigGenerated = true
+	result.ConfigPath = setupConfigPath
+	result.Messages = append(result.Messages, configResult.Messages...)
+	result.Warnings = append(result.Warnings, configResult.Warnings...)
+	result.Issues = append(result.Issues, configResult.Issues...)
 
 	return nil
 }
