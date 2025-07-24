@@ -1,5 +1,5 @@
 # Makefile for LSP Gateway
-# Multi-platform build system
+# Simplified build system for solo development
 
 # Configuration
 BINARY_NAME := lsp-gateway
@@ -12,245 +12,182 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 GOCMD := go
 GOBUILD := $(GOCMD) build
 GOTEST := $(GOCMD) test
-GOGET := $(GOCMD) get
 GOCLEAN := $(GOCMD) clean
 GOMOD := $(GOCMD) mod
 
-# Build targets
-PLATFORMS := linux/amd64 windows/amd64 darwin/amd64 darwin/arm64
-BINARIES := $(BUILD_DIR)/$(BINARY_NAME)-linux \
-            $(BUILD_DIR)/$(BINARY_NAME)-windows.exe \
-            $(BUILD_DIR)/$(BINARY_NAME)-macos \
-            $(BUILD_DIR)/$(BINARY_NAME)-macos-arm64
+# Platform definitions
+PLATFORMS := linux/amd64 darwin/amd64 darwin/arm64 windows/amd64
 
-# Default target
-.PHONY: all
+# =============================================================================
+# BUILD TARGETS
+# =============================================================================
+
+.PHONY: all build local clean
 all: build
 
-# Help target
-.PHONY: help
-help:
-	@echo "LSP Gateway Build System"
-	@echo "========================"
-	@echo ""
-	@echo "Available targets:"
-	@echo "  all          - Build for all platforms (default)"
-	@echo "  build        - Build for all platforms"
-	@echo "  linux        - Build for Linux (amd64)"
-	@echo "  windows      - Build for Windows (amd64)"
-	@echo "  macos        - Build for macOS (amd64)"
-	@echo "  macos-arm64  - Build for macOS (arm64)"
-	@echo "  local        - Build for current platform"
-	@echo "  clean        - Clean build artifacts"
-
-	@echo "  deps         - Download dependencies"
-	@echo "  tidy         - Tidy go modules"
-	@echo "  format       - Format code"
-	@echo "  lint         - Run linter (requires golangci-lint)"
-	@echo "  deadcode     - Run dead code analysis (requires deadcode tool)"
-	@echo "  lint-unused  - Run only unused code detection"
-	@echo "  check-deadcode - Complete dead code analysis (both tools)"
-	@echo "  deadcode-report - Generate timestamped dead code report"
-	@echo "  security     - Run security analysis (requires gosec)"
-	@echo "  security-report - Generate timestamped security report"
-	@echo "  security-check - Quick security check (strict mode for CI)"
-	@echo "  security-full - Comprehensive security analysis (all formats)"
-	@echo "  install      - Install binary to GOPATH/bin"
-	@echo "  release      - Create release build with version"
-	@echo "  help         - Show this help message"
-	@echo ""
-	@echo "Environment variables:"
-	@echo "  VERSION      - Set version (default: dev)"
-	@echo ""
-
-	@echo ""
-	@echo "Examples:"
-	@echo "  make build VERSION=v1.0.0"
-	@echo "  make linux"
-	@echo "  make clean && make all"
-
-# Create build directory
-$(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
-
-# Build for all platforms
-.PHONY: build
-build: $(BINARIES)
-
-# Individual platform targets
-.PHONY: linux
-linux: $(BUILD_DIR)/$(BINARY_NAME)-linux
-
-.PHONY: windows
-windows: $(BUILD_DIR)/$(BINARY_NAME)-windows.exe
-
-.PHONY: macos
-macos: $(BUILD_DIR)/$(BINARY_NAME)-macos
-
-.PHONY: macos-arm64
-macos-arm64: $(BUILD_DIR)/$(BINARY_NAME)-macos-arm64
-
-# Build rules for each platform
-$(BUILD_DIR)/$(BINARY_NAME)-linux: $(BUILD_DIR)
-	@echo "Building for Linux (amd64)..."
-	GOOS=linux GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $@ $(MAIN_PATH)
-
-$(BUILD_DIR)/$(BINARY_NAME)-windows.exe: $(BUILD_DIR)
-	@echo "Building for Windows (amd64)..."
-	GOOS=windows GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $@ $(MAIN_PATH)
-
-$(BUILD_DIR)/$(BINARY_NAME)-macos: $(BUILD_DIR)
-	@echo "Building for macOS (amd64)..."
-	GOOS=darwin GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $@ $(MAIN_PATH)
-
-$(BUILD_DIR)/$(BINARY_NAME)-macos-arm64: $(BUILD_DIR)
-	@echo "Building for macOS (arm64)..."
-	GOOS=darwin GOARCH=arm64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $@ $(MAIN_PATH)
-
-# Build for current platform
-.PHONY: local
+# Build for current platform (most common use case)
 local: $(BUILD_DIR)
 	@echo "Building for current platform..."
 	$(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 
-# Clean build artifacts
-.PHONY: clean
+# Build for all platforms
+build: $(BUILD_DIR)
+	@echo "Building for all platforms..."
+	@for platform in $(PLATFORMS); do \
+		os=$$(echo $$platform | cut -d'/' -f1); \
+		arch=$$(echo $$platform | cut -d'/' -f2); \
+		output=$(BUILD_DIR)/$(BINARY_NAME)-$$os; \
+		if [ $$os = "windows" ]; then output=$$output.exe; fi; \
+		if [ $$os = "darwin" ] && [ $$arch = "arm64" ]; then output=$(BUILD_DIR)/$(BINARY_NAME)-macos-arm64; fi; \
+		if [ $$os = "darwin" ] && [ $$arch = "amd64" ]; then output=$(BUILD_DIR)/$(BINARY_NAME)-macos; fi; \
+		echo "Building $$os/$$arch -> $$output"; \
+		GOOS=$$os GOARCH=$$arch $(GOBUILD) -ldflags "$(LDFLAGS)" -o $$output $(MAIN_PATH); \
+	done
+
+# Individual platform builds (for convenience)
+.PHONY: linux windows macos macos-arm64
+linux: $(BUILD_DIR)
+	GOOS=linux GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux $(MAIN_PATH)
+
+windows: $(BUILD_DIR)
+	GOOS=windows GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows.exe $(MAIN_PATH)
+
+macos: $(BUILD_DIR)
+	GOOS=darwin GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-macos $(MAIN_PATH)
+
+macos-arm64: $(BUILD_DIR)
+	GOOS=darwin GOARCH=arm64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-macos-arm64 $(MAIN_PATH)
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -rf $(BUILD_DIR)
 	$(GOCLEAN)
 
+# =============================================================================
+# DEVELOPMENT TARGETS
+# =============================================================================
 
-
-
-
-# Dependency management
-.PHONY: deps
+.PHONY: deps tidy format test
 deps:
 	@echo "Downloading dependencies..."
 	$(GOGET) -v ./...
 
-.PHONY: tidy
 tidy:
 	@echo "Tidying go modules..."
 	$(GOMOD) tidy
 
-# Code quality
-.PHONY: format
 format:
 	@echo "Formatting code..."
 	$(GOCMD) fmt ./...
 
-.PHONY: lint
+test:
+	@echo "Running tests..."
+	$(GOTEST) -v ./...
+
+test-unit:
+	@echo "Running unit tests..."
+	$(GOTEST) -v -short ./...
+
+test-integration:
+	@echo "Running integration tests..."
+	$(GOTEST) -v -run Integration ./...
+
+# =============================================================================
+# CODE QUALITY
+# =============================================================================
+
+.PHONY: lint security quality
 lint:
 	@echo "Running linter..."
-	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found. Install it with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; exit 1; }
+	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found. Install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; exit 1; }
 	golangci-lint run ./...
 
-# Enhanced dead code detection
-.PHONY: deadcode
-deadcode:
-	@echo "Running comprehensive dead code analysis..."
-	@command -v deadcode >/dev/null 2>&1 || { echo "deadcode not found. Install it with: go install golang.org/x/tools/cmd/deadcode@latest"; exit 1; }
-	deadcode -test ./...
-
-# Dead code detection with detailed output
-.PHONY: deadcode-report
-deadcode-report:
-	@echo "Generating dead code analysis report..."
-	@command -v deadcode >/dev/null 2>&1 || { echo "deadcode not found. Install it with: go install golang.org/x/tools/cmd/deadcode@latest"; exit 1; }
-	@mkdir -p reports
-	deadcode -test ./... > reports/deadcode-$(shell date +%Y%m%d-%H%M%S).txt 2>&1 || true
-	@echo "Report saved to reports/deadcode-$(shell date +%Y%m%d-%H%M%S).txt"
-
-# Focused unused code detection via golangci-lint
-.PHONY: lint-unused
-lint-unused:
-	@echo "Running unused code detection..."
-	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found. Install it with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; exit 1; }
-	golangci-lint run --enable-only unused,ineffassign ./...
-
-# Complete dead code analysis (combines both tools)
-.PHONY: check-deadcode
-check-deadcode:
-	@echo "=== Comprehensive Dead Code Analysis ==="
-	@echo "1. Running golangci-lint unused detection..."
-	@$(MAKE) lint-unused || true
-	@echo ""
-	@echo "2. Running official deadcode analysis..."
-	@$(MAKE) deadcode || true
-	@echo ""
-	@echo "=== Analysis Complete ==="
-
-# Security analysis
-.PHONY: security
 security:
 	@echo "Running security analysis..."
-	@command -v gosec >/dev/null 2>&1 || { echo "gosec not found. Install it with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; exit 1; }
-	gosec -conf .gosec.json ./cmd/lsp-gateway ./internal/cli ./internal/common ./internal/config ./internal/gateway ./internal/installer ./internal/platform ./internal/setup ./internal/transport ./internal/types ./mcp
+	@command -v gosec >/dev/null 2>&1 || { echo "gosec not found. Install: go install github.com/securego/gosec/v2/cmd/gosec@latest"; exit 1; }
+	gosec -conf .gosec.json ./...
 
-# Security analysis with detailed report
-.PHONY: security-report
-security-report:
-	@echo "Generating security analysis report..."
-	@command -v gosec >/dev/null 2>&1 || { echo "gosec not found. Install it with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; exit 1; }
-	@mkdir -p reports
-	gosec -conf .gosec.json -fmt json -out reports/security-$(shell date +%Y%m%d-%H%M%S).json ./... || true
-	gosec -conf .gosec.json -fmt text -out reports/security-$(shell date +%Y%m%d-%H%M%S).txt ./... || true
-	@echo "Reports saved to reports/security-$(shell date +%Y%m%d-%H%M%S).{json,txt}"
+check-deadcode:
+	@echo "Running dead code analysis..."
+	@command -v deadcode >/dev/null 2>&1 || { echo "deadcode not found. Install: go install golang.org/x/tools/cmd/deadcode@latest"; exit 1; }
+	deadcode -test ./...
 
-# Quick security check (strict mode for CI)
-.PHONY: security-check
-security-check:
-	@echo "Running strict security check..."
-	@command -v gosec >/dev/null 2>&1 || { echo "gosec not found. Install it with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; exit 1; }
-	gosec -conf .gosec.json -severity high -confidence high -quiet ./...
+# Combined quality check
+quality: format lint security
+	@echo "All quality checks completed"
 
+# =============================================================================
+# TESTING TARGETS
+# =============================================================================
 
-# Comprehensive security analysis
-.PHONY: security-full
-security-full:
-	@echo "=== Comprehensive Security Analysis ==="
-	@$(MAKE) security-report
-	@echo "=== Security Analysis Complete ==="
+.PHONY: test-simple-quick test-lsp-validation setup-simple-repos
+setup-simple-repos:
+	@echo "Setting up test repositories..."
+	./scripts/setup-simple-repos.sh || echo "Setup script not found, skipping..."
 
-# Install binary
-.PHONY: install
+test-simple-quick:
+	@echo "Running quick validation tests..."
+	$(GOTEST) -v -short -timeout 60s ./tests/unit/...
+
+test-lsp-validation:
+	@echo "Running LSP validation tests..."
+	$(GOTEST) -v -timeout 300s ./tests/integration/...
+
+test-lsp-validation-short:
+	@echo "Running short LSP validation..."
+	$(GOTEST) -v -short -timeout 120s ./tests/integration/...
+
+# =============================================================================
+# UTILITY TARGETS
+# =============================================================================
+
+.PHONY: install release info help
 install:
 	@echo "Installing binary..."
 	$(GOBUILD) -ldflags "$(LDFLAGS)" -o $(GOPATH)/bin/$(BINARY_NAME) $(MAIN_PATH)
 
-# Release build
-.PHONY: release
 release:
-	@echo "Creating release build..."
-	@if [ "$(VERSION)" = "dev" ]; then \
-		echo "Please set VERSION for release build. Example: make release VERSION=v1.0.0"; \
-		exit 1; \
-	fi
-	$(MAKE) clean
-	$(MAKE) build VERSION=$(VERSION)
-	@echo "Release build completed with version: $(VERSION)"
+	@if [ "$(VERSION)" = "dev" ]; then echo "Set VERSION for release: make release VERSION=v1.0.0"; exit 1; fi
+	$(MAKE) clean && $(MAKE) build VERSION=$(VERSION)
+	@echo "Release $(VERSION) completed"
 
-# Show build info
-.PHONY: info
 info:
-	@echo "Build Information:"
-	@echo "  Binary Name: $(BINARY_NAME)"
-	@echo "  Main Path:   $(MAIN_PATH)"
-	@echo "  Build Dir:   $(BUILD_DIR)"
-	@echo "  Version:     $(VERSION)"
-	@echo "  LDFLAGS:     $(LDFLAGS)"
-	@echo "  Platforms:   $(PLATFORMS)"
+	@echo "LSP Gateway Build Info:"
+	@echo "  Version: $(VERSION)"
+	@echo "  Binary:  $(BINARY_NAME)"
+	@echo "  Platforms: $(PLATFORMS)"
 
-# Check if all binaries exist
-.PHONY: check
-check:
-	@echo "Checking built binaries..."
-	@for binary in $(BINARIES); do \
-		if [ -f "$$binary" ]; then \
-			echo "✓ $$binary exists ($(shell ls -lh $$binary | awk '{print $$5}'))"; \
-		else \
-			echo "✗ $$binary missing"; \
-		fi; \
-	done
+help:
+	@echo "LSP Gateway Makefile"
+	@echo "====================="
+	@echo ""
+	@echo "Build:"
+	@echo "  local     - Build for current platform"
+	@echo "  build     - Build for all platforms"
+	@echo "  clean     - Clean build artifacts"
+	@echo ""
+	@echo "Development:"
+	@echo "  deps      - Download dependencies"
+	@echo "  tidy      - Tidy go modules"
+	@echo "  format    - Format code"
+	@echo "  test      - Run all tests"
+	@echo "  test-unit - Run unit tests only"
+	@echo ""
+	@echo "Quality:"
+	@echo "  lint      - Run linter"
+	@echo "  security  - Run security analysis"
+	@echo "  quality   - Run all quality checks"
+	@echo ""
+	@echo "Testing:"
+	@echo "  test-simple-quick    - Quick validation tests"
+	@echo "  test-lsp-validation  - Full LSP validation"
+	@echo "  setup-simple-repos   - Setup test repositories"
+	@echo ""
+	@echo "Utility:"
+	@echo "  install   - Install binary to GOPATH"
+	@echo "  release   - Create release build"
+	@echo "  info      - Show build information"
+	@echo "  help      - Show this help"

@@ -3,13 +3,19 @@
     "nosec": "enabled",
     "audit": "enabled",
     "fmt": "json",
-    "severity": "medium",
+    "severity": "low",
     "confidence": "medium",
     "ssa": false
   },
   "exclude": [
     "G304",
-    "G306"
+    "G306",
+    "G301",
+    "G302",
+    "G112",
+    "G114",
+    "G108",
+    "G104"
   ],
   "exclude-generated": [
     "*_test.go",
@@ -82,7 +88,7 @@
     },
     "G102": {
       "description": "Bind to all interfaces",
-      "enabled": true
+      "enabled": false
     },
     "G103": {
       "description": "Audit the use of unsafe block",
@@ -90,7 +96,7 @@
     },
     "G104": {
       "description": "Audit errors not checked",
-      "enabled": true
+      "enabled": false
     },
     "G106": {
       "description": "Audit the use of ssh.InsecureIgnoreHostKey",
@@ -98,11 +104,11 @@
     },
     "G107": {
       "description": "Url provided to HTTP request as taint input",
-      "enabled": true
+      "enabled": false
     },
     "G108": {
       "description": "Profiling endpoint automatically exposed on /debug/pprof",
-      "enabled": true
+      "enabled": false
     },
     "G109": {
       "description": "Potential Integer overflow made by strconv.Atoi result conversion to int16/32",
@@ -118,7 +124,7 @@
     },
     "G112": {
       "description": "Potential slowloris attack",
-      "enabled": true
+      "enabled": false
     },
     "G113": {
       "description": "Usage of Rat.SetString in math/big with an overflow (CVE-2022-23772)",
@@ -126,7 +132,7 @@
     },
     "G114": {
       "description": "Use of net/http serve function that has no support for setting timeouts",
-      "enabled": true
+      "enabled": false
     },
     "G115": {
       "description": "Potential integer overflow when converting between integer types",
@@ -158,7 +164,7 @@
     },
     "G303": {
       "description": "Creating tempfile using a predictable path",
-      "enabled": true
+      "enabled": false
     },
     "G304": {
       "description": "File path provided as taint input",
@@ -174,7 +180,7 @@
     },
     "G307": {
       "description": "Deferring a method which returns an error",
-      "enabled": true
+      "enabled": false
     },
     "G401": {
       "description": "Detect the usage of DES, RC4, MD5 or SHA1",

@@ -17,32 +17,32 @@ import (
 // TestSetupOrchestrator_CompleteWorkflow tests the complete SetupOrchestrator workflow
 func TestSetupOrchestrator_CompleteWorkflow(t *testing.T) {
 	tests := []struct {
-		name                 string
-		options              setup.SetupOptions
-		mockSetup            func(*mocks.MockRuntimeDetector, *mocks.MockRuntimeInstaller, *mocks.MockServerInstaller, *mocks.MockConfigGenerator)
-		expectedPhases       []string
-		expectedSuccess      bool
-		expectedRuntimes     int
-		expectedServers      int
-		expectedDuration     time.Duration
-		maxAllowedDuration   time.Duration
-		validateSteps        bool
+		name               string
+		options            setup.SetupOptions
+		mockSetup          func(*mocks.MockRuntimeDetector, *mocks.MockRuntimeInstaller, *mocks.MockServerInstaller, *mocks.MockConfigGenerator)
+		expectedPhases     []string
+		expectedSuccess    bool
+		expectedRuntimes   int
+		expectedServers    int
+		expectedDuration   time.Duration
+		maxAllowedDuration time.Duration
+		validateSteps      bool
 	}{
 		{
 			name: "SuccessfulCompleteSetup",
 			options: setup.SetupOptions{
-				Force:             false,
-				VerboseLogging:    true,
-				SkipVerification:  false,
-				ConfigOutputPath:  "test-config.yaml",
+				Force:            false,
+				VerboseLogging:   true,
+				SkipVerification: false,
+				ConfigOutputPath: "test-config.yaml",
 			},
 			mockSetup: func(detector *mocks.MockRuntimeDetector, installer *mocks.MockRuntimeInstaller, serverInstaller *mocks.MockServerInstaller, configGen *mocks.MockConfigGenerator) {
 				setupSuccessfulMocks(detector, installer, serverInstaller, configGen)
 			},
 			expectedPhases:     []string{"detection", "configuration"},
 			expectedSuccess:    true,
-			expectedRuntimes:   3, // Mock setup will include runtime installations
-			expectedServers:    0, // No servers need installation when runtimes are installed
+			expectedRuntimes:   3,                     // Mock setup will include runtime installations
+			expectedServers:    0,                     // No servers need installation when runtimes are installed
 			expectedDuration:   50 * time.Millisecond, // Realistic expectation with mock delays
 			maxAllowedDuration: 5 * time.Second,
 			validateSteps:      true,
@@ -50,18 +50,18 @@ func TestSetupOrchestrator_CompleteWorkflow(t *testing.T) {
 		{
 			name: "ForceReinstallWorkflow",
 			options: setup.SetupOptions{
-				Force:             true,
-				VerboseLogging:    false,
-				SkipVerification:  false,
-				ConfigOutputPath:  "force-config.yaml",
+				Force:            true,
+				VerboseLogging:   false,
+				SkipVerification: false,
+				ConfigOutputPath: "force-config.yaml",
 			},
 			mockSetup: func(detector *mocks.MockRuntimeDetector, installer *mocks.MockRuntimeInstaller, serverInstaller *mocks.MockServerInstaller, configGen *mocks.MockConfigGenerator) {
 				setupForceMocks(detector, installer, serverInstaller, configGen)
 			},
 			expectedPhases:     []string{"detection", "configuration"},
 			expectedSuccess:    true,
-			expectedRuntimes:   4,    // Force setup includes more runtimes
-			expectedServers:    0,    // No servers need installation when runtimes are installed
+			expectedRuntimes:   4, // Force setup includes more runtimes
+			expectedServers:    0, // No servers need installation when runtimes are installed
 			expectedDuration:   50 * time.Millisecond,
 			maxAllowedDuration: 10 * time.Second,
 			validateSteps:      true,
@@ -69,18 +69,18 @@ func TestSetupOrchestrator_CompleteWorkflow(t *testing.T) {
 		{
 			name: "SkipVerificationWorkflow",
 			options: setup.SetupOptions{
-				Force:             false,
-				VerboseLogging:    false,
-				SkipVerification:  true,
-				ConfigOutputPath:  "skip-verify-config.yaml",
+				Force:            false,
+				VerboseLogging:   false,
+				SkipVerification: true,
+				ConfigOutputPath: "skip-verify-config.yaml",
 			},
 			mockSetup: func(detector *mocks.MockRuntimeDetector, installer *mocks.MockRuntimeInstaller, serverInstaller *mocks.MockServerInstaller, configGen *mocks.MockConfigGenerator) {
 				setupSkipVerifyMocks(detector, installer, serverInstaller, configGen)
 			},
 			expectedPhases:     []string{"detection", "configuration"},
 			expectedSuccess:    true,
-			expectedRuntimes:   2,    // Skip verify setup has fewer runtimes
-			expectedServers:    0,    // No servers need installation when runtimes are installed
+			expectedRuntimes:   2, // Skip verify setup has fewer runtimes
+			expectedServers:    0, // No servers need installation when runtimes are installed
 			expectedDuration:   25 * time.Millisecond,
 			maxAllowedDuration: 3 * time.Second,
 			validateSteps:      true,
@@ -88,10 +88,10 @@ func TestSetupOrchestrator_CompleteWorkflow(t *testing.T) {
 		{
 			name: "PartialFailureRecovery",
 			options: setup.SetupOptions{
-				Force:             false,
-				VerboseLogging:    true,
-				SkipVerification:  false,
-				ConfigOutputPath:  "partial-config.yaml",
+				Force:            false,
+				VerboseLogging:   true,
+				SkipVerification: false,
+				ConfigOutputPath: "partial-config.yaml",
 			},
 			mockSetup: func(detector *mocks.MockRuntimeDetector, installer *mocks.MockRuntimeInstaller, serverInstaller *mocks.MockServerInstaller, configGen *mocks.MockConfigGenerator) {
 				setupPartialFailureMocks(detector, installer, serverInstaller, configGen)
@@ -139,15 +139,15 @@ func TestSetupOrchestrator_CompleteWorkflow(t *testing.T) {
 
 			// Execute setup workflow with additional validation
 			startTime := time.Now()
-			
+
 			// Add nil checks before execution
 			if orchestrator == nil {
 				t.Fatal("Orchestrator is nil before execution")
 			}
-			
+
 			result, err := orchestrator.RunFullSetup(ctx, &tt.options)
 			actualDuration := time.Since(startTime)
-			
+
 			// Add nil checks for result
 			if result != nil && result.GeneratedConfig != nil {
 				t.Logf("Generated config has %d servers", len(result.GeneratedConfig.Servers))
@@ -205,94 +205,94 @@ func TestSetupOrchestrator_CompleteWorkflow(t *testing.T) {
 // TestSetupOrchestrator_DifferentOptions tests different SetupOptions configurations
 func TestSetupOrchestrator_DifferentOptions(t *testing.T) {
 	tests := []struct {
-		name               string
-		options            setup.SetupOptions
-		expectedBehavior   map[string]bool
-		expectedCalls      map[string]int
-		shouldModifyMocks  func(*mocks.MockRuntimeDetector, *mocks.MockRuntimeInstaller, *mocks.MockServerInstaller, *mocks.MockConfigGenerator)
+		name              string
+		options           setup.SetupOptions
+		expectedBehavior  map[string]bool
+		expectedCalls     map[string]int
+		shouldModifyMocks func(*mocks.MockRuntimeDetector, *mocks.MockRuntimeInstaller, *mocks.MockServerInstaller, *mocks.MockConfigGenerator)
 	}{
 		{
 			name: "DefaultOptions",
 			options: setup.SetupOptions{
-				Force:             false,
-				VerboseLogging:    false,
-				SkipVerification:  false,
-				ConfigOutputPath:  "",
+				Force:            false,
+				VerboseLogging:   false,
+				SkipVerification: false,
+				ConfigOutputPath: "",
 			},
 			expectedBehavior: map[string]bool{
-				"should_detect":        true,
-				"should_install":       true,
-				"should_verify":        true,
-				"should_force":         false,
-				"should_use_verbose":   false,
+				"should_detect":      true,
+				"should_install":     true,
+				"should_verify":      true,
+				"should_force":       false,
+				"should_use_verbose": false,
 			},
 			expectedCalls: map[string]int{
-				"detect_calls":   1,
-				"install_calls":  1,
-				"verify_calls":   1,
+				"detect_calls":  1,
+				"install_calls": 1,
+				"verify_calls":  1,
 			},
 		},
 		{
 			name: "ForceAndVerboseOptions",
 			options: setup.SetupOptions{
-				Force:             true,
-				VerboseLogging:    true,
-				SkipVerification:  false,
-				ConfigOutputPath:  "custom.yaml",
+				Force:            true,
+				VerboseLogging:   true,
+				SkipVerification: false,
+				ConfigOutputPath: "custom.yaml",
 			},
 			expectedBehavior: map[string]bool{
-				"should_detect":        true,
-				"should_install":       true,
-				"should_verify":        true,
-				"should_force":         true,
-				"should_use_verbose":   true,
+				"should_detect":      true,
+				"should_install":     true,
+				"should_verify":      true,
+				"should_force":       true,
+				"should_use_verbose": true,
 			},
 			expectedCalls: map[string]int{
-				"detect_calls":   1,
-				"install_calls":  1,
-				"verify_calls":   1,
+				"detect_calls":  1,
+				"install_calls": 1,
+				"verify_calls":  1,
 			},
 		},
 		{
 			name: "SkipVerifyOptions",
 			options: setup.SetupOptions{
-				Force:             false,
-				VerboseLogging:    false,
-				SkipVerification:  true,
-				ConfigOutputPath:  "no-verify.yaml",
+				Force:            false,
+				VerboseLogging:   false,
+				SkipVerification: true,
+				ConfigOutputPath: "no-verify.yaml",
 			},
 			expectedBehavior: map[string]bool{
-				"should_detect":        true,
-				"should_install":       true,
-				"should_verify":        false,
-				"should_force":         false,
-				"should_use_verbose":   false,
+				"should_detect":      true,
+				"should_install":     true,
+				"should_verify":      false,
+				"should_force":       false,
+				"should_use_verbose": false,
 			},
 			expectedCalls: map[string]int{
-				"detect_calls":   1,
-				"install_calls":  1,
-				"verify_calls":   0,
+				"detect_calls":  1,
+				"install_calls": 1,
+				"verify_calls":  0,
 			},
 		},
 		{
 			name: "AllFlagsEnabled",
 			options: setup.SetupOptions{
-				Force:             true,
-				VerboseLogging:    true,
-				SkipVerification:  true,
-				ConfigOutputPath:  "all-flags.yaml",
+				Force:            true,
+				VerboseLogging:   true,
+				SkipVerification: true,
+				ConfigOutputPath: "all-flags.yaml",
 			},
 			expectedBehavior: map[string]bool{
-				"should_detect":        true,
-				"should_install":       true,
-				"should_verify":        false,
-				"should_force":         true,
-				"should_use_verbose":   true,
+				"should_detect":      true,
+				"should_install":     true,
+				"should_verify":      false,
+				"should_force":       true,
+				"should_use_verbose": true,
 			},
 			expectedCalls: map[string]int{
-				"detect_calls":   1,
-				"install_calls":  1,
-				"verify_calls":   0,
+				"detect_calls":  1,
+				"install_calls": 1,
+				"verify_calls":  0,
 			},
 		},
 	}
@@ -390,9 +390,9 @@ func TestSetupOrchestrator_ParallelInstallation(t *testing.T) {
 		{
 			name: "MixedParallelOperations",
 			simulateSlowOperations: map[string]time.Duration{
-				"go_install":   100 * time.Millisecond,
+				"go_install":    100 * time.Millisecond,
 				"gopls_install": 150 * time.Millisecond,
-				"config_gen":   50 * time.Millisecond,
+				"config_gen":    50 * time.Millisecond,
 			},
 			expectedParallelism: true,
 			maxExecutionTime:    400 * time.Millisecond, // Allow more time for current sequential behavior
@@ -436,10 +436,10 @@ func TestSetupOrchestrator_ParallelInstallation(t *testing.T) {
 
 			startTime := time.Now()
 			result, err := orchestrator.RunFullSetup(ctx, &setup.SetupOptions{
-				Force:             false,
-				VerboseLogging:    false,
-				SkipVerification:  true, // Skip verification for speed
-				ConfigOutputPath:  "parallel-test.yaml",
+				Force:            false,
+				VerboseLogging:   false,
+				SkipVerification: true, // Skip verification for speed
+				ConfigOutputPath: "parallel-test.yaml",
 			})
 			executionTime := time.Since(startTime)
 
@@ -466,12 +466,12 @@ func TestSetupOrchestrator_ParallelInstallation(t *testing.T) {
 // TestSetupOrchestrator_TimeoutHandling tests timeout and context handling
 func TestSetupOrchestrator_TimeoutHandling(t *testing.T) {
 	tests := []struct {
-		name               string
-		contextTimeout     time.Duration
-		operationDelays    map[string]time.Duration
-		expectedTimeout    bool
-		expectedPhase      string
-		expectedGraceful   bool
+		name             string
+		contextTimeout   time.Duration
+		operationDelays  map[string]time.Duration
+		expectedTimeout  bool
+		expectedPhase    string
+		expectedGraceful bool
 	}{
 		{
 			name:           "QuickTimeout",
@@ -487,7 +487,7 @@ func TestSetupOrchestrator_TimeoutHandling(t *testing.T) {
 			name:           "TimeoutDuringInstallation",
 			contextTimeout: 300 * time.Millisecond,
 			operationDelays: map[string]time.Duration{
-				"detection":   50 * time.Millisecond,
+				"detection":    50 * time.Millisecond,
 				"installation": 500 * time.Millisecond,
 			},
 			expectedTimeout:  false, // Current orchestrator implementation doesn't timeout properly
@@ -552,10 +552,10 @@ func TestSetupOrchestrator_TimeoutHandling(t *testing.T) {
 			// Execute setup
 			startTime := time.Now()
 			result, err := orchestrator.RunFullSetup(ctx, &setup.SetupOptions{
-				Force:             false,
-				VerboseLogging:    false,
-				SkipVerification:  false,
-				ConfigOutputPath:  "timeout-test.yaml",
+				Force:            false,
+				VerboseLogging:   false,
+				SkipVerification: false,
+				ConfigOutputPath: "timeout-test.yaml",
 			})
 			executionTime := time.Since(startTime)
 
@@ -590,44 +590,44 @@ func TestSetupOrchestrator_TimeoutHandling(t *testing.T) {
 // TestSetupOrchestrator_ErrorRecovery tests error recovery mechanisms
 func TestSetupOrchestrator_ErrorRecovery(t *testing.T) {
 	tests := []struct {
-		name                string
-		simulateErrors      []string
-		expectedRecovery    bool
-		expectedRetries     int
+		name                    string
+		simulateErrors          []string
+		expectedRecovery        bool
+		expectedRetries         int
 		shouldEventuallySucceed bool
-		maxRetryTime        time.Duration
+		maxRetryTime            time.Duration
 	}{
 		{
-			name:           "RecoverFromTransientError",
-			simulateErrors: []string{"detection_transient_error"},
-			expectedRecovery: true,
-			expectedRetries: 2,
+			name:                    "RecoverFromTransientError",
+			simulateErrors:          []string{"detection_transient_error"},
+			expectedRecovery:        true,
+			expectedRetries:         2,
 			shouldEventuallySucceed: true,
-			maxRetryTime:   10 * time.Second,
+			maxRetryTime:            10 * time.Second,
 		},
 		{
-			name:           "RecoverFromInstallationError",
-			simulateErrors: []string{"installation_retry_error"},
-			expectedRecovery: true,
-			expectedRetries: 3,
+			name:                    "RecoverFromInstallationError",
+			simulateErrors:          []string{"installation_retry_error"},
+			expectedRecovery:        true,
+			expectedRetries:         3,
 			shouldEventuallySucceed: true,
-			maxRetryTime:   15 * time.Second,
+			maxRetryTime:            15 * time.Second,
 		},
 		{
-			name:           "MultipleErrorRecovery",
-			simulateErrors: []string{"detection_transient_error", "config_retry_error"},
-			expectedRecovery: true,
-			expectedRetries: 4,
+			name:                    "MultipleErrorRecovery",
+			simulateErrors:          []string{"detection_transient_error", "config_retry_error"},
+			expectedRecovery:        true,
+			expectedRetries:         4,
 			shouldEventuallySucceed: true,
-			maxRetryTime:   20 * time.Second,
+			maxRetryTime:            20 * time.Second,
 		},
 		{
-			name:           "PermanentErrorNoRecovery",
-			simulateErrors: []string{"permanent_failure"},
-			expectedRecovery: false,
-			expectedRetries: 0,
+			name:                    "PermanentErrorNoRecovery",
+			simulateErrors:          []string{"permanent_failure"},
+			expectedRecovery:        false,
+			expectedRetries:         0,
 			shouldEventuallySucceed: false,
-			maxRetryTime:   5 * time.Second,
+			maxRetryTime:            5 * time.Second,
 		},
 	}
 
@@ -738,10 +738,10 @@ func TestSetupOrchestrator_ConcurrentExecution(t *testing.T) {
 				defer cancel()
 
 				_, err := orchestrator.RunFullSetup(ctx, &setup.SetupOptions{
-					Force:             id%2 == 0, // Alternate force flag
-					VerboseLogging:    false,
-					SkipVerification:  true, // Skip verification for speed
-					ConfigOutputPath:  fmt.Sprintf("concurrent-test-%d.yaml", id),
+					Force:            id%2 == 0, // Alternate force flag
+					VerboseLogging:   false,
+					SkipVerification: true, // Skip verification for speed
+					ConfigOutputPath: fmt.Sprintf("concurrent-test-%d.yaml", id),
 				})
 
 				results[id] = err
@@ -769,10 +769,10 @@ func TestSetupOrchestrator_ConcurrentExecution(t *testing.T) {
 // Test helper functions and utilities
 
 type OrchestratorErrorSimulator struct {
-	errors           []string
-	retryCount       int
-	operationCounts  map[string]int
-	mu               sync.Mutex
+	errors          []string
+	retryCount      int
+	operationCounts map[string]int
+	mu              sync.Mutex
 }
 
 func NewOrchestratorErrorSimulator(errors []string) *OrchestratorErrorSimulator {
@@ -785,9 +785,9 @@ func NewOrchestratorErrorSimulator(errors []string) *OrchestratorErrorSimulator 
 func (s *OrchestratorErrorSimulator) ShouldSimulateError(operation string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	s.operationCounts[operation]++
-	
+
 	for _, errorType := range s.errors {
 		switch errorType {
 		case "detection_transient_error":
@@ -851,11 +851,11 @@ func setupSuccessfulMocks(detector *mocks.MockRuntimeDetector, installer *mocks.
 		// Add small delay to simulate realistic operation
 		time.Sleep(25 * time.Millisecond)
 		return &types.InstallResult{
-			Success: true,
-			Runtime: runtime,
-			Version: "latest",
-			Path:    "/usr/bin/" + runtime,
-			Method:  "package_manager",
+			Success:  true,
+			Runtime:  runtime,
+			Version:  "latest",
+			Path:     "/usr/bin/" + runtime,
+			Method:   "package_manager",
 			Duration: 25 * time.Millisecond,
 			Messages: []string{fmt.Sprintf("%s installed successfully", runtime)},
 		}, nil
@@ -866,11 +866,11 @@ func setupSuccessfulMocks(detector *mocks.MockRuntimeDetector, installer *mocks.
 		// Add small delay to simulate realistic operation
 		time.Sleep(20 * time.Millisecond)
 		return &types.InstallResult{
-			Success: true,
-			Runtime: server,
-			Version: "latest",
-			Path:    "/usr/local/bin/" + server,
-			Method:  "go_install",
+			Success:  true,
+			Runtime:  server,
+			Version:  "latest",
+			Path:     "/usr/local/bin/" + server,
+			Method:   "go_install",
 			Duration: 20 * time.Millisecond,
 			Messages: []string{fmt.Sprintf("%s server installed successfully", server)},
 		}, nil
@@ -901,7 +901,7 @@ func setupSuccessfulMocks(detector *mocks.MockRuntimeDetector, installer *mocks.
 
 func setupForceMocks(detector *mocks.MockRuntimeDetector, installer *mocks.MockRuntimeInstaller, serverInstaller *mocks.MockServerInstaller, configGen *mocks.MockConfigGenerator) {
 	setupSuccessfulMocks(detector, installer, serverInstaller, configGen)
-	
+
 	// Override for force scenario - more runtimes and servers, some need installation
 	detector.DetectAllFunc = func(ctx context.Context) (*setup.DetectionReport, error) {
 		return &setup.DetectionReport{
@@ -924,7 +924,7 @@ func setupForceMocks(detector *mocks.MockRuntimeDetector, installer *mocks.MockR
 
 func setupSkipVerifyMocks(detector *mocks.MockRuntimeDetector, installer *mocks.MockRuntimeInstaller, serverInstaller *mocks.MockServerInstaller, configGen *mocks.MockConfigGenerator) {
 	setupSuccessfulMocks(detector, installer, serverInstaller, configGen)
-	
+
 	// Simplified setup for skip verify - fewer runtimes, some need installation
 	detector.DetectAllFunc = func(ctx context.Context) (*setup.DetectionReport, error) {
 		return &setup.DetectionReport{
@@ -945,7 +945,7 @@ func setupSkipVerifyMocks(detector *mocks.MockRuntimeDetector, installer *mocks.
 
 func setupPartialFailureMocks(detector *mocks.MockRuntimeDetector, installer *mocks.MockRuntimeInstaller, serverInstaller *mocks.MockServerInstaller, configGen *mocks.MockConfigGenerator) {
 	setupSuccessfulMocks(detector, installer, serverInstaller, configGen)
-	
+
 	// Override detector for partial failure scenario - only 2 runtimes
 	detector.DetectAllFunc = func(ctx context.Context) (*setup.DetectionReport, error) {
 		return &setup.DetectionReport{
@@ -962,23 +962,23 @@ func setupPartialFailureMocks(detector *mocks.MockRuntimeDetector, installer *mo
 			Duration: 50 * time.Millisecond,
 		}, nil
 	}
-	
+
 	// Override installer to simulate partial failures
 	installer.InstallFunc = func(runtime string, options types.InstallOptions) (*types.InstallResult, error) {
 		if runtime == "python" {
 			return &types.InstallResult{
-				Success: false,
-				Runtime: runtime,
-				Errors:  []string{"Mock installation failure"},
+				Success:  false,
+				Runtime:  runtime,
+				Errors:   []string{"Mock installation failure"},
 				Duration: 50 * time.Millisecond,
 			}, nil // Return nil error to allow continuation
 		}
 		return &types.InstallResult{
-			Success: true,
-			Runtime: runtime,
-			Version: "latest",
-			Path:    "/usr/bin/" + runtime,
-			Method:  "package_manager",
+			Success:  true,
+			Runtime:  runtime,
+			Version:  "latest",
+			Path:     "/usr/bin/" + runtime,
+			Method:   "package_manager",
 			Duration: 75 * time.Millisecond,
 			Messages: []string{fmt.Sprintf("%s installed successfully", runtime)},
 		}, nil
@@ -1003,18 +1003,18 @@ func setupParallelMocks(detector *mocks.MockRuntimeDetector, installer *mocks.Mo
 			Duration: 5 * time.Millisecond,
 		}, nil
 	}
-	
+
 	// Add delays to simulate parallel operations
 	installer.InstallFunc = func(runtime string, options types.InstallOptions) (*types.InstallResult, error) {
 		if delay, exists := delays[runtime+"_install"]; exists {
 			time.Sleep(delay)
 		}
 		return &types.InstallResult{
-			Success: true,
-			Runtime: runtime,
-			Version: "latest",
-			Path:    "/usr/bin/" + runtime,
-			Method:  "package_manager",
+			Success:  true,
+			Runtime:  runtime,
+			Version:  "latest",
+			Path:     "/usr/bin/" + runtime,
+			Method:   "package_manager",
 			Duration: 10 * time.Millisecond,
 			Messages: []string{fmt.Sprintf("%s installed successfully", runtime)},
 		}, nil
@@ -1025,11 +1025,11 @@ func setupParallelMocks(detector *mocks.MockRuntimeDetector, installer *mocks.Mo
 			time.Sleep(delay)
 		}
 		return &types.InstallResult{
-			Success: true,
-			Runtime: server,
-			Version: "latest",
-			Path:    "/usr/local/bin/" + server,
-			Method:  "go_install",
+			Success:  true,
+			Runtime:  server,
+			Version:  "latest",
+			Path:     "/usr/local/bin/" + server,
+			Method:   "go_install",
 			Duration: 10 * time.Millisecond,
 			Messages: []string{fmt.Sprintf("%s server installed successfully", server)},
 		}, nil
@@ -1088,11 +1088,11 @@ func setupTimeoutMocks(detector *mocks.MockRuntimeDetector, installer *mocks.Moc
 			time.Sleep(delay)
 		}
 		return &types.InstallResult{
-			Success: true,
-			Runtime: runtime,
-			Version: "latest",
-			Path:    "/usr/bin/" + runtime,
-			Method:  "package_manager",
+			Success:  true,
+			Runtime:  runtime,
+			Version:  "latest",
+			Path:     "/usr/bin/" + runtime,
+			Method:   "package_manager",
 			Duration: 10 * time.Millisecond,
 		}, nil
 	}
@@ -1152,11 +1152,11 @@ func setupErrorRecoveryMocks(detector *mocks.MockRuntimeDetector, installer *moc
 			return nil, fmt.Errorf("simulated installation error")
 		}
 		return &types.InstallResult{
-			Success: true,
-			Runtime: runtime,
-			Version: "latest",
-			Path:    "/usr/bin/" + runtime,
-			Method:  "package_manager",
+			Success:  true,
+			Runtime:  runtime,
+			Version:  "latest",
+			Path:     "/usr/bin/" + runtime,
+			Method:   "package_manager",
 			Duration: 10 * time.Millisecond,
 		}, nil
 	}

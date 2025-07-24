@@ -34,7 +34,7 @@ func TestSetupCommand_MockIntegration(t *testing.T) {
 
 	t.Run("InstallMissingRuntimes", func(t *testing.T) {
 		installOptions := testdata.CreateMockInstallOptions("latest", false)
-		
+
 		for _, runtime := range []string{"go", "python", "nodejs", "java"} {
 			result, err := mockRuntimeInstaller.Install(runtime, installOptions)
 			require.NoError(t, err, "Runtime installation should succeed for "+runtime)
@@ -104,7 +104,7 @@ func TestSetupCommand_ErrorScenarios(t *testing.T) {
 
 	t.Run("InstallationFailure", func(t *testing.T) {
 		mockInstaller := mocks.NewMockRuntimeInstaller()
-		
+
 		mockInstaller.InstallFunc = func(runtime string, options types.InstallOptions) (*types.InstallResult, error) {
 			return testdata.CreateMockInstallResult(runtime, "", "", false), nil
 		}
@@ -119,7 +119,7 @@ func TestSetupCommand_ErrorScenarios(t *testing.T) {
 
 	t.Run("VerificationFailure", func(t *testing.T) {
 		mockInstaller := mocks.NewMockRuntimeInstaller()
-		
+
 		mockInstaller.VerifyFunc = func(runtime string) (*types.VerificationResult, error) {
 			return testdata.CreateMockVerificationResult(runtime, "", "", false, false), nil
 		}
@@ -133,7 +133,7 @@ func TestSetupCommand_ErrorScenarios(t *testing.T) {
 
 	t.Run("ConfigValidationFailure", func(t *testing.T) {
 		mockGenerator := mocks.NewMockConfigGenerator()
-		
+
 		invalidConfig := testdata.CreateMockGatewayConfig(0, []config.ServerConfig{})
 		result, err := mockGenerator.ValidateConfig(invalidConfig)
 

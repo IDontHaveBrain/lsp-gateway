@@ -88,13 +88,13 @@ func TestSetupIntegration_EndToEndWorkflow(t *testing.T) {
 				Timeout:    100 * time.Millisecond, // Very short timeout
 				SkipVerify: false,
 			},
-			expectedRuntimes:  []string{},
-			expectedServers:   []string{},
-			expectFailure:     true,
-			failurePhase:      "timeout",
-			minimumSetupTime:  50 * time.Millisecond,
-			maximumSetupTime:  300 * time.Millisecond,
-			validateConfigAfter: false,
+			expectedRuntimes:     []string{},
+			expectedServers:      []string{},
+			expectFailure:        true,
+			failurePhase:         "timeout",
+			minimumSetupTime:     50 * time.Millisecond,
+			maximumSetupTime:     300 * time.Millisecond,
+			validateConfigAfter:  false,
 			validateInstallation: false,
 		},
 	}
@@ -115,10 +115,10 @@ func TestSetupIntegration_EndToEndWorkflow(t *testing.T) {
 			// Execute setup workflow
 			startTime := time.Now()
 			result, err := orchestrator.RunFullSetup(ctx, &setup.SetupOptions{
-				Force:                tt.setupOptions.Force,
-				VerboseLogging:       tt.setupOptions.Verbose,
-				SkipVerification:     tt.setupOptions.SkipVerify,
-				ConfigOutputPath:     testEnv.ConfigPath(),
+				Force:                 tt.setupOptions.Force,
+				VerboseLogging:        tt.setupOptions.Verbose,
+				SkipVerification:      tt.setupOptions.SkipVerify,
+				ConfigOutputPath:      testEnv.ConfigPath(),
 				ValidateInstallations: true,
 			})
 			duration := time.Since(startTime)
@@ -185,44 +185,44 @@ func TestSetupIntegration_ErrorRecoveryMechanisms(t *testing.T) {
 	}
 
 	tests := []struct {
-		name                string
-		simulateFailures    []string
-		expectedRecoveries  int
-		expectedRetries     int
+		name                    string
+		simulateFailures        []string
+		expectedRecoveries      int
+		expectedRetries         int
 		shouldEventuallySucceed bool
-		maxRetryTime        time.Duration
+		maxRetryTime            time.Duration
 	}{
 		{
-			name:                "RecoverFromTransientDetectionFailure",
-			simulateFailures:    []string{"detection_transient"},
-			expectedRecoveries:  1,
-			expectedRetries:     2,
+			name:                    "RecoverFromTransientDetectionFailure",
+			simulateFailures:        []string{"detection_transient"},
+			expectedRecoveries:      1,
+			expectedRetries:         2,
 			shouldEventuallySucceed: true,
-			maxRetryTime:        30 * time.Second,
+			maxRetryTime:            30 * time.Second,
 		},
 		{
-			name:                "RecoverFromPartialInstallationFailure",
-			simulateFailures:    []string{"install_python_once"},
-			expectedRecoveries:  1,
-			expectedRetries:     1,
+			name:                    "RecoverFromPartialInstallationFailure",
+			simulateFailures:        []string{"install_python_once"},
+			expectedRecoveries:      1,
+			expectedRetries:         1,
 			shouldEventuallySucceed: true,
-			maxRetryTime:        45 * time.Second,
+			maxRetryTime:            45 * time.Second,
 		},
 		{
-			name:                "MultipleFailuresWithRecovery",
-			simulateFailures:    []string{"detection_transient", "config_generation_once"},
-			expectedRecoveries:  2,
-			expectedRetries:     3,
+			name:                    "MultipleFailuresWithRecovery",
+			simulateFailures:        []string{"detection_transient", "config_generation_once"},
+			expectedRecoveries:      2,
+			expectedRetries:         3,
 			shouldEventuallySucceed: true,
-			maxRetryTime:        60 * time.Second,
+			maxRetryTime:            60 * time.Second,
 		},
 		{
-			name:                "PermanentFailureNoRecovery",
-			simulateFailures:    []string{"detection_permanent"},
-			expectedRecoveries:  0,
-			expectedRetries:     3,
+			name:                    "PermanentFailureNoRecovery",
+			simulateFailures:        []string{"detection_permanent"},
+			expectedRecoveries:      0,
+			expectedRetries:         3,
 			shouldEventuallySucceed: false,
-			maxRetryTime:        20 * time.Second,
+			maxRetryTime:            20 * time.Second,
 		},
 	}
 
@@ -243,12 +243,12 @@ func TestSetupIntegration_ErrorRecoveryMechanisms(t *testing.T) {
 			// Execute setup with retry logic built into the options
 			startTime := time.Now()
 			result, err := orchestrator.RunFullSetup(ctx, &setup.SetupOptions{
-				Force:               false,
-				VerboseLogging:      true,
-				SkipVerification:    false,
-				ConfigOutputPath:    testEnv.ConfigPath(),
-				AutoRetryFailures:   true,
-				MaxRetryAttempts:    3,
+				Force:                 false,
+				VerboseLogging:        true,
+				SkipVerification:      false,
+				ConfigOutputPath:      testEnv.ConfigPath(),
+				AutoRetryFailures:     true,
+				MaxRetryAttempts:      3,
 				ValidateInstallations: true,
 			})
 			duration := time.Since(startTime)
@@ -403,8 +403,8 @@ func (env *IntegrationTestEnvironment) Cleanup() {
 
 // FailureSimulator simulates various failure scenarios for testing error recovery
 type FailureSimulator struct {
-	failures     []string
-	retryCount   int
+	failures      []string
+	retryCount    int
 	recoveryCount int
 	attemptCounts map[string]int
 }
@@ -418,7 +418,7 @@ func NewFailureSimulator(failures []string) *FailureSimulator {
 
 func (fs *FailureSimulator) ShouldSimulateFailure(operation string) bool {
 	fs.attemptCounts[operation]++
-	
+
 	for _, failure := range fs.failures {
 		switch failure {
 		case "detection_transient":

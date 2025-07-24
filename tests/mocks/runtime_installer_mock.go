@@ -6,19 +6,19 @@ import (
 )
 
 type MockRuntimeInstaller struct {
-	InstallFunc                 func(runtime string, options types.InstallOptions) (*types.InstallResult, error)
-	VerifyFunc                  func(runtime string) (*types.VerificationResult, error)
-	GetSupportedRuntimesFunc    func() []string
-	GetRuntimeInfoFunc          func(runtime string) (*types.RuntimeDefinition, error)
-	ValidateVersionFunc         func(runtime, minVersion string) (*types.VersionValidationResult, error)
-	GetPlatformStrategyFunc     func(platform string) types.RuntimePlatformStrategy
+	InstallFunc              func(runtime string, options types.InstallOptions) (*types.InstallResult, error)
+	VerifyFunc               func(runtime string) (*types.VerificationResult, error)
+	GetSupportedRuntimesFunc func() []string
+	GetRuntimeInfoFunc       func(runtime string) (*types.RuntimeDefinition, error)
+	ValidateVersionFunc      func(runtime, minVersion string) (*types.VersionValidationResult, error)
+	GetPlatformStrategyFunc  func(platform string) types.RuntimePlatformStrategy
 
-	InstallCalls                []InstallCall
-	VerifyCalls                 []string
-	GetSupportedRuntimesCalls   int
-	GetRuntimeInfoCalls         []string
-	ValidateVersionCalls        []ValidateVersionCall
-	GetPlatformStrategyCalls    []string
+	InstallCalls              []InstallCall
+	VerifyCalls               []string
+	GetSupportedRuntimesCalls int
+	GetRuntimeInfoCalls       []string
+	ValidateVersionCalls      []ValidateVersionCall
+	GetPlatformStrategyCalls  []string
 }
 
 type InstallCall struct {
@@ -27,17 +27,17 @@ type InstallCall struct {
 }
 
 type ValidateVersionCall struct {
-	Runtime   string
+	Runtime    string
 	MinVersion string
 }
 
 func NewMockRuntimeInstaller() *MockRuntimeInstaller {
 	return &MockRuntimeInstaller{
-		InstallCalls:                make([]InstallCall, 0),
-		VerifyCalls:                 make([]string, 0),
-		GetRuntimeInfoCalls:         make([]string, 0),
-		ValidateVersionCalls:        make([]ValidateVersionCall, 0),
-		GetPlatformStrategyCalls:    make([]string, 0),
+		InstallCalls:             make([]InstallCall, 0),
+		VerifyCalls:              make([]string, 0),
+		GetRuntimeInfoCalls:      make([]string, 0),
+		ValidateVersionCalls:     make([]ValidateVersionCall, 0),
+		GetPlatformStrategyCalls: make([]string, 0),
 	}
 }
 
@@ -161,13 +161,13 @@ func (m *MockRuntimeInstaller) Reset() {
 }
 
 type MockRuntimePlatformStrategy struct {
-	InstallRuntimeFunc      func(runtime string, options types.InstallOptions) (*types.InstallResult, error)
-	VerifyRuntimeFunc       func(runtime string) (*types.VerificationResult, error)
-	GetInstallCommandFunc   func(runtime, version string) ([]string, error)
+	InstallRuntimeFunc    func(runtime string, options types.InstallOptions) (*types.InstallResult, error)
+	VerifyRuntimeFunc     func(runtime string) (*types.VerificationResult, error)
+	GetInstallCommandFunc func(runtime, version string) ([]string, error)
 
-	InstallRuntimeCalls     []InstallCall
-	VerifyRuntimeCalls      []string
-	GetInstallCommandCalls  []GetInstallCommandCall
+	InstallRuntimeCalls    []InstallCall
+	VerifyRuntimeCalls     []string
+	GetInstallCommandCalls []GetInstallCommandCall
 }
 
 type GetInstallCommandCall struct {

@@ -16,17 +16,17 @@ import (
 
 // SetupResult mirrors the structure from setup.go for testing
 type SetupResult struct {
-	Success           bool                                `json:"success"`
-	Duration          time.Duration                       `json:"duration"`
-	RuntimesDetected  map[string]*setup.RuntimeInfo       `json:"runtimes_detected,omitempty"`
+	Success           bool                            `json:"success"`
+	Duration          time.Duration                   `json:"duration"`
+	RuntimesDetected  map[string]*setup.RuntimeInfo   `json:"runtimes_detected,omitempty"`
 	RuntimesInstalled map[string]*types.InstallResult `json:"runtimes_installed,omitempty"`
 	ServersInstalled  map[string]*types.InstallResult `json:"servers_installed,omitempty"`
-	ConfigGenerated   bool                                `json:"config_generated"`
-	ConfigPath        string                              `json:"config_path,omitempty"`
-	Issues            []string                            `json:"issues,omitempty"`
-	Warnings          []string                            `json:"warnings,omitempty"`
-	Messages          []string                            `json:"messages,omitempty"`
-	Summary           *SetupSummary                       `json:"summary,omitempty"`
+	ConfigGenerated   bool                            `json:"config_generated"`
+	ConfigPath        string                          `json:"config_path,omitempty"`
+	Issues            []string                        `json:"issues,omitempty"`
+	Warnings          []string                        `json:"warnings,omitempty"`
+	Messages          []string                        `json:"messages,omitempty"`
+	Summary           *SetupSummary                   `json:"summary,omitempty"`
 }
 
 // SetupSummary mirrors the structure from setup.go for testing
@@ -53,16 +53,16 @@ func TestOutputSetupResultsJSON(t *testing.T) {
 		{
 			name: "SuccessfulSetup",
 			result: &SetupResult{
-				Success:          true,
-				Duration:         2 * time.Minute,
-				ConfigGenerated:  true,
-				ConfigPath:       "config.yaml",
-				RuntimesDetected: createMockRuntimesDetected(),
+				Success:           true,
+				Duration:          2 * time.Minute,
+				ConfigGenerated:   true,
+				ConfigPath:        "config.yaml",
+				RuntimesDetected:  createMockRuntimesDetected(),
 				RuntimesInstalled: createMockRuntimesInstalled(),
 				ServersInstalled:  createMockServersInstalled(),
-				Issues:           []string{},
-				Warnings:         []string{},
-				Messages:         []string{"Setup completed successfully"},
+				Issues:            []string{},
+				Warnings:          []string{},
+				Messages:          []string{"Setup completed successfully"},
 				Summary: &SetupSummary{
 					TotalRuntimes:        4,
 					RuntimesInstalled:    2,
@@ -85,20 +85,20 @@ func TestOutputSetupResultsJSON(t *testing.T) {
 		{
 			name: "SetupWithIssues",
 			result: &SetupResult{
-				Success:          false,
-				Duration:         30 * time.Second,
-				ConfigGenerated:  false,
-				RuntimesDetected: createMockRuntimesDetected(),
+				Success:           false,
+				Duration:          30 * time.Second,
+				ConfigGenerated:   false,
+				RuntimesDetected:  createMockRuntimesDetected(),
 				RuntimesInstalled: createMockRuntimesInstalled(),
 				ServersInstalled:  map[string]*types.InstallResult{},
-				Issues:           []string{"Runtime installation failed", "Server setup failed"},
-				Warnings:         []string{"Some components may not work properly"},
-				Messages:         []string{},
+				Issues:            []string{"Runtime installation failed", "Server setup failed"},
+				Warnings:          []string{"Some components may not work properly"},
+				Messages:          []string{},
 				Summary: &SetupSummary{
-					TotalRuntimes:   4,
-					RuntimesFailed:  2,
-					TotalServers:    4,
-					ServersFailed:   2,
+					TotalRuntimes:  4,
+					RuntimesFailed: 2,
+					TotalServers:   4,
+					ServersFailed:  2,
 				},
 			},
 			expectedFields: []string{"success", "duration", "issues", "warnings", "summary"},
@@ -137,12 +137,12 @@ func TestOutputSetupResultsJSON(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Test JSON marshaling
 			jsonData, err := json.MarshalIndent(tt.result, "", "  ")
-			
+
 			if tt.shouldError {
 				assert.Error(t, err, "JSON marshaling should fail")
 				return
 			}
-			
+
 			require.NoError(t, err, "JSON marshaling should succeed")
 			assert.NotEmpty(t, jsonData, "JSON output should not be empty")
 
@@ -173,23 +173,23 @@ func TestOutputSetupResultsJSON(t *testing.T) {
 // TestOutputSetupResultsHuman tests human-readable output formatting
 func TestOutputSetupResultsHuman(t *testing.T) {
 	tests := []struct {
-		name             string
-		result           *SetupResult
-		expectedSections []string
-		expectedContent  []string
+		name              string
+		result            *SetupResult
+		expectedSections  []string
+		expectedContent   []string
 		unexpectedContent []string
 	}{
 		{
 			name: "SuccessfulSetup",
 			result: &SetupResult{
-				Success:          true,
-				Duration:         2 * time.Minute,
-				ConfigGenerated:  true,
-				ConfigPath:       "config.yaml",
-				RuntimesDetected: createMockRuntimesDetected(),
+				Success:           true,
+				Duration:          2 * time.Minute,
+				ConfigGenerated:   true,
+				ConfigPath:        "config.yaml",
+				RuntimesDetected:  createMockRuntimesDetected(),
 				RuntimesInstalled: createMockRuntimesInstalled(),
 				ServersInstalled:  createMockServersInstalled(),
-				Messages:         []string{"Setup completed successfully", "Run 'lsp-gateway server' to start"},
+				Messages:          []string{"Setup completed successfully", "Run 'lsp-gateway server' to start"},
 				Summary: &SetupSummary{
 					TotalRuntimes:        4,
 					RuntimesInstalled:    2,
@@ -225,20 +225,20 @@ func TestOutputSetupResultsHuman(t *testing.T) {
 		{
 			name: "SetupWithIssues",
 			result: &SetupResult{
-				Success:          false,
-				Duration:         45 * time.Second,
-				ConfigGenerated:  false,
-				RuntimesDetected: createMockRuntimesDetected(),
+				Success:           false,
+				Duration:          45 * time.Second,
+				ConfigGenerated:   false,
+				RuntimesDetected:  createMockRuntimesDetected(),
 				RuntimesInstalled: createMockRuntimesInstalled(),
-				Issues:           []string{"Python runtime installation failed", "TypeScript server setup failed"},
-				Warnings:         []string{"Some language features may be limited"},
+				Issues:            []string{"Python runtime installation failed", "TypeScript server setup failed"},
+				Warnings:          []string{"Some language features may be limited"},
 				Summary: &SetupSummary{
-					TotalRuntimes:   4,
+					TotalRuntimes:     4,
 					RuntimesInstalled: 2,
-					RuntimesFailed:  2,
-					TotalServers:    4,
-					ServersInstalled: 2,
-					ServersFailed:   2,
+					RuntimesFailed:    2,
+					TotalServers:      4,
+					ServersInstalled:  2,
+					ServersFailed:     2,
 				},
 			},
 			expectedSections: []string{
@@ -267,15 +267,15 @@ func TestOutputSetupResultsHuman(t *testing.T) {
 		{
 			name: "PartialSuccess",
 			result: &SetupResult{
-				Success:          true,
-				Duration:         90 * time.Second,
-				ConfigGenerated:  true,
-				ConfigPath:       "custom-config.yaml",
-				RuntimesDetected: createMockRuntimesDetected(),
+				Success:           true,
+				Duration:          90 * time.Second,
+				ConfigGenerated:   true,
+				ConfigPath:        "custom-config.yaml",
+				RuntimesDetected:  createMockRuntimesDetected(),
 				RuntimesInstalled: createMockRuntimesInstalled(),
 				ServersInstalled:  createMockServersInstalled(),
-				Warnings:         []string{"Go version is outdated but compatible"},
-				Messages:         []string{"Setup completed with warnings"},
+				Warnings:          []string{"Go version is outdated but compatible"},
+				Messages:          []string{"Setup completed with warnings"},
 				Summary: &SetupSummary{
 					TotalRuntimes:        4,
 					RuntimesInstalled:    3,
@@ -333,7 +333,7 @@ func TestOutputSetupResultsHuman(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Simulate human-readable output formatting
 			output := formatSetupResultsHuman(tt.result)
-			
+
 			// Check expected sections
 			for _, section := range tt.expectedSections {
 				assert.Contains(t, output, section, fmt.Sprintf("Output should contain section: %s", section))
@@ -379,8 +379,8 @@ func TestJSONValidation(t *testing.T) {
 
 	t.Run("SpecialCharacters", func(t *testing.T) {
 		result := &SetupResult{
-			Success: false,
-			Issues:  []string{"Error with unicode: ✗", "Path with spaces: /Program Files/test"},
+			Success:  false,
+			Issues:   []string{"Error with unicode: ✗", "Path with spaces: /Program Files/test"},
 			Messages: []string{"Special chars: <>\"&'"},
 			Summary:  &SetupSummary{},
 		}
@@ -463,7 +463,7 @@ func TestJSONValidation(t *testing.T) {
 
 		// Check that omitempty fields are handled correctly
 		assert.Equal(t, true, parsed["success"], "Success should be present")
-		
+
 		// Note: Fields with omitempty and nil/empty values might not be present
 		if runtimesInstalled, exists := parsed["runtimes_installed"]; exists {
 			assert.NotNil(t, runtimesInstalled, "If present, runtimes_installed should not be nil")
@@ -515,7 +515,7 @@ func TestHumanOutputFormatting(t *testing.T) {
 		}
 
 		output := formatSetupResultsHuman(result)
-		
+
 		// Check runtime counters
 		assert.Contains(t, output, "🔧 Runtimes: 5/6 successfully configured", "Should show runtime success ratio")
 		assert.Contains(t, output, "Newly installed: 3", "Should show newly installed runtimes")
@@ -556,10 +556,10 @@ func TestHumanOutputFormatting(t *testing.T) {
 		}
 
 		output := formatSetupResultsHuman(result)
-		
+
 		dividerCount := strings.Count(output, "=====================================")
 		assert.GreaterOrEqual(t, dividerCount, 2, "Should have proper section dividers")
-		
+
 		assert.Contains(t, output, "LSP Gateway Setup Summary", "Should have main title")
 	})
 }
@@ -569,7 +569,7 @@ func TestOutputErrorHandling(t *testing.T) {
 	t.Run("JSONMarshalingError", func(t *testing.T) {
 		// Create a result with circular reference (would cause JSON marshal error in real scenario)
 		// For testing, we simulate this by testing the error handling path
-		
+
 		// This test verifies that JSON marshaling errors are handled gracefully
 		// In actual implementation, this would be caught in outputSetupResultsJSON function
 		result := &SetupResult{
@@ -586,9 +586,9 @@ func TestOutputErrorHandling(t *testing.T) {
 		// Test with potentially problematic values
 		result := &SetupResult{
 			Success:  true,
-			Duration: -1 * time.Second, // Negative duration
+			Duration: -1 * time.Second,                // Negative duration
 			Issues:   []string{"", "Valid issue", ""}, // Empty strings
-			Messages: nil, // Nil slice
+			Messages: nil,                             // Nil slice
 			Summary:  &SetupSummary{},
 		}
 
@@ -603,31 +603,31 @@ func TestOutputErrorHandling(t *testing.T) {
 func createMockRuntimesDetected() map[string]*setup.RuntimeInfo {
 	return map[string]*setup.RuntimeInfo{
 		"go": {
-			Name:      "go",
-			Installed: true,
-			Version:   "1.21.0",
-			Path:      "/usr/local/go/bin/go",
+			Name:       "go",
+			Installed:  true,
+			Version:    "1.21.0",
+			Path:       "/usr/local/go/bin/go",
 			Compatible: true,
 		},
 		"python": {
-			Name:      "python",
-			Installed: true,
-			Version:   "3.11.0",
-			Path:      "/usr/bin/python3",
+			Name:       "python",
+			Installed:  true,
+			Version:    "3.11.0",
+			Path:       "/usr/bin/python3",
 			Compatible: true,
 		},
 		"nodejs": {
-			Name:      "nodejs",
-			Installed: false,
-			Version:   "",
-			Path:      "",
+			Name:       "nodejs",
+			Installed:  false,
+			Version:    "",
+			Path:       "",
 			Compatible: false,
 		},
 		"java": {
-			Name:      "java",
-			Installed: true,
-			Version:   "17.0.0",
-			Path:      "/usr/bin/java",
+			Name:       "java",
+			Installed:  true,
+			Version:    "17.0.0",
+			Path:       "/usr/bin/java",
 			Compatible: true,
 		},
 	}
@@ -636,30 +636,30 @@ func createMockRuntimesDetected() map[string]*setup.RuntimeInfo {
 func createMockRuntimesInstalled() map[string]*types.InstallResult {
 	return map[string]*types.InstallResult{
 		"go": {
-			Success: true,
-			Runtime: "go",
-			Version: "1.21.0",
-			Path:    "/usr/local/go/bin/go",
+			Success:  true,
+			Runtime:  "go",
+			Version:  "1.21.0",
+			Path:     "/usr/local/go/bin/go",
 			Duration: 30 * time.Second,
-			Method:  "already_installed",
+			Method:   "already_installed",
 			Messages: []string{"Go runtime already installed and verified"},
 		},
 		"python": {
-			Success: true,
-			Runtime: "python",
-			Version: "3.11.0",
-			Path:    "/usr/bin/python3",
+			Success:  true,
+			Runtime:  "python",
+			Version:  "3.11.0",
+			Path:     "/usr/bin/python3",
 			Duration: 45 * time.Second,
-			Method:  "package_manager",
+			Method:   "package_manager",
 			Messages: []string{"Python installed via package manager"},
 		},
 		"nodejs": {
-			Success: true,
-			Runtime: "nodejs",
-			Version: "18.17.0",
-			Path:    "/usr/bin/node",
+			Success:  true,
+			Runtime:  "nodejs",
+			Version:  "18.17.0",
+			Path:     "/usr/bin/node",
 			Duration: 120 * time.Second,
-			Method:  "package_manager",
+			Method:   "package_manager",
 			Messages: []string{"Node.js installed successfully"},
 		},
 	}
@@ -668,39 +668,39 @@ func createMockRuntimesInstalled() map[string]*types.InstallResult {
 func createMockServersInstalled() map[string]*types.InstallResult {
 	return map[string]*types.InstallResult{
 		"gopls": {
-			Success: true,
-			Runtime: "gopls",
-			Version: "0.14.0",
-			Path:    "/home/user/go/bin/gopls",
+			Success:  true,
+			Runtime:  "gopls",
+			Version:  "0.14.0",
+			Path:     "/home/user/go/bin/gopls",
 			Duration: 20 * time.Second,
-			Method:  "go_install",
+			Method:   "go_install",
 			Messages: []string{"gopls installed via go install"},
 		},
 		"pylsp": {
-			Success: true,
-			Runtime: "pylsp",
-			Version: "1.7.0",
-			Path:    "/usr/local/bin/pylsp",
+			Success:  true,
+			Runtime:  "pylsp",
+			Version:  "1.7.0",
+			Path:     "/usr/local/bin/pylsp",
 			Duration: 35 * time.Second,
-			Method:  "pip_install",
+			Method:   "pip_install",
 			Messages: []string{"pylsp installed via pip"},
 		},
 		"typescript-language-server": {
-			Success: true,
-			Runtime: "typescript-language-server",
-			Version: "4.1.0",
-			Path:    "/usr/local/bin/typescript-language-server",
+			Success:  true,
+			Runtime:  "typescript-language-server",
+			Version:  "4.1.0",
+			Path:     "/usr/local/bin/typescript-language-server",
 			Duration: 25 * time.Second,
-			Method:  "npm_install",
+			Method:   "npm_install",
 			Messages: []string{"typescript-language-server installed via npm"},
 		},
 		"jdtls": {
-			Success: true,
-			Runtime: "jdtls",
-			Version: "1.26.0",
-			Path:    "/opt/jdtls/bin/jdtls",
+			Success:  true,
+			Runtime:  "jdtls",
+			Version:  "1.26.0",
+			Path:     "/opt/jdtls/bin/jdtls",
 			Duration: 60 * time.Second,
-			Method:  "archive_download",
+			Method:   "archive_download",
 			Messages: []string{"jdtls installed via archive download"},
 		},
 	}

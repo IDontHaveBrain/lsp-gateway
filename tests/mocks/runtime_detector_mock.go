@@ -43,9 +43,9 @@ func (m *MockRuntimeDetector) DetectGo(ctx context.Context) (*setup.RuntimeInfo,
 		return m.DetectGoFunc(ctx)
 	}
 	return &setup.RuntimeInfo{
-		Name:         "go",
-		Installed:    true,
-		Version:      "1.24.0",
+		Name:      "go",
+		Installed: true,
+		Version:   "1.24.0",
 		ParsedVersion: &setup.Version{
 			Major:    1,
 			Minor:    24,
@@ -71,9 +71,9 @@ func (m *MockRuntimeDetector) DetectPython(ctx context.Context) (*setup.RuntimeI
 		return m.DetectPythonFunc(ctx)
 	}
 	return &setup.RuntimeInfo{
-		Name:         "python",
-		Installed:    true,
-		Version:      "3.11.0",
+		Name:      "python",
+		Installed: true,
+		Version:   "3.11.0",
 		ParsedVersion: &setup.Version{
 			Major:    3,
 			Minor:    11,
@@ -99,9 +99,9 @@ func (m *MockRuntimeDetector) DetectNodejs(ctx context.Context) (*setup.RuntimeI
 		return m.DetectNodejsFunc(ctx)
 	}
 	return &setup.RuntimeInfo{
-		Name:         "nodejs",
-		Installed:    true,
-		Version:      "20.0.0",
+		Name:      "nodejs",
+		Installed: true,
+		Version:   "20.0.0",
 		ParsedVersion: &setup.Version{
 			Major:    20,
 			Minor:    0,
@@ -127,9 +127,9 @@ func (m *MockRuntimeDetector) DetectJava(ctx context.Context) (*setup.RuntimeInf
 		return m.DetectJavaFunc(ctx)
 	}
 	return &setup.RuntimeInfo{
-		Name:         "java",
-		Installed:    true,
-		Version:      "17.0.0",
+		Name:      "java",
+		Installed: true,
+		Version:   "17.0.0",
 		ParsedVersion: &setup.Version{
 			Major:    17,
 			Minor:    0,

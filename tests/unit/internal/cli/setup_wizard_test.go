@@ -78,12 +78,12 @@ func TestRunSetupWizard_InteractiveFlow(t *testing.T) {
 		{
 			name: "FullWizardFlow_AllYes",
 			userInputs: []string{
-				"y\n",    // Ready to begin
-				"y\n",    // Install all runtimes
-				"y\n",    // Install all servers
-				"n\n",    // No custom config path
-				"n\n",    // No advanced settings
-				"y\n",    // Proceed with installation
+				"y\n", // Ready to begin
+				"y\n", // Install all runtimes
+				"y\n", // Install all servers
+				"n\n", // No custom config path
+				"n\n", // No advanced settings
+				"y\n", // Proceed with installation
 			},
 			expectedSteps: []string{
 				"Welcome to the LSP Gateway Setup Wizard",
@@ -99,12 +99,12 @@ func TestRunSetupWizard_InteractiveFlow(t *testing.T) {
 		{
 			name: "FullWizardFlow_Verbose",
 			userInputs: []string{
-				"y\n",    // Ready to begin
-				"y\n",    // Install all runtimes
-				"y\n",    // Install all servers
-				"n\n",    // No custom config path
-				"y\n",    // Advanced settings
-				"y\n",    // Proceed with installation
+				"y\n", // Ready to begin
+				"y\n", // Install all runtimes
+				"y\n", // Install all servers
+				"n\n", // No custom config path
+				"y\n", // Advanced settings
+				"y\n", // Proceed with installation
 			},
 			expectedSteps: []string{
 				"Welcome to the LSP Gateway Setup Wizard",
@@ -133,12 +133,12 @@ func TestRunSetupWizard_InteractiveFlow(t *testing.T) {
 		{
 			name: "WizardCancellation_AtReview",
 			userInputs: []string{
-				"y\n",    // Ready to begin
-				"y\n",    // Install all runtimes
-				"y\n",    // Install all servers
-				"n\n",    // No custom config path
-				"n\n",    // No advanced settings
-				"n\n",    // Do NOT proceed with installation
+				"y\n", // Ready to begin
+				"y\n", // Install all runtimes
+				"y\n", // Install all servers
+				"n\n", // No custom config path
+				"n\n", // No advanced settings
+				"n\n", // Do NOT proceed with installation
 			},
 			expectedSteps: []string{
 				"Welcome to the LSP Gateway Setup Wizard",
@@ -153,15 +153,15 @@ func TestRunSetupWizard_InteractiveFlow(t *testing.T) {
 		{
 			name: "CustomSelections",
 			userInputs: []string{
-				"y\n",    // Ready to begin
-				"n\n",    // Don't install all runtimes
-				"1,3\n",  // Select Go and Node.js
-				"n\n",    // Don't install all servers
-				"1,2\n",  // Select gopls and pylsp
-				"y\n",    // Custom config path
+				"y\n",                  // Ready to begin
+				"n\n",                  // Don't install all runtimes
+				"1,3\n",                // Select Go and Node.js
+				"n\n",                  // Don't install all servers
+				"1,2\n",                // Select gopls and pylsp
+				"y\n",                  // Custom config path
 				"custom-config.yaml\n", // Custom path
-				"n\n",    // No advanced settings
-				"y\n",    // Proceed with installation
+				"n\n",                  // No advanced settings
+				"y\n",                  // Proceed with installation
 			},
 			expectedSteps: []string{
 				"Welcome to the LSP Gateway Setup Wizard",
@@ -242,14 +242,14 @@ func TestWizardStepFunctions(t *testing.T) {
 	t.Run("WizardWelcome", func(t *testing.T) {
 		// Test welcome step with various inputs
 		inputs := []struct {
-			input        string
+			input         string
 			shouldProceed bool
 		}{
 			{"y\n", true},
 			{"yes\n", true},
 			{"Y\n", true},
 			{"YES\n", true},
-			{"\n", true},  // Default is true
+			{"\n", true}, // Default is true
 			{"n\n", false},
 			{"no\n", false},
 			{"N\n", false},
@@ -292,7 +292,7 @@ func TestWizardStepFunctions(t *testing.T) {
 
 				// Test would call wizardWelcome function here
 				// Since it's not exported, we test the behavior through the main wizard
-				
+
 				// For now, just verify the input processing logic would work
 				assert.True(t, true, "Input processing test placeholder")
 			})
@@ -332,12 +332,12 @@ func TestPromptFunctions(t *testing.T) {
 
 	t.Run("PromptSelection_Behavior", func(t *testing.T) {
 		tests := []struct {
-			name           string
-			input          string
-			options        []string
-			allowMultiple  bool
+			name            string
+			input           string
+			options         []string
+			allowMultiple   bool
 			expectedIndices []int
-			shouldError    bool
+			shouldError     bool
 		}{
 			{"SingleSelection", "1\n", []string{"option1", "option2"}, false, []int{0}, false},
 			{"MultipleSelection", "1,2\n", []string{"option1", "option2"}, true, []int{0, 1}, false},
@@ -416,7 +416,7 @@ func TestWizardErrorHandling(t *testing.T) {
 	t.Run("ContextCancellation", func(t *testing.T) {
 		// Create cancellable context
 		ctx, cancel := context.WithCancel(context.Background())
-		
+
 		// Mock stdin with delayed input
 		oldStdin := os.Stdin
 		r, w, _ := os.Pipe()
@@ -460,7 +460,7 @@ func TestWizardStateManagement(t *testing.T) {
 	t.Run("StateInitialization", func(t *testing.T) {
 		// Test wizard state structure initialization
 		// This would test the WizardState struct and its initialization
-		
+
 		state := struct {
 			SelectedRuntimes map[string]bool
 			SelectedServers  map[string]bool
@@ -567,7 +567,7 @@ func TestWizardIntegration(t *testing.T) {
 
 		// Execute wizard command
 		err := cmd.RunE(cmd, []string{})
-		
+
 		// The test may complete successfully or fail depending on mock integration
 		// We primarily test that the wizard flow executes without panicking
 		if err != nil {

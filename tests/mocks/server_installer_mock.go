@@ -6,19 +6,19 @@ import (
 )
 
 type MockServerInstaller struct {
-	InstallFunc                func(server string, options types.ServerInstallOptions) (*types.InstallResult, error)
-	VerifyFunc                 func(server string) (*types.VerificationResult, error)
-	GetSupportedServersFunc    func() []string
-	GetServerInfoFunc          func(server string) (*types.ServerDefinition, error)
-	ValidateDependenciesFunc   func(server string) (*types.DependencyValidationResult, error)
-	GetPlatformStrategyFunc    func(platform string) types.ServerPlatformStrategy
+	InstallFunc              func(server string, options types.ServerInstallOptions) (*types.InstallResult, error)
+	VerifyFunc               func(server string) (*types.VerificationResult, error)
+	GetSupportedServersFunc  func() []string
+	GetServerInfoFunc        func(server string) (*types.ServerDefinition, error)
+	ValidateDependenciesFunc func(server string) (*types.DependencyValidationResult, error)
+	GetPlatformStrategyFunc  func(platform string) types.ServerPlatformStrategy
 
-	InstallCalls               []ServerInstallCall
-	VerifyCalls                []string
-	GetSupportedServersCalls   int
-	GetServerInfoCalls         []string
-	ValidateDependenciesCalls  []string
-	GetPlatformStrategyCalls   []string
+	InstallCalls              []ServerInstallCall
+	VerifyCalls               []string
+	GetSupportedServersCalls  int
+	GetServerInfoCalls        []string
+	ValidateDependenciesCalls []string
+	GetPlatformStrategyCalls  []string
 }
 
 type ServerInstallCall struct {
@@ -28,11 +28,11 @@ type ServerInstallCall struct {
 
 func NewMockServerInstaller() *MockServerInstaller {
 	return &MockServerInstaller{
-		InstallCalls:               make([]ServerInstallCall, 0),
-		VerifyCalls:                make([]string, 0),
-		GetServerInfoCalls:         make([]string, 0),
-		ValidateDependenciesCalls:  make([]string, 0),
-		GetPlatformStrategyCalls:   make([]string, 0),
+		InstallCalls:              make([]ServerInstallCall, 0),
+		VerifyCalls:               make([]string, 0),
+		GetServerInfoCalls:        make([]string, 0),
+		ValidateDependenciesCalls: make([]string, 0),
+		GetPlatformStrategyCalls:  make([]string, 0),
 	}
 }
 
@@ -267,13 +267,13 @@ func (m *MockServerInstaller) Reset() {
 }
 
 type MockServerPlatformStrategy struct {
-	InstallServerFunc       func(server string, options types.ServerInstallOptions) (*types.InstallResult, error)
-	VerifyServerFunc        func(server string) (*types.VerificationResult, error)
-	GetInstallCommandFunc   func(server, version string) ([]string, error)
+	InstallServerFunc     func(server string, options types.ServerInstallOptions) (*types.InstallResult, error)
+	VerifyServerFunc      func(server string) (*types.VerificationResult, error)
+	GetInstallCommandFunc func(server, version string) ([]string, error)
 
-	InstallServerCalls      []ServerInstallCall
-	VerifyServerCalls       []string
-	GetInstallCommandCalls  []GetServerInstallCommandCall
+	InstallServerCalls     []ServerInstallCall
+	VerifyServerCalls      []string
+	GetInstallCommandCalls []GetServerInstallCommandCall
 }
 
 type GetServerInstallCommandCall struct {

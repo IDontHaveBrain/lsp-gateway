@@ -350,48 +350,48 @@ func TestRunSetupAll_TimeoutHandling(t *testing.T) {
 // TestRunSetupAll_FlagCombinations tests various flag combinations
 func TestRunSetupAll_FlagCombinations(t *testing.T) {
 	tests := []struct {
-		name           string
-		force          bool
-		verbose        bool
-		jsonOutput     bool
-		skipVerify     bool
-		expectedOutput []string
+		name             string
+		force            bool
+		verbose          bool
+		jsonOutput       bool
+		skipVerify       bool
+		expectedOutput   []string
 		unexpectedOutput []string
 	}{
 		{
-			name:           "ForceVerbose",
-			force:          true,
-			verbose:        true,
-			jsonOutput:     false,
-			skipVerify:     false,
-			expectedOutput: []string{"Starting LSP Gateway", "Force reinstall: true"},
+			name:             "ForceVerbose",
+			force:            true,
+			verbose:          true,
+			jsonOutput:       false,
+			skipVerify:       false,
+			expectedOutput:   []string{"Starting LSP Gateway", "Force reinstall: true"},
 			unexpectedOutput: []string{},
 		},
 		{
-			name:           "JSONSkipVerify",
-			force:          false,
-			verbose:        false,
-			jsonOutput:     true,
-			skipVerify:     true,
-			expectedOutput: []string{"{", "success", "duration"},
+			name:             "JSONSkipVerify",
+			force:            false,
+			verbose:          false,
+			jsonOutput:       true,
+			skipVerify:       true,
+			expectedOutput:   []string{"{", "success", "duration"},
 			unexpectedOutput: []string{"Starting LSP Gateway", "Phase 4"},
 		},
 		{
-			name:           "VerboseSkipVerify",
-			force:          false,
-			verbose:        true,
-			jsonOutput:     false,
-			skipVerify:     true,
-			expectedOutput: []string{"Starting LSP Gateway", "Phase 1", "Phase 2", "Phase 3"},
+			name:             "VerboseSkipVerify",
+			force:            false,
+			verbose:          true,
+			jsonOutput:       false,
+			skipVerify:       true,
+			expectedOutput:   []string{"Starting LSP Gateway", "Phase 1", "Phase 2", "Phase 3"},
 			unexpectedOutput: []string{"Phase 4: Final Verification"},
 		},
 		{
-			name:           "AllFlags",
-			force:          true,
-			verbose:        true,
-			jsonOutput:     false,
-			skipVerify:     false,
-			expectedOutput: []string{"Starting LSP Gateway", "Force reinstall: true", "Phase 4"},
+			name:             "AllFlags",
+			force:            true,
+			verbose:          true,
+			jsonOutput:       false,
+			skipVerify:       false,
+			expectedOutput:   []string{"Starting LSP Gateway", "Force reinstall: true", "Phase 4"},
 			unexpectedOutput: []string{},
 		},
 	}
