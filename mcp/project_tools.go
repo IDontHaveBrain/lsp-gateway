@@ -682,13 +682,13 @@ func (h *ProjectToolsHandler) generateLanguageSettings(projectCtx *project.Proje
 		case "go":
 			langSettings["go_mod"] = filepath.Join(projectCtx.RootPath, "go.mod")
 			langSettings["go_sum"] = filepath.Join(projectCtx.RootPath, "go.sum")
-		case "python":
+		case LANG_PYTHON:
 			langSettings["requirements"] = filepath.Join(projectCtx.RootPath, "requirements.txt")
 			langSettings["setup_py"] = filepath.Join(projectCtx.RootPath, "setup.py")
-		case "javascript", "typescript":
+		case LANG_JAVASCRIPT, LANG_TYPESCRIPT:
 			langSettings["package_json"] = filepath.Join(projectCtx.RootPath, "package.json")
 			langSettings["tsconfig"] = filepath.Join(projectCtx.RootPath, "tsconfig.json")
-		case "java":
+		case LANG_JAVA:
 			langSettings["pom_xml"] = filepath.Join(projectCtx.RootPath, "pom.xml")
 			langSettings["build_gradle"] = filepath.Join(projectCtx.RootPath, "build.gradle")
 		}
@@ -717,7 +717,7 @@ func (h *ProjectToolsHandler) generateServerConfigurations(projectCtx *project.P
 				},
 			}
 		case "pylsp":
-			serverConfig["command"] = "python"
+			serverConfig["command"] = LANG_PYTHON
 			serverConfig["args"] = []string{"-m", "pylsp"}
 		case "typescript-language-server":
 			serverConfig["command"] = "typescript-language-server"

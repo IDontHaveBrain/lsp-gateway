@@ -319,9 +319,9 @@ func (pd *PythonDetector) performPlatformSpecificChecks(python *pythonInstallati
 	switch runtime.GOOS {
 	case "windows":
 		pd.checkWindowsSpecific(python, info)
-	case "darwin":
+	case OS_DARWIN:
 		pd.checkMacOSSpecific(python, info)
-	case "linux":
+	case OS_LINUX:
 		pd.checkLinuxSpecific(python, info)
 	}
 }

@@ -70,7 +70,7 @@ func (v *DefaultServerVerifier) VerifyServer(serverName string) (*ServerVerifica
 	serverDef, err := v.serverRegistry.GetServer(serverName)
 	if err != nil {
 		return nil, NewInstallerError(InstallerErrorTypeNotFound, serverName,
-			fmt.Sprintf("unknown server: %s", serverName), err)
+			fmt.Sprintf(ERROR_UNKNOWN_SERVER, serverName), err)
 	}
 
 	result := &ServerVerificationResult{
@@ -386,7 +386,7 @@ func (v *DefaultServerVerifier) verifyGoplsVersion(result *ServerVerificationRes
 		result.Compatible = true // Most gopls versions are compatible
 		result.Metadata["parsed_version"] = matches[1]
 	} else {
-		v.addServerIssue(result, types.IssueSeverityLow, IssueCategoryVersion,
+		v.addServerIssue(result, types.IssueSeverityLow, types.IssueCategoryVersion,
 			"Gopls Version Parse Failed",
 			"Could not parse gopls version from output",
 			"This may indicate an unusual gopls installation",

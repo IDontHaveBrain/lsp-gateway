@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"lsp-gateway/internal/config"
+	"lsp-gateway/internal/project/types"
 	"lsp-gateway/internal/setup"
 	"path/filepath"
 	"strings"
@@ -677,7 +678,7 @@ func (t *TypeScriptOptimizer) OptimizeForProject(ctx context.Context, serverConf
 	
 	// Node.js project optimizations
 	if nodeCtx, ok := projectContext.Metadata["nodejs_context"].(*NodeJSProjectContext); ok {
-		if nodeCtx.PackageManager == "yarn" {
+		if nodeCtx.PackageManager == types.PKG_MGR_YARN {
 			serverConfig.Args = append(serverConfig.Args, "--yarn-pnp")
 		}
 	}
@@ -939,7 +940,7 @@ func (g *ProjectConfigGeneratorImpl) evaluateCondition(condition string, project
 		return false
 	case "package_manager == yarn":
 		if nodeCtx, ok := projectContext.Metadata["nodejs_context"].(*NodeJSProjectContext); ok {
-			return nodeCtx.PackageManager == "yarn"
+			return nodeCtx.PackageManager == types.PKG_MGR_YARN
 		}
 		return false
 	default:

@@ -116,8 +116,8 @@ func (d *JavaProjectDetector) GetLanguageInfo(language string) (*types.LanguageI
 		DisplayName:    "Java",
 		MinVersion:     "8",
 		MaxVersion:     "22",
-		BuildTools:     []string{"maven", "gradle", "ant"},
-		PackageManager: "maven",
+		BuildTools:     []string{types.BUILD_SYSTEM_MAVEN, "gradle", "ant"},
+		PackageManager: types.BUILD_SYSTEM_MAVEN,
 		TestFrameworks: []string{"junit", "testng", "spock"},
 		LintTools:      []string{"checkstyle", "spotbugs", "pmd"},
 		FormatTools:    []string{"google-java-format", "spotless"},
@@ -222,7 +222,7 @@ func (d *JavaProjectDetector) analyzeBuildSystemConfigs(ctx context.Context, pat
 	pomPath := filepath.Join(path, "pom.xml")
 	if _, err := os.Stat(pomPath); err == nil {
 		d.logger.Debug("Maven project detected")
-		analysis.BuildSystem = "maven"
+		analysis.BuildSystem = types.BUILD_SYSTEM_MAVEN
 		
 		mavenInfo, err := d.mavenParser.ParsePom(pomPath)
 		if err != nil {
@@ -244,7 +244,7 @@ func (d *JavaProjectDetector) analyzeBuildSystemConfigs(ctx context.Context, pat
 			d.logger.Debug("Gradle project detected")
 			
 			// If we already found Maven, this is a mixed build system
-			if analysis.BuildSystem == "maven" {
+			if analysis.BuildSystem == types.BUILD_SYSTEM_MAVEN {
 				analysis.BuildSystem = "mixed"
 				analysis.Issues = append(analysis.Issues, "Both Maven and Gradle configurations detected")
 			} else {
@@ -305,7 +305,7 @@ func (d *JavaProjectDetector) validateJavaProjectStructure(ctx context.Context, 
 			case "source":
 				validation.SourceDirs = append(validation.SourceDirs, dir)
 				foundSourceDir = true
-			case "test":
+			case types.SCOPE_TEST:
 				validation.TestDirs = append(validation.TestDirs, dir)
 			}
 		}
@@ -353,7 +353,7 @@ func (d *JavaProjectDetector) calculateConfidence(runtime *JavaRuntimeAnalysis, 
 
 	// Build system configuration
 	switch buildSystem.BuildSystem {
-	case "maven":
+	case types.BUILD_SYSTEM_MAVEN:
 		confidence += 0.4
 	case "gradle":
 		confidence += 0.4

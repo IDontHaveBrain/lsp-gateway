@@ -100,7 +100,7 @@ func (t *TypeScriptLanguageDetector) DetectLanguage(ctx context.Context, path st
 
 		// Copy config files from Node.js detection
 		for _, config := range nodeResult.ConfigFiles {
-			if config != MARKER_TSCONFIG { // Avoid duplicates
+			if config != types.MARKER_TSCONFIG { // Avoid duplicates
 				result.ConfigFiles = append(result.ConfigFiles, config)
 			}
 		}
@@ -146,7 +146,7 @@ func (t *TypeScriptLanguageDetector) DetectLanguage(ctx context.Context, path st
 
 	// Set detection metadata
 	result.Metadata["detection_time"] = time.Since(startTime)
-	result.Metadata["detector_version"] = "1.0.0"
+	result.Metadata["detector_version"] = types.DETECTOR_VERSION_DEFAULT
 
 	t.logger.WithFields(map[string]interface{}{
 		"confidence":      result.Confidence,
@@ -279,7 +279,7 @@ func (t *TypeScriptLanguageDetector) scanForTypeScriptFiles(path string, result 
 		}
 
 		ext := strings.ToLower(filepath.Ext(filePath))
-		if ext == ".ts" || ext == ".tsx" || ext == ".d.ts" {
+		if ext == types.EXT_TS || ext == ".tsx" || ext == ".d.ts" {
 			*tsFileCount++
 			dir := filepath.Dir(filePath)
 			relDir, _ := filepath.Rel(path, dir)
@@ -379,7 +379,7 @@ func (t *TypeScriptLanguageDetector) detectTypeScriptFrameworks(result *types.La
 
 	for dep := range allDeps {
 		switch dep {
-		case "typescript":
+		case types.PROJECT_TYPE_TYPESCRIPT:
 			frameworks = append(frameworks, "TypeScript")
 		case "@types/node":
 			frameworks = append(frameworks, "Node.js Types")

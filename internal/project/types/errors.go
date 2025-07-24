@@ -119,7 +119,7 @@ func NewProjectError(errorType ProjectErrorType, projectType, path, message stri
 
 func NewDetectionError(projectType, operation, path, message string, cause error) *ProjectError {
 	err := NewProjectError(ProjectErrorTypeDetection, projectType, path, message, cause)
-	err.WithMetadata("operation", operation)
+	err = err.WithMetadata("operation", operation)
 	return err
 }
 

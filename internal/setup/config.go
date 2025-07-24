@@ -164,7 +164,7 @@ func (g *DefaultConfigGenerator) GenerateForRuntime(ctx context.Context, runtime
 	switch runtime {
 	case "go":
 		runtimeInfo, err = g.runtimeDetector.DetectGo(ctx)
-	case "python":
+	case COMMAND_PYTHON:
 		runtimeInfo, err = g.runtimeDetector.DetectPython(ctx)
 	case "nodejs":
 		runtimeInfo, err = g.runtimeDetector.DetectNodejs(ctx)

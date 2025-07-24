@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"lsp-gateway/internal/installer"
+	projecttypes "lsp-gateway/internal/project/types"
 	"lsp-gateway/internal/types"
 	"lsp-gateway/tests/testdata"
 
@@ -143,14 +144,14 @@ func TestJDTLSIntegration_CrossPlatformPathResolution(t *testing.T) {
 		},
 		{
 			name: "WindowsPathResolution",
-			goos: "windows",
+			goos: projecttypes.PLATFORM_WINDOWS,
 			expectedPath: func(homeDir string) string {
 				return filepath.Join(homeDir, ".lsp-gateway", "jdtls", "bin", "jdtls.bat")
 			},
 		},
 		{
 			name: "DarwinPathResolution",
-			goos: "darwin",
+			goos: projecttypes.PLATFORM_DARWIN,
 			expectedPath: func(homeDir string) string {
 				return filepath.Join(homeDir, "Library", "Application Support", "lsp-gateway", "jdtls", "bin", "jdtls")
 			},
@@ -175,7 +176,7 @@ func TestJDTLSIntegration_CrossPlatformPathResolution(t *testing.T) {
 
 			// The path should follow platform conventions
 			if result.Path != "" {
-				if tt.goos == "windows" {
+				if tt.goos == projecttypes.PLATFORM_WINDOWS {
 					assert.True(t, strings.HasSuffix(result.Path, ".bat"), "Windows executable should have .bat extension")
 				} else {
 					assert.False(t, strings.HasSuffix(result.Path, ".bat"), "Unix executable should not have .bat extension")
@@ -287,7 +288,7 @@ func TestJDTLSIntegration_ScriptGeneration(t *testing.T) {
 	}{
 		{
 			name:              "WindowsScriptGeneration",
-			platform:          "windows",
+			platform:          projecttypes.PLATFORM_WINDOWS,
 			expectedExtension: ".bat",
 			expectedContent: []string{
 				"@echo off",
@@ -311,7 +312,7 @@ func TestJDTLSIntegration_ScriptGeneration(t *testing.T) {
 		},
 		{
 			name:              "DarwinScriptGeneration",
-			platform:          "darwin",
+			platform:          projecttypes.PLATFORM_DARWIN,
 			expectedExtension: "",
 			expectedContent: []string{
 				"#!/bin/bash",
@@ -482,7 +483,7 @@ func (env *JDTLSTestEnvironment) TempDir() string {
 // Cleanup cleans up the test environment
 func (env *JDTLSTestEnvironment) Cleanup() {
 	if env.tempDir != "" {
-		os.RemoveAll(env.tempDir)
+		_ = os.RemoveAll(env.tempDir)
 	}
 	if env.testCtx != nil {
 		env.testCtx.Cleanup()
@@ -510,7 +511,7 @@ func (env *JDTLSTestEnvironment) CreateMockDownloadServer(simulateDownloadFailur
 		w.Header().Set("Content-Type", "application/gzip")
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(archiveContent)))
 		w.WriteHeader(http.StatusOK)
-		w.Write(archiveContent)
+		_, _ = w.Write(archiveContent)
 	}))
 }
 
@@ -538,7 +539,7 @@ func (env *JDTLSTestEnvironment) CreateFailureRecoveryMockServer(failureType str
 				if attempts == 1 {
 					// Return content with different checksum on first attempt
 					w.WriteHeader(http.StatusOK)
-					w.Write([]byte("wrong content"))
+					_, _ = w.Write([]byte("wrong content"))
 					return
 				}
 			}
@@ -548,7 +549,7 @@ func (env *JDTLSTestEnvironment) CreateFailureRecoveryMockServer(failureType str
 		archiveContent := env.createMockJDTLSArchive(false)
 		w.Header().Set("Content-Type", "application/gzip")
 		w.WriteHeader(http.StatusOK)
-		w.Write(archiveContent)
+		_, _ = w.Write(archiveContent)
 	}))
 }
 
@@ -591,8 +592,8 @@ func (env *JDTLSTestEnvironment) createMockJDTLSArchive(corruptChecksum bool) []
 		}
 	}
 
-	tarWriter.Close()
-	gzipWriter.Close()
+	_ = tarWriter.Close()
+	_ = gzipWriter.Close()
 
 	return buf.Bytes()
 }
@@ -600,10 +601,10 @@ func (env *JDTLSTestEnvironment) createMockJDTLSArchive(corruptChecksum bool) []
 // SetupPlatformEnvironment sets up environment variables for platform-specific path testing
 func (env *JDTLSTestEnvironment) SetupPlatformEnvironment(goos string) {
 	switch goos {
-	case "windows":
-		os.Setenv("USERPROFILE", env.tempDir)
-		os.Setenv("APPDATA", "")
-	case "darwin":
+	case projecttypes.PLATFORM_WINDOWS:
+		_ = os.Setenv("USERPROFILE", env.tempDir)
+		_ = os.Setenv("APPDATA", "")
+	case projecttypes.PLATFORM_DARWIN:
 		os.Setenv("HOME", env.tempDir)
 	default: // linux
 		os.Setenv("HOME", env.tempDir)
@@ -647,7 +648,7 @@ func (env *JDTLSTestEnvironment) SetupMockInstallation(createExecutable, createC
 		var executablePath string
 		var scriptContent string
 
-		if runtime.GOOS == "windows" {
+		if runtime.GOOS == projecttypes.PLATFORM_WINDOWS {
 			executablePath = filepath.Join(binDir, "jdtls.bat")
 			scriptContent = "@echo off\necho Mock JDTLS Windows Script\n"
 		} else {
@@ -677,12 +678,12 @@ func (env *JDTLSTestEnvironment) VerifyExecutableScript(t *testing.T, executable
 	scriptContent := string(content)
 
 	// Verify platform-specific content
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == projecttypes.PLATFORM_WINDOWS {
 		assert.Contains(t, scriptContent, "@echo off", "Windows script should start with @echo off")
 		assert.Contains(t, scriptContent, "config_win", "Windows script should reference config_win")
 	} else {
 		assert.Contains(t, scriptContent, "#!/bin/bash", "Unix script should start with shebang")
-		if runtime.GOOS == "darwin" {
+		if runtime.GOOS == projecttypes.PLATFORM_DARWIN {
 			assert.Contains(t, scriptContent, "config_mac", "Mac script should reference config_mac")
 		} else {
 			assert.Contains(t, scriptContent, "config_linux", "Linux script should reference config_linux")
@@ -706,9 +707,9 @@ func (env *JDTLSTestEnvironment) VerifyDirectoryStructure(t *testing.T, executab
 
 	// Add platform-specific config directory
 	switch runtime.GOOS {
-	case "windows":
+	case projecttypes.PLATFORM_WINDOWS:
 		requiredDirs = append(requiredDirs, "config_win")
-	case "darwin":
+	case projecttypes.PLATFORM_DARWIN:
 		requiredDirs = append(requiredDirs, "config_mac")
 	default:
 		requiredDirs = append(requiredDirs, "config_linux")

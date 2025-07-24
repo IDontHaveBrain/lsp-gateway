@@ -35,7 +35,7 @@ type windowsExecutor struct{}
 type unixExecutor struct{}
 
 func NewCommandExecutor() CommandExecutor {
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == string(PlatformWindows) {
 		return &windowsExecutor{}
 	}
 	return &unixExecutor{}

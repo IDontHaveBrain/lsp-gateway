@@ -565,7 +565,7 @@ func (pool *ConnectionPool) warmUp() error {
 			successCount++
 		default:
 			// Pool full, close connection
-			conn.Close()
+			_ = conn.Close()
 			successCount++
 		}
 	}
@@ -594,7 +594,7 @@ func (pool *ConnectionPool) getConnection() (net.Conn, error) {
 			return conn, nil
 		}
 		// Connection unhealthy, close and create new one
-		conn.Close()
+		_ = conn.Close()
 		// Create new connection with retry
 		conn, err := pool.createConnectionWithRetry()
 		if err != nil {
@@ -620,7 +620,7 @@ func (pool *ConnectionPool) releaseConnection(conn net.Conn) {
 	atomic.AddInt64(&pool.activeConns, -1)
 
 	if !pool.isConnectionHealthy(conn) {
-		conn.Close()
+		_ = conn.Close()
 		return
 	}
 
@@ -628,7 +628,7 @@ func (pool *ConnectionPool) releaseConnection(conn net.Conn) {
 	select {
 	case <-pool.ctx.Done():
 		// Pool is closed, just close the connection
-		conn.Close()
+		_ = conn.Close()
 		return
 	default:
 	}
@@ -638,7 +638,7 @@ func (pool *ConnectionPool) releaseConnection(conn net.Conn) {
 		// Successfully returned to pool
 	case <-pool.ctx.Done():
 		// Pool closed while waiting, close connection
-		conn.Close()
+		_ = conn.Close()
 	default:
 		// Pool full, close connection
 		conn.Close()
@@ -697,7 +697,7 @@ func (pool *ConnectionPool) isConnectionHealthy(conn net.Conn) bool {
 		return false
 	}
 	// Reset deadline
-	conn.SetDeadline(time.Time{})
+	_ = conn.SetDeadline(time.Time{})
 	return true
 }
 

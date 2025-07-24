@@ -115,7 +115,7 @@ func (p *MavenProjectParser) ParsePom(pomPath string) (*types.MavenInfo, error) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to open pom.xml: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	data, err := io.ReadAll(file)
 	if err != nil {
@@ -146,7 +146,7 @@ func (p *MavenProjectParser) ParsePom(pomPath string) (*types.MavenInfo, error) 
 	if pom.Dependencies != nil {
 		for _, dep := range pom.Dependencies.Dependencies {
 			// Skip test dependencies for main dependency list
-			if dep.Scope != "test" {
+			if dep.Scope != types.SCOPE_TEST {
 				depKey := fmt.Sprintf("%s:%s", dep.GroupId, dep.ArtifactId)
 				version := p.resolveProperty(dep.Version, pom.Properties, pom.Parent)
 				info.Dependencies[depKey] = version
@@ -185,7 +185,7 @@ func (p *MavenProjectParser) ExtractDependencies(pomPath string) (map[string]str
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to open pom.xml: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	data, err := io.ReadAll(file)
 	if err != nil {
@@ -205,7 +205,7 @@ func (p *MavenProjectParser) ExtractDependencies(pomPath string) (map[string]str
 			depKey := fmt.Sprintf("%s:%s", dep.GroupId, dep.ArtifactId)
 			version := p.resolveProperty(dep.Version, pom.Properties, pom.Parent)
 
-			if dep.Scope == "test" {
+			if dep.Scope == types.SCOPE_TEST {
 				testDeps[depKey] = version
 			} else {
 				mainDeps[depKey] = version
@@ -220,7 +220,7 @@ func (p *MavenProjectParser) ExtractDependencies(pomPath string) (map[string]str
 				depKey := fmt.Sprintf("%s:%s", dep.GroupId, dep.ArtifactId)
 				version := p.resolveProperty(dep.Version, pom.Properties, pom.Parent)
 
-				if dep.Scope == "test" {
+				if dep.Scope == types.SCOPE_TEST {
 					testDeps[depKey] = version
 				} else {
 					mainDeps[depKey] = version
@@ -365,7 +365,7 @@ func (g *GradleProjectParser) extractGradleDependencies(content string) (map[str
 				scope := match[1]
 				
 				// Skip test dependencies for main dependency list
-				if strings.Contains(scope, "test") {
+				if strings.Contains(scope, types.SCOPE_TEST) {
 					continue
 				}
 
@@ -522,7 +522,7 @@ func (p *MavenProjectParser) ValidatePomXML(pomPath string) []string {
 		issues = append(issues, fmt.Sprintf("Cannot read pom.xml: %v", err))
 		return issues
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	data, err := io.ReadAll(file)
 	if err != nil {

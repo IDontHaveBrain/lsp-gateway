@@ -117,4 +117,28 @@ const (
 	ATTEMPTING_FALLBACK_DETECTION = "Attempting fallback detection"
 	USING_DIRECTORY_AS_ROOT       = "Using directory as project root"
 	INFERRING_PROJECT_TYPE        = "Inferring project type from directory structure"
+
+	// File extensions
+	EXT_JS  = ".js"
+	EXT_TS  = ".ts"
+	EXT_TSX = ".tsx"
+
+	// Build systems
+	BUILD_SYSTEM_MAVEN  = "maven"
+	BUILD_SYSTEM_GRADLE = "gradle"
+
+	// Package managers
+	PKG_MGR_YARN = "yarn"
+
+	// Dependency scopes
+	SCOPE_TEST = "test"
+	SCOPE_DEV  = "dev"
+
+	// Version constants for detectors
+	DETECTOR_VERSION_DEFAULT = "1.0.0"
+
+	// Platform constants for testing
+	PLATFORM_WINDOWS = "windows"
+	PLATFORM_DARWIN  = "darwin"
+	PLATFORM_LINUX   = "linux"
 )

@@ -235,7 +235,7 @@ func (n *NodeJSLanguageDetector) scanForNodeFiles(path string, result *types.Lan
 		}
 
 		ext := strings.ToLower(filepath.Ext(filePath))
-		if ext == ".js" || ext == ".ts" || ext == ".jsx" || ext == ".tsx" || ext == ".mjs" || ext == ".cjs" {
+		if ext == types.EXT_JS || ext == types.EXT_TS || ext == ".jsx" || ext == types.EXT_TSX || ext == ".mjs" || ext == ".cjs" {
 			*nodeFileCount++
 			dir := filepath.Dir(filePath)
 			relDir, _ := filepath.Rel(path, dir)
@@ -538,7 +538,7 @@ func (n *NodeJSLanguageDetector) ValidateStructure(ctx context.Context, path str
 		
 		if !info.IsDir() {
 			ext := strings.ToLower(filepath.Ext(filePath))
-			if ext == ".js" || ext == ".ts" || ext == ".jsx" || ext == ".tsx" || ext == ".mjs" || ext == ".cjs" {
+			if ext == types.EXT_JS || ext == types.EXT_TS || ext == ".jsx" || ext == types.EXT_TSX || ext == ".mjs" || ext == ".cjs" {
 				hasJSFiles = true
 				return filepath.SkipAll // Found at least one, can stop
 			}
@@ -558,7 +558,7 @@ func (n *NodeJSLanguageDetector) ValidateStructure(ctx context.Context, path str
 
 	if !hasJSFiles {
 		return types.NewValidationError(types.PROJECT_TYPE_NODEJS, "no JavaScript/TypeScript source files found", nil).
-			WithMetadata("structure_issues", []string{"no .js, .ts, .jsx, .tsx files found in project"})
+			WithMetadata("structure_issues", []string{"no " + types.EXT_JS + ", .ts, .jsx, " + types.EXT_TSX + " files found in project"})
 	}
 
 	return nil

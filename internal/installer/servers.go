@@ -49,9 +49,9 @@ func (s *DefaultServerInstaller) initializeStrategies() {
 	// Use universal strategy for all platforms - it handles cross-platform differences internally
 	universalStrategy := NewUniversalServerStrategy()
 
-	s.strategies["windows"] = universalStrategy
-	s.strategies["linux"] = universalStrategy
-	s.strategies["darwin"] = universalStrategy
+	s.strategies[PlatformWindows] = universalStrategy
+	s.strategies[PlatformLinux] = universalStrategy
+	s.strategies[PlatformDarwin] = universalStrategy
 }
 
 func (s *DefaultServerInstaller) Install(server string, options types.ServerInstallOptions) (*types.InstallResult, error) {
@@ -60,7 +60,7 @@ func (s *DefaultServerInstaller) Install(server string, options types.ServerInst
 	_, err := s.registry.GetServer(server)
 	if err != nil {
 		return nil, NewInstallerError(InstallerErrorTypeNotFound, server,
-			fmt.Sprintf("unknown server: %s", server), err)
+			fmt.Sprintf(ERROR_UNKNOWN_SERVER, server), err)
 	}
 
 	if !options.SkipDependencyCheck {
@@ -209,7 +209,7 @@ func (s *DefaultServerInstaller) ValidateDependencies(server string) (*types.Dep
 	serverDef, err := s.registry.GetServer(server)
 	if err != nil {
 		return nil, NewInstallerError(InstallerErrorTypeNotFound, server,
-			fmt.Sprintf("unknown server: %s", server), err)
+			fmt.Sprintf(ERROR_UNKNOWN_SERVER, server), err)
 	}
 
 	result := &types.DependencyValidationResult{
@@ -292,10 +292,10 @@ func NewServerRegistry() *ServerRegistry {
 }
 
 func (s *ServerRegistry) registerDefaults() {
-	s.servers["gopls"] = &types.ServerDefinition{
-		Name:              "gopls",
+	s.servers[ServerGopls] = &types.ServerDefinition{
+		Name:              ServerGopls,
 		DisplayName:       "Go Language Server",
-		Runtime:           "go",
+		Runtime:           RuntimeGo,
 		MinVersion:        "1.19.0",
 		MinRuntimeVersion: "1.19.0",
 		InstallCmd:        []string{"go", "install", "golang.org/x/tools/gopls@latest"},
@@ -320,10 +320,10 @@ func (s *ServerRegistry) registerDefaults() {
 		VersionCommand: []string{"gopls", "version"},
 	}
 
-	s.servers["pylsp"] = &types.ServerDefinition{
-		Name:        "pylsp",
+	s.servers[ServerPylsp] = &types.ServerDefinition{
+		Name:        ServerPylsp,
 		DisplayName: "Python Language Server",
-		Runtime:     "python",
+		Runtime:     RuntimePython,
 		MinVersion:  "3.9.0",
 		InstallCmd:  []string{"pip", "install", "python-lsp-server"},
 		VerifyCmd:   []string{"pylsp", "--version"},
@@ -347,10 +347,10 @@ func (s *ServerRegistry) registerDefaults() {
 		VersionCommand: []string{"pylsp", "--version"},
 	}
 
-	s.servers["typescript-language-server"] = &types.ServerDefinition{
-		Name:        "typescript-language-server",
+	s.servers[ServerTypeScriptLanguageServer] = &types.ServerDefinition{
+		Name:        ServerTypeScriptLanguageServer,
 		DisplayName: "TypeScript Language Server",
-		Runtime:     "nodejs",
+		Runtime:     RuntimeNodeJS,
 		MinVersion:  "22.0.0",
 		InstallCmd:  []string{"npm", "install", "-g", "typescript-language-server", "typescript"},
 		VerifyCmd:   []string{"typescript-language-server", "--version"},
@@ -375,10 +375,10 @@ func (s *ServerRegistry) registerDefaults() {
 	}
 
 	jdtlsVerifyCmd := getJDTLSVerificationCommands()
-	s.servers["jdtls"] = &types.ServerDefinition{
-		Name:              "jdtls",
+	s.servers[ServerJDTLS] = &types.ServerDefinition{
+		Name:              ServerJDTLS,
 		DisplayName:       "Eclipse JDT Language Server",
-		Runtime:           "java",
+		Runtime:           RuntimeJava,
 		MinVersion:        "1.48.0",
 		MinRuntimeVersion: "21.0.0",
 		InstallCmd:        []string{"# Automated download and installation from Eclipse releases"},

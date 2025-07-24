@@ -254,7 +254,7 @@ func NewAptManager() *AptManager {
 }
 
 func (a *AptManager) IsAvailable() bool {
-	if runtime.GOOS != "linux" {
+	if runtime.GOOS != string(PlatformLinux) {
 		return false
 	}
 	return IsCommandAvailable("apt") || IsCommandAvailable("apt-get")
@@ -354,7 +354,7 @@ func NewWingetManager() *WingetManager {
 }
 
 func (w *WingetManager) IsAvailable() bool {
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != string(PlatformWindows) {
 		return false
 	}
 	return IsCommandAvailable(PACKAGE_MANAGER_WINGET)
@@ -449,7 +449,7 @@ func NewChocolateyManager() *ChocolateyManager {
 }
 
 func (c *ChocolateyManager) IsAvailable() bool {
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != string(PlatformWindows) {
 		return false
 	}
 	return IsCommandAvailable("choco")
@@ -544,7 +544,7 @@ func NewYumManager() *YumManager {
 }
 
 func (y *YumManager) IsAvailable() bool {
-	if runtime.GOOS != "linux" {
+	if runtime.GOOS != string(PlatformLinux) {
 		return false
 	}
 	return IsCommandAvailable("yum")
@@ -642,7 +642,7 @@ func NewDnfManager() *DnfManager {
 }
 
 func (d *DnfManager) IsAvailable() bool {
-	if runtime.GOOS != "linux" {
+	if runtime.GOOS != string(PlatformLinux) {
 		return false
 	}
 	return IsCommandAvailable(PACKAGE_MANAGER_DNF)

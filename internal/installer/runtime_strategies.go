@@ -32,13 +32,13 @@ func (w *WindowsRuntimeStrategy) InstallRuntime(runtime string, options types.In
 	// Delegate to the underlying strategy methods based on runtime type
 	var err error
 	switch runtime {
-	case "go":
+	case RuntimeGo:
 		err = w.Strategy.InstallGo(options.Version)
-	case "python":
+	case RuntimePython:
 		err = w.Strategy.InstallPython(options.Version)
-	case "nodejs":
+	case RuntimeNodeJS:
 		err = w.Strategy.InstallNodejs(options.Version)
-	case "java":
+	case RuntimeJava:
 		err = w.Strategy.InstallJava(options.Version)
 	default:
 		return &types.InstallResult{
@@ -116,13 +116,13 @@ func (l *LinuxRuntimeStrategy) InstallRuntime(runtime string, options types.Inst
 	// Delegate to the underlying strategy methods based on runtime type
 	var err error
 	switch runtime {
-	case "go":
+	case RuntimeGo:
 		err = l.Strategy.InstallGo(options.Version)
-	case "python":
+	case RuntimePython:
 		err = l.Strategy.InstallPython(options.Version)
-	case "nodejs":
+	case RuntimeNodeJS:
 		err = l.Strategy.InstallNodejs(options.Version)
-	case "java":
+	case RuntimeJava:
 		err = l.Strategy.InstallJava(options.Version)
 	default:
 		return &types.InstallResult{
@@ -196,13 +196,13 @@ func (m *MacOSRuntimeStrategy) InstallRuntime(runtime string, options types.Inst
 	// Delegate to the underlying strategy methods based on runtime type
 	var err error
 	switch runtime {
-	case "go":
+	case RuntimeGo:
 		err = m.Strategy.InstallGo(options.Version)
-	case "python":
+	case RuntimePython:
 		err = m.Strategy.InstallPython(options.Version)
-	case "nodejs":
+	case RuntimeNodeJS:
 		err = m.Strategy.InstallNodejs(options.Version)
-	case "java":
+	case RuntimeJava:
 		err = m.Strategy.InstallJava(options.Version)
 	default:
 		return &types.InstallResult{

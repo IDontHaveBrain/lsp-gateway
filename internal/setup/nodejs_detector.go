@@ -206,7 +206,7 @@ func (d *NodeJSDetector) checkGlobalInstallCapability(info *NodeJSInfo) {
 	}
 
 	globalNodeModules := filepath.Join(info.NPMGlobalPath, "lib", "node_modules")
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == OS_WINDOWS {
 		globalNodeModules = filepath.Join(info.NPMGlobalPath, "node_modules")
 	}
 
