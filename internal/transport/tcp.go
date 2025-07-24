@@ -30,7 +30,6 @@ type TCPClient struct {
 
 	// Connection management with pooling
 	connPool *ConnectionPool
-	mu       sync.RWMutex
 	active   int32 // atomic flag for active state
 
 	// Request tracking with optimized synchronization
@@ -57,7 +56,6 @@ type ConnectionPool struct {
 	address      string
 	maxSize      int
 	connections  chan net.Conn
-	mu           sync.RWMutex
 	activeConns  int64
 	totalCreated int64
 	ctx          context.Context
@@ -67,8 +65,6 @@ type ConnectionPool struct {
 
 // ConnectionHealth tracks connection health metrics
 type ConnectionHealth struct {
-	totalRequests  int64
-	failedRequests int64
 	lastCheckTime  int64
 	healthCheckInt time.Duration
 }
