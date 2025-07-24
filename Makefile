@@ -1,5 +1,5 @@
 # Makefile for LSP Gateway
-# Multi-platform build system
+# Simplified build system for solo development
 
 # Configuration
 BINARY_NAME := lsp-gateway
@@ -12,553 +12,186 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 GOCMD := go
 GOBUILD := $(GOCMD) build
 GOTEST := $(GOCMD) test
-GOGET := $(GOCMD) get
 GOCLEAN := $(GOCMD) clean
 GOMOD := $(GOCMD) mod
 
-# Build targets
-PLATFORMS := linux/amd64 windows/amd64 darwin/amd64 darwin/arm64
-BINARIES := $(BUILD_DIR)/$(BINARY_NAME)-linux \
-            $(BUILD_DIR)/$(BINARY_NAME)-windows.exe \
-            $(BUILD_DIR)/$(BINARY_NAME)-macos \
-            $(BUILD_DIR)/$(BINARY_NAME)-macos-arm64
+# Platform definitions
+PLATFORMS := linux/amd64 darwin/amd64 darwin/arm64 windows/amd64
 
-# Default target
-.PHONY: all
+# =============================================================================
+# BUILD TARGETS
+# =============================================================================
+
+.PHONY: all build local clean
 all: build
 
-# Help target
-.PHONY: help
-help:
-	@echo "LSP Gateway Build System"
-	@echo "========================"
-	@echo ""
-	@echo "Available targets:"
-	@echo "  all          - Build for all platforms (default)"
-	@echo "  build        - Build for all platforms"
-	@echo "  linux        - Build for Linux (amd64)"
-	@echo "  windows      - Build for Windows (amd64)"
-	@echo "  macos        - Build for macOS (amd64)"
-	@echo "  macos-arm64  - Build for macOS (arm64)"
-	@echo "  local        - Build for current platform"
-	@echo "  clean        - Clean build artifacts"
-	@echo "  test         - Run all tests"
-	@echo "  test-unit    - Run fast unit tests (<60s, excludes integration/performance)"
-	@echo "  test-integration - Run integration and performance tests"
-	@echo "  test-cover   - Run tests with coverage"
-	@echo "  lsp-help     - Show LSP testing targets and options"
-	@echo "  deps         - Download dependencies"
-	@echo "  tidy         - Tidy go modules"
-	@echo "  format       - Format code"
-	@echo "  lint         - Run linter (requires golangci-lint)"
-	@echo "  deadcode     - Run dead code analysis (requires deadcode tool)"
-	@echo "  lint-unused  - Run only unused code detection"
-	@echo "  check-deadcode - Complete dead code analysis (both tools)"
-	@echo "  deadcode-report - Generate timestamped dead code report"
-	@echo "  security     - Run security analysis (requires gosec)"
-	@echo "  security-report - Generate timestamped security report"
-	@echo "  security-check - Quick security check (strict mode for CI)"
-	@echo "  security-sarif - Generate SARIF security report for GitHub"
-	@echo "  security-full - Comprehensive security analysis (all formats)"
-	@echo "  install      - Install binary to GOPATH/bin"
-	@echo "  release      - Create release build with version"
-	@echo "  help         - Show this help message"
-	@echo ""
-	@echo "Environment variables:"
-	@echo "  VERSION      - Set version (default: dev)"
-	@echo ""
-	@echo "Quick Start - LSP Testing (Simplified):"
-	@echo "  make setup-simple-repos          # Setup simple test repositories"
-	@echo "  make test-simple-quick           # Quick LSP tests with simple config"
-	@echo "  make test-simple-full            # Full LSP tests with simple config"
-	@echo "  make simple-status               # Show simple repository status"
-	@echo "  make simple-clean                # Clean simple test repositories"
-	@echo "  make lsp-help                    # Show LSP testing help"
-	@echo ""
-	@echo "Examples:"
-	@echo "  make build VERSION=v1.0.0"
-	@echo "  make linux"
-	@echo "  make clean && make all"
-
-# Create build directory
-$(BUILD_DIR):
-	mkdir -p $(BUILD_DIR)
-
-# Build for all platforms
-.PHONY: build
-build: $(BINARIES)
-
-# Individual platform targets
-.PHONY: linux
-linux: $(BUILD_DIR)/$(BINARY_NAME)-linux
-
-.PHONY: windows
-windows: $(BUILD_DIR)/$(BINARY_NAME)-windows.exe
-
-.PHONY: macos
-macos: $(BUILD_DIR)/$(BINARY_NAME)-macos
-
-.PHONY: macos-arm64
-macos-arm64: $(BUILD_DIR)/$(BINARY_NAME)-macos-arm64
-
-# Build rules for each platform
-$(BUILD_DIR)/$(BINARY_NAME)-linux: $(BUILD_DIR)
-	@echo "Building for Linux (amd64)..."
-	GOOS=linux GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $@ $(MAIN_PATH)
-
-$(BUILD_DIR)/$(BINARY_NAME)-windows.exe: $(BUILD_DIR)
-	@echo "Building for Windows (amd64)..."
-	GOOS=windows GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $@ $(MAIN_PATH)
-
-$(BUILD_DIR)/$(BINARY_NAME)-macos: $(BUILD_DIR)
-	@echo "Building for macOS (amd64)..."
-	GOOS=darwin GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $@ $(MAIN_PATH)
-
-$(BUILD_DIR)/$(BINARY_NAME)-macos-arm64: $(BUILD_DIR)
-	@echo "Building for macOS (arm64)..."
-	GOOS=darwin GOARCH=arm64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $@ $(MAIN_PATH)
-
-# Build for current platform
-.PHONY: local
+# Build for current platform (most common use case)
 local: $(BUILD_DIR)
 	@echo "Building for current platform..."
 	$(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 
-# Clean build artifacts
-.PHONY: clean
+# Build for all platforms
+build: $(BUILD_DIR)
+	@echo "Building for all platforms..."
+	@for platform in $(PLATFORMS); do \
+		os=$$(echo $$platform | cut -d'/' -f1); \
+		arch=$$(echo $$platform | cut -d'/' -f2); \
+		output=$(BUILD_DIR)/$(BINARY_NAME)-$$os; \
+		if [ $$os = "windows" ]; then output=$$output.exe; fi; \
+		if [ $$os = "darwin" ] && [ $$arch = "arm64" ]; then output=$(BUILD_DIR)/$(BINARY_NAME)-macos-arm64; fi; \
+		if [ $$os = "darwin" ] && [ $$arch = "amd64" ]; then output=$(BUILD_DIR)/$(BINARY_NAME)-macos; fi; \
+		echo "Building $$os/$$arch -> $$output"; \
+		GOOS=$$os GOARCH=$$arch $(GOBUILD) -ldflags "$(LDFLAGS)" -o $$output $(MAIN_PATH); \
+	done
+
+# Individual platform builds (for convenience)
+.PHONY: linux windows macos macos-arm64
+linux: $(BUILD_DIR)
+	GOOS=linux GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux $(MAIN_PATH)
+
+windows: $(BUILD_DIR)
+	GOOS=windows GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows.exe $(MAIN_PATH)
+
+macos: $(BUILD_DIR)
+	GOOS=darwin GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-macos $(MAIN_PATH)
+
+macos-arm64: $(BUILD_DIR)
+	GOOS=darwin GOARCH=arm64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-macos-arm64 $(MAIN_PATH)
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -rf $(BUILD_DIR)
 	$(GOCLEAN)
 
-# Test targets
-.PHONY: test
-test:
-	@echo "Running tests..."
-	$(GOTEST) -v ./...
+# =============================================================================
+# DEVELOPMENT TARGETS
+# =============================================================================
 
-.PHONY: test-unit
-test-unit:
-	@echo "Running fast unit tests (core functionality only)..."
-	$(GOTEST) -v -short -timeout=30s ./internal/config -run "^Test(Default|Load|Validate|Server)"
-	$(GOTEST) -v -short -timeout=30s ./internal/cli -run "^Test(Root|Config|Version|Help|Status|Completion)"
-	$(GOTEST) -v -short -timeout=30s ./internal/setup -run "^Test(Config|Detector|Error)" 
-	@echo "Running basic component tests..."
-	$(GOTEST) -v -short -timeout=30s ./internal/gateway -run "^Test(Router|Handler|Extract)$$"
-	$(GOTEST) -v -short -timeout=30s ./internal/platform -run "^Test(Platform|Executor|Package)$$" 
-	$(GOTEST) -v -short -timeout=30s ./internal/transport -run "^Test(STDIO|TCP)$$" 
-	$(GOTEST) -v -short -timeout=30s ./mcp -run "^Test(Client|Server|Protocol)$$"
-
-.PHONY: test-integration
-test-integration:
-	@echo "Running integration and performance tests..."
-	$(GOTEST) -v -timeout=300s ./internal/platform -run "GCBehavior|AllocationRate|GCPause|MemoryAllocation|Comprehensive|Coverage|Extended|Final|GCEfficiency|ResourcePool"
-	$(GOTEST) -v -timeout=300s ./internal/transport -run "LongRunning|MemoryGrowth|MemoryLeak|Performance|Integration|NetworkTimeout|FileHandle|CircuitBreaker"
-	$(GOTEST) -v -timeout=300s ./mcp -run "Performance|Throughput|Integration|NetworkTimeout"
-	$(GOTEST) -v -timeout=300s ./internal/gateway -run "Integration|E2E|Performance|Memory|Connection|Network|Retry"
-
-.PHONY: test-cover
-test-cover:
-	@echo "Running tests with coverage..."
-	$(GOTEST) -v -cover ./...
-
-# LSP validation test targets
-.PHONY: test-lsp-validation
-test-lsp-validation:
-	@echo "Running comprehensive LSP validation tests..."
-	$(GOTEST) -v -timeout=180s ./internal/gateway ./internal/transport ./mcp ./internal/setup -run "LSPValidation"
-
-.PHONY: test-lsp-validation-short
-test-lsp-validation-short:
-	@echo "Running quick LSP validation tests for CI..."
-	$(GOTEST) -v -short -timeout=60s ./internal/gateway ./internal/transport ./mcp -run "LSPValidation"
-
-.PHONY: test-lsp-repositories
-test-lsp-repositories:
-	@echo "Running repository-focused LSP validation tests..."
-	$(GOTEST) -v -timeout=120s ./internal/gateway ./internal/transport ./mcp -run "LSPRepository"
-
-.PHONY: bench-lsp-validation
-bench-lsp-validation:
-	@echo "Running LSP validation performance benchmarks..."
-	$(GOTEST) -v -bench=LSPValidation -benchmem -timeout=300s ./internal/gateway ./internal/transport ./mcp
-
-# LSP validation test script targets
-.PHONY: test-lsp-validation-full
-test-lsp-validation-full:
-	@echo "Running full LSP validation test suite with reporting..."
-	./scripts/run-lsp-validation-tests.sh full
-
-.PHONY: test-lsp-validation-ci
-test-lsp-validation-ci:
-	@echo "Running CI-friendly LSP validation test suite..."
-	./scripts/run-lsp-validation-tests.sh ci
-
-# Coverage targets for CI/CD
-.PHONY: test-coverage-threshold
-test-coverage-threshold:
-	@echo "Running coverage check with threshold..."
-	./scripts/coverage-simple.sh
-
-.PHONY: coverage-ci
-coverage-ci:
-	@echo "Generating CI coverage reports..."
-	./scripts/coverage-simple.sh
-
-# Dependency management
-.PHONY: deps
+.PHONY: deps tidy format test
 deps:
 	@echo "Downloading dependencies..."
 	$(GOGET) -v ./...
 
-.PHONY: tidy
 tidy:
 	@echo "Tidying go modules..."
 	$(GOMOD) tidy
 
-# Code quality
-.PHONY: format
 format:
 	@echo "Formatting code..."
 	$(GOCMD) fmt ./...
 
-.PHONY: lint
+test:
+	@echo "Running tests..."
+	$(GOTEST) -v ./...
+
+test-unit:
+	@echo "Running unit tests..."
+	$(GOTEST) -v -short ./...
+
+test-integration:
+	@echo "Running integration tests..."
+	$(GOTEST) -v -run Integration ./...
+
+# =============================================================================
+# CODE QUALITY
+# =============================================================================
+
+.PHONY: lint security quality
 lint:
 	@echo "Running linter..."
-	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found. Install it with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; exit 1; }
+	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found. Install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; exit 1; }
 	golangci-lint run ./...
 
-# Enhanced dead code detection
-.PHONY: deadcode
-deadcode:
-	@echo "Running comprehensive dead code analysis..."
-	@command -v deadcode >/dev/null 2>&1 || { echo "deadcode not found. Install it with: go install golang.org/x/tools/cmd/deadcode@latest"; exit 1; }
-	deadcode -test ./...
-
-# Dead code detection with detailed output
-.PHONY: deadcode-report
-deadcode-report:
-	@echo "Generating dead code analysis report..."
-	@command -v deadcode >/dev/null 2>&1 || { echo "deadcode not found. Install it with: go install golang.org/x/tools/cmd/deadcode@latest"; exit 1; }
-	@mkdir -p reports
-	deadcode -test ./... > reports/deadcode-$(shell date +%Y%m%d-%H%M%S).txt 2>&1 || true
-	@echo "Report saved to reports/deadcode-$(shell date +%Y%m%d-%H%M%S).txt"
-
-# Focused unused code detection via golangci-lint
-.PHONY: lint-unused
-lint-unused:
-	@echo "Running unused code detection..."
-	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found. Install it with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; exit 1; }
-	golangci-lint run --enable-only unused,ineffassign ./...
-
-# Complete dead code analysis (combines both tools)
-.PHONY: check-deadcode
-check-deadcode:
-	@echo "=== Comprehensive Dead Code Analysis ==="
-	@echo "1. Running golangci-lint unused detection..."
-	@$(MAKE) lint-unused || true
-	@echo ""
-	@echo "2. Running official deadcode analysis..."
-	@$(MAKE) deadcode || true
-	@echo ""
-	@echo "=== Analysis Complete ==="
-
-# Security analysis
-.PHONY: security
 security:
 	@echo "Running security analysis..."
-	@command -v gosec >/dev/null 2>&1 || { echo "gosec not found. Install it with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; exit 1; }
-	gosec -conf .gosec.json ./cmd/lsp-gateway ./internal/cli ./internal/common ./internal/config ./internal/gateway ./internal/installer ./internal/platform ./internal/setup ./internal/transport ./internal/types ./mcp
+	@command -v gosec >/dev/null 2>&1 || { echo "gosec not found. Install: go install github.com/securego/gosec/v2/cmd/gosec@latest"; exit 1; }
+	gosec -conf .gosec.json ./...
 
-# Security analysis with detailed report
-.PHONY: security-report
-security-report:
-	@echo "Generating security analysis report..."
-	@command -v gosec >/dev/null 2>&1 || { echo "gosec not found. Install it with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; exit 1; }
-	@mkdir -p reports
-	gosec -conf .gosec.json -fmt json -out reports/security-$(shell date +%Y%m%d-%H%M%S).json ./... || true
-	gosec -conf .gosec.json -fmt text -out reports/security-$(shell date +%Y%m%d-%H%M%S).txt ./... || true
-	@echo "Reports saved to reports/security-$(shell date +%Y%m%d-%H%M%S).{json,txt}"
+check-deadcode:
+	@echo "Running dead code analysis..."
+	@command -v deadcode >/dev/null 2>&1 || { echo "deadcode not found. Install: go install golang.org/x/tools/cmd/deadcode@latest"; exit 1; }
+	deadcode -test ./...
 
-# Quick security check (strict mode for CI)
-.PHONY: security-check
-security-check:
-	@echo "Running strict security check..."
-	@command -v gosec >/dev/null 2>&1 || { echo "gosec not found. Install it with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; exit 1; }
-	gosec -conf .gosec.json -severity high -confidence high -quiet ./...
+# Combined quality check
+quality: format lint security
+	@echo "All quality checks completed"
 
-# Security scan with SARIF output for GitHub Security tab
-.PHONY: security-sarif
-security-sarif:
-	@echo "Generating SARIF security report..."
-	@command -v gosec >/dev/null 2>&1 || { echo "gosec not found. Install it with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; exit 1; }
-	@mkdir -p reports
-	gosec -conf .gosec.json -fmt sarif -out reports/security.sarif ./... || true
-	@echo "SARIF report saved to reports/security.sarif"
+# =============================================================================
+# TESTING TARGETS
+# =============================================================================
 
-# Comprehensive security analysis
-.PHONY: security-full
-security-full:
-	@echo "=== Comprehensive Security Analysis ==="
-	@$(MAKE) security-report
-	@$(MAKE) security-sarif
-	@echo "=== Security Analysis Complete ==="
+.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration setup-simple-repos
+setup-simple-repos:
+	@echo "Setting up test repositories..."
+	./scripts/setup-simple-repos.sh || echo "Setup script not found, skipping..."
 
-# Install binary
-.PHONY: install
+test-simple-quick:
+	@echo "Running quick validation tests..."
+	$(GOTEST) -v -short -timeout 60s ./tests/unit/...
+
+test-lsp-validation:
+	@echo "Running LSP validation tests..."
+	$(GOTEST) -v -timeout 300s ./tests/integration/...
+
+test-lsp-validation-short:
+	@echo "Running short LSP validation..."
+	$(GOTEST) -v -short -timeout 120s ./tests/integration/...
+
+test-jdtls-integration:
+	@echo "Running JDTLS integration tests..."
+	$(GOTEST) -v -timeout 600s -run "TestJDTLS" ./tests/integration/...
+
+# =============================================================================
+# UTILITY TARGETS
+# =============================================================================
+
+.PHONY: install release info help
 install:
 	@echo "Installing binary..."
 	$(GOBUILD) -ldflags "$(LDFLAGS)" -o $(GOPATH)/bin/$(BINARY_NAME) $(MAIN_PATH)
 
-# Release build
-.PHONY: release
 release:
-	@echo "Creating release build..."
-	@if [ "$(VERSION)" = "dev" ]; then \
-		echo "Please set VERSION for release build. Example: make release VERSION=v1.0.0"; \
-		exit 1; \
-	fi
-	$(MAKE) clean
-	$(MAKE) build VERSION=$(VERSION)
-	@echo "Release build completed with version: $(VERSION)"
+	@if [ "$(VERSION)" = "dev" ]; then echo "Set VERSION for release: make release VERSION=v1.0.0"; exit 1; fi
+	$(MAKE) clean && $(MAKE) build VERSION=$(VERSION)
+	@echo "Release $(VERSION) completed"
 
-# Show build info
-.PHONY: info
 info:
-	@echo "Build Information:"
-	@echo "  Binary Name: $(BINARY_NAME)"
-	@echo "  Main Path:   $(MAIN_PATH)"
-	@echo "  Build Dir:   $(BUILD_DIR)"
-	@echo "  Version:     $(VERSION)"
-	@echo "  LDFLAGS:     $(LDFLAGS)"
-	@echo "  Platforms:   $(PLATFORMS)"
+	@echo "LSP Gateway Build Info:"
+	@echo "  Version: $(VERSION)"
+	@echo "  Binary:  $(BINARY_NAME)"
+	@echo "  Platforms: $(PLATFORMS)"
 
-# Check if all binaries exist
-.PHONY: check
-check:
-	@echo "Checking built binaries..."
-	@for binary in $(BINARIES); do \
-		if [ -f "$$binary" ]; then \
-			echo "✓ $$binary exists ($(shell ls -lh $$binary | awk '{print $$5}'))"; \
-		else \
-			echo "✗ $$binary missing"; \
-		fi; \
-	done
-
-# ========================================
-# LSP Testing and Validation Targets
-# ========================================
-
-# LSP test dependencies
-.PHONY: lsp-deps
-lsp-deps:
-	@echo "Installing LSP test dependencies..."
-	@command -v jq >/dev/null 2>&1 || { echo "jq is required for LSP testing. Please install jq."; exit 1; }
-	@command -v bc >/dev/null 2>&1 || { echo "bc is required for LSP testing. Please install bc."; exit 1; }
-
-# Setup LSP servers for testing
-.PHONY: lsp-setup
-lsp-setup: lsp-deps
-	@echo "Setting up LSP servers for testing..."
-	@echo "Installing Go language server (gopls)..."
-	@go install golang.org/x/tools/gopls@latest || { echo "Failed to install gopls"; exit 1; }
-	@echo "Installing Python language server..."
-	@pip3 install python-lsp-server || echo "Warning: Failed to install python-lsp-server"
-	@echo "Installing TypeScript language server..."
-	@npm install -g typescript-language-server typescript || echo "Warning: Failed to install typescript-language-server"
-	@echo "✓ LSP servers setup completed"
-
-# Quick LSP validation (for PRs)
-.PHONY: test-lsp-quick
-test-lsp-quick: local lsp-setup
-	@echo "Running quick LSP validation..."
-	@mkdir -p lsp-results
-	./bin/$(BINARY_NAME) test-lsp \
-		--config=test-configs/ci-test-config.yaml \
-		--format=json \
-		--output-dir=lsp-results \
-		--filter="method=textDocument/definition,textDocument/hover" \
-		--timeout=60s \
-		--max-concurrency=2 \
-		--quick-mode || { echo "Quick LSP validation failed"; exit 1; }
-	@echo "✓ Quick LSP validation completed"
-
-
-# Repository validation against real codebases
-.PHONY: test-lsp-repos
-test-lsp-repos: local lsp-setup
-	@echo "Running repository validation tests..."
-	@for repo_type in golang python typescript; do \
-		echo "Testing against $$repo_type repositories..."; \
-		mkdir -p repo-validation-$$repo_type; \
-		./bin/$(BINARY_NAME) test-lsp \
-			--config=test-configs/$$repo_type-repo-config.yaml \
-			--format=json \
-			--output-dir=repo-validation-$$repo_type \
-			--timeout=300s \
-			--repository-mode || echo "Warning: $$repo_type repo validation failed"; \
-	done
-	@echo "✓ Repository validation completed"
-
-# Clean LSP test artifacts
-.PHONY: lsp-clean
-lsp-clean:
-	@echo "Cleaning LSP test artifacts..."
-	@rm -rf lsp-results/ repo-validation-*/ 
-	@echo "✓ LSP test artifacts cleaned"
-
-
-# LSP help target
-.PHONY: lsp-help
-lsp-help:
-	@echo "LSP Testing Targets:"
-	@echo "==================="
+help:
+	@echo "LSP Gateway Makefile"
+	@echo "====================="
 	@echo ""
-	@echo "Setup and Dependencies:"
-	@echo "  lsp-setup             - Install and setup LSP servers"
-	@echo "  lsp-deps              - Install LSP testing dependencies (jq, bc)"
-	@echo ""  
-	@echo "Testing Targets:"
-	@echo "  test-lsp-simple       - Simple LSP validation (quick, one test per feature per language)"
-	@echo "  test-lsp-full         - Full LSP test suite (all test scenarios)" 
-	@echo "  test-lsp-quick        - Quick LSP validation (legacy, for PRs)"
-	@echo "  test-lsp-validation   - LSP validation tests"
-	@echo "  test-lsp-repos        - Repository validation against real codebases"
+	@echo "Build:"
+	@echo "  local     - Build for current platform"
+	@echo "  build     - Build for all platforms"
+	@echo "  clean     - Clean build artifacts"
 	@echo ""
-	@echo "Maintenance:"
-	@echo "  lsp-clean             - Clean LSP test artifacts and results"
-	@echo "  lsp-help              - Show this help"
+	@echo "Development:"
+	@echo "  deps      - Download dependencies"
+	@echo "  tidy      - Tidy go modules"
+	@echo "  format    - Format code"
+	@echo "  test      - Run all tests"
+	@echo "  test-unit - Run unit tests only"
 	@echo ""
-	@echo "Examples:"
-	@echo "  make lsp-setup        # Setup LSP testing environment"
-	@echo "  make test-lsp-simple  # Run quick validation"
-	@echo "  make test-lsp-full    # Run complete test suite"
-
-
-# ========================================
-# Simple LSP Testing Targets
-# ========================================
-
-# Simple LSP test - quick validation (one test per feature per language)
-.PHONY: test-lsp-simple
-test-lsp-simple: local lsp-setup
-	@echo "Running simple LSP validation tests..."
-	@mkdir -p lsp-results
-	$(GOTEST) -v -timeout=120s ./internal/gateway ./internal/transport ./mcp -run "LSPValidation.*Simple" || \
-	$(GOTEST) -v -short -timeout=60s ./internal/gateway ./internal/transport ./mcp -run "LSPValidation"
-	@echo "✓ Simple LSP validation completed"
-
-# Full LSP test - all test scenarios  
-.PHONY: test-lsp-full
-test-lsp-full: local lsp-setup
-	@echo "Running full LSP test suite..."
-	@mkdir -p lsp-results
-	$(GOTEST) -v -timeout=300s ./internal/gateway ./internal/transport ./mcp -run "LSPValidation"
-	$(GOTEST) -v -timeout=180s ./internal/gateway ./internal/transport ./mcp -run "LSPRepository"  
-	@echo "✓ Full LSP test suite completed"
-
-
-# ========================================
-# Simplified LSP Testing System
-# ========================================
-
-# Build simple test runner
-.PHONY: build-simple-test
-build-simple-test:
-	@echo "Building simple LSP test runner..."
-	@mkdir -p $(BUILD_DIR)
-	$(GOBUILD) -o $(BUILD_DIR)/simple-lsp-test ./cmd/simple-lsp-test/
-
-# Simple unified test execution - Quick mode
-.PHONY: test-simple-quick
-test-simple-quick: build-simple-test
-	@echo "Running simple LSP tests (quick mode)..."
-	./$(BUILD_DIR)/simple-lsp-test --mode quick --verbose
-
-# Simple unified test execution - Full mode  
-.PHONY: test-simple-full
-test-simple-full: build-simple-test
-	@echo "Running simple LSP tests (full mode)..."
-	./$(BUILD_DIR)/simple-lsp-test --mode full --verbose
-
-# Simple unified test execution - Using bash script
-.PHONY: test-simple-script
-test-simple-script:
-	@echo "Running simple LSP tests via bash script..."
-	./run-simple-lsp-tests.sh --mode full --verbose
-
-# Simple test with custom config
-.PHONY: test-simple-custom
-test-simple-custom: build-simple-test
-	@echo "Running simple LSP tests with custom config..."
-	./$(BUILD_DIR)/simple-lsp-test --config simple-lsp-test-config.yaml --mode full --verbose
-
-# ========================================
-# Simple Repository Management
-# ========================================
-
-# Setup simple test repositories (one per language)
-.PHONY: setup-simple-repos
-setup-simple-repos:
-	@echo "Setting up simple test repositories..."
-	./scripts/simple-clone-repos.sh setup
-	@echo "✓ Simple repositories setup completed"
-
-# Setup specific language repositories
-.PHONY: setup-simple-go
-setup-simple-go:
-	@echo "Setting up Go repository (Kubernetes)..."
-	./scripts/simple-clone-repos.sh setup go
-
-.PHONY: setup-simple-python
-setup-simple-python:
-	@echo "Setting up Python repository (Django)..."
-	./scripts/simple-clone-repos.sh setup python
-
-.PHONY: setup-simple-typescript
-setup-simple-typescript:
-	@echo "Setting up TypeScript repository (VS Code)..."
-	./scripts/simple-clone-repos.sh setup typescript
-
-.PHONY: setup-simple-java
-setup-simple-java:
-	@echo "Setting up Java repository (Spring Boot)..."
-	./scripts/simple-clone-repos.sh setup java
-
-# Show status of simple repositories
-.PHONY: simple-status
-simple-status:
-	@echo "Checking simple repository status..."
-	./scripts/simple-clone-repos.sh status
-
-# Clean simple test repositories
-.PHONY: simple-clean
-simple-clean:
-	@echo "Cleaning simple test repositories..."
-	./scripts/simple-clone-repos.sh cleanup
-
-# Clean specific language repositories
-.PHONY: simple-clean-go
-simple-clean-go:
-	@echo "Cleaning Go repositories..."
-	./scripts/simple-clone-repos.sh cleanup go
-
-.PHONY: simple-clean-python
-simple-clean-python:
-	@echo "Cleaning Python repositories..."
-	./scripts/simple-clone-repos.sh cleanup python
-
-.PHONY: simple-clean-typescript
-simple-clean-typescript:
-	@echo "Cleaning TypeScript repositories..."
-	./scripts/simple-clone-repos.sh cleanup typescript
-
-.PHONY: simple-clean-java
-simple-clean-java:
-	@echo "Cleaning Java repositories..."
-	./scripts/simple-clone-repos.sh cleanup java
-
-# Simple LSP testing with repository setup
-.PHONY: test-simple-with-setup
-test-simple-with-setup: setup-simple-repos test-simple-quick
-	@echo "✓ Simple LSP testing with repository setup completed"
+	@echo "Quality:"
+	@echo "  lint      - Run linter"
+	@echo "  security  - Run security analysis"
+	@echo "  quality   - Run all quality checks"
+	@echo ""
+	@echo "Testing:"
+	@echo "  test-simple-quick    - Quick validation tests"
+	@echo "  test-lsp-validation  - Full LSP validation"
+	@echo "  setup-simple-repos   - Setup test repositories"
+	@echo ""
+	@echo "Utility:"
+	@echo "  install   - Install binary to GOPATH"
+	@echo "  release   - Create release build"
+	@echo "  info      - Show build information"
+	@echo "  help      - Show this help"

@@ -6,7 +6,7 @@ import (
 
 var rootCmd = &cobra.Command{
 	Use:   "lsp-gateway",
-	Short: "LSP Gateway - A unified interface for Language Server Protocol servers",
+	Short: "LSP Gateway - A JSON-RPC gateway for Language Server Protocol servers",
 	Long: `LSP Gateway provides a unified JSON-RPC interface for multiple Language Server Protocol (LSP) servers
 with embedded auto-setup capabilities and Model Context Protocol (MCP) server functionality.
 
@@ -63,4 +63,9 @@ Get started: lsp-gateway setup all`,
 
 func Execute() error {
 	return rootCmd.Execute()
+}
+
+// GetRootCmd returns the root command for testing purposes
+func GetRootCmd() *cobra.Command {
+	return rootCmd
 }

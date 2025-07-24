@@ -29,6 +29,19 @@ type JavaDetector struct {
 	versionChecker *VersionChecker
 }
 
+// NewJavaDetector creates a new JavaDetector with default configuration
+func NewJavaDetector() *JavaDetector {
+	return &JavaDetector{
+		executor:       platform.NewCommandExecutor(),
+		versionChecker: NewVersionChecker(),
+	}
+}
+
+// SetExecutor sets a custom command executor (for testing)
+func (d *JavaDetector) SetExecutor(executor platform.CommandExecutor) {
+	d.executor = executor
+}
+
 func (d *JavaDetector) DetectJava() (*JavaRuntimeInfo, error) {
 	javaInfo := &JavaRuntimeInfo{
 		RuntimeInfo: &RuntimeInfo{
@@ -72,7 +85,7 @@ func (d *JavaDetector) DetectJava() (*JavaRuntimeInfo, error) {
 			fmt.Sprintf("Java version %s does not meet minimum requirement %s", version, minVersion))
 	}
 
-	d.validateJavaHome(javaInfo)
+	d.ValidateJavaHome(javaInfo)
 
 	d.detectJDKCapabilities(javaInfo)
 
@@ -121,7 +134,7 @@ func (d *JavaDetector) detectJavaVersion() (version, distribution string, err er
 		output = result.Stdout
 	}
 
-	version, distribution = d.parseJavaVersionOutput(output)
+	version, distribution = d.ParseJavaVersionOutput(output)
 	if version == "" {
 		return "", "", fmt.Errorf("could not parse Java version from output: %s", output)
 	}
@@ -129,7 +142,7 @@ func (d *JavaDetector) detectJavaVersion() (version, distribution string, err er
 	return version, distribution, nil
 }
 
-func (d *JavaDetector) parseJavaVersionOutput(output string) (version, distribution string) {
+func (d *JavaDetector) ParseJavaVersionOutput(output string) (version, distribution string) {
 	lines := strings.Split(output, "\n")
 	if len(lines) == 0 {
 		return "", ""
@@ -184,7 +197,7 @@ func (d *JavaDetector) parseJavaVersionOutput(output string) (version, distribut
 	return version, distribution
 }
 
-func (d *JavaDetector) validateJavaHome(javaInfo *JavaRuntimeInfo) {
+func (d *JavaDetector) ValidateJavaHome(javaInfo *JavaRuntimeInfo) {
 	javaHome := os.Getenv("JAVA_HOME")
 	javaInfo.JavaHome = javaHome
 
@@ -217,9 +230,9 @@ func (d *JavaDetector) validateJavaHome(javaInfo *JavaRuntimeInfo) {
 		return
 	}
 
-	javaHomeVersion, _ := d.parseJavaVersionOutput(result.Stderr)
+	javaHomeVersion, _ := d.ParseJavaVersionOutput(result.Stderr)
 	if javaHomeVersion == "" {
-		javaHomeVersion, _ = d.parseJavaVersionOutput(result.Stdout)
+		javaHomeVersion, _ = d.ParseJavaVersionOutput(result.Stdout)
 	}
 
 	if javaHomeVersion != javaInfo.Version {
@@ -276,7 +289,7 @@ func (d *JavaDetector) detectJDKCapabilities(javaInfo *JavaRuntimeInfo) {
 				javacOutput = result.Stdout
 			}
 
-			javacVersion := d.extractJavacVersion(javacOutput)
+			javacVersion := d.ExtractJavacVersion(javacOutput)
 			if javacVersion != "" && javacVersion != javaInfo.Version {
 				javaInfo.Issues = append(javaInfo.Issues,
 					fmt.Sprintf("javac version (%s) differs from java version (%s)",
@@ -286,7 +299,7 @@ func (d *JavaDetector) detectJDKCapabilities(javaInfo *JavaRuntimeInfo) {
 	}
 }
 
-func (d *JavaDetector) extractJavacVersion(output string) string {
+func (d *JavaDetector) ExtractJavacVersion(output string) string {
 	versionRegex := regexp.MustCompile(`javac\s+(\d+(?:\.\d+)*(?:_\d+)?)`)
 	matches := versionRegex.FindStringSubmatch(output)
 	if len(matches) > 1 {

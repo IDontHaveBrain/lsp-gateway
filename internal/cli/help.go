@@ -101,7 +101,7 @@ Complete setup from fresh system to working LSP Gateway:
 
 STEP 1: Quick Setup (Recommended)
 ----------------------------------
-# Complete automated setup
+# Complete automated setup (recommended for first-time users)
 lsp-gateway setup all
 
 # Verify installation
@@ -111,10 +111,12 @@ lsp-gateway status
 lsp-gateway server
 
 
-STEP 2: Manual Setup (Advanced)
---------------------------------
+STEP 2: Manual Setup (Alternative)
+-----------------------------------
+# For users who prefer step-by-step manual control:
+
 # Generate configuration
-lsp-gateway config generate --auto-detect
+lsp-gateway config generate
 
 # Install runtimes (if needed)
 lsp-gateway install runtime go
@@ -161,7 +163,10 @@ source ~/.bashrc
 
 
 TROUBLESHOOTING:
-If setup fails, run: lsp-gateway diagnose
+If setup fails:
+1. Try automated setup: lsp-gateway setup all --force
+2. Run diagnostics: lsp-gateway diagnose
+3. Check individual steps with manual setup (STEP 2)
 `)
 }
 
@@ -193,7 +198,7 @@ lsp-gateway config show
 lsp-gateway config validate
 
 # Regenerate configuration (after installing new runtimes)
-lsp-gateway config generate --auto-detect --overwrite
+lsp-gateway config generate --overwrite
 
 
 RUNTIME MANAGEMENT:
@@ -237,7 +242,7 @@ PROJECT SWITCHING:
 ------------------
 # Different config per project
 cd /path/to/project
-lsp-gateway config generate --auto-detect --output .lsp-gateway.yaml
+lsp-gateway config generate --output .lsp-gateway.yaml
 lsp-gateway server --config .lsp-gateway.yaml
 `)
 }
@@ -272,7 +277,7 @@ lsp-gateway install servers --force
 lsp-gateway install server gopls --force
 
 # Regenerate config after updates
-lsp-gateway config generate --auto-detect --overwrite
+lsp-gateway config generate --overwrite
 
 
 PERFORMANCE OPTIMIZATION:
@@ -281,7 +286,7 @@ PERFORMANCE OPTIMIZATION:
 lsp-gateway diagnose
 
 # Restart with clean configuration
-lsp-gateway config generate --auto-detect --overwrite
+lsp-gateway config generate --overwrite
 lsp-gateway server --config config.yaml
 
 
@@ -313,7 +318,7 @@ TROUBLESHOOTING WORKFLOW:
    lsp-gateway verify runtime python
 
 4. Regenerate configuration:
-   lsp-gateway config generate --auto-detect --overwrite
+   lsp-gateway config generate --overwrite
 
 5. Test functionality:
    lsp-gateway server --config config.yaml
@@ -449,8 +454,9 @@ STEP 2: COMMON ISSUES & SOLUTIONS
 ---------------------------------
 
 "Configuration file not found":
-  → lsp-gateway config generate
   → lsp-gateway setup all
+  → lsp-gateway config generate (if manual setup preferred)
+  → lsp-gateway diagnose
 
 "Port already in use":
   → lsof -i :8080
@@ -458,19 +464,19 @@ STEP 2: COMMON ISSUES & SOLUTIONS
   → sudo kill $(lsof -t -i:8080)
 
 "Language server not found":
+  → lsp-gateway setup all
   → lsp-gateway status servers
-  → lsp-gateway install servers
-  → lsp-gateway verify runtime go
+  → lsp-gateway install servers (if manual setup preferred)
 
 "Server fails to start":
+  → lsp-gateway setup all --force
   → lsp-gateway config validate
   → lsp-gateway diagnose
-  → lsp-gateway status runtimes
 
 "Runtime not detected":
+  → lsp-gateway setup all
   → which go python node java
-  → lsp-gateway install runtime go
-  → echo $PATH
+  → lsp-gateway install runtime go (if manual setup preferred)
 
 "Permission denied":
   → ls -la config.yaml
@@ -502,7 +508,8 @@ STEP 3: SYSTEMATIC DEBUGGING
    lsp-gateway server --verbose
 
 6. Reset to known good state:
-   lsp-gateway setup all --force
+   lsp-gateway install runtime all --force
+   lsp-gateway install servers --force
 
 
 STEP 4: ADVANCED TROUBLESHOOTING
@@ -530,9 +537,7 @@ STEP 5: RESET AND REINSTALL
 ----------------------------
 # Complete reset (if all else fails)
 rm -f config.yaml
-lsp-gateway install runtime all --force
-lsp-gateway install servers --force
-lsp-gateway setup all
+lsp-gateway setup all --force
 lsp-gateway server
 
 

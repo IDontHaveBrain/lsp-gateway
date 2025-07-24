@@ -54,25 +54,25 @@ const (
 
 type CircuitBreaker struct {
 	mu              sync.RWMutex
-	state           CircuitBreakerState
+	State           CircuitBreakerState
 	failureCount    int
 	lastFailureTime time.Time
 	successCount    int
-	timeout         time.Duration
-	maxFailures     int
-	maxRequests     int
+	Timeout         time.Duration
+	MaxFailures     int
+	MaxRequests     int
 }
 
 type ConnectionMetrics struct {
 	mu               sync.RWMutex
-	totalRequests    int64
-	successfulReqs   int64
-	failedRequests   int64
-	timeoutCount     int64
-	connectionErrors int64
-	averageLatency   time.Duration
-	lastRequestTime  time.Time
-	lastSuccessTime  time.Time
+	TotalRequests    int64
+	SuccessfulReqs   int64
+	FailedRequests   int64
+	TimeoutCount     int64
+	ConnectionErrors int64
+	AverageLatency   time.Duration
+	LastRequestTime  time.Time
+	LastSuccessTime  time.Time
 }
 
 type LSPGatewayClient struct {
@@ -148,10 +148,10 @@ func NewLSPGatewayClient(config *ServerConfig) *LSPGatewayClient {
 	}
 
 	circuitBreaker := &CircuitBreaker{
-		state:       CircuitClosed,
-		timeout:     60 * time.Second,
-		maxFailures: 5,
-		maxRequests: 3,
+		State:       CircuitClosed,
+		Timeout:     60 * time.Second,
+		MaxFailures: 5,
+		MaxRequests: 3,
 	}
 
 	return &LSPGatewayClient{
@@ -171,8 +171,8 @@ func (c *LSPGatewayClient) SendLSPRequest(ctx context.Context, method string, pa
 	start := time.Now()
 
 	c.metrics.mu.Lock()
-	c.metrics.totalRequests++
-	c.metrics.lastRequestTime = start
+	c.metrics.TotalRequests++
+	c.metrics.LastRequestTime = start
 	c.metrics.mu.Unlock()
 
 	if !c.circuitBreaker.AllowRequest() {
@@ -183,7 +183,7 @@ func (c *LSPGatewayClient) SendLSPRequest(ctx context.Context, method string, pa
 
 	request := JSONRPCRequest{
 		JSONRPC: JSONRPCVersion,
-		ID:      generateRequestID(),
+		ID:      GenerateRequestID(),
 		Method:  method,
 		Params:  params,
 	}
@@ -329,7 +329,7 @@ func (c *LSPGatewayClient) shouldRetryError(category ErrorCategory) bool {
 	return retryable
 }
 
-func generateRequestID() interface{} {
+func GenerateRequestID() interface{} {
 	// Use crypto/rand for security-sensitive request ID generation
 	randomBytes := make([]byte, 4)
 	_, err := rand.Read(randomBytes)
@@ -515,18 +515,18 @@ func (cb *CircuitBreaker) AllowRequest() bool {
 
 	now := time.Now()
 
-	switch cb.state {
+	switch cb.State {
 	case CircuitClosed:
 		return true
 	case CircuitOpen:
-		if now.Sub(cb.lastFailureTime) > cb.timeout {
-			cb.state = CircuitHalfOpen
+		if now.Sub(cb.lastFailureTime) > cb.Timeout {
+			cb.State = CircuitHalfOpen
 			cb.successCount = 0
 			return true
 		}
 		return false
 	case CircuitHalfOpen:
-		return cb.successCount < cb.maxRequests
+		return cb.successCount < cb.MaxRequests
 	default:
 		return false
 	}
@@ -538,10 +538,10 @@ func (cb *CircuitBreaker) RecordSuccess() {
 
 	cb.failureCount = 0
 
-	if cb.state == CircuitHalfOpen {
+	if cb.State == CircuitHalfOpen {
 		cb.successCount++
-		if cb.successCount >= cb.maxRequests {
-			cb.state = CircuitClosed
+		if cb.successCount >= cb.MaxRequests {
+			cb.State = CircuitClosed
 		}
 	}
 }
@@ -553,8 +553,8 @@ func (cb *CircuitBreaker) RecordFailure() {
 	cb.failureCount++
 	cb.lastFailureTime = time.Now()
 
-	if cb.failureCount >= cb.maxFailures {
-		cb.state = CircuitOpen
+	if cb.failureCount >= cb.MaxFailures {
+		cb.State = CircuitOpen
 	}
 }
 
@@ -562,25 +562,25 @@ func (c *LSPGatewayClient) updateSuccessMetrics() {
 	c.metrics.mu.Lock()
 	defer c.metrics.mu.Unlock()
 
-	c.metrics.successfulReqs++
-	c.metrics.lastSuccessTime = time.Now()
+	c.metrics.SuccessfulReqs++
+	c.metrics.LastSuccessTime = time.Now()
 }
 
 func (c *LSPGatewayClient) updateFailureMetrics() {
 	c.metrics.mu.Lock()
 	defer c.metrics.mu.Unlock()
 
-	c.metrics.failedRequests++
+	c.metrics.FailedRequests++
 }
 
 func (c *LSPGatewayClient) updateLatencyMetrics(latency time.Duration) {
 	c.metrics.mu.Lock()
 	defer c.metrics.mu.Unlock()
 
-	if c.metrics.averageLatency == 0 {
-		c.metrics.averageLatency = latency
+	if c.metrics.AverageLatency == 0 {
+		c.metrics.AverageLatency = latency
 	} else {
-		c.metrics.averageLatency = time.Duration((int64(c.metrics.averageLatency)*9 + int64(latency)) / 10)
+		c.metrics.AverageLatency = time.Duration((int64(c.metrics.AverageLatency)*9 + int64(latency)) / 10)
 	}
 }
 
@@ -589,14 +589,14 @@ func (c *LSPGatewayClient) GetMetrics() ConnectionMetrics {
 	defer c.metrics.mu.RUnlock()
 
 	return ConnectionMetrics{
-		totalRequests:    c.metrics.totalRequests,
-		successfulReqs:   c.metrics.successfulReqs,
-		failedRequests:   c.metrics.failedRequests,
-		timeoutCount:     c.metrics.timeoutCount,
-		connectionErrors: c.metrics.connectionErrors,
-		averageLatency:   c.metrics.averageLatency,
-		lastRequestTime:  c.metrics.lastRequestTime,
-		lastSuccessTime:  c.metrics.lastSuccessTime,
+		TotalRequests:    c.metrics.TotalRequests,
+		SuccessfulReqs:   c.metrics.SuccessfulReqs,
+		FailedRequests:   c.metrics.FailedRequests,
+		TimeoutCount:     c.metrics.TimeoutCount,
+		ConnectionErrors: c.metrics.ConnectionErrors,
+		AverageLatency:   c.metrics.AverageLatency,
+		LastRequestTime:  c.metrics.LastRequestTime,
+		LastSuccessTime:  c.metrics.LastSuccessTime,
 	}
 }
 
@@ -634,5 +634,73 @@ func (c *LSPGatewayClient) IsHealthy() bool {
 	c.circuitBreaker.mu.RLock()
 	defer c.circuitBreaker.mu.RUnlock()
 
-	return c.circuitBreaker.state != CircuitOpen
+	return c.circuitBreaker.State != CircuitOpen
+}
+
+// SetRetryPolicy updates the client's retry policy
+func (c *LSPGatewayClient) SetRetryPolicy(policy *RetryPolicy) {
+	c.retryPolicy = policy
+}
+
+// GetBaseURL returns the base URL of the LSP Gateway
+func (c *LSPGatewayClient) GetBaseURL() string {
+	return c.baseURL
+}
+
+// GetTimeout returns the client timeout
+func (c *LSPGatewayClient) GetTimeout() time.Duration {
+	return c.timeout
+}
+
+// GetMaxRetries returns the maximum number of retries
+func (c *LSPGatewayClient) GetMaxRetries() int {
+	return c.maxRetries
+}
+
+// GetCircuitBreakerState returns the current circuit breaker state
+func (c *LSPGatewayClient) GetCircuitBreakerState() CircuitBreakerState {
+	c.circuitBreaker.mu.RLock()
+	defer c.circuitBreaker.mu.RUnlock()
+	return c.circuitBreaker.State
+}
+
+// SetCircuitBreakerConfig allows setting circuit breaker parameters for testing
+func (c *LSPGatewayClient) SetCircuitBreakerConfig(maxFailures int, timeout time.Duration) {
+	c.circuitBreaker.mu.Lock()
+	defer c.circuitBreaker.mu.Unlock()
+	c.circuitBreaker.MaxFailures = maxFailures
+	c.circuitBreaker.Timeout = timeout
+}
+
+// GetRetryPolicy returns a copy of the retry policy
+func (c *LSPGatewayClient) GetRetryPolicy() RetryPolicy {
+	if c.retryPolicy == nil {
+		return RetryPolicy{}
+	}
+	return *c.retryPolicy
+}
+
+// GetCircuitBreaker returns the circuit breaker for testing purposes
+func (c *LSPGatewayClient) GetCircuitBreaker() *CircuitBreaker {
+	return c.circuitBreaker
+}
+
+// GetMetricsPointer returns a pointer to the metrics for testing
+func (c *LSPGatewayClient) GetMetricsPointer() *ConnectionMetrics {
+	return c.metrics
+}
+
+// CategorizeError exposes error categorization for testing
+func (c *LSPGatewayClient) CategorizeError(err error) ErrorCategory {
+	return c.categorizeError(err)
+}
+
+// CalculateBackoff exposes backoff calculation for testing
+func (c *LSPGatewayClient) CalculateBackoff(attempt int) time.Duration {
+	return c.calculateBackoff(attempt)
+}
+
+// GetHTTPClient returns the HTTP client for testing
+func (c *LSPGatewayClient) GetHTTPClient() *http.Client {
+	return c.httpClient
 }

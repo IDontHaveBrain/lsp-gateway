@@ -60,6 +60,7 @@ func (c *ServerConfig) Validate() error {
 
 	validTransports := map[string]bool{
 		transport.TransportStdio: true,
+		transport.TransportTCP:   true,
 		"websocket":              true,
 		transport.TransportHTTP:  true,
 	}

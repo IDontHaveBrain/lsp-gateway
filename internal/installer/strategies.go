@@ -219,6 +219,43 @@ func (w *WindowsStrategy) IsPackageManagerAvailable(manager string) bool {
 	return false
 }
 
+// Test helper methods for WindowsStrategy
+
+// InstallComponent installs a component using the appropriate package manager (exported for testing)
+func (w *WindowsStrategy) InstallComponent(component, version string, packageNames map[string]string) error {
+	return w.installComponent(component, version, packageNames)
+}
+
+// GetPackageManagerInstances returns the package managers for testing
+func (w *WindowsStrategy) GetPackageManagerInstances() []platform.PackageManager {
+	return w.packageManagers
+}
+
+// SetPackageManagers sets the package managers for testing
+func (w *WindowsStrategy) SetPackageManagers(managers []platform.PackageManager) {
+	w.packageManagers = managers
+}
+
+// GetExecutor returns the command executor for testing
+func (w *WindowsStrategy) GetExecutor() platform.CommandExecutor {
+	return w.executor
+}
+
+// SetExecutor sets the command executor for testing
+func (w *WindowsStrategy) SetExecutor(executor platform.CommandExecutor) {
+	w.executor = executor
+}
+
+// SetRetryAttempts sets the retry attempts for testing
+func (w *WindowsStrategy) SetRetryAttempts(attempts int) {
+	w.retryAttempts = attempts
+}
+
+// SetRetryDelay sets the retry delay for testing
+func (w *WindowsStrategy) SetRetryDelay(delay time.Duration) {
+	w.retryDelay = delay
+}
+
 func getEnvWithExecutor(executor platform.CommandExecutor, varName string) string {
 	shell := executor.GetShell()
 	var command string
@@ -528,6 +565,63 @@ func (m *MacOSStrategy) extractMajorMinorVersion(version string) string {
 	return ""
 }
 
+// Test helper methods for MacOSStrategy
+
+// GetExecutor returns the command executor for testing
+func (m *MacOSStrategy) GetExecutor() platform.CommandExecutor {
+	return m.executor
+}
+
+// SetExecutor sets the command executor for testing
+func (m *MacOSStrategy) SetExecutor(executor platform.CommandExecutor) {
+	m.executor = executor
+}
+
+// GetPackageManagerInstance returns the package manager for testing (singular)
+func (m *MacOSStrategy) GetPackageManagerInstance() platform.PackageManager {
+	return m.packageMgr
+}
+
+// SetPackageManager sets the package manager for testing
+func (m *MacOSStrategy) SetPackageManager(mgr platform.PackageManager) {
+	m.packageMgr = mgr
+}
+
+// InstallWithRetry exposes the internal installWithRetry method for testing
+func (m *MacOSStrategy) InstallWithRetry(component, packageName string) error {
+	return m.installWithRetry(component, packageName)
+}
+
+// ExtractMajorVersion exposes the internal extractMajorVersion method for testing
+func (m *MacOSStrategy) ExtractMajorVersion(version string) string {
+	return m.extractMajorVersion(version)
+}
+
+// ExtractMajorMinorVersion exposes the internal extractMajorMinorVersion method for testing
+func (m *MacOSStrategy) ExtractMajorMinorVersion(version string) string {
+	return m.extractMajorMinorVersion(version)
+}
+
+// NormalizeGoVersion exposes the internal normalizeGoVersion method for testing
+func (m *MacOSStrategy) NormalizeGoVersion(version string) string {
+	return m.normalizeGoVersion(version)
+}
+
+// GetPythonPackageName exposes the internal getPythonPackageName method for testing
+func (m *MacOSStrategy) GetPythonPackageName(version string) string {
+	return m.getPythonPackageName(version)
+}
+
+// SetupJavaEnvironment exposes the internal setupJavaEnvironment method for testing
+func (m *MacOSStrategy) SetupJavaEnvironment(version string) error {
+	return m.setupJavaEnvironment(version)
+}
+
+// UpdateHomebrewPath exposes the internal updateHomebrewPath method for testing
+func (m *MacOSStrategy) UpdateHomebrewPath() error {
+	return m.updateHomebrewPath()
+}
+
 type LinuxStrategy struct {
 	linuxInfo       *platform.LinuxInfo
 	packageManagers map[string]platform.PackageManager
@@ -682,4 +776,42 @@ func (l *LinuxStrategy) GetPackageManagers() []string {
 func (l *LinuxStrategy) IsPackageManagerAvailable(manager string) bool {
 	_, exists := l.packageManagers[manager]
 	return exists
+}
+
+// Test helper methods for LinuxStrategy
+
+// GetPackageManagerInstances returns the package managers map for testing
+func (l *LinuxStrategy) GetPackageManagerInstances() map[string]platform.PackageManager {
+	return l.packageManagers
+}
+
+// SetPackageManagers sets the package managers for testing
+func (l *LinuxStrategy) SetPackageManagers(managers map[string]platform.PackageManager) {
+	l.packageManagers = managers
+}
+
+// ClearPackageManagers clears all package managers for testing
+func (l *LinuxStrategy) ClearPackageManagers() {
+	l.packageManagers = make(map[string]platform.PackageManager)
+}
+
+// SetRetryAttempts sets the retry attempts for testing
+func (l *LinuxStrategy) SetRetryAttempts(attempts int) {
+	l.retryAttempts = attempts
+}
+
+// InstallWithRetry exposes the internal installWithRetry method for testing
+func (l *LinuxStrategy) InstallWithRetry(mgr platform.PackageManager, component, version string) error {
+	return l.installWithRetry(mgr, component, version)
+}
+
+// NewTestLinuxStrategy creates a LinuxStrategy for testing with custom dependencies
+func NewTestLinuxStrategy(linuxInfo *platform.LinuxInfo, executor platform.CommandExecutor) *LinuxStrategy {
+	return &LinuxStrategy{
+		linuxInfo:       linuxInfo,
+		packageManagers: make(map[string]platform.PackageManager),
+		executor:        executor,
+		retryAttempts:   3,
+		retryDelay:      2 * time.Second,
+	}
 }

@@ -10,16 +10,16 @@ import (
 )
 
 type PythonDetector struct {
-	executor       platform.CommandExecutor
-	versionChecker *VersionChecker
-	logger         *SetupLogger
+	Executor       platform.CommandExecutor
+	VersionChecker *VersionChecker
+	Logger         *SetupLogger
 }
 
 func NewPythonDetector() *PythonDetector {
 	return &PythonDetector{
-		executor:       platform.NewCommandExecutor(),
-		versionChecker: NewVersionChecker(),
-		logger:         NewSetupLogger(nil),
+		Executor:       platform.NewCommandExecutor(),
+		VersionChecker: NewVersionChecker(),
+		Logger:         NewSetupLogger(nil),
 	}
 }
 
@@ -33,7 +33,7 @@ func (pd *PythonDetector) DetectPython() (*RuntimeInfo, error) {
 		Issues:     []string{},
 	}
 
-	pythonCommands := pd.getPythonCommands()
+	pythonCommands := pd.GetPythonCommands()
 
 	var detectedPython *pythonInstallation
 	var detectionErrors []string
@@ -60,20 +60,20 @@ func (pd *PythonDetector) DetectPython() (*RuntimeInfo, error) {
 	info.Installed = true
 	info.Version = detectedPython.Version
 	info.Path = detectedPython.Path
-	info.Compatible = pd.versionChecker.IsCompatible("python", detectedPython.Version)
+	info.Compatible = pd.VersionChecker.IsCompatible("python", detectedPython.Version)
 
 	if !info.Compatible {
-		minVersion, _ := pd.versionChecker.GetMinVersion("python")
+		minVersion, _ := pd.VersionChecker.GetMinVersion("python")
 		info.Issues = append(info.Issues, fmt.Sprintf("Python version %s is below minimum required version %s", detectedPython.Version, minVersion))
 	}
 
 	if err := pd.validatePip(detectedPython, info); err != nil {
-		pd.logger.WithError(err).Warn("Pip validation failed")
+		pd.Logger.WithError(err).Warn("Pip validation failed")
 		info.Issues = append(info.Issues, fmt.Sprintf("Pip validation failed: %v", err))
 	}
 
 	if err := pd.validateVirtualEnvironment(detectedPython, info); err != nil {
-		pd.logger.WithError(err).Warn("Virtual environment validation failed")
+		pd.Logger.WithError(err).Warn("Virtual environment validation failed")
 		info.Issues = append(info.Issues, fmt.Sprintf("Virtual environment support: %v", err))
 	}
 
@@ -95,7 +95,7 @@ type pipInstallation struct {
 	Working bool
 }
 
-func (pd *PythonDetector) getPythonCommands() []string {
+func (pd *PythonDetector) GetPythonCommands() []string {
 	if runtime.GOOS == OS_WINDOWS {
 		return []string{"py", "python", "python3"}
 	}
@@ -103,7 +103,7 @@ func (pd *PythonDetector) getPythonCommands() []string {
 }
 
 func (pd *PythonDetector) detectPythonInstallation(command string) (*pythonInstallation, error) {
-	if !pd.executor.IsCommandAvailable(command) {
+	if !pd.Executor.IsCommandAvailable(command) {
 		return nil, fmt.Errorf("command '%s' not found in PATH", command)
 	}
 
@@ -114,7 +114,7 @@ func (pd *PythonDetector) detectPythonInstallation(command string) (*pythonInsta
 
 	path, err := pd.getPythonPath(command)
 	if err != nil {
-		pd.logger.WithError(err).Debug("Could not determine Python path")
+		pd.Logger.WithError(err).Debug("Could not determine Python path")
 		path = command // fallback to command name
 	}
 
@@ -126,7 +126,7 @@ func (pd *PythonDetector) detectPythonInstallation(command string) (*pythonInsta
 
 	pip, err := pd.detectPip(command)
 	if err != nil {
-		pd.logger.WithError(err).Debug("Pip detection failed")
+		pd.Logger.WithError(err).Debug("Pip detection failed")
 	} else {
 		installation.Pip = pip
 	}
@@ -135,7 +135,7 @@ func (pd *PythonDetector) detectPythonInstallation(command string) (*pythonInsta
 }
 
 func (pd *PythonDetector) getPythonVersion(command string) (string, error) {
-	result, err := pd.executor.Execute(command, []string{"--version"}, 10*time.Second)
+	result, err := pd.Executor.Execute(command, []string{"--version"}, 10*time.Second)
 	if err != nil {
 		return "", fmt.Errorf("version command failed: %w", err)
 	}
@@ -149,7 +149,7 @@ func (pd *PythonDetector) getPythonVersion(command string) (string, error) {
 		versionOutput = result.Stderr
 	}
 
-	version, err := pd.parseVersionString(versionOutput)
+	version, err := pd.ParseVersionString(versionOutput)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse version from '%s': %w", versionOutput, err)
 	}
@@ -157,7 +157,7 @@ func (pd *PythonDetector) getPythonVersion(command string) (string, error) {
 	return version, nil
 }
 
-func (pd *PythonDetector) parseVersionString(output string) (string, error) {
+func (pd *PythonDetector) ParseVersionString(output string) (string, error) {
 	re := regexp.MustCompile(`Python\s+(\d+\.\d+\.\d+)`)
 	matches := re.FindStringSubmatch(output)
 
@@ -173,7 +173,7 @@ func (pd *PythonDetector) parseVersionString(output string) (string, error) {
 }
 
 func (pd *PythonDetector) getPythonPath(command string) (string, error) {
-	result, err := pd.executor.Execute(command, []string{"-c", "import sys; print(sys.executable)"}, 5*time.Second)
+	result, err := pd.Executor.Execute(command, []string{"-c", "import sys; print(sys.executable)"}, 5*time.Second)
 	if err != nil {
 		return "", fmt.Errorf("path detection failed: %w", err)
 	}
@@ -219,7 +219,7 @@ func (pd *PythonDetector) testPipCommand(pipCommand string) (*pipInstallation, e
 	}
 	args = append(args, "--version")
 
-	result, err := pd.executor.Execute(parts[0], args, 10*time.Second)
+	result, err := pd.Executor.Execute(parts[0], args, 10*time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("pip version command failed: %w", err)
 	}
@@ -228,7 +228,7 @@ func (pd *PythonDetector) testPipCommand(pipCommand string) (*pipInstallation, e
 		return nil, fmt.Errorf("pip version command returned exit code %d: %s", result.ExitCode, result.Stderr)
 	}
 
-	version, err := pd.parsePipVersion(result.Stdout)
+	version, err := pd.ParsePipVersion(result.Stdout)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse pip version: %w", err)
 	}
@@ -240,7 +240,7 @@ func (pd *PythonDetector) testPipCommand(pipCommand string) (*pipInstallation, e
 	}, nil
 }
 
-func (pd *PythonDetector) parsePipVersion(output string) (string, error) {
+func (pd *PythonDetector) ParsePipVersion(output string) (string, error) {
 	re := regexp.MustCompile(`pip\s+(\d+\.\d+(?:\.\d+)?)`)
 	matches := re.FindStringSubmatch(output)
 
@@ -271,7 +271,7 @@ func (pd *PythonDetector) testPipList(pipCommand string) error {
 	parts := strings.Fields(pipCommand)
 	args := append(parts[1:], "list", "--format=freeze")
 
-	result, err := pd.executor.Execute(parts[0], args, 15*time.Second)
+	result, err := pd.Executor.Execute(parts[0], args, 15*time.Second)
 	if err != nil {
 		return fmt.Errorf("pip list command failed: %w", err)
 	}
@@ -287,7 +287,7 @@ func (pd *PythonDetector) testPipInstallDryRun(pipCommand string) error {
 	parts := strings.Fields(pipCommand)
 	args := append(parts[1:], "install", "--dry-run", "--quiet", "setuptools")
 
-	result, err := pd.executor.Execute(parts[0], args, 20*time.Second)
+	result, err := pd.Executor.Execute(parts[0], args, 20*time.Second)
 	if err != nil {
 		return fmt.Errorf("pip install dry-run failed: %w", err)
 	}
@@ -303,7 +303,7 @@ func (pd *PythonDetector) validateVirtualEnvironment(python *pythonInstallation,
 	parts := strings.Fields(python.Command)
 	args := append(parts[1:], "-m", "venv", "--help")
 
-	result, err := pd.executor.Execute(parts[0], args, 10*time.Second)
+	result, err := pd.Executor.Execute(parts[0], args, 10*time.Second)
 	if err != nil {
 		return fmt.Errorf("venv module test failed: %w", err)
 	}
@@ -332,7 +332,7 @@ func (pd *PythonDetector) checkWindowsSpecific(python *pythonInstallation, info 
 	}
 
 	if python.Command == "python" {
-		if pd.executor.IsCommandAvailable("py") {
+		if pd.Executor.IsCommandAvailable("py") {
 			info.Issues = append(info.Issues, "Multiple Python commands available - consider using 'py' launcher")
 		}
 	}
@@ -365,7 +365,7 @@ func (pd *PythonDetector) checkLinuxSpecific(python *pythonInstallation, info *R
 		parts := strings.Fields(python.Command)
 		args := append(parts[1:], "-c", "import sysconfig; print(sysconfig.get_path('include'))")
 
-		result, err := pd.executor.Execute(parts[0], args, 5*time.Second)
+		result, err := pd.Executor.Execute(parts[0], args, 5*time.Second)
 		if err == nil && result.ExitCode == 0 {
 			includePath := strings.TrimSpace(result.Stdout)
 			info.Issues = append(info.Issues, fmt.Sprintf("Python development headers location: %s", includePath))

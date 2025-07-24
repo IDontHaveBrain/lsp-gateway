@@ -158,6 +158,67 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 }
 
+// Exported functions for testing
+func StatusAll(cmd *cobra.Command, args []string) error {
+	return statusAll(cmd, args)
+}
+
+func StatusRuntimes(cmd *cobra.Command, args []string) error {
+	return statusRuntimes(cmd, args)
+}
+
+func StatusRuntime(cmd *cobra.Command, args []string) error {
+	return statusRuntime(cmd, args)
+}
+
+func StatusServers(cmd *cobra.Command, args []string) error {
+	return statusServers(cmd, args)
+}
+
+func StatusServer(cmd *cobra.Command, args []string) error {
+	return statusServer(cmd, args)
+}
+
+// Exported variables for testing
+var (
+	StatusJSON    = &statusJSON
+	StatusVerbose = &statusVerbose
+)
+
+// Exported utility functions for testing
+func GetStatusIcon(installed bool) string {
+	return getStatusIcon(installed)
+}
+
+func GetCompatibleText(compatible bool) string {
+	return getCompatibleText(compatible)
+}
+
+func GetWorkingText(working bool) string {
+	return getWorkingText(working)
+}
+
+func FormatRuntimeName(name string) string {
+	return formatRuntimeName(name)
+}
+
+func OutputServersTableHeader() {
+	outputServersTableHeader()
+}
+
+func InitializeStatusData() map[string]interface{} {
+	return initializeStatusData()
+}
+
+func BuildRuntimeStatusData(verifyResult *types.VerificationResult, err error, installedCount *int, compatibleCount *int) map[string]interface{} {
+	return buildRuntimeStatusData(verifyResult, err, installedCount, compatibleCount)
+}
+
+// GetStatusCmd returns the status command for testing purposes
+func GetStatusCmd() *cobra.Command {
+	return statusCmd
+}
+
 func statusAll(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), statusTimeout)
 	defer cancel()
@@ -192,7 +253,7 @@ func statusRuntimes(cmd *cobra.Command, args []string) error {
 
 		verifyResult, err := runtimeInstaller.Verify(runtimeName)
 		if err != nil {
-			result.Status = STATUS_FAILED
+			result.Status = StatusFailed
 			result.Message = fmt.Sprintf("Failed to verify %s runtime: %v", runtimeName, err)
 		} else {
 			result.Details["installed"] = verifyResult.Installed
@@ -201,13 +262,13 @@ func statusRuntimes(cmd *cobra.Command, args []string) error {
 			result.Details["path"] = verifyResult.Path
 
 			if !verifyResult.Installed {
-				result.Status = STATUS_FAILED
+				result.Status = StatusFailed
 				result.Message = fmt.Sprintf("%s runtime not installed", strings.ToUpper(runtimeName[:1])+runtimeName[1:])
 			} else if !verifyResult.Compatible {
-				result.Status = STATUS_WARNING
+				result.Status = StatusWarning
 				result.Message = fmt.Sprintf("%s version %s does not meet requirements", strings.ToUpper(runtimeName[:1])+runtimeName[1:], verifyResult.Version)
 			} else {
-				result.Status = STATUS_PASSED
+				result.Status = StatusPassed
 				result.Message = fmt.Sprintf("%s runtime %s is properly installed and compatible", strings.ToUpper(runtimeName[:1])+runtimeName[1:], verifyResult.Version)
 			}
 		}

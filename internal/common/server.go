@@ -101,3 +101,13 @@ func (slm *ServerLifecycleManager) RunService(ctx context.Context, config Servic
 
 	return nil
 }
+
+// GetShutdownTimeout returns the configured shutdown timeout for testing
+func (slm *ServerLifecycleManager) GetShutdownTimeout() time.Duration {
+	return slm.shutdownTimeout
+}
+
+// GetErrorChannel returns the error channel for testing
+func (slm *ServerLifecycleManager) GetErrorChannel() chan error {
+	return slm.errorCh
+}

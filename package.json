@@ -39,7 +39,7 @@
     "url": "https://github.com/lsp-gateway/lsp-gateway/issues"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
   },
   "os": [
     "linux",
@@ -57,9 +57,7 @@
     "README.md"
   ],
   "dependencies": {},
-  "devDependencies": {
-    "jest": "^29.0.0"
-  },
+  "devDependencies": {},
   "optionalDependencies": {
     "lsp-gateway-linux-x64": "^0.1.0",
     "lsp-gateway-darwin-x64": "^0.1.0",
@@ -77,8 +75,7 @@
   "type": "commonjs",
   "directories": {
     "lib": "lib",
-    "bin": "bin",
-    "test": "test"
+    "bin": "bin"
   },
   "config": {
     "unsafe-perm": true

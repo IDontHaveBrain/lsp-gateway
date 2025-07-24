@@ -24,6 +24,8 @@ const (
 	InstallerErrorTypeDependency InstallerErrorType = "dependency_error"
 
 	InstallerErrorTypeVersionConflict InstallerErrorType = "version_conflict"
+
+	InstallerErrorTypeUnknown InstallerErrorType = "unknown_error"
 )
 
 type InstallerError struct {

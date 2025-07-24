@@ -1,12 +1,12 @@
 # Simple LSP Gateway Configuration
-# References simple-test-repositories.yaml for test repositories
+# References tests/data/configs/simple-test-repositories.yaml for test repositories
 
 port: 8080
 
 # Test repository configuration
 repositories:
-  config_file: "simple-test-repositories.yaml"
-  base_directory: "./test-repositories"
+  config_file: "tests/data/configs/simple-test-repositories.yaml"
+  base_directory: "./tests/data/repositories"
 
 # LSP Server configurations
 servers:

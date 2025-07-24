@@ -104,14 +104,14 @@ func extractVersion(output string) string {
 				}
 			}
 		}
-		
+
 		// If no version keyword found, look for version-like patterns in any field
 		fields := strings.Fields(line)
 		for _, field := range fields {
 			// Match patterns like "1.2.3", "v1.2.3", "go1.19.1", etc.
 			if strings.Contains(field, ".") && (
-				// Contains digits and dots
-				containsVersionPattern(field) ||
+			// Contains digits and dots
+			containsVersionPattern(field) ||
 				// Starts with v and contains dots
 				strings.HasPrefix(strings.ToLower(field), "v") ||
 				// Contains "go" prefix (for Go versions)

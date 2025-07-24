@@ -87,26 +87,12 @@ func runCompletion(cmd *cobra.Command, args []string) error {
 }
 
 func setupCompletions() {
-	runtimeValidArgs := []string{"go", "python", "nodejs", "java", "all"}
-
-	serverValidArgs := []string{"gopls", "pylsp", "typescript-language-server", "jdtls"}
-
-	if installRuntimeCmd != nil {
-		installRuntimeCmd.ValidArgs = runtimeValidArgs
-	}
-
-	if verifyRuntimeCmd != nil {
-		verifyRuntimeCmd.ValidArgs = runtimeValidArgs
-	}
-
-	if installServerCmd != nil {
-		installServerCmd.ValidArgs = serverValidArgs
-	}
-
 	configFileCompletion := func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		return []string{"yaml", "yml"}, cobra.ShellCompDirectiveFilterFileExt
 	}
 
+	// Register flag completion functions
+	// These will be called after all commands are initialized
 	if serverCmd != nil {
 		_ = serverCmd.RegisterFlagCompletionFunc("config", configFileCompletion)
 	}
@@ -115,8 +101,8 @@ func setupCompletions() {
 		_ = mcpCmd.RegisterFlagCompletionFunc("config", configFileCompletion)
 	}
 
-	if configCmd != nil {
-		_ = configCmd.RegisterFlagCompletionFunc("config", configFileCompletion)
+	if ConfigCmd != nil {
+		_ = ConfigCmd.RegisterFlagCompletionFunc("config", configFileCompletion)
 	}
 }
 
@@ -124,4 +110,14 @@ func init() {
 	setupCompletions()
 
 	rootCmd.AddCommand(completionCmd)
+}
+
+// GetCompletionCmd returns the completion command for testing purposes
+func GetCompletionCmd() *cobra.Command {
+	return completionCmd
+}
+
+// GetRunCompletion returns the runCompletion function for testing purposes
+func GetRunCompletion() func(*cobra.Command, []string) error {
+	return runCompletion
 }

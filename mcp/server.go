@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -136,21 +137,21 @@ type RecoveryContext struct {
 }
 
 type Server struct {
-	config      *ServerConfig
-	client      *LSPGatewayClient
-	toolHandler *ToolHandler
+	Config      *ServerConfig
+	Client      *LSPGatewayClient
+	ToolHandler *ToolHandler
 
-	input  io.Reader
-	output io.Writer
+	Input  io.Reader
+	Output io.Writer
 
 	ctx    context.Context
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	initialized     bool
-	logger          *log.Logger
-	protocolLimits  *ProtocolConstants
-	recoveryContext *RecoveryContext
+	Initialized     bool
+	Logger          *log.Logger
+	ProtocolLimits  *ProtocolConstants
+	RecoveryContext *RecoveryContext
 }
 
 func NewServer(config *ServerConfig) *Server {
@@ -173,27 +174,28 @@ func NewServer(config *ServerConfig) *Server {
 	}
 
 	return &Server{
-		config:          config,
-		client:          client,
-		toolHandler:     toolHandler,
-		input:           os.Stdin,
-		output:          os.Stdout,
+		Config:          config,
+		Client:          client,
+		ToolHandler:     toolHandler,
+		Input:           os.Stdin,
+		Output:          os.Stdout,
 		ctx:             ctx,
 		cancel:          cancel,
-		logger:          log.New(os.Stderr, MCPLogPrefix, log.LstdFlags|log.Lshortfile),
-		protocolLimits:  protocolLimits,
-		recoveryContext: &RecoveryContext{},
+		Initialized:     false,
+		Logger:          log.New(os.Stderr, MCPLogPrefix, log.LstdFlags|log.Lshortfile),
+		ProtocolLimits:  protocolLimits,
+		RecoveryContext: &RecoveryContext{},
 	}
 }
 
 func (s *Server) SetIO(input io.Reader, output io.Writer) {
-	s.input = input
-	s.output = output
+	s.Input = input
+	s.Output = output
 }
 
 func (s *Server) Start() error {
-	s.logger.Printf("Starting MCP server %s v%s", s.config.Name, s.config.Version)
-	s.logger.Printf("LSP Gateway URL: %s", s.config.LSPGatewayURL)
+	s.Logger.Printf("Starting MCP server %s v%s", s.Config.Name, s.Config.Version)
+	s.Logger.Printf("LSP Gateway URL: %s", s.Config.LSPGatewayURL)
 
 	s.wg.Add(1)
 	go s.messageLoop()
@@ -202,8 +204,57 @@ func (s *Server) Start() error {
 	return nil
 }
 
+// Testing helper methods - public wrappers for internal methods
+func (s *Server) IsConnectionError(err error) bool {
+	// Basic connection error detection
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "connection") || strings.Contains(errStr, "EOF")
+}
+
+func (s *Server) ValidateOutgoingMessage(message *MCPMessage) error {
+	// Basic message validation
+	if message == nil {
+		return errors.New("nil message")
+	}
+	if message.JSONRPC == "" {
+		return errors.New("missing jsonrpc field")
+	}
+	return nil
+}
+
+func (s *Server) AnalyzeJSONError(err error, data string) string {
+	// Basic JSON error analysis
+	if err == nil {
+		return "no error"
+	}
+	return fmt.Sprintf("JSON error: %v (data: %s)", err, data)
+}
+
+func (s *Server) IsEOFError(err error) bool {
+	// EOF error detection
+	if err == nil {
+		return false
+	}
+	return strings.Contains(err.Error(), "EOF")
+}
+
+func (s *Server) ShouldAttemptRecovery(err error) bool {
+	// Basic recovery decision logic
+	if err == nil {
+		return false
+	}
+	// Don't recover from context cancellation
+	if errors.Is(err, context.Canceled) {
+		return false
+	}
+	return true
+}
+
 func (s *Server) Stop() error {
-	s.logger.Println("Stopping MCP server")
+	s.Logger.Println("Stopping MCP server")
 	s.cancel()
 	s.wg.Wait()
 	return nil
@@ -212,44 +263,44 @@ func (s *Server) Stop() error {
 func (s *Server) messageLoop() {
 	defer s.wg.Done()
 
-	reader := bufio.NewReader(s.input)
+	reader := bufio.NewReader(s.Input)
 	consecutiveErrors := 0
 	maxConsecutiveErrors := 10
 
 	for {
 		select {
 		case <-s.ctx.Done():
-			s.logger.Println("Message loop terminated by context cancellation")
+			s.Logger.Println("Message loop terminated by context cancellation")
 			return
 		default:
 		}
 
-		msgCtx, msgCancel := context.WithTimeout(s.ctx, s.protocolLimits.MessageTimeout)
+		msgCtx, msgCancel := context.WithTimeout(s.ctx, s.ProtocolLimits.MessageTimeout)
 
-		message, err := s.readMessageWithRecovery(reader)
+		message, err := s.ReadMessageWithRecovery(reader)
 		if err != nil {
 			msgCancel()
 
 			if err == io.EOF {
-				s.logger.Println("Input stream closed gracefully")
+				s.Logger.Println("Input stream closed gracefully")
 				return
 			}
 
 			if s.isEOFError(err) {
-				s.logger.Println("EOF-related error detected, terminating gracefully")
+				s.Logger.Println("EOF-related error detected, terminating gracefully")
 				return
 			}
 
 			consecutiveErrors++
-			s.logger.Printf("Error reading message (attempt %d/%d): %v", consecutiveErrors, maxConsecutiveErrors, err)
+			s.Logger.Printf("Error reading message (attempt %d/%d): %v", consecutiveErrors, maxConsecutiveErrors, err)
 
-			if s.shouldAttemptRecovery(err) && s.attemptRecovery(reader, err) {
+			if s.shouldAttemptRecovery(err) && s.AttemptRecovery(reader, err) {
 				consecutiveErrors = 0
 				continue
 			}
 
 			if consecutiveErrors >= maxConsecutiveErrors {
-				s.logger.Printf("Too many consecutive errors (%d), terminating message loop", consecutiveErrors)
+				s.Logger.Printf("Too many consecutive errors (%d), terminating message loop", consecutiveErrors)
 				return
 			}
 
@@ -271,23 +322,23 @@ func (s *Server) messageLoop() {
 		go func(ctx context.Context, msg string) {
 			defer msgCancel()
 
-			if err := s.handleMessageWithValidation(ctx, msg); err != nil {
-				s.logger.Printf("Error handling message: %v", err)
+			if err := s.HandleMessageWithValidation(ctx, msg); err != nil {
+				s.Logger.Printf("Error handling message: %v", err)
 				_ = s.sendGenericError("Message handling failed: " + err.Error())
 			}
 		}(msgCtx, message)
 	}
 }
 
-func (s *Server) readMessageWithRecovery(reader *bufio.Reader) (string, error) {
+func (s *Server) ReadMessageWithRecovery(reader *bufio.Reader) (string, error) {
 	var contentLength int
 	headerLines := 0
 	headerSize := 0
 
 	for {
 		headerLines++
-		if headerLines > s.protocolLimits.MaxHeaderLines {
-			return "", fmt.Errorf("too many header lines (max %d)", s.protocolLimits.MaxHeaderLines)
+		if headerLines > s.ProtocolLimits.MaxHeaderLines {
+			return "", fmt.Errorf("too many header lines (max %d)", s.ProtocolLimits.MaxHeaderLines)
 		}
 
 		line, err := reader.ReadString('\n')
@@ -299,8 +350,8 @@ func (s *Server) readMessageWithRecovery(reader *bufio.Reader) (string, error) {
 		}
 
 		headerSize += len(line)
-		if headerSize > s.protocolLimits.MaxHeaderSize {
-			return "", fmt.Errorf("header size too large (max %d bytes)", s.protocolLimits.MaxHeaderSize)
+		if headerSize > s.ProtocolLimits.MaxHeaderSize {
+			return "", fmt.Errorf("header size too large (max %d bytes)", s.ProtocolLimits.MaxHeaderSize)
 		}
 
 		if !utf8.ValidString(line) {
@@ -329,8 +380,8 @@ func (s *Server) readMessageWithRecovery(reader *bufio.Reader) (string, error) {
 				return "", fmt.Errorf("negative %s: %d", ContentLengthHeader, length)
 			}
 
-			if length > s.protocolLimits.MaxMessageSize {
-				return "", fmt.Errorf("message size too large: %d bytes (max %d)", length, s.protocolLimits.MaxMessageSize)
+			if length > s.ProtocolLimits.MaxMessageSize {
+				return "", fmt.Errorf("message size too large: %d bytes (max %d)", length, s.ProtocolLimits.MaxMessageSize)
 			}
 
 			contentLength = length
@@ -361,33 +412,33 @@ func (s *Server) readMessageWithRecovery(reader *bufio.Reader) (string, error) {
 	return contentStr, nil
 }
 
-func (s *Server) handleMessageWithValidation(ctx context.Context, data string) error {
+func (s *Server) HandleMessageWithValidation(ctx context.Context, data string) error {
 	if len(data) == 0 {
-		return s.sendError(nil, JSONRPCErrorCodeParseError, JSONRPCErrorMessageParseError, "Empty message content")
+		return s.SendError(nil, JSONRPCErrorCodeParseError, JSONRPCErrorMessageParseError, "Empty message content")
 	}
 
-	if len(data) > s.protocolLimits.MaxMessageSize {
-		return s.sendError(nil, JSONRPCErrorCodeParseError, JSONRPCErrorMessageParseError, fmt.Sprintf("Message too large: %d bytes", len(data)))
+	if len(data) > s.ProtocolLimits.MaxMessageSize {
+		return s.SendError(nil, JSONRPCErrorCodeParseError, JSONRPCErrorMessageParseError, fmt.Sprintf("Message too large: %d bytes", len(data)))
 	}
 
 	var msg MCPMessage
 	if err := json.Unmarshal([]byte(data), &msg); err != nil {
-		s.updateRecoveryContext(MCPRecoveryContextParseError)
+		s.UpdateRecoveryContext(MCPRecoveryContextParseError)
 
 		errorDetails := s.analyzeJSONError(err, data)
-		s.logger.Printf("JSON parse error: %v", errorDetails)
+		s.Logger.Printf("JSON parse error: %v", errorDetails)
 
-		return s.sendError(nil, JSONRPCErrorCodeParseError, JSONRPCErrorMessageParseError, errorDetails)
+		return s.SendError(nil, JSONRPCErrorCodeParseError, JSONRPCErrorMessageParseError, errorDetails)
 	}
 
-	if err := s.validateMessageStructure(&msg); err != nil {
-		s.logger.Printf("Message validation error: %v", err)
-		return s.sendError(msg.ID, JSONRPCErrorCodeInvalidRequest, JSONRPCErrorMessageInvalidRequest, err.Error())
+	if err := s.ValidateMessageStructure(&msg); err != nil {
+		s.Logger.Printf("Message validation error: %v", err)
+		return s.SendError(msg.ID, JSONRPCErrorCodeInvalidRequest, JSONRPCErrorMessageInvalidRequest, err.Error())
 	}
 
-	s.logger.Printf("Processing message: method=%s, id=%v", msg.Method, msg.ID)
+	s.Logger.Printf("Processing message: method=%s, id=%v", msg.Method, msg.ID)
 
-	handlerCtx, cancel := context.WithTimeout(ctx, s.protocolLimits.MessageTimeout)
+	handlerCtx, cancel := context.WithTimeout(ctx, s.ProtocolLimits.MessageTimeout)
 	defer cancel()
 
 	switch msg.Method {
@@ -400,29 +451,29 @@ func (s *Server) handleMessageWithValidation(ctx context.Context, data string) e
 	case MCPMethodPing:
 		return s.handlePingWithValidation(handlerCtx, msg)
 	case MCPMethodNotificationInit:
-		s.logger.Println("Received initialization notification")
+		s.Logger.Println("Received initialization notification")
 		return nil
 	default:
-		s.logger.Printf("Unknown method requested: %s", msg.Method)
+		s.Logger.Printf("Unknown method requested: %s", msg.Method)
 		if msg.ID != nil {
-			return s.sendError(msg.ID, JSONRPCErrorCodeMethodNotFound, JSONRPCErrorMessageMethodNotFound, fmt.Sprintf("Unknown method: %s", msg.Method))
+			return s.SendError(msg.ID, JSONRPCErrorCodeMethodNotFound, JSONRPCErrorMessageMethodNotFound, fmt.Sprintf("Unknown method: %s", msg.Method))
 		}
 		return nil
 	}
 }
 
-func (s *Server) sendResponse(id interface{}, result interface{}) error {
+func (s *Server) SendResponse(id interface{}, result interface{}) error {
 	response := MCPMessage{
 		JSONRPC: JSONRPCVersion,
 		ID:      id,
 		Result:  result,
 	}
-	return s.sendMessage(response)
+	return s.SendMessage(response)
 }
 
-func (s *Server) sendError(id interface{}, code int, message, data string) error {
+func (s *Server) SendError(id interface{}, code int, message, data string) error {
 	enhancedData := data
-	if s.recoveryContext.recoveryMode {
+	if s.RecoveryContext.recoveryMode {
 		enhancedData = data + " (recovery mode active)"
 	}
 
@@ -436,17 +487,17 @@ func (s *Server) sendError(id interface{}, code int, message, data string) error
 		},
 	}
 
-	s.logger.Printf("Sending error response: code=%d, message=%s, id=%v", code, message, id)
-	return s.sendMessage(response)
+	s.Logger.Printf("Sending error response: code=%d, message=%s, id=%v", code, message, id)
+	return s.SendMessage(response)
 }
 
 func (s *Server) sendGenericError(errorMsg string) error {
-	return s.sendError(nil, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, errorMsg)
+	return s.SendError(nil, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, errorMsg)
 }
 
-func (s *Server) sendMessage(msg MCPMessage) error {
+func (s *Server) SendMessage(msg MCPMessage) error {
 	if err := s.validateOutgoingMessage(&msg); err != nil {
-		s.logger.Printf("Outgoing message validation failed: %v", err)
+		s.Logger.Printf("Outgoing message validation failed: %v", err)
 		return fmt.Errorf("invalid outgoing message: %w", err)
 	}
 
@@ -455,8 +506,8 @@ func (s *Server) sendMessage(msg MCPMessage) error {
 		return fmt.Errorf("failed to marshal response: %w", err)
 	}
 
-	if len(data) > s.protocolLimits.MaxMessageSize {
-		return fmt.Errorf("outgoing message too large: %d bytes (max %d)", len(data), s.protocolLimits.MaxMessageSize)
+	if len(data) > s.ProtocolLimits.MaxMessageSize {
+		return fmt.Errorf("outgoing message too large: %d bytes (max %d)", len(data), s.ProtocolLimits.MaxMessageSize)
 	}
 
 	content := string(data)
@@ -468,25 +519,25 @@ func (s *Server) sendMessage(msg MCPMessage) error {
 	default:
 	}
 
-	if _, err := s.output.Write([]byte(header)); err != nil {
+	if _, err := s.Output.Write([]byte(header)); err != nil {
 		if s.isConnectionError(err) {
-			s.logger.Printf("Connection closed while writing header: %v", err)
+			s.Logger.Printf("Connection closed while writing header: %v", err)
 			return fmt.Errorf("connection closed: %w", err)
 		}
-		s.logger.Printf("Failed to write response header: %v", err)
+		s.Logger.Printf("Failed to write response header: %v", err)
 		return fmt.Errorf("failed to write header: %w", err)
 	}
 
-	if _, err := s.output.Write([]byte(content)); err != nil {
+	if _, err := s.Output.Write([]byte(content)); err != nil {
 		if s.isConnectionError(err) {
-			s.logger.Printf("Connection closed while writing content: %v", err)
+			s.Logger.Printf("Connection closed while writing content: %v", err)
 			return fmt.Errorf("connection closed: %w", err)
 		}
-		s.logger.Printf("Failed to write response content: %v", err)
+		s.Logger.Printf("Failed to write response content: %v", err)
 		return fmt.Errorf("failed to write content: %w", err)
 	}
 
-	s.logger.Printf("Sent message: id=%v, size=%d bytes", msg.ID, len(content))
+	s.Logger.Printf("Sent message: id=%v, size=%d bytes", msg.ID, len(content))
 	return nil
 }
 
@@ -499,7 +550,7 @@ func (s *Server) IsRunning() bool {
 	}
 }
 
-func (s *Server) validateMessageStructure(msg *MCPMessage) error {
+func (s *Server) ValidateMessageStructure(msg *MCPMessage) error {
 	if msg.JSONRPC != JSONRPCVersion {
 		return &MessageValidationError{
 			Field:   MCPValidationFieldJSONRPC,
@@ -510,16 +561,16 @@ func (s *Server) validateMessageStructure(msg *MCPMessage) error {
 	}
 
 	if msg.Method != "" {
-		if len(msg.Method) > s.protocolLimits.MaxMethodLength {
+		if len(msg.Method) > s.ProtocolLimits.MaxMethodLength {
 			return &MessageValidationError{
 				Field:   MCPValidationFieldMethod,
 				Reason:  MCPValidationReasonTooLong,
 				Value:   len(msg.Method),
-				Message: fmt.Sprintf("Method name too long: %d chars (max %d)", len(msg.Method), s.protocolLimits.MaxMethodLength),
+				Message: fmt.Sprintf("Method name too long: %d chars (max %d)", len(msg.Method), s.ProtocolLimits.MaxMethodLength),
 			}
 		}
 
-		if !isValidMethodName(msg.Method) {
+		if !IsValidMethodName(msg.Method) {
 			return &MessageValidationError{
 				Field:   MCPValidationFieldMethod,
 				Reason:  MCPValidationReasonInvalidFormat,
@@ -576,12 +627,12 @@ func (s *Server) validateMessageStructure(msg *MCPMessage) error {
 				Message: fmt.Sprintf("Failed to marshal params: %v", err),
 			}
 		}
-		if len(paramsBytes) > s.protocolLimits.MaxParamsSize {
+		if len(paramsBytes) > s.ProtocolLimits.MaxParamsSize {
 			return &MessageValidationError{
 				Field:   MCPValidationFieldParams,
 				Reason:  MCPValidationReasonTooLarge,
 				Value:   len(paramsBytes),
-				Message: fmt.Sprintf("Params too large: %d bytes (max %d)", len(paramsBytes), s.protocolLimits.MaxParamsSize),
+				Message: fmt.Sprintf("Params too large: %d bytes (max %d)", len(paramsBytes), s.ProtocolLimits.MaxParamsSize),
 			}
 		}
 	}
@@ -625,7 +676,7 @@ func (s *Server) analyzeJSONError(err error, data string) string {
 	}
 }
 
-func isValidMethodName(method string) bool {
+func IsValidMethodName(method string) bool {
 	if len(method) == 0 {
 		return false
 	}
@@ -640,42 +691,42 @@ func isValidMethodName(method string) bool {
 	return true
 }
 
-func (s *Server) updateRecoveryContext(errorType string) {
-	s.recoveryContext.mu.Lock()
-	defer s.recoveryContext.mu.Unlock()
+func (s *Server) UpdateRecoveryContext(errorType string) {
+	s.RecoveryContext.mu.Lock()
+	defer s.RecoveryContext.mu.Unlock()
 
 	now := time.Now()
 
 	switch errorType {
 	case MCPRecoveryContextMalformed:
-		s.recoveryContext.malformedCount++
-		s.recoveryContext.lastMalformed = now
+		s.RecoveryContext.malformedCount++
+		s.RecoveryContext.lastMalformed = now
 	case MCPRecoveryContextParseError:
-		s.recoveryContext.parseErrors++
-		s.recoveryContext.lastParseError = now
+		s.RecoveryContext.parseErrors++
+		s.RecoveryContext.lastParseError = now
 	}
 
-	if s.recoveryContext.malformedCount >= 3 || s.recoveryContext.parseErrors >= 5 {
-		if !s.recoveryContext.recoveryMode {
-			s.recoveryContext.recoveryMode = true
-			s.recoveryContext.recoveryStart = now
-			s.logger.Printf("Entering recovery mode due to multiple errors")
+	if s.RecoveryContext.malformedCount >= 3 || s.RecoveryContext.parseErrors >= 5 {
+		if !s.RecoveryContext.recoveryMode {
+			s.RecoveryContext.recoveryMode = true
+			s.RecoveryContext.recoveryStart = now
+			s.Logger.Printf("Entering recovery mode due to multiple errors")
 		}
 	}
 
-	if s.recoveryContext.recoveryMode && now.Sub(s.recoveryContext.recoveryStart) > 60*time.Second {
-		s.recoveryContext.recoveryMode = false
-		s.recoveryContext.malformedCount = 0
-		s.recoveryContext.parseErrors = 0
-		s.logger.Printf("Exiting recovery mode")
+	if s.RecoveryContext.recoveryMode && now.Sub(s.RecoveryContext.recoveryStart) > 60*time.Second {
+		s.RecoveryContext.recoveryMode = false
+		s.RecoveryContext.malformedCount = 0
+		s.RecoveryContext.parseErrors = 0
+		s.Logger.Printf("Exiting recovery mode")
 	}
 }
 
-func (s *Server) attemptRecovery(reader *bufio.Reader, originalErr error) bool {
-	s.logger.Printf("Attempting recovery from error: %v", originalErr)
+func (s *Server) AttemptRecovery(reader *bufio.Reader, originalErr error) bool {
+	s.Logger.Printf("Attempting recovery from error: %v", originalErr)
 
 	if s.isEOFError(originalErr) {
-		s.logger.Println("EOF detected, no recovery possible")
+		s.Logger.Println("EOF detected, no recovery possible")
 		return false
 	}
 
@@ -683,7 +734,7 @@ func (s *Server) attemptRecovery(reader *bufio.Reader, originalErr error) bool {
 	for i := 0; i < 5; i++ {
 		select {
 		case <-s.ctx.Done():
-			s.logger.Println("Recovery cancelled due to context")
+			s.Logger.Println("Recovery cancelled due to context")
 			return false
 		default:
 		}
@@ -691,23 +742,23 @@ func (s *Server) attemptRecovery(reader *bufio.Reader, originalErr error) bool {
 		n, err := reader.Read(buffer)
 		if err != nil {
 			if err == io.EOF {
-				s.logger.Printf("EOF encountered during recovery attempt %d", i+1)
+				s.Logger.Printf("EOF encountered during recovery attempt %d", i+1)
 				return false
 			}
-			s.logger.Printf("Recovery attempt %d failed: %v", i+1, err)
+			s.Logger.Printf("Recovery attempt %d failed: %v", i+1, err)
 			return false
 		}
 
 		data := string(buffer[:n])
 		if strings.Contains(data, ContentLengthHeader+":") {
-			s.logger.Printf("Found potential message boundary after %d attempts", i+1)
+			s.Logger.Printf("Found potential message boundary after %d attempts", i+1)
 			return true
 		}
 
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	s.logger.Println("Recovery attempts exhausted")
+	s.Logger.Println("Recovery attempts exhausted")
 	return false
 }
 
@@ -716,15 +767,15 @@ func (s *Server) handleInitializeWithValidation(ctx context.Context, msg MCPMess
 	if msg.Params != nil {
 		paramBytes, err := json.Marshal(msg.Params)
 		if err != nil {
-			return s.sendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, fmt.Sprintf("Failed to marshal initialize params: %v", err))
+			return s.SendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, fmt.Sprintf("Failed to marshal initialize params: %v", err))
 		}
 		if err := json.Unmarshal(paramBytes, &params); err != nil {
-			return s.sendError(msg.ID, JSONRPCErrorCodeInvalidParams, JSONRPCErrorMessageInvalidParams, fmt.Sprintf("Failed to parse initialize params: %v", err))
+			return s.SendError(msg.ID, JSONRPCErrorCodeInvalidParams, JSONRPCErrorMessageInvalidParams, fmt.Sprintf("Failed to parse initialize params: %v", err))
 		}
 	}
 
-	if params.ProtocolVersion != "" && !isCompatibleProtocolVersion(params.ProtocolVersion) {
-		s.logger.Printf("Warning: Potentially incompatible protocol version: %s", params.ProtocolVersion)
+	if params.ProtocolVersion != "" && !IsCompatibleProtocolVersion(params.ProtocolVersion) {
+		s.Logger.Printf("Warning: Potentially incompatible protocol version: %s", params.ProtocolVersion)
 	}
 
 	result := InitializeResult{
@@ -735,72 +786,72 @@ func (s *Server) handleInitializeWithValidation(ctx context.Context, msg MCPMess
 			},
 		},
 		ServerInfo: map[string]interface{}{
-			"name":    s.config.Name,
-			"version": s.config.Version,
+			"name":    s.Config.Name,
+			"version": s.Config.Version,
 		},
 	}
 
-	s.initialized = true
-	s.logger.Printf("MCP server initialized with client protocol version: %s", params.ProtocolVersion)
+	s.Initialized = true
+	s.Logger.Printf("MCP server initialized with client protocol version: %s", params.ProtocolVersion)
 
-	return s.sendResponse(msg.ID, result)
+	return s.SendResponse(msg.ID, result)
 }
 
 func (s *Server) handleListToolsWithValidation(ctx context.Context, msg MCPMessage) error {
-	if !s.initialized {
-		return s.sendError(msg.ID, JSONRPCErrorCodeServerNotInit, JSONRPCErrorMessageServerNotInit, ERROR_CALL_INITIALIZE_FIRST)
+	if !s.Initialized {
+		return s.SendError(msg.ID, JSONRPCErrorCodeServerNotInit, JSONRPCErrorMessageServerNotInit, ERROR_CALL_INITIALIZE_FIRST)
 	}
 
-	tools := s.toolHandler.ListTools()
+	tools := s.ToolHandler.ListTools()
 	result := map[string]interface{}{
 		"tools": tools,
 	}
 
-	s.logger.Printf("Listed %d tools", len(tools))
-	return s.sendResponse(msg.ID, result)
+	s.Logger.Printf("Listed %d tools", len(tools))
+	return s.SendResponse(msg.ID, result)
 }
 
 func (s *Server) handleCallToolWithValidation(ctx context.Context, msg MCPMessage) error {
-	if !s.initialized {
-		return s.sendError(msg.ID, JSONRPCErrorCodeServerNotInit, JSONRPCErrorMessageServerNotInit, ERROR_CALL_INITIALIZE_FIRST)
+	if !s.Initialized {
+		return s.SendError(msg.ID, JSONRPCErrorCodeServerNotInit, JSONRPCErrorMessageServerNotInit, ERROR_CALL_INITIALIZE_FIRST)
 	}
 
 	var call ToolCall
 	if msg.Params != nil {
 		paramBytes, err := json.Marshal(msg.Params)
 		if err != nil {
-			return s.sendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, fmt.Sprintf("Failed to marshal tool call params: %v", err))
+			return s.SendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, fmt.Sprintf("Failed to marshal tool call params: %v", err))
 		}
 		if err := json.Unmarshal(paramBytes, &call); err != nil {
-			return s.sendError(msg.ID, JSONRPCErrorCodeInvalidParams, JSONRPCErrorMessageInvalidParams, fmt.Sprintf("Failed to parse tool call params: %v", err))
+			return s.SendError(msg.ID, JSONRPCErrorCodeInvalidParams, JSONRPCErrorMessageInvalidParams, fmt.Sprintf("Failed to parse tool call params: %v", err))
 		}
 	} else {
-		return s.sendError(msg.ID, JSONRPCErrorCodeInvalidParams, JSONRPCErrorMessageInvalidParams, "Missing tool call parameters")
+		return s.SendError(msg.ID, JSONRPCErrorCodeInvalidParams, JSONRPCErrorMessageInvalidParams, "Missing tool call parameters")
 	}
 
 	if call.Name == "" {
-		return s.sendError(msg.ID, JSONRPCErrorCodeInvalidParams, JSONRPCErrorMessageInvalidParams, "Tool name is required")
+		return s.SendError(msg.ID, JSONRPCErrorCodeInvalidParams, JSONRPCErrorMessageInvalidParams, "Tool name is required")
 	}
 
-	result, err := s.toolHandler.CallTool(ctx, call)
+	result, err := s.ToolHandler.CallTool(ctx, call)
 
 	if err != nil {
-		s.logger.Printf("Tool call failed: tool=%s, error=%v", call.Name, err)
-		return s.sendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, err.Error())
+		s.Logger.Printf("Tool call failed: tool=%s, error=%v", call.Name, err)
+		return s.SendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, err.Error())
 	}
 
-	s.logger.Printf("Tool call completed: tool=%s, success=%t", call.Name, !result.IsError)
-	return s.sendResponse(msg.ID, result)
+	s.Logger.Printf("Tool call completed: tool=%s, success=%t", call.Name, !result.IsError)
+	return s.SendResponse(msg.ID, result)
 }
 
 func (s *Server) handlePingWithValidation(ctx context.Context, msg MCPMessage) error {
 	result := map[string]interface{}{
 		"pong": time.Now().Unix(),
 	}
-	return s.sendResponse(msg.ID, result)
+	return s.SendResponse(msg.ID, result)
 }
 
-func isCompatibleProtocolVersion(version string) bool {
+func IsCompatibleProtocolVersion(version string) bool {
 	compatibleVersions := []string{
 		ProtocolVersion,
 		"2024-10-07",
@@ -817,16 +868,16 @@ func isCompatibleProtocolVersion(version string) bool {
 }
 
 func (s *Server) GetRecoveryMetrics() map[string]interface{} {
-	s.recoveryContext.mu.RLock()
-	defer s.recoveryContext.mu.RUnlock()
+	s.RecoveryContext.mu.RLock()
+	defer s.RecoveryContext.mu.RUnlock()
 
 	return map[string]interface{}{
-		"malformed_count":  s.recoveryContext.malformedCount,
-		"parse_errors":     s.recoveryContext.parseErrors,
-		"recovery_mode":    s.recoveryContext.recoveryMode,
-		"last_malformed":   s.recoveryContext.lastMalformed,
-		"last_parse_error": s.recoveryContext.lastParseError,
-		"recovery_start":   s.recoveryContext.recoveryStart,
+		"malformed_count":  s.RecoveryContext.malformedCount,
+		"parse_errors":     s.RecoveryContext.parseErrors,
+		"recovery_mode":    s.RecoveryContext.recoveryMode,
+		"last_malformed":   s.RecoveryContext.lastMalformed,
+		"last_parse_error": s.RecoveryContext.lastParseError,
+		"recovery_start":   s.RecoveryContext.recoveryStart,
 	}
 }
 

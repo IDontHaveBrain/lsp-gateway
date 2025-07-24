@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"time"
 )
 
 const (
@@ -97,23 +98,23 @@ type ContentBlock struct {
 }
 
 type ToolHandler struct {
-	client *LSPGatewayClient
-	tools  map[string]Tool
+	Client *LSPGatewayClient
+	Tools  map[string]Tool
 }
 
 func NewToolHandler(client *LSPGatewayClient) *ToolHandler {
 	handler := &ToolHandler{
-		client: client,
-		tools:  make(map[string]Tool),
+		Client: client,
+		Tools:  make(map[string]Tool),
 	}
 
-	handler.registerDefaultTools()
+	handler.RegisterDefaultTools()
 
 	return handler
 }
 
-func (h *ToolHandler) registerDefaultTools() {
-	h.tools["goto_definition"] = Tool{
+func (h *ToolHandler) RegisterDefaultTools() {
+	h.Tools["goto_definition"] = Tool{
 		Name:        "goto_definition",
 		Description: "Navigate to the definition of a symbol at a specific position in a file",
 		InputSchema: map[string]interface{}{
@@ -136,7 +137,7 @@ func (h *ToolHandler) registerDefaultTools() {
 		},
 	}
 
-	h.tools["find_references"] = Tool{
+	h.Tools["find_references"] = Tool{
 		Name:        "find_references",
 		Description: "Find all references to a symbol at a specific position in a file",
 		InputSchema: map[string]interface{}{
@@ -164,7 +165,7 @@ func (h *ToolHandler) registerDefaultTools() {
 		},
 	}
 
-	h.tools["get_hover_info"] = Tool{
+	h.Tools["get_hover_info"] = Tool{
 		Name:        "get_hover_info",
 		Description: "Get hover information for a symbol at a specific position in a file",
 		InputSchema: map[string]interface{}{
@@ -187,7 +188,7 @@ func (h *ToolHandler) registerDefaultTools() {
 		},
 	}
 
-	h.tools["get_document_symbols"] = Tool{
+	h.Tools["get_document_symbols"] = Tool{
 		Name:        "get_document_symbols",
 		Description: "Get all symbols in a document",
 		InputSchema: map[string]interface{}{
@@ -202,7 +203,7 @@ func (h *ToolHandler) registerDefaultTools() {
 		},
 	}
 
-	h.tools["search_workspace_symbols"] = Tool{
+	h.Tools["search_workspace_symbols"] = Tool{
 		Name:        "search_workspace_symbols",
 		Description: "Search for symbols in the workspace",
 		InputSchema: map[string]interface{}{
@@ -219,15 +220,15 @@ func (h *ToolHandler) registerDefaultTools() {
 }
 
 func (h *ToolHandler) ListTools() []Tool {
-	tools := make([]Tool, 0, len(h.tools))
-	for _, tool := range h.tools {
+	tools := make([]Tool, 0, len(h.Tools))
+	for _, tool := range h.Tools {
 		tools = append(tools, tool)
 	}
 	return tools
 }
 
 func (h *ToolHandler) CallTool(ctx context.Context, call ToolCall) (*ToolResult, error) {
-	tool, exists := h.tools[call.Name]
+	tool, exists := h.Tools[call.Name]
 	if !exists {
 		return &ToolResult{
 			Content: []ContentBlock{{
@@ -261,6 +262,13 @@ func (h *ToolHandler) CallTool(ctx context.Context, call ToolCall) (*ToolResult,
 }
 
 func (h *ToolHandler) handleGotoDefinition(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+	return h.handleGotoDefinitionWithContext(ctx, args, nil)
+}
+
+// Enhanced version with workspace context support
+func (h *ToolHandler) handleGotoDefinitionWithContext(ctx context.Context, args map[string]interface{}, workspaceCtx *WorkspaceContext) (*ToolResult, error) {
+	startTime := time.Now()
+	
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": args["uri"],
@@ -271,7 +279,7 @@ func (h *ToolHandler) handleGotoDefinition(ctx context.Context, args map[string]
 		},
 	}
 
-	result, err := h.client.SendLSPRequest(ctx, "textDocument/definition", params)
+	result, err := h.Client.SendLSPRequest(ctx, "textDocument/definition", params)
 	if err != nil {
 		return &ToolResult{
 			Content: []ContentBlock{{
@@ -282,15 +290,36 @@ func (h *ToolHandler) handleGotoDefinition(ctx context.Context, args map[string]
 		}, nil
 	}
 
-	return &ToolResult{
+	// Create enhanced result with project context
+	toolResult := &ToolResult{
 		Content: []ContentBlock{{
 			Type: "text",
 			Text: string(result),
+			Data: h.parseDefinitionResult(result),
 		}},
-	}, nil
+		Meta: &ResponseMetadata{
+			Timestamp: time.Now().Format(time.RFC3339),
+			Duration:  time.Since(startTime).String(),
+			LSPMethod: "textDocument/definition",
+		},
+	}
+
+	// Enhance with workspace context if available
+	if workspaceCtx != nil && workspaceCtx.IsProjectAware() {
+		toolResult = h.enhanceDefinitionWithProjectContext(toolResult, args, workspaceCtx)
+	}
+
+	return toolResult, nil
 }
 
 func (h *ToolHandler) handleFindReferences(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+	return h.handleFindReferencesWithContext(ctx, args, nil)
+}
+
+// Enhanced version with workspace context support
+func (h *ToolHandler) handleFindReferencesWithContext(ctx context.Context, args map[string]interface{}, workspaceCtx *WorkspaceContext) (*ToolResult, error) {
+	startTime := time.Now()
+	
 	includeDeclaration, ok := args["includeDeclaration"].(bool)
 	if !ok {
 		includeDeclaration = true
@@ -309,7 +338,7 @@ func (h *ToolHandler) handleFindReferences(ctx context.Context, args map[string]
 		},
 	}
 
-	result, err := h.client.SendLSPRequest(ctx, "textDocument/references", params)
+	result, err := h.Client.SendLSPRequest(ctx, "textDocument/references", params)
 	if err != nil {
 		return &ToolResult{
 			Content: []ContentBlock{{
@@ -320,15 +349,36 @@ func (h *ToolHandler) handleFindReferences(ctx context.Context, args map[string]
 		}, nil
 	}
 
-	return &ToolResult{
+	// Create enhanced result with project context
+	toolResult := &ToolResult{
 		Content: []ContentBlock{{
 			Type: "text",
 			Text: string(result),
+			Data: h.parseReferencesResult(result),
 		}},
-	}, nil
+		Meta: &ResponseMetadata{
+			Timestamp: time.Now().Format(time.RFC3339),
+			Duration:  time.Since(startTime).String(),
+			LSPMethod: "textDocument/references",
+		},
+	}
+
+	// Enhance with workspace context if available
+	if workspaceCtx != nil && workspaceCtx.IsProjectAware() {
+		toolResult = h.enhanceReferencesWithProjectContext(toolResult, args, workspaceCtx)
+	}
+
+	return toolResult, nil
 }
 
 func (h *ToolHandler) handleGetHoverInfo(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+	return h.handleGetHoverInfoWithContext(ctx, args, nil)
+}
+
+// Enhanced version with workspace context support
+func (h *ToolHandler) handleGetHoverInfoWithContext(ctx context.Context, args map[string]interface{}, workspaceCtx *WorkspaceContext) (*ToolResult, error) {
+	startTime := time.Now()
+	
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": args["uri"],
@@ -339,7 +389,7 @@ func (h *ToolHandler) handleGetHoverInfo(ctx context.Context, args map[string]in
 		},
 	}
 
-	result, err := h.client.SendLSPRequest(ctx, LSPMethodHover, params)
+	result, err := h.Client.SendLSPRequest(ctx, LSPMethodHover, params)
 	if err != nil {
 		return &ToolResult{
 			Content: []ContentBlock{{
@@ -350,22 +400,43 @@ func (h *ToolHandler) handleGetHoverInfo(ctx context.Context, args map[string]in
 		}, nil
 	}
 
-	return &ToolResult{
+	// Create enhanced result with project context
+	toolResult := &ToolResult{
 		Content: []ContentBlock{{
 			Type: "text",
 			Text: string(result),
+			Data: h.parseHoverResult(result),
 		}},
-	}, nil
+		Meta: &ResponseMetadata{
+			Timestamp: time.Now().Format(time.RFC3339),
+			Duration:  time.Since(startTime).String(),
+			LSPMethod: LSPMethodHover,
+		},
+	}
+
+	// Enhance with workspace context if available
+	if workspaceCtx != nil && workspaceCtx.IsProjectAware() {
+		toolResult = h.enhanceHoverWithProjectContext(toolResult, args, workspaceCtx)
+	}
+
+	return toolResult, nil
 }
 
 func (h *ToolHandler) handleGetDocumentSymbols(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+	return h.handleGetDocumentSymbolsWithContext(ctx, args, nil)
+}
+
+// Enhanced version with workspace context support  
+func (h *ToolHandler) handleGetDocumentSymbolsWithContext(ctx context.Context, args map[string]interface{}, workspaceCtx *WorkspaceContext) (*ToolResult, error) {
+	startTime := time.Now()
+	
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": args["uri"],
 		},
 	}
 
-	result, err := h.client.SendLSPRequest(ctx, "textDocument/documentSymbol", params)
+	result, err := h.Client.SendLSPRequest(ctx, "textDocument/documentSymbol", params)
 	if err != nil {
 		return &ToolResult{
 			Content: []ContentBlock{{
@@ -376,20 +447,41 @@ func (h *ToolHandler) handleGetDocumentSymbols(ctx context.Context, args map[str
 		}, nil
 	}
 
-	return &ToolResult{
+	// Create enhanced result with project context
+	toolResult := &ToolResult{
 		Content: []ContentBlock{{
 			Type: "text",
 			Text: string(result),
+			Data: h.parseDocumentSymbolsResult(result),
 		}},
-	}, nil
+		Meta: &ResponseMetadata{
+			Timestamp: time.Now().Format(time.RFC3339),
+			Duration:  time.Since(startTime).String(),
+			LSPMethod: "textDocument/documentSymbol",
+		},
+	}
+
+	// Enhance with workspace context if available
+	if workspaceCtx != nil && workspaceCtx.IsProjectAware() {
+		toolResult = h.enhanceDocumentSymbolsWithProjectContext(toolResult, args, workspaceCtx)
+	}
+
+	return toolResult, nil
 }
 
 func (h *ToolHandler) handleSearchWorkspaceSymbols(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+	return h.handleSearchWorkspaceSymbolsWithContext(ctx, args, nil)
+}
+
+// Enhanced version with workspace context support
+func (h *ToolHandler) handleSearchWorkspaceSymbolsWithContext(ctx context.Context, args map[string]interface{}, workspaceCtx *WorkspaceContext) (*ToolResult, error) {
+	startTime := time.Now()
+	
 	params := map[string]interface{}{
 		"query": args["query"],
 	}
 
-	result, err := h.client.SendLSPRequest(ctx, "workspace/symbol", params)
+	result, err := h.Client.SendLSPRequest(ctx, "workspace/symbol", params)
 	if err != nil {
 		return &ToolResult{
 			Content: []ContentBlock{{
@@ -400,10 +492,24 @@ func (h *ToolHandler) handleSearchWorkspaceSymbols(ctx context.Context, args map
 		}, nil
 	}
 
-	return &ToolResult{
+	// Create enhanced result with project context
+	toolResult := &ToolResult{
 		Content: []ContentBlock{{
 			Type: "text",
 			Text: string(result),
+			Data: h.parseWorkspaceSymbolsResult(result),
 		}},
-	}, nil
+		Meta: &ResponseMetadata{
+			Timestamp: time.Now().Format(time.RFC3339),
+			Duration:  time.Since(startTime).String(),
+			LSPMethod: "workspace/symbol",
+		},
+	}
+
+	// Enhance with workspace context if available
+	if workspaceCtx != nil && workspaceCtx.IsProjectAware() {
+		toolResult = h.enhanceWorkspaceSymbolsWithProjectContext(toolResult, args, workspaceCtx)
+	}
+
+	return toolResult, nil
 }

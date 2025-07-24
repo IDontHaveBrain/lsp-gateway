@@ -9,22 +9,22 @@ import (
 
 	"lsp-gateway/internal/config"
 
+	"github.com/goccy/go-yaml"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var (
 	configFilePath        string
-	configOutputPath      string
-	configJSON            bool
-	configOverwrite       bool
-	configAutoDetect      bool
-	configValidateOnly    bool
-	configIncludeComments bool
-	configTargetRuntime   string
+	ConfigOutputPath      string
+	ConfigJSON            bool
+	ConfigOverwrite       bool
+	ConfigAutoDetect      bool
+	ConfigValidateOnly    bool
+	ConfigIncludeComments bool
+	ConfigTargetRuntime   string
 )
 
-var configCmd = &cobra.Command{
+var ConfigCmd = &cobra.Command{
 	Use:   CmdConfig,
 	Short: "Configuration management",
 	Long: `Manage LSP Gateway configuration files.
@@ -49,10 +49,10 @@ Examples:
 
   # Show current configuration in JSON format
   lsp-gateway config show --json`,
-	RunE: configShow, // Default to showing config when no subcommand specified
+	RunE: ConfigShow, // Default to showing config when no subcommand specified
 }
 
-var configGenerateCmd = &cobra.Command{
+var ConfigGenerateCmd = &cobra.Command{
 	Use:   "generate",
 	Short: "Generate configuration files",
 	Long: `Generate LSP Gateway configuration files based on system detection or defaults.
@@ -80,10 +80,10 @@ Examples:
 
   # Generate with comments for documentation
   lsp-gateway config generate --include-comments`,
-	RunE: configGenerate,
+	RunE: ConfigGenerate,
 }
 
-var configValidateCmd = &cobra.Command{
+var ConfigValidateCmd = &cobra.Command{
 	Use:   "validate",
 	Short: "Validate configuration file",
 	Long: `Validate an existing LSP Gateway configuration file.
@@ -110,10 +110,10 @@ Examples:
 
   # Quick syntax check only
   lsp-gateway config validate --validate-only`,
-	RunE: configValidate,
+	RunE: ConfigValidate,
 }
 
-var configShowCmd = &cobra.Command{
+var ConfigShowCmd = &cobra.Command{
 	Use:   "show",
 	Short: "Display current configuration",
 	Long: `Display the current LSP Gateway configuration.
@@ -138,32 +138,69 @@ Examples:
 
   # Show configuration with validation information
   lsp-gateway config show --validate`,
-	RunE: configShow,
+	RunE: ConfigShow,
 }
 
 func init() {
-	configCmd.PersistentFlags().StringVarP(&configFilePath, "config", "c", DefaultConfigFile, "Configuration file path")
-	configCmd.PersistentFlags().BoolVar(&configJSON, "json", false, "Output in JSON format")
+	ConfigCmd.PersistentFlags().StringVarP(&configFilePath, "config", "c", DefaultConfigFile, "Configuration file path")
+	ConfigCmd.PersistentFlags().BoolVar(&ConfigJSON, "json", false, "Output in JSON format")
 
-	configGenerateCmd.Flags().StringVarP(&configOutputPath, "output", "o", "", "Output configuration file path (default: same as input)")
-	configGenerateCmd.Flags().BoolVar(&configOverwrite, "overwrite", false, "Overwrite existing configuration file")
-	configGenerateCmd.Flags().BoolVar(&configAutoDetect, "auto-detect", false, "Auto-detect runtimes and generate configuration")
-	configGenerateCmd.Flags().BoolVar(&configIncludeComments, "include-comments", false, "Include explanatory comments in generated config")
-	configGenerateCmd.Flags().StringVar(&configTargetRuntime, "runtime", "", "Generate configuration for specific runtime (go, python, nodejs, java)")
+	ConfigGenerateCmd.Flags().StringVarP(&ConfigOutputPath, "output", "o", "", "Output configuration file path (default: same as input)")
+	ConfigGenerateCmd.Flags().BoolVar(&ConfigOverwrite, "overwrite", false, "Overwrite existing configuration file")
+	ConfigGenerateCmd.Flags().BoolVar(&ConfigAutoDetect, "auto-detect", false, "Auto-detect runtimes and generate configuration")
+	ConfigGenerateCmd.Flags().BoolVar(&ConfigIncludeComments, "include-comments", false, "Include explanatory comments in generated config")
+	ConfigGenerateCmd.Flags().StringVar(&ConfigTargetRuntime, "runtime", "", "Generate configuration for specific runtime (go, python, nodejs, java)")
 
-	configValidateCmd.Flags().BoolVar(&configValidateOnly, "validate-only", false, "Perform syntax validation only (skip server verification)")
+	ConfigValidateCmd.Flags().BoolVar(&ConfigValidateOnly, "validate-only", false, "Perform syntax validation only (skip server verification)")
 
-	configShowCmd.Flags().BoolVar(&configValidateOnly, "validate", false, "Include validation information in output")
+	ConfigShowCmd.Flags().BoolVar(&ConfigValidateOnly, "validate", false, "Include validation information in output")
 
-	configCmd.AddCommand(configGenerateCmd)
-	configCmd.AddCommand(configValidateCmd)
-	configCmd.AddCommand(configShowCmd)
+	ConfigCmd.AddCommand(ConfigGenerateCmd)
+	ConfigCmd.AddCommand(ConfigValidateCmd)
+	ConfigCmd.AddCommand(ConfigShowCmd)
 
-	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(ConfigCmd)
 }
 
-func configGenerate(cmd *cobra.Command, args []string) error {
-	if err := validateConfigGenerateParams(); err != nil {
+// GetConfigCmd returns the config command for testing purposes
+func GetConfigCmd() *cobra.Command {
+	return ConfigCmd
+}
+
+// ResetConfigFlags resets all config-related flags to their defaults for testing
+func ResetConfigFlags() {
+	configFilePath = DefaultConfigFile
+	ConfigOutputPath = ""
+	ConfigJSON = false
+	ConfigOverwrite = false
+	ConfigAutoDetect = false
+	ConfigValidateOnly = false
+	ConfigIncludeComments = false
+	ConfigTargetRuntime = ""
+}
+
+// GetConfigFilePath returns the current config file path for testing
+func GetConfigFilePath() string {
+	return configFilePath
+}
+
+// GetConfigJSON returns the current ConfigJSON flag value for testing
+func GetConfigJSON() bool {
+	return ConfigJSON
+}
+
+// SetConfigPath sets the config path for testing
+func SetConfigPath(path string) {
+	configFilePath = path
+}
+
+// SetConfigJSON sets the ConfigJSON flag for testing
+func SetConfigJSON(value bool) {
+	ConfigJSON = value
+}
+
+func ConfigGenerate(cmd *cobra.Command, args []string) error {
+	if err := ValidateConfigGenerateParams(); err != nil {
 		return err
 	}
 
@@ -177,7 +214,7 @@ func configGenerate(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	if err := writeConfigurationFile(cfg, outputPath, configIncludeComments); err != nil {
+	if err := WriteConfigurationFile(cfg, outputPath, ConfigIncludeComments); err != nil {
 		return NewPermissionError(outputPath, "write configuration to")
 	}
 
@@ -187,8 +224,8 @@ func configGenerate(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func configValidate(cmd *cobra.Command, args []string) error {
-	if err := validateConfigValidateParams(); err != nil {
+func ConfigValidate(cmd *cobra.Command, args []string) error {
+	if err := ValidateConfigValidateParams(); err != nil {
 		return err
 	}
 
@@ -196,8 +233,8 @@ func configValidate(cmd *cobra.Command, args []string) error {
 
 	cfg, err := config.LoadConfig(configFilePath)
 	if err != nil {
-		if configJSON {
-			outputValidationJSON(false, []string{fmt.Sprintf("Failed to load configuration: %v", err)}, nil)
+		if ConfigJSON {
+			OutputValidationJSON(false, []string{fmt.Sprintf("Failed to load configuration: %v", err)}, nil)
 			return nil
 		}
 		return HandleConfigError(err, configFilePath)
@@ -210,14 +247,14 @@ func configValidate(cmd *cobra.Command, args []string) error {
 		issues = append(issues, fmt.Sprintf("Configuration validation failed: %v", err))
 	}
 
-	if !configValidateOnly {
+	if !ConfigValidateOnly {
 		warnings = append(warnings, "Extended validation not yet available - basic validation only")
 	}
 
-	if configJSON {
-		outputValidationJSON(len(issues) == 0, issues, warnings)
+	if ConfigJSON {
+		OutputValidationJSON(len(issues) == 0, issues, warnings)
 	} else {
-		outputValidationHuman(len(issues) == 0, issues, warnings, cfg)
+		OutputValidationHuman(len(issues) == 0, issues, warnings, cfg)
 	}
 
 	if len(issues) > 0 {
@@ -227,8 +264,8 @@ func configValidate(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func configShow(cmd *cobra.Command, args []string) error {
-	if err := validateConfigShowParams(); err != nil {
+func ConfigShow(cmd *cobra.Command, args []string) error {
+	if err := ValidateConfigShowParams(); err != nil {
 		return err
 	}
 
@@ -238,7 +275,7 @@ func configShow(cmd *cobra.Command, args []string) error {
 	}
 
 	var validationResult interface{}
-	if configValidateOnly {
+	if ConfigValidateOnly {
 		if err := cfg.Validate(); err != nil {
 			validationResult = map[string]interface{}{
 				"valid":  false,
@@ -252,20 +289,20 @@ func configShow(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	if configJSON {
-		return outputConfigJSON(cfg, validationResult)
+	if ConfigJSON {
+		return OutputConfigJSON(cfg, validationResult)
 	}
 
-	return outputConfigHuman(cfg, validationResult)
+	return OutputConfigHuman(cfg, validationResult)
 }
 
 func determineConfigOutputPath() (string, error) {
-	outputPath := configOutputPath
+	outputPath := ConfigOutputPath
 	if outputPath == "" {
 		outputPath = configFilePath
 	}
 
-	if _, err := os.Stat(outputPath); err == nil && !configOverwrite {
+	if _, err := os.Stat(outputPath); err == nil && !ConfigOverwrite {
 		return "", &CLIError{
 			Type:    ErrorTypeConfig,
 			Message: fmt.Sprintf("Configuration file %s already exists", outputPath),
@@ -286,16 +323,16 @@ func determineConfigOutputPath() (string, error) {
 }
 
 func generateConfigurationByMode() (*config.GatewayConfig, error) {
-	if configAutoDetect {
+	if ConfigAutoDetect {
 		fmt.Println("Detecting runtimes and generating configuration...")
 		return config.DefaultConfig(), nil
 	}
 
-	if configTargetRuntime != "" {
+	if ConfigTargetRuntime != "" {
 		if err := validateTargetRuntime(); err != nil {
 			return nil, err
 		}
-		fmt.Printf("Generating configuration for %s runtime...\n", configTargetRuntime)
+		fmt.Printf("Generating configuration for %s runtime...\n", ConfigTargetRuntime)
 		return config.DefaultConfig(), nil
 	}
 
@@ -306,14 +343,14 @@ func generateConfigurationByMode() (*config.GatewayConfig, error) {
 func validateTargetRuntime() error {
 	supportedRuntimes := []string{"go", "python", "nodejs", "java"}
 	for _, supported := range supportedRuntimes {
-		if configTargetRuntime == supported {
+		if ConfigTargetRuntime == supported {
 			return nil
 		}
 	}
-	return NewRuntimeNotFoundError(configTargetRuntime)
+	return NewRuntimeNotFoundError(ConfigTargetRuntime)
 }
 
-func writeConfigurationFile(cfg *config.GatewayConfig, path string, includeComments bool) error {
+func WriteConfigurationFile(cfg *config.GatewayConfig, path string, includeComments bool) error {
 	file, err := os.Create(path)
 	if err != nil {
 		return NewFileOperationError("create", path, err)
@@ -350,8 +387,7 @@ func writeConfigHeader(file *os.File, path string) error {
 }
 
 func writeConfigYAML(file *os.File, cfg *config.GatewayConfig, path string) error {
-	encoder := yaml.NewEncoder(file)
-	encoder.SetIndent(2)
+	encoder := yaml.NewEncoder(file, yaml.Indent(2))
 	defer func() {
 		if err := encoder.Close(); err != nil {
 			log.Printf("Warning: failed to close YAML encoder for %s: %v", path, err)
@@ -365,7 +401,7 @@ func writeConfigYAML(file *os.File, cfg *config.GatewayConfig, path string) erro
 	return nil
 }
 
-func outputValidationJSON(valid bool, issues []string, warnings []string) {
+func OutputValidationJSON(valid bool, issues []string, warnings []string) {
 	result := createValidationResult(valid, issues, warnings)
 	printJSONOutput(result)
 }
@@ -393,7 +429,7 @@ func printJSONOutput(data interface{}) {
 	fmt.Println(string(output))
 }
 
-func outputValidationHuman(valid bool, issues []string, warnings []string, cfg *config.GatewayConfig) {
+func OutputValidationHuman(valid bool, issues []string, warnings []string, cfg *config.GatewayConfig) {
 	printSectionHeader("Configuration Validation")
 	printValidationStatus(valid)
 	printConfigSummary(cfg)
@@ -451,7 +487,7 @@ func printWarningsList(warnings []string) {
 	}
 }
 
-func outputConfigJSON(cfg *config.GatewayConfig, validation interface{}) error {
+func OutputConfigJSON(cfg *config.GatewayConfig, validation interface{}) error {
 	output := map[string]interface{}{
 		"config": cfg,
 	}
@@ -469,7 +505,7 @@ func outputConfigJSON(cfg *config.GatewayConfig, validation interface{}) error {
 	return nil
 }
 
-func outputConfigHuman(cfg *config.GatewayConfig, validation interface{}) error {
+func OutputConfigHuman(cfg *config.GatewayConfig, validation interface{}) error {
 	title := fmt.Sprintf("LSP Gateway Configuration (%s)", configFilePath)
 	printSectionHeader(title)
 	printConfigDetails(cfg)
@@ -513,19 +549,19 @@ func printValidationInfo(validation interface{}) {
 	}
 }
 
-func validateConfigGenerateParams() error {
+func ValidateConfigGenerateParams() error {
 	result := ValidateMultiple(
 		func() *ValidationError {
-			return ValidateRuntimeName(configTargetRuntime, "runtime")
+			return ValidateRuntimeName(ConfigTargetRuntime, "runtime")
 		},
 		func() *ValidationError {
-			if configOutputPath != "" {
-				return ValidateFilePath(configOutputPath, "output", "create")
+			if ConfigOutputPath != "" {
+				return ValidateFilePath(ConfigOutputPath, "output", "create")
 			}
 			return nil
 		},
 		func() *ValidationError {
-			if configOutputPath == "" {
+			if ConfigOutputPath == "" {
 				return ValidateFilePath(configFilePath, "config", "create")
 			}
 			return nil
@@ -537,7 +573,7 @@ func validateConfigGenerateParams() error {
 	return result
 }
 
-func validateConfigValidateParams() error {
+func ValidateConfigValidateParams() error {
 	result := ValidateMultiple(
 		func() *ValidationError {
 			return ValidateFilePath(configFilePath, "config", "read")
@@ -549,7 +585,7 @@ func validateConfigValidateParams() error {
 	return result
 }
 
-func validateConfigShowParams() error {
+func ValidateConfigShowParams() error {
 	result := ValidateMultiple(
 		func() *ValidationError {
 			return ValidateFilePath(configFilePath, "config", "read")

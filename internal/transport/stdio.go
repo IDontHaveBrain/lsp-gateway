@@ -21,7 +21,7 @@ import (
 type StdioClient struct {
 	config ClientConfig
 	cmd    *exec.Cmd
-	stdin  io.WriteCloser
+	Stdin  io.WriteCloser
 	stdout io.ReadCloser
 	stderr io.ReadCloser
 
@@ -31,7 +31,7 @@ type StdioClient struct {
 	nextID   int
 
 	stopCh chan struct{}
-	done   chan struct{}
+	Done   chan struct{}
 
 	// Circuit breaker fields
 	errorCount    int
@@ -46,8 +46,8 @@ func NewStdioClient(config ClientConfig) (*StdioClient, error) {
 		config:      config,
 		requests:    make(map[string]chan json.RawMessage),
 		stopCh:      make(chan struct{}),
-		done:        make(chan struct{}),
-		maxRetries:  3,
+		Done:        make(chan struct{}),
+		maxRetries:  5,
 		baseDelay:   100 * time.Millisecond,
 		circuitOpen: false,
 	}, nil
@@ -64,7 +64,7 @@ func (c *StdioClient) Start(ctx context.Context) error {
 	c.cmd = exec.CommandContext(ctx, c.config.Command, c.config.Args...)
 
 	var err error
-	c.stdin, err = c.cmd.StdinPipe()
+	c.Stdin, err = c.cmd.StdinPipe()
 	if err != nil {
 		return fmt.Errorf("failed to create stdin pipe: %w", err)
 	}
@@ -125,7 +125,7 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 		Params:  params,
 	}
 
-	if err := c.writeMessage(request); err != nil {
+	if err := c.WriteMessage(request); err != nil {
 		return nil, fmt.Errorf(ERROR_SEND_REQUEST, err)
 	}
 
@@ -153,7 +153,7 @@ func (c *StdioClient) SendNotification(ctx context.Context, method string, param
 		Params:  params,
 	}
 
-	if err := c.writeMessage(notification); err != nil {
+	if err := c.WriteMessage(notification); err != nil {
 		return fmt.Errorf(ERROR_SEND_NOTIFICATION, err)
 	}
 
@@ -175,8 +175,8 @@ func (c *StdioClient) Stop() error {
 		close(c.stopCh)
 	}
 
-	if c.stdin != nil {
-		_ = c.stdin.Close()
+	if c.Stdin != nil {
+		_ = c.Stdin.Close()
 	}
 
 	cmd := c.cmd
@@ -195,8 +195,8 @@ func (c *StdioClient) Stop() error {
 				log.Printf("LSP server exited with error: %v", err)
 			}
 			log.Println("LSP server exited gracefully")
-		case <-time.After(10 * time.Second):
-			log.Println("LSP server did not exit gracefully within 10 seconds, attempting termination")
+		case <-time.After(8 * time.Second):
+			log.Println("LSP server did not exit gracefully within 8 seconds, attempting termination")
 
 			// Try SIGTERM first (more graceful than SIGKILL)
 			if err := cmd.Process.Signal(os.Interrupt); err != nil {
@@ -207,7 +207,7 @@ func (c *StdioClient) Stop() error {
 			select {
 			case <-done:
 				log.Println("LSP server terminated gracefully after interrupt")
-			case <-time.After(3 * time.Second):
+			case <-time.After(2 * time.Second):
 				log.Println("LSP server did not respond to interrupt, forcing kill")
 				if err := cmd.Process.Kill(); err != nil {
 					log.Printf("Failed to kill LSP server process: %v", err)
@@ -231,7 +231,7 @@ func (c *StdioClient) Stop() error {
 		_ = c.stderr.Close()
 	}
 
-	<-c.done
+	<-c.Done
 
 	return nil
 }
@@ -245,10 +245,10 @@ func (c *StdioClient) IsActive() bool {
 func (c *StdioClient) handleResponses() {
 	defer func() {
 		select {
-		case <-c.done:
+		case <-c.Done:
 			// Channel is already closed
 		default:
-			close(c.done)
+			close(c.Done)
 		}
 	}()
 
@@ -269,7 +269,7 @@ func (c *StdioClient) handleResponses() {
 			return
 		}
 
-		message, err := c.readMessage(reader)
+		message, err := c.ReadMessage(reader)
 		if err != nil {
 			if err == io.EOF {
 				log.Println("LSP server closed connection")
@@ -328,7 +328,7 @@ func (c *StdioClient) handleResponse(msg JSONRPCMessage) {
 	done := make(chan struct{})
 	var respCh chan json.RawMessage
 	var exists bool
-	
+
 	go func() {
 		defer close(done)
 		c.mu.RLock()
@@ -340,7 +340,7 @@ func (c *StdioClient) handleResponse(msg JSONRPCMessage) {
 	select {
 	case <-done:
 		// Lock acquired successfully
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(50 * time.Millisecond):
 		log.Printf("Timeout acquiring lock for response ID %v, skipping", msg.ID)
 		return
 	case <-c.stopCh:
@@ -401,7 +401,7 @@ func (c *StdioClient) handleNotification(msg JSONRPCMessage) {
 
 }
 
-func (c *StdioClient) writeMessage(msg JSONRPCMessage) error {
+func (c *StdioClient) WriteMessage(msg JSONRPCMessage) error {
 	jsonData, err := json.Marshal(msg)
 	if err != nil {
 		return fmt.Errorf(ERROR_MARSHAL_MESSAGE, err)
@@ -409,7 +409,7 @@ func (c *StdioClient) writeMessage(msg JSONRPCMessage) error {
 
 	content := fmt.Sprintf(PROTOCOL_HEADER_FORMAT, len(jsonData), jsonData)
 
-	_, err = c.stdin.Write([]byte(content))
+	_, err = c.Stdin.Write([]byte(content))
 	if err != nil {
 		return fmt.Errorf(ERROR_WRITE_MESSAGE, err)
 	}
@@ -417,7 +417,7 @@ func (c *StdioClient) writeMessage(msg JSONRPCMessage) error {
 	return nil
 }
 
-func (c *StdioClient) readMessage(reader *bufio.Reader) ([]byte, error) {
+func (c *StdioClient) ReadMessage(reader *bufio.Reader) ([]byte, error) {
 	var contentLength int
 
 	for {
@@ -467,7 +467,7 @@ func (c *StdioClient) logStderr() {
 func (c *StdioClient) recordError() {
 	// Use timeout-based locking to avoid deadlock during shutdown
 	done := make(chan struct{})
-	
+
 	go func() {
 		defer close(done)
 		c.mu.Lock()
@@ -475,7 +475,7 @@ func (c *StdioClient) recordError() {
 		c.lastErrorTime = time.Now()
 		c.mu.Unlock()
 	}()
-	
+
 	select {
 	case <-done:
 		// Lock acquired and error recorded
@@ -491,7 +491,7 @@ func (c *StdioClient) recordError() {
 func (c *StdioClient) resetErrorCount() {
 	// Use timeout-based locking to avoid deadlock
 	done := make(chan struct{})
-	
+
 	go func() {
 		defer close(done)
 		c.mu.Lock()
@@ -499,7 +499,7 @@ func (c *StdioClient) resetErrorCount() {
 		c.circuitOpen = false
 		c.mu.Unlock()
 	}()
-	
+
 	select {
 	case <-done:
 		// Lock acquired and count reset
@@ -516,28 +516,29 @@ func (c *StdioClient) openCircuit() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.circuitOpen = true
+	c.lastErrorTime = time.Now()
 }
 
 func (c *StdioClient) isCircuitOpen() bool {
 	// Use timeout-based locking for consistency
 	done := make(chan bool, 1)
-	
+
 	go func() {
 		c.mu.RLock()
 		defer c.mu.RUnlock()
-		
+
 		// Circuit breaker: open if too many errors in short time
 		if c.circuitOpen {
-			// Try to close circuit after 30 seconds
-			if time.Since(c.lastErrorTime) > 30*time.Second {
+			// Try to close circuit after 3 seconds for better recovery balance
+			if time.Since(c.lastErrorTime) > 3*time.Second {
 				c.circuitOpen = false
 				c.errorCount = 0
 			}
 		}
-		
+
 		done <- c.circuitOpen || c.errorCount > c.maxRetries
 	}()
-	
+
 	select {
 	case result := <-done:
 		return result
@@ -552,17 +553,79 @@ func (c *StdioClient) isCircuitOpen() bool {
 }
 
 func (c *StdioClient) calculateBackoff(attempt int) time.Duration {
-	// Exponential backoff with jitter
-	backoff := float64(c.baseDelay) * math.Pow(2, float64(attempt-1))
+	// Less aggressive exponential backoff with better jitter
+	// Use base of 1.5 instead of 2 for more gradual increase
+	backoff := float64(c.baseDelay) * math.Pow(1.5, float64(attempt-1))
 
-	// Add jitter (±25%)
-	jitter := 1.0 + (rand.Float64()-0.5)*0.5
+	// Add better jitter (±30% for more variance)
+	jitter := 1.0 + (rand.Float64()-0.5)*0.6
 	delay := time.Duration(backoff * jitter)
 
-	// Cap at 5 seconds
-	if delay > 5*time.Second {
-		delay = 5 * time.Second
+	// Cap at 3 seconds for faster recovery
+	if delay > 3*time.Second {
+		delay = 3 * time.Second
 	}
 
 	return delay
+}
+
+// Test-only exported methods for circuit breaker testing
+// These methods are provided to allow integration tests to verify
+// circuit breaker behavior without exposing internal implementation details
+// in the production API.
+
+// RecordErrorForTesting records an error for testing purposes
+func (c *StdioClient) RecordErrorForTesting() {
+	c.recordError()
+}
+
+// ResetErrorCountForTesting resets the error count for testing purposes
+func (c *StdioClient) ResetErrorCountForTesting() {
+	c.resetErrorCount()
+}
+
+// IsCircuitOpenForTesting checks if the circuit is open for testing purposes
+func (c *StdioClient) IsCircuitOpenForTesting() bool {
+	return c.isCircuitOpen()
+}
+
+// OpenCircuitForTesting opens the circuit for testing purposes
+func (c *StdioClient) OpenCircuitForTesting() {
+	c.openCircuit()
+}
+
+// SetMaxRetriesForTesting sets the max retries for testing purposes
+func (c *StdioClient) SetMaxRetriesForTesting(retries int) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.maxRetries = retries
+}
+
+// GetErrorCountForTesting gets the error count for testing purposes
+func (c *StdioClient) GetErrorCountForTesting() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.errorCount
+}
+
+// SetLastErrorTimeForTesting sets the last error time for testing purposes
+func (c *StdioClient) SetLastErrorTimeForTesting(t time.Time) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.lastErrorTime = t
+}
+
+// CalculateBackoffForTesting calculates backoff for testing purposes
+func (c *StdioClient) CalculateBackoffForTesting(attempt int) time.Duration {
+	return c.calculateBackoff(attempt)
+}
+
+// GetProcessPIDForTesting returns the process PID for testing purposes
+func (c *StdioClient) GetProcessPIDForTesting() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.cmd != nil && c.cmd.Process != nil {
+		return c.cmd.Process.Pid
+	}
+	return -1
 }

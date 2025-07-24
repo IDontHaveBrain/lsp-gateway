@@ -14,6 +14,8 @@ const (
 	LSP_METHOD_WORKSPACE_SYMBOL         = "workspace/symbol"
 	LSP_METHOD_TEXT_DOCUMENT_DEFINITION = "textDocument/definition"
 	LSP_METHOD_TEXT_DOCUMENT_REFERENCES = "textDocument/references"
+	LSP_METHOD_TEXT_DOCUMENT_HOVER      = "textDocument/hover"
+	LSP_METHOD_TEXT_DOCUMENT_SYMBOLS    = "textDocument/documentSymbol"
 
 	JSON_RPC_ENDPOINT = "/jsonrpc"
 )

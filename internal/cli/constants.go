@@ -1,11 +1,24 @@
 package cli
 
 const (
-	STATUS_FAILED  = "failed"
-	STATUS_WARNING = "warning"
-	STATUS_PASSED  = "passed"
-	STATUS_SKIPPED = "skipped"
-	STATUS_UNKNOWN = "Unknown"
+	StatusFailed  = "failed"
+	StatusWarning = "warning"
+	StatusPassed  = "passed"
+	StatusSkipped = "skipped"
+	StatusUnknown = "Unknown"
+
+	DefaultConfigFile = "config.yaml"
+
+	// Command names
+	CmdServer   = "server"
+	CmdMCP      = "mcp"
+	CmdVersion  = "version"
+	CmdStatus   = "status"
+	CmdDiagnose = "diagnose"
+	CmdInstall  = "install"
+	CmdVerify   = "verify"
+	CmdSetup    = "setup"
+	CmdConfig   = "config"
 
 	FLAG_TIMEOUT                 = "timeout"
 	FLAG_FORCE                   = "force"
@@ -25,8 +38,14 @@ const (
 	FLAG_MAX_RETRIES             = "max-retries"
 	FLAG_NO_INTERACTIVE          = "no-interactive"
 	FLAG_CREATE                  = "create"
+	FLAG_PROJECT                 = "project"
+	FLAG_AUTO_DETECT_PROJECT     = "auto-detect-project"
+	FLAG_GENERATE_PROJECT_CONFIG = "generate-project-config"
 
 	FLAG_DESCRIPTION_CONFIG_PATH          = "Configuration file path"
+	FLAG_DESCRIPTION_PROJECT_PATH         = "Project workspace path"
+	FLAG_DESCRIPTION_AUTO_DETECT_PROJECT  = "Automatically detect project workspace"
+	FLAG_DESCRIPTION_GENERATE_PROJECT_CONFIG = "Generate and save project-specific configuration"
 	FLAG_DESCRIPTION_JSON_OUTPUT          = "Output in JSON format"
 	FLAG_DESCRIPTION_JSON_RESULTS         = "Output results in JSON format"
 	FLAG_DESCRIPTION_INSTALLATION_TIMEOUT = "Installation timeout"

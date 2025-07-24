@@ -879,7 +879,7 @@ func (g *DefaultConfigGenerator) initializeTemplates() {
 		Languages:         []string{"python"},
 		Transport:         "stdio",
 		RequiredRuntime:   "python",
-		MinRuntimeVersion: "3.8.0",
+		MinRuntimeVersion: "3.9.0",
 	}
 
 	g.templates["typescript-language-server"] = &ServerConfigTemplate{
@@ -891,7 +891,7 @@ func (g *DefaultConfigGenerator) initializeTemplates() {
 		Languages:         []string{"typescript", "javascript"},
 		Transport:         "stdio",
 		RequiredRuntime:   "nodejs",
-		MinRuntimeVersion: "18.0.0",
+		MinRuntimeVersion: "22.0.0",
 	}
 
 	g.templates[SERVER_JDTLS] = &ServerConfigTemplate{
@@ -932,6 +932,14 @@ func (g *DefaultConfigGenerator) SetLogger(logger *SetupLogger) {
 		if g.runtimeDetector != nil {
 			g.runtimeDetector.SetLogger(logger)
 		}
+	}
+}
+
+// SetRuntimeDetector sets the runtime detector for testing purposes
+func (g *DefaultConfigGenerator) SetRuntimeDetector(detector RuntimeDetector) {
+	g.runtimeDetector = detector
+	if g.logger != nil {
+		detector.SetLogger(g.logger)
 	}
 }
 
