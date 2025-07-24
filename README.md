@@ -204,13 +204,30 @@ make clean && make local                # Clean rebuild
 ## Requirements & Dependencies
 
 - **Go 1.24+** (primary requirement)
-- **Node.js 18.0.0+** (optional, for npm package wrapper)
-- **Language runtimes** (auto-installed): Go, Python 3.8+, Java 17+
+- **Node.js 22.0.0+** (optional, for npm package wrapper)
+- **Language runtimes** (auto-installed by setup system): Go, Python 3.9+, Java 17+
+
+## Dependencies
 
 **Minimal Go dependencies**:
 - `github.com/spf13/cobra v1.9.1` - CLI framework
 - `golang.org/x/text v0.27.0` - Text processing
-- `gopkg.in/yaml.v3 v3.0.1` - YAML configuration
+- `github.com/goccy/go-yaml v1.13.5` - YAML configuration parsing
+- Go 1.24+ standard library
+
+## Architecture
+
+**Request Flow**:
+```
+HTTP → Gateway → Router → LSPClient → LSP Server
+MCP → ToolHandler → LSPGatewayClient → HTTP Gateway → Router → LSPClient → LSP Server
+```
+
+**Core Components**:
+- **Router**: Thread-safe request routing (80+ file extensions supported)
+- **Transport**: Pluggable LSP communication (stdio/TCP) with circuit breakers
+- **Auto-Setup**: Cross-platform installation system
+- **CLI**: Comprehensive management interface with 20+ commands
 
 ## Integration Examples
 

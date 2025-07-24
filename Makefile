@@ -123,7 +123,7 @@ quality: format lint security
 # TESTING TARGETS
 # =============================================================================
 
-.PHONY: test-simple-quick test-lsp-validation setup-simple-repos
+.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration setup-simple-repos
 setup-simple-repos:
 	@echo "Setting up test repositories..."
 	./scripts/setup-simple-repos.sh || echo "Setup script not found, skipping..."
@@ -139,6 +139,10 @@ test-lsp-validation:
 test-lsp-validation-short:
 	@echo "Running short LSP validation..."
 	$(GOTEST) -v -short -timeout 120s ./tests/integration/...
+
+test-jdtls-integration:
+	@echo "Running JDTLS integration tests..."
+	$(GOTEST) -v -timeout 600s -run "TestJDTLS" ./tests/integration/...
 
 # =============================================================================
 # UTILITY TARGETS

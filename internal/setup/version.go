@@ -34,14 +34,14 @@ func NewVersionChecker() *VersionChecker {
 	return &VersionChecker{
 		MinVersions: map[string]string{
 			"go":     "1.19.0",
-			"python": "3.8.0",
-			"nodejs": "18.0.0",
+			"python": "3.9.0",
+			"nodejs": "22.0.0",
 			"java":   "17.0.0",
 		},
 		RecommendedVersions: map[string]string{
 			"go":     "1.21.0",
 			"python": "3.10.0",
-			"nodejs": "20.0.0",
+			"nodejs": "22.0.0",
 			"java":   "21.0.0",
 		},
 	}
