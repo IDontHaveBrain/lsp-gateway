@@ -529,7 +529,7 @@ func (c *StdioClient) isCircuitOpen() bool {
 
 		// Circuit breaker: open if too many errors in short time
 		if c.circuitOpen {
-			// Try to close circuit after 3 seconds for better recovery balance  
+			// Try to close circuit after 3 seconds for better recovery balance
 			if time.Since(c.lastErrorTime) > 3*time.Second {
 				c.circuitOpen = false
 				c.errorCount = 0

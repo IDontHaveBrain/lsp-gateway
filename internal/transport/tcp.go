@@ -462,7 +462,7 @@ func (c *TCPClient) recordError() {
 	// Check if we should open the circuit
 	errorCount := atomic.LoadInt64(&c.errorCount)
 	currentState := CircuitBreakerState(atomic.LoadInt32(&c.circuitState))
-	
+
 	if errorCount > c.maxRetries {
 		if currentState == CircuitClosed {
 			c.openCircuit()
@@ -548,9 +548,9 @@ func (c *TCPClient) calculateBackoff(attempt int) time.Duration {
 
 // warmUp initializes the connection pool with initial connections
 func (pool *ConnectionPool) warmUp() error {
-	minConnections := 1 // At least one connection to verify connectivity
+	minConnections := 1                                // At least one connection to verify connectivity
 	initialSize := max(minConnections, pool.maxSize/3) // Start with 1/3 capacity
-	
+
 	successCount := 0
 	for i := 0; i < initialSize; i++ {
 		conn, err := pool.createConnectionWithRetry()
@@ -573,11 +573,11 @@ func (pool *ConnectionPool) warmUp() error {
 			successCount++
 		}
 	}
-	
+
 	if successCount == 0 {
 		return fmt.Errorf("failed to create any initial connections")
 	}
-	
+
 	return nil
 }
 
@@ -662,35 +662,35 @@ func (pool *ConnectionPool) createConnection() (net.Conn, error) {
 func (pool *ConnectionPool) createConnectionWithRetry() (net.Conn, error) {
 	maxRetries := 5
 	baseDelay := 100 * time.Millisecond
-	
+
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		conn, err := pool.createConnection()
 		if err == nil {
 			return conn, nil
 		}
-		
+
 		// If this is the last attempt, return the error
 		if attempt == maxRetries-1 {
 			return nil, err
 		}
-		
+
 		// Less aggressive exponential backoff with better jitter
 		// Use base of 1.5 instead of 2 for more gradual increase
 		multiplier := math.Pow(1.5, float64(attempt))
 		delay := time.Duration(float64(baseDelay) * multiplier)
-		
+
 		// Add jitter (±30% for more variance)
-		jitter := time.Duration(float64(delay) * (rand.Float64()-0.5) * 0.6)
+		jitter := time.Duration(float64(delay) * (rand.Float64() - 0.5) * 0.6)
 		finalDelay := delay + jitter
-		
+
 		// Cap at 1 second for faster retry cycles
 		if finalDelay > time.Second {
 			finalDelay = time.Second
 		}
-		
+
 		time.Sleep(finalDelay)
 	}
-	
+
 	return nil, fmt.Errorf("failed to create connection after %d attempts", maxRetries)
 }
 

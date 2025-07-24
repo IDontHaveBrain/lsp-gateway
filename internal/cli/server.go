@@ -26,8 +26,8 @@ var (
 var serverCmd = &cobra.Command{
 	Use:   CmdServer,
 	Short: "Start the LSP Gateway server",
-	Long: `Start the LSP Gateway server with the specified configuration.`,
-	RunE: runServer,
+	Long:  `Start the LSP Gateway server with the specified configuration.`,
+	RunE:  runServer,
 }
 
 func init() {
@@ -134,7 +134,7 @@ func createHTTPServer(cfg *config.GatewayConfig, gw *gateway.Gateway) *http.Serv
 	// Create a new ServeMux to avoid global state conflicts in tests
 	mux := http.NewServeMux()
 	mux.HandleFunc("/jsonrpc", gw.HandleJSONRPC)
-	
+
 	// Add health check endpoint
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		// Check if gateway is properly initialized and has active clients
@@ -143,7 +143,7 @@ func createHTTPServer(cfg *config.GatewayConfig, gw *gateway.Gateway) *http.Serv
 			_, _ = fmt.Fprintf(w, `{"status":"error","message":"gateway not initialized","timestamp":%d}`, time.Now().Unix())
 			return
 		}
-		
+
 		// Check if at least one LSP client is active
 		hasActiveClient := false
 		if len(gw.Clients) > 0 {
@@ -154,7 +154,7 @@ func createHTTPServer(cfg *config.GatewayConfig, gw *gateway.Gateway) *http.Serv
 				}
 			}
 		}
-		
+
 		if hasActiveClient {
 			w.WriteHeader(http.StatusOK)
 			_, _ = fmt.Fprintf(w, `{"status":"ok","active_clients":%d,"timestamp":%d}`, len(gw.Clients), time.Now().Unix())

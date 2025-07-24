@@ -59,7 +59,7 @@ make check-deadcode         # Dead code analysis
 
 ### LSP Testing Setup
 ```bash
-make lsp-setup              # Install LSP servers (gopls, pylsp, tsserver)
+./bin/lsp-gateway setup all # Install LSP servers and runtimes (automated setup)
 make setup-simple-repos     # Setup test repositories
 make test-lsp-repos         # Repository validation tests
 ```
@@ -94,7 +94,7 @@ MCP → ToolHandler → LSPGatewayClient → HTTP Gateway → Router → LSPClie
 - **`mcp`**: Start MCP server for AI assistants
 - **`install runtime <name|all>`**: Install language runtimes
 - **`install servers`**: Install LSP servers
-- **`setup all`**: Automated setup guidance
+- **`setup all`**: Complete automated setup (installs runtimes, servers, and generates config)
 - **`status`**: System status and health
 - **`diagnose`**: System diagnostics
 - **`verify runtime <name|all>`**: Verify installations

@@ -22,7 +22,7 @@ func (cm *ConfigManager) LoadAndValidateConfig(configPath string) (*config.Gatew
 			Suggestions: []string{
 				fmt.Sprintf(SUGGESTION_CREATE_CONFIG, configPath),
 				"Run complete setup: lsp-gateway setup all",
-				"Use interactive setup: lsp-gateway setup wizard",
+				"Run diagnostics to check system: lsp-gateway diagnose",
 			},
 		}
 	}
@@ -64,7 +64,7 @@ func (cm *ConfigManager) LoadAndValidateConfig(configPath string) (*config.Gatew
 			Suggestions: []string{
 				"Fix validation issues",
 				"Regenerate config: lsp-gateway config generate",
-				"Use setup wizard: lsp-gateway setup wizard",
+				"Run complete setup to fix configuration: lsp-gateway setup all",
 			},
 		}
 	}

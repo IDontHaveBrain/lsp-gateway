@@ -89,12 +89,12 @@ func NewConfigError(message string, cause error) *CLIError {
 			"Check if config file exists with: ls -la config.yaml",
 			"Generate a new config with: lsp-gateway config generate",
 			"Validate existing config with: lsp-gateway config validate",
-			"Run setup wizard: lsp-gateway setup wizard",
+			"Run complete setup: lsp-gateway setup all",
 		},
 		RelatedCmds: []string{
 			"config generate",
 			"config validate",
-			"setup wizard",
+			"setup all",
 			"diagnose",
 		},
 	}
@@ -107,13 +107,13 @@ func NewConfigNotFoundError(configPath string) *CLIError {
 		Suggestions: []string{
 			fmt.Sprintf("Create config file: lsp-gateway config generate --output %s", configPath),
 			"Run complete setup: lsp-gateway setup all",
-			"Use interactive setup: lsp-gateway setup wizard",
+			"Run diagnostics to check system: lsp-gateway diagnose",
 			"Check current directory: pwd && ls -la *.yaml",
 		},
 		RelatedCmds: []string{
 			"config generate",
 			"setup all",
-			"setup wizard",
+			"diagnose",
 		},
 	}
 }
@@ -196,7 +196,7 @@ func NewValidationError(item string, issues []string) *CLIError {
 	suggestions := []string{
 		"Fix the validation issues listed above",
 		"Regenerate configuration: lsp-gateway config generate",
-		"Use setup wizard for guided configuration: lsp-gateway setup wizard",
+		"Run complete setup to fix configuration: lsp-gateway setup all",
 	}
 
 	if len(issues) > 0 {
@@ -210,7 +210,7 @@ func NewValidationError(item string, issues []string) *CLIError {
 		RelatedCmds: []string{
 			"config validate",
 			"config generate",
-			"setup wizard",
+			"setup all",
 			"diagnose",
 		},
 	}

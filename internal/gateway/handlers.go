@@ -440,12 +440,12 @@ func (g *Gateway) Start(ctx context.Context) error {
 	// Start clients asynchronously to improve startup performance
 	var wg sync.WaitGroup
 	errorCh := make(chan error, len(g.Clients))
-	
+
 	for name, client := range g.Clients {
 		wg.Add(1)
 		go func(clientName string, lspClient transport.LSPClient) {
 			defer wg.Done()
-			
+
 			var clientLogger *mcp.StructuredLogger
 			if g.Logger != nil {
 				clientLogger = g.Logger.WithField(LoggerFieldServerName, clientName)
