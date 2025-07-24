@@ -467,9 +467,6 @@ func (w *WorkspaceContext) addError(error string) {
 	w.Errors = append(w.Errors, error)
 }
 
-func (w *WorkspaceContext) addWarning(warning string) {
-	w.Warnings = append(w.Warnings, warning)
-}
 
 // GetErrors returns all errors encountered during workspace context operations
 func (w *WorkspaceContext) GetErrors() []string {

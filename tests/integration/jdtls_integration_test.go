@@ -4,7 +4,6 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
-	"crypto/sha256"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -739,9 +738,3 @@ func (env *JDTLSTestEnvironment) VerifyDirectoryStructure(t *testing.T, executab
 	}
 }
 
-// calculateSHA256 calculates SHA256 checksum of given content
-func calculateSHA256(content []byte) string {
-	hasher := sha256.New()
-	hasher.Write(content)
-	return fmt.Sprintf("%x", hasher.Sum(nil))
-}
