@@ -373,7 +373,7 @@ Usage: $0 [MODE]
 
 Modes:
   full         Run complete LSP validation test suite (default)
-  short        Run abbreviated test suite for CI/CD  
+  short        Run abbreviated test suite  
   ci           Alias for 'short'
   repository   Run repository-focused validation tests
   repo         Alias for 'repository'

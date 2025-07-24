@@ -323,7 +323,7 @@ Usage: $0 [MODE]
 
 Modes:
   full     Run complete integration test suite (default)
-  short    Run abbreviated test suite for CI/CD  
+  short    Run abbreviated test suite  
   ci       Alias for 'short'
   help     Show this help message
 

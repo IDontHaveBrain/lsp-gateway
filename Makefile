@@ -58,7 +58,6 @@ help:
 	@echo "  security     - Run security analysis (requires gosec)"
 	@echo "  security-report - Generate timestamped security report"
 	@echo "  security-check - Quick security check (strict mode for CI)"
-	@echo "  security-sarif - Generate SARIF security report for GitHub"
 	@echo "  security-full - Comprehensive security analysis (all formats)"
 	@echo "  install      - Install binary to GOPATH/bin"
 	@echo "  release      - Create release build with version"
@@ -194,7 +193,7 @@ test-lsp-validation-ci:
 	@echo "Running CI-friendly LSP validation test suite..."
 	./tests/scripts/execution/run-lsp-validation-tests.sh ci
 
-# Coverage targets for CI/CD
+# Coverage targets
 .PHONY: test-coverage-threshold
 test-coverage-threshold:
 	@echo "Running coverage check with threshold..."
@@ -287,21 +286,12 @@ security-check:
 	@command -v gosec >/dev/null 2>&1 || { echo "gosec not found. Install it with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; exit 1; }
 	gosec -conf .gosec.json -severity high -confidence high -quiet ./...
 
-# Security scan with SARIF output for GitHub Security tab
-.PHONY: security-sarif
-security-sarif:
-	@echo "Generating SARIF security report..."
-	@command -v gosec >/dev/null 2>&1 || { echo "gosec not found. Install it with: go install github.com/securego/gosec/v2/cmd/gosec@latest"; exit 1; }
-	@mkdir -p reports
-	gosec -conf .gosec.json -fmt sarif -out reports/security.sarif ./... || true
-	@echo "SARIF report saved to reports/security.sarif"
 
 # Comprehensive security analysis
 .PHONY: security-full
 security-full:
 	@echo "=== Comprehensive Security Analysis ==="
 	@$(MAKE) security-report
-	@$(MAKE) security-sarif
 	@echo "=== Security Analysis Complete ==="
 
 # Install binary

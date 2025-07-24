@@ -241,28 +241,6 @@ performance_test:
   benchmark_time: "30s"
 EOF
 
-    # CI/CD test configuration
-    cat > "$TEST_CONFIG_DIR/ci-test-config.yaml" << EOF
-# LSP Gateway CI/CD Test Configuration
-port: 0  # Dynamic port allocation
-timeout: 5s  # Very short timeout for CI
-max_connections: 20
-
-servers:
-  # Minimal server configuration for CI
-  - name: "ci-mock-lsp"
-    languages: ["go"]
-    command: "mock_lsp_server"
-    args: []
-    transport: "stdio"
-
-# CI test specific settings  
-ci_test:
-  short_mode: true
-  timeout_multiplier: 1
-  concurrent_clients: 3
-  requests_per_test: 20
-EOF
 
     log_success "Test configurations created in $TEST_CONFIG_DIR/"
 }
@@ -662,7 +640,6 @@ display_setup_summary() {
     echo "Test Configurations:"
     echo "  - Integration: $TEST_CONFIG_DIR/integration-test-config.yaml"
     echo "  - Performance: $TEST_CONFIG_DIR/performance-test-config.yaml"
-    echo "  - CI/CD: $TEST_CONFIG_DIR/ci-test-config.yaml"
     
     echo ""
     echo "Test Data:"
