@@ -137,6 +137,40 @@ func init() {
 	rootCmd.AddCommand(setupCmd)
 }
 
+// GetSetupCmd returns the setup command for testing purposes
+func GetSetupCmd() *cobra.Command {
+	return setupCmd
+}
+
+// GetSetupAllCmd returns the setup all command for testing purposes
+func GetSetupAllCmd() *cobra.Command {
+	return setupAllCmd
+}
+
+// GetSetupWizardCmd returns the setup wizard command for testing purposes
+func GetSetupWizardCmd() *cobra.Command {
+	return setupWizardCmd
+}
+
+// Exported functions for testing
+func SetupAll(cmd *cobra.Command, args []string) error {
+	return setupAll(cmd, args)
+}
+
+func SetupWizard(cmd *cobra.Command, args []string) error {
+	return setupWizard(cmd, args)
+}
+
+// Exported variables for testing
+var (
+	SetupForce        = &setupForce
+	SetupInteractive  = &setupInteractive
+	SetupTimeout      = &setupTimeout
+	SetupSkipRuntimes = &setupSkipRuntimes
+	SetupSkipServers  = &setupSkipServers
+	SetupConfigPath   = &setupConfigPath
+)
+
 func setupAll(cmd *cobra.Command, _ []string) error {
 
 	cmd.Println("=======================================================")

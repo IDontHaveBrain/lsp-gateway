@@ -57,7 +57,7 @@ func TestParseVersion(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			version, err := ParseVersion(tt.input)
+			version, err := setup.ParseVersion(tt.input)
 
 			if tt.expectError {
 				if err == nil {
@@ -125,17 +125,17 @@ func TestCompareVersions(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v1, err := ParseVersion(tt.v1)
+			v1, err := setup.ParseVersion(tt.v1)
 			if err != nil {
 				t.Fatalf("Failed to parse v1 %q: %v", tt.v1, err)
 			}
 
-			v2, err := ParseVersion(tt.v2)
+			v2, err := setup.ParseVersion(tt.v2)
 			if err != nil {
 				t.Fatalf("Failed to parse v2 %q: %v", tt.v2, err)
 			}
 
-			result := CompareVersions(v1, v2)
+			result := setup.CompareVersions(v1, v2)
 			if result != tt.expected {
 				t.Errorf("Expected %d, got %d for %q vs %q", tt.expected, result, tt.v1, tt.v2)
 			}
@@ -215,11 +215,11 @@ func TestVersionChecker(t *testing.T) {
 }
 
 func TestVersionMethods(t *testing.T) {
-	v1, _ := ParseVersion("1.2.3")
-	v2, _ := ParseVersion("1.2.4")
-	v3, _ := ParseVersion("1.2.3")
-	v4, _ := ParseVersion("1.2.3-alpha")
-	v5, _ := ParseVersion("1.2.3+build")
+	v1, _ := setup.ParseVersion("1.2.3")
+	v2, _ := setup.ParseVersion("1.2.4")
+	v3, _ := setup.ParseVersion("1.2.3")
+	v4, _ := setup.ParseVersion("1.2.3-alpha")
+	v5, _ := setup.ParseVersion("1.2.3+build")
 
 	if !v2.IsGreaterThan(v1) {
 		t.Error("Expected v2 > v1")
@@ -325,7 +325,7 @@ func TestGetUpgradePath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path, err := GetUpgradePath(tt.from, tt.to)
+			path, err := setup.GetUpgradePath(tt.from, tt.to)
 
 			if tt.expectError {
 				if err == nil {

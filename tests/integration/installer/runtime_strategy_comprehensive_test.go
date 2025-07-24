@@ -3,6 +3,7 @@ package installer
 import (
 	"testing"
 
+	installerPkg "lsp-gateway/internal/installer"
 	"lsp-gateway/internal/types"
 )
 
@@ -48,8 +49,8 @@ func TestWindowsRuntimeStrategy_InstallRuntime(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			strategy := &WindowsRuntimeStrategy{
-				strategy: NewWindowsStrategy(),
+			strategy := &installerPkg.WindowsRuntimeStrategy{
+				Strategy: installerPkg.NewWindowsStrategy(),
 			}
 
 			options := types.InstallOptions{
@@ -87,8 +88,8 @@ func TestWindowsRuntimeStrategy_InstallRuntime(t *testing.T) {
 }
 
 func TestWindowsRuntimeStrategy_VerifyRuntime(t *testing.T) {
-	strategy := &WindowsRuntimeStrategy{
-		strategy: NewWindowsStrategy(),
+	strategy := &installerPkg.WindowsRuntimeStrategy{
+		Strategy: installerPkg.NewWindowsStrategy(),
 	}
 
 	tests := []struct {
@@ -137,8 +138,8 @@ func TestWindowsRuntimeStrategy_VerifyRuntime(t *testing.T) {
 }
 
 func TestWindowsRuntimeStrategy_GetInstallCommand(t *testing.T) {
-	strategy := &WindowsRuntimeStrategy{
-		strategy: NewWindowsStrategy(),
+	strategy := &installerPkg.WindowsRuntimeStrategy{
+		Strategy: installerPkg.NewWindowsStrategy(),
 	}
 
 	tests := []struct {
@@ -210,14 +211,14 @@ func TestLinuxRuntimeStrategy_InstallRuntime(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a Linux strategy - this might fail on non-Linux systems
-			linuxStrategy, err := NewLinuxStrategy()
+			linuxStrategy, err := installerPkg.NewLinuxStrategy()
 			if err != nil {
 				t.Skipf("Cannot create Linux strategy on this system: %v", err)
 				return
 			}
 
-			strategy := &LinuxRuntimeStrategy{
-				strategy: linuxStrategy,
+			strategy := &installerPkg.LinuxRuntimeStrategy{
+				Strategy: linuxStrategy,
 			}
 
 			options := types.InstallOptions{
@@ -256,14 +257,14 @@ func TestLinuxRuntimeStrategy_InstallRuntime(t *testing.T) {
 
 func TestLinuxRuntimeStrategy_VerifyRuntime(t *testing.T) {
 	// Create a Linux strategy - this might fail on non-Linux systems
-	linuxStrategy, err := NewLinuxStrategy()
+	linuxStrategy, err := installerPkg.NewLinuxStrategy()
 	if err != nil {
 		t.Skipf("Cannot create Linux strategy on this system: %v", err)
 		return
 	}
 
-	strategy := &LinuxRuntimeStrategy{
-		strategy: linuxStrategy,
+	strategy := &installerPkg.LinuxRuntimeStrategy{
+		Strategy: linuxStrategy,
 	}
 
 	tests := []struct {
@@ -313,14 +314,14 @@ func TestLinuxRuntimeStrategy_VerifyRuntime(t *testing.T) {
 
 func TestLinuxRuntimeStrategy_GetInstallCommand(t *testing.T) {
 	// Create a Linux strategy - this might fail on non-Linux systems
-	linuxStrategy, err := NewLinuxStrategy()
+	linuxStrategy, err := installerPkg.NewLinuxStrategy()
 	if err != nil {
 		t.Skipf("Cannot create Linux strategy on this system: %v", err)
 		return
 	}
 
-	strategy := &LinuxRuntimeStrategy{
-		strategy: linuxStrategy,
+	strategy := &installerPkg.LinuxRuntimeStrategy{
+		Strategy: linuxStrategy,
 	}
 
 	tests := []struct {
@@ -391,8 +392,8 @@ func TestMacOSRuntimeStrategy_InstallRuntime(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			strategy := &MacOSRuntimeStrategy{
-				strategy: NewMacOSStrategy(),
+			strategy := &installerPkg.MacOSRuntimeStrategy{
+				Strategy: installerPkg.NewMacOSStrategy(),
 			}
 
 			options := types.InstallOptions{
@@ -430,8 +431,8 @@ func TestMacOSRuntimeStrategy_InstallRuntime(t *testing.T) {
 }
 
 func TestMacOSRuntimeStrategy_VerifyRuntime(t *testing.T) {
-	strategy := &MacOSRuntimeStrategy{
-		strategy: NewMacOSStrategy(),
+	strategy := &installerPkg.MacOSRuntimeStrategy{
+		Strategy: installerPkg.NewMacOSStrategy(),
 	}
 
 	tests := []struct {
@@ -480,8 +481,8 @@ func TestMacOSRuntimeStrategy_VerifyRuntime(t *testing.T) {
 }
 
 func TestMacOSRuntimeStrategy_GetInstallCommand(t *testing.T) {
-	strategy := &MacOSRuntimeStrategy{
-		strategy: NewMacOSStrategy(),
+	strategy := &installerPkg.MacOSRuntimeStrategy{
+		Strategy: installerPkg.NewMacOSStrategy(),
 	}
 
 	tests := []struct {
@@ -516,8 +517,8 @@ func TestMacOSRuntimeStrategy_GetInstallCommand(t *testing.T) {
 }
 
 func TestRuntimeStrategies_EdgeCases(t *testing.T) {
-	t.Run("WindowsRuntimeStrategy with nil strategy", func(t *testing.T) {
-		strategy := &WindowsRuntimeStrategy{strategy: nil}
+	t.Run("installerPkg.WindowsRuntimeStrategy with nil strategy", func(t *testing.T) {
+		strategy := &installerPkg.WindowsRuntimeStrategy{Strategy: nil}
 
 		// Test should handle nil strategy gracefully
 		_, err := strategy.InstallRuntime("go", types.InstallOptions{})
@@ -526,8 +527,8 @@ func TestRuntimeStrategies_EdgeCases(t *testing.T) {
 		}
 	})
 
-	t.Run("LinuxRuntimeStrategy with nil strategy", func(t *testing.T) {
-		strategy := &LinuxRuntimeStrategy{strategy: nil}
+	t.Run("installerPkg.LinuxRuntimeStrategy with nil strategy", func(t *testing.T) {
+		strategy := &installerPkg.LinuxRuntimeStrategy{Strategy: nil}
 
 		// Test should handle nil strategy gracefully
 		_, err := strategy.InstallRuntime("go", types.InstallOptions{})
@@ -536,8 +537,8 @@ func TestRuntimeStrategies_EdgeCases(t *testing.T) {
 		}
 	})
 
-	t.Run("MacOSRuntimeStrategy with nil strategy", func(t *testing.T) {
-		strategy := &MacOSRuntimeStrategy{strategy: nil}
+	t.Run("installerPkg.MacOSRuntimeStrategy with nil strategy", func(t *testing.T) {
+		strategy := &installerPkg.MacOSRuntimeStrategy{Strategy: nil}
 
 		// Test should handle nil strategy gracefully
 		_, err := strategy.InstallRuntime("go", types.InstallOptions{})
@@ -554,11 +555,11 @@ func TestRuntimeStrategies_EmptyVersion(t *testing.T) {
 	}{
 		{
 			"Windows with empty version",
-			&WindowsRuntimeStrategy{strategy: NewWindowsStrategy()},
+			&installerPkg.WindowsRuntimeStrategy{Strategy: installerPkg.NewWindowsStrategy()},
 		},
 		{
 			"macOS with empty version",
-			&MacOSRuntimeStrategy{strategy: NewMacOSStrategy()},
+			&installerPkg.MacOSRuntimeStrategy{Strategy: installerPkg.NewMacOSStrategy()},
 		},
 	}
 
@@ -581,13 +582,13 @@ func TestRuntimeStrategies_EmptyVersion(t *testing.T) {
 
 	// Test Linux separately since it might not be available on all systems
 	t.Run("Linux with empty version", func(t *testing.T) {
-		linuxStrategy, err := NewLinuxStrategy()
+		linuxStrategy, err := installerPkg.NewLinuxStrategy()
 		if err != nil {
 			t.Skipf("Cannot create Linux strategy on this system: %v", err)
 			return
 		}
 
-		strategy := &LinuxRuntimeStrategy{strategy: linuxStrategy}
+		strategy := &installerPkg.LinuxRuntimeStrategy{Strategy: linuxStrategy}
 		options := types.InstallOptions{
 			Version: "", // Empty version
 		}
@@ -605,14 +606,14 @@ func TestRuntimeStrategies_EmptyVersion(t *testing.T) {
 
 // Test strategy interface compliance
 func TestRuntimeStrategyInterfaces(_ *testing.T) {
-	var _ types.RuntimePlatformStrategy = &WindowsRuntimeStrategy{}
-	var _ types.RuntimePlatformStrategy = &LinuxRuntimeStrategy{}
-	var _ types.RuntimePlatformStrategy = &MacOSRuntimeStrategy{}
+	var _ types.RuntimePlatformStrategy = &installerPkg.WindowsRuntimeStrategy{}
+	var _ types.RuntimePlatformStrategy = &installerPkg.LinuxRuntimeStrategy{}
+	var _ types.RuntimePlatformStrategy = &installerPkg.MacOSRuntimeStrategy{}
 }
 
 // Benchmark tests to ensure performance
 func BenchmarkWindowsRuntimeStrategy(b *testing.B) {
-	strategy := &WindowsRuntimeStrategy{strategy: NewWindowsStrategy()}
+	strategy := &installerPkg.WindowsRuntimeStrategy{Strategy: installerPkg.NewWindowsStrategy()}
 	options := types.InstallOptions{Version: "1.21.0"}
 
 	b.ResetTimer()
@@ -622,7 +623,7 @@ func BenchmarkWindowsRuntimeStrategy(b *testing.B) {
 }
 
 func BenchmarkMacOSRuntimeStrategy(b *testing.B) {
-	strategy := &MacOSRuntimeStrategy{strategy: NewMacOSStrategy()}
+	strategy := &installerPkg.MacOSRuntimeStrategy{Strategy: installerPkg.NewMacOSStrategy()}
 	options := types.InstallOptions{Version: "1.21.0"}
 
 	b.ResetTimer()

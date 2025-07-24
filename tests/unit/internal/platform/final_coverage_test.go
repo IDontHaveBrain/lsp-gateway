@@ -196,7 +196,7 @@ func TestFinalCoverageGaps(t *testing.T) {
 			Version:      "20.04",
 			Name:         "Ubuntu",
 		}
-		
+
 		// Just verify the struct can be created and used
 		if testInfo.Distribution != platform.DistributionUbuntu {
 			t.Error("LinuxInfo struct creation failed")
@@ -366,7 +366,7 @@ func TestBranchCoverage(t *testing.T) {
 	t.Run("ExecutorBranches", func(t *testing.T) {
 		// Test executor behavior by using the public interface instead of accessing unexported types
 		executor := platform.NewCommandExecutor()
-		
+
 		shell := executor.GetShell()
 		args := executor.GetShellArgs("test command")
 

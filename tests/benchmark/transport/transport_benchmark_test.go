@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-	
+
 	"lsp-gateway/internal/transport"
 )
 

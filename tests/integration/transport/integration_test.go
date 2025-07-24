@@ -339,35 +339,35 @@ func TestProtocolCompliance(t *testing.T) {
 	})
 }
 
-func testJSONRPCFormat(t *testing.T, transport string) {
+func testJSONRPCFormat(t *testing.T, transportType string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	testJSONRPCFormatWithTimeout(t, transport, ctx)
+	testJSONRPCFormatWithTimeout(t, transportType, ctx)
 }
 
-func testJSONRPCFormatWithTimeout(t *testing.T, transport string, ctx context.Context) {
+func testJSONRPCFormatWithTimeout(t *testing.T, transportType string, ctx context.Context) {
 	var client transport.LSPClient
 	var err error
 
-	switch transport {
+	switch transportType {
 	case "stdio":
 		client, err = createMockStdioEchoClient(t)
 	case transport.TransportTCP:
 		client, err = createMockTCPEchoServerWithTimeout(t, ctx)
 	default:
-		t.Fatalf("Unknown transport: %s", transport)
+		t.Fatalf("Unknown transport: %s", transportType)
 	}
 
 	if err != nil {
-		t.Fatalf("Failed to create %s client: %v", transport, err)
+		t.Fatalf("Failed to create %s client: %v", transportType, err)
 	}
 
 	if err := client.Start(ctx); err != nil {
-		t.Fatalf("Failed to start %s client: %v", transport, err)
+		t.Fatalf("Failed to start %s client: %v", transportType, err)
 	}
 	defer func() {
 		if err := client.Stop(); err != nil {
-			t.Logf("Error stopping %s client: %v", transport, err)
+			t.Logf("Error stopping %s client: %v", transportType, err)
 		}
 	}()
 
@@ -383,14 +383,14 @@ func testJSONRPCFormatWithTimeout(t *testing.T, transport string, ctx context.Co
 
 	response, err := client.SendRequest(ctx, "textDocument/definition", testParams)
 	if err != nil && !strings.Contains(err.Error(), "timeout") && !strings.Contains(err.Error(), "connection") {
-		t.Errorf("SendRequest failed for %s: %v", transport, err)
+		t.Errorf("SendRequest failed for %s: %v", transportType, err)
 		return
 	}
 
 	if response != nil {
 		var parsed interface{}
 		if err := json.Unmarshal(response, &parsed); err != nil {
-			t.Errorf("Response is not valid JSON for %s: %v", transport, err)
+			t.Errorf("Response is not valid JSON for %s: %v", transportType, err)
 		}
 	}
 }
@@ -843,11 +843,11 @@ type testResult struct {
 	responseSize  int
 }
 
-func testClientBehavior(t *testing.T, transport, method string, params interface{}) testResult {
+func testClientBehavior(t *testing.T, transportType, method string, params interface{}) testResult {
 	var client transport.LSPClient
 	var err error
 
-	switch transport {
+	switch transportType {
 	case "stdio":
 		client, err = createMockStdioEchoClient(t)
 	case transport.TransportTCP:
@@ -868,7 +868,7 @@ func testClientBehavior(t *testing.T, transport, method string, params interface
 	}
 	defer func() {
 		if err := client.Stop(); err != nil {
-			t.Logf("Error stopping %s client: %v", transport, err)
+			t.Logf("Error stopping %s client: %v", transportType, err)
 		}
 	}()
 

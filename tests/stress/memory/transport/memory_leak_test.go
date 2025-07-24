@@ -385,7 +385,7 @@ func (s *LeakTestMockServer) writeMessage(conn net.Conn, msg transport.JSONRPCMe
 }
 
 // Test long-running LSP client connections for memory growth
-func TestLongRunningtransport.LSPClientMemoryGrowth(t *testing.T) {
+func TestLongRunningTransport_LSPClientMemoryGrowth(t *testing.T) {
 	testCases := []struct {
 		name         string
 		clientType   string

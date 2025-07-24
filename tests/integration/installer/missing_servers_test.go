@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"lsp-gateway/internal/installer"
+	installerPkg "lsp-gateway/internal/installer"
 	"lsp-gateway/internal/platform"
 	"lsp-gateway/internal/types"
 )
@@ -374,8 +374,8 @@ func TestLanguageServers_MultipleServersMissing(t *testing.T) {
 
 // Test language server detection and installation failure scenarios
 func TestLanguageServerInstallation_DetectionFailure(t *testing.T) {
-	runtimeInstaller := installer.NewRuntimeInstaller()
-	installer := installer.NewServerInstaller(runtimeInstaller)
+	runtimeInstaller := installerPkg.NewRuntimeInstaller()
+	installer := installerPkg.NewServerInstaller(runtimeInstaller)
 
 	// Test detection of missing servers
 	missingServers := []string{
@@ -392,8 +392,8 @@ func TestLanguageServerInstallation_DetectionFailure(t *testing.T) {
 				t.Errorf("Expected error for non-existent server %s", server)
 			}
 
-			if installerErr, ok := err.(*InstallerError); ok {
-				if installerErr.Type != installer.InstallerErrorTypeNotFound {
+			if installerErr, ok := err.(*installerPkg.InstallerError); ok {
+				if installerErr.Type != installerPkg.InstallerErrorTypeNotFound {
 					t.Errorf("Expected NotFound error type for %s, got %s", server, installerErr.Type)
 				}
 			} else {
@@ -404,8 +404,8 @@ func TestLanguageServerInstallation_DetectionFailure(t *testing.T) {
 }
 
 func TestLanguageServerInstallation_InstallationFailure(t *testing.T) {
-	runtimeInstaller := installer.NewRuntimeInstaller()
-	installer := installer.NewServerInstaller(runtimeInstaller)
+	runtimeInstaller := installerPkg.NewRuntimeInstaller()
+	installer := installerPkg.NewServerInstaller(runtimeInstaller)
 
 	// Test installation failure scenarios
 	options := types.ServerInstallOptions{
@@ -481,8 +481,8 @@ func TestLanguageServers_MissingExecutablePermissions(t *testing.T) {
 
 // Test missing dependency chain for language servers
 func TestLanguageServers_MissingDependencyChain(t *testing.T) {
-	runtimeInstaller := installer.NewRuntimeInstaller()
-	installer := installer.NewServerInstaller(runtimeInstaller)
+	runtimeInstaller := installerPkg.NewRuntimeInstaller()
+	installer := installerPkg.NewServerInstaller(runtimeInstaller)
 
 	// Test dependency validation for servers
 	serverDependencies := map[string]string{
@@ -639,8 +639,8 @@ func TestLanguageServers_ConcurrentMissingDetection(t *testing.T) {
 
 // Test helpful error messages with installation guidance
 func TestLanguageServers_InstallationGuidance(t *testing.T) {
-	runtimeInstaller := installer.NewRuntimeInstaller()
-	installer := installer.NewServerInstaller(runtimeInstaller)
+	runtimeInstaller := installerPkg.NewRuntimeInstaller()
+	installer := installerPkg.NewServerInstaller(runtimeInstaller)
 
 	servers := []string{"gopls", "pylsp", "typescript-language-server", "jdtls"}
 
@@ -650,8 +650,8 @@ func TestLanguageServers_InstallationGuidance(t *testing.T) {
 			serverInfo, err := installer.GetServerInfo(server)
 			if err != nil {
 				// Server not found in registry - expected for missing servers
-				if installerErr, ok := err.(*InstallerError); ok {
-					if installerErr.Type != installer.InstallerErrorTypeNotFound {
+				if installerErr, ok := err.(*installerPkg.InstallerError); ok {
+					if installerErr.Type != installerPkg.InstallerErrorTypeNotFound {
 						t.Errorf("Expected NotFound error for %s, got %s", server, installerErr.Type)
 					}
 				}

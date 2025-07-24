@@ -70,7 +70,7 @@ func TestMCPServerMessageTimeout(t *testing.T) {
 			server.SetIO(inputReader, outputWriter)
 
 			// Override message timeout for testing
-			server.protocolLimits.MessageTimeout = tt.messageTimeout
+			server.ProtocolLimits.MessageTimeout = tt.messageTimeout
 
 			// Start server in goroutine
 			serverDone := make(chan error, 1)

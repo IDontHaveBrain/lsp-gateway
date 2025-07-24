@@ -2,248 +2,18 @@ package gateway_test
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"lsp-gateway/internal/gateway"
-	"sync"
 	"testing"
 	"time"
 
 	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/transport"
-	"lsp-gateway/mcp"
 )
-
-type MockLSPClient struct {
-	mu           sync.RWMutex
-	active       bool
-	startErr     error
-	stopErr      error
-	requestErr   error
-	notifyErr    error
-	startCount   int
-	stopCount    int
-	requestCount int
-	notifyCount  int
-	responses    map[string]json.RawMessage
-}
-
-func NewMockLSPClient() *MockLSPClient {
-	return &MockLSPClient{
-		responses: make(map[string]json.RawMessage),
-	}
-}
-
-func (m *MockLSPClient) Start(ctx context.Context) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.startCount++
-	if m.startErr != nil {
-		return m.startErr
-	}
-
-	m.active = true
-	return nil
-}
-
-func (m *MockLSPClient) Stop() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.stopCount++
-	if m.stopErr != nil {
-		return m.stopErr
-	}
-
-	m.active = false
-	return nil
-}
-
-func (m *MockLSPClient) SendRequest(ctx context.Context, method string, params interface{}) (json.RawMessage, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.requestCount++
-	if m.requestErr != nil {
-		return nil, m.requestErr
-	}
-
-	if response, exists := m.responses[method]; exists {
-		return response, nil
-	}
-
-	return json.RawMessage(`{"result":"mock"}`), nil
-}
-
-func (m *MockLSPClient) SendNotification(ctx context.Context, method string, params interface{}) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	m.notifyCount++
-	return m.notifyErr
-}
-
-func (m *MockLSPClient) IsActive() bool {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	return m.active
-}
-
-func (m *MockLSPClient) SetStartError(err error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.startErr = err
-}
-
-func (m *MockLSPClient) SetStopError(err error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.stopErr = err
-}
-
-func (m *MockLSPClient) SetRequestError(err error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.requestErr = err
-}
-
-func (m *MockLSPClient) SetNotificationError(err error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.notifyErr = err
-}
-
-func (m *MockLSPClient) SetResponse(method string, response json.RawMessage) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.responses[method] = response
-}
-
-func (m *MockLSPClient) GetStartCount() int {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.startCount
-}
-
-func (m *MockLSPClient) GetStopCount() int {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.stopCount
-}
-
-func (m *MockLSPClient) GetRequestCount() int {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.requestCount
-}
-
-func (m *MockLSPClient) GetNotificationCount() int {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.notifyCount
-}
-
-type TestableGateway struct {
-	*gateway.Gateway
-	clientFactory func(transport.ClientConfig) (transport.LSPClient, error)
-}
-
-func NewTestableGateway(config *config.GatewayConfig, clientFactory func(transport.ClientConfig) (transport.LSPClient, error)) (*TestableGateway, error) {
-	logConfig := &mcp.LoggerConfig{
-		Level:              mcp.LogLevelInfo,
-		Component:          "gateway",
-		EnableJSON:         false,
-		EnableStackTrace:   false,
-		EnableCaller:       true,
-		EnableMetrics:      false,
-		Output:             nil, // Uses default (stderr)
-		IncludeTimestamp:   true,
-		TimestampFormat:    "2006-01-02T15:04:05Z07:00",
-		MaxStackTraceDepth: 10,
-		EnableAsyncLogging: false,
-		AsyncBufferSize:    1000,
-	}
-	logger := mcp.NewStructuredLogger(logConfig)
-
-	gateway := &gateway.Gateway{
-		config:  config,
-		clients: make(map[string]transport.LSPClient),
-		router:  gateway.NewRouter(),
-		logger:  logger,
-	}
-
-	for _, serverConfig := range config.Servers {
-		client, err := clientFactory(transport.ClientConfig{
-			Command:   serverConfig.Command,
-			Args:      serverConfig.Args,
-			Transport: serverConfig.Transport,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create client for %s: %w", serverConfig.Name, err)
-		}
-
-		gateway.clients[serverConfig.Name] = client
-		gateway.router.RegisterServer(serverConfig.Name, serverConfig.Languages)
-	}
-
-	return &TestableGateway{Gateway: gateway, clientFactory: clientFactory}, nil
-}
-
-func createTestConfig() *config.GatewayConfig {
-	return &config.GatewayConfig{
-		Port: 8080,
-		Servers: []config.ServerConfig{
-			{
-				Name:      "go-lsp",
-				Languages: []string{"go"},
-				Command:   "gopls",
-				Args:      []string{},
-				Transport: "stdio",
-			},
-			{
-				Name:      "python-lsp",
-				Languages: []string{"python"},
-				Command:   "python",
-				Args:      []string{"-m", "pylsp"},
-				Transport: "stdio",
-			},
-			{
-				Name:      "typescript-lsp",
-				Languages: []string{"typescript", "javascript"},
-				Command:   "typescript-language-server",
-				Args:      []string{"--stdio"},
-				Transport: "stdio",
-			},
-		},
-	}
-}
-
-func createSingleServerConfig() *config.GatewayConfig {
-	return &config.GatewayConfig{
-		Port: 8080,
-		Servers: []config.ServerConfig{
-			{
-				Name:      "go-lsp",
-				Languages: []string{"go"},
-				Command:   "gopls",
-				Args:      []string{},
-				Transport: "stdio",
-			},
-		},
-	}
-}
 
 func TestNewGateway(t *testing.T) {
 	t.Parallel()
-	mockClients := make(map[string]*MockLSPClient)
-	mockClientFactory := func(config transport.ClientConfig) (transport.LSPClient, error) {
-		mock := NewMockLSPClient()
-		mockClients[config.Command] = mock
-		return mock, nil
-	}
+	mockClientFactory, _ := createMockClientFactory(t)
 
 	t.Run("ValidConfig", func(t *testing.T) {
 		testValidGatewayConfig(t, mockClientFactory)
@@ -290,8 +60,8 @@ func testEmptyGatewayConfig(t *testing.T, mockClientFactory func(transport.Clien
 		t.Fatal("NewTestableGateway() returned nil gateway")
 	}
 
-	if len(gateway.clients) != 0 {
-		t.Fatalf("Expected 0 clients, got %d", len(gateway.clients))
+	if len(gateway.Clients) != 0 {
+		t.Fatalf("Expected 0 clients, got %d", len(gateway.Clients))
 	}
 }
 
@@ -322,15 +92,15 @@ func validateGatewayBasics(t *testing.T, gateway *gateway.Gateway, config *confi
 		t.Fatal("NewGateway() returned nil gateway")
 	}
 
-	if gateway.config != config {
+	if gateway.Config != config {
 		t.Fatal("Gateway config not set correctly")
 	}
 
-	if gateway.clients == nil {
+	if gateway.Clients == nil {
 		t.Fatal("Gateway clients map is nil")
 	}
 
-	if gateway.router == nil {
+	if gateway.Router == nil {
 		t.Fatal("Gateway router is nil")
 	}
 }
@@ -349,7 +119,7 @@ func validateGatewayClients(t *testing.T, gateway *gateway.Gateway) {
 }
 
 func validateRouterConfiguration(t *testing.T, gateway *gateway.Gateway) {
-	server, err := gateway.router.RouteRequest("file:///test.go")
+	server, err := gateway.Router.RouteRequest("file:///test.go")
 	if err != nil {
 		t.Fatalf("Router not configured correctly: %v", err)
 	}
@@ -360,12 +130,7 @@ func validateRouterConfiguration(t *testing.T, gateway *gateway.Gateway) {
 
 func TestGatewayStart(t *testing.T) {
 	t.Parallel()
-	mockClients := make(map[string]*MockLSPClient)
-	mockClientFactory := func(config transport.ClientConfig) (transport.LSPClient, error) {
-		mock := NewMockLSPClient()
-		mockClients[config.Command] = mock
-		return mock, nil
-	}
+	mockClientFactory, mockClients := createMockClientFactory(t)
 
 	t.Run("StartAllClients", func(t *testing.T) {
 		config := createTestConfig()
@@ -452,12 +217,7 @@ func TestGatewayStart(t *testing.T) {
 
 func TestGatewayStop(t *testing.T) {
 	t.Parallel()
-	mockClients := make(map[string]*MockLSPClient)
-	mockClientFactory := func(config transport.ClientConfig) (transport.LSPClient, error) {
-		mock := NewMockLSPClient()
-		mockClients[config.Command] = mock
-		return mock, nil
-	}
+	mockClientFactory, mockClients := createMockClientFactory(t)
 
 	t.Run("StopAllClients", func(t *testing.T) {
 		config := createTestConfig()
@@ -546,12 +306,7 @@ func TestGatewayStop(t *testing.T) {
 
 func TestGatewayGetClient(t *testing.T) {
 	t.Parallel()
-	mockClients := make(map[string]*MockLSPClient)
-	mockClientFactory := func(config transport.ClientConfig) (transport.LSPClient, error) {
-		mock := NewMockLSPClient()
-		mockClients[config.Command] = mock
-		return mock, nil
-	}
+	mockClientFactory, _ := createMockClientFactory(t)
 
 	t.Run("GetExistingClient", func(t *testing.T) {
 		config := createTestConfig()
@@ -624,12 +379,7 @@ func TestGatewayGetClient(t *testing.T) {
 
 func TestGatewayLifecycleIntegration(t *testing.T) {
 	t.Parallel()
-	mockClients := make(map[string]*MockLSPClient)
-	mockClientFactory := func(config transport.ClientConfig) (transport.LSPClient, error) {
-		mock := NewMockLSPClient()
-		mockClients[config.Command] = mock
-		return mock, nil
-	}
+	mockClientFactory, mockClients := createMockClientFactory(t)
 
 	t.Run("FullLifecycle", func(t *testing.T) {
 		config := createTestConfig()
@@ -677,12 +427,7 @@ func TestGatewayLifecycleIntegration(t *testing.T) {
 }
 
 func TestGatewayConcurrentAccess(t *testing.T) {
-	mockClients := make(map[string]*MockLSPClient)
-	mockClientFactory := func(config transport.ClientConfig) (transport.LSPClient, error) {
-		mock := NewMockLSPClient()
-		mockClients[config.Command] = mock
-		return mock, nil
-	}
+	mockClientFactory, _ := createMockClientFactory(t)
 
 	config := createTestConfig()
 	testableGateway, err := NewTestableGateway(config, mockClientFactory)
@@ -728,12 +473,7 @@ func TestGatewayConcurrentAccess(t *testing.T) {
 }
 
 func TestGatewayStartStopConcurrency(t *testing.T) {
-	mockClients := make(map[string]*MockLSPClient)
-	mockClientFactory := func(config transport.ClientConfig) (transport.LSPClient, error) {
-		mock := NewMockLSPClient()
-		mockClients[config.Command] = mock
-		return mock, nil
-	}
+	mockClientFactory, _ := createMockClientFactory(t)
 
 	config := createSingleServerConfig()
 	testableGateway, err := NewTestableGateway(config, mockClientFactory)

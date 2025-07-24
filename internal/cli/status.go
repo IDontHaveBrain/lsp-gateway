@@ -158,6 +158,67 @@ func init() {
 	rootCmd.AddCommand(statusCmd)
 }
 
+// Exported functions for testing
+func StatusAll(cmd *cobra.Command, args []string) error {
+	return statusAll(cmd, args)
+}
+
+func StatusRuntimes(cmd *cobra.Command, args []string) error {
+	return statusRuntimes(cmd, args)
+}
+
+func StatusRuntime(cmd *cobra.Command, args []string) error {
+	return statusRuntime(cmd, args)
+}
+
+func StatusServers(cmd *cobra.Command, args []string) error {
+	return statusServers(cmd, args)
+}
+
+func StatusServer(cmd *cobra.Command, args []string) error {
+	return statusServer(cmd, args)
+}
+
+// Exported variables for testing
+var (
+	StatusJSON    = &statusJSON
+	StatusVerbose = &statusVerbose
+)
+
+// Exported utility functions for testing
+func GetStatusIcon(installed bool) string {
+	return getStatusIcon(installed)
+}
+
+func GetCompatibleText(compatible bool) string {
+	return getCompatibleText(compatible)
+}
+
+func GetWorkingText(working bool) string {
+	return getWorkingText(working)
+}
+
+func FormatRuntimeName(name string) string {
+	return formatRuntimeName(name)
+}
+
+func OutputServersTableHeader() {
+	outputServersTableHeader()
+}
+
+func InitializeStatusData() map[string]interface{} {
+	return initializeStatusData()
+}
+
+func BuildRuntimeStatusData(verifyResult *types.VerificationResult, err error, installedCount *int, compatibleCount *int) map[string]interface{} {
+	return buildRuntimeStatusData(verifyResult, err, installedCount, compatibleCount)
+}
+
+// GetStatusCmd returns the status command for testing purposes
+func GetStatusCmd() *cobra.Command {
+	return statusCmd
+}
+
 func statusAll(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), statusTimeout)
 	defer cancel()

@@ -431,7 +431,7 @@ func TestStdioSendRequestError(t *testing.T) {
 		t.Fatalf("SendRequest failed: %v", err)
 	}
 
-	var errorInfo RPCError
+	var errorInfo transport.RPCError
 	if err := json.Unmarshal(response, &errorInfo); err != nil {
 		t.Fatalf("Failed to unmarshal error response: %v", err)
 	}
@@ -698,10 +698,10 @@ func TestStdioWriteMessageProtocol(t *testing.T) {
 	var buf bytes.Buffer
 
 	client := &transport.StdioClient{
-		stdin: &writeCloserWrapper{&buf},
+		Stdin: &writeCloserWrapper{&buf},
 	}
 
-	message := JSONRPCMessage{
+	message := transport.JSONRPCMessage{
 		JSONRPC: "2.0",
 		ID:      "test_123",
 		Method:  "textDocument/definition",
@@ -711,7 +711,7 @@ func TestStdioWriteMessageProtocol(t *testing.T) {
 		},
 	}
 
-	err := client.writeMessage(message)
+	err := client.WriteMessage(message)
 	if err != nil {
 		t.Fatalf("writeMessage failed: %v", err)
 	}
@@ -733,7 +733,7 @@ func TestStdioWriteMessageProtocol(t *testing.T) {
 
 	jsonPart := output[headerEnd+4:]
 
-	var parsedMsg JSONRPCMessage
+	var parsedMsg transport.JSONRPCMessage
 	if err := json.Unmarshal([]byte(jsonPart), &parsedMsg); err != nil {
 		t.Fatalf("Failed to parse JSON part: %v", err)
 	}
@@ -758,12 +758,12 @@ func TestStdioReadMessageProtocol(t *testing.T) {
 	reader := bufio.NewReader(strings.NewReader(testMessage))
 	client := &transport.StdioClient{}
 
-	message, err := client.readMessage(reader)
+	message, err := client.ReadMessage(reader)
 	if err != nil {
 		t.Fatalf("readMessage failed: %v", err)
 	}
 
-	var parsedMsg JSONRPCMessage
+	var parsedMsg transport.JSONRPCMessage
 	if err := json.Unmarshal(message, &parsedMsg); err != nil {
 		t.Fatalf("Failed to parse message: %v", err)
 	}
@@ -801,7 +801,7 @@ func TestStdioReadMessageMalformed(t *testing.T) {
 			reader := bufio.NewReader(strings.NewReader(tc.message))
 			client := &transport.StdioClient{}
 
-			_, err := client.readMessage(reader)
+			_, err := client.ReadMessage(reader)
 			if err == nil {
 				t.Error("Expected error for malformed message")
 			}
@@ -887,17 +887,17 @@ func TestStdioInvalidCommand(t *testing.T) {
 func TestStdioWriteMessageMarshalError(t *testing.T) {
 	var buf bytes.Buffer
 	client := &transport.StdioClient{
-		stdin: &writeCloserWrapper{&buf},
+		Stdin: &writeCloserWrapper{&buf},
 	}
 
-	message := JSONRPCMessage{
+	message := transport.JSONRPCMessage{
 		JSONRPC: "2.0",
 		ID:      "test",
 		Method:  "test",
 		Params:  make(chan int), // This cannot be marshaled to JSON
 	}
 
-	err := client.writeMessage(message)
+	err := client.WriteMessage(message)
 	if err == nil {
 		t.Error("writeMessage should fail with unmarshalable content")
 	}

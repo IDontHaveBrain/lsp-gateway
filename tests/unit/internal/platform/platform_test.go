@@ -9,24 +9,24 @@ import (
 )
 
 func TestGetCurrentPlatform(t *testing.T) {
-	platform := platform.GetCurrentPlatform()
+	currentPlatform := platform.GetCurrentPlatform()
 
 	switch runtime.GOOS {
 	case string(platform.PlatformWindows):
-		if platform != platform.PlatformWindows {
-			t.Errorf("Expected platform.PlatformWindows, got %s", platform)
+		if currentPlatform != platform.PlatformWindows {
+			t.Errorf("Expected platform.PlatformWindows, got %s", currentPlatform)
 		}
 	case string(platform.PlatformLinux):
-		if platform != platform.PlatformLinux {
-			t.Errorf("Expected platform.PlatformLinux, got %s", platform)
+		if currentPlatform != platform.PlatformLinux {
+			t.Errorf("Expected platform.PlatformLinux, got %s", currentPlatform)
 		}
 	case string(platform.PlatformMacOS):
-		if platform != platform.PlatformMacOS {
-			t.Errorf("Expected platform.PlatformMacOS, got %s", platform)
+		if currentPlatform != platform.PlatformMacOS {
+			t.Errorf("Expected platform.PlatformMacOS, got %s", currentPlatform)
 		}
 	default:
-		if platform != platform.PlatformUnknown {
-			t.Errorf("Expected platform.PlatformUnknown for unsupported OS, got %s", platform)
+		if currentPlatform != platform.PlatformUnknown {
+			t.Errorf("Expected platform.PlatformUnknown for unsupported OS, got %s", currentPlatform)
 		}
 	}
 }
@@ -228,10 +228,10 @@ func TestSupportsShell(t *testing.T) {
 }
 
 func TestPlatformAndArchitectureStrings(t *testing.T) {
-	platform := platform.GetCurrentPlatform()
+	currentPlatform := platform.GetCurrentPlatform()
 	arch := platform.GetCurrentArchitecture()
 
-	platformStr := platform.String()
+	platformStr := currentPlatform.String()
 	if platformStr == "" {
 		t.Error("Platform.String() returned empty string")
 	}

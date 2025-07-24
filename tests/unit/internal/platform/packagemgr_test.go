@@ -7,7 +7,7 @@ import (
 )
 
 func TestHomebrewManager(t *testing.T) {
-	mgr := NewHomebrewManager()
+	mgr := platform.NewHomebrewManager()
 
 	if mgr.GetName() != "homebrew" {
 		t.Errorf("expected name 'homebrew', got '%s'", mgr.GetName())
@@ -26,7 +26,7 @@ func TestHomebrewManager(t *testing.T) {
 }
 
 func TestAptManager(t *testing.T) {
-	mgr := NewAptManager()
+	mgr := platform.NewAptManager()
 
 	if mgr.GetName() != "apt" {
 		t.Errorf("expected name 'apt', got '%s'", mgr.GetName())
@@ -45,7 +45,7 @@ func TestAptManager(t *testing.T) {
 }
 
 func TestWingetManager(t *testing.T) {
-	mgr := NewWingetManager()
+	mgr := platform.NewWingetManager()
 
 	if mgr.GetName() != "winget" {
 		t.Errorf("expected name 'winget', got '%s'", mgr.GetName())
@@ -64,7 +64,7 @@ func TestWingetManager(t *testing.T) {
 }
 
 func TestChocolateyManager(t *testing.T) {
-	mgr := NewChocolateyManager()
+	mgr := platform.NewChocolateyManager()
 
 	if mgr.GetName() != "chocolatey" {
 		t.Errorf("expected name 'chocolatey', got '%s'", mgr.GetName())
@@ -83,7 +83,7 @@ func TestChocolateyManager(t *testing.T) {
 }
 
 func TestGetAvailablePackageManagers(t *testing.T) {
-	managers := GetAvailablePackageManagers()
+	managers := platform.GetAvailablePackageManagers()
 
 	if managers == nil {
 		t.Error("expected non-nil slice of managers")
@@ -105,7 +105,7 @@ func TestGetAvailablePackageManagers(t *testing.T) {
 }
 
 func TestGetBestPackageManager(t *testing.T) {
-	best := GetBestPackageManager()
+	best := platform.GetBestPackageManager()
 
 	switch runtime.GOOS {
 	case "darwin", "linux", "windows":

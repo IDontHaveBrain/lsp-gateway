@@ -1,8 +1,8 @@
 package cli_test
 
 import (
-	"lsp-gateway/internal/cli"
 	"bytes"
+	"lsp-gateway/internal/cli"
 	"strings"
 	"testing"
 	"time"
@@ -35,10 +35,10 @@ func TestSetupCommand(t *testing.T) {
 }
 
 func testSetupCommandMetadata(t *testing.T) {
-	cmd := setupCmd
+	cmd := cli.GetSetupCmd()
 
-	if cmd.Use != CmdSetup {
-		t.Errorf("Expected Use to be %q, got %q", CmdSetup, cmd.Use)
+	if cmd.Use != cli.CmdSetup {
+		t.Errorf("Expected Use to be %q, got %q", cli.CmdSetup, cmd.Use)
 	}
 
 	if cmd.Short == "" {
@@ -55,7 +55,7 @@ func testSetupCommandMetadata(t *testing.T) {
 }
 
 func testSetupSubCommands(t *testing.T) {
-	cmd := setupCmd
+	cmd := cli.GetSetupCmd()
 
 	expectedSubcommands := []string{"all", "wizard"}
 	foundSubcommands := make(map[string]bool)
@@ -136,11 +136,12 @@ func testSetupCommandFlagParsing(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			setupForce = false
-			setupConfigPath = cli.DefaultConfigFile
-			setupTimeout = 10 * time.Minute
-			setupSkipRuntimes = []string{}
-			setupSkipServers = []string{}
+			// Create temporary variables for flag testing
+			var setupForce bool
+			var setupConfigPath string = cli.DefaultConfigFile
+			var setupTimeout time.Duration = 10 * time.Minute
+			var setupSkipRuntimes []string
+			var setupSkipServers []string
 
 			cmd := &cobra.Command{}
 			cmd.PersistentFlags().BoolVar(&setupForce, "force", false, "Force reinstallation")
@@ -210,16 +211,16 @@ func testSetupAllCommand(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			setupSkipRuntimes = tc.skipRuntimes
-			setupSkipServers = tc.skipServers
-			setupConfigPath = "config.yaml"
+			*cli.SetupSkipRuntimes = tc.skipRuntimes
+			*cli.SetupSkipServers = tc.skipServers
+			*cli.SetupConfigPath = "config.yaml"
 
 			var buf bytes.Buffer
 			cmd := &cobra.Command{}
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
 
-			err := setupAll(cmd, tc.args)
+			err := cli.SetupAll(cmd, tc.args)
 			if err != nil {
 				t.Fatalf("setupAll failed: %v", err)
 			}
@@ -266,15 +267,15 @@ func testSetupWizardCommand(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			setupInteractive = tc.interactive
-			setupConfigPath = "config.yaml"
+			*cli.SetupInteractive = tc.interactive
+			*cli.SetupConfigPath = "config.yaml"
 
 			var buf bytes.Buffer
 			cmd := &cobra.Command{}
 			cmd.SetOut(&buf)
 			cmd.SetErr(&buf)
 
-			err := setupWizard(cmd, tc.args)
+			err := cli.SetupWizard(cmd, tc.args)
 			if err != nil {
 				t.Fatalf("setupWizard failed: %v", err)
 			}
@@ -293,7 +294,7 @@ func testSetupWizardCommand(t *testing.T) {
 }
 
 func testSetupInteractiveMode(t *testing.T) {
-	cmd := setupWizardCmd
+	cmd := cli.GetSetupWizardCmd()
 
 	flagFound := false
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
@@ -308,7 +309,7 @@ func testSetupInteractiveMode(t *testing.T) {
 }
 
 func testSetupCommandHelp(t *testing.T) {
-	cmd := setupCmd
+	cmd := cli.GetSetupCmd()
 
 	var buf bytes.Buffer
 	cmd.SetOut(&buf)
@@ -346,17 +347,17 @@ func BenchmarkSetupAll(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = setupAll(cmd, args)
+		_ = cli.SetupAll(cmd, args)
 	}
 }
 
 func BenchmarkSetupWizard(b *testing.B) {
 	cmd := &cobra.Command{}
 	args := []string{}
-	setupInteractive = false // Disable interactive mode for benchmarking
+	*cli.SetupInteractive = false // Disable interactive mode for benchmarking
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = setupWizard(cmd, args)
+		_ = cli.SetupWizard(cmd, args)
 	}
 }

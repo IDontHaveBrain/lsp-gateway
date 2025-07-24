@@ -18,12 +18,12 @@ func TestInstallOptions(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		options  InstallOptions
-		expected InstallOptions
+		options  types.InstallOptions
+		expected types.InstallOptions
 	}{
 		{
 			name: "default values",
-			options: InstallOptions{
+			options: types.InstallOptions{
 				Version:        "1.0.0",
 				Force:          false,
 				SkipVerify:     false,
@@ -31,7 +31,7 @@ func TestInstallOptions(t *testing.T) {
 				PackageManager: "npm",
 				Platform:       "linux",
 			},
-			expected: InstallOptions{
+			expected: types.InstallOptions{
 				Version:        "1.0.0",
 				Force:          false,
 				SkipVerify:     false,
@@ -42,7 +42,7 @@ func TestInstallOptions(t *testing.T) {
 		},
 		{
 			name: "with force and skip verify",
-			options: InstallOptions{
+			options: types.InstallOptions{
 				Version:        "latest",
 				Force:          true,
 				SkipVerify:     true,
@@ -50,7 +50,7 @@ func TestInstallOptions(t *testing.T) {
 				PackageManager: "pip",
 				Platform:       "windows",
 			},
-			expected: InstallOptions{
+			expected: types.InstallOptions{
 				Version:        "latest",
 				Force:          true,
 				SkipVerify:     true,
@@ -91,12 +91,12 @@ func TestServerInstallOptions(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		options  ServerInstallOptions
-		expected ServerInstallOptions
+		options  types.ServerInstallOptions
+		expected types.ServerInstallOptions
 	}{
 		{
 			name: "basic options",
-			options: ServerInstallOptions{
+			options: types.ServerInstallOptions{
 				Version:             "2.0.0",
 				Force:               false,
 				SkipVerify:          false,
@@ -106,7 +106,7 @@ func TestServerInstallOptions(t *testing.T) {
 				InstallMethod:       "homebrew",
 				WorkingDir:          "/tmp",
 			},
-			expected: ServerInstallOptions{
+			expected: types.ServerInstallOptions{
 				Version:             "2.0.0",
 				Force:               false,
 				SkipVerify:          false,
@@ -119,7 +119,7 @@ func TestServerInstallOptions(t *testing.T) {
 		},
 		{
 			name: "skip options enabled",
-			options: ServerInstallOptions{
+			options: types.ServerInstallOptions{
 				Version:             "3.0.0",
 				Force:               true,
 				SkipVerify:          true,
@@ -129,7 +129,7 @@ func TestServerInstallOptions(t *testing.T) {
 				InstallMethod:       "apt",
 				WorkingDir:          "/home/user",
 			},
-			expected: ServerInstallOptions{
+			expected: types.ServerInstallOptions{
 				Version:             "3.0.0",
 				Force:               true,
 				SkipVerify:          true,
@@ -157,11 +157,11 @@ func TestInstallResult(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		result InstallResult
+		result types.InstallResult
 	}{
 		{
 			name: "successful installation",
-			result: InstallResult{
+			result: types.InstallResult{
 				Success:  true,
 				Runtime:  "go",
 				Version:  "1.21.0",
@@ -176,7 +176,7 @@ func TestInstallResult(t *testing.T) {
 		},
 		{
 			name: "failed installation",
-			result: InstallResult{
+			result: types.InstallResult{
 				Success:  false,
 				Runtime:  "python",
 				Version:  "3.11.0",
@@ -200,7 +200,7 @@ func TestInstallResult(t *testing.T) {
 			}
 
 			// Test JSON unmarshaling
-			var unmarshaled InstallResult
+			var unmarshaled types.InstallResult
 			if err := json.Unmarshal(data, &unmarshaled); err != nil {
 				t.Errorf("Failed to unmarshal InstallResult: %v", err)
 			}
@@ -226,17 +226,17 @@ func TestVerificationResult(t *testing.T) {
 	now := time.Now()
 	tests := []struct {
 		name   string
-		result VerificationResult
+		result types.VerificationResult
 	}{
 		{
 			name: "fully verified",
-			result: VerificationResult{
+			result: types.VerificationResult{
 				Installed:       true,
 				Compatible:      true,
 				Version:         "1.21.0",
 				Path:            "/usr/local/go/bin/go",
 				Runtime:         "go",
-				Issues:          []Issue{},
+				Issues:          []types.Issue{},
 				Details:         map[string]interface{}{"arch": "amd64"},
 				Metadata:        map[string]interface{}{"build": "official"},
 				EnvironmentVars: map[string]string{"GOROOT": "/usr/local/go"},
@@ -249,16 +249,16 @@ func TestVerificationResult(t *testing.T) {
 		},
 		{
 			name: "verification with issues",
-			result: VerificationResult{
+			result: types.VerificationResult{
 				Installed:  true,
 				Compatible: false,
 				Version:    "1.19.0",
 				Path:       "/usr/bin/go",
 				Runtime:    "go",
-				Issues: []Issue{
-					{
-						Severity:    IssueSeverityHigh,
-						Category:    IssueCategoryVersion,
+				Issues: []types.Issue{
+					types.Issue{
+						Severity:    types.IssueSeverityHigh,
+						Category:    types.IssueCategoryVersion,
 						Title:       "Version too old",
 						Description: "Go version 1.19.0 is below minimum required 1.21.0",
 						Solution:    "Upgrade to Go 1.21 or newer",
@@ -286,7 +286,7 @@ func TestVerificationResult(t *testing.T) {
 			}
 
 			// Test JSON unmarshaling
-			var unmarshaled VerificationResult
+			var unmarshaled types.VerificationResult
 			if err := json.Unmarshal(data, &unmarshaled); err != nil {
 				t.Errorf("Failed to unmarshal VerificationResult: %v", err)
 			}
@@ -311,13 +311,13 @@ func TestIssue(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		issue Issue
+		issue types.Issue
 	}{
 		{
 			name: "critical installation issue",
-			issue: Issue{
-				Severity:    IssueSeverityCritical,
-				Category:    IssueCategoryInstallation,
+			issue: types.Issue{
+				Severity:    types.IssueSeverityCritical,
+				Category:    types.IssueCategoryInstallation,
 				Title:       "Installation failed",
 				Description: "Could not install runtime due to permission error",
 				Solution:    "Run with elevated privileges",
@@ -326,9 +326,9 @@ func TestIssue(t *testing.T) {
 		},
 		{
 			name: "low severity path issue",
-			issue: Issue{
-				Severity:    IssueSeverityLow,
-				Category:    IssueCategoryPath,
+			issue: types.Issue{
+				Severity:    types.IssueSeverityLow,
+				Category:    types.IssueCategoryPath,
 				Title:       "Non-standard path",
 				Description: "Runtime installed in non-standard location",
 				Solution:    "Add to PATH or reinstall in standard location",
@@ -346,7 +346,7 @@ func TestIssue(t *testing.T) {
 			}
 
 			// Test JSON unmarshaling
-			var unmarshaled Issue
+			var unmarshaled types.Issue
 			if err := json.Unmarshal(data, &unmarshaled); err != nil {
 				t.Errorf("Failed to unmarshal Issue: %v", err)
 			}
@@ -371,18 +371,18 @@ func TestIssueCategory(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		category IssueCategory
+		category types.IssueCategory
 		expected string
 	}{
-		{"installation", IssueCategoryInstallation, "installation"},
-		{"version", IssueCategoryVersion, "version"},
-		{"path", IssueCategoryPath, "path"},
-		{"environment", IssueCategoryEnvironment, "environment"},
-		{"permissions", IssueCategoryPermissions, "permissions"},
-		{"dependencies", IssueCategoryDependencies, "dependencies"},
-		{"configuration", IssueCategoryConfiguration, "configuration"},
-		{"corruption", IssueCategoryCorruption, "corruption"},
-		{"execution", IssueCategoryExecution, "execution"},
+		{"installation", types.IssueCategoryInstallation, "installation"},
+		{"version", types.IssueCategoryVersion, "version"},
+		{"path", types.IssueCategoryPath, "path"},
+		{"environment", types.IssueCategoryEnvironment, "environment"},
+		{"permissions", types.IssueCategoryPermissions, "permissions"},
+		{"dependencies", types.IssueCategoryDependencies, "dependencies"},
+		{"configuration", types.IssueCategoryConfiguration, "configuration"},
+		{"corruption", types.IssueCategoryCorruption, "corruption"},
+		{"execution", types.IssueCategoryExecution, "execution"},
 	}
 
 	for _, tt := range tests {
@@ -400,14 +400,14 @@ func TestIssueSeverity(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		severity IssueSeverity
+		severity types.IssueSeverity
 		expected string
 	}{
-		{"info", IssueSeverityInfo, "info"},
-		{"low", IssueSeverityLow, "low"},
-		{"medium", IssueSeverityMedium, "medium"},
-		{"high", IssueSeverityHigh, "high"},
-		{"critical", IssueSeverityCritical, "critical"},
+		{"info", types.IssueSeverityInfo, "info"},
+		{"low", types.IssueSeverityLow, "low"},
+		{"medium", types.IssueSeverityMedium, "medium"},
+		{"high", types.IssueSeverityHigh, "high"},
+		{"critical", types.IssueSeverityCritical, "critical"},
 	}
 
 	for _, tt := range tests {
@@ -425,11 +425,11 @@ func TestRuntimeInfo(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		runtime RuntimeInfo
+		runtime types.RuntimeInfo
 	}{
 		{
 			name: "go runtime info",
-			runtime: RuntimeInfo{
+			runtime: types.RuntimeInfo{
 				Name:       "go",
 				Version:    "1.21.0",
 				Path:       "/usr/local/go/bin/go",
@@ -444,7 +444,7 @@ func TestRuntimeInfo(t *testing.T) {
 		},
 		{
 			name: "python runtime with issues",
-			runtime: RuntimeInfo{
+			runtime: types.RuntimeInfo{
 				Name:       "python",
 				Version:    "3.8.0",
 				Path:       "/usr/bin/python3",
@@ -467,7 +467,7 @@ func TestRuntimeInfo(t *testing.T) {
 			}
 
 			// Test JSON unmarshaling
-			var unmarshaled RuntimeInfo
+			var unmarshaled types.RuntimeInfo
 			if err := json.Unmarshal(data, &unmarshaled); err != nil {
 				t.Errorf("Failed to unmarshal RuntimeInfo: %v", err)
 			}
@@ -493,15 +493,15 @@ func TestDetectionReport(t *testing.T) {
 	now := time.Now()
 	tests := []struct {
 		name   string
-		report DetectionReport
+		report types.DetectionReport
 	}{
 		{
 			name: "full detection report",
-			report: DetectionReport{
+			report: types.DetectionReport{
 				Platform:     "linux",
 				Architecture: "amd64",
-				Runtimes: map[string]*RuntimeInfo{
-					"go": {
+				Runtimes: map[string]*types.RuntimeInfo{
+					"go": &types.RuntimeInfo{
 						Name:       "go",
 						Version:    "1.21.0",
 						Path:       "/usr/local/go/bin/go",
@@ -511,7 +511,7 @@ func TestDetectionReport(t *testing.T) {
 						Metadata:   map[string]interface{}{"GOOS": "linux"},
 					},
 				},
-				Summary: &DetectionSummary{
+				Summary: &types.DetectionSummary{
 					TotalRuntimes:      4,
 					InstalledRuntimes:  3,
 					CompatibleRuntimes: 2,
@@ -534,7 +534,7 @@ func TestDetectionReport(t *testing.T) {
 			}
 
 			// Test JSON unmarshaling
-			var unmarshaled DetectionReport
+			var unmarshaled types.DetectionReport
 			if err := json.Unmarshal(data, &unmarshaled); err != nil {
 				t.Errorf("Failed to unmarshal DetectionReport: %v", err)
 			}
@@ -559,11 +559,11 @@ func TestDetectionSummary(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		summary DetectionSummary
+		summary types.DetectionSummary
 	}{
 		{
 			name: "good readiness score",
-			summary: DetectionSummary{
+			summary: types.DetectionSummary{
 				TotalRuntimes:      4,
 				InstalledRuntimes:  4,
 				CompatibleRuntimes: 4,
@@ -573,7 +573,7 @@ func TestDetectionSummary(t *testing.T) {
 		},
 		{
 			name: "poor readiness score",
-			summary: DetectionSummary{
+			summary: types.DetectionSummary{
 				TotalRuntimes:      4,
 				InstalledRuntimes:  1,
 				CompatibleRuntimes: 0,
@@ -592,7 +592,7 @@ func TestDetectionSummary(t *testing.T) {
 			}
 
 			// Test JSON unmarshaling
-			var unmarshaled DetectionSummary
+			var unmarshaled types.DetectionSummary
 			if err := json.Unmarshal(data, &unmarshaled); err != nil {
 				t.Errorf("Failed to unmarshal DetectionSummary: %v", err)
 			}
@@ -614,17 +614,17 @@ func TestRuntimeDefinition(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		definition RuntimeDefinition
+		definition types.RuntimeDefinition
 	}{
 		{
 			name: "go runtime definition",
-			definition: RuntimeDefinition{
+			definition: types.RuntimeDefinition{
 				Name:               "go",
 				DisplayName:        "Go Programming Language",
 				MinVersion:         "1.19.0",
 				RecommendedVersion: "1.21.0",
-				InstallMethods: map[string]InstallMethod{
-					"download": {
+				InstallMethods: map[string]types.InstallMethod{
+					"download": types.InstallMethod{
 						Name:         "download",
 						Platform:     "all",
 						Method:       "download",
@@ -651,7 +651,7 @@ func TestRuntimeDefinition(t *testing.T) {
 			}
 
 			// Test JSON unmarshaling
-			var unmarshaled RuntimeDefinition
+			var unmarshaled types.RuntimeDefinition
 			if err := json.Unmarshal(data, &unmarshaled); err != nil {
 				t.Errorf("Failed to unmarshal RuntimeDefinition: %v", err)
 			}
@@ -673,11 +673,11 @@ func TestServerDefinition(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		definition ServerDefinition
+		definition types.ServerDefinition
 	}{
 		{
 			name: "gopls server definition",
-			definition: ServerDefinition{
+			definition: types.ServerDefinition{
 				Name:              "gopls",
 				DisplayName:       "Go Language Server",
 				Runtime:           "go",
@@ -690,7 +690,7 @@ func TestServerDefinition(t *testing.T) {
 				Homepage:          "https://pkg.go.dev/golang.org/x/tools/gopls",
 				Languages:         []string{"go"},
 				Extensions:        []string{".go"},
-				InstallMethods: []InstallMethod{
+				InstallMethods: []types.InstallMethod{
 					{
 						Name:        "go-install",
 						Platform:    "all",
@@ -713,7 +713,7 @@ func TestServerDefinition(t *testing.T) {
 			}
 
 			// Test JSON unmarshaling
-			var unmarshaled ServerDefinition
+			var unmarshaled types.ServerDefinition
 			if err := json.Unmarshal(data, &unmarshaled); err != nil {
 				t.Errorf("Failed to unmarshal ServerDefinition: %v", err)
 			}
@@ -735,11 +735,11 @@ func TestInstallMethod(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		method InstallMethod
+		method types.InstallMethod
 	}{
 		{
 			name: "package manager method",
-			method: InstallMethod{
+			method: types.InstallMethod{
 				Name:          "apt",
 				Platform:      "linux",
 				Method:        "package-manager",
@@ -762,7 +762,7 @@ func TestInstallMethod(t *testing.T) {
 			}
 
 			// Test JSON unmarshaling
-			var unmarshaled InstallMethod
+			var unmarshaled types.InstallMethod
 			if err := json.Unmarshal(data, &unmarshaled); err != nil {
 				t.Errorf("Failed to unmarshal InstallMethod: %v", err)
 			}
@@ -785,21 +785,21 @@ func TestDependencyValidationResult(t *testing.T) {
 	now := time.Now()
 	tests := []struct {
 		name   string
-		result DependencyValidationResult
+		result types.DependencyValidationResult
 	}{
 		{
 			name: "valid dependencies",
-			result: DependencyValidationResult{
+			result: types.DependencyValidationResult{
 				Server:            "gopls",
 				Valid:             true,
 				RuntimeRequired:   "go",
 				RuntimeInstalled:  true,
 				RuntimeVersion:    "1.21.0",
 				RuntimeCompatible: true,
-				Issues:            []Issue{},
+				Issues:            []types.Issue{},
 				CanInstall:        true,
 				MissingRuntimes:   []string{},
-				VersionIssues:     []VersionIssue{},
+				VersionIssues:     []types.VersionIssue{},
 				Recommendations:   []string{"all dependencies satisfied"},
 				ValidatedAt:       now,
 				Duration:          2 * time.Second,
@@ -807,17 +807,17 @@ func TestDependencyValidationResult(t *testing.T) {
 		},
 		{
 			name: "invalid dependencies",
-			result: DependencyValidationResult{
+			result: types.DependencyValidationResult{
 				Server:            "pylsp",
 				Valid:             false,
 				RuntimeRequired:   "python",
 				RuntimeInstalled:  false,
 				RuntimeVersion:    "",
 				RuntimeCompatible: false,
-				Issues: []Issue{
-					{
-						Severity:    IssueSeverityCritical,
-						Category:    IssueCategoryDependencies,
+				Issues: []types.Issue{
+					types.Issue{
+						Severity:    types.IssueSeverityCritical,
+						Category:    types.IssueCategoryDependencies,
 						Title:       "Runtime missing",
 						Description: "Python runtime not installed",
 						Solution:    "Install Python 3.8 or newer",
@@ -825,12 +825,12 @@ func TestDependencyValidationResult(t *testing.T) {
 				},
 				CanInstall:      false,
 				MissingRuntimes: []string{"python"},
-				VersionIssues: []VersionIssue{
-					{
+				VersionIssues: []types.VersionIssue{
+					types.VersionIssue{
 						Component:        "python",
 						RequiredVersion:  "3.8.0",
 						InstalledVersion: "",
-						Severity:         IssueSeverityCritical,
+						Severity:         types.IssueSeverityCritical,
 					},
 				},
 				Recommendations: []string{"install python runtime first"},
@@ -849,7 +849,7 @@ func TestDependencyValidationResult(t *testing.T) {
 			}
 
 			// Test JSON unmarshaling
-			var unmarshaled DependencyValidationResult
+			var unmarshaled types.DependencyValidationResult
 			if err := json.Unmarshal(data, &unmarshaled); err != nil {
 				t.Errorf("Failed to unmarshal DependencyValidationResult: %v", err)
 			}
@@ -871,24 +871,24 @@ func TestVersionIssue(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		issue VersionIssue
+		issue types.VersionIssue
 	}{
 		{
 			name: "version too old",
-			issue: VersionIssue{
+			issue: types.VersionIssue{
 				Component:        "go",
 				RequiredVersion:  "1.21.0",
 				InstalledVersion: "1.19.0",
-				Severity:         IssueSeverityHigh,
+				Severity:         types.IssueSeverityHigh,
 			},
 		},
 		{
 			name: "component not found",
-			issue: VersionIssue{
+			issue: types.VersionIssue{
 				Component:        "python",
 				RequiredVersion:  "3.8.0",
 				InstalledVersion: "",
-				Severity:         IssueSeverityCritical,
+				Severity:         types.IssueSeverityCritical,
 			},
 		},
 	}
@@ -902,7 +902,7 @@ func TestVersionIssue(t *testing.T) {
 			}
 
 			// Test JSON unmarshaling
-			var unmarshaled VersionIssue
+			var unmarshaled types.VersionIssue
 			if err := json.Unmarshal(data, &unmarshaled); err != nil {
 				t.Errorf("Failed to unmarshal VersionIssue: %v", err)
 			}
@@ -924,27 +924,27 @@ func TestVersionValidationResult(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		result VersionValidationResult
+		result types.VersionValidationResult
 	}{
 		{
 			name: "valid version",
-			result: VersionValidationResult{
+			result: types.VersionValidationResult{
 				Valid:            true,
 				RequiredVersion:  "1.19.0",
 				InstalledVersion: "1.21.0",
-				Issues:           []Issue{},
+				Issues:           []types.Issue{},
 			},
 		},
 		{
 			name: "invalid version",
-			result: VersionValidationResult{
+			result: types.VersionValidationResult{
 				Valid:            false,
 				RequiredVersion:  "1.21.0",
 				InstalledVersion: "1.19.0",
-				Issues: []Issue{
-					{
-						Severity:    IssueSeverityHigh,
-						Category:    IssueCategoryVersion,
+				Issues: []types.Issue{
+					types.Issue{
+						Severity:    types.IssueSeverityHigh,
+						Category:    types.IssueCategoryVersion,
 						Title:       "Version too old",
 						Description: "Installed version is below minimum requirement",
 						Solution:    "Upgrade to newer version",
@@ -963,7 +963,7 @@ func TestVersionValidationResult(t *testing.T) {
 			}
 
 			// Test JSON unmarshaling
-			var unmarshaled VersionValidationResult
+			var unmarshaled types.VersionValidationResult
 			if err := json.Unmarshal(data, &unmarshaled); err != nil {
 				t.Errorf("Failed to unmarshal VersionValidationResult: %v", err)
 			}
@@ -984,8 +984,8 @@ type MockRuntimeDetector struct {
 	timeout time.Duration
 }
 
-func (m *MockRuntimeDetector) DetectGo(ctx context.Context) (*RuntimeInfo, error) {
-	return &RuntimeInfo{
+func (m *MockRuntimeDetector) DetectGo(ctx context.Context) (*types.RuntimeInfo, error) {
+	return &types.RuntimeInfo{
 		Name:       "go",
 		Version:    "1.21.0",
 		Path:       "/usr/local/go/bin/go",
@@ -996,8 +996,8 @@ func (m *MockRuntimeDetector) DetectGo(ctx context.Context) (*RuntimeInfo, error
 	}, nil
 }
 
-func (m *MockRuntimeDetector) DetectPython(ctx context.Context) (*RuntimeInfo, error) {
-	return &RuntimeInfo{
+func (m *MockRuntimeDetector) DetectPython(ctx context.Context) (*types.RuntimeInfo, error) {
+	return &types.RuntimeInfo{
 		Name:       "python",
 		Version:    "3.11.0",
 		Path:       "/usr/bin/python3",
@@ -1008,8 +1008,8 @@ func (m *MockRuntimeDetector) DetectPython(ctx context.Context) (*RuntimeInfo, e
 	}, nil
 }
 
-func (m *MockRuntimeDetector) DetectNodejs(ctx context.Context) (*RuntimeInfo, error) {
-	return &RuntimeInfo{
+func (m *MockRuntimeDetector) DetectNodejs(ctx context.Context) (*types.RuntimeInfo, error) {
+	return &types.RuntimeInfo{
 		Name:       "nodejs",
 		Version:    "18.0.0",
 		Path:       "/usr/bin/node",
@@ -1020,8 +1020,8 @@ func (m *MockRuntimeDetector) DetectNodejs(ctx context.Context) (*RuntimeInfo, e
 	}, nil
 }
 
-func (m *MockRuntimeDetector) DetectJava(ctx context.Context) (*RuntimeInfo, error) {
-	return &RuntimeInfo{
+func (m *MockRuntimeDetector) DetectJava(ctx context.Context) (*types.RuntimeInfo, error) {
+	return &types.RuntimeInfo{
 		Name:       "java",
 		Version:    "17.0.0",
 		Path:       "/usr/bin/java",
@@ -1032,8 +1032,8 @@ func (m *MockRuntimeDetector) DetectJava(ctx context.Context) (*RuntimeInfo, err
 	}, nil
 }
 
-func (m *MockRuntimeDetector) DetectAll(ctx context.Context) (*DetectionReport, error) {
-	runtimes := make(map[string]*RuntimeInfo)
+func (m *MockRuntimeDetector) DetectAll(ctx context.Context) (*types.DetectionReport, error) {
+	runtimes := make(map[string]*types.RuntimeInfo)
 
 	goInfo, _ := m.DetectGo(ctx)
 	runtimes["go"] = goInfo
@@ -1041,11 +1041,11 @@ func (m *MockRuntimeDetector) DetectAll(ctx context.Context) (*DetectionReport, 
 	pythonInfo, _ := m.DetectPython(ctx)
 	runtimes["python"] = pythonInfo
 
-	return &DetectionReport{
+	return &types.DetectionReport{
 		Platform:     "linux",
 		Architecture: "amd64",
 		Runtimes:     runtimes,
-		Summary: &DetectionSummary{
+		Summary: &types.DetectionSummary{
 			TotalRuntimes:      4,
 			InstalledRuntimes:  3,
 			CompatibleRuntimes: 3,
@@ -1088,7 +1088,7 @@ func (m *MockSetupLogger) Debug(msg string) {
 	m.messages = append(m.messages, "DEBUG: "+msg)
 }
 
-func (m *MockSetupLogger) WithField(key string, value interface{}) SetupLogger {
+func (m *MockSetupLogger) WithField(key string, value interface{}) types.SetupLogger {
 	newLogger := &MockSetupLogger{
 		messages: make([]string, len(m.messages)),
 		fields:   make(map[string]interface{}),
@@ -1101,7 +1101,7 @@ func (m *MockSetupLogger) WithField(key string, value interface{}) SetupLogger {
 	return newLogger
 }
 
-func (m *MockSetupLogger) WithFields(fields map[string]interface{}) SetupLogger {
+func (m *MockSetupLogger) WithFields(fields map[string]interface{}) types.SetupLogger {
 	newLogger := &MockSetupLogger{
 		messages: make([]string, len(m.messages)),
 		fields:   make(map[string]interface{}),
@@ -1116,19 +1116,19 @@ func (m *MockSetupLogger) WithFields(fields map[string]interface{}) SetupLogger 
 	return newLogger
 }
 
-func (m *MockSetupLogger) WithError(err error) SetupLogger {
+func (m *MockSetupLogger) WithError(err error) types.SetupLogger {
 	return m.WithField("error", err.Error())
 }
 
-func (m *MockSetupLogger) WithOperation(op string) SetupLogger {
+func (m *MockSetupLogger) WithOperation(op string) types.SetupLogger {
 	return m.WithField("operation", op)
 }
 
 // MockRuntimeInstaller is a mock implementation of RuntimeInstaller
 type MockRuntimeInstaller struct{}
 
-func (m *MockRuntimeInstaller) Install(runtime string, options InstallOptions) (*InstallResult, error) {
-	return &InstallResult{
+func (m *MockRuntimeInstaller) Install(runtime string, options types.InstallOptions) (*types.InstallResult, error) {
+	return &types.InstallResult{
 		Success:  true,
 		Runtime:  runtime,
 		Version:  options.Version,
@@ -1142,14 +1142,14 @@ func (m *MockRuntimeInstaller) Install(runtime string, options InstallOptions) (
 	}, nil
 }
 
-func (m *MockRuntimeInstaller) Verify(runtime string) (*VerificationResult, error) {
-	return &VerificationResult{
+func (m *MockRuntimeInstaller) Verify(runtime string) (*types.VerificationResult, error) {
+	return &types.VerificationResult{
 		Installed:       true,
 		Compatible:      true,
 		Version:         "1.0.0",
 		Path:            "/usr/local/bin/" + runtime,
 		Runtime:         runtime,
-		Issues:          []Issue{},
+		Issues:          []types.Issue{},
 		Details:         map[string]interface{}{},
 		Metadata:        map[string]interface{}{},
 		EnvironmentVars: map[string]string{},
@@ -1165,13 +1165,13 @@ func (m *MockRuntimeInstaller) GetSupportedRuntimes() []string {
 	return []string{"go", "python", "nodejs", "java"}
 }
 
-func (m *MockRuntimeInstaller) GetRuntimeInfo(runtime string) (*RuntimeDefinition, error) {
-	return &RuntimeDefinition{
+func (m *MockRuntimeInstaller) GetRuntimeInfo(runtime string) (*types.RuntimeDefinition, error) {
+	return &types.RuntimeDefinition{
 		Name:               runtime,
 		DisplayName:        cases.Title(language.English).String(runtime),
 		MinVersion:         "1.0.0",
 		RecommendedVersion: "2.0.0",
-		InstallMethods:     map[string]InstallMethod{},
+		InstallMethods:     map[string]types.InstallMethod{},
 		VerificationCmd:    []string{runtime, "version"},
 		VersionCommand:     []string{runtime, "version"},
 		EnvVars:            map[string]string{},
@@ -1180,24 +1180,24 @@ func (m *MockRuntimeInstaller) GetRuntimeInfo(runtime string) (*RuntimeDefinitio
 	}, nil
 }
 
-func (m *MockRuntimeInstaller) ValidateVersion(runtime, minVersion string) (*VersionValidationResult, error) {
-	return &VersionValidationResult{
+func (m *MockRuntimeInstaller) ValidateVersion(runtime, minVersion string) (*types.VersionValidationResult, error) {
+	return &types.VersionValidationResult{
 		Valid:            true,
 		RequiredVersion:  minVersion,
 		InstalledVersion: "2.0.0",
-		Issues:           []Issue{},
+		Issues:           []types.Issue{},
 	}, nil
 }
 
-func (m *MockRuntimeInstaller) GetPlatformStrategy(platform string) RuntimePlatformStrategy {
+func (m *MockRuntimeInstaller) GetPlatformStrategy(platform string) types.RuntimePlatformStrategy {
 	return &MockRuntimePlatformStrategy{}
 }
 
 // MockRuntimePlatformStrategy is a mock implementation of RuntimePlatformStrategy
 type MockRuntimePlatformStrategy struct{}
 
-func (m *MockRuntimePlatformStrategy) InstallRuntime(runtime string, options InstallOptions) (*InstallResult, error) {
-	return &InstallResult{
+func (m *MockRuntimePlatformStrategy) InstallRuntime(runtime string, options types.InstallOptions) (*types.InstallResult, error) {
+	return &types.InstallResult{
 		Success:  true,
 		Runtime:  runtime,
 		Version:  options.Version,
@@ -1211,14 +1211,14 @@ func (m *MockRuntimePlatformStrategy) InstallRuntime(runtime string, options Ins
 	}, nil
 }
 
-func (m *MockRuntimePlatformStrategy) VerifyRuntime(runtime string) (*VerificationResult, error) {
-	return &VerificationResult{
+func (m *MockRuntimePlatformStrategy) VerifyRuntime(runtime string) (*types.VerificationResult, error) {
+	return &types.VerificationResult{
 		Installed:       true,
 		Compatible:      true,
 		Version:         "1.0.0",
 		Path:            "/usr/local/bin/" + runtime,
 		Runtime:         runtime,
-		Issues:          []Issue{},
+		Issues:          []types.Issue{},
 		Details:         map[string]interface{}{},
 		Metadata:        map[string]interface{}{},
 		EnvironmentVars: map[string]string{},
@@ -1348,7 +1348,7 @@ func TestMockRuntimeInstaller(t *testing.T) {
 	installer := &MockRuntimeInstaller{}
 
 	t.Run("install runtime", func(t *testing.T) {
-		options := InstallOptions{
+		options := types.InstallOptions{
 			Version: "1.21.0",
 			Force:   false,
 		}
@@ -1409,16 +1409,16 @@ func TestEnumConstants(t *testing.T) {
 	t.Parallel()
 
 	t.Run("issue categories complete", func(t *testing.T) {
-		categories := []IssueCategory{
-			IssueCategoryInstallation,
-			IssueCategoryVersion,
-			IssueCategoryPath,
-			IssueCategoryEnvironment,
-			IssueCategoryPermissions,
-			IssueCategoryDependencies,
-			IssueCategoryConfiguration,
-			IssueCategoryCorruption,
-			IssueCategoryExecution,
+		categories := []types.IssueCategory{
+			types.IssueCategoryInstallation,
+			types.IssueCategoryVersion,
+			types.IssueCategoryPath,
+			types.IssueCategoryEnvironment,
+			types.IssueCategoryPermissions,
+			types.IssueCategoryDependencies,
+			types.IssueCategoryConfiguration,
+			types.IssueCategoryCorruption,
+			types.IssueCategoryExecution,
 		}
 
 		if len(categories) != 9 {
@@ -1434,12 +1434,12 @@ func TestEnumConstants(t *testing.T) {
 	})
 
 	t.Run("issue severities complete", func(t *testing.T) {
-		severities := []IssueSeverity{
-			IssueSeverityInfo,
-			IssueSeverityLow,
-			IssueSeverityMedium,
-			IssueSeverityHigh,
-			IssueSeverityCritical,
+		severities := []types.IssueSeverity{
+			types.IssueSeverityInfo,
+			types.IssueSeverityLow,
+			types.IssueSeverityMedium,
+			types.IssueSeverityHigh,
+			types.IssueSeverityCritical,
 		}
 
 		if len(severities) != 5 {
@@ -1460,7 +1460,7 @@ func TestStructDefaults(t *testing.T) {
 	t.Parallel()
 
 	t.Run("InstallOptions defaults", func(t *testing.T) {
-		var options InstallOptions
+		var options types.InstallOptions
 		if options.Force != false {
 			t.Error("Expected Force to default to false")
 		}
@@ -1473,7 +1473,7 @@ func TestStructDefaults(t *testing.T) {
 	})
 
 	t.Run("InstallResult defaults", func(t *testing.T) {
-		var result InstallResult
+		var result types.InstallResult
 		if result.Success != false {
 			t.Error("Expected Success to default to false")
 		}
@@ -1486,7 +1486,7 @@ func TestStructDefaults(t *testing.T) {
 	})
 
 	t.Run("Issue defaults", func(t *testing.T) {
-		var issue Issue
+		var issue types.Issue
 		if issue.Severity != "" {
 			t.Error("Expected Severity to be empty string by default")
 		}
@@ -1502,20 +1502,20 @@ func TestJSONSerializationEdgeCases(t *testing.T) {
 
 	t.Run("empty structs", func(t *testing.T) {
 		structs := []interface{}{
-			InstallOptions{},
-			ServerInstallOptions{},
-			InstallResult{},
-			VerificationResult{},
-			Issue{},
-			RuntimeInfo{},
-			DetectionReport{},
-			DetectionSummary{},
-			RuntimeDefinition{},
-			ServerDefinition{},
-			InstallMethod{},
-			DependencyValidationResult{},
-			VersionIssue{},
-			VersionValidationResult{},
+			types.InstallOptions{},
+			types.ServerInstallOptions{},
+			types.InstallResult{},
+			types.VerificationResult{},
+			types.Issue{},
+			types.RuntimeInfo{},
+			types.DetectionReport{},
+			types.DetectionSummary{},
+			types.RuntimeDefinition{},
+			types.ServerDefinition{},
+			types.InstallMethod{},
+			types.DependencyValidationResult{},
+			types.VersionIssue{},
+			types.VersionValidationResult{},
 		}
 
 		for i, s := range structs {
@@ -1534,7 +1534,7 @@ func TestJSONSerializationEdgeCases(t *testing.T) {
 	})
 
 	t.Run("nil maps and slices", func(t *testing.T) {
-		result := InstallResult{
+		result := types.InstallResult{
 			Details: nil,
 			Errors:  nil,
 		}
@@ -1544,7 +1544,7 @@ func TestJSONSerializationEdgeCases(t *testing.T) {
 			t.Errorf("Failed to marshal struct with nil fields: %v", err)
 		}
 
-		var unmarshaled InstallResult
+		var unmarshaled types.InstallResult
 		if err := json.Unmarshal(data, &unmarshaled); err != nil {
 			t.Errorf("Failed to unmarshal struct with nil fields: %v", err)
 		}

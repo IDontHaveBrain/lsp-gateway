@@ -7,7 +7,7 @@ import (
 )
 
 func TestServerVerifier_Basic(t *testing.T) {
-	runtimeInstaller := NewRuntimeInstaller()
+	runtimeInstaller := installer.NewRuntimeInstaller()
 
 	verifier := installer.NewServerVerifier(runtimeInstaller)
 
@@ -33,7 +33,7 @@ func TestServerVerifier_Basic(t *testing.T) {
 }
 
 func TestServerVerifier_VerifyUnknownServer(t *testing.T) {
-	runtimeInstaller := NewRuntimeInstaller()
+	runtimeInstaller := installer.NewRuntimeInstaller()
 	verifier := installer.NewServerVerifier(runtimeInstaller)
 
 	_, err := verifier.VerifyServer("unknown-server")
@@ -43,7 +43,7 @@ func TestServerVerifier_VerifyUnknownServer(t *testing.T) {
 }
 
 func TestServerVerifier_VerifyGopls(t *testing.T) {
-	runtimeInstaller := NewRuntimeInstaller()
+	runtimeInstaller := installer.NewRuntimeInstaller()
 	verifier := installer.NewServerVerifier(runtimeInstaller)
 
 	result, err := verifier.VerifyServer("gopls")
@@ -70,7 +70,7 @@ func TestServerVerifier_VerifyGopls(t *testing.T) {
 }
 
 func TestServerVerifier_VerifyAllServers(t *testing.T) {
-	runtimeInstaller := NewRuntimeInstaller()
+	runtimeInstaller := installer.NewRuntimeInstaller()
 	verifier := installer.NewServerVerifier(runtimeInstaller)
 
 	results, err := verifier.VerifyAllServers()
@@ -98,7 +98,7 @@ func TestServerVerifier_VerifyAllServers(t *testing.T) {
 }
 
 func TestServerVerifier_HealthCheck(t *testing.T) {
-	runtimeInstaller := NewRuntimeInstaller()
+	runtimeInstaller := installer.NewRuntimeInstaller()
 	verifier := installer.NewServerVerifier(runtimeInstaller)
 
 	servers := verifier.GetSupportedServers()
@@ -126,7 +126,7 @@ func TestServerVerifier_HealthCheck(t *testing.T) {
 }
 
 func TestServerVerificationResult_Structure(t *testing.T) {
-	result := &ServerVerificationResult{
+	result := &installer.ServerVerificationResult{
 		ServerName:      "test-server",
 		Installed:       true,
 		Version:         "1.0.0",
@@ -134,7 +134,7 @@ func TestServerVerificationResult_Structure(t *testing.T) {
 		Compatible:      true,
 		Functional:      true,
 		RuntimeRequired: "go",
-		Issues:          []Issue{},
+		Issues:          []installer.Issue{},
 		Recommendations: []string{},
 		VerifiedAt:      time.Now(),
 		Duration:        time.Second,
@@ -171,7 +171,7 @@ func TestServerVerificationResult_Structure(t *testing.T) {
 }
 
 func TestServerHealthResult_Structure(t *testing.T) {
-	result := &ServerHealthResult{
+	result := &installer.ServerHealthResult{
 		ServerName:  "test-server",
 		Responsive:  true,
 		StartupTime: time.Millisecond * 100,

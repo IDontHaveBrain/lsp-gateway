@@ -1,11 +1,11 @@
 package cli_test
 
 import (
-	"lsp-gateway/internal/cli"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"lsp-gateway/internal/cli"
 	"os"
 	"strings"
 	"testing"
@@ -115,10 +115,7 @@ func TestInstallServersCommand(t *testing.T) {
 }
 
 func resetInstallFlags() {
-	installForce = false
-	installVersion = ""
-	installJSON = false
-	installTimeout = 10 * time.Minute
+	cli.SetInstallFlags(false, "", false, 10*time.Minute)
 }
 
 func captureOutput(f func()) string {
@@ -136,8 +133,9 @@ func captureOutput(f func()) string {
 }
 
 func testInstallCommandMetadata(t *testing.T) {
-	if installCmd.Use != CmdInstall {
-		t.Errorf("Expected Use to be '%s', got '%s'", CmdInstall, installCmd.Use)
+	installCmd := cli.GetInstallCmd()
+	if installCmd.Use != cli.CmdInstall {
+		t.Errorf("Expected Use to be '%s', got '%s'", cli.CmdInstall, installCmd.Use)
 	}
 
 	expectedShort := "Install runtime dependencies and language servers"
@@ -159,6 +157,7 @@ func testInstallCommandMetadata(t *testing.T) {
 }
 
 func testInstallCommandSubcommands(t *testing.T) {
+	installCmd := cli.GetInstallCmd()
 	subcommands := installCmd.Commands()
 	expectedSubcommands := []string{"runtime", "server", "servers"}
 
@@ -178,6 +177,7 @@ func testInstallCommandSubcommands(t *testing.T) {
 }
 
 func testInstallCommandFlagInheritance(t *testing.T) {
+	installCmd := cli.GetInstallCmd()
 	if len(installCmd.Commands()) == 0 {
 		t.Error("Expected install command to have subcommands")
 	}
@@ -185,7 +185,7 @@ func testInstallCommandFlagInheritance(t *testing.T) {
 
 func testInstallCommandHelp(t *testing.T) {
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	output, err := executeCommand(cmd, "install", "--help")
 	if err != nil {
@@ -311,7 +311,7 @@ func testInstallRuntimeCommandFlagParsing(t *testing.T) {
 			resetInstallFlags()
 
 			cmd := &cobra.Command{}
-			cmd.AddCommand(installCmd)
+			cmd.AddCommand(cli.GetInstallCmd())
 
 			cmd.SetArgs(append([]string{"install", "runtime"}, tt.args...))
 			err := cmd.ParseFlags(append([]string{"install", "runtime"}, tt.args...))
@@ -327,20 +327,21 @@ func testInstallRuntimeCommandFlagParsing(t *testing.T) {
 				_, _ = executeCommandWithoutOutput(cmd, append([]string{"install", "runtime"}, tt.args...)...)
 			}
 
-			if installForce != tt.expectedForce {
-				t.Errorf("Expected force flag to be %v, got %v", tt.expectedForce, installForce)
+			force, version, jsonOutput, timeout := cli.GetInstallFlags()
+			if force != tt.expectedForce {
+				t.Errorf("Expected force flag to be %v, got %v", tt.expectedForce, force)
 			}
 
-			if installJSON != tt.expectedJSON {
-				t.Errorf("Expected json flag to be %v, got %v", tt.expectedJSON, installJSON)
+			if jsonOutput != tt.expectedJSON {
+				t.Errorf("Expected json flag to be %v, got %v", tt.expectedJSON, jsonOutput)
 			}
 
-			if installVersion != tt.expectedVersion {
-				t.Errorf("Expected version flag to be '%s', got '%s'", tt.expectedVersion, installVersion)
+			if version != tt.expectedVersion {
+				t.Errorf("Expected version flag to be '%s', got '%s'", tt.expectedVersion, version)
 			}
 
-			if installTimeout != tt.expectedTimeout {
-				t.Errorf("Expected timeout flag to be %v, got %v", tt.expectedTimeout, installTimeout)
+			if timeout != tt.expectedTimeout {
+				t.Errorf("Expected timeout flag to be %v, got %v", tt.expectedTimeout, timeout)
 			}
 		})
 	}
@@ -422,7 +423,7 @@ func testInstallRuntimeCommandArgumentValidation(t *testing.T) {
 
 func testInstallRuntimeCommandErrorScenarios(t *testing.T) {
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "runtime", "go")
 	if err == nil {
@@ -438,7 +439,7 @@ func testInstallRuntimeCommandErrorScenarios(t *testing.T) {
 
 func testInstallRuntimeCommandHelp(t *testing.T) {
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	output, err := executeCommand(cmd, "install", "runtime", "--help")
 	if err != nil {
@@ -464,7 +465,7 @@ func testInstallRuntimeCommandHelp(t *testing.T) {
 
 func testInstallRuntimeCommandSingleInstallation(t *testing.T) {
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "runtime", "go")
 	if err == nil {
@@ -474,7 +475,7 @@ func testInstallRuntimeCommandSingleInstallation(t *testing.T) {
 
 func testInstallRuntimeCommandAllInstallation(t *testing.T) {
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "runtime", "all")
 	if err == nil {
@@ -486,11 +487,12 @@ func testInstallRuntimeCommandJSONOutput(t *testing.T) {
 	resetInstallFlags()
 
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "runtime", "go", "--json")
 
-	if !installJSON {
+	_, _, jsonOutput, _ := cli.GetInstallFlags()
+	if !jsonOutput {
 		t.Error("Expected JSON flag to be true")
 	}
 
@@ -503,11 +505,12 @@ func testInstallRuntimeCommandForceReinstall(t *testing.T) {
 	resetInstallFlags()
 
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "runtime", "go", "--force")
 
-	if !installForce {
+	force, _, _, _ := cli.GetInstallFlags()
+	if !force {
 		t.Error("Expected force flag to be true")
 	}
 
@@ -520,12 +523,13 @@ func testInstallRuntimeCommandVersionSpecification(t *testing.T) {
 	resetInstallFlags()
 
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "runtime", "go", "--version", "1.21.0")
 
-	if installVersion != "1.21.0" {
-		t.Errorf("Expected version flag to be '1.21.0', got '%s'", installVersion)
+	_, version, _, _ := cli.GetInstallFlags()
+	if version != "1.21.0" {
+		t.Errorf("Expected version flag to be '1.21.0', got '%s'", version)
 	}
 
 	if err == nil {
@@ -537,12 +541,13 @@ func testInstallRuntimeCommandTimeout(t *testing.T) {
 	resetInstallFlags()
 
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "runtime", "go", "--timeout", "5m")
 
-	if installTimeout != 5*time.Minute {
-		t.Errorf("Expected timeout flag to be 5m, got %v", installTimeout)
+	_, _, _, timeout := cli.GetInstallFlags()
+	if timeout != 5*time.Minute {
+		t.Errorf("Expected timeout flag to be 5m, got %v", timeout)
 	}
 
 	if err == nil {
@@ -624,7 +629,7 @@ func testInstallServerCommandFlagParsing(t *testing.T) {
 			resetInstallFlags()
 
 			cmd := &cobra.Command{}
-			cmd.AddCommand(installCmd)
+			cmd.AddCommand(cli.GetInstallCmd())
 
 			_, err := executeCommandWithoutOutput(cmd, append([]string{"install", "server"}, tt.args...)...)
 
@@ -635,16 +640,17 @@ func testInstallServerCommandFlagParsing(t *testing.T) {
 				return
 			}
 
-			if installForce != tt.expectedForce {
-				t.Errorf("Expected force flag to be %v, got %v", tt.expectedForce, installForce)
+			force, _, jsonOutput, timeout := cli.GetInstallFlags()
+			if force != tt.expectedForce {
+				t.Errorf("Expected force flag to be %v, got %v", tt.expectedForce, force)
 			}
 
-			if installJSON != tt.expectedJSON {
-				t.Errorf("Expected json flag to be %v, got %v", tt.expectedJSON, installJSON)
+			if jsonOutput != tt.expectedJSON {
+				t.Errorf("Expected json flag to be %v, got %v", tt.expectedJSON, jsonOutput)
 			}
 
-			if installTimeout != tt.expectedTimeout {
-				t.Errorf("Expected timeout flag to be %v, got %v", tt.expectedTimeout, installTimeout)
+			if timeout != tt.expectedTimeout {
+				t.Errorf("Expected timeout flag to be %v, got %v", tt.expectedTimeout, timeout)
 			}
 		})
 	}
@@ -713,7 +719,7 @@ func testInstallServerCommandArgumentValidation(t *testing.T) {
 
 func testInstallServerCommandErrorScenarios(t *testing.T) {
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "server", "gopls")
 	if err == nil {
@@ -729,7 +735,7 @@ func testInstallServerCommandErrorScenarios(t *testing.T) {
 
 func testInstallServerCommandHelp(t *testing.T) {
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	output, err := executeCommand(cmd, "install", "server", "--help")
 	if err != nil {
@@ -751,7 +757,7 @@ func testInstallServerCommandHelp(t *testing.T) {
 
 func testInstallServerCommandSingleInstallation(t *testing.T) {
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "server", "gopls")
 	if err == nil {
@@ -763,11 +769,12 @@ func testInstallServerCommandJSONOutput(t *testing.T) {
 	resetInstallFlags()
 
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "server", "gopls", "--json")
 
-	if !installJSON {
+	_, _, jsonOutput, _ := cli.GetInstallFlags()
+	if !jsonOutput {
 		t.Error("Expected JSON flag to be true")
 	}
 
@@ -780,11 +787,12 @@ func testInstallServerCommandForceReinstall(t *testing.T) {
 	resetInstallFlags()
 
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "server", "gopls", "--force")
 
-	if !installForce {
+	force, _, _, _ := cli.GetInstallFlags()
+	if !force {
 		t.Error("Expected force flag to be true")
 	}
 
@@ -797,12 +805,13 @@ func testInstallServerCommandTimeout(t *testing.T) {
 	resetInstallFlags()
 
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "server", "gopls", "--timeout", "3m")
 
-	if installTimeout != 3*time.Minute {
-		t.Errorf("Expected timeout flag to be 3m, got %v", installTimeout)
+	_, _, _, timeout := cli.GetInstallFlags()
+	if timeout != 3*time.Minute {
+		t.Errorf("Expected timeout flag to be 3m, got %v", timeout)
 	}
 
 	if err == nil {
@@ -811,6 +820,7 @@ func testInstallServerCommandTimeout(t *testing.T) {
 }
 
 func testInstallServersCommandMetadata(t *testing.T) {
+	installServersCmd := cli.GetInstallServersCmd()
 	if installServersCmd.Use != "servers" {
 		t.Errorf("Expected Use to be 'servers', got '%s'", installServersCmd.Use)
 	}
@@ -887,7 +897,7 @@ func testInstallServersCommandFlagParsing(t *testing.T) {
 			resetInstallFlags()
 
 			cmd := &cobra.Command{}
-			cmd.AddCommand(installCmd)
+			cmd.AddCommand(cli.GetInstallCmd())
 
 			_, err := executeCommandWithoutOutput(cmd, append([]string{"install", "servers"}, tt.args...)...)
 
@@ -898,16 +908,17 @@ func testInstallServersCommandFlagParsing(t *testing.T) {
 				return
 			}
 
-			if installForce != tt.expectedForce {
-				t.Errorf("Expected force flag to be %v, got %v", tt.expectedForce, installForce)
+			force, _, jsonOutput, timeout := cli.GetInstallFlags()
+			if force != tt.expectedForce {
+				t.Errorf("Expected force flag to be %v, got %v", tt.expectedForce, force)
 			}
 
-			if installJSON != tt.expectedJSON {
-				t.Errorf("Expected json flag to be %v, got %v", tt.expectedJSON, installJSON)
+			if jsonOutput != tt.expectedJSON {
+				t.Errorf("Expected json flag to be %v, got %v", tt.expectedJSON, jsonOutput)
 			}
 
-			if installTimeout != tt.expectedTimeout {
-				t.Errorf("Expected timeout flag to be %v, got %v", tt.expectedTimeout, installTimeout)
+			if timeout != tt.expectedTimeout {
+				t.Errorf("Expected timeout flag to be %v, got %v", tt.expectedTimeout, timeout)
 			}
 		})
 	}
@@ -915,7 +926,7 @@ func testInstallServersCommandFlagParsing(t *testing.T) {
 
 func testInstallServersCommandErrorScenarios(t *testing.T) {
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "servers")
 	if err == nil {
@@ -931,7 +942,7 @@ func testInstallServersCommandErrorScenarios(t *testing.T) {
 
 func testInstallServersCommandHelp(t *testing.T) {
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	output, err := executeCommand(cmd, "install", "servers", "--help")
 	if err != nil {
@@ -953,7 +964,7 @@ func testInstallServersCommandHelp(t *testing.T) {
 
 func testInstallServersCommandAllInstallation(t *testing.T) {
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "servers")
 	if err == nil {
@@ -965,11 +976,12 @@ func testInstallServersCommandJSONOutput(t *testing.T) {
 	resetInstallFlags()
 
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "servers", "--json")
 
-	if !installJSON {
+	_, _, jsonOutput, _ := cli.GetInstallFlags()
+	if !jsonOutput {
 		t.Error("Expected JSON flag to be true")
 	}
 
@@ -982,11 +994,12 @@ func testInstallServersCommandForceReinstall(t *testing.T) {
 	resetInstallFlags()
 
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "servers", "--force")
 
-	if !installForce {
+	force, _, _, _ := cli.GetInstallFlags()
+	if !force {
 		t.Error("Expected force flag to be true")
 	}
 
@@ -999,12 +1012,13 @@ func testInstallServersCommandTimeout(t *testing.T) {
 	resetInstallFlags()
 
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "servers", "--timeout", "8m")
 
-	if installTimeout != 8*time.Minute {
-		t.Errorf("Expected timeout flag to be 8m, got %v", installTimeout)
+	_, _, _, timeout := cli.GetInstallFlags()
+	if timeout != 8*time.Minute {
+		t.Errorf("Expected timeout flag to be 8m, got %v", timeout)
 	}
 
 	if err == nil {
@@ -1046,7 +1060,7 @@ func testInstallJSONOutput(t *testing.T) {
 	}
 
 	output := captureOutput(func() {
-		err := outputInstallResultsJSON(results, nil)
+		err := cli.OutputInstallResultsJSON(results, nil)
 		if err != nil {
 			t.Errorf("Expected no error, got: %v", err)
 		}
@@ -1087,7 +1101,7 @@ func testInstallHumanOutput(t *testing.T) {
 		},
 	}
 
-	err := outputInstallResultsHuman(results, nil)
+	err := cli.OutputInstallResultsHuman(results, nil)
 	if err != nil {
 		t.Errorf("Expected no error, got: %v", err)
 	}
@@ -1098,7 +1112,7 @@ func testInstallJSONOutputWithError(t *testing.T) {
 	testError := fmt.Errorf("installation failed")
 
 	output := captureOutput(func() {
-		err := outputInstallResultsJSON(results, testError)
+		err := cli.OutputInstallResultsJSON(results, testError)
 		if err != testError {
 			t.Errorf("Expected original error to be returned, got: %v", err)
 		}
@@ -1128,7 +1142,7 @@ func testInstallHumanOutputWithError(t *testing.T) {
 	results := []*installer.InstallResult{}
 	testError := fmt.Errorf("installation failed")
 
-	err := outputInstallResultsHuman(results, testError)
+	err := cli.OutputInstallResultsHuman(results, testError)
 	if err != testError {
 		t.Errorf("Expected original error to be returned, got: %v", err)
 	}
@@ -1138,7 +1152,7 @@ func testInstallEmptyResults(t *testing.T) {
 	results := []*installer.InstallResult{}
 
 	output := captureOutput(func() {
-		err := outputInstallResultsHuman(results, nil)
+		err := cli.OutputInstallResultsHuman(results, nil)
 		if err != nil {
 			t.Errorf("Expected no error, got: %v", err)
 		}
@@ -1188,7 +1202,7 @@ func TestInstallEdgeCases(t *testing.T) {
 
 func testInstallInvalidTimeoutFlag(t *testing.T) {
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "runtime", "go", "--timeout", "invalid")
 	if err == nil {
@@ -1200,12 +1214,13 @@ func testInstallLongTimeoutFlag(t *testing.T) {
 	resetInstallFlags()
 
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "runtime", "go", "--timeout", "1h")
 
-	if installTimeout != 1*time.Hour {
-		t.Errorf("Expected timeout flag to be 1h, got %v", installTimeout)
+	_, _, _, timeout := cli.GetInstallFlags()
+	if timeout != 1*time.Hour {
+		t.Errorf("Expected timeout flag to be 1h, got %v", timeout)
 	}
 
 	if err == nil {
@@ -1217,12 +1232,13 @@ func testInstallEmptyVersionFlag(t *testing.T) {
 	resetInstallFlags()
 
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	_, err := executeCommandWithoutOutput(cmd, "install", "runtime", "go", "--version", "")
 
-	if installVersion != "" {
-		t.Errorf("Expected version flag to be empty, got '%s'", installVersion)
+	_, version, _, _ := cli.GetInstallFlags()
+	if version != "" {
+		t.Errorf("Expected version flag to be empty, got '%s'", version)
 	}
 
 	if err == nil {
@@ -1231,10 +1247,11 @@ func testInstallEmptyVersionFlag(t *testing.T) {
 }
 
 func testInstallCommandStructure(t *testing.T) {
+	rootCmd := cli.GetRootCmd()
 	rootSubcommands := rootCmd.Commands()
 	found := false
 	for _, cmd := range rootSubcommands {
-		if cmd.Use == CmdInstall {
+		if cmd.Use == cli.CmdInstall {
 			found = true
 			break
 		}
@@ -1244,6 +1261,7 @@ func testInstallCommandStructure(t *testing.T) {
 		t.Error("Install command not found in root command")
 	}
 
+	installCmd := cli.GetInstallCmd()
 	installSubcommands := installCmd.Commands()
 	expectedSubcommands := []string{"runtime", "server", "servers"}
 
@@ -1255,26 +1273,27 @@ func testInstallCommandStructure(t *testing.T) {
 func testInstallFlagDefaults(t *testing.T) {
 	resetInstallFlags()
 
-	if installForce != false {
-		t.Errorf("Expected installForce default to be false, got %v", installForce)
+	force, version, jsonOutput, timeout := cli.GetInstallFlags()
+	if force != false {
+		t.Errorf("Expected installForce default to be false, got %v", force)
 	}
 
-	if installVersion != "" {
-		t.Errorf("Expected installVersion default to be empty, got '%s'", installVersion)
+	if version != "" {
+		t.Errorf("Expected installVersion default to be empty, got '%s'", version)
 	}
 
-	if installJSON != false {
-		t.Errorf("Expected installJSON default to be false, got %v", installJSON)
+	if jsonOutput != false {
+		t.Errorf("Expected installJSON default to be false, got %v", jsonOutput)
 	}
 
-	if installTimeout != 10*time.Minute {
-		t.Errorf("Expected installTimeout default to be 10m, got %v", installTimeout)
+	if timeout != 10*time.Minute {
+		t.Errorf("Expected installTimeout default to be 10m, got %v", timeout)
 	}
 }
 
 func BenchmarkInstallCommandParsing(b *testing.B) {
 	cmd := &cobra.Command{}
-	cmd.AddCommand(installCmd)
+	cmd.AddCommand(cli.GetInstallCmd())
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -1304,7 +1323,7 @@ func BenchmarkInstallJSONOutput(b *testing.B) {
 		old := os.Stdout
 		os.Stdout, _ = os.Open(os.DevNull)
 
-		if err := outputInstallResultsJSON(results, nil); err != nil {
+		if err := cli.OutputInstallResultsJSON(results, nil); err != nil {
 			b.Logf("Failed to output JSON results: %v", err)
 		}
 

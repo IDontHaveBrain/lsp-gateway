@@ -109,6 +109,20 @@ func (d *DefaultRuntimeDetector) SetTimeout(timeout time.Duration) {
 	}
 }
 
+// SetExecutor sets the command executor for testing purposes
+func (d *DefaultRuntimeDetector) SetExecutor(executor platform.CommandExecutor) {
+	if executor != nil {
+		d.executor = executor
+	}
+}
+
+// SetCustomCommand sets a custom command for a specific runtime
+func (d *DefaultRuntimeDetector) SetCustomCommand(runtime, command string) {
+	if runtime != "" && command != "" {
+		d.config.CustomCommands[runtime] = command
+	}
+}
+
 func (d *DefaultRuntimeDetector) DetectGo(ctx context.Context) (*RuntimeInfo, error) {
 	return d.detectRuntime(ctx, "go", []string{"go", "version"})
 }

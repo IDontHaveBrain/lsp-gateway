@@ -17,7 +17,6 @@ type TestableToolHandler struct {
 	mockClient LSPClientInterface
 }
 
-
 func NewTestableToolHandler(mockClient LSPClientInterface) *TestableToolHandler {
 	handler := &mcp.ToolHandler{
 		Client: nil, // We'll override this
@@ -111,7 +110,7 @@ func (th *TestableToolHandler) handleGetHoverInfo(ctx context.Context, args map[
 		},
 	}
 
-	result, err := th.mockClient.SendLSPRequest(ctx, LSPMethodHover, params)
+	result, err := th.mockClient.SendLSPRequest(ctx, mcp.LSPMethodHover, params)
 	if err != nil {
 		return &mcp.ToolResult{
 			Content: []mcp.ContentBlock{{
@@ -422,7 +421,7 @@ func TestGetHoverInfoTool(t *testing.T) {
 	handler := NewTestableToolHandler(mockClient)
 
 	expectedResponse := json.RawMessage(`{"contents": {"kind": "markdown", "value": "function description"}}`)
-	mockClient.SetResponse(LSPMethodHover, expectedResponse)
+	mockClient.SetResponse(mcp.LSPMethodHover, expectedResponse)
 
 	args := map[string]interface{}{
 		"uri":       "file:///test.go",
@@ -586,7 +585,7 @@ func TestToolSpecificErrors(t *testing.T) {
 		{
 			toolName:      "get_hover_info",
 			expectedError: "Error getting hover info",
-			lspMethod:     LSPMethodHover,
+			lspMethod:     mcp.LSPMethodHover,
 		},
 		{
 			toolName:      "get_document_symbols",
@@ -786,7 +785,7 @@ func TestConcurrentToolCalls(t *testing.T) {
 
 	mockClient.SetResponse("textDocument/definition", json.RawMessage(`{"result": "definition"}`))
 	mockClient.SetResponse("textDocument/references", json.RawMessage(`{"result": "references"}`))
-	mockClient.SetResponse(LSPMethodHover, json.RawMessage(`{"result": "hover"}`))
+	mockClient.SetResponse(mcp.LSPMethodHover, json.RawMessage(`{"result": "hover"}`))
 
 	const numCalls = 100
 	results := make(chan *mcp.ToolResult, numCalls)
@@ -975,26 +974,26 @@ func BenchmarkListTools(b *testing.B) {
 
 func TestErrorCodeConstants(t *testing.T) {
 
-	if MCPErrorParseError != -32700 {
-		t.Errorf("Expected MCPErrorParseError to be -32700, got %d", MCPErrorParseError)
+	if mcp.MCPErrorParseError != -32700 {
+		t.Errorf("Expected mcp.MCPErrorParseError to be -32700, got %d", mcp.MCPErrorParseError)
 	}
 
-	if MCPErrorServerError != -32000 {
-		t.Errorf("Expected MCPErrorServerError to be -32000, got %d", MCPErrorServerError)
+	if mcp.MCPErrorServerError != -32000 {
+		t.Errorf("Expected mcp.MCPErrorServerError to be -32000, got %d", mcp.MCPErrorServerError)
 	}
 
-	if LSPErrorRequestFailed != -32803 {
-		t.Errorf("Expected LSPErrorRequestFailed to be -32803, got %d", LSPErrorRequestFailed)
+	if mcp.LSPErrorRequestFailed != -32803 {
+		t.Errorf("Expected mcp.LSPErrorRequestFailed to be -32803, got %d", mcp.LSPErrorRequestFailed)
 	}
 
-	if LSPErrorInvalidFilePath != -32900 {
-		t.Errorf("Expected LSPErrorInvalidFilePath to be -32900, got %d", LSPErrorInvalidFilePath)
+	if mcp.LSPErrorInvalidFilePath != -32900 {
+		t.Errorf("Expected mcp.LSPErrorInvalidFilePath to be -32900, got %d", mcp.LSPErrorInvalidFilePath)
 	}
 }
 
 func TestStructuredError(t *testing.T) {
-	err := &StructuredError{
-		Code:        MCPErrorInvalidParams,
+	err := &mcp.StructuredError{
+		Code:        mcp.MCPErrorInvalidParams,
 		Message:     "Invalid parameter value",
 		Details:     "The 'line' parameter must be non-negative",
 		Context:     map[string]interface{}{"parameter": "line", "value": -1},
@@ -1002,8 +1001,8 @@ func TestStructuredError(t *testing.T) {
 		Retryable:   false,
 	}
 
-	if err.Code != MCPErrorInvalidParams {
-		t.Errorf("Expected error code %d, got %d", MCPErrorInvalidParams, err.Code)
+	if err.Code != mcp.MCPErrorInvalidParams {
+		t.Errorf("Expected error code %d, got %d", mcp.MCPErrorInvalidParams, err.Code)
 	}
 
 	if err.Message != "Invalid parameter value" {
@@ -1020,7 +1019,7 @@ func TestStructuredError(t *testing.T) {
 }
 
 func TestValidationError(t *testing.T) {
-	valErr := &ValidationError{
+	valErr := &mcp.ValidationError{
 		Field:    "line",
 		Value:    -1,
 		Expected: "integer >= 0",

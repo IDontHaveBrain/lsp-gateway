@@ -1,11 +1,11 @@
 package cli_test
 
 import (
-	"lsp-gateway/internal/cli"
 	"bytes"
 	"context"
 	"fmt"
 	"io"
+	_ "lsp-gateway/internal/cli" // temporarily unused
 	"os"
 	"path/filepath"
 	"strings"

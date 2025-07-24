@@ -30,10 +30,10 @@ func TestGatewayResourceCleanupErrors(t *testing.T) {
 			},
 		}
 
-		gateway := &gateway.Gateway{
-			config:  cfg,
-			clients: make(map[string]transport.LSPClient),
-			router:  gateway.NewRouter(),
+		gw := &gateway.Gateway{
+			Config:  cfg,
+			Clients: make(map[string]transport.LSPClient),
+			Router:  gateway.NewRouter(),
 		}
 
 		// Add mock clients that will fail during stop
@@ -43,8 +43,8 @@ func TestGatewayResourceCleanupErrors(t *testing.T) {
 		failingClient1.SetStopError(fmt.Errorf("client1 stop failed"))
 		failingClient2.SetStopError(fmt.Errorf("client2 stop failed"))
 
-		gateway.clients["test1"] = failingClient1
-		gateway.clients["test2"] = failingClient2
+		gw.Clients["test1"] = failingClient1
+		gw.Clients["test2"] = failingClient2
 
 		// Start both clients
 		ctx := context.Background()
@@ -56,7 +56,7 @@ func TestGatewayResourceCleanupErrors(t *testing.T) {
 		}
 
 		// Stop should handle errors gracefully
-		err := gateway.Stop()
+		err := gw.Stop()
 		if err == nil {
 			t.Error("Expected error during stop with failing clients")
 		}
@@ -83,23 +83,23 @@ func TestGatewayMemoryLeakPrevention(t *testing.T) {
 			},
 		}
 
-		gateway := &gateway.Gateway{
-			config:  cfg,
-			clients: make(map[string]transport.LSPClient),
-			router:  gateway.NewRouter(),
+		gw := &gateway.Gateway{
+			Config:  cfg,
+			Clients: make(map[string]transport.LSPClient),
+			Router:  gateway.NewRouter(),
 		}
 
 		mockClient := NewMockLSPClient()
-		gateway.clients["test"] = mockClient
+		gw.Clients["test"] = mockClient
 
 		// Perform multiple start/stop cycles
 		for i := 0; i < 10; i++ {
-			err := gateway.Start(context.Background())
+			err := gw.Start(context.Background())
 			if err != nil {
 				t.Fatalf("Failed to start gateway on iteration %d: %v", i, err)
 			}
 
-			err = gateway.Stop()
+			err = gw.Stop()
 			if err != nil {
 				t.Fatalf("Failed to stop gateway on iteration %d: %v", i, err)
 			}
@@ -123,7 +123,7 @@ func TestGatewayHighLoadErrorHandling(t *testing.T) {
 
 	t.Parallel()
 
-	gateway, mockClients := createTestGatewayForHandlers(t)
+	gw, mockClients := createTestGatewayForHandlers(t)
 
 	// Set up a mock client that occasionally fails
 	mockClient := mockClients["gopls"]
@@ -142,8 +142,8 @@ func TestGatewayHighLoadErrorHandling(t *testing.T) {
 				mockClient.SetRequestError(nil)
 			}
 
-			request := JSONRPCRequest{
-				JSONRPC: JSONRPCVersion,
+			request := gateway.JSONRPCRequest{
+				JSONRPC: gateway.JSONRPCVersion,
 				ID:      requestID,
 				Method:  "textDocument/definition",
 				Params: map[string]interface{}{
@@ -161,9 +161,9 @@ func TestGatewayHighLoadErrorHandling(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
-			gateway.HandleJSONRPC(w, req)
+			gw.HandleJSONRPC(w, req)
 
-			var response JSONRPCResponse
+			var response gateway.JSONRPCResponse
 			if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 				errors <- fmt.Errorf("decode error for request %d: %v", requestID, err)
 				return
@@ -208,7 +208,7 @@ func TestGatewayHighLoadErrorHandling(t *testing.T) {
 func TestGatewayMalformedRequestHandling(t *testing.T) {
 	t.Parallel()
 
-	gateway, _ := createTestGatewayForHandlers(t)
+	gw, _ := createTestGatewayForHandlers(t)
 
 	tests := []struct {
 		name         string
@@ -257,7 +257,7 @@ func TestGatewayMalformedRequestHandling(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			// Should not panic or crash
-			gateway.HandleJSONRPC(w, req)
+			gw.HandleJSONRPC(w, req)
 
 			if w.Code != tt.expectedCode {
 				t.Errorf("Expected status %d, got %d", tt.expectedCode, w.Code)
@@ -276,7 +276,7 @@ func TestGatewayMalformedRequestHandling(t *testing.T) {
 func TestGatewayTimeoutHandling(t *testing.T) {
 	t.Parallel()
 
-	gateway, mockClients := createTestGatewayForHandlers(t)
+	gw, mockClients := createTestGatewayForHandlers(t)
 
 	t.Run("client timeout during request", func(t *testing.T) {
 		mockClient := mockClients["gopls"]
@@ -284,8 +284,8 @@ func TestGatewayTimeoutHandling(t *testing.T) {
 		// Set up a client that will have request errors on timeout
 		mockClient.SetRequestError(fmt.Errorf("timeout error"))
 
-		request := JSONRPCRequest{
-			JSONRPC: JSONRPCVersion,
+		request := gateway.JSONRPCRequest{
+			JSONRPC: gateway.JSONRPCVersion,
 			ID:      1,
 			Method:  "textDocument/definition",
 			Params: map[string]interface{}{
@@ -307,10 +307,10 @@ func TestGatewayTimeoutHandling(t *testing.T) {
 		req = req.WithContext(ctx)
 
 		w := httptest.NewRecorder()
-		gateway.HandleJSONRPC(w, req)
+		gw.HandleJSONRPC(w, req)
 
 		// Should handle timeout gracefully
-		var response JSONRPCResponse
+		var response gateway.JSONRPCResponse
 		if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 			t.Fatalf("Failed to decode response: %v", err)
 		}
@@ -326,7 +326,7 @@ func TestGatewayTimeoutHandling(t *testing.T) {
 func TestGatewayRaceConditions(t *testing.T) {
 	t.Parallel()
 
-	gateway, _ := createTestGatewayForHandlers(t)
+	gw, _ := createTestGatewayForHandlers(t)
 
 	// Test concurrent start/stop with request handling
 	var wg sync.WaitGroup
@@ -340,12 +340,12 @@ func TestGatewayRaceConditions(t *testing.T) {
 
 			// Randomly start and stop
 			if i%2 == 0 {
-				if err := gateway.Start(context.Background()); err != nil {
+				if err := gw.Start(context.Background()); err != nil {
 					// Log but don't fail as this is expected in race condition test
 					t.Logf("Start failed in race test: %v", err)
 				}
 			} else {
-				if err := gateway.Stop(); err != nil {
+				if err := gw.Stop(); err != nil {
 					// Log but don't fail as this is expected in race condition test
 					t.Logf("Stop failed in race test: %v", err)
 				}
@@ -359,8 +359,8 @@ func TestGatewayRaceConditions(t *testing.T) {
 		go func(id int) {
 			defer wg.Done()
 
-			request := JSONRPCRequest{
-				JSONRPC: JSONRPCVersion,
+			request := gateway.JSONRPCRequest{
+				JSONRPC: gateway.JSONRPCVersion,
 				ID:      id,
 				Method:  "textDocument/definition",
 				Params: map[string]interface{}{
@@ -379,7 +379,7 @@ func TestGatewayRaceConditions(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			// Should not panic or deadlock
-			gateway.HandleJSONRPC(w, req)
+			gw.HandleJSONRPC(w, req)
 		}(i)
 	}
 
@@ -410,17 +410,17 @@ func TestGatewayClientLifecycleErrors(t *testing.T) {
 			},
 		}
 
-		gateway, err := NewGateway(cfg)
+		gw2, err := gateway.NewGateway(cfg)
 		if err == nil {
 			t.Error("Expected error when creating gateway with invalid client")
 		}
-		if gateway != nil {
+		if gw2 != nil {
 			t.Error("Expected nil gateway when creation fails")
 		}
 	})
 
 	t.Run("client becomes inactive during request", func(t *testing.T) {
-		gateway, mockClients := createTestGatewayForHandlers(t)
+		gw, mockClients := createTestGatewayForHandlers(t)
 		mockClient := mockClients["gopls"]
 
 		// Stop the client mid-request
@@ -428,8 +428,8 @@ func TestGatewayClientLifecycleErrors(t *testing.T) {
 			t.Logf("Warning: Failed to stop mock client: %v", err)
 		}
 
-		request := JSONRPCRequest{
-			JSONRPC: JSONRPCVersion,
+		request := gateway.JSONRPCRequest{
+			JSONRPC: gateway.JSONRPCVersion,
 			ID:      1,
 			Method:  "textDocument/definition",
 			Params: map[string]interface{}{
@@ -446,9 +446,9 @@ func TestGatewayClientLifecycleErrors(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
-		gateway.HandleJSONRPC(w, req)
+		gw.HandleJSONRPC(w, req)
 
-		var response JSONRPCResponse
+		var response gateway.JSONRPCResponse
 		if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 			t.Fatalf("Failed to decode response: %v", err)
 		}

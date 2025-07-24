@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
+	framework "lsp-gateway/tests/utils/framework"
 	"lsp-gateway/tests/utils/framework/cases"
 	"lsp-gateway/tests/utils/framework/types"
-	framework "lsp-gateway/tests/utils/framework"
 )
 
 // BenchmarkLSPDefinition benchmarks textDocument/definition performance

@@ -76,8 +76,6 @@ func TestGetBestWindowsPackageManagerFunction(t *testing.T) {
 func TestFindPackageManagerByName(t *testing.T) {
 	t.Skip("findPackageManagerByName is an unexported function that cannot be tested from external packages")
 
-
-
 }
 
 // Test package manager constructors
@@ -371,7 +369,7 @@ func TestPackageManagerEdgeCases(t *testing.T) {
 		for _, name := range specialNames {
 			t.Run("Package "+name, func(t *testing.T) {
 				err := platform.InstallComponent(name)
-						// Should handle gracefully (may return error for non-existent package)
+				// Should handle gracefully (may return error for non-existent package)
 				t.Logf("InstallComponent('%s') result: %v", name, err)
 
 				_, err = platform.VerifyComponent(name)

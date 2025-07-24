@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"lsp-gateway/internal/installer"
 	"lsp-gateway/internal/platform"
 	"lsp-gateway/internal/types"
 )
@@ -144,7 +145,7 @@ func (m *mockServerVerificationExecutor) SetCommandAvailable(command string, ava
 	m.availableCommands[command] = available
 }
 
-func TestDefaultServerVerifier_verifyServerInstallation(t *testing.T) {
+func TestInstallerDefaultServerVerifier_verifyServerInstallation(t *testing.T) {
 	tests := []struct {
 		name              string
 		serverName        string
@@ -225,7 +226,7 @@ func TestDefaultServerVerifier_verifyServerInstallation(t *testing.T) {
 				}
 			}
 
-			verifier := &DefaultServerVerifier{
+			verifier := &installer.DefaultServerVerifier{
 				runtimeVerifier: mockRuntimeInstaller,
 				serverRegistry:  NewServerRegistry(),
 				executor:        mockExecutor,
@@ -271,7 +272,7 @@ func TestDefaultServerVerifier_verifyServerInstallation(t *testing.T) {
 	}
 }
 
-func TestDefaultServerVerifier_verifyGoplsInstallation(t *testing.T) {
+func TestInstallerDefaultServerVerifier_verifyGoplsInstallation(t *testing.T) {
 	tests := []struct {
 		name              string
 		commandAvailable  bool
@@ -328,7 +329,7 @@ func TestDefaultServerVerifier_verifyGoplsInstallation(t *testing.T) {
 				mockExecutor.SetCommandError("which gopls", tt.whichError)
 			}
 
-			verifier := &DefaultServerVerifier{
+			verifier := &installer.DefaultServerVerifier{
 				runtimeVerifier: newMockServerRuntimeInstaller(),
 				serverRegistry:  NewServerRegistry(),
 				executor:        mockExecutor,
@@ -407,7 +408,7 @@ func TestDefaultServerVerifier_verifyGoplsInstallation(t *testing.T) {
 	}
 }
 
-func TestDefaultServerVerifier_verifyPylspInstallation(t *testing.T) {
+func TestInstallerDefaultServerVerifier_verifyPylspInstallation(t *testing.T) {
 	tests := []struct {
 		name              string
 		commandAvailable  bool
@@ -451,7 +452,7 @@ func TestDefaultServerVerifier_verifyPylspInstallation(t *testing.T) {
 				mockExecutor.SetCommandError("which pylsp", tt.whichError)
 			}
 
-			verifier := &DefaultServerVerifier{
+			verifier := &installer.DefaultServerVerifier{
 				runtimeVerifier: newMockServerRuntimeInstaller(),
 				serverRegistry:  NewServerRegistry(),
 				executor:        mockExecutor,
@@ -498,7 +499,7 @@ func TestDefaultServerVerifier_verifyPylspInstallation(t *testing.T) {
 	}
 }
 
-func TestDefaultServerVerifier_verifyTypeScriptLSInstallation(t *testing.T) {
+func TestInstallerDefaultServerVerifier_verifyTypeScriptLSInstallation(t *testing.T) {
 	tests := []struct {
 		name              string
 		tsServerAvailable bool
@@ -554,7 +555,7 @@ func TestDefaultServerVerifier_verifyTypeScriptLSInstallation(t *testing.T) {
 				mockExecutor.SetCommandError("which typescript-language-server", tt.whichError)
 			}
 
-			verifier := &DefaultServerVerifier{
+			verifier := &installer.DefaultServerVerifier{
 				runtimeVerifier: newMockServerRuntimeInstaller(),
 				serverRegistry:  NewServerRegistry(),
 				executor:        mockExecutor,
@@ -601,7 +602,7 @@ func TestDefaultServerVerifier_verifyTypeScriptLSInstallation(t *testing.T) {
 	}
 }
 
-func TestDefaultServerVerifier_verifyJdtlsInstallation(t *testing.T) {
+func TestInstallerDefaultServerVerifier_verifyJdtlsInstallation(t *testing.T) {
 	tests := []struct {
 		name              string
 		createJdtlsJar    bool
@@ -660,7 +661,7 @@ func TestDefaultServerVerifier_verifyJdtlsInstallation(t *testing.T) {
 				}
 			}
 
-			verifier := &DefaultServerVerifier{
+			verifier := &installer.DefaultServerVerifier{
 				runtimeVerifier: newMockServerRuntimeInstaller(),
 				serverRegistry:  NewServerRegistry(),
 				executor:        newMockServerVerificationExecutor(),
@@ -699,7 +700,7 @@ func TestDefaultServerVerifier_verifyJdtlsInstallation(t *testing.T) {
 	}
 }
 
-func TestDefaultServerVerifier_verifyJdtlsInstallation_Windows(t *testing.T) {
+func TestInstallerDefaultServerVerifier_verifyJdtlsInstallation_Windows(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// Mock Windows environment
@@ -726,7 +727,7 @@ func TestDefaultServerVerifier_verifyJdtlsInstallation_Windows(t *testing.T) {
 	}
 	file.Close()
 
-	verifier := &DefaultServerVerifier{
+	verifier := &installer.DefaultServerVerifier{
 		runtimeVerifier: newMockServerRuntimeInstaller(),
 		serverRegistry:  NewServerRegistry(),
 		executor:        newMockServerVerificationExecutor(),
@@ -757,7 +758,7 @@ func TestDefaultServerVerifier_verifyJdtlsInstallation_Windows(t *testing.T) {
 
 func TestServerVerification_EdgeCases(t *testing.T) {
 	t.Run("Server verification with nil runtime verifier", func(t *testing.T) {
-		verifier := &DefaultServerVerifier{
+		verifier := &installer.DefaultServerVerifier{
 			runtimeVerifier: nil,
 			serverRegistry:  NewServerRegistry(),
 			executor:        newMockServerVerificationExecutor(),
@@ -788,7 +789,7 @@ func TestServerVerification_EdgeCases(t *testing.T) {
 	})
 
 	t.Run("Server verification with nil executor", func(t *testing.T) {
-		verifier := &DefaultServerVerifier{
+		verifier := &installer.DefaultServerVerifier{
 			runtimeVerifier: newMockServerRuntimeInstaller(),
 			serverRegistry:  NewServerRegistry(),
 			executor:        nil,
@@ -824,7 +825,7 @@ func TestServerVerification_EdgeCases(t *testing.T) {
 			os.Setenv("APPDATA", originalAppData)
 		}()
 
-		verifier := &DefaultServerVerifier{
+		verifier := &installer.DefaultServerVerifier{
 			runtimeVerifier: newMockServerRuntimeInstaller(),
 			serverRegistry:  NewServerRegistry(),
 			executor:        newMockServerVerificationExecutor(),
@@ -868,7 +869,7 @@ func TestServerVerification_Integration(t *testing.T) {
 			Stdout:   "/usr/local/bin/gopls",
 		})
 
-		verifier := &DefaultServerVerifier{
+		verifier := &installer.DefaultServerVerifier{
 			runtimeVerifier: mockRuntimeInstaller,
 			serverRegistry:  NewServerRegistry(),
 			executor:        mockExecutor,
@@ -924,7 +925,7 @@ func BenchmarkServerVerification(b *testing.B) {
 	mockRuntimeInstaller.SetRuntimeInstalled("go", true)
 	// Note: We use actual system state for platform.IsCommandAvailable
 
-	verifier := &DefaultServerVerifier{
+	verifier := &installer.DefaultServerVerifier{
 		runtimeVerifier: mockRuntimeInstaller,
 		serverRegistry:  NewServerRegistry(),
 		executor:        mockExecutor,
@@ -951,7 +952,7 @@ func TestServerVerification_PerformanceTimeout(t *testing.T) {
 
 	// Note: We use actual system state and test timeout handling through execution time
 
-	verifier := &DefaultServerVerifier{
+	verifier := &installer.DefaultServerVerifier{
 		runtimeVerifier: mockRuntimeInstaller,
 		serverRegistry:  NewServerRegistry(),
 		executor:        mockExecutor,

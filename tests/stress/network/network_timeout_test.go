@@ -1,4 +1,4 @@
-package gateway
+package network_test
 
 import (
 	"bytes"
@@ -14,7 +14,9 @@ import (
 	"time"
 
 	"lsp-gateway/internal/config"
+	"lsp-gateway/internal/gateway"
 	"lsp-gateway/internal/transport"
+	gatewayTestUtils "lsp-gateway/tests/utils/gateway"
 )
 
 // TestGatewayHTTPTimeouts tests HTTP request timeout scenarios
@@ -79,7 +81,7 @@ func executeTimeoutTest(t *testing.T, requestTimeout, clientDelay time.Duration)
 		t.Fatalf("Failed to start mock client: %v", err)
 	}
 
-	gateway := createTimeoutTestGateway(t, map[string]transport.LSPClient{
+	gw := createTimeoutTestGateway(t, map[string]transport.LSPClient{
 		"test-server": mockClient,
 	})
 
@@ -87,14 +89,14 @@ func executeTimeoutTest(t *testing.T, requestTimeout, clientDelay time.Duration)
 	w := httptest.NewRecorder()
 
 	start := time.Now()
-	gateway.HandleJSONRPC(w, req)
+	gw.HandleJSONRPC(w, req)
 	duration := time.Since(start)
 
 	return w, duration
 }
 
 func createTimeoutTestRequest(t *testing.T, timeout time.Duration) *http.Request {
-	requestBody := JSONRPCRequest{
+	requestBody := gateway.JSONRPCRequest{
 		JSONRPC: "2.0",
 		ID:      "test-1",
 		Method:  "textDocument/definition",
@@ -125,7 +127,7 @@ func createTimeoutTestRequest(t *testing.T, timeout time.Duration) *http.Request
 }
 
 func validateTimeoutErrorResponse(t *testing.T, w *httptest.ResponseRecorder, errorContains string, duration, requestTimeout time.Duration) {
-	var response JSONRPCResponse
+	var response gateway.JSONRPCResponse
 	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
@@ -149,7 +151,7 @@ func validateSuccessResponse(t *testing.T, w *httptest.ResponseRecorder) {
 		t.Errorf("Expected status 200, got %d", w.Code)
 	}
 
-	var response JSONRPCResponse
+	var response gateway.JSONRPCResponse
 	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
@@ -168,16 +170,14 @@ func TestGatewayTimeoutWithMultipleServers(t *testing.T) {
 	slowClient := NewMockLSPClientWithDelay(3 * time.Second)
 	verySlowClient := NewMockLSPClientWithDelay(10 * time.Second)
 
-	gateway := createTimeoutTestGateway(t, map[string]transport.LSPClient{
+	gw := createTimeoutTestGateway(t, map[string]transport.LSPClient{
 		"fast-server":      fastClient,
 		"slow-server":      slowClient,
 		"very-slow-server": verySlowClient,
 	})
 
-	// Configure router for different file types
-	gateway.router.RegisterServer("fast-server", []string{"go"})
-	gateway.router.RegisterServer("slow-server", []string{"python"})
-	gateway.router.RegisterServer("very-slow-server", []string{"javascript"})
+	// Router registration is now handled during gateway initialization
+	// The servers are automatically registered based on the config
 
 	tests := []struct {
 		name        string
@@ -213,7 +213,7 @@ func TestGatewayTimeoutWithMultipleServers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			requestBody := JSONRPCRequest{
+			requestBody := gateway.JSONRPCRequest{
 				JSONRPC: "2.0",
 				ID:      "test-multi",
 				Method:  "textDocument/definition",
@@ -243,10 +243,10 @@ func TestGatewayTimeoutWithMultipleServers(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			start := time.Now()
-			gateway.HandleJSONRPC(w, req)
+			gw.HandleJSONRPC(w, req)
 			duration := time.Since(start)
 
-			var response JSONRPCResponse
+			var response gateway.JSONRPCResponse
 			if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 				t.Fatalf("Failed to decode response: %v", err)
 			}
@@ -274,7 +274,7 @@ func TestGatewayConcurrentTimeouts(t *testing.T) {
 
 	// Create a mock client with moderate delay
 	mockClient := NewMockLSPClientWithDelay(2 * time.Second)
-	gateway := createTimeoutTestGateway(t, map[string]transport.LSPClient{
+	gw := createTimeoutTestGateway(t, map[string]transport.LSPClient{
 		"test-server": mockClient,
 	})
 
@@ -305,7 +305,7 @@ func TestGatewayConcurrentTimeouts(t *testing.T) {
 		go func(reqID int, to time.Duration) {
 			defer wg.Done()
 
-			requestBody := JSONRPCRequest{
+			requestBody := gateway.JSONRPCRequest{
 				JSONRPC: "2.0",
 				ID:      fmt.Sprintf("concurrent-%d", reqID),
 				Method:  "textDocument/definition",
@@ -336,10 +336,10 @@ func TestGatewayConcurrentTimeouts(t *testing.T) {
 			w := httptest.NewRecorder()
 
 			start := time.Now()
-			gateway.HandleJSONRPC(w, req)
+			gw.HandleJSONRPC(w, req)
 			duration := time.Since(start)
 
-			var response JSONRPCResponse
+			var response gateway.JSONRPCResponse
 			hasError := false
 			if err := json.NewDecoder(w.Body).Decode(&response); err == nil {
 				hasError = (response.Error != nil)
@@ -395,13 +395,13 @@ func TestGatewayTimeoutRecovery(t *testing.T) {
 	t.Parallel()
 
 	mockClient := NewMockLSPClientWithDelay(2 * time.Second)
-	gateway := createTimeoutTestGateway(t, map[string]transport.LSPClient{
+	gw := createTimeoutTestGateway(t, map[string]transport.LSPClient{
 		"test-server": mockClient,
 	})
 
 	// First request: timeout
 	t.Run("timeout request", func(t *testing.T) {
-		requestBody := JSONRPCRequest{
+		requestBody := gateway.JSONRPCRequest{
 			JSONRPC: "2.0",
 			ID:      "timeout-test",
 			Method:  "textDocument/definition",
@@ -429,9 +429,9 @@ func TestGatewayTimeoutRecovery(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 
 		w := httptest.NewRecorder()
-		gateway.HandleJSONRPC(w, req)
+		gw.HandleJSONRPC(w, req)
 
-		var response JSONRPCResponse
+		var response gateway.JSONRPCResponse
 		if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 			t.Fatalf("Failed to decode response: %v", err)
 		}
@@ -443,7 +443,7 @@ func TestGatewayTimeoutRecovery(t *testing.T) {
 
 	// Second request: success with longer timeout
 	t.Run("recovery request", func(t *testing.T) {
-		requestBody := JSONRPCRequest{
+		requestBody := gateway.JSONRPCRequest{
 			JSONRPC: "2.0",
 			ID:      "recovery-test",
 			Method:  "textDocument/definition",
@@ -471,9 +471,9 @@ func TestGatewayTimeoutRecovery(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 
 		w := httptest.NewRecorder()
-		gateway.HandleJSONRPC(w, req)
+		gw.HandleJSONRPC(w, req)
 
-		var response JSONRPCResponse
+		var response gateway.JSONRPCResponse
 		if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 			t.Fatalf("Failed to decode response: %v", err)
 		}
@@ -485,7 +485,7 @@ func TestGatewayTimeoutRecovery(t *testing.T) {
 
 	// Third request: timeout again
 	t.Run("timeout again", func(t *testing.T) {
-		requestBody := JSONRPCRequest{
+		requestBody := gateway.JSONRPCRequest{
 			JSONRPC: "2.0",
 			ID:      "timeout-again-test",
 			Method:  "textDocument/references",
@@ -516,9 +516,9 @@ func TestGatewayTimeoutRecovery(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 
 		w := httptest.NewRecorder()
-		gateway.HandleJSONRPC(w, req)
+		gw.HandleJSONRPC(w, req)
 
-		var response JSONRPCResponse
+		var response gateway.JSONRPCResponse
 		if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 			t.Fatalf("Failed to decode response: %v", err)
 		}
@@ -534,12 +534,12 @@ func TestGatewayNotificationTimeouts(t *testing.T) {
 	t.Parallel()
 
 	mockClient := NewMockLSPClientWithDelay(3 * time.Second)
-	gateway := createTimeoutTestGateway(t, map[string]transport.LSPClient{
+	gw := createTimeoutTestGateway(t, map[string]transport.LSPClient{
 		"test-server": mockClient,
 	})
 
 	// Notification (no ID field)
-	requestBody := JSONRPCRequest{
+	requestBody := gateway.JSONRPCRequest{
 		JSONRPC: "2.0",
 		Method:  "textDocument/didOpen",
 		Params: map[string]interface{}{
@@ -568,7 +568,7 @@ func TestGatewayNotificationTimeouts(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	start := time.Now()
-	gateway.HandleJSONRPC(w, req)
+	gw.HandleJSONRPC(w, req)
 	duration := time.Since(start)
 
 	// Notification should timeout but gateway should still respond appropriately
@@ -587,7 +587,7 @@ func TestGatewayLSPMethodTimeouts(t *testing.T) {
 	t.Parallel()
 
 	mockClient := NewMockLSPClientWithDelay(2 * time.Second)
-	gateway := createTimeoutTestGateway(t, map[string]transport.LSPClient{
+	gw := createTimeoutTestGateway(t, map[string]transport.LSPClient{
 		"test-server": mockClient,
 	})
 
@@ -635,7 +635,7 @@ func TestGatewayLSPMethodTimeouts(t *testing.T) {
 		t.Run(method.method, func(t *testing.T) {
 			// Test with short timeout (should fail)
 			t.Run("short timeout", func(t *testing.T) {
-				requestBody := JSONRPCRequest{
+				requestBody := gateway.JSONRPCRequest{
 					JSONRPC: "2.0",
 					ID:      fmt.Sprintf("timeout-%s", method.method),
 					Method:  method.method,
@@ -655,9 +655,9 @@ func TestGatewayLSPMethodTimeouts(t *testing.T) {
 				req.Header.Set("Content-Type", "application/json")
 
 				w := httptest.NewRecorder()
-				gateway.HandleJSONRPC(w, req)
+				gw.HandleJSONRPC(w, req)
 
-				var response JSONRPCResponse
+				var response gateway.JSONRPCResponse
 				if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 					t.Fatalf("Failed to decode response: %v", err)
 				}
@@ -669,7 +669,7 @@ func TestGatewayLSPMethodTimeouts(t *testing.T) {
 
 			// Test with long timeout (should succeed)
 			t.Run("long timeout", func(t *testing.T) {
-				requestBody := JSONRPCRequest{
+				requestBody := gateway.JSONRPCRequest{
 					JSONRPC: "2.0",
 					ID:      fmt.Sprintf("success-%s", method.method),
 					Method:  method.method,
@@ -689,9 +689,9 @@ func TestGatewayLSPMethodTimeouts(t *testing.T) {
 				req.Header.Set("Content-Type", "application/json")
 
 				w := httptest.NewRecorder()
-				gateway.HandleJSONRPC(w, req)
+				gw.HandleJSONRPC(w, req)
 
-				var response JSONRPCResponse
+				var response gateway.JSONRPCResponse
 				if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 					t.Fatalf("Failed to decode response: %v", err)
 				}
@@ -708,17 +708,17 @@ func TestGatewayLSPMethodTimeouts(t *testing.T) {
 func TestGatewayTimeoutWithInactiveServer(t *testing.T) {
 	t.Parallel()
 
-	mockClient := NewMockLSPClient()
+	mockClient := gatewayTestUtils.NewMockLSPClient()
 	// Create an inactive client by calling Stop first
 	if err := mockClient.Stop(); err != nil {
 		t.Fatalf("Failed to stop mock client: %v", err)
 	}
 
-	gateway := createTimeoutTestGateway(t, map[string]transport.LSPClient{
+	gw := createTimeoutTestGateway(t, map[string]transport.LSPClient{
 		"inactive-server": mockClient,
 	})
 
-	requestBody := JSONRPCRequest{
+	requestBody := gateway.JSONRPCRequest{
 		JSONRPC: "2.0",
 		ID:      "inactive-test",
 		Method:  "textDocument/definition",
@@ -746,9 +746,9 @@ func TestGatewayTimeoutWithInactiveServer(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
-	gateway.HandleJSONRPC(w, req)
+	gw.HandleJSONRPC(w, req)
 
-	var response JSONRPCResponse
+	var response gateway.JSONRPCResponse
 	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
@@ -875,7 +875,7 @@ func (m *MockLSPClientWithDelay) IsActive() bool {
 	return m.active
 }
 
-func createTimeoutTestGateway(t interface{}, clients map[string]transport.LSPClient) *Gateway {
+func createTimeoutTestGateway(t interface{}, clients map[string]transport.LSPClient) *gateway.Gateway {
 	// Create test config
 	var servers []config.ServerConfig
 	for name := range clients {
@@ -892,30 +892,52 @@ func createTimeoutTestGateway(t interface{}, clients map[string]transport.LSPCli
 		Servers: servers,
 	}
 
-	// Create gateway with mock clients
-	gateway := &Gateway{
-		config:  cfg,
-		clients: make(map[string]transport.LSPClient),
-		router:  NewRouter(),
-	}
-
-	// Add mock clients
+	// Create mock client factory that returns pre-created clients
+	clientMap := make(map[string]transport.LSPClient)
 	for name, client := range clients {
-		gateway.clients[name] = client
-		gateway.router.RegisterServer(name, []string{"go", "python", "javascript"})
+		clientMap[name] = client
 	}
 
-	return gateway
+	mockClientFactory := func(clientConfig transport.ClientConfig) (transport.LSPClient, error) {
+		// Match by server name from config
+		for serverName, client := range clientMap {
+			// Find matching server config
+			for _, serverCfg := range cfg.Servers {
+				if serverCfg.Name == serverName && serverCfg.Command == clientConfig.Command {
+					return client, nil
+				}
+			}
+		}
+		// Fallback: return any available client
+		for _, client := range clientMap {
+			return client, nil
+		}
+		return nil, fmt.Errorf("no mock client available")
+	}
+
+	// Use testable gateway pattern
+	testableGateway, err := gatewayTestUtils.NewTestableGateway(cfg, mockClientFactory)
+	if err != nil {
+		// For stress tests, we need to handle this gracefully
+		if tester, ok := t.(*testing.T); ok {
+			tester.Fatalf("Failed to create testable gateway: %v", err)
+		} else if tester, ok := t.(*testing.B); ok {
+			tester.Fatalf("Failed to create testable gateway: %v", err)
+		}
+		panic(fmt.Sprintf("Failed to create testable gateway: %v", err))
+	}
+
+	return testableGateway.Gateway
 }
 
 // Benchmark tests for gateway timeout performance
 func BenchmarkGatewayTimeout(b *testing.B) {
 	mockClient := NewMockLSPClientWithDelay(100 * time.Millisecond)
-	gateway := createTimeoutTestGateway(b, map[string]transport.LSPClient{
+	gw := createTimeoutTestGateway(b, map[string]transport.LSPClient{
 		"bench-server": mockClient,
 	})
 
-	requestBody := JSONRPCRequest{
+	requestBody := gateway.JSONRPCRequest{
 		JSONRPC: "2.0",
 		ID:      "bench",
 		Method:  "textDocument/definition",
@@ -941,7 +963,7 @@ func BenchmarkGatewayTimeout(b *testing.B) {
 		req.Header.Set("Content-Type", "application/json")
 
 		w := httptest.NewRecorder()
-		gateway.HandleJSONRPC(w, req)
+		gw.HandleJSONRPC(w, req)
 
 		cancel()
 	}
@@ -949,11 +971,11 @@ func BenchmarkGatewayTimeout(b *testing.B) {
 
 func BenchmarkGatewaySuccess(b *testing.B) {
 	mockClient := NewMockLSPClientWithDelay(10 * time.Millisecond)
-	gateway := createTimeoutTestGateway(b, map[string]transport.LSPClient{
+	gw := createTimeoutTestGateway(b, map[string]transport.LSPClient{
 		"bench-server": mockClient,
 	})
 
-	requestBody := JSONRPCRequest{
+	requestBody := gateway.JSONRPCRequest{
 		JSONRPC: "2.0",
 		ID:      "bench",
 		Method:  "textDocument/definition",
@@ -979,7 +1001,7 @@ func BenchmarkGatewaySuccess(b *testing.B) {
 		req.Header.Set("Content-Type", "application/json")
 
 		w := httptest.NewRecorder()
-		gateway.HandleJSONRPC(w, req)
+		gw.HandleJSONRPC(w, req)
 
 		cancel()
 	}
@@ -990,11 +1012,11 @@ func TestGatewayTimeoutErrorMessages(t *testing.T) {
 	t.Parallel()
 
 	mockClient := NewMockLSPClientWithDelay(3 * time.Second)
-	gateway := createTimeoutTestGateway(t, map[string]transport.LSPClient{
+	gw := createTimeoutTestGateway(t, map[string]transport.LSPClient{
 		"test-server": mockClient,
 	})
 
-	requestBody := JSONRPCRequest{
+	requestBody := gateway.JSONRPCRequest{
 		JSONRPC: "2.0",
 		ID:      "error-test",
 		Method:  "textDocument/definition",
@@ -1022,14 +1044,14 @@ func TestGatewayTimeoutErrorMessages(t *testing.T) {
 	req.Header.Set("Content-Type", "application/json")
 
 	w := httptest.NewRecorder()
-	gateway.HandleJSONRPC(w, req)
+	gw.HandleJSONRPC(w, req)
 
 	// Verify response structure
 	if w.Code != 200 {
 		t.Errorf("Expected status 200, got %d", w.Code)
 	}
 
-	var response JSONRPCResponse
+	var response gateway.JSONRPCResponse
 	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
@@ -1039,8 +1061,8 @@ func TestGatewayTimeoutErrorMessages(t *testing.T) {
 		t.Fatal("Expected error response")
 	}
 
-	if response.Error.Code != InternalError {
-		t.Errorf("Expected error code %d, got %d", InternalError, response.Error.Code)
+	if response.Error.Code != gateway.InternalError {
+		t.Errorf("Expected error code %d, got %d", gateway.InternalError, response.Error.Code)
 	}
 
 	if response.Error.Message == "" {
@@ -1061,11 +1083,11 @@ func TestGatewayTimeoutWithContextCancellation(t *testing.T) {
 	t.Parallel()
 
 	mockClient := NewMockLSPClientWithDelay(5 * time.Second)
-	gateway := createTimeoutTestGateway(t, map[string]transport.LSPClient{
+	gw := createTimeoutTestGateway(t, map[string]transport.LSPClient{
 		"test-server": mockClient,
 	})
 
-	requestBody := JSONRPCRequest{
+	requestBody := gateway.JSONRPCRequest{
 		JSONRPC: "2.0",
 		ID:      "cancel-test",
 		Method:  "textDocument/definition",
@@ -1100,7 +1122,7 @@ func TestGatewayTimeoutWithContextCancellation(t *testing.T) {
 	}()
 
 	start := time.Now()
-	gateway.HandleJSONRPC(w, req)
+	gw.HandleJSONRPC(w, req)
 	duration := time.Since(start)
 
 	// Should cancel around 2 seconds
@@ -1108,7 +1130,7 @@ func TestGatewayTimeoutWithContextCancellation(t *testing.T) {
 		t.Errorf("Cancellation occurred at %v, expected around 2s", duration)
 	}
 
-	var response JSONRPCResponse
+	var response gateway.JSONRPCResponse
 	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}

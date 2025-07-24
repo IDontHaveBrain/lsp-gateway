@@ -49,10 +49,10 @@ func createTestGatewayForHandlers(t *testing.T) (*gateway.Gateway, map[string]*M
 		},
 	}
 
-	gateway := &gateway.Gateway{
-		config:  cfg,
-		clients: make(map[string]transport.LSPClient),
-		router:  gateway.NewRouter(),
+	gw := &gateway.Gateway{
+		Config:  cfg,
+		Clients: make(map[string]transport.LSPClient),
+		Router:  gateway.NewRouter(),
 	}
 
 	mockClients := make(map[string]*MockLSPClient)
@@ -62,15 +62,15 @@ func createTestGatewayForHandlers(t *testing.T) (*gateway.Gateway, map[string]*M
 	mockClients["typescript-lsp"] = NewMockLSPClient()
 	mockClients["jdtls"] = NewMockLSPClient()
 
-	gateway.clients["gopls"] = mockClients["gopls"]
-	gateway.clients["pyright"] = mockClients["pyright"]
-	gateway.clients["typescript-lsp"] = mockClients["typescript-lsp"]
-	gateway.clients["jdtls"] = mockClients["jdtls"]
+	gw.Clients["gopls"] = mockClients["gopls"]
+	gw.Clients["pyright"] = mockClients["pyright"]
+	gw.Clients["typescript-lsp"] = mockClients["typescript-lsp"]
+	gw.Clients["jdtls"] = mockClients["jdtls"]
 
-	gateway.router.RegisterServer("gopls", []string{"go"})
-	gateway.router.RegisterServer("pyright", []string{"python"})
-	gateway.router.RegisterServer("typescript-lsp", []string{"typescript", "javascript"})
-	gateway.router.RegisterServer("jdtls", []string{"java"})
+	gw.Router.RegisterServer("gopls", []string{"go"})
+	gw.Router.RegisterServer("pyright", []string{"python"})
+	gw.Router.RegisterServer("typescript-lsp", []string{"typescript", "javascript"})
+	gw.Router.RegisterServer("jdtls", []string{"java"})
 
 	for _, mockClient := range mockClients {
 		if err := mockClient.Start(context.TODO()); err != nil {
@@ -78,12 +78,12 @@ func createTestGatewayForHandlers(t *testing.T) (*gateway.Gateway, map[string]*M
 		}
 	}
 
-	return gateway, mockClients
+	return gw, mockClients
 }
 
 func TestHandleJSONRPC_HTTPMethodValidation(t *testing.T) {
 	t.Parallel()
-	gateway, _ := createTestGatewayForHandlers(t)
+	gw, _ := createTestGatewayForHandlers(t)
 
 	tests := []struct {
 		method         string
@@ -122,7 +122,7 @@ func TestHandleJSONRPC_HTTPMethodValidation(t *testing.T) {
 			req := httptest.NewRequest(tt.method, "/jsonrpc", nil)
 			w := httptest.NewRecorder()
 
-			gateway.HandleJSONRPC(w, req)
+			gw.HandleJSONRPC(w, req)
 
 			if w.Code != tt.expectedStatus {
 				t.Errorf("Expected status %d, got %d", tt.expectedStatus, w.Code)
@@ -138,7 +138,7 @@ func TestHandleJSONRPC_HTTPMethodValidation(t *testing.T) {
 
 func TestHandleJSONRPC_JSONParsingErrors(t *testing.T) {
 	t.Parallel()
-	gateway, _ := createTestGatewayForHandlers(t)
+	gw, _ := createTestGatewayForHandlers(t)
 
 	tests := []struct {
 		name          string
@@ -149,19 +149,19 @@ func TestHandleJSONRPC_JSONParsingErrors(t *testing.T) {
 		{
 			name:          "invalid JSON",
 			body:          `{"invalid": json}`,
-			expectedCode:  ParseError,
+			expectedCode:  gateway.ParseError,
 			expectedError: "Parse error",
 		},
 		{
 			name:          "empty body",
 			body:          ``,
-			expectedCode:  ParseError,
+			expectedCode:  gateway.ParseError,
 			expectedError: "Parse error",
 		},
 		{
 			name:          "malformed JSON",
-			body:          `{"jsonrpc": JSONRPCVersion, "method": "test"`,
-			expectedCode:  ParseError,
+			body:          `{"jsonrpc": gateway.JSONRPCVersion, "method": "test"`,
+			expectedCode:  gateway.ParseError,
 			expectedError: "Parse error",
 		},
 	}
@@ -172,13 +172,13 @@ func TestHandleJSONRPC_JSONParsingErrors(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
-			gateway.HandleJSONRPC(w, req)
+			gw.HandleJSONRPC(w, req)
 
 			if w.Code != http.StatusOK {
 				t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 			}
 
-			var response JSONRPCResponse
+			var response gateway.JSONRPCResponse
 			if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 				t.Fatalf("Failed to decode response: %v", err)
 			}
@@ -200,50 +200,50 @@ func TestHandleJSONRPC_JSONParsingErrors(t *testing.T) {
 
 func TestHandleJSONRPC_JSONRPCValidation(t *testing.T) {
 	t.Parallel()
-	gateway, _ := createTestGatewayForHandlers(t)
+	gw, _ := createTestGatewayForHandlers(t)
 
 	tests := []struct {
 		name          string
-		request       JSONRPCRequest
+		request       gateway.JSONRPCRequest
 		expectedCode  int
 		expectedError string
 	}{
 		{
 			name: "invalid JSON-RPC version",
-			request: JSONRPCRequest{
+			request: gateway.JSONRPCRequest{
 				JSONRPC: "1.0",
 				ID:      1,
 				Method:  "textDocument/definition",
 			},
-			expectedCode:  InvalidRequest,
+			expectedCode:  gateway.InvalidRequest,
 			expectedError: "Invalid request",
 		},
 		{
 			name: "missing JSON-RPC version",
-			request: JSONRPCRequest{
+			request: gateway.JSONRPCRequest{
 				ID:     1,
 				Method: "textDocument/definition",
 			},
-			expectedCode:  InvalidRequest,
+			expectedCode:  gateway.InvalidRequest,
 			expectedError: "Invalid request",
 		},
 		{
 			name: "empty method",
-			request: JSONRPCRequest{
-				JSONRPC: JSONRPCVersion,
+			request: gateway.JSONRPCRequest{
+				JSONRPC: gateway.JSONRPCVersion,
 				ID:      1,
 				Method:  "",
 			},
-			expectedCode:  InvalidRequest,
+			expectedCode:  gateway.InvalidRequest,
 			expectedError: "Invalid request",
 		},
 		{
 			name: "missing method",
-			request: JSONRPCRequest{
-				JSONRPC: JSONRPCVersion,
+			request: gateway.JSONRPCRequest{
+				JSONRPC: gateway.JSONRPCVersion,
 				ID:      1,
 			},
-			expectedCode:  InvalidRequest,
+			expectedCode:  gateway.InvalidRequest,
 			expectedError: "Invalid request",
 		},
 	}
@@ -255,13 +255,13 @@ func TestHandleJSONRPC_JSONRPCValidation(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
-			gateway.HandleJSONRPC(w, req)
+			gw.HandleJSONRPC(w, req)
 
 			if w.Code != http.StatusOK {
 				t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 			}
 
-			var response JSONRPCResponse
+			var response gateway.JSONRPCResponse
 			if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 				t.Fatalf("Failed to decode response: %v", err)
 			}
@@ -287,7 +287,7 @@ func TestHandleJSONRPC_JSONRPCValidation(t *testing.T) {
 
 func TestHandleJSONRPC_RequestRouting(t *testing.T) {
 	t.Parallel()
-	gateway, _ := createTestGatewayForHandlers(t)
+	gw, _ := createTestGatewayForHandlers(t)
 
 	tests := []struct {
 		name          string
@@ -308,7 +308,7 @@ func TestHandleJSONRPC_RequestRouting(t *testing.T) {
 					"character": 5,
 				},
 			},
-			expectedCode:  MethodNotFound,
+			expectedCode:  gateway.MethodNotFound,
 			expectedError: "Method not found",
 		},
 		{
@@ -320,7 +320,7 @@ func TestHandleJSONRPC_RequestRouting(t *testing.T) {
 					"character": 5,
 				},
 			},
-			expectedCode:  MethodNotFound,
+			expectedCode:  gateway.MethodNotFound,
 			expectedError: "Method not found",
 		},
 		{
@@ -333,7 +333,7 @@ func TestHandleJSONRPC_RequestRouting(t *testing.T) {
 					"character": 5,
 				},
 			},
-			expectedCode:  MethodNotFound,
+			expectedCode:  gateway.MethodNotFound,
 			expectedError: "Method not found",
 		},
 		{
@@ -348,12 +348,12 @@ func TestHandleJSONRPC_RequestRouting(t *testing.T) {
 					"character": 5,
 				},
 			},
-			expectedCode:  MethodNotFound,
+			expectedCode:  gateway.MethodNotFound,
 			expectedError: "Method not found",
 		},
 		{
 			name:   "hover with unsupported file extension",
-			method: LSPMethodHover,
+			method: gateway.LSPMethodHover,
 			params: map[string]interface{}{
 				"textDocument": map[string]interface{}{
 					"uri": "file:///test.xyz",
@@ -363,24 +363,24 @@ func TestHandleJSONRPC_RequestRouting(t *testing.T) {
 					"character": 5,
 				},
 			},
-			expectedCode:  MethodNotFound,
+			expectedCode:  gateway.MethodNotFound,
 			expectedError: "Method not found",
 		},
 		{
 			name:   "hover with missing textDocument parameter",
-			method: LSPMethodHover,
+			method: gateway.LSPMethodHover,
 			params: map[string]interface{}{
 				"position": map[string]interface{}{
 					"line":      0,
 					"character": 5,
 				},
 			},
-			expectedCode:  MethodNotFound,
+			expectedCode:  gateway.MethodNotFound,
 			expectedError: "Method not found",
 		},
 		{
 			name:   "hover with missing URI in textDocument",
-			method: LSPMethodHover,
+			method: gateway.LSPMethodHover,
 			params: map[string]interface{}{
 				"textDocument": map[string]interface{}{},
 				"position": map[string]interface{}{
@@ -388,15 +388,15 @@ func TestHandleJSONRPC_RequestRouting(t *testing.T) {
 					"character": 5,
 				},
 			},
-			expectedCode:  MethodNotFound,
+			expectedCode:  gateway.MethodNotFound,
 			expectedError: "Method not found",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := JSONRPCRequest{
-				JSONRPC: JSONRPCVersion,
+			request := gateway.JSONRPCRequest{
+				JSONRPC: gateway.JSONRPCVersion,
 				ID:      1,
 				Method:  tt.method,
 				Params:  tt.params,
@@ -407,13 +407,13 @@ func TestHandleJSONRPC_RequestRouting(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
-			gateway.HandleJSONRPC(w, req)
+			gw.HandleJSONRPC(w, req)
 
 			if w.Code != http.StatusOK {
 				t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 			}
 
-			var response JSONRPCResponse
+			var response gateway.JSONRPCResponse
 			if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 				t.Fatalf("Failed to decode response: %v", err)
 			}
@@ -435,7 +435,7 @@ func TestHandleJSONRPC_RequestRouting(t *testing.T) {
 
 func TestHandleJSONRPC_LSPClientHandling(t *testing.T) {
 	t.Parallel()
-	gateway, mockClients := createTestGatewayForHandlers(t)
+	gw, mockClients := createTestGatewayForHandlers(t)
 
 	t.Run("inactive client", func(t *testing.T) {
 		mockClient := mockClients["gopls"]
@@ -443,8 +443,8 @@ func TestHandleJSONRPC_LSPClientHandling(t *testing.T) {
 			t.Logf("error stopping mock client: %v", err)
 		}
 
-		request := JSONRPCRequest{
-			JSONRPC: JSONRPCVersion,
+		request := gateway.JSONRPCRequest{
+			JSONRPC: gateway.JSONRPCVersion,
 			ID:      1,
 			Method:  "textDocument/definition",
 			Params: map[string]interface{}{
@@ -463,13 +463,13 @@ func TestHandleJSONRPC_LSPClientHandling(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
-		gateway.HandleJSONRPC(w, req)
+		gw.HandleJSONRPC(w, req)
 
 		if w.Code != http.StatusOK {
 			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 		}
 
-		var response JSONRPCResponse
+		var response gateway.JSONRPCResponse
 		if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 			t.Fatalf("Failed to decode response: %v", err)
 		}
@@ -478,8 +478,8 @@ func TestHandleJSONRPC_LSPClientHandling(t *testing.T) {
 			t.Fatal("Expected error in response")
 		}
 
-		if response.Error.Code != InternalError {
-			t.Errorf("Expected error code %d, got %d", InternalError, response.Error.Code)
+		if response.Error.Code != gateway.InternalError {
+			t.Errorf("Expected error code %d, got %d", gateway.InternalError, response.Error.Code)
 		}
 
 		if err := mockClient.Start(context.TODO()); err != nil {
@@ -488,11 +488,11 @@ func TestHandleJSONRPC_LSPClientHandling(t *testing.T) {
 	})
 
 	t.Run("missing server", func(t *testing.T) {
-		originalClient := gateway.clients["gopls"]
-		delete(gateway.clients, "gopls")
+		originalClient := gw.Clients["gopls"]
+		delete(gw.Clients, "gopls")
 
-		request := JSONRPCRequest{
-			JSONRPC: JSONRPCVersion,
+		request := gateway.JSONRPCRequest{
+			JSONRPC: gateway.JSONRPCVersion,
 			ID:      1,
 			Method:  "textDocument/definition",
 			Params: map[string]interface{}{
@@ -511,13 +511,13 @@ func TestHandleJSONRPC_LSPClientHandling(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
-		gateway.HandleJSONRPC(w, req)
+		gw.HandleJSONRPC(w, req)
 
 		if w.Code != http.StatusOK {
 			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 		}
 
-		var response JSONRPCResponse
+		var response gateway.JSONRPCResponse
 		if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 			t.Fatalf("Failed to decode response: %v", err)
 		}
@@ -526,17 +526,17 @@ func TestHandleJSONRPC_LSPClientHandling(t *testing.T) {
 			t.Fatal("Expected error in response")
 		}
 
-		if response.Error.Code != InternalError {
-			t.Errorf("Expected error code %d, got %d", InternalError, response.Error.Code)
+		if response.Error.Code != gateway.InternalError {
+			t.Errorf("Expected error code %d, got %d", gateway.InternalError, response.Error.Code)
 		}
 
-		gateway.clients["gopls"] = originalClient
+		gw.Clients["gopls"] = originalClient
 	})
 }
 
 func TestHandleJSONRPC_NotificationHandling(t *testing.T) {
 	t.Parallel()
-	gateway, mockClients := createTestGatewayForHandlers(t)
+	gw, mockClients := createTestGatewayForHandlers(t)
 
 	tests := []struct {
 		name               string
@@ -560,8 +560,8 @@ func TestHandleJSONRPC_NotificationHandling(t *testing.T) {
 			mockClient := mockClients["gopls"]
 			mockClient.SetNotificationError(tt.notificationError)
 
-			request := JSONRPCRequest{
-				JSONRPC: JSONRPCVersion,
+			request := gateway.JSONRPCRequest{
+				JSONRPC: gateway.JSONRPCVersion,
 				Method:  "textDocument/didOpen",
 				Params: map[string]interface{}{
 					"textDocument": map[string]interface{}{
@@ -578,7 +578,7 @@ func TestHandleJSONRPC_NotificationHandling(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
-			gateway.HandleJSONRPC(w, req)
+			gw.HandleJSONRPC(w, req)
 
 			if w.Code != tt.expectedStatusCode {
 				t.Errorf("Expected status %d, got %d", tt.expectedStatusCode, w.Code)
@@ -589,7 +589,7 @@ func TestHandleJSONRPC_NotificationHandling(t *testing.T) {
 					t.Errorf("Expected empty response body for successful notification, got: %s", w.Body.String())
 				}
 			} else {
-				var response JSONRPCResponse
+				var response gateway.JSONRPCResponse
 				if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 					t.Fatalf("Failed to decode response: %v", err)
 				}
@@ -598,8 +598,8 @@ func TestHandleJSONRPC_NotificationHandling(t *testing.T) {
 					t.Fatal("Expected error in response for failed notification")
 				}
 
-				if response.Error.Code != InternalError {
-					t.Errorf("Expected error code %d, got %d", InternalError, response.Error.Code)
+				if response.Error.Code != gateway.InternalError {
+					t.Errorf("Expected error code %d, got %d", gateway.InternalError, response.Error.Code)
 				}
 			}
 
@@ -609,7 +609,7 @@ func TestHandleJSONRPC_NotificationHandling(t *testing.T) {
 }
 
 func getMockClientName(method string, params interface{}) string {
-	if method == "textDocument/definition" || method == LSPMethodHover {
+	if method == "textDocument/definition" || method == gateway.LSPMethodHover {
 		paramsMap := params.(map[string]interface{})
 		textDoc := paramsMap["textDocument"].(map[string]interface{})
 		uri := textDoc["uri"].(string)
@@ -626,13 +626,13 @@ func getMockClientName(method string, params interface{}) string {
 	return ""
 }
 
-func executeJSONRPCTest(t *testing.T, gateway *gateway.Gateway, mockClients map[string]*MockLSPClient, method string, params interface{}, mockResponse json.RawMessage, expectedResult interface{}) {
+func executeJSONRPCTest(t *testing.T, gw *gateway.Gateway, mockClients map[string]*MockLSPClient, method string, params interface{}, mockResponse json.RawMessage, expectedResult interface{}) {
 	mockClientName := getMockClientName(method, params)
 	mockClient := mockClients[mockClientName]
 	mockClient.SetResponse(method, mockResponse)
 
-	request := JSONRPCRequest{
-		JSONRPC: JSONRPCVersion,
+	request := gateway.JSONRPCRequest{
+		JSONRPC: gateway.JSONRPCVersion,
 		ID:      1,
 		Method:  method,
 		Params:  params,
@@ -643,13 +643,13 @@ func executeJSONRPCTest(t *testing.T, gateway *gateway.Gateway, mockClients map[
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	gateway.HandleJSONRPC(w, req)
+	gw.HandleJSONRPC(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 	}
 
-	var response JSONRPCResponse
+	var response gateway.JSONRPCResponse
 	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
@@ -658,7 +658,7 @@ func executeJSONRPCTest(t *testing.T, gateway *gateway.Gateway, mockClients map[
 		t.Fatalf("Unexpected error in response: %v", response.Error)
 	}
 
-	if response.JSONRPC != JSONRPCVersion {
+	if response.JSONRPC != gateway.JSONRPCVersion {
 		t.Errorf("Expected JSON-RPC version 2.0, got %s", response.JSONRPC)
 	}
 
@@ -678,7 +678,7 @@ func executeJSONRPCTest(t *testing.T, gateway *gateway.Gateway, mockClients map[
 
 func TestHandleJSONRPC_DefinitionRequests(t *testing.T) {
 	t.Parallel()
-	gateway, mockClients := createTestGatewayForHandlers(t)
+	gw, mockClients := createTestGatewayForHandlers(t)
 
 	t.Run("textDocument/definition for Go file", func(t *testing.T) {
 		params := map[string]interface{}{
@@ -693,7 +693,7 @@ func TestHandleJSONRPC_DefinitionRequests(t *testing.T) {
 				"end":   map[string]interface{}{"line": float64(0), "character": float64(5)},
 			},
 		}
-		executeJSONRPCTest(t, gateway, mockClients, "textDocument/definition", params, mockResponse, expectedResult)
+		executeJSONRPCTest(t, gw, mockClients, "textDocument/definition", params, mockResponse, expectedResult)
 	})
 
 	t.Run("textDocument/definition for Python file", func(t *testing.T) {
@@ -711,13 +711,13 @@ func TestHandleJSONRPC_DefinitionRequests(t *testing.T) {
 				},
 			},
 		}
-		executeJSONRPCTest(t, gateway, mockClients, "textDocument/definition", params, mockResponse, expectedResult)
+		executeJSONRPCTest(t, gw, mockClients, "textDocument/definition", params, mockResponse, expectedResult)
 	})
 }
 
 func TestHandleJSONRPC_HoverRequests(t *testing.T) {
 	t.Parallel()
-	gateway, mockClients := createTestGatewayForHandlers(t)
+	gw, mockClients := createTestGatewayForHandlers(t)
 
 	t.Run("textDocument/hover for Go file", func(t *testing.T) {
 		params := map[string]interface{}{
@@ -735,7 +735,7 @@ func TestHandleJSONRPC_HoverRequests(t *testing.T) {
 				"end":   map[string]interface{}{"line": float64(3), "character": float64(9)},
 			},
 		}
-		executeJSONRPCTest(t, gateway, mockClients, LSPMethodHover, params, mockResponse, expectedResult)
+		executeJSONRPCTest(t, gw, mockClients, gateway.LSPMethodHover, params, mockResponse, expectedResult)
 	})
 
 	t.Run("textDocument/hover for Python file", func(t *testing.T) {
@@ -754,7 +754,7 @@ func TestHandleJSONRPC_HoverRequests(t *testing.T) {
 				"end":   map[string]interface{}{"line": float64(7), "character": float64(11)},
 			},
 		}
-		executeJSONRPCTest(t, gateway, mockClients, LSPMethodHover, params, mockResponse, expectedResult)
+		executeJSONRPCTest(t, gw, mockClients, gateway.LSPMethodHover, params, mockResponse, expectedResult)
 	})
 
 	t.Run("textDocument/hover for TypeScript file", func(t *testing.T) {
@@ -773,7 +773,7 @@ func TestHandleJSONRPC_HoverRequests(t *testing.T) {
 				"end":   map[string]interface{}{"line": float64(2), "character": float64(14)},
 			},
 		}
-		executeJSONRPCTest(t, gateway, mockClients, LSPMethodHover, params, mockResponse, expectedResult)
+		executeJSONRPCTest(t, gw, mockClients, gateway.LSPMethodHover, params, mockResponse, expectedResult)
 	})
 
 	t.Run("textDocument/hover for Java file", func(t *testing.T) {
@@ -792,20 +792,20 @@ func TestHandleJSONRPC_HoverRequests(t *testing.T) {
 				"end":   map[string]interface{}{"line": float64(5), "character": float64(16)},
 			},
 		}
-		executeJSONRPCTest(t, gateway, mockClients, LSPMethodHover, params, mockResponse, expectedResult)
+		executeJSONRPCTest(t, gw, mockClients, gateway.LSPMethodHover, params, mockResponse, expectedResult)
 	})
 }
 
 func TestHandleJSONRPC_RequestErrors(t *testing.T) {
 	t.Parallel()
-	gateway, mockClients := createTestGatewayForHandlers(t)
+	gw, mockClients := createTestGatewayForHandlers(t)
 
 	t.Run("LSP client request error", func(t *testing.T) {
 		mockClient := mockClients["gopls"]
 		mockClient.SetRequestError(fmt.Errorf("LSP server error"))
 
-		request := JSONRPCRequest{
-			JSONRPC: JSONRPCVersion,
+		request := gateway.JSONRPCRequest{
+			JSONRPC: gateway.JSONRPCVersion,
 			ID:      1,
 			Method:  "textDocument/definition",
 			Params: map[string]interface{}{
@@ -824,13 +824,13 @@ func TestHandleJSONRPC_RequestErrors(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
-		gateway.HandleJSONRPC(w, req)
+		gw.HandleJSONRPC(w, req)
 
 		if w.Code != http.StatusOK {
 			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 		}
 
-		var response JSONRPCResponse
+		var response gateway.JSONRPCResponse
 		if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 			t.Fatalf("Failed to decode response: %v", err)
 		}
@@ -839,8 +839,8 @@ func TestHandleJSONRPC_RequestErrors(t *testing.T) {
 			t.Fatal("Expected error in response")
 		}
 
-		if response.Error.Code != InternalError {
-			t.Errorf("Expected error code %d, got %d", InternalError, response.Error.Code)
+		if response.Error.Code != gateway.InternalError {
+			t.Errorf("Expected error code %d, got %d", gateway.InternalError, response.Error.Code)
 		}
 
 		mockClient.SetRequestError(nil)
@@ -849,7 +849,7 @@ func TestHandleJSONRPC_RequestErrors(t *testing.T) {
 
 func TestHandleJSONRPC_SpecialMethods(t *testing.T) {
 	t.Parallel()
-	gateway, _ := createTestGatewayForHandlers(t)
+	gw, _ := createTestGatewayForHandlers(t)
 
 	specialMethods := []string{
 		"initialize",
@@ -862,14 +862,14 @@ func TestHandleJSONRPC_SpecialMethods(t *testing.T) {
 
 	for _, method := range specialMethods {
 		t.Run(method, func(t *testing.T) {
-			testSpecialMethodSuccess(t, gateway, method)
+			testSpecialMethodSuccess(t, gw, method)
 		})
 	}
 }
 
-func testSpecialMethodSuccess(t *testing.T, gateway *gateway.Gateway, method string) {
-	request := JSONRPCRequest{
-		JSONRPC: JSONRPCVersion,
+func testSpecialMethodSuccess(t *testing.T, gw *gateway.Gateway, method string) {
+	request := gateway.JSONRPCRequest{
+		JSONRPC: gateway.JSONRPCVersion,
 		ID:      1,
 		Method:  method,
 		Params:  map[string]interface{}{},
@@ -880,13 +880,13 @@ func testSpecialMethodSuccess(t *testing.T, gateway *gateway.Gateway, method str
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	gateway.HandleJSONRPC(w, req)
+	gw.HandleJSONRPC(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
 	}
 
-	var response JSONRPCResponse
+	var response gateway.JSONRPCResponse
 	if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 		t.Fatalf("Failed to decode response: %v", err)
 	}
@@ -898,10 +898,10 @@ func testSpecialMethodSuccess(t *testing.T, gateway *gateway.Gateway, method str
 
 func TestHandleJSONRPC_ContentTypeHeader(t *testing.T) {
 	t.Parallel()
-	gateway, _ := createTestGatewayForHandlers(t)
+	gw, _ := createTestGatewayForHandlers(t)
 
-	request := JSONRPCRequest{
-		JSONRPC: JSONRPCVersion,
+	request := gateway.JSONRPCRequest{
+		JSONRPC: gateway.JSONRPCVersion,
 		ID:      1,
 		Method:  "textDocument/definition",
 		Params: map[string]interface{}{
@@ -919,7 +919,7 @@ func TestHandleJSONRPC_ContentTypeHeader(t *testing.T) {
 	req := httptest.NewRequest("POST", "/jsonrpc", bytes.NewBuffer(body))
 	w := httptest.NewRecorder()
 
-	gateway.HandleJSONRPC(w, req)
+	gw.HandleJSONRPC(w, req)
 
 	contentType := w.Header().Get("Content-Type")
 	if contentType != "application/json" {
@@ -929,7 +929,7 @@ func TestHandleJSONRPC_ContentTypeHeader(t *testing.T) {
 
 func TestHandleJSONRPC_URIExtraction(t *testing.T) {
 	t.Parallel()
-	gateway, _ := createTestGatewayForHandlers(t)
+	gw, _ := createTestGatewayForHandlers(t)
 
 	tests := []struct {
 		name        string
@@ -1001,8 +1001,8 @@ func TestHandleJSONRPC_URIExtraction(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			request := JSONRPCRequest{
-				JSONRPC: JSONRPCVersion,
+			request := gateway.JSONRPCRequest{
+				JSONRPC: gateway.JSONRPCVersion,
 				ID:      1,
 				Method:  tt.method,
 				Params:  tt.params,
@@ -1013,9 +1013,9 @@ func TestHandleJSONRPC_URIExtraction(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
-			gateway.HandleJSONRPC(w, req)
+			gw.HandleJSONRPC(w, req)
 
-			var response JSONRPCResponse
+			var response gateway.JSONRPCResponse
 			if err := json.NewDecoder(w.Body).Decode(&response); err != nil {
 				t.Fatalf("Failed to decode response: %v", err)
 			}

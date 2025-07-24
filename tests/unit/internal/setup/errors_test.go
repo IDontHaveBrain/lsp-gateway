@@ -11,7 +11,7 @@ import (
 )
 
 func TestPlatformErrorCreation(t *testing.T) {
-	err := platform.setup.NewUnsupportedPlatformError("unsupported-os")
+	err := platform.NewUnsupportedPlatformError("unsupported-os")
 
 	if err.Code != platform.ErrCodeUnsupportedPlatform {
 		t.Errorf("Expected error code %s, got %s", platform.ErrCodeUnsupportedPlatform, err.Code)
@@ -73,7 +73,7 @@ func TestValidationError(t *testing.T) {
 }
 
 func TestCommandError(t *testing.T) {
-	err := setup.setup.NewCommandError(ErrCodeCommandFailed, "git", []string{"clone", "repo"}, 128).
+	err := setup.NewCommandError(setup.ErrCodeCommandFailed, "git", []string{"clone", "repo"}, 128).
 		WithDuration(5*time.Second).
 		WithOutput("stdout content", "stderr content")
 
@@ -129,8 +129,8 @@ func TestSetupLogger(t *testing.T) {
 	var logOutput bytes.Buffer
 	var userOutput bytes.Buffer
 
-	logger := setup.NewSetupLogger(&SetupLoggerConfig{
-		Level:              LogLevelDebug,
+	logger := setup.NewSetupLogger(&setup.SetupLoggerConfig{
+		Level:              setup.LogLevelDebug,
 		Component:          "test",
 		EnableJSON:         false,
 		EnableUserMessages: true,
@@ -169,8 +169,8 @@ func TestSetupLogger(t *testing.T) {
 func TestSetupLoggerWithFields(t *testing.T) {
 	var logOutput bytes.Buffer
 
-	logger := setup.NewSetupLogger(&SetupLoggerConfig{
-		Level:      LogLevelInfo,
+	logger := setup.NewSetupLogger(&setup.SetupLoggerConfig{
+		Level:      setup.LogLevelInfo,
 		Component:  "test",
 		EnableJSON: true,
 		Output:     &logOutput,
@@ -197,24 +197,24 @@ func TestErrorHandler(t *testing.T) {
 	var logOutput bytes.Buffer
 	var userOutput bytes.Buffer
 
-	logger := setup.NewSetupLogger(&SetupLoggerConfig{
-		Level:              LogLevelDebug,
+	logger := setup.NewSetupLogger(&setup.SetupLoggerConfig{
+		Level:              setup.LogLevelDebug,
 		Component:          "test",
 		EnableUserMessages: true,
 		Output:             &logOutput,
 		UserOutput:         &userOutput,
 	})
 
-	errorHandler := setup.setup.NewErrorHandler(logger)
+	errorHandler := setup.NewErrorHandler(logger)
 
-	ctx := &ErrorContext{
+	ctx := &setup.ErrorContext{
 		Operation: "test-operation",
 		Component: "test-component",
 		Logger:    logger,
 		Metadata:  map[string]interface{}{"test": "data"},
 	}
 
-	platformErr := platform.setup.NewInsufficientPermissionsError("write", "/restricted/path")
+	platformErr := platform.NewInsufficientPermissionsError("write", "/restricted/path")
 	err := errorHandler.HandleError(ctx, platformErr)
 
 	if err == nil {
@@ -242,7 +242,7 @@ func TestRetryableErrors(t *testing.T) {
 		},
 		{
 			name:     "Command timeout should be retryable",
-			err:      setup.setup.NewCommandError(ErrCodeCommandTimeout, "curl", []string{}, 124),
+			err:      setup.NewCommandError(setup.ErrCodeCommandTimeout, "curl", []string{}, 124),
 			expected: true,
 		},
 		{
@@ -259,7 +259,7 @@ func TestRetryableErrors(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := IsRetryableError(tc.err)
+			result := setup.IsRetryableError(tc.err)
 			if result != tc.expected {
 				t.Errorf("Expected retryable=%v, got %v for error: %v", tc.expected, result, tc.err)
 			}
@@ -269,7 +269,7 @@ func TestRetryableErrors(t *testing.T) {
 
 func TestErrorUtilities(t *testing.T) {
 	originalErr := fmt.Errorf("original error")
-	wrappedErr := WrapWithContext(originalErr, "test-op", "test-component", map[string]interface{}{
+	wrappedErr := setup.WrapWithContext(originalErr, "test-op", "test-component", map[string]interface{}{
 		"key": "value",
 	})
 
@@ -281,24 +281,24 @@ func TestErrorUtilities(t *testing.T) {
 		t.Error("Expected to unwrap to original error")
 	}
 
-	criticalErr := platform.setup.NewPlatformError("TEST_CRITICAL", "test", "test", "test")
+	criticalErr := platform.NewPlatformError("TEST_CRITICAL", "test", "test", "test")
 	criticalErr.Severity = platform.SeverityCritical
 
-	if !IsCriticalError(criticalErr) {
+	if !setup.IsCriticalError(criticalErr) {
 		t.Error("Expected critical error to be detected")
 	}
 
-	nonCriticalErr := platform.setup.NewPlatformError("TEST_LOW", "test", "test", "test")
+	nonCriticalErr := platform.NewPlatformError("TEST_LOW", "test", "test", "test")
 	nonCriticalErr.Severity = platform.SeverityLow
 
-	if IsCriticalError(nonCriticalErr) {
+	if setup.IsCriticalError(nonCriticalErr) {
 		t.Error("Expected non-critical error to not be detected as critical")
 	}
 }
 
 func TestMetricsTracking(t *testing.T) {
-	logger := setup.NewSetupLogger(&SetupLoggerConfig{
-		Level:         LogLevelInfo,
+	logger := setup.NewSetupLogger(&setup.SetupLoggerConfig{
+		Level:         setup.LogLevelInfo,
 		Component:     "test",
 		EnableMetrics: true,
 	})
@@ -332,14 +332,14 @@ func TestMetricsTracking(t *testing.T) {
 }
 
 func BenchmarkLoggerCreation(b *testing.B) {
-	config := &SetupLoggerConfig{
-		Level:     LogLevelInfo,
+	config := &setup.SetupLoggerConfig{
+		Level:     setup.LogLevelInfo,
 		Component: "benchmark",
 	}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = setup.setup.NewSetupLogger(config)
+		_ = setup.NewSetupLogger(config)
 	}
 }
 

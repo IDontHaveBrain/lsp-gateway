@@ -15,7 +15,7 @@ func TestMCPProtocolCompliance(t *testing.T) {
 	config := &mcp.ServerConfig{
 		Name:          "test-server",
 		Version:       "1.0.0",
-		LSPGatewayURL: fmt.Sprintf("http://localhost:%d", testPort),
+		LSPGatewayURL: fmt.Sprintf("http://localhost:%d", findAvailablePort()),
 		Timeout:       30 * time.Second,
 	}
 
@@ -86,7 +86,7 @@ func TestMCPProtocolCompliance(t *testing.T) {
 			},
 		}
 
-		err := server.sendMessage(response)
+		err := server.SendMessage(response)
 		if err != nil {
 			t.Fatalf("Failed to send message: %v", err)
 		}

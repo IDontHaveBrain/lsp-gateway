@@ -286,18 +286,18 @@ func TestSupportsShellCaseInsensitive(t *testing.T) {
 // Test GetPreferredPackageManagers ordering for multi-manager distributions
 func TestGetPreferredPackageManagersOrdering(t *testing.T) {
 	multiManagerTests := []struct {
-		distribution   LinuxDistribution
+		distribution   platform.LinuxDistribution
 		expectedFirst  string
 		expectedLength int
 	}{
-		{DistributionCentOS, "dnf", 2},
-		{DistributionRHEL, "dnf", 2},
-		{DistributionUnknown, "apt", 3},
+		{platform.DistributionCentOS, "dnf", 2},
+		{platform.DistributionRHEL, "dnf", 2},
+		{platform.DistributionUnknown, "apt", 3},
 	}
 
 	for _, test := range multiManagerTests {
 		t.Run(string(test.distribution), func(t *testing.T) {
-			result := GetPreferredPackageManagers(test.distribution)
+			result := platform.GetPreferredPackageManagers(test.distribution)
 
 			if len(result) != test.expectedLength {
 				t.Errorf("Expected %d package managers, got %d", test.expectedLength, len(result))

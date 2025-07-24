@@ -290,11 +290,11 @@ func TestFormatStringConsistency(t *testing.T) {
 		constant string
 		pattern  string
 	}{
-		{"FORMAT_LIST_ITEM", FORMAT_LIST_ITEM, "    - %s\n"},
-		{"FORMAT_LIST_ITEM_DASH", FORMAT_LIST_ITEM_DASH, "  - %s\n"},
-		{"FORMAT_LIST_ITEM_BRACKET", FORMAT_LIST_ITEM_BRACKET, "  [%s] %s\n"},
-		{"FORMAT_SOLUTION_INSTRUCTION", FORMAT_SOLUTION_INSTRUCTION, "    Solution: %s\n"},
-		{"FORMAT_SPACES_INSTRUCTION", FORMAT_SPACES_INSTRUCTION, "    %s\n"},
+		{"FORMAT_LIST_ITEM", cli.FORMAT_LIST_ITEM, "    - %s\n"},
+		{"FORMAT_LIST_ITEM_DASH", cli.FORMAT_LIST_ITEM_DASH, "  - %s\n"},
+		{"FORMAT_LIST_ITEM_BRACKET", cli.FORMAT_LIST_ITEM_BRACKET, "  [%s] %s\n"},
+		{"FORMAT_SOLUTION_INSTRUCTION", cli.FORMAT_SOLUTION_INSTRUCTION, "    Solution: %s\n"},
+		{"FORMAT_SPACES_INSTRUCTION", cli.FORMAT_SPACES_INSTRUCTION, "    %s\n"},
 	}
 
 	for _, tt := range formatTests {
@@ -318,8 +318,8 @@ func BenchmarkConstantAccess(b *testing.B) {
 func BenchmarkFormatConstantUsage(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// Simulate typical usage of format constants
-		_ = strings.Contains(FORMAT_EXECUTABLE_PATH, "%s")
-		_ = strings.Contains(FORMAT_VERSION, "%s")
-		_ = strings.Contains(VALUE_PORT_FORMAT, "%d")
+		_ = strings.Contains(cli.FORMAT_EXECUTABLE_PATH, "%s")
+		_ = strings.Contains(cli.FORMAT_VERSION, "%s")
+		_ = strings.Contains(cli.VALUE_PORT_FORMAT, "%d")
 	}
 }

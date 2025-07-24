@@ -11,7 +11,7 @@ const (
 
 	// Command names
 	CmdServer   = "server"
-	CmdMCP      = "mcp" 
+	CmdMCP      = "mcp"
 	CmdVersion  = "version"
 	CmdStatus   = "status"
 	CmdDiagnose = "diagnose"

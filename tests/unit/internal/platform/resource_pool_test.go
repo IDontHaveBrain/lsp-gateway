@@ -3,7 +3,6 @@ package platform_test
 import (
 	"context"
 	"fmt"
-	"lsp-gateway/internal/platform"
 	"os"
 	"runtime"
 	"sync"

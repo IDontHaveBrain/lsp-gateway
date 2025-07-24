@@ -75,10 +75,8 @@ func TestJavaDetector_DetectJava_NotInstalled(t *testing.T) {
 	mockExecutor := newMockJavaCommandExecutor()
 	mockExecutor.setCommandAvailable("java", false)
 
-	detector := &JavaDetector{
-		executor:       mockExecutor,
-		versionChecker: setup.NewVersionChecker(),
-	}
+	detector := setup.NewJavaDetector()
+	detector.SetExecutor(mockExecutor)
 
 	javaInfo, err := detector.DetectJava()
 	if err != nil {
@@ -141,10 +139,8 @@ OpenJDK 64-Bit Server VM (build 17.0.2+8-Ubuntu-120.04, mixed mode, sharing)`
 		Stderr:   javaVersionOutput,
 	})
 
-	detector := &JavaDetector{
-		executor:       mockExecutor,
-		versionChecker: setup.NewVersionChecker(),
-	}
+	detector := setup.NewJavaDetector()
+	detector.SetExecutor(mockExecutor)
 
 	javaInfo, err := detector.DetectJava()
 	if err != nil {
@@ -217,10 +213,8 @@ Java HotSpot(TM) 64-Bit Server VM (build 25.333-b02, mixed mode)`
 		Stderr:   "javac 1.8.0_333",
 	})
 
-	detector := &JavaDetector{
-		executor:       mockExecutor,
-		versionChecker: setup.NewVersionChecker(),
-	}
+	detector := setup.NewJavaDetector()
+	detector.SetExecutor(mockExecutor)
 
 	javaInfo, err := detector.DetectJava()
 	if err != nil {
@@ -270,10 +264,8 @@ OpenJDK 64-Bit Server VM (build 17.0.2+8-Ubuntu-120.04, mixed mode, sharing)`
 		Stdout:   "/usr/bin/java",
 	})
 
-	detector := &JavaDetector{
-		executor:       mockExecutor,
-		versionChecker: setup.NewVersionChecker(),
-	}
+	detector := setup.NewJavaDetector()
+	detector.SetExecutor(mockExecutor)
 
 	javaInfo, err := detector.DetectJava()
 	if err != nil {
@@ -305,7 +297,7 @@ OpenJDK 64-Bit Server VM (build 17.0.2+8-Ubuntu-120.04, mixed mode, sharing)`
 }
 
 func TestJavaDetector_ParseJavaVersionOutput(t *testing.T) {
-	detector := &JavaDetector{}
+	detector := setup.NewJavaDetector()
 
 	testCases := []struct {
 		name         string
@@ -352,7 +344,7 @@ OpenJDK Runtime Environment GraalVM CE 22.1.0 (build 17.0.3+7-jvmci-22.1-b06)`,
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			version, distribution := detector.parseJavaVersionOutput(tc.output)
+			version, distribution := detector.ParseJavaVersionOutput(tc.output)
 
 			if version != tc.expectedVer {
 				t.Errorf("Expected version '%s', got '%s'", tc.expectedVer, version)
@@ -378,16 +370,14 @@ func TestJavaDetector_ValidateJavaHome(t *testing.T) {
 	}
 
 	mockExecutor := newMockJavaCommandExecutor()
-	detector := &JavaDetector{
-		executor:       mockExecutor,
-		versionChecker: setup.NewVersionChecker(),
+	detector := setup.NewJavaDetector()
+	detector.SetExecutor(mockExecutor)
+
+	javaInfo := &setup.JavaRuntimeInfo{
+		RuntimeInfo: &setup.RuntimeInfo{Issues: []string{}},
 	}
 
-	javaInfo := &JavaRuntimeInfo{
-		RuntimeInfo: &RuntimeInfo{Issues: []string{}},
-	}
-
-	detector.validateJavaHome(javaInfo)
+	detector.ValidateJavaHome(javaInfo)
 
 	if javaInfo.JavaHomeValid {
 		t.Error("Expected JAVA_HOME to be invalid when not set")
@@ -406,7 +396,7 @@ func TestJavaDetector_ValidateJavaHome(t *testing.T) {
 }
 
 func TestJavaDetector_ExtractJavacVersion(t *testing.T) {
-	detector := &JavaDetector{}
+	detector := setup.NewJavaDetector()
 
 	testCases := []struct {
 		name     string
@@ -432,7 +422,7 @@ func TestJavaDetector_ExtractJavacVersion(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := detector.extractJavacVersion(tc.output)
+			result := detector.ExtractJavacVersion(tc.output)
 			if result != tc.expected {
 				t.Errorf("Expected '%s', got '%s'", tc.expected, result)
 			}

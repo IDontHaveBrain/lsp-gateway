@@ -32,6 +32,32 @@ type LSPRequest struct {
 	Timestamp time.Time
 }
 
+// CreateTestMessage creates an MCP message for testing
+func CreateTestMessage(id interface{}, method string, params interface{}) mcp.MCPMessage {
+	return mcp.MCPMessage{
+		JSONRPC: "2.0",
+		ID:      id,
+		Method:  method,
+		Params:  params,
+	}
+}
+
+// serializeMessage converts an MCP message to JSON bytes for transport
+func serializeMessage(msg mcp.MCPMessage) ([]byte, error) {
+	return json.Marshal(msg)
+}
+
+// serializeMessageWithHeader converts an MCP message to JSON with Content-Length header
+func serializeMessageWithHeader(msg mcp.MCPMessage) ([]byte, error) {
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return nil, err
+	}
+	content := string(data)
+	header := "Content-Length: " + fmt.Sprintf("%d", len(content)) + "\r\n\r\n"
+	return []byte(header + content), nil
+}
+
 func NewTestLSPGateway() *TestLSPGateway {
 	tg := &TestLSPGateway{
 		requests: make([]LSPRequest, 0),
@@ -219,17 +245,21 @@ func TestTCPTransport(t *testing.T) {
 
 	time.Sleep(20 * time.Millisecond)
 
-	initMsg := mcp.CreateTestMessage(1, "initialize", map[string]interface{}{
+	initMsg := CreateTestMessage(1, "initialize", map[string]interface{}{
 		"protocolVersion": "2024-11-05",
 		"capabilities":    map[string]interface{}{},
 	})
 
-	if _, err := inputWriter.Write([]byte(initMsg)); err != nil {
+	initMsgBytes, err := serializeMessageWithHeader(initMsg)
+	if err != nil {
+		t.Fatalf("Failed to serialize init message: %v", err)
+	}
+	if _, err := inputWriter.Write(initMsgBytes); err != nil {
 		t.Fatalf("Failed to write init message: %v", err)
 	}
 	time.Sleep(30 * time.Millisecond)
 
-	toolMsg := mcp.CreateTestMessage(2, "tools/call", map[string]interface{}{
+	toolMsg := CreateTestMessage(2, "tools/call", map[string]interface{}{
 		"name": "goto_definition",
 		"arguments": map[string]interface{}{
 			"uri":       "file:///test.go",
@@ -238,7 +268,11 @@ func TestTCPTransport(t *testing.T) {
 		},
 	})
 
-	if _, err := inputWriter.Write([]byte(toolMsg)); err != nil {
+	toolMsgBytes, err := serializeMessageWithHeader(toolMsg)
+	if err != nil {
+		t.Fatalf("Failed to serialize tool message: %v", err)
+	}
+	if _, err := inputWriter.Write(toolMsgBytes); err != nil {
 		t.Fatalf("Failed to write tool message: %v", err)
 	}
 	time.Sleep(30 * time.Millisecond)
@@ -310,17 +344,21 @@ func TestStdioTransport(t *testing.T) {
 
 	time.Sleep(20 * time.Millisecond)
 
-	initMsg := mcp.CreateTestMessage(1, "initialize", map[string]interface{}{
+	initMsg := CreateTestMessage(1, "initialize", map[string]interface{}{
 		"protocolVersion": "2024-11-05",
 		"capabilities":    map[string]interface{}{},
 	})
 
-	if _, err := inputWriter.Write([]byte(initMsg)); err != nil {
+	initMsgBytes, err := serializeMessageWithHeader(initMsg)
+	if err != nil {
+		t.Fatalf("Failed to serialize init message: %v", err)
+	}
+	if _, err := inputWriter.Write(initMsgBytes); err != nil {
 		t.Fatalf("Failed to write init message: %v", err)
 	}
 	time.Sleep(30 * time.Millisecond)
 
-	toolMsg := mcp.CreateTestMessage(2, "tools/call", map[string]interface{}{
+	toolMsg := CreateTestMessage(2, "tools/call", map[string]interface{}{
 		"name": "find_references",
 		"arguments": map[string]interface{}{
 			"uri":                "file:///test.go",
@@ -330,7 +368,11 @@ func TestStdioTransport(t *testing.T) {
 		},
 	})
 
-	if _, err := inputWriter.Write([]byte(toolMsg)); err != nil {
+	toolMsgBytes, err := serializeMessageWithHeader(toolMsg)
+	if err != nil {
+		t.Fatalf("Failed to serialize tool message: %v", err)
+	}
+	if _, err := inputWriter.Write(toolMsgBytes); err != nil {
 		t.Fatalf("Failed to write tool message: %v", err)
 	}
 	time.Sleep(30 * time.Millisecond)
@@ -448,12 +490,16 @@ func TestMultiLanguageLSPIntegration(t *testing.T) {
 
 	time.Sleep(30 * time.Millisecond)
 
-	initMsg := mcp.CreateTestMessage(1, "initialize", map[string]interface{}{
+	initMsg := CreateTestMessage(1, "initialize", map[string]interface{}{
 		"protocolVersion": "2024-11-05",
 		"capabilities":    map[string]interface{}{},
 	})
 
-	if _, err := inputWriter.Write([]byte(initMsg)); err != nil {
+	initMsgBytes, err := serializeMessageWithHeader(initMsg)
+	if err != nil {
+		t.Fatalf("Failed to serialize init message: %v", err)
+	}
+	if _, err := inputWriter.Write(initMsgBytes); err != nil {
 		t.Fatalf("Failed to write init message: %v", err)
 	}
 	time.Sleep(50 * time.Millisecond)
@@ -471,12 +517,17 @@ func TestMultiLanguageLSPIntegration(t *testing.T) {
 			}
 		}
 
-		toolMsg := mcp.CreateTestMessage(i+2, "tools/call", map[string]interface{}{
+		toolMsg := CreateTestMessage(i+2, "tools/call", map[string]interface{}{
 			"name":      tc.tool,
 			"arguments": args,
 		})
 
-		if _, err := inputWriter.Write([]byte(toolMsg)); err != nil {
+		toolMsgBytes, err := serializeMessageWithHeader(toolMsg)
+		if err != nil {
+			t.Errorf("Failed to serialize tool message for %s: %v", tc.name, err)
+			continue
+		}
+		if _, err := inputWriter.Write(toolMsgBytes); err != nil {
 			t.Errorf("Failed to write tool message for %s: %v", tc.name, err)
 			continue
 		}
@@ -966,7 +1017,7 @@ func TestEndToEndWorkflow(t *testing.T) {
 
 	time.Sleep(30 * time.Millisecond)
 
-	initMsg := mcp.CreateTestMessage(1, "initialize", map[string]interface{}{
+	initMsg := CreateTestMessage(1, "initialize", map[string]interface{}{
 		"protocolVersion": "2024-11-05",
 		"capabilities":    map[string]interface{}{},
 		"clientInfo": map[string]interface{}{
@@ -974,13 +1025,21 @@ func TestEndToEndWorkflow(t *testing.T) {
 			"version": "1.0.0",
 		},
 	})
-	if _, err := inputWriter.Write([]byte(initMsg)); err != nil {
+	initMsgBytes, err := serializeMessageWithHeader(initMsg)
+	if err != nil {
+		t.Fatalf("Failed to serialize init message: %v", err)
+	}
+	if _, err := inputWriter.Write(initMsgBytes); err != nil {
 		t.Fatalf("Failed to write init message: %v", err)
 	}
 	time.Sleep(50 * time.Millisecond)
 
-	listMsg := mcp.CreateTestMessage(2, "tools/list", nil)
-	if _, err := inputWriter.Write([]byte(listMsg)); err != nil {
+	listMsg := CreateTestMessage(2, "tools/list", nil)
+	listMsgBytes, err := serializeMessageWithHeader(listMsg)
+	if err != nil {
+		t.Fatalf("Failed to serialize list message: %v", err)
+	}
+	if _, err := inputWriter.Write(listMsgBytes); err != nil {
 		t.Fatalf("Failed to write list message: %v", err)
 	}
 	time.Sleep(50 * time.Millisecond)
@@ -1035,11 +1094,16 @@ func TestEndToEndWorkflow(t *testing.T) {
 	}
 
 	for _, test := range toolTests {
-		toolMsg := mcp.CreateTestMessage(test.id, "tools/call", map[string]interface{}{
+		toolMsg := CreateTestMessage(test.id, "tools/call", map[string]interface{}{
 			"name":      test.tool,
 			"arguments": test.args,
 		})
-		if _, err := inputWriter.Write([]byte(toolMsg)); err != nil {
+		toolMsgBytes, err := serializeMessageWithHeader(toolMsg)
+		if err != nil {
+			t.Errorf("Failed to serialize tool message %d: %v", test.id, err)
+			continue
+		}
+		if _, err := inputWriter.Write(toolMsgBytes); err != nil {
 			t.Errorf("Failed to write tool message %d: %v", test.id, err)
 			continue
 		}
@@ -1159,7 +1223,7 @@ func BenchmarkMCPMessageProcessingIntegration(b *testing.B) {
 	server := mcp.NewServer(config)
 	server.Initialized = true
 
-	message := mcp.CreateTestMessage(1, "tools/call", map[string]interface{}{
+	message := CreateTestMessage(1, "tools/call", map[string]interface{}{
 		"name": "goto_definition",
 		"arguments": map[string]interface{}{
 			"uri":       "file:///benchmark.go",
@@ -1173,8 +1237,14 @@ func BenchmarkMCPMessageProcessingIntegration(b *testing.B) {
 		outputBuffer := &bytes.Buffer{}
 		server.SetIO(nil, outputBuffer)
 
+		messageBytes, err := json.Marshal(message)
+		if err != nil {
+			b.Errorf("Failed to marshal message: %v", err)
+			continue
+		}
+		messageStr := string(messageBytes)
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond) // Much faster timeout
-		_ = server.HandleMessageWithValidation(ctx, message[strings.Index(message, "{"):])
+		_ = server.HandleMessageWithValidation(ctx, messageStr[strings.Index(messageStr, "{"):])
 		cancel()
 	}
 }
@@ -1220,12 +1290,16 @@ func TestProtocolVersionCompatibility(t *testing.T) {
 
 			time.Sleep(20 * time.Millisecond)
 
-			initMsg := mcp.CreateTestMessage(1, "initialize", map[string]interface{}{
+			initMsg := CreateTestMessage(1, "initialize", map[string]interface{}{
 				"protocolVersion": version,
 				"capabilities":    map[string]interface{}{},
 			})
 
-			if _, err := inputWriter.Write([]byte(initMsg)); err != nil {
+			initMsgBytes, err := serializeMessageWithHeader(initMsg)
+			if err != nil {
+				t.Fatalf("Failed to serialize init message: %v", err)
+			}
+			if _, err := inputWriter.Write(initMsgBytes); err != nil {
 				t.Fatalf("Failed to write init message: %v", err)
 			}
 			time.Sleep(50 * time.Millisecond)

@@ -1,4 +1,4 @@
-package gateway
+package network_test
 
 import (
 	"context"
@@ -15,7 +15,9 @@ import (
 	"time"
 
 	"lsp-gateway/internal/config"
+	"lsp-gateway/internal/gateway"
 	"lsp-gateway/internal/transport"
+	gatewayTestUtils "lsp-gateway/tests/utils/gateway"
 	testutil "lsp-gateway/tests/utils/helpers"
 )
 
@@ -888,7 +890,7 @@ func testGracefulDegradation(t *testing.T, systemLimit int64) {
 
 // Helper functions
 
-func setupTestGatewayWithMonitoring(t *testing.T, port int) (*Gateway, *http.Server) {
+func setupTestGatewayWithMonitoring(t *testing.T, port int) (*gateway.Gateway, *http.Server) {
 	t.Helper()
 
 	// Create gateway with mock clients instead of real LSP servers
@@ -905,24 +907,22 @@ func setupTestGatewayWithMonitoring(t *testing.T, port int) (*Gateway, *http.Ser
 		},
 	}
 
-	gateway := &Gateway{
-		config:  cfg,
-		clients: make(map[string]transport.LSPClient),
-		router:  NewRouter(),
+	// Create mock client factory
+	mockClientFactory := func(transport.ClientConfig) (transport.LSPClient, error) {
+		return gatewayTestUtils.NewMockLSPClient(), nil
 	}
 
-	// Use mock client to avoid external dependencies
-	mockClient := NewMockLSPClient()
-	gateway.clients["test-server"] = mockClient
-	gateway.router.RegisterServer("test-server", []string{"go"})
-
-	// Start mock client instead of real LSP server
-	if err := mockClient.Start(context.TODO()); err != nil {
-		t.Fatalf("Failed to start mock client: %v", err)
+	// Use NewTestableGateway to properly initialize gateway
+	testableGateway, err := gatewayTestUtils.NewTestableGateway(cfg, mockClientFactory)
+	if err != nil {
+		t.Fatalf("Failed to create testable gateway: %v", err)
 	}
+	gw := testableGateway.Gateway
+
+	// Clients are now managed by the testable gateway
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/jsonrpc", gateway.HandleJSONRPC)
+	mux.HandleFunc("/jsonrpc", gw.HandleJSONRPC)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
@@ -938,11 +938,11 @@ func setupTestGatewayWithMonitoring(t *testing.T, port int) (*Gateway, *http.Ser
 	// Wait for server to start
 	time.Sleep(100 * time.Millisecond)
 
-	return gateway, server
+	return gw, server
 }
 
 func sendTestRequest(client *http.Client, baseURL, testID string) error {
-	requestData := JSONRPCRequest{
+	requestData := gateway.JSONRPCRequest{
 		JSONRPC: "2.0",
 		ID:      testID,
 		Method:  "textDocument/definition",

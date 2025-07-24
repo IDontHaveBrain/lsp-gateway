@@ -27,7 +27,7 @@ func ensureCleanup(t *testing.T, client *transport.StdioClient, mockServerPath s
 
 		// Give some time for cleanup to complete
 		select {
-		case <-client.done:
+		case <-client.Done:
 			// Client stopped cleanly
 		case <-time.After(2 * time.Second):
 			t.Logf("Warning: Client cleanup did not complete within 2 seconds")

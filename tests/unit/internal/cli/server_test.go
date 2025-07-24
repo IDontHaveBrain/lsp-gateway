@@ -1,11 +1,11 @@
 package cli_test
 
 import (
-	"lsp-gateway/internal/cli"
 	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"lsp-gateway/internal/cli"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -21,8 +21,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Package-level test variables
+var (
+	configPath string
+	port       int
+)
+
 func createValidTestConfig(port int) string {
-	return CreateConfigWithPort(port)
+	return cli.CreateConfigWithPort(port)
 }
 
 func TestServerCommand(t *testing.T) {
@@ -45,32 +51,32 @@ func TestServerCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configPath = cli.DefaultConfigFile
-			port = DefaultServerPort
+			port = cli.DefaultServerPort
 			tt.testFunc(t)
 		})
 	}
 }
 
 func testServerCommandMetadata(t *testing.T) {
-	if GetServerCmd().Use != CmdServer {
-		t.Errorf("Expected Use to be 'server', got '%s'", GetServerCmd().Use)
+	if cli.GetServerCmd().Use != cli.CmdServer {
+		t.Errorf("Expected Use to be 'server', got '%s'", cli.GetServerCmd().Use)
 	}
 
 	expectedShort := "Start the LSP Gateway server"
-	if GetServerCmd().Short != expectedShort {
-		t.Errorf("Expected Short to be '%s', got '%s'", expectedShort, GetServerCmd().Short)
+	if cli.GetServerCmd().Short != expectedShort {
+		t.Errorf("Expected Short to be '%s', got '%s'", expectedShort, cli.GetServerCmd().Short)
 	}
 
 	expectedLong := "Start the LSP Gateway server with the specified configuration."
-	if GetServerCmd().Long != expectedLong {
-		t.Errorf("Expected Long to be '%s', got '%s'", expectedLong, GetServerCmd().Long)
+	if cli.GetServerCmd().Long != expectedLong {
+		t.Errorf("Expected Long to be '%s', got '%s'", expectedLong, cli.GetServerCmd().Long)
 	}
 
-	if GetServerCmd().RunE == nil {
+	if cli.GetServerCmd().RunE == nil {
 		t.Error("Expected RunE function to be set")
 	}
 
-	if GetServerCmd().Run != nil {
+	if cli.GetServerCmd().Run != nil {
 		t.Error("Expected Run function to be nil (using RunE instead)")
 	}
 }
@@ -87,21 +93,21 @@ func testServerCommandFlagParsing(t *testing.T) {
 			name:           "DefaultFlags",
 			args:           []string{},
 			expectedConfig: cli.DefaultConfigFile,
-			expectedPort:   DefaultServerPort,
+			expectedPort:   cli.DefaultServerPort,
 			expectedError:  false,
 		},
 		{
 			name:           "ConfigFlag",
 			args:           []string{"--config", "custom.yaml"},
 			expectedConfig: "custom.yaml",
-			expectedPort:   DefaultServerPort,
+			expectedPort:   cli.DefaultServerPort,
 			expectedError:  false,
 		},
 		{
 			name:           "ConfigFlagShort",
 			args:           []string{"-c", "custom.yaml"},
 			expectedConfig: "custom.yaml",
-			expectedPort:   DefaultServerPort,
+			expectedPort:   cli.DefaultServerPort,
 			expectedError:  false,
 		},
 		{
@@ -137,7 +143,7 @@ func testServerCommandFlagParsing(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configPath = cli.DefaultConfigFile
-			port = DefaultServerPort
+			port = cli.DefaultServerPort
 
 			testCmd := &cobra.Command{
 				Use:   "server",
@@ -176,7 +182,7 @@ func testServerCommandConfigurationLoading(t *testing.T) {
 	tempDir := t.TempDir()
 	configFile := filepath.Join(tempDir, "test-config.yaml")
 
-	testPort := AllocateTestPort(t)
+	testPort := cli.AllocateTestPort(t)
 	validConfig := createValidTestConfig(testPort)
 
 	err := os.WriteFile(configFile, []byte(validConfig), 0644)
@@ -242,7 +248,7 @@ func testServerCommandPortOverride(t *testing.T) {
 	tempDir := t.TempDir()
 	configFile := filepath.Join(tempDir, "test-config.yaml")
 
-	testPort := AllocateTestPort(t)
+	testPort := cli.AllocateTestPort(t)
 	configContent := createValidTestConfig(testPort)
 
 	err := os.WriteFile(configFile, []byte(configContent), 0644)
@@ -257,8 +263,8 @@ func testServerCommandPortOverride(t *testing.T) {
 	}{
 		{
 			name:         "NoPortOverride",
-			portFlag:     DefaultServerPort, // Default value
-			expectedPort: testPort,          // Should keep config file port when using default
+			portFlag:     cli.DefaultServerPort, // Default value
+			expectedPort: testPort,              // Should keep config file port when using default
 		},
 		{
 			name:         "PortOverride",
@@ -274,7 +280,7 @@ func testServerCommandPortOverride(t *testing.T) {
 				t.Fatalf("Failed to load config: %v", err)
 			}
 
-			if tt.portFlag != DefaultServerPort {
+			if tt.portFlag != cli.DefaultServerPort {
 				cfg.Port = tt.portFlag
 			}
 
@@ -300,7 +306,7 @@ func testServerCommandConfigurationValidation(t *testing.T) {
 	}{
 		{
 			name:          "ValidConfig",
-			configContent: CreateConfigWithPort(DefaultServerPort),
+			configContent: cli.CreateConfigWithPort(cli.DefaultServerPort),
 			expectedError: false,
 		},
 		{
@@ -319,7 +325,7 @@ servers:
 		},
 		{
 			name:          "NoServers",
-			configContent: CreateMinimalConfigWithPort(DefaultServerPort),
+			configContent: cli.CreateMinimalConfigWithPort(cli.DefaultServerPort),
 			expectedError: true,
 			errorContains: "at least one server must be configured",
 		},
@@ -431,8 +437,8 @@ func testServerCommandErrorScenarios(t *testing.T) {
 func testServerCommandExecution(t *testing.T) {
 
 	found := false
-	for _, cmd := range rootCmd.Commands() {
-		if cmd.Name() == CmdServer {
+	for _, cmd := range cli.GetRootCmd().Commands() {
+		if cmd.Name() == cli.CmdServer {
 			found = true
 			break
 		}
@@ -442,7 +448,7 @@ func testServerCommandExecution(t *testing.T) {
 		t.Error("server command should be added to root command")
 	}
 
-	configFlag := GetServerCmd().Flag("config")
+	configFlag := cli.GetServerCmd().Flag("config")
 	if configFlag == nil {
 		t.Error("Expected config flag to be defined")
 	} else {
@@ -454,7 +460,7 @@ func testServerCommandExecution(t *testing.T) {
 		}
 	}
 
-	portFlag := GetServerCmd().Flag("port")
+	portFlag := cli.GetServerCmd().Flag("port")
 	if portFlag == nil {
 		t.Error("Expected port flag to be defined")
 	} else {
@@ -470,10 +476,10 @@ func testServerCommandExecution(t *testing.T) {
 func testServerCommandHelp(t *testing.T) {
 	output := captureStdoutServer(t, func() {
 		testCmd := &cobra.Command{
-			Use:   GetServerCmd().Use,
-			Short: GetServerCmd().Short,
-			Long:  GetServerCmd().Long,
-			RunE:  GetServerCmd().RunE,
+			Use:   cli.GetServerCmd().Use,
+			Short: cli.GetServerCmd().Short,
+			Long:  cli.GetServerCmd().Long,
+			RunE:  cli.GetServerCmd().RunE,
 		}
 
 		testCmd.Flags().StringVarP(&configPath, "config", "c", "config.yaml", "Configuration file path")
@@ -509,20 +515,20 @@ func testServerCommandIntegration(t *testing.T) {
 	configFile := createValidConfigFile(t, tempDir)
 
 	testRoot := &cobra.Command{
-		Use:   rootCmd.Use,
-		Short: rootCmd.Short,
+		Use:   cli.GetRootCmd().Use,
+		Short: cli.GetRootCmd().Short,
 	}
 
 	testServer := &cobra.Command{
-		Use:   GetServerCmd().Use,
-		Short: GetServerCmd().Short,
+		Use:   cli.GetServerCmd().Use,
+		Short: cli.GetServerCmd().Short,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.LoadConfig(configFile)
 			if err != nil {
 				return fmt.Errorf("failed to load configuration: %w", err)
 			}
 
-			if port != DefaultServerPort {
+			if port != cli.DefaultServerPort {
 				cfg.Port = port
 			}
 
@@ -562,7 +568,7 @@ func TestServerCommandEdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configPath = cli.DefaultConfigFile
-			port = DefaultServerPort
+			port = cli.DefaultServerPort
 			tt.testFunc(t)
 		})
 	}
@@ -601,7 +607,7 @@ func testServerCommandWithExtraArgs(t *testing.T) {
 
 func testServerCommandHTTPServerSetup(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := AllocateTestPort(t)
+	testPort := cli.AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	cfg, err := config.LoadConfig(configFile)
@@ -718,27 +724,27 @@ func testServerCommandSignalHandlingSimulation(t *testing.T) {
 
 func TestServerCommandCompleteness(t *testing.T) {
 	// Removed t.Parallel() to prevent deadlock
-	if GetServerCmd().Name() != CmdServer {
-		t.Errorf("Expected command name 'server', got '%s'", GetServerCmd().Name())
+	if cli.GetServerCmd().Name() != cli.CmdServer {
+		t.Errorf("Expected command name 'server', got '%s'", cli.GetServerCmd().Name())
 	}
 
-	configFlag := GetServerCmd().Flag("config")
+	configFlag := cli.GetServerCmd().Flag("config")
 	if configFlag == nil {
 		t.Error("Expected config flag to be defined")
 	}
 
-	portFlag := GetServerCmd().Flag("port")
+	portFlag := cli.GetServerCmd().Flag("port")
 	if portFlag == nil {
 		t.Error("Expected port flag to be defined")
 	}
 
-	if GetServerCmd().HasSubCommands() {
+	if cli.GetServerCmd().HasSubCommands() {
 		t.Error("Server command should not have subcommands")
 	}
 
 	found := false
-	for _, cmd := range rootCmd.Commands() {
-		if cmd.Name() == CmdServer {
+	for _, cmd := range cli.GetRootCmd().Commands() {
+		if cmd.Name() == cli.CmdServer {
 			found = true
 			break
 		}
@@ -753,7 +759,7 @@ func createValidConfigFile(t *testing.T, dir string) string {
 	t.Helper()
 
 	configFile := filepath.Join(dir, "valid-config.yaml")
-	testPort := AllocateTestPort(t)
+	testPort := cli.AllocateTestPort(t)
 	content := createValidTestConfig(testPort)
 
 	err := os.WriteFile(configFile, []byte(content), 0644)
@@ -812,7 +818,7 @@ servers:
     command: "gopls"
     # Missing closing bracket and indentation errors
   invalid: structure
-`, DefaultServerPort)
+`, cli.DefaultServerPort)
 
 	err := os.WriteFile(configFile, []byte(content), 0644)
 	if err != nil {
@@ -873,7 +879,7 @@ func TestServerStartupFunctions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configPath = cli.DefaultConfigFile
-			port = DefaultServerPort
+			port = cli.DefaultServerPort
 			tt.testFunc(t)
 		})
 	}
@@ -917,7 +923,7 @@ func testRunServerPortOverride(t *testing.T) {
 	}
 
 	testPort := 9999
-	if testPort != DefaultServerPort {
+	if testPort != cli.DefaultServerPort {
 		cfg.Port = testPort
 	}
 
@@ -930,8 +936,8 @@ func testRunServerPortOverride(t *testing.T) {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
-	defaultPort := DefaultServerPort
-	if defaultPort == DefaultServerPort {
+	defaultPort := cli.DefaultServerPort
+	if defaultPort == cli.DefaultServerPort {
 		if cfg2.Port <= 0 || cfg2.Port > 65535 { // Check for valid port range
 			t.Errorf("Port should be valid when using default, got %d", cfg2.Port)
 		}
@@ -1039,7 +1045,7 @@ func testRunServerGatewayStart(t *testing.T) {
 
 func testRunServerHTTPSetup(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := AllocateTestPort(t)
+	testPort := cli.AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	cfg, err := config.LoadConfig(configFile)
@@ -1189,7 +1195,7 @@ servers:
     command: "/nonexistent/command"
     args: []
     transport: "stdio"
-`, DefaultServerPort)
+`, cli.DefaultServerPort)
 	badConfigFile := filepath.Join(tempDir, "bad-config.yaml")
 	err := os.WriteFile(badConfigFile, []byte(badConfigContent), 0644)
 	if err != nil {
@@ -1220,14 +1226,18 @@ func testRunServerDirectCall(t *testing.T) {
 	validConfigFile := createValidConfigFile(t, tempDir)
 
 	configPath = validConfigFile
-	port = DefaultServerPort
+	port = cli.DefaultServerPort
 
 	testCmd := &cobra.Command{Use: "server"}
 	testCmd.SetContext(context.Background())
 
 	done := make(chan error, 1)
 	go func() {
-		done <- runServer(testCmd, []string{})
+		done <- func() error {
+			serverCmd := cli.GetServerCmd()
+			serverCmd.SetArgs([]string{})
+			return serverCmd.Execute()
+		}()
 	}()
 
 	select {
@@ -1240,7 +1250,7 @@ func testRunServerDirectCall(t *testing.T) {
 
 func testRunServerWithActualConfigFile(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := AllocateTestPort(t)
+	testPort := cli.AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	configPath = configFile
@@ -1252,7 +1262,7 @@ func testRunServerWithActualConfigFile(t *testing.T) {
 		return
 	}
 
-	if port != DefaultServerPort {
+	if port != cli.DefaultServerPort {
 		cfg.Port = port
 	}
 
@@ -1289,7 +1299,7 @@ func testRunServerWithActualConfigFile(t *testing.T) {
 func BenchmarkServerCommandFlagParsing(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		configPath = "config.yaml"
-		port = DefaultServerPort
+		port = cli.DefaultServerPort
 
 		testCmd := &cobra.Command{
 			Use: "server",
@@ -1312,7 +1322,7 @@ func BenchmarkServerCommandConfigLoading(b *testing.B) {
 	tempDir := b.TempDir()
 	configFile := filepath.Join(tempDir, "benchmark-config.yaml")
 
-	content := CreateConfigWithPort(DefaultServerPort)
+	content := cli.CreateConfigWithPort(cli.DefaultServerPort)
 
 	err := os.WriteFile(configFile, []byte(content), 0644)
 	if err != nil {
@@ -1354,7 +1364,7 @@ func TestRunServerCoverageEnhancement(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configPath = cli.DefaultConfigFile
-			port = DefaultServerPort
+			port = cli.DefaultServerPort
 			tt.testFunc(t)
 		})
 	}
@@ -1371,7 +1381,7 @@ servers:
     command: "non-existent-command-12345"
     args: []
     transport: "stdio"
-`, DefaultServerPort)
+`, cli.DefaultServerPort)
 	failConfigFile := filepath.Join(tempDir, "fail-config.yaml")
 	err := os.WriteFile(failConfigFile, []byte(failConfigContent), 0644)
 	if err != nil {
@@ -1379,11 +1389,13 @@ servers:
 	}
 
 	configPath = failConfigFile
-	port = DefaultServerPort
+	port = cli.DefaultServerPort
 
-	testCmd := &cobra.Command{Use: "server"}
-
-	err = runServer(testCmd, []string{})
+	err = func() error {
+		serverCmd := cli.GetServerCmd()
+		serverCmd.SetArgs([]string{})
+		return serverCmd.Execute()
+	}()
 	if err == nil {
 		t.Error("Expected error when gateway fails to start")
 		return
@@ -1396,7 +1408,7 @@ servers:
 
 func testRunServerHTTPServerError(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := AllocateTestPort(t)
+	testPort := cli.AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	cfg, err := config.LoadConfig(configFile)
@@ -1547,11 +1559,13 @@ func testRunServerConfigPathEdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configPath = tt.configPath
-			port = DefaultServerPort
+			port = cli.DefaultServerPort
 
-			testCmd := &cobra.Command{Use: "server"}
-
-			err := runServer(testCmd, []string{})
+			err := func() error {
+				serverCmd := cli.GetServerCmd()
+				serverCmd.SetArgs([]string{})
+				return serverCmd.Execute()
+			}()
 
 			if tt.expectedError {
 				if err == nil {
@@ -1570,7 +1584,7 @@ func testRunServerConfigPathEdgeCases(t *testing.T) {
 
 func testRunServerPortConflictHandling(t *testing.T) {
 	tempDir := t.TempDir()
-	basePort := AllocateTestPort(t)
+	basePort := cli.AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, basePort)
 
 	tests := []struct {
@@ -1582,7 +1596,7 @@ func testRunServerPortConflictHandling(t *testing.T) {
 		{
 			name:         "NoOverride",
 			configPort:   basePort,
-			flagPort:     DefaultServerPort,
+			flagPort:     cli.DefaultServerPort,
 			expectedPort: basePort,
 		},
 		{
@@ -1606,7 +1620,7 @@ func testRunServerPortConflictHandling(t *testing.T) {
 				t.Fatalf("Failed to load config: %v", err)
 			}
 
-			if tt.flagPort != DefaultServerPort {
+			if tt.flagPort != cli.DefaultServerPort {
 				cfg.Port = tt.flagPort
 			}
 
@@ -1658,7 +1672,7 @@ func testRunServerSignalInterruption(t *testing.T) {
 
 func testRunServerShutdownErrorHandling(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := AllocateTestPort(t)
+	testPort := cli.AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	cfg, err := config.LoadConfig(configFile)
@@ -1844,13 +1858,15 @@ func TestRunServerShutdownCoverage(t *testing.T) {
 	}()
 
 	configPath = "" // Use defaults
-	port = AllocateTestPort(t)
-
-	testCmd := &cobra.Command{Use: CmdServer}
+	port = cli.AllocateTestPort(t)
 
 	serverErr := make(chan error, 1)
 	go func() {
-		err := runServer(testCmd, []string{})
+		err := func() error {
+			serverCmd := cli.GetServerCmd()
+			serverCmd.SetArgs([]string{})
+			return serverCmd.Execute()
+		}()
 		serverErr <- err
 	}()
 
@@ -1867,7 +1883,7 @@ func TestRunServerShutdownCoverage(t *testing.T) {
 
 func TestServerShutdownErrorHandling(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := AllocateTestPort(t)
+	testPort := cli.AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	tests := []struct {
@@ -1962,7 +1978,7 @@ func TestRunServerWithMockedComponents(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configPath = cli.DefaultConfigFile
-			port = DefaultServerPort
+			port = cli.DefaultServerPort
 			tt.testFunc(t)
 		})
 	}
@@ -1970,11 +1986,11 @@ func TestRunServerWithMockedComponents(t *testing.T) {
 
 func testRunServerCompleteLifecycle(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := AllocateTestPort(t)
+	testPort := cli.AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	configPath = configFile
-	port = DefaultServerPort // No override
+	port = cli.DefaultServerPort // No override
 
 	serverResult := make(chan error, 1)
 	serverStarted := make(chan bool, 1)
@@ -1986,9 +2002,11 @@ func testRunServerCompleteLifecycle(t *testing.T) {
 			}
 		}()
 
-		testCmd := &cobra.Command{Use: "server"}
-
-		err := runServer(testCmd, []string{})
+		err := func() error {
+			serverCmd := cli.GetServerCmd()
+			serverCmd.SetArgs([]string{})
+			return serverCmd.Execute()
+		}()
 		serverResult <- err
 	}()
 
@@ -2041,11 +2059,13 @@ func testRunServerWithInvalidConfigPath(t *testing.T) {
 	for _, tt := range invalidPaths {
 		t.Run(tt.name, func(t *testing.T) {
 			configPath = tt.path
-			port = DefaultServerPort
+			port = cli.DefaultServerPort
 
-			testCmd := &cobra.Command{Use: "server"}
-
-			err := runServer(testCmd, []string{})
+			err := func() error {
+				serverCmd := cli.GetServerCmd()
+				serverCmd.SetArgs([]string{})
+				return serverCmd.Execute()
+			}()
 
 			if err == nil {
 				t.Error("Expected error for invalid config path")
@@ -2060,7 +2080,7 @@ func testRunServerWithInvalidConfigPath(t *testing.T) {
 
 func testRunServerPortBindingConflicts(t *testing.T) {
 	tempDir := t.TempDir()
-	basePort := AllocateTestPort(t)
+	basePort := cli.AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, basePort)
 
 	tests := []struct {
@@ -2072,7 +2092,7 @@ func testRunServerPortBindingConflicts(t *testing.T) {
 		{
 			name:           "NoPortOverride",
 			configPort:     basePort,
-			overridePort:   DefaultServerPort,
+			overridePort:   cli.DefaultServerPort,
 			expectOverride: false,
 		},
 		{
@@ -2101,11 +2121,11 @@ func testRunServerPortBindingConflicts(t *testing.T) {
 
 			originalPort := cfg.Port
 
-			if port != DefaultServerPort {
+			if port != cli.DefaultServerPort {
 				cfg.Port = port
 			}
 
-			if tt.expectOverride && port != DefaultServerPort {
+			if tt.expectOverride && port != cli.DefaultServerPort {
 				if cfg.Port != tt.overridePort {
 					t.Errorf("Expected port override to %d, got %d", tt.overridePort, cfg.Port)
 				}
@@ -2134,7 +2154,7 @@ servers:
     command: "/definitely/nonexistent/command/12345"
     args: []
     transport: "stdio"
-`, DefaultServerPort)
+`, cli.DefaultServerPort)
 	failConfigFile := filepath.Join(tempDir, "fail-config.yaml")
 	err := os.WriteFile(failConfigFile, []byte(failConfig), 0644)
 	if err != nil {
@@ -2142,11 +2162,13 @@ servers:
 	}
 
 	configPath = failConfigFile
-	port = DefaultServerPort
+	port = cli.DefaultServerPort
 
-	testCmd := &cobra.Command{Use: "server"}
-
-	err = runServer(testCmd, []string{})
+	err = func() error {
+		serverCmd := cli.GetServerCmd()
+		serverCmd.SetArgs([]string{})
+		return serverCmd.Execute()
+	}()
 	if err == nil {
 		t.Error("Expected error when gateway fails to start")
 	} else {
@@ -2162,7 +2184,7 @@ servers:
 
 func testRunServerHTTPServerConfiguration(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := AllocateTestPort(t)
+	testPort := cli.AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	cfg, err := config.LoadConfig(configFile)
@@ -2251,7 +2273,7 @@ func testRunServerSignalHandlingLogic(t *testing.T) {
 
 func testRunServerShutdownSequence(t *testing.T) {
 	tempDir := t.TempDir()
-	testPort := AllocateTestPort(t)
+	testPort := cli.AllocateTestPort(t)
 	configFile := createValidConfigFileWithPort(t, tempDir, testPort)
 
 	cfg, err := config.LoadConfig(configFile)
@@ -2335,11 +2357,13 @@ servers: []
 			}
 
 			configPath = testConfigPath
-			port = DefaultServerPort
+			port = cli.DefaultServerPort
 
-			testCmd := &cobra.Command{Use: "server"}
-
-			err := runServer(testCmd, []string{})
+			err := func() error {
+				serverCmd := cli.GetServerCmd()
+				serverCmd.SetArgs([]string{})
+				return serverCmd.Execute()
+			}()
 			if err == nil {
 				t.Errorf("Expected error in %s phase", tt.expectedPhase)
 			} else {
@@ -2499,7 +2523,7 @@ func TestRunServerExecutionPaths(t *testing.T) {
 				tempDir := t.TempDir()
 				return createValidConfigFile(t, tempDir)
 			},
-			setupPort:     DefaultServerPort,
+			setupPort:     cli.DefaultServerPort,
 			expectedError: false,
 			testFunc:      testValidConfigExecution,
 		},
@@ -2508,7 +2532,7 @@ func TestRunServerExecutionPaths(t *testing.T) {
 			setupConfig: func(t *testing.T) string {
 				return "/nonexistent/config.yaml"
 			},
-			setupPort:     DefaultServerPort,
+			setupPort:     cli.DefaultServerPort,
 			expectedError: true,
 			errorContains: "failed to load configuration",
 			testFunc:      testConfigNotFoundExecution,
@@ -2519,7 +2543,7 @@ func TestRunServerExecutionPaths(t *testing.T) {
 				tempDir := t.TempDir()
 				return createInvalidConfigFile(t, tempDir)
 			},
-			setupPort:     DefaultServerPort,
+			setupPort:     cli.DefaultServerPort,
 			expectedError: true,
 			errorContains: "invalid configuration",
 			testFunc:      testInvalidConfigExecution,
@@ -2528,7 +2552,7 @@ func TestRunServerExecutionPaths(t *testing.T) {
 			name: "PortOverrideExecution",
 			setupConfig: func(t *testing.T) string {
 				tempDir := t.TempDir()
-				testPort := AllocateTestPort(t)
+				testPort := cli.AllocateTestPort(t)
 				return createValidConfigFileWithPort(t, tempDir, testPort)
 			},
 			setupPort:     0, // Will be set dynamically
@@ -2543,7 +2567,7 @@ func TestRunServerExecutionPaths(t *testing.T) {
 			testPort := tt.setupPort
 
 			if tt.name == "PortOverrideExecution" {
-				testPort = AllocateTestPort(t) + 50 // Different from config
+				testPort = cli.AllocateTestPort(t) + 50 // Different from config
 			}
 
 			configPath = configFile
@@ -2552,8 +2576,11 @@ func TestRunServerExecutionPaths(t *testing.T) {
 			if tt.testFunc != nil {
 				tt.testFunc(t, configFile, testPort)
 			} else {
-				testCmd := &cobra.Command{Use: "server"}
-				err := runServer(testCmd, []string{})
+				err := func() error {
+					serverCmd := cli.GetServerCmd()
+					serverCmd.SetArgs([]string{})
+					return serverCmd.Execute()
+				}()
 
 				if tt.expectedError {
 					if err == nil {
@@ -2572,11 +2599,13 @@ func TestRunServerExecutionPaths(t *testing.T) {
 }
 
 func testValidConfigExecution(t *testing.T, configFile string, testPort int) {
-	testCmd := &cobra.Command{Use: "server"}
-
 	done := make(chan error, 1)
 	go func() {
-		done <- runServer(testCmd, []string{})
+		done <- func() error {
+			serverCmd := cli.GetServerCmd()
+			serverCmd.SetArgs([]string{})
+			return serverCmd.Execute()
+		}()
 	}()
 
 	select {
@@ -2588,8 +2617,11 @@ func testValidConfigExecution(t *testing.T, configFile string, testPort int) {
 }
 
 func testConfigNotFoundExecution(t *testing.T, configFile string, testPort int) {
-	testCmd := &cobra.Command{Use: "server"}
-	err := runServer(testCmd, []string{})
+	err := func() error {
+		serverCmd := cli.GetServerCmd()
+		serverCmd.SetArgs([]string{})
+		return serverCmd.Execute()
+	}()
 
 	if err == nil {
 		t.Error("Expected configuration not found error")
@@ -2601,8 +2633,11 @@ func testConfigNotFoundExecution(t *testing.T, configFile string, testPort int) 
 }
 
 func testInvalidConfigExecution(t *testing.T, configFile string, testPort int) {
-	testCmd := &cobra.Command{Use: "server"}
-	err := runServer(testCmd, []string{})
+	err := func() error {
+		serverCmd := cli.GetServerCmd()
+		serverCmd.SetArgs([]string{})
+		return serverCmd.Execute()
+	}()
 
 	if err == nil {
 		t.Error("Expected configuration validation error")
@@ -2621,13 +2656,13 @@ func testPortOverrideExecution(t *testing.T, configFile string, testPort int) {
 
 	originalPort := cfg.Port
 
-	if testPort != DefaultServerPort {
+	if testPort != cli.DefaultServerPort {
 		cfg.Port = testPort
 	}
 
-	if testPort != DefaultServerPort && cfg.Port != testPort {
+	if testPort != cli.DefaultServerPort && cfg.Port != testPort {
 		t.Errorf("Expected port override to %d, got %d", testPort, cfg.Port)
-	} else if testPort == DefaultServerPort && cfg.Port != originalPort {
+	} else if testPort == cli.DefaultServerPort && cfg.Port != originalPort {
 		t.Errorf("Expected no port override, original %d, got %d", originalPort, cfg.Port)
 	}
 
@@ -2684,7 +2719,7 @@ func testConcurrentServerStartup(t *testing.T) {
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			localConfigPath := configFile
-			localPort := AllocateTestPort(t)
+			localPort := cli.AllocateTestPort(t)
 
 			cfg, err := config.LoadConfig(localConfigPath)
 			if err != nil {
@@ -2692,7 +2727,7 @@ func testConcurrentServerStartup(t *testing.T) {
 				return
 			}
 
-			if localPort != DefaultServerPort {
+			if localPort != cli.DefaultServerPort {
 				cfg.Port = localPort
 			}
 
@@ -2786,7 +2821,7 @@ func testHTTPServerConcurrency(t *testing.T) {
 	ports := make([]int, numServers)
 
 	for i := 0; i < numServers; i++ {
-		port := AllocateTestPort(t)
+		port := cli.AllocateTestPort(t)
 		ports[i] = port
 
 		servers[i] = &http.Server{
@@ -2897,7 +2932,7 @@ func TestRunServerWithContext(t *testing.T) {
 			setupConfig: func(t *testing.T) string {
 				return "/nonexistent/config.yaml"
 			},
-			setupPort:     DefaultServerPort,
+			setupPort:     cli.DefaultServerPort,
 			contextType:   "normal",
 			expectedError: true,
 			errorContains: "failed to load configuration",
@@ -2908,7 +2943,7 @@ func TestRunServerWithContext(t *testing.T) {
 				tempDir := t.TempDir()
 				return createValidConfigFile(t, tempDir)
 			},
-			setupPort:     DefaultServerPort,
+			setupPort:     cli.DefaultServerPort,
 			contextType:   "cancelled",
 			expectedError: false, // Function should handle cancellation gracefully
 		},
@@ -2937,11 +2972,14 @@ func TestRunServerWithContext(t *testing.T) {
 				defer cancel()
 			}
 
-			testCmd := &cobra.Command{Use: "server"}
-
 			done := make(chan error, 1)
 			go func() {
-				done <- runServerWithContext(ctx, testCmd, []string{})
+				done <- func() error {
+					serverCmd := cli.GetServerCmd()
+					serverCmd.SetArgs([]string{})
+					serverCmd.SetContext(ctx)
+					return serverCmd.Execute()
+				}()
 			}()
 
 			select {
@@ -2983,13 +3021,17 @@ func TestRunServerWithContextLogic(t *testing.T) {
 	tempDir := t.TempDir()
 
 	configPath = "/nonexistent/config.yaml"
-	port = DefaultServerPort
+	port = cli.DefaultServerPort
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 
-	testCmd := &cobra.Command{Use: "server"}
-	err := runServerWithContext(ctx, testCmd, []string{})
+	err := func() error {
+		serverCmd := cli.GetServerCmd()
+		serverCmd.SetArgs([]string{})
+		serverCmd.SetContext(ctx)
+		return serverCmd.Execute()
+	}()
 
 	if err == nil {
 		t.Error("Expected error for invalid config path")
@@ -3013,7 +3055,12 @@ servers: []
 	ctx2, cancel2 := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel2()
 
-	err = runServerWithContext(ctx2, testCmd, []string{})
+	err = func() error {
+		serverCmd := cli.GetServerCmd()
+		serverCmd.SetArgs([]string{})
+		serverCmd.SetContext(ctx2)
+		return serverCmd.Execute()
+	}()
 	if err == nil {
 		t.Error("Expected error for invalid config content")
 	} else if !strings.Contains(err.Error(), "invalid configuration") {

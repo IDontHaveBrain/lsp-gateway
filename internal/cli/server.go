@@ -13,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-
 const (
 	DefaultServerPort    = 8080
 	DefaultLSPGatewayURL = "http://localhost:8080"
@@ -26,73 +25,8 @@ var (
 
 var serverCmd = &cobra.Command{
 	Use:   CmdServer,
-	Short: "Start the LSP Gateway HTTP server",
-	Long: `Start the LSP Gateway HTTP server that provides a unified JSON-RPC interface 
-for multiple Language Server Protocol (LSP) servers.
-
-🌐 HTTP GATEWAY OVERVIEW:
-The server command starts an HTTP server that accepts JSON-RPC requests and routes them
-to appropriate language servers based on file extensions and language configuration.
-
-📡 ENDPOINT: http://localhost:8080/jsonrpc (default)
-
-🔧 SERVER FEATURES:
-  • Multi-language LSP server management
-  • Automatic routing based on file types (.go → gopls, .py → pylsp, etc.)
-  • Concurrent request handling with connection pooling
-  • Graceful shutdown with SIGINT/SIGTERM handling
-  • Health monitoring and error reporting
-  • Configurable timeouts and retry logic
-
-💻 USAGE EXAMPLES:
-
-  Basic usage:
-    lsp-gateway server                          # Start with default config (config.yaml)
-    lsp-gateway server --config config.yaml    # Start with specific config file
-    lsp-gateway server --port 8080             # Start on specific port
-    
-  Configuration override:
-    lsp-gateway server --port 9090             # Override config port setting
-    lsp-gateway server --config custom.yaml    # Use custom configuration
-    
-  Development workflow:
-    lsp-gateway setup all                      # First: setup system
-    lsp-gateway config validate                # Second: verify config
-    lsp-gateway server                         # Third: start server
-
-🚨 TROUBLESHOOTING:
-
-  Common issues and solutions:
-  
-  "Configuration file not found"
-    → Run: lsp-gateway config generate
-    → Or: lsp-gateway setup all
-    
-  "Port already in use"
-    → Use: lsp-gateway server --port 8081
-    → Or: Check running processes: lsof -i :8080
-    
-  "Language server not found"
-    → Run: lsp-gateway install servers
-    → Or: lsp-gateway diagnose
-    
-  "Server fails to start"
-    → Check: lsp-gateway config validate
-    → Check: lsp-gateway status runtimes
-
-🔗 RELATED COMMANDS:
-  lsp-gateway config generate    # Generate server configuration
-  lsp-gateway status runtimes    # Check runtime installations  
-  lsp-gateway install servers    # Install missing language servers
-  lsp-gateway diagnose          # Troubleshoot server issues
-  lsp-gateway mcp               # Start MCP server instead
-
-🌍 INTEGRATION:
-Once started, the server accepts JSON-RPC requests at the /jsonrpc endpoint.
-Supported LSP methods: textDocument/definition, textDocument/references,
-textDocument/documentSymbol, workspace/symbol, textDocument/hover
-
-For MCP server functionality, use 'lsp-gateway mcp' instead.`,
+	Short: "Start the LSP Gateway server",
+	Long: `Start the LSP Gateway server with the specified configuration.`,
 	RunE: runServer,
 }
 
@@ -200,6 +134,35 @@ func createHTTPServer(cfg *config.GatewayConfig, gw *gateway.Gateway) *http.Serv
 	// Create a new ServeMux to avoid global state conflicts in tests
 	mux := http.NewServeMux()
 	mux.HandleFunc("/jsonrpc", gw.HandleJSONRPC)
+	
+	// Add health check endpoint
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		// Check if gateway is properly initialized and has active clients
+		if gw == nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = fmt.Fprintf(w, `{"status":"error","message":"gateway not initialized","timestamp":%d}`, time.Now().Unix())
+			return
+		}
+		
+		// Check if at least one LSP client is active
+		hasActiveClient := false
+		if len(gw.Clients) > 0 {
+			for _, client := range gw.Clients {
+				if client.IsActive() {
+					hasActiveClient = true
+					break
+				}
+			}
+		}
+		
+		if hasActiveClient {
+			w.WriteHeader(http.StatusOK)
+			_, _ = fmt.Fprintf(w, `{"status":"ok","active_clients":%d,"timestamp":%d}`, len(gw.Clients), time.Now().Unix())
+		} else {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = fmt.Fprintf(w, `{"status":"starting","message":"no active LSP clients yet","timestamp":%d}`, time.Now().Unix())
+		}
+	})
 
 	return &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.Port),

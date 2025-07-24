@@ -194,7 +194,7 @@ func SetConfigPath(path string) {
 	configFilePath = path
 }
 
-// SetConfigJSON sets the ConfigJSON flag for testing  
+// SetConfigJSON sets the ConfigJSON flag for testing
 func SetConfigJSON(value bool) {
 	ConfigJSON = value
 }
@@ -597,4 +597,3 @@ func ValidateConfigShowParams() error {
 	}
 	return result
 }
-

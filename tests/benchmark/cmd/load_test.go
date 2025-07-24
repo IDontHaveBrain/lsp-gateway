@@ -594,7 +594,7 @@ func executeCLICommand(args []string) bool {
 func executeMainFunction(args []string) bool {
 	// Use subprocess execution to test main function safely
 	binaryPath := "../../../cmd/lsp-gateway/lsp-gateway"
-	
+
 	// Build binary if it doesn't exist
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
 		buildCmd := exec.Command("go", "build", "-o", binaryPath, "../../../cmd/lsp-gateway")
@@ -606,7 +606,7 @@ func executeMainFunction(args []string) bool {
 	// Execute command with subprocess
 	cmd := exec.Command(binaryPath, args...)
 	err := cmd.Run()
-	
+
 	// Consider success if no error or if exit code is 0
 	return err == nil
 }

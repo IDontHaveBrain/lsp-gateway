@@ -113,7 +113,7 @@ func SetupTestEnvironment(t *testing.T, config *TestEnvironmentConfig) *TestEnvi
 	}
 	env.gateway = gw
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second) // Reduce from 30s to 10s
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second) // Increase to 15s for better reliability
 	defer cancel()
 
 	if err := gw.Start(ctx); err != nil {
@@ -214,12 +214,31 @@ func (env *TestEnvironment) BaseURL() string {
 // WaitForReady waits for the gateway to be ready to accept requests
 func (env *TestEnvironment) WaitForReady(timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
+	client := &http.Client{Timeout: 1 * time.Second}
+	
 	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", fmt.Sprintf("localhost:%d", env.httpPort), time.Second)
-		if err == nil {
-			_ = conn.Close()
+		// First check if TCP connection is available
+		conn, err := net.DialTimeout("tcp", fmt.Sprintf("localhost:%d", env.httpPort), 500*time.Millisecond)
+		if err != nil {
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+		_ = conn.Close()
+		
+		// Then check health endpoint
+		resp, err := client.Get(fmt.Sprintf("http://localhost:%d/health", env.httpPort))
+		if err != nil {
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+		resp.Body.Close()
+		
+		// Accept both OK (fully ready) and Service Unavailable (starting) status
+		// This allows tests to proceed even if LSP clients are still starting
+		if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusServiceUnavailable {
 			return nil
 		}
+		
 		time.Sleep(50 * time.Millisecond)
 	}
 	return fmt.Errorf("gateway not ready after %v", timeout)

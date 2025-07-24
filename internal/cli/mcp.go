@@ -17,12 +17,13 @@ import (
 )
 
 var (
-	mcpConfigPath string
-	mcpGatewayURL string
-	mcpPort       int
-	mcpTransport  string
-	mcpTimeout    time.Duration
-	mcpMaxRetries int
+	// MCP command flag variables - exported for testing purposes
+	McpConfigPath string
+	McpGatewayURL string
+	McpPort       int
+	McpTransport  string
+	McpTimeout    time.Duration
+	McpMaxRetries int
 )
 
 var mcpCmd = &cobra.Command{
@@ -38,7 +39,7 @@ and reference finding.
 Features:
 - MCP protocol implementation
 - LSP method mapping to MCP tools
-- Multiple transport support (stdio, http)
+- Multiple transport support (stdio, tcp, http)
 - Graceful shutdown handling
 
 Examples:
@@ -57,12 +58,12 @@ Examples:
 }
 
 func init() {
-	mcpCmd.Flags().StringVarP(&mcpConfigPath, "config", "c", "", "MCP configuration file path (optional)")
-	mcpCmd.Flags().StringVarP(&mcpGatewayURL, FLAG_GATEWAY, "g", DefaultLSPGatewayURL, "LSP Gateway URL")
-	mcpCmd.Flags().IntVarP(&mcpPort, FLAG_PORT, "p", 3000, "MCP server port (for HTTP transport)")
-	mcpCmd.Flags().StringVarP(&mcpTransport, FLAG_DESCRIPTION_TRANSPORT, "t", transport.TransportStdio, "Transport type (stdio, http)")
-	mcpCmd.Flags().DurationVar(&mcpTimeout, FLAG_TIMEOUT, 30*time.Second, "Request timeout duration")
-	mcpCmd.Flags().IntVar(&mcpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
+	mcpCmd.Flags().StringVarP(&McpConfigPath, "config", "c", "", "MCP configuration file path (optional)")
+	mcpCmd.Flags().StringVarP(&McpGatewayURL, FLAG_GATEWAY, "g", DefaultLSPGatewayURL, "LSP Gateway URL")
+	mcpCmd.Flags().IntVarP(&McpPort, FLAG_PORT, "p", 3000, "MCP server port (for HTTP transport)")
+	mcpCmd.Flags().StringVarP(&McpTransport, FLAG_DESCRIPTION_TRANSPORT, "t", transport.TransportStdio, "Transport type (stdio, tcp, http)")
+	mcpCmd.Flags().DurationVar(&McpTimeout, FLAG_TIMEOUT, 30*time.Second, "Request timeout duration")
+	mcpCmd.Flags().IntVar(&McpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
 
 	rootCmd.AddCommand(mcpCmd)
 }
@@ -73,7 +74,7 @@ func GetMcpCmd() *cobra.Command {
 }
 
 func runMCPServer(_ *cobra.Command, args []string) error {
-	log.Printf("[INFO] Starting MCP server with transport=%s, gateway_url=%s\n", mcpTransport, mcpGatewayURL)
+	log.Printf("[INFO] Starting MCP server with transport=%s, gateway_url=%s\n", McpTransport, McpGatewayURL)
 
 	logger := createMCPLogger()
 	server, err := setupMCPServer(logger)
@@ -145,8 +146,9 @@ func shutdownMCPHTTPServerInternal(httpServer *http.Server) error {
 	return nil
 }
 
-func runMCPStdioServer(ctx context.Context, server *mcp.Server) error {
-	log.Printf("[INFO] Starting MCP server with stdio transport, gateway_url=%s\n", mcpGatewayURL)
+// RunMCPStdioServer starts the MCP server with stdio transport - exported for testing
+func RunMCPStdioServer(ctx context.Context, server *mcp.Server) error {
+	log.Printf("[INFO] Starting MCP server with stdio transport, gateway_url=%s\n", McpGatewayURL)
 
 	serverErr := make(chan error, 1)
 	go func() {
@@ -219,16 +221,16 @@ func setupMCPServer(logger *mcp.StructuredLogger) (*mcp.Server, error) {
 		Name:          "lsp-gateway-mcp",
 		Description:   "MCP server providing LSP functionality through LSP Gateway",
 		Version:       "0.1.0",
-		LSPGatewayURL: mcpGatewayURL,
-		Transport:     mcpTransport,
-		Timeout:       mcpTimeout,
-		MaxRetries:    mcpMaxRetries,
+		LSPGatewayURL: McpGatewayURL,
+		Transport:     McpTransport,
+		Timeout:       McpTimeout,
+		MaxRetries:    McpMaxRetries,
 	}
 
 	log.Printf("[DEBUG] MCP server configuration created\n")
 
-	if mcpConfigPath != "" {
-		log.Printf("[INFO] Configuration file specified (currently using command-line flags): %s\n", mcpConfigPath)
+	if McpConfigPath != "" {
+		log.Printf("[INFO] Configuration file specified (currently using command-line flags): %s\n", McpConfigPath)
 	}
 
 	logger.Debug("Validating MCP configuration")
@@ -246,38 +248,38 @@ func setupMCPServer(logger *mcp.StructuredLogger) (*mcp.Server, error) {
 }
 
 func runMCPTransport(ctx context.Context, server *mcp.Server, logger *mcp.StructuredLogger) error {
-	if mcpTransport == transport.TransportHTTP {
-		logger.WithField("port", mcpPort).Info("Using HTTP transport for MCP server")
-		return runMCPHTTPServer(ctx, server, mcpPort, logger)
+	if McpTransport == transport.TransportHTTP {
+		logger.WithField("port", McpPort).Info("Using HTTP transport for MCP server")
+		return runMCPHTTPServer(ctx, server, McpPort, logger)
 	}
 
 	logger.Info("Using stdio transport for MCP server")
-	return runMCPStdioServer(ctx, server)
+	return RunMCPStdioServer(ctx, server)
 }
 
 func validateMCPParams() error {
 	err := ValidateMultiple(
 		func() *ValidationError {
-			return ValidateTransport(mcpTransport, FLAG_DESCRIPTION_TRANSPORT)
+			return ValidateTransport(McpTransport, FLAG_DESCRIPTION_TRANSPORT)
 		},
 		func() *ValidationError {
-			return ValidateURL(mcpGatewayURL, FLAG_GATEWAY)
+			return ValidateURL(McpGatewayURL, FLAG_GATEWAY)
 		},
 		func() *ValidationError {
-			if mcpTransport == transport.TransportHTTP {
-				return ValidatePortAvailability(mcpPort, FLAG_PORT)
+			if McpTransport == transport.TransportHTTP {
+				return ValidatePortAvailability(McpPort, FLAG_PORT)
 			}
-			return ValidatePort(mcpPort, "port")
+			return ValidatePort(McpPort, "port")
 		},
 		func() *ValidationError {
-			return ValidateTimeout(mcpTimeout, FLAG_TIMEOUT)
+			return ValidateTimeout(McpTimeout, FLAG_TIMEOUT)
 		},
 		func() *ValidationError {
-			return ValidateIntRange(mcpMaxRetries, 0, 10, "max-retries")
+			return ValidateIntRange(McpMaxRetries, 0, 10, "max-retries")
 		},
 		func() *ValidationError {
-			if mcpConfigPath != "" {
-				return ValidateFilePath(mcpConfigPath, "config", "read")
+			if McpConfigPath != "" {
+				return ValidateFilePath(McpConfigPath, "config", "read")
 			}
 			return nil
 		},

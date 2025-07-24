@@ -52,23 +52,23 @@ func TestStdioClientCircuitBreakerIntegration(t *testing.T) {
 			}
 
 			// Set max retries for test
-			client.maxRetries = tt.maxRetries
+			client.SetMaxRetriesForTesting(tt.maxRetries)
 
 			// Simulate the error sequence by directly manipulating the circuit breaker state
 			for i, shouldSucceed := range tt.errorSequence {
 				if shouldSucceed {
-					client.resetErrorCount()
+					client.ResetErrorCountForTesting()
 					t.Logf("Step %d: Reset error count (success)", i+1)
 				} else {
-					client.recordError()
-					t.Logf("Step %d: Recorded error (errorCount now: %d)", i+1, client.errorCount)
+					client.RecordErrorForTesting()
+					t.Logf("Step %d: Recorded error (errorCount now: %d)", i+1, client.GetErrorCountForTesting())
 				}
 			}
 
 			// Check final circuit state
-			circuitOpen := client.isCircuitOpen()
+			circuitOpen := client.IsCircuitOpenForTesting()
 			t.Logf("Final state: circuitOpen=%v, errorCount=%d, expectedOpen=%v",
-				circuitOpen, client.errorCount, tt.expectedCircuitOpen)
+				circuitOpen, client.GetErrorCountForTesting(), tt.expectedCircuitOpen)
 
 			if circuitOpen != tt.expectedCircuitOpen {
 				t.Errorf("Expected circuit open=%v, got %v", tt.expectedCircuitOpen, circuitOpen)
@@ -92,15 +92,15 @@ func TestStdioClientCircuitBreakerRecovery(t *testing.T) {
 		t.Fatalf("Failed to create stdio client: %v", err)
 	}
 
-	client.maxRetries = 2
+	client.SetMaxRetriesForTesting(2)
 
 	// Force circuit open
-	client.recordError()
-	client.recordError()
-	client.recordError() // Exceed maxRetries
-	client.openCircuit() // Explicitly open circuit
+	client.RecordErrorForTesting()
+	client.RecordErrorForTesting()
+	client.RecordErrorForTesting() // Exceed maxRetries
+	client.OpenCircuitForTesting() // Explicitly open circuit
 
-	if !client.isCircuitOpen() {
+	if !client.IsCircuitOpenForTesting() {
 		t.Fatal("Expected circuit to be open initially")
 	}
 
@@ -108,10 +108,10 @@ func TestStdioClientCircuitBreakerRecovery(t *testing.T) {
 
 	// The actual implementation uses a 30-second timeout, but for testing we'll manipulate time
 	// by directly modifying lastErrorTime to simulate time passage
-	client.lastErrorTime = time.Now().Add(-35 * time.Second) // Simulate 35 seconds ago
+	client.SetLastErrorTimeForTesting(time.Now().Add(-35 * time.Second)) // Simulate 35 seconds ago
 
 	// Check if circuit recovered
-	if client.isCircuitOpen() {
+	if client.IsCircuitOpenForTesting() {
 		t.Error("Expected circuit to be closed after timeout")
 	}
 
@@ -133,7 +133,7 @@ func TestStdioClientCircuitBreakerThreadSafety(t *testing.T) {
 		t.Fatalf("Failed to create stdio client: %v", err)
 	}
 
-	client.maxRetries = 5
+	client.SetMaxRetriesForTesting(5)
 
 	const numWorkers = 10
 	const operationsPerWorker = 50
@@ -149,14 +149,14 @@ func TestStdioClientCircuitBreakerThreadSafety(t *testing.T) {
 				// Mix of error recording and circuit checks
 				switch j % 4 {
 				case 0:
-					client.recordError()
+					client.RecordErrorForTesting()
 				case 1:
-					client.isCircuitOpen()
+					client.IsCircuitOpenForTesting()
 				case 2:
-					client.resetErrorCount()
+					client.ResetErrorCountForTesting()
 				case 3:
-					if client.errorCount > 3 {
-						client.openCircuit()
+					if client.GetErrorCountForTesting() > 3 {
+						client.OpenCircuitForTesting()
 					}
 				}
 
@@ -169,8 +169,8 @@ func TestStdioClientCircuitBreakerThreadSafety(t *testing.T) {
 	wg.Wait()
 
 	// Verify that the circuit breaker is still in a valid state
-	finalErrorCount := client.errorCount
-	finalCircuitOpen := client.isCircuitOpen()
+	finalErrorCount := client.GetErrorCountForTesting()
+	finalCircuitOpen := client.IsCircuitOpenForTesting()
 
 	t.Logf("Final state after concurrent operations: errorCount=%d, circuitOpen=%v",
 		finalErrorCount, finalCircuitOpen)
@@ -189,36 +189,36 @@ func TestTCPClientCircuitBreakerBehavior(t *testing.T) {
 	// TCPClient has similar circuit breaker implementation to StdioClient
 	config := transport.ClientConfig{
 		Command:   "localhost:0", // Will fail to connect, which is what we want for testing
-		Transport: TransportTCP,
+		Transport: transport.TransportTCP,
 	}
 
-	clientInterface, err := NewTCPClient(config)
+	clientInterface, err := transport.NewTCPClient(config)
 	if err != nil {
 		t.Fatalf("Failed to create TCP client: %v", err)
 	}
 
 	// Cast to concrete type to access circuit breaker methods
-	client := clientInterface.(*TCPClient)
-	client.maxRetries = 3
+	client := clientInterface.(*transport.TCPClient)
+	client.SetMaxRetriesForTesting(3)
 
 	// Test error recording
-	initiallyOpen := client.isCircuitOpen()
+	initiallyOpen := client.IsCircuitOpenForTesting()
 	if initiallyOpen {
 		t.Error("Circuit should start closed")
 	}
 
 	// Record errors to trigger circuit opening
 	for i := 0; i < 5; i++ { // More than maxRetries
-		client.recordError()
+		client.RecordErrorForTesting()
 	}
 
-	if !client.isCircuitOpen() {
+	if !client.IsCircuitOpenForTesting() {
 		t.Error("Circuit should be open after exceeding max retries")
 	}
 
 	// Test reset
-	client.resetErrorCount()
-	if client.isCircuitOpen() {
+	client.ResetCircuitForTesting()
+	if client.IsCircuitOpenForTesting() {
 		t.Error("Circuit should be closed after reset")
 	}
 
@@ -241,9 +241,9 @@ func TestCircuitBreakerBackoffCalculation(t *testing.T) {
 	}
 
 	// Test that backoff increases with attempt number
-	attempt1 := client.calculateBackoff(1)
-	attempt2 := client.calculateBackoff(2)
-	attempt3 := client.calculateBackoff(3)
+	attempt1 := client.CalculateBackoffForTesting(1)
+	attempt2 := client.CalculateBackoffForTesting(2)
+	attempt3 := client.CalculateBackoffForTesting(3)
 
 	t.Logf("Backoff delays: attempt1=%v, attempt2=%v, attempt3=%v",
 		attempt1, attempt2, attempt3)
@@ -314,14 +314,14 @@ func TestCircuitBreakerErrorThreshold(t *testing.T) {
 				t.Fatalf("Failed to create stdio client: %v", err)
 			}
 
-			client.maxRetries = tt.maxRetries
+			client.SetMaxRetriesForTesting(tt.maxRetries)
 
 			// Simulate the specified error count
 			for i := 0; i < tt.errorCount; i++ {
-				client.recordError()
+				client.RecordErrorForTesting()
 			}
 
-			circuitOpen := client.isCircuitOpen()
+			circuitOpen := client.IsCircuitOpenForTesting()
 			t.Logf("maxRetries=%d, errorCount=%d, circuitOpen=%v",
 				tt.maxRetries, tt.errorCount, circuitOpen)
 
@@ -348,21 +348,21 @@ func TestCircuitBreakerExplicitOpen(t *testing.T) {
 	}
 
 	// Initially circuit should be closed
-	if client.isCircuitOpen() {
+	if client.IsCircuitOpenForTesting() {
 		t.Error("Circuit should start closed")
 	}
 
 	// Explicitly open circuit
-	client.openCircuit()
+	client.OpenCircuitForTesting()
 
-	if !client.isCircuitOpen() {
+	if !client.IsCircuitOpenForTesting() {
 		t.Error("Circuit should be open after explicit open call")
 	}
 
 	// Reset should close it
-	client.resetErrorCount()
+	client.ResetErrorCountForTesting()
 
-	if client.isCircuitOpen() {
+	if client.IsCircuitOpenForTesting() {
 		t.Error("Circuit should be closed after reset")
 	}
 

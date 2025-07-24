@@ -2,12 +2,13 @@ package installer_test
 
 import (
 	"lsp-gateway/internal/installer"
+	"lsp-gateway/internal/types"
 	"testing"
 	"time"
 )
 
 func TestServerRegistry(t *testing.T) {
-	registry := NewServerRegistry()
+	registry := installer.NewServerRegistry()
 
 	servers := registry.ListServers()
 	if len(servers) != 4 {
@@ -30,7 +31,7 @@ func TestServerRegistry(t *testing.T) {
 }
 
 func TestServerDefinitions(t *testing.T) {
-	registry := NewServerRegistry()
+	registry := installer.NewServerRegistry()
 
 	gopls, err := registry.GetServer("gopls")
 	if err != nil {
@@ -59,7 +60,7 @@ func TestServerDefinitions(t *testing.T) {
 }
 
 func TestServerRegistryOperations(t *testing.T) {
-	registry := NewServerRegistry()
+	registry := installer.NewServerRegistry()
 
 	goServers := registry.GetServersByRuntime("go")
 	if len(goServers) != 1 {
@@ -83,14 +84,14 @@ func TestServerRegistryOperations(t *testing.T) {
 }
 
 func TestDependencyValidationResult(t *testing.T) {
-	result := &DependencyValidationResult{
+	result := &types.DependencyValidationResult{
 		Server:            "gopls",
 		Valid:             true,
 		RuntimeRequired:   "go",
 		RuntimeInstalled:  true,
 		RuntimeVersion:    "1.21.0",
 		RuntimeCompatible: true,
-		Issues:            []Issue{},
+		Issues:            []types.Issue{},
 		Recommendations:   []string{},
 		ValidatedAt:       time.Now(),
 		Duration:          100 * time.Millisecond,
@@ -110,7 +111,7 @@ func TestDependencyValidationResult(t *testing.T) {
 }
 
 func TestServerInstallOptions(t *testing.T) {
-	options := ServerInstallOptions{
+	options := types.ServerInstallOptions{
 		Version:             "latest",
 		Force:               false,
 		SkipVerify:          false,
@@ -135,7 +136,7 @@ func TestServerInstallOptions(t *testing.T) {
 }
 
 func TestServerInstallMethod(t *testing.T) {
-	method := ServerInstallMethod{
+	method := types.InstallMethod{
 		Platform:      "all",
 		Method:        "go_install",
 		Commands:      []string{"go", "install", "golang.org/x/tools/gopls@latest"},

@@ -13,15 +13,15 @@ func TestPythonDetector_NewPythonDetector(t *testing.T) {
 		t.Fatal("Expected non-nil detector")
 	}
 
-	if detector.executor == nil {
+	if detector.Executor == nil {
 		t.Error("Expected non-nil executor")
 	}
 
-	if detector.versionChecker == nil {
+	if detector.VersionChecker == nil {
 		t.Error("Expected non-nil version checker")
 	}
 
-	if detector.logger == nil {
+	if detector.Logger == nil {
 		t.Error("Expected non-nil logger")
 	}
 }
@@ -121,7 +121,7 @@ func TestPythonDetector_ParseVersionString(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.input, func(t *testing.T) {
-			result, err := detector.parseVersionString(tc.input)
+			result, err := detector.ParseVersionString(tc.input)
 
 			if tc.hasError {
 				if err == nil {
@@ -157,7 +157,7 @@ func TestPythonDetector_ParsePipVersion(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.input, func(t *testing.T) {
-			result, err := detector.parsePipVersion(tc.input)
+			result, err := detector.ParsePipVersion(tc.input)
 
 			if tc.hasError {
 				if err == nil {
@@ -179,7 +179,7 @@ func TestPythonDetector_ParsePipVersion(t *testing.T) {
 func TestPythonDetector_GetPythonCommands(t *testing.T) {
 	detector := setup.NewPythonDetector()
 
-	commands := detector.getPythonCommands()
+	commands := detector.GetPythonCommands()
 
 	if len(commands) == 0 {
 		t.Error("Expected at least one Python command")

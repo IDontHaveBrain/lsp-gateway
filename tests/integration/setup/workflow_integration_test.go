@@ -18,14 +18,14 @@ import (
 // mockSetupLogger implements types.SetupLogger for testing
 type mockSetupLogger struct{}
 
-func (m *mockSetupLogger) Info(msg string)                                        {}
-func (m *mockSetupLogger) Warn(msg string)                                        {}
-func (m *mockSetupLogger) Error(msg string)                                       {}
-func (m *mockSetupLogger) Debug(msg string)                                       {}
-func (m *mockSetupLogger) WithField(key string, value interface{}) types.SetupLogger { return m }
+func (m *mockSetupLogger) Info(msg string)                                            {}
+func (m *mockSetupLogger) Warn(msg string)                                            {}
+func (m *mockSetupLogger) Error(msg string)                                           {}
+func (m *mockSetupLogger) Debug(msg string)                                           {}
+func (m *mockSetupLogger) WithField(key string, value interface{}) types.SetupLogger  { return m }
 func (m *mockSetupLogger) WithFields(fields map[string]interface{}) types.SetupLogger { return m }
-func (m *mockSetupLogger) WithError(err error) types.SetupLogger { return m }
-func (m *mockSetupLogger) WithOperation(op string) types.SetupLogger { return m }
+func (m *mockSetupLogger) WithError(err error) types.SetupLogger                      { return m }
+func (m *mockSetupLogger) WithOperation(op string) types.SetupLogger                  { return m }
 
 // MockRuntimeDetector for testing workflow integration
 type MockRuntimeDetector struct {
@@ -133,7 +133,7 @@ func (m *MockRuntimeDetector) DetectAll(ctx context.Context) (*setup.DetectionRe
 		InstalledRuntimes:  2, // go and nodejs
 		CompatibleRuntimes: 2,
 		IssuesFound:        2, // python and java not found
-		SuccessRate:       50.0,
+		SuccessRate:        50.0,
 	}
 
 	report := &setup.DetectionReport{

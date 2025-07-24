@@ -1,10 +1,10 @@
 package cli_test
 
 import (
-	"lsp-gateway/internal/cli"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"lsp-gateway/internal/cli"
 	"os"
 	"path/filepath"
 	"strings"

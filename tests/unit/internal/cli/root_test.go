@@ -1,8 +1,8 @@
 package cli_test
 
 import (
-	"lsp-gateway/internal/cli"
 	"fmt"
+	"lsp-gateway/internal/cli"
 	"os"
 	"strings"
 	"testing"
@@ -278,7 +278,7 @@ func TestExecuteErrorHandling(t *testing.T) {
 			t.Errorf("Expected error output to contain 'Error:', got: %s", output)
 		}
 
-		t.Logf("Execute() error handling pattern verified: %s", output)
+		t.Logf("cli.Execute() error handling pattern verified: %s", output)
 		t.Logf("Stderr captured: %s", stderrOutput)
 	}
 }
@@ -286,17 +286,17 @@ func TestExecuteErrorHandling(t *testing.T) {
 func TestExecuteSubprocess(t *testing.T) {
 
 	if os.Getenv("TEST_EXECUTE_SUBPROCESS") == "1" {
-		_ = Execute()
+		_ = cli.Execute()
 		return
 	}
 
 	// Skip real subprocess execution to prevent hangs - simulate success
-	t.Log("Simulating Execute() subprocess test to prevent deadlock")
-	// The actual Execute() function is tested via direct calls in other tests
+	t.Log("Simulating cli.Execute() subprocess test to prevent deadlock")
+	// The actual cli.Execute() function is tested via direct calls in other tests
 	// Simulate basic function existence check
 	t.Log("Execute function test simulation")
 
-	t.Log("Execute() function coverage test completed")
+	t.Log("cli.Execute() function coverage test completed")
 }
 
 func TestExecuteWithDifferentArgs(t *testing.T) {
@@ -414,13 +414,13 @@ func TestExecuteErrorFormatting(t *testing.T) {
 func TestExecuteActualFunction(t *testing.T) {
 	if os.Getenv("TEST_EXECUTE_COVERAGE") == "1" {
 		os.Args = []string{"lsp-gateway", "--invalid-test-flag"}
-		_ = Execute() // This calls os.Exit(1) due to invalid flag
+		_ = cli.Execute() // This calls os.Exit(1) due to invalid flag
 		return
 	}
 
 	// Skip real subprocess execution to prevent hangs - simulate error case
-	t.Log("Simulating Execute() error case to prevent deadlock")
-	// The actual Execute() error handling is tested via direct calls in other tests
+	t.Log("Simulating cli.Execute() error case to prevent deadlock")
+	// The actual cli.Execute() error handling is tested via direct calls in other tests
 	// Simulate basic function existence check
 	t.Log("Execute function test simulation")
 	t.Log("Execute function error path simulation completed")
@@ -429,13 +429,13 @@ func TestExecuteActualFunction(t *testing.T) {
 func TestExecuteSuccessPath(t *testing.T) {
 	if os.Getenv("TEST_EXECUTE_SUCCESS") == "1" {
 		os.Args = []string{"lsp-gateway", "--help"}
-		_ = Execute() // Should not call os.Exit for help
+		_ = cli.Execute() // Should not call os.Exit for help
 		return
 	}
 
 	// Skip real subprocess execution to prevent hangs - simulate success case
-	t.Log("Simulating Execute() success case to prevent deadlock")
-	// The actual Execute() success handling is tested via direct calls in other tests
+	t.Log("Simulating cli.Execute() success case to prevent deadlock")
+	// The actual cli.Execute() success handling is tested via direct calls in other tests
 	// Simulate basic function existence check
 	t.Log("Execute function test simulation")
 

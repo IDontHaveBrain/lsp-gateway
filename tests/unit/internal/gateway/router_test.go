@@ -13,12 +13,15 @@ func TestNewRouter(t *testing.T) {
 		t.Fatal("gateway.NewRouter() returned nil")
 	}
 
-	if router.langToServer == nil {
-		t.Fatal("langToServer map is nil")
+	// Test that the router is properly initialized by checking it can handle basic operations
+	languages := router.GetSupportedLanguages()
+	if languages == nil {
+		t.Fatal("GetSupportedLanguages() returned nil")
 	}
 
-	if router.extToLang == nil {
-		t.Fatal("extToLang map is nil")
+	extensions := router.GetSupportedExtensions()
+	if extensions == nil {
+		t.Fatal("GetSupportedExtensions() returned nil")
 	}
 }
 
@@ -151,53 +154,54 @@ func TestRouteRequest(t *testing.T) {
 	}
 }
 
-func TestGetExtensionsForLanguage(t *testing.T) {
+func TestLanguageExtensionMapping(t *testing.T) {
 	t.Parallel()
+	router := gateway.NewRouter()
+
+	// Test that language extensions are properly mapped by registering servers and checking extensions
 	tests := []struct {
-		language string
-		expected []string
+		language           string
+		expectedExtensions []string
 	}{
 		{
-			language: "go",
-			expected: []string{"go", "mod", "sum", "work"},
+			language:           "go",
+			expectedExtensions: []string{"go", "mod", "sum", "work"},
 		},
 		{
-			language: "python",
-			expected: []string{"py", "pyi", "pyx", "pyz", "pyw", "pyc", "pyo", "pyd"},
+			language:           "python",
+			expectedExtensions: []string{"py", "pyi", "pyx", "pyz", "pyw", "pyc", "pyo", "pyd"},
 		},
 		{
-			language: "typescript",
-			expected: []string{"ts", "tsx", "mts", "cts"},
+			language:           "typescript",
+			expectedExtensions: []string{"ts", "tsx", "mts", "cts"},
 		},
 		{
-			language: "javascript",
-			expected: []string{"js", "jsx", "mjs", "cjs", "es", "es6", "es2015", "es2017", "es2018", "es2019", "es2020", "es2021", "es2022"},
+			language:           "javascript",
+			expectedExtensions: []string{"js", "jsx", "mjs", "cjs", "es", "es6", "es2015", "es2017", "es2018", "es2019", "es2020", "es2021", "es2022"},
 		},
 		{
-			language: "java",
-			expected: []string{"java", "class", "jar", "war", "ear", "jsp", "jspx"},
+			language:           "java",
+			expectedExtensions: []string{"java", "class", "jar", "war", "ear", "jsp", "jspx"},
 		},
 		{
-			language: "rust",
-			expected: []string{"rs", "rlib"},
-		},
-		{
-			language: "nonexistent",
-			expected: nil,
+			language:           "rust",
+			expectedExtensions: []string{"rs", "rlib"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.language, func(t *testing.T) {
-			extensions := getExtensionsForLanguage(tt.language)
+			// Register the server for this language
+			router.RegisterServer("test-server-"+tt.language, []string{tt.language})
 
-			if len(extensions) != len(tt.expected) {
-				t.Fatalf("Expected %d extensions for %s, got %d", len(tt.expected), tt.language, len(extensions))
-			}
-
-			for i, ext := range extensions {
-				if i < len(tt.expected) && ext != tt.expected[i] {
-					t.Fatalf("Expected %s, got %s at index %d for %s", tt.expected[i], ext, i, tt.language)
+			// Test a sample of the expected extensions
+			for _, ext := range tt.expectedExtensions {
+				lang, exists := router.GetLanguageByExtension(ext)
+				if !exists {
+					t.Fatalf("Extension %s should be supported for language %s", ext, tt.language)
+				}
+				if lang != tt.language {
+					t.Fatalf("Extension %s should map to language %s, but got %s", ext, tt.language, lang)
 				}
 			}
 		})

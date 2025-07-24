@@ -250,7 +250,7 @@ func TestConnectionPoolingDuringNetworkFailures(t *testing.T) {
 
 		// Create multiple clients to test pooling behavior
 		const numClients = 5
-		clients := make([]LSPClient, numClients)
+		clients := make([]transport.LSPClient, numClients)
 		defer func() {
 			for _, client := range clients {
 				if client != nil {
@@ -298,7 +298,7 @@ func TestConnectionPoolingDuringNetworkFailures(t *testing.T) {
 
 		for clientIdx, client := range clients {
 			wg.Add(1)
-			go func(idx int, c LSPClient) {
+			go func(idx int, c transport.LSPClient) {
 				defer wg.Done()
 
 				for i := 0; i < 10; i++ {

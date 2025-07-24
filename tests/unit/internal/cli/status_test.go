@@ -1,16 +1,15 @@
 package cli_test
 
 import (
-	"lsp-gateway/internal/cli"
 	"encoding/json"
 	"fmt"
 	"io"
+	"lsp-gateway/internal/cli"
+	"lsp-gateway/internal/types"
 	"os"
 	"strings"
 	"testing"
 	"time"
-
-	"lsp-gateway/internal/types"
 
 	"github.com/spf13/cobra"
 )
@@ -48,7 +47,7 @@ func TestStatusCommand(t *testing.T) {
 			// Create fresh command
 			cmd := &cobra.Command{
 				Use:  "status",
-				RunE: statusAll,
+				RunE: cli.StatusAll,
 			}
 			cmd.Flags().Bool("json", false, "JSON output")
 			cmd.Flags().Bool("verbose", false, "Verbose output")
@@ -102,8 +101,8 @@ func TestStatusRuntimesCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set flags
-			statusJSON = tt.jsonFlag
-			statusVerbose = tt.verboseFlag
+			*cli.StatusJSON = tt.jsonFlag
+			*cli.StatusVerbose = tt.verboseFlag
 
 			// Capture output
 			oldStdout := os.Stdout
@@ -111,15 +110,15 @@ func TestStatusRuntimesCommand(t *testing.T) {
 			os.Stdout = w
 
 			cmd := &cobra.Command{Use: "runtimes"}
-			err := statusRuntimes(cmd, []string{})
+			err := cli.StatusRuntimes(cmd, []string{})
 
 			w.Close()
 			output, _ := io.ReadAll(r)
 			os.Stdout = oldStdout
 
 			// Reset flags
-			statusJSON = false
-			statusVerbose = false
+			*cli.StatusJSON = false
+			*cli.StatusVerbose = false
 
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
@@ -187,7 +186,7 @@ func TestStatusRuntimeCommand(t *testing.T) {
 			os.Stdout = w
 
 			cmd := &cobra.Command{Use: "runtime"}
-			err := statusRuntime(cmd, []string{tt.runtime})
+			err := cli.StatusRuntime(cmd, []string{tt.runtime})
 
 			w.Close()
 			output, _ := io.ReadAll(r)
@@ -226,7 +225,7 @@ func TestStatusServersCommand(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set flag
-			statusJSON = tt.jsonFlag
+			*cli.StatusJSON = tt.jsonFlag
 
 			// Capture output
 			oldStdout := os.Stdout
@@ -234,14 +233,14 @@ func TestStatusServersCommand(t *testing.T) {
 			os.Stdout = w
 
 			cmd := &cobra.Command{Use: "servers"}
-			err := statusServers(cmd, []string{})
+			err := cli.StatusServers(cmd, []string{})
 
 			w.Close()
 			output, _ := io.ReadAll(r)
 			os.Stdout = oldStdout
 
 			// Reset flag
-			statusJSON = false
+			*cli.StatusJSON = false
 
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
@@ -304,7 +303,7 @@ func TestStatusServerCommand(t *testing.T) {
 			os.Stdout = w
 
 			cmd := &cobra.Command{Use: "server"}
-			err := statusServer(cmd, []string{tt.server})
+			err := cli.StatusServer(cmd, []string{tt.server})
 
 			w.Close()
 			output, _ := io.ReadAll(r)
@@ -334,42 +333,42 @@ func TestStatusHelperFunctions(t *testing.T) {
 	}{
 		{
 			name:     "getStatusIcon true",
-			function: func() string { return getStatusIcon(true) },
+			function: func() string { return cli.GetStatusIcon(true) },
 			expected: "✓ Installed",
 		},
 		{
 			name:     "getStatusIcon false",
-			function: func() string { return getStatusIcon(false) },
+			function: func() string { return cli.GetStatusIcon(false) },
 			expected: "✗ Not Installed",
 		},
 		{
 			name:     "getCompatibleText true",
-			function: func() string { return getCompatibleText(true) },
+			function: func() string { return cli.GetCompatibleText(true) },
 			expected: "Yes",
 		},
 		{
 			name:     "getCompatibleText false",
-			function: func() string { return getCompatibleText(false) },
+			function: func() string { return cli.GetCompatibleText(false) },
 			expected: "No",
 		},
 		{
 			name:     "getWorkingText true",
-			function: func() string { return getWorkingText(true) },
+			function: func() string { return cli.GetWorkingText(true) },
 			expected: "Yes",
 		},
 		{
 			name:     "getWorkingText false",
-			function: func() string { return getWorkingText(false) },
+			function: func() string { return cli.GetWorkingText(false) },
 			expected: "No",
 		},
 		{
 			name:     "formatRuntimeName go",
-			function: func() string { return formatRuntimeName("go") },
+			function: func() string { return cli.FormatRuntimeName("go") },
 			expected: "Go:",
 		},
 		{
 			name:     "formatRuntimeName python",
-			function: func() string { return formatRuntimeName("python") },
+			function: func() string { return cli.FormatRuntimeName("python") },
 			expected: "Python:",
 		},
 	}
@@ -390,10 +389,7 @@ func TestStatusTableFunctions(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
-	err := outputServersTableHeader()
-	if err != nil {
-		t.Errorf("outputServersTableHeader() error = %v", err)
-	}
+	cli.OutputServersTableHeader()
 
 	w.Close()
 	output, _ := io.ReadAll(r)
@@ -407,7 +403,7 @@ func TestStatusTableFunctions(t *testing.T) {
 
 func TestStatusJSONFunctions(t *testing.T) {
 	// Test JSON initialization and building functions
-	status := initializeStatusData()
+	status := cli.InitializeStatusData()
 	if status["success"] != true {
 		t.Errorf("Expected success=true, got %v", status["success"])
 	}
@@ -418,18 +414,19 @@ func TestStatusJSONFunctions(t *testing.T) {
 }
 
 func TestStatusDataBuilders(t *testing.T) {
-	// Test runtime status data builder
-	verifyResult := &types.VerificationResult{
+	// Test runtime status data builder with successful verification
+	installedCount := 0
+	compatibleCount := 0
+	
+	// Mock successful verification result
+	mockResult := &types.VerificationResult{
 		Installed:  true,
 		Compatible: true,
 		Version:    "1.0.0",
 		Path:       "/usr/bin/test",
 	}
 
-	installedCount := 0
-	compatibleCount := 0
-
-	data := buildRuntimeStatusData(verifyResult, nil, &installedCount, &compatibleCount)
+	data := cli.BuildRuntimeStatusData(mockResult, nil, &installedCount, &compatibleCount)
 
 	if data["installed"] != true {
 		t.Errorf("Expected installed=true, got %v", data["installed"])
@@ -440,6 +437,9 @@ func TestStatusDataBuilders(t *testing.T) {
 	if data["version"] != "1.0.0" {
 		t.Errorf("Expected version=1.0.0, got %v", data["version"])
 	}
+	if data["path"] != "/usr/bin/test" {
+		t.Errorf("Expected path=/usr/bin/test, got %v", data["path"])
+	}
 	if installedCount != 1 {
 		t.Errorf("Expected installedCount=1, got %d", installedCount)
 	}
@@ -448,18 +448,31 @@ func TestStatusDataBuilders(t *testing.T) {
 	}
 
 	// Test with error
-	errorData := buildRuntimeStatusData(nil, fmt.Errorf("test error"), &installedCount, &compatibleCount)
+	installedCount2 := 0
+	compatibleCount2 := 0
+	testErr := fmt.Errorf("test error")
+	
+	errorData := cli.BuildRuntimeStatusData(nil, testErr, &installedCount2, &compatibleCount2)
 	if errorData["installed"] != false {
 		t.Errorf("Expected installed=false for error case, got %v", errorData["installed"])
 	}
+	if errorData["compatible"] != false {
+		t.Errorf("Expected compatible=false for error case, got %v", errorData["compatible"])
+	}
 	if errorData["error"] != "test error" {
 		t.Errorf("Expected error message, got %v", errorData["error"])
+	}
+	if installedCount2 != 0 {
+		t.Errorf("Expected installedCount2=0 for error case, got %d", installedCount2)
+	}
+	if compatibleCount2 != 0 {
+		t.Errorf("Expected compatibleCount2=0 for error case, got %d", compatibleCount2)
 	}
 }
 
 func TestStatusCommandFlags(t *testing.T) {
 	// Test that flags are properly defined
-	cmd := statusCmd
+	cmd := cli.GetStatusCmd()
 
 	jsonFlag := cmd.PersistentFlags().Lookup("json")
 	if jsonFlag == nil {
@@ -482,7 +495,7 @@ func TestStatusSubcommands(t *testing.T) {
 	expectedSubcommands := []string{"runtimes", "runtime", "servers", "server"}
 	actualSubcommands := make([]string, 0)
 
-	for _, cmd := range statusCmd.Commands() {
+	for _, cmd := range cli.GetStatusCmd().Commands() {
 		actualSubcommands = append(actualSubcommands, cmd.Use)
 	}
 
@@ -506,20 +519,21 @@ func TestStatusAll(t *testing.T) {
 	r, w, _ := os.Pipe()
 	os.Stdout = w
 
+	// Create command and call StatusAll
 	cmd := &cobra.Command{Use: "status"}
-	err := statusAll(cmd, []string{})
+	err := cli.StatusAll(cmd, []string{})
 
 	w.Close()
 	output, _ := io.ReadAll(r)
 	os.Stdout = oldStdout
 
 	if err != nil {
-		t.Errorf("statusAll() error = %v", err)
+		t.Errorf("StatusAll() error = %v", err)
 	}
 
 	// Should generate some output
 	if len(output) == 0 {
-		t.Error("Expected output from statusAll(), but got none")
+		t.Error("Expected output from StatusAll(), but got none")
 	}
 }
 
@@ -531,8 +545,9 @@ func BenchmarkStatusAll(b *testing.B) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
+		// Create command and call StatusAll
 		cmd := &cobra.Command{Use: "status"}
-		statusAll(cmd, []string{})
+		_ = cli.StatusAll(cmd, []string{})
 
 		w.Close()
 		_, _ = io.ReadAll(r)
@@ -547,9 +562,10 @@ func BenchmarkStatusRuntimes(b *testing.B) {
 		r, w, _ := os.Pipe()
 		os.Stdout = w
 
-		statusJSON = false
+		*cli.StatusJSON = false
+		// Create command and call StatusRuntimes
 		cmd := &cobra.Command{Use: "runtimes"}
-		statusRuntimes(cmd, []string{})
+		_ = cli.StatusRuntimes(cmd, []string{})
 
 		w.Close()
 		_, _ = io.ReadAll(r)

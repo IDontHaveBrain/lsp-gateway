@@ -1,8 +1,8 @@
 package cli_test
 
 import (
-	"lsp-gateway/internal/cli"
 	"io"
+	"lsp-gateway/internal/cli"
 	"os"
 	"testing"
 
@@ -156,7 +156,7 @@ func TestRunCompletion(t *testing.T) {
 func TestSetupCompletions(t *testing.T) {
 	// Test that ValidArgs were set during command initialization
 	// ValidArgs are now set in the command definitions in their respective files
-	
+
 	expectedRuntimeArgs := []string{"go", "python", "nodejs", "java", "all"}
 	installRuntimeCmd := cli.GetInstallRuntimeCmd()
 	if !stringSlicesEqual(installRuntimeCmd.ValidArgs, expectedRuntimeArgs) {

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	testutil "lsp-gateway/tests/utils/helpers"
+	testutil "lsp-gateway/tests/integration/system/testutil"
 )
 
 // TestBasicIntegration demonstrates basic integration testing

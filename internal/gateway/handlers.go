@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -363,11 +364,11 @@ func getExtensionsForLanguage(language string) []string {
 }
 
 type Gateway struct {
-	config  *config.GatewayConfig
-	clients map[string]transport.LSPClient
-	router  *Router
-	logger  *mcp.StructuredLogger
-	mu      sync.RWMutex
+	Config  *config.GatewayConfig
+	Clients map[string]transport.LSPClient
+	Router  *Router
+	Logger  *mcp.StructuredLogger
+	Mu      sync.RWMutex
 }
 
 func NewGateway(config *config.GatewayConfig) (*Gateway, error) {
@@ -388,10 +389,10 @@ func NewGateway(config *config.GatewayConfig) (*Gateway, error) {
 	logger := mcp.NewStructuredLogger(logConfig)
 
 	gateway := &Gateway{
-		config:  config,
-		clients: make(map[string]transport.LSPClient),
-		router:  NewRouter(),
-		logger:  logger,
+		Config:  config,
+		Clients: make(map[string]transport.LSPClient),
+		Router:  NewRouter(),
+		Logger:  logger,
 	}
 
 	logger.Infof("Initializing %d LSP server clients", len(config.Servers))
@@ -411,23 +412,15 @@ func NewGateway(config *config.GatewayConfig) (*Gateway, error) {
 			return nil, fmt.Errorf("failed to create client for %s: %w", serverConfig.Name, err)
 		}
 
-		// Validate client by attempting to start it briefly
-		serverLogger.Debug("Validating LSP client command")
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		if err := client.Start(ctx); err != nil {
-			cancel()
-			serverLogger.WithError(err).Error("Failed to validate LSP client command")
-			return nil, fmt.Errorf("failed to validate client command for %s: %w", serverConfig.Name, err)
-		}
-		cancel()
-
-		// Stop the client after validation
-		if err := client.Stop(); err != nil {
-			serverLogger.WithError(err).Warn("Failed to stop LSP client after validation")
+		// Validate that the LSP server command exists
+		serverLogger.Debug("Validating LSP server command exists")
+		if _, err := exec.LookPath(serverConfig.Command); err != nil {
+			serverLogger.WithError(err).Error("LSP server command not found")
+			return nil, fmt.Errorf("LSP server command not found for %s: %s", serverConfig.Name, serverConfig.Command)
 		}
 
-		gateway.clients[serverConfig.Name] = client
-		gateway.router.RegisterServer(serverConfig.Name, serverConfig.Languages)
+		gateway.Clients[serverConfig.Name] = client
+		gateway.Router.RegisterServer(serverConfig.Name, serverConfig.Languages)
 
 		serverLogger.WithField("languages", serverConfig.Languages).
 			Info("LSP client registered successfully")
@@ -437,51 +430,87 @@ func NewGateway(config *config.GatewayConfig) (*Gateway, error) {
 }
 
 func (g *Gateway) Start(ctx context.Context) error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.Mu.Lock()
+	defer g.Mu.Unlock()
 
-	if g.logger != nil {
-		g.logger.Infof("Starting gateway with %d LSP server clients", len(g.clients))
+	if g.Logger != nil {
+		g.Logger.Infof("Starting gateway with %d LSP server clients", len(g.Clients))
 	}
 
-	for name, client := range g.clients {
-		var clientLogger *mcp.StructuredLogger
-		if g.logger != nil {
-			clientLogger = g.logger.WithField(LoggerFieldServerName, name)
-			clientLogger.Debug("Starting LSP client")
-		}
-
-		if err := client.Start(ctx); err != nil {
-			if clientLogger != nil {
-				clientLogger.WithError(err).Error("Failed to start LSP client")
+	// Start clients asynchronously to improve startup performance
+	var wg sync.WaitGroup
+	errorCh := make(chan error, len(g.Clients))
+	
+	for name, client := range g.Clients {
+		wg.Add(1)
+		go func(clientName string, lspClient transport.LSPClient) {
+			defer wg.Done()
+			
+			var clientLogger *mcp.StructuredLogger
+			if g.Logger != nil {
+				clientLogger = g.Logger.WithField(LoggerFieldServerName, clientName)
+				clientLogger.Debug("Starting LSP client asynchronously")
 			}
-			return fmt.Errorf("failed to start client %s: %w", name, err)
-		}
 
-		if clientLogger != nil {
-			clientLogger.Info("LSP client started successfully")
+			if err := lspClient.Start(ctx); err != nil {
+				if clientLogger != nil {
+					clientLogger.WithError(err).Error("Failed to start LSP client")
+				}
+				errorCh <- fmt.Errorf("failed to start client %s: %w", clientName, err)
+				return
+			}
+
+			if clientLogger != nil {
+				clientLogger.Info("LSP client started successfully")
+			}
+		}(name, client)
+	}
+
+	// Wait for all clients to start with a timeout
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// All clients started successfully
+		if g.Logger != nil {
+			g.Logger.Info("Gateway started successfully - all LSP clients ready")
+		}
+	case err := <-errorCh:
+		// At least one client failed to start
+		if g.Logger != nil {
+			g.Logger.Warnf("Gateway started with client errors: %v", err)
+		}
+		// Don't return error - gateway can still function with partial clients
+	case <-time.After(2 * time.Second):
+		// Timeout waiting for all clients - proceed anyway
+		if g.Logger != nil {
+			g.Logger.Warn("Gateway startup timeout - proceeding with available clients")
 		}
 	}
 
-	if g.logger != nil {
-		g.logger.Info("Gateway started successfully")
+	if g.Logger != nil {
+		g.Logger.Info("Gateway started successfully")
 	}
 	return nil
 }
 
 func (g *Gateway) Stop() error {
-	g.mu.Lock()
-	defer g.mu.Unlock()
+	g.Mu.Lock()
+	defer g.Mu.Unlock()
 
-	if g.logger != nil {
-		g.logger.Info("Stopping gateway and all LSP clients")
+	if g.Logger != nil {
+		g.Logger.Info("Stopping gateway and all LSP clients")
 	}
 
 	var errors []error
-	for name, client := range g.clients {
+	for name, client := range g.Clients {
 		var clientLogger *mcp.StructuredLogger
-		if g.logger != nil {
-			clientLogger = g.logger.WithField(LoggerFieldServerName, name)
+		if g.Logger != nil {
+			clientLogger = g.Logger.WithField(LoggerFieldServerName, name)
 			clientLogger.Debug("Stopping LSP client")
 		}
 
@@ -497,8 +526,8 @@ func (g *Gateway) Stop() error {
 		}
 	}
 
-	if g.logger != nil {
-		g.logger.Info("Gateway stopped successfully")
+	if g.Logger != nil {
+		g.Logger.Info("Gateway stopped successfully")
 	}
 
 	// If there were any errors, return the first one (maintains backwards compatibility)
@@ -509,10 +538,10 @@ func (g *Gateway) Stop() error {
 }
 
 func (g *Gateway) GetClient(serverName string) (transport.LSPClient, bool) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
+	g.Mu.RLock()
+	defer g.Mu.RUnlock()
 
-	client, exists := g.clients[serverName]
+	client, exists := g.Clients[serverName]
 	return client, exists
 }
 
@@ -558,7 +587,7 @@ func (g *Gateway) routeRequest(req JSONRPCRequest) (string, error) {
 	case LSPMethodInitialize, LSPMethodInitialized, LSPMethodShutdown, LSPMethodExit, LSPMethodWorkspaceSymbol, LSPMethodWorkspaceExecuteCommand:
 		return uri, nil
 	default:
-		return g.router.RouteRequest(uri)
+		return g.Router.RouteRequest(uri)
 	}
 }
 
@@ -581,10 +610,10 @@ func (g *Gateway) isServerManagementMethod(method string) bool {
 }
 
 func (g *Gateway) getAnyAvailableServer() (string, error) {
-	g.mu.RLock()
-	defer g.mu.RUnlock()
+	g.Mu.RLock()
+	defer g.Mu.RUnlock()
 
-	for serverName := range g.clients {
+	for serverName := range g.Clients {
 		return serverName, nil
 	}
 	return "", fmt.Errorf("no servers available")
@@ -648,8 +677,8 @@ func (g *Gateway) extractURIFromDirectParam(paramsMap map[string]interface{}) (s
 func (g *Gateway) initializeRequestLogger(r *http.Request) *mcp.StructuredLogger {
 	requestID := "req_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	var requestLogger *mcp.StructuredLogger
-	if g.logger != nil {
-		requestLogger = g.logger.WithRequestID(requestID)
+	if g.Logger != nil {
+		requestLogger = g.Logger.WithRequestID(requestID)
 		requestLogger.WithFields(map[string]interface{}{
 			"method":      r.Method,
 			"remote_addr": r.RemoteAddr,

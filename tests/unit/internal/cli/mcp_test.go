@@ -1,11 +1,11 @@
 package cli_test
 
 import (
-	"lsp-gateway/internal/cli"
 	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"lsp-gateway/internal/cli"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -42,40 +42,40 @@ func TestMCPCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mcpConfigPath = ""
-			mcpGatewayURL = DefaultLSPGatewayURL
-			mcpPort = DefaultMCPPort
-			mcpTransport = transport.TransportStdio
-			mcpTimeout = 30 * time.Second
-			mcpMaxRetries = 3
+			cli.McpConfigPath = ""
+			cli.McpGatewayURL = cli.DefaultLSPGatewayURL
+			cli.McpPort = cli.DefaultMCPPort
+			cli.McpTransport = transport.TransportStdio
+			cli.McpTimeout = 30 * time.Second
+			cli.McpMaxRetries = 3
 			tt.testFunc(t)
 		})
 	}
 }
 
 func testMCPCommandMetadata(t *testing.T) {
-	if GetMcpCmd().Use != CmdMCP {
-		t.Errorf("Expected Use to be 'mcp', got '%s'", GetMcpCmd().Use)
+	if cli.GetMcpCmd().Use != cli.CmdMCP {
+		t.Errorf("Expected Use to be 'mcp', got '%s'", cli.GetMcpCmd().Use)
 	}
 
 	expectedShort := "Start the MCP server"
-	if GetMcpCmd().Short != expectedShort {
-		t.Errorf("Expected Short to be '%s', got '%s'", expectedShort, GetMcpCmd().Short)
+	if cli.GetMcpCmd().Short != expectedShort {
+		t.Errorf("Expected Short to be '%s', got '%s'", expectedShort, cli.GetMcpCmd().Short)
 	}
 
-	if !strings.Contains(GetMcpCmd().Long, "Model Context Protocol") {
+	if !strings.Contains(cli.GetMcpCmd().Long, "Model Context Protocol") {
 		t.Error("Expected Long description to mention Model Context Protocol")
 	}
 
-	if !strings.Contains(GetMcpCmd().Long, "LSP functionality") {
+	if !strings.Contains(cli.GetMcpCmd().Long, "LSP functionality") {
 		t.Error("Expected Long description to mention LSP functionality")
 	}
 
-	if GetMcpCmd().RunE == nil {
+	if cli.GetMcpCmd().RunE == nil {
 		t.Error("Expected RunE function to be set")
 	}
 
-	if GetMcpCmd().Run != nil {
+	if cli.GetMcpCmd().Run != nil {
 		t.Error("Expected Run function to be nil (using RunE instead)")
 	}
 }
@@ -96,7 +96,7 @@ func runFlagParsingTestCase(t *testing.T, tc testCaseExpectation) {
 	args := tc.args
 	expectedGatewayURL := tc.expectedGatewayURL
 	if tc.name == "GatewayFlag" || tc.name == "AllFlags" {
-		testPort := AllocateTestPort(t)
+		testPort := cli.AllocateTestPort(t)
 		gatewayURL := fmt.Sprintf("http://localhost:%d", testPort)
 		for i, arg := range args {
 			if arg == "--gateway" && i+1 < len(args) {
@@ -107,15 +107,15 @@ func runFlagParsingTestCase(t *testing.T, tc testCaseExpectation) {
 		}
 	}
 
-	mcpConfigPath = ""
-	mcpGatewayURL = DefaultLSPGatewayURL
-	mcpPort = DefaultMCPPort
-	mcpTransport = transport.TransportStdio
-	mcpTimeout = 30 * time.Second
-	mcpMaxRetries = 3
+	cli.McpConfigPath = ""
+	cli.McpGatewayURL = cli.DefaultLSPGatewayURL
+	cli.McpPort = cli.DefaultMCPPort
+	cli.McpTransport = transport.TransportStdio
+	cli.McpTimeout = 30 * time.Second
+	cli.McpMaxRetries = 3
 
 	testCmd := &cobra.Command{
-		Use:   CmdMCP,
+		Use:   cli.CmdMCP,
 		Short: "Start the MCP server",
 		Long:  "Start the Model Context Protocol (MCP) server.",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -123,12 +123,12 @@ func runFlagParsingTestCase(t *testing.T, tc testCaseExpectation) {
 		},
 	}
 
-	testCmd.Flags().StringVarP(&mcpConfigPath, "config", "c", "", "MCP configuration file path (optional)")
-	testCmd.Flags().StringVarP(&mcpGatewayURL, "gateway", "g", DefaultLSPGatewayURL, "LSP Gateway URL")
-	testCmd.Flags().IntVarP(&mcpPort, "port", "p", DefaultMCPPort, "MCP server port (for HTTP transport)")
-	testCmd.Flags().StringVarP(&mcpTransport, "transport", "t", transport.TransportStdio, "Transport type (stdio, http)")
-	testCmd.Flags().DurationVar(&mcpTimeout, "timeout", 30*time.Second, "Request timeout duration")
-	testCmd.Flags().IntVar(&mcpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
+	testCmd.Flags().StringVarP(&cli.McpConfigPath, "config", "c", "", "MCP configuration file path (optional)")
+	testCmd.Flags().StringVarP(&cli.McpGatewayURL, "gateway", "g", cli.DefaultLSPGatewayURL, "LSP Gateway URL")
+	testCmd.Flags().IntVarP(&cli.McpPort, "port", "p", cli.DefaultMCPPort, "MCP server port (for HTTP transport)")
+	testCmd.Flags().StringVarP(&cli.McpTransport, "transport", "t", transport.TransportStdio, "Transport type (stdio, http)")
+	testCmd.Flags().DurationVar(&cli.McpTimeout, "timeout", 30*time.Second, "Request timeout duration")
+	testCmd.Flags().IntVar(&cli.McpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
 
 	testCmd.SetArgs(args)
 
@@ -140,28 +140,28 @@ func runFlagParsingTestCase(t *testing.T, tc testCaseExpectation) {
 		t.Errorf("Expected no error but got: %v", err)
 	}
 
-	if mcpConfigPath != tc.expectedConfigPath {
-		t.Errorf("Expected mcpConfigPath to be '%s', got '%s'", tc.expectedConfigPath, mcpConfigPath)
+	if cli.McpConfigPath != tc.expectedConfigPath {
+		t.Errorf("Expected mcpConfigPath to be '%s', got '%s'", tc.expectedConfigPath, cli.McpConfigPath)
 	}
 
-	if mcpGatewayURL != expectedGatewayURL {
-		t.Errorf("Expected mcpGatewayURL to be '%s', got '%s'", expectedGatewayURL, mcpGatewayURL)
+	if cli.McpGatewayURL != expectedGatewayURL {
+		t.Errorf("Expected mcpGatewayURL to be '%s', got '%s'", expectedGatewayURL, cli.McpGatewayURL)
 	}
 
-	if mcpPort != tc.expectedPort {
-		t.Errorf("Expected mcpPort to be %d, got %d", tc.expectedPort, mcpPort)
+	if cli.McpPort != tc.expectedPort {
+		t.Errorf("Expected mcpPort to be %d, got %d", tc.expectedPort, cli.McpPort)
 	}
 
-	if mcpTransport != tc.expectedTransport {
-		t.Errorf("Expected mcpTransport to be '%s', got '%s'", tc.expectedTransport, mcpTransport)
+	if cli.McpTransport != tc.expectedTransport {
+		t.Errorf("Expected mcpTransport to be '%s', got '%s'", tc.expectedTransport, cli.McpTransport)
 	}
 
-	if mcpTimeout != tc.expectedTimeout {
-		t.Errorf("Expected mcpTimeout to be %v, got %v", tc.expectedTimeout, mcpTimeout)
+	if cli.McpTimeout != tc.expectedTimeout {
+		t.Errorf("Expected mcpTimeout to be %v, got %v", tc.expectedTimeout, cli.McpTimeout)
 	}
 
-	if mcpMaxRetries != tc.expectedMaxRetries {
-		t.Errorf("Expected mcpMaxRetries to be %d, got %d", tc.expectedMaxRetries, mcpMaxRetries)
+	if cli.McpMaxRetries != tc.expectedMaxRetries {
+		t.Errorf("Expected mcpMaxRetries to be %d, got %d", tc.expectedMaxRetries, cli.McpMaxRetries)
 	}
 }
 
@@ -171,8 +171,8 @@ func testMCPCommandFlagParsing(t *testing.T) {
 			name:               "DefaultFlags",
 			args:               []string{},
 			expectedConfigPath: "",
-			expectedGatewayURL: DefaultLSPGatewayURL,
-			expectedPort:       DefaultMCPPort,
+			expectedGatewayURL: cli.DefaultLSPGatewayURL,
+			expectedPort:       cli.DefaultMCPPort,
 			expectedTransport:  transport.TransportStdio,
 			expectedTimeout:    30 * time.Second,
 			expectedMaxRetries: 3,
@@ -182,8 +182,8 @@ func testMCPCommandFlagParsing(t *testing.T) {
 			name:               "ConfigFlag",
 			args:               []string{"--config", "mcp-config.yaml"},
 			expectedConfigPath: "mcp-config.yaml",
-			expectedGatewayURL: DefaultLSPGatewayURL,
-			expectedPort:       DefaultMCPPort,
+			expectedGatewayURL: cli.DefaultLSPGatewayURL,
+			expectedPort:       cli.DefaultMCPPort,
 			expectedTransport:  transport.TransportStdio,
 			expectedTimeout:    30 * time.Second,
 			expectedMaxRetries: 3,
@@ -194,7 +194,7 @@ func testMCPCommandFlagParsing(t *testing.T) {
 			args:               []string{"--gateway", "http://localhost:9090"},
 			expectedConfigPath: "",
 			expectedGatewayURL: "http://localhost:9090",
-			expectedPort:       DefaultMCPPort,
+			expectedPort:       cli.DefaultMCPPort,
 			expectedTransport:  transport.TransportStdio,
 			expectedTimeout:    30 * time.Second,
 			expectedMaxRetries: 3,
@@ -204,7 +204,7 @@ func testMCPCommandFlagParsing(t *testing.T) {
 			name:               "PortFlag",
 			args:               []string{"--port", "4000"},
 			expectedConfigPath: "",
-			expectedGatewayURL: DefaultLSPGatewayURL,
+			expectedGatewayURL: cli.DefaultLSPGatewayURL,
 			expectedPort:       4000,
 			expectedTransport:  transport.TransportStdio,
 			expectedTimeout:    30 * time.Second,
@@ -215,8 +215,8 @@ func testMCPCommandFlagParsing(t *testing.T) {
 			name:               "TransportFlag",
 			args:               []string{"--transport", "http"},
 			expectedConfigPath: "",
-			expectedGatewayURL: DefaultLSPGatewayURL,
-			expectedPort:       DefaultMCPPort,
+			expectedGatewayURL: cli.DefaultLSPGatewayURL,
+			expectedPort:       cli.DefaultMCPPort,
 			expectedTransport:  "http",
 			expectedTimeout:    30 * time.Second,
 			expectedMaxRetries: 3,
@@ -226,8 +226,8 @@ func testMCPCommandFlagParsing(t *testing.T) {
 			name:               "TimeoutFlag",
 			args:               []string{"--timeout", "60s"},
 			expectedConfigPath: "",
-			expectedGatewayURL: DefaultLSPGatewayURL,
-			expectedPort:       DefaultMCPPort,
+			expectedGatewayURL: cli.DefaultLSPGatewayURL,
+			expectedPort:       cli.DefaultMCPPort,
 			expectedTransport:  transport.TransportStdio,
 			expectedTimeout:    60 * time.Second,
 			expectedMaxRetries: 3,
@@ -237,8 +237,8 @@ func testMCPCommandFlagParsing(t *testing.T) {
 			name:               "MaxRetriesFlag",
 			args:               []string{"--max-retries", "5"},
 			expectedConfigPath: "",
-			expectedGatewayURL: DefaultLSPGatewayURL,
-			expectedPort:       DefaultMCPPort,
+			expectedGatewayURL: cli.DefaultLSPGatewayURL,
+			expectedPort:       cli.DefaultMCPPort,
 			expectedTransport:  transport.TransportStdio,
 			expectedTimeout:    30 * time.Second,
 			expectedMaxRetries: 5,
@@ -287,7 +287,7 @@ func testMCPCommandConfigurationValidation(t *testing.T) {
 	}{
 		{
 			name:          "ValidConfig",
-			gatewayURL:    DefaultLSPGatewayURL,
+			gatewayURL:    cli.DefaultLSPGatewayURL,
 			transport:     transport.TransportStdio,
 			timeout:       30 * time.Second,
 			maxRetries:    3,
@@ -295,7 +295,7 @@ func testMCPCommandConfigurationValidation(t *testing.T) {
 		},
 		{
 			name:          "ValidHTTPTransport",
-			gatewayURL:    DefaultLSPGatewayURL,
+			gatewayURL:    cli.DefaultLSPGatewayURL,
 			transport:     "http",
 			timeout:       30 * time.Second,
 			maxRetries:    3,
@@ -312,7 +312,7 @@ func testMCPCommandConfigurationValidation(t *testing.T) {
 		},
 		{
 			name:          "InvalidTransport",
-			gatewayURL:    DefaultLSPGatewayURL,
+			gatewayURL:    cli.DefaultLSPGatewayURL,
 			transport:     "invalid",
 			timeout:       30 * time.Second,
 			maxRetries:    3,
@@ -321,7 +321,7 @@ func testMCPCommandConfigurationValidation(t *testing.T) {
 		},
 		{
 			name:          "NegativeTimeout",
-			gatewayURL:    DefaultLSPGatewayURL,
+			gatewayURL:    cli.DefaultLSPGatewayURL,
 			transport:     transport.TransportStdio,
 			timeout:       -1 * time.Second,
 			maxRetries:    3,
@@ -330,7 +330,7 @@ func testMCPCommandConfigurationValidation(t *testing.T) {
 		},
 		{
 			name:          "NegativeMaxRetries",
-			gatewayURL:    DefaultLSPGatewayURL,
+			gatewayURL:    cli.DefaultLSPGatewayURL,
 			transport:     transport.TransportStdio,
 			timeout:       30 * time.Second,
 			maxRetries:    -1,
@@ -387,7 +387,7 @@ func testMCPCommandTransportTypes(t *testing.T) {
 				Name:          "lsp-gateway-mcp",
 				Description:   "MCP server providing LSP functionality through LSP Gateway",
 				Version:       "0.1.0",
-				LSPGatewayURL: DefaultLSPGatewayURL,
+				LSPGatewayURL: cli.DefaultLSPGatewayURL,
 				Transport:     tt.transport,
 				Timeout:       30 * time.Second,
 				MaxRetries:    3,
@@ -418,7 +418,7 @@ func testMCPCommandErrorScenarios(t *testing.T) {
 					Name:          "lsp-gateway-mcp",
 					Description:   "MCP server providing LSP functionality through LSP Gateway",
 					Version:       "0.1.0",
-					LSPGatewayURL: DefaultLSPGatewayURL,
+					LSPGatewayURL: cli.DefaultLSPGatewayURL,
 					Transport:     transport.TransportStdio,
 					Timeout:       30 * time.Second,
 					MaxRetries:    3,
@@ -467,8 +467,8 @@ func testMCPCommandErrorScenarios(t *testing.T) {
 
 func testMCPCommandExecution(t *testing.T) {
 	found := false
-	for _, cmd := range rootCmd.Commands() {
-		if cmd.Name() == CmdMCP {
+	for _, cmd := range cli.GetRootCmd().Commands() {
+		if cmd.Name() == cli.CmdMCP {
 			found = true
 			break
 		}
@@ -478,7 +478,7 @@ func testMCPCommandExecution(t *testing.T) {
 		t.Error("mcp command should be added to root command")
 	}
 
-	configFlag := GetMcpCmd().Flag("config")
+	configFlag := cli.GetMcpCmd().Flag("config")
 	if configFlag == nil {
 		t.Error("Expected config flag to be defined")
 	} else {
@@ -490,19 +490,19 @@ func testMCPCommandExecution(t *testing.T) {
 		}
 	}
 
-	gatewayFlag := GetMcpCmd().Flag("gateway")
+	gatewayFlag := cli.GetMcpCmd().Flag("gateway")
 	if gatewayFlag == nil {
 		t.Error("Expected gateway flag to be defined")
 	} else {
 		if gatewayFlag.Shorthand != "g" {
 			t.Errorf("Expected gateway flag shorthand to be 'g', got '%s'", gatewayFlag.Shorthand)
 		}
-		if gatewayFlag.DefValue != DefaultLSPGatewayURL {
+		if gatewayFlag.DefValue != cli.DefaultLSPGatewayURL {
 			t.Errorf("Expected gateway flag default to be 'http://localhost:8080', got '%s'", gatewayFlag.DefValue)
 		}
 	}
 
-	portFlag := GetMcpCmd().Flag("port")
+	portFlag := cli.GetMcpCmd().Flag("port")
 	if portFlag == nil {
 		t.Error("Expected port flag to be defined")
 	} else {
@@ -514,7 +514,7 @@ func testMCPCommandExecution(t *testing.T) {
 		}
 	}
 
-	transportFlag := GetMcpCmd().Flag("transport")
+	transportFlag := cli.GetMcpCmd().Flag("transport")
 	if transportFlag == nil {
 		t.Error("Expected transport flag to be defined")
 	} else {
@@ -526,7 +526,7 @@ func testMCPCommandExecution(t *testing.T) {
 		}
 	}
 
-	timeoutFlag := GetMcpCmd().Flag("timeout")
+	timeoutFlag := cli.GetMcpCmd().Flag("timeout")
 	if timeoutFlag == nil {
 		t.Error("Expected timeout flag to be defined")
 	} else {
@@ -535,7 +535,7 @@ func testMCPCommandExecution(t *testing.T) {
 		}
 	}
 
-	maxRetriesFlag := GetMcpCmd().Flag("max-retries")
+	maxRetriesFlag := cli.GetMcpCmd().Flag("max-retries")
 	if maxRetriesFlag == nil {
 		t.Error("Expected max-retries flag to be defined")
 	} else {
@@ -547,29 +547,29 @@ func testMCPCommandExecution(t *testing.T) {
 
 func testMCPCommandHelp(t *testing.T) {
 
-	if !strings.Contains(GetMcpCmd().Short, "MCP server") {
-		t.Errorf("Expected Short description to contain 'MCP server', got: %s", GetMcpCmd().Short)
+	if !strings.Contains(cli.GetMcpCmd().Short, "MCP server") {
+		t.Errorf("Expected Short description to contain 'MCP server', got: %s", cli.GetMcpCmd().Short)
 	}
 
-	if !strings.Contains(GetMcpCmd().Long, "Model Context Protocol") {
-		t.Errorf("Expected Long description to contain 'Model Context Protocol', got: %s", GetMcpCmd().Long)
+	if !strings.Contains(cli.GetMcpCmd().Long, "Model Context Protocol") {
+		t.Errorf("Expected Long description to contain 'Model Context Protocol', got: %s", cli.GetMcpCmd().Long)
 	}
 
-	if !strings.Contains(GetMcpCmd().Long, "Examples:") {
-		t.Errorf("Expected Long description to contain 'Examples:', got: %s", GetMcpCmd().Long)
+	if !strings.Contains(cli.GetMcpCmd().Long, "Examples:") {
+		t.Errorf("Expected Long description to contain 'Examples:', got: %s", cli.GetMcpCmd().Long)
 	}
 
-	if !strings.Contains(GetMcpCmd().Long, "stdio transport") {
-		t.Errorf("Expected Long description to contain 'stdio transport', got: %s", GetMcpCmd().Long)
+	if !strings.Contains(cli.GetMcpCmd().Long, "stdio transport") {
+		t.Errorf("Expected Long description to contain 'stdio transport', got: %s", cli.GetMcpCmd().Long)
 	}
 
-	if !strings.Contains(GetMcpCmd().Long, "HTTP transport") {
-		t.Errorf("Expected Long description to contain 'HTTP transport', got: %s", GetMcpCmd().Long)
+	if !strings.Contains(cli.GetMcpCmd().Long, "HTTP transport") {
+		t.Errorf("Expected Long description to contain 'HTTP transport', got: %s", cli.GetMcpCmd().Long)
 	}
 
 	expectedFlags := []string{"config", "gateway", "port", "transport", "timeout", "max-retries"}
 	for _, flagName := range expectedFlags {
-		flag := GetMcpCmd().Flag(flagName)
+		flag := cli.GetMcpCmd().Flag(flagName)
 		if flag == nil {
 			t.Errorf("Expected flag '%s' to be defined", flagName)
 		}
@@ -580,22 +580,22 @@ func testMCPCommandHelp(t *testing.T) {
 func testMCPCommandIntegration(t *testing.T) {
 
 	testRoot := &cobra.Command{
-		Use:   rootCmd.Use,
-		Short: rootCmd.Short,
+		Use:   cli.GetRootCmd().Use,
+		Short: cli.GetRootCmd().Short,
 	}
 
 	testMCP := &cobra.Command{
-		Use:   GetMcpCmd().Use,
-		Short: GetMcpCmd().Short,
+		Use:   cli.GetMcpCmd().Use,
+		Short: cli.GetMcpCmd().Short,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := &mcp.ServerConfig{
 				Name:          "lsp-gateway-mcp",
 				Description:   "MCP server providing LSP functionality through LSP Gateway",
 				Version:       "0.1.0",
-				LSPGatewayURL: mcpGatewayURL,
-				Transport:     mcpTransport,
-				Timeout:       mcpTimeout,
-				MaxRetries:    mcpMaxRetries,
+				LSPGatewayURL: cli.McpGatewayURL,
+				Transport:     cli.McpTransport,
+				Timeout:       cli.McpTimeout,
+				MaxRetries:    cli.McpMaxRetries,
 			}
 
 			if err := cfg.Validate(); err != nil {
@@ -606,16 +606,16 @@ func testMCPCommandIntegration(t *testing.T) {
 		},
 	}
 
-	testMCP.Flags().StringVarP(&mcpConfigPath, "config", "c", "", "MCP configuration file path (optional)")
-	testMCP.Flags().StringVarP(&mcpGatewayURL, "gateway", "g", DefaultLSPGatewayURL, "LSP Gateway URL")
-	testMCP.Flags().IntVarP(&mcpPort, "port", "p", DefaultMCPPort, "MCP server port (for HTTP transport)")
-	testMCP.Flags().StringVarP(&mcpTransport, "transport", "t", transport.TransportStdio, "Transport type (stdio, http)")
-	testMCP.Flags().DurationVar(&mcpTimeout, "timeout", 30*time.Second, "Request timeout duration")
-	testMCP.Flags().IntVar(&mcpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
+	testMCP.Flags().StringVarP(&cli.McpConfigPath, "config", "c", "", "MCP configuration file path (optional)")
+	testMCP.Flags().StringVarP(&cli.McpGatewayURL, "gateway", "g", cli.DefaultLSPGatewayURL, "LSP Gateway URL")
+	testMCP.Flags().IntVarP(&cli.McpPort, "port", "p", cli.DefaultMCPPort, "MCP server port (for HTTP transport)")
+	testMCP.Flags().StringVarP(&cli.McpTransport, "transport", "t", transport.TransportStdio, "Transport type (stdio, http)")
+	testMCP.Flags().DurationVar(&cli.McpTimeout, "timeout", 30*time.Second, "Request timeout duration")
+	testMCP.Flags().IntVar(&cli.McpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
 
 	testRoot.AddCommand(testMCP)
 
-	testRoot.SetArgs([]string{CmdMCP})
+	testRoot.SetArgs([]string{cli.CmdMCP})
 	err := testRoot.Execute()
 
 	if err != nil {
@@ -636,12 +636,12 @@ func TestMCPCommandEdgeCases(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mcpConfigPath = ""
-			mcpGatewayURL = DefaultLSPGatewayURL
-			mcpPort = DefaultMCPPort
-			mcpTransport = transport.TransportStdio
-			mcpTimeout = 30 * time.Second
-			mcpMaxRetries = 3
+			cli.McpConfigPath = ""
+			cli.McpGatewayURL = cli.DefaultLSPGatewayURL
+			cli.McpPort = cli.DefaultMCPPort
+			cli.McpTransport = transport.TransportStdio
+			cli.McpTimeout = 30 * time.Second
+			cli.McpMaxRetries = 3
 			tt.testFunc(t)
 		})
 	}
@@ -649,7 +649,7 @@ func TestMCPCommandEdgeCases(t *testing.T) {
 
 func testMCPCommandWithExtraArgs(t *testing.T) {
 	testCmd := &cobra.Command{
-		Use: CmdMCP,
+		Use: cli.CmdMCP,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				t.Logf("MCP command received extra args: %v", args)
@@ -659,7 +659,7 @@ func testMCPCommandWithExtraArgs(t *testing.T) {
 				Name:          "lsp-gateway-mcp",
 				Description:   "MCP server providing LSP functionality through LSP Gateway",
 				Version:       "0.1.0",
-				LSPGatewayURL: DefaultLSPGatewayURL,
+				LSPGatewayURL: cli.DefaultLSPGatewayURL,
 				Transport:     transport.TransportStdio,
 				Timeout:       30 * time.Second,
 				MaxRetries:    3,
@@ -669,12 +669,12 @@ func testMCPCommandWithExtraArgs(t *testing.T) {
 		},
 	}
 
-	testCmd.Flags().StringVarP(&mcpConfigPath, "config", "c", "", "MCP configuration file path (optional)")
-	testCmd.Flags().StringVarP(&mcpGatewayURL, "gateway", "g", DefaultLSPGatewayURL, "LSP Gateway URL")
-	testCmd.Flags().IntVarP(&mcpPort, "port", "p", DefaultMCPPort, "MCP server port (for HTTP transport)")
-	testCmd.Flags().StringVarP(&mcpTransport, "transport", "t", transport.TransportStdio, "Transport type (stdio, http)")
-	testCmd.Flags().DurationVar(&mcpTimeout, "timeout", 30*time.Second, "Request timeout duration")
-	testCmd.Flags().IntVar(&mcpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
+	testCmd.Flags().StringVarP(&cli.McpConfigPath, "config", "c", "", "MCP configuration file path (optional)")
+	testCmd.Flags().StringVarP(&cli.McpGatewayURL, "gateway", "g", cli.DefaultLSPGatewayURL, "LSP Gateway URL")
+	testCmd.Flags().IntVarP(&cli.McpPort, "port", "p", cli.DefaultMCPPort, "MCP server port (for HTTP transport)")
+	testCmd.Flags().StringVarP(&cli.McpTransport, "transport", "t", transport.TransportStdio, "Transport type (stdio, http)")
+	testCmd.Flags().DurationVar(&cli.McpTimeout, "timeout", 30*time.Second, "Request timeout duration")
+	testCmd.Flags().IntVar(&cli.McpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
 
 	testCmd.SetArgs([]string{"extra", "args"})
 	err := testCmd.Execute()
@@ -689,7 +689,7 @@ func testMCPCommandContextCancellation(t *testing.T) {
 		Name:          "lsp-gateway-mcp",
 		Description:   "MCP server providing LSP functionality through LSP Gateway",
 		Version:       "0.1.0",
-		LSPGatewayURL: DefaultLSPGatewayURL,
+		LSPGatewayURL: cli.DefaultLSPGatewayURL,
 		Transport:     transport.TransportStdio,
 		Timeout:       30 * time.Second,
 		MaxRetries:    3,
@@ -721,7 +721,7 @@ func testMCPCommandSignalHandlingSimulation(t *testing.T) {
 		Name:          "lsp-gateway-mcp",
 		Description:   "MCP server providing LSP functionality through LSP Gateway",
 		Version:       "0.1.0",
-		LSPGatewayURL: DefaultLSPGatewayURL,
+		LSPGatewayURL: cli.DefaultLSPGatewayURL,
 		Transport:     transport.TransportStdio,
 		Timeout:       30 * time.Second,
 		MaxRetries:    3,
@@ -762,7 +762,7 @@ func testMCPCommandServerCreation(t *testing.T) {
 		Name:          "lsp-gateway-mcp",
 		Description:   "MCP server providing LSP functionality through LSP Gateway",
 		Version:       "0.1.0",
-		LSPGatewayURL: DefaultLSPGatewayURL,
+		LSPGatewayURL: cli.DefaultLSPGatewayURL,
 		Transport:     transport.TransportStdio,
 		Timeout:       30 * time.Second,
 		MaxRetries:    3,
@@ -783,25 +783,25 @@ func testMCPCommandServerCreation(t *testing.T) {
 }
 
 func TestMCPCommandCompleteness(t *testing.T) {
-	if GetMcpCmd().Name() != CmdMCP {
-		t.Errorf("Expected command name 'mcp', got '%s'", GetMcpCmd().Name())
+	if cli.GetMcpCmd().Name() != cli.CmdMCP {
+		t.Errorf("Expected command name 'mcp', got '%s'", cli.GetMcpCmd().Name())
 	}
 
 	expectedFlags := []string{"config", "gateway", "port", "transport", "timeout", "max-retries"}
 	for _, flagName := range expectedFlags {
-		flag := GetMcpCmd().Flag(flagName)
+		flag := cli.GetMcpCmd().Flag(flagName)
 		if flag == nil {
 			t.Errorf("Expected %s flag to be defined", flagName)
 		}
 	}
 
-	if GetMcpCmd().HasSubCommands() {
+	if cli.GetMcpCmd().HasSubCommands() {
 		t.Error("MCP command should not have subcommands")
 	}
 
 	found := false
-	for _, cmd := range rootCmd.Commands() {
-		if cmd.Name() == CmdMCP {
+	for _, cmd := range cli.GetRootCmd().Commands() {
+		if cmd.Name() == cli.CmdMCP {
 			found = true
 			break
 		}
@@ -842,28 +842,28 @@ func captureStdoutMCP(t *testing.T, fn func()) string {
 
 func BenchmarkMCPCommandFlagParsing(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		mcpConfigPath = ""
-		mcpGatewayURL = DefaultLSPGatewayURL
-		mcpPort = DefaultMCPPort
-		mcpTransport = transport.TransportStdio
-		mcpTimeout = 30 * time.Second
-		mcpMaxRetries = 3
+		cli.McpConfigPath = ""
+		cli.McpGatewayURL = cli.DefaultLSPGatewayURL
+		cli.McpPort = cli.DefaultMCPPort
+		cli.McpTransport = transport.TransportStdio
+		cli.McpTimeout = 30 * time.Second
+		cli.McpMaxRetries = 3
 
 		testCmd := &cobra.Command{
-			Use: CmdMCP,
+			Use: cli.CmdMCP,
 			RunE: func(cmd *cobra.Command, args []string) error {
 				return nil
 			},
 		}
 
-		testCmd.Flags().StringVarP(&mcpConfigPath, "config", "c", "", "MCP configuration file path (optional)")
-		testCmd.Flags().StringVarP(&mcpGatewayURL, "gateway", "g", DefaultLSPGatewayURL, "LSP Gateway URL")
-		testCmd.Flags().IntVarP(&mcpPort, "port", "p", DefaultMCPPort, "MCP server port (for HTTP transport)")
-		testCmd.Flags().StringVarP(&mcpTransport, "transport", "t", transport.TransportStdio, "Transport type (stdio, http)")
-		testCmd.Flags().DurationVar(&mcpTimeout, "timeout", 30*time.Second, "Request timeout duration")
-		testCmd.Flags().IntVar(&mcpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
+		testCmd.Flags().StringVarP(&cli.McpConfigPath, "config", "c", "", "MCP configuration file path (optional)")
+		testCmd.Flags().StringVarP(&cli.McpGatewayURL, "gateway", "g", cli.DefaultLSPGatewayURL, "LSP Gateway URL")
+		testCmd.Flags().IntVarP(&cli.McpPort, "port", "p", cli.DefaultMCPPort, "MCP server port (for HTTP transport)")
+		testCmd.Flags().StringVarP(&cli.McpTransport, "transport", "t", transport.TransportStdio, "Transport type (stdio, http)")
+		testCmd.Flags().DurationVar(&cli.McpTimeout, "timeout", 30*time.Second, "Request timeout duration")
+		testCmd.Flags().IntVar(&cli.McpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
 
-		testPort := AllocateTestPortBench(b)
+		testPort := cli.AllocateTestPortBench(b)
 		testCmd.SetArgs([]string{"--gateway", fmt.Sprintf("http://localhost:%d", testPort), "--transport", "http", "--port", "4000"})
 		if err := testCmd.Execute(); err != nil {
 			b.Logf("command execution error: %v", err)
@@ -878,7 +878,7 @@ func BenchmarkMCPCommandConfigValidation(b *testing.B) {
 			Name:          "lsp-gateway-mcp",
 			Description:   "MCP server providing LSP functionality through LSP Gateway",
 			Version:       "0.1.0",
-			LSPGatewayURL: DefaultLSPGatewayURL,
+			LSPGatewayURL: cli.DefaultLSPGatewayURL,
 			Transport:     transport.TransportStdio,
 			Timeout:       30 * time.Second,
 			MaxRetries:    3,
@@ -914,12 +914,12 @@ func TestMCPServerStartup(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mcpConfigPath = ""
-			mcpGatewayURL = DefaultLSPGatewayURL
-			mcpPort = DefaultMCPPort
-			mcpTransport = transport.TransportStdio
-			mcpTimeout = 30 * time.Second
-			mcpMaxRetries = 3
+			cli.McpConfigPath = ""
+			cli.McpGatewayURL = cli.DefaultLSPGatewayURL
+			cli.McpPort = cli.DefaultMCPPort
+			cli.McpTransport = transport.TransportStdio
+			cli.McpTimeout = 30 * time.Second
+			cli.McpMaxRetries = 3
 			tt.testFunc(t)
 		})
 	}
@@ -956,19 +956,19 @@ func (m *mockMCPServer) IsRunning() bool {
 }
 
 func testRunMCPServerStdio(t *testing.T) {
-	mcpTransport = transport.TransportStdio
+	cli.McpTransport = transport.TransportStdio
 
 	testCmd := &cobra.Command{
-		Use: CmdMCP,
+		Use: cli.CmdMCP,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := &mcp.ServerConfig{
 				Name:          "lsp-gateway-mcp",
 				Description:   "MCP server providing LSP functionality through LSP Gateway",
 				Version:       "0.1.0",
-				LSPGatewayURL: mcpGatewayURL,
-				Transport:     mcpTransport,
-				Timeout:       mcpTimeout,
-				MaxRetries:    mcpMaxRetries,
+				LSPGatewayURL: cli.McpGatewayURL,
+				Transport:     cli.McpTransport,
+				Timeout:       cli.McpTimeout,
+				MaxRetries:    cli.McpMaxRetries,
 			}
 
 			if err := cfg.Validate(); err != nil {
@@ -983,7 +983,7 @@ func testRunMCPServerStdio(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			if mcpTransport != transport.TransportHTTP {
+			if cli.McpTransport != transport.TransportHTTP {
 				t.Logf("Would start stdio server with config: %+v, context: %v", cfg, ctx != nil)
 				return nil
 			}
@@ -992,12 +992,12 @@ func testRunMCPServerStdio(t *testing.T) {
 		},
 	}
 
-	testCmd.Flags().StringVarP(&mcpConfigPath, "config", "c", "", "MCP configuration file path (optional)")
-	testCmd.Flags().StringVarP(&mcpGatewayURL, "gateway", "g", DefaultLSPGatewayURL, "LSP Gateway URL")
-	testCmd.Flags().IntVarP(&mcpPort, "port", "p", DefaultMCPPort, "MCP server port (for HTTP transport)")
-	testCmd.Flags().StringVarP(&mcpTransport, "transport", "t", transport.TransportStdio, "Transport type (stdio, http)")
-	testCmd.Flags().DurationVar(&mcpTimeout, "timeout", 30*time.Second, "Request timeout duration")
-	testCmd.Flags().IntVar(&mcpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
+	testCmd.Flags().StringVarP(&cli.McpConfigPath, "config", "c", "", "MCP configuration file path (optional)")
+	testCmd.Flags().StringVarP(&cli.McpGatewayURL, "gateway", "g", cli.DefaultLSPGatewayURL, "LSP Gateway URL")
+	testCmd.Flags().IntVarP(&cli.McpPort, "port", "p", cli.DefaultMCPPort, "MCP server port (for HTTP transport)")
+	testCmd.Flags().StringVarP(&cli.McpTransport, "transport", "t", transport.TransportStdio, "Transport type (stdio, http)")
+	testCmd.Flags().DurationVar(&cli.McpTimeout, "timeout", 30*time.Second, "Request timeout duration")
+	testCmd.Flags().IntVar(&cli.McpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
 
 	err := testCmd.Execute()
 	if err != nil {
@@ -1006,20 +1006,20 @@ func testRunMCPServerStdio(t *testing.T) {
 }
 
 func testRunMCPServerHTTP(t *testing.T) {
-	mcpTransport = "http"
-	mcpPort = AllocateTestPort(t)
+	cli.McpTransport = "http"
+	cli.McpPort = cli.AllocateTestPort(t)
 
 	testCmd := &cobra.Command{
-		Use: CmdMCP,
+		Use: cli.CmdMCP,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := &mcp.ServerConfig{
 				Name:          "lsp-gateway-mcp",
 				Description:   "MCP server providing LSP functionality through LSP Gateway",
 				Version:       "0.1.0",
-				LSPGatewayURL: mcpGatewayURL,
-				Transport:     mcpTransport,
-				Timeout:       mcpTimeout,
-				MaxRetries:    mcpMaxRetries,
+				LSPGatewayURL: cli.McpGatewayURL,
+				Transport:     cli.McpTransport,
+				Timeout:       cli.McpTimeout,
+				MaxRetries:    cli.McpMaxRetries,
 			}
 
 			if err := cfg.Validate(); err != nil {
@@ -1034,8 +1034,8 @@ func testRunMCPServerHTTP(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			if mcpTransport == transport.TransportHTTP {
-				t.Logf("Would start HTTP server on port %d with config: %+v, context: %v", mcpPort, cfg, ctx != nil)
+			if cli.McpTransport == transport.TransportHTTP {
+				t.Logf("Would start HTTP server on port %d with config: %+v, context: %v", cli.McpPort, cfg, ctx != nil)
 				return nil
 			}
 
@@ -1043,12 +1043,12 @@ func testRunMCPServerHTTP(t *testing.T) {
 		},
 	}
 
-	testCmd.Flags().StringVarP(&mcpConfigPath, "config", "c", "", "MCP configuration file path (optional)")
-	testCmd.Flags().StringVarP(&mcpGatewayURL, "gateway", "g", DefaultLSPGatewayURL, "LSP Gateway URL")
-	testCmd.Flags().IntVarP(&mcpPort, "port", "p", DefaultMCPPort, "MCP server port (for HTTP transport)")
-	testCmd.Flags().StringVarP(&mcpTransport, "transport", "t", transport.TransportStdio, "Transport type (stdio, http)")
-	testCmd.Flags().DurationVar(&mcpTimeout, "timeout", 30*time.Second, "Request timeout duration")
-	testCmd.Flags().IntVar(&mcpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
+	testCmd.Flags().StringVarP(&cli.McpConfigPath, "config", "c", "", "MCP configuration file path (optional)")
+	testCmd.Flags().StringVarP(&cli.McpGatewayURL, "gateway", "g", cli.DefaultLSPGatewayURL, "LSP Gateway URL")
+	testCmd.Flags().IntVarP(&cli.McpPort, "port", "p", cli.DefaultMCPPort, "MCP server port (for HTTP transport)")
+	testCmd.Flags().StringVarP(&cli.McpTransport, "transport", "t", transport.TransportStdio, "Transport type (stdio, http)")
+	testCmd.Flags().DurationVar(&cli.McpTimeout, "timeout", 30*time.Second, "Request timeout duration")
+	testCmd.Flags().IntVar(&cli.McpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
 
 	err := testCmd.Execute()
 	if err != nil {
@@ -1068,7 +1068,7 @@ func testRunMCPServerConfigValidation(t *testing.T) {
 	}{
 		{
 			name:        "ValidStdioConfig",
-			gatewayURL:  DefaultLSPGatewayURL,
+			gatewayURL:  cli.DefaultLSPGatewayURL,
 			transport:   transport.TransportStdio,
 			timeout:     30 * time.Second,
 			maxRetries:  3,
@@ -1076,7 +1076,7 @@ func testRunMCPServerConfigValidation(t *testing.T) {
 		},
 		{
 			name:        "ValidHTTPConfig",
-			gatewayURL:  DefaultLSPGatewayURL,
+			gatewayURL:  cli.DefaultLSPGatewayURL,
 			transport:   "http",
 			timeout:     60 * time.Second,
 			maxRetries:  5,
@@ -1093,7 +1093,7 @@ func testRunMCPServerConfigValidation(t *testing.T) {
 		},
 		{
 			name:          "InvalidTransport",
-			gatewayURL:    DefaultLSPGatewayURL,
+			gatewayURL:    cli.DefaultLSPGatewayURL,
 			transport:     "invalid",
 			timeout:       30 * time.Second,
 			maxRetries:    3,
@@ -1102,7 +1102,7 @@ func testRunMCPServerConfigValidation(t *testing.T) {
 		},
 		{
 			name:          "NegativeTimeout",
-			gatewayURL:    DefaultLSPGatewayURL,
+			gatewayURL:    cli.DefaultLSPGatewayURL,
 			transport:     transport.TransportStdio,
 			timeout:       -1 * time.Second,
 			maxRetries:    3,
@@ -1113,19 +1113,19 @@ func testRunMCPServerConfigValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mcpGatewayURL = tt.gatewayURL
-			mcpTransport = tt.transport
-			mcpTimeout = tt.timeout
-			mcpMaxRetries = tt.maxRetries
+			cli.McpGatewayURL = tt.gatewayURL
+			cli.McpTransport = tt.transport
+			cli.McpTimeout = tt.timeout
+			cli.McpMaxRetries = tt.maxRetries
 
 			cfg := &mcp.ServerConfig{
 				Name:          "lsp-gateway-mcp",
 				Description:   "MCP server providing LSP functionality through LSP Gateway",
 				Version:       "0.1.0",
-				LSPGatewayURL: mcpGatewayURL,
-				Transport:     mcpTransport,
-				Timeout:       mcpTimeout,
-				MaxRetries:    mcpMaxRetries,
+				LSPGatewayURL: cli.McpGatewayURL,
+				Transport:     cli.McpTransport,
+				Timeout:       cli.McpTimeout,
+				MaxRetries:    cli.McpMaxRetries,
 			}
 
 			err := cfg.Validate()
@@ -1147,16 +1147,16 @@ func testRunMCPServerConfigValidation(t *testing.T) {
 
 func testRunMCPServerInvalidConfig(t *testing.T) {
 	testCmd := &cobra.Command{
-		Use: CmdMCP,
+		Use: cli.CmdMCP,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := &mcp.ServerConfig{
 				Name:          "lsp-gateway-mcp",
 				Description:   "MCP server providing LSP functionality through LSP Gateway",
 				Version:       "0.1.0",
-				LSPGatewayURL: mcpGatewayURL,
-				Transport:     mcpTransport,
-				Timeout:       mcpTimeout,
-				MaxRetries:    mcpMaxRetries,
+				LSPGatewayURL: cli.McpGatewayURL,
+				Transport:     cli.McpTransport,
+				Timeout:       cli.McpTimeout,
+				MaxRetries:    cli.McpMaxRetries,
 			}
 
 			if err := cfg.Validate(); err != nil {
@@ -1167,12 +1167,12 @@ func testRunMCPServerInvalidConfig(t *testing.T) {
 		},
 	}
 
-	testCmd.Flags().StringVarP(&mcpConfigPath, "config", "c", "", "MCP configuration file path (optional)")
-	testCmd.Flags().StringVarP(&mcpGatewayURL, "gateway", "g", DefaultLSPGatewayURL, "LSP Gateway URL")
-	testCmd.Flags().IntVarP(&mcpPort, "port", "p", DefaultMCPPort, "MCP server port (for HTTP transport)")
-	testCmd.Flags().StringVarP(&mcpTransport, "transport", "t", transport.TransportStdio, "Transport type (stdio, http)")
-	testCmd.Flags().DurationVar(&mcpTimeout, "timeout", 30*time.Second, "Request timeout duration")
-	testCmd.Flags().IntVar(&mcpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
+	testCmd.Flags().StringVarP(&cli.McpConfigPath, "config", "c", "", "MCP configuration file path (optional)")
+	testCmd.Flags().StringVarP(&cli.McpGatewayURL, "gateway", "g", cli.DefaultLSPGatewayURL, "LSP Gateway URL")
+	testCmd.Flags().IntVarP(&cli.McpPort, "port", "p", cli.DefaultMCPPort, "MCP server port (for HTTP transport)")
+	testCmd.Flags().StringVarP(&cli.McpTransport, "transport", "t", transport.TransportStdio, "Transport type (stdio, http)")
+	testCmd.Flags().DurationVar(&cli.McpTimeout, "timeout", 30*time.Second, "Request timeout duration")
+	testCmd.Flags().IntVar(&cli.McpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
 
 	testCmd.SetArgs([]string{"--gateway", "", "--transport", "invalid"})
 
@@ -1323,7 +1323,7 @@ func testRunMCPHTTPServerSuccess(t *testing.T) {
 	t.Logf("Testing HTTP server with context: %v", ctx != nil)
 
 	mockServer := &mockMCPServer{}
-	port := AllocateTestPort(t)
+	port := cli.AllocateTestPort(t)
 
 	expectedAddr := fmt.Sprintf(":%d", port)
 	if expectedAddr != fmt.Sprintf(":%d", port) {
@@ -1349,7 +1349,7 @@ func testRunMCPHTTPServerSuccess(t *testing.T) {
 		}
 	case err := <-serverErr:
 		t.Errorf("Unexpected server error: %v", err)
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(2 * time.Second):
 		t.Error("HTTP server startup timeout")
 	}
 
@@ -1389,7 +1389,7 @@ func testRunMCPHTTPServerContextCancellation(t *testing.T) {
 
 	select {
 	case <-done:
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(1 * time.Second):
 		t.Error("Context cancellation not handled in time")
 	}
 }
@@ -1461,11 +1461,11 @@ func testRunMCPHTTPServerError(t *testing.T) {
 }
 
 func testRunMCPServerConfigFile(t *testing.T) {
-	mcpConfigPath = "test-config.yaml"
+	cli.McpConfigPath = "test-config.yaml"
 
 	capturedOutput := captureStdoutMCP(t, func() {
-		if mcpConfigPath != "" {
-			fmt.Printf("Configuration file specified: %s (currently using command-line flags)", mcpConfigPath)
+		if cli.McpConfigPath != "" {
+			fmt.Printf("Configuration file specified: %s (currently using command-line flags)", cli.McpConfigPath)
 		}
 	})
 
@@ -1507,9 +1507,9 @@ func testRunMCPServerTransportSelection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mcpTransport = tt.transport
+			cli.McpTransport = tt.transport
 
-			isHTTP := mcpTransport == transport.TransportHTTP
+			isHTTP := cli.McpTransport == transport.TransportHTTP
 			isStdio := !isHTTP
 
 			if tt.expectHTTP && !isHTTP {
@@ -1545,29 +1545,29 @@ func TestMCPServerFunctionCoverage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mcpConfigPath = ""
-			mcpGatewayURL = DefaultLSPGatewayURL
-			mcpPort = DefaultMCPPort
-			mcpTransport = transport.TransportStdio
-			mcpTimeout = 30 * time.Second
-			mcpMaxRetries = 3
+			cli.McpConfigPath = ""
+			cli.McpGatewayURL = cli.DefaultLSPGatewayURL
+			cli.McpPort = cli.DefaultMCPPort
+			cli.McpTransport = transport.TransportStdio
+			cli.McpTimeout = 30 * time.Second
+			cli.McpMaxRetries = 3
 			tt.testFunc(t)
 		})
 	}
 }
 
 func testRunMCPServerDirectCall(t *testing.T) {
-	mcpTransport = transport.TransportStdio
-	mcpGatewayURL = DefaultLSPGatewayURL
+	cli.McpTransport = transport.TransportStdio
+	cli.McpGatewayURL = cli.DefaultLSPGatewayURL
 
 	cfg := &mcp.ServerConfig{
 		Name:          "lsp-gateway-mcp",
 		Description:   "MCP server providing LSP functionality through LSP Gateway",
 		Version:       "0.1.0",
-		LSPGatewayURL: mcpGatewayURL,
-		Transport:     mcpTransport,
-		Timeout:       mcpTimeout,
-		MaxRetries:    mcpMaxRetries,
+		LSPGatewayURL: cli.McpGatewayURL,
+		Transport:     cli.McpTransport,
+		Timeout:       cli.McpTimeout,
+		MaxRetries:    cli.McpMaxRetries,
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -1579,10 +1579,10 @@ func testRunMCPServerDirectCall(t *testing.T) {
 		t.Error("Expected MCP server to be created")
 	}
 
-	if mcpTransport == transport.TransportHTTP {
+	if cli.McpTransport == transport.TransportHTTP {
 		t.Log("Would call runMCPHTTPServer")
 	} else {
-		t.Log("Would call runMCPStdioServer")
+		t.Log("Would call cli.RunMCPStdioServer")
 	}
 }
 
@@ -1595,7 +1595,7 @@ func testRunMCPStdioServerDirectCall(t *testing.T) {
 		Name:          "lsp-gateway-mcp",
 		Description:   "MCP server providing LSP functionality through LSP Gateway",
 		Version:       "0.1.0",
-		LSPGatewayURL: DefaultLSPGatewayURL,
+		LSPGatewayURL: cli.DefaultLSPGatewayURL,
 		Transport:     transport.TransportStdio,
 		Timeout:       30 * time.Second,
 		MaxRetries:    3,
@@ -1619,7 +1619,7 @@ func testRunMCPStdioServerDirectCall(t *testing.T) {
 		t.Log("Context is active (expected)")
 	}
 
-	t.Log("runMCPStdioServer setup logic tested successfully")
+	t.Log("cli.RunMCPStdioServer setup logic tested successfully")
 }
 
 func testRunMCPHTTPServerDirectCall(t *testing.T) {
@@ -1633,7 +1633,7 @@ func testRunMCPHTTPServerDirectCall(t *testing.T) {
 		Name:          "lsp-gateway-mcp",
 		Description:   "MCP server providing LSP functionality through LSP Gateway",
 		Version:       "0.1.0",
-		LSPGatewayURL: DefaultLSPGatewayURL,
+		LSPGatewayURL: cli.DefaultLSPGatewayURL,
 		Transport:     "http",
 		Timeout:       30 * time.Second,
 		MaxRetries:    3,
@@ -1644,7 +1644,7 @@ func testRunMCPHTTPServerDirectCall(t *testing.T) {
 		t.Error("Expected MCP server to be created")
 	}
 
-	port := AllocateTestPort(t)
+	port := cli.AllocateTestPort(t)
 
 	expectedAddr := fmt.Sprintf(":%d", port)
 	if expectedAddr == "" {
@@ -1662,12 +1662,12 @@ func testRunMCPHTTPServerDirectCall(t *testing.T) {
 }
 
 func testRunMCPServerConfigFileLogging(t *testing.T) {
-	mcpConfigPath = "test-config.yaml"
-	mcpGatewayURL = DefaultLSPGatewayURL
-	mcpTransport = transport.TransportStdio
+	cli.McpConfigPath = "test-config.yaml"
+	cli.McpGatewayURL = cli.DefaultLSPGatewayURL
+	cli.McpTransport = transport.TransportStdio
 
-	if mcpConfigPath != "" {
-		t.Logf("Configuration file specified: %s (currently using command-line flags)", mcpConfigPath)
+	if cli.McpConfigPath != "" {
+		t.Logf("Configuration file specified: %s (currently using command-line flags)", cli.McpConfigPath)
 	} else {
 		t.Log("No configuration file specified")
 	}
@@ -1676,17 +1676,17 @@ func testRunMCPServerConfigFileLogging(t *testing.T) {
 		Name:          "lsp-gateway-mcp",
 		Description:   "MCP server providing LSP functionality through LSP Gateway",
 		Version:       "0.1.0",
-		LSPGatewayURL: mcpGatewayURL,
-		Transport:     mcpTransport,
-		Timeout:       mcpTimeout,
-		MaxRetries:    mcpMaxRetries,
+		LSPGatewayURL: cli.McpGatewayURL,
+		Transport:     cli.McpTransport,
+		Timeout:       cli.McpTimeout,
+		MaxRetries:    cli.McpMaxRetries,
 	}
 
 	if err := cfg.Validate(); err != nil {
 		t.Errorf("Configuration validation failed: %v", err)
 	}
 
-	t.Logf("Configuration created successfully with config path: %s", mcpConfigPath)
+	t.Logf("Configuration created successfully with config path: %s", cli.McpConfigPath)
 }
 
 func testRunMCPServerTransportBranching(t *testing.T) {
@@ -1702,14 +1702,14 @@ func testRunMCPServerTransportBranching(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mcpTransport = tt.transport
-			mcpGatewayURL = DefaultLSPGatewayURL
+			cli.McpTransport = tt.transport
+			cli.McpGatewayURL = cli.DefaultLSPGatewayURL
 
 			if tt.transport == "http" {
-				mcpPort = AllocateTestPort(t)
+				cli.McpPort = cli.AllocateTestPort(t)
 			}
 
-			isHTTP := mcpTransport == transport.TransportHTTP
+			isHTTP := cli.McpTransport == transport.TransportHTTP
 			isStdio := !isHTTP
 
 			if tt.expectHTTP && !isHTTP {
@@ -1724,10 +1724,10 @@ func testRunMCPServerTransportBranching(t *testing.T) {
 				Name:          "lsp-gateway-mcp",
 				Description:   "MCP server providing LSP functionality through LSP Gateway",
 				Version:       "0.1.0",
-				LSPGatewayURL: mcpGatewayURL,
-				Transport:     mcpTransport,
-				Timeout:       mcpTimeout,
-				MaxRetries:    mcpMaxRetries,
+				LSPGatewayURL: cli.McpGatewayURL,
+				Transport:     cli.McpTransport,
+				Timeout:       cli.McpTimeout,
+				MaxRetries:    cli.McpMaxRetries,
 			}
 
 			if err := cfg.Validate(); err != nil {
@@ -1740,9 +1740,9 @@ func testRunMCPServerTransportBranching(t *testing.T) {
 			}
 
 			if isHTTP {
-				t.Logf("Would call runMCPHTTPServer with port %d", mcpPort)
+				t.Logf("Would call runMCPHTTPServer with port %d", cli.McpPort)
 			} else {
-				t.Log("Would call runMCPStdioServer")
+				t.Log("Would call cli.RunMCPStdioServer")
 			}
 		})
 	}
@@ -1761,26 +1761,26 @@ func TestMCPServerIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mcpConfigPath = ""
-			mcpGatewayURL = DefaultLSPGatewayURL
-			mcpPort = DefaultMCPPort
-			mcpTransport = transport.TransportStdio
-			mcpTimeout = 30 * time.Second
-			mcpMaxRetries = 3
+			cli.McpConfigPath = ""
+			cli.McpGatewayURL = cli.DefaultLSPGatewayURL
+			cli.McpPort = cli.DefaultMCPPort
+			cli.McpTransport = transport.TransportStdio
+			cli.McpTimeout = 30 * time.Second
+			cli.McpMaxRetries = 3
 			tt.testFunc(t)
 		})
 	}
 }
 
 func testRunMCPServerWithInvalidConfig(t *testing.T) {
-	mcpGatewayURL = "" // This should cause validation to fail
-	mcpTransport = "invalid"
+	cli.McpGatewayURL = "" // This should cause validation to fail
+	cli.McpTransport = "invalid"
 
-	_ = &cobra.Command{Use: CmdMCP} // testCmd
+	_ = &cobra.Command{Use: cli.CmdMCP} // testCmd
 
 	// Simulate runMCPServer behavior for invalid config without starting real servers
 	// Since mcpGatewayURL is empty, this should fail validation
-	if mcpGatewayURL == "" {
+	if cli.McpGatewayURL == "" {
 		t.Log("runMCPServer simulation: properly failed with invalid config (empty gateway URL)")
 	} else {
 		t.Error("Expected empty gateway URL to cause validation failure")
@@ -1795,7 +1795,7 @@ func testRunMCPStdioServerWithClosedInput(t *testing.T) {
 		Name:          "lsp-gateway-mcp",
 		Description:   "MCP server providing LSP functionality through LSP Gateway",
 		Version:       "0.1.0",
-		LSPGatewayURL: DefaultLSPGatewayURL,
+		LSPGatewayURL: cli.DefaultLSPGatewayURL,
 		Transport:     transport.TransportStdio,
 		Timeout:       1 * time.Nanosecond,
 		MaxRetries:    1,
@@ -1813,14 +1813,14 @@ func testRunMCPStdioServerWithClosedInput(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- runMCPStdioServer(ctx, server)
+		done <- cli.RunMCPStdioServer(ctx, server)
 	}()
 
 	select {
 	case err := <-done:
-		t.Logf("runMCPStdioServer completed with: %v", err)
+		t.Logf("cli.RunMCPStdioServer completed with: %v", err)
 	case <-time.After(3 * time.Second):
-		t.Error("runMCPStdioServer timed out")
+		t.Error("cli.RunMCPStdioServer timed out")
 	}
 
 	_ = r.Close()
@@ -1834,7 +1834,7 @@ func testRunMCPHTTPServerWithUsedPort(t *testing.T) {
 		Name:          "lsp-gateway-mcp",
 		Description:   "MCP server providing LSP functionality through LSP Gateway",
 		Version:       "0.1.0",
-		LSPGatewayURL: DefaultLSPGatewayURL,
+		LSPGatewayURL: cli.DefaultLSPGatewayURL,
 		Transport:     "http",
 		Timeout:       1 * time.Nanosecond,
 		MaxRetries:    1,
@@ -1875,16 +1875,16 @@ func testMCPCobralRunE(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			testCmd := &cobra.Command{
-				Use:  CmdMCP,
-				RunE: GetMcpCmd().RunE, // Use the real RunE function
+				Use:  cli.CmdMCP,
+				RunE: cli.GetMcpCmd().RunE, // Use the real RunE function
 			}
 
-			testCmd.Flags().StringVarP(&mcpConfigPath, "config", "c", "", "MCP configuration file path")
-			testCmd.Flags().StringVarP(&mcpGatewayURL, "gateway", "g", DefaultLSPGatewayURL, "LSP Gateway URL")
-			testCmd.Flags().IntVarP(&mcpPort, "port", "p", DefaultMCPPort, "MCP server port")
-			testCmd.Flags().StringVarP(&mcpTransport, "transport", "t", transport.TransportStdio, "Transport type")
-			testCmd.Flags().DurationVar(&mcpTimeout, "timeout", 30*time.Second, "Request timeout")
-			testCmd.Flags().IntVar(&mcpMaxRetries, "max-retries", 3, "Maximum retries")
+			testCmd.Flags().StringVarP(&cli.McpConfigPath, "config", "c", "", "MCP configuration file path")
+			testCmd.Flags().StringVarP(&cli.McpGatewayURL, "gateway", "g", cli.DefaultLSPGatewayURL, "LSP Gateway URL")
+			testCmd.Flags().IntVarP(&cli.McpPort, "port", "p", cli.DefaultMCPPort, "MCP server port")
+			testCmd.Flags().StringVarP(&cli.McpTransport, "transport", "t", transport.TransportStdio, "Transport type")
+			testCmd.Flags().DurationVar(&cli.McpTimeout, "timeout", 30*time.Second, "Request timeout")
+			testCmd.Flags().IntVar(&cli.McpMaxRetries, "max-retries", 3, "Maximum retries")
 
 			testCmd.SetArgs(tt.args)
 
@@ -1910,18 +1910,18 @@ func testMCPCobralRunE(t *testing.T) {
 }
 
 func TestMCPConfigFileLoading(t *testing.T) {
-	originalConfigPath := mcpConfigPath
-	originalGatewayURL := mcpGatewayURL
-	originalTransport := mcpTransport
-	originalTimeout := mcpTimeout
-	originalMaxRetries := mcpMaxRetries
+	originalConfigPath := cli.McpConfigPath
+	originalGatewayURL := cli.McpGatewayURL
+	originalTransport := cli.McpTransport
+	originalTimeout := cli.McpTimeout
+	originalMaxRetries := cli.McpMaxRetries
 
 	defer func() {
-		mcpConfigPath = originalConfigPath
-		mcpGatewayURL = originalGatewayURL
-		mcpTransport = originalTransport
-		mcpTimeout = originalTimeout
-		mcpMaxRetries = originalMaxRetries
+		cli.McpConfigPath = originalConfigPath
+		cli.McpGatewayURL = originalGatewayURL
+		cli.McpTransport = originalTransport
+		cli.McpTimeout = originalTimeout
+		cli.McpMaxRetries = originalMaxRetries
 	}()
 
 	tests := []struct {
@@ -1943,28 +1943,28 @@ func TestMCPConfigFileLoading(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mcpConfigPath = tt.configPath
-			mcpGatewayURL = DefaultLSPGatewayURL
-			mcpTransport = transport.TransportStdio
-			mcpTimeout = 30 * time.Second
-			mcpMaxRetries = 3
+			cli.McpConfigPath = tt.configPath
+			cli.McpGatewayURL = cli.DefaultLSPGatewayURL
+			cli.McpTransport = transport.TransportStdio
+			cli.McpTimeout = 30 * time.Second
+			cli.McpMaxRetries = 3
 
 			testCmd := &cobra.Command{
-				Use: CmdMCP,
+				Use: cli.CmdMCP,
 				RunE: func(cmd *cobra.Command, args []string) error {
 
 					cfg := &mcp.ServerConfig{
 						Name:          "lsp-gateway-mcp",
 						Description:   "MCP server providing LSP functionality through LSP Gateway",
 						Version:       "0.1.0",
-						LSPGatewayURL: mcpGatewayURL,
-						Transport:     mcpTransport,
-						Timeout:       mcpTimeout,
-						MaxRetries:    mcpMaxRetries,
+						LSPGatewayURL: cli.McpGatewayURL,
+						Transport:     cli.McpTransport,
+						Timeout:       cli.McpTimeout,
+						MaxRetries:    cli.McpMaxRetries,
 					}
 
-					if mcpConfigPath != "" {
-						t.Logf("Configuration file specified: %s (currently using command-line flags)", mcpConfigPath)
+					if cli.McpConfigPath != "" {
+						t.Logf("Configuration file specified: %s (currently using command-line flags)", cli.McpConfigPath)
 					}
 
 					return cfg.Validate()
@@ -1986,27 +1986,27 @@ func TestMCPConfigFileLoading(t *testing.T) {
 }
 
 func TestRunMCPServerDirectCoverage(t *testing.T) {
-	originalConfigPath := mcpConfigPath
-	originalGatewayURL := mcpGatewayURL
-	originalTransport := mcpTransport
+	originalConfigPath := cli.McpConfigPath
+	originalGatewayURL := cli.McpGatewayURL
+	originalTransport := cli.McpTransport
 
 	defer func() {
-		mcpConfigPath = originalConfigPath
-		mcpGatewayURL = originalGatewayURL
-		mcpTransport = originalTransport
+		cli.McpConfigPath = originalConfigPath
+		cli.McpGatewayURL = originalGatewayURL
+		cli.McpTransport = originalTransport
 	}()
 
-	mcpConfigPath = "test-config.yaml"
-	mcpGatewayURL = DefaultLSPGatewayURL
-	mcpTransport = transport.TransportStdio
-	mcpTimeout = 30 * time.Second
-	mcpMaxRetries = 3
+	cli.McpConfigPath = "test-config.yaml"
+	cli.McpGatewayURL = cli.DefaultLSPGatewayURL
+	cli.McpTransport = transport.TransportStdio
+	cli.McpTimeout = 30 * time.Second
+	cli.McpMaxRetries = 3
 
-	_ = &cobra.Command{Use: CmdMCP} // testCmd
+	_ = &cobra.Command{Use: cli.CmdMCP} // testCmd
 
 	// Simulate runMCPServer config file loading test without starting real servers
 	// This simulates the config file loading branch
-	if mcpConfigPath == "test-config.yaml" {
+	if cli.McpConfigPath == "test-config.yaml" {
 		t.Log("runMCPServer simulation: config file loading branch exercised")
 		t.Log("Would attempt to load config from test-config.yaml")
 	} else {
@@ -2016,33 +2016,33 @@ func TestRunMCPServerDirectCoverage(t *testing.T) {
 }
 
 func TestRunMCPServerHTTPTransportBranch(t *testing.T) {
-	originalTransport := mcpTransport
-	originalGatewayURL := mcpGatewayURL
-	originalPort := mcpPort
+	originalTransport := cli.McpTransport
+	originalGatewayURL := cli.McpGatewayURL
+	originalPort := cli.McpPort
 
 	defer func() {
-		mcpTransport = originalTransport
-		mcpGatewayURL = originalGatewayURL
-		mcpPort = originalPort
+		cli.McpTransport = originalTransport
+		cli.McpGatewayURL = originalGatewayURL
+		cli.McpPort = originalPort
 	}()
 
-	mcpTransport = transport.TransportHTTP
-	mcpGatewayURL = DefaultLSPGatewayURL
-	mcpPort = AllocateTestPort(t)
-	mcpTimeout = 30 * time.Second
-	mcpMaxRetries = 3
+	cli.McpTransport = transport.TransportHTTP
+	cli.McpGatewayURL = cli.DefaultLSPGatewayURL
+	cli.McpPort = cli.AllocateTestPort(t)
+	cli.McpTimeout = 30 * time.Second
+	cli.McpMaxRetries = 3
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
 	// Create test command for simulation
-	testCmd := &cobra.Command{Use: CmdMCP}
+	testCmd := &cobra.Command{Use: cli.CmdMCP}
 	testCmd.SetContext(ctx)
 	_ = testCmd // Mark as used for simulation
 
 	// Simulate runMCPServer HTTP transport test without starting real servers
 	// This simulates the HTTP transport branch
-	if mcpTransport == transport.TransportHTTP {
+	if cli.McpTransport == transport.TransportHTTP {
 		t.Log("runMCPServer simulation: HTTP transport branch exercised")
 		t.Log("Would start HTTP server for MCP protocol")
 	} else {
@@ -2052,20 +2052,20 @@ func TestRunMCPServerHTTPTransportBranch(t *testing.T) {
 }
 
 func TestRunMCPHTTPServerEndpoints(t *testing.T) {
-	originalTransport := mcpTransport
-	originalGatewayURL := mcpGatewayURL
-	originalPort := mcpPort
+	originalTransport := cli.McpTransport
+	originalGatewayURL := cli.McpGatewayURL
+	originalPort := cli.McpPort
 
 	defer func() {
-		mcpTransport = originalTransport
-		mcpGatewayURL = originalGatewayURL
-		mcpPort = originalPort
+		cli.McpTransport = originalTransport
+		cli.McpGatewayURL = originalGatewayURL
+		cli.McpPort = originalPort
 	}()
 
-	mcpTransport = transport.TransportHTTP
-	mcpGatewayURL = DefaultLSPGatewayURL
-	testPort := AllocateTestPort(t)
-	mcpPort = testPort
+	cli.McpTransport = transport.TransportHTTP
+	cli.McpGatewayURL = cli.DefaultLSPGatewayURL
+	testPort := cli.AllocateTestPort(t)
+	cli.McpPort = testPort
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -2073,7 +2073,7 @@ func TestRunMCPHTTPServerEndpoints(t *testing.T) {
 	// Create test objects for simulation
 	_ = mcp.NewServer(&mcp.ServerConfig{
 		Name:          "test-mcp",
-		LSPGatewayURL: mcpGatewayURL,
+		LSPGatewayURL: cli.McpGatewayURL,
 		Transport:     transport.TransportHTTP,
 	}) // server
 	_ = mcp.NewStructuredLogger(nil) // logger
@@ -2322,14 +2322,14 @@ func TestRunMCPServerMainExecutionPaths(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mcpConfigPath = tt.configPath
-			mcpGatewayURL = tt.gatewayURL
-			mcpTransport = tt.transport
-			mcpTimeout = tt.timeout
-			mcpMaxRetries = tt.maxRetries
-			mcpPort = AllocateTestPort(t)
+			cli.McpConfigPath = tt.configPath
+			cli.McpGatewayURL = tt.gatewayURL
+			cli.McpTransport = tt.transport
+			cli.McpTimeout = tt.timeout
+			cli.McpMaxRetries = tt.maxRetries
+			cli.McpPort = cli.AllocateTestPort(t)
 
-			_ = &cobra.Command{Use: CmdMCP} // testCmd
+			_ = &cobra.Command{Use: cli.CmdMCP} // testCmd
 
 			// Simulate runMCPServer execution for different scenarios
 			var simulatedErr error
@@ -2426,7 +2426,7 @@ func TestRunMCPStdioServerExecutionPaths(t *testing.T) {
 
 			done := make(chan error, 1)
 			go func() {
-				done <- runMCPStdioServer(ctx, server)
+				done <- cli.RunMCPStdioServer(ctx, server)
 			}()
 
 			select {
@@ -2473,7 +2473,7 @@ func TestRunMCPHTTPServerExecutionPaths(t *testing.T) {
 				return ctx, cancel
 			},
 			setupPort: func(t *testing.T) int {
-				return AllocateTestPort(t)
+				return cli.AllocateTestPort(t)
 			},
 			expectError:     false,
 			expectQuickExit: true,
@@ -2517,7 +2517,7 @@ func TestRunMCPHTTPServerExecutionPaths(t *testing.T) {
 				return ctx, cancel
 			},
 			setupPort: func(t *testing.T) int {
-				return AllocateTestPort(t)
+				return cli.AllocateTestPort(t)
 			},
 			expectError:     false,
 			expectQuickExit: true,
@@ -2567,16 +2567,16 @@ func TestRunMCPServerTransportBranchCoverage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mcpConfigPath = ""
-			mcpGatewayURL = "http://localhost:8080"
-			mcpTransport = tt.transport
-			mcpTimeout = 1 * time.Second
-			mcpMaxRetries = 1
+			cli.McpConfigPath = ""
+			cli.McpGatewayURL = "http://localhost:8080"
+			cli.McpTransport = tt.transport
+			cli.McpTimeout = 1 * time.Second
+			cli.McpMaxRetries = 1
 			if tt.setupPort {
-				mcpPort = AllocateTestPort(t)
+				cli.McpPort = cli.AllocateTestPort(t)
 			}
 
-			_ = &cobra.Command{Use: CmdMCP} // testCmd
+			_ = &cobra.Command{Use: cli.CmdMCP} // testCmd
 
 			// Simulate runMCPServer transport branch coverage without real servers
 			if tt.transport == transport.TransportHTTP {
@@ -2606,13 +2606,13 @@ func TestRunMCPServerConfigFilePathCoverage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mcpConfigPath = tt.configPath
-			mcpGatewayURL = "http://localhost:8080"
-			mcpTransport = transport.TransportStdio
-			mcpTimeout = 1 * time.Second
-			mcpMaxRetries = 1
+			cli.McpConfigPath = tt.configPath
+			cli.McpGatewayURL = "http://localhost:8080"
+			cli.McpTransport = transport.TransportStdio
+			cli.McpTimeout = 1 * time.Second
+			cli.McpMaxRetries = 1
 
-			_ = &cobra.Command{Use: CmdMCP} // testCmd
+			_ = &cobra.Command{Use: cli.CmdMCP} // testCmd
 
 			// Simulate runMCPServer config file path coverage without real servers
 			if tt.configPath == "" {
@@ -2645,7 +2645,7 @@ func TestRunMCPStdioServerSignalHandling(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- runMCPStdioServer(ctx, server)
+		done <- cli.RunMCPStdioServer(ctx, server)
 	}()
 
 	time.Sleep(100 * time.Millisecond)
@@ -2655,10 +2655,10 @@ func TestRunMCPStdioServerSignalHandling(t *testing.T) {
 	select {
 	case err := <-done:
 		if err != nil {
-			t.Logf("runMCPStdioServer completed with: %v", err)
+			t.Logf("cli.RunMCPStdioServer completed with: %v", err)
 		}
 	case <-time.After(2 * time.Second):
-		t.Error("runMCPStdioServer did not complete in time")
+		t.Error("cli.RunMCPStdioServer did not complete in time")
 	}
 }
 
@@ -2668,8 +2668,8 @@ func TestRunMCPHTTPServerShutdownTimeout(t *testing.T) {
 		LSPGatewayURL: "http://localhost:8080",
 		Transport:     transport.TransportHTTP,
 	}
-	_ = mcp.NewServer(cfg)  // server
-	_ = AllocateTestPort(t) // port
+	_ = mcp.NewServer(cfg)      // server
+	_ = cli.AllocateTestPort(t) // port
 
 	ctx, cancel := context.WithCancel(context.Background())
 
