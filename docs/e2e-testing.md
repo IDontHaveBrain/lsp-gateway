@@ -1,19 +1,19 @@
 # E2E Testing Guide
 
-LSP Gateway의 End-to-End 테스트 가이드입니다. 실제 사용 시나리오를 기반으로 한 포괄적인 테스트 전략을 제공합니다.
+This is the End-to-End testing guide for LSP Gateway. It provides a comprehensive testing strategy based on real-world usage scenarios.
 
-## E2E 테스트 철학
+## E2E Testing Philosophy
 
-LSP Gateway는 dual-protocol (HTTP JSON-RPC + MCP) 아키텍처를 가지므로, E2E 테스트는 다음 원칙을 따릅니다:
+Since LSP Gateway has a dual-protocol (HTTP JSON-RPC + MCP) architecture, E2E testing follows these principles:
 
-- **실제 워크플로우 중심**: 개발자가 실제로 사용하는 시나리오 테스트
-- **Protocol 독립적**: HTTP와 MCP 두 프로토콜 모두 동일한 결과 보장
-- **Language Server 통합**: 실제 언어 서버와의 완전한 통합 테스트
-- **Real Codebase 검증**: Kubernetes, Django, VS Code 등 실제 프로젝트 대상 테스트
+- **Real Workflow-Centric**: Testing scenarios that developers actually use
+- **Protocol-Independent**: Ensuring identical results across both HTTP and MCP protocols
+- **Language Server Integration**: Complete integration testing with actual language servers
+- **Real Codebase Validation**: Testing against actual projects like Kubernetes, Django, VS Code
 
-## 핵심 E2E 테스트 시나리오
+## Core E2E Test Scenarios
 
-### 1. 기본 설정 및 시작 테스트
+### 1. Basic Setup and Startup Testing
 ```bash
 # Complete setup and server start
 make clean && make local
@@ -28,7 +28,7 @@ curl -f http://localhost:8080/health || exit 1
 kill $SERVER_PID
 ```
 
-### 2. HTTP JSON-RPC Protocol 테스트
+### 2. HTTP JSON-RPC Protocol Testing
 ```bash
 # Go to definition test
 curl -X POST http://localhost:8080/jsonrpc \
@@ -58,7 +58,7 @@ curl -X POST http://localhost:8080/jsonrpc \
   }' | jq '.result'
 ```
 
-### 3. MCP Protocol 테스트
+### 3. MCP Protocol Testing
 ```bash
 # Start MCP server
 ./bin/lsp-gateway mcp --config config.yaml &
@@ -71,7 +71,7 @@ MCP_PID=$!
 kill $MCP_PID
 ```
 
-### 4. Multi-Language Server 테스트
+### 4. Multi-Language Server Testing
 ```bash
 # Test all supported languages
 for lang in go python typescript java; do
@@ -106,9 +106,9 @@ for lang in go python typescript java; do
 done
 ```
 
-## 실제 코드베이스 테스트
+## Real Codebase Testing
 
-### Repository-based 테스트 실행
+### Repository-based Test Execution
 ```bash
 # Setup test repositories (requires network)
 make setup-simple-repos
@@ -139,9 +139,9 @@ done
 kill $SERVER_PID
 ```
 
-## 성능 및 부하 테스트
+## Performance and Load Testing
 
-### Concurrent Request 테스트
+### Concurrent Request Testing
 ```bash
 # Start server
 ./bin/lsp-gateway server --config config.yaml &
@@ -166,7 +166,7 @@ wait
 kill $SERVER_PID
 ```
 
-### Memory 및 Circuit Breaker 테스트
+### Memory and Circuit Breaker Testing
 ```bash
 # Start server with resource monitoring
 ./bin/lsp-gateway server --config config.yaml &
@@ -198,27 +198,27 @@ done
 kill $MONITOR_PID $SERVER_PID
 ```
 
-## 자동화된 E2E 테스트 실행
+## Automated E2E Test Execution
 
-### Make Targets를 통한 E2E 테스트
+### E2E Testing via Make Targets
 ```bash
-# Quick E2E validation (1분)
+# Quick E2E validation (1 minute)
 make test-simple-quick
 
-# Full LSP validation (5분)
+# Full LSP validation (5 minutes)
 make test-lsp-validation
 
-# Integration tests with performance (10분)
+# Integration tests with performance (10 minutes)
 make test-integration
 
-# JDTLS specific E2E tests (10분)
+# JDTLS specific E2E tests (10 minutes)
 make test-jdtls-integration
 ```
 
-### CI/CD 통합을 위한 스크립트
+### CI/CD Integration Script
 ```bash
 #!/bin/bash
-# e2e-ci.sh - CI/CD pipeline용 E2E 테스트
+# e2e-ci.sh - E2E testing for CI/CD pipeline
 
 set -e
 
@@ -261,9 +261,9 @@ kill $SERVER_PID
 echo "E2E tests completed successfully!"
 ```
 
-## 디버깅 및 문제해결
+## Debugging and Troubleshooting
 
-### E2E 테스트 실패시 진단
+### E2E Test Failure Diagnosis
 ```bash
 # 1. System diagnostics
 ./bin/lsp-gateway diagnose
@@ -286,7 +286,7 @@ curl -v -X POST http://localhost:8080/jsonrpc \
   -d '{"jsonrpc":"2.0","id":1,"method":"ping"}'
 ```
 
-### 로그 분석
+### Log Analysis
 ```bash
 # Server logs with debug level
 ./bin/lsp-gateway server --config config.yaml --verbose
@@ -299,20 +299,20 @@ grep -i "circuit" server.log
 grep -i "backoff" server.log
 ```
 
-## E2E 테스트 확장
+## E2E Test Extensions
 
-### 새로운 Language Server 추가시 E2E 테스트
-1. Language runtime 설치 테스트
-2. LSP server 설치 및 검증 테스트  
-3. 기본 LSP 메소드 동작 테스트 (hover, definition, references)
-4. 실제 코드베이스 대상 통합 테스트
-5. 성능 및 메모리 사용량 테스트
+### E2E Testing When Adding New Language Servers
+1. Language runtime installation testing
+2. LSP server installation and verification testing  
+3. Basic LSP method operation testing (hover, definition, references)
+4. Integration testing against real codebases
+5. Performance and memory usage testing
 
-### 새로운 Transport Method 추가시 E2E 테스트
-1. Transport 연결 설정 테스트
-2. Request/Response 순환 테스트
-3. Circuit breaker 동작 테스트
-4. 동시 연결 처리 테스트
-5. 장애 복구 테스트
+### E2E Testing When Adding New Transport Methods
+1. Transport connection setup testing
+2. Request/Response cycle testing
+3. Circuit breaker operation testing
+4. Concurrent connection handling testing
+5. Failure recovery testing
 
-이 E2E 테스트 가이드를 통해 LSP Gateway의 모든 주요 기능과 실제 사용 시나리오를 포괄적으로 검증할 수 있습니다.
+This E2E testing guide enables comprehensive validation of all major LSP Gateway features and real-world usage scenarios.
