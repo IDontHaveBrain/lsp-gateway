@@ -604,7 +604,7 @@ func TestRuntimeStrategies_EmptyVersion(t *testing.T) {
 }
 
 // Test strategy interface compliance
-func TestRuntimeStrategyInterfaces(_ *testing.T) {
+func TestRuntimeStrategyInterfaces(*testing.T) {
 	var _ types.RuntimePlatformStrategy = &WindowsRuntimeStrategy{}
 	var _ types.RuntimePlatformStrategy = &LinuxRuntimeStrategy{}
 	var _ types.RuntimePlatformStrategy = &MacOSRuntimeStrategy{}

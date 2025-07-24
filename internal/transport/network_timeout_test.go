@@ -56,25 +56,6 @@ func waitForClientReady(t *testing.T, client *StdioClient, timeout time.Duration
 	t.Fatalf("Client did not become active within %v", timeout)
 }
 
-func retryOnFlakiness(t *testing.T, operation func() error, maxRetries int, retryDelay time.Duration) error {
-	t.Helper()
-	
-	var lastErr error
-	for i := 0; i < maxRetries; i++ {
-		err := operation()
-		if err == nil {
-			return nil
-		}
-		
-		lastErr = err
-		if i < maxRetries-1 {
-			t.Logf("Operation failed (attempt %d/%d): %v, retrying after %v", i+1, maxRetries, err, retryDelay)
-			time.Sleep(retryDelay)
-		}
-	}
-	
-	return fmt.Errorf("operation failed after %d attempts, last error: %v", maxRetries, lastErr)
-}
 
 // TestStdioClientRequestTimeouts tests various request timeout scenarios for stdio clients
 func TestStdioClientRequestTimeouts(t *testing.T) {

@@ -845,10 +845,10 @@ func outputDiagnoseHuman(report *DiagnosticReport) error {
 
 	fmt.Printf("Diagnostic Summary:\n")
 	fmt.Printf("  Total Checks: %d\n", report.Summary.TotalChecks)
-	fmt.Printf("  Passed: %s\n", getColoredCount(report.Summary.Passed, "passed"))
-	fmt.Printf("  Failed: %s\n", getColoredCount(report.Summary.Failed, "failed"))
-	fmt.Printf("  Warnings: %s\n", getColoredCount(report.Summary.Warnings, "warning"))
-	fmt.Printf("  Skipped: %s\n", getColoredCount(report.Summary.Skipped, "skipped"))
+	fmt.Printf("  Passed: %s\n", getColoredCount(report.Summary.Passed))
+	fmt.Printf("  Failed: %s\n", getColoredCount(report.Summary.Failed))
+	fmt.Printf("  Warnings: %s\n", getColoredCount(report.Summary.Warnings))
+	fmt.Printf("  Skipped: %s\n", getColoredCount(report.Summary.Skipped))
 	fmt.Printf("  Overall Status: %s\n", getColoredStatus(report.Summary.OverallStatus))
 	fmt.Printf("\n")
 
@@ -1054,7 +1054,7 @@ func getColoredStatus(status string) string {
 	}
 }
 
-func getColoredCount(count int, _ string) string {
+func getColoredCount(count int) string {
 	if count == 0 {
 		return "0"
 	}
