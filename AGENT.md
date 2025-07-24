@@ -91,26 +91,26 @@ make local
 
 **📖 Complete E2E Testing Guide**: See [docs/e2e-testing.md](docs/e2e-testing.md)
 
-LSP Gateway는 **E2E 테스트 우선** 접근법을 사용합니다. 실제 개발 워크플로우와 사용 시나리오를 중심으로 테스트합니다.
+LSP Gateway uses an **E2E test-first** approach, focusing on actual development workflows and usage scenarios.
 
-### E2E 테스트 핵심 원칙
-- **Real Workflow Testing**: 개발자가 실제 사용하는 시나리오 테스트
-- **Dual Protocol Coverage**: HTTP JSON-RPC와 MCP 프로토콜 모두 검증
-- **Language Server Integration**: 실제 언어 서버와의 완전한 통합 테스트
-- **Real Codebase Validation**: Kubernetes, Django, VS Code 등 실제 프로젝트 대상 테스트
+### E2E Testing Core Principles
+- **Real Workflow Testing**: Testing scenarios that developers actually use
+- **Dual Protocol Coverage**: Verification of both HTTP JSON-RPC and MCP protocols
+- **Language Server Integration**: Complete integration testing with actual language servers
+- **Real Codebase Validation**: Testing against real projects like Kubernetes, Django, VS Code
 
-### 주요 E2E 테스트 명령어
+### Key E2E Testing Commands
 ```bash
-# Quick E2E validation (1분)
+# Quick E2E validation (1min)
 make test-simple-quick
 
-# Full LSP validation (5분)
+# Full LSP validation (5min)
 make test-lsp-validation
 
-# Integration + performance tests (10분)
+# Integration + performance tests (10min)
 make test-integration
 
-# Java LSP integration tests (10분)
+# Java LSP integration tests (10min)
 make test-jdtls-integration
 
 # Repository-based testing
@@ -118,13 +118,13 @@ make setup-simple-repos     # Setup Kubernetes, Django, VS Code repos
 make test-lsp-repos         # Validate against real codebases
 ```
 
-### E2E 테스트 시나리오
-1. **기본 설정 및 시작**: 완전한 설정부터 서버 시작까지
-2. **HTTP JSON-RPC Protocol**: 모든 LSP 메소드 검증
-3. **MCP Protocol**: AI 어시스턴트 통합 시나리오
-4. **Multi-Language**: Go, Python, TypeScript, Java 통합 테스트
-5. **Performance & Load**: 동시 요청 처리 및 Circuit Breaker 테스트
-6. **Real Codebase**: 실제 프로젝트 대상 포괄적 검증
+### E2E Testing Scenarios
+1. **Basic Setup and Startup**: From complete setup to server startup
+2. **HTTP JSON-RPC Protocol**: Verification of all LSP methods
+3. **MCP Protocol**: AI assistant integration scenarios
+4. **Multi-Language**: Go, Python, TypeScript, Java integration tests
+5. **Performance & Load**: Concurrent request processing and Circuit Breaker testing
+6. **Real Codebase**: Comprehensive validation against real projects
 
 ## Common Development Commands
 
@@ -135,7 +135,7 @@ make build                    # Build all platforms
 make clean                    # Clean build artifacts
 ```
 
-### Testing Commands (E2E 중심)
+### Testing Commands (E2E Focused)
 ```bash
 make test                     # Run all tests
 make test-unit               # Fast unit tests only (<60s)
