@@ -99,10 +99,16 @@ func showFirstTimeWorkflow() {
 
 Complete setup from fresh system to working LSP Gateway:
 
-STEP 1: Quick Setup (Recommended)
-----------------------------------
-# Complete automated setup
-lsp-gateway setup all
+STEP 1: Installation and Setup
+-------------------------------
+# Install language runtimes
+lsp-gateway install runtime all
+
+# Install language servers
+lsp-gateway install servers
+
+# Generate configuration
+lsp-gateway config generate
 
 # Verify installation
 lsp-gateway status
@@ -111,10 +117,10 @@ lsp-gateway status
 lsp-gateway server
 
 
-STEP 2: Manual Setup (Advanced)
---------------------------------
+STEP 2: Advanced Configuration
+-------------------------------
 # Generate configuration
-lsp-gateway config generate --auto-detect
+lsp-gateway config generate
 
 # Install runtimes (if needed)
 lsp-gateway install runtime go
@@ -193,7 +199,7 @@ lsp-gateway config show
 lsp-gateway config validate
 
 # Regenerate configuration (after installing new runtimes)
-lsp-gateway config generate --auto-detect --overwrite
+lsp-gateway config generate --overwrite
 
 
 RUNTIME MANAGEMENT:
@@ -237,7 +243,7 @@ PROJECT SWITCHING:
 ------------------
 # Different config per project
 cd /path/to/project
-lsp-gateway config generate --auto-detect --output .lsp-gateway.yaml
+lsp-gateway config generate --output .lsp-gateway.yaml
 lsp-gateway server --config .lsp-gateway.yaml
 `)
 }
@@ -272,7 +278,7 @@ lsp-gateway install servers --force
 lsp-gateway install server gopls --force
 
 # Regenerate config after updates
-lsp-gateway config generate --auto-detect --overwrite
+lsp-gateway config generate --overwrite
 
 
 PERFORMANCE OPTIMIZATION:
@@ -281,7 +287,7 @@ PERFORMANCE OPTIMIZATION:
 lsp-gateway diagnose
 
 # Restart with clean configuration
-lsp-gateway config generate --auto-detect --overwrite
+lsp-gateway config generate --overwrite
 lsp-gateway server --config config.yaml
 
 
@@ -313,7 +319,7 @@ TROUBLESHOOTING WORKFLOW:
    lsp-gateway verify runtime python
 
 4. Regenerate configuration:
-   lsp-gateway config generate --auto-detect --overwrite
+   lsp-gateway config generate --overwrite
 
 5. Test functionality:
    lsp-gateway server --config config.yaml
@@ -450,7 +456,8 @@ STEP 2: COMMON ISSUES & SOLUTIONS
 
 "Configuration file not found":
   → lsp-gateway config generate
-  → lsp-gateway setup all
+  → lsp-gateway install runtime all
+  → lsp-gateway install servers
 
 "Port already in use":
   → lsof -i :8080
@@ -502,7 +509,8 @@ STEP 3: SYSTEMATIC DEBUGGING
    lsp-gateway server --verbose
 
 6. Reset to known good state:
-   lsp-gateway setup all --force
+   lsp-gateway install runtime all --force
+   lsp-gateway install servers --force
 
 
 STEP 4: ADVANCED TROUBLESHOOTING
@@ -532,7 +540,7 @@ STEP 5: RESET AND REINSTALL
 rm -f config.yaml
 lsp-gateway install runtime all --force
 lsp-gateway install servers --force
-lsp-gateway setup all
+lsp-gateway config generate
 lsp-gateway server
 
 

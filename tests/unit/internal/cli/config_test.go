@@ -352,7 +352,6 @@ func testConfigGenerateCommandFlagParsing(t *testing.T) {
 		args                    []string
 		expectedOutput          string
 		expectedOverwrite       bool
-		expectedAutoDetect      bool
 		expectedIncludeComments bool
 		expectedTargetRuntime   string
 		expectedError           bool
@@ -362,7 +361,6 @@ func testConfigGenerateCommandFlagParsing(t *testing.T) {
 			args:                    []string{},
 			expectedOutput:          "",
 			expectedOverwrite:       false,
-			expectedAutoDetect:      false,
 			expectedIncludeComments: false,
 			expectedTargetRuntime:   "",
 			expectedError:           false,
@@ -372,7 +370,6 @@ func testConfigGenerateCommandFlagParsing(t *testing.T) {
 			args:                    []string{"--output", "custom.yaml"},
 			expectedOutput:          "custom.yaml",
 			expectedOverwrite:       false,
-			expectedAutoDetect:      false,
 			expectedIncludeComments: false,
 			expectedTargetRuntime:   "",
 			expectedError:           false,
@@ -382,7 +379,6 @@ func testConfigGenerateCommandFlagParsing(t *testing.T) {
 			args:                    []string{"-o", "custom.yaml"},
 			expectedOutput:          "custom.yaml",
 			expectedOverwrite:       false,
-			expectedAutoDetect:      false,
 			expectedIncludeComments: false,
 			expectedTargetRuntime:   "",
 			expectedError:           false,
@@ -392,17 +388,6 @@ func testConfigGenerateCommandFlagParsing(t *testing.T) {
 			args:                    []string{"--overwrite"},
 			expectedOutput:          "",
 			expectedOverwrite:       true,
-			expectedAutoDetect:      false,
-			expectedIncludeComments: false,
-			expectedTargetRuntime:   "",
-			expectedError:           false,
-		},
-		{
-			name:                    "AutoDetectFlag",
-			args:                    []string{"--auto-detect"},
-			expectedOutput:          "",
-			expectedOverwrite:       false,
-			expectedAutoDetect:      true,
 			expectedIncludeComments: false,
 			expectedTargetRuntime:   "",
 			expectedError:           false,
@@ -412,7 +397,6 @@ func testConfigGenerateCommandFlagParsing(t *testing.T) {
 			args:                    []string{"--include-comments"},
 			expectedOutput:          "",
 			expectedOverwrite:       false,
-			expectedAutoDetect:      false,
 			expectedIncludeComments: true,
 			expectedTargetRuntime:   "",
 			expectedError:           false,
@@ -422,17 +406,15 @@ func testConfigGenerateCommandFlagParsing(t *testing.T) {
 			args:                    []string{"--runtime", "go"},
 			expectedOutput:          "",
 			expectedOverwrite:       false,
-			expectedAutoDetect:      false,
 			expectedIncludeComments: false,
 			expectedTargetRuntime:   "go",
 			expectedError:           false,
 		},
 		{
 			name:                    "AllFlags",
-			args:                    []string{"--output", "test.yaml", "--overwrite", "--auto-detect", "--include-comments", "--runtime", "python"},
+			args:                    []string{"--output", "test.yaml", "--overwrite", "--include-comments", "--runtime", "python"},
 			expectedOutput:          "test.yaml",
 			expectedOverwrite:       true,
-			expectedAutoDetect:      true,
 			expectedIncludeComments: true,
 			expectedTargetRuntime:   "python",
 			expectedError:           false,
@@ -453,7 +435,6 @@ func testConfigGenerateCommandFlagParsing(t *testing.T) {
 
 			testCmd.Flags().StringVarP(&cli.ConfigOutputPath, "output", "o", "", "Output configuration file path")
 			testCmd.Flags().BoolVar(&cli.ConfigOverwrite, "overwrite", false, "Overwrite existing configuration file")
-			testCmd.Flags().BoolVar(&cli.ConfigAutoDetect, "auto-detect", false, "Auto-detect runtimes and generate configuration")
 			testCmd.Flags().BoolVar(&cli.ConfigIncludeComments, "include-comments", false, "Include explanatory comments in generated config")
 			testCmd.Flags().StringVar(&cli.ConfigTargetRuntime, "runtime", "", "Generate configuration for specific runtime")
 
@@ -471,9 +452,6 @@ func testConfigGenerateCommandFlagParsing(t *testing.T) {
 			}
 			if cli.ConfigOverwrite != tt.expectedOverwrite {
 				t.Errorf("Expected cli.ConfigOverwrite to be %v, got %v", tt.expectedOverwrite, cli.ConfigOverwrite)
-			}
-			if cli.ConfigAutoDetect != tt.expectedAutoDetect {
-				t.Errorf("Expected cli.ConfigAutoDetect to be %v, got %v", tt.expectedAutoDetect, cli.ConfigAutoDetect)
 			}
 			if cli.ConfigIncludeComments != tt.expectedIncludeComments {
 				t.Errorf("Expected cli.ConfigIncludeComments to be %v, got %v", tt.expectedIncludeComments, cli.ConfigIncludeComments)
@@ -514,15 +492,6 @@ func testConfigGenerateCommandExecution(t *testing.T) {
 				return existingFile
 			},
 			args:         []string{"--output", "", "--overwrite"},
-			expectError:  false,
-			validateFile: true,
-		},
-		{
-			name: "GenerateWithAutoDetect",
-			setup: func() string {
-				return filepath.Join(tempDir, "auto-config.yaml")
-			},
-			args:         []string{"--output", "", "--auto-detect"},
 			expectError:  false,
 			validateFile: true,
 		},

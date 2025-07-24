@@ -3243,7 +3243,8 @@ display_comprehensive_summary() {
     echo "  LSP Gateway:"
     echo "    ./bin/lsp-gateway server              # Start HTTP Gateway"
     echo "    ./bin/lsp-gateway mcp                 # Start MCP Server"
-    echo "    ./bin/lsp-gateway setup all           # Run automated setup"
+    echo "    ./bin/lsp-gateway install runtime all # Install language runtimes"
+    echo "    ./bin/lsp-gateway install servers     # Install language servers"
     echo "    ./bin/lsp-gateway diagnose            # System diagnostics"
     echo "    ./bin/lsp-gateway status              # System status"
     

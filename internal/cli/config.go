@@ -18,7 +18,6 @@ var (
 	ConfigOutputPath      string
 	ConfigJSON            bool
 	ConfigOverwrite       bool
-	ConfigAutoDetect      bool
 	ConfigValidateOnly    bool
 	ConfigIncludeComments bool
 	ConfigTargetRuntime   string
@@ -41,9 +40,6 @@ Examples:
   # Generate default configuration
   lsp-gateway config generate
 
-  # Generate configuration based on detected runtimes
-  lsp-gateway config generate --auto-detect
-
   # Validate existing configuration
   lsp-gateway config validate
 
@@ -55,20 +51,16 @@ Examples:
 var ConfigGenerateCmd = &cobra.Command{
 	Use:   "generate",
 	Short: "Generate configuration files",
-	Long: `Generate LSP Gateway configuration files based on system detection or defaults.
+	Long: `Generate LSP Gateway configuration files based on defaults or target runtime.
 
 This command can generate configuration files in several ways:
-1. Auto-detection: Scan system for runtimes and generate config for available servers
-2. Target runtime: Generate config for a specific runtime (go, python, nodejs, java)
-3. Default: Generate a basic default configuration
+1. Target runtime: Generate config for a specific runtime (go, python, nodejs, java)
+2. Default: Generate a basic default configuration
 
 The generated configuration will include appropriate server definitions,
-language mappings, and transport settings based on detected capabilities.
+language mappings, and transport settings.
 
 Examples:
-  # Generate configuration with auto-detection
-  lsp-gateway config generate --auto-detect
-
   # Generate configuration for specific runtime
   lsp-gateway config generate --runtime go
 
@@ -147,7 +139,6 @@ func init() {
 
 	ConfigGenerateCmd.Flags().StringVarP(&ConfigOutputPath, "output", "o", "", "Output configuration file path (default: same as input)")
 	ConfigGenerateCmd.Flags().BoolVar(&ConfigOverwrite, "overwrite", false, "Overwrite existing configuration file")
-	ConfigGenerateCmd.Flags().BoolVar(&ConfigAutoDetect, "auto-detect", false, "Auto-detect runtimes and generate configuration")
 	ConfigGenerateCmd.Flags().BoolVar(&ConfigIncludeComments, "include-comments", false, "Include explanatory comments in generated config")
 	ConfigGenerateCmd.Flags().StringVar(&ConfigTargetRuntime, "runtime", "", "Generate configuration for specific runtime (go, python, nodejs, java)")
 
@@ -173,7 +164,6 @@ func ResetConfigFlags() {
 	ConfigOutputPath = ""
 	ConfigJSON = false
 	ConfigOverwrite = false
-	ConfigAutoDetect = false
 	ConfigValidateOnly = false
 	ConfigIncludeComments = false
 	ConfigTargetRuntime = ""
@@ -323,11 +313,6 @@ func determineConfigOutputPath() (string, error) {
 }
 
 func generateConfigurationByMode() (*config.GatewayConfig, error) {
-	if ConfigAutoDetect {
-		fmt.Println("Detecting runtimes and generating configuration...")
-		return config.DefaultConfig(), nil
-	}
-
 	if ConfigTargetRuntime != "" {
 		if err := validateTargetRuntime(); err != nil {
 			return nil, err

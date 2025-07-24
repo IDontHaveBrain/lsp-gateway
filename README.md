@@ -17,7 +17,8 @@ LSP Gateway provides dual protocol access to language servers:
 git clone [repository-url]
 cd lsp-gateway
 make local
-./bin/lsp-gateway setup all
+./bin/lsp-gateway install runtime all
+./bin/lsp-gateway install servers
 
 # 2. Start using
 ./bin/lsp-gateway server --config config.yaml    # HTTP Gateway (port 8080)
@@ -26,10 +27,11 @@ make local
 
 ## Installation Methods
 
-### Method 1: Automated Setup (Recommended)
+### Method 1: Standard Installation (Recommended)
 ```bash
 make local
-./bin/lsp-gateway setup all                   # Installs runtimes + language servers
+./bin/lsp-gateway install runtime all        # Install language runtimes
+./bin/lsp-gateway install servers            # Install language servers
 ./bin/lsp-gateway server --config config.yaml
 ```
 
@@ -57,8 +59,8 @@ npm install -g typescript-language-server
 
 ### Setup & Management
 ```bash
-./bin/lsp-gateway setup all                   # Complete automated setup
-./bin/lsp-gateway setup wizard                # Interactive setup
+./bin/lsp-gateway install runtime all         # Install language runtimes
+./bin/lsp-gateway install servers             # Install language servers
 ./bin/lsp-gateway status                      # System status
 ./bin/lsp-gateway diagnose                    # System diagnostics
 ./bin/lsp-gateway config validate             # Validate configuration
@@ -215,7 +217,7 @@ npm install -g typescript-language-server
 
 - **Go 1.24+** (primary requirement)
 - **Node.js 18.0.0+** (optional, for npm package wrapper)
-- **Language runtimes** (auto-installed by setup system): Go, Python 3.8+, Java 17+
+- **Language runtimes**: Go, Python 3.8+, Java 17+ (installable via install commands)
 
 ## Dependencies
 
@@ -237,7 +239,7 @@ MCP → ToolHandler → LSPGatewayClient → HTTP Gateway → Router → LSPClie
 **Core Components**:
 - **Router**: Thread-safe request routing (80+ file extensions supported)
 - **Transport**: Pluggable LSP communication (stdio/TCP) with circuit breakers
-- **Auto-Setup**: Cross-platform installation system
+- **Installation**: Cross-platform installation system
 - **CLI**: Comprehensive management interface with 20+ commands
 
 ## Integration Examples
