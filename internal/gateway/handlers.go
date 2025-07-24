@@ -24,6 +24,21 @@ type JSONRPCRequest struct {
 	Params  interface{} `json:"params,omitempty"`
 }
 
+type WorkspaceAwareJSONRPCRequest struct {
+	JSONRPCRequest
+	WorkspaceID string `json:"workspace_id,omitempty"`
+	ProjectPath string `json:"project_path,omitempty"`
+}
+
+type WorkspaceContext interface {
+	GetID() string
+	GetRootPath() string
+	GetProjectType() string
+	GetProjectName() string
+	GetLanguages() []string
+	IsActive() bool
+}
+
 type JSONRPCResponse struct {
 	JSONRPC string      `json:"jsonrpc"`
 	ID      interface{} `json:"id,omitempty"`
@@ -76,6 +91,21 @@ const (
 	LSPMethodShutdown                = "shutdown"
 	LSPMethodExit                    = "exit"
 	LSPMethodWorkspaceExecuteCommand = "workspace/executeCommand"
+)
+
+const (
+	ERROR_INVALID_REQUEST   = "Invalid JSON-RPC request"
+	ERROR_INTERNAL          = "Internal server error"
+	ERROR_SERVER_NOT_FOUND  = "Server %s not found"
+	FORMAT_INVALID_JSON_RPC = "Invalid JSON-RPC version: %s"
+)
+
+const (
+	LoggerFieldWorkspaceID   = "workspace_id"
+	LoggerFieldProjectPath   = "project_path"
+	LoggerFieldProjectType   = "project_type"
+	LoggerFieldProjectName   = "project_name"
+	URIPrefixWorkspace       = "workspace://"
 )
 
 type Router struct {
@@ -871,4 +901,267 @@ func (g *Gateway) writeError(w http.ResponseWriter, id interface{}, code int, me
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
+}
+
+func extractProjectContextFromURI(uri string) (string, string, error) {
+	if uri == "" {
+		return "", "", fmt.Errorf("empty URI provided")
+	}
+
+	var filePath string
+	if strings.HasPrefix(uri, URIPrefixFile) {
+		filePath = strings.TrimPrefix(uri, URIPrefixFile)
+	} else if strings.HasPrefix(uri, URIPrefixWorkspace) {
+		filePath = strings.TrimPrefix(uri, URIPrefixWorkspace)
+	} else {
+		filePath = uri
+	}
+
+	absPath, err := filepath.Abs(filePath)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get absolute path for %s: %w", filePath, err)
+	}
+
+	projectRoot := findProjectRoot(absPath)
+	if projectRoot == "" {
+		projectRoot = filepath.Dir(absPath)
+	}
+
+	workspaceID := generateWorkspaceID(projectRoot)
+	return workspaceID, projectRoot, nil
+}
+
+func findProjectRoot(startPath string) string {
+	projectMarkers := []string{
+		"go.mod", "go.sum",
+		"package.json", "tsconfig.json", "yarn.lock", "package-lock.json",
+		"pyproject.toml", "setup.py", "requirements.txt", "Pipfile",
+		"pom.xml", "build.gradle", "build.gradle.kts", "build.xml",
+		".git", ".hg", ".svn",
+		"Cargo.toml", "Makefile", "CMakeLists.txt",
+	}
+
+	currentDir := startPath
+	if !isDirectory(currentDir) {
+		currentDir = filepath.Dir(currentDir)
+	}
+
+	for {
+		for _, marker := range projectMarkers {
+			markerPath := filepath.Join(currentDir, marker)
+			if fileExists(markerPath) {
+				return currentDir
+			}
+		}
+
+		parent := filepath.Dir(currentDir)
+		if parent == currentDir {
+			break
+		}
+		currentDir = parent
+	}
+
+	return ""
+}
+
+func generateWorkspaceID(projectRoot string) string {
+	projectName := filepath.Base(projectRoot)
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	return fmt.Sprintf("ws_%s_%s", projectName, timestamp[:8])
+}
+
+func fileExists(path string) bool {
+	_, err := filepath.Abs(path)
+	return err == nil
+}
+
+func isDirectory(path string) bool {
+	return filepath.Ext(path) == ""
+}
+
+func (g *Gateway) enrichRequestWithWorkspaceContext(req JSONRPCRequest, workspaceID string) WorkspaceAwareJSONRPCRequest {
+	workspaceReq := WorkspaceAwareJSONRPCRequest{
+		JSONRPCRequest: req,
+		WorkspaceID:    workspaceID,
+	}
+
+	uri, err := g.extractURIFromParams(req)
+	if err == nil {
+		_, projectPath, err := extractProjectContextFromURI(uri)
+		if err == nil {
+			workspaceReq.ProjectPath = projectPath
+		}
+	}
+
+	return workspaceReq
+}
+
+func (g *Gateway) validateWorkspaceRequest(req JSONRPCRequest, workspace WorkspaceContext) error {
+	if workspace == nil {
+		return fmt.Errorf("workspace context is nil")
+	}
+
+	if !workspace.IsActive() {
+		return fmt.Errorf("workspace %s is not active", workspace.GetID())
+	}
+
+	uri, err := g.extractURIFromParams(req)
+	if err != nil {
+		return fmt.Errorf("failed to extract URI from request: %w", err)
+	}
+
+	var filePath string
+	if strings.HasPrefix(uri, URIPrefixFile) {
+		filePath = strings.TrimPrefix(uri, URIPrefixFile)
+	} else {
+		filePath = uri
+	}
+
+	if !strings.HasPrefix(filePath, workspace.GetRootPath()) {
+		return fmt.Errorf("file %s is not within workspace root %s", filePath, workspace.GetRootPath())
+	}
+
+	return nil
+}
+
+func getWorkspaceSpecificServerName(workspace WorkspaceContext, language string) string {
+	if workspace == nil {
+		return ""
+	}
+
+	projectType := workspace.GetProjectType()
+	workspaceID := workspace.GetID()
+
+	switch projectType {
+	case "go":
+		return fmt.Sprintf("go-lsp-%s", workspaceID)
+	case "python":
+		return fmt.Sprintf("python-lsp-%s", workspaceID)
+	case "typescript", "javascript":
+		return fmt.Sprintf("typescript-lsp-%s", workspaceID)
+	case "java":
+		return fmt.Sprintf("java-lsp-%s", workspaceID)
+	default:
+		return fmt.Sprintf("%s-lsp-%s", language, workspaceID)
+	}
+}
+
+func logRequestWithWorkspaceContext(logger *mcp.StructuredLogger, workspace WorkspaceContext, method string) *mcp.StructuredLogger {
+	if logger == nil {
+		return nil
+	}
+
+	fields := map[string]interface{}{
+		"lsp_method": method,
+	}
+
+	if workspace != nil {
+		fields[LoggerFieldWorkspaceID] = workspace.GetID()
+		fields[LoggerFieldProjectPath] = workspace.GetRootPath()
+		fields[LoggerFieldProjectType] = workspace.GetProjectType()
+		fields[LoggerFieldProjectName] = workspace.GetProjectName()
+	}
+
+	return logger.WithFields(fields)
+}
+
+func (g *Gateway) enrichRequestParamsWithWorkspaceInfo(params interface{}, workspace WorkspaceContext) interface{} {
+	if params == nil || workspace == nil {
+		return params
+	}
+
+	paramsMap, ok := params.(map[string]interface{})
+	if !ok {
+		return params
+	}
+
+	enrichedParams := make(map[string]interface{})
+	for k, v := range paramsMap {
+		enrichedParams[k] = v
+	}
+
+	enrichedParams["workspaceRoot"] = workspace.GetRootPath()
+	enrichedParams["workspaceID"] = workspace.GetID()
+	enrichedParams["projectType"] = workspace.GetProjectType()
+
+	return enrichedParams
+}
+
+func (g *Gateway) extractWorkspaceURIs(req JSONRPCRequest) []string {
+	var uris []string
+
+	if req.Params == nil {
+		return uris
+	}
+
+	paramsMap, ok := req.Params.(map[string]interface{})
+	if !ok {
+		return uris
+	}
+
+	if uri, found := g.extractURIFromTextDocument(paramsMap); found {
+		uris = append(uris, uri)
+	}
+
+	if uri, found := g.extractURIFromDirectParam(paramsMap); found {
+		uris = append(uris, uri)
+	}
+
+	if workspaceFolders, exists := paramsMap["workspaceFolders"]; exists {
+		if folders, ok := workspaceFolders.([]interface{}); ok {
+			for _, folder := range folders {
+				if folderMap, ok := folder.(map[string]interface{}); ok {
+					if uri, exists := folderMap["uri"]; exists {
+						if uriStr, ok := uri.(string); ok {
+							uris = append(uris, uriStr)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return uris
+}
+
+func (g *Gateway) isWorkspaceMethod(method string) bool {
+	workspaceMethods := []string{
+		LSPMethodWorkspaceSymbol,
+		LSPMethodWorkspaceExecuteCommand,
+		"workspace/didChangeWorkspaceFolders",
+		"workspace/didChangeConfiguration",
+		"workspace/didChangeWatchedFiles",
+	}
+
+	for _, wsMethod := range workspaceMethods {
+		if method == wsMethod {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (g *Gateway) createWorkspaceAwareResponse(response JSONRPCResponse, workspace WorkspaceContext) JSONRPCResponse {
+	if workspace == nil {
+		return response
+	}
+
+	if response.Result != nil {
+		if resultMap, ok := response.Result.(map[string]interface{}); ok {
+			enrichedResult := make(map[string]interface{})
+			for k, v := range resultMap {
+				enrichedResult[k] = v
+			}
+			enrichedResult["workspaceContext"] = map[string]interface{}{
+				"id":          workspace.GetID(),
+				"rootPath":    workspace.GetRootPath(),
+				"projectType": workspace.GetProjectType(),
+				"projectName": workspace.GetProjectName(),
+			}
+			response.Result = enrichedResult
+		}
+	}
+
+	return response
 }

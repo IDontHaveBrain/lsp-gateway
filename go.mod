@@ -6,6 +6,7 @@ toolchain go1.24.5
 
 require (
 	github.com/goccy/go-yaml v1.13.5
+	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/text v0.27.0
