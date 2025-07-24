@@ -400,7 +400,7 @@ func (d *NodeJSDetector) GetInstallationGuidance(info *NodeJSInfo) []string {
 	var guidance []string
 
 	if !info.Installed {
-		guidance = append(guidance, "Node.js is not installed. Install Node.js 18.0.0 or later:")
+		guidance = append(guidance, "Node.js is not installed. Install Node.js 22.0.0 or later:")
 
 		switch runtime.GOOS {
 		case "windows":
@@ -410,7 +410,7 @@ func (d *NodeJSDetector) GetInstallationGuidance(info *NodeJSInfo) []string {
 		case "darwin":
 			guidance = append(guidance, "  1. Download from https://nodejs.org")
 			guidance = append(guidance, "  2. Or use homebrew: brew install node")
-			guidance = append(guidance, "  3. Or use macports: sudo port install nodejs18")
+			guidance = append(guidance, "  3. Or use macports: sudo port install nodejs22")
 		case "linux":
 			guidance = append(guidance, "  1. Use package manager (Ubuntu/Debian): sudo apt install nodejs npm")
 			guidance = append(guidance, "  2. Use package manager (RHEL/CentOS): sudo yum install nodejs npm")

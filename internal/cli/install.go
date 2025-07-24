@@ -64,8 +64,8 @@ var installRuntimeCmd = &cobra.Command{
 
 Supported runtimes:
 - go:     Go programming language (1.19+)
-- python: Python programming language (3.8+)
-- nodejs: Node.js JavaScript runtime (18.0+)
+- python: Python programming language (3.9+)
+- nodejs: Node.js JavaScript runtime (22.0+)
 - java:   Java Development Kit (17+)
 - all:    Install all missing runtimes
 
@@ -105,7 +105,7 @@ Installation methods:
 - gopls:     go install golang.org/x/tools/gopls@latest
 - pylsp:     pip install python-lsp-server
 - typescript-language-server: npm install -g typescript-language-server typescript
-- jdtls:     Manual download and configuration (requires Java 17+)`,
+- jdtls:     Automated download from Eclipse releases with checksum verification (requires Java 17+)`,
 	Args:      cobra.ExactArgs(1),
 	ValidArgs: []string{"gopls", "pylsp", "typescript-language-server", "jdtls"},
 	RunE:      runInstallServer,
@@ -127,7 +127,7 @@ Language servers will be installed based on available runtimes:
 - Go runtime available     → Install gopls
 - Python runtime available → Install pylsp  
 - Node.js runtime available → Install typescript-language-server
-- Java runtime available   → Install jdtls
+- Java runtime available   → Install jdtls (automated download with checksum verification)
 
 Use --force to reinstall servers that are already installed.`,
 	RunE: runInstallServers,

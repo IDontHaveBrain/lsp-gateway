@@ -10,7 +10,10 @@ tests/
 │   └── internal/
 │       ├── cli/            # CLI command tests
 │       └── setup/          # Setup component tests
-├── integration/            # Integration tests (to be added)
+├── integration/            # Integration tests
+│   ├── setup_integration_test.go    # End-to-end setup workflow tests
+│   ├── jdtls_integration_test.go    # JDTLS installation pipeline tests
+│   └── JDTLS_TESTING.md            # JDTLS integration test documentation
 ├── mocks/                  # Mock implementations
 │   ├── runtime_detector_mock.go
 │   ├── runtime_installer_mock.go
@@ -197,27 +200,96 @@ func TestSetupCommand_MockIntegration(t *testing.T) {
 }
 ```
 
+## Integration Tests
+
+### JDTLS Integration Tests (`integration/jdtls_integration_test.go`)
+
+Comprehensive integration tests for Eclipse JDT Language Server (JDTLS) installation pipeline.
+
+**Test Coverage:**
+- Complete installation pipeline (download → extract → script creation → verification)
+- Cross-platform path resolution (Linux, macOS, Windows)
+- SHA256 checksum verification and mismatch handling
+- Installation failure recovery with retry logic
+- Platform-specific executable script generation
+- Installation verification and issue detection
+
+**Key Features:**
+- Mock HTTP servers for download simulation
+- Configurable failure scenarios (network timeouts, server errors, checksum failures)
+- Temporary file system with automatic cleanup
+- Platform-specific environment simulation
+- Comprehensive directory structure validation
+
+**Usage:**
+```bash
+# Run all JDTLS integration tests
+make test-jdtls-integration
+
+# Run specific JDTLS test functions
+go test -v -run "TestJDTLSIntegration_CompleteInstallationPipeline" ./tests/integration/...
+go test -v -run "TestJDTLSIntegration_CrossPlatformPathResolution" ./tests/integration/...
+go test -v -run "TestJDTLSIntegration_ChecksumVerification" ./tests/integration/...
+```
+
+For detailed information, see [`integration/JDTLS_TESTING.md`](integration/JDTLS_TESTING.md).
+
+### Setup Integration Tests (`integration/setup_integration_test.go`)
+
+End-to-end workflow tests for the complete setup orchestration process.
+
+**Test Coverage:**
+- Complete setup workflows with different configurations
+- Error recovery mechanisms and retry logic
+- Options validation and configuration
+- Parallel execution scenarios
+- Resource management and cleanup
+
 ## Running Tests
 
 ### Run All Tests
 ```bash
+make test
+# or
 go test ./tests/... -v
 ```
 
 ### Run Unit Tests Only
 ```bash
+make test-unit
+# or
 go test ./tests/unit/... -v
+```
+
+### Run Integration Tests
+```bash
+make test-integration
+# or
+go test ./tests/integration/... -v
+```
+
+### Run JDTLS Integration Tests
+```bash
+make test-jdtls-integration
+# or
+go test -v -timeout 600s -run "TestJDTLS" ./tests/integration/...
 ```
 
 ### Run Specific Test Suite
 ```bash
 go test ./tests/unit/internal/setup/ -v
 go test ./tests/unit/internal/cli/ -v
+go test ./tests/integration/ -v
 ```
 
 ### Run with Coverage
 ```bash
 go test ./tests/... -cover -v
+```
+
+### Run Tests in Short Mode (Skip Long-Running Tests)
+```bash
+go test ./tests/... -short -v
 ```
 
 ## Writing New Tests

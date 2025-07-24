@@ -879,7 +879,7 @@ func (g *DefaultConfigGenerator) initializeTemplates() {
 		Languages:         []string{"python"},
 		Transport:         "stdio",
 		RequiredRuntime:   "python",
-		MinRuntimeVersion: "3.8.0",
+		MinRuntimeVersion: "3.9.0",
 	}
 
 	g.templates["typescript-language-server"] = &ServerConfigTemplate{
@@ -891,7 +891,7 @@ func (g *DefaultConfigGenerator) initializeTemplates() {
 		Languages:         []string{"typescript", "javascript"},
 		Transport:         "stdio",
 		RequiredRuntime:   "nodejs",
-		MinRuntimeVersion: "18.0.0",
+		MinRuntimeVersion: "22.0.0",
 	}
 
 	g.templates[SERVER_JDTLS] = &ServerConfigTemplate{

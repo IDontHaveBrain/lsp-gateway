@@ -300,7 +300,10 @@ func (v *DefaultServerVerifier) verifyTypeScriptLSInstallation(result *ServerVer
 }
 
 func (v *DefaultServerVerifier) verifyJdtlsInstallation(result *ServerVerificationResult) {
+	// Use the actual installation path first, then fallback to legacy paths
+	actualInstallPath := getJDTLSInstallPath()
 	possiblePaths := []string{
+		actualInstallPath, // Primary installation path
 		filepath.Join(os.Getenv("HOME"), ".local", "share", "eclipse.jdt.ls"),
 		filepath.Join(os.Getenv("HOME"), ".eclipse", "jdt-language-server"),
 		"/opt/eclipse.jdt.ls",
@@ -585,7 +588,10 @@ func (v *DefaultServerVerifier) healthCheckTypeScriptLS(result *ServerHealthResu
 func (v *DefaultServerVerifier) healthCheckJdtls(result *ServerHealthResult) {
 	result.TestMethod = "installation_check"
 
+	// Use the actual installation path first, then fallback to legacy paths
+	actualInstallPath := getJDTLSInstallPath()
 	possiblePaths := []string{
+		actualInstallPath, // Primary installation path
 		filepath.Join(os.Getenv("HOME"), ".local", "share", "eclipse.jdt.ls"),
 		"/opt/eclipse.jdt.ls",
 	}
