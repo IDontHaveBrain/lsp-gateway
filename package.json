@@ -57,9 +57,7 @@
     "README.md"
   ],
   "dependencies": {},
-  "devDependencies": {
-    "jest": "^29.0.0"
-  },
+  "devDependencies": {},
   "optionalDependencies": {
     "lsp-gateway-linux-x64": "^0.1.0",
     "lsp-gateway-darwin-x64": "^0.1.0",
@@ -77,8 +75,7 @@
   "type": "commonjs",
   "directories": {
     "lib": "lib",
-    "bin": "bin",
-    "test": "test"
+    "bin": "bin"
   },
   "config": {
     "unsafe-perm": true
