@@ -518,7 +518,7 @@ func (h *ToolHandler) formatEnhancedDefinitions(definitions []interface{}) strin
 			
 			if projectInfo, exists := defMap["project_info"].(map[string]interface{}); exists {
 				if relPath, exists := projectInfo["relative_path"].(string); exists {
-					result.WriteString(fmt.Sprintf("%s", relPath))
+					result.WriteString(relPath)
 				}
 				if lang, exists := projectInfo["language"].(string); exists && lang != "" {
 					result.WriteString(fmt.Sprintf(" (%s)", lang))

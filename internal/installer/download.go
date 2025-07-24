@@ -99,7 +99,7 @@ func (d *FileDownloader) Download(options DownloadOptions) *DownloadResult {
 
 		// Clean up partial download on failure
 		if result.FilePath != "" {
-			os.Remove(result.FilePath)
+			_ = os.Remove(result.FilePath)
 		}
 	}
 
@@ -121,14 +121,14 @@ func (d *FileDownloader) downloadAttempt(client *http.Client, options DownloadOp
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}
-	defer outFile.Close()
+	defer func() { _ = outFile.Close() }()
 
 	// Make the HTTP request
 	resp, err := client.Get(options.URL)
 	if err != nil {
 		return fmt.Errorf("failed to download file: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// Check for HTTP errors
 	if resp.StatusCode != http.StatusOK {
@@ -191,14 +191,14 @@ func ExtractTarGz(archivePath, destDir string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open archive: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Create gzip reader
 	gzipReader, err := gzip.NewReader(file)
 	if err != nil {
 		return fmt.Errorf("failed to create gzip reader: %w", err)
 	}
-	defer gzipReader.Close()
+	defer func() { _ = gzipReader.Close() }()
 
 	// Create tar reader
 	tarReader := tar.NewReader(gzipReader)
@@ -247,10 +247,10 @@ func ExtractTarGz(archivePath, destDir string) error {
 			}
 
 			if _, err := io.Copy(outFile, tarReader); err != nil {
-				outFile.Close()
+				_ = outFile.Close()
 				return fmt.Errorf("failed to write file %s: %w", destPath, err)
 			}
-			outFile.Close()
+			_ = outFile.Close()
 
 		case tar.TypeSymlink:
 			// Create symlink
@@ -292,7 +292,7 @@ func VerifyFileChecksum(filePath, expectedChecksum string) (bool, string, error)
 	if err != nil {
 		return false, "", fmt.Errorf("failed to open file: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	hasher := sha256.New()
 	if _, err := io.Copy(hasher, file); err != nil {

@@ -25,20 +25,20 @@ func (w *WindowsRuntimeStrategy) InstallRuntime(runtime string, options types.In
 		return &types.InstallResult{
 			Success:  false,
 			Runtime:  runtime,
-			Messages: []string{"Windows strategy is nil"},
-		}, fmt.Errorf("Windows strategy is nil")
+			Messages: []string{"windows strategy is nil"},
+		}, fmt.Errorf("windows strategy is nil")
 	}
 
 	// Delegate to the underlying strategy methods based on runtime type
 	var err error
 	switch runtime {
-	case "go":
+	case RuntimeGo:
 		err = w.Strategy.InstallGo(options.Version)
-	case "python":
+	case RuntimePython:
 		err = w.Strategy.InstallPython(options.Version)
-	case "nodejs":
+	case RuntimeNodeJS:
 		err = w.Strategy.InstallNodejs(options.Version)
-	case "java":
+	case RuntimeJava:
 		err = w.Strategy.InstallJava(options.Version)
 	default:
 		return &types.InstallResult{
@@ -68,7 +68,7 @@ func (w *WindowsRuntimeStrategy) VerifyRuntime(runtime string) (*types.Verificat
 		return &types.VerificationResult{
 			Installed: false,
 			Runtime:   runtime,
-		}, fmt.Errorf("Windows strategy is nil")
+		}, fmt.Errorf("windows strategy is nil")
 	}
 
 	// Return basic verification result as expected by tests
@@ -109,20 +109,20 @@ func (l *LinuxRuntimeStrategy) InstallRuntime(runtime string, options types.Inst
 		return &types.InstallResult{
 			Success:  false,
 			Runtime:  runtime,
-			Messages: []string{"Linux strategy is nil"},
-		}, fmt.Errorf("Linux strategy is nil")
+			Messages: []string{"linux strategy is nil"},
+		}, fmt.Errorf("linux strategy is nil")
 	}
 
 	// Delegate to the underlying strategy methods based on runtime type
 	var err error
 	switch runtime {
-	case "go":
+	case RuntimeGo:
 		err = l.Strategy.InstallGo(options.Version)
-	case "python":
+	case RuntimePython:
 		err = l.Strategy.InstallPython(options.Version)
-	case "nodejs":
+	case RuntimeNodeJS:
 		err = l.Strategy.InstallNodejs(options.Version)
-	case "java":
+	case RuntimeJava:
 		err = l.Strategy.InstallJava(options.Version)
 	default:
 		return &types.InstallResult{
@@ -152,7 +152,7 @@ func (l *LinuxRuntimeStrategy) VerifyRuntime(runtime string) (*types.Verificatio
 		return &types.VerificationResult{
 			Installed: false,
 			Runtime:   runtime,
-		}, fmt.Errorf("Linux strategy is nil")
+		}, fmt.Errorf("linux strategy is nil")
 	}
 
 	// Return basic verification result as expected by tests
@@ -196,13 +196,13 @@ func (m *MacOSRuntimeStrategy) InstallRuntime(runtime string, options types.Inst
 	// Delegate to the underlying strategy methods based on runtime type
 	var err error
 	switch runtime {
-	case "go":
+	case RuntimeGo:
 		err = m.Strategy.InstallGo(options.Version)
-	case "python":
+	case RuntimePython:
 		err = m.Strategy.InstallPython(options.Version)
-	case "nodejs":
+	case RuntimeNodeJS:
 		err = m.Strategy.InstallNodejs(options.Version)
-	case "java":
+	case RuntimeJava:
 		err = m.Strategy.InstallJava(options.Version)
 	default:
 		return &types.InstallResult{

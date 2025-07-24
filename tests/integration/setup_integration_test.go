@@ -340,7 +340,7 @@ func TestSetupIntegration_OptionsValidation(t *testing.T) {
 				// Create directory for valid custom paths
 				if tt.shouldSucceed {
 					dir := filepath.Dir(tt.setupOptions.ConfigOutputPath)
-					os.MkdirAll(dir, 0755)
+					require.NoError(t, os.MkdirAll(dir, 0755), "Should create directory for config output path")
 				}
 			}
 
@@ -397,7 +397,9 @@ func (env *IntegrationTestEnvironment) TempDir() string {
 
 func (env *IntegrationTestEnvironment) Cleanup() {
 	if env.tempDir != "" {
-		os.RemoveAll(env.tempDir)
+		if err := os.RemoveAll(env.tempDir); err != nil {
+			env.t.Logf("Warning: failed to clean up temp directory %s: %v", env.tempDir, err)
+		}
 	}
 }
 

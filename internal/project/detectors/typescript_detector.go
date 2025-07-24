@@ -675,7 +675,7 @@ func (d *TypeScriptProjectDetector) hasJavaScriptFiles(path string) bool {
 
 func (d *TypeScriptProjectDetector) hasFilesMatchingPattern(root string, pattern *regexp.Regexp) bool {
 	found := false
-	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil || found {
 			return err
 		}
@@ -684,7 +684,7 @@ func (d *TypeScriptProjectDetector) hasFilesMatchingPattern(root string, pattern
 			return filepath.SkipDir
 		}
 		// Skip node_modules and other common directories
-		if info.IsDir() && (info.Name() == "node_modules" || info.Name() == ".git" || info.Name() == "dist" || info.Name() == "build") {
+		if info.IsDir() && (info.Name() == types.DIR_NODE_MODULES || info.Name() == types.DIR_DOT_GIT || info.Name() == "dist" || info.Name() == "build") {
 			return filepath.SkipDir
 		}
 		return nil
@@ -707,7 +707,7 @@ func (d *TypeScriptProjectDetector) countFilesWithExtensions(root string, extens
 		extMap[ext] = true
 	}
 
-	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -718,7 +718,7 @@ func (d *TypeScriptProjectDetector) countFilesWithExtensions(root string, extens
 			}
 		}
 		// Skip node_modules and other directories
-		if info.IsDir() && (info.Name() == "node_modules" || info.Name() == ".git" || info.Name() == "dist" || info.Name() == "build") {
+		if info.IsDir() && (info.Name() == types.DIR_NODE_MODULES || info.Name() == types.DIR_DOT_GIT || info.Name() == "dist" || info.Name() == "build") {
 			return filepath.SkipDir
 		}
 		return nil
@@ -1049,7 +1049,7 @@ func (d *TypeScriptProjectDetector) determineModuleType(path string, metadata *T
 
 func (d *TypeScriptProjectDetector) hasFilesWithExtension(root string, extension string) bool {
 	found := false
-	filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+	_ = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil || found {
 			return err
 		}
@@ -1057,7 +1057,7 @@ func (d *TypeScriptProjectDetector) hasFilesWithExtension(root string, extension
 			found = true
 			return filepath.SkipDir
 		}
-		if info.IsDir() && (info.Name() == "node_modules" || info.Name() == ".git") {
+		if info.IsDir() && (info.Name() == "node_modules" || info.Name() == types.DIR_DOT_GIT) {
 			return filepath.SkipDir
 		}
 		return nil

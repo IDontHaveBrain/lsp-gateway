@@ -87,6 +87,8 @@ func ValidatePortAvailability(port int, fieldName string) *ValidationError {
 	}
 
 	if err := listener.Close(); err != nil {
+		// Ignore listener close errors during validation
+		_ = err
 	}
 	return nil
 }
@@ -205,6 +207,8 @@ func validateFileReadable(path, fieldName string) *ValidationError {
 		}
 	}
 	if err := file.Close(); err != nil {
+		// Ignore file close errors during validation
+		_ = err
 	}
 
 	return nil
@@ -238,6 +242,8 @@ func validateFileWritable(path, fieldName string) *ValidationError {
 			}
 		}
 		if err := file.Close(); err != nil {
+			// Ignore file close errors during validation
+			_ = err
 		}
 		return nil
 	}
@@ -276,8 +282,12 @@ func validateFileCreatable(path, fieldName string) *ValidationError {
 		}
 	}
 	if err := file.Close(); err != nil {
+		// Ignore file close errors during validation
+		_ = err
 	}
 	if err := os.Remove(tempFile); err != nil {
+		// Ignore temp file removal errors during validation
+		_ = err
 	}
 
 	return nil
@@ -625,10 +635,15 @@ func ValidateProjectStructure(path, fieldName string) *ValidationError {
 	}
 
 	if !hasProjectStructure {
+		message := fmt.Sprintf("directory does not appear to be a project workspace: %s", normalizedPath)
+		if len(foundMarkers) > 0 {
+			message = fmt.Sprintf("directory contains some project markers (%v) but may not be a complete workspace: %s", 
+				foundMarkers, normalizedPath)
+		}
 		return &ValidationError{
 			Field:   fieldName,
 			Value:   path,
-			Message: fmt.Sprintf("directory does not appear to be a project workspace: %s", normalizedPath),
+			Message: message,
 			Suggestions: []string{
 				"Ensure the directory contains project files (go.mod, package.json, etc.)",
 				"Initialize a project in this directory if needed",

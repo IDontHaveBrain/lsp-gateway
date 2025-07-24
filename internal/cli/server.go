@@ -203,7 +203,7 @@ func createHTTPServer(cfg *config.GatewayConfig, gw gateway.GatewayInterface) *h
 			}
 			// Also check traditional clients as fallback
 			if !hasActiveClient && projectGw.Gateway != nil {
-				for _, client := range projectGw.Gateway.Clients {
+				for _, client := range projectGw.Clients {
 					if client.IsActive() {
 						hasActiveClient = true
 						clientCount++

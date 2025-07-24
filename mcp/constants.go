@@ -18,4 +18,10 @@ const (
 	LSP_METHOD_TEXT_DOCUMENT_SYMBOLS    = "textDocument/documentSymbol"
 
 	JSON_RPC_ENDPOINT = "/jsonrpc"
+
+	// Language constants
+	LANG_PYTHON     = "python"
+	LANG_JAVASCRIPT = "javascript"
+	LANG_TYPESCRIPT = "typescript"
+	LANG_JAVA       = "java"
 )

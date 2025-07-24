@@ -298,7 +298,7 @@ func NewMultipleProjectRootsError(roots []string) *ProjectError {
 		"Specify the primary project root explicitly",
 	}
 
-	err.WithMetadata("detected_roots", roots)
+	err = err.WithMetadata("detected_roots", roots)
 	return err
 }
 
@@ -337,7 +337,7 @@ func NewDetectionTimeoutError(path string, timeout time.Duration) *ProjectError 
 		"Exclude unnecessary directories from detection",
 	}
 
-	err.WithMetadata("timeout_duration", timeout)
+	err = err.WithMetadata("timeout_duration", timeout)
 	return err
 }
 

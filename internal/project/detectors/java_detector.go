@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"lsp-gateway/internal/platform"
@@ -116,8 +115,8 @@ func (d *JavaProjectDetector) GetLanguageInfo(language string) (*types.LanguageI
 		DisplayName:    "Java",
 		MinVersion:     "8",
 		MaxVersion:     "22",
-		BuildTools:     []string{"maven", "gradle", "ant"},
-		PackageManager: "maven",
+		BuildTools:     []string{types.BUILD_SYSTEM_MAVEN, "gradle", "ant"},
+		PackageManager: types.BUILD_SYSTEM_MAVEN,
 		TestFrameworks: []string{"junit", "testng", "spock"},
 		LintTools:      []string{"checkstyle", "spotbugs", "pmd"},
 		FormatTools:    []string{"google-java-format", "spotless"},
@@ -222,7 +221,7 @@ func (d *JavaProjectDetector) analyzeBuildSystemConfigs(ctx context.Context, pat
 	pomPath := filepath.Join(path, "pom.xml")
 	if _, err := os.Stat(pomPath); err == nil {
 		d.logger.Debug("Maven project detected")
-		analysis.BuildSystem = "maven"
+		analysis.BuildSystem = types.BUILD_SYSTEM_MAVEN
 		
 		mavenInfo, err := d.mavenParser.ParsePom(pomPath)
 		if err != nil {
@@ -244,7 +243,7 @@ func (d *JavaProjectDetector) analyzeBuildSystemConfigs(ctx context.Context, pat
 			d.logger.Debug("Gradle project detected")
 			
 			// If we already found Maven, this is a mixed build system
-			if analysis.BuildSystem == "maven" {
+			if analysis.BuildSystem == types.BUILD_SYSTEM_MAVEN {
 				analysis.BuildSystem = "mixed"
 				analysis.Issues = append(analysis.Issues, "Both Maven and Gradle configurations detected")
 			} else {
@@ -305,7 +304,7 @@ func (d *JavaProjectDetector) validateJavaProjectStructure(ctx context.Context, 
 			case "source":
 				validation.SourceDirs = append(validation.SourceDirs, dir)
 				foundSourceDir = true
-			case "test":
+			case types.SCOPE_TEST:
 				validation.TestDirs = append(validation.TestDirs, dir)
 			}
 		}
@@ -353,7 +352,7 @@ func (d *JavaProjectDetector) calculateConfidence(runtime *JavaRuntimeAnalysis, 
 
 	// Build system configuration
 	switch buildSystem.BuildSystem {
-	case "maven":
+	case types.BUILD_SYSTEM_MAVEN:
 		confidence += 0.4
 	case "gradle":
 		confidence += 0.4
@@ -389,62 +388,6 @@ func (d *JavaProjectDetector) findMarkerFiles(path string) []string {
 	return found
 }
 
-func (d *JavaProjectDetector) createProjectMetadata(runtime *JavaRuntimeAnalysis, buildSystem *BuildSystemAnalysis, structure *StructureValidation) interface{} {
-	metadata := &JavaDetectionMetadata{
-		JavaVersion:   runtime.JavaVersion,
-		BuildSystem:   buildSystem.BuildSystem,
-		JavaHome:      runtime.JavaHome,
-		ProjectType:   "application", // Default, could be enhanced
-		SourceDirs:    structure.SourceDirs,
-		TestDirs:      structure.TestDirs,
-		Dependencies:  make(map[string]*JavaDependency),
-		EntryPoints:   make(map[string]string),
-	}
-
-	if buildSystem.MavenInfo != nil {
-		metadata.MavenInfo = buildSystem.MavenInfo
-		// Convert Maven dependencies to Java dependencies
-		for name, version := range buildSystem.MavenInfo.Dependencies {
-			parts := strings.Split(name, ":")
-			if len(parts) >= 2 {
-				metadata.Dependencies[name] = &JavaDependency{
-					GroupId:    parts[0],
-					ArtifactId: parts[1],
-					Version:    version,
-					Source:     "pom.xml",
-				}
-			}
-		}
-	}
-
-	if buildSystem.GradleInfo != nil {
-		metadata.GradleInfo = buildSystem.GradleInfo
-		// Convert Gradle dependencies to Java dependencies
-		for name, version := range buildSystem.GradleInfo.Dependencies {
-			parts := strings.Split(name, ":")
-			if len(parts) >= 2 {
-				metadata.Dependencies[name] = &JavaDependency{
-					GroupId:    parts[0],
-					ArtifactId: parts[1],
-					Version:    version,
-					Source:     "build.gradle",
-				}
-			}
-		}
-	}
-
-	return metadata
-}
-
-func (d *JavaProjectDetector) collectIssues(runtime *JavaRuntimeAnalysis, buildSystem *BuildSystemAnalysis, structure *StructureValidation) []string {
-	var issues []string
-	
-	issues = append(issues, runtime.Issues...)
-	issues = append(issues, buildSystem.Issues...)
-	issues = append(issues, structure.Issues...)
-	
-	return issues
-}
 
 // Supporting types for internal analysis
 

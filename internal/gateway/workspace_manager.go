@@ -488,7 +488,9 @@ func (wc *WorkspaceContextImpl) getLSPClient(language string, config *config.Gat
 	}
 
 	if err := wc.initializeClient(client, logger); err != nil {
-		client.Stop()
+		if stopErr := client.Stop(); stopErr != nil {
+			logger.Warnf("Failed to stop LSP client during cleanup: %v", stopErr)
+		}
 		return nil, fmt.Errorf("failed to initialize LSP client for language %s: %w", language, err)
 	}
 

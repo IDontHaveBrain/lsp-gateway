@@ -203,7 +203,7 @@ func FormatRuntimeName(name string) string {
 }
 
 func OutputServersTableHeader() {
-	outputServersTableHeader()
+	_ = outputServersTableHeader()
 }
 
 func InitializeStatusData() map[string]interface{} {
@@ -531,7 +531,7 @@ func getStatusIcon(installed bool) string {
 	if installed {
 		return "✓ Installed"
 	}
-	return "✗ Not Installed"
+	return LABEL_NOT_INSTALLED
 }
 
 func getCompatibleText(compatible bool) string {
@@ -605,7 +605,7 @@ func extractServerDisplayInfo(installer *installer.DefaultServerInstaller, serve
 		counts.installed++
 		if verifyResult.Compatible {
 			counts.working++
-			info.status = "✓ Working"
+			info.status = LABEL_SUCCESS_CHECK
 		} else {
 			info.status = "⚠ Installed (Issues)"
 		}
@@ -973,7 +973,7 @@ func outputRuntimeStatusHuman(runtimeInstaller *installer.DefaultRuntimeInstalle
 
 func getRuntimeStatusAndVersion(verifyResult *types.VerificationResult, err error, installedCount *int, compatibleCount *int) (string, string) {
 	status := "✗ Not Installed"
-	version := "N/A"
+	version := VALUE_N_A
 
 	if err != nil {
 		status = "✗ Error"
@@ -1022,7 +1022,7 @@ func outputServerStatusHuman(runtimeInstaller *installer.DefaultRuntimeInstaller
 
 func getServerStatusAndVersion(verifyResult *types.VerificationResult, err error, installedCount *int, workingCount *int) (string, string) {
 	status := "✗ Not Installed"
-	version := "N/A"
+	version := VALUE_N_A
 
 	if err != nil {
 		status = "✗ Error"

@@ -460,9 +460,10 @@ func (c *TCPClient) recordError() {
 	currentState := CircuitBreakerState(atomic.LoadInt32(&c.circuitState))
 
 	if errorCount > c.maxRetries {
-		if currentState == CircuitClosed {
+		switch currentState {
+		case CircuitClosed:
 			c.openCircuit()
-		} else if currentState == CircuitHalfOpen {
+		case CircuitHalfOpen:
 			// Reset success count and go back to open
 			atomic.StoreInt64(&c.successCount, 0)
 			c.openCircuit()
@@ -473,7 +474,8 @@ func (c *TCPClient) recordError() {
 func (c *TCPClient) recordSuccess() {
 	currentState := CircuitBreakerState(atomic.LoadInt32(&c.circuitState))
 
-	if currentState == CircuitHalfOpen {
+	switch currentState {
+	case CircuitHalfOpen:
 		// Increment success count in half-open state
 		successCount := atomic.AddInt64(&c.successCount, 1)
 		if successCount >= c.healthThreshold {
@@ -482,10 +484,10 @@ func (c *TCPClient) recordSuccess() {
 			atomic.StoreInt64(&c.errorCount, 0)
 			atomic.StoreInt64(&c.successCount, 0)
 		}
-	} else if currentState == CircuitClosed {
+	case CircuitClosed:
 		// Reset error count on success in closed state
 		atomic.StoreInt64(&c.errorCount, 0)
-	} else if currentState == CircuitOpen {
+	case CircuitOpen:
 		// If we somehow get a success in open state, transition to half-open
 		if atomic.CompareAndSwapInt32(&c.circuitState, int32(CircuitOpen), int32(CircuitHalfOpen)) {
 			atomic.StoreInt64(&c.successCount, 1)
@@ -565,7 +567,7 @@ func (pool *ConnectionPool) warmUp() error {
 			successCount++
 		default:
 			// Pool full, close connection
-			conn.Close()
+			_ = conn.Close()
 			successCount++
 		}
 	}
@@ -594,7 +596,7 @@ func (pool *ConnectionPool) getConnection() (net.Conn, error) {
 			return conn, nil
 		}
 		// Connection unhealthy, close and create new one
-		conn.Close()
+		_ = conn.Close()
 		// Create new connection with retry
 		conn, err := pool.createConnectionWithRetry()
 		if err != nil {
@@ -620,7 +622,7 @@ func (pool *ConnectionPool) releaseConnection(conn net.Conn) {
 	atomic.AddInt64(&pool.activeConns, -1)
 
 	if !pool.isConnectionHealthy(conn) {
-		conn.Close()
+		_ = conn.Close()
 		return
 	}
 
@@ -628,7 +630,7 @@ func (pool *ConnectionPool) releaseConnection(conn net.Conn) {
 	select {
 	case <-pool.ctx.Done():
 		// Pool is closed, just close the connection
-		conn.Close()
+		_ = conn.Close()
 		return
 	default:
 	}
@@ -638,10 +640,10 @@ func (pool *ConnectionPool) releaseConnection(conn net.Conn) {
 		// Successfully returned to pool
 	case <-pool.ctx.Done():
 		// Pool closed while waiting, close connection
-		conn.Close()
+		_ = conn.Close()
 	default:
 		// Pool full, close connection
-		conn.Close()
+		_ = conn.Close()
 	}
 }
 
@@ -697,7 +699,7 @@ func (pool *ConnectionPool) isConnectionHealthy(conn net.Conn) bool {
 		return false
 	}
 	// Reset deadline
-	conn.SetDeadline(time.Time{})
+	_ = conn.SetDeadline(time.Time{})
 	return true
 }
 
@@ -732,11 +734,11 @@ func (pool *ConnectionPool) healthCheck() {
 				select {
 				case pool.connections <- conn:
 				default:
-					conn.Close()
+					_ = conn.Close()
 				}
 			} else {
 				// Close unhealthy connection
-				conn.Close()
+				_ = conn.Close()
 				unhealthyCount++
 			}
 		default:
@@ -756,7 +758,7 @@ func (pool *ConnectionPool) Close() {
 	for {
 		select {
 		case conn := <-pool.connections:
-			conn.Close()
+			_ = conn.Close()
 		default:
 			// No more connections to drain
 			return

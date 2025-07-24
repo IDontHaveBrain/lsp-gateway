@@ -277,9 +277,9 @@ func (r *DefaultRuntimeInstaller) generateCorruptionRecommendations(runtime stri
 	recommendations = append(recommendations, "Clear any cached files or configurations")
 
 	switch runtime {
-	case "python":
+	case RuntimePython:
 		recommendations = append(recommendations, "Clear pip cache: pip cache purge")
-	case "nodejs":
+	case RuntimeNodeJS:
 		recommendations = append(recommendations, "Clear npm cache: npm cache clean --force")
 	}
 

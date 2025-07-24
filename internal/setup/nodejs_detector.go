@@ -206,7 +206,7 @@ func (d *NodeJSDetector) checkGlobalInstallCapability(info *NodeJSInfo) {
 	}
 
 	globalNodeModules := filepath.Join(info.NPMGlobalPath, "lib", "node_modules")
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == OS_WINDOWS {
 		globalNodeModules = filepath.Join(info.NPMGlobalPath, "node_modules")
 	}
 
@@ -234,11 +234,15 @@ func (d *NodeJSDetector) testWritePermissions(dir string) error {
 	}
 	if err := file.Close(); err != nil {
 		if removeErr := os.Remove(testFile); removeErr != nil {
+			// Ignore cleanup errors when handling close error
+			_ = removeErr
 		}
 		return err
 	}
 
 	if err := os.Remove(testFile); err != nil {
+		// Ignore cleanup errors for test file removal
+		_ = err
 	}
 	return nil
 }

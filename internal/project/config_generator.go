@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"lsp-gateway/internal/config"
+	"lsp-gateway/internal/project/types"
 	"lsp-gateway/internal/setup"
 	"path/filepath"
 	"strings"
@@ -677,7 +678,7 @@ func (t *TypeScriptOptimizer) OptimizeForProject(ctx context.Context, serverConf
 	
 	// Node.js project optimizations
 	if nodeCtx, ok := projectContext.Metadata["nodejs_context"].(*NodeJSProjectContext); ok {
-		if nodeCtx.PackageManager == "yarn" {
+		if nodeCtx.PackageManager == types.PKG_MGR_YARN {
 			serverConfig.Args = append(serverConfig.Args, "--yarn-pnp")
 		}
 	}
@@ -725,13 +726,14 @@ func (j *JavaOptimizer) OptimizeForProject(ctx context.Context, serverConfig *co
 	
 	// Maven/Gradle specific settings
 	if javaCtx, ok := projectContext.Metadata["java_context"].(*JavaProjectContext); ok {
-		if javaCtx.BuildSystem == "maven" {
+		switch javaCtx.BuildSystem {
+		case "maven":
 			jdtSettings["java"].(map[string]interface{})["import"] = map[string]interface{}{
 				"maven": map[string]interface{}{
 					"enabled": true,
 				},
 			}
-		} else if javaCtx.BuildSystem == "gradle" {
+		case "gradle":
 			jdtSettings["java"].(map[string]interface{})["import"] = map[string]interface{}{
 				"gradle": map[string]interface{}{
 					"enabled": true,
@@ -939,7 +941,7 @@ func (g *ProjectConfigGeneratorImpl) evaluateCondition(condition string, project
 		return false
 	case "package_manager == yarn":
 		if nodeCtx, ok := projectContext.Metadata["nodejs_context"].(*NodeJSProjectContext); ok {
-			return nodeCtx.PackageManager == "yarn"
+			return nodeCtx.PackageManager == types.PKG_MGR_YARN
 		}
 		return false
 	default:

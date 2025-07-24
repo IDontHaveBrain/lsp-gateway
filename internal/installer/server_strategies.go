@@ -25,7 +25,7 @@ const (
 // getJDTLSInstallPath returns the installation path for jdtls based on the platform
 func getJDTLSInstallPath() string {
 	switch runtime.GOOS {
-	case "windows":
+	case string(platform.PlatformWindows):
 		if appData := os.Getenv("APPDATA"); appData != "" {
 			return filepath.Join(appData, "lsp-gateway", JDTLSInstallDir)
 		}
@@ -78,13 +78,13 @@ func (u *UniversalServerStrategy) InstallServer(server string, options types.Ser
 	start := time.Now()
 
 	switch server {
-	case "jdtls":
+	case ServerJDTLS:
 		return u.installJDTLS(options, start)
-	case "gopls":
+	case ServerGopls:
 		return u.installGopls(options, start)
-	case "pylsp":
+	case ServerPylsp:
 		return u.installPylsp(options, start)
-	case "typescript-language-server":
+	case ServerTypeScriptLanguageServer:
 		return u.installTypescriptLanguageServer(options, start)
 	default:
 		return &types.InstallResult{
@@ -106,7 +106,7 @@ func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOption
 		if _, err := os.Stat(executablePath); err == nil {
 			return &types.InstallResult{
 				Success:  true,
-				Runtime:  "jdtls",
+				Runtime:  ServerJDTLS,
 				Version:  JDTLSVersion,
 				Path:     executablePath,
 				Method:   "already_installed",
@@ -121,12 +121,12 @@ func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOption
 	if err != nil {
 		return &types.InstallResult{
 			Success:  false,
-			Runtime:  "jdtls",
+			Runtime:  ServerJDTLS,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Failed to create temp directory: %v", err)},
 		}, err
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Download jdtls archive
 	archivePath := filepath.Join(tempDir, "jdtls.tar.gz")
@@ -146,7 +146,7 @@ func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOption
 	if !downloadResult.Success {
 		return &types.InstallResult{
 			Success:  false,
-			Runtime:  "jdtls",
+			Runtime:  ServerJDTLS,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Download failed: %v", downloadResult.Error)},
 		}, downloadResult.Error
@@ -156,7 +156,7 @@ func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOption
 	if err := os.RemoveAll(installPath); err != nil && !os.IsNotExist(err) {
 		return &types.InstallResult{
 			Success:  false,
-			Runtime:  "jdtls",
+			Runtime:  ServerJDTLS,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Failed to remove existing installation: %v", err)},
 		}, err
@@ -166,7 +166,7 @@ func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOption
 	if err := ExtractTarGz(archivePath, installPath); err != nil {
 		return &types.InstallResult{
 			Success:  false,
-			Runtime:  "jdtls",
+			Runtime:  ServerJDTLS,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Failed to extract archive: %v", err)},
 		}, err
@@ -176,7 +176,7 @@ func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOption
 	if err := u.createJDTLSScript(installPath); err != nil {
 		return &types.InstallResult{
 			Success:  false,
-			Runtime:  "jdtls",
+			Runtime:  ServerJDTLS,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Failed to create executable script: %v", err)},
 		}, err
@@ -186,7 +186,7 @@ func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOption
 	if _, err := os.Stat(executablePath); err != nil {
 		return &types.InstallResult{
 			Success:  false,
-			Runtime:  "jdtls",
+			Runtime:  ServerJDTLS,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Installation verification failed: %v", err)},
 		}, err
@@ -194,7 +194,7 @@ func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOption
 
 	return &types.InstallResult{
 		Success:  true,
-		Runtime:  "jdtls",
+		Runtime:  ServerJDTLS,
 		Version:  JDTLSVersion,
 		Path:     executablePath,
 		Method:   "automated_download",
@@ -369,7 +369,7 @@ func (u *UniversalServerStrategy) installGopls(options types.ServerInstallOption
 	if err != nil {
 		return &types.InstallResult{
 			Success:  false,
-			Runtime:  "gopls",
+			Runtime:  ServerGopls,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Installation failed: %v", err)},
 		}, err
@@ -378,7 +378,7 @@ func (u *UniversalServerStrategy) installGopls(options types.ServerInstallOption
 	if result.ExitCode != 0 {
 		return &types.InstallResult{
 			Success:  false,
-			Runtime:  "gopls",
+			Runtime:  ServerGopls,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Installation failed with exit code %d: %s", result.ExitCode, result.Stderr)},
 		}, fmt.Errorf("gopls installation failed")
@@ -386,7 +386,7 @@ func (u *UniversalServerStrategy) installGopls(options types.ServerInstallOption
 
 	return &types.InstallResult{
 		Success:  true,
-		Runtime:  "gopls",
+		Runtime:  ServerGopls,
 		Method:   "go_install",
 		Duration: time.Since(start),
 		Messages: []string{"Successfully installed gopls"},
@@ -401,7 +401,7 @@ func (u *UniversalServerStrategy) installPylsp(options types.ServerInstallOption
 	if err != nil {
 		return &types.InstallResult{
 			Success:  false,
-			Runtime:  "pylsp",
+			Runtime:  ServerPylsp,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Installation failed: %v", err)},
 		}, err
@@ -410,7 +410,7 @@ func (u *UniversalServerStrategy) installPylsp(options types.ServerInstallOption
 	if result.ExitCode != 0 {
 		return &types.InstallResult{
 			Success:  false,
-			Runtime:  "pylsp",
+			Runtime:  ServerPylsp,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Installation failed with exit code %d: %s", result.ExitCode, result.Stderr)},
 		}, fmt.Errorf("pylsp installation failed")
@@ -418,7 +418,7 @@ func (u *UniversalServerStrategy) installPylsp(options types.ServerInstallOption
 
 	return &types.InstallResult{
 		Success:  true,
-		Runtime:  "pylsp",
+		Runtime:  ServerPylsp,
 		Method:   "pip_install",
 		Duration: time.Since(start),
 		Messages: []string{"Successfully installed python-lsp-server"},
@@ -433,7 +433,7 @@ func (u *UniversalServerStrategy) installTypescriptLanguageServer(options types.
 	if err != nil {
 		return &types.InstallResult{
 			Success:  false,
-			Runtime:  "typescript-language-server",
+			Runtime:  ServerTypeScriptLanguageServer,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Installation failed: %v", err)},
 		}, err
@@ -442,7 +442,7 @@ func (u *UniversalServerStrategy) installTypescriptLanguageServer(options types.
 	if result.ExitCode != 0 {
 		return &types.InstallResult{
 			Success:  false,
-			Runtime:  "typescript-language-server",
+			Runtime:  ServerTypeScriptLanguageServer,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Installation failed with exit code %d: %s", result.ExitCode, result.Stderr)},
 		}, fmt.Errorf("typescript-language-server installation failed")
@@ -450,7 +450,7 @@ func (u *UniversalServerStrategy) installTypescriptLanguageServer(options types.
 
 	return &types.InstallResult{
 		Success:  true,
-		Runtime:  "typescript-language-server",
+		Runtime:  ServerTypeScriptLanguageServer,
 		Method:   "npm_global",
 		Duration: time.Since(start),
 		Messages: []string{"Successfully installed typescript-language-server"},
@@ -460,13 +460,13 @@ func (u *UniversalServerStrategy) installTypescriptLanguageServer(options types.
 // VerifyServer verifies that the specified server is installed and functional
 func (u *UniversalServerStrategy) VerifyServer(server string) (*types.VerificationResult, error) {
 	switch server {
-	case "jdtls":
+	case ServerJDTLS:
 		return u.verifyJDTLS()
-	case "gopls":
+	case ServerGopls:
 		return u.verifyGopls()
-	case "pylsp":
+	case ServerPylsp:
 		return u.verifyPylsp()
-	case "typescript-language-server":
+	case ServerTypeScriptLanguageServer:
 		return u.verifyTypescriptLanguageServer()
 	default:
 		return &types.VerificationResult{
@@ -482,7 +482,7 @@ func (u *UniversalServerStrategy) verifyJDTLS() (*types.VerificationResult, erro
 	executablePath := getJDTLSExecutablePath()
 
 	result := &types.VerificationResult{
-		Runtime: "jdtls",
+		Runtime: ServerJDTLS,
 		Issues:  []types.Issue{},
 		Details: make(map[string]interface{}),
 	}
@@ -510,7 +510,7 @@ func (u *UniversalServerStrategy) verifyJDTLS() (*types.VerificationResult, erro
 // verifyGopls verifies gopls installation
 func (u *UniversalServerStrategy) verifyGopls() (*types.VerificationResult, error) {
 	result := &types.VerificationResult{
-		Runtime: "gopls",
+		Runtime: ServerGopls,
 		Issues:  []types.Issue{},
 	}
 
@@ -531,7 +531,7 @@ func (u *UniversalServerStrategy) verifyGopls() (*types.VerificationResult, erro
 // verifyPylsp verifies pylsp installation
 func (u *UniversalServerStrategy) verifyPylsp() (*types.VerificationResult, error) {
 	result := &types.VerificationResult{
-		Runtime: "pylsp",
+		Runtime: ServerPylsp,
 		Issues:  []types.Issue{},
 	}
 
@@ -552,7 +552,7 @@ func (u *UniversalServerStrategy) verifyPylsp() (*types.VerificationResult, erro
 // verifyTypescriptLanguageServer verifies typescript-language-server installation
 func (u *UniversalServerStrategy) verifyTypescriptLanguageServer() (*types.VerificationResult, error) {
 	result := &types.VerificationResult{
-		Runtime: "typescript-language-server",
+		Runtime: ServerTypeScriptLanguageServer,
 		Issues:  []types.Issue{},
 	}
 
@@ -573,13 +573,13 @@ func (u *UniversalServerStrategy) verifyTypescriptLanguageServer() (*types.Verif
 // GetInstallCommand returns the command that would be used to install the server
 func (u *UniversalServerStrategy) GetInstallCommand(server, version string) ([]string, error) {
 	switch server {
-	case "jdtls":
+	case ServerJDTLS:
 		return []string{"# Automated download and installation from Eclipse releases"}, nil
-	case "gopls":
+	case ServerGopls:
 		return []string{"go", "install", "golang.org/x/tools/gopls@latest"}, nil
-	case "pylsp":
+	case ServerPylsp:
 		return []string{"pip", "install", "python-lsp-server"}, nil
-	case "typescript-language-server":
+	case ServerTypeScriptLanguageServer:
 		return []string{"npm", "install", "-g", "typescript-language-server", "typescript"}, nil
 	default:
 		return []string{}, fmt.Errorf("unsupported server: %s", server)

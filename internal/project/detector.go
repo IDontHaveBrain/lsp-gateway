@@ -303,7 +303,7 @@ func (d *DefaultProjectDetector) ValidateProject(ctx context.Context, projectCtx
 		
 		validationError := types.NewValidationError(projectCtx.ProjectType, "Project validation failed", nil)
 		for _, err := range validationErrors {
-			validationError.WithSuggestion(err)
+			validationError = validationError.WithSuggestion(err)
 		}
 		return validationError
 	}
@@ -657,7 +657,7 @@ func (d *DefaultProjectDetector) calculateProjectSize(rootPath string) types.Pro
 
 		ext := strings.ToLower(filepath.Ext(path))
 		switch ext {
-		case ".go", ".py", ".js", ".ts", ".java", ".rs", ".c", ".cpp", ".h":
+		case ".go", ".py", types.EXT_JS, types.EXT_TS, ".java", ".rs", ".c", ".cpp", ".h":
 			size.SourceFiles++
 		case ".test.go", ".spec.js", ".test.js", ".spec.ts", ".test.ts":
 			size.TestFiles++

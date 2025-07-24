@@ -302,7 +302,7 @@ func diagnoseRuntimes(cmd *cobra.Command, args []string) error {
 
 		verifyResult, err := runtimeInstaller.Verify(runtimeName)
 		if err != nil {
-			result.Status = "failed"
+			result.Status = StatusFailed
 			result.Message = fmt.Sprintf("Failed to verify %s runtime: %v", runtimeName, err)
 			result.Suggestions = []string{
 				fmt.Sprintf("Check if %s is installed", runtimeName),
@@ -315,24 +315,24 @@ func diagnoseRuntimes(cmd *cobra.Command, args []string) error {
 			result.Details["path"] = verifyResult.Path
 
 			if !verifyResult.Installed {
-				result.Status = "failed"
+				result.Status = StatusFailed
 				result.Message = fmt.Sprintf("%s runtime not installed", cases.Title(language.English).String(runtimeName))
 				result.Suggestions = []string{
 					fmt.Sprintf("Install %s runtime", runtimeName),
 					fmt.Sprintf("Use automatic installation: ./lsp-gateway install runtime %s", runtimeName),
 				}
 			} else if !verifyResult.Compatible {
-				result.Status = "warning"
+				result.Status = StatusWarning
 				result.Message = fmt.Sprintf("%s version %s does not meet requirements", cases.Title(language.English).String(runtimeName), verifyResult.Version)
 				result.Suggestions = append(result.Suggestions, verifyResult.Recommendations...)
 			} else {
-				result.Status = "passed"
+				result.Status = StatusPassed
 				result.Message = fmt.Sprintf("%s runtime %s is properly installed and compatible", cases.Title(language.English).String(runtimeName), verifyResult.Version)
 			}
 
 			if len(verifyResult.Issues) > 0 {
-				if result.Status == "passed" {
-					result.Status = "warning"
+				if result.Status == StatusPassed {
+					result.Status = StatusWarning
 				}
 				for _, issue := range verifyResult.Issues {
 					result.Suggestions = append(result.Suggestions, "Resolve issue: "+issue.Description)
@@ -394,7 +394,7 @@ func diagnoseServers(cmd *cobra.Command, args []string) error {
 
 		verifyResult, err := serverInstaller.Verify(serverName)
 		if err != nil {
-			result.Status = "failed"
+			result.Status = StatusFailed
 			result.Message = fmt.Sprintf("Failed to verify %s server: %v", serverName, err)
 			result.Suggestions = []string{
 				fmt.Sprintf("Check if %s is installed", serverName),
@@ -407,24 +407,24 @@ func diagnoseServers(cmd *cobra.Command, args []string) error {
 			result.Details["path"] = verifyResult.Path
 
 			if !verifyResult.Installed {
-				result.Status = "failed"
+				result.Status = StatusFailed
 				result.Message = fmt.Sprintf("%s server not installed", serverName)
 				result.Suggestions = []string{
 					fmt.Sprintf("Install %s server", serverName),
 					fmt.Sprintf("Use automatic installation: ./lsp-gateway install server %s", serverName),
 				}
 			} else if !verifyResult.Compatible {
-				result.Status = "warning"
+				result.Status = StatusWarning
 				result.Message = fmt.Sprintf("%s server installed but has compatibility issues", serverName)
 				result.Suggestions = append(result.Suggestions, verifyResult.Recommendations...)
 			} else {
-				result.Status = "passed"
+				result.Status = StatusPassed
 				result.Message = fmt.Sprintf("%s server is properly installed and functional", serverName)
 			}
 
 			if len(verifyResult.Issues) > 0 {
-				if result.Status == "passed" {
-					result.Status = "warning"
+				if result.Status == StatusPassed {
+					result.Status = StatusWarning
 				}
 				for _, issue := range verifyResult.Issues {
 					result.Suggestions = append(result.Suggestions, "Resolve issue: "+issue.Description)
@@ -467,7 +467,7 @@ func diagnoseConfig(cmd *cobra.Command, args []string) error {
 
 	cfg, err := config.LoadConfig("config.yaml")
 	if err != nil {
-		configResult.Status = "failed"
+		configResult.Status = StatusFailed
 		configResult.Message = fmt.Sprintf("Failed to load configuration: %v", err)
 		configResult.Suggestions = []string{
 			"Generate a new configuration file: ./lsp-gateway config generate",
@@ -483,7 +483,7 @@ func diagnoseConfig(cmd *cobra.Command, args []string) error {
 		configResult.Details["server_count"] = len(cfg.Servers)
 
 		if validationErr := config.ValidateConfig(cfg); validationErr != nil {
-			configResult.Status = "warning"
+			configResult.Status = StatusWarning
 			configResult.Message = fmt.Sprintf("Configuration is valid but has issues: %v", validationErr)
 			configResult.Suggestions = []string{
 				"Fix configuration validation issues",
@@ -491,12 +491,12 @@ func diagnoseConfig(cmd *cobra.Command, args []string) error {
 				"Regenerate config: ./lsp-gateway config generate",
 			}
 		} else {
-			configResult.Status = "passed"
+			configResult.Status = StatusPassed
 			configResult.Message = "Configuration file is valid and complete"
 		}
 
 		if len(cfg.Servers) == 0 {
-			configResult.Status = "warning"
+			configResult.Status = StatusWarning
 			configResult.Message = "Configuration file is valid but no servers are configured"
 			configResult.Suggestions = append(configResult.Suggestions, "Add language server configurations")
 		}
@@ -538,14 +538,14 @@ func runSystemDiagnostics(_ context.Context, report *DiagnosticReport) error {
 	}
 
 	if stat, err := os.Stat(os.Args[0]); err != nil {
-		binaryResult.Status = "warning"
+		binaryResult.Status = StatusWarning
 		binaryResult.Message = "Cannot access LSP Gateway binary"
 		binaryResult.Suggestions = []string{
 			"Ensure the binary has proper permissions",
 			"Verify the binary path is correct",
 		}
 	} else {
-		binaryResult.Status = "passed"
+		binaryResult.Status = StatusPassed
 		binaryResult.Message = "LSP Gateway binary is accessible"
 		binaryResult.Details["path"] = os.Args[0]
 		binaryResult.Details["size"] = stat.Size()
@@ -581,7 +581,7 @@ func runRuntimeDiagnostics(_ context.Context, report *DiagnosticReport) error {
 
 		verifyResult, err := runtimeInstaller.Verify(name)
 		if err != nil {
-			result.Status = "failed"
+			result.Status = StatusFailed
 			result.Message = fmt.Sprintf("Failed to verify %s runtime: %v", name, err)
 			result.Suggestions = []string{
 				fmt.Sprintf("Check if %s is installed", name),
@@ -601,24 +601,24 @@ func runRuntimeDiagnostics(_ context.Context, report *DiagnosticReport) error {
 			}
 
 			if !verifyResult.Installed {
-				result.Status = "failed"
+				result.Status = StatusFailed
 				result.Message = fmt.Sprintf("%s runtime not installed", cases.Title(language.English).String(name))
 				result.Suggestions = []string{
 					fmt.Sprintf("Install %s runtime", name),
 					fmt.Sprintf("Use automatic installation: ./lsp-gateway install runtime %s", name),
 				}
 			} else if !verifyResult.Compatible {
-				result.Status = "warning"
+				result.Status = StatusWarning
 				result.Message = fmt.Sprintf("%s version %s does not meet minimum requirements", cases.Title(language.English).String(name), verifyResult.Version)
 				result.Suggestions = append(result.Suggestions, verifyResult.Recommendations...)
 			} else {
-				result.Status = "passed"
+				result.Status = StatusPassed
 				result.Message = fmt.Sprintf("%s runtime %s is properly installed and compatible", cases.Title(language.English).String(name), verifyResult.Version)
 			}
 
 			if len(verifyResult.Issues) > 0 {
-				if result.Status == "passed" {
-					result.Status = "warning"
+				if result.Status == StatusPassed {
+					result.Status = StatusWarning
 				}
 				for _, issue := range verifyResult.Issues {
 					result.Suggestions = append(result.Suggestions, "Resolve issue: "+issue.Description)
@@ -691,7 +691,7 @@ func runServerDiagnostics(_ context.Context, report *DiagnosticReport) error {
 
 		verifyResult, err := serverInstaller.Verify(serverName)
 		if err != nil {
-			result.Status = "failed"
+			result.Status = StatusFailed
 			result.Message = fmt.Sprintf("Failed to verify %s server: %v", serverName, err)
 			result.Suggestions = []string{
 				fmt.Sprintf("Try: ./lsp-gateway install server %s", serverName),
@@ -709,18 +709,18 @@ func runServerDiagnostics(_ context.Context, report *DiagnosticReport) error {
 			}
 
 			if !verifyResult.Installed {
-				result.Status = "failed"
+				result.Status = StatusFailed
 				result.Message = fmt.Sprintf("%s server not installed", serverName)
 				result.Suggestions = []string{
 					fmt.Sprintf("Install %s server", serverName),
 					fmt.Sprintf("Use: ./lsp-gateway install server %s", serverName),
 				}
 			} else if !verifyResult.Compatible {
-				result.Status = "warning"
+				result.Status = StatusWarning
 				result.Message = fmt.Sprintf("%s server installed but has compatibility issues", serverName)
 				result.Suggestions = append(result.Suggestions, verifyResult.Recommendations...)
 			} else {
-				result.Status = "passed"
+				result.Status = StatusPassed
 				result.Message = fmt.Sprintf("%s server is properly installed and functional", serverName)
 			}
 		}
@@ -760,7 +760,7 @@ func runConfigDiagnostics(ctx context.Context, report *DiagnosticReport) error {
 
 	cfg, err := config.LoadConfig("config.yaml")
 	if err != nil {
-		result.Status = "failed"
+		result.Status = StatusFailed
 		result.Message = fmt.Sprintf("Failed to load configuration: %v", err)
 		result.Suggestions = []string{
 			"Generate a new configuration file: ./lsp-gateway config generate",
@@ -773,19 +773,19 @@ func runConfigDiagnostics(ctx context.Context, report *DiagnosticReport) error {
 		result.Details["server_count"] = len(cfg.Servers)
 
 		if validationErr := config.ValidateConfig(cfg); validationErr != nil {
-			result.Status = "warning"
+			result.Status = StatusWarning
 			result.Message = fmt.Sprintf("Configuration has validation issues: %v", validationErr)
 			result.Suggestions = []string{
 				"Fix configuration validation issues",
 				"Regenerate config: ./lsp-gateway config generate",
 			}
 		} else {
-			result.Status = "passed"
+			result.Status = StatusPassed
 			result.Message = "Configuration is valid and complete"
 		}
 
 		if len(cfg.Servers) == 0 {
-			result.Status = "warning"
+			result.Status = StatusWarning
 			result.Message = "Configuration is valid but no servers are configured"
 			result.Suggestions = append(result.Suggestions, "Add language server configurations")
 		}
@@ -802,11 +802,11 @@ func calculateSummary(report *DiagnosticReport) {
 
 	for _, result := range report.Results {
 		switch result.Status {
-		case "passed":
+		case StatusPassed:
 			summary.Passed++
-		case "failed":
+		case StatusFailed:
 			summary.Failed++
-		case "warning":
+		case StatusWarning:
 			summary.Warnings++
 		case "skipped":
 			summary.Skipped++
@@ -816,7 +816,7 @@ func calculateSummary(report *DiagnosticReport) {
 	if summary.Failed > 0 {
 		summary.OverallStatus = "failed"
 	} else if summary.Warnings > 0 {
-		summary.OverallStatus = "warning"
+		summary.OverallStatus = StatusWarning
 	} else if summary.Passed > 0 {
 		summary.OverallStatus = "passed"
 	} else {
@@ -907,6 +907,8 @@ func outputDiagnosticTable(results []DiagnosticResult) {
 	}
 
 	if err := w.Flush(); err != nil {
+		// Ignore flush errors for diagnostic output
+		_ = err
 	}
 }
 
@@ -929,7 +931,7 @@ func outputRuntimeDiagnosticsHuman(results []DiagnosticResult) error {
 		if strings.HasPrefix(result.Name, "Runtime:") {
 			runtimeName := strings.TrimPrefix(result.Name, "Runtime: ")
 			status := getColoredStatus(result.Status)
-			version := "N/A"
+			version := VALUE_N_A
 			path := "N/A"
 
 			if result.Details["version"] != nil {
@@ -978,7 +980,7 @@ func outputServerDiagnosticsHuman(results []DiagnosticResult) error {
 		if strings.HasPrefix(result.Name, "Server:") {
 			serverName := strings.TrimPrefix(result.Name, "Server: ")
 			status := getColoredStatus(result.Status)
-			version := "N/A"
+			version := VALUE_N_A
 			path := "N/A"
 
 			if result.Details["version"] != nil {
@@ -1043,7 +1045,7 @@ func getColoredStatus(status string) string {
 	switch status {
 	case "passed":
 		return "✓ PASSED"
-	case "failed":
+	case StatusFailed:
 		return "✗ FAILED"
 	case "warning":
 		return "⚠ WARNING"

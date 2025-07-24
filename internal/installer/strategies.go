@@ -448,6 +448,8 @@ func (m *MacOSStrategy) installWithRetry(component, packageName string) error {
 
 func (m *MacOSStrategy) updateHomebrew() {
 	if _, err := platform.ExecuteShellCommand(m.executor, "brew update", 5*time.Minute); err != nil {
+		// Ignore brew update errors as they don't affect installation functionality
+		_ = err
 	}
 }
 

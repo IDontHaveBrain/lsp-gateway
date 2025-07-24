@@ -98,7 +98,7 @@ func (d *JavaDetector) DetectJava() (*JavaRuntimeInfo, error) {
 
 func (d *JavaDetector) getJavaExecutablePath() (string, error) {
 	var cmd []string
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == OS_WINDOWS {
 		cmd = []string{"where", "java"}
 	} else {
 		cmd = []string{"which", "java"}
@@ -114,7 +114,7 @@ func (d *JavaDetector) getJavaExecutablePath() (string, error) {
 		return "", fmt.Errorf("java executable not found in PATH")
 	}
 
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != OS_WINDOWS {
 		if resolved, err := filepath.EvalSymlinks(path); err == nil {
 			path = resolved
 		}
@@ -213,7 +213,7 @@ func (d *JavaDetector) ValidateJavaHome(javaInfo *JavaRuntimeInfo) {
 	}
 
 	javaExecutable := filepath.Join(javaHome, "bin", "java")
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == OS_WINDOWS {
 		javaExecutable += ".exe"
 	}
 
@@ -270,7 +270,7 @@ func (d *JavaDetector) detectJDKCapabilities(javaInfo *JavaRuntimeInfo) {
 
 		if javaInfo.JavaHome != "" {
 			javacPath := filepath.Join(javaInfo.JavaHome, "bin", "javac")
-			if runtime.GOOS == "windows" {
+			if runtime.GOOS == OS_WINDOWS {
 				javacPath += ".exe"
 			}
 
@@ -323,11 +323,11 @@ func (d *JavaDetector) ExtractJavacVersion(output string) string {
 
 func (d *JavaDetector) performPlatformSpecificValidation(javaInfo *JavaRuntimeInfo) {
 	switch runtime.GOOS {
-	case "windows":
+	case OS_WINDOWS:
 		d.validateWindowsJava(javaInfo)
-	case "darwin":
+	case OS_DARWIN:
 		d.validateMacOSJava(javaInfo)
-	case "linux":
+	case OS_LINUX:
 		d.validateLinuxJava(javaInfo)
 	}
 }
