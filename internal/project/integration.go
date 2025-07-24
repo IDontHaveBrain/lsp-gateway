@@ -260,7 +260,7 @@ func (pi *ProjectIntegration) normalizePath(path string) string {
 		}).Warn("Failed to normalize path")
 		return path
 	}
-	return strings.Replace(absPath, "\\", "/", -1)
+	return strings.ReplaceAll(absPath, "\\", "/")
 }
 
 func (pi *ProjectIntegration) finalizeResult(result *ProjectAnalysisResult, startTime time.Time, finalErr error) (*ProjectAnalysisResult, error) {

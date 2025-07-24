@@ -137,8 +137,12 @@ func (r *DefaultRuntimeInstaller) verifyPythonPackageInstallation(result *types.
 		if _, err := os.Stat(userSite); err == nil {
 			if f, err := os.OpenFile(filepath.Join(userSite, ".test_write"), os.O_CREATE|os.O_WRONLY, 0644); err == nil {
 				if closeErr := f.Close(); closeErr != nil {
+					// Ignore file close errors during site verification test
+					_ = closeErr
 				}
 				if err := os.Remove(filepath.Join(userSite, ".test_write")); err != nil {
+					// Ignore test file removal errors during site verification
+					_ = err
 				}
 				result.Metadata["python_user_site_writable"] = true
 			} else {
@@ -219,8 +223,12 @@ func (r *DefaultRuntimeInstaller) verifyNodejsNpm(result *types.VerificationResu
 			testFile := filepath.Join(globalDir, ".test_write")
 			if f, err := os.OpenFile(testFile, os.O_CREATE|os.O_WRONLY, 0644); err == nil {
 				if closeErr := f.Close(); closeErr != nil {
+					// Ignore file close errors during NPM global directory verification test
+					_ = closeErr
 				}
 				if err := os.Remove(testFile); err != nil {
+					// Ignore test file removal errors during NPM global directory verification
+					_ = err
 				}
 				result.Metadata["npm_global_writable"] = true
 			} else {
@@ -417,6 +425,8 @@ func (r *DefaultRuntimeInstaller) testJavaCompilation(result *types.Verification
 	}
 	defer func() {
 		if err := os.RemoveAll(testDir); err != nil {
+			// Ignore cleanup errors in defer
+			_ = err
 		}
 	}()
 

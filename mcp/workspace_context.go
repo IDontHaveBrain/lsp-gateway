@@ -223,13 +223,13 @@ func (w *WorkspaceContext) GetLanguageForFile(uri string) string {
 	case ".go":
 		return "go"
 	case ".py":
-		return "python"
+		return LANG_PYTHON
 	case ".js", ".jsx":
-		return "javascript"
+		return LANG_JAVASCRIPT
 	case ".ts", ".tsx":
-		return "typescript"
+		return LANG_TYPESCRIPT
 	case ".java":
-		return "java"
+		return LANG_JAVA
 	case ".rs":
 		return "rust"
 	case ".c", ".h":
@@ -419,13 +419,13 @@ func (w *WorkspaceContext) getFilePatterns(language string) []string {
 	switch language {
 	case "go":
 		return []string{"*.go"}
-	case "python":
+	case LANG_PYTHON:
 		return []string{"*.py"}
-	case "javascript":
+	case LANG_JAVASCRIPT:
 		return []string{"*.js", "*.jsx"}
-	case "typescript":
+	case LANG_TYPESCRIPT:
 		return []string{"*.ts", "*.tsx"}
-	case "java":
+	case LANG_JAVA:
 		return []string{"*.java"}
 	default:
 		return []string{}
@@ -467,9 +467,6 @@ func (w *WorkspaceContext) addError(error string) {
 	w.Errors = append(w.Errors, error)
 }
 
-func (w *WorkspaceContext) addWarning(warning string) {
-	w.Warnings = append(w.Warnings, warning)
-}
 
 // GetErrors returns all errors encountered during workspace context operations
 func (w *WorkspaceContext) GetErrors() []string {

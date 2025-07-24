@@ -7,9 +7,11 @@ import (
 	"lsp-gateway/internal/project"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // ProjectToolsHandler provides advanced project-specific MCP tool implementations
@@ -682,13 +684,13 @@ func (h *ProjectToolsHandler) generateLanguageSettings(projectCtx *project.Proje
 		case "go":
 			langSettings["go_mod"] = filepath.Join(projectCtx.RootPath, "go.mod")
 			langSettings["go_sum"] = filepath.Join(projectCtx.RootPath, "go.sum")
-		case "python":
+		case LANG_PYTHON:
 			langSettings["requirements"] = filepath.Join(projectCtx.RootPath, "requirements.txt")
 			langSettings["setup_py"] = filepath.Join(projectCtx.RootPath, "setup.py")
-		case "javascript", "typescript":
+		case LANG_JAVASCRIPT, LANG_TYPESCRIPT:
 			langSettings["package_json"] = filepath.Join(projectCtx.RootPath, "package.json")
 			langSettings["tsconfig"] = filepath.Join(projectCtx.RootPath, "tsconfig.json")
-		case "java":
+		case LANG_JAVA:
 			langSettings["pom_xml"] = filepath.Join(projectCtx.RootPath, "pom.xml")
 			langSettings["build_gradle"] = filepath.Join(projectCtx.RootPath, "build.gradle")
 		}
@@ -717,7 +719,7 @@ func (h *ProjectToolsHandler) generateServerConfigurations(projectCtx *project.P
 				},
 			}
 		case "pylsp":
-			serverConfig["command"] = "python"
+			serverConfig["command"] = LANG_PYTHON
 			serverConfig["args"] = []string{"-m", "pylsp"}
 		case "typescript-language-server":
 			serverConfig["command"] = "typescript-language-server"
@@ -1008,7 +1010,7 @@ func (h *ProjectToolsHandler) formatProjectAnalysis(analysis map[string]interfac
 func (h *ProjectToolsHandler) formatSymbolSearchResults(symbols []interface{}, query, scope string) string {
 	var result strings.Builder
 	
-	result.WriteString(fmt.Sprintf("# Symbol Search Results\n\n"))
+	result.WriteString("# Symbol Search Results\n\n")
 	result.WriteString(fmt.Sprintf("**Query:** %s\n", query))
 	result.WriteString(fmt.Sprintf("**Scope:** %s\n", scope))
 	result.WriteString(fmt.Sprintf("**Results Found:** %d\n\n", len(symbols)))
@@ -1044,7 +1046,7 @@ func (h *ProjectToolsHandler) formatProjectConfig(config map[string]interface{})
 	if projectInfo, exists := config["project_info"].(map[string]interface{}); exists {
 		result.WriteString("## Project Information\n")
 		for key, value := range projectInfo {
-			result.WriteString(fmt.Sprintf("- **%s:** %v\n", strings.Title(strings.ReplaceAll(key, "_", " ")), value))
+			result.WriteString(fmt.Sprintf("- **%s:** %v\n", cases.Title(language.English).String(strings.ReplaceAll(key, "_", " ")), value))
 		}
 		result.WriteString("\n")
 	}
@@ -1179,18 +1181,3 @@ func (h *ProjectToolsHandler) getStringArg(args map[string]interface{}, key stri
 	return defaultValue
 }
 
-func (h *ProjectToolsHandler) getIntArg(args map[string]interface{}, key string, defaultValue int) int {
-	if value, exists := args[key]; exists {
-		switch v := value.(type) {
-		case int:
-			return v
-		case float64:
-			return int(v)
-		case string:
-			if intValue, err := strconv.Atoi(v); err == nil {
-				return intValue
-			}
-		}
-	}
-	return defaultValue
-}

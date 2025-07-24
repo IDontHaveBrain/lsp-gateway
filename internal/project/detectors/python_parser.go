@@ -199,7 +199,7 @@ func (p *PythonConfigParser) ParsePyproject(ctx context.Context, path string) (*
 		if optionalDeps, ok := project["optional-dependencies"].(map[string]interface{}); ok {
 			for group, deps := range optionalDeps {
 				if depList, ok := deps.([]interface{}); ok {
-					if group == "dev" || group == "development" || group == "test" {
+					if group == types.SCOPE_DEV || group == "development" || group == types.SCOPE_TEST {
 						p.parseDependencyList(depList, info.DevDependencies, "pyproject.toml")
 					} else {
 						p.parseDependencyList(depList, info.Dependencies, "pyproject.toml")
@@ -226,7 +226,7 @@ func (p *PythonConfigParser) ParsePyproject(ctx context.Context, path string) (*
 				for groupName, groupData := range groups {
 					if groupMap, ok := groupData.(map[string]interface{}); ok {
 						if deps, ok := groupMap["dependencies"].(map[string]interface{}); ok {
-							if groupName == "dev" || groupName == "test" {
+							if groupName == types.SCOPE_DEV || groupName == "test" {
 								p.parsePoetryDependencies(deps, info.DevDependencies, "pyproject.toml")
 							} else {
 								p.parsePoetryDependencies(deps, info.Dependencies, "pyproject.toml")
@@ -242,7 +242,7 @@ func (p *PythonConfigParser) ParsePyproject(ctx context.Context, path string) (*
 			if devDeps, ok := pdm["dev-dependencies"].(map[string]interface{}); ok {
 				for group, deps := range devDeps {
 					if depList, ok := deps.([]interface{}); ok {
-						if group == "dev" || group == "test" {
+						if group == types.SCOPE_DEV || group == "test" {
 							p.parseDependencyList(depList, info.DevDependencies, "pyproject.toml")
 						}
 					}
@@ -328,7 +328,7 @@ func (p *PythonConfigParser) ParseRequirements(ctx context.Context, path string)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open requirements.txt: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	dependencies := make(map[string]*types.PythonDependencyInfo)
 	scanner := bufio.NewScanner(file)

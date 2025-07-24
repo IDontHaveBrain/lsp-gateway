@@ -72,7 +72,7 @@ func (j *JavaLanguageDetector) DetectLanguage(ctx context.Context, path string) 
 			result.ConfigFiles = append(result.ConfigFiles, gradleFile)
 			if confidence == 0 {
 				confidence = 0.9
-				result.Metadata["build_system"] = "gradle"
+				result.Metadata["build_system"] = types.BUILD_SYSTEM_GRADLE
 			} else if confidence > 0 {
 				// Both Maven and Gradle - unusual but possible
 				result.Metadata["build_system"] = "hybrid"
@@ -90,7 +90,7 @@ func (j *JavaLanguageDetector) DetectLanguage(ctx context.Context, path string) 
 		result.MarkerFiles = append(result.MarkerFiles, "gradlew")
 		if confidence == 0 {
 			confidence = 0.7
-			result.Metadata["build_system"] = "gradle"
+			result.Metadata["build_system"] = types.BUILD_SYSTEM_GRADLE
 		}
 	}
 
@@ -128,7 +128,7 @@ func (j *JavaLanguageDetector) DetectLanguage(ctx context.Context, path string) 
 
 	// Set detection metadata
 	result.Metadata["detection_time"] = time.Since(startTime)
-	result.Metadata["detector_version"] = "1.0.0"
+	result.Metadata["detector_version"] = types.DETECTOR_VERSION_DEFAULT
 
 	j.logger.WithFields(map[string]interface{}{
 		"confidence":      result.Confidence,
@@ -244,7 +244,7 @@ func (j *JavaLanguageDetector) parseBuildGradle(gradlePath string, result *types
 	if err != nil {
 		return fmt.Errorf("failed to open build.gradle: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	scanner := bufio.NewScanner(file)
 	var currentSection string
@@ -561,7 +561,7 @@ func (j *JavaLanguageDetector) GetLanguageInfo(language string) (*types.Language
 		DisplayName:    "Java",
 		MinVersion:     "8",
 		MaxVersion:     "22",
-		BuildTools:     []string{"maven", "gradle", "ant", "sbt"},
+		BuildTools:     []string{"maven", types.BUILD_SYSTEM_GRADLE, "ant", "sbt"},
 		PackageManager: "maven",
 		TestFrameworks: []string{"junit", "testng", "spock"},
 		LintTools:      []string{"checkstyle", "spotbugs", "pmd"},
@@ -571,7 +571,7 @@ func (j *JavaLanguageDetector) GetLanguageInfo(language string) (*types.Language
 		Capabilities:   []string{"completion", "hover", "definition", "references", "formatting", "code_action", "rename"},
 		Metadata: map[string]interface{}{
 			"jvm_languages": []string{"java", "kotlin", "scala", "groovy"},
-			"build_systems": []string{"maven", "gradle"},
+			"build_systems": []string{"maven", types.BUILD_SYSTEM_GRADLE},
 			"documentation": "docs.oracle.com/javase",
 		},
 	}, nil

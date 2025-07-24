@@ -178,7 +178,7 @@ func (eh *ErrorHandler) recoverPackageManager(ctx context.Context, err error, lo
 	logger.Debug("Attempting package manager recovery")
 
 	switch runtime.GOOS {
-	case "linux":
+	case OS_LINUX:
 		if cmd := exec.Command("apt", "update"); cmd.Run() == nil {
 			logger.Debug("Successfully updated apt cache")
 			return nil
@@ -187,7 +187,7 @@ func (eh *ErrorHandler) recoverPackageManager(ctx context.Context, err error, lo
 			logger.Debug("Successfully updated yum cache")
 			return nil
 		}
-	case "darwin":
+	case OS_DARWIN:
 		if cmd := exec.Command(platform.PACKAGE_MANAGER_BREW, "update"); cmd.Run() == nil {
 			logger.Debug("Successfully updated brew")
 			return nil
@@ -203,7 +203,7 @@ func (eh *ErrorHandler) installPackage(ctx context.Context, packageName string, 
 	var cmd *exec.Cmd
 
 	switch runtime.GOOS {
-	case "linux":
+	case OS_LINUX:
 		if _, err := exec.LookPath("apt"); err == nil {
 			cmd = exec.Command("apt", "install", "-y", packageName)
 		} else if _, err := exec.LookPath("yum"); err == nil {
@@ -211,7 +211,7 @@ func (eh *ErrorHandler) installPackage(ctx context.Context, packageName string, 
 		} else if _, err := exec.LookPath("dnf"); err == nil {
 			cmd = exec.Command("dnf", "install", "-y", packageName)
 		}
-	case "darwin":
+	case OS_DARWIN:
 		if _, err := exec.LookPath(platform.PACKAGE_MANAGER_BREW); err == nil {
 			cmd = exec.Command(platform.PACKAGE_MANAGER_BREW, "install", packageName)
 		}

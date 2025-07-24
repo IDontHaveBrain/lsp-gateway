@@ -502,7 +502,7 @@ func (d *PythonProjectDetector) validateConfigurationFiles(ctx context.Context, 
 func (d *PythonProjectDetector) validatePythonRuntime(ctx context.Context, path string) error {
 	// Check if Python is available
 	if _, err := d.pythonDetector.DetectPython(); err != nil {
-		return fmt.Errorf("Python runtime not available: %w", err)
+		return fmt.Errorf("python runtime not available: %w", err)
 	}
 
 	return nil

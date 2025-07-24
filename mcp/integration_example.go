@@ -445,7 +445,7 @@ func ConfigurationExample() *config.GatewayConfig {
 // UsageExample shows typical usage patterns
 func UsageExample() {
 	// This would be called from main() or a server setup function
-	fmt.Println(`
+	fmt.Print(`
 # Enhanced MCP Tools with Project Context Awareness
 
 ## Basic Usage

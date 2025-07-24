@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"lsp-gateway/internal/cli"
 	"lsp-gateway/internal/setup"
 	"lsp-gateway/internal/types"
@@ -555,8 +555,13 @@ func countGoroutines() int {
 func TestRunSetupAll_EnvironmentVariables(t *testing.T) {
 	t.Run("WithCustomEnvironment", func(t *testing.T) {
 		// Set custom environment variables
-		os.Setenv("LSP_GATEWAY_TEST_MODE", "true")
-		defer os.Unsetenv("LSP_GATEWAY_TEST_MODE")
+		err := os.Setenv("LSP_GATEWAY_TEST_MODE", "true")
+		assert.NoError(t, err, "Failed to set test environment variable")
+		defer func() {
+			if unsetErr := os.Unsetenv("LSP_GATEWAY_TEST_MODE"); unsetErr != nil {
+				t.Logf("Warning: failed to unset test environment variable: %v", unsetErr)
+			}
+		}()
 
 		testRunner := testdata.NewTestRunner(30 * time.Second)
 		defer testRunner.Cleanup()
@@ -570,7 +575,7 @@ func TestRunSetupAll_EnvironmentVariables(t *testing.T) {
 		cmd := cli.GetSetupAllCmd()
 		cmd.SetContext(testRunner.Context())
 
-		err := cmd.RunE(cmd, []string{})
+		err = cmd.RunE(cmd, []string{})
 		assert.NoError(t, err, "Setup should handle custom environment variables")
 
 		// Verify environment variable is still set
@@ -598,8 +603,8 @@ func BenchmarkRunSetupAll(b *testing.B) {
 		cmd.SetContext(testRunner.Context())
 
 		// Discard output
-		cmd.SetOut(ioutil.Discard)
-		cmd.SetErr(ioutil.Discard)
+		cmd.SetOut(io.Discard)
+		cmd.SetErr(io.Discard)
 
 		err := cmd.RunE(cmd, []string{})
 		if err != nil {

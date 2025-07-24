@@ -13,6 +13,36 @@ import (
 	"time"
 )
 
+// TypeScript framework name mappings
+var typeScriptFrameworkMap = map[string]string{
+	"typescript":                    "TypeScript",
+	"@types/node":                  "Node.js Types",
+	"@types/react":                 "React Types", 
+	"@types/express":               "Express Types",
+	"ts-node":                      "ts-node",
+	"tsx":                          "tsx",
+	"tsc-watch":                    "tsc-watch",
+	"nodemon":                      "Nodemon",
+	"concurrently":                 "Concurrently",
+	"@typescript-eslint/parser":    "TypeScript ESLint",
+	"@typescript-eslint/eslint-plugin": "TypeScript ESLint Plugin",
+	"prettier":                     "Prettier",
+	"jest":                         "Jest",
+	"@types/jest":                  "Jest Types",
+	"vitest":                       "Vitest", 
+	"ava":                          "AVA",
+	"mocha":                        "Mocha",
+	"@types/mocha":                 "Mocha Types",
+}
+
+// TypeScript project type detection rules
+var typeScriptProjectTypes = map[string][]string{
+	"@angular/core":  {"Angular"},
+	"vue":            {"Vue.js with TypeScript"},
+	"next":           {"Next.js with TypeScript"},
+	"@nestjs/core":   {"NestJS"},
+}
+
 // TypeScriptLanguageDetector implements comprehensive TypeScript project detection
 type TypeScriptLanguageDetector struct {
 	logger       *setup.SetupLogger
@@ -100,7 +130,7 @@ func (t *TypeScriptLanguageDetector) DetectLanguage(ctx context.Context, path st
 
 		// Copy config files from Node.js detection
 		for _, config := range nodeResult.ConfigFiles {
-			if config != MARKER_TSCONFIG { // Avoid duplicates
+			if config != types.MARKER_TSCONFIG { // Avoid duplicates
 				result.ConfigFiles = append(result.ConfigFiles, config)
 			}
 		}
@@ -146,7 +176,7 @@ func (t *TypeScriptLanguageDetector) DetectLanguage(ctx context.Context, path st
 
 	// Set detection metadata
 	result.Metadata["detection_time"] = time.Since(startTime)
-	result.Metadata["detector_version"] = "1.0.0"
+	result.Metadata["detector_version"] = types.DETECTOR_VERSION_DEFAULT
 
 	t.logger.WithFields(map[string]interface{}{
 		"confidence":      result.Confidence,
@@ -279,7 +309,7 @@ func (t *TypeScriptLanguageDetector) scanForTypeScriptFiles(path string, result 
 		}
 
 		ext := strings.ToLower(filepath.Ext(filePath))
-		if ext == ".ts" || ext == ".tsx" || ext == ".d.ts" {
+		if ext == types.EXT_TS || ext == ".tsx" || ext == ".d.ts" {
 			*tsFileCount++
 			dir := filepath.Dir(filePath)
 			relDir, _ := filepath.Rel(path, dir)
@@ -365,6 +395,36 @@ func (t *TypeScriptLanguageDetector) detectTypeScriptVersion(ctx context.Context
 	return nil
 }
 
+// getTypeScriptFrameworkName returns the framework name for a given dependency name
+func (t *TypeScriptLanguageDetector) getTypeScriptFrameworkName(dep string) (string, bool) {
+	framework, exists := typeScriptFrameworkMap[dep]
+	return framework, exists
+}
+
+// detectTypeScriptProjectTypes determines project types based on dependencies
+func (t *TypeScriptLanguageDetector) detectTypeScriptProjectTypes(allDeps map[string]string) []string {
+	projectTypes := []string{}
+	
+	// Direct project type detection
+	for dep, types := range typeScriptProjectTypes {
+		if _, exists := allDeps[dep]; exists {
+			projectTypes = append(projectTypes, types...)
+		}
+	}
+	
+	// Special cases requiring TypeScript dependency
+	if _, existsTS := allDeps["typescript"]; existsTS {
+		if _, exists := allDeps["vue"]; exists {
+			projectTypes = append(projectTypes, "Vue.js with TypeScript")
+		}
+		if _, exists := allDeps["next"]; exists {
+			projectTypes = append(projectTypes, "Next.js with TypeScript")
+		}
+	}
+	
+	return projectTypes
+}
+
 func (t *TypeScriptLanguageDetector) detectTypeScriptFrameworks(result *types.LanguageDetectionResult) {
 	frameworks := []string{}
 	
@@ -378,46 +438,12 @@ func (t *TypeScriptLanguageDetector) detectTypeScriptFrameworks(result *types.La
 	}
 
 	for dep := range allDeps {
-		switch dep {
-		case "typescript":
-			frameworks = append(frameworks, "TypeScript")
-		case "@types/node":
-			frameworks = append(frameworks, "Node.js Types")
-		case "@types/react":
-			frameworks = append(frameworks, "React Types")
-		case "@types/express":
-			frameworks = append(frameworks, "Express Types")
-		case "ts-node":
-			frameworks = append(frameworks, "ts-node")
-		case "tsx":
-			frameworks = append(frameworks, "tsx")
-		case "tsc-watch":
-			frameworks = append(frameworks, "tsc-watch")
-		case "nodemon":
-			frameworks = append(frameworks, "Nodemon")
-		case "concurrently":
-			frameworks = append(frameworks, "Concurrently")
-		case "@typescript-eslint/parser":
-			frameworks = append(frameworks, "TypeScript ESLint")
-		case "@typescript-eslint/eslint-plugin":
-			frameworks = append(frameworks, "TypeScript ESLint Plugin")
-		case "prettier":
-			frameworks = append(frameworks, "Prettier")
-		case "jest":
-			frameworks = append(frameworks, "Jest")
-		case "@types/jest":
-			frameworks = append(frameworks, "Jest Types")
-		case "vitest":
-			frameworks = append(frameworks, "Vitest")
-		case "ava":
-			frameworks = append(frameworks, "AVA")
-		case "mocha":
-			frameworks = append(frameworks, "Mocha")
-		case "@types/mocha":
-			frameworks = append(frameworks, "Mocha Types")
+		// Use map lookup instead of switch statement
+		if framework, exists := t.getTypeScriptFrameworkName(dep); exists {
+			frameworks = append(frameworks, framework)
 		}
 
-		// Framework-specific TypeScript detection
+		// Framework-specific TypeScript detection for @types/ packages
 		if strings.HasPrefix(dep, "@types/") {
 			typesFor := strings.TrimPrefix(dep, "@types/")
 			frameworks = append(frameworks, fmt.Sprintf("%s Types", typesFor))
@@ -428,33 +454,8 @@ func (t *TypeScriptLanguageDetector) detectTypeScriptFrameworks(result *types.La
 		result.Metadata["frameworks"] = frameworks
 	}
 
-	// Detect specific TypeScript project types
-	projectTypes := []string{}
-	
-	// Check for Angular
-	if _, exists := allDeps["@angular/core"]; exists {
-		projectTypes = append(projectTypes, "Angular")
-	}
-	
-	// Check for Vue 3 with TypeScript
-	if _, exists := allDeps["vue"]; exists {
-		if _, existsTS := allDeps["typescript"]; existsTS {
-			projectTypes = append(projectTypes, "Vue.js with TypeScript")
-		}
-	}
-	
-	// Check for Next.js with TypeScript
-	if _, exists := allDeps["next"]; exists {
-		if _, existsTS := allDeps["typescript"]; existsTS {
-			projectTypes = append(projectTypes, "Next.js with TypeScript")
-		}
-	}
-
-	// Check for NestJS
-	if _, exists := allDeps["@nestjs/core"]; exists {
-		projectTypes = append(projectTypes, "NestJS")
-	}
-
+	// Detect specific TypeScript project types using helper method
+	projectTypes := t.detectTypeScriptProjectTypes(allDeps)
 	if len(projectTypes) > 0 {
 		result.Metadata["project_types"] = projectTypes
 	}

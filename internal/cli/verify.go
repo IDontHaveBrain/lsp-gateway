@@ -86,8 +86,8 @@ func GetVerifyRuntimeCmd() *cobra.Command {
 func runVerifyRuntime(cmd *cobra.Command, args []string) error {
 	runtimeName := args[0]
 
-	if verifyAll && runtimeName != "all" {
-		runtimeName = "all"
+	if verifyAll && runtimeName != allRuntimesKeyword {
+		runtimeName = allRuntimesKeyword
 	}
 
 	runtimeInstaller := installer.NewRuntimeInstaller()

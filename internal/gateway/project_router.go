@@ -91,10 +91,10 @@ func (par *ProjectAwareRouter) selectServerForWorkspace(workspace WorkspaceConte
 
 	// Priority 1: Try to match based on file extension and workspace languages
 	if ext != "" {
-		if lang, exists := par.Router.GetLanguageByExtension(ext); exists {
+		if lang, exists := par.GetLanguageByExtension(ext); exists {
 			// Check if this language is supported in the workspace context
 			if par.isLanguageSupportedInWorkspace(workspace, lang) {
-				if serverName, exists := par.Router.GetServerByLanguage(lang); exists {
+				if serverName, exists := par.GetServerByLanguage(lang); exists {
 					return serverName, nil
 				}
 			}
@@ -109,7 +109,7 @@ func (par *ProjectAwareRouter) selectServerForWorkspace(workspace WorkspaceConte
 
 	// Priority 3: Select first available server for workspace languages
 	for _, lang := range workspace.GetLanguages() {
-		if serverName, exists := par.Router.GetServerByLanguage(lang); exists {
+		if serverName, exists := par.GetServerByLanguage(lang); exists {
 			return serverName, nil
 		}
 	}
@@ -131,7 +131,7 @@ func (par *ProjectAwareRouter) selectServerByProjectType(workspace WorkspaceCont
 	}
 
 	if preferredLang, exists := projectTypeToLanguage[workspace.GetProjectType()]; exists {
-		if serverName, exists := par.Router.GetServerByLanguage(preferredLang); exists {
+		if serverName, exists := par.GetServerByLanguage(preferredLang); exists {
 			return serverName
 		}
 	}
@@ -217,7 +217,7 @@ func (par *ProjectAwareRouter) getWorkspaceServerOverride(workspaceID, uri strin
 	ext := strings.ToLower(filepath.Ext(filePath))
 	if ext != "" {
 		ext = strings.TrimPrefix(ext, ".")
-		if lang, exists := par.Router.GetLanguageByExtension(ext); exists {
+		if lang, exists := par.GetLanguageByExtension(ext); exists {
 			if serverName, exists := overrides[lang]; exists {
 				return serverName
 			}
