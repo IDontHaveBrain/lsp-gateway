@@ -6,12 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
-	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/indexing"
-	"lsp-gateway/internal/transport"
 	"lsp-gateway/mcp"
 )
 

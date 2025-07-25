@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"lsp-gateway/internal/config"
@@ -172,9 +173,12 @@ func (sr *SmartRouterImpl) RouteRequest(request *LSPRequest) (*RoutingDecision, 
 	strategy := sr.GetRoutingStrategy(request.Method)
 	
 	// Extract language from URI if not provided
-	if request.Language == "" && request.URI != "" {
+	if (request.Context == nil || request.Context.Language == "") && request.URI != "" {
 		if lang, err := sr.extractLanguageFromURI(request.URI); err == nil {
-			request.Language = lang
+			if request.Context == nil {
+				request.Context = &RequestContext{}
+			}
+			request.Context.Language = lang
 		}
 	}
 	
@@ -240,19 +244,30 @@ func (sr *SmartRouterImpl) AggregateBroadcast(request *LSPRequest) (*AggregatedR
 			defer wg.Done()
 			
 			reqStart := time.Now()
-			result, err := sr.executeRequest(dec.Client, request)
+			// Safety check for TargetServers
+			if len(dec.TargetServers) == 0 {
+				responses[idx] = ServerResponse{
+					ServerName:   "unknown",
+					Response:     nil,
+					Error:        fmt.Errorf("no target servers available"),
+					Duration:     time.Duration(0),
+					Success:      false,
+				}
+				return
+			}
+			result, err := sr.executeRequest(dec.TargetServers[0].client, request)
 			responseTime := time.Since(reqStart)
 			
 			responses[idx] = ServerResponse{
-				ServerName:   dec.ServerName,
-				Result:       result,
+				ServerName:   dec.TargetServers[0].config.Name,
+				Response:     result,
 				Error:        err,
-				ResponseTime: responseTime,
+				Duration:     responseTime,
 				Success:      err == nil,
 			}
 			
 			// Update server performance metrics
-			sr.UpdateServerPerformance(dec.ServerName, responseTime, err == nil)
+			sr.UpdateServerPerformance(dec.TargetServers[0].config.Name, responseTime, err == nil)
 		}(i, decision)
 	}
 	
@@ -267,7 +282,7 @@ func (sr *SmartRouterImpl) AggregateBroadcast(request *LSPRequest) (*AggregatedR
 		if response.Success {
 			successCount++
 			if i == 0 || primaryResult == nil {
-				primaryResult = response.Result
+				primaryResult = response.Response
 			} else {
 				secondaryResults = append(secondaryResults, response)
 			}
@@ -276,17 +291,30 @@ func (sr *SmartRouterImpl) AggregateBroadcast(request *LSPRequest) (*AggregatedR
 	
 	processingTime := time.Since(startTime)
 	
+	// Convert ServerResponse slice to interface slice for SecondaryResponses
+	var secondaryInterfaces []interface{}
+	for _, sr := range secondaryResults {
+		secondaryInterfaces = append(secondaryInterfaces, sr.Response)
+	}
+	
+	// Build response sources
+	responseSources := make([]string, len(decisions))
+	for i, response := range responses {
+		if response.Success {
+			responseSources[i] = response.ServerName
+		}
+	}
+	
 	aggregated := &AggregatedResponse{
-		PrimaryResult:    primaryResult,
-		SecondaryResults: secondaryResults,
-		Strategy:         sr.GetRoutingStrategy(request.Method),
-		ProcessingTime:   processingTime,
-		ServerCount:      len(decisions),
-		Metadata: map[string]interface{}{
-			"success_count": successCount,
-			"total_servers": len(decisions),
-			"success_rate":  float64(successCount) / float64(len(decisions)),
-		},
+		PrimaryResponse:    primaryResult,
+		SecondaryResponses: secondaryInterfaces,
+		AggregatedResult:   primaryResult,
+		ResponseSources:    responseSources,
+		ProcessingTime:     processingTime,
+		AggregationMethod:  string(sr.GetRoutingStrategy(request.Method)),
+		SuccessCount:       successCount,
+		ErrorCount:         len(decisions) - successCount,
+		Warnings:          []string{},
 	}
 	
 	// Update strategy metrics
@@ -343,14 +371,21 @@ func (sr *SmartRouterImpl) GetRoutingMetrics() *RoutingMetrics {
 	// Copy server metrics
 	for name, sm := range sr.metrics.ServerMetrics {
 		metrics.ServerMetrics[name] = &ServerMetrics{
-			RequestCount:       sm.RequestCount,
-			SuccessCount:       sm.SuccessCount,
-			FailureCount:       sm.FailureCount,
+			ServerName:          name,
+			TotalRequests:       sm.TotalRequests,
+			SuccessfulRequests:  sm.SuccessfulRequests,
+			FailedRequests:      sm.FailedRequests,
 			AverageResponseTime: sm.AverageResponseTime,
-			LastResponseTime:   sm.LastResponseTime,
-			HealthScore:        sm.HealthScore,
-			CircuitBreakerOpen: sm.CircuitBreakerOpen,
-			LastAccessed:       sm.LastAccessed,
+			MinResponseTime:     sm.MinResponseTime,
+			MaxResponseTime:     sm.MaxResponseTime,
+			P50ResponseTime:     sm.P50ResponseTime,
+			P95ResponseTime:     sm.P95ResponseTime,
+			P99ResponseTime:     sm.P99ResponseTime,
+			LastRequestTime:     sm.LastRequestTime,
+			HealthScore:         sm.HealthScore,
+			CircuitBreakerState: sm.CircuitBreakerState,
+			LoadScore:           sm.LoadScore,
+			TrendScore:          sm.TrendScore,
 		}
 	}
 	
@@ -380,24 +415,23 @@ func (sr *SmartRouterImpl) UpdateServerPerformance(serverName string, responseTi
 	}
 	
 	sm := sr.metrics.ServerMetrics[serverName]
-	sm.RequestCount++
-	sm.LastResponseTime = responseTime
-	sm.LastAccessed = time.Now()
+	sm.TotalRequests++
+	sm.LastRequestTime = time.Now()
 	
 	if success {
-		sm.SuccessCount++
+		sm.SuccessfulRequests++
 		sr.metrics.SuccessfulRequests++
 	} else {
-		sm.FailureCount++
+		sm.FailedRequests++
 		sr.metrics.FailedRequests++
 	}
 	
 	sr.metrics.TotalRequests++
 	
 	// Update average response time
-	if sm.RequestCount > 0 {
+	if sm.TotalRequests > 0 {
 		sm.AverageResponseTime = time.Duration(
-			(int64(sm.AverageResponseTime)*(sm.RequestCount-1) + int64(responseTime)) / sm.RequestCount,
+			(int64(sm.AverageResponseTime)*(sm.TotalRequests-1) + int64(responseTime)) / sm.TotalRequests,
 		)
 	}
 	
@@ -432,56 +466,64 @@ func (sr *SmartRouterImpl) GetServerForLanguage(language string) (string, error)
 	}
 	
 	// Use embedded Router's functionality
-	return sr.ProjectAwareRouter.Router.GetServerByLanguage(language)
+	serverName, exists := sr.ProjectAwareRouter.Router.GetServerByLanguage(language)
+	if !exists {
+		return "", fmt.Errorf("no server found for language %s", language)
+	}
+	return serverName, nil
 }
 
 // Private helper methods
 
 // routeSingleTargetWithFallback routes to primary server with fallback options
 func (sr *SmartRouterImpl) routeSingleTargetWithFallback(request *LSPRequest) (*RoutingDecision, error) {
-	if request.Language == "" {
+	if request.Context == nil || request.Context.Language == "" {
 		return nil, fmt.Errorf("language not specified for single target routing")
 	}
 	
 	// Get servers for language with priority ordering
-	servers, err := sr.config.GetServersForLanguage(request.Language, 3) // Max 3 for fallback
+	servers, err := sr.config.GetServersForLanguage(request.Context.Language, 3) // Max 3 for fallback
 	if err != nil {
-		return nil, fmt.Errorf("no servers available for language %s: %w", request.Language, err)
+		return nil, fmt.Errorf("no servers available for language %s: %w", request.Context.Language, err)
 	}
 	
 	// Try servers in order of priority, considering circuit breaker state
 	for _, server := range servers {
 		if sr.isServerHealthy(server.Name) {
-			client, err := sr.getClientForServer(server, request)
-			if err != nil {
-				continue
-			}
+			// TODO: Get client when ServerInstance is properly implemented
+			// client, err := sr.getClientForServer(server, request)
+			// if err != nil {
+			//     continue
+			// }
 			
 			return &RoutingDecision{
-				ServerName:   server.Name,
-				ServerConfig: server,
-				Client:       client,
-				Priority:     server.Priority,
-				Weight:       server.Weight,
-				Strategy:     SingleTargetWithFallback,
-				Metadata: map[string]interface{}{
-					"fallback_available": len(servers) > 1,
-					"health_score":      sr.getServerHealthScore(server.Name),
+				TargetServers:   nil, // TODO: Implement proper ServerInstance creation
+				RoutingStrategy: string(SingleTargetWithFallback),
+				RequestContext: &RoutingRequestContext{
+					FileURI:       request.URI,
+					Language:      request.Context.Language,
+					RequestType:   request.Method,
+					WorkspaceRoot: "", // TODO: Extract from request.Context when available
+					ProjectType:   "", // TODO: Extract from request.Context when available  
+					WorkspaceID:   request.Context.WorkspaceID,
 				},
+				Priority:        server.Priority,
+				CreatedAt:       time.Now(),
+				DecisionID:      fmt.Sprintf("decision_%d", time.Now().UnixNano()),
 			}, nil
 		}
 	}
 	
-	return nil, fmt.Errorf("no healthy servers available for language %s", request.Language)
+	return nil, fmt.Errorf("no healthy servers available for language %s", request.Context.Language)
 }
 
 // routeLoadBalanced implements load balancing across multiple servers
 func (sr *SmartRouterImpl) routeLoadBalanced(request *LSPRequest) (*RoutingDecision, error) {
-	if request.Language == "" {
+	if request.Context == nil || request.Context.Language == "" {
 		return nil, fmt.Errorf("language not specified for load balanced routing")
 	}
 	
-	pool, lbConfig, err := sr.config.GetServerPoolWithConfig(request.Language)
+	pool, lbConfig, err := sr.config.GetServerPoolWithConfig(request.Context.Language)
 	if err != nil {
 		// Fallback to single server routing
 		return sr.routeSingleTargetWithFallback(request)
@@ -503,7 +545,7 @@ func (sr *SmartRouterImpl) routeLoadBalanced(request *LSPRequest) (*RoutingDecis
 	var selectedServer *config.ServerConfig
 	switch lbConfig.Strategy {
 	case "round_robin":
-		selectedServer = sr.selectRoundRobin(request.Language, healthyServers)
+		selectedServer = sr.selectRoundRobin(request.Context.Language, healthyServers)
 	case "least_connections":
 		selectedServer = sr.selectLeastConnections(healthyServers)
 	case "response_time":
@@ -512,23 +554,26 @@ func (sr *SmartRouterImpl) routeLoadBalanced(request *LSPRequest) (*RoutingDecis
 		selectedServer = healthyServers[0] // Default to first healthy server
 	}
 	
-	client, err := sr.getClientForServer(selectedServer, request)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get client for server %s: %w", selectedServer.Name, err)
-	}
+	// TODO: Get client when ServerInstance is properly implemented
+	// client, err := sr.getClientForServer(selectedServer, request)
+	// if err != nil {
+	//     return nil, fmt.Errorf("failed to get client for server %s: %w", selectedServer.Name, err)
+	// }
 	
 	return &RoutingDecision{
-		ServerName:   selectedServer.Name,
-		ServerConfig: selectedServer,
-		Client:       client,
-		Priority:     selectedServer.Priority,
-		Weight:       selectedServer.Weight,
-		Strategy:     LoadBalanced,
-		Metadata: map[string]interface{}{
-			"lb_strategy":    lbConfig.Strategy,
-			"healthy_count":  len(healthyServers),
-			"total_count":    len(pool.Servers),
+		TargetServers: nil, // TODO: Implement proper ServerInstance creation
+		RoutingStrategy: string(LoadBalanced),
+		RequestContext: &RoutingRequestContext{
+			FileURI:       request.URI,
+			Language:      request.Context.Language,
+			RequestType:   request.Method,
+			WorkspaceRoot: "", // TODO: Extract from request.Context when available
+			ProjectType:   "", // TODO: Extract from request.Context when available  
+			WorkspaceID:   request.Context.WorkspaceID,
 		},
+		Priority:        selectedServer.Priority,
+		CreatedAt:       time.Now(),
+		DecisionID:      fmt.Sprintf("decision_%d", time.Now().UnixNano()),
 	}, nil
 }
 
@@ -540,30 +585,38 @@ func (sr *SmartRouterImpl) routePrimaryWithEnhancement(request *LSPRequest) (*Ro
 
 // routeMultiTarget routes to multiple servers for parallel processing
 func (sr *SmartRouterImpl) routeMultiTarget(request *LSPRequest) ([]*RoutingDecision, error) {
-	if request.Language == "" {
+	if request.Context == nil || request.Context.Language == "" {
 		return nil, fmt.Errorf("language not specified for multi-target routing")
 	}
 	
-	servers, err := sr.config.GetServersForLanguage(request.Language, 5) // Max 5 for parallel
+	servers, err := sr.config.GetServersForLanguage(request.Context.Language, 5) // Max 5 for parallel
 	if err != nil {
-		return nil, fmt.Errorf("no servers available for language %s: %w", request.Language, err)
+		return nil, fmt.Errorf("no servers available for language %s: %w", request.Context.Language, err)
 	}
 	
 	var decisions []*RoutingDecision
 	for _, server := range servers {
 		if sr.isServerHealthy(server.Name) {
-			client, err := sr.getClientForServer(server, request)
-			if err != nil {
-				continue
-			}
+			// TODO: Get client when ServerInstance is properly implemented
+			// client, err := sr.getClientForServer(server, request)
+			// if err != nil {
+			//     continue
+			// }
 			
 			decisions = append(decisions, &RoutingDecision{
-				ServerName:   server.Name,
-				ServerConfig: server,
-				Client:       client,
-				Priority:     server.Priority,
-				Weight:       server.Weight,
-				Strategy:     MultiTargetParallel,
+				TargetServers: nil, // TODO: Implement proper ServerInstance creation
+				RoutingStrategy: string(MultiTargetParallel),
+				RequestContext: &RoutingRequestContext{
+					FileURI:       request.URI,
+					Language:      request.Context.Language,
+					RequestType:   request.Method,
+					WorkspaceRoot: "", // TODO: Extract from request.Context when available
+					ProjectType:   "", // TODO: Extract from request.Context when available  
+					WorkspaceID:   request.Context.WorkspaceID,
+				},
+				Priority:        server.Priority,
+				CreatedAt:       time.Now(),
+				DecisionID:      fmt.Sprintf("decision_%d", time.Now().UnixNano()),
 			})
 		}
 	}
@@ -587,8 +640,12 @@ func (sr *SmartRouterImpl) routeTraditional(request *LSPRequest) (*RoutingDecisi
 	
 	if request.URI != "" {
 		serverName, err = sr.ProjectAwareRouter.RouteRequestWithWorkspace(request.URI)
-	} else if request.Language != "" {
-		serverName, err = sr.ProjectAwareRouter.Router.GetServerByLanguage(request.Language)
+	} else if request.Context != nil && request.Context.Language != "" {
+		var exists bool
+		serverName, exists = sr.ProjectAwareRouter.Router.GetServerByLanguage(request.Context.Language)
+		if !exists {
+			err = fmt.Errorf("no server found for language %s", request.Context.Language)
+		}
 	} else {
 		return nil, fmt.Errorf("insufficient information for traditional routing")
 	}
@@ -610,21 +667,26 @@ func (sr *SmartRouterImpl) routeTraditional(request *LSPRequest) (*RoutingDecisi
 		return nil, fmt.Errorf("server configuration not found for %s", serverName)
 	}
 	
-	client, err := sr.getClientForServer(serverConfig, request)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get client for server %s: %w", serverName, err)
-	}
+	// TODO: Get client when ServerInstance is properly implemented
+	// client, err := sr.getClientForServer(serverConfig, request)
+	// if err != nil {
+	//     return nil, fmt.Errorf("failed to get client for server %s: %w", serverName, err)
+	// }
 	
 	return &RoutingDecision{
-		ServerName:   serverName,
-		ServerConfig: serverConfig,
-		Client:       client,
-		Priority:     serverConfig.Priority,
-		Weight:       serverConfig.Weight,
-		Strategy:     SingleTargetWithFallback,
-		Metadata: map[string]interface{}{
-			"routing_type": "traditional_fallback",
+		TargetServers: nil, // TODO: Implement proper ServerInstance creation
+		RoutingStrategy: string(SingleTargetWithFallback),
+		RequestContext: &RoutingRequestContext{
+			FileURI:       request.URI,
+			Language:      request.Context.Language,
+			RequestType:   request.Method,
+			WorkspaceRoot: "", // TODO: Extract from request.Context when available
+			ProjectType:   "", // TODO: Extract from request.Context when available  
+			WorkspaceID:   request.Context.WorkspaceID,
 		},
+		Priority:        serverConfig.Priority,
+		CreatedAt:       time.Now(),
+		DecisionID:      fmt.Sprintf("decision_%d", time.Now().UnixNano()),
 	}, nil
 }
 
@@ -643,10 +705,10 @@ func (sr *SmartRouterImpl) isServerHealthy(serverName string) bool {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
 	
-	if cb.State == "open" {
+	if cb.state == CircuitBreakerStateOpen {
 		// Check if timeout has passed for half-open state
-		if time.Since(cb.LastFailureTime) > cb.Timeout {
-			cb.State = "half_open"
+		if time.Since(cb.lastFailureTime) > cb.config.TimeoutDuration {
+			cb.state = CircuitBreakerStateHalfOpen
 			return true
 		}
 		return false
@@ -663,9 +725,15 @@ func (sr *SmartRouterImpl) updateCircuitBreaker(serverName string, success bool)
 	cb, exists := sr.circuitBreakers[serverName]
 	if !exists {
 		cb = &CircuitBreaker{
-			FailureThreshold: 5,
-			Timeout:         30 * time.Second,
-			State:           "closed",
+			config: &CircuitBreakerConfig{
+				ErrorThreshold:        5,
+				TimeoutDuration:       30 * time.Second,
+				MaxHalfOpenRequests:   5,
+				SuccessThreshold:      3,
+				MinRequestsToTrip:     10,
+				RollingWindowDuration: 60 * time.Second,
+			},
+			state: CircuitBreakerStateClosed,
 		}
 		sr.circuitBreakers[serverName] = cb
 	}
@@ -674,22 +742,22 @@ func (sr *SmartRouterImpl) updateCircuitBreaker(serverName string, success bool)
 	defer cb.mu.Unlock()
 	
 	if success {
-		cb.FailureCount = 0
-		if cb.State == "half_open" {
-			cb.State = "closed"
+		atomic.StoreInt32(&cb.errorCount, 0)
+		if cb.state == CircuitBreakerStateHalfOpen {
+			cb.state = CircuitBreakerStateClosed
 		}
 	} else {
-		cb.FailureCount++
-		cb.LastFailureTime = time.Now()
+		atomic.AddInt32(&cb.errorCount, 1)
+		cb.lastFailureTime = time.Now()
 		
-		if cb.FailureCount >= cb.FailureThreshold {
-			cb.State = "open"
+		if cb.errorCount >= int32(cb.config.ErrorThreshold) {
+			cb.state = CircuitBreakerStateOpen
 		}
 	}
 	
 	// Update server metrics
 	if sm := sr.metrics.ServerMetrics[serverName]; sm != nil {
-		sm.CircuitBreakerOpen = cb.State == "open"
+		sm.CircuitBreakerState = cb.state.String()
 	}
 }
 
@@ -726,7 +794,7 @@ func (sr *SmartRouterImpl) selectLeastConnections(servers []*config.ServerConfig
 	
 	for _, server := range servers {
 		if sm := sr.metrics.ServerMetrics[server.Name]; sm != nil {
-			activeConnections := sm.RequestCount - sm.SuccessCount - sm.FailureCount
+			activeConnections := sm.TotalRequests - sm.SuccessfulRequests - sm.FailedRequests
 			if activeConnections < minConnections {
 				minConnections = activeConnections
 				selected = server
@@ -774,16 +842,17 @@ func (sr *SmartRouterImpl) selectByResponseTime(servers []*config.ServerConfig) 
 // getClientForServer gets or creates an LSP client for the specified server
 func (sr *SmartRouterImpl) getClientForServer(server *config.ServerConfig, request *LSPRequest) (transport.LSPClient, error) {
 	// If we have workspace context, use workspace manager
-	if request.WorkspaceID != "" && sr.workspaceManager != nil {
-		return sr.workspaceManager.GetLSPClient(request.WorkspaceID, server.Name)
+	if request.Context != nil && request.Context.WorkspaceID != "" && sr.workspaceManager != nil {
+		return sr.workspaceManager.GetLSPClient(request.Context.WorkspaceID, server.Name)
 	}
 	
+	// TODO: Implement proper client selection when Router.GetClient is available
 	// Fallback to project-aware router's client selection
-	if sr.ProjectAwareRouter != nil && sr.ProjectAwareRouter.Router != nil {
-		return sr.ProjectAwareRouter.Router.GetClient(server.Name)
-	}
+	// if sr.ProjectAwareRouter != nil && sr.ProjectAwareRouter.Router != nil {
+	//     return sr.ProjectAwareRouter.Router.GetClient(server.Name)
+	// }
 	
-	return nil, fmt.Errorf("no client available for server %s", server.Name)
+	return nil, fmt.Errorf("no client available for server %s - client selection not implemented", server.Name)
 }
 
 // executeRequest executes an LSP request on the given client
@@ -792,7 +861,7 @@ func (sr *SmartRouterImpl) executeRequest(client transport.LSPClient, request *L
 		return nil, fmt.Errorf("nil client provided for request execution")
 	}
 	
-	return client.SendRequest(request.Method, request.Params)
+	return client.SendRequest(context.Background(), request.Method, request.Params)
 }
 
 // extractLanguageFromURI extracts language from file URI

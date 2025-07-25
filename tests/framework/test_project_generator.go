@@ -344,6 +344,18 @@ func (g *TestProjectGenerator) generatePythonContent(project *TestProject, confi
 	return nil
 }
 
+// generateJavaScriptContent generates JavaScript-specific content
+func (g *TestProjectGenerator) generateJavaScriptContent(project *TestProject, config *ProjectGenerationConfig) error {
+	// Generate package.json
+	project.Structure["package.json"] = g.generatePackageJson(project.Name, "javascript")
+	project.BuildFiles = append(project.BuildFiles, "package.json")
+	
+	// Generate main JavaScript file
+	project.Structure["index.js"] = "console.log('Hello, World!');"
+	
+	return nil
+}
+
 // generateTypeScriptContent generates TypeScript-specific content
 func (g *TestProjectGenerator) generateTypeScriptContent(project *TestProject, config *ProjectGenerationConfig) error {
 	// Generate package.json
@@ -935,6 +947,22 @@ func (g *TestProjectGenerator) generatePythonPyproject(projectName string) strin
 	return fmt.Sprintf("[build-system]\nrequires = [\"setuptools\", \"wheel\"]\n\n[project]\nname = \"%s\"\nversion = \"1.0.0\"", projectName)
 }
 
+// generatePythonDataProcessorPyproject generates pyproject.toml content for data processor service
+func (g *TestProjectGenerator) generatePythonDataProcessorPyproject(projectName string) string {
+	return fmt.Sprintf(`[build-system]
+requires = ["setuptools", "wheel"]
+
+[project]
+name = "%s-data-processor"
+version = "1.0.0"
+dependencies = [
+    "pandas>=1.5.0",
+    "numpy>=1.24.0",
+    "sqlalchemy>=1.4.0",
+    "psycopg2-binary>=2.9.0"
+]`, projectName)
+}
+
 // generatePythonRequirements generates requirements.txt content
 func (g *TestProjectGenerator) generatePythonRequirements() string {
 	return "flask==2.0.1\nrequests==2.28.0\nsqlalchemy==1.4.0"
@@ -1472,7 +1500,7 @@ func (g *TestProjectGenerator) generateMicroservicesSuiteStructure(project *Test
 	project.Structure["services/order-service/src/main/resources/application.yml"] = g.generateOrderServiceConfig()
 	
 	// Payment Service (Python FastAPI)
-	project.Structure["services/payment-service/pyproject.toml"] = g.generatePaymentServicePyproject()
+	project.Structure["services/payment-service/pyproject.toml"] = g.generatePaymentServicePyproject(project.Name)
 	project.Structure["services/payment-service/main.py"] = g.generatePaymentServiceMain()
 	project.Structure["services/payment-service/app/routers/payments.py"] = g.generatePaymentRouters()
 	project.Structure["services/payment-service/app/services/payment_processor.py"] = g.generatePaymentProcessor()
@@ -4299,4 +4327,459 @@ func fibonacci(n C.int) C.longlong {
 
 func main() {}
 `
+}
+
+// Missing Python method implementations
+
+func (g *TestProjectGenerator) generatePythonDataProcessorMain() string {
+	return "#!/usr/bin/env python3\n" +
+		"\"\"\"Main entry point for data processor service.\"\"\"\n\n" +
+		"def main():\n" +
+		"    print(\"Data processor service started\")\n\n" +
+		"if __name__ == \"__main__\":\n" +
+		"    main()"
+}
+
+func (g *TestProjectGenerator) generatePythonUserAnalytics() string {
+	return "\"\"\"User analytics processing module.\"\"\"\n\n" +
+		"def process_user_analytics(user_data):\n" +
+		"    \"\"\"Process user analytics data.\"\"\"\n" +
+		"    return {\"processed\": True, \"user_count\": len(user_data)}"
+}
+
+func (g *TestProjectGenerator) generatePythonReportGenerator() string {
+	return "\"\"\"Report generation module.\"\"\"\n\n" +
+		"def generate_report(data):\n" +
+		"    \"\"\"Generate reports from processed data.\"\"\"\n" +
+		"    return {\"report\": \"Generated report\", \"timestamp\": \"2024-01-01\"}"
+}
+
+func (g *TestProjectGenerator) generatePythonDatabaseConnection() string {
+	return "\"\"\"Database connection utilities.\"\"\"\n" +
+		"import sqlalchemy as db\n\n" +
+		"def get_connection():\n" +
+		"    \"\"\"Get database connection.\"\"\"\n" +
+		"    engine = db.create_engine(\"postgresql://user:pass@localhost/db\")\n" +
+		"    return engine.connect()"
+}
+
+func (g *TestProjectGenerator) generatePythonAnalyticsModels() string {
+	return "\"\"\"Analytics data models.\"\"\"\n\n" +
+		"class UserAnalytics:\n" +
+		"    def __init__(self, user_id, metrics):\n" +
+		"        self.user_id = user_id\n" +
+		"        self.metrics = metrics"
+}
+
+func (g *TestProjectGenerator) generatePythonDataTransformers() string {
+	return "\"\"\"Data transformation utilities.\"\"\"\n\n" +
+		"def transform_user_data(raw_data):\n" +
+		"    \"\"\"Transform raw user data.\"\"\"\n" +
+		"    return {\"transformed\": raw_data, \"processed_at\": \"2024-01-01\"}"
+}
+
+func (g *TestProjectGenerator) generatePythonDataProcessorRequirements() string {
+	return "pandas>=1.5.0\n" +
+		"numpy>=1.24.0\n" +
+		"sqlalchemy>=1.4.0\n" +
+		"psycopg2-binary>=2.9.0\n" +
+		"pytest>=7.0.0"
+}
+
+func (g *TestProjectGenerator) generatePythonDockerfile() string {
+	return "FROM python:3.11-slim\n\n" +
+		"WORKDIR /app\n" +
+		"COPY requirements.txt .\n" +
+		"RUN pip install -r requirements.txt\n\n" +
+		"COPY . .\n" +
+		"CMD [\"python\", \"src/main.py\"]"
+}
+
+// Additional missing methods for shared utilities
+
+func (g *TestProjectGenerator) generateSharedTypesPackageJson(projectName string) string {
+	return fmt.Sprintf("{\"name\": \"%s-shared-types\", \"version\": \"1.0.0\", \"main\": \"index.ts\"}", projectName)
+}
+
+func (g *TestProjectGenerator) generateSharedTypesIndex() string {
+	return "export * from './user';\nexport * from './api';\nexport * from './events';"
+}
+
+func (g *TestProjectGenerator) generateSharedUserTypes() string {
+	return "export interface User { id: string; name: string; email: string; }"
+}
+
+func (g *TestProjectGenerator) generateSharedAPITypes() string {
+	return "export interface APIResponse<T> { data: T; success: boolean; message?: string; }"
+}
+
+func (g *TestProjectGenerator) generateSharedEventTypes() string {
+	return "export interface Event { id: string; type: string; timestamp: Date; payload: any; }"
+}
+
+func (g *TestProjectGenerator) generateSharedTypesTsConfig() string {
+	return "{\"compilerOptions\": {\"target\": \"ES2020\", \"module\": \"commonjs\", \"declaration\": true}}"
+}
+
+func (g *TestProjectGenerator) generateSharedUtilsPackageJson(projectName string) string {
+	return fmt.Sprintf("{\"name\": \"%s-shared-utils\", \"version\": \"1.0.0\", \"main\": \"index.ts\"}", projectName)
+}
+
+func (g *TestProjectGenerator) generateSharedUtilsIndex() string {
+	return "export * from './validation';\nexport * from './formatting';"
+}
+
+func (g *TestProjectGenerator) generateSharedValidationUtils() string {
+	return "export const validateEmail = (email: string): boolean => /\\S+@\\S+\\.\\S+/.test(email);"
+}
+
+func (g *TestProjectGenerator) generateSharedFormattingUtils() string {
+	return "export const formatDate = (date: Date): string => date.toISOString().split('T')[0];"
+}
+
+func (g *TestProjectGenerator) generateSharedConstants() string {
+	return "export const API_BASE_URL = 'http://localhost:3000/api';\nexport const DEFAULT_TIMEOUT = 5000;"
+}
+
+func (g *TestProjectGenerator) generateMonorepoGitHubActions() string {
+	return "name: CI\non: [push, pull_request]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v2"
+}
+
+func (g *TestProjectGenerator) generateDevDockerCompose() string {
+	return "version: '3.8'\nservices:\n  app:\n    build: .\n    ports:\n      - '3000:3000'\n    volumes:\n      - .:/app"
+}
+
+func (g *TestProjectGenerator) generateProdDockerCompose() string {
+	return "version: '3.8'\nservices:\n  app:\n    build:\n      context: .\n      dockerfile: Dockerfile.prod\n    ports:\n      - '80:80'"
+}
+
+func (g *TestProjectGenerator) generateNginxConfig() string {
+	return "server {\n    listen 80;\n    location / {\n        proxy_pass http://localhost:3000;\n    }\n}"
+}
+
+func (g *TestProjectGenerator) generateMonorepoSetupScript() string {
+	return "#!/bin/bash\necho 'Setting up monorepo...'\nnpm install\nnpm run build"
+}
+
+func (g *TestProjectGenerator) generateMonorepoTestScript() string {
+	return "#!/bin/bash\necho 'Running monorepo tests...'\nnpm test"
+}
+
+func (g *TestProjectGenerator) generateMonorepoDeployScript() string {
+	return "#!/bin/bash\necho 'Deploying monorepo...'\nnpm run build && npm run deploy"
+}
+
+func (g *TestProjectGenerator) generateMonorepoWebAppReadme(projectName string) string {
+	return fmt.Sprintf("# %s Web App\n\nThis is the web application component of the monorepo.\n\n## Getting Started\n\n```bash\nnpm install\nnpm start\n```", projectName)
+}
+
+func (g *TestProjectGenerator) generateMonorepoArchitectureDoc() string {
+	return "# Architecture\n\nThis monorepo follows a microservices architecture with:\n\n- Frontend: React\n- Backend: Go\n- Database: PostgreSQL"
+}
+
+func (g *TestProjectGenerator) generateMonorepoAPIDoc() string {
+	return "# API Documentation\n\n## Endpoints\n\n- GET /api/users - Get all users\n- POST /api/users - Create user"
+}
+
+func (g *TestProjectGenerator) generateMonorepoDeploymentDoc() string {
+	return "# Deployment\n\n## Production\n\n```bash\ndocker-compose -f docker-compose.prod.yml up\n```"
+}
+
+func (g *TestProjectGenerator) generatePrometheusConfig() string {
+	return "global:\n  scrape_interval: 15s\nscrape_configs:\n  - job_name: 'prometheus'\n    static_configs:\n      - targets: ['localhost:9090']"
+}
+
+func (g *TestProjectGenerator) generateGrafanaDashboard() string {
+	return "{\"dashboard\": {\"title\": \"Application Metrics\", \"panels\": []}}"
+}
+
+func (g *TestProjectGenerator) generateAPIGatewayRoutes() string {
+	return "const routes = [\n  { path: '/api/users', target: 'http://user-service:3000' },\n  { path: '/api/auth', target: 'http://auth-service:3001' }\n];"
+}
+
+func (g *TestProjectGenerator) generateAPIGatewayAuthMiddleware() string {
+	return "const authMiddleware = (req, res, next) => {\n  const token = req.headers.authorization;\n  if (!token) return res.status(401).send('Unauthorized');\n  next();\n};"
+}
+
+func (g *TestProjectGenerator) generateAPIGatewayRateLimit() string {
+	return "const rateLimit = require('express-rate-limit');\nconst limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 100 });"
+}
+
+func (g *TestProjectGenerator) generateServiceProxy() string {
+	return "const httpProxy = require('http-proxy-middleware');\nconst proxy = httpProxy({ target: 'http://localhost:3000', changeOrigin: true });"
+}
+
+func (g *TestProjectGenerator) generateServiceDiscoveryConfig() string {
+	return "services:\n  user-service:\n    host: localhost\n    port: 3000\n  auth-service:\n    host: localhost\n    port: 3001"
+}
+
+func (g *TestProjectGenerator) generateUserServiceGRPCHandlers() string {
+	return "package handlers\n\nimport \"context\"\n\nfunc (s *Server) GetUser(ctx context.Context, req *pb.GetUserRequest) (*pb.User, error) {\n\treturn &pb.User{Id: req.Id, Name: \"User\"}, nil\n}"
+}
+
+func (g *TestProjectGenerator) generateUserServiceHTTPHandlers() string {
+	return "package handlers\n\nimport \"net/http\"\n\nfunc GetUser(w http.ResponseWriter, r *http.Request) {\n\tw.Write([]byte(`{\"id\": 1, \"name\": \"User\"}`))\n}"
+}
+
+func (g *TestProjectGenerator) generateUserServiceBusiness() string {
+	return "package business\n\ntype UserService struct{}\n\nfunc (s *UserService) GetUser(id string) (*User, error) {\n\treturn &User{ID: id, Name: \"User\"}, nil\n}"
+}
+
+func (g *TestProjectGenerator) generateUserServiceRepository() string {
+	return "package repository\n\nimport \"database/sql\"\n\ntype UserRepository struct {\n\tdb *sql.DB\n}\n\nfunc (r *UserRepository) GetUser(id string) (*User, error) {\n\treturn &User{ID: id}, nil\n}"
+}
+
+func (g *TestProjectGenerator) generateUserServiceProto() string {
+	return "syntax = \"proto3\";\n\npackage user;\n\nservice UserService {\n  rpc GetUser(GetUserRequest) returns (User);\n}\n\nmessage GetUserRequest {\n  string id = 1;\n}\n\nmessage User {\n  string id = 1;\n  string name = 2;\n}"
+}
+
+func (g *TestProjectGenerator) generateUserServiceMigrations() string {
+	return "CREATE TABLE users (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  name VARCHAR(255) NOT NULL,\n  email VARCHAR(255) UNIQUE NOT NULL,\n  created_at TIMESTAMP DEFAULT NOW()\n);"
+}
+
+func (g *TestProjectGenerator) generateOrderServicePom() string {
+	return "<?xml version=\"1.0\"?>\n<project>\n  <modelVersion>4.0.0</modelVersion>\n  <groupId>com.example</groupId>\n  <artifactId>order-service</artifactId>\n  <version>1.0.0</version>\n</project>"
+}
+
+func (g *TestProjectGenerator) generateOrderServiceApplication() string {
+	return "package com.example.order;\n\nimport org.springframework.boot.SpringApplication;\nimport org.springframework.boot.autoconfigure.SpringBootApplication;\n\n@SpringBootApplication\npublic class OrderServiceApplication {\n    public static void main(String[] args) {\n        SpringApplication.run(OrderServiceApplication.class, args);\n    }\n}"
+}
+
+func (g *TestProjectGenerator) generateOrderController() string {
+	return "package com.example.order.controller;\n\nimport org.springframework.web.bind.annotation.*;\n\n@RestController\n@RequestMapping(\"/api/orders\")\npublic class OrderController {\n    @GetMapping\n    public String getOrders() {\n        return \"Orders\";\n    }\n}"
+}
+
+func (g *TestProjectGenerator) generateOrderKafkaConfig() string {
+	return "package com.example.order.config;\n\nimport org.springframework.kafka.annotation.EnableKafka;\nimport org.springframework.context.annotation.Configuration;\n\n@EnableKafka\n@Configuration\npublic class KafkaConfig {}"
+}
+
+func (g *TestProjectGenerator) generateOrderModel() string {
+	return "package com.example.order.model;\n\nimport javax.persistence.*;\n\n@Entity\npublic class Order {\n    @Id\n    @GeneratedValue(strategy = GenerationType.IDENTITY)\n    private Long id;\n    private String product;\n    // getters and setters\n}"
+}
+
+func (g *TestProjectGenerator) generateOrderRepository() string {
+	return "package com.example.order.repository;\n\nimport org.springframework.data.jpa.repository.JpaRepository;\nimport com.example.order.model.Order;\n\npublic interface OrderRepository extends JpaRepository<Order, Long> {}"
+}
+
+func (g *TestProjectGenerator) generateOrderServiceBusiness() string {
+	return "package com.example.order.service;\n\nimport org.springframework.stereotype.Service;\n\n@Service\npublic class OrderService {\n    public String processOrder(String orderId) {\n        return \"Order processed: \" + orderId;\n    }\n}"
+}
+
+func (g *TestProjectGenerator) generateOrderServiceConfig() string {
+	return "server:\n  port: 8082\nspring:\n  application:\n    name: order-service\n  datasource:\n    url: jdbc:postgresql://localhost:5432/orders\n    username: user\n    password: password"
+}
+
+func (g *TestProjectGenerator) generatePaymentProcessor() string {
+	return "\"\"\"Payment processing service.\"\"\"\n\nclass PaymentProcessor:\n    def process_payment(self, amount, currency):\n        return {\"status\": \"success\", \"amount\": amount, \"currency\": currency}"
+}
+
+func (g *TestProjectGenerator) generatePaymentRouters() string {
+	return "\"\"\"Payment service routes.\"\"\"\nfrom fastapi import APIRouter\n\nrouter = APIRouter()\n\n@router.post(\"/process\")\nasync def process_payment(payment_data: dict):\n    return {\"status\": \"processed\"}"
+}
+
+func (g *TestProjectGenerator) generatePaymentServiceMain() string {
+	return "\"\"\"Payment service main entry point.\"\"\"\nfrom fastapi import FastAPI\n\napp = FastAPI(title=\"Payment Service\")\n\n@app.get(\"/health\")\nasync def health():\n    return {\"status\": \"healthy\"}"
+}
+
+func (g *TestProjectGenerator) generatePaymentServicePyproject(projectName string) string {
+	return fmt.Sprintf(`[build-system]
+requires = ["setuptools", "wheel"]
+
+[project]
+name = "%s-payment-service"
+version = "1.0.0"
+dependencies = [
+    "fastapi>=0.68.0",
+    "uvicorn>=0.15.0",
+    "stripe>=3.0.0"
+]`, projectName)
+}
+
+func (g *TestProjectGenerator) generateStripeIntegration() string {
+	return "\"\"\"Stripe payment integration.\"\"\"\nimport stripe\n\nclass StripeIntegration:\n    def __init__(self, api_key):\n        stripe.api_key = api_key\n    \n    def create_payment_intent(self, amount, currency=\"usd\"):\n        return stripe.PaymentIntent.create(amount=amount, currency=currency)"
+}
+
+func (g *TestProjectGenerator) generatePaymentModels() string {
+	return "\"\"\"Payment data models.\"\"\"\nfrom sqlalchemy import Column, Integer, String, Float\nfrom sqlalchemy.ext.declarative import declarative_base\n\nBase = declarative_base()\n\nclass Payment(Base):\n    __tablename__ = 'payments'\n    id = Column(Integer, primary_key=True)\n    amount = Column(Float)\n    currency = Column(String(3))"
+}
+
+func (g *TestProjectGenerator) generatePaymentMigrations() string {
+	return "CREATE TABLE payments (\n  id SERIAL PRIMARY KEY,\n  amount DECIMAL(10,2) NOT NULL,\n  currency VARCHAR(3) NOT NULL DEFAULT 'USD',\n  status VARCHAR(20) NOT NULL DEFAULT 'pending',\n  created_at TIMESTAMP DEFAULT NOW()\n);"
+}
+
+func (g *TestProjectGenerator) generateNotificationServiceCargo() string {
+	return "[package]\nname = \"notification-service\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n[dependencies]\ntokio = { version = \"1.0\", features = [\"full\"] }\nserde = { version = \"1.0\", features = [\"derive\"] }"
+}
+
+func (g *TestProjectGenerator) generateNotificationServiceMain() string {
+	return "use tokio::main;\n\n#[main]\nasync fn main() {\n    println!(\"Notification service started\");\n    // Start HTTP server\n}"
+}
+
+func (g *TestProjectGenerator) generateNotificationHandlers() string {
+	return "use serde::{Deserialize, Serialize};\n\n#[derive(Serialize, Deserialize)]\npub struct Notification {\n    pub id: String,\n    pub message: String,\n}\n\npub async fn send_notification(notification: Notification) -> Result<(), Box<dyn std::error::Error>> {\n    println!(\"Sending notification: {}\", notification.message);\n    Ok(())\n}"
+}
+
+func (g *TestProjectGenerator) generateEmailService() string {
+	return "pub struct EmailService;\n\nimpl EmailService {\n    pub async fn send_email(&self, to: &str, subject: &str, body: &str) -> Result<(), Box<dyn std::error::Error>> {\n        println!(\"Sending email to: {}, Subject: {}\", to, subject);\n        Ok(())\n    }\n}"
+}
+
+func (g *TestProjectGenerator) generateSMSService() string {
+	return "pub struct SMSService;\n\nimpl SMSService {\n    pub async fn send_sms(&self, to: &str, message: &str) -> Result<(), Box<dyn std::error::Error>> {\n        println!(\"Sending SMS to: {}, Message: {}\", to, message);\n        Ok(())\n    }\n}"
+}
+
+func (g *TestProjectGenerator) generateNotificationModels() string {
+	return "use serde::{Deserialize, Serialize};\n\n#[derive(Serialize, Deserialize, Clone)]\npub struct NotificationRequest {\n    pub recipient: String,\n    pub message: String,\n    pub notification_type: NotificationType,\n}\n\n#[derive(Serialize, Deserialize, Clone)]\npub enum NotificationType {\n    Email,\n    SMS,\n    Push,\n}"
+}
+
+func (g *TestProjectGenerator) generateRedisQueue() string {
+	return "use redis::{Client, Commands};\n\npub struct RedisQueue {\n    client: Client,\n}\n\nimpl RedisQueue {\n    pub fn new(redis_url: &str) -> Result<Self, redis::RedisError> {\n        let client = Client::open(redis_url)?;\n        Ok(RedisQueue { client })\n    }\n    \n    pub fn push(&self, queue: &str, item: &str) -> Result<(), redis::RedisError> {\n        let mut con = self.client.get_connection()?;\n        con.rpush(queue, item)?;\n        Ok(())\n    }\n}"
+}
+
+func (g *TestProjectGenerator) generateAnalyticsServiceCsproj() string {
+	return "<Project Sdk=\"Microsoft.NET.Sdk.Web\">\n  <PropertyGroup>\n    <TargetFramework>net6.0</TargetFramework>\n  </PropertyGroup>\n  <ItemGroup>\n    <PackageReference Include=\"Microsoft.EntityFrameworkCore\" Version=\"6.0.0\" />\n  </ItemGroup>\n</Project>"
+}
+
+func (g *TestProjectGenerator) generateAnalyticsController() string {
+	return "using Microsoft.AspNetCore.Mvc;\n\nnamespace AnalyticsService.Controllers\n{\n    [ApiController]\n    [Route(\"api/[controller]\")]\n    public class AnalyticsController : ControllerBase\n    {\n        [HttpGet]\n        public IActionResult GetAnalytics()\n        {\n            return Ok(new { message = \"Analytics data\" });\n        }\n    }\n}"
+}
+
+func (g *TestProjectGenerator) generateAnalyticsEventModel() string {
+	return "using System;\n\nnamespace AnalyticsService.Models\n{\n    public class AnalyticsEvent\n    {\n        public Guid Id { get; set; }\n        public string EventType { get; set; }\n        public string UserId { get; set; }\n        public DateTime Timestamp { get; set; }\n        public string Data { get; set; }\n    }\n}"
+}
+
+func (g *TestProjectGenerator) generateAnalyticsServiceConfig() string {
+	return "{\n  \"Logging\": {\n    \"LogLevel\": {\n      \"Default\": \"Information\",\n      \"Microsoft\": \"Warning\"\n    }\n  },\n  \"ConnectionStrings\": {\n    \"DefaultConnection\": \"Server=localhost;Database=Analytics;Trusted_Connection=true;\"\n  }\n}"
+}
+
+func (g *TestProjectGenerator) generateAnalyticsServiceProgram() string {
+	return "using Microsoft.AspNetCore.Hosting;\nusing Microsoft.Extensions.Hosting;\n\nnamespace AnalyticsService\n{\n    public class Program\n    {\n        public static void Main(string[] args)\n        {\n            CreateHostBuilder(args).Build().Run();\n        }\n\n        public static IHostBuilder CreateHostBuilder(string[] args) =>\n            Host.CreateDefaultBuilder(args)\n                .ConfigureWebHostDefaults(webBuilder =>\n                {\n                    webBuilder.UseStartup<Startup>();\n                });\n    }\n}"
+}
+
+func (g *TestProjectGenerator) generateEventProcessor() string {
+	return "using System.Threading.Tasks;\n\nnamespace AnalyticsService.Services\n{\n    public class EventProcessor\n    {\n        public async Task ProcessEvent(AnalyticsEvent analyticsEvent)\n        {\n            // Process the analytics event\n            await Task.Delay(100); // Simulate processing\n        }\n    }\n}"
+}
+
+func (g *TestProjectGenerator) generateK8sConfigMap() string {
+	return "apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: app-config\n  namespace: default\ndata:\n  database_url: \"postgresql://localhost:5432/app\"\n  redis_url: \"redis://localhost:6379\""
+}
+
+func (g *TestProjectGenerator) generateK8sIngress() string {
+	return "apiVersion: networking.k8s.io/v1\nkind: Ingress\nmetadata:\n  name: app-ingress\n  namespace: default\nspec:\n  rules:\n  - host: app.example.com\n    http:\n      paths:\n      - path: /\n        pathType: Prefix\n        backend:\n          service:\n            name: app-service\n            port:\n              number: 80"
+}
+
+func (g *TestProjectGenerator) generateK8sNamespace() string {
+	return "apiVersion: v1\nkind: Namespace\nmetadata:\n  name: app-namespace\n  labels:\n    name: app-namespace"
+}
+
+func (g *TestProjectGenerator) generateMetricsCollector() string {
+	return "using System.Diagnostics.Metrics;\n\nnamespace AnalyticsService.Metrics\n{\n    public class MetricsCollector\n    {\n        private readonly Counter<int> _requestCounter;\n        private readonly Histogram<double> _requestDuration;\n\n        public MetricsCollector()\n        {\n            var meter = new Meter(\"AnalyticsService\");\n            _requestCounter = meter.CreateCounter<int>(\"requests_total\");\n            _requestDuration = meter.CreateHistogram<double>(\"request_duration_ms\");\n        }\n\n        public void IncrementRequestCount() => _requestCounter.Add(1);\n        public void RecordRequestDuration(double duration) => _requestDuration.Record(duration);\n    }\n}"
+}
+
+func (g *TestProjectGenerator) generateTerraformMain() string {
+	return "terraform {\n  required_providers {\n    aws = {\n      source  = \"hashicorp/aws\"\n      version = \"~> 4.0\"\n    }\n  }\n}\n\nprovider \"aws\" {\n  region = var.aws_region\n}\n\nresource \"aws_instance\" \"app\" {\n  ami           = \"ami-0c02fb55956c7d316\"\n  instance_type = \"t3.micro\"\n  \n  tags = {\n    Name = \"AppServer\"\n  }\n}"
+}
+
+func (g *TestProjectGenerator) generateTerraformVariables() string {
+	return "variable \"aws_region\" {\n  description = \"AWS region for resources\"\n  type        = string\n  default     = \"us-west-2\"\n}\n\nvariable \"instance_type\" {\n  description = \"EC2 instance type\"\n  type        = string\n  default     = \"t3.micro\"\n}"
+}
+
+func (g *TestProjectGenerator) generateHelmChart() string {
+	return "apiVersion: v2\nname: app\ndescription: A Helm chart for Kubernetes application\ntype: application\nversion: 0.1.0\nappVersion: \"1.0.0\""
+}
+
+func (g *TestProjectGenerator) generateIstioVirtualService() string {
+	return "apiVersion: networking.istio.io/v1beta1\nkind: VirtualService\nmetadata:\n  name: app-vs\nspec:\n  hosts:\n  - app.example.com\n  http:\n  - route:\n    - destination:\n        host: app-service\n        port:\n          number: 80"
+}
+
+func (g *TestProjectGenerator) generateIstioDestinationRule() string {
+	return "apiVersion: networking.istio.io/v1beta1\nkind: DestinationRule\nmetadata:\n  name: app-dr\nspec:\n  host: app-service\n  trafficPolicy:\n    loadBalancer:\n      simple: LEAST_CONN"
+}
+
+func (g *TestProjectGenerator) generateIstioGateway() string {
+	return "apiVersion: networking.istio.io/v1beta1\nkind: Gateway\nmetadata:\n  name: app-gateway\nspec:\n  selector:\n    istio: ingressgateway\n  servers:\n  - port:\n      number: 80\n      name: http\n      protocol: HTTP\n    hosts:\n    - app.example.com"
+}
+
+func (g *TestProjectGenerator) generatePythonProcessor() string {
+	return "\"\"\"Core data processor.\"\"\"\nimport asyncio\nfrom typing import Dict, Any\n\nclass DataProcessor:\n    def __init__(self):\n        self.processed_count = 0\n    \n    async def process_data(self, data: Dict[str, Any]) -> Dict[str, Any]:\n        \"\"\"Process incoming data.\"\"\"\n        self.processed_count += 1\n        return {\"processed\": True, \"data\": data, \"count\": self.processed_count}"
+}
+
+func (g *TestProjectGenerator) generatePythonAPIRoutes() string {
+	return "\"\"\"API routes for data processing.\"\"\"\nfrom fastapi import APIRouter\nfrom .processor import DataProcessor\n\nrouter = APIRouter()\nprocessor = DataProcessor()\n\n@router.post(\"/process\")\nasync def process_data(data: dict):\n    result = await processor.process_data(data)\n    return result\n\n@router.get(\"/status\")\nasync def get_status():\n    return {\"status\": \"running\", \"processed\": processor.processed_count}"
+}
+
+func (g *TestProjectGenerator) generatePythonDataModels() string {
+	return "\"\"\"Data models for processing.\"\"\"\nfrom pydantic import BaseModel\nfrom typing import Optional, Dict, Any\n\nclass ProcessingRequest(BaseModel):\n    data: Dict[str, Any]\n    priority: Optional[int] = 1\n    \nclass ProcessingResult(BaseModel):\n    success: bool\n    result: Optional[Dict[str, Any]] = None\n    error: Optional[str] = None"
+}
+
+func (g *TestProjectGenerator) generatePythonCalculationService() string {
+	return "\"\"\"Mathematical calculation service.\"\"\"\nimport math\nfrom typing import List, Union\n\nclass CalculationService:\n    @staticmethod\n    def mean(values: List[Union[int, float]]) -> float:\n        return sum(values) / len(values) if values else 0.0\n    \n    @staticmethod\n    def std_dev(values: List[Union[int, float]]) -> float:\n        if len(values) < 2:\n            return 0.0\n        mean_val = CalculationService.mean(values)\n        variance = sum((x - mean_val) ** 2 for x in values) / (len(values) - 1)\n        return math.sqrt(variance)"
+}
+
+func (g *TestProjectGenerator) generatePythonPerformanceUtils() string {
+	return "\"\"\"Performance monitoring utilities.\"\"\"\nimport time\nimport psutil\nfrom typing import Dict, Any\n\nclass PerformanceMonitor:\n    def __init__(self):\n        self.start_time = time.time()\n    \n    def get_metrics(self) -> Dict[str, Any]:\n        return {\n            \"uptime\": time.time() - self.start_time,\n            \"cpu_percent\": psutil.cpu_percent(),\n            \"memory_percent\": psutil.virtual_memory().percent,\n            \"disk_usage\": psutil.disk_usage('/').percent\n        }"
+}
+// Go Extension Methods
+func (g *TestProjectGenerator) generateGoParserExtension() string {
+	return `package parser
+import "fmt"
+func Parse(data string) string { return fmt.Sprintf("parsed: %s", data) }`
+}
+
+func (g *TestProjectGenerator) generateGoCryptoExtension() string {
+	return `package crypto
+import "crypto/sha256"
+func Hash(data []byte) []byte { h := sha256.Sum256(data); return h[:] }`
+}
+
+func (g *TestProjectGenerator) generateGoCompressionExtension() string {
+	return `package compression
+import "compress/gzip"
+func Compress(data []byte) []byte { return data }`
+}
+
+func (g *TestProjectGenerator) generateGoCBridge() string {
+	return `package main
+/*
+#include "bridge.h"
+*/
+import "C"
+func main() {}`
+}
+
+func (g *TestProjectGenerator) generateGoCBridgeHeader() string {
+	return `#ifndef BRIDGE_H
+#define BRIDGE_H
+#endif`
+}
+
+// Python Go Wrapper Methods
+func (g *TestProjectGenerator) generatePythonGoCalculatorWrapper() string {
+	return `import ctypes
+class GoCalculator:
+    def calculate(self, x, y): return x + y`
+}
+
+func (g *TestProjectGenerator) generatePythonGoParserWrapper() string {
+	return `import ctypes
+class GoParser:
+    def parse(self, data): return f"parsed: {data}"`
+}
+
+func (g *TestProjectGenerator) generatePythonGoCryptoWrapper() string {
+	return `import hashlib
+class GoCrypto:
+    def hash(self, data): return hashlib.sha256(data).hexdigest()`
+}
+
+func (g *TestProjectGenerator) generatePythonGoCompressionWrapper() string {
+	return `import gzip
+class GoCompression:
+    def compress(self, data): return gzip.compress(data)`
+}
+
+func (g *TestProjectGenerator) generatePythonGoExtensionsMakefile() string {
+	return `all:
+	go build -buildmode=c-shared -o extensions.so extensions/main.go
+clean:
+	rm -f extensions.so`
 }

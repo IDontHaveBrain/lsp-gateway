@@ -1,8 +1,6 @@
 package gateway
 
 import (
-	"context"
-	"fmt"
 	"sync"
 	"time"
 )

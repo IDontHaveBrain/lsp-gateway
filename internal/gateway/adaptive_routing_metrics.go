@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"lsp-gateway/internal/indexing"
 	"lsp-gateway/mcp"
 )
 

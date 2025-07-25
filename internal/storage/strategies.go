@@ -7,83 +7,8 @@ import (
 
 // Strategy types and interfaces for intelligent cache management
 
-// PromotionStrategy defines interface for intelligent data promotion between tiers
-// Implementations determine when and how data should be moved to faster tiers
-type PromotionStrategy interface {
-	// Core promotion decision logic
-	ShouldPromote(entry *CacheEntry, accessPattern *AccessPattern, currentTier TierType) (bool, TierType)
-	CalculatePromotionPriority(entry *CacheEntry, accessPattern *AccessPattern) int
-	
-	// Batch promotion optimization for efficiency
-	SelectPromotionCandidates(tier TierType, maxCandidates int) ([]*PromotionCandidate, error)
-	OptimizePromotionBatch(candidates []*PromotionCandidate) ([]*PromotionCandidate, error)
-	
-	// Strategy configuration and introspection
-	UpdateParameters(params PromotionParameters) error
-	GetStrategyType() PromotionStrategyType
-	GetCurrentParameters() PromotionParameters
-	GetStrategyName() string
-	GetStrategyDescription() string
-	
-	// Performance analysis
-	EstimatePromotionBenefit(entry *CacheEntry, fromTier, toTier TierType) float64
-	ValidatePromotion(entry *CacheEntry, fromTier, toTier TierType) error
-}
-
-// EvictionPolicy defines interface for intelligent data eviction from tiers
-// Implementations determine what data should be evicted when tier capacity is reached
-type EvictionPolicy interface {
-	// Core eviction decision logic
-	ShouldEvict(entry *CacheEntry, accessPattern *AccessPattern, currentTier TierType) (bool, TierType)
-	CalculateEvictionPriority(entry *CacheEntry, accessPattern *AccessPattern) int
-	
-	// Batch eviction optimization for capacity management
-	SelectEvictionCandidates(tier TierType, requiredSpace int64) ([]*EvictionCandidate, error)
-	OptimizeEvictionBatch(candidates []*EvictionCandidate) ([]*EvictionCandidate, error)
-	
-	// Policy configuration and introspection
-	UpdateParameters(params EvictionParameters) error
-	GetPolicyType() EvictionPolicyType
-	GetCurrentParameters() EvictionParameters
-	GetPolicyName() string
-	GetPolicyDescription() string
-	
-	// Impact analysis
-	EstimateEvictionImpact(entry *CacheEntry, tier TierType) float64
-	ValidateEviction(entry *CacheEntry, tier TierType) error
-}
-
-// AccessPattern defines interface for tracking and analyzing data access patterns
-// Enables intelligent promotion/eviction decisions based on usage patterns
-type AccessPattern interface {
-	// Access tracking and recording
-	RecordAccess(key string, accessType AccessType, metadata *AccessMetadata)
-	GetAccessFrequency(key string, timeWindow time.Duration) float64
-	GetAccessRecency(key string) time.Duration
-	GetAccessLocality(key string) *LocalityInfo
-	
-	// Pattern analysis and prediction
-	AnalyzePattern(key string) *PatternAnalysis
-	PredictFutureAccess(key string, horizon time.Duration) float64
-	ClassifyAccessPattern(key string) AccessPatternType
-	GetAccessTrend(key string, timeWindow time.Duration) AccessTrend
-	
-	// Bulk pattern operations
-	GetTopAccessedKeys(tier TierType, limit int) ([]string, error)
-	GetColdKeys(tier TierType, threshold time.Duration) ([]string, error)
-	GetHotKeys(tier TierType, threshold float64) ([]string, error)
-	GetRelatedKeys(key string, maxResults int) ([]string, error)
-	
-	// Pattern maintenance and configuration
-	UpdateTrackingParameters(params AccessTrackingParameters) error
-	PurgeOldPatterns(cutoff time.Time) error
-	GetPatternStats() *AccessPatternStats
-	
-	// Context-aware analysis
-	AnalyzeTemporalPattern(key string) *TemporalPattern
-	AnalyzeSpatialPattern(key string) *SpatialPattern
-	AnalyzeSemanticPattern(key string) *SemanticPattern
-}
+// NOTE: Core interfaces (PromotionStrategy, EvictionPolicy, AccessPattern) are defined in interface.go
+// This file contains concrete implementations and supporting types for those interfaces
 
 // CacheCoordinator manages intelligent coordination between tiers
 // Orchestrates promotion, eviction, and rebalancing across the three-tier system

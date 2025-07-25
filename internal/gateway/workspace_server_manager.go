@@ -110,12 +110,18 @@ func NewWorkspaceServerManager(workspaceID string, config *config.GatewayConfig,
 	totalMemoryLimitMB := int64(DefaultTotalMemoryLimitMB)
 
 	// Use global configuration if available
-	if config != nil && config.ResourceLimits != nil {
-		if config.ResourceLimits.MaxServersPerLanguage > 0 {
-			maxServersPerLanguage = config.ResourceLimits.MaxServersPerLanguage
+	if config != nil {
+		// Use existing MaxConcurrentServersPerLanguage field from GatewayConfig
+		if config.MaxConcurrentServersPerLanguage > 0 {
+			maxServersPerLanguage = config.MaxConcurrentServersPerLanguage
 		}
-		if config.ResourceLimits.TotalMemoryLimitMB > 0 {
-			totalMemoryLimitMB = config.ResourceLimits.TotalMemoryLimitMB
+		// For total memory limit, use a reasonable default based on max concurrent requests
+		if config.MaxConcurrentRequests > 0 {
+			// Estimate memory usage: assume ~100MB per concurrent request
+			estimatedMemoryMB := int64(config.MaxConcurrentRequests * 100)
+			if estimatedMemoryMB > totalMemoryLimitMB {
+				totalMemoryLimitMB = estimatedMemoryMB
+			}
 		}
 	}
 

@@ -1,27 +1,21 @@
 package storage
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math/rand"
 	"net"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/klauspost/compress/s2"
 	"github.com/klauspost/compress/zstd"
 	"github.com/vmihailenco/msgpack/v5"
 	"lsp-gateway/internal/gateway"
@@ -797,12 +791,12 @@ func (rc *RemoteCache) GetHealth() TierHealth {
 		LastCheck: rc.health.lastCheck,
 		Issues:    append([]HealthIssue{}, rc.health.issues...),
 		CircuitBreaker: struct {
-			State        gateway.CircuitBreakerState `json:"state"`
-			FailureCount int                         `json:"failure_count"`
-			LastFailure  time.Time                   `json:"last_failure,omitempty"`
-			NextRetry    time.Time                   `json:"next_retry,omitempty"`
+			State        CircuitBreakerState `json:"state"`
+			FailureCount int                 `json:"failure_count"`
+			LastFailure  time.Time           `json:"last_failure,omitempty"`
+			NextRetry    time.Time           `json:"next_retry,omitempty"`
 		}{
-			State:        rc.circuitBreaker.GetState(),
+			State:        CircuitBreakerState(rc.circuitBreaker.GetState()),
 			FailureCount: rc.health.circuitBreaker.failureCount,
 			LastFailure:  rc.health.circuitBreaker.lastFailure,
 			NextRetry:    rc.health.circuitBreaker.nextRetry,

@@ -370,8 +370,9 @@ func (p *SCIPRoutingProviderImpl) QuerySCIP(ctx context.Context, method string, 
 		response.Quality = p.assessQuality(response.Confidence, scipResult.CacheHit, scipResult.Error)
 		
 		// Set fallback recommendation
+		minAcceptableConfidence := queryQualityToConfidenceLevel(p.config.MinAcceptableQuality)
 		response.FallbackRequired = !scipResult.Found || 
-			response.Confidence < ConfidenceLevel(p.config.MinAcceptableQuality) ||
+			response.Confidence < minAcceptableConfidence ||
 			scipResult.Error != ""
 			
 		// Update cache hit metrics
@@ -445,11 +446,11 @@ func (p *SCIPRoutingProviderImpl) EstimateConfidence(method string, params inter
 		// Historical performance adjustment
 		if performance := p.getMethodPerformance(method); performance != nil {
 			historyAdjustment := (performance.AverageConfidence - 0.5) * 0.1
-			baseConfidence += historyAdjustment
+			baseConfidence = ConfidenceLevel(float64(baseConfidence) + historyAdjustment)
 		}
 		
 		// Clamp to valid range
-		if baseConfidence < float64(ConfidenceMinimum) {
+		if baseConfidence < ConfidenceMinimum {
 			return ConfidenceMinimum
 		}
 		if baseConfidence > 1.0 {
@@ -761,6 +762,20 @@ func (p *SCIPRoutingProviderImpl) recordQualityMetrics(quality QueryQuality) {
 		atomic.AddInt64(&p.performanceTracker.mediumQualityCount, 1)
 	case QualityLow:
 		atomic.AddInt64(&p.performanceTracker.lowQualityCount, 1)
+	}
+}
+
+// queryQualityToConfidenceLevel converts QueryQuality to ConfidenceLevel
+func queryQualityToConfidenceLevel(quality QueryQuality) ConfidenceLevel {
+	switch quality {
+	case QualityHigh:
+		return ConfidenceHigh
+	case QualityMedium:
+		return ConfidenceMedium
+	case QualityLow:
+		return ConfidenceMinimum
+	default:
+		return ConfidenceMinimum
 	}
 }
 

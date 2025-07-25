@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -9,9 +8,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
-
-	"lsp-gateway/internal/config"
-	"lsp-gateway/internal/transport"
 )
 
 

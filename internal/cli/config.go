@@ -823,16 +823,18 @@ func generateMultiLanguageConfig() (*config.GatewayConfig, error) {
 			return nil, fmt.Errorf("failed to generate multi-language configuration from project: %w", err)
 		}
 		
-		// Convert multi-language config to gateway config
-		gatewayConfig := convertMultiLanguageToGateway(result.Config)
-		
 		// Apply additional CLI flags
-		applyCliFlags(gatewayConfig)
+		applyCliFlags(result.Config)
+		
+		languageCount := 0
+		if result.Config.ProjectContext != nil {
+			languageCount = len(result.Config.ProjectContext.Languages)
+		}
 		
 		fmt.Printf("✓ Multi-language configuration generated: %d servers, %d languages detected\n", 
-			result.ServersGenerated, len(result.Config.ProjectInfo.LanguageContexts))
+			result.ServersGenerated, languageCount)
 		
-		return gatewayConfig, nil
+		return result.Config, nil
 	}
 	
 	// Generate environment-based configuration
@@ -842,15 +844,12 @@ func generateMultiLanguageConfig() (*config.GatewayConfig, error) {
 		return nil, fmt.Errorf("failed to generate environment-based configuration: %w", err)
 	}
 	
-	// Convert multi-language config to gateway config
-	gatewayConfig := convertMultiLanguageToGateway(result.Config)
-	
 	// Apply additional CLI flags
-	applyCliFlags(gatewayConfig)
+	applyCliFlags(result.Config)
 	
 	fmt.Printf("✓ Multi-language configuration generated for %s environment\n", environment)
 	
-	return gatewayConfig, nil
+	return result.Config, nil
 }
 
 func generateTemplateBasedConfig() (*config.GatewayConfig, error) {
@@ -921,18 +920,22 @@ func generateProjectDetectedConfig() (*config.GatewayConfig, error) {
 		return nil, fmt.Errorf("failed to generate configuration from project: %w", err)
 	}
 	
-	// Convert to gateway config
-	gatewayConfig := convertMultiLanguageToGateway(result.Config)
-	
 	// Apply CLI flags
-	applyCliFlags(gatewayConfig)
+	applyCliFlags(result.Config)
+	
+	languageCount := 0
+	projectType := "unknown"
+	if result.Config.ProjectContext != nil {
+		languageCount = len(result.Config.ProjectContext.Languages)
+		projectType = result.Config.ProjectContext.ProjectType
+	}
 	
 	fmt.Printf("✓ Project analysis complete:\n")
-	fmt.Printf("  Languages detected: %d\n", len(result.Config.ProjectInfo.LanguageContexts))
+	fmt.Printf("  Languages detected: %d\n", languageCount)
 	fmt.Printf("  Servers generated: %d\n", result.ServersGenerated)
-	fmt.Printf("  Project type: %s\n", result.Config.ProjectInfo.ProjectType)
+	fmt.Printf("  Project type: %s\n", projectType)
 	
-	return gatewayConfig, nil
+	return result.Config, nil
 }
 
 func generateAutoDetectedConfig() (*config.GatewayConfig, error) {
@@ -953,8 +956,8 @@ func generateAutoDetectedConfig() (*config.GatewayConfig, error) {
 		return nil, fmt.Errorf("failed to generate auto-detected configuration: %w", err)
 	}
 	
-	// Convert to gateway config
-	gatewayConfig := convertMultiLanguageToGateway(result.Config)
+	// Use the already generated gateway config
+	gatewayConfig := result.Config
 	
 	// Apply CLI flags and performance profile
 	applyCliFlags(gatewayConfig)
@@ -1041,8 +1044,7 @@ func ConfigMigrate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load source configuration: %w", err)
 	}
 
-	// Initialize enhanced configuration generator for migration
-	enhancedGen := setup.NewEnhancedConfigurationGenerator()
+	// Enhanced configuration generator would be initialized here if needed for migration
 	
 	// Create migrated configuration with enhanced features
 	migratedCfg := migrateToEnhancedFormat(sourceCfg)
@@ -1534,16 +1536,21 @@ func migrateToEnhancedFormat(cfg *config.GatewayConfig) *config.GatewayConfig {
 	
 	// Initialize language pools if missing
 	if enhanced.LanguagePools == nil {
-		enhanced.LanguagePools = make(map[string]*config.LanguagePool)
+		enhanced.LanguagePools = []config.LanguageServerPool{}
+		languageSet := make(map[string]bool)
+		
 		for _, server := range enhanced.Servers {
 			for _, lang := range server.Languages {
-				if _, exists := enhanced.LanguagePools[lang]; !exists {
-					enhanced.LanguagePools[lang] = &config.LanguagePool{
-						Language:           lang,
-						MaxServers:         2,
-						LoadBalancingMode:  "round_robin",
-						HealthCheckEnabled: true,
-					}
+				if !languageSet[lang] {
+					languageSet[lang] = true
+					enhanced.LanguagePools = append(enhanced.LanguagePools, config.LanguageServerPool{
+						Language: lang,
+						Servers:  make(map[string]*config.ServerConfig),
+						LoadBalancingConfig: &config.LoadBalancingConfig{
+							Strategy: "round_robin",
+							HealthThreshold: 0.8,
+						},
+					})
 				}
 			}
 		}

@@ -3,7 +3,6 @@ package gateway
 import (
 	"compress/gzip"
 	"context"
-	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"io"

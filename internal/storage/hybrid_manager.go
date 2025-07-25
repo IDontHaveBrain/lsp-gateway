@@ -2,16 +2,11 @@ package storage
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"lsp-gateway/internal/indexing"
 )
 
 // HybridStorageManager implements intelligent three-tier storage coordination

@@ -2350,7 +2350,7 @@ func runSetupDetect(cmd *cobra.Command, args []string) error {
 		fmt.Println("🔍 Phase 1: Project Detection and Analysis")
 	}
 
-	projectAnalysis, err := performProjectDetection(ctx, setupProjectPath, result)
+	projectAnalysis, err := performSetupProjectDetection(ctx, setupProjectPath, result)
 	if err != nil {
 		result.Issues = append(result.Issues, fmt.Sprintf("Project detection failed: %v", err))
 		if !setupJSON {
@@ -2460,7 +2460,7 @@ func analyzeMultiLanguageProject(ctx context.Context, result *SetupResult) error
 	return performProjectDetectionWithResult(ctx, setupProjectPath, result)
 }
 
-func performProjectDetection(ctx context.Context, projectPath string, result *SetupResult) (*setup.ProjectAnalysis, error) {
+func performSetupProjectDetection(ctx context.Context, projectPath string, result *SetupResult) (*setup.ProjectAnalysis, error) {
 	projectAnalyzer := setup.NewProjectAnalyzer()
 	analysis, err := projectAnalyzer.AnalyzeProject(projectPath)
 	if err != nil {
@@ -2481,7 +2481,7 @@ func performProjectDetection(ctx context.Context, projectPath string, result *Se
 }
 
 func performProjectDetectionWithResult(ctx context.Context, projectPath string, result *SetupResult) error {
-	_, err := performProjectDetection(ctx, projectPath, result)
+	_, err := performSetupProjectDetection(ctx, projectPath, result)
 	return err
 }
 
@@ -2616,6 +2616,7 @@ func runEnhancedVerification(ctx context.Context, result *SetupResult) ([]string
 	}
 
 	// Fallback to standard verification
+	_ = warnings // TODO: Use warnings when enhanced verification is implemented
 	return runFinalVerification(ctx, result)
 }
 
@@ -2660,6 +2661,7 @@ func generateTemplateConfiguration(ctx context.Context, result *SetupResult) err
 	if err != nil {
 		return fmt.Errorf("template not found: %w", err)
 	}
+	_ = template // TODO: Use template when template processing is implemented
 
 	// Create project analysis for template application
 	var analysis *setup.ProjectAnalysis

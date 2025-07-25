@@ -340,6 +340,7 @@ type SystemHealth struct {
 	HealthScore     float64                 `json:"health_score"` // 0.0 to 1.0
 	Availability    float64                 `json:"availability"` // Percentage
 	Reliability     float64                 `json:"reliability"`  // Percentage
+	Recommendations []*Recommendation       `json:"recommendations,omitempty"`
 }
 
 // Configuration types
@@ -905,6 +906,248 @@ func (e MaintenanceEventType) String() string {
 	default:
 		return "Unknown"
 	}
+}
+
+// Storage Configuration Types - Required for config.go validation
+
+// StorageConfiguration represents the complete storage system configuration
+type StorageConfiguration struct {
+	Version     string                      `json:"version" yaml:"version"`
+	Profile     string                      `json:"profile" yaml:"profile"`
+	Enabled     bool                        `json:"enabled" yaml:"enabled"`
+	Tiers       *StorageTiersConfig         `json:"tiers,omitempty" yaml:"tiers,omitempty"`
+	Strategy    *StorageStrategyConfig      `json:"strategy,omitempty" yaml:"strategy,omitempty"`
+	Monitoring  *StorageMonitoringConfig    `json:"monitoring,omitempty" yaml:"monitoring,omitempty"`
+	Maintenance *StorageMaintenanceConfig   `json:"maintenance,omitempty" yaml:"maintenance,omitempty"`
+	Security    *StorageSecurityConfig      `json:"security,omitempty" yaml:"security,omitempty"`
+	Advanced    *AdvancedStorageConfig      `json:"advanced,omitempty" yaml:"advanced,omitempty"`
+}
+
+// StorageTiersConfig contains configuration for all storage tiers
+type StorageTiersConfig struct {
+	L1Memory *TierConfiguration `json:"l1_memory,omitempty" yaml:"l1_memory,omitempty"`
+	L2Disk   *TierConfiguration `json:"l2_disk,omitempty" yaml:"l2_disk,omitempty"`
+	L3Remote *TierConfiguration `json:"l3_remote,omitempty" yaml:"l3_remote,omitempty"`
+}
+
+// TierConfiguration contains configuration for an individual storage tier
+type TierConfiguration struct {
+	Enabled        bool                        `json:"enabled" yaml:"enabled"`
+	Capacity       string                      `json:"capacity" yaml:"capacity"`
+	MaxEntries     int64                       `json:"max_entries" yaml:"max_entries"`
+	EvictionPolicy string                      `json:"eviction_policy" yaml:"eviction_policy"`
+	Backend        *BackendConfiguration       `json:"backend,omitempty" yaml:"backend,omitempty"`
+	Compression    *CompressionConfiguration   `json:"compression,omitempty" yaml:"compression,omitempty"`
+	Encryption     *EncryptionConfiguration    `json:"encryption,omitempty" yaml:"encryption,omitempty"`
+	Performance    *TierPerformanceConfig      `json:"performance,omitempty" yaml:"performance,omitempty"`
+	Reliability    *TierReliabilityConfig      `json:"reliability,omitempty" yaml:"reliability,omitempty"`
+}
+
+// BackendConfiguration contains backend-specific configuration
+type BackendConfiguration struct {
+	Type             string                     `json:"type" yaml:"type"`
+	Path             string                     `json:"path,omitempty" yaml:"path,omitempty"`
+	Bucket           string                     `json:"bucket,omitempty" yaml:"bucket,omitempty"`
+	Region           string                     `json:"region,omitempty" yaml:"region,omitempty"`
+	Endpoint         string                     `json:"endpoint,omitempty" yaml:"endpoint,omitempty"`
+	ConnectionString string                     `json:"connection_string,omitempty" yaml:"connection_string,omitempty"`
+	Authentication   *AuthenticationConfig      `json:"authentication,omitempty" yaml:"authentication,omitempty"`
+	Options          map[string]interface{}     `json:"options,omitempty" yaml:"options,omitempty"`
+}
+
+// CompressionConfiguration contains compression settings
+type CompressionConfiguration struct {
+	Enabled   bool    `json:"enabled" yaml:"enabled"`
+	Algorithm string  `json:"algorithm" yaml:"algorithm"`
+	Level     int     `json:"level" yaml:"level"`
+	MinSize   int64   `json:"min_size" yaml:"min_size"`
+	Threshold float64 `json:"threshold" yaml:"threshold"`
+}
+
+// EncryptionConfiguration contains encryption settings
+type EncryptionConfiguration struct {
+	Enabled     bool          `json:"enabled" yaml:"enabled"`
+	Algorithm   string        `json:"algorithm" yaml:"algorithm"`
+	KeySize     int           `json:"key_size" yaml:"key_size"`
+	KeyRotation time.Duration `json:"key_rotation" yaml:"key_rotation"`
+	KeyPath     string        `json:"key_path,omitempty" yaml:"key_path,omitempty"`
+}
+
+// TierPerformanceConfig contains performance settings for a tier
+type TierPerformanceConfig struct {
+	MaxConcurrency     int `json:"max_concurrency" yaml:"max_concurrency"`
+	TimeoutMs          int `json:"timeout_ms" yaml:"timeout_ms"`
+	BatchSize          int `json:"batch_size" yaml:"batch_size"`
+	ReadBufferSize     int `json:"read_buffer_size" yaml:"read_buffer_size"`
+	WriteBufferSize    int `json:"write_buffer_size" yaml:"write_buffer_size"`
+	ConnectionPoolSize int `json:"connection_pool_size" yaml:"connection_pool_size"`
+	PrefetchSize       int `json:"prefetch_size" yaml:"prefetch_size"`
+}
+
+// TierReliabilityConfig contains reliability settings for a tier
+type TierReliabilityConfig struct {
+	RetryCount          int                          `json:"retry_count" yaml:"retry_count"`
+	RetryDelayMs        int                          `json:"retry_delay_ms" yaml:"retry_delay_ms"`
+	FailureThreshold    int                          `json:"failure_threshold" yaml:"failure_threshold"`
+	HealthCheckInterval time.Duration                `json:"health_check_interval" yaml:"health_check_interval"`
+	RecoveryTimeout     time.Duration                `json:"recovery_timeout" yaml:"recovery_timeout"`
+	ReplicationFactor   int                          `json:"replication_factor" yaml:"replication_factor"`
+	CircuitBreaker      *CircuitBreakerConfiguration `json:"circuit_breaker,omitempty" yaml:"circuit_breaker,omitempty"`
+}
+
+// CircuitBreakerConfiguration contains circuit breaker settings
+type CircuitBreakerConfiguration struct {
+	Enabled          bool          `json:"enabled" yaml:"enabled"`
+	FailureThreshold int           `json:"failure_threshold" yaml:"failure_threshold"`
+	RecoveryTimeout  time.Duration `json:"recovery_timeout" yaml:"recovery_timeout"`
+	HalfOpenRequests int           `json:"half_open_requests" yaml:"half_open_requests"`
+	MinRequestCount  int           `json:"min_request_count" yaml:"min_request_count"`
+}
+
+// AuthenticationConfig contains authentication settings
+type AuthenticationConfig struct {
+	Type     string `json:"type" yaml:"type"`
+	Username string `json:"username,omitempty" yaml:"username,omitempty"`
+	Password string `json:"password,omitempty" yaml:"password,omitempty"`
+	Token    string `json:"token,omitempty" yaml:"token,omitempty"`
+	CertPath string `json:"cert_path,omitempty" yaml:"cert_path,omitempty"`
+	KeyPath  string `json:"key_path,omitempty" yaml:"key_path,omitempty"`
+}
+
+// StorageStrategyConfig contains strategy configuration
+type StorageStrategyConfig struct {
+	PromotionStrategy *PromotionStrategyConfig `json:"promotion_strategy,omitempty" yaml:"promotion_strategy,omitempty"`
+	EvictionPolicy    *EvictionPolicyConfig    `json:"eviction_policy,omitempty" yaml:"eviction_policy,omitempty"`
+	AccessTracking    *AccessTrackingConfig    `json:"access_tracking,omitempty" yaml:"access_tracking,omitempty"`
+	AutoOptimization  *AutoOptimizationConfig  `json:"auto_optimization,omitempty" yaml:"auto_optimization,omitempty"`
+}
+
+// PromotionStrategyConfig contains promotion strategy configuration
+type PromotionStrategyConfig struct {
+	Type               string                   `json:"type" yaml:"type"`
+	MinAccessCount     int64                    `json:"min_access_count" yaml:"min_access_count"`
+	MinAccessFrequency float64                  `json:"min_access_frequency" yaml:"min_access_frequency"`
+	AccessTimeWindow   time.Duration            `json:"access_time_window" yaml:"access_time_window"`
+	PromotionCooldown  time.Duration            `json:"promotion_cooldown" yaml:"promotion_cooldown"`
+	RecencyWeight      float64                  `json:"recency_weight" yaml:"recency_weight"`
+	FrequencyWeight    float64                  `json:"frequency_weight" yaml:"frequency_weight"`
+	SizeWeight         float64                  `json:"size_weight" yaml:"size_weight"`
+	TierThresholds     map[string]float64       `json:"tier_thresholds,omitempty" yaml:"tier_thresholds,omitempty"`
+	CustomParameters   map[string]interface{}   `json:"custom_parameters,omitempty" yaml:"custom_parameters,omitempty"`
+}
+
+// EvictionPolicyConfig contains eviction policy configuration
+type EvictionPolicyConfig struct {
+	Type                 string                 `json:"type" yaml:"type"`
+	EvictionThreshold    float64                `json:"eviction_threshold" yaml:"eviction_threshold"`
+	TargetUtilization    float64                `json:"target_utilization" yaml:"target_utilization"`
+	EvictionBatchSize    int                    `json:"eviction_batch_size" yaml:"eviction_batch_size"`
+	AccessAgeThreshold   time.Duration          `json:"access_age_threshold" yaml:"access_age_threshold"`
+	InactivityThreshold  time.Duration          `json:"inactivity_threshold" yaml:"inactivity_threshold"`
+	DefaultTTL           time.Duration          `json:"default_ttl" yaml:"default_ttl"`
+	MaxTTL               time.Duration          `json:"max_ttl" yaml:"max_ttl"`
+	SizeWeight           float64                `json:"size_weight" yaml:"size_weight"`
+	CustomParameters     map[string]interface{} `json:"custom_parameters,omitempty" yaml:"custom_parameters,omitempty"`
+}
+
+// AccessTrackingConfig contains access tracking configuration
+type AccessTrackingConfig struct {
+	Enabled              bool          `json:"enabled" yaml:"enabled"`
+	TrackingGranularity  time.Duration `json:"tracking_granularity" yaml:"tracking_granularity"`
+	HistoryRetention     time.Duration `json:"history_retention" yaml:"history_retention"`
+	MaxTrackedKeys       int           `json:"max_tracked_keys" yaml:"max_tracked_keys"`
+	AnalysisInterval     time.Duration `json:"analysis_interval" yaml:"analysis_interval"`
+	MinSampleSize        int           `json:"min_sample_size" yaml:"min_sample_size"`
+	ConfidenceThreshold  float64       `json:"confidence_threshold" yaml:"confidence_threshold"`
+	SemanticAnalysis     bool          `json:"semantic_analysis" yaml:"semantic_analysis"`
+	SeasonalityDetection bool          `json:"seasonality_detection" yaml:"seasonality_detection"`
+	TrendDetection       bool          `json:"trend_detection" yaml:"trend_detection"`
+}
+
+// AutoOptimizationConfig contains auto optimization configuration
+type AutoOptimizationConfig struct {
+	Enabled              bool    `json:"enabled" yaml:"enabled"`
+	OptimizationInterval time.Duration `json:"optimization_interval" yaml:"optimization_interval"`
+	PerformanceThreshold float64 `json:"performance_threshold" yaml:"performance_threshold"`
+	CapacityThreshold    float64 `json:"capacity_threshold" yaml:"capacity_threshold"`
+}
+
+// StorageMonitoringConfig contains monitoring configuration
+type StorageMonitoringConfig struct {
+	Enabled         bool                   `json:"enabled" yaml:"enabled"`
+	MetricsInterval time.Duration          `json:"metrics_interval" yaml:"metrics_interval"`
+	HealthInterval  time.Duration          `json:"health_interval" yaml:"health_interval"`
+	LogLevel        string                 `json:"log_level" yaml:"log_level"`
+	ExportFormat    string                 `json:"export_format" yaml:"export_format"`
+	RetentionPeriod time.Duration          `json:"retention_period" yaml:"retention_period"`
+	DetailedMetrics bool                   `json:"detailed_metrics" yaml:"detailed_metrics"`
+	TraceRequests   bool                   `json:"trace_requests" yaml:"trace_requests"`
+	AlertThresholds map[string]float64     `json:"alert_thresholds,omitempty" yaml:"alert_thresholds,omitempty"`
+}
+
+// StorageMaintenanceConfig contains maintenance configuration
+type StorageMaintenanceConfig struct {
+	Enabled             bool                      `json:"enabled" yaml:"enabled"`
+	Schedule            string                    `json:"schedule" yaml:"schedule"`
+	CompactionThreshold float64                   `json:"compaction_threshold" yaml:"compaction_threshold"`
+	VacuumInterval      time.Duration             `json:"vacuum_interval" yaml:"vacuum_interval"`
+	CleanupAge          time.Duration             `json:"cleanup_age" yaml:"cleanup_age"`
+	BackupInterval      time.Duration             `json:"backup_interval" yaml:"backup_interval"`
+	BackupRetention     time.Duration             `json:"backup_retention" yaml:"backup_retention"`
+	MaintenanceWindow   *MaintenanceWindowConfig  `json:"maintenance_window,omitempty" yaml:"maintenance_window,omitempty"`
+}
+
+// MaintenanceWindowConfig contains maintenance window configuration
+type MaintenanceWindowConfig struct {
+	StartTime string   `json:"start_time" yaml:"start_time"`
+	EndTime   string   `json:"end_time" yaml:"end_time"`
+	Timezone  string   `json:"timezone" yaml:"timezone"`
+	Days      []string `json:"days" yaml:"days"`
+}
+
+// StorageSecurityConfig contains security configuration
+type StorageSecurityConfig struct {
+	EncryptionAtRest    bool                     `json:"encryption_at_rest" yaml:"encryption_at_rest"`
+	EncryptionInTransit bool                     `json:"encryption_in_transit" yaml:"encryption_in_transit"`
+	AccessControl       *AccessControlConfig     `json:"access_control,omitempty" yaml:"access_control,omitempty"`
+	AuditLogging        *AuditLoggingConfig      `json:"audit_logging,omitempty" yaml:"audit_logging,omitempty"`
+	DataClassification  *DataClassificationConfig `json:"data_classification,omitempty" yaml:"data_classification,omitempty"`
+}
+
+// AccessControlConfig contains access control configuration
+type AccessControlConfig struct {
+	Enabled       bool               `json:"enabled" yaml:"enabled"`
+	DefaultPolicy string             `json:"default_policy" yaml:"default_policy"`
+	RateLimiting  *RateLimitingConfig `json:"rate_limiting,omitempty" yaml:"rate_limiting,omitempty"`
+}
+
+// RateLimitingConfig contains rate limiting configuration
+type RateLimitingConfig struct {
+	Enabled           bool          `json:"enabled" yaml:"enabled"`
+	RequestsPerMinute int           `json:"requests_per_minute" yaml:"requests_per_minute"`
+	BurstSize         int           `json:"burst_size" yaml:"burst_size"`
+	WindowSize        time.Duration `json:"window_size" yaml:"window_size"`
+}
+
+// AuditLoggingConfig contains audit logging configuration
+type AuditLoggingConfig struct {
+	Enabled       bool   `json:"enabled" yaml:"enabled"`
+	LogLevel      string `json:"log_level" yaml:"log_level"`
+	RetentionDays int    `json:"retention_days" yaml:"retention_days"`
+	LogFormat     string `json:"log_format" yaml:"log_format"`
+}
+
+// DataClassificationConfig contains data classification configuration
+type DataClassificationConfig struct {
+	Enabled            bool              `json:"enabled" yaml:"enabled"`
+	DefaultLevel       string            `json:"default_level" yaml:"default_level"`
+	ClassificationRules []string         `json:"classification_rules" yaml:"classification_rules"`
+}
+
+// AdvancedStorageConfig contains advanced configuration options
+type AdvancedStorageConfig struct {
+	ExperimentalFeatures map[string]bool        `json:"experimental_features,omitempty" yaml:"experimental_features,omitempty"`
+	CustomSettings       map[string]interface{} `json:"custom_settings,omitempty" yaml:"custom_settings,omitempty"`
 }
 
 type ConfigChangeType int

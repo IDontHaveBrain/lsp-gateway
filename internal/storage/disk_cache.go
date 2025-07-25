@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/dgraph-io/badger/v4"
+	"github.com/dgraph-io/badger/v4/options"
 	"github.com/golang/snappy"
 )
 
@@ -192,28 +193,22 @@ func (d *DiskCache) Initialize(ctx context.Context, config TierConfig) error {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 	
-	// Configure BadgerDB options for SSD optimization
-	opts := badger.DefaultOptions(d.dbPath)
-	opts.Logger = nil // Disable badger logging to avoid noise
-	
-	// Performance optimizations for SSD
-	opts.SyncWrites = false // Async writes for better performance
-	opts.CompactL0OnClose = true
-	opts.ValueThreshold = 1024 // Store values > 1KB separately
-	opts.NumMemtables = 3
-	opts.NumLevelZeroTables = 5
-	opts.NumLevelZeroTablesStall = 10
-	opts.LevelOneSize = 256 << 20 // 256MB
-	opts.LevelSizeMultiplier = 10
-	opts.MaxLevels = 7
-	
-	// Configure compression at BadgerDB level  
-	opts.Compression = badger.ZSTD
-	opts.ZSTDCompressionLevel = 1 // Fast compression
-	
-	// Memory usage limits
-	opts.MemTableSize = 64 << 20 // 64MB
-	opts.MaxCacheSize = 100 << 20 // 100MB cache
+	// Configure BadgerDB options for SSD optimization using method chaining
+	opts := badger.DefaultOptions(d.dbPath).
+		WithLogger(nil). // Disable badger logging to avoid noise
+		WithSyncWrites(false). // Async writes for better performance
+		WithCompactL0OnClose(true).
+		WithValueThreshold(1024). // Store values > 1KB separately
+		WithNumMemtables(3).
+		WithNumLevelZeroTables(5).
+		WithNumLevelZeroTablesStall(10).
+		WithBaseLevelSize(256 << 20). // 256MB base level size (replaces LevelOneSize)
+		WithLevelSizeMultiplier(10).
+		WithMaxLevels(7).
+		WithCompression(options.ZSTD). // Configure compression at BadgerDB level
+		WithZSTDCompressionLevel(1). // Fast compression
+		WithMemTableSize(64 << 20). // 64MB
+		WithBlockCacheSize(100 << 20) // 100MB block cache (replaces MaxCacheSize)
 	
 	// Open database
 	db, err := badger.Open(opts)

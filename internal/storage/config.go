@@ -949,6 +949,158 @@ func ApplyStorageEnvironmentVariables(config *StorageConfiguration) error {
 	return nil
 }
 
+// DefaultStorageConfiguration returns the default storage configuration
+func DefaultStorageConfiguration() *StorageConfiguration {
+	return &StorageConfiguration{
+		Version: "1.0",
+		Profile: "development",
+		Enabled: false, // Disabled by default
+		Tiers: &StorageTiersConfig{
+			L1Memory: &TierConfiguration{
+				Enabled:        true,
+				Capacity:       "2GB",
+				MaxEntries:     100000,
+				EvictionPolicy: "lru",
+				Backend: &BackendConfiguration{
+					Type: "memory",
+				},
+				Performance: &TierPerformanceConfig{
+					MaxConcurrency:  10,
+					TimeoutMs:       5000,
+					BatchSize:       100,
+					ReadBufferSize:  4096,
+					WriteBufferSize: 4096,
+				},
+				Reliability: &TierReliabilityConfig{
+					RetryCount:       3,
+					RetryDelayMs:     100,
+					FailureThreshold: 5,
+				},
+			},
+			L2Disk: &TierConfiguration{
+				Enabled:        false,
+				Capacity:       "10GB",
+				MaxEntries:     1000000,
+				EvictionPolicy: "lru",
+				Backend: &BackendConfiguration{
+					Type: "local_disk",
+					Path: "/tmp/lsp-gateway-cache",
+				},
+				Performance: &TierPerformanceConfig{
+					MaxConcurrency:  5,
+					TimeoutMs:       10000,
+					BatchSize:       50,
+					ReadBufferSize:  8192,
+					WriteBufferSize: 8192,
+				},
+				Reliability: &TierReliabilityConfig{
+					RetryCount:       3,
+					RetryDelayMs:     200,
+					FailureThreshold: 5,
+				},
+			},
+			L3Remote: &TierConfiguration{
+				Enabled:        false,
+				Capacity:       "unlimited",
+				MaxEntries:     -1,
+				EvictionPolicy: "ttl",
+				Backend: &BackendConfiguration{
+					Type: "s3",
+				},
+				Performance: &TierPerformanceConfig{
+					MaxConcurrency:  2,
+					TimeoutMs:       30000,
+					BatchSize:       10,
+					ReadBufferSize:  16384,
+					WriteBufferSize: 16384,
+				},
+				Reliability: &TierReliabilityConfig{
+					RetryCount:       5,
+					RetryDelayMs:     1000,
+					FailureThreshold: 3,
+				},
+			},
+		},
+		Strategy: &StorageStrategyConfig{
+			PromotionStrategy: &PromotionStrategyConfig{
+				Type:               "lfu",
+				MinAccessCount:     2,
+				MinAccessFrequency: 0.1,
+				AccessTimeWindow:   time.Hour,
+				PromotionCooldown:  time.Minute * 5,
+				RecencyWeight:      0.3,
+				FrequencyWeight:    0.5,
+				SizeWeight:         0.2,
+			},
+			EvictionPolicy: &EvictionPolicyConfig{
+				Type:              "lru",
+				EvictionThreshold: 0.85,
+				TargetUtilization: 0.7,
+				EvictionBatchSize: 10,
+				DefaultTTL:        time.Hour * 24,
+				MaxTTL:            time.Hour * 24 * 7,
+				SizeWeight:        0.3,
+			},
+			AccessTracking: &AccessTrackingConfig{
+				Enabled:             true,
+				TrackingGranularity: time.Minute,
+				HistoryRetention:    time.Hour * 24,
+				MaxTrackedKeys:      10000,
+				AnalysisInterval:    time.Minute * 15,
+				MinSampleSize:       10,
+				ConfidenceThreshold: 0.8,
+			},
+			AutoOptimization: &AutoOptimizationConfig{
+				Enabled:              false,
+				OptimizationInterval: time.Hour,
+				PerformanceThreshold: 0.8,
+				CapacityThreshold:    0.8,
+			},
+		},
+		Monitoring: &StorageMonitoringConfig{
+			Enabled:         true,
+			MetricsInterval: time.Minute,
+			HealthInterval:  time.Minute * 5,
+			LogLevel:        "info",
+			ExportFormat:    "json",
+			RetentionPeriod: time.Hour * 24,
+			DetailedMetrics: false,
+			TraceRequests:   false,
+		},
+		Maintenance: &StorageMaintenanceConfig{
+			Enabled:             false,
+			Schedule:            "0 2 * * *", // Daily at 2 AM
+			CompactionThreshold: 0.3,
+			VacuumInterval:      time.Hour * 24,
+			CleanupAge:          time.Hour * 24 * 30,
+			BackupInterval:      time.Hour * 12,
+			BackupRetention:     time.Hour * 24 * 7,
+		},
+		Security: &StorageSecurityConfig{
+			EncryptionAtRest:    false,
+			EncryptionInTransit: false,
+			AccessControl: &AccessControlConfig{
+				Enabled:       false,
+				DefaultPolicy: "allow",
+			},
+			AuditLogging: &AuditLoggingConfig{
+				Enabled:       false,
+				LogLevel:      "info",
+				RetentionDays: 30,
+				LogFormat:     "json",
+			},
+			DataClassification: &DataClassificationConfig{
+				Enabled:      false,
+				DefaultLevel: "internal",
+			},
+		},
+		Advanced: &AdvancedStorageConfig{
+			ExperimentalFeatures: make(map[string]bool),
+			CustomSettings:       make(map[string]interface{}),
+		},
+	}
+}
+
 // GetDefaultStorageConfigForProfile returns default storage configuration for a specific profile
 func GetDefaultStorageConfigForProfile(profile string) *StorageConfiguration {
 	defaultConfig := DefaultStorageConfiguration()

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"lsp-gateway/internal/config"
-	"lsp-gateway/internal/transport"
 	"lsp-gateway/mcp"
 )
 
