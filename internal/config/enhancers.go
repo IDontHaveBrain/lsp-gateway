@@ -384,7 +384,7 @@ func (m *MicroservicesStrategy) OptimizeForLayout(config *MultiLanguageConfig, l
 		// Assign workspaces based on service patterns
 		for i, workspace := range layout.Workspaces {
 			serviceName := fmt.Sprintf("service-%d", i)
-			for _, language := range serverConfig.Languages {
+			for range serverConfig.Languages {
 				serverConfig.WorkspaceRoots[serviceName] = workspace
 			}
 		}
@@ -457,6 +457,10 @@ func (d *DevelopmentOptimization) GetMemorySettings() map[string]interface{} {
 	}
 }
 
+func (d *DevelopmentOptimization) GetOptimizationName() string {
+	return OptimizationDevelopment
+}
+
 type ProductionOptimization struct{}
 
 func (p *ProductionOptimization) ApplyOptimizations(config *MultiLanguageConfig) error {
@@ -520,6 +524,10 @@ func (p *ProductionOptimization) GetMemorySettings() map[string]interface{} {
 		"cache_enabled": false,
 		"gc_aggressive": true,
 	}
+}
+
+func (p *ProductionOptimization) GetOptimizationName() string {
+	return OptimizationProduction
 }
 
 type AnalysisOptimization struct{}
@@ -590,6 +598,87 @@ func (a *AnalysisOptimization) GetMemorySettings() map[string]interface{} {
 		"cache_enabled": true,
 		"cache_size": "large",
 	}
+}
+
+func (a *AnalysisOptimization) GetOptimizationName() string {
+	return OptimizationAnalysis
+}
+
+// Constructor functions for optimization strategies
+
+// NewDevelopmentOptimization creates a new development optimization strategy
+func NewDevelopmentOptimization() *DevelopmentOptimization {
+	return &DevelopmentOptimization{}
+}
+
+// NewProductionOptimization creates a new production optimization strategy
+func NewProductionOptimization() *ProductionOptimization {
+	return &ProductionOptimization{}
+}
+
+// NewAnalysisOptimization creates a new analysis optimization strategy
+func NewAnalysisOptimization() *AnalysisOptimization {
+	return &AnalysisOptimization{}
+}
+
+// OptimizationStrategy extends OptimizationMode with additional methods
+type OptimizationStrategy interface {
+	ApplyOptimizations(config *MultiLanguageConfig) error
+	GetPerformanceSettings() map[string]interface{}
+	GetMemorySettings() map[string]interface{}
+	GetOptimizationName() string
+}
+
+// OptimizationManager manages optimization strategies for configurations
+type OptimizationManager struct {
+	strategies map[string]OptimizationStrategy
+}
+
+// NewOptimizationManager creates a new optimization manager
+func NewOptimizationManager() *OptimizationManager {
+	manager := &OptimizationManager{
+		strategies: make(map[string]OptimizationStrategy),
+	}
+	
+	// Register default optimization strategies
+	manager.strategies[OptimizationProduction] = NewProductionOptimization()
+	manager.strategies[OptimizationAnalysis] = NewAnalysisOptimization()
+	manager.strategies[OptimizationDevelopment] = NewDevelopmentOptimization()
+	
+	return manager
+}
+
+// ApplyOptimization applies the specified optimization strategy to the configuration
+func (om *OptimizationManager) ApplyOptimization(config *MultiLanguageConfig, strategy string) error {
+	if config == nil {
+		return fmt.Errorf("configuration cannot be nil")
+	}
+	
+	optimizationStrategy, exists := om.strategies[strategy]
+	if !exists {
+		return fmt.Errorf("unknown optimization strategy: %s", strategy)
+	}
+	
+	return optimizationStrategy.ApplyOptimizations(config)
+}
+
+// GetStrategy returns the optimization strategy by name
+func (om *OptimizationManager) GetStrategy(name string) (OptimizationStrategy, error) {
+	strategy, exists := om.strategies[name]
+	if !exists {
+		return nil, fmt.Errorf("unknown optimization strategy: %s", name)
+	}
+	
+	return strategy, nil
+}
+
+// GetAvailableStrategies returns all available optimization strategy names
+func (om *OptimizationManager) GetAvailableStrategies() []string {
+	strategies := make([]string, 0, len(om.strategies))
+	for name := range om.strategies {
+		strategies = append(strategies, name)
+	}
+	return strategies
 }
 
 // Utility functions

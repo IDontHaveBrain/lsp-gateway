@@ -18,6 +18,37 @@ const (
 	DefaultTransport = "stdio"
 )
 
+// Performance configuration constants
+const (
+	// Memory limits
+	DefaultMemoryLimit = 1024 * 1024 * 1024 // 1GB in bytes
+	
+	// Cache defaults
+	DefaultCacheTTL = 30 * time.Minute
+	
+	// Indexing strategies
+	IndexingStrategyEager       = "eager"
+	IndexingStrategyLazy        = "lazy"
+	IndexingStrategyIncremental = "incremental" 
+	IndexingStrategyFull        = "full"
+	
+	// Performance profiles
+	PerformanceProfileDevelopment = "development"
+	PerformanceProfileProduction  = "production"
+	PerformanceProfileAnalysis    = "analysis"
+	
+	// Server types
+	ServerTypeSingle    = "single"
+	ServerTypeMulti     = "multi"
+	ServerTypeWorkspace = "workspace"
+	
+	// Cache eviction strategies
+	EvictionStrategyLRU    = "lru"
+	EvictionStrategyLFU    = "lfu"
+	EvictionStrategyRandom = "random"
+	EvictionStrategyTTL    = "ttl"
+)
+
 const (
 	ProjectTypeSingle        = "single-language"
 	ProjectTypeMulti         = "multi-language"
@@ -160,6 +191,91 @@ type GatewayConfig struct {
 	PerformanceConfig *PerformanceConfiguration `yaml:"performance_config,omitempty" json:"performance_config,omitempty"`
 }
 
+// PerformanceConfiguration contains configuration for performance optimization
+type PerformanceConfiguration struct {
+	Enabled      bool                   `yaml:"enabled" json:"enabled"`
+	Profile      string                 `yaml:"profile,omitempty" json:"profile,omitempty"`
+	AutoTuning   bool                   `yaml:"auto_tuning,omitempty" json:"auto_tuning,omitempty"`
+	Version      string                 `yaml:"version,omitempty" json:"version,omitempty"`
+	Caching      *CachingConfiguration  `yaml:"caching,omitempty" json:"caching,omitempty"`
+	ResourceManager *ResourceManagerConfig `yaml:"resource_manager,omitempty" json:"resource_manager,omitempty"`
+	Timeouts     *TimeoutConfiguration  `yaml:"timeouts,omitempty" json:"timeouts,omitempty"`
+	LargeProject *LargeProjectConfig    `yaml:"large_project,omitempty" json:"large_project,omitempty"`
+}
+
+// CachingConfiguration contains caching configuration
+type CachingConfiguration struct {
+	Enabled          bool                    `yaml:"enabled" json:"enabled"`
+	GlobalTTL        time.Duration          `yaml:"global_ttl,omitempty" json:"global_ttl,omitempty"`
+	MaxMemoryUsage   int64                  `yaml:"max_memory_usage_mb,omitempty" json:"max_memory_usage_mb,omitempty"`
+	EvictionStrategy string                 `yaml:"eviction_strategy,omitempty" json:"eviction_strategy,omitempty"`
+	ResponseCache    *CacheConfig           `yaml:"response_cache,omitempty" json:"response_cache,omitempty"`
+	SemanticCache    *CacheConfig           `yaml:"semantic_cache,omitempty" json:"semantic_cache,omitempty"`
+	ProjectCache     *CacheConfig           `yaml:"project_cache,omitempty" json:"project_cache,omitempty"`
+	SymbolCache      *CacheConfig           `yaml:"symbol_cache,omitempty" json:"symbol_cache,omitempty"`
+	CompletionCache  *CacheConfig           `yaml:"completion_cache,omitempty" json:"completion_cache,omitempty"`
+	DiagnosticCache  *CacheConfig           `yaml:"diagnostic_cache,omitempty" json:"diagnostic_cache,omitempty"`
+	FileSystemCache  *CacheConfig           `yaml:"filesystem_cache,omitempty" json:"filesystem_cache,omitempty"`
+}
+
+// CacheConfig contains individual cache configuration
+type CacheConfig struct {
+	Enabled   bool          `yaml:"enabled" json:"enabled"`
+	TTL       time.Duration `yaml:"ttl,omitempty" json:"ttl,omitempty"`
+	MaxSize   int64         `yaml:"max_size,omitempty" json:"max_size,omitempty"`
+}
+
+// ResourceManagerConfig contains resource management configuration
+type ResourceManagerConfig struct {
+	MemoryLimits *MemoryLimitsConfig `yaml:"memory_limits,omitempty" json:"memory_limits,omitempty"`
+	CPULimits    *CPULimitsConfig    `yaml:"cpu_limits,omitempty" json:"cpu_limits,omitempty"`
+}
+
+// MemoryLimitsConfig contains memory limit configuration
+type MemoryLimitsConfig struct {
+	MaxHeapSize     int64 `yaml:"max_heap_size_mb,omitempty" json:"max_heap_size_mb,omitempty"`
+	SoftLimit       int64 `yaml:"soft_limit_mb,omitempty" json:"soft_limit_mb,omitempty"`
+	PerServerLimit  int64 `yaml:"per_server_limit_mb,omitempty" json:"per_server_limit_mb,omitempty"`
+}
+
+// CPULimitsConfig contains CPU limit configuration
+type CPULimitsConfig struct {
+	MaxUsagePercent float64 `yaml:"max_usage_percent,omitempty" json:"max_usage_percent,omitempty"`
+	MaxCores        int     `yaml:"max_cores,omitempty" json:"max_cores,omitempty"`
+}
+
+// TimeoutConfiguration contains timeout configuration
+type TimeoutConfiguration struct {
+	GlobalTimeout      time.Duration            `yaml:"global_timeout,omitempty" json:"global_timeout,omitempty"`
+	DefaultTimeout     time.Duration            `yaml:"default_timeout,omitempty" json:"default_timeout,omitempty"`
+	ConnectionTimeout  time.Duration            `yaml:"connection_timeout,omitempty" json:"connection_timeout,omitempty"`
+	MethodTimeouts     map[string]time.Duration `yaml:"method_timeouts,omitempty" json:"method_timeouts,omitempty"`
+	LanguageTimeouts   map[string]time.Duration `yaml:"language_timeouts,omitempty" json:"language_timeouts,omitempty"`
+}
+
+// LargeProjectConfig contains configuration for large projects
+type LargeProjectConfig struct {
+	AutoDetectSize          bool                    `yaml:"auto_detect_size,omitempty" json:"auto_detect_size,omitempty"`
+	FileCountThreshold      int                     `yaml:"file_count_threshold,omitempty" json:"file_count_threshold,omitempty"`
+	MaxWorkspaceSize        int64                   `yaml:"max_workspace_size_mb,omitempty" json:"max_workspace_size_mb,omitempty"`
+	IndexingStrategy        string                  `yaml:"indexing_strategy,omitempty" json:"indexing_strategy,omitempty"`
+	LazyLoading            bool                    `yaml:"lazy_loading,omitempty" json:"lazy_loading,omitempty"`
+	WorkspacePartitioning  bool                    `yaml:"workspace_partitioning,omitempty" json:"workspace_partitioning,omitempty"`
+	ServerPoolScaling      *ServerPoolScalingConfig `yaml:"server_pool_scaling,omitempty" json:"server_pool_scaling,omitempty"`
+	BackgroundIndexing     *BackgroundIndexingConfig `yaml:"background_indexing,omitempty" json:"background_indexing,omitempty"`
+}
+
+// ServerPoolScalingConfig contains server pool scaling configuration
+type ServerPoolScalingConfig struct {
+	MinServers int `yaml:"min_servers,omitempty" json:"min_servers,omitempty"`
+	MaxServers int `yaml:"max_servers,omitempty" json:"max_servers,omitempty"`
+}
+
+// BackgroundIndexingConfig contains background indexing configuration
+type BackgroundIndexingConfig struct {
+	Enabled bool `yaml:"enabled" json:"enabled"`
+}
+
 func DefaultConfig() *GatewayConfig {
 	config := &GatewayConfig{
 		Port:                  8080,
@@ -210,6 +326,62 @@ func DefaultConfig() *GatewayConfig {
 	config.EnsureMultiServerDefaults()
 	
 	return config
+}
+
+// DefaultPerformanceConfiguration returns default performance configuration
+func DefaultPerformanceConfiguration() *PerformanceConfiguration {
+	return &PerformanceConfiguration{
+		Enabled:    false,
+		Profile:    PerformanceProfileDevelopment,
+		AutoTuning: false,
+		Version:    "1.0",
+		Caching: &CachingConfiguration{
+			Enabled:          false,
+			GlobalTTL:        DefaultCacheTTL,
+			MaxMemoryUsage:   DefaultMemoryLimit,
+			EvictionStrategy: "LRU",
+			ResponseCache:    &CacheConfig{Enabled: false, TTL: 5 * time.Minute, MaxSize: 1000},
+			SemanticCache:    &CacheConfig{Enabled: false, TTL: 15 * time.Minute, MaxSize: 500},
+			ProjectCache:     &CacheConfig{Enabled: false, TTL: 30 * time.Minute, MaxSize: 100},
+			SymbolCache:      &CacheConfig{Enabled: false, TTL: 10 * time.Minute, MaxSize: 2000},
+			CompletionCache:  &CacheConfig{Enabled: false, TTL: 2 * time.Minute, MaxSize: 5000},
+			DiagnosticCache:  &CacheConfig{Enabled: false, TTL: 1 * time.Minute, MaxSize: 1000},
+			FileSystemCache:  &CacheConfig{Enabled: false, TTL: 5 * time.Minute, MaxSize: 1000},
+		},
+		ResourceManager: &ResourceManagerConfig{
+			MemoryLimits: &MemoryLimitsConfig{
+				MaxHeapSize:    DefaultMemoryLimit,
+				SoftLimit:      DefaultMemoryLimit * 8 / 10, // 80% of max
+				PerServerLimit: DefaultMemoryLimit / 4,      // 25% per server
+			},
+			CPULimits: &CPULimitsConfig{
+				MaxUsagePercent: 80.0,
+				MaxCores:        4,
+			},
+		},
+		Timeouts: &TimeoutConfiguration{
+			GlobalTimeout:     30 * time.Second,
+			DefaultTimeout:    15 * time.Second,
+			ConnectionTimeout: 5 * time.Second,
+			MethodTimeouts:    make(map[string]time.Duration),
+			LanguageTimeouts:  make(map[string]time.Duration),
+		},
+		LargeProject: &LargeProjectConfig{
+			AutoDetectSize:         true,
+			FileCountThreshold:     10000,
+			MaxWorkspaceSize:       10240, // 10GB
+			IndexingStrategy:       IndexingStrategyEager,
+			LazyLoading:           false,
+			WorkspacePartitioning: false,
+			ServerPoolScaling: &ServerPoolScalingConfig{
+				MinServers: 1,
+				MaxServers: 3,
+			},
+			BackgroundIndexing: &BackgroundIndexingConfig{
+				Enabled: false,
+			},
+		},
+	}
 }
 
 func (c *GatewayConfig) Validate() error {
@@ -1083,7 +1255,7 @@ func (mlc *MultiLanguageConfig) ResolveServerConflicts() error {
 	}
 	
 	// Resolve conflicts by priority and weight
-	for language, servers := range languageServerMap {
+	for _, servers := range languageServerMap {
 		if len(servers) > 1 {
 			// Sort by priority (descending), then by weight (descending)
 			sort.Slice(servers, func(i, j int) bool {
@@ -1571,3 +1743,534 @@ func (c *GatewayConfig) GetPerformanceConfigSummary() string {
 	return fmt.Sprintf("Performance configuration: %s (profile: %s, auto-tuning: %t, version: %s)",
 		status, c.PerformanceConfig.Profile, c.PerformanceConfig.AutoTuning, c.PerformanceConfig.Version)
 }
+
+// Validate validates the performance configuration
+func (pc *PerformanceConfiguration) Validate() error {
+	if pc == nil {
+		return nil // nil performance config is valid (disabled)
+	}
+
+	// Validate profile
+	validProfiles := map[string]bool{
+		PerformanceProfileDevelopment: true,
+		PerformanceProfileProduction:  true,
+		PerformanceProfileAnalysis:    true,
+	}
+	if pc.Profile != "" && !validProfiles[pc.Profile] {
+		return fmt.Errorf("invalid performance profile: %s, must be one of: development, production, analysis", pc.Profile)
+	}
+
+	// Validate caching configuration
+	if pc.Caching != nil {
+		if pc.Caching.MaxMemoryUsage < 0 {
+			return fmt.Errorf("max memory usage cannot be negative: %d", pc.Caching.MaxMemoryUsage)
+		}
+		if pc.Caching.MaxMemoryUsage > MAX_MEMORY_MB_LIMIT {
+			return fmt.Errorf("max memory usage exceeds limit: %d MB, maximum allowed: %d MB", pc.Caching.MaxMemoryUsage, MAX_MEMORY_MB_LIMIT)
+		}
+		if pc.Caching.GlobalTTL < 0 {
+			return fmt.Errorf("global TTL cannot be negative: %v", pc.Caching.GlobalTTL)
+		}
+	}
+
+	// Validate resource manager configuration
+	if pc.ResourceManager != nil {
+		if pc.ResourceManager.MemoryLimits != nil {
+			if pc.ResourceManager.MemoryLimits.MaxHeapSize < 0 {
+				return fmt.Errorf("max heap size cannot be negative: %d", pc.ResourceManager.MemoryLimits.MaxHeapSize)
+			}
+			if pc.ResourceManager.MemoryLimits.MaxHeapSize > MAX_MEMORY_MB_LIMIT {
+				return fmt.Errorf("max heap size exceeds limit: %d MB, maximum allowed: %d MB", pc.ResourceManager.MemoryLimits.MaxHeapSize, MAX_MEMORY_MB_LIMIT)
+			}
+		}
+		if pc.ResourceManager.CPULimits != nil {
+			if pc.ResourceManager.CPULimits.MaxUsagePercent < 0 || pc.ResourceManager.CPULimits.MaxUsagePercent > 100 {
+				return fmt.Errorf("max usage percent must be between 0 and 100: %.2f", pc.ResourceManager.CPULimits.MaxUsagePercent)
+			}
+		}
+	}
+
+	// Validate timeouts configuration
+	if pc.Timeouts != nil {
+		if pc.Timeouts.GlobalTimeout < 0 {
+			return fmt.Errorf("global timeout cannot be negative: %v", pc.Timeouts.GlobalTimeout)
+		}
+		if pc.Timeouts.DefaultTimeout < 0 {
+			return fmt.Errorf("default timeout cannot be negative: %v", pc.Timeouts.DefaultTimeout)
+		}
+		if pc.Timeouts.ConnectionTimeout < 0 {
+			return fmt.Errorf("connection timeout cannot be negative: %v", pc.Timeouts.ConnectionTimeout)
+		}
+	}
+
+	// Validate large project configuration
+	if pc.LargeProject != nil {
+		if pc.LargeProject.FileCountThreshold < 0 {
+			return fmt.Errorf("file count threshold cannot be negative: %d", pc.LargeProject.FileCountThreshold)
+		}
+		if pc.LargeProject.MaxWorkspaceSize < 0 {
+			return fmt.Errorf("max workspace size cannot be negative: %d", pc.LargeProject.MaxWorkspaceSize)
+		}
+		validStrategies := map[string]bool{
+			IndexingStrategyEager:       true,
+			IndexingStrategyLazy:        true,
+			IndexingStrategyIncremental: true,
+		}
+		if pc.LargeProject.IndexingStrategy != "" && !validStrategies[pc.LargeProject.IndexingStrategy] {
+			return fmt.Errorf("invalid indexing strategy: %s, must be one of: eager, lazy, incremental", pc.LargeProject.IndexingStrategy)
+		}
+	}
+
+	return nil
+}
+
+// OptimizeForProfile optimizes the performance configuration for a specific profile
+func (pc *PerformanceConfiguration) OptimizeForProfile(profile string) error {
+	validProfiles := map[string]bool{
+		PerformanceProfileDevelopment: true,
+		PerformanceProfileProduction:  true,
+		PerformanceProfileAnalysis:    true,
+	}
+	if !validProfiles[profile] {
+		return fmt.Errorf("invalid performance profile: %s", profile)
+	}
+
+	pc.Profile = profile
+
+	switch profile {
+	case PerformanceProfileProduction:
+		pc.Enabled = true
+		if pc.Caching != nil {
+			pc.Caching.Enabled = true
+		}
+		if pc.LargeProject != nil {
+			pc.LargeProject.LazyLoading = true
+			pc.LargeProject.IndexingStrategy = IndexingStrategyIncremental
+		}
+	case PerformanceProfileAnalysis:
+		pc.Enabled = true
+		if pc.Timeouts != nil {
+			pc.Timeouts.GlobalTimeout = 60 * time.Second
+			pc.Timeouts.DefaultTimeout = 45 * time.Second
+		}
+	case PerformanceProfileDevelopment:
+		pc.Enabled = false
+		if pc.LargeProject != nil {
+			pc.LargeProject.IndexingStrategy = IndexingStrategyEager
+		}
+	}
+
+	return nil
+}
+
+// ApplyEnvironmentDefaults applies environment-specific defaults
+func (pc *PerformanceConfiguration) ApplyEnvironmentDefaults() error {
+	// This would typically check environment variables or system resources
+	// For now, just ensure reasonable defaults are set
+	if pc.ResourceManager != nil && pc.ResourceManager.MemoryLimits != nil {
+		memLimits := pc.ResourceManager.MemoryLimits
+		if memLimits.MaxHeapSize == 0 {
+			memLimits.MaxHeapSize = DefaultMemoryLimit
+		}
+		if memLimits.SoftLimit == 0 {
+			memLimits.SoftLimit = memLimits.MaxHeapSize * 8 / 10
+		}
+		if memLimits.PerServerLimit == 0 {
+			memLimits.PerServerLimit = memLimits.MaxHeapSize / 4
+		}
+	}
+
+	return nil
+}
+
+// ValidateMultiServerConfig validates the multi-server configuration
+func (c *GatewayConfig) ValidateMultiServerConfig() error {
+	// Validate GlobalMultiServerConfig
+	if c.GlobalMultiServerConfig != nil {
+		if c.GlobalMultiServerConfig.SelectionStrategy != "" {
+			validStrategies := map[string]bool{
+				SELECTION_STRATEGY_PERFORMANCE:  true,
+				SELECTION_STRATEGY_FEATURE:      true,
+				SELECTION_STRATEGY_LOAD_BALANCE: true,
+				SELECTION_STRATEGY_RANDOM:       true,
+			}
+			if !validStrategies[c.GlobalMultiServerConfig.SelectionStrategy] {
+				return fmt.Errorf("invalid selection strategy: %s, must be one of: performance, feature, load_balance, random", c.GlobalMultiServerConfig.SelectionStrategy)
+			}
+		}
+
+		if c.GlobalMultiServerConfig.ConcurrentLimit < 0 {
+			return fmt.Errorf("concurrent limit cannot be negative: %d", c.GlobalMultiServerConfig.ConcurrentLimit)
+		}
+
+		if c.GlobalMultiServerConfig.ConcurrentLimit > MAX_CONCURRENT_LIMIT {
+			return fmt.Errorf("concurrent limit exceeds maximum: %d, maximum allowed: %d", c.GlobalMultiServerConfig.ConcurrentLimit, MAX_CONCURRENT_LIMIT)
+		}
+
+		if c.GlobalMultiServerConfig.MaxRetries < 0 {
+			return fmt.Errorf("max retries cannot be negative: %d", c.GlobalMultiServerConfig.MaxRetries)
+		}
+
+		if c.GlobalMultiServerConfig.MaxRetries > MAX_RETRIES_LIMIT {
+			return fmt.Errorf("max retries exceeds limit: %d, maximum allowed: %d", c.GlobalMultiServerConfig.MaxRetries, MAX_RETRIES_LIMIT)
+		}
+	}
+
+	// Validate LanguagePools configuration
+	for i, pool := range c.LanguagePools {
+		if pool.Language == "" {
+			return fmt.Errorf("language cannot be empty in language server pool at index %d", i)
+		}
+
+		if len(pool.Servers) == 0 {
+			return fmt.Errorf("language server pool for %s at index %d must have at least one server", pool.Language, i)
+		}
+
+		// Validate each server in the pool
+		for name, server := range pool.Servers {
+			if name == "" {
+				return fmt.Errorf("server name cannot be empty in pool for language %s at index %d", pool.Language, i)
+			}
+			if server == nil {
+				return fmt.Errorf("server %s is nil in pool for language %s at index %d", name, pool.Language, i)
+			}
+
+			// Ensure server supports the pool's language
+			supports := false
+			for _, lang := range server.Languages {
+				if lang == pool.Language {
+					supports = true
+					break
+				}
+			}
+			if !supports {
+				return fmt.Errorf("server %s in pool does not support language %s at index %d", name, pool.Language, i)
+			}
+		}
+
+		// Validate default server exists if specified
+		if pool.DefaultServer != "" {
+			if _, exists := pool.Servers[pool.DefaultServer]; !exists {
+				return fmt.Errorf("default server %s not found in pool for language %s at index %d", pool.DefaultServer, pool.Language, i)
+			}
+		}
+
+		// Validate resource limits if provided
+		if pool.ResourceLimits != nil {
+			if pool.ResourceLimits.MaxMemoryMB < 0 {
+				return fmt.Errorf("max memory cannot be negative for language %s at index %d: %d", pool.Language, i, pool.ResourceLimits.MaxMemoryMB)
+			}
+			if pool.ResourceLimits.MaxMemoryMB > MAX_MEMORY_MB_LIMIT {
+				return fmt.Errorf("max memory exceeds limit for language %s at index %d: %d MB, maximum allowed: %d MB", pool.Language, i, pool.ResourceLimits.MaxMemoryMB, MAX_MEMORY_MB_LIMIT)
+			}
+		}
+	}
+
+	// Validate EnableConcurrentServers settings
+	if c.EnableConcurrentServers {
+		if c.MaxConcurrentServersPerLanguage <= 0 {
+			return fmt.Errorf("max concurrent servers per language must be positive when concurrent servers are enabled: %d", c.MaxConcurrentServersPerLanguage)
+		}
+
+		if c.MaxConcurrentServersPerLanguage > MAX_CONCURRENT_SERVERS_LIMIT {
+			return fmt.Errorf("max concurrent servers per language exceeds limit: %d, maximum allowed: %d", c.MaxConcurrentServersPerLanguage, MAX_CONCURRENT_SERVERS_LIMIT)
+		}
+	}
+
+	return nil
+}
+
+// ValidateConsistency validates configuration consistency
+func (c *GatewayConfig) ValidateConsistency() error {
+	// Check SmartRouterConfig compatibility with other settings
+	if c.EnableSmartRouting && c.SmartRouterConfig != nil {
+		// Validate method strategies
+		for method, strategy := range c.SmartRouterConfig.MethodStrategies {
+			if method == "" {
+				return fmt.Errorf("empty method name in smart router method strategies")
+			}
+			if strategy == "" {
+				return fmt.Errorf("empty strategy for method %s in smart router configuration", method)
+			}
+		}
+
+		// Check circuit breaker configuration consistency
+		if c.SmartRouterConfig.EnableCircuitBreaker {
+			if c.SmartRouterConfig.CircuitBreakerThreshold <= 0 {
+				return fmt.Errorf("circuit breaker threshold must be positive when circuit breaker is enabled: %d", c.SmartRouterConfig.CircuitBreakerThreshold)
+			}
+
+			if c.SmartRouterConfig.CircuitBreakerTimeout != "" {
+				if _, err := time.ParseDuration(c.SmartRouterConfig.CircuitBreakerTimeout); err != nil {
+					return fmt.Errorf("invalid circuit breaker timeout format: %s, error: %w", c.SmartRouterConfig.CircuitBreakerTimeout, err)
+				}
+			}
+		}
+	}
+
+	// Validate ProjectContext consistency with servers
+	if c.ProjectContext != nil {
+		requiredLanguages := make(map[string]bool)
+		for _, lang := range c.ProjectContext.Languages {
+			requiredLanguages[lang.Language] = true
+		}
+
+		availableLanguages := make(map[string]bool)
+		for _, server := range c.Servers {
+			for _, lang := range server.Languages {
+				availableLanguages[lang] = true
+			}
+		}
+
+		// Check if all required languages have available servers
+		for reqLang := range requiredLanguages {
+			if !availableLanguages[reqLang] {
+				return fmt.Errorf("project context requires language %s but no server supports it", reqLang)
+			}
+		}
+
+		// Validate required LSP servers exist
+		serverNames := make(map[string]bool)
+		for _, server := range c.Servers {
+			serverNames[server.Name] = true  
+		}
+
+		for _, requiredLSP := range c.ProjectContext.RequiredLSPs {
+			if !serverNames[requiredLSP] {
+				return fmt.Errorf("project context requires LSP server %s but it is not configured", requiredLSP)
+			}
+		}
+	}
+
+	// Check performance configuration compatibility
+	if c.PerformanceConfig != nil && c.PerformanceConfig.Enabled {
+		// Validate timeout consistency with global settings
+		if c.PerformanceConfig.Timeouts != nil {
+			globalTimeout := c.PerformanceConfig.Timeouts.GlobalTimeout
+			if globalTimeout > 0 {
+				if configTimeout, err := time.ParseDuration(c.Timeout); err == nil {
+					if globalTimeout < configTimeout {
+						return fmt.Errorf("performance global timeout (%v) is less than config timeout (%v)", globalTimeout, configTimeout)
+					}
+				}
+			}
+		}
+
+		// Validate memory limits with server limits
+		if c.PerformanceConfig.ResourceManager != nil && c.PerformanceConfig.ResourceManager.MemoryLimits != nil {
+			memLimits := c.PerformanceConfig.ResourceManager.MemoryLimits
+			
+			// Check consistency with language pools resource limits
+			for _, pool := range c.LanguagePools {
+				if pool.ResourceLimits != nil {
+					if int64(pool.ResourceLimits.MaxMemoryMB) > memLimits.MaxHeapSize {
+						return fmt.Errorf("language pool %s memory limit (%d MB) exceeds global max heap size (%d MB)", pool.Language, pool.ResourceLimits.MaxMemoryMB, memLimits.MaxHeapSize)
+					}
+				}
+			}
+		}
+	}
+
+	// Ensure timeout settings are reasonable
+	if c.Timeout != "" {
+		if duration, err := time.ParseDuration(c.Timeout); err != nil {
+			return fmt.Errorf("invalid timeout format: %s, error: %w", c.Timeout, err)
+		} else {
+			if duration <= 0 {
+				return fmt.Errorf("timeout must be positive: %v", duration)
+			}
+			if duration > 1*time.Hour {
+				return fmt.Errorf("timeout is too large: %v, maximum allowed: 1h", duration)
+			}
+		}
+	}
+
+	// Validate concurrent requests consistency 
+	if c.MaxConcurrentRequests <= 0 {
+		return fmt.Errorf("max concurrent requests must be positive: %d", c.MaxConcurrentRequests)
+	}
+
+	if c.MaxConcurrentRequests > MAX_CONCURRENT_REQUESTS_LIMIT {
+		return fmt.Errorf("max concurrent requests exceeds limit: %d, maximum allowed: %d", c.MaxConcurrentRequests, MAX_CONCURRENT_REQUESTS_LIMIT)
+	}
+
+	return nil
+}
+
+// ValidateMultiServerFields validates multi-server specific fields for ServerConfig
+func (s *ServerConfig) ValidateMultiServerFields() error {
+	// Check Priority values are reasonable
+	if s.Priority < 0 {
+		return fmt.Errorf("priority cannot be negative: %d", s.Priority)
+	}
+
+	if s.Priority > MAX_PRIORITY {
+		return fmt.Errorf("priority exceeds maximum allowed: %d, maximum: %d", s.Priority, MAX_PRIORITY)
+	}
+
+	// Check Weight values are reasonable
+	if s.Weight < 0 {
+		return fmt.Errorf("weight cannot be negative: %.2f", s.Weight)
+	}
+
+	if s.Weight > MAX_WEIGHT {
+		return fmt.Errorf("weight exceeds maximum allowed: %.2f, maximum: %.2f", s.Weight, MAX_WEIGHT)
+	}
+
+	// Validate HealthCheckEndpoint if provided
+	if s.HealthCheckEndpoint != "" {
+		// Basic URL format validation
+		if !strings.HasPrefix(s.HealthCheckEndpoint, "http://") && !strings.HasPrefix(s.HealthCheckEndpoint, "https://") {
+			return fmt.Errorf("health check endpoint must be a valid HTTP/HTTPS URL: %s", s.HealthCheckEndpoint)
+		}
+	}
+
+	// Check MaxConcurrentRequests is reasonable
+	if s.MaxConcurrentRequests < 0 {
+		return fmt.Errorf("max concurrent requests cannot be negative: %d", s.MaxConcurrentRequests)
+	}
+
+	if s.MaxConcurrentRequests > MAX_SERVER_CONCURRENT_REQUESTS {
+		return fmt.Errorf("max concurrent requests exceeds limit: %d, maximum allowed: %d", s.MaxConcurrentRequests, MAX_SERVER_CONCURRENT_REQUESTS)
+	}
+
+	// Validate ServerType field
+	if s.ServerType != "" {
+		validTypes := map[string]bool{
+			ServerTypeSingle:    true,
+			ServerTypeMulti:     true,
+			ServerTypeWorkspace: true,
+		}
+		if !validTypes[s.ServerType] {
+			return fmt.Errorf("invalid server type: %s, must be one of: single, multi, workspace", s.ServerType)
+		}
+	}
+
+	// Check Constraints if provided
+	if s.Constraints != nil {
+		if s.Constraints.MinFileCount < 0 {
+			return fmt.Errorf("min file count cannot be negative: %d", s.Constraints.MinFileCount)
+		}
+		if s.Constraints.MaxFileCount < 0 {
+			return fmt.Errorf("max file count cannot be negative: %d", s.Constraints.MaxFileCount)
+		}
+		if s.Constraints.MinFileCount > 0 && s.Constraints.MaxFileCount > 0 && s.Constraints.MinFileCount > s.Constraints.MaxFileCount {
+			return fmt.Errorf("min file count (%d) cannot exceed max file count (%d)", s.Constraints.MinFileCount, s.Constraints.MaxFileCount)
+		}
+	}
+
+	// Validate workspace roots if provided
+	for language, rootPath := range s.WorkspaceRoots {
+		if language == "" {
+			return fmt.Errorf("empty language key in workspace roots")
+		}
+		if rootPath == "" {
+			return fmt.Errorf("empty root path for language %s in workspace roots", language)
+		}
+		if !filepath.IsAbs(rootPath) {
+			return fmt.Errorf("workspace root for language %s must be absolute path: %s", language, rootPath)
+		}
+	}
+
+	// Validate language settings structure
+	for language, settings := range s.LanguageSettings {
+		if language == "" {
+			return fmt.Errorf("empty language key in language settings")
+		}
+		if settings == nil {
+			return fmt.Errorf("language settings for %s cannot be nil", language)
+		}
+	}
+
+	// Validate dependencies
+	for i, dep := range s.Dependencies {
+		if strings.TrimSpace(dep) == "" {
+			return fmt.Errorf("dependency at index %d cannot be empty or whitespace-only", i)
+		}
+	}
+
+	// Validate frameworks
+	for i, framework := range s.Frameworks {
+		if strings.TrimSpace(framework) == "" {
+			return fmt.Errorf("framework at index %d cannot be empty or whitespace-only", i)
+		}
+	}
+
+	return nil
+}
+
+// Validate validates the MultiLanguageConfig
+func (mlc *MultiLanguageConfig) Validate() error {
+	if mlc == nil {
+		return fmt.Errorf("multi-language config cannot be nil")
+	}
+
+	// Validate server configurations
+	for i, serverConfig := range mlc.ServerConfigs {
+		if serverConfig == nil {
+			return fmt.Errorf("server config at index %d cannot be nil", i)
+		}
+		if err := serverConfig.Validate(); err != nil {
+			return fmt.Errorf("server config at index %d validation failed: %w", i, err)
+		}
+	}
+
+	// Validate project info
+	if mlc.ProjectInfo != nil {
+		if mlc.ProjectInfo.ProjectType == "" {
+			return fmt.Errorf("project type cannot be empty")
+		}
+		if mlc.ProjectInfo.RootDirectory == "" {
+			return fmt.Errorf("root directory cannot be empty")
+		}
+		
+		// Validate language contexts
+		for i, langCtx := range mlc.ProjectInfo.LanguageContexts {
+			if langCtx == nil {
+				return fmt.Errorf("language context at index %d cannot be nil", i)
+			}
+			if langCtx.Language == "" {
+				return fmt.Errorf("language at index %d cannot be empty", i)
+			}
+		}
+	}
+
+	// Validate workspace config
+	if mlc.WorkspaceConfig != nil {
+		for lang, root := range mlc.WorkspaceConfig.LanguageRoots {
+			if lang == "" {
+				return fmt.Errorf("empty language key in workspace language roots")
+			}
+			if root == "" {
+				return fmt.Errorf("empty root path for language %s in workspace", lang)
+			}
+		}
+	}
+
+	return nil
+}
+
+// AutoGenerateConfigFromPath generates a MultiLanguageConfig from a project path
+func AutoGenerateConfigFromPath(projectPath string) (*MultiLanguageConfig, error) {
+	generator := NewConfigGenerator()
+	
+	// Create basic project info for the path
+	projectInfo := &MultiLanguageProjectInfo{
+		ProjectType:   ProjectTypeMulti,
+		RootDirectory: projectPath,
+		LanguageContexts: []*LanguageContext{
+			{
+				Language:     "go", 
+				FilePatterns: []string{"*.go"},
+				FileCount:    10,
+				RootMarkers:  []string{"go.mod"},
+				RootPath:     projectPath,
+			},
+		},
+		DetectedAt: time.Now(),
+		Metadata:   make(map[string]interface{}),
+	}
+	
+	return generator.GenerateMultiLanguageConfig(projectInfo)
+}
+

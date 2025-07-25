@@ -1,5 +1,7 @@
 package config
 
+import "time"
+
 const (
 	// Test configuration constants
 	TEST_BASIC_CONFIG = `port: 8080
@@ -63,4 +65,12 @@ servers:
 	// Minimum values
 	MIN_MEMORY_MB                = 64
 	MIN_REQUEST_TIMEOUT_SECONDS  = 1
+
+)
+
+// Time-based constants  
+const (
+	DefaultConnectionTimeout = 10 * time.Second
+	DefaultGlobalTimeout     = 60 * time.Second
+	DefaultMethodTimeout     = 30 * time.Second
 )

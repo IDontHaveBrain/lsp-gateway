@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -14,14 +13,7 @@ const (
 	OptimizationProduction  = "production"
 	OptimizationAnalysis    = "analysis"
 
-	// Server types
-	ServerTypeSingle    = "single"
-	ServerTypeMulti     = "multi"
-	ServerTypeWorkspace = "workspace"
-
-	// Indexing strategies
-	IndexingStrategyIncremental = "incremental"
-	IndexingStrategyFull        = "full"
+	// Indexing strategies (smart is unique to this file)
 	IndexingStrategySmart       = "smart"
 
 	// Monorepo strategies
@@ -49,7 +41,7 @@ type ConfigGenerator struct {
 	templates         map[string]*ServerConfigTemplate
 	frameworkEnhancers map[string]FrameworkEnhancer
 	monorepoStrategies map[string]MonorepoStrategy
-	optimizationModes  map[string]OptimizationMode
+	optimizationModes  map[string]OptimizationStrategy
 }
 
 type FrameworkEnhancer interface {
@@ -64,18 +56,13 @@ type MonorepoStrategy interface {
 	OptimizeForLayout(config *MultiLanguageConfig, layout *MonorepoLayout) error
 }
 
-type OptimizationMode interface {
-	ApplyOptimizations(config *MultiLanguageConfig) error
-	GetPerformanceSettings() map[string]interface{}
-	GetMemorySettings() map[string]interface{}
-}
 
 func NewConfigGenerator() *ConfigGenerator {
 	generator := &ConfigGenerator{
 		templates:          make(map[string]*ServerConfigTemplate),
 		frameworkEnhancers: make(map[string]FrameworkEnhancer),
 		monorepoStrategies: make(map[string]MonorepoStrategy),
-		optimizationModes:  make(map[string]OptimizationMode),
+		optimizationModes:  make(map[string]OptimizationStrategy),
 	}
 	
 	generator.initializeDefaultTemplates()
@@ -581,9 +568,9 @@ func (g *ConfigGenerator) initializeMonorepoStrategies() {
 }
 
 func (g *ConfigGenerator) initializeOptimizationModes() {
-	g.optimizationModes[OptimizationDevelopment] = &DevelopmentOptimization{}
-	g.optimizationModes[OptimizationProduction] = &ProductionOptimization{}
-	g.optimizationModes[OptimizationAnalysis] = &AnalysisOptimization{}
+	g.optimizationModes[OptimizationDevelopment] = NewDevelopmentOptimization()
+	g.optimizationModes[OptimizationProduction] = NewProductionOptimization()
+	g.optimizationModes[OptimizationAnalysis] = NewAnalysisOptimization()
 }
 
 func (g *ConfigGenerator) GenerateMultiLanguageConfig(projectInfo *MultiLanguageProjectInfo) (*MultiLanguageConfig, error) {
@@ -1073,11 +1060,11 @@ func deepCopyMap(original map[string]interface{}) map[string]interface{} {
 		return nil
 	}
 	
-	copy := make(map[string]interface{})
+	result := make(map[string]interface{})
 	for key, value := range original {
 		switch v := value.(type) {
 		case map[string]interface{}:
-			copy[key] = deepCopyMap(v)
+			result[key] = deepCopyMap(v)
 		case []interface{}:
 			copySlice := make([]interface{}, len(v))
 			for i, item := range v {
@@ -1087,16 +1074,16 @@ func deepCopyMap(original map[string]interface{}) map[string]interface{} {
 					copySlice[i] = item
 				}
 			}
-			copy[key] = copySlice
+			result[key] = copySlice
 		case []string:
 			copySlice := make([]string, len(v))
 			copy(copySlice, v)
-			copy[key] = copySlice
+			result[key] = copySlice
 		default:
-			copy[key] = v
+			result[key] = v
 		}
 	}
-	return copy
+	return result
 }
 
 func deepCopyLanguageSettingsMap(original map[string]map[string]interface{}) map[string]map[string]interface{} {
@@ -1116,28 +1103,28 @@ func deepCopyServerConstraints(original *ServerConstraints) *ServerConstraints {
 		return nil
 	}
 	
-	copy := &ServerConstraints{
+	result := &ServerConstraints{
 		MinFileCount: original.MinFileCount,
 		MaxFileCount: original.MaxFileCount,
 		MinVersion:   original.MinVersion,
 	}
 	
 	if original.RequiredMarkers != nil {
-		copy.RequiredMarkers = make([]string, len(original.RequiredMarkers))
-		copy(copy.RequiredMarkers, original.RequiredMarkers)
+		result.RequiredMarkers = make([]string, len(original.RequiredMarkers))
+		copy(result.RequiredMarkers, original.RequiredMarkers)
 	}
 	
 	if original.ExcludedMarkers != nil {
-		copy.ExcludedMarkers = make([]string, len(original.ExcludedMarkers))
-		copy(copy.ExcludedMarkers, original.ExcludedMarkers)
+		result.ExcludedMarkers = make([]string, len(original.ExcludedMarkers))
+		copy(result.ExcludedMarkers, original.ExcludedMarkers)
 	}
 	
 	if original.ProjectTypes != nil {
-		copy.ProjectTypes = make([]string, len(original.ProjectTypes))
-		copy(copy.ProjectTypes, original.ProjectTypes)
+		result.ProjectTypes = make([]string, len(original.ProjectTypes))
+		copy(result.ProjectTypes, original.ProjectTypes)
 	}
 	
-	return copy
+	return result
 }
 
 func deepMergeMap(dst, src map[string]interface{}) map[string]interface{} {

@@ -450,7 +450,7 @@ func (mlv *MultiLanguageValidator) validateCrossLanguageCompatibility(config *Ga
 
 func (mlv *MultiLanguageValidator) validateMultiLanguageRouting(config *GatewayConfig, errors *[]ValidationError, warnings *[]ValidationWarning, score *int) error {
 	if !config.EnableSmartRouting && len(config.LanguagePools) > 1 {
-		*recommendations := ValidationRecommendation{
+		_ = ValidationRecommendation{
 			Category:    "performance",
 			Priority:    "medium",
 			Title:       "Enable Smart Routing for Multi-Language Projects",
@@ -911,7 +911,7 @@ func (cv *ConsistencyValidator) validateResourceConsistency(config *GatewayConfi
 	for _, pool := range config.LanguagePools {
 		if pool.ResourceLimits != nil {
 			totalExpectedRequests += pool.ResourceLimits.MaxConcurrentRequests
-			totalExpectedMemory += pool.ResourceLimits.MaxMemoryMB
+			totalExpectedMemory += int(pool.ResourceLimits.MaxMemoryMB)
 		}
 	}
 
@@ -1353,7 +1353,7 @@ func (pv *PerformanceValidator) validateResourceEfficiency(config *GatewayConfig
 	
 	for _, pool := range config.LanguagePools {
 		if pool.ResourceLimits != nil {
-			totalMemoryLimit += pool.ResourceLimits.MaxMemoryMB
+			totalMemoryLimit += int(pool.ResourceLimits.MaxMemoryMB)
 			totalConcurrentRequests += pool.ResourceLimits.MaxConcurrentRequests
 		}
 	}
@@ -1490,7 +1490,7 @@ func (pv *PerformanceValidator) calculateResourceEfficiency(config *GatewayConfi
 	totalMemory := 0
 	for _, pool := range config.LanguagePools {
 		if pool.ResourceLimits != nil {
-			totalMemory += pool.ResourceLimits.MaxMemoryMB
+			totalMemory += int(pool.ResourceLimits.MaxMemoryMB)
 		}
 	}
 	
@@ -1688,7 +1688,7 @@ func (cv *CompatibilityValidator) validateMigrationPaths(config *GatewayConfig, 
 			
 			if len(server.Settings) > 0 {
 				complexSettings := false
-				for key, value := range server.Settings {
+				for _, value := range server.Settings {
 					if subMap, ok := value.(map[string]interface{}); ok && len(subMap) > 3 {
 						complexSettings = true
 						break
