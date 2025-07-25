@@ -18,6 +18,13 @@ import (
 	"time"
 )
 
+// pendingRequest stores context for pending LSP requests to enable SCIP indexing
+type pendingRequest struct {
+	respCh chan json.RawMessage
+	method string
+	params interface{}
+}
+
 type StdioClient struct {
 	config ClientConfig
 	cmd    *exec.Cmd
@@ -27,7 +34,7 @@ type StdioClient struct {
 
 	mu       sync.RWMutex
 	active   bool
-	requests map[string]chan json.RawMessage
+	requests map[string]*pendingRequest
 	nextID   int
 
 	stopCh chan struct{}
@@ -39,17 +46,36 @@ type StdioClient struct {
 	circuitOpen   bool
 	maxRetries    int
 	baseDelay     time.Duration
+
+	// SCIP indexer for background response caching
+	scipIndexer *SafeIndexerWrapper
 }
 
 func NewStdioClient(config ClientConfig) (*StdioClient, error) {
+	client, err := NewStdioClientWithSCIP(config, nil)
+	if err != nil {
+		return nil, err
+	}
+	return client.(*StdioClient), nil
+}
+
+// NewStdioClientWithSCIP creates a new STDIO client with optional SCIP indexer support.
+// Pass nil for scipIndexer to disable SCIP indexing.
+func NewStdioClientWithSCIP(config ClientConfig, scipIndexer SCIPIndexer) (LSPClient, error) {
+	var scipWrapper *SafeIndexerWrapper
+	if scipIndexer != nil {
+		scipWrapper = NewSafeIndexerWrapper(scipIndexer, 10) // Default max 10 concurrent indexing goroutines
+	}
+
 	return &StdioClient{
 		config:      config,
-		requests:    make(map[string]chan json.RawMessage),
+		requests:    make(map[string]*pendingRequest),
 		stopCh:      make(chan struct{}),
 		Done:        make(chan struct{}),
 		maxRetries:  5,
 		baseDelay:   100 * time.Millisecond,
 		circuitOpen: false,
+		scipIndexer: scipWrapper,
 	}, nil
 }
 
@@ -106,9 +132,16 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 	c.mu.Unlock()
 
 	respCh := make(chan json.RawMessage, 1)
+	
+	// Store request context for SCIP indexing
+	pending := &pendingRequest{
+		respCh: respCh,
+		method: method,
+		params: params,
+	}
 
 	c.mu.Lock()
-	c.requests[id] = respCh
+	c.requests[id] = pending
 	c.mu.Unlock()
 
 	defer func() {
@@ -231,6 +264,13 @@ func (c *StdioClient) Stop() error {
 		_ = c.stderr.Close()
 	}
 
+	// Clean up SCIP indexer if present
+	if c.scipIndexer != nil {
+		if err := c.scipIndexer.Close(); err != nil {
+			log.Printf("Error closing SCIP indexer: %v", err)
+		}
+	}
+
 	<-c.Done
 
 	return nil
@@ -326,14 +366,14 @@ func (c *StdioClient) handleResponse(msg JSONRPCMessage) {
 
 	// Use regular RLock with timeout to handle potential deadlocks
 	done := make(chan struct{})
-	var respCh chan json.RawMessage
+	var pending *pendingRequest
 	var exists bool
 
 	go func() {
 		defer close(done)
 		c.mu.RLock()
 		defer c.mu.RUnlock()
-		respCh, exists = c.requests[idStr]
+		pending, exists = c.requests[idStr]
 	}()
 
 	// Wait for lock acquisition with timeout
@@ -348,7 +388,7 @@ func (c *StdioClient) handleResponse(msg JSONRPCMessage) {
 		return
 	}
 
-	if !exists {
+	if !exists || pending == nil {
 		log.Printf("Received response for unknown request ID: %v", msg.ID)
 		return
 	}
@@ -391,8 +431,13 @@ func (c *StdioClient) handleResponse(msg JSONRPCMessage) {
 	}
 
 	select {
-	case respCh <- result:
+	case pending.respCh <- result:
+		// SCIP indexing hook - non-blocking background processing
+		if c.scipIndexer != nil && IsCacheableMethod(pending.method) {
+			c.scipIndexer.SafeIndexResponse(pending.method, pending.params, result, idStr)
+		}
 	default:
+		// Channel full or closed - request may have timed out
 	}
 }
 

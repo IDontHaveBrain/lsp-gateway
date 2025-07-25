@@ -377,16 +377,240 @@ workflow_integration:
       "go.lintOnSave": "package"
       "go.buildOnSave": "workspace"
 
+# Go-Optimized SCIP Performance Configuration  
+# SCIP indexing specifically tuned for advanced Go development with
+# multiple modules, microservices, and high-concurrency applications
+performance_config:
+  # Go-Focused SCIP Configuration - Advanced Development
+  scip:
+    # Core SCIP settings optimized for Go
+    enabled: true
+    
+    # Go-specific index storage with module-aware organization
+    index_path: "/opt/lsp-gateway/go-scip-indices"
+    
+    # Frequent refresh for active Go development
+    auto_refresh: true  
+    refresh_interval: "20m"  # Balanced for Go compilation speed
+    
+    # Reliable fallback to gopls when needed
+    fallback_to_lsp: true
+    fallback_timeout: "8s"
+    
+    # Go-optimized caching with module-aware partitioning
+    cache:
+      enabled: true
+      ttl: "90m"  # Longer TTL for stable Go builds
+      max_size: 3000  # Good size for Go codebases
+      enable_module_partitioning: true
+      cache_by_go_version: true
+      
+    # Advanced Go language settings
+    language_settings:
+      go:
+        enabled: true
+        
+        # Multiple indexing strategies for different Go server tiers
+        indexing_strategies:
+          # Primary comprehensive indexing
+          primary:
+            index_command: ["scip-go", "--comprehensive", "--enable-generics"]
+            index_timeout: "12m"
+            index_concurrency: 6
+            enable_cross_module_analysis: true
+            enable_vendor_analysis: true
+            enable_test_analysis: true
+            build_flags: ["-tags=integration,e2e", "-race"]
+            
+          # Fast indexing for quick responses  
+          fast:
+            index_command: ["scip-go", "--fast", "--skip-tests"]
+            index_timeout: "5m"
+            index_concurrency: 4
+            enable_cross_module_analysis: false
+            enable_vendor_analysis: false
+            build_flags: []
+            
+          # Testing-focused indexing
+          test:
+            index_command: ["scip-go", "--test-focused"]
+            index_timeout: "8m"
+            index_concurrency: 3
+            enable_benchmark_analysis: true
+            enable_fuzz_test_analysis: true
+            build_flags: ["-tags=test,integration", "-race"]
+            
+          # Build-optimized indexing
+          build:
+            index_command: ["scip-go", "--build-optimized"]
+            index_timeout: "6m"
+            index_concurrency: 2
+            enable_build_constraint_analysis: true
+            enable_cross_compilation_analysis: true
+            build_flags: ["-ldflags=-s -w", "-trimpath"]
+            
+        # Go-specific advanced features
+        advanced_features:
+          # Module and workspace analysis
+          modules:
+            enable_go_work_support: true
+            enable_replace_directive_analysis: true
+            enable_vendor_analysis: true
+            enable_module_dependency_graph: true
+            
+          # Code generation and tooling
+          codegen:
+            enable_generate_analysis: true
+            enable_embed_analysis: true
+            enable_build_tag_analysis: true
+            enable_cgo_analysis: true
+            
+          # Performance and profiling
+          performance:
+            enable_pprof_integration: true
+            enable_benchmark_analysis: true
+            enable_memory_profiling_hints: true
+            enable_goroutine_analysis: true
+            
+          # Framework-specific analysis
+          frameworks:
+            gin:
+              enable_route_analysis: true
+              enable_middleware_chain_analysis: true
+              enable_handler_signature_analysis: true
+              
+            grpc:
+              enable_proto_analysis: true
+              enable_service_definition_analysis: true
+              enable_interceptor_analysis: true
+              
+            cobra:
+              enable_command_tree_analysis: true
+              enable_flag_analysis: true
+              enable_completion_analysis: true
+              
+            echo:
+              enable_route_analysis: true
+              enable_middleware_analysis: true
+              
+            fiber:
+              enable_route_analysis: true
+              enable_hook_analysis: true
+              
+        # Go build system integration
+        build_integration:
+          # Go modules support
+          go_modules:
+            enable_go_mod_analysis: true
+            enable_go_sum_verification: true
+            enable_go_work_analysis: true
+            
+          # Make integration
+          make:
+            enable_makefile_analysis: true
+            enable_target_dependency_analysis: true
+            
+          # Docker integration  
+          docker:
+            enable_dockerfile_analysis: true
+            enable_multistage_analysis: true
+            enable_go_alpine_optimizations: true
+            
+        # Environment-specific configurations
+        environments:
+          development:
+            enable_race_detection: true
+            enable_debug_symbols: true
+            optimize_for_compilation_speed: true
+            
+          production:
+            enable_optimization_analysis: true
+            enable_binary_size_analysis: true
+            enable_cross_compilation_support: true
+            
+          testing:
+            enable_test_coverage_analysis: true
+            enable_benchmark_regression_detection: true
+            enable_fuzz_test_support: true
+            
+    # Go-specific monitoring and diagnostics
+    monitoring:
+      enabled: true
+      
+      # Go build and compilation metrics
+      build_metrics:
+        track_compilation_time: true
+        track_module_resolution_time: true
+        track_vendor_analysis_time: true
+        track_test_discovery_time: true
+        
+      # Go runtime metrics
+      runtime_metrics:
+        track_goroutine_analysis: true
+        track_gc_analysis: true
+        track_memory_allocation_patterns: true
+        
+      # Go toolchain integration
+      toolchain_metrics:
+        track_gofmt_performance: true
+        track_golint_integration: true
+        track_go_vet_analysis: true
+        track_staticcheck_performance: true
+        
+    # Intelligent Go query routing
+    smart_routing:
+      enabled: true
+      
+      # Go-specific routing strategies
+      routing_strategies:
+        # Route based on Go server specialization
+        server_specialization:
+          primary_queries: ["definition", "references", "hover"]
+          fast_queries: ["completion", "formatting"]
+          test_queries: ["test_discovery", "benchmark_analysis"]
+          build_queries: ["build_analysis", "cross_compilation"]
+          
+        # Route based on Go module boundaries
+        module_awareness:
+          intra_module_queries: "primary_server"
+          cross_module_queries: "comprehensive_server"
+          vendor_queries: "specialized_server"
+          
+    # Go development workflow integration
+    workflow_integration:
+      # Version control hooks
+      git_hooks:
+        pre_commit:
+          - "go fmt ./..."
+          - "go vet ./..."
+          - "golangci-lint run"
+          - "go mod tidy"
+          
+      # IDE integration
+      ide_features:
+        enable_code_lens_integration: true
+        enable_inlay_hints: true
+        enable_semantic_tokens: true
+        enable_call_hierarchy: true
+        
+      # CI/CD integration
+      ci_cd:
+        enable_build_cache_analysis: true
+        enable_test_cache_optimization: true
+        enable_binary_size_tracking: true
+
 # Logging configuration
 logging:
   go_servers: true
   build_integration: true
   performance_metrics: true
+  scip_indexing: true  # Add SCIP-specific logging
   levels:
     gopls: "info"
     build_tools: "warn"
     linting: "info"
     testing: "debug"
+    scip_go: "info"  # SCIP indexer logging
 
 # Migration guide from basic configuration
 migration:

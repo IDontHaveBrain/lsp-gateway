@@ -643,8 +643,159 @@ routing:
         latency_preference: "high"
         cost_preference: "medium"
 
+# Enterprise SCIP Performance Configuration
+# SCIP (Source Code Information Protocol) provides fast, persistent code indexing
+# for large-scale enterprise codebases with multi-million lines of code
+performance_config:
+  # Enterprise SCIP Configuration - Maximum Performance & Scale
+  scip:
+    # Core SCIP settings for enterprise deployment
+    enabled: true
+    
+    # Enterprise-grade index storage with distributed architecture
+    index_path: "/opt/lsp-gateway/enterprise-scip-indices"
+    
+    # High-frequency refresh for continuous integration environments  
+    auto_refresh: true
+    refresh_interval: "15m"  # More frequent for active development
+    
+    # Graceful fallback to LSP when SCIP indices are unavailable
+    fallback_to_lsp: true
+    fallback_timeout: "5s"
+    
+    # Enterprise caching with Redis-like distributed cache
+    cache:
+      enabled: true
+      ttl: "2h"  # Longer TTL for enterprise stability
+      max_size: 10000  # Large cache for enterprise scale
+      distributed: true
+      redis_endpoint: "redis://enterprise-cache:6379/0"
+      cluster_mode: true
+      
+    # Advanced enterprise features
+    advanced:
+      enable_cross_service_navigation: true
+      enable_dependency_analysis: true
+      enable_impact_analysis: true
+      enable_architecture_insights: true
+      enable_security_analysis: true
+      enable_compliance_tracking: true
+      
+    # Multi-language enterprise settings
+    language_settings:
+      # Go - Core infrastructure services
+      go:
+        enabled: true
+        index_command: ["scip-go", "--enterprise-mode"]
+        index_timeout: "8m"
+        index_concurrency: 8
+        enable_cross_module_analysis: true
+        enable_vendor_analysis: true
+        custom_build_flags: ["-tags=enterprise,production"]
+        
+        # Enterprise Go-specific features
+        enterprise:
+          enable_microservices_graph: true
+          enable_api_documentation: true
+          enable_performance_profiling: true
+          
+      # Python - ML/Data Science & Web Services
+      python:
+        enabled: true
+        index_command: ["scip-python", "--enterprise", "--ml-optimized"]
+        index_timeout: "12m"
+        index_concurrency: 6
+        virtual_env_support: true
+        enable_django_analysis: true
+        enable_ml_library_analysis: true
+        
+        # ML/Data Science optimizations
+        ml_optimizations:
+          enable_tensor_flow_analysis: true
+          enable_pytorch_analysis: true
+          enable_pandas_optimizations: true
+          enable_numpy_vectorization_hints: true
+          
+      # TypeScript/JavaScript - Frontend & Node.js Services  
+      typescript:
+        enabled: true
+        index_command: ["scip-typescript", "--enterprise-frontend"]
+        index_timeout: "10m"
+        index_concurrency: 6
+        enable_monorepo_support: true
+        enable_micro_frontend_analysis: true
+        
+        # Frontend enterprise features
+        frontend:
+          enable_component_analysis: true
+          enable_bundle_analysis: true
+          enable_performance_insights: true
+          
+      # Java - Enterprise Backend Services
+      java:
+        enabled: true
+        index_command: ["scip-java", "--enterprise-backend"]
+        index_timeout: "15m"  # Longer for Java compilation
+        index_concurrency: 4
+        enable_spring_analysis: true
+        enable_enterprise_patterns: true
+        jvm_args: ["-Xmx8g", "-XX:+UseG1GC"]
+        
+        # Enterprise Java features
+        enterprise:
+          enable_spring_boot_analysis: true
+          enable_microservices_patterns: true
+          enable_security_annotations: true
+          
+      # Rust - High-performance systems
+      rust:
+        enabled: true
+        index_command: ["scip-rust", "--performance-mode"]
+        index_timeout: "20m"  # Rust compilation can be slow
+        index_concurrency: 4
+        enable_unsafe_analysis: true
+        enable_performance_annotations: true
+        
+      # C++ - Legacy & High-performance compute
+      cpp:
+        enabled: true
+        index_command: ["scip-clang", "--enterprise-cpp"]
+        index_timeout: "25m"
+        index_concurrency: 2  # Conservative for C++
+        enable_legacy_support: true
+        enable_performance_analysis: true
+        
+    # Enterprise monitoring and observability
+    monitoring:
+      enabled: true
+      metrics_endpoint: "http://prometheus.company.com:9090"
+      enable_distributed_tracing: true
+      enable_performance_alerts: true
+      
+      # SLA monitoring for SCIP performance
+      sla:
+        index_build_time_max: "30m"
+        query_response_time_p99: "10ms"
+        availability_target: 99.95
+        
+    # Enterprise security and compliance
+    security:
+      enable_audit_logging: true
+      enable_access_controls: true
+      enable_data_classification: true
+      pii_detection: true
+      secret_scanning: true
+      
+    # Disaster recovery and backup
+    backup:
+      enabled: true
+      backup_interval: "6h"
+      retention_days: 90
+      cross_region_replication: true
+      backup_storage: "s3://enterprise-backup/scip-indices"
+
 # Enterprise performance targets
-performance_targets:
+performance_targets:  
   initialization_time_max: "10s"
   response_time_p50: "25ms"
   response_time_p95: "75ms"
@@ -655,6 +806,13 @@ performance_targets:
   throughput_min: 5000
   availability_target: 99.99
   error_rate_max: 0.001
+  
+  # SCIP-specific performance targets
+  scip_performance:
+    index_query_time_p99: "10ms"
+    index_build_time_max: "30m"
+    cache_hit_rate_min: 0.85
+    cross_language_navigation_time: "25ms"
 
 # Enterprise testing and validation
 testing:

@@ -46,19 +46,10 @@ func (e *SCIPCacheEntry) Touch() {
 	e.AccessedAt = time.Now()
 }
 
-// NewSCIPIndexStore creates a new mock SCIP index store with the given configuration
+// NewSCIPIndexStore creates a new SCIP index store with the given configuration
+// This now returns the real SCIPStore implementation instead of the mock
 func NewSCIPIndexStore(config *SCIPConfig) SCIPStore {
-	return &MockSCIPStore{
-		config:    config,
-		cache:     make(map[string]*SCIPCacheEntry),
-		stats:     SCIPStoreStats{},
-		startTime: time.Now(),
-		
-		// Default mock behavior - can be adjusted for testing
-		CacheHitProbability: 0.15, // 15% cache hit rate by default
-		ResponseLatencyMs:   5,     // 5ms base latency
-		FailureProbability:  0.01,  // 1% failure rate
-	}
+	return NewRealSCIPStore(config)
 }
 
 // LoadIndex loads a SCIP index from the specified path (mock implementation)

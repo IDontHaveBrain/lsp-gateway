@@ -201,6 +201,7 @@ type PerformanceConfiguration struct {
 	ResourceManager *ResourceManagerConfig `yaml:"resource_manager,omitempty" json:"resource_manager,omitempty"`
 	Timeouts     *TimeoutConfiguration  `yaml:"timeouts,omitempty" json:"timeouts,omitempty"`
 	LargeProject *LargeProjectConfig    `yaml:"large_project,omitempty" json:"large_project,omitempty"`
+	SCIP         *SCIPConfiguration     `yaml:"scip,omitempty" json:"scip,omitempty"`
 }
 
 // CachingConfiguration contains caching configuration
@@ -223,6 +224,26 @@ type CacheConfig struct {
 	Enabled   bool          `yaml:"enabled" json:"enabled"`
 	TTL       time.Duration `yaml:"ttl,omitempty" json:"ttl,omitempty"`
 	MaxSize   int64         `yaml:"max_size,omitempty" json:"max_size,omitempty"`
+}
+
+// SCIPConfiguration contains SCIP indexing configuration
+type SCIPConfiguration struct {
+	Enabled              bool                           `yaml:"enabled" json:"enabled"`
+	IndexPath            string                         `yaml:"index_path,omitempty" json:"index_path,omitempty"`
+	AutoRefresh          bool                           `yaml:"auto_refresh,omitempty" json:"auto_refresh,omitempty"`
+	RefreshInterval      time.Duration                  `yaml:"refresh_interval,omitempty" json:"refresh_interval,omitempty"`
+	FallbackToLSP        bool                           `yaml:"fallback_to_lsp,omitempty" json:"fallback_to_lsp,omitempty"`
+	CacheConfig          CacheConfig                    `yaml:"cache,omitempty" json:"cache,omitempty"`
+	LanguageSettings     map[string]*SCIPLanguageConfig `yaml:"language_settings,omitempty" json:"language_settings,omitempty"`
+}
+
+// SCIPLanguageConfig contains language-specific SCIP configuration
+type SCIPLanguageConfig struct {
+	Enabled           bool                   `yaml:"enabled" json:"enabled"`
+	IndexCommand      []string               `yaml:"index_command,omitempty" json:"index_command,omitempty"`
+	IndexTimeout      time.Duration          `yaml:"index_timeout,omitempty" json:"index_timeout,omitempty"`
+	IndexArguments    []string               `yaml:"index_arguments,omitempty" json:"index_arguments,omitempty"`
+	WorkspaceSettings map[string]interface{} `yaml:"workspace_settings,omitempty" json:"workspace_settings,omitempty"`
 }
 
 // ResourceManagerConfig contains resource management configuration
@@ -379,6 +400,50 @@ func DefaultPerformanceConfiguration() *PerformanceConfiguration {
 			},
 			BackgroundIndexing: &BackgroundIndexingConfig{
 				Enabled: false,
+			},
+		},
+		SCIP: &SCIPConfiguration{
+			Enabled:         false,
+			IndexPath:       ".scip",
+			AutoRefresh:     false,
+			RefreshInterval: 30 * time.Minute,
+			FallbackToLSP:   true,
+			CacheConfig: CacheConfig{
+				Enabled: false,
+				TTL:     DefaultCacheTTL,
+				MaxSize: 1000,
+			},
+			LanguageSettings: map[string]*SCIPLanguageConfig{
+				"go": {
+					Enabled:      false,
+					IndexCommand: []string{"scip-go"},
+					IndexTimeout: 10 * time.Minute,
+					IndexArguments: []string{
+						"--module-path", ".",
+						"--output", ".scip/index.scip",
+					},
+					WorkspaceSettings: make(map[string]interface{}),
+				},
+				"typescript": {
+					Enabled:      false,
+					IndexCommand: []string{"scip-typescript"},
+					IndexTimeout: 15 * time.Minute,
+					IndexArguments: []string{
+						"--project-root", ".",
+						"--output", ".scip/index.scip",
+					},
+					WorkspaceSettings: make(map[string]interface{}),
+				},
+				"python": {
+					Enabled:      false,
+					IndexCommand: []string{"scip-python"},
+					IndexTimeout: 10 * time.Minute,
+					IndexArguments: []string{
+						"--project-root", ".",
+						"--output", ".scip/index.scip",
+					},
+					WorkspaceSettings: make(map[string]interface{}),
+				},
 			},
 		},
 	}

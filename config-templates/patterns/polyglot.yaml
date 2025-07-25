@@ -512,6 +512,188 @@ routing:
     enable_resource_awareness: true
     enable_latency_optimization: true
 
+# Polyglot SCIP Performance Configuration
+# SCIP indexing optimized for multi-language microservices architectures
+# with intelligent cross-language navigation and dependency analysis
+performance_config:
+  # Polyglot SCIP Configuration - Multi-Language Intelligence
+  scip:
+    # Core SCIP settings for polyglot systems
+    enabled: true
+    
+    # Shared index storage for cross-language navigation
+    index_path: "/opt/lsp-gateway/polyglot-scip-indices"
+    
+    # Balanced refresh for active polyglot development
+    auto_refresh: true
+    refresh_interval: "30m"  # Balanced for multiple languages
+    
+    # Essential fallback for polyglot reliability
+    fallback_to_lsp: true
+    fallback_timeout: "10s"
+    
+    # Polyglot caching optimized for cross-language queries
+    cache:
+      enabled: true
+      ttl: "1h"  # Good balance for active development
+      max_size: 5000  # Medium scale for polyglot systems
+      enable_cross_language_cache: true
+      cache_partition_by_language: true
+      
+    # Cross-language intelligence features
+    cross_language:
+      enable_navigation: true
+      enable_dependency_graph: true
+      enable_api_discovery: true
+      enable_interface_matching: true
+      enable_type_bridging: true
+      
+    # Multi-language settings tailored for microservices
+    language_settings:
+      # Go - API Gateway & Core Services
+      go:
+        enabled: true
+        index_command: ["scip-go", "--microservices-mode"]
+        index_timeout: "10m"
+        index_concurrency: 4
+        enable_grpc_analysis: true
+        enable_rest_api_analysis: true
+        
+        # Microservices-specific features
+        microservices:
+          enable_service_discovery: true
+          enable_api_versioning: true
+          enable_circuit_breaker_analysis: true
+          
+      # Python - ML Services & Data Processing
+      python:
+        enabled: true
+        index_command: ["scip-python", "--data-science"]
+        index_timeout: "15m"
+        index_concurrency: 3
+        virtual_env_support: true
+        enable_jupyter_analysis: true
+        
+        # Data science optimizations
+        data_science:
+          enable_pandas_analysis: true
+          enable_numpy_optimizations: true
+          enable_ml_pipeline_analysis: true
+          
+      # TypeScript - Frontend & Node.js Services
+      typescript:
+        enabled: true
+        index_command: ["scip-typescript", "--fullstack"]
+        index_timeout: "12m"
+        index_concurrency: 4
+        enable_node_modules_analysis: true
+        enable_frontend_framework_analysis: true
+        
+        # Full-stack features
+        fullstack:
+          enable_react_analysis: true
+          enable_api_client_generation: true
+          enable_state_management_analysis: true
+          
+      # Java - Enterprise Backend & Legacy Integration  
+      java:
+        enabled: true
+        index_command: ["scip-java", "--spring-boot"]
+        index_timeout: "18m"  # Java needs more time
+        index_concurrency: 2
+        enable_spring_framework_analysis: true
+        enable_jpa_analysis: derivatives
+        jvm_args: ["-Xmx4g", "-XX:+UseG1GC"]
+        
+        # Spring Boot enterprise features
+        spring_boot:
+          enable_actuator_analysis: true
+          enable_configuration_analysis: true
+          enable_security_analysis: true
+          
+      # Rust - Performance-Critical Services
+      rust:
+        enabled: true
+        index_command: ["scip-rust", "--systems-programming"]
+        index_timeout: "25m"  # Rust compilation takes time
+        index_concurrency: 2
+        enable_cargo_workspace_analysis: true
+        enable_async_analysis: true
+        
+        # Systems programming features
+        systems:
+          enable_memory_safety_analysis: true
+          enable_concurrency_analysis: true
+          enable_ffi_analysis: true
+          
+      # C++ - High-Performance Computing & Legacy Systems
+      cpp:
+        enabled: true
+        index_command: ["scip-clang", "--high-performance"]
+        index_timeout: "30m"  # C++ compilation is expensive
+        index_concurrency: 1  # Conservative for resource usage
+        enable_cmake_analysis: true
+        enable_template_analysis: true
+        
+        # High-performance computing features
+        hpc:
+          enable_optimization_analysis: true
+          enable_vectorization_hints: true
+          enable_memory_layout_analysis: true
+          
+    # Polyglot monitoring and metrics
+    monitoring:
+      enabled: true
+      enable_language_specific_metrics: true
+      enable_cross_language_performance_tracking: true
+      
+      # Language-specific performance tracking
+      language_metrics:
+        go: 
+          track_goroutine_analysis_time: true
+          track_module_resolution_time: true
+        python:
+          track_import_resolution_time: true
+          track_virtual_env_analysis_time: true
+        typescript:
+          track_node_modules_analysis_time: true
+          track_type_inference_time: true
+        java:
+          track_classpath_analysis_time: true
+          track_annotation_processing_time: true
+        rust:
+          track_macro_expansion_time: true
+          track_trait_resolution_time: true
+        cpp:
+          track_template_instantiation_time: true
+          track_include_resolution_time: true
+          
+    # Intelligent routing for polyglot queries
+    smart_routing:
+      enabled: true
+      
+      # Cross-language routing rules
+      routing_rules:
+        - source_language: "typescript"
+          target_languages: ["go", "java"]
+          condition: "api_call_analysis"
+          priority: "high"
+          
+        - source_language: "python"
+          target_languages: ["go", "rust"]
+          condition: "data_pipeline_analysis"
+          priority: "medium"
+          
+        - source_language: "java"
+          target_languages: ["python", "typescript"]
+          condition: "service_integration"
+          priority: "medium"
+          
+        - source_language: "any"
+          target_languages: ["cpp", "rust"]
+          condition: "performance_critical_path"
+          priority: "highest"
+
 # Performance targets for polyglot systems
 performance_targets:
   initialization_time_max: "30s"
@@ -520,6 +702,14 @@ performance_targets:
   cpu_usage_max: "600%"
   concurrent_requests_max: 300
   cross_language_navigation_time: "100ms"
+  
+  # SCIP-specific targets for polyglot systems
+  scip_performance:
+    index_query_time_p95: "50ms"
+    cross_language_query_time_p95: "150ms"
+    index_build_time_max: "45m"  # Longer for multiple languages
+    cache_hit_rate_min: 0.75
+    language_coverage_min: 0.90
 
 # Polyglot testing configuration
 testing:

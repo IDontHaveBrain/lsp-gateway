@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"lsp-gateway/internal/config"
+	"lsp-gateway/internal/indexing"
 	"lsp-gateway/internal/transport"
 	"lsp-gateway/mcp"
 )
@@ -517,15 +518,6 @@ func NewGateway(config *config.GatewayConfig) (*Gateway, error) {
 	workspaceManager := NewWorkspaceManager(config, router, logger)
 	projectRouter := NewProjectAwareRouter(router, workspaceManager, logger)
 	
-	// Initialize performance monitoring components
-	performanceCache := NewPerformanceCache(logger)
-	requestClassifier := NewRequestClassifier(logger)
-	responseAggregator := NewResponseAggregator(logger)
-	health_monitor := NewHealthMonitor(logger)
-	
-	// Initialize multi-server components
-	aggregatorRegistry := NewAggregatorRegistry(logger)
-	requestTracker := NewRequestTracker()
 	
 	// Initialize MultiServerManager if configuration supports it
 	var multiServerManager *MultiServerManager
@@ -558,17 +550,17 @@ func NewGateway(config *config.GatewayConfig) (*Gateway, error) {
 		workspaceManager: workspaceManager,
 		projectRouter:    projectRouter,
 		
-		// Performance monitoring
-		performanceCache:  performanceCache,
-		requestClassifier: requestClassifier,
-		responseAggregator: responseAggregator,
-		health_monitor:     health_monitor,
+		// Performance monitoring (disabled for now)
+		performanceCache:  nil,
+		requestClassifier: nil,
+		responseAggregator: nil,
+		health_monitor:     nil,
 		
 		// Multi-server management
 		multiServerManager:      multiServerManager,
 		enableConcurrentServers: enableConcurrentServers,
-		aggregatorRegistry:      aggregatorRegistry,
-		requestTracker:         requestTracker,
+		aggregatorRegistry:      nil,
+		requestTracker:         nil,
 		
 		// Configuration
 		enableSmartRouting: enableSmartRouting,
@@ -962,7 +954,11 @@ func (g *Gateway) executeConcurrentRequests(ctx context.Context, servers []*Serv
 	var wg sync.WaitGroup
 
 	// Create context with timeout
-	timeoutCtx, cancel := context.WithTimeout(ctx, g.Config.Timeout)
+	timeout, err := time.ParseDuration(g.Config.Timeout)
+	if err != nil {
+		timeout = 30 * time.Second // Default timeout
+	}
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	for i, server := range servers {
@@ -2273,20 +2269,16 @@ func (g *Gateway) processAggregatedRequest(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	language := ""
-	if uri != "" {
-		if lang, err := g.extractLanguageFromURI(uri); err == nil {
-			language = lang
-		}
-	}
 
 	// Create LSPRequest for SmartRouter
 	lspRequest := &LSPRequest{
-		Method:   req.Method,
-		Params:   req.Params,
-		URI:      uri,
-		Language: language,
-		Context:  r.Context(),
+		Method:    req.Method,
+		Params:    req.Params,
+		URI:       uri,
+		Context:   CreateRequestContextFromURI(uri, "", ""),
+		JSONRPC:   "2.0",
+		Timestamp: time.Now(),
+		RequestID: fmt.Sprintf("%v", req.ID),
 	}
 
 	// Use SmartRouter to aggregate responses
@@ -2303,13 +2295,14 @@ func (g *Gateway) processAggregatedRequest(w http.ResponseWriter, r *http.Reques
 	response := JSONRPCResponse{
 		JSONRPC: JSONRPCVersion,
 		ID:      req.ID,
-		Result:  aggregatedResponse.PrimaryResult,
+		Result:  aggregatedResponse.PrimaryResponse,
 	}
 
-	// Add metadata if available
-	if aggregatedResponse.Metadata != nil {
+	// Add aggregation metadata if available
+	if len(aggregatedResponse.ResponseSources) > 0 {
 		if resultMap, ok := response.Result.(map[string]interface{}); ok {
-			resultMap["_aggregation_metadata"] = aggregatedResponse.Metadata
+			resultMap["_sources"] = aggregatedResponse.ResponseSources
+			resultMap["_aggregation_method"] = aggregatedResponse.AggregationMethod
 			response.Result = resultMap
 		}
 	}
@@ -2325,9 +2318,11 @@ func (g *Gateway) processAggregatedRequest(w http.ResponseWriter, r *http.Reques
 	duration := time.Since(startTime)
 	if logger != nil {
 		logger.WithFields(map[string]interface{}{
-			"duration":     duration.String(),
-			"server_count": aggregatedResponse.ServerCount,
-			"strategy":     string(aggregatedResponse.Strategy),
+			"duration":        duration.String(),
+			"source_count":    len(aggregatedResponse.ResponseSources),
+			"success_count":   aggregatedResponse.SuccessCount,
+			"error_count":     aggregatedResponse.ErrorCount,
+			"aggregation_method": aggregatedResponse.AggregationMethod,
 		}).Info("Aggregated request processed successfully")
 	}
 }
@@ -2343,8 +2338,8 @@ func (g *Gateway) processEnhancedRequest(w http.ResponseWriter, r *http.Request,
 	g.processSingleServerRequestWithClient(w, r, req, primaryServerName, logger, startTime)
 }
 
-// processSingleServerRequest processes request using SmartRouter's client selection
-func (g *Gateway) processSingleServerRequest(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, serverName string, logger *mcp.StructuredLogger, startTime time.Time) bool {
+// processSingleServerRequestWithSmartRouter processes request using SmartRouter's client selection
+func (g *Gateway) processSingleServerRequestWithSmartRouter(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, serverName string, logger *mcp.StructuredLogger, startTime time.Time) bool {
 	// Try to get client through workspace manager if available
 	if g.workspaceManager != nil {
 		uri, err := g.extractURI(req)
@@ -2425,7 +2420,10 @@ func (g *Gateway) GetProjectRouter() *ProjectAwareRouter {
 // SetRoutingStrategy sets a routing strategy for a specific LSP method
 func (g *Gateway) SetRoutingStrategy(method string, strategy RoutingStrategy) {
 	if g.smartRouter != nil {
-		g.smartRouter.SetRoutingStrategy(method, strategy)
+		// Convert RoutingStrategy interface to RoutingStrategyType
+		if strategyType, ok := strategy.(RoutingStrategyType); ok {
+			g.smartRouter.SetRoutingStrategy(method, strategyType)
+		}
 	}
 	
 	g.Mu.Lock()
@@ -2436,7 +2434,9 @@ func (g *Gateway) SetRoutingStrategy(method string, strategy RoutingStrategy) {
 // GetRoutingStrategy gets the routing strategy for a specific LSP method
 func (g *Gateway) GetRoutingStrategy(method string) RoutingStrategy {
 	if g.smartRouter != nil {
-		return g.smartRouter.GetRoutingStrategy(method)
+		// Convert RoutingStrategyType to RoutingStrategy interface
+		strategyType := g.smartRouter.GetRoutingStrategy(method)
+		return strategyType
 	}
 	
 	g.Mu.RLock()
@@ -2444,6 +2444,7 @@ func (g *Gateway) GetRoutingStrategy(method string) RoutingStrategy {
 	if strategy, exists := g.routingStrategies[method]; exists {
 		return strategy
 	}
+	// Return the RoutingStrategyType as RoutingStrategy interface
 	return SingleTargetWithFallback
 }
 
