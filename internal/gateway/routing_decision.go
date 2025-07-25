@@ -55,15 +55,19 @@ type LSPRequest struct {
 
 // AggregatedResponse contains the result of aggregating multiple LSP server responses
 type AggregatedResponse struct {
-	PrimaryResponse    interface{}   `json:"primary_response"`
-	SecondaryResponses []interface{} `json:"secondary_responses,omitempty"`
-	AggregatedResult   interface{}   `json:"aggregated_result"`
-	ResponseSources    []string      `json:"response_sources"`
-	ProcessingTime     time.Duration `json:"processing_time"`
-	AggregationMethod  string        `json:"aggregation_method"`
-	SuccessCount       int           `json:"success_count"`
-	ErrorCount         int           `json:"error_count"`
-	Warnings           []string      `json:"warnings,omitempty"`
+	PrimaryResponse    interface{}            `json:"primary_response"`
+	PrimaryResult      interface{}            `json:"primary_result"`
+	SecondaryResponses []interface{}          `json:"secondary_responses,omitempty"`
+	AggregatedResult   interface{}            `json:"aggregated_result"`
+	ResponseSources    []string               `json:"response_sources"`
+	ProcessingTime     time.Duration          `json:"processing_time"`
+	AggregationMethod  string                 `json:"aggregation_method"`
+	SuccessCount       int                    `json:"success_count"`
+	ErrorCount         int                    `json:"error_count"`
+	Warnings           []string               `json:"warnings,omitempty"`
+	Metadata           map[string]interface{} `json:"metadata,omitempty"`
+	ServerCount        int                    `json:"server_count"`
+	Strategy           RoutingStrategyType    `json:"strategy"`
 }
 
 // RoutingServerInstance represents a language server instance for routing decisions
@@ -183,6 +187,55 @@ func (mss *MultiServerStrategy) Name() string {
 
 func (mss *MultiServerStrategy) Description() string {
 	return "Routes requests to multiple servers and aggregates responses"
+}
+
+// SingleTargetWithFallbackStrategy routes to primary server with fallback options
+type SingleTargetWithFallbackStrategy struct{}
+
+func (stfs *SingleTargetWithFallbackStrategy) Route(request *LSPRequest, availableServers []*RoutingServerInstance) (*RoutingDecision, error) {
+	if len(availableServers) == 0 {
+		return nil, fmt.Errorf("no available servers for single target with fallback routing")
+	}
+
+	// Sort servers by priority and health status
+	sortedServers := make([]*RoutingServerInstance, len(availableServers))
+	copy(sortedServers, availableServers)
+	
+	// Simple priority-based sorting (higher priority first)
+	for i := 0; i < len(sortedServers); i++ {
+		for j := i + 1; j < len(sortedServers); j++ {
+			if sortedServers[i].Priority < sortedServers[j].Priority {
+				sortedServers[i], sortedServers[j] = sortedServers[j], sortedServers[i]
+			}
+		}
+	}
+
+	// Try servers in priority order for fallback capability
+	for _, server := range sortedServers {
+		if server.Available {
+			return &RoutingDecision{
+				TargetServers:      []*RoutingServerInstance{server},
+				RoutingStrategy:    "single_target_with_fallback",
+				RequestContext:     request.Context,
+				ResponseAggregator: nil, // Single target doesn't need aggregation
+				Timeout:            30 * time.Second,
+				Priority:           server.Priority,
+				CreatedAt:          time.Now(),
+				DecisionID:         generateDecisionID(),
+			}, nil
+		}
+	}
+
+	// If no available servers found, return error
+	return nil, fmt.Errorf("no available servers found for single target with fallback routing")
+}
+
+func (stfs *SingleTargetWithFallbackStrategy) Name() string {
+	return "single_target_with_fallback"
+}
+
+func (stfs *SingleTargetWithFallbackStrategy) Description() string {
+	return "Routes requests to the highest priority healthy server with automatic fallback to lower priority servers"
 }
 
 

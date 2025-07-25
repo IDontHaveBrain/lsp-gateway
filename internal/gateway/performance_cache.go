@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"lsp-gateway/mcp"
 )
 
 // PerformanceCache provides intelligent caching and performance monitoring
@@ -23,6 +25,7 @@ type PerformanceCache interface {
 
 	// Performance monitoring
 	RecordRequestMetrics(serverName, method string, responseTime time.Duration, success bool)
+	RecordRoutingDecision(method, serverName string, strategy interface{})
 	GetServerMetrics(serverName string) *ServerMetrics
 	GetMethodMetrics(method string) *MethodMetrics
 
@@ -72,6 +75,48 @@ type ServerMetrics struct {
 	TrendScore          float64       `json:"trend_score"`
 	ResponseTimes       []time.Duration `json:"-"` // Circular buffer for percentiles
 	ResponseTimeIndex   int           `json:"-"`
+}
+
+// GetErrorRate calculates the error rate as a float between 0 and 1
+func (sm *ServerMetrics) GetErrorRate() float64 {
+	if sm.TotalRequests == 0 {
+		return 0.0
+	}
+	return float64(sm.FailedRequests) / float64(sm.TotalRequests)
+}
+
+// Copy creates a deep copy of the ServerMetrics struct
+func (sm *ServerMetrics) Copy() *ServerMetrics {
+	if sm == nil {
+		return nil
+	}
+
+	// Create a new ResponseTimes slice if it exists
+	var responseTimesCopy []time.Duration
+	if sm.ResponseTimes != nil {
+		responseTimesCopy = make([]time.Duration, len(sm.ResponseTimes))
+		copy(responseTimesCopy, sm.ResponseTimes)
+	}
+
+	return &ServerMetrics{
+		ServerName:          sm.ServerName,
+		TotalRequests:       sm.TotalRequests,
+		SuccessfulRequests:  sm.SuccessfulRequests,
+		FailedRequests:      sm.FailedRequests,
+		AverageResponseTime: sm.AverageResponseTime,
+		MinResponseTime:     sm.MinResponseTime,
+		MaxResponseTime:     sm.MaxResponseTime,
+		P50ResponseTime:     sm.P50ResponseTime,
+		P95ResponseTime:     sm.P95ResponseTime,
+		P99ResponseTime:     sm.P99ResponseTime,
+		LastRequestTime:     sm.LastRequestTime,
+		HealthScore:         sm.HealthScore,
+		CircuitBreakerState: sm.CircuitBreakerState,
+		LoadScore:           sm.LoadScore,
+		TrendScore:          sm.TrendScore,
+		ResponseTimes:       responseTimesCopy,
+		ResponseTimeIndex:   sm.ResponseTimeIndex,
+	}
 }
 
 // MethodMetrics aggregates performance data by LSP method
@@ -153,13 +198,28 @@ func NewIntelligentPerformanceCache(config *PerformanceCacheConfig) *Intelligent
 
 	return &IntelligentPerformanceCache{
 		config:           config,
-		cache:            make(map[string]*CacheEntry),
-		compressedCache:  make(map[string]*CacheEntry),
-		persistentCache:  make(map[string]*CacheEntry),
+		cache:            make(map[string]*PerformanceCacheEntry),
+		compressedCache:  make(map[string]*PerformanceCacheEntry),
+		persistentCache:  make(map[string]*PerformanceCacheEntry),
 		serverMetrics:    make(map[string]*ServerMetrics),
 		methodMetrics:    make(map[string]*MethodMetrics),
-		cacheStats:       &CacheStats{},
+		cacheStats:       &PerformanceCacheStats{},
 	}
+}
+
+// NewPerformanceCache creates a new performance cache with default configuration
+func NewPerformanceCache(logger *mcp.StructuredLogger) PerformanceCache {
+	config := &PerformanceCacheConfig{
+		MaxMemoryMB:          256,
+		DefaultTTL:           5 * time.Minute,
+		MaxCacheEntries:      10000,
+		CompressionEnabled:   true,
+		OptimizationInterval: 30 * time.Second,
+		HealthThreshold:      0.7,
+		ResponseTimeBuffer:   1000,
+		EnablePrediction:     true,
+	}
+	return NewIntelligentPerformanceCache(config)
 }
 
 // Start begins the performance cache operations
@@ -385,6 +445,27 @@ func (pc *IntelligentPerformanceCache) RecordRequestMetrics(serverName, method s
 
 	// Update health score
 	pc.calculateHealthScore(serverMetrics)
+}
+
+// RecordRoutingDecision records routing decision metrics
+func (pc *IntelligentPerformanceCache) RecordRoutingDecision(method, serverName string, strategy interface{}) {
+	pc.mutex.Lock()
+	defer pc.mutex.Unlock()
+
+	// Update method metrics with routing strategy information
+	methodMetrics := pc.getOrCreateMethodMetrics(method)
+	methodMetrics.TotalRequests++
+
+	// Update server metrics with routing decision
+	serverMetrics := pc.getOrCreateServerMetrics(serverName)
+	serverMetrics.TotalRequests++
+	serverMetrics.LastRequestTime = time.Now()
+
+	// Record strategy usage (could be extended for more detailed routing analytics)
+	if strategyStr, ok := strategy.(string); ok {
+		// Store strategy information in server metrics metadata if needed
+		_ = strategyStr // Placeholder for future strategy analytics
+	}
 }
 
 // GetServerMetrics returns performance metrics for a server

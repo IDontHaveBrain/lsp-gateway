@@ -491,8 +491,8 @@ func (msm *MultiServerManager) Stop() error {
 	return nil
 }
 
-// GetServerForRequest gets the best server for a specific request
-func (msm *MultiServerManager) GetServerForRequest(language string, requestType string) (*ServerInstance, error) {
+// GetServerInstanceForRequest gets the best server instance for a specific request
+func (msm *MultiServerManager) GetServerInstanceForRequest(language string, requestType string) (*ServerInstance, error) {
 	return msm.GetServerForRequestWithContext(language, requestType, nil)
 }
 
@@ -525,8 +525,8 @@ func (msm *MultiServerManager) GetServerForRequestWithContext(language string, r
 	return server, nil
 }
 
-// GetServersForConcurrentRequest gets multiple servers for concurrent requests
-func (msm *MultiServerManager) GetServersForConcurrentRequest(language string, maxServers int) ([]*ServerInstance, error) {
+// GetServerInstancesForConcurrentRequest gets multiple server instances for concurrent requests
+func (msm *MultiServerManager) GetServerInstancesForConcurrentRequest(language string, maxServers int) ([]*ServerInstance, error) {
 	return msm.GetServersForConcurrentRequestWithType(language, "", maxServers)
 }
 
@@ -551,8 +551,8 @@ func (msm *MultiServerManager) GetServersForConcurrentRequestWithType(language s
 	return servers, nil
 }
 
-// GetHealthyServers gets all healthy servers for a language
-func (msm *MultiServerManager) GetHealthyServers(language string) ([]*ServerInstance, error) {
+// GetHealthyServerInstances gets all healthy server instances for a language
+func (msm *MultiServerManager) GetHealthyServerInstances(language string) ([]*ServerInstance, error) {
 	msm.mu.RLock()
 	defer msm.mu.RUnlock()
 
@@ -870,6 +870,48 @@ type ServerManager interface {
 var _ ServerManager = (*MultiServerManager)(nil)
 
 // Implementation of ServerManager interface methods that return transport.LSPClient
+
+// GetServerForRequest returns the LSP client for the best server for a specific request
+func (msm *MultiServerManager) GetServerForRequest(language string, requestType string) (transport.LSPClient, error) {
+	server, err := msm.GetServerForRequestWithContext(language, requestType, nil)
+	if err != nil {
+		return nil, err
+	}
+	return server.client, nil
+}
+
+// GetServersForConcurrentRequest returns LSP clients for multiple servers for concurrent requests
+func (msm *MultiServerManager) GetServersForConcurrentRequest(language string, maxServers int) ([]transport.LSPClient, error) {
+	servers, err := msm.GetServersForConcurrentRequestWithType(language, "", maxServers)
+	if err != nil {
+		return nil, err
+	}
+	
+	clients := make([]transport.LSPClient, len(servers))
+	for i, server := range servers {
+		clients[i] = server.client
+	}
+	return clients, nil
+}
+
+// GetHealthyServers returns LSP clients for all healthy servers for a language
+func (msm *MultiServerManager) GetHealthyServers(language string) ([]transport.LSPClient, error) {
+	msm.mu.RLock()
+	defer msm.mu.RUnlock()
+
+	pool, exists := msm.serverPools[language]
+	if !exists {
+		return nil, fmt.Errorf("no server pool found for language %s", language)
+	}
+
+	healthyInstances := pool.GetHealthyServers()
+	clients := make([]transport.LSPClient, len(healthyInstances))
+	for i, server := range healthyInstances {
+		clients[i] = server.client
+	}
+	return clients, nil
+}
+
 func (msm *MultiServerManager) StartAll() error {
 	return msm.Start()
 }

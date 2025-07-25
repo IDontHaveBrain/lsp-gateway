@@ -660,7 +660,7 @@ func runSetupAll(cmd *cobra.Command, args []string) error {
 
 func runSetupWizard(cmd *cobra.Command, args []string) error {
 	if setupJSON {
-		return NewValidationError("JSON output not supported in wizard mode", nil)
+		return NewValidationError("JSON output not supported in wizard mode", []string{})
 	}
 
 	if setupNoInteractive {

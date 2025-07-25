@@ -5,11 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
 	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/transport"
+	"lsp-gateway/mcp"
 )
 
 // MultiLanguageIntegrator provides unified interface for multi-language LSP operations
@@ -42,14 +46,19 @@ func NewMultiLanguageIntegrator(gatewayConfig *config.GatewayConfig, logger *log
 	integrator.projectDetector = NewProjectLanguageScanner()
 	integrator.projectDetector.OptimizeForLargeMonorepos()
 	
-	integrator.workspaceManager = NewWorkspaceManager(gatewayConfig, nil, logger)
+	// Create a structured logger for MCP compatibility
+	mcpLogger := mcp.NewStructuredLogger(&mcp.LoggerConfig{
+		Level:     mcp.LogLevelInfo,
+		Component: "workspace-manager",
+		Output:    logger.Writer(),
+	})
+	integrator.workspaceManager = NewWorkspaceManager(gatewayConfig, nil, mcpLogger)
 	
 	integrator.multiServerManager = NewMultiServerManager(gatewayConfig, logger)
 	
 	// Initialize smart router with project-aware routing if available
-	if projectRouter, err := NewProjectAwareRouter(NewRouter(gatewayConfig.Servers), gatewayConfig, integrator.workspaceManager, logger); err == nil {
-		integrator.smartRouter = NewSmartRouter(projectRouter, gatewayConfig, integrator.workspaceManager, &mcp.NullLogger{})
-	}
+	projectRouter := NewProjectAwareRouter(NewRouter(), integrator.workspaceManager, mcpLogger)
+	integrator.smartRouter = NewSmartRouter(projectRouter, gatewayConfig, integrator.workspaceManager, mcpLogger)
 	
 	return integrator
 }
@@ -72,10 +81,7 @@ func (mli *MultiLanguageIntegrator) Initialize(ctx context.Context) error {
 		return fmt.Errorf("failed to start multi-server manager: %w", err)
 	}
 	
-	// Initialize workspace manager
-	if err := mli.workspaceManager.Initialize(); err != nil {
-		return fmt.Errorf("failed to initialize workspace manager: %w", err)
-	}
+	// Workspace manager is automatically initialized during creation
 	
 	mli.initialized = true
 	mli.logger.Printf("Multi-language LSP Gateway system initialized successfully")
@@ -295,8 +301,16 @@ func (mli *MultiLanguageIntegrator) configureWorkspaceForProject(projectInfo *Mu
 		workspaceConfig.Languages = append(workspaceConfig.Languages, language)
 	}
 	
-	// Register workspace
-	return mli.workspaceManager.CreateWorkspace(workspaceConfig)
+	// Register workspace - use createWorkspace method with discovery result
+	discovery := &WorkspaceDiscoveryResult{
+		WorkspaceID:   workspaceConfig.ID,
+		RootPath:      workspaceConfig.RootPath,
+		ProjectType:   workspaceConfig.ProjectType,
+		Languages:     workspaceConfig.Languages,
+		ConfigMarkers: []string{},
+	}
+	_, err := mli.workspaceManager.createWorkspace(discovery)
+	return err
 }
 
 func (mli *MultiLanguageIntegrator) getProjectInfo(projectPath string) (*MultiLanguageProjectInfo, error) {
@@ -346,11 +360,9 @@ func (mli *MultiLanguageIntegrator) extractProjectPath(fileURI string) string {
 
 func (mli *MultiLanguageIntegrator) processRequestDirect(ctx context.Context, request *LSPRequest, projectInfo *MultiLanguageProjectInfo) (*AggregatedResponse, error) {
 	// Direct processing fallback when smart router is not available
-	language := request.Language
-	if language == "" {
-		if lang, err := mli.extractLanguageFromURI(request.URI); err == nil {
-			language = lang
-		}
+	language := ""
+	if lang, err := mli.extractLanguageFromURI(request.URI); err == nil {
+		language = lang
 	}
 	
 	if language == "" {
@@ -370,8 +382,7 @@ func (mli *MultiLanguageIntegrator) processRequestDirect(ctx context.Context, re
 	result, err := server.SendRequest(ctx, request.Method, request.Params)
 	processingTime := time.Since(startTime)
 	
-	// Update server metrics
-	mli.multiServerManager.UpdateServerMetrics(server.config.Name, processingTime, err == nil)
+	// Note: Cannot update server metrics without server name/config from interface
 	
 	return &AggregatedResponse{
 		PrimaryResult:  result,
@@ -379,7 +390,6 @@ func (mli *MultiLanguageIntegrator) processRequestDirect(ctx context.Context, re
 		ProcessingTime: processingTime,
 		ServerCount:    1,
 		Metadata: map[string]interface{}{
-			"server_name":  server.config.Name,
 			"language":     language,
 			"success":      err == nil,
 		},

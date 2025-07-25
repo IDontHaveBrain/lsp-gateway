@@ -906,6 +906,9 @@ type LoadBalancingConfig struct {
 	Strategy string `yaml:"strategy" json:"strategy"` // "round_robin", "least_connections", "response_time", "resource_usage"
 	HealthThreshold float64 `yaml:"health_threshold" json:"health_threshold"`
 	WeightFactors map[string]float64 `yaml:"weight_factors" json:"weight_factors"`
+	FallbackEnabled bool `yaml:"fallback_enabled" json:"fallback_enabled"`
+	MaxRetries int `yaml:"max_retries" json:"max_retries"`
+	RetryDelay time.Duration `yaml:"retry_delay" json:"retry_delay"`
 }
 
 type ResourceLimits struct {

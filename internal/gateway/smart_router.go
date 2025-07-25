@@ -287,7 +287,7 @@ func (sr *SmartRouterImpl) GetRoutingStrategy(method string) RoutingStrategy {
 	}
 	
 	// Return default strategy
-	return SingleTargetWithFallback
+	return &SingleTargetWithFallbackStrategy{}
 }
 
 // GetRoutingMetrics returns current routing performance metrics

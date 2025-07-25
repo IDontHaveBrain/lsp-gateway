@@ -476,9 +476,9 @@ type Gateway struct {
 	projectRouter    *ProjectAwareRouter
 	
 	// Performance monitoring
-	performanceCache *PerformanceCache
-	requestClassifier *RequestClassifier
-	responseAggregator *ResponseAggregator
+	performanceCache PerformanceCache
+	requestClassifier RequestClassifier
+	responseAggregator ResponseAggregator
 	
 	// Multi-server management
 	multiServerManager *MultiServerManager
@@ -519,9 +519,9 @@ func NewGateway(config *config.GatewayConfig) (*Gateway, error) {
 	
 	// Initialize performance monitoring components
 	performanceCache := NewPerformanceCache(logger)
-	requestClassifier := NewRequestClassifier(logger)
+	requestClassifier := NewRequestClassifier()
 	responseAggregator := NewResponseAggregator(logger)
-	health_monitor := NewHealthMonitor(logger)
+	health_monitor := NewHealthMonitor(30 * time.Second)
 	
 	// Initialize multi-server components
 	aggregatorRegistry := NewAggregatorRegistry(logger)
@@ -962,7 +962,11 @@ func (g *Gateway) executeConcurrentRequests(ctx context.Context, servers []*Serv
 	var wg sync.WaitGroup
 
 	// Create context with timeout
-	timeoutCtx, cancel := context.WithTimeout(ctx, g.Config.Timeout)
+	timeout, err := time.ParseDuration(g.Config.Timeout)
+	if err != nil {
+		timeout = 30 * time.Second // Default timeout
+	}
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	for i, server := range servers {
@@ -2282,11 +2286,23 @@ func (g *Gateway) processAggregatedRequest(w http.ResponseWriter, r *http.Reques
 
 	// Create LSPRequest for SmartRouter
 	lspRequest := &LSPRequest{
-		Method:   req.Method,
-		Params:   req.Params,
-		URI:      uri,
-		Language: language,
-		Context:  r.Context(),
+		Method:  req.Method,
+		Params:  req.Params,
+		ID:      req.ID,
+		URI:     uri,
+		JSONRPC: req.JSONRPC,
+		Context: CreateRequestContextFromURI(uri, "", ""),
+	}
+
+	// Set language in the context if detected
+	if language != "" && lspRequest.Context != nil {
+		lspRequest.Context.Language = language
+	}
+
+	// Preprocess to set defaults for missing fields
+	if err := PreprocessLSPRequest(lspRequest); err != nil {
+		g.writeError(w, req.ID, InternalError, "Failed to preprocess request", err)
+		return
 	}
 
 	// Use SmartRouter to aggregate responses
@@ -2415,7 +2431,7 @@ func (g *Gateway) GetRoutingStrategy(method string) RoutingStrategy {
 	if strategy, exists := g.routingStrategies[method]; exists {
 		return strategy
 	}
-	return SingleTargetWithFallback
+	return &SingleTargetWithFallbackStrategy{}
 }
 
 // GetRoutingMetrics returns current routing performance metrics

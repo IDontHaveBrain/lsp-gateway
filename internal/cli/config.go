@@ -1534,15 +1534,16 @@ func migrateToEnhancedFormat(cfg *config.GatewayConfig) *config.GatewayConfig {
 	
 	// Initialize language pools if missing
 	if enhanced.LanguagePools == nil {
-		enhanced.LanguagePools = make(map[string]*config.LanguagePool)
+		enhanced.LanguagePools = make(map[string]*config.LanguageServerPool)
 		for _, server := range enhanced.Servers {
 			for _, lang := range server.Languages {
 				if _, exists := enhanced.LanguagePools[lang]; !exists {
-					enhanced.LanguagePools[lang] = &config.LanguagePool{
+					enhanced.LanguagePools[lang] = &config.LanguageServerPool{
 						Language:           lang,
-						MaxServers:         2,
-						LoadBalancingMode:  "round_robin",
-						HealthCheckEnabled: true,
+						Servers:            make(map[string]*config.ServerConfig),
+						DefaultServer:      "",
+						LoadBalancingConfig: nil,
+						ResourceLimits:     nil,
 					}
 				}
 			}

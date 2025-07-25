@@ -216,8 +216,6 @@ func TestConfigurationMigration(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	integrator := config.NewConfigurationIntegrator()
-
 	// Test legacy gateway config migration
 	t.Run("LegacyGatewayMigration", func(t *testing.T) {
 		legacyConfig := map[string]interface{}{

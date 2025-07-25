@@ -1626,7 +1626,9 @@ func runMultiLanguageDiagnostics(ctx context.Context, report *DiagnosticReport) 
 
 		// Add detailed analysis
 		result.Details["languages_detected"] = multiLangConfig.GetSupportedLanguages()
-		result.Details["project_type"] = multiLangConfig.ProjectInfo.ProjectType
+		if multiLangConfig.ProjectInfo != nil {
+			result.Details["project_type"] = multiLangConfig.ProjectInfo.ProjectType
+		}
 		result.Details["server_count"] = len(multiLangConfig.ServerConfigs)
 		result.Details["consistency_check"] = diagnoseCheckConsistency
 		result.Details["generated_at"] = multiLangConfig.GeneratedAt
@@ -1711,7 +1713,6 @@ func runPerformanceDiagnostics(ctx context.Context, report *DiagnosticReport) er
 			result.Details["optimization_strategy"] = strategy.GetOptimizationName()
 			result.Details["performance_settings"] = strategy.GetPerformanceSettings()
 			result.Details["memory_settings"] = strategy.GetMemorySettings()
-			result.Details["resource_limits"] = strategy.GetResourceLimits()
 		}
 
 		// Analyze performance settings against current mode
@@ -1765,9 +1766,18 @@ func runPerformanceDiagnostics(ctx context.Context, report *DiagnosticReport) er
 		if len(cfg.LanguagePools) > 0 {
 			for _, pool := range cfg.LanguagePools {
 				if pool.ResourceLimits != nil {
-					if err := pool.ResourceLimits.Validate(); err != nil {
-						performanceIssues = append(performanceIssues, fmt.Sprintf("Invalid resource limits for %s pool: %v", pool.Language, err))
-						performanceSuggestions = append(performanceSuggestions, fmt.Sprintf("Review resource limits for %s language pool", pool.Language))
+					// Basic validation for resource limits
+					if pool.ResourceLimits.MaxMemoryMB < 0 {
+						performanceIssues = append(performanceIssues, fmt.Sprintf("Invalid negative memory limit for %s pool: %d MB", pool.Language, pool.ResourceLimits.MaxMemoryMB))
+						performanceSuggestions = append(performanceSuggestions, fmt.Sprintf("Set positive memory limit for %s language pool", pool.Language))
+					}
+					if pool.ResourceLimits.MaxConcurrentRequests < 0 {
+						performanceIssues = append(performanceIssues, fmt.Sprintf("Invalid negative concurrent requests for %s pool: %d", pool.Language, pool.ResourceLimits.MaxConcurrentRequests))
+						performanceSuggestions = append(performanceSuggestions, fmt.Sprintf("Set positive concurrent request limit for %s language pool", pool.Language))
+					}
+					if pool.ResourceLimits.RequestTimeoutSeconds < 0 {
+						performanceIssues = append(performanceIssues, fmt.Sprintf("Invalid negative timeout for %s pool: %d seconds", pool.Language, pool.ResourceLimits.RequestTimeoutSeconds))
+						performanceSuggestions = append(performanceSuggestions, fmt.Sprintf("Set positive timeout for %s language pool", pool.Language))
 					}
 				}
 			}
@@ -1853,16 +1863,45 @@ func runRoutingDiagnostics(ctx context.Context, report *DiagnosticReport) error 
 
 				// Validate pool's load balancing configuration
 				if pool.LoadBalancingConfig != nil {
-					if err := pool.LoadBalancingConfig.Validate(); err != nil {
-						routingIssues = append(routingIssues, fmt.Sprintf("Invalid load balancing config for %s pool: %v", pool.Language, err))
-						routingSuggestions = append(routingSuggestions, fmt.Sprintf("Fix load balancing configuration for %s language pool", pool.Language))
+					// Basic validation for load balancing config
+					validStrategies := []string{"round_robin", "least_connections", "response_time", "resource_usage"}
+					strategyValid := false
+					for _, valid := range validStrategies {
+						if pool.LoadBalancingConfig.Strategy == valid {
+							strategyValid = true
+							break
+						}
+					}
+					if !strategyValid {
+						routingIssues = append(routingIssues, fmt.Sprintf("Invalid load balancing strategy for %s pool: %s", pool.Language, pool.LoadBalancingConfig.Strategy))
+						routingSuggestions = append(routingSuggestions, fmt.Sprintf("Use valid load balancing strategy for %s language pool (round_robin, least_connections, response_time, resource_usage)", pool.Language))
+					}
+					if pool.LoadBalancingConfig.HealthThreshold < 0 || pool.LoadBalancingConfig.HealthThreshold > 1 {
+						routingIssues = append(routingIssues, fmt.Sprintf("Invalid health threshold for %s pool: %f", pool.Language, pool.LoadBalancingConfig.HealthThreshold))
+						routingSuggestions = append(routingSuggestions, fmt.Sprintf("Set health threshold between 0 and 1 for %s language pool", pool.Language))
 					}
 				}
 
 				// Check server transport compatibility within pools
-				if err := pool.ValidateServerTransportCompatibility(); err != nil {
-					routingIssues = append(routingIssues, fmt.Sprintf("Transport compatibility issue in %s pool: %v", pool.Language, err))
-					routingSuggestions = append(routingSuggestions, fmt.Sprintf("Review transport configuration for %s language pool", pool.Language))
+				if len(pool.Servers) > 1 {
+					// Basic check for consistent transport configurations
+					var firstTransport string
+					inconsistentTransport := false
+					for _, server := range pool.Servers {
+						if server.Transport == "" {
+							server.Transport = "stdio" // default transport
+						}
+						if firstTransport == "" {
+							firstTransport = server.Transport
+						} else if firstTransport != server.Transport {
+							inconsistentTransport = true
+							break
+						}
+					}
+					if inconsistentTransport {
+						routingIssues = append(routingIssues, fmt.Sprintf("Inconsistent transport configurations in %s pool", pool.Language))
+						routingSuggestions = append(routingSuggestions, fmt.Sprintf("Use consistent transport configuration for all servers in %s language pool", pool.Language))
+					}
 				}
 			}
 
@@ -1889,15 +1928,38 @@ func runRoutingDiagnostics(ctx context.Context, report *DiagnosticReport) error 
 
 		// Analyze global multi-server configuration
 		if cfg.GlobalMultiServerConfig != nil {
-			if err := cfg.GlobalMultiServerConfig.Validate(); err != nil {
-				routingIssues = append(routingIssues, fmt.Sprintf("Invalid global multi-server config: %v", err))
-				routingSuggestions = append(routingSuggestions, "Review global multi-server configuration settings")
+			// Basic validation for global multi-server config
+			if cfg.GlobalMultiServerConfig.ConcurrentLimit < 0 {
+				routingIssues = append(routingIssues, fmt.Sprintf("Invalid negative concurrent limit: %d", cfg.GlobalMultiServerConfig.ConcurrentLimit))
+				routingSuggestions = append(routingSuggestions, "Set positive concurrent limit in global multi-server configuration")
+			}
+			if cfg.GlobalMultiServerConfig.MaxRetries < 0 {
+				routingIssues = append(routingIssues, fmt.Sprintf("Invalid negative max retries: %d", cfg.GlobalMultiServerConfig.MaxRetries))
+				routingSuggestions = append(routingSuggestions, "Set positive max retries in global multi-server configuration")
+			}
+			validStrategies := []string{"performance", "feature", "load_balance", "random"}
+			strategyValid := false
+			for _, valid := range validStrategies {
+				if cfg.GlobalMultiServerConfig.SelectionStrategy == valid {
+					strategyValid = true
+					break
+				}
+			}
+			if !strategyValid && cfg.GlobalMultiServerConfig.SelectionStrategy != "" {
+				routingIssues = append(routingIssues, fmt.Sprintf("Invalid selection strategy: %s", cfg.GlobalMultiServerConfig.SelectionStrategy))
+				routingSuggestions = append(routingSuggestions, "Use valid selection strategy (performance, feature, load_balance, random)")
 			}
 
-			// Check for circular dependencies
-			if err := cfg.GlobalMultiServerConfig.ValidateCircularDependencies(); err != nil {
-				routingIssues = append(routingIssues, fmt.Sprintf("Circular dependency in multi-server config: %v", err))
-				routingSuggestions = append(routingSuggestions, "Remove circular references in server configurations")
+			// Basic circular dependency check
+			if cfg.GlobalMultiServerConfig.Primary != nil && len(cfg.GlobalMultiServerConfig.Secondary) > 0 {
+				// Simple check to ensure primary server is not in secondary list
+				primaryName := cfg.GlobalMultiServerConfig.Primary.Name
+				for _, secondary := range cfg.GlobalMultiServerConfig.Secondary {
+					if secondary != nil && secondary.Name == primaryName {
+						routingIssues = append(routingIssues, fmt.Sprintf("Circular dependency: primary server %s also in secondary list", primaryName))
+						routingSuggestions = append(routingSuggestions, "Remove circular references in server configurations")
+					}
+				}
 			}
 
 			result.Details["global_multi_server_config"] = map[string]interface{}{

@@ -224,6 +224,37 @@ type AggregatorRegistry struct {
 	logger      *mcp.StructuredLogger
 }
 
+// DefaultResponseAggregator is a default implementation of ResponseAggregator
+type DefaultResponseAggregator struct {
+	registry *AggregatorRegistry
+}
+
+// NewResponseAggregator creates a new response aggregator with default configuration
+func NewResponseAggregator(logger *mcp.StructuredLogger) ResponseAggregator {
+	registry := NewAggregatorRegistry(logger)
+	return &DefaultResponseAggregator{registry: registry}
+}
+
+// Aggregate aggregates responses from multiple sources for a generic method
+func (d *DefaultResponseAggregator) Aggregate(responses []interface{}, sources []string) (interface{}, error) {
+	// Use a default method name for generic aggregation
+	result, err := d.registry.AggregateResponses("generic", responses, sources)
+	if err != nil {
+		return nil, err
+	}
+	return result.MergedResponse, nil
+}
+
+// GetAggregationType returns the aggregation type
+func (d *DefaultResponseAggregator) GetAggregationType() string {
+	return "default"
+}
+
+// SupportedMethods returns the list of supported methods
+func (d *DefaultResponseAggregator) SupportedMethods() []string {
+	return []string{"generic"}
+}
+
 // NewAggregatorRegistry creates a new aggregator registry with default aggregators
 func NewAggregatorRegistry(logger *mcp.StructuredLogger) *AggregatorRegistry {
 	registry := &AggregatorRegistry{

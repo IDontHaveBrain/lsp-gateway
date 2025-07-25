@@ -21,6 +21,7 @@ const (
 	RoutingStrategyBroadcast      RoutingStrategyType = "broadcast"
 	RoutingStrategyLoadBalanced   RoutingStrategyType = "load_balanced"
 	RoutingStrategyRoundRobin     RoutingStrategyType = "round_robin"
+	SingleTargetWithFallback      RoutingStrategyType = "single_target_with_fallback"
 )
 
 // RequestLanguageContext contains language-specific context for a request
