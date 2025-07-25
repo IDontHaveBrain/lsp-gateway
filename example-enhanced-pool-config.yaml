@@ -1,0 +1,359 @@
+# Enhanced Pool Management Configuration Example
+# This file demonstrates comprehensive pool configuration for LSP Gateway
+
+# Gateway-level configuration
+port: 8080
+timeout: 30s
+max_concurrent_requests: 100
+log_level: "info"
+enable_metrics: true
+metrics_port: 9090
+
+# Enhanced server configurations with pool management
+servers:
+  # Go Language Server with TCP transport and advanced pooling
+  - name: "go-lsp-enhanced"
+    languages: ["go"]
+    command: "gopls"
+    transport: "tcp"
+    server_name: "gopls-enhanced"
+    root_markers: ["go.mod", "go.sum"]
+    
+    # Enhanced pool configuration
+    pool_config:
+      # Core pool sizing
+      min_size: 2
+      max_size: 15
+      warmup_size: 3
+      
+      # Dynamic sizing with intelligent scaling
+      enable_dynamic_sizing: true
+      target_utilization: 0.75
+      scale_up_threshold: 0.85
+      scale_down_threshold: 0.50
+      
+      # Connection lifecycle management
+      max_lifetime: 45m
+      idle_timeout: 10m
+      health_check_interval: 30s
+      
+      # Circuit breaker configuration
+      max_retries: 4
+      base_delay: 100ms
+      circuit_timeout: 15s
+      
+      # Resource limits
+      memory_limit_mb: 150
+      cpu_limit_percent: 85.0
+      
+      # Transport-specific settings
+      transport_type: "tcp"
+      custom_config:
+        tcp_keepalive: true
+        tcp_nodelay: true
+        connection_reuse: true
+    
+    # Connection settings for TCP transport
+    connection_settings:
+      tcp_address: "localhost"
+      tcp_port: 7070
+      connect_timeout: 15s
+      read_timeout: 30s
+      write_timeout: 30s
+      keep_alive: true
+      keep_alive_period: 30s
+      
+      # TLS configuration (optional)
+      enable_tls: false
+      tls_insecure_skip_verify: false
+    
+    # Health check configuration
+    health_check_settings:
+      enabled: true
+      interval: 45s
+      timeout: 10s
+      failure_threshold: 3
+      success_threshold: 2
+      method: "initialize"
+      enable_auto_restart: true
+      restart_delay: 5s
+      max_consecutive_fails: 5
+    
+    # Additional settings
+    environment:
+      GOPLS_DEBUG: "false"
+      GOPROXY: "https://proxy.golang.org,direct"
+    working_dir: "/workspace"
+    initialization_timeout: 60s
+    log_level: "info"
+    enable_debug: false
+    log_requests: false
+    log_responses: false
+
+  # Python Language Server with STDIO transport (conservative pooling)
+  - name: "python-lsp-enhanced"
+    languages: ["python"]
+    command: "python"
+    args: ["-m", "pylsp"]
+    transport: "stdio"
+    server_name: "pylsp-enhanced"
+    root_markers: ["pyproject.toml", "setup.py", "requirements.txt"]
+    
+    # Conservative pool configuration for STDIO
+    pool_config:
+      min_size: 1
+      max_size: 6
+      warmup_size: 2
+      
+      # More conservative dynamic sizing for process-based connections
+      enable_dynamic_sizing: false
+      target_utilization: 0.80
+      scale_up_threshold: 0.90
+      scale_down_threshold: 0.60
+      
+      # Shorter lifetimes for processes
+      max_lifetime: 20m
+      idle_timeout: 5m
+      health_check_interval: 60s
+      
+      # Higher retry tolerance for process startup
+      max_retries: 6
+      base_delay: 200ms
+      circuit_timeout: 20s
+      
+      # Lower resource limits for STDIO processes
+      memory_limit_mb: 80
+      cpu_limit_percent: 70.0
+      
+      transport_type: "stdio"
+      custom_config:
+        process_isolation: true
+        buffer_management: "automatic"
+        stderr_logging: true
+    
+    # STDIO-specific connection settings
+    connection_settings:
+      buffer_size: 16384
+      stdout_buffer_size: 8192
+      stderr_buffer_size: 4096
+      process_timeout: 45s
+    
+    # More frequent health checks for processes
+    health_check_settings:
+      enabled: true
+      interval: 30s
+      timeout: 15s
+      failure_threshold: 2
+      success_threshold: 1
+      method: "ping"
+      enable_auto_restart: true
+      restart_delay: 3s
+      max_consecutive_fails: 3
+    
+    environment:
+      PYTHONPATH: "/workspace"
+      PYLSP_LOG_LEVEL: "INFO"
+    working_dir: "/workspace"
+    initialization_timeout: 45s
+
+  # TypeScript Language Server with HTTP transport (high-throughput)
+  - name: "typescript-lsp-enhanced"
+    languages: ["typescript", "javascript"]
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    transport: "http"
+    server_name: "tsserver-enhanced"
+    root_markers: ["tsconfig.json", "package.json"]
+    
+    # High-throughput pool configuration for HTTP
+    pool_config:
+      min_size: 3
+      max_size: 25
+      warmup_size: 5
+      
+      # Aggressive scaling for HTTP workloads
+      enable_dynamic_sizing: true
+      target_utilization: 0.65
+      scale_up_threshold: 0.75
+      scale_down_threshold: 0.40
+      
+      # Longer connection lifetimes for HTTP
+      max_lifetime: 60m
+      idle_timeout: 15m
+      health_check_interval: 20s
+      
+      # Lower retry count for HTTP (faster failure detection)
+      max_retries: 2
+      base_delay: 50ms
+      circuit_timeout: 8s
+      
+      # Higher resource limits for HTTP workloads
+      memory_limit_mb: 200
+      cpu_limit_percent: 80.0
+      
+      transport_type: "http"
+      custom_config:
+        connection_pooling: true
+        request_pipelining: false
+        compression: "gzip"
+    
+    # HTTP-specific connection settings
+    connection_settings:
+      http_endpoint: "http://localhost:8081/lsp"
+      http_timeout: 30s
+      max_idle_conns: 100
+      max_conns_per_host: 15
+      
+      # HTTP headers
+      http_headers:
+        "Content-Type": "application/json"
+        "User-Agent": "LSP-Gateway/1.0"
+        "Accept-Encoding": "gzip, deflate"
+      
+      # TLS for HTTPS endpoints
+      enable_tls: false
+      tls_insecure_skip_verify: false
+    
+    # HTTP health check configuration
+    health_check_settings:
+      enabled: true
+      interval: 25s
+      timeout: 8s
+      failure_threshold: 3
+      success_threshold: 1
+      method: "custom"
+      custom_params:
+        endpoint: "/health"
+        expected_status: 200
+      enable_auto_restart: true
+      restart_delay: 2s
+      max_consecutive_fails: 4
+
+  # Java Language Server with mixed configuration (demonstrates flexibility)
+  - name: "java-lsp-mixed"
+    languages: ["java"]
+    command: "jdtls"
+    transport: "stdio"
+    server_name: "jdtls-mixed"
+    root_markers: ["pom.xml", "build.gradle", ".project"]
+    
+    # Balanced configuration mixing features
+    pool_config:
+      min_size: 1
+      max_size: 8
+      warmup_size: 2
+      
+      enable_dynamic_sizing: true
+      target_utilization: 0.70
+      scale_up_threshold: 0.80
+      scale_down_threshold: 0.55
+      
+      max_lifetime: 30m
+      idle_timeout: 8m
+      health_check_interval: 45s
+      
+      max_retries: 4
+      base_delay: 150ms
+      circuit_timeout: 12s
+      
+      memory_limit_mb: 512  # Java needs more memory
+      cpu_limit_percent: 90.0
+      
+      transport_type: "stdio"
+      custom_config:
+        jvm_args: ["-Xmx1g", "-XX:+UseG1GC"]
+        workspace_caching: true
+    
+    connection_settings:
+      buffer_size: 32768  # Larger buffers for Java
+      stdout_buffer_size: 16384
+      stderr_buffer_size: 8192
+      process_timeout: 120s  # Java startup can be slow
+    
+    health_check_settings:
+      enabled: true
+      interval: 60s  # Less frequent for resource-heavy Java
+      timeout: 20s
+      failure_threshold: 4
+      success_threshold: 2
+      method: "initialize"
+      enable_auto_restart: true
+      restart_delay: 10s  # Longer restart delay for Java
+      max_consecutive_fails: 3
+    
+    environment:
+      JAVA_HOME: "/usr/lib/jvm/java-17-openjdk"
+      MAVEN_OPTS: "-Xmx1g"
+      GRADLE_OPTS: "-Xmx1g"
+    working_dir: "/workspace"
+    initialization_timeout: 120s  # Java initialization can be slow
+
+# Global pool management settings
+pool_management:
+  # Global monitoring
+  enable_global_monitoring: true
+  monitoring_interval: 30s
+  
+  # Global resource limits
+  max_total_connections: 100
+  max_total_memory_mb: 2048
+  max_total_cpu_percent: 300.0  # 3 cores worth
+  
+  # Cleanup settings
+  enable_orphan_cleanup: true
+  cleanup_interval: 5m
+  
+  # Metrics collection
+  enable_detailed_metrics: true
+  metrics_retention: 24h
+  metrics_granularity: "1m"
+  
+  # Global circuit breaker settings
+  global_circuit_breaker:
+    enabled: true
+    failure_threshold: 0.50  # 50% failure rate triggers global circuit
+    recovery_timeout: 30s
+    
+  # Emergency settings
+  emergency_mode:
+    enabled: true
+    trigger_error_rate: 0.75
+    trigger_memory_percent: 90.0
+    trigger_cpu_percent: 95.0
+    actions: ["reduce_pool_sizes", "disable_dynamic_sizing", "increase_timeouts"]
+
+# Logging configuration for pool management
+logging:
+  pool_events: true
+  connection_lifecycle: false  # Can be very verbose
+  health_checks: true
+  circuit_breaker_events: true
+  performance_metrics: true
+  
+  # Log levels for different components
+  levels:
+    pool_manager: "info"
+    connection_pool: "warn"
+    health_monitor: "info"
+    circuit_breaker: "warn"
+    metrics_collector: "info"
+
+# Example project-specific overrides (optional)
+project_overrides:
+  # High-performance project
+  - path: "/workspace/high-perf-project"
+    servers:
+      - name: "go-lsp-enhanced"
+        pool_config:
+          max_size: 20  # Increase pool size for high-perf project
+          target_utilization: 0.60  # Lower utilization for faster response
+          memory_limit_mb: 200  # Higher memory limit
+  
+  # Memory-constrained environment
+  - path: "/workspace/low-memory-project"
+    servers:
+      - name: "java-lsp-mixed"
+        pool_config:
+          max_size: 4  # Reduce pool size
+          memory_limit_mb: 256  # Lower memory limit
+          enable_dynamic_sizing: false  # Disable dynamic sizing to save resources

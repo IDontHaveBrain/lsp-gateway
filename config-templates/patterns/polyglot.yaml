@@ -1,0 +1,600 @@
+# Architecture Pattern: Polyglot Multi-Language System
+# Use Case: Complex systems with 4+ programming languages and cross-language dependencies
+# Team Size: 15-50 developers
+# Project Scale: Large (500k-2M LOC)
+# Complexity: High
+# Performance Profile: 95th percentile response time < 500ms, throughput 500-2000 req/s
+# Languages: Go, Python, TypeScript, Java, Rust, C++, etc.
+# When to Use: Microservices architectures, distributed systems, platform engineering
+# Migration Path: Scale from full-stack.yaml, evolve to enterprise.yaml for maximum scale
+
+# Advanced gateway configuration for polyglot systems
+port: 8080
+timeout: "45s"
+max_concurrent_requests: 300
+project_aware: true
+enable_concurrent_servers: true
+max_concurrent_servers_per_language: 4
+enable_metrics: true
+metrics_port: 9090
+log_level: "info"
+
+# Enhanced multi-server configuration for polyglot coordination
+multi_server_config:
+  selection_strategy: "intelligent_routing"
+  concurrent_limit: 4
+  resource_sharing: true
+  health_check_interval: "30s"
+  max_retries: 4
+  enable_cross_language_caching: true
+  cache_ttl: "10m"
+
+# Comprehensive polyglot language server configuration
+servers:
+  # Systems Programming: Go Language Server
+  - name: "go-services"
+    languages: ["go"]
+    command: "gopls"
+    transport: "stdio"
+    priority: 3
+    weight: 3.0
+    root_markers: ["go.mod", "go.sum"]
+    
+    pool_config:
+      min_size: 3
+      max_size: 8
+      warmup_size: 3
+      enable_dynamic_sizing: true
+      target_utilization: 0.70
+      scale_up_threshold: 0.80
+      scale_down_threshold: 0.50
+      max_lifetime: 60m
+      idle_timeout: 20m
+      health_check_interval: 45s
+      max_retries: 4
+      base_delay: 100ms
+      circuit_timeout: 15s
+      memory_limit_mb: 256
+      cpu_limit_percent: 75.0
+      transport_type: "stdio"
+      custom_config:
+        enable_microservices_detection: true
+        cross_service_navigation: true
+    
+    connection_settings:
+      buffer_size: 16384
+      process_timeout: 90s
+    
+    health_check_settings:
+      enabled: true
+      interval: 45s
+      timeout: 15s
+      failure_threshold: 3
+      success_threshold: 2
+      method: "initialize"
+      enable_auto_restart: true
+      restart_delay: 8s
+      max_consecutive_fails: 4
+    
+    settings:
+      gopls:
+        analyses:
+          unusedparams: true
+          shadow: true
+          nilness: true
+        staticcheck: true
+        gofumpt: true
+        importShortcut: "Both"
+        matcher: "Fuzzy"
+    
+    environment:
+      GOPROXY: "https://proxy.golang.org,direct"
+      GOSUMDB: "sum.golang.org"
+      CGO_ENABLED: "1"
+
+  # Data Processing: Python Language Server Pool
+  - name: "python-ml-primary"
+    languages: ["python"]
+    command: "python"
+    args: ["-m", "pylsp"]
+    transport: "stdio"
+    priority: 3
+    weight: 3.0
+    root_markers: ["pyproject.toml", "setup.py", "requirements.txt"]
+    
+    pool_config:
+      min_size: 2
+      max_size: 6
+      warmup_size: 2
+      enable_dynamic_sizing: true
+      target_utilization: 0.75
+      max_lifetime: 45m
+      idle_timeout: 15m
+      health_check_interval: 60s
+      max_retries: 3
+      base_delay: 150ms
+      circuit_timeout: 20s
+      memory_limit_mb: 384
+      cpu_limit_percent: 70.0
+      transport_type: "stdio"
+      custom_config:
+        enable_ml_libraries: true
+        enable_data_science_support: true
+    
+    settings:
+      pylsp:
+        plugins:
+          pycodestyle:
+            enabled: true
+            maxLineLength: 88
+          black:
+            enabled: true
+          isort:
+            enabled: true
+          mypy:
+            enabled: true
+          pylint:
+            enabled: true
+          rope_completion:
+            enabled: true
+          autopep8:
+            enabled: false
+    
+    environment:
+      PYTHONPATH: "/workspace:/workspace/ml:/workspace/data"
+      CUDA_VISIBLE_DEVICES: "0"
+
+  # Frontend/Node.js: TypeScript Language Server
+  - name: "typescript-frontend"
+    languages: ["typescript", "javascript"]
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    transport: "stdio"
+    priority: 2
+    weight: 2.5
+    root_markers: ["tsconfig.json", "package.json"]
+    
+    pool_config:
+      min_size: 3
+      max_size: 7
+      warmup_size: 3
+      enable_dynamic_sizing: true
+      target_utilization: 0.65
+      max_lifetime: 40m
+      idle_timeout: 12m
+      health_check_interval: 40s
+      max_retries: 3
+      base_delay: 100ms
+      circuit_timeout: 12s
+      memory_limit_mb: 512
+      cpu_limit_percent: 80.0
+      transport_type: "stdio"
+    
+    settings:
+      typescript:
+        preferences:
+          includeCompletionsForModuleExports: true
+          includeCompletionsWithInsertText: true
+          includeAutomaticOptionalChainCompletions: true
+        suggest:
+          includeCompletionsForImportStatements: true
+        format:
+          enable: true
+        inlayHints:
+          includeInlayParameterNameHints: "all"
+          includeInlayFunctionParameterTypeHints: true
+    
+    environment:
+      NODE_ENV: "development"
+      NODE_OPTIONS: "--max-old-space-size=4096"
+
+  # Enterprise Backend: Java Language Server
+  - name: "java-enterprise"
+    languages: ["java"]
+    command: "jdtls"
+    transport: "stdio"
+    priority: 2
+    weight: 2.0
+    root_markers: ["pom.xml", "build.gradle", ".project"]
+    
+    pool_config:
+      min_size: 2
+      max_size: 4
+      warmup_size: 2
+      enable_dynamic_sizing: true
+      target_utilization: 0.80
+      max_lifetime: 90m  # Longer for JVM warmup
+      idle_timeout: 30m
+      health_check_interval: 90s
+      max_retries: 4
+      base_delay: 300ms
+      circuit_timeout: 30s
+      memory_limit_mb: 1024  # Java requires more memory
+      cpu_limit_percent: 85.0
+      transport_type: "stdio"
+      custom_config:
+        jvm_args: ["-Xmx2g", "-XX:+UseG1GC", "-XX:+UseStringDeduplication"]
+        enable_spring_boot_support: true
+        enable_maven_support: true
+        enable_gradle_support: true
+    
+    connection_settings:
+      buffer_size: 65536
+      process_timeout: 180s
+    
+    health_check_settings:
+      enabled: true
+      interval: 90s
+      timeout: 45s
+      failure_threshold: 4
+      success_threshold: 2
+      method: "initialize"
+      enable_auto_restart: true
+      restart_delay: 20s
+      max_consecutive_fails: 3
+    
+    environment:
+      JAVA_HOME: "/usr/lib/jvm/java-17-openjdk"
+      MAVEN_OPTS: "-Xmx2g -XX:+UseG1GC"
+      GRADLE_OPTS: "-Xmx2g -Dorg.gradle.daemon=true"
+    
+    initialization_timeout: 180s
+
+  # Systems Performance: Rust Language Server
+  - name: "rust-systems"
+    languages: ["rust"]
+    command: "rust-analyzer"
+    transport: "stdio"
+    priority: 2
+    weight: 2.0
+    root_markers: ["Cargo.toml", "Cargo.lock"]
+    
+    pool_config:
+      min_size: 1
+      max_size: 3
+      warmup_size: 1
+      enable_dynamic_sizing: true
+      target_utilization: 0.75
+      max_lifetime: 75m
+      idle_timeout: 25m
+      health_check_interval: 60s
+      max_retries: 3
+      base_delay: 200ms
+      circuit_timeout: 25s
+      memory_limit_mb: 768
+      cpu_limit_percent: 80.0
+      transport_type: "stdio"
+    
+    settings:
+      rust-analyzer:
+        checkOnSave:
+          command: "clippy"
+        cargo:
+          allFeatures: true
+          loadOutDirsFromCheck: true
+        procMacro:
+          enable: true
+        diagnostics:
+          disabled: ["unresolved-proc-macro"]
+    
+    environment:
+      RUST_LOG: "info"
+      CARGO_INCREMENTAL: "1"
+
+  # High Performance: C++ Language Server
+  - name: "cpp-performance"
+    languages: ["cpp", "c"]
+    command: "clangd"
+    args: ["--background-index", "--clang-tidy"]
+    transport: "stdio"
+    priority: 2
+    weight: 1.5
+    root_markers: ["CMakeLists.txt", "compile_commands.json", ".clangd"]
+    
+    pool_config:
+      min_size: 1
+      max_size: 3
+      warmup_size: 1
+      enable_dynamic_sizing: false  # C++ compilation is expensive
+      max_lifetime: 120m
+      idle_timeout: 40m
+      health_check_interval: 120s
+      max_retries: 2
+      base_delay: 500ms
+      circuit_timeout: 45s
+      memory_limit_mb: 1536
+      cpu_limit_percent: 90.0
+      transport_type: "stdio"
+    
+    connection_settings:
+      buffer_size: 32768
+      process_timeout: 300s
+    
+    health_check_settings:
+      enabled: true
+      interval: 120s
+      timeout: 60s
+      failure_threshold: 2
+      success_threshold: 1
+      method: "initialize"
+      enable_auto_restart: true
+      restart_delay: 30s
+    
+    environment:
+      CC: "clang"
+      CXX: "clang++"
+
+# Advanced language pools with intelligent routing
+language_pools:
+  - language: "go"
+    default_server: "go-services"
+    servers:
+      go-services:
+        name: "go-services"
+        languages: ["go"]
+        command: "gopls"
+        transport: "stdio"
+        priority: 3
+        weight: 3.0
+        max_concurrent_requests: 120
+    load_balancing:
+      strategy: "response_time"
+      health_threshold: 0.85
+      weight_factors:
+        go-services: 3.0
+    resource_limits:
+      max_memory_mb: 1024
+      max_concurrent_requests: 120
+      max_processes: 4
+      request_timeout_seconds: 60
+
+  - language: "python"
+    default_server: "python-ml-primary"
+    servers:
+      python-ml-primary:
+        name: "python-ml-primary"
+        languages: ["python"]
+        command: "python"
+        args: ["-m", "pylsp"]
+        transport: "stdio"
+        priority: 3
+        weight: 3.0
+        max_concurrent_requests: 100
+    load_balancing:
+      strategy: "least_connections"
+      health_threshold: 0.80
+    resource_limits:
+      max_memory_mb: 1536
+      max_concurrent_requests: 100
+      max_processes: 3
+      request_timeout_seconds: 90
+
+  - language: "typescript"
+    default_server: "typescript-frontend"
+    servers:
+      typescript-frontend:
+        name: "typescript-frontend"
+        languages: ["typescript", "javascript"]
+        command: "typescript-language-server"
+        args: ["--stdio"]
+        transport: "stdio"
+        priority: 2
+        weight: 2.5
+        max_concurrent_requests: 140
+    load_balancing:
+      strategy: "round_robin"
+      health_threshold: 0.85
+    resource_limits:
+      max_memory_mb: 2048
+      max_concurrent_requests: 140
+      max_processes: 4
+      request_timeout_seconds: 45
+
+  - language: "java"
+    default_server: "java-enterprise"
+    servers:
+      java-enterprise:
+        name: "java-enterprise"
+        languages: ["java"]
+        command: "jdtls"
+        transport: "stdio"
+        priority: 2
+        weight: 2.0
+        max_concurrent_requests: 60
+    load_balancing:
+      strategy: "weighted_response_time"
+      health_threshold: 0.75
+    resource_limits:
+      max_memory_mb: 4096
+      max_concurrent_requests: 60
+      max_processes: 2
+      request_timeout_seconds: 120
+
+# Polyglot-optimized pool management
+pool_management:
+  enable_global_monitoring: true
+  monitoring_interval: 30s
+  
+  # Large-scale resource limits
+  max_total_connections: 150
+  max_total_memory_mb: 8192
+  max_total_cpu_percent: 600.0  # 6 cores worth
+  
+  enable_orphan_cleanup: true
+  cleanup_interval: 5m
+  enable_detailed_metrics: true
+  metrics_retention: 48h
+  metrics_granularity: "1m"
+  
+  # Advanced circuit breaker for polyglot reliability
+  global_circuit_breaker:
+    enabled: true
+    failure_threshold: 0.40
+    recovery_timeout: 30s
+    enable_language_isolation: true
+  
+  # Emergency mode for resource management
+  emergency_mode:
+    enabled: true
+    trigger_error_rate: 0.70
+    trigger_memory_percent: 85.0
+    trigger_cpu_percent: 90.0
+    actions: ["reduce_pool_sizes", "disable_dynamic_sizing", "prioritize_critical_languages"]
+
+# Comprehensive logging for polyglot systems
+logging:
+  pool_events: true
+  connection_lifecycle: false
+  health_checks: true
+  circuit_breaker_events: true
+  performance_metrics: true
+  cross_language_events: true
+  
+  levels:
+    pool_manager: "info"
+    connection_pool: "warn"
+    health_monitor: "info"
+    circuit_breaker: "info"
+    metrics_collector: "info"
+    cross_language_resolver: "info"
+
+# Polyglot project context
+project_context:
+  project_type: "polyglot_microservices"
+  architecture_style: "microservices"
+  service_count: 15
+  deployment_pattern: "kubernetes"
+  
+  # Cross-language features
+  enable_cross_language_navigation: true
+  enable_polyglot_refactoring: true
+  enable_dependency_analysis: true
+  enable_service_mesh_integration: true
+  
+  # Language-specific roles
+  language_roles:
+    go: ["api_gateway", "services", "infrastructure"]
+    python: ["ml_services", "data_processing", "analytics"]
+    typescript: ["frontend", "node_services", "tooling"]
+    java: ["enterprise_services", "legacy_integration"]
+    rust: ["performance_critical", "system_services"]
+    cpp: ["embedded", "high_performance_compute"]
+
+# Advanced routing for polyglot systems
+routing:
+  strategy: "intelligent_polyglot"
+  enable_caching: true
+  cache_ttl: "10m"
+  enable_request_classification: true
+  
+  # Cross-language routing intelligence
+  cross_language_rules:
+    - from_language: "typescript"
+      to_language: "go"
+      condition: "api_service_call"
+      priority: "high"
+    - from_language: "python"
+      to_language: "go"
+      condition: "microservice_communication"
+      priority: "medium"
+    - from_language: "java"
+      to_language: "python"
+      condition: "ml_model_integration"
+      priority: "medium"
+    - from_language: "any"
+      to_language: "cpp"
+      condition: "performance_critical_path"
+      priority: "highest"
+  
+  # Smart request distribution
+  request_distribution:
+    enable_workload_classification: true
+    enable_resource_awareness: true
+    enable_latency_optimization: true
+
+# Performance targets for polyglot systems
+performance_targets:
+  initialization_time_max: "30s"
+  response_time_p95: "500ms"
+  memory_usage_max: "8GB"
+  cpu_usage_max: "600%"
+  concurrent_requests_max: 300
+  cross_language_navigation_time: "100ms"
+
+# Polyglot testing configuration
+testing:
+  scenarios: ["unit", "integration", "cross_language", "performance", "chaos"]
+  timeout_seconds: 120
+  parallel_execution: true
+  
+  # Cross-language testing
+  enable_contract_testing: true
+  enable_polyglot_integration_tests: true
+  enable_performance_regression_tests: true
+
+# Advanced monitoring and observability
+monitoring:
+  enable_distributed_tracing: true
+  enable_service_mesh_metrics: true
+  enable_cross_language_profiling: true
+  
+  # Language-specific metrics
+  language_metrics:
+    go: ["goroutine_count", "gc_pressure", "memory_usage"]
+    python: ["thread_count", "gil_contention", "memory_usage"]
+    typescript: ["event_loop_lag", "memory_usage", "v8_heap"]
+    java: ["jvm_memory", "gc_time", "thread_count"]
+    rust: ["memory_usage", "compilation_time", "panic_count"]
+    cpp: ["memory_leaks", "compilation_time", "crash_count"]
+  
+  # Cross-cutting concerns
+  enable_security_monitoring: true
+  enable_compliance_monitoring: true
+  enable_cost_monitoring: true
+
+# DevOps and deployment integration
+deployment:
+  container_orchestration: "kubernetes"
+  service_mesh: "istio"
+  monitoring_stack: "prometheus_grafana"
+  logging_stack: "elk"
+  
+  # CI/CD integration
+  build_systems:
+    go: "go_modules"
+    python: "poetry"
+    typescript: "npm"
+    java: "maven"
+    rust: "cargo"
+    cpp: "cmake"
+  
+  # Deployment strategies
+  deployment_strategies:
+    canary_deployment: true
+    blue_green_deployment: true
+    rolling_updates: true
+    feature_flags: true
+
+# Migration guidance for enterprise scale
+migration_notes: |
+  When scaling to enterprise-level polyglot systems:
+  
+  1. For maximum scale: Migrate to enterprise.yaml template
+  2. For specialized domains: Create domain-specific extensions
+  3. For global deployment: Add multi-region configurations
+  
+  Enterprise readiness indicators:
+  - Team size > 50 developers
+  - Service count > 25
+  - Multi-datacenter requirements
+  - Compliance requirements (SOC2, HIPAA, PCI-DSS)
+  - Advanced security and audit needs
+  - Global scale (multi-region deployment)
+  
+  Polyglot optimization strategies:
+  - Implement cross-language symbol caching
+  - Use intelligent request routing based on workload patterns
+  - Enable polyglot refactoring and dependency analysis
+  - Set up comprehensive cross-language testing pipelines
+  - Implement service mesh integration for observability
+  - Use container orchestration for language server scaling

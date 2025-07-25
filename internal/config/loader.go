@@ -41,6 +41,19 @@ func LoadConfig(configPath string) (*GatewayConfig, error) {
 		}
 	}
 
+	// Set defaults for multi-server configuration
+	config.EnsureMultiServerDefaults()
+
+	// Validate multi-server configuration if present
+	if err := config.ValidateMultiServerConfig(); err != nil {
+		return nil, fmt.Errorf("multi-server configuration validation failed: %w", err)
+	}
+
+	// Validate configuration consistency
+	if err := config.ValidateConsistency(); err != nil {
+		return nil, fmt.Errorf("configuration consistency validation failed: %w", err)
+	}
+
 	return &config, nil
 }
 

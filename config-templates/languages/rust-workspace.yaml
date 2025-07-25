@@ -1,0 +1,665 @@
+# Rust Workspace Configuration
+# Language: Rust
+# Framework: Cargo workspace with async runtime, web frameworks, and systems programming
+# Use Case: Rust workspace projects with multiple crates, async web services, and CLI tools
+# Prerequisites: Rust 1.70+, rust-analyzer, cargo, optional: clippy, rustfmt
+# Performance Notes: Optimized for large Rust workspaces with cross-compilation and feature flags
+
+# Gateway configuration for Rust development
+port: 8080
+timeout: "50s"
+max_concurrent_requests: 120
+project_aware: true
+enable_concurrent_servers: true
+max_concurrent_servers_per_language: 3
+
+# Multi-server configuration for Rust
+multi_server_config:
+  selection_strategy: "load_balance"
+  concurrent_limit: 3
+  resource_sharing: true
+  health_check_interval: "40s"
+  max_retries: 3
+
+# Rust workspace project context
+project_context:
+  project_type: "workspace"
+  languages:
+    - language: "rust"
+      frameworks: ["tokio", "axum", "actix-web", "serde", "clap", "diesel"]
+      file_patterns: ["*.rs", "Cargo.toml", "Cargo.lock"]
+      root_markers: ["Cargo.toml", "Cargo.lock", "rust-toolchain.toml"]
+
+# Rust language server pool with workspace optimizations
+language_pools:
+  - language: "rust"
+    default_server: "rust-analyzer-workspace"
+    servers:
+      # Workspace-optimized rust-analyzer
+      rust-analyzer-workspace:
+        name: "rust-analyzer-workspace"
+        languages: ["rust"]
+        command: "rust-analyzer"
+        transport: "stdio"
+        priority: 3
+        weight: 3.0
+        max_concurrent_requests: 100
+        root_markers: ["Cargo.toml", "Cargo.lock", "rust-toolchain.toml"]
+        
+        # Comprehensive rust-analyzer settings for workspace
+        settings:
+          rust-analyzer:
+            # Cargo and workspace settings
+            cargo:
+              allFeatures: true
+              loadOutDirsFromCheck: true
+              runBuildScripts: true
+              useRustcWrapperForBuildScripts: true
+              autoreload: true
+              buildScripts:
+                enable: true
+                invocationStrategy: "per_workspace"
+                overrideCommand: null
+                useRustcWrapper: true
+                
+            # Check configuration
+            checkOnSave:
+              enable: true
+              command: "clippy"
+              extraArgs: ["--all-targets", "--all-features"]
+              allTargets: true
+              
+            # Completion settings
+            completion:
+              addCallArgumentSnippets: true
+              addCallParenthesis: true
+              postfix:
+                enable: true
+              autoimport:
+                enable: true
+                
+            # Diagnostics
+            diagnostics:
+              enable: true
+              enableExperimental: true
+              disabled: []
+              warningsAsHint: []
+              warningsAsInfo: []
+              
+            # Files and directories
+            files:
+              watcher: "notify"
+              excludeDirs: ["target", ".git", "node_modules"]
+              
+            # Highlighting and semantics
+            highlighting:
+              strings: true
+              
+            # Hover configuration
+            hover:
+              documentation:
+                enable: true
+              links:
+                enable: true
+              actions:
+                debug:
+                  enable: true
+                enable: true
+                gotoTypeDef:
+                  enable: true
+                implementations:
+                  enable: true
+                references:
+                  enable: true
+                run:
+                  enable: true
+                  
+            # Inlay hints
+            inlayHints:
+              bindingModeHints:
+                enable: true
+              chainingHints:
+                enable: true
+              closingBraceHints:
+                enable: true
+                minLines: 25
+              closureReturnTypeHints:
+                enable: "with_block"
+              discriminantHints:
+                enable: "fieldless"
+              expressionAdjustmentHints:
+                enable: "reborrow"
+              lifetimeElisionHints:
+                enable: "skip_trivial"
+                useParameterNames: true
+              maxLength: 25
+              parameterHints:
+                enable: true
+              reborrowHints:
+                enable: "mutable"
+              renderColons: true
+              typeHints:
+                enable: true
+                hideClosureInitialization: false
+                hideNamedConstructor: false
+                
+            # Language server features
+            lens:
+              enable: true
+              debug:
+                enable: true
+              implementations:
+                enable: true
+              references:
+                adt:
+                  enable: true
+                enumVariant:
+                  enable: true
+                method:
+                  enable: true
+                trait:
+                  enable: true
+              run:
+                enable: true
+                
+            # Proc macro support
+            procMacro:
+              enable: true
+              attributes:
+                enable: true
+              ignored: {}
+              server: null
+              
+            # Workspace and project settings
+            workspace:
+              symbol:
+                search:
+                  scope: "workspace_and_dependencies"
+                  kind: "all_symbols"
+                  
+            # Rustfmt integration
+            rustfmt:
+              extraArgs: []
+              overrideCommand: null
+              rangeFormatting:
+                enable: false
+                
+        # Rust development environment
+        environment:
+          RUST_BACKTRACE: "1"
+          RUSTFLAGS: "-C target-cpu=native"
+          CARGO_TERM_COLOR: "always"
+          CARGO_INCREMENTAL: "1"
+          
+      # Fast response server for quick operations
+      rust-analyzer-fast:
+        name: "rust-analyzer-fast"
+        languages: ["rust"]
+        command: "rust-analyzer"
+        transport: "stdio"
+        priority: 2
+        weight: 2.0
+        max_concurrent_requests: 60
+        root_markers: ["Cargo.toml"]
+        
+        # Lightweight settings for fast responses
+        settings:
+          rust-analyzer:
+            cargo:
+              allFeatures: false
+              loadOutDirsFromCheck: false
+              runBuildScripts: false
+              
+            checkOnSave:
+              enable: true
+              command: "check"
+              allTargets: false
+              
+            completion:
+              addCallArgumentSnippets: false
+              addCallParenthesis: true
+              
+            diagnostics:
+              enableExperimental: false
+              
+            inlayHints:
+              chainingHints:
+                enable: false
+              parameterHints:
+                enable: false
+              typeHints:
+                enable: false
+                
+            lens:
+              enable: false
+              
+            procMacro:
+              enable: false
+              
+        environment:
+          RUST_BACKTRACE: "0"
+          
+      # Release/production optimized server
+      rust-analyzer-release:
+        name: "rust-analyzer-release"
+        languages: ["rust"]
+        command: "rust-analyzer"
+        transport: "stdio"
+        priority: 1
+        weight: 1.0
+        max_concurrent_requests: 40
+        root_markers: ["Cargo.toml", "Cargo.lock"]
+        
+        # Release-focused settings
+        settings:
+          rust-analyzer:
+            cargo:
+              allFeatures: false
+              target: "x86_64-unknown-linux-gnu"
+              
+            checkOnSave:
+              enable: true
+              command: "clippy"
+              extraArgs: ["--release", "--all-targets"]
+              allTargets: true
+              
+            # Focus on release optimizations
+            completion:
+              addCallArgumentSnippets: false
+              
+            diagnostics:
+              enable: true
+              
+            # Disable development-focused features
+            lens:
+              debug:
+                enable: false
+              run:
+                enable: false
+                
+        environment:
+          CARGO_PROFILE_RELEASE_DEBUG: "false"
+          CARGO_PROFILE_RELEASE_LTO: "true"
+          RUSTFLAGS: "-C target-cpu=native -C opt-level=3"
+          
+    # Load balancing for Rust workloads
+    load_balancing:
+      strategy: "response_time"
+      health_threshold: 0.80
+      weight_factors:
+        rust-analyzer-workspace: 3.0
+        rust-analyzer-fast: 2.0
+        rust-analyzer-release: 1.0
+        
+    # Resource limits for Rust development
+    resource_limits:
+      max_memory_mb: 4096
+      max_concurrent_requests: 200
+      max_processes: 6
+      request_timeout_seconds: 50
+
+# Enhanced pool configuration for Rust servers
+servers:
+  - name: "rust-workspace-pool"
+    languages: ["rust"]
+    command: "rust-analyzer"
+    transport: "stdio"
+    root_markers: ["Cargo.toml", "Cargo.lock"]
+    
+    # Pool configuration optimized for Rust compilation
+    pool_config:
+      min_size: 2
+      max_size: 8
+      warmup_size: 3
+      
+      # Moderate scaling for Rust compilation overhead
+      enable_dynamic_sizing: true
+      target_utilization: 0.75
+      scale_up_threshold: 0.85
+      scale_down_threshold: 0.55
+      
+      # Extended lifetimes for Rust compilation caching
+      max_lifetime: 90m
+      idle_timeout: 25m
+      health_check_interval: 50s
+      
+      # Retry configuration for Rust compilation stability
+      max_retries: 4
+      base_delay: 200ms
+      circuit_timeout: 30s
+      
+      # Memory limits for Rust compilation
+      memory_limit_mb: 768
+      cpu_limit_percent: 90.0
+      
+      transport_type: "stdio"
+      custom_config:
+        rust_analyzer_support: true
+        cargo_integration: true
+        cross_compilation: true
+        
+    # Health monitoring for Rust servers
+    health_check_settings:
+      enabled: true
+      interval: 45s
+      timeout: 20s
+      failure_threshold: 3
+      success_threshold: 2
+      method: "initialize"
+      enable_auto_restart: true
+      restart_delay: 10s
+      max_consecutive_fails: 3
+      
+    # Rust-optimized environment
+    environment:
+      RUST_BACKTRACE: "1"
+      RUSTUP_TOOLCHAIN: "stable"
+      CARGO_HOME: "${workspaceFolder}/.cargo"
+      RUSTUP_HOME: "${workspaceFolder}/.rustup"
+      CARGO_TARGET_DIR: "${workspaceFolder}/target"
+
+# Smart routing for Rust-specific methods
+enable_smart_routing: true
+enable_enhancements: true
+smart_router_config:
+  default_strategy: "single_target_with_fallback"
+  method_strategies:
+    "textDocument/definition": "single_target_with_fallback"
+    "textDocument/references": "multi_target_parallel"
+    "textDocument/hover": "primary_with_enhancement"
+    "textDocument/completion": "single_target_with_fallback"
+    "textDocument/codeAction": "multi_target_parallel"
+    "workspace/symbol": "broadcast_aggregate"
+    "rust-analyzer/runSingle": "single_target_with_fallback"
+    "rust-analyzer/debugSingle": "single_target_with_fallback"
+  enable_performance_monitoring: true
+  enable_circuit_breaker: true
+  circuit_breaker_threshold: 4
+  circuit_breaker_timeout: "20s"
+
+# Rust framework and ecosystem optimizations
+optimizations:
+  rust:
+    # Cargo workspace configuration
+    workspace:
+      members_discovery: true
+      default_members: true
+      resolver: "2"
+      exclude_patterns: ["target", ".git"]
+      
+    # Toolchain management
+    toolchain:
+      channel: "stable"
+      targets: ["x86_64-unknown-linux-gnu", "x86_64-pc-windows-gnu", "aarch64-apple-darwin"]
+      components: ["clippy", "rustfmt", "rust-src", "rust-analyzer"]
+      
+    # Cargo features and dependencies
+    features:
+      default_features: true
+      feature_combinations: ["full", "minimal", "async"]
+      workspace_features: true
+      
+    # Build optimization
+    build:
+      # Profile configurations
+      profiles:
+        dev:
+          debug: true
+          opt_level: 0
+          incremental: true
+          
+        release:
+          debug: false
+          opt_level: 3
+          lto: true
+          codegen_units: 1
+          panic: "abort"
+          
+        test:
+          debug: 2
+          opt_level: 0
+          
+      # Target configurations
+      targets:
+        - name: "x86_64-unknown-linux-gnu"
+          linker: "clang"
+          
+        - name: "x86_64-pc-windows-gnu"
+          linker: "x86_64-w64-mingw32-gcc"
+          
+    # Async runtime support
+    async_runtimes:
+      - name: "tokio"
+        enabled: true
+        features: ["full", "macros", "rt-multi-thread"]
+        version: "1.0"
+        
+      - name: "async-std"
+        enabled: false
+        features: ["attributes"]
+        
+    # Web frameworks
+    web_frameworks:
+      - name: "axum"
+        enabled: true
+        features: ["full", "macros", "ws"]
+        
+      - name: "actix-web"
+        enabled: true
+        features: ["rustls"]
+        
+      - name: "warp"
+        enabled: false
+        
+    # Serialization
+    serialization:
+      - name: "serde"
+        enabled: true
+        features: ["derive"]
+        formats: ["json", "yaml", "toml", "bincode"]
+        
+    # Database integration
+    databases:
+      - name: "diesel"
+        enabled: true
+        features: ["postgres", "chrono", "serde_json"]
+        
+      - name: "sqlx"
+        enabled: true
+        features: ["runtime-tokio-rustls", "postgres", "chrono", "uuid"]
+        
+    # CLI frameworks
+    cli_frameworks:
+      - name: "clap"
+        enabled: true
+        features: ["derive", "env", "wrap_help"]
+        
+      - name: "structopt"
+        enabled: false
+        
+    # Testing frameworks
+    testing:
+      - name: "cargo-test"
+        enabled: true
+        parallel: true
+        
+      - name: "criterion"
+        enabled: true
+        features: ["html_reports"]
+        
+      - name: "proptest"
+        enabled: true
+        
+    # Code quality tools
+    quality:
+      - name: "clippy"
+        enabled: true
+        lints: "all"
+        deny: ["warnings"]
+        
+      - name: "rustfmt"
+        enabled: true
+        edition: "2021"
+        
+      - name: "cargo-audit"
+        enabled: true
+        
+      - name: "cargo-deny"
+        enabled: true
+
+# Framework-specific patterns for Rust
+patterns:
+  rust:
+    # Structure patterns
+    structs:
+      - pattern: "struct\\s+\\w+\\s*\\{"
+        description: "Rust struct definition"
+        
+      - pattern: "#\\[derive\\([^)]+\\)]"
+        description: "Derive macro"
+        
+    # Enum patterns
+    enums:
+      - pattern: "enum\\s+\\w+\\s*\\{"
+        description: "Rust enum definition"
+        
+      - pattern: "match\\s+\\w+\\s*\\{"
+        description: "Pattern matching"
+        
+    # Function patterns
+    functions:
+      - pattern: "fn\\s+\\w+\\s*\\([^)]*\\)"
+        description: "Function definition"
+        
+      - pattern: "async\\s+fn\\s+\\w+"
+        description: "Async function"
+        
+    # Trait patterns
+    traits:
+      - pattern: "trait\\s+\\w+\\s*\\{"
+        description: "Trait definition"
+        
+      - pattern: "impl\\s+.*\\s+for\\s+\\w+"
+        description: "Trait implementation"
+        
+    # Macro patterns
+    macros:
+      - pattern: "macro_rules!\\s+\\w+"
+        description: "Declarative macro"
+        
+      - pattern: "#\\[\\w+\\]"
+        description: "Attribute macro"
+
+# Development workflow integration
+workflow_integration:
+  # Development commands
+  dev_commands:
+    run: "cargo run"
+    build: "cargo build"
+    test: "cargo test"
+    check: "cargo check"
+    clippy: "cargo clippy -- -D warnings"
+    fmt: "cargo fmt"
+    doc: "cargo doc --open"
+    
+  # Cargo workspace commands
+  workspace_commands:
+    build_all: "cargo build --workspace"
+    test_all: "cargo test --workspace"
+    check_all: "cargo check --workspace"
+    
+  # Release process
+  release:
+    build: "cargo build --release"
+    test: "cargo test --release"
+    benchmark: "cargo bench"
+    
+  # Cross-compilation
+  cross_compilation:
+    linux: "cargo build --target x86_64-unknown-linux-gnu"
+    windows: "cargo build --target x86_64-pc-windows-gnu"
+    macos: "cargo build --target x86_64-apple-darwin"
+
+# CI/CD integration
+ci_cd_integration:
+  # GitHub Actions
+  github_actions:
+    rust_versions: ["1.70", "stable", "nightly"]
+    targets: ["x86_64-unknown-linux-gnu", "x86_64-pc-windows-gnu"]
+    
+  # Quality gates
+  quality_gates:
+    - "cargo fmt -- --check"
+    - "cargo clippy -- -D warnings"
+    - "cargo test --all-features"
+    - "cargo audit"
+    
+  # Performance testing
+  performance:
+    benchmarks: "cargo bench"
+    profiling: "cargo flamegraph"
+
+# Container integration
+container_integration:
+  # Docker build
+  dockerfile:
+    base_image: "rust:1.70"
+    build_stage: "rust:1.70"
+    runtime_image: "debian:bookworm-slim"
+    
+  # Multi-stage build optimization
+  build_optimization:
+    cache_cargo_registry: true
+    cache_target_dir: true
+    minimal_runtime: true
+
+# Logging configuration
+logging:
+  rust_analyzer: true
+  cargo_operations: true
+  compilation_progress: true
+  test_execution: true
+  clippy_lints: true
+  levels:
+    rust_analyzer: "info"
+    cargo: "info"
+    compilation: "warn"
+    testing: "debug"
+    linting: "info"
+
+# Performance tuning
+performance_tuning:
+  # Compilation optimization
+  compilation:
+    parallel_jobs: 0  # Use all available cores
+    incremental: true
+    pipelining: true
+    
+  # Memory optimization
+  memory:
+    target_dir_cleanup: true
+    incremental_cleanup: true
+    
+  # Rust analyzer optimization
+  rust_analyzer:
+    proc_macro_srv: true
+    check_on_save_extra_args: ["--all-targets"]
+
+# Migration guide from basic Rust configuration
+migration:
+  from_basic_rust:
+    steps:
+      - "Update to Rust 1.70+"
+      - "Configure Cargo workspace"
+      - "Set up rust-analyzer with workspace support"
+      - "Configure cross-compilation targets"
+      - "Add development tools (clippy, rustfmt)"
+    workspace_specific:
+      - "Configure Cargo.toml workspace settings"
+      - "Set up member crates structure"
+      - "Configure shared dependencies"
+      - "Set up workspace-level features"
+    breaking_changes:
+      - "Requires Rust 1.70+ for workspace inheritance"
+      - "Some older crates may need updates"
+      - "Workspace resolver v2 may change dependency resolution"

@@ -1,0 +1,442 @@
+# Architecture Pattern: Full-Stack Web Application
+# Use Case: Frontend + Backend web applications with 2-3 languages
+# Team Size: 5-25 developers
+# Project Scale: Medium (100k-500k LOC)
+# Complexity: Medium
+# Performance Profile: 95th percentile response time < 300ms, throughput 200-500 req/s
+# Languages: TypeScript/JavaScript (frontend) + Python/Go/Java (backend) + SQL
+# When to Use: Web applications, REST APIs, single-page applications
+# Migration Path: Scale from single-language.yaml, evolve to polyglot.yaml for complex systems
+
+# Gateway configuration optimized for full-stack development
+port: 8080
+timeout: "25s"
+max_concurrent_requests: 150
+project_aware: true  # Enable project-aware routing for multi-language
+enable_concurrent_servers: true
+max_concurrent_servers_per_language: 2
+enable_metrics: true
+metrics_port: 9090
+log_level: "info"
+
+# Multi-server configuration for load balancing
+multi_server_config:
+  selection_strategy: "load_balance"
+  concurrent_limit: 2
+  resource_sharing: true
+  health_check_interval: "45s"
+  max_retries: 3
+
+# Full-stack language server configuration
+servers:
+  # Frontend: TypeScript/JavaScript Language Server
+  - name: "typescript-frontend"
+    languages: ["typescript", "javascript"]
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    transport: "stdio"
+    priority: 2  # High priority for frontend development
+    weight: 2.0
+    root_markers: ["tsconfig.json", "package.json", "jsconfig.json"]
+    
+    # Frontend-optimized pool configuration
+    pool_config:
+      # Higher concurrency for frontend development
+      min_size: 2
+      max_size: 6
+      warmup_size: 2
+      
+      # Enable dynamic sizing for varying frontend workloads
+      enable_dynamic_sizing: true
+      target_utilization: 0.70
+      scale_up_threshold: 0.80
+      scale_down_threshold: 0.50
+      
+      # Moderate lifetimes for frontend code changes
+      max_lifetime: 30m
+      idle_timeout: 10m
+      health_check_interval: 45s
+      
+      max_retries: 3
+      base_delay: 100ms
+      circuit_timeout: 12s
+      
+      # Frontend resource allocation
+      memory_limit_mb: 384
+      cpu_limit_percent: 75.0
+      
+      transport_type: "stdio"
+      custom_config:
+        enable_incremental_compilation: true
+        watch_mode: true
+    
+    connection_settings:
+      buffer_size: 16384
+      stdout_buffer_size: 8192
+      stderr_buffer_size: 4096
+      process_timeout: 60s
+    
+    health_check_settings:
+      enabled: true
+      interval: 45s
+      timeout: 15s
+      failure_threshold: 2
+      success_threshold: 1
+      method: "initialize"
+      enable_auto_restart: true
+      restart_delay: 5s
+      max_consecutive_fails: 3
+    
+    # Frontend-specific TypeScript settings
+    settings:
+      typescript:
+        preferences:
+          includeCompletionsForModuleExports: true
+          includeCompletionsWithInsertText: true
+          includeAutomaticOptionalChainCompletions: true
+        suggest:
+          includeCompletionsForImportStatements: true
+        format:
+          enable: true
+    
+    environment:
+      NODE_ENV: "development"
+      TS_NODE_LOG_LEVEL: "warn"
+
+  # Backend: Python Language Server (example - replace with Go/Java as needed)
+  - name: "python-backend"
+    languages: ["python"]
+    command: "python"
+    args: ["-m", "pylsp"]
+    transport: "stdio"
+    priority: 2
+    weight: 2.0
+    root_markers: ["pyproject.toml", "setup.py", "requirements.txt", "Pipfile"]
+    
+    # Backend-optimized pool configuration
+    pool_config:
+      min_size: 2
+      max_size: 5
+      warmup_size: 2
+      
+      enable_dynamic_sizing: true
+      target_utilization: 0.75
+      scale_up_threshold: 0.85
+      scale_down_threshold: 0.55
+      
+      # Longer lifetimes for backend stability
+      max_lifetime: 45m
+      idle_timeout: 15m
+      health_check_interval: 60s
+      
+      max_retries: 3
+      base_delay: 150ms
+      circuit_timeout: 15s
+      
+      # Backend resource allocation
+      memory_limit_mb: 256
+      cpu_limit_percent: 70.0
+      
+      transport_type: "stdio"
+      custom_config:
+        enable_django_support: true
+        enable_flask_support: true
+        enable_fastapi_support: true
+    
+    connection_settings:
+      buffer_size: 12288
+      process_timeout: 60s
+    
+    health_check_settings:
+      enabled: true
+      interval: 60s
+      timeout: 20s
+      failure_threshold: 2
+      success_threshold: 1
+      method: "ping"
+      enable_auto_restart: true
+      restart_delay: 8s
+      max_consecutive_fails: 3
+    
+    # Backend Python settings with web framework support
+    settings:
+      pylsp:
+        plugins:
+          pycodestyle:
+            enabled: true
+            maxLineLength: 88
+          black:
+            enabled: true
+          isort:
+            enabled: true
+          pylint:
+            enabled: true
+          mypy:
+            enabled: true
+          rope_completion:
+            enabled: true
+    
+    environment:
+      PYTHONPATH: "/workspace:/workspace/backend"
+      DJANGO_SETTINGS_MODULE: "config.settings"
+      FLASK_ENV: "development"
+
+  # Alternative Backend: Go Language Server (uncomment if using Go)
+  # - name: "go-backend"
+  #   languages: ["go"]
+  #   command: "gopls"
+  #   transport: "stdio"
+  #   priority: 2
+  #   weight: 2.0
+  #   root_markers: ["go.mod", "go.sum"]
+  #   
+  #   pool_config:
+  #     min_size: 2
+  #     max_size: 4
+  #     warmup_size: 2
+  #     enable_dynamic_sizing: true
+  #     target_utilization: 0.75
+  #     max_lifetime: 45m
+  #     idle_timeout: 15m
+  #     health_check_interval: 60s
+  #     max_retries: 3
+  #     base_delay: 100ms
+  #     circuit_timeout: 15s
+  #     memory_limit_mb: 192
+  #     cpu_limit_percent: 70.0
+  #     transport_type: "stdio"
+  #   
+  #   settings:
+  #     gopls:
+  #       analyses:
+  #         unusedparams: true
+  #         shadow: true
+  #       staticcheck: true
+  #       gofumpt: true
+
+  # Database: SQL Language Server (for database schemas and queries)
+  - name: "sql-lsp"
+    languages: ["sql"]
+    command: "sql-language-server"
+    args: ["up", "--method", "stdio"]
+    transport: "stdio"
+    priority: 1
+    weight: 1.0
+    root_markers: ["schema.sql", "migrations/", ".sql"]
+    
+    # Lightweight pool for SQL
+    pool_config:
+      min_size: 1
+      max_size: 2
+      warmup_size: 1
+      enable_dynamic_sizing: false
+      max_lifetime: 60m
+      idle_timeout: 20m
+      health_check_interval: 90s
+      max_retries: 2
+      base_delay: 200ms
+      circuit_timeout: 10s
+      memory_limit_mb: 64
+      cpu_limit_percent: 30.0
+      transport_type: "stdio"
+    
+    connection_settings:
+      buffer_size: 4096
+      process_timeout: 30s
+    
+    health_check_settings:
+      enabled: true
+      interval: 90s
+      timeout: 10s
+      failure_threshold: 2
+      success_threshold: 1
+      method: "initialize"
+      enable_auto_restart: true
+      restart_delay: 5s
+
+# Advanced language pools for full-stack coordination
+language_pools:
+  - language: "typescript"
+    default_server: "typescript-frontend"
+    servers:
+      typescript-frontend:
+        name: "typescript-frontend"
+        languages: ["typescript", "javascript"]
+        command: "typescript-language-server"
+        args: ["--stdio"]
+        transport: "stdio"
+        priority: 2
+        weight: 2.0
+        max_concurrent_requests: 80
+        root_markers: ["tsconfig.json", "package.json"]
+    load_balancing:
+      strategy: "round_robin"
+      health_threshold: 0.85
+    resource_limits:
+      max_memory_mb: 768
+      max_concurrent_requests: 80
+      max_processes: 3
+      request_timeout_seconds: 30
+
+  - language: "python"
+    default_server: "python-backend"
+    servers:
+      python-backend:
+        name: "python-backend"
+        languages: ["python"]
+        command: "python"
+        args: ["-m", "pylsp"]
+        transport: "stdio"
+        priority: 2
+        weight: 2.0
+        max_concurrent_requests: 60
+        root_markers: ["pyproject.toml", "setup.py", "requirements.txt"]
+    load_balancing:
+      strategy: "response_time"
+      health_threshold: 0.80
+    resource_limits:
+      max_memory_mb: 512
+      max_concurrent_requests: 60
+      max_processes: 2
+      request_timeout_seconds: 45
+
+# Full-stack pool management
+pool_management:
+  enable_global_monitoring: true
+  monitoring_interval: 45s
+  
+  # Resource limits for full-stack development
+  max_total_connections: 50
+  max_total_memory_mb: 2048
+  max_total_cpu_percent: 200.0  # 2 cores worth
+  
+  enable_orphan_cleanup: true
+  cleanup_interval: 8m
+  enable_detailed_metrics: true
+  metrics_retention: 12h
+  metrics_granularity: "2m"
+  
+  # Circuit breaker for full-stack reliability
+  global_circuit_breaker:
+    enabled: true
+    failure_threshold: 0.60
+    recovery_timeout: 45s
+
+# Full-stack logging configuration
+logging:
+  pool_events: true
+  connection_lifecycle: false
+  health_checks: true
+  circuit_breaker_events: true
+  performance_metrics: true
+  
+  levels:
+    pool_manager: "info"
+    connection_pool: "warn"
+    health_monitor: "info"
+    circuit_breaker: "info"
+    metrics_collector: "info"
+
+# Full-stack project context
+project_context:
+  project_type: "full_stack_web"
+  frontend_framework: "react"  # or "vue", "angular", "svelte"
+  backend_framework: "django"   # or "flask", "fastapi", "gin", "spring"
+  database_type: "postgresql"   # or "mysql", "mongodb", "sqlite"
+  api_style: "rest"            # or "graphql", "grpc"
+  deployment_target: "docker"   # or "kubernetes", "serverless"
+  
+  # Architecture-specific features
+  enable_hot_reload: true
+  enable_cross_language_navigation: true
+  enable_api_schema_validation: true
+  
+  # Development workflow optimizations
+  auto_restart_on_config_changes: true
+  enable_workspace_symbols_across_languages: true
+
+# Full-stack routing strategies
+routing:
+  strategy: "project_aware"
+  enable_caching: true
+  cache_ttl: "5m"
+  
+  # Cross-language routing rules
+  cross_language_rules:
+    - from_language: "typescript"
+      to_language: "python"
+      condition: "api_call_detection"
+    - from_language: "python"
+      to_language: "sql"
+      condition: "database_query_detection"
+
+# Performance targets for full-stack development
+performance_targets:
+  initialization_time_max: "10s"
+  response_time_p95: "300ms"
+  memory_usage_max: "2GB"
+  cpu_usage_max: "200%"
+  concurrent_requests_max: 150
+
+# Full-stack specific testing configuration
+testing:
+  scenarios: ["frontend", "backend", "integration", "api"]
+  timeout_seconds: 45
+  parallel_execution: true
+  
+  # Test environment setup
+  test_databases: ["test_db"]
+  mock_external_apis: true
+  enable_e2e_testing: true
+
+# Development environment integration
+development:
+  # Hot reload support
+  enable_file_watching: true
+  watch_patterns: ["*.ts", "*.js", "*.py", "*.sql"]
+  ignore_patterns: ["node_modules/", "__pycache__/", ".git/"]
+  
+  # Build tool integration
+  build_tools:
+    frontend: "webpack"  # or "vite", "rollup", "parcel"
+    backend: "poetry"    # or "pip", "pipenv", "go_modules"
+  
+  # Development server coordination
+  proxy_config:
+    frontend_port: 3000
+    backend_port: 8000
+    api_prefix: "/api"
+
+# Deployment preparation
+deployment:
+  build_optimization: true
+  enable_source_maps: true
+  minification: true
+  compression: true
+  
+  # Production readiness checks
+  security_scan: true
+  dependency_audit: true
+  performance_budget_check: true
+
+# Migration guidance for scaling
+migration_notes: |
+  When scaling beyond full-stack web applications:
+  
+  1. For multiple microservices: Consider polyglot.yaml template
+  2. For enterprise scale: Migrate to enterprise.yaml template
+  3. For specialized domains: Create domain-specific configurations
+  
+  Scaling indicators:
+  - Adding 3+ programming languages
+  - Microservices architecture (5+ services)
+  - Team size > 25 developers
+  - Multi-datacenter deployment requirements
+  - Advanced monitoring and observability needs
+  - Compliance and security requirements (SOC2, HIPAA, etc.)
+  
+  Full-stack optimization tips:
+  - Use shared caching between frontend and backend LSP servers
+  - Enable cross-language symbol resolution
+  - Configure build tool integration for faster development cycles
+  - Set up environment-specific configurations (dev/staging/prod)

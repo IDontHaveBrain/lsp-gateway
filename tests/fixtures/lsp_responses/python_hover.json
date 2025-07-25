@@ -1,0 +1,16 @@
+{
+  "contents": {
+    "kind": "markdown",
+    "value": "```python\ndef handle_request(request: Request) -> Response\n```\n\nHandle incoming HTTP request and return appropriate response.\n\n**Args:**\n- `request`: The incoming HTTP request object\n\n**Returns:**\n- `Response`: HTTP response object\n\n**Raises:**\n- `ValueError`: If request is invalid\n- `HTTPException`: If processing fails\n\n**Module:** src.handlers.request_handler"
+  },
+  "range": {
+    "start": {
+      "line": 25,
+      "character": 4
+    },
+    "end": {
+      "line": 25,
+      "character": 18
+    }
+  }
+}

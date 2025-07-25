@@ -1,0 +1,29 @@
+{
+  "name": "multi-language-service",
+  "type": "multi-language",
+  "languages": ["go", "python", "typescript", "java"],
+  "structure": {
+    "go.mod": "module multi-language-service\n\ngo 1.19\n\nrequire github.com/gin-gonic/gin v1.9.1",
+    "cmd/main.go": "package main\n\nimport \"fmt\"\n\nfunc main() {\n\tmain, err := server.NewServer()\n\tif err != nil {\n\t\tpanic(err)\n\t}\n\tmain.Start()\n}",
+    "pkg/server/handler.go": "package server\n\nimport \"net/http\"\n\nfunc HandleRequest(w http.ResponseWriter, r *http.Request) {\n\tw.WriteHeader(http.StatusOK)\n\tw.Write([]byte(\"Hello from Go\"))\n}",
+    "src/handlers/request_handler.py": "from typing import Dict, Any\n\ndef handle_request(request: Dict[str, Any]) -> Dict[str, Any]:\n    \"\"\"Handle incoming request\"\"\"\n    return {\"message\": \"Hello from Python\", \"status\": \"success\"}",
+    "src/services/ApiService.ts": "export class ApiService {\n    public handleRequest(data: any): Promise<any> {\n        return Promise.resolve({\n            message: \"Hello from TypeScript\",\n            status: \"success\"\n        });\n    }\n}",
+    "src/main/java/com/example/gateway/RequestController.java": "package com.example.gateway;\n\nimport org.springframework.web.bind.annotation.*;\n\n@RestController\npublic class RequestController {\n    \n    @PostMapping(\"/api/request\")\n    public ResponseEntity<String> handleRequest(@RequestBody String data) {\n        return ResponseEntity.ok(\"Hello from Java\");\n    }\n}",
+    "package.json": "{\n  \"name\": \"multi-language-service\",\n  \"version\": \"1.0.0\",\n  \"dependencies\": {\n    \"express\": \"^4.18.0\",\n    \"typescript\": \"^4.9.0\"\n  }\n}",
+    "requirements.txt": "fastapi==0.68.0\\nuvicorn==0.15.0\\nrequests==2.26.0",
+    "pom.xml": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\">\\n    <modelVersion>4.0.0</modelVersion>\\n    <groupId>com.example</groupId>\\n    <artifactId>gateway</artifactId>\\n    <version>1.0.0</version>\\n    <packaging>jar</packaging>\\n</project>"
+  },
+  "build_files": ["go.mod", "package.json", "requirements.txt", "pom.xml"],
+  "test_files": [
+    "pkg/server/handler_test.go",
+    "src/handlers/test_request_handler.py",
+    "src/services/__tests__/ApiService.test.ts",
+    "src/test/java/com/example/gateway/RequestControllerTest.java"
+  ],
+  "dependencies": {
+    "go": ["github.com/gin-gonic/gin"],
+    "python": ["fastapi", "uvicorn"],
+    "typescript": ["express", "typescript"],
+    "java": ["org.springframework.boot:spring-boot-starter-web"]
+  }
+}

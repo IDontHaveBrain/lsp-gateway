@@ -1,0 +1,74 @@
+[
+  {
+    "name": "HandleRequest",
+    "kind": 12,
+    "location": {
+      "uri": "file:///workspace/pkg/server/handler.go",
+      "range": {
+        "start": {
+          "line": 42,
+          "character": 5
+        },
+        "end": {
+          "line": 42,
+          "character": 17
+        }
+      }
+    },
+    "containerName": "server"
+  },
+  {
+    "name": "handle_request",
+    "kind": 12,
+    "location": {
+      "uri": "file:///workspace/src/handlers/request_handler.py",
+      "range": {
+        "start": {
+          "line": 25,
+          "character": 4
+        },
+        "end": {
+          "line": 25,
+          "character": 18
+        }
+      }
+    },
+    "containerName": "request_handler"
+  },
+  {
+    "name": "handleRequest",
+    "kind": 6,
+    "location": {
+      "uri": "file:///workspace/src/services/ApiService.ts",
+      "range": {
+        "start": {
+          "line": 32,
+          "character": 8
+        },
+        "end": {
+          "line": 32,
+          "character": 21
+        }
+      }
+    },
+    "containerName": "ApiService"
+  },
+  {
+    "name": "handleRequest",
+    "kind": 6,
+    "location": {
+      "uri": "file:///workspace/src/main/java/com/example/gateway/RequestController.java",
+      "range": {
+        "start": {
+          "line": 28,
+          "character": 16
+        },
+        "end": {
+          "line": 28,
+          "character": 29
+        }
+      }
+    },
+    "containerName": "RequestController"
+  }
+]

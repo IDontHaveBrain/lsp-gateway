@@ -1,0 +1,499 @@
+# Python Django Framework Configuration
+# Language: Python
+# Framework: Django with DRF, Celery, and modern Python tooling
+# Use Case: Django web applications with REST APIs, background tasks, and microservices
+# Prerequisites: Python 3.8+, pylsp, django, djangorestframework
+# Performance Notes: Optimized for Django project structure with virtual environment support
+
+# Gateway configuration for Django development
+port: 8080
+timeout: "40s"
+max_concurrent_requests: 120
+project_aware: true
+enable_concurrent_servers: true
+max_concurrent_servers_per_language: 3
+
+# Multi-server configuration for Python/Django
+multi_server_config:
+  selection_strategy: "load_balance"
+  concurrent_limit: 3
+  resource_sharing: true
+  health_check_interval: "35s"
+  max_retries: 4
+
+# Django project context
+project_context:
+  project_type: "monorepo"
+  languages:
+    - language: "python"
+      frameworks: ["django", "djangorestframework", "celery", "channels"]
+      file_patterns: ["*.py", "requirements*.txt", "pyproject.toml", "setup.py", "manage.py"]
+      root_markers: ["manage.py", "pyproject.toml", "setup.py", "requirements.txt", "django.settings"]
+
+# Python language server pool with Django optimizations
+language_pools:
+  - language: "python"
+    default_server: "pylsp-django"
+    servers:
+      # Django-optimized server with full features
+      pylsp-django:
+        name: "pylsp-django"
+        languages: ["python"]
+        command: "pylsp"
+        transport: "stdio"
+        priority: 3
+        weight: 3.0
+        max_concurrent_requests: 100
+        root_markers: ["manage.py", "pyproject.toml", "setup.py"]
+        
+        # Django-specific pylsp configuration
+        settings:
+          pylsp:
+            # Core plugins
+            plugins:
+              # Code completion and navigation
+              jedi_completion:
+                enabled: true
+                include_params: true
+                include_class_objects: true
+                include_function_objects: true
+                fuzzy: true
+                eager: true
+                resolve_at_most: 25
+                
+              jedi_definition:
+                enabled: true
+                follow_imports: true
+                follow_builtin_imports: true
+                
+              jedi_hover:
+                enabled: true
+                
+              jedi_references:
+                enabled: true
+                
+              jedi_signature_help:
+                enabled: true
+                
+              # Django-specific features
+              jedi_symbols:
+                enabled: true
+                all_scopes: true
+                include_import_symbols: true
+                
+              # Code quality
+              pycodestyle:
+                enabled: true
+                ignore: ["E501", "W503", "E203"]  # Django-friendly ignores
+                maxLineLength: 88  # Black formatter compatibility
+                
+              pyflakes:
+                enabled: true
+                
+              mccabe:
+                enabled: true
+                threshold: 15
+                
+              # Advanced linting
+              pylint:
+                enabled: true
+                args: ["--load-plugins=pylint_django", "--django-settings-module=myproject.settings"]
+                
+              # Type checking
+              mypy:
+                enabled: true
+                live_mode: true
+                strict: false
+                overrides:
+                  - module: "django.*"
+                    ignore_missing_imports: true
+                    
+              # Import sorting
+              isort:
+                enabled: true
+                profile: "django"
+                
+              # Auto-formatting
+              black:
+                enabled: true
+                line_length: 88
+                skip_string_normalization: false
+                
+              # Documentation
+              pydocstyle:
+                enabled: false  # Often too strict for Django
+                
+        # Django project environment
+        environment:
+          DJANGO_SETTINGS_MODULE: "myproject.settings.development"
+          PYTHONPATH: "${workspaceFolder}:${workspaceFolder}/apps"
+          DJANGO_DEBUG: "1"
+          
+      # Fast response server for basic operations
+      pylsp-fast:
+        name: "pylsp-fast"
+        languages: ["python"]
+        command: "pylsp"
+        args: ["--check-parent-process"]
+        transport: "stdio"
+        priority: 2
+        weight: 2.0
+        max_concurrent_requests: 60
+        root_markers: ["manage.py", "requirements.txt"]
+        
+        # Lightweight configuration for quick responses
+        settings:
+          pylsp:
+            plugins:
+              jedi_completion:
+                enabled: true
+                eager: false
+                resolve_at_most: 10
+              jedi_definition:
+                enabled: true
+              jedi_hover:
+                enabled: true
+              pycodestyle:
+                enabled: true
+                ignore: ["E501", "W503", "E203"]
+              pyflakes:
+                enabled: true
+              # Disable heavy plugins for speed
+              pylint:
+                enabled: false
+              mypy:
+                enabled: false
+              black:
+                enabled: false
+                
+        environment:
+          DJANGO_SETTINGS_MODULE: "myproject.settings.development"
+          
+      # Testing-focused server
+      pylsp-test:
+        name: "pylsp-test"
+        languages: ["python"]
+        command: "pylsp"
+        transport: "stdio"
+        priority: 2
+        weight: 1.5
+        max_concurrent_requests: 40
+        root_markers: ["manage.py", "pytest.ini", "conftest.py"]
+        
+        # Test-optimized settings
+        settings:
+          pylsp:
+            plugins:
+              jedi_completion:
+                enabled: true
+                include_params: true
+              jedi_definition:
+                enabled: true
+              # Testing-specific linting
+              pycodestyle:
+                enabled: true
+                ignore: ["E501", "W503", "E203", "E731"]  # Allow lambdas in tests
+              pyflakes:
+                enabled: true
+              pylint:
+                enabled: true
+                args: ["--load-plugins=pylint_django,pylint_pytest", "--django-settings-module=myproject.settings.test"]
+                
+        environment:
+          DJANGO_SETTINGS_MODULE: "myproject.settings.test"
+          PYTHONPATH: "${workspaceFolder}:${workspaceFolder}/apps:${workspaceFolder}/tests"
+          
+    # Load balancing for Django workloads
+    load_balancing:
+      strategy: "least_connections"
+      health_threshold: 0.80
+      weight_factors:
+        pylsp-django: 3.0
+        pylsp-fast: 2.0
+        pylsp-test: 1.5
+        
+    # Resource limits for Python/Django
+    resource_limits:
+      max_memory_mb: 2048
+      max_concurrent_requests: 200
+      max_processes: 6
+      request_timeout_seconds: 40
+
+# Enhanced pool configuration for Python servers
+servers:
+  - name: "python-django-pool"
+    languages: ["python"]
+    command: "python"
+    args: ["-m", "pylsp"]
+    transport: "stdio"
+    root_markers: ["manage.py", "pyproject.toml", "setup.py", "requirements.txt"]
+    
+    # Pool configuration optimized for Django
+    pool_config:
+      min_size: 2
+      max_size: 8
+      warmup_size: 3
+      
+      # Conservative scaling for Python processes
+      enable_dynamic_sizing: true
+      target_utilization: 0.75
+      scale_up_threshold: 0.85
+      scale_down_threshold: 0.55
+      
+      # Python process lifecycle
+      max_lifetime: 30m
+      idle_timeout: 10m
+      health_check_interval: 45s
+      
+      # Retry configuration for Python stability
+      max_retries: 6
+      base_delay: 200ms
+      circuit_timeout: 25s
+      
+      # Memory limits for Python processes
+      memory_limit_mb: 256
+      cpu_limit_percent: 75.0
+      
+      transport_type: "stdio"
+      custom_config:
+        process_isolation: true
+        virtual_env_support: true
+        django_support: true
+        
+    # Health monitoring for Python/Django
+    health_check_settings:
+      enabled: true
+      interval: 40s
+      timeout: 15s
+      failure_threshold: 3
+      success_threshold: 2
+      method: "ping"
+      enable_auto_restart: true
+      restart_delay: 8s
+      max_consecutive_fails: 3
+      
+    # Django-optimized environment
+    environment:
+      PYTHONPATH: "${workspaceFolder}:${workspaceFolder}/apps"
+      DJANGO_SETTINGS_MODULE: "myproject.settings.development"
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      VIRTUAL_ENV: "${workspaceFolder}/.venv"
+
+# Smart routing for Django-specific methods
+enable_smart_routing: true
+enable_enhancements: true
+smart_router_config:
+  default_strategy: "single_target_with_fallback"
+  method_strategies:
+    "textDocument/definition": "single_target_with_fallback"
+    "textDocument/references": "multi_target_parallel"
+    "textDocument/hover": "primary_with_enhancement"
+    "textDocument/completion": "single_target_with_fallback"
+    "textDocument/codeAction": "multi_target_parallel"
+    "workspace/symbol": "broadcast_aggregate"
+  enable_performance_monitoring: true
+  enable_circuit_breaker: true
+  circuit_breaker_threshold: 4
+  circuit_breaker_timeout: "20s"
+
+# Django framework optimizations
+optimizations:
+  python:
+    # Virtual environment management
+    virtual_env:
+      auto_detect: true
+      activation_scripts: [".venv/bin/activate", "venv/bin/activate", ".env/bin/activate"]
+      requirements_files: ["requirements.txt", "requirements-dev.txt", "pyproject.toml"]
+      
+    # Django-specific features
+    django:
+      settings_modules:
+        - "myproject.settings.development"
+        - "myproject.settings.production"
+        - "myproject.settings.test"
+        
+      apps_discovery: true
+      model_completion: true
+      template_support: true
+      url_completion: true
+      
+      # Django project structure
+      project_structure:
+        apps_directory: "apps"
+        settings_directory: "config"
+        templates_directory: "templates"
+        static_directory: "static"
+        media_directory: "media"
+        
+    # Package management
+    package_managers:
+      - name: "pip"
+        requirements_files: ["requirements.txt", "requirements-dev.txt"]
+        
+      - name: "poetry"
+        config_file: "pyproject.toml"
+        settings:
+          virtual_env_in_project: true
+          
+      - name: "pipenv"
+        config_files: ["Pipfile", "Pipfile.lock"]
+        
+    # Code quality tools
+    linting:
+      - name: "black"
+        enabled: true
+        line_length: 88
+        target_version: ["py38", "py39", "py310", "py311"]
+        
+      - name: "isort"
+        enabled: true
+        profile: "django"
+        line_length: 88
+        
+      - name: "flake8"
+        enabled: true
+        max_line_length: 88
+        ignore: ["E203", "E501", "W503"]
+        
+      - name: "pylint"
+        enabled: true
+        django_settings_module: "myproject.settings.development"
+        load_plugins: ["pylint_django", "pylint_celery"]
+        
+    # Testing frameworks
+    testing:
+      - name: "pytest"
+        enabled: true
+        config_file: "pytest.ini"
+        settings:
+          django_settings_module: "myproject.settings.test"
+          addopts: "--reuse-db --nomigrations"
+          
+      - name: "django_test"
+        enabled: true
+        settings:
+          test_runner: "django.test.runner.DiscoverRunner"
+          
+      - name: "factory_boy"
+        enabled: true
+        factories_directory: "tests/factories"
+        
+    # Database integration
+    databases:
+      - name: "postgresql"
+        enabled: true
+        connection_settings:
+          host: "localhost"
+          port: 5432
+          
+      - name: "redis"
+        enabled: true
+        connection_settings:
+          host: "localhost"
+          port: 6379
+          
+    # Async framework support
+    async_frameworks:
+      - name: "channels"
+        enabled: true
+        settings:
+          websocket_support: true
+          consumer_discovery: true
+          
+      - name: "celery"
+        enabled: true
+        settings:
+          task_discovery: true
+          broker_url: "redis://localhost:6379/0"
+
+# Framework-specific patterns
+patterns:
+  django:
+    # Model patterns
+    models:
+      - pattern: "class.*\\(models\\.Model\\):"
+        description: "Django model class"
+        
+    # View patterns  
+    views:
+      - pattern: "class.*\\(.*View\\):"
+        description: "Django class-based view"
+        
+      - pattern: "def.*\\(request[,)].*:"
+        description: "Django function-based view"
+        
+    # URL patterns
+    urls:
+      - pattern: "path\\("
+        description: "Django URL pattern"
+        
+      - pattern: "re_path\\("
+        description: "Django regex URL pattern"
+        
+    # Template patterns
+    templates:
+      - pattern: "\\{\\%.*\\%\\}"
+        description: "Django template tag"
+        
+      - pattern: "\\{\\{.*\\}\\}"
+        description: "Django template variable"
+
+# Development workflow integration
+workflow_integration:
+  # Django management commands
+  management_commands:
+    - "python manage.py runserver"
+    - "python manage.py migrate"
+    - "python manage.py collectstatic"
+    - "python manage.py test"
+    - "python manage.py shell"
+    
+  # Development server
+  dev_server:
+    command: "python manage.py runserver"
+    port: 8000
+    auto_reload: true
+    
+  # Database migrations
+  migrations:
+    auto_detect: true
+    commands:
+      - "python manage.py makemigrations"
+      - "python manage.py migrate"
+      
+  # Static files
+  static_files:
+    collect_command: "python manage.py collectstatic --noinput"
+    directories: ["static", "staticfiles"]
+
+# Logging configuration
+logging:
+  django_servers: true
+  virtual_env_detection: true
+  database_queries: false  # Can be verbose
+  migration_tracking: true
+  levels:
+    pylsp: "info"
+    django: "info"
+    database: "warn"
+    celery: "info"
+
+# Migration guide from basic Python configuration
+migration:
+  from_basic_python:
+    steps:
+      - "Install Django and djangorestframework"
+      - "Configure DJANGO_SETTINGS_MODULE"
+      - "Set up virtual environment"
+      - "Install pylint-django plugin"
+      - "Configure project structure detection"
+    django_specific:
+      - "Update settings.py for development/production"
+      - "Configure database connections"
+      - "Set up Celery for background tasks"
+      - "Configure static files and media handling"
+    breaking_changes:
+      - "Requires Django 3.2+ for full support"
+      - "Virtual environment must be activated"
+      - "DJANGO_SETTINGS_MODULE must be set"
