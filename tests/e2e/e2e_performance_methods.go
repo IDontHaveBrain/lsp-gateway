@@ -2,7 +2,6 @@ package e2e_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -20,14 +19,14 @@ import (
 // PerformanceTestMethods provides comprehensive performance testing capabilities
 // for E2E framework with metrics collection and validation
 type PerformanceTestMethods struct {
-	mockClient          *mocks.MockMcpClient
-	profiler           *framework.PerformanceProfiler
-	testFramework      *framework.MultiLanguageTestFramework
-	ctx                context.Context
-	logger             *log.Logger
+	mockClient    *mocks.MockMcpClient
+	profiler      *framework.PerformanceProfiler
+	testFramework *framework.MultiLanguageTestFramework
+	ctx           context.Context
+	logger        *log.Logger
 
 	// Configuration
-	defaultConcurrency     int
+	defaultConcurrency    int
 	defaultDuration       time.Duration
 	maxRequestsPerSecond  float64
 	performanceThresholds *PerformanceThresholds
@@ -56,41 +55,41 @@ type PerformanceThresholds struct {
 
 // BaselineMetrics captures system baseline for comparison
 type BaselineMetrics struct {
-	Timestamp          time.Time             `json:"timestamp"`
-	MemoryUsageMB      int64                 `json:"memory_usage_mb"`
-	GoroutineCount     int                   `json:"goroutine_count"`
-	MethodLatencies    map[string]int64      `json:"method_latencies"`
-	ConnectionMetrics  mcp.ConnectionMetrics `json:"connection_metrics"`
-	SystemLoadAverage  float64               `json:"system_load_average"`
-	CPUUsagePercent    float64               `json:"cpu_usage_percent"`
+	Timestamp         time.Time             `json:"timestamp"`
+	MemoryUsageMB     int64                 `json:"memory_usage_mb"`
+	GoroutineCount    int                   `json:"goroutine_count"`
+	MethodLatencies   map[string]int64      `json:"method_latencies"`
+	ConnectionMetrics mcp.ConnectionMetrics `json:"connection_metrics"`
+	SystemLoadAverage float64               `json:"system_load_average"`
+	CPUUsagePercent   float64               `json:"cpu_usage_percent"`
 }
 
 // PerformanceOperation tracks an active performance test operation
 type PerformanceOperation struct {
-	ID               string                    `json:"id"`
-	OperationType    string                    `json:"operation_type"`
-	StartTime        time.Time                 `json:"start_time"`
-	EndTime          time.Time                 `json:"end_time"`
-	Concurrency      int                       `json:"concurrency"`
-	Duration         time.Duration             `json:"duration"`
-	RequestMetrics   []RequestPerformanceData  `json:"request_metrics"`
-	ResourceMetrics  []ResourceUsageSnapshot   `json:"resource_metrics"`
-	ThroughputData   []ThroughputMeasurement   `json:"throughput_data"`
-	LatencyData      []LatencyMeasurement      `json:"latency_data"`
-	ErrorData        []ErrorOccurrence         `json:"error_data"`
-	ProfilerMetrics  *framework.PerformanceMetrics `json:"profiler_metrics"`
+	ID              string                        `json:"id"`
+	OperationType   string                        `json:"operation_type"`
+	StartTime       time.Time                     `json:"start_time"`
+	EndTime         time.Time                     `json:"end_time"`
+	Concurrency     int                           `json:"concurrency"`
+	Duration        time.Duration                 `json:"duration"`
+	RequestMetrics  []RequestPerformanceData      `json:"request_metrics"`
+	ResourceMetrics []ResourceUsageSnapshot       `json:"resource_metrics"`
+	ThroughputData  []ThroughputMeasurement       `json:"throughput_data"`
+	LatencyData     []LatencyMeasurement          `json:"latency_data"`
+	ErrorData       []ErrorOccurrence             `json:"error_data"`
+	ProfilerMetrics *framework.PerformanceMetrics `json:"profiler_metrics"`
 }
 
 // RequestPerformanceData captures individual request performance
 type RequestPerformanceData struct {
-	RequestID    string            `json:"request_id"`
-	Method       string            `json:"method"`
-	StartTime    time.Time         `json:"start_time"`
-	EndTime      time.Time         `json:"end_time"`
-	Duration     time.Duration     `json:"duration"`
-	Success      bool              `json:"success"`
-	Error        string            `json:"error,omitempty"`
-	ResponseSize int               `json:"response_size"`
+	RequestID    string                 `json:"request_id"`
+	Method       string                 `json:"method"`
+	StartTime    time.Time              `json:"start_time"`
+	EndTime      time.Time              `json:"end_time"`
+	Duration     time.Duration          `json:"duration"`
+	Success      bool                   `json:"success"`
+	Error        string                 `json:"error,omitempty"`
+	ResponseSize int                    `json:"response_size"`
 	Params       map[string]interface{} `json:"params,omitempty"`
 }
 
@@ -106,54 +105,54 @@ type ResourceUsageSnapshot struct {
 
 // ThroughputMeasurement captures throughput over time
 type ThroughputMeasurement struct {
-	Timestamp       time.Time `json:"timestamp"`
-	RequestsPerSec  float64   `json:"requests_per_sec"`
-	ConcurrentReqs  int       `json:"concurrent_requests"`
-	ActiveConnections int     `json:"active_connections"`
+	Timestamp         time.Time `json:"timestamp"`
+	RequestsPerSec    float64   `json:"requests_per_sec"`
+	ConcurrentReqs    int       `json:"concurrent_requests"`
+	ActiveConnections int       `json:"active_connections"`
 }
 
 // LatencyMeasurement captures latency distribution data
 type LatencyMeasurement struct {
-	Timestamp     time.Time `json:"timestamp"`
-	Method        string    `json:"method"`
-	LatencyMs     int64     `json:"latency_ms"`
-	P50LatencyMs  int64     `json:"p50_latency_ms"`
-	P95LatencyMs  int64     `json:"p95_latency_ms"`
-	P99LatencyMs  int64     `json:"p99_latency_ms"`
-	MaxLatencyMs  int64     `json:"max_latency_ms"`
+	Timestamp    time.Time `json:"timestamp"`
+	Method       string    `json:"method"`
+	LatencyMs    int64     `json:"latency_ms"`
+	P50LatencyMs int64     `json:"p50_latency_ms"`
+	P95LatencyMs int64     `json:"p95_latency_ms"`
+	P99LatencyMs int64     `json:"p99_latency_ms"`
+	MaxLatencyMs int64     `json:"max_latency_ms"`
 }
 
 // ErrorOccurrence captures error events during testing
 type ErrorOccurrence struct {
-	Timestamp     time.Time           `json:"timestamp"`
-	RequestID     string              `json:"request_id"`
-	Method        string              `json:"method"`
-	ErrorType     string              `json:"error_type"`
-	ErrorMessage  string              `json:"error_message"`
-	ErrorCategory mcp.ErrorCategory   `json:"error_category"`
+	Timestamp     time.Time              `json:"timestamp"`
+	RequestID     string                 `json:"request_id"`
+	Method        string                 `json:"method"`
+	ErrorType     string                 `json:"error_type"`
+	ErrorMessage  string                 `json:"error_message"`
+	ErrorCategory mcp.ErrorCategory      `json:"error_category"`
 	Params        map[string]interface{} `json:"params,omitempty"`
 }
 
 // TimestampedMetrics captures metrics over time for trend analysis
 type TimestampedMetrics struct {
-	Timestamp         time.Time                `json:"timestamp"`
-	ConnectionMetrics mcp.ConnectionMetrics    `json:"connection_metrics"`
-	ResourceMetrics   ResourceUsageSnapshot    `json:"resource_metrics"`
-	ThroughputMetrics ThroughputMeasurement    `json:"throughput_metrics"`
-	LatencyMetrics    LatencyMeasurement       `json:"latency_metrics"`
-	ActiveOperations  int                      `json:"active_operations"`
+	Timestamp         time.Time             `json:"timestamp"`
+	ConnectionMetrics mcp.ConnectionMetrics `json:"connection_metrics"`
+	ResourceMetrics   ResourceUsageSnapshot `json:"resource_metrics"`
+	ThroughputMetrics ThroughputMeasurement `json:"throughput_metrics"`
+	LatencyMetrics    LatencyMeasurement    `json:"latency_metrics"`
+	ActiveOperations  int                   `json:"active_operations"`
 }
 
 // PerformanceRegressionBaseline stores baseline data for regression detection
 type PerformanceRegressionBaseline struct {
-	Version           string                    `json:"version"`
-	Timestamp         time.Time                 `json:"timestamp"`
-	MethodLatencies   map[string]int64          `json:"method_latencies"`
-	ThroughputData    map[string]float64        `json:"throughput_data"`
-	MemoryUsageData   map[string]int64          `json:"memory_usage_data"`
-	ErrorRates        map[string]float64        `json:"error_rates"`
-	ResourceUsage     ResourceUsageSnapshot     `json:"resource_usage"`
-	ValidationResults map[string]bool           `json:"validation_results"`
+	Version           string                `json:"version"`
+	Timestamp         time.Time             `json:"timestamp"`
+	MethodLatencies   map[string]int64      `json:"method_latencies"`
+	ThroughputData    map[string]float64    `json:"throughput_data"`
+	MemoryUsageData   map[string]int64      `json:"memory_usage_data"`
+	ErrorRates        map[string]float64    `json:"error_rates"`
+	ResourceUsage     ResourceUsageSnapshot `json:"resource_usage"`
+	ValidationResults map[string]bool       `json:"validation_results"`
 }
 
 // LoadTestingScenarioConfig configures load testing parameters
@@ -171,121 +170,121 @@ type LoadTestingScenarioConfig struct {
 
 // LoadTestingResult contains comprehensive load testing results
 type LoadTestingResult struct {
-	Config                *LoadTestingScenarioConfig `json:"config"`
-	StartTime             time.Time                   `json:"start_time"`
-	EndTime               time.Time                   `json:"end_time"`
-	ActualDuration        time.Duration               `json:"actual_duration"`
-	TotalRequests         int64                       `json:"total_requests"`
-	SuccessfulRequests    int64                       `json:"successful_requests"`
-	FailedRequests        int64                       `json:"failed_requests"`
-	AverageThroughput     float64                     `json:"average_throughput"`
-	PeakThroughput        float64                     `json:"peak_throughput"`
-	AverageLatencyMs      int64                       `json:"average_latency_ms"`
-	P95LatencyMs          int64                       `json:"p95_latency_ms"`
-	P99LatencyMs          int64                       `json:"p99_latency_ms"`
-	MaxLatencyMs          int64                       `json:"max_latency_ms"`
-	ErrorRatePercent      float64                     `json:"error_rate_percent"`
-	MemoryUsageGrowthMB   int64                       `json:"memory_usage_growth_mb"`
-	PeakMemoryUsageMB     int64                       `json:"peak_memory_usage_mb"`
-	GoroutineGrowth       int                         `json:"goroutine_growth"`
-	MethodPerformance     map[string]*MethodBenchmarkResult `json:"method_performance"`
-	ResourceUtilization   []ResourceUsageSnapshot     `json:"resource_utilization"`
-	ThroughputOverTime    []ThroughputMeasurement     `json:"throughput_over_time"`
-	LatencyDistribution   map[string]int              `json:"latency_distribution"`
-	ErrorBreakdown        map[string]int              `json:"error_breakdown"`
-	ThresholdViolations   []string                    `json:"threshold_violations"`
-	Success               bool                        `json:"success"`
+	Config              *LoadTestingScenarioConfig        `json:"config"`
+	StartTime           time.Time                         `json:"start_time"`
+	EndTime             time.Time                         `json:"end_time"`
+	ActualDuration      time.Duration                     `json:"actual_duration"`
+	TotalRequests       int64                             `json:"total_requests"`
+	SuccessfulRequests  int64                             `json:"successful_requests"`
+	FailedRequests      int64                             `json:"failed_requests"`
+	AverageThroughput   float64                           `json:"average_throughput"`
+	PeakThroughput      float64                           `json:"peak_throughput"`
+	AverageLatencyMs    int64                             `json:"average_latency_ms"`
+	P95LatencyMs        int64                             `json:"p95_latency_ms"`
+	P99LatencyMs        int64                             `json:"p99_latency_ms"`
+	MaxLatencyMs        int64                             `json:"max_latency_ms"`
+	ErrorRatePercent    float64                           `json:"error_rate_percent"`
+	MemoryUsageGrowthMB int64                             `json:"memory_usage_growth_mb"`
+	PeakMemoryUsageMB   int64                             `json:"peak_memory_usage_mb"`
+	GoroutineGrowth     int                               `json:"goroutine_growth"`
+	MethodPerformance   map[string]*MethodBenchmarkResult `json:"method_performance"`
+	ResourceUtilization []ResourceUsageSnapshot           `json:"resource_utilization"`
+	ThroughputOverTime  []ThroughputMeasurement           `json:"throughput_over_time"`
+	LatencyDistribution map[string]int                    `json:"latency_distribution"`
+	ErrorBreakdown      map[string]int                    `json:"error_breakdown"`
+	ThresholdViolations []string                          `json:"threshold_violations"`
+	Success             bool                              `json:"success"`
 }
 
 // MethodBenchmarkResult contains benchmarking results for a specific LSP method
 type MethodBenchmarkResult struct {
-	Method              string                      `json:"method"`
-	TotalRequests       int64                       `json:"total_requests"`
-	SuccessfulRequests  int64                       `json:"successful_requests"`
-	FailedRequests      int64                       `json:"failed_requests"`
-	AverageLatencyMs    int64                       `json:"average_latency_ms"`
-	MinLatencyMs        int64                       `json:"min_latency_ms"`
-	MaxLatencyMs        int64                       `json:"max_latency_ms"`
-	P50LatencyMs        int64                       `json:"p50_latency_ms"`
-	P95LatencyMs        int64                       `json:"p95_latency_ms"`
-	P99LatencyMs        int64                       `json:"p99_latency_ms"`
-	ThroughputReqPerSec float64                     `json:"throughput_req_per_sec"`
-	ErrorRatePercent    float64                     `json:"error_rate_percent"`
-	ResponseSizes       []int                       `json:"response_sizes"`
-	LatencyHistory      []int64                     `json:"latency_history"`
-	Iterations          int                         `json:"iterations"`
-	BenchmarkDuration   time.Duration               `json:"benchmark_duration"`
-	MemoryUsageDelta    int64                       `json:"memory_usage_delta"`
-	Errors              []ErrorOccurrence           `json:"errors"`
+	Method              string            `json:"method"`
+	TotalRequests       int64             `json:"total_requests"`
+	SuccessfulRequests  int64             `json:"successful_requests"`
+	FailedRequests      int64             `json:"failed_requests"`
+	AverageLatencyMs    int64             `json:"average_latency_ms"`
+	MinLatencyMs        int64             `json:"min_latency_ms"`
+	MaxLatencyMs        int64             `json:"max_latency_ms"`
+	P50LatencyMs        int64             `json:"p50_latency_ms"`
+	P95LatencyMs        int64             `json:"p95_latency_ms"`
+	P99LatencyMs        int64             `json:"p99_latency_ms"`
+	ThroughputReqPerSec float64           `json:"throughput_req_per_sec"`
+	ErrorRatePercent    float64           `json:"error_rate_percent"`
+	ResponseSizes       []int             `json:"response_sizes"`
+	LatencyHistory      []int64           `json:"latency_history"`
+	Iterations          int               `json:"iterations"`
+	BenchmarkDuration   time.Duration     `json:"benchmark_duration"`
+	MemoryUsageDelta    int64             `json:"memory_usage_delta"`
+	Errors              []ErrorOccurrence `json:"errors"`
 }
 
 // MemoryUsagePatternResult contains memory usage analysis results
 type MemoryUsagePatternResult struct {
-	StartTime              time.Time                 `json:"start_time"`
-	EndTime                time.Time                 `json:"end_time"`
-	InitialMemoryMB        int64                     `json:"initial_memory_mb"`
-	PeakMemoryMB           int64                     `json:"peak_memory_mb"`
-	FinalMemoryMB          int64                     `json:"final_memory_mb"`
-	MemoryGrowthMB         int64                     `json:"memory_growth_mb"`
-	NetMemoryChangeMB      int64                     `json:"net_memory_change_mb"`
-	MemoryLeakDetected     bool                      `json:"memory_leak_detected"`
-	GCEfficiency           float64                   `json:"gc_efficiency"`
-	HeapAllocations        int64                     `json:"heap_allocations"`
-	HeapReleases           int64                     `json:"heap_releases"`
-	GCCount                uint32                    `json:"gc_count"`
-	GCPauseTotalMs         int64                     `json:"gc_pause_total_ms"`
-	MemoryUsageOverTime    []ResourceUsageSnapshot   `json:"memory_usage_over_time"`
-	MemorySpikes           []MemorySpike             `json:"memory_spikes"`
-	LargeRequestHandling   *LargeRequestMemoryAnalysis `json:"large_request_handling"`
-	MemoryPressureEvents   []MemoryPressureEvent     `json:"memory_pressure_events"`
-	MemoryStabilityScore   float64                   `json:"memory_stability_score"`
-	ThresholdViolations    []string                  `json:"threshold_violations"`
+	StartTime            time.Time                   `json:"start_time"`
+	EndTime              time.Time                   `json:"end_time"`
+	InitialMemoryMB      int64                       `json:"initial_memory_mb"`
+	PeakMemoryMB         int64                       `json:"peak_memory_mb"`
+	FinalMemoryMB        int64                       `json:"final_memory_mb"`
+	MemoryGrowthMB       int64                       `json:"memory_growth_mb"`
+	NetMemoryChangeMB    int64                       `json:"net_memory_change_mb"`
+	MemoryLeakDetected   bool                        `json:"memory_leak_detected"`
+	GCEfficiency         float64                     `json:"gc_efficiency"`
+	HeapAllocations      int64                       `json:"heap_allocations"`
+	HeapReleases         int64                       `json:"heap_releases"`
+	GCCount              uint32                      `json:"gc_count"`
+	GCPauseTotalMs       int64                       `json:"gc_pause_total_ms"`
+	MemoryUsageOverTime  []ResourceUsageSnapshot     `json:"memory_usage_over_time"`
+	MemorySpikes         []MemorySpike               `json:"memory_spikes"`
+	LargeRequestHandling *LargeRequestMemoryAnalysis `json:"large_request_handling"`
+	MemoryPressureEvents []MemoryPressureEvent       `json:"memory_pressure_events"`
+	MemoryStabilityScore float64                     `json:"memory_stability_score"`
+	ThresholdViolations  []string                    `json:"threshold_violations"`
 }
 
 // MemorySpike represents a significant memory usage increase
 type MemorySpike struct {
-	Timestamp     time.Time `json:"timestamp"`
-	MemoryMB      int64     `json:"memory_mb"`
-	SpikeMagnitude int64    `json:"spike_magnitude"`
-	Duration      time.Duration `json:"duration"`
-	TriggerEvent  string    `json:"trigger_event"`
+	Timestamp      time.Time     `json:"timestamp"`
+	MemoryMB       int64         `json:"memory_mb"`
+	SpikeMagnitude int64         `json:"spike_magnitude"`
+	Duration       time.Duration `json:"duration"`
+	TriggerEvent   string        `json:"trigger_event"`
 }
 
 // LargeRequestMemoryAnalysis analyzes memory behavior during large requests
 type LargeRequestMemoryAnalysis struct {
-	LargeRequestCount    int64         `json:"large_request_count"`
-	AverageMemorySpikeMB int64         `json:"average_memory_spike_mb"`
-	MaxMemorySpikeMB     int64         `json:"max_memory_spike_mb"`
-	RecoveryTimeMs       int64         `json:"recovery_time_ms"`
-	TimeoutOccurrences   int           `json:"timeout_occurrences"`
-	MemoryLeakIndicators bool          `json:"memory_leak_indicators"`
+	LargeRequestCount    int64 `json:"large_request_count"`
+	AverageMemorySpikeMB int64 `json:"average_memory_spike_mb"`
+	MaxMemorySpikeMB     int64 `json:"max_memory_spike_mb"`
+	RecoveryTimeMs       int64 `json:"recovery_time_ms"`
+	TimeoutOccurrences   int   `json:"timeout_occurrences"`
+	MemoryLeakIndicators bool  `json:"memory_leak_indicators"`
 }
 
 // MemoryPressureEvent represents a memory pressure situation
 type MemoryPressureEvent struct {
-	Timestamp        time.Time `json:"timestamp"`
-	MemoryUsageMB    int64     `json:"memory_usage_mb"`
-	PressureLevel    string    `json:"pressure_level"`
-	GCTriggered      bool      `json:"gc_triggered"`
-	RequestsAffected int       `json:"requests_affected"`
+	Timestamp        time.Time     `json:"timestamp"`
+	MemoryUsageMB    int64         `json:"memory_usage_mb"`
+	PressureLevel    string        `json:"pressure_level"`
+	GCTriggered      bool          `json:"gc_triggered"`
+	RequestsAffected int           `json:"requests_affected"`
 	RecoveryTime     time.Duration `json:"recovery_time"`
 }
 
 // LatencyValidationResult contains latency threshold validation results
 type LatencyValidationResult struct {
-	Method                 string                   `json:"method"`
-	SampleCount            int                      `json:"sample_count"`
-	ExpectedLatencyMs      int64                    `json:"expected_latency_ms"`
-	ActualAverageLatencyMs int64                    `json:"actual_average_latency_ms"`
-	P95LatencyMs           int64                    `json:"p95_latency_ms"`
-	P99LatencyMs           int64                    `json:"p99_latency_ms"`
-	MaxLatencyMs           int64                    `json:"max_latency_ms"`
-	LatencyViolations      int                      `json:"latency_violations"`
-	ThresholdExceedances   []LatencyExceedance      `json:"threshold_exceedances"`
-	LatencyDistribution    map[string]int           `json:"latency_distribution"`
-	LatencyTrend           []LatencyMeasurement     `json:"latency_trend"`
-	ValidationSuccess      bool                     `json:"validation_success"`
-	ViolationPercent       float64                  `json:"violation_percent"`
+	Method                 string               `json:"method"`
+	SampleCount            int                  `json:"sample_count"`
+	ExpectedLatencyMs      int64                `json:"expected_latency_ms"`
+	ActualAverageLatencyMs int64                `json:"actual_average_latency_ms"`
+	P95LatencyMs           int64                `json:"p95_latency_ms"`
+	P99LatencyMs           int64                `json:"p99_latency_ms"`
+	MaxLatencyMs           int64                `json:"max_latency_ms"`
+	LatencyViolations      int                  `json:"latency_violations"`
+	ThresholdExceedances   []LatencyExceedance  `json:"threshold_exceedances"`
+	LatencyDistribution    map[string]int       `json:"latency_distribution"`
+	LatencyTrend           []LatencyMeasurement `json:"latency_trend"`
+	ValidationSuccess      bool                 `json:"validation_success"`
+	ViolationPercent       float64              `json:"violation_percent"`
 }
 
 // LatencyExceedance represents a latency threshold violation
@@ -300,20 +299,20 @@ type LatencyExceedance struct {
 
 // ThroughputTestResult contains throughput limit testing results
 type ThroughputTestResult struct {
-	TargetThroughputReqPerSec float64                   `json:"target_throughput_req_per_sec"`
-	ActualThroughputReqPerSec float64                   `json:"actual_throughput_req_per_sec"`
-	PeakThroughputReqPerSec   float64                   `json:"peak_throughput_req_per_sec"`
-	ThroughputEfficiency      float64                   `json:"throughput_efficiency"`
-	SustainedThroughput       float64                   `json:"sustained_throughput"`
-	ThroughputVariability     float64                   `json:"throughput_variability"`
-	ThroughputOverTime        []ThroughputMeasurement   `json:"throughput_over_time"`
-	BottleneckPoints          []ThroughputBottleneck    `json:"bottleneck_points"`
+	TargetThroughputReqPerSec float64                    `json:"target_throughput_req_per_sec"`
+	ActualThroughputReqPerSec float64                    `json:"actual_throughput_req_per_sec"`
+	PeakThroughputReqPerSec   float64                    `json:"peak_throughput_req_per_sec"`
+	ThroughputEfficiency      float64                    `json:"throughput_efficiency"`
+	SustainedThroughput       float64                    `json:"sustained_throughput"`
+	ThroughputVariability     float64                    `json:"throughput_variability"`
+	ThroughputOverTime        []ThroughputMeasurement    `json:"throughput_over_time"`
+	BottleneckPoints          []ThroughputBottleneck     `json:"bottleneck_points"`
 	ScalingBehavior           *ThroughputScalingAnalysis `json:"scaling_behavior"`
-	ResourceLimitations       []ResourceLimitation      `json:"resource_limitations"`
-	ErrorImpact               *ThroughputErrorAnalysis  `json:"error_impact"`
-	ThresholdValidation       bool                      `json:"threshold_validation"`
-	OptimalConcurrency        int                       `json:"optimal_concurrency"`
-	MaxSustainableThroughput  float64                   `json:"max_sustainable_throughput"`
+	ResourceLimitations       []ResourceLimitation       `json:"resource_limitations"`
+	ErrorImpact               *ThroughputErrorAnalysis   `json:"error_impact"`
+	ThresholdValidation       bool                       `json:"threshold_validation"`
+	OptimalConcurrency        int                        `json:"optimal_concurrency"`
+	MaxSustainableThroughput  float64                    `json:"max_sustainable_throughput"`
 }
 
 // ThroughputBottleneck identifies throughput limiting factors
@@ -329,12 +328,12 @@ type ThroughputBottleneck struct {
 
 // ThroughputScalingAnalysis analyzes how throughput scales with concurrency
 type ThroughputScalingAnalysis struct {
-	ConcurrencyPoints      []ConcurrencyThroughputPoint `json:"concurrency_points"`
-	LinearScalingLimit     int                          `json:"linear_scaling_limit"`
-	DegradationPoint       int                          `json:"degradation_point"`
-	OptimalConcurrency     int                          `json:"optimal_concurrency"`
-	ScalingEfficiency      float64                      `json:"scaling_efficiency"`
-	ThroughputCeiling      float64                      `json:"throughput_ceiling"`
+	ConcurrencyPoints  []ConcurrencyThroughputPoint `json:"concurrency_points"`
+	LinearScalingLimit int                          `json:"linear_scaling_limit"`
+	DegradationPoint   int                          `json:"degradation_point"`
+	OptimalConcurrency int                          `json:"optimal_concurrency"`
+	ScalingEfficiency  float64                      `json:"scaling_efficiency"`
+	ThroughputCeiling  float64                      `json:"throughput_ceiling"`
 }
 
 // ConcurrencyThroughputPoint represents throughput at a specific concurrency level
@@ -348,11 +347,11 @@ type ConcurrencyThroughputPoint struct {
 
 // ResourceLimitation identifies resource constraints affecting throughput
 type ResourceLimitation struct {
-	ResourceType    string  `json:"resource_type"`
+	ResourceType       string  `json:"resource_type"`
 	UtilizationPercent float64 `json:"utilization_percent"`
-	LimitReached    bool    `json:"limit_reached"`
+	LimitReached       bool    `json:"limit_reached"`
 	ImpactOnThroughput float64 `json:"impact_on_throughput"`
-	RecommendedAction string `json:"recommended_action"`
+	RecommendedAction  string  `json:"recommended_action"`
 }
 
 // ThroughputErrorAnalysis analyzes how errors affect throughput
@@ -365,82 +364,82 @@ type ThroughputErrorAnalysis struct {
 
 // PerformanceRegressionResult contains regression test results
 type PerformanceRegressionResult struct {
-	BaselineVersion       string                        `json:"baseline_version"`
-	CurrentVersion        string                        `json:"current_version"`
-	ComparisonTimestamp   time.Time                     `json:"comparison_timestamp"`
-	MethodComparisons     map[string]*MethodRegression  `json:"method_comparisons"`
-	ThroughputRegression  *ThroughputRegressionAnalysis `json:"throughput_regression"`
-	MemoryRegression      *MemoryRegressionAnalysis     `json:"memory_regression"`
-	LatencyRegression     *LatencyRegressionAnalysis    `json:"latency_regression"`
-	ErrorRateRegression   *ErrorRateRegressionAnalysis  `json:"error_rate_regression"`
-	OverallRegressionScore float64                      `json:"overall_regression_score"`
-	RegressionDetected    bool                          `json:"regression_detected"`
-	RegressionSeverity    string                        `json:"regression_severity"`
-	RecommendedActions    []string                      `json:"recommended_actions"`
-	DetailedReport        string                        `json:"detailed_report"`
+	BaselineVersion        string                        `json:"baseline_version"`
+	CurrentVersion         string                        `json:"current_version"`
+	ComparisonTimestamp    time.Time                     `json:"comparison_timestamp"`
+	MethodComparisons      map[string]*MethodRegression  `json:"method_comparisons"`
+	ThroughputRegression   *ThroughputRegressionAnalysis `json:"throughput_regression"`
+	MemoryRegression       *MemoryRegressionAnalysis     `json:"memory_regression"`
+	LatencyRegression      *LatencyRegressionAnalysis    `json:"latency_regression"`
+	ErrorRateRegression    *ErrorRateRegressionAnalysis  `json:"error_rate_regression"`
+	OverallRegressionScore float64                       `json:"overall_regression_score"`
+	RegressionDetected     bool                          `json:"regression_detected"`
+	RegressionSeverity     string                        `json:"regression_severity"`
+	RecommendedActions     []string                      `json:"recommended_actions"`
+	DetailedReport         string                        `json:"detailed_report"`
 }
 
 // MethodRegression analyzes performance regression for a specific method
 type MethodRegression struct {
-	Method                string  `json:"method"`
-	BaselineLatencyMs     int64   `json:"baseline_latency_ms"`
-	CurrentLatencyMs      int64   `json:"current_latency_ms"`
-	LatencyChangePercent  float64 `json:"latency_change_percent"`
-	BaselineThroughput    float64 `json:"baseline_throughput"`
-	CurrentThroughput     float64 `json:"current_throughput"`
+	Method                  string  `json:"method"`
+	BaselineLatencyMs       int64   `json:"baseline_latency_ms"`
+	CurrentLatencyMs        int64   `json:"current_latency_ms"`
+	LatencyChangePercent    float64 `json:"latency_change_percent"`
+	BaselineThroughput      float64 `json:"baseline_throughput"`
+	CurrentThroughput       float64 `json:"current_throughput"`
 	ThroughputChangePercent float64 `json:"throughput_change_percent"`
-	BaselineErrorRate     float64 `json:"baseline_error_rate"`
-	CurrentErrorRate      float64 `json:"current_error_rate"`
-	ErrorRateChangePercent float64 `json:"error_rate_change_percent"`
-	RegressionDetected    bool    `json:"regression_detected"`
-	Severity              string  `json:"severity"`
+	BaselineErrorRate       float64 `json:"baseline_error_rate"`
+	CurrentErrorRate        float64 `json:"current_error_rate"`
+	ErrorRateChangePercent  float64 `json:"error_rate_change_percent"`
+	RegressionDetected      bool    `json:"regression_detected"`
+	Severity                string  `json:"severity"`
 }
 
 // ThroughputRegressionAnalysis analyzes throughput regression
 type ThroughputRegressionAnalysis struct {
-	BaselineThroughput        float64 `json:"baseline_throughput"`
-	CurrentThroughput         float64 `json:"current_throughput"`
-	ThroughputChangePercent   float64 `json:"throughput_change_percent"`
-	StatisticalSignificance   float64 `json:"statistical_significance"`
-	RegressionDetected        bool    `json:"regression_detected"`
-	Severity                  string  `json:"severity"`
+	BaselineThroughput      float64 `json:"baseline_throughput"`
+	CurrentThroughput       float64 `json:"current_throughput"`
+	ThroughputChangePercent float64 `json:"throughput_change_percent"`
+	StatisticalSignificance float64 `json:"statistical_significance"`
+	RegressionDetected      bool    `json:"regression_detected"`
+	Severity                string  `json:"severity"`
 }
 
 // MemoryRegressionAnalysis analyzes memory usage regression
 type MemoryRegressionAnalysis struct {
-	BaselineMemoryMB        int64   `json:"baseline_memory_mb"`
-	CurrentMemoryMB         int64   `json:"current_memory_mb"`
-	MemoryChangePercent     float64 `json:"memory_change_percent"`
-	BaselineMemoryGrowthMB  int64   `json:"baseline_memory_growth_mb"`
-	CurrentMemoryGrowthMB   int64   `json:"current_memory_growth_mb"`
-	GrowthChangePercent     float64 `json:"growth_change_percent"`
-	NewMemoryLeaksDetected  bool    `json:"new_memory_leaks_detected"`
-	RegressionDetected      bool    `json:"regression_detected"`
-	Severity                string  `json:"severity"`
+	BaselineMemoryMB       int64   `json:"baseline_memory_mb"`
+	CurrentMemoryMB        int64   `json:"current_memory_mb"`
+	MemoryChangePercent    float64 `json:"memory_change_percent"`
+	BaselineMemoryGrowthMB int64   `json:"baseline_memory_growth_mb"`
+	CurrentMemoryGrowthMB  int64   `json:"current_memory_growth_mb"`
+	GrowthChangePercent    float64 `json:"growth_change_percent"`
+	NewMemoryLeaksDetected bool    `json:"new_memory_leaks_detected"`
+	RegressionDetected     bool    `json:"regression_detected"`
+	Severity               string  `json:"severity"`
 }
 
 // LatencyRegressionAnalysis analyzes latency regression
 type LatencyRegressionAnalysis struct {
-	BaselineP95LatencyMs    int64   `json:"baseline_p95_latency_ms"`
-	CurrentP95LatencyMs     int64   `json:"current_p95_latency_ms"`
-	P95LatencyChangePercent float64 `json:"p95_latency_change_percent"`
-	BaselineP99LatencyMs    int64   `json:"baseline_p99_latency_ms"`
-	CurrentP99LatencyMs     int64   `json:"current_p99_latency_ms"`
-	P99LatencyChangePercent float64 `json:"p99_latency_change_percent"`
-	LatencyDistributionShift bool   `json:"latency_distribution_shift"`
-	RegressionDetected      bool    `json:"regression_detected"`
-	Severity                string  `json:"severity"`
+	BaselineP95LatencyMs     int64   `json:"baseline_p95_latency_ms"`
+	CurrentP95LatencyMs      int64   `json:"current_p95_latency_ms"`
+	P95LatencyChangePercent  float64 `json:"p95_latency_change_percent"`
+	BaselineP99LatencyMs     int64   `json:"baseline_p99_latency_ms"`
+	CurrentP99LatencyMs      int64   `json:"current_p99_latency_ms"`
+	P99LatencyChangePercent  float64 `json:"p99_latency_change_percent"`
+	LatencyDistributionShift bool    `json:"latency_distribution_shift"`
+	RegressionDetected       bool    `json:"regression_detected"`
+	Severity                 string  `json:"severity"`
 }
 
 // ErrorRateRegressionAnalysis analyzes error rate regression
 type ErrorRateRegressionAnalysis struct {
-	BaselineErrorRate       float64           `json:"baseline_error_rate"`
-	CurrentErrorRate        float64           `json:"current_error_rate"`
-	ErrorRateChangePercent  float64           `json:"error_rate_change_percent"`
-	NewErrorTypes           []string          `json:"new_error_types"`
-	ErrorCategoryChanges    map[string]float64 `json:"error_category_changes"`
-	RegressionDetected      bool              `json:"regression_detected"`
-	Severity                string            `json:"severity"`
+	BaselineErrorRate      float64            `json:"baseline_error_rate"`
+	CurrentErrorRate       float64            `json:"current_error_rate"`
+	ErrorRateChangePercent float64            `json:"error_rate_change_percent"`
+	NewErrorTypes          []string           `json:"new_error_types"`
+	ErrorCategoryChanges   map[string]float64 `json:"error_category_changes"`
+	RegressionDetected     bool               `json:"regression_detected"`
+	Severity               string             `json:"severity"`
 }
 
 // NewPerformanceTestMethods creates a new performance testing instance
@@ -458,7 +457,7 @@ func NewPerformanceTestMethods(
 		logger:        log.New(log.Writer(), "[PerfTestMethods] ", log.LstdFlags|log.Lshortfile),
 
 		// Default configuration
-		defaultConcurrency:    50,
+		defaultConcurrency:   50,
 		defaultDuration:      60 * time.Second,
 		maxRequestsPerSecond: 1000.0,
 
@@ -536,9 +535,9 @@ func (p *PerformanceTestMethods) executeLoadTestingScenario(
 
 	// Configure load testing scenario
 	config := &LoadTestingScenarioConfig{
-		Concurrency:  concurrency,
-		Duration:     duration,
-		RampUpTime:   duration / 10, // 10% ramp-up time
+		Concurrency: concurrency,
+		Duration:    duration,
+		RampUpTime:  duration / 10, // 10% ramp-up time
 		Methods: []string{
 			mcp.LSP_METHOD_WORKSPACE_SYMBOL,
 			mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION,
@@ -593,7 +592,7 @@ func (p *PerformanceTestMethods) executeLoadTestingScenario(
 		methodPerformance[method] = &MethodBenchmarkResult{
 			Method:         method,
 			LatencyHistory: make([]int64, 0),
-			ResponseSizes:  make([]int,  0),
+			ResponseSizes:  make([]int, 0),
 			Errors:         make([]ErrorOccurrence, 0),
 		}
 	}
@@ -696,11 +695,11 @@ func (p *PerformanceTestMethods) executeLoadTestingScenario(
 					methodPerformance[method].SuccessfulRequests++
 					methodPerformance[method].TotalRequests++
 					methodPerformance[method].LatencyHistory = append(
-						methodPerformance[method].LatencyHistory, 
+						methodPerformance[method].LatencyHistory,
 						requestDuration.Milliseconds(),
 					)
 					methodPerformance[method].ResponseSizes = append(
-						methodPerformance[method].ResponseSizes, 
+						methodPerformance[method].ResponseSizes,
 						len(response),
 					)
 					p.mu.Unlock()
@@ -787,30 +786,30 @@ func (p *PerformanceTestMethods) executeLoadTestingScenario(
 
 	// Create result
 	result := &LoadTestingResult{
-		Config:                config,
-		StartTime:             startTime,
-		EndTime:               operation.EndTime,
-		ActualDuration:        actualDuration,
-		TotalRequests:         totalRequests,
-		SuccessfulRequests:    successfulRequests,
-		FailedRequests:        failedRequests,
-		AverageThroughput:     throughput,
-		PeakThroughput:        p.calculatePeakThroughput(operation.ThroughputData),
-		AverageLatencyMs:      averageLatency,
-		P95LatencyMs:          p95Latency,
-		P99LatencyMs:          p99Latency,
-		MaxLatencyMs:          maxLatency,
-		ErrorRatePercent:      errorRate,
-		MemoryUsageGrowthMB:   memoryGrowth,
-		PeakMemoryUsageMB:     p.calculatePeakMemoryUsage(operation.ResourceMetrics),
-		GoroutineGrowth:       runtime.NumGoroutine() - baseline.GoroutineCount,
-		MethodPerformance:     methodPerformance,
-		ResourceUtilization:   operation.ResourceMetrics,
-		ThroughputOverTime:    operation.ThroughputData,
-		LatencyDistribution:   p.createLatencyDistribution(latencies),
-		ErrorBreakdown:        p.createErrorBreakdown(operation.ErrorData),
-		ThresholdViolations:   p.validateLoadTestThresholds(throughput, errorRate, p95Latency, memoryGrowth),
-		Success:               errorRate <= config.ErrorThreshold && p95Latency <= p.performanceThresholds.MaxP95LatencyMs,
+		Config:              config,
+		StartTime:           startTime,
+		EndTime:             operation.EndTime,
+		ActualDuration:      actualDuration,
+		TotalRequests:       totalRequests,
+		SuccessfulRequests:  successfulRequests,
+		FailedRequests:      failedRequests,
+		AverageThroughput:   throughput,
+		PeakThroughput:      p.calculatePeakThroughput(operation.ThroughputData),
+		AverageLatencyMs:    averageLatency,
+		P95LatencyMs:        p95Latency,
+		P99LatencyMs:        p99Latency,
+		MaxLatencyMs:        maxLatency,
+		ErrorRatePercent:    errorRate,
+		MemoryUsageGrowthMB: memoryGrowth,
+		PeakMemoryUsageMB:   p.calculatePeakMemoryUsage(operation.ResourceMetrics),
+		GoroutineGrowth:     runtime.NumGoroutine() - baseline.GoroutineCount,
+		MethodPerformance:   methodPerformance,
+		ResourceUtilization: operation.ResourceMetrics,
+		ThroughputOverTime:  operation.ThroughputData,
+		LatencyDistribution: p.createLatencyDistribution(latencies),
+		ErrorBreakdown:      p.createErrorBreakdown(operation.ErrorData),
+		ThresholdViolations: p.validateLoadTestThresholds(throughput, errorRate, p95Latency, memoryGrowth),
+		Success:             errorRate <= config.ErrorThreshold && p95Latency <= p.performanceThresholds.MaxP95LatencyMs,
 	}
 
 	// Clean up operation tracking
@@ -941,12 +940,12 @@ func (p *PerformanceTestMethods) testMemoryUsagePatterns(
 	initialMemory := p.getCurrentMemoryUsage()
 
 	result := &MemoryUsagePatternResult{
-		StartTime:              startTime,
-		InitialMemoryMB:        initialMemory,
-		MemoryUsageOverTime:    make([]ResourceUsageSnapshot, 0),
-		MemorySpikes:           make([]MemorySpike, 0),
-		MemoryPressureEvents:   make([]MemoryPressureEvent, 0),
-		ThresholdViolations:    make([]string, 0),
+		StartTime:            startTime,
+		InitialMemoryMB:      initialMemory,
+		MemoryUsageOverTime:  make([]ResourceUsageSnapshot, 0),
+		MemorySpikes:         make([]MemorySpike, 0),
+		MemoryPressureEvents: make([]MemoryPressureEvent, 0),
+		ThresholdViolations:  make([]string, 0),
 	}
 
 	// Capture initial GC stats
@@ -1066,12 +1065,12 @@ func (p *PerformanceTestMethods) validateLatencyThresholds(
 	expectedLatencyMs := expectedLatency.Milliseconds()
 
 	result := &LatencyValidationResult{
-		Method:                 method,
-		SampleCount:            sampleCount,
-		ExpectedLatencyMs:      expectedLatencyMs,
-		ThresholdExceedances:   make([]LatencyExceedance, 0),
-		LatencyTrend:           make([]LatencyMeasurement, 0),
-		ValidationSuccess:      true,
+		Method:               method,
+		SampleCount:          sampleCount,
+		ExpectedLatencyMs:    expectedLatencyMs,
+		ThresholdExceedances: make([]LatencyExceedance, 0),
+		LatencyTrend:         make([]LatencyMeasurement, 0),
+		ValidationSuccess:    true,
 	}
 
 	latencies := make([]int64, 0, sampleCount)
@@ -1338,15 +1337,15 @@ func (p *PerformanceTestMethods) executePerformanceRegressionTest(
 		}
 
 		result.MemoryRegression = &MemoryRegressionAnalysis{
-			BaselineMemoryMB:        baselineMemory,
-			CurrentMemoryMB:         currentMemoryResult.PeakMemoryMB,
-			MemoryChangePercent:     p.calculatePercentageChange(float64(baselineMemory), float64(currentMemoryResult.PeakMemoryMB)),
-			BaselineMemoryGrowthMB:  baseline.MemoryUsageData["growth"],
-			CurrentMemoryGrowthMB:   currentMemoryResult.MemoryGrowthMB,
-			GrowthChangePercent:     p.calculatePercentageChange(float64(baseline.MemoryUsageData["growth"]), float64(currentMemoryResult.MemoryGrowthMB)),
-			NewMemoryLeaksDetected:  currentMemoryResult.MemoryLeakDetected && !baseline.ValidationResults["memory-leak-detected"],
-			RegressionDetected:      currentMemoryResult.PeakMemoryMB > baselineMemory*120/100, // 20% increase threshold
-			Severity:                p.classifyRegressionSeverity(p.calculatePercentageChange(float64(baselineMemory), float64(currentMemoryResult.PeakMemoryMB))),
+			BaselineMemoryMB:       baselineMemory,
+			CurrentMemoryMB:        currentMemoryResult.PeakMemoryMB,
+			MemoryChangePercent:    p.calculatePercentageChange(float64(baselineMemory), float64(currentMemoryResult.PeakMemoryMB)),
+			BaselineMemoryGrowthMB: baseline.MemoryUsageData["growth"],
+			CurrentMemoryGrowthMB:  currentMemoryResult.MemoryGrowthMB,
+			GrowthChangePercent:    p.calculatePercentageChange(float64(baseline.MemoryUsageData["growth"]), float64(currentMemoryResult.MemoryGrowthMB)),
+			NewMemoryLeaksDetected: currentMemoryResult.MemoryLeakDetected && !baseline.ValidationResults["memory-leak-detected"],
+			RegressionDetected:     currentMemoryResult.PeakMemoryMB > baselineMemory*120/100, // 20% increase threshold
+			Severity:               p.classifyRegressionSeverity(p.calculatePercentageChange(float64(baselineMemory), float64(currentMemoryResult.PeakMemoryMB))),
 		}
 
 		if result.MemoryRegression.RegressionDetected {
@@ -1510,10 +1509,10 @@ func (p *PerformanceTestMethods) classifyErrorType(err error) string {
 
 // contains checks if a string contains a substring (case-insensitive)
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && 
-		(s == substr || len(s) > len(substr) && 
-		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || 
-		 findSubstring(s, substr)))
+	return len(s) >= len(substr) &&
+		(s == substr || len(s) > len(substr) &&
+			(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
+				findSubstring(s, substr)))
 }
 
 // findSubstring helper for contains function
@@ -1550,7 +1549,7 @@ func (p *PerformanceTestMethods) calculateAverage(values []int64) int64 {
 	if len(values) == 0 {
 		return 0
 	}
-	
+
 	total := int64(0)
 	for _, v := range values {
 		total += v
@@ -1563,7 +1562,7 @@ func (p *PerformanceTestMethods) calculatePercentile(sortedValues []int64, perce
 	if len(sortedValues) == 0 {
 		return 0
 	}
-	
+
 	index := int(float64(len(sortedValues)) * percentile / 100.0)
 	if index >= len(sortedValues) {
 		index = len(sortedValues) - 1
@@ -1576,7 +1575,7 @@ func (p *PerformanceTestMethods) calculateMax(values []int64) int64 {
 	if len(values) == 0 {
 		return 0
 	}
-	
+
 	max := values[0]
 	for _, v := range values[1:] {
 		if v > max {
@@ -1611,7 +1610,7 @@ func (p *PerformanceTestMethods) calculatePeakMemoryUsage(snapshots []ResourceUs
 // createLatencyDistribution creates latency histogram
 func (p *PerformanceTestMethods) createLatencyDistribution(latencies []int64) map[string]int {
 	distribution := make(map[string]int)
-	
+
 	for _, latency := range latencies {
 		var bucket string
 		switch {
@@ -1632,45 +1631,45 @@ func (p *PerformanceTestMethods) createLatencyDistribution(latencies []int64) ma
 		}
 		distribution[bucket]++
 	}
-	
+
 	return distribution
 }
 
 // createErrorBreakdown creates error type breakdown
 func (p *PerformanceTestMethods) createErrorBreakdown(errors []ErrorOccurrence) map[string]int {
 	breakdown := make(map[string]int)
-	
+
 	for _, err := range errors {
 		breakdown[err.ErrorType]++
 	}
-	
+
 	return breakdown
 }
 
 // validateLoadTestThresholds validates load test results against thresholds
 func (p *PerformanceTestMethods) validateLoadTestThresholds(throughput, errorRate float64, p95Latency, memoryGrowth int64) []string {
 	violations := make([]string, 0)
-	
+
 	if throughput < p.performanceThresholds.MinThroughputReqPerSec {
-		violations = append(violations, fmt.Sprintf("Throughput %.2f req/sec below threshold %.2f req/sec", 
+		violations = append(violations, fmt.Sprintf("Throughput %.2f req/sec below threshold %.2f req/sec",
 			throughput, p.performanceThresholds.MinThroughputReqPerSec))
 	}
-	
+
 	if errorRate > p.performanceThresholds.MaxErrorRatePercent {
-		violations = append(violations, fmt.Sprintf("Error rate %.2f%% exceeds threshold %.2f%%", 
+		violations = append(violations, fmt.Sprintf("Error rate %.2f%% exceeds threshold %.2f%%",
 			errorRate, p.performanceThresholds.MaxErrorRatePercent))
 	}
-	
+
 	if p95Latency > p.performanceThresholds.MaxP95LatencyMs {
-		violations = append(violations, fmt.Sprintf("P95 latency %dms exceeds threshold %dms", 
+		violations = append(violations, fmt.Sprintf("P95 latency %dms exceeds threshold %dms",
 			p95Latency, p.performanceThresholds.MaxP95LatencyMs))
 	}
-	
+
 	if memoryGrowth > p.performanceThresholds.MaxMemoryGrowthMB {
-		violations = append(violations, fmt.Sprintf("Memory growth %dMB exceeds threshold %dMB", 
+		violations = append(violations, fmt.Sprintf("Memory growth %dMB exceeds threshold %dMB",
 			memoryGrowth, p.performanceThresholds.MaxMemoryGrowthMB))
 	}
-	
+
 	return violations
 }
 
@@ -1678,7 +1677,7 @@ func (p *PerformanceTestMethods) validateLoadTestThresholds(throughput, errorRat
 func (p *PerformanceTestMethods) monitorResourceUsage(operationID string, done chan bool, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-done:
@@ -1686,7 +1685,7 @@ func (p *PerformanceTestMethods) monitorResourceUsage(operationID string, done c
 		case <-ticker.C:
 			var m runtime.MemStats
 			runtime.ReadMemStats(&m)
-			
+
 			snapshot := ResourceUsageSnapshot{
 				Timestamp:       time.Now(),
 				MemoryUsageMB:   int64(m.Alloc) / (1024 * 1024),
@@ -1695,7 +1694,7 @@ func (p *PerformanceTestMethods) monitorResourceUsage(operationID string, done c
 				GCPauseMs:       int64(m.PauseNs[(m.NumGC+255)%256]) / 1000000,
 				CPUUsagePercent: p.getCPUUsagePercent(),
 			}
-			
+
 			p.mu.Lock()
 			if operation, exists := p.activeOperations[operationID]; exists {
 				operation.ResourceMetrics = append(operation.ResourceMetrics, snapshot)
@@ -1709,10 +1708,10 @@ func (p *PerformanceTestMethods) monitorResourceUsage(operationID string, done c
 func (p *PerformanceTestMethods) monitorThroughput(operationID string, done chan bool, totalRequests *int64, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	
+
 	lastCount := int64(0)
 	lastTime := time.Now()
-	
+
 	for {
 		select {
 		case <-done:
@@ -1722,20 +1721,20 @@ func (p *PerformanceTestMethods) monitorThroughput(operationID string, done chan
 			deltaRequests := currentCount - lastCount
 			deltaTime := currentTime.Sub(lastTime)
 			throughput := float64(deltaRequests) / deltaTime.Seconds()
-			
+
 			measurement := ThroughputMeasurement{
 				Timestamp:         currentTime,
 				RequestsPerSec:    throughput,
 				ConcurrentReqs:    runtime.NumGoroutine(),
 				ActiveConnections: runtime.NumGoroutine(), // Simplified
 			}
-			
+
 			p.mu.Lock()
 			if operation, exists := p.activeOperations[operationID]; exists {
 				operation.ThroughputData = append(operation.ThroughputData, measurement)
 			}
 			p.mu.Unlock()
-			
+
 			lastCount = currentCount
 			lastTime = currentTime
 		}
@@ -1751,16 +1750,16 @@ func (p *PerformanceTestMethods) monitorThroughput(operationID string, done chan
 func (p *PerformanceTestMethods) monitorMemoryUsage(result *MemoryUsagePatternResult, done chan bool, interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	
+
 	lastMemory := p.getCurrentMemoryUsage()
-	
+
 	for {
 		select {
 		case <-done:
 			return
 		case timestamp := <-ticker.C:
 			currentMemory := p.getCurrentMemoryUsage()
-			
+
 			snapshot := ResourceUsageSnapshot{
 				Timestamp:       timestamp,
 				MemoryUsageMB:   currentMemory,
@@ -1768,9 +1767,9 @@ func (p *PerformanceTestMethods) monitorMemoryUsage(result *MemoryUsagePatternRe
 				GoroutineCount:  runtime.NumGoroutine(),
 				CPUUsagePercent: p.getCPUUsagePercent(),
 			}
-			
+
 			result.MemoryUsageOverTime = append(result.MemoryUsageOverTime, snapshot)
-			
+
 			// Detect memory spikes
 			if currentMemory > lastMemory*120/100 { // 20% increase
 				spike := MemorySpike{
@@ -1782,7 +1781,7 @@ func (p *PerformanceTestMethods) monitorMemoryUsage(result *MemoryUsagePatternRe
 				}
 				result.MemorySpikes = append(result.MemorySpikes, spike)
 			}
-			
+
 			lastMemory = currentMemory
 		}
 	}
@@ -1841,7 +1840,7 @@ func (p *PerformanceTestMethods) analyzeLargeRequestMemory(spikes []MemorySpike)
 	if len(spikes) == 0 {
 		return &LargeRequestMemoryAnalysis{}
 	}
-	
+
 	totalSpike := int64(0)
 	maxSpike := int64(0)
 	for _, spike := range spikes {
@@ -1850,13 +1849,13 @@ func (p *PerformanceTestMethods) analyzeLargeRequestMemory(spikes []MemorySpike)
 			maxSpike = spike.SpikeMagnitude
 		}
 	}
-	
+
 	return &LargeRequestMemoryAnalysis{
 		LargeRequestCount:    int64(len(spikes)),
 		AverageMemorySpikeMB: totalSpike / int64(len(spikes)),
 		MaxMemorySpikeMB:     maxSpike,
-		RecoveryTimeMs:       500, // Simplified
-		TimeoutOccurrences:   0,   // Simplified
+		RecoveryTimeMs:       500,   // Simplified
+		TimeoutOccurrences:   0,     // Simplified
 		MemoryLeakIndicators: false, // Simplified
 	}
 }
@@ -1865,12 +1864,12 @@ func (p *PerformanceTestMethods) calculateMemoryStabilityScore(snapshots []Resou
 	if len(snapshots) < 2 {
 		return 1.0
 	}
-	
+
 	values := make([]float64, len(snapshots))
 	for i, snapshot := range snapshots {
 		values[i] = float64(snapshot.MemoryUsageMB)
 	}
-	
+
 	return p.calculateStability(values)
 }
 
@@ -1878,46 +1877,46 @@ func (p *PerformanceTestMethods) calculateStability(values []float64) float64 {
 	if len(values) < 2 {
 		return 1.0
 	}
-	
+
 	// Calculate coefficient of variation
 	sum := 0.0
 	for _, v := range values {
 		sum += v
 	}
 	mean := sum / float64(len(values))
-	
+
 	sumSquares := 0.0
 	for _, v := range values {
 		diff := v - mean
 		sumSquares += diff * diff
 	}
 	stdDev := math.Sqrt(sumSquares / float64(len(values)-1))
-	
+
 	if mean == 0 {
 		return 1.0
 	}
-	
+
 	cv := stdDev / mean
 	return math.Max(0, 1.0-cv) // Higher stability = lower coefficient of variation
 }
 
 func (p *PerformanceTestMethods) validateMemoryThresholds(result *MemoryUsagePatternResult) []string {
 	violations := make([]string, 0)
-	
+
 	if result.PeakMemoryMB > p.performanceThresholds.MaxMemoryUsageMB {
 		violations = append(violations, fmt.Sprintf("Peak memory %dMB exceeds threshold %dMB",
 			result.PeakMemoryMB, p.performanceThresholds.MaxMemoryUsageMB))
 	}
-	
+
 	if result.MemoryGrowthMB > p.performanceThresholds.MaxMemoryGrowthMB {
 		violations = append(violations, fmt.Sprintf("Memory growth %dMB exceeds threshold %dMB",
 			result.MemoryGrowthMB, p.performanceThresholds.MaxMemoryGrowthMB))
 	}
-	
+
 	if result.MemoryLeakDetected {
 		violations = append(violations, "Memory leak detected")
 	}
-	
+
 	return violations
 }
 
@@ -1939,22 +1938,22 @@ func (p *PerformanceTestMethods) analyzeThroughputScaling(points []ConcurrencyTh
 	if len(points) < 2 {
 		return &ThroughputScalingAnalysis{}
 	}
-	
+
 	// Find optimal concurrency (highest throughput with acceptable error rate)
 	optimalConcurrency := points[0].Concurrency
 	maxThroughput := points[0].ThroughputReqPerSec
-	
+
 	for _, point := range points {
-		if point.ThroughputReqPerSec > maxThroughput && 
-		   point.ErrorRatePercent <= p.performanceThresholds.MaxErrorRatePercent {
+		if point.ThroughputReqPerSec > maxThroughput &&
+			point.ErrorRatePercent <= p.performanceThresholds.MaxErrorRatePercent {
 			maxThroughput = point.ThroughputReqPerSec
 			optimalConcurrency = point.Concurrency
 		}
 	}
-	
+
 	return &ThroughputScalingAnalysis{
 		ConcurrencyPoints:  points,
-		LinearScalingLimit: len(points) / 2, // Simplified
+		LinearScalingLimit: len(points) / 2,     // Simplified
 		DegradationPoint:   len(points) * 3 / 4, // Simplified
 		OptimalConcurrency: optimalConcurrency,
 		ScalingEfficiency:  0.85, // Simplified
@@ -1968,7 +1967,7 @@ func (p *PerformanceTestMethods) calculateVariability(values []float64) float64 
 
 func (p *PerformanceTestMethods) analyzeResourceLimitations() []ResourceLimitation {
 	limitations := make([]ResourceLimitation, 0)
-	
+
 	memoryUsage := p.getCurrentMemoryUsage()
 	if memoryUsage > p.performanceThresholds.MaxMemoryUsageMB*80/100 {
 		limitations = append(limitations, ResourceLimitation{
@@ -1979,7 +1978,7 @@ func (p *PerformanceTestMethods) analyzeResourceLimitations() []ResourceLimitati
 			RecommendedAction:  "Increase memory limits or optimize memory usage",
 		})
 	}
-	
+
 	return limitations
 }
 
@@ -1987,14 +1986,14 @@ func (p *PerformanceTestMethods) analyzeErrorThroughputImpact(points []Concurren
 	if len(points) == 0 {
 		return &ThroughputErrorAnalysis{}
 	}
-	
+
 	// Calculate average error rate and its impact
 	totalErrorRate := 0.0
 	for _, point := range points {
 		totalErrorRate += point.ErrorRatePercent
 	}
 	avgErrorRate := totalErrorRate / float64(len(points))
-	
+
 	return &ThroughputErrorAnalysis{
 		ErrorRatePercent:           avgErrorRate,
 		ThroughputImpactPercent:    avgErrorRate * 2, // Simplified: 2% throughput loss per 1% error rate
@@ -2007,24 +2006,24 @@ func (p *PerformanceTestMethods) analyzeErrorThroughputImpact(points []Concurren
 func (p *PerformanceTestMethods) compareMethodPerformance(method string, baseline *PerformanceRegressionBaseline, current *MethodBenchmarkResult) *MethodRegression {
 	baselineLatency := baseline.MethodLatencies[method]
 	currentLatency := current.AverageLatencyMs
-	
+
 	latencyChange := p.calculatePercentageChange(float64(baselineLatency), float64(currentLatency))
-	
+
 	regression := &MethodRegression{
-		Method:                method,
-		BaselineLatencyMs:     baselineLatency,
-		CurrentLatencyMs:      currentLatency,
-		LatencyChangePercent:  latencyChange,
-		BaselineThroughput:    baseline.ThroughputData[method],
-		CurrentThroughput:     current.ThroughputReqPerSec,
+		Method:                  method,
+		BaselineLatencyMs:       baselineLatency,
+		CurrentLatencyMs:        currentLatency,
+		LatencyChangePercent:    latencyChange,
+		BaselineThroughput:      baseline.ThroughputData[method],
+		CurrentThroughput:       current.ThroughputReqPerSec,
 		ThroughputChangePercent: p.calculatePercentageChange(baseline.ThroughputData[method], current.ThroughputReqPerSec),
-		BaselineErrorRate:     baseline.ErrorRates[method],
-		CurrentErrorRate:      current.ErrorRatePercent,
-		ErrorRateChangePercent: p.calculatePercentageChange(baseline.ErrorRates[method], current.ErrorRatePercent),
-		RegressionDetected:    latencyChange > 20.0 || current.ErrorRatePercent > baseline.ErrorRates[method]*1.5,
-		Severity:             p.classifyRegressionSeverity(latencyChange),
+		BaselineErrorRate:       baseline.ErrorRates[method],
+		CurrentErrorRate:        current.ErrorRatePercent,
+		ErrorRateChangePercent:  p.calculatePercentageChange(baseline.ErrorRates[method], current.ErrorRatePercent),
+		RegressionDetected:      latencyChange > 20.0 || current.ErrorRatePercent > baseline.ErrorRates[method]*1.5,
+		Severity:                p.classifyRegressionSeverity(latencyChange),
 	}
-	
+
 	return regression
 }
 
@@ -2056,7 +2055,7 @@ func (p *PerformanceTestMethods) analyzeLatencyRegression(baseline *PerformanceR
 	totalBaselineP95 := int64(0)
 	totalCurrentP95 := int64(0)
 	count := 0
-	
+
 	for method, currentResult := range current {
 		if baselineLatency, exists := baseline.MethodLatencies[method]; exists {
 			totalBaselineP95 += baselineLatency
@@ -2064,26 +2063,26 @@ func (p *PerformanceTestMethods) analyzeLatencyRegression(baseline *PerformanceR
 			count++
 		}
 	}
-	
+
 	if count == 0 {
 		return &LatencyRegressionAnalysis{}
 	}
-	
+
 	avgBaselineP95 := totalBaselineP95 / int64(count)
 	avgCurrentP95 := totalCurrentP95 / int64(count)
-	
+
 	p95Change := p.calculatePercentageChange(float64(avgBaselineP95), float64(avgCurrentP95))
-	
+
 	return &LatencyRegressionAnalysis{
-		BaselineP95LatencyMs:    avgBaselineP95,
-		CurrentP95LatencyMs:     avgCurrentP95,
-		P95LatencyChangePercent: p95Change,
-		BaselineP99LatencyMs:    avgBaselineP95 * 120 / 100, // Simplified
-		CurrentP99LatencyMs:     avgCurrentP95 * 120 / 100,  // Simplified
-		P99LatencyChangePercent: p95Change,                  // Simplified
+		BaselineP95LatencyMs:     avgBaselineP95,
+		CurrentP95LatencyMs:      avgCurrentP95,
+		P95LatencyChangePercent:  p95Change,
+		BaselineP99LatencyMs:     avgBaselineP95 * 120 / 100, // Simplified
+		CurrentP99LatencyMs:      avgCurrentP95 * 120 / 100,  // Simplified
+		P99LatencyChangePercent:  p95Change,                  // Simplified
 		LatencyDistributionShift: math.Abs(p95Change) > 15,
-		RegressionDetected:      p95Change > 20,
-		Severity:               p.classifyRegressionSeverity(p95Change),
+		RegressionDetected:       p95Change > 20,
+		Severity:                 p.classifyRegressionSeverity(p95Change),
 	}
 }
 
@@ -2092,7 +2091,7 @@ func (p *PerformanceTestMethods) analyzeErrorRateRegression(baseline *Performanc
 	totalBaselineErrors := 0.0
 	totalCurrentErrors := 0.0
 	count := 0
-	
+
 	for method, currentResult := range current {
 		if baselineErrorRate, exists := baseline.ErrorRates[method]; exists {
 			totalBaselineErrors += baselineErrorRate
@@ -2100,56 +2099,56 @@ func (p *PerformanceTestMethods) analyzeErrorRateRegression(baseline *Performanc
 			count++
 		}
 	}
-	
+
 	if count == 0 {
 		return &ErrorRateRegressionAnalysis{}
 	}
-	
+
 	avgBaselineErrors := totalBaselineErrors / float64(count)
 	avgCurrentErrors := totalCurrentErrors / float64(count)
-	
+
 	errorChange := p.calculatePercentageChange(avgBaselineErrors, avgCurrentErrors)
-	
+
 	return &ErrorRateRegressionAnalysis{
 		BaselineErrorRate:      avgBaselineErrors,
 		CurrentErrorRate:       avgCurrentErrors,
 		ErrorRateChangePercent: errorChange,
-		NewErrorTypes:          []string{}, // Simplified
+		NewErrorTypes:          []string{},               // Simplified
 		ErrorCategoryChanges:   make(map[string]float64), // Simplified
 		RegressionDetected:     avgCurrentErrors > avgBaselineErrors*1.5,
-		Severity:              p.classifyRegressionSeverity(errorChange),
+		Severity:               p.classifyRegressionSeverity(errorChange),
 	}
 }
 
 func (p *PerformanceTestMethods) calculateOverallRegressionScore(result *PerformanceRegressionResult) float64 {
 	score := 0.0
 	factors := 0
-	
+
 	// Weight different regression aspects
 	if result.ThroughputRegression != nil {
 		score += math.Abs(result.ThroughputRegression.ThroughputChangePercent) * 0.3
 		factors++
 	}
-	
+
 	if result.LatencyRegression != nil {
 		score += math.Abs(result.LatencyRegression.P95LatencyChangePercent) * 0.3
 		factors++
 	}
-	
+
 	if result.MemoryRegression != nil {
 		score += math.Abs(result.MemoryRegression.MemoryChangePercent) * 0.2
 		factors++
 	}
-	
+
 	if result.ErrorRateRegression != nil {
 		score += math.Abs(result.ErrorRateRegression.ErrorRateChangePercent) * 0.2
 		factors++
 	}
-	
+
 	if factors > 0 {
 		return score / float64(factors)
 	}
-	
+
 	return 0.0
 }
 
@@ -2159,27 +2158,27 @@ func (p *PerformanceTestMethods) classifyOverallRegressionSeverity(score float64
 
 func (p *PerformanceTestMethods) generateRegressionRecommendations(result *PerformanceRegressionResult) []string {
 	recommendations := make([]string, 0)
-	
+
 	if result.ThroughputRegression != nil && result.ThroughputRegression.RegressionDetected {
 		recommendations = append(recommendations, "Investigate throughput degradation - check for performance bottlenecks")
 	}
-	
+
 	if result.LatencyRegression != nil && result.LatencyRegression.RegressionDetected {
 		recommendations = append(recommendations, "Address latency increases - profile slow operations")
 	}
-	
+
 	if result.MemoryRegression != nil && result.MemoryRegression.RegressionDetected {
 		recommendations = append(recommendations, "Investigate memory usage increases - check for memory leaks")
 	}
-	
+
 	if result.ErrorRateRegression != nil && result.ErrorRateRegression.RegressionDetected {
 		recommendations = append(recommendations, "Address increased error rates - review error logs")
 	}
-	
+
 	if len(recommendations) == 0 {
 		recommendations = append(recommendations, "No significant regressions detected")
 	}
-	
+
 	return recommendations
 }
 
@@ -2196,7 +2195,7 @@ Severity: %s
 
 `, result.BaselineVersion, result.CurrentVersion, result.ComparisonTimestamp.Format("2006-01-02 15:04:05"),
 		result.OverallRegressionScore, result.RegressionDetected, result.RegressionSeverity)
-	
+
 	if result.ThroughputRegression != nil {
 		report += fmt.Sprintf(`
 Throughput Analysis:
@@ -2210,13 +2209,13 @@ Throughput Analysis:
 			result.ThroughputRegression.ThroughputChangePercent,
 			result.ThroughputRegression.RegressionDetected)
 	}
-	
+
 	if len(result.RecommendedActions) > 0 {
 		report += "\nRecommended Actions:\n"
 		for i, action := range result.RecommendedActions {
 			report += fmt.Sprintf("%d. %s\n", i+1, action)
 		}
 	}
-	
+
 	return report
 }

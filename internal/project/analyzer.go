@@ -18,7 +18,7 @@ type ProjectAnalyzerImpl struct {
 }
 
 type AnalysisResult struct {
-	ProjectContext   *ProjectContext                 `json:"project_context"`
+	ProjectContext   *ProjectContext                `json:"project_context"`
 	ProjectConfig    *config.ProjectConfig          `json:"project_config,omitempty"`
 	ConfigGeneration *ProjectConfigGenerationResult `json:"config_generation,omitempty"`
 	AnalysisTime     time.Duration                  `json:"analysis_time"`
@@ -55,7 +55,7 @@ func (a *ProjectAnalyzerImpl) AnalyzeProject(ctx context.Context, rootPath strin
 	}
 
 	result.ProjectContext = projectContext
-	result.Messages = append(result.Messages, fmt.Sprintf("Detected %s project with %d languages", 
+	result.Messages = append(result.Messages, fmt.Sprintf("Detected %s project with %d languages",
 		projectContext.ProjectType, len(projectContext.Languages)))
 
 	projectType := a.DetermineProjectType(projectContext)
@@ -69,7 +69,7 @@ func (a *ProjectAnalyzerImpl) AnalyzeProject(ctx context.Context, rootPath strin
 			if configResult.ProjectConfig != nil {
 				result.ProjectConfig = configResult.ProjectConfig
 			}
-			result.Messages = append(result.Messages, 
+			result.Messages = append(result.Messages,
 				fmt.Sprintf("Generated configuration with %d servers", configResult.ServersGenerated))
 		}
 	}
@@ -79,10 +79,18 @@ func (a *ProjectAnalyzerImpl) AnalyzeProject(ctx context.Context, rootPath strin
 }
 
 func (a *ProjectAnalyzerImpl) DetermineProjectType(projectContext *ProjectContext) string {
-	if projectContext == nil { return "unknown" }
-	if projectContext.IsMonorepo || len(projectContext.SubProjects) > 0 { return "monorepo" }
-	if len(projectContext.Languages) > 1 { return "multi-language" }
-	if len(projectContext.Languages) == 1 { return "single-language" }
+	if projectContext == nil {
+		return "unknown"
+	}
+	if projectContext.IsMonorepo || len(projectContext.SubProjects) > 0 {
+		return "monorepo"
+	}
+	if len(projectContext.Languages) > 1 {
+		return "multi-language"
+	}
+	if len(projectContext.Languages) == 1 {
+		return "single-language"
+	}
 	return "unknown"
 }
 
@@ -105,7 +113,7 @@ func (a *ProjectAnalyzerImpl) detectProject(ctx context.Context, rootPath string
 	projectContext.MarkerFiles = detectionResult.MarkerFiles
 	projectContext.ConfigFiles = detectionResult.ConfigFiles
 	projectContext.SourceDirs = detectionResult.SourceDirs
-	projectContext.RequiredServers = detectionResult.RequiredServers 
+	projectContext.RequiredServers = detectionResult.RequiredServers
 	projectContext.Dependencies = detectionResult.Dependencies
 
 	for key, value := range detectionResult.Metadata {
@@ -133,20 +141,30 @@ func (a *ProjectAnalyzerImpl) validateProjectStructure(projectContext *ProjectCo
 func (a *ProjectAnalyzerImpl) SetLogger(logger *setup.SetupLogger) {
 	if logger != nil {
 		a.logger = logger
-		if a.configGenerator != nil { a.configGenerator.SetLogger(logger) }
+		if a.configGenerator != nil {
+			a.configGenerator.SetLogger(logger)
+		}
 	}
 }
-func (a *ProjectAnalyzerImpl) SetTimeout(timeout time.Duration) { if timeout > 0 { a.timeout = timeout } }
+func (a *ProjectAnalyzerImpl) SetTimeout(timeout time.Duration) {
+	if timeout > 0 {
+		a.timeout = timeout
+	}
+}
 func findWorkspaceRoot(projectPath string) string {
 	for current := projectPath; current != filepath.Dir(current); current = filepath.Dir(current) {
-		if exists(filepath.Join(current, ".git")) { return current }
+		if exists(filepath.Join(current, ".git")) {
+			return current
+		}
 	}
 	return projectPath
 }
 
 func isMonorepo(rootPath string) bool {
 	for _, marker := range []string{"lerna.json", "nx.json", "rush.json", "pnpm-workspace.yaml"} {
-		if exists(filepath.Join(rootPath, marker)) { return true }
+		if exists(filepath.Join(rootPath, marker)) {
+			return true
+		}
 	}
 	return false
 }

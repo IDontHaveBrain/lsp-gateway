@@ -2,80 +2,80 @@ package e2e_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math/rand"
 	"os"
 	"path/filepath"
-	"strings"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"lsp-gateway/mcp"
 	"lsp-gateway/tests/framework"
-	"lsp-gateway/tests/mocks"
 )
 
 // TestDataGenerator provides comprehensive test data generation capabilities
 type TestDataGenerator struct {
 	// Data generation components
-	mockDataFactory     *MockDataFactory
-	projectGenerator    *TestProjectGenerator
-	configGenerator     *TestConfigGenerator
-	scenarioGenerator   *TestScenarioGenerator
+	mockDataFactory   *MockDataFactory
+	projectGenerator  *TestProjectGenerator
+	configGenerator   *TestConfigGenerator
+	scenarioGenerator *TestScenarioGenerator
 
 	// Data templates and patterns
-	dataTemplates       map[string]*DataTemplate
-	responseTemplates   map[string]*ResponseTemplate
-	errorTemplates      map[string]*ErrorTemplate
-	configTemplates     map[string]*ConfigTemplate
+	dataTemplates     map[string]*DataTemplate
+	responseTemplates map[string]*ResponseTemplate
+	errorTemplates    map[string]*ErrorTemplate
+	configTemplates   map[string]*ConfigTemplate
 
 	// Generation strategies
-	generationMode      DataGenerationMode
-	realismLevel        RealismLevel
-	dataComplexity      DataComplexity
+	generationMode DataGenerationMode
+	realismLevel   RealismLevel
+	dataComplexity DataComplexity
 
 	// Generated data tracking
-	generatedData       map[string]*GeneratedDataSet
-	dataMetrics         *DataGenerationMetrics
-	
-	mu                  sync.RWMutex
-	logger              *log.Logger
+	generatedData map[string]*GeneratedDataSet
+	dataMetrics   *DataGenerationMetrics
+
+	mu     sync.RWMutex
+	logger *log.Logger
 }
 
 // ScenarioCoordinator manages test scenario coordination and execution
 type ScenarioCoordinator struct {
 	// Coordination components
-	dependencyResolver  *ScenarioDependencyResolver
-	resourceAllocator   *ScenarioResourceAllocator
-	executionScheduler  *ScenarioExecutionScheduler
+	dependencyResolver     *ScenarioDependencyResolver
+	resourceAllocator      *ScenarioResourceAllocator
+	executionScheduler     *ScenarioExecutionScheduler
 	synchronizationManager *ScenarioSynchronizationManager
 
 	// Coordination strategies
-	coordinationMode    CoordinationMode
-	executionStrategy   ExecutionStrategy
-	conflictResolution  ConflictResolutionStrategy
+	coordinationMode   CoordinationMode
+	executionStrategy  ExecutionStrategy
+	conflictResolution ConflictResolutionStrategy
 
 	// Scenario management
-	activeScenarios     map[string]*ActiveScenario
-	scenarioQueue       []*QueuedScenario
-	completedScenarios  []*CompletedScenario
+	activeScenarios    map[string]*ActiveScenario
+	scenarioQueue      []*QueuedScenario
+	completedScenarios []*CompletedScenario
 
 	// Coordination metrics
 	coordinationMetrics *CoordinationMetrics
-	
-	mu                  sync.RWMutex
-	logger              *log.Logger
+
+	mu     sync.RWMutex
+	logger *log.Logger
 }
 
 // PerformanceTracker tracks performance across test execution
 type PerformanceTracker struct {
 	// Performance monitoring
-	metricsCollector    *PerformanceMetricsCollector
-	resourceMonitor     *ResourceMonitor
-	latencyTracker      *LatencyTracker
-	throughputTracker   *ThroughputTracker
+	metricsCollector  *PerformanceMetricsCollector
+	resourceMonitor   *ResourceMonitor
+	latencyTracker    *LatencyTracker
+	throughputTracker *ThroughputTracker
 
 	// Performance analysis
 	performanceAnalyzer *PerformanceAnalyzer
@@ -83,40 +83,41 @@ type PerformanceTracker struct {
 	anomalyDetector     *PerformanceAnomalyDetector
 
 	// Performance data
-	performanceHistory  []*PerformanceSnapshot
-	currentMetrics      *PerformanceMetrics
-	baselineMetrics     *PerformanceBaseline
+	performanceHistory []*PerformanceSnapshot
+	currentMetrics     *PerformanceMetrics
+	baselineMetrics    *PerformanceBaseline
 
 	// Configuration
-	enabled             bool
-	trackingInterval    time.Duration
-	
-	mu                  sync.RWMutex
-	logger              *log.Logger
+	enabled          bool
+	trackingInterval time.Duration
+
+	mu     sync.RWMutex
+	logger *log.Logger
 }
 
 // MockDataFactory creates realistic mock data for testing
 type MockDataFactory struct {
 	// Mock data generators
-	lspResponseGenerator *LSPResponseGenerator
+	lspResponseGenerator   *LSPResponseGenerator
 	errorResponseGenerator *ErrorResponseGenerator
-	metricsGenerator     *MetricsGenerator
-	projectDataGenerator *ProjectDataGenerator
+	metricsGenerator       *MetricsGenerator
+	projectDataGenerator   *ProjectDataGenerator
 
 	// Data patterns and rules
-	responsePatterns     map[string]*ResponsePattern
-	errorPatterns        map[string]*ErrorPattern
-	dataRules           *DataGenerationRules
+	responsePatterns map[string]*ResponsePattern
+	errorPatterns    map[string]*ErrorPattern
+	dataRules        *DataGenerationRules
 
 	// Quality control
-	dataValidator       *MockDataValidator
-	consistencyChecker  *DataConsistencyChecker
-	
-	logger              *log.Logger
+	dataValidator      *MockDataValidator
+	consistencyChecker *DataConsistencyChecker
+
+	logger *log.Logger
 }
 
 // Data generation structures
 type DataGenerationMode string
+
 const (
 	DataGenerationModeMinimal    DataGenerationMode = "minimal"
 	DataGenerationModeStandard   DataGenerationMode = "standard"
@@ -125,14 +126,16 @@ const (
 )
 
 type RealismLevel string
+
 const (
-	RealismLevelBasic      RealismLevel = "basic"
+	RealismLevelBasic        RealismLevel = "basic"
 	RealismLevelIntermediate RealismLevel = "intermediate"
-	RealismLevelAdvanced   RealismLevel = "advanced"
-	RealismLevelProduction RealismLevel = "production"
+	RealismLevelAdvanced     RealismLevel = "advanced"
+	RealismLevelProduction   RealismLevel = "production"
 )
 
 type DataComplexity string
+
 const (
 	DataComplexitySimple   DataComplexity = "simple"
 	DataComplexityModerate DataComplexity = "moderate"
@@ -141,6 +144,7 @@ const (
 )
 
 type CoordinationMode string
+
 const (
 	CoordinationModeBasic       CoordinationMode = "basic"
 	CoordinationModeIntelligent CoordinationMode = "intelligent"
@@ -149,160 +153,161 @@ const (
 )
 
 type ConflictResolutionStrategy string
+
 const (
-	ConflictResolutionFirst     ConflictResolutionStrategy = "first"
-	ConflictResolutionPriority  ConflictResolutionStrategy = "priority"
-	ConflictResolutionOptimal   ConflictResolutionStrategy = "optimal"
+	ConflictResolutionFirst      ConflictResolutionStrategy = "first"
+	ConflictResolutionPriority   ConflictResolutionStrategy = "priority"
+	ConflictResolutionOptimal    ConflictResolutionStrategy = "optimal"
 	ConflictResolutionNegotiated ConflictResolutionStrategy = "negotiated"
 )
 
 // Data generation data structures
 type GeneratedDataSet struct {
-	ID              string                    `json:"id"`
-	Name            string                    `json:"name"`
-	GeneratedAt     time.Time                 `json:"generated_at"`
-	DataType        string                    `json:"data_type"`
-	ComplexityLevel DataComplexity            `json:"complexity_level"`
-	
+	ID              string         `json:"id"`
+	Name            string         `json:"name"`
+	GeneratedAt     time.Time      `json:"generated_at"`
+	DataType        string         `json:"data_type"`
+	ComplexityLevel DataComplexity `json:"complexity_level"`
+
 	// Generated content
-	LSPResponses    map[string][]byte         `json:"lsp_responses"`
-	ErrorResponses  map[string][]byte         `json:"error_responses"`
-	MockProjects    []*framework.TestProject `json:"mock_projects"`
-	TestConfigs     map[string]interface{}    `json:"test_configs"`
-	
+	LSPResponses   map[string][]byte        `json:"lsp_responses"`
+	ErrorResponses map[string][]byte        `json:"error_responses"`
+	MockProjects   []*framework.TestProject `json:"mock_projects"`
+	TestConfigs    map[string]interface{}   `json:"test_configs"`
+
 	// Metadata
-	GenerationRules *DataGenerationRules      `json:"generation_rules"`
-	ValidationResults *DataValidationResults  `json:"validation_results"`
-	UsageStats      *DataUsageStats           `json:"usage_stats"`
+	GenerationRules   *DataGenerationRules   `json:"generation_rules"`
+	ValidationResults *DataValidationResults `json:"validation_results"`
+	UsageStats        *DataUsageStats        `json:"usage_stats"`
 }
 
 type DataTemplate struct {
-	ID              string                    `json:"id"`
-	Name            string                    `json:"name"`
-	Description     string                    `json:"description"`
-	Category        string                    `json:"category"`
-	
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+
 	// Template structure
-	Structure       map[string]interface{}    `json:"structure"`
-	Variables       map[string]*VariableSpec  `json:"variables"`
-	Rules           []*GenerationRule         `json:"rules"`
-	Constraints     []*DataConstraint         `json:"constraints"`
-	
+	Structure   map[string]interface{}   `json:"structure"`
+	Variables   map[string]*VariableSpec `json:"variables"`
+	Rules       []*GenerationRule        `json:"rules"`
+	Constraints []*DataConstraint        `json:"constraints"`
+
 	// Template metadata
-	CreatedAt       time.Time                 `json:"created_at"`
-	UsageCount      int64                     `json:"usage_count"`
-	SuccessRate     float64                   `json:"success_rate"`
+	CreatedAt   time.Time `json:"created_at"`
+	UsageCount  int64     `json:"usage_count"`
+	SuccessRate float64   `json:"success_rate"`
 }
 
 type ResponseTemplate struct {
-	Method          string                    `json:"method"`
-	ResponseType    string                    `json:"response_type"`
-	Template        map[string]interface{}    `json:"template"`
-	Variations      []map[string]interface{}  `json:"variations"`
-	SuccessRate     float64                   `json:"success_rate"`
-	AverageSize     int                       `json:"average_size"`
-	LatencyRange    [2]time.Duration          `json:"latency_range"`
+	Method       string                   `json:"method"`
+	ResponseType string                   `json:"response_type"`
+	Template     map[string]interface{}   `json:"template"`
+	Variations   []map[string]interface{} `json:"variations"`
+	SuccessRate  float64                  `json:"success_rate"`
+	AverageSize  int                      `json:"average_size"`
+	LatencyRange [2]time.Duration         `json:"latency_range"`
 }
 
 // Scenario coordination structures
 type ActiveScenario struct {
-	ScenarioID      string                    `json:"scenario_id"`
-	StartTime       time.Time                 `json:"start_time"`
-	EstimatedEnd    time.Time                 `json:"estimated_end"`
-	CurrentStep     int                       `json:"current_step"`
-	Status          ScenarioStatus            `json:"status"`
-	
+	ScenarioID   string         `json:"scenario_id"`
+	StartTime    time.Time      `json:"start_time"`
+	EstimatedEnd time.Time      `json:"estimated_end"`
+	CurrentStep  int            `json:"current_step"`
+	Status       ScenarioStatus `json:"status"`
+
 	// Resource allocation
-	AllocatedResources map[string]string      `json:"allocated_resources"`
-	ResourceUsage   *ResourceUsageData        `json:"resource_usage"`
-	
+	AllocatedResources map[string]string  `json:"allocated_resources"`
+	ResourceUsage      *ResourceUsageData `json:"resource_usage"`
+
 	// Dependencies
-	Dependencies    []string                  `json:"dependencies"`
-	Dependents      []string                  `json:"dependents"`
-	
+	Dependencies []string `json:"dependencies"`
+	Dependents   []string `json:"dependents"`
+
 	// Coordination data
 	SynchronizationPoints []*SynchronizationPoint `json:"synchronization_points"`
 	ConflictResolutions   []*ConflictResolution   `json:"conflict_resolutions"`
 }
 
 type QueuedScenario struct {
-	ScenarioID      string                    `json:"scenario_id"`
-	QueuedAt        time.Time                 `json:"queued_at"`
-	Priority        Priority                  `json:"priority"`
-	EstimatedDuration time.Duration           `json:"estimated_duration"`
+	ScenarioID           string                 `json:"scenario_id"`
+	QueuedAt             time.Time              `json:"queued_at"`
+	Priority             Priority               `json:"priority"`
+	EstimatedDuration    time.Duration          `json:"estimated_duration"`
 	ResourceRequirements []*ResourceRequirement `json:"resource_requirements"`
-	Dependencies    []string                  `json:"dependencies"`
-	WaitingFor      []string                  `json:"waiting_for"`
+	Dependencies         []string               `json:"dependencies"`
+	WaitingFor           []string               `json:"waiting_for"`
 }
 
 type CompletedScenario struct {
-	ScenarioID      string                    `json:"scenario_id"`
-	StartTime       time.Time                 `json:"start_time"`
-	EndTime         time.Time                 `json:"end_time"`
-	Duration        time.Duration             `json:"duration"`
-	Success         bool                      `json:"success"`
-	
+	ScenarioID string        `json:"scenario_id"`
+	StartTime  time.Time     `json:"start_time"`
+	EndTime    time.Time     `json:"end_time"`
+	Duration   time.Duration `json:"duration"`
+	Success    bool          `json:"success"`
+
 	// Execution details
 	StepsCompleted  int                       `json:"steps_completed"`
 	ResourcesUsed   map[string]*ResourceUsage `json:"resources_used"`
 	PerformanceData *PerformanceData          `json:"performance_data"`
-	
+
 	// Coordination metrics
-	WaitTime        time.Duration             `json:"wait_time"`
-	ConflictsResolved int                     `json:"conflicts_resolved"`
-	SyncPointsHit   int                       `json:"sync_points_hit"`
+	WaitTime          time.Duration `json:"wait_time"`
+	ConflictsResolved int           `json:"conflicts_resolved"`
+	SyncPointsHit     int           `json:"sync_points_hit"`
 }
 
 // Performance tracking structures
 type PerformanceSnapshot struct {
-	Timestamp       time.Time                 `json:"timestamp"`
-	CPUUsage        float64                   `json:"cpu_usage"`
-	MemoryUsage     float64                   `json:"memory_usage"`
-	GoroutineCount  int                       `json:"goroutine_count"`
-	
+	Timestamp      time.Time `json:"timestamp"`
+	CPUUsage       float64   `json:"cpu_usage"`
+	MemoryUsage    float64   `json:"memory_usage"`
+	GoroutineCount int       `json:"goroutine_count"`
+
 	// Application metrics
-	RequestRate     float64                   `json:"request_rate"`
-	ResponseTime    time.Duration             `json:"response_time"`
-	ErrorRate       float64                   `json:"error_rate"`
-	ThroughputPerSecond float64               `json:"throughput_per_second"`
-	
+	RequestRate         float64       `json:"request_rate"`
+	ResponseTime        time.Duration `json:"response_time"`
+	ErrorRate           float64       `json:"error_rate"`
+	ThroughputPerSecond float64       `json:"throughput_per_second"`
+
 	// Resource metrics
-	DiskIO          *DiskIOMetrics            `json:"disk_io"`
-	NetworkIO       *NetworkIOMetrics         `json:"network_io"`
-	ProcessMetrics  *ProcessMetrics           `json:"process_metrics"`
+	DiskIO         *DiskIOMetrics    `json:"disk_io"`
+	NetworkIO      *NetworkIOMetrics `json:"network_io"`
+	ProcessMetrics *ProcessMetrics   `json:"process_metrics"`
 }
 
 type PerformanceBaseline struct {
-	ID              string                    `json:"id"`
-	CreatedAt       time.Time                 `json:"created_at"`
-	Version         string                    `json:"version"`
-	Environment     string                    `json:"environment"`
-	
+	ID          string    `json:"id"`
+	CreatedAt   time.Time `json:"created_at"`
+	Version     string    `json:"version"`
+	Environment string    `json:"environment"`
+
 	// Baseline metrics
-	BaselineCPU     float64                   `json:"baseline_cpu"`
-	BaselineMemory  float64                   `json:"baseline_memory"`
-	BaselineResponseTime time.Duration        `json:"baseline_response_time"`
-	BaselineThroughput float64                `json:"baseline_throughput"`
-	
+	BaselineCPU          float64       `json:"baseline_cpu"`
+	BaselineMemory       float64       `json:"baseline_memory"`
+	BaselineResponseTime time.Duration `json:"baseline_response_time"`
+	BaselineThroughput   float64       `json:"baseline_throughput"`
+
 	// Variance thresholds
-	CPUVarianceThreshold     float64          `json:"cpu_variance_threshold"`
-	MemoryVarianceThreshold  float64          `json:"memory_variance_threshold"`
-	ResponseVarianceThreshold time.Duration   `json:"response_variance_threshold"`
+	CPUVarianceThreshold        float64       `json:"cpu_variance_threshold"`
+	MemoryVarianceThreshold     float64       `json:"memory_variance_threshold"`
+	ResponseVarianceThreshold   time.Duration `json:"response_variance_threshold"`
 	ThroughputVarianceThreshold float64       `json:"throughput_variance_threshold"`
-	
+
 	// Statistical data
-	SampleCount     int                       `json:"sample_count"`
-	Confidence      float64                   `json:"confidence"`
-	StandardDeviation map[string]float64      `json:"standard_deviation"`
+	SampleCount       int                `json:"sample_count"`
+	Confidence        float64            `json:"confidence"`
+	StandardDeviation map[string]float64 `json:"standard_deviation"`
 }
 
 // Implementation methods
 
 // generateTestData generates comprehensive test data for scenarios
 func (tdg *TestDataGenerator) generateTestData(ctx context.Context, requirements *DataGenerationRequirements) (*GeneratedDataSet, error) {
-	tdg.logger.Printf("Generating test data with mode: %s, realism: %s, complexity: %s", 
+	tdg.logger.Printf("Generating test data with mode: %s, realism: %s, complexity: %s",
 		tdg.generationMode, tdg.realismLevel, tdg.dataComplexity)
-	
+
 	startTime := time.Now()
 	dataSet := &GeneratedDataSet{
 		ID:              fmt.Sprintf("dataset-%d", time.Now().Unix()),
@@ -315,7 +320,7 @@ func (tdg *TestDataGenerator) generateTestData(ctx context.Context, requirements
 		MockProjects:    make([]*framework.TestProject, 0),
 		TestConfigs:     make(map[string]interface{}),
 	}
-	
+
 	// Generate LSP responses
 	if requirements.IncludeLSPResponses {
 		tdg.logger.Printf("Generating LSP responses")
@@ -325,7 +330,7 @@ func (tdg *TestDataGenerator) generateTestData(ctx context.Context, requirements
 		}
 		dataSet.LSPResponses = lspResponses
 	}
-	
+
 	// Generate error responses
 	if requirements.IncludeErrorResponses {
 		tdg.logger.Printf("Generating error responses")
@@ -335,7 +340,7 @@ func (tdg *TestDataGenerator) generateTestData(ctx context.Context, requirements
 		}
 		dataSet.ErrorResponses = errorResponses
 	}
-	
+
 	// Generate mock projects
 	if requirements.IncludeProjects {
 		tdg.logger.Printf("Generating mock projects")
@@ -345,7 +350,7 @@ func (tdg *TestDataGenerator) generateTestData(ctx context.Context, requirements
 		}
 		dataSet.MockProjects = projects
 	}
-	
+
 	// Generate test configurations
 	if requirements.IncludeConfigs {
 		tdg.logger.Printf("Generating test configurations")
@@ -355,7 +360,7 @@ func (tdg *TestDataGenerator) generateTestData(ctx context.Context, requirements
 		}
 		dataSet.TestConfigs = configs
 	}
-	
+
 	// Validate generated data
 	validationResults, err := tdg.validateGeneratedData(dataSet)
 	if err != nil {
@@ -363,35 +368,35 @@ func (tdg *TestDataGenerator) generateTestData(ctx context.Context, requirements
 	} else {
 		dataSet.ValidationResults = validationResults
 	}
-	
+
 	// Store generated data
 	tdg.mu.Lock()
 	tdg.generatedData[dataSet.ID] = dataSet
 	tdg.mu.Unlock()
-	
+
 	// Update metrics
 	if tdg.dataMetrics != nil {
 		atomic.AddInt64(&tdg.dataMetrics.TotalDataSets, 1)
 		atomic.AddInt64(&tdg.dataMetrics.TotalGenerationTime, int64(time.Since(startTime)))
 	}
-	
-	tdg.logger.Printf("Test data generation completed: dataset=%s, duration=%v", 
+
+	tdg.logger.Printf("Test data generation completed: dataset=%s, duration=%v",
 		dataSet.ID, time.Since(startTime))
-	
+
 	return dataSet, nil
 }
 
 // coordinateScenarios coordinates the execution of multiple test scenarios
 func (sc *ScenarioCoordinator) coordinateScenarios(ctx context.Context, scenarios []*TestScenario, config *CoordinationConfig) (*CoordinationResult, error) {
 	sc.logger.Printf("Coordinating %d scenarios with mode: %s", len(scenarios), sc.coordinationMode)
-	
+
 	startTime := time.Now()
 	result := &CoordinationResult{
-		CoordinationID: fmt.Sprintf("coordination-%d", time.Now().Unix()),
-		StartTime:      startTime,
+		CoordinationID:  fmt.Sprintf("coordination-%d", time.Now().Unix()),
+		StartTime:       startTime,
 		ScenarioResults: make(map[string]*ScenarioCoordinationResult),
 	}
-	
+
 	// Phase 1: Dependency analysis
 	sc.logger.Printf("Phase 1: Analyzing scenario dependencies")
 	dependencyGraph, err := sc.dependencyResolver.analyzeDependencies(scenarios)
@@ -399,7 +404,7 @@ func (sc *ScenarioCoordinator) coordinateScenarios(ctx context.Context, scenario
 		return nil, fmt.Errorf("dependency analysis failed: %w", err)
 	}
 	result.DependencyGraph = dependencyGraph
-	
+
 	// Phase 2: Resource allocation planning
 	sc.logger.Printf("Phase 2: Planning resource allocation")
 	resourcePlan, err := sc.resourceAllocator.planResourceAllocation(scenarios, dependencyGraph)
@@ -407,7 +412,7 @@ func (sc *ScenarioCoordinator) coordinateScenarios(ctx context.Context, scenario
 		return nil, fmt.Errorf("resource allocation planning failed: %w", err)
 	}
 	result.ResourcePlan = resourcePlan
-	
+
 	// Phase 3: Execution scheduling
 	sc.logger.Printf("Phase 3: Creating execution schedule")
 	executionSchedule, err := sc.executionScheduler.createSchedule(scenarios, dependencyGraph, resourcePlan)
@@ -415,7 +420,7 @@ func (sc *ScenarioCoordinator) coordinateScenarios(ctx context.Context, scenario
 		return nil, fmt.Errorf("execution scheduling failed: %w", err)
 	}
 	result.ExecutionSchedule = executionSchedule
-	
+
 	// Phase 4: Coordinated execution
 	sc.logger.Printf("Phase 4: Executing scenarios with coordination")
 	executionResults, err := sc.executeCoordinatedScenarios(ctx, executionSchedule)
@@ -423,25 +428,25 @@ func (sc *ScenarioCoordinator) coordinateScenarios(ctx context.Context, scenario
 		sc.logger.Printf("Coordinated execution completed with errors: %v", err)
 	}
 	result.ScenarioResults = executionResults
-	
+
 	// Phase 5: Result analysis and optimization
 	sc.logger.Printf("Phase 5: Analyzing coordination results")
 	sc.analyzeCoordinationResults(result)
-	
+
 	result.EndTime = time.Now()
 	result.TotalDuration = result.EndTime.Sub(result.StartTime)
 	result.Success = sc.determineCoordinationSuccess(result)
-	
+
 	// Update coordination metrics
 	if sc.coordinationMetrics != nil {
 		atomic.AddInt64(&sc.coordinationMetrics.TotalCoordinations, 1)
 		atomic.AddInt64(&sc.coordinationMetrics.ScenariosCoordinated, int64(len(scenarios)))
 		atomic.AddInt64(&sc.coordinationMetrics.CoordinationTime, int64(result.TotalDuration))
 	}
-	
-	sc.logger.Printf("Scenario coordination completed: success=%t, duration=%v", 
+
+	sc.logger.Printf("Scenario coordination completed: success=%t, duration=%v",
 		result.Success, result.TotalDuration)
-	
+
 	return result, nil
 }
 
@@ -450,23 +455,23 @@ func (pt *PerformanceTracker) trackExecution(ctx context.Context, execution *Exe
 	if !pt.enabled {
 		return nil, nil
 	}
-	
+
 	pt.logger.Printf("Starting performance tracking for execution: %s", execution.ExecutionID)
-	
+
 	startTime := time.Now()
 	result := &PerformanceTrackingResult{
 		ExecutionID: execution.ExecutionID,
 		StartTime:   startTime,
 		Snapshots:   make([]*PerformanceSnapshot, 0),
 	}
-	
+
 	// Start periodic performance monitoring
 	ticker := time.NewTicker(pt.trackingInterval)
 	defer ticker.Stop()
-	
+
 	monitoring := true
 	var wg sync.WaitGroup
-	
+
 	// Start monitoring goroutine
 	wg.Add(1)
 	go func() {
@@ -478,12 +483,12 @@ func (pt *PerformanceTracker) trackExecution(ctx context.Context, execution *Exe
 				return
 			case <-ticker.C:
 				snapshot := pt.capturePerformanceSnapshot()
-				
+
 				pt.mu.Lock()
 				pt.performanceHistory = append(pt.performanceHistory, snapshot)
 				result.Snapshots = append(result.Snapshots, snapshot)
 				pt.mu.Unlock()
-				
+
 				// Check for performance anomalies
 				if anomaly := pt.anomalyDetector.detectAnomaly(snapshot); anomaly != nil {
 					pt.logger.Printf("Performance anomaly detected: %s", anomaly.Description)
@@ -492,7 +497,7 @@ func (pt *PerformanceTracker) trackExecution(ctx context.Context, execution *Exe
 			}
 		}
 	}()
-	
+
 	// Wait for execution to complete
 	select {
 	case <-ctx.Done():
@@ -500,18 +505,18 @@ func (pt *PerformanceTracker) trackExecution(ctx context.Context, execution *Exe
 	case <-time.After(execution.EstimatedDuration + 30*time.Second):
 		monitoring = false
 	}
-	
+
 	wg.Wait()
-	
+
 	// Analyze performance data
 	result.EndTime = time.Now()
 	result.TotalDuration = result.EndTime.Sub(result.StartTime)
 	result.PerformanceAnalysis = pt.analyzePerformanceData(result.Snapshots)
 	result.BaselineComparison = pt.compareWithBaseline(result.PerformanceAnalysis)
-	
-	pt.logger.Printf("Performance tracking completed for execution: %s, duration=%v, snapshots=%d", 
+
+	pt.logger.Printf("Performance tracking completed for execution: %s, duration=%v, snapshots=%d",
 		execution.ExecutionID, result.TotalDuration, len(result.Snapshots))
-	
+
 	return result, nil
 }
 
@@ -519,7 +524,7 @@ func (pt *PerformanceTracker) trackExecution(ctx context.Context, execution *Exe
 
 func (tdg *TestDataGenerator) generateLSPResponses(ctx context.Context, methods []string) (map[string][]byte, error) {
 	responses := make(map[string][]byte)
-	
+
 	lspMethods := []string{
 		mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION,
 		mcp.LSP_METHOD_TEXT_DOCUMENT_REFERENCES,
@@ -527,11 +532,11 @@ func (tdg *TestDataGenerator) generateLSPResponses(ctx context.Context, methods 
 		mcp.LSP_METHOD_WORKSPACE_SYMBOL,
 		mcp.LSP_METHOD_TEXT_DOCUMENT_SYMBOLS,
 	}
-	
+
 	if len(methods) > 0 {
 		lspMethods = methods
 	}
-	
+
 	for _, method := range lspMethods {
 		response, err := tdg.generateMethodResponse(method)
 		if err != nil {
@@ -540,7 +545,7 @@ func (tdg *TestDataGenerator) generateLSPResponses(ctx context.Context, methods 
 		}
 		responses[method] = response
 	}
-	
+
 	return responses, nil
 }
 
@@ -569,14 +574,14 @@ func (tdg *TestDataGenerator) generateDefinitionResponse() ([]byte, error) {
 			"end":   map[string]interface{}{"line": rand.Intn(100), "character": rand.Intn(50)},
 		},
 	}
-	
+
 	return []byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"result":%s}`, toJSON(definition))), nil
 }
 
 func (tdg *TestDataGenerator) generateReferencesResponse() ([]byte, error) {
 	numRefs := rand.Intn(10) + 1
 	references := make([]interface{}, numRefs)
-	
+
 	for i := 0; i < numRefs; i++ {
 		references[i] = map[string]interface{}{
 			"uri": fmt.Sprintf("file:///tmp/test-project/src/file%d.go", i),
@@ -586,24 +591,24 @@ func (tdg *TestDataGenerator) generateReferencesResponse() ([]byte, error) {
 			},
 		}
 	}
-	
+
 	return []byte(fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"result":%s}`, toJSON(references))), nil
 }
 
 func (tdg *TestDataGenerator) generateMockProjects(ctx context.Context, projectTypes []framework.ProjectType, languages []string) ([]*framework.TestProject, error) {
 	projects := make([]*framework.TestProject, 0)
-	
+
 	if len(projectTypes) == 0 {
 		projectTypes = []framework.ProjectType{
 			framework.ProjectTypeMultiLanguage,
 			framework.ProjectTypeMonorepo,
 		}
 	}
-	
+
 	if len(languages) == 0 {
 		languages = []string{"go", "python", "typescript", "java"}
 	}
-	
+
 	for _, projectType := range projectTypes {
 		for _, language := range languages {
 			project, err := tdg.generateMockProject(projectType, []string{language})
@@ -614,7 +619,7 @@ func (tdg *TestDataGenerator) generateMockProjects(ctx context.Context, projectT
 			projects = append(projects, project)
 		}
 	}
-	
+
 	return projects, nil
 }
 
@@ -623,24 +628,24 @@ func (tdg *TestDataGenerator) generateMockProject(projectType framework.ProjectT
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	
+
 	project := &framework.TestProject{
 		ProjectType: projectType,
 		RootPath:    tempDir,
 		Languages:   languages,
 		Files:       make(map[string]string),
 	}
-	
+
 	// Generate files for each language
 	for _, lang := range languages {
 		files, err := tdg.generateLanguageFiles(lang, tempDir)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate files for %s: %w", lang, err)
 		}
-		
+
 		for filename, content := range files {
 			project.Files[filename] = content
-			
+
 			// Write file to disk
 			fullPath := filepath.Join(tempDir, filename)
 			if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err == nil {
@@ -648,13 +653,13 @@ func (tdg *TestDataGenerator) generateMockProject(projectType framework.ProjectT
 			}
 		}
 	}
-	
+
 	return project, nil
 }
 
 func (tdg *TestDataGenerator) generateLanguageFiles(language, rootPath string) (map[string]string, error) {
 	files := make(map[string]string)
-	
+
 	switch language {
 	case "go":
 		files["main.go"] = tdg.generateGoMainFile()
@@ -675,7 +680,7 @@ func (tdg *TestDataGenerator) generateLanguageFiles(language, rootPath string) (
 	default:
 		return nil, fmt.Errorf("unsupported language: %s", language)
 	}
-	
+
 	return files, nil
 }
 
@@ -777,51 +782,51 @@ if __name__ == "__main__":
 
 // Additional utility structures and types
 type DataGenerationRequirements struct {
-	Name                   string                    `json:"name"`
-	DataType               string                    `json:"data_type"`
-	IncludeLSPResponses    bool                      `json:"include_lsp_responses"`
-	IncludeErrorResponses  bool                      `json:"include_error_responses"`
-	IncludeProjects        bool                      `json:"include_projects"`
-	IncludeConfigs         bool                      `json:"include_configs"`
-	LSPMethods             []string                  `json:"lsp_methods"`
-	ErrorCategories        []mcp.ErrorCategory       `json:"error_categories"`
-	ProjectTypes           []framework.ProjectType   `json:"project_types"`
-	Languages              []string                  `json:"languages"`
-	ConfigTypes            []string                  `json:"config_types"`
-	ComplexityLevel        DataComplexity            `json:"complexity_level"`
-	RealismLevel           RealismLevel              `json:"realism_level"`
+	Name                  string                  `json:"name"`
+	DataType              string                  `json:"data_type"`
+	IncludeLSPResponses   bool                    `json:"include_lsp_responses"`
+	IncludeErrorResponses bool                    `json:"include_error_responses"`
+	IncludeProjects       bool                    `json:"include_projects"`
+	IncludeConfigs        bool                    `json:"include_configs"`
+	LSPMethods            []string                `json:"lsp_methods"`
+	ErrorCategories       []mcp.ErrorCategory     `json:"error_categories"`
+	ProjectTypes          []framework.ProjectType `json:"project_types"`
+	Languages             []string                `json:"languages"`
+	ConfigTypes           []string                `json:"config_types"`
+	ComplexityLevel       DataComplexity          `json:"complexity_level"`
+	RealismLevel          RealismLevel            `json:"realism_level"`
 }
 
 type CoordinationResult struct {
-	CoordinationID      string                                `json:"coordination_id"`
-	StartTime           time.Time                             `json:"start_time"`
-	EndTime             time.Time                             `json:"end_time"`
-	TotalDuration       time.Duration                         `json:"total_duration"`
-	Success             bool                                  `json:"success"`
-	
-	DependencyGraph     *ScenarioDependencyGraph              `json:"dependency_graph"`
-	ResourcePlan        *ResourceAllocationPlan               `json:"resource_plan"`
-	ExecutionSchedule   *ScenarioExecutionSchedule            `json:"execution_schedule"`
-	ScenarioResults     map[string]*ScenarioCoordinationResult `json:"scenario_results"`
-	
-	CoordinationMetrics *CoordinationMetrics                  `json:"coordination_metrics"`
-	ConflictsResolved   []*ConflictResolution                 `json:"conflicts_resolved"`
-	OptimizationResults *OptimizationResults                  `json:"optimization_results"`
+	CoordinationID string        `json:"coordination_id"`
+	StartTime      time.Time     `json:"start_time"`
+	EndTime        time.Time     `json:"end_time"`
+	TotalDuration  time.Duration `json:"total_duration"`
+	Success        bool          `json:"success"`
+
+	DependencyGraph   *ScenarioDependencyGraph               `json:"dependency_graph"`
+	ResourcePlan      *ResourceAllocationPlan                `json:"resource_plan"`
+	ExecutionSchedule *ScenarioExecutionSchedule             `json:"execution_schedule"`
+	ScenarioResults   map[string]*ScenarioCoordinationResult `json:"scenario_results"`
+
+	CoordinationMetrics *CoordinationMetrics  `json:"coordination_metrics"`
+	ConflictsResolved   []*ConflictResolution `json:"conflicts_resolved"`
+	OptimizationResults *OptimizationResults  `json:"optimization_results"`
 }
 
 type PerformanceTrackingResult struct {
-	ExecutionID         string                    `json:"execution_id"`
-	StartTime           time.Time                 `json:"start_time"`
-	EndTime             time.Time                 `json:"end_time"`
-	TotalDuration       time.Duration             `json:"total_duration"`
-	
-	Snapshots           []*PerformanceSnapshot    `json:"snapshots"`
-	PerformanceAnalysis *PerformanceAnalysis      `json:"performance_analysis"`
-	BaselineComparison  *BaselineComparison       `json:"baseline_comparison"`
-	AnomaliesDetected   []*PerformanceAnomaly     `json:"anomalies_detected"`
-	
-	RecommendedActions  []string                  `json:"recommended_actions"`
-	PerformanceScore    float64                   `json:"performance_score"`
+	ExecutionID   string        `json:"execution_id"`
+	StartTime     time.Time     `json:"start_time"`
+	EndTime       time.Time     `json:"end_time"`
+	TotalDuration time.Duration `json:"total_duration"`
+
+	Snapshots           []*PerformanceSnapshot `json:"snapshots"`
+	PerformanceAnalysis *PerformanceAnalysis   `json:"performance_analysis"`
+	BaselineComparison  *BaselineComparison    `json:"baseline_comparison"`
+	AnomaliesDetected   []*PerformanceAnomaly  `json:"anomalies_detected"`
+
+	RecommendedActions []string `json:"recommended_actions"`
+	PerformanceScore   float64  `json:"performance_score"`
 }
 
 // Utility functions
@@ -833,19 +838,19 @@ func toJSON(v interface{}) string {
 func (pt *PerformanceTracker) capturePerformanceSnapshot() *PerformanceSnapshot {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	
+
 	return &PerformanceSnapshot{
-		Timestamp:       time.Now(),
-		CPUUsage:        rand.Float64() * 100, // Mock CPU usage
-		MemoryUsage:     float64(m.Alloc) / 1024 / 1024,
-		GoroutineCount:  runtime.NumGoroutine(),
-		RequestRate:     rand.Float64() * 1000,
-		ResponseTime:    time.Duration(rand.Intn(1000)) * time.Millisecond,
-		ErrorRate:       rand.Float64() * 5,
+		Timestamp:           time.Now(),
+		CPUUsage:            rand.Float64() * 100, // Mock CPU usage
+		MemoryUsage:         float64(m.Alloc) / 1024 / 1024,
+		GoroutineCount:      runtime.NumGoroutine(),
+		RequestRate:         rand.Float64() * 1000,
+		ResponseTime:        time.Duration(rand.Intn(1000)) * time.Millisecond,
+		ErrorRate:           rand.Float64() * 5,
 		ThroughputPerSecond: rand.Float64() * 500,
 	}
 }
 
 // Default configurations and factory methods would be implemented here...
-// This includes all the detailed implementations for data generation, 
+// This includes all the detailed implementations for data generation,
 // scenario coordination, and performance tracking.

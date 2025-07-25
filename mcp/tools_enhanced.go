@@ -76,10 +76,10 @@ func (h *ToolHandler) enhanceDefinitionWithProjectContext(result *ToolResult, ar
 
 	// Add project metadata
 	result.Meta.RequestInfo["project_context"] = map[string]interface{}{
-		"project_type":      projectCtx.ProjectType,
-		"primary_language":  projectCtx.PrimaryLanguage,
-		"confidence":        projectCtx.Confidence,
-		"workspace_root":    projectCtx.WorkspaceRoot,
+		"project_type":     projectCtx.ProjectType,
+		"primary_language": projectCtx.PrimaryLanguage,
+		"confidence":       projectCtx.Confidence,
+		"workspace_root":   projectCtx.WorkspaceRoot,
 	}
 
 	// Enhance content with project context
@@ -222,8 +222,8 @@ func (h *ToolHandler) enhanceWorkspaceSymbolsWithProjectContext(result *ToolResu
 
 	if query, ok := args["query"].(string); ok {
 		result.Meta.RequestInfo["search_context"] = map[string]interface{}{
-			"query":                query,
-			"project_scoped":       true,
+			"query":                 query,
+			"project_scoped":        true,
 			"multi_language_search": len(projectCtx.Languages) > 1,
 		}
 	}
@@ -240,93 +240,93 @@ func (h *ToolHandler) enhanceWorkspaceSymbolsWithProjectContext(result *ToolResu
 
 func (h *ToolHandler) enhanceDefinitionContent(content ContentBlock, workspaceCtx *WorkspaceContext) ContentBlock {
 	enhanced := content
-	
+
 	// Add project-aware annotations
 	if enhanced.Annotations == nil {
 		enhanced.Annotations = make(map[string]interface{})
 	}
-	
+
 	enhanced.Annotations["project_enhanced"] = true
 	enhanced.Annotations["workspace_aware"] = workspaceCtx.IsProjectAware()
-	
+
 	// Try to parse and enhance definition locations
 	if definitions, ok := content.Data.([]interface{}); ok {
 		enhancedDefs := h.filterAndEnhanceDefinitions(definitions, workspaceCtx)
 		enhanced.Data = enhancedDefs
 		enhanced.Text = h.formatEnhancedDefinitions(enhancedDefs)
 	}
-	
+
 	return enhanced
 }
 
 func (h *ToolHandler) enhanceReferencesContent(content ContentBlock, workspaceCtx *WorkspaceContext) ContentBlock {
 	enhanced := content
-	
+
 	if enhanced.Annotations == nil {
 		enhanced.Annotations = make(map[string]interface{})
 	}
-	
+
 	enhanced.Annotations["project_enhanced"] = true
-	
+
 	// Parse and categorize references by project structure
 	if references, ok := content.Data.([]interface{}); ok {
 		categorized := h.categorizeReferencesByProject(references, workspaceCtx)
 		enhanced.Data = categorized
 		enhanced.Text = h.formatCategorizedReferences(categorized)
 	}
-	
+
 	return enhanced
 }
 
 func (h *ToolHandler) enhanceHoverContent(content ContentBlock, workspaceCtx *WorkspaceContext) ContentBlock {
 	enhanced := content
-	
+
 	if enhanced.Annotations == nil {
 		enhanced.Annotations = make(map[string]interface{})
 	}
-	
+
 	enhanced.Annotations["project_enhanced"] = true
 	enhanced.Annotations["language_context"] = workspaceCtx.GetProjectContext().PrimaryLanguage
-	
+
 	return enhanced
 }
 
 func (h *ToolHandler) enhanceDocumentSymbolsContent(content ContentBlock, workspaceCtx *WorkspaceContext) ContentBlock {
 	enhanced := content
-	
+
 	if enhanced.Annotations == nil {
 		enhanced.Annotations = make(map[string]interface{})
 	}
-	
+
 	enhanced.Annotations["project_enhanced"] = true
-	
+
 	// Categorize symbols by type and importance within project context
 	if symbols, ok := content.Data.([]interface{}); ok {
 		categorized := h.categorizeSymbolsByProject(symbols, workspaceCtx)
 		enhanced.Data = categorized
 		enhanced.Text = h.formatCategorizedSymbols(categorized)
 	}
-	
+
 	return enhanced
 }
 
 func (h *ToolHandler) enhanceWorkspaceSymbolsContent(content ContentBlock, workspaceCtx *WorkspaceContext) ContentBlock {
 	enhanced := content
-	
+
 	if enhanced.Annotations == nil {
 		enhanced.Annotations = make(map[string]interface{})
 	}
-	
+
 	enhanced.Annotations["project_enhanced"] = true
 	enhanced.Annotations["project_filtered"] = true
-	
+
 	// Filter symbols to project scope and enhance with context
 	if symbols, ok := content.Data.([]interface{}); ok {
 		filtered := h.filterSymbolsToProject(symbols, workspaceCtx)
 		enhanced.Data = filtered
 		enhanced.Text = h.formatProjectScopedSymbols(filtered, workspaceCtx)
 	}
-	
+
 	return enhanced
 }
 
@@ -336,15 +336,15 @@ func (h *ToolHandler) getRelativePathFromContext(uri string, workspaceCtx *Works
 	if workspaceCtx == nil {
 		return ""
 	}
-	
+
 	// Convert URI to file path
 	filePath := strings.TrimPrefix(uri, "file://")
 	projectRoot := workspaceCtx.GetProjectRoot()
-	
+
 	if relPath, err := filepath.Rel(projectRoot, filePath); err == nil {
 		return relPath
 	}
-	
+
 	return filepath.Base(filePath)
 }
 
@@ -352,7 +352,7 @@ func (h *ToolHandler) categorizeFileType(args map[string]interface{}, workspaceC
 	if uri, ok := args["uri"].(string); ok {
 		language := workspaceCtx.GetLanguageForFile(uri)
 		relPath := h.getRelativePathFromContext(uri, workspaceCtx)
-		
+
 		// Categorize based on path patterns
 		if strings.Contains(relPath, "test") || strings.Contains(relPath, "spec") {
 			return "test_file"
@@ -362,13 +362,13 @@ func (h *ToolHandler) categorizeFileType(args map[string]interface{}, workspaceC
 			return "source_file"
 		}
 	}
-	
+
 	return "unknown_file"
 }
 
 func (h *ToolHandler) filterAndEnhanceDefinitions(definitions []interface{}, workspaceCtx *WorkspaceContext) []interface{} {
 	enhanced := make([]interface{}, 0, len(definitions))
-	
+
 	for _, def := range definitions {
 		if defMap, ok := def.(map[string]interface{}); ok {
 			// Enhance with project context
@@ -376,7 +376,7 @@ func (h *ToolHandler) filterAndEnhanceDefinitions(definitions []interface{}, wor
 			for k, v := range defMap {
 				enhancedDef[k] = v
 			}
-			
+
 			// Add project-specific information
 			if uri, exists := h.extractURIFromLocation(defMap); exists {
 				enhancedDef["project_info"] = map[string]interface{}{
@@ -385,20 +385,20 @@ func (h *ToolHandler) filterAndEnhanceDefinitions(definitions []interface{}, wor
 					"language":      workspaceCtx.GetLanguageForFile(uri),
 				}
 			}
-			
+
 			enhanced = append(enhanced, enhancedDef)
 		} else {
 			enhanced = append(enhanced, def)
 		}
 	}
-	
+
 	return enhanced
 }
 
 func (h *ToolHandler) categorizeReferencesByProject(references []interface{}, workspaceCtx *WorkspaceContext) map[string]interface{} {
 	projectReferences := make([]interface{}, 0)
 	externalReferences := make([]interface{}, 0)
-	
+
 	for _, ref := range references {
 		if refMap, ok := ref.(map[string]interface{}); ok {
 			if uri, exists := h.extractURIFromLocation(refMap); exists {
@@ -419,7 +419,7 @@ func (h *ToolHandler) categorizeReferencesByProject(references []interface{}, wo
 			}
 		}
 	}
-	
+
 	return map[string]interface{}{
 		"project_references":  projectReferences,
 		"external_references": externalReferences,
@@ -432,7 +432,7 @@ func (h *ToolHandler) categorizeSymbolsByProject(symbols []interface{}, workspac
 	publicSymbols := make([]interface{}, 0)
 	privateSymbols := make([]interface{}, 0)
 	testSymbols := make([]interface{}, 0)
-	
+
 	for _, sym := range symbols {
 		if symMap, ok := sym.(map[string]interface{}); ok {
 			// Categorize based on symbol name and context
@@ -447,7 +447,7 @@ func (h *ToolHandler) categorizeSymbolsByProject(symbols []interface{}, workspac
 			}
 		}
 	}
-	
+
 	return map[string]interface{}{
 		"public_symbols":  publicSymbols,
 		"private_symbols": privateSymbols,
@@ -460,7 +460,7 @@ func (h *ToolHandler) categorizeSymbolsByProject(symbols []interface{}, workspac
 
 func (h *ToolHandler) filterSymbolsToProject(symbols []interface{}, workspaceCtx *WorkspaceContext) []interface{} {
 	filtered := make([]interface{}, 0)
-	
+
 	for _, sym := range symbols {
 		if symMap, ok := sym.(map[string]interface{}); ok {
 			if uri, exists := h.extractURIFromLocation(symMap); exists {
@@ -479,7 +479,7 @@ func (h *ToolHandler) filterSymbolsToProject(symbols []interface{}, workspaceCtx
 			}
 		}
 	}
-	
+
 	return filtered
 }
 
@@ -508,14 +508,14 @@ func (h *ToolHandler) formatEnhancedDefinitions(definitions []interface{}) strin
 	if len(definitions) == 0 {
 		return "No definitions found"
 	}
-	
+
 	var result strings.Builder
 	result.WriteString(fmt.Sprintf("Found %d definition(s):\n", len(definitions)))
-	
+
 	for i, def := range definitions {
 		if defMap, ok := def.(map[string]interface{}); ok {
 			result.WriteString(fmt.Sprintf("%d. ", i+1))
-			
+
 			if projectInfo, exists := defMap["project_info"].(map[string]interface{}); exists {
 				if relPath, exists := projectInfo["relative_path"].(string); exists {
 					result.WriteString(relPath)
@@ -524,68 +524,68 @@ func (h *ToolHandler) formatEnhancedDefinitions(definitions []interface{}) strin
 					result.WriteString(fmt.Sprintf(" (%s)", lang))
 				}
 			}
-			
+
 			result.WriteString("\n")
 		}
 	}
-	
+
 	return result.String()
 }
 
 func (h *ToolHandler) formatCategorizedReferences(categorized map[string]interface{}) string {
 	var result strings.Builder
-	
+
 	if totalProject, ok := categorized["total_project"].(int); ok {
 		result.WriteString(fmt.Sprintf("Project references: %d\n", totalProject))
 	}
-	
+
 	if totalExternal, ok := categorized["total_external"].(int); ok {
 		result.WriteString(fmt.Sprintf("External references: %d\n", totalExternal))
 	}
-	
+
 	return result.String()
 }
 
 func (h *ToolHandler) formatCategorizedSymbols(categorized map[string]interface{}) string {
 	var result strings.Builder
-	
+
 	if totalPublic, ok := categorized["total_public"].(int); ok {
 		result.WriteString(fmt.Sprintf("Public symbols: %d\n", totalPublic))
 	}
-	
+
 	if totalPrivate, ok := categorized["total_private"].(int); ok {
 		result.WriteString(fmt.Sprintf("Private symbols: %d\n", totalPrivate))
 	}
-	
+
 	if totalTest, ok := categorized["total_test"].(int); ok {
 		result.WriteString(fmt.Sprintf("Test symbols: %d\n", totalTest))
 	}
-	
+
 	return result.String()
 }
 
 func (h *ToolHandler) formatProjectScopedSymbols(symbols []interface{}, workspaceCtx *WorkspaceContext) string {
 	var result strings.Builder
-	
+
 	result.WriteString(fmt.Sprintf("Found %d symbol(s) in project:\n", len(symbols)))
-	
+
 	for i, sym := range symbols {
 		if symMap, ok := sym.(map[string]interface{}); ok {
 			result.WriteString(fmt.Sprintf("%d. ", i+1))
-			
+
 			if name, exists := symMap["name"].(string); exists {
 				result.WriteString(name)
 			}
-			
+
 			if projectInfo, exists := symMap["project_info"].(map[string]interface{}); exists {
 				if relPath, exists := projectInfo["relative_path"].(string); exists {
 					result.WriteString(fmt.Sprintf(" - %s", relPath))
 				}
 			}
-			
+
 			result.WriteString("\n")
 		}
 	}
-	
+
 	return result.String()
 }

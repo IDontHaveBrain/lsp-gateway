@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -52,7 +51,7 @@ func (r *E2ETestRunner) executePerformanceValidation(result *E2ETestResult) erro
 
 	// Capture initial metrics as baseline
 	baseline := performanceMethods.captureBaselineMetrics()
-	r.Logger.Printf("Captured baseline metrics: %dMB memory, %d goroutines", 
+	r.Logger.Printf("Captured baseline metrics: %dMB memory, %d goroutines",
 		baseline.MemoryUsageMB, baseline.GoroutineCount)
 
 	var allErrors []error
@@ -62,8 +61,8 @@ func (r *E2ETestRunner) executePerformanceValidation(result *E2ETestResult) erro
 	loadResult := performanceMethods.executeLoadTestingScenario(
 		r.ctx,
 		r.MockMcpClient,
-		75,                  // concurrency
-		60*time.Second,      // duration
+		75,             // concurrency
+		60*time.Second, // duration
 	)
 
 	if !loadResult.Success {
@@ -95,18 +94,18 @@ func (r *E2ETestRunner) executePerformanceValidation(result *E2ETestResult) erro
 		methodResults[method] = benchmarkResult
 
 		if benchmarkResult.ErrorRatePercent > 5.0 {
-			allErrors = append(allErrors, fmt.Errorf("method %s error rate %.2f%% exceeds threshold", 
+			allErrors = append(allErrors, fmt.Errorf("method %s error rate %.2f%% exceeds threshold",
 				method, benchmarkResult.ErrorRatePercent))
 		}
 
 		r.Logger.Printf("Method %s: %.2f req/sec, %dms avg latency, %.2f%% errors",
-			method, benchmarkResult.ThroughputReqPerSec, 
+			method, benchmarkResult.ThroughputReqPerSec,
 			benchmarkResult.AverageLatencyMs, benchmarkResult.ErrorRatePercent)
 	}
 
 	// 3. Memory Usage Pattern Testing
 	r.Logger.Printf("Running memory usage pattern testing...")
-	
+
 	// Create a test project for memory testing
 	testProject, err := r.TestFramework.CreateMultiLanguageProject(
 		framework.ProjectTypeMultiLanguage,
@@ -122,14 +121,14 @@ func (r *E2ETestRunner) executePerformanceValidation(result *E2ETestResult) erro
 		)
 
 		if memoryResult.MemoryLeakDetected {
-			allErrors = append(allErrors, fmt.Errorf("memory leak detected: %dMB growth", 
+			allErrors = append(allErrors, fmt.Errorf("memory leak detected: %dMB growth",
 				memoryResult.MemoryGrowthMB))
 		}
 
 		result.MemoryUsageMB = float64(memoryResult.PeakMemoryMB)
 
 		r.Logger.Printf("Memory analysis: %dMB peak, %dMB growth, leak detected: %v, stability: %.2f",
-			memoryResult.PeakMemoryMB, memoryResult.MemoryGrowthMB, 
+			memoryResult.PeakMemoryMB, memoryResult.MemoryGrowthMB,
 			memoryResult.MemoryLeakDetected, memoryResult.MemoryStabilityScore)
 	}
 
@@ -142,7 +141,7 @@ func (r *E2ETestRunner) executePerformanceValidation(result *E2ETestResult) erro
 	)
 
 	if !latencyResult.ValidationSuccess {
-		allErrors = append(allErrors, fmt.Errorf("latency validation failed: %.1f%% violations", 
+		allErrors = append(allErrors, fmt.Errorf("latency validation failed: %.1f%% violations",
 			latencyResult.ViolationPercent))
 	}
 
@@ -164,19 +163,19 @@ func (r *E2ETestRunner) executePerformanceValidation(result *E2ETestResult) erro
 	)
 
 	if !throughputResult.ThresholdValidation {
-		allErrors = append(allErrors, fmt.Errorf("throughput validation failed: actual %.2f req/sec below target %.2f req/sec", 
+		allErrors = append(allErrors, fmt.Errorf("throughput validation failed: actual %.2f req/sec below target %.2f req/sec",
 			throughputResult.ActualThroughputReqPerSec, throughputResult.TargetThroughputReqPerSec))
 	}
 
 	result.ThroughputPerSecond = throughputResult.ActualThroughputReqPerSec
 
 	r.Logger.Printf("Throughput analysis: peak %.2f req/sec, sustained %.2f req/sec, efficiency %.2f",
-		throughputResult.PeakThroughputReqPerSec, throughputResult.SustainedThroughput, 
+		throughputResult.PeakThroughputReqPerSec, throughputResult.SustainedThroughput,
 		throughputResult.ThroughputEfficiency)
 
 	// 6. Performance Regression Testing (if baseline exists)
 	r.Logger.Printf("Running performance regression testing...")
-	
+
 	// Create a sample baseline for demonstration
 	regressionBaseline := &PerformanceRegressionBaseline{
 		Version:   "baseline-v1.0",
@@ -189,12 +188,12 @@ func (r *E2ETestRunner) executePerformanceValidation(result *E2ETestResult) erro
 			mcp.LSP_METHOD_TEXT_DOCUMENT_SYMBOLS:    40,
 		},
 		ThroughputData: map[string]float64{
-			"overall":                                   95.0,
-			mcp.LSP_METHOD_WORKSPACE_SYMBOL:             15.0,
-			mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION:     30.0,
-			mcp.LSP_METHOD_TEXT_DOCUMENT_REFERENCES:     20.0,
-			mcp.LSP_METHOD_TEXT_DOCUMENT_HOVER:          25.0,
-			mcp.LSP_METHOD_TEXT_DOCUMENT_SYMBOLS:        10.0,
+			"overall":                               95.0,
+			mcp.LSP_METHOD_WORKSPACE_SYMBOL:         15.0,
+			mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION: 30.0,
+			mcp.LSP_METHOD_TEXT_DOCUMENT_REFERENCES: 20.0,
+			mcp.LSP_METHOD_TEXT_DOCUMENT_HOVER:      25.0,
+			mcp.LSP_METHOD_TEXT_DOCUMENT_SYMBOLS:    10.0,
 		},
 		MemoryUsageData: map[string]int64{
 			"peak":   512,
@@ -219,18 +218,18 @@ func (r *E2ETestRunner) executePerformanceValidation(result *E2ETestResult) erro
 	)
 
 	if regressionResult.RegressionDetected {
-		allErrors = append(allErrors, fmt.Errorf("performance regression detected: severity %s, score %.2f", 
+		allErrors = append(allErrors, fmt.Errorf("performance regression detected: severity %s, score %.2f",
 			regressionResult.RegressionSeverity, regressionResult.OverallRegressionScore))
 	}
 
 	r.Logger.Printf("Regression analysis: regression detected: %v, severity: %s, score: %.2f",
-		regressionResult.RegressionDetected, regressionResult.RegressionSeverity, 
+		regressionResult.RegressionDetected, regressionResult.RegressionSeverity,
 		regressionResult.OverallRegressionScore)
 
 	// Log detailed regression report
 	if regressionResult.RegressionDetected {
 		r.Logger.Printf("Regression Report:\n%s", regressionResult.DetailedReport)
-		
+
 		r.Logger.Printf("Recommended Actions:")
 		for i, action := range regressionResult.RecommendedActions {
 			r.Logger.Printf("  %d. %s", i+1, action)
@@ -274,7 +273,7 @@ func (r *E2ETestRunner) executeConcurrentRequests(result *E2ETestResult) error {
 			description: "Test system behavior with low concurrent load",
 		},
 		{
-			name:        "Medium Concurrency", 
+			name:        "Medium Concurrency",
 			concurrency: 75,
 			duration:    45 * time.Second,
 			description: "Test system behavior with medium concurrent load",
@@ -297,7 +296,7 @@ func (r *E2ETestRunner) executeConcurrentRequests(result *E2ETestResult) error {
 	var totalRequests, totalSuccessful, totalFailed int64
 
 	for _, scenario := range concurrencyScenarios {
-		r.Logger.Printf("Running concurrent scenario: %s (%d concurrent requests)", 
+		r.Logger.Printf("Running concurrent scenario: %s (%d concurrent requests)",
 			scenario.name, scenario.concurrency)
 
 		loadResult := performanceMethods.executeLoadTestingScenario(
@@ -317,7 +316,7 @@ func (r *E2ETestRunner) executeConcurrentRequests(result *E2ETestResult) error {
 
 		// Validate scenario results
 		if !loadResult.Success {
-			allErrors = append(allErrors, fmt.Errorf("concurrent scenario %s failed: %v", 
+			allErrors = append(allErrors, fmt.Errorf("concurrent scenario %s failed: %v",
 				scenario.name, loadResult.ThresholdViolations))
 		}
 
@@ -325,38 +324,38 @@ func (r *E2ETestRunner) executeConcurrentRequests(result *E2ETestResult) error {
 		switch scenario.name {
 		case "Low Concurrency":
 			if loadResult.ErrorRatePercent > 1.0 {
-				allErrors = append(allErrors, fmt.Errorf("low concurrency error rate %.2f%% too high", 
+				allErrors = append(allErrors, fmt.Errorf("low concurrency error rate %.2f%% too high",
 					loadResult.ErrorRatePercent))
 			}
 			if loadResult.AverageThroughput < 50.0 {
-				allErrors = append(allErrors, fmt.Errorf("low concurrency throughput %.2f req/sec too low", 
+				allErrors = append(allErrors, fmt.Errorf("low concurrency throughput %.2f req/sec too low",
 					loadResult.AverageThroughput))
 			}
 
 		case "Medium Concurrency":
 			if loadResult.ErrorRatePercent > 3.0 {
-				allErrors = append(allErrors, fmt.Errorf("medium concurrency error rate %.2f%% too high", 
+				allErrors = append(allErrors, fmt.Errorf("medium concurrency error rate %.2f%% too high",
 					loadResult.ErrorRatePercent))
 			}
 			if loadResult.P95LatencyMs > 1000 {
-				allErrors = append(allErrors, fmt.Errorf("medium concurrency P95 latency %dms too high", 
+				allErrors = append(allErrors, fmt.Errorf("medium concurrency P95 latency %dms too high",
 					loadResult.P95LatencyMs))
 			}
 
 		case "High Concurrency":
 			if loadResult.ErrorRatePercent > 5.0 {
-				allErrors = append(allErrors, fmt.Errorf("high concurrency error rate %.2f%% too high", 
+				allErrors = append(allErrors, fmt.Errorf("high concurrency error rate %.2f%% too high",
 					loadResult.ErrorRatePercent))
 			}
 			if loadResult.P95LatencyMs > 2000 {
-				allErrors = append(allErrors, fmt.Errorf("high concurrency P95 latency %dms too high", 
+				allErrors = append(allErrors, fmt.Errorf("high concurrency P95 latency %dms too high",
 					loadResult.P95LatencyMs))
 			}
 
 		case "Stress Concurrency":
 			// More lenient thresholds for stress testing
 			if loadResult.ErrorRatePercent > 10.0 {
-				allErrors = append(allErrors, fmt.Errorf("stress concurrency error rate %.2f%% too high", 
+				allErrors = append(allErrors, fmt.Errorf("stress concurrency error rate %.2f%% too high",
 					loadResult.ErrorRatePercent))
 			}
 		}
@@ -373,7 +372,7 @@ func (r *E2ETestRunner) executeConcurrentRequests(result *E2ETestResult) error {
 	if totalRequests > 0 {
 		result.AverageLatency = time.Duration(float64(totalSuccessful)) * time.Millisecond // Simplified
 		errorRate := float64(totalFailed) / float64(totalRequests) * 100
-		
+
 		r.Logger.Printf("Concurrent requests testing summary: %d total requests, %.2f%% overall error rate",
 			totalRequests, errorRate)
 	}
@@ -433,7 +432,7 @@ func (r *E2ETestRunner) executeHighThroughputTesting(result *E2ETestResult) erro
 		if len(throughputResult.BottleneckPoints) > 0 {
 			r.Logger.Printf("Bottlenecks detected:")
 			for i, bottleneck := range throughputResult.BottleneckPoints {
-				r.Logger.Printf("  %d. Limiting factor: %s at %.2f req/sec", 
+				r.Logger.Printf("  %d. Limiting factor: %s at %.2f req/sec",
 					i+1, bottleneck.LimitingFactor, bottleneck.ThroughputReqPerSec)
 			}
 		}
@@ -442,7 +441,7 @@ func (r *E2ETestRunner) executeHighThroughputTesting(result *E2ETestResult) erro
 		if len(throughputResult.ResourceLimitations) > 0 {
 			r.Logger.Printf("Resource limitations detected:")
 			for i, limitation := range throughputResult.ResourceLimitations {
-				r.Logger.Printf("  %d. %s: %.1f%% utilization (limit reached: %v)", 
+				r.Logger.Printf("  %d. %s: %.1f%% utilization (limit reached: %v)",
 					i+1, limitation.ResourceType, limitation.UtilizationPercent, limitation.LimitReached)
 			}
 		}
@@ -457,7 +456,7 @@ func (r *E2ETestRunner) executeHighThroughputTesting(result *E2ETestResult) erro
 	// Update result
 	result.ThroughputPerSecond = maxAchievedThroughput
 
-	r.Logger.Printf("High throughput testing completed: max achieved throughput %.2f req/sec", 
+	r.Logger.Printf("High throughput testing completed: max achieved throughput %.2f req/sec",
 		maxAchievedThroughput)
 
 	if len(allErrors) > 0 {

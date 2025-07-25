@@ -1,14 +1,16 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/suite"
 	"lsp-gateway/tests/integration/config/helpers"
+
+	"github.com/stretchr/testify/suite"
 )
 
 // CLIIntegrationTestSuite provides comprehensive tests for CLI command integration
@@ -48,8 +50,8 @@ func (suite *CLIIntegrationTestSuite) TestConfigGenerateCommands() {
 	suite.Run("ConfigGenerateBasic", func() {
 		// Create simple Go project
 		projectStructure := map[string]string{
-			"go.mod":  "module test-project\n\ngo 1.21",
-			"main.go": "package main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"Hello, World!\")\n}",
+			"go.mod":       "module test-project\n\ngo 1.21",
+			"main.go":      "package main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"Hello, World!\")\n}",
 			"pkg/utils.go": "package pkg\n\nfunc Utils() string {\n\treturn \"utils\"\n}",
 		}
 
@@ -93,9 +95,9 @@ dependencies = ["fastapi", "scikit-learn"]`,
 			"services/ml/main.py": "from fastapi import FastAPI\n\napp = FastAPI()",
 
 			// TypeScript frontend
-			"frontend/package.json": `{"name": "frontend", "dependencies": {"react": "^18.0.0", "typescript": "^5.0.0"}}`,
+			"frontend/package.json":  `{"name": "frontend", "dependencies": {"react": "^18.0.0", "typescript": "^5.0.0"}}`,
 			"frontend/tsconfig.json": `{"compilerOptions": {"target": "ES2020"}}`,
-			"frontend/src/App.tsx": "import React from 'react';\n\nconst App = () => <div>App</div>;\n\nexport default App;",
+			"frontend/src/App.tsx":   "import React from 'react';\n\nconst App = () => <div>App</div>;\n\nexport default App;",
 		}
 
 		projectPath := suite.testHelper.CreateTestProject("multi-lang", multiLangStructure)
@@ -142,8 +144,8 @@ services:
   api:
     build: ./api-gateway`,
 
-			"auth-service/go.mod":  "module auth-service\n\ngo 1.21",
-			"auth-service/main.go": "package main\n\nfunc main() {}",
+			"auth-service/go.mod":     "module auth-service\n\ngo 1.21",
+			"auth-service/main.go":    "package main\n\nfunc main() {}",
 			"auth-service/Dockerfile": "FROM golang:1.21\nWORKDIR /app\nCOPY . .\nRUN go build .\nCMD [\"./auth-service\"]",
 
 			"user-service/pom.xml": `<?xml version="1.0"?>
@@ -154,11 +156,11 @@ services:
     <version>1.0.0</version>
 </project>`,
 			"user-service/src/main/java/UserService.java": "public class UserService {\n    public static void main(String[] args) {}\n}",
-			"user-service/Dockerfile": "FROM openjdk:17\nWORKDIR /app\nCOPY target/*.jar app.jar\nCMD [\"java\", \"-jar\", \"app.jar\"]",
+			"user-service/Dockerfile":                     "FROM openjdk:17\nWORKDIR /app\nCOPY target/*.jar app.jar\nCMD [\"java\", \"-jar\", \"app.jar\"]",
 
 			"api-gateway/package.json": `{"name": "api-gateway", "dependencies": {"express": "^4.18.0", "typescript": "^5.0.0"}}`,
-			"api-gateway/server.ts": "import express from 'express';\n\nconst app = express();\napp.listen(3000);",
-			"api-gateway/Dockerfile": "FROM node:18\nWORKDIR /app\nCOPY package*.json ./\nRUN npm install\nCOPY . .\nCMD [\"npm\", \"start\"]",
+			"api-gateway/server.ts":    "import express from 'express';\n\nconst app = express();\napp.listen(3000);",
+			"api-gateway/Dockerfile":   "FROM node:18\nWORKDIR /app\nCOPY package*.json ./\nRUN npm install\nCOPY . .\nCMD [\"npm\", \"start\"]",
 		}
 
 		projectPath := suite.testHelper.CreateTestProject("microservices", microservicesStructure)
@@ -197,8 +199,8 @@ services:
 
 		for _, mode := range optimizationModes {
 			// Run config generate with specific optimization mode
-			result, err := suite.cliHelper.RunCommand("config", "generate", 
-				"--optimization", mode, 
+			result, err := suite.cliHelper.RunCommand("config", "generate",
+				"--optimization", mode,
 				"--project-path", projectPath,
 				"--output", filepath.Join(projectPath, "lsp-gateway-"+mode+".yaml"))
 			suite.Require().NoError(err)
@@ -264,23 +266,23 @@ services:
 	})
 }
 
-// TestSetupCommands tests all setup command variations  
+// TestSetupCommands tests all setup command variations
 func (suite *CLIIntegrationTestSuite) TestSetupCommands() {
 	suite.Run("SetupAll", func() {
 		// Create comprehensive project
 		projectStructure := map[string]string{
-			"go.mod":           "module setup-test\n\ngo 1.21",
-			"main.go":          "package main\n\nfunc main() {}",
-			"pyproject.toml":   `[project]\nname = "setup-test"\nversion = "1.0.0"`,
-			"main.py":          "print('Hello Python')",
-			"package.json":     `{"name": "setup-test", "dependencies": {"typescript": "^5.0.0"}}`,
-			"tsconfig.json":    `{"compilerOptions": {"target": "ES2020"}}`,
-			"src/index.ts":     "console.log('Hello TypeScript');",
+			"go.mod":         "module setup-test\n\ngo 1.21",
+			"main.go":        "package main\n\nfunc main() {}",
+			"pyproject.toml": `[project]\nname = "setup-test"\nversion = "1.0.0"`,
+			"main.py":        "print('Hello Python')",
+			"package.json":   `{"name": "setup-test", "dependencies": {"typescript": "^5.0.0"}}`,
+			"tsconfig.json":  `{"compilerOptions": {"target": "ES2020"}}`,
+			"src/index.ts":   "console.log('Hello TypeScript');",
 		}
 
 		projectPath := suite.testHelper.CreateTestProject("setup-all", projectStructure)
 
-		// Run setup all command  
+		// Run setup all command
 		result, err := suite.cliHelper.RunCommand("setup", "all", "--project-path", projectPath)
 		suite.Require().NoError(err)
 		suite.Equal(0, result.ExitCode, "Setup all should succeed")
@@ -304,11 +306,11 @@ func (suite *CLIIntegrationTestSuite) TestSetupCommands() {
 	suite.Run("SetupWithRuntimeDetection", func() {
 		// Create project structure that requires runtime detection
 		projectStructure := map[string]string{
-			"go.mod":        "module runtime-detection\n\ngo 1.21",
-			"main.go":       "package main\n\nfunc main() {}",
-			"Cargo.toml":    `[package]\nname = "runtime-detection"\nversion = "0.1.0"\nedition = "2021"`,
-			"src/main.rs":   "fn main() { println!(\"Hello Rust\"); }",
-			"pom.xml":       `<?xml version="1.0"?><project><modelVersion>4.0.0</modelVersion><groupId>test</groupId><artifactId>test</artifactId><version>1.0.0</version></project>`,
+			"go.mod":                  "module runtime-detection\n\ngo 1.21",
+			"main.go":                 "package main\n\nfunc main() {}",
+			"Cargo.toml":              `[package]\nname = "runtime-detection"\nversion = "0.1.0"\nedition = "2021"`,
+			"src/main.rs":             "fn main() { println!(\"Hello Rust\"); }",
+			"pom.xml":                 `<?xml version="1.0"?><project><modelVersion>4.0.0</modelVersion><groupId>test</groupId><artifactId>test</artifactId><version>1.0.0</version></project>`,
 			"src/main/java/Main.java": "public class Main { public static void main(String[] args) {} }",
 		}
 
@@ -322,7 +324,7 @@ func (suite *CLIIntegrationTestSuite) TestSetupCommands() {
 		// Validate runtime detection messages
 		suite.Contains(result.Stdout, "Detecting installed runtimes", "Should detect runtimes")
 		suite.Contains(result.Stdout, "Found Go runtime", "Should detect Go")
-		
+
 		// Note: Rust and Java detection depends on actual runtime installation
 		// In a real test environment, we'd mock these or ensure they're installed
 
@@ -347,7 +349,7 @@ func (suite *CLIIntegrationTestSuite) TestSetupCommands() {
 		// Create large project structure for performance tuning
 		largeProjectStructure := make(map[string]string)
 		largeProjectStructure["go.mod"] = "module large-project\n\ngo 1.21"
-		
+
 		// Generate many files to trigger performance optimizations
 		for i := 0; i < 50; i++ {
 			largeProjectStructure[fmt.Sprintf("pkg%d/main.go", i)] = fmt.Sprintf("package pkg%d\n\nfunc Function%d() {}", i, i)
@@ -357,8 +359,8 @@ func (suite *CLIIntegrationTestSuite) TestSetupCommands() {
 		projectPath := suite.testHelper.CreateTestProject("large-setup", largeProjectStructure)
 
 		// Run setup with performance tuning
-		result, err := suite.cliHelper.RunCommand("setup", "all", 
-			"--performance-tuning", 
+		result, err := suite.cliHelper.RunCommand("setup", "all",
+			"--performance-tuning",
 			"--optimization", "large-project",
 			"--project-path", projectPath)
 		suite.Require().NoError(err)
@@ -451,13 +453,13 @@ servers:
 		projectPath := suite.testHelper.CreateTestProject("perf-diagnose", projectStructure)
 
 		// Generate config with performance settings
-		_, err := suite.cliHelper.RunCommand("config", "generate", 
-			"--optimization", "production", 
+		_, err := suite.cliHelper.RunCommand("config", "generate",
+			"--optimization", "production",
 			"--project-path", projectPath)
 		suite.Require().NoError(err)
 
 		// Run diagnose with performance analysis
-		result, err := suite.cliHelper.RunCommand("diagnose", "--performance", "--project-path", projectPath) 
+		result, err := suite.cliHelper.RunCommand("diagnose", "--performance", "--project-path", projectPath)
 		suite.Require().NoError(err)
 		suite.Equal(0, result.ExitCode, "Performance diagnose should succeed")
 
@@ -472,13 +474,13 @@ servers:
 	suite.Run("DiagnoseWithDetailedOutput", func() {
 		// Create multi-language project for detailed diagnosis
 		multiLangStructure := map[string]string{
-			"go.mod":             "module detailed-diagnose\n\ngo 1.21",
-			"main.go":            "package main\n\nfunc main() {}",
-			"pyproject.toml":     `[project]\nname = "detailed-diagnose"\nversion = "1.0.0"`,
-			"main.py":            "print('Hello Python')",
-			"package.json":       `{"name": "detailed-diagnose", "dependencies": {"typescript": "^5.0.0"}}`,
-			"tsconfig.json":      `{"compilerOptions": {"target": "ES2020"}}`,
-			"src/index.ts":       "console.log('Hello TypeScript');",
+			"go.mod":         "module detailed-diagnose\n\ngo 1.21",
+			"main.go":        "package main\n\nfunc main() {}",
+			"pyproject.toml": `[project]\nname = "detailed-diagnose"\nversion = "1.0.0"`,
+			"main.py":        "print('Hello Python')",
+			"package.json":   `{"name": "detailed-diagnose", "dependencies": {"typescript": "^5.0.0"}}`,
+			"tsconfig.json":  `{"compilerOptions": {"target": "ES2020"}}`,
+			"src/index.ts":   "console.log('Hello TypeScript');",
 		}
 
 		projectPath := suite.testHelper.CreateTestProject("detailed-diagnose", multiLangStructure)
@@ -536,7 +538,7 @@ servers:
 
 		// Run migration command
 		migratedConfigPath := filepath.Join(projectPath, "lsp-gateway.yaml")
-		result, err := suite.cliHelper.RunCommand("config", "migrate", 
+		result, err := suite.cliHelper.RunCommand("config", "migrate",
 			"--input", legacyConfigPath,
 			"--output", migratedConfigPath)
 		suite.Require().NoError(err)
@@ -593,7 +595,7 @@ servers:
 		suite.Require().NoError(err)
 
 		// Run migration with backup
-		result, err := suite.cliHelper.RunCommand("config", "migrate", 
+		result, err := suite.cliHelper.RunCommand("config", "migrate",
 			"--input", configPath,
 			"--backup")
 		suite.Require().NoError(err)

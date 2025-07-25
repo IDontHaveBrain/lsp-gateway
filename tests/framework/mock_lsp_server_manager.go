@@ -7,42 +7,38 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"lsp-gateway/internal/transport"
 )
 
 // MockServerConfig provides comprehensive configuration for mock LSP server behavior
 type MockServerConfig struct {
 	// Protocol compliance configuration
-	ProtocolVersion    string
-	Capabilities       ServerCapabilities
-	SupportedMethods   []string
+	ProtocolVersion  string
+	Capabilities     ServerCapabilities
+	SupportedMethods []string
 
 	// Failure simulation configuration
-	GlobalFailureRate     float64
-	MethodFailureRates    map[string]float64
-	TimeoutSimulation     TimeoutConfig
-	MemoryPressure        MemoryPressureConfig
-	CrashSimulation       CrashConfig
-	CorruptionSimulation  CorruptionConfig
-	CircuitBreakerConfig  CircuitBreakerConfig
+	GlobalFailureRate    float64
+	MethodFailureRates   map[string]float64
+	TimeoutSimulation    TimeoutConfig
+	MemoryPressure       MemoryPressureConfig
+	CrashSimulation      CrashConfig
+	CorruptionSimulation CorruptionConfig
+	CircuitBreakerConfig CircuitBreakerConfig
 
 	// Response behavior configuration
-	ResponseDelays        ResponseDelayConfig
-	ResponseGeneration    ResponseGenerationConfig
-	HealthBehavior        HealthBehaviorConfig
-	CapacityLimits        CapacityLimitsConfig
+	ResponseDelays     ResponseDelayConfig
+	ResponseGeneration ResponseGenerationConfig
+	HealthBehavior     HealthBehaviorConfig
+	CapacityLimits     CapacityLimitsConfig
 
 	// Content and workspace simulation
-	WorkspaceContent      map[string]string // file URI -> content
-	SymbolDatabase        SymbolDatabase
-	ProjectStructure      ProjectStructure
+	WorkspaceContent map[string]string // file URI -> content
+	SymbolDatabase   SymbolDatabase
+	ProjectStructure ProjectStructure
 }
 
 // ServerCapabilities represents LSP server capabilities
@@ -77,11 +73,11 @@ type ServerCapabilities struct {
 
 // TimeoutConfig configures timeout simulation
 type TimeoutConfig struct {
-	Enabled          bool
-	TimeoutRate      float64
-	MinTimeout       time.Duration
-	MaxTimeout       time.Duration
-	MethodTimeouts   map[string]time.Duration
+	Enabled        bool
+	TimeoutRate    float64
+	MinTimeout     time.Duration
+	MaxTimeout     time.Duration
+	MethodTimeouts map[string]time.Duration
 }
 
 // MemoryPressureConfig configures memory pressure simulation
@@ -95,11 +91,11 @@ type MemoryPressureConfig struct {
 
 // CrashConfig configures server crash simulation
 type CrashConfig struct {
-	Enabled          bool
-	CrashRate        float64
-	RandomCrashes    bool
-	CrashAfterCount  int64
-	RecoveryTime     time.Duration
+	Enabled         bool
+	CrashRate       float64
+	RandomCrashes   bool
+	CrashAfterCount int64
+	RecoveryTime    time.Duration
 }
 
 // CorruptionConfig configures response corruption simulation
@@ -113,56 +109,56 @@ type CorruptionConfig struct {
 
 // CircuitBreakerConfig configures circuit breaker behavior
 type CircuitBreakerConfig struct {
-	Enabled              bool
-	FailureThreshold     int
-	SuccessThreshold     int
-	Timeout              time.Duration
-	TriggerConditions    []string
+	Enabled           bool
+	FailureThreshold  int
+	SuccessThreshold  int
+	Timeout           time.Duration
+	TriggerConditions []string
 }
 
 // ResponseDelayConfig configures response timing
 type ResponseDelayConfig struct {
-	Enabled       bool
-	BaseDelay     time.Duration
-	RandomJitter  time.Duration
-	MethodDelays  map[string]time.Duration
+	Enabled        bool
+	BaseDelay      time.Duration
+	RandomJitter   time.Duration
+	MethodDelays   map[string]time.Duration
 	LoadBasedDelay LoadBasedDelayConfig
 }
 
 // LoadBasedDelayConfig configures load-based response delays
 type LoadBasedDelayConfig struct {
-	Enabled                bool
-	LowLoadDelay          time.Duration
-	HighLoadDelay         time.Duration
-	LoadThreshold         int64
+	Enabled       bool
+	LowLoadDelay  time.Duration
+	HighLoadDelay time.Duration
+	LoadThreshold int64
 }
 
 // ResponseGenerationConfig configures response generation behavior
 type ResponseGenerationConfig struct {
-	Realistic              bool
-	LanguageSpecific       bool
-	ContentAware           bool
-	CrossReferenceEnabled  bool
-	DocumentationEnabled   bool
-	DiagnosticsEnabled     bool
+	Realistic             bool
+	LanguageSpecific      bool
+	ContentAware          bool
+	CrossReferenceEnabled bool
+	DocumentationEnabled  bool
+	DiagnosticsEnabled    bool
 }
 
 // HealthBehaviorConfig configures health check behavior
 type HealthBehaviorConfig struct {
-	Enabled                bool
-	HealthScoreVariation   float64
-	DegradationSimulation  bool
-	RecoverySimulation     bool
-	MaintenanceMode        bool
+	Enabled               bool
+	HealthScoreVariation  float64
+	DegradationSimulation bool
+	RecoverySimulation    bool
+	MaintenanceMode       bool
 }
 
 // CapacityLimitsConfig configures server capacity limits
 type CapacityLimitsConfig struct {
-	MaxConcurrentRequests  int
-	MaxQueueSize           int
-	MaxMemoryUsageMB       float64
-	RequestRateLimit       int // requests per second
-	ConnectionLimit        int
+	MaxConcurrentRequests int
+	MaxQueueSize          int
+	MaxMemoryUsageMB      float64
+	RequestRateLimit      int // requests per second
+	ConnectionLimit       int
 }
 
 // SymbolDatabase represents a database of symbols for realistic responses
@@ -185,9 +181,9 @@ type SymbolInfo struct {
 
 // ReferenceInfo represents a reference to a symbol
 type ReferenceInfo struct {
-	URI      string
-	Range    RangeInfo
-	Context  ReferenceContext
+	URI     string
+	Range   RangeInfo
+	Context ReferenceContext
 }
 
 // DefinitionInfo represents a definition location
@@ -221,37 +217,37 @@ type ReferenceContext struct {
 
 // ProjectStructure represents the structure of a project
 type ProjectStructure struct {
-	RootURI       string
-	Files         map[string]FileInfo
-	Dependencies  []string
-	BuildSystem   string
-	LanguageInfo  LanguageInfo
+	RootURI      string
+	Files        map[string]FileInfo
+	Dependencies []string
+	BuildSystem  string
+	LanguageInfo LanguageInfo
 }
 
 // FileInfo represents information about a file
 type FileInfo struct {
-	URI         string
-	Content     string
-	Language    string
-	Version     int
+	URI          string
+	Content      string
+	Language     string
+	Version      int
 	LastModified time.Time
 }
 
 // LanguageInfo represents language-specific information
 type LanguageInfo struct {
-	Name              string
-	FileExtensions    []string
-	CommentStyle      CommentStyle
-	Keywords          []string
-	BuiltinTypes      []string
-	StandardLibrary   []string
+	Name            string
+	FileExtensions  []string
+	CommentStyle    CommentStyle
+	Keywords        []string
+	BuiltinTypes    []string
+	StandardLibrary []string
 }
 
 // CommentStyle represents comment syntax for a language
 type CommentStyle struct {
-	SingleLine  string
-	MultiStart  string
-	MultiEnd    string
+	SingleLine string
+	MultiStart string
+	MultiEnd   string
 }
 
 // MockLSPServer represents a mock LSP server for testing
@@ -290,9 +286,9 @@ type MockLSPServer struct {
 	LastCrashTime       time.Time
 
 	// Protocol compliance tracking
-	Initialized         bool
-	ClientCapabilities  map[string]interface{}
-	ServerCapabilities  ServerCapabilities
+	Initialized        bool
+	ClientCapabilities map[string]interface{}
+	ServerCapabilities ServerCapabilities
 
 	// Call tracking
 	StartCalls            []context.Context
@@ -840,8 +836,8 @@ func (s *MockLSPServer) performPreRequestChecks(ctx context.Context, method stri
 	}
 
 	// Check capacity limits
-	if s.Config.CapacityLimits.MaxConcurrentRequests > 0 && 
-	   atomic.LoadInt64(&s.CurrentLoad) >= int64(s.Config.CapacityLimits.MaxConcurrentRequests) {
+	if s.Config.CapacityLimits.MaxConcurrentRequests > 0 &&
+		atomic.LoadInt64(&s.CurrentLoad) >= int64(s.Config.CapacityLimits.MaxConcurrentRequests) {
 		return s.createLSPError(-32000, "Server overloaded")
 	}
 
@@ -972,7 +968,7 @@ func (s *MockLSPServer) simulateCrash() error {
 	// Log the crash
 	if logFile, err := os.OpenFile(s.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644); err == nil {
 		defer logFile.Close()
-		fmt.Fprintf(logFile, "CRASH: Mock %s LSP server crashed at %s (crash #%d)\n", 
+		fmt.Fprintf(logFile, "CRASH: Mock %s LSP server crashed at %s (crash #%d)\n",
 			s.Language, time.Now().Format(time.RFC3339), s.CrashCount)
 	}
 
@@ -983,11 +979,11 @@ func (s *MockLSPServer) simulateCrash() error {
 			s.mu.Lock()
 			s.IsRunning = true
 			s.mu.Unlock()
-			
+
 			// Log recovery
 			if logFile, err := os.OpenFile(s.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644); err == nil {
 				defer logFile.Close()
-				fmt.Fprintf(logFile, "RECOVERY: Mock %s LSP server recovered at %s\n", 
+				fmt.Fprintf(logFile, "RECOVERY: Mock %s LSP server recovered at %s\n",
 					s.Language, time.Now().Format(time.RFC3339))
 			}
 		}()
@@ -1042,7 +1038,7 @@ func (s *MockLSPServer) shouldSimulateTimeout(method string) bool {
 
 // simulateTimeout simulates request timeouts
 func (s *MockLSPServer) simulateTimeout(ctx context.Context, method string) error {
-	timeoutDuration := s.Config.TimeoutSimulation.MinTimeout + 
+	timeoutDuration := s.Config.TimeoutSimulation.MinTimeout +
 		time.Duration(rand.Int63n(int64(s.Config.TimeoutSimulation.MaxTimeout-s.Config.TimeoutSimulation.MinTimeout)))
 
 	if methodTimeout, exists := s.Config.TimeoutSimulation.MethodTimeouts[method]; exists {
@@ -1069,8 +1065,8 @@ func (s *MockLSPServer) isMethodSupported(method string) bool {
 
 // shouldCorruptResponse determines if a response should be corrupted
 func (s *MockLSPServer) shouldCorruptResponse() bool {
-	return s.Config.CorruptionSimulation.Enabled && 
-	       rand.Float64() < s.Config.CorruptionSimulation.CorruptionRate
+	return s.Config.CorruptionSimulation.Enabled &&
+		rand.Float64() < s.Config.CorruptionSimulation.CorruptionRate
 }
 
 // corruptResponse corrupts a response in various ways
@@ -1114,8 +1110,8 @@ func (s *MockLSPServer) updateCircuitBreakerState(success bool) {
 		s.CircuitBreakerState.FailureCount = 0 // Reset failure count on success
 
 		// Transition from HALF_OPEN to CLOSED if enough successes
-		if s.CircuitBreakerState.State == "HALF_OPEN" && 
-		   s.CircuitBreakerState.SuccessCount >= s.Config.CircuitBreakerConfig.SuccessThreshold {
+		if s.CircuitBreakerState.State == "HALF_OPEN" &&
+			s.CircuitBreakerState.SuccessCount >= s.Config.CircuitBreakerConfig.SuccessThreshold {
 			s.CircuitBreakerState.State = "CLOSED"
 			s.CircuitBreakerState.SuccessCount = 0
 		}
@@ -1500,11 +1496,11 @@ func DefaultMockServerConfig(language string) *MockServerConfig {
 
 		// Crash simulation configuration
 		CrashSimulation: CrashConfig{
-			Enabled:          false,
-			CrashRate:        0.0,
-			RandomCrashes:    false,
-			CrashAfterCount:  0,
-			RecoveryTime:     time.Second * 10,
+			Enabled:         false,
+			CrashRate:       0.0,
+			RandomCrashes:   false,
+			CrashAfterCount: 0,
+			RecoveryTime:    time.Second * 10,
 		},
 
 		// Response corruption configuration
@@ -1541,12 +1537,12 @@ func DefaultMockServerConfig(language string) *MockServerConfig {
 
 		// Response generation configuration
 		ResponseGeneration: ResponseGenerationConfig{
-			Realistic:              false,
-			LanguageSpecific:       true,
-			ContentAware:           false,
-			CrossReferenceEnabled:  false,
-			DocumentationEnabled:   false,
-			DiagnosticsEnabled:     false,
+			Realistic:             false,
+			LanguageSpecific:      true,
+			ContentAware:          false,
+			CrossReferenceEnabled: false,
+			DocumentationEnabled:  false,
+			DiagnosticsEnabled:    false,
 		},
 
 		// Health behavior configuration
@@ -1587,11 +1583,11 @@ func DefaultMockServerConfig(language string) *MockServerConfig {
 // getDefaultCapabilities returns default LSP server capabilities for a language
 func getDefaultCapabilities(language string) ServerCapabilities {
 	return ServerCapabilities{
-		TextDocumentSync:       2, // Incremental
-		HoverProvider:          true,
-		DefinitionProvider:     true,
-		ReferencesProvider:     true,
-		DocumentSymbolProvider: true,
+		TextDocumentSync:        2, // Incremental
+		HoverProvider:           true,
+		DefinitionProvider:      true,
+		ReferencesProvider:      true,
+		DocumentSymbolProvider:  true,
 		WorkspaceSymbolProvider: true,
 	}
 }
@@ -1730,11 +1726,11 @@ func (s *MockLSPServer) GetFailureMethods() map[string]float64 {
 func (s *MockLSPServer) EnableBasicFailureSimulation(globalRate float64, responseDelay time.Duration, maxConcurrent int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	s.FailureRate = globalRate
 	s.ResponseDelay = responseDelay
 	s.MaxConcurrentReqs = maxConcurrent
-	
+
 	if s.Config == nil {
 		s.Config = DefaultMockServerConfig(s.Language)
 	}
@@ -1748,11 +1744,11 @@ func (s *MockLSPServer) EnableBasicFailureSimulation(globalRate float64, respons
 func (s *MockLSPServer) DisableFailureSimulation() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	s.FailureRate = 0.0
 	s.ShouldFail = false
 	s.ResponseDelay = 0
-	
+
 	if s.Config != nil {
 		s.Config.GlobalFailureRate = 0.0
 		s.Config.MethodFailureRates = make(map[string]float64)

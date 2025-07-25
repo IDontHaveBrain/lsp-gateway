@@ -18,31 +18,31 @@ import (
 )
 
 var (
-	configFilePath           string
-	ConfigOutputPath         string
-	ConfigJSON               bool
-	ConfigOverwrite          bool
-	ConfigAutoDetect         bool
-	ConfigValidateOnly       bool
-	ConfigIncludeComments    bool
-	ConfigTargetRuntime      string
+	configFilePath        string
+	ConfigOutputPath      string
+	ConfigJSON            bool
+	ConfigOverwrite       bool
+	ConfigAutoDetect      bool
+	ConfigValidateOnly    bool
+	ConfigIncludeComments bool
+	ConfigTargetRuntime   string
 	// Multi-language configuration flags
-	ConfigMultiLanguage      bool
-	ConfigOptimizationMode   string
-	ConfigTemplate           string
-	ConfigProjectPath        string
-	ConfigEnableSmartRouting bool
+	ConfigMultiLanguage           bool
+	ConfigOptimizationMode        string
+	ConfigTemplate                string
+	ConfigProjectPath             string
+	ConfigEnableSmartRouting      bool
 	ConfigEnableConcurrentServers bool
-	ConfigPerformanceProfile string
-	ConfigProjectDetection   bool
-	ConfigComprehensive      bool
-	ConfigCheckMultiLang     bool
-	ConfigCheckPerformance   bool
-	ConfigValidateRouting    bool
-	ConfigCheckResourceLimits bool
-	ConfigFromPath           string
-	ConfigToPath             string
-	ConfigApplyTuning        bool
+	ConfigPerformanceProfile      string
+	ConfigProjectDetection        bool
+	ConfigComprehensive           bool
+	ConfigCheckMultiLang          bool
+	ConfigCheckPerformance        bool
+	ConfigValidateRouting         bool
+	ConfigCheckResourceLimits     bool
+	ConfigFromPath                string
+	ConfigToPath                  string
+	ConfigApplyTuning             bool
 )
 
 var ConfigCmd = &cobra.Command{
@@ -519,7 +519,7 @@ func generateConfigurationByMode() (*config.GatewayConfig, error) {
 		return generateMultiLanguageConfig()
 	}
 
-	// Template-based configuration generation  
+	// Template-based configuration generation
 	if ConfigTemplate != "" {
 		fmt.Printf("Generating configuration from template: %s...\n", ConfigTemplate)
 		return generateTemplateBasedConfig()
@@ -812,60 +812,60 @@ func ValidateConfigShowParams() error {
 func generateMultiLanguageConfig() (*config.GatewayConfig, error) {
 	// Initialize enhanced configuration generator
 	enhancedGen := setup.NewEnhancedConfigurationGenerator()
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	
+
 	// Generate configuration based on project path if provided
 	if ConfigProjectPath != "" {
 		result, err := enhancedGen.GenerateFromProject(ctx, ConfigProjectPath, ConfigOptimizationMode)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate multi-language configuration from project: %w", err)
 		}
-		
+
 		// Convert multi-language config to gateway config
 		gatewayConfig := convertMultiLanguageToGateway(result.Config)
-		
+
 		// Apply additional CLI flags
 		applyCliFlags(gatewayConfig)
-		
-		fmt.Printf("✓ Multi-language configuration generated: %d servers, %d languages detected\n", 
+
+		fmt.Printf("✓ Multi-language configuration generated: %d servers, %d languages detected\n",
 			result.ServersGenerated, len(result.Config.ProjectInfo.LanguageContexts))
-		
+
 		return gatewayConfig, nil
 	}
-	
+
 	// Generate environment-based configuration
 	environment := getEnvironmentFromOptimizationMode(ConfigOptimizationMode)
 	result, err := enhancedGen.GenerateDefaultForEnvironment(ctx, environment)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate environment-based configuration: %w", err)
 	}
-	
+
 	// Convert multi-language config to gateway config
 	gatewayConfig := convertMultiLanguageToGateway(result.Config)
-	
+
 	// Apply additional CLI flags
 	applyCliFlags(gatewayConfig)
-	
+
 	fmt.Printf("✓ Multi-language configuration generated for %s environment\n", environment)
-	
+
 	return gatewayConfig, nil
 }
 
 func generateTemplateBasedConfig() (*config.GatewayConfig, error) {
 	// Initialize template manager
 	templateManager := setup.NewConfigurationTemplateManager()
-	
+
 	// Get the specified template
 	template, err := templateManager.GetTemplate(ConfigTemplate)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get template '%s': %w", ConfigTemplate, err)
 	}
-	
+
 	// Create base configuration from template
 	cfg := config.DefaultConfig()
-	
+
 	// Apply template-specific configurations
 	cfg.Port = template.DefaultPort
 	if template.ResourceLimits != nil {
@@ -874,7 +874,7 @@ func generateTemplateBasedConfig() (*config.GatewayConfig, error) {
 			cfg.Timeout = fmt.Sprintf("%ds", template.ResourceLimits.TimeoutSeconds)
 		}
 	}
-	
+
 	// Apply smart routing configuration
 	if template.EnableSmartRouting {
 		cfg.EnableSmartRouting = true
@@ -888,100 +888,100 @@ func generateTemplateBasedConfig() (*config.GatewayConfig, error) {
 			cfg.SmartRouterConfig.EnableCircuitBreaker = template.RoutingConfig.EnableCircuitBreaker
 		}
 	}
-	
+
 	// Apply multi-server configuration
 	cfg.EnableConcurrentServers = template.EnableMultiServer
-	
+
 	// Apply additional CLI flags
 	applyCliFlags(cfg)
-	
+
 	fmt.Printf("✓ Configuration generated from template: %s (v%s)\n", template.Name, template.Version)
 	fmt.Printf("  Target languages: %s\n", strings.Join(template.TargetLanguages, ", "))
 	fmt.Printf("  Project types: %s\n", strings.Join(template.ProjectTypes, ", "))
-	
+
 	return cfg, nil
 }
 
 func generateProjectDetectedConfig() (*config.GatewayConfig, error) {
 	// Initialize enhanced configuration generator
 	enhancedGen := setup.NewEnhancedConfigurationGenerator()
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	
+
 	if ConfigProjectPath == "" {
 		return nil, fmt.Errorf("project path is required for project detection")
 	}
-	
+
 	fmt.Printf("Analyzing project structure at: %s\n", ConfigProjectPath)
-	
+
 	// Generate configuration from project analysis
 	result, err := enhancedGen.GenerateFromProject(ctx, ConfigProjectPath, ConfigOptimizationMode)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate configuration from project: %w", err)
 	}
-	
+
 	// Convert to gateway config
 	gatewayConfig := convertMultiLanguageToGateway(result.Config)
-	
+
 	// Apply CLI flags
 	applyCliFlags(gatewayConfig)
-	
+
 	fmt.Printf("✓ Project analysis complete:\n")
 	fmt.Printf("  Languages detected: %d\n", len(result.Config.ProjectInfo.LanguageContexts))
 	fmt.Printf("  Servers generated: %d\n", result.ServersGenerated)
 	fmt.Printf("  Project type: %s\n", result.Config.ProjectInfo.ProjectType)
-	
+
 	return gatewayConfig, nil
 }
 
 func generateAutoDetectedConfig() (*config.GatewayConfig, error) {
 	// Initialize enhanced configuration generator
 	enhancedGen := setup.NewEnhancedConfigurationGenerator()
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	
+
 	// Determine environment from optimization mode
 	environment := getEnvironmentFromOptimizationMode(ConfigOptimizationMode)
-	
+
 	fmt.Printf("Generating auto-detected configuration for %s environment...\n", environment)
-	
+
 	// Generate environment-based configuration with auto-detection
 	result, err := enhancedGen.GenerateDefaultForEnvironment(ctx, environment)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate auto-detected configuration: %w", err)
 	}
-	
+
 	// Convert to gateway config
 	gatewayConfig := convertMultiLanguageToGateway(result.Config)
-	
+
 	// Apply CLI flags and performance profile
 	applyCliFlags(gatewayConfig)
-	
+
 	fmt.Printf("✓ Auto-detected configuration generated:\n")
 	fmt.Printf("  Environment: %s\n", environment)
 	fmt.Printf("  Performance profile: %s\n", ConfigPerformanceProfile)
 	fmt.Printf("  Servers configured: %d\n", len(gatewayConfig.Servers))
-	
+
 	return gatewayConfig, nil
 }
 
 func generateRuntimeSpecificConfig() (*config.GatewayConfig, error) {
 	// Initialize multi-language configuration generator
 	multiLangGen := config.NewConfigGenerator()
-	
+
 	fmt.Printf("Generating configuration for %s runtime...\n", ConfigTargetRuntime)
-	
+
 	// Get template for the target runtime
 	template, exists := multiLangGen.GetTemplate(ConfigTargetRuntime)
 	if !exists {
 		return nil, fmt.Errorf("no configuration template found for runtime: %s", ConfigTargetRuntime)
 	}
-	
+
 	// Create basic gateway configuration
 	cfg := config.DefaultConfig()
-	
+
 	// Create a server configuration from the template
 	serverConfig := config.ServerConfig{
 		Name:        template.Name,
@@ -994,35 +994,35 @@ func generateRuntimeSpecificConfig() (*config.GatewayConfig, error) {
 		Priority:    template.Priority,
 		Weight:      template.Weight,
 	}
-	
+
 	cfg.Servers = []config.ServerConfig{serverConfig}
-	
+
 	// Apply CLI flags and optimization
 	applyCliFlags(cfg)
-	
+
 	// Apply optimization if requested
 	if ConfigOptimizationMode != "development" {
 		optimizationMgr := config.NewOptimizationManager()
-		
+
 		multiLangConfig := &config.MultiLanguageConfig{
 			ServerConfigs: convertGatewayToServerConfigs(cfg),
 			WorkspaceConfig: &config.WorkspaceConfig{
 				SharedSettings: make(map[string]interface{}),
 			},
 		}
-		
+
 		if err := optimizationMgr.ApplyOptimization(multiLangConfig, ConfigOptimizationMode); err != nil {
 			fmt.Printf("Warning: Failed to apply optimization: %v\n", err)
 		} else {
 			cfg = convertMultiLanguageToGateway(multiLangConfig)
 		}
 	}
-	
+
 	fmt.Printf("✓ Runtime-specific configuration generated:\n")
 	fmt.Printf("  Runtime: %s\n", ConfigTargetRuntime)
 	fmt.Printf("  Server: %s\n", template.Name)
 	fmt.Printf("  Optimization: %s\n", ConfigOptimizationMode)
-	
+
 	return cfg, nil
 }
 
@@ -1043,14 +1043,14 @@ func ConfigMigrate(cmd *cobra.Command, args []string) error {
 
 	// Initialize enhanced configuration generator for migration
 	enhancedGen := setup.NewEnhancedConfigurationGenerator()
-	
+
 	// Create migrated configuration with enhanced features
 	migratedCfg := migrateToEnhancedFormat(sourceCfg)
-	
+
 	// Apply optimization during migration if specified
 	if ConfigOptimizationMode != "development" {
 		optimizationMgr := config.NewOptimizationManager()
-		
+
 		// Create a minimal multi-language config for optimization
 		multiLangConfig := &config.MultiLanguageConfig{
 			ServerConfigs: convertGatewayToServerConfigs(migratedCfg),
@@ -1058,7 +1058,7 @@ func ConfigMigrate(cmd *cobra.Command, args []string) error {
 				SharedSettings: make(map[string]interface{}),
 			},
 		}
-		
+
 		if err := optimizationMgr.ApplyOptimization(multiLangConfig, ConfigOptimizationMode); err != nil {
 			fmt.Printf("Warning: Failed to apply optimization during migration: %v\n", err)
 		} else {
@@ -1079,7 +1079,7 @@ func ConfigMigrate(cmd *cobra.Command, args []string) error {
 	fmt.Printf("✓ Configuration migrated successfully to: %s\n", ConfigToPath)
 	fmt.Printf("  Servers: %d\n", len(migratedCfg.Servers))
 	fmt.Printf("  Enhanced features: %s\n", getEnhancedFeaturesSummary(migratedCfg))
-	
+
 	return nil
 }
 
@@ -1098,7 +1098,7 @@ func ConfigOptimize(cmd *cobra.Command, args []string) error {
 
 	// Initialize optimization manager
 	optimizationMgr := config.NewOptimizationManager()
-	
+
 	// Convert gateway config to multi-language config for optimization
 	multiLangConfig := &config.MultiLanguageConfig{
 		ServerConfigs: convertGatewayToServerConfigs(cfg),
@@ -1118,7 +1118,7 @@ func ConfigOptimize(cmd *cobra.Command, args []string) error {
 
 	// Convert back to gateway config
 	optimizedCfg := convertMultiLanguageToGateway(multiLangConfig)
-	
+
 	// Apply additional CLI flags
 	applyCliFlags(optimizedCfg)
 
@@ -1137,10 +1137,9 @@ func ConfigOptimize(cmd *cobra.Command, args []string) error {
 	fmt.Printf("  Optimization mode: %s\n", ConfigOptimizationMode)
 	fmt.Printf("  Servers optimized: %d\n", len(optimizedCfg.Servers))
 	fmt.Printf("  Performance settings applied: %v\n", multiLangConfig.Metadata["performance_settings"] != nil)
-	
+
 	return nil
 }
-
 
 // Enhanced validation functions
 
@@ -1407,31 +1406,31 @@ func convertMultiLanguageToGateway(multiConfig *config.MultiLanguageConfig) *con
 	if multiConfig == nil {
 		return config.DefaultConfig()
 	}
-	
+
 	gatewayConfig := config.DefaultConfig()
-	
+
 	// Convert server configurations
 	for _, serverConfig := range multiConfig.ServerConfigs {
 		gwServer := config.ServerConfig{
-			Name:                      serverConfig.Name,
-			Languages:                 serverConfig.Languages,
-			Command:                   serverConfig.Command,
-			Args:                      serverConfig.Args,
-			Transport:                 serverConfig.Transport,
-			RootMarkers:               serverConfig.RootMarkers,
-			Settings:                  serverConfig.Settings,
-			MaxConcurrentRequests:     serverConfig.MaxConcurrentRequests,
-			Priority:                  serverConfig.Priority,
-			Weight:                    serverConfig.Weight,
+			Name:                  serverConfig.Name,
+			Languages:             serverConfig.Languages,
+			Command:               serverConfig.Command,
+			Args:                  serverConfig.Args,
+			Transport:             serverConfig.Transport,
+			RootMarkers:           serverConfig.RootMarkers,
+			Settings:              serverConfig.Settings,
+			MaxConcurrentRequests: serverConfig.MaxConcurrentRequests,
+			Priority:              serverConfig.Priority,
+			Weight:                serverConfig.Weight,
 		}
 		gatewayConfig.Servers = append(gatewayConfig.Servers, gwServer)
 	}
-	
+
 	// Copy workspace configuration
 	if multiConfig.WorkspaceConfig != nil {
 		gatewayConfig.EnableConcurrentServers = multiConfig.WorkspaceConfig.MultiRoot
 		gatewayConfig.EnableSmartRouting = multiConfig.WorkspaceConfig.CrossLanguageReferences
-		
+
 		// Apply shared settings
 		for key, value := range multiConfig.WorkspaceConfig.SharedSettings {
 			switch key {
@@ -1446,30 +1445,30 @@ func convertMultiLanguageToGateway(multiConfig *config.MultiLanguageConfig) *con
 			}
 		}
 	}
-	
+
 	return gatewayConfig
 }
 
 // convertGatewayToServerConfigs converts GatewayConfig servers to MultiLanguage ServerConfigs
 func convertGatewayToServerConfigs(gatewayConfig *config.GatewayConfig) []*config.ServerConfig {
 	var serverConfigs []*config.ServerConfig
-	
+
 	for _, gwServer := range gatewayConfig.Servers {
 		serverConfig := &config.ServerConfig{
-			Name:                      gwServer.Name,
-			Languages:                 gwServer.Languages,
-			Command:                   gwServer.Command,
-			Args:                      gwServer.Args,
-			Transport:                 gwServer.Transport,
-			RootMarkers:               gwServer.RootMarkers,
-			Settings:                  gwServer.Settings,
-			MaxConcurrentRequests:     gwServer.MaxConcurrentRequests,
-			Priority:                  gwServer.Priority,
-			Weight:                    gwServer.Weight,
+			Name:                  gwServer.Name,
+			Languages:             gwServer.Languages,
+			Command:               gwServer.Command,
+			Args:                  gwServer.Args,
+			Transport:             gwServer.Transport,
+			RootMarkers:           gwServer.RootMarkers,
+			Settings:              gwServer.Settings,
+			MaxConcurrentRequests: gwServer.MaxConcurrentRequests,
+			Priority:              gwServer.Priority,
+			Weight:                gwServer.Weight,
 		}
 		serverConfigs = append(serverConfigs, serverConfig)
 	}
-	
+
 	return serverConfigs
 }
 
@@ -1481,11 +1480,11 @@ func applyCliFlags(cfg *config.GatewayConfig) {
 			cfg.SmartRouterConfig = &config.SmartRouterConfig{}
 		}
 	}
-	
+
 	if ConfigEnableConcurrentServers {
 		cfg.EnableConcurrentServers = true
 	}
-	
+
 	// Apply performance profile settings
 	switch ConfigPerformanceProfile {
 	case "high":
@@ -1517,7 +1516,7 @@ func getEnvironmentFromOptimizationMode(optimizationMode string) string {
 // migrateToEnhancedFormat migrates legacy configuration to enhanced format
 func migrateToEnhancedFormat(cfg *config.GatewayConfig) *config.GatewayConfig {
 	enhanced := *cfg
-	
+
 	// Add enhanced features if not present
 	if enhanced.SmartRouterConfig == nil {
 		enhanced.SmartRouterConfig = &config.SmartRouterConfig{
@@ -1526,12 +1525,12 @@ func migrateToEnhancedFormat(cfg *config.GatewayConfig) *config.GatewayConfig {
 			EnableCircuitBreaker:        true,
 		}
 	}
-	
+
 	// Ensure concurrent servers configuration
 	if enhanced.MaxConcurrentServersPerLanguage == 0 {
 		enhanced.MaxConcurrentServersPerLanguage = 2
 	}
-	
+
 	// Initialize language pools if missing
 	if enhanced.LanguagePools == nil {
 		enhanced.LanguagePools = make(map[string]*config.LanguageServerPool)
@@ -1549,14 +1548,14 @@ func migrateToEnhancedFormat(cfg *config.GatewayConfig) *config.GatewayConfig {
 			}
 		}
 	}
-	
+
 	return &enhanced
 }
 
 // getEnhancedFeaturesSummary returns a summary of enhanced features
 func getEnhancedFeaturesSummary(cfg *config.GatewayConfig) string {
 	var features []string
-	
+
 	if cfg.EnableSmartRouting {
 		features = append(features, "smart-routing")
 	}
@@ -1569,7 +1568,7 @@ func getEnhancedFeaturesSummary(cfg *config.GatewayConfig) string {
 	if len(cfg.LanguagePools) > 0 {
 		features = append(features, fmt.Sprintf("language-pools(%d)", len(cfg.LanguagePools)))
 	}
-	
+
 	if len(features) == 0 {
 		return "basic"
 	}

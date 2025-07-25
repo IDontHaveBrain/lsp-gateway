@@ -9,12 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/suite"
-	"lsp-gateway/internal/config"
-	"lsp-gateway/internal/gateway"
 	"lsp-gateway/mcp"
 	"lsp-gateway/tests/framework"
 	"lsp-gateway/tests/mocks"
+
+	"github.com/stretchr/testify/suite"
 )
 
 // MultiLanguageE2ETestSuite provides comprehensive E2E tests for cross-language LSP functionality

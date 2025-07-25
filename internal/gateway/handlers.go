@@ -102,11 +102,11 @@ const (
 )
 
 const (
-	LoggerFieldWorkspaceID   = "workspace_id"
-	LoggerFieldProjectPath   = "project_path"
-	LoggerFieldProjectType   = "project_type"
-	LoggerFieldProjectName   = "project_name"
-	URIPrefixWorkspace       = "workspace://"
+	LoggerFieldWorkspaceID = "workspace_id"
+	LoggerFieldProjectPath = "project_path"
+	LoggerFieldProjectType = "project_type"
+	LoggerFieldProjectName = "project_name"
+	URIPrefixWorkspace     = "workspace://"
 )
 
 // RequestTracker tracks concurrent requests for performance monitoring
@@ -117,12 +117,12 @@ type RequestTracker struct {
 
 // ConcurrentRequestInfo holds information about a concurrent request
 type ConcurrentRequestInfo struct {
-	RequestID    string
-	Method       string
-	Language     string
-	ServerCount  int
-	StartTime    time.Time
-	Status       string
+	RequestID   string
+	Method      string
+	Language    string
+	ServerCount int
+	StartTime   time.Time
+	Status      string
 }
 
 // NewRequestTracker creates a new request tracker
@@ -136,7 +136,7 @@ func NewRequestTracker() *RequestTracker {
 func (rt *RequestTracker) TrackRequest(requestID, method, language string, serverCount int) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
-	
+
 	rt.activeRequests[requestID] = &ConcurrentRequestInfo{
 		RequestID:   requestID,
 		Method:      method,
@@ -151,7 +151,7 @@ func (rt *RequestTracker) TrackRequest(requestID, method, language string, serve
 func (rt *RequestTracker) CompleteRequest(requestID string) {
 	rt.mu.Lock()
 	defer rt.mu.Unlock()
-	
+
 	if info, exists := rt.activeRequests[requestID]; exists {
 		info.Status = "completed"
 		// Keep completed requests for a short time for metrics
@@ -168,7 +168,7 @@ func (rt *RequestTracker) CompleteRequest(requestID string) {
 func (rt *RequestTracker) GetActiveRequestCount() int {
 	rt.mu.RLock()
 	defer rt.mu.RUnlock()
-	
+
 	count := 0
 	for _, info := range rt.activeRequests {
 		if info.Status == "active" {
@@ -469,27 +469,33 @@ type Gateway struct {
 	Router  *Router
 	Logger  *mcp.StructuredLogger
 	Mu      sync.RWMutex
-	
+
 	// SmartRouter integration
 	smartRouter      *SmartRouterImpl
 	workspaceManager *WorkspaceManager
 	projectRouter    *ProjectAwareRouter
-	
+
 	// Performance monitoring
+<<<<<<< HEAD
 	performanceCache PerformanceCache
 	requestClassifier RequestClassifier
 	responseAggregator ResponseAggregator
 	
+=======
+	performanceCache  PerformanceCache
+	requestClassifier RequestClassifier
+
+>>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	// Multi-server management
-	multiServerManager *MultiServerManager
+	multiServerManager      *MultiServerManager
 	enableConcurrentServers bool
-	aggregatorRegistry *AggregatorRegistry
-	requestTracker     *RequestTracker
-	
+	aggregatorRegistry      *AggregatorRegistry
+	requestTracker          *RequestTracker
+
 	// Configuration
 	enableSmartRouting bool
-	routingStrategies map[string]RoutingStrategy
-	
+	routingStrategies  map[string]RoutingStrategy
+
 	// Enhancement components
 	enableEnhancements bool
 	health_monitor     *HealthMonitor
@@ -516,17 +522,22 @@ func NewGateway(config *config.GatewayConfig) (*Gateway, error) {
 	router := NewRouter()
 	workspaceManager := NewWorkspaceManager(config, router, logger)
 	projectRouter := NewProjectAwareRouter(router, workspaceManager, logger)
-	
+
 	// Initialize performance monitoring components
 	performanceCache := NewPerformanceCache(logger)
 	requestClassifier := NewRequestClassifier()
+<<<<<<< HEAD
 	responseAggregator := NewResponseAggregator(logger)
 	health_monitor := NewHealthMonitor(30 * time.Second)
 	
+=======
+	health_monitor := NewHealthMonitor(10 * time.Second)
+
+>>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	// Initialize multi-server components
 	aggregatorRegistry := NewAggregatorRegistry(logger)
 	requestTracker := NewRequestTracker()
-	
+
 	// Initialize MultiServerManager if configuration supports it
 	var multiServerManager *MultiServerManager
 	enableConcurrentServers := false
@@ -539,37 +550,36 @@ func NewGateway(config *config.GatewayConfig) (*Gateway, error) {
 			logger.Info("MultiServerManager initialized successfully")
 		}
 	}
-	
+
 	// Create SmartRouter with all components
 	smartRouter := NewSmartRouter(projectRouter, config, workspaceManager, logger)
-	
+
 	// Check for SmartRouter configuration
 	enableSmartRouting := config.EnableSmartRouting
 	enableEnhancements := config.EnableEnhancements
-	
+
 	gateway := &Gateway{
 		Config:  config,
 		Clients: make(map[string]transport.LSPClient),
 		Router:  router,
 		Logger:  logger,
-		
+
 		// SmartRouter components
 		smartRouter:      smartRouter,
 		workspaceManager: workspaceManager,
 		projectRouter:    projectRouter,
-		
+
 		// Performance monitoring
 		performanceCache:  performanceCache,
 		requestClassifier: requestClassifier,
-		responseAggregator: responseAggregator,
-		health_monitor:     health_monitor,
-		
+		health_monitor:    health_monitor,
+
 		// Multi-server management
 		multiServerManager:      multiServerManager,
 		enableConcurrentServers: enableConcurrentServers,
 		aggregatorRegistry:      aggregatorRegistry,
-		requestTracker:         requestTracker,
-		
+		requestTracker:          requestTracker,
+
 		// Configuration
 		enableSmartRouting: enableSmartRouting,
 		routingStrategies:  make(map[string]RoutingStrategy),
@@ -1356,20 +1366,20 @@ func extractProjectContextFromURI(uri string) (string, string, error) {
 
 // ProjectRootResult represents enhanced project root detection results
 type ProjectRootResult struct {
-	MainRoot        string                 `json:"main_root"`        // Primary project root
-	LanguageRoots   map[string]string     `json:"language_roots"`   // Language -> specific root path
-	DetectedMarkers []string              `json:"detected_markers"` // All markers found
-	ProjectType     string                `json:"project_type"`     // Type of project detected
-	IsNested        bool                  `json:"is_nested"`        // Whether nested projects exist
-	Confidence      float64               `json:"confidence"`       // Detection confidence (0.0-1.0)
-	ScanDepth       int                   `json:"scan_depth"`       // Maximum depth scanned
+	MainRoot        string                      `json:"main_root"`           // Primary project root
+	LanguageRoots   map[string]string           `json:"language_roots"`      // Language -> specific root path
+	DetectedMarkers []string                    `json:"detected_markers"`    // All markers found
+	ProjectType     string                      `json:"project_type"`        // Type of project detected
+	IsNested        bool                        `json:"is_nested"`           // Whether nested projects exist
+	Confidence      float64                     `json:"confidence"`          // Detection confidence (0.0-1.0)
+	ScanDepth       int                         `json:"scan_depth"`          // Maximum depth scanned
 	Languages       map[string]*LanguageContext `json:"languages,omitempty"` // Language contexts if available
 }
 
 // Enhanced multi-language root detection with comprehensive analysis
 func findProjectRootMultiLanguage(startPath string) (*ProjectRootResult, error) {
 	const maxScanDepth = 10
-	
+
 	if startPath == "" {
 		return nil, fmt.Errorf("empty start path provided")
 	}
@@ -1382,7 +1392,7 @@ func findProjectRootMultiLanguage(startPath string) (*ProjectRootResult, error) 
 	// Initialize scanner for comprehensive analysis
 	scanner := NewProjectLanguageScanner()
 	scanner.SetMaxDepth(3) // Limit depth for performance
-	
+
 	result := &ProjectRootResult{
 		LanguageRoots:   make(map[string]string),
 		DetectedMarkers: []string{},
@@ -1449,14 +1459,14 @@ func findProjectRootMultiLanguage(startPath string) (*ProjectRootResult, error) 
 				} else {
 					markerPath = filepath.Join(currentDir, marker)
 				}
-				
+
 				if markerPath != "" && fileExists(markerPath) {
 					levelMarkers = append(levelMarkers, marker)
 					if !languageFound {
 						foundLanguages = append(foundLanguages, language)
 						languageFound = true
 						levelConfidence += 0.4
-						
+
 						// Store language-specific root
 						if _, exists := languageRootMap[language]; !exists {
 							languageRootMap[language] = currentDir
@@ -1470,7 +1480,7 @@ func findProjectRootMultiLanguage(startPath string) (*ProjectRootResult, error) 
 		if len(levelMarkers) > 0 {
 			allMarkers = append(allMarkers, levelMarkers...)
 			foundRoots[fmt.Sprintf("level_%d", depth)] = currentDir
-			
+
 			// Update primary root based on confidence
 			if levelConfidence > maxConfidence {
 				maxConfidence = levelConfidence
@@ -1499,7 +1509,7 @@ func findProjectRootMultiLanguage(startPath string) (*ProjectRootResult, error) 
 				}
 			}
 		}
-		
+
 		// Fallback to VCS root if no level root found
 		if primaryRoot == "" {
 			for key, root := range foundRoots {
@@ -1525,7 +1535,7 @@ func findProjectRootMultiLanguage(startPath string) (*ProjectRootResult, error) 
 
 	// Detect nested projects
 	isNested := len(languageRootMap) > 1 && len(foundRoots) > 1
-	
+
 	// Determine project type
 	projectType := determineProjectType(languageRootMap, foundRoots, allMarkers)
 
@@ -1534,7 +1544,7 @@ func findProjectRootMultiLanguage(startPath string) (*ProjectRootResult, error) 
 		if info, err := scanner.ScanProjectComprehensive(primaryRoot); err == nil {
 			result.Languages = info.Languages
 			result.ProjectType = info.ProjectType
-			
+
 			// Update language roots from comprehensive scan
 			for lang, ctx := range info.Languages {
 				if ctx.RootPath != "" {
@@ -1630,43 +1640,43 @@ func isDirectory(path string) bool {
 func determineProjectType(languageRoots map[string]string, foundRoots map[string]string, markers []string) string {
 	numLanguages := len(languageRoots)
 	numRoots := len(foundRoots)
-	
+
 	if numLanguages == 0 {
 		return "empty"
 	}
-	
+
 	if numLanguages == 1 {
 		return "single-language"
 	}
-	
+
 	// Check for common patterns based on markers
 	hasDocker := containsMarker(markers, "docker")
 	hasWorkspace := containsMarker(markers, "go.work") || hasWorkspacePackageJson(foundRoots)
 	hasMultipleBuildSystems := countBuildSystems(markers) >= 2
-	
+
 	// Frontend-backend pattern detection
 	hasFrontend := hasLanguage(languageRoots, "javascript", "typescript")
 	hasBackend := hasLanguage(languageRoots, "go", "python", "java", "rust")
-	
+
 	if hasFrontend && hasBackend && numLanguages <= 3 {
 		return "frontend-backend"
 	}
-	
+
 	// Monorepo pattern (multiple languages with workspace setup)
 	if hasWorkspace && numLanguages >= 2 {
 		return "monorepo"
 	}
-	
+
 	// Microservices pattern (multiple languages with separate build systems)
 	if hasMultipleBuildSystems && numLanguages >= 3 && (hasDocker || numRoots > 2) {
 		return "microservices"
 	}
-	
+
 	// Polyglot pattern (multiple languages intermixed)
 	if numLanguages >= 2 && numRoots <= 2 {
 		return "polyglot"
 	}
-	
+
 	// Multi-language (catch-all for multiple languages)
 	return "multi-language"
 }
@@ -1698,22 +1708,22 @@ func hasWorkspacePackageJson(roots map[string]string) bool {
 func countBuildSystems(markers []string) int {
 	buildSystems := make(map[string]bool)
 	buildSystemMarkers := map[string]string{
-		"go.mod":        "go",
-		"package.json":  "npm",
-		"pom.xml":       "maven",
-		"build.gradle":  "gradle",
-		"Cargo.toml":    "cargo",
-		"Makefile":      "make",
+		"go.mod":         "go",
+		"package.json":   "npm",
+		"pom.xml":        "maven",
+		"build.gradle":   "gradle",
+		"Cargo.toml":     "cargo",
+		"Makefile":       "make",
 		"CMakeLists.txt": "cmake",
-		"setup.py":      "python",
+		"setup.py":       "python",
 	}
-	
+
 	for _, marker := range markers {
 		if system, exists := buildSystemMarkers[marker]; exists {
 			buildSystems[system] = true
 		}
 	}
-	
+
 	return len(buildSystems)
 }
 
@@ -1731,14 +1741,14 @@ func hasLanguage(languageRoots map[string]string, languages ...string) bool {
 func removeDuplicateStrings(slice []string) []string {
 	keys := make(map[string]bool)
 	var result []string
-	
+
 	for _, item := range slice {
 		if !keys[item] {
 			keys[item] = true
 			result = append(result, item)
 		}
 	}
-	
+
 	return result
 }
 
@@ -1750,24 +1760,24 @@ func findLanguageSpecificRoot(startPath, language string) string {
 	if err != nil || result == nil {
 		return ""
 	}
-	
+
 	if root, exists := result.LanguageRoots[language]; exists {
 		return root
 	}
-	
+
 	return result.MainRoot
 }
 
 // detectNestedProjects identifies nested projects within a root directory
 func detectNestedProjects(rootPath string) map[string]string {
 	nestedProjects := make(map[string]string)
-	
+
 	// Walk directory tree looking for project markers at different levels
 	err := filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Continue on errors
 		}
-		
+
 		if info.IsDir() {
 			// Check if this directory contains project markers
 			if hasProjectMarkers(path) && path != rootPath {
@@ -1775,37 +1785,37 @@ func detectNestedProjects(rootPath string) map[string]string {
 				projectType := detectProjectTypeForPath(path)
 				nestedProjects[relPath] = projectType
 			}
-			
+
 			// Skip deep nesting and common ignore directories
 			depth := strings.Count(strings.TrimPrefix(path, rootPath), string(filepath.Separator))
 			if depth > 3 || shouldSkipDirectory(info.Name()) {
 				return filepath.SkipDir
 			}
 		}
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		return make(map[string]string)
 	}
-	
+
 	return nestedProjects
 }
 
 // hasProjectMarkers checks if a directory contains project markers
 func hasProjectMarkers(dirPath string) bool {
 	markers := []string{
-		"go.mod", "package.json", "pom.xml", "Cargo.toml", 
+		"go.mod", "package.json", "pom.xml", "Cargo.toml",
 		"pyproject.toml", "setup.py", "build.gradle", "CMakeLists.txt",
 	}
-	
+
 	for _, marker := range markers {
 		if fileExists(filepath.Join(dirPath, marker)) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -1827,7 +1837,7 @@ func detectProjectTypeForPath(path string) string {
 	if fileExists(filepath.Join(path, "pyproject.toml")) || fileExists(filepath.Join(path, "setup.py")) {
 		return "python"
 	}
-	
+
 	return "unknown"
 }
 
@@ -1839,24 +1849,24 @@ func shouldSkipDirectory(dirName string) bool {
 		"target", "build", "dist", "out", ".idea", ".vscode",
 		"vendor", "coverage", ".gradle", ".m2",
 	}
-	
+
 	lowerName := strings.ToLower(dirName)
 	for _, skip := range skipDirs {
 		if lowerName == skip || strings.HasPrefix(lowerName, ".") && len(dirName) > 1 {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
 // calculateRootConfidence calculates confidence score for a root path
 func calculateRootConfidence(rootPath string, markers []string) float64 {
 	confidence := 0.0
-	
+
 	// Base confidence from markers
 	confidence += float64(len(markers)) * 0.1
-	
+
 	// VCS presence adds confidence
 	vcsMarkers := []string{".git", ".hg", ".svn"}
 	for _, vcs := range vcsMarkers {
@@ -1865,7 +1875,7 @@ func calculateRootConfidence(rootPath string, markers []string) float64 {
 			break
 		}
 	}
-	
+
 	// Build system markers add confidence
 	buildMarkers := []string{"go.mod", "package.json", "pom.xml", "Cargo.toml"}
 	buildCount := 0
@@ -1875,7 +1885,7 @@ func calculateRootConfidence(rootPath string, markers []string) float64 {
 		}
 	}
 	confidence += float64(buildCount) * 0.2
-	
+
 	// Configuration files add confidence
 	configMarkers := []string{"tsconfig.json", "pyproject.toml", "build.gradle"}
 	for _, marker := range configMarkers {
@@ -1883,12 +1893,12 @@ func calculateRootConfidence(rootPath string, markers []string) float64 {
 			confidence += 0.1
 		}
 	}
-	
+
 	// Cap at 1.0
 	if confidence > 1.0 {
 		confidence = 1.0
 	}
-	
+
 	return confidence
 }
 
@@ -1901,13 +1911,13 @@ func isMonorepoRoot(rootPath string) bool {
 		"nx.json",
 		"rush.json",
 	}
-	
+
 	for _, indicator := range workspaceIndicators {
 		if fileExists(filepath.Join(rootPath, indicator)) {
 			return true
 		}
 	}
-	
+
 	// Check for package.json with workspaces
 	packageJsonPath := filepath.Join(rootPath, "package.json")
 	if fileExists(packageJsonPath) {
@@ -1927,29 +1937,29 @@ func isMonorepoRoot(rootPath string) bool {
 		}
 		return subDirPackages >= 2
 	}
-	
+
 	return false
 }
 
 // getProjectBoundaries identifies logical project boundaries within a directory tree
 func getProjectBoundaries(startPath string) []string {
 	var boundaries []string
-	
+
 	// Start from the path and work upward
 	currentPath := startPath
 	if !isDirectory(currentPath) {
 		currentPath = filepath.Dir(currentPath)
 	}
-	
+
 	maxDepth := 10
 	depth := 0
-	
+
 	for depth < maxDepth {
 		// Check if current path represents a project boundary
 		if hasProjectMarkers(currentPath) {
 			boundaries = append(boundaries, currentPath)
 		}
-		
+
 		// Check if it's a VCS boundary
 		vcsMarkers := []string{".git", ".hg", ".svn"}
 		for _, vcs := range vcsMarkers {
@@ -1958,7 +1968,7 @@ func getProjectBoundaries(startPath string) []string {
 				break
 			}
 		}
-		
+
 		// Move up one level
 		parent := filepath.Dir(currentPath)
 		if parent == currentPath {
@@ -1967,7 +1977,7 @@ func getProjectBoundaries(startPath string) []string {
 		currentPath = parent
 		depth++
 	}
-	
+
 	return removeDuplicateStrings(boundaries)
 }
 
@@ -1978,24 +1988,24 @@ func (r *ProjectRootResult) ToMultiLanguageProjectInfo() *MultiLanguageProjectIn
 	if r == nil {
 		return nil
 	}
-	
+
 	info := &MultiLanguageProjectInfo{
-		RootPath:         r.MainRoot,
-		ProjectType:      r.ProjectType,
-		Languages:        r.Languages,
-		WorkspaceRoots:   r.LanguageRoots,
-		BuildFiles:       []string{},
-		ConfigFiles:      []string{},
-		TotalFileCount:   0,
-		ScanDepth:        r.ScanDepth,
-		DetectedAt:       time.Now(),
+		RootPath:       r.MainRoot,
+		ProjectType:    r.ProjectType,
+		Languages:      r.Languages,
+		WorkspaceRoots: r.LanguageRoots,
+		BuildFiles:     []string{},
+		ConfigFiles:    []string{},
+		TotalFileCount: 0,
+		ScanDepth:      r.ScanDepth,
+		DetectedAt:     time.Now(),
 		Metadata: map[string]interface{}{
 			"detection_confidence": r.Confidence,
-			"is_nested":           r.IsNested,
-			"detected_markers":    r.DetectedMarkers,
+			"is_nested":            r.IsNested,
+			"detected_markers":     r.DetectedMarkers,
 		},
 	}
-	
+
 	// Determine dominant language
 	if len(r.Languages) > 0 {
 		var maxPriority int
@@ -2006,12 +2016,12 @@ func (r *ProjectRootResult) ToMultiLanguageProjectInfo() *MultiLanguageProjectIn
 			}
 		}
 	}
-	
+
 	// Collect build and config files from language contexts
 	buildFiles := make(map[string]bool)
 	configFiles := make(map[string]bool)
 	totalFiles := 0
-	
+
 	for _, ctx := range r.Languages {
 		for _, file := range ctx.BuildFiles {
 			buildFiles[file] = true
@@ -2021,7 +2031,7 @@ func (r *ProjectRootResult) ToMultiLanguageProjectInfo() *MultiLanguageProjectIn
 		}
 		totalFiles += ctx.FileCount + ctx.TestFileCount
 	}
-	
+
 	// Convert to slices
 	for file := range buildFiles {
 		info.BuildFiles = append(info.BuildFiles, file)
@@ -2029,9 +2039,9 @@ func (r *ProjectRootResult) ToMultiLanguageProjectInfo() *MultiLanguageProjectIn
 	for file := range configFiles {
 		info.ConfigFiles = append(info.ConfigFiles, file)
 	}
-	
+
 	info.TotalFileCount = totalFiles
-	
+
 	return info
 }
 
@@ -2042,23 +2052,23 @@ func integrateRootDetectionWithScanner(startPath string) (*MultiLanguageProjectI
 	if err != nil {
 		return nil, fmt.Errorf("root detection failed: %w", err)
 	}
-	
+
 	if rootResult.MainRoot == "" {
 		return nil, fmt.Errorf("no project root found for path: %s", startPath)
 	}
-	
+
 	// If we already have comprehensive language information, use it
 	if len(rootResult.Languages) > 0 {
 		return rootResult.ToMultiLanguageProjectInfo(), nil
 	}
-	
+
 	// Otherwise, perform comprehensive scanning
 	scanner := NewProjectLanguageScanner()
 	info, err := scanner.ScanProjectComprehensive(rootResult.MainRoot)
 	if err != nil {
 		return nil, fmt.Errorf("comprehensive scan failed: %w", err)
 	}
-	
+
 	// Merge root detection results into scan results
 	info.Metadata["root_detection"] = map[string]interface{}{
 		"confidence":       rootResult.Confidence,
@@ -2066,12 +2076,12 @@ func integrateRootDetectionWithScanner(startPath string) (*MultiLanguageProjectI
 		"detected_markers": rootResult.DetectedMarkers,
 		"scan_depth":       rootResult.ScanDepth,
 	}
-	
+
 	// Update workspace roots from root detection
 	for lang, root := range rootResult.LanguageRoots {
 		info.WorkspaceRoots[lang] = root
 	}
-	
+
 	return info, nil
 }
 
@@ -2285,7 +2295,13 @@ func (g *Gateway) processAggregatedRequest(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Create LSPRequest for SmartRouter
+	requestContext := &RequestContext{
+		FileURI:     uri,
+		Language:    language,
+		RequestType: "file_based",
+	}
 	lspRequest := &LSPRequest{
+<<<<<<< HEAD
 		Method:  req.Method,
 		Params:  req.Params,
 		ID:      req.ID,
@@ -2303,6 +2319,15 @@ func (g *Gateway) processAggregatedRequest(w http.ResponseWriter, r *http.Reques
 	if err := PreprocessLSPRequest(lspRequest); err != nil {
 		g.writeError(w, req.ID, InternalError, "Failed to preprocess request", err)
 		return
+=======
+		Method:    req.Method,
+		Params:    req.Params,
+		URI:       uri,
+		Context:   requestContext,
+		JSONRPC:   "2.0",
+		Timestamp: time.Now(),
+		RequestID: fmt.Sprintf("req_%d", time.Now().UnixNano()),
+>>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	}
 
 	// Use SmartRouter to aggregate responses
@@ -2359,7 +2384,6 @@ func (g *Gateway) processEnhancedRequest(w http.ResponseWriter, r *http.Request,
 	g.processSingleServerRequestWithClient(w, r, req, primaryServerName, logger, startTime)
 }
 
-
 // processSingleServerRequestWithClient processes request with a specific client
 func (g *Gateway) processSingleServerRequestWithClient(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, serverName string, logger *mcp.StructuredLogger, startTime time.Time) {
 	client, exists := g.GetClient(serverName)
@@ -2414,7 +2438,7 @@ func (g *Gateway) SetRoutingStrategy(method string, strategy RoutingStrategy) {
 	if g.smartRouter != nil {
 		g.smartRouter.SetRoutingStrategy(method, strategy)
 	}
-	
+
 	g.Mu.Lock()
 	defer g.Mu.Unlock()
 	g.routingStrategies[method] = strategy
@@ -2425,7 +2449,7 @@ func (g *Gateway) GetRoutingStrategy(method string) RoutingStrategy {
 	if g.smartRouter != nil {
 		return g.smartRouter.GetRoutingStrategy(method)
 	}
-	
+
 	g.Mu.RLock()
 	defer g.Mu.RUnlock()
 	if strategy, exists := g.routingStrategies[method]; exists {
@@ -2452,7 +2476,7 @@ func (g *Gateway) EnableSmartRouting(enable bool) {
 	g.Mu.Lock()
 	defer g.Mu.Unlock()
 	g.enableSmartRouting = enable
-	
+
 	if g.Logger != nil {
 		g.Logger.Infof("Smart routing %s", map[bool]string{true: "enabled", false: "disabled"}[enable])
 	}
@@ -2474,13 +2498,13 @@ func (g *Gateway) IsConcurrentServersEnabled() bool {
 func (g *Gateway) EnableConcurrentServers(enable bool) {
 	g.Mu.Lock()
 	defer g.Mu.Unlock()
-	
+
 	if !enable || g.multiServerManager == nil {
 		g.enableConcurrentServers = false
 	} else {
 		g.enableConcurrentServers = enable
 	}
-	
+
 	if g.Logger != nil {
 		g.Logger.Infof("Concurrent servers %s", map[bool]string{true: "enabled", false: "disabled"}[g.enableConcurrentServers])
 	}
@@ -2489,30 +2513,30 @@ func (g *Gateway) EnableConcurrentServers(enable bool) {
 // GetConcurrentRequestMetrics returns metrics about concurrent requests
 func (g *Gateway) GetConcurrentRequestMetrics() map[string]interface{} {
 	metrics := make(map[string]interface{})
-	
+
 	if g.requestTracker != nil {
 		metrics["active_concurrent_requests"] = g.requestTracker.GetActiveRequestCount()
 	}
-	
+
 	if g.multiServerManager != nil {
 		if managerMetrics := g.multiServerManager.GetMetrics(); managerMetrics != nil {
 			metrics["manager_metrics"] = managerMetrics
 		}
 	}
-	
+
 	if g.aggregatorRegistry != nil {
 		metrics["aggregation_enabled"] = true
 	} else {
 		metrics["aggregation_enabled"] = false
 	}
-	
+
 	return metrics
 }
 
 // GetMethodConcurrencyInfo returns information about which methods use concurrent processing
 func (g *Gateway) GetMethodConcurrencyInfo() map[string]interface{} {
 	info := make(map[string]interface{})
-	
+
 	// Define concurrent methods and their max servers
 	concurrentMethods := map[string]bool{
 		LSP_METHOD_REFERENCES:       true,
@@ -2521,25 +2545,25 @@ func (g *Gateway) GetMethodConcurrencyInfo() map[string]interface{} {
 		LSP_METHOD_DEFINITION:       false,
 		LSP_METHOD_HOVER:            false,
 	}
-	
+
 	maxServers := map[string]int{
 		LSP_METHOD_REFERENCES:       3,
 		LSP_METHOD_WORKSPACE_SYMBOL: 5,
 	}
-	
+
 	for method, enabled := range concurrentMethods {
 		methodInfo := map[string]interface{}{
 			"concurrent_enabled": enabled,
 			"max_servers":        1,
 		}
-		
+
 		if max, exists := maxServers[method]; exists {
 			methodInfo["max_servers"] = max
 		}
-		
+
 		info[method] = methodInfo
 	}
-	
+
 	return info
 }
 
@@ -2547,45 +2571,45 @@ func (g *Gateway) GetMethodConcurrencyInfo() map[string]interface{} {
 func (g *Gateway) RestartMultiServerManager() error {
 	g.Mu.Lock()
 	defer g.Mu.Unlock()
-	
+
 	if g.multiServerManager == nil {
 		return fmt.Errorf("MultiServerManager is not initialized")
 	}
-	
+
 	if g.Logger != nil {
 		g.Logger.Info("Restarting MultiServerManager")
 	}
-	
+
 	// Stop current manager
 	if err := g.multiServerManager.Stop(); err != nil {
 		if g.Logger != nil {
 			g.Logger.WithError(err).Warn("Error stopping MultiServerManager during restart")
 		}
 	}
-	
+
 	// Reinitialize
 	if err := g.multiServerManager.Initialize(); err != nil {
 		g.enableConcurrentServers = false
 		return fmt.Errorf("failed to reinitialize MultiServerManager: %w", err)
 	}
-	
+
 	// Start again
 	if err := g.multiServerManager.Start(); err != nil {
 		g.enableConcurrentServers = false
 		return fmt.Errorf("failed to restart MultiServerManager: %w", err)
 	}
-	
+
 	if g.Logger != nil {
 		g.Logger.Info("MultiServerManager restarted successfully")
 	}
-	
+
 	return nil
 }
 
 // GetServerHealthStatus returns health status of all servers
 func (g *Gateway) GetServerHealthStatus() map[string]interface{} {
 	status := make(map[string]interface{})
-	
+
 	// Traditional clients
 	g.Mu.RLock()
 	traditionalClients := make(map[string]bool)
@@ -2593,9 +2617,9 @@ func (g *Gateway) GetServerHealthStatus() map[string]interface{} {
 		traditionalClients[name] = client.IsActive()
 	}
 	g.Mu.RUnlock()
-	
+
 	status["traditional_clients"] = traditionalClients
-	
+
 	// Multi-server manager status
 	if g.multiServerManager != nil {
 		if managerMetrics := g.multiServerManager.GetMetrics(); managerMetrics != nil {
@@ -2605,6 +2629,6 @@ func (g *Gateway) GetServerHealthStatus() map[string]interface{} {
 	} else {
 		status["multi_server_enabled"] = false
 	}
-	
+
 	return status
 }

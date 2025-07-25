@@ -13,16 +13,16 @@ import (
 
 // PathValidationOptions configures path validation behavior
 type PathValidationOptions struct {
-	RequireAbsolute    bool
-	AllowSymlinks      bool
-	CheckPermissions   bool
-	FollowSymlinks     bool
-	ValidateStructure  bool
-	TimeoutDuration    time.Duration
-	MaxDepth           int
-	ExcludePatterns    []string
-	RequiredMarkers    []string
-	Logger             *setup.SetupLogger
+	RequireAbsolute   bool
+	AllowSymlinks     bool
+	CheckPermissions  bool
+	FollowSymlinks    bool
+	ValidateStructure bool
+	TimeoutDuration   time.Duration
+	MaxDepth          int
+	ExcludePatterns   []string
+	RequiredMarkers   []string
+	Logger            *setup.SetupLogger
 }
 
 // DefaultPathValidationOptions returns sensible defaults for path validation
@@ -114,7 +114,7 @@ func (v *PathValidator) ValidatePath(ctx context.Context, path, fieldName string
 	case result := <-resultChan:
 		v.cacheResult(path, result)
 		duration := time.Since(startTime)
-		
+
 		if result.valid {
 			v.logger.WithFields(map[string]interface{}{
 				"path":       path,
@@ -123,7 +123,7 @@ func (v *PathValidator) ValidatePath(ctx context.Context, path, fieldName string
 			}).Debug("Path validation successful")
 			return result.normalized, nil
 		}
-		
+
 		v.logger.WithError(result.error).WithFields(map[string]interface{}{
 			"path":     path,
 			"duration": duration.String(),
@@ -506,7 +506,7 @@ func (v *PathValidator) CheckPathPermissions(path string) error {
 	}
 
 	mode := info.Mode()
-	
+
 	// Check read permissions
 	if mode&0400 == 0 { // Owner read permission
 		return NewProjectError(
@@ -607,9 +607,9 @@ func (v *PathValidator) ValidateProjectStructure(path, fieldName string) error {
 	}
 
 	v.logger.WithFields(map[string]interface{}{
-		"path":           normalized,
-		"found_markers":  foundMarkers,
-		"marker_count":   len(foundMarkers),
+		"path":          normalized,
+		"found_markers": foundMarkers,
+		"marker_count":  len(foundMarkers),
 	}).Debug("Project structure validation successful")
 
 	return nil

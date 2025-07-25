@@ -3,17 +3,17 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"lsp-gateway/internal/config"
 	"log"
+	"lsp-gateway/internal/config"
 	"time"
 )
 
 // IntegrationExample demonstrates how to use the enhanced MCP tools with project context awareness
 type IntegrationExample struct {
-	projectHandler     *ProjectAwareToolHandler
-	workspaceContext   *WorkspaceContext
+	projectHandler      *ProjectAwareToolHandler
+	workspaceContext    *WorkspaceContext
 	projectToolsHandler *ProjectToolsHandler
-	logger             *StructuredLogger
+	logger              *StructuredLogger
 }
 
 // NewIntegrationExample creates a new integration example
@@ -22,7 +22,7 @@ func NewIntegrationExample(gatewayURL string, projectPath string) (*IntegrationE
 	client := NewLSPGatewayClient(&ServerConfig{
 		LSPGatewayURL: gatewayURL,
 	})
-	
+
 	// Create logger
 	logger := NewStructuredLogger(&LoggerConfig{
 		Level:      LogLevelInfo,
@@ -51,15 +51,15 @@ func NewIntegrationExample(gatewayURL string, projectPath string) (*IntegrationE
 
 	// Get workspace context
 	workspaceContext := projectHandler.GetWorkspaceContext()
-	
+
 	// Create project tools handler
 	projectToolsHandler := NewProjectToolsHandler(workspaceContext, client)
 
 	return &IntegrationExample{
-		projectHandler:     projectHandler,
-		workspaceContext:   workspaceContext,
+		projectHandler:      projectHandler,
+		workspaceContext:    workspaceContext,
 		projectToolsHandler: projectToolsHandler,
-		logger:             logger,
+		logger:              logger,
 	}, nil
 }
 
@@ -107,15 +107,15 @@ func (ie *IntegrationExample) demonstrateProjectDetection(ctx context.Context) e
 	}
 
 	ie.logger.WithFields(map[string]interface{}{
-		"project_type":      projectCtx.ProjectType,
-		"primary_language":  projectCtx.PrimaryLanguage,
-		"languages":         projectCtx.Languages,
-		"workspace_root":    projectCtx.WorkspaceRoot,
-		"project_root":      projectCtx.RootPath,
-		"confidence":        projectCtx.Confidence,
-		"required_servers":  projectCtx.RequiredServers,
-		"is_monorepo":       projectCtx.IsMonorepo,
-		"detection_time":    projectCtx.DetectionTime,
+		"project_type":     projectCtx.ProjectType,
+		"primary_language": projectCtx.PrimaryLanguage,
+		"languages":        projectCtx.Languages,
+		"workspace_root":   projectCtx.WorkspaceRoot,
+		"project_root":     projectCtx.RootPath,
+		"confidence":       projectCtx.Confidence,
+		"required_servers": projectCtx.RequiredServers,
+		"is_monorepo":      projectCtx.IsMonorepo,
+		"detection_time":   projectCtx.DetectionTime,
 	}).Info("Project detection results")
 
 	// Show project statistics
@@ -199,9 +199,9 @@ func (ie *IntegrationExample) demonstrateWorkspaceFeatures(ctx context.Context) 
 
 	for _, file := range exampleFiles {
 		ie.logger.WithFields(map[string]interface{}{
-			"file":        file,
-			"in_project":  ie.workspaceContext.IsFileInProject(file),
-			"language":    ie.workspaceContext.GetLanguageForFile(file),
+			"file":       file,
+			"in_project": ie.workspaceContext.IsFileInProject(file),
+			"language":   ie.workspaceContext.GetLanguageForFile(file),
 		}).Info("File categorization")
 	}
 
@@ -235,7 +235,7 @@ func (ie *IntegrationExample) demonstrateEnhancedGotoDefinition(ctx context.Cont
 	ie.logger.WithFields(map[string]interface{}{
 		"has_project_metadata": result.Meta != nil && result.Meta.RequestInfo != nil,
 		"content_enhanced":     len(result.Content) > 0 && result.Content[0].Annotations != nil,
-		"is_error":            result.IsError,
+		"is_error":             result.IsError,
 	}).Info("Enhanced goto definition result")
 
 	return nil
@@ -262,7 +262,7 @@ func (ie *IntegrationExample) demonstrateEnhancedFindReferences(ctx context.Cont
 	ie.logger.WithFields(map[string]interface{}{
 		"has_project_context": result.Meta != nil && result.Meta.RequestInfo != nil,
 		"content_categorized": len(result.Content) > 0 && result.Content[0].Data != nil,
-		"is_error":           result.IsError,
+		"is_error":            result.IsError,
 	}).Info("Enhanced find references result")
 
 	return nil
@@ -286,7 +286,7 @@ func (ie *IntegrationExample) demonstrateEnhancedWorkspaceSymbols(ctx context.Co
 	ie.logger.WithFields(map[string]interface{}{
 		"has_search_context": result.Meta != nil && result.Meta.RequestInfo != nil,
 		"symbols_filtered":   len(result.Content) > 0 && result.Content[0].Annotations != nil,
-		"is_error":          result.IsError,
+		"is_error":           result.IsError,
 	}).Info("Enhanced workspace symbols result")
 
 	return nil
@@ -312,7 +312,7 @@ func (ie *IntegrationExample) demonstrateAnalyzeProjectStructure(ctx context.Con
 	ie.logger.WithFields(map[string]interface{}{
 		"has_analysis_data": len(result.Content) > 0 && result.Content[0].Data != nil,
 		"content_type":      result.Content[0].Annotations["content_type"],
-		"is_error":         result.IsError,
+		"is_error":          result.IsError,
 	}).Info("Analyze project structure result")
 
 	return nil
@@ -337,7 +337,7 @@ func (ie *IntegrationExample) demonstrateGetProjectConfig(ctx context.Context) e
 	ie.logger.WithFields(map[string]interface{}{
 		"has_config_data": len(result.Content) > 0 && result.Content[0].Data != nil,
 		"content_type":    result.Content[0].Annotations["content_type"],
-		"is_error":       result.IsError,
+		"is_error":        result.IsError,
 	}).Info("Get project config result")
 
 	return nil
@@ -362,7 +362,7 @@ func (ie *IntegrationExample) demonstrateValidateProjectStructure(ctx context.Co
 	ie.logger.WithFields(map[string]interface{}{
 		"has_validation_data": len(result.Content) > 0 && result.Content[0].Data != nil,
 		"health_score":        result.Content[0].Annotations["health_score"],
-		"is_error":           result.IsError,
+		"is_error":            result.IsError,
 	}).Info("Validate project structure result")
 
 	return nil
@@ -387,7 +387,7 @@ func (ie *IntegrationExample) demonstrateDiscoverDependencies(ctx context.Contex
 	ie.logger.WithFields(map[string]interface{}{
 		"has_dependency_data": len(result.Content) > 0 && result.Content[0].Data != nil,
 		"content_type":        result.Content[0].Annotations["content_type"],
-		"is_error":           result.IsError,
+		"is_error":            result.IsError,
 	}).Info("Discover dependencies result")
 
 	return nil

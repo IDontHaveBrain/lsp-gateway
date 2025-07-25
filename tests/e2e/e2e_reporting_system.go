@@ -2,18 +2,12 @@ package e2e_test
 
 import (
 	"context"
-	"encoding/csv"
-	"encoding/json"
 	"fmt"
-	"html/template"
-	"io"
 	"log"
 	"math"
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -26,55 +20,55 @@ import (
 // ReportingSystem provides comprehensive metrics collection and reporting for E2E tests
 type ReportingSystem struct {
 	// Core Configuration
-	config          *ReportingConfig
-	logger          *log.Logger
-	startTime       time.Time
-	outputDir       string
-	
+	config    *ReportingConfig
+	logger    *log.Logger
+	startTime time.Time
+	outputDir string
+
 	// State Management
-	mu              sync.RWMutex
-	ctx             context.Context
-	cancel          context.CancelFunc
-	
+	mu     sync.RWMutex
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	// Metrics Collection
 	testMetrics     *TestExecutionMetrics
 	systemMetrics   *SystemResourceMetrics
 	mcpMetrics      *MCPClientMetrics
 	performanceData *PerformanceMetrics
-	
+
 	// Result Aggregation
 	testResults     []*TestResult
 	errorRegistry   *ErrorRegistry
 	trendAnalyzer   *TrendAnalyzer
 	coverageTracker *CoverageTracker
-	
+
 	// Reporting Components
 	progressReporter *ProgressReporter
 	formatters       map[ReportFormat]ReportFormatter
-	
+
 	// Historical Data
-	historicalData  *HistoricalDataManager
-	
+	historicalData *HistoricalDataManager
+
 	// Real-time Monitoring
 	realtimeMetrics *RealtimeMetrics
 	metricsChannel  chan MetricUpdate
-	
+
 	// Cleanup Management
 	cleanupFunctions []func() error
 }
 
 // ReportingConfig defines configuration for the reporting system
 type ReportingConfig struct {
-	OutputDirectory          string
-	EnableRealtimeReporting  bool
-	EnableHistoricalTracking bool
-	ReportFormats           []ReportFormat
+	OutputDirectory           string
+	EnableRealtimeReporting   bool
+	EnableHistoricalTracking  bool
+	ReportFormats             []ReportFormat
 	MetricsCollectionInterval time.Duration
 	ProgressReportingInterval time.Duration
-	RetentionDays           int
-	DetailLevel             DetailLevel
-	CustomMetrics           []string
-	PerformanceThresholds   *PerformanceThresholds
+	RetentionDays             int
+	DetailLevel               DetailLevel
+	CustomMetrics             []string
+	PerformanceThresholds     *PerformanceThresholds
 }
 
 // ReportFormat defines different output formats for reports
@@ -92,83 +86,83 @@ const (
 type DetailLevel string
 
 const (
-	DetailLevelMinimal DetailLevel = "minimal"
+	DetailLevelMinimal  DetailLevel = "minimal"
 	DetailLevelStandard DetailLevel = "standard"
 	DetailLevelDetailed DetailLevel = "detailed"
-	DetailLevelVerbose DetailLevel = "verbose"
+	DetailLevelVerbose  DetailLevel = "verbose"
 )
 
 // TestExecutionMetrics tracks test execution metrics
 type TestExecutionMetrics struct {
-	TotalTests              int64         `json:"total_tests"`
-	PassedTests             int64         `json:"passed_tests"`
-	FailedTests             int64         `json:"failed_tests"`
-	SkippedTests            int64         `json:"skipped_tests"`
-	TotalDuration           time.Duration `json:"total_duration"`
-	AverageDuration         time.Duration `json:"average_duration"`
-	FastestTest             time.Duration `json:"fastest_test"`
-	SlowestTest             time.Duration `json:"slowest_test"`
-	TestsPerSecond          float64       `json:"tests_per_second"`
-	SuccessRate             float64       `json:"success_rate"`
-	TimeoutCount            int64         `json:"timeout_count"`
-	RetryCount              int64         `json:"retry_count"`
-	ConcurrentTestsPeak     int           `json:"concurrent_tests_peak"`
-	TestsByScenario         map[string]int64 `json:"tests_by_scenario"`
-	TestsByLanguage         map[string]int64 `json:"tests_by_language"`
-	ResourceUtilization     *ResourceUtilizationMetrics `json:"resource_utilization"`
+	TotalTests          int64                       `json:"total_tests"`
+	PassedTests         int64                       `json:"passed_tests"`
+	FailedTests         int64                       `json:"failed_tests"`
+	SkippedTests        int64                       `json:"skipped_tests"`
+	TotalDuration       time.Duration               `json:"total_duration"`
+	AverageDuration     time.Duration               `json:"average_duration"`
+	FastestTest         time.Duration               `json:"fastest_test"`
+	SlowestTest         time.Duration               `json:"slowest_test"`
+	TestsPerSecond      float64                     `json:"tests_per_second"`
+	SuccessRate         float64                     `json:"success_rate"`
+	TimeoutCount        int64                       `json:"timeout_count"`
+	RetryCount          int64                       `json:"retry_count"`
+	ConcurrentTestsPeak int                         `json:"concurrent_tests_peak"`
+	TestsByScenario     map[string]int64            `json:"tests_by_scenario"`
+	TestsByLanguage     map[string]int64            `json:"tests_by_language"`
+	ResourceUtilization *ResourceUtilizationMetrics `json:"resource_utilization"`
 }
 
 // SystemResourceMetrics tracks system-level metrics
 type SystemResourceMetrics struct {
-	StartTime           time.Time `json:"start_time"`
-	EndTime             time.Time `json:"end_time"`
-	InitialMemoryMB     float64   `json:"initial_memory_mb"`
-	PeakMemoryMB        float64   `json:"peak_memory_mb"`
-	FinalMemoryMB       float64   `json:"final_memory_mb"`
-	MemoryGrowthMB      float64   `json:"memory_growth_mb"`
-	InitialGoroutines   int       `json:"initial_goroutines"`
-	PeakGoroutines      int       `json:"peak_goroutines"`
-	FinalGoroutines     int       `json:"final_goroutines"`
-	GoroutineGrowth     int       `json:"goroutine_growth"`
-	CPUUsageSamples     []float64 `json:"cpu_usage_samples"`
-	AverageCPUUsage     float64   `json:"average_cpu_usage"`
-	PeakCPUUsage        float64   `json:"peak_cpu_usage"`
-	GCCount             uint32    `json:"gc_count"`
-	GCTotalPauseNS      uint64    `json:"gc_total_pause_ns"`
-	GCAveragePauseNS    uint64    `json:"gc_average_pause_ns"`
-	HeapInUseMB         float64   `json:"heap_in_use_mb"`
-	HeapIdleMB          float64   `json:"heap_idle_mb"`
-	NumCPU              int       `json:"num_cpu"`
-	GOOS                string    `json:"goos"`
-	GOARCH              string    `json:"goarch"`
-	GoVersion           string    `json:"go_version"`
-	MemoryEfficiency    float64   `json:"memory_efficiency"`
-	GCEfficiency        float64   `json:"gc_efficiency"`
+	StartTime         time.Time `json:"start_time"`
+	EndTime           time.Time `json:"end_time"`
+	InitialMemoryMB   float64   `json:"initial_memory_mb"`
+	PeakMemoryMB      float64   `json:"peak_memory_mb"`
+	FinalMemoryMB     float64   `json:"final_memory_mb"`
+	MemoryGrowthMB    float64   `json:"memory_growth_mb"`
+	InitialGoroutines int       `json:"initial_goroutines"`
+	PeakGoroutines    int       `json:"peak_goroutines"`
+	FinalGoroutines   int       `json:"final_goroutines"`
+	GoroutineGrowth   int       `json:"goroutine_growth"`
+	CPUUsageSamples   []float64 `json:"cpu_usage_samples"`
+	AverageCPUUsage   float64   `json:"average_cpu_usage"`
+	PeakCPUUsage      float64   `json:"peak_cpu_usage"`
+	GCCount           uint32    `json:"gc_count"`
+	GCTotalPauseNS    uint64    `json:"gc_total_pause_ns"`
+	GCAveragePauseNS  uint64    `json:"gc_average_pause_ns"`
+	HeapInUseMB       float64   `json:"heap_in_use_mb"`
+	HeapIdleMB        float64   `json:"heap_idle_mb"`
+	NumCPU            int       `json:"num_cpu"`
+	GOOS              string    `json:"goos"`
+	GOARCH            string    `json:"goarch"`
+	GoVersion         string    `json:"go_version"`
+	MemoryEfficiency  float64   `json:"memory_efficiency"`
+	GCEfficiency      float64   `json:"gc_efficiency"`
 }
 
 // MCPClientMetrics aggregates metrics from MockMcpClient instances
 type MCPClientMetrics struct {
-	TotalRequests         int64                    `json:"total_requests"`
-	SuccessfulRequests    int64                    `json:"successful_requests"`
-	FailedRequests        int64                    `json:"failed_requests"`
-	TimeoutRequests       int64                    `json:"timeout_requests"`
-	ConnectionErrors      int64                    `json:"connection_errors"`
-	CircuitBreakerTriggers int64                   `json:"circuit_breaker_triggers"`
-	RetryAttempts         int64                    `json:"retry_attempts"`
-	AverageLatency        time.Duration            `json:"average_latency"`
-	MinLatency            time.Duration            `json:"min_latency"`
-	MaxLatency            time.Duration            `json:"max_latency"`
-	P50Latency            time.Duration            `json:"p50_latency"`
-	P95Latency            time.Duration            `json:"p95_latency"`
-	P99Latency            time.Duration            `json:"p99_latency"`
-	ThroughputPerSecond   float64                  `json:"throughput_per_second"`
-	ErrorRatePercent      float64                  `json:"error_rate_percent"`
-	RequestsByMethod      map[string]int64         `json:"requests_by_method"`
-	ErrorsByCategory      map[mcp.ErrorCategory]int64 `json:"errors_by_category"`
-	LatencyDistribution   map[string]int64         `json:"latency_distribution"`
-	ResponseSizes         []int                    `json:"response_sizes"`
-	ConnectionPoolMetrics *ConnectionPoolMetrics   `json:"connection_pool_metrics"`
-	CircuitBreakerMetrics *CircuitBreakerMetrics   `json:"circuit_breaker_metrics"`
+	TotalRequests          int64                       `json:"total_requests"`
+	SuccessfulRequests     int64                       `json:"successful_requests"`
+	FailedRequests         int64                       `json:"failed_requests"`
+	TimeoutRequests        int64                       `json:"timeout_requests"`
+	ConnectionErrors       int64                       `json:"connection_errors"`
+	CircuitBreakerTriggers int64                       `json:"circuit_breaker_triggers"`
+	RetryAttempts          int64                       `json:"retry_attempts"`
+	AverageLatency         time.Duration               `json:"average_latency"`
+	MinLatency             time.Duration               `json:"min_latency"`
+	MaxLatency             time.Duration               `json:"max_latency"`
+	P50Latency             time.Duration               `json:"p50_latency"`
+	P95Latency             time.Duration               `json:"p95_latency"`
+	P99Latency             time.Duration               `json:"p99_latency"`
+	ThroughputPerSecond    float64                     `json:"throughput_per_second"`
+	ErrorRatePercent       float64                     `json:"error_rate_percent"`
+	RequestsByMethod       map[string]int64            `json:"requests_by_method"`
+	ErrorsByCategory       map[mcp.ErrorCategory]int64 `json:"errors_by_category"`
+	LatencyDistribution    map[string]int64            `json:"latency_distribution"`
+	ResponseSizes          []int                       `json:"response_sizes"`
+	ConnectionPoolMetrics  *ConnectionPoolMetrics      `json:"connection_pool_metrics"`
+	CircuitBreakerMetrics  *CircuitBreakerMetrics      `json:"circuit_breaker_metrics"`
 }
 
 // ResourceUtilizationMetrics tracks resource usage
@@ -194,18 +188,18 @@ type ConnectionPoolMetrics struct {
 
 // CircuitBreakerMetrics tracks circuit breaker behavior
 type CircuitBreakerMetrics struct {
-	State                   mcp.CircuitBreakerState `json:"state"`
-	TotalStateTransitions   int64                   `json:"total_state_transitions"`
-	OpenDuration            time.Duration           `json:"open_duration"`
-	HalfOpenDuration        time.Duration           `json:"half_open_duration"`
-	FailureThreshold        int                     `json:"failure_threshold"`
-	SuccessThreshold        int                     `json:"success_threshold"`
-	Timeout                 time.Duration           `json:"timeout"`
-	FailFastCount           int64                   `json:"fail_fast_count"`
-	RecoveryAttempts        int64                   `json:"recovery_attempts"`
-	SuccessfulRecoveries    int64                   `json:"successful_recoveries"`
-	FailedRecoveries        int64                   `json:"failed_recoveries"`
-	StateTransitionHistory  []StateTransition       `json:"state_transition_history"`
+	State                  mcp.CircuitBreakerState `json:"state"`
+	TotalStateTransitions  int64                   `json:"total_state_transitions"`
+	OpenDuration           time.Duration           `json:"open_duration"`
+	HalfOpenDuration       time.Duration           `json:"half_open_duration"`
+	FailureThreshold       int                     `json:"failure_threshold"`
+	SuccessThreshold       int                     `json:"success_threshold"`
+	Timeout                time.Duration           `json:"timeout"`
+	FailFastCount          int64                   `json:"fail_fast_count"`
+	RecoveryAttempts       int64                   `json:"recovery_attempts"`
+	SuccessfulRecoveries   int64                   `json:"successful_recoveries"`
+	FailedRecoveries       int64                   `json:"failed_recoveries"`
+	StateTransitionHistory []StateTransition       `json:"state_transition_history"`
 }
 
 // StateTransition represents a circuit breaker state change
@@ -219,64 +213,64 @@ type StateTransition struct {
 
 // PerformanceMetrics tracks performance-related metrics
 type PerformanceMetrics struct {
-	ScenarioMetrics      map[string]*ScenarioPerformance `json:"scenario_metrics"`
-	RegressionDetection  *RegressionAnalysis             `json:"regression_detection"`
-	PerformanceTrends    *TrendAnalysis                  `json:"performance_trends"`
-	BenchmarkComparison  *BenchmarkComparison            `json:"benchmark_comparison"`
-	PerformanceScore     float64                         `json:"performance_score"`
-	BottleneckAnalysis   *BottleneckAnalysis             `json:"bottleneck_analysis"`
+	ScenarioMetrics     map[string]*ScenarioPerformance `json:"scenario_metrics"`
+	RegressionDetection *RegressionAnalysis             `json:"regression_detection"`
+	PerformanceTrends   *TrendAnalysis                  `json:"performance_trends"`
+	BenchmarkComparison *BenchmarkComparison            `json:"benchmark_comparison"`
+	PerformanceScore    float64                         `json:"performance_score"`
+	BottleneckAnalysis  *BottleneckAnalysis             `json:"bottleneck_analysis"`
 }
 
 // ScenarioPerformance tracks performance for specific test scenarios
 type ScenarioPerformance struct {
-	ScenarioName        string            `json:"scenario_name"`
-	ExecutionCount      int64             `json:"execution_count"`
-	AverageDuration     time.Duration     `json:"average_duration"`
-	MedianDuration      time.Duration     `json:"median_duration"`
-	P95Duration         time.Duration     `json:"p95_duration"`
-	P99Duration         time.Duration     `json:"p99_duration"`
-	ThroughputPerSecond float64           `json:"throughput_per_second"`
-	SuccessRate         float64           `json:"success_rate"`
+	ScenarioName        string               `json:"scenario_name"`
+	ExecutionCount      int64                `json:"execution_count"`
+	AverageDuration     time.Duration        `json:"average_duration"`
+	MedianDuration      time.Duration        `json:"median_duration"`
+	P95Duration         time.Duration        `json:"p95_duration"`
+	P99Duration         time.Duration        `json:"p99_duration"`
+	ThroughputPerSecond float64              `json:"throughput_per_second"`
+	SuccessRate         float64              `json:"success_rate"`
 	ResourceConsumption *ResourceConsumption `json:"resource_consumption"`
-	PerformanceScore    float64           `json:"performance_score"`
-	Trend               TrendDirection    `json:"trend"`
+	PerformanceScore    float64              `json:"performance_score"`
+	Trend               TrendDirection       `json:"trend"`
 }
 
 // ResourceConsumption tracks resource usage for scenarios
 type ResourceConsumption struct {
-	AverageMemoryMB    float64 `json:"average_memory_mb"`
-	PeakMemoryMB       float64 `json:"peak_memory_mb"`
-	AverageCPUPercent  float64 `json:"average_cpu_percent"`
-	PeakCPUPercent     float64 `json:"peak_cpu_percent"`
-	GoroutineCount     int     `json:"goroutine_count"`
-	NetworkBytesIn     int64   `json:"network_bytes_in"`
-	NetworkBytesOut    int64   `json:"network_bytes_out"`
-	DiskReadBytes      int64   `json:"disk_read_bytes"`
-	DiskWriteBytes     int64   `json:"disk_write_bytes"`
+	AverageMemoryMB   float64 `json:"average_memory_mb"`
+	PeakMemoryMB      float64 `json:"peak_memory_mb"`
+	AverageCPUPercent float64 `json:"average_cpu_percent"`
+	PeakCPUPercent    float64 `json:"peak_cpu_percent"`
+	GoroutineCount    int     `json:"goroutine_count"`
+	NetworkBytesIn    int64   `json:"network_bytes_in"`
+	NetworkBytesOut   int64   `json:"network_bytes_out"`
+	DiskReadBytes     int64   `json:"disk_read_bytes"`
+	DiskWriteBytes    int64   `json:"disk_write_bytes"`
 }
 
 // TestResult represents aggregated test results
 type TestResult struct {
-	TestID              string                    `json:"test_id"`
-	TestName            string                    `json:"test_name"`
-	Scenario            string                    `json:"scenario"`
-	Language            string                    `json:"language"`
-	StartTime           time.Time                 `json:"start_time"`
-	EndTime             time.Time                 `json:"end_time"`
-	Duration            time.Duration             `json:"duration"`
-	Status              TestStatus                `json:"status"`
-	Success             bool                      `json:"success"`
-	Errors              []TestError               `json:"errors"`
-	Warnings            []TestWarning             `json:"warnings"`
-	Metrics             *TestResultMetrics        `json:"metrics"`
-	MCPClientMetrics    *mcp.ConnectionMetrics    `json:"mcp_client_metrics"`
-	FrameworkResults    *framework.WorkflowResult `json:"framework_results"`
-	ResourceUsage       *ResourceUsage            `json:"resource_usage"`
-	PerformanceData     *TestPerformanceData      `json:"performance_data"`
-	RetryCount          int                       `json:"retry_count"`
-	TimeoutOccurred     bool                      `json:"timeout_occurred"`
-	Tags                []string                  `json:"tags"`
-	Metadata            map[string]interface{}    `json:"metadata"`
+	TestID           string                    `json:"test_id"`
+	TestName         string                    `json:"test_name"`
+	Scenario         string                    `json:"scenario"`
+	Language         string                    `json:"language"`
+	StartTime        time.Time                 `json:"start_time"`
+	EndTime          time.Time                 `json:"end_time"`
+	Duration         time.Duration             `json:"duration"`
+	Status           TestStatus                `json:"status"`
+	Success          bool                      `json:"success"`
+	Errors           []TestError               `json:"errors"`
+	Warnings         []TestWarning             `json:"warnings"`
+	Metrics          *TestResultMetrics        `json:"metrics"`
+	MCPClientMetrics *mcp.ConnectionMetrics    `json:"mcp_client_metrics"`
+	FrameworkResults *framework.WorkflowResult `json:"framework_results"`
+	ResourceUsage    *ResourceUsage            `json:"resource_usage"`
+	PerformanceData  *TestPerformanceData      `json:"performance_data"`
+	RetryCount       int                       `json:"retry_count"`
+	TimeoutOccurred  bool                      `json:"timeout_occurred"`
+	Tags             []string                  `json:"tags"`
+	Metadata         map[string]interface{}    `json:"metadata"`
 }
 
 // TestStatus represents the outcome of a test
@@ -292,21 +286,21 @@ const (
 
 // TestError represents an error that occurred during testing
 type TestError struct {
-	Type        ErrorType   `json:"type"`
-	Category    ErrorCategory `json:"category"`
-	Message     string      `json:"message"`
-	Stack       string      `json:"stack"`
-	Timestamp   time.Time   `json:"timestamp"`
+	Type        ErrorType              `json:"type"`
+	Category    ErrorCategory          `json:"category"`
+	Message     string                 `json:"message"`
+	Stack       string                 `json:"stack"`
+	Timestamp   time.Time              `json:"timestamp"`
 	Context     map[string]interface{} `json:"context"`
-	Severity    ErrorSeverity `json:"severity"`
-	Recoverable bool        `json:"recoverable"`
+	Severity    ErrorSeverity          `json:"severity"`
+	Recoverable bool                   `json:"recoverable"`
 }
 
 // TestWarning represents a warning issued during testing
 type TestWarning struct {
-	Type      WarningType `json:"type"`
-	Message   string      `json:"message"`
-	Timestamp time.Time   `json:"timestamp"`
+	Type      WarningType            `json:"type"`
+	Message   string                 `json:"message"`
+	Timestamp time.Time              `json:"timestamp"`
 	Context   map[string]interface{} `json:"context"`
 }
 
@@ -348,11 +342,11 @@ const (
 type WarningType string
 
 const (
-	WarningTypePerformance    WarningType = "performance"
-	WarningTypeConfiguration  WarningType = "configuration"
-	WarningTypeDeprecation    WarningType = "deprecation"
-	WarningTypeResource       WarningType = "resource"
-	WarningTypeBestPractice   WarningType = "best_practice"
+	WarningTypePerformance   WarningType = "performance"
+	WarningTypeConfiguration WarningType = "configuration"
+	WarningTypeDeprecation   WarningType = "deprecation"
+	WarningTypeResource      WarningType = "resource"
+	WarningTypeBestPractice  WarningType = "best_practice"
 )
 
 // TestResultMetrics contains detailed metrics for individual test results
@@ -369,47 +363,47 @@ type TestResultMetrics struct {
 
 // ResourceUsage tracks resource consumption for individual tests
 type ResourceUsage struct {
-	MemoryUsedMB       float64 `json:"memory_used_mb"`
-	CPUTimeMS          int64   `json:"cpu_time_ms"`
-	GoroutinesCreated  int     `json:"goroutines_created"`
-	FileDescriptorsUsed int    `json:"file_descriptors_used"`
-	NetworkBytesSent   int64   `json:"network_bytes_sent"`
-	NetworkBytesRecv   int64   `json:"network_bytes_received"`
+	MemoryUsedMB        float64 `json:"memory_used_mb"`
+	CPUTimeMS           int64   `json:"cpu_time_ms"`
+	GoroutinesCreated   int     `json:"goroutines_created"`
+	FileDescriptorsUsed int     `json:"file_descriptors_used"`
+	NetworkBytesSent    int64   `json:"network_bytes_sent"`
+	NetworkBytesRecv    int64   `json:"network_bytes_received"`
 }
 
 // TestPerformanceData contains performance-specific data for tests
 type TestPerformanceData struct {
-	ResponseTimes       []time.Duration `json:"response_times"`
-	ThroughputSamples   []float64      `json:"throughput_samples"`
-	MemorySamples       []float64      `json:"memory_samples"`
-	CPUSamples          []float64      `json:"cpu_samples"`
-	LatencyPercentiles  map[string]time.Duration `json:"latency_percentiles"`
-	PerformanceScore    float64        `json:"performance_score"`
-	ComparedToBaseline  *BaselineComparison `json:"compared_to_baseline"`
+	ResponseTimes      []time.Duration          `json:"response_times"`
+	ThroughputSamples  []float64                `json:"throughput_samples"`
+	MemorySamples      []float64                `json:"memory_samples"`
+	CPUSamples         []float64                `json:"cpu_samples"`
+	LatencyPercentiles map[string]time.Duration `json:"latency_percentiles"`
+	PerformanceScore   float64                  `json:"performance_score"`
+	ComparedToBaseline *BaselineComparison      `json:"compared_to_baseline"`
 }
 
 // BaselineComparison compares current performance to baseline
 type BaselineComparison struct {
-	BaselineExists      bool     `json:"baseline_exists"`
-	DurationChange      float64  `json:"duration_change_percent"`
-	ThroughputChange    float64  `json:"throughput_change_percent"`
-	MemoryChange        float64  `json:"memory_change_percent"`
-	OverallImprovement  float64  `json:"overall_improvement_percent"`
-	RegressionDetected  bool     `json:"regression_detected"`
-	RegressionSeverity  string   `json:"regression_severity"`
+	BaselineExists     bool    `json:"baseline_exists"`
+	DurationChange     float64 `json:"duration_change_percent"`
+	ThroughputChange   float64 `json:"throughput_change_percent"`
+	MemoryChange       float64 `json:"memory_change_percent"`
+	OverallImprovement float64 `json:"overall_improvement_percent"`
+	RegressionDetected bool    `json:"regression_detected"`
+	RegressionSeverity string  `json:"regression_severity"`
 }
 
 // ErrorRegistry manages error categorization and analysis
 type ErrorRegistry struct {
-	mu                   sync.RWMutex
-	errors               map[string][]*TestError
-	errorsByType         map[ErrorType]int64
-	errorsByCategory     map[ErrorCategory]int64
-	errorsBySeverity     map[ErrorSeverity]int64
-	frequentErrors       []ErrorPattern
-	errorTrends          map[string]*ErrorTrend
-	suppressedErrors     map[string]bool
-	knownIssues          map[string]*KnownIssue
+	mu               sync.RWMutex
+	errors           map[string][]*TestError
+	errorsByType     map[ErrorType]int64
+	errorsByCategory map[ErrorCategory]int64
+	errorsBySeverity map[ErrorSeverity]int64
+	frequentErrors   []ErrorPattern
+	errorTrends      map[string]*ErrorTrend
+	suppressedErrors map[string]bool
+	knownIssues      map[string]*KnownIssue
 }
 
 // ErrorPattern represents a pattern of frequently occurring errors
@@ -425,24 +419,24 @@ type ErrorPattern struct {
 
 // ErrorTrend tracks the trend of specific errors over time
 type ErrorTrend struct {
-	ErrorType     ErrorType         `json:"error_type"`
-	Occurrences   []time.Time       `json:"occurrences"`
-	Trend         TrendDirection    `json:"trend"`
-	Frequency     float64           `json:"frequency"`
-	IsIncreasing  bool             `json:"is_increasing"`
+	ErrorType    ErrorType      `json:"error_type"`
+	Occurrences  []time.Time    `json:"occurrences"`
+	Trend        TrendDirection `json:"trend"`
+	Frequency    float64        `json:"frequency"`
+	IsIncreasing bool           `json:"is_increasing"`
 }
 
 // KnownIssue represents a documented known issue
 type KnownIssue struct {
-	IssueID       string        `json:"issue_id"`
-	Title         string        `json:"title"`
-	Description   string        `json:"description"`
-	Workaround    string        `json:"workaround"`
-	Severity      ErrorSeverity `json:"severity"`
-	AffectedVersions []string   `json:"affected_versions"`
-	TrackingURL   string        `json:"tracking_url"`
-	CreatedAt     time.Time     `json:"created_at"`
-	UpdatedAt     time.Time     `json:"updated_at"`
+	IssueID          string        `json:"issue_id"`
+	Title            string        `json:"title"`
+	Description      string        `json:"description"`
+	Workaround       string        `json:"workaround"`
+	Severity         ErrorSeverity `json:"severity"`
+	AffectedVersions []string      `json:"affected_versions"`
+	TrackingURL      string        `json:"tracking_url"`
+	CreatedAt        time.Time     `json:"created_at"`
+	UpdatedAt        time.Time     `json:"updated_at"`
 }
 
 // TrendAnalyzer provides trend analysis capabilities
@@ -457,19 +451,19 @@ type TrendAnalyzer struct {
 
 // PerformanceTrend tracks performance trends over time
 type PerformanceTrend struct {
-	MetricName      string              `json:"metric_name"`
-	DataPoints      []TrendDataPoint    `json:"data_points"`
-	Direction       TrendDirection      `json:"direction"`
-	Strength        TrendStrength       `json:"strength"`
-	Confidence      float64             `json:"confidence"`
-	LastUpdated     time.Time           `json:"last_updated"`
-	PredictedValues []float64           `json:"predicted_values"`
+	MetricName      string           `json:"metric_name"`
+	DataPoints      []TrendDataPoint `json:"data_points"`
+	Direction       TrendDirection   `json:"direction"`
+	Strength        TrendStrength    `json:"strength"`
+	Confidence      float64          `json:"confidence"`
+	LastUpdated     time.Time        `json:"last_updated"`
+	PredictedValues []float64        `json:"predicted_values"`
 }
 
 // TrendDataPoint represents a single data point in a trend
 type TrendDataPoint struct {
-	Timestamp time.Time `json:"timestamp"`
-	Value     float64   `json:"value"`
+	Timestamp time.Time              `json:"timestamp"`
+	Value     float64                `json:"value"`
 	Metadata  map[string]interface{} `json:"metadata"`
 }
 
@@ -495,15 +489,15 @@ const (
 
 // PerformanceBaseline stores baseline performance metrics
 type PerformanceBaseline struct {
-	TestName         string            `json:"test_name"`
-	BaselineDuration time.Duration     `json:"baseline_duration"`
-	BaselineThroughput float64         `json:"baseline_throughput"`
-	BaselineMemory   float64           `json:"baseline_memory"`
-	CreatedAt        time.Time         `json:"created_at"`
-	UpdatedAt        time.Time         `json:"updated_at"`
-	SampleCount      int               `json:"sample_count"`
-	Confidence       float64           `json:"confidence"`
-	Metadata         map[string]interface{} `json:"metadata"`
+	TestName           string                 `json:"test_name"`
+	BaselineDuration   time.Duration          `json:"baseline_duration"`
+	BaselineThroughput float64                `json:"baseline_throughput"`
+	BaselineMemory     float64                `json:"baseline_memory"`
+	CreatedAt          time.Time              `json:"created_at"`
+	UpdatedAt          time.Time              `json:"updated_at"`
+	SampleCount        int                    `json:"sample_count"`
+	Confidence         float64                `json:"confidence"`
+	Metadata           map[string]interface{} `json:"metadata"`
 }
 
 // RegressionThresholds defines thresholds for regression detection
@@ -517,33 +511,33 @@ type RegressionThresholds struct {
 
 // RegressionAnalysis contains results of regression analysis
 type RegressionAnalysis struct {
-	RegressionsDetected []PerformanceRegression `json:"regressions_detected"`
-	ImprovementsDetected []PerformanceImprovement `json:"improvements_detected"`
-	OverallRegressionScore float64               `json:"overall_regression_score"`
-	RegressionRisk       RegressionRisk          `json:"regression_risk"`
-	RecommendedActions   []string                `json:"recommended_actions"`
+	RegressionsDetected    []PerformanceRegression  `json:"regressions_detected"`
+	ImprovementsDetected   []PerformanceImprovement `json:"improvements_detected"`
+	OverallRegressionScore float64                  `json:"overall_regression_score"`
+	RegressionRisk         RegressionRisk           `json:"regression_risk"`
+	RecommendedActions     []string                 `json:"recommended_actions"`
 }
 
 // PerformanceRegression represents a detected performance regression
 type PerformanceRegression struct {
-	TestName      string         `json:"test_name"`
-	MetricName    string         `json:"metric_name"`
-	CurrentValue  float64        `json:"current_value"`
-	BaselineValue float64        `json:"baseline_value"`
-	ChangePercent float64        `json:"change_percent"`
-	Severity      RegressionSeverity `json:"severity"`
-	DetectedAt    time.Time      `json:"detected_at"`
+	TestName      string                 `json:"test_name"`
+	MetricName    string                 `json:"metric_name"`
+	CurrentValue  float64                `json:"current_value"`
+	BaselineValue float64                `json:"baseline_value"`
+	ChangePercent float64                `json:"change_percent"`
+	Severity      RegressionSeverity     `json:"severity"`
+	DetectedAt    time.Time              `json:"detected_at"`
 	Context       map[string]interface{} `json:"context"`
 }
 
 // PerformanceImprovement represents a detected performance improvement
 type PerformanceImprovement struct {
-	TestName         string    `json:"test_name"`
-	MetricName       string    `json:"metric_name"`
-	CurrentValue     float64   `json:"current_value"`
-	BaselineValue    float64   `json:"baseline_value"`
-	ImprovementPercent float64 `json:"improvement_percent"`
-	DetectedAt       time.Time `json:"detected_at"`
+	TestName           string    `json:"test_name"`
+	MetricName         string    `json:"metric_name"`
+	CurrentValue       float64   `json:"current_value"`
+	BaselineValue      float64   `json:"baseline_value"`
+	ImprovementPercent float64   `json:"improvement_percent"`
+	DetectedAt         time.Time `json:"detected_at"`
 }
 
 // RegressionRisk indicates the risk level of regressions
@@ -568,13 +562,13 @@ const (
 
 // TrendAnalysis provides comprehensive trend analysis results
 type TrendAnalysis struct {
-	AnalysisTimestamp     time.Time                    `json:"analysis_timestamp"`
-	TrendSummary          map[string]TrendSummary      `json:"trend_summary"`
-	PerformanceTrajectory PerformanceTrajectory        `json:"performance_trajectory"`
-	SeasonalPatterns      []SeasonalPattern            `json:"seasonal_patterns"`
-	AnomaliesDetected     []PerformanceAnomaly         `json:"anomalies_detected"`
-	ForecastedPerformance []PerformanceForecast        `json:"forecasted_performance"`
-	TrendConfidence       float64                      `json:"trend_confidence"`
+	AnalysisTimestamp     time.Time               `json:"analysis_timestamp"`
+	TrendSummary          map[string]TrendSummary `json:"trend_summary"`
+	PerformanceTrajectory PerformanceTrajectory   `json:"performance_trajectory"`
+	SeasonalPatterns      []SeasonalPattern       `json:"seasonal_patterns"`
+	AnomaliesDetected     []PerformanceAnomaly    `json:"anomalies_detected"`
+	ForecastedPerformance []PerformanceForecast   `json:"forecasted_performance"`
+	TrendConfidence       float64                 `json:"trend_confidence"`
 }
 
 // TrendSummary provides a summary of trends for a specific metric
@@ -591,11 +585,11 @@ type TrendSummary struct {
 
 // PerformanceTrajectory describes the overall performance trajectory
 type PerformanceTrajectory struct {
-	Direction       TrendDirection `json:"direction"`
-	Velocity        float64        `json:"velocity"`
-	Acceleration    float64        `json:"acceleration"`
-	Sustainability  float64        `json:"sustainability"`
-	QualityScore    float64        `json:"quality_score"`
+	Direction      TrendDirection `json:"direction"`
+	Velocity       float64        `json:"velocity"`
+	Acceleration   float64        `json:"acceleration"`
+	Sustainability float64        `json:"sustainability"`
+	QualityScore   float64        `json:"quality_score"`
 }
 
 // SeasonalPattern represents a detected seasonal pattern in performance
@@ -610,24 +604,24 @@ type SeasonalPattern struct {
 
 // PerformanceAnomaly represents an anomaly in performance data
 type PerformanceAnomaly struct {
-	Timestamp     time.Time      `json:"timestamp"`
-	MetricName    string         `json:"metric_name"`
-	ActualValue   float64        `json:"actual_value"`
-	ExpectedValue float64        `json:"expected_value"`
-	DeviationScore float64       `json:"deviation_score"`
-	AnomalyType   AnomalyType    `json:"anomaly_type"`
-	Severity      AnomalySeverity `json:"severity"`
-	Context       map[string]interface{} `json:"context"`
+	Timestamp      time.Time              `json:"timestamp"`
+	MetricName     string                 `json:"metric_name"`
+	ActualValue    float64                `json:"actual_value"`
+	ExpectedValue  float64                `json:"expected_value"`
+	DeviationScore float64                `json:"deviation_score"`
+	AnomalyType    AnomalyType            `json:"anomaly_type"`
+	Severity       AnomalySeverity        `json:"severity"`
+	Context        map[string]interface{} `json:"context"`
 }
 
 // AnomalyType categorizes different types of anomalies
 type AnomalyType string
 
 const (
-	AnomalyTypeSpike     AnomalyType = "spike"
-	AnomalyTypeDrop      AnomalyType = "drop"
-	AnomalyTypePattern   AnomalyType = "pattern"
-	AnomalyTypeOutlier   AnomalyType = "outlier"
+	AnomalyTypeSpike   AnomalyType = "spike"
+	AnomalyTypeDrop    AnomalyType = "drop"
+	AnomalyTypePattern AnomalyType = "pattern"
+	AnomalyTypeOutlier AnomalyType = "outlier"
 )
 
 // AnomalySeverity indicates the severity of an anomaly
@@ -642,30 +636,30 @@ const (
 
 // PerformanceForecast provides forecasted performance metrics
 type PerformanceForecast struct {
-	Timestamp       time.Time `json:"timestamp"`
-	MetricName      string    `json:"metric_name"`
-	ForecastedValue float64   `json:"forecasted_value"`
+	Timestamp          time.Time  `json:"timestamp"`
+	MetricName         string     `json:"metric_name"`
+	ForecastedValue    float64    `json:"forecasted_value"`
 	ConfidenceInterval [2]float64 `json:"confidence_interval"`
-	ModelAccuracy   float64   `json:"model_accuracy"`
+	ModelAccuracy      float64    `json:"model_accuracy"`
 }
 
 // BenchmarkComparison compares current performance against benchmarks
 type BenchmarkComparison struct {
-	BenchmarkName     string                        `json:"benchmark_name"`
-	ComparisonResults map[string]*MetricComparison  `json:"comparison_results"`
-	OverallScore      float64                       `json:"overall_score"`
-	ComparisonSummary string                        `json:"comparison_summary"`
-	CreatedAt         time.Time                     `json:"created_at"`
+	BenchmarkName     string                       `json:"benchmark_name"`
+	ComparisonResults map[string]*MetricComparison `json:"comparison_results"`
+	OverallScore      float64                      `json:"overall_score"`
+	ComparisonSummary string                       `json:"comparison_summary"`
+	CreatedAt         time.Time                    `json:"created_at"`
 }
 
 // MetricComparison represents comparison of a specific metric
 type MetricComparison struct {
-	MetricName        string  `json:"metric_name"`
-	CurrentValue      float64 `json:"current_value"`
-	BenchmarkValue    float64 `json:"benchmark_value"`
-	PercentageDiff    float64 `json:"percentage_diff"`
-	ComparisonResult  ComparisonResult `json:"comparison_result"`
-	Score             float64 `json:"score"`
+	MetricName       string           `json:"metric_name"`
+	CurrentValue     float64          `json:"current_value"`
+	BenchmarkValue   float64          `json:"benchmark_value"`
+	PercentageDiff   float64          `json:"percentage_diff"`
+	ComparisonResult ComparisonResult `json:"comparison_result"`
+	Score            float64          `json:"score"`
 }
 
 // ComparisonResult indicates the result of a metric comparison
@@ -679,33 +673,33 @@ const (
 
 // BottleneckAnalysis identifies performance bottlenecks
 type BottleneckAnalysis struct {
-	DetectedBottlenecks []PerformanceBottleneck `json:"detected_bottlenecks"`
-	SystemBottlenecks   []SystemBottleneck      `json:"system_bottlenecks"`
+	DetectedBottlenecks []PerformanceBottleneck    `json:"detected_bottlenecks"`
+	SystemBottlenecks   []SystemBottleneck         `json:"system_bottlenecks"`
 	RecommendedActions  []BottleneckRecommendation `json:"recommended_actions"`
-	BottleneckScore     float64                 `json:"bottleneck_score"`
-	AnalysisTimestamp   time.Time               `json:"analysis_timestamp"`
+	BottleneckScore     float64                    `json:"bottleneck_score"`
+	AnalysisTimestamp   time.Time                  `json:"analysis_timestamp"`
 }
 
 // PerformanceBottleneck represents a detected performance bottleneck
 type PerformanceBottleneck struct {
-	Location        string            `json:"location"`
-	Type            BottleneckType    `json:"type"`
-	Severity        BottleneckSeverity `json:"severity"`
-	ImpactScore     float64           `json:"impact_score"`
-	Description     string            `json:"description"`
-	AffectedMetrics []string          `json:"affected_metrics"`
-	DetectedAt      time.Time         `json:"detected_at"`
+	Location        string                 `json:"location"`
+	Type            BottleneckType         `json:"type"`
+	Severity        BottleneckSeverity     `json:"severity"`
+	ImpactScore     float64                `json:"impact_score"`
+	Description     string                 `json:"description"`
+	AffectedMetrics []string               `json:"affected_metrics"`
+	DetectedAt      time.Time              `json:"detected_at"`
 	Context         map[string]interface{} `json:"context"`
 }
 
 // SystemBottleneck represents a system-level bottleneck
 type SystemBottleneck struct {
-	Component       string            `json:"component"`
-	ResourceType    ResourceType      `json:"resource_type"`
-	UtilizationPercent float64        `json:"utilization_percent"`
-	Threshold       float64           `json:"threshold"`
-	Impact          string            `json:"impact"`
-	Recommendations []string          `json:"recommendations"`
+	Component          string       `json:"component"`
+	ResourceType       ResourceType `json:"resource_type"`
+	UtilizationPercent float64      `json:"utilization_percent"`
+	Threshold          float64      `json:"threshold"`
+	Impact             string       `json:"impact"`
+	Recommendations    []string     `json:"recommendations"`
 }
 
 // BottleneckType categorizes different types of bottlenecks
@@ -742,12 +736,12 @@ const (
 
 // BottleneckRecommendation provides recommendations for addressing bottlenecks
 type BottleneckRecommendation struct {
-	BottleneckID    string    `json:"bottleneck_id"`
-	Recommendation  string    `json:"recommendation"`
-	Priority        Priority  `json:"priority"`
-	EstimatedImpact string    `json:"estimated_impact"`
-	ImplementationEffort string `json:"implementation_effort"`
-	Category        RecommendationCategory `json:"category"`
+	BottleneckID         string                 `json:"bottleneck_id"`
+	Recommendation       string                 `json:"recommendation"`
+	Priority             Priority               `json:"priority"`
+	EstimatedImpact      string                 `json:"estimated_impact"`
+	ImplementationEffort string                 `json:"implementation_effort"`
+	Category             RecommendationCategory `json:"category"`
 }
 
 // Priority indicates the priority level of a recommendation
@@ -764,36 +758,36 @@ const (
 type RecommendationCategory string
 
 const (
-	RecommendationCategoryConfiguration RecommendationCategory = "configuration"
-	RecommendationCategoryCode         RecommendationCategory = "code"
+	RecommendationCategoryConfiguration  RecommendationCategory = "configuration"
+	RecommendationCategoryCode           RecommendationCategory = "code"
 	RecommendationCategoryInfrastructure RecommendationCategory = "infrastructure"
-	RecommendationCategoryTesting      RecommendationCategory = "testing"
+	RecommendationCategoryTesting        RecommendationCategory = "testing"
 )
 
 // CoverageTracker tracks test coverage across different dimensions
 type CoverageTracker struct {
-	mu                    sync.RWMutex
-	scenarioCoverage      map[string]*ScenarioCoverage
-	languageCoverage      map[string]*LanguageCoverage
-	methodCoverage        map[string]*MethodCoverage
-	featureCoverage       map[string]*FeatureCoverage
-	overallCoverage       *OverallCoverage
-	coverageThresholds    *CoverageThresholds
-	coverageHistory       []CoverageSnapshot
+	mu                 sync.RWMutex
+	scenarioCoverage   map[string]*ScenarioCoverage
+	languageCoverage   map[string]*LanguageCoverage
+	methodCoverage     map[string]*MethodCoverage
+	featureCoverage    map[string]*FeatureCoverage
+	overallCoverage    *OverallCoverage
+	coverageThresholds *CoverageThresholds
+	coverageHistory    []CoverageSnapshot
 }
 
 // ScenarioCoverage tracks coverage for specific test scenarios
 type ScenarioCoverage struct {
-	ScenarioName    string            `json:"scenario_name"`
-	TestsExecuted   int               `json:"tests_executed"`
-	TestsPlanned    int               `json:"tests_planned"`
-	CoveragePercent float64           `json:"coverage_percent"`
-	PassedTests     int               `json:"passed_tests"`
-	FailedTests     int               `json:"failed_tests"`
-	SkippedTests    int               `json:"skipped_tests"`
-	LastExecuted    time.Time         `json:"last_executed"`
-	Gaps            []CoverageGap     `json:"gaps"`
-	Quality         CoverageQuality   `json:"quality"`
+	ScenarioName    string          `json:"scenario_name"`
+	TestsExecuted   int             `json:"tests_executed"`
+	TestsPlanned    int             `json:"tests_planned"`
+	CoveragePercent float64         `json:"coverage_percent"`
+	PassedTests     int             `json:"passed_tests"`
+	FailedTests     int             `json:"failed_tests"`
+	SkippedTests    int             `json:"skipped_tests"`
+	LastExecuted    time.Time       `json:"last_executed"`
+	Gaps            []CoverageGap   `json:"gaps"`
+	Quality         CoverageQuality `json:"quality"`
 }
 
 // LanguageCoverage tracks coverage for specific programming languages
@@ -809,15 +803,15 @@ type LanguageCoverage struct {
 
 // MethodCoverage tracks coverage for LSP methods
 type MethodCoverage struct {
-	Method          string          `json:"method"`
-	Invocations     int64           `json:"invocations"`
-	SuccessCount    int64           `json:"success_count"`
-	ErrorCount      int64           `json:"error_count"`
-	LanguagesCovered []string       `json:"languages_covered"`
-	ScenariosCovered []string       `json:"scenarios_covered"`
-	CoveragePercent float64         `json:"coverage_percent"`
-	AverageLatency  time.Duration   `json:"average_latency"`
-	Quality         CoverageQuality `json:"quality"`
+	Method           string          `json:"method"`
+	Invocations      int64           `json:"invocations"`
+	SuccessCount     int64           `json:"success_count"`
+	ErrorCount       int64           `json:"error_count"`
+	LanguagesCovered []string        `json:"languages_covered"`
+	ScenariosCovered []string        `json:"scenarios_covered"`
+	CoveragePercent  float64         `json:"coverage_percent"`
+	AverageLatency   time.Duration   `json:"average_latency"`
+	Quality          CoverageQuality `json:"quality"`
 }
 
 // FeatureCoverage tracks coverage for specific features
@@ -832,25 +826,25 @@ type FeatureCoverage struct {
 
 // OverallCoverage provides overall coverage statistics
 type OverallCoverage struct {
-	TotalCoveragePercent    float64         `json:"total_coverage_percent"`
-	ScenarioCoveragePercent float64         `json:"scenario_coverage_percent"`
-	LanguageCoveragePercent float64         `json:"language_coverage_percent"`
-	MethodCoveragePercent   float64         `json:"method_coverage_percent"`
-	FeatureCoveragePercent  float64         `json:"feature_coverage_percent"`
-	QualityScore            float64         `json:"quality_score"`
-	CoverageGaps            []CoverageGap   `json:"coverage_gaps"`
-	CoverageTrend           TrendDirection  `json:"coverage_trend"`
-	LastUpdated             time.Time       `json:"last_updated"`
+	TotalCoveragePercent    float64        `json:"total_coverage_percent"`
+	ScenarioCoveragePercent float64        `json:"scenario_coverage_percent"`
+	LanguageCoveragePercent float64        `json:"language_coverage_percent"`
+	MethodCoveragePercent   float64        `json:"method_coverage_percent"`
+	FeatureCoveragePercent  float64        `json:"feature_coverage_percent"`
+	QualityScore            float64        `json:"quality_score"`
+	CoverageGaps            []CoverageGap  `json:"coverage_gaps"`
+	CoverageTrend           TrendDirection `json:"coverage_trend"`
+	LastUpdated             time.Time      `json:"last_updated"`
 }
 
 // CoverageGap represents a gap in test coverage
 type CoverageGap struct {
-	GapType     CoverageGapType `json:"gap_type"`
-	Description string          `json:"description"`
-	Impact      GapImpact       `json:"impact"`
-	Priority    Priority        `json:"priority"`
-	Recommendation string       `json:"recommendation"`
-	AffectedAreas []string       `json:"affected_areas"`
+	GapType        CoverageGapType `json:"gap_type"`
+	Description    string          `json:"description"`
+	Impact         GapImpact       `json:"impact"`
+	Priority       Priority        `json:"priority"`
+	Recommendation string          `json:"recommendation"`
+	AffectedAreas  []string        `json:"affected_areas"`
 }
 
 // CoverageGapType categorizes different types of coverage gaps
@@ -895,8 +889,8 @@ type CoverageThresholds struct {
 
 // CoverageSnapshot represents a point-in-time coverage snapshot
 type CoverageSnapshot struct {
-	Timestamp       time.Time       `json:"timestamp"`
-	OverallCoverage float64         `json:"overall_coverage"`
+	Timestamp       time.Time        `json:"timestamp"`
+	OverallCoverage float64          `json:"overall_coverage"`
 	CoverageData    *OverallCoverage `json:"coverage_data"`
 }
 
@@ -939,37 +933,37 @@ type TestPhase string
 
 const (
 	TestPhaseInitialization TestPhase = "initialization"
-	TestPhaseSetup         TestPhase = "setup"
-	TestPhaseExecution     TestPhase = "execution"
-	TestPhaseTeardown      TestPhase = "teardown"
-	TestPhaseReporting     TestPhase = "reporting"
-	TestPhaseComplete      TestPhase = "complete"
+	TestPhaseSetup          TestPhase = "setup"
+	TestPhaseExecution      TestPhase = "execution"
+	TestPhaseTeardown       TestPhase = "teardown"
+	TestPhaseReporting      TestPhase = "reporting"
+	TestPhaseComplete       TestPhase = "complete"
 )
 
 // RealtimeMetrics provides real-time metrics collection and monitoring
 type RealtimeMetrics struct {
-	mu                sync.RWMutex
-	enabled           bool
+	mu                 sync.RWMutex
+	enabled            bool
 	collectionInterval time.Duration
-	lastCollection    time.Time
-	
+	lastCollection     time.Time
+
 	// Current metrics
 	currentTPS        float64
 	currentMemoryMB   float64
 	currentCPUPercent float64
 	currentGoroutines int
 	currentErrors     int64
-	
+
 	// Metric history for trending
-	tpsHistory        []float64
-	memoryHistory     []float64
-	cpuHistory        []float64
-	goroutineHistory  []int
-	errorHistory      []int64
-	
+	tpsHistory       []float64
+	memoryHistory    []float64
+	cpuHistory       []float64
+	goroutineHistory []int
+	errorHistory     []int64
+
 	// Alerts and thresholds
-	alertThresholds   *AlertThresholds
-	activeAlerts      []MetricAlert
+	alertThresholds *AlertThresholds
+	activeAlerts    []MetricAlert
 }
 
 // AlertThresholds defines thresholds for alerting
@@ -984,15 +978,15 @@ type AlertThresholds struct {
 
 // MetricAlert represents an active metric alert
 type MetricAlert struct {
-	AlertID     string      `json:"alert_id"`
-	MetricName  string      `json:"metric_name"`
-	CurrentValue float64    `json:"current_value"`
-	ThresholdValue float64  `json:"threshold_value"`
-	Severity    AlertSeverity `json:"severity"`
-	TriggeredAt time.Time   `json:"triggered_at"`
-	Message     string      `json:"message"`
-	Resolved    bool        `json:"resolved"`
-	ResolvedAt  *time.Time  `json:"resolved_at,omitempty"`
+	AlertID        string        `json:"alert_id"`
+	MetricName     string        `json:"metric_name"`
+	CurrentValue   float64       `json:"current_value"`
+	ThresholdValue float64       `json:"threshold_value"`
+	Severity       AlertSeverity `json:"severity"`
+	TriggeredAt    time.Time     `json:"triggered_at"`
+	Message        string        `json:"message"`
+	Resolved       bool          `json:"resolved"`
+	ResolvedAt     *time.Time    `json:"resolved_at,omitempty"`
 }
 
 // AlertSeverity indicates the severity of an alert
@@ -1034,18 +1028,18 @@ type HistoricalDataManager struct {
 
 // HistoricalRun represents a historical test run
 type HistoricalRun struct {
-	RunID           string                `json:"run_id"`
-	Timestamp       time.Time             `json:"timestamp"`
-	Version         string                `json:"version"`
-	Branch          string                `json:"branch"`
-	Commit          string                `json:"commit"`
-	Environment     string                `json:"environment"`
-	TestResults     []*TestResult         `json:"test_results"`
-	OverallMetrics  *TestExecutionMetrics `json:"overall_metrics"`
-	SystemMetrics   *SystemResourceMetrics `json:"system_metrics"`
-	Duration        time.Duration         `json:"duration"`
-	Success         bool                  `json:"success"`
-	Notes           string                `json:"notes"`
+	RunID          string                 `json:"run_id"`
+	Timestamp      time.Time              `json:"timestamp"`
+	Version        string                 `json:"version"`
+	Branch         string                 `json:"branch"`
+	Commit         string                 `json:"commit"`
+	Environment    string                 `json:"environment"`
+	TestResults    []*TestResult          `json:"test_results"`
+	OverallMetrics *TestExecutionMetrics  `json:"overall_metrics"`
+	SystemMetrics  *SystemResourceMetrics `json:"system_metrics"`
+	Duration       time.Duration          `json:"duration"`
+	Success        bool                   `json:"success"`
+	Notes          string                 `json:"notes"`
 }
 
 // PerformanceThresholds defines performance thresholds for alerting
@@ -1068,51 +1062,51 @@ type ReportFormatter interface {
 // ComprehensiveReport contains all data for comprehensive reporting
 type ComprehensiveReport struct {
 	// Metadata
-	GeneratedAt    time.Time `json:"generated_at"`
-	ReportVersion  string    `json:"report_version"`
-	ReportID       string    `json:"report_id"`
-	TestRunID      string    `json:"test_run_id"`
-	
+	GeneratedAt   time.Time `json:"generated_at"`
+	ReportVersion string    `json:"report_version"`
+	ReportID      string    `json:"report_id"`
+	TestRunID     string    `json:"test_run_id"`
+
 	// Executive Summary
 	ExecutiveSummary *ExecutiveSummary `json:"executive_summary"`
-	
+
 	// Core Metrics
 	TestMetrics     *TestExecutionMetrics  `json:"test_metrics"`
 	SystemMetrics   *SystemResourceMetrics `json:"system_metrics"`
 	MCPMetrics      *MCPClientMetrics      `json:"mcp_metrics"`
 	PerformanceData *PerformanceMetrics    `json:"performance_data"`
-	
+
 	// Results and Analysis
-	TestResults      []*TestResult       `json:"test_results"`
-	ErrorAnalysis    *ErrorAnalysis      `json:"error_analysis"`
-	TrendAnalysis    *TrendAnalysis      `json:"trend_analysis"`
-	CoverageAnalysis *CoverageAnalysis   `json:"coverage_analysis"`
-	
+	TestResults      []*TestResult     `json:"test_results"`
+	ErrorAnalysis    *ErrorAnalysis    `json:"error_analysis"`
+	TrendAnalysis    *TrendAnalysis    `json:"trend_analysis"`
+	CoverageAnalysis *CoverageAnalysis `json:"coverage_analysis"`
+
 	// Recommendations
 	Recommendations []Recommendation `json:"recommendations"`
-	
+
 	// Historical Comparison
 	HistoricalComparison *HistoricalComparison `json:"historical_comparison"`
-	
+
 	// Appendices
-	RawData      map[string]interface{} `json:"raw_data"`
-	Configuration *ReportingConfig      `json:"configuration"`
+	RawData       map[string]interface{} `json:"raw_data"`
+	Configuration *ReportingConfig       `json:"configuration"`
 }
 
 // ExecutiveSummary provides a high-level summary of the test run
 type ExecutiveSummary struct {
-	OverallStatus          TestStatus    `json:"overall_status"`
-	TotalTests             int64         `json:"total_tests"`
-	PassRate               float64       `json:"pass_rate"`
-	Duration               time.Duration `json:"duration"`
-	PerformanceScore       float64       `json:"performance_score"`
-	QualityScore           float64       `json:"quality_score"`
-	CoverageScore          float64       `json:"coverage_score"`
-	KeyFindings            []string      `json:"key_findings"`
-	CriticalIssues         []string      `json:"critical_issues"`
-	Improvements           []string      `json:"improvements"`
-	RecommendedActions     []string      `json:"recommended_actions"`
-	ComparedToPrevious     *ComparisonSummary `json:"compared_to_previous"`
+	OverallStatus      TestStatus         `json:"overall_status"`
+	TotalTests         int64              `json:"total_tests"`
+	PassRate           float64            `json:"pass_rate"`
+	Duration           time.Duration      `json:"duration"`
+	PerformanceScore   float64            `json:"performance_score"`
+	QualityScore       float64            `json:"quality_score"`
+	CoverageScore      float64            `json:"coverage_score"`
+	KeyFindings        []string           `json:"key_findings"`
+	CriticalIssues     []string           `json:"critical_issues"`
+	Improvements       []string           `json:"improvements"`
+	RecommendedActions []string           `json:"recommended_actions"`
+	ComparedToPrevious *ComparisonSummary `json:"compared_to_previous"`
 }
 
 // ComparisonSummary provides a summary of comparison to previous runs
@@ -1127,56 +1121,56 @@ type ComparisonSummary struct {
 
 // ErrorAnalysis provides comprehensive error analysis
 type ErrorAnalysis struct {
-	TotalErrors         int64                          `json:"total_errors"`
-	ErrorsByType        map[ErrorType]int64            `json:"errors_by_type"`
-	ErrorsByCategory    map[ErrorCategory]int64        `json:"errors_by_category"`
-	ErrorsBySeverity    map[ErrorSeverity]int64        `json:"errors_by_severity"`
-	FrequentErrors      []ErrorPattern                 `json:"frequent_errors"`
-	ErrorTrends         map[string]*ErrorTrend         `json:"error_trends"`
-	NewErrors           []TestError                    `json:"new_errors"`
-	ResolvedErrors      []TestError                    `json:"resolved_errors"`
-	ErrorImpactAnalysis *ErrorImpactAnalysis           `json:"error_impact_analysis"`
-	KnownIssues         map[string]*KnownIssue         `json:"known_issues"`
+	TotalErrors         int64                   `json:"total_errors"`
+	ErrorsByType        map[ErrorType]int64     `json:"errors_by_type"`
+	ErrorsByCategory    map[ErrorCategory]int64 `json:"errors_by_category"`
+	ErrorsBySeverity    map[ErrorSeverity]int64 `json:"errors_by_severity"`
+	FrequentErrors      []ErrorPattern          `json:"frequent_errors"`
+	ErrorTrends         map[string]*ErrorTrend  `json:"error_trends"`
+	NewErrors           []TestError             `json:"new_errors"`
+	ResolvedErrors      []TestError             `json:"resolved_errors"`
+	ErrorImpactAnalysis *ErrorImpactAnalysis    `json:"error_impact_analysis"`
+	KnownIssues         map[string]*KnownIssue  `json:"known_issues"`
 }
 
 // ErrorImpactAnalysis analyzes the impact of errors
 type ErrorImpactAnalysis struct {
-	HighImpactErrors    []TestError `json:"high_impact_errors"`
-	SystemWideErrors    []TestError `json:"system_wide_errors"`
-	RecurringErrors     []TestError `json:"recurring_errors"`
-	ErrorClusters       []ErrorCluster `json:"error_clusters"`
-	ImpactScore         float64     `json:"impact_score"`
+	HighImpactErrors []TestError    `json:"high_impact_errors"`
+	SystemWideErrors []TestError    `json:"system_wide_errors"`
+	RecurringErrors  []TestError    `json:"recurring_errors"`
+	ErrorClusters    []ErrorCluster `json:"error_clusters"`
+	ImpactScore      float64        `json:"impact_score"`
 }
 
 // ErrorCluster represents a cluster of related errors
 type ErrorCluster struct {
-	ClusterID       string      `json:"cluster_id"`
-	Errors          []TestError `json:"errors"`
-	CommonCause     string      `json:"common_cause"`
-	ImpactScore     float64     `json:"impact_score"`
-	Recommendation  string      `json:"recommendation"`
+	ClusterID      string      `json:"cluster_id"`
+	Errors         []TestError `json:"errors"`
+	CommonCause    string      `json:"common_cause"`
+	ImpactScore    float64     `json:"impact_score"`
+	Recommendation string      `json:"recommendation"`
 }
 
 // CoverageAnalysis provides comprehensive coverage analysis
 type CoverageAnalysis struct {
-	OverallCoverage     *OverallCoverage              `json:"overall_coverage"`
-	ScenarioCoverage    map[string]*ScenarioCoverage  `json:"scenario_coverage"`
-	LanguageCoverage    map[string]*LanguageCoverage  `json:"language_coverage"`
-	MethodCoverage      map[string]*MethodCoverage    `json:"method_coverage"`
-	FeatureCoverage     map[string]*FeatureCoverage   `json:"feature_coverage"`
-	CoverageGaps        []CoverageGap                 `json:"coverage_gaps"`
-	CoverageTrends      *CoverageTrendAnalysis        `json:"coverage_trends"`
-	CoverageRecommendations []CoverageRecommendation  `json:"coverage_recommendations"`
+	OverallCoverage         *OverallCoverage             `json:"overall_coverage"`
+	ScenarioCoverage        map[string]*ScenarioCoverage `json:"scenario_coverage"`
+	LanguageCoverage        map[string]*LanguageCoverage `json:"language_coverage"`
+	MethodCoverage          map[string]*MethodCoverage   `json:"method_coverage"`
+	FeatureCoverage         map[string]*FeatureCoverage  `json:"feature_coverage"`
+	CoverageGaps            []CoverageGap                `json:"coverage_gaps"`
+	CoverageTrends          *CoverageTrendAnalysis       `json:"coverage_trends"`
+	CoverageRecommendations []CoverageRecommendation     `json:"coverage_recommendations"`
 }
 
 // CoverageTrendAnalysis analyzes coverage trends over time
 type CoverageTrendAnalysis struct {
-	OverallTrend        TrendDirection `json:"overall_trend"`
-	ScenarioTrends      map[string]TrendDirection `json:"scenario_trends"`
-	LanguageTrends      map[string]TrendDirection `json:"language_trends"`
-	QualityTrend        TrendDirection `json:"quality_trend"`
-	TrendConfidence     float64        `json:"trend_confidence"`
-	PredictedCoverage   float64        `json:"predicted_coverage"`
+	OverallTrend      TrendDirection            `json:"overall_trend"`
+	ScenarioTrends    map[string]TrendDirection `json:"scenario_trends"`
+	LanguageTrends    map[string]TrendDirection `json:"language_trends"`
+	QualityTrend      TrendDirection            `json:"quality_trend"`
+	TrendConfidence   float64                   `json:"trend_confidence"`
+	PredictedCoverage float64                   `json:"predicted_coverage"`
 }
 
 // CoverageRecommendation provides recommendations for improving coverage
@@ -1205,41 +1199,41 @@ type Recommendation struct {
 
 // HistoricalComparison provides comparison with historical data
 type HistoricalComparison struct {
-	ComparisonPeriod    string                      `json:"comparison_period"`
-	HistoricalBaseline  *HistoricalRun              `json:"historical_baseline"`
-	PerformanceChanges  []PerformanceChange         `json:"performance_changes"`
-	QualityChanges      []QualityChange             `json:"quality_changes"`
-	TrendAnalysis       *HistoricalTrendAnalysis    `json:"trend_analysis"`
-	RegressionRisk      RegressionRisk              `json:"regression_risk"`
-	ImprovementAreas    []ImprovementArea           `json:"improvement_areas"`
+	ComparisonPeriod   string                   `json:"comparison_period"`
+	HistoricalBaseline *HistoricalRun           `json:"historical_baseline"`
+	PerformanceChanges []PerformanceChange      `json:"performance_changes"`
+	QualityChanges     []QualityChange          `json:"quality_changes"`
+	TrendAnalysis      *HistoricalTrendAnalysis `json:"trend_analysis"`
+	RegressionRisk     RegressionRisk           `json:"regression_risk"`
+	ImprovementAreas   []ImprovementArea        `json:"improvement_areas"`
 }
 
 // PerformanceChange represents a change in performance metrics
 type PerformanceChange struct {
-	MetricName       string  `json:"metric_name"`
-	CurrentValue     float64 `json:"current_value"`
-	HistoricalValue  float64 `json:"historical_value"`
-	ChangePercent    float64 `json:"change_percent"`
-	ChangeDirection  string  `json:"change_direction"`
-	Significance     string  `json:"significance"`
+	MetricName      string  `json:"metric_name"`
+	CurrentValue    float64 `json:"current_value"`
+	HistoricalValue float64 `json:"historical_value"`
+	ChangePercent   float64 `json:"change_percent"`
+	ChangeDirection string  `json:"change_direction"`
+	Significance    string  `json:"significance"`
 }
 
 // QualityChange represents a change in quality metrics
 type QualityChange struct {
-	MetricName       string  `json:"metric_name"`
-	CurrentValue     float64 `json:"current_value"`
-	HistoricalValue  float64 `json:"historical_value"`
-	ChangeDirection  string  `json:"change_direction"`
-	Impact           string  `json:"impact"`
+	MetricName      string  `json:"metric_name"`
+	CurrentValue    float64 `json:"current_value"`
+	HistoricalValue float64 `json:"historical_value"`
+	ChangeDirection string  `json:"change_direction"`
+	Impact          string  `json:"impact"`
 }
 
 // HistoricalTrendAnalysis analyzes trends over historical data
 type HistoricalTrendAnalysis struct {
-	LongTermTrends      map[string]TrendDirection `json:"long_term_trends"`
-	ShortTermTrends     map[string]TrendDirection `json:"short_term_trends"`
-	VolatilityAnalysis  map[string]float64        `json:"volatility_analysis"`
-	PredictiveTrends    map[string]float64        `json:"predictive_trends"`
-	TrendReliability    float64                   `json:"trend_reliability"`
+	LongTermTrends     map[string]TrendDirection `json:"long_term_trends"`
+	ShortTermTrends    map[string]TrendDirection `json:"short_term_trends"`
+	VolatilityAnalysis map[string]float64        `json:"volatility_analysis"`
+	PredictiveTrends   map[string]float64        `json:"predictive_trends"`
+	TrendReliability   float64                   `json:"trend_reliability"`
 }
 
 // ImprovementArea represents an area for improvement
@@ -1594,16 +1588,16 @@ func (rs *ReportingSystem) generateExecutiveSummary() *ExecutiveSummary {
 	coverageScore := rs.coverageTracker.GetOverallCoverage().TotalCoveragePercent
 
 	return &ExecutiveSummary{
-		OverallStatus:    overallStatus,
-		TotalTests:       rs.testMetrics.TotalTests,
-		PassRate:         passRate,
-		Duration:         rs.testMetrics.TotalDuration,
-		PerformanceScore: performanceScore,
-		QualityScore:     qualityScore,
-		CoverageScore:    coverageScore,
-		KeyFindings:      rs.generateKeyFindings(),
-		CriticalIssues:   rs.generateCriticalIssues(),
-		Improvements:     rs.generateImprovements(),
+		OverallStatus:      overallStatus,
+		TotalTests:         rs.testMetrics.TotalTests,
+		PassRate:           passRate,
+		Duration:           rs.testMetrics.TotalDuration,
+		PerformanceScore:   performanceScore,
+		QualityScore:       qualityScore,
+		CoverageScore:      coverageScore,
+		KeyFindings:        rs.generateKeyFindings(),
+		CriticalIssues:     rs.generateCriticalIssues(),
+		Improvements:       rs.generateImprovements(),
 		RecommendedActions: rs.generateRecommendedActions(),
 	}
 }
@@ -1700,11 +1694,11 @@ func getDefaultReportingConfig() *ReportingConfig {
 		OutputDirectory:           "./e2e-reports",
 		EnableRealtimeReporting:   true,
 		EnableHistoricalTracking:  true,
-		ReportFormats:            []ReportFormat{FormatConsole, FormatJSON, FormatHTML},
+		ReportFormats:             []ReportFormat{FormatConsole, FormatJSON, FormatHTML},
 		MetricsCollectionInterval: 1 * time.Second,
 		ProgressReportingInterval: 5 * time.Second,
-		RetentionDays:            30,
-		DetailLevel:              DetailLevelStandard,
+		RetentionDays:             30,
+		DetailLevel:               DetailLevelStandard,
 		PerformanceThresholds: &PerformanceThresholds{
 			MaxAverageResponseTime: 5 * time.Second,
 			MinThroughputPerSecond: 100.0,
@@ -1740,14 +1734,14 @@ func initializeSystemMetrics() *SystemResourceMetrics {
 	runtime.ReadMemStats(&m)
 
 	return &SystemResourceMetrics{
-		StartTime:           time.Now(),
-		InitialMemoryMB:     float64(m.Alloc) / 1024 / 1024,
-		InitialGoroutines:   runtime.NumGoroutine(),
-		CPUUsageSamples:     make([]float64, 0),
-		NumCPU:              runtime.NumCPU(),
-		GOOS:                runtime.GOOS,
-		GOARCH:              runtime.GOARCH,
-		GoVersion:           runtime.Version(),
+		StartTime:         time.Now(),
+		InitialMemoryMB:   float64(m.Alloc) / 1024 / 1024,
+		InitialGoroutines: runtime.NumGoroutine(),
+		CPUUsageSamples:   make([]float64, 0),
+		NumCPU:            runtime.NumCPU(),
+		GOOS:              runtime.GOOS,
+		GOARCH:            runtime.GOARCH,
+		GoVersion:         runtime.Version(),
 	}
 }
 
@@ -1874,10 +1868,10 @@ func (rs *ReportingSystem) updatePerformanceMetrics(result *TestResult) {
 			ScenarioName: result.Scenario,
 		}
 	}
-	
+
 	scenario := rs.performanceData.ScenarioMetrics[result.Scenario]
 	scenario.ExecutionCount++
-	
+
 	// Update performance data based on test result
 	if result.PerformanceData != nil {
 		// Calculate averages and update metrics
@@ -1900,15 +1894,15 @@ func (rs *ReportingSystem) analyzeErrorImpact() *ErrorImpactAnalysis {
 func (rs *ReportingSystem) calculatePerformanceScore() float64 {
 	// Simplified performance score calculation
 	score := 100.0
-	
+
 	if rs.testMetrics.SuccessRate < 95.0 {
 		score -= (95.0 - rs.testMetrics.SuccessRate)
 	}
-	
+
 	if rs.mcpMetrics.ErrorRatePercent > 5.0 {
 		score -= rs.mcpMetrics.ErrorRatePercent
 	}
-	
+
 	return math.Max(0, score)
 }
 
@@ -1919,29 +1913,29 @@ func (rs *ReportingSystem) calculateQualityScore() float64 {
 
 func (rs *ReportingSystem) generateKeyFindings() []string {
 	findings := make([]string, 0)
-	
+
 	if rs.testMetrics.SuccessRate >= 95.0 {
 		findings = append(findings, "High test success rate achieved")
 	}
-	
+
 	if rs.mcpMetrics.ErrorRatePercent <= 5.0 {
 		findings = append(findings, "Low error rate maintained")
 	}
-	
+
 	return findings
 }
 
 func (rs *ReportingSystem) generateCriticalIssues() []string {
 	issues := make([]string, 0)
-	
+
 	if rs.testMetrics.SuccessRate < 80.0 {
 		issues = append(issues, "Low test success rate")
 	}
-	
+
 	if rs.mcpMetrics.ErrorRatePercent > 10.0 {
 		issues = append(issues, "High error rate")
 	}
-	
+
 	return issues
 }
 
@@ -1951,15 +1945,15 @@ func (rs *ReportingSystem) generateImprovements() []string {
 
 func (rs *ReportingSystem) generateRecommendedActions() []string {
 	actions := make([]string, 0)
-	
+
 	if rs.testMetrics.SuccessRate < 95.0 {
 		actions = append(actions, "Investigate failing tests")
 	}
-	
+
 	if rs.mcpMetrics.ErrorRatePercent > 5.0 {
 		actions = append(actions, "Review error patterns")
 	}
-	
+
 	return actions
 }
 
@@ -1996,12 +1990,12 @@ func (rs *ReportingSystem) collectRawData() map[string]interface{} {
 func (er *ErrorRegistry) RecordError(testID string, err *TestError) {
 	er.mu.Lock()
 	defer er.mu.Unlock()
-	
+
 	if er.errors[testID] == nil {
 		er.errors[testID] = make([]*TestError, 0)
 	}
 	er.errors[testID] = append(er.errors[testID], err)
-	
+
 	er.errorsByType[err.Type]++
 	er.errorsByCategory[err.Category]++
 	er.errorsBySeverity[err.Severity]++
@@ -2010,7 +2004,7 @@ func (er *ErrorRegistry) RecordError(testID string, err *TestError) {
 func (er *ErrorRegistry) getAllErrors() []*TestError {
 	er.mu.RLock()
 	defer er.mu.RUnlock()
-	
+
 	var allErrors []*TestError
 	for _, errors := range er.errors {
 		allErrors = append(allErrors, errors...)
@@ -2021,7 +2015,7 @@ func (er *ErrorRegistry) getAllErrors() []*TestError {
 func (ta *TrendAnalyzer) AnalyzeTrends() *TrendAnalysis {
 	ta.mu.RLock()
 	defer ta.mu.RUnlock()
-	
+
 	return &TrendAnalysis{
 		AnalysisTimestamp: time.Now(),
 		TrendSummary:      make(map[string]TrendSummary),
@@ -2033,7 +2027,7 @@ func (ta *TrendAnalyzer) AnalyzeTrends() *TrendAnalysis {
 func (ct *CoverageTracker) RecordTestExecution(result *TestResult) {
 	ct.mu.Lock()
 	defer ct.mu.Unlock()
-	
+
 	// Update scenario coverage
 	if ct.scenarioCoverage[result.Scenario] == nil {
 		ct.scenarioCoverage[result.Scenario] = &ScenarioCoverage{
@@ -2041,7 +2035,7 @@ func (ct *CoverageTracker) RecordTestExecution(result *TestResult) {
 		}
 	}
 	ct.scenarioCoverage[result.Scenario].TestsExecuted++
-	
+
 	// Update language coverage
 	if ct.languageCoverage[result.Language] == nil {
 		ct.languageCoverage[result.Language] = &LanguageCoverage{
@@ -2054,21 +2048,21 @@ func (ct *CoverageTracker) RecordTestExecution(result *TestResult) {
 func (ct *CoverageTracker) GetOverallCoverage() *OverallCoverage {
 	ct.mu.RLock()
 	defer ct.mu.RUnlock()
-	
+
 	return ct.overallCoverage
 }
 
 func (ct *CoverageTracker) GetCoverageGaps() []CoverageGap {
 	ct.mu.RLock()
 	defer ct.mu.RUnlock()
-	
+
 	return make([]CoverageGap, 0)
 }
 
 func (pr *ProgressReporter) Start(totalTests int64) {
 	pr.mu.Lock()
 	defer pr.mu.Unlock()
-	
+
 	pr.startTime = time.Now()
 	pr.totalTests = totalTests
 	pr.completedTests = 0
@@ -2079,14 +2073,14 @@ func (pr *ProgressReporter) Start(totalTests int64) {
 func (pr *ProgressReporter) UpdateProgress(testName string, success bool) {
 	pr.mu.Lock()
 	defer pr.mu.Unlock()
-	
+
 	pr.currentTest = testName
 	atomic.AddInt64(&pr.completedTests, 1)
-	
+
 	if !success {
 		atomic.AddInt64(&pr.failedTests, 1)
 	}
-	
+
 	// Calculate estimated completion
 	if pr.completedTests > 0 && pr.totalTests > 0 {
 		elapsed := time.Since(pr.startTime)

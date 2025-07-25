@@ -1,7 +1,6 @@
 package unit
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,11 +9,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	
-	"lsp-gateway/internal/gateway"
+
 	"lsp-gateway/internal/config"
+	"lsp-gateway/internal/gateway"
 )
 
 // ProjectDetectorTestSuite provides unit tests for project detector components
@@ -28,7 +26,7 @@ func (suite *ProjectDetectorTestSuite) SetupTest() {
 	tempDir, err := os.MkdirTemp("", "project-detector-test-*")
 	suite.Require().NoError(err)
 	suite.tempDir = tempDir
-	
+
 	suite.scanner = gateway.NewProjectLanguageScanner()
 }
 
@@ -54,7 +52,7 @@ func (suite *ProjectDetectorTestSuite) createFile(relPath, content string) strin
 func (suite *ProjectDetectorTestSuite) TestProjectLanguageScannerInitialization() {
 	scanner := gateway.NewProjectLanguageScanner()
 	defer scanner.Shutdown()
-	
+
 	// Validate default configuration values are reasonable
 	assert.Greater(suite.T(), scanner.MaxDepth, 0)
 	assert.Greater(suite.T(), scanner.FileSizeLimit, int64(0))
@@ -62,11 +60,11 @@ func (suite *ProjectDetectorTestSuite) TestProjectLanguageScannerInitialization(
 	assert.Greater(suite.T(), scanner.Timeout, time.Duration(0))
 	assert.True(suite.T(), scanner.EnableEarlyExit)
 	assert.True(suite.T(), scanner.EnableCache)
-	
+
 	// Validate supported languages
 	supportedLanguages := scanner.GetSupportedLanguages()
 	expectedLanguages := []string{"go", "python", "typescript", "javascript", "java", "kotlin", "rust", "cpp", "c", "csharp", "ruby", "php", "swift"}
-	
+
 	for _, lang := range expectedLanguages {
 		assert.Contains(suite.T(), supportedLanguages, lang, fmt.Sprintf("Should support %s language", lang))
 	}
@@ -75,10 +73,10 @@ func (suite *ProjectDetectorTestSuite) TestProjectLanguageScannerInitialization(
 // TestLanguagePatternMatching tests language detection patterns
 func (suite *ProjectDetectorTestSuite) TestLanguagePatternMatching() {
 	testCases := []struct {
-		filename        string
-		content         string
-		expectedLang    string
-		description     string
+		filename     string
+		content      string
+		expectedLang string
+		description  string
 	}{
 		{"main.go", "package main\n\nfunc main() {}", "go", "Go source file"},
 		{"server.py", "print('Hello Python')", "python", "Python source file"},
@@ -101,14 +99,14 @@ func (suite *ProjectDetectorTestSuite) TestLanguagePatternMatching() {
 		suite.Run(tc.description, func() {
 			// Create project with single file
 			suite.createFile(tc.filename, tc.content)
-			
+
 			info, err := suite.scanner.ScanProject(suite.tempDir)
 			suite.Require().NoError(err)
 			suite.NotNil(info)
-			
-			suite.True(info.HasLanguage(tc.expectedLang), 
+
+			suite.True(info.HasLanguage(tc.expectedLang),
 				fmt.Sprintf("Should detect %s for file %s", tc.expectedLang, tc.filename))
-			
+
 			langCtx := info.GetLanguageContext(tc.expectedLang)
 			suite.NotNil(langCtx, fmt.Sprintf("Should have context for %s", tc.expectedLang))
 			suite.Greater(langCtx.FileCount, 0, fmt.Sprintf("%s should have file count > 0", tc.expectedLang))
@@ -144,23 +142,23 @@ func (suite *ProjectDetectorTestSuite) TestBuildFileDetection() {
 			tempDir, err := os.MkdirTemp("", "build-file-test-*")
 			suite.Require().NoError(err)
 			defer os.RemoveAll(tempDir)
-			
+
 			// Create build file
 			fullPath := filepath.Join(tempDir, tc.filename)
 			err = os.WriteFile(fullPath, []byte(tc.content), 0644)
 			suite.Require().NoError(err)
-			
+
 			info, err := suite.scanner.ScanProject(tempDir)
 			suite.Require().NoError(err)
 			suite.NotNil(info)
-			
-			suite.True(info.HasLanguage(tc.expectedLang), 
+
+			suite.True(info.HasLanguage(tc.expectedLang),
 				fmt.Sprintf("Should detect %s for build file %s", tc.expectedLang, tc.filename))
-			
+
 			langCtx := info.GetLanguageContext(tc.expectedLang)
 			suite.NotNil(langCtx, fmt.Sprintf("Should have context for %s", tc.expectedLang))
 			suite.Greater(len(langCtx.BuildFiles), 0, fmt.Sprintf("%s should have build files", tc.expectedLang))
-			
+
 			// Verify the build file is included
 			foundBuildFile := false
 			for _, buildFile := range langCtx.BuildFiles {
@@ -200,18 +198,18 @@ func (suite *ProjectDetectorTestSuite) TestTestFileIdentification() {
 			tempDir, err := os.MkdirTemp("", "test-file-test-*")
 			suite.Require().NoError(err)
 			defer os.RemoveAll(tempDir)
-			
+
 			// Create test file
 			fullPath := filepath.Join(tempDir, tc.filename)
 			err = os.MkdirAll(filepath.Dir(fullPath), 0755)
 			suite.Require().NoError(err)
 			err = os.WriteFile(fullPath, []byte(tc.content), 0644)
 			suite.Require().NoError(err)
-			
+
 			info, err := suite.scanner.ScanProject(tempDir)
 			suite.Require().NoError(err)
 			suite.NotNil(info)
-			
+
 			// Find the language for this file
 			var targetLang string
 			ext := filepath.Ext(tc.filename)
@@ -230,16 +228,16 @@ func (suite *ProjectDetectorTestSuite) TestTestFileIdentification() {
 				suite.Fail(fmt.Sprintf("Unknown extension: %s", ext))
 				return
 			}
-			
+
 			if info.HasLanguage(targetLang) {
 				langCtx := info.GetLanguageContext(targetLang)
 				suite.NotNil(langCtx, fmt.Sprintf("Should have context for %s", targetLang))
-				
+
 				if tc.isTestFile {
-					suite.Greater(langCtx.TestFileCount, 0, 
+					suite.Greater(langCtx.TestFileCount, 0,
 						fmt.Sprintf("File %s should be identified as test file", tc.filename))
 				} else {
-					suite.Greater(langCtx.FileCount, 0, 
+					suite.Greater(langCtx.FileCount, 0,
 						fmt.Sprintf("File %s should be identified as source file", tc.filename))
 				}
 			}
@@ -275,12 +273,12 @@ func (suite *ProjectDetectorTestSuite) TestSourceDirectoryDetection() {
 	if info.HasLanguage("go") {
 		goCtx := info.GetLanguageContext("go")
 		suite.NotNil(goCtx)
-		
+
 		expectedGoDirs := []string{"src", "pkg", "internal", "cmd", "api"}
 		sourcePaths := strings.Join(goCtx.SourcePaths, ",")
-		
+
 		for _, expectedDir := range expectedGoDirs {
-			suite.Contains(sourcePaths, expectedDir, 
+			suite.Contains(sourcePaths, expectedDir,
 				fmt.Sprintf("Go should detect %s as source directory", expectedDir))
 		}
 	}
@@ -289,12 +287,12 @@ func (suite *ProjectDetectorTestSuite) TestSourceDirectoryDetection() {
 	if info.HasLanguage("python") {
 		pyCtx := info.GetLanguageContext("python")
 		suite.NotNil(pyCtx)
-		
+
 		expectedPyDirs := []string{"lib", "app"}
 		sourcePaths := strings.Join(pyCtx.SourcePaths, ",")
-		
+
 		for _, expectedDir := range expectedPyDirs {
-			suite.Contains(sourcePaths, expectedDir, 
+			suite.Contains(sourcePaths, expectedDir,
 				fmt.Sprintf("Python should detect %s as source directory", expectedDir))
 		}
 	}
@@ -303,12 +301,12 @@ func (suite *ProjectDetectorTestSuite) TestSourceDirectoryDetection() {
 	if info.HasLanguage("typescript") {
 		tsCtx := info.GetLanguageContext("typescript")
 		suite.NotNil(tsCtx)
-		
+
 		expectedTsDirs := []string{"components", "pages"}
 		sourcePaths := strings.Join(tsCtx.SourcePaths, ",")
-		
+
 		for _, expectedDir := range expectedTsDirs {
-			suite.Contains(sourcePaths, expectedDir, 
+			suite.Contains(sourcePaths, expectedDir,
 				fmt.Sprintf("TypeScript should detect %s as source directory", expectedDir))
 		}
 	}
@@ -319,22 +317,22 @@ func (suite *ProjectDetectorTestSuite) TestLanguagePriorityCalculation() {
 	// Create project with different language characteristics
 	files := map[string]string{
 		// Go - high priority (many files + build system)
-		"go.mod":         "module test\n\ngo 1.19",
-		"main.go":        "package main\n\nfunc main() {}",
-		"server.go":      "package main\n\ntype Server struct{}",
-		"client.go":      "package main\n\ntype Client struct{}",
-		"util.go":        "package main\n\nfunc Util() {}",
-		"cmd/app.go":     "package main\n\nfunc main() {}",
-		"pkg/helper.go":  "package pkg\n\nfunc Helper() {}",
-		
+		"go.mod":        "module test\n\ngo 1.19",
+		"main.go":       "package main\n\nfunc main() {}",
+		"server.go":     "package main\n\ntype Server struct{}",
+		"client.go":     "package main\n\ntype Client struct{}",
+		"util.go":       "package main\n\nfunc Util() {}",
+		"cmd/app.go":    "package main\n\nfunc main() {}",
+		"pkg/helper.go": "package pkg\n\nfunc Helper() {}",
+
 		// Python - medium priority (fewer files + build system)
-		"setup.py":       "from setuptools import setup\n\nsetup(name='test')",
-		"main.py":        "print('Hello Python')",
-		"utils.py":       "def utility(): pass",
-		
+		"setup.py": "from setuptools import setup\n\nsetup(name='test')",
+		"main.py":  "print('Hello Python')",
+		"utils.py": "def utility(): pass",
+
 		// JavaScript - lower priority (few files, no strong build indicators)
-		"script.js":      "console.log('Hello JS');",
-		"helper.js":      "function help() {}",
+		"script.js": "console.log('Hello JS');",
+		"helper.js": "function help() {}",
 	}
 
 	for file, content := range files {
@@ -351,7 +349,7 @@ func (suite *ProjectDetectorTestSuite) TestLanguagePriorityCalculation() {
 		suite.NotNil(goCtx)
 		suite.Greater(goCtx.Priority, 80, "Go should have high priority")
 		suite.Greater(goCtx.Confidence, 0.8, "Go should have high confidence")
-		
+
 		// Go should be the dominant language
 		suite.Equal("go", info.DominantLanguage, "Go should be dominant language")
 	}
@@ -376,7 +374,7 @@ func (suite *ProjectDetectorTestSuite) TestLanguagePriorityCalculation() {
 	if goCtx, exists := languages["go"]; exists {
 		for lang, ctx := range languages {
 			if lang != "go" {
-				suite.GreaterOrEqual(goCtx.Priority, ctx.Priority, 
+				suite.GreaterOrEqual(goCtx.Priority, ctx.Priority,
 					fmt.Sprintf("Go priority should be >= %s priority", lang))
 			}
 		}
@@ -403,10 +401,10 @@ func (suite *ProjectDetectorTestSuite) TestProjectTypeIdentification() {
 		{
 			name: "multi-language-project",
 			files: map[string]string{
-				"go.mod":     "module multi\n\ngo 1.19",
-				"main.go":    "package main\n\nfunc main() {}",
-				"script.py":  "print('Hello Python')",
-				"setup.py":   "from setuptools import setup\n\nsetup(name='multi')",
+				"go.mod":    "module multi\n\ngo 1.19",
+				"main.go":   "package main\n\nfunc main() {}",
+				"script.py": "print('Hello Python')",
+				"setup.py":  "from setuptools import setup\n\nsetup(name='multi')",
 			},
 			expectedType: config.ProjectTypeMulti,
 			description:  "Multi-language project with Go and Python",
@@ -425,13 +423,13 @@ func (suite *ProjectDetectorTestSuite) TestProjectTypeIdentification() {
 		{
 			name: "microservices-project",
 			files: map[string]string{
-				"auth-service/go.mod":       "module auth\n\ngo 1.19",
-				"auth-service/main.go":      "package main\n\nfunc main() {}",
-				"user-service/pom.xml":      "<?xml version=\"1.0\"?>\n<project><modelVersion>4.0.0</modelVersion></project>",
-				"user-service/Main.java":    "public class Main {}",
-				"api-gateway/package.json":  "{\"name\": \"gateway\", \"dependencies\": {\"express\": \"^4.0.0\"}}",
-				"api-gateway/server.js":     "const express = require('express');",
-				"docker-compose.yml":        "version: '3.8'\nservices:\n  auth:\n    build: ./auth-service",
+				"auth-service/go.mod":      "module auth\n\ngo 1.19",
+				"auth-service/main.go":     "package main\n\nfunc main() {}",
+				"user-service/pom.xml":     "<?xml version=\"1.0\"?>\n<project><modelVersion>4.0.0</modelVersion></project>",
+				"user-service/Main.java":   "public class Main {}",
+				"api-gateway/package.json": "{\"name\": \"gateway\", \"dependencies\": {\"express\": \"^4.0.0\"}}",
+				"api-gateway/server.js":    "const express = require('express');",
+				"docker-compose.yml":       "version: '3.8'\nservices:\n  auth:\n    build: ./auth-service",
 			},
 			expectedType: config.ProjectTypeMicroservices,
 			description:  "Microservices project with multiple languages and build systems",
@@ -444,7 +442,7 @@ func (suite *ProjectDetectorTestSuite) TestProjectTypeIdentification() {
 			tempDir, err := os.MkdirTemp("", fmt.Sprintf("project-type-test-%s-*", tc.name))
 			suite.Require().NoError(err)
 			defer os.RemoveAll(tempDir)
-			
+
 			// Create project files
 			for file, content := range tc.files {
 				fullPath := filepath.Join(tempDir, file)
@@ -453,12 +451,12 @@ func (suite *ProjectDetectorTestSuite) TestProjectTypeIdentification() {
 				err = os.WriteFile(fullPath, []byte(content), 0644)
 				suite.Require().NoError(err)
 			}
-			
+
 			info, err := suite.scanner.ScanProject(tempDir)
 			suite.Require().NoError(err)
 			suite.NotNil(info)
-			
-			suite.Equal(tc.expectedType, info.ProjectType, 
+
+			suite.Equal(tc.expectedType, info.ProjectType,
 				fmt.Sprintf("%s: Expected project type %s, got %s", tc.description, tc.expectedType, info.ProjectType))
 		})
 	}
@@ -480,10 +478,10 @@ func (suite *ProjectDetectorTestSuite) TestIgnorePatterns() {
 
 	// Create files that should NOT be ignored
 	validFiles := map[string]string{
-		"src/main.go":     "package main\n\nfunc main() {}",
-		"lib/utils.py":    "def util(): pass",
-		"app/script.js":   "console.log('valid');",
-		"test/helper.rb":  "def helper; end",
+		"src/main.go":    "package main\n\nfunc main() {}",
+		"lib/utils.py":   "def util(): pass",
+		"app/script.js":  "console.log('valid');",
+		"test/helper.rb": "def helper; end",
 	}
 
 	// Create all files
@@ -501,12 +499,12 @@ func (suite *ProjectDetectorTestSuite) TestIgnorePatterns() {
 	// Validate that only valid files are counted
 	totalValidFiles := len(validFiles)
 	totalDetectedFiles := 0
-	
+
 	for _, ctx := range info.Languages {
 		totalDetectedFiles += ctx.FileCount
 	}
 
-	suite.Equal(totalValidFiles, totalDetectedFiles, 
+	suite.Equal(totalValidFiles, totalDetectedFiles,
 		"Should only count files that are not in ignored directories")
 
 	// Validate specific languages are detected from valid files only
@@ -524,11 +522,11 @@ func (suite *ProjectDetectorTestSuite) TestScannerConfiguration() {
 	// Test max depth configuration
 	scanner.SetMaxDepth(5)
 	assert.Equal(suite.T(), 5, scanner.MaxDepth)
-	
+
 	// Test invalid max depth (should not change)
 	scanner.SetMaxDepth(0)
 	assert.Equal(suite.T(), 5, scanner.MaxDepth) // Should remain unchanged
-	
+
 	scanner.SetMaxDepth(15)
 	assert.Equal(suite.T(), 5, scanner.MaxDepth) // Should remain unchanged (max is 10)
 
@@ -624,35 +622,35 @@ func (suite *ProjectDetectorTestSuite) TestFastPathDetection() {
 			tempDir, err := os.MkdirTemp("", fmt.Sprintf("fast-path-test-%s-*", tc.name))
 			suite.Require().NoError(err)
 			defer os.RemoveAll(tempDir)
-			
+
 			// Create single build file
 			fullPath := filepath.Join(tempDir, tc.filename)
 			err = os.WriteFile(fullPath, []byte(tc.content), 0644)
 			suite.Require().NoError(err)
-			
+
 			start := time.Now()
 			info, err := suite.scanner.ScanProjectCached(tempDir)
 			duration := time.Since(start)
-			
+
 			suite.Require().NoError(err)
 			suite.NotNil(info)
-			
+
 			// Fast-path should be very quick
 			suite.Less(duration, 100*time.Millisecond, "Fast-path detection should be very quick")
-			
+
 			// Should detect correct language
-			suite.True(info.HasLanguage(tc.expectedLang), 
+			suite.True(info.HasLanguage(tc.expectedLang),
 				fmt.Sprintf("Should detect %s language", tc.expectedLang))
-			
+
 			// Should be single-language project
 			suite.Equal(config.ProjectTypeSingle, info.ProjectType, "Should detect as single-language project")
-			
+
 			// Should have high priority and confidence
 			langCtx := info.GetLanguageContext(tc.expectedLang)
 			suite.NotNil(langCtx)
 			suite.Equal(100, langCtx.Priority, "Fast-path detected language should have maximum priority")
 			suite.Equal(0.95, langCtx.Confidence, "Fast-path detected language should have high confidence")
-			
+
 			// Should have detected the build file
 			suite.NotEmpty(langCtx.BuildFiles, "Should have detected build files")
 		})
@@ -669,7 +667,7 @@ func (suite *ProjectDetectorTestSuite) TestCacheIntegration() {
 	start := time.Now()
 	info1, err := suite.scanner.ScanProjectCached(suite.tempDir)
 	firstScanDuration := time.Since(start)
-	
+
 	suite.Require().NoError(err)
 	suite.NotNil(info1)
 
@@ -677,7 +675,7 @@ func (suite *ProjectDetectorTestSuite) TestCacheIntegration() {
 	start = time.Now()
 	info2, err := suite.scanner.ScanProjectCached(suite.tempDir)
 	secondScanDuration := time.Since(start)
-	
+
 	suite.Require().NoError(err)
 	suite.NotNil(info2)
 
@@ -691,16 +689,16 @@ func (suite *ProjectDetectorTestSuite) TestCacheIntegration() {
 
 	// Test cache invalidation
 	suite.scanner.InvalidateCache(suite.tempDir)
-	
+
 	start = time.Now()
 	info3, err := suite.scanner.ScanProjectCached(suite.tempDir)
 	thirdScanDuration := time.Since(start)
-	
+
 	suite.Require().NoError(err)
 	suite.NotNil(info3)
-	
+
 	// After invalidation, should take similar time to first scan
-	suite.Greater(thirdScanDuration, secondScanDuration*2, 
+	suite.Greater(thirdScanDuration, secondScanDuration*2,
 		"Scan after cache invalidation should be slower than cached scan")
 
 	// Test cache statistics
@@ -779,7 +777,7 @@ func (suite *ProjectDetectorTestSuite) TestMultiLanguageProjectInfoUtilityMethod
 	// Test primary/secondary language categorization
 	primaryLanguages := info.GetPrimaryLanguages()
 	secondaryLanguages := info.GetSecondaryLanguages()
-	
+
 	suite.NotEmpty(primaryLanguages, "Should have primary languages")
 	// May or may not have secondary languages depending on scoring
 
@@ -794,7 +792,7 @@ func (suite *ProjectDetectorTestSuite) TestMultiLanguageProjectInfoUtilityMethod
 	// Test LSP server recommendations
 	servers := info.GetRecommendedLSPServers()
 	suite.NotEmpty(servers, "Should recommend LSP servers")
-	
+
 	expectedServers := []string{"gopls", "pylsp", "typescript-language-server"}
 	for _, expectedServer := range expectedServers {
 		suite.Contains(servers, expectedServer, fmt.Sprintf("Should recommend %s", expectedServer))
@@ -831,7 +829,7 @@ func (suite *ProjectDetectorTestSuite) TestPerformanceOptimizations() {
 
 	// Create small project
 	os.WriteFile(filepath.Join(tempDir, "main.go"), []byte("package main\n\nfunc main() {}"), 0644)
-	
+
 	config := scanner.GetOptimalConfiguration(tempDir)
 	suite.NotNil(config, "Should return optimal configuration")
 	suite.Contains(config, "estimated_size", "Should include estimated size")
@@ -841,7 +839,7 @@ func (suite *ProjectDetectorTestSuite) TestPerformanceOptimizations() {
 	metrics := scanner.GetPerformanceMetrics()
 	suite.NotNil(metrics, "Should return performance metrics")
 	suite.Contains(metrics, "configuration", "Should include configuration metrics")
-	
+
 	if cache, exists := metrics["cache"]; exists {
 		cacheMap := cache.(map[string]interface{})
 		suite.Contains(cacheMap, "hit_ratio", "Should include cache hit ratio")
@@ -879,7 +877,7 @@ func (suite *ProjectDetectorTestSuite) TestErrorHandling() {
 
 	// Create many files to trigger timeout
 	for i := 0; i < 1000; i++ {
-		os.WriteFile(filepath.Join(tempDir, fmt.Sprintf("file%d.go", i)), 
+		os.WriteFile(filepath.Join(tempDir, fmt.Sprintf("file%d.go", i)),
 			[]byte(fmt.Sprintf("package main\n\nfunc main%d() {}", i)), 0644)
 	}
 
@@ -894,18 +892,18 @@ func (suite *ProjectDetectorTestSuite) TestErrorHandling() {
 func (suite *ProjectDetectorTestSuite) TestConcurrentScanning() {
 	scanner := gateway.NewProjectLanguageScanner()
 	defer scanner.Shutdown()
-	
+
 	// Create multiple test projects
 	projects := make([]string, 5)
 	for i := 0; i < 5; i++ {
 		tempDir, err := os.MkdirTemp("", fmt.Sprintf("concurrent-test-%d-*", i))
 		suite.Require().NoError(err)
 		defer os.RemoveAll(tempDir)
-		
+
 		// Create simple Go project
 		os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(fmt.Sprintf("module project-%d\n\ngo 1.19", i)), 0644)
 		os.WriteFile(filepath.Join(tempDir, "main.go"), []byte(fmt.Sprintf("package main\n\nfunc main%d() {}", i)), 0644)
-		
+
 		projects[i] = tempDir
 	}
 
@@ -915,7 +913,7 @@ func (suite *ProjectDetectorTestSuite) TestConcurrentScanning() {
 	duration := time.Since(start)
 
 	suite.Equal(len(projects), len(results), "Should scan all projects")
-	
+
 	// All projects should be detected correctly
 	for projectPath, info := range results {
 		suite.NotNil(info, fmt.Sprintf("Project %s should have info", projectPath))
@@ -951,54 +949,54 @@ func TestLanguageContextValidation(t *testing.T) {
 		Dependencies:   []string{},
 		Metadata:       make(map[string]interface{}),
 	}
-	
+
 	err := validCtx.Validate()
 	assert.NoError(t, err, "Valid context should pass validation")
 
 	// Test invalid contexts
 	invalidCases := []struct {
-		name    string
-		modify  func(*gateway.LanguageContext)
+		name        string
+		modify      func(*gateway.LanguageContext)
 		errContains string
 	}{
 		{
-			name:   "empty language",
-			modify: func(ctx *gateway.LanguageContext) { ctx.Language = "" },
+			name:        "empty language",
+			modify:      func(ctx *gateway.LanguageContext) { ctx.Language = "" },
 			errContains: "language cannot be empty",
 		},
 		{
-			name:   "negative file count",
-			modify: func(ctx *gateway.LanguageContext) { ctx.FileCount = -1 },
+			name:        "negative file count",
+			modify:      func(ctx *gateway.LanguageContext) { ctx.FileCount = -1 },
 			errContains: "file count cannot be negative",
 		},
 		{
-			name:   "negative test file count", 
-			modify: func(ctx *gateway.LanguageContext) { ctx.TestFileCount = -1 },
+			name:        "negative test file count",
+			modify:      func(ctx *gateway.LanguageContext) { ctx.TestFileCount = -1 },
 			errContains: "test file count cannot be negative",
 		},
 		{
-			name:   "invalid priority high",
-			modify: func(ctx *gateway.LanguageContext) { ctx.Priority = 150 },
+			name:        "invalid priority high",
+			modify:      func(ctx *gateway.LanguageContext) { ctx.Priority = 150 },
 			errContains: "priority must be between 0 and 100",
 		},
 		{
-			name:   "invalid priority low",
-			modify: func(ctx *gateway.LanguageContext) { ctx.Priority = -10 },
+			name:        "invalid priority low",
+			modify:      func(ctx *gateway.LanguageContext) { ctx.Priority = -10 },
 			errContains: "priority must be between 0 and 100",
 		},
 		{
-			name:   "invalid confidence high",
-			modify: func(ctx *gateway.LanguageContext) { ctx.Confidence = 1.5 },
+			name:        "invalid confidence high",
+			modify:      func(ctx *gateway.LanguageContext) { ctx.Confidence = 1.5 },
 			errContains: "confidence must be between 0.0 and 1.0",
 		},
 		{
-			name:   "invalid confidence low",
-			modify: func(ctx *gateway.LanguageContext) { ctx.Confidence = -0.1 },
+			name:        "invalid confidence low",
+			modify:      func(ctx *gateway.LanguageContext) { ctx.Confidence = -0.1 },
 			errContains: "confidence must be between 0.0 and 1.0",
 		},
 		{
-			name:   "relative root path",
-			modify: func(ctx *gateway.LanguageContext) { ctx.RootPath = "relative/path" },
+			name:        "relative root path",
+			modify:      func(ctx *gateway.LanguageContext) { ctx.RootPath = "relative/path" },
 			errContains: "root path must be absolute",
 		},
 	}
@@ -1014,10 +1012,10 @@ func TestLanguageContextValidation(t *testing.T) {
 			testCtx.FileExtensions = append([]string{}, validCtx.FileExtensions...)
 			testCtx.Dependencies = append([]string{}, validCtx.Dependencies...)
 			testCtx.Metadata = make(map[string]interface{})
-			
+
 			// Apply modification
 			tc.modify(&testCtx)
-			
+
 			err := testCtx.Validate()
 			assert.Error(t, err, "Invalid context should fail validation")
 			assert.Contains(t, err.Error(), tc.errContains, "Error should contain expected message")
@@ -1033,7 +1031,7 @@ func TestProjectDetectionError(t *testing.T) {
 		Path:    "/test/path",
 		Context: "language detection",
 	}
-	
+
 	expected1 := "project detection error (validation) at /test/path: invalid configuration"
 	assert.Equal(t, expected1, err1.Error())
 
@@ -1042,7 +1040,7 @@ func TestProjectDetectionError(t *testing.T) {
 		Type:    "timeout",
 		Message: "scan timeout exceeded",
 	}
-	
+
 	expected2 := "project detection error (timeout): scan timeout exceeded"
 	assert.Equal(t, expected2, err2.Error())
 }

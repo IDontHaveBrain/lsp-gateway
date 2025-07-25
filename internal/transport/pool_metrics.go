@@ -26,9 +26,9 @@ type PoolMetrics struct {
 	peakConnections int32
 
 	// Circuit breaker metrics (atomic)
-	circuitOpenCount int64
+	circuitOpenCount  int64
 	circuitCloseCount int64
-	
+
 	// Pool size tracking (atomic)
 	currentPoolSize int32
 	minPoolSize     int32
@@ -40,7 +40,7 @@ type PoolMetrics struct {
 
 	// Snapshot data (protected by mutex)
 	lastSnapshot *PoolStats
-	
+
 	mu sync.RWMutex
 }
 
@@ -57,13 +57,13 @@ func NewPoolMetrics() *PoolMetrics {
 func (pm *PoolMetrics) RecordRequest(responseTime time.Duration, success bool) {
 	atomic.AddInt64(&pm.requestCount, 1)
 	atomic.AddInt64(&pm.totalResponseTime, int64(responseTime))
-	
+
 	if success {
 		atomic.AddInt64(&pm.successCount, 1)
 	} else {
 		atomic.AddInt64(&pm.errorCount, 1)
 	}
-	
+
 	pm.updateLastUpdate()
 }
 
@@ -79,7 +79,7 @@ func (pm *PoolMetrics) RecordConnection(action string) {
 	case "timeout":
 		atomic.AddInt64(&pm.connectionTimeouts, 1)
 	}
-	
+
 	pm.updateLastUpdate()
 }
 
@@ -87,19 +87,19 @@ func (pm *PoolMetrics) RecordConnection(action string) {
 func (pm *PoolMetrics) RecordResource(memoryMB int64, cpuPercent float64, connections int32) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
-	
+
 	if memoryMB > pm.peakMemoryUsage {
 		pm.peakMemoryUsage = memoryMB
 	}
-	
+
 	if cpuPercent > pm.peakCPUUsage {
 		pm.peakCPUUsage = cpuPercent
 	}
-	
+
 	if connections > pm.peakConnections {
 		pm.peakConnections = connections
 	}
-	
+
 	atomic.StoreInt32(&pm.currentPoolSize, connections)
 	pm.updateMinMax(connections)
 	pm.lastUpdate = time.Now()
@@ -113,7 +113,7 @@ func (pm *PoolMetrics) RecordCircuitState(state string) {
 	case "closed":
 		atomic.AddInt64(&pm.circuitCloseCount, 1)
 	}
-	
+
 	pm.updateLastUpdate()
 }
 
@@ -121,55 +121,55 @@ func (pm *PoolMetrics) RecordCircuitState(state string) {
 func (pm *PoolMetrics) GetSnapshot() *PoolStats {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
-	
+
 	now := time.Now()
 	requestCount := atomic.LoadInt64(&pm.requestCount)
 	successCount := atomic.LoadInt64(&pm.successCount)
 	errorCount := atomic.LoadInt64(&pm.errorCount)
 	totalResponseTime := atomic.LoadInt64(&pm.totalResponseTime)
-	
+
 	connectionCreations := atomic.LoadInt64(&pm.connectionCreations)
 	connectionDestroyed := atomic.LoadInt64(&pm.connectionDestroyed)
 	connectionReused := atomic.LoadInt64(&pm.connectionReused)
 	connectionTimeouts := atomic.LoadInt64(&pm.connectionTimeouts)
-	
+
 	currentPoolSize := atomic.LoadInt32(&pm.currentPoolSize)
 	minPoolSize := atomic.LoadInt32(&pm.minPoolSize)
 	maxPoolSize := atomic.LoadInt32(&pm.maxPoolSize)
-	
+
 	circuitOpenCount := atomic.LoadInt64(&pm.circuitOpenCount)
 	circuitCloseCount := atomic.LoadInt64(&pm.circuitCloseCount)
-	
+
 	// Calculate derived metrics
 	var avgResponseTime time.Duration
 	if requestCount > 0 {
 		avgResponseTime = time.Duration(totalResponseTime / requestCount)
 	}
-	
+
 	var errorRate float64
 	if requestCount > 0 {
 		errorRate = float64(errorCount) / float64(requestCount)
 	}
-	
+
 	var requestsPerSecond float64
 	elapsed := now.Sub(pm.createdAt)
 	if elapsed > 0 {
 		requestsPerSecond = float64(requestCount) / elapsed.Seconds()
 	}
-	
+
 	var creationRate, destructionRate, reuseRate float64
 	if elapsed > 0 {
 		creationRate = float64(connectionCreations) / elapsed.Seconds()
 		destructionRate = float64(connectionDestroyed) / elapsed.Seconds()
 		reuseRate = float64(connectionReused) / elapsed.Seconds()
 	}
-	
+
 	// Calculate average connection age
 	var avgConnectionAge time.Duration
 	if connectionCreations > 0 && connectionDestroyed > 0 {
 		avgConnectionAge = elapsed / time.Duration(connectionCreations)
 	}
-	
+
 	// Determine circuit state
 	circuitState := "closed"
 	if circuitOpenCount > circuitCloseCount {
@@ -177,35 +177,35 @@ func (pm *PoolMetrics) GetSnapshot() *PoolStats {
 	} else if circuitOpenCount > 0 {
 		circuitState = "half-open"
 	}
-	
+
 	// Health determination - consider healthy if error rate < 10% and no recent timeouts
 	isHealthy := errorRate < 0.1 && connectionTimeouts == 0
-	
+
 	stats := &PoolStats{
 		// Connection counts
 		TotalConnections:  int(currentPoolSize),
 		ActiveConnections: int(currentPoolSize), // This would be refined in actual implementation
 		IdleConnections:   0,                    // This would be calculated in actual implementation
-		
+
 		// Performance metrics
 		AverageResponseTime: avgResponseTime,
 		RequestsPerSecond:   requestsPerSecond,
 		ErrorRate:           errorRate,
-		
+
 		// Resource usage (would be measured in actual implementation)
 		MemoryUsageMB:   pm.peakMemoryUsage,
 		CPUUsagePercent: pm.peakCPUUsage,
-		
+
 		// Health status
 		IsHealthy:            isHealthy,
 		LastHealthCheck:      now,
 		UnhealthyConnections: int(connectionTimeouts),
-		
+
 		// Circuit breaker status
 		CircuitState: circuitState,
 		FailureCount: errorCount,
 		SuccessCount: successCount,
-		
+
 		// Pool-specific metrics
 		CreationRate:      creationRate,
 		DestructionRate:   destructionRate,
@@ -216,7 +216,7 @@ func (pm *PoolMetrics) GetSnapshot() *PoolStats {
 		ConfiguredMaxSize: int(maxPoolSize),
 		ConfiguredMinSize: int(minPoolSize),
 	}
-	
+
 	pm.lastSnapshot = stats
 	return stats
 }
@@ -227,26 +227,26 @@ func (pm *PoolMetrics) Reset() {
 	atomic.StoreInt64(&pm.successCount, 0)
 	atomic.StoreInt64(&pm.errorCount, 0)
 	atomic.StoreInt64(&pm.totalResponseTime, 0)
-	
+
 	atomic.StoreInt64(&pm.connectionCreations, 0)
 	atomic.StoreInt64(&pm.connectionDestroyed, 0)
 	atomic.StoreInt64(&pm.connectionReused, 0)
 	atomic.StoreInt64(&pm.connectionTimeouts, 0)
-	
+
 	atomic.StoreInt64(&pm.circuitOpenCount, 0)
 	atomic.StoreInt64(&pm.circuitCloseCount, 0)
-	
+
 	atomic.StoreInt32(&pm.currentPoolSize, 0)
 	atomic.StoreInt32(&pm.minPoolSize, 0)
 	atomic.StoreInt32(&pm.maxPoolSize, 0)
-	
+
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
-	
+
 	pm.peakMemoryUsage = 0
 	pm.peakCPUUsage = 0
 	pm.peakConnections = 0
-	
+
 	now := time.Now()
 	pm.createdAt = now
 	pm.lastUpdate = now
@@ -258,12 +258,12 @@ func (pm *PoolMetrics) GetRequestMetrics() (total, success, error int64, avgResp
 	total = atomic.LoadInt64(&pm.requestCount)
 	success = atomic.LoadInt64(&pm.successCount)
 	error = atomic.LoadInt64(&pm.errorCount)
-	
+
 	totalTime := atomic.LoadInt64(&pm.totalResponseTime)
 	if total > 0 {
 		avgResponseTime = time.Duration(totalTime / total)
 	}
-	
+
 	return
 }
 
@@ -273,7 +273,7 @@ func (pm *PoolMetrics) GetConnectionMetrics() (created, destroyed, reused, timeo
 	destroyed = atomic.LoadInt64(&pm.connectionDestroyed)
 	reused = atomic.LoadInt64(&pm.connectionReused)
 	timeouts = atomic.LoadInt64(&pm.connectionTimeouts)
-	
+
 	return
 }
 
@@ -281,7 +281,7 @@ func (pm *PoolMetrics) GetConnectionMetrics() (created, destroyed, reused, timeo
 func (pm *PoolMetrics) GetResourceMetrics() (peakMemoryMB int64, peakCPU float64, peakConns int32) {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
-	
+
 	return pm.peakMemoryUsage, pm.peakCPUUsage, pm.peakConnections
 }
 
@@ -289,7 +289,7 @@ func (pm *PoolMetrics) GetResourceMetrics() (peakMemoryMB int64, peakCPU float64
 func (pm *PoolMetrics) GetCircuitMetrics() (openCount, closeCount int64) {
 	openCount = atomic.LoadInt64(&pm.circuitOpenCount)
 	closeCount = atomic.LoadInt64(&pm.circuitCloseCount)
-	
+
 	return
 }
 
@@ -302,7 +302,7 @@ func (pm *PoolMetrics) GetCurrentPoolSize() int32 {
 func (pm *PoolMetrics) GetUptime() time.Duration {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
-	
+
 	return time.Since(pm.createdAt)
 }
 
@@ -310,7 +310,7 @@ func (pm *PoolMetrics) GetUptime() time.Duration {
 func (pm *PoolMetrics) GetLastUpdate() time.Time {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
-	
+
 	return pm.lastUpdate
 }
 
@@ -334,7 +334,7 @@ func (pm *PoolMetrics) updateMinMax(current int32) {
 			break
 		}
 	}
-	
+
 	// Update maximum
 	for {
 		max := atomic.LoadInt32(&pm.maxPoolSize)
@@ -351,20 +351,20 @@ func (pm *PoolMetrics) updateMinMax(current int32) {
 // Export method for testing
 func (pm *PoolMetrics) ExportMetricsForTesting() map[string]interface{} {
 	return map[string]interface{}{
-		"request_count":         atomic.LoadInt64(&pm.requestCount),
-		"success_count":         atomic.LoadInt64(&pm.successCount),
-		"error_count":           atomic.LoadInt64(&pm.errorCount),
-		"connection_creations":  atomic.LoadInt64(&pm.connectionCreations),
-		"connection_destroyed":  atomic.LoadInt64(&pm.connectionDestroyed),
-		"connection_reused":     atomic.LoadInt64(&pm.connectionReused),
-		"connection_timeouts":   atomic.LoadInt64(&pm.connectionTimeouts),
-		"circuit_open_count":    atomic.LoadInt64(&pm.circuitOpenCount),
-		"circuit_close_count":   atomic.LoadInt64(&pm.circuitCloseCount),
-		"current_pool_size":     atomic.LoadInt32(&pm.currentPoolSize),
-		"peak_memory_usage":     pm.peakMemoryUsage,
-		"peak_cpu_usage":        pm.peakCPUUsage,
-		"peak_connections":      pm.peakConnections,
-		"created_at":            pm.createdAt,
-		"last_update":           pm.lastUpdate,
+		"request_count":        atomic.LoadInt64(&pm.requestCount),
+		"success_count":        atomic.LoadInt64(&pm.successCount),
+		"error_count":          atomic.LoadInt64(&pm.errorCount),
+		"connection_creations": atomic.LoadInt64(&pm.connectionCreations),
+		"connection_destroyed": atomic.LoadInt64(&pm.connectionDestroyed),
+		"connection_reused":    atomic.LoadInt64(&pm.connectionReused),
+		"connection_timeouts":  atomic.LoadInt64(&pm.connectionTimeouts),
+		"circuit_open_count":   atomic.LoadInt64(&pm.circuitOpenCount),
+		"circuit_close_count":  atomic.LoadInt64(&pm.circuitCloseCount),
+		"current_pool_size":    atomic.LoadInt32(&pm.currentPoolSize),
+		"peak_memory_usage":    pm.peakMemoryUsage,
+		"peak_cpu_usage":       pm.peakCPUUsage,
+		"peak_connections":     pm.peakConnections,
+		"created_at":           pm.createdAt,
+		"last_update":          pm.lastUpdate,
 	}
 }

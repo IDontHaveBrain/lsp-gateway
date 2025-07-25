@@ -2,8 +2,8 @@ package gateway
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
-	"time"
 
 	"lsp-gateway/mcp"
 )

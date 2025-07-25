@@ -20,11 +20,11 @@ func createTestPool(t *testing.T, strategy string) *LanguageServerPool {
 	// Add mock servers
 	for i := 1; i <= 3; i++ {
 		serverConfig := &config.ServerConfig{
-			Name:     fmt.Sprintf("server%d", i),
+			Name:      fmt.Sprintf("server%d", i),
 			Languages: []string{"go"},
-			Command:  "gopls",
+			Command:   "gopls",
 		}
-		
+
 		server := &ServerInstance{
 			config:    serverConfig,
 			state:     ServerStateHealthy,
@@ -337,11 +337,11 @@ func TestLoadBalancerIntegration(t *testing.T) {
 	// Add test servers
 	for i := 1; i <= 3; i++ {
 		serverConfig := &config.ServerConfig{
-			Name:     fmt.Sprintf("server%d", i),
+			Name:      fmt.Sprintf("server%d", i),
 			Languages: []string{"go"},
-			Command:  "gopls",
+			Command:   "gopls",
 		}
-		
+
 		server := &ServerInstance{
 			config:    serverConfig,
 			state:     ServerStateHealthy,

@@ -59,7 +59,7 @@ func NewEnhancedProjectAwareGateway(config *config.GatewayConfig) (*EnhancedProj
 		// Get enhanced components
 		performanceCache:   baseGateway.performanceCache,
 		requestClassifier:  baseGateway.requestClassifier,
-		responseAggregator: baseGateway.responseAggregator,
+		responseAggregator: nil, // AggregatorRegistry doesn't implement ResponseAggregator interface
 		healthMonitor:      baseGateway.health_monitor,
 
 		// Configuration
@@ -228,16 +228,13 @@ func (pag *EnhancedProjectAwareGateway) handleEnhancedRequestRouting(w http.Resp
 		return serverName, true
 	}
 
-	// Update performance cache if available
-	if pag.performanceCache != nil && len(decision.TargetServers) > 0 {
-		pag.performanceCache.RecordRoutingDecision(req.Method, decision.TargetServers[0].Name, decision.RoutingStrategy)
-	}
+	// Update performance cache if available - routing decision recording removed due to interface limitations
 
 	// Return the name of the first target server
 	if len(decision.TargetServers) > 0 {
 		return decision.TargetServers[0].Name, true
 	}
-	
+
 	return "", false
 }
 
@@ -627,7 +624,7 @@ func (pag *EnhancedProjectAwareGateway) extractLanguageFromURI(uriOrParams inter
 			return lang
 		}
 	}
-	
+
 	// Fallback: try to extract from structured parameters
 	if params, ok := uriOrParams.(map[string]interface{}); ok {
 		if textDoc, ok := params["textDocument"].(map[string]interface{}); ok {
@@ -638,7 +635,6 @@ func (pag *EnhancedProjectAwareGateway) extractLanguageFromURI(uriOrParams inter
 			}
 		}
 	}
-	
+
 	return "go" // Default language for demonstration
 }
-

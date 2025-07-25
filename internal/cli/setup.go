@@ -27,18 +27,18 @@ var (
 	setupSkipVerify    bool
 	setupConfigPath    string
 	// Multi-language setup flags
-	setupMultiLanguage     bool
-	setupProjectPath       string
-	setupOptimizationMode  string
-	setupTemplate          string
+	setupMultiLanguage      bool
+	setupProjectPath        string
+	setupOptimizationMode   string
+	setupTemplate           string
 	setupEnableSmartRouting bool
-	setupEnableConcurrent  bool
+	setupEnableConcurrent   bool
 	setupPerformanceProfile string
-	setupProjectDetection  bool
-	setupWizardMode        bool
+	setupProjectDetection   bool
+	setupWizardMode         bool
 	// Enhanced multi-language flags
-	setupTemplateName       string
-	setupEnableProjectDetection bool
+	setupTemplateName            string
+	setupEnableProjectDetection  bool
 	setupEnableConcurrentServers bool
 )
 
@@ -79,11 +79,11 @@ type WizardState struct {
 	AvailableServers []string
 	ConfigPath       string
 	// Enhanced wizard state
-	ProjectAnalysis  *setup.ProjectAnalysis
-	SelectedTemplate *setup.ConfigurationTemplate
-	OptimizationMode string
-	PerformanceProfile string
-	EnableSmartRouting bool
+	ProjectAnalysis         *setup.ProjectAnalysis
+	SelectedTemplate        *setup.ConfigurationTemplate
+	OptimizationMode        string
+	PerformanceProfile      string
+	EnableSmartRouting      bool
 	EnableConcurrentServers bool
 }
 
@@ -678,12 +678,12 @@ func runSetupWizard(cmd *cobra.Command, args []string) error {
 
 	// Initialize wizard state and result structure
 	wizardState := &WizardState{
-		SelectedRuntimes: make(map[string]bool),
-		SelectedServers:  make(map[string]bool),
-		ConfigPath:       setupConfigPath,
-		OptimizationMode: setupOptimizationMode,
-		PerformanceProfile: setupPerformanceProfile,
-		EnableSmartRouting: setupEnableSmartRouting,
+		SelectedRuntimes:        make(map[string]bool),
+		SelectedServers:         make(map[string]bool),
+		ConfigPath:              setupConfigPath,
+		OptimizationMode:        setupOptimizationMode,
+		PerformanceProfile:      setupPerformanceProfile,
+		EnableSmartRouting:      setupEnableSmartRouting,
 		EnableConcurrentServers: setupEnableConcurrent,
 	}
 
@@ -1919,7 +1919,6 @@ func runFinalVerification(ctx context.Context, result *SetupResult) ([]string, e
 
 	return warnings, nil
 }
-
 
 // generateSetupSummary calculates setup summary statistics
 func generateSetupSummary(result *SetupResult) {

@@ -93,7 +93,7 @@ func (m *LSPWorkflowManager) ExecuteScenario(t *testing.T, scenarioName string, 
 	// Execute workflow steps
 	for i, step := range scenario.Steps {
 		t.Logf("Executing step %d: %s", i+1, step.Name)
-		
+
 		result, err := m.executeStep(ctx, step, projectDir)
 		if err != nil {
 			return fmt.Errorf("step %d (%s) failed: %w", i+1, step.Name, err)
@@ -134,7 +134,7 @@ func (m *LSPWorkflowManager) initializeLSPSession(ctx context.Context, projectDi
 						"dynamicRegistration": true,
 					},
 					"documentSymbol": map[string]interface{}{
-						"dynamicRegistration": true,
+						"dynamicRegistration":               true,
 						"hierarchicalDocumentSymbolSupport": true,
 					},
 				},
@@ -342,13 +342,13 @@ func GetDefaultGoWorkflowScenario() *LSPWorkflowScenario {
 // RunStandardLSPWorkflowTests runs a standard set of LSP workflow tests
 func RunStandardLSPWorkflowTests(t *testing.T, gatewayURL string, projectDir string) {
 	manager := NewLSPWorkflowManager(gatewayURL)
-	
+
 	// Register default scenarios
 	manager.RegisterScenario(GetDefaultGoWorkflowScenario())
-	
+
 	// Execute scenarios
 	scenarios := []string{"go-basic-workflow"}
-	
+
 	for _, scenarioName := range scenarios {
 		t.Run(scenarioName, func(t *testing.T) {
 			err := manager.ExecuteScenario(t, scenarioName, projectDir)
@@ -369,7 +369,7 @@ func ValidateDefinitionResponse(result interface{}) error {
 		if len(v) == 0 {
 			return fmt.Errorf("definition response is empty array")
 		}
-		
+
 		// Validate first location
 		if loc, ok := v[0].(map[string]interface{}); ok {
 			if _, hasURI := loc["uri"]; !hasURI {
@@ -381,7 +381,7 @@ func ValidateDefinitionResponse(result interface{}) error {
 		} else {
 			return fmt.Errorf("invalid definition location format")
 		}
-		
+
 	case map[string]interface{}:
 		if _, hasURI := v["uri"]; !hasURI {
 			return fmt.Errorf("definition location missing uri")
@@ -389,7 +389,7 @@ func ValidateDefinitionResponse(result interface{}) error {
 		if _, hasRange := v["range"]; !hasRange {
 			return fmt.Errorf("definition location missing range")
 		}
-		
+
 	default:
 		return fmt.Errorf("unexpected definition response format: %T", result)
 	}

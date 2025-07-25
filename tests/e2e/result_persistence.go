@@ -2,7 +2,6 @@ package e2e_test
 
 import (
 	"compress/gzip"
-	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -19,51 +18,51 @@ import (
 
 // ResultPersistenceManager handles comprehensive result storage and retrieval
 type ResultPersistenceManager struct {
-	mu               sync.RWMutex
-	config           *PersistenceConfig
-	logger           *log.Logger
-	
+	mu     sync.RWMutex
+	config *PersistenceConfig
+	logger *log.Logger
+
 	// Database components
-	db               *sql.DB
-	dbPath           string
-	
+	db     *sql.DB
+	dbPath string
+
 	// File storage components
-	storageDir       string
-	indexDir         string
-	archiveDir       string
-	
+	storageDir string
+	indexDir   string
+	archiveDir string
+
 	// Compression and archival
 	compressionLevel int
 	archivalEnabled  bool
 	archivalDays     int
-	
+
 	// Performance optimization
-	batchSize        int
-	writeBuffer      []*TestRunRecord
-	writeBufferMu    sync.Mutex
-	
+	batchSize     int
+	writeBuffer   []*TestRunRecord
+	writeBufferMu sync.Mutex
+
 	// Search and indexing
-	searchIndex      *SearchIndex
-	
+	searchIndex *SearchIndex
+
 	// Cleanup management
 	cleanupFunctions []func() error
 }
 
 // PersistenceConfig defines configuration for result persistence
 type PersistenceConfig struct {
-	StorageDirectory    string
-	DatabasePath        string
-	EnableCompression   bool
-	CompressionLevel    int
-	EnableArchival      bool
-	ArchivalDays        int
-	EnableSearch        bool
-	BatchSize           int
-	MaxStorageSize      int64  // bytes
-	RetentionDays       int
-	BackupEnabled       bool
-	BackupInterval      time.Duration
-	IndexingEnabled     bool
+	StorageDirectory  string
+	DatabasePath      string
+	EnableCompression bool
+	CompressionLevel  int
+	EnableArchival    bool
+	ArchivalDays      int
+	EnableSearch      bool
+	BatchSize         int
+	MaxStorageSize    int64 // bytes
+	RetentionDays     int
+	BackupEnabled     bool
+	BackupInterval    time.Duration
+	IndexingEnabled   bool
 }
 
 // TestRunRecord represents a complete test run stored in the database
@@ -99,12 +98,12 @@ type TestRunRecord struct {
 
 // SearchIndex provides fast search capabilities over stored results
 type SearchIndex struct {
-	mu          sync.RWMutex
-	termIndex   map[string][]int64  // term -> record IDs
-	metadataIndex map[string]map[string][]int64  // field -> value -> record IDs
-	timeIndex   []TimeRangeEntry
-	tagIndex    map[string][]int64  // tag -> record IDs
-	enabled     bool
+	mu            sync.RWMutex
+	termIndex     map[string][]int64            // term -> record IDs
+	metadataIndex map[string]map[string][]int64 // field -> value -> record IDs
+	timeIndex     []TimeRangeEntry
+	tagIndex      map[string][]int64 // tag -> record IDs
+	enabled       bool
 }
 
 // TimeRangeEntry represents a time-based index entry
@@ -116,29 +115,29 @@ type TimeRangeEntry struct {
 
 // SearchQuery represents a search query for stored results
 type SearchQuery struct {
-	Terms           []string
-	StartTime       *time.Time
-	EndTime         *time.Time
-	Success         *bool
-	MinDuration     *time.Duration
-	MaxDuration     *time.Duration
-	Environment     string
-	Branch          string
-	Version         string
-	Tags            []string
-	Metadata        map[string]interface{}
-	Limit           int
-	Offset          int
-	OrderBy         string
-	OrderDirection  string  // "ASC" or "DESC"
+	Terms          []string
+	StartTime      *time.Time
+	EndTime        *time.Time
+	Success        *bool
+	MinDuration    *time.Duration
+	MaxDuration    *time.Duration
+	Environment    string
+	Branch         string
+	Version        string
+	Tags           []string
+	Metadata       map[string]interface{}
+	Limit          int
+	Offset         int
+	OrderBy        string
+	OrderDirection string // "ASC" or "DESC"
 }
 
 // SearchResult represents search results
 type SearchResult struct {
-	Records      []*TestRunRecord
-	TotalCount   int64
-	SearchTime   time.Duration
-	Query        *SearchQuery
+	Records    []*TestRunRecord
+	TotalCount int64
+	SearchTime time.Duration
+	Query      *SearchQuery
 }
 
 // NewResultPersistenceManager creates a new result persistence manager
@@ -681,11 +680,11 @@ func (rpm *ResultPersistenceManager) buildSearchQuery(query *SearchQuery) (strin
 // GetHistoricalData retrieves historical test run data for analysis
 func (rpm *ResultPersistenceManager) GetHistoricalData(days int, environment string) ([]*TestRunRecord, error) {
 	query := &SearchQuery{
-		StartTime:   &time.Time{},
-		Environment: environment,
-		OrderBy:     "timestamp",
+		StartTime:      &time.Time{},
+		Environment:    environment,
+		OrderBy:        "timestamp",
 		OrderDirection: "ASC",
-		Limit:       1000,
+		Limit:          1000,
 	}
 
 	startTime := time.Now().AddDate(0, 0, -days)
@@ -761,7 +760,7 @@ func (rpm *ResultPersistenceManager) createTables() error {
 			created_at DATETIME NOT NULL,
 			updated_at DATETIME NOT NULL
 		)`,
-		
+
 		`CREATE TABLE IF NOT EXISTS test_run_tags (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			test_run_id INTEGER NOT NULL,
@@ -769,7 +768,7 @@ func (rpm *ResultPersistenceManager) createTables() error {
 			FOREIGN KEY (test_run_id) REFERENCES test_runs(id) ON DELETE CASCADE,
 			UNIQUE(test_run_id, tag)
 		)`,
-		
+
 		`CREATE TABLE IF NOT EXISTS test_run_metadata (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			test_run_id INTEGER NOT NULL,
@@ -778,7 +777,7 @@ func (rpm *ResultPersistenceManager) createTables() error {
 			FOREIGN KEY (test_run_id) REFERENCES test_runs(id) ON DELETE CASCADE,
 			UNIQUE(test_run_id, key)
 		)`,
-		
+
 		`CREATE TABLE IF NOT EXISTS performance_baselines (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			test_name TEXT NOT NULL,
@@ -869,7 +868,7 @@ func (rpm *ResultPersistenceManager) updateSearchIndex(record *TestRunRecord) {
 // loadSearchIndex loads the search index from disk
 func (rpm *ResultPersistenceManager) loadSearchIndex() error {
 	indexPath := filepath.Join(rpm.indexDir, "search_index.json")
-	
+
 	file, err := os.Open(indexPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -1038,7 +1037,7 @@ func (rpm *ResultPersistenceManager) performMaintenance() error {
 // archiveOldRecords moves old records to archive storage
 func (rpm *ResultPersistenceManager) archiveOldRecords() error {
 	cutoffTime := time.Now().AddDate(0, 0, -rpm.archivalDays)
-	
+
 	query := `SELECT id, storage_path FROM test_runs WHERE timestamp < ? AND archived = FALSE`
 	rows, err := rpm.db.Query(query, cutoffTime)
 	if err != nil {
@@ -1079,7 +1078,7 @@ func (rpm *ResultPersistenceManager) archiveOldRecords() error {
 // cleanupOldRecords removes old records beyond retention period
 func (rpm *ResultPersistenceManager) cleanupOldRecords() error {
 	cutoffTime := time.Now().AddDate(0, 0, -rpm.config.RetentionDays)
-	
+
 	// Get records to delete
 	query := `SELECT id, storage_path FROM test_runs WHERE timestamp < ?`
 	rows, err := rpm.db.Query(query, cutoffTime)
@@ -1166,7 +1165,7 @@ func (rpm *ResultPersistenceManager) saveSearchIndex() error {
 	}
 
 	indexPath := filepath.Join(rpm.indexDir, "search_index.json")
-	
+
 	file, err := os.Create(indexPath)
 	if err != nil {
 		return fmt.Errorf("failed to create search index file: %w", err)

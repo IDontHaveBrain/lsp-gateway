@@ -7,14 +7,13 @@ import (
 
 	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/gateway"
-	"lsp-gateway/internal/transport"
 )
 
 // Test fixtures for RoutingDecision tests
 
 func createTestRoutingDecision() *gateway.RoutingDecision {
 	mockClient := NewMockLSPClient("test-server")
-	
+
 	return &gateway.RoutingDecision{
 		ServerName: "test-server",
 		ServerConfig: &config.ServerConfig{
@@ -48,23 +47,23 @@ func createTestLSPRequestWithContext(method, language string) *gateway.LSPReques
 
 func TestRoutingDecision_Creation(t *testing.T) {
 	decision := createTestRoutingDecision()
-	
+
 	if decision == nil {
 		t.Fatal("RoutingDecision should not be nil")
 	}
-	
+
 	if decision.ServerName != "test-server" {
 		t.Errorf("Expected ServerName 'test-server', got '%s'", decision.ServerName)
 	}
-	
+
 	if decision.Strategy != gateway.SingleTargetWithFallback {
 		t.Errorf("Expected SingleTargetWithFallback strategy, got %s", decision.Strategy)
 	}
-	
+
 	if decision.Priority != 1 {
 		t.Errorf("Expected Priority 1, got %d", decision.Priority)
 	}
-	
+
 	if decision.Weight != 1.0 {
 		t.Errorf("Expected Weight 1.0, got %f", decision.Weight)
 	}
@@ -72,20 +71,20 @@ func TestRoutingDecision_Creation(t *testing.T) {
 
 func TestRoutingDecision_ServerConfig(t *testing.T) {
 	decision := createTestRoutingDecision()
-	
+
 	if decision.ServerConfig == nil {
 		t.Fatal("ServerConfig should not be nil")
 	}
-	
+
 	config := decision.ServerConfig
 	if config.Name != "test-server" {
 		t.Errorf("Expected config name 'test-server', got '%s'", config.Name)
 	}
-	
+
 	if len(config.Languages) != 1 || config.Languages[0] != "go" {
 		t.Errorf("Expected languages [go], got %v", config.Languages)
 	}
-	
+
 	if config.Command != "gopls" {
 		t.Errorf("Expected command 'gopls', got '%s'", config.Command)
 	}
@@ -93,22 +92,22 @@ func TestRoutingDecision_ServerConfig(t *testing.T) {
 
 func TestRoutingDecision_Client(t *testing.T) {
 	decision := createTestRoutingDecision()
-	
+
 	if decision.Client == nil {
 		t.Fatal("Client should not be nil")
 	}
-	
+
 	// Test that client can send requests
 	mockClient, ok := decision.Client.(*MockLSPClient)
 	if !ok {
 		t.Fatal("Expected MockLSPClient")
 	}
-	
+
 	result, err := mockClient.SendRequest("test/method", map[string]interface{}{"test": "param"})
 	if err != nil {
 		t.Fatalf("SendRequest failed: %v", err)
 	}
-	
+
 	if result == nil {
 		t.Error("Result should not be nil")
 	}
@@ -116,17 +115,17 @@ func TestRoutingDecision_Client(t *testing.T) {
 
 func TestRoutingDecision_Metadata(t *testing.T) {
 	decision := createTestRoutingDecision()
-	
+
 	if decision.Metadata == nil {
 		t.Fatal("Metadata should not be nil")
 	}
-	
+
 	if value, exists := decision.Metadata["test_key"]; !exists {
 		t.Error("Expected 'test_key' in metadata")
 	} else if value != "test_value" {
 		t.Errorf("Expected metadata value 'test_value', got '%v'", value)
 	}
-	
+
 	// Test metadata modification
 	decision.Metadata["new_key"] = "new_value"
 	if value, exists := decision.Metadata["new_key"]; !exists {
@@ -146,23 +145,23 @@ func TestRoutingDecision_PriorityBasedSelection(t *testing.T) {
 		Weight:     1.0,
 		Strategy:   gateway.SingleTargetWithFallback,
 	}
-	
+
 	decision2 := &gateway.RoutingDecision{
 		ServerName: "server-2",
 		Priority:   3,
 		Weight:     1.0,
 		Strategy:   gateway.SingleTargetWithFallback,
 	}
-	
+
 	decision3 := &gateway.RoutingDecision{
 		ServerName: "server-3",
 		Priority:   2,
 		Weight:     1.0,
 		Strategy:   gateway.SingleTargetWithFallback,
 	}
-	
+
 	decisions := []*gateway.RoutingDecision{decision1, decision2, decision3}
-	
+
 	// Test priority-based sorting (higher priority first)
 	for i := 0; i < len(decisions)-1; i++ {
 		for j := i + 1; j < len(decisions); j++ {
@@ -171,7 +170,7 @@ func TestRoutingDecision_PriorityBasedSelection(t *testing.T) {
 			}
 		}
 	}
-	
+
 	// Verify sorting
 	expectedOrder := []string{"server-2", "server-3", "server-1"}
 	for i, expected := range expectedOrder {
@@ -188,11 +187,11 @@ func TestRoutingDecision_WeightBasedSelection(t *testing.T) {
 		{ServerName: "server-2", Priority: 1, Weight: 1.0, Strategy: gateway.LoadBalanced},
 		{ServerName: "server-3", Priority: 1, Weight: 0.8, Strategy: gateway.LoadBalanced},
 	}
-	
+
 	// Test weight calculation - higher weight should be preferred
 	var bestDecision *gateway.RoutingDecision
 	bestScore := -1.0
-	
+
 	for _, decision := range decisions {
 		// Simple scoring algorithm: priority * weight
 		score := float64(decision.Priority) * decision.Weight
@@ -201,7 +200,7 @@ func TestRoutingDecision_WeightBasedSelection(t *testing.T) {
 			bestDecision = decision
 		}
 	}
-	
+
 	if bestDecision.ServerName != "server-2" {
 		t.Errorf("Expected 'server-2' to have highest score, got '%s'", bestDecision.ServerName)
 	}
@@ -241,11 +240,11 @@ func TestRoutingDecision_RequestContextHandling(t *testing.T) {
 			strategy: gateway.BroadcastAggregate,
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			request := createTestLSPRequestWithContext(tc.method, tc.language)
-			
+
 			// Create decision based on request context
 			decision := &gateway.RoutingDecision{
 				ServerName: "test-server",
@@ -256,16 +255,16 @@ func TestRoutingDecision_RequestContextHandling(t *testing.T) {
 					"uri":      request.URI,
 				},
 			}
-			
+
 			// Verify decision reflects request context
 			if decision.Strategy != tc.strategy {
 				t.Errorf("Expected strategy %s, got %s", tc.strategy, decision.Strategy)
 			}
-			
+
 			if methodMeta := decision.Metadata["method"]; methodMeta != tc.method {
 				t.Errorf("Expected method %s in metadata, got %v", tc.method, methodMeta)
 			}
-			
+
 			if langMeta := decision.Metadata["language"]; langMeta != tc.language {
 				t.Errorf("Expected language %s in metadata, got %v", tc.language, langMeta)
 			}
@@ -283,21 +282,21 @@ func TestRoutingDecision_SingleTargetWithFallback(t *testing.T) {
 		Weight:     1.0,
 		Metadata: map[string]interface{}{
 			"fallback_available": true,
-			"health_score":      0.95,
+			"health_score":       0.95,
 		},
 	}
-	
+
 	if decision.Strategy != gateway.SingleTargetWithFallback {
 		t.Errorf("Expected SingleTargetWithFallback strategy, got %s", decision.Strategy)
 	}
-	
+
 	// Check fallback metadata
 	if fallback, exists := decision.Metadata["fallback_available"]; !exists {
 		t.Error("Expected fallback_available in metadata")
 	} else if fallback != true {
 		t.Errorf("Expected fallback_available true, got %v", fallback)
 	}
-	
+
 	// Check health score metadata
 	if healthScore, exists := decision.Metadata["health_score"]; !exists {
 		t.Error("Expected health_score in metadata")
@@ -318,18 +317,18 @@ func TestRoutingDecision_LoadBalanced(t *testing.T) {
 			"total_count":   5,
 		},
 	}
-	
+
 	if decision.Strategy != gateway.LoadBalanced {
 		t.Errorf("Expected LoadBalanced strategy, got %s", decision.Strategy)
 	}
-	
+
 	// Check load balancing metadata
 	if lbStrategy, exists := decision.Metadata["lb_strategy"]; !exists {
 		t.Error("Expected lb_strategy in metadata")
 	} else if lbStrategy != "round_robin" {
 		t.Errorf("Expected lb_strategy 'round_robin', got %v", lbStrategy)
 	}
-	
+
 	if healthyCount, exists := decision.Metadata["healthy_count"]; !exists {
 		t.Error("Expected healthy_count in metadata")
 	} else if healthyCount != 3 {
@@ -358,18 +357,18 @@ func TestRoutingDecision_MultiTargetParallel(t *testing.T) {
 			Weight:     0.8,
 		},
 	}
-	
+
 	// Verify all decisions have the same strategy
 	for _, decision := range decisions {
 		if decision.Strategy != gateway.MultiTargetParallel {
 			t.Errorf("Expected MultiTargetParallel strategy, got %s", decision.Strategy)
 		}
 	}
-	
+
 	// Test that decisions are properly prioritized
 	for i := 0; i < len(decisions)-1; i++ {
 		if decisions[i].Priority <= decisions[i+1].Priority {
-			t.Errorf("Decisions should be ordered by priority (desc), got %d then %d", 
+			t.Errorf("Decisions should be ordered by priority (desc), got %d then %d",
 				decisions[i].Priority, decisions[i+1].Priority)
 		}
 	}
@@ -383,14 +382,14 @@ func TestRoutingDecision_BroadcastAggregate(t *testing.T) {
 		Weight:     1.0,
 		Metadata: map[string]interface{}{
 			"broadcast_targets": []string{"server-1", "server-2", "server-3"},
-			"aggregation_type": "merge",
+			"aggregation_type":  "merge",
 		},
 	}
-	
+
 	if decision.Strategy != gateway.BroadcastAggregate {
 		t.Errorf("Expected BroadcastAggregate strategy, got %s", decision.Strategy)
 	}
-	
+
 	// Check broadcast metadata
 	if targets, exists := decision.Metadata["broadcast_targets"]; !exists {
 		t.Error("Expected broadcast_targets in metadata")
@@ -408,8 +407,8 @@ func TestRoutingDecision_BroadcastAggregate(t *testing.T) {
 
 func TestRoutingDecision_Validation(t *testing.T) {
 	testCases := []struct {
-		name        string
-		decision    *gateway.RoutingDecision
+		name          string
+		decision      *gateway.RoutingDecision
 		shouldBeValid bool
 	}{
 		{
@@ -490,7 +489,7 @@ func TestRoutingDecision_Validation(t *testing.T) {
 			shouldBeValid: true, // Zero priority might be valid in some contexts
 		},
 	}
-	
+
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			isValid := validateRoutingDecision(tc.decision)
@@ -525,12 +524,12 @@ func TestRoutingDecision_MemoryUsage(t *testing.T) {
 			"large_data": make([]string, 1000), // Large metadata
 		},
 	}
-	
+
 	// Ensure decision can be created and accessed without issues
 	if decision.ServerName != "memory-test-server" {
 		t.Error("Decision should be properly initialized")
 	}
-	
+
 	// Test metadata access
 	if largeData, exists := decision.Metadata["large_data"]; !exists {
 		t.Error("Large metadata should be accessible")
@@ -544,10 +543,10 @@ func TestRoutingDecision_MemoryUsage(t *testing.T) {
 
 func TestRoutingDecision_ConcurrentAccess(t *testing.T) {
 	decision := createTestRoutingDecision()
-	
+
 	const numGoroutines = 10
 	const accessesPerGoroutine = 100
-	
+
 	// Test concurrent read access
 	for i := 0; i < numGoroutines; i++ {
 		go func() {
@@ -556,14 +555,14 @@ func TestRoutingDecision_ConcurrentAccess(t *testing.T) {
 				_ = decision.Strategy
 				_ = decision.Priority
 				_ = decision.Weight
-				
+
 				if decision.Metadata != nil {
 					_ = decision.Metadata["test_key"]
 				}
 			}
 		}()
 	}
-	
+
 	// Test concurrent metadata modification
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
@@ -574,10 +573,10 @@ func TestRoutingDecision_ConcurrentAccess(t *testing.T) {
 			}
 		}(i)
 	}
-	
+
 	// Give goroutines time to complete
 	time.Sleep(100 * time.Millisecond)
-	
+
 	// Verify decision is still valid
 	if decision.ServerName != "test-server" {
 		t.Error("ServerName should remain unchanged after concurrent access")
@@ -588,23 +587,23 @@ func TestRoutingDecision_ConcurrentAccess(t *testing.T) {
 
 func TestRoutingDecision_JSONSerialization(t *testing.T) {
 	decision := createTestRoutingDecision()
-	
+
 	// Note: Client field should not be serialized due to json:"-" tag
 	// This test would need to be implemented with actual JSON marshaling
 	// For now, we'll just verify the structure is serialization-friendly
-	
+
 	if decision.ServerName == "" {
 		t.Error("ServerName should be serializable")
 	}
-	
+
 	if decision.Strategy == "" {
 		t.Error("Strategy should be serializable")
 	}
-	
+
 	if decision.Priority == 0 && decision.Weight == 0 {
 		t.Error("Priority and Weight should be serializable")
 	}
-	
+
 	// Client should not be serialized (interface{} types are typically excluded)
 	// This is indicated by the json:"-" tag in the actual struct
 }
@@ -615,27 +614,27 @@ func validateRoutingDecision(decision *gateway.RoutingDecision) bool {
 	if decision == nil {
 		return false
 	}
-	
+
 	if decision.ServerName == "" {
 		return false
 	}
-	
+
 	if decision.ServerConfig == nil {
 		return false
 	}
-	
+
 	if decision.Client == nil {
 		return false
 	}
-	
+
 	if decision.Weight < 0 {
 		return false
 	}
-	
+
 	if decision.Strategy == "" {
 		return false
 	}
-	
+
 	return true
 }
 
@@ -647,7 +646,7 @@ func BenchmarkRoutingDecision_Creation(b *testing.B) {
 		Languages: []string{"go"},
 		Command:   "gopls",
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		decision := &gateway.RoutingDecision{
@@ -665,12 +664,12 @@ func BenchmarkRoutingDecision_Creation(b *testing.B) {
 
 func BenchmarkRoutingDecision_MetadataAccess(b *testing.B) {
 	decision := createTestRoutingDecision()
-	
+
 	// Add more metadata for benchmarking
 	for i := 0; i < 100; i++ {
 		decision.Metadata[string(rune(i))] = "value" + string(rune(i))
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = decision.Metadata["test_key"]
@@ -687,13 +686,13 @@ func BenchmarkRoutingDecision_PriorityComparison(b *testing.B) {
 			Weight:     float64(i) / 100.0,
 		}
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		// Find highest priority decision
 		var best *gateway.RoutingDecision
 		bestPriority := -1
-		
+
 		for _, decision := range decisions {
 			if decision.Priority > bestPriority {
 				bestPriority = decision.Priority

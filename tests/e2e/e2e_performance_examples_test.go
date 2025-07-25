@@ -54,14 +54,14 @@ func TestPerformanceMethodsExamples(t *testing.T) {
 		result := perfMethods.executeLoadTestingScenario(
 			runner.ctx,
 			runner.MockMcpClient,
-			50,                 // 50 concurrent users
-			60*time.Second,     // 1 minute duration
+			50,             // 50 concurrent users
+			60*time.Second, // 1 minute duration
 		)
 
 		// Validate results
 		t.Logf("Load Test Results:")
 		t.Logf("  Total Requests: %d", result.TotalRequests)
-		t.Logf("  Successful: %d (%.2f%%)", result.SuccessfulRequests, 
+		t.Logf("  Successful: %d (%.2f%%)", result.SuccessfulRequests,
 			float64(result.SuccessfulRequests)/float64(result.TotalRequests)*100)
 		t.Logf("  Failed: %d (%.2f%%)", result.FailedRequests, result.ErrorRatePercent)
 		t.Logf("  Average Throughput: %.2f req/sec", result.AverageThroughput)
@@ -197,7 +197,7 @@ func TestPerformanceMethodsExamples(t *testing.T) {
 		if len(result.MemorySpikes) > 0 {
 			t.Logf("  Memory Spikes Detected: %d", len(result.MemorySpikes))
 			for i, spike := range result.MemorySpikes[:min(3, len(result.MemorySpikes))] {
-				t.Logf("    %d. %s: %d MB spike magnitude", 
+				t.Logf("    %d. %s: %d MB spike magnitude",
 					i+1, spike.Timestamp.Format("15:04:05"), spike.SpikeMagnitude)
 			}
 		}
@@ -279,7 +279,7 @@ func TestPerformanceMethodsExamples(t *testing.T) {
 		}
 
 		if result.P95LatencyMs > result.ExpectedLatencyMs {
-			t.Errorf("P95 latency %d ms exceeds threshold %d ms", 
+			t.Errorf("P95 latency %d ms exceeds threshold %d ms",
 				result.P95LatencyMs, result.ExpectedLatencyMs)
 		}
 	})
@@ -320,7 +320,7 @@ func TestPerformanceMethodsExamples(t *testing.T) {
 			t.Logf("    Concurrency Test Points:")
 			for i, point := range result.ScalingBehavior.ConcurrencyPoints[:min(3, len(result.ScalingBehavior.ConcurrencyPoints))] {
 				t.Logf("      %d. Concurrency %d: %.2f req/sec, %d ms latency, %.2f%% errors",
-					i+1, point.Concurrency, point.ThroughputReqPerSec, 
+					i+1, point.Concurrency, point.ThroughputReqPerSec,
 					point.LatencyMs, point.ErrorRatePercent)
 			}
 		}
@@ -329,7 +329,7 @@ func TestPerformanceMethodsExamples(t *testing.T) {
 		if len(result.BottleneckPoints) > 0 {
 			t.Logf("  Bottleneck Points:")
 			for i, bottleneck := range result.BottleneckPoints {
-				t.Logf("    %d. Limiting Factor: %s at %.2f req/sec", 
+				t.Logf("    %d. Limiting Factor: %s at %.2f req/sec",
 					i+1, bottleneck.LimitingFactor, bottleneck.ThroughputReqPerSec)
 			}
 		}
@@ -338,7 +338,7 @@ func TestPerformanceMethodsExamples(t *testing.T) {
 		if len(result.ResourceLimitations) > 0 {
 			t.Logf("  Resource Limitations:")
 			for i, limitation := range result.ResourceLimitations {
-				t.Logf("    %d. %s: %.1f%% utilization (limit reached: %v)", 
+				t.Logf("    %d. %s: %.1f%% utilization (limit reached: %v)",
 					i+1, limitation.ResourceType, limitation.UtilizationPercent, limitation.LimitReached)
 				t.Logf("       Impact: %.1f%% throughput loss", limitation.ImpactOnThroughput)
 				t.Logf("       Recommended Action: %s", limitation.RecommendedAction)
@@ -381,12 +381,12 @@ func TestPerformanceMethodsExamples(t *testing.T) {
 				mcp.LSP_METHOD_TEXT_DOCUMENT_SYMBOLS:    35,
 			},
 			ThroughputData: map[string]float64{
-				"overall":                                   120.0,
-				mcp.LSP_METHOD_WORKSPACE_SYMBOL:             20.0,
-				mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION:     35.0,
-				mcp.LSP_METHOD_TEXT_DOCUMENT_REFERENCES:     25.0,
-				mcp.LSP_METHOD_TEXT_DOCUMENT_HOVER:          30.0,
-				mcp.LSP_METHOD_TEXT_DOCUMENT_SYMBOLS:        15.0,
+				"overall":                               120.0,
+				mcp.LSP_METHOD_WORKSPACE_SYMBOL:         20.0,
+				mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION: 35.0,
+				mcp.LSP_METHOD_TEXT_DOCUMENT_REFERENCES: 25.0,
+				mcp.LSP_METHOD_TEXT_DOCUMENT_HOVER:      30.0,
+				mcp.LSP_METHOD_TEXT_DOCUMENT_SYMBOLS:    15.0,
 			},
 			MemoryUsageData: map[string]int64{
 				"peak":   400,
@@ -422,16 +422,16 @@ func TestPerformanceMethodsExamples(t *testing.T) {
 		t.Logf("  Method Performance Comparisons:")
 		for method, methodRegression := range result.MethodComparisons {
 			t.Logf("    %s:", method)
-			t.Logf("      Latency: %d ms -> %d ms (%.2f%% change)", 
-				methodRegression.BaselineLatencyMs, methodRegression.CurrentLatencyMs, 
+			t.Logf("      Latency: %d ms -> %d ms (%.2f%% change)",
+				methodRegression.BaselineLatencyMs, methodRegression.CurrentLatencyMs,
 				methodRegression.LatencyChangePercent)
-			t.Logf("      Throughput: %.2f -> %.2f req/sec (%.2f%% change)", 
-				methodRegression.BaselineThroughput, methodRegression.CurrentThroughput, 
+			t.Logf("      Throughput: %.2f -> %.2f req/sec (%.2f%% change)",
+				methodRegression.BaselineThroughput, methodRegression.CurrentThroughput,
 				methodRegression.ThroughputChangePercent)
-			t.Logf("      Error Rate: %.2f%% -> %.2f%% (%.2f%% change)", 
-				methodRegression.BaselineErrorRate, methodRegression.CurrentErrorRate, 
+			t.Logf("      Error Rate: %.2f%% -> %.2f%% (%.2f%% change)",
+				methodRegression.BaselineErrorRate, methodRegression.CurrentErrorRate,
 				methodRegression.ErrorRateChangePercent)
-			t.Logf("      Regression Detected: %t (Severity: %s)", 
+			t.Logf("      Regression Detected: %t (Severity: %s)",
 				methodRegression.RegressionDetected, methodRegression.Severity)
 		}
 
@@ -479,7 +479,7 @@ func TestPerformanceMethodsExamples(t *testing.T) {
 		}
 
 		if result.ThroughputRegression != nil && result.ThroughputRegression.ThroughputChangePercent < -30.0 {
-			t.Errorf("Severe throughput regression: %.2f%% decrease", 
+			t.Errorf("Severe throughput regression: %.2f%% decrease",
 				result.ThroughputRegression.ThroughputChangePercent)
 		}
 	})
@@ -567,28 +567,28 @@ func TestPerformanceMethodsStressTest(t *testing.T) {
 			t.Logf("Stress scenario %s completed in %v:", scenario.name, time.Since(startTime))
 			t.Logf("  Requests: %d (%.2f%% success)", loadResult.TotalRequests,
 				float64(loadResult.SuccessfulRequests)/float64(loadResult.TotalRequests)*100)
-			t.Logf("  Throughput: %.2f req/sec (target: %.2f)", 
+			t.Logf("  Throughput: %.2f req/sec (target: %.2f)",
 				loadResult.AverageThroughput, scenario.targetTPS)
-			t.Logf("  Latency: %dms avg, %dms P95, %dms P99", 
+			t.Logf("  Latency: %dms avg, %dms P95, %dms P99",
 				loadResult.AverageLatencyMs, loadResult.P95LatencyMs, loadResult.P99LatencyMs)
-			t.Logf("  Memory: %dMB peak, %dMB growth", 
+			t.Logf("  Memory: %dMB peak, %dMB growth",
 				loadResult.PeakMemoryUsageMB, loadResult.MemoryUsageGrowthMB)
 			t.Logf("  Error Rate: %.2f%%", loadResult.ErrorRatePercent)
 
 			// Validate stress test results
 			if loadResult.ErrorRatePercent > 15.0 {
-				t.Errorf("Error rate %.2f%% too high for stress scenario %s", 
+				t.Errorf("Error rate %.2f%% too high for stress scenario %s",
 					loadResult.ErrorRatePercent, scenario.name)
 			}
 
 			if scenario.name != "Extreme Load" && loadResult.P95LatencyMs > 5000 {
-				t.Errorf("P95 latency %dms too high for stress scenario %s", 
+				t.Errorf("P95 latency %dms too high for stress scenario %s",
 					loadResult.P95LatencyMs, scenario.name)
 			}
 
 			// Check for system stability
 			if loadResult.PeakMemoryUsageMB > 4096 { // 4GB limit
-				t.Errorf("Memory usage %dMB too high for stress scenario %s", 
+				t.Errorf("Memory usage %dMB too high for stress scenario %s",
 					loadResult.PeakMemoryUsageMB, scenario.name)
 			}
 		})
@@ -614,7 +614,7 @@ func TestPerformanceMethodsStressTest(t *testing.T) {
 			maxMemory = result.PeakMemoryUsageMB
 		}
 
-		t.Logf("  %s: %d requests, %.2f req/sec peak, %.2f%% errors", 
+		t.Logf("  %s: %d requests, %.2f req/sec peak, %.2f%% errors",
 			name, result.TotalRequests, result.PeakThroughput, result.ErrorRatePercent)
 	}
 

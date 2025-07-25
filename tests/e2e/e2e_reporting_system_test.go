@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,11 +27,11 @@ func TestReportingSystemIntegration(t *testing.T) {
 		OutputDirectory:           tempDir,
 		EnableRealtimeReporting:   true,
 		EnableHistoricalTracking:  false, // Disabled for test
-		ReportFormats:            []ReportFormat{FormatConsole, FormatJSON, FormatHTML, FormatCSV},
+		ReportFormats:             []ReportFormat{FormatConsole, FormatJSON, FormatHTML, FormatCSV},
 		MetricsCollectionInterval: 100 * time.Millisecond,
 		ProgressReportingInterval: 500 * time.Millisecond,
-		RetentionDays:            7,
-		DetailLevel:              DetailLevelDetailed,
+		RetentionDays:             7,
+		DetailLevel:               DetailLevelDetailed,
 		PerformanceThresholds: &PerformanceThresholds{
 			MaxAverageResponseTime: 2 * time.Second,
 			MinThroughputPerSecond: 50.0,
@@ -247,12 +248,12 @@ func TestReportingSystemPerformanceMetrics(t *testing.T) {
 				PerformanceScore: float64(95 - i*5),
 			},
 			ResourceUsage: &ResourceUsage{
-				MemoryUsedMB:       float64((i + 1) * 50),
-				CPUTimeMS:          int64((i + 1) * 1000),
-				GoroutinesCreated:  (i + 1) * 10,
+				MemoryUsedMB:        float64((i + 1) * 50),
+				CPUTimeMS:           int64((i + 1) * 1000),
+				GoroutinesCreated:   (i + 1) * 10,
 				FileDescriptorsUsed: (i + 1) * 5,
-				NetworkBytesSent:   int64((i + 1) * 1024 * 100),
-				NetworkBytesRecv:   int64((i + 1) * 1024 * 150),
+				NetworkBytesSent:    int64((i + 1) * 1024 * 100),
+				NetworkBytesRecv:    int64((i + 1) * 1024 * 150),
 			},
 		}
 
@@ -314,10 +315,10 @@ func TestReportingSystemErrorAnalysis(t *testing.T) {
 
 	// Simulate tests with various error types
 	errorScenarios := []struct {
-		name      string
-		errors    []TestError
-		warnings  []TestWarning
-		success   bool
+		name     string
+		errors   []TestError
+		warnings []TestWarning
+		success  bool
 	}{
 		{
 			name: "Connection Error Test",
@@ -418,11 +419,29 @@ func TestReportingSystemErrorAnalysis(t *testing.T) {
 			Errors:    scenario.errors,
 			Warnings:  scenario.warnings,
 			Metrics: &TestResultMetrics{
-				RequestCount:       10,
-				SuccessfulRequests: func() int64 { if scenario.success { return 10 } else { return 5 } }(),
-				FailedRequests:     func() int64 { if scenario.success { return 0 } else { return 5 } }(),
-				AverageLatency:     100 * time.Millisecond,
-				ErrorRate:          func() float64 { if scenario.success { return 0.0 } else { return 50.0 } }(),
+				RequestCount: 10,
+				SuccessfulRequests: func() int64 {
+					if scenario.success {
+						return 10
+					} else {
+						return 5
+					}
+				}(),
+				FailedRequests: func() int64 {
+					if scenario.success {
+						return 0
+					} else {
+						return 5
+					}
+				}(),
+				AverageLatency: 100 * time.Millisecond,
+				ErrorRate: func() float64 {
+					if scenario.success {
+						return 0.0
+					} else {
+						return 50.0
+					}
+				}(),
 			},
 		}
 
@@ -481,7 +500,7 @@ func TestReportingSystemErrorAnalysis(t *testing.T) {
 		t.Errorf("Expected %d passed tests, got %d", expectedPassed, report.TestMetrics.PassedTests)
 	}
 
-	t.Logf("Error analysis test completed successfully. Analyzed %d errors across %d tests", 
+	t.Logf("Error analysis test completed successfully. Analyzed %d errors across %d tests",
 		report.ErrorAnalysis.TotalErrors, report.TestMetrics.TotalTests)
 }
 
@@ -493,7 +512,7 @@ func runSimulatedE2ETests(t *testing.T, reportingSystem *ReportingSystem, totalT
 
 	scenarios := []string{
 		"basic-mcp-workflow",
-		"lsp-method-validation", 
+		"lsp-method-validation",
 		"multi-language-support",
 		"workspace-management",
 		"circuit-breaker-testing",
@@ -507,19 +526,19 @@ func runSimulatedE2ETests(t *testing.T, reportingSystem *ReportingSystem, totalT
 
 		// Simulate test execution with realistic timing
 		startTime := time.Now()
-		
+
 		// Simulate some work
 		time.Sleep(time.Duration(50+i*10) * time.Millisecond)
-		
+
 		endTime := time.Now()
 		duration := endTime.Sub(startTime)
 
 		// Simulate occasional failures
 		success := i%7 != 0 // Fail every 7th test
-		
+
 		var errors []TestError
 		var warnings []TestWarning
-		
+
 		if !success {
 			errors = append(errors, TestError{
 				Type:        ErrorTypeAssertion,
@@ -549,27 +568,51 @@ func runSimulatedE2ETests(t *testing.T, reportingSystem *ReportingSystem, totalT
 			StartTime: startTime,
 			EndTime:   endTime,
 			Duration:  duration,
-			Status:    func() TestStatus { if success { return TestStatusPassed } else { return TestStatusFailed } }(),
-			Success:   success,
-			Errors:    errors,
-			Warnings:  warnings,
+			Status: func() TestStatus {
+				if success {
+					return TestStatusPassed
+				} else {
+					return TestStatusFailed
+				}
+			}(),
+			Success:  success,
+			Errors:   errors,
+			Warnings: warnings,
 			Metrics: &TestResultMetrics{
-				RequestCount:        int64(10 + i*2),
-				SuccessfulRequests:  func() int64 { if success { return int64(10 + i*2) } else { return int64(5 + i) } }(),
-				FailedRequests:      func() int64 { if success { return 0 } else { return int64(5 + i) } }(),
+				RequestCount: int64(10 + i*2),
+				SuccessfulRequests: func() int64 {
+					if success {
+						return int64(10 + i*2)
+					} else {
+						return int64(5 + i)
+					}
+				}(),
+				FailedRequests: func() int64 {
+					if success {
+						return 0
+					} else {
+						return int64(5 + i)
+					}
+				}(),
 				AverageLatency:      time.Duration(50+i*5) * time.Millisecond,
 				ThroughputPerSecond: float64(100 - i*2),
-				ErrorRate:           func() float64 { if success { return 0.0 } else { return 10.0 + float64(i) } }(),
-				DataProcessed:       int64(1024 * (i + 1)),
-				CacheHitRate:        0.85,
+				ErrorRate: func() float64 {
+					if success {
+						return 0.0
+					} else {
+						return 10.0 + float64(i)
+					}
+				}(),
+				DataProcessed: int64(1024 * (i + 1)),
+				CacheHitRate:  0.85,
 			},
 			ResourceUsage: &ResourceUsage{
-				MemoryUsedMB:       float64(50 + i*5),
-				CPUTimeMS:          int64(100 + i*50),
-				GoroutinesCreated:  int(10 + i),
+				MemoryUsedMB:        float64(50 + i*5),
+				CPUTimeMS:           int64(100 + i*50),
+				GoroutinesCreated:   int(10 + i),
 				FileDescriptorsUsed: int(5 + i/2),
-				NetworkBytesSent:   int64(1024 * (100 + i*10)),
-				NetworkBytesRecv:   int64(1024 * (150 + i*15)),
+				NetworkBytesSent:    int64(1024 * (100 + i*10)),
+				NetworkBytesRecv:    int64(1024 * (150 + i*15)),
 			},
 			PerformanceData: &TestPerformanceData{
 				ResponseTimes:     generateResponseTimes(50, time.Duration(50+i*5)*time.Millisecond),
@@ -605,7 +648,7 @@ func runSimulatedE2ETests(t *testing.T, reportingSystem *ReportingSystem, totalT
 
 func simulateMCPClientActivity(mockClient *mocks.MockMcpClient, requestCount int) {
 	ctx := context.Background()
-	
+
 	methods := []string{
 		mcp.LSP_METHOD_WORKSPACE_SYMBOL,
 		mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION,
@@ -616,12 +659,12 @@ func simulateMCPClientActivity(mockClient *mocks.MockMcpClient, requestCount int
 
 	for i := 0; i < requestCount; i++ {
 		method := methods[i%len(methods)]
-		
+
 		// Simulate some requests failing
 		if i%10 == 0 {
 			mockClient.QueueError(fmt.Errorf("simulated error for request %d", i))
 		}
-		
+
 		_, _ = mockClient.SendLSPRequest(ctx, method, map[string]interface{}{
 			"query": fmt.Sprintf("test-query-%d", i),
 		})
@@ -662,10 +705,16 @@ func convertE2EResultToTestResult(e2eResult *E2ETestResult) *TestResult {
 		StartTime: e2eResult.StartTime,
 		EndTime:   e2eResult.EndTime,
 		Duration:  e2eResult.Duration,
-		Status:    func() TestStatus { if e2eResult.Success { return TestStatusPassed } else { return TestStatusFailed } }(),
-		Success:   e2eResult.Success,
-		Errors:    errors,
-		Warnings:  warnings,
+		Status: func() TestStatus {
+			if e2eResult.Success {
+				return TestStatusPassed
+			} else {
+				return TestStatusFailed
+			}
+		}(),
+		Success:  e2eResult.Success,
+		Errors:   errors,
+		Warnings: warnings,
 		Metrics: &TestResultMetrics{
 			RequestCount:        e2eResult.TotalRequests,
 			SuccessfulRequests:  e2eResult.SuccessfulReqs,
@@ -675,8 +724,8 @@ func convertE2EResultToTestResult(e2eResult *E2ETestResult) *TestResult {
 			ErrorRate:           float64(e2eResult.FailedRequests) / float64(e2eResult.TotalRequests) * 100,
 		},
 		ResourceUsage: &ResourceUsage{
-			MemoryUsedMB:  e2eResult.MemoryUsageMB,
-			CPUTimeMS:     int64(e2eResult.CPUUsagePercent * 1000), // Rough approximation
+			MemoryUsedMB:      e2eResult.MemoryUsageMB,
+			CPUTimeMS:         int64(e2eResult.CPUUsagePercent * 1000), // Rough approximation
 			GoroutinesCreated: e2eResult.GoroutineCount,
 		},
 	}

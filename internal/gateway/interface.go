@@ -55,23 +55,23 @@ const (
 
 // CreateGatewayOptions contains options for gateway creation
 type CreateGatewayOptions struct {
-	Type               GatewayType
-	Config             interface{} // *config.GatewayConfig
-	ForceProjectAware  bool
+	Type                  GatewayType
+	Config                interface{} // *config.GatewayConfig
+	ForceProjectAware     bool
 	FallbackToTraditional bool
 }
 
 // GatewayCreationResult contains the result of gateway creation
 type GatewayCreationResult struct {
-	Gateway     GatewayInterface
-	Type        GatewayType
+	Gateway        GatewayInterface
+	Type           GatewayType
 	IsProjectAware bool
-	Error       error
+	Error          error
 }
 
 // Ensure both gateway types implement the interface at compile time
 var (
-	_ GatewayInterface = (*Gateway)(nil)
-	_ GatewayInterface = (*ProjectAwareGateway)(nil)
+	_ GatewayInterface             = (*Gateway)(nil)
+	_ GatewayInterface             = (*ProjectAwareGateway)(nil)
 	_ ProjectAwareGatewayInterface = (*ProjectAwareGateway)(nil)
 )

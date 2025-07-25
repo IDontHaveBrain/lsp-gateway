@@ -4,12 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
-	"lsp-gateway/mcp"
 	"lsp-gateway/tests/framework"
-	"lsp-gateway/tests/mocks"
 )
 
 // ExampleE2ETestWithReporting demonstrates how to use the comprehensive reporting system
@@ -20,11 +17,11 @@ func ExampleE2ETestWithReporting() {
 		OutputDirectory:           "./e2e-reports",
 		EnableRealtimeReporting:   true,
 		EnableHistoricalTracking:  true,
-		ReportFormats:            []ReportFormat{FormatConsole, FormatJSON, FormatHTML},
+		ReportFormats:             []ReportFormat{FormatConsole, FormatJSON, FormatHTML},
 		MetricsCollectionInterval: 2 * time.Second,
 		ProgressReportingInterval: 10 * time.Second,
-		RetentionDays:            30,
-		DetailLevel:              DetailLevelDetailed,
+		RetentionDays:             30,
+		DetailLevel:               DetailLevelDetailed,
 		PerformanceThresholds: &PerformanceThresholds{
 			MaxAverageResponseTime: 3 * time.Second,
 			MinThroughputPerSecond: 75.0,
@@ -89,50 +86,50 @@ func ExampleE2ETestWithReporting() {
 
 	// 5. Execute all scenarios with integrated reporting
 	results := make([]*E2ETestResult, 0, len(e2eConfig.Scenarios))
-	
+
 	for i, scenario := range e2eConfig.Scenarios {
 		log.Printf("[%d/%d] Executing scenario: %s", i+1, len(e2eConfig.Scenarios), scenario)
-		
+
 		// Execute the scenario
 		scenarioStartTime := time.Now()
 		result, err := e2eRunner.ExecuteScenario(scenario)
 		scenarioEndTime := time.Now()
-		
+
 		if err != nil {
 			log.Printf("Scenario %s failed: %v", scenario, err)
 			// Still record the result for analysis
 		}
-		
+
 		results = append(results, result)
-		
+
 		// Convert E2E result to reporting format
 		testResult := convertE2EToTestResult(result, scenario, scenarioStartTime, scenarioEndTime)
-		
+
 		// Record the result in the reporting system
 		reportingSystem.RecordTestResult(testResult)
-		
+
 		// Record MCP client metrics
 		if e2eRunner.MockMcpClient != nil {
 			reportingSystem.RecordMCPMetrics(e2eRunner.MockMcpClient)
 		}
-		
+
 		// Record system metrics
 		reportingSystem.RecordSystemMetrics()
-		
+
 		// Log progress
 		if result != nil && result.Success {
 			log.Printf("✓ Scenario %s completed successfully in %v", scenario, result.Duration)
 		} else {
 			log.Printf("✗ Scenario %s failed after %v", scenario, time.Since(scenarioStartTime))
 		}
-		
+
 		// Brief pause between scenarios to allow system to stabilize
 		time.Sleep(1 * time.Second)
 	}
 
 	// 6. Generate comprehensive report
 	log.Printf("Generating comprehensive E2E test report...")
-	
+
 	report, err := reportingSystem.GenerateReport()
 	if err != nil {
 		log.Fatalf("Failed to generate comprehensive report: %v", err)
@@ -169,9 +166,9 @@ func ExampleE2ETestWithReporting() {
 func ExampleReportingSystemStandalone() {
 	// Create a simple reporting configuration
 	config := &ReportingConfig{
-		OutputDirectory:           "./standalone-reports",
-		EnableRealtimeReporting:   false, // Disabled for simplicity
-		EnableHistoricalTracking:  false,
+		OutputDirectory:          "./standalone-reports",
+		EnableRealtimeReporting:  false, // Disabled for simplicity
+		EnableHistoricalTracking: false,
 		ReportFormats:            []ReportFormat{FormatConsole, FormatJSON},
 		DetailLevel:              DetailLevelStandard,
 	}
@@ -273,11 +270,11 @@ func ExampleCustomMetricsCollection() {
 				PerformanceScore: float64(95 - i*5),
 				ComparedToBaseline: &BaselineComparison{
 					BaselineExists:     true,
-					DurationChange:     float64(i * 10),    // 0%, 10%, 20% slower
-					ThroughputChange:   float64(i * -5),    // 0%, -5%, -10% throughput
-					MemoryChange:       float64(i * 15),    // 0%, 15%, 30% more memory
-					OverallImprovement: float64(-i * 8),    // Getting worse
-					RegressionDetected: i > 0,              // Regression after first test
+					DurationChange:     float64(i * 10), // 0%, 10%, 20% slower
+					ThroughputChange:   float64(i * -5), // 0%, -5%, -10% throughput
+					MemoryChange:       float64(i * 15), // 0%, 15%, 30% more memory
+					OverallImprovement: float64(-i * 8), // Getting worse
+					RegressionDetected: i > 0,           // Regression after first test
 				},
 			},
 		}
@@ -391,18 +388,18 @@ func convertE2EToTestResult(e2eResult *E2ETestResult, scenario E2EScenario, star
 			ErrorRate:           calculateErrorRate(e2eResult.FailedRequests, e2eResult.TotalRequests),
 		},
 		ResourceUsage: &ResourceUsage{
-			MemoryUsedMB:       e2eResult.MemoryUsageMB,
-			CPUTimeMS:          int64(e2eResult.CPUUsagePercent * 1000), // Rough approximation
-			GoroutinesCreated:  e2eResult.GoroutineCount,
+			MemoryUsedMB:      e2eResult.MemoryUsageMB,
+			CPUTimeMS:         int64(e2eResult.CPUUsagePercent * 1000), // Rough approximation
+			GoroutinesCreated: e2eResult.GoroutineCount,
 		},
 		PerformanceData: &TestPerformanceData{
 			PerformanceScore: calculatePerformanceScoreFromE2E(e2eResult),
 		},
 		Metadata: map[string]interface{}{
-			"e2e_scenario":        scenario,
-			"test_environment":    e2eResult.TestEnvironment,
-			"config_used":         e2eResult.ConfigUsed,
-			"mcp_metrics_available": e2eResult.MCPMetrics != nil,
+			"e2e_scenario":                scenario,
+			"test_environment":            e2eResult.TestEnvironment,
+			"config_used":                 e2eResult.ConfigUsed,
+			"mcp_metrics_available":       e2eResult.MCPMetrics != nil,
 			"framework_results_available": e2eResult.FrameworkResults != nil,
 		},
 	}
@@ -427,13 +424,13 @@ func determineErrorType(errorMessage string) ErrorType {
 }
 
 func contains(str, substr string) bool {
-	return len(str) >= len(substr) && 
-		   (str == substr || 
-		    str[:len(substr)] == substr || 
-		    str[len(str)-len(substr):] == substr ||
-		    len(str) > len(substr) && 
-		    (str[1:len(substr)+1] == substr || 
-		     str[len(str)-len(substr)-1:len(str)-1] == substr))
+	return len(str) >= len(substr) &&
+		(str == substr ||
+			str[:len(substr)] == substr ||
+			str[len(str)-len(substr):] == substr ||
+			len(str) > len(substr) &&
+				(str[1:len(substr)+1] == substr ||
+					str[len(str)-len(substr)-1:len(str)-1] == substr))
 }
 
 func calculateThroughput(totalRequests int64, duration time.Duration) float64 {
@@ -452,27 +449,27 @@ func calculateErrorRate(failedRequests, totalRequests int64) float64 {
 
 func calculatePerformanceScoreFromE2E(result *E2ETestResult) float64 {
 	score := 100.0
-	
+
 	// Reduce score based on errors
 	if result.TotalRequests > 0 {
 		errorRate := float64(result.FailedRequests) / float64(result.TotalRequests) * 100
 		score -= errorRate * 2 // Each percent error reduces score by 2
 	}
-	
+
 	// Reduce score based on duration (if it's unusually long)
 	if result.Duration > 5*time.Minute {
 		score -= 10.0
 	}
-	
+
 	// Reduce score based on resource usage
 	if result.MemoryUsageMB > 1000 {
 		score -= 5.0
 	}
-	
+
 	if result.CPUUsagePercent > 80 {
 		score -= 10.0
 	}
-	
+
 	return max(0.0, score)
 }
 
@@ -490,30 +487,30 @@ func displayTestSummary(report *ComprehensiveReport) {
 	}
 
 	summary := report.ExecutiveSummary
-	
+
 	log.Printf("\n" + "="*80)
 	log.Printf("                    E2E TEST EXECUTION SUMMARY")
-	log.Printf("="*80)
-	
+	log.Printf("=" * 80)
+
 	// Overall status with emoji
 	statusEmoji := "✅"
 	if summary.OverallStatus == TestStatusFailed {
 		statusEmoji = "❌"
 	}
 	log.Printf("%s Overall Status: %s", statusEmoji, summary.OverallStatus)
-	
+
 	// Key metrics
 	log.Printf("📊 Test Metrics:")
 	log.Printf("   Total Tests: %d", summary.TotalTests)
 	log.Printf("   Pass Rate: %.1f%%", summary.PassRate)
 	log.Printf("   Duration: %v", summary.Duration)
-	
+
 	// Scores
 	log.Printf("🎯 Quality Scores:")
 	log.Printf("   Performance: %.1f/100", summary.PerformanceScore)
 	log.Printf("   Quality: %.1f/100", summary.QualityScore)
 	log.Printf("   Coverage: %.1f%%", summary.CoverageScore)
-	
+
 	// System metrics
 	if report.SystemMetrics != nil {
 		log.Printf("💻 System Resources:")
@@ -521,16 +518,16 @@ func displayTestSummary(report *ComprehensiveReport) {
 		log.Printf("   Memory Growth: %.1f MB", report.SystemMetrics.MemoryGrowthMB)
 		log.Printf("   Peak Goroutines: %d", report.SystemMetrics.PeakGoroutines)
 	}
-	
+
 	// MCP metrics
 	if report.MCPMetrics != nil {
 		log.Printf("🔗 MCP Client Metrics:")
 		log.Printf("   Total Requests: %d", report.MCPMetrics.TotalRequests)
-		log.Printf("   Success Rate: %.1f%%", 
+		log.Printf("   Success Rate: %.1f%%",
 			float64(report.MCPMetrics.SuccessfulRequests)/float64(report.MCPMetrics.TotalRequests)*100)
 		log.Printf("   Average Latency: %v", report.MCPMetrics.AverageLatency)
 		log.Printf("   Throughput: %.1f req/sec", report.MCPMetrics.ThroughputPerSecond)
 	}
-	
-	log.Printf("="*80)
+
+	log.Printf("=" * 80)
 }

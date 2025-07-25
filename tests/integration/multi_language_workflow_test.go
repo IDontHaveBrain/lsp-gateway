@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/suite"
-	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/gateway"
 	"lsp-gateway/tests/framework"
+
+	"github.com/stretchr/testify/suite"
 )
 
 // MultiLanguageWorkflowTestSuite provides comprehensive end-to-end integration tests
@@ -130,7 +130,7 @@ func (suite *MultiLanguageWorkflowTestSuite) TestCompleteMonorepoWorkflow() {
 		for _, tc := range testCases {
 			routingDecision, err := smartRouter.DetermineRouting(ctx, tc.filePath, "textDocument/definition")
 			suite.Require().NoError(err, fmt.Sprintf("Routing failed for %s", tc.filePath))
-			suite.Equal(tc.expectedLang, routingDecision.TargetLanguage, 
+			suite.Equal(tc.expectedLang, routingDecision.TargetLanguage,
 				fmt.Sprintf("Wrong language detected for %s", tc.filePath))
 		}
 	})
@@ -140,7 +140,7 @@ func (suite *MultiLanguageWorkflowTestSuite) TestCompleteMonorepoWorkflow() {
 		// Test various LSP methods through the complete pipeline
 		lspMethods := []string{
 			"textDocument/definition",
-			"textDocument/references", 
+			"textDocument/references",
 			"textDocument/hover",
 			"textDocument/documentSymbol",
 			"workspace/symbol",
@@ -154,12 +154,12 @@ func (suite *MultiLanguageWorkflowTestSuite) TestCompleteMonorepoWorkflow() {
 				}
 
 				params := suite.createLSPParams(method, testFile)
-				
+
 				// Execute request through complete pipeline
 				response, err := projectGateway.HandleLSPRequest(ctx, method, params)
-				suite.Require().NoError(err, 
+				suite.Require().NoError(err,
 					fmt.Sprintf("LSP request failed: %s for %s", method, lang))
-				suite.NotNil(response, 
+				suite.NotNil(response,
 					fmt.Sprintf("Response should not be nil for %s %s", method, lang))
 
 				// Validate response structure
@@ -174,7 +174,7 @@ func (suite *MultiLanguageWorkflowTestSuite) TestCompleteMonorepoWorkflow() {
 
 		// Simulate workspace symbol search across all languages
 		symbolQuery := "User"
-		
+
 		// Create requests for all language servers
 		responses := make(map[string]interface{})
 		for _, lang := range project.Languages {
@@ -190,7 +190,7 @@ func (suite *MultiLanguageWorkflowTestSuite) TestCompleteMonorepoWorkflow() {
 		// Validate aggregation results
 		symbols, ok := aggregatedResponse.([]interface{})
 		suite.True(ok, "Aggregated response should be symbol array")
-		suite.Greater(len(symbols), len(project.Languages)-1, 
+		suite.Greater(len(symbols), len(project.Languages)-1,
 			"Should aggregate symbols from multiple languages")
 	})
 
@@ -202,7 +202,7 @@ func (suite *MultiLanguageWorkflowTestSuite) TestCompleteMonorepoWorkflow() {
 		suite.Require().NoError(err, "Performance test failed")
 
 		// Validate performance expectations
-		suite.Less(metrics.OperationDuration, 30*time.Second, 
+		suite.Less(metrics.OperationDuration, 30*time.Second,
 			"Complete workflow should complete within 30 seconds")
 		suite.Equal(0, metrics.ErrorCount, "Should have no errors during performance test")
 	})
@@ -225,7 +225,7 @@ func (suite *MultiLanguageWorkflowTestSuite) TestMicroservicesArchitectureWorkfl
 
 	// Create multi-server manager
 	multiServerManager := gateway.NewMultiServerManager(nil)
-	
+
 	ctx := suite.framework.Context()
 
 	// Test service-specific routing
@@ -233,18 +233,18 @@ func (suite *MultiLanguageWorkflowTestSuite) TestMicroservicesArchitectureWorkfl
 		// Define service-language mappings typical of microservices
 		serviceMappings := map[string]string{
 			"auth-service":         "go",
-			"user-service":         "python", 
+			"user-service":         "python",
 			"api-gateway":          "typescript",
 			"notification-service": "java",
 		}
 
 		for service, expectedLang := range serviceMappings {
 			servicePath := filepath.Join(project.RootPath, "services", service)
-			
+
 			// Test that requests to service files are routed to correct language server
 			routing, err := multiServerManager.DetermineServerForPath(ctx, servicePath)
 			suite.Require().NoError(err, fmt.Sprintf("Failed to determine routing for %s", service))
-			suite.Equal(expectedLang, routing.Language, 
+			suite.Equal(expectedLang, routing.Language,
 				fmt.Sprintf("Service %s should route to %s server", service, expectedLang))
 		}
 	})
@@ -253,7 +253,7 @@ func (suite *MultiLanguageWorkflowTestSuite) TestMicroservicesArchitectureWorkfl
 	suite.Run("CrossService_Reference_Resolution", func() {
 		// Simulate finding references across service boundaries
 		referenceAggregator := gateway.NewResponseAggregator()
-		
+
 		// Mock references from multiple services
 		crossServiceRefs := make(map[string]interface{})
 		for _, lang := range project.Languages {
@@ -262,7 +262,7 @@ func (suite *MultiLanguageWorkflowTestSuite) TestMicroservicesArchitectureWorkfl
 
 		aggregated, err := referenceAggregator.AggregateCrossServiceReferences(ctx, crossServiceRefs)
 		suite.Require().NoError(err, "Cross-service reference aggregation failed")
-		
+
 		// Validate cross-service references are properly linked
 		refs, ok := aggregated.([]interface{})
 		suite.True(ok, "Should return reference array")
@@ -274,10 +274,10 @@ func (suite *MultiLanguageWorkflowTestSuite) TestMicroservicesArchitectureWorkfl
 		result, err := suite.framework.SimulateComplexWorkflow(framework.ScenarioLoadBalancing)
 		suite.Require().NoError(err, "Load balancing simulation failed")
 		suite.True(result.Success, "Load balancing should succeed")
-		
+
 		// Validate load distribution
 		suite.NotNil(result.LoadBalancing, "Should have load balancing results")
-		suite.Greater(result.LoadBalancing.EfficiencyScore, 0.7, 
+		suite.Greater(result.LoadBalancing.EfficiencyScore, 0.7,
 			"Load balancing should be efficient")
 	})
 }
@@ -309,11 +309,11 @@ func (suite *MultiLanguageWorkflowTestSuite) TestFrontendBackendIntegration() {
 		backendFile := filepath.Join(project.RootPath, "backend/api/handlers.go")
 
 		// Simulate finding API references between frontend and backend
-		frontendRefs, err := projectGateway.HandleLSPRequest(ctx, "textDocument/references", 
+		frontendRefs, err := projectGateway.HandleLSPRequest(ctx, "textDocument/references",
 			suite.createLSPParams("textDocument/references", frontendFile))
 		suite.Require().NoError(err, "Frontend reference lookup failed")
 
-		backendRefs, err := projectGateway.HandleLSPRequest(ctx, "textDocument/references", 
+		backendRefs, err := projectGateway.HandleLSPRequest(ctx, "textDocument/references",
 			suite.createLSPParams("textDocument/references", backendFile))
 		suite.Require().NoError(err, "Backend reference lookup failed")
 
@@ -326,21 +326,21 @@ func (suite *MultiLanguageWorkflowTestSuite) TestFrontendBackendIntegration() {
 	suite.Run("Shared_Type_Definitions", func() {
 		// Test that type definitions are consistent between frontend and backend
 		smartRouter := gateway.NewSmartRouter(nil)
-		
+
 		// Test hover information for shared types
 		sharedTypes := []string{"User", "ApiResponse", "ErrorResponse"}
-		
+
 		for _, typeName := range sharedTypes {
 			// Check type definition in both frontend and backend contexts
 			frontendContext := suite.createTypeContext("typescript", typeName)
 			backendContext := suite.createTypeContext("go", typeName)
-			
+
 			frontendRoute, err := smartRouter.RouteTypeQuery(ctx, frontendContext)
 			suite.Require().NoError(err, fmt.Sprintf("Frontend type routing failed for %s", typeName))
-			
+
 			backendRoute, err := smartRouter.RouteTypeQuery(ctx, backendContext)
 			suite.Require().NoError(err, fmt.Sprintf("Backend type routing failed for %s", typeName))
-			
+
 			// Validate routing to appropriate language servers
 			suite.Equal("typescript", frontendRoute.TargetLanguage)
 			suite.Equal("go", backendRoute.TargetLanguage)
@@ -373,13 +373,13 @@ func (suite *MultiLanguageWorkflowTestSuite) TestCrossLanguageNavigation() {
 	suite.Run("Go_To_Python_API_Calls", func() {
 		// Simulate Go code calling Python API
 		smartRouter := gateway.NewSmartRouter(nil)
-		
+
 		// Create cross-language reference context
 		crossLangContext := suite.createCrossLanguageContext("go", "python", "api_call")
-		
+
 		routing, err := smartRouter.RouteCrossLanguageQuery(ctx, crossLangContext)
 		suite.Require().NoError(err, "Cross-language routing failed")
-		
+
 		// Validate routing handles cross-language dependencies
 		suite.NotNil(routing.MultiLanguageTargets, "Should identify multiple language targets")
 		suite.Contains(routing.MultiLanguageTargets, "go", "Should include Go target")
@@ -389,16 +389,16 @@ func (suite *MultiLanguageWorkflowTestSuite) TestCrossLanguageNavigation() {
 	suite.Run("TypeScript_To_Java_Type_References", func() {
 		// Test TypeScript frontend referencing Java backend types
 		responseAggregator := gateway.NewResponseAggregator()
-		
+
 		// Mock responses from both TypeScript and Java servers
 		responses := map[string]interface{}{
 			"typescript": suite.createMockTypeScriptResponse("UserModel"),
 			"java":       suite.createMockJavaResponse("UserModel"),
 		}
-		
+
 		aggregated, err := responseAggregator.AggregateCrossLanguageTypes(ctx, responses)
 		suite.Require().NoError(err, "Cross-language type aggregation failed")
-		
+
 		// Validate aggregation preserves type information from both languages
 		suite.NotNil(aggregated, "Aggregated response should not be nil")
 	})
@@ -425,11 +425,11 @@ func (suite *MultiLanguageWorkflowTestSuite) TestLargeProjectPerformance() {
 
 	// Validate performance metrics
 	suite.NotNil(result.Metrics, "Should have performance metrics")
-	suite.Less(result.Metrics.AverageResponseTime, 5*time.Second, 
+	suite.Less(result.Metrics.AverageResponseTime, 5*time.Second,
 		"Average response time should be reasonable for large projects")
-	suite.Greater(result.Metrics.ThroughputPerSecond, 10.0, 
+	suite.Greater(result.Metrics.ThroughputPerSecond, 10.0,
 		"Should maintain good throughput")
-	suite.Less(result.Metrics.MemoryUsageMB, 1000.0, 
+	suite.Less(result.Metrics.MemoryUsageMB, 1000.0,
 		"Memory usage should be controlled")
 }
 
@@ -454,9 +454,9 @@ func (suite *MultiLanguageWorkflowTestSuite) TestCircuitBreakerIntegration() {
 
 	// Validate circuit breaker results
 	suite.NotNil(result.CircuitBreaker, "Should have circuit breaker results")
-	suite.GreaterOrEqual(result.CircuitBreaker.TriggeredCount, 0, 
+	suite.GreaterOrEqual(result.CircuitBreaker.TriggeredCount, 0,
 		"Circuit breaker should have trigger count")
-	suite.Less(result.CircuitBreaker.RecoveryTime, 30*time.Second, 
+	suite.Less(result.CircuitBreaker.RecoveryTime, 30*time.Second,
 		"Recovery time should be reasonable")
 }
 
@@ -482,7 +482,7 @@ func (suite *MultiLanguageWorkflowTestSuite) TestHealthMonitoringIntegration() {
 	// Validate health monitoring results
 	suite.NotNil(result.Health, "Should have health monitoring results")
 	suite.Greater(result.Health.HealthyServers, 0, "Should have healthy servers")
-	suite.GreaterOrEqual(result.Health.AverageHealthScore, 0.5, 
+	suite.GreaterOrEqual(result.Health.AverageHealthScore, 0.5,
 		"Average health score should be reasonable")
 }
 
@@ -492,13 +492,13 @@ func (suite *MultiLanguageWorkflowTestSuite) TestHealthMonitoringIntegration() {
 func (suite *MultiLanguageWorkflowTestSuite) getTestFileForLanguage(project *framework.TestProject, language string) string {
 	languageFiles := map[string]string{
 		"go":         "main.go",
-		"python":     "main.py", 
+		"python":     "main.py",
 		"typescript": "src/index.ts",
 		"java":       "src/main/java/Main.java",
 		"rust":       "src/main.rs",
 		"cpp":        "main.cpp",
 	}
-	
+
 	if fileName, exists := languageFiles[language]; exists {
 		return filepath.Join(project.RootPath, fileName)
 	}
@@ -536,15 +536,15 @@ func (suite *MultiLanguageWorkflowTestSuite) createLSPParams(method, filePath st
 // validateLSPResponse validates the structure of LSP responses
 func (suite *MultiLanguageWorkflowTestSuite) validateLSPResponse(method string, response interface{}) {
 	suite.NotNil(response, "Response should not be nil")
-	
+
 	// Convert to JSON for structure validation
 	jsonBytes, err := json.Marshal(response)
 	suite.Require().NoError(err, "Response should be JSON serializable")
-	
+
 	var responseObj interface{}
 	err = json.Unmarshal(jsonBytes, &responseObj)
 	suite.Require().NoError(err, "Response should be valid JSON")
-	
+
 	// Method-specific validation
 	switch method {
 	case "textDocument/definition":
@@ -676,7 +676,7 @@ func (suite *MultiLanguageWorkflowTestSuite) createMockTypeScriptResponse(typeNa
 				"type": "number",
 			},
 			map[string]interface{}{
-				"name": "name", 
+				"name": "name",
 				"type": "string",
 			},
 		},
@@ -712,20 +712,20 @@ func (suite *MultiLanguageWorkflowTestSuite) simulateRealisticWorkload(ctx conte
 		wg.Add(1)
 		go func(index int) {
 			defer wg.Done()
-			
+
 			// Rotate through languages and methods
 			lang := project.Languages[index%len(project.Languages)]
 			methods := []string{"textDocument/definition", "textDocument/references", "textDocument/hover"}
 			method := methods[index%len(methods)]
-			
+
 			testFile := suite.getTestFileForLanguage(project, lang)
 			if testFile == "" {
 				errChan <- fmt.Errorf("no test file for language %s", lang)
 				return
 			}
-			
+
 			params := suite.createLSPParams(method, testFile)
-			
+
 			_, err := gateway.HandleLSPRequest(ctx, method, params)
 			if err != nil {
 				errChan <- fmt.Errorf("request failed for %s %s: %w", lang, method, err)

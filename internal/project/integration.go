@@ -296,8 +296,8 @@ func (pi *ProjectIntegration) finalizeResult(result *ProjectAnalysisResult, star
 
 // StartupIntegrationCoordinator coordinates project-aware startup across multiple components
 type StartupIntegrationCoordinator struct {
-	integration     *ProjectIntegration
-	logger          *setup.SetupLogger
+	integration *ProjectIntegration
+	logger      *setup.SetupLogger
 }
 
 // NewStartupIntegrationCoordinator creates a new startup integration coordinator
@@ -444,7 +444,7 @@ func (sic *StartupIntegrationCoordinator) cloneProjectStartupResult(original *Pr
 	return &ProjectStartupResult{
 		ProjectDetected: original.ProjectDetected,
 		ProjectResult:   original.ProjectResult, // Safe to share as it's read-only after creation
-		Error:          original.Error,
+		Error:           original.Error,
 	}
 }
 

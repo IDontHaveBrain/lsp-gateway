@@ -11,11 +11,11 @@ import (
 
 // ProjectAwareRouter wraps the existing Router and adds workspace-aware routing capabilities
 type ProjectAwareRouter struct {
-	*Router                // Embedded traditional router for fallback
+	*Router          // Embedded traditional router for fallback
 	workspaceManager *WorkspaceManager
 	logger           *mcp.StructuredLogger
 	mu               sync.RWMutex
-	
+
 	// Cache for workspace-specific server overrides
 	workspaceServerOverrides map[string]map[string]string // workspaceID -> language -> serverName
 }
@@ -83,7 +83,7 @@ func (par *ProjectAwareRouter) selectServerForWorkspace(workspace WorkspaceConte
 	if strings.HasPrefix(uri, URIPrefixFile) {
 		filePath = strings.TrimPrefix(uri, URIPrefixFile)
 	}
-	
+
 	ext := strings.ToLower(filepath.Ext(filePath))
 	if ext != "" {
 		ext = strings.TrimPrefix(ext, ".")
@@ -114,7 +114,7 @@ func (par *ProjectAwareRouter) selectServerForWorkspace(workspace WorkspaceConte
 		}
 	}
 
-	return "", fmt.Errorf("no suitable server found for workspace %s with project type %s and languages %v", 
+	return "", fmt.Errorf("no suitable server found for workspace %s with project type %s and languages %v",
 		workspace.GetID(), workspace.GetProjectType(), workspace.GetLanguages())
 }
 
@@ -213,7 +213,7 @@ func (par *ProjectAwareRouter) getWorkspaceServerOverride(workspaceID, uri strin
 	if strings.HasPrefix(uri, URIPrefixFile) {
 		filePath = strings.TrimPrefix(uri, URIPrefixFile)
 	}
-	
+
 	ext := strings.ToLower(filepath.Ext(filePath))
 	if ext != "" {
 		ext = strings.TrimPrefix(ext, ".")
@@ -267,7 +267,7 @@ func (par *ProjectAwareRouter) GetSupportedWorkspaceTypes() []string {
 	return []string{
 		"go",
 		"node",
-		"python", 
+		"python",
 		"java",
 		"typescript",
 		"javascript",

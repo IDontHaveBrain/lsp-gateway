@@ -17,18 +17,18 @@ type ConsoleFormatter struct{}
 
 func (f *ConsoleFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 	var buf bytes.Buffer
-	
+
 	// Header
 	buf.WriteString("================================================================================\n")
 	buf.WriteString("                        E2E Test Comprehensive Report\n")
 	buf.WriteString("================================================================================\n\n")
-	
+
 	// Report metadata
 	buf.WriteString(fmt.Sprintf("Report Generated: %s\n", data.GeneratedAt.Format("2006-01-02 15:04:05")))
 	buf.WriteString(fmt.Sprintf("Report ID: %s\n", data.ReportID))
 	buf.WriteString(fmt.Sprintf("Test Run ID: %s\n", data.TestRunID))
 	buf.WriteString("\n")
-	
+
 	// Executive Summary
 	if data.ExecutiveSummary != nil {
 		buf.WriteString("EXECUTIVE SUMMARY\n")
@@ -41,7 +41,7 @@ func (f *ConsoleFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 		buf.WriteString(fmt.Sprintf("Quality Score: %.1f/100\n", data.ExecutiveSummary.QualityScore))
 		buf.WriteString(fmt.Sprintf("Coverage Score: %.1f%%\n", data.ExecutiveSummary.CoverageScore))
 		buf.WriteString("\n")
-		
+
 		if len(data.ExecutiveSummary.KeyFindings) > 0 {
 			buf.WriteString("Key Findings:\n")
 			for _, finding := range data.ExecutiveSummary.KeyFindings {
@@ -49,7 +49,7 @@ func (f *ConsoleFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			}
 			buf.WriteString("\n")
 		}
-		
+
 		if len(data.ExecutiveSummary.CriticalIssues) > 0 {
 			buf.WriteString("Critical Issues:\n")
 			for _, issue := range data.ExecutiveSummary.CriticalIssues {
@@ -57,7 +57,7 @@ func (f *ConsoleFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			}
 			buf.WriteString("\n")
 		}
-		
+
 		if len(data.ExecutiveSummary.RecommendedActions) > 0 {
 			buf.WriteString("Recommended Actions:\n")
 			for _, action := range data.ExecutiveSummary.RecommendedActions {
@@ -66,7 +66,7 @@ func (f *ConsoleFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			buf.WriteString("\n")
 		}
 	}
-	
+
 	// Test Metrics
 	if data.TestMetrics != nil {
 		buf.WriteString("TEST EXECUTION METRICS\n")
@@ -84,7 +84,7 @@ func (f *ConsoleFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 		buf.WriteString(fmt.Sprintf("Timeouts: %d\n", data.TestMetrics.TimeoutCount))
 		buf.WriteString(fmt.Sprintf("Retries: %d\n", data.TestMetrics.RetryCount))
 		buf.WriteString("\n")
-		
+
 		if len(data.TestMetrics.TestsByScenario) > 0 {
 			buf.WriteString("Tests by Scenario:\n")
 			for scenario, count := range data.TestMetrics.TestsByScenario {
@@ -92,7 +92,7 @@ func (f *ConsoleFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			}
 			buf.WriteString("\n")
 		}
-		
+
 		if len(data.TestMetrics.TestsByLanguage) > 0 {
 			buf.WriteString("Tests by Language:\n")
 			for language, count := range data.TestMetrics.TestsByLanguage {
@@ -101,7 +101,7 @@ func (f *ConsoleFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			buf.WriteString("\n")
 		}
 	}
-	
+
 	// System Metrics
 	if data.SystemMetrics != nil {
 		buf.WriteString("SYSTEM RESOURCE METRICS\n")
@@ -125,7 +125,7 @@ func (f *ConsoleFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 		buf.WriteString(fmt.Sprintf("Go Version: %s\n", data.SystemMetrics.GoVersion))
 		buf.WriteString("\n")
 	}
-	
+
 	// MCP Client Metrics
 	if data.MCPMetrics != nil {
 		buf.WriteString("MCP CLIENT METRICS\n")
@@ -145,7 +145,7 @@ func (f *ConsoleFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 		buf.WriteString(fmt.Sprintf("Throughput: %.2f req/sec\n", data.MCPMetrics.ThroughputPerSecond))
 		buf.WriteString(fmt.Sprintf("Error Rate: %.2f%%\n", data.MCPMetrics.ErrorRatePercent))
 		buf.WriteString("\n")
-		
+
 		if len(data.MCPMetrics.RequestsByMethod) > 0 {
 			buf.WriteString("Requests by Method:\n")
 			// Sort methods by request count
@@ -166,14 +166,14 @@ func (f *ConsoleFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			buf.WriteString("\n")
 		}
 	}
-	
+
 	// Error Analysis
 	if data.ErrorAnalysis != nil && data.ErrorAnalysis.TotalErrors > 0 {
 		buf.WriteString("ERROR ANALYSIS\n")
 		buf.WriteString("================================================================================\n")
 		buf.WriteString(fmt.Sprintf("Total Errors: %d\n", data.ErrorAnalysis.TotalErrors))
 		buf.WriteString("\n")
-		
+
 		if len(data.ErrorAnalysis.ErrorsByType) > 0 {
 			buf.WriteString("Errors by Type:\n")
 			for errorType, count := range data.ErrorAnalysis.ErrorsByType {
@@ -181,7 +181,7 @@ func (f *ConsoleFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			}
 			buf.WriteString("\n")
 		}
-		
+
 		if len(data.ErrorAnalysis.ErrorsByCategory) > 0 {
 			buf.WriteString("Errors by Category:\n")
 			for category, count := range data.ErrorAnalysis.ErrorsByCategory {
@@ -189,7 +189,7 @@ func (f *ConsoleFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			}
 			buf.WriteString("\n")
 		}
-		
+
 		if len(data.ErrorAnalysis.ErrorsBySeverity) > 0 {
 			buf.WriteString("Errors by Severity:\n")
 			for severity, count := range data.ErrorAnalysis.ErrorsBySeverity {
@@ -197,20 +197,20 @@ func (f *ConsoleFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			}
 			buf.WriteString("\n")
 		}
-		
+
 		if len(data.ErrorAnalysis.FrequentErrors) > 0 {
 			buf.WriteString("Most Frequent Errors:\n")
 			for i, pattern := range data.ErrorAnalysis.FrequentErrors {
 				if i >= 5 { // Show top 5
 					break
 				}
-				buf.WriteString(fmt.Sprintf("  %d. %s (count: %d, severity: %s)\n", 
+				buf.WriteString(fmt.Sprintf("  %d. %s (count: %d, severity: %s)\n",
 					i+1, pattern.Pattern, pattern.Count, pattern.Severity))
 			}
 			buf.WriteString("\n")
 		}
 	}
-	
+
 	// Coverage Analysis
 	if data.CoverageAnalysis != nil && data.CoverageAnalysis.OverallCoverage != nil {
 		buf.WriteString("COVERAGE ANALYSIS\n")
@@ -223,32 +223,32 @@ func (f *ConsoleFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 		buf.WriteString(fmt.Sprintf("Quality Score: %.2f\n", data.CoverageAnalysis.OverallCoverage.QualityScore))
 		buf.WriteString(fmt.Sprintf("Coverage Trend: %s\n", data.CoverageAnalysis.OverallCoverage.CoverageTrend))
 		buf.WriteString("\n")
-		
+
 		if len(data.CoverageAnalysis.CoverageGaps) > 0 {
 			buf.WriteString("Coverage Gaps:\n")
 			for i, gap := range data.CoverageAnalysis.CoverageGaps {
 				if i >= 5 { // Show top 5
 					break
 				}
-				buf.WriteString(fmt.Sprintf("  %d. %s: %s (Priority: %s, Impact: %s)\n", 
+				buf.WriteString(fmt.Sprintf("  %d. %s: %s (Priority: %s, Impact: %s)\n",
 					i+1, gap.GapType, gap.Description, gap.Priority, gap.Impact))
 			}
 			buf.WriteString("\n")
 		}
 	}
-	
+
 	// Performance Summary
 	if data.PerformanceData != nil {
 		buf.WriteString("PERFORMANCE SUMMARY\n")
 		buf.WriteString("================================================================================\n")
 		buf.WriteString(fmt.Sprintf("Performance Score: %.1f/100\n", data.PerformanceData.PerformanceScore))
-		
+
 		if data.PerformanceData.RegressionDetection != nil {
 			buf.WriteString(fmt.Sprintf("Regression Risk: %s\n", data.PerformanceData.RegressionDetection.RegressionRisk))
 			buf.WriteString(fmt.Sprintf("Regressions Detected: %d\n", len(data.PerformanceData.RegressionDetection.RegressionsDetected)))
 			buf.WriteString(fmt.Sprintf("Improvements Detected: %d\n", len(data.PerformanceData.RegressionDetection.ImprovementsDetected)))
 		}
-		
+
 		if len(data.PerformanceData.ScenarioMetrics) > 0 {
 			buf.WriteString("\nTop Scenarios by Performance:\n")
 			// Sort scenarios by performance score
@@ -272,7 +272,7 @@ func (f *ConsoleFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 		}
 		buf.WriteString("\n")
 	}
-	
+
 	// Recommendations
 	if len(data.Recommendations) > 0 {
 		buf.WriteString("RECOMMENDATIONS\n")
@@ -289,12 +289,12 @@ func (f *ConsoleFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			buf.WriteString("\n")
 		}
 	}
-	
+
 	// Footer
 	buf.WriteString("================================================================================\n")
 	buf.WriteString("End of E2E Test Comprehensive Report\n")
 	buf.WriteString("================================================================================\n")
-	
+
 	return buf.Bytes(), nil
 }
 
@@ -378,12 +378,12 @@ func (f *HTMLFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			}
 		},
 	}).Parse(htmlTemplate))
-	
+
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return nil, fmt.Errorf("failed to execute HTML template: %w", err)
 	}
-	
+
 	return buf.Bytes(), nil
 }
 
@@ -401,15 +401,15 @@ type CSVFormatter struct{}
 func (f *CSVFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 	var buf bytes.Buffer
 	writer := csv.NewWriter(&buf)
-	
+
 	// Write test results CSV
 	if err := writer.Write([]string{
-		"Test ID", "Test Name", "Scenario", "Language", "Status", "Duration (ms)", 
+		"Test ID", "Test Name", "Scenario", "Language", "Status", "Duration (ms)",
 		"Success", "Errors", "Warnings", "Request Count", "Success Rate", "Average Latency (ms)",
 	}); err != nil {
 		return nil, fmt.Errorf("failed to write CSV header: %w", err)
 	}
-	
+
 	for _, result := range data.TestResults {
 		record := []string{
 			result.TestID,
@@ -422,7 +422,7 @@ func (f *CSVFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			strconv.Itoa(len(result.Errors)),
 			strconv.Itoa(len(result.Warnings)),
 		}
-		
+
 		if result.Metrics != nil {
 			record = append(record,
 				strconv.FormatInt(result.Metrics.RequestCount, 10),
@@ -432,17 +432,17 @@ func (f *CSVFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 		} else {
 			record = append(record, "", "", "")
 		}
-		
+
 		if err := writer.Write(record); err != nil {
 			return nil, fmt.Errorf("failed to write CSV record: %w", err)
 		}
 	}
-	
+
 	writer.Flush()
 	if err := writer.Error(); err != nil {
 		return nil, fmt.Errorf("CSV writer error: %w", err)
 	}
-	
+
 	return buf.Bytes(), nil
 }
 

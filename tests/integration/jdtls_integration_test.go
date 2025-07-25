@@ -739,4 +739,3 @@ func (env *JDTLSTestEnvironment) VerifyDirectoryStructure(t *testing.T, executab
 		assert.True(t, found, "Should find JDTLS core jar in plugins directory")
 	}
 }
-

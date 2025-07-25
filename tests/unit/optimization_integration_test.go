@@ -47,7 +47,7 @@ func TestOptimizationStrategies(t *testing.T) {
 	t.Run("ProductionOptimization", func(t *testing.T) {
 		prodConfig := *mlConfig // Copy
 		prodOpt := config.NewProductionOptimization()
-		
+
 		err := prodOpt.ApplyOptimizations(&prodConfig)
 		if err != nil {
 			t.Fatalf("Failed to apply production optimization: %v", err)
@@ -73,7 +73,7 @@ func TestOptimizationStrategies(t *testing.T) {
 	t.Run("AnalysisOptimization", func(t *testing.T) {
 		analysisConfig := *mlConfig // Copy
 		analysisOpt := config.NewAnalysisOptimization()
-		
+
 		err := analysisOpt.ApplyOptimizations(&analysisConfig)
 		if err != nil {
 			t.Fatalf("Failed to apply analysis optimization: %v", err)
@@ -98,7 +98,7 @@ func TestOptimizationStrategies(t *testing.T) {
 	t.Run("DevelopmentOptimization", func(t *testing.T) {
 		devConfig := *mlConfig // Copy
 		devOpt := config.NewDevelopmentOptimization()
-		
+
 		err := devOpt.ApplyOptimizations(&devConfig)
 		if err != nil {
 			t.Fatalf("Failed to apply development optimization: %v", err)
@@ -122,7 +122,7 @@ func TestOptimizationManager(t *testing.T) {
 	// Test getting available strategies
 	strategies := manager.GetAvailableStrategies()
 	expectedStrategies := []string{"production", "analysis", "development"}
-	
+
 	if len(strategies) != len(expectedStrategies) {
 		t.Errorf("Expected %d strategies, got %d", len(expectedStrategies), len(strategies))
 	}
@@ -446,8 +446,8 @@ func createTestMultiLanguageConfig(language, rootPath string) *config.MultiLangu
 				Frameworks:   []string{},
 			},
 		},
-		DetectedAt:    time.Now(),
-		Metadata:      make(map[string]interface{}),
+		DetectedAt: time.Now(),
+		Metadata:   make(map[string]interface{}),
 	}
 
 	generator := config.NewConfigGenerator()

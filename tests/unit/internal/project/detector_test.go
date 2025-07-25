@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
-	"lsp-gateway/internal/platform"
 	"lsp-gateway/internal/project"
 	"lsp-gateway/internal/project/types"
 	"lsp-gateway/internal/setup"
@@ -76,9 +75,9 @@ func (suite *DefaultProjectDetectorTestSuite) TearDownTest() {
 
 func (suite *DefaultProjectDetectorTestSuite) TestNewDefaultProjectDetector() {
 	detector := project.NewProjectDetector()
-	
+
 	suite.NotNil(detector, "Constructor should return non-nil detector")
-	
+
 	// Verify default configuration values
 	supportedLanguages := detector.GetSupportedLanguages()
 	expectedLanguages := []string{
@@ -88,9 +87,9 @@ func (suite *DefaultProjectDetectorTestSuite) TestNewDefaultProjectDetector() {
 		types.PROJECT_TYPE_TYPESCRIPT,
 		types.PROJECT_TYPE_NODEJS,
 	}
-	
+
 	for _, lang := range expectedLanguages {
-		suite.Contains(supportedLanguages, lang, 
+		suite.Contains(supportedLanguages, lang,
 			fmt.Sprintf("Should support %s language detection", lang))
 	}
 }
@@ -100,9 +99,9 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_Registe
 	customDetectors := make(map[string]project.LanguageDetector)
 	// Note: We'd need to create mock detectors here, but for the sake of this test
 	// we'll test the configuration mechanism
-	
+
 	suite.detector.SetCustomDetectors(customDetectors)
-	
+
 	// Verify the detector still functions correctly
 	languages := suite.detector.GetSupportedLanguages()
 	suite.NotEmpty(languages, "Should still support built-in languages")
@@ -112,18 +111,18 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_Configu
 	// Test timeout configuration
 	originalTimeout := 30 * time.Second
 	newTimeout := 60 * time.Second
-	
+
 	suite.detector.SetTimeout(newTimeout)
 	// Configuration is internal, but we can verify it doesn't break functionality
-	
+
 	// Test max depth configuration
 	suite.detector.SetMaxDepth(5)
 	// Again, internal configuration but should not break functionality
-	
+
 	// Test logger configuration
 	customLogger := setup.NewSetupLogger(nil)
 	suite.detector.SetLogger(customLogger)
-	
+
 	// Verify detector still functions
 	languages := suite.detector.GetSupportedLanguages()
 	suite.NotEmpty(languages, "Configuration changes should not break functionality")
@@ -192,10 +191,10 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_DetectP
 		suite.Run(tc.name, func() {
 			// Generate test project
 			config := &framework.ProjectGenerationConfig{
-				Type:       tc.projectType,
-				Languages:  tc.languages,
-				Complexity: tc.complexity,
-				Size:       framework.SizeMedium,
+				Type:        tc.projectType,
+				Languages:   tc.languages,
+				Complexity:  tc.complexity,
+				Size:        framework.SizeMedium,
 				BuildSystem: true,
 				TestFiles:   true,
 			}
@@ -213,15 +212,15 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_DetectP
 			if tc.shouldSucceed {
 				suite.NoError(err, "Detection should succeed for %s", tc.name)
 				suite.NotNil(projectCtx, "Should return project context")
-				
-				suite.Equal(tc.expectedType, projectCtx.ProjectType, 
+
+				suite.Equal(tc.expectedType, projectCtx.ProjectType,
 					"Should detect correct project type")
-				
+
 				for _, expectedLang := range tc.expectedLanguages {
 					suite.Contains(projectCtx.Languages, expectedLang,
 						"Should detect language %s", expectedLang)
 				}
-				
+
 				// Verify required fields are populated
 				suite.NotEmpty(projectCtx.RootPath, "Should have root path")
 				suite.NotEmpty(projectCtx.RequiredServers, "Should have LSP servers")
@@ -304,7 +303,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_DetectP
 
 			detectedType, err := suite.detector.DetectProjectType(ctx, testDir)
 			suite.NoError(err, "Project type detection should succeed")
-			suite.Equal(tc.expectedType, detectedType, 
+			suite.Equal(tc.expectedType, detectedType,
 				"Should detect correct project type for %s", tc.name)
 		})
 	}
@@ -321,23 +320,23 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_GetWork
 		{
 			name: "git-workspace-root",
 			setupStructure: map[string]string{
-				".git/config":         "git config",
-				"go.mod":              "module test",
+				".git/config":           "git config",
+				"go.mod":                "module test",
 				"subdir/nested/file.go": "package nested",
 			},
 			testPath:     "subdir/nested",
-			expectedRoot: "",  // Will be set to the actual root
+			expectedRoot: "", // Will be set to the actual root
 			shouldFind:   true,
 		},
 		{
 			name: "go-module-root",
 			setupStructure: map[string]string{
-				"go.mod":               "module test",
-				"cmd/app/main.go":      "package main",
-				"pkg/utils/utils.go":   "package utils",
+				"go.mod":             "module test",
+				"cmd/app/main.go":    "package main",
+				"pkg/utils/utils.go": "package utils",
 			},
 			testPath:     "cmd/app",
-			expectedRoot: "",  // Will be set to the actual root
+			expectedRoot: "", // Will be set to the actual root
 			shouldFind:   true,
 		},
 		{
@@ -383,7 +382,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_GetWork
 			if tc.shouldFind {
 				suite.NoError(err, "Should find workspace root")
 				suite.NotEmpty(workspaceRoot, "Should return non-empty workspace root")
-				suite.True(strings.HasPrefix(testPath, workspaceRoot) || 
+				suite.True(strings.HasPrefix(testPath, workspaceRoot) ||
 					strings.HasPrefix(workspaceRoot, testRootDir),
 					"Workspace root should be parent of test path")
 			} else {
@@ -399,10 +398,10 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_GetWork
 func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_ValidateProject() {
 	// Create a valid test project
 	config := &framework.ProjectGenerationConfig{
-		Type:       framework.ProjectTypeSingle,
-		Languages:  []string{"go"},
-		Complexity: framework.ComplexitySimple,
-		Size:       framework.SizeSmall,
+		Type:        framework.ProjectTypeSingle,
+		Languages:   []string{"go"},
+		Complexity:  framework.ComplexitySimple,
+		Size:        framework.SizeSmall,
 		BuildSystem: true,
 		TestFiles:   true,
 	}
@@ -500,7 +499,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_ScanWor
 	suite.NotEmpty(detectedProjects, "Should detect projects in workspace")
 
 	// Verify all projects were detected
-	suite.GreaterOrEqual(len(detectedProjects), len(projects), 
+	suite.GreaterOrEqual(len(detectedProjects), len(projects),
 		"Should detect at least as many projects as created")
 
 	// Check that we found projects with different languages
@@ -522,10 +521,10 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_DetectM
 
 	for i := 0; i < 3; i++ {
 		config := &framework.ProjectGenerationConfig{
-			Type:       framework.ProjectTypeSingle,
-			Languages:  []string{"go"},
-			Complexity: framework.ComplexitySimple,
-			Size:       framework.SizeSmall,
+			Type:        framework.ProjectTypeSingle,
+			Languages:   []string{"go"},
+			Complexity:  framework.ComplexitySimple,
+			Size:        framework.SizeSmall,
 			BuildSystem: true,
 		}
 
@@ -547,7 +546,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_DetectM
 		detectedProjects = append(detectedProjects, projCtx)
 	}
 
-	suite.Equal(len(projectPaths), len(detectedProjects), 
+	suite.Equal(len(projectPaths), len(detectedProjects),
 		"Should detect all projects")
 
 	// Verify all detected projects are Go projects
@@ -562,10 +561,10 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_DetectM
 func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_TimeoutHandling() {
 	// Create a simple project
 	config := &framework.ProjectGenerationConfig{
-		Type:       framework.ProjectTypeSingle,
-		Languages:  []string{"go"},
-		Complexity: framework.ComplexitySimple,
-		Size:       framework.SizeSmall,
+		Type:        framework.ProjectTypeSingle,
+		Languages:   []string{"go"},
+		Complexity:  framework.ComplexitySimple,
+		Size:        framework.SizeSmall,
 		BuildSystem: true,
 	}
 
@@ -577,10 +576,10 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_Timeout
 	defer cancel()
 
 	_, err = suite.detector.DetectProject(shortCtx, testProject.RootPath)
-	
+
 	// Should either succeed quickly or timeout
 	if err != nil {
-		suite.Contains(err.Error(), "context deadline exceeded", 
+		suite.Contains(err.Error(), "context deadline exceeded",
 			"Should timeout with context deadline error")
 	}
 
@@ -624,7 +623,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_MaxDept
 
 	// Detection from root should not find the deep project due to depth limit
 	projCtx, err := suite.detector.DetectProject(ctx, deepDir)
-	
+
 	// Depending on implementation, this might succeed (finding no projects) or fail
 	// The key is that it should not hang or crash
 	if err != nil {
@@ -637,7 +636,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_MaxDept
 	// Test detection from deeper starting point
 	midPath := filepath.Join(deepDir, "level-0", "level-1", "level-2")
 	projCtx2, err2 := suite.detector.DetectProject(ctx, midPath)
-	
+
 	// Similar expectations
 	if err2 != nil {
 		suite.NotContains(err2.Error(), "panic", "Should not panic with depth limits")
@@ -654,9 +653,9 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_IgnoreP
 
 	// Create valid project files
 	validFiles := map[string]string{
-		"go.mod":         "module ignore-test\n\ngo 1.19",
-		"main.go":        "package main\n\nfunc main() {}",
-		"pkg/utils.go":   "package pkg\n\nfunc Utils() {}",
+		"go.mod":       "module ignore-test\n\ngo 1.19",
+		"main.go":      "package main\n\nfunc main() {}",
+		"pkg/utils.go": "package pkg\n\nfunc Utils() {}",
 	}
 
 	// Create files that should be ignored
@@ -716,10 +715,10 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_Paralle
 
 	for i := 0; i < numProjects; i++ {
 		config := &framework.ProjectGenerationConfig{
-			Type:       framework.ProjectTypeSingle,
-			Languages:  []string{"go"},
-			Complexity: framework.ComplexitySimple,
-			Size:       framework.SizeSmall,
+			Type:        framework.ProjectTypeSingle,
+			Languages:   []string{"go"},
+			Complexity:  framework.ComplexitySimple,
+			Size:        framework.SizeSmall,
 			BuildSystem: true,
 		}
 
@@ -740,11 +739,11 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_Paralle
 		wg.Add(1)
 		go func(index int, projectPath string) {
 			defer wg.Done()
-			
+
 			// Create a separate detector for each goroutine to test thread safety
 			detector := project.NewProjectDetector()
 			projCtx, err := detector.DetectProject(ctx, projectPath)
-			
+
 			results[index] = projCtx
 			errors[index] = err
 		}(i, path)
@@ -756,7 +755,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_Paralle
 	for i := 0; i < numProjects; i++ {
 		suite.NoError(errors[i], "Concurrent detection %d should succeed", i)
 		suite.NotNil(results[i], "Should return project context for detection %d", i)
-		suite.Equal(types.PROJECT_TYPE_GO, results[i].ProjectType, 
+		suite.Equal(types.PROJECT_TYPE_GO, results[i].ProjectType,
 			"Should detect Go project for detection %d", i)
 	}
 }
@@ -802,7 +801,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_ErrorHa
 	_, err = suite.detector.DetectProjectType(ctx, "/non/existent/path")
 	suite.Error(err, "Project type detection should error for non-existent path")
 
-	// Test workspace root detection errors  
+	// Test workspace root detection errors
 	_, err = suite.detector.GetWorkspaceRoot(ctx, "/non/existent/path")
 	suite.Error(err, "Workspace root detection should error for non-existent path")
 }
@@ -818,12 +817,12 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_Perform
 
 	// Create test project for performance testing
 	config := &framework.ProjectGenerationConfig{
-		Type:       framework.ProjectTypeMultiLanguage,
-		Languages:  []string{"go", "python", "typescript"},
-		Complexity: framework.ComplexityComplex,
-		Size:       framework.SizeLarge,
-		BuildSystem: true,
-		TestFiles:   true,
+		Type:         framework.ProjectTypeMultiLanguage,
+		Languages:    []string{"go", "python", "typescript"},
+		Complexity:   framework.ComplexityComplex,
+		Size:         framework.SizeLarge,
+		BuildSystem:  true,
+		TestFiles:    true,
 		Dependencies: true,
 	}
 
@@ -852,10 +851,10 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_Perform
 	suite.NotNil(finalMetrics, "Should return final metrics")
 
 	// Verify performance characteristics
-	suite.Less(detectionDuration, 30*time.Second, 
+	suite.Less(detectionDuration, 30*time.Second,
 		"Detection should complete within reasonable time")
-	
-	suite.Greater(finalMetrics.OperationDuration, time.Duration(0), 
+
+	suite.Greater(finalMetrics.OperationDuration, time.Duration(0),
 		"Should track operation duration")
 
 	// Log performance results for analysis
@@ -873,10 +872,10 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_Perform
 func (suite *DefaultProjectDetectorTestSuite) BenchmarkSimpleGoProjectDetection() {
 	// Create simple Go project
 	config := &framework.ProjectGenerationConfig{
-		Type:       framework.ProjectTypeSingle,
-		Languages:  []string{"go"},
-		Complexity: framework.ComplexitySimple,
-		Size:       framework.SizeSmall,
+		Type:        framework.ProjectTypeSingle,
+		Languages:   []string{"go"},
+		Complexity:  framework.ComplexitySimple,
+		Size:        framework.SizeSmall,
 		BuildSystem: true,
 	}
 
@@ -899,12 +898,12 @@ func (suite *DefaultProjectDetectorTestSuite) BenchmarkSimpleGoProjectDetection(
 func (suite *DefaultProjectDetectorTestSuite) BenchmarkComplexMultiLanguageDetection() {
 	// Create complex multi-language project
 	config := &framework.ProjectGenerationConfig{
-		Type:       framework.ProjectTypeMultiLanguage,
-		Languages:  []string{"go", "python", "typescript", "java"},
-		Complexity: framework.ComplexityComplex,
-		Size:       framework.SizeLarge,
-		BuildSystem: true,
-		TestFiles:   true,
+		Type:         framework.ProjectTypeMultiLanguage,
+		Languages:    []string{"go", "python", "typescript", "java"},
+		Complexity:   framework.ComplexityComplex,
+		Size:         framework.SizeLarge,
+		BuildSystem:  true,
+		TestFiles:    true,
 		Dependencies: true,
 	}
 
@@ -949,7 +948,7 @@ func TestDefaultProjectDetector_ContextCancellation(t *testing.T) {
 
 	// Test context cancellation
 	detector := project.NewProjectDetector()
-	
+
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
 
@@ -1009,13 +1008,13 @@ func TestDefaultProjectDetector_EmptyDirectory(t *testing.T) {
 	defer cancel()
 
 	projCtx, err := detector.DetectProject(ctx, tempDir)
-	
+
 	// Should either return unknown project type or error
 	if err == nil {
-		assert.Equal(t, types.PROJECT_TYPE_UNKNOWN, projCtx.ProjectType, 
+		assert.Equal(t, types.PROJECT_TYPE_UNKNOWN, projCtx.ProjectType,
 			"Empty directory should be detected as unknown project type")
 	} else {
-		assert.Contains(t, err.Error(), "no project", 
+		assert.Contains(t, err.Error(), "no project",
 			"Should indicate no project found in empty directory")
 	}
 }
@@ -1036,7 +1035,7 @@ func TestDefaultProjectDetector_LargeDirectoryStructure(t *testing.T) {
 		dirPath := filepath.Join(tempDir, fmt.Sprintf("dir%d", i))
 		err = os.MkdirAll(dirPath, 0755)
 		require.NoError(t, err)
-		
+
 		for j := 0; j < 10; j++ {
 			filePath := filepath.Join(dirPath, fmt.Sprintf("file%d.go", j))
 			content := fmt.Sprintf("package dir%d\n\nfunc Function%d() {}", i, j)
@@ -1058,6 +1057,6 @@ func TestDefaultProjectDetector_LargeDirectoryStructure(t *testing.T) {
 	assert.NotNil(t, projCtx, "Should detect project in large directory")
 	assert.Equal(t, types.PROJECT_TYPE_GO, projCtx.ProjectType, "Should detect Go project")
 	assert.Less(t, duration, 30*time.Second, "Should complete within reasonable time")
-	
+
 	t.Logf("Large directory detection took: %v", duration)
 }

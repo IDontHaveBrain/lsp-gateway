@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"lsp-gateway/mcp"
 	"lsp-gateway/tests/framework"
 	"lsp-gateway/tests/mocks"
 )
@@ -25,56 +24,56 @@ type E2ETestSuite struct {
 	mcpTest         *MCPProtocolE2ETest
 	workflowTest    *WorkflowE2ETest
 	integrationTest *IntegrationE2ETest
-	
+
 	// Configuration
-	ResultsDirectory       string
-	BaselineResultsFile    string
-	TestTimeout           time.Duration
-	MaxConcurrentTests    int
-	
+	ResultsDirectory    string
+	BaselineResultsFile string
+	TestTimeout         time.Duration
+	MaxConcurrentTests  int
+
 	// Test orchestration
 	testState        *E2ETestState
 	testDependencies *TestDependencyGraph
 	resourceManager  *TestResourceManager
-	
+
 	// Results tracking
-	currentResults   *E2ETestResults
-	baselineResults  *E2ETestResults
-	
+	currentResults  *E2ETestResults
+	baselineResults *E2ETestResults
+
 	// Synchronization
-	mu               sync.RWMutex
-	testCoordinator  *TestCoordinator
-	
+	mu              sync.RWMutex
+	testCoordinator *TestCoordinator
+
 	// Context management
-	ctx              context.Context
-	cancel           context.CancelFunc
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // E2ETestResults contains comprehensive E2E test results
 type E2ETestResults struct {
-	Timestamp           time.Time                 `json:"timestamp"`
-	SystemInfo          *SystemInfo              `json:"system_info"`
-	HTTPProtocolResults *HTTPProtocolResults     `json:"http_protocol_results"`
-	MCPProtocolResults  *MCPProtocolResults      `json:"mcp_protocol_results"`
-	WorkflowResults     *WorkflowResults         `json:"workflow_results"`
-	IntegrationResults  *IntegrationResults      `json:"integration_results"`
-	OverallE2EScore     float64                  `json:"overall_e2e_score"`
-	TestsExecuted       int                      `json:"tests_executed"`
-	TestsPassed         int                      `json:"tests_passed"`
-	TestsFailed         int                      `json:"tests_failed"`
-	CriticalFailures    []string                 `json:"critical_failures,omitempty"`
-	TestExecutionPlan   *TestExecutionPlan       `json:"test_execution_plan"`
+	Timestamp           time.Time            `json:"timestamp"`
+	SystemInfo          *SystemInfo          `json:"system_info"`
+	HTTPProtocolResults *HTTPProtocolResults `json:"http_protocol_results"`
+	MCPProtocolResults  *MCPProtocolResults  `json:"mcp_protocol_results"`
+	WorkflowResults     *WorkflowResults     `json:"workflow_results"`
+	IntegrationResults  *IntegrationResults  `json:"integration_results"`
+	OverallE2EScore     float64              `json:"overall_e2e_score"`
+	TestsExecuted       int                  `json:"tests_executed"`
+	TestsPassed         int                  `json:"tests_passed"`
+	TestsFailed         int                  `json:"tests_failed"`
+	CriticalFailures    []string             `json:"critical_failures,omitempty"`
+	TestExecutionPlan   *TestExecutionPlan   `json:"test_execution_plan"`
 }
 
 // SystemInfo contains system information for E2E test context
 type SystemInfo struct {
-	OS               string    `json:"os"`
-	Architecture     string    `json:"architecture"`
-	NumCPU           int       `json:"num_cpu"`
-	GoVersion        string    `json:"go_version"`
-	TotalMemoryMB    int64     `json:"total_memory_mb"`
-	TestStartTime    time.Time `json:"test_start_time"`
-	TestEnvironment  string    `json:"test_environment"`
+	OS              string    `json:"os"`
+	Architecture    string    `json:"architecture"`
+	NumCPU          int       `json:"num_cpu"`
+	GoVersion       string    `json:"go_version"`
+	TotalMemoryMB   int64     `json:"total_memory_mb"`
+	TestStartTime   time.Time `json:"test_start_time"`
+	TestEnvironment string    `json:"test_environment"`
 }
 
 // HTTPProtocolResults contains HTTP JSON-RPC protocol test results
@@ -89,7 +88,7 @@ type HTTPProtocolResults struct {
 
 // MCPProtocolResults contains MCP protocol test results
 type MCPProtocolResults struct {
-	MCPServerStartupTime    int64   `json:"mcp_server_startup_time_ms"`
+	MCPServerStartupTime   int64   `json:"mcp_server_startup_time_ms"`
 	ToolsAvailable         int     `json:"tools_available"`
 	AIAssistantIntegration bool    `json:"ai_assistant_integration_success"`
 	McpToolsExecuted       int     `json:"mcp_tools_executed"`
@@ -99,33 +98,33 @@ type MCPProtocolResults struct {
 
 // WorkflowResults contains workflow test results
 type WorkflowResults struct {
-	DeveloperWorkflows     int     `json:"developer_workflows_tested"`
-	MultiLanguageSupport   bool    `json:"multi_language_support"`
-	ProjectDetectionTests  int     `json:"project_detection_tests"`
-	LanguageServerPools    int     `json:"language_server_pools_tested"`
-	WorkflowSuccessRate    float64 `json:"workflow_success_rate"`
-	RealWorldScenarios     int     `json:"real_world_scenarios"`
+	DeveloperWorkflows    int     `json:"developer_workflows_tested"`
+	MultiLanguageSupport  bool    `json:"multi_language_support"`
+	ProjectDetectionTests int     `json:"project_detection_tests"`
+	LanguageServerPools   int     `json:"language_server_pools_tested"`
+	WorkflowSuccessRate   float64 `json:"workflow_success_rate"`
+	RealWorldScenarios    int     `json:"real_world_scenarios"`
 }
 
 // IntegrationResults contains integration test results
 type IntegrationResults struct {
-	ComponentIntegrations   int     `json:"component_integrations_tested"`
-	ConfigurationTemplates  int     `json:"configuration_templates_tested"`
-	CircuitBreakerTests     int     `json:"circuit_breaker_tests"`
-	HealthMonitoringTests   int     `json:"health_monitoring_tests"`
-	LoadBalancingTests      int     `json:"load_balancing_tests"`
+	ComponentIntegrations  int     `json:"component_integrations_tested"`
+	ConfigurationTemplates int     `json:"configuration_templates_tested"`
+	CircuitBreakerTests    int     `json:"circuit_breaker_tests"`
+	HealthMonitoringTests  int     `json:"health_monitoring_tests"`
+	LoadBalancingTests     int     `json:"load_balancing_tests"`
 	IntegrationScore       float64 `json:"integration_score"`
 }
 
 // E2ETestState tracks test execution state
 type E2ETestState struct {
-	CurrentPhase     TestPhase             `json:"current_phase"`
-	TestsInProgress  map[string]*TestInfo  `json:"tests_in_progress"`
-	CompletedTests   map[string]*TestInfo  `json:"completed_tests"`
-	FailedTests      map[string]*TestInfo  `json:"failed_tests"`
-	ResourcesInUse   map[string]bool       `json:"resources_in_use"`
-	StartTime        time.Time             `json:"start_time"`
-	LastUpdate       time.Time             `json:"last_update"`
+	CurrentPhase    TestPhase            `json:"current_phase"`
+	TestsInProgress map[string]*TestInfo `json:"tests_in_progress"`
+	CompletedTests  map[string]*TestInfo `json:"completed_tests"`
+	FailedTests     map[string]*TestInfo `json:"failed_tests"`
+	ResourcesInUse  map[string]bool      `json:"resources_in_use"`
+	StartTime       time.Time            `json:"start_time"`
+	LastUpdate      time.Time            `json:"last_update"`
 }
 
 // TestPhase represents different phases of E2E testing
@@ -133,13 +132,13 @@ type TestPhase string
 
 const (
 	PhaseInitialization TestPhase = "initialization"
-	PhaseSetup         TestPhase = "setup"
-	PhaseHTTPProtocol  TestPhase = "http_protocol"
-	PhaseMCPProtocol   TestPhase = "mcp_protocol"
-	PhaseWorkflow      TestPhase = "workflow"
-	PhaseIntegration   TestPhase = "integration"
-	PhaseCleanup       TestPhase = "cleanup"
-	PhaseComplete      TestPhase = "complete"
+	PhaseSetup          TestPhase = "setup"
+	PhaseHTTPProtocol   TestPhase = "http_protocol"
+	PhaseMCPProtocol    TestPhase = "mcp_protocol"
+	PhaseWorkflow       TestPhase = "workflow"
+	PhaseIntegration    TestPhase = "integration"
+	PhaseCleanup        TestPhase = "cleanup"
+	PhaseComplete       TestPhase = "complete"
 )
 
 // TestInfo contains information about individual tests
@@ -160,16 +159,16 @@ type TestInfo struct {
 type TestStatus string
 
 const (
-	StatusPending    TestStatus = "pending"
-	StatusRunning    TestStatus = "running"
-	StatusCompleted  TestStatus = "completed"
-	StatusFailed     TestStatus = "failed"
-	StatusSkipped    TestStatus = "skipped"
+	StatusPending   TestStatus = "pending"
+	StatusRunning   TestStatus = "running"
+	StatusCompleted TestStatus = "completed"
+	StatusFailed    TestStatus = "failed"
+	StatusSkipped   TestStatus = "skipped"
 )
 
 // TestExecutionPlan defines the execution strategy
 type TestExecutionPlan struct {
-	ExecutionStrategy ExecutionStrategy         `json:"execution_strategy"`
+	ExecutionStrategy ExecutionStrategy        `json:"execution_strategy"`
 	TestCategories    []TestCategory           `json:"test_categories"`
 	Dependencies      map[string][]string      `json:"dependencies"`
 	ResourceRequests  map[string][]string      `json:"resource_requests"`
@@ -181,19 +180,19 @@ type TestExecutionPlan struct {
 type ExecutionStrategy string
 
 const (
-	StrategySequential   ExecutionStrategy = "sequential"
-	StrategyParallel     ExecutionStrategy = "parallel"
-	StrategyDependency   ExecutionStrategy = "dependency_based"
-	StrategyOptimized    ExecutionStrategy = "optimized"
+	StrategySequential ExecutionStrategy = "sequential"
+	StrategyParallel   ExecutionStrategy = "parallel"
+	StrategyDependency ExecutionStrategy = "dependency_based"
+	StrategyOptimized  ExecutionStrategy = "optimized"
 )
 
 // TestCategory groups related tests
 type TestCategory struct {
-	Name        string   `json:"name"`
-	Tests       []string `json:"tests"`
-	Required    bool     `json:"required"`
-	Timeout     time.Duration `json:"timeout"`
-	MaxRetries  int      `json:"max_retries"`
+	Name       string        `json:"name"`
+	Tests      []string      `json:"tests"`
+	Required   bool          `json:"required"`
+	Timeout    time.Duration `json:"timeout"`
+	MaxRetries int           `json:"max_retries"`
 }
 
 // TestDependencyGraph manages test dependencies
@@ -204,75 +203,75 @@ type TestDependencyGraph struct {
 
 // TestResourceManager manages shared test resources
 type TestResourceManager struct {
-	resources    map[string]*TestResource
-	allocations  map[string]string
-	mu           sync.RWMutex
+	resources   map[string]*TestResource
+	allocations map[string]string
+	mu          sync.RWMutex
 }
 
 // TestResource represents a shared test resource
 type TestResource struct {
-	Name        string
-	Type        ResourceType
-	Available   bool
-	InUse       bool
-	Owner       string
-	CreatedAt   time.Time
-	LastUsed    time.Time
-	Cleanup     func() error
+	Name      string
+	Type      ResourceType
+	Available bool
+	InUse     bool
+	Owner     string
+	CreatedAt time.Time
+	LastUsed  time.Time
+	Cleanup   func() error
 }
 
 // ResourceType defines types of test resources
 type ResourceType string
 
 const (
-	ResourceTypeServer   ResourceType = "server"
-	ResourceTypeProject  ResourceType = "project"
-	ResourceTypeClient   ResourceType = "client"
-	ResourceTypeConfig   ResourceType = "config"
+	ResourceTypeServer    ResourceType = "server"
+	ResourceTypeProject   ResourceType = "project"
+	ResourceTypeClient    ResourceType = "client"
+	ResourceTypeConfig    ResourceType = "config"
 	ResourceTypeWorkspace ResourceType = "workspace"
 )
 
 // TestCoordinator coordinates test execution
 type TestCoordinator struct {
-	activeTests     map[string]*TestExecution
-	waitingTests    []*TestExecution
-	completedTests  []*TestExecution
-	maxConcurrent   int
-	currentRunning  int
-	mu              sync.RWMutex
+	activeTests    map[string]*TestExecution
+	waitingTests   []*TestExecution
+	completedTests []*TestExecution
+	maxConcurrent  int
+	currentRunning int
+	mu             sync.RWMutex
 }
 
 // TestExecution represents a test being executed
 type TestExecution struct {
-	TestInfo   *TestInfo
-	Context    context.Context
-	Cancel     context.CancelFunc
-	Done       chan struct{}
-	Result     interface{}
-	Error      error
+	TestInfo *TestInfo
+	Context  context.Context
+	Cancel   context.CancelFunc
+	Done     chan struct{}
+	Result   interface{}
+	Error    error
 }
 
 // NewE2ETestSuite creates a new E2E test suite
 func NewE2ETestSuite(t *testing.T) *E2ETestSuite {
 	resultsDir := filepath.Join("tests", "e2e", "results")
 	os.MkdirAll(resultsDir, 0755)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Hour)
-	
+
 	suite := &E2ETestSuite{
-		framework:              framework.NewMultiLanguageTestFramework(2 * time.Hour),
-		mcpMockClient:          mocks.NewMockMcpClient(),
-		ResultsDirectory:       resultsDir,
-		BaselineResultsFile:    filepath.Join(resultsDir, "baseline_e2e_results.json"),
-		TestTimeout:           2 * time.Hour,
-		MaxConcurrentTests:    4,
-		ctx:                   ctx,
-		cancel:                cancel,
+		framework:           framework.NewMultiLanguageTestFramework(2 * time.Hour),
+		mcpMockClient:       mocks.NewMockMcpClient(),
+		ResultsDirectory:    resultsDir,
+		BaselineResultsFile: filepath.Join(resultsDir, "baseline_e2e_results.json"),
+		TestTimeout:         2 * time.Hour,
+		MaxConcurrentTests:  4,
+		ctx:                 ctx,
+		cancel:              cancel,
 	}
-	
+
 	// Initialize components
 	suite.initializeComponents()
-	
+
 	return suite
 }
 
@@ -288,18 +287,18 @@ func (suite *E2ETestSuite) initializeComponents() {
 		StartTime:       time.Now(),
 		LastUpdate:      time.Now(),
 	}
-	
+
 	// Initialize dependency graph
 	suite.testDependencies = &TestDependencyGraph{
 		dependencies: make(map[string][]string),
 	}
-	
+
 	// Initialize resource manager
 	suite.resourceManager = &TestResourceManager{
 		resources:   make(map[string]*TestResource),
 		allocations: make(map[string]string),
 	}
-	
+
 	// Initialize test coordinator
 	suite.testCoordinator = &TestCoordinator{
 		activeTests:    make(map[string]*TestExecution),
@@ -307,7 +306,7 @@ func (suite *E2ETestSuite) initializeComponents() {
 		completedTests: make([]*TestExecution, 0),
 		maxConcurrent:  suite.MaxConcurrentTests,
 	}
-	
+
 	// Initialize individual test components
 	suite.httpTest = NewHTTPProtocolE2ETest(suite.framework, suite.mcpMockClient)
 	suite.mcpTest = NewMCPProtocolE2ETest(suite.framework, suite.mcpMockClient)
@@ -318,26 +317,26 @@ func (suite *E2ETestSuite) initializeComponents() {
 // RunFullE2ETestSuite runs the complete end-to-end test suite
 func (suite *E2ETestSuite) RunFullE2ETestSuite(t *testing.T) *E2ETestResults {
 	t.Log("Starting comprehensive E2E test suite...")
-	
+
 	// Initialize test suite
 	if err := suite.initializeTestSuite(t); err != nil {
 		t.Fatalf("Failed to initialize E2E test suite: %v", err)
 	}
 	defer suite.cleanup()
-	
+
 	// Load baseline results
 	suite.loadBaselineResults(t)
-	
+
 	// Initialize current results
 	suite.currentResults = &E2ETestResults{
 		Timestamp:  time.Now(),
 		SystemInfo: suite.collectSystemInfo(),
 	}
-	
+
 	// Create test execution plan
 	executionPlan := suite.createTestExecutionPlan()
 	suite.currentResults.TestExecutionPlan = executionPlan
-	
+
 	// Execute test phases based on strategy
 	switch executionPlan.ExecutionStrategy {
 	case StrategySequential:
@@ -349,44 +348,44 @@ func (suite *E2ETestSuite) RunFullE2ETestSuite(t *testing.T) *E2ETestResults {
 	default:
 		suite.executeTestsSequentially(t)
 	}
-	
+
 	// Calculate overall E2E score
 	suite.calculateOverallE2EScore()
-	
+
 	// Save results
 	if err := suite.saveResults(); err != nil {
 		t.Errorf("Failed to save E2E results: %v", err)
 	}
-	
+
 	// Generate E2E report
 	suite.generateE2EReport(t)
-	
+
 	return suite.currentResults
 }
 
 // initializeTestSuite initializes the E2E test suite
 func (suite *E2ETestSuite) initializeTestSuite(t *testing.T) error {
 	suite.updateTestPhase(PhaseSetup)
-	
+
 	ctx := context.Background()
-	
+
 	// Setup framework
 	if err := suite.framework.SetupTestEnvironment(ctx); err != nil {
 		return fmt.Errorf("failed to setup framework: %w", err)
 	}
-	
+
 	// Initialize mock MCP client
 	suite.mcpMockClient.Reset()
 	suite.mcpMockClient.SetHealthy(true)
-	
+
 	// Setup test dependencies
 	suite.setupTestDependencies()
-	
+
 	// Allocate initial resources
 	if err := suite.allocateInitialResources(); err != nil {
 		return fmt.Errorf("failed to allocate initial resources: %w", err)
 	}
-	
+
 	t.Log("E2E test suite initialization completed")
 	return nil
 }
@@ -404,7 +403,7 @@ func (suite *E2ETestSuite) createTestExecutionPlan() *TestExecutionPlan {
 				MaxRetries: 2,
 			},
 			{
-				Name:       "MCP Protocol Tests", 
+				Name:       "MCP Protocol Tests",
 				Tests:      []string{"mcp_startup", "tool_availability", "ai_integration", "cross_protocol"},
 				Required:   true,
 				Timeout:    15 * time.Minute,
@@ -426,25 +425,25 @@ func (suite *E2ETestSuite) createTestExecutionPlan() *TestExecutionPlan {
 			},
 		},
 		Dependencies: map[string][]string{
-			"mcp_startup":         {"gateway_startup"},
-			"ai_integration":      {"mcp_startup", "tool_availability"},
-			"cross_protocol":      {"gateway_startup", "mcp_startup"},
-			"developer_workflows": {"gateway_startup", "mcp_startup"},
-			"multi_language":      {"developer_workflows"},
+			"mcp_startup":           {"gateway_startup"},
+			"ai_integration":        {"mcp_startup", "tool_availability"},
+			"cross_protocol":        {"gateway_startup", "mcp_startup"},
+			"developer_workflows":   {"gateway_startup", "mcp_startup"},
+			"multi_language":        {"developer_workflows"},
 			"component_integration": {"gateway_startup", "mcp_startup"},
 		},
 		ResourceRequests: map[string][]string{
 			"gateway_startup":       {"server", "config"},
-			"mcp_startup":          {"server", "config"},
+			"mcp_startup":           {"server", "config"},
 			"concurrent_requests":   {"server", "client"},
 			"developer_workflows":   {"server", "project", "workspace"},
 			"component_integration": {"server", "config", "project"},
 		},
 		Timeouts: map[string]time.Duration{
-			"gateway_startup": 5 * time.Minute,
-			"mcp_startup":    5 * time.Minute,
-			"lsp_methods":    10 * time.Minute,
-			"ai_integration": 10 * time.Minute,
+			"gateway_startup":     5 * time.Minute,
+			"mcp_startup":         5 * time.Minute,
+			"lsp_methods":         10 * time.Minute,
+			"ai_integration":      10 * time.Minute,
 			"developer_workflows": 20 * time.Minute,
 		},
 		ParallelGroups: [][]string{
@@ -454,14 +453,14 @@ func (suite *E2ETestSuite) createTestExecutionPlan() *TestExecutionPlan {
 			{"circuit_breaker", "health_monitoring"},
 		},
 	}
-	
+
 	return plan
 }
 
 // executeTestsOptimized executes tests using optimized strategy
 func (suite *E2ETestSuite) executeTestsOptimized(t *testing.T) {
 	plan := suite.currentResults.TestExecutionPlan
-	
+
 	// Execute tests in dependency order with parallelization
 	for _, category := range plan.TestCategories {
 		t.Run(category.Name, func(t *testing.T) {
@@ -477,19 +476,19 @@ func (suite *E2ETestSuite) executeTestsSequentially(t *testing.T) {
 	t.Run("HTTPProtocolTests", func(t *testing.T) {
 		suite.executeHTTPProtocolTests(t)
 	})
-	
+
 	// MCP Protocol Tests
 	suite.updateTestPhase(PhaseMCPProtocol)
 	t.Run("MCPProtocolTests", func(t *testing.T) {
 		suite.executeMCPProtocolTests(t)
 	})
-	
+
 	// Workflow Tests
 	suite.updateTestPhase(PhaseWorkflow)
 	t.Run("WorkflowTests", func(t *testing.T) {
 		suite.executeWorkflowTests(t)
 	})
-	
+
 	// Integration Tests
 	suite.updateTestPhase(PhaseIntegration)
 	t.Run("IntegrationTests", func(t *testing.T) {
@@ -500,7 +499,7 @@ func (suite *E2ETestSuite) executeTestsSequentially(t *testing.T) {
 // executeTestsParallel executes tests in parallel where possible
 func (suite *E2ETestSuite) executeTestsParallel(t *testing.T) {
 	var wg sync.WaitGroup
-	
+
 	// Start HTTP and MCP protocol tests in parallel (after setup dependencies)
 	wg.Add(2)
 	go func() {
@@ -508,15 +507,15 @@ func (suite *E2ETestSuite) executeTestsParallel(t *testing.T) {
 		suite.updateTestPhase(PhaseHTTPProtocol)
 		suite.executeHTTPProtocolTests(t)
 	}()
-	
+
 	go func() {
 		defer wg.Done()
-		suite.updateTestPhase(PhaseMCPProtocol)  
+		suite.updateTestPhase(PhaseMCPProtocol)
 		suite.executeMCPProtocolTests(t)
 	}()
-	
+
 	wg.Wait()
-	
+
 	// Execute workflow and integration tests after protocol tests complete
 	wg.Add(2)
 	go func() {
@@ -524,13 +523,13 @@ func (suite *E2ETestSuite) executeTestsParallel(t *testing.T) {
 		suite.updateTestPhase(PhaseWorkflow)
 		suite.executeWorkflowTests(t)
 	}()
-	
+
 	go func() {
 		defer wg.Done()
 		suite.updateTestPhase(PhaseIntegration)
 		suite.executeIntegrationTests(t)
 	}()
-	
+
 	wg.Wait()
 }
 
@@ -549,9 +548,9 @@ func (suite *E2ETestSuite) executeIndividualTest(t *testing.T, testName string, 
 		StartTime: time.Now(),
 		Status:    StatusRunning,
 	}
-	
+
 	suite.trackTestStart(testName, testInfo)
-	
+
 	// Allocate required resources
 	resources, err := suite.allocateTestResources(testName)
 	if err != nil {
@@ -559,13 +558,13 @@ func (suite *E2ETestSuite) executeIndividualTest(t *testing.T, testName string, 
 		return
 	}
 	defer suite.releaseTestResources(testName, resources)
-	
+
 	// Execute the test
 	err = suite.executeTestByName(testName, testInfo)
-	
+
 	testInfo.EndTime = time.Now()
 	testInfo.Duration = testInfo.EndTime.Sub(testInfo.StartTime)
-	
+
 	if err != nil {
 		suite.trackTestFailure(testName, testInfo, err.Error())
 		t.Errorf("Test %s failed: %v", testName, err)
@@ -622,7 +621,7 @@ func (suite *E2ETestSuite) executeHTTPProtocolTests(t *testing.T) {
 		t.Errorf("HTTP protocol tests failed: %v", err)
 		return
 	}
-	
+
 	suite.currentResults.HTTPProtocolResults = results
 	suite.currentResults.TestsExecuted += results.LSPMethodsCovered + results.ConcurrentRequestTests + results.ErrorHandlingTests
 	if results.ProtocolComplianceScore >= 0.8 {
@@ -632,14 +631,14 @@ func (suite *E2ETestSuite) executeHTTPProtocolTests(t *testing.T) {
 	}
 }
 
-// MCP Protocol Tests  
+// MCP Protocol Tests
 func (suite *E2ETestSuite) executeMCPProtocolTests(t *testing.T) {
 	results, err := suite.mcpTest.RunMCPProtocolTests()
 	if err != nil {
 		t.Errorf("MCP protocol tests failed: %v", err)
 		return
 	}
-	
+
 	suite.currentResults.MCPProtocolResults = results
 	suite.currentResults.TestsExecuted += results.ToolsAvailable + results.McpToolsExecuted + results.CrossProtocolRequests
 	if results.MCPComplianceScore >= 0.8 {
@@ -656,7 +655,7 @@ func (suite *E2ETestSuite) executeWorkflowTests(t *testing.T) {
 		t.Errorf("Workflow tests failed: %v", err)
 		return
 	}
-	
+
 	suite.currentResults.WorkflowResults = results
 	suite.currentResults.TestsExecuted += results.DeveloperWorkflows + results.ProjectDetectionTests + results.RealWorldScenarios
 	if results.WorkflowSuccessRate >= 0.8 {
@@ -673,7 +672,7 @@ func (suite *E2ETestSuite) executeIntegrationTests(t *testing.T) {
 		t.Errorf("Integration tests failed: %v", err)
 		return
 	}
-	
+
 	suite.currentResults.IntegrationResults = results
 	suite.currentResults.TestsExecuted += results.ComponentIntegrations + results.ConfigurationTemplates + results.CircuitBreakerTests
 	if results.IntegrationScore >= 0.8 {
@@ -692,37 +691,37 @@ func (suite *E2ETestSuite) calculateOverallE2EScore() {
 		"workflow":      0.30,
 		"integration":   0.20,
 	}
-	
+
 	// HTTP Protocol score
 	httpScore := 100.0
 	if suite.currentResults.HTTPProtocolResults != nil {
 		httpScore = suite.currentResults.HTTPProtocolResults.ProtocolComplianceScore * 100
 	}
-	
+
 	// MCP Protocol score
 	mcpScore := 100.0
 	if suite.currentResults.MCPProtocolResults != nil {
 		mcpScore = suite.currentResults.MCPProtocolResults.MCPComplianceScore * 100
 	}
-	
+
 	// Workflow score
 	workflowScore := 100.0
 	if suite.currentResults.WorkflowResults != nil {
 		workflowScore = suite.currentResults.WorkflowResults.WorkflowSuccessRate * 100
 	}
-	
+
 	// Integration score
 	integrationScore := 100.0
 	if suite.currentResults.IntegrationResults != nil {
 		integrationScore = suite.currentResults.IntegrationResults.IntegrationScore * 100
 	}
-	
+
 	// Calculate weighted average
 	score = httpScore*weights["http_protocol"] +
 		mcpScore*weights["mcp_protocol"] +
 		workflowScore*weights["workflow"] +
 		integrationScore*weights["integration"]
-	
+
 	suite.currentResults.OverallE2EScore = score
 }
 
@@ -730,7 +729,7 @@ func (suite *E2ETestSuite) calculateOverallE2EScore() {
 func (suite *E2ETestSuite) updateTestPhase(phase TestPhase) {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
-	
+
 	suite.testState.CurrentPhase = phase
 	suite.testState.LastUpdate = time.Now()
 }
@@ -738,7 +737,7 @@ func (suite *E2ETestSuite) updateTestPhase(phase TestPhase) {
 func (suite *E2ETestSuite) trackTestStart(testName string, testInfo *TestInfo) {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
-	
+
 	suite.testState.TestsInProgress[testName] = testInfo
 	suite.testState.LastUpdate = time.Now()
 }
@@ -746,7 +745,7 @@ func (suite *E2ETestSuite) trackTestStart(testName string, testInfo *TestInfo) {
 func (suite *E2ETestSuite) trackTestCompletion(testName string, testInfo *TestInfo) {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
-	
+
 	testInfo.Status = StatusCompleted
 	suite.testState.CompletedTests[testName] = testInfo
 	delete(suite.testState.TestsInProgress, testName)
@@ -756,16 +755,16 @@ func (suite *E2ETestSuite) trackTestCompletion(testName string, testInfo *TestIn
 func (suite *E2ETestSuite) trackTestFailure(testName string, testInfo *TestInfo, errorMsg string) {
 	suite.mu.Lock()
 	defer suite.mu.Unlock()
-	
+
 	testInfo.Status = StatusFailed
 	testInfo.Error = errorMsg
 	suite.testState.FailedTests[testName] = testInfo
 	delete(suite.testState.TestsInProgress, testName)
 	suite.testState.LastUpdate = time.Now()
-	
+
 	// Track critical failures
 	if suite.currentResults != nil {
-		suite.currentResults.CriticalFailures = append(suite.currentResults.CriticalFailures, 
+		suite.currentResults.CriticalFailures = append(suite.currentResults.CriticalFailures,
 			fmt.Sprintf("%s: %s", testName, errorMsg))
 	}
 }
@@ -780,11 +779,11 @@ func (suite *E2ETestSuite) allocateInitialResources() error {
 		{Name: "test_config", Type: ResourceTypeConfig, Available: true},
 		{Name: "test_workspace", Type: ResourceTypeWorkspace, Available: true},
 	}
-	
+
 	for _, resource := range resources {
 		suite.resourceManager.resources[resource.Name] = &resource
 	}
-	
+
 	return nil
 }
 
@@ -794,10 +793,10 @@ func (suite *E2ETestSuite) allocateTestResources(testName string) ([]string, err
 	if !exists {
 		return []string{}, nil
 	}
-	
+
 	suite.resourceManager.mu.Lock()
 	defer suite.resourceManager.mu.Unlock()
-	
+
 	allocated := []string{}
 	for _, resourceType := range requestedResources {
 		// Find available resource of requested type
@@ -812,14 +811,14 @@ func (suite *E2ETestSuite) allocateTestResources(testName string) ([]string, err
 			}
 		}
 	}
-	
+
 	return allocated, nil
 }
 
 func (suite *E2ETestSuite) releaseTestResources(testName string, resources []string) {
 	suite.resourceManager.mu.Lock()
 	defer suite.resourceManager.mu.Unlock()
-	
+
 	for _, resourceName := range resources {
 		if resource, exists := suite.resourceManager.resources[resourceName]; exists {
 			resource.InUse = false
@@ -832,17 +831,17 @@ func (suite *E2ETestSuite) releaseTestResources(testName string, resources []str
 // Dependency management
 func (suite *E2ETestSuite) setupTestDependencies() {
 	dependencies := map[string][]string{
-		"mcp_startup":         {"gateway_startup"},
-		"ai_integration":      {"mcp_startup", "tool_availability"},
-		"cross_protocol":      {"gateway_startup", "mcp_startup"},
-		"developer_workflows": {"gateway_startup", "mcp_startup"},
-		"multi_language":      {"developer_workflows"},
+		"mcp_startup":           {"gateway_startup"},
+		"ai_integration":        {"mcp_startup", "tool_availability"},
+		"cross_protocol":        {"gateway_startup", "mcp_startup"},
+		"developer_workflows":   {"gateway_startup", "mcp_startup"},
+		"multi_language":        {"developer_workflows"},
 		"component_integration": {"gateway_startup", "mcp_startup"},
 	}
-	
+
 	suite.testDependencies.mu.Lock()
 	defer suite.testDependencies.mu.Unlock()
-	
+
 	suite.testDependencies.dependencies = dependencies
 }
 
@@ -852,43 +851,43 @@ func (suite *E2ETestSuite) loadBaselineResults(t *testing.T) {
 		t.Log("No baseline E2E results file found - this will become the new baseline")
 		return
 	}
-	
+
 	data, err := os.ReadFile(suite.BaselineResultsFile)
 	if err != nil {
 		t.Logf("Failed to read baseline E2E results: %v", err)
 		return
 	}
-	
+
 	if err := json.Unmarshal(data, &suite.baselineResults); err != nil {
 		t.Logf("Failed to parse baseline E2E results: %v", err)
 		return
 	}
-	
+
 	t.Logf("Loaded baseline E2E results from %s", suite.BaselineResultsFile)
 }
 
 func (suite *E2ETestSuite) saveResults() error {
-	currentFile := filepath.Join(suite.ResultsDirectory, 
+	currentFile := filepath.Join(suite.ResultsDirectory,
 		fmt.Sprintf("e2e_results_%s.json", time.Now().Format("20060102_150405")))
-	
+
 	data, err := json.MarshalIndent(suite.currentResults, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal E2E results: %w", err)
 	}
-	
+
 	if err := os.WriteFile(currentFile, data, 0644); err != nil {
 		return fmt.Errorf("failed to write E2E results file: %w", err)
 	}
-	
+
 	// Update baseline if score is better
-	if suite.baselineResults == nil || 
+	if suite.baselineResults == nil ||
 		suite.currentResults.OverallE2EScore > suite.baselineResults.OverallE2EScore {
-		
+
 		if err := os.WriteFile(suite.BaselineResultsFile, data, 0644); err != nil {
 			return fmt.Errorf("failed to update baseline E2E results: %w", err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -952,31 +951,31 @@ Integration Results:
 		suite.currentResults.IntegrationResults.ConfigurationTemplates,
 		suite.currentResults.IntegrationResults.IntegrationScore*100,
 	)
-	
+
 	if len(suite.currentResults.CriticalFailures) > 0 {
 		report += "Critical Failures:\n"
 		for _, failure := range suite.currentResults.CriticalFailures {
 			report += fmt.Sprintf("- %s\n", failure)
 		}
 	}
-	
+
 	// Save report to file
-	reportFile := filepath.Join(suite.ResultsDirectory, 
+	reportFile := filepath.Join(suite.ResultsDirectory,
 		fmt.Sprintf("e2e_report_%s.txt", time.Now().Format("20060102_150405")))
-	
+
 	if err := os.WriteFile(reportFile, []byte(report), 0644); err != nil {
 		t.Errorf("Failed to save E2E report: %v", err)
 	} else {
 		t.Logf("E2E report saved to %s", reportFile)
 	}
-	
+
 	t.Log(report)
 }
 
 func (suite *E2ETestSuite) collectSystemInfo() *SystemInfo {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	
+
 	return &SystemInfo{
 		OS:              runtime.GOOS,
 		Architecture:    runtime.GOARCH,
@@ -990,15 +989,15 @@ func (suite *E2ETestSuite) collectSystemInfo() *SystemInfo {
 
 func (suite *E2ETestSuite) cleanup() {
 	suite.updateTestPhase(PhaseCleanup)
-	
+
 	if suite.framework != nil {
 		suite.framework.CleanupAll()
 	}
-	
+
 	if suite.mcpMockClient != nil {
 		suite.mcpMockClient.Reset()
 	}
-	
+
 	// Cleanup all allocated resources
 	suite.resourceManager.mu.Lock()
 	for _, resource := range suite.resourceManager.resources {
@@ -1007,11 +1006,11 @@ func (suite *E2ETestSuite) cleanup() {
 		}
 	}
 	suite.resourceManager.mu.Unlock()
-	
+
 	if suite.cancel != nil {
 		suite.cancel()
 	}
-	
+
 	suite.updateTestPhase(PhaseComplete)
 }
 
@@ -1020,17 +1019,17 @@ func TestFullE2ETestSuite(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping full E2E test suite in short mode")
 	}
-	
+
 	suite := NewE2ETestSuite(t)
 	results := suite.RunFullE2ETestSuite(t)
-	
+
 	// Validate E2E requirements
 	if results.OverallE2EScore < 80.0 {
 		t.Errorf("E2E test suite score below threshold: %.1f < 80.0", results.OverallE2EScore)
 	}
-	
+
 	if results.TestsFailed > results.TestsExecuted/10 {
-		t.Errorf("Too many test failures: %d failed out of %d executed", 
+		t.Errorf("Too many test failures: %d failed out of %d executed",
 			results.TestsFailed, results.TestsExecuted)
 	}
 }
@@ -1038,25 +1037,25 @@ func TestFullE2ETestSuite(t *testing.T) {
 func TestE2EQuickValidation(t *testing.T) {
 	suite := NewE2ETestSuite(t)
 	suite.TestTimeout = 10 * time.Minute
-	
+
 	// Run only critical tests for quick validation
 	suite.currentResults = &E2ETestResults{
 		Timestamp:  time.Now(),
 		SystemInfo: suite.collectSystemInfo(),
 	}
-	
+
 	if err := suite.initializeTestSuite(t); err != nil {
 		t.Fatalf("Failed to initialize E2E test suite: %v", err)
 	}
 	defer suite.cleanup()
-	
+
 	// Run only gateway startup and basic MCP tests
 	t.Run("QuickHTTPValidation", func(t *testing.T) {
 		if err := suite.httpTest.TestGatewayStartup(); err != nil {
 			t.Errorf("Gateway startup test failed: %v", err)
 		}
 	})
-	
+
 	t.Run("QuickMCPValidation", func(t *testing.T) {
 		if err := suite.mcpTest.TestMCPStartup(); err != nil {
 			t.Errorf("MCP startup test failed: %v", err)

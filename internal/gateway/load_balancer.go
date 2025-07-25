@@ -316,9 +316,13 @@ func NewLoadBalancer(strategy string) *LoadBalancer {
 	lbConfig := &config.LoadBalancingConfig{
 		Strategy:        strategy,
 		HealthThreshold: 0.8,
+<<<<<<< HEAD
 		FallbackEnabled: true,
 		MaxRetries:      3,
 		RetryDelay:      100 * time.Millisecond,
+=======
+		WeightFactors:   make(map[string]float64),
+>>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	}
 
 	selector, err := NewServerSelector(lbConfig)
@@ -336,6 +340,7 @@ func NewLoadBalancer(strategy string) *LoadBalancer {
 }
 
 // NewLoadBalancerWithConfig creates a load balancer with specific configuration
+<<<<<<< HEAD
 func NewLoadBalancerWithConfig(lbConfig *config.LoadBalancingConfig, logger *log.Logger) *LoadBalancer {
 	if lbConfig == nil {
 		lbConfig = &config.LoadBalancingConfig{
@@ -358,6 +363,28 @@ func NewLoadBalancerWithConfig(lbConfig *config.LoadBalancingConfig, logger *log
 
 	return &LoadBalancer{
 		strategy: lbConfig.Strategy,
+=======
+func NewLoadBalancerWithConfig(loadBalancingConfig *config.LoadBalancingConfig, logger *log.Logger) *LoadBalancer {
+	if loadBalancingConfig == nil {
+		loadBalancingConfig = &config.LoadBalancingConfig{
+			Strategy:        "round_robin",
+			HealthThreshold: 0.8,
+			WeightFactors:   make(map[string]float64),
+		}
+	}
+
+	selector, err := NewServerSelector(loadBalancingConfig)
+	if err != nil {
+		if logger != nil {
+			logger.Printf("Failed to create selector for strategy %s: %v, falling back to round robin", loadBalancingConfig.Strategy, err)
+		}
+		selector = NewRoundRobinSelector()
+		loadBalancingConfig.Strategy = "round_robin"
+	}
+
+	return &LoadBalancer{
+		strategy: loadBalancingConfig.Strategy,
+>>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 		selector: selector,
 		metrics:  NewLoadBalancerMetrics(),
 		logger:   logger,
@@ -455,6 +482,7 @@ func (lb *LoadBalancer) GetStrategy() string {
 }
 
 // SetStrategy changes the load balancing strategy
+<<<<<<< HEAD
 func (lb *LoadBalancer) SetStrategy(strategy string, lbConfig *config.LoadBalancingConfig) error {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
@@ -472,6 +500,23 @@ func (lb *LoadBalancer) SetStrategy(strategy string, lbConfig *config.LoadBalanc
 	}
 
 	selector, err := NewServerSelector(lbConfig)
+=======
+func (lb *LoadBalancer) SetStrategy(strategy string, cfg *config.LoadBalancingConfig) error {
+	lb.mu.Lock()
+	defer lb.mu.Unlock()
+
+	if cfg == nil {
+		cfg = &config.LoadBalancingConfig{
+			Strategy:        strategy,
+			HealthThreshold: 0.8,
+			WeightFactors:   make(map[string]float64),
+		}
+	} else {
+		cfg.Strategy = strategy
+	}
+
+	selector, err := NewServerSelector(cfg)
+>>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	if err != nil {
 		return fmt.Errorf("failed to create selector for strategy %s: %w", strategy, err)
 	}
@@ -511,9 +556,13 @@ func (lb *LoadBalancer) Reset() {
 	lbConfig := &config.LoadBalancingConfig{
 		Strategy:        lb.strategy,
 		HealthThreshold: 0.8,
+<<<<<<< HEAD
 		FallbackEnabled: true,
 		MaxRetries:      3,
 		RetryDelay:      100 * time.Millisecond,
+=======
+		WeightFactors:   make(map[string]float64),
+>>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	}
 
 	if selector, err := NewServerSelector(lbConfig); err == nil {

@@ -33,32 +33,32 @@ const (
 
 // ProjectGenerationConfig configures project generation
 type ProjectGenerationConfig struct {
-	Type         ProjectType
-	Languages    []string
-	Complexity   ProjectComplexity
-	Size         ProjectSize
-	BuildSystem  bool
-	TestFiles    bool
-	Dependencies bool
+	Type          ProjectType
+	Languages     []string
+	Complexity    ProjectComplexity
+	Size          ProjectSize
+	BuildSystem   bool
+	TestFiles     bool
+	Dependencies  bool
 	Documentation bool
-	CI           bool
-	Docker       bool
-	
+	CI            bool
+	Docker        bool
+
 	// Customization options
-	FileCount         int
-	DirectoryDepth    int
-	CrossReferences   bool
-	RealisticContent  bool
-	VersionControl    bool
-	
+	FileCount        int
+	DirectoryDepth   int
+	CrossReferences  bool
+	RealisticContent bool
+	VersionControl   bool
+
 	// Enhanced options for complex scenarios
 	MicroserviceCount    int
 	DatabaseIntegration  bool
 	KubernetesConfig     bool
-	APIGateway          bool
-	ServiceMesh         bool
-	MonitoringStack     bool
-	SharedLibraries     bool
+	APIGateway           bool
+	ServiceMesh          bool
+	MonitoringStack      bool
+	SharedLibraries      bool
 	MultiModuleStructure bool
 }
 
@@ -75,29 +75,29 @@ type ProjectTemplate struct {
 
 // TestProjectGenerator generates realistic test projects
 type TestProjectGenerator struct {
-	TempDir      string
-	Templates    map[string]*ProjectTemplate
-	Generated    []*TestProject
-	
+	TempDir   string
+	Templates map[string]*ProjectTemplate
+	Generated []*TestProject
+
 	// Call tracking
-	LoadTemplatesCalls     []context.Context
-	GenerateProjectCalls   []ProjectGenerationConfig
-	
+	LoadTemplatesCalls   []context.Context
+	GenerateProjectCalls []ProjectGenerationConfig
+
 	// Function fields for behavior customization
-	LoadTemplatesFunc      func(ctx context.Context) error
-	GenerateProjectFunc    func(config *ProjectGenerationConfig) (*TestProject, error)
-	
+	LoadTemplatesFunc   func(ctx context.Context) error
+	GenerateProjectFunc func(config *ProjectGenerationConfig) (*TestProject, error)
+
 	mu sync.RWMutex
 }
 
 // NewTestProjectGenerator creates a new test project generator
 func NewTestProjectGenerator(tempDir string) *TestProjectGenerator {
 	return &TestProjectGenerator{
-		TempDir:                tempDir,
-		Templates:              make(map[string]*ProjectTemplate),
-		Generated:              make([]*TestProject, 0),
-		LoadTemplatesCalls:     make([]context.Context, 0),
-		GenerateProjectCalls:   make([]ProjectGenerationConfig, 0),
+		TempDir:              tempDir,
+		Templates:            make(map[string]*ProjectTemplate),
+		Generated:            make([]*TestProject, 0),
+		LoadTemplatesCalls:   make([]context.Context, 0),
+		GenerateProjectCalls: make([]ProjectGenerationConfig, 0),
 	}
 }
 
@@ -105,13 +105,13 @@ func NewTestProjectGenerator(tempDir string) *TestProjectGenerator {
 func (g *TestProjectGenerator) LoadTemplates(ctx context.Context) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	
+
 	g.LoadTemplatesCalls = append(g.LoadTemplatesCalls, ctx)
-	
+
 	if g.LoadTemplatesFunc != nil {
 		return g.LoadTemplatesFunc(ctx)
 	}
-	
+
 	// Load predefined templates
 	g.loadGoTemplates()
 	g.loadPythonTemplates()
@@ -121,7 +121,7 @@ func (g *TestProjectGenerator) LoadTemplates(ctx context.Context) error {
 	g.loadMultiLanguageTemplates()
 	g.loadMonorepoTemplates()
 	g.loadMicroservicesTemplates()
-	
+
 	// Load enhanced complex scenario templates
 	g.loadMonorepoWebAppTemplates()
 	g.loadMicroservicesSuiteTemplates()
@@ -129,7 +129,7 @@ func (g *TestProjectGenerator) LoadTemplates(ctx context.Context) error {
 	g.loadFullStackTypeScriptTemplates()
 	g.loadJavaSpringWithReactTemplates()
 	g.loadEnterprisePlatformTemplates()
-	
+
 	return nil
 }
 
@@ -137,21 +137,21 @@ func (g *TestProjectGenerator) LoadTemplates(ctx context.Context) error {
 func (g *TestProjectGenerator) GenerateProject(config *ProjectGenerationConfig) (*TestProject, error) {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	
+
 	g.GenerateProjectCalls = append(g.GenerateProjectCalls, *config)
-	
+
 	if g.GenerateProjectFunc != nil {
 		return g.GenerateProjectFunc(config)
 	}
-	
+
 	// Create project directory
 	projectName := g.generateProjectName(config)
 	projectPath := filepath.Join(g.TempDir, "projects", projectName)
-	
+
 	if err := os.MkdirAll(projectPath, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create project directory: %w", err)
 	}
-	
+
 	// Create project structure
 	project := &TestProject{
 		ID:           fmt.Sprintf("proj-%d", time.Now().UnixNano()),
@@ -165,23 +165,23 @@ func (g *TestProjectGenerator) GenerateProject(config *ProjectGenerationConfig) 
 		Dependencies: make(map[string][]string),
 		CreatedAt:    time.Now(),
 	}
-	
+
 	// Generate project content based on configuration
 	if err := g.generateProjectContent(project, config); err != nil {
 		return nil, fmt.Errorf("failed to generate project content: %w", err)
 	}
-	
+
 	// Write files to disk
 	if err := g.writeProjectFiles(project); err != nil {
 		return nil, fmt.Errorf("failed to write project files: %w", err)
 	}
-	
+
 	// Calculate project size
 	project.Size = g.calculateProjectSize(project)
-	
+
 	// Track generated project
 	g.Generated = append(g.Generated, project)
-	
+
 	return project, nil
 }
 
@@ -200,42 +200,42 @@ func (g *TestProjectGenerator) generateProjectContent(project *TestProject, conf
 			return fmt.Errorf("failed to generate %s content: %w", language, err)
 		}
 	}
-	
+
 	// Generate project type specific structure
 	if err := g.generateProjectTypeStructure(project, config); err != nil {
 		return fmt.Errorf("failed to generate project type structure: %w", err)
 	}
-	
+
 	// Generate build system files
 	if config.BuildSystem {
 		g.generateBuildFiles(project, config)
 	}
-	
+
 	// Generate test files
 	if config.TestFiles {
 		g.generateTestFiles(project, config)
 	}
-	
+
 	// Generate dependencies
 	if config.Dependencies {
 		g.generateDependencies(project, config)
 	}
-	
+
 	// Generate documentation
 	if config.Documentation {
 		g.generateDocumentation(project, config)
 	}
-	
+
 	// Generate CI configuration
 	if config.CI {
 		g.generateCIConfiguration(project, config)
 	}
-	
+
 	// Generate Docker configuration
 	if config.Docker {
 		g.generateDockerConfiguration(project, config)
 	}
-	
+
 	return nil
 }
 
@@ -268,10 +268,10 @@ func (g *TestProjectGenerator) generateGoContent(project *TestProject, config *P
 	// Generate go.mod
 	project.Structure["go.mod"] = g.generateGoMod(project.Name)
 	project.BuildFiles = append(project.BuildFiles, "go.mod")
-	
+
 	// Generate main.go
 	project.Structure["main.go"] = g.generateGoMain()
-	
+
 	// Generate package structure based on complexity
 	switch config.Complexity {
 	case ComplexitySimple:
@@ -290,10 +290,10 @@ func (g *TestProjectGenerator) generateGoContent(project *TestProject, config *P
 		project.Structure["internal/database/connection.go"] = g.generateGoDatabase()
 		project.Structure["api/routes.go"] = g.generateGoRoutes()
 	}
-	
+
 	// Add dependencies
 	project.Dependencies["go"] = []string{"github.com/gin-gonic/gin", "gorm.io/gorm"}
-	
+
 	return nil
 }
 
@@ -307,13 +307,13 @@ func (g *TestProjectGenerator) generatePythonContent(project *TestProject, confi
 		project.Structure["pyproject.toml"] = g.generatePythonPyproject(project.Name)
 		project.BuildFiles = append(project.BuildFiles, "pyproject.toml")
 	}
-	
+
 	// Generate requirements.txt
 	project.Structure["requirements.txt"] = g.generatePythonRequirements()
-	
+
 	// Generate main.py
 	project.Structure["main.py"] = g.generatePythonMain()
-	
+
 	// Generate package structure based on complexity
 	switch config.Complexity {
 	case ComplexitySimple:
@@ -337,10 +337,10 @@ func (g *TestProjectGenerator) generatePythonContent(project *TestProject, confi
 		project.Structure["src/database/__init__.py"] = ""
 		project.Structure["src/database/connection.py"] = g.generatePythonDatabase()
 	}
-	
+
 	// Add dependencies
 	project.Dependencies["python"] = []string{"flask", "requests", "sqlalchemy"}
-	
+
 	return nil
 }
 
@@ -349,11 +349,11 @@ func (g *TestProjectGenerator) generateTypeScriptContent(project *TestProject, c
 	// Generate package.json
 	project.Structure["package.json"] = g.generatePackageJson(project.Name, "typescript")
 	project.BuildFiles = append(project.BuildFiles, "package.json")
-	
+
 	// Generate tsconfig.json
 	project.Structure["tsconfig.json"] = g.generateTsConfig()
 	project.BuildFiles = append(project.BuildFiles, "tsconfig.json")
-	
+
 	// Generate content based on complexity
 	switch config.Complexity {
 	case ComplexitySimple:
@@ -373,10 +373,10 @@ func (g *TestProjectGenerator) generateTypeScriptContent(project *TestProject, c
 		project.Structure["src/api/routes.ts"] = g.generateTypeScriptRoutes()
 		project.Structure["src/database/connection.ts"] = g.generateTypeScriptDatabase()
 	}
-	
+
 	// Add dependencies
 	project.Dependencies["typescript"] = []string{"react", "express", "axios"}
-	
+
 	return nil
 }
 
@@ -385,10 +385,10 @@ func (g *TestProjectGenerator) generateJavaContent(project *TestProject, config 
 	// Generate pom.xml
 	project.Structure["pom.xml"] = g.generatePomXml(project.Name)
 	project.BuildFiles = append(project.BuildFiles, "pom.xml")
-	
+
 	// Generate content based on complexity
 	packagePath := "src/main/java/com/example"
-	
+
 	switch config.Complexity {
 	case ComplexitySimple:
 		project.Structure[packagePath+"/Main.java"] = g.generateJavaMain()
@@ -407,10 +407,10 @@ func (g *TestProjectGenerator) generateJavaContent(project *TestProject, config 
 		project.Structure[packagePath+"/config/DatabaseConfig.java"] = g.generateJavaConfig()
 		project.Structure["src/main/resources/application.properties"] = g.generateJavaApplicationProperties()
 	}
-	
+
 	// Add dependencies
 	project.Dependencies["java"] = []string{"spring-boot-starter-web", "spring-boot-starter-data-jpa"}
-	
+
 	return nil
 }
 
@@ -419,7 +419,7 @@ func (g *TestProjectGenerator) generateRustContent(project *TestProject, config 
 	// Generate Cargo.toml
 	project.Structure["Cargo.toml"] = g.generateCargoToml(project.Name)
 	project.BuildFiles = append(project.BuildFiles, "Cargo.toml")
-	
+
 	// Generate content based on complexity
 	switch config.Complexity {
 	case ComplexitySimple:
@@ -440,10 +440,10 @@ func (g *TestProjectGenerator) generateRustContent(project *TestProject, config 
 		project.Structure["src/utils/mod.rs"] = g.generateRustUtilsModule()
 		project.Structure["src/utils/helpers.rs"] = g.generateRustUtils()
 	}
-	
+
 	// Add dependencies
 	project.Dependencies["rust"] = []string{"serde", "tokio", "axum"}
-	
+
 	return nil
 }
 
@@ -452,7 +452,7 @@ func (g *TestProjectGenerator) generateCppContent(project *TestProject, config *
 	// Generate CMakeLists.txt
 	project.Structure["CMakeLists.txt"] = g.generateCMakeLists(project.Name)
 	project.BuildFiles = append(project.BuildFiles, "CMakeLists.txt")
-	
+
 	switch config.Complexity {
 	case ComplexitySimple:
 		project.Structure["main.cpp"] = g.generateCppMain()
@@ -465,7 +465,7 @@ func (g *TestProjectGenerator) generateCppContent(project *TestProject, config *
 		project.Structure["include/user.h"] = g.generateCppUserHeader()
 		project.Structure["src/user.cpp"] = g.generateCppUser()
 	}
-	
+
 	return nil
 }
 
@@ -474,7 +474,7 @@ func (g *TestProjectGenerator) generateCSharpContent(project *TestProject, confi
 	// Generate .csproj file
 	project.Structure[project.Name+".csproj"] = g.generateCsProj(project.Name)
 	project.BuildFiles = append(project.BuildFiles, project.Name+".csproj")
-	
+
 	switch config.Complexity {
 	case ComplexitySimple:
 		project.Structure["Program.cs"] = g.generateCSharpMain()
@@ -486,7 +486,7 @@ func (g *TestProjectGenerator) generateCSharpContent(project *TestProject, confi
 		project.Structure["Controllers/UserController.cs"] = g.generateCSharpController()
 		project.Structure["Utils/Helper.cs"] = g.generateCSharpUtils()
 	}
-	
+
 	return nil
 }
 
@@ -496,7 +496,7 @@ func (g *TestProjectGenerator) generateGenericContent(project *TestProject, lang
 	ext := g.getExtensionForLanguage(language)
 	project.Structure[fmt.Sprintf("main%s", ext)] = fmt.Sprintf("// Main file for %s\nprint('Hello from %s!')", language, language)
 	project.Structure[fmt.Sprintf("utils%s", ext)] = fmt.Sprintf("// Utility file for %s\nfunction utility() { return 'utility'; }", language)
-	
+
 	return nil
 }
 
@@ -514,11 +514,11 @@ func (g *TestProjectGenerator) getExtensionForLanguage(language string) string {
 		"php":        ".php",
 		"ruby":       ".rb",
 	}
-	
+
 	if ext, exists := extensions[language]; exists {
 		return ext
 	}
-	
+
 	return ".txt"
 }
 
@@ -526,29 +526,29 @@ func (g *TestProjectGenerator) getExtensionForLanguage(language string) string {
 func (g *TestProjectGenerator) writeProjectFiles(project *TestProject) error {
 	for relPath, content := range project.Structure {
 		fullPath := filepath.Join(project.RootPath, relPath)
-		
+
 		// Create parent directories
 		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
 			return fmt.Errorf("failed to create directory for %s: %w", relPath, err)
 		}
-		
+
 		// Write file
 		if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
 			return fmt.Errorf("failed to write file %s: %w", relPath, err)
 		}
 	}
-	
+
 	return nil
 }
 
 // calculateProjectSize calculates the total size of the project
 func (g *TestProjectGenerator) calculateProjectSize(project *TestProject) int64 {
 	var totalSize int64
-	
+
 	for _, content := range project.Structure {
 		totalSize += int64(len(content))
 	}
-	
+
 	return totalSize
 }
 
@@ -556,16 +556,16 @@ func (g *TestProjectGenerator) calculateProjectSize(project *TestProject) int64 
 func (g *TestProjectGenerator) Reset() {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	
+
 	// Clean up generated projects
 	for _, project := range g.Generated {
 		os.RemoveAll(project.RootPath)
 	}
-	
+
 	g.Generated = make([]*TestProject, 0)
 	g.LoadTemplatesCalls = make([]context.Context, 0)
 	g.GenerateProjectCalls = make([]ProjectGenerationConfig, 0)
-	
+
 	// Reset function fields
 	g.LoadTemplatesFunc = nil
 	g.GenerateProjectFunc = nil
@@ -611,9 +611,9 @@ func (g *TestProjectGenerator) loadTypeScriptTemplates() {
 		Type:      ProjectTypeSingleLanguage,
 		Languages: []string{"typescript"},
 		Structure: map[string]string{
-			"package.json":   "{\"name\": \"{{.ProjectName}}\", \"dependencies\": {\"typescript\": \"^4.9.0\"}}",
-			"tsconfig.json":  "{\"compilerOptions\": {\"target\": \"ES2020\"}}",
-			"src/index.ts":   "console.log('Hello, World!');",
+			"package.json":  "{\"name\": \"{{.ProjectName}}\", \"dependencies\": {\"typescript\": \"^4.9.0\"}}",
+			"tsconfig.json": "{\"compilerOptions\": {\"target\": \"ES2020\"}}",
+			"src/index.ts":  "console.log('Hello, World!');",
 		},
 		BuildFiles:   []string{"package.json", "tsconfig.json"},
 		Dependencies: map[string][]string{"typescript": {"react", "express"}},
@@ -627,7 +627,7 @@ func (g *TestProjectGenerator) loadJavaTemplates() {
 		Type:      ProjectTypeSingleLanguage,
 		Languages: []string{"java"},
 		Structure: map[string]string{
-			"pom.xml": "<?xml version=\"1.0\"?>\n<project><modelVersion>4.0.0</modelVersion><groupId>com.example</groupId><artifactId>{{.ProjectName}}</artifactId><version>1.0.0</version></project>",
+			"pom.xml":                 "<?xml version=\"1.0\"?>\n<project><modelVersion>4.0.0</modelVersion><groupId>com.example</groupId><artifactId>{{.ProjectName}}</artifactId><version>1.0.0</version></project>",
 			"src/main/java/Main.java": "public class Main {\n    public static void main(String[] args) {\n        System.out.println(\"Hello, World!\");\n    }\n}",
 		},
 		BuildFiles:   []string{"pom.xml"},
@@ -642,8 +642,8 @@ func (g *TestProjectGenerator) loadRustTemplates() {
 		Type:      ProjectTypeSingleLanguage,
 		Languages: []string{"rust"},
 		Structure: map[string]string{
-			"Cargo.toml":   "[package]\nname = \"{{.ProjectName}}\"\nversion = \"0.1.0\"\nedition = \"2021\"",
-			"src/main.rs":  "fn main() {\n    println!(\"Hello, world!\");\n}",
+			"Cargo.toml":  "[package]\nname = \"{{.ProjectName}}\"\nversion = \"0.1.0\"\nedition = \"2021\"",
+			"src/main.rs": "fn main() {\n    println!(\"Hello, world!\");\n}",
 		},
 		BuildFiles:   []string{"Cargo.toml"},
 		Dependencies: map[string][]string{"rust": {"serde", "tokio"}},
@@ -657,12 +657,12 @@ func (g *TestProjectGenerator) loadMultiLanguageTemplates() {
 		Type:      ProjectTypeMultiLanguage,
 		Languages: []string{"go", "python", "typescript"},
 		Structure: map[string]string{
-			"backend/go.mod":         "module {{.ProjectName}}-backend\n\ngo 1.19",
-			"backend/main.go":        "package main\n\nfunc main() {}",
-			"scripts/setup.py":       "from setuptools import setup\n\nsetup(name='{{.ProjectName}}-scripts')",
-			"scripts/deploy.py":      "print('Deploying')",
-			"frontend/package.json":  "{\"name\": \"{{.ProjectName}}-frontend\"}",
-			"frontend/src/index.ts":  "console.log('Frontend');",
+			"backend/go.mod":        "module {{.ProjectName}}-backend\n\ngo 1.19",
+			"backend/main.go":       "package main\n\nfunc main() {}",
+			"scripts/setup.py":      "from setuptools import setup\n\nsetup(name='{{.ProjectName}}-scripts')",
+			"scripts/deploy.py":     "print('Deploying')",
+			"frontend/package.json": "{\"name\": \"{{.ProjectName}}-frontend\"}",
+			"frontend/src/index.ts": "console.log('Frontend');",
 		},
 		BuildFiles: []string{"backend/go.mod", "scripts/setup.py", "frontend/package.json"},
 	}
@@ -675,16 +675,16 @@ func (g *TestProjectGenerator) loadMonorepoTemplates() {
 		Type:      ProjectTypeMonorepo,
 		Languages: []string{"go", "python", "typescript", "java", "rust"},
 		Structure: map[string]string{
-			"services/auth-service/go.mod":         "module auth-service\n\ngo 1.19",
-			"services/auth-service/main.go":        "package main\n\nfunc main() {}",
-			"services/user-service/setup.py":       "from setuptools import setup\n\nsetup(name='user-service')",
-			"services/user-service/main.py":        "print('User service')",
-			"frontend/package.json":                "{\"name\": \"frontend\"}",
-			"frontend/src/App.tsx":                 "import React from 'react';\n\nconst App = () => <div>App</div>;",
-			"services/notification/pom.xml":        "<?xml version=\"1.0\"?>\n<project><modelVersion>4.0.0</modelVersion></project>",
-			"services/notification/Main.java":      "public class Main { public static void main(String[] args) {} }",
-			"services/search/Cargo.toml":           "[package]\nname = \"search\"\nversion = \"0.1.0\"",
-			"services/search/src/main.rs":          "fn main() { println!(\"Search service\"); }",
+			"services/auth-service/go.mod":    "module auth-service\n\ngo 1.19",
+			"services/auth-service/main.go":   "package main\n\nfunc main() {}",
+			"services/user-service/setup.py":  "from setuptools import setup\n\nsetup(name='user-service')",
+			"services/user-service/main.py":   "print('User service')",
+			"frontend/package.json":           "{\"name\": \"frontend\"}",
+			"frontend/src/App.tsx":            "import React from 'react';\n\nconst App = () => <div>App</div>;",
+			"services/notification/pom.xml":   "<?xml version=\"1.0\"?>\n<project><modelVersion>4.0.0</modelVersion></project>",
+			"services/notification/Main.java": "public class Main { public static void main(String[] args) {} }",
+			"services/search/Cargo.toml":      "[package]\nname = \"search\"\nversion = \"0.1.0\"",
+			"services/search/src/main.rs":     "fn main() { println!(\"Search service\"); }",
 		},
 		BuildFiles: []string{"services/auth-service/go.mod", "services/user-service/setup.py", "frontend/package.json", "services/notification/pom.xml", "services/search/Cargo.toml"},
 	}
@@ -719,11 +719,11 @@ func (g *TestProjectGenerator) loadMonorepoWebAppTemplates() {
 		Type:      ProjectTypeMonorepoWebApp,
 		Languages: []string{"typescript", "go", "python"},
 		Structure: map[string]string{
-			"package.json":     "{\"name\": \"monorepo-webapp\", \"workspaces\": [\"packages/*\", \"services/*\"]}",
-			"lerna.json":       "{\"version\": \"0.0.0\", \"npmClient\": \"yarn\", \"useWorkspaces\": true}",
-			"workspace.json":   "{\"version\": 2, \"projects\": {}}",
+			"package.json":   "{\"name\": \"monorepo-webapp\", \"workspaces\": [\"packages/*\", \"services/*\"]}",
+			"lerna.json":     "{\"version\": \"0.0.0\", \"npmClient\": \"yarn\", \"useWorkspaces\": true}",
+			"workspace.json": "{\"version\": 2, \"projects\": {}}",
 		},
-		BuildFiles:   []string{"package.json", "lerna.json", "workspace.json"},
+		BuildFiles: []string{"package.json", "lerna.json", "workspace.json"},
 		Dependencies: map[string][]string{
 			"typescript": {"react", "@types/react", "vite"},
 			"go":         {"github.com/gin-gonic/gin", "gorm.io/gorm"},
@@ -797,8 +797,8 @@ func (g *TestProjectGenerator) loadFullStackTypeScriptTemplates() {
 		Type:      "fullstack-typescript",
 		Languages: []string{"typescript"},
 		Structure: map[string]string{
-			"package.json":   "{\"name\": \"fullstack-typescript\", \"workspaces\": [\"apps/*\", \"packages/*\"]}",
-			"turbo.json":     "{\"pipeline\": {\"build\": {\"outputs\": [\"dist/**\"]}}}",
+			"package.json":  "{\"name\": \"fullstack-typescript\", \"workspaces\": [\"apps/*\", \"packages/*\"]}",
+			"turbo.json":    "{\"pipeline\": {\"build\": {\"outputs\": [\"dist/**\"]}}}",
 			"tsconfig.json": "{\"compilerOptions\": {\"target\": \"ES2020\"}}",
 		},
 		BuildFiles: []string{"package.json", "turbo.json", "tsconfig.json"},
@@ -843,8 +843,8 @@ func (g *TestProjectGenerator) loadEnterprisePlatformTemplates() {
 		Type:      "enterprise-platform",
 		Languages: []string{"go", "java", "python", "rust", "cpp", "csharp", "typescript", "scala"},
 		Structure: map[string]string{
-			"platform.yaml":               "version: 1\nplatform:\n  name: enterprise-platform",
-			"Makefile":                    "all:\n\t@echo 'Building enterprise platform'",
+			"platform.yaml":                 "version: 1\nplatform:\n  name: enterprise-platform",
+			"Makefile":                      "all:\n\t@echo 'Building enterprise platform'",
 			"docker-compose.enterprise.yml": "version: '3.8'\nservices:\n  core:\n    build: ./platform/core",
 		},
 		BuildFiles: []string{"platform.yaml", "Makefile", "docker-compose.enterprise.yml"},
@@ -859,13 +859,13 @@ func (g *TestProjectGenerator) loadEnterprisePlatformTemplates() {
 			"scala":      {"akka-actor", "akka-stream", "kafka-streams-scala"},
 		},
 		Frameworks: map[string]string{
-			"core":           "Go + Kubernetes + gRPC",
-			"auth":           "Java Spring Boot + JWT",
-			"data-pipeline":  "Python + Kafka + Pandas",
-			"analytics":      "Rust + TimeSeries + gRPC",
-			"ml-service":     "C++ + TensorFlow + gRPC",
-			"config":         "C# .NET + Configuration",
-			"monitoring":     "TypeScript + Prometheus",
+			"core":            "Go + Kubernetes + gRPC",
+			"auth":            "Java Spring Boot + JWT",
+			"data-pipeline":   "Python + Kafka + Pandas",
+			"analytics":       "Rust + TimeSeries + gRPC",
+			"ml-service":      "C++ + TensorFlow + gRPC",
+			"config":          "C# .NET + Configuration",
+			"monitoring":      "TypeScript + Prometheus",
 			"event-streaming": "Scala + Akka + Kafka",
 		},
 	}
@@ -983,12 +983,12 @@ func (g *TestProjectGenerator) generatePackageJson(projectName, projectType stri
 		"typescript": "\"typescript\": \"^4.9.0\", \"@types/node\": \"^18.0.0\"",
 		"javascript": "\"express\": \"^4.18.0\", \"lodash\": \"^4.17.0\"",
 	}
-	
+
 	dep := deps[projectType]
 	if dep == "" {
 		dep = "\"typescript\": \"^4.9.0\""
 	}
-	
+
 	return fmt.Sprintf("{\n  \"name\": \"%s\",\n  \"version\": \"1.0.0\",\n  \"dependencies\": {\n    %s\n  }\n}", projectName, dep)
 }
 
@@ -1360,7 +1360,7 @@ func (g *TestProjectGenerator) generateMonorepoWebAppStructure(project *TestProj
 	project.Structure["workspace.json"] = g.generateNxWorkspaceConfig()
 	project.Structure["Makefile"] = g.generateMonorepoMakefile()
 	project.Structure["docker-compose.yml"] = g.generateMonorepoDockerCompose()
-	
+
 	// Frontend (React)
 	project.Structure["packages/frontend/package.json"] = g.generateReactPackageJson("frontend")
 	project.Structure["packages/frontend/tsconfig.json"] = g.generateReactTsConfig()
@@ -1371,7 +1371,7 @@ func (g *TestProjectGenerator) generateMonorepoWebAppStructure(project *TestProj
 	project.Structure["packages/frontend/src/types/api.ts"] = g.generateReactAPITypes()
 	project.Structure["packages/frontend/public/index.html"] = g.generateReactIndexHTML()
 	project.Structure["packages/frontend/.env.example"] = g.generateReactEnvExample()
-	
+
 	// Backend (Go)
 	project.Structure["services/backend/go.mod"] = g.generateGoBackendMod(project.Name)
 	project.Structure["services/backend/main.go"] = g.generateGoBackendMain()
@@ -1383,7 +1383,7 @@ func (g *TestProjectGenerator) generateMonorepoWebAppStructure(project *TestProj
 	project.Structure["services/backend/pkg/middleware/auth.go"] = g.generateGoAuthMiddleware()
 	project.Structure["services/backend/config/config.go"] = g.generateGoConfig()
 	project.Structure["services/backend/Dockerfile"] = g.generateGoDockerfile()
-	
+
 	// Data Processing (Python)
 	project.Structure["services/data-processor/pyproject.toml"] = g.generatePythonDataProcessorPyproject(project.Name)
 	project.Structure["services/data-processor/src/main.py"] = g.generatePythonDataProcessorMain()
@@ -1394,7 +1394,7 @@ func (g *TestProjectGenerator) generateMonorepoWebAppStructure(project *TestProj
 	project.Structure["services/data-processor/src/utils/data_transformers.py"] = g.generatePythonDataTransformers()
 	project.Structure["services/data-processor/requirements.txt"] = g.generatePythonDataProcessorRequirements()
 	project.Structure["services/data-processor/Dockerfile"] = g.generatePythonDockerfile()
-	
+
 	// Shared Libraries (TypeScript)
 	project.Structure["packages/shared-types/package.json"] = g.generateSharedTypesPackageJson("shared-types")
 	project.Structure["packages/shared-types/src/index.ts"] = g.generateSharedTypesIndex()
@@ -1402,13 +1402,13 @@ func (g *TestProjectGenerator) generateMonorepoWebAppStructure(project *TestProj
 	project.Structure["packages/shared-types/src/api.ts"] = g.generateSharedAPITypes()
 	project.Structure["packages/shared-types/src/events.ts"] = g.generateSharedEventTypes()
 	project.Structure["packages/shared-types/tsconfig.json"] = g.generateSharedTypesTsConfig()
-	
+
 	project.Structure["packages/shared-utils/package.json"] = g.generateSharedUtilsPackageJson("shared-utils")
 	project.Structure["packages/shared-utils/src/index.ts"] = g.generateSharedUtilsIndex()
 	project.Structure["packages/shared-utils/src/validation.ts"] = g.generateSharedValidationUtils()
 	project.Structure["packages/shared-utils/src/formatting.ts"] = g.generateSharedFormattingUtils()
 	project.Structure["packages/shared-utils/src/constants.ts"] = g.generateSharedConstants()
-	
+
 	// Configuration and Infrastructure
 	project.Structure[".github/workflows/ci.yml"] = g.generateMonorepoGitHubActions()
 	project.Structure["infrastructure/docker-compose.dev.yml"] = g.generateDevDockerCompose()
@@ -1417,13 +1417,13 @@ func (g *TestProjectGenerator) generateMonorepoWebAppStructure(project *TestProj
 	project.Structure["scripts/setup.sh"] = g.generateMonorepoSetupScript()
 	project.Structure["scripts/test-all.sh"] = g.generateMonorepoTestScript()
 	project.Structure["scripts/deploy.sh"] = g.generateMonorepoDeployScript()
-	
+
 	// Documentation
 	project.Structure["README.md"] = g.generateMonorepoWebAppReadme(project.Name)
 	project.Structure["docs/ARCHITECTURE.md"] = g.generateMonorepoArchitectureDoc()
 	project.Structure["docs/API.md"] = g.generateMonorepoAPIDoc()
 	project.Structure["docs/DEPLOYMENT.md"] = g.generateMonorepoDeploymentDoc()
-	
+
 	project.BuildFiles = append(project.BuildFiles, "package.json", "lerna.json", "Makefile", "docker-compose.yml")
 	return nil
 }
@@ -1434,14 +1434,14 @@ func (g *TestProjectGenerator) generateMicroservicesSuiteStructure(project *Test
 	if microserviceCount < 5 {
 		microserviceCount = 6 // Default to 6 services
 	}
-	
+
 	// Root configuration
 	project.Structure["docker-compose.yml"] = g.generateMicroservicesDockerCompose(microserviceCount)
 	project.Structure["Makefile"] = g.generateMicroservicesMakefile()
 	project.Structure["scripts/setup-all.sh"] = g.generateMicroservicesSetupScript()
 	project.Structure["monitoring/prometheus.yml"] = g.generatePrometheusConfig()
 	project.Structure["monitoring/grafana/dashboards/services.json"] = g.generateGrafanaDashboard()
-	
+
 	// API Gateway (Node.js/TypeScript)
 	project.Structure["services/api-gateway/package.json"] = g.generateAPIGatewayPackageJson()
 	project.Structure["services/api-gateway/src/index.ts"] = g.generateAPIGatewayMain()
@@ -1450,7 +1450,7 @@ func (g *TestProjectGenerator) generateMicroservicesSuiteStructure(project *Test
 	project.Structure["services/api-gateway/src/middleware/rate-limit.ts"] = g.generateAPIGatewayRateLimit()
 	project.Structure["services/api-gateway/src/proxy/service-proxy.ts"] = g.generateServiceProxy()
 	project.Structure["services/api-gateway/config/services.json"] = g.generateServiceDiscoveryConfig()
-	
+
 	// User Service (Go)
 	project.Structure["services/user-service/go.mod"] = g.generateUserServiceGoMod()
 	project.Structure["services/user-service/main.go"] = g.generateUserServiceMain()
@@ -1460,7 +1460,7 @@ func (g *TestProjectGenerator) generateMicroservicesSuiteStructure(project *Test
 	project.Structure["services/user-service/internal/repository/postgres.go"] = g.generateUserServiceRepository()
 	project.Structure["services/user-service/proto/user.proto"] = g.generateUserServiceProto()
 	project.Structure["services/user-service/migrations/001_create_users.sql"] = g.generateUserServiceMigrations()
-	
+
 	// Order Service (Java Spring Boot)
 	project.Structure["services/order-service/pom.xml"] = g.generateOrderServicePom()
 	project.Structure["services/order-service/src/main/java/com/example/orders/Application.java"] = g.generateOrderServiceApplication()
@@ -1470,7 +1470,7 @@ func (g *TestProjectGenerator) generateMicroservicesSuiteStructure(project *Test
 	project.Structure["services/order-service/src/main/java/com/example/orders/model/Order.java"] = g.generateOrderModel()
 	project.Structure["services/order-service/src/main/java/com/example/orders/config/KafkaConfig.java"] = g.generateOrderKafkaConfig()
 	project.Structure["services/order-service/src/main/resources/application.yml"] = g.generateOrderServiceConfig()
-	
+
 	// Payment Service (Python FastAPI)
 	project.Structure["services/payment-service/pyproject.toml"] = g.generatePaymentServicePyproject()
 	project.Structure["services/payment-service/main.py"] = g.generatePaymentServiceMain()
@@ -1479,7 +1479,7 @@ func (g *TestProjectGenerator) generateMicroservicesSuiteStructure(project *Test
 	project.Structure["services/payment-service/app/services/stripe_integration.py"] = g.generateStripeIntegration()
 	project.Structure["services/payment-service/app/models/payment.py"] = g.generatePaymentModels()
 	project.Structure["services/payment-service/alembic/versions/001_create_payments.py"] = g.generatePaymentMigrations()
-	
+
 	// Notification Service (Rust)
 	project.Structure["services/notification-service/Cargo.toml"] = g.generateNotificationServiceCargo()
 	project.Structure["services/notification-service/src/main.rs"] = g.generateNotificationServiceMain()
@@ -1488,7 +1488,7 @@ func (g *TestProjectGenerator) generateMicroservicesSuiteStructure(project *Test
 	project.Structure["services/notification-service/src/services/sms.rs"] = g.generateSMSService()
 	project.Structure["services/notification-service/src/models/notification.rs"] = g.generateNotificationModels()
 	project.Structure["services/notification-service/src/queue/redis.rs"] = g.generateRedisQueue()
-	
+
 	// Analytics Service (C#/.NET)
 	project.Structure["services/analytics-service/Analytics.Service.csproj"] = g.generateAnalyticsServiceCsproj()
 	project.Structure["services/analytics-service/Program.cs"] = g.generateAnalyticsServiceProgram()
@@ -1497,7 +1497,7 @@ func (g *TestProjectGenerator) generateMicroservicesSuiteStructure(project *Test
 	project.Structure["services/analytics-service/Services/MetricsCollector.cs"] = g.generateMetricsCollector()
 	project.Structure["services/analytics-service/Models/Event.cs"] = g.generateAnalyticsEventModel()
 	project.Structure["services/analytics-service/appsettings.json"] = g.generateAnalyticsServiceConfig()
-	
+
 	// Infrastructure
 	project.Structure["infrastructure/kubernetes/namespace.yaml"] = g.generateK8sNamespace()
 	project.Structure["infrastructure/kubernetes/ingress.yaml"] = g.generateK8sIngress()
@@ -1505,12 +1505,12 @@ func (g *TestProjectGenerator) generateMicroservicesSuiteStructure(project *Test
 	project.Structure["infrastructure/terraform/main.tf"] = g.generateTerraformMain()
 	project.Structure["infrastructure/terraform/variables.tf"] = g.generateTerraformVariables()
 	project.Structure["infrastructure/helm/Chart.yaml"] = g.generateHelmChart()
-	
+
 	// Service mesh (Istio)
 	project.Structure["service-mesh/virtual-service.yaml"] = g.generateIstioVirtualService()
 	project.Structure["service-mesh/destination-rule.yaml"] = g.generateIstioDestinationRule()
 	project.Structure["service-mesh/gateway.yaml"] = g.generateIstioGateway()
-	
+
 	project.BuildFiles = append(project.BuildFiles, "docker-compose.yml", "Makefile")
 	return nil
 }
@@ -1522,7 +1522,7 @@ func (g *TestProjectGenerator) generatePythonWithGoExtensionsStructure(project *
 	project.Structure["setup.py"] = g.generatePythonGoExtensionsSetup(project.Name)
 	project.Structure["requirements.txt"] = g.generatePythonGoExtensionsRequirements()
 	project.Structure["requirements-dev.txt"] = g.generatePythonGoExtensionsDevRequirements()
-	
+
 	// Python application
 	project.Structure["src/main.py"] = g.generatePythonGoExtensionsMain()
 	project.Structure["src/app/__init__.py"] = ""
@@ -1532,7 +1532,7 @@ func (g *TestProjectGenerator) generatePythonWithGoExtensionsStructure(project *
 	project.Structure["src/app/models/data.py"] = g.generatePythonDataModels()
 	project.Structure["src/app/services/calculation.py"] = g.generatePythonCalculationService()
 	project.Structure["src/app/utils/performance.py"] = g.generatePythonPerformanceUtils()
-	
+
 	// Go extensions for performance-critical operations
 	project.Structure["extensions/go.mod"] = g.generateGoExtensionsMod(project.Name)
 	project.Structure["extensions/main.go"] = g.generateGoExtensionsMain()
@@ -1542,29 +1542,29 @@ func (g *TestProjectGenerator) generatePythonWithGoExtensionsStructure(project *
 	project.Structure["extensions/compression/compressor.go"] = g.generateGoCompressionExtension()
 	project.Structure["extensions/c-bridge/bridge.go"] = g.generateGoCBridge()
 	project.Structure["extensions/c-bridge/bridge.h"] = g.generateGoCBridgeHeader()
-	
+
 	// Python bindings and wrappers
 	project.Structure["src/extensions/__init__.py"] = ""
 	project.Structure["src/extensions/go_calculator.py"] = g.generatePythonGoCalculatorWrapper()
 	project.Structure["src/extensions/go_parser.py"] = g.generatePythonGoParserWrapper()
 	project.Structure["src/extensions/go_crypto.py"] = g.generatePythonGoCryptoWrapper()
 	project.Structure["src/extensions/go_compression.py"] = g.generatePythonGoCompressionWrapper()
-	
+
 	// Build and configuration
 	project.Structure["Makefile"] = g.generatePythonGoExtensionsMakefile()
 	project.Structure["build.py"] = g.generatePythonGoExtensionsBuildScript()
 	project.Structure["scripts/build-extensions.sh"] = g.generateBuildExtensionsScript()
 	project.Structure["scripts/test-performance.py"] = g.generatePerformanceTestScript()
-	
+
 	// Configuration
 	project.Structure["config/settings.py"] = g.generatePythonGoExtensionsSettings()
 	project.Structure["config/logging.conf"] = g.generatePythonLoggingConfig()
-	
+
 	// Tests
 	project.Structure["tests/test_extensions.py"] = g.generatePythonExtensionsTests()
 	project.Structure["tests/test_performance.py"] = g.generatePythonPerformanceTests()
 	project.Structure["tests/benchmarks/compare_implementations.py"] = g.generateImplementationComparison()
-	
+
 	project.BuildFiles = append(project.BuildFiles, "pyproject.toml", "setup.py", "Makefile")
 	return nil
 }
@@ -1576,7 +1576,7 @@ func (g *TestProjectGenerator) generateFullStackTypeScriptStructure(project *Tes
 	project.Structure["tsconfig.json"] = g.generateFullStackTSRootTsConfig()
 	project.Structure["yarn.lock"] = "# Yarn lockfile\n"
 	project.Structure[".yarnrc.yml"] = g.generateYarnConfig()
-	
+
 	// Backend (Node.js + Express + TypeScript)
 	project.Structure["apps/backend/package.json"] = g.generateFullStackBackendPackageJson("backend")
 	project.Structure["apps/backend/tsconfig.json"] = g.generateFullStackBackendTsConfig()
@@ -1597,7 +1597,7 @@ func (g *TestProjectGenerator) generateFullStackTypeScriptStructure(project *Tes
 	project.Structure["apps/backend/src/utils/logger.ts"] = g.generateFullStackLogger()
 	project.Structure["apps/backend/src/utils/response.ts"] = g.generateFullStackResponseUtils()
 	project.Structure["apps/backend/.env.example"] = g.generateFullStackBackendEnvExample()
-	
+
 	// Frontend (React + TypeScript)
 	project.Structure["apps/frontend/package.json"] = g.generateFullStackFrontendPackageJson("frontend")
 	project.Structure["apps/frontend/tsconfig.json"] = g.generateFullStackFrontendTsConfig()
@@ -1622,7 +1622,7 @@ func (g *TestProjectGenerator) generateFullStackTypeScriptStructure(project *Tes
 	project.Structure["apps/frontend/src/utils/validation.ts"] = g.generateFullStackFrontendValidationUtils()
 	project.Structure["apps/frontend/src/styles/globals.css"] = g.generateFullStackGlobalCSS()
 	project.Structure["apps/frontend/.env.example"] = g.generateFullStackFrontendEnvExample()
-	
+
 	// Shared libraries
 	project.Structure["packages/shared/package.json"] = g.generateFullStackSharedPackageJson("shared")
 	project.Structure["packages/shared/tsconfig.json"] = g.generateFullStackSharedTsConfig()
@@ -1635,23 +1635,23 @@ func (g *TestProjectGenerator) generateFullStackTypeScriptStructure(project *Tes
 	project.Structure["packages/shared/src/constants/index.ts"] = g.generateFullStackSharedConstants()
 	project.Structure["packages/shared/src/utils/date.ts"] = g.generateFullStackSharedDateUtils()
 	project.Structure["packages/shared/src/utils/string.ts"] = g.generateFullStackSharedStringUtils()
-	
+
 	// Development and build tools
 	project.Structure["turbo.json"] = g.generateTurboConfig()
 	project.Structure[".eslintrc.js"] = g.generateFullStackESLintConfig()
 	project.Structure["prettier.config.js"] = g.generateFullStackPrettierConfig()
 	project.Structure["jest.config.js"] = g.generateFullStackJestConfig()
-	
+
 	// Docker
 	project.Structure["apps/backend/Dockerfile"] = g.generateFullStackBackendDockerfile()
 	project.Structure["apps/frontend/Dockerfile"] = g.generateFullStackFrontendDockerfile()
 	project.Structure["docker-compose.yml"] = g.generateFullStackDockerCompose()
 	project.Structure["docker-compose.dev.yml"] = g.generateFullStackDevDockerCompose()
-	
+
 	// CI/CD
 	project.Structure[".github/workflows/ci.yml"] = g.generateFullStackGitHubActions()
 	project.Structure[".github/workflows/deploy.yml"] = g.generateFullStackDeployActions()
-	
+
 	project.BuildFiles = append(project.BuildFiles, "package.json", "turbo.json")
 	return nil
 }
@@ -1662,7 +1662,7 @@ func (g *TestProjectGenerator) generateJavaSpringWithReactStructure(project *Tes
 	project.Structure["pom.xml"] = g.generateJavaSpringReactRootPom(project.Name)
 	project.Structure[".mvn/wrapper/maven-wrapper.properties"] = g.generateMavenWrapperProperties()
 	project.Structure["mvnw"] = g.generateMavenWrapper()
-	
+
 	// Backend (Spring Boot)
 	project.Structure["backend/pom.xml"] = g.generateJavaSpringBackendPom()
 	project.Structure["backend/src/main/java/com/example/app/Application.java"] = g.generateJavaSpringApplication()
@@ -1686,7 +1686,7 @@ func (g *TestProjectGenerator) generateJavaSpringWithReactStructure(project *Tes
 	project.Structure["backend/src/main/resources/application-prod.yml"] = g.generateJavaSpringProdApplicationYml()
 	project.Structure["backend/src/main/resources/db/migration/V1__Create_users_table.sql"] = g.generateJavaSpringUserMigration()
 	project.Structure["backend/src/main/resources/db/migration/V2__Create_roles_table.sql"] = g.generateJavaSpringRoleMigration()
-	
+
 	// Frontend (React + TypeScript)
 	project.Structure["frontend/package.json"] = g.generateJavaSpringReactFrontendPackageJson()
 	project.Structure["frontend/tsconfig.json"] = g.generateJavaSpringReactTsConfig()
@@ -1706,21 +1706,21 @@ func (g *TestProjectGenerator) generateJavaSpringWithReactStructure(project *Tes
 	project.Structure["frontend/src/types/api.ts"] = g.generateJavaSpringReactAPITypes()
 	project.Structure["frontend/src/types/user.ts"] = g.generateJavaSpringReactUserTypes()
 	project.Structure["frontend/src/utils/http.ts"] = g.generateJavaSpringReactHTTPUtils()
-	
+
 	// Shared module
 	project.Structure["shared/pom.xml"] = g.generateJavaSpringSharedPom()
 	project.Structure["shared/src/main/java/com/example/shared/dto/BaseDTO.java"] = g.generateJavaSpringBaseDTO()
 	project.Structure["shared/src/main/java/com/example/shared/exception/BusinessException.java"] = g.generateJavaSpringBusinessException()
 	project.Structure["shared/src/main/java/com/example/shared/util/DateUtils.java"] = g.generateJavaSpringDateUtils()
 	project.Structure["shared/src/main/java/com/example/shared/util/ValidationUtils.java"] = g.generateJavaSpringValidationUtils()
-	
+
 	// Build and deployment
 	project.Structure["Dockerfile.backend"] = g.generateJavaSpringBackendDockerfile()
 	project.Structure["Dockerfile.frontend"] = g.generateJavaSpringFrontendDockerfile()
 	project.Structure["docker-compose.yml"] = g.generateJavaSpringDockerCompose()
 	project.Structure["scripts/build.sh"] = g.generateJavaSpringBuildScript()
 	project.Structure["scripts/deploy.sh"] = g.generateJavaSpringDeployScript()
-	
+
 	project.BuildFiles = append(project.BuildFiles, "pom.xml", "backend/pom.xml", "shared/pom.xml")
 	return nil
 }
@@ -1733,7 +1733,7 @@ func (g *TestProjectGenerator) generateEnterprisePlatformStructure(project *Test
 	project.Structure["docker-compose.enterprise.yml"] = g.generateEnterpriseDockerCompose()
 	project.Structure["scripts/bootstrap.sh"] = g.generateEnterpriseBootstrapScript()
 	project.Structure["scripts/deploy-all.sh"] = g.generateEnterpriseDeployScript()
-	
+
 	// Core Platform Services (Go)
 	project.Structure["platform/core/go.mod"] = g.generateEnterpriseCoreGoMod(project.Name)
 	project.Structure["platform/core/cmd/platform/main.go"] = g.generateEnterpriseCoreMain()
@@ -1743,28 +1743,28 @@ func (g *TestProjectGenerator) generateEnterprisePlatformStructure(project *Test
 	project.Structure["platform/core/internal/health/health_checker.go"] = g.generatePlatformHealthChecker()
 	project.Structure["platform/core/pkg/middleware/logging.go"] = g.generatePlatformLoggingMiddleware()
 	project.Structure["platform/core/pkg/middleware/metrics.go"] = g.generatePlatformMetricsMiddleware()
-	
+
 	// Authentication Service (Java Spring Boot)
 	project.Structure["services/auth-service/pom.xml"] = g.generateEnterpriseAuthServicePom()
 	project.Structure["services/auth-service/src/main/java/com/enterprise/auth/AuthApplication.java"] = g.generateEnterpriseAuthApplication()
 	project.Structure["services/auth-service/src/main/java/com/enterprise/auth/controller/AuthController.java"] = g.generateEnterpriseAuthController()
 	project.Structure["services/auth-service/src/main/java/com/enterprise/auth/service/TokenService.java"] = g.generateEnterpriseTokenService()
 	project.Structure["services/auth-service/src/main/java/com/enterprise/auth/security/JwtManager.java"] = g.generateEnterpriseJwtManager()
-	
+
 	// Data Processing Pipeline (Python)
 	project.Structure["services/data-pipeline/pyproject.toml"] = g.generateEnterpriseDataPipelinePyproject()
 	project.Structure["services/data-pipeline/src/pipeline/orchestrator.py"] = g.generateDataPipelineOrchestrator()
 	project.Structure["services/data-pipeline/src/processors/stream_processor.py"] = g.generateStreamProcessor()
 	project.Structure["services/data-pipeline/src/processors/batch_processor.py"] = g.generateBatchProcessor()
 	project.Structure["services/data-pipeline/src/connectors/kafka_connector.py"] = g.generateKafkaConnector()
-	
+
 	// Real-time Analytics (Rust)
 	project.Structure["services/analytics-engine/Cargo.toml"] = g.generateEnterpriseAnalyticsEngineCargo()
 	project.Structure["services/analytics-engine/src/main.rs"] = g.generateEnterpriseAnalyticsEngineMain()
 	project.Structure["services/analytics-engine/src/engine/query_engine.rs"] = g.generateQueryEngine()
 	project.Structure["services/analytics-engine/src/engine/aggregator.rs"] = g.generateDataAggregator()
 	project.Structure["services/analytics-engine/src/storage/time_series.rs"] = g.generateTimeSeriesStorage()
-	
+
 	// Machine Learning Service (C++)
 	project.Structure["services/ml-service/CMakeLists.txt"] = g.generateEnterpriseMLServiceCMake()
 	project.Structure["services/ml-service/src/main.cpp"] = g.generateEnterpriseMLServiceMain()
@@ -1772,62 +1772,62 @@ func (g *TestProjectGenerator) generateEnterprisePlatformStructure(project *Test
 	project.Structure["services/ml-service/src/inference/model_server.h"] = g.generateMLModelServerHeader()
 	project.Structure["services/ml-service/src/training/trainer.cpp"] = g.generateMLTrainer()
 	project.Structure["services/ml-service/src/training/trainer.h"] = g.generateMLTrainerHeader()
-	
+
 	// Configuration Service (C#/.NET)
 	project.Structure["services/config-service/ConfigService.csproj"] = g.generateEnterpriseConfigServiceCsproj()
 	project.Structure["services/config-service/Program.cs"] = g.generateEnterpriseConfigServiceProgram()
 	project.Structure["services/config-service/Controllers/ConfigController.cs"] = g.generateEnterpriseConfigController()
 	project.Structure["services/config-service/Services/ConfigManager.cs"] = g.generateEnterpriseConfigManager()
-	
+
 	// Monitoring and Observability (TypeScript/Node.js)
 	project.Structure["services/monitoring/package.json"] = g.generateEnterpriseMonitoringPackageJson()
 	project.Structure["services/monitoring/src/index.ts"] = g.generateEnterpriseMonitoringMain()
 	project.Structure["services/monitoring/src/collectors/metrics_collector.ts"] = g.generateMetricsCollectorTS()
 	project.Structure["services/monitoring/src/collectors/trace_collector.ts"] = g.generateTraceCollector()
 	project.Structure["services/monitoring/src/exporters/prometheus_exporter.ts"] = g.generatePrometheusExporter()
-	
+
 	// Event Streaming (Scala)
 	project.Structure["services/event-streaming/build.sbt"] = g.generateEnterpriseEventStreamingBuild()
 	project.Structure["services/event-streaming/src/main/scala/com/enterprise/streaming/StreamingApp.scala"] = g.generateEventStreamingApp()
 	project.Structure["services/event-streaming/src/main/scala/com/enterprise/streaming/processors/EventProcessor.scala"] = g.generateEventProcessor()
-	
+
 	// Admin Dashboard (React + TypeScript)
 	project.Structure["admin-dashboard/package.json"] = g.generateEnterpriseAdminDashboardPackageJson()
 	project.Structure["admin-dashboard/src/App.tsx"] = g.generateEnterpriseAdminDashboardApp()
 	project.Structure["admin-dashboard/src/pages/ServicesPage.tsx"] = g.generateAdminServicesPage()
 	project.Structure["admin-dashboard/src/pages/MetricsPage.tsx"] = g.generateAdminMetricsPage()
 	project.Structure["admin-dashboard/src/components/ServiceCard.tsx"] = g.generateAdminServiceCard()
-	
+
 	// Infrastructure as Code
 	project.Structure["infrastructure/terraform/main.tf"] = g.generateEnterpriseTerraformMain()
 	project.Structure["infrastructure/terraform/modules/vpc/main.tf"] = g.generateTerraformVPCModule()
 	project.Structure["infrastructure/terraform/modules/eks/main.tf"] = g.generateTerraformEKSModule()
 	project.Structure["infrastructure/terraform/modules/rds/main.tf"] = g.generateTerraformRDSModule()
-	
+
 	// Kubernetes manifests
 	project.Structure["k8s/namespace.yaml"] = g.generateEnterpriseK8sNamespace()
 	project.Structure["k8s/ingress/nginx-ingress.yaml"] = g.generateEnterpriseNginxIngress()
 	project.Structure["k8s/monitoring/prometheus.yaml"] = g.generateEnterprisePrometheusConfig()
 	project.Structure["k8s/monitoring/grafana.yaml"] = g.generateEnterpriseGrafanaConfig()
 	project.Structure["k8s/logging/fluentd.yaml"] = g.generateEnterpriseFluentdConfig()
-	
+
 	// Service mesh configuration
 	project.Structure["service-mesh/istio/gateway.yaml"] = g.generateEnterpriseIstioGateway()
 	project.Structure["service-mesh/istio/virtual-services.yaml"] = g.generateEnterpriseIstioVirtualServices()
 	project.Structure["service-mesh/istio/destination-rules.yaml"] = g.generateEnterpriseIstioDestinationRules()
-	
+
 	// CI/CD pipelines
 	project.Structure[".github/workflows/platform-ci.yml"] = g.generateEnterprisePlatformCI()
 	project.Structure[".github/workflows/service-deployment.yml"] = g.generateEnterpriseServiceDeployment()
 	project.Structure["jenkins/Jenkinsfile"] = g.generateEnterpriseJenkinsfile()
-	
+
 	// Documentation
 	project.Structure["docs/README.md"] = g.generateEnterprisePlatformReadme(project.Name)
 	project.Structure["docs/ARCHITECTURE.md"] = g.generateEnterprisePlatformArchitecture()
 	project.Structure["docs/API.md"] = g.generateEnterprisePlatformAPI()
 	project.Structure["docs/DEPLOYMENT.md"] = g.generateEnterprisePlatformDeployment()
 	project.Structure["docs/MONITORING.md"] = g.generateEnterprisePlatformMonitoring()
-	
+
 	project.BuildFiles = append(project.BuildFiles, "platform.yaml", "Makefile", "docker-compose.enterprise.yml")
 	return nil
 }

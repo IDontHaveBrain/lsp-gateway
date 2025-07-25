@@ -3,9 +3,7 @@ package e2e_test
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"regexp"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -30,9 +28,9 @@ const (
 type TestPriority int
 
 const (
-	PriorityLow    TestPriority = 1
-	PriorityMedium TestPriority = 5
-	PriorityHigh   TestPriority = 10
+	PriorityLow      TestPriority = 1
+	PriorityMedium   TestPriority = 5
+	PriorityHigh     TestPriority = 10
 	PriorityCritical TestPriority = 15
 )
 
@@ -40,8 +38,8 @@ const (
 type ExecutionMode string
 
 const (
-	ModeSequential ExecutionMode = "sequential"
-	ModeParallel   ExecutionMode = "parallel"
+	ModeSequential  ExecutionMode = "sequential"
+	ModeParallel    ExecutionMode = "parallel"
 	ModeConditional ExecutionMode = "conditional"
 )
 
@@ -69,13 +67,13 @@ type TestDiscoveryMetadata struct {
 	Description    string
 	TestFunction   interface{}
 	SkipConditions []string
-	
+
 	// Discovery information
-	PackageName    string
-	FileName       string
-	LineNumber     int
-	FunctionName   string
-	DiscoveredAt   time.Time
+	PackageName  string
+	FileName     string
+	LineNumber   int
+	FunctionName string
+	DiscoveredAt time.Time
 }
 
 // TestDependencyNode represents a node in the test dependency graph
@@ -92,68 +90,68 @@ type TestDependencyNode struct {
 // TestDiscoveryEngine discovers and analyzes E2E tests
 type TestDiscoveryEngine struct {
 	// Core components
-	discoveredTests    map[string]*TestDiscoveryMetadata
-	dependencyGraph    map[string]*TestDependencyNode
-	categoryTests      map[TestCategory][]*TestDiscoveryMetadata
-	priorityTests      map[TestPriority][]*TestDiscoveryMetadata
-	
+	discoveredTests map[string]*TestDiscoveryMetadata
+	dependencyGraph map[string]*TestDependencyNode
+	categoryTests   map[TestCategory][]*TestDiscoveryMetadata
+	priorityTests   map[TestPriority][]*TestDiscoveryMetadata
+
 	// Discovery configuration
-	testPatterns       []*regexp.Regexp
-	packagePaths       []string
-	excludePatterns    []*regexp.Regexp
-	maxDiscoveryDepth  int
-	
+	testPatterns      []*regexp.Regexp
+	packagePaths      []string
+	excludePatterns   []*regexp.Regexp
+	maxDiscoveryDepth int
+
 	// Execution planning
-	executionLevels    [][]string // Tests grouped by execution level
-	parallelGroups     [][]string // Tests that can run in parallel
-	sequentialChains   [][]string // Tests that must run sequentially
-	
+	executionLevels  [][]string // Tests grouped by execution level
+	parallelGroups   [][]string // Tests that can run in parallel
+	sequentialChains [][]string // Tests that must run sequentially
+
 	// State management
-	mu                 sync.RWMutex
-	discoveryComplete  bool
-	lastDiscoveryTime  time.Time
-	
+	mu                sync.RWMutex
+	discoveryComplete bool
+	lastDiscoveryTime time.Time
+
 	// Metrics
-	discoveryMetrics   *TestDiscoveryMetrics
+	discoveryMetrics *TestDiscoveryMetrics
 }
 
 // TestDiscoveryMetrics tracks discovery and analysis metrics
 type TestDiscoveryMetrics struct {
-	TotalTestsDiscovered     int
-	TestsByCategory          map[TestCategory]int
-	TestsByPriority          map[TestPriority]int
-	TestsByExecutionMode     map[ExecutionMode]int
-	DependencyComplexity     float64
-	DiscoveryDurationMs      int64
-	AnalysisDurationMs       int64
-	CyclicDependencies       []string
-	OrphanedTests           []string
-	ResourceConflicts       []string
+	TotalTestsDiscovered int
+	TestsByCategory      map[TestCategory]int
+	TestsByPriority      map[TestPriority]int
+	TestsByExecutionMode map[ExecutionMode]int
+	DependencyComplexity float64
+	DiscoveryDurationMs  int64
+	AnalysisDurationMs   int64
+	CyclicDependencies   []string
+	OrphanedTests        []string
+	ResourceConflicts    []string
 }
 
 // TestFilter defines criteria for filtering discovered tests
 type TestFilter struct {
-	Categories         []TestCategory
-	Priorities         []TestPriority
-	Tags               []string
-	ExcludeTags        []string
-	MinPriority        TestPriority
-	ExecutionModes     []ExecutionMode
-	MaxDuration        time.Duration
-	RequiredResources  []ResourceType
-	SkipFailed         bool
-	IncludePatterns    []*regexp.Regexp
-	ExcludePatterns    []*regexp.Regexp
+	Categories        []TestCategory
+	Priorities        []TestPriority
+	Tags              []string
+	ExcludeTags       []string
+	MinPriority       TestPriority
+	ExecutionModes    []ExecutionMode
+	MaxDuration       time.Duration
+	RequiredResources []ResourceType
+	SkipFailed        bool
+	IncludePatterns   []*regexp.Regexp
+	ExcludePatterns   []*regexp.Regexp
 }
 
 // NewTestDiscoveryEngine creates a new test discovery engine
 func NewTestDiscoveryEngine() *TestDiscoveryEngine {
 	return &TestDiscoveryEngine{
-		discoveredTests:   make(map[string]*TestDiscoveryMetadata),
-		dependencyGraph:   make(map[string]*TestDependencyNode),
-		categoryTests:     make(map[TestCategory][]*TestDiscoveryMetadata),
-		priorityTests:     make(map[TestPriority][]*TestDiscoveryMetadata),
-		testPatterns:      []*regexp.Regexp{
+		discoveredTests: make(map[string]*TestDiscoveryMetadata),
+		dependencyGraph: make(map[string]*TestDependencyNode),
+		categoryTests:   make(map[TestCategory][]*TestDiscoveryMetadata),
+		priorityTests:   make(map[TestPriority][]*TestDiscoveryMetadata),
+		testPatterns: []*regexp.Regexp{
 			regexp.MustCompile(`^Test.*E2E.*`),
 			regexp.MustCompile(`^.*E2ETest$`),
 			regexp.MustCompile(`^E2E.*Test.*`),
@@ -165,13 +163,13 @@ func NewTestDiscoveryEngine() *TestDiscoveryEngine {
 			regexp.MustCompile(`.*Mock.*`),     // Exclude mock functions
 		},
 		maxDiscoveryDepth: 5,
-		discoveryMetrics:  &TestDiscoveryMetrics{
-			TestsByCategory:     make(map[TestCategory]int),
-			TestsByPriority:     make(map[TestPriority]int),
+		discoveryMetrics: &TestDiscoveryMetrics{
+			TestsByCategory:      make(map[TestCategory]int),
+			TestsByPriority:      make(map[TestPriority]int),
 			TestsByExecutionMode: make(map[ExecutionMode]int),
-			CyclicDependencies:  make([]string, 0),
-			OrphanedTests:       make([]string, 0),
-			ResourceConflicts:   make([]string, 0),
+			CyclicDependencies:   make([]string, 0),
+			OrphanedTests:        make([]string, 0),
+			ResourceConflicts:    make([]string, 0),
 		},
 	}
 }
@@ -180,41 +178,41 @@ func NewTestDiscoveryEngine() *TestDiscoveryEngine {
 func (engine *TestDiscoveryEngine) DiscoverTests(ctx context.Context, packagePaths ...string) error {
 	engine.mu.Lock()
 	defer engine.mu.Unlock()
-	
+
 	startTime := time.Now()
 	defer func() {
 		engine.discoveryMetrics.DiscoveryDurationMs = time.Since(startTime).Milliseconds()
 		engine.lastDiscoveryTime = time.Now()
 		engine.discoveryComplete = true
 	}()
-	
+
 	engine.packagePaths = packagePaths
 	if len(packagePaths) == 0 {
 		engine.packagePaths = []string{"."} // Default to current package
 	}
-	
+
 	// Discover test functions through reflection and analysis
 	for _, packagePath := range engine.packagePaths {
 		if err := engine.discoverPackageTests(ctx, packagePath); err != nil {
 			return fmt.Errorf("failed to discover tests in package %s: %w", packagePath, err)
 		}
 	}
-	
+
 	// Analyze dependencies and build execution graph
 	analysisStart := time.Now()
 	if err := engine.analyzeDependencies(ctx); err != nil {
 		return fmt.Errorf("failed to analyze test dependencies: %w", err)
 	}
 	engine.discoveryMetrics.AnalysisDurationMs = time.Since(analysisStart).Milliseconds()
-	
+
 	// Build execution plan
 	if err := engine.buildExecutionPlan(ctx); err != nil {
 		return fmt.Errorf("failed to build execution plan: %w", err)
 	}
-	
+
 	// Update metrics
 	engine.updateDiscoveryMetrics()
-	
+
 	return nil
 }
 
@@ -223,16 +221,16 @@ func (engine *TestDiscoveryEngine) discoverPackageTests(ctx context.Context, pac
 	// In a real implementation, this would use Go's reflection capabilities
 	// or static analysis to discover test functions. For this implementation,
 	// we'll register the known test functions from the E2E test suite.
-	
+
 	// Register core E2E test scenarios
 	engine.registerCoreE2ETests()
-	
+
 	// Register MCP E2E test scenarios
 	engine.registerMCPE2ETests()
-	
+
 	// Register workflow test scenarios
 	engine.registerWorkflowTests()
-	
+
 	return nil
 }
 
@@ -249,12 +247,12 @@ func (engine *TestDiscoveryEngine) registerCoreE2ETests() {
 				{Type: ResourceTypeServer, Count: 1, MinMemoryMB: 256},
 				{Type: ResourceTypeConfig, Count: 1},
 			},
-			Tags:        []string{"startup", "gateway", "critical"},
-			Timeout:     5 * time.Minute,
-			RetryCount:  2,
-			Description: "Tests LSP Gateway startup and initialization",
-			PackageName: "e2e_test",
-			FileName:    "e2e_test_suite.go",
+			Tags:         []string{"startup", "gateway", "critical"},
+			Timeout:      5 * time.Minute,
+			RetryCount:   2,
+			Description:  "Tests LSP Gateway startup and initialization",
+			PackageName:  "e2e_test",
+			FileName:     "e2e_test_suite.go",
 			FunctionName: "TestGatewayStartup",
 		},
 		{
@@ -267,12 +265,12 @@ func (engine *TestDiscoveryEngine) registerCoreE2ETests() {
 				{Type: ResourceTypeServer, Count: 1, MinMemoryMB: 128},
 				{Type: ResourceTypeConfig, Count: 1},
 			},
-			Tags:        []string{"startup", "mcp", "critical"},
-			Timeout:     5 * time.Minute,
-			RetryCount:  2,
-			Description: "Tests MCP server startup and initialization",
-			PackageName: "e2e_test",
-			FileName:    "e2e_test_suite.go",
+			Tags:         []string{"startup", "mcp", "critical"},
+			Timeout:      5 * time.Minute,
+			RetryCount:   2,
+			Description:  "Tests MCP server startup and initialization",
+			PackageName:  "e2e_test",
+			FileName:     "e2e_test_suite.go",
 			FunctionName: "TestMCPStartup",
 		},
 		{
@@ -285,12 +283,12 @@ func (engine *TestDiscoveryEngine) registerCoreE2ETests() {
 				{Type: ResourceTypeServer, Count: 1, MinMemoryMB: 256},
 				{Type: ResourceTypeClient, Count: 1},
 			},
-			Tags:        []string{"lsp", "protocol", "methods"},
-			Timeout:     10 * time.Minute,
-			RetryCount:  1,
-			Description: "Tests LSP method implementations and compliance",
-			PackageName: "e2e_test",
-			FileName:    "e2e_test_suite.go",
+			Tags:         []string{"lsp", "protocol", "methods"},
+			Timeout:      10 * time.Minute,
+			RetryCount:   1,
+			Description:  "Tests LSP method implementations and compliance",
+			PackageName:  "e2e_test",
+			FileName:     "e2e_test_suite.go",
 			FunctionName: "TestLSPMethods",
 		},
 		{
@@ -303,12 +301,12 @@ func (engine *TestDiscoveryEngine) registerCoreE2ETests() {
 				{Type: ResourceTypeServer, Count: 1, MinMemoryMB: 128},
 				{Type: ResourceTypeClient, Count: 1},
 			},
-			Tags:        []string{"error", "handling", "protocol"},
-			Timeout:     10 * time.Minute,
-			RetryCount:  1,
-			Description: "Tests error handling and edge cases",
-			PackageName: "e2e_test",
-			FileName:    "e2e_test_suite.go",
+			Tags:         []string{"error", "handling", "protocol"},
+			Timeout:      10 * time.Minute,
+			RetryCount:   1,
+			Description:  "Tests error handling and edge cases",
+			PackageName:  "e2e_test",
+			FileName:     "e2e_test_suite.go",
 			FunctionName: "TestErrorHandling",
 		},
 		{
@@ -321,16 +319,16 @@ func (engine *TestDiscoveryEngine) registerCoreE2ETests() {
 				{Type: ResourceTypeServer, Count: 1, MinMemoryMB: 512, MinCPUCores: 2},
 				{Type: ResourceTypeClient, Count: 3},
 			},
-			Tags:        []string{"concurrent", "performance", "load"},
-			Timeout:     15 * time.Minute,
-			RetryCount:  1,
-			Description: "Tests concurrent request handling and performance",
-			PackageName: "e2e_test",
-			FileName:    "e2e_test_suite.go",
+			Tags:         []string{"concurrent", "performance", "load"},
+			Timeout:      15 * time.Minute,
+			RetryCount:   1,
+			Description:  "Tests concurrent request handling and performance",
+			PackageName:  "e2e_test",
+			FileName:     "e2e_test_suite.go",
 			FunctionName: "TestConcurrentRequests",
 		},
 	}
-	
+
 	for _, test := range coreTests {
 		test.DiscoveredAt = time.Now()
 		engine.discoveredTests[test.Name] = test
@@ -349,12 +347,12 @@ func (engine *TestDiscoveryEngine) registerMCPE2ETests() {
 			Resources: []ResourceRequirement{
 				{Type: ResourceTypeServer, Count: 1, MinMemoryMB: 256},
 			},
-			Tags:        []string{"mcp", "tools", "availability"},
-			Timeout:     10 * time.Minute,
-			RetryCount:  1,
-			Description: "Tests MCP tool availability and registration",
-			PackageName: "e2e_test",
-			FileName:    "mcp_e2e_test_framework.go",
+			Tags:         []string{"mcp", "tools", "availability"},
+			Timeout:      10 * time.Minute,
+			RetryCount:   1,
+			Description:  "Tests MCP tool availability and registration",
+			PackageName:  "e2e_test",
+			FileName:     "mcp_e2e_test_framework.go",
 			FunctionName: "TestToolAvailability",
 		},
 		{
@@ -367,12 +365,12 @@ func (engine *TestDiscoveryEngine) registerMCPE2ETests() {
 				{Type: ResourceTypeServer, Count: 1, MinMemoryMB: 512},
 				{Type: ResourceTypeClient, Count: 1},
 			},
-			Tags:        []string{"mcp", "ai", "integration"},
-			Timeout:     15 * time.Minute,
-			RetryCount:  1,
-			Description: "Tests AI assistant integration via MCP",
-			PackageName: "e2e_test",
-			FileName:    "mcp_e2e_test_framework.go",
+			Tags:         []string{"mcp", "ai", "integration"},
+			Timeout:      15 * time.Minute,
+			RetryCount:   1,
+			Description:  "Tests AI assistant integration via MCP",
+			PackageName:  "e2e_test",
+			FileName:     "mcp_e2e_test_framework.go",
 			FunctionName: "TestAIIntegration",
 		},
 		{
@@ -384,16 +382,16 @@ func (engine *TestDiscoveryEngine) registerMCPE2ETests() {
 			Resources: []ResourceRequirement{
 				{Type: ResourceTypeServer, Count: 2, MinMemoryMB: 384},
 			},
-			Tags:        []string{"cross-protocol", "integration"},
-			Timeout:     20 * time.Minute,
-			RetryCount:  1,
-			Description: "Tests cross-protocol communication between HTTP and MCP",
-			PackageName: "e2e_test",
-			FileName:    "mcp_e2e_test_framework.go",
+			Tags:         []string{"cross-protocol", "integration"},
+			Timeout:      20 * time.Minute,
+			RetryCount:   1,
+			Description:  "Tests cross-protocol communication between HTTP and MCP",
+			PackageName:  "e2e_test",
+			FileName:     "mcp_e2e_test_framework.go",
 			FunctionName: "TestCrossProtocol",
 		},
 	}
-	
+
 	for _, test := range mcpTests {
 		test.DiscoveredAt = time.Now()
 		engine.discoveredTests[test.Name] = test
@@ -414,12 +412,12 @@ func (engine *TestDiscoveryEngine) registerWorkflowTests() {
 				{Type: ResourceTypeProject, Count: 1},
 				{Type: ResourceTypeWorkspace, Count: 1},
 			},
-			Tags:        []string{"workflow", "developer", "real-world"},
-			Timeout:     25 * time.Minute,
-			RetryCount:  1,
-			Description: "Tests real-world developer workflows",
-			PackageName: "e2e_test",
-			FileName:    "e2e_test_suite.go",
+			Tags:         []string{"workflow", "developer", "real-world"},
+			Timeout:      25 * time.Minute,
+			RetryCount:   1,
+			Description:  "Tests real-world developer workflows",
+			PackageName:  "e2e_test",
+			FileName:     "e2e_test_suite.go",
 			FunctionName: "TestDeveloperWorkflows",
 		},
 		{
@@ -432,12 +430,12 @@ func (engine *TestDiscoveryEngine) registerWorkflowTests() {
 				{Type: ResourceTypeServer, Count: 4, MinMemoryMB: 1024, MinCPUCores: 2},
 				{Type: ResourceTypeProject, Count: 2},
 			},
-			Tags:        []string{"multi-language", "polyglot", "integration"},
-			Timeout:     30 * time.Minute,
-			RetryCount:  1,
-			Description: "Tests multi-language project support",
-			PackageName: "e2e_test",
-			FileName:    "multi_language_e2e_test.go",
+			Tags:         []string{"multi-language", "polyglot", "integration"},
+			Timeout:      30 * time.Minute,
+			RetryCount:   1,
+			Description:  "Tests multi-language project support",
+			PackageName:  "e2e_test",
+			FileName:     "multi_language_e2e_test.go",
 			FunctionName: "TestMultiLanguage",
 		},
 		{
@@ -450,12 +448,12 @@ func (engine *TestDiscoveryEngine) registerWorkflowTests() {
 				{Type: ResourceTypeProject, Count: 3},
 				{Type: ResourceTypeWorkspace, Count: 1},
 			},
-			Tags:        []string{"project", "detection", "analysis"},
-			Timeout:     15 * time.Minute,
-			RetryCount:  1,
-			Description: "Tests project structure detection and analysis",
-			PackageName: "e2e_test",
-			FileName:    "e2e_test_suite.go",
+			Tags:         []string{"project", "detection", "analysis"},
+			Timeout:      15 * time.Minute,
+			RetryCount:   1,
+			Description:  "Tests project structure detection and analysis",
+			PackageName:  "e2e_test",
+			FileName:     "e2e_test_suite.go",
 			FunctionName: "TestProjectDetection",
 		},
 		{
@@ -467,12 +465,12 @@ func (engine *TestDiscoveryEngine) registerWorkflowTests() {
 			Resources: []ResourceRequirement{
 				{Type: ResourceTypeServer, Count: 3, MinMemoryMB: 384},
 			},
-			Tags:        []string{"circuit-breaker", "resilience", "failover"},
-			Timeout:     20 * time.Minute,
-			RetryCount:  2,
-			Description: "Tests circuit breaker and failover mechanisms",
-			PackageName: "e2e_test",
-			FileName:    "circuit_breaker_e2e_test.go",
+			Tags:         []string{"circuit-breaker", "resilience", "failover"},
+			Timeout:      20 * time.Minute,
+			RetryCount:   2,
+			Description:  "Tests circuit breaker and failover mechanisms",
+			PackageName:  "e2e_test",
+			FileName:     "circuit_breaker_e2e_test.go",
 			FunctionName: "TestCircuitBreaker",
 		},
 		{
@@ -484,16 +482,16 @@ func (engine *TestDiscoveryEngine) registerWorkflowTests() {
 			Resources: []ResourceRequirement{
 				{Type: ResourceTypeServer, Count: 2, MinMemoryMB: 256},
 			},
-			Tags:        []string{"health", "monitoring", "observability"},
-			Timeout:     15 * time.Minute,
-			RetryCount:  1,
-			Description: "Tests health monitoring and observability features",
-			PackageName: "e2e_test",
-			FileName:    "e2e_test_suite.go",
+			Tags:         []string{"health", "monitoring", "observability"},
+			Timeout:      15 * time.Minute,
+			RetryCount:   1,
+			Description:  "Tests health monitoring and observability features",
+			PackageName:  "e2e_test",
+			FileName:     "e2e_test_suite.go",
 			FunctionName: "TestHealthMonitoring",
 		},
 	}
-	
+
 	for _, test := range workflowTests {
 		test.DiscoveredAt = time.Now()
 		engine.discoveredTests[test.Name] = test
@@ -511,7 +509,7 @@ func (engine *TestDiscoveryEngine) analyzeDependencies(ctx context.Context) erro
 		}
 		engine.dependencyGraph[name] = node
 	}
-	
+
 	// Connect dependencies
 	for name, node := range engine.dependencyGraph {
 		for _, depName := range node.Test.Dependencies {
@@ -526,19 +524,19 @@ func (engine *TestDiscoveryEngine) analyzeDependencies(ctx context.Context) erro
 			}
 		}
 	}
-	
+
 	// Check for cyclic dependencies
 	if cycles := engine.detectCyclicDependencies(); len(cycles) > 0 {
 		engine.discoveryMetrics.CyclicDependencies = cycles
 		return fmt.Errorf("cyclic dependencies detected: %v", cycles)
 	}
-	
+
 	// Calculate execution levels
 	engine.calculateExecutionLevels()
-	
+
 	// Check for resource conflicts
 	engine.detectResourceConflicts()
-	
+
 	return nil
 }
 
@@ -547,7 +545,7 @@ func (engine *TestDiscoveryEngine) detectCyclicDependencies() []string {
 	cycles := make([]string, 0)
 	visited := make(map[string]bool)
 	inProgress := make(map[string]bool)
-	
+
 	var visit func(string, []string) []string
 	visit = func(testName string, path []string) []string {
 		if inProgress[testName] {
@@ -564,15 +562,15 @@ func (engine *TestDiscoveryEngine) detectCyclicDependencies() []string {
 				return []string{strings.Join(cycle, " -> ")}
 			}
 		}
-		
+
 		if visited[testName] {
 			return nil
 		}
-		
+
 		visited[testName] = true
 		inProgress[testName] = true
 		path = append(path, testName)
-		
+
 		var foundCycles []string
 		if node, exists := engine.dependencyGraph[testName]; exists {
 			for _, depNode := range node.Dependencies {
@@ -581,11 +579,11 @@ func (engine *TestDiscoveryEngine) detectCyclicDependencies() []string {
 				}
 			}
 		}
-		
+
 		inProgress[testName] = false
 		return foundCycles
 	}
-	
+
 	for testName := range engine.dependencyGraph {
 		if !visited[testName] {
 			if foundCycles := visit(testName, make([]string, 0)); foundCycles != nil {
@@ -593,7 +591,7 @@ func (engine *TestDiscoveryEngine) detectCyclicDependencies() []string {
 			}
 		}
 	}
-	
+
 	return cycles
 }
 
@@ -604,28 +602,28 @@ func (engine *TestDiscoveryEngine) calculateExecutionLevels() {
 		node.Level = 0
 		node.Visited = false
 	}
-	
+
 	// Calculate levels using topological sort
 	var calculateLevel func(*TestDependencyNode) int
 	calculateLevel = func(node *TestDependencyNode) int {
 		if node.Visited {
 			return node.Level
 		}
-		
+
 		node.Visited = true
 		maxDepLevel := -1
-		
+
 		for _, dep := range node.Dependencies {
 			depLevel := calculateLevel(dep)
 			if depLevel > maxDepLevel {
 				maxDepLevel = depLevel
 			}
 		}
-		
+
 		node.Level = maxDepLevel + 1
 		return node.Level
 	}
-	
+
 	// Calculate levels for all nodes
 	maxLevel := 0
 	for _, node := range engine.dependencyGraph {
@@ -634,13 +632,13 @@ func (engine *TestDiscoveryEngine) calculateExecutionLevels() {
 			maxLevel = level
 		}
 	}
-	
+
 	// Group tests by execution level
 	engine.executionLevels = make([][]string, maxLevel+1)
 	for i := range engine.executionLevels {
 		engine.executionLevels[i] = make([]string, 0)
 	}
-	
+
 	for name, node := range engine.dependencyGraph {
 		engine.executionLevels[node.Level] = append(engine.executionLevels[node.Level], name)
 	}
@@ -649,17 +647,17 @@ func (engine *TestDiscoveryEngine) calculateExecutionLevels() {
 // detectResourceConflicts detects resource conflicts between tests
 func (engine *TestDiscoveryEngine) detectResourceConflicts() {
 	conflicts := make([]string, 0)
-	
+
 	// Group tests by execution level and check for resource conflicts
 	for level, testNames := range engine.executionLevels {
 		resourceUsage := make(map[ResourceType]int)
 		exclusiveResources := make(map[ResourceType][]string)
-		
+
 		for _, testName := range testNames {
 			if test, exists := engine.discoveredTests[testName]; exists {
 				for _, resource := range test.Resources {
 					resourceUsage[resource.Type] += resource.Count
-					
+
 					if resource.Exclusive {
 						exclusiveResources[resource.Type] = append(
 							exclusiveResources[resource.Type], testName)
@@ -667,7 +665,7 @@ func (engine *TestDiscoveryEngine) detectResourceConflicts() {
 				}
 			}
 		}
-		
+
 		// Check for exclusive resource conflicts
 		for resourceType, users := range exclusiveResources {
 			if len(users) > 1 {
@@ -676,7 +674,7 @@ func (engine *TestDiscoveryEngine) detectResourceConflicts() {
 					level, resourceType, users))
 			}
 		}
-		
+
 		// Check for resource capacity conflicts (simplified)
 		for resourceType, usage := range resourceUsage {
 			if usage > 10 { // Simplified capacity check
@@ -686,7 +684,7 @@ func (engine *TestDiscoveryEngine) detectResourceConflicts() {
 			}
 		}
 	}
-	
+
 	engine.discoveryMetrics.ResourceConflicts = conflicts
 }
 
@@ -695,16 +693,16 @@ func (engine *TestDiscoveryEngine) buildExecutionPlan(ctx context.Context) error
 	// Build parallel groups within each execution level
 	engine.parallelGroups = make([][]string, 0)
 	engine.sequentialChains = make([][]string, 0)
-	
+
 	for _, levelTests := range engine.executionLevels {
 		if len(levelTests) <= 1 {
 			continue
 		}
-		
+
 		// Group tests by execution mode
 		parallelTests := make([]string, 0)
 		sequentialTests := make([]string, 0)
-		
+
 		for _, testName := range levelTests {
 			if test, exists := engine.discoveredTests[testName]; exists {
 				switch test.ExecutionMode {
@@ -722,16 +720,16 @@ func (engine *TestDiscoveryEngine) buildExecutionPlan(ctx context.Context) error
 				}
 			}
 		}
-		
+
 		if len(parallelTests) > 1 {
 			engine.parallelGroups = append(engine.parallelGroups, parallelTests)
 		}
-		
+
 		if len(sequentialTests) > 0 {
 			engine.sequentialChains = append(engine.sequentialChains, sequentialTests)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -748,7 +746,7 @@ func (engine *TestDiscoveryEngine) hasResourceConflicts(testName string) bool {
 // updateDiscoveryMetrics updates discovery metrics
 func (engine *TestDiscoveryEngine) updateDiscoveryMetrics() {
 	engine.discoveryMetrics.TotalTestsDiscovered = len(engine.discoveredTests)
-	
+
 	// Reset counters
 	for category := range engine.discoveryMetrics.TestsByCategory {
 		engine.discoveryMetrics.TestsByCategory[category] = 0
@@ -759,18 +757,18 @@ func (engine *TestDiscoveryEngine) updateDiscoveryMetrics() {
 	for mode := range engine.discoveryMetrics.TestsByExecutionMode {
 		engine.discoveryMetrics.TestsByExecutionMode[mode] = 0
 	}
-	
+
 	// Count tests by category, priority, and execution mode
 	for _, test := range engine.discoveredTests {
 		engine.discoveryMetrics.TestsByCategory[test.Category]++
 		engine.discoveryMetrics.TestsByPriority[test.Priority]++
 		engine.discoveryMetrics.TestsByExecutionMode[test.ExecutionMode]++
-		
+
 		// Update category and priority mappings
 		engine.categoryTests[test.Category] = append(engine.categoryTests[test.Category], test)
 		engine.priorityTests[test.Priority] = append(engine.priorityTests[test.Priority], test)
 	}
-	
+
 	// Calculate dependency complexity
 	totalDependencies := 0
 	for _, test := range engine.discoveredTests {
@@ -785,24 +783,24 @@ func (engine *TestDiscoveryEngine) updateDiscoveryMetrics() {
 func (engine *TestDiscoveryEngine) FilterTests(filter *TestFilter) ([]*TestDiscoveryMetadata, error) {
 	engine.mu.RLock()
 	defer engine.mu.RUnlock()
-	
+
 	if !engine.discoveryComplete {
 		return nil, fmt.Errorf("test discovery not complete")
 	}
-	
+
 	filtered := make([]*TestDiscoveryMetadata, 0)
-	
+
 	for _, test := range engine.discoveredTests {
 		if engine.matchesFilter(test, filter) {
 			filtered = append(filtered, test)
 		}
 	}
-	
+
 	// Sort by priority (highest first)
 	sort.Slice(filtered, func(i, j int) bool {
 		return filtered[i].Priority > filtered[j].Priority
 	})
-	
+
 	return filtered, nil
 }
 
@@ -821,7 +819,7 @@ func (engine *TestDiscoveryEngine) matchesFilter(test *TestDiscoveryMetadata, fi
 			return false
 		}
 	}
-	
+
 	// Check priorities
 	if len(filter.Priorities) > 0 {
 		found := false
@@ -835,12 +833,12 @@ func (engine *TestDiscoveryEngine) matchesFilter(test *TestDiscoveryMetadata, fi
 			return false
 		}
 	}
-	
+
 	// Check minimum priority
 	if test.Priority < filter.MinPriority {
 		return false
 	}
-	
+
 	// Check execution modes
 	if len(filter.ExecutionModes) > 0 {
 		found := false
@@ -854,12 +852,12 @@ func (engine *TestDiscoveryEngine) matchesFilter(test *TestDiscoveryMetadata, fi
 			return false
 		}
 	}
-	
+
 	// Check max duration
 	if filter.MaxDuration > 0 && test.Timeout > filter.MaxDuration {
 		return false
 	}
-	
+
 	// Check required resources
 	if len(filter.RequiredResources) > 0 {
 		hasAllResources := true
@@ -880,7 +878,7 @@ func (engine *TestDiscoveryEngine) matchesFilter(test *TestDiscoveryMetadata, fi
 			return false
 		}
 	}
-	
+
 	// Check tags
 	if len(filter.Tags) > 0 {
 		hasAllTags := true
@@ -901,7 +899,7 @@ func (engine *TestDiscoveryEngine) matchesFilter(test *TestDiscoveryMetadata, fi
 			return false
 		}
 	}
-	
+
 	// Check exclude tags
 	if len(filter.ExcludeTags) > 0 {
 		for _, excludeTag := range filter.ExcludeTags {
@@ -912,7 +910,7 @@ func (engine *TestDiscoveryEngine) matchesFilter(test *TestDiscoveryMetadata, fi
 			}
 		}
 	}
-	
+
 	// Check include patterns
 	if len(filter.IncludePatterns) > 0 {
 		found := false
@@ -926,14 +924,14 @@ func (engine *TestDiscoveryEngine) matchesFilter(test *TestDiscoveryMetadata, fi
 			return false
 		}
 	}
-	
+
 	// Check exclude patterns
 	for _, pattern := range filter.ExcludePatterns {
 		if pattern.MatchString(test.Name) {
 			return false
 		}
 	}
-	
+
 	return true
 }
 
@@ -941,7 +939,7 @@ func (engine *TestDiscoveryEngine) matchesFilter(test *TestDiscoveryMetadata, fi
 func (engine *TestDiscoveryEngine) GetDiscoveredTests() map[string]*TestDiscoveryMetadata {
 	engine.mu.RLock()
 	defer engine.mu.RUnlock()
-	
+
 	// Return a copy to avoid race conditions
 	tests := make(map[string]*TestDiscoveryMetadata)
 	for name, test := range engine.discoveredTests {
@@ -954,7 +952,7 @@ func (engine *TestDiscoveryEngine) GetDiscoveredTests() map[string]*TestDiscover
 func (engine *TestDiscoveryEngine) GetDependencyGraph() map[string]*TestDependencyNode {
 	engine.mu.RLock()
 	defer engine.mu.RUnlock()
-	
+
 	// Return a copy to avoid race conditions
 	graph := make(map[string]*TestDependencyNode)
 	for name, node := range engine.dependencyGraph {
@@ -967,7 +965,7 @@ func (engine *TestDiscoveryEngine) GetDependencyGraph() map[string]*TestDependen
 func (engine *TestDiscoveryEngine) GetExecutionLevels() [][]string {
 	engine.mu.RLock()
 	defer engine.mu.RUnlock()
-	
+
 	// Return a copy
 	levels := make([][]string, len(engine.executionLevels))
 	for i, level := range engine.executionLevels {
@@ -981,7 +979,7 @@ func (engine *TestDiscoveryEngine) GetExecutionLevels() [][]string {
 func (engine *TestDiscoveryEngine) GetParallelGroups() [][]string {
 	engine.mu.RLock()
 	defer engine.mu.RUnlock()
-	
+
 	// Return a copy
 	groups := make([][]string, len(engine.parallelGroups))
 	for i, group := range engine.parallelGroups {
@@ -995,19 +993,19 @@ func (engine *TestDiscoveryEngine) GetParallelGroups() [][]string {
 func (engine *TestDiscoveryEngine) GetDiscoveryMetrics() *TestDiscoveryMetrics {
 	engine.mu.RLock()
 	defer engine.mu.RUnlock()
-	
+
 	// Return a copy
 	return &TestDiscoveryMetrics{
-		TotalTestsDiscovered:     engine.discoveryMetrics.TotalTestsDiscovered,
-		TestsByCategory:          copyIntMap(engine.discoveryMetrics.TestsByCategory),
-		TestsByPriority:          copyIntMap(engine.discoveryMetrics.TestsByPriority),
-		TestsByExecutionMode:     copyIntMap(engine.discoveryMetrics.TestsByExecutionMode),
-		DependencyComplexity:     engine.discoveryMetrics.DependencyComplexity,
-		DiscoveryDurationMs:      engine.discoveryMetrics.DiscoveryDurationMs,
-		AnalysisDurationMs:       engine.discoveryMetrics.AnalysisDurationMs,
-		CyclicDependencies:       copyStringSlice(engine.discoveryMetrics.CyclicDependencies),
-		OrphanedTests:           copyStringSlice(engine.discoveryMetrics.OrphanedTests),
-		ResourceConflicts:       copyStringSlice(engine.discoveryMetrics.ResourceConflicts),
+		TotalTestsDiscovered: engine.discoveryMetrics.TotalTestsDiscovered,
+		TestsByCategory:      copyIntMap(engine.discoveryMetrics.TestsByCategory),
+		TestsByPriority:      copyIntMap(engine.discoveryMetrics.TestsByPriority),
+		TestsByExecutionMode: copyIntMap(engine.discoveryMetrics.TestsByExecutionMode),
+		DependencyComplexity: engine.discoveryMetrics.DependencyComplexity,
+		DiscoveryDurationMs:  engine.discoveryMetrics.DiscoveryDurationMs,
+		AnalysisDurationMs:   engine.discoveryMetrics.AnalysisDurationMs,
+		CyclicDependencies:   copyStringSlice(engine.discoveryMetrics.CyclicDependencies),
+		OrphanedTests:        copyStringSlice(engine.discoveryMetrics.OrphanedTests),
+		ResourceConflicts:    copyStringSlice(engine.discoveryMetrics.ResourceConflicts),
 	}
 }
 
@@ -1041,7 +1039,7 @@ func (engine *TestDiscoveryEngine) IsDiscoveryComplete() bool {
 func (engine *TestDiscoveryEngine) GetTestByName(name string) (*TestDiscoveryMetadata, bool) {
 	engine.mu.RLock()
 	defer engine.mu.RUnlock()
-	
+
 	test, exists := engine.discoveredTests[name]
 	return test, exists
 }
@@ -1050,7 +1048,7 @@ func (engine *TestDiscoveryEngine) GetTestByName(name string) (*TestDiscoveryMet
 func (engine *TestDiscoveryEngine) GetTestsByCategory(category TestCategory) []*TestDiscoveryMetadata {
 	engine.mu.RLock()
 	defer engine.mu.RUnlock()
-	
+
 	if tests, exists := engine.categoryTests[category]; exists {
 		// Return a copy
 		result := make([]*TestDiscoveryMetadata, len(tests))
@@ -1064,7 +1062,7 @@ func (engine *TestDiscoveryEngine) GetTestsByCategory(category TestCategory) []*
 func (engine *TestDiscoveryEngine) GetTestsByPriority(priority TestPriority) []*TestDiscoveryMetadata {
 	engine.mu.RLock()
 	defer engine.mu.RUnlock()
-	
+
 	if tests, exists := engine.priorityTests[priority]; exists {
 		// Return a copy
 		result := make([]*TestDiscoveryMetadata, len(tests))

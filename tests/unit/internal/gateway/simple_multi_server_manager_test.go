@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"lsp-gateway/tests/framework"
@@ -43,7 +42,7 @@ func (suite *SimpleMultiServerManagerTestSuite) TearDownTest() {
 // Test MockLSPServer functionality that MultiServerManager would use
 func (suite *SimpleMultiServerManagerTestSuite) TestMockLSPServer_StateManagement() {
 	mockServer := framework.NewMockLSPServer("test-server")
-	
+
 	// Test initial state
 	assert.Equal(suite.T(), "test-server", mockServer.ServerID)
 	assert.False(suite.T(), mockServer.ShouldFail)
@@ -104,7 +103,7 @@ func (suite *SimpleMultiServerManagerTestSuite) TestMockLSPServer_PerformanceSim
 	params := map[string]interface{}{"test": "data"}
 	_, err = mockServer.SendRequest(ctx, "textDocument/definition", params)
 	elapsed := time.Since(start)
-	
+
 	assert.NoError(suite.T(), err)
 	assert.True(suite.T(), elapsed >= 100*time.Millisecond, "Response should be delayed")
 	assert.True(suite.T(), elapsed < 200*time.Millisecond, "Response shouldn't be too delayed")
@@ -148,15 +147,15 @@ func (suite *SimpleMultiServerManagerTestSuite) TestMockLSPServerManager_MultiSe
 
 	// Test requests to different servers
 	params := map[string]interface{}{"test": "data"}
-	
+
 	// Server 1 should succeed
 	_, err = server1.SendRequest(ctx, "textDocument/definition", params)
 	assert.NoError(suite.T(), err)
-	
+
 	// Server 2 should succeed
 	_, err = server2.SendRequest(ctx, "textDocument/hover", params)
 	assert.NoError(suite.T(), err)
-	
+
 	// Server 3 might fail (50% failure rate)
 	_, err = server3.SendRequest(ctx, "textDocument/references", params)
 	// Don't assert error since it's probabilistic
@@ -193,15 +192,15 @@ func (suite *SimpleMultiServerManagerTestSuite) TestMockLSPServerManager_Concurr
 	// Test concurrent requests
 	ctx := context.Background()
 	params := map[string]interface{}{"test": "concurrent"}
-	
+
 	type result struct {
 		serverName string
 		err        error
 		duration   time.Duration
 	}
-	
+
 	results := make(chan result, numServers)
-	
+
 	// Send concurrent requests
 	for i := 0; i < numServers; i++ {
 		go func(serverIndex int) {
@@ -284,7 +283,7 @@ func (suite *SimpleMultiServerManagerTestSuite) TestMockLSPServerManager_HealthM
 			failures++
 		}
 	}
-	
+
 	// Should have significant failure rate (expecting around 80% failure rate)
 	assert.True(suite.T(), failures >= attempts/2, "Unhealthy server should have significant failures")
 
@@ -296,18 +295,18 @@ func (suite *SimpleMultiServerManagerTestSuite) TestMockLSPServerManager_HealthM
 func (suite *SimpleMultiServerManagerTestSuite) TestMockLSPServerManager_Cleanup() {
 	// Test that cleanup works properly
 	initialServerCount := len(suite.mockManager.GetAllServers())
-	
+
 	// Create some servers
 	suite.mockManager.CreateServer("cleanup-test-1")
 	suite.mockManager.CreateServer("cleanup-test-2")
 	suite.mockManager.StartServer("cleanup-test-1")
 	suite.mockManager.StartServer("cleanup-test-2")
-	
+
 	assert.Equal(suite.T(), initialServerCount+2, len(suite.mockManager.GetAllServers()))
-	
+
 	// Test cleanup
 	suite.mockManager.Cleanup()
-	
+
 	// After cleanup, should have no servers
 	assert.Equal(suite.T(), 0, len(suite.mockManager.GetAllServers()))
 }

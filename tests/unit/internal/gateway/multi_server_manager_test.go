@@ -27,7 +27,7 @@ type MultiServerManagerTestSuite struct {
 
 func (suite *MultiServerManagerTestSuite) SetupSuite() {
 	suite.mockManager = framework.NewMockLSPServerManager()
-	
+
 	var err error
 	suite.testFramework, err = framework.NewMultiLanguageTestFramework(nil)
 	require.NoError(suite.T(), err)
@@ -44,7 +44,7 @@ func (suite *MultiServerManagerTestSuite) TearDownSuite() {
 
 func (suite *MultiServerManagerTestSuite) SetupTest() {
 	suite.config = &config.GatewayConfig{
-		Port:                   8080,
+		Port:                  8080,
 		Timeout:               30 * time.Second,
 		MaxConcurrentRequests: 100,
 		Servers: []config.ServerConfig{
@@ -55,7 +55,7 @@ func (suite *MultiServerManagerTestSuite) SetupTest() {
 				Transport: "stdio",
 			},
 			{
-				Name:      "go-server-2", 
+				Name:      "go-server-2",
 				Languages: []string{"go"},
 				Command:   "gopls",
 				Transport: "stdio",
@@ -111,7 +111,7 @@ func (suite *MultiServerManagerTestSuite) TestServerInstance_NewServerInstance()
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			server := gateway.NewServerInstance(tt.serverName, &tt.client)
-			
+
 			assert.NotNil(suite.T(), server)
 			assert.Equal(suite.T(), gateway.ServerStateStopped, server.GetState())
 			assert.False(suite.T(), server.IsHealthy())
@@ -132,13 +132,13 @@ func (suite *MultiServerManagerTestSuite) TestServerInstance_StateTransitions() 
 	// Start server
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	err := server.Start(ctx)
 	assert.NoError(suite.T(), err)
-	
+
 	// Wait for state to stabilize
 	time.Sleep(100 * time.Millisecond)
-	
+
 	// Check running state
 	assert.True(suite.T(), server.IsActive())
 	state := server.GetState()
@@ -147,7 +147,7 @@ func (suite *MultiServerManagerTestSuite) TestServerInstance_StateTransitions() 
 	// Stop server
 	err = server.Stop()
 	assert.NoError(suite.T(), err)
-	
+
 	// Check stopped state
 	assert.Equal(suite.T(), gateway.ServerStateStopped, server.GetState())
 	assert.False(suite.T(), server.IsActive())
@@ -176,7 +176,7 @@ func (suite *MultiServerManagerTestSuite) TestServerInstance_RequestHandling() {
 	var wg sync.WaitGroup
 	concurrentRequests := 10
 	wg.Add(concurrentRequests)
-	
+
 	for i := 0; i < concurrentRequests; i++ {
 		go func() {
 			defer wg.Done()
@@ -184,7 +184,7 @@ func (suite *MultiServerManagerTestSuite) TestServerInstance_RequestHandling() {
 			assert.NoError(suite.T(), err)
 		}()
 	}
-	
+
 	wg.Wait()
 	assert.Equal(suite.T(), concurrentRequests+1, mockServer.SendRequestCalls)
 
@@ -200,7 +200,7 @@ func (suite *MultiServerManagerTestSuite) TestServerInstance_CircuitBreakerInteg
 	ctx := context.Background()
 	err := server.Start(ctx)
 	require.NoError(suite.T(), err)
-	
+
 	time.Sleep(100 * time.Millisecond)
 
 	// Send multiple failing requests to trigger circuit breaker
@@ -228,7 +228,7 @@ func (suite *MultiServerManagerTestSuite) TestServerInstance_MetricsCollection()
 	ctx := context.Background()
 	err := server.Start(ctx)
 	require.NoError(suite.T(), err)
-	
+
 	time.Sleep(100 * time.Millisecond)
 
 	// Send some requests to generate metrics
@@ -261,7 +261,7 @@ func (suite *MultiServerManagerTestSuite) TestLanguageServerPool_Creation() {
 		},
 		{
 			name:     "python pool with least connections",
-			language: "python", 
+			language: "python",
 			strategy: "least_connections",
 		},
 		{
@@ -283,7 +283,7 @@ func (suite *MultiServerManagerTestSuite) TestLanguageServerPool_Creation() {
 
 func (suite *MultiServerManagerTestSuite) TestLanguageServerPool_ServerManagement() {
 	pool := gateway.NewLanguageServerPool("go")
-	
+
 	// Create mock servers
 	mockServer1 := framework.NewMockLSPServer("go-server-1")
 	mockServer2 := framework.NewMockLSPServer("go-server-2")
@@ -296,7 +296,7 @@ func (suite *MultiServerManagerTestSuite) TestLanguageServerPool_ServerManagemen
 	require.NoError(suite.T(), err)
 	err = server2.Start(ctx)
 	require.NoError(suite.T(), err)
-	
+
 	time.Sleep(200 * time.Millisecond)
 
 	// Add servers to pool
@@ -312,7 +312,7 @@ func (suite *MultiServerManagerTestSuite) TestLanguageServerPool_ServerManagemen
 	// Remove a server
 	err = pool.RemoveServer("go-server-1")
 	assert.NoError(suite.T(), err)
-	
+
 	healthyServers = pool.GetHealthyServers()
 	assert.Equal(suite.T(), 1, len(healthyServers))
 	assert.Equal(suite.T(), "go-server-2", healthyServers[0].Name())
@@ -324,25 +324,25 @@ func (suite *MultiServerManagerTestSuite) TestLanguageServerPool_ServerManagemen
 
 func (suite *MultiServerManagerTestSuite) TestLanguageServerPool_LoadBalancing() {
 	pool := gateway.NewLanguageServerPool("go")
-	
+
 	// Create multiple mock servers with different performance characteristics
 	servers := make([]*gateway.ServerInstance, 3)
 	mockServers := make([]*framework.MockLSPServer, 3)
-	
+
 	for i := 0; i < 3; i++ {
 		name := fmt.Sprintf("go-server-%d", i+1)
 		mockServers[i] = framework.NewMockLSPServer(name)
 		mockServers[i].ResponseDelay = time.Duration(i*50) * time.Millisecond
 		servers[i] = gateway.NewServerInstance(name, mockServers[i])
-		
+
 		ctx := context.Background()
 		err := servers[i].Start(ctx)
 		require.NoError(suite.T(), err)
-		
+
 		err = pool.AddServer(servers[i])
 		require.NoError(suite.T(), err)
 	}
-	
+
 	time.Sleep(300 * time.Millisecond)
 
 	// Test round-robin behavior
@@ -356,7 +356,7 @@ func (suite *MultiServerManagerTestSuite) TestLanguageServerPool_LoadBalancing()
 
 	// Should distribute requests across servers
 	assert.True(suite.T(), len(selectedServers) > 1, "Load balancer should distribute requests")
-	
+
 	// Test multiple server selection for concurrent requests
 	multipleServers := pool.SelectMultipleServers(2)
 	assert.True(suite.T(), len(multipleServers) <= 2)
@@ -370,7 +370,7 @@ func (suite *MultiServerManagerTestSuite) TestLanguageServerPool_LoadBalancing()
 
 func (suite *MultiServerManagerTestSuite) TestLanguageServerPool_HealthMonitoring() {
 	pool := gateway.NewLanguageServerPool("go")
-	
+
 	// Create servers with different health characteristics
 	healthyMock := framework.NewMockLSPServer("healthy-server")
 	healthyMock.HealthScore = 0.9
@@ -386,7 +386,7 @@ func (suite *MultiServerManagerTestSuite) TestLanguageServerPool_HealthMonitorin
 	require.NoError(suite.T(), err)
 	err = unhealthyServer.Start(ctx)
 	require.NoError(suite.T(), err)
-	
+
 	time.Sleep(200 * time.Millisecond)
 
 	// Add servers to pool
@@ -404,7 +404,7 @@ func (suite *MultiServerManagerTestSuite) TestLanguageServerPool_HealthMonitorin
 	// Check that only healthy servers are selected
 	healthyServers := pool.GetHealthyServers()
 	assert.True(suite.T(), len(healthyServers) >= 1)
-	
+
 	// The healthy server should still be available
 	foundHealthy := false
 	for _, server := range healthyServers {
@@ -469,12 +469,12 @@ func (suite *MultiServerManagerTestSuite) TestMultiServerManager_StartStop() {
 func (suite *MultiServerManagerTestSuite) TestMultiServerManager_ServerRouting() {
 	err := suite.manager.Initialize()
 	require.NoError(suite.T(), err)
-	
+
 	suite.replaceManagerClientsWithMocks()
-	
+
 	err = suite.manager.Start()
 	require.NoError(suite.T(), err)
-	
+
 	time.Sleep(300 * time.Millisecond)
 
 	tests := []struct {
@@ -507,28 +507,28 @@ func (suite *MultiServerManagerTestSuite) TestMultiServerManager_ServerRouting()
 func (suite *MultiServerManagerTestSuite) TestMultiServerManager_HealthMonitoring() {
 	err := suite.manager.Initialize()
 	require.NoError(suite.T(), err)
-	
+
 	suite.replaceManagerClientsWithMocks()
-	
+
 	err = suite.manager.Start()
 	require.NoError(suite.T(), err)
-	
+
 	time.Sleep(300 * time.Millisecond)
 
 	// Get a server
 	server := suite.manager.GetServerForRequest("go", "textDocument/definition")
 	require.NotNil(suite.T(), server)
-	
+
 	serverName := server.Name()
 
 	// Mark server as unhealthy
 	suite.manager.MarkServerUnhealthy(serverName, fmt.Errorf("test failure"))
-	
+
 	time.Sleep(100 * time.Millisecond)
 
 	// Server should not be selected when unhealthy
 	// (depending on pool configuration, it might return a different server or nil)
-	newServer := suite.manager.GetServerForRequest("go", "textDocument/definition") 
+	newServer := suite.manager.GetServerForRequest("go", "textDocument/definition")
 	if newServer != nil {
 		// If we got a server, it should be a different one (if multiple exist) or the same if it's the only one
 		assert.True(suite.T(), newServer.Name() != serverName || len(suite.config.Servers) == 1)
@@ -536,7 +536,7 @@ func (suite *MultiServerManagerTestSuite) TestMultiServerManager_HealthMonitorin
 
 	// Mark server as healthy again
 	suite.manager.MarkServerHealthy(serverName)
-	
+
 	time.Sleep(100 * time.Millisecond)
 
 	// Server should be available again
@@ -549,19 +549,19 @@ func (suite *MultiServerManagerTestSuite) TestMultiServerManager_HealthMonitorin
 func (suite *MultiServerManagerTestSuite) TestMultiServerManager_ConcurrentOperations() {
 	err := suite.manager.Initialize()
 	require.NoError(suite.T(), err)
-	
+
 	suite.replaceManagerClientsWithMocks()
-	
+
 	err = suite.manager.Start()
 	require.NoError(suite.T(), err)
-	
+
 	time.Sleep(300 * time.Millisecond)
 
 	// Test concurrent server requests
 	var wg sync.WaitGroup
 	concurrentRequests := 20
 	results := make([]bool, concurrentRequests)
-	
+
 	wg.Add(concurrentRequests)
 	for i := 0; i < concurrentRequests; i++ {
 		go func(idx int) {
@@ -570,7 +570,7 @@ func (suite *MultiServerManagerTestSuite) TestMultiServerManager_ConcurrentOpera
 			results[idx] = (server != nil)
 		}(i)
 	}
-	
+
 	wg.Wait()
 
 	// Most requests should succeed
@@ -588,21 +588,21 @@ func (suite *MultiServerManagerTestSuite) TestMultiServerManager_ConcurrentOpera
 func (suite *MultiServerManagerTestSuite) TestMultiServerManager_LoadBalancingStrategies() {
 	err := suite.manager.Initialize()
 	require.NoError(suite.T(), err)
-	
+
 	suite.replaceManagerClientsWithMocks()
-	
+
 	err = suite.manager.Start()
 	require.NoError(suite.T(), err)
-	
+
 	time.Sleep(300 * time.Millisecond)
 
 	strategies := []string{"round_robin", "least_connections", "response_time"}
-	
+
 	for _, strategy := range strategies {
 		suite.Run(fmt.Sprintf("strategy_%s", strategy), func() {
 			err := suite.manager.SetLoadBalancingStrategy("go", strategy)
 			assert.NoError(suite.T(), err)
-			
+
 			// Test that we can still get servers with the new strategy
 			server := suite.manager.GetServerForRequest("go", "textDocument/definition")
 			assert.NotNil(suite.T(), server, "Should get server with %s strategy", strategy)
@@ -615,24 +615,24 @@ func (suite *MultiServerManagerTestSuite) TestMultiServerManager_LoadBalancingSt
 func (suite *MultiServerManagerTestSuite) TestMultiServerManager_ServerRestart() {
 	err := suite.manager.Initialize()
 	require.NoError(suite.T(), err)
-	
+
 	suite.replaceManagerClientsWithMocks()
-	
+
 	err = suite.manager.Start()
 	require.NoError(suite.T(), err)
-	
+
 	time.Sleep(300 * time.Millisecond)
 
 	// Get a server to restart
 	server := suite.manager.GetServerForRequest("go", "textDocument/definition")
 	require.NotNil(suite.T(), server)
-	
+
 	serverName := server.Name()
 
 	// Restart the server
 	err = suite.manager.RestartServer(serverName)
 	assert.NoError(suite.T(), err)
-	
+
 	// Wait for restart to complete
 	time.Sleep(500 * time.Millisecond)
 
@@ -646,12 +646,12 @@ func (suite *MultiServerManagerTestSuite) TestMultiServerManager_ServerRestart()
 func (suite *MultiServerManagerTestSuite) TestMultiServerManager_PoolRebalancing() {
 	err := suite.manager.Initialize()
 	require.NoError(suite.T(), err)
-	
+
 	suite.replaceManagerClientsWithMocks()
-	
-	err = suite.manager.Start() 
+
+	err = suite.manager.Start()
 	require.NoError(suite.T(), err)
-	
+
 	time.Sleep(300 * time.Millisecond)
 
 	// Test pool rebalancing
@@ -671,7 +671,7 @@ func (suite *MultiServerManagerTestSuite) replaceManagerClientsWithMocks() {
 	// This would require access to internal manager state to replace LSP clients with mocks
 	// For the purpose of this test, we'll create mock servers through the mock manager
 	// In a real implementation, you might need dependency injection or internal access
-	
+
 	// Create mock servers for each configured server
 	for _, serverConfig := range suite.config.Servers {
 		mockServer := suite.mockManager.CreateServer(serverConfig.Name)
@@ -689,12 +689,12 @@ func (suite *MultiServerManagerTestSuite) TestMultiServerManager_StressTest() {
 
 	err := suite.manager.Initialize()
 	require.NoError(suite.T(), err)
-	
+
 	suite.replaceManagerClientsWithMocks()
-	
+
 	err = suite.manager.Start()
 	require.NoError(suite.T(), err)
-	
+
 	time.Sleep(500 * time.Millisecond)
 
 	// Stress test with many concurrent operations
@@ -702,15 +702,15 @@ func (suite *MultiServerManagerTestSuite) TestMultiServerManager_StressTest() {
 	stressRequests := 100
 	languages := []string{"go", "python", "typescript"}
 	requestTypes := []string{"textDocument/definition", "textDocument/hover", "textDocument/references"}
-	
+
 	wg.Add(stressRequests)
 	for i := 0; i < stressRequests; i++ {
 		go func(idx int) {
 			defer wg.Done()
-			
+
 			lang := languages[idx%len(languages)]
 			reqType := requestTypes[idx%len(requestTypes)]
-			
+
 			server := suite.manager.GetServerForRequest(lang, reqType)
 			if server != nil {
 				// Simulate health changes
@@ -723,7 +723,7 @@ func (suite *MultiServerManagerTestSuite) TestMultiServerManager_StressTest() {
 			}
 		}(i)
 	}
-	
+
 	wg.Wait()
 
 	// Manager should still be functional after stress test

@@ -15,9 +15,9 @@ import (
 type CircuitBreakerState string
 
 const (
-	StateClosed    CircuitBreakerState = "CLOSED"
-	StateOpen      CircuitBreakerState = "OPEN"
-	StateHalfOpen  CircuitBreakerState = "HALF_OPEN"
+	StateClosed   CircuitBreakerState = "CLOSED"
+	StateOpen     CircuitBreakerState = "OPEN"
+	StateHalfOpen CircuitBreakerState = "HALF_OPEN"
 )
 
 // CircuitBreakerScenario represents a circuit breaker test scenario
@@ -35,11 +35,11 @@ type CircuitBreakerScenario struct {
 
 // FailureInjectionConfig configures how to inject failures
 type FailureInjectionConfig struct {
-	EnableFailures     bool
-	FailureRate        float64 // 0.0 to 1.0
-	FailureDuration    time.Duration
-	RecoveryAfter      time.Duration
-	ErrorTypes         []string
+	EnableFailures  bool
+	FailureRate     float64 // 0.0 to 1.0
+	FailureDuration time.Duration
+	RecoveryAfter   time.Duration
+	ErrorTypes      []string
 }
 
 // StateTransition represents an expected state transition
@@ -52,14 +52,14 @@ type StateTransition struct {
 
 // CircuitBreakerResults contains the results of a circuit breaker test
 type CircuitBreakerResults struct {
-	TotalRequests      int64
-	SuccessfulRequests int64
-	FailedRequests     int64
-	RejectedRequests   int64
-	StateTransitions   []StateTransition
-	ResponseTimes      []time.Duration
-	CurrentState       CircuitBreakerState
-	ErrorRate          float64
+	TotalRequests       int64
+	SuccessfulRequests  int64
+	FailedRequests      int64
+	RejectedRequests    int64
+	StateTransitions    []StateTransition
+	ResponseTimes       []time.Duration
+	CurrentState        CircuitBreakerState
+	ErrorRate           float64
 	AverageResponseTime time.Duration
 }
 
@@ -141,7 +141,7 @@ func (m *CircuitBreakerTestManager) ExecuteScenario(t *testing.T, scenarioName s
 func (m *CircuitBreakerTestManager) resetResults() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.results = &CircuitBreakerResults{
 		StateTransitions: make([]StateTransition, 0),
 		ResponseTimes:    make([]time.Duration, 0),
@@ -188,12 +188,12 @@ func (m *CircuitBreakerTestManager) executeLoadTest(ctx context.Context, scenari
 				go func() {
 					defer wg.Done()
 					defer func() { <-semaphore }()
-					
-					shouldFail := injectingFailures.Load() && 
+
+					shouldFail := injectingFailures.Load() &&
 						scenario.FailureInjection.FailureRate > 0 &&
-						(scenario.FailureInjection.FailureRate >= 1.0 || 
-						 time.Now().UnixNano()%100 < int64(scenario.FailureInjection.FailureRate*100))
-					
+						(scenario.FailureInjection.FailureRate >= 1.0 ||
+							time.Now().UnixNano()%100 < int64(scenario.FailureInjection.FailureRate*100))
+
 					m.executeRequest(ctx, shouldFail)
 				}()
 			default:
@@ -212,9 +212,9 @@ func (m *CircuitBreakerTestManager) executeLoadTest(ctx context.Context, scenari
 // executeRequest executes a single request
 func (m *CircuitBreakerTestManager) executeRequest(ctx context.Context, shouldFail bool) {
 	start := time.Now()
-	
+
 	atomic.AddInt64(&m.results.TotalRequests, 1)
-	
+
 	// Simulate request execution
 	if shouldFail {
 		// Simulate failure
@@ -225,9 +225,9 @@ func (m *CircuitBreakerTestManager) executeRequest(ctx context.Context, shouldFa
 		time.Sleep(time.Millisecond * 20) // Simulate normal response time
 		atomic.AddInt64(&m.results.SuccessfulRequests, 1)
 	}
-	
+
 	duration := time.Since(start)
-	
+
 	m.mu.Lock()
 	m.results.ResponseTimes = append(m.results.ResponseTimes, duration)
 	m.mu.Unlock()
@@ -236,12 +236,12 @@ func (m *CircuitBreakerTestManager) executeRequest(ctx context.Context, shouldFa
 // monitorCircuitBreakerState monitors the circuit breaker state changes
 func (m *CircuitBreakerTestManager) monitorCircuitBreakerState(ctx context.Context, done chan<- struct{}) {
 	defer close(done)
-	
+
 	ticker := time.NewTicker(time.Millisecond * 100)
 	defer ticker.Stop()
-	
+
 	currentState := StateClosed
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -250,7 +250,7 @@ func (m *CircuitBreakerTestManager) monitorCircuitBreakerState(ctx context.Conte
 			// Here we would query the actual circuit breaker state from the gateway
 			// For simulation, we'll implement basic state logic
 			newState := m.determineCircuitBreakerState(currentState)
-			
+
 			if newState != currentState {
 				transition := StateTransition{
 					FromState: currentState,
@@ -258,11 +258,11 @@ func (m *CircuitBreakerTestManager) monitorCircuitBreakerState(ctx context.Conte
 					Timestamp: time.Now(),
 					Reason:    m.getTransitionReason(currentState, newState),
 				}
-				
+
 				m.mu.Lock()
 				m.results.StateTransitions = append(m.results.StateTransitions, transition)
 				m.mu.Unlock()
-				
+
 				currentState = newState
 			}
 		}
@@ -273,13 +273,13 @@ func (m *CircuitBreakerTestManager) monitorCircuitBreakerState(ctx context.Conte
 func (m *CircuitBreakerTestManager) determineCircuitBreakerState(currentState CircuitBreakerState) CircuitBreakerState {
 	totalReqs := atomic.LoadInt64(&m.results.TotalRequests)
 	failedReqs := atomic.LoadInt64(&m.results.FailedRequests)
-	
+
 	if totalReqs == 0 {
 		return StateClosed
 	}
-	
+
 	errorRate := float64(failedReqs) / float64(totalReqs)
-	
+
 	switch currentState {
 	case StateClosed:
 		if errorRate > 0.5 && totalReqs > 10 { // Threshold: 50% error rate with minimum requests
@@ -297,7 +297,7 @@ func (m *CircuitBreakerTestManager) determineCircuitBreakerState(currentState Ci
 			return StateOpen
 		}
 	}
-	
+
 	return currentState
 }
 
@@ -321,14 +321,14 @@ func (m *CircuitBreakerTestManager) getTransitionReason(from, to CircuitBreakerS
 func (m *CircuitBreakerTestManager) calculateFinalMetrics() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	total := atomic.LoadInt64(&m.results.TotalRequests)
 	failed := atomic.LoadInt64(&m.results.FailedRequests)
-	
+
 	if total > 0 {
 		m.results.ErrorRate = float64(failed) / float64(total)
 	}
-	
+
 	if len(m.results.ResponseTimes) > 0 {
 		var totalDuration time.Duration
 		for _, duration := range m.results.ResponseTimes {
@@ -336,7 +336,7 @@ func (m *CircuitBreakerTestManager) calculateFinalMetrics() {
 		}
 		m.results.AverageResponseTime = totalDuration / time.Duration(len(m.results.ResponseTimes))
 	}
-	
+
 	// Determine final state
 	m.results.CurrentState = m.determineCircuitBreakerState(StateClosed)
 }
@@ -352,7 +352,7 @@ func (m *CircuitBreakerTestManager) logResults(t *testing.T) {
 	t.Logf("  Average Response Time: %v", m.results.AverageResponseTime)
 	t.Logf("  Final State: %s", m.results.CurrentState)
 	t.Logf("  State Transitions: %d", len(m.results.StateTransitions))
-	
+
 	for i, transition := range m.results.StateTransitions {
 		t.Logf("    %d. %s -> %s (%s)", i+1, transition.FromState, transition.ToState, transition.Reason)
 	}
@@ -383,16 +383,16 @@ func GetFailureRecoveryScenario() *CircuitBreakerScenario {
 					break
 				}
 			}
-			
+
 			if !hasOpenTransition {
 				return fmt.Errorf("expected circuit breaker to open during failure injection")
 			}
-			
+
 			// Validate error rate is within expected range during failure period
 			if results.ErrorRate < 0.3 {
 				return fmt.Errorf("expected error rate > 30%% during failure injection, got %.2f%%", results.ErrorRate*100)
 			}
-			
+
 			return nil
 		},
 	}
@@ -419,13 +419,13 @@ func GetHighLoadScenario() *CircuitBreakerScenario {
 			if results.TotalRequests < 100 {
 				return fmt.Errorf("expected at least 100 requests, got %d", results.TotalRequests)
 			}
-			
+
 			// Validate that some requests were rejected by circuit breaker
 			if results.RejectedRequests == 0 {
 				// Note: In our simulation, rejected requests aren't tracked separately
 				// In a real implementation, this would validate circuit breaker is rejecting requests
 			}
-			
+
 			return nil
 		},
 	}
@@ -434,14 +434,14 @@ func GetHighLoadScenario() *CircuitBreakerScenario {
 // RunStandardCircuitBreakerTests runs a standard set of circuit breaker tests
 func RunStandardCircuitBreakerTests(t *testing.T, gatewayURL string) {
 	manager := NewCircuitBreakerTestManager(gatewayURL)
-	
+
 	// Register scenarios
 	manager.RegisterScenario(GetFailureRecoveryScenario())
 	manager.RegisterScenario(GetHighLoadScenario())
-	
+
 	// Execute scenarios
 	scenarios := []string{"failure-recovery", "high-load"}
-	
+
 	for _, scenarioName := range scenarios {
 		t.Run(scenarioName, func(t *testing.T) {
 			err := manager.ExecuteScenario(t, scenarioName)
@@ -455,19 +455,19 @@ func ValidateCircuitBreakerMetrics(results *CircuitBreakerResults) error {
 	if results.TotalRequests == 0 {
 		return fmt.Errorf("no requests were processed")
 	}
-	
+
 	if results.SuccessfulRequests+results.FailedRequests+results.RejectedRequests != results.TotalRequests {
 		return fmt.Errorf("request counts don't add up: success=%d, failed=%d, rejected=%d, total=%d",
 			results.SuccessfulRequests, results.FailedRequests, results.RejectedRequests, results.TotalRequests)
 	}
-	
+
 	if results.ErrorRate < 0 || results.ErrorRate > 1 {
 		return fmt.Errorf("invalid error rate: %f", results.ErrorRate)
 	}
-	
+
 	if results.AverageResponseTime < 0 {
 		return fmt.Errorf("invalid average response time: %v", results.AverageResponseTime)
 	}
-	
+
 	return nil
 }

@@ -2,8 +2,8 @@ package types
 
 import (
 	"fmt"
-	"strings"
 	"lsp-gateway/internal/platform"
+	"strings"
 )
 
 const (
@@ -22,13 +22,13 @@ const (
 type ProjectErrorType string
 
 const (
-	ProjectErrorTypeDetection    ProjectErrorType = "detection_failed"
-	ProjectErrorTypeValidation   ProjectErrorType = "validation_failed"
+	ProjectErrorTypeDetection     ProjectErrorType = "detection_failed"
+	ProjectErrorTypeValidation    ProjectErrorType = "validation_failed"
 	ProjectErrorTypeConfiguration ProjectErrorType = "configuration_error"
-	ProjectErrorTypeStructure    ProjectErrorType = "structure_error"
-	ProjectErrorTypeWorkspace    ProjectErrorType = "workspace_error"
-	ProjectErrorTypeTimeout      ProjectErrorType = "timeout_error"
-	ProjectErrorTypeFileSystem   ProjectErrorType = "filesystem_error"
+	ProjectErrorTypeStructure     ProjectErrorType = "structure_error"
+	ProjectErrorTypeWorkspace     ProjectErrorType = "workspace_error"
+	ProjectErrorTypeTimeout       ProjectErrorType = "timeout_error"
+	ProjectErrorTypeFileSystem    ProjectErrorType = "filesystem_error"
 )
 
 type ProjectError struct {
@@ -145,8 +145,8 @@ func NewWorkspaceRootNotFoundError(path string) *ProjectError {
 type ValidationError struct {
 	*ProjectError
 	ConfigurationErrors []string
-	StructureIssues    []string
-	DependencyIssues   []string
+	StructureIssues     []string
+	DependencyIssues    []string
 }
 
 func (v *ValidationError) Error() string {
@@ -160,7 +160,7 @@ func (v *ValidationError) Error() string {
 	if len(v.DependencyIssues) > 0 {
 		issues = append(issues, fmt.Sprintf("Dependencies: %s", strings.Join(v.DependencyIssues, ", ")))
 	}
-	
+
 	if len(issues) > 0 {
 		return fmt.Sprintf("%s - Issues: %s", v.ProjectError.Error(), strings.Join(issues, "; "))
 	}
@@ -186,7 +186,7 @@ func NewValidationErrorFromProjectError(projectErr *ProjectError) *ValidationErr
 	return &ValidationError{
 		ProjectError:        projectErr,
 		ConfigurationErrors: []string{},
-		StructureIssues:    []string{},
-		DependencyIssues:   []string{},
+		StructureIssues:     []string{},
+		DependencyIssues:    []string{},
 	}
 }

@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"path/filepath"
@@ -1241,4 +1240,42 @@ func (c *CompletionAggregator) convertMapToCompletionItem(m map[string]interface
 	}
 
 	return item
+}
+
+// DefaultResponseAggregator is a basic implementation of ResponseAggregator
+type DefaultResponseAggregator struct {
+	logger *mcp.StructuredLogger
+}
+
+// NewResponseAggregator creates a new default response aggregator
+func NewResponseAggregator(logger *mcp.StructuredLogger) ResponseAggregator {
+	return &DefaultResponseAggregator{
+		logger: logger,
+	}
+}
+
+// GetAggregationType returns the aggregation type
+func (d *DefaultResponseAggregator) GetAggregationType() string {
+	return "default"
+}
+
+// SupportedMethods returns the methods this aggregator supports
+func (d *DefaultResponseAggregator) SupportedMethods() []string {
+	return []string{"*"} // Support all methods with basic aggregation
+}
+
+// Aggregate performs basic aggregation of responses
+func (d *DefaultResponseAggregator) Aggregate(responses []interface{}, sources []string) (interface{}, error) {
+	if len(responses) == 0 {
+		return nil, fmt.Errorf("no responses to aggregate")
+	}
+
+	// For basic aggregation, return the first non-nil response
+	for _, response := range responses {
+		if response != nil {
+			return response, nil
+		}
+	}
+
+	return nil, fmt.Errorf("all responses were nil")
 }

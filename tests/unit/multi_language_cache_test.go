@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	
+
 	"lsp-gateway/internal/gateway"
 )
 
@@ -23,7 +23,7 @@ type ProjectCacheTestSuite struct {
 
 func (suite *ProjectCacheTestSuite) SetupTest() {
 	suite.cache = gateway.NewProjectCache()
-	
+
 	tempDir, err := os.MkdirTemp("", "cache-test-*")
 	suite.Require().NoError(err)
 	suite.tempDir = tempDir
@@ -85,7 +85,7 @@ func (suite *ProjectCacheTestSuite) TestCacheBasicOperations() {
 
 	// Test set and get
 	suite.cache.Set(projectPath, projectInfo)
-	
+
 	cachedInfo, hit = suite.cache.Get(projectPath)
 	suite.True(hit, "Should hit after set")
 	suite.NotNil(cachedInfo, "Should return project info on hit")
@@ -94,7 +94,7 @@ func (suite *ProjectCacheTestSuite) TestCacheBasicOperations() {
 
 	// Test invalidation
 	suite.cache.InvalidateProject(projectPath)
-	
+
 	cachedInfo, hit = suite.cache.Get(projectPath)
 	suite.False(hit, "Should miss after invalidation")
 	suite.Nil(cachedInfo, "Should return nil after invalidation")
@@ -149,7 +149,7 @@ func (suite *ProjectCacheTestSuite) TestCacheEviction() {
 	project1 := "/test/project1"
 	project2 := "/test/project2"
 	project3 := "/test/project3"
-	
+
 	info1 := suite.createTestProjectInfo(project1)
 	info2 := suite.createTestProjectInfo(project2)
 	info3 := suite.createTestProjectInfo(project3)
@@ -163,7 +163,7 @@ func (suite *ProjectCacheTestSuite) TestCacheEviction() {
 	_, hit1 := suite.cache.Get(project1)
 	_, hit2 := suite.cache.Get(project2)
 	_, hit3 := suite.cache.Get(project3)
-	
+
 	suite.True(hit1, "Project1 should be in cache")
 	suite.True(hit2, "Project2 should be in cache")
 	suite.True(hit3, "Project3 should be in cache")
@@ -180,7 +180,7 @@ func (suite *ProjectCacheTestSuite) TestCacheTTL() {
 
 	// Set entry
 	suite.cache.Set(projectPath, projectInfo)
-	
+
 	// Should be available immediately
 	_, hit := suite.cache.Get(projectPath)
 	suite.True(hit, "Should be available immediately after set")
@@ -196,7 +196,7 @@ func (suite *ProjectCacheTestSuite) TestCacheInvalidateAll() {
 	project1 := "/test/project1"
 	project2 := "/test/project2"
 	project3 := "/test/project3"
-	
+
 	info1 := suite.createTestProjectInfo(project1)
 	info2 := suite.createTestProjectInfo(project2)
 	info3 := suite.createTestProjectInfo(project3)
@@ -222,7 +222,7 @@ func (suite *ProjectCacheTestSuite) TestCacheInvalidateAll() {
 	_, hit1 := suite.cache.Get(project1)
 	_, hit2 := suite.cache.Get(project2)
 	_, hit3 := suite.cache.Get(project3)
-	
+
 	suite.False(hit1, "Project1 should not be in cache")
 	suite.False(hit2, "Project2 should not be in cache")
 	suite.False(hit3, "Project3 should not be in cache")
@@ -234,7 +234,7 @@ func (suite *ProjectCacheTestSuite) TestCacheNilHandling() {
 
 	// Setting nil should be ignored
 	suite.cache.Set(projectPath, nil)
-	
+
 	_, hit := suite.cache.Get(projectPath)
 	suite.False(hit, "Setting nil should be ignored")
 
@@ -247,19 +247,19 @@ func (suite *ProjectCacheTestSuite) TestCacheNilHandling() {
 func (suite *ProjectCacheTestSuite) TestCacheConcurrentAccess() {
 	const numGoroutines = 10
 	const numOperations = 100
-	
+
 	projectInfo := suite.createTestProjectInfo("/test/project")
-	
+
 	// Concurrent sets and gets
 	for i := 0; i < numGoroutines; i++ {
 		go func(id int) {
 			for j := 0; j < numOperations; j++ {
 				projectPath := fmt.Sprintf("/test/project_%d_%d", id, j)
-				
+
 				// Set and immediately get
 				suite.cache.Set(projectPath, projectInfo)
 				_, hit := suite.cache.Get(projectPath)
-				
+
 				// Should hit since we just set it
 				if !hit {
 					suite.T().Errorf("Should hit for project %s", projectPath)

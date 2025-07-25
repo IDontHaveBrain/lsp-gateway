@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -17,6 +16,7 @@ import (
 
 // RoutingDecision represents a complete routing decision with all required context
 type RoutingDecision struct {
+<<<<<<< HEAD
 	TargetServers      []*RoutingServerInstance    `json:"target_servers"`
 	RoutingStrategy    string               `json:"routing_strategy"`
 	RequestContext     *RequestContext      `json:"request_context"`
@@ -31,6 +31,31 @@ type RoutingDecision struct {
 	Weight             float64              `json:"weight,omitempty"`
 	Strategy           RoutingStrategy      `json:"-"` // Strategy interface
 	Metadata           map[string]interface{} `json:"metadata,omitempty"`
+=======
+	TargetServers      []*RoutingServerInstance `json:"target_servers"`
+	RoutingStrategy    string                   `json:"routing_strategy"`
+	RequestContext     *RequestContext          `json:"request_context"`
+	ResponseAggregator ResponseAggregator       `json:"-"` // Not serializable due to interface
+	Timeout            time.Duration            `json:"timeout"`
+	Priority           int                      `json:"priority"`
+	CreatedAt          time.Time                `json:"created_at"`
+	DecisionID         string                   `json:"decision_id"`
+	
+	// Additional fields for enhanced routing
+	ServerName   string                 `json:"server_name,omitempty"`
+	ServerConfig *config.ServerConfig   `json:"server_config,omitempty"`
+	Client       transport.LSPClient    `json:"-"` // Not serializable due to interface
+	Weight       float64                `json:"weight,omitempty"`
+	Strategy     RoutingStrategy        `json:"-"` // Not serializable due to interface
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+	
+	// Fields referenced in routing_strategies.go
+	PrimaryServer   *RoutingServerInstance   `json:"primary_server,omitempty"`
+	FallbackServers []*RoutingServerInstance `json:"fallback_servers,omitempty"`
+	RequestID       interface{}              `json:"request_id,omitempty"`
+	Method          string                   `json:"method,omitempty"`
+	Language        string                   `json:"language,omitempty"`
+>>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 }
 
 // RequestContext contains comprehensive context information about the LSP request
@@ -49,6 +74,7 @@ type RequestContext struct {
 
 // LSPRequest represents an enhanced LSP request with routing context
 type LSPRequest struct {
+<<<<<<< HEAD
 	Method     string          `json:"method"`
 	Params     interface{}     `json:"params,omitempty"`
 	ID         interface{}     `json:"id,omitempty"`
@@ -58,10 +84,22 @@ type LSPRequest struct {
 	JSONRPC    string          `json:"jsonrpc"`
 	Timestamp  time.Time       `json:"timestamp"`
 	RequestID  string          `json:"request_id"`
+=======
+	Method    string          `json:"method"`
+	Params    interface{}     `json:"params,omitempty"`
+	ID        interface{}     `json:"id,omitempty"`
+	URI       string          `json:"uri,omitempty"`
+	Language  string          `json:"language,omitempty"`
+	Context   *RequestContext `json:"context,omitempty"`
+	JSONRPC   string          `json:"jsonrpc"`
+	Timestamp time.Time       `json:"timestamp"`
+	RequestID string          `json:"request_id"`
+>>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 }
 
 // AggregatedResponse contains the result of aggregating multiple LSP server responses
 type AggregatedResponse struct {
+<<<<<<< HEAD
 	PrimaryResponse    interface{}            `json:"primary_response"`
 	PrimaryResult      interface{}            `json:"primary_result"`
 	SecondaryResponses []interface{}          `json:"secondary_responses,omitempty"`
@@ -76,20 +114,35 @@ type AggregatedResponse struct {
 	Metadata           map[string]interface{} `json:"metadata,omitempty"`
 	ServerCount        int                    `json:"server_count"`
 	Strategy           RoutingStrategyType    `json:"strategy"`
+=======
+	PrimaryResponse    interface{}         `json:"primary_response"`
+	SecondaryResponses []interface{}       `json:"secondary_responses,omitempty"`
+	AggregatedResult   interface{}         `json:"aggregated_result"`
+	ResponseSources    []string            `json:"response_sources"`
+	ProcessingTime     time.Duration       `json:"processing_time"`
+	AggregationMethod  string              `json:"aggregation_method"`
+	SuccessCount       int                 `json:"success_count"`
+	ErrorCount         int                 `json:"error_count"`
+	Warnings           []string            `json:"warnings,omitempty"`
+	PrimaryResult      interface{}         `json:"primary_result"`
+	Metadata           interface{}         `json:"metadata,omitempty"`
+	ServerCount        int                 `json:"server_count"`
+	Strategy           RoutingStrategyType `json:"strategy"`
+>>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 }
 
 // RoutingServerInstance represents a language server instance for routing decisions
 type RoutingServerInstance struct {
-	Name        string             `json:"name"`
-	Language    string             `json:"language"`
-	Performance *ServerPerformance `json:"performance,omitempty"`
-	Available   bool               `json:"available"`
-	LoadScore   float64            `json:"load_score"`
+	Name        string               `json:"name"`
+	Language    string               `json:"language"`
+	Performance *ServerPerformance   `json:"performance,omitempty"`
+	Available   bool                 `json:"available"`
+	LoadScore   float64              `json:"load_score"`
 	Config      *config.ServerConfig `json:"config,omitempty"`
-	Client      transport.LSPClient `json:"-"` // Not serializable
-	LastUsed    time.Time          `json:"last_used"`
-	Priority    int                `json:"priority"`
-	Weight      float64            `json:"weight"`
+	Client      transport.LSPClient  `json:"-"` // Not serializable
+	LastUsed    time.Time            `json:"last_used"`
+	Priority    int                  `json:"priority"`
+	Weight      float64              `json:"weight"`
 }
 
 // ServerPerformance tracks performance metrics for server instances
@@ -104,6 +157,11 @@ type ServerPerformance struct {
 	CPUUsage            float64       `json:"cpu_usage,omitempty"`
 }
 
+// Global strategy instances
+var (
+	PrimaryWithEnhancement = &PrimaryWithEnhancementStrategy{}
+)
+
 // Response aggregation interfaces and implementations
 
 // ServerResponse represents a response from a specific server
@@ -116,7 +174,6 @@ type ServerResponse struct {
 	ResponseTime time.Duration `json:"response_time"`
 	Success      bool          `json:"success"`
 }
-
 
 // Routing strategy interface and implementations
 
@@ -142,7 +199,7 @@ func (sss *SingleServerStrategy) Route(request *LSPRequest, availableServers []*
 	}
 
 	aggregator := getAggregatorForMethod(request.Method)
-	
+
 	return &RoutingDecision{
 		TargetServers:      []*RoutingServerInstance{bestServer},
 		RoutingStrategy:    "single_server",
@@ -178,7 +235,7 @@ func (mss *MultiServerStrategy) Route(request *LSPRequest, availableServers []*R
 	}
 
 	aggregator := getAggregatorForMethod(request.Method)
-	
+
 	return &RoutingDecision{
 		TargetServers:      suitableServers,
 		RoutingStrategy:    "multi_server",
@@ -199,6 +256,7 @@ func (mss *MultiServerStrategy) Description() string {
 	return "Routes requests to multiple servers and aggregates responses"
 }
 
+<<<<<<< HEAD
 // SingleTargetWithFallbackStrategy routes to primary server with fallback options
 type SingleTargetWithFallbackStrategy struct{}
 
@@ -261,13 +319,50 @@ var (
 	LoadBalanced             = &LoadBalancedStrategy{}
 )
 
+=======
+// PrimaryWithEnhancementStrategy routes to a primary server with optional enhancement from secondary servers
+type PrimaryWithEnhancementStrategy struct{}
+
+func (pwes *PrimaryWithEnhancementStrategy) Route(request *LSPRequest, availableServers []*RoutingServerInstance) (*RoutingDecision, error) {
+	if len(availableServers) == 0 {
+		return nil, fmt.Errorf("no available servers for request")
+	}
+
+	// Find the best primary server
+	primaryServer := selectBestServer(availableServers, request.Context)
+	if primaryServer == nil {
+		return nil, fmt.Errorf("no suitable primary server found for request")
+	}
+
+	aggregator := getAggregatorForMethod(request.Method)
+
+	return &RoutingDecision{
+		TargetServers:      []*RoutingServerInstance{primaryServer},
+		RoutingStrategy:    "primary_with_enhancement",
+		RequestContext:     request.Context,
+		ResponseAggregator: aggregator,
+		Timeout:            35 * time.Second, // Slightly longer timeout for potential enhancement
+		Priority:           1,
+		CreatedAt:          time.Now(),
+		DecisionID:         generateDecisionID(),
+	}, nil
+}
+
+func (pwes *PrimaryWithEnhancementStrategy) Name() string {
+	return "primary_with_enhancement"
+}
+
+func (pwes *PrimaryWithEnhancementStrategy) Description() string {
+	return "Routes to primary server with optional enhancement from secondary servers"
+}
+>>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 
 // Helper functions for context creation and server selection
 
 // CreateRequestContextFromURI creates a RequestContext from a file URI and workspace information
 func CreateRequestContextFromURI(uri string, workspaceRoot string, projectType string) *RequestContext {
 	language := detectLanguageFromURI(uri)
-	
+
 	return &RequestContext{
 		FileURI:              uri,
 		Language:             language,
@@ -417,7 +512,7 @@ func calculateServerScore(server *RoutingServerInstance, context *RequestContext
 	// Performance metrics
 	if server.Performance != nil {
 		score += server.Performance.SuccessRate * 20.0
-		
+
 		// Lower response time is better
 		if server.Performance.AverageResponseTime > 0 {
 			responseTimeScore := 1000.0 / float64(server.Performance.AverageResponseTime.Milliseconds())
@@ -492,7 +587,7 @@ func mergeDefinitionLocations(definitions []interface{}) interface{} {
 		if def == nil {
 			continue
 		}
-		
+
 		// Convert to JSON string for deduplication (simplified approach)
 		if jsonBytes, err := json.Marshal(def); err == nil {
 			key := string(jsonBytes)
@@ -515,7 +610,7 @@ func mergeReferenceLocations(references []interface{}) interface{} {
 		if ref == nil {
 			continue
 		}
-		
+
 		if jsonBytes, err := json.Marshal(ref); err == nil {
 			key := string(jsonBytes)
 			if !seen[key] {
@@ -536,7 +631,7 @@ func mergeSymbols(symbols []interface{}) interface{} {
 		if symbolSet == nil {
 			continue
 		}
-		
+
 		// Add all symbols - in real implementation would sort by relevance
 		merged = append(merged, symbolSet)
 	}
@@ -565,14 +660,14 @@ func detectLanguageFromURI(uri string) string {
 
 	// Remove file:// prefix if present
 	cleanURI := strings.TrimPrefix(uri, "file://")
-	
+
 	// Handle URL decoding
 	if parsedURL, err := url.Parse(uri); err == nil {
 		cleanURI = parsedURL.Path
 	}
 
 	ext := strings.ToLower(filepath.Ext(cleanURI))
-	
+
 	switch ext {
 	case ".go":
 		return "go"
@@ -616,7 +711,7 @@ func getSupportedServersForLanguage(language string) []string {
 
 func getSupportedServersForLanguages(languages []string) []string {
 	serverSet := make(map[string]bool)
-	
+
 	for _, lang := range languages {
 		servers := getSupportedServersForLanguage(lang)
 		for _, server := range servers {
@@ -636,7 +731,7 @@ func determineMainLanguage(languages []string) string {
 	if len(languages) == 0 {
 		return ""
 	}
-	
+
 	// Return first language as main - could be enhanced with priority logic
 	return languages[0]
 }
@@ -751,7 +846,7 @@ func (si *RoutingServerInstance) UpdatePerformanceMetrics(responseTime time.Dura
 	}
 
 	si.Performance.RequestCount++
-	
+
 	if success {
 		// Update average response time (simple moving average approximation)
 		if si.Performance.RequestCount == 1 {
@@ -761,10 +856,10 @@ func (si *RoutingServerInstance) UpdatePerformanceMetrics(responseTime time.Dura
 			weight := 0.1
 			si.Performance.AverageResponseTime = time.Duration(
 				float64(si.Performance.AverageResponseTime)*(1-weight) +
-				float64(responseTime)*weight,
+					float64(responseTime)*weight,
 			)
 		}
-		
+
 		si.Performance.SuccessRate = float64(si.Performance.RequestCount-si.Performance.ErrorCount) / float64(si.Performance.RequestCount)
 	} else {
 		si.Performance.ErrorCount++

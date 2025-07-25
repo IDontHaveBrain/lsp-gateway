@@ -13,10 +13,10 @@ import (
 
 // ConfigurationIntegrator provides seamless integration between all configuration components
 type ConfigurationIntegrator struct {
-	generator          *ConfigGenerator
+	generator           *ConfigGenerator
 	optimizationManager *OptimizationManager
-	migrationHandlers  map[string]MigrationHandler
-	validators         []ConfigValidator
+	migrationHandlers   map[string]MigrationHandler
+	validators          []ConfigValidator
 }
 
 // MigrationHandler handles configuration format migrations
@@ -36,15 +36,15 @@ type ConfigValidator interface {
 // NewConfigurationIntegrator creates a new configuration integrator
 func NewConfigurationIntegrator() *ConfigurationIntegrator {
 	integrator := &ConfigurationIntegrator{
-		generator:          NewConfigGenerator(),
+		generator:           NewConfigGenerator(),
 		optimizationManager: NewOptimizationManager(),
-		migrationHandlers:  make(map[string]MigrationHandler),
-		validators:         []ConfigValidator{},
+		migrationHandlers:   make(map[string]MigrationHandler),
+		validators:          []ConfigValidator{},
 	}
 
 	// Register default migration handlers
 	integrator.registerDefaultMigrationHandlers()
-	
+
 	// Register default validators
 	integrator.registerDefaultValidators()
 
@@ -70,7 +70,7 @@ func (ci *ConfigurationIntegrator) IntegrateConfigurations(configs ...*MultiLang
 
 	// Merge server configurations from all sources
 	serverMap := make(map[string]*ServerConfig)
-	
+
 	for _, config := range configs {
 		for _, serverConfig := range config.ServerConfigs {
 			if serverConfig != nil {
@@ -280,18 +280,18 @@ func (ci *ConfigurationIntegrator) mergeProjectInfo(target *MultiLanguageConfig,
 // mergeLanguageContexts merges two language contexts
 func (ci *ConfigurationIntegrator) mergeLanguageContexts(existing, new *LanguageContext) *LanguageContext {
 	merged := &LanguageContext{
-		Language:        existing.Language,
-		Version:         existing.Version,
-		FilePatterns:    ci.mergeStringSlices(existing.FilePatterns, new.FilePatterns),
-		FileCount:       maxInt(existing.FileCount, new.FileCount),
-		RootMarkers:     ci.mergeStringSlices(existing.RootMarkers, new.RootMarkers),
-		RootPath:        existing.RootPath,
-		Submodules:      ci.mergeStringSlices(existing.Submodules, new.Submodules),
-		BuildSystem:     existing.BuildSystem,
-		PackageManager:  existing.PackageManager,
-		Frameworks:      ci.mergeStringSlices(existing.Frameworks, new.Frameworks),
-		TestFrameworks:  ci.mergeStringSlices(existing.TestFrameworks, new.TestFrameworks),
-		LintingTools:    ci.mergeStringSlices(existing.LintingTools, new.LintingTools),
+		Language:       existing.Language,
+		Version:        existing.Version,
+		FilePatterns:   ci.mergeStringSlices(existing.FilePatterns, new.FilePatterns),
+		FileCount:      maxInt(existing.FileCount, new.FileCount),
+		RootMarkers:    ci.mergeStringSlices(existing.RootMarkers, new.RootMarkers),
+		RootPath:       existing.RootPath,
+		Submodules:     ci.mergeStringSlices(existing.Submodules, new.Submodules),
+		BuildSystem:    existing.BuildSystem,
+		PackageManager: existing.PackageManager,
+		Frameworks:     ci.mergeStringSlices(existing.Frameworks, new.Frameworks),
+		TestFrameworks: ci.mergeStringSlices(existing.TestFrameworks, new.TestFrameworks),
+		LintingTools:   ci.mergeStringSlices(existing.LintingTools, new.LintingTools),
 	}
 
 	// Use newer version if available
@@ -335,7 +335,7 @@ func (ci *ConfigurationIntegrator) MigrateConfiguration(configPath string) (*Mul
 	// Parse as generic map to detect format
 	var configData map[string]interface{}
 	ext := strings.ToLower(filepath.Ext(configPath))
-	
+
 	switch ext {
 	case ".yaml", ".yml":
 		if err := yaml.Unmarshal(data, &configData); err != nil {
@@ -476,7 +476,7 @@ func (ci *ConfigurationIntegrator) enhanceGatewayConfig(gatewayConfig *GatewayCo
 func (ci *ConfigurationIntegrator) registerDefaultMigrationHandlers() {
 	// Register legacy gateway config migration
 	ci.migrationHandlers["legacy_gateway"] = &LegacyGatewayMigrationHandler{}
-	
+
 	// Register simple config migration
 	ci.migrationHandlers["simple_config"] = &SimpleConfigMigrationHandler{}
 }
@@ -520,7 +520,7 @@ func (ci *ConfigurationIntegrator) deepMergeSettings(dst, src map[string]interfa
 	}
 
 	result := make(map[string]interface{})
-	
+
 	// Copy destination first
 	for key, value := range dst {
 		result[key] = value
@@ -566,7 +566,7 @@ func (h *LegacyGatewayMigrationHandler) CanHandle(configData map[string]interfac
 	_, hasServers := configData["servers"]
 	_, hasPort := configData["port"]
 	_, hasProjectInfo := configData["project_info"]
-	
+
 	return hasServers && hasPort && !hasProjectInfo
 }
 
@@ -658,7 +658,7 @@ func (h *SimpleConfigMigrationHandler) CanHandle(configData map[string]interface
 	_, hasLanguages := configData["languages"]
 	_, hasServers := configData["servers"]
 	_, hasProjectInfo := configData["project_info"]
-	
+
 	return hasLanguages && !hasServers && !hasProjectInfo
 }
 
@@ -742,7 +742,7 @@ func (v *FrameworkCompatibilityValidator) Validate(config *MultiLanguageConfig) 
 			}
 
 			if !serverFound {
-				return fmt.Errorf("framework %s requires language %s but no server configured for that language", 
+				return fmt.Errorf("framework %s requires language %s but no server configured for that language",
 					framework.Name, framework.Language)
 			}
 		}

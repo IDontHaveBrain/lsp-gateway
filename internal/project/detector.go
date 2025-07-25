@@ -15,25 +15,24 @@ import (
 	"time"
 )
 
-
 // DetectionConfig holds configuration for project detection
 type DetectionConfig struct {
-	Timeout          time.Duration            `json:"timeout"`
-	MaxDepth         int                      `json:"max_depth"`
-	MaxFilesToScan   int                      `json:"max_files_to_scan"`
-	IgnorePatterns   []string                 `json:"ignore_patterns"`
-	CustomDetectors  map[string]LanguageDetector `json:"-"`
-	EnableParallel   bool                     `json:"enable_parallel"`
-	FollowSymlinks   bool                     `json:"follow_symlinks"`
+	Timeout         time.Duration               `json:"timeout"`
+	MaxDepth        int                         `json:"max_depth"`
+	MaxFilesToScan  int                         `json:"max_files_to_scan"`
+	IgnorePatterns  []string                    `json:"ignore_patterns"`
+	CustomDetectors map[string]LanguageDetector `json:"-"`
+	EnableParallel  bool                        `json:"enable_parallel"`
+	FollowSymlinks  bool                        `json:"follow_symlinks"`
 }
 
 // DefaultProjectDetector implements ProjectDetector interface
 type DefaultProjectDetector struct {
-	logger         *setup.SetupLogger
-	config         *DetectionConfig
-	detectors      map[string]LanguageDetector
-	executor       platform.CommandExecutor
-	sessionID      string
+	logger    *setup.SetupLogger
+	config    *DetectionConfig
+	detectors map[string]LanguageDetector
+	executor  platform.CommandExecutor
+	sessionID string
 }
 
 // DetectionReport contains comprehensive detection results
@@ -82,10 +81,10 @@ func NewProjectDetector() *DefaultProjectDetector {
 		executor:  platform.NewCommandExecutor(),
 		sessionID: fmt.Sprintf("detect_%d", time.Now().Unix()),
 	}
-	
+
 	// Initialize language-specific detectors
 	detector.initializeDetectors()
-	
+
 	return detector
 }
 
@@ -94,7 +93,7 @@ func (d *DefaultProjectDetector) initializeDetectors() {
 	d.detectors[types.PROJECT_TYPE_GO] = detectors.NewGoProjectDetector()
 	d.detectors[types.PROJECT_TYPE_PYTHON] = detectors.NewPythonProjectDetector()
 	d.detectors[types.PROJECT_TYPE_JAVA] = detectors.NewJavaProjectDetector()
-	
+
 	// TypeScript detector handles both TypeScript and Node.js projects
 	tsDetector := detectors.NewTypeScriptProjectDetector()
 	d.detectors[types.PROJECT_TYPE_TYPESCRIPT] = tsDetector
@@ -132,11 +131,11 @@ func (d *DefaultProjectDetector) SetCustomDetectors(detectors map[string]Languag
 // DetectProject performs comprehensive project detection at the given path
 func (d *DefaultProjectDetector) DetectProject(ctx context.Context, path string) (*ProjectContext, error) {
 	startTime := time.Now()
-	
+
 	d.logger.WithOperation("project-detection").
 		WithField(types.LOG_FIELD_PROJECT_ROOT, path).
 		Info(types.PROJECT_DETECTION_STARTED)
-	
+
 	// Create timeout context
 	timeoutCtx, cancel := context.WithTimeout(ctx, d.config.Timeout)
 	defer cancel()
@@ -144,7 +143,7 @@ func (d *DefaultProjectDetector) DetectProject(ctx context.Context, path string)
 	// Validate path
 	absPath, err := d.validateAndNormalizePath(path)
 	if err != nil {
-		return nil, types.NewProjectError(types.ProjectErrorTypeDetection, types.PROJECT_TYPE_UNKNOWN, path, 
+		return nil, types.NewProjectError(types.ProjectErrorTypeDetection, types.PROJECT_TYPE_UNKNOWN, path,
 			fmt.Sprintf("Invalid path: %v", err), err)
 	}
 
@@ -187,9 +186,9 @@ func (d *DefaultProjectDetector) DetectProject(ctx context.Context, path string)
 		types.LOG_FIELD_PROJECT_ROOT:     projectContext.RootPath,
 		types.LOG_FIELD_PROJECT_LANGUAGE: projectContext.PrimaryLanguage,
 		types.LOG_FIELD_DETECTION_TIME:   projectContext.DetectionTime,
-		"confidence":               projectContext.Confidence,
-		"languages_detected":       len(projectContext.Languages),
-		"servers_required":         len(projectContext.RequiredServers),
+		"confidence":                     projectContext.Confidence,
+		"languages_detected":             len(projectContext.Languages),
+		"servers_required":               len(projectContext.RequiredServers),
 	}).Info(types.PROJECT_DETECTION_COMPLETED)
 
 	return projectContext, nil
@@ -218,7 +217,7 @@ func (d *DefaultProjectDetector) DetectProjectType(ctx context.Context, path str
 	sort.Slice(detectionResults, func(i, j int) bool {
 		iPriority := d.getDetectorPriority(detectionResults[i].Language)
 		jPriority := d.getDetectorPriority(detectionResults[j].Language)
-		
+
 		if iPriority != jPriority {
 			return iPriority > jPriority
 		}
@@ -300,7 +299,7 @@ func (d *DefaultProjectDetector) ValidateProject(ctx context.Context, projectCtx
 	if len(validationErrors) > 0 {
 		projectCtx.ValidationErrors = validationErrors
 		projectCtx.IsValid = false
-		
+
 		validationError := types.NewValidationError(projectCtx.ProjectType, "Project validation failed", nil)
 		for _, err := range validationErrors {
 			validationError = validationError.WithSuggestion(err)
@@ -320,32 +319,32 @@ func (d *DefaultProjectDetector) ValidateProject(ctx context.Context, projectCtx
 // DetectMultipleProjects detects projects in multiple paths
 func (d *DefaultProjectDetector) DetectMultipleProjects(ctx context.Context, paths []string) (map[string]*ProjectContext, error) {
 	results := make(map[string]*ProjectContext)
-	
+
 	for _, path := range paths {
 		select {
 		case <-ctx.Done():
 			return results, ctx.Err()
 		default:
 		}
-		
+
 		projectCtx, err := d.DetectProject(ctx, path)
 		if err != nil {
 			d.logger.WithError(err).WithField("path", path).Warn("Failed to detect project")
 			continue
 		}
-		
+
 		results[path] = projectCtx
 	}
-	
+
 	return results, nil
 }
 
 // ScanWorkspace scans a workspace directory for all projects
 func (d *DefaultProjectDetector) ScanWorkspace(ctx context.Context, workspaceRoot string) ([]*ProjectContext, error) {
 	startTime := time.Now()
-	
+
 	d.logger.WithField(types.LOG_FIELD_WORKSPACE_ROOT, workspaceRoot).Info("Starting workspace scan")
-	
+
 	absPath, err := d.validateAndNormalizePath(workspaceRoot)
 	if err != nil {
 		return nil, err
@@ -390,7 +389,7 @@ func (d *DefaultProjectDetector) ScanWorkspace(ctx context.Context, workspaceRoo
 		}
 
 		projects = append(projects, projectCtx)
-		
+
 		// Skip subdirectories of detected projects to avoid duplicates
 		return filepath.SkipDir
 	})
@@ -402,8 +401,8 @@ func (d *DefaultProjectDetector) ScanWorkspace(ctx context.Context, workspaceRoo
 	duration := time.Since(startTime)
 	d.logger.WithFields(map[string]interface{}{
 		"projects_found": len(projects),
-		"scan_time":     duration,
-		"scan_errors":   len(scanErrors),
+		"scan_time":      duration,
+		"scan_errors":    len(scanErrors),
 	}).Info("Workspace scan completed")
 
 	return projects, nil
@@ -461,7 +460,7 @@ func (d *DefaultProjectDetector) buildProjectContext(rootPath string, results []
 	sort.Slice(results, func(i, j int) bool {
 		iPriority := d.getDetectorPriority(results[i].Language)
 		jPriority := d.getDetectorPriority(results[j].Language)
-		
+
 		if iPriority != jPriority {
 			return iPriority > jPriority
 		}
@@ -485,7 +484,7 @@ func (d *DefaultProjectDetector) buildProjectContext(rootPath string, results []
 
 	for _, result := range results {
 		ctx.AddLanguage(result.Language)
-		
+
 		if result.Version != "" {
 			ctx.SetLanguageVersion(result.Language, result.Version)
 		}
@@ -580,7 +579,7 @@ func (d *DefaultProjectDetector) findVCSRoot(path string) (string, error) {
 		}
 		current = parent
 	}
-	
+
 	return "", fmt.Errorf("no VCS root found")
 }
 
@@ -623,20 +622,20 @@ func (d *DefaultProjectDetector) shouldIgnoreDirectory(path, name string) bool {
 func (d *DefaultProjectDetector) removeDuplicates(slice []string) []string {
 	keys := make(map[string]bool)
 	var result []string
-	
+
 	for _, item := range slice {
 		if !keys[item] {
 			keys[item] = true
 			result = append(result, item)
 		}
 	}
-	
+
 	return result
 }
 
 func (d *DefaultProjectDetector) calculateProjectSize(rootPath string) types.ProjectSize {
 	size := types.ProjectSize{}
-	
+
 	err := filepath.WalkDir(rootPath, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
@@ -650,7 +649,7 @@ func (d *DefaultProjectDetector) calculateProjectSize(rootPath string) types.Pro
 		}
 
 		size.TotalFiles++
-		
+
 		if info, err := entry.Info(); err == nil {
 			size.TotalSizeBytes += info.Size()
 		}
@@ -691,7 +690,7 @@ func (d *DefaultProjectDetector) GetSupportedLanguages() []string {
 // These create instances of the comprehensive language detectors implemented in separate files
 
 // Note: The actual implementations are in separate files:
-// - go_detector.go for Go projects  
+// - go_detector.go for Go projects
 // - python_detector.go for Python projects
 // - nodejs_detector.go for Node.js projects
 // - java_detector.go for Java projects

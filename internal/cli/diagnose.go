@@ -19,10 +19,10 @@ import (
 )
 
 var (
-	diagnoseJSON               bool
-	diagnoseVerbose            bool
-	diagnoseTimeout            time.Duration
-	diagnoseAll                bool
+	diagnoseJSON    bool
+	diagnoseVerbose bool
+	diagnoseTimeout time.Duration
+	diagnoseAll     bool
 	// Multi-language diagnostic flags
 	diagnoseMultiLanguage      bool
 	diagnosePerformance        bool
@@ -255,12 +255,12 @@ type DiagnosticSummary struct {
 
 // Enhanced diagnostic scoring and grading
 type DiagnosticScoring struct {
-	ConfigurationHealth  float64 `json:"configuration_health"`
-	PerformanceRating    float64 `json:"performance_rating"`
-	ConsistencyScore     float64 `json:"consistency_score"`
-	OptimizationLevel    float64 `json:"optimization_level"`
-	MultiLanguageHealth  float64 `json:"multi_language_health"`
-	RoutingEfficiency    float64 `json:"routing_efficiency"`
+	ConfigurationHealth float64 `json:"configuration_health"`
+	PerformanceRating   float64 `json:"performance_rating"`
+	ConsistencyScore    float64 `json:"consistency_score"`
+	OptimizationLevel   float64 `json:"optimization_level"`
+	MultiLanguageHealth float64 `json:"multi_language_health"`
+	RoutingEfficiency   float64 `json:"routing_efficiency"`
 }
 
 func diagnoseSystem(cmd *cobra.Command, args []string) error {
@@ -1467,7 +1467,7 @@ func runTemplateValidationDiagnostics(ctx context.Context, report *DiagnosticRep
 		for _, server := range cfg.Servers {
 			if len(server.Languages) > 0 {
 				language := server.Languages[0]
-				
+
 				// Compare with template expectations
 				switch language {
 				case "go":
@@ -1547,7 +1547,7 @@ func diagnoseOptimization(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Run resource limit diagnostics if enabled  
+	// Run resource limit diagnostics if enabled
 	if diagnoseResourceLimits {
 		if err := runResourceLimitDiagnostics(ctx, report); err != nil {
 			errors = append(errors, err)
@@ -1963,10 +1963,10 @@ func runRoutingDiagnostics(ctx context.Context, report *DiagnosticReport) error 
 			}
 
 			result.Details["global_multi_server_config"] = map[string]interface{}{
-				"selection_strategy": cfg.GlobalMultiServerConfig.SelectionStrategy,
-				"concurrent_limit":   cfg.GlobalMultiServerConfig.ConcurrentLimit,
+				"selection_strategy":    cfg.GlobalMultiServerConfig.SelectionStrategy,
+				"concurrent_limit":      cfg.GlobalMultiServerConfig.ConcurrentLimit,
 				"health_check_interval": cfg.GlobalMultiServerConfig.HealthCheckInterval,
-				"max_retries":        cfg.GlobalMultiServerConfig.MaxRetries,
+				"max_retries":           cfg.GlobalMultiServerConfig.MaxRetries,
 			}
 		}
 
@@ -2249,8 +2249,8 @@ func addComprehensiveDiagnosticScoring(report *DiagnosticReport) {
 		}
 
 		// Calculate overall score as weighted average
-		overallScore := (scoring.ConfigurationHealth*0.3 + scoring.PerformanceRating*0.2 + 
-			scoring.ConsistencyScore*0.2 + scoring.OptimizationLevel*0.15 + 
+		overallScore := (scoring.ConfigurationHealth*0.3 + scoring.PerformanceRating*0.2 +
+			scoring.ConsistencyScore*0.2 + scoring.OptimizationLevel*0.15 +
 			scoring.MultiLanguageHealth*0.1 + scoring.RoutingEfficiency*0.05)
 
 		// Determine grade

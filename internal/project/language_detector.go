@@ -51,7 +51,7 @@ func (d *BasicLanguageDetector) DetectLanguage(ctx context.Context, rootPath str
 
 	// Count files by extension to validate or determine language
 	fileCounts := d.countFilesByExtension(ctx, rootPath)
-	
+
 	// If no markers found, use file extension analysis
 	if result.Confidence == 0.0 {
 		result = d.detectByFileExtensions(fileCounts)
@@ -62,7 +62,7 @@ func (d *BasicLanguageDetector) DetectLanguage(ctx context.Context, rootPath str
 
 	// Find source directories
 	result.SourceDirs = d.findSourceDirectories(rootPath)
-	
+
 	return result, nil
 }
 
@@ -121,7 +121,7 @@ func (d *BasicLanguageDetector) detectMarkerFiles(rootPath string) []*types.Lang
 // countFilesByExtension counts files by extension with depth limit
 func (d *BasicLanguageDetector) countFilesByExtension(ctx context.Context, rootPath string) map[string]int {
 	counts := make(map[string]int)
-	
+
 	_ = filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
 		select {
 		case <-ctx.Done():

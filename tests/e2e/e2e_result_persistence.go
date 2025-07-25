@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
-	"strings"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -40,47 +38,47 @@ func DefaultResultPersistenceConfig() *ResultPersistenceConfig {
 
 // TestRunRecord represents a complete test execution record
 type TestRunRecord struct {
-	ID                string                     `json:"id" db:"id"`
-	Timestamp         time.Time                  `json:"timestamp" db:"timestamp"`
-	SuiteVersion      string                     `json:"suite_version" db:"suite_version"`
-	ExecutionMode     string                     `json:"execution_mode" db:"execution_mode"`
-	TotalTests        int                        `json:"total_tests" db:"total_tests"`
-	PassedTests       int                        `json:"passed_tests" db:"passed_tests"`
-	FailedTests       int                        `json:"failed_tests" db:"failed_tests"`
-	SkippedTests      int                        `json:"skipped_tests" db:"skipped_tests"`
-	TotalDuration     time.Duration              `json:"total_duration" db:"total_duration"`
-	E2EScore          float64                    `json:"e2e_score" db:"e2e_score"`
-	SystemInfo        *SystemInfo                `json:"system_info"`
-	TestResults       []*TestResult              `json:"test_results"`
-	MCPMetrics        *MCPClientMetrics          `json:"mcp_metrics"`
-	PerformanceData   *PerformanceData           `json:"performance_data"`
-	Errors            []string                   `json:"errors"`
-	Warnings          []string                   `json:"warnings"`
-	RegressionStatus  string                     `json:"regression_status" db:"regression_status"`
-	BaselineID        string                     `json:"baseline_id,omitempty" db:"baseline_id"`
-	Tags              []string                   `json:"tags"`
-	Environment       map[string]string          `json:"environment"`
+	ID               string            `json:"id" db:"id"`
+	Timestamp        time.Time         `json:"timestamp" db:"timestamp"`
+	SuiteVersion     string            `json:"suite_version" db:"suite_version"`
+	ExecutionMode    string            `json:"execution_mode" db:"execution_mode"`
+	TotalTests       int               `json:"total_tests" db:"total_tests"`
+	PassedTests      int               `json:"passed_tests" db:"passed_tests"`
+	FailedTests      int               `json:"failed_tests" db:"failed_tests"`
+	SkippedTests     int               `json:"skipped_tests" db:"skipped_tests"`
+	TotalDuration    time.Duration     `json:"total_duration" db:"total_duration"`
+	E2EScore         float64           `json:"e2e_score" db:"e2e_score"`
+	SystemInfo       *SystemInfo       `json:"system_info"`
+	TestResults      []*TestResult     `json:"test_results"`
+	MCPMetrics       *MCPClientMetrics `json:"mcp_metrics"`
+	PerformanceData  *PerformanceData  `json:"performance_data"`
+	Errors           []string          `json:"errors"`
+	Warnings         []string          `json:"warnings"`
+	RegressionStatus string            `json:"regression_status" db:"regression_status"`
+	BaselineID       string            `json:"baseline_id,omitempty" db:"baseline_id"`
+	Tags             []string          `json:"tags"`
+	Environment      map[string]string `json:"environment"`
 }
 
 // TestResult represents individual test execution result
 type TestResult struct {
-	TestName      string            `json:"test_name"`
-	Category      string            `json:"category"`
-	Status        string            `json:"status"`
-	Duration      time.Duration     `json:"duration"`
-	ErrorMessage  string            `json:"error_message,omitempty"`
-	Metrics       map[string]interface{} `json:"metrics"`
-	Resources     *ResourceUsage    `json:"resources"`
-	Timestamp     time.Time         `json:"timestamp"`
+	TestName     string                 `json:"test_name"`
+	Category     string                 `json:"category"`
+	Status       string                 `json:"status"`
+	Duration     time.Duration          `json:"duration"`
+	ErrorMessage string                 `json:"error_message,omitempty"`
+	Metrics      map[string]interface{} `json:"metrics"`
+	Resources    *ResourceUsage         `json:"resources"`
+	Timestamp    time.Time              `json:"timestamp"`
 }
 
 // ResourceUsage tracks resource consumption during test execution
 type ResourceUsage struct {
-	MemoryMB      int64             `json:"memory_mb"`
-	CPUPercent    float64           `json:"cpu_percent"`
-	Goroutines    int               `json:"goroutines"`
-	FilesOpened   int               `json:"files_opened"`
-	NetworkConns  int               `json:"network_connections"`
+	MemoryMB     int64   `json:"memory_mb"`
+	CPUPercent   float64 `json:"cpu_percent"`
+	Goroutines   int     `json:"goroutines"`
+	FilesOpened  int     `json:"files_opened"`
+	NetworkConns int     `json:"network_connections"`
 }
 
 // MCPClientMetrics aggregates MockMcpClient metrics
@@ -106,10 +104,10 @@ type PerformanceData struct {
 
 // HistoricalTrend represents performance trends over time
 type HistoricalTrend struct {
-	Metric    string                   `json:"metric"`
-	DataPoints []TrendDataPoint        `json:"data_points"`
-	Direction string                   `json:"direction"` // "improving", "degrading", "stable"
-	TrendSlope float64                 `json:"trend_slope"`
+	Metric     string           `json:"metric"`
+	DataPoints []TrendDataPoint `json:"data_points"`
+	Direction  string           `json:"direction"` // "improving", "degrading", "stable"
+	TrendSlope float64          `json:"trend_slope"`
 }
 
 // TrendDataPoint represents a single data point in a trend
@@ -121,38 +119,38 @@ type TrendDataPoint struct {
 
 // RegressionAnalysis represents regression analysis results
 type RegressionAnalysis struct {
-	RegressionsDetected   bool                    `json:"regressions_detected"`
-	RegressionDetails     []RegressionDetail      `json:"regression_details"`
-	BaselineComparison    *BaselineComparison     `json:"baseline_comparison"`
-	TrendAnalysis         []HistoricalTrend       `json:"trend_analysis"`
-	RecommendedActions    []string                `json:"recommended_actions"`
+	RegressionsDetected bool                `json:"regressions_detected"`
+	RegressionDetails   []RegressionDetail  `json:"regression_details"`
+	BaselineComparison  *BaselineComparison `json:"baseline_comparison"`
+	TrendAnalysis       []HistoricalTrend   `json:"trend_analysis"`
+	RecommendedActions  []string            `json:"recommended_actions"`
 }
 
 // RegressionDetail represents a specific regression
 type RegressionDetail struct {
-	Metric          string    `json:"metric"`
-	CurrentValue    float64   `json:"current_value"`
-	BaselineValue   float64   `json:"baseline_value"`
-	PercentChange   float64   `json:"percent_change"`
-	Severity        string    `json:"severity"`
-	FirstDetected   time.Time `json:"first_detected"`
+	Metric        string    `json:"metric"`
+	CurrentValue  float64   `json:"current_value"`
+	BaselineValue float64   `json:"baseline_value"`
+	PercentChange float64   `json:"percent_change"`
+	Severity      string    `json:"severity"`
+	FirstDetected time.Time `json:"first_detected"`
 }
 
 // BaselineComparison compares current run with baseline
 type BaselineComparison struct {
-	BaselineID       string    `json:"baseline_id"`
-	BaselineDate     time.Time `json:"baseline_date"`
-	ScoreComparison  float64   `json:"score_comparison"`
-	MetricChanges    map[string]float64 `json:"metric_changes"`
-	OverallStatus    string    `json:"overall_status"`
+	BaselineID      string             `json:"baseline_id"`
+	BaselineDate    time.Time          `json:"baseline_date"`
+	ScoreComparison float64            `json:"score_comparison"`
+	MetricChanges   map[string]float64 `json:"metric_changes"`
+	OverallStatus   string             `json:"overall_status"`
 }
 
 // ResultPersistenceManager manages test result persistence and historical tracking
 type ResultPersistenceManager struct {
-	config    *ResultPersistenceConfig
-	db        *sql.DB
-	ctx       context.Context
-	cancel    context.CancelFunc
+	config *ResultPersistenceConfig
+	db     *sql.DB
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // NewResultPersistenceManager creates a new persistence manager
@@ -167,7 +165,7 @@ func NewResultPersistenceManager(config *ResultPersistenceConfig) (*ResultPersis
 		config.JSONResultsDirectory,
 		config.ArchiveDirectory,
 	}
-	
+
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return nil, fmt.Errorf("failed to create directory %s: %w", dir, err)
@@ -181,7 +179,7 @@ func NewResultPersistenceManager(config *ResultPersistenceConfig) (*ResultPersis
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	manager := &ResultPersistenceManager{
 		config: config,
 		db:     db,
@@ -266,7 +264,7 @@ func (rpm *ResultPersistenceManager) GetRecentTestRuns(limit int) ([]*TestRunRec
 	for rows.Next() {
 		record := &TestRunRecord{}
 		var totalDurationNs int64
-		
+
 		err := rows.Scan(
 			&record.ID, &record.Timestamp, &record.SuiteVersion,
 			&record.ExecutionMode, &record.TotalTests, &record.PassedTests,
@@ -276,7 +274,7 @@ func (rpm *ResultPersistenceManager) GetRecentTestRuns(limit int) ([]*TestRunRec
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan test run: %w", err)
 		}
-		
+
 		record.TotalDuration = time.Duration(totalDurationNs)
 		records = append(records, record)
 	}
@@ -287,7 +285,7 @@ func (rpm *ResultPersistenceManager) GetRecentTestRuns(limit int) ([]*TestRunRec
 // AnalyzeHistoricalTrends analyzes performance trends over time
 func (rpm *ResultPersistenceManager) AnalyzeHistoricalTrends(days int) ([]HistoricalTrend, error) {
 	since := time.Now().AddDate(0, 0, -days)
-	
+
 	query := `
 		SELECT id, timestamp, e2e_score, total_duration, passed_tests, failed_tests
 		FROM test_runs 
@@ -301,30 +299,30 @@ func (rpm *ResultPersistenceManager) AnalyzeHistoricalTrends(days int) ([]Histor
 	defer rows.Close()
 
 	var dataPoints []struct {
-		ID         string
-		Timestamp  time.Time
-		Score      float64
-		Duration   time.Duration
-		Passed     int
-		Failed     int
+		ID        string
+		Timestamp time.Time
+		Score     float64
+		Duration  time.Duration
+		Passed    int
+		Failed    int
 	}
 
 	for rows.Next() {
 		var dp struct {
-			ID         string
-			Timestamp  time.Time
-			Score      float64
-			Duration   time.Duration
-			Passed     int
-			Failed     int
+			ID        string
+			Timestamp time.Time
+			Score     float64
+			Duration  time.Duration
+			Passed    int
+			Failed    int
 		}
 		var durationNs int64
-		
+
 		err := rows.Scan(&dp.ID, &dp.Timestamp, &dp.Score, &durationNs, &dp.Passed, &dp.Failed)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan historical data: %w", err)
 		}
-		
+
 		dp.Duration = time.Duration(durationNs)
 		dataPoints = append(dataPoints, dp)
 	}
@@ -333,32 +331,32 @@ func (rpm *ResultPersistenceManager) AnalyzeHistoricalTrends(days int) ([]Histor
 	trends := []HistoricalTrend{
 		rpm.analyzeTrend("e2e_score", dataPoints, func(dp interface{}) float64 {
 			return dp.(struct {
-				ID         string
-				Timestamp  time.Time
-				Score      float64
-				Duration   time.Duration
-				Passed     int
-				Failed     int
+				ID        string
+				Timestamp time.Time
+				Score     float64
+				Duration  time.Duration
+				Passed    int
+				Failed    int
 			}).Score
 		}),
 		rpm.analyzeTrend("execution_duration", dataPoints, func(dp interface{}) float64 {
 			return float64(dp.(struct {
-				ID         string
-				Timestamp  time.Time
-				Score      float64
-				Duration   time.Duration
-				Passed     int
-				Failed     int
+				ID        string
+				Timestamp time.Time
+				Score     float64
+				Duration  time.Duration
+				Passed    int
+				Failed    int
 			}).Duration.Seconds())
 		}),
 		rpm.analyzeTrend("success_rate", dataPoints, func(dp interface{}) float64 {
 			d := dp.(struct {
-				ID         string
-				Timestamp  time.Time
-				Score      float64
-				Duration   time.Duration
-				Passed     int
-				Failed     int
+				ID        string
+				Timestamp time.Time
+				Score     float64
+				Duration  time.Duration
+				Passed    int
+				Failed    int
 			})
 			total := d.Passed + d.Failed
 			if total == 0 {
@@ -381,11 +379,11 @@ func (rpm *ResultPersistenceManager) DetectRegressions(currentRun *TestRunRecord
 
 	analysis := &RegressionAnalysis{
 		BaselineComparison: &BaselineComparison{
-			BaselineID:   baselineID,
-			BaselineDate: baseline.Timestamp,
+			BaselineID:    baselineID,
+			BaselineDate:  baseline.Timestamp,
 			MetricChanges: make(map[string]float64),
 		},
-		RegressionDetails: []RegressionDetail{},
+		RegressionDetails:  []RegressionDetail{},
 		RecommendedActions: []string{},
 	}
 
@@ -463,7 +461,7 @@ func (rpm *ResultPersistenceManager) GetTestRunsInDateRange(start, end time.Time
 	for rows.Next() {
 		record := &TestRunRecord{}
 		var totalDurationNs int64
-		
+
 		err := rows.Scan(
 			&record.ID, &record.Timestamp, &record.SuiteVersion,
 			&record.ExecutionMode, &record.TotalTests, &record.PassedTests,
@@ -473,7 +471,7 @@ func (rpm *ResultPersistenceManager) GetTestRunsInDateRange(start, end time.Time
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan test run: %w", err)
 		}
-		
+
 		record.TotalDuration = time.Duration(totalDurationNs)
 		records = append(records, record)
 	}
@@ -520,7 +518,7 @@ func (rpm *ResultPersistenceManager) GenerateComprehensiveReport(days int) (map[
 	// Calculate summary statistics
 	var totalRuns, totalPassed, totalFailed int
 	var avgScore, avgDuration float64
-	
+
 	for _, run := range recentRuns {
 		totalRuns++
 		totalPassed += run.PassedTests
@@ -536,17 +534,17 @@ func (rpm *ResultPersistenceManager) GenerateComprehensiveReport(days int) (map[
 
 	report := map[string]interface{}{
 		"summary": map[string]interface{}{
-			"total_runs":          totalRuns,
-			"total_tests_passed":  totalPassed,
-			"total_tests_failed":  totalFailed,
-			"average_e2e_score":   avgScore,
-			"average_duration_s":  avgDuration,
-			"success_rate":        float64(totalPassed) / float64(totalPassed+totalFailed) * 100,
+			"total_runs":         totalRuns,
+			"total_tests_passed": totalPassed,
+			"total_tests_failed": totalFailed,
+			"average_e2e_score":  avgScore,
+			"average_duration_s": avgDuration,
+			"success_rate":       float64(totalPassed) / float64(totalPassed+totalFailed) * 100,
 		},
-		"recent_runs":     recentRuns[:min(10, len(recentRuns))],
-		"trends":          trends,
-		"generated_at":    time.Now(),
-		"period_days":     days,
+		"recent_runs":  recentRuns[:min(10, len(recentRuns))],
+		"trends":       trends,
+		"generated_at": time.Now(),
+		"period_days":  days,
 	}
 
 	return report, nil
@@ -557,11 +555,11 @@ func (rpm *ResultPersistenceManager) Close() error {
 	if rpm.cancel != nil {
 		rpm.cancel()
 	}
-	
+
 	if rpm.db != nil {
 		return rpm.db.Close()
 	}
-	
+
 	return nil
 }
 
@@ -624,7 +622,7 @@ func (rpm *ResultPersistenceManager) saveToDatabase(record *TestRunRecord) error
 		 e2e_score, regression_status, baseline_id)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
-	_, err = tx.Exec(query, 
+	_, err = tx.Exec(query,
 		record.ID, record.Timestamp, record.SuiteVersion, record.ExecutionMode,
 		record.TotalTests, record.PassedTests, record.FailedTests, record.SkippedTests,
 		int64(record.TotalDuration), record.E2EScore, record.RegressionStatus, record.BaselineID)
@@ -638,7 +636,7 @@ func (rpm *ResultPersistenceManager) saveToDatabase(record *TestRunRecord) error
 			INSERT INTO test_results 
 			(run_id, test_name, category, status, duration, error_message, timestamp)
 			VALUES (?, ?, ?, ?, ?, ?, ?)`
-		
+
 		_, err = tx.Exec(query,
 			record.ID, result.TestName, result.Category, result.Status,
 			int64(result.Duration), result.ErrorMessage, result.Timestamp)
@@ -652,7 +650,7 @@ func (rpm *ResultPersistenceManager) saveToDatabase(record *TestRunRecord) error
 
 func (rpm *ResultPersistenceManager) saveToJSON(record *TestRunRecord) error {
 	filename := filepath.Join(rpm.config.JSONResultsDirectory, fmt.Sprintf("%s.json", record.ID))
-	
+
 	data, err := json.MarshalIndent(record, "", "  ")
 	if err != nil {
 		return err
@@ -670,10 +668,10 @@ func (rpm *ResultPersistenceManager) getFromDatabase(runID string) (*TestRunReco
 		WHERE id = ?`
 
 	row := rpm.db.QueryRow(query, runID)
-	
+
 	record := &TestRunRecord{}
 	var totalDurationNs int64
-	
+
 	err := row.Scan(
 		&record.ID, &record.Timestamp, &record.SuiteVersion,
 		&record.ExecutionMode, &record.TotalTests, &record.PassedTests,
@@ -683,7 +681,7 @@ func (rpm *ResultPersistenceManager) getFromDatabase(runID string) (*TestRunReco
 	if err != nil {
 		return nil, err
 	}
-	
+
 	record.TotalDuration = time.Duration(totalDurationNs)
 
 	// Load test results
@@ -702,13 +700,13 @@ func (rpm *ResultPersistenceManager) getFromDatabase(runID string) (*TestRunReco
 	for rows.Next() {
 		result := &TestResult{}
 		var durationNs int64
-		
-		err := rows.Scan(&result.TestName, &result.Category, &result.Status, 
+
+		err := rows.Scan(&result.TestName, &result.Category, &result.Status,
 			&durationNs, &result.ErrorMessage, &result.Timestamp)
 		if err != nil {
 			return nil, err
 		}
-		
+
 		result.Duration = time.Duration(durationNs)
 		record.TestResults = append(record.TestResults, result)
 	}
@@ -718,7 +716,7 @@ func (rpm *ResultPersistenceManager) getFromDatabase(runID string) (*TestRunReco
 
 func (rpm *ResultPersistenceManager) getFromJSON(runID string) (*TestRunRecord, error) {
 	filename := filepath.Join(rpm.config.JSONResultsDirectory, fmt.Sprintf("%s.json", runID))
-	
+
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, err
@@ -734,9 +732,9 @@ func (rpm *ResultPersistenceManager) getFromJSON(runID string) (*TestRunRecord, 
 
 func (rpm *ResultPersistenceManager) archiveResult(record *TestRunRecord) error {
 	// Simple archival - create compressed JSON
-	archiveFile := filepath.Join(rpm.config.ArchiveDirectory, 
+	archiveFile := filepath.Join(rpm.config.ArchiveDirectory,
 		fmt.Sprintf("%s_archive.json", record.ID))
-	
+
 	data, err := json.Marshal(record)
 	if err != nil {
 		return err
@@ -762,7 +760,7 @@ func (rpm *ResultPersistenceManager) backgroundMaintenance() {
 func (rpm *ResultPersistenceManager) performMaintenance() {
 	// Clean up old records
 	cutoff := time.Now().AddDate(0, 0, -rpm.config.RetentionDays)
-	
+
 	query := `DELETE FROM test_runs WHERE timestamp < ?`
 	if _, err := rpm.db.Exec(query, cutoff); err != nil {
 		fmt.Printf("Maintenance error: failed to clean old records: %v\n", err)
@@ -782,12 +780,12 @@ func (rpm *ResultPersistenceManager) performMaintenance() {
 
 func (rpm *ResultPersistenceManager) analyzeTrend(metricName string, dataPoints interface{}, extractor func(interface{}) float64) HistoricalTrend {
 	points := dataPoints.([]struct {
-		ID         string
-		Timestamp  time.Time
-		Score      float64
-		Duration   time.Duration
-		Passed     int
-		Failed     int
+		ID        string
+		Timestamp time.Time
+		Score     float64
+		Duration  time.Duration
+		Passed    int
+		Failed    int
 	})
 
 	var trendPoints []TrendDataPoint
@@ -802,21 +800,21 @@ func (rpm *ResultPersistenceManager) analyzeTrend(metricName string, dataPoints 
 	// Calculate trend direction and slope
 	direction := "stable"
 	var slope float64
-	
+
 	if len(trendPoints) >= 2 {
 		first := trendPoints[0].Value
 		last := trendPoints[len(trendPoints)-1].Value
-		
+
 		if last > first*1.05 {
 			direction = "improving"
 		} else if last < first*0.95 {
 			direction = "degrading"
 		}
-		
+
 		// Simple linear regression slope
 		n := len(trendPoints)
 		var sumX, sumY, sumXY, sumX2 float64
-		
+
 		for i, point := range trendPoints {
 			x := float64(i)
 			y := point.Value
@@ -825,7 +823,7 @@ func (rpm *ResultPersistenceManager) analyzeTrend(metricName string, dataPoints 
 			sumXY += x * y
 			sumX2 += x * x
 		}
-		
+
 		slope = (float64(n)*sumXY - sumX*sumY) / (float64(n)*sumX2 - sumX*sumX)
 	}
 
@@ -842,7 +840,7 @@ func (rpm *ResultPersistenceManager) calculateSeverity(percentChange float64) st
 	if abs < 0 {
 		abs = -abs
 	}
-	
+
 	if abs > 50 {
 		return "critical"
 	} else if abs > 25 {

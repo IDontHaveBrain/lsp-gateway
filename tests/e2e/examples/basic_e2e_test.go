@@ -14,10 +14,10 @@ import (
 func TestBasicE2EWorkflow(t *testing.T) {
 	// Create E2E test runner with 5-minute timeout
 	runner := NewE2ETestRunner(&E2ETestConfig{
-		Timeout:         5 * time.Minute,
-		MaxConcurrency:  10,
-		RetryAttempts:   3,
-		CleanupTimeout:  30 * time.Second,
+		Timeout:        5 * time.Minute,
+		MaxConcurrency: 10,
+		RetryAttempts:  3,
+		CleanupTimeout: 30 * time.Second,
 	})
 	defer runner.Cleanup()
 
@@ -86,7 +86,7 @@ func TestLSPMethodValidation(t *testing.T) {
 	// Check that we tested the expected LSP methods
 	expectedMethods := []string{
 		"workspace/symbol",
-		"textDocument/definition", 
+		"textDocument/definition",
 		"textDocument/references",
 		"textDocument/hover",
 		"textDocument/documentSymbol",
@@ -151,7 +151,7 @@ func TestMultiLanguageSupport(t *testing.T) {
 func TestWithMockConfiguration(t *testing.T) {
 	// Create mock MCP client
 	mockClient := mocks.NewMockMcpClient()
-	
+
 	// Configure mock for specific test scenario
 	generator := helpers.NewTestDataGenerator()
 	if err := generator.ConfigureMockClientForScenario(mockClient, "basic-workflow"); err != nil {
@@ -249,32 +249,32 @@ func TestConcurrentScenarios(t *testing.T) {
 // Placeholder types and functions (these would be defined in the actual framework)
 
 type E2ETestRunner struct {
-	Config    *E2ETestConfig
-	Framework *framework.MultiLanguageTestFramework
+	Config     *E2ETestConfig
+	Framework  *framework.MultiLanguageTestFramework
 	MockClient *mocks.MockMcpClient
 }
 
 type E2ETestConfig struct {
-	Timeout         time.Duration
-	MaxConcurrency  int
-	RetryAttempts   int
-	CleanupTimeout  time.Duration
-	MockClient      *mocks.MockMcpClient
+	Timeout        time.Duration
+	MaxConcurrency int
+	RetryAttempts  int
+	CleanupTimeout time.Duration
+	MockClient     *mocks.MockMcpClient
 }
 
 type E2EScenario string
 
 const (
-	ScenarioBasicMCPWorkflow      E2EScenario = "basic-mcp-workflow"
-	ScenarioLSPMethodValidation   E2EScenario = "lsp-method-validation"
-	ScenarioMultiLanguageSupport  E2EScenario = "multi-language-support"
-	ScenarioConcurrentRequests    E2EScenario = "concurrent-requests"
-	ScenarioWorkspaceManagement   E2EScenario = "workspace-management"
+	ScenarioBasicMCPWorkflow     E2EScenario = "basic-mcp-workflow"
+	ScenarioLSPMethodValidation  E2EScenario = "lsp-method-validation"
+	ScenarioMultiLanguageSupport E2EScenario = "multi-language-support"
+	ScenarioConcurrentRequests   E2EScenario = "concurrent-requests"
+	ScenarioWorkspaceManagement  E2EScenario = "workspace-management"
 )
 
 type E2ETestResult struct {
-	Scenario                 E2EScenario
-	Success                  bool
+	Scenario                E2EScenario
+	Success                 bool
 	Error                   error
 	Duration                time.Duration
 	Metrics                 *E2EMetrics
@@ -284,11 +284,11 @@ type E2ETestResult struct {
 }
 
 type E2EMetrics struct {
-	TotalRequests   int64
-	SuccessfulReqs  int64
-	FailedRequests  int64
-	SuccessRate     float64
-	AverageLatency  time.Duration
+	TotalRequests  int64
+	SuccessfulReqs int64
+	FailedRequests int64
+	SuccessRate    float64
+	AverageLatency time.Duration
 }
 
 type GlobalMetrics struct {
@@ -301,8 +301,8 @@ type GlobalMetrics struct {
 
 func NewE2ETestRunner(config *E2ETestConfig) *E2ETestRunner {
 	return &E2ETestRunner{
-		Config: config,
-		Framework: framework.NewMultiLanguageTestFramework(config.Timeout),
+		Config:     config,
+		Framework:  framework.NewMultiLanguageTestFramework(config.Timeout),
 		MockClient: config.MockClient,
 	}
 }

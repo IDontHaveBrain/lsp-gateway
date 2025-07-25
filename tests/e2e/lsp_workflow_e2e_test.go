@@ -8,9 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/suite"
 	"lsp-gateway/mcp"
 	"lsp-gateway/tests/mocks"
+
+	"github.com/stretchr/testify/suite"
 )
 
 // LSPWorkflowE2ETestSuite provides comprehensive end-to-end tests for LSP workflow scenarios

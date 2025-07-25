@@ -69,18 +69,18 @@ const (
 
 // IntegrationResults contains the results of an integration test
 type IntegrationResults struct {
-	ScenarioName     string
-	StartTime        time.Time
-	EndTime          time.Time
-	Duration         time.Duration
-	StepResults      map[string]*StepResult
-	TotalSteps       int
-	PassedSteps      int
-	FailedSteps      int
-	SkippedSteps     int
-	SetupSuccessful  bool
+	ScenarioName      string
+	StartTime         time.Time
+	EndTime           time.Time
+	Duration          time.Duration
+	StepResults       map[string]*StepResult
+	TotalSteps        int
+	PassedSteps       int
+	FailedSteps       int
+	SkippedSteps      int
+	SetupSuccessful   bool
 	CleanupSuccessful bool
-	Errors           []string
+	Errors            []string
 }
 
 // StepResult contains the result of a single integration step
@@ -184,7 +184,7 @@ func (m *IntegrationTestManager) ExecuteScenario(t *testing.T, scenarioName stri
 
 	// Check if any steps failed
 	if m.results.FailedSteps > 0 {
-		return fmt.Errorf("integration scenario failed: %d/%d steps failed", 
+		return fmt.Errorf("integration scenario failed: %d/%d steps failed",
 			m.results.FailedSteps, m.results.TotalSteps)
 	}
 
@@ -203,7 +203,7 @@ func (m *IntegrationTestManager) initializeResults(scenario *IntegrationScenario
 		TotalSteps:   len(scenario.TestSteps),
 		Errors:       make([]string, 0),
 	}
-	
+
 	// Initialize step state channels
 	m.stepStates = make(map[string]chan *StepResult)
 	for _, step := range scenario.TestSteps {
@@ -250,11 +250,11 @@ func (m *IntegrationTestManager) executeSetupStep(ctx context.Context, step Setu
 func (m *IntegrationTestManager) executeTestSteps(ctx context.Context, steps []IntegrationStep) error {
 	// Build dependency graph
 	_ = m.buildDependencyGraph(steps)
-	
+
 	// Execute steps respecting dependencies
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(steps))
-	
+
 	for _, step := range steps {
 		if step.Parallel && len(step.Dependencies) == 0 {
 			// Execute parallel steps without dependencies immediately
@@ -270,26 +270,26 @@ func (m *IntegrationTestManager) executeTestSteps(ctx context.Context, steps []I
 			if err := m.waitForDependencies(step.Dependencies); err != nil {
 				return fmt.Errorf("dependency wait failed for step '%s': %w", step.Name, err)
 			}
-			
+
 			if err := m.executeTestStep(ctx, step); err != nil {
 				errChan <- err
 			}
 		}
 	}
-	
+
 	wg.Wait()
 	close(errChan)
-	
+
 	// Collect any errors
 	var errors []error
 	for err := range errChan {
 		errors = append(errors, err)
 	}
-	
+
 	if len(errors) > 0 {
 		return fmt.Errorf("test steps failed: %v", errors)
 	}
-	
+
 	return nil
 }
 
@@ -333,7 +333,7 @@ func (m *IntegrationTestManager) executeTestStep(ctx context.Context, step Integ
 	defer func() {
 		stepResult.EndTime = time.Now()
 		stepResult.Duration = stepResult.EndTime.Sub(stepResult.StartTime)
-		
+
 		m.mu.Lock()
 		m.results.StepResults[step.Name] = stepResult
 		if stepResult.Success {
@@ -345,7 +345,7 @@ func (m *IntegrationTestManager) executeTestStep(ctx context.Context, step Integ
 			}
 		}
 		m.mu.Unlock()
-		
+
 		// Signal completion to any waiting dependencies
 		if resultChan, exists := m.stepStates[step.Name]; exists {
 			select {
@@ -400,13 +400,13 @@ func (m *IntegrationTestManager) executeLSPStep(ctx context.Context, step Integr
 	// Implement LSP step execution
 	// This would use the LSP workflow manager from lsp_workflow_scenarios.go
 	workflowManager := NewLSPWorkflowManager(m.gatewayURL)
-	
+
 	// Create a simple workflow step based on the integration step
 	workflowStep := WorkflowStep{
 		Name:   step.Name,
 		Method: step.Method,
 	}
-	
+
 	// Extract parameters
 	if uri, ok := step.Parameters["uri"].(string); ok {
 		workflowStep.URI = uri
@@ -422,12 +422,12 @@ func (m *IntegrationTestManager) executeLSPStep(ctx context.Context, step Integr
 			workflowStep.Position.Character = char
 		}
 	}
-	
+
 	projectDir := "/tmp/test-project" // Default project directory
 	if dir, ok := step.Parameters["project_dir"].(string); ok {
 		projectDir = dir
 	}
-	
+
 	return workflowManager.executeStep(ctx, workflowStep, projectDir)
 }
 
@@ -435,10 +435,10 @@ func (m *IntegrationTestManager) executeLSPStep(ctx context.Context, step Integr
 func (m *IntegrationTestManager) executeMCPStep(ctx context.Context, step IntegrationStep) (interface{}, error) {
 	// Implement MCP step execution
 	// This would involve MCP protocol communication
-	
+
 	// Simulate MCP request execution
 	time.Sleep(100 * time.Millisecond)
-	
+
 	return map[string]interface{}{
 		"method": step.Method,
 		"result": "mcp_success",
@@ -449,10 +449,10 @@ func (m *IntegrationTestManager) executeMCPStep(ctx context.Context, step Integr
 func (m *IntegrationTestManager) executeHTTPStep(ctx context.Context, step IntegrationStep) (interface{}, error) {
 	// Implement HTTP step execution
 	// This would involve direct HTTP requests to the gateway
-	
+
 	// Simulate HTTP request execution
 	time.Sleep(50 * time.Millisecond)
-	
+
 	return map[string]interface{}{
 		"method":     step.Method,
 		"status":     "success",
@@ -463,9 +463,9 @@ func (m *IntegrationTestManager) executeHTTPStep(ctx context.Context, step Integ
 // executeSystemStep executes a system-related step
 func (m *IntegrationTestManager) executeSystemStep(ctx context.Context, step IntegrationStep) (interface{}, error) {
 	// Implement system step execution (file operations, process management, etc.)
-	
+
 	action := step.Parameters["action"].(string)
-	
+
 	switch action {
 	case "check_file_exists":
 		filepath := step.Parameters["filepath"].(string)
@@ -490,7 +490,7 @@ func (m *IntegrationTestManager) executeSystemStep(ctx context.Context, step Int
 func (m *IntegrationTestManager) executeValidationStep(ctx context.Context, step IntegrationStep) (interface{}, error) {
 	// Implement validation step execution
 	validationType := step.Parameters["type"].(string)
-	
+
 	switch validationType {
 	case "response_format":
 		// Validate response format
@@ -586,14 +586,14 @@ func (m *IntegrationTestManager) logResults(t *testing.T) {
 	t.Logf("  Skipped Steps: %d", m.results.SkippedSteps)
 	t.Logf("  Setup Successful: %v", m.results.SetupSuccessful)
 	t.Logf("  Cleanup Successful: %v", m.results.CleanupSuccessful)
-	
+
 	if len(m.results.Errors) > 0 {
 		t.Logf("  Errors:")
 		for i, err := range m.results.Errors {
 			t.Logf("    %d. %s", i+1, err)
 		}
 	}
-	
+
 	t.Logf("  Step Details:")
 	for name, result := range m.results.StepResults {
 		status := "PASS"
@@ -607,11 +607,11 @@ func (m *IntegrationTestManager) logResults(t *testing.T) {
 // GetMultiLanguageIntegrationScenario returns a multi-language integration scenario
 func GetMultiLanguageIntegrationScenario() *IntegrationScenario {
 	return &IntegrationScenario{
-		Name:        "multi-language-integration",
-		Description: "Integration test with multiple language servers",
-		Languages:   []string{"go", "python", "typescript"},
-		ProjectType: "multi-language",
-		Timeout:     5 * time.Minute,
+		Name:          "multi-language-integration",
+		Description:   "Integration test with multiple language servers",
+		Languages:     []string{"go", "python", "typescript"},
+		ProjectType:   "multi-language",
+		Timeout:       5 * time.Minute,
 		RequiresSetup: true,
 		SetupSteps: []SetupStep{
 			{
@@ -649,7 +649,7 @@ func GetMultiLanguageIntegrationScenario() *IntegrationScenario {
 						"character": 10,
 					},
 				},
-				Timeout: 30 * time.Second,
+				Timeout:  30 * time.Second,
 				Parallel: true,
 			},
 			{
@@ -665,7 +665,7 @@ func GetMultiLanguageIntegrationScenario() *IntegrationScenario {
 						"character": 8,
 					},
 				},
-				Timeout: 30 * time.Second,
+				Timeout:  30 * time.Second,
 				Parallel: true,
 			},
 			{
@@ -681,7 +681,7 @@ func GetMultiLanguageIntegrationScenario() *IntegrationScenario {
 						"character": 15,
 					},
 				},
-				Timeout: 30 * time.Second,
+				Timeout:  30 * time.Second,
 				Parallel: true,
 			},
 			{
@@ -723,11 +723,11 @@ func GetMultiLanguageIntegrationScenario() *IntegrationScenario {
 // GetMCPIntegrationScenario returns an MCP integration scenario
 func GetMCPIntegrationScenario() *IntegrationScenario {
 	return &IntegrationScenario{
-		Name:        "mcp-integration",
-		Description: "Integration test for MCP protocol functionality",
-		Languages:   []string{"go"},
-		ProjectType: "mcp-test",
-		Timeout:     3 * time.Minute,
+		Name:          "mcp-integration",
+		Description:   "Integration test for MCP protocol functionality",
+		Languages:     []string{"go"},
+		ProjectType:   "mcp-test",
+		Timeout:       3 * time.Minute,
 		RequiresSetup: true,
 		SetupSteps: []SetupStep{
 			{
@@ -808,14 +808,14 @@ func GetMCPIntegrationScenario() *IntegrationScenario {
 // RunStandardIntegrationTests runs a standard set of integration tests
 func RunStandardIntegrationTests(t *testing.T, gatewayURL, mcpURL string) {
 	manager := NewIntegrationTestManager(gatewayURL, mcpURL)
-	
+
 	// Register scenarios
 	manager.RegisterScenario(GetMultiLanguageIntegrationScenario())
 	manager.RegisterScenario(GetMCPIntegrationScenario())
-	
+
 	// Execute scenarios
 	scenarios := []string{"multi-language-integration", "mcp-integration"}
-	
+
 	for _, scenarioName := range scenarios {
 		t.Run(scenarioName, func(t *testing.T) {
 			err := manager.ExecuteScenario(t, scenarioName)

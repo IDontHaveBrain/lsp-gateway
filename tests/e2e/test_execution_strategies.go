@@ -40,24 +40,24 @@ type ExecutionStage struct {
 
 // ResourceBudget defines resource limits for test execution
 type ResourceBudget struct {
-	MaxMemoryMB     int64
-	MaxCPUCores     int
-	MaxConcurrency  int
+	MaxMemoryMB      int64
+	MaxCPUCores      int
+	MaxConcurrency   int
 	MaxDurationHours int
-	NetworkPorts    []int
-	Reserved        bool
+	NetworkPorts     []int
+	Reserved         bool
 }
 
 // ExecutionConstraints defines constraints for test execution
 type ExecutionConstraints struct {
-	MaxRetries          int
-	TimeoutMultiplier   float64
-	FailFast            bool
-	AllowResourceReuse  bool
+	MaxRetries             int
+	TimeoutMultiplier      float64
+	FailFast               bool
+	AllowResourceReuse     bool
 	RequireResourceCleanup bool
-	MaxParallelStages   int
-	LoadBalancing       bool
-	PriorityScheduling  bool
+	MaxParallelStages      int
+	LoadBalancing          bool
+	PriorityScheduling     bool
 }
 
 // FailureHandlingStrategy defines how to handle test failures
@@ -73,49 +73,49 @@ const (
 // TestExecutionEngine manages test execution using various strategies
 type TestExecutionEngine struct {
 	// Core components
-	discoveryEngine    *TestDiscoveryEngine
-	resourceManager    *ExecutionResourceManager
-	scheduler          *TestScheduler
-	monitor            *ExecutionMonitor
-	
+	discoveryEngine *TestDiscoveryEngine
+	resourceManager *ExecutionResourceManager
+	scheduler       *TestScheduler
+	monitor         *ExecutionMonitor
+
 	// Execution state
-	activeExecutions   map[string]*TestExecution
-	executionQueue     []*TestExecution
-	completedTests     map[string]*TestExecutionResult
-	failedTests        map[string]*TestExecutionResult
-	
+	activeExecutions map[string]*TestExecution
+	executionQueue   []*TestExecution
+	completedTests   map[string]*TestExecutionResult
+	failedTests      map[string]*TestExecutionResult
+
 	// Configuration
 	defaultBudget      *ResourceBudget
 	defaultConstraints *ExecutionConstraints
-	
+
 	// Synchronization
 	mu                 sync.RWMutex
 	executionSemaphore chan struct{}
-	
+
 	// Context management
-	ctx                context.Context
-	cancel             context.CancelFunc
-	
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	// Metrics
-	executionMetrics   *ExecutionMetrics
+	executionMetrics *ExecutionMetrics
 }
 
 // TestExecutionResult contains results from individual test execution
 type TestExecutionResult struct {
-	TestName        string
-	StartTime       time.Time
-	EndTime         time.Time
-	Duration        time.Duration
-	Success         bool
-	RetryCount      int
-	ResourcesUsed   []string
-	Output          string
-	Error           error
-	Metrics         *TestMetrics
-	Stage           int
-	ExecutionMode   ExecutionMode
-	Memory          int64
-	CPUTime         time.Duration
+	TestName      string
+	StartTime     time.Time
+	EndTime       time.Time
+	Duration      time.Duration
+	Success       bool
+	RetryCount    int
+	ResourcesUsed []string
+	Output        string
+	Error         error
+	Metrics       *TestMetrics
+	Stage         int
+	ExecutionMode ExecutionMode
+	Memory        int64
+	CPUTime       time.Duration
 }
 
 // ExecutionMetrics tracks execution engine metrics
@@ -148,13 +148,13 @@ type ResourceUtilizationMetrics struct {
 
 // StageMetrics tracks metrics per execution stage
 type StageMetrics struct {
-	StageName       string
-	TestsExecuted   int
-	TestsPassed     int
-	TestsFailed     int
-	Duration        time.Duration
-	Concurrency     int
-	ResourceUsage   *ResourceUtilizationMetrics
+	StageName     string
+	TestsExecuted int
+	TestsPassed   int
+	TestsFailed   int
+	Duration      time.Duration
+	Concurrency   int
+	ResourceUsage *ResourceUtilizationMetrics
 }
 
 // ExecutionResourceManager manages resources during test execution
@@ -168,26 +168,26 @@ type ExecutionResourceManager struct {
 
 // ExecutionResource represents a resource available for test execution
 type ExecutionResource struct {
-	ID          string
-	Type        ResourceType
-	Capacity    int
-	InUse       int
-	Available   bool
-	Reserved    bool
-	Owner       string
-	CreatedAt   time.Time
-	LastUsed    time.Time
-	Metrics     *ResourceMetrics
+	ID        string
+	Type      ResourceType
+	Capacity  int
+	InUse     int
+	Available bool
+	Reserved  bool
+	Owner     string
+	CreatedAt time.Time
+	LastUsed  time.Time
+	Metrics   *ResourceMetrics
 }
 
 // ResourceSnapshot captures resource utilization at a point in time
 type ResourceSnapshot struct {
-	Timestamp       time.Time
-	MemoryUsedMB    int64
-	CPUPercent      float64
-	ActiveTests     int
-	ResourcesInUse  int
-	QueueLength     int
+	Timestamp      time.Time
+	MemoryUsedMB   int64
+	CPUPercent     float64
+	ActiveTests    int
+	ResourcesInUse int
+	QueueLength    int
 }
 
 // ResourceMetrics tracks resource-specific metrics
@@ -202,88 +202,88 @@ type ResourceMetrics struct {
 
 // TestScheduler handles test scheduling and queuing
 type TestScheduler struct {
-	queue              []*ScheduledTest
-	priorityQueues     map[TestPriority][]*ScheduledTest
-	resourceQueue      []*ScheduledTest
-	dependencyTracker  *DependencyTracker
-	loadBalancer       *LoadBalancer
-	mu                 sync.RWMutex
+	queue             []*ScheduledTest
+	priorityQueues    map[TestPriority][]*ScheduledTest
+	resourceQueue     []*ScheduledTest
+	dependencyTracker *DependencyTracker
+	loadBalancer      *LoadBalancer
+	mu                sync.RWMutex
 }
 
 // ScheduledTest represents a test in the execution queue
 type ScheduledTest struct {
-	Test               *TestDiscoveryMetadata
-	ScheduledAt        time.Time
-	Priority           TestPriority
-	Dependencies       []string
-	EstimatedDuration  time.Duration
-	ResourceNeeds      []ResourceRequirement
-	Stage              int
-	ExecutionContext   context.Context
-	Cancel             context.CancelFunc
+	Test              *TestDiscoveryMetadata
+	ScheduledAt       time.Time
+	Priority          TestPriority
+	Dependencies      []string
+	EstimatedDuration time.Duration
+	ResourceNeeds     []ResourceRequirement
+	Stage             int
+	ExecutionContext  context.Context
+	Cancel            context.CancelFunc
 }
 
 // DependencyTracker tracks test dependencies and execution order
 type DependencyTracker struct {
-	dependencies       map[string][]string
-	dependents         map[string][]string
-	completed          map[string]bool
-	inProgress         map[string]bool
-	blocked            map[string][]string
-	mu                 sync.RWMutex
+	dependencies map[string][]string
+	dependents   map[string][]string
+	completed    map[string]bool
+	inProgress   map[string]bool
+	blocked      map[string][]string
+	mu           sync.RWMutex
 }
 
 // LoadBalancer balances test execution across available resources
 type LoadBalancer struct {
-	strategies         []LoadBalancingStrategy
-	currentStrategy    LoadBalancingStrategy
-	resourceMetrics    map[string]*ResourceMetrics
-	lastBalanceTime    time.Time
-	balanceInterval    time.Duration
+	strategies      []LoadBalancingStrategy
+	currentStrategy LoadBalancingStrategy
+	resourceMetrics map[string]*ResourceMetrics
+	lastBalanceTime time.Time
+	balanceInterval time.Duration
 }
 
 // LoadBalancingStrategy defines how to balance test execution
 type LoadBalancingStrategy string
 
 const (
-	LoadBalanceRoundRobin   LoadBalancingStrategy = "round_robin"
-	LoadBalanceLeastLoaded  LoadBalancingStrategy = "least_loaded"
-	LoadBalancePriority     LoadBalancingStrategy = "priority"
-	LoadBalanceResource     LoadBalancingStrategy = "resource_aware"
+	LoadBalanceRoundRobin  LoadBalancingStrategy = "round_robin"
+	LoadBalanceLeastLoaded LoadBalancingStrategy = "least_loaded"
+	LoadBalancePriority    LoadBalancingStrategy = "priority"
+	LoadBalanceResource    LoadBalancingStrategy = "resource_aware"
 )
 
 // ExecutionMonitor monitors test execution and provides real-time updates
 type ExecutionMonitor struct {
-	activeTests        map[string]*TestExecution
-	executionHistory   []*TestExecutionResult
-	alerts             []*ExecutionAlert
-	thresholds         *MonitoringThresholds
-	lastUpdate         time.Time
-	updateInterval     time.Duration
-	mu                 sync.RWMutex
+	activeTests      map[string]*TestExecution
+	executionHistory []*TestExecutionResult
+	alerts           []*ExecutionAlert
+	thresholds       *MonitoringThresholds
+	lastUpdate       time.Time
+	updateInterval   time.Duration
+	mu               sync.RWMutex
 }
 
 // ExecutionAlert represents an alert during test execution
 type ExecutionAlert struct {
-	Type        AlertType
-	Severity    AlertSeverity
-	Message     string
-	TestName    string
-	Timestamp   time.Time
-	Resolved    bool
-	ResolvedAt  time.Time
+	Type       AlertType
+	Severity   AlertSeverity
+	Message    string
+	TestName   string
+	Timestamp  time.Time
+	Resolved   bool
+	ResolvedAt time.Time
 }
 
 // AlertType defines types of execution alerts
 type AlertType string
 
 const (
-	AlertTypeTimeout      AlertType = "timeout"
-	AlertTypeMemory       AlertType = "memory"
-	AlertTypeCPU          AlertType = "cpu"
-	AlertTypeFailure      AlertType = "failure"
-	AlertTypeResource     AlertType = "resource_contention"
-	AlertTypeDependency   AlertType = "dependency_failure"
+	AlertTypeTimeout    AlertType = "timeout"
+	AlertTypeMemory     AlertType = "memory"
+	AlertTypeCPU        AlertType = "cpu"
+	AlertTypeFailure    AlertType = "failure"
+	AlertTypeResource   AlertType = "resource_contention"
+	AlertTypeDependency AlertType = "dependency_failure"
 )
 
 // AlertSeverity defines alert severity levels
@@ -298,18 +298,18 @@ const (
 
 // MonitoringThresholds defines thresholds for monitoring alerts
 type MonitoringThresholds struct {
-	MaxMemoryMB          int64
-	MaxCPUPercent        float64
-	MaxExecutionTime     time.Duration
-	MaxFailureRate       float64
-	MaxResourceWaitTime  time.Duration
+	MaxMemoryMB           int64
+	MaxCPUPercent         float64
+	MaxExecutionTime      time.Duration
+	MaxFailureRate        float64
+	MaxResourceWaitTime   time.Duration
 	MaxConcurrentFailures int
 }
 
 // NewTestExecutionEngine creates a new test execution engine
 func NewTestExecutionEngine(discoveryEngine *TestDiscoveryEngine) *TestExecutionEngine {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	// Default resource budget
 	defaultBudget := &ResourceBudget{
 		MaxMemoryMB:      8192, // 8GB
@@ -319,29 +319,29 @@ func NewTestExecutionEngine(discoveryEngine *TestDiscoveryEngine) *TestExecution
 		NetworkPorts:     []int{8080, 8081, 8082, 8083, 8084},
 		Reserved:         false,
 	}
-	
+
 	// Default execution constraints
 	defaultConstraints := &ExecutionConstraints{
-		MaxRetries:              3,
-		TimeoutMultiplier:       1.5,
-		FailFast:                false,
-		AllowResourceReuse:      true,
-		RequireResourceCleanup:  true,
-		MaxParallelStages:       3,
-		LoadBalancing:           true,
-		PriorityScheduling:      true,
+		MaxRetries:             3,
+		TimeoutMultiplier:      1.5,
+		FailFast:               false,
+		AllowResourceReuse:     true,
+		RequireResourceCleanup: true,
+		MaxParallelStages:      3,
+		LoadBalancing:          true,
+		PriorityScheduling:     true,
 	}
-	
+
 	// Initialize monitoring thresholds
 	thresholds := &MonitoringThresholds{
-		MaxMemoryMB:             6144, // 6GB warning threshold
-		MaxCPUPercent:           80.0,
-		MaxExecutionTime:        2 * time.Hour,
-		MaxFailureRate:          0.1,
-		MaxResourceWaitTime:     5 * time.Minute,
-		MaxConcurrentFailures:   5,
+		MaxMemoryMB:           6144, // 6GB warning threshold
+		MaxCPUPercent:         80.0,
+		MaxExecutionTime:      2 * time.Hour,
+		MaxFailureRate:        0.1,
+		MaxResourceWaitTime:   5 * time.Minute,
+		MaxConcurrentFailures: 5,
 	}
-	
+
 	engine := &TestExecutionEngine{
 		discoveryEngine:    discoveryEngine,
 		activeExecutions:   make(map[string]*TestExecution),
@@ -353,21 +353,21 @@ func NewTestExecutionEngine(discoveryEngine *TestDiscoveryEngine) *TestExecution
 		executionSemaphore: make(chan struct{}, defaultBudget.MaxConcurrency),
 		ctx:                ctx,
 		cancel:             cancel,
-		executionMetrics:   &ExecutionMetrics{
+		executionMetrics: &ExecutionMetrics{
 			ResourceUtilization: &ResourceUtilizationMetrics{},
 			StageBreakdown:      make(map[string]*StageMetrics),
 		},
 	}
-	
+
 	// Initialize resource manager
 	engine.resourceManager = NewExecutionResourceManager(defaultBudget)
-	
+
 	// Initialize scheduler
 	engine.scheduler = NewTestScheduler()
-	
+
 	// Initialize monitor
 	engine.monitor = NewExecutionMonitor(thresholds)
-	
+
 	return engine
 }
 
@@ -375,30 +375,30 @@ func NewTestExecutionEngine(discoveryEngine *TestDiscoveryEngine) *TestExecution
 func (engine *TestExecutionEngine) CreateExecutionPlan(ctx context.Context, filter *TestFilter, strategy ExecutionStrategy) (*ExecutionPlan, error) {
 	engine.mu.Lock()
 	defer engine.mu.Unlock()
-	
+
 	// Get filtered tests from discovery engine
 	tests, err := engine.discoveryEngine.FilterTests(filter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get filtered tests: %w", err)
 	}
-	
+
 	if len(tests) == 0 {
 		return nil, fmt.Errorf("no tests match the filter criteria")
 	}
-	
+
 	plan := &ExecutionPlan{
-		ID:            fmt.Sprintf("plan_%d", time.Now().Unix()),
-		Strategy:      strategy,
-		TotalTests:    len(tests),
-		Dependencies:  make(map[string][]string),
-		CreatedAt:     time.Now(),
-		CreatedBy:     "execution_engine",
+		ID:           fmt.Sprintf("plan_%d", time.Now().Unix()),
+		Strategy:     strategy,
+		TotalTests:   len(tests),
+		Dependencies: make(map[string][]string),
+		CreatedAt:    time.Now(),
+		CreatedBy:    "execution_engine",
 	}
-	
+
 	// Calculate resource budget and constraints
 	plan.ResourceBudget = engine.calculateResourceBudget(tests)
 	plan.Constraints = engine.defaultConstraints
-	
+
 	// Build execution stages based on strategy
 	switch strategy {
 	case StrategySequential:
@@ -412,17 +412,17 @@ func (engine *TestExecutionEngine) CreateExecutionPlan(ctx context.Context, filt
 	default:
 		return nil, fmt.Errorf("unsupported execution strategy: %s", strategy)
 	}
-	
+
 	// Calculate dependencies
 	for _, test := range tests {
 		if len(test.Dependencies) > 0 {
 			plan.Dependencies[test.Name] = test.Dependencies
 		}
 	}
-	
+
 	// Estimate total execution time
 	plan.EstimatedTime = engine.estimateExecutionTime(plan.ExecutionStages)
-	
+
 	return plan, nil
 }
 
@@ -430,23 +430,23 @@ func (engine *TestExecutionEngine) CreateExecutionPlan(ctx context.Context, filt
 func (engine *TestExecutionEngine) ExecutePlan(ctx context.Context, plan *ExecutionPlan) error {
 	engine.mu.Lock()
 	defer engine.mu.Unlock()
-	
+
 	startTime := time.Now()
 	defer func() {
 		engine.executionMetrics.TotalDuration = time.Since(startTime)
 	}()
-	
+
 	// Initialize resource manager with plan budget
 	if err := engine.resourceManager.Initialize(plan.ResourceBudget); err != nil {
 		return fmt.Errorf("failed to initialize resource manager: %w", err)
 	}
-	
+
 	// Start execution monitor
 	if err := engine.monitor.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start execution monitor: %w", err)
 	}
 	defer engine.monitor.Stop()
-	
+
 	// Execute stages according to strategy
 	switch plan.Strategy {
 	case StrategySequential:
@@ -465,13 +465,13 @@ func (engine *TestExecutionEngine) ExecutePlan(ctx context.Context, plan *Execut
 // buildSequentialStages builds execution stages for sequential execution
 func (engine *TestExecutionEngine) buildSequentialStages(tests []*TestDiscoveryMetadata) []*ExecutionStage {
 	stages := make([]*ExecutionStage, 0)
-	
+
 	// Group tests by category for sequential execution
 	categoryGroups := make(map[TestCategory][]*TestDiscoveryMetadata)
 	for _, test := range tests {
 		categoryGroups[test.Category] = append(categoryGroups[test.Category], test)
 	}
-	
+
 	// Define execution order by category
 	categoryOrder := []TestCategory{
 		CategorySetup,
@@ -483,20 +483,20 @@ func (engine *TestExecutionEngine) buildSequentialStages(tests []*TestDiscoveryM
 		CategoryPerformance,
 		CategoryCleanup,
 	}
-	
+
 	stageNum := 0
 	for _, category := range categoryOrder {
 		if tests, exists := categoryGroups[category]; exists && len(tests) > 0 {
 			testNames := make([]string, len(tests))
 			var totalTimeout time.Duration
 			resources := make([]ResourceRequirement, 0)
-			
+
 			for i, test := range tests {
 				testNames[i] = test.Name
 				totalTimeout += test.Timeout
 				resources = append(resources, test.Resources...)
 			}
-			
+
 			stage := &ExecutionStage{
 				Name:            fmt.Sprintf("%s_stage", category),
 				StageNumber:     stageNum,
@@ -508,12 +508,12 @@ func (engine *TestExecutionEngine) buildSequentialStages(tests []*TestDiscoveryM
 				EstimatedTime:   totalTimeout,
 				FailureStrategy: FailureStrategyContinue,
 			}
-			
+
 			stages = append(stages, stage)
 			stageNum++
 		}
 	}
-	
+
 	return stages
 }
 
@@ -522,7 +522,7 @@ func (engine *TestExecutionEngine) buildParallelStages(tests []*TestDiscoveryMet
 	// Group tests that can run in parallel
 	parallelTests := make([]*TestDiscoveryMetadata, 0)
 	sequentialTests := make([]*TestDiscoveryMetadata, 0)
-	
+
 	for _, test := range tests {
 		if test.ExecutionMode == ModeParallel {
 			parallelTests = append(parallelTests, test)
@@ -530,15 +530,15 @@ func (engine *TestExecutionEngine) buildParallelStages(tests []*TestDiscoveryMet
 			sequentialTests = append(sequentialTests, test)
 		}
 	}
-	
+
 	stages := make([]*ExecutionStage, 0)
-	
+
 	// Create parallel stage
 	if len(parallelTests) > 0 {
 		testNames := make([]string, len(parallelTests))
 		resources := make([]ResourceRequirement, 0)
 		maxTimeout := time.Duration(0)
-		
+
 		for i, test := range parallelTests {
 			testNames[i] = test.Name
 			resources = append(resources, test.Resources...)
@@ -546,7 +546,7 @@ func (engine *TestExecutionEngine) buildParallelStages(tests []*TestDiscoveryMet
 				maxTimeout = test.Timeout
 			}
 		}
-		
+
 		stage := &ExecutionStage{
 			Name:            "parallel_stage",
 			StageNumber:     0,
@@ -558,10 +558,10 @@ func (engine *TestExecutionEngine) buildParallelStages(tests []*TestDiscoveryMet
 			EstimatedTime:   maxTimeout,
 			FailureStrategy: FailureStrategyContinue,
 		}
-		
+
 		stages = append(stages, stage)
 	}
-	
+
 	// Create sequential stages for remaining tests
 	if len(sequentialTests) > 0 {
 		sequentialStages := engine.buildSequentialStages(sequentialTests)
@@ -570,7 +570,7 @@ func (engine *TestExecutionEngine) buildParallelStages(tests []*TestDiscoveryMet
 			stages = append(stages, stage)
 		}
 	}
-	
+
 	return stages
 }
 
@@ -578,14 +578,14 @@ func (engine *TestExecutionEngine) buildParallelStages(tests []*TestDiscoveryMet
 func (engine *TestExecutionEngine) buildDependencyBasedStages(tests []*TestDiscoveryMetadata) []*ExecutionStage {
 	// Get execution levels from discovery engine
 	executionLevels := engine.discoveryEngine.GetExecutionLevels()
-	
+
 	stages := make([]*ExecutionStage, len(executionLevels))
-	
+
 	for levelNum, levelTests := range executionLevels {
 		if len(levelTests) == 0 {
 			continue
 		}
-		
+
 		// Find test metadata for this level
 		levelMetadata := make([]*TestDiscoveryMetadata, 0)
 		for _, testName := range levelTests {
@@ -596,15 +596,15 @@ func (engine *TestExecutionEngine) buildDependencyBasedStages(tests []*TestDisco
 				}
 			}
 		}
-		
+
 		if len(levelMetadata) == 0 {
 			continue
 		}
-		
+
 		// Determine execution mode for this level
 		executionMode := ModeParallel
 		maxConcurrency := len(levelMetadata)
-		
+
 		// Check if any test requires sequential execution
 		for _, test := range levelMetadata {
 			if test.ExecutionMode == ModeSequential {
@@ -613,12 +613,12 @@ func (engine *TestExecutionEngine) buildDependencyBasedStages(tests []*TestDisco
 				break
 			}
 		}
-		
+
 		// Calculate resources and timeouts
 		resources := make([]ResourceRequirement, 0)
 		maxTimeout := time.Duration(0)
 		totalTimeout := time.Duration(0)
-		
+
 		for _, test := range levelMetadata {
 			resources = append(resources, test.Resources...)
 			if test.Timeout > maxTimeout {
@@ -626,12 +626,12 @@ func (engine *TestExecutionEngine) buildDependencyBasedStages(tests []*TestDisco
 			}
 			totalTimeout += test.Timeout
 		}
-		
+
 		estimatedTime := maxTimeout
 		if executionMode == ModeSequential {
 			estimatedTime = totalTimeout
 		}
-		
+
 		stage := &ExecutionStage{
 			Name:            fmt.Sprintf("dependency_level_%d", levelNum),
 			StageNumber:     levelNum,
@@ -643,15 +643,15 @@ func (engine *TestExecutionEngine) buildDependencyBasedStages(tests []*TestDisco
 			EstimatedTime:   estimatedTime,
 			FailureStrategy: FailureStrategyContinue,
 		}
-		
+
 		// Set prerequisites for stages after level 0
 		if levelNum > 0 {
 			stage.Prerequisites = []string{fmt.Sprintf("dependency_level_%d", levelNum-1)}
 		}
-		
+
 		stages[levelNum] = stage
 	}
-	
+
 	// Filter out nil stages
 	filteredStages := make([]*ExecutionStage, 0)
 	for _, stage := range stages {
@@ -659,7 +659,7 @@ func (engine *TestExecutionEngine) buildDependencyBasedStages(tests []*TestDisco
 			filteredStages = append(filteredStages, stage)
 		}
 	}
-	
+
 	return filteredStages
 }
 
@@ -667,15 +667,15 @@ func (engine *TestExecutionEngine) buildDependencyBasedStages(tests []*TestDisco
 func (engine *TestExecutionEngine) buildOptimizedStages(tests []*TestDiscoveryMetadata) []*ExecutionStage {
 	// Start with dependency-based stages
 	stages := engine.buildDependencyBasedStages(tests)
-	
+
 	// Optimize each stage for better resource utilization and execution time
 	for _, stage := range stages {
 		engine.optimizeStage(stage, tests)
 	}
-	
+
 	// Apply load balancing optimizations
 	engine.applyLoadBalancingOptimizations(stages)
-	
+
 	return stages
 }
 
@@ -691,7 +691,7 @@ func (engine *TestExecutionEngine) optimizeStage(stage *ExecutionStage, allTests
 			}
 		}
 	}
-	
+
 	// Sort tests by priority and estimated execution time
 	sort.Slice(stageTests, func(i, j int) bool {
 		if stageTests[i].Priority != stageTests[j].Priority {
@@ -699,7 +699,7 @@ func (engine *TestExecutionEngine) optimizeStage(stage *ExecutionStage, allTests
 		}
 		return stageTests[i].Timeout < stageTests[j].Timeout
 	})
-	
+
 	// Optimize concurrency based on resource constraints
 	if stage.ExecutionMode == ModeParallel {
 		resourceLimit := engine.calculateOptimalConcurrency(stageTests)
@@ -707,10 +707,10 @@ func (engine *TestExecutionEngine) optimizeStage(stage *ExecutionStage, allTests
 			stage.MaxConcurrency = resourceLimit
 		}
 	}
-	
+
 	// Adjust timeout based on test characteristics
 	stage.Timeout = engine.calculateOptimalTimeout(stageTests, stage.ExecutionMode)
-	
+
 	// Update test order in stage
 	optimizedOrder := make([]string, len(stageTests))
 	for i, test := range stageTests {
@@ -724,7 +724,7 @@ func (engine *TestExecutionEngine) applyLoadBalancingOptimizations(stages []*Exe
 	// Balance resource usage across stages
 	totalMemory := int64(0)
 	totalCPU := 0
-	
+
 	for _, stage := range stages {
 		for _, resource := range stage.Resources {
 			if resource.Type == ResourceTypeServer {
@@ -733,7 +733,7 @@ func (engine *TestExecutionEngine) applyLoadBalancingOptimizations(stages []*Exe
 			}
 		}
 	}
-	
+
 	// Adjust stage concurrency to balance load
 	if totalMemory > engine.defaultBudget.MaxMemoryMB {
 		memoryRatio := float64(engine.defaultBudget.MaxMemoryMB) / float64(totalMemory)
@@ -750,7 +750,7 @@ func (engine *TestExecutionEngine) applyLoadBalancingOptimizations(stages []*Exe
 func (engine *TestExecutionEngine) calculateOptimalConcurrency(tests []*TestDiscoveryMetadata) int {
 	totalMemory := int64(0)
 	totalCPU := 0
-	
+
 	for _, test := range tests {
 		for _, resource := range test.Resources {
 			if resource.Type == ResourceTypeServer {
@@ -759,11 +759,11 @@ func (engine *TestExecutionEngine) calculateOptimalConcurrency(tests []*TestDisc
 			}
 		}
 	}
-	
+
 	// Calculate limits based on available resources
 	memoryLimit := int(engine.defaultBudget.MaxMemoryMB / (totalMemory / int64(len(tests))))
 	cpuLimit := engine.defaultBudget.MaxCPUCores / (totalCPU / len(tests))
-	
+
 	concurrency := len(tests)
 	if memoryLimit < concurrency {
 		concurrency = memoryLimit
@@ -771,11 +771,11 @@ func (engine *TestExecutionEngine) calculateOptimalConcurrency(tests []*TestDisc
 	if cpuLimit < concurrency {
 		concurrency = cpuLimit
 	}
-	
+
 	if concurrency < 1 {
 		concurrency = 1
 	}
-	
+
 	return concurrency
 }
 
@@ -784,25 +784,25 @@ func (engine *TestExecutionEngine) calculateOptimalTimeout(tests []*TestDiscover
 	if len(tests) == 0 {
 		return 10 * time.Minute
 	}
-	
+
 	totalTimeout := time.Duration(0)
 	maxTimeout := time.Duration(0)
-	
+
 	for _, test := range tests {
 		totalTimeout += test.Timeout
 		if test.Timeout > maxTimeout {
 			maxTimeout = test.Timeout
 		}
 	}
-	
+
 	baseTimeout := maxTimeout
 	if mode == ModeSequential {
 		baseTimeout = totalTimeout
 	}
-	
+
 	// Apply timeout multiplier from constraints
 	optimizedTimeout := time.Duration(float64(baseTimeout) * engine.defaultConstraints.TimeoutMultiplier)
-	
+
 	// Add buffer for overhead
 	return optimizedTimeout + (2 * time.Minute)
 }
@@ -813,11 +813,11 @@ func (engine *TestExecutionEngine) calculateResourceBudget(tests []*TestDiscover
 	maxCPU := 0
 	maxConcurrency := 0
 	requiredPorts := make(map[int]bool)
-	
+
 	for _, test := range tests {
 		testMemory := int64(0)
 		testCPU := 0
-		
+
 		for _, resource := range test.Resources {
 			switch resource.Type {
 			case ResourceTypeServer:
@@ -828,7 +828,7 @@ func (engine *TestExecutionEngine) calculateResourceBudget(tests []*TestDiscover
 				testMemory += 128 // Estimated client memory
 			}
 		}
-		
+
 		if testMemory > maxMemory {
 			maxMemory = testMemory
 		}
@@ -836,29 +836,29 @@ func (engine *TestExecutionEngine) calculateResourceBudget(tests []*TestDiscover
 			maxCPU = testCPU
 		}
 	}
-	
+
 	// Assign ports (simplified)
 	portNum := 8080
 	for i := 0; i < maxConcurrency && i < 10; i++ {
 		requiredPorts[portNum] = true
 		portNum++
 	}
-	
+
 	ports := make([]int, 0)
 	for port := range requiredPorts {
 		ports = append(ports, port)
 	}
-	
+
 	// Calculate estimated duration
 	totalTimeout := time.Duration(0)
 	for _, test := range tests {
 		totalTimeout += test.Timeout
 	}
 	estimatedHours := int(totalTimeout.Hours()) + 2 // Add buffer
-	
+
 	return &ResourceBudget{
 		MaxMemoryMB:      maxMemory * 2, // Add 100% buffer
-		MaxCPUCores:      maxCPU + 1,   // Add extra core
+		MaxCPUCores:      maxCPU + 1,    // Add extra core
 		MaxConcurrency:   maxConcurrency,
 		MaxDurationHours: estimatedHours,
 		NetworkPorts:     ports,
@@ -869,12 +869,12 @@ func (engine *TestExecutionEngine) calculateResourceBudget(tests []*TestDiscover
 // estimateExecutionTime estimates total execution time for stages
 func (engine *TestExecutionEngine) estimateExecutionTime(stages []*ExecutionStage) time.Duration {
 	totalTime := time.Duration(0)
-	
+
 	for _, stage := range stages {
 		// Add stage estimated time plus overhead
 		totalTime += stage.EstimatedTime + (30 * time.Second)
 	}
-	
+
 	// Add buffer for setup and cleanup
 	return totalTime + (10 * time.Minute)
 }
@@ -899,7 +899,7 @@ func (engine *TestExecutionEngine) executeStagesParallel(ctx context.Context, st
 	// Group stages by prerequisites
 	independentStages := make([]*ExecutionStage, 0)
 	dependentStages := make([]*ExecutionStage, 0)
-	
+
 	for _, stage := range stages {
 		if len(stage.Prerequisites) == 0 {
 			independentStages = append(independentStages, stage)
@@ -907,11 +907,11 @@ func (engine *TestExecutionEngine) executeStagesParallel(ctx context.Context, st
 			dependentStages = append(dependentStages, stage)
 		}
 	}
-	
+
 	// Execute independent stages in parallel
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(independentStages))
-	
+
 	for _, stage := range independentStages {
 		wg.Add(1)
 		go func(s *ExecutionStage) {
@@ -921,10 +921,10 @@ func (engine *TestExecutionEngine) executeStagesParallel(ctx context.Context, st
 			}
 		}(stage)
 	}
-	
+
 	wg.Wait()
 	close(errChan)
-	
+
 	// Check for errors in independent stages
 	var errors []error
 	for err := range errChan {
@@ -933,7 +933,7 @@ func (engine *TestExecutionEngine) executeStagesParallel(ctx context.Context, st
 			return err
 		}
 	}
-	
+
 	// Execute dependent stages sequentially
 	for _, stage := range dependentStages {
 		if err := engine.executeStage(ctx, stage); err != nil {
@@ -943,11 +943,11 @@ func (engine *TestExecutionEngine) executeStagesParallel(ctx context.Context, st
 			}
 		}
 	}
-	
+
 	if len(errors) > 0 {
 		return fmt.Errorf("multiple stage failures: %v", errors)
 	}
-	
+
 	return nil
 }
 
@@ -955,16 +955,16 @@ func (engine *TestExecutionEngine) executeStagesParallel(ctx context.Context, st
 func (engine *TestExecutionEngine) executeStagesDependencyBased(ctx context.Context, stages []*ExecutionStage) error {
 	// Execute stages in order, respecting prerequisites
 	completed := make(map[string]bool)
-	
+
 	for len(completed) < len(stages) {
 		readyStages := make([]*ExecutionStage, 0)
-		
+
 		// Find stages that are ready to execute
 		for _, stage := range stages {
 			if completed[stage.Name] {
 				continue
 			}
-			
+
 			ready := true
 			for _, prerequisite := range stage.Prerequisites {
 				if !completed[prerequisite] {
@@ -972,20 +972,20 @@ func (engine *TestExecutionEngine) executeStagesDependencyBased(ctx context.Cont
 					break
 				}
 			}
-			
+
 			if ready {
 				readyStages = append(readyStages, stage)
 			}
 		}
-		
+
 		if len(readyStages) == 0 {
 			return fmt.Errorf("dependency deadlock detected")
 		}
-		
+
 		// Execute ready stages (can be parallel if multiple are ready)
 		var wg sync.WaitGroup
 		errChan := make(chan error, len(readyStages))
-		
+
 		for _, stage := range readyStages {
 			wg.Add(1)
 			go func(s *ExecutionStage) {
@@ -997,10 +997,10 @@ func (engine *TestExecutionEngine) executeStagesDependencyBased(ctx context.Cont
 				}
 			}(stage)
 		}
-		
+
 		wg.Wait()
 		close(errChan)
-		
+
 		// Check for errors
 		for err := range errChan {
 			if engine.defaultConstraints.FailFast {
@@ -1008,7 +1008,7 @@ func (engine *TestExecutionEngine) executeStagesDependencyBased(ctx context.Cont
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -1021,22 +1021,22 @@ func (engine *TestExecutionEngine) executeStagesOptimized(ctx context.Context, s
 // executeStage executes a single stage
 func (engine *TestExecutionEngine) executeStage(ctx context.Context, stage *ExecutionStage) error {
 	stageStart := time.Now()
-	
+
 	// Update metrics
 	stageMetrics := &StageMetrics{
 		StageName:     stage.Name,
 		ResourceUsage: &ResourceUtilizationMetrics{},
 	}
-	
+
 	defer func() {
 		stageMetrics.Duration = time.Since(stageStart)
 		engine.executionMetrics.StageBreakdown[stage.Name] = stageMetrics
 	}()
-	
+
 	// Create stage context with timeout
 	stageCtx, cancel := context.WithTimeout(ctx, stage.Timeout)
 	defer cancel()
-	
+
 	// Execute tests based on stage execution mode
 	switch stage.ExecutionMode {
 	case ModeSequential:
@@ -1063,35 +1063,35 @@ func (engine *TestExecutionEngine) executeTestsParallel(ctx context.Context, tes
 	semaphore := make(chan struct{}, maxConcurrency)
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(testNames))
-	
+
 	for _, testName := range testNames {
 		wg.Add(1)
 		go func(name string) {
 			defer wg.Done()
-			
+
 			// Acquire semaphore
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
-			
+
 			if err := engine.executeTest(ctx, name, metrics); err != nil {
 				errChan <- err
 			}
 		}(testName)
 	}
-	
+
 	wg.Wait()
 	close(errChan)
-	
+
 	// Check for errors
 	var errors []error
 	for err := range errChan {
 		errors = append(errors, err)
 	}
-	
+
 	if len(errors) > 0 {
 		return fmt.Errorf("parallel execution errors: %v", errors)
 	}
-	
+
 	return nil
 }
 
@@ -1102,33 +1102,33 @@ func (engine *TestExecutionEngine) executeTest(ctx context.Context, testName str
 	if !exists {
 		return fmt.Errorf("test not found: %s", testName)
 	}
-	
+
 	stageMetrics.TestsExecuted++
-	
+
 	// Acquire resources
 	resources, err := engine.resourceManager.AllocateResources(testName, test.Resources)
 	if err != nil {
 		return fmt.Errorf("failed to allocate resources for test %s: %w", testName, err)
 	}
 	defer engine.resourceManager.ReleaseResources(testName, resources)
-	
+
 	// Execute test with retry logic
 	var lastErr error
 	for attempt := 0; attempt <= test.RetryCount; attempt++ {
 		testStart := time.Now()
-		
+
 		// Create test context with timeout
 		testCtx, cancel := context.WithTimeout(ctx, test.Timeout)
-		
+
 		// Execute the actual test (simplified - would call actual test function)
 		err := engine.executeActualTest(testCtx, test)
 		cancel()
-		
+
 		duration := time.Since(testStart)
-		
+
 		// Update metrics
 		atomic.AddInt64(&engine.executionMetrics.TotalExecutions, 1)
-		
+
 		// Create execution result
 		result := &TestExecutionResult{
 			TestName:      testName,
@@ -1141,7 +1141,7 @@ func (engine *TestExecutionEngine) executeTest(ctx context.Context, testName str
 			Error:         err,
 			ExecutionMode: test.ExecutionMode,
 		}
-		
+
 		if err == nil {
 			// Test succeeded
 			engine.completedTests[testName] = result
@@ -1149,7 +1149,7 @@ func (engine *TestExecutionEngine) executeTest(ctx context.Context, testName str
 			atomic.AddInt64(&engine.executionMetrics.SuccessfulTests, 1)
 			return nil
 		}
-		
+
 		lastErr = err
 		if attempt < test.RetryCount {
 			atomic.AddInt64(&engine.executionMetrics.RetriedTests, 1)
@@ -1163,7 +1163,7 @@ func (engine *TestExecutionEngine) executeTest(ctx context.Context, testName str
 			}
 		}
 	}
-	
+
 	// Test failed after all retries
 	result := &TestExecutionResult{
 		TestName:      testName,
@@ -1174,11 +1174,11 @@ func (engine *TestExecutionEngine) executeTest(ctx context.Context, testName str
 		Error:         lastErr,
 		ExecutionMode: test.ExecutionMode,
 	}
-	
+
 	engine.failedTests[testName] = result
 	stageMetrics.TestsFailed++
 	atomic.AddInt64(&engine.executionMetrics.FailedTests, 1)
-	
+
 	return fmt.Errorf("test %s failed after %d attempts: %w", testName, test.RetryCount+1, lastErr)
 }
 
@@ -1186,7 +1186,7 @@ func (engine *TestExecutionEngine) executeTest(ctx context.Context, testName str
 func (engine *TestExecutionEngine) executeActualTest(ctx context.Context, test *TestDiscoveryMetadata) error {
 	// This would invoke the actual test function based on test.TestFunction
 	// For now, simulate test execution with random success/failure
-	
+
 	// Simulate test execution time
 	executionTime := time.Duration(100+len(test.Name)*10) * time.Millisecond
 	select {
@@ -1205,15 +1205,15 @@ func (engine *TestExecutionEngine) executeActualTest(ctx context.Context, test *
 func (engine *TestExecutionEngine) GetExecutionMetrics() *ExecutionMetrics {
 	engine.mu.RLock()
 	defer engine.mu.RUnlock()
-	
+
 	metrics := *engine.executionMetrics
-	
+
 	// Calculate derived metrics
 	if metrics.TotalExecutions > 0 {
 		metrics.AverageTestTime = time.Duration(int64(metrics.TotalDuration) / metrics.TotalExecutions)
 		metrics.Throughput = float64(metrics.SuccessfulTests) / metrics.TotalDuration.Seconds()
 	}
-	
+
 	return &metrics
 }
 
@@ -1221,18 +1221,18 @@ func (engine *TestExecutionEngine) GetExecutionMetrics() *ExecutionMetrics {
 func (engine *TestExecutionEngine) GetExecutionResults() (completed, failed map[string]*TestExecutionResult) {
 	engine.mu.RLock()
 	defer engine.mu.RUnlock()
-	
+
 	// Return copies to avoid race conditions
 	completed = make(map[string]*TestExecutionResult)
 	for k, v := range engine.completedTests {
 		completed[k] = v
 	}
-	
+
 	failed = make(map[string]*TestExecutionResult)
 	for k, v := range engine.failedTests {
 		failed[k] = v
 	}
-	
+
 	return completed, failed
 }
 
@@ -1250,9 +1250,9 @@ func NewExecutionResourceManager(budget *ResourceBudget) *ExecutionResourceManag
 func (rm *ExecutionResourceManager) Initialize(budget *ResourceBudget) error {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
-	
+
 	rm.budget = budget
-	
+
 	// Initialize resources based on budget
 	for i := 0; i < budget.MaxConcurrency; i++ {
 		resource := &ExecutionResource{
@@ -1265,7 +1265,7 @@ func (rm *ExecutionResourceManager) Initialize(budget *ResourceBudget) error {
 		}
 		rm.resources[resource.ID] = resource
 	}
-	
+
 	// Initialize client resources
 	for i := 0; i < budget.MaxConcurrency*2; i++ {
 		resource := &ExecutionResource{
@@ -1278,7 +1278,7 @@ func (rm *ExecutionResourceManager) Initialize(budget *ResourceBudget) error {
 		}
 		rm.resources[resource.ID] = resource
 	}
-	
+
 	return nil
 }
 
@@ -1286,9 +1286,9 @@ func (rm *ExecutionResourceManager) Initialize(budget *ResourceBudget) error {
 func (rm *ExecutionResourceManager) AllocateResources(testName string, requirements []ResourceRequirement) ([]string, error) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
-	
+
 	allocated := make([]string, 0)
-	
+
 	for _, req := range requirements {
 		// Find available resource of the required type
 		found := false
@@ -1300,21 +1300,21 @@ func (rm *ExecutionResourceManager) AllocateResources(testName string, requireme
 				rm.allocations[id] = testName
 				allocated = append(allocated, id)
 				found = true
-				
+
 				// Update metrics
 				resource.Metrics.TotalAllocations++
-				
+
 				break
 			}
 		}
-		
+
 		if !found {
 			// Rollback allocations if we can't satisfy all requirements
 			rm.releaseResourcesInternal(testName, allocated)
 			return nil, fmt.Errorf("insufficient resources of type %s", req.Type)
 		}
 	}
-	
+
 	return allocated, nil
 }
 
@@ -1335,7 +1335,7 @@ func (rm *ExecutionResourceManager) releaseResourcesInternal(testName string, re
 				resource.Owner = ""
 			}
 			delete(rm.allocations, id)
-			
+
 			// Update metrics
 			resource.Metrics.TotalDeallocations++
 		}
@@ -1367,21 +1367,21 @@ func NewDependencyTracker() *DependencyTracker {
 // NewLoadBalancer creates a new load balancer
 func NewLoadBalancer() *LoadBalancer {
 	return &LoadBalancer{
-		strategies:         []LoadBalancingStrategy{LoadBalanceRoundRobin, LoadBalanceLeastLoaded, LoadBalancePriority},
-		currentStrategy:    LoadBalanceRoundRobin,
-		resourceMetrics:    make(map[string]*ResourceMetrics),
-		balanceInterval:    30 * time.Second,
+		strategies:      []LoadBalancingStrategy{LoadBalanceRoundRobin, LoadBalanceLeastLoaded, LoadBalancePriority},
+		currentStrategy: LoadBalanceRoundRobin,
+		resourceMetrics: make(map[string]*ResourceMetrics),
+		balanceInterval: 30 * time.Second,
 	}
 }
 
 // NewExecutionMonitor creates a new execution monitor
 func NewExecutionMonitor(thresholds *MonitoringThresholds) *ExecutionMonitor {
 	return &ExecutionMonitor{
-		activeTests:        make(map[string]*TestExecution),
-		executionHistory:   make([]*TestExecutionResult, 0),
-		alerts:             make([]*ExecutionAlert, 0),
-		thresholds:         thresholds,
-		updateInterval:     5 * time.Second,
+		activeTests:      make(map[string]*TestExecution),
+		executionHistory: make([]*TestExecutionResult, 0),
+		alerts:           make([]*ExecutionAlert, 0),
+		thresholds:       thresholds,
+		updateInterval:   5 * time.Second,
 	}
 }
 
@@ -1401,7 +1401,7 @@ func (monitor *ExecutionMonitor) Stop() {
 func (monitor *ExecutionMonitor) monitorLoop(ctx context.Context) {
 	ticker := time.NewTicker(monitor.updateInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -1416,9 +1416,9 @@ func (monitor *ExecutionMonitor) monitorLoop(ctx context.Context) {
 func (monitor *ExecutionMonitor) checkThresholds() {
 	monitor.mu.Lock()
 	defer monitor.mu.Unlock()
-	
+
 	now := time.Now()
-	
+
 	// Check for long-running tests
 	for testName, execution := range monitor.activeTests {
 		if now.Sub(execution.TestInfo.StartTime) > monitor.thresholds.MaxExecutionTime {
@@ -1432,6 +1432,6 @@ func (monitor *ExecutionMonitor) checkThresholds() {
 			monitor.alerts = append(monitor.alerts, alert)
 		}
 	}
-	
+
 	monitor.lastUpdate = now
 }

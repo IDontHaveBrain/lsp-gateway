@@ -66,31 +66,31 @@ type ResourcePerformanceMonitor struct {
 
 // ResourceUsageTracker tracks resource usage patterns
 type ResourceUsageTracker struct {
-	usageData     map[string]*ResourceUsageData
-	mu            sync.RWMutex
-	logger        *log.Logger
+	usageData map[string]*ResourceUsageData
+	mu        sync.RWMutex
+	logger    *log.Logger
 }
 
 // ResourceUsageData contains usage statistics for a resource
 type ResourceUsageData struct {
-	ResourceID      string
-	TotalUsageTime  time.Duration
-	UsageCount      int64
+	ResourceID       string
+	TotalUsageTime   time.Duration
+	UsageCount       int64
 	AverageUsageTime time.Duration
-	PeakUsageTime   time.Duration
-	LastUsed        time.Time
+	PeakUsageTime    time.Duration
+	LastUsed         time.Time
 }
 
 // MockResponseFactory creates mock responses for testing
 type MockResponseFactory struct {
 	responseTemplates map[string][]json.RawMessage
-	mu               sync.RWMutex
+	mu                sync.RWMutex
 }
 
 // MockErrorFactory creates mock errors for testing
 type MockErrorFactory struct {
 	errorTemplates map[mcp.ErrorCategory][]error
-	mu            sync.RWMutex
+	mu             sync.RWMutex
 }
 
 // initializeWorkspaceManager initializes the workspace manager
@@ -106,18 +106,18 @@ func (rlm *ResourceLifecycleManager) initializeWorkspaceManager() {
 func (rlm *ResourceLifecycleManager) initializeTempDirectoryManager() {
 	baseDir := filepath.Join(os.TempDir(), rlm.config.TempDirPrefix)
 	os.MkdirAll(baseDir, 0755)
-	
+
 	rlm.tempDirManager = &TempDirectoryManager{
 		baseDir:     baseDir,
 		directories: make(map[string]string),
 		logger:      rlm.logger,
 	}
-	
+
 	// Add cleanup function
 	rlm.cleanupFunctions = append(rlm.cleanupFunctions, func() error {
 		return os.RemoveAll(baseDir)
 	})
-	
+
 	rlm.logger.Printf("Initialized temp directory manager at %s", baseDir)
 }
 
@@ -126,7 +126,7 @@ func (rlm *ResourceLifecycleManager) initializeResourceMetrics() {
 	if !rlm.config.ResourceMetricsEnabled {
 		return
 	}
-	
+
 	rlm.resourceMetrics = &ResourceMetrics{
 		ServerMetrics:    &ResourceTypeMetrics{},
 		ProjectMetrics:   &ResourceTypeMetrics{},
@@ -134,12 +134,12 @@ func (rlm *ResourceLifecycleManager) initializeResourceMetrics() {
 		ConfigMetrics:    &ResourceTypeMetrics{},
 		WorkspaceMetrics: &ResourceTypeMetrics{},
 	}
-	
+
 	rlm.resourceUsageTracker = &ResourceUsageTracker{
 		usageData: make(map[string]*ResourceUsageData),
 		logger:    rlm.logger,
 	}
-	
+
 	rlm.logger.Printf("Initialized resource metrics tracking")
 }
 
@@ -153,10 +153,10 @@ func (rlm *ResourceLifecycleManager) initializeHealthChecker() {
 		cancel:        cancel,
 		logger:        rlm.logger,
 	}
-	
+
 	// Start health checking goroutine
 	go rlm.healthChecker.startHealthChecking()
-	
+
 	rlm.logger.Printf("Initialized resource health checker")
 }
 
@@ -165,7 +165,7 @@ func (rlm *ResourceLifecycleManager) initializePerformanceMonitor() {
 	if !rlm.config.PerformanceMonitoring {
 		return
 	}
-	
+
 	ctx, cancel := context.WithCancel(rlm.ctx)
 	rlm.performanceMonitor = &ResourcePerformanceMonitor{
 		enabled:       true,
@@ -174,10 +174,10 @@ func (rlm *ResourceLifecycleManager) initializePerformanceMonitor() {
 		cancel:        cancel,
 		logger:        rlm.logger,
 	}
-	
+
 	// Start performance monitoring goroutine
 	go rlm.performanceMonitor.startPerformanceMonitoring()
-	
+
 	rlm.logger.Printf("Initialized performance monitor")
 }
 
@@ -187,9 +187,9 @@ func (rlm *ResourceLifecycleManager) initializePerformanceMonitor() {
 func (rlm *ResourceLifecycleManager) createServerResource() (*ManagedResource, error) {
 	startTime := time.Now()
 	resourceID := fmt.Sprintf("server-%d-%d", time.Now().UnixNano(), rand.Intn(1000))
-	
+
 	rlm.logger.Printf("Creating server resource %s", resourceID)
-	
+
 	// Create server resource data
 	serverData := &ServerResourceData{
 		Port:       8080 + rand.Intn(1000), // Random port to avoid conflicts
@@ -200,37 +200,37 @@ func (rlm *ResourceLifecycleManager) createServerResource() (*ManagedResource, e
 			LastCheck: time.Now(),
 		},
 	}
-	
+
 	resource := &ManagedResource{
-		ID:             resourceID,
-		Name:           fmt.Sprintf("test-server-%s", resourceID),
-		Type:           ResourceTypeServer,
-		Status:         ResourceStatusCreating,
-		CreatedAt:      time.Now(),
-		HealthStatus:   HealthStatusHealthy,
-		Metadata:       make(map[string]interface{}),
-		ServerInstance: serverData,
-		CleanupFunc:    rlm.cleanupServerResource,
+		ID:              resourceID,
+		Name:            fmt.Sprintf("test-server-%s", resourceID),
+		Type:            ResourceTypeServer,
+		Status:          ResourceStatusCreating,
+		CreatedAt:       time.Now(),
+		HealthStatus:    HealthStatusHealthy,
+		Metadata:        make(map[string]interface{}),
+		ServerInstance:  serverData,
+		CleanupFunc:     rlm.cleanupServerResource,
 		HealthCheckFunc: rlm.healthCheckServerResource,
-		ResetFunc:      rlm.resetServerResource,
+		ResetFunc:       rlm.resetServerResource,
 	}
-	
+
 	// Simulate server startup
 	time.Sleep(100 * time.Millisecond)
-	
+
 	resource.StartupTime = time.Since(startTime)
 	resource.Status = ResourceStatusAvailable
 	resource.LastHealthCheck = time.Now()
-	
+
 	rlm.resources[resourceID] = resource
-	
+
 	// Add to health checker
 	if rlm.healthChecker != nil {
 		rlm.healthChecker.mu.Lock()
 		rlm.healthChecker.resources[resourceID] = resource
 		rlm.healthChecker.mu.Unlock()
 	}
-	
+
 	// Update metrics
 	if rlm.resourceMetrics != nil {
 		atomic.AddInt64(&rlm.resourceMetrics.TotalResources, 1)
@@ -238,7 +238,7 @@ func (rlm *ResourceLifecycleManager) createServerResource() (*ManagedResource, e
 		atomic.AddInt64(&rlm.resourceMetrics.ServerMetrics.Total, 1)
 		atomic.AddInt64(&rlm.resourceMetrics.ServerMetrics.Active, 1)
 	}
-	
+
 	rlm.logger.Printf("Created server resource %s in %v", resourceID, resource.StartupTime)
 	return resource, nil
 }
@@ -247,9 +247,9 @@ func (rlm *ResourceLifecycleManager) createServerResource() (*ManagedResource, e
 func (rlm *ResourceLifecycleManager) createProjectResource() (*ManagedResource, error) {
 	startTime := time.Now()
 	resourceID := fmt.Sprintf("project-%d-%d", time.Now().UnixNano(), rand.Intn(1000))
-	
+
 	rlm.logger.Printf("Creating project resource %s", resourceID)
-	
+
 	// Create a test project
 	languages := []string{"go", "python", "typescript"}
 	projectGenerator := framework.NewTestProjectGenerator(60 * time.Second)
@@ -257,14 +257,14 @@ func (rlm *ResourceLifecycleManager) createProjectResource() (*ManagedResource, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create test project: %w", err)
 	}
-	
+
 	projectData := &ProjectResourceData{
-		Project:     project,
-		Generator:   projectGenerator,
-		FileCount:   len(project.Structure),
-		TotalSize:   project.Size,
+		Project:   project,
+		Generator: projectGenerator,
+		FileCount: len(project.Structure),
+		TotalSize: project.Size,
 	}
-	
+
 	resource := &ManagedResource{
 		ID:              resourceID,
 		Name:            project.Name,
@@ -278,13 +278,13 @@ func (rlm *ResourceLifecycleManager) createProjectResource() (*ManagedResource, 
 		HealthCheckFunc: rlm.healthCheckProjectResource,
 		ResetFunc:       rlm.resetProjectResource,
 	}
-	
+
 	resource.StartupTime = time.Since(startTime)
 	resource.Status = ResourceStatusAvailable
 	resource.LastHealthCheck = time.Now()
-	
+
 	rlm.resources[resourceID] = resource
-	
+
 	// Update metrics
 	if rlm.resourceMetrics != nil {
 		atomic.AddInt64(&rlm.resourceMetrics.TotalResources, 1)
@@ -293,7 +293,7 @@ func (rlm *ResourceLifecycleManager) createProjectResource() (*ManagedResource, 
 		atomic.AddInt64(&rlm.resourceMetrics.ProjectMetrics.Active, 1)
 		atomic.AddInt64(&rlm.resourceMetrics.ProjectMetrics.AvgSize, project.Size)
 	}
-	
+
 	rlm.logger.Printf("Created project resource %s (%s) in %v", resourceID, project.Name, resource.StartupTime)
 	return resource, nil
 }
@@ -302,21 +302,21 @@ func (rlm *ResourceLifecycleManager) createProjectResource() (*ManagedResource, 
 func (rlm *ResourceLifecycleManager) createClientResource() (*ManagedResource, error) {
 	startTime := time.Now()
 	resourceID := fmt.Sprintf("client-%d-%d", time.Now().UnixNano(), rand.Intn(1000))
-	
+
 	rlm.logger.Printf("Creating client resource %s", resourceID)
-	
+
 	// Create a mock MCP client
 	mockClient := mocks.NewMockMcpClient()
 	if mockClient == nil {
 		return nil, fmt.Errorf("failed to create mock MCP client")
 	}
-	
+
 	// Configure client with default settings
 	mockClient.SetBaseURL("http://localhost:8080")
 	mockClient.SetTimeout(30 * time.Second)
 	mockClient.SetMaxRetries(3)
 	mockClient.SetHealthy(true)
-	
+
 	clientData := &ClientResourceData{
 		MockClient: mockClient,
 		Config: &McpClientConfig{
@@ -336,7 +336,7 @@ func (rlm *ResourceLifecycleManager) createClientResource() (*ManagedResource, e
 		},
 		State: ClientStateInitialized,
 	}
-	
+
 	resource := &ManagedResource{
 		ID:              resourceID,
 		Name:            fmt.Sprintf("mock-client-%s", resourceID),
@@ -350,14 +350,14 @@ func (rlm *ResourceLifecycleManager) createClientResource() (*ManagedResource, e
 		HealthCheckFunc: rlm.healthCheckClientResource,
 		ResetFunc:       rlm.resetClientResource,
 	}
-	
+
 	resource.StartupTime = time.Since(startTime)
 	resource.Status = ResourceStatusAvailable
 	resource.LastHealthCheck = time.Now()
 	clientData.State = ClientStateConfigured
-	
+
 	rlm.resources[resourceID] = resource
-	
+
 	// Update metrics
 	if rlm.resourceMetrics != nil {
 		atomic.AddInt64(&rlm.resourceMetrics.TotalResources, 1)
@@ -365,7 +365,7 @@ func (rlm *ResourceLifecycleManager) createClientResource() (*ManagedResource, e
 		atomic.AddInt64(&rlm.resourceMetrics.ClientMetrics.Total, 1)
 		atomic.AddInt64(&rlm.resourceMetrics.ClientMetrics.Active, 1)
 	}
-	
+
 	rlm.logger.Printf("Created client resource %s in %v", resourceID, resource.StartupTime)
 	return resource, nil
 }
@@ -374,13 +374,13 @@ func (rlm *ResourceLifecycleManager) createClientResource() (*ManagedResource, e
 func (rlm *ResourceLifecycleManager) createConfigResource() (*ManagedResource, error) {
 	startTime := time.Now()
 	resourceID := fmt.Sprintf("config-%d-%d", time.Now().UnixNano(), rand.Intn(1000))
-	
+
 	rlm.logger.Printf("Creating config resource %s", resourceID)
-	
+
 	// Create temporary config file
 	tempDir := rlm.tempDirManager.baseDir
 	configPath := filepath.Join(tempDir, fmt.Sprintf("config-%s.yaml", resourceID))
-	
+
 	// Write sample config
 	configContent := `
 http:
@@ -399,11 +399,11 @@ logging:
   level: "info"
   file: "gateway.log"
 `
-	
+
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		return nil, fmt.Errorf("failed to create config file: %w", err)
 	}
-	
+
 	configData := &ConfigResourceData{
 		ConfigPath: configPath,
 		Template:   "default",
@@ -412,7 +412,7 @@ logging:
 			ValidatedAt: time.Now(),
 		},
 	}
-	
+
 	resource := &ManagedResource{
 		ID:              resourceID,
 		Name:            fmt.Sprintf("config-%s", resourceID),
@@ -426,13 +426,13 @@ logging:
 		HealthCheckFunc: rlm.healthCheckConfigResource,
 		ResetFunc:       rlm.resetConfigResource,
 	}
-	
+
 	resource.StartupTime = time.Since(startTime)
 	resource.Status = ResourceStatusAvailable
 	resource.LastHealthCheck = time.Now()
-	
+
 	rlm.resources[resourceID] = resource
-	
+
 	// Update metrics
 	if rlm.resourceMetrics != nil {
 		atomic.AddInt64(&rlm.resourceMetrics.TotalResources, 1)
@@ -440,7 +440,7 @@ logging:
 		atomic.AddInt64(&rlm.resourceMetrics.ConfigMetrics.Total, 1)
 		atomic.AddInt64(&rlm.resourceMetrics.ConfigMetrics.Active, 1)
 	}
-	
+
 	rlm.logger.Printf("Created config resource %s at %s in %v", resourceID, configPath, resource.StartupTime)
 	return resource, nil
 }
@@ -449,31 +449,31 @@ logging:
 func (rlm *ResourceLifecycleManager) createWorkspaceResource() (*ManagedResource, error) {
 	startTime := time.Now()
 	resourceID := fmt.Sprintf("workspace-%d-%d", time.Now().UnixNano(), rand.Intn(1000))
-	
+
 	rlm.logger.Printf("Creating workspace resource %s", resourceID)
-	
+
 	// Create workspace directory
 	tempDir := rlm.tempDirManager.baseDir
 	workspacePath := filepath.Join(tempDir, fmt.Sprintf("workspace-%s", resourceID))
-	
+
 	if err := os.MkdirAll(workspacePath, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create workspace directory: %w", err)
 	}
-	
+
 	workspace := &TestWorkspace{
 		ID:        resourceID,
 		Path:      workspacePath,
 		Projects:  make([]*framework.TestProject, 0),
 		CreatedAt: time.Now(),
 	}
-	
+
 	workspaceData := &WorkspaceResourceData{
 		WorkspacePath: workspacePath,
 		Manager:       rlm.workspaceManager,
 		Projects:      make([]string, 0),
 		FileWatchers:  make([]interface{}, 0),
 	}
-	
+
 	resource := &ManagedResource{
 		ID:              resourceID,
 		Name:            fmt.Sprintf("workspace-%s", resourceID),
@@ -487,18 +487,18 @@ func (rlm *ResourceLifecycleManager) createWorkspaceResource() (*ManagedResource
 		HealthCheckFunc: rlm.healthCheckWorkspaceResource,
 		ResetFunc:       rlm.resetWorkspaceResource,
 	}
-	
+
 	resource.StartupTime = time.Since(startTime)
 	resource.Status = ResourceStatusAvailable
 	resource.LastHealthCheck = time.Now()
-	
+
 	rlm.resources[resourceID] = resource
-	
+
 	// Add workspace to manager
 	rlm.workspaceManager.mu.Lock()
 	rlm.workspaceManager.workspaces[resourceID] = workspace
 	rlm.workspaceManager.mu.Unlock()
-	
+
 	// Update metrics
 	if rlm.resourceMetrics != nil {
 		atomic.AddInt64(&rlm.resourceMetrics.TotalResources, 1)
@@ -506,7 +506,7 @@ func (rlm *ResourceLifecycleManager) createWorkspaceResource() (*ManagedResource
 		atomic.AddInt64(&rlm.resourceMetrics.WorkspaceMetrics.Total, 1)
 		atomic.AddInt64(&rlm.resourceMetrics.WorkspaceMetrics.Active, 1)
 	}
-	
+
 	rlm.logger.Printf("Created workspace resource %s at %s in %v", resourceID, workspacePath, resource.StartupTime)
 	return resource, nil
 }
@@ -518,16 +518,16 @@ func (rlm *ResourceLifecycleManager) validateServerResource(resource *ManagedRes
 	if resource.Type != ResourceTypeServer {
 		return fmt.Errorf("resource type mismatch: expected server, got %s", resource.Type)
 	}
-	
+
 	if resource.ServerInstance == nil {
 		return fmt.Errorf("server resource missing server instance data")
 	}
-	
+
 	// Check if port is available (basic check)
 	if resource.ServerInstance.Port <= 0 || resource.ServerInstance.Port > 65535 {
 		return fmt.Errorf("invalid server port: %d", resource.ServerInstance.Port)
 	}
-	
+
 	return nil
 }
 
@@ -536,20 +536,20 @@ func (rlm *ResourceLifecycleManager) validateProjectResource(resource *ManagedRe
 	if resource.Type != ResourceTypeProject {
 		return fmt.Errorf("resource type mismatch: expected project, got %s", resource.Type)
 	}
-	
+
 	if resource.ProjectData == nil {
 		return fmt.Errorf("project resource missing project data")
 	}
-	
+
 	if resource.ProjectData.Project == nil {
 		return fmt.Errorf("project resource missing test project")
 	}
-	
+
 	// Validate project structure
 	if _, err := os.Stat(resource.ProjectData.Project.RootPath); os.IsNotExist(err) {
 		return fmt.Errorf("project root path does not exist: %s", resource.ProjectData.Project.RootPath)
 	}
-	
+
 	return nil
 }
 
@@ -558,20 +558,20 @@ func (rlm *ResourceLifecycleManager) validateClientResource(resource *ManagedRes
 	if resource.Type != ResourceTypeClient {
 		return fmt.Errorf("resource type mismatch: expected client, got %s", resource.Type)
 	}
-	
+
 	if resource.ClientData == nil {
 		return fmt.Errorf("client resource missing client data")
 	}
-	
+
 	if resource.ClientData.MockClient == nil {
 		return fmt.Errorf("client resource missing mock client")
 	}
-	
+
 	// Validate client health
 	if !resource.ClientData.MockClient.IsHealthy() {
 		return fmt.Errorf("client is not healthy")
 	}
-	
+
 	return nil
 }
 
@@ -580,16 +580,16 @@ func (rlm *ResourceLifecycleManager) validateConfigResource(resource *ManagedRes
 	if resource.Type != ResourceTypeConfig {
 		return fmt.Errorf("resource type mismatch: expected config, got %s", resource.Type)
 	}
-	
+
 	if resource.ConfigData == nil {
 		return fmt.Errorf("config resource missing config data")
 	}
-	
+
 	// Validate config file exists
 	if _, err := os.Stat(resource.ConfigData.ConfigPath); os.IsNotExist(err) {
 		return fmt.Errorf("config file does not exist: %s", resource.ConfigData.ConfigPath)
 	}
-	
+
 	return nil
 }
 
@@ -598,16 +598,16 @@ func (rlm *ResourceLifecycleManager) validateWorkspaceResource(resource *Managed
 	if resource.Type != ResourceTypeWorkspace {
 		return fmt.Errorf("resource type mismatch: expected workspace, got %s", resource.Type)
 	}
-	
+
 	if resource.WorkspaceData == nil {
 		return fmt.Errorf("workspace resource missing workspace data")
 	}
-	
+
 	// Validate workspace directory exists
 	if _, err := os.Stat(resource.WorkspaceData.WorkspacePath); os.IsNotExist(err) {
 		return fmt.Errorf("workspace path does not exist: %s", resource.WorkspaceData.WorkspacePath)
 	}
-	
+
 	return nil
 }
 
@@ -725,25 +725,25 @@ func (rlm *ResourceLifecycleManager) resetWorkspaceResource() error {
 func (rlm *ResourceLifecycleManager) getAvailableResource(pool *ResourcePool, testID string, requirements map[string]interface{}) (*ManagedResource, error) {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
-	
+
 	// Try to get an available resource
 	if len(pool.Available) > 0 {
 		resource := pool.Available[0]
 		pool.Available = pool.Available[1:]
 		return resource, nil
 	}
-	
+
 	// Check if we can create a new resource
 	if pool.CurrentSize >= pool.MaxSize {
 		return nil, fmt.Errorf("resource pool at maximum capacity (%d)", pool.MaxSize)
 	}
-	
+
 	// Create new resource
 	resource, err := pool.CreationFunc()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new resource: %w", err)
 	}
-	
+
 	// Validate the resource
 	if err := pool.ValidationFunc(resource); err != nil {
 		// Clean up the failed resource
@@ -752,7 +752,7 @@ func (rlm *ResourceLifecycleManager) getAvailableResource(pool *ResourcePool, te
 		}
 		return nil, fmt.Errorf("resource validation failed: %w", err)
 	}
-	
+
 	pool.CurrentSize++
 	return resource, nil
 }
@@ -762,15 +762,15 @@ func (rlm *ResourceLifecycleManager) resetResource(resource *ManagedResource) er
 	if resource.ResetFunc == nil {
 		return nil
 	}
-	
+
 	resource.mu.Lock()
 	resource.Status = ResourceStatusCleaning
 	resource.mu.Unlock()
-	
+
 	startTime := time.Now()
 	err := resource.ResetFunc()
 	resource.CleanupTime = time.Since(startTime)
-	
+
 	if err != nil {
 		resource.mu.Lock()
 		resource.Status = ResourceStatusError
@@ -778,13 +778,13 @@ func (rlm *ResourceLifecycleManager) resetResource(resource *ManagedResource) er
 		resource.mu.Unlock()
 		return err
 	}
-	
+
 	resource.mu.Lock()
 	resource.Status = ResourceStatusAvailable
 	resource.HealthStatus = HealthStatusHealthy
 	resource.LastHealthCheck = time.Now()
 	resource.mu.Unlock()
-	
+
 	return nil
 }
 
@@ -793,28 +793,28 @@ func (rlm *ResourceLifecycleManager) destroyResource(resource *ManagedResource) 
 	resource.mu.Lock()
 	resource.Status = ResourceStatusCleaning
 	resource.mu.Unlock()
-	
+
 	startTime := time.Now()
 	var err error
 	if resource.CleanupFunc != nil {
 		err = resource.CleanupFunc()
 	}
 	resource.CleanupTime = time.Since(startTime)
-	
+
 	resource.mu.Lock()
 	resource.Status = ResourceStatusDestroyed
 	resource.mu.Unlock()
-	
+
 	// Remove from resources map
 	delete(rlm.resources, resource.ID)
-	
+
 	// Remove from health checker
 	if rlm.healthChecker != nil {
 		rlm.healthChecker.mu.Lock()
 		delete(rlm.healthChecker.resources, resource.ID)
 		rlm.healthChecker.mu.Unlock()
 	}
-	
+
 	// Update metrics
 	if rlm.resourceMetrics != nil {
 		atomic.AddInt64(&rlm.resourceMetrics.ActiveResources, -1)
@@ -824,7 +824,7 @@ func (rlm *ResourceLifecycleManager) destroyResource(resource *ManagedResource) 
 			atomic.AddInt64(&rlm.resourceMetrics.FailedCleanups, 1)
 		}
 	}
-	
+
 	rlm.logger.Printf("Destroyed resource %s in %v", resource.ID, resource.CleanupTime)
 	return err
 }
@@ -833,29 +833,29 @@ func (rlm *ResourceLifecycleManager) destroyResource(resource *ManagedResource) 
 func (rlm *ResourceLifecycleManager) cleanupTestEnvironment(env *TestEnvironment) error {
 	env.mu.Lock()
 	defer env.mu.Unlock()
-	
+
 	if !env.active {
 		return nil // Already cleaned up
 	}
-	
+
 	rlm.logger.Printf("Cleaning up test environment %s", env.ID)
-	
+
 	var errors []error
-	
+
 	// Execute cleanup functions in reverse order
 	for i := len(env.CleanupFuncs) - 1; i >= 0; i-- {
 		if err := env.CleanupFuncs[i](); err != nil {
 			errors = append(errors, err)
 		}
 	}
-	
+
 	env.active = false
 	delete(rlm.testEnvironments, env.ID)
-	
+
 	if len(errors) > 0 {
 		return fmt.Errorf("test environment cleanup errors: %v", errors)
 	}
-	
+
 	rlm.logger.Printf("Cleaned up test environment %s", env.ID)
 	return nil
 }
@@ -864,33 +864,33 @@ func (rlm *ResourceLifecycleManager) cleanupTestEnvironment(env *TestEnvironment
 func (rlm *ResourceLifecycleManager) cleanupResourcePool(pool *ResourcePool) error {
 	pool.mu.Lock()
 	defer pool.mu.Unlock()
-	
+
 	rlm.logger.Printf("Cleaning up %s resource pool", pool.Type)
-	
+
 	var errors []error
-	
+
 	// Clean up all available resources
 	for _, resource := range pool.Available {
 		if err := rlm.destroyResource(resource); err != nil {
 			errors = append(errors, err)
 		}
 	}
-	
+
 	// Clean up all in-use resources
 	for _, resource := range pool.InUse {
 		if err := rlm.destroyResource(resource); err != nil {
 			errors = append(errors, err)
 		}
 	}
-	
+
 	pool.Available = nil
 	pool.InUse = nil
 	pool.CurrentSize = 0
-	
+
 	if len(errors) > 0 {
 		return fmt.Errorf("resource pool cleanup errors: %v", errors)
 	}
-	
+
 	rlm.logger.Printf("Cleaned up %s resource pool", pool.Type)
 	return nil
 }
@@ -898,25 +898,25 @@ func (rlm *ResourceLifecycleManager) cleanupResourcePool(pool *ResourcePool) err
 // cleanupMcpClientPool cleans up the MCP client pool
 func (rlm *ResourceLifecycleManager) cleanupMcpClientPool() error {
 	rlm.logger.Printf("Cleaning up MCP client pool")
-	
+
 	rlm.mcpClientPool.mu.Lock()
 	defer rlm.mcpClientPool.mu.Unlock()
-	
+
 	// Close the available channel
 	close(rlm.mcpClientPool.available)
-	
+
 	// Clean up all clients
 	for testID, client := range rlm.mcpClientPool.inUse {
 		client.Reset()
 		rlm.logger.Printf("Cleaned up MCP client for test %s", testID)
 	}
-	
+
 	// Clear all client references
 	rlm.mcpClientPool.clients = nil
 	rlm.mcpClientPool.inUse = make(map[string]*mocks.MockMcpClient)
 	atomic.StoreInt32(&rlm.mcpClientPool.currentClients, 0)
 	atomic.AddInt64(&rlm.mcpClientPool.totalDestroyed, int64(len(rlm.mcpClientPool.clients)))
-	
+
 	rlm.logger.Printf("Cleaned up MCP client pool")
 	return nil
 }
@@ -931,9 +931,9 @@ func (rlm *ResourceLifecycleManager) logResourceEvent(eventType, resourceID, tes
 		Details:    details,
 		Error:      err,
 	}
-	
+
 	rlm.lifecycleEvents = append(rlm.lifecycleEvents, event)
-	
+
 	// Log to logger
 	if err != nil {
 		rlm.logger.Printf("Resource event [%s] %s/%s: ERROR %v - %+v", eventType, resourceID, testID, err, details)
@@ -948,7 +948,7 @@ func (rlm *ResourceLifecycleManager) createMcpClient() (*mocks.MockMcpClient, er
 	if client == nil {
 		return nil, fmt.Errorf("failed to create MockMcpClient")
 	}
-	
+
 	atomic.AddInt64(&rlm.mcpClientFactory.totalCreated, 1)
 	return client, nil
 }
@@ -958,17 +958,17 @@ func (rlm *ResourceLifecycleManager) configureMcpClient(client *mocks.MockMcpCli
 	if config == nil {
 		config = rlm.mcpClientFactory.defaultConfig
 	}
-	
+
 	client.SetBaseURL(config.BaseURL)
 	client.SetTimeout(config.Timeout)
 	client.SetMaxRetries(config.MaxRetries)
 	client.SetHealthy(true)
-	
+
 	// Configure circuit breaker if specified
 	if config.CircuitBreakerConfig != nil {
 		client.SetCircuitBreakerConfig(config.CircuitBreakerConfig.MaxFailures, config.CircuitBreakerConfig.Timeout)
 	}
-	
+
 	// Configure retry policy if specified
 	if config.RetryPolicyConfig != nil {
 		retryPolicy := &mcp.RetryPolicy{
@@ -981,7 +981,7 @@ func (rlm *ResourceLifecycleManager) configureMcpClient(client *mocks.MockMcpCli
 		}
 		client.SetRetryPolicy(retryPolicy)
 	}
-	
+
 	return nil
 }
 
@@ -989,15 +989,15 @@ func (rlm *ResourceLifecycleManager) configureMcpClient(client *mocks.MockMcpCli
 func (tdm *TempDirectoryManager) CreateTempDir(testID string) (string, error) {
 	tdm.mu.Lock()
 	defer tdm.mu.Unlock()
-	
+
 	tempDir, err := os.MkdirTemp(tdm.baseDir, fmt.Sprintf("test-%s-*", testID))
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	
+
 	tdm.directories[testID] = tempDir
 	tdm.logger.Printf("Created temp directory %s for test %s", tempDir, testID)
-	
+
 	return tempDir, nil
 }
 
@@ -1005,7 +1005,7 @@ func (tdm *TempDirectoryManager) CreateTempDir(testID string) (string, error) {
 func (rhc *ResourceHealthChecker) startHealthChecking() {
 	ticker := time.NewTicker(rhc.checkInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-rhc.ctx.Done():
@@ -1024,7 +1024,7 @@ func (rhc *ResourceHealthChecker) performHealthChecks() {
 		resources = append(resources, resource)
 	}
 	rhc.mu.RUnlock()
-	
+
 	for _, resource := range resources {
 		go rhc.checkResourceHealth(resource)
 	}
@@ -1035,13 +1035,13 @@ func (rhc *ResourceHealthChecker) checkResourceHealth(resource *ManagedResource)
 	if resource.HealthCheckFunc == nil {
 		return
 	}
-	
+
 	resource.mu.Lock()
 	resource.LastHealthCheck = time.Now()
 	resource.mu.Unlock()
-	
+
 	err := resource.HealthCheckFunc()
-	
+
 	resource.mu.Lock()
 	if err != nil {
 		resource.HealthStatus = HealthStatusUnhealthy
@@ -1064,7 +1064,7 @@ func (rhc *ResourceHealthChecker) checkResourceHealth(resource *ManagedResource)
 func (rpm *ResourcePerformanceMonitor) startPerformanceMonitoring() {
 	ticker := time.NewTicker(rpm.checkInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-rpm.ctx.Done():
@@ -1079,10 +1079,10 @@ func (rpm *ResourcePerformanceMonitor) startPerformanceMonitoring() {
 func (rpm *ResourcePerformanceMonitor) collectPerformanceMetrics() {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
-	
+
 	memoryUsageMB := int64(m.Alloc) / 1024 / 1024
 	goroutineCount := runtime.NumGoroutine()
-	
+
 	rpm.logger.Printf("Performance metrics: Memory=%dMB, Goroutines=%d", memoryUsageMB, goroutineCount)
 }
 

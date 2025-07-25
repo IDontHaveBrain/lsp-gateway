@@ -11,8 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"lsp-gateway/internal/config"
-	"lsp-gateway/internal/gateway"
 	"lsp-gateway/mcp"
 	"lsp-gateway/tests/framework"
 	"lsp-gateway/tests/mocks"
@@ -23,23 +21,23 @@ type E2EScenario string
 
 const (
 	// Basic MCP Integration Scenarios
-	E2EScenarioBasicMCPWorkflow        E2EScenario = "basic-mcp-workflow"
-	E2EScenarioLSPMethodValidation     E2EScenario = "lsp-method-validation"
-	E2EScenarioMultiLanguageSupport    E2EScenario = "multi-language-support"
-	E2EScenarioWorkspaceManagement     E2EScenario = "workspace-management"
-	
+	E2EScenarioBasicMCPWorkflow     E2EScenario = "basic-mcp-workflow"
+	E2EScenarioLSPMethodValidation  E2EScenario = "lsp-method-validation"
+	E2EScenarioMultiLanguageSupport E2EScenario = "multi-language-support"
+	E2EScenarioWorkspaceManagement  E2EScenario = "workspace-management"
+
 	// Circuit Breaker & Resilience Scenarios
-	E2EScenarioCircuitBreakerTesting   E2EScenario = "circuit-breaker-testing"
-	E2EScenarioRetryPolicyValidation   E2EScenario = "retry-policy-validation"
-	E2EScenarioErrorHandlingWorkflow   E2EScenario = "error-handling-workflow"
-	E2EScenarioFailoverRecovery        E2EScenario = "failover-recovery"
-	
+	E2EScenarioCircuitBreakerTesting E2EScenario = "circuit-breaker-testing"
+	E2EScenarioRetryPolicyValidation E2EScenario = "retry-policy-validation"
+	E2EScenarioErrorHandlingWorkflow E2EScenario = "error-handling-workflow"
+	E2EScenarioFailoverRecovery      E2EScenario = "failover-recovery"
+
 	// Performance & Load Scenarios
-	E2EScenarioPerformanceValidation   E2EScenario = "performance-validation"
-	E2EScenarioConcurrentRequests      E2EScenario = "concurrent-requests"
-	E2EScenarioLoadBalancingMCP        E2EScenario = "load-balancing-mcp"
-	E2EScenarioHighThroughputTesting   E2EScenario = "high-throughput-testing"
-	
+	E2EScenarioPerformanceValidation E2EScenario = "performance-validation"
+	E2EScenarioConcurrentRequests    E2EScenario = "concurrent-requests"
+	E2EScenarioLoadBalancingMCP      E2EScenario = "load-balancing-mcp"
+	E2EScenarioHighThroughputTesting E2EScenario = "high-throughput-testing"
+
 	// Integration & Real-world Scenarios
 	E2EScenarioProjectAnalysisWorkflow E2EScenario = "project-analysis-workflow"
 	E2EScenarioCodeNavigationChain     E2EScenario = "code-navigation-chain"
@@ -62,97 +60,97 @@ type E2ETestConfig struct {
 
 // E2ETestResult contains comprehensive results from E2E test execution
 type E2ETestResult struct {
-	Scenario          E2EScenario
-	Success           bool
-	Duration          time.Duration
-	StartTime         time.Time
-	EndTime           time.Time
-	
+	Scenario  E2EScenario
+	Success   bool
+	Duration  time.Duration
+	StartTime time.Time
+	EndTime   time.Time
+
 	// Request and Response Metrics
-	TotalRequests     int64
-	SuccessfulReqs    int64
-	FailedRequests    int64
-	AverageLatency    time.Duration
-	MinLatency        time.Duration
-	MaxLatency        time.Duration
-	
+	TotalRequests  int64
+	SuccessfulReqs int64
+	FailedRequests int64
+	AverageLatency time.Duration
+	MinLatency     time.Duration
+	MaxLatency     time.Duration
+
 	// MCP Client Metrics
-	MCPMetrics        *mcp.ConnectionMetrics
-	CircuitBreaker    *CircuitBreakerTestResult
-	RetryPolicy       *RetryPolicyTestResult
-	
+	MCPMetrics     *mcp.ConnectionMetrics
+	CircuitBreaker *CircuitBreakerTestResult
+	RetryPolicy    *RetryPolicyTestResult
+
 	// Framework Integration Results
-	FrameworkResults  *framework.WorkflowResult
-	ProjectResults    []*ProjectTestResult
-	
+	FrameworkResults *framework.WorkflowResult
+	ProjectResults   []*ProjectTestResult
+
 	// Error Details
-	Errors            []error
-	Warnings          []string
-	
+	Errors   []error
+	Warnings []string
+
 	// Performance Data
-	MemoryUsageMB     float64
-	CPUUsagePercent   float64
-	GoroutineCount    int
-	
+	MemoryUsageMB   float64
+	CPUUsagePercent float64
+	GoroutineCount  int
+
 	// Test Environment Details
-	TestEnvironment   *TestEnvironmentInfo
-	ConfigUsed        *E2ETestConfig
+	TestEnvironment *TestEnvironmentInfo
+	ConfigUsed      *E2ETestConfig
 }
 
 // CircuitBreakerTestResult contains circuit breaker specific test results
 type CircuitBreakerTestResult struct {
-	State                 mcp.CircuitBreakerState
-	TriggeredCount        int
-	RecoveryTime          time.Duration
-	FalsePositiveCount    int
-	FalseNegativeCount    int
-	StateTransitions      []StateTransitionEvent
-	FailureThreshold      float64
-	MaxFailures           int
-	Timeout               time.Duration
+	State              mcp.CircuitBreakerState
+	TriggeredCount     int
+	RecoveryTime       time.Duration
+	FalsePositiveCount int
+	FalseNegativeCount int
+	StateTransitions   []StateTransitionEvent
+	FailureThreshold   float64
+	MaxFailures        int
+	Timeout            time.Duration
 }
 
 // RetryPolicyTestResult contains retry policy specific test results
 type RetryPolicyTestResult struct {
-	MaxRetries        int
+	MaxRetries         int
 	TotalRetryAttempts int
-	SuccessfulRetries int
-	FailedRetries     int
-	BackoffTimes      []time.Duration
-	AverageBackoff    time.Duration
-	JitterEnabled     bool
-	RetryableErrors   map[mcp.ErrorCategory]int
+	SuccessfulRetries  int
+	FailedRetries      int
+	BackoffTimes       []time.Duration
+	AverageBackoff     time.Duration
+	JitterEnabled      bool
+	RetryableErrors    map[mcp.ErrorCategory]int
 }
 
 // ProjectTestResult contains project-specific test results
 type ProjectTestResult struct {
-	Project           *framework.TestProject
-	LanguageResults   map[string]*LanguageTestResult
-	Success           bool
-	Duration          time.Duration
-	RequestCount      int
-	ErrorCount        int
-	Errors            []error
+	Project         *framework.TestProject
+	LanguageResults map[string]*LanguageTestResult
+	Success         bool
+	Duration        time.Duration
+	RequestCount    int
+	ErrorCount      int
+	Errors          []error
 }
 
 // LanguageTestResult contains language-specific test results
 type LanguageTestResult struct {
-	Language          string
-	LSPMethods        map[string]*LSPMethodTestResult
-	Success           bool
-	AverageLatency    time.Duration
-	RequestCount      int
-	ErrorCount        int
+	Language       string
+	LSPMethods     map[string]*LSPMethodTestResult
+	Success        bool
+	AverageLatency time.Duration
+	RequestCount   int
+	ErrorCount     int
 }
 
 // LSPMethodTestResult contains LSP method specific test results
 type LSPMethodTestResult struct {
-	Method            string
-	Invocations       int
-	SuccessCount      int
-	FailureCount      int
-	AverageLatency    time.Duration
-	Errors            []error
+	Method         string
+	Invocations    int
+	SuccessCount   int
+	FailureCount   int
+	AverageLatency time.Duration
+	Errors         []error
 }
 
 // StateTransitionEvent captures circuit breaker state transitions
@@ -165,60 +163,60 @@ type StateTransitionEvent struct {
 
 // TestEnvironmentInfo contains information about the test environment
 type TestEnvironmentInfo struct {
-	TempDirectory     string
-	ProjectsCreated   []string
-	ServersStarted    []string
-	GatewayInstances  []string
-	ConfigFiles       []string
-	CreatedAt         time.Time
+	TempDirectory    string
+	ProjectsCreated  []string
+	ServersStarted   []string
+	GatewayInstances []string
+	ConfigFiles      []string
+	CreatedAt        time.Time
 }
 
 // E2ETestRunner is the main orchestrator for MCP E2E integration testing
 type E2ETestRunner struct {
 	// Core Components
-	MockMcpClient     *mocks.MockMcpClient
-	TestFramework     *framework.MultiLanguageTestFramework
-	Config            *E2ETestConfig
-	
+	MockMcpClient *mocks.MockMcpClient
+	TestFramework *framework.MultiLanguageTestFramework
+	Config        *E2ETestConfig
+
 	// Test Environment
-	TempDir           string
-	TestEnvironment   *TestEnvironmentInfo
-	
+	TempDir         string
+	TestEnvironment *TestEnvironmentInfo
+
 	// State Management
-	mu                sync.RWMutex
-	ctx               context.Context
-	cancel            context.CancelFunc
-	
+	mu     sync.RWMutex
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	// Results & Metrics
-	TestResults       []*E2ETestResult
-	GlobalMetrics     *GlobalTestMetrics
-	
+	TestResults   []*E2ETestResult
+	GlobalMetrics *GlobalTestMetrics
+
 	// Logging & Debug
-	Logger            *log.Logger
-	DebugMode         bool
-	
+	Logger    *log.Logger
+	DebugMode bool
+
 	// Cleanup Management
-	CleanupFunctions  []func() error
-	
+	CleanupFunctions []func() error
+
 	// Concurrency Control
-	semaphore         chan struct{}
-	activeTests       int32
+	semaphore   chan struct{}
+	activeTests int32
 }
 
 // GlobalTestMetrics tracks metrics across all E2E tests
 type GlobalTestMetrics struct {
-	TotalTestsRun        int64
-	TotalTestsPassed     int64
-	TotalTestsFailed     int64
-	TotalDuration        time.Duration
-	TotalRequests        int64
-	TotalErrors          int64
-	AverageTestDuration  time.Duration
-	PeakMemoryUsage      int64
-	PeakCPUUsage         float64
-	PeakGoroutineCount   int
+	TotalTestsRun          int64
+	TotalTestsPassed       int64
+	TotalTestsFailed       int64
+	TotalDuration          time.Duration
+	TotalRequests          int64
+	TotalErrors            int64
+	AverageTestDuration    time.Duration
+	PeakMemoryUsage        int64
+	PeakCPUUsage           float64
+	PeakGoroutineCount     int
 	CircuitBreakerTriggers int64
-	RetryAttempts        int64
+	RetryAttempts          int64
 }
 
 // NewE2ETestRunner creates a new E2E test runner with comprehensive configuration
@@ -227,31 +225,31 @@ func NewE2ETestRunner(config *E2ETestConfig) (*E2ETestRunner, error) {
 	if config == nil {
 		config = getDefaultE2ETestConfig()
 	}
-	
+
 	if err := validateE2ETestConfig(config); err != nil {
 		return nil, fmt.Errorf("invalid E2E test config: %w", err)
 	}
-	
+
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), config.TestTimeout)
-	
+
 	// Create temporary directory for test artifacts
 	tempDir, err := os.MkdirTemp("", "e2e-mcp-test-*")
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to create temp directory: %w", err)
 	}
-	
+
 	// Initialize logger
 	logLevel := log.LstdFlags
 	if config.DetailedLogging {
 		logLevel |= log.Lshortfile
 	}
 	logger := log.New(os.Stdout, "[E2E-MCP-Test] ", logLevel)
-	
+
 	// Create semaphore for concurrency control
 	semaphore := make(chan struct{}, config.MaxConcurrency)
-	
+
 	runner := &E2ETestRunner{
 		Config:           config,
 		TempDir:          tempDir,
@@ -264,7 +262,7 @@ func NewE2ETestRunner(config *E2ETestConfig) (*E2ETestRunner, error) {
 		CleanupFunctions: make([]func() error, 0),
 		semaphore:        semaphore,
 	}
-	
+
 	// Initialize test environment info
 	runner.TestEnvironment = &TestEnvironmentInfo{
 		TempDirectory:    tempDir,
@@ -274,12 +272,12 @@ func NewE2ETestRunner(config *E2ETestConfig) (*E2ETestRunner, error) {
 		ConfigFiles:      make([]string, 0),
 		CreatedAt:        time.Now(),
 	}
-	
+
 	// Add cleanup for temp directory
 	runner.CleanupFunctions = append(runner.CleanupFunctions, func() error {
 		return os.RemoveAll(tempDir)
 	})
-	
+
 	return runner, nil
 }
 
@@ -287,41 +285,41 @@ func NewE2ETestRunner(config *E2ETestConfig) (*E2ETestRunner, error) {
 func (r *E2ETestRunner) SetupTestEnvironment(ctx context.Context) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	r.Logger.Printf("Setting up E2E test environment in %s", r.TempDir)
-	
+
 	// Initialize MockMcpClient
 	r.MockMcpClient = mocks.NewMockMcpClient()
 	if r.MockMcpClient == nil {
 		return fmt.Errorf("failed to create MockMcpClient")
 	}
-	
+
 	// Configure MockMcpClient with test-specific settings
 	r.MockMcpClient.SetBaseURL("http://localhost:8080")
 	r.MockMcpClient.SetTimeout(30 * time.Second)
 	r.MockMcpClient.SetMaxRetries(3)
-	
+
 	// Initialize MultiLanguageTestFramework
 	frameworkTimeout := r.Config.TestTimeout
 	if frameworkTimeout > 60*time.Second {
 		frameworkTimeout = 60 * time.Second // Cap framework timeout
 	}
-	
+
 	r.TestFramework = framework.NewMultiLanguageTestFramework(frameworkTimeout)
 	if r.TestFramework == nil {
 		return fmt.Errorf("failed to create MultiLanguageTestFramework")
 	}
-	
+
 	// Setup test framework environment
 	if err := r.TestFramework.SetupTestEnvironment(ctx); err != nil {
 		return fmt.Errorf("failed to setup test framework environment: %w", err)
 	}
-	
+
 	// Add cleanup for test framework
 	r.CleanupFunctions = append(r.CleanupFunctions, func() error {
 		return r.TestFramework.CleanupAll()
 	})
-	
+
 	r.Logger.Printf("E2E test environment setup completed successfully")
 	return nil
 }
@@ -331,24 +329,24 @@ func (r *E2ETestRunner) ExecuteScenario(scenario E2EScenario) (*E2ETestResult, e
 	// Acquire semaphore for concurrency control
 	r.semaphore <- struct{}{}
 	defer func() { <-r.semaphore }()
-	
+
 	atomic.AddInt32(&r.activeTests, 1)
 	defer atomic.AddInt32(&r.activeTests, -1)
-	
+
 	startTime := time.Now()
-	
+
 	result := &E2ETestResult{
-		Scenario:         scenario,
-		StartTime:        startTime,
-		TestEnvironment:  r.TestEnvironment,
-		ConfigUsed:       r.Config,
-		Errors:           make([]error, 0),
-		Warnings:         make([]string, 0),
-		ProjectResults:   make([]*ProjectTestResult, 0),
+		Scenario:        scenario,
+		StartTime:       startTime,
+		TestEnvironment: r.TestEnvironment,
+		ConfigUsed:      r.Config,
+		Errors:          make([]error, 0),
+		Warnings:        make([]string, 0),
+		ProjectResults:  make([]*ProjectTestResult, 0),
 	}
-	
+
 	r.Logger.Printf("Executing E2E scenario: %s", scenario)
-	
+
 	// Execute scenario-specific logic
 	var err error
 	switch scenario {
@@ -387,50 +385,50 @@ func (r *E2ETestRunner) ExecuteScenario(scenario E2EScenario) (*E2ETestResult, e
 	default:
 		err = fmt.Errorf("unsupported E2E scenario: %s", scenario)
 	}
-	
+
 	// Finalize result
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(result.StartTime)
 	result.Success = err == nil && len(result.Errors) == 0
-	
+
 	if err != nil {
 		result.Errors = append(result.Errors, err)
 	}
-	
+
 	// Capture MCP client metrics
 	if r.MockMcpClient != nil {
 		metrics := r.MockMcpClient.GetMetrics()
 		result.MCPMetrics = &metrics
 	}
-	
+
 	// Update global metrics
 	r.updateGlobalMetrics(result)
-	
+
 	// Add result to test results
 	r.mu.Lock()
 	r.TestResults = append(r.TestResults, result)
 	r.mu.Unlock()
-	
-	r.Logger.Printf("E2E scenario %s completed: success=%t, duration=%v", 
-					scenario, result.Success, result.Duration)
-	
+
+	r.Logger.Printf("E2E scenario %s completed: success=%t, duration=%v",
+		scenario, result.Success, result.Duration)
+
 	return result, err
 }
 
 // ExecuteAllScenarios executes all configured E2E test scenarios
 func (r *E2ETestRunner) ExecuteAllScenarios() ([]*E2ETestResult, error) {
 	r.Logger.Printf("Executing all E2E scenarios: %d scenarios", len(r.Config.Scenarios))
-	
+
 	results := make([]*E2ETestResult, 0, len(r.Config.Scenarios))
 	var errors []error
-	
+
 	for _, scenario := range r.Config.Scenarios {
 		result, err := r.ExecuteScenario(scenario)
 		results = append(results, result)
-		
+
 		if err != nil {
 			errors = append(errors, fmt.Errorf("scenario %s failed: %w", scenario, err))
-			
+
 			if r.Config.CleanupOnFailure {
 				r.Logger.Printf("Cleaning up after failed scenario: %s", scenario)
 				if cleanupErr := r.Cleanup(); cleanupErr != nil {
@@ -439,11 +437,11 @@ func (r *E2ETestRunner) ExecuteAllScenarios() ([]*E2ETestResult, error) {
 			}
 		}
 	}
-	
+
 	if len(errors) > 0 {
 		return results, fmt.Errorf("E2E scenarios failed: %v", errors)
 	}
-	
+
 	return results, nil
 }
 
@@ -451,34 +449,34 @@ func (r *E2ETestRunner) ExecuteAllScenarios() ([]*E2ETestResult, error) {
 func (r *E2ETestRunner) Cleanup() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	r.Logger.Printf("Starting comprehensive E2E test cleanup")
-	
+
 	var errors []error
-	
+
 	// Execute cleanup functions in reverse order
 	for i := len(r.CleanupFunctions) - 1; i >= 0; i-- {
 		if err := r.CleanupFunctions[i](); err != nil {
 			errors = append(errors, err)
 		}
 	}
-	
+
 	// Reset MockMcpClient
 	if r.MockMcpClient != nil {
 		r.MockMcpClient.Reset()
 	}
-	
+
 	// Cancel context
 	if r.cancel != nil {
 		r.cancel()
 	}
-	
+
 	r.Logger.Printf("E2E test cleanup completed")
-	
+
 	if len(errors) > 0 {
 		return fmt.Errorf("cleanup errors: %v", errors)
 	}
-	
+
 	return nil
 }
 
@@ -486,7 +484,7 @@ func (r *E2ETestRunner) Cleanup() error {
 func (r *E2ETestRunner) GetTestResults() []*E2ETestResult {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	// Return a copy to avoid race conditions
 	results := make([]*E2ETestResult, len(r.TestResults))
 	copy(results, r.TestResults)
@@ -497,21 +495,21 @@ func (r *E2ETestRunner) GetTestResults() []*E2ETestResult {
 func (r *E2ETestRunner) GetGlobalMetrics() *GlobalTestMetrics {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	
+
 	// Return a copy to avoid race conditions
 	return &GlobalTestMetrics{
-		TotalTestsRun:        r.GlobalMetrics.TotalTestsRun,
-		TotalTestsPassed:     r.GlobalMetrics.TotalTestsPassed,
-		TotalTestsFailed:     r.GlobalMetrics.TotalTestsFailed,
-		TotalDuration:        r.GlobalMetrics.TotalDuration,
-		TotalRequests:        r.GlobalMetrics.TotalRequests,
-		TotalErrors:          r.GlobalMetrics.TotalErrors,
-		AverageTestDuration:  r.GlobalMetrics.AverageTestDuration,
-		PeakMemoryUsage:      r.GlobalMetrics.PeakMemoryUsage,
-		PeakCPUUsage:         r.GlobalMetrics.PeakCPUUsage,
-		PeakGoroutineCount:   r.GlobalMetrics.PeakGoroutineCount,
+		TotalTestsRun:          r.GlobalMetrics.TotalTestsRun,
+		TotalTestsPassed:       r.GlobalMetrics.TotalTestsPassed,
+		TotalTestsFailed:       r.GlobalMetrics.TotalTestsFailed,
+		TotalDuration:          r.GlobalMetrics.TotalDuration,
+		TotalRequests:          r.GlobalMetrics.TotalRequests,
+		TotalErrors:            r.GlobalMetrics.TotalErrors,
+		AverageTestDuration:    r.GlobalMetrics.AverageTestDuration,
+		PeakMemoryUsage:        r.GlobalMetrics.PeakMemoryUsage,
+		PeakCPUUsage:           r.GlobalMetrics.PeakCPUUsage,
+		PeakGoroutineCount:     r.GlobalMetrics.PeakGoroutineCount,
 		CircuitBreakerTriggers: r.GlobalMetrics.CircuitBreakerTriggers,
-		RetryAttempts:        r.GlobalMetrics.RetryAttempts,
+		RetryAttempts:          r.GlobalMetrics.RetryAttempts,
 	}
 }
 
@@ -577,16 +575,16 @@ func validateE2ETestConfig(config *E2ETestConfig) error {
 // updateGlobalMetrics updates global test metrics with result data
 func (r *E2ETestRunner) updateGlobalMetrics(result *E2ETestResult) {
 	atomic.AddInt64(&r.GlobalMetrics.TotalTestsRun, 1)
-	
+
 	if result.Success {
 		atomic.AddInt64(&r.GlobalMetrics.TotalTestsPassed, 1)
 	} else {
 		atomic.AddInt64(&r.GlobalMetrics.TotalTestsFailed, 1)
 	}
-	
+
 	atomic.AddInt64(&r.GlobalMetrics.TotalRequests, result.TotalRequests)
 	atomic.AddInt64(&r.GlobalMetrics.TotalErrors, int64(len(result.Errors)))
-	
+
 	// Update average test duration (simplified atomic operation)
 	r.mu.Lock()
 	r.GlobalMetrics.TotalDuration += result.Duration
@@ -601,18 +599,18 @@ func (r *E2ETestRunner) updateGlobalMetrics(result *E2ETestResult) {
 
 // LSPWorkflowResult contains results from LSP workflow testing
 type LSPWorkflowResult struct {
-	Method            string
-	ProjectLanguages  []string
-	RequestsExecuted  int
-	SuccessfulReqs    int
-	FailedRequests    int
-	AverageLatency    time.Duration
-	MinLatency        time.Duration
-	MaxLatency        time.Duration
-	ResponseSizes     []int
-	ErrorDetails      []error
-	StartTime         time.Time
-	EndTime           time.Time
+	Method           string
+	ProjectLanguages []string
+	RequestsExecuted int
+	SuccessfulReqs   int
+	FailedRequests   int
+	AverageLatency   time.Duration
+	MinLatency       time.Duration
+	MaxLatency       time.Duration
+	ResponseSizes    []int
+	ErrorDetails     []error
+	StartTime        time.Time
+	EndTime          time.Time
 }
 
 // LSPRequestParams contains parameters for LSP method requests
@@ -627,12 +625,12 @@ type LSPRequestParams struct {
 type LSPWorkflowScenario string
 
 const (
-	LSPWorkflowDefinitionLookup     LSPWorkflowScenario = "definition-lookup"
-	LSPWorkflowReferenceFinding     LSPWorkflowScenario = "reference-finding"
-	LSPWorkflowHoverInformation     LSPWorkflowScenario = "hover-information"
-	LSPWorkflowSymbolSearch         LSPWorkflowScenario = "symbol-search"
-	LSPWorkflowCrossLanguage        LSPWorkflowScenario = "cross-language"
-	LSPWorkflowConcurrentRequests   LSPWorkflowScenario = "concurrent-requests"
+	LSPWorkflowDefinitionLookup   LSPWorkflowScenario = "definition-lookup"
+	LSPWorkflowReferenceFinding   LSPWorkflowScenario = "reference-finding"
+	LSPWorkflowHoverInformation   LSPWorkflowScenario = "hover-information"
+	LSPWorkflowSymbolSearch       LSPWorkflowScenario = "symbol-search"
+	LSPWorkflowCrossLanguage      LSPWorkflowScenario = "cross-language"
+	LSPWorkflowConcurrentRequests LSPWorkflowScenario = "concurrent-requests"
 )
 
 // Scenario execution methods (stubs for actual implementation)
@@ -686,7 +684,7 @@ func (r *E2ETestRunner) executeLSPMethodValidation(result *E2ETestResult) error 
 		go func(s LSPWorkflowScenario) {
 			defer wg.Done()
 			workflowResult := r.executeSpecificLSPWorkflow(ctx, s, project)
-			
+
 			resultMutex.Lock()
 			workflowResults[s] = workflowResult
 			resultMutex.Unlock()
@@ -715,7 +713,7 @@ func (r *E2ETestRunner) executeLSPMethodValidation(result *E2ETestResult) error 
 		projectResult.ErrorCount += len(workflowResult.ErrorDetails)
 		projectResult.Errors = append(projectResult.Errors, workflowResult.ErrorDetails...)
 
-		r.Logger.Printf("LSP workflow %s completed: %d requests, %d successful, %d failed", 
+		r.Logger.Printf("LSP workflow %s completed: %d requests, %d successful, %d failed",
 			scenario, workflowResult.RequestsExecuted, workflowResult.SuccessfulReqs, workflowResult.FailedRequests)
 	}
 
@@ -732,7 +730,7 @@ func (r *E2ETestRunner) executeLSPMethodValidation(result *E2ETestResult) error 
 		result.AverageLatency = time.Duration(int64(totalDuration) / totalRequests)
 	}
 
-	r.Logger.Printf("LSP method validation completed: %d total requests, %d successful, %d failed", 
+	r.Logger.Printf("LSP method validation completed: %d total requests, %d successful, %d failed",
 		totalRequests, totalSuccessful, totalFailed)
 
 	if totalFailed > 0 {
@@ -817,7 +815,7 @@ func (r *E2ETestRunner) executeEndToEndDeveloperUse(result *E2ETestResult) error
 // executeSpecificLSPWorkflow executes a specific LSP workflow scenario
 func (r *E2ETestRunner) executeSpecificLSPWorkflow(ctx context.Context, scenario LSPWorkflowScenario, project *framework.TestProject) *LSPWorkflowResult {
 	startTime := time.Now()
-	
+
 	result := &LSPWorkflowResult{
 		ProjectLanguages: project.Languages,
 		RequestsExecuted: 0,
@@ -849,14 +847,14 @@ func (r *E2ETestRunner) executeSpecificLSPWorkflow(ctx context.Context, scenario
 	}
 
 	result.EndTime = time.Now()
-	
+
 	// Calculate latency metrics
 	if result.RequestsExecuted > 0 {
 		totalDuration := result.EndTime.Sub(result.StartTime)
 		result.AverageLatency = time.Duration(int64(totalDuration) / int64(result.RequestsExecuted))
 	}
 
-	r.Logger.Printf("LSP workflow %s completed: %d requests, %d successful, %d failed, avg latency: %v", 
+	r.Logger.Printf("LSP workflow %s completed: %d requests, %d successful, %d failed, avg latency: %v",
 		scenario, result.RequestsExecuted, result.SuccessfulReqs, result.FailedRequests, result.AverageLatency)
 
 	return result
@@ -926,7 +924,7 @@ func (r *E2ETestRunner) executeDefinitionWorkflow(ctx context.Context, mockClien
 
 			mu.Lock()
 			result.RequestsExecuted++
-			
+
 			if err != nil {
 				result.FailedRequests++
 				result.ErrorDetails = append(result.ErrorDetails, fmt.Errorf("definition request failed for %s: %w", s.name, err))
@@ -934,7 +932,7 @@ func (r *E2ETestRunner) executeDefinitionWorkflow(ctx context.Context, mockClien
 			} else if response != nil {
 				result.SuccessfulReqs++
 				result.ResponseSizes = append(result.ResponseSizes, len(response))
-				
+
 				// Validate response structure
 				if err := r.validateDefinitionResponse(response, s.language); err != nil {
 					result.ErrorDetails = append(result.ErrorDetails, fmt.Errorf("invalid definition response for %s: %w", s.name, err))
@@ -942,7 +940,7 @@ func (r *E2ETestRunner) executeDefinitionWorkflow(ctx context.Context, mockClien
 				} else {
 					r.Logger.Printf("Definition lookup successful for %s (duration: %v)", s.name, requestDuration)
 				}
-				
+
 				// Update latency tracking
 				if result.MinLatency == 0 || requestDuration < result.MinLatency {
 					result.MinLatency = requestDuration
@@ -970,12 +968,12 @@ func (r *E2ETestRunner) executeReferencesWorkflow(ctx context.Context, mockClien
 
 	// Test references finding scenarios
 	referencesScenarios := []struct {
-		name          string
-		language      string
-		uri           string
-		position      map[string]interface{}
-		includeDecl   bool
-		expectedMin   int
+		name        string
+		language    string
+		uri         string
+		position    map[string]interface{}
+		includeDecl bool
+		expectedMin int
 	}{
 		{
 			name:        "Go function references",
@@ -987,7 +985,7 @@ func (r *E2ETestRunner) executeReferencesWorkflow(ctx context.Context, mockClien
 		},
 		{
 			name:        "Python class references",
-			language:    "python", 
+			language:    "python",
 			uri:         "file://" + filepath.Join(project.RootPath, "main.py"),
 			position:    map[string]interface{}{"line": 20, "character": 10},
 			includeDecl: false,
@@ -1009,12 +1007,12 @@ func (r *E2ETestRunner) executeReferencesWorkflow(ctx context.Context, mockClien
 	for _, scenario := range referencesScenarios {
 		wg.Add(1)
 		go func(s struct {
-			name          string
-			language      string
-			uri           string
-			position      map[string]interface{}
-			includeDecl   bool
-			expectedMin   int
+			name        string
+			language    string
+			uri         string
+			position    map[string]interface{}
+			includeDecl bool
+			expectedMin int
 		}) {
 			defer wg.Done()
 
@@ -1032,19 +1030,19 @@ func (r *E2ETestRunner) executeReferencesWorkflow(ctx context.Context, mockClien
 
 			mu.Lock()
 			result.RequestsExecuted++
-			
+
 			if err != nil {
 				result.FailedRequests++
 				result.ErrorDetails = append(result.ErrorDetails, fmt.Errorf("references request failed for %s: %w", s.name, err))
 			} else if response != nil {
 				result.SuccessfulReqs++
 				result.ResponseSizes = append(result.ResponseSizes, len(response))
-				
+
 				// Validate response structure and count
 				if err := r.validateReferencesResponse(response, s.language, s.expectedMin); err != nil {
 					result.ErrorDetails = append(result.ErrorDetails, fmt.Errorf("invalid references response for %s: %w", s.name, err))
 				}
-				
+
 				// Update latency tracking
 				if result.MinLatency == 0 || requestDuration < result.MinLatency {
 					result.MinLatency = requestDuration
@@ -1133,19 +1131,19 @@ func (r *E2ETestRunner) executeHoverWorkflow(ctx context.Context, mockClient *mo
 
 			mu.Lock()
 			result.RequestsExecuted++
-			
+
 			if err != nil {
 				result.FailedRequests++
 				result.ErrorDetails = append(result.ErrorDetails, fmt.Errorf("hover request failed for %s: %w", s.name, err))
 			} else if response != nil {
 				result.SuccessfulReqs++
 				result.ResponseSizes = append(result.ResponseSizes, len(response))
-				
+
 				// Validate hover response content
 				if err := r.validateHoverResponse(response, s.language, s.symbolType); err != nil {
 					result.ErrorDetails = append(result.ErrorDetails, fmt.Errorf("invalid hover response for %s: %w", s.name, err))
 				}
-				
+
 				// Update latency tracking
 				if result.MinLatency == 0 || requestDuration < result.MinLatency {
 					result.MinLatency = requestDuration
@@ -1173,10 +1171,10 @@ func (r *E2ETestRunner) executeSymbolsWorkflow(ctx context.Context, mockClient *
 
 	// Test workspace symbol search scenarios
 	symbolScenarios := []struct {
-		name         string
-		query        string
-		expectedMin  int
-		symbolTypes  []string
+		name        string
+		query       string
+		expectedMin int
+		symbolTypes []string
 	}{
 		{
 			name:        "Function search",
@@ -1210,10 +1208,10 @@ func (r *E2ETestRunner) executeSymbolsWorkflow(ctx context.Context, mockClient *
 	for _, scenario := range symbolScenarios {
 		wg.Add(1)
 		go func(s struct {
-			name         string
-			query        string
-			expectedMin  int
-			symbolTypes  []string
+			name        string
+			query       string
+			expectedMin int
+			symbolTypes []string
 		}) {
 			defer wg.Done()
 
@@ -1227,19 +1225,19 @@ func (r *E2ETestRunner) executeSymbolsWorkflow(ctx context.Context, mockClient *
 
 			mu.Lock()
 			result.RequestsExecuted++
-			
+
 			if err != nil {
 				result.FailedRequests++
 				result.ErrorDetails = append(result.ErrorDetails, fmt.Errorf("symbol search failed for %s: %w", s.name, err))
 			} else if response != nil {
 				result.SuccessfulReqs++
 				result.ResponseSizes = append(result.ResponseSizes, len(response))
-				
+
 				// Validate symbol response
 				if err := r.validateSymbolsResponse(response, s.expectedMin, s.symbolTypes); err != nil {
 					result.ErrorDetails = append(result.ErrorDetails, fmt.Errorf("invalid symbols response for %s: %w", s.name, err))
 				}
-				
+
 				// Update latency tracking
 				if result.MinLatency == 0 || requestDuration < result.MinLatency {
 					result.MinLatency = requestDuration
@@ -1287,14 +1285,14 @@ func (r *E2ETestRunner) executeSymbolsWorkflow(ctx context.Context, mockClient *
 
 			mu.Lock()
 			result.RequestsExecuted++
-			
+
 			if err != nil {
 				result.FailedRequests++
 				result.ErrorDetails = append(result.ErrorDetails, fmt.Errorf("document symbols failed for %s: %w", lang, err))
 			} else if response != nil {
 				result.SuccessfulReqs++
 				result.ResponseSizes = append(result.ResponseSizes, len(response))
-				
+
 				// Update latency tracking
 				if result.MinLatency == 0 || requestDuration < result.MinLatency {
 					result.MinLatency = requestDuration
@@ -1366,7 +1364,7 @@ func (r *E2ETestRunner) executeCrossLanguageWorkflow(ctx context.Context, mockCl
 			defer wg.Done()
 
 			requestStart := time.Now()
-			
+
 			// Create realistic cross-language request
 			var sourceURI string
 			switch s.sourceLanguage {
@@ -1394,17 +1392,17 @@ func (r *E2ETestRunner) executeCrossLanguageWorkflow(ctx context.Context, mockCl
 
 			mu.Lock()
 			result.RequestsExecuted++
-			
+
 			if err != nil {
 				result.FailedRequests++
 				result.ErrorDetails = append(result.ErrorDetails, fmt.Errorf("cross-language request failed for %s: %w", s.name, err))
 			} else if response != nil {
 				result.SuccessfulReqs++
 				result.ResponseSizes = append(result.ResponseSizes, len(response))
-				
-				r.Logger.Printf("Cross-language workflow successful: %s -> %s (%s)", 
+
+				r.Logger.Printf("Cross-language workflow successful: %s -> %s (%s)",
 					s.sourceLanguage, s.targetLanguage, s.description)
-				
+
 				// Update latency tracking
 				if result.MinLatency == 0 || requestDuration < result.MinLatency {
 					result.MinLatency = requestDuration
@@ -1438,9 +1436,9 @@ func (r *E2ETestRunner) executeSimultaneousLSPRequests(ctx context.Context, mock
 		description string
 	}{
 		{
-			method: mcp.LSP_METHOD_WORKSPACE_SYMBOL,
-			count:  10,
-			params: LSPRequestParams{Query: "test"},
+			method:      mcp.LSP_METHOD_WORKSPACE_SYMBOL,
+			count:       10,
+			params:      LSPRequestParams{Query: "test"},
 			description: "10 concurrent workspace symbol searches",
 		},
 		{
@@ -1488,7 +1486,7 @@ func (r *E2ETestRunner) executeSimultaneousLSPRequests(ctx context.Context, mock
 			defer wg.Done()
 
 			r.Logger.Printf("Starting concurrent test: %s", s.description)
-			
+
 			// Launch concurrent requests for this scenario
 			var scenarioWg sync.WaitGroup
 			startTime := time.Now()
@@ -1504,15 +1502,15 @@ func (r *E2ETestRunner) executeSimultaneousLSPRequests(ctx context.Context, mock
 
 					mu.Lock()
 					result.RequestsExecuted++
-					
+
 					if err != nil {
 						result.FailedRequests++
-						result.ErrorDetails = append(result.ErrorDetails, 
+						result.ErrorDetails = append(result.ErrorDetails,
 							fmt.Errorf("concurrent request %d failed for %s: %w", requestID, s.method, err))
 					} else if response != nil {
 						result.SuccessfulReqs++
 						result.ResponseSizes = append(result.ResponseSizes, len(response))
-						
+
 						// Update latency tracking
 						if result.MinLatency == 0 || requestDuration < result.MinLatency {
 							result.MinLatency = requestDuration
@@ -1522,7 +1520,7 @@ func (r *E2ETestRunner) executeSimultaneousLSPRequests(ctx context.Context, mock
 						}
 					} else {
 						result.FailedRequests++
-						result.ErrorDetails = append(result.ErrorDetails, 
+						result.ErrorDetails = append(result.ErrorDetails,
 							fmt.Errorf("empty response for concurrent request %d (%s)", requestID, s.method))
 					}
 					mu.Unlock()
@@ -1531,7 +1529,7 @@ func (r *E2ETestRunner) executeSimultaneousLSPRequests(ctx context.Context, mock
 
 			scenarioWg.Wait()
 			scenarioDuration := time.Since(startTime)
-			
+
 			r.Logger.Printf("Concurrent test completed: %s (duration: %v)", s.description, scenarioDuration)
 		}(scenario)
 	}
@@ -1540,7 +1538,7 @@ func (r *E2ETestRunner) executeSimultaneousLSPRequests(ctx context.Context, mock
 
 	// Test mixed concurrent requests (different methods simultaneously)
 	r.Logger.Printf("Starting mixed concurrent LSP requests test")
-	
+
 	mixedMethods := []string{
 		mcp.LSP_METHOD_WORKSPACE_SYMBOL,
 		mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION,
@@ -1556,7 +1554,7 @@ func (r *E2ETestRunner) executeSimultaneousLSPRequests(ctx context.Context, mock
 
 			// Select random method and parameters
 			method := mixedMethods[requestID%len(mixedMethods)]
-			
+
 			var params LSPRequestParams
 			switch method {
 			case mcp.LSP_METHOD_WORKSPACE_SYMBOL:
@@ -1574,15 +1572,15 @@ func (r *E2ETestRunner) executeSimultaneousLSPRequests(ctx context.Context, mock
 
 			mu.Lock()
 			result.RequestsExecuted++
-			
+
 			if err != nil {
 				result.FailedRequests++
-				result.ErrorDetails = append(result.ErrorDetails, 
+				result.ErrorDetails = append(result.ErrorDetails,
 					fmt.Errorf("mixed concurrent request %d (%s) failed: %w", requestID, method, err))
 			} else if response != nil {
 				result.SuccessfulReqs++
 				result.ResponseSizes = append(result.ResponseSizes, len(response))
-				
+
 				// Update latency tracking
 				if result.MinLatency == 0 || requestDuration < result.MinLatency {
 					result.MinLatency = requestDuration
@@ -1592,7 +1590,7 @@ func (r *E2ETestRunner) executeSimultaneousLSPRequests(ctx context.Context, mock
 				}
 			} else {
 				result.FailedRequests++
-				result.ErrorDetails = append(result.ErrorDetails, 
+				result.ErrorDetails = append(result.ErrorDetails,
 					fmt.Errorf("empty response for mixed concurrent request %d (%s)", requestID, method))
 			}
 			mu.Unlock()

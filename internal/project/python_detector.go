@@ -44,7 +44,7 @@ func (p *PythonLanguageDetector) DetectLanguage(ctx context.Context, path string
 		if _, err := os.Stat(filepath.Join(path, marker)); err == nil {
 			result.MarkerFiles = append(result.MarkerFiles, marker)
 			result.ConfigFiles = append(result.ConfigFiles, marker)
-			
+
 			// Higher confidence for more modern markers
 			switch marker {
 			case types.MARKER_PYPROJECT:
@@ -64,7 +64,7 @@ func (p *PythonLanguageDetector) DetectLanguage(ctx context.Context, path string
 	pyFileCount := 0
 	sourceDirs := make(map[string]bool)
 	testDirs := make(map[string]bool)
-	
+
 	err := filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Continue on errors
@@ -86,7 +86,7 @@ func (p *PythonLanguageDetector) DetectLanguage(ctx context.Context, path string
 			pyFileCount++
 			dir := filepath.Dir(filePath)
 			relDir, _ := filepath.Rel(path, dir)
-			
+
 			fileName := strings.ToLower(info.Name())
 			if strings.Contains(fileName, "test") || strings.Contains(filePath, "test") || strings.Contains(relDir, "test") {
 				testDirs[relDir] = true
@@ -151,21 +151,21 @@ func (p *PythonLanguageDetector) ValidateStructure(ctx context.Context, path str
 		if err != nil {
 			return nil
 		}
-		
+
 		if !info.IsDir() && (strings.HasSuffix(filePath, ".py") || strings.HasSuffix(filePath, ".pyw") || strings.HasSuffix(filePath, ".pyx")) {
 			hasPythonFiles = true
 			return filepath.SkipAll // Found at least one, can stop
 		}
-		
+
 		// Skip common ignore directories
 		if info.IsDir() {
 			name := info.Name()
-			if name == "__pycache__" || name == ".pytest_cache" || name == ".tox" || 
-			   name == "venv" || name == "env" || name == ".venv" {
+			if name == "__pycache__" || name == ".pytest_cache" || name == ".tox" ||
+				name == "venv" || name == "env" || name == ".venv" {
 				return filepath.SkipDir
 			}
 		}
-		
+
 		return nil
 	})
 

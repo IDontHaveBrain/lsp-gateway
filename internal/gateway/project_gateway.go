@@ -21,7 +21,7 @@ const (
 
 // ProjectAwareGateway extends the existing Gateway with project/workspace awareness
 type ProjectAwareGateway struct {
-	*Gateway                    // Embedded traditional gateway for backward compatibility
+	*Gateway         // Embedded traditional gateway for backward compatibility
 	WorkspaceManager *WorkspaceManager
 	ProjectRouter    *ProjectAwareRouter
 	Logger           *mcp.StructuredLogger
@@ -172,7 +172,7 @@ func (pg *ProjectAwareGateway) GetWorkspaceClient(workspaceID, language string) 
 	return pg.WorkspaceManager.GetLSPClient(workspaceID, language)
 }
 
-// GetWorkspaceContext retrieves or creates workspace context for a file URI  
+// GetWorkspaceContext retrieves or creates workspace context for a file URI
 func (pg *ProjectAwareGateway) GetWorkspaceContext(fileURI string) (WorkspaceContext, error) {
 	workspace, err := pg.WorkspaceManager.GetOrCreateWorkspace(fileURI)
 	if err != nil {
@@ -216,11 +216,11 @@ func (pg *ProjectAwareGateway) handleProjectAwareRouting(w http.ResponseWriter, 
 		}
 		// Create a temporary workspace context for non-workspace-aware requests
 		tempWorkspace := &WorkspaceContextImpl{
-			ID:          "traditional",
-			RootPath:    "/",
-			ProjectType: "generic",
-			ProjectName: "traditional",
-			Languages:   []string{"text"},
+			ID:           "traditional",
+			RootPath:     "/",
+			ProjectType:  "generic",
+			ProjectName:  "traditional",
+			Languages:    []string{"text"},
 			IsActiveFlag: true,
 		}
 		return tempWorkspace, serverName, true
@@ -239,11 +239,11 @@ func (pg *ProjectAwareGateway) handleProjectAwareRouting(w http.ResponseWriter, 
 		}
 		// Create a temporary workspace context
 		tempWorkspace := &WorkspaceContextImpl{
-			ID:          "fallback",
-			RootPath:    "/",
-			ProjectType: "generic",
-			ProjectName: "fallback",
-			Languages:   []string{"text"},
+			ID:           "fallback",
+			RootPath:     "/",
+			ProjectType:  "generic",
+			ProjectName:  "fallback",
+			Languages:    []string{"text"},
 			IsActiveFlag: true,
 		}
 		return tempWorkspace, serverName, true

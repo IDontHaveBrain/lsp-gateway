@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -12,41 +13,41 @@ import (
 
 // HistoricalTracker provides comprehensive historical tracking and analysis
 type HistoricalTracker struct {
-	mu                    sync.RWMutex
-	config                *HistoricalConfig
-	logger                *log.Logger
-	persistenceManager    *ResultPersistenceManager
-	
+	mu                 sync.RWMutex
+	config             *HistoricalConfig
+	logger             *log.Logger
+	persistenceManager *ResultPersistenceManager
+
 	// Analysis components
-	trendAnalyzer         *AdvancedTrendAnalyzer
-	regressionDetector    *RegressionDetector
-	baselineManager       *BaselineManager
-	performanceProfiler   *PerformanceProfiler
-	
+	trendAnalyzer       *AdvancedTrendAnalyzer
+	regressionDetector  *RegressionDetector
+	baselineManager     *BaselineManager
+	performanceProfiler *PerformanceProfiler
+
 	// Cache for frequently accessed data
-	dataCache             *HistoricalDataCache
-	
+	dataCache *HistoricalDataCache
+
 	// Background analysis
-	analysisScheduler     *AnalysisScheduler
-	
+	analysisScheduler *AnalysisScheduler
+
 	// Context and cleanup
-	ctx                   context.Context
-	cancel                context.CancelFunc
-	cleanupFunctions      []func() error
+	ctx              context.Context
+	cancel           context.CancelFunc
+	cleanupFunctions []func() error
 }
 
 // HistoricalConfig defines configuration for historical tracking
 type HistoricalConfig struct {
-	AnalysisWindowDays      int
-	TrendAnalysisWindow     int
-	RegressionThreshold     float64
-	BaselineUpdateInterval  time.Duration
-	CacheSize               int
-	CacheTTL                time.Duration
+	AnalysisWindowDays       int
+	TrendAnalysisWindow      int
+	RegressionThreshold      float64
+	BaselineUpdateInterval   time.Duration
+	CacheSize                int
+	CacheTTL                 time.Duration
 	EnableBackgroundAnalysis bool
-	AnalysisInterval        time.Duration
-	AlertingEnabled         bool
-	AlertThresholds         *HistoricalAlertThresholds
+	AnalysisInterval         time.Duration
+	AlertingEnabled          bool
+	AlertThresholds          *HistoricalAlertThresholds
 }
 
 // HistoricalAlertThresholds defines thresholds for historical alerting
@@ -69,136 +70,136 @@ type AdvancedTrendAnalyzer struct {
 
 // TrendAnalysisConfig configuration for trend analysis
 type TrendAnalysisConfig struct {
-	WindowSize          int
-	SmoothingFactor     float64
-	SeasonalityWindow   int
-	ConfidenceLevel     float64
-	OutlierThreshold    float64
-	ForecastHorizon     int
+	WindowSize        int
+	SmoothingFactor   float64
+	SeasonalityWindow int
+	ConfidenceLevel   float64
+	OutlierThreshold  float64
+	ForecastHorizon   int
 }
 
 // StatisticalModel represents a statistical model for trend analysis
 type StatisticalModel struct {
-	ModelType       ModelType
-	Parameters      map[string]float64
-	Accuracy        float64
-	LastUpdated     time.Time
-	SampleCount     int
+	ModelType        ModelType
+	Parameters       map[string]float64
+	Accuracy         float64
+	LastUpdated      time.Time
+	SampleCount      int
 	PredictionWindow int
-	Confidence      float64
+	Confidence       float64
 }
 
 // ModelType defines different statistical model types
 type ModelType string
 
 const (
-	ModelTypeLinearRegression    ModelType = "linear_regression"
+	ModelTypeLinearRegression     ModelType = "linear_regression"
 	ModelTypeExponentialSmoothing ModelType = "exponential_smoothing"
-	ModelTypeARIMA              ModelType = "arima"
-	ModelTypeSeasonalTrend      ModelType = "seasonal_trend"
-	ModelTypePolynomial         ModelType = "polynomial"
+	ModelTypeARIMA                ModelType = "arima"
+	ModelTypeSeasonalTrend        ModelType = "seasonal_trend"
+	ModelTypePolynomial           ModelType = "polynomial"
 )
 
 // RegressionDetector detects performance regressions
 type RegressionDetector struct {
-	mu                   sync.RWMutex
-	config               *RegressionConfig
-	baselineManager      *BaselineManager
-	alertingSystem       *AlertingSystem
-	regressionHistory    []*RegressionEvent
-	suppressionRules     map[string]*SuppressionRule
+	mu                sync.RWMutex
+	config            *RegressionConfig
+	baselineManager   *BaselineManager
+	alertingSystem    *AlertingSystem
+	regressionHistory []*RegressionEvent
+	suppressionRules  map[string]*SuppressionRule
 }
 
 // RegressionConfig configuration for regression detection
 type RegressionConfig struct {
-	DetectionWindow      int
-	MinSampleSize        int
-	StatisticalMethod    StatisticalMethod
-	ConfidenceLevel      float64
-	AlertingEnabled      bool
+	DetectionWindow        int
+	MinSampleSize          int
+	StatisticalMethod      StatisticalMethod
+	ConfidenceLevel        float64
+	AlertingEnabled        bool
 	AutoSuppressionEnabled bool
-	SuppressionDuration  time.Duration
+	SuppressionDuration    time.Duration
 }
 
 // StatisticalMethod defines statistical methods for regression detection
 type StatisticalMethod string
 
 const (
-	StatisticalMethodTTest      StatisticalMethod = "t_test"
+	StatisticalMethodTTest       StatisticalMethod = "t_test"
 	StatisticalMethodMannWhitney StatisticalMethod = "mann_whitney"
-	StatisticalMethodWilcoxon   StatisticalMethod = "wilcoxon"
-	StatisticalMethodBootstrap  StatisticalMethod = "bootstrap"
+	StatisticalMethodWilcoxon    StatisticalMethod = "wilcoxon"
+	StatisticalMethodBootstrap   StatisticalMethod = "bootstrap"
 )
 
 // RegressionEvent represents a detected regression
 type RegressionEvent struct {
-	ID                   string
-	TestName             string
-	Scenario             string
-	MetricName           string
-	DetectedAt           time.Time
-	BaselineValue        float64
-	CurrentValue         float64
-	RegressionPercent    float64
-	Confidence           float64
-	Severity             RegressionSeverity
-	StatisticalTest      string
-	PValue               float64
-	EffectSize           float64
-	Context              map[string]interface{}
-	Status               RegressionStatus
-	ResolutionNotes      string
-	FirstOccurrence      time.Time
-	LastOccurrence       time.Time
-	OccurrenceCount      int
+	ID                string
+	TestName          string
+	Scenario          string
+	MetricName        string
+	DetectedAt        time.Time
+	BaselineValue     float64
+	CurrentValue      float64
+	RegressionPercent float64
+	Confidence        float64
+	Severity          RegressionSeverity
+	StatisticalTest   string
+	PValue            float64
+	EffectSize        float64
+	Context           map[string]interface{}
+	Status            RegressionStatus
+	ResolutionNotes   string
+	FirstOccurrence   time.Time
+	LastOccurrence    time.Time
+	OccurrenceCount   int
 }
 
 // RegressionStatus represents the status of a regression
 type RegressionStatus string
 
 const (
-	RegressionStatusNew        RegressionStatus = "new"
-	RegressionStatusConfirmed  RegressionStatus = "confirmed"
-	RegressionStatusResolved   RegressionStatus = "resolved"
-	RegressionStatusSuppressed RegressionStatus = "suppressed"
+	RegressionStatusNew           RegressionStatus = "new"
+	RegressionStatusConfirmed     RegressionStatus = "confirmed"
+	RegressionStatusResolved      RegressionStatus = "resolved"
+	RegressionStatusSuppressed    RegressionStatus = "suppressed"
 	RegressionStatusFalsePositive RegressionStatus = "false_positive"
 )
 
 // SuppressionRule defines rules for suppressing false positive regressions
 type SuppressionRule struct {
-	ID               string
-	Pattern          string
-	TestName         string
-	MetricName       string
-	Threshold        float64
-	Duration         time.Duration
-	CreatedAt        time.Time
-	ExpiresAt        *time.Time
-	Reason           string
-	CreatedBy        string
-	Active           bool
+	ID         string
+	Pattern    string
+	TestName   string
+	MetricName string
+	Threshold  float64
+	Duration   time.Duration
+	CreatedAt  time.Time
+	ExpiresAt  *time.Time
+	Reason     string
+	CreatedBy  string
+	Active     bool
 }
 
 // BaselineManager manages performance baselines
 type BaselineManager struct {
-	mu                sync.RWMutex
-	config            *BaselineConfig
+	mu                 sync.RWMutex
+	config             *BaselineConfig
 	persistenceManager *ResultPersistenceManager
-	baselines         map[string]*PerformanceBaseline
-	baselineHistory   map[string][]*BaselineSnapshot
-	updateScheduler   *BaselineUpdateScheduler
+	baselines          map[string]*PerformanceBaseline
+	baselineHistory    map[string][]*BaselineSnapshot
+	updateScheduler    *BaselineUpdateScheduler
 }
 
 // BaselineConfig configuration for baseline management
 type BaselineConfig struct {
-	UpdateStrategy       BaselineUpdateStrategy
-	UpdateInterval       time.Duration
-	MinSampleSize        int
-	MaxAge               time.Duration
-	OutlierFiltering     bool
-	OutlierThreshold     float64
-	ConfidenceLevel      float64
-	AutoUpdateEnabled    bool
+	UpdateStrategy         BaselineUpdateStrategy
+	UpdateInterval         time.Duration
+	MinSampleSize          int
+	MaxAge                 time.Duration
+	OutlierFiltering       bool
+	OutlierThreshold       float64
+	ConfidenceLevel        float64
+	AutoUpdateEnabled      bool
 	ManualApprovalRequired bool
 }
 
@@ -214,12 +215,12 @@ const (
 
 // BaselineSnapshot represents a point-in-time baseline snapshot
 type BaselineSnapshot struct {
-	Timestamp        time.Time
-	Baseline         *PerformanceBaseline
-	ChangeReason     string
-	ApprovedBy       string
-	SampleCount      int
-	QualityScore     float64
+	Timestamp    time.Time
+	Baseline     *PerformanceBaseline
+	ChangeReason string
+	ApprovedBy   string
+	SampleCount  int
+	QualityScore float64
 }
 
 // BaselineUpdateScheduler schedules baseline updates
@@ -257,63 +258,63 @@ const (
 type TaskStatus string
 
 const (
-	TaskStatusPending    TaskStatus = "pending"
-	TaskStatusRunning    TaskStatus = "running"
-	TaskStatusCompleted  TaskStatus = "completed"
-	TaskStatusFailed     TaskStatus = "failed"
-	TaskStatusCancelled  TaskStatus = "cancelled"
+	TaskStatusPending   TaskStatus = "pending"
+	TaskStatusRunning   TaskStatus = "running"
+	TaskStatusCompleted TaskStatus = "completed"
+	TaskStatusFailed    TaskStatus = "failed"
+	TaskStatusCancelled TaskStatus = "cancelled"
 )
 
 // PerformanceProfiler profiles performance characteristics over time
 type PerformanceProfiler struct {
-	mu                sync.RWMutex
-	config            *ProfilerConfig
-	profiles          map[string]*PerformanceProfile
-	profileHistory    map[string][]*ProfileSnapshot
-	anomalyDetector   *AnomalyDetector
+	mu              sync.RWMutex
+	config          *ProfilerConfig
+	profiles        map[string]*PerformanceProfile
+	profileHistory  map[string][]*ProfileSnapshot
+	anomalyDetector *AnomalyDetector
 }
 
 // ProfilerConfig configuration for performance profiling
 type ProfilerConfig struct {
-	ProfilingInterval    time.Duration
-	ProfileRetention     time.Duration
-	AnomalyDetection     bool
-	MetricThresholds     map[string]float64
-	ProfileComparison    bool
-	TrendAnalysis        bool
+	ProfilingInterval time.Duration
+	ProfileRetention  time.Duration
+	AnomalyDetection  bool
+	MetricThresholds  map[string]float64
+	ProfileComparison bool
+	TrendAnalysis     bool
 }
 
 // PerformanceProfile represents a performance profile
 type PerformanceProfile struct {
-	TestName            string
-	Scenario            string
-	Environment         string
-	LastUpdated         time.Time
-	DurationProfile     *MetricProfile
-	ThroughputProfile   *MetricProfile
-	MemoryProfile       *MetricProfile
-	ErrorRateProfile    *MetricProfile
-	ResourceProfile     *ResourceUtilizationProfile
-	TrendAnalysis       *ProfileTrendAnalysis
-	AnomalyScore        float64
-	QualityScore        float64
-	Stability           StabilityLevel
+	TestName          string
+	Scenario          string
+	Environment       string
+	LastUpdated       time.Time
+	DurationProfile   *MetricProfile
+	ThroughputProfile *MetricProfile
+	MemoryProfile     *MetricProfile
+	ErrorRateProfile  *MetricProfile
+	ResourceProfile   *ResourceUtilizationProfile
+	TrendAnalysis     *ProfileTrendAnalysis
+	AnomalyScore      float64
+	QualityScore      float64
+	Stability         StabilityLevel
 }
 
 // MetricProfile represents statistical profile of a metric
 type MetricProfile struct {
-	Mean             float64
-	Median           float64
+	Mean              float64
+	Median            float64
 	StandardDeviation float64
-	Variance         float64
-	Skewness         float64
-	Kurtosis         float64
-	Min              float64
-	Max              float64
-	Percentiles      map[int]float64  // P50, P90, P95, P99
-	Distribution     DistributionType
-	SampleCount      int
-	LastUpdated      time.Time
+	Variance          float64
+	Skewness          float64
+	Kurtosis          float64
+	Min               float64
+	Max               float64
+	Percentiles       map[int]float64 // P50, P90, P95, P99
+	Distribution      DistributionType
+	SampleCount       int
+	LastUpdated       time.Time
 }
 
 // DistributionType defines statistical distribution types
@@ -330,10 +331,10 @@ const (
 
 // ResourceUtilizationProfile represents resource utilization patterns
 type ResourceUtilizationProfile struct {
-	MemoryUtilization    *UtilizationPattern
-	CPUUtilization       *UtilizationPattern
-	NetworkUtilization   *UtilizationPattern
-	DiskUtilization      *UtilizationPattern
+	MemoryUtilization     *UtilizationPattern
+	CPUUtilization        *UtilizationPattern
+	NetworkUtilization    *UtilizationPattern
+	DiskUtilization       *UtilizationPattern
 	ConnectionUtilization *UtilizationPattern
 }
 
@@ -349,14 +350,14 @@ type UtilizationPattern struct {
 
 // ProfileTrendAnalysis represents trend analysis for performance profiles
 type ProfileTrendAnalysis struct {
-	OverallTrend        TrendDirection
-	DurationTrend       TrendDirection
-	ThroughputTrend     TrendDirection
-	MemoryTrend         TrendDirection
-	ErrorRateTrend      TrendDirection
-	TrendConfidence     float64
-	ForecastAccuracy    float64
-	NextPeriodForecast  *PerformanceForecast
+	OverallTrend       TrendDirection
+	DurationTrend      TrendDirection
+	ThroughputTrend    TrendDirection
+	MemoryTrend        TrendDirection
+	ErrorRateTrend     TrendDirection
+	TrendConfidence    float64
+	ForecastAccuracy   float64
+	NextPeriodForecast *PerformanceForecast
 }
 
 // StabilityLevel represents performance stability level
@@ -380,31 +381,31 @@ type ProfileSnapshot struct {
 
 // ProfileChange represents a change in performance profile
 type ProfileChange struct {
-	MetricName      string
-	ChangeType      ChangeType
-	PreviousValue   float64
-	CurrentValue    float64
-	ChangePercent   float64
-	Significance    float64
-	ChangeReason    string
+	MetricName    string
+	ChangeType    ChangeType
+	PreviousValue float64
+	CurrentValue  float64
+	ChangePercent float64
+	Significance  float64
+	ChangeReason  string
 }
 
 // ChangeType defines types of profile changes
 type ChangeType string
 
 const (
-	ChangeTypeImprovement   ChangeType = "improvement"
-	ChangeTypeDegradation   ChangeType = "degradation"
-	ChangeTypeFluctuation   ChangeType = "fluctuation"
-	ChangeTypeShift         ChangeType = "shift"
+	ChangeTypeImprovement ChangeType = "improvement"
+	ChangeTypeDegradation ChangeType = "degradation"
+	ChangeTypeFluctuation ChangeType = "fluctuation"
+	ChangeTypeShift       ChangeType = "shift"
 )
 
 // SeasonalityDetector detects seasonal patterns in performance data
 type SeasonalityDetector struct {
-	mu              sync.RWMutex
-	config          *SeasonalityConfig
-	patterns        map[string][]*SeasonalPattern
-	patternCache    map[string]*CachedSeasonalAnalysis
+	mu           sync.RWMutex
+	config       *SeasonalityConfig
+	patterns     map[string][]*SeasonalPattern
+	patternCache map[string]*CachedSeasonalAnalysis
 }
 
 // SeasonalityConfig configuration for seasonality detection
@@ -420,27 +421,27 @@ type SeasonalityMethod string
 
 const (
 	SeasonalityMethodAutocorrelation SeasonalityMethod = "autocorrelation"
-	SeasonalityMethodFFT            SeasonalityMethod = "fft"
-	SeasonalityMethodSTL            SeasonalityMethod = "stl"
-	SeasonalityMethodXGBOOST        SeasonalityMethod = "xgboost"
+	SeasonalityMethodFFT             SeasonalityMethod = "fft"
+	SeasonalityMethodSTL             SeasonalityMethod = "stl"
+	SeasonalityMethodXGBOOST         SeasonalityMethod = "xgboost"
 )
 
 // CachedSeasonalAnalysis represents cached seasonal analysis results
 type CachedSeasonalAnalysis struct {
-	Analysis    *SeasonalAnalysis
-	CachedAt    time.Time
-	ValidUntil  time.Time
+	Analysis   *SeasonalAnalysis
+	CachedAt   time.Time
+	ValidUntil time.Time
 }
 
 // SeasonalAnalysis represents seasonal analysis results
 type SeasonalAnalysis struct {
-	HasSeasonality     bool
-	SeasonalStrength   float64
-	Periods           []SeasonalPeriod
-	Forecast          []float64
-	Confidence        float64
-	Method            SeasonalityMethod
-	AnalyzedPeriod    time.Duration
+	HasSeasonality   bool
+	SeasonalStrength float64
+	Periods          []SeasonalPeriod
+	Forecast         []float64
+	Confidence       float64
+	Method           SeasonalityMethod
+	AnalyzedPeriod   time.Duration
 }
 
 // SeasonalPeriod represents a detected seasonal period
@@ -454,10 +455,10 @@ type SeasonalPeriod struct {
 
 // AnomalyDetector detects anomalies in performance data
 type AnomalyDetector struct {
-	mu              sync.RWMutex
-	config          *AnomalyConfig
-	models          map[string]*AnomalyModel
-	anomalyHistory  map[string][]*AnomalyEvent
+	mu             sync.RWMutex
+	config         *AnomalyConfig
+	models         map[string]*AnomalyModel
+	anomalyHistory map[string][]*AnomalyEvent
 }
 
 // AnomalyConfig configuration for anomaly detection
@@ -474,90 +475,90 @@ type AnomalyConfig struct {
 type AnomalyMethod string
 
 const (
-	AnomalyMethodStatistical   AnomalyMethod = "statistical"
+	AnomalyMethodStatistical     AnomalyMethod = "statistical"
 	AnomalyMethodIsolationForest AnomalyMethod = "isolation_forest"
-	AnomalyMethodLocalOutlier  AnomalyMethod = "local_outlier"
-	AnomalyMethodOneClassSVM   AnomalyMethod = "one_class_svm"
-	AnomalyMethodAutoEncoder   AnomalyMethod = "autoencoder"
+	AnomalyMethodLocalOutlier    AnomalyMethod = "local_outlier"
+	AnomalyMethodOneClassSVM     AnomalyMethod = "one_class_svm"
+	AnomalyMethodAutoEncoder     AnomalyMethod = "autoencoder"
 )
 
 // SensitivityLevel defines anomaly detection sensitivity
 type SensitivityLevel string
 
 const (
-	SensitivityLevelLow      SensitivityLevel = "low"
-	SensitivityLevelMedium   SensitivityLevel = "medium"
-	SensitivityLevelHigh     SensitivityLevel = "high"
-	SensitivityLevelUltra    SensitivityLevel = "ultra"
+	SensitivityLevelLow    SensitivityLevel = "low"
+	SensitivityLevelMedium SensitivityLevel = "medium"
+	SensitivityLevelHigh   SensitivityLevel = "high"
+	SensitivityLevelUltra  SensitivityLevel = "ultra"
 )
 
 // AnomalyModel represents an anomaly detection model
 type AnomalyModel struct {
-	ModelType       AnomalyMethod
-	Parameters      map[string]float64
-	TrainingData    []float64
-	Threshold       float64
-	Accuracy        float64
+	ModelType         AnomalyMethod
+	Parameters        map[string]float64
+	TrainingData      []float64
+	Threshold         float64
+	Accuracy          float64
 	FalsePositiveRate float64
-	LastTrained     time.Time
-	ModelVersion    string
+	LastTrained       time.Time
+	ModelVersion      string
 }
 
 // AnomalyEvent represents a detected anomaly
 type AnomalyEvent struct {
-	ID              string
-	TestName        string
-	MetricName      string
-	Timestamp       time.Time
-	Value           float64
-	ExpectedValue   float64
-	AnomalyScore    float64
-	Severity        AnomalySeverity
-	Method          AnomalyMethod
-	Context         map[string]interface{}
-	Duration        time.Duration
-	Status          AnomalyStatus
-	Resolution      string
+	ID            string
+	TestName      string
+	MetricName    string
+	Timestamp     time.Time
+	Value         float64
+	ExpectedValue float64
+	AnomalyScore  float64
+	Severity      AnomalySeverity
+	Method        AnomalyMethod
+	Context       map[string]interface{}
+	Duration      time.Duration
+	Status        AnomalyStatus
+	Resolution    string
 }
 
 // AnomalyStatus represents anomaly status
 type AnomalyStatus string
 
 const (
-	AnomalyStatusActive    AnomalyStatus = "active"
-	AnomalyStatusResolved  AnomalyStatus = "resolved"
-	AnomalyStatusIgnored   AnomalyStatus = "ignored"
+	AnomalyStatusActive   AnomalyStatus = "active"
+	AnomalyStatusResolved AnomalyStatus = "resolved"
+	AnomalyStatusIgnored  AnomalyStatus = "ignored"
 )
 
 // HistoricalDataCache provides caching for frequently accessed historical data
 type HistoricalDataCache struct {
-	mu       sync.RWMutex
-	cache    map[string]*CacheEntry
-	maxSize  int
-	ttl      time.Duration
-	hitCount int64
+	mu        sync.RWMutex
+	cache     map[string]*CacheEntry
+	maxSize   int
+	ttl       time.Duration
+	hitCount  int64
 	missCount int64
 }
 
 // CacheEntry represents a cache entry
 type CacheEntry struct {
-	Key       string
-	Data      interface{}
-	CreatedAt time.Time
-	ExpiresAt time.Time
-	AccessCount int64
+	Key          string
+	Data         interface{}
+	CreatedAt    time.Time
+	ExpiresAt    time.Time
+	AccessCount  int64
 	LastAccessed time.Time
 }
 
 // AnalysisScheduler schedules and manages background analysis tasks
 type AnalysisScheduler struct {
-	mu              sync.RWMutex
-	tasks           []*AnalysisTask
-	running         bool
-	workerCount     int
-	taskQueue       chan *AnalysisTask
-	completedTasks  []*AnalysisTask
-	failedTasks     []*AnalysisTask
+	mu             sync.RWMutex
+	tasks          []*AnalysisTask
+	running        bool
+	workerCount    int
+	taskQueue      chan *AnalysisTask
+	completedTasks []*AnalysisTask
+	failedTasks    []*AnalysisTask
 }
 
 // AnalysisTask represents a background analysis task
@@ -581,56 +582,56 @@ type AnalysisTask struct {
 type AnalysisTaskType string
 
 const (
-	AnalysisTaskTypeTrendAnalysis      AnalysisTaskType = "trend_analysis"
+	AnalysisTaskTypeTrendAnalysis       AnalysisTaskType = "trend_analysis"
 	AnalysisTaskTypeRegressionDetection AnalysisTaskType = "regression_detection"
-	AnalysisTaskTypeBaselineUpdate     AnalysisTaskType = "baseline_update"
-	AnalysisTaskTypeProfileUpdate      AnalysisTaskType = "profile_update"
-	AnalysisTaskTypeAnomalyDetection   AnalysisTaskType = "anomaly_detection"
+	AnalysisTaskTypeBaselineUpdate      AnalysisTaskType = "baseline_update"
+	AnalysisTaskTypeProfileUpdate       AnalysisTaskType = "profile_update"
+	AnalysisTaskTypeAnomalyDetection    AnalysisTaskType = "anomaly_detection"
 	AnalysisTaskTypeSeasonalityAnalysis AnalysisTaskType = "seasonality_analysis"
 )
 
 // AlertingSystem manages alerts for historical analysis
 type AlertingSystem struct {
-	mu            sync.RWMutex
-	config        *AlertingConfig
-	activeAlerts  map[string]*Alert
-	alertHistory  []*Alert
-	notifiers     []AlertNotifier
+	mu           sync.RWMutex
+	config       *AlertingConfig
+	activeAlerts map[string]*Alert
+	alertHistory []*Alert
+	notifiers    []AlertNotifier
 }
 
 // AlertingConfig configuration for alerting system
 type AlertingConfig struct {
-	EnabledChannels    []AlertChannel
-	ThrottleInterval   time.Duration
-	EscalationEnabled  bool
-	EscalationDelay    time.Duration
-	MaxAlerts          int
-	AlertRetention     time.Duration
+	EnabledChannels   []AlertChannel
+	ThrottleInterval  time.Duration
+	EscalationEnabled bool
+	EscalationDelay   time.Duration
+	MaxAlerts         int
+	AlertRetention    time.Duration
 }
 
 // AlertChannel defines alert channels
 type AlertChannel string
 
 const (
-	AlertChannelEmail    AlertChannel = "email"
-	AlertChannelSlack    AlertChannel = "slack"
-	AlertChannelWebhook  AlertChannel = "webhook"
-	AlertChannelConsole  AlertChannel = "console"
+	AlertChannelEmail   AlertChannel = "email"
+	AlertChannelSlack   AlertChannel = "slack"
+	AlertChannelWebhook AlertChannel = "webhook"
+	AlertChannelConsole AlertChannel = "console"
 )
 
 // Alert represents an alert
 type Alert struct {
-	ID             string
-	Type           AlertType
-	Severity       AlertSeverity
-	Title          string
-	Message        string
-	Context        map[string]interface{}
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	ResolvedAt     *time.Time
-	Status         AlertStatus
-	EscalationLevel int
+	ID                string
+	Type              AlertType
+	Severity          AlertSeverity
+	Title             string
+	Message           string
+	Context           map[string]interface{}
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	ResolvedAt        *time.Time
+	Status            AlertStatus
+	EscalationLevel   int
 	NotificationsSent int
 }
 
@@ -638,11 +639,11 @@ type Alert struct {
 type AlertType string
 
 const (
-	AlertTypeRegression    AlertType = "regression"
-	AlertTypeAnomaly      AlertType = "anomaly"
-	AlertTypeThreshold    AlertType = "threshold"
-	AlertTypeBaseline     AlertType = "baseline"
-	AlertTypeSystem       AlertType = "system"
+	AlertTypeRegression AlertType = "regression"
+	AlertTypeAnomaly    AlertType = "anomaly"
+	AlertTypeThreshold  AlertType = "threshold"
+	AlertTypeBaseline   AlertType = "baseline"
+	AlertTypeSystem     AlertType = "system"
 )
 
 // AlertStatus represents alert status
@@ -702,17 +703,17 @@ func NewHistoricalTracker(config *HistoricalConfig, persistenceManager *ResultPe
 func (ht *HistoricalTracker) initializeComponents() error {
 	// Initialize trend analyzer
 	trendConfig := &TrendAnalysisConfig{
-		WindowSize:          ht.config.TrendAnalysisWindow,
-		SmoothingFactor:     0.3,
-		SeasonalityWindow:   7 * 24, // 7 days in hours
-		ConfidenceLevel:     0.95,
-		OutlierThreshold:    2.0,
-		ForecastHorizon:     24, // 24 periods
+		WindowSize:        ht.config.TrendAnalysisWindow,
+		SmoothingFactor:   0.3,
+		SeasonalityWindow: 7 * 24, // 7 days in hours
+		ConfidenceLevel:   0.95,
+		OutlierThreshold:  2.0,
+		ForecastHorizon:   24, // 24 periods
 	}
 	ht.trendAnalyzer = &AdvancedTrendAnalyzer{
 		config:            trendConfig,
 		statisticalModels: make(map[string]*StatisticalModel),
-		seasonalDetector:  &SeasonalityDetector{
+		seasonalDetector: &SeasonalityDetector{
 			patterns:     make(map[string][]*SeasonalPattern),
 			patternCache: make(map[string]*CachedSeasonalAnalysis),
 			config: &SeasonalityConfig{
@@ -765,10 +766,10 @@ func (ht *HistoricalTracker) initializeComponents() error {
 		ManualApprovalRequired: false,
 	}
 	ht.baselineManager = &BaselineManager{
-		config:          baselineConfig,
+		config:             baselineConfig,
 		persistenceManager: ht.persistenceManager,
-		baselines:       make(map[string]*PerformanceBaseline),
-		baselineHistory: make(map[string][]*BaselineSnapshot),
+		baselines:          make(map[string]*PerformanceBaseline),
+		baselineHistory:    make(map[string][]*BaselineSnapshot),
 		updateScheduler: &BaselineUpdateScheduler{
 			updateQueue: make([]*BaselineUpdateTask, 0),
 			config:      baselineConfig,
@@ -777,10 +778,10 @@ func (ht *HistoricalTracker) initializeComponents() error {
 
 	// Initialize performance profiler
 	profilerConfig := &ProfilerConfig{
-		ProfilingInterval:   1 * time.Hour,
-		ProfileRetention:    30 * 24 * time.Hour,
-		AnomalyDetection:    true,
-		MetricThresholds:    map[string]float64{
+		ProfilingInterval: 1 * time.Hour,
+		ProfileRetention:  30 * 24 * time.Hour,
+		AnomalyDetection:  true,
+		MetricThresholds: map[string]float64{
 			"duration":   1000, // ms
 			"throughput": 100,  // req/s
 			"memory":     1024, // MB
@@ -790,9 +791,9 @@ func (ht *HistoricalTracker) initializeComponents() error {
 		TrendAnalysis:     true,
 	}
 	ht.performanceProfiler = &PerformanceProfiler{
-		config:         profilerConfig,
-		profiles:       make(map[string]*PerformanceProfile),
-		profileHistory: make(map[string][]*ProfileSnapshot),
+		config:          profilerConfig,
+		profiles:        make(map[string]*PerformanceProfile),
+		profileHistory:  make(map[string][]*ProfileSnapshot),
 		anomalyDetector: ht.trendAnalyzer.anomalyDetector,
 	}
 
@@ -910,7 +911,7 @@ func (ht *HistoricalTracker) UpdateBaselines(testName, scenario, environment str
 	}
 
 	if len(filteredData) < ht.baselineManager.config.MinSampleSize {
-		return fmt.Errorf("insufficient data for baseline calculation: need at least %d data points, got %d", 
+		return fmt.Errorf("insufficient data for baseline calculation: need at least %d data points, got %d",
 			ht.baselineManager.config.MinSampleSize, len(filteredData))
 	}
 
@@ -919,7 +920,7 @@ func (ht *HistoricalTracker) UpdateBaselines(testName, scenario, environment str
 
 	// Store baseline
 	baselineKey := fmt.Sprintf("%s_%s_%s", testName, scenario, environment)
-	
+
 	// Store previous baseline in history
 	if existing, exists := ht.baselineManager.baselines[baselineKey]; exists {
 		snapshot := &BaselineSnapshot{
@@ -945,7 +946,7 @@ func (ht *HistoricalTracker) GetPerformanceProfile(testName, scenario, environme
 	defer ht.mu.RUnlock()
 
 	profileKey := fmt.Sprintf("%s_%s_%s", testName, scenario, environment)
-	
+
 	// Check if profile exists and is recent
 	if profile, exists := ht.performanceProfiler.profiles[profileKey]; exists {
 		if time.Since(profile.LastUpdated) < ht.performanceProfiler.config.ProfilingInterval {
@@ -1023,7 +1024,7 @@ func (ht *HistoricalTracker) performTrendAnalysis(data []*TestRunRecord, testNam
 			if (testName == "" || result.TestName == testName) && (scenario == "" || result.Scenario == scenario) {
 				timestamps = append(timestamps, result.StartTime)
 				durations = append(durations, float64(result.Duration.Milliseconds()))
-				
+
 				if result.Metrics != nil {
 					throughputs = append(throughputs, result.Metrics.ThroughputPerSecond)
 					errorRates = append(errorRates, result.Metrics.ErrorRate)
@@ -1050,19 +1051,19 @@ func (ht *HistoricalTracker) performTrendAnalysis(data []*TestRunRecord, testNam
 
 	return &HistoricalTrendAnalysis{
 		LongTermTrends: map[string]TrendDirection{
-			"duration":    durationTrend,
-			"throughput":  throughputTrend,
-			"error_rate":  errorRateTrend,
+			"duration":   durationTrend,
+			"throughput": throughputTrend,
+			"error_rate": errorRateTrend,
 		},
 		ShortTermTrends: map[string]TrendDirection{
-			"duration":    ht.analyzeTrendDirection(durations[len(durations)-10:]),
-			"throughput":  ht.analyzeTrendDirection(throughputs[len(throughputs)-10:]),
-			"error_rate":  ht.analyzeTrendDirection(errorRates[len(errorRates)-10:]),
+			"duration":   ht.analyzeTrendDirection(durations[len(durations)-10:]),
+			"throughput": ht.analyzeTrendDirection(throughputs[len(throughputs)-10:]),
+			"error_rate": ht.analyzeTrendDirection(errorRates[len(errorRates)-10:]),
 		},
 		VolatilityAnalysis: map[string]float64{
-			"duration":    durationVolatility,
-			"throughput":  throughputVolatility,
-			"error_rate":  errorRateVolatility,
+			"duration":   durationVolatility,
+			"throughput": throughputVolatility,
+			"error_rate": errorRateVolatility,
 		},
 		PredictiveTrends: map[string]float64{
 			"duration_forecast": durationForecast[0],
@@ -1095,7 +1096,7 @@ func (ht *HistoricalTracker) performRegressionDetection(data []*TestRunRecord, b
 	if len(recentDurations) > 0 && baseline != nil {
 		avgDuration := ht.calculateMean(recentDurations)
 		baselineDuration := float64(baseline.BaselineDuration.Milliseconds())
-		
+
 		if ht.isRegression(avgDuration, baselineDuration, "duration") {
 			regression := &RegressionEvent{
 				ID:                fmt.Sprintf("reg_%s_%s_%d", testName, scenario, time.Now().Unix()),
@@ -1122,7 +1123,7 @@ func (ht *HistoricalTracker) performRegressionDetection(data []*TestRunRecord, b
 	if len(recentThroughputs) > 0 && baseline != nil {
 		avgThroughput := ht.calculateMean(recentThroughputs)
 		baselineThroughput := baseline.BaselineThroughput
-		
+
 		if ht.isRegression(baselineThroughput, avgThroughput, "throughput") { // Note: lower throughput is regression
 			regression := &RegressionEvent{
 				ID:                fmt.Sprintf("reg_%s_%s_throughput_%d", testName, scenario, time.Now().Unix()),
@@ -1228,13 +1229,13 @@ func (ht *HistoricalTracker) createPerformanceProfile(data []*TestRunRecord, tes
 
 	// Analyze trends
 	trendAnalysis := &ProfileTrendAnalysis{
-		OverallTrend:       ht.analyzeTrendDirection(durations),
-		DurationTrend:      ht.analyzeTrendDirection(durations),
-		ThroughputTrend:    ht.analyzeTrendDirection(throughputs),
-		MemoryTrend:        ht.analyzeTrendDirection(memoryUsages),
-		ErrorRateTrend:     ht.analyzeTrendDirection(errorRates),
-		TrendConfidence:    ht.calculateTrendReliability(durations),
-		ForecastAccuracy:   0.85, // TODO: Calculate based on historical forecast accuracy
+		OverallTrend:     ht.analyzeTrendDirection(durations),
+		DurationTrend:    ht.analyzeTrendDirection(durations),
+		ThroughputTrend:  ht.analyzeTrendDirection(throughputs),
+		MemoryTrend:      ht.analyzeTrendDirection(memoryUsages),
+		ErrorRateTrend:   ht.analyzeTrendDirection(errorRates),
+		TrendConfidence:  ht.calculateTrendReliability(durations),
+		ForecastAccuracy: 0.85, // TODO: Calculate based on historical forecast accuracy
 	}
 
 	// Calculate stability
@@ -1371,14 +1372,14 @@ func (ht *HistoricalTracker) calculateRegressionConfidence(values []float64, bas
 	// Simplified statistical confidence calculation
 	mean := ht.calculateMean(values)
 	stdDev := ht.calculateStandardDeviation(values)
-	
+
 	if stdDev == 0 {
 		return 1.0
 	}
 
 	// Z-score calculation
 	zScore := math.Abs(mean-baseline) / stdDev
-	
+
 	// Convert to confidence (simplified)
 	confidence := math.Min(zScore/3.0, 1.0)
 	return confidence
@@ -1447,7 +1448,7 @@ func (ht *HistoricalTracker) calculateBaselineConfidence(values []float64, sampl
 
 	// Base confidence on sample size and coefficient of variation
 	sampleConfidence := math.Min(float64(sampleCount)/50.0, 1.0) // Max confidence at 50+ samples
-	
+
 	cv := ht.calculateVolatility(values)
 	variabilityConfidence := math.Max(0, 1.0-cv) // Lower variability = higher confidence
 
@@ -1460,7 +1461,7 @@ func (ht *HistoricalTracker) calculateBaselineQuality(baseline *PerformanceBasel
 	ageFactor := math.Max(0, 1.0-age.Hours()/(30*24)) // Decrease over 30 days
 
 	sampleFactor := math.Min(float64(baseline.SampleCount)/50.0, 1.0)
-	
+
 	return (ageFactor + sampleFactor + baseline.Confidence) / 3.0
 }
 
@@ -1569,14 +1570,14 @@ func (ht *HistoricalTracker) calculateStability(durations, throughputs, errorRat
 func (ht *HistoricalTracker) calculateProfileQuality(duration, throughput, errorRate *MetricProfile) float64 {
 	// Quality based on sample size, stability, and consistency
 	sampleQuality := math.Min(float64(duration.SampleCount)/100.0, 1.0)
-	
+
 	// Stability based on coefficient of variation
 	durationStability := 1.0 - math.Min(duration.StandardDeviation/duration.Mean, 1.0)
 	throughputStability := 1.0 - math.Min(throughput.StandardDeviation/throughput.Mean, 1.0)
 	errorRateStability := 1.0 - math.Min(errorRate.StandardDeviation/errorRate.Mean, 1.0)
-	
+
 	avgStability := (durationStability + throughputStability + errorRateStability) / 3.0
-	
+
 	return (sampleQuality + avgStability) / 2.0
 }
 
@@ -1734,7 +1735,7 @@ func (as *AnalysisScheduler) ScheduleTask(task *AnalysisTask) {
 	defer as.mu.Unlock()
 
 	as.tasks = append(as.tasks, task)
-	
+
 	// Sort by priority and scheduled time
 	sort.Slice(as.tasks, func(i, j int) bool {
 		if as.tasks[i].Priority != as.tasks[j].Priority {
@@ -1772,15 +1773,15 @@ func (as *AnalysisScheduler) priorityValue(priority TaskPriority) int {
 
 func getDefaultHistoricalConfig() *HistoricalConfig {
 	return &HistoricalConfig{
-		AnalysisWindowDays:      30,
-		TrendAnalysisWindow:     100,
-		RegressionThreshold:     20.0,
-		BaselineUpdateInterval:  24 * time.Hour,
-		CacheSize:              1000,
-		CacheTTL:               1 * time.Hour,
+		AnalysisWindowDays:       30,
+		TrendAnalysisWindow:      100,
+		RegressionThreshold:      20.0,
+		BaselineUpdateInterval:   24 * time.Hour,
+		CacheSize:                1000,
+		CacheTTL:                 1 * time.Hour,
 		EnableBackgroundAnalysis: true,
-		AnalysisInterval:        1 * time.Hour,
-		AlertingEnabled:         true,
+		AnalysisInterval:         1 * time.Hour,
+		AlertingEnabled:          true,
 		AlertThresholds: &HistoricalAlertThresholds{
 			PerformanceDegradation: 25.0,
 			ErrorRateIncrease:      10.0,

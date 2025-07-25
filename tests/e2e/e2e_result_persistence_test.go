@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -88,7 +89,7 @@ func testSaveAndRetrieveTestRun(t *testing.T, rpm *ResultPersistenceManager) {
 			},
 			{
 				TestName:     "TestMCPProtocol_ToolAvailability",
-				Category:     "mcp_protocol", 
+				Category:     "mcp_protocol",
 				Status:       "failed",
 				Duration:     15 * time.Second,
 				ErrorMessage: "timeout waiting for tool response",
@@ -96,11 +97,11 @@ func testSaveAndRetrieveTestRun(t *testing.T, rpm *ResultPersistenceManager) {
 			},
 		},
 		MCPMetrics: &MCPClientMetrics{
-			TotalRequests:     100,
-			SuccessfulReqs:    85,
-			FailedRequests:    15,
-			AverageLatency:    150 * time.Millisecond,
-			TimeoutCount:      3,
+			TotalRequests:  100,
+			SuccessfulReqs: 85,
+			FailedRequests: 15,
+			AverageLatency: 150 * time.Millisecond,
+			TimeoutCount:   3,
 		},
 		PerformanceData: &PerformanceData{
 			ThroughputReqPerSec:     120.5,
@@ -113,9 +114,9 @@ func testSaveAndRetrieveTestRun(t *testing.T, rpm *ResultPersistenceManager) {
 		RegressionStatus: "no_regression",
 		Tags:             []string{"automated", "full_suite"},
 		Environment: map[string]string{
-			"CI":      "true",
-			"BRANCH":  "main",
-			"COMMIT":  "abc123",
+			"CI":     "true",
+			"BRANCH": "main",
+			"COMMIT": "abc123",
 		},
 	}
 
@@ -150,7 +151,7 @@ func testSaveAndRetrieveTestRun(t *testing.T, rpm *ResultPersistenceManager) {
 func testHistoricalTrends(t *testing.T, rpm *ResultPersistenceManager) {
 	// Create multiple test runs over time to establish trends
 	baseTime := time.Now().AddDate(0, 0, -30)
-	
+
 	testRuns := []*TestRunRecord{
 		{
 			ID:            "trend_run_001",
@@ -164,20 +165,20 @@ func testHistoricalTrends(t *testing.T, rpm *ResultPersistenceManager) {
 			E2EScore:      80.0,
 		},
 		{
-			ID:            "trend_run_002", 
+			ID:            "trend_run_002",
 			Timestamp:     baseTime.AddDate(0, 0, 10),
 			SuiteVersion:  "1.1.0",
 			ExecutionMode: "full",
 			TotalTests:    12,
 			PassedTests:   10,
 			FailedTests:   2,
-			TotalDuration: 4 * time.Minute + 30 * time.Second,
+			TotalDuration: 4*time.Minute + 30*time.Second,
 			E2EScore:      85.0,
 		},
 		{
 			ID:            "trend_run_003",
 			Timestamp:     baseTime.AddDate(0, 0, 20),
-			SuiteVersion:  "1.2.0", 
+			SuiteVersion:  "1.2.0",
 			ExecutionMode: "full",
 			TotalTests:    15,
 			PassedTests:   13,
@@ -207,11 +208,11 @@ func testHistoricalTrends(t *testing.T, rpm *ResultPersistenceManager) {
 
 	for _, trend := range trends {
 		t.Logf("Trend for %s: %s (slope: %.2f)", trend.Metric, trend.Direction, trend.TrendSlope)
-		
+
 		if len(trend.DataPoints) == 0 {
 			t.Errorf("Expected data points for trend %s", trend.Metric)
 		}
-		
+
 		// E2E score trend should be improving based on our test data
 		if trend.Metric == "e2e_score" && trend.Direction != "improving" {
 			t.Logf("Warning: E2E score trend is %s, expected improving", trend.Direction)
@@ -240,10 +241,10 @@ func testRegressionDetection(t *testing.T, rpm *ResultPersistenceManager) {
 		SuiteVersion:  "1.1.0",
 		ExecutionMode: "full",
 		TotalTests:    10,
-		PassedTests:   7,  // Worse than baseline
-		FailedTests:   3,  // Worse than baseline
+		PassedTests:   7,               // Worse than baseline
+		FailedTests:   3,               // Worse than baseline
 		TotalDuration: 7 * time.Minute, // Slower than baseline
-		E2EScore:      75.0, // Lower than baseline (>10% regression)
+		E2EScore:      75.0,            // Lower than baseline (>10% regression)
 	}
 
 	// Save both runs
@@ -273,11 +274,11 @@ func testRegressionDetection(t *testing.T, rpm *ResultPersistenceManager) {
 		t.Errorf("Expected overall status 'degraded', got '%s'", analysis.BaselineComparison.OverallStatus)
 	}
 
-	t.Logf("Detected %d regressions with overall status: %s", 
+	t.Logf("Detected %d regressions with overall status: %s",
 		len(analysis.RegressionDetails), analysis.BaselineComparison.OverallStatus)
 
 	for _, regression := range analysis.RegressionDetails {
-		t.Logf("Regression in %s: %.2f%% change (%s)", 
+		t.Logf("Regression in %s: %.2f%% change (%s)",
 			regression.Metric, regression.PercentChange, regression.Severity)
 	}
 }
@@ -292,7 +293,7 @@ func testDateRangeQuery(t *testing.T, rpm *ResultPersistenceManager) {
 			E2EScore:  80.0,
 		},
 		{
-			ID:        "date_run_002", 
+			ID:        "date_run_002",
 			Timestamp: now.AddDate(0, 0, -3),
 			E2EScore:  85.0,
 		},
@@ -310,7 +311,7 @@ func testDateRangeQuery(t *testing.T, rpm *ResultPersistenceManager) {
 		run.TotalTests = 5
 		run.PassedTests = 5
 		run.TotalDuration = 2 * time.Minute
-		
+
 		if err := rpm.SaveTestRun(run); err != nil {
 			t.Fatalf("Failed to save date range test run %s: %v", run.ID, err)
 		}
@@ -319,7 +320,7 @@ func testDateRangeQuery(t *testing.T, rpm *ResultPersistenceManager) {
 	// Query date range
 	start := now.AddDate(0, 0, -4)
 	end := now
-	
+
 	runs, err := rpm.GetTestRunsInDateRange(start, end)
 	if err != nil {
 		t.Fatalf("Failed to get test runs in date range: %v", err)
@@ -480,7 +481,7 @@ func TestResultPersistenceIntegration(t *testing.T) {
 				},
 			},
 			{
-				TestName:  "TestE2EFullSuite_MCPProtocol", 
+				TestName:  "TestE2EFullSuite_MCPProtocol",
 				Category:  "mcp_protocol",
 				Status:    "passed",
 				Duration:  4 * time.Minute,
@@ -544,12 +545,12 @@ func TestResultPersistenceIntegration(t *testing.T) {
 	}
 
 	if len(retrieved.TestResults) != len(testRecord.TestResults) {
-		t.Errorf("Test results count mismatch: expected %d, got %d", 
+		t.Errorf("Test results count mismatch: expected %d, got %d",
 			len(testRecord.TestResults), len(retrieved.TestResults))
 	}
 
 	t.Logf("Integration test record successfully persisted and retrieved")
-	t.Logf("Test Summary: %d total, %d passed, %d failed, E2E Score: %.1f", 
+	t.Logf("Test Summary: %d total, %d passed, %d failed, E2E Score: %.1f",
 		retrieved.TotalTests, retrieved.PassedTests, retrieved.FailedTests, retrieved.E2EScore)
 }
 
@@ -588,7 +589,7 @@ func BenchmarkResultPersistence(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		record.ID = fmt.Sprintf("bench_run_%d", i)
 		record.Timestamp = time.Now()
-		
+
 		if err := rpm.SaveTestRun(record); err != nil {
 			b.Fatalf("Failed to save test run: %v", err)
 		}

@@ -33,16 +33,16 @@ type VCSInfo struct {
 
 // WorkspaceInfo contains comprehensive workspace information
 type WorkspaceInfo struct {
-	RootPath        string                 `json:"root_path"`
-	ProjectType     string                 `json:"project_type"`
-	VCS             *VCSInfo               `json:"vcs,omitempty"`
-	RootMarkers     []string               `json:"root_markers"`
-	Boundaries      []string               `json:"boundaries,omitempty"`
-	IsMonorepo      bool                   `json:"is_monorepo"`
-	SubProjects     []string               `json:"sub_projects,omitempty"`
-	DetectionTime   time.Duration          `json:"detection_time"`
-	Metadata        map[string]interface{} `json:"metadata,omitempty"`
-	DetectedAt      time.Time              `json:"detected_at"`
+	RootPath      string                 `json:"root_path"`
+	ProjectType   string                 `json:"project_type"`
+	VCS           *VCSInfo               `json:"vcs,omitempty"`
+	RootMarkers   []string               `json:"root_markers"`
+	Boundaries    []string               `json:"boundaries,omitempty"`
+	IsMonorepo    bool                   `json:"is_monorepo"`
+	SubProjects   []string               `json:"sub_projects,omitempty"`
+	DetectionTime time.Duration          `json:"detection_time"`
+	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	DetectedAt    time.Time              `json:"detected_at"`
 }
 
 // WorkspaceDetectorOptions configures workspace detection behavior
@@ -221,18 +221,18 @@ func (d *WorkspaceDetector) FindWorkspaceRoot(ctx context.Context, startPath str
 		}
 
 		duration := time.Since(startTime)
-		
+
 		if result.workspace != nil {
 			result.workspace.DetectionTime = duration
 			result.workspace.DetectedAt = startTime
-			
+
 			d.logger.WithFields(map[string]interface{}{
-				"start_path":    startPath,
+				"start_path":     startPath,
 				"workspace_root": result.workspace.RootPath,
 				"project_type":   result.workspace.ProjectType,
 				"duration":       duration.String(),
 			}).Info("Workspace detection completed successfully")
-			
+
 			return result.workspace, nil
 		}
 
@@ -240,7 +240,7 @@ func (d *WorkspaceDetector) FindWorkspaceRoot(ctx context.Context, startPath str
 			"start_path": startPath,
 			"duration":   duration.String(),
 		}).Warn("Workspace detection failed")
-		
+
 		return nil, result.error
 
 	case <-ctx.Done():
@@ -290,14 +290,14 @@ func (d *WorkspaceDetector) detectWorkspace(startPath string) (*WorkspaceInfo, e
 	if workspace.VCS != nil {
 		vcsType = string(workspace.VCS.Type)
 	}
-	
+
 	d.logger.WithFields(map[string]interface{}{
-		"root_path":     rootPath,
-		"project_type":  projectType,
-		"root_markers":  rootMarkers,
-		"is_monorepo":   workspace.IsMonorepo,
-		"sub_projects":  len(workspace.SubProjects),
-		"vcs_type":      vcsType,
+		"root_path":    rootPath,
+		"project_type": projectType,
+		"root_markers": rootMarkers,
+		"is_monorepo":  workspace.IsMonorepo,
+		"sub_projects": len(workspace.SubProjects),
+		"vcs_type":     vcsType,
 	}).Debug("Workspace detection details")
 
 	return workspace, nil
@@ -313,11 +313,11 @@ func (d *WorkspaceDetector) findRootPath(startPath string) (string, []string, er
 		foundMarkers := d.checkRootMarkers(currentPath)
 		if len(foundMarkers) > 0 {
 			d.logger.WithFields(map[string]interface{}{
-				"path":         currentPath,
-				"markers":      foundMarkers,
-				"levels_up":    levelsUp,
+				"path":      currentPath,
+				"markers":   foundMarkers,
+				"levels_up": levelsUp,
 			}).Debug("Found workspace root markers")
-			
+
 			return currentPath, foundMarkers, nil
 		}
 
@@ -414,7 +414,7 @@ func (d *WorkspaceDetector) hasTypeScriptDependencies(packageJsonPath string) bo
 	// This would typically parse the package.json and check for TypeScript dependencies
 	// For now, we'll check for common TypeScript files in the directory
 	dir := filepath.Dir(packageJsonPath)
-	
+
 	// Check for tsconfig.json
 	if _, err := os.Stat(filepath.Join(dir, MARKER_TSCONFIG)); err == nil {
 		return true
@@ -476,7 +476,7 @@ func (d *WorkspaceDetector) enrichVCSInfo(vcsInfo *VCSInfo, vcsPath string) {
 func (d *WorkspaceDetector) enrichGitInfo(vcsInfo *VCSInfo, gitPath string) {
 	// Try to read basic Git information
 	// This is a simplified implementation - in production you might want to use git commands or libraries
-	
+
 	// Read HEAD to get current branch/revision
 	headPath := filepath.Join(gitPath, "HEAD")
 	if headContent, err := os.ReadFile(headPath); err == nil {
@@ -545,7 +545,7 @@ func (d *WorkspaceDetector) enrichHgInfo(vcsInfo *VCSInfo, hgPath string) {
 // detectMonorepo checks if the workspace is a monorepo
 func (d *WorkspaceDetector) detectMonorepo(rootPath string) (bool, []string) {
 	subProjects := []string{}
-	
+
 	// Look for multiple project roots in subdirectories
 	entries, err := os.ReadDir(rootPath)
 	if err != nil {
@@ -565,7 +565,7 @@ func (d *WorkspaceDetector) detectMonorepo(rootPath string) (bool, []string) {
 			"__pycache__": true, "target": true, "build": true,
 			"dist": true, ".idea": true, ".vscode": true,
 		}
-		
+
 		if skipDirs[entry.Name()] {
 			continue
 		}
@@ -580,7 +580,7 @@ func (d *WorkspaceDetector) detectMonorepo(rootPath string) (bool, []string) {
 	// Consider it a monorepo if there are multiple project directories
 	// or specific monorepo indicators
 	isMonorepo := projectDirs > 1 || d.hasMonorepoIndicators(rootPath)
-	
+
 	return isMonorepo, subProjects
 }
 

@@ -22,12 +22,12 @@ const (
 )
 
 var (
-	configPath               string
-	port                     int
+	configPath string
+	port       int
 	// Project-related flags
-	projectPath              string
-	autoDetectProject        bool
-	generateProjectConfig    bool
+	projectPath           string
+	autoDetectProject     bool
+	generateProjectConfig bool
 )
 
 var serverCmd = &cobra.Command{
@@ -40,7 +40,7 @@ var serverCmd = &cobra.Command{
 func init() {
 	serverCmd.Flags().StringVarP(&configPath, "config", "c", DefaultConfigFile, "Configuration file path")
 	serverCmd.Flags().IntVarP(&port, FLAG_PORT, "p", DefaultServerPort, FLAG_DESCRIPTION_SERVER_PORT)
-	
+
 	// Project-related flags
 	serverCmd.Flags().StringVarP(&projectPath, FLAG_PROJECT, "P", "", FLAG_DESCRIPTION_PROJECT_PATH)
 	serverCmd.Flags().BoolVar(&autoDetectProject, FLAG_AUTO_DETECT_PROJECT, false, FLAG_DESCRIPTION_AUTO_DETECT_PROJECT)
@@ -125,10 +125,10 @@ func setupServerConfiguration() (*config.GatewayConfig, error) {
 
 func initializeGateway(ctx context.Context, cfg *config.GatewayConfig) (gateway.GatewayInterface, error) {
 	log.Printf("[DEBUG] Creating LSP gateway (project_aware=%t)\n", cfg.ProjectAware)
-	
+
 	var gw gateway.GatewayInterface
 	var err error
-	
+
 	if cfg.ProjectAware {
 		gw, err = gateway.NewProjectAwareGateway(cfg)
 		if err != nil {
@@ -224,11 +224,11 @@ func createHTTPServer(cfg *config.GatewayConfig, gw gateway.GatewayInterface) *h
 
 		if hasActiveClient {
 			w.WriteHeader(http.StatusOK)
-			_, _ = fmt.Fprintf(w, `{"status":"ok","active_clients":%d,"project_aware":%t,"timestamp":%d}`, 
+			_, _ = fmt.Fprintf(w, `{"status":"ok","active_clients":%d,"project_aware":%t,"timestamp":%d}`,
 				clientCount, isProjectAware, time.Now().Unix())
 		} else {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = fmt.Fprintf(w, `{"status":"starting","message":"no active LSP clients yet","project_aware":%t,"timestamp":%d}`, 
+			_, _ = fmt.Fprintf(w, `{"status":"starting","message":"no active LSP clients yet","project_aware":%t,"timestamp":%d}`,
 				isProjectAware, time.Now().Unix())
 		}
 	})
@@ -322,7 +322,7 @@ func performProjectDetection() (*project.ProjectAnalysisResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create project integration: %w", err)
 	}
-	
+
 	// Perform detection and analysis
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -333,8 +333,8 @@ func performProjectDetection() (*project.ProjectAnalysisResult, error) {
 	}
 
 	if result.ProjectContext != nil {
-		log.Printf("[INFO] Project detected: %s (%s) with languages: %v\n", 
-			result.ProjectContext.ProjectType, 
+		log.Printf("[INFO] Project detected: %s (%s) with languages: %v\n",
+			result.ProjectContext.ProjectType,
 			result.ProjectContext.RootPath,
 			result.ProjectContext.Languages)
 	}
@@ -353,7 +353,7 @@ func loadConfigurationWithProject(projectResult *project.ProjectAnalysisResult) 
 	// Apply project-specific configuration if available and requested
 	if projectResult != nil && projectResult.ProjectContext != nil && generateProjectConfig {
 		log.Printf("[INFO] Generating project-specific configuration\n")
-		
+
 		if err := applyProjectConfiguration(cfg, projectResult); err != nil {
 			log.Printf("[WARN] Failed to apply project configuration: %v\n", err)
 			// Continue with base configuration
@@ -402,7 +402,7 @@ func applyProjectConfiguration(cfg *config.GatewayConfig, projectResult *project
 			cfg.ProjectConfig = genResult.GatewayConfig.ProjectConfig
 		}
 
-		log.Printf("[INFO] Applied project configuration: %d additional servers configured\n", 
+		log.Printf("[INFO] Applied project configuration: %d additional servers configured\n",
 			len(genResult.GatewayConfig.Servers))
 	}
 

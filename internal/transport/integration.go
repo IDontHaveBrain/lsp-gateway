@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -429,14 +430,14 @@ func GetSystemStats() map[string]interface{} {
 	allStats := registry.GetAllStats()
 
 	systemStats := map[string]interface{}{
-		"total_pools":          len(allStats),
-		"healthy_pools":        0,
-		"unhealthy_pools":      0,
-		"total_connections":    0,
+		"total_pools":              len(allStats),
+		"healthy_pools":            0,
+		"unhealthy_pools":          0,
+		"total_connections":        0,
 		"total_active_connections": 0,
-		"total_requests":       int64(0),
-		"average_error_rate":   0.0,
-		"pools":               allStats,
+		"total_requests":           int64(0),
+		"average_error_rate":       0.0,
+		"pools":                    allStats,
 	}
 
 	var totalErrorRate float64

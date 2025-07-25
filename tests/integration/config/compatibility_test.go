@@ -6,9 +6,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/suite"
 	"lsp-gateway/internal/config"
 	"lsp-gateway/tests/integration/config/helpers"
+
+	"github.com/stretchr/testify/suite"
 )
 
 // BackwardCompatibilityTestSuite provides comprehensive tests for backward compatibility
@@ -162,7 +163,7 @@ servers:
 		// Check that deprecated servers were migrated
 		goServer := serversByName["old-go-server"]
 		suite.Equal("gopls", goServer.Command, "Should migrate go-langserver to gopls")
-		
+
 		pythonServer := serversByName["old-python-server"]
 		suite.Equal("python", pythonServer.Command, "Should migrate pyls command")
 		suite.Equal([]string{"-m", "pylsp"}, pythonServer.Args, "Should add pylsp args")
@@ -390,7 +391,7 @@ servers:
 		goServer := serversByName["go-server"]
 		suite.Equal("gopls", goServer.Command, "Should migrate go-langserver to gopls")
 
-		// Check Python server migration  
+		// Check Python server migration
 		pythonServer := serversByName["python-server"]
 		suite.Equal("python", pythonServer.Command, "Should migrate pyls command")
 		suite.Equal([]string{"-m", "pylsp"}, pythonServer.Args, "Should add correct pylsp args")
@@ -447,7 +448,7 @@ servers:
 		}
 
 		// Check Go server settings migration
-		goServer := serversByName["go-server"] 
+		goServer := serversByName["go-server"]
 		suite.NotNil(goServer.Settings)
 		suite.Contains(goServer.Settings, "gopls", "Should have modern gopls settings")
 
@@ -515,8 +516,8 @@ servers:
 		goServer := serversByName["custom-go-server"]
 		suite.Equal("gopls", goServer.Command)
 		suite.NotNil(goServer.Settings)
-		
-		// Check custom Python server  
+
+		// Check custom Python server
 		pythonServer := serversByName["custom-python-server"]
 		suite.Equal("python", pythonServer.Command)
 		suite.Equal([]string{"-m", "pylsp"}, pythonServer.Args)
@@ -615,9 +616,9 @@ func containsWarning(warnings []string, text string) bool {
 }
 
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && 
-		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || 
-		 containsAt(s, substr, 1)))
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
+		(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
+			containsAt(s, substr, 1)))
 }
 
 func containsAt(s, substr string, start int) bool {

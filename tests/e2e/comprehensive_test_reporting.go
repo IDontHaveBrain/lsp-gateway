@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -10,13 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 	"sync"
 	"time"
-
-	"lsp-gateway/mcp"
-	"lsp-gateway/tests/framework"
-	"lsp-gateway/tests/mocks"
 )
 
 // ReportGenerationEngine provides comprehensive test report generation capabilities
@@ -28,22 +22,22 @@ type ReportGenerationEngine struct {
 	formatEngine        *ReportFormatEngine
 
 	// Data processing
-	dataAggregator      *TestDataAggregator
-	metricsProcessor    *MetricsProcessor
-	trendAnalyzer       *TrendAnalyzer
-	regressionDetector  *RegressionDetector
+	dataAggregator     *TestDataAggregator
+	metricsProcessor   *MetricsProcessor
+	trendAnalyzer      *TrendAnalyzer
+	regressionDetector *RegressionDetector
 
 	// Template and export management
-	templateManager     *ReportTemplateManager
-	exportManager       *ReportExportManager
-	outputManager       *ReportOutputManager
+	templateManager *ReportTemplateManager
+	exportManager   *ReportExportManager
+	outputManager   *ReportOutputManager
 
 	// Configuration and state
-	config              *ReportGenerationConfig
-	reportHistory       []*GeneratedReport
-	
-	mu                  sync.RWMutex
-	logger              *log.Logger
+	config        *ReportGenerationConfig
+	reportHistory []*GeneratedReport
+
+	mu     sync.RWMutex
+	logger *log.Logger
 }
 
 // TestAnalysisEngine performs comprehensive analysis of test results
@@ -60,33 +54,33 @@ type TestAnalysisEngine struct {
 	correlationAnalyzer *CorrelationAnalyzer
 
 	// Statistical analysis
-	statisticalEngine   *StatisticalAnalysisEngine
-	probabilityEngine   *ProbabilityAnalysisEngine
-	
-	logger              *log.Logger
+	statisticalEngine *StatisticalAnalysisEngine
+	probabilityEngine *ProbabilityAnalysisEngine
+
+	logger *log.Logger
 }
 
 // DataVisualizationEngine creates comprehensive data visualizations
 type DataVisualizationEngine struct {
 	// Visualization generators
-	chartGenerator      *ChartGenerator
-	graphGenerator      *GraphGenerator
-	heatmapGenerator    *HeatmapGenerator
-	timelineGenerator   *TimelineGenerator
+	chartGenerator    *ChartGenerator
+	graphGenerator    *GraphGenerator
+	heatmapGenerator  *HeatmapGenerator
+	timelineGenerator *TimelineGenerator
 
 	// Visualization types
-	performanceCharts   *PerformanceChartGenerator
-	coverageVisualizer  *CoverageVisualizationGenerator
-	trendVisualizer     *TrendVisualizationGenerator
+	performanceCharts    *PerformanceChartGenerator
+	coverageVisualizer   *CoverageVisualizationGenerator
+	trendVisualizer      *TrendVisualizationGenerator
 	comparisonVisualizer *ComparisonVisualizationGenerator
 
 	// Export formats
 	svgExporter         *SVGExporter
 	pngExporter         *PNGExporter
 	interactiveExporter *InteractiveExporter
-	
-	config              *VisualizationConfig
-	logger              *log.Logger
+
+	config *VisualizationConfig
+	logger *log.Logger
 }
 
 // TestInsightsEngine generates actionable insights from test data
@@ -98,201 +92,201 @@ type TestInsightsEngine struct {
 	efficiencyInsights  *EfficiencyInsightGenerator
 
 	// Recommendation engines
-	testingRecommendations *TestingRecommendationEngine
+	testingRecommendations     *TestingRecommendationEngine
 	performanceRecommendations *PerformanceRecommendationEngine
-	qualityRecommendations *QualityRecommendationEngine
+	qualityRecommendations     *QualityRecommendationEngine
 
 	// Learning and adaptation
-	patternLearner      *PatternLearningEngine
-	adaptiveAnalyzer    *AdaptiveAnalysisEngine
-	
-	logger              *log.Logger
+	patternLearner   *PatternLearningEngine
+	adaptiveAnalyzer *AdaptiveAnalysisEngine
+
+	logger *log.Logger
 }
 
 // Configuration structures
 type ReportGenerationConfig struct {
 	// Report settings
-	DetailLevel             DetailLevel
+	DetailLevel            DetailLevel
 	IncludeRawData         bool
 	IncludeVisualizationss bool
 	IncludeRecommendations bool
 	IncludeHistoricalData  bool
 
 	// Analysis settings
-	PerformanceAnalysisDepth AnalysisDepth
-	CoverageAnalysisEnabled  bool
-	TrendAnalysisEnabled     bool
-	RegressionAnalysisEnabled bool
+	PerformanceAnalysisDepth   AnalysisDepth
+	CoverageAnalysisEnabled    bool
+	TrendAnalysisEnabled       bool
+	RegressionAnalysisEnabled  bool
 	StatisticalAnalysisEnabled bool
 
 	// Visualization settings
-	ChartResolution         string
+	ChartResolution          string
 	InteractiveChartsEnabled bool
-	ExportVisualizationss   bool
-	VisualizationFormats    []string
+	ExportVisualizationss    bool
+	VisualizationFormats     []string
 
 	// Export settings
-	OutputFormats           []ReportFormat
-	OutputDirectory         string
-	CompressOutput          bool
-	GenerateArchive         bool
+	OutputFormats   []ReportFormat
+	OutputDirectory string
+	CompressOutput  bool
+	GenerateArchive bool
 
 	// Template settings
-	CustomTemplates         map[ReportFormat]string
-	BrandingEnabled         bool
-	CustomStyling          map[string]string
+	CustomTemplates map[ReportFormat]string
+	BrandingEnabled bool
+	CustomStyling   map[string]string
 }
 
 type VisualizationConfig struct {
 	// Chart settings
-	DefaultWidth    int
-	DefaultHeight   int
-	ColorPalette    []string
-	FontFamily      string
-	FontSize        int
+	DefaultWidth  int
+	DefaultHeight int
+	ColorPalette  []string
+	FontFamily    string
+	FontSize      int
 
 	// Interaction settings
-	EnableZoom      bool
-	EnablePan       bool
-	EnableTooltips  bool
-	EnableLegend    bool
+	EnableZoom     bool
+	EnablePan      bool
+	EnableTooltips bool
+	EnableLegend   bool
 
 	// Export settings
-	DPI             int
-	Quality         float64
-	Transparency    bool
+	DPI          int
+	Quality      float64
+	Transparency bool
 }
 
 // Report data structures
 type ComprehensiveTestReport struct {
 	// Report metadata
-	ReportID            string                    `json:"report_id"`
-	OrchestrationID     string                    `json:"orchestration_id"`
-	GeneratedAt         time.Time                 `json:"generated_at"`
-	ReportVersion       string                    `json:"report_version"`
-	GenerationDuration  time.Duration             `json:"generation_duration"`
+	ReportID           string        `json:"report_id"`
+	OrchestrationID    string        `json:"orchestration_id"`
+	GeneratedAt        time.Time     `json:"generated_at"`
+	ReportVersion      string        `json:"report_version"`
+	GenerationDuration time.Duration `json:"generation_duration"`
 
 	// Executive summary
-	ExecutiveSummary    *ExecutiveSummary         `json:"executive_summary"`
+	ExecutiveSummary *ExecutiveSummary `json:"executive_summary"`
 
 	// Detailed analysis
-	TestAnalysis        *TestAnalysis             `json:"test_analysis"`
-	PerformanceAnalysis *PerformanceAnalysis      `json:"performance_analysis"`
-	HealthAnalysis      *HealthAnalysis           `json:"health_analysis"`
-	CoverageAnalysis    *CoverageAnalysis         `json:"coverage_analysis"`
+	TestAnalysis        *TestAnalysis        `json:"test_analysis"`
+	PerformanceAnalysis *PerformanceAnalysis `json:"performance_analysis"`
+	HealthAnalysis      *HealthAnalysis      `json:"health_analysis"`
+	CoverageAnalysis    *CoverageAnalysis    `json:"coverage_analysis"`
 
 	// Trends and patterns
-	TrendAnalysis       *TrendAnalysis            `json:"trend_analysis"`
-	PatternAnalysis     *PatternAnalysis          `json:"pattern_analysis"`
-	RegressionAnalysis  *RegressionAnalysis       `json:"regression_analysis"`
+	TrendAnalysis      *TrendAnalysis      `json:"trend_analysis"`
+	PatternAnalysis    *PatternAnalysis    `json:"pattern_analysis"`
+	RegressionAnalysis *RegressionAnalysis `json:"regression_analysis"`
 
 	// Insights and recommendations
-	KeyInsights         []*TestInsight            `json:"key_insights"`
-	Recommendations     []*TestRecommendation     `json:"recommendations"`
-	ActionItems         []*ActionItem             `json:"action_items"`
+	KeyInsights     []*TestInsight        `json:"key_insights"`
+	Recommendations []*TestRecommendation `json:"recommendations"`
+	ActionItems     []*ActionItem         `json:"action_items"`
 
 	// Visualizations
-	Visualizations      []*DataVisualization      `json:"visualizations"`
-	Charts              map[string]*Chart         `json:"charts"`
-	Graphs              map[string]*Graph         `json:"graphs"`
+	Visualizations []*DataVisualization `json:"visualizations"`
+	Charts         map[string]*Chart    `json:"charts"`
+	Graphs         map[string]*Graph    `json:"graphs"`
 
 	// Data appendices
-	RawData             map[string]interface{}    `json:"raw_data,omitempty"`
-	StatisticalData     *StatisticalSummary       `json:"statistical_data"`
-	HistoricalComparison *HistoricalComparison    `json:"historical_comparison,omitempty"`
+	RawData              map[string]interface{} `json:"raw_data,omitempty"`
+	StatisticalData      *StatisticalSummary    `json:"statistical_data"`
+	HistoricalComparison *HistoricalComparison  `json:"historical_comparison,omitempty"`
 
 	// Export information
-	ExportResults       map[ReportFormat]string   `json:"export_results"`
-	GenerationMetadata  *ReportGenerationMetadata `json:"generation_metadata"`
+	ExportResults      map[ReportFormat]string   `json:"export_results"`
+	GenerationMetadata *ReportGenerationMetadata `json:"generation_metadata"`
 }
 
 type ExecutiveSummary struct {
 	// High-level metrics
-	OverallStatus       TestStatus                `json:"overall_status"`
-	TotalTests          int64                     `json:"total_tests"`
-	PassRate            float64                   `json:"pass_rate"`
-	Duration            time.Duration             `json:"duration"`
-	PerformanceScore    float64                   `json:"performance_score"`
-	QualityScore        float64                   `json:"quality_score"`
-	ReliabilityScore    float64                   `json:"reliability_score"`
+	OverallStatus    TestStatus    `json:"overall_status"`
+	TotalTests       int64         `json:"total_tests"`
+	PassRate         float64       `json:"pass_rate"`
+	Duration         time.Duration `json:"duration"`
+	PerformanceScore float64       `json:"performance_score"`
+	QualityScore     float64       `json:"quality_score"`
+	ReliabilityScore float64       `json:"reliability_score"`
 
 	// Key findings
-	KeyFindings         []string                  `json:"key_findings"`
-	CriticalIssues      []string                  `json:"critical_issues"`
-	SignificantImprovements []string              `json:"significant_improvements"`
-	RiskAreas           []string                  `json:"risk_areas"`
+	KeyFindings             []string `json:"key_findings"`
+	CriticalIssues          []string `json:"critical_issues"`
+	SignificantImprovements []string `json:"significant_improvements"`
+	RiskAreas               []string `json:"risk_areas"`
 
 	// Comparison to previous runs
-	ComparedToPrevious  *ComparisonSummary        `json:"compared_to_previous,omitempty"`
-	TrendDirection      TrendDirection            `json:"trend_direction"`
-	
+	ComparedToPrevious *ComparisonSummary `json:"compared_to_previous,omitempty"`
+	TrendDirection     TrendDirection     `json:"trend_direction"`
+
 	// Recommendations summary
-	HighPriorityActions []string                  `json:"high_priority_actions"`
-	RecommendedNextSteps []string                 `json:"recommended_next_steps"`
+	HighPriorityActions  []string `json:"high_priority_actions"`
+	RecommendedNextSteps []string `json:"recommended_next_steps"`
 }
 
 type TestAnalysis struct {
 	// Test execution analysis
-	ExecutionSummary    *TestExecutionSummary     `json:"execution_summary"`
-	FailureAnalysis     *FailureAnalysis          `json:"failure_analysis"`
-	SuccessAnalysis     *SuccessAnalysis          `json:"success_analysis"`
-	
+	ExecutionSummary *TestExecutionSummary `json:"execution_summary"`
+	FailureAnalysis  *FailureAnalysis      `json:"failure_analysis"`
+	SuccessAnalysis  *SuccessAnalysis      `json:"success_analysis"`
+
 	// Scenario analysis
-	ScenarioResults     map[string]*ScenarioAnalysis `json:"scenario_results"`
-	CategoryAnalysis    map[TestCategory]*CategoryAnalysis `json:"category_analysis"`
-	PriorityAnalysis    map[Priority]*PriorityAnalysis `json:"priority_analysis"`
+	ScenarioResults  map[string]*ScenarioAnalysis       `json:"scenario_results"`
+	CategoryAnalysis map[TestCategory]*CategoryAnalysis `json:"category_analysis"`
+	PriorityAnalysis map[Priority]*PriorityAnalysis     `json:"priority_analysis"`
 
 	// Timing analysis
-	DurationAnalysis    *DurationAnalysis         `json:"duration_analysis"`
-	TimelineAnalysis    *TimelineAnalysis         `json:"timeline_analysis"`
-	
+	DurationAnalysis *DurationAnalysis `json:"duration_analysis"`
+	TimelineAnalysis *TimelineAnalysis `json:"timeline_analysis"`
+
 	// Resource analysis
-	ResourceAnalysis    *ResourceAnalysis         `json:"resource_analysis"`
-	EfficiencyAnalysis  *EfficiencyAnalysis       `json:"efficiency_analysis"`
+	ResourceAnalysis   *ResourceAnalysis   `json:"resource_analysis"`
+	EfficiencyAnalysis *EfficiencyAnalysis `json:"efficiency_analysis"`
 
 	// Quality metrics
-	QualityMetrics      *QualityMetrics           `json:"quality_metrics"`
-	ReliabilityMetrics  *ReliabilityMetrics       `json:"reliability_metrics"`
+	QualityMetrics     *QualityMetrics     `json:"quality_metrics"`
+	ReliabilityMetrics *ReliabilityMetrics `json:"reliability_metrics"`
 }
 
 type PerformanceAnalysis struct {
 	// Overall performance metrics
-	OverallPerformance  *OverallPerformanceMetrics `json:"overall_performance"`
-	PerformanceTrends   *PerformanceTrendAnalysis  `json:"performance_trends"`
-	
+	OverallPerformance *OverallPerformanceMetrics `json:"overall_performance"`
+	PerformanceTrends  *PerformanceTrendAnalysis  `json:"performance_trends"`
+
 	// Component performance
 	ComponentPerformance map[string]*ComponentPerformance `json:"component_performance"`
-	EndpointPerformance map[string]*EndpointPerformance `json:"endpoint_performance"`
+	EndpointPerformance  map[string]*EndpointPerformance  `json:"endpoint_performance"`
 
 	// Load analysis
-	LoadAnalysis        *LoadAnalysis             `json:"load_analysis"`
-	ScalabilityAnalysis *ScalabilityAnalysis      `json:"scalability_analysis"`
-	
+	LoadAnalysis        *LoadAnalysis        `json:"load_analysis"`
+	ScalabilityAnalysis *ScalabilityAnalysis `json:"scalability_analysis"`
+
 	// Bottleneck analysis
-	BottleneckAnalysis  *BottleneckAnalysis       `json:"bottleneck_analysis"`
+	BottleneckAnalysis        *BottleneckAnalysis        `json:"bottleneck_analysis"`
 	OptimizationOpportunities []*OptimizationOpportunity `json:"optimization_opportunities"`
 
 	// Performance comparison
 	BaselineComparison  *PerformanceBaselineComparison `json:"baseline_comparison,omitempty"`
-	BenchmarkComparison *BenchmarkComparison      `json:"benchmark_comparison,omitempty"`
+	BenchmarkComparison *BenchmarkComparison           `json:"benchmark_comparison,omitempty"`
 }
 
 type HealthAnalysis struct {
 	// Health monitoring results
-	HealthValidationResults *HealthValidationResult `json:"health_validation_results"`
-	MonitoringAccuracy     *MonitoringAccuracyAnalysis `json:"monitoring_accuracy"`
-	
+	HealthValidationResults *HealthValidationResult     `json:"health_validation_results"`
+	MonitoringAccuracy      *MonitoringAccuracyAnalysis `json:"monitoring_accuracy"`
+
 	// Recovery analysis
-	RecoveryAnalysis       *RecoveryAnalysis       `json:"recovery_analysis"`
-	ResilienceMetrics      *ResilienceMetrics      `json:"resilience_metrics"`
-	
+	RecoveryAnalysis  *RecoveryAnalysis  `json:"recovery_analysis"`
+	ResilienceMetrics *ResilienceMetrics `json:"resilience_metrics"`
+
 	// Alert analysis
-	AlertAnalysis          *AlertAnalysis          `json:"alert_analysis"`
-	NotificationAnalysis   *NotificationAnalysis   `json:"notification_analysis"`
+	AlertAnalysis        *AlertAnalysis        `json:"alert_analysis"`
+	NotificationAnalysis *NotificationAnalysis `json:"notification_analysis"`
 
 	// Health trends
-	HealthTrends           *HealthTrendAnalysis    `json:"health_trends"`
-	ReliabilityTrends      *ReliabilityTrendAnalysis `json:"reliability_trends"`
+	HealthTrends      *HealthTrendAnalysis      `json:"health_trends"`
+	ReliabilityTrends *ReliabilityTrendAnalysis `json:"reliability_trends"`
 }
 
 // Generate comprehensive executive summary
@@ -300,12 +294,12 @@ func (rge *ReportGenerationEngine) generateExecutiveSummary(results *ExecutionOr
 	rge.logger.Printf("Generating executive summary for orchestration %s", results.OrchestrationID)
 
 	summary := &ExecutiveSummary{
-		OverallStatus:    rge.determineOverallStatus(results),
-		TotalTests:       int64(len(results.ScenarioResults)),
-		Duration:         results.TotalDuration,
-		KeyFindings:      make([]string, 0),
-		CriticalIssues:   make([]string, 0),
-		RiskAreas:        make([]string, 0),
+		OverallStatus:  rge.determineOverallStatus(results),
+		TotalTests:     int64(len(results.ScenarioResults)),
+		Duration:       results.TotalDuration,
+		KeyFindings:    make([]string, 0),
+		CriticalIssues: make([]string, 0),
+		RiskAreas:      make([]string, 0),
 	}
 
 	// Calculate pass rate
@@ -334,7 +328,7 @@ func (rge *ReportGenerationEngine) generateExecutiveSummary(results *ExecutionOr
 	// Determine trend direction
 	summary.TrendDirection = rge.determineTrendDirection(results)
 
-	rge.logger.Printf("Executive summary generated: pass_rate=%.1f%%, performance_score=%.1f, quality_score=%.1f", 
+	rge.logger.Printf("Executive summary generated: pass_rate=%.1f%%, performance_score=%.1f, quality_score=%.1f",
 		summary.PassRate, summary.PerformanceScore, summary.QualityScore)
 
 	return summary, nil
@@ -391,8 +385,8 @@ func (rge *ReportGenerationEngine) analyzePerformance(results *ExecutionOrchestr
 	rge.logger.Printf("Performing comprehensive performance analysis")
 
 	analysis := &PerformanceAnalysis{
-		ComponentPerformance: make(map[string]*ComponentPerformance),
-		EndpointPerformance:  make(map[string]*EndpointPerformance),
+		ComponentPerformance:      make(map[string]*ComponentPerformance),
+		EndpointPerformance:       make(map[string]*EndpointPerformance),
 		OptimizationOpportunities: make([]*OptimizationOpportunity, 0),
 	}
 
@@ -459,9 +453,9 @@ func (rge *ReportGenerationEngine) performTrendAnalysis(results *ExecutionOrches
 	rge.logger.Printf("Performing trend analysis")
 
 	analysis := &TrendAnalysis{
-		TrendSummary:     make(map[string]TrendSummary),
+		TrendSummary:      make(map[string]TrendSummary),
 		AnomaliesDetected: make([]PerformanceAnomaly, 0),
-		TrendConfidence:  0.8,
+		TrendConfidence:   0.8,
 	}
 
 	// Analyze performance trends
@@ -575,14 +569,14 @@ func (rge *ReportGenerationEngine) exportReport(report *ComprehensiveTestReport,
 
 	for _, format := range formats {
 		rge.logger.Printf("Exporting report in %s format", format)
-		
+
 		exportPath, err := rge.exportInFormat(report, format)
 		if err != nil {
 			rge.logger.Printf("Failed to export in %s format: %v", format, err)
 			exportErrors = append(exportErrors, fmt.Errorf("export to %s failed: %w", format, err))
 			continue
 		}
-		
+
 		exportResults[format] = exportPath
 		rge.logger.Printf("Successfully exported to: %s", exportPath)
 	}
@@ -591,9 +585,9 @@ func (rge *ReportGenerationEngine) exportReport(report *ComprehensiveTestReport,
 		return nil, fmt.Errorf("all exports failed: %v", exportErrors)
 	}
 
-	rge.logger.Printf("Report export completed: %d successful, %d failed", 
+	rge.logger.Printf("Report export completed: %d successful, %d failed",
 		len(exportResults), len(exportErrors))
-	
+
 	return exportResults, nil
 }
 
@@ -603,16 +597,16 @@ func (rge *ReportGenerationEngine) determineOverallStatus(results *ExecutionOrch
 	if !results.Success {
 		return TestStatusFailed
 	}
-	
+
 	failedCount := 0
 	for _, result := range results.ScenarioResults {
 		if !result.Success {
 			failedCount++
 		}
 	}
-	
+
 	failureRate := float64(failedCount) / float64(len(results.ScenarioResults))
-	
+
 	if failureRate == 0 {
 		return TestStatusPassed
 	} else if failureRate <= 0.1 {
@@ -626,10 +620,10 @@ func (rge *ReportGenerationEngine) calculatePerformanceScore(results *ExecutionO
 	if results.ExecutionMetrics == nil {
 		return 0.0
 	}
-	
+
 	// Base score calculation considering multiple factors
 	baseScore := 100.0
-	
+
 	// Factor in execution efficiency
 	if results.ExecutionMetrics.AverageExecutionTime > 0 {
 		expectedTime := 30 * time.Second // Expected average
@@ -638,16 +632,16 @@ func (rge *ReportGenerationEngine) calculatePerformanceScore(results *ExecutionO
 			baseScore -= math.Min(penalty, 30) // Max 30 point penalty
 		}
 	}
-	
+
 	// Factor in resource utilization
 	if results.ResourceUtilization != nil && results.ResourceUtilization.CPUUtilization > 90 {
 		baseScore -= 15 // High CPU penalty
 	}
-	
+
 	if results.ResourceUtilization != nil && results.ResourceUtilization.MemoryUtilization > 85 {
 		baseScore -= 10 // High memory penalty
 	}
-	
+
 	// Factor in success rate
 	successCount := 0
 	for _, result := range results.ScenarioResults {
@@ -657,7 +651,7 @@ func (rge *ReportGenerationEngine) calculatePerformanceScore(results *ExecutionO
 	}
 	successRate := float64(successCount) / float64(len(results.ScenarioResults))
 	baseScore *= successRate
-	
+
 	return math.Max(0, math.Min(100, baseScore))
 }
 
@@ -665,17 +659,17 @@ func (rge *ReportGenerationEngine) calculateQualityScore(results *ExecutionOrche
 	if len(results.ScenarioResults) == 0 {
 		return 0.0
 	}
-	
+
 	totalScore := 0.0
 	totalWeight := 0.0
-	
+
 	for _, result := range results.ScenarioResults {
 		weight := 1.0
 		score := 0.0
-		
+
 		if result.Success {
 			score = 100.0
-			
+
 			// Adjust score based on execution metrics
 			if result.PerformanceData != nil {
 				if result.PerformanceData.ResponseTime < 100*time.Millisecond {
@@ -684,27 +678,27 @@ func (rge *ReportGenerationEngine) calculateQualityScore(results *ExecutionOrche
 					score -= 20 // Penalty for slow response
 				}
 			}
-			
+
 			// Adjust score based on errors and warnings
 			if len(result.Errors) > 0 {
 				score -= float64(len(result.Errors)) * 5
 			}
 		}
-		
+
 		totalScore += score * weight
 		totalWeight += weight
 	}
-	
+
 	if totalWeight > 0 {
 		return math.Max(0, math.Min(100, totalScore/totalWeight))
 	}
-	
+
 	return 0.0
 }
 
 func (rge *ReportGenerationEngine) generateKeyFindings(results *ExecutionOrchestrationResult) []string {
 	findings := make([]string, 0)
-	
+
 	// Analyze success rate
 	successCount := 0
 	for _, result := range results.ScenarioResults {
@@ -713,7 +707,7 @@ func (rge *ReportGenerationEngine) generateKeyFindings(results *ExecutionOrchest
 		}
 	}
 	successRate := float64(successCount) / float64(len(results.ScenarioResults)) * 100
-	
+
 	if successRate >= 95 {
 		findings = append(findings, fmt.Sprintf("Excellent test success rate achieved: %.1f%%", successRate))
 	} else if successRate >= 80 {
@@ -721,7 +715,7 @@ func (rge *ReportGenerationEngine) generateKeyFindings(results *ExecutionOrchest
 	} else {
 		findings = append(findings, fmt.Sprintf("Test success rate needs improvement: %.1f%%", successRate))
 	}
-	
+
 	// Analyze execution time
 	if results.TotalDuration > 0 {
 		if results.TotalDuration < 5*time.Minute {
@@ -730,7 +724,7 @@ func (rge *ReportGenerationEngine) generateKeyFindings(results *ExecutionOrchest
 			findings = append(findings, "Test execution time is high and may need optimization")
 		}
 	}
-	
+
 	// Analyze resource utilization
 	if results.ResourceUtilization != nil {
 		if results.ResourceUtilization.CPUUtilization > 90 {
@@ -740,7 +734,7 @@ func (rge *ReportGenerationEngine) generateKeyFindings(results *ExecutionOrchest
 			findings = append(findings, "High memory utilization observed")
 		}
 	}
-	
+
 	// Analyze critical scenarios
 	criticalFailures := 0
 	for _, result := range results.ScenarioResults {
@@ -748,11 +742,11 @@ func (rge *ReportGenerationEngine) generateKeyFindings(results *ExecutionOrchest
 			criticalFailures++
 		}
 	}
-	
+
 	if criticalFailures > 0 {
 		findings = append(findings, fmt.Sprintf("%d critical scenarios with regressions detected", criticalFailures))
 	}
-	
+
 	return findings
 }
 
@@ -761,14 +755,14 @@ func (rge *ReportGenerationEngine) exportInFormat(report *ComprehensiveTestRepor
 	if outputDir == "" {
 		outputDir = "./reports"
 	}
-	
+
 	// Ensure output directory exists
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
 		return "", fmt.Errorf("failed to create output directory: %w", err)
 	}
-	
+
 	timestamp := report.GeneratedAt.Format("20060102-150405")
-	
+
 	switch format {
 	case FormatJSON:
 		return rge.exportJSON(report, outputDir, timestamp)
@@ -786,41 +780,41 @@ func (rge *ReportGenerationEngine) exportInFormat(report *ComprehensiveTestRepor
 func (rge *ReportGenerationEngine) exportJSON(report *ComprehensiveTestReport, outputDir, timestamp string) (string, error) {
 	filename := fmt.Sprintf("comprehensive-report-%s.json", timestamp)
 	filepath := filepath.Join(outputDir, filename)
-	
+
 	data, err := json.MarshalIndent(report, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("failed to marshal JSON: %w", err)
 	}
-	
+
 	if err := os.WriteFile(filepath, data, 0644); err != nil {
 		return "", fmt.Errorf("failed to write JSON file: %w", err)
 	}
-	
+
 	return filepath, nil
 }
 
 func (rge *ReportGenerationEngine) exportHTML(report *ComprehensiveTestReport, outputDir, timestamp string) (string, error) {
 	filename := fmt.Sprintf("comprehensive-report-%s.html", timestamp)
 	filepath := filepath.Join(outputDir, filename)
-	
+
 	// Use a comprehensive HTML template
 	htmlTemplate := rge.getHTMLTemplate()
-	
+
 	tmpl, err := template.New("report").Parse(htmlTemplate)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse HTML template: %w", err)
 	}
-	
+
 	file, err := os.Create(filepath)
 	if err != nil {
 		return "", fmt.Errorf("failed to create HTML file: %w", err)
 	}
 	defer file.Close()
-	
+
 	if err := tmpl.Execute(file, report); err != nil {
 		return "", fmt.Errorf("failed to execute HTML template: %w", err)
 	}
-	
+
 	return filepath, nil
 }
 
@@ -943,71 +937,72 @@ func (rge *ReportGenerationEngine) getHTMLTemplate() string {
 
 // Additional data structures for comprehensive analysis
 type ScenarioAnalysis struct {
-	ScenarioID      string                    `json:"scenario_id"`
-	Success         bool                      `json:"success"`
-	ExecutionTime   time.Duration             `json:"execution_time"`
-	PerformanceData *PerformanceData          `json:"performance_data"`
-	ResourceUsage   *ResourceUsageData        `json:"resource_usage"`
-	ErrorAnalysis   *ErrorAnalysis            `json:"error_analysis"`
-	QualityScore    float64                   `json:"quality_score"`
-	Recommendations []*TestRecommendation     `json:"recommendations"`
+	ScenarioID      string                `json:"scenario_id"`
+	Success         bool                  `json:"success"`
+	ExecutionTime   time.Duration         `json:"execution_time"`
+	PerformanceData *PerformanceData      `json:"performance_data"`
+	ResourceUsage   *ResourceUsageData    `json:"resource_usage"`
+	ErrorAnalysis   *ErrorAnalysis        `json:"error_analysis"`
+	QualityScore    float64               `json:"quality_score"`
+	Recommendations []*TestRecommendation `json:"recommendations"`
 }
 
 type TestRecommendation struct {
-	ID              string                    `json:"id"`
-	Title           string                    `json:"title"`
-	Description     string                    `json:"description"`
-	Category        RecommendationCategory    `json:"category"`
-	Priority        Priority                  `json:"priority"`
-	ImpactScore     float64                   `json:"impact_score"`
-	ImplementationEffort string               `json:"implementation_effort"`
-	ExpectedBenefit string                    `json:"expected_benefit"`
-	RelatedFindings []string                  `json:"related_findings"`
-	ActionItems     []string                  `json:"action_items"`
+	ID                   string                 `json:"id"`
+	Title                string                 `json:"title"`
+	Description          string                 `json:"description"`
+	Category             RecommendationCategory `json:"category"`
+	Priority             Priority               `json:"priority"`
+	ImpactScore          float64                `json:"impact_score"`
+	ImplementationEffort string                 `json:"implementation_effort"`
+	ExpectedBenefit      string                 `json:"expected_benefit"`
+	RelatedFindings      []string               `json:"related_findings"`
+	ActionItems          []string               `json:"action_items"`
 }
 
 type DataVisualization struct {
-	ID              string                    `json:"id"`
-	Title           string                    `json:"title"`
-	Type            string                    `json:"type"`
-	Description     string                    `json:"description"`
-	Data            interface{}               `json:"data"`
-	Config          map[string]interface{}    `json:"config"`
-	ExportPaths     map[string]string         `json:"export_paths"`
+	ID          string                 `json:"id"`
+	Title       string                 `json:"title"`
+	Type        string                 `json:"type"`
+	Description string                 `json:"description"`
+	Data        interface{}            `json:"data"`
+	Config      map[string]interface{} `json:"config"`
+	ExportPaths map[string]string      `json:"export_paths"`
 }
 
 // Default configuration
 func getDefaultReportGenerationConfig() *ReportGenerationConfig {
 	return &ReportGenerationConfig{
-		DetailLevel:             DetailLevelDetailed,
+		DetailLevel:            DetailLevelDetailed,
 		IncludeRawData:         true,
 		IncludeVisualizationss: true,
 		IncludeRecommendations: true,
 		IncludeHistoricalData:  true,
-		
-		PerformanceAnalysisDepth: AnalysisDepthDeep,
-		CoverageAnalysisEnabled:  true,
-		TrendAnalysisEnabled:     true,
-		RegressionAnalysisEnabled: true,
+
+		PerformanceAnalysisDepth:   AnalysisDepthDeep,
+		CoverageAnalysisEnabled:    true,
+		TrendAnalysisEnabled:       true,
+		RegressionAnalysisEnabled:  true,
 		StatisticalAnalysisEnabled: true,
-		
-		ChartResolution:         "1920x1080",
+
+		ChartResolution:          "1920x1080",
 		InteractiveChartsEnabled: true,
-		ExportVisualizationss:   true,
-		VisualizationFormats:    []string{"svg", "png"},
-		
-		OutputFormats:           []ReportFormat{FormatJSON, FormatHTML},
-		OutputDirectory:         "./reports",
-		CompressOutput:          true,
-		GenerateArchive:         false,
+		ExportVisualizationss:    true,
+		VisualizationFormats:     []string{"svg", "png"},
+
+		OutputFormats:   []ReportFormat{FormatJSON, FormatHTML},
+		OutputDirectory: "./reports",
+		CompressOutput:  true,
+		GenerateArchive: false,
 	}
 }
 
 // Enum definitions for analysis depth and other configuration
 type AnalysisDepth string
+
 const (
-	AnalysisDepthShallow AnalysisDepth = "shallow"
-	AnalysisDepthStandard AnalysisDepth = "standard"
-	AnalysisDepthDeep    AnalysisDepth = "deep"
+	AnalysisDepthShallow    AnalysisDepth = "shallow"
+	AnalysisDepthStandard   AnalysisDepth = "standard"
+	AnalysisDepthDeep       AnalysisDepth = "deep"
 	AnalysisDepthExhaustive AnalysisDepth = "exhaustive"
 )

@@ -17,17 +17,17 @@ type PDFFormatter struct {
 
 // PDFConfig configuration for PDF formatting
 type PDFConfig struct {
-	PageSize     string  // A4, Letter, etc.
-	Orientation  string  // Portrait, Landscape
-	MarginTop    float64 // in mm
-	MarginBottom float64 // in mm
-	MarginLeft   float64 // in mm
-	MarginRight  float64 // in mm
-	HeaderHeight float64 // in mm
-	FooterHeight float64 // in mm
-	FontSize     int     // Base font size
-	IncludeCharts bool   // Include performance charts
-	WatermarkText string // Optional watermark
+	PageSize      string  // A4, Letter, etc.
+	Orientation   string  // Portrait, Landscape
+	MarginTop     float64 // in mm
+	MarginBottom  float64 // in mm
+	MarginLeft    float64 // in mm
+	MarginRight   float64 // in mm
+	HeaderHeight  float64 // in mm
+	FooterHeight  float64 // in mm
+	FontSize      int     // Base font size
+	IncludeCharts bool    // Include performance charts
+	WatermarkText string  // Optional watermark
 }
 
 func (f *PDFFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
@@ -40,7 +40,7 @@ func (f *PDFFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 	// Note: In a real implementation, you would use a library like wkhtmltopdf or Chrome headless
 	// For this example, we'll return the HTML content that can be converted to PDF
 	// Example tools: go-wkhtmltopdf, chromedp, or gopdf
-	
+
 	return []byte(htmlContent), nil
 }
 
@@ -280,9 +280,9 @@ func (f *PDFFormatter) generatePDFHTML(data *ComprehensiveReport) (string, error
 	if data.ExecutiveSummary != nil {
 		buf.WriteString(`<div class="section executive-summary">
             <div class="section-title">Executive Summary</div>`)
-		
+
 		buf.WriteString(`<div class="metrics-grid">`)
-		
+
 		// Status card
 		statusClass := "status-success"
 		if string(data.ExecutiveSummary.OverallStatus) == "failed" {
@@ -292,13 +292,13 @@ func (f *PDFFormatter) generatePDFHTML(data *ComprehensiveReport) (string, error
             <div class="metric-value %s">%s</div>
             <div class="metric-label">Overall Status</div>
         </div>`, statusClass, data.ExecutiveSummary.OverallStatus))
-		
+
 		// Total tests card
 		buf.WriteString(fmt.Sprintf(`<div class="metric-card">
             <div class="metric-value">%d</div>
             <div class="metric-label">Total Tests</div>
         </div>`, data.ExecutiveSummary.TotalTests))
-		
+
 		// Pass rate card
 		passRateClass := "status-success"
 		if data.ExecutiveSummary.PassRate < 90 {
@@ -311,25 +311,25 @@ func (f *PDFFormatter) generatePDFHTML(data *ComprehensiveReport) (string, error
             <div class="metric-value %s">%.2f%%</div>
             <div class="metric-label">Pass Rate</div>
         </div>`, passRateClass, data.ExecutiveSummary.PassRate))
-		
+
 		// Duration card
 		buf.WriteString(fmt.Sprintf(`<div class="metric-card">
             <div class="metric-value">%v</div>
             <div class="metric-label">Duration</div>
         </div>`, data.ExecutiveSummary.Duration))
-		
+
 		// Performance score card
 		buf.WriteString(fmt.Sprintf(`<div class="metric-card">
             <div class="metric-value">%.1f/100</div>
             <div class="metric-label">Performance Score</div>
         </div>`, data.ExecutiveSummary.PerformanceScore))
-		
+
 		// Coverage score card
 		buf.WriteString(fmt.Sprintf(`<div class="metric-card">
             <div class="metric-value">%.1f%%</div>
             <div class="metric-label">Coverage Score</div>
         </div>`, data.ExecutiveSummary.CoverageScore))
-		
+
 		buf.WriteString(`</div>`)
 
 		// Key findings
@@ -360,7 +360,7 @@ func (f *PDFFormatter) generatePDFHTML(data *ComprehensiveReport) (string, error
 	if data.TestMetrics != nil {
 		buf.WriteString(`<div class="section page-break">
             <div class="section-title">Test Execution Metrics</div>`)
-		
+
 		buf.WriteString(`<table>
             <tr><th>Metric</th><th>Value</th></tr>`)
 		buf.WriteString(fmt.Sprintf("<tr><td>Total Tests</td><td>%d</td></tr>", data.TestMetrics.TotalTests))
@@ -387,7 +387,7 @@ func (f *PDFFormatter) generatePDFHTML(data *ComprehensiveReport) (string, error
 	if data.SystemMetrics != nil {
 		buf.WriteString(`<div class="section">
             <div class="section-title">System Resource Metrics</div>`)
-		
+
 		buf.WriteString(`<div class="metrics-grid">`)
 		buf.WriteString(fmt.Sprintf(`<div class="metric-card">
             <div class="metric-value">%.1f MB</div>
@@ -419,7 +419,7 @@ func (f *PDFFormatter) generatePDFHTML(data *ComprehensiveReport) (string, error
 	if data.PerformanceData != nil {
 		buf.WriteString(`<div class="section page-break">
             <div class="section-title">Performance Analysis</div>`)
-		
+
 		buf.WriteString(fmt.Sprintf(`<div class="metric-card">
             <div class="metric-value">%.1f/100</div>
             <div class="metric-label">Overall Performance Score</div>
@@ -442,7 +442,7 @@ func (f *PDFFormatter) generatePDFHTML(data *ComprehensiveReport) (string, error
 	if data.ErrorAnalysis != nil && data.ErrorAnalysis.TotalErrors > 0 {
 		buf.WriteString(`<div class="section page-break">
             <div class="section-title">Error Analysis</div>`)
-		
+
 		buf.WriteString(fmt.Sprintf(`<div class="critical-issues">
             <strong>Total Errors: %d</strong>
         </div>`, data.ErrorAnalysis.TotalErrors))
@@ -464,19 +464,19 @@ func (f *PDFFormatter) generatePDFHTML(data *ComprehensiveReport) (string, error
 	if len(data.Recommendations) > 0 {
 		buf.WriteString(`<div class="section page-break">
             <div class="section-title">Recommendations</div>`)
-		
+
 		for i, rec := range data.Recommendations {
 			if i >= 10 { // Limit to top 10 for PDF
 				break
 			}
-			
+
 			priorityClass := "status-success"
 			if rec.Priority == "high" || rec.Priority == "critical" {
 				priorityClass = "status-failed"
 			} else if rec.Priority == "medium" {
 				priorityClass = "status-warning"
 			}
-			
+
 			buf.WriteString(`<div class="recommendations no-break">`)
 			buf.WriteString(fmt.Sprintf(`<div class="subsection-title">%d. %s 
                 <span class="%s">(%s priority)</span></div>`, i+1, rec.Title, priorityClass, rec.Priority))
@@ -503,13 +503,13 @@ type MarkdownFormatter struct {
 
 // MarkdownConfig configuration for Markdown formatting
 type MarkdownConfig struct {
-	IncludeTOC        bool
-	IncludeCharts     bool
-	ChartFormat       string // "ascii", "mermaid", "plotly"
-	MaxTableRows      int
-	IncludeRawData    bool
-	GitHubFlavored    bool
-	IncludeEmojis     bool
+	IncludeTOC     bool
+	IncludeCharts  bool
+	ChartFormat    string // "ascii", "mermaid", "plotly"
+	MaxTableRows   int
+	IncludeRawData bool
+	GitHubFlavored bool
+	IncludeEmojis  bool
 }
 
 func (f *MarkdownFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
@@ -564,7 +564,7 @@ func (f *MarkdownFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 		if string(data.ExecutiveSummary.OverallStatus) == "failed" {
 			statusEmoji = "❌"
 		}
-		
+
 		buf.WriteString("### Overview\n\n")
 		buf.WriteString("| Metric | Value |\n")
 		buf.WriteString("|--------|-------|\n")
@@ -632,7 +632,7 @@ func (f *MarkdownFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			buf.WriteString("### Tests by Scenario\n\n")
 			buf.WriteString("| Scenario | Count |\n")
 			buf.WriteString("|----------|-------|\n")
-			
+
 			// Sort scenarios by count (descending)
 			type scenarioCount struct {
 				name  string
@@ -645,7 +645,7 @@ func (f *MarkdownFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			sort.Slice(scenarios, func(i, j int) bool {
 				return scenarios[i].count > scenarios[j].count
 			})
-			
+
 			for _, sc := range scenarios {
 				buf.WriteString(fmt.Sprintf("| %s | %d |\n", sc.name, sc.count))
 			}
@@ -758,7 +758,7 @@ func (f *MarkdownFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 				if i >= 5 { // Top 5
 					break
 				}
-				buf.WriteString(fmt.Sprintf("%d. **%s** (Count: %d, Severity: %s)\n", 
+				buf.WriteString(fmt.Sprintf("%d. **%s** (Count: %d, Severity: %s)\n",
 					i+1, pattern.Pattern, pattern.Count, pattern.Severity))
 			}
 			buf.WriteString("\n")
@@ -794,7 +794,7 @@ func (f *MarkdownFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			if i >= 10 { // Top 10
 				break
 			}
-			
+
 			priorityEmoji := "🔵"
 			switch rec.Priority {
 			case "critical":
@@ -806,14 +806,14 @@ func (f *MarkdownFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			case "low":
 				priorityEmoji = "🟢"
 			}
-			
+
 			buf.WriteString(fmt.Sprintf("### %d. %s %s %s\n\n", i+1, priorityEmoji, rec.Title, strings.ToUpper(rec.Priority)))
 			buf.WriteString(fmt.Sprintf("%s\n\n", rec.Description))
-			
+
 			if rec.Implementation != "" {
 				buf.WriteString(fmt.Sprintf("**Implementation:** %s\n\n", rec.Implementation))
 			}
-			
+
 			if rec.EstimatedEffort != "" {
 				buf.WriteString(fmt.Sprintf("**Estimated Effort:** %s\n\n", rec.EstimatedEffort))
 			}
@@ -832,7 +832,7 @@ func (f *MarkdownFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 
 	// Footer
 	buf.WriteString("---\n\n")
-	buf.WriteString(fmt.Sprintf("*Report generated by E2E Test Reporting System v%s at %s*\n", 
+	buf.WriteString(fmt.Sprintf("*Report generated by E2E Test Reporting System v%s at %s*\n",
 		data.ReportVersion, data.GeneratedAt.Format("2006-01-02 15:04:05")))
 
 	return buf.Bytes(), nil
@@ -870,7 +870,7 @@ func (f *TSVFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 		if f.config.IncludeHeaders {
 			writer.Write([]string{"Section", "Key", "Value"})
 		}
-		
+
 		writer.Write([]string{"Metadata", "GeneratedAt", data.GeneratedAt.Format(f.getDateFormat())})
 		writer.Write([]string{"Metadata", "ReportID", data.ReportID})
 		writer.Write([]string{"Metadata", "TestRunID", data.TestRunID})
@@ -883,7 +883,7 @@ func (f *TSVFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 		if f.config.IncludeHeaders {
 			writer.Write([]string{"Section", "Metric", "Value"})
 		}
-		
+
 		writer.Write([]string{"ExecutiveSummary", "OverallStatus", string(data.ExecutiveSummary.OverallStatus)})
 		writer.Write([]string{"ExecutiveSummary", "TotalTests", strconv.FormatInt(data.ExecutiveSummary.TotalTests, 10)})
 		writer.Write([]string{"ExecutiveSummary", "PassRate", fmt.Sprintf("%.2f", data.ExecutiveSummary.PassRate)})
@@ -899,7 +899,7 @@ func (f *TSVFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 		if f.config.IncludeHeaders {
 			writer.Write([]string{"Section", "Metric", "Value"})
 		}
-		
+
 		writer.Write([]string{"TestMetrics", "TotalTests", strconv.FormatInt(data.TestMetrics.TotalTests, 10)})
 		writer.Write([]string{"TestMetrics", "PassedTests", strconv.FormatInt(data.TestMetrics.PassedTests, 10)})
 		writer.Write([]string{"TestMetrics", "FailedTests", strconv.FormatInt(data.TestMetrics.FailedTests, 10)})
@@ -920,7 +920,7 @@ func (f *TSVFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 		if f.config.IncludeHeaders {
 			writer.Write([]string{"Section", "Metric", "Value"})
 		}
-		
+
 		writer.Write([]string{"SystemMetrics", "InitialMemoryMB", fmt.Sprintf("%.2f", data.SystemMetrics.InitialMemoryMB)})
 		writer.Write([]string{"SystemMetrics", "PeakMemoryMB", fmt.Sprintf("%.2f", data.SystemMetrics.PeakMemoryMB)})
 		writer.Write([]string{"SystemMetrics", "FinalMemoryMB", fmt.Sprintf("%.2f", data.SystemMetrics.FinalMemoryMB)})
@@ -944,7 +944,7 @@ func (f *TSVFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 		if f.config.IncludeHeaders {
 			writer.Write([]string{"Section", "Metric", "Value"})
 		}
-		
+
 		writer.Write([]string{"MCPMetrics", "TotalRequests", strconv.FormatInt(data.MCPMetrics.TotalRequests, 10)})
 		writer.Write([]string{"MCPMetrics", "SuccessfulRequests", strconv.FormatInt(data.MCPMetrics.SuccessfulRequests, 10)})
 		writer.Write([]string{"MCPMetrics", "FailedRequests", strconv.FormatInt(data.MCPMetrics.FailedRequests, 10)})
@@ -964,7 +964,7 @@ func (f *TSVFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 		// Header for test results
 		if f.config.IncludeHeaders {
 			writer.Write([]string{
-				"TestID", "TestName", "Scenario", "Language", "StartTime", "EndTime", 
+				"TestID", "TestName", "Scenario", "Language", "StartTime", "EndTime",
 				"Duration", "Status", "Success", "ErrorCount", "WarningCount",
 				"RequestCount", "SuccessfulRequests", "FailedRequests", "AverageLatency",
 				"ThroughputPerSecond", "ErrorRate", "MemoryUsedMB", "CPUTimeMS",
@@ -1049,11 +1049,11 @@ type XMLFormatter struct {
 
 // XMLConfig configuration for XML formatting
 type XMLConfig struct {
-	IncludeSchema    bool
-	PrettyPrint      bool
-	IncludeMetadata  bool
-	NamespaceURI     string
-	SchemaLocation   string
+	IncludeSchema   bool
+	PrettyPrint     bool
+	IncludeMetadata bool
+	NamespaceURI    string
+	SchemaLocation  string
 }
 
 func (f *XMLFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
@@ -1067,7 +1067,7 @@ func (f *XMLFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 	if f.config != nil && f.config.NamespaceURI != "" {
 		buf.WriteString(fmt.Sprintf(`<E2ETestReport xmlns="%s"`, f.config.NamespaceURI))
 		if f.config.SchemaLocation != "" {
-			buf.WriteString(fmt.Sprintf(` xsi:schemaLocation="%s %s" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"`, 
+			buf.WriteString(fmt.Sprintf(` xsi:schemaLocation="%s %s" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"`,
 				f.config.NamespaceURI, f.config.SchemaLocation))
 		}
 		buf.WriteString(">\n")
@@ -1151,7 +1151,7 @@ func (f *XMLFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			if i >= maxResults {
 				break
 			}
-			
+
 			buf.WriteString("    <TestResult>\n")
 			buf.WriteString(fmt.Sprintf("      <TestID>%s</TestID>\n", f.xmlEscape(result.TestID)))
 			buf.WriteString(fmt.Sprintf("      <TestName>%s</TestName>\n", f.xmlEscape(result.TestName)))
@@ -1174,7 +1174,7 @@ func (f *XMLFormatter) Format(data *ComprehensiveReport) ([]byte, error) {
 			if i >= 10 { // Limit recommendations
 				break
 			}
-			
+
 			buf.WriteString("    <Recommendation>\n")
 			buf.WriteString(fmt.Sprintf("      <ID>%s</ID>\n", f.xmlEscape(rec.ID)))
 			buf.WriteString(fmt.Sprintf("      <Title>%s</Title>\n", f.xmlEscape(rec.Title)))
@@ -1215,13 +1215,13 @@ func (f *XMLFormatter) xmlEscape(s string) string {
 func NewPDFFormatter(config *PDFConfig) *PDFFormatter {
 	if config == nil {
 		config = &PDFConfig{
-			PageSize:     "A4",
-			Orientation:  "Portrait",
-			MarginTop:    20,
-			MarginBottom: 20,
-			MarginLeft:   20,
-			MarginRight:  20,
-			FontSize:     11,
+			PageSize:      "A4",
+			Orientation:   "Portrait",
+			MarginTop:     20,
+			MarginBottom:  20,
+			MarginLeft:    20,
+			MarginRight:   20,
+			FontSize:      11,
 			IncludeCharts: true,
 		}
 	}

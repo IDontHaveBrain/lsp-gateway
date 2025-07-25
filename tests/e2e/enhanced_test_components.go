@@ -2,9 +2,11 @@ package e2e_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
+	"testing"
 	"time"
 
 	"lsp-gateway/mcp"
@@ -20,11 +22,11 @@ type EnhancedHTTPProtocolE2ETest struct {
 	resourceManager  *ResourceLifecycleManager
 	isolationManager *TestIsolationManager
 	logger           *log.Logger
-	
+
 	// Test state
 	allocatedResources map[string][]*ManagedResource
-	testMetrics       *HTTPTestMetrics
-	mu                sync.RWMutex
+	testMetrics        *HTTPTestMetrics
+	mu                 sync.RWMutex
 }
 
 // EnhancedMCPProtocolE2ETest provides MCP protocol testing with resource management
@@ -33,11 +35,11 @@ type EnhancedMCPProtocolE2ETest struct {
 	resourceManager  *ResourceLifecycleManager
 	isolationManager *TestIsolationManager
 	logger           *log.Logger
-	
+
 	// MCP-specific state
-	mcpClients        map[string]*mocks.MockMcpClient
-	mcpMetrics        *MCPTestMetrics
-	mu                sync.RWMutex
+	mcpClients map[string]*mocks.MockMcpClient
+	mcpMetrics *MCPTestMetrics
+	mu         sync.RWMutex
 }
 
 // EnhancedWorkflowE2ETest provides workflow testing with resource management
@@ -46,7 +48,7 @@ type EnhancedWorkflowE2ETest struct {
 	resourceManager  *ResourceLifecycleManager
 	isolationManager *TestIsolationManager
 	logger           *log.Logger
-	
+
 	// Workflow state
 	workflowInstances map[string]*WorkflowInstance
 	workflowMetrics   *WorkflowTestMetrics
@@ -59,7 +61,7 @@ type EnhancedIntegrationE2ETest struct {
 	resourceManager  *ResourceLifecycleManager
 	isolationManager *TestIsolationManager
 	logger           *log.Logger
-	
+
 	// Integration state
 	integrationScenarios map[string]*IntegrationScenario
 	integrationMetrics   *IntegrationTestMetrics
@@ -68,17 +70,17 @@ type EnhancedIntegrationE2ETest struct {
 
 // Supporting types for enhanced test components
 type HTTPTestMetrics struct {
-	TotalRequests      int64
-	SuccessfulRequests int64
-	FailedRequests     int64
-	AverageLatency     time.Duration
-	MaxLatency         time.Duration
-	MinLatency         time.Duration
+	TotalRequests       int64
+	SuccessfulRequests  int64
+	FailedRequests      int64
+	AverageLatency      time.Duration
+	MaxLatency          time.Duration
+	MinLatency          time.Duration
 	ResourceUtilization float64
-	
-	ServerInstances    int
-	ConcurrentTests    int
-	ResourceFailures   int64
+
+	ServerInstances  int
+	ConcurrentTests  int
+	ResourceFailures int64
 }
 
 type MCPTestMetrics struct {
@@ -87,19 +89,19 @@ type MCPTestMetrics struct {
 	FailedRequests     int64
 	AverageLatency     time.Duration
 	ClientPoolUsage    float64
-	
-	ClientInstances    int
-	MockResponseCount  int64
-	ErrorSimulations   int64
+
+	ClientInstances     int
+	MockResponseCount   int64
+	ErrorSimulations    int64
 	CircuitBreakerTrips int64
 }
 
 type WorkflowTestMetrics struct {
-	WorkflowsExecuted  int64
+	WorkflowsExecuted   int64
 	SuccessfulWorkflows int64
-	FailedWorkflows    int64
+	FailedWorkflows     int64
 	AverageWorkflowTime time.Duration
-	
+
 	ProjectInstances   int
 	WorkspaceInstances int
 	CrossLanguageTests int64
@@ -107,24 +109,24 @@ type WorkflowTestMetrics struct {
 }
 
 type IntegrationTestMetrics struct {
-	IntegrationTests   int64
-	SuccessfulTests    int64
-	FailedTests        int64
-	AverageTestTime    time.Duration
-	
+	IntegrationTests int64
+	SuccessfulTests  int64
+	FailedTests      int64
+	AverageTestTime  time.Duration
+
 	ComponentIntegrations int
 	ConfigTemplatesUsed   int
 	ResourceIntegrations  int64
 }
 
 type WorkflowInstance struct {
-	ID           string
-	Type         string
-	StartTime    time.Time
-	EndTime      time.Time
-	Status       string
-	Resources    []*ManagedResource
-	Steps        []*WorkflowStep
+	ID        string
+	Type      string
+	StartTime time.Time
+	EndTime   time.Time
+	Status    string
+	Resources []*ManagedResource
+	Steps     []*WorkflowStep
 }
 
 type WorkflowStep struct {
@@ -162,12 +164,12 @@ func NewEnhancedHTTPProtocolE2ETest(framework *framework.MultiLanguageTestFramew
 func (eht *EnhancedHTTPProtocolE2ETest) TestGatewayStartup() error {
 	testID := "enhanced-http-gateway-startup"
 	eht.logger.Printf("Starting enhanced HTTP gateway startup test")
-	
+
 	// Create test environment
 	env, err := eht.resourceManager.CreateTestEnvironment(testID, &EnvironmentRequirements{
 		Languages: []string{"go"},
 		ResourceLimits: &ResourceLimits{
-			MaxMemoryMB:  512,
+			MaxMemoryMB:   512,
 			MaxCPUPercent: 50.0,
 		},
 	})
@@ -175,7 +177,7 @@ func (eht *EnhancedHTTPProtocolE2ETest) TestGatewayStartup() error {
 		return fmt.Errorf("failed to create test environment: %w", err)
 	}
 	defer eht.resourceManager.CleanupTestEnvironment(testID)
-	
+
 	// Allocate server resource
 	serverResource, err := eht.resourceManager.AllocateResource(testID, ResourceTypeServer, map[string]interface{}{
 		"port_range": "8080-8090",
@@ -185,7 +187,7 @@ func (eht *EnhancedHTTPProtocolE2ETest) TestGatewayStartup() error {
 		return fmt.Errorf("failed to allocate server resource: %w", err)
 	}
 	defer eht.resourceManager.ReleaseResource(serverResource.ID, testID)
-	
+
 	// Allocate configuration resource
 	configResource, err := eht.resourceManager.AllocateResource(testID, ResourceTypeConfig, map[string]interface{}{
 		"template": "http-gateway",
@@ -195,28 +197,28 @@ func (eht *EnhancedHTTPProtocolE2ETest) TestGatewayStartup() error {
 		return fmt.Errorf("failed to allocate config resource: %w", err)
 	}
 	defer eht.resourceManager.ReleaseResource(configResource.ID, testID)
-	
+
 	// Track allocated resources
 	eht.mu.Lock()
 	eht.allocatedResources[testID] = []*ManagedResource{serverResource, configResource}
 	eht.testMetrics.ServerInstances++
 	eht.mu.Unlock()
-	
+
 	// Simulate gateway startup
 	startTime := time.Now()
-	
+
 	// Validate server resource is healthy
 	if serverResource.HealthCheckFunc != nil {
 		if err := serverResource.HealthCheckFunc(); err != nil {
 			return fmt.Errorf("server health check failed: %w", err)
 		}
 	}
-	
+
 	// Validate configuration
 	if configResource.ConfigData.Validation != nil && !configResource.ConfigData.Validation.Valid {
 		return fmt.Errorf("configuration validation failed")
 	}
-	
+
 	// Record metrics
 	latency := time.Since(startTime)
 	eht.mu.Lock()
@@ -229,7 +231,7 @@ func (eht *EnhancedHTTPProtocolE2ETest) TestGatewayStartup() error {
 		eht.testMetrics.MaxLatency = latency
 	}
 	eht.mu.Unlock()
-	
+
 	eht.logger.Printf("Enhanced HTTP gateway startup test completed successfully in %v", latency)
 	return nil
 }
@@ -238,7 +240,7 @@ func (eht *EnhancedHTTPProtocolE2ETest) TestGatewayStartup() error {
 func (eht *EnhancedHTTPProtocolE2ETest) TestLSPMethods() error {
 	testID := "enhanced-http-lsp-methods"
 	eht.logger.Printf("Starting enhanced HTTP LSP methods test")
-	
+
 	// Allocate required resources
 	resources, err := eht.allocateTestResources(testID, []ResourceType{
 		ResourceTypeServer,
@@ -250,7 +252,7 @@ func (eht *EnhancedHTTPProtocolE2ETest) TestLSPMethods() error {
 		return fmt.Errorf("failed to allocate resources: %w", err)
 	}
 	defer eht.releaseTestResources(testID, resources)
-	
+
 	// Get MCP client from resource
 	var clientResource *ManagedResource
 	for _, resource := range resources {
@@ -259,16 +261,16 @@ func (eht *EnhancedHTTPProtocolE2ETest) TestLSPMethods() error {
 			break
 		}
 	}
-	
+
 	if clientResource == nil || clientResource.ClientData == nil {
 		return fmt.Errorf("no client resource allocated")
 	}
-	
+
 	client := clientResource.ClientData.MockClient
-	
+
 	// Configure realistic responses
 	eht.configureLSPResponses(client)
-	
+
 	// Test various LSP methods
 	methods := []string{
 		mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION,
@@ -277,19 +279,19 @@ func (eht *EnhancedHTTPProtocolE2ETest) TestLSPMethods() error {
 		mcp.LSP_METHOD_WORKSPACE_SYMBOL,
 		mcp.LSP_METHOD_TEXT_DOCUMENT_SYMBOLS,
 	}
-	
+
 	ctx := context.Background()
-	
+
 	for _, method := range methods {
 		startTime := time.Now()
-		
+
 		_, err := client.SendLSPRequest(ctx, method, map[string]interface{}{
 			"uri":      "file:///test/main.go",
 			"position": map[string]interface{}{"line": 10, "character": 5},
 		})
-		
+
 		latency := time.Since(startTime)
-		
+
 		eht.mu.Lock()
 		eht.testMetrics.TotalRequests++
 		if err != nil {
@@ -297,7 +299,7 @@ func (eht *EnhancedHTTPProtocolE2ETest) TestLSPMethods() error {
 		} else {
 			eht.testMetrics.SuccessfulRequests++
 		}
-		
+
 		// Update latency metrics
 		if eht.testMetrics.MinLatency == 0 || latency < eht.testMetrics.MinLatency {
 			eht.testMetrics.MinLatency = latency
@@ -306,14 +308,14 @@ func (eht *EnhancedHTTPProtocolE2ETest) TestLSPMethods() error {
 			eht.testMetrics.MaxLatency = latency
 		}
 		eht.mu.Unlock()
-		
+
 		if err != nil {
 			eht.logger.Printf("LSP method %s failed: %v", method, err)
 		} else {
 			eht.logger.Printf("LSP method %s succeeded in %v", method, latency)
 		}
 	}
-	
+
 	eht.logger.Printf("Enhanced HTTP LSP methods test completed")
 	return nil
 }
@@ -322,7 +324,7 @@ func (eht *EnhancedHTTPProtocolE2ETest) TestLSPMethods() error {
 func (eht *EnhancedHTTPProtocolE2ETest) TestErrorHandling() error {
 	testID := "enhanced-http-error-handling"
 	eht.logger.Printf("Starting enhanced HTTP error handling test")
-	
+
 	// Allocate client resource
 	clientResource, err := eht.resourceManager.AllocateResource(testID, ResourceTypeClient, map[string]interface{}{
 		"error_simulation": true,
@@ -331,33 +333,33 @@ func (eht *EnhancedHTTPProtocolE2ETest) TestErrorHandling() error {
 		return fmt.Errorf("failed to allocate client resource: %w", err)
 	}
 	defer eht.resourceManager.ReleaseResource(clientResource.ID, testID)
-	
+
 	client := clientResource.ClientData.MockClient
-	
+
 	// Configure error scenarios
 	errors := []error{
 		fmt.Errorf("network error"),
 		fmt.Errorf("timeout"),
 		fmt.Errorf("server error"),
 	}
-	
+
 	for _, testErr := range errors {
 		client.QueueError(testErr)
 	}
-	
+
 	// Test error handling
 	ctx := context.Background()
-	
+
 	for i, expectedErr := range errors {
 		startTime := time.Now()
-		
+
 		_, err := client.SendLSPRequest(ctx, mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION, map[string]interface{}{
 			"uri":      fmt.Sprintf("file:///test/error%d.go", i),
 			"position": map[string]interface{}{"line": i, "character": 0},
 		})
-		
+
 		latency := time.Since(startTime)
-		
+
 		eht.mu.Lock()
 		eht.testMetrics.TotalRequests++
 		if err != nil {
@@ -372,16 +374,16 @@ func (eht *EnhancedHTTPProtocolE2ETest) TestErrorHandling() error {
 			eht.logger.Printf("Unexpected success for error test %d", i)
 		}
 		eht.mu.Unlock()
-		
+
 		// Test error categorization
 		if err != nil {
 			category := client.CategorizeError(err)
 			eht.logger.Printf("Error categorized as %s: %v", category, err)
 		}
-		
+
 		time.Sleep(10 * time.Millisecond) // Brief pause between error tests
 	}
-	
+
 	eht.logger.Printf("Enhanced HTTP error handling test completed")
 	return nil
 }
@@ -389,9 +391,9 @@ func (eht *EnhancedHTTPProtocolE2ETest) TestErrorHandling() error {
 // RunHTTPProtocolTests runs all HTTP protocol tests
 func (eht *EnhancedHTTPProtocolE2ETest) RunHTTPProtocolTests() (*HTTPProtocolResults, error) {
 	eht.logger.Printf("Running enhanced HTTP protocol tests")
-	
+
 	startTime := time.Now()
-	
+
 	// Run all HTTP tests
 	tests := []struct {
 		name string
@@ -401,7 +403,7 @@ func (eht *EnhancedHTTPProtocolE2ETest) RunHTTPProtocolTests() (*HTTPProtocolRes
 		{"LSP Methods", eht.TestLSPMethods},
 		{"Error Handling", eht.TestErrorHandling},
 	}
-	
+
 	var failedTests int
 	for _, test := range tests {
 		if err := test.test(); err != nil {
@@ -409,9 +411,9 @@ func (eht *EnhancedHTTPProtocolE2ETest) RunHTTPProtocolTests() (*HTTPProtocolRes
 			failedTests++
 		}
 	}
-	
+
 	duration := time.Since(startTime)
-	
+
 	// Calculate metrics
 	eht.mu.RLock()
 	totalRequests := eht.testMetrics.TotalRequests
@@ -421,7 +423,7 @@ func (eht *EnhancedHTTPProtocolE2ETest) RunHTTPProtocolTests() (*HTTPProtocolRes
 		avgLatency = int64(duration) / totalRequests
 	}
 	eht.mu.RUnlock()
-	
+
 	results := &HTTPProtocolResults{
 		GatewayStartupTime:      duration.Milliseconds(),
 		LSPMethodsCovered:       5, // Number of LSP methods tested
@@ -430,7 +432,7 @@ func (eht *EnhancedHTTPProtocolE2ETest) RunHTTPProtocolTests() (*HTTPProtocolRes
 		ErrorHandlingTests:      3,
 		ProtocolComplianceScore: float64(successfulReqs) / float64(totalRequests),
 	}
-	
+
 	eht.logger.Printf("Enhanced HTTP protocol tests completed: %d passed, %d failed", len(tests)-failedTests, failedTests)
 	return results, nil
 }
@@ -451,7 +453,7 @@ func NewEnhancedMCPProtocolE2ETest(framework *framework.MultiLanguageTestFramewo
 func (emt *EnhancedMCPProtocolE2ETest) TestMCPStartup() error {
 	testID := "enhanced-mcp-startup"
 	emt.logger.Printf("Starting enhanced MCP startup test")
-	
+
 	// Allocate MCP client from pool
 	client, err := emt.resourceManager.AllocateMcpClient(testID, &McpClientConfig{
 		BaseURL:    "http://localhost:8080",
@@ -462,30 +464,30 @@ func (emt *EnhancedMCPProtocolE2ETest) TestMCPStartup() error {
 		return fmt.Errorf("failed to allocate MCP client: %w", err)
 	}
 	defer emt.resourceManager.ReleaseMcpClient(testID)
-	
+
 	// Track client
 	emt.mu.Lock()
 	emt.mcpClients[testID] = client
 	emt.mcpMetrics.ClientInstances++
 	emt.mu.Unlock()
-	
+
 	// Test client health
 	if !client.IsHealthy() {
 		return fmt.Errorf("MCP client is not healthy")
 	}
-	
+
 	// Test basic connectivity
 	ctx := context.Background()
-	
+
 	// Configure a simple response
 	client.QueueResponse(json.RawMessage(`{"status": "ok"}`))
-	
+
 	startTime := time.Now()
 	_, err = client.SendLSPRequest(ctx, "test/startup", map[string]interface{}{
 		"test": "startup",
 	})
 	latency := time.Since(startTime)
-	
+
 	emt.mu.Lock()
 	emt.mcpMetrics.TotalMCPRequests++
 	if err != nil {
@@ -494,11 +496,11 @@ func (emt *EnhancedMCPProtocolE2ETest) TestMCPStartup() error {
 		emt.mcpMetrics.SuccessfulRequests++
 	}
 	emt.mu.Unlock()
-	
+
 	if err != nil {
 		return fmt.Errorf("MCP startup test failed: %w", err)
 	}
-	
+
 	emt.logger.Printf("Enhanced MCP startup test completed successfully in %v", latency)
 	return nil
 }
@@ -506,23 +508,23 @@ func (emt *EnhancedMCPProtocolE2ETest) TestMCPStartup() error {
 // RunMCPProtocolTests runs all MCP protocol tests
 func (emt *EnhancedMCPProtocolE2ETest) RunMCPProtocolTests() (*MCPProtocolResults, error) {
 	emt.logger.Printf("Running enhanced MCP protocol tests")
-	
+
 	startTime := time.Now()
-	
+
 	// Run MCP tests
 	if err := emt.TestMCPStartup(); err != nil {
 		return nil, fmt.Errorf("MCP startup test failed: %w", err)
 	}
-	
+
 	duration := time.Since(startTime)
-	
+
 	// Calculate metrics
 	emt.mu.RLock()
 	totalRequests := emt.mcpMetrics.TotalMCPRequests
 	successfulReqs := emt.mcpMetrics.SuccessfulRequests
 	clientUsage := float64(emt.mcpMetrics.ClientInstances) / 10.0 // assuming max 10 clients
 	emt.mu.RUnlock()
-	
+
 	results := &MCPProtocolResults{
 		MCPServerStartupTime:   duration.Milliseconds(),
 		ToolsAvailable:         5, // Number of MCP tools available
@@ -531,7 +533,7 @@ func (emt *EnhancedMCPProtocolE2ETest) RunMCPProtocolTests() (*MCPProtocolResult
 		CrossProtocolRequests:  1,
 		MCPComplianceScore:     float64(successfulReqs) / float64(totalRequests),
 	}
-	
+
 	emt.logger.Printf("Enhanced MCP protocol tests completed")
 	return results, nil
 }
@@ -552,14 +554,14 @@ func NewEnhancedWorkflowE2ETest(framework *framework.MultiLanguageTestFramework,
 func (ewt *EnhancedWorkflowE2ETest) TestDeveloperWorkflows() error {
 	testID := "enhanced-developer-workflows"
 	ewt.logger.Printf("Starting enhanced developer workflows test")
-	
+
 	// Allocate resources for workflow testing
 	resources, err := ewt.allocateWorkflowResources(testID)
 	if err != nil {
 		return fmt.Errorf("failed to allocate workflow resources: %w", err)
 	}
 	defer ewt.releaseWorkflowResources(testID, resources)
-	
+
 	// Create workflow instance
 	workflow := &WorkflowInstance{
 		ID:        testID,
@@ -569,12 +571,12 @@ func (ewt *EnhancedWorkflowE2ETest) TestDeveloperWorkflows() error {
 		Resources: resources,
 		Steps:     make([]*WorkflowStep, 0),
 	}
-	
+
 	ewt.mu.Lock()
 	ewt.workflowInstances[testID] = workflow
 	ewt.workflowMetrics.WorkflowsExecuted++
 	ewt.mu.Unlock()
-	
+
 	// Execute workflow steps
 	steps := []string{
 		"project-setup",
@@ -583,31 +585,31 @@ func (ewt *EnhancedWorkflowE2ETest) TestDeveloperWorkflows() error {
 		"definition-lookup",
 		"reference-finding",
 	}
-	
+
 	for _, stepName := range steps {
 		step := &WorkflowStep{
 			Name:      stepName,
 			StartTime: time.Now(),
 			Status:    "running",
 		}
-		
+
 		// Simulate step execution
 		time.Sleep(50 * time.Millisecond)
-		
+
 		step.EndTime = time.Now()
 		step.Status = "completed"
 		workflow.Steps = append(workflow.Steps, step)
-		
+
 		ewt.logger.Printf("Workflow step %s completed in %v", stepName, step.EndTime.Sub(step.StartTime))
 	}
-	
+
 	workflow.EndTime = time.Now()
 	workflow.Status = "completed"
-	
+
 	ewt.mu.Lock()
 	ewt.workflowMetrics.SuccessfulWorkflows++
 	ewt.mu.Unlock()
-	
+
 	ewt.logger.Printf("Enhanced developer workflows test completed in %v", workflow.EndTime.Sub(workflow.StartTime))
 	return nil
 }
@@ -615,17 +617,17 @@ func (ewt *EnhancedWorkflowE2ETest) TestDeveloperWorkflows() error {
 // RunWorkflowTests runs all workflow tests
 func (ewt *EnhancedWorkflowE2ETest) RunWorkflowTests() (*WorkflowResults, error) {
 	ewt.logger.Printf("Running enhanced workflow tests")
-	
+
 	if err := ewt.TestDeveloperWorkflows(); err != nil {
 		return nil, fmt.Errorf("developer workflows test failed: %w", err)
 	}
-	
+
 	ewt.mu.RLock()
 	workflowsExecuted := ewt.workflowMetrics.WorkflowsExecuted
 	successfulWorkflows := ewt.workflowMetrics.SuccessfulWorkflows
 	successRate := float64(successfulWorkflows) / float64(workflowsExecuted)
 	ewt.mu.RUnlock()
-	
+
 	results := &WorkflowResults{
 		DeveloperWorkflows:    int(workflowsExecuted),
 		MultiLanguageSupport:  true,
@@ -634,7 +636,7 @@ func (ewt *EnhancedWorkflowE2ETest) RunWorkflowTests() (*WorkflowResults, error)
 		WorkflowSuccessRate:   successRate,
 		RealWorldScenarios:    1,
 	}
-	
+
 	ewt.logger.Printf("Enhanced workflow tests completed")
 	return results, nil
 }
@@ -655,7 +657,7 @@ func NewEnhancedIntegrationE2ETest(framework *framework.MultiLanguageTestFramewo
 func (eit *EnhancedIntegrationE2ETest) TestComponentIntegration() error {
 	testID := "enhanced-component-integration"
 	eit.logger.Printf("Starting enhanced component integration test")
-	
+
 	scenario := &IntegrationScenario{
 		ID:          testID,
 		Name:        "Component Integration Test",
@@ -664,15 +666,15 @@ func (eit *EnhancedIntegrationE2ETest) TestComponentIntegration() error {
 		StartTime:   time.Now(),
 		Status:      "running",
 	}
-	
+
 	eit.mu.Lock()
 	eit.integrationScenarios[testID] = scenario
 	eit.integrationMetrics.IntegrationTests++
 	eit.mu.Unlock()
-	
+
 	// Allocate integrated resources
 	resources := make([]*ManagedResource, 0)
-	
+
 	// Allocate server resource
 	serverResource, err := eit.resourceManager.AllocateResource(testID, ResourceTypeServer, map[string]interface{}{
 		"integration_test": true,
@@ -681,31 +683,31 @@ func (eit *EnhancedIntegrationE2ETest) TestComponentIntegration() error {
 		return fmt.Errorf("failed to allocate server resource: %w", err)
 	}
 	resources = append(resources, serverResource)
-	
+
 	// Allocate MCP client
 	client, err := eit.resourceManager.AllocateMcpClient(testID, nil)
 	if err != nil {
 		eit.resourceManager.ReleaseResource(serverResource.ID, testID)
 		return fmt.Errorf("failed to allocate MCP client: %w", err)
 	}
-	
+
 	// Test integration between components
 	ctx := context.Background()
-	
+
 	// Configure integration response
 	client.QueueResponse(json.RawMessage(`{"integration": "success"}`))
-	
+
 	_, err = client.SendLSPRequest(ctx, "integration/test", map[string]interface{}{
 		"server_port": serverResource.ServerInstance.Port,
 	})
-	
+
 	// Cleanup resources
 	eit.resourceManager.ReleaseMcpClient(testID)
 	eit.resourceManager.ReleaseResource(serverResource.ID, testID)
-	
+
 	scenario.EndTime = time.Now()
 	scenario.Resources = resources
-	
+
 	eit.mu.Lock()
 	if err != nil {
 		scenario.Status = "failed"
@@ -716,11 +718,11 @@ func (eit *EnhancedIntegrationE2ETest) TestComponentIntegration() error {
 		eit.integrationMetrics.ComponentIntegrations++
 	}
 	eit.mu.Unlock()
-	
+
 	if err != nil {
 		return fmt.Errorf("component integration test failed: %w", err)
 	}
-	
+
 	eit.logger.Printf("Enhanced component integration test completed in %v", scenario.EndTime.Sub(scenario.StartTime))
 	return nil
 }
@@ -728,18 +730,18 @@ func (eit *EnhancedIntegrationE2ETest) TestComponentIntegration() error {
 // RunIntegrationTests runs all integration tests
 func (eit *EnhancedIntegrationE2ETest) RunIntegrationTests() (*IntegrationResults, error) {
 	eit.logger.Printf("Running enhanced integration tests")
-	
+
 	if err := eit.TestComponentIntegration(); err != nil {
 		return nil, fmt.Errorf("component integration test failed: %w", err)
 	}
-	
+
 	eit.mu.RLock()
 	integrationTests := eit.integrationMetrics.IntegrationTests
 	successfulTests := eit.integrationMetrics.SuccessfulTests
 	componentIntegrations := eit.integrationMetrics.ComponentIntegrations
 	successRate := float64(successfulTests) / float64(integrationTests)
 	eit.mu.RUnlock()
-	
+
 	results := &IntegrationResults{
 		ComponentIntegrations:  int(componentIntegrations),
 		ConfigurationTemplates: 1,
@@ -748,7 +750,7 @@ func (eit *EnhancedIntegrationE2ETest) RunIntegrationTests() (*IntegrationResult
 		LoadBalancingTests:     1,
 		IntegrationScore:       successRate,
 	}
-	
+
 	eit.logger.Printf("Enhanced integration tests completed")
 	return results, nil
 }
@@ -756,7 +758,7 @@ func (eit *EnhancedIntegrationE2ETest) RunIntegrationTests() (*IntegrationResult
 // Helper methods for resource management in tests
 func (eht *EnhancedHTTPProtocolE2ETest) allocateTestResources(testID string, resourceTypes []ResourceType) ([]*ManagedResource, error) {
 	resources := make([]*ManagedResource, 0, len(resourceTypes))
-	
+
 	for _, resourceType := range resourceTypes {
 		resource, err := eht.resourceManager.AllocateResource(testID, resourceType, map[string]interface{}{
 			"test_id": testID,
@@ -770,7 +772,7 @@ func (eht *EnhancedHTTPProtocolE2ETest) allocateTestResources(testID string, res
 		}
 		resources = append(resources, resource)
 	}
-	
+
 	return resources, nil
 }
 
@@ -801,7 +803,7 @@ func (eht *EnhancedHTTPProtocolE2ETest) configureLSPResponses(client *mocks.Mock
 			{"name": "main", "kind": 12, "range": {"start": {"line": 8, "character": 5}, "end": {"line": 15, "character": 1}}}
 		]`),
 	}
-	
+
 	// Queue responses multiple times for testing
 	for i := 0; i < 5; i++ {
 		for _, response := range responses {
@@ -817,9 +819,9 @@ func (ewt *EnhancedWorkflowE2ETest) allocateWorkflowResources(testID string) ([]
 		ResourceTypeClient,
 		ResourceTypeConfig,
 	}
-	
+
 	resources := make([]*ManagedResource, 0, len(resourceTypes))
-	
+
 	for _, resourceType := range resourceTypes {
 		resource, err := ewt.resourceManager.AllocateResource(testID, resourceType, map[string]interface{}{
 			"workflow_test": true,
@@ -833,7 +835,7 @@ func (ewt *EnhancedWorkflowE2ETest) allocateWorkflowResources(testID string) ([]
 		}
 		resources = append(resources, resource)
 	}
-	
+
 	return resources, nil
 }
 
@@ -848,13 +850,13 @@ func (ewt *EnhancedWorkflowE2ETest) releaseWorkflowResources(testID string, reso
 // Enhanced test suite placeholder implementations for missing methods
 func (suite *EnhancedE2ETestSuite) initializeEnhancedTestSuite(t *testing.T) error {
 	suite.logger.Printf("Initializing enhanced E2E test suite")
-	
+
 	// Setup framework
 	ctx := context.Background()
 	if err := suite.framework.SetupTestEnvironment(ctx); err != nil {
 		return fmt.Errorf("failed to setup framework: %w", err)
 	}
-	
+
 	suite.logger.Printf("Enhanced E2E test suite initialization completed")
 	return nil
 }
@@ -883,7 +885,7 @@ func (suite *EnhancedE2ETestSuite) createEnhancedExecutionPlan() *TestExecutionP
 
 func (suite *EnhancedE2ETestSuite) executeEnhancedTestsOptimized(t *testing.T) {
 	suite.logger.Printf("Executing enhanced tests with optimized strategy")
-	
+
 	// Execute HTTP protocol tests
 	t.Run("EnhancedHTTPProtocolTests", func(t *testing.T) {
 		results, err := suite.httpTest.RunHTTPProtocolTests()
@@ -893,7 +895,7 @@ func (suite *EnhancedE2ETestSuite) executeEnhancedTestsOptimized(t *testing.T) {
 			suite.currentResults.HTTPProtocolResults = results
 		}
 	})
-	
+
 	// Execute MCP protocol tests
 	t.Run("EnhancedMCPProtocolTests", func(t *testing.T) {
 		results, err := suite.mcpTest.RunMCPProtocolTests()
@@ -903,7 +905,7 @@ func (suite *EnhancedE2ETestSuite) executeEnhancedTestsOptimized(t *testing.T) {
 			suite.currentResults.MCPProtocolResults = results
 		}
 	})
-	
+
 	// Execute workflow tests
 	t.Run("EnhancedWorkflowTests", func(t *testing.T) {
 		results, err := suite.workflowTest.RunWorkflowTests()
@@ -913,7 +915,7 @@ func (suite *EnhancedE2ETestSuite) executeEnhancedTestsOptimized(t *testing.T) {
 			suite.currentResults.WorkflowResults = results
 		}
 	})
-	
+
 	// Execute integration tests
 	t.Run("EnhancedIntegrationTests", func(t *testing.T) {
 		results, err := suite.integrationTest.RunIntegrationTests()
@@ -935,14 +937,14 @@ func (suite *EnhancedE2ETestSuite) executeEnhancedTestsParallel(t *testing.T) {
 
 func (suite *EnhancedE2ETestSuite) performEnhancedAnalysis() {
 	suite.logger.Printf("Performing enhanced analysis")
-	
+
 	// Get resource metrics
 	resourceMetrics := suite.resourceManager.GetResourceMetrics()
 	if resourceMetrics != nil {
 		suite.currentResults.ResourceUtilization.OverallUtilization = float64(resourceMetrics.AllocatedResources) / float64(resourceMetrics.TotalResources)
 		suite.currentResults.ResourceUtilization.EfficiencyScore = 0.85 // Placeholder calculation
 	}
-	
+
 	// Get MCP client pool stats
 	mcpStats := suite.resourceManager.GetMcpClientPoolStats()
 	if totalClients, ok := mcpStats["total_created"].(int64); ok && totalClients > 0 {
@@ -952,7 +954,7 @@ func (suite *EnhancedE2ETestSuite) performEnhancedAnalysis() {
 			}
 		}
 	}
-	
+
 	// Set isolation effectiveness
 	suite.currentResults.IsolationEffectiveness.IsolationScore = 0.95 // Placeholder
 }
@@ -970,7 +972,7 @@ func (suite *EnhancedE2ETestSuite) saveEnhancedResults() error {
 
 func (suite *EnhancedE2ETestSuite) generateEnhancedReport(t *testing.T) {
 	suite.logger.Printf("Generating enhanced E2E report")
-	
+
 	report := fmt.Sprintf(`
 Enhanced E2E Test Report
 ========================
@@ -996,7 +998,7 @@ Test Results:
 		suite.currentResults.TestsPassed,
 		suite.currentResults.TestsFailed,
 	)
-	
+
 	t.Log(report)
 }
 
@@ -1014,13 +1016,13 @@ func (suite *EnhancedE2ETestSuite) collectSystemInfo() *SystemInfo {
 
 func (suite *EnhancedE2ETestSuite) enhancedCleanup() {
 	suite.logger.Printf("Performing enhanced cleanup")
-	
+
 	if suite.resourceManager != nil {
 		if err := suite.resourceManager.CleanupAll(); err != nil {
 			suite.logger.Printf("Resource cleanup failed: %v", err)
 		}
 	}
-	
+
 	if suite.cancel != nil {
 		suite.cancel()
 	}
