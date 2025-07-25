@@ -63,9 +63,9 @@ use (
 			"services/auth/handler.go": "package main\n\nimport \"github.com/gin-gonic/gin\"\n\ntype AuthHandler struct{}\n\nfunc (h *AuthHandler) Login(c *gin.Context) {}",
 			"services/auth/model.go":   "package main\n\ntype User struct {\n\tID    int    `json:\"id\"`\n\tEmail string `json:\"email\"`\n}",
 
-			// API service  
-			"services/api/go.mod":       "module github.com/company/monorepo/services/api\n\ngo 1.21\n\nrequire (\n\tgithub.com/labstack/echo/v4 v4.11.1\n\tgithub.com/company/monorepo/libs/database v0.0.0\n)",
-			"services/api/main.go":      "package main\n\nimport (\n\t\"github.com/labstack/echo/v4\"\n\t\"github.com/company/monorepo/libs/database\"\n)\n\nfunc main() {\n\te := echo.New()\n\te.Logger.Fatal(e.Start(\":8081\"))\n}",  
+			// API service
+			"services/api/go.mod":        "module github.com/company/monorepo/services/api\n\ngo 1.21\n\nrequire (\n\tgithub.com/labstack/echo/v4 v4.11.1\n\tgithub.com/company/monorepo/libs/database v0.0.0\n)",
+			"services/api/main.go":       "package main\n\nimport (\n\t\"github.com/labstack/echo/v4\"\n\t\"github.com/company/monorepo/libs/database\"\n)\n\nfunc main() {\n\te := echo.New()\n\te.Logger.Fatal(e.Start(\":8081\"))\n}",
 			"services/api/controller.go": "package main\n\nimport \"github.com/labstack/echo/v4\"\n\ntype APIController struct{}\n\nfunc (c *APIController) GetUsers(ctx echo.Context) error { return nil }",
 
 			// Worker service
@@ -79,9 +79,9 @@ use (
 			"libs/shared/logger.go": "package shared\n\nimport \"log\"\n\ntype Logger struct{}\n\nfunc NewLogger() *Logger {\n\treturn &Logger{}\n}\n\nfunc (l *Logger) Info(msg string) {\n\tlog.Println(\"INFO:\", msg)\n}",
 
 			// Database library
-			"libs/database/go.mod":      "module github.com/company/monorepo/libs/database\n\ngo 1.21\n\nrequire (\n\tgorm.io/gorm v1.25.5\n\tgorm.io/driver/postgres v1.5.4\n)",
+			"libs/database/go.mod":        "module github.com/company/monorepo/libs/database\n\ngo 1.21\n\nrequire (\n\tgorm.io/gorm v1.25.5\n\tgorm.io/driver/postgres v1.5.4\n)",
 			"libs/database/connection.go": "package database\n\nimport (\n\t\"gorm.io/gorm\"\n\t\"gorm.io/driver/postgres\"\n)\n\ntype DB struct {\n\t*gorm.DB\n}\n\nfunc Connect(dsn string) (*DB, error) {\n\tdb, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})\n\treturn &DB{db}, err\n}",
-			"libs/database/models.go":   "package database\n\nimport \"gorm.io/gorm\"\n\ntype BaseModel struct {\n\tID        uint           `gorm:\"primarykey\"`\n\tCreatedAt time.Time\n\tUpdatedAt time.Time\n\tDeletedAt gorm.DeletedAt `gorm:\"index\"`\n}",
+			"libs/database/models.go":     "package database\n\nimport \"gorm.io/gorm\"\n\ntype BaseModel struct {\n\tID        uint           `gorm:\"primarykey\"`\n\tCreatedAt time.Time\n\tUpdatedAt time.Time\n\tDeletedAt gorm.DeletedAt `gorm:\"index\"`\n}",
 
 			// Root files
 			"Makefile": `# Go Monorepo Makefile
@@ -201,7 +201,7 @@ multi_line_output = 3`,
 
 			// Source code structure
 			"src/ml_platform/__init__.py": "from .main import app\n\n__version__ = \"1.0.0\"",
-			
+
 			"src/ml_platform/main.py": `from fastapi import FastAPI, HTTPException
 from contextlib import asynccontextmanager
 from .models import PredictionRequest, PredictionResponse
@@ -474,7 +474,7 @@ if __name__ == "__main__":
         
     evaluate_model(sys.argv[1], sys.argv[2])`,
 
-			# Tests
+			// Tests
 			"tests/__init__.py": "",
 			"tests/test_api.py": `import pytest
 from fastapi.testclient import TestClient
@@ -513,7 +513,7 @@ async def test_get_model_status():
     status = await MLService.get_model_status()
     assert isinstance(status, dict)`,
 
-			# Configuration files
+			// Configuration files
 			"Dockerfile": `FROM python:3.11-slim
 
 WORKDIR /app
@@ -926,7 +926,7 @@ app.get('/health', (req, res) => {
 app.use(errorHandler)
 
 app.listen(PORT, () => {
-  console.log(\`API server running on port \${PORT}\`)
+  console.log('API server running on port ' + PORT)
 })
 
 export default app`,
@@ -1141,7 +1141,7 @@ export const Button: React.FC<ButtonProps> = ({
     lg: 'px-6 py-3 text-lg'
   }
   
-  const classes = \`\${baseClasses} \${variants[variant]} \${sizes[size]} \${className}\`
+  const classes = baseClasses + ' ' + variants[variant] + ' ' + sizes[size] + ' ' + className
   
   return (
     <button className={classes} {...props}>
@@ -1150,7 +1150,7 @@ export const Button: React.FC<ButtonProps> = ({
   )
 }`,
 
-			// Shared utils package  
+			// Shared utils package
 			"packages/utils/package.json": `{
   "name": "@shared/utils",
   "version": "1.0.0",
@@ -1296,10 +1296,10 @@ A modern full-stack application built with:
 - **Containerization**: Docker Compose for local development
 
 ## Development
-\`\`\`bash
+` + "```bash" + `
 npm install
 npm run dev
-\`\`\``,
+` + "```" + ``,
 		}
 
 		projectPath := suite.testHelper.CreateTestProject("fullstack-js", fullStackStructure)
@@ -1343,12 +1343,12 @@ func (suite *AutoGenerationTestSuite) TestTemplateSelectionAndApplication() {
 	suite.Run("SelectMonorepoTemplate", func() {
 		// Create monorepo project structure
 		monorepoStructure := map[string]string{
-			"go.work": "go 1.21\n\nuse (\n\t./auth\n\t./api\n\t./worker\n)",
-			"auth/go.mod":   "module auth\n\ngo 1.21",
-			"auth/main.go":  "package main\n\nfunc main() {}",
-			"api/go.mod":    "module api\n\ngo 1.21", 
-			"api/main.go":   "package main\n\nfunc main() {}",
-			"worker/go.mod": "module worker\n\ngo 1.21",
+			"go.work":        "go 1.21\n\nuse (\n\t./auth\n\t./api\n\t./worker\n)",
+			"auth/go.mod":    "module auth\n\ngo 1.21",
+			"auth/main.go":   "package main\n\nfunc main() {}",
+			"api/go.mod":     "module api\n\ngo 1.21",
+			"api/main.go":    "package main\n\nfunc main() {}",
+			"worker/go.mod":  "module worker\n\ngo 1.21",
 			"worker/main.go": "package main\n\nfunc main() {}",
 		}
 
@@ -1372,7 +1372,7 @@ func (suite *AutoGenerationTestSuite) TestTemplateSelectionAndApplication() {
 		// Validate generated configuration
 		suite.Equal("monorepo", generatedConfig.ProjectType, "Generated config should be monorepo type")
 		suite.GreaterOrEqual(len(generatedConfig.BaseConfig.Servers), 1, "Should have LSP servers configured")
-		
+
 		// Validate Go-specific configuration
 		hasGoServer := false
 		for _, server := range generatedConfig.BaseConfig.Servers {
@@ -1389,15 +1389,15 @@ func (suite *AutoGenerationTestSuite) TestTemplateSelectionAndApplication() {
 		// Create microservices project structure
 		microservicesStructure := map[string]string{
 			"docker-compose.yml": "version: '3.8'\nservices:\n  auth:\n    build: ./auth\n  user:\n    build: ./user\n  api:\n    build: ./api-gateway",
-			
-			"auth/go.mod":        "module auth-service\n\ngo 1.21",
-			"auth/main.go":       "package main\n\nfunc main() {}",
-			"auth/Dockerfile":    "FROM golang:1.21\nWORKDIR /app\nCOPY . .\nRUN go build -o auth .\nCMD [\"./auth\"]",
-			
-			"user/pom.xml":       `<?xml version="1.0"?><project><modelVersion>4.0.0</modelVersion><groupId>com.example</groupId><artifactId>user-service</artifactId><version>1.0.0</version></project>`,
+
+			"auth/go.mod":     "module auth-service\n\ngo 1.21",
+			"auth/main.go":    "package main\n\nfunc main() {}",
+			"auth/Dockerfile": "FROM golang:1.21\nWORKDIR /app\nCOPY . .\nRUN go build -o auth .\nCMD [\"./auth\"]",
+
+			"user/pom.xml":                 `<?xml version="1.0"?><project><modelVersion>4.0.0</modelVersion><groupId>com.example</groupId><artifactId>user-service</artifactId><version>1.0.0</version></project>`,
 			"user/src/main/java/Main.java": "public class Main { public static void main(String[] args) {} }",
-			"user/Dockerfile":    "FROM openjdk:17\nWORKDIR /app\nCOPY target/*.jar app.jar\nCMD [\"java\", \"-jar\", \"app.jar\"]",
-			
+			"user/Dockerfile":              "FROM openjdk:17\nWORKDIR /app\nCOPY target/*.jar app.jar\nCMD [\"java\", \"-jar\", \"app.jar\"]",
+
 			"api-gateway/package.json": `{"name": "api-gateway", "dependencies": {"express": "^4.18.0"}}`,
 			"api-gateway/server.js":    "const express = require('express'); const app = express(); app.listen(3000);",
 			"api-gateway/Dockerfile":   "FROM node:18\nWORKDIR /app\nCOPY package*.json ./\nRUN npm install\nCOPY . .\nCMD [\"node\", \"server.js\"]",
@@ -1413,7 +1413,7 @@ func (suite *AutoGenerationTestSuite) TestTemplateSelectionAndApplication() {
 		// Validate microservices template selected
 		suite.Equal("microservices", selectedTemplate.Type, "Should select microservices template")
 		suite.Contains(selectedTemplate.Languages, "go", "Template should support Go")
-		suite.Contains(selectedTemplate.Languages, "java", "Template should support Java") 
+		suite.Contains(selectedTemplate.Languages, "java", "Template should support Java")
 		suite.Contains(selectedTemplate.Languages, "javascript", "Template should support JavaScript")
 
 		// Apply template
@@ -1441,13 +1441,13 @@ func (suite *AutoGenerationTestSuite) TestTemplateSelectionAndApplication() {
 	suite.Run("SelectFullStackTemplate", func() {
 		// Create full-stack project structure
 		fullStackStructure := map[string]string{
-			"frontend/package.json": `{"name": "frontend", "dependencies": {"react": "^18.0.0", "typescript": "^5.0.0"}}`,
+			"frontend/package.json":  `{"name": "frontend", "dependencies": {"react": "^18.0.0", "typescript": "^5.0.0"}}`,
 			"frontend/tsconfig.json": `{"compilerOptions": {"target": "ES2020", "jsx": "react-jsx"}}`,
 			"frontend/src/App.tsx":   "import React from 'react';\n\nconst App = () => <div>App</div>;\n\nexport default App;",
-			
+
 			"backend/go.mod":  "module backend\n\ngo 1.21",
 			"backend/main.go": "package main\n\nfunc main() {}",
-			
+
 			"shared/types.ts": "export interface User { id: number; name: string; }",
 		}
 
@@ -1470,7 +1470,7 @@ func (suite *AutoGenerationTestSuite) TestTemplateSelectionAndApplication() {
 
 		// Validate frontend-backend configuration
 		suite.Equal("frontend-backend", generatedConfig.ProjectType, "Should be frontend-backend type")
-		
+
 		// Should have optimizations for full-stack development
 		suite.NotNil(generatedConfig.Performance, "Should have performance config")
 		suite.NotNil(generatedConfig.MultiLanguage, "Should have multi-language config")
@@ -1519,7 +1519,7 @@ func (suite *AutoGenerationTestSuite) TestOptimizationModeApplication() {
 		suite.True(config.Performance.EnableCaching, "Should enable caching for production")
 		suite.Equal(30*time.Second, config.Performance.RequestTimeout, "Should have shorter timeout for production")
 		suite.GreaterOrEqual(config.Performance.MaxConcurrentRequests, 200, "Should have high concurrency for production")
-		
+
 		// Should enable multi-server features for production
 		suite.NotNil(config.MultiServer, "Should have multi-server config for production")
 		suite.True(config.MultiServer.EnableLoadBalancing, "Should enable load balancing for production")
@@ -1528,7 +1528,7 @@ func (suite *AutoGenerationTestSuite) TestOptimizationModeApplication() {
 	suite.Run("ApplyLargeProjectOptimization", func() {
 		// Create large project structure
 		largeProjectStructure := make(map[string]string)
-		
+
 		// Generate many files to simulate large project
 		largeProjectStructure["go.mod"] = "module large-project\n\ngo 1.21"
 		for i := 0; i < 100; i++ {
@@ -1546,7 +1546,7 @@ func (suite *AutoGenerationTestSuite) TestOptimizationModeApplication() {
 		// Validate large project optimizations
 		suite.Equal("large-project", config.Performance.OptimizationMode)
 		suite.NotNil(config.Optimization.LargeProjectOptimizations, "Should have large project optimizations")
-		
+
 		largeOpts := config.Optimization.LargeProjectOptimizations
 		suite.True(largeOpts.BackgroundIndexing, "Should enable background indexing")
 		suite.True(largeOpts.IncrementalAnalysis, "Should enable incremental analysis")

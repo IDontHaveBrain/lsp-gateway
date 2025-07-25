@@ -204,11 +204,11 @@ func (sr *SmartRouterImpl) AggregateBroadcast(request *LSPRequest) (*AggregatedR
 			responseTime := time.Since(reqStart)
 
 			responses[idx] = ServerResponse{
-				ServerName:   dec.ServerName,
-				Response:     result,
-				Error:        err,
-				Duration:     responseTime,
-				Success:      err == nil,
+				ServerName: dec.ServerName,
+				Response:   result,
+				Error:      err,
+				Duration:   responseTime,
+				Success:    err == nil,
 			}
 
 			// Update server performance metrics
@@ -243,11 +243,11 @@ func (sr *SmartRouterImpl) AggregateBroadcast(request *LSPRequest) (*AggregatedR
 	}
 
 	aggregated := &AggregatedResponse{
-		PrimaryResult:    primaryResult,
+		PrimaryResult:      primaryResult,
 		SecondaryResponses: secondaryInterfaces,
-		Strategy:         RoutingStrategyType(sr.GetRoutingStrategy(request.Method).Name()),
-		ProcessingTime:   processingTime,
-		ServerCount:      len(decisions),
+		Strategy:           RoutingStrategyType(sr.GetRoutingStrategy(request.Method).Name()),
+		ProcessingTime:     processingTime,
+		ServerCount:        len(decisions),
 		Metadata: map[string]interface{}{
 			"success_count": successCount,
 			"total_servers": len(decisions),
@@ -287,7 +287,7 @@ func (sr *SmartRouterImpl) GetRoutingStrategy(method string) RoutingStrategy {
 	}
 
 	// Return default strategy
-	return &SingleTargetWithFallbackStrategy{}
+	return SingleTargetWithFallback
 }
 
 // GetRoutingMetrics returns current routing performance metrics
@@ -347,7 +347,7 @@ func (sr *SmartRouterImpl) UpdateServerPerformance(serverName string, responseTi
 	sm := sr.metrics.ServerMetrics[serverName]
 	sm.TotalRequests++
 	sm.LastRequestTime = time.Now()
-	
+
 	if success {
 		sm.SuccessfulRequests++
 		sr.metrics.SuccessfulRequests++
@@ -486,11 +486,11 @@ func (sr *SmartRouterImpl) routeLoadBalanced(request *LSPRequest) (*RoutingDecis
 	}
 
 	return &RoutingDecision{
-		ServerName:   selectedServer.Name,
-		ServerConfig: selectedServer,
-		Client:       client,
-		Priority:     selectedServer.Priority,
-		Weight:       selectedServer.Weight,
+		ServerName:      selectedServer.Name,
+		ServerConfig:    selectedServer,
+		Client:          client,
+		Priority:        selectedServer.Priority,
+		Weight:          selectedServer.Weight,
 		RoutingStrategy: string(RoutingStrategyLoadBalanced),
 		Metadata: map[string]interface{}{
 			"lb_strategy":   lbConfig.Strategy,
@@ -526,11 +526,11 @@ func (sr *SmartRouterImpl) routeMultiTarget(request *LSPRequest) ([]*RoutingDeci
 			}
 
 			decisions = append(decisions, &RoutingDecision{
-				ServerName:   server.Name,
-				ServerConfig: server,
-				Client:       client,
-				Priority:     server.Priority,
-				Weight:       server.Weight,
+				ServerName:      server.Name,
+				ServerConfig:    server,
+				Client:          client,
+				Priority:        server.Priority,
+				Weight:          server.Weight,
 				RoutingStrategy: string(RoutingStrategyMulti),
 			})
 		}

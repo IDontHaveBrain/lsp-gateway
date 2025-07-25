@@ -118,6 +118,7 @@ type HealthMonitoringResult struct {
 
 // PerformanceMetrics contains detailed performance measurements
 type PerformanceMetrics struct {
+	OperationID        string
 	OperationDuration  time.Duration
 	MemoryAllocated    int64
 	MemoryFreed        int64
@@ -479,11 +480,11 @@ func (f *MultiLanguageTestFramework) CreateGatewayWithProject(project *TestProje
 		}
 	}
 
-	// Create workspace manager for the gateway
-	workspaceManager := gateway.NewWorkspaceManager(gatewayConfig, nil)
-
 	// Create project-aware gateway
-	projectGateway := gateway.NewProjectAwareGateway(gatewayConfig, workspaceManager)
+	projectGateway, err := gateway.NewProjectAwareGateway(gatewayConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create project-aware gateway: %w", err)
+	}
 
 	return projectGateway, nil
 }

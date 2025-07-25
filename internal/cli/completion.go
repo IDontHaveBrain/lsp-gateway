@@ -111,13 +111,3 @@ func init() {
 
 	rootCmd.AddCommand(completionCmd)
 }
-
-// GetCompletionCmd returns the completion command for testing purposes
-func GetCompletionCmd() *cobra.Command {
-	return completionCmd
-}
-
-// GetRunCompletion returns the runCompletion function for testing purposes
-func GetRunCompletion() func(*cobra.Command, []string) error {
-	return runCompletion
-}

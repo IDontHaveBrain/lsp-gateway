@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
 	"gopkg.in/yaml.v2"
 )
 
@@ -24,7 +25,7 @@ const (
 // Performance configuration constants
 const (
 	// Memory limits
-	DefaultMemoryLimit = 1024 * 1024 * 1024 // 1GB in bytes
+	DefaultMemoryLimit = 1024 // 1GB in MB
 
 	// Cache defaults
 	DefaultCacheTTL = 30 * time.Minute
@@ -906,18 +907,12 @@ type LanguageServerPool struct {
 }
 
 type LoadBalancingConfig struct {
-<<<<<<< HEAD
-	Strategy string `yaml:"strategy" json:"strategy"` // "round_robin", "least_connections", "response_time", "resource_usage"
-	HealthThreshold float64 `yaml:"health_threshold" json:"health_threshold"`
-	WeightFactors map[string]float64 `yaml:"weight_factors" json:"weight_factors"`
-	FallbackEnabled bool `yaml:"fallback_enabled" json:"fallback_enabled"`
-	MaxRetries int `yaml:"max_retries" json:"max_retries"`
-	RetryDelay time.Duration `yaml:"retry_delay" json:"retry_delay"`
-=======
 	Strategy        string             `yaml:"strategy" json:"strategy"` // "round_robin", "least_connections", "response_time", "resource_usage"
 	HealthThreshold float64            `yaml:"health_threshold" json:"health_threshold"`
 	WeightFactors   map[string]float64 `yaml:"weight_factors" json:"weight_factors"`
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
+	FallbackEnabled bool               `yaml:"fallback_enabled" json:"fallback_enabled"`
+	MaxRetries      int                `yaml:"max_retries" json:"max_retries"`
+	RetryDelay      time.Duration      `yaml:"retry_delay" json:"retry_delay"`
 }
 
 type ResourceLimits struct {
@@ -2268,11 +2263,11 @@ func (mlc *MultiLanguageConfig) WriteYAML(filepath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal config to YAML: %w", err)
 	}
-	
+
 	if err := ioutil.WriteFile(filepath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write YAML file: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -2282,11 +2277,11 @@ func (mlc *MultiLanguageConfig) WriteJSON(filepath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal config to JSON: %w", err)
 	}
-	
+
 	if err := ioutil.WriteFile(filepath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write JSON file: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -2306,10 +2301,10 @@ func (msc *MultiServerConfig) Validate() error {
 
 	// Validate selection strategy
 	validStrategies := map[string]bool{
-		"performance":   true,
-		"feature":       true,
-		"load_balance":  true,
-		"random":        true,
+		"performance":  true,
+		"feature":      true,
+		"load_balance": true,
+		"random":       true,
 	}
 	if !validStrategies[msc.SelectionStrategy] {
 		return fmt.Errorf("invalid selection strategy: %s", msc.SelectionStrategy)
@@ -2371,10 +2366,10 @@ func (lbc *LoadBalancingConfig) Validate() error {
 
 	// Validate strategy
 	validStrategies := map[string]bool{
-		"round_robin":      true,
+		"round_robin":       true,
 		"least_connections": true,
-		"response_time":    true,
-		"resource_usage":   true,
+		"response_time":     true,
+		"resource_usage":    true,
 	}
 	if !validStrategies[lbc.Strategy] {
 		return fmt.Errorf("invalid load balancing strategy: %s", lbc.Strategy)
@@ -2403,7 +2398,7 @@ func LoadMultiLanguageConfig(filepath string) (*MultiLanguageConfig, error) {
 	}
 
 	var config MultiLanguageConfig
-	
+
 	// Try YAML first, then JSON
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		// If YAML fails, try JSON

@@ -63,11 +63,11 @@ func (sr *SmartRouterWithAggregation) AggregateBroadcastEnhanced(request *LSPReq
 			responses[idx] = result
 			sources[idx] = dec.TargetServers[0].Name
 			serverResponses[idx] = ServerResponse{
-				ServerName:   dec.TargetServers[0].Name,
-				Response:     result,
-				Error:        err,
-				Duration:     responseTime,
-				Success:      err == nil,
+				ServerName: dec.TargetServers[0].Name,
+				Response:   result,
+				Error:      err,
+				Duration:   responseTime,
+				Success:    err == nil,
 			}
 
 			// Update server performance metrics
@@ -93,11 +93,11 @@ func (sr *SmartRouterWithAggregation) AggregateBroadcastEnhanced(request *LSPReq
 	// Create enhanced response
 	enhancedResponse := &EnhancedAggregatedResponse{
 		AggregatedResponse: AggregatedResponse{
-			PrimaryResult:    aggregationResult.MergedResponse,
+			PrimaryResult:      aggregationResult.MergedResponse,
 			SecondaryResponses: sr.convertServerResponsesToInterfaces(sr.filterSecondaryResults(serverResponses, aggregationResult.MergedResponse)),
-			Strategy:         RoutingStrategyType(sr.GetRoutingStrategy(request.Method).Name()),
-			ProcessingTime:   time.Since(startTime),
-			ServerCount:      len(decisions),
+			Strategy:           RoutingStrategyType(sr.GetRoutingStrategy(request.Method).Name()),
+			ProcessingTime:     time.Since(startTime),
+			ServerCount:        len(decisions),
 			Metadata: map[string]interface{}{
 				"success_count":    aggregationResult.SuccessfulSources,
 				"total_servers":    aggregationResult.TotalSources,

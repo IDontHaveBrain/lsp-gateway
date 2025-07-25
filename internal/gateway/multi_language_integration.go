@@ -12,10 +12,6 @@ import (
 	"time"
 
 	"lsp-gateway/internal/config"
-<<<<<<< HEAD
-	"lsp-gateway/internal/transport"
-=======
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	"lsp-gateway/mcp"
 )
 
@@ -48,38 +44,19 @@ func NewMultiLanguageIntegrator(gatewayConfig *config.GatewayConfig, logger *log
 	// Initialize components
 	integrator.projectDetector = NewProjectLanguageScanner()
 	integrator.projectDetector.OptimizeForLargeMonorepos()
-<<<<<<< HEAD
-	
-	// Create a structured logger for MCP compatibility
+	// Create structured logger for MCP components
 	mcpLogger := mcp.NewStructuredLogger(&mcp.LoggerConfig{
 		Level:     mcp.LogLevelInfo,
 		Component: "workspace-manager",
-		Output:    logger.Writer(),
 	})
 	integrator.workspaceManager = NewWorkspaceManager(gatewayConfig, nil, mcpLogger)
-	
-=======
-
-	// Create structured logger for MCP components
-	mcpLogger := mcp.NewStructuredLogger(nil)
-
-	integrator.workspaceManager = NewWorkspaceManager(gatewayConfig, nil, mcpLogger)
-
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	integrator.multiServerManager = NewMultiServerManager(gatewayConfig, logger)
 
 	// Initialize smart router with project-aware routing if available
-<<<<<<< HEAD
-	projectRouter := NewProjectAwareRouter(NewRouter(), integrator.workspaceManager, mcpLogger)
-	integrator.smartRouter = NewSmartRouter(projectRouter, gatewayConfig, integrator.workspaceManager, mcpLogger)
-	
-=======
 	router := NewRouter()
 	if projectRouter := NewProjectAwareRouter(router, integrator.workspaceManager, mcpLogger); projectRouter != nil {
 		integrator.smartRouter = NewSmartRouter(projectRouter, gatewayConfig, integrator.workspaceManager, mcpLogger)
 	}
-
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	return integrator
 }
 
@@ -100,15 +77,8 @@ func (mli *MultiLanguageIntegrator) Initialize(ctx context.Context) error {
 	if err := mli.multiServerManager.Start(); err != nil {
 		return fmt.Errorf("failed to start multi-server manager: %w", err)
 	}
-<<<<<<< HEAD
-	
-	// Workspace manager is automatically initialized during creation
-	
-=======
 
 	// Workspace manager is initialized via constructor, no additional initialization needed
-
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	mli.initialized = true
 	mli.logger.Printf("Multi-language LSP Gateway system initialized successfully")
 
@@ -319,19 +289,6 @@ func (mli *MultiLanguageIntegrator) configureWorkspaceForProject(projectInfo *Mu
 	for language := range projectInfo.Languages {
 		languages = append(languages, language)
 	}
-<<<<<<< HEAD
-	
-	// Register workspace - use createWorkspace method with discovery result
-	discovery := &WorkspaceDiscoveryResult{
-		WorkspaceID:   workspaceConfig.ID,
-		RootPath:      workspaceConfig.RootPath,
-		ProjectType:   workspaceConfig.ProjectType,
-		Languages:     workspaceConfig.Languages,
-		ConfigMarkers: []string{},
-	}
-	_, err := mli.workspaceManager.createWorkspace(discovery)
-=======
-
 	discoveryResult := &WorkspaceDiscoveryResult{
 		WorkspaceID:      fmt.Sprintf("ml-%d", time.Now().Unix()),
 		RootPath:         projectInfo.RootPath,
@@ -345,7 +302,6 @@ func (mli *MultiLanguageIntegrator) configureWorkspaceForProject(projectInfo *Mu
 
 	// Register workspace
 	_, err := mli.workspaceManager.createWorkspace(discoveryResult)
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	return err
 }
 
@@ -397,10 +353,6 @@ func (mli *MultiLanguageIntegrator) extractProjectPath(fileURI string) string {
 func (mli *MultiLanguageIntegrator) processRequestDirect(ctx context.Context, request *LSPRequest, projectInfo *MultiLanguageProjectInfo) (*AggregatedResponse, error) {
 	// Direct processing fallback when smart router is not available
 	language := ""
-<<<<<<< HEAD
-	if lang, err := mli.extractLanguageFromURI(request.URI); err == nil {
-		language = lang
-=======
 	if request.Context != nil {
 		language = request.Context.Language
 	}
@@ -408,7 +360,6 @@ func (mli *MultiLanguageIntegrator) processRequestDirect(ctx context.Context, re
 		if lang, err := mli.extractLanguageFromURI(request.URI); err == nil {
 			language = lang
 		}
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	}
 
 	if language == "" {
@@ -427,28 +378,16 @@ func (mli *MultiLanguageIntegrator) processRequestDirect(ctx context.Context, re
 
 	result, err := server.SendRequest(ctx, request.Method, request.Params)
 	processingTime := time.Since(startTime)
-<<<<<<< HEAD
-	
-	// Note: Cannot update server metrics without server name/config from interface
-	
-=======
 
 	// Server metrics updating - removed due to interface limitations
-
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	return &AggregatedResponse{
 		PrimaryResult:  result,
 		Strategy:       RoutingStrategyType(SingleTargetWithFallback.Name()),
 		ProcessingTime: processingTime,
 		ServerCount:    1,
 		Metadata: map[string]interface{}{
-<<<<<<< HEAD
-			"language":     language,
-			"success":      err == nil,
-=======
 			"language": language,
 			"success":  err == nil,
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 		},
 	}, err
 }

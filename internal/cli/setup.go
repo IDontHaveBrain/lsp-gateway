@@ -499,51 +499,6 @@ func init() {
 	rootCmd.AddCommand(setupCmd)
 }
 
-// GetSetupCmd returns the setup command for testing purposes
-func GetSetupCmd() *cobra.Command {
-	return setupCmd
-}
-
-// GetSetupAllCmd returns the setup all command for testing purposes
-func GetSetupAllCmd() *cobra.Command {
-	return setupAllCmd
-}
-
-// GetSetupWizardCmd returns the setup wizard command for testing purposes
-func GetSetupWizardCmd() *cobra.Command {
-	return setupWizardCmd
-}
-
-// GetSetupDetectCmd returns the setup detect command for testing purposes
-func GetSetupDetectCmd() *cobra.Command {
-	return setupDetectCmd
-}
-
-// GetSetupMultiLanguageCmd returns the setup multi-language command for testing purposes
-func GetSetupMultiLanguageCmd() *cobra.Command {
-	return setupMultiLanguageCmd
-}
-
-// GetSetupTemplateCmd returns the setup template command for testing purposes
-func GetSetupTemplateCmd() *cobra.Command {
-	return setupTemplateCmd
-}
-
-// GetSetupFlags returns current setup flag values for testing purposes
-func GetSetupFlags() (timeout time.Duration, force bool, jsonOutput bool, verbose bool, noInteractive bool, skipVerify bool) {
-	return setupTimeout, setupForce, setupJSON, setupVerbose, setupNoInteractive, setupSkipVerify
-}
-
-// SetSetupFlags sets setup flag values for testing purposes
-func SetSetupFlags(timeout time.Duration, force bool, jsonOutput bool, verbose bool, noInteractive bool, skipVerify bool) {
-	setupTimeout = timeout
-	setupForce = force
-	setupJSON = jsonOutput
-	setupVerbose = verbose
-	setupNoInteractive = noInteractive
-	setupSkipVerify = skipVerify
-}
-
 func runSetupAll(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(cmd.Context(), setupTimeout)
 	defer cancel()
@@ -979,66 +934,6 @@ func wizardServerSelection(ctx context.Context, state *WizardState, result *Setu
 		}
 
 		fmt.Printf("✅ Selected %d language server(s) for installation\n", len(selections))
-	}
-
-	pressEnterToContinue("")
-	return nil
-}
-
-// wizardConfigurationOptions handles configuration customization
-func wizardConfigurationOptions(ctx context.Context, state *WizardState, result *SetupResult) error {
-	fmt.Println("⚙️  Step 3: Configuration Options")
-	fmt.Println("================================")
-	fmt.Println()
-
-	if setupVerbose {
-		fmt.Println("📝 Configuration determines how LSP Gateway routes requests")
-		fmt.Println("   and manages language servers. You can customize paths,")
-		fmt.Println("   timeouts, and advanced settings.")
-		fmt.Println()
-	}
-
-	// Configuration file path
-	fmt.Printf("📄 Current configuration path: %s\n", state.ConfigPath)
-
-	customPath, err := promptYesNo("Would you like to use a custom configuration file path?", false)
-	if err != nil {
-		return fmt.Errorf("failed to read user input: %w", err)
-	}
-
-	if customPath {
-		newPath, err := promptText("Enter configuration file path", state.ConfigPath)
-		if err != nil {
-			return fmt.Errorf("failed to read configuration path: %w", err)
-		}
-		state.ConfigPath = newPath
-		fmt.Printf("✅ Configuration will be saved to: %s\n", state.ConfigPath)
-	}
-
-	fmt.Println()
-
-	// Advanced settings
-	if setupVerbose {
-		fmt.Println("💡 Advanced settings allow you to customize server timeouts,")
-		fmt.Println("   performance options, and specific language server settings.")
-		fmt.Println()
-	}
-
-	advanced, err := promptYesNo("Configure advanced settings? (timeout, performance, etc.)", false)
-	if err != nil {
-		return fmt.Errorf("failed to read user input: %w", err)
-	}
-
-	state.AdvancedSettings = advanced
-
-	if advanced {
-		fmt.Println("📋 Advanced settings will be configured during installation.")
-		if setupVerbose {
-			fmt.Println("   This includes server-specific settings, timeouts, and")
-			fmt.Println("   performance optimizations based on your system.")
-		}
-	} else {
-		fmt.Println("📋 Using default settings for optimal performance.")
 	}
 
 	pressEnterToContinue("")
@@ -1904,8 +1799,6 @@ func setupConfiguration(ctx context.Context, result *SetupResult) error {
 
 // runFinalVerification performs final verification of the setup
 func runFinalVerification(ctx context.Context, result *SetupResult) ([]string, error) {
-	warnings := make([]string, 0)
-
 	// TODO: Implement comprehensive verification
 	// This would include:
 	// 1. Runtime verification
@@ -1917,7 +1810,7 @@ func runFinalVerification(ctx context.Context, result *SetupResult) ([]string, e
 		fmt.Println("Verification implementation in progress...")
 	}
 
-	return warnings, nil
+	return []string{}, nil
 }
 
 // generateSetupSummary calculates setup summary statistics
@@ -2349,7 +2242,7 @@ func runSetupDetect(cmd *cobra.Command, args []string) error {
 		fmt.Println("🔍 Phase 1: Project Detection and Analysis")
 	}
 
-	projectAnalysis, err := performProjectDetection(ctx, setupProjectPath, result)
+	projectAnalysis, err := performSetupProjectDetection(ctx, setupProjectPath, result)
 	if err != nil {
 		result.Issues = append(result.Issues, fmt.Sprintf("Project detection failed: %v", err))
 		if !setupJSON {
@@ -2459,7 +2352,7 @@ func analyzeMultiLanguageProject(ctx context.Context, result *SetupResult) error
 	return performProjectDetectionWithResult(ctx, setupProjectPath, result)
 }
 
-func performProjectDetection(ctx context.Context, projectPath string, result *SetupResult) (*setup.ProjectAnalysis, error) {
+func performSetupProjectDetection(ctx context.Context, projectPath string, result *SetupResult) (*setup.ProjectAnalysis, error) {
 	projectAnalyzer := setup.NewProjectAnalyzer()
 	analysis, err := projectAnalyzer.AnalyzeProject(projectPath)
 	if err != nil {
@@ -2480,7 +2373,7 @@ func performProjectDetection(ctx context.Context, projectPath string, result *Se
 }
 
 func performProjectDetectionWithResult(ctx context.Context, projectPath string, result *SetupResult) error {
-	_, err := performProjectDetection(ctx, projectPath, result)
+	_, err := performSetupProjectDetection(ctx, projectPath, result)
 	return err
 }
 
@@ -2605,7 +2498,6 @@ func runMultiLanguageVerification(ctx context.Context, result *SetupResult) ([]s
 }
 
 func runEnhancedVerification(ctx context.Context, result *SetupResult) ([]string, error) {
-	warnings := make([]string, 0)
 
 	// Enhanced verification with project-aware checks
 	if setupProjectPath != "" {
@@ -2653,12 +2545,6 @@ func setupTemplateLanguageServers(ctx context.Context, result *SetupResult) erro
 func generateTemplateConfiguration(ctx context.Context, result *SetupResult) error {
 	// Generate template-based configuration
 	enhancedGenerator := setup.NewEnhancedConfigurationGenerator()
-	templateManager := setup.NewConfigurationTemplateManager()
-
-	template, err := templateManager.GetTemplate(setupTemplate)
-	if err != nil {
-		return fmt.Errorf("template not found: %w", err)
-	}
 
 	// Create project analysis for template application
 	var analysis *setup.ProjectAnalysis
@@ -2674,6 +2560,7 @@ func generateTemplateConfiguration(ctx context.Context, result *SetupResult) err
 	}
 
 	var configResult *setup.ConfigGenerationResult
+	var err error
 	if analysis != nil {
 		configResult, err = enhancedGenerator.GenerateFromProject(ctx, setupProjectPath, optMode)
 	} else {

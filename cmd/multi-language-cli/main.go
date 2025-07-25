@@ -129,10 +129,14 @@ func generateConfig(projectPath, format, outputFile string, logger *log.Logger) 
 		}
 		result = gatewayConfig
 	default:
+		var workspaceRoots map[string]string
+		if mlConfig.WorkspaceConfig != nil {
+			workspaceRoots = mlConfig.WorkspaceConfig.LanguageRoots
+		}
 		result = map[string]interface{}{
 			"project_info":        mlConfig.ProjectInfo,
 			"servers":             mlConfig.ServerConfigs,
-			"workspace_roots":     mlConfig.WorkspaceRoots,
+			"workspace_roots":     workspaceRoots,
 			"generated_at":        mlConfig.GeneratedAt.Format(time.RFC3339),
 			"supported_languages": mlConfig.GetSupportedLanguages(),
 		}

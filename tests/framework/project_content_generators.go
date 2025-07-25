@@ -2,7 +2,6 @@ package framework
 
 import (
 	"fmt"
-	"strings"
 )
 
 // Content generation methods for different languages and project types
@@ -1025,7 +1024,7 @@ func (g *TestProjectGenerator) generatePackageJson(projectName, language string)
   "license": "MIT"
 }`, projectName)
 	}
-	
+
 	return fmt.Sprintf(`{
   "name": "%s",
   "version": "1.0.0",
@@ -1793,11 +1792,7 @@ export const UserList: React.FC<UserListProps> = ({ onUserSelect }) => {
               </div>
               <div className="flex items-center space-x-2">
                 <span
-                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    user.isActive
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}
+                  className={` + "`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${\n                    user.isActive\n                      ? 'bg-green-100 text-green-800'\n                      : 'bg-red-100 text-red-800'\n                  }`" + `}
                 >
                   {user.isActive ? 'Active' : 'Inactive'}
                 </span>
@@ -1834,7 +1829,7 @@ class ApiClient {
       (config) => {
         const token = localStorage.getItem('authToken');
         if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
+          config.headers.Authorization = ` + "`Bearer ${token}`" + `;
         }
         return config;
       },
@@ -1861,7 +1856,7 @@ class ApiClient {
   }
 
   async getUserById(id: number): Promise<User> {
-    const response: AxiosResponse<ApiResponse<User>> = await this.client.get(`/api/users/${id}`);
+    const response: AxiosResponse<ApiResponse<User>> = await this.client.get(` + "`/api/users/${id}`" + `);
     return handleApiResponse(response.data);
   }
 
@@ -1871,17 +1866,17 @@ class ApiClient {
   }
 
   async updateUser(id: number, userData: UpdateUserRequest): Promise<User> {
-    const response: AxiosResponse<ApiResponse<User>> = await this.client.put(`/api/users/${id}`, userData);
+    const response: AxiosResponse<ApiResponse<User>> = await this.client.put(` + "`/api/users/${id}`" + `, userData);
     return handleApiResponse(response.data);
   }
 
   async deleteUser(id: number): Promise<void> {
-    await this.client.delete(`/api/users/${id}`);
+    await this.client.delete(` + "`/api/users/${id}`" + `);
   }
 
   // Analytics endpoints
   async getUserAnalytics(userId: number, period: string = '30d') {
-    const response = await this.client.get(`/api/analytics/users/${userId}?period=${period}`);
+    const response = await this.client.get(` + "`/api/analytics/users/${userId}?period=${period}`" + `);
     return handleApiResponse(response.data);
   }
 

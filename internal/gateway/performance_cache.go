@@ -58,31 +58,6 @@ type PerformanceCacheEntry struct {
 
 // ServerMetrics tracks comprehensive server performance data
 type ServerMetrics struct {
-<<<<<<< HEAD
-	ServerName          string        `json:"server_name"`
-	RequestCount        int64         `json:"request_count"`
-	TotalRequests       int64         `json:"total_requests"`
-	SuccessfulRequests  int64         `json:"successful_requests"`
-	FailedRequests      int64         `json:"failed_requests"`
-	AverageResponseTime time.Duration `json:"average_response_time"`
-	MinResponseTime     time.Duration `json:"min_response_time"`
-	MaxResponseTime     time.Duration `json:"max_response_time"`
-	P50ResponseTime     time.Duration `json:"p50_response_time"`
-	P95ResponseTime     time.Duration `json:"p95_response_time"`
-	P99ResponseTime     time.Duration `json:"p99_response_time"`
-	LastRequestTime     time.Time     `json:"last_request_time"`
-	HealthScore         float64       `json:"health_score"`
-	CircuitBreakerState string        `json:"circuit_breaker_state"`
-	LoadScore           float64       `json:"load_score"`
-	TrendScore          float64       `json:"trend_score"`
-	ActiveConnections   int           `json:"active_connections"`
-	SuccessRate         float64       `json:"success_rate"`
-	SuccessCount        int64         `json:"success_count"`
-	FailureCount        int64         `json:"failure_count"`
-	LastResponseTime    time.Duration `json:"last_response_time"`
-	CircuitBreakerOpen  bool          `json:"circuit_breaker_open"`
-	LastAccessed        time.Time     `json:"last_accessed"`
-=======
 	ServerName          string          `json:"server_name"`
 	TotalRequests       int64           `json:"total_requests"`
 	SuccessfulRequests  int64           `json:"successful_requests"`
@@ -100,7 +75,6 @@ type ServerMetrics struct {
 	TrendScore          float64         `json:"trend_score"`
 	ActiveConnections   int32           `json:"active_connections"`
 	SuccessRate         float64         `json:"success_rate"`
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	ResponseTimes       []time.Duration `json:"-"` // Circular buffer for percentiles
 	ResponseTimeIndex   int             `json:"-"`
 }
@@ -128,13 +102,13 @@ func NewServerMetrics() *ServerMetrics {
 func (sm *ServerMetrics) RecordRequest(responseTime time.Duration, success bool) {
 	sm.TotalRequests++
 	sm.LastRequestTime = time.Now()
-	
+
 	if success {
 		sm.SuccessfulRequests++
 	} else {
 		sm.FailedRequests++
 	}
-	
+
 	// Update min/max response times
 	if responseTime < sm.MinResponseTime {
 		sm.MinResponseTime = responseTime
@@ -142,13 +116,13 @@ func (sm *ServerMetrics) RecordRequest(responseTime time.Duration, success bool)
 	if responseTime > sm.MaxResponseTime {
 		sm.MaxResponseTime = responseTime
 	}
-	
+
 	// Update circular buffer for percentile calculation
 	if len(sm.ResponseTimes) > 0 {
 		sm.ResponseTimes[sm.ResponseTimeIndex] = responseTime
 		sm.ResponseTimeIndex = (sm.ResponseTimeIndex + 1) % len(sm.ResponseTimes)
 	}
-	
+
 	// Calculate exponential moving average
 	alpha := 0.1
 	if sm.AverageResponseTime == 0 {
@@ -157,7 +131,7 @@ func (sm *ServerMetrics) RecordRequest(responseTime time.Duration, success bool)
 		newAvg := time.Duration(float64(sm.AverageResponseTime)*(1-alpha) + float64(responseTime)*alpha)
 		sm.AverageResponseTime = newAvg
 	}
-	
+
 	// Calculate percentiles
 	sm.calculatePercentiles()
 }
@@ -175,19 +149,19 @@ func (sm *ServerMetrics) calculatePercentiles() {
 			times = append(times, t)
 		}
 	}
-	
+
 	if len(times) == 0 {
 		return
 	}
-	
+
 	sort.Slice(times, func(i, j int) bool {
 		return times[i] < times[j]
 	})
-	
+
 	p50Index := len(times) * 50 / 100
 	p95Index := len(times) * 95 / 100
 	p99Index := len(times) * 99 / 100
-	
+
 	if p50Index < len(times) {
 		sm.P50ResponseTime = times[p50Index]
 	}
@@ -275,19 +249,6 @@ type PerformanceCacheConfig struct {
 
 // IntelligentPerformanceCache implements PerformanceCache with advanced features
 type IntelligentPerformanceCache struct {
-<<<<<<< HEAD
-	config           *PerformanceCacheConfig
-	mutex            sync.RWMutex
-	cache            map[string]*PerformanceCacheEntry  // L1 cache
-	compressedCache  map[string]*PerformanceCacheEntry  // L2 cache
-	persistentCache  map[string]*PerformanceCacheEntry  // L3 cache
-	serverMetrics    map[string]*ServerMetrics
-	methodMetrics    map[string]*MethodMetrics
-	cacheStats       *PerformanceCacheStats
-	running          bool
-	ctx              context.Context
-	cancel           context.CancelFunc
-=======
 	config             *PerformanceCacheConfig
 	mutex              sync.RWMutex
 	cache              map[string]*PerformanceCacheEntry // L1 cache
@@ -299,7 +260,6 @@ type IntelligentPerformanceCache struct {
 	running            bool
 	ctx                context.Context
 	cancel             context.CancelFunc
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	optimizationTicker *time.Ticker
 
 	// Cache operation counters
@@ -325,15 +285,6 @@ func NewIntelligentPerformanceCache(config *PerformanceCacheConfig) *Intelligent
 	}
 
 	return &IntelligentPerformanceCache{
-<<<<<<< HEAD
-		config:           config,
-		cache:            make(map[string]*PerformanceCacheEntry),
-		compressedCache:  make(map[string]*PerformanceCacheEntry),
-		persistentCache:  make(map[string]*PerformanceCacheEntry),
-		serverMetrics:    make(map[string]*ServerMetrics),
-		methodMetrics:    make(map[string]*MethodMetrics),
-		cacheStats:       &PerformanceCacheStats{},
-=======
 		config:          config,
 		cache:           make(map[string]*PerformanceCacheEntry),
 		compressedCache: make(map[string]*PerformanceCacheEntry),
@@ -341,7 +292,6 @@ func NewIntelligentPerformanceCache(config *PerformanceCacheConfig) *Intelligent
 		serverMetrics:   make(map[string]*ServerMetrics),
 		methodMetrics:   make(map[string]*MethodMetrics),
 		cacheStats:      &PerformanceCacheStats{},
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	}
 }
 
@@ -709,19 +659,9 @@ func (pc *IntelligentPerformanceCache) GetCacheStats() *PerformanceCacheStats {
 		pc.cacheStats.HotDataPercentage = float64(hotEntries) / float64(pc.cacheStats.TotalEntries)
 	}
 
-	// Convert PerformanceCacheStats to CacheStats for interface compatibility
-	return &CacheStats{
-		HitCount:          pc.hitCount,
-		MissCount:         pc.missCount,
-		TotalEntries:      int(pc.cacheStats.TotalEntries),
-		HitRatio:          pc.cacheStats.CacheHitRate,
-		EvictionCount:     pc.cacheStats.EvictionCount,
-		BackgroundScans:   0, // Not applicable to performance cache
-		IncrementalUpdates: 0, // Not applicable to performance cache
-		AverageAccessTime: 0, // Would need to be calculated if needed
-		CacheSize:         pc.cacheStats.MemoryUsage,
-		LastCleanup:       pc.cacheStats.LastOptimization,
-	}
+	// Return a copy of the current performance cache stats
+	statsCopy := *pc.cacheStats
+	return &statsCopy
 }
 
 // Helper methods
@@ -990,29 +930,13 @@ func (pc *IntelligentPerformanceCache) decompressData(data []byte) ([]byte, erro
 	}
 	defer gz.Close()
 
-<<<<<<< HEAD
-	result := make([]byte, 0)
-	buf := make([]byte, 1024)
-	for {
-		n, err := gz.Read(buf)
-		if n > 0 {
-			result = append(result, buf[:n]...)
-		}
-		if err != nil {
-			if err.Error() == "EOF" {
-				break
-			}
-			return nil, err
-		}
-=======
 	var result strings.Builder
 	_, err = io.Copy(&result, gz)
 	if err != nil {
 		return nil, err
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	}
 
-	return result, nil
+	return []byte(result.String()), nil
 }
 
 func (pc *IntelligentPerformanceCache) optimizationLoop() {
@@ -1139,11 +1063,7 @@ func (pc *IntelligentPerformanceCache) optimizeTTL() {
 
 func (pc *IntelligentPerformanceCache) compressUnusedEntries() {
 	threshold := time.Now().Add(-time.Hour)
-<<<<<<< HEAD
-	
-=======
 
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	for _, entry := range pc.cache {
 		if entry.LastAccess.Before(threshold) && entry.CompressedData == nil && entry.Size > 1024 {
 			data, err := json.Marshal(entry.Response)
@@ -1158,167 +1078,4 @@ func (pc *IntelligentPerformanceCache) compressUnusedEntries() {
 			}
 		}
 	}
-}
-
-// GetErrorRate calculates the error rate as FailedRequests/TotalRequests
-func (sm *ServerMetrics) GetErrorRate() float64 {
-	if sm.TotalRequests == 0 {
-		return 0.0
-	}
-	return float64(sm.FailedRequests) / float64(sm.TotalRequests)
-}
-
-// GetSuccessRate returns the current success rate
-func (sm *ServerMetrics) GetSuccessRate() float64 {
-	if sm == nil {
-		return 0.0
-	}
-	return sm.SuccessRate
-}
-
-// updateSuccessRate calculates and updates the success rate
-func (sm *ServerMetrics) updateSuccessRate() {
-	if sm == nil || sm.TotalRequests == 0 {
-		sm.SuccessRate = 0.0
-		return
-	}
-	sm.SuccessRate = float64(sm.SuccessfulRequests) / float64(sm.TotalRequests)
-}
-
-// SetActiveConnections updates the active connections count
-func (sm *ServerMetrics) SetActiveConnections(count int32) {
-	if sm == nil {
-		return
-	}
-	sm.ActiveConnections = count
-}
-
-// IncrementActiveConnections increments the active connections count
-func (sm *ServerMetrics) IncrementActiveConnections() {
-	if sm == nil {
-		return
-	}
-	sm.ActiveConnections++
-}
-
-// DecrementActiveConnections decrements the active connections count
-func (sm *ServerMetrics) DecrementActiveConnections() {
-	if sm == nil {
-		return
-	}
-	if sm.ActiveConnections > 0 {
-		sm.ActiveConnections--
-	}
-}
-
-// Copy creates a deep copy of the ServerMetrics struct
-func (sm *ServerMetrics) Copy() *ServerMetrics {
-	if sm == nil {
-		return nil
-	}
-
-	copyMetrics := &ServerMetrics{
-		ServerName:          sm.ServerName,
-		TotalRequests:       sm.TotalRequests,
-		SuccessfulRequests:  sm.SuccessfulRequests,
-		FailedRequests:      sm.FailedRequests,
-		AverageResponseTime: sm.AverageResponseTime,
-		MinResponseTime:     sm.MinResponseTime,
-		MaxResponseTime:     sm.MaxResponseTime,
-		P50ResponseTime:     sm.P50ResponseTime,
-		P95ResponseTime:     sm.P95ResponseTime,
-		P99ResponseTime:     sm.P99ResponseTime,
-		LastRequestTime:     sm.LastRequestTime,
-		HealthScore:         sm.HealthScore,
-		CircuitBreakerState: sm.CircuitBreakerState,
-		LoadScore:           sm.LoadScore,
-		TrendScore:          sm.TrendScore,
-		ActiveConnections:   sm.ActiveConnections,
-		SuccessRate:         sm.SuccessRate,
-		ResponseTimeIndex:   sm.ResponseTimeIndex,
-	}
-
-	// Deep copy the ResponseTimes slice
-	if sm.ResponseTimes != nil {
-		copyMetrics.ResponseTimes = make([]time.Duration, len(sm.ResponseTimes))
-		copy(copyMetrics.ResponseTimes, sm.ResponseTimes)
-	}
-
-	return copyMetrics
-}
-
-// GetAverageResponseTime returns the average response time
-func (sm *ServerMetrics) GetAverageResponseTime() time.Duration {
-	if sm == nil {
-		return 0
-	}
-	return sm.AverageResponseTime
-}
-
-// RecordRequest records request metrics
-func (sm *ServerMetrics) RecordRequest(responseTime time.Duration, success bool) {
-	if sm == nil {
-		return
-	}
-
-	sm.TotalRequests++
-	sm.LastRequestTime = time.Now()
-
-	if success {
-		sm.SuccessfulRequests++
-	} else {
-		sm.FailedRequests++
-	}
-
-	// Update response times
-	if sm.ResponseTimes == nil {
-		sm.ResponseTimes = make([]time.Duration, 0, 1000)
-	}
-	sm.ResponseTimes = append(sm.ResponseTimes, responseTime)
-
-	// Update min/max response times
-	if sm.MinResponseTime == 0 || responseTime < sm.MinResponseTime {
-		sm.MinResponseTime = responseTime
-	}
-	if responseTime > sm.MaxResponseTime {
-		sm.MaxResponseTime = responseTime
-	}
-
-	// Update average response time (exponential moving average)
-	alpha := 0.1
-	if sm.AverageResponseTime == 0 {
-		sm.AverageResponseTime = responseTime
-	} else {
-		newAvg := time.Duration(float64(sm.AverageResponseTime)*(1-alpha) + float64(responseTime)*alpha)
-		sm.AverageResponseTime = newAvg
-	}
-
-	// Update success rate
-	sm.updateSuccessRate()
-}
-
-// NewServerMetrics creates a new ServerMetrics instance
-func NewServerMetrics() *ServerMetrics {
-	return &ServerMetrics{
-		ResponseTimes:     make([]time.Duration, 0, 1000),
-		MinResponseTime:   time.Duration(math.MaxInt64),
-		ActiveConnections: 0,
-		SuccessRate:       0.0,
-	}
-}
-
-// NewPerformanceCache creates a new performance cache with default configuration
-func NewPerformanceCache(logger *mcp.StructuredLogger) PerformanceCache {
-	config := &PerformanceCacheConfig{
-		MaxMemoryMB:          256,
-		DefaultTTL:           5 * time.Minute,
-		MaxCacheEntries:      10000,
-		CompressionEnabled:   true,
-		OptimizationInterval: 30 * time.Second,
-		HealthThreshold:      0.7,
-		ResponseTimeBuffer:   1000,
-		EnablePrediction:     true,
-	}
-
-	return NewIntelligentPerformanceCache(config)
 }

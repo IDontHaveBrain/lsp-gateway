@@ -16,22 +16,6 @@ import (
 
 // RoutingDecision represents a complete routing decision with all required context
 type RoutingDecision struct {
-<<<<<<< HEAD
-	TargetServers      []*RoutingServerInstance    `json:"target_servers"`
-	RoutingStrategy    string               `json:"routing_strategy"`
-	RequestContext     *RequestContext      `json:"request_context"`
-	ResponseAggregator ResponseAggregator   `json:"-"` // Not serializable due to interface
-	Timeout            time.Duration        `json:"timeout"`
-	Priority           int                  `json:"priority"`
-	CreatedAt          time.Time            `json:"created_at"`
-	DecisionID         string               `json:"decision_id"`
-	Client             transport.LSPClient  `json:"-"` // LSP client for communication
-	ServerName         string               `json:"server_name"`
-	ServerConfig       interface{}          `json:"server_config,omitempty"`
-	Weight             float64              `json:"weight,omitempty"`
-	Strategy           RoutingStrategy      `json:"-"` // Strategy interface
-	Metadata           map[string]interface{} `json:"metadata,omitempty"`
-=======
 	TargetServers      []*RoutingServerInstance `json:"target_servers"`
 	RoutingStrategy    string                   `json:"routing_strategy"`
 	RequestContext     *RequestContext          `json:"request_context"`
@@ -40,7 +24,7 @@ type RoutingDecision struct {
 	Priority           int                      `json:"priority"`
 	CreatedAt          time.Time                `json:"created_at"`
 	DecisionID         string                   `json:"decision_id"`
-	
+
 	// Additional fields for enhanced routing
 	ServerName   string                 `json:"server_name,omitempty"`
 	ServerConfig *config.ServerConfig   `json:"server_config,omitempty"`
@@ -48,14 +32,13 @@ type RoutingDecision struct {
 	Weight       float64                `json:"weight,omitempty"`
 	Strategy     RoutingStrategy        `json:"-"` // Not serializable due to interface
 	Metadata     map[string]interface{} `json:"metadata,omitempty"`
-	
+
 	// Fields referenced in routing_strategies.go
 	PrimaryServer   *RoutingServerInstance   `json:"primary_server,omitempty"`
 	FallbackServers []*RoutingServerInstance `json:"fallback_servers,omitempty"`
 	RequestID       interface{}              `json:"request_id,omitempty"`
 	Method          string                   `json:"method,omitempty"`
 	Language        string                   `json:"language,omitempty"`
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 }
 
 // RequestContext contains comprehensive context information about the LSP request
@@ -74,17 +57,6 @@ type RequestContext struct {
 
 // LSPRequest represents an enhanced LSP request with routing context
 type LSPRequest struct {
-<<<<<<< HEAD
-	Method     string          `json:"method"`
-	Params     interface{}     `json:"params,omitempty"`
-	ID         interface{}     `json:"id,omitempty"`
-	URI        string          `json:"uri,omitempty"`
-	Language   string          `json:"language,omitempty"`
-	Context    *RequestContext `json:"context,omitempty"`
-	JSONRPC    string          `json:"jsonrpc"`
-	Timestamp  time.Time       `json:"timestamp"`
-	RequestID  string          `json:"request_id"`
-=======
 	Method    string          `json:"method"`
 	Params    interface{}     `json:"params,omitempty"`
 	ID        interface{}     `json:"id,omitempty"`
@@ -94,27 +66,10 @@ type LSPRequest struct {
 	JSONRPC   string          `json:"jsonrpc"`
 	Timestamp time.Time       `json:"timestamp"`
 	RequestID string          `json:"request_id"`
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 }
 
 // AggregatedResponse contains the result of aggregating multiple LSP server responses
 type AggregatedResponse struct {
-<<<<<<< HEAD
-	PrimaryResponse    interface{}            `json:"primary_response"`
-	PrimaryResult      interface{}            `json:"primary_result"`
-	SecondaryResponses []interface{}          `json:"secondary_responses,omitempty"`
-	SecondaryResults   []ServerResponse       `json:"secondary_results,omitempty"`
-	AggregatedResult   interface{}            `json:"aggregated_result"`
-	ResponseSources    []string               `json:"response_sources"`
-	ProcessingTime     time.Duration          `json:"processing_time"`
-	AggregationMethod  string                 `json:"aggregation_method"`
-	SuccessCount       int                    `json:"success_count"`
-	ErrorCount         int                    `json:"error_count"`
-	Warnings           []string               `json:"warnings,omitempty"`
-	Metadata           map[string]interface{} `json:"metadata,omitempty"`
-	ServerCount        int                    `json:"server_count"`
-	Strategy           RoutingStrategyType    `json:"strategy"`
-=======
 	PrimaryResponse    interface{}         `json:"primary_response"`
 	SecondaryResponses []interface{}       `json:"secondary_responses,omitempty"`
 	AggregatedResult   interface{}         `json:"aggregated_result"`
@@ -128,7 +83,6 @@ type AggregatedResponse struct {
 	Metadata           interface{}         `json:"metadata,omitempty"`
 	ServerCount        int                 `json:"server_count"`
 	Strategy           RoutingStrategyType `json:"strategy"`
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 }
 
 // RoutingServerInstance represents a language server instance for routing decisions
@@ -256,70 +210,6 @@ func (mss *MultiServerStrategy) Description() string {
 	return "Routes requests to multiple servers and aggregates responses"
 }
 
-<<<<<<< HEAD
-// SingleTargetWithFallbackStrategy routes to primary server with fallback options
-type SingleTargetWithFallbackStrategy struct{}
-
-func (stfs *SingleTargetWithFallbackStrategy) Route(request *LSPRequest, availableServers []*RoutingServerInstance) (*RoutingDecision, error) {
-	if len(availableServers) == 0 {
-		return nil, fmt.Errorf("no available servers for single target with fallback routing")
-	}
-
-	// Sort servers by priority and health status
-	sortedServers := make([]*RoutingServerInstance, len(availableServers))
-	copy(sortedServers, availableServers)
-	
-	// Simple priority-based sorting (higher priority first)
-	for i := 0; i < len(sortedServers); i++ {
-		for j := i + 1; j < len(sortedServers); j++ {
-			if sortedServers[i].Priority < sortedServers[j].Priority {
-				sortedServers[i], sortedServers[j] = sortedServers[j], sortedServers[i]
-			}
-		}
-	}
-
-	// Try servers in priority order for fallback capability
-	for _, server := range sortedServers {
-		if server.Available {
-			return &RoutingDecision{
-				TargetServers:      []*RoutingServerInstance{server},
-				RoutingStrategy:    "single_target_with_fallback",
-				RequestContext:     request.Context,
-				ResponseAggregator: nil, // Single target doesn't need aggregation
-				Timeout:            30 * time.Second,
-				Priority:           server.Priority,
-				CreatedAt:          time.Now(),
-				DecisionID:         generateDecisionID(),
-			}, nil
-		}
-	}
-
-	// If no available servers found, return error
-	return nil, fmt.Errorf("no available servers found for single target with fallback routing")
-}
-
-func (stfs *SingleTargetWithFallbackStrategy) Name() string {
-	return "single_target_with_fallback"
-}
-
-func (stfs *SingleTargetWithFallbackStrategy) Description() string {
-	return "Routes requests to the highest priority healthy server with automatic fallback to lower priority servers"
-}
-
-
-
-
-
-// Strategy instances for use in routing
-var (
-	SingleTargetWithFallback = &SingleTargetWithFallbackStrategy{}
-	BroadcastAggregate       = &BroadcastAggregateStrategy{}
-	MultiTargetParallel      = &MultiTargetStrategy{}
-	PrimaryWithEnhancement   = &SingleTargetWithFallbackStrategy{} // Using fallback for now
-	LoadBalanced             = &LoadBalancedStrategy{}
-)
-
-=======
 // PrimaryWithEnhancementStrategy routes to a primary server with optional enhancement from secondary servers
 type PrimaryWithEnhancementStrategy struct{}
 
@@ -355,7 +245,6 @@ func (pwes *PrimaryWithEnhancementStrategy) Name() string {
 func (pwes *PrimaryWithEnhancementStrategy) Description() string {
 	return "Routes to primary server with optional enhancement from secondary servers"
 }
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 
 // Helper functions for context creation and server selection
 

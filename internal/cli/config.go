@@ -294,60 +294,6 @@ func init() {
 	rootCmd.AddCommand(ConfigCmd)
 }
 
-// GetConfigCmd returns the config command for testing purposes
-func GetConfigCmd() *cobra.Command {
-	return ConfigCmd
-}
-
-// ResetConfigFlags resets all config-related flags to their defaults for testing
-func ResetConfigFlags() {
-	configFilePath = DefaultConfigFile
-	ConfigOutputPath = ""
-	ConfigJSON = false
-	ConfigOverwrite = false
-	ConfigAutoDetect = false
-	ConfigValidateOnly = false
-	ConfigIncludeComments = false
-	ConfigTargetRuntime = ""
-	// Reset multi-language flags
-	ConfigMultiLanguage = false
-	ConfigOptimizationMode = "development"
-	ConfigTemplate = ""
-	ConfigProjectPath = ""
-	ConfigEnableSmartRouting = false
-	ConfigEnableConcurrentServers = false
-	ConfigPerformanceProfile = "medium"
-	ConfigProjectDetection = false
-	ConfigComprehensive = false
-	ConfigCheckMultiLang = false
-	ConfigCheckPerformance = false
-	ConfigValidateRouting = false
-	ConfigCheckResourceLimits = false
-	ConfigFromPath = ""
-	ConfigToPath = ""
-	ConfigApplyTuning = false
-}
-
-// GetConfigFilePath returns the current config file path for testing
-func GetConfigFilePath() string {
-	return configFilePath
-}
-
-// GetConfigJSON returns the current ConfigJSON flag value for testing
-func GetConfigJSON() bool {
-	return ConfigJSON
-}
-
-// SetConfigPath sets the config path for testing
-func SetConfigPath(path string) {
-	configFilePath = path
-}
-
-// SetConfigJSON sets the ConfigJSON flag for testing
-func SetConfigJSON(value bool) {
-	ConfigJSON = value
-}
-
 func ConfigGenerate(cmd *cobra.Command, args []string) error {
 	if err := ValidateConfigGenerateParams(); err != nil {
 		return err
@@ -823,14 +769,14 @@ func generateMultiLanguageConfig() (*config.GatewayConfig, error) {
 			return nil, fmt.Errorf("failed to generate multi-language configuration from project: %w", err)
 		}
 
-		// Convert multi-language config to gateway config
-		gatewayConfig := convertMultiLanguageToGateway(result.Config)
+		// result.Config is already a *config.GatewayConfig, no conversion needed
+		gatewayConfig := result.Config
 
 		// Apply additional CLI flags
 		applyCliFlags(gatewayConfig)
 
-		fmt.Printf("✓ Multi-language configuration generated: %d servers, %d languages detected\n",
-			result.ServersGenerated, len(result.Config.ProjectInfo.LanguageContexts))
+		fmt.Printf("✓ Multi-language configuration generated: %d servers\n",
+			result.ServersGenerated)
 
 		return gatewayConfig, nil
 	}
@@ -842,8 +788,8 @@ func generateMultiLanguageConfig() (*config.GatewayConfig, error) {
 		return nil, fmt.Errorf("failed to generate environment-based configuration: %w", err)
 	}
 
-	// Convert multi-language config to gateway config
-	gatewayConfig := convertMultiLanguageToGateway(result.Config)
+	// result.Config is already a *config.GatewayConfig, no conversion needed
+	gatewayConfig := result.Config
 
 	// Apply additional CLI flags
 	applyCliFlags(gatewayConfig)
@@ -921,16 +867,14 @@ func generateProjectDetectedConfig() (*config.GatewayConfig, error) {
 		return nil, fmt.Errorf("failed to generate configuration from project: %w", err)
 	}
 
-	// Convert to gateway config
-	gatewayConfig := convertMultiLanguageToGateway(result.Config)
+	// result.Config is already a *config.GatewayConfig, no conversion needed
+	gatewayConfig := result.Config
 
 	// Apply CLI flags
 	applyCliFlags(gatewayConfig)
 
 	fmt.Printf("✓ Project analysis complete:\n")
-	fmt.Printf("  Languages detected: %d\n", len(result.Config.ProjectInfo.LanguageContexts))
 	fmt.Printf("  Servers generated: %d\n", result.ServersGenerated)
-	fmt.Printf("  Project type: %s\n", result.Config.ProjectInfo.ProjectType)
 
 	return gatewayConfig, nil
 }
@@ -953,8 +897,8 @@ func generateAutoDetectedConfig() (*config.GatewayConfig, error) {
 		return nil, fmt.Errorf("failed to generate auto-detected configuration: %w", err)
 	}
 
-	// Convert to gateway config
-	gatewayConfig := convertMultiLanguageToGateway(result.Config)
+	// result.Config is already a *config.GatewayConfig, no conversion needed
+	gatewayConfig := result.Config
 
 	// Apply CLI flags and performance profile
 	applyCliFlags(gatewayConfig)
@@ -1041,8 +985,7 @@ func ConfigMigrate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load source configuration: %w", err)
 	}
 
-	// Initialize enhanced configuration generator for migration
-	enhancedGen := setup.NewEnhancedConfigurationGenerator()
+	// Migration configuration
 
 	// Create migrated configuration with enhanced features
 	migratedCfg := migrateToEnhancedFormat(sourceCfg)
@@ -1533,17 +1476,23 @@ func migrateToEnhancedFormat(cfg *config.GatewayConfig) *config.GatewayConfig {
 
 	// Initialize language pools if missing
 	if enhanced.LanguagePools == nil {
-		enhanced.LanguagePools = make(map[string]*config.LanguageServerPool)
+		enhanced.LanguagePools = make([]config.LanguageServerPool, 0)
+
+		// Create a map to track languages we've already added
+		langMap := make(map[string]bool)
+
 		for _, server := range enhanced.Servers {
 			for _, lang := range server.Languages {
-				if _, exists := enhanced.LanguagePools[lang]; !exists {
-					enhanced.LanguagePools[lang] = &config.LanguageServerPool{
-						Language:           lang,
-						Servers:            make(map[string]*config.ServerConfig),
-						DefaultServer:      "",
+				if !langMap[lang] {
+					langMap[lang] = true
+					pool := config.LanguageServerPool{
+						Language:            lang,
+						Servers:             make(map[string]*config.ServerConfig),
+						DefaultServer:       "",
 						LoadBalancingConfig: nil,
-						ResourceLimits:     nil,
+						ResourceLimits:      nil,
 					}
+					enhanced.LanguagePools = append(enhanced.LanguagePools, pool)
 				}
 			}
 		}

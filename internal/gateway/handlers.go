@@ -476,16 +476,8 @@ type Gateway struct {
 	projectRouter    *ProjectAwareRouter
 
 	// Performance monitoring
-<<<<<<< HEAD
-	performanceCache PerformanceCache
-	requestClassifier RequestClassifier
-	responseAggregator ResponseAggregator
-	
-=======
 	performanceCache  PerformanceCache
 	requestClassifier RequestClassifier
-
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	// Multi-server management
 	multiServerManager      *MultiServerManager
 	enableConcurrentServers bool
@@ -526,14 +518,7 @@ func NewGateway(config *config.GatewayConfig) (*Gateway, error) {
 	// Initialize performance monitoring components
 	performanceCache := NewPerformanceCache(logger)
 	requestClassifier := NewRequestClassifier()
-<<<<<<< HEAD
-	responseAggregator := NewResponseAggregator(logger)
-	health_monitor := NewHealthMonitor(30 * time.Second)
-	
-=======
 	health_monitor := NewHealthMonitor(10 * time.Second)
-
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	// Initialize multi-server components
 	aggregatorRegistry := NewAggregatorRegistry(logger)
 	requestTracker := NewRequestTracker()
@@ -2301,25 +2286,6 @@ func (g *Gateway) processAggregatedRequest(w http.ResponseWriter, r *http.Reques
 		RequestType: "file_based",
 	}
 	lspRequest := &LSPRequest{
-<<<<<<< HEAD
-		Method:  req.Method,
-		Params:  req.Params,
-		ID:      req.ID,
-		URI:     uri,
-		JSONRPC: req.JSONRPC,
-		Context: CreateRequestContextFromURI(uri, "", ""),
-	}
-
-	// Set language in the context if detected
-	if language != "" && lspRequest.Context != nil {
-		lspRequest.Context.Language = language
-	}
-
-	// Preprocess to set defaults for missing fields
-	if err := PreprocessLSPRequest(lspRequest); err != nil {
-		g.writeError(w, req.ID, InternalError, "Failed to preprocess request", err)
-		return
-=======
 		Method:    req.Method,
 		Params:    req.Params,
 		URI:       uri,
@@ -2327,7 +2293,6 @@ func (g *Gateway) processAggregatedRequest(w http.ResponseWriter, r *http.Reques
 		JSONRPC:   "2.0",
 		Timestamp: time.Now(),
 		RequestID: fmt.Sprintf("req_%d", time.Now().UnixNano()),
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	}
 
 	// Use SmartRouter to aggregate responses
@@ -2455,7 +2420,7 @@ func (g *Gateway) GetRoutingStrategy(method string) RoutingStrategy {
 	if strategy, exists := g.routingStrategies[method]; exists {
 		return strategy
 	}
-	return &SingleTargetWithFallbackStrategy{}
+	return SingleTargetWithFallback
 }
 
 // GetRoutingMetrics returns current routing performance metrics

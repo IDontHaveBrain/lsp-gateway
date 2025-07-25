@@ -153,8 +153,8 @@ func TestPerformanceBasedSelector(t *testing.T) {
 
 	// Set up server metrics for performance scoring
 	for _, server := range pool.GetHealthyServers() {
-		server.metrics.UpdateMetrics(100*time.Millisecond, true)
-		server.metrics.healthScore = 0.9
+		server.metrics.RecordRequest(100*time.Millisecond, true)
+		server.metrics.HealthScore = 0.9
 	}
 
 	server, err := selector.SelectServer(pool, "textDocument/definition", context)
@@ -259,8 +259,8 @@ func TestHealthAwareSelector(t *testing.T) {
 	}
 
 	// Verify selected server is healthy
-	if server.metrics.healthScore < 0.8 {
-		t.Errorf("Selected unhealthy server with score %f", server.metrics.healthScore)
+	if server.metrics.HealthScore < 0.8 {
+		t.Errorf("Selected unhealthy server with score %f", server.metrics.HealthScore)
 	}
 }
 

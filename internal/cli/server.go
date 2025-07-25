@@ -49,11 +49,6 @@ func init() {
 	rootCmd.AddCommand(serverCmd)
 }
 
-// GetServerCmd returns the server command for testing purposes
-func GetServerCmd() *cobra.Command {
-	return serverCmd
-}
-
 func runServer(cmd *cobra.Command, args []string) error {
 	return runServerWithContext(cmd.Context(), cmd, args)
 }

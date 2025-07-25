@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/gateway"
@@ -106,35 +107,36 @@ func testProjectLanguageDetection(logger *log.Logger) error {
 func testMultiLanguageConfigGeneration(logger *log.Logger) error {
 	logger.Printf("Testing multi-language configuration generation...")
 
-	// Create test project info
-	projectInfo := &gateway.MultiLanguageProjectInfo{
-		RootPath:         "/test/project",
-		ProjectType:      "monorepo",
-		DominantLanguage: "go",
-		Languages:        make(map[string]*gateway.LanguageContext),
-		WorkspaceRoots:   make(map[string]string),
+	// Create test project info using config types
+	var languageContexts []*config.LanguageContext
+	languages := []string{"go", "python", "typescript"}
+
+	for i, lang := range languages {
+		ctx := &config.LanguageContext{
+			Language:       lang,
+			RootPath:       fmt.Sprintf("/test/project/%s", lang),
+			FileCount:      10 + i*5,
+			FilePatterns:   []string{fmt.Sprintf("*.%s", lang)},
+			RootMarkers:    []string{fmt.Sprintf("%s-marker", lang)},
+			BuildSystem:    fmt.Sprintf("%s-build", lang),
+			PackageManager: fmt.Sprintf("%s-package-manager", lang),
+			Frameworks:     []string{fmt.Sprintf("%s-framework", lang)},
+		}
+		languageContexts = append(languageContexts, ctx)
 	}
 
-	// Add language contexts
-	languages := []string{"go", "python", "typescript"}
-	for i, lang := range languages {
-		ctx := &gateway.LanguageContext{
-			Language:      lang,
-			RootPath:      fmt.Sprintf("/test/project/%s", lang),
-			FileCount:     10 + i*5,
-			Priority:      100 - i*10,
-			Confidence:    0.9 - float64(i)*0.1,
-			BuildFiles:    []string{fmt.Sprintf("%s-build", lang)},
-			ConfigFiles:   []string{fmt.Sprintf("%s-config", lang)},
-			LSPServerName: fmt.Sprintf("%s-lsp", lang),
-		}
-		projectInfo.Languages[lang] = ctx
-		projectInfo.WorkspaceRoots[lang] = ctx.RootPath
+	projectInfo := &config.MultiLanguageProjectInfo{
+		ProjectType:      "monorepo",
+		RootDirectory:    "/test/project",
+		WorkspaceRoot:    "/test/project",
+		LanguageContexts: languageContexts,
+		DetectedAt:       time.Now(),
+		Metadata:         make(map[string]interface{}),
 	}
 
 	// Generate configuration
 	generator := config.NewConfigGenerator()
-	mlConfig, err := generator.GenerateConfig(projectInfo)
+	mlConfig, err := generator.GenerateMultiLanguageConfig(projectInfo)
 	if err != nil {
 		return fmt.Errorf("failed to generate config: %w", err)
 	}
@@ -245,11 +247,11 @@ func testSmartRouting(logger *log.Logger) error {
 	logger.Printf("Configured project with %d languages", len(projectInfo.Languages))
 
 	// Test routing strategies
-	strategies := []gateway.RoutingStrategy{
-		gateway.SingleTargetWithFallback,
-		gateway.MultiTargetParallel,
-		gateway.BroadcastAggregate,
-		gateway.LoadBalanced,
+	strategies := []gateway.RoutingStrategyType{
+		gateway.RoutingStrategySingle,
+		gateway.RoutingStrategyMulti,
+		gateway.RoutingStrategyAggregate,
+		gateway.RoutingStrategyLoadBalanced,
 	}
 
 	for _, strategy := range strategies {

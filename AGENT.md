@@ -185,11 +185,12 @@ The configuration system includes automatic framework detection:
 
 ### Setup and Installation Commands
 ```bash
-./bin/lsp-gateway setup all           # Install runtimes + servers + config
-./bin/lsp-gateway setup runtimes     # Install language runtimes only
-./bin/lsp-gateway setup servers      # Install language servers only
-./bin/lsp-gateway setup config       # Generate configuration files
-./bin/lsp-gateway install <server>   # Install specific language server
+./bin/lsp-gateway setup all           # Complete automated setup
+./bin/lsp-gateway setup wizard        # Interactive setup wizard
+./bin/lsp-gateway setup detect        # Auto-detect and setup for current project
+./bin/lsp-gateway setup multi-language # Multi-language project setup
+./bin/lsp-gateway setup template       # Template-based setup
+./bin/lsp-gateway install <server>     # Install specific language server
 ```
 
 ### Server Management Commands
@@ -204,28 +205,22 @@ The configuration system includes automatic framework detection:
 ```bash
 ./bin/lsp-gateway config generate    # Generate config from project detection
 ./bin/lsp-gateway config validate    # Validate configuration files
-./bin/lsp-gateway config upgrade     # Upgrade config to latest schema
-./bin/lsp-gateway config templates   # List available templates
+./bin/lsp-gateway config migrate     # Migrate legacy config to latest schema
+./bin/lsp-gateway config show        # Display current configuration
+./bin/lsp-gateway config optimize    # Optimize configuration for performance
 ```
 
 ### Diagnostic Commands
 ```bash
 ./bin/lsp-gateway diagnose           # Comprehensive system diagnostics
-./bin/lsp-gateway detect             # Detect project languages and frameworks
-./bin/lsp-gateway health             # Health check all components
-./bin/lsp-gateway performance        # Performance analysis and benchmarking
+./bin/lsp-gateway setup detect       # Detect project languages and frameworks
+./bin/lsp-gateway diagnose performance # Performance analysis and benchmarking
 ```
 
-### Development Commands
-```bash
-./bin/lsp-gateway symbols <file>     # Extract symbols from file
-./bin/lsp-gateway serve              # Development server with hot reload
-./bin/lsp-gateway benchmark          # Run performance benchmarks
-```
 
 ## E2E Testing Strategy
 
-**📖 Complete E2E Testing Guide**: See [docs/e2e-testing.md](docs/e2e-testing.md)
+**📖 Complete E2E Testing Guide**: See [docs/e2e_testing_guide.md](docs/e2e_testing_guide.md)
 
 LSP Gateway uses an **E2E test-first** approach, focusing on actual development workflows and usage scenarios.
 
@@ -374,7 +369,7 @@ make local                           # Build for current platform
 ./bin/lsp-gateway install jdtls
 
 # 3. Generate configuration
-./bin/lsp-gateway config generate --template enterprise
+./bin/lsp-gateway config generate --auto-detect
 
 # 4. Validate setup
 ./bin/lsp-gateway verify
@@ -393,10 +388,7 @@ make local                           # Build for current platform
 For quick issue resolution, start with these diagnostic commands:
 
 ```bash
-# Overall system health check
-./bin/lsp-gateway health
-
-# Comprehensive diagnostics
+# Comprehensive diagnostics and health check
 ./bin/lsp-gateway diagnose
 
 # Check server status
@@ -410,8 +402,8 @@ For quick issue resolution, start with these diagnostic commands:
 
 **Configuration Issues**: `./bin/lsp-gateway config validate`
 **Language Server Problems**: `./bin/lsp-gateway install <server> --force`
-**Performance Issues**: `./bin/lsp-gateway performance`
-**Connection Problems**: `./bin/lsp-gateway health`
+**Performance Issues**: `./bin/lsp-gateway diagnose performance`
+**System Problems**: `./bin/lsp-gateway diagnose`
 **Build Issues**: `make clean && make local`
 **Test Failures**: `make test-simple-quick`
 
@@ -433,11 +425,9 @@ For detailed troubleshooting steps, environment-specific issues, and advanced de
 
 ### Configuration and Templates
 - **Config templates**: `config-templates/`
-- **Config documentation**: `config-templates/README.md`
-- **Config system docs**: `internal/config/README.md`
 
 ### Testing Infrastructure
-- **E2E Testing Guide**: `docs/e2e-testing.md`
+- **E2E Testing Guide**: `docs/e2e_testing_guide.md`
 - **Troubleshooting Guide**: `docs/troubleshooting.md`
 - **Test framework**: `tests/framework/`
 

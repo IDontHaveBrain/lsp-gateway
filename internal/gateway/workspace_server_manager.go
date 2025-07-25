@@ -42,7 +42,7 @@ type WorkspaceServerManager struct {
 	// Metrics and monitoring
 	lastResourceCheck time.Time
 	createdAt         time.Time
-	lastUsed          time.Time
+	lastUsed          int64 // Unix nanoseconds for atomic operations
 }
 
 // WorkspaceLanguagePool manages servers for a specific language within a workspace
@@ -109,15 +109,11 @@ func NewWorkspaceServerManager(workspaceID string, config *config.GatewayConfig,
 	maxServersPerLanguage := DefaultMaxServersPerLanguage
 	totalMemoryLimitMB := int64(DefaultTotalMemoryLimitMB)
 
-	// Use global configuration if available
-	if config != nil && config.ResourceLimits != nil {
-		if config.ResourceLimits.MaxServersPerLanguage > 0 {
-			maxServersPerLanguage = config.ResourceLimits.MaxServersPerLanguage
-		}
-		if config.ResourceLimits.TotalMemoryLimitMB > 0 {
-			totalMemoryLimitMB = config.ResourceLimits.TotalMemoryLimitMB
-		}
+	// Use global configuration limits if available (currently using defaults)
+	if config != nil && config.MaxConcurrentServersPerLanguage > 0 {
+		maxServersPerLanguage = config.MaxConcurrentServersPerLanguage
 	}
+	// totalMemoryLimitMB uses default value since no config field exists
 
 	logger := log.Default()
 	if globalManager != nil && globalManager.logger != nil {
@@ -137,7 +133,7 @@ func NewWorkspaceServerManager(workspaceID string, config *config.GatewayConfig,
 		cancel:                   cancel,
 		logger:                   logger,
 		createdAt:                time.Now(),
-		lastUsed:                 time.Now(),
+		lastUsed:                 time.Now().UnixNano(),
 	}
 }
 
@@ -226,7 +222,7 @@ func (wsm *WorkspaceServerManager) GetServerForRequest(language string, requestT
 	}
 
 	// Update last used time
-	atomic.StoreInt64((*int64)(&wsm.lastUsed), time.Now().UnixNano())
+	atomic.StoreInt64(&wsm.lastUsed, time.Now().UnixNano())
 
 	// Get server from pool
 	server, err := wsm.selectServerFromPool(pool, requestType)
@@ -259,7 +255,7 @@ func (wsm *WorkspaceServerManager) GetServersForRequest(language string, maxServ
 	defer pool.mu.RUnlock()
 
 	// Update last used time
-	atomic.StoreInt64((*int64)(&wsm.lastUsed), time.Now().UnixNano())
+	atomic.StoreInt64(&wsm.lastUsed, time.Now().UnixNano())
 
 	// Get available healthy servers
 	availableServers := make([]*ServerInstance, 0)
@@ -652,7 +648,7 @@ func (si *ServerInstance) UpdateMetrics(responseTime time.Duration, success bool
 	}
 
 	if success {
-		si.lastUsed = time.Now()
+		atomic.StoreInt64(&si.lastUsed, time.Now().UnixNano())
 	}
 }
 

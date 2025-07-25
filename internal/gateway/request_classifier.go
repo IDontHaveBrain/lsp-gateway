@@ -16,59 +16,32 @@ import (
 type RoutingStrategyType string
 
 const (
-<<<<<<< HEAD
-	RoutingStrategySingle         RoutingStrategyType = "single"
-	RoutingStrategyMulti          RoutingStrategyType = "multi"
-	RoutingStrategyBroadcast      RoutingStrategyType = "broadcast"
-	RoutingStrategyLoadBalanced   RoutingStrategyType = "load_balanced"
-	RoutingStrategyRoundRobin     RoutingStrategyType = "round_robin"
-	RoutingStrategyFirst          RoutingStrategyType = "first"
-	RoutingStrategyAggregate      RoutingStrategyType = "aggregate"
-=======
-	RoutingStrategySingle       RoutingStrategyType = "single"
-	RoutingStrategyFirst        RoutingStrategyType = "first"
-	RoutingStrategyAggregate    RoutingStrategyType = "aggregate"
-	RoutingStrategyMulti        RoutingStrategyType = "multi"
-	RoutingStrategyBroadcast    RoutingStrategyType = "broadcast"
-	RoutingStrategyLoadBalanced RoutingStrategyType = "load_balanced"
-	RoutingStrategyRoundRobin   RoutingStrategyType = "round_robin"
+	RoutingStrategySingle                 RoutingStrategyType = "single"
+	RoutingStrategyFirst                  RoutingStrategyType = "first"
+	RoutingStrategyAggregate              RoutingStrategyType = "aggregate"
+	RoutingStrategyMulti                  RoutingStrategyType = "multi"
+	RoutingStrategyBroadcast              RoutingStrategyType = "broadcast"
+	RoutingStrategyLoadBalanced           RoutingStrategyType = "load_balanced"
+	RoutingStrategyRoundRobin             RoutingStrategyType = "round_robin"
 	RoutingStrategyPrimaryWithEnhancement RoutingStrategyType = "primary_with_enhancement"
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 )
 
 // RequestLanguageContext contains language-specific context for a request
 type RequestLanguageContext struct {
-<<<<<<< HEAD
-	PrimaryLanguage     string                        `json:"primary_language"`
-	SecondaryLanguages  []string                      `json:"secondary_languages"`
-	DetectedLanguages   []string                      `json:"detected_languages"`
-	FileExtension       string                        `json:"file_extension"`
-	ContentType         string                        `json:"content_type"`
-	ProjectType         string                        `json:"project_type"`
-	ProjectLanguages    []string                      `json:"project_languages"`
-	Framework           string                        `json:"framework"`
-	IsMultiLanguage     bool                          `json:"is_multi_language"`
-	LanguageConfidence  float64                       `json:"language_confidence"`
-	EmbeddedLanguages   map[string][]ContentRange     `json:"embedded_languages"`
-	TemplateEngine      string                        `json:"template_engine"`
-	LanguageFeatures    map[string]bool               `json:"language_features"`
-	AdditionalContext   map[string]string             `json:"additional_context"`
-=======
-	PrimaryLanguage      string                    `json:"primary_language"`
-	DetectedLanguages    []string                  `json:"detected_languages"`
-	SecondaryLanguages   []string                  `json:"secondary_languages"`
-	EmbeddedLanguages    map[string][]ContentRange `json:"embedded_languages"`
-	FileExtension        string                    `json:"file_extension"`
-	ContentType          string                    `json:"content_type"`
-	ProjectType          string                    `json:"project_type"`
-	ProjectLanguages     []string                  `json:"project_languages"`
-	Framework            string                    `json:"framework"`
-	TemplateEngine       string                    `json:"template_engine"`
-	IsMultiLanguage      bool                      `json:"is_multi_language"`
-	LanguageFeatures     map[string]bool           `json:"language_features"`
-	LanguageConfidence   float64                   `json:"language_confidence"`
-	AdditionalContext    map[string]string         `json:"additional_context"`
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
+	PrimaryLanguage    string                    `json:"primary_language"`
+	DetectedLanguages  []string                  `json:"detected_languages"`
+	SecondaryLanguages []string                  `json:"secondary_languages"`
+	EmbeddedLanguages  map[string][]ContentRange `json:"embedded_languages"`
+	FileExtension      string                    `json:"file_extension"`
+	ContentType        string                    `json:"content_type"`
+	ProjectType        string                    `json:"project_type"`
+	ProjectLanguages   []string                  `json:"project_languages"`
+	Framework          string                    `json:"framework"`
+	TemplateEngine     string                    `json:"template_engine"`
+	IsMultiLanguage    bool                      `json:"is_multi_language"`
+	LanguageFeatures   map[string]bool           `json:"language_features"`
+	LanguageConfidence float64                   `json:"language_confidence"`
+	AdditionalContext  map[string]string         `json:"additional_context"`
 }
 
 // RequestClassifier analyzes LSP requests for intelligent routing decisions
@@ -85,19 +58,11 @@ type RequestClassificationResult struct {
 	Request                *JSONRPCRequest
 	TypeInfo               *RequestTypeInfo
 	RequestLanguageContext *RequestLanguageContext
-<<<<<<< HEAD
-	WorkspaceContext *RequestWorkspaceContext
-	CrossLanguage   bool
-	RoutingHints    *RoutingHints
-	CacheKey        string
-	Timestamp       time.Time
-=======
 	WorkspaceContext       *RequestWorkspaceContext
 	CrossLanguage          bool
 	RoutingHints           *RoutingHints
 	CacheKey               string
 	Timestamp              time.Time
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 }
 
 // RequestTypeInfo provides detailed information about the LSP request type
@@ -113,7 +78,6 @@ type RequestTypeInfo struct {
 	TimeoutHint          time.Duration
 	CacheableResponse    bool
 }
-
 
 // ContentRange represents a range of embedded language content
 type ContentRange struct {
@@ -140,7 +104,6 @@ type RequestWorkspaceContext struct {
 	FrameworkInfo      *FrameworkInfo
 }
 
-
 // FrameworkInfo contains detected framework information
 type FrameworkInfo struct {
 	Name         string
@@ -165,15 +128,6 @@ type RoutingHints struct {
 
 // defaultRequestClassifier implements RequestClassifier
 type defaultRequestClassifier struct {
-<<<<<<< HEAD
-	methodInfoCache    map[string]*RequestTypeInfo
-	workspaceCache     map[string]*RequestWorkspaceContext
-	languageCache      map[string]*requestCacheEntry
-	cacheMutex         sync.RWMutex
-	cacheExpiry        time.Duration
-	maxCacheSize       int
-	
-=======
 	methodInfoCache map[string]*RequestTypeInfo
 	workspaceCache  map[string]*RequestWorkspaceContext
 	languageCache   map[string]*RequestLanguageContext
@@ -181,7 +135,6 @@ type defaultRequestClassifier struct {
 	cacheExpiry     time.Duration
 	maxCacheSize    int
 
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	// Language detection patterns
 	extensionMap       map[string]string
 	contentPatterns    map[string]*regexp.Regexp
@@ -203,11 +156,7 @@ func NewRequestClassifier() RequestClassifier {
 	classifier := &defaultRequestClassifier{
 		methodInfoCache:    make(map[string]*RequestTypeInfo),
 		workspaceCache:     make(map[string]*RequestWorkspaceContext),
-<<<<<<< HEAD
-		languageCache:      make(map[string]*requestCacheEntry),
-=======
 		languageCache:      make(map[string]*RequestLanguageContext),
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 		cacheExpiry:        5 * time.Minute,
 		maxCacheSize:       1000,
 		extensionMap:       initializeExtensionMap(),
@@ -295,28 +244,20 @@ func (c *defaultRequestClassifier) AnalyzeRequestType(method string, params inte
 func (c *defaultRequestClassifier) ExtractRequestLanguageContext(uri string, params interface{}) (*RequestLanguageContext, error) {
 	if uri == "" {
 		return &RequestLanguageContext{
-			PrimaryLanguage:      "unknown",
-			SecondaryLanguages:   []string{},
-			LanguageConfidence:   0.0,
-			EmbeddedLanguages:    make(map[string][]ContentRange),
-			TemplateEngine:       "",
+			PrimaryLanguage:    "unknown",
+			SecondaryLanguages: []string{},
+			LanguageConfidence: 0.0,
+			EmbeddedLanguages:  make(map[string][]ContentRange),
+			TemplateEngine:     "",
 		}, nil
 	}
 
 	// Check cache first
 	cacheKey := fmt.Sprintf("lang:%s", uri)
 	c.cacheMutex.RLock()
-<<<<<<< HEAD
-	if cacheEntry, exists := c.languageCache[cacheKey]; exists {
-		if time.Since(cacheEntry.timestamp) < c.cacheExpiry {
-			c.cacheMutex.RUnlock()
-			return cacheEntry.languageContext, nil
-		}
-=======
 	if cached, exists := c.languageCache[cacheKey]; exists {
 		c.cacheMutex.RUnlock()
 		return cached, nil
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	}
 	c.cacheMutex.RUnlock()
 
@@ -363,11 +304,7 @@ func (c *defaultRequestClassifier) DetermineWorkspaceContext(uri string) (*Reque
 		return cached, nil
 	}
 	c.cacheMutex.RUnlock()
-<<<<<<< HEAD
-	
-=======
 
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	context := &RequestWorkspaceContext{
 		WorkspaceRoot: workspaceRoot,
 	}
@@ -753,41 +690,15 @@ func (c *defaultRequestClassifier) analyzeDependencies(context *RequestWorkspace
 
 // Cache management and utility methods
 
-type requestCacheEntry struct {
-<<<<<<< HEAD
-	languageContext *RequestLanguageContext
-	workspaceContext *RequestWorkspaceContext
-	timestamp       time.Time
-=======
-	languageContext  *RequestLanguageContext
-	workspaceContext *RequestWorkspaceContext
-	timestamp        time.Time
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
-}
-
 func (c *defaultRequestClassifier) cacheRequestLanguageContext(key string, context *RequestLanguageContext) {
 	c.cacheMutex.Lock()
 	defer c.cacheMutex.Unlock()
 
 	if len(c.languageCache) >= c.maxCacheSize {
-		// Simple LRU-like cleanup - remove oldest entries
-<<<<<<< HEAD
-		oldest := time.Now()
-		var oldestKey string
-		for k, entry := range c.languageCache {
-			if entry.timestamp.Before(oldest) {
-				oldest = entry.timestamp
-				oldestKey = k
-			}
-		}
-		if oldestKey != "" {
-			delete(c.languageCache, oldestKey)
-=======
 		// Simple cache eviction - remove first entry found
 		for k := range c.languageCache {
 			delete(c.languageCache, k)
 			break
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 		}
 	}
 

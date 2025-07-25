@@ -14,6 +14,24 @@ import (
 	"lsp-gateway/tests/framework"
 )
 
+// Stub types for missing performance test implementations
+type LargeProjectPerformanceTest struct{}
+type ConcurrentRequestPerformanceTest struct{}
+type MemoryUsagePerformanceTest struct{}
+type RequestResult struct{}
+
+func NewLargeProjectPerformanceTest() *LargeProjectPerformanceTest {
+	return &LargeProjectPerformanceTest{}
+}
+
+func NewConcurrentRequestPerformanceTest() *ConcurrentRequestPerformanceTest {
+	return &ConcurrentRequestPerformanceTest{}
+}
+
+func NewMemoryUsagePerformanceTest() *MemoryUsagePerformanceTest {
+	return &MemoryUsagePerformanceTest{}
+}
+
 // PerformanceTestSuite coordinates all performance tests and provides regression detection
 type PerformanceTestSuite struct {
 	framework             *framework.MultiLanguageTestFramework
@@ -704,7 +722,7 @@ func (suite *PerformanceTestSuite) collectSystemInfo() *SystemInfo {
 // runPerformanceBenchmark runs a simplified performance benchmark
 func (suite *PerformanceTestSuite) runPerformanceBenchmark() error {
 	// Simplified benchmark operations
-	project, err := suite.framework.CreateMultiLanguageProject(
+	_, err := suite.framework.CreateMultiLanguageProject(
 		framework.ProjectTypeMultiLanguage,
 		[]string{"go", "python"})
 	if err != nil {

@@ -352,11 +352,7 @@ func (cb *CircuitBreaker) GetRollingWindowStats() *RollingWindowStats {
 	cutoff := now.Add(-cb.config.RollingWindowDuration)
 
 	var totalRequests, successfulRequests, failedRequests int
-<<<<<<< HEAD
-	
-=======
 
->>>>>>> 67bc73d (fix: comprehensive deadcode cleanup and compilation error resolution)
 	for i, t := range cb.requestTimes {
 		if t.After(cutoff) {
 			totalRequests++

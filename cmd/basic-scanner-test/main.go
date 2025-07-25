@@ -11,52 +11,52 @@ import (
 
 func main() {
 	logger := log.New(os.Stdout, "[BASIC-SCANNER-TEST] ", log.LstdFlags)
-	
+
 	if err := runBasicScannerTest(logger); err != nil {
 		logger.Printf("Test failed: %v", err)
 		os.Exit(1)
 	}
-	
+
 	logger.Printf("Basic scanner test completed successfully!")
 }
 
 func runBasicScannerTest(logger *log.Logger) error {
 	logger.Printf("Starting basic ProjectLanguageScanner test...")
-	
+
 	// Create temporary test project
 	tempDir, err := createBasicTestProject()
 	if err != nil {
 		return fmt.Errorf("failed to create test project: %w", err)
 	}
 	defer os.RemoveAll(tempDir)
-	
+
 	logger.Printf("Created test project at: %s", tempDir)
-	
+
 	// Test basic scanner functionality
 	scanner := gateway.NewProjectLanguageScanner()
-	
+
 	// Configure scanner
 	scanner.SetMaxDepth(3)
 	scanner.SetMaxFiles(1000)
 	scanner.SetCacheEnabled(true)
-	
+
 	// Validate configuration
 	if err := scanner.ValidateConfiguration(); err != nil {
 		return fmt.Errorf("scanner validation failed: %w", err)
 	}
-	
+
 	logger.Printf("Scanner configuration validated")
-	
+
 	// Get supported languages
 	languages := scanner.GetSupportedLanguages()
 	logger.Printf("Supported languages (%d): %v", len(languages), languages)
-	
+
 	// Scan the test project
 	projectInfo, err := scanner.ScanProject(tempDir)
 	if err != nil {
 		return fmt.Errorf("failed to scan project: %w", err)
 	}
-	
+
 	// Print detailed results
 	logger.Printf("\n=== PROJECT SCAN RESULTS ===")
 	logger.Printf("Root Path: %s", projectInfo.RootPath)
@@ -66,7 +66,7 @@ func runBasicScannerTest(logger *log.Logger) error {
 	logger.Printf("Scan Duration: %v", projectInfo.ScanDuration)
 	logger.Printf("Scan Depth: %d", projectInfo.ScanDepth)
 	logger.Printf("Languages Found: %d", len(projectInfo.Languages))
-	
+
 	logger.Printf("\n=== LANGUAGE DETAILS ===")
 	for lang, ctx := range projectInfo.Languages {
 		logger.Printf("Language: %s", lang)
@@ -75,7 +75,7 @@ func runBasicScannerTest(logger *log.Logger) error {
 		logger.Printf("  Priority: %d", ctx.Priority)
 		logger.Printf("  Confidence: %.2f", ctx.Confidence)
 		logger.Printf("  Root Path: %s", ctx.RootPath)
-		
+
 		if ctx.Framework != "" {
 			logger.Printf("  Framework: %s", ctx.Framework)
 		}
@@ -85,7 +85,7 @@ func runBasicScannerTest(logger *log.Logger) error {
 		if ctx.LSPServerName != "" {
 			logger.Printf("  LSP Server: %s", ctx.LSPServerName)
 		}
-		
+
 		logger.Printf("  Build Files: %v", ctx.BuildFiles)
 		logger.Printf("  Config Files: %v", ctx.ConfigFiles)
 		logger.Printf("  Source Paths: %v", ctx.SourcePaths)
@@ -93,36 +93,36 @@ func runBasicScannerTest(logger *log.Logger) error {
 		logger.Printf("  File Extensions: %v", ctx.FileExtensions)
 		logger.Printf("")
 	}
-	
+
 	// Test project info utility methods
 	logger.Printf("=== PROJECT INFO UTILITIES ===")
-	
+
 	primaryLangs := projectInfo.GetPrimaryLanguages()
 	secondaryLangs := projectInfo.GetSecondaryLanguages()
-	
+
 	logger.Printf("Primary Languages: %v", primaryLangs)
 	logger.Printf("Secondary Languages: %v", secondaryLangs)
 	logger.Printf("Is Polyglot: %t", projectInfo.IsPolyglot())
-	
+
 	// Test language-specific methods
 	for lang := range projectInfo.Languages {
 		hasLang := projectInfo.HasLanguage(lang)
 		workspaceRoot := projectInfo.GetWorkspaceRoot(lang)
 		langCtx := projectInfo.GetLanguageContext(lang)
-		
+
 		logger.Printf("Language %s:", lang)
 		logger.Printf("  Has Language: %t", hasLang)
 		logger.Printf("  Workspace Root: %s", workspaceRoot)
 		logger.Printf("  Context Valid: %t", langCtx != nil)
 	}
-	
+
 	// Test validation
 	if err := projectInfo.Validate(); err != nil {
 		return fmt.Errorf("project info validation failed: %w", err)
 	}
-	
+
 	logger.Printf("Project info validation passed")
-	
+
 	// Test performance metrics
 	perfMetrics := scanner.GetPerformanceMetrics()
 	if perfMetrics != nil {
@@ -133,7 +133,7 @@ func runBasicScannerTest(logger *log.Logger) error {
 			}
 		}
 	}
-	
+
 	// Test cache stats
 	cacheStats := scanner.GetCacheStats()
 	if cacheStats != nil {
@@ -143,7 +143,7 @@ func runBasicScannerTest(logger *log.Logger) error {
 		logger.Printf("  Hit Count: %d", cacheStats.HitCount)
 		logger.Printf("  Miss Count: %d", cacheStats.MissCount)
 	}
-	
+
 	logger.Printf("\n=== ALL TESTS COMPLETED SUCCESSFULLY ===")
 	return nil
 }
@@ -154,7 +154,7 @@ func createBasicTestProject() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	// Create test files for different languages
 	files := map[string]string{
 		// Go files
@@ -183,7 +183,7 @@ require (
 )`,
 		"go.sum": `github.com/gorilla/mux v1.8.0 h1:i40aqfkR1h2SlN9hojwV5ZA91wcXFOvdyBDW8k6dVfg=
 github.com/gorilla/mux v1.8.0/go.mod h1:DVbg23sWSpFRCP0SfiEN6jmj59UnW/n46BH5rLB71So=`,
-		
+
 		// Python files
 		"api/app.py": `#!/usr/bin/env python3
 """
@@ -206,11 +206,11 @@ def health():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)`,
-		
+
 		"requirements.txt": `Flask==2.3.2
 requests==2.31.0
 pytest==7.4.0`,
-		
+
 		"setup.py": `from setuptools import setup, find_packages
 
 setup(
@@ -223,7 +223,7 @@ setup(
     ],
     python_requires=">=3.8",
 )`,
-		
+
 		"pyproject.toml": `[build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
@@ -236,7 +236,7 @@ dependencies = [
     "Flask>=2.0.0",
     "requests>=2.25.0",
 ]`,
-		
+
 		// TypeScript/JavaScript files
 		"frontend/src/app.ts": `interface Config {
     apiUrl: string;
@@ -257,7 +257,7 @@ class AppService {
     }
     
     async fetchUsers(): Promise<User[]> {
-        const response = await fetch(\`\${this.config.apiUrl}/users\`);
+        const response = await fetch(` + "`${this.config.apiUrl}/users`" + `);
         return response.json();
     }
     
@@ -267,7 +267,7 @@ class AppService {
 }
 
 export { AppService, Config, User };`,
-		
+
 		"frontend/package.json": `{
     "name": "multi-lang-test-frontend",
     "version": "1.0.0",
@@ -287,7 +287,7 @@ export { AppService, Config, User };`,
         "@types/jest": "^29.0.0"
     }
 }`,
-		
+
 		"frontend/tsconfig.json": `{
     "compilerOptions": {
         "target": "ES2020",
@@ -306,7 +306,7 @@ export { AppService, Config, User };`,
     "include": ["src/**/*"],
     "exclude": ["node_modules", "dist"]
 }`,
-		
+
 		// Java files
 		"backend/src/main/java/Main.java": `import java.util.*;
 import java.io.*;
@@ -340,7 +340,7 @@ class AppService {
         return "Hello from Java AppService!";
     }
 }`,
-		
+
 		"backend/pom.xml": `<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -371,7 +371,7 @@ class AppService {
         </dependency>
     </dependencies>
 </project>`,
-		
+
 		// Rust files (additional language)
 		"tools/src/main.rs": `use std::collections::HashMap;
 use std::env;
@@ -405,7 +405,7 @@ impl AppService {
         "Hello from Rust AppService!".to_string()
     }
 }`,
-		
+
 		"tools/Cargo.toml": `[package]
 name = "multi-lang-test-tools"
 version = "1.0.0"
@@ -415,7 +415,7 @@ description = "Rust tools for multi-language test"
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 tokio = { version = "1.0", features = ["full"] }`,
-		
+
 		// Configuration and documentation files
 		"README.md": `# Multi-Language Test Project
 
@@ -450,31 +450,31 @@ This is a comprehensive test project demonstrating multi-language LSP Gateway fu
 
 ## Project Structure
 
-\`\`\`
+` + "```" + `
 multi-lang-test/
 ├── main.go              # Go HTTP server
-├── go.mod              # Go module definition
-├── go.sum              # Go dependencies
+├── go.mod               # Go module definition
+├── go.sum               # Go dependencies
 ├── api/
-│   └── app.py          # Python Flask API
+│   └── app.py           # Python Flask API
 ├── requirements.txt     # Python dependencies
-├── setup.py            # Python package setup
-├── pyproject.toml      # Python project config
+├── setup.py             # Python package setup
+├── pyproject.toml       # Python project config
 ├── frontend/
 │   ├── src/
-│   │   └── app.ts      # TypeScript application
-│   ├── package.json    # Node.js dependencies
-│   └── tsconfig.json   # TypeScript config
+│   │   └── app.ts       # TypeScript application
+│   ├── package.json     # Node.js dependencies
+│   └── tsconfig.json    # TypeScript config
 ├── backend/
 │   ├── src/main/java/
-│   │   └── Main.java   # Java application
-│   └── pom.xml         # Maven configuration
+│   │   └── Main.java    # Java application
+│   └── pom.xml          # Maven configuration
 ├── tools/
 │   ├── src/
-│   │   └── main.rs     # Rust tools
-│   └── Cargo.toml      # Rust package config
-└── README.md           # This file
-\`\`\`
+│   │   └── main.rs      # Rust tools
+│   └── Cargo.toml       # Rust package config
+└── README.md            # This file
+` + "```" + `
 
 ## Testing
 
@@ -493,7 +493,7 @@ The LSP Gateway should detect this as a **polyglot monorepo** with:
 - **Project Type**: monorepo (multiple languages with clear separation)
 - **Frameworks**: Flask (Python), TypeScript compiler (TypeScript)
 - **Build Systems**: Go modules, Python setuptools, npm/TypeScript, Maven, Cargo`,
-		
+
 		"docker-compose.yml": `version: '3.8'
 
 services:
@@ -523,7 +523,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production`,
-		
+
 		".gitignore": `# Compiled binaries
 /bin/
 *.exe
@@ -540,7 +540,7 @@ go.work
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
+*\$py.class
 *.so
 .Python
 build/
@@ -603,22 +603,22 @@ Cargo.lock
 ehthumbs.db
 Thumbs.db`,
 	}
-	
+
 	// Create all files and directories
 	for filePath, content := range files {
 		fullPath := filepath.Join(tempDir, filePath)
-		
+
 		// Create directory if needed
 		dir := filepath.Dir(fullPath)
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return "", fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
-		
+
 		// Write file
 		if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
 			return "", fmt.Errorf("failed to write file %s: %w", filePath, err)
 		}
 	}
-	
+
 	return tempDir, nil
 }

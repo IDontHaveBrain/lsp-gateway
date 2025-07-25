@@ -79,11 +79,6 @@ func init() {
 	rootCmd.AddCommand(mcpCmd)
 }
 
-// GetMcpCmd returns the mcp command for testing purposes
-func GetMcpCmd() *cobra.Command {
-	return mcpCmd
-}
-
 func runMCPServer(_ *cobra.Command, args []string) error {
 	log.Printf("[INFO] Starting MCP server with transport=%s, gateway_url=%s\n", McpTransport, McpGatewayURL)
 
