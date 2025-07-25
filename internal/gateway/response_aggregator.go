@@ -472,7 +472,7 @@ func (d *DefinitionAggregator) Aggregate(responses []interface{}, sources []stri
 			// Handle mixed array responses
 			for _, item := range resp {
 				if loc, ok := item.(map[string]interface{}); ok {
-					if uri, exists := loc["uri"]; exists {
+					if _, exists := loc["uri"]; exists {
 						// Convert map to Location
 						if location := d.convertMapToLocation(loc); location != nil {
 							locationKey := fmt.Sprintf("%s:%d:%d-%d:%d", location.URI, location.Range.Start.Line, location.Range.Start.Character, location.Range.End.Line, location.Range.End.Character)

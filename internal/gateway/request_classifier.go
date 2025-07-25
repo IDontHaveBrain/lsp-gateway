@@ -21,19 +21,26 @@ const (
 	RoutingStrategyBroadcast      RoutingStrategyType = "broadcast"
 	RoutingStrategyLoadBalanced   RoutingStrategyType = "load_balanced"
 	RoutingStrategyRoundRobin     RoutingStrategyType = "round_robin"
-	SingleTargetWithFallback      RoutingStrategyType = "single_target_with_fallback"
+	RoutingStrategyFirst          RoutingStrategyType = "first"
+	RoutingStrategyAggregate      RoutingStrategyType = "aggregate"
 )
 
 // RequestLanguageContext contains language-specific context for a request
 type RequestLanguageContext struct {
-	PrimaryLanguage   string            `json:"primary_language"`
-	DetectedLanguages []string          `json:"detected_languages"`
-	FileExtension     string            `json:"file_extension"`
-	ProjectType       string            `json:"project_type"`
-	Framework         string            `json:"framework"`
-	IsMultiLanguage   bool              `json:"is_multi_language"`
-	LanguageFeatures  map[string]bool   `json:"language_features"`
-	AdditionalContext map[string]string `json:"additional_context"`
+	PrimaryLanguage     string                        `json:"primary_language"`
+	SecondaryLanguages  []string                      `json:"secondary_languages"`
+	DetectedLanguages   []string                      `json:"detected_languages"`
+	FileExtension       string                        `json:"file_extension"`
+	ContentType         string                        `json:"content_type"`
+	ProjectType         string                        `json:"project_type"`
+	ProjectLanguages    []string                      `json:"project_languages"`
+	Framework           string                        `json:"framework"`
+	IsMultiLanguage     bool                          `json:"is_multi_language"`
+	LanguageConfidence  float64                       `json:"language_confidence"`
+	EmbeddedLanguages   map[string][]ContentRange     `json:"embedded_languages"`
+	TemplateEngine      string                        `json:"template_engine"`
+	LanguageFeatures    map[string]bool               `json:"language_features"`
+	AdditionalContext   map[string]string             `json:"additional_context"`
 }
 
 // RequestClassifier analyzes LSP requests for intelligent routing decisions
@@ -41,7 +48,7 @@ type RequestClassifier interface {
 	ClassifyRequest(request *JSONRPCRequest, uri string) (*RequestClassificationResult, error)
 	AnalyzeRequestType(method string, params interface{}) *RequestTypeInfo
 	ExtractRequestLanguageContext(uri string, params interface{}) (*RequestLanguageContext, error)
-	DetermineWorkspaceContext(uri string) (*WorkspaceContext, error)
+	DetermineWorkspaceContext(uri string) (*RequestWorkspaceContext, error)
 	DetectCrossLanguageNeeds(method string, context *RequestLanguageContext) bool
 }
 
@@ -50,7 +57,7 @@ type RequestClassificationResult struct {
 	Request         *JSONRPCRequest
 	TypeInfo        *RequestTypeInfo
 	RequestLanguageContext *RequestLanguageContext
-	WorkspaceContext *WorkspaceContext
+	WorkspaceContext *RequestWorkspaceContext
 	CrossLanguage   bool
 	RoutingHints    *RoutingHints
 	CacheKey        string
@@ -134,8 +141,8 @@ type RoutingHints struct {
 // defaultRequestClassifier implements RequestClassifier
 type defaultRequestClassifier struct {
 	methodInfoCache    map[string]*RequestTypeInfo
-	workspaceCache     map[string]*WorkspaceContext
-	languageCache      map[string]*RequestLanguageContext
+	workspaceCache     map[string]*RequestWorkspaceContext
+	languageCache      map[string]*requestCacheEntry
 	cacheMutex         sync.RWMutex
 	cacheExpiry        time.Duration
 	maxCacheSize       int
@@ -160,8 +167,8 @@ type SimpleFrameworkDetector struct {
 func NewRequestClassifier() RequestClassifier {
 	classifier := &defaultRequestClassifier{
 		methodInfoCache:    make(map[string]*RequestTypeInfo),
-		workspaceCache:     make(map[string]*WorkspaceContext),
-		languageCache:      make(map[string]*RequestLanguageContext),
+		workspaceCache:     make(map[string]*RequestWorkspaceContext),
+		languageCache:      make(map[string]*requestCacheEntry),
 		cacheExpiry:        5 * time.Minute,
 		maxCacheSize:       1000,
 		extensionMap:       initializeExtensionMap(),
@@ -249,18 +256,21 @@ func (c *defaultRequestClassifier) AnalyzeRequestType(method string, params inte
 func (c *defaultRequestClassifier) ExtractRequestLanguageContext(uri string, params interface{}) (*RequestLanguageContext, error) {
 	if uri == "" {
 		return &RequestLanguageContext{
-			PrimaryLanguage:    "unknown",
-			LanguageConfidence: 0.0,
+			PrimaryLanguage:      "unknown",
+			SecondaryLanguages:   []string{},
+			LanguageConfidence:   0.0,
+			EmbeddedLanguages:    make(map[string][]ContentRange),
+			TemplateEngine:       "",
 		}, nil
 	}
 	
 	// Check cache first
 	cacheKey := fmt.Sprintf("lang:%s", uri)
 	c.cacheMutex.RLock()
-	if cached, exists := c.languageCache[cacheKey]; exists {
-		if time.Since(cached.(*requestCacheEntry).timestamp) < c.cacheExpiry {
+	if cacheEntry, exists := c.languageCache[cacheKey]; exists {
+		if time.Since(cacheEntry.timestamp) < c.cacheExpiry {
 			c.cacheMutex.RUnlock()
-			return cached.(*requestCacheEntry).languageContext, nil
+			return cacheEntry.languageContext, nil
 		}
 	}
 	c.cacheMutex.RUnlock()
@@ -290,9 +300,9 @@ func (c *defaultRequestClassifier) ExtractRequestLanguageContext(uri string, par
 }
 
 // DetermineWorkspaceContext analyzes workspace and project information
-func (c *defaultRequestClassifier) DetermineWorkspaceContext(uri string) (*WorkspaceContext, error) {
+func (c *defaultRequestClassifier) DetermineWorkspaceContext(uri string) (*RequestWorkspaceContext, error) {
 	if uri == "" {
-		return &WorkspaceContext{
+		return &RequestWorkspaceContext{
 			WorkspaceRoot: "",
 			ProjectType:   "unknown",
 		}, nil
@@ -309,7 +319,7 @@ func (c *defaultRequestClassifier) DetermineWorkspaceContext(uri string) (*Works
 	}
 	c.cacheMutex.RUnlock()
 	
-	context := &WorkspaceContext{
+	context := &RequestWorkspaceContext{
 		WorkspaceRoot: workspaceRoot,
 	}
 	
@@ -594,7 +604,7 @@ func (c *defaultRequestClassifier) enhanceWithProjectLanguages(context *RequestL
 	return nil
 }
 
-func (c *defaultRequestClassifier) analyzeWorkspaceStructure(context *WorkspaceContext) error {
+func (c *defaultRequestClassifier) analyzeWorkspaceStructure(context *RequestWorkspaceContext) error {
 	if context.WorkspaceRoot == "" {
 		return nil
 	}
@@ -630,7 +640,7 @@ func (c *defaultRequestClassifier) analyzeWorkspaceStructure(context *WorkspaceC
 	return nil
 }
 
-func (c *defaultRequestClassifier) detectProjectType(context *WorkspaceContext) error {
+func (c *defaultRequestClassifier) detectProjectType(context *RequestWorkspaceContext) error {
 	if context.WorkspaceRoot == "" {
 		return nil
 	}
@@ -648,7 +658,7 @@ func (c *defaultRequestClassifier) detectProjectType(context *WorkspaceContext) 
 	return nil
 }
 
-func (c *defaultRequestClassifier) detectFrameworks(context *WorkspaceContext) error {
+func (c *defaultRequestClassifier) detectFrameworks(context *RequestWorkspaceContext) error {
 	for _, detector := range c.frameworkDetectors {
 		if c.matchesFramework(context, detector) {
 			context.FrameworkInfo = &FrameworkInfo{
@@ -663,7 +673,7 @@ func (c *defaultRequestClassifier) detectFrameworks(context *WorkspaceContext) e
 	return nil
 }
 
-func (c *defaultRequestClassifier) analyzeDependencies(context *WorkspaceContext) error {
+func (c *defaultRequestClassifier) analyzeDependencies(context *RequestWorkspaceContext) error {
 	context.Dependencies = make(map[string][]string)
 	
 	// Analyze different dependency files
@@ -696,7 +706,7 @@ func (c *defaultRequestClassifier) analyzeDependencies(context *WorkspaceContext
 
 type requestCacheEntry struct {
 	languageContext *RequestLanguageContext
-	workspaceContext *WorkspaceContext
+	workspaceContext *RequestWorkspaceContext
 	timestamp       time.Time
 }
 
@@ -709,8 +719,8 @@ func (c *defaultRequestClassifier) cacheRequestLanguageContext(key string, conte
 		oldest := time.Now()
 		var oldestKey string
 		for k, entry := range c.languageCache {
-			if entry.(*requestCacheEntry).timestamp.Before(oldest) {
-				oldest = entry.(*requestCacheEntry).timestamp
+			if entry.timestamp.Before(oldest) {
+				oldest = entry.timestamp
 				oldestKey = k
 			}
 		}
@@ -729,7 +739,7 @@ func (c *defaultRequestClassifier) generateCacheKey(request *JSONRPCRequest, uri
 	return fmt.Sprintf("%s:%s:%d", request.Method, uri, time.Now().Unix()/60) // Cache per minute
 }
 
-func (c *defaultRequestClassifier) generateRoutingHints(typeInfo *RequestTypeInfo, langCtx *RequestLanguageContext, wsCtx *WorkspaceContext, crossLang bool) *RoutingHints {
+func (c *defaultRequestClassifier) generateRoutingHints(typeInfo *RequestTypeInfo, langCtx *RequestLanguageContext, wsCtx *RequestWorkspaceContext, crossLang bool) *RoutingHints {
 	hints := &RoutingHints{
 		PreferredServers:    []string{},
 		FallbackServers:     []string{},
@@ -965,7 +975,7 @@ func (c *defaultRequestClassifier) findSubProjects(workspaceRoot string) []strin
 	return subProjects
 }
 
-func (c *defaultRequestClassifier) matchesFramework(context *WorkspaceContext, detector *SimpleFrameworkDetector) bool {
+func (c *defaultRequestClassifier) matchesFramework(context *RequestWorkspaceContext, detector *SimpleFrameworkDetector) bool {
 	// Check for required config files
 	for _, configFile := range detector.ConfigFiles {
 		found := false

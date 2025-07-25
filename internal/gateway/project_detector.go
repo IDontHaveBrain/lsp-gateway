@@ -2,9 +2,9 @@ package gateway
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -22,12 +22,18 @@ const (
 
 // LanguageStats represents statistical information about a language in the project
 type LanguageStats struct {
-	FileCount        int     `json:"file_count" yaml:"file_count"`
-	TestFileCount    int     `json:"test_file_count" yaml:"test_file_count"`
-	BuildFileScore   int     `json:"build_file_score" yaml:"build_file_score"`
-	DirectoryScore   int     `json:"directory_score" yaml:"directory_score"`
-	RecentActivity   int     `json:"recent_activity" yaml:"recent_activity"`
-	TotalScore       int     `json:"total_score" yaml:"total_score"`
+	Language         string            `json:"language" yaml:"language"`
+	FileCount        int               `json:"file_count" yaml:"file_count"`
+	TestFileCount    int               `json:"test_file_count" yaml:"test_file_count"`
+	TestFiles        int               `json:"test_files" yaml:"test_files"`
+	BuildFileScore   int               `json:"build_file_score" yaml:"build_file_score"`
+	DirectoryScore   int               `json:"directory_score" yaml:"directory_score"`
+	RecentActivity   int               `json:"recent_activity" yaml:"recent_activity"`
+	TotalScore       int               `json:"total_score" yaml:"total_score"`
+	Extensions       map[string]int    `json:"extensions" yaml:"extensions"`
+	BuildFiles       []string          `json:"build_files" yaml:"build_files"`
+	ConfigFiles      []string          `json:"config_files" yaml:"config_files"`
+	SourceDirs       []string          `json:"source_dirs" yaml:"source_dirs"`
 }
 
 // LanguageContext represents comprehensive context about a specific language in the project
@@ -439,7 +445,6 @@ func (s *ProjectLanguageScanner) ScanProject(rootPath string) (*MultiLanguagePro
 	
 	var buildSystems []string
 	var sourceDirs []string
-	var testDirs []string
 	var configFiles []string
 	
 	for _, lang := range stats {
@@ -486,7 +491,7 @@ func (s *ProjectLanguageScanner) scanDirectoryRecursive(ctx context.Context, dir
 		return nil
 	}
 	
-	entries, err := filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // Continue on errors
 		}
@@ -525,7 +530,7 @@ func (s *ProjectLanguageScanner) scanDirectoryRecursive(ctx context.Context, dir
 		return nil
 	})
 	
-	return entries
+	return err
 }
 
 func (s *ProjectLanguageScanner) analyzeFile(filePath, rootPath string, stats map[string]*LanguageStats, mutex *sync.Mutex) {
@@ -702,12 +707,10 @@ func (s *ProjectLanguageScanner) calculateLanguagePriorities(stats map[string]*L
 		}
 		
 		rankings = append(rankings, LanguageRanking{
-			Language:     langStats.Language,
-			Score:        totalScore,
-			FileCount:    langStats.FileCount,
-			BuildWeight:  buildWeight,
-			StructWeight: structWeight,
-			Confidence:   confidence,
+			Language:   langStats.Language,
+			Score:      int(totalScore),
+			Confidence: confidence,
+			Context:    nil, // Will be populated later
 		})
 	}
 	
@@ -729,7 +732,7 @@ func (s *ProjectLanguageScanner) identifyProjectType(languages []LanguageRanking
 	}
 	
 	// Calculate language distribution
-	totalScore := 0.0
+	totalScore := 0
 	for _, lang := range languages {
 		totalScore += lang.Score
 	}
@@ -738,7 +741,7 @@ func (s *ProjectLanguageScanner) identifyProjectType(languages []LanguageRanking
 		return "unknown"
 	}
 	
-	dominantRatio := languages[0].Score / totalScore
+	dominantRatio := float64(languages[0].Score) / float64(totalScore)
 	
 	// Single language project if one language dominates (>90%)
 	if dominantRatio > 0.9 {
@@ -760,7 +763,7 @@ func (s *ProjectLanguageScanner) identifyProjectType(languages []LanguageRanking
 	if len(languages) >= 3 {
 		buildSystemCount := 0
 		for _, lang := range languages {
-			if lang.BuildWeight > 0 {
+			if lang.Score > 0 { // Use Score as a proxy for build system presence
 				buildSystemCount++
 			}
 		}
@@ -1742,33 +1745,18 @@ func (s *ProjectLanguageScanner) convertToComprehensiveInfo(basicInfo *MultiLang
 		WorkspaceRoots:   make(map[string]string),
 		BuildFiles:       basicInfo.BuildFiles,
 		ConfigFiles:      basicInfo.ConfigFiles,
-		TotalFileCount:   basicInfo.TotalFiles,
+		TotalFileCount:   basicInfo.TotalFileCount,
 		ScanDepth:        s.MaxDepth,
 		ScanDuration:     basicInfo.ScanDuration,
 		DetectedAt:       time.Now(),
 		Metadata:         basicInfo.Metadata,
 	}
 	
-	// Convert language rankings to language contexts
-	for _, ranking := range basicInfo.Languages {
-		ctx := &LanguageContext{
-			Language:       ranking.Language,
-			RootPath:       basicInfo.RootPath,
-			FileCount:      ranking.FileCount,
-			Priority:       int(ranking.Score),
-			Confidence:     ranking.Confidence,
-			BuildFiles:     []string{},
-			ConfigFiles:    []string{},
-			SourcePaths:    []string{},
-			TestPaths:      []string{},
-			FileExtensions: []string{},
-			Dependencies:   []string{},
-			Metadata:       make(map[string]interface{}),
-		}
-		
+	// Convert language contexts (basicInfo.Languages is already a map[string]*LanguageContext)
+	for langName, langCtx := range basicInfo.Languages {
 		// Set workspace root (for now, same as project root)
-		info.WorkspaceRoots[ranking.Language] = basicInfo.RootPath
-		info.Languages[ranking.Language] = ctx
+		info.WorkspaceRoots[langName] = basicInfo.RootPath
+		info.Languages[langName] = langCtx
 	}
 	
 	return info
@@ -2026,9 +2014,9 @@ func (s *ProjectLanguageScanner) convertLegacyToNewFormat(rankings []LanguageRan
 		ctx := &LanguageContext{
 			Language:       ranking.Language,
 			RootPath:       rootPath,
-			FileCount:      ranking.FileCount,
+			FileCount:      1, // Default file count since ranking doesn't have FileCount
 			TestFileCount:  0, // This would need to be calculated properly in a full implementation
-			Priority:       int(ranking.Score),
+			Priority:       ranking.Score,
 			Confidence:     ranking.Confidence,
 			BuildFiles:     []string{}, // This would need to be populated from the scan
 			ConfigFiles:    []string{}, // This would need to be populated from the scan

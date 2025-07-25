@@ -53,7 +53,7 @@ type ServerInstance struct {
 	metrics         *ServerMetrics
 	circuitBreaker  *CircuitBreaker
 	startTime       time.Time
-	lastUsed        time.Time
+	lastUsed        int64 // Changed to int64 for atomic operations
 	processID       int
 	memoryUsage     int64
 	connectionCount int32
@@ -70,7 +70,7 @@ func NewServerInstance(serverConfig *config.ServerConfig, client transport.LSPCl
 		metrics:        NewServerMetrics(),
 		circuitBreaker: NewCircuitBreaker(10, 30*time.Second, 5),
 		startTime:      time.Now(),
-		lastUsed:       time.Now(),
+		lastUsed:       time.Now().UnixNano(), // Store as nanoseconds
 		state:          ServerStateStarting,
 	}
 }
@@ -137,7 +137,7 @@ func (si *ServerInstance) SendRequest(ctx context.Context, method string, params
 	result, err := si.client.SendRequest(ctx, method, params)
 	responseTime := time.Since(start)
 
-	atomic.StoreInt64((*int64)(&si.lastUsed), time.Now().UnixNano())
+	atomic.StoreInt64(&si.lastUsed, time.Now().UnixNano())
 
 	if err != nil {
 		si.circuitBreaker.RecordFailure()

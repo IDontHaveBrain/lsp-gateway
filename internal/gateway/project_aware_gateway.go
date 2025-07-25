@@ -25,9 +25,9 @@ type EnhancedProjectAwareGateway struct {
 	globalMultiServerManager *MultiServerManager // Reference to global multi-server manager
 
 	// Performance monitoring
-	performanceCache   *PerformanceCache
-	requestClassifier  *RequestClassifier
-	responseAggregator *ResponseAggregator
+	performanceCache   PerformanceCache
+	requestClassifier  RequestClassifier
+	responseAggregator ResponseAggregator
 	healthMonitor      *HealthMonitor
 
 	// Configuration
@@ -135,8 +135,14 @@ func (pag *EnhancedProjectAwareGateway) processEnhancedJSONRPCRequest(w http.Res
 
 	// Classify request for optimal routing
 	if pag.requestClassifier != nil {
-		requestClass := pag.requestClassifier.ClassifyRequest(req.Method, req.Params)
-		if logger != nil {
+		jsonrpcReq := &JSONRPCRequest{
+			Method:  req.Method,
+			Params:  req.Params,
+			ID:      req.ID,
+			JSONRPC: req.JSONRPC,
+		}
+		requestClass, err := pag.requestClassifier.ClassifyRequest(jsonrpcReq, uri)
+		if err == nil && logger != nil {
 			logger.WithField("request_class", requestClass).Debug("Request classified")
 		}
 	}
@@ -170,19 +176,24 @@ func (pag *EnhancedProjectAwareGateway) handleEnhancedRequestRouting(w http.Resp
 
 	language := ""
 	if uri != "" {
-		if lang, err := pag.extractLanguageFromURI(uri); err == nil {
-			language = lang
-		}
+		language = pag.extractLanguageFromURI(uri)
 	}
 
 	// Create LSPRequest for SmartRouter
 	lspRequest := &LSPRequest{
-		Method:      req.Method,
-		Params:      req.Params,
-		URI:         uri,
-		Language:    language,
-		WorkspaceID: workspace.GetID(),
-		Context:     context.Background(),
+		Method:  req.Method,
+		Params:  req.Params,
+		ID:      req.ID,
+		URI:     uri,
+		JSONRPC: req.JSONRPC,
+		Context: &RequestContext{
+			FileURI:     uri,
+			Language:    language,
+			RequestType: req.Method,
+			WorkspaceID: workspace.GetID(),
+		},
+		Timestamp: time.Now(),
+		RequestID: fmt.Sprintf("%v", req.ID),
 	}
 
 	// Use SmartRouter to get routing decision
@@ -206,7 +217,7 @@ func (pag *EnhancedProjectAwareGateway) handleEnhancedRequestRouting(w http.Resp
 		}
 
 		// Final fallback to traditional routing
-		serverName, err := pag.Gateway.routeRequestTraditional(req)
+		serverName, err := pag.Gateway.routeRequest(req)
 		if err != nil {
 			if logger != nil {
 				logger.WithError(err).Error("Traditional routing failed")
@@ -218,11 +229,16 @@ func (pag *EnhancedProjectAwareGateway) handleEnhancedRequestRouting(w http.Resp
 	}
 
 	// Update performance cache if available
-	if pag.performanceCache != nil {
-		pag.performanceCache.RecordRoutingDecision(req.Method, decision.ServerName, decision.Strategy)
+	if pag.performanceCache != nil && len(decision.TargetServers) > 0 {
+		pag.performanceCache.RecordRoutingDecision(req.Method, decision.TargetServers[0].Name, decision.RoutingStrategy)
 	}
 
-	return decision.ServerName, true
+	// Return the name of the first target server
+	if len(decision.TargetServers) > 0 {
+		return decision.TargetServers[0].Name, true
+	}
+	
+	return "", false
 }
 
 // initializeEnhancedRequestLogger creates an enhanced logger with additional context
@@ -385,7 +401,7 @@ func (pag *EnhancedProjectAwareGateway) processWorkspaceAwareLSPRequest(req *Wor
 
 // processWorkspaceMultiServerRequest processes requests using workspace server manager
 func (pag *EnhancedProjectAwareGateway) processWorkspaceMultiServerRequest(req *WorkspaceAwareJSONRPCRequest, workspace *WorkspaceContextImpl, w http.ResponseWriter) error {
-	language := pag.extractLanguageFromURI(req.Params)
+	language := pag.extractLanguageFromURI(fmt.Sprintf("%v", req.Params))
 
 	// Create workspace request router
 	router := NewWorkspaceRequestRouter(workspace.ServerManager)
@@ -406,7 +422,7 @@ func (pag *EnhancedProjectAwareGateway) processWorkspaceMultiServerRequest(req *
 
 // processWorkspaceSingleServerRequest processes requests using single server fallback
 func (pag *EnhancedProjectAwareGateway) processWorkspaceSingleServerRequest(req *WorkspaceAwareJSONRPCRequest, workspace *WorkspaceContextImpl, w http.ResponseWriter) error {
-	language := pag.extractLanguageFromURI(req.Params)
+	language := pag.extractLanguageFromURI(fmt.Sprintf("%v", req.Params))
 
 	// Get language-specific client using existing workspace manager methods
 	client, err := pag.workspaceManager.GetLanguageSpecificClient(workspace.ID, language)
@@ -602,10 +618,27 @@ func (pag *EnhancedProjectAwareGateway) aggregateReferenceResults(results []json
 	return json.Marshal(allReferences)
 }
 
-// extractLanguageFromURI extracts language from request parameters
-func (pag *EnhancedProjectAwareGateway) extractLanguageFromURI(params interface{}) string {
-	// This is a simplified implementation
-	// In practice, you would extract the language from the textDocument URI
+// extractLanguageFromURI extracts language from URI or parameters
+func (pag *EnhancedProjectAwareGateway) extractLanguageFromURI(uriOrParams interface{}) string {
+	// Try to extract URI from string parameter
+	if uri, ok := uriOrParams.(string); ok && uri != "" {
+		// Use base Gateway method which handles proper language detection
+		if lang, err := pag.Gateway.extractLanguageFromURI(uri); err == nil {
+			return lang
+		}
+	}
+	
+	// Fallback: try to extract from structured parameters
+	if params, ok := uriOrParams.(map[string]interface{}); ok {
+		if textDoc, ok := params["textDocument"].(map[string]interface{}); ok {
+			if uri, ok := textDoc["uri"].(string); ok {
+				if lang, err := pag.Gateway.extractLanguageFromURI(uri); err == nil {
+					return lang
+				}
+			}
+		}
+	}
+	
 	return "go" // Default language for demonstration
 }
 

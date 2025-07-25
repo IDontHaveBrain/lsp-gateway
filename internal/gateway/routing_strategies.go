@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -340,7 +341,7 @@ func (s *SingleTargetStrategy) Route(request *LSPRequest, availableServers []*St
 		Client:       bestServer.Client,
 		Priority:     bestServer.Config.Priority,
 		Weight:       bestServer.Weight,
-		Strategy:     RoutingStrategy(s.name),
+		Strategy:     nil,
 		Metadata: map[string]interface{}{
 			"health_score":      bestServer.HealthScore,
 			"load_score":        bestServer.LoadScore,
@@ -468,7 +469,7 @@ func (m *MultiTargetStrategy) Route(request *LSPRequest, availableServers []*Str
 			Client:       server.Client,
 			Priority:     server.Config.Priority,
 			Weight:       server.Weight,
-			Strategy:     RoutingStrategy(m.name),
+			Strategy:     nil,
 			Metadata: map[string]interface{}{
 				"health_score":    server.HealthScore,
 				"load_score":      server.LoadScore,
@@ -605,7 +606,7 @@ func (b *BroadcastAggregateStrategy) Route(request *LSPRequest, availableServers
 			Client:       server.Client,
 			Priority:     server.Config.Priority,
 			Weight:       server.Weight,
-			Strategy:     RoutingStrategy(b.name),
+			Strategy:     nil,
 			Metadata: map[string]interface{}{
 				"health_score":      server.HealthScore,
 				"broadcast_index":   i,
@@ -735,7 +736,7 @@ func (s *SequentialFallbackStrategy) Route(request *LSPRequest, availableServers
 				Client:       server.Client,
 				Priority:     server.Config.Priority,
 				Weight:       server.Weight,
-				Strategy:     RoutingStrategy(s.name),
+				Strategy:     nil,
 				Metadata: map[string]interface{}{
 					"health_score":        server.HealthScore,
 					"fallback_level":      i,
@@ -853,7 +854,7 @@ func (l *LoadBalancedStrategy) Route(request *LSPRequest, availableServers []*St
 		Client:       selectedServer.Client,
 		Priority:     selectedServer.Config.Priority,
 		Weight:       selectedServer.Weight,
-		Strategy:     RoutingStrategy(l.name),
+		Strategy:     nil,
 		Metadata: map[string]interface{}{
 			"health_score":         selectedServer.HealthScore,
 			"load_score":           selectedServer.LoadScore,
@@ -1103,7 +1104,7 @@ func (c *CrossLanguageStrategy) Route(request *LSPRequest, availableServers []*S
 			Client:       server.Client,
 			Priority:     server.Config.Priority,
 			Weight:       server.Weight,
-			Strategy:     RoutingStrategy(c.name),
+			Strategy:     nil,
 			Metadata: map[string]interface{}{
 				"health_score":          server.HealthScore,
 				"supported_languages":   server.Config.Languages,

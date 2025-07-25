@@ -3,7 +3,6 @@ package gateway
 import (
 	"compress/gzip"
 	"context"
-	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -59,6 +58,7 @@ type PerformanceCacheEntry struct {
 // ServerMetrics tracks comprehensive server performance data
 type ServerMetrics struct {
 	ServerName          string        `json:"server_name"`
+	RequestCount        int64         `json:"request_count"`
 	TotalRequests       int64         `json:"total_requests"`
 	SuccessfulRequests  int64         `json:"successful_requests"`
 	FailedRequests      int64         `json:"failed_requests"`
@@ -73,6 +73,13 @@ type ServerMetrics struct {
 	CircuitBreakerState string        `json:"circuit_breaker_state"`
 	LoadScore           float64       `json:"load_score"`
 	TrendScore          float64       `json:"trend_score"`
+	ActiveConnections   int           `json:"active_connections"`
+	SuccessRate         float64       `json:"success_rate"`
+	SuccessCount        int64         `json:"success_count"`
+	FailureCount        int64         `json:"failure_count"`
+	LastResponseTime    time.Duration `json:"last_response_time"`
+	CircuitBreakerOpen  bool          `json:"circuit_breaker_open"`
+	LastAccessed        time.Time     `json:"last_accessed"`
 	ResponseTimes       []time.Duration `json:"-"` // Circular buffer for percentiles
 	ResponseTimeIndex   int           `json:"-"`
 }
@@ -83,6 +90,92 @@ func (sm *ServerMetrics) GetErrorRate() float64 {
 		return 0.0
 	}
 	return float64(sm.FailedRequests) / float64(sm.TotalRequests)
+}
+
+// NewServerMetrics creates a new ServerMetrics instance
+func NewServerMetrics() *ServerMetrics {
+	return &ServerMetrics{
+		MinResponseTime:     time.Duration(math.MaxInt64),
+		ResponseTimes:       make([]time.Duration, 1000), // Default buffer size
+		ResponseTimeIndex:   0,
+		HealthScore:         1.0,
+		CircuitBreakerState: "CLOSED",
+	}
+}
+
+// RecordRequest records a request with response time and success status
+func (sm *ServerMetrics) RecordRequest(responseTime time.Duration, success bool) {
+	sm.TotalRequests++
+	sm.LastRequestTime = time.Now()
+	
+	if success {
+		sm.SuccessfulRequests++
+	} else {
+		sm.FailedRequests++
+	}
+	
+	// Update min/max response times
+	if responseTime < sm.MinResponseTime {
+		sm.MinResponseTime = responseTime
+	}
+	if responseTime > sm.MaxResponseTime {
+		sm.MaxResponseTime = responseTime
+	}
+	
+	// Update circular buffer for percentile calculation
+	if len(sm.ResponseTimes) > 0 {
+		sm.ResponseTimes[sm.ResponseTimeIndex] = responseTime
+		sm.ResponseTimeIndex = (sm.ResponseTimeIndex + 1) % len(sm.ResponseTimes)
+	}
+	
+	// Calculate exponential moving average
+	alpha := 0.1
+	if sm.AverageResponseTime == 0 {
+		sm.AverageResponseTime = responseTime
+	} else {
+		newAvg := time.Duration(float64(sm.AverageResponseTime)*(1-alpha) + float64(responseTime)*alpha)
+		sm.AverageResponseTime = newAvg
+	}
+	
+	// Calculate percentiles
+	sm.calculatePercentiles()
+}
+
+// GetAverageResponseTime returns the average response time
+func (sm *ServerMetrics) GetAverageResponseTime() time.Duration {
+	return sm.AverageResponseTime
+}
+
+// calculatePercentiles calculates P50, P95, and P99 response times
+func (sm *ServerMetrics) calculatePercentiles() {
+	times := make([]time.Duration, 0, len(sm.ResponseTimes))
+	for _, t := range sm.ResponseTimes {
+		if t > 0 {
+			times = append(times, t)
+		}
+	}
+	
+	if len(times) == 0 {
+		return
+	}
+	
+	sort.Slice(times, func(i, j int) bool {
+		return times[i] < times[j]
+	})
+	
+	p50Index := len(times) * 50 / 100
+	p95Index := len(times) * 95 / 100
+	p99Index := len(times) * 99 / 100
+	
+	if p50Index < len(times) {
+		sm.P50ResponseTime = times[p50Index]
+	}
+	if p95Index < len(times) {
+		sm.P95ResponseTime = times[p95Index]
+	}
+	if p99Index < len(times) {
+		sm.P99ResponseTime = times[p99Index]
+	}
 }
 
 // Copy creates a deep copy of the ServerMetrics struct
@@ -168,7 +261,7 @@ type IntelligentPerformanceCache struct {
 	persistentCache  map[string]*PerformanceCacheEntry  // L3 cache
 	serverMetrics    map[string]*ServerMetrics
 	methodMetrics    map[string]*MethodMetrics
-	cacheStats       *CacheStats
+	cacheStats       *PerformanceCacheStats
 	running          bool
 	ctx              context.Context
 	cancel           context.CancelFunc
@@ -279,7 +372,7 @@ func (pc *IntelligentPerformanceCache) CacheResponse(key string, response interf
 	}
 
 	size := int64(len(data))
-	entry := &CacheEntry{
+	entry := &PerformanceCacheEntry{
 		Response:    response,
 		Timestamp:   time.Now(),
 		TTL:         ttl,
@@ -571,9 +664,19 @@ func (pc *IntelligentPerformanceCache) GetCacheStats() *CacheStats {
 		pc.cacheStats.HotDataPercentage = float64(hotEntries) / float64(pc.cacheStats.TotalEntries)
 	}
 
-	// Return a copy
-	stats := *pc.cacheStats
-	return &stats
+	// Convert PerformanceCacheStats to CacheStats for interface compatibility
+	return &CacheStats{
+		HitCount:          pc.hitCount,
+		MissCount:         pc.missCount,
+		TotalEntries:      int(pc.cacheStats.TotalEntries),
+		HitRatio:          pc.cacheStats.CacheHitRate,
+		EvictionCount:     pc.cacheStats.EvictionCount,
+		BackgroundScans:   0, // Not applicable to performance cache
+		IncrementalUpdates: 0, // Not applicable to performance cache
+		AverageAccessTime: 0, // Would need to be calculated if needed
+		CacheSize:         pc.cacheStats.MemoryUsage,
+		LastCleanup:       pc.cacheStats.LastOptimization,
+	}
 }
 
 // Helper methods
@@ -593,7 +696,7 @@ func (pc *IntelligentPerformanceCache) calculatePriority(key string, size int64)
 	return priority
 }
 
-func (pc *IntelligentPerformanceCache) determineCacheLevel(entry *CacheEntry) int {
+func (pc *IntelligentPerformanceCache) determineCacheLevel(entry *PerformanceCacheEntry) int {
 	if entry.Priority >= 3 && entry.Size < 10*1024 {
 		return 1 // L1 for high priority, small items
 	} else if entry.Size < 100*1024 {
@@ -602,7 +705,7 @@ func (pc *IntelligentPerformanceCache) determineCacheLevel(entry *CacheEntry) in
 	return 3 // L3 for large items
 }
 
-func (pc *IntelligentPerformanceCache) isEntryValid(entry *CacheEntry) bool {
+func (pc *IntelligentPerformanceCache) isEntryValid(entry *PerformanceCacheEntry) bool {
 	return time.Since(entry.Timestamp) < entry.TTL
 }
 
@@ -617,7 +720,7 @@ func (pc *IntelligentPerformanceCache) evictEntries() {
 	// LRU eviction with priority consideration
 	type entryInfo struct {
 		key        string
-		entry      *CacheEntry
+		entry      *PerformanceCacheEntry
 		cacheLevel int
 		score      float64
 	}
@@ -671,7 +774,7 @@ func (pc *IntelligentPerformanceCache) evictEntries() {
 	pc.updateMemoryUsage()
 }
 
-func (pc *IntelligentPerformanceCache) calculateEvictionScore(entry *CacheEntry) float64 {
+func (pc *IntelligentPerformanceCache) calculateEvictionScore(entry *PerformanceCacheEntry) float64 {
 	// Score based on access frequency, recency, and size
 	timeSinceAccess := time.Since(entry.LastAccess).Seconds()
 	accessFrequency := float64(entry.AccessCount)
@@ -840,13 +943,22 @@ func (pc *IntelligentPerformanceCache) decompressData(data []byte) ([]byte, erro
 	}
 	defer gz.Close()
 
-	var result strings.Builder
-	_, err = result.ReadFrom(gz)
-	if err != nil {
-		return nil, err
+	result := make([]byte, 0)
+	buf := make([]byte, 1024)
+	for {
+		n, err := gz.Read(buf)
+		if n > 0 {
+			result = append(result, buf[:n]...)
+		}
+		if err != nil {
+			if err.Error() == "EOF" {
+				break
+			}
+			return nil, err
+		}
 	}
 
-	return []byte(result.String()), nil
+	return result, nil
 }
 
 func (pc *IntelligentPerformanceCache) optimizationLoop() {
@@ -974,7 +1086,7 @@ func (pc *IntelligentPerformanceCache) optimizeTTL() {
 func (pc *IntelligentPerformanceCache) compressUnusedEntries() {
 	threshold := time.Now().Add(-time.Hour)
 	
-	for key, entry := range pc.cache {
+	for _, entry := range pc.cache {
 		if entry.LastAccess.Before(threshold) && entry.CompressedData == nil && entry.Size > 1024 {
 			data, err := json.Marshal(entry.Response)
 			if err == nil {

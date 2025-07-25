@@ -128,7 +128,6 @@ func NewProjectCacheWithConfig(config CacheConfig) *ProjectCache {
 
 // Get retrieves a cached project info if valid, returns nil if not found or expired
 func (pc *ProjectCache) Get(rootPath string) (*MultiLanguageProjectInfo, bool) {
-	start := time.Now()
 	defer func() {
 		// Update access time statistics
 		// This could be enhanced with a sliding window for better average calculation
@@ -482,7 +481,7 @@ func (bs *BackgroundScanner) worker(id int) {
 // scanProject performs the actual project scan
 func (bs *BackgroundScanner) scanProject(rootPath string) {
 	// Check if we already have a recent cache entry
-	if info, exists := bs.cache.Get(rootPath); exists {
+	if _, exists := bs.cache.Get(rootPath); exists {
 		// Entry is still valid, no need to rescan
 		return
 	}

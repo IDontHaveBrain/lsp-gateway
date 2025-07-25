@@ -113,13 +113,13 @@ func NewSmartRouter(projectRouter *ProjectAwareRouter, config *config.GatewayCon
 func (sr *SmartRouterImpl) setDefaultStrategies() {
 	defaults := map[string]RoutingStrategy{
 		LSP_METHOD_DEFINITION:      SingleTargetWithFallback,
-		LSP_METHOD_REFERENCES:      MultiTargetParallel,
+		LSP_METHOD_REFERENCES:      SingleTargetWithFallback,  // Using fallback for now
 		LSP_METHOD_DOCUMENT_SYMBOL: SingleTargetWithFallback,
-		LSP_METHOD_WORKSPACE_SYMBOL: BroadcastAggregate,
-		LSP_METHOD_HOVER:           PrimaryWithEnhancement,
-		"textDocument/completion":  LoadBalanced,
-		"textDocument/diagnostic":  MultiTargetParallel,
-		"textDocument/codeAction":  PrimaryWithEnhancement,
+		LSP_METHOD_WORKSPACE_SYMBOL: SingleTargetWithFallback, // Using fallback for now
+		LSP_METHOD_HOVER:           SingleTargetWithFallback,  // Using fallback for now
+		"textDocument/completion":  SingleTargetWithFallback,  // Using fallback for now
+		"textDocument/diagnostic":  SingleTargetWithFallback,  // Using fallback for now
+		"textDocument/codeAction":  SingleTargetWithFallback,  // Using fallback for now
 		"textDocument/formatting":  SingleTargetWithFallback,
 	}
 	
@@ -145,12 +145,12 @@ func (sr *SmartRouterImpl) RouteRequest(request *LSPRequest) (*RoutingDecision, 
 	}
 	
 	// Route based on strategy
-	switch strategy {
-	case SingleTargetWithFallback:
+	switch strategy.Name() {
+	case "single_target_with_fallback":
 		return sr.routeSingleTargetWithFallback(request)
-	case LoadBalanced:
+	case "load_balanced":
 		return sr.routeLoadBalanced(request)
-	case PrimaryWithEnhancement:
+	case "primary_with_enhancement":
 		return sr.routePrimaryWithEnhancement(request)
 	default:
 		// Fallback to traditional routing
@@ -166,8 +166,8 @@ func (sr *SmartRouterImpl) RouteMultiRequest(request *LSPRequest) ([]*RoutingDec
 	
 	strategy := sr.GetRoutingStrategy(request.Method)
 	
-	switch strategy {
-	case MultiTargetParallel, BroadcastAggregate:
+	switch strategy.Name() {
+	case "multi_target_parallel", "broadcast_aggregate":
 		return sr.routeMultiTarget(request)
 	default:
 		// Single target strategies return single decision
@@ -245,7 +245,7 @@ func (sr *SmartRouterImpl) AggregateBroadcast(request *LSPRequest) (*AggregatedR
 	aggregated := &AggregatedResponse{
 		PrimaryResult:    primaryResult,
 		SecondaryResults: secondaryResults,
-		Strategy:         sr.GetRoutingStrategy(request.Method),
+		Strategy:         RoutingStrategyType(sr.GetRoutingStrategy(request.Method).Name()),
 		ProcessingTime:   processingTime,
 		ServerCount:      len(decisions),
 		Metadata: map[string]interface{}{
@@ -256,7 +256,7 @@ func (sr *SmartRouterImpl) AggregateBroadcast(request *LSPRequest) (*AggregatedR
 	}
 	
 	// Update strategy metrics
-	sr.updateStrategyMetrics(string(sr.GetRoutingStrategy(request.Method)), processingTime, successCount > 0)
+	sr.updateStrategyMetrics(sr.GetRoutingStrategy(request.Method).Name(), processingTime, successCount > 0)
 	
 	if successCount == 0 {
 		return aggregated, fmt.Errorf("all servers failed to process request")

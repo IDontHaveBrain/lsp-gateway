@@ -386,7 +386,7 @@ func (mli *MultiLanguageIntegrator) processRequestDirect(ctx context.Context, re
 	
 	return &AggregatedResponse{
 		PrimaryResult:  result,
-		Strategy:       SingleTargetWithFallback,
+		Strategy:       RoutingStrategyType(SingleTargetWithFallback.Name()),
 		ProcessingTime: processingTime,
 		ServerCount:    1,
 		Metadata: map[string]interface{}{

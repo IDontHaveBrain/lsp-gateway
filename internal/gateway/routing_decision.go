@@ -25,6 +25,12 @@ type RoutingDecision struct {
 	Priority           int                  `json:"priority"`
 	CreatedAt          time.Time            `json:"created_at"`
 	DecisionID         string               `json:"decision_id"`
+	Client             transport.LSPClient  `json:"-"` // LSP client for communication
+	ServerName         string               `json:"server_name"`
+	ServerConfig       interface{}          `json:"server_config,omitempty"`
+	Weight             float64              `json:"weight,omitempty"`
+	Strategy           RoutingStrategy      `json:"-"` // Strategy interface
+	Metadata           map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // RequestContext contains comprehensive context information about the LSP request
@@ -47,6 +53,7 @@ type LSPRequest struct {
 	Params     interface{}     `json:"params,omitempty"`
 	ID         interface{}     `json:"id,omitempty"`
 	URI        string          `json:"uri,omitempty"`
+	Language   string          `json:"language,omitempty"`
 	Context    *RequestContext `json:"context,omitempty"`
 	JSONRPC    string          `json:"jsonrpc"`
 	Timestamp  time.Time       `json:"timestamp"`
@@ -58,6 +65,7 @@ type AggregatedResponse struct {
 	PrimaryResponse    interface{}            `json:"primary_response"`
 	PrimaryResult      interface{}            `json:"primary_result"`
 	SecondaryResponses []interface{}          `json:"secondary_responses,omitempty"`
+	SecondaryResults   []ServerResponse       `json:"secondary_results,omitempty"`
 	AggregatedResult   interface{}            `json:"aggregated_result"`
 	ResponseSources    []string               `json:"response_sources"`
 	ProcessingTime     time.Duration          `json:"processing_time"`
@@ -100,11 +108,13 @@ type ServerPerformance struct {
 
 // ServerResponse represents a response from a specific server
 type ServerResponse struct {
-	ServerName string        `json:"server_name"`
-	Response   interface{}   `json:"response"`
-	Error      error         `json:"error,omitempty"`
-	Duration   time.Duration `json:"duration"`
-	Success    bool          `json:"success"`
+	ServerName   string        `json:"server_name"`
+	Response     interface{}   `json:"response"`
+	Result       interface{}   `json:"result"`
+	Error        error         `json:"error,omitempty"`
+	Duration     time.Duration `json:"duration"`
+	ResponseTime time.Duration `json:"response_time"`
+	Success      bool          `json:"success"`
 }
 
 
@@ -237,6 +247,19 @@ func (stfs *SingleTargetWithFallbackStrategy) Name() string {
 func (stfs *SingleTargetWithFallbackStrategy) Description() string {
 	return "Routes requests to the highest priority healthy server with automatic fallback to lower priority servers"
 }
+
+
+
+
+
+// Strategy instances for use in routing
+var (
+	SingleTargetWithFallback = &SingleTargetWithFallbackStrategy{}
+	BroadcastAggregate       = &BroadcastAggregateStrategy{}
+	MultiTargetParallel      = &MultiTargetStrategy{}
+	PrimaryWithEnhancement   = &SingleTargetWithFallbackStrategy{} // Using fallback for now
+	LoadBalanced             = &LoadBalancedStrategy{}
+)
 
 
 // Helper functions for context creation and server selection

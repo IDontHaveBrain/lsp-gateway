@@ -96,7 +96,7 @@ func (sr *SmartRouterWithAggregation) AggregateBroadcastEnhanced(request *LSPReq
 		AggregatedResponse: AggregatedResponse{
 			PrimaryResult:    aggregationResult.MergedResponse,
 			SecondaryResults: sr.filterSecondaryResults(serverResponses, aggregationResult.MergedResponse),
-			Strategy:         sr.GetRoutingStrategy(request.Method),
+			Strategy:         RoutingStrategyType(sr.GetRoutingStrategy(request.Method).Name()),
 			ProcessingTime:   time.Since(startTime),
 			ServerCount:      len(decisions),
 			Metadata: map[string]interface{}{
@@ -111,7 +111,7 @@ func (sr *SmartRouterWithAggregation) AggregateBroadcastEnhanced(request *LSPReq
 	}
 	
 	// Update strategy metrics
-	sr.updateStrategyMetrics(string(sr.GetRoutingStrategy(request.Method)), time.Since(startTime), aggregationResult.SuccessfulSources > 0)
+	sr.updateStrategyMetrics(sr.GetRoutingStrategy(request.Method).Name(), time.Since(startTime), aggregationResult.SuccessfulSources > 0)
 	
 	if aggregationResult.SuccessfulSources == 0 {
 		return enhancedResponse, fmt.Errorf("all servers failed to process request")
@@ -150,11 +150,11 @@ func (sr *SmartRouterWithAggregation) RouteWithIntelligentAggregation(request *L
 	// Determine if aggregation would be beneficial for this request
 	strategy := sr.GetRoutingStrategy(request.Method)
 	
-	switch strategy {
-	case BroadcastAggregate, MultiTargetParallel:
+	switch strategy.Name() {
+	case "broadcast_aggregate", "multi_target_parallel":
 		return sr.AggregateBroadcastEnhanced(request)
 	
-	case PrimaryWithEnhancement:
+	case "primary_with_enhancement":
 		return sr.routeWithEnhancement(request)
 	
 	default:
@@ -251,7 +251,7 @@ func (sr *SmartRouterWithAggregation) routeWithEnhancement(request *LSPRequest) 
 	return &EnhancedAggregatedResponse{
 		AggregatedResponse: AggregatedResponse{
 			PrimaryResult:   aggregationResult.MergedResponse,
-			Strategy:        PrimaryWithEnhancement,
+			Strategy:        RoutingStrategyType(PrimaryWithEnhancement.Name()),
 			ProcessingTime:  time.Since(startTime),
 			ServerCount:     len(allResults),
 		},
@@ -433,7 +433,7 @@ func (sr *SmartRouterWithAggregation) createSingleTargetEnhancedResponse(result 
 	return &EnhancedAggregatedResponse{
 		AggregatedResponse: AggregatedResponse{
 			PrimaryResult:  result,
-			Strategy:       SingleTargetWithFallback,
+			Strategy:       RoutingStrategyType(SingleTargetWithFallback.Name()),
 			ServerCount:    1,
 		},
 		AggregationResult: aggregationResult,
@@ -493,9 +493,12 @@ func ExampleUsage() {
 				"character": 5,
 			},
 		},
-		URI:     "file:///path/to/file.go",
-		Language: "go",
-		Context: context.Background(),
+		URI: "file:///path/to/file.go",
+		Context: &RequestContext{
+			FileURI:     "file:///path/to/file.go",
+			Language:    "go",
+			RequestType: LSP_METHOD_DEFINITION,
+		},
 	}
 	
 	// 4. Route with intelligent aggregation
@@ -518,7 +521,7 @@ func ExampleUsage() {
 
 // CustomAggregatorExample shows how to create and register custom aggregators
 func CustomAggregatorExample() {
-	logger := createTestLogger()
+	logger := &mcp.StructuredLogger{} // Simple logger for example
 	registry := NewAggregatorRegistry(logger)
 	
 	// Create a custom aggregator for a specific method
