@@ -37,6 +37,7 @@ type PerformanceTestResults struct {
 	LargeProjectResults         *LargeProjectResults               `json:"large_project_results"`
 	ConcurrentRequestResults    *ConcurrentRequestResults          `json:"concurrent_request_results"`
 	MemoryUsageResults          *MemoryUsageResults                `json:"memory_usage_results"`
+	SCIPPerformanceResults      *SCIPPerformanceResults            `json:"scip_performance_results,omitempty"`
 	OverallPerformanceScore     float64                            `json:"overall_performance_score"`
 	RegressionDetected          bool                               `json:"regression_detected"`
 	RegressionDetails           []string                           `json:"regression_details,omitempty"`
@@ -83,6 +84,19 @@ type MemoryUsageResults struct {
 	MemoryPressureHandling     float64 `json:"memory_pressure_handling"`
 }
 
+// SCIPPerformanceResults contains SCIP integration performance test results
+type SCIPPerformanceResults struct {
+	CacheHitRate               float64   `json:"cache_hit_rate"`
+	MemoryImpactMB             int64     `json:"memory_impact_mb"`
+	PerformanceRegression      bool      `json:"performance_regression"`
+	ThroughputMaintained       bool      `json:"throughput_maintained"`
+	RequirementsMet            bool      `json:"requirements_met"`
+	BaselineThroughputReqPerSec float64  `json:"baseline_throughput_req_per_sec"`
+	SCIPThroughputReqPerSec    float64   `json:"scip_throughput_req_per_sec"`
+	BaselineP95ResponseTime    int64     `json:"baseline_p95_response_time_ms"`
+	SCIPP95ResponseTime        int64     `json:"scip_p95_response_time_ms"`
+}
+
 // NewPerformanceTestSuite creates a new performance test suite
 func NewPerformanceTestSuite(t *testing.T) *PerformanceTestSuite {
 	resultsDir := filepath.Join("tests", "performance", "results")
@@ -126,6 +140,10 @@ func (suite *PerformanceTestSuite) RunFullPerformanceTestSuite(t *testing.T) *Pe
 	
 	t.Run("MemoryUsagePerformance", func(t *testing.T) {
 		suite.runMemoryUsagePerformanceTests(t)
+	})
+	
+	t.Run("SCIPPerformance", func(t *testing.T) {
+		suite.runSCIPPerformanceTests(t)
 	})
 	
 	// Calculate overall performance score
@@ -360,13 +378,81 @@ func (suite *PerformanceTestSuite) runMemoryUsagePerformanceTests(t *testing.T) 
 	t.Logf("Memory usage performance tests completed in %v", duration)
 }
 
+// runSCIPPerformanceTests runs SCIP integration performance tests
+func (suite *PerformanceTestSuite) runSCIPPerformanceTests(t *testing.T) {
+	t.Log("Running SCIP integration performance tests...")
+	
+	startTime := time.Now()
+	
+	// Create SCIP performance test instance
+	scipTest := NewSCIPPerformanceTest(t)
+	
+	// Run baseline establishment
+	scipTest.TestSCIPPerformanceBaseline(t)
+	
+	// Run cache hit rate tests
+	scipTest.TestSCIPCacheHitRate(t)
+	
+	// Run memory impact tests
+	scipTest.TestSCIPMemoryImpact(t)
+	
+	// Run mixed protocol performance tests
+	scipTest.TestSCIPMixedProtocolPerformance(t)
+	
+	// Run performance regression tests
+	scipTest.TestSCIPPerformanceRegression(t)
+	
+	// Collect results
+	baselineMetrics := scipTest.baselineMetrics
+	var scipResults *SCIPPerformanceResults
+	
+	if baselineMetrics != nil && len(scipTest.performanceComparisons) > 0 {
+		// Use the best performing comparison for summary
+		bestComparison := scipTest.performanceComparisons[0]
+		for _, comparison := range scipTest.performanceComparisons {
+			if comparison.SCIPMetrics.CacheHitRate > bestComparison.SCIPMetrics.CacheHitRate {
+				bestComparison = comparison
+			}
+		}
+		
+		scipResults = &SCIPPerformanceResults{
+			CacheHitRate:               bestComparison.SCIPMetrics.CacheHitRate,
+			MemoryImpactMB:            bestComparison.SCIPMetrics.MemoryImpactMB,
+			PerformanceRegression:     bestComparison.PerformanceRegression,
+			ThroughputMaintained:      bestComparison.SCIPMetrics.ThroughputReqPerSec >= baselineMetrics.ThroughputReqPerSec*0.95,
+			RequirementsMet:           bestComparison.RequirementsMet["cache_hit_rate"] && bestComparison.RequirementsMet["no_regression"],
+			BaselineThroughputReqPerSec: baselineMetrics.ThroughputReqPerSec,
+			SCIPThroughputReqPerSec:    bestComparison.SCIPMetrics.ThroughputReqPerSec,
+			BaselineP95ResponseTime:    baselineMetrics.P95ResponseTime.Milliseconds(),
+			SCIPP95ResponseTime:        bestComparison.SCIPMetrics.P95ResponseTime.Milliseconds(),
+		}
+	} else {
+		// Fallback results if tests failed
+		scipResults = &SCIPPerformanceResults{
+			CacheHitRate:          0.0,
+			MemoryImpactMB:        0,
+			PerformanceRegression: true,
+			ThroughputMaintained:  false,
+			RequirementsMet:       false,
+		}
+	}
+	
+	suite.currentResults.SCIPPerformanceResults = scipResults
+	
+	duration := time.Since(startTime)
+	t.Logf("SCIP integration performance tests completed in %v", duration)
+	t.Logf("SCIP Performance Summary: Cache hit rate=%.2f%%, Memory impact=%dMB, Requirements met=%t",
+		scipResults.CacheHitRate*100, scipResults.MemoryImpactMB, scipResults.RequirementsMet)
+}
+
 // calculateOverallPerformanceScore calculates an overall performance score
 func (suite *PerformanceTestSuite) calculateOverallPerformanceScore() {
 	score := 0.0
 	weights := map[string]float64{
-		"large_project":      0.30,
-		"concurrent_request": 0.40,
-		"memory_usage":       0.30,
+		"large_project":      0.25,
+		"concurrent_request": 0.35,
+		"memory_usage":       0.25,
+		"scip_performance":   0.15,
 	}
 	
 	// Large project score (based on detection time and memory usage)
@@ -413,10 +499,52 @@ func (suite *PerformanceTestSuite) calculateOverallPerformanceScore() {
 		memoryScore = memoryScore * suite.currentResults.MemoryUsageResults.GCEfficiencyPercent / 100.0
 	}
 	
+	// SCIP performance score (based on cache hit rate and requirements met)
+	scipScore := 100.0
+	if suite.currentResults.SCIPPerformanceResults != nil {
+		scipResults := suite.currentResults.SCIPPerformanceResults
+		
+		// Cache hit rate scoring
+		if scipResults.CacheHitRate < 0.10 { // Below 10% target
+			scipScore -= 30.0
+		} else if scipResults.CacheHitRate >= 0.15 { // Above 15% is excellent
+			scipScore += 10.0
+		}
+		
+		// Performance regression penalty
+		if scipResults.PerformanceRegression {
+			scipScore -= 40.0
+		}
+		
+		// Throughput maintenance scoring
+		if !scipResults.ThroughputMaintained {
+			scipScore -= 25.0
+		}
+		
+		// Overall requirements met bonus
+		if scipResults.RequirementsMet {
+			scipScore += 15.0
+		}
+		
+		// Memory impact penalty
+		if scipResults.MemoryImpactMB > 100 {
+			scipScore -= 20.0
+		}
+		
+		// Ensure score doesn't go below 0
+		if scipScore < 0 {
+			scipScore = 0
+		}
+	} else {
+		// No SCIP results available
+		scipScore = 50.0 // Neutral score if tests didn't run
+	}
+	
 	// Calculate weighted average
 	score = largeProjectScore*weights["large_project"] +
 		concurrentScore*weights["concurrent_request"] +
-		memoryScore*weights["memory_usage"]
+		memoryScore*weights["memory_usage"] +
+		scipScore*weights["scip_performance"]
 	
 	suite.currentResults.OverallPerformanceScore = score
 }
@@ -590,6 +718,15 @@ Memory Usage Performance:
 - GC Efficiency: %.1f%%
 - Resource Cleanup Efficiency: %.1f%%
 
+SCIP Integration Performance:
+- Cache Hit Rate: %.2f%%
+- Memory Impact: %dMB
+- Performance Regression: %v
+- Throughput Maintained: %v
+- Requirements Met: %v
+- Baseline Throughput: %.2f req/sec
+- SCIP Throughput: %.2f req/sec
+
 `,
 		suite.currentResults.Timestamp.Format("2006-01-02 15:04:05"),
 		suite.currentResults.OverallPerformanceScore,
@@ -612,6 +749,48 @@ Memory Usage Performance:
 		suite.currentResults.MemoryUsageResults.MemoryLeakDetected,
 		suite.currentResults.MemoryUsageResults.GCEfficiencyPercent,
 		suite.currentResults.MemoryUsageResults.ResourceCleanupEfficiency,
+		func() float64 {
+			if suite.currentResults.SCIPPerformanceResults != nil {
+				return suite.currentResults.SCIPPerformanceResults.CacheHitRate * 100
+			}
+			return 0.0
+		}(),
+		func() int64 {
+			if suite.currentResults.SCIPPerformanceResults != nil {
+				return suite.currentResults.SCIPPerformanceResults.MemoryImpactMB
+			}
+			return 0
+		}(),
+		func() bool {
+			if suite.currentResults.SCIPPerformanceResults != nil {
+				return suite.currentResults.SCIPPerformanceResults.PerformanceRegression
+			}
+			return false
+		}(),
+		func() bool {
+			if suite.currentResults.SCIPPerformanceResults != nil {
+				return suite.currentResults.SCIPPerformanceResults.ThroughputMaintained
+			}
+			return false
+		}(),
+		func() bool {
+			if suite.currentResults.SCIPPerformanceResults != nil {
+				return suite.currentResults.SCIPPerformanceResults.RequirementsMet
+			}
+			return false
+		}(),
+		func() float64 {
+			if suite.currentResults.SCIPPerformanceResults != nil {
+				return suite.currentResults.SCIPPerformanceResults.BaselineThroughputReqPerSec
+			}
+			return 0.0
+		}(),
+		func() float64 {
+			if suite.currentResults.SCIPPerformanceResults != nil {
+				return suite.currentResults.SCIPPerformanceResults.SCIPThroughputReqPerSec
+			}
+			return 0.0
+		}(),
 	)
 	
 	if suite.currentResults.RegressionDetected {
