@@ -7,8 +7,8 @@ import (
 	"time"
 )
 
-// ServerMetrics tracks performance metrics for a server instance
-type ServerMetrics struct {
+// SimpleServerMetrics tracks basic performance metrics for a server instance
+type SimpleServerMetrics struct {
 	RequestCount        int64         `json:"request_count"`
 	SuccessCount        int64         `json:"success_count"`
 	FailureCount        int64         `json:"failure_count"`
@@ -23,16 +23,16 @@ type ServerMetrics struct {
 	mu                  sync.RWMutex  `json:"-"`
 }
 
-// NewServerMetrics creates a new server metrics instance
-func NewServerMetrics() *ServerMetrics {
-	return &ServerMetrics{
+// NewSimpleServerMetrics creates a new simple server metrics instance
+func NewSimpleServerMetrics() *SimpleServerMetrics {
+	return &SimpleServerMetrics{
 		LastAccessed:    time.Now(),
 		MinResponseTime: time.Duration(^uint64(0) >> 1), // Max duration as initial min
 	}
 }
 
 // RecordRequest records a request with response time and success status
-func (sm *ServerMetrics) RecordRequest(responseTime time.Duration, success bool) {
+func (sm *SimpleServerMetrics) RecordRequest(responseTime time.Duration, success bool) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
@@ -61,7 +61,7 @@ func (sm *ServerMetrics) RecordRequest(responseTime time.Duration, success bool)
 }
 
 // GetAverageResponseTime returns the average response time
-func (sm *ServerMetrics) GetAverageResponseTime() time.Duration {
+func (sm *SimpleServerMetrics) GetAverageResponseTime() time.Duration {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
 
@@ -72,7 +72,7 @@ func (sm *ServerMetrics) GetAverageResponseTime() time.Duration {
 }
 
 // GetSuccessRate returns the success rate as a percentage
-func (sm *ServerMetrics) GetSuccessRate() float64 {
+func (sm *SimpleServerMetrics) GetSuccessRate() float64 {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
 
@@ -82,12 +82,19 @@ func (sm *ServerMetrics) GetSuccessRate() float64 {
 	return float64(sm.SuccessCount) / float64(sm.RequestCount) * 100.0
 }
 
+// GetErrorRate returns the error rate as a percentage
+func (sm *SimpleServerMetrics) GetErrorRate() float64 {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	return sm.ErrorRate * 100.0
+}
+
 // Copy creates a copy of the server metrics
-func (sm *ServerMetrics) Copy() *ServerMetrics {
+func (sm *SimpleServerMetrics) Copy() *SimpleServerMetrics {
 	sm.mu.RLock()
 	defer sm.mu.RUnlock()
 
-	return &ServerMetrics{
+	return &SimpleServerMetrics{
 		RequestCount:        sm.RequestCount,
 		SuccessCount:        sm.SuccessCount,
 		FailureCount:        sm.FailureCount,
@@ -102,8 +109,8 @@ func (sm *ServerMetrics) Copy() *ServerMetrics {
 	}
 }
 
-// PoolMetrics tracks performance metrics for a language server pool
-type PoolMetrics struct {
+// SimplePoolMetrics tracks basic performance metrics for a language server pool
+type SimplePoolMetrics struct {
 	Language            string                    `json:"language"`
 	TotalServers        int                       `json:"total_servers"`
 	ActiveServers       int                       `json:"active_servers"`
@@ -113,22 +120,22 @@ type PoolMetrics struct {
 	FailedRequests      int64                     `json:"failed_requests"`
 	AverageResponseTime time.Duration             `json:"average_response_time"`
 	LoadDistribution    map[string]int64          `json:"load_distribution"`
-	ServerMetrics       map[string]*ServerMetrics `json:"server_metrics"`
+	ServerMetrics       map[string]*SimpleServerMetrics `json:"server_metrics"`
 	LastUpdated         time.Time                 `json:"last_updated"`
 	mu                  sync.RWMutex              `json:"-"`
 }
 
-// NewPoolMetrics creates a new pool metrics instance
-func NewPoolMetrics() *PoolMetrics {
-	return &PoolMetrics{
+// NewSimplePoolMetrics creates a new simple pool metrics instance
+func NewSimplePoolMetrics() *SimplePoolMetrics {
+	return &SimplePoolMetrics{
 		LoadDistribution: make(map[string]int64),
-		ServerMetrics:    make(map[string]*ServerMetrics),
+		ServerMetrics:    make(map[string]*SimpleServerMetrics),
 		LastUpdated:      time.Now(),
 	}
 }
 
 // Copy creates a copy of the pool metrics
-func (pm *PoolMetrics) Copy() *PoolMetrics {
+func (pm *SimplePoolMetrics) Copy() *SimplePoolMetrics {
 	pm.mu.RLock()
 	defer pm.mu.RUnlock()
 
@@ -137,12 +144,12 @@ func (pm *PoolMetrics) Copy() *PoolMetrics {
 		loadDist[k] = v
 	}
 
-	serverMets := make(map[string]*ServerMetrics)
+	serverMets := make(map[string]*SimpleServerMetrics)
 	for k, v := range pm.ServerMetrics {
 		serverMets[k] = v.Copy()
 	}
 
-	return &PoolMetrics{
+	return &SimplePoolMetrics{
 		Language:            pm.Language,
 		TotalServers:        pm.TotalServers,
 		ActiveServers:       pm.ActiveServers,
@@ -157,117 +164,12 @@ func (pm *PoolMetrics) Copy() *PoolMetrics {
 	}
 }
 
-// ManagerMetrics tracks overall performance metrics for the MultiServerManager
-type ManagerMetrics struct {
-	TotalPools          int                     `json:"total_pools"`
-	TotalServers        int                     `json:"total_servers"`
-	ActiveServers       int                     `json:"active_servers"`
-	HealthyServers      int                     `json:"healthy_servers"`
-	TotalRequests       int64                   `json:"total_requests"`
-	SuccessfulRequests  int64                   `json:"successful_requests"`
-	FailedRequests      int64                   `json:"failed_requests"`
-	AverageResponseTime time.Duration           `json:"average_response_time"`
-	PoolMetrics         map[string]*PoolMetrics `json:"pool_metrics"`
-	Uptime              time.Duration           `json:"uptime"`
-	StartTime           time.Time               `json:"start_time"`
-	LastUpdated         time.Time               `json:"last_updated"`
-	mu                  sync.RWMutex            `json:"-"`
-}
 
-// NewManagerMetrics creates a new manager metrics instance
-func NewManagerMetrics() *ManagerMetrics {
-	return &ManagerMetrics{
-		PoolMetrics: make(map[string]*PoolMetrics),
-		StartTime:   time.Now(),
-		LastUpdated: time.Now(),
-	}
-}
 
-// Copy creates a copy of the manager metrics
-func (mm *ManagerMetrics) Copy() *ManagerMetrics {
-	mm.mu.RLock()
-	defer mm.mu.RUnlock()
 
-	poolMets := make(map[string]*PoolMetrics)
-	for k, v := range mm.PoolMetrics {
-		poolMets[k] = v.Copy()
-	}
 
-	return &ManagerMetrics{
-		TotalPools:          mm.TotalPools,
-		TotalServers:        mm.TotalServers,
-		ActiveServers:       mm.ActiveServers,
-		HealthyServers:      mm.HealthyServers,
-		TotalRequests:       mm.TotalRequests,
-		SuccessfulRequests:  mm.SuccessfulRequests,
-		FailedRequests:      mm.FailedRequests,
-		AverageResponseTime: mm.AverageResponseTime,
-		PoolMetrics:         poolMets,
-		Uptime:              time.Since(mm.StartTime),
-		StartTime:           mm.StartTime,
-		LastUpdated:         mm.LastUpdated,
-	}
-}
 
-// LoadBalancer handles server selection within a pool
-type LoadBalancer struct {
-	strategy string
-	mu       sync.RWMutex
-}
 
-// NewLoadBalancer creates a new load balancer with the specified strategy
-func NewLoadBalancer(strategy string) *LoadBalancer {
-	return &LoadBalancer{
-		strategy: strategy,
-	}
-}
 
-// SelectServer selects a server from the pool based on the load balancing strategy
-func (lb *LoadBalancer) SelectServer(pool *LanguageServerPool, requestType string) (*ServerInstance, error) {
-	lb.mu.RLock()
-	defer lb.mu.RUnlock()
 
-	healthyServers := pool.GetHealthyServers()
-	if len(healthyServers) == 0 {
-		return nil, fmt.Errorf("no healthy servers available")
-	}
 
-	// Simple round-robin selection for now
-	// In a full implementation, this would use different strategies
-	return healthyServers[0], nil
-}
-
-// SelectMultipleServers selects multiple servers for concurrent requests
-func (lb *LoadBalancer) SelectMultipleServers(pool *LanguageServerPool, maxServers int) ([]*ServerInstance, error) {
-	lb.mu.RLock()
-	defer lb.mu.RUnlock()
-
-	healthyServers := pool.GetHealthyServers()
-	if len(healthyServers) == 0 {
-		return nil, fmt.Errorf("no healthy servers available")
-	}
-
-	// Return up to maxServers healthy servers
-	count := len(healthyServers)
-	if count > maxServers {
-		count = maxServers
-	}
-
-	return healthyServers[:count], nil
-}
-
-// ResourceMonitor monitors system resources
-type ResourceMonitor struct {
-	mu sync.RWMutex
-}
-
-// NewResourceMonitor creates a new resource monitor
-func NewResourceMonitor() *ResourceMonitor {
-	return &ResourceMonitor{}
-}
-
-// StartMonitoring starts resource monitoring (stub implementation)
-func (rm *ResourceMonitor) StartMonitoring(ctx context.Context) error {
-	// Stub implementation - would monitor CPU, memory, etc.
-	return nil
-}

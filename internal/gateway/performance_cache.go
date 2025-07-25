@@ -33,15 +33,15 @@ type PerformanceCache interface {
 
 	// Cache optimization
 	OptimizeCache() error
-	GetCacheStats() *CacheStats
+	GetCacheStats() *PerformanceCacheStats
 
 	// Lifecycle
 	Start(ctx context.Context) error
 	Stop() error
 }
 
-// CacheEntry represents a cached response with metadata
-type CacheEntry struct {
+// PerformanceCacheEntry represents a cached response with metadata
+type PerformanceCacheEntry struct {
 	Response        interface{} `json:"response"`
 	Timestamp       time.Time   `json:"timestamp"`
 	TTL             time.Duration `json:"ttl"`
@@ -87,8 +87,8 @@ type MethodMetrics struct {
 	LastOptimization    time.Time         `json:"last_optimization"`
 }
 
-// CacheStats provides comprehensive cache performance metrics
-type CacheStats struct {
+// PerformanceCacheStats provides comprehensive cache performance metrics
+type PerformanceCacheStats struct {
 	TotalEntries       int64     `json:"total_entries"`
 	CacheHitRate       float64   `json:"cache_hit_rate"`
 	MemoryUsage        int64     `json:"memory_usage"`
@@ -102,8 +102,8 @@ type CacheStats struct {
 	LastOptimization   time.Time `json:"last_optimization"`
 }
 
-// CacheConfig holds configuration for performance cache
-type CacheConfig struct {
+// PerformanceCacheConfig holds configuration for performance cache
+type PerformanceCacheConfig struct {
 	MaxMemoryMB        int64         `json:"max_memory_mb"`
 	DefaultTTL         time.Duration `json:"default_ttl"`
 	MaxCacheEntries    int           `json:"max_cache_entries"`
@@ -116,14 +116,14 @@ type CacheConfig struct {
 
 // IntelligentPerformanceCache implements PerformanceCache with advanced features
 type IntelligentPerformanceCache struct {
-	config           *CacheConfig
+	config           *PerformanceCacheConfig
 	mutex            sync.RWMutex
-	cache            map[string]*CacheEntry  // L1 cache
-	compressedCache  map[string]*CacheEntry  // L2 cache
-	persistentCache  map[string]*CacheEntry  // L3 cache
+	cache            map[string]*PerformanceCacheEntry  // L1 cache
+	compressedCache  map[string]*PerformanceCacheEntry  // L2 cache
+	persistentCache  map[string]*PerformanceCacheEntry  // L3 cache
 	serverMetrics    map[string]*ServerMetrics
 	methodMetrics    map[string]*MethodMetrics
-	cacheStats       *CacheStats
+	cacheStats       *PerformanceCacheStats
 	running          bool
 	ctx              context.Context
 	cancel           context.CancelFunc
@@ -137,9 +137,9 @@ type IntelligentPerformanceCache struct {
 }
 
 // NewIntelligentPerformanceCache creates a new performance cache instance
-func NewIntelligentPerformanceCache(config *CacheConfig) *IntelligentPerformanceCache {
+func NewIntelligentPerformanceCache(config *PerformanceCacheConfig) *IntelligentPerformanceCache {
 	if config == nil {
-		config = &CacheConfig{
+		config = &PerformanceCacheConfig{
 			MaxMemoryMB:          256,
 			DefaultTTL:           5 * time.Minute,
 			MaxCacheEntries:      10000,
@@ -153,12 +153,12 @@ func NewIntelligentPerformanceCache(config *CacheConfig) *IntelligentPerformance
 
 	return &IntelligentPerformanceCache{
 		config:           config,
-		cache:            make(map[string]*CacheEntry),
-		compressedCache:  make(map[string]*CacheEntry),
-		persistentCache:  make(map[string]*CacheEntry),
+		cache:            make(map[string]*PerformanceCacheEntry),
+		compressedCache:  make(map[string]*PerformanceCacheEntry),
+		persistentCache:  make(map[string]*PerformanceCacheEntry),
 		serverMetrics:    make(map[string]*ServerMetrics),
 		methodMetrics:    make(map[string]*MethodMetrics),
-		cacheStats:       &CacheStats{},
+		cacheStats:       &PerformanceCacheStats{},
 	}
 }
 
@@ -219,7 +219,7 @@ func (pc *IntelligentPerformanceCache) CacheResponse(key string, response interf
 	}
 
 	size := int64(len(data))
-	entry := &CacheEntry{
+	entry := &PerformanceCacheEntry{
 		Response:    response,
 		Timestamp:   time.Now(),
 		TTL:         ttl,
@@ -466,7 +466,7 @@ func (pc *IntelligentPerformanceCache) OptimizeCache() error {
 }
 
 // GetCacheStats returns comprehensive cache statistics
-func (pc *IntelligentPerformanceCache) GetCacheStats() *CacheStats {
+func (pc *IntelligentPerformanceCache) GetCacheStats() *PerformanceCacheStats {
 	pc.mutex.RLock()
 	defer pc.mutex.RUnlock()
 
@@ -512,7 +512,7 @@ func (pc *IntelligentPerformanceCache) calculatePriority(key string, size int64)
 	return priority
 }
 
-func (pc *IntelligentPerformanceCache) determineCacheLevel(entry *CacheEntry) int {
+func (pc *IntelligentPerformanceCache) determineCacheLevel(entry *PerformanceCacheEntry) int {
 	if entry.Priority >= 3 && entry.Size < 10*1024 {
 		return 1 // L1 for high priority, small items
 	} else if entry.Size < 100*1024 {
@@ -521,7 +521,7 @@ func (pc *IntelligentPerformanceCache) determineCacheLevel(entry *CacheEntry) in
 	return 3 // L3 for large items
 }
 
-func (pc *IntelligentPerformanceCache) isEntryValid(entry *CacheEntry) bool {
+func (pc *IntelligentPerformanceCache) isEntryValid(entry *PerformanceCacheEntry) bool {
 	return time.Since(entry.Timestamp) < entry.TTL
 }
 
@@ -536,7 +536,7 @@ func (pc *IntelligentPerformanceCache) evictEntries() {
 	// LRU eviction with priority consideration
 	type entryInfo struct {
 		key        string
-		entry      *CacheEntry
+		entry      *PerformanceCacheEntry
 		cacheLevel int
 		score      float64
 	}
@@ -590,7 +590,7 @@ func (pc *IntelligentPerformanceCache) evictEntries() {
 	pc.updateMemoryUsage()
 }
 
-func (pc *IntelligentPerformanceCache) calculateEvictionScore(entry *CacheEntry) float64 {
+func (pc *IntelligentPerformanceCache) calculateEvictionScore(entry *PerformanceCacheEntry) float64 {
 	// Score based on access frequency, recency, and size
 	timeSinceAccess := time.Since(entry.LastAccess).Seconds()
 	accessFrequency := float64(entry.AccessCount)

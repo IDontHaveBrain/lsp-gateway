@@ -609,19 +609,48 @@ func (pag *ProjectAwareGateway) extractLanguageFromURI(params interface{}) strin
 	return "go" // Default language for demonstration
 }
 
-// WorkspaceAwareJSONRPCRequest represents a JSON-RPC request with workspace context
-type WorkspaceAwareJSONRPCRequest struct {
-	JSONRPC     string      `json:"jsonrpc"`
-	ID          interface{} `json:"id"`
-	Method      string      `json:"method"`
-	Params      interface{} `json:"params"`
-	WorkspaceID string      `json:"workspace_id"`
+// ProjectAwareGatewayInterface implementation methods
+
+// GetWorkspaceClient retrieves an LSP client for a specific workspace and language
+func (pag *ProjectAwareGateway) GetWorkspaceClient(workspaceID, language string) (transport.LSPClient, error) {
+	if pag.workspaceManager == nil {
+		return nil, fmt.Errorf("workspace manager not available")
+	}
+	return pag.workspaceManager.GetLanguageSpecificClient(workspaceID, language)
 }
 
-// JSONRPCResponse represents a JSON-RPC response
-type JSONRPCResponse struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      interface{} `json:"id"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   interface{} `json:"error,omitempty"`
+// GetWorkspaceContext retrieves or creates workspace context for a file URI
+func (pag *ProjectAwareGateway) GetWorkspaceContext(fileURI string) (WorkspaceContext, error) {
+	if pag.workspaceManager == nil {
+		return nil, fmt.Errorf("workspace manager not available")
+	}
+	return pag.workspaceManager.GetOrCreateWorkspace(fileURI)
 }
+
+// GetAllWorkspaces returns information about all active workspaces
+func (pag *ProjectAwareGateway) GetAllWorkspaces() []WorkspaceContext {
+	if pag.workspaceManager == nil {
+		return []WorkspaceContext{}
+	}
+	
+	workspaces := pag.workspaceManager.GetAllWorkspaces()
+	result := make([]WorkspaceContext, len(workspaces))
+	for i, workspace := range workspaces {
+		result[i] = workspace
+	}
+	return result
+}
+
+// CleanupWorkspace manually cleans up a specific workspace
+func (pag *ProjectAwareGateway) CleanupWorkspace(workspaceID string) error {
+	if pag.workspaceManager == nil {
+		return fmt.Errorf("workspace manager not available")
+	}
+	return pag.workspaceManager.CleanupWorkspace(workspaceID)
+}
+
+// IsProjectAware indicates that this gateway supports project-aware operations
+func (pag *ProjectAwareGateway) IsProjectAware() bool {
+	return true
+}
+

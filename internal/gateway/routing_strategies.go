@@ -73,20 +73,6 @@ const (
 	AggregationConsensus AggregationMode = "consensus"
 )
 
-// ServerInstance represents a server instance with performance data
-type ServerInstance struct {
-	Config          *config.ServerConfig `json:"config"`
-	Client          transport.LSPClient  `json:"-"`
-	Metrics         *ServerMetrics       `json:"metrics"`
-	HealthScore     float64              `json:"health_score"`
-	LastHealthCheck time.Time            `json:"last_health_check"`
-	IsHealthy       bool                 `json:"is_healthy"`
-	CircuitOpen     bool                 `json:"circuit_open"`
-	LoadScore       float64              `json:"load_score"`
-	Weight          float64              `json:"weight"`
-	Version         string               `json:"version"`
-	Tags            map[string]string    `json:"tags"`
-}
 
 // StrategyRegistry manages and provides access to routing strategies
 type StrategyRegistry struct {

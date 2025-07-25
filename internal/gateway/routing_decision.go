@@ -13,13 +13,14 @@ import (
 	"lsp-gateway/internal/transport"
 )
 
+
 // Core routing decision types
 
 // RoutingDecision represents a complete routing decision with all required context
 type RoutingDecision struct {
 	TargetServers      []*ServerInstance    `json:"target_servers"`
 	RoutingStrategy    string               `json:"routing_strategy"`
-	RequestContext     *RequestContext      `json:"request_context"`
+	RequestContext     *RoutingRequestContext `json:"request_context"`
 	ResponseAggregator ResponseAggregator   `json:"-"` // Not serializable due to interface
 	Timeout            time.Duration        `json:"timeout"`
 	Priority           int                  `json:"priority"`
@@ -27,8 +28,8 @@ type RoutingDecision struct {
 	DecisionID         string               `json:"decision_id"`
 }
 
-// RequestContext contains comprehensive context information about the LSP request
-type RequestContext struct {
+// RoutingRequestContext contains basic context information for routing decisions
+type RoutingRequestContext struct {
 	FileURI              string            `json:"file_uri"`
 	Language             string            `json:"language"`
 	RequestType          string            `json:"request_type"`
@@ -47,7 +48,7 @@ type LSPRequest struct {
 	Params     interface{}     `json:"params,omitempty"`
 	ID         interface{}     `json:"id,omitempty"`
 	URI        string          `json:"uri,omitempty"`
-	Context    *RequestContext `json:"context,omitempty"`
+	Context    *RoutingRequestContext `json:"context,omitempty"`
 	JSONRPC    string          `json:"jsonrpc"`
 	Timestamp  time.Time       `json:"timestamp"`
 	RequestID  string          `json:"request_id"`
@@ -66,19 +67,6 @@ type AggregatedResponse struct {
 	Warnings           []string      `json:"warnings,omitempty"`
 }
 
-// ServerInstance represents a language server instance with performance metrics
-type ServerInstance struct {
-	Name        string             `json:"name"`
-	Language    string             `json:"language"`
-	Performance *ServerPerformance `json:"performance,omitempty"`
-	Available   bool               `json:"available"`
-	LoadScore   float64            `json:"load_score"`
-	Config      *config.ServerConfig `json:"config,omitempty"`
-	Client      transport.LSPClient `json:"-"` // Not serializable
-	LastUsed    time.Time          `json:"last_used"`
-	Priority    int                `json:"priority"`
-	Weight      float64            `json:"weight"`
-}
 
 // ServerPerformance tracks performance metrics for server instances
 type ServerPerformance struct {
@@ -94,12 +82,6 @@ type ServerPerformance struct {
 
 // Response aggregation interfaces and implementations
 
-// ResponseAggregator defines the interface for aggregating responses from multiple servers
-type ResponseAggregator interface {
-	Aggregate(responses []ServerResponse) (*AggregatedResponse, error)
-	GetAggregationType() string
-	SupportsMethod(method string) bool
-}
 
 // ServerResponse represents a response from a specific server
 type ServerResponse struct {
@@ -110,100 +92,7 @@ type ServerResponse struct {
 	Success    bool          `json:"success"`
 }
 
-// DefinitionAggregator aggregates textDocument/definition responses
-type DefinitionAggregator struct{}
 
-func (da *DefinitionAggregator) Aggregate(responses []ServerResponse) (*AggregatedResponse, error) {
-	var allDefinitions []interface{}
-	var sources []string
-	successCount := 0
-	errorCount := 0
-	var primary interface{}
-
-	for _, resp := range responses {
-		if resp.Success && resp.Response != nil {
-			successCount++
-			sources = append(sources, resp.ServerName)
-			
-			// First successful response becomes primary
-			if primary == nil {
-				primary = resp.Response
-			}
-			
-			allDefinitions = append(allDefinitions, resp.Response)
-		} else {
-			errorCount++
-		}
-	}
-
-	// For definitions, we typically want to merge all unique locations
-	aggregated := mergeDefinitionLocations(allDefinitions)
-
-	return &AggregatedResponse{
-		PrimaryResponse:    primary,
-		SecondaryResponses: allDefinitions[1:], // Skip primary if exists
-		AggregatedResult:   aggregated,
-		ResponseSources:    sources,
-		AggregationMethod:  "definition_merge",
-		SuccessCount:       successCount,
-		ErrorCount:         errorCount,
-	}, nil
-}
-
-func (da *DefinitionAggregator) GetAggregationType() string {
-	return "definition"
-}
-
-func (da *DefinitionAggregator) SupportsMethod(method string) bool {
-	return method == "textDocument/definition"
-}
-
-// ReferencesAggregator aggregates textDocument/references responses
-type ReferencesAggregator struct{}
-
-func (ra *ReferencesAggregator) Aggregate(responses []ServerResponse) (*AggregatedResponse, error) {
-	var allReferences []interface{}
-	var sources []string
-	successCount := 0
-	errorCount := 0
-	var primary interface{}
-
-	for _, resp := range responses {
-		if resp.Success && resp.Response != nil {
-			successCount++
-			sources = append(sources, resp.ServerName)
-			
-			if primary == nil {
-				primary = resp.Response
-			}
-			
-			allReferences = append(allReferences, resp.Response)
-		} else {
-			errorCount++
-		}
-	}
-
-	// Merge and deduplicate references
-	aggregated := mergeReferenceLocations(allReferences)
-
-	return &AggregatedResponse{
-		PrimaryResponse:    primary,
-		SecondaryResponses: allReferences[1:],
-		AggregatedResult:   aggregated,
-		ResponseSources:    sources,
-		AggregationMethod:  "references_merge",
-		SuccessCount:       successCount,
-		ErrorCount:         errorCount,
-	}, nil
-}
-
-func (ra *ReferencesAggregator) GetAggregationType() string {
-	return "references"
-}
-
-func (ra *ReferencesAggregator) SupportsMethod(method string) bool {
-	return method == "textDocument/references"
-}
 
 // SymbolsAggregator aggregates document and workspace symbol responses
 type SymbolsAggregator struct{}
@@ -252,49 +141,6 @@ func (sa *SymbolsAggregator) SupportsMethod(method string) bool {
 	return method == "textDocument/documentSymbol" || method == "workspace/symbol"
 }
 
-// HoverAggregator aggregates textDocument/hover responses
-type HoverAggregator struct{}
-
-func (ha *HoverAggregator) Aggregate(responses []ServerResponse) (*AggregatedResponse, error) {
-	var bestResponse interface{}
-	var sources []string
-	successCount := 0
-	errorCount := 0
-	var allResponses []interface{}
-
-	for _, resp := range responses {
-		if resp.Success && resp.Response != nil {
-			successCount++
-			sources = append(sources, resp.ServerName)
-			allResponses = append(allResponses, resp.Response)
-			
-			// Choose the most detailed hover response
-			if isBetterHoverResponse(resp.Response, bestResponse) {
-				bestResponse = resp.Response
-			}
-		} else {
-			errorCount++
-		}
-	}
-
-	return &AggregatedResponse{
-		PrimaryResponse:    bestResponse,
-		SecondaryResponses: allResponses,
-		AggregatedResult:   bestResponse, // For hover, we use the best single response
-		ResponseSources:    sources,
-		AggregationMethod:  "hover_best",
-		SuccessCount:       successCount,
-		ErrorCount:         errorCount,
-	}, nil
-}
-
-func (ha *HoverAggregator) GetAggregationType() string {
-	return "hover"
-}
-
-func (ha *HoverAggregator) SupportsMethod(method string) bool {
-	return method == "textDocument/hover"
-}
 
 // FirstSuccessAggregator returns the first successful response
 type FirstSuccessAggregator struct{}
@@ -409,49 +255,14 @@ func (mss *MultiServerStrategy) Description() string {
 	return "Routes requests to multiple servers and aggregates responses"
 }
 
-// LoadBalancedStrategy distributes requests across servers based on load
-type LoadBalancedStrategy struct{}
-
-func (lbs *LoadBalancedStrategy) Route(request *LSPRequest, availableServers []*ServerInstance) (*RoutingDecision, error) {
-	if len(availableServers) == 0 {
-		return nil, fmt.Errorf("no available servers for request")
-	}
-
-	// Select server with lowest load score
-	selectedServer := selectLeastLoadedServer(availableServers, request.Context)
-	if selectedServer == nil {
-		return nil, fmt.Errorf("no suitable server found for load balancing")
-	}
-
-	aggregator := getAggregatorForMethod(request.Method)
-	
-	return &RoutingDecision{
-		TargetServers:      []*ServerInstance{selectedServer},
-		RoutingStrategy:    "load_balanced",
-		RequestContext:     request.Context,
-		ResponseAggregator: aggregator,
-		Timeout:            30 * time.Second,
-		Priority:           1,
-		CreatedAt:          time.Now(),
-		DecisionID:         generateDecisionID(),
-	}, nil
-}
-
-func (lbs *LoadBalancedStrategy) Name() string {
-	return "load_balanced"
-}
-
-func (lbs *LoadBalancedStrategy) Description() string {
-	return "Distributes requests based on server load and performance metrics"
-}
 
 // Helper functions for context creation and server selection
 
-// CreateRequestContextFromURI creates a RequestContext from a file URI and workspace information
-func CreateRequestContextFromURI(uri string, workspaceRoot string, projectType string) *RequestContext {
+// CreateRequestContextFromURI creates a RoutingRequestContext from a file URI and workspace information
+func CreateRequestContextFromURI(uri string, workspaceRoot string, projectType string) *RoutingRequestContext {
 	language := detectLanguageFromURI(uri)
 	
-	return &RequestContext{
+	return &RoutingRequestContext{
 		FileURI:              uri,
 		Language:             language,
 		RequestType:          "file_based",
@@ -464,9 +275,9 @@ func CreateRequestContextFromURI(uri string, workspaceRoot string, projectType s
 	}
 }
 
-// CreateWorkspaceRequestContext creates a RequestContext for workspace-wide operations
-func CreateWorkspaceRequestContext(workspaceRoot string, projectType string, languages []string) *RequestContext {
-	return &RequestContext{
+// CreateWorkspaceRequestContext creates a RoutingRequestContext for workspace-wide operations
+func CreateWorkspaceRequestContext(workspaceRoot string, projectType string, languages []string) *RoutingRequestContext {
+	return &RoutingRequestContext{
 		FileURI:              "",
 		Language:             determineMainLanguage(languages),
 		RequestType:          "workspace",
@@ -530,7 +341,7 @@ func PreprocessLSPRequest(request *LSPRequest) error {
 
 // Server selection utilities
 
-func selectBestServer(servers []*ServerInstance, context *RequestContext) *ServerInstance {
+func selectBestServer(servers []*ServerInstance, context *RoutingRequestContext) *ServerInstance {
 	var bestServer *ServerInstance
 	bestScore := -1.0
 
@@ -549,7 +360,7 @@ func selectBestServer(servers []*ServerInstance, context *RequestContext) *Serve
 	return bestServer
 }
 
-func selectSuitableServers(servers []*ServerInstance, context *RequestContext) []*ServerInstance {
+func selectSuitableServers(servers []*ServerInstance, context *RoutingRequestContext) []*ServerInstance {
 	var suitable []*ServerInstance
 
 	for _, server := range servers {
@@ -565,7 +376,7 @@ func selectSuitableServers(servers []*ServerInstance, context *RequestContext) [
 	return suitable
 }
 
-func selectLeastLoadedServer(servers []*ServerInstance, context *RequestContext) *ServerInstance {
+func selectLeastLoadedServer(servers []*ServerInstance, context *RoutingRequestContext) *ServerInstance {
 	var bestServer *ServerInstance
 	lowestLoad := float64(1000000) // High initial value
 
@@ -587,7 +398,7 @@ func selectLeastLoadedServer(servers []*ServerInstance, context *RequestContext)
 	return bestServer
 }
 
-func calculateServerScore(server *ServerInstance, context *RequestContext) float64 {
+func calculateServerScore(server *ServerInstance, context *RoutingRequestContext) float64 {
 	score := 0.0
 
 	// Language match (most important)
@@ -623,7 +434,7 @@ func calculateServerScore(server *ServerInstance, context *RequestContext) float
 	return score
 }
 
-func isServerSuitableForContext(server *ServerInstance, context *RequestContext) bool {
+func isServerSuitableForContext(server *ServerInstance, context *RoutingRequestContext) bool {
 	// Check language support
 	if server.Language == context.Language {
 		return true
@@ -661,13 +472,13 @@ func supportsLanguage(server *ServerInstance, language string) bool {
 
 func getAggregatorForMethod(method string) ResponseAggregator {
 	switch method {
-	case "textDocument/definition":
+	case LSP_METHOD_DEFINITION:
 		return &DefinitionAggregator{}
-	case "textDocument/references":
+	case LSP_METHOD_REFERENCES:
 		return &ReferencesAggregator{}
-	case "textDocument/documentSymbol", "workspace/symbol":
-		return &SymbolsAggregator{}
-	case "textDocument/hover":
+	case LSP_METHOD_DOCUMENT_SYMBOL, LSP_METHOD_WORKSPACE_SYMBOL:
+		return &SymbolAggregator{}
+	case LSP_METHOD_HOVER:
 		return &HoverAggregator{}
 	default:
 		return &FirstSuccessAggregator{}
@@ -917,17 +728,17 @@ func (rd *RoutingDecision) SupportsAggregation() bool {
 // Enhanced request context methods
 
 // IsFileBasedRequest returns true if the request is for a specific file
-func (rc *RequestContext) IsFileBasedRequest() bool {
+func (rc *RoutingRequestContext) IsFileBasedRequest() bool {
 	return rc.FileURI != "" && rc.RequestType == "file_based"
 }
 
 // IsWorkspaceRequest returns true if the request is workspace-wide
-func (rc *RequestContext) IsWorkspaceRequest() bool {
+func (rc *RoutingRequestContext) IsWorkspaceRequest() bool {
 	return rc.RequestType == "workspace"
 }
 
 // GetFileExtension returns the file extension from the URI
-func (rc *RequestContext) GetFileExtension() string {
+func (rc *RoutingRequestContext) GetFileExtension() string {
 	if rc.FileURI == "" {
 		return ""
 	}
@@ -967,17 +778,3 @@ func (si *ServerInstance) UpdatePerformanceMetrics(responseTime time.Duration, s
 	si.LastUsed = time.Now()
 }
 
-// IsHealthy returns true if the server is considered healthy
-func (si *ServerInstance) IsHealthy() bool {
-	if !si.Available {
-		return false
-	}
-
-	if si.Performance == nil {
-		return true // No performance data yet, assume healthy
-	}
-
-	return !si.Performance.CircuitBreakerOpen &&
-		si.Performance.SuccessRate >= 0.8 &&
-		time.Since(si.Performance.LastErrorTime) > time.Minute*5
-}

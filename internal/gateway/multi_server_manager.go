@@ -14,6 +14,70 @@ import (
 	"lsp-gateway/internal/transport"
 )
 
+// ResourceMonitor monitors system resource usage
+type ResourceMonitor struct {
+	ctx     context.Context
+	cancel  context.CancelFunc
+	running bool
+	mu      sync.RWMutex
+}
+
+// NewResourceMonitor creates a new resource monitor
+func NewResourceMonitor() *ResourceMonitor {
+	return &ResourceMonitor{
+		running: false,
+	}
+}
+
+// StartMonitoring starts resource monitoring
+func (rm *ResourceMonitor) StartMonitoring(ctx context.Context) error {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	
+	if rm.running {
+		return nil
+	}
+	
+	rm.ctx, rm.cancel = context.WithCancel(ctx)
+	rm.running = true
+	
+	// Start monitoring goroutine
+	go rm.monitorRoutine()
+	
+	return nil
+}
+
+// Stop stops resource monitoring
+func (rm *ResourceMonitor) Stop() {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	
+	if !rm.running {
+		return
+	}
+	
+	if rm.cancel != nil {
+		rm.cancel()
+	}
+	rm.running = false
+}
+
+// monitorRoutine runs the monitoring loop
+func (rm *ResourceMonitor) monitorRoutine() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	
+	for {
+		select {
+		case <-rm.ctx.Done():
+			return
+		case <-ticker.C:
+			// Basic resource monitoring - placeholder for actual implementation
+			// In a real implementation, this would collect memory, CPU, etc.
+		}
+	}
+}
+
 // ServerState represents the current state of a server instance
 type ServerState int32
 
@@ -50,7 +114,7 @@ type ServerInstance struct {
 	config          *config.ServerConfig
 	client          transport.LSPClient
 	healthStatus    *HealthStatus
-	metrics         *ServerMetrics
+	metrics         *SimpleServerMetrics
 	circuitBreaker  *CircuitBreaker
 	startTime       time.Time
 	lastUsed        time.Time
@@ -67,7 +131,7 @@ func NewServerInstance(serverConfig *config.ServerConfig, client transport.LSPCl
 		config:         serverConfig,
 		client:         client,
 		healthStatus:   NewHealthStatus(),
-		metrics:        NewServerMetrics(),
+		metrics:        NewSimpleServerMetrics(),
 		circuitBreaker: NewCircuitBreaker(10, 30*time.Second, 5),
 		startTime:      time.Now(),
 		lastUsed:       time.Now(),
@@ -151,7 +215,7 @@ func (si *ServerInstance) SendRequest(ctx context.Context, method string, params
 }
 
 // GetMetrics returns the server metrics
-func (si *ServerInstance) GetMetrics() *ServerMetrics {
+func (si *ServerInstance) GetMetrics() *SimpleServerMetrics {
 	si.mu.RLock()
 	defer si.mu.RUnlock()
 	return si.metrics.Copy()
@@ -180,7 +244,7 @@ type LanguageServerPool struct {
 	healthMonitor     *HealthMonitor
 	resourceLimits    *config.ResourceLimits
 	selectionStrategy string
-	metrics           *PoolMetrics
+	metrics           *SimplePoolMetrics
 	mu                sync.RWMutex
 }
 
@@ -209,7 +273,7 @@ func NewLanguageServerPoolWithConfig(language string, resourceLimits *config.Res
 		healthMonitor:     NewHealthMonitor(30 * time.Second),
 		resourceLimits:    resourceLimits,
 		selectionStrategy: lbConfig.Strategy,
-		metrics:           NewPoolMetrics(),
+		metrics:           NewSimplePoolMetrics(),
 	}
 }
 
@@ -339,7 +403,7 @@ func (lsp *LanguageServerPool) rebuildActiveServers() {
 }
 
 // GetMetrics returns pool metrics
-func (lsp *LanguageServerPool) GetMetrics() *PoolMetrics {
+func (lsp *LanguageServerPool) GetMetrics() *SimplePoolMetrics {
 	lsp.mu.RLock()
 	defer lsp.mu.RUnlock()
 	return lsp.metrics.Copy()
@@ -492,8 +556,12 @@ func (msm *MultiServerManager) Stop() error {
 }
 
 // GetServerForRequest gets the best server for a specific request
-func (msm *MultiServerManager) GetServerForRequest(language string, requestType string) (*ServerInstance, error) {
-	return msm.GetServerForRequestWithContext(language, requestType, nil)
+func (msm *MultiServerManager) GetServerForRequest(language string, requestType string) (transport.LSPClient, error) {
+	server, err := msm.GetServerForRequestWithContext(language, requestType, nil)
+	if err != nil {
+		return nil, err
+	}
+	return server.client, nil
 }
 
 // GetServerForRequestWithContext gets the best server for a specific request with context
@@ -526,8 +594,18 @@ func (msm *MultiServerManager) GetServerForRequestWithContext(language string, r
 }
 
 // GetServersForConcurrentRequest gets multiple servers for concurrent requests
-func (msm *MultiServerManager) GetServersForConcurrentRequest(language string, maxServers int) ([]*ServerInstance, error) {
-	return msm.GetServersForConcurrentRequestWithType(language, "", maxServers)
+func (msm *MultiServerManager) GetServersForConcurrentRequest(language string, maxServers int) ([]transport.LSPClient, error) {
+	servers, err := msm.GetServersForConcurrentRequestWithType(language, "", maxServers)
+	if err != nil {
+		return nil, err
+	}
+	
+	clients := make([]transport.LSPClient, len(servers))
+	for i, server := range servers {
+		clients[i] = server.client
+	}
+	
+	return clients, nil
 }
 
 // GetServersForConcurrentRequestWithType gets multiple servers for concurrent requests with request type
@@ -552,7 +630,7 @@ func (msm *MultiServerManager) GetServersForConcurrentRequestWithType(language s
 }
 
 // GetHealthyServers gets all healthy servers for a language
-func (msm *MultiServerManager) GetHealthyServers(language string) ([]*ServerInstance, error) {
+func (msm *MultiServerManager) GetHealthyServers(language string) ([]transport.LSPClient, error) {
 	msm.mu.RLock()
 	defer msm.mu.RUnlock()
 
@@ -561,7 +639,13 @@ func (msm *MultiServerManager) GetHealthyServers(language string) ([]*ServerInst
 		return nil, fmt.Errorf("no server pool found for language %s", language)
 	}
 
-	return pool.GetHealthyServers(), nil
+	healthyServers := pool.GetHealthyServers()
+	clients := make([]transport.LSPClient, len(healthyServers))
+	for i, server := range healthyServers {
+		clients[i] = server.client
+	}
+
+	return clients, nil
 }
 
 // GetServerPool gets the server pool for a language

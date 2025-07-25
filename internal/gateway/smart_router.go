@@ -14,56 +14,45 @@ import (
 	"lsp-gateway/mcp"
 )
 
-// RoutingStrategy defines how requests should be routed to servers
-type RoutingStrategy string
+// RoutingStrategyType defines how requests should be routed to servers (enum type)
+type RoutingStrategyType string
 
 const (
-	SingleTargetWithFallback RoutingStrategy = "single_target_with_fallback"
-	BroadcastAggregate       RoutingStrategy = "broadcast_aggregate"
-	MultiTargetParallel      RoutingStrategy = "multi_target_parallel"
-	PrimaryWithEnhancement   RoutingStrategy = "primary_with_enhancement"
-	LoadBalanced            RoutingStrategy = "load_balanced"
-	RoundRobin              RoutingStrategy = "round_robin"
+	SingleTargetWithFallback RoutingStrategyType = "single_target_with_fallback"
+	BroadcastAggregate       RoutingStrategyType = "broadcast_aggregate"
+	MultiTargetParallel      RoutingStrategyType = "multi_target_parallel"
+	PrimaryWithEnhancement   RoutingStrategyType = "primary_with_enhancement"
+	LoadBalanced            RoutingStrategyType = "load_balanced"
+	RoundRobin              RoutingStrategyType = "round_robin"
 )
 
-// LSPRequest represents a structured LSP request with metadata
-type LSPRequest struct {
-	Method      string      `json:"method"`
-	Params      interface{} `json:"params"`
-	URI         string      `json:"uri,omitempty"`
-	Language    string      `json:"language,omitempty"`
-	WorkspaceID string      `json:"workspace_id,omitempty"`
-	Context     context.Context
+// Implement RoutingStrategy interface for RoutingStrategyType
+func (rst RoutingStrategyType) Name() string {
+	return string(rst)
 }
 
-// RoutingDecision represents a routing decision for a single server
-type RoutingDecision struct {
-	ServerName   string                 `json:"server_name"`
-	ServerConfig *config.ServerConfig   `json:"server_config"`
-	Client       transport.LSPClient    `json:"-"`
-	Priority     int                    `json:"priority"`
-	Weight       float64                `json:"weight"`
-	Strategy     RoutingStrategy        `json:"strategy"`
-	Metadata     map[string]interface{} `json:"metadata,omitempty"`
+func (rst RoutingStrategyType) Description() string {
+	switch rst {
+	case SingleTargetWithFallback:
+		return "Route to single target with fallback options"
+	case BroadcastAggregate:
+		return "Broadcast to all servers and aggregate results"
+	case MultiTargetParallel:
+		return "Route to multiple targets in parallel"
+	case PrimaryWithEnhancement:
+		return "Route to primary server with enhancement from secondary"
+	case LoadBalanced:
+		return "Route using load balancing algorithm"
+	case RoundRobin:
+		return "Route using round-robin algorithm"
+	default:
+		return "Unknown routing strategy"
+	}
 }
 
-// AggregatedResponse represents an aggregated response from multiple servers
-type AggregatedResponse struct {
-	PrimaryResult   interface{}                    `json:"primary_result"`
-	SecondaryResults []ServerResponse              `json:"secondary_results,omitempty"`
-	Strategy        RoutingStrategy               `json:"strategy"`
-	ProcessingTime  time.Duration                 `json:"processing_time"`
-	ServerCount     int                           `json:"server_count"`
-	Metadata        map[string]interface{}        `json:"metadata,omitempty"`
-}
-
-// ServerResponse represents a response from a single server
-type ServerResponse struct {
-	ServerName   string        `json:"server_name"`
-	Result       interface{}   `json:"result"`
-	Error        error         `json:"error,omitempty"`
-	ResponseTime time.Duration `json:"response_time"`
-	Success      bool          `json:"success"`
+func (rst RoutingStrategyType) Route(request *LSPRequest, availableServers []*ServerInstance) (*RoutingDecision, error) {
+	// This is a placeholder implementation - actual routing logic would be in SmartRouter
+	return nil, fmt.Errorf("routing not implemented for strategy type %s", rst)
 }
 
 // RoutingMetrics tracks performance metrics for routing decisions
@@ -76,18 +65,6 @@ type RoutingMetrics struct {
 	StrategyMetrics     map[string]*StrategyMetrics `json:"strategy_metrics"`
 	LastUpdated         time.Time                   `json:"last_updated"`
 	mu                  sync.RWMutex                `json:"-"`
-}
-
-// ServerMetrics tracks performance metrics for individual servers
-type ServerMetrics struct {
-	RequestCount       int64         `json:"request_count"`
-	SuccessCount       int64         `json:"success_count"`
-	FailureCount       int64         `json:"failure_count"`
-	AverageResponseTime time.Duration `json:"average_response_time"`
-	LastResponseTime   time.Duration `json:"last_response_time"`
-	HealthScore        float64       `json:"health_score"`
-	CircuitBreakerOpen bool          `json:"circuit_breaker_open"`
-	LastAccessed       time.Time     `json:"last_accessed"`
 }
 
 // StrategyMetrics tracks performance metrics for routing strategies
@@ -106,8 +83,8 @@ type SmartRouter interface {
 	AggregateBroadcast(request *LSPRequest) (*AggregatedResponse, error)
 	
 	// Strategy management
-	SetRoutingStrategy(method string, strategy RoutingStrategy)
-	GetRoutingStrategy(method string) RoutingStrategy
+	SetRoutingStrategy(method string, strategy RoutingStrategyType)
+	GetRoutingStrategy(method string) RoutingStrategyType
 	
 	// Performance monitoring
 	GetRoutingMetrics() *RoutingMetrics
@@ -127,7 +104,7 @@ type SmartRouterImpl struct {
 	logger          *mcp.StructuredLogger
 	
 	// Strategy management
-	methodStrategies map[string]RoutingStrategy
+	methodStrategies map[string]RoutingStrategyType
 	strategyMu       sync.RWMutex
 	
 	// Performance tracking
@@ -142,15 +119,6 @@ type SmartRouterImpl struct {
 	rrMu              sync.RWMutex
 }
 
-// CircuitBreaker implements circuit breaker pattern for server resilience
-type CircuitBreaker struct {
-	FailureCount    int           `json:"failure_count"`
-	LastFailureTime time.Time     `json:"last_failure_time"`
-	State           string        `json:"state"` // "closed", "open", "half_open"
-	FailureThreshold int          `json:"failure_threshold"`
-	Timeout         time.Duration `json:"timeout"`
-	mu              sync.RWMutex  `json:"-"`
-}
 
 // NewSmartRouter creates a new SmartRouter with default configurations
 func NewSmartRouter(projectRouter *ProjectAwareRouter, config *config.GatewayConfig, workspaceManager *WorkspaceManager, logger *mcp.StructuredLogger) *SmartRouterImpl {
@@ -159,7 +127,7 @@ func NewSmartRouter(projectRouter *ProjectAwareRouter, config *config.GatewayCon
 		config:            config,
 		workspaceManager:  workspaceManager,
 		logger:           logger,
-		methodStrategies: make(map[string]RoutingStrategy),
+		methodStrategies: make(map[string]RoutingStrategyType),
 		metrics: &RoutingMetrics{
 			ServerMetrics:   make(map[string]*ServerMetrics),
 			StrategyMetrics: make(map[string]*StrategyMetrics),
@@ -177,7 +145,7 @@ func NewSmartRouter(projectRouter *ProjectAwareRouter, config *config.GatewayCon
 
 // setDefaultStrategies configures default routing strategies for common LSP methods
 func (sr *SmartRouterImpl) setDefaultStrategies() {
-	defaults := map[string]RoutingStrategy{
+	defaults := map[string]RoutingStrategyType{
 		LSP_METHOD_DEFINITION:      SingleTargetWithFallback,
 		LSP_METHOD_REFERENCES:      MultiTargetParallel,
 		LSP_METHOD_DOCUMENT_SYMBOL: SingleTargetWithFallback,
@@ -332,7 +300,7 @@ func (sr *SmartRouterImpl) AggregateBroadcast(request *LSPRequest) (*AggregatedR
 }
 
 // SetRoutingStrategy sets the routing strategy for a specific LSP method
-func (sr *SmartRouterImpl) SetRoutingStrategy(method string, strategy RoutingStrategy) {
+func (sr *SmartRouterImpl) SetRoutingStrategy(method string, strategy RoutingStrategyType) {
 	sr.strategyMu.Lock()
 	defer sr.strategyMu.Unlock()
 	
@@ -344,7 +312,7 @@ func (sr *SmartRouterImpl) SetRoutingStrategy(method string, strategy RoutingStr
 }
 
 // GetRoutingStrategy gets the routing strategy for a specific LSP method
-func (sr *SmartRouterImpl) GetRoutingStrategy(method string) RoutingStrategy {
+func (sr *SmartRouterImpl) GetRoutingStrategy(method string) RoutingStrategyType {
 	sr.strategyMu.RLock()
 	defer sr.strategyMu.RUnlock()
 	

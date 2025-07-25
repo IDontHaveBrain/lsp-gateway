@@ -2080,7 +2080,7 @@ func (s *ProjectLanguageScanner) SetCacheEnabled(enabled bool) {
 }
 
 // GetCacheStats returns cache statistics if caching is enabled
-func (s *ProjectLanguageScanner) GetCacheStats() *CacheStats {
+func (s *ProjectLanguageScanner) GetCacheStats() *ProjectCacheStats {
 	if s.Cache != nil {
 		stats := s.Cache.GetStats()
 		return &stats

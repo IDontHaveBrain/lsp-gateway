@@ -23,8 +23,8 @@ const (
 	DefaultMaxConcurrentScans  = 10
 )
 
-// CacheStats represents cache performance statistics
-type CacheStats struct {
+// ProjectCacheStats represents cache performance statistics
+type ProjectCacheStats struct {
 	HitCount          int64   `json:"hit_count"`
 	MissCount         int64   `json:"miss_count"`
 	TotalEntries      int     `json:"total_entries"`
@@ -37,8 +37,8 @@ type CacheStats struct {
 	LastCleanup       time.Time `json:"last_cleanup"`
 }
 
-// CacheEntry represents a cached project detection result
-type CacheEntry struct {
+// ProjectCacheEntry represents a cached project detection result
+type ProjectCacheEntry struct {
 	ProjectInfo     *MultiLanguageProjectInfo `json:"project_info"`
 	LastScanned     time.Time                 `json:"last_scanned"`
 	LastModified    time.Time                 `json:"last_modified"`
@@ -53,7 +53,7 @@ type CacheEntry struct {
 
 // ProjectCache provides thread-safe caching for project detection results
 type ProjectCache struct {
-	cache           map[string]*CacheEntry
+	cache           map[string]*ProjectCacheEntry
 	mutex           sync.RWMutex
 	maxEntries      int
 	ttl             time.Duration
@@ -81,7 +81,7 @@ type ProjectCache struct {
 
 // NewProjectCache creates a new project cache with default settings
 func NewProjectCache() *ProjectCache {
-	return NewProjectCacheWithConfig(CacheConfig{
+	return NewProjectCacheWithConfig(ProjectCacheConfig{
 		MaxEntries:      DefaultCacheMaxEntries,
 		TTL:             DefaultCacheTTL,
 		CleanupInterval: DefaultCleanupInterval,
@@ -89,8 +89,8 @@ func NewProjectCache() *ProjectCache {
 	})
 }
 
-// CacheConfig represents configuration for the project cache
-type CacheConfig struct {
+// ProjectCacheConfig represents configuration for the project cache
+type ProjectCacheConfig struct {
 	MaxEntries        int
 	TTL               time.Duration
 	CleanupInterval   time.Duration
@@ -99,11 +99,11 @@ type CacheConfig struct {
 }
 
 // NewProjectCacheWithConfig creates a new project cache with custom configuration
-func NewProjectCacheWithConfig(config CacheConfig) *ProjectCache {
+func NewProjectCacheWithConfig(config ProjectCacheConfig) *ProjectCache {
 	ctx, cancel := context.WithCancel(context.Background())
 	
 	pc := &ProjectCache{
-		cache:           make(map[string]*CacheEntry),
+		cache:           make(map[string]*ProjectCacheEntry),
 		maxEntries:      config.MaxEntries,
 		ttl:             config.TTL,
 		cleanupInterval: config.CleanupInterval,
@@ -170,7 +170,7 @@ func (pc *ProjectCache) Set(rootPath string, info *MultiLanguageProjectInfo) {
 	// Create validation hash for cache coherency
 	validationHash := pc.generateValidationHash(rootPath, info)
 	
-	entry := &CacheEntry{
+	entry := &ProjectCacheEntry{
 		ProjectInfo:    info,
 		LastScanned:    time.Now(),
 		LastModified:   pc.getDirectoryModTime(rootPath),
@@ -226,7 +226,7 @@ func (pc *ProjectCache) InvalidateAll() {
 	defer pc.mutex.Unlock()
 	
 	evicted := int64(len(pc.cache))
-	pc.cache = make(map[string]*CacheEntry)
+	pc.cache = make(map[string]*ProjectCacheEntry)
 	atomic.AddInt64(&pc.evictionCount, evicted)
 	
 	// Stop all file watching
@@ -236,7 +236,7 @@ func (pc *ProjectCache) InvalidateAll() {
 }
 
 // GetStats returns current cache statistics
-func (pc *ProjectCache) GetStats() CacheStats {
+func (pc *ProjectCache) GetStats() ProjectCacheStats {
 	pc.mutex.RLock()
 	totalEntries := len(pc.cache)
 	
@@ -267,7 +267,7 @@ func (pc *ProjectCache) GetStats() CacheStats {
 		avgAccessTime = totalAccessTime / time.Duration(accessCount)
 	}
 	
-	return CacheStats{
+	return ProjectCacheStats{
 		HitCount:           hits,
 		MissCount:          misses,
 		TotalEntries:       totalEntries,
@@ -301,7 +301,7 @@ func (pc *ProjectCache) Shutdown() {
 }
 
 // isEntryValid checks if a cache entry is still valid
-func (pc *ProjectCache) isEntryValid(entry *CacheEntry) bool {
+func (pc *ProjectCache) isEntryValid(entry *ProjectCacheEntry) bool {
 	if !entry.IsValid {
 		return false
 	}
