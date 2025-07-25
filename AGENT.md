@@ -274,9 +274,6 @@ go test -v ./tests/performance -timeout 2h
 
 # Benchmark testing
 go test -v ./tests/performance -bench=BenchmarkFullPerformanceSuite -benchtime=10s
-
-# CI testing with reporting
-./scripts/ci/run-tests.sh performance
 ```
 
 ## Common Development Commands
@@ -437,10 +434,6 @@ For detailed troubleshooting steps, environment-specific issues, and advanced de
 - **Troubleshooting Guide**: `docs/troubleshooting.md`
 - **Test framework**: `tests/framework/`
 
-### Build and CI
-- **Makefile**: Root build system
-- **CI workflows**: `.github/workflows/`
-- **Build scripts**: `scripts/`
 
 ## Important Implementation Notes
 

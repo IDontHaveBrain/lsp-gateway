@@ -580,24 +580,6 @@ workflow_integration:
     windows: "cargo build --target x86_64-pc-windows-gnu"
     macos: "cargo build --target x86_64-apple-darwin"
 
-# CI/CD integration
-ci_cd_integration:
-  # GitHub Actions
-  github_actions:
-    rust_versions: ["1.70", "stable", "nightly"]
-    targets: ["x86_64-unknown-linux-gnu", "x86_64-pc-windows-gnu"]
-    
-  # Quality gates
-  quality_gates:
-    - "cargo fmt -- --check"
-    - "cargo clippy -- -D warnings"
-    - "cargo test --all-features"
-    - "cargo audit"
-    
-  # Performance testing
-  performance:
-    benchmarks: "cargo bench"
-    profiling: "cargo flamegraph"
 
 # Container integration
 container_integration:

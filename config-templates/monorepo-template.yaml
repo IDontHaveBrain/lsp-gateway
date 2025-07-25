@@ -835,11 +835,6 @@ development_integration:
   multi_repo_support: false       # Single repo with multiple projects
   submodule_support: true         # Support Git submodules if present
   
-  # CI/CD integration
-  ci_cd_awareness: true
-  build_status_integration: true
-  test_result_integration: true
-  
   # IDE integration
   multi_project_ide_support: true
   workspace_switching: true

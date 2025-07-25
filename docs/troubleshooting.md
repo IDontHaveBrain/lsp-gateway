@@ -188,9 +188,6 @@ make test-unit
 # Specific test categories
 go test -v ./tests/unit/...
 go test -v ./tests/integration/...
-
-# CI-style testing
-./scripts/ci/run-tests.sh unit
 ```
 
 ## Environment-Specific Issues

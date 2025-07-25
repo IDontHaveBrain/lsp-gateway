@@ -215,51 +215,6 @@ make test-integration
 make test-jdtls-integration
 ```
 
-### CI/CD Integration Script
-```bash
-#!/bin/bash
-# e2e-ci.sh - E2E testing for CI/CD pipeline
-
-set -e
-
-echo "Starting E2E tests..."
-
-# 1. Build and setup
-make clean && make local
-./bin/lsp-gateway setup all
-
-# 2. Start server in background
-./bin/lsp-gateway server --config config.yaml &
-SERVER_PID=$!
-
-# 3. Wait for server to be ready
-sleep 5
-curl -f http://localhost:8080/health || exit 1
-
-# 4. Run core E2E tests
-make test-simple-quick
-
-# 5. Protocol-specific tests
-echo "Testing HTTP JSON-RPC protocol..."
-curl -X POST http://localhost:8080/jsonrpc \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"textDocument/hover","params":{"textDocument":{"uri":"file:///tmp/test.go"},"position":{"line":0,"character":0}}}' \
-  | jq '.result' > /dev/null
-
-# 6. Multi-language validation
-for lang in go python typescript; do
-  echo "Validating $lang language server..."
-  ./bin/lsp-gateway status server $lang-lsp || exit 1
-done
-
-# 7. Performance check
-echo "Running performance validation..."
-time make test-lsp-validation-short
-
-# 8. Cleanup
-kill $SERVER_PID
-echo "E2E tests completed successfully!"
-```
 
 ## Debugging and Troubleshooting
 

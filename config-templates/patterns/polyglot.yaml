@@ -559,15 +559,6 @@ deployment:
   monitoring_stack: "prometheus_grafana"
   logging_stack: "elk"
   
-  # CI/CD integration
-  build_systems:
-    go: "go_modules"
-    python: "poetry"
-    typescript: "npm"
-    java: "maven"
-    rust: "cargo"
-    cpp: "cmake"
-  
   # Deployment strategies
   deployment_strategies:
     canary_deployment: true
