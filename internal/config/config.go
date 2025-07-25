@@ -3,8 +3,8 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"lsp-gateway/internal/transport"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -1067,10 +1067,10 @@ func (mlc *MultiLanguageConfig) ToGatewayConfig() (*GatewayConfig, error) {
 
 	// Set optimization-specific defaults
 	switch mlc.OptimizedFor {
-	case "production":
+	case PerformanceProfileProduction:
 		config.MaxConcurrentRequests = 200
 		config.Timeout = "15s"
-	case "analysis":
+	case PerformanceProfileAnalysis:
 		config.MaxConcurrentRequests = 50
 		config.Timeout = "60s"
 	default: // Development
@@ -1155,10 +1155,10 @@ func (gc *GatewayConfig) EnhanceWithMultiLanguage(mlConfig *MultiLanguageConfig)
 
 	// Apply optimization-specific settings
 	switch mlConfig.OptimizedFor {
-	case "production":
+	case PerformanceProfileProduction:
 		gc.MaxConcurrentRequests = 200
 		gc.Timeout = "15s"
-	case "analysis":
+	case PerformanceProfileAnalysis:
 		gc.MaxConcurrentRequests = 50
 		gc.Timeout = "60s"
 	default:
@@ -1989,110 +1989,207 @@ func (c *GatewayConfig) ValidateMultiServerConfig() error {
 
 // ValidateConsistency validates configuration consistency
 func (c *GatewayConfig) ValidateConsistency() error {
-	// Check SmartRouterConfig compatibility with other settings
-	if c.EnableSmartRouting && c.SmartRouterConfig != nil {
-		// Validate method strategies
-		for method, strategy := range c.SmartRouterConfig.MethodStrategies {
-			if method == "" {
-				return fmt.Errorf("empty method name in smart router method strategies")
-			}
-			if strategy == "" {
-				return fmt.Errorf("empty strategy for method %s in smart router configuration", method)
-			}
+	if err := c.validateSmartRouterConfig(); err != nil {
+		return err
+	}
+
+	if err := c.validateProjectContextConsistency(); err != nil {
+		return err
+	}
+
+	if err := c.validatePerformanceConfigConsistency(); err != nil {
+		return err
+	}
+
+	if err := c.validateTimeoutSettings(); err != nil {
+		return err
+	}
+
+	if err := c.validateConcurrentRequestsSettings(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateSmartRouterConfig validates SmartRouterConfig compatibility with other settings
+func (c *GatewayConfig) validateSmartRouterConfig() error {
+	if !c.EnableSmartRouting || c.SmartRouterConfig == nil {
+		return nil
+	}
+
+	if err := c.validateMethodStrategies(); err != nil {
+		return err
+	}
+
+	return c.validateCircuitBreakerConfig()
+}
+
+// validateMethodStrategies validates smart router method strategies
+func (c *GatewayConfig) validateMethodStrategies() error {
+	for method, strategy := range c.SmartRouterConfig.MethodStrategies {
+		if method == "" {
+			return fmt.Errorf("empty method name in smart router method strategies")
 		}
+		if strategy == "" {
+			return fmt.Errorf("empty strategy for method %s in smart router configuration", method)
+		}
+	}
+	return nil
+}
 
-		// Check circuit breaker configuration consistency
-		if c.SmartRouterConfig.EnableCircuitBreaker {
-			if c.SmartRouterConfig.CircuitBreakerThreshold <= 0 {
-				return fmt.Errorf("circuit breaker threshold must be positive when circuit breaker is enabled: %d", c.SmartRouterConfig.CircuitBreakerThreshold)
-			}
+// validateCircuitBreakerConfig validates circuit breaker configuration consistency
+func (c *GatewayConfig) validateCircuitBreakerConfig() error {
+	if !c.SmartRouterConfig.EnableCircuitBreaker {
+		return nil
+	}
 
-			if c.SmartRouterConfig.CircuitBreakerTimeout != "" {
-				if _, err := time.ParseDuration(c.SmartRouterConfig.CircuitBreakerTimeout); err != nil {
-					return fmt.Errorf("invalid circuit breaker timeout format: %s, error: %w", c.SmartRouterConfig.CircuitBreakerTimeout, err)
-				}
-			}
+	if c.SmartRouterConfig.CircuitBreakerThreshold <= 0 {
+		return fmt.Errorf("circuit breaker threshold must be positive when circuit breaker is enabled: %d", c.SmartRouterConfig.CircuitBreakerThreshold)
+	}
+
+	if c.SmartRouterConfig.CircuitBreakerTimeout != "" {
+		if _, err := time.ParseDuration(c.SmartRouterConfig.CircuitBreakerTimeout); err != nil {
+			return fmt.Errorf("invalid circuit breaker timeout format: %s, error: %w", c.SmartRouterConfig.CircuitBreakerTimeout, err)
 		}
 	}
 
-	// Validate ProjectContext consistency with servers
-	if c.ProjectContext != nil {
-		requiredLanguages := make(map[string]bool)
-		for _, lang := range c.ProjectContext.Languages {
-			requiredLanguages[lang.Language] = true
-		}
+	return nil
+}
 
-		availableLanguages := make(map[string]bool)
-		for _, server := range c.Servers {
-			for _, lang := range server.Languages {
-				availableLanguages[lang] = true
-			}
-		}
+// validateProjectContextConsistency validates ProjectContext consistency with servers
+func (c *GatewayConfig) validateProjectContextConsistency() error {
+	if c.ProjectContext == nil {
+		return nil
+	}
 
-		// Check if all required languages have available servers
-		for reqLang := range requiredLanguages {
-			if !availableLanguages[reqLang] {
-				return fmt.Errorf("project context requires language %s but no server supports it", reqLang)
-			}
-		}
+	if err := c.validateRequiredLanguagesAvailable(); err != nil {
+		return err
+	}
 
-		// Validate required LSP servers exist
-		serverNames := make(map[string]bool)
-		for _, server := range c.Servers {
-			serverNames[server.Name] = true
-		}
+	return c.validateRequiredLSPServersExist()
+}
 
-		for _, requiredLSP := range c.ProjectContext.RequiredLSPs {
-			if !serverNames[requiredLSP] {
-				return fmt.Errorf("project context requires LSP server %s but it is not configured", requiredLSP)
-			}
+// validateRequiredLanguagesAvailable checks if all required languages have available servers
+func (c *GatewayConfig) validateRequiredLanguagesAvailable() error {
+	requiredLanguages := make(map[string]bool)
+	for _, lang := range c.ProjectContext.Languages {
+		requiredLanguages[lang.Language] = true
+	}
+
+	availableLanguages := make(map[string]bool)
+	for _, server := range c.Servers {
+		for _, lang := range server.Languages {
+			availableLanguages[lang] = true
 		}
 	}
 
-	// Check performance configuration compatibility
-	if c.PerformanceConfig != nil && c.PerformanceConfig.Enabled {
-		// Validate timeout consistency with global settings
-		if c.PerformanceConfig.Timeouts != nil {
-			globalTimeout := c.PerformanceConfig.Timeouts.GlobalTimeout
-			if globalTimeout > 0 {
-				if configTimeout, err := time.ParseDuration(c.Timeout); err == nil {
-					if globalTimeout < configTimeout {
-						return fmt.Errorf("performance global timeout (%v) is less than config timeout (%v)", globalTimeout, configTimeout)
-					}
-				}
-			}
-		}
-
-		// Validate memory limits with server limits
-		if c.PerformanceConfig.ResourceManager != nil && c.PerformanceConfig.ResourceManager.MemoryLimits != nil {
-			memLimits := c.PerformanceConfig.ResourceManager.MemoryLimits
-
-			// Check consistency with language pools resource limits
-			for _, pool := range c.LanguagePools {
-				if pool.ResourceLimits != nil {
-					if int64(pool.ResourceLimits.MaxMemoryMB) > memLimits.MaxHeapSize {
-						return fmt.Errorf("language pool %s memory limit (%d MB) exceeds global max heap size (%d MB)", pool.Language, pool.ResourceLimits.MaxMemoryMB, memLimits.MaxHeapSize)
-					}
-				}
-			}
+	for reqLang := range requiredLanguages {
+		if !availableLanguages[reqLang] {
+			return fmt.Errorf("project context requires language %s but no server supports it", reqLang)
 		}
 	}
 
-	// Ensure timeout settings are reasonable
-	if c.Timeout != "" {
-		if duration, err := time.ParseDuration(c.Timeout); err != nil {
-			return fmt.Errorf("invalid timeout format: %s, error: %w", c.Timeout, err)
-		} else {
-			if duration <= 0 {
-				return fmt.Errorf("timeout must be positive: %v", duration)
-			}
-			if duration > 1*time.Hour {
-				return fmt.Errorf("timeout is too large: %v, maximum allowed: 1h", duration)
-			}
+	return nil
+}
+
+// validateRequiredLSPServersExist validates that required LSP servers exist
+func (c *GatewayConfig) validateRequiredLSPServersExist() error {
+	serverNames := make(map[string]bool)
+	for _, server := range c.Servers {
+		serverNames[server.Name] = true
+	}
+
+	for _, requiredLSP := range c.ProjectContext.RequiredLSPs {
+		if !serverNames[requiredLSP] {
+			return fmt.Errorf("project context requires LSP server %s but it is not configured", requiredLSP)
 		}
 	}
 
-	// Validate concurrent requests consistency
+	return nil
+}
+
+// validatePerformanceConfigConsistency validates performance configuration compatibility
+func (c *GatewayConfig) validatePerformanceConfigConsistency() error {
+	if c.PerformanceConfig == nil || !c.PerformanceConfig.Enabled {
+		return nil
+	}
+
+	if err := c.validatePerformanceTimeouts(); err != nil {
+		return err
+	}
+
+	return c.validateMemoryLimitsConsistency()
+}
+
+// validatePerformanceTimeouts validates timeout consistency with global settings
+func (c *GatewayConfig) validatePerformanceTimeouts() error {
+	if c.PerformanceConfig.Timeouts == nil {
+		return nil
+	}
+
+	globalTimeout := c.PerformanceConfig.Timeouts.GlobalTimeout
+	if globalTimeout <= 0 {
+		return nil
+	}
+
+	configTimeout, err := time.ParseDuration(c.Timeout)
+	if err != nil {
+		return nil
+	}
+
+	if globalTimeout < configTimeout {
+		return fmt.Errorf("performance global timeout (%v) is less than config timeout (%v)", globalTimeout, configTimeout)
+	}
+
+	return nil
+}
+
+// validateMemoryLimitsConsistency validates memory limits with server limits
+func (c *GatewayConfig) validateMemoryLimitsConsistency() error {
+	if c.PerformanceConfig.ResourceManager == nil || c.PerformanceConfig.ResourceManager.MemoryLimits == nil {
+		return nil
+	}
+
+	memLimits := c.PerformanceConfig.ResourceManager.MemoryLimits
+
+	for _, pool := range c.LanguagePools {
+		if pool.ResourceLimits == nil {
+			continue
+		}
+
+		if int64(pool.ResourceLimits.MaxMemoryMB) > memLimits.MaxHeapSize {
+			return fmt.Errorf("language pool %s memory limit (%d MB) exceeds global max heap size (%d MB)", pool.Language, pool.ResourceLimits.MaxMemoryMB, memLimits.MaxHeapSize)
+		}
+	}
+
+	return nil
+}
+
+// validateTimeoutSettings validates timeout format and reasonableness
+func (c *GatewayConfig) validateTimeoutSettings() error {
+	if c.Timeout == "" {
+		return nil
+	}
+
+	duration, err := time.ParseDuration(c.Timeout)
+	if err != nil {
+		return fmt.Errorf("invalid timeout format: %s, error: %w", c.Timeout, err)
+	}
+
+	if duration <= 0 {
+		return fmt.Errorf("timeout must be positive: %v", duration)
+	}
+
+	if duration > 1*time.Hour {
+		return fmt.Errorf("timeout is too large: %v, maximum allowed: 1h", duration)
+	}
+
+	return nil
+}
+
+// validateConcurrentRequestsSettings validates concurrent requests consistency
+func (c *GatewayConfig) validateConcurrentRequestsSettings() error {
 	if c.MaxConcurrentRequests <= 0 {
 		return fmt.Errorf("max concurrent requests must be positive: %d", c.MaxConcurrentRequests)
 	}
@@ -2264,7 +2361,7 @@ func (mlc *MultiLanguageConfig) WriteYAML(filepath string) error {
 		return fmt.Errorf("failed to marshal config to YAML: %w", err)
 	}
 
-	if err := ioutil.WriteFile(filepath, data, 0644); err != nil {
+	if err := os.WriteFile(filepath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write YAML file: %w", err)
 	}
 
@@ -2278,7 +2375,7 @@ func (mlc *MultiLanguageConfig) WriteJSON(filepath string) error {
 		return fmt.Errorf("failed to marshal config to JSON: %w", err)
 	}
 
-	if err := ioutil.WriteFile(filepath, data, 0644); err != nil {
+	if err := os.WriteFile(filepath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write JSON file: %w", err)
 	}
 
@@ -2392,7 +2489,7 @@ func (lbc *LoadBalancingConfig) Validate() error {
 
 // LoadMultiLanguageConfig loads a MultiLanguageConfig from a file
 func LoadMultiLanguageConfig(filepath string) (*MultiLanguageConfig, error) {
-	data, err := ioutil.ReadFile(filepath)
+	data, err := os.ReadFile(filepath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}

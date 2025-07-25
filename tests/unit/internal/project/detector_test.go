@@ -109,7 +109,6 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_Registe
 
 func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_Configuration() {
 	// Test timeout configuration
-	originalTimeout := 30 * time.Second
 	newTimeout := 60 * time.Second
 
 	suite.detector.SetTimeout(newTimeout)
@@ -142,7 +141,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_DetectP
 	}{
 		{
 			name:              "simple-go-project",
-			projectType:       framework.ProjectTypeSingle,
+			projectType:       framework.ProjectTypeSingleLanguage,
 			languages:         []string{"go"},
 			complexity:        framework.ComplexitySimple,
 			expectedType:      types.PROJECT_TYPE_GO,
@@ -151,7 +150,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_DetectP
 		},
 		{
 			name:              "complex-python-project",
-			projectType:       framework.ProjectTypeSingle,
+			projectType:       framework.ProjectTypeSingleLanguage,
 			languages:         []string{"python"},
 			complexity:        framework.ComplexityComplex,
 			expectedType:      types.PROJECT_TYPE_PYTHON,
@@ -169,7 +168,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_DetectP
 		},
 		{
 			name:              "typescript-project",
-			projectType:       framework.ProjectTypeSingle,
+			projectType:       framework.ProjectTypeSingleLanguage,
 			languages:         []string{"typescript"},
 			complexity:        framework.ComplexityMedium,
 			expectedType:      types.PROJECT_TYPE_TYPESCRIPT,
@@ -178,7 +177,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_DetectP
 		},
 		{
 			name:              "java-project",
-			projectType:       framework.ProjectTypeSingle,
+			projectType:       framework.ProjectTypeSingleLanguage,
 			languages:         []string{"java"},
 			complexity:        framework.ComplexityMedium,
 			expectedType:      types.PROJECT_TYPE_JAVA,
@@ -398,7 +397,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_GetWork
 func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_ValidateProject() {
 	// Create a valid test project
 	config := &framework.ProjectGenerationConfig{
-		Type:        framework.ProjectTypeSingle,
+		Type:        framework.ProjectTypeSingleLanguage,
 		Languages:   []string{"go"},
 		Complexity:  framework.ComplexitySimple,
 		Size:        framework.SizeSmall,
@@ -521,7 +520,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_DetectM
 
 	for i := 0; i < 3; i++ {
 		config := &framework.ProjectGenerationConfig{
-			Type:        framework.ProjectTypeSingle,
+			Type:        framework.ProjectTypeSingleLanguage,
 			Languages:   []string{"go"},
 			Complexity:  framework.ComplexitySimple,
 			Size:        framework.SizeSmall,
@@ -561,7 +560,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_DetectM
 func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_TimeoutHandling() {
 	// Create a simple project
 	config := &framework.ProjectGenerationConfig{
-		Type:        framework.ProjectTypeSingle,
+		Type:        framework.ProjectTypeSingleLanguage,
 		Languages:   []string{"go"},
 		Complexity:  framework.ComplexitySimple,
 		Size:        framework.SizeSmall,
@@ -715,7 +714,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_Paralle
 
 	for i := 0; i < numProjects; i++ {
 		config := &framework.ProjectGenerationConfig{
-			Type:        framework.ProjectTypeSingle,
+			Type:        framework.ProjectTypeSingleLanguage,
 			Languages:   []string{"go"},
 			Complexity:  framework.ComplexitySimple,
 			Size:        framework.SizeSmall,
@@ -791,7 +790,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_ErrorHa
 		err = os.Chmod(restrictedDir, 0000)
 		suite.Require().NoError(err)
 
-		_, err = suite.detector.DetectProject(ctx, restrictedDir)
+		_, _ = suite.detector.DetectProject(ctx, restrictedDir)
 		// Should either error due to permissions or handle gracefully
 		// Restore permissions for cleanup
 		os.Chmod(restrictedDir, 0755)
@@ -872,7 +871,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_Perform
 func (suite *DefaultProjectDetectorTestSuite) BenchmarkSimpleGoProjectDetection() {
 	// Create simple Go project
 	config := &framework.ProjectGenerationConfig{
-		Type:        framework.ProjectTypeSingle,
+		Type:        framework.ProjectTypeSingleLanguage,
 		Languages:   []string{"go"},
 		Complexity:  framework.ComplexitySimple,
 		Size:        framework.SizeSmall,

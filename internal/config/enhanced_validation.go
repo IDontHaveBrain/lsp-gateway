@@ -539,9 +539,7 @@ func (mlv *MultiLanguageValidator) validateFrameworkCompatibility(config *Gatewa
 
 	for _, server := range config.Servers {
 		for _, framework := range server.Frameworks {
-			for _, lang := range server.Languages {
-				frameworkMap[framework] = append(frameworkMap[framework], lang)
-			}
+			frameworkMap[framework] = append(frameworkMap[framework], server.Languages...)
 		}
 	}
 
@@ -884,15 +882,15 @@ func (cv *ConsistencyValidator) validateOptimizationConsistency(config *GatewayC
 
 			// Validate settings consistency with optimization mode
 			switch modeStr {
-			case "production":
+			case PerformanceProfileProduction:
 				if err := cv.validateProductionConsistency(config, errors, warnings, score); err != nil {
 					return err
 				}
-			case "development":
+			case PerformanceProfileDevelopment:
 				if err := cv.validateDevelopmentConsistency(config, errors, warnings, score); err != nil {
 					return err
 				}
-			case "analysis":
+			case PerformanceProfileAnalysis:
 				if err := cv.validateAnalysisConsistency(config, errors, warnings, score); err != nil {
 					return err
 				}

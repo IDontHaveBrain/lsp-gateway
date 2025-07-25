@@ -153,7 +153,7 @@ func TestWithMockConfiguration(t *testing.T) {
 	mockClient := mocks.NewMockMcpClient()
 
 	// Configure mock for specific test scenario
-	generator := helpers.NewTestDataGenerator()
+	generator := e2e_test.NewTestDataGenerator()
 	if err := generator.ConfigureMockClientForScenario(mockClient, "basic-workflow"); err != nil {
 		t.Fatalf("Failed to configure mock client: %v", err)
 	}

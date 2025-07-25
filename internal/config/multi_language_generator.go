@@ -8,11 +8,6 @@ import (
 )
 
 const (
-	// Optimization modes
-	OptimizationDevelopment = "development"
-	OptimizationProduction  = "production"
-	OptimizationAnalysis    = "analysis"
-
 	// Indexing strategies (smart is unique to this file)
 	IndexingStrategySmart = "smart"
 
@@ -567,9 +562,9 @@ func (g *ConfigGenerator) initializeMonorepoStrategies() {
 }
 
 func (g *ConfigGenerator) initializeOptimizationModes() {
-	g.optimizationModes[OptimizationDevelopment] = NewDevelopmentOptimization()
-	g.optimizationModes[OptimizationProduction] = NewProductionOptimization()
-	g.optimizationModes[OptimizationAnalysis] = NewAnalysisOptimization()
+	g.optimizationModes[PerformanceProfileDevelopment] = NewDevelopmentOptimization()
+	g.optimizationModes[PerformanceProfileProduction] = NewProductionOptimization()
+	g.optimizationModes[PerformanceProfileAnalysis] = NewAnalysisOptimization()
 }
 
 func (g *ConfigGenerator) GenerateMultiLanguageConfig(projectInfo *MultiLanguageProjectInfo) (*MultiLanguageConfig, error) {
@@ -586,7 +581,7 @@ func (g *ConfigGenerator) GenerateMultiLanguageConfig(projectInfo *MultiLanguage
 			SharedSettings:          make(map[string]interface{}),
 			CrossLanguageReferences: true,
 		},
-		OptimizedFor: OptimizationDevelopment,
+		OptimizedFor: PerformanceProfileDevelopment,
 		GeneratedAt:  time.Now(),
 		Version:      "1.0",
 		Metadata:     make(map[string]interface{}),
@@ -895,7 +890,7 @@ func (g *ConfigGenerator) OptimizeForProjectType(config *MultiLanguageConfig, pr
 func (g *ConfigGenerator) optimizeForMonorepo(config *MultiLanguageConfig) error {
 	config.WorkspaceConfig.CrossLanguageReferences = true
 	config.WorkspaceConfig.IndexingStrategy = IndexingStrategySmart
-	config.OptimizedFor = OptimizationDevelopment
+	config.OptimizedFor = PerformanceProfileDevelopment
 
 	// Enable shared settings for better cross-language integration
 	config.WorkspaceConfig.SharedSettings["enable_cross_language_navigation"] = true
@@ -948,7 +943,7 @@ func (g *ConfigGenerator) optimizeForPolyglot(config *MultiLanguageConfig) error
 
 func (g *ConfigGenerator) optimizeForGeneral(config *MultiLanguageConfig) error {
 	// Apply balanced optimizations
-	config.OptimizedFor = OptimizationDevelopment
+	config.OptimizedFor = PerformanceProfileDevelopment
 	config.WorkspaceConfig.IndexingStrategy = IndexingStrategyIncremental
 
 	return nil

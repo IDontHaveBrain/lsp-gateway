@@ -9,6 +9,9 @@ const (
 	LSP_METHOD_WORKSPACE_SYMBOL = "workspace/symbol"
 	LSP_METHOD_HOVER            = "textDocument/hover"
 
+	// Server status constants
+	STATUS_FAILED = "failed"
+
 	// Error types
 	APPLICATION_ERROR_TYPE = "application_error"
 )

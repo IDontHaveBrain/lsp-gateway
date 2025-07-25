@@ -23,7 +23,7 @@ func ExampleMockMcpClient() {
 	}
 
 	var response map[string]interface{}
-	json.Unmarshal(result, &response)
+	_ = json.Unmarshal(result, &response)
 	fmt.Printf("Default response: %v\n", response)
 
 	// Example 2: Queue custom responses
@@ -32,7 +32,7 @@ func ExampleMockMcpClient() {
 
 	result2, _ := mockClient.SendLSPRequest(ctx, "custom/method", nil)
 	var customResp map[string]interface{}
-	json.Unmarshal(result2, &customResp)
+	_ = json.Unmarshal(result2, &customResp)
 	fmt.Printf("Custom response: %v\n", customResp)
 
 	// Example 3: Queue errors
@@ -52,8 +52,8 @@ func ExampleMockMcpClient() {
 	genericResult, _ := mockClient.SendLSPRequest(ctx, "other/method", nil)
 
 	var specialResp, genericResp map[string]interface{}
-	json.Unmarshal(specialResult, &specialResp)
-	json.Unmarshal(genericResult, &genericResp)
+	_ = json.Unmarshal(specialResult, &specialResp)
+	_ = json.Unmarshal(genericResult, &genericResp)
 
 	fmt.Printf("Special response: %v\n", specialResp)
 	fmt.Printf("Generic response: %v\n", genericResp)

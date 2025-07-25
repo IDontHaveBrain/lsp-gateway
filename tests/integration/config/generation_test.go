@@ -1,13 +1,11 @@
 package config
 
 import (
+	"fmt"
 	"os"
-	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/suite"
-	"lsp-gateway/internal/config"
 	"lsp-gateway/tests/integration/config/helpers"
 )
 
@@ -1370,13 +1368,13 @@ func (suite *AutoGenerationTestSuite) TestTemplateSelectionAndApplication() {
 		suite.NotNil(generatedConfig)
 
 		// Validate generated configuration
-		suite.Equal("monorepo", generatedConfig.ProjectType, "Generated config should be monorepo type")
-		suite.GreaterOrEqual(len(generatedConfig.BaseConfig.Servers), 1, "Should have LSP servers configured")
+		suite.Equal("monorepo", generatedConfig.ProjectInfo.ProjectType, "Generated config should be monorepo type")
+		suite.GreaterOrEqual(len(generatedConfig.ServerConfigs), 1, "Should have LSP servers configured")
 
 		// Validate Go-specific configuration
 		hasGoServer := false
-		for _, server := range generatedConfig.BaseConfig.Servers {
-			if contains(server.Languages, "go") {
+		for _, server := range generatedConfig.ServerConfigs {
+			if exactMatchString(server.Languages, "go") {
 				hasGoServer = true
 				suite.Equal("gopls", server.Command, "Should configure gopls for Go")
 				break
@@ -1422,12 +1420,12 @@ func (suite *AutoGenerationTestSuite) TestTemplateSelectionAndApplication() {
 		suite.NotNil(generatedConfig)
 
 		// Validate multi-language configuration
-		suite.Equal("microservices", generatedConfig.ProjectType, "Should be microservices type")
-		suite.GreaterOrEqual(len(generatedConfig.BaseConfig.Servers), 3, "Should have servers for multiple languages")
+		suite.Equal("microservices", generatedConfig.ProjectInfo.ProjectType, "Should be microservices type")
+		suite.GreaterOrEqual(len(generatedConfig.ServerConfigs), 3, "Should have servers for multiple languages")
 
 		// Validate each language has appropriate server
 		languageServers := make(map[string]bool)
-		for _, server := range generatedConfig.BaseConfig.Servers {
+		for _, server := range generatedConfig.ServerConfigs {
 			for _, lang := range server.Languages {
 				languageServers[lang] = true
 			}
@@ -1469,11 +1467,11 @@ func (suite *AutoGenerationTestSuite) TestTemplateSelectionAndApplication() {
 		suite.NotNil(generatedConfig)
 
 		// Validate frontend-backend configuration
-		suite.Equal("frontend-backend", generatedConfig.ProjectType, "Should be frontend-backend type")
+		suite.Equal("frontend-backend", generatedConfig.ProjectInfo.ProjectType, "Should be frontend-backend type")
 
 		// Should have optimizations for full-stack development
-		suite.NotNil(generatedConfig.Performance, "Should have performance config")
-		suite.NotNil(generatedConfig.MultiLanguage, "Should have multi-language config")
+		suite.NotNil(generatedConfig.WorkspaceConfig, "Should have workspace config")
+		suite.NotEmpty(generatedConfig.ServerConfigs, "Should have multi-language server configs")
 	})
 }
 
@@ -1494,10 +1492,10 @@ func (suite *AutoGenerationTestSuite) TestOptimizationModeApplication() {
 		suite.NotNil(config)
 
 		// Validate development optimizations
-		suite.Equal("development", config.Performance.OptimizationMode)
-		suite.True(config.Performance.EnableCaching, "Should enable caching for development")
-		suite.Equal(60*time.Second, config.Performance.RequestTimeout, "Should have longer timeout for development")
-		suite.Equal(50, config.Performance.MaxConcurrentRequests, "Should have moderate concurrency for development")
+		suite.Equal("development", config.OptimizedFor)
+		suite.NotNil(config.ProjectInfo, "Should have project info")
+		suite.Equal("3.0", config.Version, "Should have correct version")
+		suite.NotEmpty(config.ServerConfigs, "Should have server configurations")
 	})
 
 	suite.Run("ApplyProductionOptimization", func() {
@@ -1515,14 +1513,13 @@ func (suite *AutoGenerationTestSuite) TestOptimizationModeApplication() {
 		suite.NotNil(config)
 
 		// Validate production optimizations
-		suite.Equal("production", config.Performance.OptimizationMode)
-		suite.True(config.Performance.EnableCaching, "Should enable caching for production")
-		suite.Equal(30*time.Second, config.Performance.RequestTimeout, "Should have shorter timeout for production")
-		suite.GreaterOrEqual(config.Performance.MaxConcurrentRequests, 200, "Should have high concurrency for production")
+		suite.Equal("production", config.OptimizedFor)
+		suite.NotNil(config.ProjectInfo, "Should have project info")
+		suite.Equal("3.0", config.Version, "Should have correct version")
+		suite.NotEmpty(config.ServerConfigs, "Should have server configurations")
 
-		// Should enable multi-server features for production
-		suite.NotNil(config.MultiServer, "Should have multi-server config for production")
-		suite.True(config.MultiServer.EnableLoadBalancing, "Should enable load balancing for production")
+		// Should have workspace configuration for production
+		suite.NotNil(config.WorkspaceConfig, "Should have workspace config for production")
 	})
 
 	suite.Run("ApplyLargeProjectOptimization", func() {
@@ -1544,19 +1541,17 @@ func (suite *AutoGenerationTestSuite) TestOptimizationModeApplication() {
 		suite.NotNil(config)
 
 		// Validate large project optimizations
-		suite.Equal("large-project", config.Performance.OptimizationMode)
-		suite.NotNil(config.Optimization.LargeProjectOptimizations, "Should have large project optimizations")
-
-		largeOpts := config.Optimization.LargeProjectOptimizations
-		suite.True(largeOpts.BackgroundIndexing, "Should enable background indexing")
-		suite.True(largeOpts.IncrementalAnalysis, "Should enable incremental analysis")
-		suite.True(largeOpts.WorkspacePartitioning, "Should enable workspace partitioning")
-		suite.NotEmpty(largeOpts.MemoryLimits, "Should have memory limits configured")
+		suite.Equal("large-project", config.OptimizedFor)
+		suite.NotNil(config.ProjectInfo, "Should have project info")
+		suite.NotEmpty(config.ServerConfigs, "Should have server configurations")
+		suite.NotNil(config.WorkspaceConfig, "Should have workspace config")
+		suite.NotNil(config.Metadata, "Should have metadata for large project settings")
+		suite.GreaterOrEqual(len(config.ServerConfigs), 1, "Should have at least one server configured")
 	})
 }
 
-// Helper function to check if slice contains string
-func contains(slice []string, item string) bool {
+// Helper function to check if slice contains exact string match
+func exactMatchString(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
 			return true

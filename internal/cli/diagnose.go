@@ -187,7 +187,7 @@ func init() {
 	diagnoseCmd.PersistentFlags().BoolVar(&diagnoseOptimizationFlag, "optimization", false, "Enable optimization diagnostics")
 	diagnoseCmd.PersistentFlags().StringVar(&diagnoseProjectPath, "project-path", "", "Project path for multi-language diagnostics")
 	diagnoseCmd.PersistentFlags().BoolVar(&diagnoseCheckConsistency, "check-consistency", false, "Enable consistency checking")
-	diagnoseCmd.PersistentFlags().StringVar(&diagnosePerformanceMode, "performance-mode", "development", "Performance mode for diagnostics (development, production, analysis)")
+	diagnoseCmd.PersistentFlags().StringVar(&diagnosePerformanceMode, "performance-mode", config.PerformanceProfileDevelopment, "Performance mode for diagnostics (development, production, analysis)")
 	diagnoseCmd.PersistentFlags().BoolVar(&diagnoseComprehensive, "comprehensive", false, "Enable comprehensive diagnostics with scoring")
 	diagnoseCmd.PersistentFlags().BoolVar(&diagnoseTemplateValidation, "template-validation", false, "Enable template adherence validation")
 
@@ -693,7 +693,7 @@ func diagnoseConfig(cmd *cobra.Command, args []string) error {
 func runSystemDiagnostics(_ context.Context, report *DiagnosticReport) error {
 	systemResult := DiagnosticResult{
 		Name:      "System Environment",
-		Status:    "passed",
+		Status:    StatusPassed,
 		Message:   fmt.Sprintf("Successfully detected %s/%s environment", runtime.GOOS, runtime.GOARCH),
 		Timestamp: time.Now(),
 		Details: map[string]interface{}{
@@ -734,7 +734,7 @@ func runRuntimeDiagnostics(_ context.Context, report *DiagnosticReport) error {
 	if runtimeInstaller == nil {
 		report.Results = append(report.Results, DiagnosticResult{
 			Name:      "Runtime Detection",
-			Status:    "failed",
+			Status:    StatusFailed,
 			Message:   "Failed to create runtime installer",
 			Timestamp: time.Now(),
 		})
@@ -805,7 +805,7 @@ func runRuntimeDiagnostics(_ context.Context, report *DiagnosticReport) error {
 	if installedCount == 0 {
 		report.Results = append(report.Results, DiagnosticResult{
 			Name:      "Runtime Summary",
-			Status:    "failed",
+			Status:    StatusFailed,
 			Message:   "No runtimes are installed",
 			Timestamp: time.Now(),
 			Suggestions: []string{
@@ -817,7 +817,7 @@ func runRuntimeDiagnostics(_ context.Context, report *DiagnosticReport) error {
 	} else if compatibleCount < installedCount {
 		report.Results = append(report.Results, DiagnosticResult{
 			Name:      "Runtime Summary",
-			Status:    "warning",
+			Status:    StatusWarning,
 			Message:   fmt.Sprintf("%d/%d runtimes meet compatibility requirements", compatibleCount, installedCount),
 			Timestamp: time.Now(),
 			Suggestions: []string{
@@ -828,7 +828,7 @@ func runRuntimeDiagnostics(_ context.Context, report *DiagnosticReport) error {
 	} else {
 		report.Results = append(report.Results, DiagnosticResult{
 			Name:      "Runtime Summary",
-			Status:    "passed",
+			Status:    StatusPassed,
 			Message:   fmt.Sprintf("All %d installed runtimes are compatible", installedCount),
 			Timestamp: time.Now(),
 		})
@@ -844,7 +844,7 @@ func runServerDiagnostics(_ context.Context, report *DiagnosticReport) error {
 	if serverInstaller == nil {
 		report.Results = append(report.Results, DiagnosticResult{
 			Name:      "Server Detection",
-			Status:    "failed",
+			Status:    StatusFailed,
 			Message:   "Failed to create server installer",
 			Timestamp: time.Now(),
 		})
@@ -904,7 +904,7 @@ func runServerDiagnostics(_ context.Context, report *DiagnosticReport) error {
 	if installedCount == 0 {
 		report.Results = append(report.Results, DiagnosticResult{
 			Name:      "Server Summary",
-			Status:    "warning",
+			Status:    StatusWarning,
 			Message:   "No language servers are installed",
 			Timestamp: time.Now(),
 			Suggestions: []string{
@@ -915,7 +915,7 @@ func runServerDiagnostics(_ context.Context, report *DiagnosticReport) error {
 	} else {
 		report.Results = append(report.Results, DiagnosticResult{
 			Name:      "Server Summary",
-			Status:    "passed",
+			Status:    StatusPassed,
 			Message:   fmt.Sprintf("%d servers installed, %d working properly", installedCount, workingCount),
 			Timestamp: time.Now(),
 		})
@@ -981,17 +981,17 @@ func calculateSummary(report *DiagnosticReport) {
 			summary.Failed++
 		case StatusWarning:
 			summary.Warnings++
-		case "skipped":
+		case StatusSkipped:
 			summary.Skipped++
 		}
 	}
 
 	if summary.Failed > 0 {
-		summary.OverallStatus = "failed"
+		summary.OverallStatus = StatusFailed
 	} else if summary.Warnings > 0 {
 		summary.OverallStatus = StatusWarning
 	} else if summary.Passed > 0 {
-		summary.OverallStatus = "passed"
+		summary.OverallStatus = StatusPassed
 	} else {
 		summary.OverallStatus = "unknown"
 	}
@@ -1030,7 +1030,7 @@ func outputDiagnoseHuman(report *DiagnosticReport) error {
 
 	allSuggestions := []string{}
 	for _, result := range report.Results {
-		if result.Status == "failed" || result.Status == "warning" {
+		if result.Status == StatusFailed || result.Status == StatusWarning {
 			allSuggestions = append(allSuggestions, result.Suggestions...)
 		}
 	}
@@ -1216,13 +1216,13 @@ func outputConfigDiagnosticsHuman(results []DiagnosticResult) error {
 
 func getColoredStatus(status string) string {
 	switch status {
-	case "passed":
+	case StatusPassed:
 		return "✓ PASSED"
 	case StatusFailed:
 		return "✗ FAILED"
-	case "warning":
+	case StatusWarning:
 		return "⚠ WARNING"
-	case "skipped":
+	case StatusSkipped:
 		return "- SKIPPED"
 	default:
 		return strings.ToUpper(status)
@@ -1451,7 +1451,7 @@ func runTemplateValidationDiagnostics(ctx context.Context, report *DiagnosticRep
 	// Load current configuration
 	cfg, err := config.LoadConfig("config.yaml")
 	if err != nil {
-		result.Status = "failed"
+		result.Status = StatusFailed
 		result.Message = "Cannot load configuration for template validation"
 		result.Suggestions = []string{
 			"Ensure configuration file exists",
@@ -1475,12 +1475,12 @@ func runTemplateValidationDiagnostics(ctx context.Context, report *DiagnosticRep
 						templateIssues = append(templateIssues, fmt.Sprintf("Go server uses non-standard command: %s", server.Command))
 						templateSuggestions = append(templateSuggestions, "Consider using 'gopls' for Go language server")
 					}
-				case "python":
-					if server.Command != "python" || len(server.Args) == 0 || server.Args[0] != "-m" || server.Args[1] != "pylsp" {
+				case config.LANG_PYTHON:
+					if server.Command != config.LANG_PYTHON || len(server.Args) == 0 || server.Args[0] != "-m" || server.Args[1] != "pylsp" {
 						templateIssues = append(templateIssues, "Python server does not follow standard python-lsp-server template")
 						templateSuggestions = append(templateSuggestions, "Use 'python -m pylsp' for Python language server")
 					}
-				case "typescript", "javascript":
+				case config.LANG_TYPESCRIPT, "javascript":
 					if server.Command != "typescript-language-server" {
 						templateIssues = append(templateIssues, fmt.Sprintf("TypeScript server uses non-standard command: %s", server.Command))
 						templateSuggestions = append(templateSuggestions, "Consider using 'typescript-language-server' for TypeScript/JavaScript")
@@ -1504,11 +1504,11 @@ func runTemplateValidationDiagnostics(ctx context.Context, report *DiagnosticRep
 		result.Details["generator_available"] = generator != nil
 
 		if len(templateIssues) > 0 {
-			result.Status = "warning"
+			result.Status = StatusWarning
 			result.Message = fmt.Sprintf("Found %d template adherence issues", len(templateIssues))
 			result.Suggestions = templateSuggestions
 		} else {
-			result.Status = "passed"
+			result.Status = StatusPassed
 			result.Message = "Configuration adheres to standard language server templates"
 		}
 	}
@@ -1602,7 +1602,7 @@ func runMultiLanguageDiagnostics(ctx context.Context, report *DiagnosticReport) 
 	// Attempt to auto-generate multi-language config for analysis
 	multiLangConfig, err := config.AutoGenerateConfigFromPath(diagnoseProjectPath)
 	if err != nil {
-		result.Status = "failed"
+		result.Status = StatusFailed
 		result.Message = fmt.Sprintf("Failed to analyze multi-language project: %v", err)
 		result.Suggestions = []string{
 			"Ensure project path contains supported language files",
@@ -1612,7 +1612,7 @@ func runMultiLanguageDiagnostics(ctx context.Context, report *DiagnosticReport) 
 	} else {
 		// Validate multi-language configuration
 		if validationErr := multiLangConfig.Validate(); validationErr != nil {
-			result.Status = "warning"
+			result.Status = StatusWarning
 			result.Message = fmt.Sprintf("Multi-language configuration has issues: %v", validationErr)
 			result.Suggestions = []string{
 				"Review detected language configurations",
@@ -1620,7 +1620,7 @@ func runMultiLanguageDiagnostics(ctx context.Context, report *DiagnosticReport) 
 				"Verify language server compatibility",
 			}
 		} else {
-			result.Status = "passed"
+			result.Status = StatusPassed
 			result.Message = "Multi-language configuration is valid and consistent"
 		}
 
@@ -1650,8 +1650,8 @@ func runMultiLanguageDiagnostics(ctx context.Context, report *DiagnosticReport) 
 			}
 		}
 		if conflicts > 0 {
-			if result.Status == "passed" {
-				result.Status = "warning"
+			if result.Status == StatusPassed {
+				result.Status = StatusWarning
 			}
 			result.Message += fmt.Sprintf("; found %d language routing conflicts", conflicts)
 			result.Suggestions = append(result.Suggestions, "Consider smart routing to resolve language conflicts")
@@ -1662,8 +1662,8 @@ func runMultiLanguageDiagnostics(ctx context.Context, report *DiagnosticReport) 
 			gwConfig, convertErr := multiLangConfig.ToGatewayConfig()
 			if convertErr == nil {
 				if consistencyErr := gwConfig.ValidateConsistency(); consistencyErr != nil {
-					if result.Status == "passed" {
-						result.Status = "warning"
+					if result.Status == StatusPassed {
+						result.Status = StatusWarning
 					}
 					result.Message += fmt.Sprintf("; consistency issues: %v", consistencyErr)
 					result.Suggestions = append(result.Suggestions, "Review configuration consistency across languages")
@@ -1692,7 +1692,7 @@ func runPerformanceDiagnostics(ctx context.Context, report *DiagnosticReport) er
 	// Load and analyze configuration for performance
 	cfg, err := config.LoadConfig("config.yaml")
 	if err != nil {
-		result.Status = "failed"
+		result.Status = StatusFailed
 		result.Message = "Cannot load configuration for performance analysis"
 		result.Suggestions = []string{
 			"Ensure configuration file exists",
@@ -1725,7 +1725,7 @@ func runPerformanceDiagnostics(ctx context.Context, report *DiagnosticReport) er
 		} else {
 			// Mode-specific performance validation
 			switch diagnosePerformanceMode {
-			case "production":
+			case config.PerformanceProfileProduction:
 				if cfg.MaxConcurrentRequests < 100 {
 					performanceIssues = append(performanceIssues, "MaxConcurrentRequests too low for production")
 					performanceSuggestions = append(performanceSuggestions, "Increase MaxConcurrentRequests to 100-200 for production")
@@ -1734,17 +1734,17 @@ func runPerformanceDiagnostics(ctx context.Context, report *DiagnosticReport) er
 					performanceIssues = append(performanceIssues, "MaxConcurrentRequests may be too high for production stability")
 					performanceSuggestions = append(performanceSuggestions, "Consider reducing MaxConcurrentRequests for production stability")
 				}
-			case "development":
+			case config.PerformanceProfileDevelopment:
 				if cfg.MaxConcurrentRequests > 100 {
 					performanceIssues = append(performanceIssues, "MaxConcurrentRequests may be too high for development")
 					performanceSuggestions = append(performanceSuggestions, "Consider reducing MaxConcurrentRequests to 50-100 for development")
 				}
-			case "analysis":
+			case config.PerformanceProfileAnalysis:
 				if cfg.MaxConcurrentRequests > 50 {
 					performanceIssues = append(performanceIssues, "MaxConcurrentRequests may be too high for analysis workloads")
 					performanceSuggestions = append(performanceSuggestions, "Consider reducing MaxConcurrentRequests to 25-50 for analysis mode")
 				}
-				if cfg.Timeout == "30s" {
+				if cfg.Timeout == config.DEFAULT_TIMEOUT_30S {
 					performanceIssues = append(performanceIssues, "Timeout may be too short for analysis workloads")
 					performanceSuggestions = append(performanceSuggestions, "Consider increasing timeout to 60-120s for analysis mode")
 				}
@@ -1788,11 +1788,11 @@ func runPerformanceDiagnostics(ctx context.Context, report *DiagnosticReport) er
 		result.Details["current_max_concurrent"] = cfg.MaxConcurrentRequests
 
 		if len(performanceIssues) > 0 {
-			result.Status = "warning"
+			result.Status = StatusWarning
 			result.Message = fmt.Sprintf("Found %d performance optimization opportunities", len(performanceIssues))
 			result.Suggestions = performanceSuggestions
 		} else {
-			result.Status = "passed"
+			result.Status = StatusPassed
 			result.Message = fmt.Sprintf("Performance configuration is well-optimized for %s mode", diagnosePerformanceMode)
 		}
 	}
@@ -1808,194 +1808,21 @@ func runRoutingDiagnostics(ctx context.Context, report *DiagnosticReport) error 
 		Details:   make(map[string]interface{}),
 	}
 
-	// Load configuration and analyze routing
 	cfg, err := config.LoadConfig("config.yaml")
 	if err != nil {
-		result.Status = "failed"
-		result.Message = "Cannot load configuration for routing analysis"
-		result.Suggestions = []string{
-			"Ensure configuration file exists",
-			"Generate configuration: lsp-gateway config generate",
-		}
-	} else {
-		// Enhanced routing analysis
-		routingIssues := []string{}
-		routingSuggestions := []string{}
-
-		// Analyze traditional server configuration
-		languageCoverage := make(map[string][]string)
-		serversByLanguage := make(map[string][]*config.ServerConfig)
-		for i, server := range cfg.Servers {
-			for _, lang := range server.Languages {
-				languageCoverage[lang] = append(languageCoverage[lang], server.Name)
-				serversByLanguage[lang] = append(serversByLanguage[lang], &cfg.Servers[i])
-			}
-		}
-
-		result.Details["language_coverage"] = languageCoverage
-		result.Details["total_servers"] = len(cfg.Servers)
-		result.Details["enable_concurrent_servers"] = cfg.EnableConcurrentServers
-		result.Details["max_concurrent_servers_per_language"] = cfg.MaxConcurrentServersPerLanguage
-
-		// Check for routing conflicts in traditional configuration
-		traditionalConflicts := 0
-		for lang, servers := range languageCoverage {
-			if len(servers) > 1 {
-				traditionalConflicts++
-				if !cfg.EnableConcurrentServers {
-					routingIssues = append(routingIssues, fmt.Sprintf("Language %s has multiple servers but concurrent servers not enabled", lang))
-					routingSuggestions = append(routingSuggestions, "Enable concurrent servers or remove duplicate language assignments")
-				}
-			}
-		}
-
-		// Analyze language pool configuration (enhanced multi-server)
-		poolConflicts := 0
-		poolCoverage := make(map[string]string)
-		if len(cfg.LanguagePools) > 0 {
-			for _, pool := range cfg.LanguagePools {
-				if existingPool, exists := poolCoverage[pool.Language]; exists {
-					poolConflicts++
-					routingIssues = append(routingIssues, fmt.Sprintf("Duplicate language pool for %s (conflicts with %s)", pool.Language, existingPool))
-				} else {
-					poolCoverage[pool.Language] = pool.Language
-				}
-
-				// Validate pool's load balancing configuration
-				if pool.LoadBalancingConfig != nil {
-					// Basic validation for load balancing config
-					validStrategies := []string{"round_robin", "least_connections", "response_time", "resource_usage"}
-					strategyValid := false
-					for _, valid := range validStrategies {
-						if pool.LoadBalancingConfig.Strategy == valid {
-							strategyValid = true
-							break
-						}
-					}
-					if !strategyValid {
-						routingIssues = append(routingIssues, fmt.Sprintf("Invalid load balancing strategy for %s pool: %s", pool.Language, pool.LoadBalancingConfig.Strategy))
-						routingSuggestions = append(routingSuggestions, fmt.Sprintf("Use valid load balancing strategy for %s language pool (round_robin, least_connections, response_time, resource_usage)", pool.Language))
-					}
-					if pool.LoadBalancingConfig.HealthThreshold < 0 || pool.LoadBalancingConfig.HealthThreshold > 1 {
-						routingIssues = append(routingIssues, fmt.Sprintf("Invalid health threshold for %s pool: %f", pool.Language, pool.LoadBalancingConfig.HealthThreshold))
-						routingSuggestions = append(routingSuggestions, fmt.Sprintf("Set health threshold between 0 and 1 for %s language pool", pool.Language))
-					}
-				}
-
-				// Check server transport compatibility within pools
-				if len(pool.Servers) > 1 {
-					// Basic check for consistent transport configurations
-					var firstTransport string
-					inconsistentTransport := false
-					for _, server := range pool.Servers {
-						if server.Transport == "" {
-							server.Transport = "stdio" // default transport
-						}
-						if firstTransport == "" {
-							firstTransport = server.Transport
-						} else if firstTransport != server.Transport {
-							inconsistentTransport = true
-							break
-						}
-					}
-					if inconsistentTransport {
-						routingIssues = append(routingIssues, fmt.Sprintf("Inconsistent transport configurations in %s pool", pool.Language))
-						routingSuggestions = append(routingSuggestions, fmt.Sprintf("Use consistent transport configuration for all servers in %s language pool", pool.Language))
-					}
-				}
-			}
-
-			result.Details["language_pools"] = len(cfg.LanguagePools)
-			result.Details["pool_coverage"] = poolCoverage
-			result.Details["pool_conflicts"] = poolConflicts
-		}
-
-		// Check for conflicts between traditional servers and language pools
-		crossConfigConflicts := 0
-		if len(cfg.Servers) > 0 && len(cfg.LanguagePools) > 0 {
-			for lang := range languageCoverage {
-				if _, existsInPools := poolCoverage[lang]; existsInPools {
-					crossConfigConflicts++
-					routingIssues = append(routingIssues, fmt.Sprintf("Language %s configured in both servers and language pools", lang))
-				}
-			}
-
-			if crossConfigConflicts > 0 {
-				routingSuggestions = append(routingSuggestions, "Use either traditional servers OR language pools, not both")
-				routingSuggestions = append(routingSuggestions, "Migrate to language pools for enhanced multi-server capabilities")
-			}
-		}
-
-		// Analyze global multi-server configuration
-		if cfg.GlobalMultiServerConfig != nil {
-			// Basic validation for global multi-server config
-			if cfg.GlobalMultiServerConfig.ConcurrentLimit < 0 {
-				routingIssues = append(routingIssues, fmt.Sprintf("Invalid negative concurrent limit: %d", cfg.GlobalMultiServerConfig.ConcurrentLimit))
-				routingSuggestions = append(routingSuggestions, "Set positive concurrent limit in global multi-server configuration")
-			}
-			if cfg.GlobalMultiServerConfig.MaxRetries < 0 {
-				routingIssues = append(routingIssues, fmt.Sprintf("Invalid negative max retries: %d", cfg.GlobalMultiServerConfig.MaxRetries))
-				routingSuggestions = append(routingSuggestions, "Set positive max retries in global multi-server configuration")
-			}
-			validStrategies := []string{"performance", "feature", "load_balance", "random"}
-			strategyValid := false
-			for _, valid := range validStrategies {
-				if cfg.GlobalMultiServerConfig.SelectionStrategy == valid {
-					strategyValid = true
-					break
-				}
-			}
-			if !strategyValid && cfg.GlobalMultiServerConfig.SelectionStrategy != "" {
-				routingIssues = append(routingIssues, fmt.Sprintf("Invalid selection strategy: %s", cfg.GlobalMultiServerConfig.SelectionStrategy))
-				routingSuggestions = append(routingSuggestions, "Use valid selection strategy (performance, feature, load_balance, random)")
-			}
-
-			// Basic circular dependency check
-			if cfg.GlobalMultiServerConfig.Primary != nil && len(cfg.GlobalMultiServerConfig.Secondary) > 0 {
-				// Simple check to ensure primary server is not in secondary list
-				primaryName := cfg.GlobalMultiServerConfig.Primary.Name
-				for _, secondary := range cfg.GlobalMultiServerConfig.Secondary {
-					if secondary != nil && secondary.Name == primaryName {
-						routingIssues = append(routingIssues, fmt.Sprintf("Circular dependency: primary server %s also in secondary list", primaryName))
-						routingSuggestions = append(routingSuggestions, "Remove circular references in server configurations")
-					}
-				}
-			}
-
-			result.Details["global_multi_server_config"] = map[string]interface{}{
-				"selection_strategy":    cfg.GlobalMultiServerConfig.SelectionStrategy,
-				"concurrent_limit":      cfg.GlobalMultiServerConfig.ConcurrentLimit,
-				"health_check_interval": cfg.GlobalMultiServerConfig.HealthCheckInterval,
-				"max_retries":           cfg.GlobalMultiServerConfig.MaxRetries,
-			}
-		}
-
-		// Check consistency across all routing configurations
-		if diagnoseCheckConsistency {
-			if err := cfg.ValidateConsistency(); err != nil {
-				routingIssues = append(routingIssues, fmt.Sprintf("Configuration consistency issue: %v", err))
-				routingSuggestions = append(routingSuggestions, "Review and fix configuration consistency issues")
-			}
-		}
-
-		result.Details["routing_issues"] = routingIssues
-		result.Details["traditional_conflicts"] = traditionalConflicts
-		result.Details["cross_config_conflicts"] = crossConfigConflicts
-
-		totalIssues := len(routingIssues)
-		if totalIssues > 0 {
-			result.Status = "warning"
-			result.Message = fmt.Sprintf("Found %d routing configuration issues", totalIssues)
-			result.Suggestions = routingSuggestions
-		} else {
-			result.Status = "passed"
-			result.Message = "Smart routing configuration is optimal"
-			if cfg.EnableConcurrentServers {
-				result.Message += " with concurrent server support"
-			}
-		}
+		return routingDiagnosticsConfigError(&result, report, err)
 	}
 
+	routingIssues := []string{}
+	routingSuggestions := []string{}
+
+	languageCoverage, traditionalConflicts := analyzeTraditionalServerConfig(cfg, &result, &routingIssues, &routingSuggestions)
+	poolCoverage, poolConflicts := analyzeLanguagePoolConfig(cfg, &result, &routingIssues, &routingSuggestions)
+	crossConfigConflicts := analyzeCrossConfigConflicts(cfg, languageCoverage, poolCoverage, &routingIssues, &routingSuggestions)
+	analyzeGlobalMultiServerConfig(cfg, &result, &routingIssues, &routingSuggestions)
+	checkConsistencyValidation(cfg, &routingIssues, &routingSuggestions)
+
+	finalizeRoutingDiagnostics(&result, routingIssues, routingSuggestions, traditionalConflicts, poolConflicts, crossConfigConflicts, cfg)
 	report.Results = append(report.Results, result)
 	return nil
 }
@@ -2010,7 +1837,7 @@ func runResourceLimitDiagnostics(ctx context.Context, report *DiagnosticReport) 
 	// Load configuration and analyze resource requirements
 	cfg, err := config.LoadConfig("config.yaml")
 	if err != nil {
-		result.Status = "failed"
+		result.Status = StatusFailed
 		result.Message = "Cannot load configuration for resource analysis"
 	} else {
 		// Estimate resource requirements
@@ -2024,7 +1851,7 @@ func runResourceLimitDiagnostics(ctx context.Context, report *DiagnosticReport) 
 		result.Details["max_concurrent_requests"] = cfg.MaxConcurrentRequests
 
 		if estimatedMemoryMB > 2000 {
-			result.Status = "warning"
+			result.Status = StatusWarning
 			result.Message = fmt.Sprintf("High estimated memory usage: %dMB", estimatedMemoryMB)
 			result.Suggestions = []string{
 				"Ensure system has sufficient memory",
@@ -2032,7 +1859,7 @@ func runResourceLimitDiagnostics(ctx context.Context, report *DiagnosticReport) 
 				"Monitor actual memory usage in production",
 			}
 		} else {
-			result.Status = "passed"
+			result.Status = StatusPassed
 			result.Message = fmt.Sprintf("Resource requirements look reasonable: ~%dMB", estimatedMemoryMB)
 		}
 	}
@@ -2053,7 +1880,7 @@ func runOptimizationDiagnostics(ctx context.Context, report *DiagnosticReport) e
 	// Load configuration and analyze optimization potential
 	cfg, err := config.LoadConfig("config.yaml")
 	if err != nil {
-		result.Status = "failed"
+		result.Status = StatusFailed
 		result.Message = "Cannot load configuration for optimization analysis"
 	} else {
 		// Analyze current settings vs optimal settings for the performance mode
@@ -2062,19 +1889,19 @@ func runOptimizationDiagnostics(ctx context.Context, report *DiagnosticReport) e
 
 		// Check optimization based on performance mode
 		switch diagnosePerformanceMode {
-		case "production":
+		case config.PerformanceProfileProduction:
 			if cfg.MaxConcurrentRequests < 100 {
 				optimizationIssues = append(optimizationIssues, "MaxConcurrentRequests too low for production")
 				optimizationSuggestions = append(optimizationSuggestions, "Increase MaxConcurrentRequests to 100-200 for production")
 			}
-		case "development":
+		case config.PerformanceProfileDevelopment:
 			if cfg.MaxConcurrentRequests > 100 {
 				optimizationIssues = append(optimizationIssues, "MaxConcurrentRequests may be too high for development")
 				optimizationSuggestions = append(optimizationSuggestions, "Consider reducing MaxConcurrentRequests to 50-100 for development")
 			}
-		case "analysis":
+		case config.PerformanceProfileAnalysis:
 			// Analysis mode might need different timeout settings
-			if cfg.Timeout == "30s" {
+			if cfg.Timeout == config.DEFAULT_TIMEOUT_30S {
 				optimizationIssues = append(optimizationIssues, "Timeout may be too short for analysis workloads")
 				optimizationSuggestions = append(optimizationSuggestions, "Consider increasing timeout to 60-120s for analysis mode")
 			}
@@ -2085,11 +1912,11 @@ func runOptimizationDiagnostics(ctx context.Context, report *DiagnosticReport) e
 		result.Details["current_timeout"] = cfg.Timeout
 
 		if len(optimizationIssues) > 0 {
-			result.Status = "warning"
+			result.Status = StatusWarning
 			result.Message = fmt.Sprintf("Found %d optimization opportunities", len(optimizationIssues))
 			result.Suggestions = optimizationSuggestions
 		} else {
-			result.Status = "passed"
+			result.Status = StatusPassed
 			result.Message = fmt.Sprintf("Configuration is well-optimized for %s mode", diagnosePerformanceMode)
 		}
 	}
@@ -2134,7 +1961,7 @@ func addEnhancedDiagnosticSummary(report *DiagnosticReport) {
 	enhancedResult.Details["performance_mode"] = diagnosePerformanceMode
 	enhancedResult.Details["consistency_checking"] = diagnoseCheckConsistency
 	enhancedResult.Details["comprehensive_mode"] = diagnoseComprehensive
-	enhancedResult.Status = "passed"
+	enhancedResult.Status = StatusPassed
 	enhancedResult.Message = fmt.Sprintf("Enhanced diagnostics completed with %d additional features", len(enhancedFeatures))
 
 	report.Results = append(report.Results, enhancedResult)
@@ -2148,161 +1975,431 @@ func addComprehensiveDiagnosticScoring(report *DiagnosticReport) {
 		Details:   make(map[string]interface{}),
 	}
 
-	// Calculate individual scores
+	totalResults := len(report.Results)
+	if totalResults == 0 {
+		report.Results = append(report.Results, scoringResult)
+		return
+	}
+
+	scoring := calculateAllScores(report)
+	normalizeScores(&scoring)
+	overallScore, grade := calculateOverallScoreAndGrade(scoring)
+	updateReportWithScoring(report, scoring, overallScore, grade)
+	createScoringResult(&scoringResult, scoring, overallScore, grade, report.Summary)
+	report.Results = append(report.Results, scoringResult)
+}
+
+// Helper functions for runRoutingDiagnostics
+
+func routingDiagnosticsConfigError(result *DiagnosticResult, report *DiagnosticReport, err error) error {
+	result.Status = StatusFailed
+	result.Message = "Cannot load configuration for routing analysis"
+	result.Suggestions = []string{
+		"Ensure configuration file exists",
+		"Generate configuration: lsp-gateway config generate",
+	}
+	report.Results = append(report.Results, *result)
+	return nil
+}
+
+func analyzeTraditionalServerConfig(cfg *config.GatewayConfig, result *DiagnosticResult, routingIssues *[]string, routingSuggestions *[]string) (map[string][]string, int) {
+	languageCoverage := make(map[string][]string)
+	serversByLanguage := make(map[string][]*config.ServerConfig)
+	for i, server := range cfg.Servers {
+		for _, lang := range server.Languages {
+			languageCoverage[lang] = append(languageCoverage[lang], server.Name)
+			serversByLanguage[lang] = append(serversByLanguage[lang], &cfg.Servers[i])
+		}
+	}
+
+	result.Details["language_coverage"] = languageCoverage
+	result.Details["total_servers"] = len(cfg.Servers)
+	result.Details["enable_concurrent_servers"] = cfg.EnableConcurrentServers
+	result.Details["max_concurrent_servers_per_language"] = cfg.MaxConcurrentServersPerLanguage
+
+	traditionalConflicts := 0
+	for lang, servers := range languageCoverage {
+		if len(servers) > 1 {
+			traditionalConflicts++
+			if !cfg.EnableConcurrentServers {
+				*routingIssues = append(*routingIssues, fmt.Sprintf("Language %s has multiple servers but concurrent servers not enabled", lang))
+				*routingSuggestions = append(*routingSuggestions, "Enable concurrent servers or remove duplicate language assignments")
+			}
+		}
+	}
+
+	return languageCoverage, traditionalConflicts
+}
+
+func analyzeLanguagePoolConfig(cfg *config.GatewayConfig, result *DiagnosticResult, routingIssues *[]string, routingSuggestions *[]string) (map[string]string, int) {
+	poolConflicts := 0
+	poolCoverage := make(map[string]string)
+	if len(cfg.LanguagePools) == 0 {
+		return poolCoverage, poolConflicts
+	}
+
+	for _, pool := range cfg.LanguagePools {
+		if existingPool, exists := poolCoverage[pool.Language]; exists {
+			poolConflicts++
+			*routingIssues = append(*routingIssues, fmt.Sprintf("Duplicate language pool for %s (conflicts with %s)", pool.Language, existingPool))
+		} else {
+			poolCoverage[pool.Language] = pool.Language
+		}
+
+		validateLoadBalancingConfig(pool, routingIssues, routingSuggestions)
+		checkTransportCompatibility(pool, routingIssues, routingSuggestions)
+	}
+
+	result.Details["language_pools"] = len(cfg.LanguagePools)
+	result.Details["pool_coverage"] = poolCoverage
+	result.Details["pool_conflicts"] = poolConflicts
+	return poolCoverage, poolConflicts
+}
+
+func validateLoadBalancingConfig(pool config.LanguageServerPool, routingIssues *[]string, routingSuggestions *[]string) {
+	if pool.LoadBalancingConfig == nil {
+		return
+	}
+
+	validStrategies := []string{"round_robin", "least_connections", "response_time", "resource_usage"}
+	strategyValid := false
+	for _, valid := range validStrategies {
+		if pool.LoadBalancingConfig.Strategy == valid {
+			strategyValid = true
+			break
+		}
+	}
+	if !strategyValid {
+		*routingIssues = append(*routingIssues, fmt.Sprintf("Invalid load balancing strategy for %s pool: %s", pool.Language, pool.LoadBalancingConfig.Strategy))
+		*routingSuggestions = append(*routingSuggestions, fmt.Sprintf("Use valid load balancing strategy for %s language pool (round_robin, least_connections, response_time, resource_usage)", pool.Language))
+	}
+
+	if pool.LoadBalancingConfig.HealthThreshold < 0 || pool.LoadBalancingConfig.HealthThreshold > 1 {
+		*routingIssues = append(*routingIssues, fmt.Sprintf("Invalid health threshold for %s pool: %f", pool.Language, pool.LoadBalancingConfig.HealthThreshold))
+		*routingSuggestions = append(*routingSuggestions, fmt.Sprintf("Set health threshold between 0 and 1 for %s language pool", pool.Language))
+	}
+}
+
+func checkTransportCompatibility(pool config.LanguageServerPool, routingIssues *[]string, routingSuggestions *[]string) {
+	if len(pool.Servers) <= 1 {
+		return
+	}
+
+	var firstTransport string
+	inconsistentTransport := false
+	for _, server := range pool.Servers {
+		if server.Transport == "" {
+			server.Transport = "stdio"
+		}
+		if firstTransport == "" {
+			firstTransport = server.Transport
+		} else if firstTransport != server.Transport {
+			inconsistentTransport = true
+			break
+		}
+	}
+
+	if inconsistentTransport {
+		*routingIssues = append(*routingIssues, fmt.Sprintf("Inconsistent transport configurations in %s pool", pool.Language))
+		*routingSuggestions = append(*routingSuggestions, fmt.Sprintf("Use consistent transport configuration for all servers in %s language pool", pool.Language))
+	}
+}
+
+func analyzeCrossConfigConflicts(cfg *config.GatewayConfig, languageCoverage map[string][]string, poolCoverage map[string]string, routingIssues *[]string, routingSuggestions *[]string) int {
+	crossConfigConflicts := 0
+	if len(cfg.Servers) == 0 || len(cfg.LanguagePools) == 0 {
+		return crossConfigConflicts
+	}
+
+	for lang := range languageCoverage {
+		if _, existsInPools := poolCoverage[lang]; existsInPools {
+			crossConfigConflicts++
+			*routingIssues = append(*routingIssues, fmt.Sprintf("Language %s configured in both servers and language pools", lang))
+		}
+	}
+
+	if crossConfigConflicts > 0 {
+		*routingSuggestions = append(*routingSuggestions, "Use either traditional servers OR language pools, not both")
+		*routingSuggestions = append(*routingSuggestions, "Migrate to language pools for enhanced multi-server capabilities")
+	}
+
+	return crossConfigConflicts
+}
+
+func analyzeGlobalMultiServerConfig(cfg *config.GatewayConfig, result *DiagnosticResult, routingIssues *[]string, routingSuggestions *[]string) {
+	if cfg.GlobalMultiServerConfig == nil {
+		return
+	}
+
+	if cfg.GlobalMultiServerConfig.ConcurrentLimit < 0 {
+		*routingIssues = append(*routingIssues, fmt.Sprintf("Invalid negative concurrent limit: %d", cfg.GlobalMultiServerConfig.ConcurrentLimit))
+		*routingSuggestions = append(*routingSuggestions, "Set positive concurrent limit in global multi-server configuration")
+	}
+
+	if cfg.GlobalMultiServerConfig.MaxRetries < 0 {
+		*routingIssues = append(*routingIssues, fmt.Sprintf("Invalid negative max retries: %d", cfg.GlobalMultiServerConfig.MaxRetries))
+		*routingSuggestions = append(*routingSuggestions, "Set positive max retries in global multi-server configuration")
+	}
+
+	validateGlobalSelectionStrategy(cfg.GlobalMultiServerConfig, routingIssues, routingSuggestions)
+	checkCircularDependencies(cfg.GlobalMultiServerConfig, routingIssues, routingSuggestions)
+
+	result.Details["global_multi_server_config"] = map[string]interface{}{
+		"selection_strategy":    cfg.GlobalMultiServerConfig.SelectionStrategy,
+		"concurrent_limit":      cfg.GlobalMultiServerConfig.ConcurrentLimit,
+		"health_check_interval": cfg.GlobalMultiServerConfig.HealthCheckInterval,
+		"max_retries":           cfg.GlobalMultiServerConfig.MaxRetries,
+	}
+}
+
+func validateGlobalSelectionStrategy(globalConfig *config.MultiServerConfig, routingIssues *[]string, routingSuggestions *[]string) {
+	validStrategies := []string{"performance", "feature", "load_balance", "random"}
+	strategyValid := false
+	for _, valid := range validStrategies {
+		if globalConfig.SelectionStrategy == valid {
+			strategyValid = true
+			break
+		}
+	}
+
+	if !strategyValid && globalConfig.SelectionStrategy != "" {
+		*routingIssues = append(*routingIssues, fmt.Sprintf("Invalid selection strategy: %s", globalConfig.SelectionStrategy))
+		*routingSuggestions = append(*routingSuggestions, "Use valid selection strategy (performance, feature, load_balance, random)")
+	}
+}
+
+func checkCircularDependencies(globalConfig *config.MultiServerConfig, routingIssues *[]string, routingSuggestions *[]string) {
+	if globalConfig.Primary == nil || len(globalConfig.Secondary) == 0 {
+		return
+	}
+
+	primaryName := globalConfig.Primary.Name
+	for _, secondary := range globalConfig.Secondary {
+		if secondary != nil && secondary.Name == primaryName {
+			*routingIssues = append(*routingIssues, fmt.Sprintf("Circular dependency: primary server %s also in secondary list", primaryName))
+			*routingSuggestions = append(*routingSuggestions, "Remove circular references in server configurations")
+		}
+	}
+}
+
+func checkConsistencyValidation(cfg *config.GatewayConfig, routingIssues *[]string, routingSuggestions *[]string) {
+	if !diagnoseCheckConsistency {
+		return
+	}
+
+	if err := cfg.ValidateConsistency(); err != nil {
+		*routingIssues = append(*routingIssues, fmt.Sprintf("Configuration consistency issue: %v", err))
+		*routingSuggestions = append(*routingSuggestions, "Review and fix configuration consistency issues")
+	}
+}
+
+func finalizeRoutingDiagnostics(result *DiagnosticResult, routingIssues []string, routingSuggestions []string, traditionalConflicts int, poolConflicts int, crossConfigConflicts int, cfg *config.GatewayConfig) {
+	result.Details["routing_issues"] = routingIssues
+	result.Details["traditional_conflicts"] = traditionalConflicts
+	result.Details["pool_conflicts"] = poolConflicts
+	result.Details["cross_config_conflicts"] = crossConfigConflicts
+
+	totalIssues := len(routingIssues)
+	if totalIssues > 0 {
+		result.Status = StatusWarning
+		result.Message = fmt.Sprintf("Found %d routing configuration issues", totalIssues)
+		result.Suggestions = routingSuggestions
+		return
+	}
+
+	result.Status = StatusPassed
+	result.Message = "Smart routing configuration is optimal"
+	if cfg.EnableConcurrentServers {
+		result.Message += " with concurrent server support"
+	}
+}
+
+// Helper functions for addComprehensiveDiagnosticScoring
+
+func calculateAllScores(report *DiagnosticReport) DiagnosticScoring {
 	scoring := DiagnosticScoring{}
+	scoring.ConfigurationHealth = calculateConfigurationHealth(report)
+	scoring.PerformanceRating = calculatePerformanceRating(report, scoring.ConfigurationHealth)
+	scoring.ConsistencyScore = calculateConsistencyScore(report, scoring.ConfigurationHealth)
+	scoring.OptimizationLevel = calculateOptimizationLevel()
+	scoring.MultiLanguageHealth = calculateMultiLanguageHealth(report, scoring.ConfigurationHealth)
+	scoring.RoutingEfficiency = calculateRoutingEfficiency(report, scoring.ConfigurationHealth)
+	return scoring
+}
+
+func calculateConfigurationHealth(report *DiagnosticReport) float64 {
 	totalResults := len(report.Results)
 	passedResults := report.Summary.Passed
 	failedResults := report.Summary.Failed
 	warningResults := report.Summary.Warnings
 
-	if totalResults > 0 {
-		// Configuration health (0-100)
-		scoring.ConfigurationHealth = float64(passedResults) / float64(totalResults) * 100
-		if failedResults > 0 {
-			scoring.ConfigurationHealth -= float64(failedResults) * 10 // Penalty for failures
-		}
-		if warningResults > 0 {
-			scoring.ConfigurationHealth -= float64(warningResults) * 5 // Penalty for warnings
-		}
+	configHealth := float64(passedResults) / float64(totalResults) * 100
+	if failedResults > 0 {
+		configHealth -= float64(failedResults) * 10
+	}
+	if warningResults > 0 {
+		configHealth -= float64(warningResults) * 5
+	}
+	return configHealth
+}
 
-		// Performance rating based on optimization and resource efficiency
-		scoring.PerformanceRating = scoring.ConfigurationHealth
-		if diagnosePerformance {
-			// Boost score if performance diagnostics were run and passed
-			for _, result := range report.Results {
-				if result.Name == "Performance Configuration" && result.Status == "passed" {
-					scoring.PerformanceRating += 10
-				}
-			}
-		}
-
-		// Consistency score based on multi-language and routing validation
-		scoring.ConsistencyScore = scoring.ConfigurationHealth
-		if diagnoseCheckConsistency {
-			for _, result := range report.Results {
-				if strings.Contains(result.Name, "Multi-language") && result.Status == "passed" {
-					scoring.ConsistencyScore += 15
-				}
-				if strings.Contains(result.Name, "Routing") && result.Status == "passed" {
-					scoring.ConsistencyScore += 10
-				}
-			}
-		}
-
-		// Optimization level based on current mode and settings
-		scoring.OptimizationLevel = 50.0 // Base level
-		switch diagnosePerformanceMode {
-		case "production":
-			scoring.OptimizationLevel = 85.0
-		case "analysis":
-			scoring.OptimizationLevel = 95.0
-		case "development":
-			scoring.OptimizationLevel = 70.0
-		}
-
-		// Multi-language health
-		scoring.MultiLanguageHealth = scoring.ConfigurationHealth
-		if diagnoseMultiLanguage {
-			for _, result := range report.Results {
-				if result.Name == "Multi-language Configuration" {
-					if result.Status == "passed" {
-						scoring.MultiLanguageHealth += 20
-					} else if result.Status == "warning" {
-						scoring.MultiLanguageHealth += 5
-					}
-				}
-			}
-		}
-
-		// Routing efficiency
-		scoring.RoutingEfficiency = scoring.ConfigurationHealth
-		if diagnoseRouting {
-			for _, result := range report.Results {
-				if result.Name == "Smart Routing Configuration" {
-					if result.Status == "passed" {
-						scoring.RoutingEfficiency += 25
-					} else if result.Status == "warning" {
-						scoring.RoutingEfficiency += 10
-					}
-				}
-			}
-		}
-
-		// Ensure scores don't exceed 100
-		if scoring.ConfigurationHealth > 100 {
-			scoring.ConfigurationHealth = 100
-		}
-		if scoring.PerformanceRating > 100 {
-			scoring.PerformanceRating = 100
-		}
-		if scoring.ConsistencyScore > 100 {
-			scoring.ConsistencyScore = 100
-		}
-		if scoring.OptimizationLevel > 100 {
-			scoring.OptimizationLevel = 100
-		}
-		if scoring.MultiLanguageHealth > 100 {
-			scoring.MultiLanguageHealth = 100
-		}
-		if scoring.RoutingEfficiency > 100 {
-			scoring.RoutingEfficiency = 100
-		}
-
-		// Calculate overall score as weighted average
-		overallScore := (scoring.ConfigurationHealth*0.3 + scoring.PerformanceRating*0.2 +
-			scoring.ConsistencyScore*0.2 + scoring.OptimizationLevel*0.15 +
-			scoring.MultiLanguageHealth*0.1 + scoring.RoutingEfficiency*0.05)
-
-		// Determine grade
-		var grade string
-		switch {
-		case overallScore >= 90:
-			grade = "A"
-		case overallScore >= 80:
-			grade = "B"
-		case overallScore >= 70:
-			grade = "C"
-		case overallScore >= 60:
-			grade = "D"
-		default:
-			grade = "F"
-		}
-
-		// Update report summary with scoring
-		report.Summary.Score = overallScore
-		report.Summary.Grade = grade
-
-		// Add scoring details
-		scoringResult.Details["scoring"] = scoring
-		scoringResult.Details["overall_score"] = overallScore
-		scoringResult.Details["grade"] = grade
-		scoringResult.Details["total_results"] = totalResults
-		scoringResult.Details["passed_results"] = passedResults
-		scoringResult.Details["failed_results"] = failedResults
-		scoringResult.Details["warning_results"] = warningResults
-
-		if overallScore >= 80 {
-			scoringResult.Status = "passed"
-			scoringResult.Message = fmt.Sprintf("Excellent configuration health with score %.1f (%s grade)", overallScore, grade)
-		} else if overallScore >= 60 {
-			scoringResult.Status = "warning"
-			scoringResult.Message = fmt.Sprintf("Configuration needs improvement with score %.1f (%s grade)", overallScore, grade)
-			scoringResult.Suggestions = []string{
-				"Review failed and warning diagnostic results",
-				"Consider running optimization diagnostics",
-				"Enable comprehensive consistency checking",
-			}
-		} else {
-			scoringResult.Status = "failed"
-			scoringResult.Message = fmt.Sprintf("Configuration requires immediate attention with score %.1f (%s grade)", overallScore, grade)
-			scoringResult.Suggestions = []string{
-				"Address all failed diagnostic results immediately",
-				"Run comprehensive diagnostics to identify issues",
-				"Consider regenerating configuration from scratch",
-				"Review project structure and language server setup",
+func calculatePerformanceRating(report *DiagnosticReport, baseHealth float64) float64 {
+	performanceRating := baseHealth
+	if diagnosePerformance {
+		for _, result := range report.Results {
+			if result.Name == "Performance Configuration" && result.Status == StatusPassed {
+				performanceRating += 10
+				break
 			}
 		}
 	}
+	return performanceRating
+}
 
-	report.Results = append(report.Results, scoringResult)
+func calculateConsistencyScore(report *DiagnosticReport, baseHealth float64) float64 {
+	consistencyScore := baseHealth
+	if !diagnoseCheckConsistency {
+		return consistencyScore
+	}
+
+	for _, result := range report.Results {
+		if strings.Contains(result.Name, "Multi-language") && result.Status == StatusPassed {
+			consistencyScore += 15
+		}
+		if strings.Contains(result.Name, "Routing") && result.Status == StatusPassed {
+			consistencyScore += 10
+		}
+	}
+	return consistencyScore
+}
+
+func calculateOptimizationLevel() float64 {
+	switch diagnosePerformanceMode {
+	case config.PerformanceProfileProduction:
+		return 85.0
+	case config.PerformanceProfileAnalysis:
+		return 95.0
+	case config.PerformanceProfileDevelopment:
+		return 70.0
+	default:
+		return 50.0
+	}
+}
+
+func calculateMultiLanguageHealth(report *DiagnosticReport, baseHealth float64) float64 {
+	multiLangHealth := baseHealth
+	if !diagnoseMultiLanguage {
+		return multiLangHealth
+	}
+
+	for _, result := range report.Results {
+		if result.Name == "Multi-language Configuration" {
+			if result.Status == StatusPassed {
+				multiLangHealth += 20
+			} else if result.Status == StatusWarning {
+				multiLangHealth += 5
+			}
+			break
+		}
+	}
+	return multiLangHealth
+}
+
+func calculateRoutingEfficiency(report *DiagnosticReport, baseHealth float64) float64 {
+	routingEfficiency := baseHealth
+	if !diagnoseRouting {
+		return routingEfficiency
+	}
+
+	for _, result := range report.Results {
+		if result.Name == "Smart Routing Configuration" {
+			if result.Status == StatusPassed {
+				routingEfficiency += 25
+			} else if result.Status == StatusWarning {
+				routingEfficiency += 10
+			}
+			break
+		}
+	}
+	return routingEfficiency
+}
+
+func normalizeScores(scoring *DiagnosticScoring) {
+	if scoring.ConfigurationHealth > 100 {
+		scoring.ConfigurationHealth = 100
+	}
+	if scoring.PerformanceRating > 100 {
+		scoring.PerformanceRating = 100
+	}
+	if scoring.ConsistencyScore > 100 {
+		scoring.ConsistencyScore = 100
+	}
+	if scoring.OptimizationLevel > 100 {
+		scoring.OptimizationLevel = 100
+	}
+	if scoring.MultiLanguageHealth > 100 {
+		scoring.MultiLanguageHealth = 100
+	}
+	if scoring.RoutingEfficiency > 100 {
+		scoring.RoutingEfficiency = 100
+	}
+}
+
+func calculateOverallScoreAndGrade(scoring DiagnosticScoring) (float64, string) {
+	overallScore := (scoring.ConfigurationHealth*0.3 + scoring.PerformanceRating*0.2 +
+		scoring.ConsistencyScore*0.2 + scoring.OptimizationLevel*0.15 +
+		scoring.MultiLanguageHealth*0.1 + scoring.RoutingEfficiency*0.05)
+
+	var grade string
+	switch {
+	case overallScore >= 90:
+		grade = "A"
+	case overallScore >= 80:
+		grade = "B"
+	case overallScore >= 70:
+		grade = "C"
+	case overallScore >= 60:
+		grade = "D"
+	default:
+		grade = "F"
+	}
+
+	return overallScore, grade
+}
+
+func updateReportWithScoring(report *DiagnosticReport, scoring DiagnosticScoring, overallScore float64, grade string) {
+	report.Summary.Score = overallScore
+	report.Summary.Grade = grade
+}
+
+func createScoringResult(scoringResult *DiagnosticResult, scoring DiagnosticScoring, overallScore float64, grade string, summary DiagnosticSummary) {
+	scoringResult.Details["scoring"] = scoring
+	scoringResult.Details["overall_score"] = overallScore
+	scoringResult.Details["grade"] = grade
+	scoringResult.Details["total_results"] = summary.TotalChecks
+	scoringResult.Details["passed_results"] = summary.Passed
+	scoringResult.Details["failed_results"] = summary.Failed
+	scoringResult.Details["warning_results"] = summary.Warnings
+
+	if overallScore >= 80 {
+		scoringResult.Status = StatusPassed
+		scoringResult.Message = fmt.Sprintf("Excellent configuration health with score %.1f (%s grade)", overallScore, grade)
+	} else if overallScore >= 60 {
+		scoringResult.Status = StatusWarning
+		scoringResult.Message = fmt.Sprintf("Configuration needs improvement with score %.1f (%s grade)", overallScore, grade)
+		scoringResult.Suggestions = []string{
+			"Review failed and warning diagnostic results",
+			"Consider running optimization diagnostics",
+			"Enable comprehensive consistency checking",
+		}
+	} else {
+		scoringResult.Status = StatusFailed
+		scoringResult.Message = fmt.Sprintf("Configuration requires immediate attention with score %.1f (%s grade)", overallScore, grade)
+		scoringResult.Suggestions = []string{
+			"Address all failed diagnostic results immediately",
+			"Run comprehensive diagnostics to identify issues",
+			"Consider regenerating configuration from scratch",
+			"Review project structure and language server setup",
+		}
+	}
 }

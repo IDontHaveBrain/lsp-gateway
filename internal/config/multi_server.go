@@ -297,10 +297,14 @@ func (c *GatewayConfig) MigrateServersToPool() error {
 	for _, server := range c.Servers {
 		for _, language := range server.Languages {
 			if pool, exists := languageMap[language]; exists {
-				pool.AddServerToPool(&server)
+				if err := pool.AddServerToPool(&server); err != nil {
+					return fmt.Errorf("failed to add server %s to existing pool for language %s: %w", server.Name, language, err)
+				}
 			} else {
 				pool := CreateLanguageServerPool(language)
-				pool.AddServerToPool(&server)
+				if err := pool.AddServerToPool(&server); err != nil {
+					return fmt.Errorf("failed to add server %s to new pool for language %s: %w", server.Name, language, err)
+				}
 				languageMap[language] = pool
 			}
 		}

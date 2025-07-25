@@ -47,7 +47,6 @@ type ServerSelector interface {
 type RoundRobinSelector struct {
 	name         string
 	currentIndex int64
-	mu           sync.RWMutex
 }
 
 // NewRoundRobinSelector creates a new round-robin selector
@@ -727,7 +726,6 @@ type MultiServerSelector struct {
 	primaryStrategy    ServerSelector
 	fallbackStrategies []ServerSelector
 	affinityRules      map[string]string // request type -> preferred server
-	mu                 sync.RWMutex
 }
 
 // NewMultiServerSelector creates a new multi-server selector
@@ -836,7 +834,6 @@ type HealthAwareSelector struct {
 	baseSelector      ServerSelector
 	healthThreshold   float64
 	maxUnhealthyRatio float64
-	mu                sync.RWMutex
 }
 
 // NewHealthAwareSelector creates a new health-aware selector

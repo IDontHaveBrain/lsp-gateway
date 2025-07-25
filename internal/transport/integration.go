@@ -9,11 +9,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Global pool manager registry for tracking active pools
-var (
-	poolRegistry = make(map[string]PoolManager)
-	registryMu   sync.RWMutex
-)
 
 // PoolManagerRegistry provides centralized management of pool managers
 type PoolManagerRegistry struct {

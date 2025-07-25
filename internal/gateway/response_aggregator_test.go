@@ -505,7 +505,7 @@ func TestErrorHandling(t *testing.T) {
 	responses := []interface{}{nil, nil}
 	sources := []string{"server1", "server2"}
 
-	result, err := registry.AggregateResponses(LSP_METHOD_DEFINITION, responses, sources)
+	_, err := registry.AggregateResponses(LSP_METHOD_DEFINITION, responses, sources)
 	if err == nil {
 		t.Error("Expected error when all responses are nil")
 	}
@@ -514,7 +514,7 @@ func TestErrorHandling(t *testing.T) {
 	responses = []interface{}{"some response"}
 	sources = []string{"server1"}
 
-	result, err = registry.AggregateResponses("unsupported/method", responses, sources)
+	result, err := registry.AggregateResponses("unsupported/method", responses, sources)
 	if err != nil {
 		t.Fatalf("Basic aggregation should not fail: %v", err)
 	}

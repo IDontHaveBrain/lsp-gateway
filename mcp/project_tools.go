@@ -885,11 +885,11 @@ func (h *ProjectToolsHandler) getEssentialFiles(projectType string) []string {
 	switch projectType {
 	case "go":
 		return []string{"go.mod"}
-	case "python":
+	case LANG_PYTHON:
 		return []string{"setup.py", "pyproject.toml", "requirements.txt"}
-	case "javascript", "typescript":
+	case LANG_JAVASCRIPT, LANG_TYPESCRIPT:
 		return []string{"package.json"}
-	case "java":
+	case LANG_JAVA:
 		return []string{"pom.xml", "build.gradle"}
 	default:
 		return []string{}
@@ -900,11 +900,11 @@ func (h *ProjectToolsHandler) getLockFiles(projectType string) []string {
 	switch projectType {
 	case "go":
 		return []string{"go.sum"}
-	case "python":
+	case LANG_PYTHON:
 		return []string{"requirements.lock", "poetry.lock"}
-	case "javascript", "typescript":
+	case LANG_JAVASCRIPT, LANG_TYPESCRIPT:
 		return []string{"package-lock.json", "yarn.lock", "pnpm-lock.yaml"}
-	case "java":
+	case LANG_JAVA:
 		return []string{"gradle.lockfile"}
 	default:
 		return []string{}

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -10,6 +9,7 @@ import (
 
 	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/gateway"
+	"lsp-gateway/mcp"
 )
 
 func main() {
@@ -71,7 +71,7 @@ func testProjectLanguageDetection(logger *log.Logger) error {
 	}
 
 	// Verify results
-	expectedLanguages := []string{"go", "python", "typescript", "java"}
+	expectedLanguages := []string{"go", mcp.LANG_PYTHON, mcp.LANG_TYPESCRIPT, mcp.LANG_JAVA}
 
 	logger.Printf("Detected project type: %s", projectInfo.ProjectType)
 	logger.Printf("Detected %d languages:", len(projectInfo.Languages))
@@ -109,7 +109,7 @@ func testMultiLanguageConfigGeneration(logger *log.Logger) error {
 
 	// Create test project info using config types
 	var languageContexts []*config.LanguageContext
-	languages := []string{"go", "python", "typescript"}
+	languages := []string{"go", mcp.LANG_PYTHON, mcp.LANG_TYPESCRIPT}
 
 	for i, lang := range languages {
 		ctx := &config.LanguageContext{
@@ -221,7 +221,7 @@ func testSmartRouting(logger *log.Logger) error {
 			},
 			{
 				Name:      "python-server",
-				Languages: []string{"python"},
+				Languages: []string{mcp.LANG_PYTHON},
 				Command:   "python",
 				Args:      []string{"-m", "pylsp"},
 				Transport: "stdio",
@@ -374,11 +374,3 @@ This is a test project demonstrating multi-language LSP support.
 	return tempDir, nil
 }
 
-func prettyPrintJSON(data interface{}) {
-	jsonData, err := json.MarshalIndent(data, "", "  ")
-	if err != nil {
-		fmt.Printf("Error marshaling JSON: %v\n", err)
-		return
-	}
-	fmt.Println(string(jsonData))
-}

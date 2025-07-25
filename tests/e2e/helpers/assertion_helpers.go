@@ -43,7 +43,7 @@ func (a *AssertionHelper) AssertLSPResponseStructure(method string, response jso
 }
 
 // AssertMetricsImprovement checks if metrics show improvement over baseline
-func (a *AssertionHelper) AssertMetricsImprovement(current, baseline mcp.ConnectionMetrics) bool {
+func (a *AssertionHelper) AssertMetricsImprovement(current, baseline *mcp.ConnectionMetrics) bool {
 	success := true
 
 	// Check success rate improvement
@@ -83,7 +83,7 @@ func (a *AssertionHelper) AssertCircuitBreakerBehavior(states []mcp.CircuitBreak
 }
 
 // AssertPerformanceThresholds validates performance metrics against thresholds
-func (a *AssertionHelper) AssertPerformanceThresholds(metrics mcp.ConnectionMetrics, thresholds PerformanceThresholds) bool {
+func (a *AssertionHelper) AssertPerformanceThresholds(metrics *mcp.ConnectionMetrics, thresholds PerformanceThresholds) bool {
 	success := true
 
 	// Check response time threshold

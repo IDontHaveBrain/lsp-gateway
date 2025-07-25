@@ -776,7 +776,7 @@ func (suite *ProjectDetectorTestSuite) TestMultiLanguageProjectInfoUtilityMethod
 
 	// Test primary/secondary language categorization
 	primaryLanguages := info.GetPrimaryLanguages()
-	secondaryLanguages := info.GetSecondaryLanguages()
+	_ = info.GetSecondaryLanguages() // Check method exists but don't need to use result
 
 	suite.NotEmpty(primaryLanguages, "Should have primary languages")
 	// May or may not have secondary languages depending on scoring
@@ -828,7 +828,9 @@ func (suite *ProjectDetectorTestSuite) TestPerformanceOptimizations() {
 	defer os.RemoveAll(tempDir)
 
 	// Create small project
-	os.WriteFile(filepath.Join(tempDir, "main.go"), []byte("package main\n\nfunc main() {}"), 0644)
+	if err := os.WriteFile(filepath.Join(tempDir, "main.go"), []byte("package main\n\nfunc main() {}"), 0644); err != nil {
+		suite.T().Logf("Warning: failed to create test file: %v", err)
+	}
 
 	config := scanner.GetOptimalConfiguration(tempDir)
 	suite.NotNil(config, "Should return optimal configuration")
@@ -871,13 +873,13 @@ func (suite *ProjectDetectorTestSuite) TestErrorHandling() {
 
 	// Test timeout scenarios
 	scanner.Timeout = 1 * time.Nanosecond // Very short timeout
-	tempDir, err := os.MkDirTemp("", "timeout-test-*")
+	tempDir, err := os.MkdirTemp("", "timeout-test-*")
 	suite.Require().NoError(err)
 	defer os.RemoveAll(tempDir)
 
 	// Create many files to trigger timeout
 	for i := 0; i < 1000; i++ {
-		os.WriteFile(filepath.Join(tempDir, fmt.Sprintf("file%d.go", i)),
+		_ = os.WriteFile(filepath.Join(tempDir, fmt.Sprintf("file%d.go", i)),
 			[]byte(fmt.Sprintf("package main\n\nfunc main%d() {}", i)), 0644)
 	}
 
@@ -901,8 +903,8 @@ func (suite *ProjectDetectorTestSuite) TestConcurrentScanning() {
 		defer os.RemoveAll(tempDir)
 
 		// Create simple Go project
-		os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(fmt.Sprintf("module project-%d\n\ngo 1.19", i)), 0644)
-		os.WriteFile(filepath.Join(tempDir, "main.go"), []byte(fmt.Sprintf("package main\n\nfunc main%d() {}", i)), 0644)
+		_ = os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(fmt.Sprintf("module project-%d\n\ngo 1.19", i)), 0644)
+		_ = os.WriteFile(filepath.Join(tempDir, "main.go"), []byte(fmt.Sprintf("package main\n\nfunc main%d() {}", i)), 0644)
 
 		projects[i] = tempDir
 	}

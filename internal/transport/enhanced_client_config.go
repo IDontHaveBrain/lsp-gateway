@@ -234,7 +234,10 @@ func FromBasicClientConfig(basic *ClientConfig) *EnhancedClientConfig {
 	}
 
 	// Apply defaults
-	enhanced.SetDefaults()
+	if err := enhanced.SetDefaults(); err != nil {
+		// SetDefaults is critical for proper initialization, panic if it fails
+		panic(fmt.Sprintf("failed to set defaults for enhanced client config: %v", err))
+	}
 
 	return enhanced
 }

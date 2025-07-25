@@ -442,15 +442,15 @@ func (ci *ConfigurationIntegrator) enhanceGatewayConfig(gatewayConfig *GatewayCo
 
 	// Apply optimization-specific gateway settings
 	switch mlConfig.OptimizedFor {
-	case OptimizationProduction:
+	case PerformanceProfileProduction:
 		gatewayConfig.MaxConcurrentRequests = 200
 		gatewayConfig.Timeout = "15s"
 		gatewayConfig.EnableSmartRouting = true
-	case OptimizationAnalysis:
+	case PerformanceProfileAnalysis:
 		gatewayConfig.MaxConcurrentRequests = 50
 		gatewayConfig.Timeout = "60s"
 		gatewayConfig.EnableEnhancements = true
-	case OptimizationDevelopment:
+	case PerformanceProfileDevelopment:
 		gatewayConfig.MaxConcurrentRequests = 100
 		gatewayConfig.Timeout = "30s"
 		gatewayConfig.EnableSmartRouting = false
@@ -589,7 +589,7 @@ func (h *LegacyGatewayMigrationHandler) Migrate(configData map[string]interface{
 			LanguageRoots:  make(map[string]string),
 			SharedSettings: make(map[string]interface{}),
 		},
-		OptimizedFor: OptimizationDevelopment,
+		OptimizedFor: PerformanceProfileDevelopment,
 		GeneratedAt:  time.Now(),
 		Version:      "1.0",
 		Metadata:     make(map[string]interface{}),

@@ -3,6 +3,13 @@ package config
 import "time"
 
 const (
+	// Language constants
+	LANG_PYTHON     = "python"
+	LANG_JAVASCRIPT = "javascript"
+	LANG_TYPESCRIPT = "typescript"
+	LANG_JAVA       = "java"
+	LANG_GO         = "go"
+
 	// Test configuration constants
 	TEST_BASIC_CONFIG = `port: 8080
 servers:
@@ -65,6 +72,9 @@ servers:
 	// Minimum values
 	MIN_MEMORY_MB               = 64
 	MIN_REQUEST_TIMEOUT_SECONDS = 1
+
+	// Timeout string constants
+	DEFAULT_TIMEOUT_30S = "30s"
 )
 
 // Time-based constants

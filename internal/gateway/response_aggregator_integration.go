@@ -381,7 +381,6 @@ func (sr *SmartRouterWithAggregation) calculateEnhancedQualityMetrics(aggregatio
 		// Calculate server reliability based on success and response time
 		reliability := 0.0
 		if response.Success {
-			reliability = 1.0
 			// Adjust based on response time (faster = more reliable)
 			if response.Duration < 100*time.Millisecond {
 				reliability = 1.0

@@ -12,7 +12,7 @@ type ReactEnhancer struct{}
 func (r *ReactEnhancer) EnhanceConfig(config *ServerConfig, framework *Framework) error {
 	// Enhance TypeScript/JavaScript settings for React
 	for _, lang := range config.Languages {
-		if lang == "typescript" || lang == "javascript" {
+		if lang == LANG_TYPESCRIPT || lang == LANG_JAVASCRIPT {
 			if settings, ok := config.Settings[lang].(map[string]interface{}); ok {
 				if preferences, ok := settings["preferences"].(map[string]interface{}); ok {
 					preferences["jsx"] = "react-jsx"
@@ -29,7 +29,7 @@ func (r *ReactEnhancer) EnhanceConfig(config *ServerConfig, framework *Framework
 	}
 
 	// Add React-specific dependencies
-	config.Dependencies = append(config.Dependencies, "typescript", "@types/react", "@types/react-dom")
+	config.Dependencies = append(config.Dependencies, LANG_TYPESCRIPT, "@types/react", "@types/react-dom")
 
 	// Add React framework to server config
 	if !contains(config.Frameworks, "react") {
@@ -47,7 +47,7 @@ func (r *ReactEnhancer) GetRequiredSettings() map[string]interface{} {
 }
 
 func (r *ReactEnhancer) GetRecommendedExtensions() []string {
-	return []string{"typescript", "javascript", "jsx", "tsx"}
+	return []string{LANG_TYPESCRIPT, "javascript", "jsx", "tsx"}
 }
 
 type DjangoEnhancer struct{}
@@ -96,7 +96,7 @@ func (d *DjangoEnhancer) GetRequiredSettings() map[string]interface{} {
 }
 
 func (d *DjangoEnhancer) GetRecommendedExtensions() []string {
-	return []string{"python", "django", "html", "css"}
+	return []string{LANG_PYTHON, "django", "html", "css"}
 }
 
 type SpringBootEnhancer struct{}
@@ -266,10 +266,10 @@ func (l *LanguageSeparatedStrategy) GetWorkspaceLayout(layout *MonorepoLayout) m
 		// Assume workspace names indicate language (e.g., "go-services", "python-libs")
 		if strings.Contains(workspace, "go") {
 			workspaceLayout["go"] = workspace
-		} else if strings.Contains(workspace, "python") {
-			workspaceLayout["python"] = workspace
-		} else if strings.Contains(workspace, "typescript") || strings.Contains(workspace, "js") {
-			workspaceLayout["typescript"] = workspace
+		} else if strings.Contains(workspace, LANG_PYTHON) {
+			workspaceLayout[LANG_PYTHON] = workspace
+		} else if strings.Contains(workspace, LANG_TYPESCRIPT) || strings.Contains(workspace, "js") {
+			workspaceLayout[LANG_TYPESCRIPT] = workspace
 		} else if strings.Contains(workspace, "java") {
 			workspaceLayout["java"] = workspace
 		}
@@ -402,7 +402,7 @@ func (m *MicroservicesStrategy) OptimizeForLayout(config *MultiLanguageConfig, l
 type DevelopmentOptimization struct{}
 
 func (d *DevelopmentOptimization) ApplyOptimizations(config *MultiLanguageConfig) error {
-	config.OptimizedFor = OptimizationDevelopment
+	config.OptimizedFor = PerformanceProfileDevelopment
 
 	// Enable development-friendly features
 	for _, serverConfig := range config.ServerConfigs {
@@ -417,15 +417,15 @@ func (d *DevelopmentOptimization) ApplyOptimizations(config *MultiLanguageConfig
 					analyses["shadow"] = true
 				}
 			}
-		case "python":
+		case LANG_PYTHON:
 			if pylsp, ok := serverConfig.Settings["pylsp"].(map[string]interface{}); ok {
 				if plugins, ok := pylsp["plugins"].(map[string]interface{}); ok {
 					plugins["pycodestyle"] = map[string]bool{"enabled": true}
 					plugins["pyflakes"] = map[string]bool{"enabled": true}
 				}
 			}
-		case "typescript":
-			if ts, ok := serverConfig.Settings["typescript"].(map[string]interface{}); ok {
+		case LANG_TYPESCRIPT:
+			if ts, ok := serverConfig.Settings[LANG_TYPESCRIPT].(map[string]interface{}); ok {
 				if preferences, ok := ts["preferences"].(map[string]interface{}); ok {
 					preferences["includeCompletionsForModuleExports"] = true
 				}
@@ -458,13 +458,13 @@ func (d *DevelopmentOptimization) GetMemorySettings() map[string]interface{} {
 }
 
 func (d *DevelopmentOptimization) GetOptimizationName() string {
-	return OptimizationDevelopment
+	return PerformanceProfileDevelopment
 }
 
 type ProductionOptimization struct{}
 
 func (p *ProductionOptimization) ApplyOptimizations(config *MultiLanguageConfig) error {
-	config.OptimizedFor = OptimizationProduction
+	config.OptimizedFor = PerformanceProfileProduction
 
 	// Optimize for performance and reduced resource usage
 	for _, serverConfig := range config.ServerConfigs {
@@ -480,7 +480,7 @@ func (p *ProductionOptimization) ApplyOptimizations(config *MultiLanguageConfig)
 					analyses["unusedwrite"] = false
 				}
 			}
-		case "python":
+		case LANG_PYTHON:
 			if pylsp, ok := serverConfig.Settings["pylsp"].(map[string]interface{}); ok {
 				if plugins, ok := pylsp["plugins"].(map[string]interface{}); ok {
 					// Disable heavy plugins in production
@@ -489,8 +489,8 @@ func (p *ProductionOptimization) ApplyOptimizations(config *MultiLanguageConfig)
 					}
 				}
 			}
-		case "typescript":
-			if ts, ok := serverConfig.Settings["typescript"].(map[string]interface{}); ok {
+		case LANG_TYPESCRIPT:
+			if ts, ok := serverConfig.Settings[LANG_TYPESCRIPT].(map[string]interface{}); ok {
 				ts["disableAutomaticTypeAcquisition"] = true
 				if preferences, ok := ts["preferences"].(map[string]interface{}); ok {
 					preferences["includeCompletionsForModuleExports"] = false
@@ -527,13 +527,13 @@ func (p *ProductionOptimization) GetMemorySettings() map[string]interface{} {
 }
 
 func (p *ProductionOptimization) GetOptimizationName() string {
-	return OptimizationProduction
+	return PerformanceProfileProduction
 }
 
 type AnalysisOptimization struct{}
 
 func (a *AnalysisOptimization) ApplyOptimizations(config *MultiLanguageConfig) error {
-	config.OptimizedFor = OptimizationAnalysis
+	config.OptimizedFor = PerformanceProfileAnalysis
 
 	// Enable maximum analysis capabilities
 	for _, serverConfig := range config.ServerConfigs {
@@ -550,7 +550,7 @@ func (a *AnalysisOptimization) ApplyOptimizations(config *MultiLanguageConfig) e
 					}
 				}
 			}
-		case "python":
+		case LANG_PYTHON:
 			if pylsp, ok := serverConfig.Settings["pylsp"].(map[string]interface{}); ok {
 				if plugins, ok := pylsp["plugins"].(map[string]interface{}); ok {
 					plugins["pylint"] = map[string]bool{"enabled": true}
@@ -560,8 +560,8 @@ func (a *AnalysisOptimization) ApplyOptimizations(config *MultiLanguageConfig) e
 					}
 				}
 			}
-		case "typescript":
-			if ts, ok := serverConfig.Settings["typescript"].(map[string]interface{}); ok {
+		case LANG_TYPESCRIPT:
+			if ts, ok := serverConfig.Settings[LANG_TYPESCRIPT].(map[string]interface{}); ok {
 				if preferences, ok := ts["preferences"].(map[string]interface{}); ok {
 					preferences["strictNullChecks"] = true
 					preferences["strictFunctionTypes"] = true
@@ -601,7 +601,7 @@ func (a *AnalysisOptimization) GetMemorySettings() map[string]interface{} {
 }
 
 func (a *AnalysisOptimization) GetOptimizationName() string {
-	return OptimizationAnalysis
+	return PerformanceProfileAnalysis
 }
 
 // Constructor functions for optimization strategies
@@ -641,9 +641,9 @@ func NewOptimizationManager() *OptimizationManager {
 	}
 
 	// Register default optimization strategies
-	manager.strategies[OptimizationProduction] = NewProductionOptimization()
-	manager.strategies[OptimizationAnalysis] = NewAnalysisOptimization()
-	manager.strategies[OptimizationDevelopment] = NewDevelopmentOptimization()
+	manager.strategies[PerformanceProfileProduction] = NewProductionOptimization()
+	manager.strategies[PerformanceProfileAnalysis] = NewAnalysisOptimization()
+	manager.strategies[PerformanceProfileDevelopment] = NewDevelopmentOptimization()
 
 	return manager
 }

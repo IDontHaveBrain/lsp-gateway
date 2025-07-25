@@ -2,12 +2,10 @@ package gateway
 
 import (
 	"context"
-	"sync"
 )
 
 // ResourceMonitor monitors system resources
 type ResourceMonitor struct {
-	mu sync.RWMutex
 }
 
 // NewResourceMonitor creates a new resource monitor

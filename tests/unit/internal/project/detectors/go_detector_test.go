@@ -1402,7 +1402,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_ErrorHandling() {
 		err = os.Chmod(restrictedDir, 0000)
 		suite.Require().NoError(err)
 
-		_, err = suite.detector.DetectLanguage(ctx, restrictedDir)
+		_, _ = suite.detector.DetectLanguage(ctx, restrictedDir)
 		// Should either handle gracefully or error - but not panic
 		suite.NotPanics(func() {
 			suite.detector.DetectLanguage(ctx, restrictedDir)
@@ -1572,17 +1572,6 @@ func (suite *GoDetectorTestSuite) TestGoDetector_PerformanceProfile() {
 	err := suite.profiler.Start(ctx)
 	suite.Require().NoError(err)
 	defer suite.profiler.Stop()
-
-	// Create complex test project
-	config := &framework.ProjectGenerationConfig{
-		Type:         framework.ProjectTypeSingle,
-		Languages:    []string{"go"},
-		Complexity:   framework.ComplexityComplex,
-		Size:         framework.SizeLarge,
-		BuildSystem:  true,
-		TestFiles:    true,
-		Dependencies: true,
-	}
 
 	// Generate using mock or create manually
 	testDir, err := os.MkdirTemp(suite.tempDir, "perf-test-*")

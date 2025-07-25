@@ -93,6 +93,7 @@ func TestMultiServerConfig(t *testing.T) {
 	limits := config.GetResourceLimits("go")
 	if limits == nil {
 		t.Error("Expected resource limits, got nil")
+		return
 	}
 	if limits.MaxMemoryMB != 2048 {
 		t.Errorf("Expected max memory 2048, got %d", limits.MaxMemoryMB)

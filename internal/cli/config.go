@@ -254,12 +254,12 @@ func init() {
 	ConfigGenerateCmd.Flags().StringVar(&ConfigTargetRuntime, "runtime", "", "Generate configuration for specific runtime (go, python, nodejs, java)")
 	// Multi-language flags
 	ConfigGenerateCmd.Flags().BoolVar(&ConfigMultiLanguage, "multi-language", false, "Enable multi-language configuration features")
-	ConfigGenerateCmd.Flags().StringVar(&ConfigOptimizationMode, "optimization-mode", "development", "Set optimization mode (development, production, analysis)")
+	ConfigGenerateCmd.Flags().StringVar(&ConfigOptimizationMode, "optimization-mode", config.PerformanceProfileDevelopment, "Set optimization mode (development, production, analysis)")
 	ConfigGenerateCmd.Flags().StringVar(&ConfigTemplate, "template", "", "Use configuration template (monorepo, microservices, single-project)")
 	ConfigGenerateCmd.Flags().StringVar(&ConfigProjectPath, "project-path", "", "Project path for multi-language detection")
 	ConfigGenerateCmd.Flags().BoolVar(&ConfigEnableSmartRouting, "enable-smart-routing", false, "Enable intelligent request routing")
 	ConfigGenerateCmd.Flags().BoolVar(&ConfigEnableConcurrentServers, "enable-concurrent-servers", false, "Enable concurrent server management")
-	ConfigGenerateCmd.Flags().StringVar(&ConfigPerformanceProfile, "performance-profile", "medium", "Set performance profile (low, medium, high)")
+	ConfigGenerateCmd.Flags().StringVar(&ConfigPerformanceProfile, "performance-profile", setup.ProjectComplexityMedium, "Set performance profile (low, medium, high)")
 	ConfigGenerateCmd.Flags().BoolVar(&ConfigProjectDetection, "project-detection", false, "Enable automatic project detection")
 
 	// Enhanced ConfigValidateCmd flags
@@ -275,11 +275,11 @@ func init() {
 	// ConfigMigrateCmd flags
 	ConfigMigrateCmd.Flags().StringVar(&ConfigFromPath, "from", "", "Source configuration file path")
 	ConfigMigrateCmd.Flags().StringVar(&ConfigToPath, "to", "", "Target configuration file path")
-	ConfigMigrateCmd.Flags().StringVar(&ConfigOptimizationMode, "optimization-mode", "development", "Apply optimization mode during migration")
+	ConfigMigrateCmd.Flags().StringVar(&ConfigOptimizationMode, "optimization-mode", config.PerformanceProfileDevelopment, "Apply optimization mode during migration")
 	ConfigMigrateCmd.Flags().BoolVar(&ConfigOverwrite, "overwrite", false, "Overwrite target file if it exists")
 
 	// ConfigOptimizeCmd flags
-	ConfigOptimizeCmd.Flags().StringVar(&ConfigOptimizationMode, "mode", "production", "Optimization mode (development, production, analysis)")
+	ConfigOptimizeCmd.Flags().StringVar(&ConfigOptimizationMode, "mode", config.PerformanceProfileProduction, "Optimization mode (development, production, analysis)")
 	ConfigOptimizeCmd.Flags().BoolVar(&ConfigApplyTuning, "apply-performance-tuning", false, "Apply performance tuning optimizations")
 	ConfigOptimizeCmd.Flags().BoolVar(&ConfigEnableSmartRouting, "enable-smart-routing", false, "Enable smart routing optimizations")
 	ConfigOptimizeCmd.Flags().BoolVar(&ConfigEnableConcurrentServers, "enable-concurrent-servers", false, "Enable concurrent server optimizations")
@@ -497,7 +497,7 @@ func generateConfigurationByMode() (*config.GatewayConfig, error) {
 }
 
 func validateTargetRuntime() error {
-	supportedRuntimes := []string{"go", "python", "nodejs", "java"}
+	supportedRuntimes := []string{"go", config.LANG_PYTHON, "nodejs", "java"}
 	for _, supported := range supportedRuntimes {
 		if ConfigTargetRuntime == supported {
 			return nil
@@ -945,7 +945,7 @@ func generateRuntimeSpecificConfig() (*config.GatewayConfig, error) {
 	applyCliFlags(cfg)
 
 	// Apply optimization if requested
-	if ConfigOptimizationMode != "development" {
+	if ConfigOptimizationMode != config.PerformanceProfileDevelopment {
 		optimizationMgr := config.NewOptimizationManager()
 
 		multiLangConfig := &config.MultiLanguageConfig{
@@ -991,7 +991,7 @@ func ConfigMigrate(cmd *cobra.Command, args []string) error {
 	migratedCfg := migrateToEnhancedFormat(sourceCfg)
 
 	// Apply optimization during migration if specified
-	if ConfigOptimizationMode != "development" {
+	if ConfigOptimizationMode != config.PerformanceProfileDevelopment {
 		optimizationMgr := config.NewOptimizationManager()
 
 		// Create a minimal multi-language config for optimization
@@ -1132,7 +1132,7 @@ func ValidateConfigOptimizeParams() error {
 }
 
 func ValidateOptimizationMode(mode string) *ValidationError {
-	validModes := []string{"development", "production", "analysis"}
+	validModes := []string{config.PerformanceProfileDevelopment, config.PerformanceProfileProduction, config.PerformanceProfileAnalysis}
 	for _, validMode := range validModes {
 		if mode == validMode {
 			return nil
@@ -1213,11 +1213,11 @@ func validateMultiLanguageConsistency(cfg *config.GatewayConfig) ([]string, []st
 	}
 
 	// Check for common language combinations
-	if supportedLanguages["typescript"] && !supportedLanguages["javascript"] {
+	if supportedLanguages[config.LANG_TYPESCRIPT] && !supportedLanguages["javascript"] {
 		warnings = append(warnings, "TypeScript support detected but JavaScript support may be missing")
 	}
 
-	if supportedLanguages["python"] && len(cfg.Servers) > 1 {
+	if supportedLanguages[config.LANG_PYTHON] && len(cfg.Servers) > 1 {
 		// Check if there's a Python LSP server configured
 		hasPythonLSP := false
 		for _, server := range cfg.Servers {
@@ -1279,7 +1279,7 @@ func validateRoutingStrategy(cfg *config.GatewayConfig) ([]string, []string) {
 	}
 
 	// Report languages with no coverage
-	commonLanguages := []string{"go", "python", "javascript", "typescript", "java", "rust", "cpp", "c"}
+	commonLanguages := []string{"go", config.LANG_PYTHON, "javascript", config.LANG_TYPESCRIPT, "java", "rust", "cpp", "c"}
 	uncoveredLanguages := []string{}
 	for _, lang := range commonLanguages {
 		if languageCoverage[lang] == 0 {
@@ -1432,11 +1432,11 @@ func applyCliFlags(cfg *config.GatewayConfig) {
 	switch ConfigPerformanceProfile {
 	case "high":
 		cfg.MaxConcurrentRequests = 300
-		cfg.Timeout = "30s"
+		cfg.Timeout = config.DEFAULT_TIMEOUT_30S
 	case "low":
 		cfg.MaxConcurrentRequests = 50
 		cfg.Timeout = "60s"
-	case "medium":
+	case setup.ProjectComplexityMedium:
 		cfg.MaxConcurrentRequests = 150
 		cfg.Timeout = "45s"
 	}
@@ -1445,14 +1445,14 @@ func applyCliFlags(cfg *config.GatewayConfig) {
 // getEnvironmentFromOptimizationMode maps optimization mode to environment
 func getEnvironmentFromOptimizationMode(optimizationMode string) string {
 	switch strings.ToLower(optimizationMode) {
-	case "production":
-		return "production"
-	case "analysis":
-		return "analysis"
-	case "development":
-		return "development"
+	case config.PerformanceProfileProduction:
+		return config.PerformanceProfileProduction
+	case config.PerformanceProfileAnalysis:
+		return config.PerformanceProfileAnalysis
+	case config.PerformanceProfileDevelopment:
+		return config.PerformanceProfileDevelopment
 	default:
-		return "development"
+		return config.PerformanceProfileDevelopment
 	}
 }
 

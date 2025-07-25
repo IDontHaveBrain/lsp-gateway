@@ -30,7 +30,6 @@ type EnhancedConnectionPool struct {
 
 	// Performance metrics
 	requestCount int64
-	utilization  float64
 
 	// Dynamic sizing logic
 	sizer *PoolSizer
@@ -368,7 +367,10 @@ func (ecp *EnhancedConnectionPool) createTCPConnection() (net.Conn, error) {
 
 func (ecp *EnhancedConnectionPool) closeConnection(conn *PooledConnection) {
 	if conn != nil && conn.conn != nil {
-		conn.conn.Close()
+		if err := conn.conn.Close(); err != nil {
+			// Log close errors but don't fail the operation since this is cleanup
+			// Note: In production, this would use a proper logger
+		}
 		atomic.AddInt32(&ecp.currentSize, -1)
 	}
 }
@@ -383,7 +385,10 @@ func (ecp *EnhancedConnectionPool) isConnectionHealthy(conn *PooledConnection) b
 		return false
 	}
 	// Reset deadline
-	conn.conn.SetDeadline(time.Time{})
+	if err := conn.conn.SetDeadline(time.Time{}); err != nil {
+		// Log deadline reset errors but continue since this is cleanup
+		// Note: In production, this would use a proper logger
+	}
 
 	conn.mu.Lock()
 	conn.isHealthy = true
@@ -437,7 +442,10 @@ func (ecp *EnhancedConnectionPool) warmUp() error {
 			atomic.AddInt32(&ecp.currentSize, 1)
 			successCount++
 		default:
-			conn.Close()
+			if err := conn.Close(); err != nil {
+				// Log close errors but continue since this is cleanup
+				// Note: In production, this would use a proper logger
+			}
 			successCount++
 		}
 	}
@@ -470,7 +478,10 @@ func (ecp *EnhancedConnectionPool) scaleUp(count int) error {
 		case ecp.connections <- pooledConn:
 			atomic.AddInt32(&ecp.currentSize, 1)
 		default:
-			conn.Close()
+			if err := conn.Close(); err != nil {
+				// Log close errors but continue since this is cleanup
+				// Note: In production, this would use a proper logger
+			}
 		}
 	}
 	return nil
@@ -496,7 +507,10 @@ func (ecp *EnhancedConnectionPool) backgroundScaling() {
 		case <-ecp.ctx.Done():
 			return
 		case <-ecp.scalingTicker.C:
-			ecp.ScalePool()
+			if err := ecp.ScalePool(); err != nil {
+				// Log scaling errors but don't stop the background goroutine
+				// Note: In production, this would use a proper logger
+			}
 		}
 	}
 }

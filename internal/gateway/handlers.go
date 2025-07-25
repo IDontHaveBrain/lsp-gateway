@@ -1321,34 +1321,6 @@ func (g *Gateway) writeError(w http.ResponseWriter, id interface{}, code int, me
 	}
 }
 
-func extractProjectContextFromURI(uri string) (string, string, error) {
-	if uri == "" {
-		return "", "", fmt.Errorf("empty URI provided")
-	}
-
-	var filePath string
-	if strings.HasPrefix(uri, URIPrefixFile) {
-		filePath = strings.TrimPrefix(uri, URIPrefixFile)
-	} else if strings.HasPrefix(uri, URIPrefixWorkspace) {
-		filePath = strings.TrimPrefix(uri, URIPrefixWorkspace)
-	} else {
-		filePath = uri
-	}
-
-	absPath, err := filepath.Abs(filePath)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to get absolute path for %s: %w", filePath, err)
-	}
-
-	projectRoot := findProjectRoot(absPath)
-	if projectRoot == "" {
-		projectRoot = filepath.Dir(absPath)
-	}
-
-	workspaceID := generateWorkspaceID(projectRoot)
-	return workspaceID, projectRoot, nil
-}
-
 // ProjectRootResult represents enhanced project root detection results
 type ProjectRootResult struct {
 	MainRoot        string                      `json:"main_root"`           // Primary project root
@@ -1362,6 +1334,152 @@ type ProjectRootResult struct {
 }
 
 // Enhanced multi-language root detection with comprehensive analysis
+// checkVCSMarkers checks for version control markers in the current directory
+func checkVCSMarkers(currentDir string, vcsMarkers []string, depth int) ([]string, float64, map[string]string) {
+	levelMarkers := []string{}
+	levelConfidence := 0.0
+	foundRoots := make(map[string]string)
+
+	for _, vcsMarker := range vcsMarkers {
+		markerPath := filepath.Join(currentDir, vcsMarker)
+		if fileExists(markerPath) {
+			levelMarkers = append(levelMarkers, vcsMarker)
+			levelConfidence += 0.3
+			foundRoots[fmt.Sprintf("vcs_%d", depth)] = currentDir
+		}
+	}
+
+	return levelMarkers, levelConfidence, foundRoots
+}
+
+// checkLanguageMarkers checks for language-specific markers in the current directory
+func checkLanguageMarkers(currentDir string, languageMarkers map[string][]string, languageRootMap map[string]string) ([]string, float64, []string) {
+	levelMarkers := []string{}
+	levelConfidence := 0.0
+	foundLanguages := []string{}
+
+	for language, markers := range languageMarkers {
+		languageFound := false
+		for _, marker := range markers {
+			markerPath := resolveMarkerPath(currentDir, marker)
+			if markerPath != "" && fileExists(markerPath) {
+				levelMarkers = append(levelMarkers, marker)
+				if !languageFound {
+					foundLanguages = append(foundLanguages, language)
+					languageFound = true
+					levelConfidence += 0.4
+
+					if _, exists := languageRootMap[language]; !exists {
+						languageRootMap[language] = currentDir
+					}
+				}
+			}
+		}
+	}
+
+	return levelMarkers, levelConfidence, foundLanguages
+}
+
+// resolveMarkerPath resolves marker path, handling wildcard patterns
+func resolveMarkerPath(currentDir, marker string) string {
+	if strings.Contains(marker, "*") {
+		matches, err := filepath.Glob(filepath.Join(currentDir, marker))
+		if err == nil && len(matches) > 0 {
+			return matches[0]
+		}
+		return ""
+	}
+	return filepath.Join(currentDir, marker)
+}
+
+// determinePrimaryRootFromFoundRoots determines primary root when not set by confidence
+func determinePrimaryRootFromFoundRoots(foundRoots map[string]string, depth, maxScanDepth int) string {
+	if len(foundRoots) == 0 {
+		return ""
+	}
+
+	// Prefer the deepest root with markers (closest to start path)
+	minDepth := maxScanDepth
+	var primaryRoot string
+	for key, root := range foundRoots {
+		if strings.HasPrefix(key, "level_") {
+			if levelDepth := depth - len(strings.Split(key, "_")); levelDepth < minDepth {
+				minDepth = levelDepth
+				primaryRoot = root
+			}
+		}
+	}
+
+	// Fallback to VCS root if no level root found
+	if primaryRoot == "" {
+		for key, root := range foundRoots {
+			if strings.HasPrefix(key, "vcs_") {
+				return root
+			}
+		}
+	}
+
+	return primaryRoot
+}
+
+// calculateOverallConfidence calculates the overall confidence score
+func calculateOverallConfidence(maxConfidence float64, languageRootMap map[string]string, allMarkers []string) float64 {
+	overallConfidence := maxConfidence
+	if len(languageRootMap) > 1 {
+		overallConfidence += 0.2 // Bonus for multi-language detection
+	}
+	if len(allMarkers) > 3 {
+		overallConfidence += 0.1 // Bonus for comprehensive markers
+	}
+	if overallConfidence > 1.0 {
+		overallConfidence = 1.0
+	}
+	return overallConfidence
+}
+
+// performComprehensiveScan performs comprehensive project scan if conditions are met
+func performComprehensiveScan(scanner *ProjectLanguageScanner, primaryRoot string, overallConfidence float64, result *ProjectRootResult, languageRootMap map[string]string) {
+	if primaryRoot == "" || overallConfidence <= 0.5 {
+		return
+	}
+
+	info, err := scanner.ScanProjectComprehensive(primaryRoot)
+	if err != nil {
+		return
+	}
+
+	result.Languages = info.Languages
+	result.ProjectType = info.ProjectType
+
+	// Update language roots from comprehensive scan
+	for lang, ctx := range info.Languages {
+		if ctx.RootPath != "" {
+			languageRootMap[lang] = ctx.RootPath
+		}
+	}
+}
+
+// getLanguageMarkers returns the language-specific marker definitions
+func getLanguageMarkers() map[string][]string {
+	return map[string][]string{
+		"go":         {"go.mod", "go.sum", "go.work"},
+		"python":     {"pyproject.toml", "setup.py", "requirements.txt", "Pipfile", "setup.cfg"},
+		"javascript": {"package.json", "yarn.lock", "package-lock.json", "pnpm-lock.yaml"},
+		"typescript": {"tsconfig.json", "package.json"},
+		"java":       {"pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle"},
+		"rust":       {"Cargo.toml", "Cargo.lock"},
+		"cpp":        {"CMakeLists.txt", "Makefile", "configure.ac", "meson.build"},
+		"csharp":     {"*.csproj", "*.sln", "Directory.Build.props"},
+		"ruby":       {"Gemfile", "Gemfile.lock", "*.gemspec", "Rakefile"},
+		"php":        {"composer.json", "composer.lock"},
+	}
+}
+
+// getVCSMarkers returns version control system markers
+func getVCSMarkers() []string {
+	return []string{".git", ".hg", ".svn", ".bzr"}
+}
+
 func findProjectRootMultiLanguage(startPath string) (*ProjectRootResult, error) {
 	const maxScanDepth = 10
 
@@ -1385,22 +1503,8 @@ func findProjectRootMultiLanguage(startPath string) (*ProjectRootResult, error) 
 		ScanDepth:       0,
 	}
 
-	// Define language-specific marker groups
-	languageMarkers := map[string][]string{
-		"go":         {"go.mod", "go.sum", "go.work"},
-		"python":     {"pyproject.toml", "setup.py", "requirements.txt", "Pipfile", "setup.cfg"},
-		"javascript": {"package.json", "yarn.lock", "package-lock.json", "pnpm-lock.yaml"},
-		"typescript": {"tsconfig.json", "package.json"},
-		"java":       {"pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle"},
-		"rust":       {"Cargo.toml", "Cargo.lock"},
-		"cpp":        {"CMakeLists.txt", "Makefile", "configure.ac", "meson.build"},
-		"csharp":     {"*.csproj", "*.sln", "Directory.Build.props"},
-		"ruby":       {"Gemfile", "Gemfile.lock", "*.gemspec", "Rakefile"},
-		"php":        {"composer.json", "composer.lock"},
-	}
-
-	// Version control markers
-	vcsMarkers := []string{".git", ".hg", ".svn", ".bzr"}
+	languageMarkers := getLanguageMarkers()
+	vcsMarkers := getVCSMarkers()
 
 	currentDir := absPath
 	if !isDirectory(currentDir) {
@@ -1416,49 +1520,19 @@ func findProjectRootMultiLanguage(startPath string) (*ProjectRootResult, error) 
 
 	// Scan upward through directory hierarchy
 	for depth < maxScanDepth {
-		levelMarkers := []string{}
-		levelConfidence := 0.0
-		foundLanguages := []string{}
-
-		// Check for VCS markers (high confidence indicators)
-		for _, vcsMarker := range vcsMarkers {
-			markerPath := filepath.Join(currentDir, vcsMarker)
-			if fileExists(markerPath) {
-				levelMarkers = append(levelMarkers, vcsMarker)
-				levelConfidence += 0.3
-				foundRoots[fmt.Sprintf("vcs_%d", depth)] = currentDir
-			}
-		}
+		// Check for VCS markers
+		vcsLevelMarkers, vcsConfidence, vcsRoots := checkVCSMarkers(currentDir, vcsMarkers, depth)
 
 		// Check language-specific markers
-		for language, markers := range languageMarkers {
-			languageFound := false
-			for _, marker := range markers {
-				var markerPath string
-				if strings.Contains(marker, "*") {
-					// Handle wildcard patterns
-					matches, err := filepath.Glob(filepath.Join(currentDir, marker))
-					if err == nil && len(matches) > 0 {
-						markerPath = matches[0]
-					}
-				} else {
-					markerPath = filepath.Join(currentDir, marker)
-				}
+		langLevelMarkers, langConfidence, _ := checkLanguageMarkers(currentDir, languageMarkers, languageRootMap)
 
-				if markerPath != "" && fileExists(markerPath) {
-					levelMarkers = append(levelMarkers, marker)
-					if !languageFound {
-						foundLanguages = append(foundLanguages, language)
-						languageFound = true
-						levelConfidence += 0.4
+		// Combine markers and confidence
+		levelMarkers := append(vcsLevelMarkers, langLevelMarkers...)
+		levelConfidence := vcsConfidence + langConfidence
 
-						// Store language-specific root
-						if _, exists := languageRootMap[language]; !exists {
-							languageRootMap[language] = currentDir
-						}
-					}
-				}
-			}
+		// Merge VCS roots into foundRoots
+		for key, value := range vcsRoots {
+			foundRoots[key] = value
 		}
 
 		// Store level information if markers found
@@ -1483,40 +1557,12 @@ func findProjectRootMultiLanguage(startPath string) (*ProjectRootResult, error) 
 	}
 
 	// Determine primary root if not set by confidence
-	if primaryRoot == "" && len(foundRoots) > 0 {
-		// Prefer the deepest root with markers (closest to start path)
-		minDepth := maxScanDepth
-		for key, root := range foundRoots {
-			if strings.HasPrefix(key, "level_") {
-				if levelDepth := depth - len(strings.Split(key, "_")); levelDepth < minDepth {
-					minDepth = levelDepth
-					primaryRoot = root
-				}
-			}
-		}
-
-		// Fallback to VCS root if no level root found
-		if primaryRoot == "" {
-			for key, root := range foundRoots {
-				if strings.HasPrefix(key, "vcs_") {
-					primaryRoot = root
-					break
-				}
-			}
-		}
+	if primaryRoot == "" {
+		primaryRoot = determinePrimaryRootFromFoundRoots(foundRoots, depth, maxScanDepth)
 	}
 
 	// Calculate overall confidence
-	overallConfidence := maxConfidence
-	if len(languageRootMap) > 1 {
-		overallConfidence += 0.2 // Bonus for multi-language detection
-	}
-	if len(allMarkers) > 3 {
-		overallConfidence += 0.1 // Bonus for comprehensive markers
-	}
-	if overallConfidence > 1.0 {
-		overallConfidence = 1.0
-	}
+	overallConfidence := calculateOverallConfidence(maxConfidence, languageRootMap, allMarkers)
 
 	// Detect nested projects
 	isNested := len(languageRootMap) > 1 && len(foundRoots) > 1
@@ -1525,19 +1571,7 @@ func findProjectRootMultiLanguage(startPath string) (*ProjectRootResult, error) 
 	projectType := determineProjectType(languageRootMap, foundRoots, allMarkers)
 
 	// Perform comprehensive scan if we have a good root
-	if primaryRoot != "" && overallConfidence > 0.5 {
-		if info, err := scanner.ScanProjectComprehensive(primaryRoot); err == nil {
-			result.Languages = info.Languages
-			result.ProjectType = info.ProjectType
-
-			// Update language roots from comprehensive scan
-			for lang, ctx := range info.Languages {
-				if ctx.RootPath != "" {
-					languageRootMap[lang] = ctx.RootPath
-				}
-			}
-		}
-	}
+	performComprehensiveScan(scanner, primaryRoot, overallConfidence, result, languageRootMap)
 
 	// Populate result
 	result.MainRoot = primaryRoot
@@ -1552,16 +1586,6 @@ func findProjectRootMultiLanguage(startPath string) (*ProjectRootResult, error) 
 	}
 
 	return result, nil
-}
-
-// Backward compatibility wrapper - returns simple string result
-func findProjectRoot(startPath string) string {
-	result, err := findProjectRootMultiLanguage(startPath)
-	if err != nil || result == nil || result.MainRoot == "" {
-		// Fallback to simple detection
-		return findProjectRootSimple(startPath)
-	}
-	return result.MainRoot
 }
 
 // Simple fallback detection for backward compatibility
@@ -2068,23 +2092,6 @@ func integrateRootDetectionWithScanner(startPath string) (*MultiLanguageProjectI
 	}
 
 	return info, nil
-}
-
-func (g *Gateway) enrichRequestWithWorkspaceContext(req JSONRPCRequest, workspaceID string) WorkspaceAwareJSONRPCRequest {
-	workspaceReq := WorkspaceAwareJSONRPCRequest{
-		JSONRPCRequest: req,
-		WorkspaceID:    workspaceID,
-	}
-
-	uri, err := g.extractURIFromParams(req)
-	if err == nil {
-		_, projectPath, err := extractProjectContextFromURI(uri)
-		if err == nil {
-			workspaceReq.ProjectPath = projectPath
-		}
-	}
-
-	return workspaceReq
 }
 
 func (g *Gateway) validateWorkspaceRequest(req JSONRPCRequest, workspace WorkspaceContext) error {

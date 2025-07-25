@@ -35,7 +35,7 @@ func (s ServerState) String() string {
 	case ServerStateUnhealthy:
 		return "unhealthy"
 	case ServerStateFailed:
-		return "failed"
+		return STATUS_FAILED
 	case ServerStateStopping:
 		return "stopping"
 	case ServerStateStopped:
@@ -54,9 +54,7 @@ type ServerInstance struct {
 	circuitBreaker  *CircuitBreaker
 	startTime       time.Time
 	lastUsed        int64 // Changed to int64 for atomic operations
-	processID       int
 	memoryUsage     int64
-	connectionCount int32
 	state           ServerState
 	mu              sync.RWMutex
 }
@@ -354,8 +352,6 @@ type MultiServerManager struct {
 	metrics          *ManagerMetrics
 	circuitBreakers  map[string]*CircuitBreaker
 	resourceMonitor  *ResourceMonitor
-	smartRouter      *SmartRouterImpl
-	workspaceManager *WorkspaceManager
 	ctx              context.Context
 	cancel           context.CancelFunc
 	mu               sync.RWMutex

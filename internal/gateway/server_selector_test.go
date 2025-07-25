@@ -239,7 +239,7 @@ func TestHealthAwareSelector(t *testing.T) {
 	// Set one server as unhealthy
 	servers := pool.GetHealthyServers()
 	if len(servers) > 0 {
-		servers[0].metrics.healthScore = 0.5 // Below threshold
+		servers[0].metrics.HealthScore = 0.5 // Below threshold
 	}
 
 	context := &ServerSelectionContext{
@@ -256,6 +256,7 @@ func TestHealthAwareSelector(t *testing.T) {
 
 	if server == nil {
 		t.Errorf("Expected a server to be selected")
+		return
 	}
 
 	// Verify selected server is healthy

@@ -3,7 +3,6 @@ package gateway
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -522,7 +521,7 @@ func (c *defaultRequestClassifier) analyzeLanguageFromURI(uri string) (*RequestL
 }
 
 func (c *defaultRequestClassifier) enhanceWithContentAnalysis(context *RequestLanguageContext, filePath string) error {
-	content, err := ioutil.ReadFile(filePath)
+	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
@@ -932,7 +931,7 @@ func (c *defaultRequestClassifier) findSubProjects(workspaceRoot string) []strin
 	for _, subDir := range subDirs {
 		fullPath := filepath.Join(workspaceRoot, subDir)
 		if info, err := os.Stat(fullPath); err == nil && info.IsDir() {
-			if entries, err := ioutil.ReadDir(fullPath); err == nil {
+			if entries, err := os.ReadDir(fullPath); err == nil {
 				for _, entry := range entries {
 					if entry.IsDir() {
 						subProjects = append(subProjects, filepath.Join(subDir, entry.Name()))
@@ -1002,7 +1001,7 @@ func (c *defaultRequestClassifier) parseDependencies(filePath, manager string) (
 	switch manager {
 	case "npm":
 		// Parse package.json
-		content, err := ioutil.ReadFile(filePath)
+		content, err := os.ReadFile(filePath)
 		if err != nil {
 			return nil, err
 		}
@@ -1026,7 +1025,7 @@ func (c *defaultRequestClassifier) parseDependencies(filePath, manager string) (
 
 	case "pip":
 		// Parse requirements.txt
-		content, err := ioutil.ReadFile(filePath)
+		content, err := os.ReadFile(filePath)
 		if err != nil {
 			return nil, err
 		}

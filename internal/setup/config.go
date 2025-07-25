@@ -170,7 +170,7 @@ func (g *DefaultConfigGenerator) GenerateMultiLanguageConfig(ctx context.Context
 	// Apply default options if none provided
 	if options == nil {
 		options = &GenerationOptions{
-			OptimizationMode:   "development",
+			OptimizationMode:   config.PerformanceProfileDevelopment,
 			EnableMultiServer:  true,
 			EnableSmartRouting: true,
 			ProjectPath:        projectPath,
@@ -243,7 +243,7 @@ func (g *DefaultConfigGenerator) GenerateFromProjectPath(ctx context.Context, pr
 	}
 
 	if optimizationMode == "" {
-		options.OptimizationMode = "development"
+		options.OptimizationMode = config.PerformanceProfileDevelopment
 	}
 
 	return g.GenerateMultiLanguageConfig(ctx, projectPath, options)
@@ -302,7 +302,9 @@ func (g *DefaultConfigGenerator) applySmartConfiguration(gatewayConfig *config.G
 	// Configure language-specific pools
 	if len(mlConfig.ProjectInfo.LanguageContexts) > 1 {
 		// Create language pools for multi-language projects
-		gatewayConfig.MigrateServersToPool()
+		if err := gatewayConfig.MigrateServersToPool(); err != nil {
+			g.logger.WithOperation("migrate-servers").WithError(err).Warn("Failed to migrate servers to language pools, continuing with current configuration")
+		}
 	}
 }
 

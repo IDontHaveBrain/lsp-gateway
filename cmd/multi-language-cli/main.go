@@ -13,6 +13,7 @@ import (
 
 	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/gateway"
+	"lsp-gateway/mcp"
 )
 
 func main() {
@@ -312,7 +313,7 @@ func createDefaultConfig() *config.GatewayConfig {
 			},
 			{
 				Name:        "python-lsp-server",
-				Languages:   []string{"python"},
+				Languages:   []string{mcp.LANG_PYTHON},
 				Command:     "python",
 				Args:        []string{"-m", "pylsp"},
 				Transport:   "stdio",
@@ -322,7 +323,7 @@ func createDefaultConfig() *config.GatewayConfig {
 			},
 			{
 				Name:        "typescript-language-server",
-				Languages:   []string{"typescript", "javascript"},
+				Languages:   []string{mcp.LANG_TYPESCRIPT, mcp.LANG_JAVASCRIPT},
 				Command:     "typescript-language-server",
 				Args:        []string{"--stdio"},
 				Transport:   "stdio",
@@ -332,7 +333,7 @@ func createDefaultConfig() *config.GatewayConfig {
 			},
 			{
 				Name:        "jdtls",
-				Languages:   []string{"java"},
+				Languages:   []string{mcp.LANG_JAVA},
 				Command:     "jdtls",
 				Transport:   "stdio",
 				RootMarkers: []string{"pom.xml", "build.gradle"},

@@ -128,13 +128,13 @@ func (g *EnhancedConfigurationGenerator) GenerateFromProject(ctx context.Context
 func (g *EnhancedConfigurationGenerator) determinePerformanceProfile(analysis *ProjectAnalysis) string {
 	switch analysis.Complexity {
 	case ProjectComplexityHigh:
-		return "high"
+		return ProjectComplexityHigh
 	case ProjectComplexityMedium:
-		return "medium"
+		return ProjectComplexityMedium
 	case ProjectComplexityLow:
-		return "low"
+		return ProjectComplexityLow
 	default:
-		return "medium"
+		return ProjectComplexityMedium
 	}
 }
 
@@ -274,13 +274,13 @@ func (g *EnhancedConfigurationGenerator) GenerateDefaultForEnvironment(ctx conte
 func (g *EnhancedConfigurationGenerator) getOptimizationModeForEnvironment(environment string) string {
 	switch strings.ToLower(environment) {
 	case "production", "prod":
-		return "production"
+		return config.PerformanceProfileProduction
 	case "development", "dev":
-		return "development"
+		return config.PerformanceProfileDevelopment
 	case "analysis", "qa", "test":
-		return "analysis"
+		return config.PerformanceProfileAnalysis
 	default:
-		return "development"
+		return config.PerformanceProfileDevelopment
 	}
 }
 
@@ -800,7 +800,7 @@ func (pa *ProjectAnalyzer) countProjectFiles(projectPath string, analysis *Proje
 	fileCount := 0
 	dirCount := 0
 
-	filepath.Walk(projectPath, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(projectPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -821,7 +821,9 @@ func (pa *ProjectAnalyzer) countProjectFiles(projectPath string, analysis *Proje
 		}
 
 		return nil
-	})
+	}); err != nil {
+		pa.logger.WithOperation("count-project-files").WithError(err).Warn("Failed to walk project directory, file count may be incomplete")
+	}
 
 	analysis.FileCount = fileCount
 	analysis.DirectoryCount = dirCount
@@ -922,11 +924,11 @@ func (ocm *OptimizationConfigManager) ApplyOptimizationConfig(cfg *config.Gatewa
 	}).Info("Applying optimization configuration")
 
 	switch strings.ToLower(optimizationMode) {
-	case "production":
+	case config.PerformanceProfileProduction:
 		return ocm.applyProductionOptimization(cfg, analysis)
-	case "development":
+	case config.PerformanceProfileDevelopment:
 		return ocm.applyDevelopmentOptimization(cfg, analysis)
-	case "analysis":
+	case config.PerformanceProfileAnalysis:
 		return ocm.applyAnalysisOptimization(cfg, analysis)
 	default:
 		return fmt.Errorf("unknown optimization mode: %s", optimizationMode)
@@ -1013,13 +1015,13 @@ func (ocm *OptimizationConfigManager) ApplyEnvironmentOptimization(cfg *config.G
 func (ocm *OptimizationConfigManager) getOptimizationModeForEnvironment(environment string) string {
 	switch strings.ToLower(environment) {
 	case "production", "prod":
-		return "production"
+		return config.PerformanceProfileProduction
 	case "development", "dev":
-		return "development"
+		return config.PerformanceProfileDevelopment
 	case "analysis", "qa", "test":
-		return "analysis"
+		return config.PerformanceProfileAnalysis
 	default:
-		return "development"
+		return config.PerformanceProfileDevelopment
 	}
 }
 

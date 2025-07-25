@@ -26,7 +26,6 @@ type WorkspaceServerManager struct {
 	// Workspace resource limits
 	maxServersPerLanguage int
 	totalMemoryLimitMB    int64
-	currentMemoryUsage    int64
 
 	// Request tracking
 	activeRequests int32
@@ -451,11 +450,7 @@ func (wsm *WorkspaceServerManager) checkResourceLimitsUnsafe(language string) bo
 
 	// Estimate memory usage (simplified)
 	estimatedMemoryMB := int64(totalServers * 128) // Assume 128MB per server
-	if estimatedMemoryMB >= wsm.totalMemoryLimitMB {
-		return false
-	}
-
-	return true
+	return estimatedMemoryMB < wsm.totalMemoryLimitMB
 }
 
 // canStartNewServer checks if we can start a new server for a language

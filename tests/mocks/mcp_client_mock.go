@@ -134,7 +134,16 @@ func NewMockMcpClient() *MockMcpClient {
 		CalculateBackoffCalls:        make([]int, 0),
 		GetHTTPClientCalls:           make([]interface{}, 0),
 
-		mockMetrics:        defaultMetrics,
+		mockMetrics:        mcp.ConnectionMetrics{
+			TotalRequests:    defaultMetrics.TotalRequests,
+			SuccessfulReqs:   defaultMetrics.SuccessfulReqs,
+			FailedRequests:   defaultMetrics.FailedRequests,
+			TimeoutCount:     defaultMetrics.TimeoutCount,
+			ConnectionErrors: defaultMetrics.ConnectionErrors,
+			AverageLatency:   defaultMetrics.AverageLatency,
+			LastRequestTime:  defaultMetrics.LastRequestTime,
+			LastSuccessTime:  defaultMetrics.LastSuccessTime,
+		},
 		mockCircuitBreaker: defaultCircuitBreaker,
 		mockRetryPolicy:    defaultRetryPolicy,
 		mockBaseURL:        "http://localhost:8080",
@@ -192,7 +201,16 @@ func (m *MockMcpClient) GetMetrics() mcp.ConnectionMetrics {
 	if m.GetMetricsFunc != nil {
 		return m.GetMetricsFunc()
 	}
-	return m.mockMetrics
+	return mcp.ConnectionMetrics{
+		TotalRequests:    m.mockMetrics.TotalRequests,
+		SuccessfulReqs:   m.mockMetrics.SuccessfulReqs,
+		FailedRequests:   m.mockMetrics.FailedRequests,
+		TimeoutCount:     m.mockMetrics.TimeoutCount,
+		ConnectionErrors: m.mockMetrics.ConnectionErrors,
+		AverageLatency:   m.mockMetrics.AverageLatency,
+		LastRequestTime:  m.mockMetrics.LastRequestTime,
+		LastSuccessTime:  m.mockMetrics.LastSuccessTime,
+	}
 }
 
 func (m *MockMcpClient) GetHealth(ctx context.Context) error {

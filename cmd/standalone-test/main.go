@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"lsp-gateway/mcp"
 )
 
 // Simple standalone test for multi-language detection
@@ -46,7 +48,7 @@ func runStandaloneTest(logger *log.Logger) error {
 	if err != nil {
 		return fmt.Errorf("failed to create test project: %w", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	logger.Printf("Created test project at: %s", tempDir)
 
@@ -74,7 +76,7 @@ func runStandaloneTest(logger *log.Logger) error {
 	}
 
 	// Validate expected languages
-	expectedLanguages := []string{"go", "python", "typescript", "java", "rust"}
+	expectedLanguages := []string{"go", mcp.LANG_PYTHON, mcp.LANG_TYPESCRIPT, mcp.LANG_JAVA, "rust"}
 	for _, expected := range expectedLanguages {
 		if _, found := projectInfo.Languages[expected]; found {
 			logger.Printf("✓ Expected language %s detected", expected)
@@ -111,11 +113,11 @@ func scanProject(rootPath string) (*SimpleProjectInfo, error) {
 
 	// Language detection patterns
 	langPatterns := map[string][]string{
-		"go":         {".go"},
-		"python":     {".py", ".pyx", ".pyi"},
-		"typescript": {".ts", ".tsx"},
-		"javascript": {".js", ".jsx"},
-		"java":       {".java"},
+		"go":              {".go"},
+		mcp.LANG_PYTHON:     {".py", ".pyx", ".pyi"},
+		mcp.LANG_TYPESCRIPT: {".ts", ".tsx"},
+		mcp.LANG_JAVASCRIPT: {".js", ".jsx"},
+		mcp.LANG_JAVA:       {".java"},
 		"rust":       {".rs"},
 		"c":          {".c", ".h"},
 		"cpp":        {".cpp", ".hpp", ".cc", ".cxx"},
@@ -126,11 +128,11 @@ func scanProject(rootPath string) (*SimpleProjectInfo, error) {
 	}
 
 	buildFilePatterns := map[string][]string{
-		"go":         {"go.mod", "go.sum", "go.work"},
-		"python":     {"setup.py", "pyproject.toml", "requirements.txt", "Pipfile"},
-		"typescript": {"tsconfig.json", "package.json"},
-		"javascript": {"package.json", "yarn.lock"},
-		"java":       {"pom.xml", "build.gradle", "build.gradle.kts"},
+		"go":              {"go.mod", "go.sum", "go.work"},
+		mcp.LANG_PYTHON:     {"setup.py", "pyproject.toml", "requirements.txt", "Pipfile"},
+		mcp.LANG_TYPESCRIPT: {"tsconfig.json", "package.json"},
+		mcp.LANG_JAVASCRIPT: {"package.json", "yarn.lock"},
+		mcp.LANG_JAVA:       {"pom.xml", "build.gradle", "build.gradle.kts"},
 		"rust":       {"Cargo.toml", "Cargo.lock"},
 		"c":          {"Makefile", "CMakeLists.txt"},
 		"cpp":        {"Makefile", "CMakeLists.txt", "meson.build"},
@@ -263,11 +265,11 @@ func shouldIgnoreDir(name string) bool {
 
 func getRecommendedLSPServer(language string) string {
 	servers := map[string]string{
-		"go":         "gopls",
-		"python":     "python-lsp-server",
-		"typescript": "typescript-language-server",
-		"javascript": "typescript-language-server",
-		"java":       "eclipse-jdtls",
+		"go":              "gopls",
+		mcp.LANG_PYTHON:     "python-lsp-server",
+		mcp.LANG_TYPESCRIPT: "typescript-language-server",
+		mcp.LANG_JAVASCRIPT: "typescript-language-server",
+		mcp.LANG_JAVA:       "eclipse-jdtls",
 		"rust":       "rust-analyzer",
 		"c":          "clangd",
 		"cpp":        "clangd",
@@ -295,13 +297,13 @@ func classifyProject(languages map[string]*SimpleLanguageInfo) string {
 
 	// Check for frontend-backend pattern
 	frontendLangs := map[string]bool{
-		"typescript": true,
-		"javascript": true,
+		mcp.LANG_TYPESCRIPT: true,
+		mcp.LANG_JAVASCRIPT: true,
 	}
 	backendLangs := map[string]bool{
-		"go":     true,
-		"python": true,
-		"java":   true,
+		"go":          true,
+		mcp.LANG_PYTHON: true,
+		mcp.LANG_JAVA:   true,
 		"rust":   true,
 	}
 

@@ -53,8 +53,8 @@ func TestOptimizationStrategies(t *testing.T) {
 			t.Fatalf("Failed to apply production optimization: %v", err)
 		}
 
-		if prodConfig.OptimizedFor != config.OptimizationProduction {
-			t.Errorf("Expected OptimizedFor to be %s, got %s", config.OptimizationProduction, prodConfig.OptimizedFor)
+		if prodConfig.OptimizedFor != config.PerformanceProfileProduction {
+			t.Errorf("Expected OptimizedFor to be %s, got %s", config.PerformanceProfileProduction, prodConfig.OptimizedFor)
 		}
 
 		// Check production-specific settings
@@ -79,8 +79,8 @@ func TestOptimizationStrategies(t *testing.T) {
 			t.Fatalf("Failed to apply analysis optimization: %v", err)
 		}
 
-		if analysisConfig.OptimizedFor != config.OptimizationAnalysis {
-			t.Errorf("Expected OptimizedFor to be %s, got %s", config.OptimizationAnalysis, analysisConfig.OptimizedFor)
+		if analysisConfig.OptimizedFor != config.PerformanceProfileAnalysis {
+			t.Errorf("Expected OptimizedFor to be %s, got %s", config.PerformanceProfileAnalysis, analysisConfig.OptimizedFor)
 		}
 
 		// Check analysis-specific settings
@@ -104,8 +104,8 @@ func TestOptimizationStrategies(t *testing.T) {
 			t.Fatalf("Failed to apply development optimization: %v", err)
 		}
 
-		if devConfig.OptimizedFor != config.OptimizationDevelopment {
-			t.Errorf("Expected OptimizedFor to be %s, got %s", config.OptimizationDevelopment, devConfig.OptimizedFor)
+		if devConfig.OptimizedFor != config.PerformanceProfileDevelopment {
+			t.Errorf("Expected OptimizedFor to be %s, got %s", config.PerformanceProfileDevelopment, devConfig.OptimizedFor)
 		}
 
 		// Check development-specific settings
@@ -214,7 +214,7 @@ func TestConfigurationMigration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Test legacy gateway config migration
 	t.Run("LegacyGatewayMigration", func(t *testing.T) {
@@ -384,7 +384,7 @@ func TestFileIOIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Test YAML I/O
 	t.Run("YAMLFileIO", func(t *testing.T) {
