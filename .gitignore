@@ -102,7 +102,8 @@ test-repositories/java/spring-boot/
 test-repositories/java/elasticsearch/
 test-repositories/java/kafka/
 test-repositories/java/maven/
-# Exclude all documentation files except README.md and docs folder
+# Exclude documentation files except README.md and files in docs folder
 *.md
 !README.md
 !docs/
+!docs/**/*.md
