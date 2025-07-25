@@ -132,6 +132,7 @@ func (pc *ProjectCache) Get(rootPath string) (*MultiLanguageProjectInfo, bool) {
 	defer func() {
 		// Update access time statistics
 		// This could be enhanced with a sliding window for better average calculation
+		_ = start // Placeholder for future access time tracking
 	}()
 	
 	pc.mutex.RLock()
@@ -482,7 +483,7 @@ func (bs *BackgroundScanner) worker(id int) {
 // scanProject performs the actual project scan
 func (bs *BackgroundScanner) scanProject(rootPath string) {
 	// Check if we already have a recent cache entry
-	if info, exists := bs.cache.Get(rootPath); exists {
+	if _, exists := bs.cache.Get(rootPath); exists {
 		// Entry is still valid, no need to rescan
 		return
 	}

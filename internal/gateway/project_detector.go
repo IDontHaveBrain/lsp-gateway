@@ -2,9 +2,9 @@ package gateway
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -22,12 +22,18 @@ const (
 
 // LanguageStats represents statistical information about a language in the project
 type LanguageStats struct {
-	FileCount        int     `json:"file_count" yaml:"file_count"`
-	TestFileCount    int     `json:"test_file_count" yaml:"test_file_count"`
-	BuildFileScore   int     `json:"build_file_score" yaml:"build_file_score"`
-	DirectoryScore   int     `json:"directory_score" yaml:"directory_score"`
-	RecentActivity   int     `json:"recent_activity" yaml:"recent_activity"`
-	TotalScore       int     `json:"total_score" yaml:"total_score"`
+	Language         string            `json:"language" yaml:"language"`
+	FileCount        int               `json:"file_count" yaml:"file_count"`
+	TestFileCount    int               `json:"test_file_count" yaml:"test_file_count"`
+	TestFiles        int               `json:"test_files" yaml:"test_files"`
+	BuildFileScore   int               `json:"build_file_score" yaml:"build_file_score"`
+	DirectoryScore   int               `json:"directory_score" yaml:"directory_score"`
+	RecentActivity   int               `json:"recent_activity" yaml:"recent_activity"`
+	TotalScore       int               `json:"total_score" yaml:"total_score"`
+	Extensions       map[string]int    `json:"extensions" yaml:"extensions"`
+	BuildFiles       []string          `json:"build_files" yaml:"build_files"`
+	ConfigFiles      []string          `json:"config_files" yaml:"config_files"`
+	SourceDirs       []string          `json:"source_dirs" yaml:"source_dirs"`
 }
 
 // LanguageContext represents comprehensive context about a specific language in the project
@@ -52,10 +58,13 @@ type LanguageContext struct {
 
 // LanguageRanking represents a ranked language with scoring information
 type LanguageRanking struct {
-	Language   string           `json:"language" yaml:"language"`
-	Score      int              `json:"score" yaml:"score"`
-	Confidence float64          `json:"confidence" yaml:"confidence"`
-	Context    *LanguageContext `json:"context" yaml:"context"`
+	Language     string           `json:"language" yaml:"language"`
+	Score        float64          `json:"score" yaml:"score"`
+	FileCount    int              `json:"file_count" yaml:"file_count"`
+	BuildWeight  float64          `json:"build_weight" yaml:"build_weight"`
+	StructWeight float64          `json:"struct_weight" yaml:"struct_weight"`
+	Confidence   float64          `json:"confidence" yaml:"confidence"`
+	Context      *LanguageContext `json:"context" yaml:"context"`
 }
 
 // MultiLanguageProjectInfo represents comprehensive information about a multi-language project
@@ -439,7 +448,6 @@ func (s *ProjectLanguageScanner) ScanProject(rootPath string) (*MultiLanguagePro
 	
 	var buildSystems []string
 	var sourceDirs []string
-	var testDirs []string
 	var configFiles []string
 	
 	for _, lang := range stats {
@@ -486,7 +494,7 @@ func (s *ProjectLanguageScanner) scanDirectoryRecursive(ctx context.Context, dir
 		return nil
 	}
 	
-	entries, err := filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // Continue on errors
 		}
@@ -525,7 +533,7 @@ func (s *ProjectLanguageScanner) scanDirectoryRecursive(ctx context.Context, dir
 		return nil
 	})
 	
-	return entries
+	return err
 }
 
 func (s *ProjectLanguageScanner) analyzeFile(filePath, rootPath string, stats map[string]*LanguageStats, mutex *sync.Mutex) {
@@ -1742,33 +1750,43 @@ func (s *ProjectLanguageScanner) convertToComprehensiveInfo(basicInfo *MultiLang
 		WorkspaceRoots:   make(map[string]string),
 		BuildFiles:       basicInfo.BuildFiles,
 		ConfigFiles:      basicInfo.ConfigFiles,
-		TotalFileCount:   basicInfo.TotalFiles,
+		TotalFileCount:   basicInfo.TotalFileCount,
 		ScanDepth:        s.MaxDepth,
 		ScanDuration:     basicInfo.ScanDuration,
 		DetectedAt:       time.Now(),
 		Metadata:         basicInfo.Metadata,
 	}
 	
-	// Convert language rankings to language contexts
-	for _, ranking := range basicInfo.Languages {
+	// Copy existing language contexts or create them if needed
+	for langName, langCtx := range basicInfo.Languages {
+		// Copy the existing context
 		ctx := &LanguageContext{
-			Language:       ranking.Language,
-			RootPath:       basicInfo.RootPath,
-			FileCount:      ranking.FileCount,
-			Priority:       int(ranking.Score),
-			Confidence:     ranking.Confidence,
-			BuildFiles:     []string{},
-			ConfigFiles:    []string{},
-			SourcePaths:    []string{},
-			TestPaths:      []string{},
-			FileExtensions: []string{},
-			Dependencies:   []string{},
+			Language:       langCtx.Language,
+			RootPath:       langCtx.RootPath,
+			FileCount:      langCtx.FileCount,
+			TestFileCount:  langCtx.TestFileCount,
+			Priority:       langCtx.Priority,
+			Confidence:     langCtx.Confidence,
+			BuildFiles:     append([]string{}, langCtx.BuildFiles...),
+			ConfigFiles:    append([]string{}, langCtx.ConfigFiles...),
+			SourcePaths:    append([]string{}, langCtx.SourcePaths...),
+			TestPaths:      append([]string{}, langCtx.TestPaths...),
+			FileExtensions: append([]string{}, langCtx.FileExtensions...),
+			Framework:      langCtx.Framework,
+			Version:        langCtx.Version,
+			LSPServerName:  langCtx.LSPServerName,
+			Dependencies:   append([]string{}, langCtx.Dependencies...),
 			Metadata:       make(map[string]interface{}),
 		}
 		
+		// Copy metadata
+		for k, v := range langCtx.Metadata {
+			ctx.Metadata[k] = v
+		}
+		
 		// Set workspace root (for now, same as project root)
-		info.WorkspaceRoots[ranking.Language] = basicInfo.RootPath
-		info.Languages[ranking.Language] = ctx
+		info.WorkspaceRoots[langName] = basicInfo.RootPath
+		info.Languages[langName] = ctx
 	}
 	
 	return info

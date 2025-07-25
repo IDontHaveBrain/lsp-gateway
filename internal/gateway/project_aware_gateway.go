@@ -135,8 +135,12 @@ func (pag *ProjectAwareGateway) processEnhancedJSONRPCRequest(w http.ResponseWri
 
 	// Classify request for optimal routing
 	if pag.requestClassifier != nil {
-		requestClass := pag.requestClassifier.ClassifyRequest(req.Method, req.Params)
-		if logger != nil {
+		requestClass, err := (*pag.requestClassifier).ClassifyRequest(&req, uri)
+		if err != nil {
+			if logger != nil {
+				logger.WithError(err).Warn("Failed to classify request")
+			}
+		} else if logger != nil {
 			logger.WithField("request_class", requestClass).Debug("Request classified")
 		}
 	}
@@ -170,19 +174,22 @@ func (pag *ProjectAwareGateway) handleEnhancedRequestRouting(w http.ResponseWrit
 
 	language := ""
 	if uri != "" {
-		if lang, err := pag.extractLanguageFromURI(uri); err == nil {
+		if lang, err := pag.Gateway.extractLanguageFromURI(uri); err == nil {
 			language = lang
 		}
 	}
 
 	// Create LSPRequest for SmartRouter
 	lspRequest := &LSPRequest{
-		Method:      req.Method,
-		Params:      req.Params,
-		URI:         uri,
-		Language:    language,
-		WorkspaceID: workspace.GetID(),
-		Context:     context.Background(),
+		Method: req.Method,
+		Params: req.Params,
+		URI:    uri,
+		Context: &RequestContext{
+			ProjectType: workspace.GetProjectType(),
+			Language:    language,
+			WorkspaceID: workspace.GetID(),
+			ServerName:  "", // Will be determined by routing
+		},
 	}
 
 	// Use SmartRouter to get routing decision
@@ -206,23 +213,39 @@ func (pag *ProjectAwareGateway) handleEnhancedRequestRouting(w http.ResponseWrit
 		}
 
 		// Final fallback to traditional routing
-		serverName, err := pag.Gateway.routeRequestTraditional(req)
-		if err != nil {
-			if logger != nil {
-				logger.WithError(err).Error("Traditional routing failed")
+		if language != "" {
+			serverName, exists := pag.Gateway.Router.GetServerByLanguage(language)
+			if !exists {
+				if logger != nil {
+					logger.WithField("language", language).Error("No server found for language")
+				}
+				pag.writeError(w, req.ID, MethodNotFound, "No server found for language", fmt.Errorf("no server for language: %s", language))
+				return "", false
 			}
-			pag.writeError(w, req.ID, MethodNotFound, "Method not found", err)
+			return serverName, true
+		} else {
+			// No language detected, use generic routing fallback
+			if logger != nil {
+				logger.Error("No language detected and traditional routing unavailable")
+			}
+			pag.writeError(w, req.ID, MethodNotFound, "Unable to route request", fmt.Errorf("no routing method available"))
 			return "", false
 		}
-		return serverName, true
 	}
 
 	// Update performance cache if available
-	if pag.performanceCache != nil {
-		pag.performanceCache.RecordRoutingDecision(req.Method, decision.ServerName, decision.Strategy)
+	if pag.performanceCache != nil && len(decision.TargetServers) > 0 {
+		// Record the routing decision as a successful routing operation
+		serverName := decision.TargetServers[0].config.Name
+		(*pag.performanceCache).RecordRequestMetrics(serverName, req.Method, time.Millisecond, true)
 	}
 
-	return decision.ServerName, true
+	// Return the first target server name if available
+	if len(decision.TargetServers) > 0 {
+		return decision.TargetServers[0].config.Name, true
+	}
+	
+	return "", false
 }
 
 // initializeEnhancedRequestLogger creates an enhanced logger with additional context

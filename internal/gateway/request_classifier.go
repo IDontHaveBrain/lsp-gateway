@@ -25,13 +25,15 @@ type RequestClassifier interface {
 type RequestClassificationContext struct {
 	Request         *JSONRPCRequest
 	TypeInfo        *RequestTypeInfo
-	RoutingLanguageContext *RoutingRoutingLanguageContext
+	LanguageContext *RoutingRoutingLanguageContext
 	WorkspaceContext *RoutingWorkspaceContext
 	CrossLanguage   bool
 	RoutingHints    *RoutingHints
 	CacheKey        string
 	Timestamp       time.Time
 }
+
+// Note: RoutingStrategyType and constants are defined in smart_router.go
 
 // RequestTypeInfo provides detailed information about the LSP request type
 type RequestTypeInfo struct {
@@ -95,6 +97,8 @@ type FrameworkInfo struct {
 	Dependencies   []string
 }
 
+// Note: FrameworkDetector is defined in project_detector.go
+
 // RoutingHints provide optimization suggestions for request routing
 type RoutingHints struct {
 	PreferredServers    []string
@@ -120,7 +124,6 @@ type defaultRequestClassifier struct {
 	extensionMap       map[string]string
 	contentPatterns    map[string]*regexp.Regexp
 	configFilePatterns map[string]string
-	frameworkDetectors map[string]*FrameworkDetector
 }
 
 
@@ -135,7 +138,6 @@ func NewRequestClassifier() RequestClassifier {
 		extensionMap:       initializeExtensionMap(),
 		contentPatterns:    initializeContentPatterns(),
 		configFilePatterns: initializeConfigFilePatterns(),
-		frameworkDetectors: initializeFrameworkDetectors(),
 	}
 	
 	// Pre-populate method classification cache
@@ -180,7 +182,7 @@ func (c *defaultRequestClassifier) ClassifyRequest(request *JSONRPCRequest, uri 
 	context := &RequestClassificationContext{
 		Request:          request,
 		TypeInfo:         typeInfo,
-		RoutingLanguageContext:  languageContext,
+		LanguageContext:  languageContext,
 		WorkspaceContext: workspaceContext,
 		CrossLanguage:    crossLanguage,
 		RoutingHints:     routingHints,
@@ -216,7 +218,7 @@ func (c *defaultRequestClassifier) AnalyzeRequestType(method string, params inte
 // ExtractRoutingLanguageContext analyzes language information from URI and params
 func (c *defaultRequestClassifier) ExtractRoutingLanguageContext(uri string, params interface{}) (*RoutingRoutingLanguageContext, error) {
 	if uri == "" {
-		return &RoutingLanguageContext{
+		return &RoutingRoutingLanguageContext{
 			PrimaryLanguage:    "unknown",
 			LanguageConfidence: 0.0,
 		}, nil
@@ -226,10 +228,9 @@ func (c *defaultRequestClassifier) ExtractRoutingLanguageContext(uri string, par
 	cacheKey := fmt.Sprintf("lang:%s", uri)
 	c.cacheMutex.RLock()
 	if cached, exists := c.languageCache[cacheKey]; exists {
-		if time.Since(cached.(*requestCacheEntry).timestamp) < c.cacheExpiry {
-			c.cacheMutex.RUnlock()
-			return cached.(*requestCacheEntry).languageContext, nil
-		}
+		// cached is directly *RoutingRoutingLanguageContext
+		c.cacheMutex.RUnlock()
+		return cached, nil
 	}
 	c.cacheMutex.RUnlock()
 	
@@ -346,7 +347,7 @@ func (c *defaultRequestClassifier) initializeMethodCache() {
 			RequiresFileAccess:  true,
 			SupportsCrossLang:   true,
 			SupportsAggregation: true,
-			DefaultStrategy:     RoutingStrategyFirst,
+			DefaultStrategy:     SingleTargetWithFallback,
 			Priority:            5,
 			ExpectedResponseType: "Location[]",
 			TimeoutHint:         5 * time.Second,
@@ -358,7 +359,7 @@ func (c *defaultRequestClassifier) initializeMethodCache() {
 			RequiresFileAccess:  true,
 			SupportsCrossLang:   true,
 			SupportsAggregation: true,
-			DefaultStrategy:     RoutingStrategyAggregate,
+			DefaultStrategy:     BroadcastAggregate,
 			Priority:            4,
 			ExpectedResponseType: "Location[]",
 			TimeoutHint:         10 * time.Second,
@@ -370,7 +371,7 @@ func (c *defaultRequestClassifier) initializeMethodCache() {
 			RequiresFileAccess:  true,
 			SupportsCrossLang:   false,
 			SupportsAggregation: false,
-			DefaultStrategy:     RoutingStrategyFirst,
+			DefaultStrategy:     SingleTargetWithFallback,
 			Priority:            6,
 			ExpectedResponseType: "Hover",
 			TimeoutHint:         3 * time.Second,
@@ -382,7 +383,7 @@ func (c *defaultRequestClassifier) initializeMethodCache() {
 			RequiresFileAccess:  true,
 			SupportsCrossLang:   false,
 			SupportsAggregation: false,
-			DefaultStrategy:     RoutingStrategyFirst,
+			DefaultStrategy:     SingleTargetWithFallback,
 			Priority:            3,
 			ExpectedResponseType: "DocumentSymbol[]",
 			TimeoutHint:         5 * time.Second,
@@ -394,7 +395,7 @@ func (c *defaultRequestClassifier) initializeMethodCache() {
 			RequiresFileAccess:  false,
 			SupportsCrossLang:   true,
 			SupportsAggregation: true,
-			DefaultStrategy:     RoutingStrategyAggregate,
+			DefaultStrategy:     BroadcastAggregate,
 			Priority:            2,
 			ExpectedResponseType: "SymbolInformation[]",
 			TimeoutHint:         15 * time.Second,
@@ -406,7 +407,7 @@ func (c *defaultRequestClassifier) initializeMethodCache() {
 			RequiresFileAccess:  true,
 			SupportsCrossLang:   true,
 			SupportsAggregation: true,
-			DefaultStrategy:     RoutingStrategyAggregate,
+			DefaultStrategy:     BroadcastAggregate,
 			Priority:            8,
 			ExpectedResponseType: "CompletionList",
 			TimeoutHint:         2 * time.Second,
@@ -418,7 +419,7 @@ func (c *defaultRequestClassifier) initializeMethodCache() {
 			RequiresFileAccess:  true,
 			SupportsCrossLang:   false,
 			SupportsAggregation: true,
-			DefaultStrategy:     RoutingStrategyAggregate,
+			DefaultStrategy:     BroadcastAggregate,
 			Priority:            1,
 			ExpectedResponseType: "Diagnostic[]",
 			TimeoutHint:         10 * time.Second,
@@ -430,7 +431,7 @@ func (c *defaultRequestClassifier) initializeMethodCache() {
 			RequiresFileAccess:  true,
 			SupportsCrossLang:   false,
 			SupportsAggregation: false,
-			DefaultStrategy:     RoutingStrategyFirst,
+			DefaultStrategy:     SingleTargetWithFallback,
 			Priority:            7,
 			ExpectedResponseType: "TextEdit[]",
 			TimeoutHint:         5 * time.Second,
@@ -453,7 +454,7 @@ func (c *defaultRequestClassifier) classifyMethod(method string, params interfac
 		RequiresFileAccess:  false,
 		SupportsCrossLang:   false,
 		SupportsAggregation: false,
-		DefaultStrategy:     RoutingStrategyFirst,
+		DefaultStrategy:     SingleTargetWithFallback,
 		Priority:            5,
 		ExpectedResponseType: "unknown",
 		TimeoutHint:         10 * time.Second,
@@ -466,7 +467,7 @@ func (c *defaultRequestClassifier) analyzeLanguageFromURI(uri string) (*RoutingR
 	filePath := strings.TrimPrefix(uri, "file://")
 	ext := strings.ToLower(filepath.Ext(filePath))
 	
-	context := &RoutingLanguageContext{
+	context := &RoutingRoutingLanguageContext{
 		FileExtension:     ext,
 		SecondaryLanguages: []string{},
 		EmbeddedLanguages: make(map[string][]ContentRange),
@@ -617,12 +618,26 @@ func (c *defaultRequestClassifier) detectProjectType(context *RoutingWorkspaceCo
 }
 
 func (c *defaultRequestClassifier) detectFrameworks(context *RoutingWorkspaceContext) error {
-	for _, detector := range c.frameworkDetectors {
-		if c.matchesFramework(context, detector) {
+	// Simplified framework detection based on config files
+	// For more comprehensive detection, integrate with project_detector.go's FrameworkDetector
+	frameworkMap := map[string]string{
+		"package.json":    "node",
+		"angular.json":    "angular", 
+		"requirements.txt": "python",
+		"manage.py":       "django",
+		"pom.xml":         "maven",
+		"build.gradle":    "gradle",
+		"Cargo.toml":      "rust",
+		"go.mod":          "go",
+	}
+	
+	for _, configFile := range context.ConfigFiles {
+		filename := filepath.Base(configFile)
+		if framework, exists := frameworkMap[filename]; exists {
 			context.FrameworkInfo = &FrameworkInfo{
-				Name:        detector.Name,
-				Type:        c.getFrameworkType(detector.Name),
-				ConfigFiles: c.findFrameworkConfigs(context.WorkspaceRoot, detector),
+				Name:        framework,
+				Type:        c.getFrameworkType(framework),
+				ConfigFiles: []string{configFile},
 			}
 			break
 		}
@@ -674,23 +689,22 @@ func (c *defaultRequestClassifier) cacheRoutingLanguageContext(key string, conte
 	
 	if len(c.languageCache) >= c.maxCacheSize {
 		// Simple LRU-like cleanup - remove oldest entries
-		oldest := time.Now()
-		var oldestKey string
-		for k, entry := range c.languageCache {
-			if entry.(*requestCacheEntry).timestamp.Before(oldest) {
-				oldest = entry.(*requestCacheEntry).timestamp
-				oldestKey = k
+		// Since languageCache stores *RoutingRoutingLanguageContext directly,
+		// we'll implement a simple cleanup by removing half the entries
+		if len(c.languageCache) >= c.maxCacheSize {
+			// Remove half the entries (simple cleanup strategy)
+			count := 0
+			for k := range c.languageCache {
+				delete(c.languageCache, k)
+				count++
+				if count >= len(c.languageCache)/2 {
+					break
+				}
 			}
-		}
-		if oldestKey != "" {
-			delete(c.languageCache, oldestKey)
 		}
 	}
 	
-	c.languageCache[key] = &requestCacheEntry{
-		languageContext: context,
-		timestamp:       time.Now(),
-	}
+	c.languageCache[key] = context
 }
 
 func (c *defaultRequestClassifier) generateCacheKey(request *JSONRPCRequest, uri string) string {
@@ -933,23 +947,7 @@ func (c *defaultRequestClassifier) findSubProjects(workspaceRoot string) []strin
 	return subProjects
 }
 
-func (c *defaultRequestClassifier) matchesFramework(context *RoutingWorkspaceContext, detector *FrameworkDetector) bool {
-	// Check for required config files
-	for _, configFile := range detector.ConfigFiles {
-		found := false
-		for _, existingConfig := range context.ConfigFiles {
-			if filepath.Base(existingConfig) == configFile {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	}
-	
-	return true
-}
+// matchesFramework removed - using simplified detection in detectFrameworks
 
 func (c *defaultRequestClassifier) getFrameworkType(frameworkName string) string {
 	typeMap := map[string]string{
@@ -971,18 +969,7 @@ func (c *defaultRequestClassifier) getFrameworkType(frameworkName string) string
 	return "unknown"
 }
 
-func (c *defaultRequestClassifier) findFrameworkConfigs(workspaceRoot string, detector *FrameworkDetector) []string {
-	configs := []string{}
-	
-	for _, configFile := range detector.ConfigFiles {
-		fullPath := filepath.Join(workspaceRoot, configFile)
-		if _, err := os.Stat(fullPath); err == nil {
-			configs = append(configs, fullPath)
-		}
-	}
-	
-	return configs
-}
+// findFrameworkConfigs removed - using simplified detection in detectFrameworks
 
 func (c *defaultRequestClassifier) parseDependencies(filePath, manager string) ([]string, error) {
 	dependencies := []string{}
@@ -1125,50 +1112,4 @@ func initializeConfigFilePatterns() map[string]string {
 	}
 }
 
-func initializeFrameworkDetectors() map[string]*FrameworkDetector {
-	detectors := make(map[string]*FrameworkDetector)
-	
-	detectors["react"] = &FrameworkDetector{
-		Name:         "react",
-		ConfigFiles:  []string{"package.json"},
-		Dependencies: []string{"react"},
-		FilePatterns: []string{"*.jsx", "*.tsx"},
-	}
-	
-	detectors["vue"] = &FrameworkDetector{
-		Name:         "vue",
-		ConfigFiles:  []string{"package.json"},
-		Dependencies: []string{"vue"},
-		FilePatterns: []string{"*.vue"},
-	}
-	
-	detectors["angular"] = &FrameworkDetector{
-		Name:         "angular",
-		ConfigFiles:  []string{"package.json", "angular.json"},
-		Dependencies: []string{"@angular/core"},
-		FilePatterns: []string{"*.component.ts", "*.service.ts"},
-	}
-	
-	detectors["django"] = &FrameworkDetector{
-		Name:         "django",
-		ConfigFiles:  []string{"manage.py", "requirements.txt"},
-		Dependencies: []string{"django"},
-		FilePatterns: []string{"settings.py", "urls.py"},
-	}
-	
-	detectors["flask"] = &FrameworkDetector{
-		Name:         "flask",
-		ConfigFiles:  []string{"requirements.txt"},
-		Dependencies: []string{"flask"},
-		FilePatterns: []string{"app.py", "*.py"},
-	}
-	
-	detectors["spring"] = &FrameworkDetector{
-		Name:         "spring",
-		ConfigFiles:  []string{"pom.xml", "build.gradle"},
-		Dependencies: []string{"spring-boot", "spring-core"},
-		FilePatterns: []string{"*.java"},
-	}
-	
-	return detectors
-}
+// initializeFrameworkDetectors removed - using simplified detection approach

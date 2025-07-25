@@ -117,7 +117,7 @@ type ServerInstance struct {
 	metrics         *SimpleServerMetrics
 	circuitBreaker  *CircuitBreaker
 	startTime       time.Time
-	lastUsed        time.Time
+	lastUsed        int64
 	processID       int
 	memoryUsage     int64
 	connectionCount int32
@@ -134,7 +134,7 @@ func NewServerInstance(serverConfig *config.ServerConfig, client transport.LSPCl
 		metrics:        NewSimpleServerMetrics(),
 		circuitBreaker: NewCircuitBreaker(10, 30*time.Second, 5),
 		startTime:      time.Now(),
-		lastUsed:       time.Now(),
+		lastUsed:       time.Now().UnixNano(),
 		state:          ServerStateStarting,
 	}
 }
@@ -201,7 +201,7 @@ func (si *ServerInstance) SendRequest(ctx context.Context, method string, params
 	result, err := si.client.SendRequest(ctx, method, params)
 	responseTime := time.Since(start)
 
-	atomic.StoreInt64((*int64)(&si.lastUsed), time.Now().UnixNano())
+	atomic.StoreInt64(&si.lastUsed, time.Now().UnixNano())
 
 	if err != nil {
 		si.circuitBreaker.RecordFailure()
@@ -233,6 +233,12 @@ func (si *ServerInstance) SetState(state ServerState) {
 	si.mu.Lock()
 	defer si.mu.Unlock()
 	si.state = state
+}
+
+// GetLastUsedTime returns the last used timestamp as a time.Time
+func (si *ServerInstance) GetLastUsedTime() time.Time {
+	lastUsedNano := atomic.LoadInt64(&si.lastUsed)
+	return time.Unix(0, lastUsedNano)
 }
 
 // LanguageServerPool manages multiple servers for a single language

@@ -164,12 +164,49 @@ func (pm *SimplePoolMetrics) Copy() *SimplePoolMetrics {
 	}
 }
 
+// RecordServerSelection records a server selection event with performance metrics
+func (pm *SimplePoolMetrics) RecordServerSelection(serverName string, responseTime time.Duration, success bool) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
 
+	// Update overall pool request statistics
+	pm.TotalRequests++
+	if success {
+		pm.SuccessfulRequests++
+	} else {
+		pm.FailedRequests++
+	}
 
+	// Update load distribution for server selection tracking
+	pm.LoadDistribution[serverName]++
 
+	// Update average response time using exponential moving average
+	if pm.AverageResponseTime == 0 {
+		pm.AverageResponseTime = responseTime
+	} else {
+		alpha := 0.1 // Smoothing factor for exponential moving average  
+		pm.AverageResponseTime = time.Duration(float64(pm.AverageResponseTime)*(1-alpha) + float64(responseTime)*alpha)
+	}
 
+	// Ensure server metrics exist
+	if pm.ServerMetrics[serverName] == nil {
+		pm.ServerMetrics[serverName] = NewSimpleServerMetrics()
+	}
 
+	// Record server-specific metrics
+	pm.ServerMetrics[serverName].RecordRequest(responseTime, success)
 
+	pm.LastUpdated = time.Now()
+}
 
+// UpdatePoolStatus updates the pool status metrics for SCIP integration
+func (pm *SimplePoolMetrics) UpdatePoolStatus(language string, total, active, healthy int, strategy string) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
 
-
+	pm.Language = language
+	pm.TotalServers = total
+	pm.ActiveServers = active
+	pm.HealthyServers = healthy
+	pm.LastUpdated = time.Now()
+}

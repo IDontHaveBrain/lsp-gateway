@@ -57,22 +57,27 @@ func (sr *SmartRouterWithAggregation) AggregateBroadcastEnhanced(request *LSPReq
 		go func(idx int, dec *RoutingDecision) {
 			defer wg.Done()
 			
+			// Safe access to TargetServers
+			if len(dec.TargetServers) == 0 {
+				return
+			}
+			
 			reqStart := time.Now()
-			result, err := sr.executeRequest(dec.Client, request)
+			result, err := sr.executeRequest(dec.TargetServers[0].client, request)
 			responseTime := time.Since(reqStart)
 			
 			responses[idx] = result
-			sources[idx] = dec.ServerName
+			sources[idx] = dec.TargetServers[0].config.Name
 			serverResponses[idx] = ServerResponse{
-				ServerName:   dec.ServerName,
-				Result:       result,
+				ServerName:   dec.TargetServers[0].config.Name,
+				Response:     result,
 				Error:        err,
-				ResponseTime: responseTime,
+				Duration:     responseTime,
 				Success:      err == nil,
 			}
 			
 			// Update server performance metrics
-			sr.UpdateServerPerformance(dec.ServerName, responseTime, err == nil)
+			sr.UpdateServerPerformance(dec.TargetServers[0].config.Name, responseTime, err == nil)
 		}(i, decision)
 	}
 	
@@ -94,17 +99,11 @@ func (sr *SmartRouterWithAggregation) AggregateBroadcastEnhanced(request *LSPReq
 	// Create enhanced response
 	enhancedResponse := &EnhancedAggregatedResponse{
 		AggregatedResponse: AggregatedResponse{
-			PrimaryResult:    aggregationResult.MergedResponse,
-			SecondaryResults: sr.filterSecondaryResults(serverResponses, aggregationResult.MergedResponse),
-			Strategy:         sr.GetRoutingStrategy(request.Method),
+			PrimaryResponse:    aggregationResult.MergedResponse,
+			SecondaryResponses: sr.convertServerResponsesToInterfaces(sr.filterSecondaryResults(serverResponses, aggregationResult.MergedResponse)),
+			AggregationMethod: sr.GetRoutingStrategy(request.Method).Name(),
 			ProcessingTime:   time.Since(startTime),
-			ServerCount:      len(decisions),
-			Metadata: map[string]interface{}{
-				"success_count":    aggregationResult.SuccessfulSources,
-				"total_servers":    aggregationResult.TotalSources,
-				"success_rate":     float64(aggregationResult.SuccessfulSources) / float64(aggregationResult.TotalSources),
-				"aggregation_used": sr.isAggregationEnabled(),
-			},
+			SuccessCount:      len(decisions),
 		},
 		AggregationResult: *aggregationResult,
 		QualityMetrics:    sr.calculateEnhancedQualityMetrics(aggregationResult, serverResponses),
@@ -169,7 +168,12 @@ func (sr *SmartRouterWithAggregation) RouteWithIntelligentAggregation(request *L
 			return nil, err
 		}
 		
-		result, err := sr.executeRequest(decision.Client, request)
+		// Safe access to TargetServers
+		if len(decision.TargetServers) == 0 {
+			return nil, fmt.Errorf("no target servers available")
+		}
+		
+		result, err := sr.executeRequest(decision.TargetServers[0].client, request)
 		if err != nil {
 			return nil, err
 		}
@@ -193,7 +197,13 @@ func (sr *SmartRouterWithAggregation) routeWithEnhancement(request *LSPRequest) 
 	
 	// Execute primary server first
 	primaryDecision := decisions[0]
-	primaryResult, primaryErr := sr.executeRequest(primaryDecision.Client, request)
+	
+	// Safe access to TargetServers
+	if len(primaryDecision.TargetServers) == 0 {
+		return nil, fmt.Errorf("no target servers available for primary decision")
+	}
+	
+	primaryResult, primaryErr := sr.executeRequest(primaryDecision.TargetServers[0].client, request)
 	
 	// If primary succeeds and we have enhancement servers, query them
 	var enhancementResults []interface{}
@@ -209,10 +219,15 @@ func (sr *SmartRouterWithAggregation) routeWithEnhancement(request *LSPRequest) 
 			go func(idx int, dec *RoutingDecision) {
 				defer wg.Done()
 				
-				result, err := sr.executeRequest(dec.Client, request)
+				// Safe access to TargetServers
+				if len(dec.TargetServers) == 0 {
+					return
+				}
+				
+				result, err := sr.executeRequest(dec.TargetServers[0].client, request)
 				if err == nil {
 					enhancementResults[idx] = result
-					enhancementSources[idx] = dec.ServerName
+					enhancementSources[idx] = dec.TargetServers[0].config.Name
 				}
 			}(i, decision)
 		}
@@ -222,7 +237,7 @@ func (sr *SmartRouterWithAggregation) routeWithEnhancement(request *LSPRequest) 
 	
 	// Aggregate primary with enhancements
 	allResults := []interface{}{primaryResult}
-	allSources := []string{primaryDecision.ServerName}
+	allSources := []string{primaryDecision.TargetServers[0].config.Name}
 	
 	for i, result := range enhancementResults {
 		if result != nil {
@@ -236,7 +251,7 @@ func (sr *SmartRouterWithAggregation) routeWithEnhancement(request *LSPRequest) 
 		// Return primary result if aggregation fails
 		aggregationResult = &AggregationResult{
 			MergedResponse:    primaryResult,
-			SourceMapping:     map[string]interface{}{primaryDecision.ServerName: primaryResult},
+			SourceMapping:     map[string]interface{}{primaryDecision.TargetServers[0].config.Name: primaryResult},
 			MergeStrategy:     "primary_only",
 			TotalSources:      1,
 			SuccessfulSources: 1,
@@ -250,10 +265,10 @@ func (sr *SmartRouterWithAggregation) routeWithEnhancement(request *LSPRequest) 
 	
 	return &EnhancedAggregatedResponse{
 		AggregatedResponse: AggregatedResponse{
-			PrimaryResult:   aggregationResult.MergedResponse,
-			Strategy:        PrimaryWithEnhancement,
+			PrimaryResponse:   aggregationResult.MergedResponse,
+			AggregationMethod: PrimaryWithEnhancement.Name(),
 			ProcessingTime:  time.Since(startTime),
-			ServerCount:     len(allResults),
+			SuccessCount:     len(allResults),
 		},
 		AggregationResult: *aggregationResult,
 		QualityMetrics: EnhancedQualityMetrics{
@@ -270,7 +285,12 @@ func (sr *SmartRouterWithAggregation) routeSingleWithAggregationFallback(request
 		return nil, err
 	}
 	
-	result, err := sr.executeRequest(decision.Client, request)
+	// Safe access to TargetServers
+	if len(decision.TargetServers) == 0 {
+		return nil, fmt.Errorf("no target servers available")
+	}
+	
+	result, err := sr.executeRequest(decision.TargetServers[0].client, request)
 	if err != nil {
 		// Try aggregation with multiple servers as fallback
 		return sr.AggregateBroadcastEnhanced(request)
@@ -355,12 +375,23 @@ func (sr *SmartRouterWithAggregation) filterSecondaryResults(serverResponses []S
 	var secondaryResults []ServerResponse
 	
 	for _, response := range serverResponses {
-		if response.Success && response.Result != primaryResult {
+		if response.Success && response.Response != primaryResult {
 			secondaryResults = append(secondaryResults, response)
 		}
 	}
 	
 	return secondaryResults
+}
+
+// convertServerResponsesToInterfaces converts []ServerResponse to []interface{}
+func (sr *SmartRouterWithAggregation) convertServerResponsesToInterfaces(serverResponses []ServerResponse) []interface{} {
+	var interfaces []interface{}
+	
+	for _, response := range serverResponses {
+		interfaces = append(interfaces, response.Response)
+	}
+	
+	return interfaces
 }
 
 // calculateEnhancedQualityMetrics calculates detailed quality metrics
@@ -375,11 +406,11 @@ func (sr *SmartRouterWithAggregation) calculateEnhancedQualityMetrics(aggregatio
 		if response.Success {
 			reliability = 1.0
 			// Adjust based on response time (faster = more reliable)
-			if response.ResponseTime < 100*time.Millisecond {
+			if response.Duration < 100*time.Millisecond {
 				reliability = 1.0
-			} else if response.ResponseTime < 500*time.Millisecond {
+			} else if response.Duration < 500*time.Millisecond {
 				reliability = 0.9
-			} else if response.ResponseTime < 1*time.Second {
+			} else if response.Duration < 1*time.Second {
 				reliability = 0.8
 			} else {
 				reliability = 0.7
@@ -389,8 +420,8 @@ func (sr *SmartRouterWithAggregation) calculateEnhancedQualityMetrics(aggregatio
 		serverReliability[response.ServerName] = reliability
 		methodSupport[response.ServerName] = response.Success
 		
-		if response.Result != nil {
-			responseSizes[response.ServerName] = sr.estimateResponseSize(response.Result)
+		if response.Response != nil {
+			responseSizes[response.ServerName] = sr.estimateResponseSize(response.Response)
 		}
 	}
 	
@@ -416,9 +447,15 @@ func (sr *SmartRouterWithAggregation) getServerReliabilityScores(sources []strin
 
 // createSingleTargetEnhancedResponse creates an enhanced response for single target routing
 func (sr *SmartRouterWithAggregation) createSingleTargetEnhancedResponse(result interface{}, decision *RoutingDecision) *EnhancedAggregatedResponse {
+	// Safe access to TargetServers
+	if len(decision.TargetServers) == 0 {
+		return &EnhancedAggregatedResponse{}
+	}
+	
+	serverName := decision.TargetServers[0].config.Name
 	aggregationResult := AggregationResult{
 		MergedResponse:    result,
-		SourceMapping:     map[string]interface{}{decision.ServerName: result},
+		SourceMapping:     map[string]interface{}{serverName: result},
 		MergeStrategy:     "single_target",
 		TotalSources:      1,
 		SuccessfulSources: 1,
@@ -426,21 +463,21 @@ func (sr *SmartRouterWithAggregation) createSingleTargetEnhancedResponse(result 
 			Score:             1.0,
 			Completeness:      1.0,
 			Consistency:       1.0,
-			SourceReliability: sr.getServerHealthScore(decision.ServerName),
+			SourceReliability: sr.getServerHealthScore(serverName),
 		},
 	}
 	
 	return &EnhancedAggregatedResponse{
 		AggregatedResponse: AggregatedResponse{
-			PrimaryResult:  result,
-			Strategy:       SingleTargetWithFallback,
-			ServerCount:    1,
+			PrimaryResponse:  result,
+			AggregationMethod: SingleTargetWithFallback.Name(),
+			SuccessCount:    1,
 		},
 		AggregationResult: aggregationResult,
 		QualityMetrics: EnhancedQualityMetrics{
 			AggregationQuality: aggregationResult.Quality,
-			ServerReliability:  map[string]float64{decision.ServerName: sr.getServerHealthScore(decision.ServerName)},
-			MethodSupport:      map[string]bool{decision.ServerName: true},
+			ServerReliability:  map[string]float64{serverName: sr.getServerHealthScore(serverName)},
+			MethodSupport:      map[string]bool{serverName: true},
 		},
 	}
 }
@@ -494,8 +531,7 @@ func ExampleUsage() {
 			},
 		},
 		URI:     "file:///path/to/file.go",
-		Language: "go",
-		Context: context.Background(),
+		Context: &RequestContext{},
 	}
 	
 	// 4. Route with intelligent aggregation
@@ -518,7 +554,7 @@ func ExampleUsage() {
 
 // CustomAggregatorExample shows how to create and register custom aggregators
 func CustomAggregatorExample() {
-	logger := createTestLogger()
+	logger := &mcp.StructuredLogger{}
 	registry := NewAggregatorRegistry(logger)
 	
 	// Create a custom aggregator for a specific method

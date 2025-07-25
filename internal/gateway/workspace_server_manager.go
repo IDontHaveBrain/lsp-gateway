@@ -42,7 +42,7 @@ type WorkspaceServerManager struct {
 	// Metrics and monitoring
 	lastResourceCheck time.Time
 	createdAt         time.Time
-	lastUsed          time.Time
+	lastUsed          int64
 }
 
 // WorkspaceLanguagePool manages servers for a specific language within a workspace
@@ -137,7 +137,7 @@ func NewWorkspaceServerManager(workspaceID string, config *config.GatewayConfig,
 		cancel:                   cancel,
 		logger:                   logger,
 		createdAt:                time.Now(),
-		lastUsed:                 time.Now(),
+		lastUsed:                 time.Now().UnixNano(),
 	}
 }
 
@@ -226,7 +226,7 @@ func (wsm *WorkspaceServerManager) GetServerForRequest(language string, requestT
 	}
 
 	// Update last used time
-	atomic.StoreInt64((*int64)(&wsm.lastUsed), time.Now().UnixNano())
+	atomic.StoreInt64(&wsm.lastUsed, time.Now().UnixNano())
 
 	// Get server from pool
 	server, err := wsm.selectServerFromPool(pool, requestType)
@@ -259,7 +259,7 @@ func (wsm *WorkspaceServerManager) GetServersForRequest(language string, maxServ
 	defer pool.mu.RUnlock()
 
 	// Update last used time
-	atomic.StoreInt64((*int64)(&wsm.lastUsed), time.Now().UnixNano())
+	atomic.StoreInt64(&wsm.lastUsed, time.Now().UnixNano())
 
 	// Get available healthy servers
 	availableServers := make([]*ServerInstance, 0)
@@ -652,8 +652,14 @@ func (si *ServerInstance) UpdateMetrics(responseTime time.Duration, success bool
 	}
 
 	if success {
-		si.lastUsed = time.Now()
+		atomic.StoreInt64(&si.lastUsed, time.Now().UnixNano())
 	}
+}
+
+// GetLastUsedTime returns the last used timestamp as a time.Time
+func (wsm *WorkspaceServerManager) GetLastUsedTime() time.Time {
+	lastUsedNano := atomic.LoadInt64(&wsm.lastUsed)
+	return time.Unix(0, lastUsedNano)
 }
 
 // GetRequestHistory returns recent request history

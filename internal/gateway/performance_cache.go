@@ -6,6 +6,7 @@ import (
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"regexp"
 	"sort"
@@ -72,6 +73,33 @@ type ServerMetrics struct {
 	TrendScore          float64       `json:"trend_score"`
 	ResponseTimes       []time.Duration `json:"-"` // Circular buffer for percentiles
 	ResponseTimeIndex   int           `json:"-"`
+}
+
+// Copy creates a deep copy of the ServerMetrics
+// Thread safety is assumed to be handled by the caller
+func (sm *ServerMetrics) Copy() *ServerMetrics {
+	responseTimesCopy := make([]time.Duration, len(sm.ResponseTimes))
+	copy(responseTimesCopy, sm.ResponseTimes)
+
+	return &ServerMetrics{
+		ServerName:          sm.ServerName,
+		TotalRequests:       sm.TotalRequests,
+		SuccessfulRequests:  sm.SuccessfulRequests,
+		FailedRequests:      sm.FailedRequests,
+		AverageResponseTime: sm.AverageResponseTime,
+		MinResponseTime:     sm.MinResponseTime,
+		MaxResponseTime:     sm.MaxResponseTime,
+		P50ResponseTime:     sm.P50ResponseTime,
+		P95ResponseTime:     sm.P95ResponseTime,
+		P99ResponseTime:     sm.P99ResponseTime,
+		LastRequestTime:     sm.LastRequestTime,
+		HealthScore:         sm.HealthScore,
+		CircuitBreakerState: sm.CircuitBreakerState,
+		LoadScore:           sm.LoadScore,
+		TrendScore:          sm.TrendScore,
+		ResponseTimes:       responseTimesCopy,
+		ResponseTimeIndex:   sm.ResponseTimeIndex,
+	}
 }
 
 // PerformanceMethodMetrics aggregates performance data by LSP method
@@ -760,7 +788,7 @@ func (pc *IntelligentPerformanceCache) decompressData(data []byte) ([]byte, erro
 	defer gz.Close()
 
 	var result strings.Builder
-	_, err = result.ReadFrom(gz)
+	_, err = io.Copy(&result, gz)
 	if err != nil {
 		return nil, err
 	}
@@ -893,7 +921,7 @@ func (pc *IntelligentPerformanceCache) optimizeTTL() {
 func (pc *IntelligentPerformanceCache) compressUnusedEntries() {
 	threshold := time.Now().Add(-time.Hour)
 	
-	for key, entry := range pc.cache {
+	for _, entry := range pc.cache {
 		if entry.LastAccess.Before(threshold) && entry.CompressedData == nil && entry.Size > 1024 {
 			data, err := json.Marshal(entry.Response)
 			if err == nil {

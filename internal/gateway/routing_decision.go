@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"lsp-gateway/internal/config"
@@ -346,7 +347,7 @@ func selectBestServer(servers []*ServerInstance, context *RoutingRequestContext)
 	bestScore := -1.0
 
 	for _, server := range servers {
-		if !server.Available {
+		if !server.IsHealthy() {
 			continue
 		}
 
@@ -364,7 +365,7 @@ func selectSuitableServers(servers []*ServerInstance, context *RoutingRequestCon
 	var suitable []*ServerInstance
 
 	for _, server := range servers {
-		if !server.Available {
+		if !server.IsHealthy() {
 			continue
 		}
 
@@ -381,7 +382,7 @@ func selectLeastLoadedServer(servers []*ServerInstance, context *RoutingRequestC
 	lowestLoad := float64(1000000) // High initial value
 
 	for _, server := range servers {
-		if !server.Available {
+		if !server.IsHealthy() {
 			continue
 		}
 
@@ -389,8 +390,12 @@ func selectLeastLoadedServer(servers []*ServerInstance, context *RoutingRequestC
 			continue
 		}
 
-		if server.LoadScore < lowestLoad {
-			lowestLoad = server.LoadScore
+		// Calculate load score based on metrics
+		metrics := server.GetMetrics()
+		loadScore := float64(metrics.ActiveConnections) + metrics.ErrorRate
+		
+		if loadScore < lowestLoad {
+			lowestLoad = loadScore
 			bestServer = server
 		}
 	}
@@ -402,51 +407,51 @@ func calculateServerScore(server *ServerInstance, context *RoutingRequestContext
 	score := 0.0
 
 	// Language match (most important)
-	if server.Language == context.Language {
+	if supportsLanguage(server, context.Language) {
 		score += 100.0
-	} else if supportsLanguage(server, context.Language) {
-		score += 50.0
 	}
 
 	// Performance metrics
-	if server.Performance != nil {
-		score += server.Performance.SuccessRate * 20.0
+	metrics := server.GetMetrics()
+	if metrics != nil {
+		successRate := float64(metrics.SuccessCount) / float64(metrics.RequestCount)
+		if metrics.RequestCount == 0 {
+			successRate = 1.0 // Default for new servers
+		}
+		score += successRate * 20.0
 		
 		// Lower response time is better
-		if server.Performance.AverageResponseTime > 0 {
-			responseTimeScore := 1000.0 / float64(server.Performance.AverageResponseTime.Milliseconds())
-			score += responseTimeScore
+		if metrics.RequestCount > 0 {
+			avgResponseTime := float64(metrics.TotalResponseTime.Milliseconds()) / float64(metrics.RequestCount)
+			if avgResponseTime > 0 {
+				responseTimeScore := 1000.0 / avgResponseTime
+				score += responseTimeScore
+			}
 		}
 
-		// Circuit breaker penalty
-		if server.Performance.CircuitBreakerOpen {
-			score -= 50.0
-		}
+		// Error rate penalty
+		score -= metrics.ErrorRate * 30.0
 	}
 
-	// Load score (lower is better)
-	score -= server.LoadScore
+	// Load score (lower is better) - calculate from metrics
+	loadScore := float64(metrics.ActiveConnections) + metrics.ErrorRate
+	score -= loadScore
 
-	// Priority and weight
-	score += float64(server.Priority) * 10.0
-	score *= server.Weight
+	// Priority and weight from config
+	score += float64(server.config.Priority) * 10.0
 
 	return score
 }
 
 func isServerSuitableForContext(server *ServerInstance, context *RoutingRequestContext) bool {
 	// Check language support
-	if server.Language == context.Language {
-		return true
-	}
-
 	if supportsLanguage(server, context.Language) {
 		return true
 	}
 
 	// Check if server is in the supported servers list
 	for _, supportedServer := range context.SupportedServers {
-		if server.Name == supportedServer {
+		if server.config.Name == supportedServer {
 			return true
 		}
 	}
@@ -455,11 +460,11 @@ func isServerSuitableForContext(server *ServerInstance, context *RoutingRequestC
 }
 
 func supportsLanguage(server *ServerInstance, language string) bool {
-	if server.Config == nil {
+	if server.config == nil {
 		return false
 	}
 
-	for _, lang := range server.Config.Languages {
+	for _, lang := range server.config.Languages {
 		if lang == language {
 			return true
 		}
@@ -481,7 +486,7 @@ func getAggregatorForMethod(method string) ResponseAggregator {
 	case LSP_METHOD_HOVER:
 		return &HoverAggregator{}
 	default:
-		return &FirstSuccessAggregator{}
+		return nil
 	}
 }
 
@@ -703,7 +708,7 @@ func (rd *RoutingDecision) GetPrimaryServer() *ServerInstance {
 
 	primary := rd.TargetServers[0]
 	for _, server := range rd.TargetServers[1:] {
-		if server.Priority > primary.Priority {
+		if server.config.Priority > primary.config.Priority {
 			primary = server
 		}
 	}
@@ -715,7 +720,7 @@ func (rd *RoutingDecision) GetPrimaryServer() *ServerInstance {
 func (rd *RoutingDecision) GetServerNames() []string {
 	names := make([]string, len(rd.TargetServers))
 	for i, server := range rd.TargetServers {
-		names[i] = server.Name
+		names[i] = server.config.Name
 	}
 	return names
 }
@@ -749,32 +754,50 @@ func (rc *RoutingRequestContext) GetFileExtension() string {
 
 // UpdatePerformanceMetrics updates the performance metrics for the server
 func (si *ServerInstance) UpdatePerformanceMetrics(responseTime time.Duration, success bool) {
-	if si.Performance == nil {
-		si.Performance = &ServerPerformance{}
+	metrics := si.GetMetrics()
+	if metrics == nil {
+		return
 	}
 
-	si.Performance.RequestCount++
+	// Update metrics using atomic operations for thread safety
+	atomic.AddInt64(&metrics.RequestCount, 1)
 	
 	if success {
-		// Update average response time (simple moving average approximation)
-		if si.Performance.RequestCount == 1 {
-			si.Performance.AverageResponseTime = responseTime
-		} else {
-			// Weighted average with more weight on recent responses
-			weight := 0.1
-			si.Performance.AverageResponseTime = time.Duration(
-				float64(si.Performance.AverageResponseTime)*(1-weight) +
-				float64(responseTime)*weight,
-			)
+		atomic.AddInt64(&metrics.SuccessCount, 1)
+		atomic.AddInt64((*int64)(&metrics.TotalResponseTime), int64(responseTime))
+		
+		// Update min/max response times
+		for {
+			oldMin := metrics.MinResponseTime
+			if oldMin == 0 || responseTime < oldMin {
+				if atomic.CompareAndSwapInt64((*int64)(&metrics.MinResponseTime), int64(oldMin), int64(responseTime)) {
+					break
+				}
+			} else {
+				break
+			}
 		}
 		
-		si.Performance.SuccessRate = float64(si.Performance.RequestCount-si.Performance.ErrorCount) / float64(si.Performance.RequestCount)
+		// Update max response time
+		for {
+			oldMax := metrics.MaxResponseTime
+			if responseTime > oldMax {
+				if atomic.CompareAndSwapInt64((*int64)(&metrics.MaxResponseTime), int64(oldMax), int64(responseTime)) {
+					break
+				}
+			} else {
+				break
+			}
+		}
 	} else {
-		si.Performance.ErrorCount++
-		si.Performance.LastErrorTime = time.Now()
-		si.Performance.SuccessRate = float64(si.Performance.RequestCount-si.Performance.ErrorCount) / float64(si.Performance.RequestCount)
+		atomic.AddInt64(&metrics.FailureCount, 1)
+	}
+	
+	// Update error rate
+	if metrics.RequestCount > 0 {
+		metrics.ErrorRate = float64(metrics.FailureCount) / float64(metrics.RequestCount)
 	}
 
-	si.LastUsed = time.Now()
+	atomic.StoreInt64(&si.lastUsed, time.Now().Unix())
 }
 
