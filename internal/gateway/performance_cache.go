@@ -40,8 +40,8 @@ type PerformanceCache interface {
 	Stop() error
 }
 
-// CacheEntry represents a cached response with metadata
-type CacheEntry struct {
+// PerformanceCacheEntry represents a cached response with metadata
+type PerformanceCacheEntry struct {
 	Response        interface{} `json:"response"`
 	Timestamp       time.Time   `json:"timestamp"`
 	TTL             time.Duration `json:"ttl"`
@@ -87,8 +87,8 @@ type MethodMetrics struct {
 	LastOptimization    time.Time         `json:"last_optimization"`
 }
 
-// CacheStats provides comprehensive cache performance metrics
-type CacheStats struct {
+// PerformanceCacheStats provides comprehensive cache performance metrics
+type PerformanceCacheStats struct {
 	TotalEntries       int64     `json:"total_entries"`
 	CacheHitRate       float64   `json:"cache_hit_rate"`
 	MemoryUsage        int64     `json:"memory_usage"`
@@ -102,8 +102,8 @@ type CacheStats struct {
 	LastOptimization   time.Time `json:"last_optimization"`
 }
 
-// CacheConfig holds configuration for performance cache
-type CacheConfig struct {
+// PerformanceCacheConfig holds configuration for performance cache
+type PerformanceCacheConfig struct {
 	MaxMemoryMB        int64         `json:"max_memory_mb"`
 	DefaultTTL         time.Duration `json:"default_ttl"`
 	MaxCacheEntries    int           `json:"max_cache_entries"`
@@ -116,11 +116,11 @@ type CacheConfig struct {
 
 // IntelligentPerformanceCache implements PerformanceCache with advanced features
 type IntelligentPerformanceCache struct {
-	config           *CacheConfig
+	config           *PerformanceCacheConfig
 	mutex            sync.RWMutex
-	cache            map[string]*CacheEntry  // L1 cache
-	compressedCache  map[string]*CacheEntry  // L2 cache
-	persistentCache  map[string]*CacheEntry  // L3 cache
+	cache            map[string]*PerformanceCacheEntry  // L1 cache
+	compressedCache  map[string]*PerformanceCacheEntry  // L2 cache
+	persistentCache  map[string]*PerformanceCacheEntry  // L3 cache
 	serverMetrics    map[string]*ServerMetrics
 	methodMetrics    map[string]*MethodMetrics
 	cacheStats       *CacheStats
@@ -137,9 +137,9 @@ type IntelligentPerformanceCache struct {
 }
 
 // NewIntelligentPerformanceCache creates a new performance cache instance
-func NewIntelligentPerformanceCache(config *CacheConfig) *IntelligentPerformanceCache {
+func NewIntelligentPerformanceCache(config *PerformanceCacheConfig) *IntelligentPerformanceCache {
 	if config == nil {
-		config = &CacheConfig{
+		config = &PerformanceCacheConfig{
 			MaxMemoryMB:          256,
 			DefaultTTL:           5 * time.Minute,
 			MaxCacheEntries:      10000,

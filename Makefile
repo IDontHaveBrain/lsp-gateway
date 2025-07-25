@@ -123,7 +123,7 @@ quality: format lint security
 # TESTING TARGETS
 # =============================================================================
 
-.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration setup-simple-repos
+.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-mcp test-e2e-http test-e2e-performance test-e2e-workflow setup-simple-repos
 setup-simple-repos:
 	@echo "Setting up test repositories..."
 	./scripts/setup-simple-repos.sh || echo "Setup script not found, skipping..."
@@ -143,6 +143,39 @@ test-lsp-validation-short:
 test-jdtls-integration:
 	@echo "Running JDTLS integration tests..."
 	$(GOTEST) -v -timeout 600s -run "TestJDTLS" ./tests/integration/...
+
+test-circuit-breaker:
+	@echo "Running circuit breaker E2E tests..."
+	$(GOTEST) -v -timeout 300s -run "TestCircuitBreakerE2ESuite" ./tests/e2e/...
+
+test-circuit-breaker-comprehensive:
+	@echo "Running comprehensive circuit breaker scenarios..."
+	$(GOTEST) -v -timeout 600s -run "TestCircuitBreakerComprehensiveScenarios" ./tests/e2e/...
+
+# E2E Test Suite Targets
+test-e2e-quick:
+	@echo "Running quick E2E validation tests..."
+	$(GOTEST) -v -short -timeout 300s -run "TestE2EQuickValidation" ./tests/e2e/...
+
+test-e2e-full:
+	@echo "Running full E2E test suite..."
+	$(GOTEST) -v -timeout 1800s -run "TestFullE2ETestSuite" ./tests/e2e/...
+
+test-e2e-mcp:
+	@echo "Running MCP protocol E2E tests..."
+	$(GOTEST) -v -timeout 600s -run "TestMCPProtocol" ./tests/e2e/...
+
+test-e2e-http:
+	@echo "Running HTTP JSON-RPC E2E tests..."
+	$(GOTEST) -v -timeout 600s -run "TestHTTPProtocol" ./tests/e2e/...
+
+test-e2e-performance:
+	@echo "Running E2E performance tests..."
+	$(GOTEST) -v -timeout 1200s -run "TestE2EPerformance" ./tests/e2e/...
+
+test-e2e-workflow:
+	@echo "Running E2E workflow tests..."
+	$(GOTEST) -v -timeout 900s -run "TestE2EWorkflow" ./tests/e2e/...
 
 # =============================================================================
 # UTILITY TARGETS
@@ -186,9 +219,19 @@ help:
 	@echo "  quality   - Run all quality checks"
 	@echo ""
 	@echo "Testing:"
-	@echo "  test-simple-quick    - Quick validation tests"
-	@echo "  test-lsp-validation  - Full LSP validation"
-	@echo "  setup-simple-repos   - Setup test repositories"
+	@echo "  test-simple-quick      - Quick validation tests"
+	@echo "  test-lsp-validation    - Full LSP validation"
+	@echo "  test-circuit-breaker   - Circuit breaker E2E tests"
+	@echo "  test-circuit-breaker-comprehensive - Comprehensive circuit breaker scenarios"
+	@echo "  setup-simple-repos     - Setup test repositories"
+	@echo ""
+	@echo "E2E Testing:"
+	@echo "  test-e2e-quick         - Quick E2E validation tests"
+	@echo "  test-e2e-full          - Full E2E test suite"
+	@echo "  test-e2e-mcp           - MCP protocol E2E tests"
+	@echo "  test-e2e-http          - HTTP JSON-RPC E2E tests"
+	@echo "  test-e2e-performance   - E2E performance tests"
+	@echo "  test-e2e-workflow      - E2E workflow tests"
 	@echo ""
 	@echo "Utility:"
 	@echo "  install   - Install binary to GOPATH"

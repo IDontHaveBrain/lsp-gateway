@@ -21,8 +21,8 @@ const (
 	PriorityUrgent
 )
 
-// RequestContext provides context for server selection decisions
-type RequestContext struct {
+// ServerSelectionContext provides context for server selection decisions
+type ServerSelectionContext struct {
 	RequestID        string        `json:"requestId"`
 	URI              string        `json:"uri"`
 	Method           string        `json:"method"`
@@ -36,7 +36,7 @@ type RequestContext struct {
 
 // ServerSelector interface defines methods for selecting servers from pools
 type ServerSelector interface {
-	SelectServer(pool *LanguageServerPool, requestType string, context *RequestContext) (*ServerInstance, error)
+	SelectServer(pool *LanguageServerPool, requestType string, context *ServerSelectionContext) (*ServerInstance, error)
 	SelectMultipleServers(pool *LanguageServerPool, requestType string, maxServers int) ([]*ServerInstance, error)
 	UpdateServerMetrics(serverName string, responseTime time.Duration, success bool)
 	RebalancePool(pool *LanguageServerPool) error
@@ -61,7 +61,7 @@ func (rr *RoundRobinSelector) GetName() string {
 	return rr.name
 }
 
-func (rr *RoundRobinSelector) SelectServer(pool *LanguageServerPool, requestType string, context *RequestContext) (*ServerInstance, error) {
+func (rr *RoundRobinSelector) SelectServer(pool *LanguageServerPool, requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	servers := pool.GetHealthyServers()
 	if len(servers) == 0 {
 		return nil, fmt.Errorf("no healthy servers available for language %s", pool.language)
@@ -129,7 +129,7 @@ func (lc *LeastConnectionsSelector) GetName() string {
 	return lc.name
 }
 
-func (lc *LeastConnectionsSelector) SelectServer(pool *LanguageServerPool, requestType string, context *RequestContext) (*ServerInstance, error) {
+func (lc *LeastConnectionsSelector) SelectServer(pool *LanguageServerPool, requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	servers := pool.GetHealthyServers()
 	if len(servers) == 0 {
 		return nil, fmt.Errorf("no healthy servers available for language %s", pool.language)
@@ -275,7 +275,7 @@ func (rt *ResponseTimeSelector) GetName() string {
 	return rt.name
 }
 
-func (rt *ResponseTimeSelector) SelectServer(pool *LanguageServerPool, requestType string, context *RequestContext) (*ServerInstance, error) {
+func (rt *ResponseTimeSelector) SelectServer(pool *LanguageServerPool, requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	servers := pool.GetHealthyServers()
 	if len(servers) == 0 {
 		return nil, fmt.Errorf("no healthy servers available for language %s", pool.language)
@@ -450,7 +450,7 @@ func (pb *PerformanceBasedSelector) GetName() string {
 	return pb.name
 }
 
-func (pb *PerformanceBasedSelector) SelectServer(pool *LanguageServerPool, requestType string, context *RequestContext) (*ServerInstance, error) {
+func (pb *PerformanceBasedSelector) SelectServer(pool *LanguageServerPool, requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	servers := pool.GetHealthyServers()
 	if len(servers) == 0 {
 		return nil, fmt.Errorf("no healthy servers available for language %s", pool.language)
@@ -600,7 +600,7 @@ func (fb *FeatureBasedSelector) GetName() string {
 	return fb.name
 }
 
-func (fb *FeatureBasedSelector) SelectServer(pool *LanguageServerPool, requestType string, context *RequestContext) (*ServerInstance, error) {
+func (fb *FeatureBasedSelector) SelectServer(pool *LanguageServerPool, requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	servers := pool.GetHealthyServers()
 	if len(servers) == 0 {
 		return nil, fmt.Errorf("no healthy servers available for language %s", pool.language)
@@ -744,7 +744,7 @@ func (ms *MultiServerSelector) GetName() string {
 	return ms.name
 }
 
-func (ms *MultiServerSelector) SelectServer(pool *LanguageServerPool, requestType string, context *RequestContext) (*ServerInstance, error) {
+func (ms *MultiServerSelector) SelectServer(pool *LanguageServerPool, requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	// Try primary strategy first
 	if server, err := ms.primaryStrategy.SelectServer(pool, requestType, context); err == nil {
 		return server, nil
@@ -853,7 +853,7 @@ func (ha *HealthAwareSelector) GetName() string {
 	return ha.name
 }
 
-func (ha *HealthAwareSelector) SelectServer(pool *LanguageServerPool, requestType string, context *RequestContext) (*ServerInstance, error) {
+func (ha *HealthAwareSelector) SelectServer(pool *LanguageServerPool, requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	healthyServers := ha.getHealthyServers(pool)
 	if len(healthyServers) == 0 {
 		return nil, fmt.Errorf("no healthy servers available for language %s", pool.language)

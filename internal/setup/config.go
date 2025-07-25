@@ -130,7 +130,6 @@ type DefaultConfigGenerator struct {
 	// Multi-language enhancements
 	multiLangGenerator *config.ConfigGenerator
 	integrator         *config.ConfigurationIntegrator
-	projectScanner     *config.ProjectLanguageScanner
 }
 
 func NewConfigGenerator() *DefaultConfigGenerator {
@@ -143,7 +142,6 @@ func NewConfigGenerator() *DefaultConfigGenerator {
 		// Initialize multi-language components
 		multiLangGenerator: config.NewConfigGenerator(),
 		integrator:         config.NewConfigurationIntegrator(),
-		projectScanner:     config.NewProjectLanguageScanner(),
 	}
 
 	generator.initializeTemplates()
@@ -180,16 +178,8 @@ func (g *DefaultConfigGenerator) GenerateMultiLanguageConfig(ctx context.Context
 		}
 	}
 	
-	// Scan project for language detection
-	projectInfo, err := g.projectScanner.ScanProject(projectPath)
-	if err != nil {
-		result.Issues = append(result.Issues, fmt.Sprintf("Project scanning failed: %v", err))
-		result.Duration = time.Since(startTime)
-		return result, fmt.Errorf("project scanning failed: %w", err)
-	}
-	
-	// Generate multi-language configuration
-	mlConfig, err := g.multiLangGenerator.GenerateConfig(projectInfo)
+	// Generate multi-language configuration from project path
+	mlConfig, err := config.AutoGenerateConfigFromPath(projectPath)
 	if err != nil {
 		result.Issues = append(result.Issues, fmt.Sprintf("Multi-language config generation failed: %v", err))
 		result.Duration = time.Since(startTime)
@@ -214,8 +204,8 @@ func (g *DefaultConfigGenerator) GenerateMultiLanguageConfig(ctx context.Context
 		return result, fmt.Errorf("gateway config conversion failed: %w", err)
 	}
 	
-	// Apply smart configuration based on project characteristics
-	g.applySmartConfiguration(gatewayConfig, projectInfo, options)
+	// Apply smart configuration based on project characteristics  
+	g.applySmartConfiguration(gatewayConfig, mlConfig, options)
 	
 	// Validate generated configuration
 	if err := gatewayConfig.Validate(); err != nil {
@@ -230,14 +220,14 @@ func (g *DefaultConfigGenerator) GenerateMultiLanguageConfig(ctx context.Context
 	
 	// Populate metadata
 	result.Metadata["generation_method"] = "multi_language_aware"
-	result.Metadata["project_type"] = projectInfo.ProjectType
-	result.Metadata["languages_detected"] = len(projectInfo.LanguageContexts)
+	result.Metadata["project_type"] = mlConfig.ProjectInfo.ProjectType
+	result.Metadata["languages_detected"] = len(mlConfig.ProjectInfo.LanguageContexts)
 	result.Metadata["optimization_mode"] = options.OptimizationMode
 	result.Metadata["smart_routing_enabled"] = options.EnableSmartRouting
 	result.Metadata["multi_server_enabled"] = options.EnableMultiServer
 	
 	g.logger.UserSuccess(fmt.Sprintf("Multi-language configuration generated: %d servers for %d languages",
-		result.ServersGenerated, len(projectInfo.LanguageContexts)))
+		result.ServersGenerated, len(mlConfig.ProjectInfo.LanguageContexts)))
 	
 	return result, nil
 }
@@ -270,9 +260,9 @@ type GenerationOptions struct {
 }
 
 // applySmartConfiguration applies intelligent configuration based on project characteristics
-func (g *DefaultConfigGenerator) applySmartConfiguration(gatewayConfig *config.GatewayConfig, projectInfo *config.MultiLanguageProjectInfo, options *GenerationOptions) {
+func (g *DefaultConfigGenerator) applySmartConfiguration(gatewayConfig *config.GatewayConfig, mlConfig *config.MultiLanguageConfig, options *GenerationOptions) {
 	// Configure based on project type
-	switch projectInfo.ProjectType {
+	switch mlConfig.ProjectInfo.ProjectType {
 	case config.ProjectTypeMonorepo:
 		gatewayConfig.ProjectAware = true
 		gatewayConfig.EnableConcurrentServers = true
@@ -310,7 +300,7 @@ func (g *DefaultConfigGenerator) applySmartConfiguration(gatewayConfig *config.G
 	}
 	
 	// Configure language-specific pools
-	if len(projectInfo.LanguageContexts) > 1 {
+	if len(mlConfig.ProjectInfo.LanguageContexts) > 1 {
 		// Create language pools for multi-language projects
 		gatewayConfig.MigrateServersToPool()
 	}

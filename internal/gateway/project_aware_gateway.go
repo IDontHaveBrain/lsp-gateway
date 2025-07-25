@@ -13,9 +13,9 @@ import (
 	"lsp-gateway/mcp"
 )
 
-// ProjectAwareGateway extends the Gateway with SmartRouter integration and project awareness
+// EnhancedProjectAwareGateway extends the Gateway with SmartRouter integration and project awareness
 // This serves as a bridge between the existing Gateway implementation and the new SmartRouter system
-type ProjectAwareGateway struct {
+type EnhancedProjectAwareGateway struct {
 	*Gateway // Embedded for backward compatibility
 
 	// Enhanced routing components
@@ -37,8 +37,8 @@ type ProjectAwareGateway struct {
 	mu sync.RWMutex
 }
 
-// NewProjectAwareGateway creates a new ProjectAwareGateway with SmartRouter integration
-func NewProjectAwareGateway(config *config.GatewayConfig) (*ProjectAwareGateway, error) {
+// NewEnhancedProjectAwareGateway creates a new EnhancedProjectAwareGateway with SmartRouter integration
+func NewEnhancedProjectAwareGateway(config *config.GatewayConfig) (*EnhancedProjectAwareGateway, error) {
 	// Create base Gateway first
 	baseGateway, err := NewGateway(config)
 	if err != nil {
@@ -50,7 +50,7 @@ func NewProjectAwareGateway(config *config.GatewayConfig) (*ProjectAwareGateway,
 	workspaceManager := baseGateway.GetWorkspaceManager()
 	projectRouter := baseGateway.GetProjectRouter()
 
-	gateway := &ProjectAwareGateway{
+	gateway := &EnhancedProjectAwareGateway{
 		Gateway:          baseGateway,
 		smartRouter:      smartRouter,
 		workspaceManager: workspaceManager,
@@ -71,7 +71,7 @@ func NewProjectAwareGateway(config *config.GatewayConfig) (*ProjectAwareGateway,
 }
 
 // HandleJSONRPCWithProjectAwareness provides enhanced JSON-RPC handling with project awareness
-func (pag *ProjectAwareGateway) HandleJSONRPCWithProjectAwareness(w http.ResponseWriter, r *http.Request) {
+func (pag *EnhancedProjectAwareGateway) HandleJSONRPCWithProjectAwareness(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 	requestLogger := pag.initializeEnhancedRequestLogger(r)
 
@@ -101,7 +101,7 @@ func (pag *ProjectAwareGateway) HandleJSONRPCWithProjectAwareness(w http.Respons
 }
 
 // processEnhancedJSONRPCRequest processes requests using SmartRouter capabilities
-func (pag *ProjectAwareGateway) processEnhancedJSONRPCRequest(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, logger *mcp.StructuredLogger, startTime time.Time) {
+func (pag *EnhancedProjectAwareGateway) processEnhancedJSONRPCRequest(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, logger *mcp.StructuredLogger, startTime time.Time) {
 	// Extract URI and context information
 	uri, err := pag.extractURI(req)
 	if err != nil {
@@ -157,7 +157,7 @@ func (pag *ProjectAwareGateway) processEnhancedJSONRPCRequest(w http.ResponseWri
 }
 
 // handleEnhancedRequestRouting performs enhanced routing using workspace context
-func (pag *ProjectAwareGateway) handleEnhancedRequestRouting(w http.ResponseWriter, req JSONRPCRequest, workspace *WorkspaceContextImpl, logger *mcp.StructuredLogger) (string, bool) {
+func (pag *EnhancedProjectAwareGateway) handleEnhancedRequestRouting(w http.ResponseWriter, req JSONRPCRequest, workspace *WorkspaceContextImpl, logger *mcp.StructuredLogger) (string, bool) {
 	// Extract language from request context
 	uri, err := pag.extractURI(req)
 	if err != nil {
@@ -226,7 +226,7 @@ func (pag *ProjectAwareGateway) handleEnhancedRequestRouting(w http.ResponseWrit
 }
 
 // initializeEnhancedRequestLogger creates an enhanced logger with additional context
-func (pag *ProjectAwareGateway) initializeEnhancedRequestLogger(r *http.Request) *mcp.StructuredLogger {
+func (pag *EnhancedProjectAwareGateway) initializeEnhancedRequestLogger(r *http.Request) *mcp.StructuredLogger {
 	baseLogger := pag.Gateway.initializeRequestLogger(r)
 
 	if baseLogger != nil {
@@ -242,7 +242,7 @@ func (pag *ProjectAwareGateway) initializeEnhancedRequestLogger(r *http.Request)
 }
 
 // GetWorkspaceContextForURI returns workspace context for a given URI
-func (pag *ProjectAwareGateway) GetWorkspaceContextForURI(uri string) (*WorkspaceContextImpl, error) {
+func (pag *EnhancedProjectAwareGateway) GetWorkspaceContextForURI(uri string) (*WorkspaceContextImpl, error) {
 	if pag.workspaceManager == nil {
 		return nil, fmt.Errorf("workspace manager not available")
 	}
@@ -251,7 +251,7 @@ func (pag *ProjectAwareGateway) GetWorkspaceContextForURI(uri string) (*Workspac
 }
 
 // GetMultiLanguageWorkspaceInfo returns multi-language information for a workspace
-func (pag *ProjectAwareGateway) GetMultiLanguageWorkspaceInfo(workspaceID string) (*MultiLanguageProjectInfo, error) {
+func (pag *EnhancedProjectAwareGateway) GetMultiLanguageWorkspaceInfo(workspaceID string) (*MultiLanguageProjectInfo, error) {
 	if pag.workspaceManager == nil {
 		return nil, fmt.Errorf("workspace manager not available")
 	}
@@ -265,7 +265,7 @@ func (pag *ProjectAwareGateway) GetMultiLanguageWorkspaceInfo(workspaceID string
 }
 
 // SetActiveLanguageForWorkspace sets the active language for a workspace
-func (pag *ProjectAwareGateway) SetActiveLanguageForWorkspace(workspaceID, language string) error {
+func (pag *EnhancedProjectAwareGateway) SetActiveLanguageForWorkspace(workspaceID, language string) error {
 	if pag.workspaceManager == nil {
 		return fmt.Errorf("workspace manager not available")
 	}
@@ -274,7 +274,7 @@ func (pag *ProjectAwareGateway) SetActiveLanguageForWorkspace(workspaceID, langu
 }
 
 // GetLanguageSpecificClient returns a language-specific LSP client for a workspace
-func (pag *ProjectAwareGateway) GetLanguageSpecificClient(workspaceID, language string) (transport.LSPClient, error) {
+func (pag *EnhancedProjectAwareGateway) GetLanguageSpecificClient(workspaceID, language string) (transport.LSPClient, error) {
 	if pag.workspaceManager == nil {
 		return nil, fmt.Errorf("workspace manager not available")
 	}
@@ -283,7 +283,7 @@ func (pag *ProjectAwareGateway) GetLanguageSpecificClient(workspaceID, language 
 }
 
 // GetSmartRoutingMetrics returns SmartRouter performance metrics
-func (pag *ProjectAwareGateway) GetSmartRoutingMetrics() *RoutingMetrics {
+func (pag *EnhancedProjectAwareGateway) GetSmartRoutingMetrics() *RoutingMetrics {
 	if pag.smartRouter != nil {
 		return pag.smartRouter.GetRoutingMetrics()
 	}
@@ -291,17 +291,17 @@ func (pag *ProjectAwareGateway) GetSmartRoutingMetrics() *RoutingMetrics {
 }
 
 // IsSmartRoutingAvailable returns whether SmartRouter is available and enabled
-func (pag *ProjectAwareGateway) IsSmartRoutingAvailable() bool {
+func (pag *EnhancedProjectAwareGateway) IsSmartRoutingAvailable() bool {
 	return pag.enableSmartRouting && pag.smartRouter != nil
 }
 
 // IsEnhancementsAvailable returns whether enhancements are available and enabled
-func (pag *ProjectAwareGateway) IsEnhancementsAvailable() bool {
+func (pag *EnhancedProjectAwareGateway) IsEnhancementsAvailable() bool {
 	return pag.enableEnhancements && pag.performanceCache != nil && pag.requestClassifier != nil
 }
 
 // Start starts the ProjectAwareGateway and all its components
-func (pag *ProjectAwareGateway) Start(ctx context.Context) error {
+func (pag *EnhancedProjectAwareGateway) Start(ctx context.Context) error {
 	// Start the base gateway first
 	if err := pag.Gateway.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start base gateway: %w", err)
@@ -320,7 +320,7 @@ func (pag *ProjectAwareGateway) Start(ctx context.Context) error {
 }
 
 // Stop stops the ProjectAwareGateway and all its components
-func (pag *ProjectAwareGateway) Stop() error {
+func (pag *EnhancedProjectAwareGateway) Stop() error {
 	// Stop enhanced components first
 	if pag.healthMonitor != nil {
 		pag.healthMonitor.StopMonitoring()
@@ -331,7 +331,7 @@ func (pag *ProjectAwareGateway) Stop() error {
 }
 
 // ValidateSmartRouterIntegration validates that SmartRouter integration is working correctly
-func (pag *ProjectAwareGateway) ValidateSmartRouterIntegration() error {
+func (pag *EnhancedProjectAwareGateway) ValidateSmartRouterIntegration() error {
 	if !pag.enableSmartRouting {
 		return fmt.Errorf("SmartRouter is not enabled")
 	}
@@ -361,14 +361,14 @@ func (pag *ProjectAwareGateway) ValidateSmartRouterIntegration() error {
 }
 
 // SetGlobalMultiServerManager sets the global multi-server manager reference
-func (pag *ProjectAwareGateway) SetGlobalMultiServerManager(globalManager *MultiServerManager) {
+func (pag *EnhancedProjectAwareGateway) SetGlobalMultiServerManager(globalManager *MultiServerManager) {
 	pag.mu.Lock()
 	defer pag.mu.Unlock()
 	pag.globalMultiServerManager = globalManager
 }
 
 // processWorkspaceAwareLSPRequest processes LSP requests with workspace awareness
-func (pag *ProjectAwareGateway) processWorkspaceAwareLSPRequest(req *WorkspaceAwareJSONRPCRequest, w http.ResponseWriter) error {
+func (pag *EnhancedProjectAwareGateway) processWorkspaceAwareLSPRequest(req *WorkspaceAwareJSONRPCRequest, w http.ResponseWriter) error {
 	workspace, exists := pag.workspaceManager.GetWorkspaceByID(req.WorkspaceID)
 	if !exists {
 		return fmt.Errorf("workspace not found: %s", req.WorkspaceID)
@@ -384,7 +384,7 @@ func (pag *ProjectAwareGateway) processWorkspaceAwareLSPRequest(req *WorkspaceAw
 }
 
 // processWorkspaceMultiServerRequest processes requests using workspace server manager
-func (pag *ProjectAwareGateway) processWorkspaceMultiServerRequest(req *WorkspaceAwareJSONRPCRequest, workspace *WorkspaceContextImpl, w http.ResponseWriter) error {
+func (pag *EnhancedProjectAwareGateway) processWorkspaceMultiServerRequest(req *WorkspaceAwareJSONRPCRequest, workspace *WorkspaceContextImpl, w http.ResponseWriter) error {
 	language := pag.extractLanguageFromURI(req.Params)
 
 	// Create workspace request router
@@ -405,7 +405,7 @@ func (pag *ProjectAwareGateway) processWorkspaceMultiServerRequest(req *Workspac
 }
 
 // processWorkspaceSingleServerRequest processes requests using single server fallback
-func (pag *ProjectAwareGateway) processWorkspaceSingleServerRequest(req *WorkspaceAwareJSONRPCRequest, workspace *WorkspaceContextImpl, w http.ResponseWriter) error {
+func (pag *EnhancedProjectAwareGateway) processWorkspaceSingleServerRequest(req *WorkspaceAwareJSONRPCRequest, workspace *WorkspaceContextImpl, w http.ResponseWriter) error {
 	language := pag.extractLanguageFromURI(req.Params)
 
 	// Get language-specific client using existing workspace manager methods
@@ -454,7 +454,7 @@ func (pag *ProjectAwareGateway) processWorkspaceSingleServerRequest(req *Workspa
 }
 
 // executeSingleServerRequest executes a request on a single server
-func (pag *ProjectAwareGateway) executeSingleServerRequest(server *ServerInstance, req *WorkspaceAwareJSONRPCRequest, w http.ResponseWriter) error {
+func (pag *EnhancedProjectAwareGateway) executeSingleServerRequest(server *ServerInstance, req *WorkspaceAwareJSONRPCRequest, w http.ResponseWriter) error {
 	startTime := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -480,7 +480,7 @@ func (pag *ProjectAwareGateway) executeSingleServerRequest(server *ServerInstanc
 }
 
 // executeConcurrentServerRequest executes a request on multiple servers concurrently
-func (pag *ProjectAwareGateway) executeConcurrentServerRequest(servers []*ServerInstance, req *WorkspaceAwareJSONRPCRequest, w http.ResponseWriter) error {
+func (pag *EnhancedProjectAwareGateway) executeConcurrentServerRequest(servers []*ServerInstance, req *WorkspaceAwareJSONRPCRequest, w http.ResponseWriter) error {
 	startTime := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -559,7 +559,7 @@ func (pag *ProjectAwareGateway) executeConcurrentServerRequest(servers []*Server
 }
 
 // aggregateResults aggregates results from multiple servers
-func (pag *ProjectAwareGateway) aggregateResults(method string, results []json.RawMessage) (json.RawMessage, error) {
+func (pag *EnhancedProjectAwareGateway) aggregateResults(method string, results []json.RawMessage) (json.RawMessage, error) {
 	switch method {
 	case "workspace/symbol":
 		return pag.aggregateSymbolResults(results)
@@ -575,7 +575,7 @@ func (pag *ProjectAwareGateway) aggregateResults(method string, results []json.R
 }
 
 // aggregateSymbolResults aggregates workspace symbol results
-func (pag *ProjectAwareGateway) aggregateSymbolResults(results []json.RawMessage) (json.RawMessage, error) {
+func (pag *EnhancedProjectAwareGateway) aggregateSymbolResults(results []json.RawMessage) (json.RawMessage, error) {
 	var allSymbols []interface{}
 
 	for _, result := range results {
@@ -589,7 +589,7 @@ func (pag *ProjectAwareGateway) aggregateSymbolResults(results []json.RawMessage
 }
 
 // aggregateReferenceResults aggregates reference results
-func (pag *ProjectAwareGateway) aggregateReferenceResults(results []json.RawMessage) (json.RawMessage, error) {
+func (pag *EnhancedProjectAwareGateway) aggregateReferenceResults(results []json.RawMessage) (json.RawMessage, error) {
 	var allReferences []interface{}
 
 	for _, result := range results {
@@ -603,25 +603,9 @@ func (pag *ProjectAwareGateway) aggregateReferenceResults(results []json.RawMess
 }
 
 // extractLanguageFromURI extracts language from request parameters
-func (pag *ProjectAwareGateway) extractLanguageFromURI(params interface{}) string {
+func (pag *EnhancedProjectAwareGateway) extractLanguageFromURI(params interface{}) string {
 	// This is a simplified implementation
 	// In practice, you would extract the language from the textDocument URI
 	return "go" // Default language for demonstration
 }
 
-// WorkspaceAwareJSONRPCRequest represents a JSON-RPC request with workspace context
-type WorkspaceAwareJSONRPCRequest struct {
-	JSONRPC     string      `json:"jsonrpc"`
-	ID          interface{} `json:"id"`
-	Method      string      `json:"method"`
-	Params      interface{} `json:"params"`
-	WorkspaceID string      `json:"workspace_id"`
-}
-
-// JSONRPCResponse represents a JSON-RPC response
-type JSONRPCResponse struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      interface{} `json:"id"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   interface{} `json:"error,omitempty"`
-}

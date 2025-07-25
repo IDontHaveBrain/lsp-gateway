@@ -17,7 +17,7 @@ import (
 
 // RoutingDecision represents a complete routing decision with all required context
 type RoutingDecision struct {
-	TargetServers      []*ServerInstance    `json:"target_servers"`
+	TargetServers      []*RoutingServerInstance    `json:"target_servers"`
 	RoutingStrategy    string               `json:"routing_strategy"`
 	RequestContext     *RequestContext      `json:"request_context"`
 	ResponseAggregator ResponseAggregator   `json:"-"` // Not serializable due to interface
@@ -66,8 +66,8 @@ type AggregatedResponse struct {
 	Warnings           []string      `json:"warnings,omitempty"`
 }
 
-// ServerInstance represents a language server instance with performance metrics
-type ServerInstance struct {
+// RoutingServerInstance represents a language server instance for routing decisions
+type RoutingServerInstance struct {
 	Name        string             `json:"name"`
 	Language    string             `json:"language"`
 	Performance *ServerPerformance `json:"performance,omitempty"`
@@ -94,13 +94,6 @@ type ServerPerformance struct {
 
 // Response aggregation interfaces and implementations
 
-// ResponseAggregator defines the interface for aggregating responses from multiple servers
-type ResponseAggregator interface {
-	Aggregate(responses []ServerResponse) (*AggregatedResponse, error)
-	GetAggregationType() string
-	SupportsMethod(method string) bool
-}
-
 // ServerResponse represents a response from a specific server
 type ServerResponse struct {
 	ServerName string        `json:"server_name"`
@@ -110,229 +103,12 @@ type ServerResponse struct {
 	Success    bool          `json:"success"`
 }
 
-// DefinitionAggregator aggregates textDocument/definition responses
-type DefinitionAggregator struct{}
-
-func (da *DefinitionAggregator) Aggregate(responses []ServerResponse) (*AggregatedResponse, error) {
-	var allDefinitions []interface{}
-	var sources []string
-	successCount := 0
-	errorCount := 0
-	var primary interface{}
-
-	for _, resp := range responses {
-		if resp.Success && resp.Response != nil {
-			successCount++
-			sources = append(sources, resp.ServerName)
-			
-			// First successful response becomes primary
-			if primary == nil {
-				primary = resp.Response
-			}
-			
-			allDefinitions = append(allDefinitions, resp.Response)
-		} else {
-			errorCount++
-		}
-	}
-
-	// For definitions, we typically want to merge all unique locations
-	aggregated := mergeDefinitionLocations(allDefinitions)
-
-	return &AggregatedResponse{
-		PrimaryResponse:    primary,
-		SecondaryResponses: allDefinitions[1:], // Skip primary if exists
-		AggregatedResult:   aggregated,
-		ResponseSources:    sources,
-		AggregationMethod:  "definition_merge",
-		SuccessCount:       successCount,
-		ErrorCount:         errorCount,
-	}, nil
-}
-
-func (da *DefinitionAggregator) GetAggregationType() string {
-	return "definition"
-}
-
-func (da *DefinitionAggregator) SupportsMethod(method string) bool {
-	return method == "textDocument/definition"
-}
-
-// ReferencesAggregator aggregates textDocument/references responses
-type ReferencesAggregator struct{}
-
-func (ra *ReferencesAggregator) Aggregate(responses []ServerResponse) (*AggregatedResponse, error) {
-	var allReferences []interface{}
-	var sources []string
-	successCount := 0
-	errorCount := 0
-	var primary interface{}
-
-	for _, resp := range responses {
-		if resp.Success && resp.Response != nil {
-			successCount++
-			sources = append(sources, resp.ServerName)
-			
-			if primary == nil {
-				primary = resp.Response
-			}
-			
-			allReferences = append(allReferences, resp.Response)
-		} else {
-			errorCount++
-		}
-	}
-
-	// Merge and deduplicate references
-	aggregated := mergeReferenceLocations(allReferences)
-
-	return &AggregatedResponse{
-		PrimaryResponse:    primary,
-		SecondaryResponses: allReferences[1:],
-		AggregatedResult:   aggregated,
-		ResponseSources:    sources,
-		AggregationMethod:  "references_merge",
-		SuccessCount:       successCount,
-		ErrorCount:         errorCount,
-	}, nil
-}
-
-func (ra *ReferencesAggregator) GetAggregationType() string {
-	return "references"
-}
-
-func (ra *ReferencesAggregator) SupportsMethod(method string) bool {
-	return method == "textDocument/references"
-}
-
-// SymbolsAggregator aggregates document and workspace symbol responses
-type SymbolsAggregator struct{}
-
-func (sa *SymbolsAggregator) Aggregate(responses []ServerResponse) (*AggregatedResponse, error) {
-	var allSymbols []interface{}
-	var sources []string
-	successCount := 0
-	errorCount := 0
-	var primary interface{}
-
-	for _, resp := range responses {
-		if resp.Success && resp.Response != nil {
-			successCount++
-			sources = append(sources, resp.ServerName)
-			
-			if primary == nil {
-				primary = resp.Response
-			}
-			
-			allSymbols = append(allSymbols, resp.Response)
-		} else {
-			errorCount++
-		}
-	}
-
-	// Merge symbols and organize by relevance
-	aggregated := mergeSymbols(allSymbols)
-
-	return &AggregatedResponse{
-		PrimaryResponse:    primary,
-		SecondaryResponses: allSymbols[1:],
-		AggregatedResult:   aggregated,
-		ResponseSources:    sources,
-		AggregationMethod:  "symbols_merge",
-		SuccessCount:       successCount,
-		ErrorCount:         errorCount,
-	}, nil
-}
-
-func (sa *SymbolsAggregator) GetAggregationType() string {
-	return "symbols"
-}
-
-func (sa *SymbolsAggregator) SupportsMethod(method string) bool {
-	return method == "textDocument/documentSymbol" || method == "workspace/symbol"
-}
-
-// HoverAggregator aggregates textDocument/hover responses
-type HoverAggregator struct{}
-
-func (ha *HoverAggregator) Aggregate(responses []ServerResponse) (*AggregatedResponse, error) {
-	var bestResponse interface{}
-	var sources []string
-	successCount := 0
-	errorCount := 0
-	var allResponses []interface{}
-
-	for _, resp := range responses {
-		if resp.Success && resp.Response != nil {
-			successCount++
-			sources = append(sources, resp.ServerName)
-			allResponses = append(allResponses, resp.Response)
-			
-			// Choose the most detailed hover response
-			if isBetterHoverResponse(resp.Response, bestResponse) {
-				bestResponse = resp.Response
-			}
-		} else {
-			errorCount++
-		}
-	}
-
-	return &AggregatedResponse{
-		PrimaryResponse:    bestResponse,
-		SecondaryResponses: allResponses,
-		AggregatedResult:   bestResponse, // For hover, we use the best single response
-		ResponseSources:    sources,
-		AggregationMethod:  "hover_best",
-		SuccessCount:       successCount,
-		ErrorCount:         errorCount,
-	}, nil
-}
-
-func (ha *HoverAggregator) GetAggregationType() string {
-	return "hover"
-}
-
-func (ha *HoverAggregator) SupportsMethod(method string) bool {
-	return method == "textDocument/hover"
-}
-
-// FirstSuccessAggregator returns the first successful response
-type FirstSuccessAggregator struct{}
-
-func (fsa *FirstSuccessAggregator) Aggregate(responses []ServerResponse) (*AggregatedResponse, error) {
-	for _, resp := range responses {
-		if resp.Success && resp.Response != nil {
-			return &AggregatedResponse{
-				PrimaryResponse:   resp.Response,
-				AggregatedResult:  resp.Response,
-				ResponseSources:   []string{resp.ServerName},
-				AggregationMethod: "first_success",
-				SuccessCount:      1,
-				ErrorCount:        len(responses) - 1,
-			}, nil
-		}
-	}
-
-	return &AggregatedResponse{
-		AggregationMethod: "first_success",
-		SuccessCount:      0,
-		ErrorCount:        len(responses),
-	}, fmt.Errorf("no successful responses")
-}
-
-func (fsa *FirstSuccessAggregator) GetAggregationType() string {
-	return "first_success"
-}
-
-func (fsa *FirstSuccessAggregator) SupportsMethod(method string) bool {
-	return true // Supports all methods as fallback
-}
 
 // Routing strategy interface and implementations
 
 // RoutingStrategy defines how requests should be routed to language servers
 type RoutingStrategy interface {
-	Route(request *LSPRequest, availableServers []*ServerInstance) (*RoutingDecision, error)
+	Route(request *LSPRequest, availableServers []*RoutingServerInstance) (*RoutingDecision, error)
 	Name() string
 	Description() string
 }
@@ -340,7 +116,7 @@ type RoutingStrategy interface {
 // SingleServerStrategy routes to a single best server
 type SingleServerStrategy struct{}
 
-func (sss *SingleServerStrategy) Route(request *LSPRequest, availableServers []*ServerInstance) (*RoutingDecision, error) {
+func (sss *SingleServerStrategy) Route(request *LSPRequest, availableServers []*RoutingServerInstance) (*RoutingDecision, error) {
 	if len(availableServers) == 0 {
 		return nil, fmt.Errorf("no available servers for request")
 	}
@@ -354,7 +130,7 @@ func (sss *SingleServerStrategy) Route(request *LSPRequest, availableServers []*
 	aggregator := getAggregatorForMethod(request.Method)
 	
 	return &RoutingDecision{
-		TargetServers:      []*ServerInstance{bestServer},
+		TargetServers:      []*RoutingServerInstance{bestServer},
 		RoutingStrategy:    "single_server",
 		RequestContext:     request.Context,
 		ResponseAggregator: aggregator,
@@ -376,7 +152,7 @@ func (sss *SingleServerStrategy) Description() string {
 // MultiServerStrategy routes to multiple servers and aggregates responses
 type MultiServerStrategy struct{}
 
-func (mss *MultiServerStrategy) Route(request *LSPRequest, availableServers []*ServerInstance) (*RoutingDecision, error) {
+func (mss *MultiServerStrategy) Route(request *LSPRequest, availableServers []*RoutingServerInstance) (*RoutingDecision, error) {
 	if len(availableServers) == 0 {
 		return nil, fmt.Errorf("no available servers for request")
 	}
@@ -409,41 +185,6 @@ func (mss *MultiServerStrategy) Description() string {
 	return "Routes requests to multiple servers and aggregates responses"
 }
 
-// LoadBalancedStrategy distributes requests across servers based on load
-type LoadBalancedStrategy struct{}
-
-func (lbs *LoadBalancedStrategy) Route(request *LSPRequest, availableServers []*ServerInstance) (*RoutingDecision, error) {
-	if len(availableServers) == 0 {
-		return nil, fmt.Errorf("no available servers for request")
-	}
-
-	// Select server with lowest load score
-	selectedServer := selectLeastLoadedServer(availableServers, request.Context)
-	if selectedServer == nil {
-		return nil, fmt.Errorf("no suitable server found for load balancing")
-	}
-
-	aggregator := getAggregatorForMethod(request.Method)
-	
-	return &RoutingDecision{
-		TargetServers:      []*ServerInstance{selectedServer},
-		RoutingStrategy:    "load_balanced",
-		RequestContext:     request.Context,
-		ResponseAggregator: aggregator,
-		Timeout:            30 * time.Second,
-		Priority:           1,
-		CreatedAt:          time.Now(),
-		DecisionID:         generateDecisionID(),
-	}, nil
-}
-
-func (lbs *LoadBalancedStrategy) Name() string {
-	return "load_balanced"
-}
-
-func (lbs *LoadBalancedStrategy) Description() string {
-	return "Distributes requests based on server load and performance metrics"
-}
 
 // Helper functions for context creation and server selection
 
@@ -530,8 +271,8 @@ func PreprocessLSPRequest(request *LSPRequest) error {
 
 // Server selection utilities
 
-func selectBestServer(servers []*ServerInstance, context *RequestContext) *ServerInstance {
-	var bestServer *ServerInstance
+func selectBestServer(servers []*RoutingServerInstance, context *RequestContext) *RoutingServerInstance {
+	var bestServer *RoutingServerInstance
 	bestScore := -1.0
 
 	for _, server := range servers {
@@ -549,8 +290,8 @@ func selectBestServer(servers []*ServerInstance, context *RequestContext) *Serve
 	return bestServer
 }
 
-func selectSuitableServers(servers []*ServerInstance, context *RequestContext) []*ServerInstance {
-	var suitable []*ServerInstance
+func selectSuitableServers(servers []*RoutingServerInstance, context *RequestContext) []*RoutingServerInstance {
+	var suitable []*RoutingServerInstance
 
 	for _, server := range servers {
 		if !server.Available {
@@ -565,8 +306,8 @@ func selectSuitableServers(servers []*ServerInstance, context *RequestContext) [
 	return suitable
 }
 
-func selectLeastLoadedServer(servers []*ServerInstance, context *RequestContext) *ServerInstance {
-	var bestServer *ServerInstance
+func selectLeastLoadedServer(servers []*RoutingServerInstance, context *RequestContext) *RoutingServerInstance {
+	var bestServer *RoutingServerInstance
 	lowestLoad := float64(1000000) // High initial value
 
 	for _, server := range servers {
@@ -587,7 +328,7 @@ func selectLeastLoadedServer(servers []*ServerInstance, context *RequestContext)
 	return bestServer
 }
 
-func calculateServerScore(server *ServerInstance, context *RequestContext) float64 {
+func calculateServerScore(server *RoutingServerInstance, context *RequestContext) float64 {
 	score := 0.0
 
 	// Language match (most important)
@@ -623,7 +364,7 @@ func calculateServerScore(server *ServerInstance, context *RequestContext) float
 	return score
 }
 
-func isServerSuitableForContext(server *ServerInstance, context *RequestContext) bool {
+func isServerSuitableForContext(server *RoutingServerInstance, context *RequestContext) bool {
 	// Check language support
 	if server.Language == context.Language {
 		return true
@@ -643,7 +384,7 @@ func isServerSuitableForContext(server *ServerInstance, context *RequestContext)
 	return false
 }
 
-func supportsLanguage(server *ServerInstance, language string) bool {
+func supportsLanguage(server *RoutingServerInstance, language string) bool {
 	if server.Config == nil {
 		return false
 	}
@@ -659,19 +400,10 @@ func supportsLanguage(server *ServerInstance, language string) bool {
 
 // Response aggregation utilities
 
+// TODO: Update to use response_aggregator.go registry system
 func getAggregatorForMethod(method string) ResponseAggregator {
-	switch method {
-	case "textDocument/definition":
-		return &DefinitionAggregator{}
-	case "textDocument/references":
-		return &ReferencesAggregator{}
-	case "textDocument/documentSymbol", "workspace/symbol":
-		return &SymbolsAggregator{}
-	case "textDocument/hover":
-		return &HoverAggregator{}
-	default:
-		return &FirstSuccessAggregator{}
-	}
+	// Temporary stub - needs to be updated to work with response_aggregator.go
+	return nil
 }
 
 func mergeDefinitionLocations(definitions []interface{}) interface{} {
@@ -885,7 +617,7 @@ func (rd *RoutingDecision) IsValid() bool {
 }
 
 // GetPrimaryServer returns the highest priority server from the target servers
-func (rd *RoutingDecision) GetPrimaryServer() *ServerInstance {
+func (rd *RoutingDecision) GetPrimaryServer() *RoutingServerInstance {
 	if len(rd.TargetServers) == 0 {
 		return nil
 	}
@@ -937,7 +669,7 @@ func (rc *RequestContext) GetFileExtension() string {
 // Enhanced server instance methods
 
 // UpdatePerformanceMetrics updates the performance metrics for the server
-func (si *ServerInstance) UpdatePerformanceMetrics(responseTime time.Duration, success bool) {
+func (si *RoutingServerInstance) UpdatePerformanceMetrics(responseTime time.Duration, success bool) {
 	if si.Performance == nil {
 		si.Performance = &ServerPerformance{}
 	}
@@ -968,7 +700,7 @@ func (si *ServerInstance) UpdatePerformanceMetrics(responseTime time.Duration, s
 }
 
 // IsHealthy returns true if the server is considered healthy
-func (si *ServerInstance) IsHealthy() bool {
+func (si *RoutingServerInstance) IsHealthy() bool {
 	if !si.Available {
 		return false
 	}

@@ -45,7 +45,7 @@ func TestRoundRobinSelector(t *testing.T) {
 	pool := createTestPool(t, "round_robin")
 	selector := NewRoundRobinSelector()
 
-	context := &RequestContext{
+	context := &ServerSelectionContext{
 		Method:   "textDocument/definition",
 		Priority: PriorityNormal,
 		Timeout:  30 * time.Second,
@@ -73,7 +73,7 @@ func TestLeastConnectionsSelector(t *testing.T) {
 	pool := createTestPool(t, "least_connections")
 	selector := NewLeastConnectionsSelector()
 
-	context := &RequestContext{
+	context := &ServerSelectionContext{
 		Method:   "textDocument/definition",
 		Priority: PriorityNormal,
 		Timeout:  30 * time.Second,
@@ -113,7 +113,7 @@ func TestResponseTimeSelector(t *testing.T) {
 	pool := createTestPool(t, "response_time")
 	selector := NewResponseTimeSelector()
 
-	context := &RequestContext{
+	context := &ServerSelectionContext{
 		Method:   "textDocument/definition",
 		Priority: PriorityNormal,
 		Timeout:  30 * time.Second,
@@ -145,7 +145,7 @@ func TestPerformanceBasedSelector(t *testing.T) {
 	selector := NewPerformanceBasedSelector(weights)
 	pool := createTestPool(t, "performance")
 
-	context := &RequestContext{
+	context := &ServerSelectionContext{
 		Method:   "textDocument/definition",
 		Priority: PriorityNormal,
 		Timeout:  30 * time.Second,
@@ -171,7 +171,7 @@ func TestFeatureBasedSelector(t *testing.T) {
 	selector := NewFeatureBasedSelector()
 	pool := createTestPool(t, "feature")
 
-	context := &RequestContext{
+	context := &ServerSelectionContext{
 		Method:           "textDocument/definition",
 		Priority:         PriorityNormal,
 		RequiredFeatures: []string{"basic"},
@@ -199,7 +199,7 @@ func TestMultiServerSelector(t *testing.T) {
 
 	selector := NewMultiServerSelector(primary, fallbacks)
 
-	context := &RequestContext{
+	context := &ServerSelectionContext{
 		Method:   "textDocument/definition",
 		Priority: PriorityNormal,
 		Timeout:  30 * time.Second,
@@ -242,7 +242,7 @@ func TestHealthAwareSelector(t *testing.T) {
 		servers[0].metrics.healthScore = 0.5 // Below threshold
 	}
 
-	context := &RequestContext{
+	context := &ServerSelectionContext{
 		Method:   "textDocument/definition",
 		Priority: PriorityNormal,
 		Timeout:  30 * time.Second,
@@ -355,7 +355,7 @@ func TestLoadBalancerIntegration(t *testing.T) {
 		}
 	}
 
-	context := &RequestContext{
+	context := &ServerSelectionContext{
 		Method:   "textDocument/definition",
 		Priority: PriorityNormal,
 		Timeout:  30 * time.Second,
