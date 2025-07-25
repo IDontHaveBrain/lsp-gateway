@@ -2343,35 +2343,6 @@ func (g *Gateway) processEnhancedRequest(w http.ResponseWriter, r *http.Request,
 	g.processSingleServerRequestWithClient(w, r, req, primaryServerName, logger, startTime)
 }
 
-// processSingleServerRequest processes request using SmartRouter's client selection
-func (g *Gateway) processSingleServerRequest(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, serverName string, logger *mcp.StructuredLogger, startTime time.Time) bool {
-	// Try to get client through workspace manager if available
-	if g.workspaceManager != nil {
-		uri, err := g.extractURI(req)
-		if err == nil {
-			workspace, err := g.workspaceManager.GetOrCreateWorkspace(uri)
-			if err == nil {
-				language := ""
-				if uri != "" {
-					if lang, err := g.extractLanguageFromURI(uri); err == nil {
-						language = lang
-					}
-				}
-				
-				if language != "" {
-					client, err := workspace.getOrCreateLanguageClient(language, g.Config, g.Logger)
-					if err == nil {
-						g.processRequestWithClient(w, r, req, client, logger, startTime)
-						return true
-					}
-				}
-			}
-		}
-	}
-
-	// Fallback to traditional client selection
-	return false
-}
 
 // processSingleServerRequestWithClient processes request with a specific client
 func (g *Gateway) processSingleServerRequestWithClient(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, serverName string, logger *mcp.StructuredLogger, startTime time.Time) {

@@ -255,6 +255,12 @@ make test-integration
 # Java LSP integration tests (10min)
 make test-jdtls-integration
 
+# Circuit breaker E2E tests (5min)
+make test-circuit-breaker
+
+# Comprehensive circuit breaker scenarios (10min)
+make test-circuit-breaker-comprehensive
+
 # All tests
 make test
 ```
@@ -265,7 +271,8 @@ make test
 3. **MCP Protocol**: AI assistant integration scenarios
 4. **Multi-Language**: Go, Python, TypeScript, Java integration tests
 5. **Performance & Load**: Concurrent request processing and Circuit Breaker testing
-6. **Synthetic Projects**: Validation against generated realistic codebases
+6. **Circuit Breaker Scenarios**: Comprehensive failure handling, recovery, error categorization, and performance impact testing
+7. **Synthetic Projects**: Validation against generated realistic codebases
 
 ### Performance Testing
 ```bash

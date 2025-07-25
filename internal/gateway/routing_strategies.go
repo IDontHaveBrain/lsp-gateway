@@ -17,7 +17,7 @@ import (
 
 // RoutingStrategyInterface defines how requests should be routed to servers
 type RoutingStrategyInterface interface {
-	Route(request *LSPRequest, availableServers []*ServerInstance) ([]*RoutingDecision, error)
+	Route(request *LSPRequest, availableServers []*StrategyServerInstance) ([]*RoutingDecision, error)
 	GetName() string
 	GetPriority() int
 	SupportsAggregation() bool
@@ -73,8 +73,8 @@ const (
 	AggregationConsensus AggregationMode = "consensus"
 )
 
-// ServerInstance represents a server instance with performance data
-type ServerInstance struct {
+// StrategyServerInstance represents a server instance for routing strategies
+type StrategyServerInstance struct {
 	Config          *config.ServerConfig `json:"config"`
 	Client          transport.LSPClient  `json:"-"`
 	Metrics         *ServerMetrics       `json:"metrics"`
@@ -162,7 +162,7 @@ func (sr *StrategyRegistry) GetStrategy(name string) (RoutingStrategyInterface, 
 }
 
 // RouteRequest routes a request using the specified strategy
-func (sr *StrategyRegistry) RouteRequest(strategyName string, request *LSPRequest, availableServers []*ServerInstance) ([]*RoutingDecision, error) {
+func (sr *StrategyRegistry) RouteRequest(strategyName string, request *LSPRequest, availableServers []*StrategyServerInstance) ([]*RoutingDecision, error) {
 	strategy, exists := sr.GetStrategy(strategyName)
 	if !exists {
 		return nil, fmt.Errorf("strategy %s not found", strategyName)
@@ -320,7 +320,7 @@ func (s *SingleTargetStrategy) GetMetrics() *StrategyMetrics {
 	return s.metrics
 }
 
-func (s *SingleTargetStrategy) Route(request *LSPRequest, availableServers []*ServerInstance) ([]*RoutingDecision, error) {
+func (s *SingleTargetStrategy) Route(request *LSPRequest, availableServers []*StrategyServerInstance) ([]*RoutingDecision, error) {
 	if len(availableServers) == 0 {
 		return nil, fmt.Errorf("no servers available for single target routing")
 	}
@@ -352,8 +352,8 @@ func (s *SingleTargetStrategy) Route(request *LSPRequest, availableServers []*Se
 	return []*RoutingDecision{decision}, nil
 }
 
-func (s *SingleTargetStrategy) filterHealthyServers(servers []*ServerInstance) []*ServerInstance {
-	var healthy []*ServerInstance
+func (s *SingleTargetStrategy) filterHealthyServers(servers []*StrategyServerInstance) []*StrategyServerInstance {
+	var healthy []*StrategyServerInstance
 	healthThreshold := 0.7
 	if s.config != nil {
 		healthThreshold = s.config.HealthThreshold
@@ -367,7 +367,7 @@ func (s *SingleTargetStrategy) filterHealthyServers(servers []*ServerInstance) [
 	return healthy
 }
 
-func (s *SingleTargetStrategy) selectBestServer(servers []*ServerInstance) *ServerInstance {
+func (s *SingleTargetStrategy) selectBestServer(servers []*StrategyServerInstance) *StrategyServerInstance {
 	if len(servers) == 0 {
 		return nil
 	}
@@ -382,7 +382,7 @@ func (s *SingleTargetStrategy) selectBestServer(servers []*ServerInstance) *Serv
 	return servers[0]
 }
 
-func (s *SingleTargetStrategy) calculateCompositeScore(server *ServerInstance) float64 {
+func (s *SingleTargetStrategy) calculateCompositeScore(server *StrategyServerInstance) float64 {
 	// Composite score considering health, load, and weight
 	healthWeight := 0.4
 	loadWeight := 0.3
@@ -440,7 +440,7 @@ func (m *MultiTargetStrategy) GetMetrics() *StrategyMetrics {
 	return m.metrics
 }
 
-func (m *MultiTargetStrategy) Route(request *LSPRequest, availableServers []*ServerInstance) ([]*RoutingDecision, error) {
+func (m *MultiTargetStrategy) Route(request *LSPRequest, availableServers []*StrategyServerInstance) ([]*RoutingDecision, error) {
 	if len(availableServers) == 0 {
 		return nil, fmt.Errorf("no servers available for multi target routing")
 	}
@@ -483,8 +483,8 @@ func (m *MultiTargetStrategy) Route(request *LSPRequest, availableServers []*Ser
 	return decisions, nil
 }
 
-func (m *MultiTargetStrategy) filterHealthyServers(servers []*ServerInstance) []*ServerInstance {
-	var healthy []*ServerInstance
+func (m *MultiTargetStrategy) filterHealthyServers(servers []*StrategyServerInstance) []*StrategyServerInstance {
+	var healthy []*StrategyServerInstance
 	healthThreshold := 0.6 // Slightly lower threshold for multi-target
 	if m.config != nil {
 		healthThreshold = m.config.HealthThreshold
@@ -498,7 +498,7 @@ func (m *MultiTargetStrategy) filterHealthyServers(servers []*ServerInstance) []
 	return healthy
 }
 
-func (m *MultiTargetStrategy) selectOptimalServers(servers []*ServerInstance, count int) []*ServerInstance {
+func (m *MultiTargetStrategy) selectOptimalServers(servers []*StrategyServerInstance, count int) []*StrategyServerInstance {
 	if len(servers) <= count {
 		return servers
 	}
@@ -511,7 +511,7 @@ func (m *MultiTargetStrategy) selectOptimalServers(servers []*ServerInstance, co
 	})
 
 	// Select top servers with load balancing consideration
-	selected := make([]*ServerInstance, 0, count)
+	selected := make([]*StrategyServerInstance, 0, count)
 	for i := 0; i < count && i < len(servers); i++ {
 		selected = append(selected, servers[i])
 	}
@@ -519,7 +519,7 @@ func (m *MultiTargetStrategy) selectOptimalServers(servers []*ServerInstance, co
 	return selected
 }
 
-func (m *MultiTargetStrategy) calculateDiversityScore(server *ServerInstance) float64 {
+func (m *MultiTargetStrategy) calculateDiversityScore(server *StrategyServerInstance) float64 {
 	// Score that balances performance and diversity
 	baseScore := (server.HealthScore * 0.5) + ((1.0 - server.LoadScore) * 0.3) + (server.Weight * 0.2)
 	
@@ -576,7 +576,7 @@ func (b *BroadcastAggregateStrategy) GetMetrics() *StrategyMetrics {
 	return b.metrics
 }
 
-func (b *BroadcastAggregateStrategy) Route(request *LSPRequest, availableServers []*ServerInstance) ([]*RoutingDecision, error) {
+func (b *BroadcastAggregateStrategy) Route(request *LSPRequest, availableServers []*StrategyServerInstance) ([]*RoutingDecision, error) {
 	if len(availableServers) == 0 {
 		return nil, fmt.Errorf("no servers available for broadcast routing")
 	}
@@ -620,8 +620,8 @@ func (b *BroadcastAggregateStrategy) Route(request *LSPRequest, availableServers
 	return decisions, nil
 }
 
-func (b *BroadcastAggregateStrategy) filterBroadcastServers(servers []*ServerInstance) []*ServerInstance {
-	var suitable []*ServerInstance
+func (b *BroadcastAggregateStrategy) filterBroadcastServers(servers []*StrategyServerInstance) []*StrategyServerInstance {
+	var suitable []*StrategyServerInstance
 	healthThreshold := 0.5 // Lower threshold for broadcast
 	if b.config != nil {
 		healthThreshold = b.config.HealthThreshold * 0.8 // 80% of configured threshold
@@ -636,7 +636,7 @@ func (b *BroadcastAggregateStrategy) filterBroadcastServers(servers []*ServerIns
 	return suitable
 }
 
-func (b *BroadcastAggregateStrategy) selectBroadcastServers(servers []*ServerInstance, maxCount int) []*ServerInstance {
+func (b *BroadcastAggregateStrategy) selectBroadcastServers(servers []*StrategyServerInstance, maxCount int) []*StrategyServerInstance {
 	// Sort by broadcast suitability
 	sort.Slice(servers, func(i, j int) bool {
 		scoreI := b.calculateBroadcastScore(servers[i])
@@ -650,7 +650,7 @@ func (b *BroadcastAggregateStrategy) selectBroadcastServers(servers []*ServerIns
 	return servers
 }
 
-func (b *BroadcastAggregateStrategy) calculateBroadcastScore(server *ServerInstance) float64 {
+func (b *BroadcastAggregateStrategy) calculateBroadcastScore(server *StrategyServerInstance) float64 {
 	// Score emphasizing stability and feature coverage
 	stabilityScore := server.HealthScore * 0.6
 	performanceScore := (1.0 - server.LoadScore) * 0.2
@@ -666,7 +666,7 @@ func (b *BroadcastAggregateStrategy) getAggregationMode() string {
 	return string(AggregationUnion)
 }
 
-func (b *BroadcastAggregateStrategy) isCrossLanguageCapable(server *ServerInstance) bool {
+func (b *BroadcastAggregateStrategy) isCrossLanguageCapable(server *StrategyServerInstance) bool {
 	return len(server.Config.Languages) > 1
 }
 
@@ -718,7 +718,7 @@ func (s *SequentialFallbackStrategy) GetMetrics() *StrategyMetrics {
 	return s.metrics
 }
 
-func (s *SequentialFallbackStrategy) Route(request *LSPRequest, availableServers []*ServerInstance) ([]*RoutingDecision, error) {
+func (s *SequentialFallbackStrategy) Route(request *LSPRequest, availableServers []*StrategyServerInstance) ([]*RoutingDecision, error) {
 	if len(availableServers) == 0 {
 		return nil, fmt.Errorf("no servers available for sequential fallback routing")
 	}
@@ -751,9 +751,9 @@ func (s *SequentialFallbackStrategy) Route(request *LSPRequest, availableServers
 	return nil, fmt.Errorf("no suitable servers found in fallback chain")
 }
 
-func (s *SequentialFallbackStrategy) orderServersByPriority(servers []*ServerInstance) []*ServerInstance {
+func (s *SequentialFallbackStrategy) orderServersByPriority(servers []*StrategyServerInstance) []*StrategyServerInstance {
 	// Create a copy to avoid modifying original slice
-	ordered := make([]*ServerInstance, len(servers))
+	ordered := make([]*StrategyServerInstance, len(servers))
 	copy(ordered, servers)
 
 	// Sort by priority (higher first), then by health score, then by load
@@ -770,7 +770,7 @@ func (s *SequentialFallbackStrategy) orderServersByPriority(servers []*ServerIns
 	return ordered
 }
 
-func (s *SequentialFallbackStrategy) isServerSuitable(server *ServerInstance) bool {
+func (s *SequentialFallbackStrategy) isServerSuitable(server *StrategyServerInstance) bool {
 	healthThreshold := 0.6
 	if s.config != nil {
 		healthThreshold = s.config.HealthThreshold
@@ -830,7 +830,7 @@ func (l *LoadBalancedStrategy) GetMetrics() *StrategyMetrics {
 	return l.metrics
 }
 
-func (l *LoadBalancedStrategy) Route(request *LSPRequest, availableServers []*ServerInstance) ([]*RoutingDecision, error) {
+func (l *LoadBalancedStrategy) Route(request *LSPRequest, availableServers []*StrategyServerInstance) ([]*RoutingDecision, error) {
 	if len(availableServers) == 0 {
 		return nil, fmt.Errorf("no servers available for load balanced routing")
 	}
@@ -866,8 +866,8 @@ func (l *LoadBalancedStrategy) Route(request *LSPRequest, availableServers []*Se
 	return []*RoutingDecision{decision}, nil
 }
 
-func (l *LoadBalancedStrategy) filterHealthyServers(servers []*ServerInstance) []*ServerInstance {
-	var healthy []*ServerInstance
+func (l *LoadBalancedStrategy) filterHealthyServers(servers []*StrategyServerInstance) []*StrategyServerInstance {
+	var healthy []*StrategyServerInstance
 	healthThreshold := 0.6
 	if l.config != nil {
 		healthThreshold = l.config.HealthThreshold
@@ -881,7 +881,7 @@ func (l *LoadBalancedStrategy) filterHealthyServers(servers []*ServerInstance) [
 	return healthy
 }
 
-func (l *LoadBalancedStrategy) selectServerByLoadBalancing(servers []*ServerInstance) *ServerInstance {
+func (l *LoadBalancedStrategy) selectServerByLoadBalancing(servers []*StrategyServerInstance) *StrategyServerInstance {
 	method := LoadBalanceRoundRobin
 	if l.config != nil {
 		method = l.config.LoadBalance
@@ -905,7 +905,7 @@ func (l *LoadBalancedStrategy) selectServerByLoadBalancing(servers []*ServerInst
 	}
 }
 
-func (l *LoadBalancedStrategy) selectRoundRobin(servers []*ServerInstance) *ServerInstance {
+func (l *LoadBalancedStrategy) selectRoundRobin(servers []*StrategyServerInstance) *StrategyServerInstance {
 	if len(servers) == 0 {
 		return nil
 	}
@@ -914,12 +914,12 @@ func (l *LoadBalancedStrategy) selectRoundRobin(servers []*ServerInstance) *Serv
 	return servers[index%int64(len(servers))]
 }
 
-func (l *LoadBalancedStrategy) selectLeastConnections(servers []*ServerInstance) *ServerInstance {
+func (l *LoadBalancedStrategy) selectLeastConnections(servers []*StrategyServerInstance) *StrategyServerInstance {
 	if len(servers) == 0 {
 		return nil
 	}
 
-	var bestServer *ServerInstance
+	var bestServer *StrategyServerInstance
 	var minConnections int64 = ^int64(0) // Max int64
 
 	for _, server := range servers {
@@ -941,12 +941,12 @@ func (l *LoadBalancedStrategy) selectLeastConnections(servers []*ServerInstance)
 	return bestServer
 }
 
-func (l *LoadBalancedStrategy) selectByResponseTime(servers []*ServerInstance) *ServerInstance {
+func (l *LoadBalancedStrategy) selectByResponseTime(servers []*StrategyServerInstance) *StrategyServerInstance {
 	if len(servers) == 0 {
 		return nil
 	}
 
-	var bestServer *ServerInstance
+	var bestServer *StrategyServerInstance
 	var bestTime time.Duration = time.Duration(^uint64(0) >> 1) // Max duration
 
 	for _, server := range servers {
@@ -968,7 +968,7 @@ func (l *LoadBalancedStrategy) selectByResponseTime(servers []*ServerInstance) *
 	return bestServer
 }
 
-func (l *LoadBalancedStrategy) selectByHealthScore(servers []*ServerInstance) *ServerInstance {
+func (l *LoadBalancedStrategy) selectByHealthScore(servers []*StrategyServerInstance) *StrategyServerInstance {
 	if len(servers) == 0 {
 		return nil
 	}
@@ -980,7 +980,7 @@ func (l *LoadBalancedStrategy) selectByHealthScore(servers []*ServerInstance) *S
 	return servers[0]
 }
 
-func (l *LoadBalancedStrategy) selectWeighted(servers []*ServerInstance) *ServerInstance {
+func (l *LoadBalancedStrategy) selectWeighted(servers []*StrategyServerInstance) *StrategyServerInstance {
 	if len(servers) == 0 {
 		return nil
 	}
@@ -1009,7 +1009,7 @@ func (l *LoadBalancedStrategy) selectWeighted(servers []*ServerInstance) *Server
 	return servers[len(servers)-1]
 }
 
-func (l *LoadBalancedStrategy) selectByResourceUsage(servers []*ServerInstance) *ServerInstance {
+func (l *LoadBalancedStrategy) selectByResourceUsage(servers []*StrategyServerInstance) *StrategyServerInstance {
 	if len(servers) == 0 {
 		return nil
 	}
@@ -1077,7 +1077,7 @@ func (c *CrossLanguageStrategy) GetMetrics() *StrategyMetrics {
 	return c.metrics
 }
 
-func (c *CrossLanguageStrategy) Route(request *LSPRequest, availableServers []*ServerInstance) ([]*RoutingDecision, error) {
+func (c *CrossLanguageStrategy) Route(request *LSPRequest, availableServers []*StrategyServerInstance) ([]*RoutingDecision, error) {
 	if len(availableServers) == 0 {
 		return nil, fmt.Errorf("no servers available for cross-language routing")
 	}
@@ -1200,11 +1200,11 @@ func (c *CrossLanguageStrategy) detectEmbeddedLanguages(request *LSPRequest) []s
 	return embedded
 }
 
-func (c *CrossLanguageStrategy) groupServersByLanguage(servers []*ServerInstance, languages []string) map[string][]*ServerInstance {
-	groups := make(map[string][]*ServerInstance)
+func (c *CrossLanguageStrategy) groupServersByLanguage(servers []*StrategyServerInstance, languages []string) map[string][]*StrategyServerInstance {
+	groups := make(map[string][]*StrategyServerInstance)
 	
 	for _, language := range languages {
-		groups[language] = []*ServerInstance{}
+		groups[language] = []*StrategyServerInstance{}
 	}
 	
 	for _, server := range servers {
@@ -1222,8 +1222,8 @@ func (c *CrossLanguageStrategy) groupServersByLanguage(servers []*ServerInstance
 	return groups
 }
 
-func (c *CrossLanguageStrategy) selectCrossLanguageServers(groups map[string][]*ServerInstance, languages []string) []*ServerInstance {
-	var selected []*ServerInstance
+func (c *CrossLanguageStrategy) selectCrossLanguageServers(groups map[string][]*StrategyServerInstance, languages []string) []*StrategyServerInstance {
+	var selected []*StrategyServerInstance
 	usedServers := make(map[string]bool)
 	
 	maxServers := 7
@@ -1268,7 +1268,7 @@ func (c *CrossLanguageStrategy) selectCrossLanguageServers(groups map[string][]*
 	return selected
 }
 
-func (c *CrossLanguageStrategy) serverSupportsLanguage(server *ServerInstance, language string) bool {
+func (c *CrossLanguageStrategy) serverSupportsLanguage(server *StrategyServerInstance, language string) bool {
 	for _, lang := range server.Config.Languages {
 		if lang == language {
 			return true
@@ -1277,7 +1277,7 @@ func (c *CrossLanguageStrategy) serverSupportsLanguage(server *ServerInstance, l
 	return false
 }
 
-func (c *CrossLanguageStrategy) countSupportedLanguages(server *ServerInstance, languages []string) int {
+func (c *CrossLanguageStrategy) countSupportedLanguages(server *StrategyServerInstance, languages []string) int {
 	count := 0
 	for _, language := range languages {
 		if c.serverSupportsLanguage(server, language) {
@@ -1287,7 +1287,7 @@ func (c *CrossLanguageStrategy) countSupportedLanguages(server *ServerInstance, 
 	return count
 }
 
-func (c *CrossLanguageStrategy) getCoordinationRole(server *ServerInstance, languages []string) string {
+func (c *CrossLanguageStrategy) getCoordinationRole(server *StrategyServerInstance, languages []string) string {
 	supportedCount := c.countSupportedLanguages(server, languages)
 	if supportedCount > 1 {
 		return "coordinator"
@@ -1295,7 +1295,7 @@ func (c *CrossLanguageStrategy) getCoordinationRole(server *ServerInstance, lang
 	return "specialist"
 }
 
-func (c *CrossLanguageStrategy) supportsTemplateLanguages(server *ServerInstance) bool {
+func (c *CrossLanguageStrategy) supportsTemplateLanguages(server *StrategyServerInstance) bool {
 	templateLanguages := []string{"html", "vue", "jsx", "tsx"}
 	for _, lang := range server.Config.Languages {
 		if c.contains(templateLanguages, lang) {

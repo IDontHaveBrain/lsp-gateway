@@ -12,20 +12,43 @@ import (
 	"io/ioutil"
 )
 
-// RequestClassifier analyzes LSP requests for intelligent routing decisions
-type RequestClassifier interface {
-	ClassifyRequest(request *JSONRPCRequest, uri string) (*RequestContext, error)
-	AnalyzeRequestType(method string, params interface{}) *RequestTypeInfo
-	ExtractLanguageContext(uri string, params interface{}) (*LanguageContext, error)
-	DetermineWorkspaceContext(uri string) (*WorkspaceContext, error)
-	DetectCrossLanguageNeeds(method string, context *LanguageContext) bool
+// RoutingStrategyType defines different routing strategy types
+type RoutingStrategyType string
+
+const (
+	RoutingStrategySingle         RoutingStrategyType = "single"
+	RoutingStrategyMulti          RoutingStrategyType = "multi"
+	RoutingStrategyBroadcast      RoutingStrategyType = "broadcast"
+	RoutingStrategyLoadBalanced   RoutingStrategyType = "load_balanced"
+	RoutingStrategyRoundRobin     RoutingStrategyType = "round_robin"
+)
+
+// RequestLanguageContext contains language-specific context for a request
+type RequestLanguageContext struct {
+	PrimaryLanguage   string            `json:"primary_language"`
+	DetectedLanguages []string          `json:"detected_languages"`
+	FileExtension     string            `json:"file_extension"`
+	ProjectType       string            `json:"project_type"`
+	Framework         string            `json:"framework"`
+	IsMultiLanguage   bool              `json:"is_multi_language"`
+	LanguageFeatures  map[string]bool   `json:"language_features"`
+	AdditionalContext map[string]string `json:"additional_context"`
 }
 
-// RequestContext contains comprehensive request analysis results
-type RequestContext struct {
+// RequestClassifier analyzes LSP requests for intelligent routing decisions
+type RequestClassifier interface {
+	ClassifyRequest(request *JSONRPCRequest, uri string) (*RequestClassificationResult, error)
+	AnalyzeRequestType(method string, params interface{}) *RequestTypeInfo
+	ExtractRequestLanguageContext(uri string, params interface{}) (*RequestLanguageContext, error)
+	DetermineWorkspaceContext(uri string) (*WorkspaceContext, error)
+	DetectCrossLanguageNeeds(method string, context *RequestLanguageContext) bool
+}
+
+// RequestClassificationResult contains comprehensive request analysis results
+type RequestClassificationResult struct {
 	Request         *JSONRPCRequest
 	TypeInfo        *RequestTypeInfo
-	LanguageContext *LanguageContext
+	RequestLanguageContext *RequestLanguageContext
 	WorkspaceContext *WorkspaceContext
 	CrossLanguage   bool
 	RoutingHints    *RoutingHints
@@ -47,8 +70,8 @@ type RequestTypeInfo struct {
 	CacheableResponse   bool
 }
 
-// LanguageContext contains language-specific information for routing
-type LanguageContext struct {
+// RequestRequestLanguageContext contains language-specific information for routing
+type RequestRequestLanguageContext struct {
 	PrimaryLanguage     string
 	SecondaryLanguages  []string
 	FileExtension       string
@@ -70,8 +93,8 @@ type ContentRange struct {
 	Confidence  float64
 }
 
-// WorkspaceContext provides workspace and project information
-type WorkspaceContext struct {
+// RequestWorkspaceContext provides workspace and project information
+type RequestWorkspaceContext struct {
 	WorkspaceRoot       string
 	ProjectType         string
 	ProjectName         string
@@ -111,7 +134,7 @@ type RoutingHints struct {
 type defaultRequestClassifier struct {
 	methodInfoCache    map[string]*RequestTypeInfo
 	workspaceCache     map[string]*WorkspaceContext
-	languageCache      map[string]*LanguageContext
+	languageCache      map[string]*RequestLanguageContext
 	cacheMutex         sync.RWMutex
 	cacheExpiry        time.Duration
 	maxCacheSize       int
@@ -120,11 +143,11 @@ type defaultRequestClassifier struct {
 	extensionMap       map[string]string
 	contentPatterns    map[string]*regexp.Regexp
 	configFilePatterns map[string]string
-	frameworkDetectors map[string]*FrameworkDetector
+	frameworkDetectors map[string]*SimpleFrameworkDetector
 }
 
-// FrameworkDetector defines framework detection logic
-type FrameworkDetector struct {
+// SimpleFrameworkDetector defines basic framework detection logic for request classification
+type SimpleFrameworkDetector struct {
 	Name            string
 	ConfigFiles     []string
 	Dependencies    []string
@@ -137,7 +160,7 @@ func NewRequestClassifier() RequestClassifier {
 	classifier := &defaultRequestClassifier{
 		methodInfoCache:    make(map[string]*RequestTypeInfo),
 		workspaceCache:     make(map[string]*WorkspaceContext),
-		languageCache:      make(map[string]*LanguageContext),
+		languageCache:      make(map[string]*RequestLanguageContext),
 		cacheExpiry:        5 * time.Minute,
 		maxCacheSize:       1000,
 		extensionMap:       initializeExtensionMap(),
@@ -153,7 +176,7 @@ func NewRequestClassifier() RequestClassifier {
 }
 
 // ClassifyRequest performs comprehensive request analysis
-func (c *defaultRequestClassifier) ClassifyRequest(request *JSONRPCRequest, uri string) (*RequestContext, error) {
+func (c *defaultRequestClassifier) ClassifyRequest(request *JSONRPCRequest, uri string) (*RequestClassificationResult, error) {
 	if request == nil {
 		return nil, fmt.Errorf("request cannot be nil")
 	}
@@ -168,7 +191,7 @@ func (c *defaultRequestClassifier) ClassifyRequest(request *JSONRPCRequest, uri 
 	}
 	
 	// Extract language context
-	languageContext, err := c.ExtractLanguageContext(uri, request.Params)
+	languageContext, err := c.ExtractRequestLanguageContext(uri, request.Params)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract language context: %w", err)
 	}
@@ -185,10 +208,10 @@ func (c *defaultRequestClassifier) ClassifyRequest(request *JSONRPCRequest, uri 
 	// Generate routing hints
 	routingHints := c.generateRoutingHints(typeInfo, languageContext, workspaceContext, crossLanguage)
 	
-	context := &RequestContext{
+	context := &RequestClassificationResult{
 		Request:          request,
 		TypeInfo:         typeInfo,
-		LanguageContext:  languageContext,
+		RequestLanguageContext:  languageContext,
 		WorkspaceContext: workspaceContext,
 		CrossLanguage:    crossLanguage,
 		RoutingHints:     routingHints,
@@ -221,10 +244,10 @@ func (c *defaultRequestClassifier) AnalyzeRequestType(method string, params inte
 	return typeInfo
 }
 
-// ExtractLanguageContext analyzes language information from URI and params
-func (c *defaultRequestClassifier) ExtractLanguageContext(uri string, params interface{}) (*LanguageContext, error) {
+// ExtractRequestLanguageContext analyzes language information from URI and params
+func (c *defaultRequestClassifier) ExtractRequestLanguageContext(uri string, params interface{}) (*RequestLanguageContext, error) {
 	if uri == "" {
-		return &LanguageContext{
+		return &RequestLanguageContext{
 			PrimaryLanguage:    "unknown",
 			LanguageConfidence: 0.0,
 		}, nil
@@ -260,7 +283,7 @@ func (c *defaultRequestClassifier) ExtractLanguageContext(uri string, params int
 	}
 	
 	// Cache the result
-	c.cacheLanguageContext(cacheKey, context)
+	c.cacheRequestLanguageContext(cacheKey, context)
 	
 	return context, nil
 }
@@ -318,7 +341,7 @@ func (c *defaultRequestClassifier) DetermineWorkspaceContext(uri string) (*Works
 }
 
 // DetectCrossLanguageNeeds determines if request benefits from multi-language analysis
-func (c *defaultRequestClassifier) DetectCrossLanguageNeeds(method string, context *LanguageContext) bool {
+func (c *defaultRequestClassifier) DetectCrossLanguageNeeds(method string, context *RequestLanguageContext) bool {
 	if context == nil {
 		return false
 	}
@@ -469,12 +492,12 @@ func (c *defaultRequestClassifier) classifyMethod(method string, params interfac
 	}
 }
 
-func (c *defaultRequestClassifier) analyzeLanguageFromURI(uri string) (*LanguageContext, error) {
+func (c *defaultRequestClassifier) analyzeLanguageFromURI(uri string) (*RequestLanguageContext, error) {
 	// Extract file path from URI
 	filePath := strings.TrimPrefix(uri, "file://")
 	ext := strings.ToLower(filepath.Ext(filePath))
 	
-	context := &LanguageContext{
+	context := &RequestLanguageContext{
 		FileExtension:     ext,
 		SecondaryLanguages: []string{},
 		EmbeddedLanguages: make(map[string][]ContentRange),
@@ -501,7 +524,7 @@ func (c *defaultRequestClassifier) analyzeLanguageFromURI(uri string) (*Language
 	return context, nil
 }
 
-func (c *defaultRequestClassifier) enhanceWithContentAnalysis(context *LanguageContext, filePath string) error {
+func (c *defaultRequestClassifier) enhanceWithContentAnalysis(context *RequestLanguageContext, filePath string) error {
 	content, err := ioutil.ReadFile(filePath)
 	if err != nil {
 		return err
@@ -543,7 +566,7 @@ func (c *defaultRequestClassifier) enhanceWithContentAnalysis(context *LanguageC
 	return nil
 }
 
-func (c *defaultRequestClassifier) enhanceWithProjectLanguages(context *LanguageContext, uri string) error {
+func (c *defaultRequestClassifier) enhanceWithProjectLanguages(context *RequestLanguageContext, uri string) error {
 	workspaceRoot := c.findWorkspaceRoot(uri)
 	if workspaceRoot == "" {
 		return nil
@@ -671,12 +694,12 @@ func (c *defaultRequestClassifier) analyzeDependencies(context *WorkspaceContext
 // Cache management and utility methods
 
 type requestCacheEntry struct {
-	languageContext *LanguageContext
+	languageContext *RequestLanguageContext
 	workspaceContext *WorkspaceContext
 	timestamp       time.Time
 }
 
-func (c *defaultRequestClassifier) cacheLanguageContext(key string, context *LanguageContext) {
+func (c *defaultRequestClassifier) cacheRequestLanguageContext(key string, context *RequestLanguageContext) {
 	c.cacheMutex.Lock()
 	defer c.cacheMutex.Unlock()
 	
@@ -705,7 +728,7 @@ func (c *defaultRequestClassifier) generateCacheKey(request *JSONRPCRequest, uri
 	return fmt.Sprintf("%s:%s:%d", request.Method, uri, time.Now().Unix()/60) // Cache per minute
 }
 
-func (c *defaultRequestClassifier) generateRoutingHints(typeInfo *RequestTypeInfo, langCtx *LanguageContext, wsCtx *WorkspaceContext, crossLang bool) *RoutingHints {
+func (c *defaultRequestClassifier) generateRoutingHints(typeInfo *RequestTypeInfo, langCtx *RequestLanguageContext, wsCtx *WorkspaceContext, crossLang bool) *RoutingHints {
 	hints := &RoutingHints{
 		PreferredServers:    []string{},
 		FallbackServers:     []string{},
@@ -941,7 +964,7 @@ func (c *defaultRequestClassifier) findSubProjects(workspaceRoot string) []strin
 	return subProjects
 }
 
-func (c *defaultRequestClassifier) matchesFramework(context *WorkspaceContext, detector *FrameworkDetector) bool {
+func (c *defaultRequestClassifier) matchesFramework(context *WorkspaceContext, detector *SimpleFrameworkDetector) bool {
 	// Check for required config files
 	for _, configFile := range detector.ConfigFiles {
 		found := false
@@ -979,7 +1002,7 @@ func (c *defaultRequestClassifier) getFrameworkType(frameworkName string) string
 	return "unknown"
 }
 
-func (c *defaultRequestClassifier) findFrameworkConfigs(workspaceRoot string, detector *FrameworkDetector) []string {
+func (c *defaultRequestClassifier) findFrameworkConfigs(workspaceRoot string, detector *SimpleFrameworkDetector) []string {
 	configs := []string{}
 	
 	for _, configFile := range detector.ConfigFiles {
@@ -1133,45 +1156,45 @@ func initializeConfigFilePatterns() map[string]string {
 	}
 }
 
-func initializeFrameworkDetectors() map[string]*FrameworkDetector {
-	detectors := make(map[string]*FrameworkDetector)
+func initializeFrameworkDetectors() map[string]*SimpleFrameworkDetector {
+	detectors := make(map[string]*SimpleFrameworkDetector)
 	
-	detectors["react"] = &FrameworkDetector{
+	detectors["react"] = &SimpleFrameworkDetector{
 		Name:         "react",
 		ConfigFiles:  []string{"package.json"},
 		Dependencies: []string{"react"},
 		FilePatterns: []string{"*.jsx", "*.tsx"},
 	}
 	
-	detectors["vue"] = &FrameworkDetector{
+	detectors["vue"] = &SimpleFrameworkDetector{
 		Name:         "vue",
 		ConfigFiles:  []string{"package.json"},
 		Dependencies: []string{"vue"},
 		FilePatterns: []string{"*.vue"},
 	}
 	
-	detectors["angular"] = &FrameworkDetector{
+	detectors["angular"] = &SimpleFrameworkDetector{
 		Name:         "angular",
 		ConfigFiles:  []string{"package.json", "angular.json"},
 		Dependencies: []string{"@angular/core"},
 		FilePatterns: []string{"*.component.ts", "*.service.ts"},
 	}
 	
-	detectors["django"] = &FrameworkDetector{
+	detectors["django"] = &SimpleFrameworkDetector{
 		Name:         "django",
 		ConfigFiles:  []string{"manage.py", "requirements.txt"},
 		Dependencies: []string{"django"},
 		FilePatterns: []string{"settings.py", "urls.py"},
 	}
 	
-	detectors["flask"] = &FrameworkDetector{
+	detectors["flask"] = &SimpleFrameworkDetector{
 		Name:         "flask",
 		ConfigFiles:  []string{"requirements.txt"},
 		Dependencies: []string{"flask"},
 		FilePatterns: []string{"app.py", "*.py"},
 	}
 	
-	detectors["spring"] = &FrameworkDetector{
+	detectors["spring"] = &SimpleFrameworkDetector{
 		Name:         "spring",
 		ConfigFiles:  []string{"pom.xml", "build.gradle"},
 		Dependencies: []string{"spring-boot", "spring-core"},

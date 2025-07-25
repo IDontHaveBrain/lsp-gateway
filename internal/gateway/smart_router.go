@@ -14,57 +14,10 @@ import (
 	"lsp-gateway/mcp"
 )
 
-// RoutingStrategy defines how requests should be routed to servers
-type RoutingStrategy string
 
-const (
-	SingleTargetWithFallback RoutingStrategy = "single_target_with_fallback"
-	BroadcastAggregate       RoutingStrategy = "broadcast_aggregate"
-	MultiTargetParallel      RoutingStrategy = "multi_target_parallel"
-	PrimaryWithEnhancement   RoutingStrategy = "primary_with_enhancement"
-	LoadBalanced            RoutingStrategy = "load_balanced"
-	RoundRobin              RoutingStrategy = "round_robin"
-)
 
-// LSPRequest represents a structured LSP request with metadata
-type LSPRequest struct {
-	Method      string      `json:"method"`
-	Params      interface{} `json:"params"`
-	URI         string      `json:"uri,omitempty"`
-	Language    string      `json:"language,omitempty"`
-	WorkspaceID string      `json:"workspace_id,omitempty"`
-	Context     context.Context
-}
 
-// RoutingDecision represents a routing decision for a single server
-type RoutingDecision struct {
-	ServerName   string                 `json:"server_name"`
-	ServerConfig *config.ServerConfig   `json:"server_config"`
-	Client       transport.LSPClient    `json:"-"`
-	Priority     int                    `json:"priority"`
-	Weight       float64                `json:"weight"`
-	Strategy     RoutingStrategy        `json:"strategy"`
-	Metadata     map[string]interface{} `json:"metadata,omitempty"`
-}
 
-// AggregatedResponse represents an aggregated response from multiple servers
-type AggregatedResponse struct {
-	PrimaryResult   interface{}                    `json:"primary_result"`
-	SecondaryResults []ServerResponse              `json:"secondary_results,omitempty"`
-	Strategy        RoutingStrategy               `json:"strategy"`
-	ProcessingTime  time.Duration                 `json:"processing_time"`
-	ServerCount     int                           `json:"server_count"`
-	Metadata        map[string]interface{}        `json:"metadata,omitempty"`
-}
-
-// ServerResponse represents a response from a single server
-type ServerResponse struct {
-	ServerName   string        `json:"server_name"`
-	Result       interface{}   `json:"result"`
-	Error        error         `json:"error,omitempty"`
-	ResponseTime time.Duration `json:"response_time"`
-	Success      bool          `json:"success"`
-}
 
 // RoutingMetrics tracks performance metrics for routing decisions
 type RoutingMetrics struct {
@@ -78,17 +31,6 @@ type RoutingMetrics struct {
 	mu                  sync.RWMutex                `json:"-"`
 }
 
-// ServerMetrics tracks performance metrics for individual servers
-type ServerMetrics struct {
-	RequestCount       int64         `json:"request_count"`
-	SuccessCount       int64         `json:"success_count"`
-	FailureCount       int64         `json:"failure_count"`
-	AverageResponseTime time.Duration `json:"average_response_time"`
-	LastResponseTime   time.Duration `json:"last_response_time"`
-	HealthScore        float64       `json:"health_score"`
-	CircuitBreakerOpen bool          `json:"circuit_breaker_open"`
-	LastAccessed       time.Time     `json:"last_accessed"`
-}
 
 // StrategyMetrics tracks performance metrics for routing strategies
 type StrategyMetrics struct {
@@ -143,14 +85,6 @@ type SmartRouterImpl struct {
 }
 
 // CircuitBreaker implements circuit breaker pattern for server resilience
-type CircuitBreaker struct {
-	FailureCount    int           `json:"failure_count"`
-	LastFailureTime time.Time     `json:"last_failure_time"`
-	State           string        `json:"state"` // "closed", "open", "half_open"
-	FailureThreshold int          `json:"failure_threshold"`
-	Timeout         time.Duration `json:"timeout"`
-	mu              sync.RWMutex  `json:"-"`
-}
 
 // NewSmartRouter creates a new SmartRouter with default configurations
 func NewSmartRouter(projectRouter *ProjectAwareRouter, config *config.GatewayConfig, workspaceManager *WorkspaceManager, logger *mcp.StructuredLogger) *SmartRouterImpl {

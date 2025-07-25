@@ -262,7 +262,7 @@ func (lsp *LanguageServerPool) GetHealthyServers() []*ServerInstance {
 
 // SelectServer selects the best server for a request
 func (lsp *LanguageServerPool) SelectServer(requestType string) (*ServerInstance, error) {
-	return lsp.SelectServerWithContext(requestType, &RequestContext{
+	return lsp.SelectServerWithContext(requestType, &ServerSelectionContext{
 		Method:   requestType,
 		Priority: PriorityNormal,
 		Timeout:  30 * time.Second,
@@ -270,7 +270,7 @@ func (lsp *LanguageServerPool) SelectServer(requestType string) (*ServerInstance
 }
 
 // SelectServerWithContext selects the best server for a request with context
-func (lsp *LanguageServerPool) SelectServerWithContext(requestType string, context *RequestContext) (*ServerInstance, error) {
+func (lsp *LanguageServerPool) SelectServerWithContext(requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	lsp.mu.RLock()
 	defer lsp.mu.RUnlock()
 
@@ -279,7 +279,7 @@ func (lsp *LanguageServerPool) SelectServerWithContext(requestType string, conte
 	}
 
 	if context == nil {
-		context = &RequestContext{
+		context = &ServerSelectionContext{
 			Method:   requestType,
 			Priority: PriorityNormal,
 			Timeout:  30 * time.Second,
@@ -497,7 +497,7 @@ func (msm *MultiServerManager) GetServerForRequest(language string, requestType 
 }
 
 // GetServerForRequestWithContext gets the best server for a specific request with context
-func (msm *MultiServerManager) GetServerForRequestWithContext(language string, requestType string, context *RequestContext) (*ServerInstance, error) {
+func (msm *MultiServerManager) GetServerForRequestWithContext(language string, requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	msm.mu.RLock()
 	defer msm.mu.RUnlock()
 
@@ -507,7 +507,7 @@ func (msm *MultiServerManager) GetServerForRequestWithContext(language string, r
 	}
 
 	if context == nil {
-		context = &RequestContext{
+		context = &ServerSelectionContext{
 			Method:   requestType,
 			Priority: PriorityNormal,
 			Timeout:  30 * time.Second,
