@@ -273,11 +273,11 @@ func (g *EnhancedConfigurationGenerator) GenerateDefaultForEnvironment(ctx conte
 // getOptimizationModeForEnvironment returns the appropriate optimization mode for an environment
 func (g *EnhancedConfigurationGenerator) getOptimizationModeForEnvironment(environment string) string {
 	switch strings.ToLower(environment) {
-	case "production", "prod":
+	case ENV_PRODUCTION, ENV_PROD:
 		return config.PerformanceProfileProduction
-	case "development", "dev":
+	case ENV_DEVELOPMENT, ENV_DEV:
 		return config.PerformanceProfileDevelopment
-	case "analysis", "qa", "test":
+	case ENV_ANALYSIS, "qa", ENV_TEST:
 		return config.PerformanceProfileAnalysis
 	default:
 		return config.PerformanceProfileDevelopment
@@ -301,7 +301,7 @@ func (g *EnhancedConfigurationGenerator) applyEnvironmentTemplate(cfg *config.Ga
 
 	// Apply environment-specific features
 	switch strings.ToLower(environment) {
-	case "production", "prod":
+	case ENV_PRODUCTION, ENV_PROD:
 		cfg.EnableSmartRouting = true
 		cfg.EnableConcurrentServers = true
 		if cfg.SmartRouterConfig != nil {
@@ -309,11 +309,11 @@ func (g *EnhancedConfigurationGenerator) applyEnvironmentTemplate(cfg *config.Ga
 			cfg.SmartRouterConfig.EnableCircuitBreaker = true
 		}
 
-	case "development", "dev":
+	case ENV_DEVELOPMENT, ENV_DEV:
 		cfg.EnableSmartRouting = false
 		cfg.EnableConcurrentServers = true
 
-	case "analysis", "qa", "test":
+	case ENV_ANALYSIS, "qa", ENV_TEST:
 		cfg.EnableEnhancements = true
 		cfg.MaxConcurrentRequests = 50 // Lower for analysis
 	}
@@ -1014,11 +1014,11 @@ func (ocm *OptimizationConfigManager) ApplyEnvironmentOptimization(cfg *config.G
 // getOptimizationModeForEnvironment maps environment to optimization mode
 func (ocm *OptimizationConfigManager) getOptimizationModeForEnvironment(environment string) string {
 	switch strings.ToLower(environment) {
-	case "production", "prod":
+	case ENV_PRODUCTION, ENV_PROD:
 		return config.PerformanceProfileProduction
-	case "development", "dev":
+	case ENV_DEVELOPMENT, ENV_DEV:
 		return config.PerformanceProfileDevelopment
-	case "analysis", "qa", "test":
+	case ENV_ANALYSIS, "qa", ENV_TEST:
 		return config.PerformanceProfileAnalysis
 	default:
 		return config.PerformanceProfileDevelopment

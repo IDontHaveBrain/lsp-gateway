@@ -32,7 +32,7 @@ func (suite *ConfigurationLoadingTestSuite) SetupTest() {
 
 	// Register cleanup for temp directory
 	suite.cleanup = append(suite.cleanup, func() {
-		os.RemoveAll(tempDir)
+		_ = os.RemoveAll(tempDir)
 	})
 }
 

@@ -424,6 +424,7 @@ func GetHighLoadScenario() *CircuitBreakerScenario {
 			if results.RejectedRequests == 0 {
 				// Note: In our simulation, rejected requests aren't tracked separately
 				// In a real implementation, this would validate circuit breaker is rejecting requests
+				_ = results.RejectedRequests
 			}
 
 			return nil

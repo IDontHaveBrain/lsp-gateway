@@ -14,6 +14,13 @@ import (
 	"lsp-gateway/internal/gateway"
 )
 
+const (
+	// Test path constants
+	TestProjectPath  = "/test/project"
+	TestProjectPath1 = "/test/project1"
+	TestProjectPath2 = "/test/project2"
+)
+
 // ProjectCacheTestSuite tests the ProjectCache implementation
 type ProjectCacheTestSuite struct {
 	suite.Suite
@@ -75,7 +82,7 @@ func (suite *ProjectCacheTestSuite) createTestProjectInfo(rootPath string) *gate
 
 // TestCacheBasicOperations tests basic cache operations
 func (suite *ProjectCacheTestSuite) TestCacheBasicOperations() {
-	projectPath := "/test/project"
+	projectPath := TestProjectPath
 	projectInfo := suite.createTestProjectInfo(projectPath)
 
 	// Test initial miss
@@ -102,8 +109,8 @@ func (suite *ProjectCacheTestSuite) TestCacheBasicOperations() {
 
 // TestCacheStatistics tests cache statistics tracking
 func (suite *ProjectCacheTestSuite) TestCacheStatistics() {
-	projectPath1 := "/test/project1"
-	projectPath2 := "/test/project2"
+	projectPath1 := TestProjectPath1
+	projectPath2 := TestProjectPath2
 	projectInfo1 := suite.createTestProjectInfo(projectPath1)
 	projectInfo2 := suite.createTestProjectInfo(projectPath2)
 
@@ -175,7 +182,7 @@ func (suite *ProjectCacheTestSuite) TestCacheEviction() {
 
 // TestCacheTTL tests basic cache persistence
 func (suite *ProjectCacheTestSuite) TestCacheTTL() {
-	projectPath := "/test/project"
+	projectPath := TestProjectPath
 	projectInfo := suite.createTestProjectInfo(projectPath)
 
 	// Set entry
@@ -230,7 +237,7 @@ func (suite *ProjectCacheTestSuite) TestCacheInvalidateAll() {
 
 // TestCacheNilHandling tests handling of nil values
 func (suite *ProjectCacheTestSuite) TestCacheNilHandling() {
-	projectPath := "/test/project"
+	projectPath := TestProjectPath
 
 	// Setting nil should be ignored
 	suite.cache.Set(projectPath, nil)

@@ -153,7 +153,7 @@ func (sr *SmartRouterWithAggregation) RouteWithIntelligentAggregation(request *L
 	case "broadcast_aggregate", "multi_target_parallel":
 		return sr.AggregateBroadcastEnhanced(request)
 
-	case "primary_with_enhancement":
+	case string(RoutingStrategyPrimaryWithEnhancement):
 		return sr.routeWithEnhancement(request)
 
 	default:
@@ -517,7 +517,7 @@ func ExampleUsage() {
 
 	// 5. Use the enhanced response
 	logger.Infof("Request completed with %d sources, quality score: %.2f",
-		response.AggregationResult.TotalSources,
+		response.TotalSources,
 		response.QualityMetrics.Score)
 
 	// 6. Access aggregation details if needed

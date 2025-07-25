@@ -561,15 +561,15 @@ func detectLanguageFromURI(uri string) string {
 	case ".go":
 		return "go"
 	case ".py":
-		return "python"
+		return LANG_PYTHON
 	case ".js", ".mjs":
-		return "javascript"
+		return LANG_JAVASCRIPT
 	case ".ts":
-		return "typescript"
+		return LANG_TYPESCRIPT
 	case ".java":
-		return "java"
+		return LANG_JAVA
 	case ".rs":
-		return "rust"
+		return LANG_RUST
 	case ".cpp", ".cc", ".cxx":
 		return "cpp"
 	case ".c":
@@ -585,11 +585,11 @@ func getSupportedServersForLanguage(language string) []string {
 	switch language {
 	case "go":
 		return []string{"gopls"}
-	case "python":
+	case LANG_PYTHON:
 		return []string{"pylsp", "pyright"}
-	case "javascript", "typescript":
+	case LANG_JAVASCRIPT, LANG_TYPESCRIPT:
 		return []string{"typescript-language-server", "tsserver"}
-	case "java":
+	case LANG_JAVA:
 		return []string{"jdtls"}
 	case "rust":
 		return []string{"rust-analyzer"}

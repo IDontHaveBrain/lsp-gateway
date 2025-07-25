@@ -231,9 +231,9 @@ func TestMockMcpClient_CallTracking(t *testing.T) {
 
 	ctx := context.Background()
 
-	mockClient.SendLSPRequest(ctx, mcp.LSP_METHOD_WORKSPACE_SYMBOL, nil)
-	mockClient.SendLSPRequest(ctx, mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION, nil)
-	mockClient.SendLSPRequest(ctx, mcp.LSP_METHOD_WORKSPACE_SYMBOL, nil)
+	_, _ = mockClient.SendLSPRequest(ctx, mcp.LSP_METHOD_WORKSPACE_SYMBOL, nil)
+	_, _ = mockClient.SendLSPRequest(ctx, mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION, nil)
+	_, _ = mockClient.SendLSPRequest(ctx, mcp.LSP_METHOD_WORKSPACE_SYMBOL, nil)
 
 	assert.Equal(t, 2, mockClient.GetCallCount(mcp.LSP_METHOD_WORKSPACE_SYMBOL), "Should count workspace symbol calls")
 	assert.Equal(t, 1, mockClient.GetCallCount(mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION), "Should count definition calls")
@@ -277,7 +277,7 @@ func TestMockMcpClient_Reset(t *testing.T) {
 	mockClient := mocks.NewMockMcpClient()
 
 	ctx := context.Background()
-	mockClient.SendLSPRequest(ctx, "test", nil)
+	_, _ = mockClient.SendLSPRequest(ctx, "test", nil)
 	mockClient.GetMetrics()
 	mockClient.IsHealthy()
 
@@ -308,7 +308,7 @@ func TestMockMcpClient_ThreadSafety(t *testing.T) {
 			defer func() { done <- true }()
 
 			method := fmt.Sprintf("test/method/%d", i)
-			mockClient.SendLSPRequest(ctx, method, nil)
+			_, _ = mockClient.SendLSPRequest(ctx, method, nil)
 			mockClient.GetMetrics()
 			mockClient.IsHealthy()
 			mockClient.SetHealthy(i%2 == 0)

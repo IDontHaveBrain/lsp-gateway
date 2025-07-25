@@ -723,7 +723,7 @@ func (s *MockLSPServer) Start(ctx context.Context) error {
 	}
 	defer func() { _ = logFile.Close() }()
 
-	fmt.Fprintf(logFile, "Mock %s LSP server started at %s\n", s.Language, s.StartTime.Format(time.RFC3339))
+	_, _ = fmt.Fprintf(logFile, "Mock %s LSP server started at %s\n", s.Language, s.StartTime.Format(time.RFC3339))
 
 	return nil
 }
@@ -747,8 +747,8 @@ func (s *MockLSPServer) Stop() error {
 
 	// Append to log file
 	if logFile, err := os.OpenFile(s.LogFile, os.O_APPEND|os.O_WRONLY, 0644); err == nil {
-		defer logFile.Close()
-		fmt.Fprintf(logFile, "Mock %s LSP server stopped at %s\n", s.Language, time.Now().Format(time.RFC3339))
+		defer func() { _ = logFile.Close() }()
+		_, _ = fmt.Fprintf(logFile, "Mock %s LSP server stopped at %s\n", s.Language, time.Now().Format(time.RFC3339))
 	}
 
 	return nil
@@ -969,8 +969,8 @@ func (s *MockLSPServer) simulateCrash() error {
 
 	// Log the crash
 	if logFile, err := os.OpenFile(s.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644); err == nil {
-		defer logFile.Close()
-		fmt.Fprintf(logFile, "CRASH: Mock %s LSP server crashed at %s (crash #%d)\n",
+		defer func() { _ = logFile.Close() }()
+		_, _ = fmt.Fprintf(logFile, "CRASH: Mock %s LSP server crashed at %s (crash #%d)\n",
 			s.Language, time.Now().Format(time.RFC3339), s.CrashCount)
 	}
 
@@ -984,8 +984,8 @@ func (s *MockLSPServer) simulateCrash() error {
 
 			// Log recovery
 			if logFile, err := os.OpenFile(s.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644); err == nil {
-				defer logFile.Close()
-				fmt.Fprintf(logFile, "RECOVERY: Mock %s LSP server recovered at %s\n",
+				defer func() { _ = logFile.Close() }()
+				_, _ = fmt.Fprintf(logFile, "RECOVERY: Mock %s LSP server recovered at %s\n",
 					s.Language, time.Now().Format(time.RFC3339))
 			}
 		}()

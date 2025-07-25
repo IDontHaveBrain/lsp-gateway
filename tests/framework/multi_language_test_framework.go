@@ -300,7 +300,7 @@ func (f *MultiLanguageTestFramework) StartMultipleLanguageServers(languages []st
 
 		// Register cleanup for server
 		f.CleanupFuncs = append(f.CleanupFuncs, func() {
-			server.Stop()
+			_ = server.Stop()
 		})
 	}
 

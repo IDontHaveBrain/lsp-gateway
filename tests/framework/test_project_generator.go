@@ -21,6 +21,12 @@ const (
 	ComplexityEnterprise ProjectComplexity = "enterprise"
 )
 
+const (
+	// Rust code templates
+	RustMainTemplate = "fn main() {\n    println!(\"Hello, world!\");\n}"
+	RustLibTemplate  = "pub fn add(left: usize, right: usize) -> usize {\n    left + right\n}"
+)
+
 // ProjectSize defines the size of generated projects
 type ProjectSize string
 
@@ -441,16 +447,16 @@ axum = "0.6"`
 	// Generate content based on complexity
 	switch config.Complexity {
 	case ComplexitySimple:
-		project.Structure["src/main.rs"] = "fn main() {\n    println!(\"Hello, world!\");\n}"
-		project.Structure["src/lib.rs"] = "pub fn add(left: usize, right: usize) -> usize {\n    left + right\n}"
+		project.Structure["src/main.rs"] = RustMainTemplate
+		project.Structure["src/lib.rs"] = RustLibTemplate
 	case ComplexityMedium:
-		project.Structure["src/main.rs"] = "fn main() {\n    println!(\"Hello, world!\");\n}"
-		project.Structure["src/lib.rs"] = "pub fn add(left: usize, right: usize) -> usize {\n    left + right\n}"
+		project.Structure["src/main.rs"] = RustMainTemplate
+		project.Structure["src/lib.rs"] = RustLibTemplate
 		project.Structure["src/utils.rs"] = "pub fn utility() -> String {\n    \"utility\".to_string()\n}"
 		project.Structure["src/models.rs"] = "#[derive(Debug)]\npub struct User {\n    pub name: String,\n}"
 	case ComplexityComplex, ComplexityLarge:
-		project.Structure["src/main.rs"] = "fn main() {\n    println!(\"Hello, world!\");\n}"
-		project.Structure["src/lib.rs"] = "pub fn add(left: usize, right: usize) -> usize {\n    left + right\n}"
+		project.Structure["src/main.rs"] = RustMainTemplate
+		project.Structure["src/lib.rs"] = RustLibTemplate
 		project.Structure["src/models/mod.rs"] = "pub mod user;"
 		project.Structure["src/models/user.rs"] = "#[derive(Debug, serde::Serialize)]\npub struct User {\n    pub id: u64,\n    pub name: String,\n}"
 		project.Structure["src/services/mod.rs"] = "pub mod user_service;"

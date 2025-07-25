@@ -370,6 +370,7 @@ func (ecp *EnhancedConnectionPool) closeConnection(conn *PooledConnection) {
 		if err := conn.conn.Close(); err != nil {
 			// Log close errors but don't fail the operation since this is cleanup
 			// Note: In production, this would use a proper logger
+			_ = err
 		}
 		atomic.AddInt32(&ecp.currentSize, -1)
 	}
@@ -388,6 +389,7 @@ func (ecp *EnhancedConnectionPool) isConnectionHealthy(conn *PooledConnection) b
 	if err := conn.conn.SetDeadline(time.Time{}); err != nil {
 		// Log deadline reset errors but continue since this is cleanup
 		// Note: In production, this would use a proper logger
+		_ = err
 	}
 
 	conn.mu.Lock()
@@ -445,6 +447,7 @@ func (ecp *EnhancedConnectionPool) warmUp() error {
 			if err := conn.Close(); err != nil {
 				// Log close errors but continue since this is cleanup
 				// Note: In production, this would use a proper logger
+				_ = err
 			}
 			successCount++
 		}
@@ -481,6 +484,7 @@ func (ecp *EnhancedConnectionPool) scaleUp(count int) error {
 			if err := conn.Close(); err != nil {
 				// Log close errors but continue since this is cleanup
 				// Note: In production, this would use a proper logger
+				_ = err
 			}
 		}
 	}
@@ -510,6 +514,7 @@ func (ecp *EnhancedConnectionPool) backgroundScaling() {
 			if err := ecp.ScalePool(); err != nil {
 				// Log scaling errors but don't stop the background goroutine
 				// Note: In production, this would use a proper logger
+				_ = err
 			}
 		}
 	}

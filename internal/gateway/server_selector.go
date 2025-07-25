@@ -284,7 +284,7 @@ func (rt *ResponseTimeSelector) SelectServer(pool *LanguageServerPool, requestTy
 	defer rt.mu.Unlock()
 
 	var bestServer *ServerInstance
-	var bestResponseTime time.Duration = time.Duration(math.MaxInt64)
+	var bestResponseTime = time.Duration(math.MaxInt64)
 
 	for _, server := range servers {
 		if _, exists := rt.responseTimeMetrics[server.config.Name]; !exists {
@@ -928,7 +928,7 @@ func NewServerSelector(config *config.LoadBalancingConfig) (ServerSelector, erro
 	var err error
 
 	switch config.Strategy {
-	case "round_robin":
+	case string(LoadBalanceRoundRobin):
 		baseSelector = NewRoundRobinSelector()
 	case "least_connections":
 		baseSelector = NewLeastConnectionsSelector()

@@ -323,7 +323,7 @@ func NewLoadBalancer(strategy string) *LoadBalancer {
 	if err != nil {
 		// Fallback to round robin if strategy creation fails
 		selector = NewRoundRobinSelector()
-		strategy = "round_robin"
+		strategy = string(RoutingStrategyRoundRobin)
 	}
 
 	return &LoadBalancer{

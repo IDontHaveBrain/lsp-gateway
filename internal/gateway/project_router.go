@@ -124,10 +124,10 @@ func (par *ProjectAwareRouter) selectServerByProjectType(workspace WorkspaceCont
 	projectTypeToLanguage := map[string]string{
 		"go":         "go",
 		"node":       "typescript", // Prefer TypeScript server for Node.js projects
-		"python":     "python",
-		"java":       "java",
+		"python":     LANG_PYTHON,
+		"java":       LANG_JAVA,
 		"typescript": "typescript",
-		"javascript": "javascript",
+		"javascript": LANG_JAVASCRIPT,
 	}
 
 	if preferredLang, exists := projectTypeToLanguage[workspace.GetProjectType()]; exists {
@@ -151,13 +151,13 @@ func (par *ProjectAwareRouter) isLanguageSupportedInWorkspace(workspace Workspac
 	switch workspace.GetProjectType() {
 	case "node":
 		// Node projects support both JavaScript and TypeScript
-		return language == "javascript" || language == "typescript"
-	case "python":
+		return language == LANG_JAVASCRIPT || language == LANG_TYPESCRIPT
+	case LANG_PYTHON:
 		// Python projects may have various Python-related files
-		return language == "python"
-	case "java":
+		return language == LANG_PYTHON
+	case LANG_JAVA:
 		// Java projects support Java
-		return language == "java"
+		return language == LANG_JAVA
 	case "go":
 		// Go projects support Go
 		return language == "go"
@@ -267,10 +267,10 @@ func (par *ProjectAwareRouter) GetSupportedWorkspaceTypes() []string {
 	return []string{
 		"go",
 		"node",
-		"python",
-		"java",
+		LANG_PYTHON,
+		LANG_JAVA,
 		"typescript",
-		"javascript",
+		LANG_JAVASCRIPT,
 		"generic",
 	}
 }

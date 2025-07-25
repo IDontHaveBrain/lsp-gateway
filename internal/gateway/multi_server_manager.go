@@ -41,7 +41,7 @@ func (s ServerState) String() string {
 	case ServerStateStopped:
 		return "stopped"
 	default:
-		return "unknown"
+		return StateStringUnknown
 	}
 }
 

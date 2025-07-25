@@ -198,6 +198,7 @@ func (pc *ProjectCache) Set(rootPath string, info *MultiLanguageProjectInfo) {
 			if err := pc.incrementalUpdater.WatchProject(rootPath); err != nil {
 				// Log error or handle gracefully
 				// For now, we'll continue without file watching for this project
+				_ = err
 			}
 		}()
 	}
@@ -312,17 +313,13 @@ func (pc *ProjectCache) isEntryValid(entry *CacheEntry) bool {
 
 	// Check if directory was modified since last scan
 	currentModTime := pc.getDirectoryModTime(entry.ProjectInfo.RootPath)
-	if currentModTime.After(entry.LastModified) {
-		return false
-	}
-
-	return true
+	return !currentModTime.After(entry.LastModified)
 }
 
 // evictLRU evicts the least recently used entry
 func (pc *ProjectCache) evictLRU() {
 	var oldestKey string
-	var oldestTime time.Time = time.Now()
+	var oldestTime = time.Now()
 
 	for key, entry := range pc.cache {
 		if entry.CacheHitTime.Before(oldestTime) {
@@ -542,7 +539,7 @@ func (iu *IncrementalUpdater) WatchProject(rootPath string) error {
 
 	err = watcher.Add(rootPath)
 	if err != nil {
-		watcher.Close()
+		_ = watcher.Close()
 		return fmt.Errorf("failed to watch directory: %w", err)
 	}
 
@@ -560,7 +557,7 @@ func (iu *IncrementalUpdater) StopWatching(rootPath string) {
 	defer iu.mutex.Unlock()
 
 	if watcher, exists := iu.watchedPaths[rootPath]; exists {
-		watcher.Close()
+		_ = watcher.Close()
 		delete(iu.watchedPaths, rootPath)
 	}
 }
@@ -571,7 +568,7 @@ func (iu *IncrementalUpdater) StopAllWatching() {
 	defer iu.mutex.Unlock()
 
 	for _, watcher := range iu.watchedPaths {
-		watcher.Close()
+		_ = watcher.Close()
 	}
 	iu.watchedPaths = make(map[string]*fsnotify.Watcher)
 }
@@ -584,7 +581,7 @@ func (iu *IncrementalUpdater) Stop() {
 
 // watchLoop handles file system events for a specific project
 func (iu *IncrementalUpdater) watchLoop(rootPath string, watcher *fsnotify.Watcher) {
-	defer watcher.Close()
+	defer func() { _ = watcher.Close() }()
 
 	lastUpdate := time.Now()
 

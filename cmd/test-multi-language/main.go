@@ -59,7 +59,11 @@ func testProjectLanguageDetection(logger *log.Logger) error {
 	if err != nil {
 		return fmt.Errorf("failed to create test project: %w", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			logger.Printf("Warning: failed to clean up temp directory %s: %v", tempDir, err)
+		}
+	}()
 
 	// Initialize project language scanner
 	scanner := gateway.NewProjectLanguageScanner()
@@ -237,7 +241,11 @@ func testSmartRouting(logger *log.Logger) error {
 	if err != nil {
 		return fmt.Errorf("failed to create test project: %w", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			logger.Printf("Warning: failed to clean up temp directory %s: %v", tempDir, err)
+		}
+	}()
 
 	projectInfo, err := integrator.DetectAndConfigureProject(tempDir)
 	if err != nil {

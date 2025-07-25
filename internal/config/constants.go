@@ -74,7 +74,9 @@ servers:
 	MIN_REQUEST_TIMEOUT_SECONDS = 1
 
 	// Timeout string constants
+	DEFAULT_TIMEOUT_15S = "15s"
 	DEFAULT_TIMEOUT_30S = "30s"
+	DEFAULT_TIMEOUT_60S = "60s"
 )
 
 // Time-based constants

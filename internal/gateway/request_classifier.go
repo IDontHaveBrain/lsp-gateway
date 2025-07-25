@@ -270,12 +270,14 @@ func (c *defaultRequestClassifier) ExtractRequestLanguageContext(uri string, par
 		filePath := strings.TrimPrefix(uri, "file://")
 		if err := c.enhanceWithContentAnalysis(context, filePath); err != nil {
 			// Log warning but don't fail
+			_ = err
 		}
 	}
 
 	// Enhance with project-level language detection
 	if err := c.enhanceWithProjectLanguages(context, uri); err != nil {
 		// Log warning but don't fail
+		_ = err
 	}
 
 	// Cache the result
@@ -315,14 +317,17 @@ func (c *defaultRequestClassifier) DetermineWorkspaceContext(uri string) (*Reque
 
 		if err := c.detectProjectType(context); err != nil {
 			// Log warning but continue
+			_ = err
 		}
 
 		if err := c.detectFrameworks(context); err != nil {
 			// Log warning but continue
+			_ = err
 		}
 
 		if err := c.analyzeDependencies(context); err != nil {
 			// Log warning but continue
+			_ = err
 		}
 	}
 
@@ -504,7 +509,7 @@ func (c *defaultRequestClassifier) analyzeLanguageFromURI(uri string) (*RequestL
 		context.PrimaryLanguage = language
 		context.LanguageConfidence = 0.9
 	} else {
-		context.PrimaryLanguage = "unknown"
+		context.PrimaryLanguage = StateStringUnknown
 		context.LanguageConfidence = 0.0
 	}
 
@@ -639,7 +644,7 @@ func (c *defaultRequestClassifier) detectProjectType(context *RequestWorkspaceCo
 	}
 
 	// Default to generic project
-	context.ProjectType = "generic"
+	context.ProjectType = PROJECT_TYPE_GENERIC
 	return nil
 }
 
@@ -829,7 +834,7 @@ func (c *defaultRequestClassifier) detectContentType(ext string) string {
 	if contentType, exists := contentTypes[ext]; exists {
 		return contentType
 	}
-	return "unknown"
+	return StateStringUnknown
 }
 
 func (c *defaultRequestClassifier) isMultiLanguageFile(ext string) bool {
@@ -979,7 +984,7 @@ func (c *defaultRequestClassifier) getFrameworkType(frameworkName string) string
 	if ftype, exists := typeMap[frameworkName]; exists {
 		return ftype
 	}
-	return "unknown"
+	return StateStringUnknown
 }
 
 func (c *defaultRequestClassifier) findFrameworkConfigs(workspaceRoot string, detector *SimpleFrameworkDetector) []string {

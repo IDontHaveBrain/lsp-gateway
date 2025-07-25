@@ -696,7 +696,8 @@ func (g *ConfigGenerator) applyBuildSystemSettings(serverConfig *ServerConfig, b
 			}
 		}
 	case "java":
-		if buildSystem == "gradle" {
+		switch buildSystem {
+		case "gradle":
 			if java, ok := serverConfig.Settings["java"].(map[string]interface{}); ok {
 				if importSettings, ok := java["import"].(map[string]interface{}); ok {
 					if gradle, ok := importSettings["gradle"].(map[string]interface{}); ok {
@@ -705,7 +706,7 @@ func (g *ConfigGenerator) applyBuildSystemSettings(serverConfig *ServerConfig, b
 					}
 				}
 			}
-		} else if buildSystem == "maven" {
+		case "maven":
 			if java, ok := serverConfig.Settings["java"].(map[string]interface{}); ok {
 				if importSettings, ok := java["import"].(map[string]interface{}); ok {
 					if maven, ok := importSettings["maven"].(map[string]interface{}); ok {

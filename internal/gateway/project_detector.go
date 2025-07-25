@@ -728,7 +728,7 @@ func (s *ProjectLanguageScanner) identifyProjectType(languages []LanguageRanking
 	}
 
 	if len(languages) == 1 {
-		return "single-language"
+		return PROJECT_TYPE_SINGLE_LANGUAGE
 	}
 
 	// Calculate language distribution
@@ -738,14 +738,14 @@ func (s *ProjectLanguageScanner) identifyProjectType(languages []LanguageRanking
 	}
 
 	if totalScore == 0 {
-		return "unknown"
+		return StateStringUnknown
 	}
 
 	dominantRatio := float64(languages[0].Score) / float64(totalScore)
 
 	// Single language project if one language dominates (>90%)
 	if dominantRatio > 0.9 {
-		return "single-language"
+		return PROJECT_TYPE_SINGLE_LANGUAGE
 	}
 
 	// Check for common patterns

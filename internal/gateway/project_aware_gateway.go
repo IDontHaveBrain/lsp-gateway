@@ -96,7 +96,7 @@ func (pag *EnhancedProjectAwareGateway) HandleJSONRPCWithProjectAwareness(w http
 		pag.processEnhancedJSONRPCRequest(w, r, req, requestLogger, startTime)
 	} else {
 		// Fallback to traditional processing
-		pag.Gateway.HandleJSONRPC(w, r)
+		pag.HandleJSONRPC(w, r)
 	}
 }
 
@@ -119,7 +119,7 @@ func (pag *EnhancedProjectAwareGateway) processEnhancedJSONRPCRequest(w http.Res
 			logger.WithError(err).Warn("Failed to get workspace context, using traditional routing")
 		}
 		// Fallback to traditional routing
-		pag.Gateway.HandleJSONRPC(w, r)
+		pag.HandleJSONRPC(w, r)
 		return
 	}
 
@@ -217,7 +217,7 @@ func (pag *EnhancedProjectAwareGateway) handleEnhancedRequestRouting(w http.Resp
 		}
 
 		// Final fallback to traditional routing
-		serverName, err := pag.Gateway.routeRequest(req)
+		serverName, err := pag.routeRequest(req)
 		if err != nil {
 			if logger != nil {
 				logger.WithError(err).Error("Traditional routing failed")
@@ -240,7 +240,7 @@ func (pag *EnhancedProjectAwareGateway) handleEnhancedRequestRouting(w http.Resp
 
 // initializeEnhancedRequestLogger creates an enhanced logger with additional context
 func (pag *EnhancedProjectAwareGateway) initializeEnhancedRequestLogger(r *http.Request) *mcp.StructuredLogger {
-	baseLogger := pag.Gateway.initializeRequestLogger(r)
+	baseLogger := pag.initializeRequestLogger(r)
 
 	if baseLogger != nil {
 		// Add SmartRouter-specific fields

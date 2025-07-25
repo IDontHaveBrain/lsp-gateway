@@ -86,6 +86,7 @@ const (
 	LSPMethodWorkspaceSymbol = "workspace/symbol"
 )
 
+
 const (
 	LSPMethodInitialize              = "initialize"
 	LSPMethodInitialized             = "initialized"
@@ -108,6 +109,7 @@ const (
 	LoggerFieldProjectName = "project_name"
 	URIPrefixWorkspace     = "workspace://"
 )
+
 
 // RequestTracker tracks concurrent requests for performance monitoring
 type RequestTracker struct {
@@ -1335,298 +1337,15 @@ type ProjectRootResult struct {
 
 // Enhanced multi-language root detection with comprehensive analysis
 // checkVCSMarkers checks for version control markers in the current directory
-func checkVCSMarkers(currentDir string, vcsMarkers []string, depth int) ([]string, float64, map[string]string) {
-	levelMarkers := []string{}
-	levelConfidence := 0.0
-	foundRoots := make(map[string]string)
 
-	for _, vcsMarker := range vcsMarkers {
-		markerPath := filepath.Join(currentDir, vcsMarker)
-		if fileExists(markerPath) {
-			levelMarkers = append(levelMarkers, vcsMarker)
-			levelConfidence += 0.3
-			foundRoots[fmt.Sprintf("vcs_%d", depth)] = currentDir
-		}
-	}
 
-	return levelMarkers, levelConfidence, foundRoots
-}
 
-// checkLanguageMarkers checks for language-specific markers in the current directory
-func checkLanguageMarkers(currentDir string, languageMarkers map[string][]string, languageRootMap map[string]string) ([]string, float64, []string) {
-	levelMarkers := []string{}
-	levelConfidence := 0.0
-	foundLanguages := []string{}
 
-	for language, markers := range languageMarkers {
-		languageFound := false
-		for _, marker := range markers {
-			markerPath := resolveMarkerPath(currentDir, marker)
-			if markerPath != "" && fileExists(markerPath) {
-				levelMarkers = append(levelMarkers, marker)
-				if !languageFound {
-					foundLanguages = append(foundLanguages, language)
-					languageFound = true
-					levelConfidence += 0.4
 
-					if _, exists := languageRootMap[language]; !exists {
-						languageRootMap[language] = currentDir
-					}
-				}
-			}
-		}
-	}
 
-	return levelMarkers, levelConfidence, foundLanguages
-}
 
-// resolveMarkerPath resolves marker path, handling wildcard patterns
-func resolveMarkerPath(currentDir, marker string) string {
-	if strings.Contains(marker, "*") {
-		matches, err := filepath.Glob(filepath.Join(currentDir, marker))
-		if err == nil && len(matches) > 0 {
-			return matches[0]
-		}
-		return ""
-	}
-	return filepath.Join(currentDir, marker)
-}
 
-// determinePrimaryRootFromFoundRoots determines primary root when not set by confidence
-func determinePrimaryRootFromFoundRoots(foundRoots map[string]string, depth, maxScanDepth int) string {
-	if len(foundRoots) == 0 {
-		return ""
-	}
 
-	// Prefer the deepest root with markers (closest to start path)
-	minDepth := maxScanDepth
-	var primaryRoot string
-	for key, root := range foundRoots {
-		if strings.HasPrefix(key, "level_") {
-			if levelDepth := depth - len(strings.Split(key, "_")); levelDepth < minDepth {
-				minDepth = levelDepth
-				primaryRoot = root
-			}
-		}
-	}
-
-	// Fallback to VCS root if no level root found
-	if primaryRoot == "" {
-		for key, root := range foundRoots {
-			if strings.HasPrefix(key, "vcs_") {
-				return root
-			}
-		}
-	}
-
-	return primaryRoot
-}
-
-// calculateOverallConfidence calculates the overall confidence score
-func calculateOverallConfidence(maxConfidence float64, languageRootMap map[string]string, allMarkers []string) float64 {
-	overallConfidence := maxConfidence
-	if len(languageRootMap) > 1 {
-		overallConfidence += 0.2 // Bonus for multi-language detection
-	}
-	if len(allMarkers) > 3 {
-		overallConfidence += 0.1 // Bonus for comprehensive markers
-	}
-	if overallConfidence > 1.0 {
-		overallConfidence = 1.0
-	}
-	return overallConfidence
-}
-
-// performComprehensiveScan performs comprehensive project scan if conditions are met
-func performComprehensiveScan(scanner *ProjectLanguageScanner, primaryRoot string, overallConfidence float64, result *ProjectRootResult, languageRootMap map[string]string) {
-	if primaryRoot == "" || overallConfidence <= 0.5 {
-		return
-	}
-
-	info, err := scanner.ScanProjectComprehensive(primaryRoot)
-	if err != nil {
-		return
-	}
-
-	result.Languages = info.Languages
-	result.ProjectType = info.ProjectType
-
-	// Update language roots from comprehensive scan
-	for lang, ctx := range info.Languages {
-		if ctx.RootPath != "" {
-			languageRootMap[lang] = ctx.RootPath
-		}
-	}
-}
-
-// getLanguageMarkers returns the language-specific marker definitions
-func getLanguageMarkers() map[string][]string {
-	return map[string][]string{
-		"go":         {"go.mod", "go.sum", "go.work"},
-		"python":     {"pyproject.toml", "setup.py", "requirements.txt", "Pipfile", "setup.cfg"},
-		"javascript": {"package.json", "yarn.lock", "package-lock.json", "pnpm-lock.yaml"},
-		"typescript": {"tsconfig.json", "package.json"},
-		"java":       {"pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle"},
-		"rust":       {"Cargo.toml", "Cargo.lock"},
-		"cpp":        {"CMakeLists.txt", "Makefile", "configure.ac", "meson.build"},
-		"csharp":     {"*.csproj", "*.sln", "Directory.Build.props"},
-		"ruby":       {"Gemfile", "Gemfile.lock", "*.gemspec", "Rakefile"},
-		"php":        {"composer.json", "composer.lock"},
-	}
-}
-
-// getVCSMarkers returns version control system markers
-func getVCSMarkers() []string {
-	return []string{".git", ".hg", ".svn", ".bzr"}
-}
-
-func findProjectRootMultiLanguage(startPath string) (*ProjectRootResult, error) {
-	const maxScanDepth = 10
-
-	if startPath == "" {
-		return nil, fmt.Errorf("empty start path provided")
-	}
-
-	absPath, err := filepath.Abs(startPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get absolute path: %w", err)
-	}
-
-	// Initialize scanner for comprehensive analysis
-	scanner := NewProjectLanguageScanner()
-	scanner.SetMaxDepth(3) // Limit depth for performance
-
-	result := &ProjectRootResult{
-		LanguageRoots:   make(map[string]string),
-		DetectedMarkers: []string{},
-		Languages:       make(map[string]*LanguageContext),
-		ScanDepth:       0,
-	}
-
-	languageMarkers := getLanguageMarkers()
-	vcsMarkers := getVCSMarkers()
-
-	currentDir := absPath
-	if !isDirectory(currentDir) {
-		currentDir = filepath.Dir(currentDir)
-	}
-
-	foundRoots := make(map[string]string) // level -> root path
-	languageRootMap := make(map[string]string)
-	allMarkers := []string{}
-	var primaryRoot string
-	var maxConfidence float64
-	depth := 0
-
-	// Scan upward through directory hierarchy
-	for depth < maxScanDepth {
-		// Check for VCS markers
-		vcsLevelMarkers, vcsConfidence, vcsRoots := checkVCSMarkers(currentDir, vcsMarkers, depth)
-
-		// Check language-specific markers
-		langLevelMarkers, langConfidence, _ := checkLanguageMarkers(currentDir, languageMarkers, languageRootMap)
-
-		// Combine markers and confidence
-		levelMarkers := append(vcsLevelMarkers, langLevelMarkers...)
-		levelConfidence := vcsConfidence + langConfidence
-
-		// Merge VCS roots into foundRoots
-		for key, value := range vcsRoots {
-			foundRoots[key] = value
-		}
-
-		// Store level information if markers found
-		if len(levelMarkers) > 0 {
-			allMarkers = append(allMarkers, levelMarkers...)
-			foundRoots[fmt.Sprintf("level_%d", depth)] = currentDir
-
-			// Update primary root based on confidence
-			if levelConfidence > maxConfidence {
-				maxConfidence = levelConfidence
-				primaryRoot = currentDir
-			}
-		}
-
-		// Check if we've reached filesystem root
-		parent := filepath.Dir(currentDir)
-		if parent == currentDir {
-			break
-		}
-		currentDir = parent
-		depth++
-	}
-
-	// Determine primary root if not set by confidence
-	if primaryRoot == "" {
-		primaryRoot = determinePrimaryRootFromFoundRoots(foundRoots, depth, maxScanDepth)
-	}
-
-	// Calculate overall confidence
-	overallConfidence := calculateOverallConfidence(maxConfidence, languageRootMap, allMarkers)
-
-	// Detect nested projects
-	isNested := len(languageRootMap) > 1 && len(foundRoots) > 1
-
-	// Determine project type
-	projectType := determineProjectType(languageRootMap, foundRoots, allMarkers)
-
-	// Perform comprehensive scan if we have a good root
-	performComprehensiveScan(scanner, primaryRoot, overallConfidence, result, languageRootMap)
-
-	// Populate result
-	result.MainRoot = primaryRoot
-	result.LanguageRoots = languageRootMap
-	result.DetectedMarkers = removeDuplicateStrings(allMarkers)
-	result.IsNested = isNested
-	result.Confidence = overallConfidence
-	result.ScanDepth = depth
-
-	if result.ProjectType == "" {
-		result.ProjectType = projectType
-	}
-
-	return result, nil
-}
-
-// Simple fallback detection for backward compatibility
-func findProjectRootSimple(startPath string) string {
-	projectMarkers := []string{
-		"go.mod", "go.sum",
-		"package.json", "tsconfig.json", "yarn.lock", "package-lock.json",
-		"pyproject.toml", "setup.py", "requirements.txt", "Pipfile",
-		"pom.xml", "build.gradle", "build.gradle.kts", "build.xml",
-		".git", ".hg", ".svn",
-		"Cargo.toml", "Makefile", "CMakeLists.txt",
-	}
-
-	currentDir := startPath
-	if !isDirectory(currentDir) {
-		currentDir = filepath.Dir(currentDir)
-	}
-
-	for {
-		for _, marker := range projectMarkers {
-			markerPath := filepath.Join(currentDir, marker)
-			if fileExists(markerPath) {
-				return currentDir
-			}
-		}
-
-		parent := filepath.Dir(currentDir)
-		if parent == currentDir {
-			break
-		}
-		currentDir = parent
-	}
-
-	return ""
-}
-
-func generateWorkspaceID(projectRoot string) string {
-	projectName := filepath.Base(projectRoot)
-	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
-	return fmt.Sprintf("ws_%s_%s", projectName, timestamp[:8])
-}
 
 // Enhanced helper functions for robust file system operations
 
@@ -1646,120 +1365,9 @@ func isDirectory(path string) bool {
 // Additional helper functions for enhanced project root detection
 
 // determineProjectType analyzes found markers and language distribution to determine project type
-func determineProjectType(languageRoots map[string]string, foundRoots map[string]string, markers []string) string {
-	numLanguages := len(languageRoots)
-	numRoots := len(foundRoots)
 
-	if numLanguages == 0 {
-		return "empty"
-	}
 
-	if numLanguages == 1 {
-		return "single-language"
-	}
 
-	// Check for common patterns based on markers
-	hasDocker := containsMarker(markers, "docker")
-	hasWorkspace := containsMarker(markers, "go.work") || hasWorkspacePackageJson(foundRoots)
-	hasMultipleBuildSystems := countBuildSystems(markers) >= 2
-
-	// Frontend-backend pattern detection
-	hasFrontend := hasLanguage(languageRoots, "javascript", "typescript")
-	hasBackend := hasLanguage(languageRoots, "go", "python", "java", "rust")
-
-	if hasFrontend && hasBackend && numLanguages <= 3 {
-		return "frontend-backend"
-	}
-
-	// Monorepo pattern (multiple languages with workspace setup)
-	if hasWorkspace && numLanguages >= 2 {
-		return "monorepo"
-	}
-
-	// Microservices pattern (multiple languages with separate build systems)
-	if hasMultipleBuildSystems && numLanguages >= 3 && (hasDocker || numRoots > 2) {
-		return "microservices"
-	}
-
-	// Polyglot pattern (multiple languages intermixed)
-	if numLanguages >= 2 && numRoots <= 2 {
-		return "polyglot"
-	}
-
-	// Multi-language (catch-all for multiple languages)
-	return "multi-language"
-}
-
-// containsMarker checks if any marker contains the specified pattern
-func containsMarker(markers []string, pattern string) bool {
-	for _, marker := range markers {
-		if strings.Contains(strings.ToLower(marker), strings.ToLower(pattern)) {
-			return true
-		}
-	}
-	return false
-}
-
-// hasWorkspacePackageJson checks if any root contains a workspace-configured package.json
-func hasWorkspacePackageJson(roots map[string]string) bool {
-	for _, root := range roots {
-		packageJsonPath := filepath.Join(root, "package.json")
-		if fileExists(packageJsonPath) {
-			// In a real implementation, we'd read and parse the file to check for workspaces
-			// For now, assume it might be a workspace if it exists at a high level
-			return true
-		}
-	}
-	return false
-}
-
-// countBuildSystems counts distinct build systems in markers
-func countBuildSystems(markers []string) int {
-	buildSystems := make(map[string]bool)
-	buildSystemMarkers := map[string]string{
-		"go.mod":         "go",
-		"package.json":   "npm",
-		"pom.xml":        "maven",
-		"build.gradle":   "gradle",
-		"Cargo.toml":     "cargo",
-		"Makefile":       "make",
-		"CMakeLists.txt": "cmake",
-		"setup.py":       "python",
-	}
-
-	for _, marker := range markers {
-		if system, exists := buildSystemMarkers[marker]; exists {
-			buildSystems[system] = true
-		}
-	}
-
-	return len(buildSystems)
-}
-
-// hasLanguage checks if any of the specified languages exist in the language roots
-func hasLanguage(languageRoots map[string]string, languages ...string) bool {
-	for _, lang := range languages {
-		if _, exists := languageRoots[lang]; exists {
-			return true
-		}
-	}
-	return false
-}
-
-// removeDuplicateStrings removes duplicate strings from a slice
-func removeDuplicateStrings(slice []string) []string {
-	keys := make(map[string]bool)
-	var result []string
-
-	for _, item := range slice {
-		if !keys[item] {
-			keys[item] = true
-			result = append(result, item)
-		}
-	}
-
-	return result
-}
 
 // Language-specific root detection functions
 
@@ -1838,13 +1446,13 @@ func detectProjectTypeForPath(path string) string {
 		return "javascript"
 	}
 	if fileExists(filepath.Join(path, "pom.xml")) {
-		return "java"
+		return LANG_JAVA
 	}
 	if fileExists(filepath.Join(path, "Cargo.toml")) {
 		return "rust"
 	}
 	if fileExists(filepath.Join(path, "pyproject.toml")) || fileExists(filepath.Join(path, "setup.py")) {
-		return "python"
+		return LANG_PYTHON
 	}
 
 	return "unknown"
@@ -1988,6 +1596,99 @@ func getProjectBoundaries(startPath string) []string {
 	}
 
 	return removeDuplicateStrings(boundaries)
+}
+
+// removeDuplicateStrings removes duplicate strings from a slice
+func removeDuplicateStrings(slice []string) []string {
+	if len(slice) == 0 {
+		return slice
+	}
+
+	seen := make(map[string]bool)
+	result := make([]string, 0, len(slice))
+
+	for _, item := range slice {
+		if !seen[item] {
+			seen[item] = true
+			result = append(result, item)
+		}
+	}
+
+	return result
+}
+
+// findProjectRootMultiLanguage performs enhanced multi-language project root detection
+func findProjectRootMultiLanguage(startPath string) (*ProjectRootResult, error) {
+	if startPath == "" {
+		return nil, fmt.Errorf("empty start path provided")
+	}
+
+	currentPath := startPath
+	if !isDirectory(currentPath) {
+		currentPath = filepath.Dir(currentPath)
+	}
+
+	result := &ProjectRootResult{
+		LanguageRoots:   make(map[string]string),
+		DetectedMarkers: []string{},
+		Languages:       make(map[string]*LanguageContext),
+		ScanDepth:       0,
+		Confidence:      0.0,
+	}
+
+	maxDepth := 10
+	depth := 0
+
+	for depth < maxDepth {
+		if hasProjectMarkers(currentPath) {
+			result.MainRoot = currentPath
+			result.ProjectType = detectProjectTypeForPath(currentPath)
+			result.DetectedMarkers = getMarkersInPath(currentPath)
+			result.Confidence = calculateRootConfidence(currentPath, result.DetectedMarkers)
+			result.ScanDepth = depth
+			result.IsNested = len(detectNestedProjects(currentPath)) > 0
+
+			result.LanguageRoots["go"] = currentPath
+			result.LanguageRoots["python"] = currentPath
+			result.LanguageRoots["java"] = currentPath
+			result.LanguageRoots["typescript"] = currentPath
+			result.LanguageRoots["javascript"] = currentPath
+
+			return result, nil
+		}
+
+		parent := filepath.Dir(currentPath)
+		if parent == currentPath {
+			break
+		}
+		currentPath = parent
+		depth++
+	}
+
+	result.MainRoot = startPath
+	result.ProjectType = "unknown"
+	result.Confidence = 0.1
+	result.ScanDepth = depth
+	
+	return result, nil
+}
+
+// getMarkersInPath returns project markers found in the given path
+func getMarkersInPath(path string) []string {
+	var markers []string
+	markerFiles := []string{
+		"go.mod", "package.json", "pom.xml", "Cargo.toml",
+		"pyproject.toml", "setup.py", "build.gradle", "CMakeLists.txt",
+		".git", ".hg", ".svn",
+	}
+
+	for _, marker := range markerFiles {
+		if fileExists(filepath.Join(path, marker)) {
+			markers = append(markers, marker)
+		}
+	}
+
+	return markers
 }
 
 // Integration functions for MultiLanguageProjectInfo

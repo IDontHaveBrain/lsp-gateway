@@ -145,7 +145,12 @@ func (sr *StrategyRegistry) RegisterStrategy(strategy RoutingStrategyInterface) 
 		sr.metrics[name] = &StrategyMetrics{}
 	}
 
-	strategy.Configure(sr.config[name])
+	if err := strategy.Configure(sr.config[name]); err != nil {
+		if sr.logger != nil {
+			sr.logger.Errorf("Failed to configure routing strategy %s: %v", name, err)
+		}
+		// Configuration error is logged but we continue registration
+	}
 
 	if sr.logger != nil {
 		sr.logger.Debugf("Registered routing strategy: %s", name)
@@ -228,7 +233,7 @@ func (sr *StrategyRegistry) getDefaultConfig(name string) *StrategyConfig {
 	case "multi_target":
 		baseConfig.MaxServers = 3
 		baseConfig.AggregationMode = AggregationMerge
-	case "broadcast_aggregate":
+	case ROUTING_STRATEGY_BROADCAST_AGGREGATE:
 		baseConfig.MaxServers = 10
 		baseConfig.AggregationMode = AggregationUnion
 	case "sequential_fallback":
@@ -925,7 +930,7 @@ func (l *LoadBalancedStrategy) selectLeastConnections(servers []*StrategyServerI
 	}
 
 	var bestServer *StrategyServerInstance
-	var minConnections int64 = ^int64(0) // Max int64
+	var minConnections = ^int64(0) // Max int64
 
 	for _, server := range servers {
 		if server.Metrics != nil {
@@ -952,7 +957,7 @@ func (l *LoadBalancedStrategy) selectByResponseTime(servers []*StrategyServerIns
 	}
 
 	var bestServer *StrategyServerInstance
-	var bestTime time.Duration = time.Duration(^uint64(0) >> 1) // Max duration
+	var bestTime = time.Duration(^uint64(0) >> 1) // Max duration
 
 	for _, server := range servers {
 		if server.Metrics != nil {
@@ -1163,7 +1168,7 @@ func (c *CrossLanguageStrategy) detectLanguageFromURI(uri string) string {
 	case ".py":
 		return "python"
 	case ".js", ".jsx":
-		return "javascript"
+		return LANG_JAVASCRIPT
 	case ".ts", ".tsx":
 		return "typescript"
 	case ".java":
@@ -1175,7 +1180,7 @@ func (c *CrossLanguageStrategy) detectLanguageFromURI(uri string) string {
 	case ".css":
 		return "css"
 	case ".rs":
-		return "rust"
+		return LANG_RUST
 	case ".c":
 		return "c"
 	case ".cpp", ".cc", ".cxx":

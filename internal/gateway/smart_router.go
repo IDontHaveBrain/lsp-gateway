@@ -386,7 +386,7 @@ func (sr *SmartRouterImpl) GetServerForFile(fileURI string) (string, error) {
 	}
 
 	// Use ProjectAwareRouter for workspace-aware routing
-	return sr.ProjectAwareRouter.RouteRequestWithWorkspace(fileURI)
+	return sr.RouteRequestWithWorkspace(fileURI)
 }
 
 // GetServerForLanguage provides backward compatibility with existing Router interface
@@ -396,7 +396,7 @@ func (sr *SmartRouterImpl) GetServerForLanguage(language string) (string, error)
 	}
 
 	// Use embedded Router's functionality
-	serverName, exists := sr.ProjectAwareRouter.Router.GetServerByLanguage(language)
+	serverName, exists := sr.GetServerByLanguage(language)
 	if !exists {
 		return "", fmt.Errorf("no server found for language: %s", language)
 	}
@@ -554,10 +554,10 @@ func (sr *SmartRouterImpl) routeTraditional(request *LSPRequest) (*RoutingDecisi
 	var err error
 
 	if request.URI != "" {
-		serverName, err = sr.ProjectAwareRouter.RouteRequestWithWorkspace(request.URI)
+		serverName, err = sr.RouteRequestWithWorkspace(request.URI)
 	} else if request.Language != "" {
 		var exists bool
-		serverName, exists = sr.ProjectAwareRouter.Router.GetServerByLanguage(request.Language)
+		serverName, exists = sr.GetServerByLanguage(request.Language)
 		if !exists {
 			err = fmt.Errorf("no server found for language: %s", request.Language)
 		}
@@ -738,10 +738,10 @@ func (sr *SmartRouterImpl) selectByResponseTime(servers []*config.ServerConfig) 
 // getClientForServer gets or creates an LSP client for the specified server
 func (sr *SmartRouterImpl) getClientForServer(server *config.ServerConfig, request *LSPRequest) (transport.LSPClient, error) {
 	// Use project-aware router's client selection
-	if sr.ProjectAwareRouter != nil && sr.ProjectAwareRouter.Router != nil {
+	if sr.ProjectAwareRouter != nil && sr.Router != nil {
 		// Try to get client via server language mapping
 		if request.Language != "" {
-			if serverName, exists := sr.ProjectAwareRouter.Router.GetServerByLanguage(request.Language); exists {
+			if serverName, exists := sr.GetServerByLanguage(request.Language); exists {
 				if serverName == server.Name {
 					// Create client for the matching server
 					clientConfig := transport.ClientConfig{

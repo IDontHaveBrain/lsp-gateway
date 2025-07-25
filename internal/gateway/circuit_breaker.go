@@ -16,16 +16,23 @@ const (
 	CircuitBreakerStateHalfOpen
 )
 
+const (
+	StateStringClosed   = "closed"
+	StateStringOpen     = "open"
+	StateStringHalfOpen = "half-open"
+	StateStringUnknown  = "unknown"
+)
+
 func (s CircuitBreakerState) String() string {
 	switch s {
 	case CircuitBreakerStateClosed:
-		return "closed"
+		return StateStringClosed
 	case CircuitBreakerStateOpen:
-		return "open"
+		return StateStringOpen
 	case CircuitBreakerStateHalfOpen:
-		return "half-open"
+		return StateStringHalfOpen
 	default:
-		return "unknown"
+		return StateStringUnknown
 	}
 }
 

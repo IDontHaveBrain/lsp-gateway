@@ -280,7 +280,7 @@ func (w *TestWorkspaceManager) Reset() {
 
 	// Destroy all workspaces
 	for workspaceID := range w.workspaces {
-		w.destroyWorkspaceInternal(workspaceID)
+		_ = w.destroyWorkspaceInternal(workspaceID)
 	}
 
 	// Reset state

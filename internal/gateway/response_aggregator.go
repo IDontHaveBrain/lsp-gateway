@@ -499,6 +499,8 @@ func (d *DefinitionAggregator) Aggregate(responses []interface{}, sources []stri
 		return allLocationLinks, nil
 	}
 
+	_ = conflicts // Conflicts are tracked but not currently used in return value
+
 	if len(allLocations) == 0 {
 		return nil, nil
 	}
@@ -663,6 +665,8 @@ func (r *ReferencesAggregator) Aggregate(responses []interface{}, sources []stri
 		return allReferences[i].Range.Start.Character < allReferences[j].Range.Start.Character
 	})
 
+	_ = conflicts // Conflicts are tracked but not currently used in return value
+
 	return allReferences, nil
 }
 
@@ -777,6 +781,8 @@ func (s *SymbolAggregator) Aggregate(responses []interface{}, sources []string) 
 		}
 		return allSymbols[i].Location.Range.Start.Line < allSymbols[j].Location.Range.Start.Line
 	})
+
+	_ = conflicts // Conflicts are tracked but not currently used in return value
 
 	return allSymbols, nil
 }

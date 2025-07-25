@@ -444,15 +444,15 @@ func (ci *ConfigurationIntegrator) enhanceGatewayConfig(gatewayConfig *GatewayCo
 	switch mlConfig.OptimizedFor {
 	case PerformanceProfileProduction:
 		gatewayConfig.MaxConcurrentRequests = 200
-		gatewayConfig.Timeout = "15s"
+		gatewayConfig.Timeout = DEFAULT_TIMEOUT_15S
 		gatewayConfig.EnableSmartRouting = true
 	case PerformanceProfileAnalysis:
 		gatewayConfig.MaxConcurrentRequests = 50
-		gatewayConfig.Timeout = "60s"
+		gatewayConfig.Timeout = DEFAULT_TIMEOUT_60S
 		gatewayConfig.EnableEnhancements = true
 	case PerformanceProfileDevelopment:
 		gatewayConfig.MaxConcurrentRequests = 100
-		gatewayConfig.Timeout = "30s"
+		gatewayConfig.Timeout = DEFAULT_TIMEOUT_30S
 		gatewayConfig.EnableSmartRouting = false
 	}
 

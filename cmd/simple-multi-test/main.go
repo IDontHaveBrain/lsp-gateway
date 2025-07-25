@@ -79,7 +79,11 @@ func testTempProjectDetection(logger *log.Logger) error {
 	if err != nil {
 		return fmt.Errorf("failed to create test project: %w", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if err := os.RemoveAll(tempDir); err != nil {
+			logger.Printf("Warning: failed to clean up temp directory %s: %v", tempDir, err)
+		}
+	}()
 
 	logger.Printf("Created test project at: %s", tempDir)
 

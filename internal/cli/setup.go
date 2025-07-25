@@ -39,6 +39,10 @@ var (
 	// Enhanced multi-language flags
 )
 
+const (
+	verificationTypeMultiLanguage = "runMultiLanguageVerification"
+)
+
 // Setup result structures
 type SetupResult struct {
 	Success           bool                                `json:"success"`
@@ -2388,25 +2392,6 @@ type setupPhase struct {
 	handler func(context.Context, *SetupResult) error
 }
 
-func executeSetupPhase(ctx context.Context, phase setupPhase, result *SetupResult) error {
-	if setupVerbose && !setupJSON {
-		fmt.Printf("%s %s\n", phase.icon, phase.name)
-	}
-
-	err := phase.handler(ctx, result)
-	if err != nil {
-		result.Issues = append(result.Issues, fmt.Sprintf("%s failed: %v", phase.name, err))
-		if !setupJSON {
-			fmt.Printf("❌ %s failed: %v\n", phase.name, err)
-		}
-		return err
-	}
-
-	if setupVerbose && !setupJSON {
-		fmt.Printf("✓ %s completed\n", phase.name)
-	}
-	return nil
-}
 
 func executeMultiLanguagePhases(ctx context.Context, result *SetupResult) error {
 	phases := []setupPhase{
@@ -2449,7 +2434,7 @@ func executeMultiLanguagePhases(ctx context.Context, result *SetupResult) error 
 	}
 
 	if !setupSkipVerify {
-		return executeVerificationPhase(ctx, result, "runMultiLanguageVerification")
+		return executeVerificationPhase(ctx, result, verificationTypeMultiLanguage)
 	}
 	return nil
 }
@@ -2534,7 +2519,7 @@ func executeDetectPhases(ctx context.Context, result *SetupResult) (*setup.Proje
 
 func executeVerificationPhase(ctx context.Context, result *SetupResult, verificationType string) error {
 	if setupVerbose && !setupJSON {
-		if verificationType == "runMultiLanguageVerification" {
+		if verificationType == verificationTypeMultiLanguage {
 			fmt.Println("\n✓ Phase 5: Final Verification")
 		} else {
 			fmt.Println("\n✓ Phase 6: Final Verification")
@@ -2544,7 +2529,7 @@ func executeVerificationPhase(ctx context.Context, result *SetupResult, verifica
 	var verificationWarnings []string
 	var err error
 
-	if verificationType == "runMultiLanguageVerification" {
+	if verificationType == verificationTypeMultiLanguage {
 		verificationWarnings, err = runMultiLanguageVerification(ctx, result)
 	} else {
 		verificationWarnings, err = runEnhancedVerification(ctx, result)
@@ -2552,13 +2537,13 @@ func executeVerificationPhase(ctx context.Context, result *SetupResult, verifica
 
 	if err != nil {
 		result.Issues = append(result.Issues, fmt.Sprintf("Verification failed: %v", err))
-		if !setupJSON && verificationType == "runMultiLanguageVerification" {
+		if !setupJSON && verificationType == verificationTypeMultiLanguage {
 			fmt.Printf("⚠️  Verification warnings: %v\n", err)
 		}
 	} else {
 		result.Warnings = append(result.Warnings, verificationWarnings...)
 		if setupVerbose && !setupJSON && len(verificationWarnings) == 0 {
-			if verificationType == "runMultiLanguageVerification" {
+			if verificationType == verificationTypeMultiLanguage {
 				fmt.Println("✓ All multi-language verifications passed")
 			} else {
 				fmt.Println("✓ All verifications passed")

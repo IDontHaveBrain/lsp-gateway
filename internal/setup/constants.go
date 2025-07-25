@@ -135,4 +135,12 @@ const (
 
 	// Node.js related
 	RUNTIME_NODEJS = "nodejs"
+
+	// Environment constants
+	ENV_PROD        = "prod"
+	ENV_DEV         = "dev"
+	ENV_ANALYSIS    = "analysis"
+	ENV_PRODUCTION  = "production"
+	ENV_DEVELOPMENT = "development"
+	ENV_TEST        = "test"
 )

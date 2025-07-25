@@ -331,7 +331,9 @@ func (wsm *WorkspaceServerManager) StartServerForLanguage(language string) (*Ser
 	// Add to workspace pools
 	pool, err := wsm.GetOrCreateLanguagePool(language)
 	if err != nil {
-		server.Stop()
+		if stopErr := server.Stop(); stopErr != nil && wsm.logger != nil {
+			wsm.logger.Printf("Failed to stop server during cleanup: %v", stopErr)
+		}
 		return nil, fmt.Errorf("failed to get language pool: %w", err)
 	}
 

@@ -441,7 +441,10 @@ func (pc *IntelligentPerformanceCache) GetCachedResponse(key string) (interface{
 			if entry.CompressedData != nil {
 				decompressed, err := pc.decompressData(entry.CompressedData)
 				if err == nil {
-					json.Unmarshal(decompressed, &response)
+					if err := json.Unmarshal(decompressed, &response); err != nil {
+						// If unmarshal fails, continue with original response
+						response = entry.Response
+					}
 				}
 			}
 
@@ -928,7 +931,7 @@ func (pc *IntelligentPerformanceCache) decompressData(data []byte) ([]byte, erro
 	if err != nil {
 		return nil, err
 	}
-	defer gz.Close()
+	defer func() { _ = gz.Close() }()
 
 	var result strings.Builder
 	_, err = io.Copy(&result, gz)
@@ -945,7 +948,10 @@ func (pc *IntelligentPerformanceCache) optimizationLoop() {
 		case <-pc.ctx.Done():
 			return
 		case <-pc.optimizationTicker.C:
-			pc.OptimizeCache()
+			if err := pc.OptimizeCache(); err != nil {
+				// Optimization error - continue background processing
+				_ = err
+			}
 		}
 	}
 }

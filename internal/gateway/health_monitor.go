@@ -100,7 +100,7 @@ func (rs RecoveryStrategy) String() string {
 	case RecoveryIgnore:
 		return "ignore"
 	default:
-		return "unknown"
+		return StateStringUnknown
 	}
 }
 

@@ -2294,9 +2294,10 @@ func calculateMultiLanguageHealth(report *DiagnosticReport, baseHealth float64) 
 
 	for _, result := range report.Results {
 		if result.Name == "Multi-language Configuration" {
-			if result.Status == StatusPassed {
+			switch result.Status {
+			case StatusPassed:
 				multiLangHealth += 20
-			} else if result.Status == StatusWarning {
+			case StatusWarning:
 				multiLangHealth += 5
 			}
 			break
@@ -2313,9 +2314,10 @@ func calculateRoutingEfficiency(report *DiagnosticReport, baseHealth float64) fl
 
 	for _, result := range report.Results {
 		if result.Name == "Smart Routing Configuration" {
-			if result.Status == StatusPassed {
+			switch result.Status {
+			case StatusPassed:
 				routingEfficiency += 25
-			} else if result.Status == StatusWarning {
+			case StatusWarning:
 				routingEfficiency += 10
 			}
 			break
