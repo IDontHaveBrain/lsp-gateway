@@ -145,6 +145,55 @@ test-jdtls-integration:
 	$(GOTEST) -v -timeout 600s -run "TestJDTLS" ./tests/integration/...
 
 # =============================================================================
+# PHASE 2 TESTING TARGETS
+# =============================================================================
+
+.PHONY: test-phase2-quick test-phase2-full test-phase2-performance test-phase2-production
+.PHONY: test-phase2-smart-router test-phase2-three-tier test-phase2-incremental test-phase2-enhanced-mcp test-phase2-load
+
+# Quick Phase 2 validation (1-2 minutes)
+test-phase2-quick:
+	@echo "Running Phase 2 quick validation tests..."
+	$(GOTEST) -v -short -timeout 120s ./tests/phase2/integration/... ./tests/phase2/performance/...
+
+# Comprehensive Phase 2 testing (10-15 minutes)
+test-phase2-full:
+	@echo "Running comprehensive Phase 2 tests..."
+	$(GOTEST) -v -timeout 900s ./tests/phase2/integration/... ./tests/phase2/performance/...
+
+# Phase 2 performance benchmarking (20-30 minutes)
+test-phase2-performance:
+	@echo "Running Phase 2 performance benchmarks..."
+	$(GOTEST) -v -timeout 1800s -bench=. ./tests/phase2/performance/...
+	$(GOTEST) -v -timeout 900s -run "Performance" ./tests/phase2/integration/...
+
+# Phase 2 production readiness validation (45-60 minutes)
+test-phase2-production:
+	@echo "Running Phase 2 production readiness tests..."
+	$(GOTEST) -v -timeout 3600s ./tests/phase2/production/...
+
+# Individual Phase 2 component tests
+test-phase2-smart-router:
+	@echo "Running Smart Router integration tests..."
+	$(GOTEST) -v -timeout 600s ./tests/phase2/integration/smart_router_integration_test.go
+
+test-phase2-three-tier:
+	@echo "Running Three-Tier Storage performance tests..."
+	$(GOTEST) -v -timeout 900s ./tests/phase2/performance/three_tier_storage_test.go
+
+test-phase2-incremental:
+	@echo "Running Incremental Pipeline performance tests..."
+	$(GOTEST) -v -timeout 900s ./tests/phase2/performance/incremental_pipeline_test.go
+
+test-phase2-enhanced-mcp:
+	@echo "Running Enhanced MCP Tools integration tests..."
+	$(GOTEST) -v -timeout 600s ./tests/phase2/integration/enhanced_mcp_tools_test.go
+
+test-phase2-load:
+	@echo "Running Phase 2 load testing scenarios..."
+	$(GOTEST) -v -timeout 1800s -run "Concurrent\|Load\|Scale" ./tests/phase2/...
+
+# =============================================================================
 # UTILITY TARGETS
 # =============================================================================
 
@@ -189,6 +238,17 @@ help:
 	@echo "  test-simple-quick    - Quick validation tests"
 	@echo "  test-lsp-validation  - Full LSP validation"
 	@echo "  setup-simple-repos   - Setup test repositories"
+	@echo ""
+	@echo "Phase 2 Testing:"
+	@echo "  test-phase2-quick         - Phase 2 quick validation (1-2 min)"
+	@echo "  test-phase2-full          - Comprehensive Phase 2 tests (10-15 min)"
+	@echo "  test-phase2-performance   - Phase 2 performance benchmarks (20-30 min)"
+	@echo "  test-phase2-production    - Production readiness validation (45-60 min)"
+	@echo "  test-phase2-smart-router  - Smart Router integration tests"
+	@echo "  test-phase2-three-tier    - Three-Tier Storage performance tests"
+	@echo "  test-phase2-incremental   - Incremental Pipeline performance tests"
+	@echo "  test-phase2-enhanced-mcp  - Enhanced MCP Tools integration tests"
+	@echo "  test-phase2-load          - Phase 2 load testing scenarios"
 	@echo ""
 	@echo "Utility:"
 	@echo "  install   - Install binary to GOPATH"

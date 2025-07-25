@@ -42,8 +42,8 @@ type RoutingRequestContext struct {
 	WorkspaceID          string            `json:"workspace_id,omitempty"`
 }
 
-// LSPRequest represents an enhanced LSP request with routing context
-type LSPRequest struct {
+// RoutingLSPRequest represents an enhanced LSP request with routing context
+type RoutingLSPRequest struct {
 	Method     string          `json:"method"`
 	Params     interface{}     `json:"params,omitempty"`
 	ID         interface{}     `json:"id,omitempty"`
@@ -178,7 +178,7 @@ func (fsa *FirstSuccessAggregator) SupportsMethod(method string) bool {
 
 // RoutingStrategy defines how requests should be routed to language servers
 type RoutingStrategy interface {
-	Route(request *LSPRequest, availableServers []*ServerInstance) (*RoutingDecision, error)
+	Route(request *RoutingLSPRequest, availableServers []*ServerInstance) (*RoutingDecision, error)
 	Name() string
 	Description() string
 }
@@ -186,7 +186,7 @@ type RoutingStrategy interface {
 // SingleServerStrategy routes to a single best server
 type SingleServerStrategy struct{}
 
-func (sss *SingleServerStrategy) Route(request *LSPRequest, availableServers []*ServerInstance) (*RoutingDecision, error) {
+func (sss *SingleServerStrategy) Route(request *RoutingLSPRequest, availableServers []*ServerInstance) (*RoutingDecision, error) {
 	if len(availableServers) == 0 {
 		return nil, fmt.Errorf("no available servers for request")
 	}
@@ -222,7 +222,7 @@ func (sss *SingleServerStrategy) Description() string {
 // MultiServerStrategy routes to multiple servers and aggregates responses
 type MultiServerStrategy struct{}
 
-func (mss *MultiServerStrategy) Route(request *LSPRequest, availableServers []*ServerInstance) (*RoutingDecision, error) {
+func (mss *MultiServerStrategy) Route(request *RoutingLSPRequest, availableServers []*ServerInstance) (*RoutingDecision, error) {
 	if len(availableServers) == 0 {
 		return nil, fmt.Errorf("no available servers for request")
 	}
@@ -290,8 +290,8 @@ func CreateWorkspaceRequestContext(workspaceRoot string, projectType string, lan
 	}
 }
 
-// ValidateLSPRequest validates an LSP request before routing
-func ValidateLSPRequest(request *LSPRequest) error {
+// ValidateRoutingLSPRequest validates an LSP request before routing
+func ValidateRoutingLSPRequest(request *RoutingLSPRequest) error {
 	if request == nil {
 		return fmt.Errorf("request cannot be nil")
 	}
@@ -312,8 +312,8 @@ func ValidateLSPRequest(request *LSPRequest) error {
 	return nil
 }
 
-// PreprocessLSPRequest enhances a request with additional context
-func PreprocessLSPRequest(request *LSPRequest) error {
+// PreprocessRoutingLSPRequest enhances a request with additional context
+func PreprocessRoutingLSPRequest(request *RoutingLSPRequest) error {
 	if request.Timestamp.IsZero() {
 		request.Timestamp = time.Now()
 	}

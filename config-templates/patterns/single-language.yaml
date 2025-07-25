@@ -248,6 +248,103 @@ routing:
   enable_caching: false
   cache_ttl: "0s"
 
+# Basic storage configuration for development
+# Note: Storage is disabled by default for single-language development
+# Enable only if you need caching for larger codebases
+performance_config:
+  storage:
+    # Disabled by default for lightweight development
+    enabled: false
+    version: "1.0" 
+    profile: "development"
+    
+    # Minimal L1 memory cache for development
+    tiers:
+      l1_memory:
+        enabled: true
+        capacity: "512MB"  # Small cache for development
+        max_entries: 10000
+        eviction_policy: "lru"
+        
+        backend:
+          type: "memory"
+        
+        performance:
+          max_concurrency: 20
+          timeout_ms: 2000
+          batch_size: 50
+          read_buffer_size: 4096
+          write_buffer_size: 4096
+          connection_pool_size: 5
+          keep_alive: true
+          prefetch_enabled: false
+      
+      # L2 and L3 disabled for simple development
+      l2_disk:
+        enabled: false
+      
+      l3_remote:
+        enabled: false
+    
+    # Simple strategies for development
+    strategy:
+      promotion_strategy:
+        type: "lru"
+        enabled: true
+        min_access_count: 2
+        access_time_window: "1h"
+        promotion_cooldown: "5m"
+      
+      eviction_policy:
+        type: "lru" 
+        enabled: true
+        eviction_threshold: 0.80
+        target_utilization: 0.70
+        eviction_batch_size: 50
+        inactivity_threshold: "30m"
+        default_ttl: "2h"
+      
+      access_tracking:
+        enabled: false  # Disabled for development simplicity
+      
+      auto_optimization:
+        enabled: false  # Disabled for development
+    
+    # Basic monitoring for development
+    monitoring:
+      enabled: true
+      metrics_interval: "60s"
+      health_interval: "120s"
+      trace_requests: false
+      log_level: "warn"
+      alert_thresholds:
+        hit_rate_low: 0.5
+        latency_high: 1000.0
+        error_rate_high: 0.1
+        capacity_high: 0.9
+      detailed_metrics: false
+    
+    # Minimal maintenance for development
+    maintenance:
+      enabled: true
+      schedule: "0 4 * * 1"  # Weekly on Monday at 4 AM
+      compaction_enabled: false
+      vacuum_enabled: false
+      cleanup_enabled: true
+      cleanup_age: "24h"  # Clean daily for development
+      backup_enabled: false
+    
+    # Basic security for development
+    security:
+      encryption_at_rest: false
+      encryption_in_transit: false
+      access_control:
+        enabled: false
+      audit_logging:
+        enabled: false
+      data_classification:
+        enabled: false
+
 # Development testing configuration
 testing:
   scenarios: ["basic"]

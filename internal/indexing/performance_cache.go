@@ -1162,4 +1162,3 @@ type WarmingScheduler struct{}
 type WarmingWorker struct{}
 type CacheConnection struct{}
 type FeatureExtractor struct{}
-type PredictionModel struct{}

@@ -54,6 +54,27 @@ type RPCError struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
+// LSPRequest represents an LSP request for SCIP routing
+type LSPRequest struct {
+	Method  string      `json:"method"`
+	Params  interface{} `json:"params,omitempty"`
+	URI     string      `json:"uri,omitempty"`
+	Context *RequestContext `json:"context,omitempty"`
+}
+
+// RequestContext provides context information for LSP requests
+type RequestContext struct {
+	ProjectType string `json:"project_type,omitempty"`
+	ServerName  string `json:"server_name,omitempty"`
+	Language    string `json:"language,omitempty"`
+	WorkspaceID string `json:"workspace_id,omitempty"`
+}
+
+// IsWorkspaceRequest checks if this is a workspace-level request
+func (rc *RequestContext) IsWorkspaceRequest() bool {
+	return rc.WorkspaceID != ""
+}
+
 const (
 	ParseError     = -32700
 	InvalidRequest = -32600
@@ -476,6 +497,13 @@ type Gateway struct {
 	workspaceManager *WorkspaceManager
 	projectRouter    *ProjectAwareRouter
 	
+	// SCIP-aware Smart Router integration
+	scipStore           indexing.SCIPStore
+	scipSmartRouter     SCIPSmartRouter
+	scipRoutingProvider SCIPRoutingProvider
+	adaptiveMetrics     *AdaptiveRoutingOptimizer
+	enableSCIPRouting   bool
+	
 	// Performance monitoring
 	performanceCache *PerformanceCache
 	requestClassifier *RequestClassifier
@@ -539,6 +567,84 @@ func NewGateway(config *config.GatewayConfig) (*Gateway, error) {
 	enableSmartRouting := config.EnableSmartRouting
 	enableEnhancements := config.EnableEnhancements
 	
+	// Initialize SCIP-aware components if enabled
+	var scipStore indexing.SCIPStore
+	var scipSmartRouter SCIPSmartRouter
+	var scipRoutingProvider SCIPRoutingProvider
+	var adaptiveMetrics *AdaptiveRoutingOptimizer
+	enableSCIPRouting := false
+	
+	if config.EnableSCIPRouting && config.SCIPConfig != nil {
+		// Initialize SCIP store and client from indexing package
+		var scipClient *indexing.SCIPClient
+		var scipMapper *indexing.LSPSCIPMapper
+		
+		// Initialize SCIP store if configured
+		if config.PerformanceConfig != nil && config.PerformanceConfig.SCIP != nil && 
+			config.PerformanceConfig.SCIP.Enabled && config.PerformanceConfig.SCIP.CacheConfig.Enabled {
+			scipConfig := &indexing.SCIPConfig{
+				CacheConfig: indexing.CacheConfig{
+					Enabled: config.PerformanceConfig.SCIP.CacheConfig.Enabled,
+					MaxSize: int(config.PerformanceConfig.SCIP.CacheConfig.MaxSize),
+					TTL:     config.PerformanceConfig.SCIP.CacheConfig.TTL,
+				},
+			}
+			scipStore = indexing.NewRealSCIPStore(scipConfig)
+			logger.Infof("SCIP store initialized successfully")
+		}
+		
+		// Initialize SCIP client if store is available
+		if scipStore != nil {
+			scipConfig := &indexing.SCIPConfig{}
+			var err error
+			scipClient, err = indexing.NewSCIPClient(scipConfig)
+			if err != nil {
+				logger.Errorf("Failed to create SCIP client: %v", err)
+				scipClient = nil
+			}
+			
+			// Initialize LSP-SCIP mapper
+			scipMapper = indexing.NewLSPSCIPMapper(scipStore, scipConfig)
+			logger.Infof("SCIP client and mapper initialized successfully")
+		}
+		
+		// Initialize SCIP routing provider if components are available
+		if scipStore != nil {
+			// Convert config types
+			providerConfig := convertToSCIPProviderConfig(config.SCIPConfig.ProviderConfig)
+			provider, err := NewSCIPRoutingProvider(scipStore, scipClient, scipMapper, providerConfig, logger)
+			if err != nil {
+				logger.Warnf("Failed to initialize SCIP routing provider: %v", err)
+			} else {
+				scipRoutingProvider = provider
+				logger.Infof("SCIP routing provider initialized successfully")
+			}
+		}
+		
+		// Initialize SCIP smart router if base components are available
+		if scipStore != nil && smartRouter != nil {
+			// Convert config types
+			routerConfig := convertToSCIPRoutingConfig(config.SCIPConfig.RouterConfig)
+			scipRouter, err := NewSCIPSmartRouter(smartRouter, scipStore, routerConfig, logger)
+			if err != nil {
+				logger.Warnf("Failed to initialize SCIP smart router: %v", err)
+			} else {
+				scipSmartRouter = scipRouter
+				enableSCIPRouting = true
+				logger.Infof("SCIP smart router initialized successfully")
+			}
+		}
+		
+		// Initialize adaptive routing optimizer if SCIP routing is enabled
+		if enableSCIPRouting {
+			// Convert config types
+			optimizationConfig := convertToAdaptiveOptimizationConfig(config.SCIPConfig.OptimizationConfig)
+			optimizer := NewAdaptiveRoutingOptimizer(optimizationConfig, logger)
+			adaptiveMetrics = optimizer
+			logger.Infof("Adaptive routing optimizer initialized successfully")
+		}
+	}
+	
 	gateway := &Gateway{
 		Config:  config,
 		Clients: make(map[string]transport.LSPClient),
@@ -549,6 +655,13 @@ func NewGateway(config *config.GatewayConfig) (*Gateway, error) {
 		smartRouter:      smartRouter,
 		workspaceManager: workspaceManager,
 		projectRouter:    projectRouter,
+		
+		// SCIP-aware Smart Router integration
+		scipStore:           scipStore,
+		scipSmartRouter:     scipSmartRouter,
+		scipRoutingProvider: scipRoutingProvider,
+		adaptiveMetrics:     adaptiveMetrics,
+		enableSCIPRouting:   enableSCIPRouting,
 		
 		// Performance monitoring (disabled for now)
 		performanceCache:  nil,
@@ -807,7 +920,14 @@ func (g *Gateway) HandleJSONRPC(w http.ResponseWriter, r *http.Request) {
 }
 
 // processLSPRequest processes LSP requests with support for concurrent multi-server operations
+// processLSPRequest processes LSP requests with support for SCIP-aware routing and concurrent multi-server operations
 func (g *Gateway) processLSPRequest(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, serverName string, logger *mcp.StructuredLogger, startTime time.Time) {
+	// Check if SCIP-aware routing is enabled and should be used for this request
+	if g.enableSCIPRouting && g.scipSmartRouter != nil && g.shouldUseSCIPRouting(req.Method) {
+		g.processSCIPAwareRequest(w, r, req, serverName, logger, startTime)
+		return
+	}
+
 	// Determine if request should use concurrent servers
 	if g.shouldUseConcurrentServers(req.Method) {
 		g.processConcurrentLSPRequest(w, r, req, logger, startTime)
@@ -833,6 +953,202 @@ func (g *Gateway) shouldUseConcurrentServers(method string) bool {
 	}
 
 	return concurrentMethods[method]
+}
+
+// shouldUseSCIPRouting determines if SCIP routing should be used for a method
+func (g *Gateway) shouldUseSCIPRouting(method string) bool {
+	if !g.enableSCIPRouting || g.scipSmartRouter == nil {
+		return false
+	}
+	
+	// SCIP routing is beneficial for symbol-related queries
+	scipBeneficialMethods := map[string]bool{
+		LSP_METHOD_DEFINITION:      true,  // Symbol definitions work well with SCIP
+		LSP_METHOD_REFERENCES:      true,  // Reference finding benefits from SCIP cache
+		LSP_METHOD_DOCUMENT_SYMBOL: true,  // Document symbols can be cached
+		LSP_METHOD_WORKSPACE_SYMBOL: true, // Workspace symbol search benefits from indexing
+		LSP_METHOD_HOVER:           true,  // Hover information can be cached
+	}
+	
+	return scipBeneficialMethods[method]
+}
+
+// processSCIPAwareRequest processes a request using SCIP-aware routing with intelligent fallback
+func (g *Gateway) processSCIPAwareRequest(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, serverName string, logger *mcp.StructuredLogger, startTime time.Time) {
+	// Create LSP request for SCIP routing
+	lspRequest := &LSPRequest{
+		Method:  req.Method,
+		Params:  req.Params,
+		URI:     g.extractURIFromParamsSimple(req.Params),
+		Context: g.createRequestContext(req, serverName),
+	}
+	
+	// Get SCIP routing decision
+	decision, err := g.scipSmartRouter.RouteWithSCIPAwareness(lspRequest)
+	if err != nil {
+		if logger != nil {
+			logger.WithError(err).Warn("SCIP routing decision failed, falling back to standard routing")
+		}
+		g.processSingleServerRequest(w, r, req, serverName, logger, startTime)
+		return
+	}
+	
+	// Track routing decision for optimization
+	if g.adaptiveMetrics != nil {
+		trackedDecision := g.createTrackedDecision(decision, req, startTime)
+		g.adaptiveMetrics.TrackRoutingDecision(trackedDecision)
+	}
+	
+	// Process based on routing decision
+	if decision.UseSCIP && decision.SCIPResult != nil && decision.SCIPResult.Found {
+		// Use SCIP result
+		g.processSCIPResponse(w, req, decision, logger, startTime)
+	} else if decision.FallbackToLSP {
+		// Fallback to LSP server
+		if logger != nil {
+			logger.Debugf("SCIP routing recommends LSP fallback: %s", decision.DecisionReason)
+		}
+		g.processSingleServerRequest(w, r, req, serverName, logger, startTime)
+	} else {
+		// Use routing decision's recommended approach
+		if decision.RoutingDecision != nil {
+			g.processRoutingDecision(w, r, req, decision.RoutingDecision, logger, startTime)
+		} else {
+			// Final fallback to standard processing
+			g.processSingleServerRequest(w, r, req, serverName, logger, startTime)
+		}
+	}
+}
+
+// processSCIPResponse processes a successful SCIP query result
+func (g *Gateway) processSCIPResponse(w http.ResponseWriter, req JSONRPCRequest, decision *SCIPRoutingDecision, logger *mcp.StructuredLogger, startTime time.Time) {
+	if logger != nil {
+		logger.Debugf("Processing SCIP result for %s (confidence: %.2f, cache_hit: %v)", 
+			req.Method, decision.SCIPConfidence, decision.SCIPResult.CacheHit)
+	}
+	
+	// Create JSON-RPC response from SCIP result
+	response := JSONRPCResponse{
+		JSONRPC: JSONRPCVersion,
+		ID:      req.ID,
+		Result:  decision.SCIPResult.Response,
+	}
+	
+	// Add performance headers if available
+	if decision.SCIPResult.QueryTime > 0 {
+		w.Header().Set("X-Query-Time", decision.SCIPResult.QueryTime.String())
+	}
+	w.Header().Set("X-Source", "SCIP")
+	w.Header().Set("X-Cache-Hit", fmt.Sprintf("%v", decision.SCIPResult.CacheHit))
+	w.Header().Set("X-Confidence", fmt.Sprintf("%.2f", decision.SCIPConfidence))
+	
+	// Send response
+	w.Header().Set("Content-Type", HTTPContentTypeJSON)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		if logger != nil {
+			logger.WithError(err).Error("Failed to encode SCIP response")
+		}
+		g.writeError(w, req.ID, InternalError, "Failed to encode response", fmt.Errorf("failed to encode response"))
+		return
+	}
+	
+	// Log performance metrics
+	if logger != nil {
+		totalTime := time.Since(startTime)
+		logger.WithFields(map[string]interface{}{
+			"method":        req.Method,
+			"source":        "SCIP",
+			"cache_hit":     decision.SCIPResult.CacheHit,
+			"confidence":    decision.SCIPConfidence,
+			"query_time":    decision.SCIPResult.QueryTime,
+			"total_time":    totalTime,
+			"decision_time": decision.DecisionLatency,
+		}).Info("SCIP request completed")
+	}
+}
+
+// extractURIFromParamsSimple extracts file URI from LSP request parameters (simple version)
+func (g *Gateway) extractURIFromParamsSimple(params interface{}) string {
+	if params == nil {
+		return ""
+	}
+	
+	// Handle different parameter structures
+	switch p := params.(type) {
+	case map[string]interface{}:
+		// TextDocumentPositionParams or TextDocumentParams
+		if textDoc, ok := p["textDocument"].(map[string]interface{}); ok {
+			if uri, ok := textDoc["uri"].(string); ok {
+				return uri
+			}
+		}
+		// WorkspaceSymbolParams or other params
+		if uri, ok := p["uri"].(string); ok {
+			return uri
+		}
+	}
+	
+	return ""
+}
+
+// createRequestContext creates request context for SCIP routing
+func (g *Gateway) createRequestContext(req JSONRPCRequest, serverName string) *RequestContext {
+	return &RequestContext{
+		ProjectType: "unknown", // Could be enhanced with project detection
+		ServerName:  serverName,
+		Language:    "", // Could be extracted from URI
+		WorkspaceID: "", // Could be extracted from workspace detection
+	}
+}
+
+// createTrackedDecision creates a tracked decision for performance optimization
+func (g *Gateway) createTrackedDecision(decision *SCIPRoutingDecision, req JSONRPCRequest, startTime time.Time) *TrackedDecision {
+	return &TrackedDecision{
+		ID:                fmt.Sprintf("%v_%d", req.ID, time.Now().UnixNano()),
+		Timestamp:         startTime,
+		Method:            req.Method,
+		Strategy:          decision.Strategy,
+		Source:            g.getSourceFromDecision(decision),
+		Confidence:        decision.Confidence,
+		ExpectedLatency:   decision.ExpectedLatency,
+		QueryAnalysis:     decision.QueryAnalysis,
+		DecisionReason:    decision.DecisionReason,
+		SCIPQueried:       decision.SCIPQueried,
+		UsedFallback:      decision.FallbackToLSP,
+		ActualLatency:     0, // Will be updated when request completes
+		Success:           false, // Will be updated when request completes
+		AccuracyScore:     float64(decision.SCIPConfidence),
+		CacheHit:          decision.SCIPResult != nil && decision.SCIPResult.CacheHit,
+		ComplexityLevel:   decision.QueryAnalysis.Complexity,
+	}
+}
+
+// getSourceFromDecision determines the routing source from a SCIP decision
+func (g *Gateway) getSourceFromDecision(decision *SCIPRoutingDecision) RoutingSource {
+	if decision.UseSCIP {
+		return SourceSCIPCache
+	}
+	return SourceLSPServer
+}
+
+// processRoutingDecision processes a routing decision from SCIP smart router
+func (g *Gateway) processRoutingDecision(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, decision *RoutingDecision, logger *mcp.StructuredLogger, startTime time.Time) {
+	// This would implement processing based on the routing decision
+	// For now, fall back to standard processing
+	if logger != nil {
+		logger.Debug("Processing routing decision - falling back to standard processing")
+	}
+	// Get server name from decision or fall back to original routing
+	serverName, err := g.routeRequest(req)
+	if err != nil {
+		if logger != nil {
+			logger.WithError(err).Error("Failed to route request after routing decision")
+		}
+		g.writeError(w, req.ID, InternalError, "Failed to route request", fmt.Errorf("failed to route request"))
+		return
+	}
+	
+	g.processSingleServerRequest(w, r, req, serverName, logger, startTime)
 }
 
 // getMaxServersForMethod returns the maximum number of servers to use for a method
@@ -1238,6 +1554,57 @@ func (g *Gateway) handleNotification(w http.ResponseWriter, r *http.Request, req
 }
 
 func (g *Gateway) handleRequest(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, client transport.LSPClient, logger *mcp.StructuredLogger, startTime time.Time) {
+	// SCIP cache-first routing: Check SCIP cache before LSP call
+	if g.enableSCIPRouting && g.scipStore != nil {
+		if logger != nil {
+			logger.Debug("Checking SCIP cache for request")
+		}
+		
+		// Query SCIP cache
+		scipResult := g.scipStore.Query(req.Method, req.Params)
+		if scipResult.Found {
+			if logger != nil {
+				logger.WithFields(map[string]interface{}{
+					"cache_hit":    scipResult.CacheHit,
+					"query_time":   scipResult.QueryTime.String(),
+					"confidence":   scipResult.Confidence,
+				}).Info("SCIP cache hit - returning cached response")
+			}
+			
+			// Return cached response directly
+			response := JSONRPCResponse{
+				JSONRPC: JSONRPCVersion,
+				ID:      req.ID,
+				Result:  scipResult.Response,
+			}
+			
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				if logger != nil {
+					logger.WithError(err).Error("Failed to encode cached JSON response")
+				}
+				g.writeError(w, req.ID, InternalError, "Internal error",
+					fmt.Errorf("failed to encode cached response: %w", err))
+				return
+			}
+			
+			// Log cache hit metrics
+			duration := time.Since(startTime)
+			if logger != nil {
+				logger.WithFields(map[string]interface{}{
+					"duration":     duration.String(),
+					"source":       "scip_cache",
+					"cache_hit":    true,
+				}).Info("Cached request processed successfully")
+			}
+			return
+		}
+		
+		if logger != nil {
+			logger.Debug("SCIP cache miss - falling back to LSP server")
+		}
+	}
+
+	// Original LSP server call (fallback or when SCIP is disabled)
 	if logger != nil {
 		logger.Debug("Sending request to LSP server")
 	}
@@ -1261,6 +1628,27 @@ func (g *Gateway) handleRequest(w http.ResponseWriter, r *http.Request, req JSON
 		JSONRPC: JSONRPCVersion,
 		ID:      req.ID,
 		Result:  result,
+	}
+
+	// Cache the successful LSP response in SCIP store
+	if g.enableSCIPRouting && g.scipStore != nil {
+		// Convert result to json.RawMessage for caching
+		resultBytes, err := json.Marshal(result)
+		if err == nil {
+			if cacheErr := g.scipStore.CacheResponse(req.Method, req.Params, json.RawMessage(resultBytes)); cacheErr != nil {
+				if logger != nil {
+					logger.WithError(cacheErr).Warn("Failed to cache LSP response in SCIP store")
+				}
+			} else {
+				if logger != nil {
+					logger.Debug("Successfully cached LSP response in SCIP store")
+				}
+			}
+		} else {
+			if logger != nil {
+				logger.WithError(err).Warn("Failed to marshal LSP result for SCIP caching")
+			}
+		}
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -1291,6 +1679,8 @@ func (g *Gateway) handleRequest(w http.ResponseWriter, r *http.Request, req JSON
 		logger.WithFields(map[string]interface{}{
 			"duration":      duration.String(),
 			"response_size": responseSize,
+			"source":        "lsp_server",
+			"cache_hit":     false,
 		}).Info("Request processed successfully")
 	}
 }
@@ -2275,10 +2665,7 @@ func (g *Gateway) processAggregatedRequest(w http.ResponseWriter, r *http.Reques
 		Method:    req.Method,
 		Params:    req.Params,
 		URI:       uri,
-		Context:   CreateRequestContextFromURI(uri, "", ""),
-		JSONRPC:   "2.0",
-		Timestamp: time.Now(),
-		RequestID: fmt.Sprintf("%v", req.ID),
+		Context:   convertRoutingToRequestContext(CreateRequestContextFromURI(uri, "", "")),
 	}
 
 	// Use SmartRouter to aggregate responses
@@ -2419,13 +2806,7 @@ func (g *Gateway) GetProjectRouter() *ProjectAwareRouter {
 
 // SetRoutingStrategy sets a routing strategy for a specific LSP method
 func (g *Gateway) SetRoutingStrategy(method string, strategy RoutingStrategy) {
-	if g.smartRouter != nil {
-		// Convert RoutingStrategy interface to RoutingStrategyType
-		if strategyType, ok := strategy.(RoutingStrategyType); ok {
-			g.smartRouter.SetRoutingStrategy(method, strategyType)
-		}
-	}
-	
+	// Store the strategy interface
 	g.Mu.Lock()
 	defer g.Mu.Unlock()
 	g.routingStrategies[method] = strategy
@@ -2433,19 +2814,13 @@ func (g *Gateway) SetRoutingStrategy(method string, strategy RoutingStrategy) {
 
 // GetRoutingStrategy gets the routing strategy for a specific LSP method
 func (g *Gateway) GetRoutingStrategy(method string) RoutingStrategy {
-	if g.smartRouter != nil {
-		// Convert RoutingStrategyType to RoutingStrategy interface
-		strategyType := g.smartRouter.GetRoutingStrategy(method)
-		return strategyType
-	}
-	
 	g.Mu.RLock()
 	defer g.Mu.RUnlock()
 	if strategy, exists := g.routingStrategies[method]; exists {
 		return strategy
 	}
-	// Return the RoutingStrategyType as RoutingStrategy interface
-	return SingleTargetWithFallback
+	// Return nil as default when no strategy is set
+	return nil
 }
 
 // GetRoutingMetrics returns current routing performance metrics
@@ -2621,4 +2996,101 @@ func (g *Gateway) GetServerHealthStatus() map[string]interface{} {
 	}
 	
 	return status
+}
+
+// Conversion functions for config types
+func convertToSCIPProviderConfig(cfg *config.SCIPProviderConfig) *SCIPProviderConfig {
+	if cfg == nil {
+		return nil
+	}
+	
+	// Parse min acceptable quality
+	quality := QualityLow // default
+	switch cfg.MinAcceptableQuality {
+	case "high":
+		quality = QualityHigh
+	case "medium":
+		quality = QualityMedium
+	case "low":
+		quality = QualityLow
+	}
+	
+	return &SCIPProviderConfig{
+		HealthCheckInterval:  cfg.HealthCheckInterval,
+		FallbackEnabled:     cfg.FallbackEnabled,
+		FallbackTimeout:     cfg.FallbackTimeout,
+		MinAcceptableQuality: quality,
+		EnableMetricsLogging: cfg.EnableMetricsLogging,
+		EnableHealthLogging:  cfg.EnableHealthLogging,
+		// Leave nested configs nil for now - can be expanded if needed
+		PerformanceTargets:      nil,
+		RoutingHealthThresholds: nil,
+		CacheSettings:          nil,
+	}
+}
+
+func convertToSCIPRoutingConfig(cfg *config.SCIPRoutingConfig) *SCIPRoutingConfig {
+	if cfg == nil {
+		return nil
+	}
+	
+	// Convert method strategies
+	methodStrategies := make(map[string]SCIPRoutingStrategyType)
+	for method, strategy := range cfg.MethodStrategies {
+		methodStrategies[method] = SCIPRoutingStrategyType(strategy)
+	}
+	
+	// Convert method confidence thresholds
+	methodConfidenceThresholds := make(map[string]ConfidenceLevel)
+	for method, threshold := range cfg.MethodConfidenceThresholds {
+		methodConfidenceThresholds[method] = ConfidenceLevel(threshold)
+	}
+	
+	return &SCIPRoutingConfig{
+		DefaultStrategy:            SCIPRoutingStrategyType(cfg.DefaultStrategy),
+		ConfidenceThreshold:        ConfidenceLevel(cfg.ConfidenceThreshold),
+		MaxSCIPLatency:            cfg.MaxSCIPLatency,
+		EnableFallback:             cfg.EnableFallback,
+		EnableAdaptiveLearning:     cfg.EnableAdaptiveLearning,
+		CachePrewarmEnabled:        cfg.CachePrewarmEnabled,
+		MethodStrategies:           methodStrategies,
+		MethodConfidenceThresholds: methodConfidenceThresholds,
+		OptimizationInterval:       cfg.OptimizationInterval,
+		PerformanceWindowSize:      cfg.PerformanceWindowSize,
+	}
+}
+
+func convertToAdaptiveOptimizationConfig(cfg *config.AdaptiveOptimizationConfig) *AdaptiveOptimizationConfig {
+	if cfg == nil {
+		return nil
+	}
+	
+	return &AdaptiveOptimizationConfig{
+		OptimizationInterval:       cfg.OptimizationInterval,
+		MinDataPoints:             cfg.MinDataPoints,
+		ConfidenceThreshold:       cfg.ConfidenceThreshold,
+		PerformanceThreshold:      cfg.PerformanceThreshold,
+		LearningRate:              cfg.LearningRate,
+		AdaptationRate:            cfg.AdaptationRate,
+		ExplorationRate:           cfg.ExplorationRate,
+		MaxThresholdAdjustment:    cfg.MaxThresholdAdjustment,
+		ThresholdDecayRate:        cfg.ThresholdDecayRate,
+		StrategyEvaluationWindow:  cfg.StrategyEvaluationWindow,
+		MinStrategyConfidence:     cfg.MinStrategyConfidence,
+		CacheWarmingEnabled:       cfg.CacheWarmingEnabled,
+		WarmingTriggerThreshold:   cfg.WarmingTriggerThreshold,
+		MaxWarmingOperations:      cfg.MaxWarmingOperations,
+	}
+}
+
+func convertRoutingToRequestContext(routingCtx *RoutingRequestContext) *RequestContext {
+	if routingCtx == nil {
+		return nil
+	}
+	
+	return &RequestContext{
+		ProjectType: routingCtx.ProjectType,
+		ServerName:  "", // Will be filled by routing logic
+		Language:    routingCtx.Language,
+	}
 }

@@ -794,6 +794,302 @@ performance_config:
       cross_region_replication: true
       backup_storage: "s3://enterprise-backup/scip-indices"
 
+  # Enterprise Three-Tier Storage Architecture
+  # Provides L1 Memory, L2 Disk, and L3 Remote storage for optimal performance
+  storage:
+    # Storage enabled for enterprise performance and scalability
+    enabled: true
+    version: "1.0"
+    profile: "production"
+    
+    # Three-tier architecture configuration
+    tiers:
+      # L1: In-memory cache for ultra-fast access (<10ms)
+      l1_memory:
+        enabled: true
+        capacity: "16GB"  # Large memory cache for enterprise
+        max_entries: 1000000
+        eviction_policy: "adaptive"
+        
+        backend:
+          type: "memory"
+        
+        performance:
+          max_concurrency: 500
+          timeout_ms: 5000
+          batch_size: 200
+          read_buffer_size: 16384
+          write_buffer_size: 16384
+          connection_pool_size: 20
+          keep_alive: true
+          prefetch_enabled: true
+          prefetch_size: 50
+        
+        reliability:
+          retry_count: 3
+          retry_delay_ms: 50
+          health_check_interval: "15s"
+          failure_threshold: 3
+          recovery_timeout: "30s"
+          circuit_breaker:
+            enabled: true
+            failure_threshold: 5
+            recovery_timeout: "30s"
+            half_open_requests: 10
+            min_request_count: 50
+      
+      # L2: SSD/Disk cache for persistent storage (<50ms)
+      l2_disk:
+        enabled: true
+        capacity: "1TB"  # Large disk cache for enterprise
+        max_entries: 10000000
+        eviction_policy: "lru"
+        
+        backend:
+          type: "local_disk"
+          path: "/opt/lsp-gateway/enterprise-cache"
+        
+        compression:
+          enabled: true
+          algorithm: "zstd"
+          level: 3
+          min_size: 1024
+          threshold: 0.8
+        
+        performance:
+          max_concurrency: 200
+          timeout_ms: 30000
+          batch_size: 100
+          read_buffer_size: 65536
+          write_buffer_size: 65536
+          connection_pool_size: 10
+          keep_alive: true
+          prefetch_enabled: false
+          prefetch_size: 20
+        
+        reliability:
+          retry_count: 5
+          retry_delay_ms: 200
+          health_check_interval: "30s"
+          failure_threshold: 3
+          recovery_timeout: "60s"
+          circuit_breaker:
+            enabled: true
+            failure_threshold: 5
+            recovery_timeout: "60s"
+            half_open_requests: 5
+            min_request_count: 20
+      
+      # L3: Remote/distributed cache for unlimited storage (<200ms)
+      l3_remote:
+        enabled: true
+        capacity: "unlimited"
+        max_entries: -1
+        eviction_policy: "ttl"
+        
+        backend:
+          type: "s3"
+          endpoint: "https://s3.amazonaws.com"
+          region: "us-east-1"
+          bucket: "enterprise-lsp-gateway-cache"
+          authentication:
+            type: "aws_iam"
+            api_key: "${AWS_ACCESS_KEY_ID}"
+            secret_key: "${AWS_SECRET_ACCESS_KEY}"
+        
+        compression:
+          enabled: true
+          algorithm: "zstd"
+          level: 6
+          min_size: 4096
+          threshold: 0.7
+        
+        encryption:
+          enabled: true
+          algorithm: "aes256"
+          key_size: 256
+          key_rotation: "720h"  # 30 days
+          key_path: "/etc/lsp-gateway/encryption/storage.key"
+        
+        performance:
+          max_concurrency: 50
+          timeout_ms: 120000  # 2 minutes for remote
+          batch_size: 20
+          read_buffer_size: 131072
+          write_buffer_size: 131072
+          connection_pool_size: 10
+          keep_alive: true
+          prefetch_enabled: false
+          prefetch_size: 5
+        
+        reliability:
+          retry_count: 7
+          retry_delay_ms: 1000
+          health_check_interval: "2m"
+          failure_threshold: 2
+          recovery_timeout: "5m"
+          replication_enabled: true
+          replication_factor: 3
+          circuit_breaker:
+            enabled: true
+            failure_threshold: 3
+            recovery_timeout: "5m"
+            half_open_requests: 2
+            min_request_count: 10
+    
+    # Enterprise storage strategies
+    strategy:
+      # Adaptive promotion strategy with ML-based optimization
+      promotion_strategy:
+        type: "adaptive"
+        enabled: true
+        min_access_count: 5
+        min_access_frequency: 0.05
+        access_time_window: "24h"
+        promotion_cooldown: "2m"
+        recency_weight: 0.3
+        frequency_weight: 0.5
+        size_weight: 0.2
+        tier_thresholds:
+          "l1_to_l2": 0.8
+          "l2_to_l1": 0.2
+          "l2_to_l3": 0.9
+          "l3_to_l2": 0.3
+        custom_parameters:
+          enable_ml_prediction: true
+          prediction_model: "gradient_boost"
+          feature_importance_threshold: 0.15
+      
+      # LRU eviction with enterprise optimizations
+      eviction_policy:
+        type: "adaptive"
+        enabled: true
+        eviction_threshold: 0.90
+        target_utilization: 0.75
+        eviction_batch_size: 500
+        access_age_threshold: "72h"
+        inactivity_threshold: "24h"
+        default_ttl: "48h"
+        max_ttl: "168h"  # 1 week
+        size_weight: 0.25
+        custom_parameters:
+          enable_predictive_eviction: true
+          priority_boost_for_frequent_access: 1.5
+      
+      # Advanced access tracking with enterprise analytics
+      access_tracking:
+        enabled: true
+        tracking_granularity: "30s"
+        history_retention: "168h"  # 1 week
+        max_tracked_keys: 5000000  # 5M for enterprise
+        analysis_interval: "15m"
+        min_sample_size: 100
+        confidence_threshold: 0.8
+        seasonality_detection: true
+        trend_detection: true
+        locality_tracking: true
+        semantic_analysis: true
+      
+      # Auto-optimization with enterprise AI
+      auto_optimization:
+        enabled: true
+        optimization_interval: "2h"
+        performance_threshold: 0.95
+        capacity_threshold: 0.85
+        auto_rebalancing: true
+        auto_compaction: true
+        auto_tuning: true
+        learning_enabled: true
+    
+    # Enterprise monitoring and observability
+    monitoring:
+      enabled: true
+      metrics_interval: "10s"
+      health_interval: "30s"
+      trace_requests: true
+      log_level: "info"
+      alert_thresholds:
+        hit_rate_low: 0.8
+        latency_high: 500.0  # 500ms for enterprise SLA
+        error_rate_high: 0.01  # 1% for enterprise
+        capacity_high: 0.9
+      export_format: "prometheus"
+      export_endpoint: "http://prometheus.company.com:9090/metrics"
+      retention_period: "720h"  # 30 days
+      detailed_metrics: true
+    
+    # Enterprise maintenance with automated scheduling
+    maintenance:
+      enabled: true
+      schedule: "0 3 * * 1"  # Weekly on Monday at 3 AM
+      compaction_enabled: true
+      compaction_threshold: 0.2
+      vacuum_enabled: true
+      vacuum_interval: "168h"  # Weekly
+      cleanup_enabled: true
+      cleanup_age: "168h"  # 1 week
+      backup_enabled: true
+      backup_interval: "24h"
+      backup_retention: "2160h"  # 90 days
+      maintenance_window:
+        start_time: "03:00"
+        end_time: "05:00"
+        timezone: "UTC"
+        days: ["monday", "wednesday", "friday"]
+        blackouts:
+          - start: "2024-12-24T00:00:00Z"
+            end: "2025-01-02T23:59:59Z"
+            description: "Holiday maintenance blackout"
+            recurring: false
+    
+    # Enterprise security and compliance
+    security:
+      encryption_at_rest: true
+      encryption_in_transit: true
+      
+      access_control:
+        enabled: true
+        default_policy: "deny"
+        roles:
+          admin: "full_access"
+          developer: "read_write"
+          readonly: "read_only"
+        permissions:
+          admin: ["read", "write", "delete", "configure", "monitor"]
+          developer: ["read", "write"]
+          readonly: ["read"]
+        ip_whitelist:
+          - "10.0.0.0/8"
+          - "172.16.0.0/12"
+          - "192.168.0.0/16"
+        rate_limiting:
+          enabled: true
+          requests_per_minute: 10000
+          burst_size: 1000
+          window_size: "60s"
+      
+      audit_logging:
+        enabled: true
+        log_level: "info"
+        log_location: "/var/log/lsp-gateway/storage-audit.log"
+        retention_days: 2555  # 7 years for compliance
+        log_format: "json"
+        include_data: false  # PII protection
+      
+      data_classification:
+        enabled: true
+        default_level: "internal"
+        classification_rules:
+          "*.secret": "confidential"
+          "*.key": "confidential"
+          "*.cert": "restricted"
+          "*.env": "internal"
+        handling_policies:
+          confidential: "encrypt_always"
+          restricted: "encrypt_and_audit"
+          internal: "audit_only"
+          public: "no_restrictions"
+
 # Enterprise performance targets
 performance_targets:  
   initialization_time_max: "10s"

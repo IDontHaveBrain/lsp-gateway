@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-// HealthStatus represents the health status of a server
-type HealthStatus struct {
+// HealthStatusInfo represents the health status of a server
+type HealthStatusInfo struct {
 	IsHealthy           bool          `json:"is_healthy"`
 	ResponseTime        time.Duration `json:"response_time"`
 	ErrorRate           float64       `json:"error_rate"`
@@ -23,9 +23,9 @@ type HealthStatus struct {
 	Uptime              time.Duration `json:"uptime"`
 }
 
-// NewHealthStatus creates a new health status
-func NewHealthStatus() *HealthStatus {
-	return &HealthStatus{
+// NewHealthStatusInfo creates a new health status
+func NewHealthStatusInfo() *HealthStatusInfo {
+	return &HealthStatusInfo{
 		IsHealthy:           true,
 		ResponseTime:        0,
 		ErrorRate:           0.0,
@@ -41,8 +41,8 @@ func NewHealthStatus() *HealthStatus {
 }
 
 // Copy creates a copy of the health status
-func (hs *HealthStatus) Copy() *HealthStatus {
-	return &HealthStatus{
+func (hs *HealthStatusInfo) Copy() *HealthStatusInfo {
+	return &HealthStatusInfo{
 		IsHealthy:           hs.IsHealthy,
 		ResponseTime:        hs.ResponseTime,
 		ErrorRate:           hs.ErrorRate,
@@ -57,8 +57,8 @@ func (hs *HealthStatus) Copy() *HealthStatus {
 	}
 }
 
-// HealthThresholds defines thresholds for health checking
-type HealthThresholds struct {
+// MonitorHealthThresholds defines thresholds for health checking
+type MonitorHealthThresholds struct {
 	MaxResponseTime        time.Duration `json:"max_response_time"`
 	MaxErrorRate           float64       `json:"max_error_rate"`
 	MaxMemoryUsageMB       int64         `json:"max_memory_usage_mb"`
@@ -67,9 +67,9 @@ type HealthThresholds struct {
 	MaxConnectionCount     int32         `json:"max_connection_count"`
 }
 
-// DefaultHealthThresholds returns default health thresholds
-func DefaultHealthThresholds() *HealthThresholds {
-	return &HealthThresholds{
+// DefaultMonitorHealthThresholds returns default health thresholds
+func DefaultMonitorHealthThresholds() *MonitorHealthThresholds {
+	return &MonitorHealthThresholds{
 		MaxResponseTime:        5 * time.Second,
 		MaxErrorRate:           0.1, // 10%
 		MaxMemoryUsageMB:       512,
@@ -107,7 +107,7 @@ func (rs RecoveryStrategy) String() string {
 // ServerHealthChecker manages health checking for a single server
 type ServerHealthChecker struct {
 	server          *ServerInstance
-	thresholds      *HealthThresholds
+	thresholds      *MonitorHealthThresholds
 	recoveryStrategy RecoveryStrategy
 	checkInterval   time.Duration
 	ctx             context.Context
@@ -116,7 +116,7 @@ type ServerHealthChecker struct {
 }
 
 // NewServerHealthChecker creates a new server health checker
-func NewServerHealthChecker(server *ServerInstance, thresholds *HealthThresholds, recoveryStrategy RecoveryStrategy, checkInterval time.Duration) *ServerHealthChecker {
+func NewServerHealthChecker(server *ServerInstance, thresholds *MonitorHealthThresholds, recoveryStrategy RecoveryStrategy, checkInterval time.Duration) *ServerHealthChecker {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &ServerHealthChecker{
 		server:           server,
@@ -293,7 +293,7 @@ func (shc *ServerHealthChecker) replaceServer() {
 type HealthMonitor struct {
 	checkInterval      time.Duration
 	healthCheckers     map[string]*ServerHealthChecker
-	alertThresholds    *HealthThresholds
+	alertThresholds    *MonitorHealthThresholds
 	recoveryStrategies map[string]RecoveryStrategy
 	ctx                context.Context
 	cancel             context.CancelFunc
@@ -306,7 +306,7 @@ func NewHealthMonitor(checkInterval time.Duration) *HealthMonitor {
 	return &HealthMonitor{
 		checkInterval:      checkInterval,
 		healthCheckers:     make(map[string]*ServerHealthChecker),
-		alertThresholds:    DefaultHealthThresholds(),
+		alertThresholds:    DefaultMonitorHealthThresholds(),
 		recoveryStrategies: make(map[string]RecoveryStrategy),
 		ctx:                ctx,
 		cancel:             cancel,
@@ -372,7 +372,7 @@ func (hm *HealthMonitor) UnregisterServer(serverName string) {
 }
 
 // CheckServerHealth performs an immediate health check on a specific server
-func (hm *HealthMonitor) CheckServerHealth(server *ServerInstance) *HealthStatus {
+func (hm *HealthMonitor) CheckServerHealth(server *ServerInstance) *HealthStatusInfo {
 	hm.mu.RLock()
 	checker, exists := hm.healthCheckers[server.config.Name]
 	hm.mu.RUnlock()
@@ -415,7 +415,7 @@ func (hm *HealthMonitor) TriggerRecovery(serverName string) error {
 }
 
 // UpdateServerHealth manually updates the health status of a server
-func (hm *HealthMonitor) UpdateServerHealth(serverName string, status *HealthStatus) error {
+func (hm *HealthMonitor) UpdateServerHealth(serverName string, status *HealthStatusInfo) error {
 	hm.mu.RLock()
 	checker, exists := hm.healthCheckers[serverName]
 	hm.mu.RUnlock()
@@ -428,12 +428,12 @@ func (hm *HealthMonitor) UpdateServerHealth(serverName string, status *HealthSta
 	return nil
 }
 
-// GetHealthStatus returns the health status of all monitored servers
-func (hm *HealthMonitor) GetHealthStatus() map[string]*HealthStatus {
+// GetHealthStatusInfo returns the health status of all monitored servers
+func (hm *HealthMonitor) GetHealthStatusInfo() map[string]*HealthStatusInfo {
 	hm.mu.RLock()
 	defer hm.mu.RUnlock()
 
-	status := make(map[string]*HealthStatus)
+	status := make(map[string]*HealthStatusInfo)
 	for serverName, checker := range hm.healthCheckers {
 		status[serverName] = checker.server.healthStatus.Copy()
 	}
@@ -455,7 +455,7 @@ func (hm *HealthMonitor) GetUnhealthyServers() []string {
 }
 
 // SetThresholds updates the health thresholds for all servers
-func (hm *HealthMonitor) SetThresholds(thresholds *HealthThresholds) {
+func (hm *HealthMonitor) SetThresholds(thresholds *MonitorHealthThresholds) {
 	hm.mu.Lock()
 	defer hm.mu.Unlock()
 

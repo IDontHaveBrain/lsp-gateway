@@ -359,7 +359,7 @@ func NewLoadBalancerWithConfig(config *config.LoadBalancingConfig, logger *log.L
 }
 
 // SelectServer selects the best server for a request
-func (lb *LoadBalancer) SelectServer(pool *LanguageServerPool, requestType string, context *RequestContext) (*ServerInstance, error) {
+func (lb *LoadBalancer) SelectServer(pool *LanguageServerPool, requestType string, context *SelectionRequestContext) (*ServerInstance, error) {
 	lb.mu.RLock()
 	defer lb.mu.RUnlock()
 
