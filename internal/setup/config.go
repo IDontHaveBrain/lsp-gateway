@@ -461,8 +461,9 @@ func (g *DefaultConfigGenerator) GenerateFromDetected(ctx context.Context) (*Con
 
 	// Create base configuration
 	gatewayConfig := &config.GatewayConfig{
-		Port:    8080,
-		Servers: []config.ServerConfig{},
+		Port:                  8080,
+		MaxConcurrentRequests: 100, // Set default value to pass validation
+		Servers:               []config.ServerConfig{},
 	}
 
 	// Generate configuration for each detected and compatible runtime

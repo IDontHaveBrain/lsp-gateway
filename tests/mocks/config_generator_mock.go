@@ -63,7 +63,8 @@ func (m *MockConfigGenerator) GenerateFromDetected(ctx context.Context) (*setup.
 
 	return &setup.ConfigGenerationResult{
 		Config: &config.GatewayConfig{
-			Port: 8080,
+			Port:                  8080,
+			MaxConcurrentRequests: 100,
 			Servers: []config.ServerConfig{
 				{
 					Name:      "go-lsp",
@@ -152,8 +153,9 @@ func (m *MockConfigGenerator) GenerateForRuntime(ctx context.Context, runtime st
 
 	return &setup.ConfigGenerationResult{
 		Config: &config.GatewayConfig{
-			Port:    8080,
-			Servers: servers,
+			Port:                  8080,
+			MaxConcurrentRequests: 100,
+			Servers:               servers,
 		},
 		DetectionReport:  nil,
 		ServersGenerated: len(servers),
@@ -182,7 +184,8 @@ func (m *MockConfigGenerator) GenerateMultiLanguageConfig(ctx context.Context, p
 	// Default implementation - return multi-language config with common servers
 	return &setup.ConfigGenerationResult{
 		Config: &config.GatewayConfig{
-			Port: 8080,
+			Port:                  8080,
+			MaxConcurrentRequests: 100,
 			Servers: []config.ServerConfig{
 				{
 					Name:      "go-lsp",
@@ -235,7 +238,8 @@ func (m *MockConfigGenerator) GenerateDefault() (*setup.ConfigGenerationResult, 
 
 	return &setup.ConfigGenerationResult{
 		Config: &config.GatewayConfig{
-			Port: 8080,
+			Port:                  8080,
+			MaxConcurrentRequests: 100,
 			Servers: []config.ServerConfig{
 				{
 					Name:      "go-lsp",
@@ -266,8 +270,9 @@ func (m *MockConfigGenerator) UpdateConfig(existing *config.GatewayConfig, updat
 	}
 
 	updatedConfig := &config.GatewayConfig{
-		Port:    existing.Port,
-		Servers: make([]config.ServerConfig, len(existing.Servers)),
+		Port:                  existing.Port,
+		MaxConcurrentRequests: existing.MaxConcurrentRequests,
+		Servers:               make([]config.ServerConfig, len(existing.Servers)),
 	}
 	copy(updatedConfig.Servers, existing.Servers)
 
