@@ -148,8 +148,9 @@ func CreateMockVerificationResult(runtime, version, path string, installed, comp
 
 func CreateMockGatewayConfig(port int, servers []config.ServerConfig) *config.GatewayConfig {
 	return &config.GatewayConfig{
-		Port:    port,
-		Servers: servers,
+		Port:                  port,
+		MaxConcurrentRequests: 100,
+		Servers:               servers,
 	}
 }
 
