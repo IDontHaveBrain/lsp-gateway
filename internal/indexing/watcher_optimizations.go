@@ -18,7 +18,7 @@ func NewPathFilter(ignorePatterns []string) (*PathFilter, error) {
 		excludeTree:    NewPathPrefixTree(),
 		ignorePatterns: make([]*IgnorePattern, 0, len(ignorePatterns)),
 	}
-	
+
 	// Compile ignore patterns
 	for _, pattern := range ignorePatterns {
 		compiledPattern, err := compileIgnorePattern(pattern)
@@ -27,11 +27,11 @@ func NewPathFilter(ignorePatterns []string) (*PathFilter, error) {
 			continue
 		}
 		filter.ignorePatterns = append(filter.ignorePatterns, compiledPattern)
-		
+
 		// Add to exclude tree for fast prefix matching
 		filter.excludeTree.Insert(pattern, compiledPattern)
 	}
-	
+
 	log.Printf("PathFilter: Compiled %d ignore patterns", len(filter.ignorePatterns))
 	return filter, nil
 }
@@ -42,16 +42,16 @@ func (pf *PathFilter) ShouldIgnore(path string) bool {
 	defer func() {
 		pf.updateMatchTime(time.Since(startTime))
 	}()
-	
+
 	// Normalize path
 	normalizedPath := filepath.Clean(path)
-	
+
 	// Quick prefix tree lookup first
 	if pf.excludeTree.HasPrefix(normalizedPath) {
 		atomic.AddInt64(&pf.matchCount, 1)
 		return true
 	}
-	
+
 	// Check each ignore pattern
 	for _, pattern := range pf.ignorePatterns {
 		if pf.matchesPattern(normalizedPath, pattern) {
@@ -59,7 +59,7 @@ func (pf *PathFilter) ShouldIgnore(path string) bool {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -70,12 +70,12 @@ func (pf *PathFilter) matchesPattern(path string, pattern *IgnorePattern) bool {
 		// Negated patterns include files that would otherwise be ignored
 		return false
 	}
-	
+
 	// Directory-only patterns
 	if pattern.IsDirectory && !strings.HasSuffix(path, "/") {
 		return false
 	}
-	
+
 	// Glob pattern matching
 	if pattern.IsGlob {
 		matched, err := filepath.Match(pattern.Pattern, filepath.Base(path))
@@ -84,14 +84,14 @@ func (pf *PathFilter) matchesPattern(path string, pattern *IgnorePattern) bool {
 		}
 		return matched
 	}
-	
+
 	// Regex pattern matching
 	if pattern.CompiledRegex != nil {
 		if regex, ok := pattern.CompiledRegex.(*regexp.Regexp); ok {
 			return regex.MatchString(path)
 		}
 	}
-	
+
 	// Simple string matching
 	return strings.Contains(path, pattern.Pattern)
 }
@@ -110,7 +110,7 @@ func (pf *PathFilter) updateMatchTime(duration time.Duration) {
 func (pf *PathFilter) GetStats() map[string]interface{} {
 	pf.mutex.RLock()
 	defer pf.mutex.RUnlock()
-	
+
 	return map[string]interface{}{
 		"total_matches":     atomic.LoadInt64(&pf.matchCount),
 		"avg_match_time_ns": int64(pf.avgMatchTime),
@@ -124,26 +124,26 @@ func compileIgnorePattern(pattern string) (*IgnorePattern, error) {
 	if pattern == "" {
 		return nil, fmt.Errorf("empty pattern")
 	}
-	
+
 	// Clean the pattern
 	cleanPattern := strings.TrimSpace(pattern)
-	
+
 	compiledPattern := &IgnorePattern{
 		Pattern: cleanPattern,
 	}
-	
+
 	// Check for negation
 	if strings.HasPrefix(cleanPattern, "!") {
 		compiledPattern.Negated = true
 		cleanPattern = cleanPattern[1:]
 	}
-	
+
 	// Check for directory-only pattern
 	if strings.HasSuffix(cleanPattern, "/") {
 		compiledPattern.IsDirectory = true
 		cleanPattern = strings.TrimSuffix(cleanPattern, "/")
 	}
-	
+
 	// Check if it's a glob pattern
 	if strings.ContainsAny(cleanPattern, "*?[]") {
 		compiledPattern.IsGlob = true
@@ -157,7 +157,7 @@ func compileIgnorePattern(pattern string) (*IgnorePattern, error) {
 			}
 		}
 	}
-	
+
 	return compiledPattern, nil
 }
 
@@ -174,18 +174,18 @@ func NewPathPrefixTree() *PathPrefixTree {
 func (ppt *PathPrefixTree) Insert(path string, pattern *IgnorePattern) {
 	ppt.mutex.Lock()
 	defer ppt.mutex.Unlock()
-	
+
 	// Split path into segments
 	segments := strings.Split(filepath.Clean(path), string(filepath.Separator))
-	
+
 	current := ppt.root
 	depth := 0
-	
+
 	for _, segment := range segments {
 		if segment == "" {
 			continue
 		}
-		
+
 		if current.children[segment] == nil {
 			current.children[segment] = &PrefixNode{
 				segment:  segment,
@@ -193,15 +193,15 @@ func (ppt *PathPrefixTree) Insert(path string, pattern *IgnorePattern) {
 				depth:    depth,
 			}
 		}
-		
+
 		current = current.children[segment]
 		depth++
 	}
-	
+
 	// Mark as pattern and store the compiled pattern
 	current.isPattern = true
 	current.pattern = pattern
-	
+
 	ppt.size++
 }
 
@@ -209,22 +209,22 @@ func (ppt *PathPrefixTree) Insert(path string, pattern *IgnorePattern) {
 func (ppt *PathPrefixTree) HasPrefix(path string) bool {
 	ppt.mutex.RLock()
 	defer ppt.mutex.RUnlock()
-	
+
 	// Split path into segments
 	segments := strings.Split(filepath.Clean(path), string(filepath.Separator))
-	
+
 	current := ppt.root
-	
+
 	for _, segment := range segments {
 		if segment == "" {
 			continue
 		}
-		
+
 		// Check if current node is a pattern
 		if current.isPattern {
 			return true
 		}
-		
+
 		// Check for wildcard matches
 		for childSegment, child := range current.children {
 			if matchesWildcard(childSegment, segment) {
@@ -233,15 +233,15 @@ func (ppt *PathPrefixTree) HasPrefix(path string) bool {
 				}
 			}
 		}
-		
+
 		// Move to specific child
 		if current.children[segment] == nil {
 			return false
 		}
-		
+
 		current = current.children[segment]
 	}
-	
+
 	// Check if final node is a pattern
 	return current.isPattern
 }
@@ -251,13 +251,13 @@ func matchesWildcard(pattern, segment string) bool {
 	if pattern == segment {
 		return true
 	}
-	
+
 	// Simple wildcard matching for common cases
 	if strings.Contains(pattern, "*") {
 		matched, err := filepath.Match(pattern, segment)
 		return err == nil && matched
 	}
-	
+
 	return false
 }
 
@@ -272,7 +272,7 @@ func (ppt *PathPrefixTree) Size() int {
 func (ppt *PathPrefixTree) Clear() {
 	ppt.mutex.Lock()
 	defer ppt.mutex.Unlock()
-	
+
 	ppt.root = &PrefixNode{
 		children: make(map[string]*PrefixNode),
 	}
@@ -298,7 +298,7 @@ func (rm *ResourceMonitor) Start() {
 	}
 	rm.monitoring = true
 	rm.mutex.Unlock()
-	
+
 	go rm.monitorLoop()
 	log.Println("ResourceMonitor: Started resource monitoring")
 }
@@ -308,7 +308,7 @@ func (rm *ResourceMonitor) Stop() {
 	rm.mutex.Lock()
 	rm.monitoring = false
 	rm.mutex.Unlock()
-	
+
 	log.Println("ResourceMonitor: Stopped resource monitoring")
 }
 
@@ -316,16 +316,16 @@ func (rm *ResourceMonitor) Stop() {
 func (rm *ResourceMonitor) monitorLoop() {
 	ticker := time.NewTicker(rm.monitorInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		rm.mutex.RLock()
 		monitoring := rm.monitoring
 		rm.mutex.RUnlock()
-		
+
 		if !monitoring {
 			return
 		}
-		
+
 		select {
 		case <-ticker.C:
 			rm.checkResources()
@@ -338,9 +338,9 @@ func (rm *ResourceMonitor) checkResources() {
 	// Check memory usage
 	var memStats runtime.MemStats
 	runtime.ReadMemStats(&memStats)
-	
+
 	currentMemory := int64(memStats.Alloc)
-	
+
 	rm.mutex.Lock()
 	rm.currentMemoryUsage = currentMemory
 	if currentMemory > rm.peakMemoryUsage {
@@ -348,7 +348,7 @@ func (rm *ResourceMonitor) checkResources() {
 	}
 	rm.lastMonitorTime = time.Now()
 	rm.mutex.Unlock()
-	
+
 	// Check if memory usage exceeds threshold
 	if currentMemory > rm.memoryThreshold {
 		alert := ResourceAlert{
@@ -356,18 +356,18 @@ func (rm *ResourceMonitor) checkResources() {
 			Severity:  "warning",
 			Current:   float64(currentMemory),
 			Threshold: float64(rm.memoryThreshold),
-			Message:   fmt.Sprintf("Memory usage %.1f MB exceeds threshold %.1f MB", 
+			Message: fmt.Sprintf("Memory usage %.1f MB exceeds threshold %.1f MB",
 				float64(currentMemory)/(1024*1024), float64(rm.memoryThreshold)/(1024*1024)),
 			Timestamp: time.Now(),
 		}
-		
+
 		if currentMemory > rm.maxMemoryUsage {
 			alert.Severity = "critical"
 		}
-		
+
 		rm.handleAlert(alert)
 	}
-	
+
 	// TODO: Add CPU monitoring using a cross-platform solution
 	// For now, we'll skip CPU monitoring as it requires platform-specific code
 }
@@ -375,11 +375,11 @@ func (rm *ResourceMonitor) checkResources() {
 // handleAlert handles resource usage alerts
 func (rm *ResourceMonitor) handleAlert(alert ResourceAlert) {
 	log.Printf("ResourceMonitor: %s alert - %s", strings.ToUpper(alert.Severity), alert.Message)
-	
+
 	if rm.alertCallback != nil {
 		rm.alertCallback(alert)
 	}
-	
+
 	// Take action based on alert type and severity
 	switch alert.Type {
 	case "memory":
@@ -402,38 +402,38 @@ func (rm *ResourceMonitor) SetAlertCallback(callback func(ResourceAlert)) {
 func (rm *ResourceMonitor) GetStats() map[string]interface{} {
 	rm.mutex.RLock()
 	defer rm.mutex.RUnlock()
-	
+
 	return map[string]interface{}{
-		"current_memory_mb":  float64(rm.currentMemoryUsage) / (1024 * 1024),
-		"peak_memory_mb":     float64(rm.peakMemoryUsage) / (1024 * 1024),
+		"current_memory_mb":   float64(rm.currentMemoryUsage) / (1024 * 1024),
+		"peak_memory_mb":      float64(rm.peakMemoryUsage) / (1024 * 1024),
 		"memory_threshold_mb": float64(rm.memoryThreshold) / (1024 * 1024),
-		"max_memory_mb":      float64(rm.maxMemoryUsage) / (1024 * 1024),
-		"monitoring":         rm.monitoring,
-		"last_check":         rm.lastMonitorTime.Format(time.RFC3339),
-		"avg_cpu_usage":      rm.avgCPUUsage,
+		"max_memory_mb":       float64(rm.maxMemoryUsage) / (1024 * 1024),
+		"monitoring":          rm.monitoring,
+		"last_check":          rm.lastMonitorTime.Format(time.RFC3339),
+		"avg_cpu_usage":       rm.avgCPUUsage,
 	}
 }
 
 // ForceGarbageCollection forces garbage collection and reports memory reduction
 func (rm *ResourceMonitor) ForceGarbageCollection() (int64, int64) {
 	var before, after runtime.MemStats
-	
+
 	runtime.ReadMemStats(&before)
 	runtime.GC()
 	runtime.ReadMemStats(&after)
-	
+
 	beforeMB := int64(before.Alloc)
 	afterMB := int64(after.Alloc)
-	
+
 	rm.mutex.Lock()
 	rm.currentMemoryUsage = afterMB
 	rm.mutex.Unlock()
-	
-	log.Printf("ResourceMonitor: GC completed - freed %.1f MB (%.1f MB -> %.1f MB)", 
-		float64(beforeMB-afterMB)/(1024*1024), 
-		float64(beforeMB)/(1024*1024), 
+
+	log.Printf("ResourceMonitor: GC completed - freed %.1f MB (%.1f MB -> %.1f MB)",
+		float64(beforeMB-afterMB)/(1024*1024),
+		float64(beforeMB)/(1024*1024),
 		float64(afterMB)/(1024*1024))
-	
+
 	return beforeMB, afterMB
 }
 
@@ -479,14 +479,14 @@ func OptimizePatterns(patterns []string) []string {
 	// Remove duplicates
 	seen := make(map[string]bool)
 	optimized := make([]string, 0, len(patterns))
-	
+
 	for _, pattern := range patterns {
 		if !seen[pattern] {
 			seen[pattern] = true
 			optimized = append(optimized, pattern)
 		}
 	}
-	
+
 	// Sort patterns by specificity (more specific patterns first)
 	// This helps with early termination in matching
 	for i := 0; i < len(optimized)-1; i++ {
@@ -496,7 +496,7 @@ func OptimizePatterns(patterns []string) []string {
 			}
 		}
 	}
-	
+
 	return optimized
 }
 
@@ -505,14 +505,14 @@ func isMoreSpecific(a, b string) bool {
 	// Exact matches are more specific than wildcards
 	aHasWildcard := strings.ContainsAny(a, "*?[]")
 	bHasWildcard := strings.ContainsAny(b, "*?[]")
-	
+
 	if !aHasWildcard && bHasWildcard {
 		return true
 	}
 	if aHasWildcard && !bHasWildcard {
 		return false
 	}
-	
+
 	// Longer patterns are generally more specific
 	return len(a) > len(b)
 }
@@ -522,32 +522,32 @@ func BenchmarkPathMatching(filter *PathFilter, testPaths []string) map[string]in
 	if len(testPaths) == 0 {
 		return map[string]interface{}{"error": "no test paths provided"}
 	}
-	
+
 	startTime := time.Now()
 	matches := 0
-	
+
 	for _, path := range testPaths {
 		if filter.ShouldIgnore(path) {
 			matches++
 		}
 	}
-	
+
 	totalTime := time.Since(startTime)
 	avgTime := totalTime / time.Duration(len(testPaths))
-	
+
 	return map[string]interface{}{
-		"total_paths":        len(testPaths),
-		"matches":           matches,
-		"total_time_ms":     totalTime.Milliseconds(),
+		"total_paths":          len(testPaths),
+		"matches":              matches,
+		"total_time_ms":        totalTime.Milliseconds(),
 		"avg_time_per_path_ns": avgTime.Nanoseconds(),
-		"paths_per_second":  float64(len(testPaths)) / totalTime.Seconds(),
+		"paths_per_second":     float64(len(testPaths)) / totalTime.Seconds(),
 	}
 }
 
 // GenerateTestPaths generates test paths for performance benchmarking
 func GenerateTestPaths(count int) []string {
 	paths := make([]string, count)
-	
+
 	// Common path patterns for testing
 	patterns := []string{
 		"src/main.go",
@@ -561,13 +561,13 @@ func GenerateTestPaths(count int) []string {
 		"vendor/lib/library.a",
 		".vscode/settings.json",
 	}
-	
+
 	for i := 0; i < count; i++ {
 		base := patterns[i%len(patterns)]
 		// Add some variation
 		paths[i] = fmt.Sprintf("project%d/%s", i%10, base)
 	}
-	
+
 	return paths
 }
 
@@ -575,14 +575,14 @@ func GenerateTestPaths(count int) []string {
 func CreateOptimizedFilter(patterns []string) (*PathFilter, error) {
 	// Optimize patterns first
 	optimizedPatterns := OptimizePatterns(patterns)
-	
+
 	filter, err := NewPathFilter(optimizedPatterns)
 	if err != nil {
 		return nil, err
 	}
-	
-	log.Printf("PathFilter: Optimized %d patterns down to %d patterns", 
+
+	log.Printf("PathFilter: Optimized %d patterns down to %d patterns",
 		len(patterns), len(optimizedPatterns))
-	
+
 	return filter, nil
 }

@@ -81,7 +81,7 @@ func (gc *GatewayConfig) ApplySCIPEnvironmentVariables() error {
 	if gc.PerformanceConfig == nil {
 		return nil
 	}
-	
+
 	if gc.PerformanceConfig.SCIP == nil {
 		return nil
 	}

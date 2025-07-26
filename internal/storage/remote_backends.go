@@ -40,7 +40,7 @@ func (h *HTTPRestBackend) Initialize(ctx context.Context, config BackendConfig) 
 
 	h.endpoint = config.ConnectionString
 	h.timeout = time.Duration(config.TimeoutMs) * time.Millisecond
-	
+
 	// Setup authentication
 	if config.APIKey != "" {
 		h.headers["Authorization"] = "Bearer " + config.APIKey
@@ -55,7 +55,7 @@ func (h *HTTPRestBackend) Initialize(ctx context.Context, config BackendConfig) 
 
 func (h *HTTPRestBackend) Get(ctx context.Context, key string) ([]byte, *StorageMetadata, error) {
 	url := fmt.Sprintf("%s/cache/%s", h.endpoint, url.PathEscape(key))
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, nil, err
@@ -77,7 +77,7 @@ func (h *HTTPRestBackend) Get(ctx context.Context, key string) ([]byte, *Storage
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, nil, ErrCacheEntryNotFound
 	}
-	
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, nil, fmt.Errorf("HTTP error: %d %s", resp.StatusCode, resp.Status)
 	}
@@ -108,7 +108,7 @@ func (h *HTTPRestBackend) Get(ctx context.Context, key string) ([]byte, *Storage
 
 func (h *HTTPRestBackend) Put(ctx context.Context, key string, data []byte, metadata *StorageMetadata) error {
 	url := fmt.Sprintf("%s/cache/%s", h.endpoint, url.PathEscape(key))
-	
+
 	req, err := http.NewRequestWithContext(ctx, "PUT", url, bytes.NewReader(data))
 	if err != nil {
 		return err
@@ -152,7 +152,7 @@ func (h *HTTPRestBackend) Put(ctx context.Context, key string, data []byte, meta
 
 func (h *HTTPRestBackend) Delete(ctx context.Context, key string) error {
 	url := fmt.Sprintf("%s/cache/%s", h.endpoint, url.PathEscape(key))
-	
+
 	req, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
 	if err != nil {
 		return err
@@ -180,7 +180,7 @@ func (h *HTTPRestBackend) Delete(ctx context.Context, key string) error {
 
 func (h *HTTPRestBackend) Exists(ctx context.Context, key string) (bool, error) {
 	url := fmt.Sprintf("%s/cache/%s", h.endpoint, url.PathEscape(key))
-	
+
 	req, err := http.NewRequestWithContext(ctx, "HEAD", url, nil)
 	if err != nil {
 		return false, err
@@ -205,12 +205,12 @@ func (h *HTTPRestBackend) Exists(ctx context.Context, key string) (bool, error) 
 func (h *HTTPRestBackend) GetBatch(ctx context.Context, keys []string) (map[string][]byte, error) {
 	// Use POST request with JSON body for batch get
 	url := fmt.Sprintf("%s/cache/batch", h.endpoint)
-	
+
 	requestBody := map[string]interface{}{
 		"operation": "get",
 		"keys":      keys,
 	}
-	
+
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
 		return nil, err
@@ -259,18 +259,18 @@ func (h *HTTPRestBackend) GetBatch(ctx context.Context, keys []string) (map[stri
 func (h *HTTPRestBackend) PutBatch(ctx context.Context, entries map[string][]byte) error {
 	// Use POST request with JSON body for batch put
 	url := fmt.Sprintf("%s/cache/batch", h.endpoint)
-	
+
 	// Convert byte data to base64 for JSON transport
 	data := make(map[string]string)
 	for key, value := range entries {
 		data[key] = string(value) // Simplified - should use base64 encoding
 	}
-	
+
 	requestBody := map[string]interface{}{
 		"operation": "put",
 		"data":      data,
 	}
-	
+
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
 		return err
@@ -306,12 +306,12 @@ func (h *HTTPRestBackend) PutBatch(ctx context.Context, entries map[string][]byt
 func (h *HTTPRestBackend) DeleteBatch(ctx context.Context, keys []string) error {
 	// Use POST request with JSON body for batch delete
 	url := fmt.Sprintf("%s/cache/batch", h.endpoint)
-	
+
 	requestBody := map[string]interface{}{
 		"operation": "delete",
 		"keys":      keys,
 	}
-	
+
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
 		return err
@@ -345,7 +345,7 @@ func (h *HTTPRestBackend) DeleteBatch(ctx context.Context, keys []string) error 
 
 func (h *HTTPRestBackend) Ping(ctx context.Context) error {
 	url := fmt.Sprintf("%s/health", h.endpoint)
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return err
@@ -373,7 +373,7 @@ func (h *HTTPRestBackend) Ping(ctx context.Context) error {
 
 func (h *HTTPRestBackend) GetStats(ctx context.Context) (*BackendStats, error) {
 	url := fmt.Sprintf("%s/stats", h.endpoint)
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -389,7 +389,7 @@ func (h *HTTPRestBackend) GetStats(ctx context.Context) (*BackendStats, error) {
 	start := time.Now()
 	resp, err := h.client.Do(req)
 	responseTime := time.Since(start)
-	
+
 	if err != nil {
 		return &BackendStats{
 			Endpoint:     h.endpoint,
@@ -476,7 +476,7 @@ func (s *S3Backend) Initialize(ctx context.Context, config BackendConfig) error 
 		Region:           aws.String(s.region),
 		Credentials:      credentials.NewStaticCredentials(s.accessKey, s.secretKey, ""),
 		Endpoint:         aws.String(s.endpoint),
-		DisableSSL:       aws.Bool(!s.useSSL),  
+		DisableSSL:       aws.Bool(!s.useSSL),
 		S3ForcePathStyle: aws.Bool(s.pathStyle),
 	})
 	if err != nil {
@@ -488,7 +488,7 @@ func (s *S3Backend) Initialize(ctx context.Context, config BackendConfig) error 
 	_, err = svc.HeadBucketWithContext(ctx, &s3.HeadBucketInput{
 		Bucket: aws.String(s.bucket),
 	})
-	
+
 	return err
 }
 
@@ -499,7 +499,7 @@ func (s *S3Backend) Get(ctx context.Context, key string) ([]byte, *StorageMetada
 	}
 
 	svc := s3.New(sess)
-	
+
 	result, err := svc.GetObjectWithContext(ctx, &s3.GetObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
@@ -551,7 +551,7 @@ func (s *S3Backend) Put(ctx context.Context, key string, data []byte, metadata *
 		if metadata.Encoding != "" {
 			input.ContentEncoding = aws.String(metadata.Encoding)
 		}
-		
+
 		// Add custom metadata
 		input.Metadata = map[string]*string{
 			"cache-version": aws.String(strconv.FormatInt(metadata.Version, 10)),
@@ -570,12 +570,12 @@ func (s *S3Backend) Delete(ctx context.Context, key string) error {
 	}
 
 	svc := s3.New(sess)
-	
+
 	_, err = svc.DeleteObjectWithContext(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
 	})
-	
+
 	return err
 }
 
@@ -586,16 +586,16 @@ func (s *S3Backend) Exists(ctx context.Context, key string) (bool, error) {
 	}
 
 	svc := s3.New(sess)
-	
+
 	_, err = svc.HeadObjectWithContext(ctx, &s3.HeadObjectInput{
 		Bucket: aws.String(s.bucket),
 		Key:    aws.String(key),
 	})
-	
+
 	if err != nil {
 		return false, nil // Assume not found
 	}
-	
+
 	return true, nil
 }
 
@@ -604,17 +604,17 @@ func (s *S3Backend) GetBatch(ctx context.Context, keys []string) (map[string][]b
 	result := make(map[string][]byte)
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-	
+
 	// Limit concurrent operations
 	semaphore := make(chan struct{}, 10)
-	
+
 	for _, key := range keys {
 		wg.Add(1)
 		go func(k string) {
 			defer wg.Done()
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
-			
+
 			data, _, err := s.Get(ctx, k)
 			if err == nil {
 				mu.Lock()
@@ -623,7 +623,7 @@ func (s *S3Backend) GetBatch(ctx context.Context, keys []string) (map[string][]b
 			}
 		}(key)
 	}
-	
+
 	wg.Wait()
 	return result, nil
 }
@@ -633,17 +633,17 @@ func (s *S3Backend) PutBatch(ctx context.Context, entries map[string][]byte) err
 	var wg sync.WaitGroup
 	var errors []error
 	var mu sync.Mutex
-	
+
 	// Limit concurrent operations
 	semaphore := make(chan struct{}, 10)
-	
+
 	for key, data := range entries {
 		wg.Add(1)
 		go func(k string, d []byte) {
 			defer wg.Done()
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
-			
+
 			if err := s.Put(ctx, k, d, nil); err != nil {
 				mu.Lock()
 				errors = append(errors, err)
@@ -651,13 +651,13 @@ func (s *S3Backend) PutBatch(ctx context.Context, entries map[string][]byte) err
 			}
 		}(key, data)
 	}
-	
+
 	wg.Wait()
-	
+
 	if len(errors) > 0 {
 		return fmt.Errorf("batch put failed with %d errors: %v", len(errors), errors[0])
 	}
-	
+
 	return nil
 }
 
@@ -668,37 +668,37 @@ func (s *S3Backend) DeleteBatch(ctx context.Context, keys []string) error {
 	}
 
 	svc := s3.New(sess)
-	
+
 	// S3 supports batch delete up to 1000 objects
 	const maxBatchSize = 1000
-	
+
 	for i := 0; i < len(keys); i += maxBatchSize {
 		end := i + maxBatchSize
 		if end > len(keys) {
 			end = len(keys)
 		}
-		
+
 		batch := keys[i:end]
 		objects := make([]*s3.ObjectIdentifier, len(batch))
-		
+
 		for j, key := range batch {
 			objects[j] = &s3.ObjectIdentifier{
 				Key: aws.String(key),
 			}
 		}
-		
+
 		_, err = svc.DeleteObjectsWithContext(ctx, &s3.DeleteObjectsInput{
 			Bucket: aws.String(s.bucket),
 			Delete: &s3.Delete{
 				Objects: objects,
 			},
 		})
-		
+
 		if err != nil {
 			return err
 		}
 	}
-	
+
 	return nil
 }
 
@@ -709,11 +709,11 @@ func (s *S3Backend) Ping(ctx context.Context) error {
 	}
 
 	svc := s3.New(sess)
-	
+
 	_, err = svc.HeadBucketWithContext(ctx, &s3.HeadBucketInput{
 		Bucket: aws.String(s.bucket),
 	})
-	
+
 	return err
 }
 
@@ -721,7 +721,7 @@ func (s *S3Backend) GetStats(ctx context.Context) (*BackendStats, error) {
 	start := time.Now()
 	err := s.Ping(ctx)
 	responseTime := time.Since(start)
-	
+
 	return &BackendStats{
 		Endpoint:     s.endpoint,
 		Healthy:      err == nil,
@@ -763,7 +763,7 @@ func (r *RedisBackend) Initialize(ctx context.Context, config BackendConfig) err
 
 	// Parse Redis configuration
 	addrs := strings.Split(config.ConnectionString, ",")
-	
+
 	r.client = redis.NewClusterClient(&redis.ClusterOptions{
 		Addrs:        addrs,
 		Password:     config.Password,
@@ -774,15 +774,15 @@ func (r *RedisBackend) Initialize(ctx context.Context, config BackendConfig) err
 	})
 
 	r.timeout = time.Duration(config.TimeoutMs) * time.Millisecond
-	
+
 	if keyPrefix, ok := config.Options["key_prefix"].(string); ok {
 		r.keyPrefix = keyPrefix
 	}
-	
+
 	if db, ok := config.Options["db"].(int); ok {
 		r.db = db
 	}
-	
+
 	if compression, ok := config.Options["compression"].(bool); ok {
 		r.compression = compression
 	}
@@ -793,7 +793,7 @@ func (r *RedisBackend) Initialize(ctx context.Context, config BackendConfig) err
 
 func (r *RedisBackend) Get(ctx context.Context, key string) ([]byte, *StorageMetadata, error) {
 	fullKey := r.getFullKey(key)
-	
+
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
@@ -801,7 +801,7 @@ func (r *RedisBackend) Get(ctx context.Context, key string) ([]byte, *StorageMet
 	pipe := r.client.Pipeline()
 	dataCmd := pipe.Get(ctx, fullKey)
 	metaCmd := pipe.HGetAll(ctx, fullKey+":meta")
-	
+
 	_, err := pipe.Exec(ctx)
 	if err != nil {
 		if err == redis.Nil {
@@ -848,16 +848,16 @@ func (r *RedisBackend) Get(ctx context.Context, key string) ([]byte, *StorageMet
 
 func (r *RedisBackend) Put(ctx context.Context, key string, data []byte, metadata *StorageMetadata) error {
 	fullKey := r.getFullKey(key)
-	
+
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
 	// Store data and metadata in a pipeline
 	pipe := r.client.Pipeline()
-	
+
 	// Store the actual data
 	pipe.Set(ctx, fullKey, data, 0) // 0 means no expiration
-	
+
 	// Store metadata
 	if metadata != nil {
 		metaData := map[string]interface{}{
@@ -867,14 +867,14 @@ func (r *RedisBackend) Put(ctx context.Context, key string, data []byte, metadat
 			"created_at":   metadata.CreatedAt.Format(time.RFC3339),
 			"modified_at":  time.Now().Format(time.RFC3339),
 		}
-		
+
 		if metadata.Encoding != "" {
 			metaData["encoding"] = metadata.Encoding
 		}
 		if metadata.Checksum != "" {
 			metaData["checksum"] = metadata.Checksum
 		}
-		
+
 		pipe.HMSet(ctx, fullKey+":meta", metaData)
 	}
 
@@ -884,7 +884,7 @@ func (r *RedisBackend) Put(ctx context.Context, key string, data []byte, metadat
 
 func (r *RedisBackend) Delete(ctx context.Context, key string) error {
 	fullKey := r.getFullKey(key)
-	
+
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
@@ -892,14 +892,14 @@ func (r *RedisBackend) Delete(ctx context.Context, key string) error {
 	pipe := r.client.Pipeline()
 	pipe.Del(ctx, fullKey)
 	pipe.Del(ctx, fullKey+":meta")
-	
+
 	_, err := pipe.Exec(ctx)
 	return err
 }
 
 func (r *RedisBackend) Exists(ctx context.Context, key string) (bool, error) {
 	fullKey := r.getFullKey(key)
-	
+
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
@@ -907,7 +907,7 @@ func (r *RedisBackend) Exists(ctx context.Context, key string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	
+
 	return result == 1, nil
 }
 
@@ -957,7 +957,7 @@ func (r *RedisBackend) PutBatch(ctx context.Context, entries map[string][]byte) 
 	for key, data := range entries {
 		fullKey := r.getFullKey(key)
 		pipe.Set(ctx, fullKey, data, 0)
-		
+
 		// Add basic metadata
 		metaData := map[string]interface{}{
 			"size":        len(data),
@@ -992,20 +992,20 @@ func (r *RedisBackend) DeleteBatch(ctx context.Context, keys []string) error {
 func (r *RedisBackend) Ping(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
-	
+
 	return r.client.Ping(ctx).Err()
 }
 
 func (r *RedisBackend) GetStats(ctx context.Context) (*BackendStats, error) {
 	start := time.Now()
-	
+
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
-	
+
 	// Get Redis info
 	info, err := r.client.Info(ctx, "stats").Result()
 	responseTime := time.Since(start)
-	
+
 	stats := &BackendStats{
 		Endpoint:     r.GetEndpoint(),
 		Healthy:      err == nil,
@@ -1033,11 +1033,11 @@ func (r *RedisBackend) GetStats(ctx context.Context) (*BackendStats, error) {
 func (r *RedisBackend) Close() error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	if r.client != nil {
 		return r.client.Close()
 	}
-	
+
 	return nil
 }
 

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,15 +29,23 @@ func main() {
 	flag.Parse()
 
 	// Setup logging
-	logger := log.New(os.Stderr, "[MULTI-LANG-CLI] ", log.LstdFlags)
+	var output io.Writer = os.Stderr
 	if !*verbose {
-		logger.SetOutput(os.Stderr)
+		output = os.Stderr
 	}
+	
+	logger := mcp.NewStructuredLogger(&mcp.LoggerConfig{
+		Level:      mcp.LogLevelInfo,
+		Component:  "multi-lang-cli",
+		EnableJSON: false,
+		Output:     output,
+	})
 
 	// Get absolute project path
 	absProjectPath, err := filepath.Abs(*projectPath)
 	if err != nil {
-		logger.Fatalf("Failed to get absolute path: %v", err)
+		logger.Errorf("Failed to get absolute path: %v", err)
+		os.Exit(1)
 	}
 
 	// Execute command
@@ -50,22 +58,25 @@ func main() {
 		err = showProjectStatus(absProjectPath, *outputFormat, *outputFile, logger)
 	case "symbols":
 		if *symbolQuery == "" {
-			logger.Fatalf("Symbol query is required for symbols command (use -query flag)")
+			logger.Errorf("Symbol query is required for symbols command (use -query flag)")
+			os.Exit(1)
 		}
 		err = searchSymbols(absProjectPath, *symbolQuery, *outputFormat, *outputFile, logger)
 	case "serve":
 		err = startServer(absProjectPath, *serverPort, logger)
 	default:
-		logger.Fatalf("Unknown command: %s. Available commands: detect, config, status, symbols, serve", *command)
+		logger.Errorf("Unknown command: %s. Available commands: detect, config, status, symbols, serve", *command)
+		os.Exit(1)
 	}
 
 	if err != nil {
-		logger.Fatalf("Command failed: %v", err)
+		logger.Errorf("Command failed: %v", err)
+		os.Exit(1)
 	}
 }
 
-func detectLanguages(projectPath, format, outputFile string, logger *log.Logger) error {
-	logger.Printf("Detecting languages in project: %s", projectPath)
+func detectLanguages(projectPath, format, outputFile string, logger *mcp.StructuredLogger) error {
+	logger.Infof("Detecting languages in project: %s", projectPath)
 
 	// Initialize scanner
 	scanner := gateway.NewProjectLanguageScanner()
@@ -109,8 +120,8 @@ func detectLanguages(projectPath, format, outputFile string, logger *log.Logger)
 	return outputResult(result, format, outputFile, logger)
 }
 
-func generateConfig(projectPath, format, outputFile string, logger *log.Logger) error {
-	logger.Printf("Generating multi-language configuration for: %s", projectPath)
+func generateConfig(projectPath, format, outputFile string, logger *mcp.StructuredLogger) error {
+	logger.Infof("Generating multi-language configuration for: %s", projectPath)
 
 	// Generate config from path
 	mlConfig, err := config.AutoGenerateConfigFromPath(projectPath)
@@ -146,8 +157,8 @@ func generateConfig(projectPath, format, outputFile string, logger *log.Logger) 
 	return outputResult(result, format, outputFile, logger)
 }
 
-func showProjectStatus(projectPath, format, outputFile string, logger *log.Logger) error {
-	logger.Printf("Showing project status for: %s", projectPath)
+func showProjectStatus(projectPath, format, outputFile string, logger *mcp.StructuredLogger) error {
+	logger.Infof("Showing project status for: %s", projectPath)
 
 	// Create integrator
 	gatewayConfig := createDefaultConfig()
@@ -172,8 +183,8 @@ func showProjectStatus(projectPath, format, outputFile string, logger *log.Logge
 	return outputResult(result, format, outputFile, logger)
 }
 
-func searchSymbols(projectPath, query, format, outputFile string, logger *log.Logger) error {
-	logger.Printf("Searching symbols in project: %s, query: %s", projectPath, query)
+func searchSymbols(projectPath, query, format, outputFile string, logger *mcp.StructuredLogger) error {
+	logger.Infof("Searching symbols in project: %s, query: %s", projectPath, query)
 
 	// Create integrator
 	gatewayConfig := createDefaultConfig()
@@ -198,8 +209,8 @@ func searchSymbols(projectPath, query, format, outputFile string, logger *log.Lo
 	return outputResult(result, format, outputFile, logger)
 }
 
-func startServer(projectPath string, port int, logger *log.Logger) error {
-	logger.Printf("Starting multi-language LSP server on port %d for project: %s", port, projectPath)
+func startServer(projectPath string, port int, logger *mcp.StructuredLogger) error {
+	logger.Infof("Starting multi-language LSP server on port %d for project: %s", port, projectPath)
 
 	// Create configuration
 	gatewayConfig := createDefaultConfig()
@@ -222,15 +233,15 @@ func startServer(projectPath string, port int, logger *log.Logger) error {
 		return fmt.Errorf("failed to configure project: %w", err)
 	}
 
-	logger.Printf("Multi-language LSP server started successfully!")
-	logger.Printf("Project configured with multi-language support")
-	logger.Printf("Server listening on http://localhost:%d/jsonrpc", port)
+	logger.Infof("Multi-language LSP server started successfully!")
+	logger.Infof("Project configured with multi-language support")
+	logger.Infof("Server listening on http://localhost:%d/jsonrpc", port)
 
 	// Keep server running
 	select {}
 }
 
-func outputResult(result interface{}, format, outputFile string, logger *log.Logger) error {
+func outputResult(result interface{}, format, outputFile string, logger *mcp.StructuredLogger) error {
 	var output []byte
 	var err error
 
@@ -260,7 +271,7 @@ func outputResult(result interface{}, format, outputFile string, logger *log.Log
 		if err := os.WriteFile(outputFile, output, 0644); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
-		logger.Printf("Output written to: %s", outputFile)
+		logger.Infof("Output written to: %s", outputFile)
 	}
 
 	return nil

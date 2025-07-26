@@ -132,39 +132,39 @@ type CacheEntry struct {
 	TTL        time.Duration   `json:"ttl"`
 
 	// Enhanced metadata for three-tier storage
-	Key           string                 `json:"key"`
-	Size          int64                  `json:"size"`
-	CompressedSize int64                 `json:"compressed_size,omitempty"`
-	Version       int64                  `json:"version"`
-	Checksum      string                 `json:"checksum"`
-	ContentType   string                 `json:"content_type"`
-	Encoding      string                 `json:"encoding,omitempty"`
-	
+	Key            string `json:"key"`
+	Size           int64  `json:"size"`
+	CompressedSize int64  `json:"compressed_size,omitempty"`
+	Version        int64  `json:"version"`
+	Checksum       string `json:"checksum"`
+	ContentType    string `json:"content_type"`
+	Encoding       string `json:"encoding,omitempty"`
+
 	// Tier management
-	CurrentTier   TierType               `json:"current_tier"`
-	OriginTier    TierType               `json:"origin_tier"`
-	TierHistory   []TierTransition       `json:"tier_history,omitempty"`
-	Priority      int                    `json:"priority"`
-	Pinned        bool                   `json:"pinned"`
-	
+	CurrentTier TierType         `json:"current_tier"`
+	OriginTier  TierType         `json:"origin_tier"`
+	TierHistory []TierTransition `json:"tier_history,omitempty"`
+	Priority    int              `json:"priority"`
+	Pinned      bool             `json:"pinned"`
+
 	// Access patterns and statistics
-	AccessCount   int64                  `json:"access_count"`
-	HitCount      int64                  `json:"hit_count"`
-	LastHitTime   time.Time              `json:"last_hit_time"`
-	AvgAccessTime time.Duration          `json:"avg_access_time"`
-	Locality      *LocalityInfo          `json:"locality,omitempty"`
-	
+	AccessCount   int64         `json:"access_count"`
+	HitCount      int64         `json:"hit_count"`
+	LastHitTime   time.Time     `json:"last_hit_time"`
+	AvgAccessTime time.Duration `json:"avg_access_time"`
+	Locality      *LocalityInfo `json:"locality,omitempty"`
+
 	// File associations for invalidation
-	FilePaths     []string               `json:"file_paths,omitempty"`
-	ProjectPath   string                 `json:"project_path,omitempty"`
-	Dependencies  []string               `json:"dependencies,omitempty"`
-	Tags          map[string]string      `json:"tags,omitempty"`
-	
+	FilePaths    []string          `json:"file_paths,omitempty"`
+	ProjectPath  string            `json:"project_path,omitempty"`
+	Dependencies []string          `json:"dependencies,omitempty"`
+	Tags         map[string]string `json:"tags,omitempty"`
+
 	// Performance optimization hints
-	CompressionHint CompressionType      `json:"compression_hint,omitempty"`
-	CachingHint     CachingHint          `json:"caching_hint,omitempty"`
-	PreloadHint     bool                 `json:"preload_hint,omitempty"`
-	
+	CompressionHint CompressionType `json:"compression_hint,omitempty"`
+	CachingHint     CachingHint     `json:"caching_hint,omitempty"`
+	PreloadHint     bool            `json:"preload_hint,omitempty"`
+
 	// Metadata for advanced features
 	CustomMetadata map[string]interface{} `json:"custom_metadata,omitempty"`
 }
@@ -208,87 +208,87 @@ func (e *CacheEntry) ToSCIPCacheEntry() *indexing.SCIPCacheEntry {
 
 // StorageMetadata contains metadata about stored data
 type StorageMetadata struct {
-	Key           string                 `json:"key"`
-	Size          int64                  `json:"size"`
-	Checksum      string                 `json:"checksum"`
-	ContentType   string                 `json:"content_type"`
-	Encoding      string                 `json:"encoding,omitempty"`
-	Compressed    bool                   `json:"compressed"`
-	Encrypted     bool                   `json:"encrypted"`
-	Version       int64                  `json:"version"`
-	CreatedAt     time.Time              `json:"created_at"`
-	ModifiedAt    time.Time              `json:"modified_at"`
-	AccessedAt    time.Time              `json:"accessed_at"`
-	ExpiresAt     *time.Time             `json:"expires_at,omitempty"`
-	Tags          map[string]string      `json:"tags,omitempty"`
-	CustomData    map[string]interface{} `json:"custom_data,omitempty"`
+	Key         string                 `json:"key"`
+	Size        int64                  `json:"size"`
+	Checksum    string                 `json:"checksum"`
+	ContentType string                 `json:"content_type"`
+	Encoding    string                 `json:"encoding,omitempty"`
+	Compressed  bool                   `json:"compressed"`
+	Encrypted   bool                   `json:"encrypted"`
+	Version     int64                  `json:"version"`
+	CreatedAt   time.Time              `json:"created_at"`
+	ModifiedAt  time.Time              `json:"modified_at"`
+	AccessedAt  time.Time              `json:"accessed_at"`
+	ExpiresAt   *time.Time             `json:"expires_at,omitempty"`
+	Tags        map[string]string      `json:"tags,omitempty"`
+	CustomData  map[string]interface{} `json:"custom_data,omitempty"`
 }
 
 // TierTransition records when data moves between tiers
 type TierTransition struct {
-	FromTier    TierType      `json:"from_tier"`
-	ToTier      TierType      `json:"to_tier"`
-	Timestamp   time.Time     `json:"timestamp"`
-	Reason      string        `json:"reason"`
-	Latency     time.Duration `json:"latency"`
-	Success     bool          `json:"success"`
-	Error       string        `json:"error,omitempty"`
+	FromTier  TierType      `json:"from_tier"`
+	ToTier    TierType      `json:"to_tier"`
+	Timestamp time.Time     `json:"timestamp"`
+	Reason    string        `json:"reason"`
+	Latency   time.Duration `json:"latency"`
+	Success   bool          `json:"success"`
+	Error     string        `json:"error,omitempty"`
 }
 
 // Statistics and monitoring types
 
 // TierStats provides comprehensive statistics for a storage tier
 type TierStats struct {
-	TierType      TierType      `json:"tier_type"`
-	
+	TierType TierType `json:"tier_type"`
+
 	// Capacity metrics
-	TotalCapacity int64         `json:"total_capacity"`
-	UsedCapacity  int64         `json:"used_capacity"`
-	FreeCapacity  int64         `json:"free_capacity"`
-	EntryCount    int64         `json:"entry_count"`
-	
+	TotalCapacity int64 `json:"total_capacity"`
+	UsedCapacity  int64 `json:"used_capacity"`
+	FreeCapacity  int64 `json:"free_capacity"`
+	EntryCount    int64 `json:"entry_count"`
+
 	// Performance metrics
-	TotalRequests int64         `json:"total_requests"`
-	CacheHits     int64         `json:"cache_hits"`
-	CacheMisses   int64         `json:"cache_misses"`
-	HitRate       float64       `json:"hit_rate"`
-	
+	TotalRequests int64   `json:"total_requests"`
+	CacheHits     int64   `json:"cache_hits"`
+	CacheMisses   int64   `json:"cache_misses"`
+	HitRate       float64 `json:"hit_rate"`
+
 	// Latency metrics (microseconds for precision)
-	AvgLatency    time.Duration `json:"avg_latency"`
-	P50Latency    time.Duration `json:"p50_latency"`
-	P95Latency    time.Duration `json:"p95_latency"`
-	P99Latency    time.Duration `json:"p99_latency"`
-	MaxLatency    time.Duration `json:"max_latency"`
-	
+	AvgLatency time.Duration `json:"avg_latency"`
+	P50Latency time.Duration `json:"p50_latency"`
+	P95Latency time.Duration `json:"p95_latency"`
+	P99Latency time.Duration `json:"p99_latency"`
+	MaxLatency time.Duration `json:"max_latency"`
+
 	// Throughput metrics
-	RequestsPerSecond float64   `json:"requests_per_second"`
-	BytesPerSecond    float64   `json:"bytes_per_second"`
-	
+	RequestsPerSecond float64 `json:"requests_per_second"`
+	BytesPerSecond    float64 `json:"bytes_per_second"`
+
 	// Error metrics
-	ErrorCount        int64     `json:"error_count"`
-	ErrorRate         float64   `json:"error_rate"`
-	TimeoutCount      int64     `json:"timeout_count"`
-	
+	ErrorCount   int64   `json:"error_count"`
+	ErrorRate    float64 `json:"error_rate"`
+	TimeoutCount int64   `json:"timeout_count"`
+
 	// Tier-specific operations
-	PromotionCount    int64     `json:"promotion_count"`
-	EvictionCount     int64     `json:"eviction_count"`
-	CompactionCount   int64     `json:"compaction_count"`
-	
+	PromotionCount  int64 `json:"promotion_count"`
+	EvictionCount   int64 `json:"eviction_count"`
+	CompactionCount int64 `json:"compaction_count"`
+
 	// Time tracking
-	StartTime         time.Time `json:"start_time"`
-	LastUpdate        time.Time `json:"last_update"`
-	Uptime            time.Duration `json:"uptime"`
+	StartTime  time.Time     `json:"start_time"`
+	LastUpdate time.Time     `json:"last_update"`
+	Uptime     time.Duration `json:"uptime"`
 }
 
 // TierHealth represents the health status of a storage tier
 type TierHealth struct {
-	TierType      TierType               `json:"tier_type"`
-	Healthy       bool                   `json:"healthy"`
-	Status        TierStatus             `json:"status"`
-	LastCheck     time.Time              `json:"last_check"`
-	Issues        []HealthIssue          `json:"issues,omitempty"`
-	Metrics       map[string]float64     `json:"metrics,omitempty"`
-	
+	TierType  TierType           `json:"tier_type"`
+	Healthy   bool               `json:"healthy"`
+	Status    TierStatus         `json:"status"`
+	LastCheck time.Time          `json:"last_check"`
+	Issues    []HealthIssue      `json:"issues,omitempty"`
+	Metrics   map[string]float64 `json:"metrics,omitempty"`
+
 	// Circuit breaker state
 	CircuitBreaker struct {
 		State        CircuitBreakerState `json:"state"`
@@ -300,116 +300,116 @@ type TierHealth struct {
 
 // TierCapacity represents capacity information for a storage tier
 type TierCapacity struct {
-	TierType        TierType  `json:"tier_type"`
-	MaxCapacity     int64     `json:"max_capacity"`
-	UsedCapacity    int64     `json:"used_capacity"`
-	AvailableCapacity int64   `json:"available_capacity"`
-	MaxEntries      int64     `json:"max_entries"`
-	UsedEntries     int64     `json:"used_entries"`
-	UtilizationPct  float64   `json:"utilization_pct"`
-	GrowthRate      float64   `json:"growth_rate"`
-	ProjectedFull   *time.Time `json:"projected_full,omitempty"`
+	TierType          TierType   `json:"tier_type"`
+	MaxCapacity       int64      `json:"max_capacity"`
+	UsedCapacity      int64      `json:"used_capacity"`
+	AvailableCapacity int64      `json:"available_capacity"`
+	MaxEntries        int64      `json:"max_entries"`
+	UsedEntries       int64      `json:"used_entries"`
+	UtilizationPct    float64    `json:"utilization_pct"`
+	GrowthRate        float64    `json:"growth_rate"`
+	ProjectedFull     *time.Time `json:"projected_full,omitempty"`
 }
 
 // SystemStats provides overall system statistics across all tiers
 type SystemStats struct {
-	TierStats       map[TierType]*TierStats `json:"tier_stats"`
-	TotalRequests   int64                   `json:"total_requests"`
-	OverallHitRate  float64                 `json:"overall_hit_rate"`
-	AvgLatency      time.Duration           `json:"avg_latency"`
-	TotalCapacity   int64                   `json:"total_capacity"`
-	TotalUsed       int64                   `json:"total_used"`
-	SystemUptime    time.Duration           `json:"system_uptime"`
-	LastUpdate      time.Time               `json:"last_update"`
-	
+	TierStats      map[TierType]*TierStats `json:"tier_stats"`
+	TotalRequests  int64                   `json:"total_requests"`
+	OverallHitRate float64                 `json:"overall_hit_rate"`
+	AvgLatency     time.Duration           `json:"avg_latency"`
+	TotalCapacity  int64                   `json:"total_capacity"`
+	TotalUsed      int64                   `json:"total_used"`
+	SystemUptime   time.Duration           `json:"system_uptime"`
+	LastUpdate     time.Time               `json:"last_update"`
+
 	// Cross-tier operations
-	PromotionStats  *PromotionStats         `json:"promotion_stats"`
-	EvictionStats   *EvictionStats          `json:"eviction_stats"`
-	ReplicationStats *ReplicationStats      `json:"replication_stats,omitempty"`
+	PromotionStats   *PromotionStats   `json:"promotion_stats"`
+	EvictionStats    *EvictionStats    `json:"eviction_stats"`
+	ReplicationStats *ReplicationStats `json:"replication_stats,omitempty"`
 }
 
 // SystemHealth provides overall system health across all tiers
 type SystemHealth struct {
-	Healthy         bool                    `json:"healthy"`
-	OverallStatus   SystemStatus            `json:"overall_status"`
+	Healthy         bool                     `json:"healthy"`
+	OverallStatus   SystemStatus             `json:"overall_status"`
 	TierHealth      map[TierType]*TierHealth `json:"tier_health"`
-	SystemIssues    []HealthIssue           `json:"system_issues,omitempty"`
-	LastHealthCheck time.Time               `json:"last_health_check"`
-	
+	SystemIssues    []HealthIssue            `json:"system_issues,omitempty"`
+	LastHealthCheck time.Time                `json:"last_health_check"`
+
 	// Aggregate health metrics
-	HealthScore     float64                 `json:"health_score"` // 0.0 to 1.0
-	Availability    float64                 `json:"availability"` // Percentage
-	Reliability     float64                 `json:"reliability"`  // Percentage
-	Recommendations []*Recommendation       `json:"recommendations,omitempty"`
+	HealthScore     float64           `json:"health_score"` // 0.0 to 1.0
+	Availability    float64           `json:"availability"` // Percentage
+	Reliability     float64           `json:"reliability"`  // Percentage
+	Recommendations []*Recommendation `json:"recommendations,omitempty"`
 }
 
 // Configuration types
 
 // TierConfig contains configuration for a specific storage tier
 type TierConfig struct {
-	TierType        TierType              `json:"tier_type"`
-	BackendType     BackendType           `json:"backend_type"`
-	BackendConfig   BackendConfig         `json:"backend_config"`
-	
+	TierType      TierType      `json:"tier_type"`
+	BackendType   BackendType   `json:"backend_type"`
+	BackendConfig BackendConfig `json:"backend_config"`
+
 	// Capacity configuration
-	MaxCapacity     int64                 `json:"max_capacity"`
-	MaxEntries      int64                 `json:"max_entries"`
-	WarningThreshold float64              `json:"warning_threshold"`
-	CriticalThreshold float64             `json:"critical_threshold"`
-	
+	MaxCapacity       int64   `json:"max_capacity"`
+	MaxEntries        int64   `json:"max_entries"`
+	WarningThreshold  float64 `json:"warning_threshold"`
+	CriticalThreshold float64 `json:"critical_threshold"`
+
 	// Performance configuration
-	MaxConcurrency  int                   `json:"max_concurrency"`
-	TimeoutMs       int                   `json:"timeout_ms"`
-	RetryCount      int                   `json:"retry_count"`
-	RetryDelayMs    int                   `json:"retry_delay_ms"`
-	
+	MaxConcurrency int `json:"max_concurrency"`
+	TimeoutMs      int `json:"timeout_ms"`
+	RetryCount     int `json:"retry_count"`
+	RetryDelayMs   int `json:"retry_delay_ms"`
+
 	// Feature configuration
-	CompressionConfig *CompressionConfig  `json:"compression_config,omitempty"`
-	EncryptionConfig  *EncryptionConfig   `json:"encryption_config,omitempty"`
-	MonitoringConfig  *MonitoringConfig   `json:"monitoring_config,omitempty"`
-	
+	CompressionConfig *CompressionConfig `json:"compression_config,omitempty"`
+	EncryptionConfig  *EncryptionConfig  `json:"encryption_config,omitempty"`
+	MonitoringConfig  *MonitoringConfig  `json:"monitoring_config,omitempty"`
+
 	// Maintenance configuration
-	MaintenanceInterval time.Duration     `json:"maintenance_interval"`
-	CompactionThreshold float64           `json:"compaction_threshold"`
-	VacuumInterval      time.Duration     `json:"vacuum_interval"`
+	MaintenanceInterval time.Duration `json:"maintenance_interval"`
+	CompactionThreshold float64       `json:"compaction_threshold"`
+	VacuumInterval      time.Duration `json:"vacuum_interval"`
 }
 
 // BackendConfig contains configuration for storage backends
 type BackendConfig struct {
-	Type            BackendType           `json:"type"`
-	ConnectionString string                `json:"connection_string,omitempty"`
-	Options         map[string]interface{} `json:"options,omitempty"`
-	
+	Type             BackendType            `json:"type"`
+	ConnectionString string                 `json:"connection_string,omitempty"`
+	Options          map[string]interface{} `json:"options,omitempty"`
+
 	// Authentication
-	Username        string                `json:"username,omitempty"`
-	Password        string                `json:"password,omitempty"`
-	APIKey          string                `json:"api_key,omitempty"`
-	CertPath        string                `json:"cert_path,omitempty"`
-	
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
+	APIKey   string `json:"api_key,omitempty"`
+	CertPath string `json:"cert_path,omitempty"`
+
 	// Network configuration
-	TimeoutMs       int                   `json:"timeout_ms"`
-	MaxConnections  int                   `json:"max_connections"`
-	KeepAlive       bool                  `json:"keep_alive"`
-	
+	TimeoutMs      int  `json:"timeout_ms"`
+	MaxConnections int  `json:"max_connections"`
+	KeepAlive      bool `json:"keep_alive"`
+
 	// Performance tuning
-	ReadBufferSize  int                   `json:"read_buffer_size"`
-	WriteBufferSize int                   `json:"write_buffer_size"`
-	BatchSize       int                   `json:"batch_size"`
-	
+	ReadBufferSize  int `json:"read_buffer_size"`
+	WriteBufferSize int `json:"write_buffer_size"`
+	BatchSize       int `json:"batch_size"`
+
 	// Reliability
-	RetryCount      int                   `json:"retry_count"`
-	RetryDelayMs    int                   `json:"retry_delay_ms"`
-	CircuitBreaker  *CircuitBreakerConfig `json:"circuit_breaker,omitempty"`
+	RetryCount     int                   `json:"retry_count"`
+	RetryDelayMs   int                   `json:"retry_delay_ms"`
+	CircuitBreaker *CircuitBreakerConfig `json:"circuit_breaker,omitempty"`
 }
 
 // CompressionConfig contains compression settings
 type CompressionConfig struct {
-	Enabled     bool            `json:"enabled"`
-	Type        CompressionType `json:"type"`
-	Level       int             `json:"level"`
-	MinSize     int64           `json:"min_size"`
-	Threshold   float64         `json:"threshold"`
-	Dictionary  []byte          `json:"dictionary,omitempty"`
+	Enabled    bool            `json:"enabled"`
+	Type       CompressionType `json:"type"`
+	Level      int             `json:"level"`
+	MinSize    int64           `json:"min_size"`
+	Threshold  float64         `json:"threshold"`
+	Dictionary []byte          `json:"dictionary,omitempty"`
 }
 
 // EncryptionConfig contains encryption settings
@@ -423,11 +423,11 @@ type EncryptionConfig struct {
 
 // MonitoringConfig contains monitoring and observability settings
 type MonitoringConfig struct {
-	Enabled         bool          `json:"enabled"`
-	MetricsInterval time.Duration `json:"metrics_interval"`
-	HealthInterval  time.Duration `json:"health_interval"`
-	TraceRequests   bool          `json:"trace_requests"`
-	LogLevel        string        `json:"log_level"`
+	Enabled         bool               `json:"enabled"`
+	MetricsInterval time.Duration      `json:"metrics_interval"`
+	HealthInterval  time.Duration      `json:"health_interval"`
+	TraceRequests   bool               `json:"trace_requests"`
+	LogLevel        string             `json:"log_level"`
 	AlertThresholds map[string]float64 `json:"alert_thresholds,omitempty"`
 }
 
@@ -547,14 +547,14 @@ func (h CachingHint) String() string {
 
 // HealthIssue represents a health problem
 type HealthIssue struct {
-	Type        string                 `json:"type"`
-	Severity    IssueSeverity          `json:"severity"`
-	Message     string                 `json:"message"`
-	Timestamp   time.Time              `json:"timestamp"`
-	Component   string                 `json:"component,omitempty"`
-	Details     map[string]interface{} `json:"details,omitempty"`
-	Resolved    bool                   `json:"resolved"`
-	ResolvedAt  *time.Time             `json:"resolved_at,omitempty"`
+	Type       string                 `json:"type"`
+	Severity   IssueSeverity          `json:"severity"`
+	Message    string                 `json:"message"`
+	Timestamp  time.Time              `json:"timestamp"`
+	Component  string                 `json:"component,omitempty"`
+	Details    map[string]interface{} `json:"details,omitempty"`
+	Resolved   bool                   `json:"resolved"`
+	ResolvedAt *time.Time             `json:"resolved_at,omitempty"`
 }
 
 // IssueSeverity represents the severity of a health issue
@@ -584,96 +584,96 @@ func (s IssueSeverity) String() string {
 
 // LocalityInfo contains information about data locality
 type LocalityInfo struct {
-	ProjectPath    string            `json:"project_path,omitempty"`
-	FilePaths      []string          `json:"file_paths,omitempty"`
-	Language       string            `json:"language,omitempty"`
-	Framework      string            `json:"framework,omitempty"`
-	Dependencies   []string          `json:"dependencies,omitempty"`
-	RelatedKeys    []string          `json:"related_keys,omitempty"`
-	Locality       float64           `json:"locality"` // 0.0 to 1.0
+	ProjectPath  string   `json:"project_path,omitempty"`
+	FilePaths    []string `json:"file_paths,omitempty"`
+	Language     string   `json:"language,omitempty"`
+	Framework    string   `json:"framework,omitempty"`
+	Dependencies []string `json:"dependencies,omitempty"`
+	RelatedKeys  []string `json:"related_keys,omitempty"`
+	Locality     float64  `json:"locality"` // 0.0 to 1.0
 }
 
 // KeyInfo contains encryption key information
 type KeyInfo struct {
-	KeyID      string    `json:"key_id"`
-	Algorithm  string    `json:"algorithm"`
-	CreatedAt  time.Time `json:"created_at"`
-	ExpiresAt  *time.Time `json:"expires_at,omitempty"`
-	RotatedAt  *time.Time `json:"rotated_at,omitempty"`
-	Version    int       `json:"version"`
+	KeyID     string     `json:"key_id"`
+	Algorithm string     `json:"algorithm"`
+	CreatedAt time.Time  `json:"created_at"`
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	RotatedAt *time.Time `json:"rotated_at,omitempty"`
+	Version   int        `json:"version"`
 }
 
 // Result types for operations
 
 // InvalidationResult contains results of invalidation operations
 type InvalidationResult struct {
-	TotalInvalidated int                     `json:"total_invalidated"`
-	TierResults      map[TierType]int        `json:"tier_results"`
-	Duration         time.Duration           `json:"duration"`
-	Errors           []error                 `json:"errors,omitempty"`
-	Details          map[string]interface{}  `json:"details,omitempty"`
+	TotalInvalidated int                    `json:"total_invalidated"`
+	TierResults      map[TierType]int       `json:"tier_results"`
+	Duration         time.Duration          `json:"duration"`
+	Errors           []error                `json:"errors,omitempty"`
+	Details          map[string]interface{} `json:"details,omitempty"`
 }
 
 // RebalanceResult contains results of rebalancing operations
 type RebalanceResult struct {
-	ItemsMoved       int                     `json:"items_moved"`
-	BytesMoved       int64                   `json:"bytes_moved"`
-	Duration         time.Duration           `json:"duration"`
-	TierChanges      map[TierType]int        `json:"tier_changes"`
-	Errors           []error                 `json:"errors,omitempty"`
-	PerformanceGain  float64                 `json:"performance_gain"`
+	ItemsMoved      int              `json:"items_moved"`
+	BytesMoved      int64            `json:"bytes_moved"`
+	Duration        time.Duration    `json:"duration"`
+	TierChanges     map[TierType]int `json:"tier_changes"`
+	Errors          []error          `json:"errors,omitempty"`
+	PerformanceGain float64          `json:"performance_gain"`
 }
 
 // OptimizationResult contains results of storage optimization
 type OptimizationResult struct {
-	SpaceSaved       int64                   `json:"space_saved"`
-	ItemsOptimized   int                     `json:"items_optimized"`
-	CompressionGain  float64                 `json:"compression_gain"`
-	Duration         time.Duration           `json:"duration"`
-	TierResults      map[TierType]*TierOptimizationResult `json:"tier_results"`
-	Recommendations  []string                `json:"recommendations,omitempty"`
+	SpaceSaved      int64                                `json:"space_saved"`
+	ItemsOptimized  int                                  `json:"items_optimized"`
+	CompressionGain float64                              `json:"compression_gain"`
+	Duration        time.Duration                        `json:"duration"`
+	TierResults     map[TierType]*TierOptimizationResult `json:"tier_results"`
+	Recommendations []string                             `json:"recommendations,omitempty"`
 }
 
 // TierOptimizationResult contains tier-specific optimization results
 type TierOptimizationResult struct {
-	SpaceSaved      int64         `json:"space_saved"`
-	ItemsProcessed  int           `json:"items_processed"`
-	CompressionRatio float64      `json:"compression_ratio"`
-	Duration        time.Duration `json:"duration"`
-	Errors          []error       `json:"errors,omitempty"`
+	SpaceSaved       int64         `json:"space_saved"`
+	ItemsProcessed   int           `json:"items_processed"`
+	CompressionRatio float64       `json:"compression_ratio"`
+	Duration         time.Duration `json:"duration"`
+	Errors           []error       `json:"errors,omitempty"`
 }
 
 // MaintenanceResult contains results of maintenance operations
 type MaintenanceResult struct {
-	TasksCompleted   []string                `json:"tasks_completed"`
-	Duration         time.Duration           `json:"duration"`
-	ItemsProcessed   int                     `json:"items_processed"`
-	SpaceReclaimed   int64                   `json:"space_reclaimed"`
-	ErrorsEncountered []error                `json:"errors_encountered,omitempty"`
-	TierResults      map[TierType]*TierMaintenanceResult `json:"tier_results"`
+	TasksCompleted    []string                            `json:"tasks_completed"`
+	Duration          time.Duration                       `json:"duration"`
+	ItemsProcessed    int                                 `json:"items_processed"`
+	SpaceReclaimed    int64                               `json:"space_reclaimed"`
+	ErrorsEncountered []error                             `json:"errors_encountered,omitempty"`
+	TierResults       map[TierType]*TierMaintenanceResult `json:"tier_results"`
 }
 
 // TierMaintenanceResult contains tier-specific maintenance results
 type TierMaintenanceResult struct {
-	TasksCompleted  []string      `json:"tasks_completed"`
-	ItemsProcessed  int           `json:"items_processed"`
-	SpaceReclaimed  int64         `json:"space_reclaimed"`
-	Duration        time.Duration `json:"duration"`
-	Errors          []error       `json:"errors,omitempty"`
+	TasksCompleted []string      `json:"tasks_completed"`
+	ItemsProcessed int           `json:"items_processed"`
+	SpaceReclaimed int64         `json:"space_reclaimed"`
+	Duration       time.Duration `json:"duration"`
+	Errors         []error       `json:"errors,omitempty"`
 }
 
 // BackendInfo contains information about a storage backend
 type BackendInfo struct {
-	Type            BackendType            `json:"type"`
-	Version         string                 `json:"version"`
-	Capabilities    []string               `json:"capabilities"`
-	MaxKeySize      int                    `json:"max_key_size"`
-	MaxValueSize    int64                  `json:"max_value_size"`
-	SupportsStreaming bool                 `json:"supports_streaming"`
-	SupportsCompression bool               `json:"supports_compression"`
-	SupportsEncryption bool                `json:"supports_encryption"`
-	SupportsTransactions bool              `json:"supports_transactions"`
-	Performance     *BackendPerformance    `json:"performance,omitempty"`
+	Type                 BackendType         `json:"type"`
+	Version              string              `json:"version"`
+	Capabilities         []string            `json:"capabilities"`
+	MaxKeySize           int                 `json:"max_key_size"`
+	MaxValueSize         int64               `json:"max_value_size"`
+	SupportsStreaming    bool                `json:"supports_streaming"`
+	SupportsCompression  bool                `json:"supports_compression"`
+	SupportsEncryption   bool                `json:"supports_encryption"`
+	SupportsTransactions bool                `json:"supports_transactions"`
+	Performance          *BackendPerformance `json:"performance,omitempty"`
 }
 
 // BackendPerformance contains performance characteristics of a backend
@@ -689,32 +689,32 @@ type BackendPerformance struct {
 
 // PromotionStats contains statistics about data promotion
 type PromotionStats struct {
-	TotalPromotions   int64                          `json:"total_promotions"`
-	SuccessfulPromotions int64                       `json:"successful_promotions"`
-	FailedPromotions  int64                          `json:"failed_promotions"`
-	BytesPromoted     int64                          `json:"bytes_promoted"`
-	AvgPromotionTime  time.Duration                  `json:"avg_promotion_time"`
-	TierPromotions    map[TierType]map[TierType]int64 `json:"tier_promotions"` // from -> to -> count
+	TotalPromotions      int64                           `json:"total_promotions"`
+	SuccessfulPromotions int64                           `json:"successful_promotions"`
+	FailedPromotions     int64                           `json:"failed_promotions"`
+	BytesPromoted        int64                           `json:"bytes_promoted"`
+	AvgPromotionTime     time.Duration                   `json:"avg_promotion_time"`
+	TierPromotions       map[TierType]map[TierType]int64 `json:"tier_promotions"` // from -> to -> count
 }
 
 // EvictionStats contains statistics about data eviction
 type EvictionStats struct {
-	TotalEvictions    int64                    `json:"total_evictions"`
-	SuccessfulEvictions int64                  `json:"successful_evictions"`
-	FailedEvictions   int64                    `json:"failed_evictions"`
-	BytesEvicted      int64                    `json:"bytes_evicted"`
-	AvgEvictionTime   time.Duration            `json:"avg_eviction_time"`
-	TierEvictions     map[TierType]int64       `json:"tier_evictions"`
-	EvictionReasons   map[EvictionReason]int64 `json:"eviction_reasons"`
+	TotalEvictions      int64                    `json:"total_evictions"`
+	SuccessfulEvictions int64                    `json:"successful_evictions"`
+	FailedEvictions     int64                    `json:"failed_evictions"`
+	BytesEvicted        int64                    `json:"bytes_evicted"`
+	AvgEvictionTime     time.Duration            `json:"avg_eviction_time"`
+	TierEvictions       map[TierType]int64       `json:"tier_evictions"`
+	EvictionReasons     map[EvictionReason]int64 `json:"eviction_reasons"`
 }
 
 // ReplicationStats contains statistics about data replication
 type ReplicationStats struct {
-	TotalReplications int64         `json:"total_replications"`
-	BytesReplicated   int64         `json:"bytes_replicated"`
+	TotalReplications  int64         `json:"total_replications"`
+	BytesReplicated    int64         `json:"bytes_replicated"`
 	AvgReplicationTime time.Duration `json:"avg_replication_time"`
-	ReplicationLag    time.Duration `json:"replication_lag"`
-	SyncErrors        int64         `json:"sync_errors"`
+	ReplicationLag     time.Duration `json:"replication_lag"`
+	SyncErrors         int64         `json:"sync_errors"`
 }
 
 // EvictionReason represents why data was evicted
@@ -752,20 +752,20 @@ func (r EvictionReason) String() string {
 
 // MetricsSnapshot contains a snapshot of metrics at a point in time
 type MetricsSnapshot struct {
-	Timestamp    time.Time              `json:"timestamp"`
-	TimeRange    TimeRange              `json:"time_range"`
-	TierMetrics  map[TierType]*TierMetrics `json:"tier_metrics"`
-	SystemMetrics *SystemMetrics        `json:"system_metrics"`
+	Timestamp     time.Time                 `json:"timestamp"`
+	TimeRange     TimeRange                 `json:"time_range"`
+	TierMetrics   map[TierType]*TierMetrics `json:"tier_metrics"`
+	SystemMetrics *SystemMetrics            `json:"system_metrics"`
 }
 
 // TierMetrics contains detailed metrics for a storage tier
 type TierMetrics struct {
-	Requests      *RequestMetrics     `json:"requests"`
-	Latency       *LatencyMetrics     `json:"latency"`
-	Throughput    *ThroughputMetrics  `json:"throughput"`
-	Capacity      *CapacityMetrics    `json:"capacity"`
-	Errors        *ErrorMetrics       `json:"errors"`
-	Operations    *OperationMetrics   `json:"operations"`
+	Requests   *RequestMetrics    `json:"requests"`
+	Latency    *LatencyMetrics    `json:"latency"`
+	Throughput *ThroughputMetrics `json:"throughput"`
+	Capacity   *CapacityMetrics   `json:"capacity"`
+	Errors     *ErrorMetrics      `json:"errors"`
+	Operations *OperationMetrics  `json:"operations"`
 }
 
 // RequestMetrics contains request-related metrics
@@ -798,20 +798,20 @@ type ThroughputMetrics struct {
 
 // CapacityMetrics contains capacity utilization metrics
 type CapacityMetrics struct {
-	TotalCapacity    int64   `json:"total_capacity"`
-	UsedCapacity     int64   `json:"used_capacity"`
-	AvailableCapacity int64  `json:"available_capacity"`
-	UtilizationPct   float64 `json:"utilization_pct"`
-	GrowthRate       float64 `json:"growth_rate"`
+	TotalCapacity     int64   `json:"total_capacity"`
+	UsedCapacity      int64   `json:"used_capacity"`
+	AvailableCapacity int64   `json:"available_capacity"`
+	UtilizationPct    float64 `json:"utilization_pct"`
+	GrowthRate        float64 `json:"growth_rate"`
 }
 
 // ErrorMetrics contains error-related metrics
 type ErrorMetrics struct {
-	TotalErrors  int64   `json:"total_errors"`
-	ErrorRate    float64 `json:"error_rate"`
-	Timeouts     int64   `json:"timeouts"`
-	Retries      int64   `json:"retries"`
-	CircuitBreaker int64 `json:"circuit_breaker"`
+	TotalErrors    int64   `json:"total_errors"`
+	ErrorRate      float64 `json:"error_rate"`
+	Timeouts       int64   `json:"timeouts"`
+	Retries        int64   `json:"retries"`
+	CircuitBreaker int64   `json:"circuit_breaker"`
 }
 
 // OperationMetrics contains operation-specific metrics
@@ -837,13 +837,13 @@ type SystemMetrics struct {
 
 // HealthSummary contains a summary of system health
 type HealthSummary struct {
-	OverallHealth   float64                   `json:"overall_health"` // 0.0 to 1.0
-	TierHealth      map[TierType]float64      `json:"tier_health"`
-	ActiveIssues    int                       `json:"active_issues"`
-	CriticalIssues  int                       `json:"critical_issues"`
-	LastCheck       time.Time                 `json:"last_check"`
-	Issues          []HealthIssue             `json:"issues,omitempty"`
-	Recommendations []string                  `json:"recommendations,omitempty"`
+	OverallHealth   float64              `json:"overall_health"` // 0.0 to 1.0
+	TierHealth      map[TierType]float64 `json:"tier_health"`
+	ActiveIssues    int                  `json:"active_issues"`
+	CriticalIssues  int                  `json:"critical_issues"`
+	LastCheck       time.Time            `json:"last_check"`
+	Issues          []HealthIssue        `json:"issues,omitempty"`
+	Recommendations []string             `json:"recommendations,omitempty"`
 }
 
 // TimeRange represents a time range for metrics
@@ -912,15 +912,15 @@ func (e MaintenanceEventType) String() string {
 
 // StorageConfiguration represents the complete storage system configuration
 type StorageConfiguration struct {
-	Version     string                      `json:"version" yaml:"version"`
-	Profile     string                      `json:"profile" yaml:"profile"`
-	Enabled     bool                        `json:"enabled" yaml:"enabled"`
-	Tiers       *StorageTiersConfig         `json:"tiers,omitempty" yaml:"tiers,omitempty"`
-	Strategy    *StorageStrategyConfig      `json:"strategy,omitempty" yaml:"strategy,omitempty"`
-	Monitoring  *StorageMonitoringConfig    `json:"monitoring,omitempty" yaml:"monitoring,omitempty"`
-	Maintenance *StorageMaintenanceConfig   `json:"maintenance,omitempty" yaml:"maintenance,omitempty"`
-	Security    *StorageSecurityConfig      `json:"security,omitempty" yaml:"security,omitempty"`
-	Advanced    *AdvancedStorageConfig      `json:"advanced,omitempty" yaml:"advanced,omitempty"`
+	Version     string                    `json:"version" yaml:"version"`
+	Profile     string                    `json:"profile" yaml:"profile"`
+	Enabled     bool                      `json:"enabled" yaml:"enabled"`
+	Tiers       *StorageTiersConfig       `json:"tiers,omitempty" yaml:"tiers,omitempty"`
+	Strategy    *StorageStrategyConfig    `json:"strategy,omitempty" yaml:"strategy,omitempty"`
+	Monitoring  *StorageMonitoringConfig  `json:"monitoring,omitempty" yaml:"monitoring,omitempty"`
+	Maintenance *StorageMaintenanceConfig `json:"maintenance,omitempty" yaml:"maintenance,omitempty"`
+	Security    *StorageSecurityConfig    `json:"security,omitempty" yaml:"security,omitempty"`
+	Advanced    *AdvancedStorageConfig    `json:"advanced,omitempty" yaml:"advanced,omitempty"`
 }
 
 // StorageTiersConfig contains configuration for all storage tiers
@@ -932,27 +932,27 @@ type StorageTiersConfig struct {
 
 // TierConfiguration contains configuration for an individual storage tier
 type TierConfiguration struct {
-	Enabled        bool                        `json:"enabled" yaml:"enabled"`
-	Capacity       string                      `json:"capacity" yaml:"capacity"`
-	MaxEntries     int64                       `json:"max_entries" yaml:"max_entries"`
-	EvictionPolicy string                      `json:"eviction_policy" yaml:"eviction_policy"`
-	Backend        *BackendConfiguration       `json:"backend,omitempty" yaml:"backend,omitempty"`
-	Compression    *CompressionConfiguration   `json:"compression,omitempty" yaml:"compression,omitempty"`
-	Encryption     *EncryptionConfiguration    `json:"encryption,omitempty" yaml:"encryption,omitempty"`
-	Performance    *TierPerformanceConfig      `json:"performance,omitempty" yaml:"performance,omitempty"`
-	Reliability    *TierReliabilityConfig      `json:"reliability,omitempty" yaml:"reliability,omitempty"`
+	Enabled        bool                      `json:"enabled" yaml:"enabled"`
+	Capacity       string                    `json:"capacity" yaml:"capacity"`
+	MaxEntries     int64                     `json:"max_entries" yaml:"max_entries"`
+	EvictionPolicy string                    `json:"eviction_policy" yaml:"eviction_policy"`
+	Backend        *BackendConfiguration     `json:"backend,omitempty" yaml:"backend,omitempty"`
+	Compression    *CompressionConfiguration `json:"compression,omitempty" yaml:"compression,omitempty"`
+	Encryption     *EncryptionConfiguration  `json:"encryption,omitempty" yaml:"encryption,omitempty"`
+	Performance    *TierPerformanceConfig    `json:"performance,omitempty" yaml:"performance,omitempty"`
+	Reliability    *TierReliabilityConfig    `json:"reliability,omitempty" yaml:"reliability,omitempty"`
 }
 
 // BackendConfiguration contains backend-specific configuration
 type BackendConfiguration struct {
-	Type             string                     `json:"type" yaml:"type"`
-	Path             string                     `json:"path,omitempty" yaml:"path,omitempty"`
-	Bucket           string                     `json:"bucket,omitempty" yaml:"bucket,omitempty"`
-	Region           string                     `json:"region,omitempty" yaml:"region,omitempty"`
-	Endpoint         string                     `json:"endpoint,omitempty" yaml:"endpoint,omitempty"`
-	ConnectionString string                     `json:"connection_string,omitempty" yaml:"connection_string,omitempty"`
-	Authentication   *AuthenticationConfig      `json:"authentication,omitempty" yaml:"authentication,omitempty"`
-	Options          map[string]interface{}     `json:"options,omitempty" yaml:"options,omitempty"`
+	Type             string                 `json:"type" yaml:"type"`
+	Path             string                 `json:"path,omitempty" yaml:"path,omitempty"`
+	Bucket           string                 `json:"bucket,omitempty" yaml:"bucket,omitempty"`
+	Region           string                 `json:"region,omitempty" yaml:"region,omitempty"`
+	Endpoint         string                 `json:"endpoint,omitempty" yaml:"endpoint,omitempty"`
+	ConnectionString string                 `json:"connection_string,omitempty" yaml:"connection_string,omitempty"`
+	Authentication   *AuthenticationConfig  `json:"authentication,omitempty" yaml:"authentication,omitempty"`
+	Options          map[string]interface{} `json:"options,omitempty" yaml:"options,omitempty"`
 }
 
 // CompressionConfiguration contains compression settings
@@ -1024,30 +1024,30 @@ type StorageStrategyConfig struct {
 
 // PromotionStrategyConfig contains promotion strategy configuration
 type PromotionStrategyConfig struct {
-	Type               string                   `json:"type" yaml:"type"`
-	MinAccessCount     int64                    `json:"min_access_count" yaml:"min_access_count"`
-	MinAccessFrequency float64                  `json:"min_access_frequency" yaml:"min_access_frequency"`
-	AccessTimeWindow   time.Duration            `json:"access_time_window" yaml:"access_time_window"`
-	PromotionCooldown  time.Duration            `json:"promotion_cooldown" yaml:"promotion_cooldown"`
-	RecencyWeight      float64                  `json:"recency_weight" yaml:"recency_weight"`
-	FrequencyWeight    float64                  `json:"frequency_weight" yaml:"frequency_weight"`
-	SizeWeight         float64                  `json:"size_weight" yaml:"size_weight"`
-	TierThresholds     map[string]float64       `json:"tier_thresholds,omitempty" yaml:"tier_thresholds,omitempty"`
-	CustomParameters   map[string]interface{}   `json:"custom_parameters,omitempty" yaml:"custom_parameters,omitempty"`
+	Type               string                 `json:"type" yaml:"type"`
+	MinAccessCount     int64                  `json:"min_access_count" yaml:"min_access_count"`
+	MinAccessFrequency float64                `json:"min_access_frequency" yaml:"min_access_frequency"`
+	AccessTimeWindow   time.Duration          `json:"access_time_window" yaml:"access_time_window"`
+	PromotionCooldown  time.Duration          `json:"promotion_cooldown" yaml:"promotion_cooldown"`
+	RecencyWeight      float64                `json:"recency_weight" yaml:"recency_weight"`
+	FrequencyWeight    float64                `json:"frequency_weight" yaml:"frequency_weight"`
+	SizeWeight         float64                `json:"size_weight" yaml:"size_weight"`
+	TierThresholds     map[string]float64     `json:"tier_thresholds,omitempty" yaml:"tier_thresholds,omitempty"`
+	CustomParameters   map[string]interface{} `json:"custom_parameters,omitempty" yaml:"custom_parameters,omitempty"`
 }
 
 // EvictionPolicyConfig contains eviction policy configuration
 type EvictionPolicyConfig struct {
-	Type                 string                 `json:"type" yaml:"type"`
-	EvictionThreshold    float64                `json:"eviction_threshold" yaml:"eviction_threshold"`
-	TargetUtilization    float64                `json:"target_utilization" yaml:"target_utilization"`
-	EvictionBatchSize    int                    `json:"eviction_batch_size" yaml:"eviction_batch_size"`
-	AccessAgeThreshold   time.Duration          `json:"access_age_threshold" yaml:"access_age_threshold"`
-	InactivityThreshold  time.Duration          `json:"inactivity_threshold" yaml:"inactivity_threshold"`
-	DefaultTTL           time.Duration          `json:"default_ttl" yaml:"default_ttl"`
-	MaxTTL               time.Duration          `json:"max_ttl" yaml:"max_ttl"`
-	SizeWeight           float64                `json:"size_weight" yaml:"size_weight"`
-	CustomParameters     map[string]interface{} `json:"custom_parameters,omitempty" yaml:"custom_parameters,omitempty"`
+	Type                string                 `json:"type" yaml:"type"`
+	EvictionThreshold   float64                `json:"eviction_threshold" yaml:"eviction_threshold"`
+	TargetUtilization   float64                `json:"target_utilization" yaml:"target_utilization"`
+	EvictionBatchSize   int                    `json:"eviction_batch_size" yaml:"eviction_batch_size"`
+	AccessAgeThreshold  time.Duration          `json:"access_age_threshold" yaml:"access_age_threshold"`
+	InactivityThreshold time.Duration          `json:"inactivity_threshold" yaml:"inactivity_threshold"`
+	DefaultTTL          time.Duration          `json:"default_ttl" yaml:"default_ttl"`
+	MaxTTL              time.Duration          `json:"max_ttl" yaml:"max_ttl"`
+	SizeWeight          float64                `json:"size_weight" yaml:"size_weight"`
+	CustomParameters    map[string]interface{} `json:"custom_parameters,omitempty" yaml:"custom_parameters,omitempty"`
 }
 
 // AccessTrackingConfig contains access tracking configuration
@@ -1066,35 +1066,35 @@ type AccessTrackingConfig struct {
 
 // AutoOptimizationConfig contains auto optimization configuration
 type AutoOptimizationConfig struct {
-	Enabled              bool    `json:"enabled" yaml:"enabled"`
+	Enabled              bool          `json:"enabled" yaml:"enabled"`
 	OptimizationInterval time.Duration `json:"optimization_interval" yaml:"optimization_interval"`
-	PerformanceThreshold float64 `json:"performance_threshold" yaml:"performance_threshold"`
-	CapacityThreshold    float64 `json:"capacity_threshold" yaml:"capacity_threshold"`
+	PerformanceThreshold float64       `json:"performance_threshold" yaml:"performance_threshold"`
+	CapacityThreshold    float64       `json:"capacity_threshold" yaml:"capacity_threshold"`
 }
 
 // StorageMonitoringConfig contains monitoring configuration
 type StorageMonitoringConfig struct {
-	Enabled         bool                   `json:"enabled" yaml:"enabled"`
-	MetricsInterval time.Duration          `json:"metrics_interval" yaml:"metrics_interval"`
-	HealthInterval  time.Duration          `json:"health_interval" yaml:"health_interval"`
-	LogLevel        string                 `json:"log_level" yaml:"log_level"`
-	ExportFormat    string                 `json:"export_format" yaml:"export_format"`
-	RetentionPeriod time.Duration          `json:"retention_period" yaml:"retention_period"`
-	DetailedMetrics bool                   `json:"detailed_metrics" yaml:"detailed_metrics"`
-	TraceRequests   bool                   `json:"trace_requests" yaml:"trace_requests"`
-	AlertThresholds map[string]float64     `json:"alert_thresholds,omitempty" yaml:"alert_thresholds,omitempty"`
+	Enabled         bool               `json:"enabled" yaml:"enabled"`
+	MetricsInterval time.Duration      `json:"metrics_interval" yaml:"metrics_interval"`
+	HealthInterval  time.Duration      `json:"health_interval" yaml:"health_interval"`
+	LogLevel        string             `json:"log_level" yaml:"log_level"`
+	ExportFormat    string             `json:"export_format" yaml:"export_format"`
+	RetentionPeriod time.Duration      `json:"retention_period" yaml:"retention_period"`
+	DetailedMetrics bool               `json:"detailed_metrics" yaml:"detailed_metrics"`
+	TraceRequests   bool               `json:"trace_requests" yaml:"trace_requests"`
+	AlertThresholds map[string]float64 `json:"alert_thresholds,omitempty" yaml:"alert_thresholds,omitempty"`
 }
 
 // StorageMaintenanceConfig contains maintenance configuration
 type StorageMaintenanceConfig struct {
-	Enabled             bool                      `json:"enabled" yaml:"enabled"`
-	Schedule            string                    `json:"schedule" yaml:"schedule"`
-	CompactionThreshold float64                   `json:"compaction_threshold" yaml:"compaction_threshold"`
-	VacuumInterval      time.Duration             `json:"vacuum_interval" yaml:"vacuum_interval"`
-	CleanupAge          time.Duration             `json:"cleanup_age" yaml:"cleanup_age"`
-	BackupInterval      time.Duration             `json:"backup_interval" yaml:"backup_interval"`
-	BackupRetention     time.Duration             `json:"backup_retention" yaml:"backup_retention"`
-	MaintenanceWindow   *MaintenanceWindowConfig  `json:"maintenance_window,omitempty" yaml:"maintenance_window,omitempty"`
+	Enabled             bool                     `json:"enabled" yaml:"enabled"`
+	Schedule            string                   `json:"schedule" yaml:"schedule"`
+	CompactionThreshold float64                  `json:"compaction_threshold" yaml:"compaction_threshold"`
+	VacuumInterval      time.Duration            `json:"vacuum_interval" yaml:"vacuum_interval"`
+	CleanupAge          time.Duration            `json:"cleanup_age" yaml:"cleanup_age"`
+	BackupInterval      time.Duration            `json:"backup_interval" yaml:"backup_interval"`
+	BackupRetention     time.Duration            `json:"backup_retention" yaml:"backup_retention"`
+	MaintenanceWindow   *MaintenanceWindowConfig `json:"maintenance_window,omitempty" yaml:"maintenance_window,omitempty"`
 }
 
 // MaintenanceWindowConfig contains maintenance window configuration
@@ -1107,17 +1107,17 @@ type MaintenanceWindowConfig struct {
 
 // StorageSecurityConfig contains security configuration
 type StorageSecurityConfig struct {
-	EncryptionAtRest    bool                     `json:"encryption_at_rest" yaml:"encryption_at_rest"`
-	EncryptionInTransit bool                     `json:"encryption_in_transit" yaml:"encryption_in_transit"`
-	AccessControl       *AccessControlConfig     `json:"access_control,omitempty" yaml:"access_control,omitempty"`
-	AuditLogging        *AuditLoggingConfig      `json:"audit_logging,omitempty" yaml:"audit_logging,omitempty"`
+	EncryptionAtRest    bool                      `json:"encryption_at_rest" yaml:"encryption_at_rest"`
+	EncryptionInTransit bool                      `json:"encryption_in_transit" yaml:"encryption_in_transit"`
+	AccessControl       *AccessControlConfig      `json:"access_control,omitempty" yaml:"access_control,omitempty"`
+	AuditLogging        *AuditLoggingConfig       `json:"audit_logging,omitempty" yaml:"audit_logging,omitempty"`
 	DataClassification  *DataClassificationConfig `json:"data_classification,omitempty" yaml:"data_classification,omitempty"`
 }
 
 // AccessControlConfig contains access control configuration
 type AccessControlConfig struct {
-	Enabled       bool               `json:"enabled" yaml:"enabled"`
-	DefaultPolicy string             `json:"default_policy" yaml:"default_policy"`
+	Enabled       bool                `json:"enabled" yaml:"enabled"`
+	DefaultPolicy string              `json:"default_policy" yaml:"default_policy"`
 	RateLimiting  *RateLimitingConfig `json:"rate_limiting,omitempty" yaml:"rate_limiting,omitempty"`
 }
 
@@ -1139,9 +1139,9 @@ type AuditLoggingConfig struct {
 
 // DataClassificationConfig contains data classification configuration
 type DataClassificationConfig struct {
-	Enabled            bool              `json:"enabled" yaml:"enabled"`
-	DefaultLevel       string            `json:"default_level" yaml:"default_level"`
-	ClassificationRules []string         `json:"classification_rules" yaml:"classification_rules"`
+	Enabled             bool     `json:"enabled" yaml:"enabled"`
+	DefaultLevel        string   `json:"default_level" yaml:"default_level"`
+	ClassificationRules []string `json:"classification_rules" yaml:"classification_rules"`
 }
 
 // AdvancedStorageConfig contains advanced configuration options

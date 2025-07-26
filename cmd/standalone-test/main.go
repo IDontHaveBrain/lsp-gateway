@@ -113,33 +113,33 @@ func scanProject(rootPath string) (*SimpleProjectInfo, error) {
 
 	// Language detection patterns
 	langPatterns := map[string][]string{
-		"go":              {".go"},
+		"go":                {".go"},
 		mcp.LANG_PYTHON:     {".py", ".pyx", ".pyi"},
 		mcp.LANG_TYPESCRIPT: {".ts", ".tsx"},
 		mcp.LANG_JAVASCRIPT: {".js", ".jsx"},
 		mcp.LANG_JAVA:       {".java"},
-		"rust":       {".rs"},
-		"c":          {".c", ".h"},
-		"cpp":        {".cpp", ".hpp", ".cc", ".cxx"},
-		"csharp":     {".cs"},
-		"ruby":       {".rb"},
-		"php":        {".php"},
-		"swift":      {".swift"},
+		"rust":              {".rs"},
+		"c":                 {".c", ".h"},
+		"cpp":               {".cpp", ".hpp", ".cc", ".cxx"},
+		"csharp":            {".cs"},
+		"ruby":              {".rb"},
+		"php":               {".php"},
+		"swift":             {".swift"},
 	}
 
 	buildFilePatterns := map[string][]string{
-		"go":              {"go.mod", "go.sum", "go.work"},
+		"go":                {"go.mod", "go.sum", "go.work"},
 		mcp.LANG_PYTHON:     {"setup.py", "pyproject.toml", "requirements.txt", "Pipfile"},
 		mcp.LANG_TYPESCRIPT: {"tsconfig.json", "package.json"},
 		mcp.LANG_JAVASCRIPT: {"package.json", "yarn.lock"},
 		mcp.LANG_JAVA:       {"pom.xml", "build.gradle", "build.gradle.kts"},
-		"rust":       {"Cargo.toml", "Cargo.lock"},
-		"c":          {"Makefile", "CMakeLists.txt"},
-		"cpp":        {"Makefile", "CMakeLists.txt", "meson.build"},
-		"csharp":     {"*.csproj", "*.sln"},
-		"ruby":       {"Gemfile", "*.gemspec"},
-		"php":        {"composer.json"},
-		"swift":      {"Package.swift", "*.xcodeproj"},
+		"rust":              {"Cargo.toml", "Cargo.lock"},
+		"c":                 {"Makefile", "CMakeLists.txt"},
+		"cpp":               {"Makefile", "CMakeLists.txt", "meson.build"},
+		"csharp":            {"*.csproj", "*.sln"},
+		"ruby":              {"Gemfile", "*.gemspec"},
+		"php":               {"composer.json"},
+		"swift":             {"Package.swift", "*.xcodeproj"},
 	}
 
 	// Walk through project directory
@@ -265,18 +265,18 @@ func shouldIgnoreDir(name string) bool {
 
 func getRecommendedLSPServer(language string) string {
 	servers := map[string]string{
-		"go":              "gopls",
+		"go":                "gopls",
 		mcp.LANG_PYTHON:     "python-lsp-server",
 		mcp.LANG_TYPESCRIPT: "typescript-language-server",
 		mcp.LANG_JAVASCRIPT: "typescript-language-server",
 		mcp.LANG_JAVA:       "eclipse-jdtls",
-		"rust":       "rust-analyzer",
-		"c":          "clangd",
-		"cpp":        "clangd",
-		"csharp":     "omnisharp",
-		"ruby":       "solargraph",
-		"php":        "intelephense",
-		"swift":      "sourcekit-lsp",
+		"rust":              "rust-analyzer",
+		"c":                 "clangd",
+		"cpp":               "clangd",
+		"csharp":            "omnisharp",
+		"ruby":              "solargraph",
+		"php":               "intelephense",
+		"swift":             "sourcekit-lsp",
 	}
 
 	if server, found := servers[language]; found {
@@ -301,10 +301,10 @@ func classifyProject(languages map[string]*SimpleLanguageInfo) string {
 		mcp.LANG_JAVASCRIPT: true,
 	}
 	backendLangs := map[string]bool{
-		"go":          true,
+		"go":            true,
 		mcp.LANG_PYTHON: true,
 		mcp.LANG_JAVA:   true,
-		"rust":   true,
+		"rust":          true,
 	}
 
 	hasFrontend := false

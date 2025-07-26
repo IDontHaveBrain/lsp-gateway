@@ -13,12 +13,6 @@ type MockSCIPIndexer struct {
 	closed          bool
 }
 
-type IndexedRequest struct {
-	Method    string
-	Params    interface{}
-	Response  json.RawMessage
-	RequestID string
-}
 
 func NewMockSCIPIndexer(enabled bool) *MockSCIPIndexer {
 	return &MockSCIPIndexer{

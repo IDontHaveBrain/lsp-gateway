@@ -2921,6 +2921,7 @@ func (tv *TemplateValidator) isValidServerName(name string) bool {
 	validNamePattern := regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
 	return validNamePattern.MatchString(name) && len(name) <= 50
 }
+
 // SCIPValidator provides comprehensive validation for SCIP configuration
 type SCIPValidator struct{}
 
@@ -2949,16 +2950,16 @@ func (sv *SCIPValidator) ValidateSCIPConfiguration(config *GatewayConfig) Compon
 
 	// Validate core SCIP configuration
 	sv.validateSCIPCore(scip, &errors, &warnings, &score)
-	
+
 	// Validate SCIP index path
 	sv.validateSCIPIndexPath(scip, &errors, &warnings, &score)
-	
+
 	// Validate SCIP timeouts and intervals
 	sv.validateSCIPTimeouts(scip, &errors, &warnings, &score)
-	
+
 	// Validate SCIP cache configuration
 	sv.validateSCIPCache(scip, &errors, &warnings, &score)
-	
+
 	// Validate language-specific configurations
 	sv.validateSCIPLanguageSettings(scip, &errors, &warnings, &score)
 
@@ -3081,7 +3082,7 @@ func (sv *SCIPValidator) validateSCIPTimeouts(scip *SCIPConfiguration, errors *[
 			// Check if interval is reasonable (5m to 24h)
 			minInterval := 5 * time.Minute
 			maxInterval := 24 * time.Hour
-			
+
 			if scip.RefreshInterval < minInterval {
 				*warnings = append(*warnings, ValidationWarning{
 					Component:  "scip_configuration",
@@ -3094,7 +3095,7 @@ func (sv *SCIPValidator) validateSCIPTimeouts(scip *SCIPConfiguration, errors *[
 				})
 				*score -= 15
 			}
-			
+
 			if scip.RefreshInterval > maxInterval {
 				*warnings = append(*warnings, ValidationWarning{
 					Component:  "scip_configuration",
@@ -3118,7 +3119,7 @@ func (sv *SCIPValidator) validateSCIPCache(scip *SCIPConfiguration, errors *[]Va
 	}
 
 	cache := &scip.CacheConfig
-	
+
 	if !cache.Enabled {
 		*warnings = append(*warnings, ValidationWarning{
 			Component:  "scip_configuration",
@@ -3149,7 +3150,7 @@ func (sv *SCIPValidator) validateSCIPCache(scip *SCIPConfiguration, errors *[]Va
 		// Check reasonable TTL range (1m to 24h)
 		minTTL := 1 * time.Minute
 		maxTTL := 24 * time.Hour
-		
+
 		if cache.TTL < minTTL {
 			*warnings = append(*warnings, ValidationWarning{
 				Component:  "scip_configuration",
@@ -3162,7 +3163,7 @@ func (sv *SCIPValidator) validateSCIPCache(scip *SCIPConfiguration, errors *[]Va
 			})
 			*score -= 8
 		}
-		
+
 		if cache.TTL > maxTTL {
 			*warnings = append(*warnings, ValidationWarning{
 				Component:  "scip_configuration",
@@ -3320,7 +3321,7 @@ func (sv *SCIPValidator) validateSCIPLanguageConfig(lang string, config *SCIPLan
 		// Check reasonable timeout range (1m to 30m)
 		minTimeout := 1 * time.Minute
 		maxTimeout := 30 * time.Minute
-		
+
 		if config.IndexTimeout < minTimeout {
 			*warnings = append(*warnings, ValidationWarning{
 				Component:  "scip_configuration",
@@ -3333,7 +3334,7 @@ func (sv *SCIPValidator) validateSCIPLanguageConfig(lang string, config *SCIPLan
 			})
 			*score -= 10
 		}
-		
+
 		if config.IndexTimeout > maxTimeout {
 			*warnings = append(*warnings, ValidationWarning{
 				Component:  "scip_configuration",
@@ -3364,11 +3365,11 @@ func (sv *SCIPValidator) generateSCIPRecommendations(scip *SCIPConfiguration, er
 			Risks:       []string{"Additional disk space usage", "Initial indexing time"},
 			Config: map[string]interface{}{
 				"scip": map[string]interface{}{
-					"enabled":           true,
-					"index_path":        "/opt/lsp-gateway/scip-indices",
-					"auto_refresh":      true,
-					"refresh_interval":  "30m",
-					"fallback_to_lsp":   true,
+					"enabled":          true,
+					"index_path":       "/opt/lsp-gateway/scip-indices",
+					"auto_refresh":     true,
+					"refresh_interval": "30m",
+					"fallback_to_lsp":  true,
 				},
 			},
 		})
@@ -3424,8 +3425,8 @@ func (sv *SCIPValidator) generateSCIPRecommendations(scip *SCIPConfiguration, er
 			Benefits:    []string{"Up-to-date navigation data", "Automatic maintenance", "Consistent user experience"},
 			Risks:       []string{"Resource usage during refresh", "Temporary performance impact"},
 			Config: map[string]interface{}{
-				"auto_refresh":      true,
-				"refresh_interval":  "30m",
+				"auto_refresh":     true,
+				"refresh_interval": "30m",
 			},
 		})
 	}

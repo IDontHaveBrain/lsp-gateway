@@ -17,11 +17,11 @@ func ExampleRemoteCacheUsage() {
 		BackendConfig: BackendConfig{
 			Type:             BackendCustom,
 			ConnectionString: "https://cache-api.example.com/v1",
-			APIKey:          "your-api-key-here",
-			TimeoutMs:       5000,
-			MaxConnections:  20,
-			RetryCount:      3,
-			RetryDelayMs:    500,
+			APIKey:           "your-api-key-here",
+			TimeoutMs:        5000,
+			MaxConnections:   20,
+			RetryCount:       3,
+			RetryDelayMs:     500,
 			CircuitBreaker: &CircuitBreakerConfig{
 				Enabled:          true,
 				FailureThreshold: 10,
@@ -239,7 +239,7 @@ func demonstrateRemoteCacheOperations(ctx context.Context, cache *RemoteCache) {
 
 	// Invalidation examples
 	log.Println("Demonstrating invalidation...")
-	
+
 	// Invalidate by file
 	invalidated, err := cache.InvalidateByFile(ctx, "/example/project/src/main.go")
 	if err != nil {
@@ -267,7 +267,7 @@ func demonstrateRemoteCacheOperations(ctx context.Context, cache *RemoteCache) {
 
 func createExampleEntry(filename, operation string) *CacheEntry {
 	key := filename + ":" + operation
-	
+
 	var response []byte
 	switch operation {
 	case "symbols":
@@ -307,11 +307,11 @@ func NewHTTPRemoteCacheConfig(endpoint, apiKey string) TierConfig {
 		BackendConfig: BackendConfig{
 			Type:             BackendCustom,
 			ConnectionString: endpoint,
-			APIKey:          apiKey,
-			TimeoutMs:       5000,
-			MaxConnections:  20,
-			RetryCount:      3,
-			RetryDelayMs:    500,
+			APIKey:           apiKey,
+			TimeoutMs:        5000,
+			MaxConnections:   20,
+			RetryCount:       3,
+			RetryDelayMs:     500,
 			CircuitBreaker: &CircuitBreakerConfig{
 				Enabled:          true,
 				FailureThreshold: 10,
@@ -338,7 +338,7 @@ func NewHTTPRemoteCacheConfig(endpoint, apiKey string) TierConfig {
 // NewS3RemoteCacheConfig creates a configuration for S3-compatible backend
 func NewS3RemoteCacheConfig(bucket, region, accessKey, secretKey string) TierConfig {
 	connectionString := fmt.Sprintf("s3://%s@%s/cache", bucket, region)
-	
+
 	return TierConfig{
 		TierType:    TierL3Remote,
 		BackendType: BackendS3,
@@ -381,7 +381,7 @@ func NewS3RemoteCacheConfig(bucket, region, accessKey, secretKey string) TierCon
 // NewRedisRemoteCacheConfig creates a configuration for Redis cluster backend
 func NewRedisRemoteCacheConfig(addresses []string, password string) TierConfig {
 	connectionString := strings.Join(addresses, ",")
-	
+
 	return TierConfig{
 		TierType:    TierL3Remote,
 		BackendType: BackendRedis,

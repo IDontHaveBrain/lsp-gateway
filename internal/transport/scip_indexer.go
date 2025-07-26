@@ -18,36 +18,44 @@ type SCIPIndexer interface {
 	//   - response: The LSP response data
 	//   - requestID: The request ID for correlation
 	IndexResponse(method string, params interface{}, response json.RawMessage, requestID string)
-	
+
 	// IsEnabled returns whether SCIP indexing is currently enabled.
 	// Transport layers should check this before attempting to index.
 	IsEnabled() bool
-	
+
 	// Close gracefully shuts down the indexer and flushes any pending operations.
 	Close() error
+}
+
+// IndexedRequest represents a request that has been indexed for testing purposes
+type IndexedRequest struct {
+	Method    string
+	Params    interface{}
+	Response  json.RawMessage
+	RequestID string
 }
 
 // SCIPIndexerConfig holds configuration for SCIP indexing behavior
 type SCIPIndexerConfig struct {
 	// BatchSize controls how many responses to batch before processing
 	BatchSize int
-	
+
 	// FlushInterval controls how often to flush batched responses
 	FlushInterval string
-	
+
 	// MaxGoroutines limits concurrent indexing goroutines
 	MaxGoroutines int
-	
+
 	// BufferSize controls the channel buffer size for non-blocking operations
 	BufferSize int
 }
 
 // CacheableMethod represents a cacheable LSP method with performance characteristics
 type CacheableMethod struct {
-	Method           string
-	PerformanceGain  float64 // Percentage improvement with SCIP (e.g., 0.87 for 87%)
-	PartialCompat    bool    // Whether method has partial compatibility with SCIP
-	Description      string
+	Method          string
+	PerformanceGain float64 // Percentage improvement with SCIP (e.g., 0.87 for 87%)
+	PartialCompat   bool    // Whether method has partial compatibility with SCIP
+	Description     string
 }
 
 // High-value cacheable LSP methods with performance benefits
@@ -139,7 +147,7 @@ func NewSafeIndexerWrapper(indexer SCIPIndexer, maxRoutines int) *SafeIndexerWra
 	if maxRoutines <= 0 {
 		maxRoutines = 10 // Default reasonable limit
 	}
-	
+
 	return &SafeIndexerWrapper{
 		indexer:     indexer,
 		maxRoutines: maxRoutines,
@@ -153,11 +161,11 @@ func (w *SafeIndexerWrapper) SafeIndexResponse(method string, params interface{}
 	if w.indexer == nil || !w.indexer.IsEnabled() {
 		return
 	}
-	
+
 	if !IsCacheableMethod(method) {
 		return
 	}
-	
+
 	// Try to acquire a goroutine slot (non-blocking)
 	select {
 	case w.routinesCh <- struct{}{}:
@@ -166,23 +174,23 @@ func (w *SafeIndexerWrapper) SafeIndexResponse(method string, params interface{}
 			defer func() {
 				// Release the slot
 				<-w.routinesCh
-				
+
 				// Recover from any panics in the indexer
 				if r := recover(); r != nil {
 					log.Printf("SCIP indexer panic recovered for method %s, request %s: %v", method, requestID, r)
 				}
 			}()
-			
+
 			// Call the indexer with timeout context
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
-			
+
 			done := make(chan struct{})
 			go func() {
 				defer close(done)
 				w.indexer.IndexResponse(method, params, response, requestID)
 			}()
-			
+
 			select {
 			case <-done:
 				// Indexing completed successfully

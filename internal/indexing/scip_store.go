@@ -14,18 +14,18 @@ import (
 
 // RealSCIPStore is the production implementation of SCIPStore using actual SCIP indexing
 type RealSCIPStore struct {
-	scipClient   interface{} // SCIPClient placeholder - will be replaced when client is fixed
-	cache        *SCIPCache
-	config       *SCIPConfig
-	stats        SCIPStoreStats
-	mutex        sync.RWMutex
-	
+	scipClient interface{} // SCIPClient placeholder - will be replaced when client is fixed
+	cache      *SCIPCache
+	config     *SCIPConfig
+	stats      SCIPStoreStats
+	mutex      sync.RWMutex
+
 	// Performance tracking
-	queryTimes   []time.Duration
-	startTime    time.Time
-	queryCount   int64
-	hitCount     int64
-	
+	queryTimes []time.Duration
+	startTime  time.Time
+	queryCount int64
+	hitCount   int64
+
 	// Concurrency control
 	queryLimiter chan struct{}
 	shutdown     chan struct{}
@@ -34,16 +34,16 @@ type RealSCIPStore struct {
 
 // SCIPCache implements production-ready caching with LRU eviction and TTL
 type SCIPCache struct {
-	entries      map[string]*SCIPCacheEntryExtended
-	lruList      *list.List
-	maxSize      int
-	mutex        sync.RWMutex
-	
+	entries map[string]*SCIPCacheEntryExtended
+	lruList *list.List
+	maxSize int
+	mutex   sync.RWMutex
+
 	// Performance metrics
-	hitCount     int64
-	missCount    int64
+	hitCount      int64
+	missCount     int64
 	evictionCount int64
-	
+
 	// Background cleanup
 	cleanupTicker *time.Ticker
 	stopCleanup   chan struct{}
@@ -52,12 +52,12 @@ type SCIPCache struct {
 // SCIPCacheEntryExtended extends the existing SCIPCacheEntry with LRU support
 type SCIPCacheEntryExtended struct {
 	*SCIPCacheEntry
-	
+
 	// LRU support
 	lruElement *list.Element
-	
+
 	// File associations for invalidation
-	FilePaths  []string `json:"file_paths"`
+	FilePaths []string `json:"file_paths"`
 }
 
 // NewRealSCIPStore creates a new production SCIP store with the given configuration
@@ -159,7 +159,7 @@ func (s *RealSCIPStore) LoadIndex(path string) error {
 // Query performs a query against the loaded SCIP index with caching and concurrency control
 func (s *RealSCIPStore) Query(method string, params interface{}) SCIPQueryResult {
 	startTime := time.Now()
-	
+
 	// Acquire query slot for concurrency control
 	select {
 	case s.queryLimiter <- struct{}{}:
@@ -194,7 +194,7 @@ func (s *RealSCIPStore) Query(method string, params interface{}) SCIPQueryResult
 	cacheKey := s.generateCacheKey(method, params)
 	if cachedResult := s.cache.Get(cacheKey); cachedResult != nil {
 		atomic.AddInt64(&s.hitCount, 1)
-		
+
 		result := SCIPQueryResult{
 			Found:      true,
 			Method:     method,
@@ -211,7 +211,7 @@ func (s *RealSCIPStore) Query(method string, params interface{}) SCIPQueryResult
 
 		s.updateStats(result.QueryTime)
 		if s.config.Logging.LogQueries {
-			log.Printf("SCIP: Query %d for method %s completed from cache in %v", 
+			log.Printf("SCIP: Query %d for method %s completed from cache in %v",
 				queryID, method, result.QueryTime)
 		}
 		return result
@@ -219,7 +219,7 @@ func (s *RealSCIPStore) Query(method string, params interface{}) SCIPQueryResult
 
 	// Perform actual SCIP query
 	result := s.performSCIPQuery(method, params, queryID, startTime)
-	
+
 	// Cache the result if successful and caching is enabled
 	if result.Found && s.config.CacheConfig.Enabled {
 		if err := s.CacheResponse(method, params, result.Response); err != nil && s.config.Logging.LogCacheOperations {
@@ -228,9 +228,9 @@ func (s *RealSCIPStore) Query(method string, params interface{}) SCIPQueryResult
 	}
 
 	s.updateStats(result.QueryTime)
-	
+
 	if s.config.Logging.LogQueries {
-		log.Printf("SCIP: Query %d for method %s completed in %v (found: %t, confidence: %.2f)", 
+		log.Printf("SCIP: Query %d for method %s completed in %v (found: %t, confidence: %.2f)",
 			queryID, method, result.QueryTime, result.Found, result.Confidence)
 	}
 
@@ -262,7 +262,6 @@ func (s *RealSCIPStore) executeQuery(ctx context.Context, method string, params 
 }
 
 // TODO: Query handlers will be implemented when SCIP client is available
-
 
 // CacheResponse caches a response for future queries with LRU management
 func (s *RealSCIPStore) CacheResponse(method string, params interface{}, response json.RawMessage) error {
@@ -364,7 +363,7 @@ func (s *RealSCIPStore) GetStats() SCIPStoreStats {
 func (s *RealSCIPStore) Close() error {
 	// Signal shutdown
 	close(s.shutdown)
-	
+
 	// Wait for background processes to complete
 	s.wg.Wait()
 
@@ -392,7 +391,7 @@ func (s *RealSCIPStore) generateCacheKey(method string, params interface{}) stri
 
 func (s *RealSCIPStore) extractFilePathsFromParams(params interface{}) []string {
 	var filePaths []string
-	
+
 	if paramMap, ok := params.(map[string]interface{}); ok {
 		if textDoc, ok := paramMap["textDocument"].(map[string]interface{}); ok {
 			if uri, ok := textDoc["uri"].(string); ok {
@@ -400,7 +399,7 @@ func (s *RealSCIPStore) extractFilePathsFromParams(params interface{}) []string 
 			}
 		}
 	}
-	
+
 	return filePaths
 }
 
@@ -409,7 +408,7 @@ func (s *RealSCIPStore) updateStats(queryTime time.Duration) {
 	defer s.mutex.Unlock()
 
 	s.stats.LastQueryTime = time.Now()
-	
+
 	// Keep last 1000 query times for rolling average
 	s.queryTimes = append(s.queryTimes, queryTime)
 	if len(s.queryTimes) > 1000 {
@@ -455,7 +454,7 @@ func (c *SCIPCache) Set(key string, entry *SCIPCacheEntryExtended) {
 		existingEntry.AccessedAt = time.Now()
 		existingEntry.TTL = entry.TTL
 		existingEntry.FilePaths = entry.FilePaths
-		
+
 		// Move to front of LRU list
 		c.lruList.MoveToFront(existingEntry.lruElement)
 		return
@@ -491,7 +490,7 @@ func (c *SCIPCache) Get(key string) *SCIPCacheEntry {
 	// Update access time and move to front
 	entry.AccessedAt = time.Now()
 	c.lruList.MoveToFront(entry.lruElement)
-	
+
 	atomic.AddInt64(&c.hitCount, 1)
 	return entry.SCIPCacheEntry
 }
@@ -501,7 +500,7 @@ func (c *SCIPCache) InvalidateByFile(filePath string) []string {
 	defer c.mutex.Unlock()
 
 	var keysToDelete []string
-	
+
 	for key, entry := range c.entries {
 		for _, entryFilePath := range entry.FilePaths {
 			if entryFilePath == filePath || strings.Contains(entryFilePath, filePath) {
@@ -571,11 +570,11 @@ func (c *SCIPCache) PerformMaintenance() {
 }
 
 func (c *SCIPCache) GetStats() struct {
-	Size        int
-	HitCount    int64
-	MissCount   int64
+	Size          int
+	HitCount      int64
+	MissCount     int64
 	EvictionCount int64
-	MemoryUsage int64
+	MemoryUsage   int64
 } {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
@@ -586,17 +585,17 @@ func (c *SCIPCache) GetStats() struct {
 	}
 
 	return struct {
-		Size        int
-		HitCount    int64
-		MissCount   int64
+		Size          int
+		HitCount      int64
+		MissCount     int64
 		EvictionCount int64
-		MemoryUsage int64
+		MemoryUsage   int64
 	}{
-		Size:        len(c.entries),
-		HitCount:    atomic.LoadInt64(&c.hitCount),
-		MissCount:   atomic.LoadInt64(&c.missCount),
+		Size:          len(c.entries),
+		HitCount:      atomic.LoadInt64(&c.hitCount),
+		MissCount:     atomic.LoadInt64(&c.missCount),
 		EvictionCount: atomic.LoadInt64(&c.evictionCount),
-		MemoryUsage: memoryUsage,
+		MemoryUsage:   memoryUsage,
 	}
 }
 
@@ -607,7 +606,7 @@ func (c *SCIPCache) Close() {
 	if c.stopCleanup != nil {
 		close(c.stopCleanup)
 	}
-	
+
 	c.mutex.Lock()
 	c.entries = make(map[string]*SCIPCacheEntryExtended)
 	c.lruList = list.New()

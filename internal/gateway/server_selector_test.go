@@ -29,7 +29,7 @@ func createTestPool(t *testing.T, strategy string) *LanguageServerPool {
 			config:    serverConfig,
 			state:     ServerStateHealthy,
 			startTime: time.Now(),
-			metrics:   NewServerMetrics(),
+			metrics:   NewSimpleServerMetrics(),
 		}
 
 		err := pool.AddServer(server)
@@ -153,8 +153,10 @@ func TestPerformanceBasedSelector(t *testing.T) {
 
 	// Set up server metrics for performance scoring
 	for _, server := range pool.GetHealthyServers() {
-		server.metrics.RecordRequest(100*time.Millisecond, true)
-		server.metrics.HealthScore = 0.9
+		// Record multiple successful requests to achieve high success rate
+		for i := 0; i < 10; i++ {
+			server.metrics.RecordRequest(100*time.Millisecond, true)
+		}
 	}
 
 	server, err := selector.SelectServer(pool, "textDocument/definition", context)
@@ -236,10 +238,16 @@ func TestHealthAwareSelector(t *testing.T) {
 	selector := NewHealthAwareSelector(baseSelector, 0.8, 0.3)
 	pool := createTestPool(t, "health_aware")
 
-	// Set one server as unhealthy
+	// Set one server as unhealthy by recording failed requests
 	servers := pool.GetHealthyServers()
 	if len(servers) > 0 {
-		servers[0].metrics.HealthScore = 0.5 // Below threshold
+		// Record mostly failed requests to achieve low success rate
+		for i := 0; i < 8; i++ {
+			servers[0].metrics.RecordRequest(200*time.Millisecond, false) // Failed requests
+		}
+		for i := 0; i < 2; i++ {
+			servers[0].metrics.RecordRequest(100*time.Millisecond, true) // Some successful requests
+		}
 	}
 
 	context := &ServerSelectionContext{
@@ -259,9 +267,10 @@ func TestHealthAwareSelector(t *testing.T) {
 		return
 	}
 
-	// Verify selected server is healthy
-	if server.metrics.HealthScore < 0.8 {
-		t.Errorf("Selected unhealthy server with score %f", server.metrics.HealthScore)
+	// Verify selected server is healthy (success rate should be above threshold)
+	successRate := server.metrics.GetSuccessRate()
+	if successRate < 0.8 {
+		t.Errorf("Selected unhealthy server with success rate %f", successRate)
 	}
 }
 
@@ -347,7 +356,7 @@ func TestLoadBalancerIntegration(t *testing.T) {
 			config:    serverConfig,
 			state:     ServerStateHealthy,
 			startTime: time.Now(),
-			metrics:   NewServerMetrics(),
+			metrics:   NewSimpleServerMetrics(),
 		}
 
 		err := pool.AddServer(server)

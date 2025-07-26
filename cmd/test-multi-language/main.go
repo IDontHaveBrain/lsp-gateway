@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -14,19 +13,24 @@ import (
 
 func main() {
 	// Create logger
-	logger := log.New(os.Stdout, "[MULTI-LANG-TEST] ", log.LstdFlags)
+	logger := mcp.NewStructuredLogger(&mcp.LoggerConfig{
+		Level:      mcp.LogLevelInfo,
+		Component:  "multi-lang-test",
+		EnableJSON: false,
+		Output:     os.Stdout,
+	})
 
 	// Test multi-language functionality
 	if err := testMultiLanguageSupport(logger); err != nil {
-		logger.Printf("Test failed: %v", err)
+		logger.Errorf("Test failed: %v", err)
 		os.Exit(1)
 	}
 
-	logger.Printf("All multi-language tests passed successfully!")
+	logger.Infof("All multi-language tests passed successfully!")
 }
 
-func testMultiLanguageSupport(logger *log.Logger) error {
-	logger.Printf("Starting multi-language LSP Gateway tests...")
+func testMultiLanguageSupport(logger *mcp.StructuredLogger) error {
+	logger.Infof("Starting multi-language LSP Gateway tests...")
 
 	// 1. Test project language detection
 	if err := testProjectLanguageDetection(logger); err != nil {
@@ -51,8 +55,8 @@ func testMultiLanguageSupport(logger *log.Logger) error {
 	return nil
 }
 
-func testProjectLanguageDetection(logger *log.Logger) error {
-	logger.Printf("Testing project language detection...")
+func testProjectLanguageDetection(logger *mcp.StructuredLogger) error {
+	logger.Infof("Testing project language detection...")
 
 	// Create a temporary multi-language test project
 	tempDir, err := createTestProject()
@@ -61,7 +65,7 @@ func testProjectLanguageDetection(logger *log.Logger) error {
 	}
 	defer func() {
 		if err := os.RemoveAll(tempDir); err != nil {
-			logger.Printf("Warning: failed to clean up temp directory %s: %v", tempDir, err)
+			logger.Infof("Warning: failed to clean up temp directory %s: %v", tempDir, err)
 		}
 	}()
 
@@ -77,11 +81,11 @@ func testProjectLanguageDetection(logger *log.Logger) error {
 	// Verify results
 	expectedLanguages := []string{"go", mcp.LANG_PYTHON, mcp.LANG_TYPESCRIPT, mcp.LANG_JAVA}
 
-	logger.Printf("Detected project type: %s", projectInfo.ProjectType)
-	logger.Printf("Detected %d languages:", len(projectInfo.Languages))
+	logger.Infof("Detected project type: %s", projectInfo.ProjectType)
+	logger.Infof("Detected %d languages:", len(projectInfo.Languages))
 
 	for lang, ctx := range projectInfo.Languages {
-		logger.Printf("  - %s: %d files, priority %d, confidence %.2f",
+		logger.Infof("  - %s: %d files, priority %d, confidence %.2f",
 			lang, ctx.FileCount, ctx.Priority, ctx.Confidence)
 
 		// Check if expected language
@@ -93,7 +97,7 @@ func testProjectLanguageDetection(logger *log.Logger) error {
 			}
 		}
 		if !found {
-			logger.Printf("    Warning: unexpected language detected: %s", lang)
+			logger.Infof("    Warning: unexpected language detected: %s", lang)
 		}
 	}
 
@@ -104,12 +108,12 @@ func testProjectLanguageDetection(logger *log.Logger) error {
 		}
 	}
 
-	logger.Printf("✓ Project language detection test passed")
+	logger.Infof("✓ Project language detection test passed")
 	return nil
 }
 
-func testMultiLanguageConfigGeneration(logger *log.Logger) error {
-	logger.Printf("Testing multi-language configuration generation...")
+func testMultiLanguageConfigGeneration(logger *mcp.StructuredLogger) error {
+	logger.Infof("Testing multi-language configuration generation...")
 
 	// Create test project info using config types
 	var languageContexts []*config.LanguageContext
@@ -151,7 +155,7 @@ func testMultiLanguageConfigGeneration(logger *log.Logger) error {
 	}
 
 	supportedLangs := mlConfig.GetSupportedLanguages()
-	logger.Printf("Generated configuration for languages: %v", supportedLangs)
+	logger.Infof("Generated configuration for languages: %v", supportedLangs)
 
 	// Convert to gateway config
 	gatewayConfig, err := mlConfig.ToGatewayConfig()
@@ -163,12 +167,12 @@ func testMultiLanguageConfigGeneration(logger *log.Logger) error {
 		return fmt.Errorf("concurrent servers should be enabled for multi-language config")
 	}
 
-	logger.Printf("✓ Multi-language configuration generation test passed")
+	logger.Infof("✓ Multi-language configuration generation test passed")
 	return nil
 }
 
-func testProjectLanguageScanning(logger *log.Logger) error {
-	logger.Printf("Testing project language scanning performance...")
+func testProjectLanguageScanning(logger *mcp.StructuredLogger) error {
+	logger.Infof("Testing project language scanning performance...")
 
 	// Create scanner with different optimization modes
 	scanner := gateway.NewProjectLanguageScanner()
@@ -177,38 +181,38 @@ func testProjectLanguageScanning(logger *log.Logger) error {
 	scanner.OptimizeForSmallProjects()
 	perfMetrics := scanner.GetPerformanceMetrics()
 
-	logger.Printf("Small project optimization metrics:")
+	logger.Infof("Small project optimization metrics:")
 	if cache, ok := perfMetrics["configuration"].(map[string]interface{}); ok {
-		logger.Printf("  - Max depth: %v", cache["max_depth"])
-		logger.Printf("  - Max files: %v", cache["max_files"])
-		logger.Printf("  - Cache enabled: %v", cache["cache_enabled"])
+		logger.Infof("  - Max depth: %v", cache["max_depth"])
+		logger.Infof("  - Max files: %v", cache["max_files"])
+		logger.Infof("  - Cache enabled: %v", cache["cache_enabled"])
 	}
 
 	// Test large monorepo optimization
 	scanner.OptimizeForLargeMonorepos()
 	perfMetrics = scanner.GetPerformanceMetrics()
 
-	logger.Printf("Large monorepo optimization metrics:")
+	logger.Infof("Large monorepo optimization metrics:")
 	if cache, ok := perfMetrics["configuration"].(map[string]interface{}); ok {
-		logger.Printf("  - Max depth: %v", cache["max_depth"])
-		logger.Printf("  - Max files: %v", cache["max_files"])
-		logger.Printf("  - Timeout: %v", cache["timeout"])
+		logger.Infof("  - Max depth: %v", cache["max_depth"])
+		logger.Infof("  - Max files: %v", cache["max_files"])
+		logger.Infof("  - Timeout: %v", cache["timeout"])
 	}
 
 	// Test cache functionality
 	scanner.SetCacheEnabled(true)
 	cacheStats := scanner.GetCacheStats()
 	if cacheStats != nil {
-		logger.Printf("Cache stats: hit_ratio=%.2f, entries=%d",
+		logger.Infof("Cache stats: hit_ratio=%.2f, entries=%d",
 			cacheStats.HitRatio, cacheStats.TotalEntries)
 	}
 
-	logger.Printf("✓ Project language scanning test passed")
+	logger.Infof("✓ Project language scanning test passed")
 	return nil
 }
 
-func testSmartRouting(logger *log.Logger) error {
-	logger.Printf("Testing smart routing system...")
+func testSmartRouting(logger *mcp.StructuredLogger) error {
+	logger.Infof("Testing smart routing system...")
 
 	// Create minimal gateway config for testing
 	gatewayConfig := &config.GatewayConfig{
@@ -243,7 +247,7 @@ func testSmartRouting(logger *log.Logger) error {
 	}
 	defer func() {
 		if err := os.RemoveAll(tempDir); err != nil {
-			logger.Printf("Warning: failed to clean up temp directory %s: %v", tempDir, err)
+			logger.Infof("Warning: failed to clean up temp directory %s: %v", tempDir, err)
 		}
 	}()
 
@@ -252,7 +256,7 @@ func testSmartRouting(logger *log.Logger) error {
 		return fmt.Errorf("failed to detect and configure project: %w", err)
 	}
 
-	logger.Printf("Configured project with %d languages", len(projectInfo.Languages))
+	logger.Infof("Configured project with %d languages", len(projectInfo.Languages))
 
 	// Test routing strategies
 	strategies := []gateway.RoutingStrategyType{
@@ -263,7 +267,7 @@ func testSmartRouting(logger *log.Logger) error {
 	}
 
 	for _, strategy := range strategies {
-		logger.Printf("Testing routing strategy: %s", strategy)
+		logger.Infof("Testing routing strategy: %s", strategy)
 		// Note: In a real test, we would create actual LSP requests
 		// and verify routing behavior, but for this demo we just log
 	}
@@ -274,11 +278,11 @@ func testSmartRouting(logger *log.Logger) error {
 		return fmt.Errorf("failed to get metrics: %w", err)
 	}
 
-	logger.Printf("Multi-language metrics:")
-	logger.Printf("  - Total projects: %d", metrics.TotalProjects)
-	logger.Printf("  - Active languages: %v", metrics.ActiveLanguages)
+	logger.Infof("Multi-language metrics:")
+	logger.Infof("  - Total projects: %d", metrics.TotalProjects)
+	logger.Infof("  - Active languages: %v", metrics.ActiveLanguages)
 
-	logger.Printf("✓ Smart routing test passed")
+	logger.Infof("✓ Smart routing test passed")
 	return nil
 }
 
@@ -381,4 +385,3 @@ This is a test project demonstrating multi-language LSP support.
 
 	return tempDir, nil
 }
-

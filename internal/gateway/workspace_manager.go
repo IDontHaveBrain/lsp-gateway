@@ -486,7 +486,6 @@ func (wm *WorkspaceManager) findProjectRoot(filePath string) string {
 	return ""
 }
 
-
 // analyzeProjectSimple provides fallback analysis using simple heuristics
 func (wm *WorkspaceManager) analyzeProjectSimple(rootPath string) (string, []string, []string) {
 	var projectType string

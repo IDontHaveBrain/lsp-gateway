@@ -33,17 +33,17 @@ func NewResourceMonitor() *ResourceMonitor {
 func (rm *ResourceMonitor) StartMonitoring(ctx context.Context) error {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
-	
+
 	if rm.running {
 		return nil
 	}
-	
+
 	rm.ctx, rm.cancel = context.WithCancel(ctx)
 	rm.running = true
-	
+
 	// Start monitoring goroutine
 	go rm.monitorRoutine()
-	
+
 	return nil
 }
 
@@ -51,11 +51,11 @@ func (rm *ResourceMonitor) StartMonitoring(ctx context.Context) error {
 func (rm *ResourceMonitor) Stop() {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
-	
+
 	if !rm.running {
 		return
 	}
-	
+
 	if rm.cancel != nil {
 		rm.cancel()
 	}
@@ -66,7 +66,7 @@ func (rm *ResourceMonitor) Stop() {
 func (rm *ResourceMonitor) monitorRoutine() {
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-rm.ctx.Done():
@@ -111,17 +111,17 @@ func (s ServerState) String() string {
 
 // ServerInstance represents a single LSP server instance
 type ServerInstance struct {
-	config          *config.ServerConfig
-	client          transport.LSPClient
-	healthStatus    *HealthStatusInfo
-	metrics         *SimpleServerMetrics
-	circuitBreaker  *CircuitBreaker
-	startTime       time.Time
-	lastUsed        int64 // Changed to int64 for atomic operations
-	processID       int
-	memoryUsage     int64
-	state           ServerState
-	mu              sync.RWMutex
+	config         *config.ServerConfig
+	client         transport.LSPClient
+	healthStatus   *HealthStatusInfo
+	metrics        *SimpleServerMetrics
+	circuitBreaker *CircuitBreaker
+	startTime      time.Time
+	lastUsed       int64 // Changed to int64 for atomic operations
+	processID      int
+	memoryUsage    int64
+	state          ServerState
+	mu             sync.RWMutex
 }
 
 // NewServerInstance creates a new server instance
@@ -416,17 +416,17 @@ func (lsp *LanguageServerPool) GetMetrics() *SimplePoolMetrics {
 
 // MultiServerManager manages multiple LSP server pools
 type MultiServerManager struct {
-	config           *config.GatewayConfig
-	serverPools      map[string]*LanguageServerPool
-	healthMonitor    *HealthMonitor
-	loadBalancer     *LoadBalancer
-	metrics          *ManagerMetrics
-	circuitBreakers  map[string]*CircuitBreaker
-	resourceMonitor  *ResourceMonitor
-	ctx              context.Context
-	cancel           context.CancelFunc
-	mu               sync.RWMutex
-	logger           *log.Logger
+	config          *config.GatewayConfig
+	serverPools     map[string]*LanguageServerPool
+	healthMonitor   *HealthMonitor
+	loadBalancer    *LoadBalancer
+	metrics         *ManagerMetrics
+	circuitBreakers map[string]*CircuitBreaker
+	resourceMonitor *ResourceMonitor
+	ctx             context.Context
+	cancel          context.CancelFunc
+	mu              sync.RWMutex
+	logger          *log.Logger
 }
 
 // NewMultiServerManager creates a new multi-server manager
@@ -991,4 +991,3 @@ func (si *ServerInstance) GetClient() transport.LSPClient {
 	defer si.mu.RUnlock()
 	return si.client
 }
-

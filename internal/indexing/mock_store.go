@@ -11,19 +11,19 @@ import (
 
 // MockSCIPStore is a mock implementation of SCIPStore for testing
 type MockSCIPStore struct {
-	config      *SCIPConfig
-	cache       map[string]*SCIPCacheEntry
-	stats       SCIPStoreStats
-	mutex       sync.RWMutex
-	cacheMutex  sync.RWMutex
-	queryCount  int64
-	hitCount    int64
-	startTime   time.Time
-	
+	config     *SCIPConfig
+	cache      map[string]*SCIPCacheEntry
+	stats      SCIPStoreStats
+	mutex      sync.RWMutex
+	cacheMutex sync.RWMutex
+	queryCount int64
+	hitCount   int64
+	startTime  time.Time
+
 	// Mock behavior configuration
-	CacheHitProbability    float64 // Probability of cache hit (0.0 to 1.0)
-	ResponseLatencyMs      int     // Base response latency in milliseconds
-	FailureProbability     float64 // Probability of query failure (0.0 to 1.0)
+	CacheHitProbability float64 // Probability of cache hit (0.0 to 1.0)
+	ResponseLatencyMs   int     // Base response latency in milliseconds
+	FailureProbability  float64 // Probability of query failure (0.0 to 1.0)
 }
 
 // SCIPCacheEntry represents a cached SCIP query response
@@ -58,14 +58,14 @@ func (s *MockSCIPStore) LoadIndex(path string) error {
 	defer s.mutex.Unlock()
 
 	startTime := time.Now()
-	
+
 	// Simulate index loading delay
 	time.Sleep(time.Duration(10+rand.Intn(40)) * time.Millisecond)
-	
+
 	s.stats.IndexesLoaded++
 
 	duration := time.Since(startTime)
-	
+
 	if s.config.Logging.LogIndexOperations {
 		fmt.Printf("SCIP: Mock loaded index from %s in %v\n", path, duration)
 	}
@@ -104,7 +104,7 @@ func (s *MockSCIPStore) Query(method string, params interface{}) SCIPQueryResult
 		s.mutex.Lock()
 		s.hitCount++
 		s.mutex.Unlock()
-		
+
 		entry.Touch()
 		return SCIPQueryResult{
 			Found:      true,
@@ -123,7 +123,7 @@ func (s *MockSCIPStore) Query(method string, params interface{}) SCIPQueryResult
 	if hasResult {
 		// Simulate successful SCIP query result
 		mockResponse := s.generateMockResponse(method, params)
-		
+
 		result = SCIPQueryResult{
 			Found:      true,
 			Method:     method,
@@ -137,7 +137,7 @@ func (s *MockSCIPStore) Query(method string, params interface{}) SCIPQueryResult
 				"index_used":     true,
 			},
 		}
-		
+
 		// Cache the result if cache is enabled
 		if s.config.CacheConfig.Enabled {
 			s.CacheResponse(method, params, mockResponse)
@@ -163,7 +163,7 @@ func (s *MockSCIPStore) Query(method string, params interface{}) SCIPQueryResult
 	s.updateStats(result.QueryTime)
 
 	if s.config.Logging.LogQueries {
-		fmt.Printf("SCIP: Query %d for method %s completed in %v (found: %t, cache_hit: %t)\n", 
+		fmt.Printf("SCIP: Query %d for method %s completed in %v (found: %t, cache_hit: %t)\n",
 			queryID, method, result.QueryTime, result.Found, result.CacheHit)
 	}
 
@@ -214,7 +214,7 @@ func (s *MockSCIPStore) InvalidateFile(filePath string) {
 	defer s.cacheMutex.Unlock()
 
 	keysToDelete := make([]string, 0)
-	
+
 	for key, entry := range s.cache {
 		// Simple check if the file path is mentioned in the params
 		if strings.Contains(entry.Params, filePath) {
@@ -325,7 +325,7 @@ func (s *MockSCIPStore) evictOldestEntry() {
 
 func (s *MockSCIPStore) updateStats(queryTime time.Duration) {
 	s.stats.LastQueryTime = time.Now()
-	
+
 	// Simple moving average for query time
 	if s.stats.AverageQueryTime == 0 {
 		s.stats.AverageQueryTime = queryTime
@@ -337,10 +337,10 @@ func (s *MockSCIPStore) updateStats(queryTime time.Duration) {
 func (s *MockSCIPStore) estimateMemoryUsage() int64 {
 	// Rough estimation of memory usage
 	baseSize := int64(1024) // Base struct size estimate
-	
+
 	// Add cache size estimate
 	cacheSize := int64(len(s.cache) * 512) // Rough estimate per cache entry
-	
+
 	return baseSize + cacheSize
 }
 
@@ -365,7 +365,7 @@ func (s *MockSCIPStore) generateMockResponse(method string, params interface{}) 
 // SupportedLSPMethods contains the LSP methods that SCIP indexing supports
 var SupportedLSPMethods = []string{
 	"textDocument/definition",
-	"textDocument/references", 
+	"textDocument/references",
 	"textDocument/hover",
 	"textDocument/documentSymbol",
 	"workspace/symbol",

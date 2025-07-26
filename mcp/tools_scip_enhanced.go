@@ -14,19 +14,19 @@ import (
 
 // SCIPEnhancedToolHandler extends the standard ToolHandler with SCIP-powered intelligence
 type SCIPEnhancedToolHandler struct {
-	*ToolHandler                      // Embed standard tool handler
-	scipStore           indexing.SCIPStore
-	symbolResolver      *indexing.SymbolResolver
-	workspaceContext    *WorkspaceContext
-	config              *SCIPEnhancedToolConfig
-	performanceMonitor  *SCIPToolPerformanceMonitor
-	degradationManager  *GracefulDegradationManager
-	requestCache        *SCIPToolCache
-	mutex               sync.RWMutex
-	
+	*ToolHandler       // Embed standard tool handler
+	scipStore          indexing.SCIPStore
+	symbolResolver     *indexing.SymbolResolver
+	workspaceContext   *WorkspaceContext
+	config             *SCIPEnhancedToolConfig
+	performanceMonitor *SCIPToolPerformanceMonitor
+	degradationManager *GracefulDegradationManager
+	requestCache       *SCIPToolCache
+	mutex              sync.RWMutex
+
 	// Feature flags for enabling/disabling SCIP enhancements
-	enableSCIPEnhancements  int32 // atomic bool
-	scipAvailable           int32 // atomic bool
+	enableSCIPEnhancements int32 // atomic bool
+	scipAvailable          int32 // atomic bool
 }
 
 // SCIPEnhancedToolConfig configures SCIP-enhanced MCP tools
@@ -36,64 +36,64 @@ type SCIPEnhancedToolConfig struct {
 	SymbolSearchTimeout    time.Duration `json:"symbol_search_timeout"`
 	CrossLanguageTimeout   time.Duration `json:"cross_language_timeout"`
 	ContextAnalysisTimeout time.Duration `json:"context_analysis_timeout"`
-	
+
 	// SCIP enhancement settings
-	EnableIntelligentSearch    bool    `json:"enable_intelligent_search"`
-	EnableCrossLanguageRefs    bool    `json:"enable_cross_language_refs"`
-	EnableSemanticAnalysis     bool    `json:"enable_semantic_analysis"`
-	EnableContextAwareness     bool    `json:"enable_context_awareness"`
-	EnableRefactoringSuggestions bool  `json:"enable_refactoring_suggestions"`
-	
+	EnableIntelligentSearch      bool `json:"enable_intelligent_search"`
+	EnableCrossLanguageRefs      bool `json:"enable_cross_language_refs"`
+	EnableSemanticAnalysis       bool `json:"enable_semantic_analysis"`
+	EnableContextAwareness       bool `json:"enable_context_awareness"`
+	EnableRefactoringSuggestions bool `json:"enable_refactoring_suggestions"`
+
 	// Cache settings
-	EnableResultCaching        bool          `json:"enable_result_caching"`
-	CacheSize                  int           `json:"cache_size"`
-	CacheTTL                   time.Duration `json:"cache_ttl"`
-	
+	EnableResultCaching bool          `json:"enable_result_caching"`
+	CacheSize           int           `json:"cache_size"`
+	CacheTTL            time.Duration `json:"cache_ttl"`
+
 	// Quality settings
-	MinConfidenceThreshold     float64 `json:"min_confidence_threshold"`
-	MaxResultsPerQuery         int     `json:"max_results_per_query"`
-	EnableFuzzyMatching        bool    `json:"enable_fuzzy_matching"`
-	
+	MinConfidenceThreshold float64 `json:"min_confidence_threshold"`
+	MaxResultsPerQuery     int     `json:"max_results_per_query"`
+	EnableFuzzyMatching    bool    `json:"enable_fuzzy_matching"`
+
 	// Fallback settings
-	EnableGracefulDegradation  bool `json:"enable_graceful_degradation"`
-	FallbackToStandardTools    bool `json:"fallback_to_standard_tools"`
+	EnableGracefulDegradation bool `json:"enable_graceful_degradation"`
+	FallbackToStandardTools   bool `json:"fallback_to_standard_tools"`
 }
 
 // SCIPToolPerformanceMonitor tracks performance metrics for SCIP-enhanced tools
 type SCIPToolPerformanceMonitor struct {
 	// Query performance
-	totalQueries          int64
-	scipQueries           int64
-	fallbackQueries       int64
-	
+	totalQueries    int64
+	scipQueries     int64
+	fallbackQueries int64
+
 	// Timing metrics
-	avgQueryTime          time.Duration
-	p95QueryTime          time.Duration
-	scipAvgTime           time.Duration
-	fallbackAvgTime       time.Duration
-	
+	avgQueryTime    time.Duration
+	p95QueryTime    time.Duration
+	scipAvgTime     time.Duration
+	fallbackAvgTime time.Duration
+
 	// Quality metrics
-	avgConfidence         float64
-	scipSuccessRate       float64
-	cacheHitRate          float64
-	
+	avgConfidence   float64
+	scipSuccessRate float64
+	cacheHitRate    float64
+
 	// Error tracking
-	scipErrors            int64
-	fallbackErrors        int64
-	timeoutErrors         int64
-	
-	mutex                 sync.RWMutex
-	startTime             time.Time
+	scipErrors     int64
+	fallbackErrors int64
+	timeoutErrors  int64
+
+	mutex     sync.RWMutex
+	startTime time.Time
 }
 
 // GracefulDegradationManager handles fallback scenarios when SCIP is unavailable
 type GracefulDegradationManager struct {
-	scipAvailable         bool
-	consecutiveFailures   int64
-	lastFailureTime       time.Time
-	degradationLevel      DegradationLevel
-	fallbackStrategies    map[string]FallbackStrategy
-	mutex                 sync.RWMutex
+	scipAvailable       bool
+	consecutiveFailures int64
+	lastFailureTime     time.Time
+	degradationLevel    DegradationLevel
+	fallbackStrategies  map[string]FallbackStrategy
+	mutex               sync.RWMutex
 }
 
 // DegradationLevel represents different levels of service degradation
@@ -108,41 +108,41 @@ const (
 
 // FallbackStrategy defines how to handle requests when SCIP is degraded
 type FallbackStrategy struct {
-	UseStandardTools      bool
-	UseCache              bool
-	SimplifiedResults     bool
-	ReducedFeatures       []string
-	TimeoutReduction      time.Duration
+	UseStandardTools  bool
+	UseCache          bool
+	SimplifiedResults bool
+	ReducedFeatures   []string
+	TimeoutReduction  time.Duration
 }
 
 // SCIPToolCache provides intelligent caching for SCIP tool results
 type SCIPToolCache struct {
-	entries               map[string]*SCIPCacheEntry
-	lru                   *CacheLRUList
-	maxSize               int
-	ttl                   time.Duration
-	hitCount              int64
-	missCount             int64
-	mutex                 sync.RWMutex
+	entries   map[string]*SCIPCacheEntry
+	lru       *CacheLRUList
+	maxSize   int
+	ttl       time.Duration
+	hitCount  int64
+	missCount int64
+	mutex     sync.RWMutex
 }
 
 // SCIPCacheEntry represents a cached SCIP tool result
 type SCIPCacheEntry struct {
-	Key                   string
-	Result                interface{}
-	Confidence            float64
-	CachedAt              time.Time
-	LastAccess            time.Time
-	AccessCount           int64
-	ExpiresAt             time.Time
-	AssociatedFiles       []string
-	next, prev            *SCIPCacheEntry
+	Key             string
+	Result          interface{}
+	Confidence      float64
+	CachedAt        time.Time
+	LastAccess      time.Time
+	AccessCount     int64
+	ExpiresAt       time.Time
+	AssociatedFiles []string
+	next, prev      *SCIPCacheEntry
 }
 
 // CacheLRUList implements LRU eviction for SCIP cache
 type CacheLRUList struct {
-	head, tail            *SCIPCacheEntry
-	size                  int
+	head, tail *SCIPCacheEntry
+	size       int
 }
 
 // NewSCIPEnhancedToolHandler creates a new SCIP-enhanced tool handler
@@ -156,7 +156,7 @@ func NewSCIPEnhancedToolHandler(
 	if config == nil {
 		config = DefaultSCIPEnhancedToolConfig()
 	}
-	
+
 	handler := &SCIPEnhancedToolHandler{
 		ToolHandler:        baseHandler,
 		scipStore:          scipStore,
@@ -167,13 +167,13 @@ func NewSCIPEnhancedToolHandler(
 		degradationManager: NewGracefulDegradationManager(),
 		requestCache:       NewSCIPToolCache(config.CacheSize, config.CacheTTL),
 	}
-	
+
 	// Initialize SCIP availability
 	handler.checkSCIPAvailability()
-	
+
 	// Register SCIP-enhanced tools
 	handler.registerSCIPEnhancedTools()
-	
+
 	return handler
 }
 
@@ -181,31 +181,31 @@ func NewSCIPEnhancedToolHandler(
 func DefaultSCIPEnhancedToolConfig() *SCIPEnhancedToolConfig {
 	return &SCIPEnhancedToolConfig{
 		// Performance targets from requirements
-		MaxQueryTime:               100 * time.Millisecond,
-		SymbolSearchTimeout:        50 * time.Millisecond,
-		CrossLanguageTimeout:       100 * time.Millisecond,
-		ContextAnalysisTimeout:     200 * time.Millisecond,
-		
+		MaxQueryTime:           100 * time.Millisecond,
+		SymbolSearchTimeout:    50 * time.Millisecond,
+		CrossLanguageTimeout:   100 * time.Millisecond,
+		ContextAnalysisTimeout: 200 * time.Millisecond,
+
 		// Feature enablement
-		EnableIntelligentSearch:    true,
-		EnableCrossLanguageRefs:    true,
-		EnableSemanticAnalysis:     true,
-		EnableContextAwareness:     true,
+		EnableIntelligentSearch:      true,
+		EnableCrossLanguageRefs:      true,
+		EnableSemanticAnalysis:       true,
+		EnableContextAwareness:       true,
 		EnableRefactoringSuggestions: true,
-		
+
 		// Caching
-		EnableResultCaching:        true,
-		CacheSize:                  10000,
-		CacheTTL:                   15 * time.Minute,
-		
+		EnableResultCaching: true,
+		CacheSize:           10000,
+		CacheTTL:            15 * time.Minute,
+
 		// Quality
-		MinConfidenceThreshold:     0.7,
-		MaxResultsPerQuery:         50,
-		EnableFuzzyMatching:        true,
-		
+		MinConfidenceThreshold: 0.7,
+		MaxResultsPerQuery:     50,
+		EnableFuzzyMatching:    true,
+
 		// Fallback
-		EnableGracefulDegradation:  true,
-		FallbackToStandardTools:    true,
+		EnableGracefulDegradation: true,
+		FallbackToStandardTools:   true,
 	}
 }
 
@@ -422,7 +422,7 @@ func (h *SCIPEnhancedToolHandler) registerSCIPEnhancedTools() {
 					"description": "End of selection (optional for whole file)",
 				},
 				"refactoringTypes": map[string]interface{}{
-					"type":        "array",
+					"type": "array",
 					"items": map[string]interface{}{
 						"type": "string",
 						"enum": []string{"extract_method", "rename", "move", "inline", "optimize", "modernize", "all"},
@@ -445,12 +445,12 @@ func (h *SCIPEnhancedToolHandler) registerSCIPEnhancedTools() {
 func (h *SCIPEnhancedToolHandler) CallTool(ctx context.Context, call ToolCall) (*ToolResult, error) {
 	startTime := time.Now()
 	atomic.AddInt64(&h.performanceMonitor.totalQueries, 1)
-	
+
 	// Check if this is a SCIP-enhanced tool
 	if strings.HasPrefix(call.Name, "scip_") {
 		return h.callSCIPEnhancedTool(ctx, call, startTime)
 	}
-	
+
 	// Fallback to standard tool handler
 	return h.ToolHandler.CallTool(ctx, call)
 }
@@ -464,22 +464,22 @@ func (h *SCIPEnhancedToolHandler) callSCIPEnhancedTool(ctx context.Context, call
 		}
 		return h.createErrorResult("SCIP enhancements are not available", MCPErrorUnsupportedFeature)
 	}
-	
+
 	// Check cache first if enabled
 	if h.config.EnableResultCaching {
 		if cached := h.requestCache.Get(h.generateCacheKey(call)); cached != nil {
 			return h.createCachedResult(cached, time.Since(startTime))
 		}
 	}
-	
+
 	// Add timeout to context
 	ctx, cancel := context.WithTimeout(ctx, h.config.MaxQueryTime)
 	defer cancel()
-	
+
 	// Route to specific SCIP tool handler
 	var result *ToolResult
 	var err error
-	
+
 	switch call.Name {
 	case "scip_intelligent_symbol_search":
 		result, err = h.handleSCIPIntelligentSymbolSearch(ctx, call.Arguments)
@@ -496,7 +496,7 @@ func (h *SCIPEnhancedToolHandler) callSCIPEnhancedTool(ctx context.Context, call
 	default:
 		return h.createErrorResult(fmt.Sprintf("Unknown SCIP tool: %s", call.Name), MCPErrorMethodNotFound)
 	}
-	
+
 	// Handle errors and fallbacks
 	if err != nil {
 		h.degradationManager.recordFailure()
@@ -505,17 +505,17 @@ func (h *SCIPEnhancedToolHandler) callSCIPEnhancedTool(ctx context.Context, call
 		}
 		return h.createErrorResult(fmt.Sprintf("SCIP tool error: %v", err), MCPErrorInternalError)
 	}
-	
+
 	// Record success metrics
 	queryTime := time.Since(startTime)
 	atomic.AddInt64(&h.performanceMonitor.scipQueries, 1)
 	h.performanceMonitor.recordSuccess(queryTime)
-	
+
 	// Cache successful result if enabled
 	if h.config.EnableResultCaching && result != nil && !result.IsError {
 		h.requestCache.Set(h.generateCacheKey(call), result, h.extractConfidence(result))
 	}
-	
+
 	// Add performance metadata
 	if result.Meta == nil {
 		result.Meta = &ResponseMetadata{}
@@ -526,29 +526,29 @@ func (h *SCIPEnhancedToolHandler) callSCIPEnhancedTool(ctx context.Context, call
 		"query_time":    queryTime.Milliseconds(),
 		"tool_name":     call.Name,
 	}
-	
+
 	return result, nil
 }
 
 // isSCIPAvailable checks if SCIP enhancements are available
 func (h *SCIPEnhancedToolHandler) isSCIPAvailable() bool {
-	return atomic.LoadInt32(&h.enableSCIPEnhancements) == 1 && 
-		   atomic.LoadInt32(&h.scipAvailable) == 1
+	return atomic.LoadInt32(&h.enableSCIPEnhancements) == 1 &&
+		atomic.LoadInt32(&h.scipAvailable) == 1
 }
 
 // checkSCIPAvailability verifies SCIP store and resolver availability
 func (h *SCIPEnhancedToolHandler) checkSCIPAvailability() {
 	available := h.scipStore != nil && h.symbolResolver != nil
-	
+
 	if available {
 		// Test SCIP store with a simple query
 		_, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 		defer cancel()
-		
+
 		testResult := h.scipStore.Query("test", map[string]interface{}{})
 		available = testResult.Error == "" || strings.Contains(testResult.Error, "degraded mode")
 	}
-	
+
 	if available {
 		atomic.StoreInt32(&h.scipAvailable, 1)
 		atomic.StoreInt32(&h.enableSCIPEnhancements, 1)
@@ -609,25 +609,25 @@ func (h *SCIPEnhancedToolHandler) extractConfidence(result *ToolResult) float64 
 // handleSCIPFallback handles fallback to standard tools when SCIP fails
 func (h *SCIPEnhancedToolHandler) handleSCIPFallback(ctx context.Context, call ToolCall, reason string) (*ToolResult, error) {
 	atomic.AddInt64(&h.performanceMonitor.fallbackQueries, 1)
-	
+
 	// Map SCIP tools to standard equivalents
 	standardTool := h.mapSCIPToStandardTool(call.Name)
 	if standardTool == "" {
 		return h.createErrorResult(fmt.Sprintf("No fallback available for %s: %s", call.Name, reason), MCPErrorUnsupportedFeature)
 	}
-	
+
 	// Create standard tool call
 	standardCall := ToolCall{
 		Name:      standardTool,
 		Arguments: h.adaptArgumentsForStandardTool(call.Arguments, standardTool),
 	}
-	
+
 	// Call standard tool
 	result, err := h.ToolHandler.CallTool(ctx, standardCall)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Add fallback metadata
 	if result.Meta == nil {
 		result.Meta = &ResponseMetadata{}
@@ -638,19 +638,19 @@ func (h *SCIPEnhancedToolHandler) handleSCIPFallback(ctx context.Context, call T
 		"original_tool":   call.Name,
 		"standard_tool":   standardTool,
 	}
-	
+
 	return result, nil
 }
 
 // mapSCIPToStandardTool maps SCIP tools to their standard equivalents
 func (h *SCIPEnhancedToolHandler) mapSCIPToStandardTool(scipTool string) string {
 	mapping := map[string]string{
-		"scip_intelligent_symbol_search":  "search_workspace_symbols",
-		"scip_cross_language_references":  "find_references",
-		"scip_semantic_code_analysis":     "get_document_symbols",
-		"scip_context_aware_assistance":   "get_hover_info",
-		"scip_workspace_intelligence":     "search_workspace_symbols",
-		"scip_refactoring_suggestions":    "get_document_symbols",
+		"scip_intelligent_symbol_search": "search_workspace_symbols",
+		"scip_cross_language_references": "find_references",
+		"scip_semantic_code_analysis":    "get_document_symbols",
+		"scip_context_aware_assistance":  "get_hover_info",
+		"scip_workspace_intelligence":    "search_workspace_symbols",
+		"scip_refactoring_suggestions":   "get_document_symbols",
 	}
 	return mapping[scipTool]
 }
@@ -658,14 +658,14 @@ func (h *SCIPEnhancedToolHandler) mapSCIPToStandardTool(scipTool string) string 
 // adaptArgumentsForStandardTool adapts SCIP tool arguments for standard tools
 func (h *SCIPEnhancedToolHandler) adaptArgumentsForStandardTool(args map[string]interface{}, standardTool string) map[string]interface{} {
 	adapted := make(map[string]interface{})
-	
+
 	// Copy common arguments
 	for _, key := range []string{"uri", "line", "character", "query"} {
 		if value, exists := args[key]; exists {
 			adapted[key] = value
 		}
 	}
-	
+
 	// Add tool-specific adaptations
 	switch standardTool {
 	case "find_references":
@@ -677,7 +677,7 @@ func (h *SCIPEnhancedToolHandler) adaptArgumentsForStandardTool(args map[string]
 			adapted["query"] = ""
 		}
 	}
-	
+
 	return adapted
 }
 
@@ -694,7 +694,7 @@ func NewSCIPToolPerformanceMonitor() *SCIPToolPerformanceMonitor {
 func (pm *SCIPToolPerformanceMonitor) recordSuccess(duration time.Duration) {
 	pm.mutex.Lock()
 	defer pm.mutex.Unlock()
-	
+
 	// Update timing metrics using exponential moving average
 	if pm.avgQueryTime == 0 {
 		pm.avgQueryTime = duration
@@ -702,7 +702,7 @@ func (pm *SCIPToolPerformanceMonitor) recordSuccess(duration time.Duration) {
 		alpha := 0.1
 		pm.avgQueryTime = time.Duration(float64(pm.avgQueryTime)*(1-alpha) + float64(duration)*alpha)
 	}
-	
+
 	// Update P95 (simplified)
 	if duration > pm.p95QueryTime {
 		pm.p95QueryTime = duration
@@ -713,24 +713,24 @@ func (pm *SCIPToolPerformanceMonitor) recordSuccess(duration time.Duration) {
 func (pm *SCIPToolPerformanceMonitor) GetStats() map[string]interface{} {
 	pm.mutex.RLock()
 	defer pm.mutex.RUnlock()
-	
+
 	totalQueries := atomic.LoadInt64(&pm.totalQueries)
 	scipQueries := atomic.LoadInt64(&pm.scipQueries)
 	fallbackQueries := atomic.LoadInt64(&pm.fallbackQueries)
-	
+
 	var scipSuccessRate float64
 	if scipQueries > 0 {
 		scipSuccessRate = float64(scipQueries-atomic.LoadInt64(&pm.scipErrors)) / float64(scipQueries)
 	}
-	
+
 	return map[string]interface{}{
-		"total_queries":      totalQueries,
-		"scip_queries":       scipQueries,
-		"fallback_queries":   fallbackQueries,
-		"avg_query_time_ms":  pm.avgQueryTime.Milliseconds(),
-		"p95_query_time_ms":  pm.p95QueryTime.Milliseconds(),
-		"scip_success_rate":  scipSuccessRate,
-		"uptime_hours":       time.Since(pm.startTime).Hours(),
+		"total_queries":     totalQueries,
+		"scip_queries":      scipQueries,
+		"fallback_queries":  fallbackQueries,
+		"avg_query_time_ms": pm.avgQueryTime.Milliseconds(),
+		"p95_query_time_ms": pm.p95QueryTime.Milliseconds(),
+		"scip_success_rate": scipSuccessRate,
+		"uptime_hours":      time.Since(pm.startTime).Hours(),
 	}
 }
 
@@ -749,10 +749,10 @@ func NewGracefulDegradationManager() *GracefulDegradationManager {
 func (gm *GracefulDegradationManager) recordFailure() {
 	gm.mutex.Lock()
 	defer gm.mutex.Unlock()
-	
+
 	gm.consecutiveFailures++
 	gm.lastFailureTime = time.Now()
-	
+
 	// Adjust degradation level based on failure count
 	switch {
 	case gm.consecutiveFailures >= 10:
@@ -782,12 +782,12 @@ func (c *SCIPToolCache) Get(key string) interface{} {
 	c.mutex.RLock()
 	entry, exists := c.entries[key]
 	c.mutex.RUnlock()
-	
+
 	if !exists {
 		atomic.AddInt64(&c.missCount, 1)
 		return nil
 	}
-	
+
 	// Check expiration
 	if time.Now().After(entry.ExpiresAt) {
 		c.mutex.Lock()
@@ -796,14 +796,14 @@ func (c *SCIPToolCache) Get(key string) interface{} {
 		atomic.AddInt64(&c.missCount, 1)
 		return nil
 	}
-	
+
 	// Update access and move to front
 	c.mutex.Lock()
 	entry.LastAccess = time.Now()
 	entry.AccessCount++
 	c.lru.moveToFront(entry)
 	c.mutex.Unlock()
-	
+
 	atomic.AddInt64(&c.hitCount, 1)
 	return entry.Result
 }
@@ -812,27 +812,27 @@ func (c *SCIPToolCache) Get(key string) interface{} {
 func (c *SCIPToolCache) Set(key string, result interface{}, confidence float64) {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	
+
 	// Remove existing entry
 	if existing, exists := c.entries[key]; exists {
 		c.lru.remove(existing)
 	}
-	
+
 	// Create new entry
 	entry := &SCIPCacheEntry{
-		Key:        key,
-		Result:     result,
-		Confidence: confidence,
-		CachedAt:   time.Now(),
-		LastAccess: time.Now(),
-		ExpiresAt:  time.Now().Add(c.ttl),
+		Key:         key,
+		Result:      result,
+		Confidence:  confidence,
+		CachedAt:    time.Now(),
+		LastAccess:  time.Now(),
+		ExpiresAt:   time.Now().Add(c.ttl),
 		AccessCount: 1,
 	}
-	
+
 	// Add to cache
 	c.entries[key] = entry
 	c.lru.addToFront(entry)
-	
+
 	// Evict if necessary
 	for len(c.entries) > c.maxSize {
 		oldest := c.lru.removeLast()
@@ -872,13 +872,13 @@ func (lru *CacheLRUList) remove(entry *SCIPCacheEntry) {
 	} else {
 		lru.head = entry.next
 	}
-	
+
 	if entry.next != nil {
 		entry.next.prev = entry.prev
 	} else {
 		lru.tail = entry.prev
 	}
-	
+
 	entry.prev = nil
 	entry.next = nil
 	lru.size--
@@ -915,7 +915,7 @@ func (h *SCIPEnhancedToolHandler) DisableSCIPEnhancements() {
 // GetPerformanceStats returns comprehensive performance statistics
 func (h *SCIPEnhancedToolHandler) GetPerformanceStats() map[string]interface{} {
 	stats := h.performanceMonitor.GetStats()
-	
+
 	// Add cache statistics
 	hitCount := atomic.LoadInt64(&h.requestCache.hitCount)
 	missCount := atomic.LoadInt64(&h.requestCache.missCount)
@@ -924,12 +924,12 @@ func (h *SCIPEnhancedToolHandler) GetPerformanceStats() map[string]interface{} {
 	if total > 0 {
 		hitRate = float64(hitCount) / float64(total)
 	}
-	
+
 	stats["cache_hit_rate"] = hitRate
 	stats["cache_size"] = len(h.requestCache.entries)
 	stats["scip_available"] = h.isSCIPAvailable()
 	stats["degradation_level"] = h.degradationManager.degradationLevel
-	
+
 	return stats
 }
 

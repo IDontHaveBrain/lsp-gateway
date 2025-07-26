@@ -11,7 +11,6 @@ import (
 	"lsp-gateway/internal/transport"
 )
 
-
 // Core routing decision types
 
 // RoutingDecision represents a complete routing decision with all required context
@@ -141,11 +140,11 @@ func (sa *SymbolsAggregator) Aggregate(responses []interface{}, sources []string
 	for _, resp := range responses {
 		if resp != nil {
 			successCount++
-			
+
 			if primary == nil {
 				primary = resp
 			}
-			
+
 			allSymbols = append(allSymbols, resp)
 		} else {
 			errorCount++
@@ -476,7 +475,7 @@ func selectLeastLoadedServer(servers []*ServerInstance, context *RequestContext)
 		// Calculate load score based on metrics
 		metrics := server.GetMetrics()
 		loadScore := float64(metrics.ActiveConnections) + metrics.ErrorRate
-		
+
 		if loadScore < lowestLoad {
 			lowestLoad = loadScore
 			bestServer = server
@@ -502,7 +501,7 @@ func calculateServerScore(server *ServerInstance, context *RequestContext) float
 			successRate = 1.0 // Default for new servers
 		}
 		score += successRate * 20.0
-		
+
 		// Lower response time is better
 		if metrics.RequestCount > 0 {
 			avgResponseTime := float64(metrics.TotalResponseTime.Milliseconds()) / float64(metrics.RequestCount)
@@ -568,10 +567,6 @@ func getAggregatorForMethod(method string) ResponseAggregator {
 		return &FirstSuccessAggregator{}
 	}
 }
-
-
-
-
 
 // Utility functions
 

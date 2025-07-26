@@ -224,7 +224,7 @@ func (c *TCPClient) SendRequest(ctx context.Context, method string, params inter
 
 	id := c.generateRequestID()
 	respCh := make(chan json.RawMessage, 1)
-	
+
 	// Store request context for SCIP indexing
 	pending := &tcpPendingRequest{
 		respCh: respCh,

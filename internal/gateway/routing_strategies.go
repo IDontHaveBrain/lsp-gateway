@@ -1354,7 +1354,6 @@ func (c *CrossLanguageStrategy) contains(slice []string, item string) bool {
 
 // Helper functions for server metrics and conversion
 
-
 // Helper function
 func min(a, b int) int {
 	if a < b {

@@ -9,14 +9,14 @@ import (
 
 // SCIPQueryResult represents the result of a SCIP index query
 type SCIPQueryResult struct {
-	Found      bool            `json:"found"`
-	Method     string          `json:"method"`
-	Response   json.RawMessage `json:"response,omitempty"`
-	Error      string          `json:"error,omitempty"`
-	CacheHit   bool            `json:"cache_hit"`
-	QueryTime  time.Duration   `json:"query_time"`
-	IndexPath  string          `json:"index_path,omitempty"`
-	Confidence float64         `json:"confidence"`
+	Found      bool                   `json:"found"`
+	Method     string                 `json:"method"`
+	Response   json.RawMessage        `json:"response,omitempty"`
+	Error      string                 `json:"error,omitempty"`
+	CacheHit   bool                   `json:"cache_hit"`
+	QueryTime  time.Duration          `json:"query_time"`
+	IndexPath  string                 `json:"index_path,omitempty"`
+	Confidence float64                `json:"confidence"`
 	Metadata   map[string]interface{} `json:"metadata,omitempty"`
 }
 
@@ -43,20 +43,20 @@ type SCIPStore interface {
 
 // SCIPStoreStats represents statistics about the SCIP store
 type SCIPStoreStats struct {
-	IndexesLoaded   int           `json:"indexes_loaded"`
-	TotalQueries    int64         `json:"total_queries"`
-	CacheHitRate    float64       `json:"cache_hit_rate"`
+	IndexesLoaded    int           `json:"indexes_loaded"`
+	TotalQueries     int64         `json:"total_queries"`
+	CacheHitRate     float64       `json:"cache_hit_rate"`
 	AverageQueryTime time.Duration `json:"average_query_time"`
-	LastQueryTime   time.Time     `json:"last_query_time"`
-	CacheSize       int           `json:"cache_size"`
-	MemoryUsage     int64         `json:"memory_usage_bytes"`
+	LastQueryTime    time.Time     `json:"last_query_time"`
+	CacheSize        int           `json:"cache_size"`
+	MemoryUsage      int64         `json:"memory_usage_bytes"`
 }
 
 // SCIPConfig represents SCIP configuration
 type SCIPConfig struct {
-	CacheConfig    CacheConfig       `json:"cache_config"`
-	Logging        LoggingConfig     `json:"logging"`
-	Performance    PerformanceConfig `json:"performance"`
+	CacheConfig CacheConfig       `json:"cache_config"`
+	Logging     LoggingConfig     `json:"logging"`
+	Performance PerformanceConfig `json:"performance"`
 }
 
 // CacheConfig represents cache configuration
@@ -75,40 +75,40 @@ type LoggingConfig struct {
 
 // PerformanceConfig represents performance configuration
 type PerformanceConfig struct {
-	QueryTimeout           time.Duration `json:"query_timeout"`
-	MaxConcurrentQueries   int           `json:"max_concurrent_queries"`
-	IndexLoadTimeout       time.Duration `json:"index_load_timeout"`
+	QueryTimeout         time.Duration `json:"query_timeout"`
+	MaxConcurrentQueries int           `json:"max_concurrent_queries"`
+	IndexLoadTimeout     time.Duration `json:"index_load_timeout"`
 }
 
 // SymbolRelationship represents a relationship between symbols
 type SymbolRelationship struct {
-	Symbol             string  `json:"symbol"`
-	IsReference        bool    `json:"is_reference"`
-	IsDefinition       bool    `json:"is_definition"`
-	IsTypeDefinition   bool    `json:"is_type_definition"`
-	IsImplementation   bool    `json:"is_implementation"`
-	RelationshipKind   string  `json:"relationship_kind"`
-	Confidence         float64 `json:"confidence"`
+	Symbol           string  `json:"symbol"`
+	IsReference      bool    `json:"is_reference"`
+	IsDefinition     bool    `json:"is_definition"`
+	IsTypeDefinition bool    `json:"is_type_definition"`
+	IsImplementation bool    `json:"is_implementation"`
+	RelationshipKind string  `json:"relationship_kind"`
+	Confidence       float64 `json:"confidence"`
 }
 
 // ResolvedReference represents a resolved symbol reference with context
 type ResolvedReference struct {
-	Symbol      string      `json:"symbol"`
-	URI         string      `json:"uri"`
-	Range       *scip.Range `json:"range"`
-	Role        int32       `json:"role"`
-	Confidence  float64     `json:"confidence"`
-	Context     string      `json:"context,omitempty"`
-	ResolvedAt  time.Time   `json:"resolved_at"`
+	Symbol     string      `json:"symbol"`
+	URI        string      `json:"uri"`
+	Range      *scip.Range `json:"range"`
+	Role       int32       `json:"role"`
+	Confidence float64     `json:"confidence"`
+	Context    string      `json:"context,omitempty"`
+	ResolvedAt time.Time   `json:"resolved_at"`
 }
 
 // SCIP type aliases and definitions for missing types in current version
 
 // SCIPSignature represents symbol signature information
 type SCIPSignature struct {
-	Text         string `json:"text"`
-	Language     string `json:"language"`
-	Kind         string `json:"kind"`
+	Text          string `json:"text"`
+	Language      string `json:"language"`
+	Kind          string `json:"kind"`
 	Documentation string `json:"documentation,omitempty"`
 }
 

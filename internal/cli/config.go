@@ -768,21 +768,21 @@ func generateMultiLanguageConfig() (*config.GatewayConfig, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate multi-language configuration from project: %w", err)
 		}
-		
+
 		// result.Config is already a *config.GatewayConfig, no conversion needed
 		gatewayConfig := result.Config
-		
+
 		// Apply additional CLI flags
 		applyCliFlags(gatewayConfig)
-		
+
 		languageCount := 0
 		if gatewayConfig.ProjectContext != nil {
 			languageCount = len(gatewayConfig.ProjectContext.Languages)
 		}
-		
-		fmt.Printf("✓ Multi-language configuration generated: %d servers, %d languages detected\n", 
+
+		fmt.Printf("✓ Multi-language configuration generated: %d servers, %d languages detected\n",
 			result.ServersGenerated, languageCount)
-		
+
 		return gatewayConfig, nil
 	}
 
@@ -999,7 +999,7 @@ func ConfigMigrate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Enhanced configuration generator would be initialized here if needed for migration
-	
+
 	// Create migrated configuration with enhanced features
 	migratedCfg := migrateToEnhancedFormat(sourceCfg)
 

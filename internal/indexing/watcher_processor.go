@@ -22,58 +22,58 @@ func NewChangeEventProcessor(config *ProcessorConfig) (*ChangeEventProcessor, er
 			EnableBatchProcessing:   true,
 		}
 	}
-	
+
 	// Create language detector
 	languageDetector, err := NewLanguageDetector()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create language detector: %w", err)
 	}
-	
+
 	// Create file type detector
 	fileTypeDetector, err := NewFileTypeDetector()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create file type detector: %w", err)
 	}
-	
+
 	// Create event validator
 	validator, err := NewEventValidator()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create event validator: %w", err)
 	}
-	
+
 	// Create batch processor
 	batchProcessor, err := NewBatchProcessor(50, 5*time.Second, nil) // Will set processor func later
 	if err != nil {
 		return nil, fmt.Errorf("failed to create batch processor: %w", err)
 	}
-	
+
 	processor := &ChangeEventProcessor{
 		languageDetector: languageDetector,
 		fileTypeDetector: fileTypeDetector,
 		validator:        validator,
 		batchProcessor:   batchProcessor,
-		config:          config,
-		stats:           NewProcessorStats(),
-		activeEvents:    make(map[string]*FileChangeEvent),
-		batchQueue:      make(chan []*FileChangeEvent, 100),
+		config:           config,
+		stats:            NewProcessorStats(),
+		activeEvents:     make(map[string]*FileChangeEvent),
+		batchQueue:       make(chan []*FileChangeEvent, 100),
 	}
-	
+
 	// Set the batch processor function
 	batchProcessor.processorFunc = processor.processBatch
-	
+
 	return processor, nil
 }
 
 // ProcessEvent processes a single file change event
 func (cep *ChangeEventProcessor) ProcessEvent(event *FileChangeEvent) (*FileChangeEvent, error) {
 	startTime := time.Now()
-	
+
 	// Validate event
 	if !cep.validator.ValidateEvent(event) {
 		atomic.AddInt64(&cep.stats.FilteredEvents, 1)
 		return nil, nil // Event filtered out
 	}
-	
+
 	// Detect language if enabled
 	if cep.config.EnableLanguageDetection {
 		language, err := cep.languageDetector.DetectLanguage(event.FilePath)
@@ -84,7 +84,7 @@ func (cep *ChangeEventProcessor) ProcessEvent(event *FileChangeEvent) (*FileChan
 			atomic.AddInt64(&cep.stats.LanguageDetections, 1)
 		}
 	}
-	
+
 	// Detect file type if enabled
 	if cep.config.EnableFileTypeDetection {
 		fileType, err := cep.fileTypeDetector.DetectFileType(event.FilePath)
@@ -95,11 +95,11 @@ func (cep *ChangeEventProcessor) ProcessEvent(event *FileChangeEvent) (*FileChan
 			atomic.AddInt64(&cep.stats.FileTypeDetections, 1)
 		}
 	}
-	
+
 	// Update processing time
 	processingTime := time.Since(startTime)
 	cep.updateProcessingTime(processingTime)
-	
+
 	atomic.AddInt64(&cep.stats.ProcessedEvents, 1)
 	return event, nil
 }
@@ -107,12 +107,12 @@ func (cep *ChangeEventProcessor) ProcessEvent(event *FileChangeEvent) (*FileChan
 // Run starts the event processor
 func (cep *ChangeEventProcessor) Run(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
-	
+
 	// Start batch processor if enabled
 	if cep.config.EnableBatchProcessing {
 		go cep.batchProcessor.Run(ctx)
 	}
-	
+
 	// Process batch queue
 	for {
 		select {
@@ -129,29 +129,29 @@ func (cep *ChangeEventProcessor) Run(ctx context.Context, wg *sync.WaitGroup) {
 // processBatch processes a batch of file change events
 func (cep *ChangeEventProcessor) processBatch(events []*FileChangeEvent) error {
 	startTime := time.Now()
-	
+
 	// Process events in parallel
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, cep.config.MaxConcurrentProcessing)
-	
+
 	for _, event := range events {
 		wg.Add(1)
 		go func(e *FileChangeEvent) {
 			defer wg.Done()
-			
+
 			// Acquire semaphore slot
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
-			
+
 			// Process individual event
 			if _, err := cep.ProcessEvent(e); err != nil {
 				log.Printf("EventProcessor: Failed to process event %v: %v", e, err)
 			}
 		}(event)
 	}
-	
+
 	wg.Wait()
-	
+
 	// Update batch statistics
 	cep.stats.mutex.Lock()
 	cep.stats.BatchesProcessed++
@@ -164,9 +164,9 @@ func (cep *ChangeEventProcessor) processBatch(events []*FileChangeEvent) error {
 		cep.stats.AvgBatchSize = cep.stats.AvgBatchSize*(1-alpha) + batchSize*alpha
 	}
 	cep.stats.mutex.Unlock()
-	
+
 	atomic.AddInt64(&cep.stats.BatchesProcessed, 1)
-	
+
 	log.Printf("EventProcessor: Processed batch of %d events in %v", len(events), time.Since(startTime))
 	return nil
 }
@@ -175,7 +175,7 @@ func (cep *ChangeEventProcessor) processBatch(events []*FileChangeEvent) error {
 func (cep *ChangeEventProcessor) updateProcessingTime(duration time.Duration) {
 	cep.stats.mutex.Lock()
 	defer cep.stats.mutex.Unlock()
-	
+
 	if cep.stats.AvgProcessingTime == 0 {
 		cep.stats.AvgProcessingTime = duration
 	} else {
@@ -188,7 +188,7 @@ func (cep *ChangeEventProcessor) updateProcessingTime(duration time.Duration) {
 func (cep *ChangeEventProcessor) GetStats() *ProcessorStats {
 	cep.stats.mutex.RLock()
 	defer cep.stats.mutex.RUnlock()
-	
+
 	stats := *cep.stats
 	return &stats
 }
@@ -200,17 +200,17 @@ func NewLanguageDetector() (*LanguageDetector, error) {
 		patternMap:   make(map[string]string),
 		cache:        make(map[string]string),
 	}
-	
+
 	// Initialize extension mappings
 	detector.initializeExtensionMappings()
-	
+
 	// Create content detector
 	contentDetector, err := NewContentDetector()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create content detector: %w", err)
 	}
 	detector.contentDetector = contentDetector
-	
+
 	return detector, nil
 }
 
@@ -224,19 +224,19 @@ func (ld *LanguageDetector) DetectLanguage(filePath string) (string, error) {
 		return cached, nil
 	}
 	ld.cacheMutex.RUnlock()
-	
+
 	startTime := time.Now()
-	
+
 	// Extract file extension
 	ext := strings.ToLower(filepath.Ext(filePath))
-	
+
 	// Check extension mapping
 	if language, exists := ld.extensionMap[ext]; exists {
 		ld.cacheResult(filePath, language)
 		ld.updateDetectionTime(time.Since(startTime))
 		return language, nil
 	}
-	
+
 	// Check filename patterns
 	filename := filepath.Base(filePath)
 	if language := ld.checkFilenamePatterns(filename); language != "" {
@@ -244,7 +244,7 @@ func (ld *LanguageDetector) DetectLanguage(filePath string) (string, error) {
 		ld.updateDetectionTime(time.Since(startTime))
 		return language, nil
 	}
-	
+
 	// Fall back to content detection if available
 	if ld.contentDetector != nil {
 		if language, err := ld.contentDetector.DetectFromContent(filePath); err == nil && language != "" {
@@ -253,7 +253,7 @@ func (ld *LanguageDetector) DetectLanguage(filePath string) (string, error) {
 			return language, nil
 		}
 	}
-	
+
 	// Return empty if no language detected
 	ld.updateDetectionTime(time.Since(startTime))
 	return "", nil
@@ -263,58 +263,58 @@ func (ld *LanguageDetector) DetectLanguage(filePath string) (string, error) {
 func (ld *LanguageDetector) initializeExtensionMappings() {
 	// Common programming language extensions
 	extensions := map[string]string{
-		".go":     "go",
-		".py":     "python",
-		".js":     "javascript",
-		".ts":     "typescript",
-		".jsx":    "javascript",
-		".tsx":    "typescript",
-		".java":   "java",
-		".kt":     "kotlin",
-		".rs":     "rust",
-		".cpp":    "cpp",
-		".cc":     "cpp",
-		".cxx":    "cpp",
-		".c":      "c",
-		".h":      "c",
-		".hpp":    "cpp",
-		".cs":     "csharp",
-		".php":    "php",
-		".rb":     "ruby",
-		".swift":  "swift",
-		".scala":  "scala",
-		".sh":     "shell",
-		".bash":   "shell",
-		".zsh":    "shell",
-		".fish":   "shell",
-		".ps1":    "powershell",
-		".yaml":   "yaml",
-		".yml":    "yaml",
-		".json":   "json",
-		".xml":    "xml",
-		".html":   "html",
-		".htm":    "html",
-		".css":    "css",
-		".scss":   "scss",
-		".sass":   "sass",
-		".less":   "less",
-		".sql":    "sql",
-		".r":      "r",
-		".R":      "r",
-		".m":      "matlab",
-		".pl":     "perl",
-		".lua":    "lua",
-		".vim":    "vim",
-		".md":     "markdown",
-		".tex":    "latex",
+		".go":         "go",
+		".py":         "python",
+		".js":         "javascript",
+		".ts":         "typescript",
+		".jsx":        "javascript",
+		".tsx":        "typescript",
+		".java":       "java",
+		".kt":         "kotlin",
+		".rs":         "rust",
+		".cpp":        "cpp",
+		".cc":         "cpp",
+		".cxx":        "cpp",
+		".c":          "c",
+		".h":          "c",
+		".hpp":        "cpp",
+		".cs":         "csharp",
+		".php":        "php",
+		".rb":         "ruby",
+		".swift":      "swift",
+		".scala":      "scala",
+		".sh":         "shell",
+		".bash":       "shell",
+		".zsh":        "shell",
+		".fish":       "shell",
+		".ps1":        "powershell",
+		".yaml":       "yaml",
+		".yml":        "yaml",
+		".json":       "json",
+		".xml":        "xml",
+		".html":       "html",
+		".htm":        "html",
+		".css":        "css",
+		".scss":       "scss",
+		".sass":       "sass",
+		".less":       "less",
+		".sql":        "sql",
+		".r":          "r",
+		".R":          "r",
+		".m":          "matlab",
+		".pl":         "perl",
+		".lua":        "lua",
+		".vim":        "vim",
+		".md":         "markdown",
+		".tex":        "latex",
 		".dockerfile": "dockerfile",
-		".proto":  "protobuf",
-		".toml":   "toml",
-		".ini":    "ini",
-		".cfg":    "ini",
-		".conf":   "conf",
+		".proto":      "protobuf",
+		".toml":       "toml",
+		".ini":        "ini",
+		".cfg":        "ini",
+		".conf":       "conf",
 	}
-	
+
 	for ext, lang := range extensions {
 		ld.extensionMap[ext] = lang
 	}
@@ -323,35 +323,35 @@ func (ld *LanguageDetector) initializeExtensionMappings() {
 // checkFilenamePatterns checks filename patterns for language detection
 func (ld *LanguageDetector) checkFilenamePatterns(filename string) string {
 	patterns := map[string]string{
-		"Dockerfile":    "dockerfile",
-		"Makefile":      "makefile",
-		"makefile":      "makefile",
-		"Rakefile":      "ruby",
-		"Gemfile":       "ruby",
-		"Podfile":       "ruby",
-		"package.json":  "json",
-		"composer.json": "json",
-		"cargo.toml":    "toml",
-		"pyproject.toml": "toml",
-		"go.mod":        "go",
-		"go.sum":        "go",
-		".gitignore":    "gitignore",
-		".dockerignore": "dockerignore",
+		"Dockerfile":       "dockerfile",
+		"Makefile":         "makefile",
+		"makefile":         "makefile",
+		"Rakefile":         "ruby",
+		"Gemfile":          "ruby",
+		"Podfile":          "ruby",
+		"package.json":     "json",
+		"composer.json":    "json",
+		"cargo.toml":       "toml",
+		"pyproject.toml":   "toml",
+		"go.mod":           "go",
+		"go.sum":           "go",
+		".gitignore":       "gitignore",
+		".dockerignore":    "dockerignore",
 		"requirements.txt": "text",
-		"readme.md":     "markdown",
-		"README.md":     "markdown",
-		"LICENSE":       "text",
-		"CHANGELOG":     "text",
+		"readme.md":        "markdown",
+		"README.md":        "markdown",
+		"LICENSE":          "text",
+		"CHANGELOG":        "text",
 	}
-	
+
 	lowerFilename := strings.ToLower(filename)
-	
+
 	for pattern, language := range patterns {
 		if strings.ToLower(pattern) == lowerFilename {
 			return language
 		}
 	}
-	
+
 	return ""
 }
 
@@ -359,9 +359,9 @@ func (ld *LanguageDetector) checkFilenamePatterns(filename string) string {
 func (ld *LanguageDetector) cacheResult(filePath, language string) {
 	ld.cacheMutex.Lock()
 	defer ld.cacheMutex.Unlock()
-	
+
 	ld.cache[filePath] = language
-	
+
 	// Simple cache size management - remove oldest entries if cache gets too large
 	if len(ld.cache) > 10000 {
 		// Remove random entries (in production, would use LRU)
@@ -384,7 +384,7 @@ func (ld *LanguageDetector) updateDetectionTime(duration time.Duration) {
 		alpha := 0.1
 		ld.avgDetectionTime = time.Duration(float64(ld.avgDetectionTime)*(1-alpha) + float64(duration)*alpha)
 	}
-	
+
 	atomic.AddInt64(&ld.detectionCount, 1)
 }
 
@@ -394,16 +394,16 @@ func NewFileTypeDetector() (*FileTypeDetector, error) {
 		typeMap: make(map[string]FileType),
 		cache:   make(map[string]FileType),
 	}
-	
+
 	// Initialize type mappings
 	detector.initializeTypeMappings()
-	
+
 	// Create binary detector
 	detector.binaryDetector = NewBinaryDetector()
-	
+
 	// Create mime detector
 	detector.mimeDetector = NewMimeDetector()
-	
+
 	return detector, nil
 }
 
@@ -416,16 +416,16 @@ func (ftd *FileTypeDetector) DetectFileType(filePath string) (FileType, error) {
 		return cached, nil
 	}
 	ftd.cacheMutex.RUnlock()
-	
+
 	// Get file extension
 	ext := strings.ToLower(filepath.Ext(filePath))
-	
+
 	// Check type mapping
 	if fileType, exists := ftd.typeMap[ext]; exists {
 		ftd.cacheFileType(filePath, fileType)
 		return fileType, nil
 	}
-	
+
 	// Check if binary
 	if ftd.binaryDetector.IsBinary(filePath) {
 		fileType := FileType{
@@ -436,7 +436,7 @@ func (ftd *FileTypeDetector) DetectFileType(filePath string) (FileType, error) {
 		ftd.cacheFileType(filePath, fileType)
 		return fileType, nil
 	}
-	
+
 	// Default to text file
 	fileType := FileType{
 		Type:      "text",
@@ -458,7 +458,7 @@ func (ftd *FileTypeDetector) initializeTypeMappings() {
 			Indexable: true,
 		}
 	}
-	
+
 	// Configuration files
 	configTypes := []string{".yaml", ".yml", ".json", ".toml", ".ini", ".cfg", ".conf", ".xml"}
 	for _, ext := range configTypes {
@@ -468,7 +468,7 @@ func (ftd *FileTypeDetector) initializeTypeMappings() {
 			Indexable: true,
 		}
 	}
-	
+
 	// Documentation files
 	docTypes := []string{".md", ".txt", ".rst", ".adoc", ".tex"}
 	for _, ext := range docTypes {
@@ -478,7 +478,7 @@ func (ftd *FileTypeDetector) initializeTypeMappings() {
 			Indexable: true,
 		}
 	}
-	
+
 	// Test files (pattern-based, simplified)
 	testTypes := []string{"_test.go", "_test.py", ".test.js", ".spec.js", "test.py", "spec.py"}
 	for _, pattern := range testTypes {
@@ -488,7 +488,7 @@ func (ftd *FileTypeDetector) initializeTypeMappings() {
 			Indexable: true,
 		}
 	}
-	
+
 	// Binary files
 	binaryTypes := []string{".exe", ".dll", ".so", ".dylib", ".a", ".lib", ".bin", ".pdf", ".jpg", ".png", ".gif", ".mp4", ".zip", ".tar", ".gz"}
 	for _, ext := range binaryTypes {
@@ -504,9 +504,9 @@ func (ftd *FileTypeDetector) initializeTypeMappings() {
 func (ftd *FileTypeDetector) cacheFileType(filePath string, fileType FileType) {
 	ftd.cacheMutex.Lock()
 	defer ftd.cacheMutex.Unlock()
-	
+
 	ftd.cache[filePath] = fileType
-	
+
 	// Simple cache size management
 	if len(ftd.cache) > 5000 {
 		count := 0
@@ -528,42 +528,42 @@ func NewEventValidator() (*EventValidator, error) {
 		allowedOps: make(map[string]bool),
 		stats:      NewValidationStats(),
 	}
-	
+
 	// Initialize allowed operations
 	validator.allowedOps[FileOpCreate] = true
 	validator.allowedOps[FileOpWrite] = true
 	validator.allowedOps[FileOpRemove] = true
 	validator.allowedOps[FileOpRename] = true
 	// FileOpChmod is often not relevant for indexing
-	
+
 	// Add default validation rules
 	validator.addDefaultRules()
-	
+
 	return validator, nil
 }
 
 // ValidateEvent validates a file change event
 func (ev *EventValidator) ValidateEvent(event *FileChangeEvent) bool {
 	startTime := time.Now()
-	
+
 	// Basic validation
 	if event == nil || event.FilePath == "" {
 		ev.updateStats(false, time.Since(startTime))
 		return false
 	}
-	
+
 	// Check if operation is allowed
 	if !ev.allowedOps[event.Operation] {
 		ev.updateStats(false, time.Since(startTime))
 		return false
 	}
-	
+
 	// Check file size limit
 	if event.FileSize > ev.sizeLimit {
 		ev.updateStats(false, time.Since(startTime))
 		return false
 	}
-	
+
 	// Apply validation rules
 	for _, rule := range ev.rules {
 		if rule.Condition != nil && !rule.Condition(event) {
@@ -571,7 +571,7 @@ func (ev *EventValidator) ValidateEvent(event *FileChangeEvent) bool {
 			return false
 		}
 	}
-	
+
 	ev.updateStats(true, time.Since(startTime))
 	return true
 }
@@ -593,7 +593,7 @@ func (ev *EventValidator) addDefaultRules() {
 		Action:   "deny",
 		Priority: 1,
 	})
-	
+
 	// Rule: Ignore hidden files (optional)
 	ev.rules = append(ev.rules, ValidationRule{
 		Name:        "ignore_hidden_files",
@@ -615,14 +615,14 @@ func (ev *EventValidator) addDefaultRules() {
 func (ev *EventValidator) updateStats(accepted bool, duration time.Duration) {
 	ev.stats.mutex.Lock()
 	defer ev.stats.mutex.Unlock()
-	
+
 	ev.stats.ValidatedEvents++
 	if accepted {
 		ev.stats.AcceptedEvents++
 	} else {
 		ev.stats.RejectedEvents++
 	}
-	
+
 	// Update average validation time
 	if ev.stats.AvgValidationTime == 0 {
 		ev.stats.AvgValidationTime = duration
@@ -640,7 +640,7 @@ func NewBatchProcessor(batchSize int, batchTimeout time.Duration, processorFunc 
 	if batchTimeout <= 0 {
 		batchTimeout = 5 * time.Second
 	}
-	
+
 	return &BatchProcessor{
 		batchSize:     batchSize,
 		batchTimeout:  batchTimeout,
@@ -654,7 +654,7 @@ func NewBatchProcessor(batchSize int, batchTimeout time.Duration, processorFunc 
 func (bp *BatchProcessor) Run(ctx context.Context) {
 	bp.batchTimer = time.NewTimer(bp.batchTimeout)
 	defer bp.batchTimer.Stop()
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -676,9 +676,9 @@ func (bp *BatchProcessor) Run(ctx context.Context) {
 func (bp *BatchProcessor) AddEvent(event *FileChangeEvent) {
 	bp.batchMutex.Lock()
 	defer bp.batchMutex.Unlock()
-	
+
 	bp.currentBatch = append(bp.currentBatch, event)
-	
+
 	// Process batch if it's full
 	if len(bp.currentBatch) >= bp.batchSize {
 		bp.processBatch()
@@ -690,17 +690,17 @@ func (bp *BatchProcessor) processBatch() {
 	if len(bp.currentBatch) == 0 {
 		return
 	}
-	
+
 	startTime := time.Now()
 	batchSize := len(bp.currentBatch)
-	
+
 	// Process the batch
 	if bp.processorFunc != nil {
 		if err := bp.processorFunc(bp.currentBatch); err != nil {
 			log.Printf("BatchProcessor: Failed to process batch: %v", err)
 		}
 	}
-	
+
 	// Update statistics
 	bp.stats.mutex.Lock()
 	bp.stats.BatchesProcessed++
@@ -711,7 +711,7 @@ func (bp *BatchProcessor) processBatch() {
 		alpha := 0.1
 		bp.stats.AvgBatchSize = bp.stats.AvgBatchSize*(1-alpha) + float64(batchSize)*alpha
 	}
-	
+
 	processingTime := time.Since(startTime)
 	if bp.stats.AvgBatchProcessTime == 0 {
 		bp.stats.AvgBatchProcessTime = processingTime
@@ -720,10 +720,10 @@ func (bp *BatchProcessor) processBatch() {
 		bp.stats.AvgBatchProcessTime = time.Duration(float64(bp.stats.AvgBatchProcessTime)*(1-alpha) + float64(processingTime)*alpha)
 	}
 	bp.stats.mutex.Unlock()
-	
+
 	// Clear the batch
 	bp.currentBatch = bp.currentBatch[:0]
-	
+
 	// Reset timer
 	if bp.batchTimer != nil {
 		bp.batchTimer.Reset(bp.batchTimeout)
@@ -742,7 +742,7 @@ func NewValidationStats() *ValidationStats {
 	return &ValidationStats{}
 }
 
-// NewBatchStats creates new batch statistics  
+// NewBatchStats creates new batch statistics
 func NewBatchStats() *BatchStats {
 	return &BatchStats{}
 }
@@ -772,7 +772,7 @@ func NewBinaryDetector() *BinaryDetector {
 		".jpg": true, ".png": true, ".gif": true, ".pdf": true,
 		".zip": true, ".tar": true, ".gz": true, ".bin": true,
 	}
-	
+
 	return &BinaryDetector{
 		binaryExtensions: binaryExts,
 		maxScanBytes:     512,

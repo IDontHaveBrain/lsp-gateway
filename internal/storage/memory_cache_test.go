@@ -8,6 +8,9 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestL1MemoryCache_BasicOperations(t *testing.T) {
@@ -106,7 +109,7 @@ func TestL1MemoryCache_PerformanceRequirements(t *testing.T) {
 	t.Logf("Put latency: %v, Get latency: %v", putLatency, getLatency)
 }
 
-func TestL1MemoryCache_ConcurrentAccess(t *testing.T) {
+func TestL1MemoryCache_ConcurrentAccess_Extended(t *testing.T) {
 	cache := NewL1MemoryCache(nil)
 	ctx := context.Background()
 	
@@ -164,7 +167,7 @@ func TestL1MemoryCache_ConcurrentAccess(t *testing.T) {
 	assert.Equal(t, expectedEntries, stats.EntryCount, "Expected %d entries, got %d", expectedEntries, stats.EntryCount)
 }
 
-func TestL1MemoryCache_LRUEviction(t *testing.T) {
+func TestL1MemoryCache_LRUEviction_Extended(t *testing.T) {
 	// Create cache with small capacity for testing eviction
 	config := &L1MemoryCacheConfig{
 		MaxCapacity:       1024, // 1KB
@@ -224,7 +227,7 @@ func TestL1MemoryCache_LRUEviction(t *testing.T) {
 	}
 }
 
-func TestL1MemoryCache_Compression(t *testing.T) {
+func TestL1MemoryCache_Compression_Extended(t *testing.T) {
 	config := &L1MemoryCacheConfig{
 		MaxCapacity:          10 * 1024 * 1024, // 10MB
 		MaxEntries:           1000,
@@ -285,7 +288,7 @@ func TestL1MemoryCache_Compression(t *testing.T) {
 	}
 }
 
-func TestL1MemoryCache_TTLExpiration(t *testing.T) {
+func TestL1MemoryCache_TTLExpiration_Extended(t *testing.T) {
 	cache := NewL1MemoryCache(nil)
 	ctx := context.Background()
 	
@@ -652,7 +655,7 @@ func TestL1MemoryCache_CircuitBreaker(t *testing.T) {
 	assert.Equal(t, CircuitBreakerClosed, health.CircuitBreaker.State)
 }
 
-func BenchmarkL1MemoryCache_Get(b *testing.B) {
+func BenchmarkL1MemoryCache_Get_Extended(b *testing.B) {
 	cache := NewL1MemoryCache(nil)
 	ctx := context.Background()
 	
@@ -691,7 +694,7 @@ func BenchmarkL1MemoryCache_Get(b *testing.B) {
 	})
 }
 
-func BenchmarkL1MemoryCache_Put(b *testing.B) {
+func BenchmarkL1MemoryCache_Put_Extended(b *testing.B) {
 	cache := NewL1MemoryCache(nil)
 	ctx := context.Background()
 	
