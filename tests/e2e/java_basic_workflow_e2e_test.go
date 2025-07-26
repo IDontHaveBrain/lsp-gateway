@@ -13,11 +13,7 @@ import (
 	"lsp-gateway/tests/mocks"
 )
 
-// LSPPosition represents a position in a text document
-type LSPPosition struct {
-	Line      int `json:"line"`
-	Character int `json:"character"`
-}
+// LSPPosition is now defined in common_types.go to avoid redeclaration
 
 // JavaBasicWorkflowE2ETestSuite provides comprehensive E2E tests for Java LSP workflows
 // covering all essential Spring Boot development scenarios that developers use daily
