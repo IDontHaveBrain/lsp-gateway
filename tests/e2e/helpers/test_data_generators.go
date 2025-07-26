@@ -2,13 +2,11 @@ package e2e_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"time"
 
 	"lsp-gateway/mcp"
-	"lsp-gateway/tests/framework"
 	"lsp-gateway/tests/mocks"
 )
 
@@ -33,9 +31,9 @@ func (g *TestDataGenerator) GenerateRandomLSPRequest() (string, interface{}) {
 		mcp.LSP_METHOD_TEXT_DOCUMENT_HOVER,
 		mcp.LSP_METHOD_TEXT_DOCUMENT_SYMBOLS,
 	}
-	
+
 	method := methods[g.rand.Intn(len(methods))]
-	
+
 	switch method {
 	case mcp.LSP_METHOD_WORKSPACE_SYMBOL:
 		return method, map[string]interface{}{
@@ -101,12 +99,12 @@ func (g *TestDataGenerator) generateRandomFileURI() string {
 	languages := []string{"go", "py", "ts", "js", "java"}
 	extensions := map[string]string{
 		"go":   ".go",
-		"py":   ".py", 
+		"py":   ".py",
 		"ts":   ".ts",
 		"js":   ".js",
 		"java": ".java",
 	}
-	
+
 	lang := languages[g.rand.Intn(len(languages))]
 	filename := fmt.Sprintf("file%d%s", g.rand.Intn(10), extensions[lang])
 	return fmt.Sprintf("file:///workspace/%s", filename)

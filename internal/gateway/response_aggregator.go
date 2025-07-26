@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"path/filepath"
@@ -224,6 +223,37 @@ type AggregatorRegistry struct {
 	logger      *mcp.StructuredLogger
 }
 
+// DefaultResponseAggregator is a default implementation of ResponseAggregator
+type DefaultResponseAggregator struct {
+	registry *AggregatorRegistry
+}
+
+// NewResponseAggregator creates a new response aggregator with default configuration
+func NewResponseAggregator(logger *mcp.StructuredLogger) ResponseAggregator {
+	registry := NewAggregatorRegistry(logger)
+	return &DefaultResponseAggregator{registry: registry}
+}
+
+// Aggregate aggregates responses from multiple sources for a generic method
+func (d *DefaultResponseAggregator) Aggregate(responses []interface{}, sources []string) (interface{}, error) {
+	// Use a default method name for generic aggregation
+	result, err := d.registry.AggregateResponses("generic", responses, sources)
+	if err != nil {
+		return nil, err
+	}
+	return result.MergedResponse, nil
+}
+
+// GetAggregationType returns the aggregation type
+func (d *DefaultResponseAggregator) GetAggregationType() string {
+	return "default"
+}
+
+// SupportedMethods returns the list of supported methods
+func (d *DefaultResponseAggregator) SupportedMethods() []string {
+	return []string{"generic"}
+}
+
 // NewAggregatorRegistry creates a new aggregator registry with default aggregators
 func NewAggregatorRegistry(logger *mcp.StructuredLogger) *AggregatorRegistry {
 	registry := &AggregatorRegistry{
@@ -441,7 +471,7 @@ func (d *DefinitionAggregator) Aggregate(responses []interface{}, sources []stri
 			// Handle mixed array responses
 			for _, item := range resp {
 				if loc, ok := item.(map[string]interface{}); ok {
-					if uri, exists := loc["uri"]; exists {
+					if _, exists := loc["uri"]; exists {
 						// Convert map to Location
 						if location := d.convertMapToLocation(loc); location != nil {
 							locationKey := fmt.Sprintf("%s:%d:%d-%d:%d", location.URI, location.Range.Start.Line, location.Range.Start.Character, location.Range.End.Line, location.Range.End.Character)
@@ -468,6 +498,8 @@ func (d *DefinitionAggregator) Aggregate(responses []interface{}, sources []stri
 	if len(allLocationLinks) > 0 {
 		return allLocationLinks, nil
 	}
+
+	_ = conflicts // Conflicts are tracked but not currently used in return value
 
 	if len(allLocations) == 0 {
 		return nil, nil
@@ -633,6 +665,8 @@ func (r *ReferencesAggregator) Aggregate(responses []interface{}, sources []stri
 		return allReferences[i].Range.Start.Character < allReferences[j].Range.Start.Character
 	})
 
+	_ = conflicts // Conflicts are tracked but not currently used in return value
+
 	return allReferences, nil
 }
 
@@ -747,6 +781,8 @@ func (s *SymbolAggregator) Aggregate(responses []interface{}, sources []string) 
 		}
 		return allSymbols[i].Location.Range.Start.Line < allSymbols[j].Location.Range.Start.Line
 	})
+
+	_ = conflicts // Conflicts are tracked but not currently used in return value
 
 	return allSymbols, nil
 }

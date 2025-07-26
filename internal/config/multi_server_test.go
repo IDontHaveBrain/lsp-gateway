@@ -93,6 +93,7 @@ func TestMultiServerConfig(t *testing.T) {
 	limits := config.GetResourceLimits("go")
 	if limits == nil {
 		t.Error("Expected resource limits, got nil")
+		return
 	}
 	if limits.MaxMemoryMB != 2048 {
 		t.Errorf("Expected max memory 2048, got %d", limits.MaxMemoryMB)
@@ -154,12 +155,12 @@ func TestBackwardCompatibility(t *testing.T) {
 		Port: 8080,
 		Servers: []ServerConfig{
 			{
-				Name:        "go-lsp",
-				Languages:   []string{"go"},
-				Command:     "gopls",
-				Transport:   "stdio",
-				Priority:    1,
-				Weight:      1.0,
+				Name:      "go-lsp",
+				Languages: []string{"go"},
+				Command:   "gopls",
+				Transport: "stdio",
+				Priority:  1,
+				Weight:    1.0,
 			},
 		},
 		EnableConcurrentServers: false,
@@ -271,7 +272,7 @@ func TestDefaultConfig(t *testing.T) {
 
 	// Test that defaults are properly set
 	if config.MaxConcurrentServersPerLanguage != DEFAULT_MAX_CONCURRENT_SERVERS_PER_LANG {
-		t.Errorf("Expected max concurrent servers per language %d, got %d", 
+		t.Errorf("Expected max concurrent servers per language %d, got %d",
 			DEFAULT_MAX_CONCURRENT_SERVERS_PER_LANG, config.MaxConcurrentServersPerLanguage)
 	}
 

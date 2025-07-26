@@ -73,7 +73,7 @@ clean:
 .PHONY: deps tidy format test
 deps:
 	@echo "Downloading dependencies..."
-	$(GOGET) -v ./...
+	$(GOCMD) get -v ./...
 
 tidy:
 	@echo "Tidying go modules..."

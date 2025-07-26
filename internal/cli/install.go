@@ -154,49 +154,6 @@ func init() {
 	rootCmd.AddCommand(installCmd)
 }
 
-// GetInstallRuntimeCmd returns the install runtime command for testing purposes
-func GetInstallRuntimeCmd() *cobra.Command {
-	return installRuntimeCmd
-}
-
-// GetInstallServerCmd returns the install server command for testing purposes
-func GetInstallServerCmd() *cobra.Command {
-	return installServerCmd
-}
-
-// GetInstallCmd returns the install command for testing purposes
-func GetInstallCmd() *cobra.Command {
-	return installCmd
-}
-
-// GetInstallServersCmd returns the install servers command for testing purposes
-func GetInstallServersCmd() *cobra.Command {
-	return installServersCmd
-}
-
-// GetInstallFlags returns the current install flag values for testing purposes
-func GetInstallFlags() (force bool, version string, jsonOutput bool, timeout time.Duration) {
-	return installForce, installVersion, installJSON, installTimeout
-}
-
-// SetInstallFlags sets the install flag values for testing purposes
-func SetInstallFlags(force bool, version string, jsonOutput bool, timeout time.Duration) {
-	installForce = force
-	installVersion = version
-	installJSON = jsonOutput
-	installTimeout = timeout
-}
-
-// OutputInstallResultsJSON outputs install results in JSON format for testing purposes
-func OutputInstallResultsJSON(results []*InstallResult, installError error) error {
-	return outputInstallResultsJSON(results, installError)
-}
-
-// OutputInstallResultsHuman outputs install results in human-readable format for testing purposes
-func OutputInstallResultsHuman(results []*InstallResult, installError error) error {
-	return outputInstallResultsHuman(results, installError)
-}
-
 func runInstallRuntime(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(cmd.Context(), installTimeout)
 	defer cancel()

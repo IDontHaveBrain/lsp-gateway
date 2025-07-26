@@ -100,19 +100,19 @@ func (rs RecoveryStrategy) String() string {
 	case RecoveryIgnore:
 		return "ignore"
 	default:
-		return "unknown"
+		return StateStringUnknown
 	}
 }
 
 // ServerHealthChecker manages health checking for a single server
 type ServerHealthChecker struct {
-	server          *ServerInstance
-	thresholds      *HealthThresholds
+	server           *ServerInstance
+	thresholds       *HealthThresholds
 	recoveryStrategy RecoveryStrategy
-	checkInterval   time.Duration
-	ctx             context.Context
-	cancel          context.CancelFunc
-	mu              sync.RWMutex
+	checkInterval    time.Duration
+	ctx              context.Context
+	cancel           context.CancelFunc
+	mu               sync.RWMutex
 }
 
 // NewServerHealthChecker creates a new server health checker
@@ -182,7 +182,7 @@ func (shc *ServerHealthChecker) performHealthCheck() {
 		shc.server.healthStatus.IsHealthy = true
 		shc.server.healthStatus.LastError = ""
 		shc.server.healthStatus.ConsecutiveFailures = 0
-		
+
 		// Update server state if it was unhealthy
 		if shc.server.GetState() == ServerStateUnhealthy {
 			shc.server.SetState(ServerStateHealthy)
@@ -460,7 +460,7 @@ func (hm *HealthMonitor) SetThresholds(thresholds *HealthThresholds) {
 	defer hm.mu.Unlock()
 
 	hm.alertThresholds = thresholds
-	
+
 	// Update all existing checkers
 	for _, checker := range hm.healthCheckers {
 		checker.thresholds = thresholds
@@ -488,11 +488,11 @@ func (hm *HealthMonitor) GetHealthSummary() *HealthSummary {
 	defer hm.mu.RUnlock()
 
 	summary := &HealthSummary{
-		TotalServers:    len(hm.healthCheckers),
-		HealthyServers:  0,
+		TotalServers:     len(hm.healthCheckers),
+		HealthyServers:   0,
 		UnhealthyServers: 0,
-		FailedServers:   0,
-		LastCheckTime:   time.Now(),
+		FailedServers:    0,
+		LastCheckTime:    time.Now(),
 	}
 
 	for _, checker := range hm.healthCheckers {

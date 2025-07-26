@@ -15,54 +15,54 @@ import (
 type MockMcpClient struct {
 	mu sync.RWMutex
 
-	SendLSPRequestFunc     func(ctx context.Context, method string, params interface{}) (json.RawMessage, error)
-	GetMetricsFunc         func() mcp.ConnectionMetrics
-	GetHealthFunc          func(ctx context.Context) error
-	IsHealthyFunc          func() bool
-	SetRetryPolicyFunc     func(policy *mcp.RetryPolicy)
-	GetBaseURLFunc         func() string
-	GetTimeoutFunc         func() time.Duration
-	GetMaxRetriesFunc      func() int
-	GetCircuitBreakerStateFunc func() mcp.CircuitBreakerState
+	SendLSPRequestFunc          func(ctx context.Context, method string, params interface{}) (json.RawMessage, error)
+	GetMetricsFunc              func() mcp.ConnectionMetrics
+	GetHealthFunc               func(ctx context.Context) error
+	IsHealthyFunc               func() bool
+	SetRetryPolicyFunc          func(policy *mcp.RetryPolicy)
+	GetBaseURLFunc              func() string
+	GetTimeoutFunc              func() time.Duration
+	GetMaxRetriesFunc           func() int
+	GetCircuitBreakerStateFunc  func() mcp.CircuitBreakerState
 	SetCircuitBreakerConfigFunc func(maxFailures int, timeout time.Duration)
-	GetRetryPolicyFunc     func() mcp.RetryPolicy
-	GetCircuitBreakerFunc  func() *mcp.CircuitBreaker
-	GetMetricsPointerFunc  func() *mcp.ConnectionMetrics
-	CategorizeErrorFunc    func(err error) mcp.ErrorCategory
-	CalculateBackoffFunc   func(attempt int) time.Duration
-	GetHTTPClientFunc      func() *http.Client
+	GetRetryPolicyFunc          func() mcp.RetryPolicy
+	GetCircuitBreakerFunc       func() *mcp.CircuitBreaker
+	GetMetricsPointerFunc       func() *mcp.ConnectionMetrics
+	CategorizeErrorFunc         func(err error) mcp.ErrorCategory
+	CalculateBackoffFunc        func(attempt int) time.Duration
+	GetHTTPClientFunc           func() *http.Client
 
-	SendLSPRequestCalls     []SendLSPRequestCall
-	GetMetricsCalls         []interface{}
-	GetHealthCalls          []context.Context
-	IsHealthyCalls          []interface{}
-	SetRetryPolicyCalls     []*mcp.RetryPolicy
-	GetBaseURLCalls         []interface{}
-	GetTimeoutCalls         []interface{}
-	GetMaxRetriesCalls      []interface{}
-	GetCircuitBreakerStateCalls []interface{}
+	SendLSPRequestCalls          []SendLSPRequestCall
+	GetMetricsCalls              []interface{}
+	GetHealthCalls               []context.Context
+	IsHealthyCalls               []interface{}
+	SetRetryPolicyCalls          []*mcp.RetryPolicy
+	GetBaseURLCalls              []interface{}
+	GetTimeoutCalls              []interface{}
+	GetMaxRetriesCalls           []interface{}
+	GetCircuitBreakerStateCalls  []interface{}
 	SetCircuitBreakerConfigCalls []CircuitBreakerConfigCall
-	GetRetryPolicyCalls     []interface{}
-	GetCircuitBreakerCalls  []interface{}
-	GetMetricsPointerCalls  []interface{}
-	CategorizeErrorCalls    []error
-	CalculateBackoffCalls   []int
-	GetHTTPClientCalls      []interface{}
+	GetRetryPolicyCalls          []interface{}
+	GetCircuitBreakerCalls       []interface{}
+	GetMetricsPointerCalls       []interface{}
+	CategorizeErrorCalls         []error
+	CalculateBackoffCalls        []int
+	GetHTTPClientCalls           []interface{}
 
-	mockMetrics         mcp.ConnectionMetrics
-	mockCircuitBreaker  *mcp.CircuitBreaker
-	mockRetryPolicy     *mcp.RetryPolicy
-	mockBaseURL         string
-	mockTimeout         time.Duration
-	mockMaxRetries      int
-	mockHTTPClient      *http.Client
-	mockHealthy         bool
-	mockLogger          *log.Logger
+	mockMetrics        mcp.ConnectionMetrics
+	mockCircuitBreaker *mcp.CircuitBreaker
+	mockRetryPolicy    *mcp.RetryPolicy
+	mockBaseURL        string
+	mockTimeout        time.Duration
+	mockMaxRetries     int
+	mockHTTPClient     *http.Client
+	mockHealthy        bool
+	mockLogger         *log.Logger
 
-	responseQueue       []json.RawMessage
-	errorQueue          []error
-	responseIndex       int
-	errorIndex          int
+	responseQueue []json.RawMessage
+	errorQueue    []error
+	responseIndex int
+	errorIndex    int
 }
 
 type SendLSPRequestCall struct {
@@ -117,24 +117,33 @@ func NewMockMcpClient() *MockMcpClient {
 	}
 
 	return &MockMcpClient{
-		SendLSPRequestCalls:         make([]SendLSPRequestCall, 0),
-		GetMetricsCalls:             make([]interface{}, 0),
-		GetHealthCalls:              make([]context.Context, 0),
-		IsHealthyCalls:              make([]interface{}, 0),
-		SetRetryPolicyCalls:         make([]*mcp.RetryPolicy, 0),
-		GetBaseURLCalls:             make([]interface{}, 0),
-		GetTimeoutCalls:             make([]interface{}, 0),
-		GetMaxRetriesCalls:          make([]interface{}, 0),
-		GetCircuitBreakerStateCalls: make([]interface{}, 0),
+		SendLSPRequestCalls:          make([]SendLSPRequestCall, 0),
+		GetMetricsCalls:              make([]interface{}, 0),
+		GetHealthCalls:               make([]context.Context, 0),
+		IsHealthyCalls:               make([]interface{}, 0),
+		SetRetryPolicyCalls:          make([]*mcp.RetryPolicy, 0),
+		GetBaseURLCalls:              make([]interface{}, 0),
+		GetTimeoutCalls:              make([]interface{}, 0),
+		GetMaxRetriesCalls:           make([]interface{}, 0),
+		GetCircuitBreakerStateCalls:  make([]interface{}, 0),
 		SetCircuitBreakerConfigCalls: make([]CircuitBreakerConfigCall, 0),
-		GetRetryPolicyCalls:         make([]interface{}, 0),
-		GetCircuitBreakerCalls:      make([]interface{}, 0),
-		GetMetricsPointerCalls:      make([]interface{}, 0),
-		CategorizeErrorCalls:        make([]error, 0),
-		CalculateBackoffCalls:       make([]int, 0),
-		GetHTTPClientCalls:          make([]interface{}, 0),
+		GetRetryPolicyCalls:          make([]interface{}, 0),
+		GetCircuitBreakerCalls:       make([]interface{}, 0),
+		GetMetricsPointerCalls:       make([]interface{}, 0),
+		CategorizeErrorCalls:         make([]error, 0),
+		CalculateBackoffCalls:        make([]int, 0),
+		GetHTTPClientCalls:           make([]interface{}, 0),
 
-		mockMetrics:        defaultMetrics,
+		mockMetrics:        mcp.ConnectionMetrics{
+			TotalRequests:    defaultMetrics.TotalRequests,
+			SuccessfulReqs:   defaultMetrics.SuccessfulReqs,
+			FailedRequests:   defaultMetrics.FailedRequests,
+			TimeoutCount:     defaultMetrics.TimeoutCount,
+			ConnectionErrors: defaultMetrics.ConnectionErrors,
+			AverageLatency:   defaultMetrics.AverageLatency,
+			LastRequestTime:  defaultMetrics.LastRequestTime,
+			LastSuccessTime:  defaultMetrics.LastSuccessTime,
+		},
 		mockCircuitBreaker: defaultCircuitBreaker,
 		mockRetryPolicy:    defaultRetryPolicy,
 		mockBaseURL:        "http://localhost:8080",
@@ -192,7 +201,16 @@ func (m *MockMcpClient) GetMetrics() mcp.ConnectionMetrics {
 	if m.GetMetricsFunc != nil {
 		return m.GetMetricsFunc()
 	}
-	return m.mockMetrics
+	return mcp.ConnectionMetrics{
+		TotalRequests:    m.mockMetrics.TotalRequests,
+		SuccessfulReqs:   m.mockMetrics.SuccessfulReqs,
+		FailedRequests:   m.mockMetrics.FailedRequests,
+		TimeoutCount:     m.mockMetrics.TimeoutCount,
+		ConnectionErrors: m.mockMetrics.ConnectionErrors,
+		AverageLatency:   m.mockMetrics.AverageLatency,
+		LastRequestTime:  m.mockMetrics.LastRequestTime,
+		LastSuccessTime:  m.mockMetrics.LastSuccessTime,
+	}
 }
 
 func (m *MockMcpClient) GetHealth(ctx context.Context) error {
@@ -285,12 +303,12 @@ func (m *MockMcpClient) SetCircuitBreakerConfig(maxFailures int, timeout time.Du
 		Timeout:     timeout,
 	}
 	m.SetCircuitBreakerConfigCalls = append(m.SetCircuitBreakerConfigCalls, call)
-	
+
 	if m.SetCircuitBreakerConfigFunc != nil {
 		m.SetCircuitBreakerConfigFunc(maxFailures, timeout)
 		return
 	}
-	
+
 	m.mockCircuitBreaker.MaxFailures = maxFailures
 	m.mockCircuitBreaker.Timeout = timeout
 }
@@ -339,11 +357,11 @@ func (m *MockMcpClient) CategorizeError(err error) mcp.ErrorCategory {
 	if m.CategorizeErrorFunc != nil {
 		return m.CategorizeErrorFunc(err)
 	}
-	
+
 	if err == nil {
 		return mcp.ErrorCategoryUnknown
 	}
-	
+
 	switch err.Error() {
 	case "network error":
 		return mcp.ErrorCategoryNetwork
@@ -370,11 +388,11 @@ func (m *MockMcpClient) CalculateBackoff(attempt int) time.Duration {
 	if m.CalculateBackoffFunc != nil {
 		return m.CalculateBackoffFunc(attempt)
 	}
-	
+
 	if attempt <= 0 {
 		return 0
 	}
-	
+
 	backoff := time.Duration(500*attempt) * time.Millisecond
 	if backoff > 30*time.Second {
 		backoff = 30 * time.Second
@@ -438,7 +456,7 @@ func (m *MockMcpClient) SetCircuitBreakerState(state mcp.CircuitBreakerState) {
 func (m *MockMcpClient) UpdateMetrics(totalReq, successReq, failedReq, timeoutCount, connErrors int64, avgLatency time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.mockMetrics.TotalRequests = totalReq
 	m.mockMetrics.SuccessfulReqs = successReq
 	m.mockMetrics.FailedRequests = failedReq

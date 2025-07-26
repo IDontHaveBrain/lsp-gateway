@@ -25,19 +25,19 @@ type PythonProjectDetector struct {
 
 // PythonDetectionMetadata contains detailed Python project analysis results
 type PythonDetectionMetadata struct {
-	PyProjectInfo    *PyProjectInfo             `json:"pyproject_info,omitempty"`
-	SetupPyInfo      *SetupPyInfo               `json:"setup_py_info,omitempty"`
-	VirtualEnvInfo   *VirtualEnvironmentInfo    `json:"venv_info,omitempty"`
-	FrameworkInfo    *FrameworkAnalysis         `json:"framework_info,omitempty"`
-	PythonVersion    string                     `json:"python_version,omitempty"`
-	Dependencies     map[string]*types.PythonDependencyInfo `json:"dependencies,omitempty"`
-	DevDependencies  map[string]*types.PythonDependencyInfo `json:"dev_dependencies,omitempty"`
-	TestFrameworks   []string                   `json:"test_frameworks,omitempty"`
-	PackageManager   string                     `json:"package_manager,omitempty"`
-	BuildBackend     string                     `json:"build_backend,omitempty"`
-	ProjectType      string                     `json:"project_type,omitempty"`
-	HasC2Extensions  bool                       `json:"has_c_extensions,omitempty"`
-	EntryPoints      map[string]string          `json:"entry_points,omitempty"`
+	PyProjectInfo   *PyProjectInfo                         `json:"pyproject_info,omitempty"`
+	SetupPyInfo     *SetupPyInfo                           `json:"setup_py_info,omitempty"`
+	VirtualEnvInfo  *VirtualEnvironmentInfo                `json:"venv_info,omitempty"`
+	FrameworkInfo   *FrameworkAnalysis                     `json:"framework_info,omitempty"`
+	PythonVersion   string                                 `json:"python_version,omitempty"`
+	Dependencies    map[string]*types.PythonDependencyInfo `json:"dependencies,omitempty"`
+	DevDependencies map[string]*types.PythonDependencyInfo `json:"dev_dependencies,omitempty"`
+	TestFrameworks  []string                               `json:"test_frameworks,omitempty"`
+	PackageManager  string                                 `json:"package_manager,omitempty"`
+	BuildBackend    string                                 `json:"build_backend,omitempty"`
+	ProjectType     string                                 `json:"project_type,omitempty"`
+	HasC2Extensions bool                                   `json:"has_c_extensions,omitempty"`
+	EntryPoints     map[string]string                      `json:"entry_points,omitempty"`
 }
 
 // VirtualEnvironmentInfo contains virtual environment details
@@ -51,10 +51,10 @@ type VirtualEnvironmentInfo struct {
 
 // FrameworkAnalysis contains detected framework information
 type FrameworkAnalysis struct {
-	WebFrameworks  []string `json:"web_frameworks,omitempty"`
-	TestFrameworks []string `json:"test_frameworks,omitempty"`
-	DataScience    []string `json:"data_science,omitempty"`
-	MLFrameworks   []string `json:"ml_frameworks,omitempty"`
+	WebFrameworks   []string `json:"web_frameworks,omitempty"`
+	TestFrameworks  []string `json:"test_frameworks,omitempty"`
+	DataScience     []string `json:"data_science,omitempty"`
+	MLFrameworks    []string `json:"ml_frameworks,omitempty"`
 	AsyncFrameworks []string `json:"async_frameworks,omitempty"`
 }
 
@@ -345,7 +345,7 @@ func (d *PythonProjectDetector) analyzeVirtualEnvironment(ctx context.Context, p
 		if info, err := os.Stat(fullPath); err == nil && info.IsDir() {
 			venvInfo.Path = fullPath
 			venvInfo.Type = "venv"
-			
+
 			// Check for Python executable
 			pythonPath := filepath.Join(fullPath, "bin", "python")
 			if _, err := os.Stat(pythonPath); err == nil {
@@ -371,9 +371,9 @@ func (d *PythonProjectDetector) analyzeVirtualEnvironment(ctx context.Context, p
 }
 
 // compileDetectionResult compiles all analysis results into final detection result
-func (d *PythonProjectDetector) compileDetectionResult(path string, runtime *setup.RuntimeInfo, 
+func (d *PythonProjectDetector) compileDetectionResult(path string, runtime *setup.RuntimeInfo,
 	config *PythonDetectionMetadata, source *FrameworkAnalysis, venv *VirtualEnvironmentInfo) *types.LanguageDetectionResult {
-	
+
 	result := &types.LanguageDetectionResult{
 		Language:        types.PROJECT_TYPE_PYTHON,
 		RequiredServers: d.GetRequiredServers(),
@@ -518,9 +518,9 @@ func (d *PythonProjectDetector) collectMarkerFiles(path string) []string {
 	return markerFiles
 }
 
-func (d *PythonProjectDetector) calculateConfidence(markerFiles []string, hasRuntime bool, 
+func (d *PythonProjectDetector) calculateConfidence(markerFiles []string, hasRuntime bool,
 	config *PythonDetectionMetadata, source *FrameworkAnalysis) float64 {
-	
+
 	confidence := 0.0
 
 	// Base confidence from marker files
@@ -608,7 +608,7 @@ func (d *PythonProjectDetector) detectTestDirectories(path string) []string {
 	return testDirs
 }
 
-func (d *PythonProjectDetector) mergeDependencies(target map[string]*types.PythonDependencyInfo, 
+func (d *PythonProjectDetector) mergeDependencies(target map[string]*types.PythonDependencyInfo,
 	source map[string]*types.PythonDependencyInfo, sourceFile string) {
 	for name, dep := range source {
 		if existing, exists := target[name]; exists {
@@ -690,10 +690,10 @@ func (d *PythonProjectDetector) hasMLPackages(deps map[string]*types.PythonDepen
 
 func (d *PythonProjectDetector) analyzeFileImports(content string, analysis *FrameworkAnalysis) {
 	lines := strings.Split(content, "\n")
-	
+
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		// Skip comments and empty lines
 		if strings.HasPrefix(line, "#") || line == "" {
 			continue
@@ -709,46 +709,46 @@ func (d *PythonProjectDetector) analyzeFileImports(content string, analysis *Fra
 func (d *PythonProjectDetector) analyzeImportLine(line string, analysis *FrameworkAnalysis) {
 	// Web frameworks
 	webFrameworks := map[string]string{
-		"django": "Django",
-		"flask": "Flask", 
+		"django":  "Django",
+		"flask":   "Flask",
 		"fastapi": "FastAPI",
 		"tornado": "Tornado",
 		"pyramid": "Pyramid",
-		"bottle": "Bottle",
+		"bottle":  "Bottle",
 	}
 
 	// Test frameworks
 	testFrameworks := map[string]string{
-		"pytest": "pytest",
+		"pytest":   "pytest",
 		"unittest": "unittest",
-		"nose": "nose",
-		"testify": "testify",
+		"nose":     "nose",
+		"testify":  "testify",
 	}
 
 	// Data science packages
 	dataScience := map[string]string{
-		"pandas": "Pandas",
-		"numpy": "NumPy",
-		"scipy": "SciPy",
+		"pandas":     "Pandas",
+		"numpy":      "NumPy",
+		"scipy":      "SciPy",
 		"matplotlib": "Matplotlib",
-		"seaborn": "Seaborn",
+		"seaborn":    "Seaborn",
 	}
 
 	// ML frameworks
 	mlFrameworks := map[string]string{
 		"tensorflow": "TensorFlow",
-		"torch": "PyTorch",
-		"sklearn": "scikit-learn",
-		"keras": "Keras",
-		"xgboost": "XGBoost",
+		"torch":      "PyTorch",
+		"sklearn":    "scikit-learn",
+		"keras":      "Keras",
+		"xgboost":    "XGBoost",
 	}
 
 	// Async frameworks
 	asyncFrameworks := map[string]string{
 		"asyncio": "asyncio",
 		"aiohttp": "aiohttp",
-		"trio": "Trio",
-		"anyio": "AnyIO",
+		"trio":    "Trio",
+		"anyio":   "AnyIO",
 	}
 
 	// Check each category

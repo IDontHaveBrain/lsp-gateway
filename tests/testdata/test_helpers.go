@@ -34,9 +34,9 @@ func (tc *TestContext) Cleanup() {
 
 func CreateMockRuntimeInfo(name, version, path string, installed, compatible bool) *setup.RuntimeInfo {
 	return &setup.RuntimeInfo{
-		Name:         name,
-		Installed:    installed,
-		Version:      version,
+		Name:      name,
+		Installed: installed,
+		Version:   version,
 		ParsedVersion: &setup.Version{
 			Major:    1,
 			Minor:    0,

@@ -47,7 +47,6 @@ type ServerSelector interface {
 type RoundRobinSelector struct {
 	name         string
 	currentIndex int64
-	mu           sync.RWMutex
 }
 
 // NewRoundRobinSelector creates a new round-robin selector
@@ -285,7 +284,7 @@ func (rt *ResponseTimeSelector) SelectServer(pool *LanguageServerPool, requestTy
 	defer rt.mu.Unlock()
 
 	var bestServer *ServerInstance
-	var bestResponseTime time.Duration = time.Duration(math.MaxInt64)
+	var bestResponseTime = time.Duration(math.MaxInt64)
 
 	for _, server := range servers {
 		if _, exists := rt.responseTimeMetrics[server.config.Name]; !exists {
@@ -727,7 +726,6 @@ type MultiServerSelector struct {
 	primaryStrategy    ServerSelector
 	fallbackStrategies []ServerSelector
 	affinityRules      map[string]string // request type -> preferred server
-	mu                 sync.RWMutex
 }
 
 // NewMultiServerSelector creates a new multi-server selector
@@ -836,7 +834,6 @@ type HealthAwareSelector struct {
 	baseSelector      ServerSelector
 	healthThreshold   float64
 	maxUnhealthyRatio float64
-	mu                sync.RWMutex
 }
 
 // NewHealthAwareSelector creates a new health-aware selector
@@ -931,7 +928,7 @@ func NewServerSelector(config *config.LoadBalancingConfig) (ServerSelector, erro
 	var err error
 
 	switch config.Strategy {
-	case "round_robin":
+	case string(LoadBalanceRoundRobin):
 		baseSelector = NewRoundRobinSelector()
 	case "least_connections":
 		baseSelector = NewLeastConnectionsSelector()

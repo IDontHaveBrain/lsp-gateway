@@ -37,14 +37,14 @@ func (s ValidationSeverity) String() string {
 
 // ValidationError represents a structured validation error
 type ValidationError struct {
-	Component   string             `json:"component"`
-	Field       string             `json:"field"`
-	Message     string             `json:"message"`
-	Severity    ValidationSeverity `json:"severity"`
-	Suggestion  string             `json:"suggestion,omitempty"`
-	Impact      string             `json:"impact,omitempty"`
-	Category    string             `json:"category"`
-	RuleID      string             `json:"rule_id"`
+	Component  string             `json:"component"`
+	Field      string             `json:"field"`
+	Message    string             `json:"message"`
+	Severity   ValidationSeverity `json:"severity"`
+	Suggestion string             `json:"suggestion,omitempty"`
+	Impact     string             `json:"impact,omitempty"`
+	Category   string             `json:"category"`
+	RuleID     string             `json:"rule_id"`
 }
 
 func (ve ValidationError) Error() string {
@@ -53,13 +53,13 @@ func (ve ValidationError) Error() string {
 
 // ValidationWarning represents a validation warning
 type ValidationWarning struct {
-	Component   string `json:"component"`
-	Field       string `json:"field"`
-	Message     string `json:"message"`
-	Suggestion  string `json:"suggestion,omitempty"`
-	Impact      string `json:"impact,omitempty"`
-	Category    string `json:"category"`
-	RuleID      string `json:"rule_id"`
+	Component  string `json:"component"`
+	Field      string `json:"field"`
+	Message    string `json:"message"`
+	Suggestion string `json:"suggestion,omitempty"`
+	Impact     string `json:"impact,omitempty"`
+	Category   string `json:"category"`
+	RuleID     string `json:"rule_id"`
 }
 
 // ValidationRecommendation represents an actionable recommendation
@@ -88,18 +88,18 @@ type ComponentValidationResult struct {
 
 // ValidationResult represents comprehensive validation results
 type ValidationResult struct {
-	IsValid               bool                                  `json:"is_valid"`
-	Score                 int                                   `json:"score"` // 0-100
-	Grade                 string                                `json:"grade"` // A-F
-	Errors                []ValidationError                     `json:"errors"`
-	Warnings              []ValidationWarning                   `json:"warnings"`
-	Recommendations       []ValidationRecommendation            `json:"recommendations"`
-	ComponentResults      map[string]*ComponentValidationResult `json:"component_results"`
-	PerformanceMetrics    map[string]float64                    `json:"performance_metrics"`
-	SecurityAssessment    map[string]interface{}                `json:"security_assessment"`
-	CompatibilityStatus   map[string]string                     `json:"compatibility_status"`
-	ValidatedAt           time.Time                             `json:"validated_at"`
-	ValidationDuration    time.Duration                         `json:"validation_duration"`
+	IsValid             bool                                  `json:"is_valid"`
+	Score               int                                   `json:"score"` // 0-100
+	Grade               string                                `json:"grade"` // A-F
+	Errors              []ValidationError                     `json:"errors"`
+	Warnings            []ValidationWarning                   `json:"warnings"`
+	Recommendations     []ValidationRecommendation            `json:"recommendations"`
+	ComponentResults    map[string]*ComponentValidationResult `json:"component_results"`
+	PerformanceMetrics  map[string]float64                    `json:"performance_metrics"`
+	SecurityAssessment  map[string]interface{}                `json:"security_assessment"`
+	CompatibilityStatus map[string]string                     `json:"compatibility_status"`
+	ValidatedAt         time.Time                             `json:"validated_at"`
+	ValidationDuration  time.Duration                         `json:"validation_duration"`
 }
 
 // EnhancedValidator provides comprehensive configuration validation
@@ -127,7 +127,7 @@ func NewEnhancedValidator() *EnhancedValidator {
 // ValidateComprehensive performs comprehensive configuration validation
 func (ev *EnhancedValidator) ValidateComprehensive(config *GatewayConfig) (*ValidationResult, error) {
 	start := time.Now()
-	
+
 	result := &ValidationResult{
 		ComponentResults:    make(map[string]*ComponentValidationResult),
 		PerformanceMetrics:  make(map[string]float64),
@@ -252,10 +252,10 @@ func (ev *EnhancedValidator) prioritizeRecommendations(recommendations []Validat
 // generateSecurityAssessment creates a security assessment report
 func (ev *EnhancedValidator) generateSecurityAssessment(config *GatewayConfig, errors []ValidationError, warnings []ValidationWarning) map[string]interface{} {
 	assessment := map[string]interface{}{
-		"overall_risk": "low",
-		"risk_factors": []string{},
+		"overall_risk":          "low",
+		"risk_factors":          []string{},
 		"secure_configurations": []string{},
-		"recommendations": []string{},
+		"recommendations":       []string{},
 	}
 
 	securityErrors := 0
@@ -293,11 +293,11 @@ func (ev *EnhancedValidator) generateSecurityAssessment(config *GatewayConfig, e
 	return assessment
 }
 
-// generateCompatibilityStatus creates a compatibility status report  
+// generateCompatibilityStatus creates a compatibility status report
 func (ev *EnhancedValidator) generateCompatibilityStatus(config *GatewayConfig, errors []ValidationError, warnings []ValidationWarning) map[string]string {
 	status := map[string]string{
-		"legacy_format": "compatible",
-		"migration_path": "available",
+		"legacy_format":       "compatible",
+		"migration_path":      "available",
 		"deprecated_features": "none",
 	}
 
@@ -385,7 +385,7 @@ func (mlv *MultiLanguageValidator) Validate(config *GatewayConfig) (*ComponentVa
 
 func (mlv *MultiLanguageValidator) validateCrossLanguageCompatibility(config *GatewayConfig, errors *[]ValidationError, warnings *[]ValidationWarning, score *int) error {
 	languageMap := make(map[string][]string) // language -> server names
-	
+
 	for _, server := range config.Servers {
 		for _, lang := range server.Languages {
 			languageMap[lang] = append(languageMap[lang], server.Name)
@@ -405,7 +405,7 @@ func (mlv *MultiLanguageValidator) validateCrossLanguageCompatibility(config *Ga
 					uniqueServers[name] = true
 				}
 			}
-			
+
 			if len(uniqueServers) > 1 {
 				*warnings = append(*warnings, ValidationWarning{
 					Component:  "multi_language",
@@ -516,7 +516,7 @@ func (mlv *MultiLanguageValidator) validateLanguageResourceConsistency(config *G
 
 	// Validate concurrent server limits vs language count
 	languageCount := mlv.countSupportedLanguages(config)
-	if config.MaxConcurrentServersPerLanguage * languageCount > MAX_CONCURRENT_SERVERS_LIMIT {
+	if config.MaxConcurrentServersPerLanguage*languageCount > MAX_CONCURRENT_SERVERS_LIMIT {
 		*errors = append(*errors, ValidationError{
 			Component:  "multi_language",
 			Field:      "concurrent_limits",
@@ -539,9 +539,7 @@ func (mlv *MultiLanguageValidator) validateFrameworkCompatibility(config *Gatewa
 
 	for _, server := range config.Servers {
 		for _, framework := range server.Frameworks {
-			for _, lang := range server.Languages {
-				frameworkMap[framework] = append(frameworkMap[framework], lang)
-			}
+			frameworkMap[framework] = append(frameworkMap[framework], server.Languages...)
 		}
 	}
 
@@ -575,7 +573,7 @@ func (mlv *MultiLanguageValidator) validateFrameworkCompatibility(config *Gatewa
 func (mlv *MultiLanguageValidator) validateWorkspaceRootPaths(config *GatewayConfig, errors *[]ValidationError, warnings *[]ValidationWarning, score *int) error {
 	// Validate workspace root paths for multi-root workspaces
 	rootPaths := make(map[string]string) // language -> root path
-	
+
 	for _, server := range config.Servers {
 		for _, lang := range server.Languages {
 			if len(server.WorkspaceRoots) > 0 {
@@ -623,7 +621,7 @@ func (mlv *MultiLanguageValidator) generateMultiLanguageRecommendations(config *
 	var recommendations []ValidationRecommendation
 
 	languageCount := mlv.countSupportedLanguages(config)
-	
+
 	// Recommend smart routing for multi-language projects
 	if languageCount > 1 && !config.EnableSmartRouting {
 		recommendations = append(recommendations, ValidationRecommendation{
@@ -655,7 +653,7 @@ func (mlv *MultiLanguageValidator) generateMultiLanguageRecommendations(config *
 		recommendations = append(recommendations, ValidationRecommendation{
 			Category:    "scalability",
 			Priority:    "medium",
-			Title:       "Optimize Concurrent Server Limits for Multi-Language Project",  
+			Title:       "Optimize Concurrent Server Limits for Multi-Language Project",
 			Description: "Adjust concurrent server limits based on actual language usage patterns",
 			Action:      "Analyze usage patterns and adjust max_concurrent_servers_per_language",
 			Benefits:    []string{"Better resource utilization", "Improved scalability", "Reduced overhead"},
@@ -670,17 +668,17 @@ func (mlv *MultiLanguageValidator) generateMultiLanguageRecommendations(config *
 
 func (mlv *MultiLanguageValidator) countSupportedLanguages(config *GatewayConfig) int {
 	languages := make(map[string]bool)
-	
+
 	for _, server := range config.Servers {
 		for _, lang := range server.Languages {
 			languages[lang] = true
 		}
 	}
-	
+
 	for _, pool := range config.LanguagePools {
 		languages[pool.Language] = true
 	}
-	
+
 	return len(languages)
 }
 
@@ -689,38 +687,38 @@ func (mlv *MultiLanguageValidator) isRoutingStrategyCompatibleWithMultiLanguage(
 		"primary_with_enhancement": true,
 		"broadcast_aggregate":      true,
 		"multi_target_parallel":    true,
-		"load_balanced":           true,
+		"load_balanced":            true,
 	}
 	return compatibleStrategies[strategy]
 }
 
 func (mlv *MultiLanguageValidator) areResourceLimitsConsistent(a, b *ResourceLimits) bool {
 	tolerance := 0.2 // 20% tolerance
-	
+
 	if math.Abs(float64(a.MaxMemoryMB-b.MaxMemoryMB)) > float64(a.MaxMemoryMB)*tolerance {
 		return false
 	}
-	
+
 	if math.Abs(float64(a.MaxConcurrentRequests-b.MaxConcurrentRequests)) > float64(a.MaxConcurrentRequests)*tolerance {
 		return false
 	}
-	
+
 	return true
 }
 
 func (mlv *MultiLanguageValidator) isLanguageSpecificFramework(framework string) bool {
 	languageSpecificFrameworks := map[string]bool{
-		"django":    true,
-		"flask":     true,
-		"rails":     true,
-		"spring":    true,
-		"gin":       true,
-		"express":   true,
-		"react":     true,
-		"angular":   true,
-		"vue":       true,
-		".net":      true,
-		"laravel":   true,
+		"django":  true,
+		"flask":   true,
+		"rails":   true,
+		"spring":  true,
+		"gin":     true,
+		"express": true,
+		"react":   true,
+		"angular": true,
+		"vue":     true,
+		".net":    true,
+		"laravel": true,
 	}
 	return languageSpecificFrameworks[strings.ToLower(framework)]
 }
@@ -884,15 +882,15 @@ func (cv *ConsistencyValidator) validateOptimizationConsistency(config *GatewayC
 
 			// Validate settings consistency with optimization mode
 			switch modeStr {
-			case "production":
+			case PerformanceProfileProduction:
 				if err := cv.validateProductionConsistency(config, errors, warnings, score); err != nil {
 					return err
 				}
-			case "development":
+			case PerformanceProfileDevelopment:
 				if err := cv.validateDevelopmentConsistency(config, errors, warnings, score); err != nil {
 					return err
 				}
-			case "analysis":
+			case PerformanceProfileAnalysis:
 				if err := cv.validateAnalysisConsistency(config, errors, warnings, score); err != nil {
 					return err
 				}
@@ -956,7 +954,7 @@ func (cv *ConsistencyValidator) validateLoadBalancingConsistency(config *Gateway
 		if pool.LoadBalancingConfig != nil {
 			// Validate load balancing strategy matches server pool size
 			serverCount := len(pool.Servers)
-			
+
 			if serverCount < 2 && pool.LoadBalancingConfig.Strategy != "" {
 				*warnings = append(*warnings, ValidationWarning{
 					Component:  "consistency",
@@ -1060,7 +1058,7 @@ func (cv *ConsistencyValidator) validateAnalysisConsistency(config *GatewayConfi
 							enabledCount++
 						}
 					}
-					
+
 					if enabledCount < 3 {
 						*warnings = append(*warnings, ValidationWarning{
 							Component:  "consistency",
@@ -1115,31 +1113,31 @@ func (cv *ConsistencyValidator) generateConsistencyRecommendations(config *Gatew
 
 func (cv *ConsistencyValidator) calculateConfigAlignment(config *GatewayConfig) float64 {
 	alignmentScore := 1.0
-	
+
 	// Check smart router alignment
 	if config.EnableSmartRouting && config.SmartRouterConfig == nil {
 		alignmentScore -= 0.3
 	}
-	
+
 	// Check resource alignment
 	if config.EnableConcurrentServers && config.MaxConcurrentServersPerLanguage == 0 {
 		alignmentScore -= 0.2
 	}
-	
+
 	// Check pool consistency
 	for _, pool := range config.LanguagePools {
 		if len(pool.Servers) > 1 && pool.LoadBalancingConfig == nil {
 			alignmentScore -= 0.1
 		}
 	}
-	
+
 	return math.Max(0.0, alignmentScore)
 }
 
 func (cv *ConsistencyValidator) isRoutingStrategyViableForConfig(strategy string, config *GatewayConfig) bool {
 	serverCount := len(config.Servers)
 	poolCount := len(config.LanguagePools)
-	
+
 	switch strategy {
 	case "broadcast_aggregate", "multi_target_parallel":
 		return serverCount > 1 || poolCount > 1
@@ -1350,7 +1348,7 @@ func (pv *PerformanceValidator) validateResourceEfficiency(config *GatewayConfig
 	// Calculate estimated resource usage
 	totalMemoryLimit := 0
 	totalConcurrentRequests := 0
-	
+
 	for _, pool := range config.LanguagePools {
 		if pool.ResourceLimits != nil {
 			totalMemoryLimit += int(pool.ResourceLimits.MaxMemoryMB)
@@ -1383,7 +1381,7 @@ func (pv *PerformanceValidator) validateResourceEfficiency(config *GatewayConfig
 				for _, weight := range pool.LoadBalancingConfig.WeightFactors {
 					totalWeight += weight
 				}
-				
+
 				if totalWeight > 0 {
 					maxWeight := 0.0
 					for _, weight := range pool.LoadBalancingConfig.WeightFactors {
@@ -1391,7 +1389,7 @@ func (pv *PerformanceValidator) validateResourceEfficiency(config *GatewayConfig
 							maxWeight = weight
 						}
 					}
-					
+
 					if maxWeight/totalWeight > 0.7 { // One server has >70% of weight
 						*warnings = append(*warnings, ValidationWarning{
 							Component:  "performance",
@@ -1459,18 +1457,18 @@ func (pv *PerformanceValidator) generatePerformanceRecommendations(config *Gatew
 
 func (pv *PerformanceValidator) calculateEstimatedThroughput(config *GatewayConfig) float64 {
 	baseScore := float64(config.MaxConcurrentRequests)
-	
+
 	// Adjust for concurrent servers
 	if config.EnableConcurrentServers {
 		multiplier := float64(config.MaxConcurrentServersPerLanguage) * 0.8 // Assume 80% efficiency
 		baseScore *= multiplier
 	}
-	
+
 	// Adjust for smart routing
 	if config.EnableSmartRouting {
 		baseScore *= 1.2 // 20% improvement from smart routing
 	}
-	
+
 	// Penalize for resource constraints
 	for _, pool := range config.LanguagePools {
 		if pool.ResourceLimits != nil && pool.ResourceLimits.MaxConcurrentRequests > 0 {
@@ -1479,13 +1477,13 @@ func (pv *PerformanceValidator) calculateEstimatedThroughput(config *GatewayConf
 			}
 		}
 	}
-	
+
 	return baseScore
 }
 
 func (pv *PerformanceValidator) calculateResourceEfficiency(config *GatewayConfig) float64 {
 	efficiency := 1.0
-	
+
 	// Check for resource over-allocation
 	totalMemory := 0
 	for _, pool := range config.LanguagePools {
@@ -1493,19 +1491,19 @@ func (pv *PerformanceValidator) calculateResourceEfficiency(config *GatewayConfi
 			totalMemory += int(pool.ResourceLimits.MaxMemoryMB)
 		}
 	}
-	
+
 	if totalMemory > 0 {
 		estimatedNeedMemory := len(config.Servers) * 512 // Assume 512MB per server
 		if totalMemory > estimatedNeedMemory*2 {
 			efficiency *= 0.7 // Penalty for over-allocation
 		}
 	}
-	
+
 	// Check for balanced load
 	if len(config.LanguagePools) > 0 {
 		maxRequests := 0
 		minRequests := math.MaxInt32
-		
+
 		for _, pool := range config.LanguagePools {
 			if pool.ResourceLimits != nil {
 				if pool.ResourceLimits.MaxConcurrentRequests > maxRequests {
@@ -1516,32 +1514,32 @@ func (pv *PerformanceValidator) calculateResourceEfficiency(config *GatewayConfi
 				}
 			}
 		}
-		
+
 		if maxRequests > 0 && minRequests < math.MaxInt32 {
 			balance := float64(minRequests) / float64(maxRequests)
 			efficiency *= balance // Better balance = higher efficiency
 		}
 	}
-	
+
 	return math.Max(0.0, efficiency)
 }
 
 func (pv *PerformanceValidator) calculateScalabilityIndex(config *GatewayConfig) float64 {
 	index := 0.0
-	
+
 	// Base scalability from concurrent servers
 	if config.EnableConcurrentServers {
 		index += float64(config.MaxConcurrentServersPerLanguage) * 0.2
 	}
-	
+
 	// Scalability from multiple language pools
 	index += float64(len(config.LanguagePools)) * 0.1
-	
+
 	// Scalability from smart routing
 	if config.EnableSmartRouting {
 		index += 0.3
 	}
-	
+
 	// Scalability from load balancing
 	hasLoadBalancing := false
 	for _, pool := range config.LanguagePools {
@@ -1550,11 +1548,11 @@ func (pv *PerformanceValidator) calculateScalabilityIndex(config *GatewayConfig)
 			break
 		}
 	}
-	
+
 	if hasLoadBalancing {
 		index += 0.2
 	}
-	
+
 	// Cap at 1.0
 	return math.Min(1.0, index)
 }
@@ -1685,7 +1683,7 @@ func (cv *CompatibilityValidator) validateMigrationPaths(config *GatewayConfig, 
 			if len(server.Languages) > 1 {
 				migrationIssues = append(migrationIssues, fmt.Sprintf("Multi-language server: %s", server.Name))
 			}
-			
+
 			if len(server.Settings) > 0 {
 				complexSettings := false
 				for _, value := range server.Settings {
@@ -1939,10 +1937,10 @@ func (cv *CompatibilityValidator) calculateLegacySupport(config *GatewayConfig) 
 
 func (cv *CompatibilityValidator) isVersionSupported(version string) bool {
 	supportedVersions := map[string]bool{
-		"1.0":   true,
-		"1.1":   true,
-		"2.0":   true,
-		"":      true, // Empty version is supported (uses default)
+		"1.0": true,
+		"1.1": true,
+		"2.0": true,
+		"":    true, // Empty version is supported (uses default)
 	}
 	return supportedVersions[version]
 }
@@ -2071,7 +2069,7 @@ func (sv *SecurityValidator) validateResourceLimitSecurity(config *GatewayConfig
 	for _, pool := range config.LanguagePools {
 		if pool.ResourceLimits != nil {
 			hasResourceLimits = true
-			
+
 			// Check for excessive memory limits
 			if pool.ResourceLimits.MaxMemoryMB > 8192 { // > 8GB
 				*warnings = append(*warnings, ValidationWarning{
@@ -2330,7 +2328,7 @@ func (sv *SecurityValidator) containsSensitiveInfo(key string, value interface{}
 
 	// Check value for sensitive patterns
 	if strValue, ok := value.(string); ok {
-		if len(strValue) > 20 && (strings.Contains(strings.ToLower(strValue), "secret") || 
+		if len(strValue) > 20 && (strings.Contains(strings.ToLower(strValue), "secret") ||
 			regexp.MustCompile(`^[A-Za-z0-9+/=]+$`).MatchString(strValue)) {
 			return true
 		}
@@ -2399,39 +2397,39 @@ func (tv *TemplateValidator) Validate(config *GatewayConfig) (*ComponentValidati
 func (tv *TemplateValidator) validateConfigurationCompleteness(config *GatewayConfig, errors *[]ValidationError, warnings *[]ValidationWarning, score *int) error {
 	// Check for essential configuration fields
 	essentialFields := []struct {
-		field     string
-		present   func(*GatewayConfig) bool
-		severity  ValidationSeverity
-		message   string
-		ruleID    string
+		field    string
+		present  func(*GatewayConfig) bool
+		severity ValidationSeverity
+		message  string
+		ruleID   string
 	}{
 		{
-			field:   "port",
-			present: func(c *GatewayConfig) bool { return c.Port > 0 },
+			field:    "port",
+			present:  func(c *GatewayConfig) bool { return c.Port > 0 },
 			severity: SeverityError,
-			message: "Port must be specified and greater than 0",
-			ruleID:  "TP001",
+			message:  "Port must be specified and greater than 0",
+			ruleID:   "TP001",
 		},
 		{
-			field:   "servers_or_pools",
-			present: func(c *GatewayConfig) bool { return len(c.Servers) > 0 || len(c.LanguagePools) > 0 },
+			field:    "servers_or_pools",
+			present:  func(c *GatewayConfig) bool { return len(c.Servers) > 0 || len(c.LanguagePools) > 0 },
 			severity: SeverityError,
-			message: "At least one server or language pool must be configured",
-			ruleID:  "TP002",
+			message:  "At least one server or language pool must be configured",
+			ruleID:   "TP002",
 		},
 		{
-			field:   "timeout",
-			present: func(c *GatewayConfig) bool { return c.Timeout != "" },
+			field:    "timeout",
+			present:  func(c *GatewayConfig) bool { return c.Timeout != "" },
 			severity: SeverityWarning,
-			message: "Timeout should be explicitly configured",
-			ruleID:  "TP003",
+			message:  "Timeout should be explicitly configured",
+			ruleID:   "TP003",
 		},
 		{
-			field:   "max_concurrent_requests",
-			present: func(c *GatewayConfig) bool { return c.MaxConcurrentRequests > 0 },
+			field:    "max_concurrent_requests",
+			present:  func(c *GatewayConfig) bool { return c.MaxConcurrentRequests > 0 },
 			severity: SeverityWarning,
-			message: "Max concurrent requests should be explicitly set",
-			ruleID:  "TP004",
+			message:  "Max concurrent requests should be explicitly set",
+			ruleID:   "TP004",
 		},
 	}
 
@@ -2624,7 +2622,7 @@ func (tv *TemplateValidator) validateBestPractices(config *GatewayConfig, errors
 func (tv *TemplateValidator) validateNamingConventions(config *GatewayConfig, errors *[]ValidationError, warnings *[]ValidationWarning, score *int) error {
 	// Check server naming conventions
 	serverNames := make(map[string]bool)
-	
+
 	for _, server := range config.Servers {
 		if server.Name != "" {
 			// Check for duplicate names
@@ -2683,7 +2681,7 @@ func (tv *TemplateValidator) validateNamingConventions(config *GatewayConfig, er
 
 func (tv *TemplateValidator) validateStructureOrganization(config *GatewayConfig, errors *[]ValidationError, warnings *[]ValidationWarning, score *int) error {
 	// Check for logical structure organization
-	
+
 	// Validate server grouping by language
 	languageServerCount := make(map[string]int)
 	for _, server := range config.Servers {
@@ -2852,11 +2850,11 @@ func (tv *TemplateValidator) calculateBestPracticesAdherence(config *GatewayConf
 	// Server configuration best practices
 	for _, server := range config.Servers {
 		total += 2.0 // 2 points per server
-		
+
 		if server.Transport != "" {
 			score += 1.0
 		}
-		
+
 		if len(server.RootMarkers) > 0 {
 			score += 1.0
 		}

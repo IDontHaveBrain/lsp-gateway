@@ -7,42 +7,40 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"lsp-gateway/internal/transport"
+	"golang.org/x/text/cases"
+	languagePkg "golang.org/x/text/language"
 )
 
 // MockServerConfig provides comprehensive configuration for mock LSP server behavior
 type MockServerConfig struct {
 	// Protocol compliance configuration
-	ProtocolVersion    string
-	Capabilities       ServerCapabilities
-	SupportedMethods   []string
+	ProtocolVersion  string
+	Capabilities     ServerCapabilities
+	SupportedMethods []string
 
 	// Failure simulation configuration
-	GlobalFailureRate     float64
-	MethodFailureRates    map[string]float64
-	TimeoutSimulation     TimeoutConfig
-	MemoryPressure        MemoryPressureConfig
-	CrashSimulation       CrashConfig
-	CorruptionSimulation  CorruptionConfig
-	CircuitBreakerConfig  CircuitBreakerConfig
+	GlobalFailureRate    float64
+	MethodFailureRates   map[string]float64
+	TimeoutSimulation    TimeoutConfig
+	MemoryPressure       MemoryPressureConfig
+	CrashSimulation      CrashConfig
+	CorruptionSimulation CorruptionConfig
+	CircuitBreakerConfig CircuitBreakerConfig
 
 	// Response behavior configuration
-	ResponseDelays        ResponseDelayConfig
-	ResponseGeneration    ResponseGenerationConfig
-	HealthBehavior        HealthBehaviorConfig
-	CapacityLimits        CapacityLimitsConfig
+	ResponseDelays     ResponseDelayConfig
+	ResponseGeneration ResponseGenerationConfig
+	HealthBehavior     HealthBehaviorConfig
+	CapacityLimits     CapacityLimitsConfig
 
 	// Content and workspace simulation
-	WorkspaceContent      map[string]string // file URI -> content
-	SymbolDatabase        SymbolDatabase
-	ProjectStructure      ProjectStructure
+	WorkspaceContent map[string]string // file URI -> content
+	SymbolDatabase   SymbolDatabase
+	ProjectStructure ProjectStructure
 }
 
 // ServerCapabilities represents LSP server capabilities
@@ -77,11 +75,11 @@ type ServerCapabilities struct {
 
 // TimeoutConfig configures timeout simulation
 type TimeoutConfig struct {
-	Enabled          bool
-	TimeoutRate      float64
-	MinTimeout       time.Duration
-	MaxTimeout       time.Duration
-	MethodTimeouts   map[string]time.Duration
+	Enabled        bool
+	TimeoutRate    float64
+	MinTimeout     time.Duration
+	MaxTimeout     time.Duration
+	MethodTimeouts map[string]time.Duration
 }
 
 // MemoryPressureConfig configures memory pressure simulation
@@ -95,11 +93,11 @@ type MemoryPressureConfig struct {
 
 // CrashConfig configures server crash simulation
 type CrashConfig struct {
-	Enabled          bool
-	CrashRate        float64
-	RandomCrashes    bool
-	CrashAfterCount  int64
-	RecoveryTime     time.Duration
+	Enabled         bool
+	CrashRate       float64
+	RandomCrashes   bool
+	CrashAfterCount int64
+	RecoveryTime    time.Duration
 }
 
 // CorruptionConfig configures response corruption simulation
@@ -113,56 +111,56 @@ type CorruptionConfig struct {
 
 // CircuitBreakerConfig configures circuit breaker behavior
 type CircuitBreakerConfig struct {
-	Enabled              bool
-	FailureThreshold     int
-	SuccessThreshold     int
-	Timeout              time.Duration
-	TriggerConditions    []string
+	Enabled           bool
+	FailureThreshold  int
+	SuccessThreshold  int
+	Timeout           time.Duration
+	TriggerConditions []string
 }
 
 // ResponseDelayConfig configures response timing
 type ResponseDelayConfig struct {
-	Enabled       bool
-	BaseDelay     time.Duration
-	RandomJitter  time.Duration
-	MethodDelays  map[string]time.Duration
+	Enabled        bool
+	BaseDelay      time.Duration
+	RandomJitter   time.Duration
+	MethodDelays   map[string]time.Duration
 	LoadBasedDelay LoadBasedDelayConfig
 }
 
 // LoadBasedDelayConfig configures load-based response delays
 type LoadBasedDelayConfig struct {
-	Enabled                bool
-	LowLoadDelay          time.Duration
-	HighLoadDelay         time.Duration
-	LoadThreshold         int64
+	Enabled       bool
+	LowLoadDelay  time.Duration
+	HighLoadDelay time.Duration
+	LoadThreshold int64
 }
 
 // ResponseGenerationConfig configures response generation behavior
 type ResponseGenerationConfig struct {
-	Realistic              bool
-	LanguageSpecific       bool
-	ContentAware           bool
-	CrossReferenceEnabled  bool
-	DocumentationEnabled   bool
-	DiagnosticsEnabled     bool
+	Realistic             bool
+	LanguageSpecific      bool
+	ContentAware          bool
+	CrossReferenceEnabled bool
+	DocumentationEnabled  bool
+	DiagnosticsEnabled    bool
 }
 
 // HealthBehaviorConfig configures health check behavior
 type HealthBehaviorConfig struct {
-	Enabled                bool
-	HealthScoreVariation   float64
-	DegradationSimulation  bool
-	RecoverySimulation     bool
-	MaintenanceMode        bool
+	Enabled               bool
+	HealthScoreVariation  float64
+	DegradationSimulation bool
+	RecoverySimulation    bool
+	MaintenanceMode       bool
 }
 
 // CapacityLimitsConfig configures server capacity limits
 type CapacityLimitsConfig struct {
-	MaxConcurrentRequests  int
-	MaxQueueSize           int
-	MaxMemoryUsageMB       float64
-	RequestRateLimit       int // requests per second
-	ConnectionLimit        int
+	MaxConcurrentRequests int
+	MaxQueueSize          int
+	MaxMemoryUsageMB      float64
+	RequestRateLimit      int // requests per second
+	ConnectionLimit       int
 }
 
 // SymbolDatabase represents a database of symbols for realistic responses
@@ -185,9 +183,9 @@ type SymbolInfo struct {
 
 // ReferenceInfo represents a reference to a symbol
 type ReferenceInfo struct {
-	URI      string
-	Range    RangeInfo
-	Context  ReferenceContext
+	URI     string
+	Range   RangeInfo
+	Context ReferenceContext
 }
 
 // DefinitionInfo represents a definition location
@@ -221,37 +219,37 @@ type ReferenceContext struct {
 
 // ProjectStructure represents the structure of a project
 type ProjectStructure struct {
-	RootURI       string
-	Files         map[string]FileInfo
-	Dependencies  []string
-	BuildSystem   string
-	LanguageInfo  LanguageInfo
+	RootURI      string
+	Files        map[string]FileInfo
+	Dependencies []string
+	BuildSystem  string
+	LanguageInfo LanguageInfo
 }
 
 // FileInfo represents information about a file
 type FileInfo struct {
-	URI         string
-	Content     string
-	Language    string
-	Version     int
+	URI          string
+	Content      string
+	Language     string
+	Version      int
 	LastModified time.Time
 }
 
 // LanguageInfo represents language-specific information
 type LanguageInfo struct {
-	Name              string
-	FileExtensions    []string
-	CommentStyle      CommentStyle
-	Keywords          []string
-	BuiltinTypes      []string
-	StandardLibrary   []string
+	Name            string
+	FileExtensions  []string
+	CommentStyle    CommentStyle
+	Keywords        []string
+	BuiltinTypes    []string
+	StandardLibrary []string
 }
 
 // CommentStyle represents comment syntax for a language
 type CommentStyle struct {
-	SingleLine  string
-	MultiStart  string
-	MultiEnd    string
+	SingleLine string
+	MultiStart string
+	MultiEnd   string
 }
 
 // MockLSPServer represents a mock LSP server for testing
@@ -290,9 +288,9 @@ type MockLSPServer struct {
 	LastCrashTime       time.Time
 
 	// Protocol compliance tracking
-	Initialized         bool
-	ClientCapabilities  map[string]interface{}
-	ServerCapabilities  ServerCapabilities
+	Initialized        bool
+	ClientCapabilities map[string]interface{}
+	ServerCapabilities ServerCapabilities
 
 	// Call tracking
 	StartCalls            []context.Context
@@ -630,7 +628,7 @@ func (m *MockLSPServerManager) Reset() {
 
 	// Stop all servers
 	for _, server := range m.Servers {
-		server.Stop()
+		_ = server.Stop()
 		m.PortManager.ReleasePort(server.Port)
 	}
 
@@ -723,9 +721,9 @@ func (s *MockLSPServer) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create log file: %w", err)
 	}
-	defer logFile.Close()
+	defer func() { _ = logFile.Close() }()
 
-	fmt.Fprintf(logFile, "Mock %s LSP server started at %s\n", s.Language, s.StartTime.Format(time.RFC3339))
+	_, _ = fmt.Fprintf(logFile, "Mock %s LSP server started at %s\n", s.Language, s.StartTime.Format(time.RFC3339))
 
 	return nil
 }
@@ -749,8 +747,8 @@ func (s *MockLSPServer) Stop() error {
 
 	// Append to log file
 	if logFile, err := os.OpenFile(s.LogFile, os.O_APPEND|os.O_WRONLY, 0644); err == nil {
-		defer logFile.Close()
-		fmt.Fprintf(logFile, "Mock %s LSP server stopped at %s\n", s.Language, time.Now().Format(time.RFC3339))
+		defer func() { _ = logFile.Close() }()
+		_, _ = fmt.Fprintf(logFile, "Mock %s LSP server stopped at %s\n", s.Language, time.Now().Format(time.RFC3339))
 	}
 
 	return nil
@@ -840,8 +838,8 @@ func (s *MockLSPServer) performPreRequestChecks(ctx context.Context, method stri
 	}
 
 	// Check capacity limits
-	if s.Config.CapacityLimits.MaxConcurrentRequests > 0 && 
-	   atomic.LoadInt64(&s.CurrentLoad) >= int64(s.Config.CapacityLimits.MaxConcurrentRequests) {
+	if s.Config.CapacityLimits.MaxConcurrentRequests > 0 &&
+		atomic.LoadInt64(&s.CurrentLoad) >= int64(s.Config.CapacityLimits.MaxConcurrentRequests) {
 		return s.createLSPError(-32000, "Server overloaded")
 	}
 
@@ -971,8 +969,8 @@ func (s *MockLSPServer) simulateCrash() error {
 
 	// Log the crash
 	if logFile, err := os.OpenFile(s.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644); err == nil {
-		defer logFile.Close()
-		fmt.Fprintf(logFile, "CRASH: Mock %s LSP server crashed at %s (crash #%d)\n", 
+		defer func() { _ = logFile.Close() }()
+		_, _ = fmt.Fprintf(logFile, "CRASH: Mock %s LSP server crashed at %s (crash #%d)\n",
 			s.Language, time.Now().Format(time.RFC3339), s.CrashCount)
 	}
 
@@ -983,11 +981,11 @@ func (s *MockLSPServer) simulateCrash() error {
 			s.mu.Lock()
 			s.IsRunning = true
 			s.mu.Unlock()
-			
+
 			// Log recovery
 			if logFile, err := os.OpenFile(s.LogFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644); err == nil {
-				defer logFile.Close()
-				fmt.Fprintf(logFile, "RECOVERY: Mock %s LSP server recovered at %s\n", 
+				defer func() { _ = logFile.Close() }()
+				_, _ = fmt.Fprintf(logFile, "RECOVERY: Mock %s LSP server recovered at %s\n",
 					s.Language, time.Now().Format(time.RFC3339))
 			}
 		}()
@@ -1042,7 +1040,7 @@ func (s *MockLSPServer) shouldSimulateTimeout(method string) bool {
 
 // simulateTimeout simulates request timeouts
 func (s *MockLSPServer) simulateTimeout(ctx context.Context, method string) error {
-	timeoutDuration := s.Config.TimeoutSimulation.MinTimeout + 
+	timeoutDuration := s.Config.TimeoutSimulation.MinTimeout +
 		time.Duration(rand.Int63n(int64(s.Config.TimeoutSimulation.MaxTimeout-s.Config.TimeoutSimulation.MinTimeout)))
 
 	if methodTimeout, exists := s.Config.TimeoutSimulation.MethodTimeouts[method]; exists {
@@ -1069,8 +1067,8 @@ func (s *MockLSPServer) isMethodSupported(method string) bool {
 
 // shouldCorruptResponse determines if a response should be corrupted
 func (s *MockLSPServer) shouldCorruptResponse() bool {
-	return s.Config.CorruptionSimulation.Enabled && 
-	       rand.Float64() < s.Config.CorruptionSimulation.CorruptionRate
+	return s.Config.CorruptionSimulation.Enabled &&
+		rand.Float64() < s.Config.CorruptionSimulation.CorruptionRate
 }
 
 // corruptResponse corrupts a response in various ways
@@ -1114,8 +1112,8 @@ func (s *MockLSPServer) updateCircuitBreakerState(success bool) {
 		s.CircuitBreakerState.FailureCount = 0 // Reset failure count on success
 
 		// Transition from HALF_OPEN to CLOSED if enough successes
-		if s.CircuitBreakerState.State == "HALF_OPEN" && 
-		   s.CircuitBreakerState.SuccessCount >= s.Config.CircuitBreakerConfig.SuccessThreshold {
+		if s.CircuitBreakerState.State == "HALF_OPEN" &&
+			s.CircuitBreakerState.SuccessCount >= s.Config.CircuitBreakerConfig.SuccessThreshold {
 			s.CircuitBreakerState.State = "CLOSED"
 			s.CircuitBreakerState.SuccessCount = 0
 		}
@@ -1329,104 +1327,170 @@ func (s *MockLSPServer) generateEnhancedResponse(method string, params interface
 
 // generateRealisticResponse generates realistic LSP responses based on the protocol specification
 func (s *MockLSPServer) generateRealisticResponse(method string, params interface{}) (json.RawMessage, error) {
-	var response interface{}
-	var err error
-
-	switch method {
-	// Lifecycle methods
-	case "initialize":
-		response = s.generateInitializeResponse(params)
-	case "initialized":
-		response = nil // initialized is a notification, no response
-	case "shutdown":
-		response = nil
-	case "exit":
-		response = nil // exit is a notification, no response
-
-	// Document synchronization methods
-	case "textDocument/didOpen", "textDocument/didChange", "textDocument/didSave", "textDocument/didClose":
-		response = nil // These are notifications, no response
-
-	// Language feature methods
-	case "textDocument/completion":
-		response = s.generateCompletionResponse(params)
-	case "textDocument/hover":
-		response = s.generateHoverResponse(params)
-	case "textDocument/signatureHelp":
-		response = s.generateSignatureHelpResponse(params)
-	case "textDocument/definition":
-		response = s.generateDefinitionResponse(params)
-	case "textDocument/typeDefinition":
-		response = s.generateTypeDefinitionResponse(params)
-	case "textDocument/implementation":
-		response = s.generateImplementationResponse(params)
-	case "textDocument/references":
-		response = s.generateReferencesResponse(params)
-	case "textDocument/documentHighlight":
-		response = s.generateDocumentHighlightResponse(params)
-	case "textDocument/documentSymbol":
-		response = s.generateDocumentSymbolResponse(params)
-	case "textDocument/codeAction":
-		response = s.generateCodeActionResponse(params)
-	case "textDocument/codeLens":
-		response = s.generateCodeLensResponse(params)
-	case "textDocument/documentLink":
-		response = s.generateDocumentLinkResponse(params)
-	case "textDocument/colorPresentation":
-		response = s.generateColorPresentationResponse(params)
-	case "textDocument/formatting":
-		response = s.generateFormattingResponse(params)
-	case "textDocument/rangeFormatting":
-		response = s.generateRangeFormattingResponse(params)
-	case "textDocument/onTypeFormatting":
-		response = s.generateOnTypeFormattingResponse(params)
-	case "textDocument/rename":
-		response = s.generateRenameResponse(params)
-	case "textDocument/prepareRename":
-		response = s.generatePrepareRenameResponse(params)
-	case "textDocument/foldingRange":
-		response = s.generateFoldingRangeResponse(params)
-	case "textDocument/selectionRange":
-		response = s.generateSelectionRangeResponse(params)
-	case "textDocument/semanticTokens/full":
-		response = s.generateSemanticTokensResponse(params)
-	case "textDocument/semanticTokens/range":
-		response = s.generateSemanticTokensRangeResponse(params)
-	case "textDocument/inlayHint":
-		response = s.generateInlayHintResponse(params)
-	case "textDocument/diagnostic":
-		response = s.generateDiagnosticResponse(params)
-
-	// Workspace methods
-	case "workspace/symbol":
-		response = s.generateWorkspaceSymbolResponse(params)
-	case "workspace/executeCommand":
-		response = s.generateExecuteCommandResponse(params)
-	case "workspace/applyEdit":
-		response = s.generateApplyEditResponse(params)
-	case "workspace/didChangeConfiguration", "workspace/didChangeWatchedFiles", "workspace/didCreateFiles", "workspace/didDeleteFiles", "workspace/didRenameFiles":
-		response = nil // These are notifications, no response
-	case "workspace/willCreateFiles", "workspace/willDeleteFiles", "workspace/willRenameFiles":
-		response = s.generateWorkspaceEditResponse(params)
-	case "workspace/diagnostic":
-		response = s.generateWorkspaceDiagnosticResponse(params)
-
-	// Window methods
-	case "window/showMessage", "window/logMessage":
-		response = nil // These are notifications, no response
-	case "window/showMessageRequest":
-		response = s.generateShowMessageRequestResponse(params)
-	case "window/workDoneProgress/create":
-		response = nil
-
-	default:
-		return nil, s.createLSPError(-32601, fmt.Sprintf("Method not found: %s", method))
-	}
-
+	response := s.dispatchMethodResponse(method, params)
+	
 	if response == nil {
 		return json.RawMessage("null"), nil
 	}
 
+	return s.marshalResponse(response)
+}
+
+// dispatchMethodResponse dispatches LSP method calls to appropriate response generators
+func (s *MockLSPServer) dispatchMethodResponse(method string, params interface{}) interface{} {
+	if handler := s.getLifecycleMethodHandler(method, params); handler != nil {
+		return handler
+	}
+	
+	if handler := s.getDocumentSyncMethodHandler(method, params); handler != nil {
+		return handler
+	}
+	
+	if handler := s.getLanguageFeatureMethodHandler(method, params); handler != nil {
+		return handler
+	}
+	
+	if handler := s.getWorkspaceMethodHandler(method, params); handler != nil {
+		return handler
+	}
+	
+	if handler := s.getWindowMethodHandler(method, params); handler != nil {
+		return handler
+	}
+	
+	return s.createMethodNotFoundError(method)
+}
+
+// getLifecycleMethodHandler handles LSP lifecycle methods
+func (s *MockLSPServer) getLifecycleMethodHandler(method string, params interface{}) interface{} {
+	switch method {
+	case "initialize":
+		return s.generateInitializeResponse(params)
+	case "initialized", "shutdown", "exit":
+		return nil
+	default:
+		return nil
+	}
+}
+
+// getDocumentSyncMethodHandler handles document synchronization methods
+func (s *MockLSPServer) getDocumentSyncMethodHandler(method string, params interface{}) interface{} {
+	notificationMethods := []string{
+		"textDocument/didOpen", "textDocument/didChange", 
+		"textDocument/didSave", "textDocument/didClose",
+	}
+	
+	for _, notificationMethod := range notificationMethods {
+		if method == notificationMethod {
+			return nil
+		}
+	}
+	
+	return nil
+}
+
+// getLanguageFeatureMethodHandler handles language feature methods
+func (s *MockLSPServer) getLanguageFeatureMethodHandler(method string, params interface{}) interface{} {
+	methodHandlers := map[string]func(interface{}) interface{}{
+		"textDocument/completion":               s.generateCompletionResponse,
+		"textDocument/hover":                    s.generateHoverResponse,
+		"textDocument/signatureHelp":            s.generateSignatureHelpResponse,
+		"textDocument/definition":               s.generateDefinitionResponse,
+		"textDocument/typeDefinition":           s.generateTypeDefinitionResponse,
+		"textDocument/implementation":           s.generateImplementationResponse,
+		"textDocument/references":               s.generateReferencesResponse,
+		"textDocument/documentHighlight":        s.generateDocumentHighlightResponse,
+		"textDocument/documentSymbol":           s.generateDocumentSymbolResponse,
+		"textDocument/codeAction":               s.generateCodeActionResponse,
+		"textDocument/codeLens":                 s.generateCodeLensResponse,
+		"textDocument/documentLink":             s.generateDocumentLinkResponse,
+		"textDocument/colorPresentation":        s.generateColorPresentationResponse,
+		"textDocument/formatting":               s.generateFormattingResponse,
+		"textDocument/rangeFormatting":          s.generateRangeFormattingResponse,
+		"textDocument/onTypeFormatting":         s.generateOnTypeFormattingResponse,
+		"textDocument/rename":                   s.generateRenameResponse,
+		"textDocument/prepareRename":            s.generatePrepareRenameResponse,
+		"textDocument/foldingRange":             s.generateFoldingRangeResponse,
+		"textDocument/selectionRange":           s.generateSelectionRangeResponse,
+		"textDocument/semanticTokens/full":      s.generateSemanticTokensResponse,
+		"textDocument/semanticTokens/range":     s.generateSemanticTokensRangeResponse,
+		"textDocument/inlayHint":                s.generateInlayHintResponse,
+		"textDocument/diagnostic":               s.generateDiagnosticResponse,
+	}
+	
+	if handler, exists := methodHandlers[method]; exists {
+		return handler(params)
+	}
+	
+	return nil
+}
+
+// getWorkspaceMethodHandler handles workspace-related methods
+func (s *MockLSPServer) getWorkspaceMethodHandler(method string, params interface{}) interface{} {
+	switch method {
+	case "workspace/symbol":
+		return s.generateWorkspaceSymbolResponse(params)
+	case "workspace/executeCommand":
+		return s.generateExecuteCommandResponse(params)
+	case "workspace/applyEdit":
+		return s.generateApplyEditResponse(params)
+	case "workspace/willCreateFiles", "workspace/willDeleteFiles", "workspace/willRenameFiles":
+		return s.generateWorkspaceEditResponse(params)
+	case "workspace/diagnostic":
+		return s.generateWorkspaceDiagnosticResponse(params)
+	}
+	
+	if s.isWorkspaceNotificationMethod(method) {
+		return nil
+	}
+	
+	return nil
+}
+
+// isWorkspaceNotificationMethod checks if method is a workspace notification
+func (s *MockLSPServer) isWorkspaceNotificationMethod(method string) bool {
+	notificationMethods := []string{
+		"workspace/didChangeConfiguration", "workspace/didChangeWatchedFiles",
+		"workspace/didCreateFiles", "workspace/didDeleteFiles", "workspace/didRenameFiles",
+	}
+	
+	for _, notificationMethod := range notificationMethods {
+		if method == notificationMethod {
+			return true
+		}
+	}
+	
+	return false
+}
+
+// getWindowMethodHandler handles window-related methods
+func (s *MockLSPServer) getWindowMethodHandler(method string, params interface{}) interface{} {
+	switch method {
+	case "window/showMessageRequest":
+		return s.generateShowMessageRequestResponse(params)
+	case "window/showMessage", "window/logMessage", "window/workDoneProgress/create":
+		return nil
+	default:
+		return nil
+	}
+}
+
+// createMethodNotFoundError creates an error for unknown methods
+func (s *MockLSPServer) createMethodNotFoundError(method string) interface{} {
+	return &methodNotFoundError{method: method}
+}
+
+// methodNotFoundError represents a method not found error
+type methodNotFoundError struct {
+	method string
+}
+
+// marshalResponse marshals the response to JSON
+func (s *MockLSPServer) marshalResponse(response interface{}) (json.RawMessage, error) {
+	if err, ok := response.(*methodNotFoundError); ok {
+		return nil, s.createLSPError(-32601, fmt.Sprintf("Method not found: %s", err.method))
+	}
+	
 	rawMessage, err := json.Marshal(response)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal response: %w", err)
@@ -1500,11 +1564,11 @@ func DefaultMockServerConfig(language string) *MockServerConfig {
 
 		// Crash simulation configuration
 		CrashSimulation: CrashConfig{
-			Enabled:          false,
-			CrashRate:        0.0,
-			RandomCrashes:    false,
-			CrashAfterCount:  0,
-			RecoveryTime:     time.Second * 10,
+			Enabled:         false,
+			CrashRate:       0.0,
+			RandomCrashes:   false,
+			CrashAfterCount: 0,
+			RecoveryTime:    time.Second * 10,
 		},
 
 		// Response corruption configuration
@@ -1541,12 +1605,12 @@ func DefaultMockServerConfig(language string) *MockServerConfig {
 
 		// Response generation configuration
 		ResponseGeneration: ResponseGenerationConfig{
-			Realistic:              false,
-			LanguageSpecific:       true,
-			ContentAware:           false,
-			CrossReferenceEnabled:  false,
-			DocumentationEnabled:   false,
-			DiagnosticsEnabled:     false,
+			Realistic:             false,
+			LanguageSpecific:      true,
+			ContentAware:          false,
+			CrossReferenceEnabled: false,
+			DocumentationEnabled:  false,
+			DiagnosticsEnabled:    false,
 		},
 
 		// Health behavior configuration
@@ -1587,11 +1651,11 @@ func DefaultMockServerConfig(language string) *MockServerConfig {
 // getDefaultCapabilities returns default LSP server capabilities for a language
 func getDefaultCapabilities(language string) ServerCapabilities {
 	return ServerCapabilities{
-		TextDocumentSync:       2, // Incremental
-		HoverProvider:          true,
-		DefinitionProvider:     true,
-		ReferencesProvider:     true,
-		DocumentSymbolProvider: true,
+		TextDocumentSync:        2, // Incremental
+		HoverProvider:           true,
+		DefinitionProvider:      true,
+		ReferencesProvider:      true,
+		DocumentSymbolProvider:  true,
 		WorkspaceSymbolProvider: true,
 	}
 }
@@ -1657,8 +1721,9 @@ func getDefaultLanguageInfo(language string) LanguageInfo {
 	}
 
 	// Default language info for unknown languages
+	titleCaser := cases.Title(languagePkg.Und, cases.NoLower)
 	return LanguageInfo{
-		Name:            strings.Title(language),
+		Name:            titleCaser.String(language),
 		FileExtensions:  []string{"." + language},
 		CommentStyle:    CommentStyle{SingleLine: "//", MultiStart: "/*", MultiEnd: "*/"},
 		Keywords:        []string{},
@@ -1730,11 +1795,11 @@ func (s *MockLSPServer) GetFailureMethods() map[string]float64 {
 func (s *MockLSPServer) EnableBasicFailureSimulation(globalRate float64, responseDelay time.Duration, maxConcurrent int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	s.FailureRate = globalRate
 	s.ResponseDelay = responseDelay
 	s.MaxConcurrentReqs = maxConcurrent
-	
+
 	if s.Config == nil {
 		s.Config = DefaultMockServerConfig(s.Language)
 	}
@@ -1748,11 +1813,11 @@ func (s *MockLSPServer) EnableBasicFailureSimulation(globalRate float64, respons
 func (s *MockLSPServer) DisableFailureSimulation() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	
+
 	s.FailureRate = 0.0
 	s.ShouldFail = false
 	s.ResponseDelay = 0
-	
+
 	if s.Config != nil {
 		s.Config.GlobalFailureRate = 0.0
 		s.Config.MethodFailureRates = make(map[string]float64)

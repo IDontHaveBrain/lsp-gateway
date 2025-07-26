@@ -9,21 +9,21 @@ import (
 
 // ConfigurationTemplate defines a template for common project patterns
 type ConfigurationTemplate struct {
-	Name               string                          `json:"name"`
-	Version            string                          `json:"version"`
-	Description        string                          `json:"description"`
-	ProjectTypes       []string                        `json:"project_types"`       // Project types this template supports
-	TargetLanguages    []string                        `json:"target_languages"`    // Languages this template is designed for
-	DefaultPort        int                             `json:"default_port"`
-	EnableMultiServer  bool                            `json:"enable_multi_server"`
-	EnableSmartRouting bool                            `json:"enable_smart_routing"`
-	ResourceLimits     *TemplateResourceLimits         `json:"resource_limits"`
-	RoutingConfig      *TemplateRoutingConfig          `json:"routing_config"`
-	FrameworkConfigs   map[string]*FrameworkConfig     `json:"framework_configs"`   // Framework-specific configurations
-	EnvironmentConfigs map[string]*EnvironmentConfig   `json:"environment_configs"` // Environment-specific settings
-	ServerTemplates    map[string]*ServerTemplate      `json:"server_templates"`    // Language server templates
-	Metadata           map[string]interface{}          `json:"metadata"`
-	CreatedAt          time.Time                       `json:"created_at"`
+	Name               string                        `json:"name"`
+	Version            string                        `json:"version"`
+	Description        string                        `json:"description"`
+	ProjectTypes       []string                      `json:"project_types"`    // Project types this template supports
+	TargetLanguages    []string                      `json:"target_languages"` // Languages this template is designed for
+	DefaultPort        int                           `json:"default_port"`
+	EnableMultiServer  bool                          `json:"enable_multi_server"`
+	EnableSmartRouting bool                          `json:"enable_smart_routing"`
+	ResourceLimits     *TemplateResourceLimits       `json:"resource_limits"`
+	RoutingConfig      *TemplateRoutingConfig        `json:"routing_config"`
+	FrameworkConfigs   map[string]*FrameworkConfig   `json:"framework_configs"`   // Framework-specific configurations
+	EnvironmentConfigs map[string]*EnvironmentConfig `json:"environment_configs"` // Environment-specific settings
+	ServerTemplates    map[string]*ServerTemplate    `json:"server_templates"`    // Language server templates
+	Metadata           map[string]interface{}        `json:"metadata"`
+	CreatedAt          time.Time                     `json:"created_at"`
 }
 
 // TemplateResourceLimits defines resource limits for templates
@@ -36,11 +36,11 @@ type TemplateResourceLimits struct {
 
 // TemplateRoutingConfig defines routing configuration for templates
 type TemplateRoutingConfig struct {
-	EnableSmartRouting         bool   `json:"enable_smart_routing"`
-	DefaultStrategy            string `json:"default_strategy"`
+	EnableSmartRouting          bool   `json:"enable_smart_routing"`
+	DefaultStrategy             string `json:"default_strategy"`
 	EnablePerformanceMonitoring bool   `json:"enable_performance_monitoring"`
-	EnableCircuitBreaker       bool   `json:"enable_circuit_breaker"`
-	LoadBalancingStrategy      string `json:"load_balancing_strategy"`
+	EnableCircuitBreaker        bool   `json:"enable_circuit_breaker"`
+	LoadBalancingStrategy       string `json:"load_balancing_strategy"`
 }
 
 // FrameworkConfig defines framework-specific configuration
@@ -56,11 +56,11 @@ type FrameworkConfig struct {
 
 // EnvironmentConfig defines environment-specific configuration
 type EnvironmentConfig struct {
-	Name           string                 `json:"name"`
-	Port           int                    `json:"port"`
+	Name           string                  `json:"name"`
+	Port           int                     `json:"port"`
 	ResourceLimits *TemplateResourceLimits `json:"resource_limits"`
-	Features       map[string]bool        `json:"features"`
-	Settings       map[string]interface{} `json:"settings"`
+	Features       map[string]bool         `json:"features"`
+	Settings       map[string]interface{}  `json:"settings"`
 }
 
 // ServerTemplate defines a language server template
@@ -88,9 +88,9 @@ func NewConfigurationTemplateManager() *ConfigurationTemplateManager {
 		templates: make(map[string]*ConfigurationTemplate),
 		logger:    NewSetupLogger(nil),
 	}
-	
+
 	manager.initializeBuiltinTemplates()
-	
+
 	return manager
 }
 
@@ -169,7 +169,7 @@ func (tm *ConfigurationTemplateManager) initializeBuiltinTemplates() {
 		},
 		CreatedAt: time.Now(),
 	}
-	
+
 	// Multi-language template
 	tm.templates["multi-language"] = &ConfigurationTemplate{
 		Name:               "multi-language",
@@ -195,7 +195,7 @@ func (tm *ConfigurationTemplateManager) initializeBuiltinTemplates() {
 		},
 		CreatedAt: time.Now(),
 	}
-	
+
 	// Microservices template
 	tm.templates["microservices"] = &ConfigurationTemplate{
 		Name:               "microservices",
@@ -221,7 +221,7 @@ func (tm *ConfigurationTemplateManager) initializeBuiltinTemplates() {
 		},
 		CreatedAt: time.Now(),
 	}
-	
+
 	// Single language template
 	tm.templates["single-language"] = &ConfigurationTemplate{
 		Name:               "single-language",
@@ -247,7 +247,7 @@ func (tm *ConfigurationTemplateManager) initializeBuiltinTemplates() {
 		},
 		CreatedAt: time.Now(),
 	}
-	
+
 	// Development environment template
 	tm.templates["development"] = &ConfigurationTemplate{
 		Name:               "development",
@@ -284,7 +284,7 @@ func (tm *ConfigurationTemplateManager) initializeBuiltinTemplates() {
 		},
 		CreatedAt: time.Now(),
 	}
-	
+
 	// Production environment template
 	tm.templates["production"] = &ConfigurationTemplate{
 		Name:               "production",
@@ -312,12 +312,12 @@ func (tm *ConfigurationTemplateManager) initializeBuiltinTemplates() {
 					MaxProcesses:          10,
 				},
 				Features: map[string]bool{
-					"enable_diagnostics":        false,
-					"enable_code_lenses":        false,
-					"enable_hover_info":         false,
-					"enable_debug_logging":      false,
+					"enable_diagnostics":            false,
+					"enable_code_lenses":            false,
+					"enable_hover_info":             false,
+					"enable_debug_logging":          false,
 					"enable_performance_monitoring": true,
-					"enable_circuit_breaker":    true,
+					"enable_circuit_breaker":        true,
 				},
 			},
 		},
@@ -329,7 +329,7 @@ func (tm *ConfigurationTemplateManager) initializeBuiltinTemplates() {
 func (tm *ConfigurationTemplateManager) SelectTemplate(analysis *ProjectAnalysis) (*ConfigurationTemplate, error) {
 	var bestTemplate *ConfigurationTemplate
 	var bestScore float64
-	
+
 	for _, template := range tm.templates {
 		score := tm.calculateTemplateScore(template, analysis)
 		if score > bestScore {
@@ -337,25 +337,25 @@ func (tm *ConfigurationTemplateManager) SelectTemplate(analysis *ProjectAnalysis
 			bestTemplate = template
 		}
 	}
-	
+
 	if bestTemplate == nil {
 		return nil, fmt.Errorf("no suitable template found for project")
 	}
-	
+
 	tm.logger.WithFields(map[string]interface{}{
 		"template":     bestTemplate.Name,
 		"score":        bestScore,
 		"project_type": analysis.ProjectType,
 		"languages":    len(analysis.DetectedLanguages),
 	}).Debug("Selected configuration template")
-	
+
 	return bestTemplate, nil
 }
 
 // calculateTemplateScore calculates how well a template matches the project analysis
 func (tm *ConfigurationTemplateManager) calculateTemplateScore(template *ConfigurationTemplate, analysis *ProjectAnalysis) float64 {
 	var score float64
-	
+
 	// Project type matching (40% weight)
 	for _, projectType := range template.ProjectTypes {
 		if projectType == analysis.ProjectType {
@@ -363,7 +363,7 @@ func (tm *ConfigurationTemplateManager) calculateTemplateScore(template *Configu
 			break
 		}
 	}
-	
+
 	// Language matching (35% weight)
 	languageMatches := 0
 	for _, detectedLang := range analysis.DetectedLanguages {
@@ -374,12 +374,12 @@ func (tm *ConfigurationTemplateManager) calculateTemplateScore(template *Configu
 			}
 		}
 	}
-	
+
 	if len(analysis.DetectedLanguages) > 0 {
 		languageScore := float64(languageMatches) / float64(len(analysis.DetectedLanguages)) * 35.0
 		score += languageScore
 	}
-	
+
 	// Framework matching (15% weight)
 	frameworkMatches := 0
 	for _, framework := range analysis.Frameworks {
@@ -387,16 +387,16 @@ func (tm *ConfigurationTemplateManager) calculateTemplateScore(template *Configu
 			frameworkMatches++
 		}
 	}
-	
+
 	if len(analysis.Frameworks) > 0 {
 		frameworkScore := float64(frameworkMatches) / float64(len(analysis.Frameworks)) * 15.0
 		score += frameworkScore
 	}
-	
+
 	// Complexity matching (10% weight)
 	complexityScore := tm.calculateComplexityScore(template, analysis.Complexity)
 	score += complexityScore * 10.0
-	
+
 	return score
 }
 
@@ -405,7 +405,7 @@ func (tm *ConfigurationTemplateManager) calculateComplexityScore(template *Confi
 	if template.ResourceLimits == nil {
 		return 0.5 // Neutral score if no resource limits defined
 	}
-	
+
 	switch complexity {
 	case ProjectComplexityHigh:
 		// High complexity projects need high resource limits
@@ -415,7 +415,7 @@ func (tm *ConfigurationTemplateManager) calculateComplexityScore(template *Confi
 			return 0.7
 		}
 		return 0.3
-		
+
 	case ProjectComplexityMedium:
 		// Medium complexity projects need moderate resource limits
 		if template.ResourceLimits.MaxConcurrentRequests >= 150 && template.ResourceLimits.MaxConcurrentRequests <= 300 {
@@ -424,7 +424,7 @@ func (tm *ConfigurationTemplateManager) calculateComplexityScore(template *Confi
 			return 0.7
 		}
 		return 0.4
-		
+
 	case ProjectComplexityLow:
 		// Low complexity projects need low resource limits
 		if template.ResourceLimits.MaxConcurrentRequests <= 150 {
@@ -433,7 +433,7 @@ func (tm *ConfigurationTemplateManager) calculateComplexityScore(template *Confi
 			return 0.7
 		}
 		return 0.3
-		
+
 	default:
 		return 0.5
 	}
@@ -453,7 +453,7 @@ func (tm *ConfigurationTemplateManager) GetDefaultTemplate() *ConfigurationTempl
 	if template, exists := tm.templates["single-language"]; exists {
 		return template
 	}
-	
+
 	// Fallback template if default is not found
 	return &ConfigurationTemplate{
 		Name:               "fallback",
@@ -477,12 +477,12 @@ func (tm *ConfigurationTemplateManager) GetDefaultTemplate() *ConfigurationTempl
 // GetEnvironmentTemplate returns a template optimized for a specific environment
 func (tm *ConfigurationTemplateManager) GetEnvironmentTemplate(environment string) *ConfigurationTemplate {
 	envName := strings.ToLower(environment)
-	
+
 	// Try to find environment-specific template
 	if template, exists := tm.templates[envName]; exists {
 		return template
 	}
-	
+
 	// Map common environment names to templates
 	environmentMap := map[string]string{
 		"prod":        "production",
@@ -495,13 +495,13 @@ func (tm *ConfigurationTemplateManager) GetEnvironmentTemplate(environment strin
 		"stage":       "production",
 		"staging":     "production",
 	}
-	
+
 	if templateName, exists := environmentMap[envName]; exists {
 		if template, exists := tm.templates[templateName]; exists {
 			return template
 		}
 	}
-	
+
 	return nil
 }
 
@@ -519,34 +519,34 @@ func (tm *ConfigurationTemplateManager) AddTemplate(template *ConfigurationTempl
 	if template.Name == "" {
 		return fmt.Errorf("template name cannot be empty")
 	}
-	
+
 	if template.Version == "" {
 		template.Version = "1.0"
 	}
-	
+
 	if template.CreatedAt.IsZero() {
 		template.CreatedAt = time.Now()
 	}
-	
+
 	tm.templates[strings.ToLower(template.Name)] = template
-	
+
 	tm.logger.WithField("template", template.Name).Info("Added custom configuration template")
-	
+
 	return nil
 }
 
 // RemoveTemplate removes a template
 func (tm *ConfigurationTemplateManager) RemoveTemplate(name string) error {
 	templateName := strings.ToLower(name)
-	
+
 	if _, exists := tm.templates[templateName]; !exists {
 		return fmt.Errorf("template not found: %s", name)
 	}
-	
+
 	delete(tm.templates, templateName)
-	
+
 	tm.logger.WithField("template", name).Info("Removed configuration template")
-	
+
 	return nil
 }
 
@@ -555,33 +555,33 @@ func (tm *ConfigurationTemplateManager) ValidateTemplate(template *Configuration
 	if template.Name == "" {
 		return fmt.Errorf("template name is required")
 	}
-	
+
 	if len(template.ProjectTypes) == 0 {
 		return fmt.Errorf("template must specify at least one project type")
 	}
-	
+
 	if len(template.TargetLanguages) == 0 {
 		return fmt.Errorf("template must specify at least one target language")
 	}
-	
+
 	if template.DefaultPort <= 0 || template.DefaultPort > 65535 {
 		return fmt.Errorf("invalid default port: %d", template.DefaultPort)
 	}
-	
+
 	if template.ResourceLimits != nil {
 		if template.ResourceLimits.MaxConcurrentRequests <= 0 {
 			return fmt.Errorf("max concurrent requests must be positive")
 		}
-		
+
 		if template.ResourceLimits.TimeoutSeconds <= 0 {
 			return fmt.Errorf("timeout seconds must be positive")
 		}
-		
+
 		if template.ResourceLimits.MaxMemoryMB <= 0 {
 			return fmt.Errorf("max memory MB must be positive")
 		}
 	}
-	
+
 	return nil
 }
 

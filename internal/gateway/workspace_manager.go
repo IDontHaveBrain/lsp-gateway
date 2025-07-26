@@ -486,29 +486,6 @@ func (wm *WorkspaceManager) findProjectRoot(filePath string) string {
 	return ""
 }
 
-func (wm *WorkspaceManager) analyzeProject(rootPath string) (string, []string, []string) {
-	// Try using the new ProjectLanguageScanner for comprehensive analysis
-	scanner := NewProjectLanguageScanner()
-	multiLangInfo, err := scanner.ScanProject(rootPath)
-	if err != nil {
-		wm.logger.Warnf("Multi-language scan failed, falling back to simple analysis: %s", err.Error())
-		return wm.analyzeProjectSimple(rootPath)
-	}
-
-	// Extract information from MultiLanguageProjectInfo
-	projectType := multiLangInfo.ProjectType
-	languages := multiLangInfo.GetPrimaryLanguages()
-	configMarkers := multiLangInfo.BuildFiles
-
-	// If no primary languages found, get all languages
-	if len(languages) == 0 {
-		for lang := range multiLangInfo.Languages {
-			languages = append(languages, lang)
-		}
-	}
-
-	return projectType, languages, configMarkers
-}
 
 // analyzeProjectSimple provides fallback analysis using simple heuristics
 func (wm *WorkspaceManager) analyzeProjectSimple(rootPath string) (string, []string, []string) {
@@ -955,7 +932,9 @@ func (wc *WorkspaceContextImpl) createLanguageSpecificClient(language string, co
 	// Initialize with language-specific root if available
 	languageRoot := wc.getLanguageRoot(language)
 	if err := wc.initializeClientWithRoot(client, languageRoot, logger); err != nil {
-		client.Stop()
+		if stopErr := client.Stop(); stopErr != nil && logger != nil {
+			logger.Errorf("Failed to stop LSP client during cleanup: %v", stopErr)
+		}
 		return nil, fmt.Errorf("failed to initialize LSP client for language %s: %w", language, err)
 	}
 

@@ -59,7 +59,7 @@ func DefaultStartupConfig() *StartupConfig {
 	return &StartupConfig{
 		AutoDetectProject:     false,
 		ProjectPath:           "",
-		GenerateProjectConfig: false,  
+		GenerateProjectConfig: false,
 		Timeout:               60 * time.Second,
 		FallbackOnError:       true,
 	}
@@ -68,7 +68,7 @@ func DefaultStartupConfig() *StartupConfig {
 // PerformProjectStartup performs comprehensive project startup detection and analysis
 func (psm *ProjectStartupManager) PerformProjectStartup(ctx context.Context, config *StartupConfig) *ProjectStartupResult {
 	startTime := time.Now()
-	
+
 	if config == nil {
 		config = DefaultStartupConfig()
 	}
@@ -190,7 +190,7 @@ func ValidateProjectStartupResult(result *ProjectStartupResult) error {
 			return fmt.Errorf("project detected but project result is nil")
 		}
 		if result.ProjectResult.ProjectContext == nil {
-			return fmt.Errorf("project detected but project context is nil") 
+			return fmt.Errorf("project detected but project context is nil")
 		}
 	}
 
@@ -221,7 +221,7 @@ func LogProjectStartupResult(result *ProjectStartupResult, component string) {
 
 	if result.ProjectDetected {
 		ctx := result.ProjectResult.ProjectContext
-		log.Printf("[INFO] %s: Project detected - type=%s, languages=%v, path=%s\n", 
+		log.Printf("[INFO] %s: Project detected - type=%s, languages=%v, path=%s\n",
 			component, ctx.ProjectType, ctx.Languages, ctx.RootPath)
 	} else {
 		log.Printf("[INFO] %s: No project detected, using traditional mode\n", component)

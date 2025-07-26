@@ -313,16 +313,17 @@ type LoadBalancer struct {
 
 // NewLoadBalancer creates a new load balancer with the specified strategy
 func NewLoadBalancer(strategy string) *LoadBalancer {
-	config := &config.LoadBalancingConfig{
+	lbConfig := &config.LoadBalancingConfig{
 		Strategy:        strategy,
 		HealthThreshold: 0.8,
+		WeightFactors:   make(map[string]float64),
 	}
 
-	selector, err := NewServerSelector(config)
+	selector, err := NewServerSelector(lbConfig)
 	if err != nil {
 		// Fallback to round robin if strategy creation fails
 		selector = NewRoundRobinSelector()
-		strategy = "round_robin"
+		strategy = string(RoutingStrategyRoundRobin)
 	}
 
 	return &LoadBalancer{
@@ -333,25 +334,26 @@ func NewLoadBalancer(strategy string) *LoadBalancer {
 }
 
 // NewLoadBalancerWithConfig creates a load balancer with specific configuration
-func NewLoadBalancerWithConfig(config *config.LoadBalancingConfig, logger *log.Logger) *LoadBalancer {
-	if config == nil {
-		config = &config.LoadBalancingConfig{
+func NewLoadBalancerWithConfig(loadBalancingConfig *config.LoadBalancingConfig, logger *log.Logger) *LoadBalancer {
+	if loadBalancingConfig == nil {
+		loadBalancingConfig = &config.LoadBalancingConfig{
 			Strategy:        "round_robin",
 			HealthThreshold: 0.8,
+			WeightFactors:   make(map[string]float64),
 		}
 	}
 
-	selector, err := NewServerSelector(config)
+	selector, err := NewServerSelector(loadBalancingConfig)
 	if err != nil {
 		if logger != nil {
-			logger.Printf("Failed to create selector for strategy %s: %v, falling back to round robin", config.Strategy, err)
+			logger.Printf("Failed to create selector for strategy %s: %v, falling back to round robin", loadBalancingConfig.Strategy, err)
 		}
 		selector = NewRoundRobinSelector()
-		config.Strategy = "round_robin"
+		loadBalancingConfig.Strategy = "round_robin"
 	}
 
 	return &LoadBalancer{
-		strategy: config.Strategy,
+		strategy: loadBalancingConfig.Strategy,
 		selector: selector,
 		metrics:  NewLoadBalancerMetrics(),
 		logger:   logger,
@@ -449,20 +451,21 @@ func (lb *LoadBalancer) GetStrategy() string {
 }
 
 // SetStrategy changes the load balancing strategy
-func (lb *LoadBalancer) SetStrategy(strategy string, config *config.LoadBalancingConfig) error {
+func (lb *LoadBalancer) SetStrategy(strategy string, cfg *config.LoadBalancingConfig) error {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
 
-	if config == nil {
-		config = &config.LoadBalancingConfig{
+	if cfg == nil {
+		cfg = &config.LoadBalancingConfig{
 			Strategy:        strategy,
 			HealthThreshold: 0.8,
+			WeightFactors:   make(map[string]float64),
 		}
 	} else {
-		config.Strategy = strategy
+		cfg.Strategy = strategy
 	}
 
-	selector, err := NewServerSelector(config)
+	selector, err := NewServerSelector(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create selector for strategy %s: %w", strategy, err)
 	}
@@ -499,12 +502,13 @@ func (lb *LoadBalancer) Reset() {
 	lb.metrics = NewLoadBalancerMetrics()
 
 	// Recreate selector to reset its internal state
-	config := &config.LoadBalancingConfig{
+	lbConfig := &config.LoadBalancingConfig{
 		Strategy:        lb.strategy,
 		HealthThreshold: 0.8,
+		WeightFactors:   make(map[string]float64),
 	}
 
-	if selector, err := NewServerSelector(config); err == nil {
+	if selector, err := NewServerSelector(lbConfig); err == nil {
 		lb.selector = selector
 	}
 
@@ -542,32 +546,6 @@ func GetSupportedStrategies() []string {
 		"performance",
 		"resource_usage",
 		"feature",
-	}
-}
-
-// LoadBalancingConfig represents the configuration for load balancing (imported from config but defined here for convenience)
-type LoadBalancingConfigLocal struct {
-	Strategy        string             `yaml:"strategy" json:"strategy"`
-	HealthThreshold float64            `yaml:"health_threshold" json:"health_threshold"`
-	WeightFactors   map[string]float64 `yaml:"weight_factors" json:"weight_factors"`
-	FallbackEnabled bool               `yaml:"fallback_enabled" json:"fallback_enabled"`
-	MaxRetries      int                `yaml:"max_retries" json:"max_retries"`
-	RetryDelay      time.Duration      `yaml:"retry_delay" json:"retry_delay"`
-}
-
-// DefaultLoadBalancingConfig returns a default load balancing configuration
-func DefaultLoadBalancingConfig() *LoadBalancingConfigLocal {
-	return &LoadBalancingConfigLocal{
-		Strategy:        "round_robin",
-		HealthThreshold: 0.8,
-		WeightFactors: map[string]float64{
-			"response_time": 0.4,
-			"availability":  0.4,
-			"resource":      0.2,
-		},
-		FallbackEnabled: true,
-		MaxRetries:      3,
-		RetryDelay:      100 * time.Millisecond,
 	}
 }
 

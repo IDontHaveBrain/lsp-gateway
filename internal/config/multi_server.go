@@ -9,17 +9,17 @@ import (
 // Multi-server selection strategies
 const (
 	SelectionStrategyPerformance = "performance"
-	SelectionStrategyFeature     = "feature"  
+	SelectionStrategyFeature     = "feature"
 	SelectionStrategyLoadBalance = "load_balance"
 	SelectionStrategyRandom      = "random"
 )
 
 // Load balancing strategies
 const (
-	LoadBalanceRoundRobin        = "round_robin"
-	LoadBalanceLeastConnections  = "least_connections"
-	LoadBalanceResponseTime      = "response_time"
-	LoadBalanceResourceUsage     = "resource_usage"
+	LoadBalanceRoundRobin       = "round_robin"
+	LoadBalanceLeastConnections = "least_connections"
+	LoadBalanceResponseTime     = "response_time"
+	LoadBalanceResourceUsage    = "resource_usage"
 )
 
 // DefaultMultiServerConfig returns default multi-server configuration
@@ -67,11 +67,11 @@ func (lsp *LanguageServerPool) AddServerToPool(server *ServerConfig) error {
 	if server == nil {
 		return fmt.Errorf("server configuration cannot be nil")
 	}
-	
+
 	if server.Name == "" {
 		return fmt.Errorf("server name cannot be empty")
 	}
-	
+
 	// Check if server supports the pool's language
 	supports := false
 	for _, lang := range server.Languages {
@@ -80,18 +80,18 @@ func (lsp *LanguageServerPool) AddServerToPool(server *ServerConfig) error {
 			break
 		}
 	}
-	
+
 	if !supports {
 		return fmt.Errorf("server %s does not support language %s", server.Name, lsp.Language)
 	}
-	
+
 	lsp.Servers[server.Name] = server
-	
+
 	// Set as default if this is the first server
 	if lsp.DefaultServer == "" {
 		lsp.DefaultServer = server.Name
 	}
-	
+
 	return nil
 }
 
@@ -100,9 +100,9 @@ func (lsp *LanguageServerPool) RemoveServerFromPool(serverName string) error {
 	if _, exists := lsp.Servers[serverName]; !exists {
 		return fmt.Errorf("server %s not found in pool", serverName)
 	}
-	
+
 	delete(lsp.Servers, serverName)
-	
+
 	// Update default server if it was removed
 	if lsp.DefaultServer == serverName {
 		lsp.DefaultServer = ""
@@ -112,7 +112,7 @@ func (lsp *LanguageServerPool) RemoveServerFromPool(serverName string) error {
 			break
 		}
 	}
-	
+
 	return nil
 }
 
@@ -122,7 +122,7 @@ func (lsp *LanguageServerPool) GetAvailableServers() []*ServerConfig {
 	for _, server := range lsp.Servers {
 		servers = append(servers, server)
 	}
-	
+
 	// Sort by priority (higher priority first), then by weight (higher weight first)
 	sort.Slice(servers, func(i, j int) bool {
 		if servers[i].Priority != servers[j].Priority {
@@ -130,7 +130,7 @@ func (lsp *LanguageServerPool) GetAvailableServers() []*ServerConfig {
 		}
 		return servers[i].Weight > servers[j].Weight
 	})
-	
+
 	return servers
 }
 
@@ -139,7 +139,7 @@ func (lsp *LanguageServerPool) SelectServerByStrategy(strategy string) (*ServerC
 	if len(lsp.Servers) == 0 {
 		return nil, fmt.Errorf("no servers available in pool for language %s", lsp.Language)
 	}
-	
+
 	switch strategy {
 	case SelectionStrategyPerformance:
 		return lsp.selectByPerformance()
@@ -155,7 +155,7 @@ func (lsp *LanguageServerPool) SelectServerByStrategy(strategy string) (*ServerC
 			return server, nil
 		}
 	}
-	
+
 	return nil, fmt.Errorf("no server could be selected for language %s", lsp.Language)
 }
 
@@ -172,23 +172,23 @@ func (lsp *LanguageServerPool) selectByPerformance() (*ServerConfig, error) {
 func (lsp *LanguageServerPool) selectByFeature() (*ServerConfig, error) {
 	var bestServer *ServerConfig
 	highestPriority := -1
-	
+
 	for _, server := range lsp.Servers {
 		if server.Priority > highestPriority {
 			highestPriority = server.Priority
 			bestServer = server
 		}
 	}
-	
+
 	if bestServer != nil {
 		return bestServer, nil
 	}
-	
+
 	// Fallback to first available
 	for _, server := range lsp.Servers {
 		return server, nil
 	}
-	
+
 	return nil, fmt.Errorf("no servers available for feature selection")
 }
 
@@ -207,7 +207,7 @@ func (lsp *LanguageServerPool) selectByLoadBalance() (*ServerConfig, error) {
 		}
 		return nil, fmt.Errorf("no servers available for load balancing")
 	}
-	
+
 	switch lsp.LoadBalancingConfig.Strategy {
 	case LoadBalanceRoundRobin:
 		return lsp.selectRoundRobin()
@@ -229,7 +229,7 @@ func (lsp *LanguageServerPool) selectRandom() (*ServerConfig, error) {
 	if len(servers) == 0 {
 		return nil, fmt.Errorf("no servers available for random selection")
 	}
-	
+
 	// Simple approach - return first server (in real implementation, use random)
 	return servers[0], nil
 }
@@ -263,10 +263,10 @@ func (lsp *LanguageServerPool) selectByWeight() (*ServerConfig, error) {
 	if lsp.LoadBalancingConfig == nil || len(lsp.LoadBalancingConfig.WeightFactors) == 0 {
 		return lsp.selectByPerformance()
 	}
-	
+
 	var bestServer *ServerConfig
 	highestWeight := 0.0
-	
+
 	for name, server := range lsp.Servers {
 		if weight, exists := lsp.LoadBalancingConfig.WeightFactors[name]; exists {
 			if weight > highestWeight {
@@ -275,11 +275,11 @@ func (lsp *LanguageServerPool) selectByWeight() (*ServerConfig, error) {
 			}
 		}
 	}
-	
+
 	if bestServer != nil {
 		return bestServer, nil
 	}
-	
+
 	// Fallback to default selection
 	return lsp.selectByPerformance()
 }
@@ -290,27 +290,31 @@ func (c *GatewayConfig) MigrateServersToPool() error {
 		// Already has pools configured
 		return nil
 	}
-	
+
 	languageMap := make(map[string]*LanguageServerPool)
-	
+
 	// Group servers by language
 	for _, server := range c.Servers {
 		for _, language := range server.Languages {
 			if pool, exists := languageMap[language]; exists {
-				pool.AddServerToPool(&server)
+				if err := pool.AddServerToPool(&server); err != nil {
+					return fmt.Errorf("failed to add server %s to existing pool for language %s: %w", server.Name, language, err)
+				}
 			} else {
 				pool := CreateLanguageServerPool(language)
-				pool.AddServerToPool(&server)
+				if err := pool.AddServerToPool(&server); err != nil {
+					return fmt.Errorf("failed to add server %s to new pool for language %s: %w", server.Name, language, err)
+				}
 				languageMap[language] = pool
 			}
 		}
 	}
-	
+
 	// Convert map to slice
 	for _, pool := range languageMap {
 		c.LanguagePools = append(c.LanguagePools, *pool)
 	}
-	
+
 	return nil
 }
 
@@ -319,11 +323,11 @@ func (c *GatewayConfig) EnsureMultiServerDefaults() {
 	if c.GlobalMultiServerConfig == nil {
 		c.GlobalMultiServerConfig = DefaultMultiServerConfig()
 	}
-	
+
 	if c.MaxConcurrentServersPerLanguage == 0 {
 		c.MaxConcurrentServersPerLanguage = 3
 	}
-	
+
 	// Ensure all pools have default configurations
 	for i := range c.LanguagePools {
 		pool := &c.LanguagePools[i]

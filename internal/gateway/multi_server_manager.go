@@ -35,13 +35,13 @@ func (s ServerState) String() string {
 	case ServerStateUnhealthy:
 		return "unhealthy"
 	case ServerStateFailed:
-		return "failed"
+		return STATUS_FAILED
 	case ServerStateStopping:
 		return "stopping"
 	case ServerStateStopped:
 		return "stopped"
 	default:
-		return "unknown"
+		return StateStringUnknown
 	}
 }
 
@@ -53,10 +53,8 @@ type ServerInstance struct {
 	metrics         *ServerMetrics
 	circuitBreaker  *CircuitBreaker
 	startTime       time.Time
-	lastUsed        time.Time
-	processID       int
+	lastUsed        int64 // Changed to int64 for atomic operations
 	memoryUsage     int64
-	connectionCount int32
 	state           ServerState
 	mu              sync.RWMutex
 }
@@ -70,7 +68,7 @@ func NewServerInstance(serverConfig *config.ServerConfig, client transport.LSPCl
 		metrics:        NewServerMetrics(),
 		circuitBreaker: NewCircuitBreaker(10, 30*time.Second, 5),
 		startTime:      time.Now(),
-		lastUsed:       time.Now(),
+		lastUsed:       time.Now().UnixNano(), // Store as nanoseconds
 		state:          ServerStateStarting,
 	}
 }
@@ -137,7 +135,7 @@ func (si *ServerInstance) SendRequest(ctx context.Context, method string, params
 	result, err := si.client.SendRequest(ctx, method, params)
 	responseTime := time.Since(start)
 
-	atomic.StoreInt64((*int64)(&si.lastUsed), time.Now().UnixNano())
+	atomic.StoreInt64(&si.lastUsed, time.Now().UnixNano())
 
 	if err != nil {
 		si.circuitBreaker.RecordFailure()
@@ -354,8 +352,6 @@ type MultiServerManager struct {
 	metrics          *ManagerMetrics
 	circuitBreakers  map[string]*CircuitBreaker
 	resourceMonitor  *ResourceMonitor
-	smartRouter      *SmartRouterImpl
-	workspaceManager *WorkspaceManager
 	ctx              context.Context
 	cancel           context.CancelFunc
 	mu               sync.RWMutex
@@ -491,9 +487,18 @@ func (msm *MultiServerManager) Stop() error {
 	return nil
 }
 
-// GetServerForRequest gets the best server for a specific request
-func (msm *MultiServerManager) GetServerForRequest(language string, requestType string) (*ServerInstance, error) {
+// GetServerInstanceForRequest gets the best server instance for a specific request
+func (msm *MultiServerManager) GetServerInstanceForRequest(language string, requestType string) (*ServerInstance, error) {
 	return msm.GetServerForRequestWithContext(language, requestType, nil)
+}
+
+// GetServerForRequest implements ServerManager interface
+func (msm *MultiServerManager) GetServerForRequest(language string, requestType string) (transport.LSPClient, error) {
+	server, err := msm.GetServerInstanceForRequest(language, requestType)
+	if err != nil {
+		return nil, err
+	}
+	return server.client, nil
 }
 
 // GetServerForRequestWithContext gets the best server for a specific request with context
@@ -525,9 +530,23 @@ func (msm *MultiServerManager) GetServerForRequestWithContext(language string, r
 	return server, nil
 }
 
-// GetServersForConcurrentRequest gets multiple servers for concurrent requests
-func (msm *MultiServerManager) GetServersForConcurrentRequest(language string, maxServers int) ([]*ServerInstance, error) {
+// GetServerInstancesForConcurrentRequest gets multiple server instances for concurrent requests
+func (msm *MultiServerManager) GetServerInstancesForConcurrentRequest(language string, maxServers int) ([]*ServerInstance, error) {
 	return msm.GetServersForConcurrentRequestWithType(language, "", maxServers)
+}
+
+// GetServersForConcurrentRequest implements ServerManager interface
+func (msm *MultiServerManager) GetServersForConcurrentRequest(language string, maxServers int) ([]transport.LSPClient, error) {
+	servers, err := msm.GetServerInstancesForConcurrentRequest(language, maxServers)
+	if err != nil {
+		return nil, err
+	}
+
+	clients := make([]transport.LSPClient, len(servers))
+	for i, server := range servers {
+		clients[i] = server.client
+	}
+	return clients, nil
 }
 
 // GetServersForConcurrentRequestWithType gets multiple servers for concurrent requests with request type
@@ -552,7 +571,7 @@ func (msm *MultiServerManager) GetServersForConcurrentRequestWithType(language s
 }
 
 // GetHealthyServers gets all healthy servers for a language
-func (msm *MultiServerManager) GetHealthyServers(language string) ([]*ServerInstance, error) {
+func (msm *MultiServerManager) GetHealthyServers(language string) ([]transport.LSPClient, error) {
 	msm.mu.RLock()
 	defer msm.mu.RUnlock()
 
@@ -561,7 +580,12 @@ func (msm *MultiServerManager) GetHealthyServers(language string) ([]*ServerInst
 		return nil, fmt.Errorf("no server pool found for language %s", language)
 	}
 
-	return pool.GetHealthyServers(), nil
+	healthyInstances := pool.GetHealthyServers()
+	clients := make([]transport.LSPClient, len(healthyInstances))
+	for i, instance := range healthyInstances {
+		clients[i] = instance.client
+	}
+	return clients, nil
 }
 
 // GetServerPool gets the server pool for a language
@@ -680,14 +704,14 @@ func (msm *MultiServerManager) UpdateServerMetrics(serverName string, responseTi
 	for _, pool := range msm.serverPools {
 		if server, exists := pool.servers[serverName]; exists {
 			server.UpdateMetrics(responseTime, success)
-			
+
 			// Update load balancer metrics
 			pool.loadBalancer.UpdateServerMetrics(serverName, responseTime, success)
 			pool.metrics.RecordServerSelection(serverName, responseTime, success)
-			
+
 			// Update manager metrics
 			msm.metrics.RecordRequest(responseTime, success)
-			
+
 			return nil
 		}
 	}
@@ -715,7 +739,7 @@ func (msm *MultiServerManager) RebalancePool(language string) error {
 	active := len(pool.activeServers)
 	pool.metrics.UpdatePoolStatus(language, total, active, healthy, pool.loadBalancer.GetStrategy())
 
-	msm.logger.Printf("Successfully rebalanced pool for language %s (strategy: %s, healthy: %d/%d)", 
+	msm.logger.Printf("Successfully rebalanced pool for language %s (strategy: %s, healthy: %d/%d)",
 		language, pool.loadBalancer.GetStrategy(), healthy, total)
 
 	return nil
@@ -866,10 +890,15 @@ type ServerManager interface {
 	GetMetrics() *ManagerMetrics
 }
 
+// ServerManagerInternal interface for internal methods that return ServerInstance
+type ServerManagerInternal interface {
+	GetServerInstanceForRequest(language string, requestType string) (*ServerInstance, error)
+	GetServerInstancesForConcurrentRequest(language string, maxServers int) ([]*ServerInstance, error)
+}
+
 // Ensure MultiServerManager implements ServerManager interface
 var _ ServerManager = (*MultiServerManager)(nil)
 
-// Implementation of ServerManager interface methods that return transport.LSPClient
 func (msm *MultiServerManager) StartAll() error {
 	return msm.Start()
 }

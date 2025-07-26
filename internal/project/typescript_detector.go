@@ -15,32 +15,32 @@ import (
 
 // TypeScript framework name mappings
 var typeScriptFrameworkMap = map[string]string{
-	"typescript":                    "TypeScript",
-	"@types/node":                  "Node.js Types",
-	"@types/react":                 "React Types", 
-	"@types/express":               "Express Types",
-	"ts-node":                      "ts-node",
-	"tsx":                          "tsx",
-	"tsc-watch":                    "tsc-watch",
-	"nodemon":                      "Nodemon",
-	"concurrently":                 "Concurrently",
-	"@typescript-eslint/parser":    "TypeScript ESLint",
+	"typescript":                       "TypeScript",
+	"@types/node":                      "Node.js Types",
+	"@types/react":                     "React Types",
+	"@types/express":                   "Express Types",
+	"ts-node":                          "ts-node",
+	"tsx":                              "tsx",
+	"tsc-watch":                        "tsc-watch",
+	"nodemon":                          "Nodemon",
+	"concurrently":                     "Concurrently",
+	"@typescript-eslint/parser":        "TypeScript ESLint",
 	"@typescript-eslint/eslint-plugin": "TypeScript ESLint Plugin",
-	"prettier":                     "Prettier",
-	"jest":                         "Jest",
-	"@types/jest":                  "Jest Types",
-	"vitest":                       "Vitest", 
-	"ava":                          "AVA",
-	"mocha":                        "Mocha",
-	"@types/mocha":                 "Mocha Types",
+	"prettier":                         "Prettier",
+	"jest":                             "Jest",
+	"@types/jest":                      "Jest Types",
+	"vitest":                           "Vitest",
+	"ava":                              "AVA",
+	"mocha":                            "Mocha",
+	"@types/mocha":                     "Mocha Types",
 }
 
 // TypeScript project type detection rules
 var typeScriptProjectTypes = map[string][]string{
-	"@angular/core":  {"Angular"},
-	"vue":            {"Vue.js with TypeScript"},
-	"next":           {"Next.js with TypeScript"},
-	"@nestjs/core":   {"NestJS"},
+	"@angular/core": {"Angular"},
+	"vue":           {"Vue.js with TypeScript"},
+	"next":          {"Next.js with TypeScript"},
+	"@nestjs/core":  {"NestJS"},
 }
 
 // TypeScriptLanguageDetector implements comprehensive TypeScript project detection
@@ -61,9 +61,9 @@ func NewTypeScriptLanguageDetector() LanguageDetector {
 
 func (t *TypeScriptLanguageDetector) DetectLanguage(ctx context.Context, path string) (*types.LanguageDetectionResult, error) {
 	startTime := time.Now()
-	
+
 	t.logger.WithField("path", path).Debug("Starting TypeScript project detection")
-	
+
 	result := &types.LanguageDetectionResult{
 		Language:        types.PROJECT_TYPE_TYPESCRIPT,
 		RequiredServers: []string{types.SERVER_TYPESCRIPT_LANG_SERVER},
@@ -85,7 +85,7 @@ func (t *TypeScriptLanguageDetector) DetectLanguage(ctx context.Context, path st
 		result.MarkerFiles = append(result.MarkerFiles, types.MARKER_TSCONFIG)
 		result.ConfigFiles = append(result.ConfigFiles, types.MARKER_TSCONFIG)
 		confidence = 0.95
-		
+
 		if err := t.parseTsConfig(tsconfigPath, result); err != nil {
 			t.logger.WithError(err).Warn("Failed to parse tsconfig.json")
 			confidence = 0.8
@@ -113,7 +113,7 @@ func (t *TypeScriptLanguageDetector) DetectLanguage(ctx context.Context, path st
 		// Merge Node.js results
 		result.Dependencies = nodeResult.Dependencies
 		result.DevDependencies = nodeResult.DevDependencies
-		
+
 		// Copy relevant metadata
 		for key, value := range nodeResult.Metadata {
 			if key != "frameworks" { // We'll detect TypeScript-specific frameworks
@@ -179,11 +179,11 @@ func (t *TypeScriptLanguageDetector) DetectLanguage(ctx context.Context, path st
 	result.Metadata["detector_version"] = types.DETECTOR_VERSION_DEFAULT
 
 	t.logger.WithFields(map[string]interface{}{
-		"confidence":      result.Confidence,
-		"marker_files":    len(result.MarkerFiles),
-		"source_dirs":     len(result.SourceDirs),
-		"dependencies":    len(result.Dependencies),
-		"detection_time":  time.Since(startTime),
+		"confidence":     result.Confidence,
+		"marker_files":   len(result.MarkerFiles),
+		"source_dirs":    len(result.SourceDirs),
+		"dependencies":   len(result.Dependencies),
+		"detection_time": time.Since(startTime),
 	}).Info("TypeScript project detection completed")
 
 	return result, nil
@@ -203,7 +203,7 @@ func (t *TypeScriptLanguageDetector) parseTsConfig(tsconfigPath string, result *
 	// Extract compiler options
 	if compilerOptions, ok := tsconfig["compilerOptions"].(map[string]interface{}); ok {
 		result.Metadata["compiler_options"] = compilerOptions
-		
+
 		// Extract target TypeScript version
 		if target, ok := compilerOptions["target"].(string); ok {
 			result.Metadata["typescript_target"] = target
@@ -290,7 +290,7 @@ func (t *TypeScriptLanguageDetector) parseTsConfig(tsconfigPath string, result *
 func (t *TypeScriptLanguageDetector) scanForTypeScriptFiles(path string, result *types.LanguageDetectionResult, tsFileCount *int) error {
 	sourceDirs := make(map[string]bool)
 	testDirs := make(map[string]bool)
-	
+
 	err := filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Continue on errors
@@ -313,11 +313,11 @@ func (t *TypeScriptLanguageDetector) scanForTypeScriptFiles(path string, result 
 			*tsFileCount++
 			dir := filepath.Dir(filePath)
 			relDir, _ := filepath.Rel(path, dir)
-			
+
 			fileName := strings.ToLower(info.Name())
 			if strings.Contains(fileName, "test") || strings.Contains(fileName, "spec") ||
-			   strings.Contains(relDir, "test") || strings.Contains(relDir, "__tests__") ||
-			   strings.Contains(relDir, "spec") {
+				strings.Contains(relDir, "test") || strings.Contains(relDir, "__tests__") ||
+				strings.Contains(relDir, "spec") {
 				testDirs[relDir] = true
 			} else {
 				sourceDirs[relDir] = true
@@ -404,14 +404,14 @@ func (t *TypeScriptLanguageDetector) getTypeScriptFrameworkName(dep string) (str
 // detectTypeScriptProjectTypes determines project types based on dependencies
 func (t *TypeScriptLanguageDetector) detectTypeScriptProjectTypes(allDeps map[string]string) []string {
 	projectTypes := []string{}
-	
+
 	// Direct project type detection
 	for dep, types := range typeScriptProjectTypes {
 		if _, exists := allDeps[dep]; exists {
 			projectTypes = append(projectTypes, types...)
 		}
 	}
-	
+
 	// Special cases requiring TypeScript dependency
 	if _, existsTS := allDeps["typescript"]; existsTS {
 		if _, exists := allDeps["vue"]; exists {
@@ -421,13 +421,13 @@ func (t *TypeScriptLanguageDetector) detectTypeScriptProjectTypes(allDeps map[st
 			projectTypes = append(projectTypes, "Next.js with TypeScript")
 		}
 	}
-	
+
 	return projectTypes
 }
 
 func (t *TypeScriptLanguageDetector) detectTypeScriptFrameworks(result *types.LanguageDetectionResult) {
 	frameworks := []string{}
-	
+
 	// Check dependencies for TypeScript-specific frameworks
 	allDeps := make(map[string]string)
 	for k, v := range result.Dependencies {
@@ -480,14 +480,14 @@ func (t *TypeScriptLanguageDetector) analyzeProjectStructure(path string, result
 	// Check for monorepo structure (TypeScript projects often use monorepos)
 	monorepoIndicators := []string{"packages", "apps", "libs", "workspace.json", "nx.json", "lerna.json"}
 	isMonorepo := false
-	
+
 	for _, indicator := range monorepoIndicators {
 		if _, err := os.Stat(filepath.Join(path, indicator)); err == nil {
 			isMonorepo = true
 			break
 		}
 	}
-	
+
 	if isMonorepo {
 		result.Metadata["is_monorepo"] = true
 	}
@@ -495,13 +495,13 @@ func (t *TypeScriptLanguageDetector) analyzeProjectStructure(path string, result
 	// Check for multiple tsconfig files (common in complex TypeScript projects)
 	tsconfigFiles := []string{"tsconfig.json", "tsconfig.build.json", "tsconfig.dev.json", "tsconfig.prod.json", "tsconfig.test.json"}
 	foundTsConfigs := []string{}
-	
+
 	for _, config := range tsconfigFiles {
 		if _, err := os.Stat(filepath.Join(path, config)); err == nil {
 			foundTsConfigs = append(foundTsConfigs, config)
 		}
 	}
-	
+
 	if len(foundTsConfigs) > 1 {
 		result.Metadata["multiple_tsconfigs"] = foundTsConfigs
 	}
@@ -509,21 +509,21 @@ func (t *TypeScriptLanguageDetector) analyzeProjectStructure(path string, result
 
 func (t *TypeScriptLanguageDetector) detectAdditionalConfigs(path string, result *types.LanguageDetectionResult) {
 	configFiles := map[string]string{
-		"tsconfig.build.json":    "TypeScript Build Config",
-		"tsconfig.dev.json":      "TypeScript Dev Config",
-		"tsconfig.prod.json":     "TypeScript Production Config",
-		"tsconfig.test.json":     "TypeScript Test Config",
-		"tslint.json":           "TSLint (deprecated)",
-		".eslintrc.js":          "ESLint Configuration",
-		".eslintrc.json":        "ESLint Configuration",
-		"prettier.config.js":    "Prettier Configuration",
-		".prettierrc":           "Prettier Configuration",
-		"jest.config.ts":        "Jest Configuration (TypeScript)",
-		"vitest.config.ts":      "Vitest Configuration",
-		"webpack.config.ts":     "Webpack Configuration (TypeScript)",
-		"rollup.config.ts":      "Rollup Configuration (TypeScript)",
-		"vite.config.ts":        "Vite Configuration (TypeScript)",
-		"esbuild.config.ts":     "ESBuild Configuration (TypeScript)",
+		"tsconfig.build.json": "TypeScript Build Config",
+		"tsconfig.dev.json":   "TypeScript Dev Config",
+		"tsconfig.prod.json":  "TypeScript Production Config",
+		"tsconfig.test.json":  "TypeScript Test Config",
+		"tslint.json":         "TSLint (deprecated)",
+		".eslintrc.js":        "ESLint Configuration",
+		".eslintrc.json":      "ESLint Configuration",
+		"prettier.config.js":  "Prettier Configuration",
+		".prettierrc":         "Prettier Configuration",
+		"jest.config.ts":      "Jest Configuration (TypeScript)",
+		"vitest.config.ts":    "Vitest Configuration",
+		"webpack.config.ts":   "Webpack Configuration (TypeScript)",
+		"rollup.config.ts":    "Rollup Configuration (TypeScript)",
+		"vite.config.ts":      "Vite Configuration (TypeScript)",
+		"esbuild.config.ts":   "ESBuild Configuration (TypeScript)",
 	}
 
 	for file, description := range configFiles {
@@ -558,11 +558,11 @@ func (t *TypeScriptLanguageDetector) GetLanguageInfo(language string) (*types.La
 		FileExtensions: []string{".ts", ".tsx", ".d.ts"},
 		Capabilities:   []string{"completion", "hover", "definition", "references", "formatting", "code_action", "rename", "refactor"},
 		Metadata: map[string]interface{}{
-			"transpiles_to":    "JavaScript",
-			"type_checking":    true,
-			"jsx_support":      true,
-			"documentation":    "typescriptlang.org",
-			"ecosystem":        "JavaScript/Node.js",
+			"transpiles_to": "JavaScript",
+			"type_checking": true,
+			"jsx_support":   true,
+			"documentation": "typescriptlang.org",
+			"ecosystem":     "JavaScript/Node.js",
 		},
 	}, nil
 }
@@ -609,7 +609,7 @@ func (t *TypeScriptLanguageDetector) ValidateStructure(ctx context.Context, path
 		if err != nil {
 			return nil
 		}
-		
+
 		if !info.IsDir() {
 			ext := strings.ToLower(filepath.Ext(filePath))
 			if ext == ".ts" || ext == ".tsx" {
@@ -617,12 +617,12 @@ func (t *TypeScriptLanguageDetector) ValidateStructure(ctx context.Context, path
 				return filepath.SkipAll // Found at least one, can stop
 			}
 		}
-		
+
 		// Skip node_modules directory
 		if info.IsDir() && info.Name() == "node_modules" {
 			return filepath.SkipDir
 		}
-		
+
 		return nil
 	})
 

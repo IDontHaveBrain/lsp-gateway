@@ -1,9 +1,9 @@
 package gateway
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -27,17 +27,17 @@ type RoutingStrategyInterface interface {
 
 // StrategyConfig provides configuration for routing strategies
 type StrategyConfig struct {
-	Name              string                 `json:"name"`
-	Priority          int                    `json:"priority"`
-	Timeout           time.Duration          `json:"timeout"`
-	MaxServers        int                    `json:"max_servers"`
-	LoadBalance       LoadBalanceType        `json:"load_balance"`
-	FallbackMode      FallbackMode           `json:"fallback_mode"`
-	AggregationMode   AggregationMode        `json:"aggregation_mode"`
-	HealthThreshold   float64                `json:"health_threshold"`
-	RetryCount        int                    `json:"retry_count"`
-	CircuitBreaker    bool                   `json:"circuit_breaker"`
-	Parameters        map[string]interface{} `json:"parameters"`
+	Name            string                 `json:"name"`
+	Priority        int                    `json:"priority"`
+	Timeout         time.Duration          `json:"timeout"`
+	MaxServers      int                    `json:"max_servers"`
+	LoadBalance     LoadBalanceType        `json:"load_balance"`
+	FallbackMode    FallbackMode           `json:"fallback_mode"`
+	AggregationMode AggregationMode        `json:"aggregation_mode"`
+	HealthThreshold float64                `json:"health_threshold"`
+	RetryCount      int                    `json:"retry_count"`
+	CircuitBreaker  bool                   `json:"circuit_breaker"`
+	Parameters      map[string]interface{} `json:"parameters"`
 }
 
 // LoadBalanceType defines load balancing algorithms
@@ -134,18 +134,23 @@ func (sr *StrategyRegistry) RegisterStrategy(strategy RoutingStrategyInterface) 
 
 	name := strategy.GetName()
 	sr.strategies[name] = strategy
-	
+
 	// Initialize with default config if not exists
 	if sr.config[name] == nil {
 		sr.config[name] = sr.getDefaultConfig(name)
 	}
-	
+
 	// Initialize metrics
 	if sr.metrics[name] == nil {
 		sr.metrics[name] = &StrategyMetrics{}
 	}
 
-	strategy.Configure(sr.config[name])
+	if err := strategy.Configure(sr.config[name]); err != nil {
+		if sr.logger != nil {
+			sr.logger.Errorf("Failed to configure routing strategy %s: %v", name, err)
+		}
+		// Configuration error is logged but we continue registration
+	}
 
 	if sr.logger != nil {
 		sr.logger.Debugf("Registered routing strategy: %s", name)
@@ -228,7 +233,7 @@ func (sr *StrategyRegistry) getDefaultConfig(name string) *StrategyConfig {
 	case "multi_target":
 		baseConfig.MaxServers = 3
 		baseConfig.AggregationMode = AggregationMerge
-	case "broadcast_aggregate":
+	case ROUTING_STRATEGY_BROADCAST_AGGREGATE:
 		baseConfig.MaxServers = 10
 		baseConfig.AggregationMode = AggregationUnion
 	case "sequential_fallback":
@@ -334,16 +339,21 @@ func (s *SingleTargetStrategy) Route(request *LSPRequest, availableServers []*St
 	// Select best server based on health score and performance
 	bestServer := s.selectBestServer(healthyServers)
 
+	serverInstance := &RoutingServerInstance{
+		Name:     bestServer.Config.Name,
+		Config:   bestServer.Config,
+		Client:   bestServer.Client,
+		Priority: bestServer.Config.Priority,
+		Weight:   bestServer.Weight,
+	}
+
 	decision := &RoutingDecision{
-		ServerName:   bestServer.Config.Name,
-		ServerConfig: bestServer.Config,
-		Client:       bestServer.Client,
-		Priority:     bestServer.Config.Priority,
-		Weight:       bestServer.Weight,
-		Strategy:     RoutingStrategy(s.name),
+		TargetServers:   []*RoutingServerInstance{serverInstance},
+		RoutingStrategy: "single_server",
+		Priority:        bestServer.Config.Priority,
 		Metadata: map[string]interface{}{
-			"health_score":      bestServer.HealthScore,
-			"load_score":        bestServer.LoadScore,
+			"health_score":       bestServer.HealthScore,
+			"load_score":         bestServer.LoadScore,
 			"fallback_available": len(healthyServers) > 1,
 			"selection_reason":   "best_performance",
 		},
@@ -468,12 +478,12 @@ func (m *MultiTargetStrategy) Route(request *LSPRequest, availableServers []*Str
 			Client:       server.Client,
 			Priority:     server.Config.Priority,
 			Weight:       server.Weight,
-			Strategy:     RoutingStrategy(m.name),
+			Strategy:     nil,
 			Metadata: map[string]interface{}{
-				"health_score":    server.HealthScore,
-				"load_score":      server.LoadScore,
-				"parallel_index":  i,
-				"total_servers":   len(selectedServers),
+				"health_score":     server.HealthScore,
+				"load_score":       server.LoadScore,
+				"parallel_index":   i,
+				"total_servers":    len(selectedServers),
 				"selection_method": "optimal_diversity",
 			},
 		}
@@ -522,7 +532,7 @@ func (m *MultiTargetStrategy) selectOptimalServers(servers []*StrategyServerInst
 func (m *MultiTargetStrategy) calculateDiversityScore(server *StrategyServerInstance) float64 {
 	// Score that balances performance and diversity
 	baseScore := (server.HealthScore * 0.5) + ((1.0 - server.LoadScore) * 0.3) + (server.Weight * 0.2)
-	
+
 	// Add randomization for diversity
 	diversityFactor := 0.9 + (rand.Float64() * 0.2) // 0.9 to 1.1
 	return baseScore * diversityFactor
@@ -605,13 +615,13 @@ func (b *BroadcastAggregateStrategy) Route(request *LSPRequest, availableServers
 			Client:       server.Client,
 			Priority:     server.Config.Priority,
 			Weight:       server.Weight,
-			Strategy:     RoutingStrategy(b.name),
+			Strategy:     nil,
 			Metadata: map[string]interface{}{
-				"health_score":      server.HealthScore,
-				"broadcast_index":   i,
-				"total_broadcast":   len(broadcastServers),
-				"aggregation_mode":  b.getAggregationMode(),
-				"cross_language":    b.isCrossLanguageCapable(server),
+				"health_score":     server.HealthScore,
+				"broadcast_index":  i,
+				"total_broadcast":  len(broadcastServers),
+				"aggregation_mode": b.getAggregationMode(),
+				"cross_language":   b.isCrossLanguageCapable(server),
 			},
 		}
 		decisions = append(decisions, decision)
@@ -655,7 +665,7 @@ func (b *BroadcastAggregateStrategy) calculateBroadcastScore(server *StrategySer
 	stabilityScore := server.HealthScore * 0.6
 	performanceScore := (1.0 - server.LoadScore) * 0.2
 	featureScore := server.Weight * 0.2
-	
+
 	return stabilityScore + performanceScore + featureScore
 }
 
@@ -725,7 +735,7 @@ func (s *SequentialFallbackStrategy) Route(request *LSPRequest, availableServers
 
 	// Sort servers by fallback priority
 	orderedServers := s.orderServersByPriority(availableServers)
-	
+
 	// Find the first healthy server that can handle the request
 	for i, server := range orderedServers {
 		if s.isServerSuitable(server) {
@@ -735,7 +745,7 @@ func (s *SequentialFallbackStrategy) Route(request *LSPRequest, availableServers
 				Client:       server.Client,
 				Priority:     server.Config.Priority,
 				Weight:       server.Weight,
-				Strategy:     RoutingStrategy(s.name),
+				Strategy:     nil,
 				Metadata: map[string]interface{}{
 					"health_score":        server.HealthScore,
 					"fallback_level":      i,
@@ -776,9 +786,9 @@ func (s *SequentialFallbackStrategy) isServerSuitable(server *StrategyServerInst
 		healthThreshold = s.config.HealthThreshold
 	}
 
-	return server.IsHealthy && 
-		   !server.CircuitOpen && 
-		   server.HealthScore >= healthThreshold
+	return server.IsHealthy &&
+		!server.CircuitOpen &&
+		server.HealthScore >= healthThreshold
 }
 
 // LoadBalancedStrategy distributes load across servers
@@ -853,13 +863,13 @@ func (l *LoadBalancedStrategy) Route(request *LSPRequest, availableServers []*St
 		Client:       selectedServer.Client,
 		Priority:     selectedServer.Config.Priority,
 		Weight:       selectedServer.Weight,
-		Strategy:     RoutingStrategy(l.name),
+		Strategy:     nil,
 		Metadata: map[string]interface{}{
-			"health_score":         selectedServer.HealthScore,
-			"load_score":           selectedServer.LoadScore,
-			"load_balance_method":  l.getLoadBalanceMethod(),
-			"healthy_servers":      len(healthyServers),
-			"total_servers":        len(availableServers),
+			"health_score":        selectedServer.HealthScore,
+			"load_score":          selectedServer.LoadScore,
+			"load_balance_method": l.getLoadBalanceMethod(),
+			"healthy_servers":     len(healthyServers),
+			"total_servers":       len(availableServers),
 		},
 	}
 
@@ -909,7 +919,7 @@ func (l *LoadBalancedStrategy) selectRoundRobin(servers []*StrategyServerInstanc
 	if len(servers) == 0 {
 		return nil
 	}
-	
+
 	index := atomic.AddInt64(&l.roundRobinIndex, 1) - 1
 	return servers[index%int64(len(servers))]
 }
@@ -920,7 +930,7 @@ func (l *LoadBalancedStrategy) selectLeastConnections(servers []*StrategyServerI
 	}
 
 	var bestServer *StrategyServerInstance
-	var minConnections int64 = ^int64(0) // Max int64
+	var minConnections = ^int64(0) // Max int64
 
 	for _, server := range servers {
 		if server.Metrics != nil {
@@ -947,7 +957,7 @@ func (l *LoadBalancedStrategy) selectByResponseTime(servers []*StrategyServerIns
 	}
 
 	var bestServer *StrategyServerInstance
-	var bestTime time.Duration = time.Duration(^uint64(0) >> 1) // Max duration
+	var bestTime = time.Duration(^uint64(0) >> 1) // Max duration
 
 	for _, server := range servers {
 		if server.Metrics != nil {
@@ -1084,13 +1094,13 @@ func (c *CrossLanguageStrategy) Route(request *LSPRequest, availableServers []*S
 
 	// Detect languages involved in the request
 	languages := c.detectRequestLanguages(request)
-	
+
 	// Group servers by language capability
 	languageGroups := c.groupServersByLanguage(availableServers, languages)
-	
+
 	// Select optimal servers for cross-language coordination
 	selectedServers := c.selectCrossLanguageServers(languageGroups, languages)
-	
+
 	if len(selectedServers) == 0 {
 		return nil, fmt.Errorf("no suitable servers for cross-language request")
 	}
@@ -1103,14 +1113,14 @@ func (c *CrossLanguageStrategy) Route(request *LSPRequest, availableServers []*S
 			Client:       server.Client,
 			Priority:     server.Config.Priority,
 			Weight:       server.Weight,
-			Strategy:     RoutingStrategy(c.name),
+			Strategy:     nil,
 			Metadata: map[string]interface{}{
-				"health_score":          server.HealthScore,
-				"supported_languages":   server.Config.Languages,
-				"cross_language_index":  i,
-				"detected_languages":    languages,
-				"coordination_role":     c.getCoordinationRole(server, languages),
-				"template_support":      c.supportsTemplateLanguages(server),
+				"health_score":         server.HealthScore,
+				"supported_languages":  server.Config.Languages,
+				"cross_language_index": i,
+				"detected_languages":   languages,
+				"coordination_role":    c.getCoordinationRole(server, languages),
+				"template_support":     c.supportsTemplateLanguages(server),
 			},
 		}
 		decisions = append(decisions, decision)
@@ -1121,19 +1131,19 @@ func (c *CrossLanguageStrategy) Route(request *LSPRequest, availableServers []*S
 
 func (c *CrossLanguageStrategy) detectRequestLanguages(request *LSPRequest) []string {
 	var languages []string
-	
+
 	// Primary language from request
 	if request.Language != "" {
 		languages = append(languages, request.Language)
 	}
-	
+
 	// Detect from URI if available
 	if request.URI != "" {
 		if lang := c.detectLanguageFromURI(request.URI); lang != "" && !c.contains(languages, lang) {
 			languages = append(languages, lang)
 		}
 	}
-	
+
 	// Detect embedded languages (e.g., JavaScript in HTML, CSS in Vue)
 	embeddedLangs := c.detectEmbeddedLanguages(request)
 	for _, lang := range embeddedLangs {
@@ -1141,7 +1151,7 @@ func (c *CrossLanguageStrategy) detectRequestLanguages(request *LSPRequest) []st
 			languages = append(languages, lang)
 		}
 	}
-	
+
 	return languages
 }
 
@@ -1149,7 +1159,7 @@ func (c *CrossLanguageStrategy) detectLanguageFromURI(uri string) string {
 	if !strings.HasPrefix(uri, "file://") {
 		return ""
 	}
-	
+
 	// Extract file extension and map to language
 	ext := strings.ToLower(filepath.Ext(uri))
 	switch ext {
@@ -1158,7 +1168,7 @@ func (c *CrossLanguageStrategy) detectLanguageFromURI(uri string) string {
 	case ".py":
 		return "python"
 	case ".js", ".jsx":
-		return "javascript"
+		return LANG_JAVASCRIPT
 	case ".ts", ".tsx":
 		return "typescript"
 	case ".java":
@@ -1170,7 +1180,7 @@ func (c *CrossLanguageStrategy) detectLanguageFromURI(uri string) string {
 	case ".css":
 		return "css"
 	case ".rs":
-		return "rust"
+		return LANG_RUST
 	case ".c":
 		return "c"
 	case ".cpp", ".cc", ".cxx":
@@ -1181,7 +1191,7 @@ func (c *CrossLanguageStrategy) detectLanguageFromURI(uri string) string {
 
 func (c *CrossLanguageStrategy) detectEmbeddedLanguages(request *LSPRequest) []string {
 	var embedded []string
-	
+
 	// Detect based on file patterns and content
 	if request.URI != "" {
 		ext := strings.ToLower(filepath.Ext(request.URI))
@@ -1196,48 +1206,48 @@ func (c *CrossLanguageStrategy) detectEmbeddedLanguages(request *LSPRequest) []s
 			embedded = append(embedded, "markdown")
 		}
 	}
-	
+
 	return embedded
 }
 
 func (c *CrossLanguageStrategy) groupServersByLanguage(servers []*StrategyServerInstance, languages []string) map[string][]*StrategyServerInstance {
 	groups := make(map[string][]*StrategyServerInstance)
-	
+
 	for _, language := range languages {
 		groups[language] = []*StrategyServerInstance{}
 	}
-	
+
 	for _, server := range servers {
 		if !server.IsHealthy || server.CircuitOpen {
 			continue
 		}
-		
+
 		for _, language := range languages {
 			if c.serverSupportsLanguage(server, language) {
 				groups[language] = append(groups[language], server)
 			}
 		}
 	}
-	
+
 	return groups
 }
 
 func (c *CrossLanguageStrategy) selectCrossLanguageServers(groups map[string][]*StrategyServerInstance, languages []string) []*StrategyServerInstance {
 	var selected []*StrategyServerInstance
 	usedServers := make(map[string]bool)
-	
+
 	maxServers := 7
 	if c.config != nil && c.config.MaxServers > 0 {
 		maxServers = c.config.MaxServers
 	}
-	
+
 	// Prioritize multi-language servers
 	for _, servers := range groups {
 		for _, server := range servers {
 			if usedServers[server.Config.Name] {
 				continue
 			}
-			
+
 			// Prefer servers that support multiple required languages
 			supportedCount := c.countSupportedLanguages(server, languages)
 			if supportedCount > 1 && len(selected) < maxServers {
@@ -1246,25 +1256,25 @@ func (c *CrossLanguageStrategy) selectCrossLanguageServers(groups map[string][]*
 			}
 		}
 	}
-	
+
 	// Add specialized servers for remaining languages
 	for _, language := range languages {
 		if len(selected) >= maxServers {
 			break
 		}
-		
+
 		servers := groups[language]
 		for _, server := range servers {
 			if usedServers[server.Config.Name] {
 				continue
 			}
-			
+
 			selected = append(selected, server)
 			usedServers[server.Config.Name] = true
 			break
 		}
 	}
-	
+
 	return selected
 }
 
@@ -1320,4 +1330,52 @@ func min(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// Global strategy instances
+var (
+	// SingleTargetWithFallback is the default routing strategy for single-target requests with fallback support
+	SingleTargetWithFallback = &SimpleRoutingStrategy{
+		name:        "single_target_with_fallback",
+		description: "Routes to a single target server with fallback support",
+	}
+)
+
+// SimpleRoutingStrategy is a basic implementation of RoutingStrategy interface
+type SimpleRoutingStrategy struct {
+	name        string
+	description string
+}
+
+func (s *SimpleRoutingStrategy) Route(request *LSPRequest, availableServers []*RoutingServerInstance) (*RoutingDecision, error) {
+	if len(availableServers) == 0 {
+		return nil, fmt.Errorf("no available servers for request")
+	}
+
+	// Select the first available server (primary)
+	primaryServer := availableServers[0]
+
+	// Prepare fallback servers if available
+	var fallbackServers []*RoutingServerInstance
+	if len(availableServers) > 1 {
+		fallbackServers = availableServers[1:]
+	}
+
+	return &RoutingDecision{
+		PrimaryServer:   primaryServer,
+		FallbackServers: fallbackServers,
+		Strategy:        &SingleServerStrategy{},
+		RequestID:       request.ID,
+		Method:          request.Method,
+		Language:        "auto", // Auto-detect from request
+		CreatedAt:       time.Now(),
+	}, nil
+}
+
+func (s *SimpleRoutingStrategy) Name() string {
+	return s.name
+}
+
+func (s *SimpleRoutingStrategy) Description() string {
+	return s.description
 }

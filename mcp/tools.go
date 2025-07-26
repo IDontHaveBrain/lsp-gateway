@@ -268,7 +268,7 @@ func (h *ToolHandler) handleGotoDefinition(ctx context.Context, args map[string]
 // Enhanced version with workspace context support
 func (h *ToolHandler) handleGotoDefinitionWithContext(ctx context.Context, args map[string]interface{}, workspaceCtx *WorkspaceContext) (*ToolResult, error) {
 	startTime := time.Now()
-	
+
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": args["uri"],
@@ -319,7 +319,7 @@ func (h *ToolHandler) handleFindReferences(ctx context.Context, args map[string]
 // Enhanced version with workspace context support
 func (h *ToolHandler) handleFindReferencesWithContext(ctx context.Context, args map[string]interface{}, workspaceCtx *WorkspaceContext) (*ToolResult, error) {
 	startTime := time.Now()
-	
+
 	includeDeclaration, ok := args["includeDeclaration"].(bool)
 	if !ok {
 		includeDeclaration = true
@@ -378,7 +378,7 @@ func (h *ToolHandler) handleGetHoverInfo(ctx context.Context, args map[string]in
 // Enhanced version with workspace context support
 func (h *ToolHandler) handleGetHoverInfoWithContext(ctx context.Context, args map[string]interface{}, workspaceCtx *WorkspaceContext) (*ToolResult, error) {
 	startTime := time.Now()
-	
+
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": args["uri"],
@@ -426,10 +426,10 @@ func (h *ToolHandler) handleGetDocumentSymbols(ctx context.Context, args map[str
 	return h.handleGetDocumentSymbolsWithContext(ctx, args, nil)
 }
 
-// Enhanced version with workspace context support  
+// Enhanced version with workspace context support
 func (h *ToolHandler) handleGetDocumentSymbolsWithContext(ctx context.Context, args map[string]interface{}, workspaceCtx *WorkspaceContext) (*ToolResult, error) {
 	startTime := time.Now()
-	
+
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": args["uri"],
@@ -476,7 +476,7 @@ func (h *ToolHandler) handleSearchWorkspaceSymbols(ctx context.Context, args map
 // Enhanced version with workspace context support
 func (h *ToolHandler) handleSearchWorkspaceSymbolsWithContext(ctx context.Context, args map[string]interface{}, workspaceCtx *WorkspaceContext) (*ToolResult, error) {
 	startTime := time.Now()
-	
+
 	params := map[string]interface{}{
 		"query": args["query"],
 	}

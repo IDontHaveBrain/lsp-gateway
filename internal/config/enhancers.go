@@ -12,13 +12,13 @@ type ReactEnhancer struct{}
 func (r *ReactEnhancer) EnhanceConfig(config *ServerConfig, framework *Framework) error {
 	// Enhance TypeScript/JavaScript settings for React
 	for _, lang := range config.Languages {
-		if lang == "typescript" || lang == "javascript" {
+		if lang == LANG_TYPESCRIPT || lang == LANG_JAVASCRIPT {
 			if settings, ok := config.Settings[lang].(map[string]interface{}); ok {
 				if preferences, ok := settings["preferences"].(map[string]interface{}); ok {
 					preferences["jsx"] = "react-jsx"
 					preferences["jsxAttributeCompletionStyle"] = "auto"
 				}
-				
+
 				// Add React-specific completions
 				if suggest, ok := settings["suggest"].(map[string]interface{}); ok {
 					suggest["autoImports"] = true
@@ -27,27 +27,27 @@ func (r *ReactEnhancer) EnhanceConfig(config *ServerConfig, framework *Framework
 			}
 		}
 	}
-	
+
 	// Add React-specific dependencies
-	config.Dependencies = append(config.Dependencies, "typescript", "@types/react", "@types/react-dom")
-	
+	config.Dependencies = append(config.Dependencies, LANG_TYPESCRIPT, "@types/react", "@types/react-dom")
+
 	// Add React framework to server config
 	if !contains(config.Frameworks, "react") {
 		config.Frameworks = append(config.Frameworks, "react")
 	}
-	
+
 	return nil
 }
 
 func (r *ReactEnhancer) GetRequiredSettings() map[string]interface{} {
 	return map[string]interface{}{
-		"jsx": "react-jsx",
+		"jsx":                         "react-jsx",
 		"jsxAttributeCompletionStyle": "auto",
 	}
 }
 
 func (r *ReactEnhancer) GetRecommendedExtensions() []string {
-	return []string{"typescript", "javascript", "jsx", "tsx"}
+	return []string{LANG_TYPESCRIPT, "javascript", "jsx", "tsx"}
 }
 
 type DjangoEnhancer struct{}
@@ -58,20 +58,20 @@ func (d *DjangoEnhancer) EnhanceConfig(config *ServerConfig, framework *Framewor
 		if plugins, ok := pylsp["plugins"].(map[string]interface{}); ok {
 			plugins["pylsp_django"] = map[string]bool{"enabled": true}
 			plugins["django-stubs"] = map[string]bool{"enabled": true}
-			
+
 			// Enable Django-specific rope completion
 			if rope, ok := plugins["rope_completion"].(map[string]interface{}); ok {
 				rope["enabled"] = true
 				rope["eager"] = true
 			}
 		}
-		
+
 		// Add Django-specific configuration sources
 		if configSources, ok := pylsp["configurationSources"].([]string); ok {
 			pylsp["configurationSources"] = append(configSources, "django", "django-stubs")
 		}
 	}
-	
+
 	// Add Django-specific root markers
 	djangoMarkers := []string{"manage.py", "django_project", "settings.py"}
 	for _, marker := range djangoMarkers {
@@ -79,12 +79,12 @@ func (d *DjangoEnhancer) EnhanceConfig(config *ServerConfig, framework *Framewor
 			config.RootMarkers = append(config.RootMarkers, marker)
 		}
 	}
-	
+
 	// Add Django framework to server config
 	if !contains(config.Frameworks, "django") {
 		config.Frameworks = append(config.Frameworks, "django")
 	}
-	
+
 	return nil
 }
 
@@ -96,7 +96,7 @@ func (d *DjangoEnhancer) GetRequiredSettings() map[string]interface{} {
 }
 
 func (d *DjangoEnhancer) GetRecommendedExtensions() []string {
-	return []string{"python", "django", "html", "css"}
+	return []string{LANG_PYTHON, "django", "html", "css"}
 }
 
 type SpringBootEnhancer struct{}
@@ -114,7 +114,7 @@ func (s *SpringBootEnhancer) EnhanceConfig(config *ServerConfig, framework *Fram
 					"org.springframework.web.bind.annotation.*",
 					"org.springframework.stereotype.*",
 				}
-				
+
 				// Add Spring Boot imports if not already present
 				for _, springImport := range springImports {
 					if !contains(favoriteStatic, springImport) {
@@ -124,14 +124,14 @@ func (s *SpringBootEnhancer) EnhanceConfig(config *ServerConfig, framework *Fram
 				completion["favoriteStaticMembers"] = favoriteStatic
 			}
 		}
-		
+
 		// Add Spring Boot specific configuration
 		if configuration, ok := java["configuration"].(map[string]interface{}); ok {
 			if runtimes, ok := configuration["runtimes"].([]map[string]interface{}); ok {
 				// Ensure Spring Boot compatible Java versions are available
 				hasJava11 := false
 				hasJava17 := false
-				
+
 				for _, runtime := range runtimes {
 					if name, ok := runtime["name"].(string); ok {
 						if strings.Contains(name, "11") {
@@ -142,26 +142,26 @@ func (s *SpringBootEnhancer) EnhanceConfig(config *ServerConfig, framework *Fram
 						}
 					}
 				}
-				
+
 				if !hasJava11 {
 					runtimes = append(runtimes, map[string]interface{}{
 						"name": "JavaSE-11",
 						"path": "/usr/lib/jvm/java-11-openjdk",
 					})
 				}
-				
+
 				if !hasJava17 {
 					runtimes = append(runtimes, map[string]interface{}{
 						"name": "JavaSE-17",
 						"path": "/usr/lib/jvm/java-17-openjdk",
 					})
 				}
-				
+
 				configuration["runtimes"] = runtimes
 			}
 		}
 	}
-	
+
 	// Add Spring Boot specific root markers
 	springMarkers := []string{"pom.xml", "build.gradle", "application.properties", "application.yml"}
 	for _, marker := range springMarkers {
@@ -169,12 +169,12 @@ func (s *SpringBootEnhancer) EnhanceConfig(config *ServerConfig, framework *Fram
 			config.RootMarkers = append(config.RootMarkers, marker)
 		}
 	}
-	
+
 	// Add Spring Boot framework to server config
 	if !contains(config.Frameworks, "spring-boot") {
 		config.Frameworks = append(config.Frameworks, "spring-boot")
 	}
-	
+
 	return nil
 }
 
@@ -202,12 +202,12 @@ func (k *KubernetesEnhancer) EnhanceConfig(config *ServerConfig, framework *Fram
 			if gopls, ok := config.Settings["gopls"].(map[string]interface{}); ok {
 				// Add Kubernetes-specific build flags
 				gopls["buildFlags"] = []string{"-tags=ignore_autogenerated"}
-				
+
 				// Enhance analyses for Kubernetes code patterns
 				if analyses, ok := gopls["analyses"].(map[string]bool); ok {
 					analyses["deepequalerrors"] = true
 					analyses["fieldalignment"] = false // Often problematic with generated code
-					analyses["unusedwrite"] = false   // Common in controller patterns
+					analyses["unusedwrite"] = false    // Common in controller patterns
 				}
 			}
 		case "yaml":
@@ -217,13 +217,13 @@ func (k *KubernetesEnhancer) EnhanceConfig(config *ServerConfig, framework *Fram
 					"kubernetes": "*.yaml",
 					"kustomize":  "kustomization.yaml",
 				},
-				"validate": true,
+				"validate":   true,
 				"completion": true,
-				"hover": true,
+				"hover":      true,
 			}
 		}
 	}
-	
+
 	// Add Kubernetes-specific root markers
 	k8sMarkers := []string{"kustomization.yaml", "Chart.yaml", "deployment.yaml", "service.yaml", "Dockerfile"}
 	for _, marker := range k8sMarkers {
@@ -231,12 +231,12 @@ func (k *KubernetesEnhancer) EnhanceConfig(config *ServerConfig, framework *Fram
 			config.RootMarkers = append(config.RootMarkers, marker)
 		}
 	}
-	
+
 	// Add Kubernetes framework to server config
 	if !contains(config.Frameworks, "kubernetes") {
 		config.Frameworks = append(config.Frameworks, "kubernetes")
 	}
-	
+
 	return nil
 }
 
@@ -261,27 +261,27 @@ func (l *LanguageSeparatedStrategy) GenerateConfig(projectInfo *MultiLanguagePro
 
 func (l *LanguageSeparatedStrategy) GetWorkspaceLayout(layout *MonorepoLayout) map[string]string {
 	workspaceLayout := make(map[string]string)
-	
+
 	for _, workspace := range layout.Workspaces {
 		// Assume workspace names indicate language (e.g., "go-services", "python-libs")
 		if strings.Contains(workspace, "go") {
 			workspaceLayout["go"] = workspace
-		} else if strings.Contains(workspace, "python") {
-			workspaceLayout["python"] = workspace
-		} else if strings.Contains(workspace, "typescript") || strings.Contains(workspace, "js") {
-			workspaceLayout["typescript"] = workspace
+		} else if strings.Contains(workspace, LANG_PYTHON) {
+			workspaceLayout[LANG_PYTHON] = workspace
+		} else if strings.Contains(workspace, LANG_TYPESCRIPT) || strings.Contains(workspace, "js") {
+			workspaceLayout[LANG_TYPESCRIPT] = workspace
 		} else if strings.Contains(workspace, "java") {
 			workspaceLayout["java"] = workspace
 		}
 	}
-	
+
 	return workspaceLayout
 }
 
 func (l *LanguageSeparatedStrategy) OptimizeForLayout(config *MultiLanguageConfig, layout *MonorepoLayout) error {
 	// Each language gets its own workspace root
 	workspaceLayout := l.GetWorkspaceLayout(layout)
-	
+
 	for _, serverConfig := range config.ServerConfigs {
 		if len(serverConfig.Languages) > 0 {
 			language := serverConfig.Languages[0]
@@ -292,15 +292,15 @@ func (l *LanguageSeparatedStrategy) OptimizeForLayout(config *MultiLanguageConfi
 				serverConfig.WorkspaceRoots[language] = workspaceRoot
 			}
 		}
-		
+
 		// Optimize for language isolation
 		serverConfig.ServerType = ServerTypeSingle
 		serverConfig.Priority += 2 // Higher priority for isolated languages
 	}
-	
+
 	config.WorkspaceConfig.CrossLanguageReferences = false
 	config.WorkspaceConfig.IndexingStrategy = IndexingStrategyIncremental
-	
+
 	return nil
 }
 
@@ -314,12 +314,12 @@ func (m *MixedStrategy) GenerateConfig(projectInfo *MultiLanguageProjectInfo) (*
 func (m *MixedStrategy) GetWorkspaceLayout(layout *MonorepoLayout) map[string]string {
 	// In mixed strategy, all languages share workspace roots
 	workspaceLayout := make(map[string]string)
-	
+
 	if len(layout.Workspaces) > 0 {
 		sharedRoot := layout.Workspaces[0]
 		workspaceLayout["shared"] = sharedRoot
 	}
-	
+
 	return workspaceLayout
 }
 
@@ -328,26 +328,26 @@ func (m *MixedStrategy) OptimizeForLayout(config *MultiLanguageConfig, layout *M
 	if len(layout.Workspaces) > 0 {
 		sharedRoot = layout.Workspaces[0]
 	}
-	
+
 	for _, serverConfig := range config.ServerConfigs {
 		// All servers share the same workspace root
 		if serverConfig.WorkspaceRoots == nil {
 			serverConfig.WorkspaceRoots = make(map[string]string)
 		}
-		
+
 		for _, language := range serverConfig.Languages {
 			serverConfig.WorkspaceRoots[language] = sharedRoot
 		}
-		
+
 		// Optimize for cross-language collaboration
 		serverConfig.ServerType = ServerTypeMulti
 		serverConfig.Priority += 1
 	}
-	
+
 	config.WorkspaceConfig.CrossLanguageReferences = true
 	config.WorkspaceConfig.IndexingStrategy = IndexingStrategySmart
 	config.WorkspaceConfig.SharedSettings["cross_language_navigation"] = true
-	
+
 	return nil
 }
 
@@ -360,13 +360,13 @@ func (m *MicroservicesStrategy) GenerateConfig(projectInfo *MultiLanguageProject
 
 func (m *MicroservicesStrategy) GetWorkspaceLayout(layout *MonorepoLayout) map[string]string {
 	workspaceLayout := make(map[string]string)
-	
+
 	// Each service gets its own workspace
 	for i, workspace := range layout.Workspaces {
 		serviceName := fmt.Sprintf("service-%d", i)
 		workspaceLayout[serviceName] = workspace
 	}
-	
+
 	return workspaceLayout
 }
 
@@ -375,12 +375,12 @@ func (m *MicroservicesStrategy) OptimizeForLayout(config *MultiLanguageConfig, l
 	for _, serverConfig := range config.ServerConfigs {
 		serverConfig.ServerType = ServerTypeSingle
 		serverConfig.MaxConcurrentRequests = 25 // Lower for microservices
-		
+
 		// Each service is isolated
 		if serverConfig.WorkspaceRoots == nil {
 			serverConfig.WorkspaceRoots = make(map[string]string)
 		}
-		
+
 		// Assign workspaces based on service patterns
 		for i, workspace := range layout.Workspaces {
 			serviceName := fmt.Sprintf("service-%d", i)
@@ -389,11 +389,11 @@ func (m *MicroservicesStrategy) OptimizeForLayout(config *MultiLanguageConfig, l
 			}
 		}
 	}
-	
+
 	config.WorkspaceConfig.CrossLanguageReferences = false
 	config.WorkspaceConfig.IndexingStrategy = IndexingStrategyIncremental
 	config.WorkspaceConfig.SharedSettings["service_isolation"] = true
-	
+
 	return nil
 }
 
@@ -402,8 +402,8 @@ func (m *MicroservicesStrategy) OptimizeForLayout(config *MultiLanguageConfig, l
 type DevelopmentOptimization struct{}
 
 func (d *DevelopmentOptimization) ApplyOptimizations(config *MultiLanguageConfig) error {
-	config.OptimizedFor = OptimizationDevelopment
-	
+	config.OptimizedFor = PerformanceProfileDevelopment
+
 	// Enable development-friendly features
 	for _, serverConfig := range config.ServerConfigs {
 		// Enable diagnostics and detailed analysis
@@ -417,55 +417,55 @@ func (d *DevelopmentOptimization) ApplyOptimizations(config *MultiLanguageConfig
 					analyses["shadow"] = true
 				}
 			}
-		case "python":
+		case LANG_PYTHON:
 			if pylsp, ok := serverConfig.Settings["pylsp"].(map[string]interface{}); ok {
 				if plugins, ok := pylsp["plugins"].(map[string]interface{}); ok {
 					plugins["pycodestyle"] = map[string]bool{"enabled": true}
 					plugins["pyflakes"] = map[string]bool{"enabled": true}
 				}
 			}
-		case "typescript":
-			if ts, ok := serverConfig.Settings["typescript"].(map[string]interface{}); ok {
+		case LANG_TYPESCRIPT:
+			if ts, ok := serverConfig.Settings[LANG_TYPESCRIPT].(map[string]interface{}); ok {
 				if preferences, ok := ts["preferences"].(map[string]interface{}); ok {
 					preferences["includeCompletionsForModuleExports"] = true
 				}
 			}
 		}
-		
+
 		// Higher priority for development mode
 		serverConfig.Priority += 1
 	}
-	
+
 	config.WorkspaceConfig.IndexingStrategy = IndexingStrategyFull
 	config.WorkspaceConfig.SharedSettings["development_mode"] = true
-	
+
 	return nil
 }
 
 func (d *DevelopmentOptimization) GetPerformanceSettings() map[string]interface{} {
 	return map[string]interface{}{
-		"indexing_strategy": "full",
+		"indexing_strategy":  "full",
 		"enable_diagnostics": true,
-		"verbose_output": true,
+		"verbose_output":     true,
 	}
 }
 
 func (d *DevelopmentOptimization) GetMemorySettings() map[string]interface{} {
 	return map[string]interface{}{
-		"memory_mode": "normal",
+		"memory_mode":   "normal",
 		"cache_enabled": true,
 	}
 }
 
 func (d *DevelopmentOptimization) GetOptimizationName() string {
-	return OptimizationDevelopment
+	return PerformanceProfileDevelopment
 }
 
 type ProductionOptimization struct{}
 
 func (p *ProductionOptimization) ApplyOptimizations(config *MultiLanguageConfig) error {
-	config.OptimizedFor = OptimizationProduction
-	
+	config.OptimizedFor = PerformanceProfileProduction
+
 	// Optimize for performance and reduced resource usage
 	for _, serverConfig := range config.ServerConfigs {
 		language := serverConfig.Languages[0]
@@ -480,7 +480,7 @@ func (p *ProductionOptimization) ApplyOptimizations(config *MultiLanguageConfig)
 					analyses["unusedwrite"] = false
 				}
 			}
-		case "python":
+		case LANG_PYTHON:
 			if pylsp, ok := serverConfig.Settings["pylsp"].(map[string]interface{}); ok {
 				if plugins, ok := pylsp["plugins"].(map[string]interface{}); ok {
 					// Disable heavy plugins in production
@@ -489,52 +489,52 @@ func (p *ProductionOptimization) ApplyOptimizations(config *MultiLanguageConfig)
 					}
 				}
 			}
-		case "typescript":
-			if ts, ok := serverConfig.Settings["typescript"].(map[string]interface{}); ok {
+		case LANG_TYPESCRIPT:
+			if ts, ok := serverConfig.Settings[LANG_TYPESCRIPT].(map[string]interface{}); ok {
 				ts["disableAutomaticTypeAcquisition"] = true
 				if preferences, ok := ts["preferences"].(map[string]interface{}); ok {
 					preferences["includeCompletionsForModuleExports"] = false
 				}
 			}
 		}
-		
+
 		// Lower concurrent requests for production stability
 		if serverConfig.MaxConcurrentRequests == 0 {
 			serverConfig.MaxConcurrentRequests = 50
 		}
 	}
-	
+
 	config.WorkspaceConfig.IndexingStrategy = IndexingStrategyIncremental
 	config.WorkspaceConfig.SharedSettings["production_mode"] = true
-	
+
 	return nil
 }
 
 func (p *ProductionOptimization) GetPerformanceSettings() map[string]interface{} {
 	return map[string]interface{}{
-		"indexing_strategy": "incremental",
-		"memory_mode": "degraded_closed",
+		"indexing_strategy":          "incremental",
+		"memory_mode":                "degraded_closed",
 		"disable_expensive_analyses": true,
 	}
 }
 
 func (p *ProductionOptimization) GetMemorySettings() map[string]interface{} {
 	return map[string]interface{}{
-		"memory_mode": "conservative",
+		"memory_mode":   "conservative",
 		"cache_enabled": false,
 		"gc_aggressive": true,
 	}
 }
 
 func (p *ProductionOptimization) GetOptimizationName() string {
-	return OptimizationProduction
+	return PerformanceProfileProduction
 }
 
 type AnalysisOptimization struct{}
 
 func (a *AnalysisOptimization) ApplyOptimizations(config *MultiLanguageConfig) error {
-	config.OptimizedFor = OptimizationAnalysis
-	
+	config.OptimizedFor = PerformanceProfileAnalysis
+
 	// Enable maximum analysis capabilities
 	for _, serverConfig := range config.ServerConfigs {
 		language := serverConfig.Languages[0]
@@ -550,18 +550,18 @@ func (a *AnalysisOptimization) ApplyOptimizations(config *MultiLanguageConfig) e
 					}
 				}
 			}
-		case "python":
+		case LANG_PYTHON:
 			if pylsp, ok := serverConfig.Settings["pylsp"].(map[string]interface{}); ok {
 				if plugins, ok := pylsp["plugins"].(map[string]interface{}); ok {
 					plugins["pylint"] = map[string]bool{"enabled": true}
 					plugins["mypy-ls"] = map[string]interface{}{
 						"enabled": true,
-						"strict": true,
+						"strict":  true,
 					}
 				}
 			}
-		case "typescript":
-			if ts, ok := serverConfig.Settings["typescript"].(map[string]interface{}); ok {
+		case LANG_TYPESCRIPT:
+			if ts, ok := serverConfig.Settings[LANG_TYPESCRIPT].(map[string]interface{}); ok {
 				if preferences, ok := ts["preferences"].(map[string]interface{}); ok {
 					preferences["strictNullChecks"] = true
 					preferences["strictFunctionTypes"] = true
@@ -570,38 +570,38 @@ func (a *AnalysisOptimization) ApplyOptimizations(config *MultiLanguageConfig) e
 				}
 			}
 		}
-		
+
 		// Higher priority for analysis
 		serverConfig.Priority += 3
 		serverConfig.Weight += 1.0
 	}
-	
+
 	config.WorkspaceConfig.IndexingStrategy = IndexingStrategyFull
 	config.WorkspaceConfig.CrossLanguageReferences = true
 	config.WorkspaceConfig.SharedSettings["analysis_mode"] = true
 	config.WorkspaceConfig.SharedSettings["enable_all_diagnostics"] = true
-	
+
 	return nil
 }
 
 func (a *AnalysisOptimization) GetPerformanceSettings() map[string]interface{} {
 	return map[string]interface{}{
-		"indexing_strategy": "full",
+		"indexing_strategy":   "full",
 		"enable_all_analyses": true,
-		"deep_analysis": true,
+		"deep_analysis":       true,
 	}
 }
 
 func (a *AnalysisOptimization) GetMemorySettings() map[string]interface{} {
 	return map[string]interface{}{
-		"memory_mode": "unlimited",
+		"memory_mode":   "unlimited",
 		"cache_enabled": true,
-		"cache_size": "large",
+		"cache_size":    "large",
 	}
 }
 
 func (a *AnalysisOptimization) GetOptimizationName() string {
-	return OptimizationAnalysis
+	return PerformanceProfileAnalysis
 }
 
 // Constructor functions for optimization strategies
@@ -639,12 +639,12 @@ func NewOptimizationManager() *OptimizationManager {
 	manager := &OptimizationManager{
 		strategies: make(map[string]OptimizationStrategy),
 	}
-	
+
 	// Register default optimization strategies
-	manager.strategies[OptimizationProduction] = NewProductionOptimization()
-	manager.strategies[OptimizationAnalysis] = NewAnalysisOptimization()
-	manager.strategies[OptimizationDevelopment] = NewDevelopmentOptimization()
-	
+	manager.strategies[PerformanceProfileProduction] = NewProductionOptimization()
+	manager.strategies[PerformanceProfileAnalysis] = NewAnalysisOptimization()
+	manager.strategies[PerformanceProfileDevelopment] = NewDevelopmentOptimization()
+
 	return manager
 }
 
@@ -653,12 +653,12 @@ func (om *OptimizationManager) ApplyOptimization(config *MultiLanguageConfig, st
 	if config == nil {
 		return fmt.Errorf("configuration cannot be nil")
 	}
-	
+
 	optimizationStrategy, exists := om.strategies[strategy]
 	if !exists {
 		return fmt.Errorf("unknown optimization strategy: %s", strategy)
 	}
-	
+
 	return optimizationStrategy.ApplyOptimizations(config)
 }
 
@@ -668,7 +668,7 @@ func (om *OptimizationManager) GetStrategy(name string) (OptimizationStrategy, e
 	if !exists {
 		return nil, fmt.Errorf("unknown optimization strategy: %s", name)
 	}
-	
+
 	return strategy, nil
 }
 

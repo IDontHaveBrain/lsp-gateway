@@ -12,11 +12,11 @@ import (
 
 // EnhancedConfigurationGenerator provides advanced configuration generation with intelligent project analysis
 type EnhancedConfigurationGenerator struct {
-	configGenerator  *DefaultConfigGenerator
-	templateManager  *ConfigurationTemplateManager
-	projectAnalyzer  *ProjectAnalyzer
-	optimizationMgr  *OptimizationConfigManager
-	logger           *SetupLogger
+	configGenerator *DefaultConfigGenerator
+	templateManager *ConfigurationTemplateManager
+	projectAnalyzer *ProjectAnalyzer
+	optimizationMgr *OptimizationConfigManager
+	logger          *SetupLogger
 }
 
 // NewEnhancedConfigurationGenerator creates a new enhanced configuration generator
@@ -33,9 +33,9 @@ func NewEnhancedConfigurationGenerator() *EnhancedConfigurationGenerator {
 // GenerateFromProject generates an optimized configuration from project analysis
 func (g *EnhancedConfigurationGenerator) GenerateFromProject(ctx context.Context, projectPath string, optimizationMode string) (*ConfigGenerationResult, error) {
 	startTime := time.Now()
-	
+
 	g.logger.WithOperation("enhanced-generate-from-project").WithField("project_path", projectPath).Info("Starting enhanced project configuration generation")
-	
+
 	result := &ConfigGenerationResult{
 		Config:           nil,
 		ServersGenerated: 0,
@@ -47,7 +47,7 @@ func (g *EnhancedConfigurationGenerator) GenerateFromProject(ctx context.Context
 		Issues:           []string{},
 		Metadata:         make(map[string]interface{}),
 	}
-	
+
 	// Perform comprehensive project analysis
 	projectAnalysis, err := g.projectAnalyzer.AnalyzeProject(projectPath)
 	if err != nil {
@@ -55,9 +55,9 @@ func (g *EnhancedConfigurationGenerator) GenerateFromProject(ctx context.Context
 		result.Duration = time.Since(startTime)
 		return result, fmt.Errorf("project analysis failed: %w", err)
 	}
-	
+
 	result.Messages = append(result.Messages, fmt.Sprintf("Analyzed project: %s (%s)", projectAnalysis.ProjectType, projectAnalysis.Complexity))
-	
+
 	// Select appropriate configuration template
 	template, err := g.templateManager.SelectTemplate(projectAnalysis)
 	if err != nil {
@@ -66,31 +66,31 @@ func (g *EnhancedConfigurationGenerator) GenerateFromProject(ctx context.Context
 	} else {
 		result.Messages = append(result.Messages, fmt.Sprintf("Selected template: %s", template.Name))
 	}
-	
+
 	// Generate base configuration using template
 	options := &GenerationOptions{
-		OptimizationMode:    optimizationMode,
-		EnableMultiServer:   template.EnableMultiServer,
-		EnableSmartRouting:  template.EnableSmartRouting,
-		ProjectPath:         projectPath,
-		TargetLanguages:     projectAnalysis.DetectedLanguages,
-		PerformanceProfile:  g.determinePerformanceProfile(projectAnalysis),
+		OptimizationMode:   optimizationMode,
+		EnableMultiServer:  template.EnableMultiServer,
+		EnableSmartRouting: template.EnableSmartRouting,
+		ProjectPath:        projectPath,
+		TargetLanguages:    projectAnalysis.DetectedLanguages,
+		PerformanceProfile: g.determinePerformanceProfile(projectAnalysis),
 	}
-	
+
 	baseResult, err := g.configGenerator.GenerateMultiLanguageConfig(ctx, projectPath, options)
 	if err != nil {
 		result.Issues = append(result.Issues, fmt.Sprintf("Base configuration generation failed: %v", err))
 		result.Duration = time.Since(startTime)
 		return result, fmt.Errorf("base configuration generation failed: %w", err)
 	}
-	
+
 	// Apply template-specific enhancements
 	if err := g.applyTemplateEnhancements(baseResult.Config, template, projectAnalysis); err != nil {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("Template enhancement failed: %v", err))
 	} else {
 		result.Messages = append(result.Messages, "Applied template-specific enhancements")
 	}
-	
+
 	// Apply optimization-specific configurations
 	if optimizationMode != "" {
 		if err := g.optimizationMgr.ApplyOptimizationConfig(baseResult.Config, optimizationMode, projectAnalysis); err != nil {
@@ -99,7 +99,7 @@ func (g *EnhancedConfigurationGenerator) GenerateFromProject(ctx context.Context
 			result.Messages = append(result.Messages, fmt.Sprintf("Applied %s optimization configuration", optimizationMode))
 		}
 	}
-	
+
 	// Merge results
 	result.Config = baseResult.Config
 	result.ServersGenerated = baseResult.ServersGenerated
@@ -107,7 +107,7 @@ func (g *EnhancedConfigurationGenerator) GenerateFromProject(ctx context.Context
 	result.Messages = append(result.Messages, baseResult.Messages...)
 	result.Warnings = append(result.Warnings, baseResult.Warnings...)
 	result.Issues = append(result.Issues, baseResult.Issues...)
-	
+
 	// Add enhanced metadata
 	result.Metadata = baseResult.Metadata
 	result.Metadata["enhanced_generation"] = true
@@ -115,12 +115,12 @@ func (g *EnhancedConfigurationGenerator) GenerateFromProject(ctx context.Context
 	result.Metadata["template_used"] = template.Name
 	result.Metadata["template_version"] = template.Version
 	result.Metadata["optimization_applied"] = optimizationMode
-	
+
 	result.Duration = time.Since(startTime)
-	
+
 	g.logger.UserSuccess(fmt.Sprintf("Enhanced configuration generated: %d servers for %s project with %d languages",
 		result.ServersGenerated, projectAnalysis.ProjectType, len(projectAnalysis.DetectedLanguages)))
-	
+
 	return result, nil
 }
 
@@ -128,13 +128,13 @@ func (g *EnhancedConfigurationGenerator) GenerateFromProject(ctx context.Context
 func (g *EnhancedConfigurationGenerator) determinePerformanceProfile(analysis *ProjectAnalysis) string {
 	switch analysis.Complexity {
 	case ProjectComplexityHigh:
-		return "high"
+		return ProjectComplexityHigh
 	case ProjectComplexityMedium:
-		return "medium"
+		return ProjectComplexityMedium
 	case ProjectComplexityLow:
-		return "low"
+		return ProjectComplexityLow
 	default:
-		return "medium"
+		return ProjectComplexityMedium
 	}
 }
 
@@ -144,7 +144,7 @@ func (g *EnhancedConfigurationGenerator) applyTemplateEnhancements(cfg *config.G
 	if template.DefaultPort > 0 {
 		cfg.Port = template.DefaultPort
 	}
-	
+
 	// Apply framework-specific settings
 	for _, framework := range analysis.Frameworks {
 		if frameworkConfig, exists := template.FrameworkConfigs[framework.Name]; exists {
@@ -153,7 +153,7 @@ func (g *EnhancedConfigurationGenerator) applyTemplateEnhancements(cfg *config.G
 			}
 		}
 	}
-	
+
 	// Apply resource limits based on template
 	if template.ResourceLimits != nil {
 		cfg.MaxConcurrentRequests = template.ResourceLimits.MaxConcurrentRequests
@@ -161,7 +161,7 @@ func (g *EnhancedConfigurationGenerator) applyTemplateEnhancements(cfg *config.G
 			cfg.Timeout = fmt.Sprintf("%ds", template.ResourceLimits.TimeoutSeconds)
 		}
 	}
-	
+
 	// Apply advanced routing configuration
 	if template.RoutingConfig != nil {
 		cfg.EnableSmartRouting = template.RoutingConfig.EnableSmartRouting
@@ -171,7 +171,7 @@ func (g *EnhancedConfigurationGenerator) applyTemplateEnhancements(cfg *config.G
 			cfg.SmartRouterConfig.EnableCircuitBreaker = template.RoutingConfig.EnableCircuitBreaker
 		}
 	}
-	
+
 	return nil
 }
 
@@ -190,28 +190,28 @@ func (g *EnhancedConfigurationGenerator) applyFrameworkConfiguration(cfg *config
 						server.Settings[key] = value
 					}
 				}
-				
+
 				// Apply framework-specific root markers
 				if len(frameworkConfig.RootMarkers) > 0 {
 					server.RootMarkers = append(server.RootMarkers, frameworkConfig.RootMarkers...)
 				}
-				
+
 				// Update server configuration
 				cfg.Servers[i] = server
 				break
 			}
 		}
 	}
-	
+
 	return nil
 }
 
 // GenerateDefaultForEnvironment generates a default configuration optimized for a specific environment
 func (g *EnhancedConfigurationGenerator) GenerateDefaultForEnvironment(ctx context.Context, environment string) (*ConfigGenerationResult, error) {
 	startTime := time.Now()
-	
+
 	g.logger.WithOperation("generate-default-environment").WithField("environment", environment).Info("Generating default configuration for environment")
-	
+
 	result := &ConfigGenerationResult{
 		Config:           nil,
 		ServersGenerated: 0,
@@ -223,14 +223,14 @@ func (g *EnhancedConfigurationGenerator) GenerateDefaultForEnvironment(ctx conte
 		Issues:           []string{},
 		Metadata:         make(map[string]interface{}),
 	}
-	
+
 	// Get environment-specific template
 	template := g.templateManager.GetEnvironmentTemplate(environment)
 	if template == nil {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("No specific template for environment %s, using default", environment))
 		template = g.templateManager.GetDefaultTemplate()
 	}
-	
+
 	// Generate base configuration
 	baseResult, err := g.configGenerator.GenerateDefault()
 	if err != nil {
@@ -238,7 +238,7 @@ func (g *EnhancedConfigurationGenerator) GenerateDefaultForEnvironment(ctx conte
 		result.Duration = time.Since(startTime)
 		return result, fmt.Errorf("default configuration generation failed: %w", err)
 	}
-	
+
 	// Apply environment-specific optimizations
 	optimizationMode := g.getOptimizationModeForEnvironment(environment)
 	if err := g.optimizationMgr.ApplyEnvironmentOptimization(baseResult.Config, environment); err != nil {
@@ -246,41 +246,41 @@ func (g *EnhancedConfigurationGenerator) GenerateDefaultForEnvironment(ctx conte
 	} else {
 		result.Messages = append(result.Messages, fmt.Sprintf("Applied %s environment optimizations", environment))
 	}
-	
+
 	// Apply template configurations
 	if err := g.applyEnvironmentTemplate(baseResult.Config, template, environment); err != nil {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("Template application failed: %v", err))
 	}
-	
+
 	result.Config = baseResult.Config
 	result.ServersGenerated = baseResult.ServersGenerated
 	result.Messages = append(result.Messages, baseResult.Messages...)
 	result.Warnings = append(result.Warnings, baseResult.Warnings...)
 	result.Issues = append(result.Issues, baseResult.Issues...)
-	
+
 	result.Metadata = baseResult.Metadata
 	result.Metadata["environment"] = environment
 	result.Metadata["template_used"] = template.Name
 	result.Metadata["optimization_mode"] = optimizationMode
-	
+
 	result.Duration = time.Since(startTime)
-	
+
 	g.logger.UserSuccess(fmt.Sprintf("Default configuration generated for %s environment", environment))
-	
+
 	return result, nil
 }
 
 // getOptimizationModeForEnvironment returns the appropriate optimization mode for an environment
 func (g *EnhancedConfigurationGenerator) getOptimizationModeForEnvironment(environment string) string {
 	switch strings.ToLower(environment) {
-	case "production", "prod":
-		return "production"
-	case "development", "dev":
-		return "development"
-	case "analysis", "qa", "test":
-		return "analysis"
+	case ENV_PRODUCTION, ENV_PROD:
+		return config.PerformanceProfileProduction
+	case ENV_DEVELOPMENT, ENV_DEV:
+		return config.PerformanceProfileDevelopment
+	case ENV_ANALYSIS, "qa", ENV_TEST:
+		return config.PerformanceProfileAnalysis
 	default:
-		return "development"
+		return config.PerformanceProfileDevelopment
 	}
 }
 
@@ -290,7 +290,7 @@ func (g *EnhancedConfigurationGenerator) applyEnvironmentTemplate(cfg *config.Ga
 	if template.DefaultPort > 0 {
 		cfg.Port = template.DefaultPort
 	}
-	
+
 	// Apply environment-specific resource limits
 	if template.ResourceLimits != nil {
 		cfg.MaxConcurrentRequests = template.ResourceLimits.MaxConcurrentRequests
@@ -298,33 +298,33 @@ func (g *EnhancedConfigurationGenerator) applyEnvironmentTemplate(cfg *config.Ga
 			cfg.Timeout = fmt.Sprintf("%ds", template.ResourceLimits.TimeoutSeconds)
 		}
 	}
-	
+
 	// Apply environment-specific features
 	switch strings.ToLower(environment) {
-	case "production", "prod":
+	case ENV_PRODUCTION, ENV_PROD:
 		cfg.EnableSmartRouting = true
 		cfg.EnableConcurrentServers = true
 		if cfg.SmartRouterConfig != nil {
 			cfg.SmartRouterConfig.EnablePerformanceMonitoring = true
 			cfg.SmartRouterConfig.EnableCircuitBreaker = true
 		}
-		
-	case "development", "dev":
+
+	case ENV_DEVELOPMENT, ENV_DEV:
 		cfg.EnableSmartRouting = false
 		cfg.EnableConcurrentServers = true
-		
-	case "analysis", "qa", "test":
+
+	case ENV_ANALYSIS, "qa", ENV_TEST:
 		cfg.EnableEnhancements = true
 		cfg.MaxConcurrentRequests = 50 // Lower for analysis
 	}
-	
+
 	return nil
 }
 
 // ValidateEnhancedConfiguration performs comprehensive validation of enhanced configurations
 func (g *EnhancedConfigurationGenerator) ValidateEnhancedConfiguration(cfg *config.GatewayConfig, projectPath string) (*ConfigValidationResult, error) {
 	startTime := time.Now()
-	
+
 	result := &ConfigValidationResult{
 		Valid:            true,
 		Issues:           []string{},
@@ -334,13 +334,13 @@ func (g *EnhancedConfigurationGenerator) ValidateEnhancedConfiguration(cfg *conf
 		ValidatedAt:      startTime,
 		Metadata:         make(map[string]interface{}),
 	}
-	
+
 	// Perform base validation
 	baseResult, err := g.configGenerator.ValidateConfig(cfg)
 	if err != nil {
 		return baseResult, err
 	}
-	
+
 	// Merge base results
 	result.Valid = baseResult.Valid
 	result.Issues = append(result.Issues, baseResult.Issues...)
@@ -349,7 +349,7 @@ func (g *EnhancedConfigurationGenerator) ValidateEnhancedConfiguration(cfg *conf
 	for server, issues := range baseResult.ServerIssues {
 		result.ServerIssues[server] = issues
 	}
-	
+
 	// Enhanced validations
 	if projectPath != "" {
 		if err := g.validateProjectStructure(cfg, projectPath, result); err != nil {
@@ -357,16 +357,16 @@ func (g *EnhancedConfigurationGenerator) ValidateEnhancedConfiguration(cfg *conf
 			result.Valid = false
 		}
 	}
-	
+
 	if err := g.validateEnhancedFeatures(cfg, result); err != nil {
 		result.Issues = append(result.Issues, fmt.Sprintf("Enhanced features validation failed: %v", err))
 		result.Valid = false
 	}
-	
+
 	result.Duration = time.Since(startTime)
 	result.Metadata["validation_type"] = "enhanced"
 	result.Metadata["project_path"] = projectPath
-	
+
 	return result, nil
 }
 
@@ -377,18 +377,18 @@ func (g *EnhancedConfigurationGenerator) validateProjectStructure(cfg *config.Ga
 		result.Issues = append(result.Issues, fmt.Sprintf("Project path does not exist: %s", projectPath))
 		return nil
 	}
-	
+
 	// Validate language-specific root markers
 	for _, server := range cfg.Servers {
 		for _, marker := range server.RootMarkers {
 			markerPath := filepath.Join(projectPath, marker)
 			if _, err := os.Stat(markerPath); os.IsNotExist(err) {
-				result.Warnings = append(result.Warnings, 
+				result.Warnings = append(result.Warnings,
 					fmt.Sprintf("Root marker %s not found for server %s", marker, server.Name))
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -398,23 +398,23 @@ func (g *EnhancedConfigurationGenerator) validateEnhancedFeatures(cfg *config.Ga
 	if cfg.EnableSmartRouting && cfg.SmartRouterConfig == nil {
 		result.Warnings = append(result.Warnings, "Smart routing enabled but no router configuration provided")
 	}
-	
+
 	// Validate concurrent servers configuration
 	if cfg.EnableConcurrentServers {
 		if cfg.MaxConcurrentServersPerLanguage <= 0 {
 			result.Warnings = append(result.Warnings, "Concurrent servers enabled but no max limit specified")
 		}
-		
+
 		if len(cfg.LanguagePools) == 0 && len(cfg.Servers) > 1 {
 			result.Warnings = append(result.Warnings, "Multiple servers configured but no language pools defined")
 		}
 	}
-	
+
 	// Validate performance configuration
 	if cfg.MaxConcurrentRequests > 1000 {
 		result.Warnings = append(result.Warnings, "Very high concurrent request limit may affect performance")
 	}
-	
+
 	return nil
 }
 
@@ -443,19 +443,19 @@ func NewProjectAnalyzer() *ProjectAnalyzer {
 
 // ProjectAnalysis contains the results of project analysis
 type ProjectAnalysis struct {
-	ProjectType       string                `json:"project_type"`
-	ProjectPath       string                `json:"project_path"`
-	DetectedLanguages []string              `json:"detected_languages"`
-	Frameworks        []*DetectedFramework  `json:"frameworks"`
-	Complexity        string                `json:"complexity"`
-	FileCount         int                   `json:"file_count"`
-	DirectoryCount    int                   `json:"directory_count"`
-	EstimatedSize     string                `json:"estimated_size"`
-	BuildSystems      []string              `json:"build_systems"`
-	PackageManagers   []string              `json:"package_managers"`
-	TestFrameworks    []string              `json:"test_frameworks"`
+	ProjectType       string                 `json:"project_type"`
+	ProjectPath       string                 `json:"project_path"`
+	DetectedLanguages []string               `json:"detected_languages"`
+	Frameworks        []*DetectedFramework   `json:"frameworks"`
+	Complexity        string                 `json:"complexity"`
+	FileCount         int                    `json:"file_count"`
+	DirectoryCount    int                    `json:"directory_count"`
+	EstimatedSize     string                 `json:"estimated_size"`
+	BuildSystems      []string               `json:"build_systems"`
+	PackageManagers   []string               `json:"package_managers"`
+	TestFrameworks    []string               `json:"test_frameworks"`
 	Metadata          map[string]interface{} `json:"metadata"`
-	AnalyzedAt        time.Time             `json:"analyzed_at"`
+	AnalyzedAt        time.Time              `json:"analyzed_at"`
 }
 
 // DetectedFramework represents a detected framework
@@ -477,9 +477,9 @@ const (
 // AnalyzeProject performs comprehensive project analysis
 func (pa *ProjectAnalyzer) AnalyzeProject(projectPath string) (*ProjectAnalysis, error) {
 	startTime := time.Now()
-	
+
 	pa.logger.WithField("project_path", projectPath).Info("Starting project analysis")
-	
+
 	analysis := &ProjectAnalysis{
 		ProjectPath:       projectPath,
 		DetectedLanguages: []string{},
@@ -490,38 +490,38 @@ func (pa *ProjectAnalyzer) AnalyzeProject(projectPath string) (*ProjectAnalysis,
 		Metadata:          make(map[string]interface{}),
 		AnalyzedAt:        startTime,
 	}
-	
+
 	// Check if project path exists
 	if _, err := os.Stat(projectPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("project path does not exist: %s", projectPath)
 	}
-	
+
 	// Detect languages
 	if err := pa.detectLanguages(projectPath, analysis); err != nil {
 		return nil, fmt.Errorf("language detection failed: %w", err)
 	}
-	
+
 	// Detect frameworks
 	if err := pa.detectFrameworks(projectPath, analysis); err != nil {
 		pa.logger.WithError(err).Warn("Framework detection failed")
 	}
-	
+
 	// Determine project type
 	analysis.ProjectType = pa.determineProjectType(analysis)
-	
+
 	// Calculate complexity
 	analysis.Complexity = pa.calculateComplexity(analysis)
-	
+
 	// Count files and directories
 	pa.countProjectFiles(projectPath, analysis)
-	
+
 	// Detect build systems and package managers
 	pa.detectBuildSystems(projectPath, analysis)
 	pa.detectPackageManagers(projectPath, analysis)
-	
+
 	// Estimate project size
 	analysis.EstimatedSize = pa.estimateProjectSize(analysis)
-	
+
 	pa.logger.WithFields(map[string]interface{}{
 		"project_type": analysis.ProjectType,
 		"languages":    len(analysis.DetectedLanguages),
@@ -529,7 +529,7 @@ func (pa *ProjectAnalyzer) AnalyzeProject(projectPath string) (*ProjectAnalysis,
 		"complexity":   analysis.Complexity,
 		"duration":     time.Since(startTime),
 	}).Info("Project analysis completed")
-	
+
 	return analysis, nil
 }
 
@@ -546,9 +546,9 @@ func (pa *ProjectAnalyzer) detectLanguages(projectPath string, analysis *Project
 		"c":          {"*.c"},
 		"csharp":     {"*.cs"},
 	}
-	
+
 	languageCount := make(map[string]int)
-	
+
 	for language, patterns := range languagePatterns {
 		count := 0
 		for _, pattern := range patterns {
@@ -562,15 +562,15 @@ func (pa *ProjectAnalyzer) detectLanguages(projectPath string, analysis *Project
 				count += len(matches)
 			}
 		}
-		
+
 		if count > 0 {
 			languageCount[language] = count
 			analysis.DetectedLanguages = append(analysis.DetectedLanguages, language)
 		}
 	}
-	
+
 	analysis.Metadata["language_file_counts"] = languageCount
-	
+
 	return nil
 }
 
@@ -603,13 +603,13 @@ func (pa *ProjectAnalyzer) detectFrameworks(projectPath string, analysis *Projec
 			Patterns:    []string{"axum"},
 		},
 	}
-	
+
 	for frameworkName, detector := range frameworkDetectors {
 		if framework := pa.detectFramework(projectPath, frameworkName, detector); framework != nil {
 			analysis.Frameworks = append(analysis.Frameworks, framework)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -624,21 +624,21 @@ type FrameworkDetector struct {
 func (pa *ProjectAnalyzer) detectFramework(projectPath, frameworkName string, detector FrameworkDetector) *DetectedFramework {
 	var configFiles []string
 	var confidence float64
-	
+
 	// Check for configuration files
 	for _, configFile := range detector.ConfigFiles {
 		configPath := filepath.Join(projectPath, configFile)
 		if _, err := os.Stat(configPath); err == nil {
 			configFiles = append(configFiles, configFile)
 			confidence += 0.3
-			
+
 			// Check patterns in config files
 			if pa.checkPatternsInFile(configPath, detector.Patterns) {
 				confidence += 0.4
 			}
 		}
 	}
-	
+
 	if confidence > 0.5 {
 		return &DetectedFramework{
 			Name:        frameworkName,
@@ -647,7 +647,7 @@ func (pa *ProjectAnalyzer) detectFramework(projectPath, frameworkName string, de
 			Confidence:  confidence,
 		}
 	}
-	
+
 	return nil
 }
 
@@ -657,21 +657,21 @@ func (pa *ProjectAnalyzer) checkPatternsInFile(filePath string, patterns []strin
 	if err != nil {
 		return false
 	}
-	
+
 	fileContent := string(content)
 	for _, pattern := range patterns {
 		if strings.Contains(fileContent, pattern) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
 // determineProjectType determines the project type based on detected languages and structure
 func (pa *ProjectAnalyzer) determineProjectType(analysis *ProjectAnalysis) string {
 	numLanguages := len(analysis.DetectedLanguages)
-	
+
 	if numLanguages == 1 {
 		return config.ProjectTypeSingle
 	} else if numLanguages > 1 {
@@ -679,15 +679,15 @@ func (pa *ProjectAnalyzer) determineProjectType(analysis *ProjectAnalysis) strin
 		if pa.isMonorepo(analysis.ProjectPath) {
 			return config.ProjectTypeMonorepo
 		}
-		
+
 		// Check if it's microservices (multiple service directories)
 		if pa.isMicroservices(analysis.ProjectPath) {
 			return config.ProjectTypeMicroservices
 		}
-		
+
 		return config.ProjectTypeMulti
 	}
-	
+
 	return config.ProjectTypeUnknown
 }
 
@@ -701,13 +701,13 @@ func (pa *ProjectAnalyzer) isMonorepo(projectPath string) bool {
 		"pnpm-workspace.yaml",
 		"workspace.json",
 	}
-	
+
 	for _, indicator := range monorepoIndicators {
 		if _, err := os.Stat(filepath.Join(projectPath, indicator)); err == nil {
 			return true
 		}
 	}
-	
+
 	// Check for multiple package.json files in subdirectories
 	packageJsonCount := 0
 	if err := filepath.Walk(projectPath, func(path string, info os.FileInfo, err error) error {
@@ -724,7 +724,7 @@ func (pa *ProjectAnalyzer) isMonorepo(projectPath string) bool {
 	}); err == nil && packageJsonCount > 2 {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -738,20 +738,20 @@ func (pa *ProjectAnalyzer) isMicroservices(projectPath string) bool {
 		"services",
 		"microservices",
 	}
-	
+
 	for _, indicator := range microservicesIndicators {
 		if _, err := os.Stat(filepath.Join(projectPath, indicator)); err == nil {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
 // calculateComplexity calculates project complexity
 func (pa *ProjectAnalyzer) calculateComplexity(analysis *ProjectAnalysis) string {
 	score := 0
-	
+
 	// Language count factor
 	if len(analysis.DetectedLanguages) > 3 {
 		score += 3
@@ -760,14 +760,14 @@ func (pa *ProjectAnalyzer) calculateComplexity(analysis *ProjectAnalysis) string
 	} else {
 		score += 1
 	}
-	
+
 	// Framework count factor
 	if len(analysis.Frameworks) > 2 {
 		score += 2
 	} else if len(analysis.Frameworks) > 0 {
 		score += 1
 	}
-	
+
 	// Project type factor
 	switch analysis.ProjectType {
 	case config.ProjectTypeMonorepo, config.ProjectTypeMicroservices:
@@ -777,14 +777,14 @@ func (pa *ProjectAnalyzer) calculateComplexity(analysis *ProjectAnalysis) string
 	case config.ProjectTypeSingle:
 		score += 1
 	}
-	
+
 	// File count factor (estimated)
 	if analysis.FileCount > 1000 {
 		score += 2
 	} else if analysis.FileCount > 100 {
 		score += 1
 	}
-	
+
 	// Determine complexity level
 	if score >= 8 {
 		return ProjectComplexityHigh
@@ -799,30 +799,32 @@ func (pa *ProjectAnalyzer) calculateComplexity(analysis *ProjectAnalysis) string
 func (pa *ProjectAnalyzer) countProjectFiles(projectPath string, analysis *ProjectAnalysis) {
 	fileCount := 0
 	dirCount := 0
-	
-	filepath.Walk(projectPath, func(path string, info os.FileInfo, err error) error {
+
+	if err := filepath.Walk(projectPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		
+
 		// Skip hidden directories and common non-source directories
 		if info.IsDir() {
 			name := info.Name()
-			if strings.HasPrefix(name, ".") || 
-			   name == "node_modules" || 
-			   name == "target" || 
-			   name == "__pycache__" ||
-			   name == "vendor" {
+			if strings.HasPrefix(name, ".") ||
+				name == "node_modules" ||
+				name == "target" ||
+				name == "__pycache__" ||
+				name == "vendor" {
 				return filepath.SkipDir
 			}
 			dirCount++
 		} else {
 			fileCount++
 		}
-		
+
 		return nil
-	})
-	
+	}); err != nil {
+		pa.logger.WithOperation("count-project-files").WithError(err).Warn("Failed to walk project directory, file count may be incomplete")
+	}
+
 	analysis.FileCount = fileCount
 	analysis.DirectoryCount = dirCount
 }
@@ -830,16 +832,16 @@ func (pa *ProjectAnalyzer) countProjectFiles(projectPath string, analysis *Proje
 // detectBuildSystems detects build systems used in the project
 func (pa *ProjectAnalyzer) detectBuildSystems(projectPath string, analysis *ProjectAnalysis) {
 	buildSystemFiles := map[string]string{
-		"Makefile":      "make",
+		"Makefile":       "make",
 		"CMakeLists.txt": "cmake",
-		"build.gradle":  "gradle",
-		"pom.xml":       "maven",
-		"Cargo.toml":    "cargo",
-		"go.mod":        "go-modules",
-		"package.json":  "npm",
+		"build.gradle":   "gradle",
+		"pom.xml":        "maven",
+		"Cargo.toml":     "cargo",
+		"go.mod":         "go-modules",
+		"package.json":   "npm",
 		"pyproject.toml": "python-build",
 	}
-	
+
 	for file, system := range buildSystemFiles {
 		if _, err := os.Stat(filepath.Join(projectPath, file)); err == nil {
 			analysis.BuildSystems = append(analysis.BuildSystems, system)
@@ -859,7 +861,7 @@ func (pa *ProjectAnalyzer) detectPackageManagers(projectPath string, analysis *P
 		"Cargo.lock":        "cargo",
 		"go.sum":            "go-modules",
 	}
-	
+
 	for file, manager := range packageManagerFiles {
 		if _, err := os.Stat(filepath.Join(projectPath, file)); err == nil {
 			analysis.PackageManagers = append(analysis.PackageManagers, manager)
@@ -920,13 +922,13 @@ func (ocm *OptimizationConfigManager) ApplyOptimizationConfig(cfg *config.Gatewa
 		"project_type":      analysis.ProjectType,
 		"complexity":        analysis.Complexity,
 	}).Info("Applying optimization configuration")
-	
+
 	switch strings.ToLower(optimizationMode) {
-	case "production":
+	case config.PerformanceProfileProduction:
 		return ocm.applyProductionOptimization(cfg, analysis)
-	case "development":
+	case config.PerformanceProfileDevelopment:
 		return ocm.applyDevelopmentOptimization(cfg, analysis)
-	case "analysis":
+	case config.PerformanceProfileAnalysis:
 		return ocm.applyAnalysisOptimization(cfg, analysis)
 	default:
 		return fmt.Errorf("unknown optimization mode: %s", optimizationMode)
@@ -937,7 +939,7 @@ func (ocm *OptimizationConfigManager) ApplyOptimizationConfig(cfg *config.Gatewa
 func (ocm *OptimizationConfigManager) applyProductionOptimization(cfg *config.GatewayConfig, analysis *ProjectAnalysis) error {
 	cfg.EnableSmartRouting = true
 	cfg.EnableConcurrentServers = true
-	
+
 	// Adjust based on project complexity
 	switch analysis.Complexity {
 	case ProjectComplexityHigh:
@@ -953,14 +955,14 @@ func (ocm *OptimizationConfigManager) applyProductionOptimization(cfg *config.Ga
 		cfg.Timeout = "30s"
 		cfg.MaxConcurrentServersPerLanguage = 1
 	}
-	
+
 	// Configure smart router for production
 	if cfg.SmartRouterConfig != nil {
 		cfg.SmartRouterConfig.EnablePerformanceMonitoring = true
 		cfg.SmartRouterConfig.EnableCircuitBreaker = true
 		cfg.SmartRouterConfig.DefaultStrategy = "single_target_with_fallback"
 	}
-	
+
 	return nil
 }
 
@@ -968,18 +970,18 @@ func (ocm *OptimizationConfigManager) applyProductionOptimization(cfg *config.Ga
 func (ocm *OptimizationConfigManager) applyDevelopmentOptimization(cfg *config.GatewayConfig, analysis *ProjectAnalysis) error {
 	cfg.EnableSmartRouting = false
 	cfg.EnableConcurrentServers = true
-	
+
 	// Development settings are more permissive
 	cfg.MaxConcurrentRequests = 100
 	cfg.Timeout = "60s"
 	cfg.MaxConcurrentServersPerLanguage = 2
-	
+
 	// Disable performance monitoring for development
 	if cfg.SmartRouterConfig != nil {
 		cfg.SmartRouterConfig.EnablePerformanceMonitoring = false
 		cfg.SmartRouterConfig.EnableCircuitBreaker = false
 	}
-	
+
 	return nil
 }
 
@@ -988,38 +990,38 @@ func (ocm *OptimizationConfigManager) applyAnalysisOptimization(cfg *config.Gate
 	cfg.EnableEnhancements = true
 	cfg.EnableSmartRouting = false
 	cfg.EnableConcurrentServers = false // Single server for consistent analysis
-	
+
 	// Analysis settings prioritize accuracy over performance
 	cfg.MaxConcurrentRequests = 50
 	cfg.Timeout = "120s" // Longer timeout for analysis operations
-	
+
 	return nil
 }
 
 // ApplyEnvironmentOptimization applies environment-specific optimizations
 func (ocm *OptimizationConfigManager) ApplyEnvironmentOptimization(cfg *config.GatewayConfig, environment string) error {
 	optimizationMode := ocm.getOptimizationModeForEnvironment(environment)
-	
+
 	// Create a basic analysis for environment optimization
 	analysis := &ProjectAnalysis{
 		ProjectType: config.ProjectTypeSingle,
 		Complexity:  ProjectComplexityMedium,
 	}
-	
+
 	return ocm.ApplyOptimizationConfig(cfg, optimizationMode, analysis)
 }
 
 // getOptimizationModeForEnvironment maps environment to optimization mode
 func (ocm *OptimizationConfigManager) getOptimizationModeForEnvironment(environment string) string {
 	switch strings.ToLower(environment) {
-	case "production", "prod":
-		return "production"
-	case "development", "dev":
-		return "development"
-	case "analysis", "qa", "test":
-		return "analysis"
+	case ENV_PRODUCTION, ENV_PROD:
+		return config.PerformanceProfileProduction
+	case ENV_DEVELOPMENT, ENV_DEV:
+		return config.PerformanceProfileDevelopment
+	case ENV_ANALYSIS, "qa", ENV_TEST:
+		return config.PerformanceProfileAnalysis
 	default:
-		return "development"
+		return config.PerformanceProfileDevelopment
 	}
 }
 

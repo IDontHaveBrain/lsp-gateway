@@ -21,11 +21,11 @@ import (
 // GoDetectorTestSuite provides comprehensive unit tests for GoProjectDetector
 type GoDetectorTestSuite struct {
 	suite.Suite
-	tempDir      string
-	detector     *detectors.GoProjectDetector
-	generator    *framework.TestProjectGenerator
-	profiler     *framework.PerformanceProfiler
-	logger       *setup.SetupLogger
+	tempDir   string
+	detector  *detectors.GoProjectDetector
+	generator *framework.TestProjectGenerator
+	profiler  *framework.PerformanceProfiler
+	logger    *setup.SetupLogger
 }
 
 func (suite *GoDetectorTestSuite) SetupSuite() {
@@ -50,7 +50,7 @@ func (suite *GoDetectorTestSuite) SetupSuite() {
 
 func (suite *GoDetectorTestSuite) TearDownSuite() {
 	if suite.tempDir != "" {
-		os.RemoveAll(suite.tempDir)
+		_ = os.RemoveAll(suite.tempDir)
 	}
 	if suite.profiler != nil {
 		suite.profiler.Reset()
@@ -184,11 +184,11 @@ func main() {}`,
 		{
 			name: "go-with-tooling-configs",
 			setupFiles: map[string]string{
-				"go.mod":           "module tooling-test\n\ngo 1.20",
-				"main.go":          "package main\n\nfunc main() {}",
-				".golangci.yml":    "run:\n  timeout: 5m",
-				".goreleaser.yml":  "builds:\n  - binary: app",
-				"Makefile":         "build:\n\tgo build -o app .",
+				"go.mod":          "module tooling-test\n\ngo 1.20",
+				"main.go":         "package main\n\nfunc main() {}",
+				".golangci.yml":   "run:\n  timeout: 5m",
+				".goreleaser.yml": "builds:\n  - binary: app",
+				"Makefile":        "build:\n\tgo build -o app .",
 			},
 			expectedDetection: true,
 			expectedType:      types.PROJECT_TYPE_GO,
@@ -224,7 +224,7 @@ func main() {}`,
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create test files
 			for filePath, content := range tc.setupFiles {
@@ -245,7 +245,7 @@ func main() {}`,
 				suite.NoError(err, "Detection should succeed for %s", tc.name)
 				suite.NotNil(result, "Should return detection result")
 				suite.Equal(tc.expectedType, result.Language, "Should detect correct language")
-				suite.GreaterOrEqual(result.Confidence, tc.minConfidence, 
+				suite.GreaterOrEqual(result.Confidence, tc.minConfidence,
 					"Confidence should be at least %f", tc.minConfidence)
 				suite.LessOrEqual(result.Confidence, tc.maxConfidence,
 					"Confidence should be at most %f", tc.maxConfidence)
@@ -310,14 +310,14 @@ exclude (
 			expectedModule: "example.com/complex",
 			expectedGoVer:  "1.20",
 			expectedReqs: map[string]string{
-				"github.com/gin-gonic/gin":   "v1.9.1",
+				"github.com/gin-gonic/gin":    "v1.9.1",
 				"github.com/stretchr/testify": "v1.8.4",
-				"golang.org/x/sync":          "v0.3.0",
+				"golang.org/x/sync":           "v0.3.0",
 			},
 			expectedReps: map[string]string{
-				"github.com/old/package":   "github.com/new/package v2.0.0",
-				"github.com/local/dep":     "./local",
-			},   
+				"github.com/old/package": "github.com/new/package v2.0.0",
+				"github.com/local/dep":   "./local",
+			},
 			expectedExcl: []string{
 				"github.com/broken/package v1.0.0",
 				"github.com/vuln/package v0.1.0",
@@ -358,7 +358,7 @@ exclude github.com/bad v1.0.0`,
 			// Create test file
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			goModPath := filepath.Join(testDir, "go.mod")
 			err = os.WriteFile(goModPath, []byte(tc.goModContent), 0644)
@@ -426,7 +426,7 @@ github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXl
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create go.mod
 			goModPath := filepath.Join(testDir, "go.mod")
@@ -505,9 +505,9 @@ replace github.com/example/shared => ./shared`,
 				"go.work": `go 1.20
 
 use ./app`,
-				"go.work.sum":   "github.com/external/dep v1.0.0 h1:hash...",
-				"app/go.mod":    "module example.com/app\n\ngo 1.20",
-				"app/main.go":   "package main\n\nfunc main() {}",
+				"go.work.sum": "github.com/external/dep v1.0.0 h1:hash...",
+				"app/go.mod":  "module example.com/app\n\ngo 1.20",
+				"app/main.go": "package main\n\nfunc main() {}",
 			},
 			expectedModules: []string{"./app"},
 			shouldDetect:    true,
@@ -527,7 +527,7 @@ use ./app`,
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create test files
 			for filePath, content := range tc.setupFiles {
@@ -550,7 +550,7 @@ use ./app`,
 				suite.Contains(result.MarkerFiles, "go.work", "Should detect go.work file")
 				suite.Contains(result.Metadata, "is_workspace", "Should mark as workspace")
 				suite.True(result.Metadata["is_workspace"].(bool), "Should be marked as workspace")
-				
+
 				if workspaceModules, ok := result.Metadata["workspace_modules"]; ok {
 					modules := workspaceModules.([]string)
 					for _, expectedModule := range tc.expectedModules {
@@ -576,10 +576,10 @@ func (suite *GoDetectorTestSuite) TestGoDetector_SourceAnalysis() {
 		{
 			name: "simple-package-structure",
 			setupFiles: map[string]string{
-				"go.mod":           "module test\n\ngo 1.20",
-				"main.go":          "package main\n\nfunc main() {}",
-				"internal/lib.go":  "package internal\n\nfunc Lib() {}",
-				"pkg/utils.go":     "package pkg\n\nfunc Utils() {}",
+				"go.mod":          "module test\n\ngo 1.20",
+				"main.go":         "package main\n\nfunc main() {}",
+				"internal/lib.go": "package internal\n\nfunc Lib() {}",
+				"pkg/utils.go":    "package pkg\n\nfunc Utils() {}",
 			},
 			expectedPackages: 3,
 			expectedCGO:      false,
@@ -589,10 +589,10 @@ func (suite *GoDetectorTestSuite) TestGoDetector_SourceAnalysis() {
 		{
 			name: "package-with-tests",
 			setupFiles: map[string]string{
-				"go.mod":            "module test\n\ngo 1.20",
-				"main.go":           "package main\n\nfunc main() {}",
-				"main_test.go":      "package main\n\nimport \"testing\"\n\nfunc TestMain(t *testing.T) {}",
-				"utils/utils.go":    "package utils\n\nfunc Utils() {}",
+				"go.mod":              "module test\n\ngo 1.20",
+				"main.go":             "package main\n\nfunc main() {}",
+				"main_test.go":        "package main\n\nimport \"testing\"\n\nfunc TestMain(t *testing.T) {}",
+				"utils/utils.go":      "package utils\n\nfunc Utils() {}",
 				"utils/utils_test.go": "package utils\n\nimport \"testing\"\n\nfunc TestUtils(t *testing.T) {}",
 			},
 			expectedPackages: 2,
@@ -652,7 +652,7 @@ func main() {}`,
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create test files
 			for filePath, content := range tc.setupFiles {
@@ -723,10 +723,10 @@ func (suite *GoDetectorTestSuite) TestGoDetector_BuildConfiguration() {
 		{
 			name: "ci-project",
 			setupFiles: map[string]string{
-				"go.mod":                    "module test\n\ngo 1.20", 
-				"main.go":                   "package main\n\nfunc main() {}",
-				".github/workflows/ci.yml":  "name: CI\non: [push]",
-				".gitlab-ci.yml":            "stages:\n  - build",
+				"go.mod":                   "module test\n\ngo 1.20",
+				"main.go":                  "package main\n\nfunc main() {}",
+				".github/workflows/ci.yml": "name: CI\non: [push]",
+				".gitlab-ci.yml":           "stages:\n  - build",
 			},
 			expectedBuild:  []string{".github/workflows", ".gitlab-ci.yml"},
 			expectedConfig: []string{},
@@ -734,10 +734,10 @@ func (suite *GoDetectorTestSuite) TestGoDetector_BuildConfiguration() {
 		{
 			name: "docker-project",
 			setupFiles: map[string]string{
-				"go.mod":              "module test\n\ngo 1.20",
-				"main.go":             "package main\n\nfunc main() {}",
-				"Dockerfile":          "FROM golang:1.20\nCOPY . .\nRUN go build",
-				"docker-compose.yml":  "version: '3'\nservices:\n  app:",
+				"go.mod":             "module test\n\ngo 1.20",
+				"main.go":            "package main\n\nfunc main() {}",
+				"Dockerfile":         "FROM golang:1.20\nCOPY . .\nRUN go build",
+				"docker-compose.yml": "version: '3'\nservices:\n  app:",
 			},
 			expectedBuild:  []string{"Dockerfile", "docker-compose.yml"},
 			expectedConfig: []string{},
@@ -745,11 +745,11 @@ func (suite *GoDetectorTestSuite) TestGoDetector_BuildConfiguration() {
 		{
 			name: "tooling-configs",
 			setupFiles: map[string]string{
-				"go.mod":            "module test\n\ngo 1.20",
-				"main.go":           "package main\n\nfunc main() {}",
-				".golangci.yml":     "run:\n  timeout: 5m",
-				".goreleaser.yaml":  "builds:\n  - binary: app",
-				"golangci.yaml":     "linters:\n  enable-all: true",
+				"go.mod":           "module test\n\ngo 1.20",
+				"main.go":          "package main\n\nfunc main() {}",
+				".golangci.yml":    "run:\n  timeout: 5m",
+				".goreleaser.yaml": "builds:\n  - binary: app",
+				"golangci.yaml":    "linters:\n  enable-all: true",
 			},
 			expectedBuild:  []string{},
 			expectedConfig: []string{".golangci.yml", ".goreleaser.yaml", "golangci.yaml"},
@@ -761,7 +761,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_BuildConfiguration() {
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create test files
 			for filePath, content := range tc.setupFiles {
@@ -785,7 +785,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_BuildConfiguration() {
 				suite.Contains(result.BuildFiles, expectedFile, "Should detect build file %s", expectedFile)
 			}
 
-			// Check config files  
+			// Check config files
 			for _, expectedFile := range tc.expectedConfig {
 				suite.Contains(result.ConfigFiles, expectedFile, "Should detect config file %s", expectedFile)
 			}
@@ -811,13 +811,13 @@ func (suite *GoDetectorTestSuite) TestGoDetector_ConfidenceScoring() {
 		{
 			name: "maximum-confidence",
 			setupFiles: map[string]string{
-				"go.mod":            "module test\n\ngo 1.20",
-				"go.sum":            "github.com/gin-gonic/gin v1.9.1 h1:hash...",
-				"go.work":           "go 1.20\n\nuse ./module",
-				"main.go":           "package main\n\nfunc main() {}",
-				"internal/lib.go":   "package internal\n\nfunc Lib() {}",
-				".golangci.yml":     "run:\n  timeout: 5m",
-				"Makefile":          "build:\n\tgo build",
+				"go.mod":          "module test\n\ngo 1.20",
+				"go.sum":          "github.com/gin-gonic/gin v1.9.1 h1:hash...",
+				"go.work":         "go 1.20\n\nuse ./module",
+				"main.go":         "package main\n\nfunc main() {}",
+				"internal/lib.go": "package internal\n\nfunc Lib() {}",
+				".golangci.yml":   "run:\n  timeout: 5m",
+				"Makefile":        "build:\n\tgo build",
 			},
 			expectedRange: [2]float64{0.95, 1.0},
 		},
@@ -842,8 +842,8 @@ func (suite *GoDetectorTestSuite) TestGoDetector_ConfidenceScoring() {
 		{
 			name: "low-confidence",
 			setupFiles: map[string]string{
-				"main.go":    "package main\n\nfunc main() {}",
-				"utils.go":   "package main\n\nfunc Utils() {}",
+				"main.go":  "package main\n\nfunc main() {}",
+				"utils.go": "package main\n\nfunc Utils() {}",
 			},
 			expectedRange: [2]float64{0.3, 0.7},
 		},
@@ -861,7 +861,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_ConfidenceScoring() {
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create test files
 			for filePath, content := range tc.setupFiles {
@@ -881,7 +881,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_ConfidenceScoring() {
 			suite.NotNil(result, "Should return result")
 
 			// Check confidence range
-			suite.GreaterOrEqual(result.Confidence, tc.expectedRange[0], 
+			suite.GreaterOrEqual(result.Confidence, tc.expectedRange[0],
 				"Confidence should be at least %f", tc.expectedRange[0])
 			suite.LessOrEqual(result.Confidence, tc.expectedRange[1],
 				"Confidence should be at most %f", tc.expectedRange[1])
@@ -891,9 +891,9 @@ func (suite *GoDetectorTestSuite) TestGoDetector_ConfidenceScoring() {
 
 func (suite *GoDetectorTestSuite) TestGoDetector_VersionDetection() {
 	testCases := []struct {
-		name          string
-		goModContent  string
-		expectedVer   string
+		name         string
+		goModContent string
+		expectedVer  string
 	}{
 		{
 			name:         "go-1.19",
@@ -922,7 +922,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_VersionDetection() {
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create go.mod
 			goModPath := filepath.Join(testDir, "go.mod")
@@ -957,10 +957,10 @@ func (suite *GoDetectorTestSuite) TestGoDetector_GoModuleParsing() {
 	parser := detectors.NewGoModuleParser(suite.logger)
 
 	testCases := []struct {
-		name         string
-		content      string
+		name          string
+		content       string
 		shouldSucceed bool
-		checkFunc    func(*detectors.GoModInfo)
+		checkFunc     func(*detectors.GoModInfo)
 	}{
 		{
 			name: "complete-go-mod",
@@ -1009,7 +1009,7 @@ go 1.19`,
 			// Create test file
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			goModPath := filepath.Join(testDir, "go.mod")
 			err = os.WriteFile(goModPath, []byte(tc.content), 0644)
@@ -1039,10 +1039,10 @@ func (suite *GoDetectorTestSuite) TestGoDetector_GoWorkspaceParsing() {
 	parser := detectors.NewGoWorkspaceParser(suite.logger)
 
 	testCases := []struct {
-		name         string
-		content      string
+		name          string
+		content       string
 		shouldSucceed bool
-		expectedMods []string
+		expectedMods  []string
 	}{
 		{
 			name: "simple-workspace",
@@ -1072,7 +1072,7 @@ replace github.com/example/shared => ./shared`,
 			// Create test file
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			goWorkPath := filepath.Join(testDir, "go.work")
 			err = os.WriteFile(goWorkPath, []byte(tc.content), 0644)
@@ -1087,7 +1087,7 @@ replace github.com/example/shared => ./shared`,
 			if tc.shouldSucceed {
 				suite.NoError(err, "Parsing should succeed")
 				suite.NotNil(info, "Should return workspace info")
-				
+
 				for _, expectedMod := range tc.expectedMods {
 					suite.Contains(info.Modules, expectedMod, "Should contain module %s", expectedMod)
 				}
@@ -1134,7 +1134,7 @@ func main() {
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create go.mod
 			goModPath := filepath.Join(testDir, "go.mod")
@@ -1170,10 +1170,10 @@ func main() {
 
 func (suite *GoDetectorTestSuite) TestGoDetector_DependencyAnalysis() {
 	testCases := []struct {
-		name           string
-		goModContent   string
-		expectedProd   map[string]string
-		expectedDev    map[string]string
+		name         string
+		goModContent string
+		expectedProd map[string]string
+		expectedDev  map[string]string
 	}{
 		{
 			name: "mixed-dependencies",
@@ -1205,7 +1205,7 @@ require (
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create go.mod
 			goModPath := filepath.Join(testDir, "go.mod")
@@ -1244,7 +1244,7 @@ require (
 
 func (suite *GoDetectorTestSuite) TestGoDetector_MethodsIntegration() {
 	// Test all interface methods work together
-	
+
 	// GetMarkerFiles
 	markerFiles := suite.detector.GetMarkerFiles()
 	expectedMarkers := []string{types.MARKER_GO_MOD, types.MARKER_GO_SUM, "go.work", "go.work.sum"}
@@ -1297,9 +1297,9 @@ func (suite *GoDetectorTestSuite) TestGoDetector_ProjectValidation() {
 		{
 			name: "valid-workspace-project",
 			setupFiles: map[string]string{
-				"go.work":         "go 1.20\n\nuse ./module",
-				"module/go.mod":   "module test\n\ngo 1.20",
-				"module/main.go":  "package main\n\nfunc main() {}",
+				"go.work":        "go 1.20\n\nuse ./module",
+				"module/go.mod":  "module test\n\ngo 1.20",
+				"module/main.go": "package main\n\nfunc main() {}",
 			},
 			shouldSucceed: true,
 		},
@@ -1336,7 +1336,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_ProjectValidation() {
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create test files
 			for filePath, content := range tc.setupFiles {
@@ -1378,7 +1378,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_ErrorHandling() {
 	// Test empty directory
 	emptyDir, err := os.MkdirTemp(suite.tempDir, "empty-*")
 	suite.Require().NoError(err)
-	defer os.RemoveAll(emptyDir)
+	defer func() { _ = os.RemoveAll(emptyDir) }()
 
 	result, err := suite.detector.DetectLanguage(ctx, emptyDir)
 	suite.NoError(err, "Should handle empty directory gracefully")
@@ -1389,8 +1389,8 @@ func (suite *GoDetectorTestSuite) TestGoDetector_ErrorHandling() {
 		restrictedDir, err := os.MkdirTemp(suite.tempDir, "restricted-*")
 		suite.Require().NoError(err)
 		defer func() {
-			os.Chmod(restrictedDir, 0755) // Restore permissions for cleanup
-			os.RemoveAll(restrictedDir)
+			_ = os.Chmod(restrictedDir, 0755) // Restore permissions for cleanup
+			_ = os.RemoveAll(restrictedDir)
 		}()
 
 		// Create a file first
@@ -1402,10 +1402,10 @@ func (suite *GoDetectorTestSuite) TestGoDetector_ErrorHandling() {
 		err = os.Chmod(restrictedDir, 0000)
 		suite.Require().NoError(err)
 
-		_, err = suite.detector.DetectLanguage(ctx, restrictedDir)
+		_, _ = suite.detector.DetectLanguage(ctx, restrictedDir)
 		// Should either handle gracefully or error - but not panic
 		suite.NotPanics(func() {
-			suite.detector.DetectLanguage(ctx, restrictedDir)
+			_, _ = suite.detector.DetectLanguage(ctx, restrictedDir)
 		}, "Should not panic on permission denied")
 	}
 }
@@ -1414,7 +1414,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_TimeoutHandling() {
 	// Create a project
 	testDir, err := os.MkdirTemp(suite.tempDir, "timeout-test-*")
 	suite.Require().NoError(err)
-	defer os.RemoveAll(testDir)
+	defer func() { _ = os.RemoveAll(testDir) }()
 
 	goModPath := filepath.Join(testDir, "go.mod")
 	err = os.WriteFile(goModPath, []byte("module test\n\ngo 1.20"), 0644)
@@ -1469,9 +1469,9 @@ func (suite *GoDetectorTestSuite) TestGoDetector_MalformedFiles() {
 		{
 			name: "binary-files",
 			setupFiles: map[string]string{
-				"go.mod":   "module test\n\ngo 1.20",
-				"main.go":  "package main\n\nfunc main() {}",
-				"binary":   string([]byte{0x00, 0x01, 0x02, 0x03}),
+				"go.mod":  "module test\n\ngo 1.20",
+				"main.go": "package main\n\nfunc main() {}",
+				"binary":  string([]byte{0x00, 0x01, 0x02, 0x03}),
 			},
 			shouldError: false, // Should skip binary files
 		},
@@ -1482,7 +1482,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_MalformedFiles() {
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create test files
 			for filePath, content := range tc.setupFiles {
@@ -1513,7 +1513,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_LargeProject() {
 	// Create large project structure
 	testDir, err := os.MkdirTemp(suite.tempDir, "large-project-*")
 	suite.Require().NoError(err)
-	defer os.RemoveAll(testDir)
+	defer func() { _ = os.RemoveAll(testDir) }()
 
 	// Create go.mod
 	goModPath := filepath.Join(testDir, "go.mod")
@@ -1571,23 +1571,12 @@ func (suite *GoDetectorTestSuite) TestGoDetector_PerformanceProfile() {
 	ctx := context.Background()
 	err := suite.profiler.Start(ctx)
 	suite.Require().NoError(err)
-	defer suite.profiler.Stop()
-
-	// Create complex test project
-	config := &framework.ProjectGenerationConfig{
-		Type:         framework.ProjectTypeSingle,
-		Languages:    []string{"go"},
-		Complexity:   framework.ComplexityComplex,
-		Size:         framework.SizeLarge,
-		BuildSystem:  true,
-		TestFiles:    true,
-		Dependencies: true,
-	}
+	defer func() { _ = suite.profiler.Stop() }()
 
 	// Generate using mock or create manually
 	testDir, err := os.MkdirTemp(suite.tempDir, "perf-test-*")
 	suite.Require().NoError(err)
-	defer os.RemoveAll(testDir)
+	defer func() { _ = os.RemoveAll(testDir) }()
 
 	// Create complex project structure manually
 	files := map[string]string{
@@ -1600,13 +1589,13 @@ require (
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/sync v0.3.0
 )`,
-		"go.sum":            "github.com/gin-gonic/gin v1.9.1 h1:hash...",
-		"main.go":           "package main\n\nfunc main() {}",
-		"internal/lib.go":   "package internal\n\nfunc Lib() {}",
-		"pkg/utils.go":      "package pkg\n\nfunc Utils() {}",
-		"cmd/app/main.go":   "package main\n\nfunc main() {}",
-		".golangci.yml":     "run:\n  timeout: 5m",
-		"Makefile":          "build:\n\tgo build",
+		"go.sum":          "github.com/gin-gonic/gin v1.9.1 h1:hash...",
+		"main.go":         "package main\n\nfunc main() {}",
+		"internal/lib.go": "package internal\n\nfunc Lib() {}",
+		"pkg/utils.go":    "package pkg\n\nfunc Utils() {}",
+		"cmd/app/main.go": "package main\n\nfunc main() {}",
+		".golangci.yml":   "run:\n  timeout: 5m",
+		"Makefile":        "build:\n\tgo build",
 	}
 
 	for filePath, content := range files {
@@ -1656,7 +1645,7 @@ func (suite *GoDetectorTestSuite) BenchmarkSimpleGoDetection() {
 	// Create simple Go project
 	testDir, err := os.MkdirTemp(suite.tempDir, "bench-simple-*")
 	suite.Require().NoError(err)
-	defer os.RemoveAll(testDir)
+	defer func() { _ = os.RemoveAll(testDir) }()
 
 	files := map[string]string{
 		"go.mod":  "module bench-test\n\ngo 1.20",
@@ -1686,7 +1675,7 @@ func (suite *GoDetectorTestSuite) BenchmarkComplexGoDetection() {
 	// Create complex Go project
 	testDir, err := os.MkdirTemp(suite.tempDir, "bench-complex-*")
 	suite.Require().NoError(err)
-	defer os.RemoveAll(testDir)
+	defer func() { _ = os.RemoveAll(testDir) }()
 
 	files := map[string]string{
 		"go.mod": `module bench-complex
@@ -1739,7 +1728,7 @@ func TestGoDetector_ContextCancellation(t *testing.T) {
 	// Create test project
 	tempDir, err := os.MkdirTemp("", "context-cancel-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	goModPath := filepath.Join(tempDir, "go.mod")
 	err = os.WriteFile(goModPath, []byte("module test\n\ngo 1.20"), 0644)
@@ -1763,7 +1752,7 @@ func TestGoDetector_VendorDirectorySkipping(t *testing.T) {
 	// Create test project with vendor directory
 	tempDir, err := os.MkdirTemp("", "vendor-skip-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	files := map[string]string{
 		"go.mod":                    "module test\n\ngo 1.20",

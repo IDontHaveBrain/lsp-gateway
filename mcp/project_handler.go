@@ -11,20 +11,20 @@ import (
 
 // ProjectAwareToolHandler extends ToolHandler with project context awareness
 type ProjectAwareToolHandler struct {
-	*ToolHandler                    // Embed existing ToolHandler
+	*ToolHandler     // Embed existing ToolHandler
 	workspaceContext *WorkspaceContext
 	projectConfig    *config.GatewayConfig
 	isProjectAware   bool
-	logger          *StructuredLogger
+	logger           *StructuredLogger
 }
 
 // ProjectAwareConfig holds configuration for project-aware tool handling
 type ProjectAwareConfig struct {
-	EnableProjectAware     bool                      `json:"enable_project_aware"`
-	AutoDetectProject      bool                      `json:"auto_detect_project"`
-	ProjectPath            string                    `json:"project_path,omitempty"`
-	WorkspaceContextConfig *WorkspaceContextConfig   `json:"workspace_context_config,omitempty"`
-	GatewayConfig          *config.GatewayConfig     `json:"gateway_config,omitempty"`
+	EnableProjectAware     bool                    `json:"enable_project_aware"`
+	AutoDetectProject      bool                    `json:"auto_detect_project"`
+	ProjectPath            string                  `json:"project_path,omitempty"`
+	WorkspaceContextConfig *WorkspaceContextConfig `json:"workspace_context_config,omitempty"`
+	GatewayConfig          *config.GatewayConfig   `json:"gateway_config,omitempty"`
 }
 
 // NewProjectAwareToolHandler creates a new project-aware tool handler
@@ -38,7 +38,7 @@ func NewProjectAwareToolHandler(client *LSPGatewayClient, config *ProjectAwareCo
 
 	// Create base tool handler
 	baseHandler := NewToolHandler(client)
-	
+
 	// Create logger
 	logger := NewStructuredLogger(&LoggerConfig{
 		Level:      LogLevelInfo,
@@ -57,17 +57,17 @@ func NewProjectAwareToolHandler(client *LSPGatewayClient, config *ProjectAwareCo
 		if wsConfig == nil {
 			wsConfig = DefaultWorkspaceContextConfig()
 		}
-		
+
 		if config.ProjectPath != "" {
 			wsConfig.ProjectPath = config.ProjectPath
 		}
 
 		handler.workspaceContext = NewWorkspaceContext(wsConfig)
-		
+
 		// Initialize workspace context
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
-		
+
 		if err := handler.workspaceContext.Initialize(ctx); err != nil {
 			handler.logger.WithError(err).Warn("Failed to initialize workspace context")
 			// Continue without project awareness rather than failing
@@ -107,32 +107,32 @@ func (h *ProjectAwareToolHandler) GetProjectContext() *project.ProjectContext {
 // ListTools returns all available tools, including project-specific ones
 func (h *ProjectAwareToolHandler) ListTools() []Tool {
 	tools := h.ToolHandler.ListTools()
-	
+
 	// Add project-aware metadata to tool descriptions
 	if h.IsProjectAware() {
 		for i := range tools {
 			tools[i].Description = h.enhanceToolDescription(tools[i].Name, tools[i].Description)
 		}
 	}
-	
+
 	return tools
 }
 
 // CallTool executes a tool with project context enhancement
 func (h *ProjectAwareToolHandler) CallTool(ctx context.Context, call ToolCall) (*ToolResult, error) {
 	startTime := time.Now()
-	
+
 	h.logger.WithFields(map[string]interface{}{
-		"tool_name":      call.Name,
-		"project_aware":  h.IsProjectAware(),
-		"has_workspace":  h.workspaceContext != nil,
+		"tool_name":     call.Name,
+		"project_aware": h.IsProjectAware(),
+		"has_workspace": h.workspaceContext != nil,
 	}).Debug("Calling tool with project awareness")
 
 	// Enhance arguments with project context
 	enhancedCall := call
 	if h.IsProjectAware() {
 		enhancedCall.Arguments = h.workspaceContext.EnhanceToolArgs(call.Name, call.Arguments)
-		
+
 		// Refresh project context if needed
 		if err := h.workspaceContext.RefreshProject(ctx); err != nil {
 			h.logger.WithError(err).Warn("Failed to refresh project context")
@@ -183,7 +183,7 @@ func (h *ProjectAwareToolHandler) SetProjectPath(ctx context.Context, path strin
 	// Create new workspace context with updated path
 	config := DefaultWorkspaceContextConfig()
 	config.ProjectPath = path
-	
+
 	h.workspaceContext = NewWorkspaceContext(config)
 	return h.workspaceContext.Initialize(ctx)
 }
@@ -191,17 +191,17 @@ func (h *ProjectAwareToolHandler) SetProjectPath(ctx context.Context, path strin
 // GetProjectMetadata returns comprehensive project metadata for responses
 func (h *ProjectAwareToolHandler) GetProjectMetadata() map[string]interface{} {
 	metadata := make(map[string]interface{})
-	
+
 	metadata["project_aware_enabled"] = h.isProjectAware
 	metadata["has_workspace_context"] = h.workspaceContext != nil
-	
+
 	if h.IsProjectAware() {
 		projectMeta := h.workspaceContext.GetProjectMetadata()
 		for k, v := range projectMeta {
 			metadata[k] = v
 		}
 	}
-	
+
 	return metadata
 }
 
@@ -321,10 +321,10 @@ func (h *ProjectAwareToolHandler) registerProjectTools() {
 
 func (h *ProjectAwareToolHandler) isProjectSpecificTool(toolName string) bool {
 	projectTools := map[string]bool{
-		"analyze_project_structure":      true,
-		"find_project_symbols":           true,
-		"get_project_config":             true,
-		"validate_project_structure":     true,
+		"analyze_project_structure":       true,
+		"find_project_symbols":            true,
+		"get_project_config":              true,
+		"validate_project_structure":      true,
 		"discover_workspace_dependencies": true,
 	}
 	return projectTools[toolName]
@@ -378,9 +378,9 @@ func (h *ProjectAwareToolHandler) enhanceToolDescription(toolName, originalDesc 
 		return originalDesc
 	}
 
-	projectInfo := fmt.Sprintf(" (Project: %s, Type: %s)", 
+	projectInfo := fmt.Sprintf(" (Project: %s, Type: %s)",
 		filepath.Base(projectCtx.RootPath), projectCtx.ProjectType)
-	
+
 	return originalDesc + projectInfo
 }
 
@@ -409,7 +409,7 @@ func (h *ProjectAwareToolHandler) enhanceToolResult(toolName string, result *Too
 
 func (h *ProjectAwareToolHandler) handleAnalyzeProjectStructure(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
 	projectCtx := h.workspaceContext.GetProjectContext()
-	
+
 	analysis := map[string]interface{}{
 		"project_type":     projectCtx.ProjectType,
 		"primary_language": projectCtx.PrimaryLanguage,
@@ -427,7 +427,7 @@ func (h *ProjectAwareToolHandler) handleAnalyzeProjectStructure(ctx context.Cont
 		analysis["dev_dependencies"] = projectCtx.DevDependencies
 	}
 
-	// Include build info if requested  
+	// Include build info if requested
 	if includeBuild, ok := args["include_build_info"].(bool); ok && includeBuild {
 		analysis["build_system"] = projectCtx.BuildSystem
 		analysis["build_targets"] = projectCtx.BuildTargets
@@ -497,7 +497,7 @@ func (h *ProjectAwareToolHandler) handleGetProjectConfig(ctx context.Context, ar
 
 func (h *ProjectAwareToolHandler) handleValidateProjectStructure(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
 	projectCtx := h.workspaceContext.GetProjectContext()
-	
+
 	validation := map[string]interface{}{
 		"is_valid":            projectCtx.IsValid,
 		"validation_errors":   projectCtx.ValidationErrors,
@@ -521,7 +521,7 @@ func (h *ProjectAwareToolHandler) handleValidateProjectStructure(ctx context.Con
 
 func (h *ProjectAwareToolHandler) handleDiscoverWorkspaceDependencies(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
 	projectCtx := h.workspaceContext.GetProjectContext()
-	
+
 	dependencies := map[string]interface{}{
 		"dependencies":     projectCtx.Dependencies,
 		"dev_dependencies": projectCtx.DevDependencies,

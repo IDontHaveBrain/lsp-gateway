@@ -15,32 +15,32 @@ import (
 
 // Framework mappings for dependency name to framework name lookup
 var frameworkMap = map[string]string{
-	"express":        "Express.js",
-	"koa":            "Koa.js",
-	"fastify":        "Fastify",
-	"hapi":           "Hapi.js",
-	"nestjs":         "NestJS",
-	"react":          "React",
-	"vue":            "Vue.js",
-	"angular":        "Angular",
-	"@angular/core":  "Angular",
-	"svelte":         "Svelte",
-	"next":           "Next.js",
-	"nuxt":           "Nuxt.js",
-	"gatsby":         "Gatsby",
-	"electron":       "Electron",
-	"react-native":   "React Native",
-	"jest":           "Jest",
-	"mocha":          "Mocha",
-	"chai":           "Chai",
-	"cypress":        "Cypress",
-	"playwright":     "Playwright",
-	"webpack":        "Webpack",
-	"vite":           "Vite",
-	"rollup":         "Rollup",
-	"typescript":     "TypeScript",
-	"eslint":         "ESLint",
-	"prettier":       "Prettier",
+	"express":       "Express.js",
+	"koa":           "Koa.js",
+	"fastify":       "Fastify",
+	"hapi":          "Hapi.js",
+	"nestjs":        "NestJS",
+	"react":         "React",
+	"vue":           "Vue.js",
+	"angular":       "Angular",
+	"@angular/core": "Angular",
+	"svelte":        "Svelte",
+	"next":          "Next.js",
+	"nuxt":          "Nuxt.js",
+	"gatsby":        "Gatsby",
+	"electron":      "Electron",
+	"react-native":  "React Native",
+	"jest":          "Jest",
+	"mocha":         "Mocha",
+	"chai":          "Chai",
+	"cypress":       "Cypress",
+	"playwright":    "Playwright",
+	"webpack":       "Webpack",
+	"vite":          "Vite",
+	"rollup":        "Rollup",
+	"typescript":    "TypeScript",
+	"eslint":        "ESLint",
+	"prettier":      "Prettier",
 }
 
 // Framework to project type mappings
@@ -77,9 +77,9 @@ func NewNodeJSLanguageDetector() LanguageDetector {
 
 func (n *NodeJSLanguageDetector) DetectLanguage(ctx context.Context, path string) (*types.LanguageDetectionResult, error) {
 	startTime := time.Now()
-	
+
 	n.logger.WithField("path", path).Debug("Starting Node.js project detection")
-	
+
 	result := &types.LanguageDetectionResult{
 		Language:        types.PROJECT_TYPE_NODEJS,
 		RequiredServers: []string{types.SERVER_TYPESCRIPT_LANG_SERVER},
@@ -101,7 +101,7 @@ func (n *NodeJSLanguageDetector) DetectLanguage(ctx context.Context, path string
 		result.MarkerFiles = append(result.MarkerFiles, types.MARKER_PACKAGE_JSON)
 		result.ConfigFiles = append(result.ConfigFiles, types.MARKER_PACKAGE_JSON)
 		confidence = 0.95
-		
+
 		if err := n.parsePackageJson(packageJsonPath, result); err != nil {
 			n.logger.WithError(err).Warn("Failed to parse package.json")
 			confidence = 0.8
@@ -119,7 +119,7 @@ func (n *NodeJSLanguageDetector) DetectLanguage(ctx context.Context, path string
 			} else {
 				confidence = min(confidence+0.05, 1.0)
 			}
-			
+
 			// Determine package manager
 			switch lockFile {
 			case types.MARKER_YARN_LOCK:
@@ -169,11 +169,11 @@ func (n *NodeJSLanguageDetector) DetectLanguage(ctx context.Context, path string
 	result.Metadata["detector_version"] = "1.0.0"
 
 	n.logger.WithFields(map[string]interface{}{
-		"confidence":      result.Confidence,
-		"marker_files":    len(result.MarkerFiles),
-		"source_dirs":     len(result.SourceDirs),
-		"dependencies":    len(result.Dependencies),
-		"detection_time":  time.Since(startTime),
+		"confidence":     result.Confidence,
+		"marker_files":   len(result.MarkerFiles),
+		"source_dirs":    len(result.SourceDirs),
+		"dependencies":   len(result.Dependencies),
+		"detection_time": time.Since(startTime),
 	}).Info("Node.js project detection completed")
 
 	return result, nil
@@ -264,7 +264,7 @@ func (n *NodeJSLanguageDetector) parsePackageJson(packageJsonPath string, result
 func (n *NodeJSLanguageDetector) scanForNodeFiles(path string, result *types.LanguageDetectionResult, nodeFileCount *int) error {
 	sourceDirs := make(map[string]bool)
 	testDirs := make(map[string]bool)
-	
+
 	err := filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Continue on errors
@@ -287,10 +287,10 @@ func (n *NodeJSLanguageDetector) scanForNodeFiles(path string, result *types.Lan
 			*nodeFileCount++
 			dir := filepath.Dir(filePath)
 			relDir, _ := filepath.Rel(path, dir)
-			
+
 			fileName := strings.ToLower(info.Name())
 			if strings.Contains(fileName, "test") || strings.Contains(fileName, "spec") ||
-			   strings.Contains(relDir, "test") || strings.Contains(relDir, "__tests__") {
+				strings.Contains(relDir, "test") || strings.Contains(relDir, "__tests__") {
 				testDirs[relDir] = true
 			} else {
 				sourceDirs[relDir] = true
@@ -298,7 +298,7 @@ func (n *NodeJSLanguageDetector) scanForNodeFiles(path string, result *types.Lan
 		}
 
 		// Look for build and configuration files
-		buildFiles := []string{"webpack.config.js", "rollup.config.js", "vite.config.js", 
+		buildFiles := []string{"webpack.config.js", "rollup.config.js", "vite.config.js",
 			"babel.config.js", ".babelrc", "gulpfile.js", "Gruntfile.js"}
 		for _, buildFile := range buildFiles {
 			if info.Name() == buildFile {
@@ -369,7 +369,7 @@ func (n *NodeJSLanguageDetector) detectProjectTypes(frameworks []string) []strin
 			}
 		}
 	}
-	
+
 	projectTypes := make([]string, 0, len(projectTypesSet))
 	for projectType := range projectTypesSet {
 		projectTypes = append(projectTypes, projectType)
@@ -379,7 +379,7 @@ func (n *NodeJSLanguageDetector) detectProjectTypes(frameworks []string) []strin
 
 func (n *NodeJSLanguageDetector) detectNodeFrameworks(result *types.LanguageDetectionResult) {
 	frameworks := []string{}
-	
+
 	// Check dependencies for known frameworks
 	allDeps := make(map[string]string)
 	for k, v := range result.Dependencies {
@@ -444,23 +444,23 @@ func (n *NodeJSLanguageDetector) analyzeProjectStructure(path string, result *ty
 
 func (n *NodeJSLanguageDetector) detectAdditionalConfigs(path string, result *types.LanguageDetectionResult) {
 	configFiles := map[string]string{
-		".eslintrc.js":     "ESLint",
-		".eslintrc.json":   "ESLint",
-		".prettierrc":      "Prettier",
-		"tsconfig.json":    "TypeScript",
-		"jest.config.js":   "Jest",
-		"cypress.json":     "Cypress",
-		"webpack.config.js": "Webpack",
-		"vite.config.js":   "Vite",
-		"rollup.config.js": "Rollup",
-		".babelrc":         "Babel",
-		"babel.config.js":  "Babel",
-		"nodemon.json":     "Nodemon",
-		"pm2.config.js":    "PM2",
-		"Dockerfile":       "Docker",
+		".eslintrc.js":       "ESLint",
+		".eslintrc.json":     "ESLint",
+		".prettierrc":        "Prettier",
+		"tsconfig.json":      "TypeScript",
+		"jest.config.js":     "Jest",
+		"cypress.json":       "Cypress",
+		"webpack.config.js":  "Webpack",
+		"vite.config.js":     "Vite",
+		"rollup.config.js":   "Rollup",
+		".babelrc":           "Babel",
+		"babel.config.js":    "Babel",
+		"nodemon.json":       "Nodemon",
+		"pm2.config.js":      "PM2",
+		"Dockerfile":         "Docker",
 		"docker-compose.yml": "Docker Compose",
-		".nvmrc":           "NVM",
-		".node-version":    "Node Version",
+		".nvmrc":             "NVM",
+		".node-version":      "Node Version",
 	}
 
 	for file, description := range configFiles {
@@ -543,7 +543,7 @@ func (n *NodeJSLanguageDetector) ValidateStructure(ctx context.Context, path str
 		if err != nil {
 			return nil
 		}
-		
+
 		if !info.IsDir() {
 			ext := strings.ToLower(filepath.Ext(filePath))
 			if ext == types.EXT_JS || ext == types.EXT_TS || ext == ".jsx" || ext == types.EXT_TSX || ext == ".mjs" || ext == ".cjs" {
@@ -551,12 +551,12 @@ func (n *NodeJSLanguageDetector) ValidateStructure(ctx context.Context, path str
 				return filepath.SkipAll // Found at least one, can stop
 			}
 		}
-		
+
 		// Skip node_modules directory
 		if info.IsDir() && info.Name() == "node_modules" {
 			return filepath.SkipDir
 		}
-		
+
 		return nil
 	})
 

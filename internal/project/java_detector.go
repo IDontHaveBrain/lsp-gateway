@@ -31,9 +31,9 @@ func NewJavaLanguageDetector() LanguageDetector {
 
 func (j *JavaLanguageDetector) DetectLanguage(ctx context.Context, path string) (*types.LanguageDetectionResult, error) {
 	startTime := time.Now()
-	
+
 	j.logger.WithField("path", path).Debug("Starting Java project detection")
-	
+
 	result := &types.LanguageDetectionResult{
 		Language:        types.PROJECT_TYPE_JAVA,
 		RequiredServers: []string{types.SERVER_JDTLS},
@@ -56,7 +56,7 @@ func (j *JavaLanguageDetector) DetectLanguage(ctx context.Context, path string) 
 		result.ConfigFiles = append(result.ConfigFiles, types.MARKER_POM_XML)
 		confidence = 0.95
 		result.Metadata["build_system"] = "maven"
-		
+
 		if err := j.parsePomXml(pomPath, result); err != nil {
 			j.logger.WithError(err).Warn("Failed to parse pom.xml")
 			confidence = 0.8
@@ -77,7 +77,7 @@ func (j *JavaLanguageDetector) DetectLanguage(ctx context.Context, path string) 
 				// Both Maven and Gradle - unusual but possible
 				result.Metadata["build_system"] = "hybrid"
 			}
-			
+
 			if err := j.parseBuildGradle(gradlePath, result); err != nil {
 				j.logger.WithError(err).Warn("Failed to parse build.gradle")
 			}
@@ -131,11 +131,11 @@ func (j *JavaLanguageDetector) DetectLanguage(ctx context.Context, path string) 
 	result.Metadata["detector_version"] = types.DETECTOR_VERSION_DEFAULT
 
 	j.logger.WithFields(map[string]interface{}{
-		"confidence":      result.Confidence,
-		"marker_files":    len(result.MarkerFiles),
-		"source_dirs":     len(result.SourceDirs),
-		"dependencies":    len(result.Dependencies),
-		"detection_time":  time.Since(startTime),
+		"confidence":     result.Confidence,
+		"marker_files":   len(result.MarkerFiles),
+		"source_dirs":    len(result.SourceDirs),
+		"dependencies":   len(result.Dependencies),
+		"detection_time": time.Since(startTime),
 	}).Info("Java project detection completed")
 
 	return result, nil
@@ -143,16 +143,16 @@ func (j *JavaLanguageDetector) DetectLanguage(ctx context.Context, path string) 
 
 // MavenPOM represents a simplified Maven POM structure
 type MavenPOM struct {
-	XMLName      xml.Name `xml:"project"`
-	GroupId      string   `xml:"groupId"`
-	ArtifactId   string   `xml:"artifactId"`
-	Version      string   `xml:"version"`
-	Packaging    string   `xml:"packaging"`
-	Name         string   `xml:"name"`
-	Description  string   `xml:"description"`
-	Properties   Properties `xml:"properties"`
+	XMLName      xml.Name     `xml:"project"`
+	GroupId      string       `xml:"groupId"`
+	ArtifactId   string       `xml:"artifactId"`
+	Version      string       `xml:"version"`
+	Packaging    string       `xml:"packaging"`
+	Name         string       `xml:"name"`
+	Description  string       `xml:"description"`
+	Properties   Properties   `xml:"properties"`
 	Dependencies Dependencies `xml:"dependencies"`
-	Parent       Parent   `xml:"parent"`
+	Parent       Parent       `xml:"parent"`
 }
 
 type Properties struct {
@@ -248,10 +248,10 @@ func (j *JavaLanguageDetector) parseBuildGradle(gradlePath string, result *types
 
 	scanner := bufio.NewScanner(file)
 	var currentSection string
-	
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		
+
 		// Skip comments and empty lines
 		if line == "" || strings.HasPrefix(line, "//") {
 			continue
@@ -295,14 +295,14 @@ func (j *JavaLanguageDetector) parseGradleDependency(line string, result *types.
 	// implementation 'group:artifact:version'
 	// testImplementation 'group:artifact:version'
 	// compile 'group:artifact:version'
-	
+
 	depRegex := regexp.MustCompile(`(implementation|testImplementation|compile|testCompile|api|testApi)\s+['"]+([^'"]+)['"]+`)
 	matches := depRegex.FindStringSubmatch(line)
-	
+
 	if len(matches) >= 3 {
 		depType := matches[1]
 		depString := matches[2]
-		
+
 		// Parse group:artifact:version
 		parts := strings.Split(depString, ":")
 		if len(parts) >= 2 {
@@ -311,7 +311,7 @@ func (j *JavaLanguageDetector) parseGradleDependency(line string, result *types.
 			if len(parts) >= 3 {
 				version = parts[2]
 			}
-			
+
 			if strings.Contains(depType, "test") {
 				result.DevDependencies[depKey] = version
 			} else {
@@ -319,14 +319,14 @@ func (j *JavaLanguageDetector) parseGradleDependency(line string, result *types.
 			}
 		}
 	}
-	
+
 	return nil
 }
 
 func (j *JavaLanguageDetector) scanForJavaFiles(path string, result *types.LanguageDetectionResult, javaFileCount *int) error {
 	sourceDirs := make(map[string]bool)
 	testDirs := make(map[string]bool)
-	
+
 	err := filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Continue on errors
@@ -348,7 +348,7 @@ func (j *JavaLanguageDetector) scanForJavaFiles(path string, result *types.Langu
 			*javaFileCount++
 			dir := filepath.Dir(filePath)
 			relDir, _ := filepath.Rel(path, dir)
-			
+
 			// Determine if it's a test directory
 			if strings.Contains(relDir, "test") || strings.Contains(relDir, "Test") {
 				testDirs[relDir] = true
@@ -397,7 +397,7 @@ func (j *JavaLanguageDetector) detectJavaVersion(ctx context.Context, result *ty
 		if output == "" {
 			output = strings.TrimSpace(execResult.Stdout)
 		}
-		
+
 		// Parse output like: java version "11.0.2" 2019-01-15 LTS
 		lines := strings.Split(output, "\n")
 		if len(lines) > 0 {
@@ -418,7 +418,7 @@ func (j *JavaLanguageDetector) detectJavaVersion(ctx context.Context, result *ty
 
 func (j *JavaLanguageDetector) detectJavaFrameworks(result *types.LanguageDetectionResult) {
 	frameworks := []string{}
-	
+
 	// Check dependencies for known frameworks
 	allDeps := make(map[string]string)
 	for k, v := range result.Dependencies {
@@ -521,21 +521,21 @@ func (j *JavaLanguageDetector) analyzeProjectStructure(path string, result *type
 
 func (j *JavaLanguageDetector) detectAdditionalConfigs(path string, result *types.LanguageDetectionResult) {
 	configFiles := map[string]string{
-		"application.properties": "Spring Boot Configuration",
-		"application.yml":        "Spring Boot Configuration",
-		"application.yaml":       "Spring Boot Configuration",
-		"logback.xml":           "Logback Configuration",
-		"log4j.properties":      "Log4j Configuration",
-		"log4j2.xml":            "Log4j2 Configuration",
-		"hibernate.cfg.xml":     "Hibernate Configuration",
-		"persistence.xml":       "JPA Configuration",
-		"web.xml":               "Java Web Application",
-		"beans.xml":             "CDI Configuration",
-		"META-INF/MANIFEST.MF":  "JAR Manifest",
-		".mvn/wrapper/maven-wrapper.properties": "Maven Wrapper",
+		"application.properties":                   "Spring Boot Configuration",
+		"application.yml":                          "Spring Boot Configuration",
+		"application.yaml":                         "Spring Boot Configuration",
+		"logback.xml":                              "Logback Configuration",
+		"log4j.properties":                         "Log4j Configuration",
+		"log4j2.xml":                               "Log4j2 Configuration",
+		"hibernate.cfg.xml":                        "Hibernate Configuration",
+		"persistence.xml":                          "JPA Configuration",
+		"web.xml":                                  "Java Web Application",
+		"beans.xml":                                "CDI Configuration",
+		"META-INF/MANIFEST.MF":                     "JAR Manifest",
+		".mvn/wrapper/maven-wrapper.properties":    "Maven Wrapper",
 		"gradle/wrapper/gradle-wrapper.properties": "Gradle Wrapper",
-		"settings.gradle":       "Gradle Settings",
-		"gradle.properties":     "Gradle Properties",
+		"settings.gradle":                          "Gradle Settings",
+		"gradle.properties":                        "Gradle Properties",
 	}
 
 	for file, description := range configFiles {
@@ -592,11 +592,11 @@ func (j *JavaLanguageDetector) GetPriority() int {
 func (j *JavaLanguageDetector) ValidateStructure(ctx context.Context, path string) error {
 	// Check for either Maven or Gradle build file
 	hasBuildFile := false
-	
+
 	pomPath := filepath.Join(path, types.MARKER_POM_XML)
 	if _, err := os.Stat(pomPath); err == nil {
 		hasBuildFile = true
-		
+
 		// Validate pom.xml is readable
 		if _, err := os.ReadFile(pomPath); err != nil {
 			return types.NewValidationError(types.PROJECT_TYPE_JAVA, "pom.xml is not readable", err).
@@ -607,7 +607,7 @@ func (j *JavaLanguageDetector) ValidateStructure(ctx context.Context, path strin
 	gradlePath := filepath.Join(path, types.MARKER_BUILD_GRADLE)
 	if _, err := os.Stat(gradlePath); err == nil {
 		hasBuildFile = true
-		
+
 		// Validate build.gradle is readable
 		if _, err := os.ReadFile(gradlePath); err != nil {
 			return types.NewValidationError(types.PROJECT_TYPE_JAVA, "build.gradle is not readable", err).
@@ -629,12 +629,12 @@ func (j *JavaLanguageDetector) ValidateStructure(ctx context.Context, path strin
 		if err != nil {
 			return nil
 		}
-		
+
 		if !info.IsDir() && strings.HasSuffix(filePath, ".java") {
 			hasJavaFiles = true
 			return filepath.SkipAll // Found at least one, can stop
 		}
-		
+
 		// Skip build directories
 		if info.IsDir() {
 			name := info.Name()
@@ -642,7 +642,7 @@ func (j *JavaLanguageDetector) ValidateStructure(ctx context.Context, path strin
 				return filepath.SkipDir
 			}
 		}
-		
+
 		return nil
 	})
 
