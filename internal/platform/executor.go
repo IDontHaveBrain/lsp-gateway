@@ -60,25 +60,29 @@ func (w *windowsExecutor) ExecuteWithEnv(cmd string, args []string, env map[stri
 		}
 	}
 
-	stdout, err := execCmd.Output()
+	// Capture both stdout and stderr separately
+	var stdoutBuf, stderrBuf strings.Builder
+	execCmd.Stdout = &stdoutBuf
+	execCmd.Stderr = &stderrBuf
+
+	err := execCmd.Run()
 	duration := time.Since(start)
 
 	result := &Result{
-		Stdout:   string(stdout),
+		Stdout:   stdoutBuf.String(),
+		Stderr:   stderrBuf.String(),
 		Duration: duration,
 	}
 
 	if err != nil {
 		if exitError, ok := err.(*exec.ExitError); ok {
 			result.ExitCode = exitError.ExitCode()
-			result.Stderr = string(exitError.Stderr)
 		} else if ctx.Err() == context.DeadlineExceeded {
 			result.ExitCode = -1
 			result.Stderr = fmt.Sprintf(COMMAND_TIMEOUT_MESSAGE, timeout)
 			return result, fmt.Errorf(ERROR_COMMAND_TIMEOUT, err)
 		} else {
 			result.ExitCode = -1
-			result.Stderr = err.Error()
 		}
 		return result, err
 	}
@@ -130,25 +134,29 @@ func (u *unixExecutor) ExecuteWithEnv(cmd string, args []string, env map[string]
 		}
 	}
 
-	stdout, err := execCmd.Output()
+	// Capture both stdout and stderr separately
+	var stdoutBuf, stderrBuf strings.Builder
+	execCmd.Stdout = &stdoutBuf
+	execCmd.Stderr = &stderrBuf
+
+	err := execCmd.Run()
 	duration := time.Since(start)
 
 	result := &Result{
-		Stdout:   string(stdout),
+		Stdout:   stdoutBuf.String(),
+		Stderr:   stderrBuf.String(),
 		Duration: duration,
 	}
 
 	if err != nil {
 		if exitError, ok := err.(*exec.ExitError); ok {
 			result.ExitCode = exitError.ExitCode()
-			result.Stderr = string(exitError.Stderr)
 		} else if ctx.Err() == context.DeadlineExceeded {
 			result.ExitCode = -1
 			result.Stderr = fmt.Sprintf(COMMAND_TIMEOUT_MESSAGE, timeout)
 			return result, fmt.Errorf(ERROR_COMMAND_TIMEOUT, err)
 		} else {
 			result.ExitCode = -1
-			result.Stderr = err.Error()
 		}
 		return result, err
 	}
