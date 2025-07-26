@@ -32,11 +32,7 @@ type TypeScriptTestFile struct {
 	Symbols     []TypeScriptSymbol
 }
 
-// LSPPosition represents a position in a document
-type LSPPosition struct {
-	Line      int `json:"line"`
-	Character int `json:"character"`
-}
+// LSPPosition is now defined in common_types.go to avoid redeclaration
 
 // TypeScriptSymbol represents a TypeScript symbol with position information
 type TypeScriptSymbol struct {

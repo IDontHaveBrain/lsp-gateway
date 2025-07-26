@@ -59,6 +59,8 @@ type PythonIntegrationResult struct {
 	PylspPluginIntegration  bool
 	PerformanceMetrics      *PythonPerformanceMetrics
 	TestDuration           time.Duration
+	TypeHintAccuracy       float64 // Type hint processing accuracy
+	ErrorCount             int     // Number of errors encountered
 }
 
 // SetupSuite initializes the test suite with real Python project structure
@@ -1656,7 +1658,11 @@ func (suite *PythonRealPylspIntegrationTestSuite) executeComprehensivePythonWork
 	startTime := time.Now()
 
 	// Test 1: Go to definition
-	result.TypeHintAccuracy = suite.testGoToDefinition(ctx)
+	if suite.testGoToDefinition(ctx) {
+		result.TypeHintAccuracy = 1.0
+	} else {
+		result.TypeHintAccuracy = 0.0
+	}
 	
 	// Test 2: Find references
 	suite.testFindReferences(ctx)
@@ -2059,7 +2065,7 @@ func (suite *PythonRealPylspIntegrationTestSuite) validatePythonIntegrationResul
 	suite.True(result.ServerStartSuccess, "Python server should start successfully")
 	suite.True(result.InitializationSuccess, "Server initialization should succeed")
 	suite.True(result.ProjectLoadSuccess, "Project should load successfully")
-	suite.True(result.TypeHintAccuracy, "Type hint processing should work accurately")
+	suite.True(result.TypeHintAccuracy > 0.0, "Type hint processing should work accurately")
 	suite.True(result.ImportResolutionWorks, "Import resolution should work")
 	suite.True(result.ModuleResolutionWorks, "Module resolution should work")
 	suite.True(result.DjangoModelSupport, "Django model support should work")
