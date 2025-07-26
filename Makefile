@@ -138,7 +138,7 @@ quality: format lint security
 # TESTING TARGETS
 # =============================================================================
 
-.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-mcp test-e2e-http test-e2e-performance test-e2e-workflow setup-simple-repos
+.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-go test-java-real test-python-real test-typescript-real test-e2e-advanced test-e2e-workflow setup-simple-repos
 setup-simple-repos:
 	@echo "Setting up test repositories..."
 	./scripts/setup-simple-repos.sh || echo "Setup script not found, skipping..."
@@ -158,6 +158,8 @@ test-lsp-validation-short:
 test-jdtls-integration:
 	@echo "Running JDTLS integration tests..."
 	$(GOTEST) -v -timeout 600s -run "TestJDTLS" ./tests/integration/...
+	@echo "Running Java E2E tests with real JDTLS..."
+	$(GOTEST) -v -timeout 900s -run "TestJava.*E2ETestSuite" ./tests/e2e/...
 
 test-circuit-breaker:
 	@echo "Running circuit breaker E2E tests..."
@@ -170,27 +172,50 @@ test-circuit-breaker-comprehensive:
 # E2E Test Suite Targets
 test-e2e-quick:
 	@echo "Running quick E2E validation tests..."
-	$(GOTEST) -v -short -timeout 300s -run "TestE2EQuickValidation" ./tests/e2e/...
+	$(GOTEST) -v -short -timeout 300s ./tests/e2e/...
 
 test-e2e-full:
 	@echo "Running full E2E test suite..."
-	$(GOTEST) -v -timeout 1800s -run "TestFullE2ETestSuite" ./tests/e2e/...
+	$(GOTEST) -v -timeout 1800s ./tests/e2e/...
 
-test-e2e-mcp:
-	@echo "Running MCP protocol E2E tests..."
-	$(GOTEST) -v -timeout 600s -run "TestMCPProtocol" ./tests/e2e/...
+# Language-Specific E2E Test Targets
+test-e2e-java:
+	@echo "Running Java E2E tests (mock and real JDTLS)..."
+	$(GOTEST) -v -timeout 900s -run "TestJava.*E2ETestSuite|TestJavaRealJDTLSE2ETestSuite" ./tests/e2e/...
 
-test-e2e-http:
-	@echo "Running HTTP JSON-RPC E2E tests..."
-	$(GOTEST) -v -timeout 600s -run "TestHTTPProtocol" ./tests/e2e/...
+test-e2e-python:
+	@echo "Running Python E2E tests..."
+	$(GOTEST) -v -timeout 600s -run "TestPython.*E2ETestSuite" ./tests/e2e/...
 
-test-e2e-performance:
-	@echo "Running E2E performance tests..."
-	$(GOTEST) -v -timeout 1200s -run "TestE2EPerformance" ./tests/e2e/...
+test-e2e-typescript:
+	@echo "Running TypeScript E2E tests..."
+	$(GOTEST) -v -timeout 600s -run "TestTypeScript.*E2ETestSuite" ./tests/e2e/...
+
+test-e2e-go:
+	@echo "Running Go E2E tests..."
+	$(GOTEST) -v -timeout 600s -run "TestGo.*E2ETestSuite" ./tests/e2e/...
+
+# Real Language Server Integration Tests
+test-java-real:
+	@echo "Running Java real JDTLS integration tests..."
+	$(GOTEST) -v -timeout 900s -run "TestJavaRealJDTLSE2ETestSuite" ./tests/e2e/...
+
+test-python-real:
+	@echo "Running Python real pylsp integration tests..."
+	$(GOTEST) -v -timeout 600s -run "TestPythonReal.*IntegrationTestSuite" ./tests/e2e/...
+
+test-typescript-real:
+	@echo "Running TypeScript real server integration tests..."
+	$(GOTEST) -v -timeout 600s -run "TestTypeScriptReal.*IntegrationTestSuite" ./tests/e2e/...
+
+# Advanced E2E Test Targets
+test-e2e-advanced:
+	@echo "Running advanced E2E test scenarios..."
+	$(GOTEST) -v -timeout 1200s -run ".*Advanced.*E2ETestSuite" ./tests/e2e/...
 
 test-e2e-workflow:
 	@echo "Running E2E workflow tests..."
-	$(GOTEST) -v -timeout 900s -run "TestE2EWorkflow" ./tests/e2e/...
+	$(GOTEST) -v -timeout 900s -run ".*BasicWorkflow.*E2ETestSuite" ./tests/e2e/...
 
 
 # =============================================================================
@@ -248,10 +273,19 @@ help:
 	@echo "E2E Testing:"
 	@echo "  test-e2e-quick         - Quick E2E validation tests"
 	@echo "  test-e2e-full          - Full E2E test suite"
-	@echo "  test-e2e-mcp           - MCP protocol E2E tests"
-	@echo "  test-e2e-http          - HTTP JSON-RPC E2E tests"
-	@echo "  test-e2e-performance   - E2E performance tests"
 	@echo "  test-e2e-workflow      - E2E workflow tests"
+	@echo "  test-e2e-advanced      - Advanced E2E test scenarios"
+	@echo ""
+	@echo "Language-Specific E2E Tests:"
+	@echo "  test-e2e-java          - Java E2E tests (mock and real JDTLS)"
+	@echo "  test-e2e-python        - Python E2E tests"
+	@echo "  test-e2e-typescript    - TypeScript E2E tests"
+	@echo "  test-e2e-go            - Go E2E tests"
+	@echo ""
+	@echo "Real Language Server Integration:"
+	@echo "  test-java-real         - Java real JDTLS integration"
+	@echo "  test-python-real       - Python real pylsp integration"
+	@echo "  test-typescript-real   - TypeScript real server integration"
 	@echo ""
 	@echo "Utility:"
 	@echo "  install   - Install binary to GOPATH"

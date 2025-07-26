@@ -32,6 +32,12 @@ type TypeScriptTestFile struct {
 	Symbols     []TypeScriptSymbol
 }
 
+// LSPPosition represents a position in a document
+type LSPPosition struct {
+	Line      int `json:"line"`
+	Character int `json:"character"`
+}
+
 // TypeScriptSymbol represents a TypeScript symbol with position information
 type TypeScriptSymbol struct {
 	Name        string
@@ -39,12 +45,6 @@ type TypeScriptSymbol struct {
 	Position    LSPPosition
 	Type        string // TypeScript type information
 	Description string
-}
-
-// LSPPosition represents a position in a document
-type LSPPosition struct {
-	Line      int `json:"line"`
-	Character int `json:"character"`
 }
 
 // TypeScriptWorkflowResult captures results from TypeScript workflow execution

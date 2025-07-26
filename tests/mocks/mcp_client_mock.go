@@ -4,15 +4,19 @@ import (
 	"context"
 	"encoding/json"
 	"sync"
+	"time"
 )
 
 type MockMcpClient struct {
-	mu                  sync.RWMutex
-	requests            []MCPRequest
-	queuedResponses     []json.RawMessage
-	callCounts          map[string]int
-	isHealthy           bool
-	SendLSPRequestCalls []MCPRequestCall
+	mu                         sync.RWMutex
+	requests                   []MCPRequest
+	queuedResponses            []json.RawMessage
+	queuedErrors               []error
+	callCounts                 map[string]int
+	isHealthy                  bool
+	SendLSPRequestCalls        []MCPRequestCall
+	UpdateMetricsCalls         []UpdateMetricsCall
+	SetCircuitBreakerConfigCalls []CircuitBreakerConfigCall
 }
 
 type MCPRequestCall struct {
@@ -26,13 +30,30 @@ type MCPRequest struct {
 	Params interface{} `json:"params"`
 }
 
+type UpdateMetricsCall struct {
+	TotalRequests    int
+	SuccessfulRequests int
+	FailedRequests   int
+	ErrorCount       int
+	WarningCount     int
+	AverageLatency   time.Duration
+}
+
+type CircuitBreakerConfigCall struct {
+	ErrorThreshold   int
+	TimeoutDuration  time.Duration
+}
+
 func NewMockMcpClient() *MockMcpClient {
 	return &MockMcpClient{
-		requests:            make([]MCPRequest, 0),
-		queuedResponses:     make([]json.RawMessage, 0),
-		callCounts:          make(map[string]int),
-		isHealthy:           true,
-		SendLSPRequestCalls: make([]MCPRequestCall, 0),
+		requests:                   make([]MCPRequest, 0),
+		queuedResponses:            make([]json.RawMessage, 0),
+		queuedErrors:               make([]error, 0),
+		callCounts:                 make(map[string]int),
+		isHealthy:                  true,
+		SendLSPRequestCalls:        make([]MCPRequestCall, 0),
+		UpdateMetricsCalls:         make([]UpdateMetricsCall, 0),
+		SetCircuitBreakerConfigCalls: make([]CircuitBreakerConfigCall, 0),
 	}
 }
 
@@ -50,6 +71,13 @@ func (m *MockMcpClient) SendLSPRequest(ctx context.Context, method string, param
 
 	// Increment call count
 	m.callCounts[method]++
+
+	// Check if we have queued errors first
+	if len(m.queuedErrors) > 0 {
+		err := m.queuedErrors[0]
+		m.queuedErrors = m.queuedErrors[1:]
+		return nil, err
+	}
 
 	// Check if we have queued responses
 	if len(m.queuedResponses) > 0 {
@@ -113,8 +141,11 @@ func (m *MockMcpClient) Reset() {
 	defer m.mu.Unlock()
 	m.requests = m.requests[:0]
 	m.queuedResponses = m.queuedResponses[:0]
+	m.queuedErrors = m.queuedErrors[:0]
 	m.callCounts = make(map[string]int)
 	m.SendLSPRequestCalls = m.SendLSPRequestCalls[:0]
+	m.UpdateMetricsCalls = m.UpdateMetricsCalls[:0]
+	m.SetCircuitBreakerConfigCalls = m.SetCircuitBreakerConfigCalls[:0]
 	m.isHealthy = true
 }
 
@@ -172,4 +203,35 @@ func (m *MockMcpClient) isResponseCompatibleWithMethod(response json.RawMessage,
 		// For unsupported methods, reject
 		return false
 	}
+}
+
+// QueueError adds an error to the queue that will be returned by SendLSPRequest
+func (m *MockMcpClient) QueueError(err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.queuedErrors = append(m.queuedErrors, err)
+}
+
+// UpdateMetrics simulates updating performance metrics
+func (m *MockMcpClient) UpdateMetrics(totalRequests, successfulRequests, failedRequests, errorCount, warningCount int, averageLatency time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.UpdateMetricsCalls = append(m.UpdateMetricsCalls, UpdateMetricsCall{
+		TotalRequests:      totalRequests,
+		SuccessfulRequests: successfulRequests,
+		FailedRequests:     failedRequests,
+		ErrorCount:         errorCount,
+		WarningCount:       warningCount,
+		AverageLatency:     averageLatency,
+	})
+}
+
+// SetCircuitBreakerConfig simulates setting circuit breaker configuration
+func (m *MockMcpClient) SetCircuitBreakerConfig(errorThreshold int, timeoutDuration time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.SetCircuitBreakerConfigCalls = append(m.SetCircuitBreakerConfigCalls, CircuitBreakerConfigCall{
+		ErrorThreshold:  errorThreshold,
+		TimeoutDuration: timeoutDuration,
+	})
 }
