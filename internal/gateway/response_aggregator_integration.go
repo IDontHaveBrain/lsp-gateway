@@ -472,7 +472,7 @@ func (sr *SmartRouterWithAggregation) estimateResponseSize(response interface{})
 // Integration Example Usage
 
 // ExampleUsage demonstrates how to use the enhanced router with aggregation
-func ExampleUsage() {
+func ExampleResponseAggregatorUsage() {
 	// This is an example of how to integrate the ResponseAggregator with existing systems
 
 	// 1. Create the enhanced router (this would typically be done in your main initialization)

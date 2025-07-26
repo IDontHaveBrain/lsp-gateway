@@ -141,30 +141,6 @@ type QueryAnalysis struct {
 	Metadata     map[string]interface{} `json:"metadata,omitempty"`
 }
 
-// QueryComplexity defines the complexity level of a query
-type QueryComplexity int
-
-const (
-	ComplexitySimple   QueryComplexity = iota + 1 // Simple symbol lookup
-	ComplexityModerate                            // Cross-file analysis
-	ComplexityComplex                             // Workspace-wide analysis
-	ComplexityDynamic                             // Runtime-dependent analysis
-)
-
-func (qc QueryComplexity) String() string {
-	switch qc {
-	case ComplexitySimple:
-		return "Simple"
-	case ComplexityModerate:
-		return "Moderate"
-	case ComplexityComplex:
-		return "Complex"
-	case ComplexityDynamic:
-		return "Dynamic"
-	default:
-		return "Unknown"
-	}
-}
 
 // ComputationCost defines the computational cost of a query
 type ComputationCost int
@@ -519,13 +495,13 @@ func (sr *SCIPSmartRouterImpl) DecideRoutingSource(method string, params interfa
 
 	case SCIPHybrid:
 		// Intelligent decision based on query analysis
-		if analysis.IsSymbolQuery && !analysis.RequiresRuntime && analysis.Complexity <= ComplexityModerate {
+		if analysis.IsSymbolQuery && !analysis.RequiresRuntime && analysis.Complexity <= QueryComplexityModerate {
 			source = SourceSCIPCache
 			fallback := SourceLSPServer
 			fallbackSource = &fallback
 			confidence = sr.estimateConfidence(method, analysis)
 			reason = "Hybrid: Simple symbol query suitable for cache"
-		} else if analysis.RequiresRuntime || analysis.Complexity >= ComplexityComplex {
+		} else if analysis.RequiresRuntime || analysis.Complexity >= QueryComplexityComplex {
 			source = SourceLSPServer
 			confidence = ConfidenceHigh
 			reason = "Hybrid: Complex/runtime query requires LSP"
@@ -749,7 +725,7 @@ func (sr *SCIPSmartRouterImpl) analyzeQuery(request *LSPRequest) *QueryAnalysis 
 
 	// Set analysis hints
 	analysis.StaticAnalysisHint = !analysis.RequiresRuntime && analysis.IsSymbolQuery
-	analysis.DynamicAnalysisHint = analysis.RequiresRuntime || analysis.Complexity >= ComplexityComplex
+	analysis.DynamicAnalysisHint = analysis.RequiresRuntime || analysis.Complexity >= QueryComplexityComplex
 
 	return analysis
 }
@@ -825,30 +801,30 @@ func (sr *SCIPSmartRouterImpl) isCacheEligible(method string) bool {
 func (sr *SCIPSmartRouterImpl) analyzeComplexity(request *LSPRequest) QueryComplexity {
 	switch request.Method {
 	case LSP_METHOD_HOVER, LSP_METHOD_DEFINITION:
-		return ComplexitySimple
+		return QueryComplexitySimple
 	case LSP_METHOD_REFERENCES, LSP_METHOD_DOCUMENT_SYMBOL:
-		return ComplexityModerate
+		return QueryComplexityModerate
 	case LSP_METHOD_WORKSPACE_SYMBOL:
-		return ComplexityComplex
+		return QueryComplexityComplex
 	case "textDocument/completion", "textDocument/diagnostic":
-		return ComplexityDynamic
+		return QueryComplexityDynamic
 	default:
-		return ComplexityModerate
+		return QueryComplexityModerate
 	}
 }
 
 // estimateComplexityFromParams estimates complexity from method and parameters
 func (sr *SCIPSmartRouterImpl) estimateComplexityFromParams(method string, params interface{}) QueryComplexity {
 	// Basic estimation based on method
-	baseComplexity := ComplexityModerate
+	baseComplexity := QueryComplexityModerate
 
 	switch method {
 	case LSP_METHOD_HOVER, LSP_METHOD_DEFINITION:
-		baseComplexity = ComplexitySimple
+		baseComplexity = QueryComplexitySimple
 	case LSP_METHOD_WORKSPACE_SYMBOL:
-		baseComplexity = ComplexityComplex
+		baseComplexity = QueryComplexityComplex
 	case "textDocument/completion", "textDocument/diagnostic":
-		baseComplexity = ComplexityDynamic
+		baseComplexity = QueryComplexityDynamic
 	}
 
 	// Could analyze params for more detailed complexity estimation
@@ -1129,10 +1105,10 @@ func getDefaultScoringConfig() *SCIPScoringConfig {
 		RecentAccessBonus:    0.05,
 		FileStalenessPenalty: 0.1,
 		ComplexityPenalty: map[QueryComplexity]float64{
-			ComplexitySimple:   0.0,
-			ComplexityModerate: 0.05,
-			ComplexityComplex:  0.1,
-			ComplexityDynamic:  0.2,
+			QueryComplexitySimple:   0.0,
+			QueryComplexityModerate: 0.05,
+			QueryComplexityComplex:  0.1,
+			QueryComplexityDynamic:  0.2,
 		},
 		MethodBonus: map[string]float64{
 			LSP_METHOD_DEFINITION:      0.1,

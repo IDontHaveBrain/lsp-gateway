@@ -3,8 +3,11 @@ package mocks
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 	"time"
+
+	"lsp-gateway/mcp"
 )
 
 type MockMcpClient struct {
@@ -17,6 +20,27 @@ type MockMcpClient struct {
 	SendLSPRequestCalls        []MCPRequestCall
 	UpdateMetricsCalls         []UpdateMetricsCall
 	SetCircuitBreakerConfigCalls []CircuitBreakerConfigCall
+	
+	// Customizable function for SendLSPRequest behavior
+	SendLSPRequestFunc         func(ctx context.Context, method string, params interface{}) (json.RawMessage, error)
+	
+	// Additional call tracking
+	GetMetricsCalls            []interface{}
+	IsHealthyCalls             []interface{}
+	GetHealthCalls             []GetHealthCall
+	GetCircuitBreakerStateCalls []interface{}
+	SetRetryPolicyCalls        []SetRetryPolicyCall
+	GetRetryPolicyCalls        []interface{}
+	CategorizeErrorCalls       []CategorizeErrorCall
+	CalculateBackoffCalls      []CalculateBackoffCall
+	
+	// Configuration state
+	baseURL           string
+	timeout           time.Duration
+	maxRetries        int
+	circuitBreakerState mcp.CircuitBreakerState
+	retryPolicy       *mcp.RetryPolicy
+	metrics           *mcp.ConnectionMetrics
 }
 
 type MCPRequestCall struct {
@@ -44,6 +68,22 @@ type CircuitBreakerConfigCall struct {
 	TimeoutDuration  time.Duration
 }
 
+type GetHealthCall struct {
+	Ctx context.Context
+}
+
+type SetRetryPolicyCall struct {
+	Policy *mcp.RetryPolicy
+}
+
+type CategorizeErrorCall struct {
+	Error error
+}
+
+type CalculateBackoffCall struct {
+	Attempt int
+}
+
 func NewMockMcpClient() *MockMcpClient {
 	return &MockMcpClient{
 		requests:                   make([]MCPRequest, 0),
@@ -54,6 +94,35 @@ func NewMockMcpClient() *MockMcpClient {
 		SendLSPRequestCalls:        make([]MCPRequestCall, 0),
 		UpdateMetricsCalls:         make([]UpdateMetricsCall, 0),
 		SetCircuitBreakerConfigCalls: make([]CircuitBreakerConfigCall, 0),
+		
+		// Initialize additional call tracking
+		GetMetricsCalls:            make([]interface{}, 0),
+		IsHealthyCalls:             make([]interface{}, 0),
+		GetHealthCalls:             make([]GetHealthCall, 0),
+		GetCircuitBreakerStateCalls: make([]interface{}, 0),
+		SetRetryPolicyCalls:        make([]SetRetryPolicyCall, 0),
+		GetRetryPolicyCalls:        make([]interface{}, 0),
+		CategorizeErrorCalls:       make([]CategorizeErrorCall, 0),
+		CalculateBackoffCalls:      make([]CalculateBackoffCall, 0),
+		
+		// Default configuration
+		baseURL:           "http://localhost:8080",
+		timeout:           30 * time.Second,
+		maxRetries:        3,
+		circuitBreakerState: mcp.CircuitClosed,
+		retryPolicy: &mcp.RetryPolicy{
+			MaxRetries:     3,
+			InitialBackoff: 100 * time.Millisecond,
+			MaxBackoff:     30 * time.Second,
+			BackoffFactor:  2.0,
+			JitterEnabled:  true,
+		},
+		metrics: &mcp.ConnectionMetrics{
+			TotalRequests:  0,
+			SuccessfulReqs: 0,
+			FailedRequests: 0,
+			TimeoutCount:   0,
+		},
 	}
 }
 
@@ -72,10 +141,16 @@ func (m *MockMcpClient) SendLSPRequest(ctx context.Context, method string, param
 	// Increment call count
 	m.callCounts[method]++
 
+	// Use custom function if provided
+	if m.SendLSPRequestFunc != nil {
+		return m.SendLSPRequestFunc(ctx, method, params)
+	}
+
 	// Check if we have queued errors first
 	if len(m.queuedErrors) > 0 {
 		err := m.queuedErrors[0]
 		m.queuedErrors = m.queuedErrors[1:]
+		m.metrics.FailedRequests++
 		return nil, err
 	}
 
@@ -85,12 +160,14 @@ func (m *MockMcpClient) SendLSPRequest(ctx context.Context, method string, param
 		m.queuedResponses = m.queuedResponses[1:]  // Always consume the response
 		// Try to validate if the response format matches the expected method
 		if m.isResponseCompatibleWithMethod(response, method) {
+			m.metrics.SuccessfulReqs++
 			return response, nil
 		}
 		// If not compatible, fall through to default responses
 	}
 
 	// Fall back to default responses
+	m.metrics.SuccessfulReqs++
 	switch method {
 	case "textDocument/definition":
 		return json.RawMessage(`[{"uri":"file://test.go","range":{"start":{"line":10,"character":0}}}]`), nil
@@ -130,8 +207,9 @@ func (m *MockMcpClient) SetHealthy(healthy bool) {
 
 // IsHealthy returns the current health status
 func (m *MockMcpClient) IsHealthy() bool {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.IsHealthyCalls = append(m.IsHealthyCalls, struct{}{})
 	return m.isHealthy
 }
 
@@ -146,7 +224,26 @@ func (m *MockMcpClient) Reset() {
 	m.SendLSPRequestCalls = m.SendLSPRequestCalls[:0]
 	m.UpdateMetricsCalls = m.UpdateMetricsCalls[:0]
 	m.SetCircuitBreakerConfigCalls = m.SetCircuitBreakerConfigCalls[:0]
+	
+	// Reset additional call tracking
+	m.GetMetricsCalls = m.GetMetricsCalls[:0]
+	m.IsHealthyCalls = m.IsHealthyCalls[:0]
+	m.GetHealthCalls = m.GetHealthCalls[:0]
+	m.GetCircuitBreakerStateCalls = m.GetCircuitBreakerStateCalls[:0]
+	m.SetRetryPolicyCalls = m.SetRetryPolicyCalls[:0]
+	m.GetRetryPolicyCalls = m.GetRetryPolicyCalls[:0]
+	m.CategorizeErrorCalls = m.CategorizeErrorCalls[:0]
+	m.CalculateBackoffCalls = m.CalculateBackoffCalls[:0]
+	
+	// Reset state
 	m.isHealthy = true
+	m.SendLSPRequestFunc = nil
+	m.metrics = &mcp.ConnectionMetrics{
+		TotalRequests:  0,
+		SuccessfulReqs: 0,
+		FailedRequests: 0,
+		TimeoutCount:   0,
+	}
 }
 
 // QueueResponse adds a response to the queue that will be returned by SendLSPRequest
@@ -234,4 +331,163 @@ func (m *MockMcpClient) SetCircuitBreakerConfig(errorThreshold int, timeoutDurat
 		ErrorThreshold:  errorThreshold,
 		TimeoutDuration: timeoutDuration,
 	})
+}
+
+// GetMetrics returns the current connection metrics
+func (m *MockMcpClient) GetMetrics() mcp.ConnectionMetrics {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.GetMetricsCalls = append(m.GetMetricsCalls, struct{}{})
+	m.metrics.TotalRequests = m.metrics.SuccessfulReqs + m.metrics.FailedRequests
+	return *m.metrics
+}
+
+// GetHealth performs a health check
+func (m *MockMcpClient) GetHealth(ctx context.Context) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.GetHealthCalls = append(m.GetHealthCalls, GetHealthCall{Ctx: ctx})
+	if !m.isHealthy {
+		return fmt.Errorf("health check failed: service is unhealthy")
+	}
+	return nil
+}
+
+// GetCircuitBreakerState returns the current circuit breaker state
+func (m *MockMcpClient) GetCircuitBreakerState() mcp.CircuitBreakerState {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.GetCircuitBreakerStateCalls = append(m.GetCircuitBreakerStateCalls, struct{}{})
+	return m.circuitBreakerState
+}
+
+// SetCircuitBreakerState sets the circuit breaker state
+func (m *MockMcpClient) SetCircuitBreakerState(state mcp.CircuitBreakerState) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.circuitBreakerState = state
+}
+
+// GetCircuitBreaker returns the circuit breaker configuration
+func (m *MockMcpClient) GetCircuitBreaker() *mcp.CircuitBreaker {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return &mcp.CircuitBreaker{
+		MaxFailures: 10,
+		Timeout:     time.Minute,
+	}
+}
+
+// SetRetryPolicy sets the retry policy
+func (m *MockMcpClient) SetRetryPolicy(policy *mcp.RetryPolicy) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.SetRetryPolicyCalls = append(m.SetRetryPolicyCalls, SetRetryPolicyCall{Policy: policy})
+	m.retryPolicy = policy
+}
+
+// GetRetryPolicy returns the current retry policy
+func (m *MockMcpClient) GetRetryPolicy() *mcp.RetryPolicy {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.GetRetryPolicyCalls = append(m.GetRetryPolicyCalls, struct{}{})
+	return m.retryPolicy
+}
+
+// CategorizeError categorizes an error by type
+func (m *MockMcpClient) CategorizeError(err error) mcp.ErrorCategory {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.CategorizeErrorCalls = append(m.CategorizeErrorCalls, CategorizeErrorCall{Error: err})
+	
+	if err == nil {
+		return mcp.ErrorCategoryUnknown
+	}
+	
+	errStr := err.Error()
+	switch {
+	case fmt.Sprintf("network") == errStr:
+		return mcp.ErrorCategoryNetwork
+	case fmt.Sprintf("timeout") == errStr:
+		return mcp.ErrorCategoryTimeout
+	case fmt.Sprintf("server error") == errStr:
+		return mcp.ErrorCategoryServer
+	case fmt.Sprintf("client error") == errStr:
+		return mcp.ErrorCategoryClient
+	case fmt.Sprintf("rate limit") == errStr:
+		return mcp.ErrorCategoryRateLimit
+	case fmt.Sprintf("protocol error") == errStr:
+		return mcp.ErrorCategoryProtocol
+	default:
+		return mcp.ErrorCategoryUnknown
+	}
+}
+
+// CalculateBackoff calculates backoff time for the given attempt
+func (m *MockMcpClient) CalculateBackoff(attempt int) time.Duration {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.CalculateBackoffCalls = append(m.CalculateBackoffCalls, CalculateBackoffCall{Attempt: attempt})
+	
+	if attempt == 0 {
+		return 0
+	}
+	if attempt == 1 {
+		return 500 * time.Millisecond
+	}
+	if attempt == 2 {
+		return time.Second
+	}
+	// Max out at 30 seconds
+	return 30 * time.Second
+}
+
+// Configuration methods
+func (m *MockMcpClient) GetBaseURL() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.baseURL
+}
+
+func (m *MockMcpClient) SetBaseURL(url string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.baseURL = url
+}
+
+func (m *MockMcpClient) GetTimeout() time.Duration {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.timeout
+}
+
+func (m *MockMcpClient) SetTimeout(timeout time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.timeout = timeout
+}
+
+func (m *MockMcpClient) GetMaxRetries() int {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.maxRetries
+}
+
+func (m *MockMcpClient) SetMaxRetries(retries int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.maxRetries = retries
+}
+
+// GetCallsForMethod returns all calls for a specific method
+func (m *MockMcpClient) GetCallsForMethod(method string) []MCPRequestCall {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	var calls []MCPRequestCall
+	for _, call := range m.SendLSPRequestCalls {
+		if call.Method == method {
+			calls = append(calls, call)
+		}
+	}
+	return calls
 }

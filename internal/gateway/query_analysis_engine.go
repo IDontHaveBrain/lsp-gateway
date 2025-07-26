@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"lsp-gateway/internal/config"
+	"lsp-gateway/internal/indexing"
 	"lsp-gateway/mcp"
 )
 
@@ -41,28 +42,28 @@ func (qc QueryComplexity) String() string {
 	}
 }
 
-// RoutingStrategy represents the recommended routing strategy
-type RoutingStrategy int
+// SCIPRoutingStrategy represents the recommended SCIP vs LSP routing strategy
+type SCIPRoutingStrategy int
 
 const (
-	RoutingSCIPOnly RoutingStrategy = iota
-	RoutingSCIPPrimary
-	RoutingLSPPrimary
-	RoutingLSPOnly
-	RoutingHybrid
+	SCIPRoutingSCIPOnly SCIPRoutingStrategy = iota
+	SCIPRoutingSCIPPrimary
+	SCIPRoutingLSPPrimary
+	SCIPRoutingLSPOnly
+	SCIPRoutingHybrid
 )
 
-func (rs RoutingStrategy) String() string {
+func (rs SCIPRoutingStrategy) String() string {
 	switch rs {
-	case RoutingSCIPOnly:
+	case SCIPRoutingSCIPOnly:
 		return "scip_only"
-	case RoutingSCIPPrimary:
+	case SCIPRoutingSCIPPrimary:
 		return "scip_primary"
-	case RoutingLSPPrimary:
+	case SCIPRoutingLSPPrimary:
 		return "lsp_primary"
-	case RoutingLSPOnly:
+	case SCIPRoutingLSPOnly:
 		return "lsp_only"
-	case RoutingHybrid:
+	case SCIPRoutingHybrid:
 		return "hybrid"
 	default:
 		return "unknown"
@@ -77,7 +78,7 @@ type QueryAnalysisResult struct {
 	Language            string                     `json:"language"`
 	Complexity          QueryComplexity            `json:"complexity"`
 	ConfidenceScore     float64                    `json:"confidence_score"`
-	RecommendedStrategy RoutingStrategy            `json:"recommended_strategy"`
+	RecommendedStrategy SCIPRoutingStrategy        `json:"recommended_strategy"`
 	CacheKeyFactors     []string                   `json:"cache_key_factors"`
 	ProjectContext      *ProjectAnalysisContext    `json:"project_context,omitempty"`
 	PerformanceHints    *PerformanceHints          `json:"performance_hints,omitempty"`
@@ -590,7 +591,7 @@ func (cc *ConfidenceCalculator) getHistoricalAdjustment(method, language string)
 // RoutingStrategyDeterminer determines the optimal routing strategy
 type RoutingStrategyDeterminer struct {
 	strategyThresholds map[string]float64
-	methodPreferences  map[string]RoutingStrategy
+	methodPreferences  map[string]SCIPRoutingStrategy
 	config            *config.GatewayConfig
 	mu                sync.RWMutex
 }
@@ -599,7 +600,7 @@ type RoutingStrategyDeterminer struct {
 func NewRoutingStrategyDeterminer(config *config.GatewayConfig) *RoutingStrategyDeterminer {
 	determiner := &RoutingStrategyDeterminer{
 		strategyThresholds: make(map[string]float64),
-		methodPreferences:  make(map[string]RoutingStrategy),
+		methodPreferences:  make(map[string]SCIPRoutingStrategy),
 		config:            config,
 	}
 	
@@ -654,13 +655,13 @@ func (rsd *RoutingStrategyDeterminer) initializeMethodPreferences() {
 	}
 	
 	for _, method := range scipPreferred {
-		rsd.methodPreferences[method] = RoutingSCIPPrimary
+		rsd.methodPreferences[method] = SCIPRoutingSCIPPrimary
 	}
 	for _, method := range lspRequired {
-		rsd.methodPreferences[method] = RoutingLSPOnly
+		rsd.methodPreferences[method] = SCIPRoutingLSPOnly
 	}
 	for _, method := range hybridBeneficial {
-		rsd.methodPreferences[method] = RoutingHybrid
+		rsd.methodPreferences[method] = SCIPRoutingHybrid
 	}
 }
 
@@ -670,7 +671,7 @@ func (rsd *RoutingStrategyDeterminer) DetermineStrategy(
 	confidenceScore float64,
 	complexity QueryComplexity,
 	context *ProjectAnalysisContext,
-) RoutingStrategy {
+) SCIPRoutingStrategy {
 	rsd.mu.RLock()
 	defer rsd.mu.RUnlock()
 	
@@ -678,8 +679,8 @@ func (rsd *RoutingStrategyDeterminer) DetermineStrategy(
 	if preference, exists := rsd.methodPreferences[method]; exists {
 		// Override for very low confidence or dynamic complexity
 		if confidenceScore < 0.6 || complexity == QueryComplexityDynamic {
-			if preference == RoutingSCIPPrimary || preference == RoutingSCIPOnly {
-				return RoutingLSPOnly
+			if preference == SCIPRoutingSCIPPrimary || preference == SCIPRoutingSCIPOnly {
+				return SCIPRoutingLSPOnly
 			}
 		}
 		return preference
@@ -687,16 +688,16 @@ func (rsd *RoutingStrategyDeterminer) DetermineStrategy(
 	
 	// Determine strategy based on confidence score
 	if confidenceScore >= rsd.strategyThresholds["scip_only"] {
-		return RoutingSCIPOnly
+		return SCIPRoutingSCIPOnly
 	} else if confidenceScore >= rsd.strategyThresholds["scip_primary"] {
-		return RoutingSCIPPrimary
+		return SCIPRoutingSCIPPrimary
 	} else if confidenceScore >= rsd.strategyThresholds["lsp_primary"] {
-		return RoutingLSPPrimary
+		return SCIPRoutingLSPPrimary
 	} else if confidenceScore >= rsd.strategyThresholds["hybrid"] {
-		return RoutingHybrid
+		return SCIPRoutingHybrid
 	}
 	
-	return RoutingLSPOnly
+	return SCIPRoutingLSPOnly
 }
 
 // PerformanceStats tracks performance statistics for routing decisions
@@ -723,7 +724,7 @@ type RoutingOutcome struct {
 	RequestID       string          `json:"request_id"`
 	Method          string          `json:"method"`
 	Language        string          `json:"language"`
-	Strategy        RoutingStrategy `json:"strategy"`
+	Strategy        SCIPRoutingStrategy `json:"strategy"`
 	ConfidenceScore float64         `json:"confidence_score"`
 	Success         bool            `json:"success"`
 	ResponseTime    time.Duration   `json:"response_time"`
@@ -771,14 +772,14 @@ func (pht *PerformanceHistoryTracker) RecordOutcome(outcome RoutingOutcome) {
 	
 	// Update success rates based on strategy
 	switch outcome.Strategy {
-	case RoutingSCIPOnly, RoutingSCIPPrimary:
+	case SCIPRoutingSCIPOnly, SCIPRoutingSCIPPrimary:
 		// Update SCIP success rate calculation
 		scipRequests := pht.countSCIPRequests(outcome.Method, outcome.Language)
 		scipSuccessful := pht.countSCIPSuccessful(outcome.Method, outcome.Language)
 		if scipRequests > 0 {
 			stats.SCIPSuccessRate = float64(scipSuccessful) / float64(scipRequests)
 		}
-	case RoutingLSPOnly, RoutingLSPPrimary:
+	case SCIPRoutingLSPOnly, SCIPRoutingLSPPrimary:
 		// Update LSP success rate calculation
 		lspRequests := pht.countLSPRequests(outcome.Method, outcome.Language)
 		lspSuccessful := pht.countLSPSuccessful(outcome.Method, outcome.Language)
@@ -815,7 +816,7 @@ func (pht *PerformanceHistoryTracker) countSCIPRequests(method, language string)
 	for _, outcome := range pht.recentOutcomes {
 		if outcome.Method == method && outcome.Language == language &&
 			outcome.Timestamp.After(cutoff) &&
-			(outcome.Strategy == RoutingSCIPOnly || outcome.Strategy == RoutingSCIPPrimary) {
+			(outcome.Strategy == SCIPRoutingSCIPOnly || outcome.Strategy == SCIPRoutingSCIPPrimary) {
 			count++
 		}
 	}
@@ -831,7 +832,7 @@ func (pht *PerformanceHistoryTracker) countSCIPSuccessful(method, language strin
 	for _, outcome := range pht.recentOutcomes {
 		if outcome.Method == method && outcome.Language == language &&
 			outcome.Timestamp.After(cutoff) && outcome.Success &&
-			(outcome.Strategy == RoutingSCIPOnly || outcome.Strategy == RoutingSCIPPrimary) {
+			(outcome.Strategy == SCIPRoutingSCIPOnly || outcome.Strategy == SCIPRoutingSCIPPrimary) {
 			count++
 		}
 	}
@@ -847,7 +848,7 @@ func (pht *PerformanceHistoryTracker) countLSPRequests(method, language string) 
 	for _, outcome := range pht.recentOutcomes {
 		if outcome.Method == method && outcome.Language == language &&
 			outcome.Timestamp.After(cutoff) &&
-			(outcome.Strategy == RoutingLSPOnly || outcome.Strategy == RoutingLSPPrimary) {
+			(outcome.Strategy == SCIPRoutingLSPOnly || outcome.Strategy == SCIPRoutingLSPPrimary) {
 			count++
 		}
 	}
@@ -863,7 +864,7 @@ func (pht *PerformanceHistoryTracker) countLSPSuccessful(method, language string
 	for _, outcome := range pht.recentOutcomes {
 		if outcome.Method == method && outcome.Language == language &&
 			outcome.Timestamp.After(cutoff) && outcome.Success &&
-			(outcome.Strategy == RoutingLSPOnly || outcome.Strategy == RoutingLSPPrimary) {
+			(outcome.Strategy == SCIPRoutingLSPOnly || outcome.Strategy == SCIPRoutingLSPPrimary) {
 			count++
 		}
 	}
@@ -1066,7 +1067,7 @@ func (qae *QueryAnalysisEngine) analyzeRiskFactors(
 func (qae *QueryAnalysisEngine) generatePerformanceHints(
 	request *LSPRequest,
 	complexity QueryComplexity,
-	strategy RoutingStrategy,
+	strategy SCIPRoutingStrategy,
 	context *ProjectAnalysisContext,
 ) *PerformanceHints {
 	hints := &PerformanceHints{
@@ -1092,16 +1093,16 @@ func (qae *QueryAnalysisEngine) generatePerformanceHints(
 	
 	// Adjust for strategy
 	switch strategy {
-	case RoutingSCIPOnly:
+	case SCIPRoutingSCIPOnly:
 		hints.ExpectedResponseTime = hints.ExpectedResponseTime / 2
 		hints.CachingRecommendation = "aggressive"
 		hints.OptimizationTips = append(hints.OptimizationTips, "use_scip_cache")
-	case RoutingLSPOnly:
+	case SCIPRoutingLSPOnly:
 		hints.ExpectedResponseTime = hints.ExpectedResponseTime * 2
 		hints.CachingRecommendation = "conservative"
 		hints.OptimizationTips = append(hints.OptimizationTips, "consider_scip_fallback")
-	case RoutingHybrid:
-		hints.ExpectedResponseTime = hints.ExpectedResponseTime * 1.5
+	case SCIPRoutingHybrid:
+		hints.ExpectedResponseTime = time.Duration(float64(hints.ExpectedResponseTime) * 1.5)
 		hints.CachingRecommendation = "moderate"
 		hints.OptimizationTips = append(hints.OptimizationTips, "parallel_query_scip_lsp")
 	}
@@ -1173,14 +1174,14 @@ func (rc *RequestContext) GetLanguage() string {
 	// Try to extract from file URI
 	if rc.FileURI != "" {
 		ext := filepath.Ext(rc.FileURI)
-		return qae.mapExtensionToLanguage(ext)
+		return mapExtensionToLanguage(ext)
 	}
 	
 	return "unknown"
 }
 
 // mapExtensionToLanguage maps file extensions to language names
-func (qae *QueryAnalysisEngine) mapExtensionToLanguage(ext string) string {
+func mapExtensionToLanguage(ext string) string {
 	languageMap := map[string]string{
 		".go":   "go",
 		".py":   "python",
@@ -1225,7 +1226,7 @@ func (qae *QueryAnalysisEngine) mapExtensionToLanguage(ext string) string {
 // QueryAnalysisEngineIntegration provides integration helpers for existing systems
 type QueryAnalysisEngineIntegration struct {
 	engine         *QueryAnalysisEngine
-	scipResolver   SCIPResolver
+	scipResolver   indexing.SCIPStore
 	workspaceManager *WorkspaceManager
 	logger         *mcp.StructuredLogger
 }
@@ -1233,7 +1234,7 @@ type QueryAnalysisEngineIntegration struct {
 // NewQueryAnalysisEngineIntegration creates a new integration helper
 func NewQueryAnalysisEngineIntegration(
 	engine *QueryAnalysisEngine,
-	scipResolver SCIPResolver,
+	scipResolver indexing.SCIPStore,
 	workspaceManager *WorkspaceManager,
 	logger *mcp.StructuredLogger,
 ) *QueryAnalysisEngineIntegration {
@@ -1249,7 +1250,7 @@ func NewQueryAnalysisEngineIntegration(
 func (qai *QueryAnalysisEngineIntegration) AnalyzeAndRoute(
 	ctx context.Context,
 	request *LSPRequest,
-) (*QueryAnalysisResult, *SCIPQueryResult, error) {
+) (*QueryAnalysisResult, *indexing.SCIPQueryResult, error) {
 	// Build project context
 	projectContext, err := qai.buildProjectContext(request)
 	if err != nil {
@@ -1269,9 +1270,10 @@ func (qai *QueryAnalysisEngineIntegration) AnalyzeAndRoute(
 	}
 	
 	// Attempt SCIP resolution based on analysis
-	var scipResult *SCIPQueryResult
-	if analysis.ConfidenceScore >= 0.6 && qai.scipResolver != nil && qai.scipResolver.IsEnabled() {
-		scipResult = qai.scipResolver.Query(request.Method, request.Params)
+	var scipResult *indexing.SCIPQueryResult
+	if analysis.ConfidenceScore >= 0.6 && qai.scipResolver != nil {
+		result := qai.scipResolver.Query(request.Method, request.Params)
+		scipResult = &result
 		
 		// Validate SCIP result confidence matches analysis
 		if scipResult != nil && scipResult.Found {
@@ -1324,7 +1326,7 @@ func (qai *QueryAnalysisEngineIntegration) buildProjectContext(request *LSPReque
 	if len(context.Languages) == 0 {
 		if request.URI != "" {
 			ext := filepath.Ext(request.URI)
-			lang := qai.engine.mapExtensionToLanguage(ext)
+			lang := mapExtensionToLanguage(ext)
 			context.Languages = append(context.Languages, lang)
 		}
 	}
@@ -1499,7 +1501,7 @@ func (qai *QueryAnalysisEngineIntegration) IntegrateWithGateway(gateway *Gateway
 // Example usage and integration patterns
 
 // ExampleUsage demonstrates how to use the QueryAnalysisEngine
-func ExampleUsage() {
+func ExampleQueryAnalysisEngineUsage() {
 	// 1. Create the engine
 	config := &config.GatewayConfig{} // Your gateway config
 	logger := &mcp.StructuredLogger{} // Your logger
@@ -1507,7 +1509,7 @@ func ExampleUsage() {
 	engine := NewQueryAnalysisEngine(config, logger)
 	
 	// 2. Create integration helper
-	var scipResolver SCIPResolver // Your SCIP resolver
+	var scipResolver indexing.SCIPStore // Your SCIP resolver
 	var workspaceManager *WorkspaceManager // Your workspace manager
 	
 	integration := NewQueryAnalysisEngineIntegration(engine, scipResolver, workspaceManager, logger)
@@ -1531,23 +1533,23 @@ func ExampleUsage() {
 	
 	// 4. Use analysis results for routing decisions
 	switch analysis.RecommendedStrategy {
-	case RoutingSCIPOnly:
+	case SCIPRoutingSCIPOnly:
 		// Use SCIP result directly
 		if scipResult != nil && scipResult.Found {
 			// Return SCIP result
 		}
-	case RoutingSCIPPrimary:
+	case SCIPRoutingSCIPPrimary:
 		// Try SCIP first, fallback to LSP
 		if scipResult != nil && scipResult.Found {
 			// Return SCIP result
 		} else {
 			// Route to LSP server
 		}
-	case RoutingLSPPrimary:
+	case SCIPRoutingLSPPrimary:
 		// Route to LSP server with SCIP enhancement
-	case RoutingLSPOnly:
+	case SCIPRoutingLSPOnly:
 		// Route to LSP server only
-	case RoutingHybrid:
+	case SCIPRoutingHybrid:
 		// Use both SCIP and LSP, merge results
 	}
 	

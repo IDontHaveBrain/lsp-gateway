@@ -70,7 +70,7 @@ clean:
 # DEVELOPMENT TARGETS
 # =============================================================================
 
-.PHONY: deps tidy format test
+.PHONY: deps tidy format test test-unit test-internal
 deps:
 	@echo "Downloading dependencies..."
 	$(GOCMD) get -v ./...
@@ -89,7 +89,11 @@ test:
 
 test-unit:
 	@echo "Running unit tests..."
-	$(GOTEST) -v -short ./...
+	$(GOTEST) -v -short -timeout 60s ./tests/unit/... ./internal/...
+
+test-internal:
+	@echo "Running internal package unit tests..."
+	$(GOTEST) -v -short -timeout 60s ./internal/...
 
 test-integration:
 	@echo "Running integration tests..."

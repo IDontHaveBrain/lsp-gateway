@@ -1,6 +1,7 @@
 package project_test
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,7 +31,8 @@ func TestDetectGoProject(t *testing.T) {
 	}
 
 	detector := project.NewProjectDetector()
-	result, err := detector.DetectProject(tempDir)
+	ctx := context.Background()
+	result, err := detector.DetectProject(ctx, tempDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +43,7 @@ func TestDetectGoProject(t *testing.T) {
 
 	found := false
 	for _, lang := range result.Languages {
-		if lang.Name == "go" {
+		if lang == "go" {
 			found = true
 			break
 		}
@@ -66,7 +68,8 @@ func TestDetectPythonProject(t *testing.T) {
 	}
 
 	detector := project.NewProjectDetector()
-	result, err := detector.DetectProject(tempDir)
+	ctx := context.Background()
+	result, err := detector.DetectProject(ctx, tempDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +80,7 @@ func TestDetectPythonProject(t *testing.T) {
 
 	found := false
 	for _, lang := range result.Languages {
-		if lang.Name == "python" {
+		if lang == "python" {
 			found = true
 			break
 		}
@@ -108,7 +111,8 @@ func TestDetectTypescriptProject(t *testing.T) {
 	}
 
 	detector := project.NewProjectDetector()
-	result, err := detector.DetectProject(tempDir)
+	ctx := context.Background()
+	result, err := detector.DetectProject(ctx, tempDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +123,7 @@ func TestDetectTypescriptProject(t *testing.T) {
 
 	found := false
 	for _, lang := range result.Languages {
-		if lang.Name == "typescript" {
+		if lang == "typescript" {
 			found = true
 			break
 		}
@@ -137,7 +141,8 @@ func TestDetectEmptyDirectory(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	detector := project.NewProjectDetector()
-	result, err := detector.DetectProject(tempDir)
+	ctx := context.Background()
+	result, err := detector.DetectProject(ctx, tempDir)
 	if err != nil {
 		t.Fatal(err)
 	}

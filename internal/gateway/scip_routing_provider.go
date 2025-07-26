@@ -439,7 +439,7 @@ func (p *SCIPRoutingProviderImpl) EstimateConfidence(method string, params inter
 		if analysis.CacheEligible {
 			baseConfidence += 0.05
 		}
-		if analysis.Complexity <= ComplexityModerate {
+		if analysis.Complexity <= QueryComplexityModerate {
 			baseConfidence += 0.05
 		}
 
@@ -882,19 +882,19 @@ func isCacheEligibleMethod(method string) bool {
 
 func estimateMethodComplexity(method string) QueryComplexity {
 	complexities := map[string]QueryComplexity{
-		"textDocument/hover":          ComplexitySimple,
-		"textDocument/definition":     ComplexitySimple,
-		"textDocument/references":     ComplexityModerate,
-		"textDocument/documentSymbol": ComplexityModerate,
-		"workspace/symbol":            ComplexityComplex,
-		"textDocument/completion":     ComplexityDynamic,
-		"textDocument/diagnostic":     ComplexityDynamic,
+		"textDocument/hover":          QueryComplexitySimple,
+		"textDocument/definition":     QueryComplexitySimple,
+		"textDocument/references":     QueryComplexityModerate,
+		"textDocument/documentSymbol": QueryComplexityModerate,
+		"workspace/symbol":            QueryComplexityComplex,
+		"textDocument/completion":     QueryComplexityDynamic,
+		"textDocument/diagnostic":     QueryComplexityDynamic,
 	}
 
 	if complexity, exists := complexities[method]; exists {
 		return complexity
 	}
-	return ComplexityModerate
+	return QueryComplexityModerate
 }
 
 func getBaseConfidenceForMethod(method string) ConfidenceLevel {

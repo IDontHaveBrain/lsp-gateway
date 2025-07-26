@@ -15,17 +15,14 @@ import (
 	"lsp-gateway/internal/project/detectors"
 	"lsp-gateway/internal/project/types"
 	"lsp-gateway/internal/setup"
-	"lsp-gateway/tests/framework"
 )
 
 // GoDetectorTestSuite provides comprehensive unit tests for GoProjectDetector
 type GoDetectorTestSuite struct {
 	suite.Suite
-	tempDir   string
-	detector  *detectors.GoProjectDetector
-	generator *framework.TestProjectGenerator
-	profiler  *framework.PerformanceProfiler
-	logger    *setup.SetupLogger
+	tempDir  string
+	detector *detectors.GoProjectDetector
+	logger   *setup.SetupLogger
 }
 
 func (suite *GoDetectorTestSuite) SetupSuite() {
@@ -34,29 +31,16 @@ func (suite *GoDetectorTestSuite) SetupSuite() {
 	suite.Require().NoError(err)
 	suite.tempDir = tempDir
 
-	// Initialize test framework components
-	suite.generator = framework.NewTestProjectGenerator(suite.tempDir)
-	suite.profiler = framework.NewPerformanceProfiler()
+	// Initialize logger
 	suite.logger = setup.NewSetupLogger(&setup.SetupLoggerConfig{
 		Component: "go-detector-test",
 		Level:     setup.LogLevelDebug,
 	})
-
-	// Load project templates
-	ctx := context.Background()
-	err = suite.generator.LoadTemplates(ctx)
-	suite.Require().NoError(err)
 }
 
 func (suite *GoDetectorTestSuite) TearDownSuite() {
 	if suite.tempDir != "" {
 		_ = os.RemoveAll(suite.tempDir)
-	}
-	if suite.profiler != nil {
-		suite.profiler.Reset()
-	}
-	if suite.generator != nil {
-		suite.generator.Reset()
 	}
 }
 
@@ -1564,16 +1548,10 @@ func (suite *GoDetectorTestSuite) TestGoDetector_LargeProject() {
 	suite.T().Logf("Found %d packages", result.Metadata["go_packages_found"])
 }
 
-// Performance Tests
+// Performance Tests - Simplified without framework dependencies
 
-func (suite *GoDetectorTestSuite) TestGoDetector_PerformanceProfile() {
-	// Start performance profiling
-	ctx := context.Background()
-	err := suite.profiler.Start(ctx)
-	suite.Require().NoError(err)
-	defer func() { _ = suite.profiler.Stop() }()
-
-	// Generate using mock or create manually
+func (suite *GoDetectorTestSuite) TestGoDetector_BasicPerformance() {
+	// Create test directory manually
 	testDir, err := os.MkdirTemp(suite.tempDir, "perf-test-*")
 	suite.Require().NoError(err)
 	defer func() { _ = os.RemoveAll(testDir) }()
@@ -1606,11 +1584,7 @@ require (
 		suite.Require().NoError(err)
 	}
 
-	// Start operation profiling
-	metrics, err := suite.profiler.StartOperation("go_detection")
-	suite.Require().NoError(err)
-
-	// Perform detection
+	// Perform detection with timing
 	detectionCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
@@ -1622,10 +1596,6 @@ require (
 	suite.NotNil(result, "Should return result")
 	suite.Equal(types.PROJECT_TYPE_GO, result.Language, "Should detect Go")
 
-	// End profiling
-	finalMetrics, err := suite.profiler.EndOperation(metrics.OperationID)
-	suite.NoError(err, "Should end profiling")
-
 	// Verify performance characteristics
 	suite.Less(detectionDuration, 15*time.Second, "Should complete quickly")
 	suite.Greater(result.Confidence, 0.8, "Should have high confidence")
@@ -1633,7 +1603,6 @@ require (
 	// Log performance results
 	suite.T().Logf("Go Detection Performance:")
 	suite.T().Logf("  Duration: %v", detectionDuration)
-	suite.T().Logf("  Memory: %d bytes", finalMetrics.MemoryAllocated)
 	suite.T().Logf("  Confidence: %f", result.Confidence)
 	suite.T().Logf("  Marker Files: %d", len(result.MarkerFiles))
 	suite.T().Logf("  Dependencies: %d", len(result.Dependencies))
