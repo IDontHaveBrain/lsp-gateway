@@ -136,7 +136,7 @@ func TestTestHelpers_Functionality(t *testing.T) {
 	assert.True(t, installResult.Success, "Install result should be successful")
 	assert.Equal(t, "python", installResult.Runtime, "Runtime should be 'python'")
 
-	verifyResult := testdata.CreateMockVerificationResult("nodejs", "20.0.0", "/usr/bin/node", true, true)
+	verifyResult := testdata.CreateMockVerificationResult("nodejs", "22.0.0", "/usr/bin/node", true, true)
 	assert.True(t, verifyResult.Installed, "Node.js should be installed")
 	assert.True(t, verifyResult.Compatible, "Node.js should be compatible")
 
