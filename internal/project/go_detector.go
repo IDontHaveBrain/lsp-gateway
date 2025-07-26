@@ -30,9 +30,9 @@ func NewGoLanguageDetector() LanguageDetector {
 
 func (g *GoLanguageDetector) DetectLanguage(ctx context.Context, path string) (*types.LanguageDetectionResult, error) {
 	startTime := time.Now()
-	
+
 	g.logger.WithField("path", path).Debug("Starting Go project detection")
-	
+
 	result := &types.LanguageDetectionResult{
 		Language:        types.PROJECT_TYPE_GO,
 		RequiredServers: []string{types.SERVER_GOPLS},
@@ -54,7 +54,7 @@ func (g *GoLanguageDetector) DetectLanguage(ctx context.Context, path string) (*
 		result.MarkerFiles = append(result.MarkerFiles, types.MARKER_GO_MOD)
 		result.ConfigFiles = append(result.ConfigFiles, types.MARKER_GO_MOD)
 		result.Confidence = 0.95
-		
+
 		// Parse go.mod file
 		if err := g.parseGoMod(goModPath, result); err != nil {
 			g.logger.WithError(err).Warn("Failed to parse go.mod")
@@ -105,11 +105,11 @@ func (g *GoLanguageDetector) DetectLanguage(ctx context.Context, path string) (*
 	result.Metadata["detector_version"] = "1.0.0"
 
 	g.logger.WithFields(map[string]interface{}{
-		"confidence":      result.Confidence,
-		"marker_files":    len(result.MarkerFiles),
-		"source_dirs":     len(result.SourceDirs),
-		"dependencies":    len(result.Dependencies),
-		"detection_time":  time.Since(startTime),
+		"confidence":     result.Confidence,
+		"marker_files":   len(result.MarkerFiles),
+		"source_dirs":    len(result.SourceDirs),
+		"dependencies":   len(result.Dependencies),
+		"detection_time": time.Since(startTime),
 	}).Info("Go project detection completed")
 
 	return result, nil
@@ -130,10 +130,10 @@ func (g *GoLanguageDetector) parseGoMod(goModPath string, result *types.Language
 	replaceRegex := regexp.MustCompile(`^\s*([^\s]+)\s+=>\s+([^\s]+)(?:\s+([^\s]+))?`)
 
 	goModInfo := make(map[string]interface{})
-	
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		
+
 		// Skip comments and empty lines
 		if line == "" || strings.HasPrefix(line, "//") {
 			continue
@@ -159,7 +159,7 @@ func (g *GoLanguageDetector) parseGoMod(goModPath string, result *types.Language
 			moduleName := matches[1]
 			result.Metadata["module_name"] = moduleName
 			goModInfo["module"] = moduleName
-			
+
 			// Extract project name from module path
 			parts := strings.Split(moduleName, "/")
 			if len(parts) > 0 {
@@ -184,7 +184,7 @@ func (g *GoLanguageDetector) parseGoMod(goModPath string, result *types.Language
 				depName := matches[1]
 				depVersion := matches[2]
 				result.Dependencies[depName] = depVersion
-				
+
 				// Check for indirect dependencies
 				if len(matches) >= 4 && strings.Contains(matches[3], "indirect") {
 					result.DevDependencies[depName] = depVersion
@@ -216,7 +216,7 @@ func (g *GoLanguageDetector) parseGoMod(goModPath string, result *types.Language
 func (g *GoLanguageDetector) scanForGoFiles(path string, result *types.LanguageDetectionResult, goFileCount *int) error {
 	sourceDirs := make(map[string]bool)
 	testDirs := make(map[string]bool)
-	
+
 	err := filepath.Walk(path, func(filePath string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Continue on errors
@@ -235,7 +235,7 @@ func (g *GoLanguageDetector) scanForGoFiles(path string, result *types.LanguageD
 			*goFileCount++
 			dir := filepath.Dir(filePath)
 			relDir, _ := filepath.Rel(path, dir)
-			
+
 			fileName := info.Name()
 			if strings.HasSuffix(fileName, "_test.go") {
 				testDirs[relDir] = true
@@ -293,7 +293,7 @@ func (g *GoLanguageDetector) detectGoVersion(ctx context.Context, result *types.
 
 func (g *GoLanguageDetector) detectGoFrameworks(path string, result *types.LanguageDetectionResult) {
 	frameworks := []string{}
-	
+
 	// Check dependencies for known frameworks
 	for dep := range result.Dependencies {
 		switch {
@@ -328,10 +328,10 @@ func (g *GoLanguageDetector) detectGoFrameworks(path string, result *types.Langu
 
 	// Check for specific configuration files
 	configFiles := map[string]string{
-		"Dockerfile":     "Docker",
+		"Dockerfile":         "Docker",
 		"docker-compose.yml": "Docker Compose",
-		".goreleaser.yml": "GoReleaser",
-		"air.toml":       "Air (Hot Reload)",
+		".goreleaser.yml":    "GoReleaser",
+		"air.toml":           "Air (Hot Reload)",
 	}
 
 	for file, framework := range configFiles {
@@ -360,7 +360,7 @@ func (g *GoLanguageDetector) analyzeProjectStructure(path string, result *types.
 
 	if len(foundDirs) > 0 {
 		result.Metadata["project_structure"] = foundDirs
-		
+
 		// Adjust confidence based on Go project structure
 		if len(foundDirs) >= 3 {
 			result.Confidence = min(result.Confidence+0.05, 1.0)
@@ -442,17 +442,17 @@ func (g *GoLanguageDetector) ValidateStructure(ctx context.Context, path string)
 		if err != nil {
 			return nil
 		}
-		
+
 		if !info.IsDir() && strings.HasSuffix(filePath, ".go") {
 			hasGoFiles = true
 			return filepath.SkipAll // Found at least one, can stop
 		}
-		
+
 		// Skip vendor directory
 		if info.IsDir() && info.Name() == "vendor" {
 			return filepath.SkipDir
 		}
-		
+
 		return nil
 	})
 

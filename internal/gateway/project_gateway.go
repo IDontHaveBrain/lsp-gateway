@@ -19,17 +19,17 @@ const (
 	LoggerComponentProjectGateway = "project-gateway"
 )
 
-// BasicProjectGateway extends the existing Gateway with basic project/workspace awareness
-type BasicProjectGateway struct {
-	*Gateway                    // Embedded traditional gateway for backward compatibility
+// ProjectAwareGateway extends the existing Gateway with project/workspace awareness
+type ProjectAwareGateway struct {
+	*Gateway         // Embedded traditional gateway for backward compatibility
 	WorkspaceManager *WorkspaceManager
 	ProjectRouter    *ProjectAwareRouter
 	Logger           *mcp.StructuredLogger
 	mu               sync.RWMutex
 }
 
-// NewBasicProjectGateway creates a new BasicProjectGateway with workspace management capabilities
-func NewBasicProjectGateway(config *config.GatewayConfig) (*BasicProjectGateway, error) {
+// NewProjectAwareGateway creates a new ProjectAwareGateway with workspace management capabilities
+func NewProjectAwareGateway(config *config.GatewayConfig) (*ProjectAwareGateway, error) {
 	// Create traditional gateway first
 	gateway, err := NewGateway(config)
 	if err != nil {
@@ -59,7 +59,7 @@ func NewBasicProjectGateway(config *config.GatewayConfig) (*BasicProjectGateway,
 	// Create project-aware router
 	projectRouter := NewProjectAwareRouter(gateway.Router, workspaceManager, logger)
 
-	projectGateway := &BasicProjectGateway{
+	projectGateway := &ProjectAwareGateway{
 		Gateway:          gateway,
 		WorkspaceManager: workspaceManager,
 		ProjectRouter:    projectRouter,
@@ -72,7 +72,7 @@ func NewBasicProjectGateway(config *config.GatewayConfig) (*BasicProjectGateway,
 }
 
 // Start starts the project-aware gateway and all its components
-func (pg *BasicProjectGateway) Start(ctx context.Context) error {
+func (pg *ProjectAwareGateway) Start(ctx context.Context) error {
 	pg.mu.Lock()
 	defer pg.mu.Unlock()
 
@@ -95,7 +95,7 @@ func (pg *BasicProjectGateway) Start(ctx context.Context) error {
 }
 
 // Stop stops the project-aware gateway and cleans up all workspaces
-func (pg *BasicProjectGateway) Stop() error {
+func (pg *ProjectAwareGateway) Stop() error {
 	pg.mu.Lock()
 	defer pg.mu.Unlock()
 
@@ -129,7 +129,7 @@ func (pg *BasicProjectGateway) Stop() error {
 }
 
 // HandleJSONRPC handles JSON-RPC requests with workspace awareness
-func (pg *BasicProjectGateway) HandleJSONRPC(w http.ResponseWriter, r *http.Request) {
+func (pg *ProjectAwareGateway) HandleJSONRPC(w http.ResponseWriter, r *http.Request) {
 	startTime := time.Now()
 	requestLogger := pg.initializeProjectRequestLogger(r)
 
@@ -168,12 +168,12 @@ func (pg *BasicProjectGateway) HandleJSONRPC(w http.ResponseWriter, r *http.Requ
 }
 
 // GetWorkspaceClient retrieves an LSP client for a specific workspace and language
-func (pg *BasicProjectGateway) GetWorkspaceClient(workspaceID, language string) (transport.LSPClient, error) {
+func (pg *ProjectAwareGateway) GetWorkspaceClient(workspaceID, language string) (transport.LSPClient, error) {
 	return pg.WorkspaceManager.GetLSPClient(workspaceID, language)
 }
 
-// GetWorkspaceContext retrieves or creates workspace context for a file URI  
-func (pg *BasicProjectGateway) GetWorkspaceContext(fileURI string) (WorkspaceContext, error) {
+// GetWorkspaceContext retrieves or creates workspace context for a file URI
+func (pg *ProjectAwareGateway) GetWorkspaceContext(fileURI string) (WorkspaceContext, error) {
 	workspace, err := pg.WorkspaceManager.GetOrCreateWorkspace(fileURI)
 	if err != nil {
 		return nil, err
@@ -182,7 +182,7 @@ func (pg *BasicProjectGateway) GetWorkspaceContext(fileURI string) (WorkspaceCon
 }
 
 // GetAllWorkspaces returns information about all active workspaces
-func (pg *BasicProjectGateway) GetAllWorkspaces() []WorkspaceContext {
+func (pg *ProjectAwareGateway) GetAllWorkspaces() []WorkspaceContext {
 	workspaces := pg.WorkspaceManager.GetAllWorkspaces()
 	result := make([]WorkspaceContext, len(workspaces))
 	for i, workspace := range workspaces {
@@ -192,17 +192,17 @@ func (pg *BasicProjectGateway) GetAllWorkspaces() []WorkspaceContext {
 }
 
 // CleanupWorkspace manually cleans up a specific workspace
-func (pg *BasicProjectGateway) CleanupWorkspace(workspaceID string) error {
+func (pg *ProjectAwareGateway) CleanupWorkspace(workspaceID string) error {
 	return pg.WorkspaceManager.CleanupWorkspace(workspaceID)
 }
 
 // GetClient maintains backward compatibility by delegating to traditional Gateway
-func (pg *BasicProjectGateway) GetClient(serverName string) (transport.LSPClient, bool) {
+func (pg *ProjectAwareGateway) GetClient(serverName string) (transport.LSPClient, bool) {
 	return pg.Gateway.GetClient(serverName)
 }
 
 // handleProjectAwareRouting performs workspace-aware request routing
-func (pg *BasicProjectGateway) handleProjectAwareRouting(w http.ResponseWriter, req JSONRPCRequest, logger *mcp.StructuredLogger) (WorkspaceContext, string, bool) {
+func (pg *ProjectAwareGateway) handleProjectAwareRouting(w http.ResponseWriter, req JSONRPCRequest, logger *mcp.StructuredLogger) (WorkspaceContext, string, bool) {
 	// Extract URI from request for workspace discovery
 	uri, err := pg.extractURIForWorkspace(req)
 	if err != nil {
@@ -216,11 +216,11 @@ func (pg *BasicProjectGateway) handleProjectAwareRouting(w http.ResponseWriter, 
 		}
 		// Create a temporary workspace context for non-workspace-aware requests
 		tempWorkspace := &WorkspaceContextImpl{
-			ID:          "traditional",
-			RootPath:    "/",
-			ProjectType: "generic",
-			ProjectName: "traditional",
-			Languages:   []string{"text"},
+			ID:           "traditional",
+			RootPath:     "/",
+			ProjectType:  "generic",
+			ProjectName:  "traditional",
+			Languages:    []string{"text"},
 			IsActiveFlag: true,
 		}
 		return tempWorkspace, serverName, true
@@ -239,11 +239,11 @@ func (pg *BasicProjectGateway) handleProjectAwareRouting(w http.ResponseWriter, 
 		}
 		// Create a temporary workspace context
 		tempWorkspace := &WorkspaceContextImpl{
-			ID:          "fallback",
-			RootPath:    "/",
-			ProjectType: "generic",
-			ProjectName: "fallback",
-			Languages:   []string{"text"},
+			ID:           "fallback",
+			RootPath:     "/",
+			ProjectType:  "generic",
+			ProjectName:  "fallback",
+			Languages:    []string{"text"},
 			IsActiveFlag: true,
 		}
 		return tempWorkspace, serverName, true
@@ -263,7 +263,7 @@ func (pg *BasicProjectGateway) handleProjectAwareRouting(w http.ResponseWriter, 
 }
 
 // handleTraditionalRouting performs traditional request routing for fallback cases
-func (pg *BasicProjectGateway) handleTraditionalRouting(w http.ResponseWriter, req JSONRPCRequest, logger *mcp.StructuredLogger) (string, bool) {
+func (pg *ProjectAwareGateway) handleTraditionalRouting(w http.ResponseWriter, req JSONRPCRequest, logger *mcp.StructuredLogger) (string, bool) {
 	serverName, err := pg.routeRequest(req)
 	if err != nil {
 		if logger != nil {
@@ -276,7 +276,7 @@ func (pg *BasicProjectGateway) handleTraditionalRouting(w http.ResponseWriter, r
 }
 
 // processWorkspaceAwareLSPRequest processes an LSP request with workspace context
-func (pg *BasicProjectGateway) processWorkspaceAwareLSPRequest(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, workspace WorkspaceContext, serverName string, logger *mcp.StructuredLogger, startTime time.Time) {
+func (pg *ProjectAwareGateway) processWorkspaceAwareLSPRequest(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, workspace WorkspaceContext, serverName string, logger *mcp.StructuredLogger, startTime time.Time) {
 	// For workspace-aware requests, try to get workspace-specific client first
 	var client transport.LSPClient
 	var exists bool
@@ -337,13 +337,13 @@ func (pg *BasicProjectGateway) processWorkspaceAwareLSPRequest(w http.ResponseWr
 }
 
 // extractURIForWorkspace extracts URI from request parameters for workspace operations
-func (pg *BasicProjectGateway) extractURIForWorkspace(req JSONRPCRequest) (string, error) {
+func (pg *ProjectAwareGateway) extractURIForWorkspace(req JSONRPCRequest) (string, error) {
 	// Use existing Gateway method for URI extraction
 	return pg.extractURIFromParams(req)
 }
 
 // extractLanguageFromURI extracts language from URI using the router
-func (pg *BasicProjectGateway) extractLanguageFromURI(uri string) string {
+func (pg *ProjectAwareGateway) extractLanguageFromURI(uri string) string {
 	// Use the project router to determine language
 	filePath := uri
 	if strings.HasPrefix(uri, URIPrefixFile) {
@@ -364,7 +364,7 @@ func (pg *BasicProjectGateway) extractLanguageFromURI(uri string) string {
 }
 
 // handleWorkspaceNotification handles notifications with workspace context
-func (pg *BasicProjectGateway) handleWorkspaceNotification(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, client transport.LSPClient, logger *mcp.StructuredLogger, startTime time.Time) {
+func (pg *ProjectAwareGateway) handleWorkspaceNotification(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, client transport.LSPClient, logger *mcp.StructuredLogger, startTime time.Time) {
 	if logger != nil {
 		logger.Debug("Processing workspace-aware LSP notification")
 	}
@@ -386,7 +386,7 @@ func (pg *BasicProjectGateway) handleWorkspaceNotification(w http.ResponseWriter
 }
 
 // handleWorkspaceRequest handles requests with workspace context
-func (pg *BasicProjectGateway) handleWorkspaceRequest(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, client transport.LSPClient, logger *mcp.StructuredLogger, startTime time.Time) {
+func (pg *ProjectAwareGateway) handleWorkspaceRequest(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, client transport.LSPClient, logger *mcp.StructuredLogger, startTime time.Time) {
 	if logger != nil {
 		logger.Debug("Sending workspace-aware request to LSP server")
 	}
@@ -444,7 +444,7 @@ func (pg *BasicProjectGateway) handleWorkspaceRequest(w http.ResponseWriter, r *
 }
 
 // initializeProjectRequestLogger creates a logger with project-aware context
-func (pg *BasicProjectGateway) initializeProjectRequestLogger(r *http.Request) *mcp.StructuredLogger {
+func (pg *ProjectAwareGateway) initializeProjectRequestLogger(r *http.Request) *mcp.StructuredLogger {
 	requestID := "req_" + strconv.FormatInt(time.Now().UnixNano(), 10)
 	var requestLogger *mcp.StructuredLogger
 	if pg.Logger != nil {
@@ -459,7 +459,7 @@ func (pg *BasicProjectGateway) initializeProjectRequestLogger(r *http.Request) *
 }
 
 // validateHTTPMethod validates the HTTP method for project-aware requests
-func (pg *BasicProjectGateway) validateHTTPMethod(w http.ResponseWriter, r *http.Request, logger *mcp.StructuredLogger) bool {
+func (pg *ProjectAwareGateway) validateHTTPMethod(w http.ResponseWriter, r *http.Request, logger *mcp.StructuredLogger) bool {
 	if r.Method != http.MethodPost {
 		if logger != nil {
 			logger.Warn("Invalid HTTP method for project-aware request, rejecting")
@@ -471,7 +471,7 @@ func (pg *BasicProjectGateway) validateHTTPMethod(w http.ResponseWriter, r *http
 }
 
 // parseAndValidateJSONRPC parses and validates JSON-RPC request for project-aware processing
-func (pg *BasicProjectGateway) parseAndValidateJSONRPC(w http.ResponseWriter, r *http.Request, logger *mcp.StructuredLogger) (JSONRPCRequest, bool) {
+func (pg *ProjectAwareGateway) parseAndValidateJSONRPC(w http.ResponseWriter, r *http.Request, logger *mcp.StructuredLogger) (JSONRPCRequest, bool) {
 	var req JSONRPCRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -504,13 +504,13 @@ func (pg *BasicProjectGateway) parseAndValidateJSONRPC(w http.ResponseWriter, r 
 }
 
 // writeError writes error responses for project-aware requests
-func (pg *BasicProjectGateway) writeError(w http.ResponseWriter, id interface{}, code int, message string, err error) {
+func (pg *ProjectAwareGateway) writeError(w http.ResponseWriter, id interface{}, code int, message string, err error) {
 	// Delegate to the underlying Gateway's writeError method
 	pg.Gateway.writeError(w, id, code, message, err)
 }
 
 // GetWorkspaceInfo returns information about a specific workspace
-func (pg *BasicProjectGateway) GetWorkspaceInfo(workspaceID string) (map[string]interface{}, error) {
+func (pg *ProjectAwareGateway) GetWorkspaceInfo(workspaceID string) (map[string]interface{}, error) {
 	workspace, exists := pg.WorkspaceManager.GetWorkspaceByID(workspaceID)
 	if !exists {
 		return nil, fmt.Errorf("workspace not found: %s", workspaceID)
@@ -520,11 +520,11 @@ func (pg *BasicProjectGateway) GetWorkspaceInfo(workspaceID string) (map[string]
 }
 
 // IsProjectAware indicates that this gateway supports project-aware operations
-func (pg *BasicProjectGateway) IsProjectAware() bool {
+func (pg *ProjectAwareGateway) IsProjectAware() bool {
 	return true
 }
 
 // GetProjectRouter returns the project-aware router for advanced usage
-func (pg *BasicProjectGateway) GetProjectRouter() *ProjectAwareRouter {
+func (pg *ProjectAwareGateway) GetProjectRouter() *ProjectAwareRouter {
 	return pg.ProjectRouter
 }

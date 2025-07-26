@@ -34,38 +34,38 @@ type WorkspaceParser struct {
 
 // PackageJsonInfo contains parsed package.json information
 type PackageJsonInfo struct {
-	Name            string                 `json:"name,omitempty"`
-	Version         string                 `json:"version,omitempty"`
-	Description     string                 `json:"description,omitempty"`
-	Main            string                 `json:"main,omitempty"`
-	Module          string                 `json:"module,omitempty"`
-	Types           string                 `json:"types,omitempty"`
-	Type            string                 `json:"type,omitempty"` // "module" or "commonjs"
-	Scripts         map[string]string      `json:"scripts,omitempty"`
-	Dependencies    map[string]string      `json:"dependencies,omitempty"`
-	DevDependencies map[string]string      `json:"devDependencies,omitempty"`
-	PeerDependencies map[string]string     `json:"peerDependencies,omitempty"`
-	OptionalDependencies map[string]string `json:"optionalDependencies,omitempty"`
-	Bin             map[string]string      `json:"bin,omitempty"`
-	Exports         map[string]interface{} `json:"exports,omitempty"`
-	Imports         map[string]interface{} `json:"imports,omitempty"`
-	Workspaces      []string               `json:"workspaces,omitempty"`
-	Private         bool                   `json:"private,omitempty"`
-	License         string                 `json:"license,omitempty"`
-	Author          interface{}            `json:"author,omitempty"`
-	Contributors    []interface{}          `json:"contributors,omitempty"`
-	Repository      interface{}            `json:"repository,omitempty"`
-	Homepage        string                 `json:"homepage,omitempty"`
-	Bugs            interface{}            `json:"bugs,omitempty"`
-	Keywords        []string               `json:"keywords,omitempty"`
-	Engines         map[string]string      `json:"engines,omitempty"`
-	OS              []string               `json:"os,omitempty"`
-	CPU             []string               `json:"cpu,omitempty"`
-	Config          map[string]interface{} `json:"config,omitempty"`
-	Files           []string               `json:"files,omitempty"`
-	Directories     map[string]string      `json:"directories,omitempty"`
-	PackageManager  string                 `json:"packageManager,omitempty"`
-	Raw             map[string]interface{} `json:"-"` // Store raw JSON for custom fields
+	Name                 string                 `json:"name,omitempty"`
+	Version              string                 `json:"version,omitempty"`
+	Description          string                 `json:"description,omitempty"`
+	Main                 string                 `json:"main,omitempty"`
+	Module               string                 `json:"module,omitempty"`
+	Types                string                 `json:"types,omitempty"`
+	Type                 string                 `json:"type,omitempty"` // "module" or "commonjs"
+	Scripts              map[string]string      `json:"scripts,omitempty"`
+	Dependencies         map[string]string      `json:"dependencies,omitempty"`
+	DevDependencies      map[string]string      `json:"devDependencies,omitempty"`
+	PeerDependencies     map[string]string      `json:"peerDependencies,omitempty"`
+	OptionalDependencies map[string]string      `json:"optionalDependencies,omitempty"`
+	Bin                  map[string]string      `json:"bin,omitempty"`
+	Exports              map[string]interface{} `json:"exports,omitempty"`
+	Imports              map[string]interface{} `json:"imports,omitempty"`
+	Workspaces           []string               `json:"workspaces,omitempty"`
+	Private              bool                   `json:"private,omitempty"`
+	License              string                 `json:"license,omitempty"`
+	Author               interface{}            `json:"author,omitempty"`
+	Contributors         []interface{}          `json:"contributors,omitempty"`
+	Repository           interface{}            `json:"repository,omitempty"`
+	Homepage             string                 `json:"homepage,omitempty"`
+	Bugs                 interface{}            `json:"bugs,omitempty"`
+	Keywords             []string               `json:"keywords,omitempty"`
+	Engines              map[string]string      `json:"engines,omitempty"`
+	OS                   []string               `json:"os,omitempty"`
+	CPU                  []string               `json:"cpu,omitempty"`
+	Config               map[string]interface{} `json:"config,omitempty"`
+	Files                []string               `json:"files,omitempty"`
+	Directories          map[string]string      `json:"directories,omitempty"`
+	PackageManager       string                 `json:"packageManager,omitempty"`
+	Raw                  map[string]interface{} `json:"-"` // Store raw JSON for custom fields
 }
 
 // TSConfigInfo contains parsed tsconfig.json information
@@ -85,33 +85,33 @@ type TSConfigInfo struct {
 
 // ProjectReference represents a TypeScript project reference
 type ProjectReference struct {
-	Path            string `json:"path"`
-	Prepend         bool   `json:"prepend,omitempty"`
-	Circular        bool   `json:"circular,omitempty"`
+	Path     string `json:"path"`
+	Prepend  bool   `json:"prepend,omitempty"`
+	Circular bool   `json:"circular,omitempty"`
 }
 
 // LockfileInfo contains parsed lockfile information
 type LockfileInfo struct {
-	Type          string                       `json:"type"` // "npm", "yarn", "pnpm", "bun"
-	Version       string                       `json:"version,omitempty"`
-	Dependencies  map[string]*LockedDependency `json:"dependencies,omitempty"`
-	Metadata      map[string]interface{}       `json:"metadata,omitempty"`
-	Integrity     string                       `json:"integrity,omitempty"`
-	Issues        []string                     `json:"issues,omitempty"`
+	Type         string                       `json:"type"` // "npm", "yarn", "pnpm", "bun"
+	Version      string                       `json:"version,omitempty"`
+	Dependencies map[string]*LockedDependency `json:"dependencies,omitempty"`
+	Metadata     map[string]interface{}       `json:"metadata,omitempty"`
+	Integrity    string                       `json:"integrity,omitempty"`
+	Issues       []string                     `json:"issues,omitempty"`
 }
 
 // LockedDependency represents a locked dependency with version and integrity info
 type LockedDependency struct {
-	Name         string            `json:"name"`
-	Version      string            `json:"version"`
-	Resolved     string            `json:"resolved,omitempty"`
-	Integrity    string            `json:"integrity,omitempty"`
-	Dependencies map[string]string `json:"dependencies,omitempty"`
-	DevDependency bool             `json:"dev,omitempty"`
-	Optional     bool              `json:"optional,omitempty"`
-	Peer         bool              `json:"peer,omitempty"`
-	Bundled      bool              `json:"bundled,omitempty"`
-	Issues       []string          `json:"issues,omitempty"`
+	Name          string            `json:"name"`
+	Version       string            `json:"version"`
+	Resolved      string            `json:"resolved,omitempty"`
+	Integrity     string            `json:"integrity,omitempty"`
+	Dependencies  map[string]string `json:"dependencies,omitempty"`
+	DevDependency bool              `json:"dev,omitempty"`
+	Optional      bool              `json:"optional,omitempty"`
+	Peer          bool              `json:"peer,omitempty"`
+	Bundled       bool              `json:"bundled,omitempty"`
+	Issues        []string          `json:"issues,omitempty"`
 }
 
 // WorkspaceInfo contains parsed workspace configuration
@@ -163,7 +163,7 @@ func (p *PackageJsonParser) ParsePackageJson(filePath string) (*PackageJsonInfo,
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, types.NewDetectionError("package-parser", "read_file", filePath, 
+		return nil, types.NewDetectionError("package-parser", "read_file", filePath,
 			fmt.Sprintf("Failed to read package.json: %v", err), err)
 	}
 
@@ -362,8 +362,8 @@ func (t *TsConfigParser) ParseTSConfig(filePath string) (*TSConfigInfo, error) {
 		"compiler_options": len(info.CompilerOptions),
 		"include_patterns": len(info.Include),
 		"exclude_patterns": len(info.Exclude),
-		"files":           len(info.Files),
-		"references":      len(info.References),
+		"files":            len(info.Files),
+		"references":       len(info.References),
 	}).Debug("TypeScript configuration parsed successfully")
 
 	return info, nil
@@ -500,7 +500,7 @@ func (l *LockfileParser) parseYarnLockfile(filePath string) (*LockfileInfo, erro
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
-		
+
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
@@ -557,12 +557,12 @@ func (l *LockfileParser) parsePNPMLockfile(filePath string) (*LockfileInfo, erro
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		if line == "dependencies:" {
 			inDependencies = true
 			continue
 		}
-		
+
 		if inDependencies && strings.HasPrefix(line, " ") {
 			// Parse dependency line: "  package: 1.0.0"
 			parts := strings.SplitN(strings.TrimSpace(line), ":", 2)
@@ -588,7 +588,7 @@ func (l *LockfileParser) parsePNPMLockfile(filePath string) (*LockfileInfo, erro
 func (l *LockfileParser) parseBunLockfile(filePath string) (*LockfileInfo, error) {
 	// Note: bun.lockb is a binary format. This is a placeholder implementation.
 	// In practice, you'd need to use Bun's tools to parse this file.
-	
+
 	info := &LockfileInfo{
 		Type:         "bun",
 		Dependencies: make(map[string]*LockedDependency),
@@ -665,7 +665,7 @@ func (w *WorkspaceParser) parseNxWorkspaces(rootPath string) ([]string, error) {
 	}
 
 	var packages []string
-	
+
 	// Nx uses different patterns, often based on projects
 	if projects, ok := nx["projects"].(map[string]interface{}); ok {
 		for projectName := range projects {
@@ -707,7 +707,7 @@ func (w *WorkspaceParser) parseRushWorkspaces(rootPath string) ([]string, error)
 func (w *WorkspaceParser) parsePackageWorkspaces(rootPath string) ([]string, error) {
 	packagePath := filepath.Join(rootPath, "package.json")
 	parser := NewPackageJsonParser(w.logger)
-	
+
 	packageInfo, err := parser.ParsePackageJson(packagePath)
 	if err != nil {
 		return nil, err
@@ -735,12 +735,12 @@ func (w *WorkspaceParser) parsePNPMWorkspaces(rootPath string) ([]string, error)
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		if line == "packages:" {
 			inPackages = true
 			continue
 		}
-		
+
 		if inPackages && strings.HasPrefix(line, "-") {
 			// Parse package line: "- 'packages/*'"
 			pkg := strings.TrimSpace(strings.TrimPrefix(line, "-"))
@@ -809,7 +809,7 @@ func (p *PackageJsonParser) parseArrayFields(raw map[string]interface{}, info *P
 	p.parseStringArrayField(raw, "files", &info.Files)
 	p.parseStringArrayField(raw, "os", &info.OS)
 	p.parseStringArrayField(raw, "cpu", &info.CPU)
-	
+
 	if contributors, ok := raw["contributors"].([]interface{}); ok {
 		info.Contributors = contributors
 	}
@@ -847,7 +847,7 @@ func (p *PackageJsonParser) parseBinField(raw map[string]interface{}, info *Pack
 	if bin == nil {
 		return
 	}
-	
+
 	switch binValue := bin.(type) {
 	case string:
 		if info.Name != "" {
@@ -878,7 +878,7 @@ func (p *PackageJsonParser) parseWorkspacesField(raw map[string]interface{}, inf
 	if workspaces == nil {
 		return
 	}
-	
+
 	switch ws := workspaces.(type) {
 	case []interface{}:
 		for _, w := range ws {
@@ -916,7 +916,7 @@ func (p *PackageJsonParser) isValidPackageName(name string) bool {
 	if len(name) == 0 || len(name) > 214 {
 		return false
 	}
-	
+
 	// Check for valid characters
 	validNameRegex := regexp.MustCompile(`^(?:@[a-z0-9-*~][a-z0-9-*._~]*/)?[a-z0-9-~][a-z0-9-._~]*$`)
 	return validNameRegex.MatchString(name)
@@ -933,7 +933,7 @@ func (p *PackageJsonParser) isValidVersionRange(version string) bool {
 	if version == "" || version == "*" {
 		return true
 	}
-	
+
 	// Handle ranges like ^1.0.0, ~1.0.0, >=1.0.0, etc.
 	rangeRegex := regexp.MustCompile(`^([~^>=<]*)(\d+)\.(\d+)\.(\d+)`)
 	return rangeRegex.MatchString(version) || p.isValidSemVer(version)
@@ -1017,7 +1017,7 @@ func (l *LockfileParser) parseYarnPackageName(nameVersion string) string {
 
 func (l *LockfileParser) parseYarnProperty(line string, dep *LockedDependency) {
 	line = strings.TrimSpace(line)
-	
+
 	if strings.HasPrefix(line, "version ") {
 		dep.Version = strings.TrimSpace(strings.TrimPrefix(line, "version "))
 		dep.Version = strings.Trim(dep.Version, `"`)

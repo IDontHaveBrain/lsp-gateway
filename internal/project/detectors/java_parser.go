@@ -340,7 +340,7 @@ func (g *GradleProjectParser) extractGradleDependencies(content string) (map[str
 	// Find dependencies block
 	dependenciesRegex := regexp.MustCompile(`dependencies\s*\{([^}]*(?:\{[^}]*\}[^}]*)*)\}`)
 	matches := dependenciesRegex.FindStringSubmatch(content)
-	
+
 	if len(matches) < 2 {
 		return dependencies, nil
 	}
@@ -359,11 +359,11 @@ func (g *GradleProjectParser) extractGradleDependencies(content string) (map[str
 	for _, pattern := range depPatterns {
 		regex := regexp.MustCompile(pattern)
 		allMatches := regex.FindAllStringSubmatch(depsBlock, -1)
-		
+
 		for _, match := range allMatches {
 			if len(match) >= 3 {
 				scope := match[1]
-				
+
 				// Skip test dependencies for main dependency list
 				if strings.Contains(scope, types.SCOPE_TEST) {
 					continue
@@ -403,7 +403,7 @@ func (g *GradleProjectParser) extractGradlePlugins(content string) ([]string, er
 	// Find plugins block
 	pluginsRegex := regexp.MustCompile(`plugins\s*\{([^}]*)\}`)
 	matches := pluginsRegex.FindStringSubmatch(content)
-	
+
 	if len(matches) < 2 {
 		// Also check for legacy apply plugin syntax
 		applyRegex := regexp.MustCompile(`apply\s+plugin:\s*["']([^"']+)["']`)
@@ -431,7 +431,7 @@ func (g *GradleProjectParser) extractGradlePlugins(content string) ([]string, er
 	for _, pattern := range pluginPatterns {
 		regex := regexp.MustCompile(pattern)
 		allMatches := regex.FindAllStringSubmatch(pluginsBlock, -1)
-		
+
 		for _, match := range allMatches {
 			if len(match) >= 2 {
 				plugin := match[1]
@@ -463,7 +463,7 @@ func (g *GradleProjectParser) extractGradleTasks(content string) ([]string, erro
 	for _, pattern := range taskPatterns {
 		regex := regexp.MustCompile(pattern)
 		allMatches := regex.FindAllStringSubmatch(content, -1)
-		
+
 		for _, match := range allMatches {
 			if len(match) >= 2 {
 				tasks = append(tasks, match[1])
@@ -502,7 +502,6 @@ func (g *GradleProjectParser) ParseSettings(settingsPath string) ([]string, erro
 
 	return subprojects, nil
 }
-
 
 // ValidatePomXML validates Maven pom.xml for common issues
 func (p *MavenProjectParser) ValidatePomXML(pomPath string) []string {

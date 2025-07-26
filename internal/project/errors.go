@@ -23,13 +23,13 @@ const (
 type ProjectErrorType string
 
 const (
-	ProjectErrorTypeDetection    ProjectErrorType = "detection_failed"
-	ProjectErrorTypeValidation   ProjectErrorType = "validation_failed"
+	ProjectErrorTypeDetection     ProjectErrorType = "detection_failed"
+	ProjectErrorTypeValidation    ProjectErrorType = "validation_failed"
 	ProjectErrorTypeConfiguration ProjectErrorType = "configuration_error"
-	ProjectErrorTypeStructure    ProjectErrorType = "structure_error"
-	ProjectErrorTypeWorkspace    ProjectErrorType = "workspace_error"
-	ProjectErrorTypeTimeout      ProjectErrorType = "timeout_error"
-	ProjectErrorTypeFileSystem   ProjectErrorType = "filesystem_error"
+	ProjectErrorTypeStructure     ProjectErrorType = "structure_error"
+	ProjectErrorTypeWorkspace     ProjectErrorType = "workspace_error"
+	ProjectErrorTypeTimeout       ProjectErrorType = "timeout_error"
+	ProjectErrorTypeFileSystem    ProjectErrorType = "filesystem_error"
 )
 
 type ProjectError struct {
@@ -130,14 +130,14 @@ func NewDetectionError(projectType, phase, path, details string, cause error) *D
 }
 
 type ValidationError struct {
-	ProjectType      string
-	RequiredFiles    []string
-	MissingFiles     []string
-	InvalidFiles     []string
-	StructureIssues  []string
+	ProjectType         string
+	RequiredFiles       []string
+	MissingFiles        []string
+	InvalidFiles        []string
+	StructureIssues     []string
 	ConfigurationErrors []string
-	Message          string
-	Cause            error
+	Message             string
+	Cause               error
 }
 
 func (e *ValidationError) Error() string {
@@ -360,7 +360,7 @@ func IsRetryableProjectError(err error) bool {
 
 	// Check error message for timeout patterns
 	errorMsg := strings.ToLower(err.Error())
-	return strings.Contains(errorMsg, "timeout") || 
+	return strings.Contains(errorMsg, "timeout") ||
 		strings.Contains(errorMsg, "timed out") ||
 		strings.Contains(errorMsg, "temporary")
 }

@@ -13,17 +13,18 @@ import (
 
 	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/gateway"
+	"lsp-gateway/mcp"
 )
 
 func main() {
 	var (
-		projectPath    = flag.String("project", ".", "Path to the project to analyze")
-		command        = flag.String("command", "detect", "Command to run: detect, config, status, symbols, serve")
-		outputFormat   = flag.String("format", "json", "Output format: json, yaml, text")
-		outputFile     = flag.String("output", "", "Output file (default: stdout)")
-		serverPort     = flag.Int("port", 8080, "Server port for serve command")
-		symbolQuery    = flag.String("query", "", "Symbol query for symbols command")
-		verbose        = flag.Bool("verbose", false, "Enable verbose logging")
+		projectPath  = flag.String("project", ".", "Path to the project to analyze")
+		command      = flag.String("command", "detect", "Command to run: detect, config, status, symbols, serve")
+		outputFormat = flag.String("format", "json", "Output format: json, yaml, text")
+		outputFile   = flag.String("output", "", "Output file (default: stdout)")
+		serverPort   = flag.Int("port", 8080, "Server port for serve command")
+		symbolQuery  = flag.String("query", "", "Symbol query for symbols command")
+		verbose      = flag.Bool("verbose", false, "Enable verbose logging")
 	)
 	flag.Parse()
 
@@ -90,18 +91,18 @@ func detectLanguages(projectPath, format, outputFile string, logger *log.Logger)
 	// Add language details
 	for lang, ctx := range projectInfo.Languages {
 		result["languages"].(map[string]interface{})[lang] = map[string]interface{}{
-			"file_count":     ctx.FileCount,
-			"test_files":     ctx.TestFileCount,
-			"priority":       ctx.Priority,
-			"confidence":     ctx.Confidence,
-			"framework":      ctx.Framework,
-			"version":        ctx.Version,
-			"lsp_server":     ctx.LSPServerName,
-			"root_path":      ctx.RootPath,
-			"build_files":    ctx.BuildFiles,
-			"config_files":   ctx.ConfigFiles,
-			"source_paths":   ctx.SourcePaths,
-			"test_paths":     ctx.TestPaths,
+			"file_count":   ctx.FileCount,
+			"test_files":   ctx.TestFileCount,
+			"priority":     ctx.Priority,
+			"confidence":   ctx.Confidence,
+			"framework":    ctx.Framework,
+			"version":      ctx.Version,
+			"lsp_server":   ctx.LSPServerName,
+			"root_path":    ctx.RootPath,
+			"build_files":  ctx.BuildFiles,
+			"config_files": ctx.ConfigFiles,
+			"source_paths": ctx.SourcePaths,
+			"test_paths":   ctx.TestPaths,
 		}
 	}
 
@@ -129,11 +130,15 @@ func generateConfig(projectPath, format, outputFile string, logger *log.Logger) 
 		}
 		result = gatewayConfig
 	default:
+		var workspaceRoots map[string]string
+		if mlConfig.WorkspaceConfig != nil {
+			workspaceRoots = mlConfig.WorkspaceConfig.LanguageRoots
+		}
 		result = map[string]interface{}{
-			"project_info":    mlConfig.ProjectInfo,
-			"servers":         mlConfig.ServerConfigs,
-			"workspace_roots": mlConfig.WorkspaceRoots,
-			"generated_at":    mlConfig.GeneratedAt.Format(time.RFC3339),
+			"project_info":        mlConfig.ProjectInfo,
+			"servers":             mlConfig.ServerConfigs,
+			"workspace_roots":     workspaceRoots,
+			"generated_at":        mlConfig.GeneratedAt.Format(time.RFC3339),
 			"supported_languages": mlConfig.GetSupportedLanguages(),
 		}
 	}
@@ -159,9 +164,9 @@ func showProjectStatus(projectPath, format, outputFile string, logger *log.Logge
 	perfMetrics := scanner.GetPerformanceMetrics()
 
 	result := map[string]interface{}{
-		"project_status":       status,
-		"performance_metrics":  perfMetrics,
-		"cache_stats":          scanner.GetCacheStats(),
+		"project_status":      status,
+		"performance_metrics": perfMetrics,
+		"cache_stats":         scanner.GetCacheStats(),
 	}
 
 	return outputResult(result, format, outputFile, logger)
@@ -268,7 +273,7 @@ func formatAsText(data interface{}) string {
 	case map[string]interface{}:
 		for key, value := range v {
 			builder.WriteString(fmt.Sprintf("%s: ", key))
-			
+
 			switch val := value.(type) {
 			case map[string]interface{}:
 				builder.WriteString("\n")
@@ -308,7 +313,7 @@ func createDefaultConfig() *config.GatewayConfig {
 			},
 			{
 				Name:        "python-lsp-server",
-				Languages:   []string{"python"},
+				Languages:   []string{mcp.LANG_PYTHON},
 				Command:     "python",
 				Args:        []string{"-m", "pylsp"},
 				Transport:   "stdio",
@@ -318,7 +323,7 @@ func createDefaultConfig() *config.GatewayConfig {
 			},
 			{
 				Name:        "typescript-language-server",
-				Languages:   []string{"typescript", "javascript"},
+				Languages:   []string{mcp.LANG_TYPESCRIPT, mcp.LANG_JAVASCRIPT},
 				Command:     "typescript-language-server",
 				Args:        []string{"--stdio"},
 				Transport:   "stdio",
@@ -328,7 +333,7 @@ func createDefaultConfig() *config.GatewayConfig {
 			},
 			{
 				Name:        "jdtls",
-				Languages:   []string{"java"},
+				Languages:   []string{mcp.LANG_JAVA},
 				Command:     "jdtls",
 				Transport:   "stdio",
 				RootMarkers: []string{"pom.xml", "build.gradle"},
@@ -338,14 +343,14 @@ func createDefaultConfig() *config.GatewayConfig {
 			{
 				Name:        "rust-analyzer",
 				Languages:   []string{"rust"},
-				Command:     "rust-analyzer", 
+				Command:     "rust-analyzer",
 				Transport:   "stdio",
 				RootMarkers: []string{"Cargo.toml"},
 				Priority:    3,
 				Weight:      1.0,
 			},
 		},
-		LanguagePools: []config.LanguageServerPool{},
+		LanguagePools:           []config.LanguageServerPool{},
 		GlobalMultiServerConfig: config.DefaultMultiServerConfig(),
 	}
 }

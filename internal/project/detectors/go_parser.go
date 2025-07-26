@@ -22,21 +22,20 @@ type GoModInfo struct {
 	Retracts   []string          `json:"retracts"`
 }
 
-// GoWorkspaceInfo represents parsed go.work file information  
+// GoWorkspaceInfo represents parsed go.work file information
 type GoWorkspaceInfo struct {
 	GoVersion string            `json:"go_version"`
 	Modules   []string          `json:"modules"`
 	Replaces  map[string]string `json:"replaces"`
 }
 
-
 // ImportAnalysis contains import path analysis results
 type ImportAnalysis struct {
-	StandardLibrary []string          `json:"standard_library"`
-	ThirdParty      []string          `json:"third_party"`
-	Internal        []string          `json:"internal"`
-	Relative        []string          `json:"relative"`
-	Dependencies    map[string]int    `json:"dependencies"` // import path -> count
+	StandardLibrary []string       `json:"standard_library"`
+	ThirdParty      []string       `json:"third_party"`
+	Internal        []string       `json:"internal"`
+	Relative        []string       `json:"relative"`
+	Dependencies    map[string]int `json:"dependencies"` // import path -> count
 }
 
 // GoModuleParser handles parsing of go.mod files
@@ -119,13 +118,13 @@ func (p *GoModuleParser) ParseGoMod(ctx context.Context, goModPath string) (*GoM
 
 	parseTime := time.Since(startTime)
 	p.logger.WithFields(map[string]interface{}{
-		"path":         goModPath,
-		"module":       modInfo.ModuleName,
-		"go_version":   modInfo.GoVersion,
-		"requires":     len(modInfo.Requires),
-		"replaces":     len(modInfo.Replaces),
-		"excludes":     len(modInfo.Excludes),
-		"parse_time":   parseTime,
+		"path":       goModPath,
+		"module":     modInfo.ModuleName,
+		"go_version": modInfo.GoVersion,
+		"requires":   len(modInfo.Requires),
+		"replaces":   len(modInfo.Replaces),
+		"excludes":   len(modInfo.Excludes),
+		"parse_time": parseTime,
 	}).Debug("go.mod parsing completed")
 
 	return modInfo, nil
@@ -147,7 +146,7 @@ func (p *GoModuleParser) parseGoModContent(content string, modInfo *GoModInfo) e
 	replaceRe := regexp.MustCompile(`^replace\s*\(?(.*)$`)
 	excludeRe := regexp.MustCompile(`^exclude\s*\(?(.*)$`)
 	retractRe := regexp.MustCompile(`^retract\s*\(?(.*)$`)
-	
+
 	// Regex for dependency lines (handles both single line and block format)
 	_ = regexp.MustCompile(`^\s*([^\s]+)\s+([^\s]+)(?:\s+//\s*(.*))?$`)
 	_ = regexp.MustCompile(`^\s*([^\s]+)\s*=>\s*([^\s]+)(?:\s+([^\s]+))?(?:\s+//\s*(.*))?$`)
@@ -155,7 +154,7 @@ func (p *GoModuleParser) parseGoModContent(content string, modInfo *GoModInfo) e
 	for scanner.Scan() {
 		lineNum++
 		line := strings.TrimSpace(scanner.Text())
-		
+
 		// Skip empty lines and comments
 		if line == "" || strings.HasPrefix(line, "//") {
 			continue
@@ -377,11 +376,11 @@ func (p *GoWorkspaceParser) ParseGoWork(ctx context.Context, goWorkPath string) 
 
 	parseTime := time.Since(startTime)
 	p.logger.WithFields(map[string]interface{}{
-		"path":        goWorkPath,
-		"go_version":  workspaceInfo.GoVersion,
-		"modules":     len(workspaceInfo.Modules),
-		"replaces":    len(workspaceInfo.Replaces),
-		"parse_time":  parseTime,
+		"path":       goWorkPath,
+		"go_version": workspaceInfo.GoVersion,
+		"modules":    len(workspaceInfo.Modules),
+		"replaces":   len(workspaceInfo.Replaces),
+		"parse_time": parseTime,
 	}).Debug("go.work parsing completed")
 
 	return workspaceInfo, nil
@@ -402,7 +401,7 @@ func (p *GoWorkspaceParser) parseGoWorkContent(content string, workspaceInfo *Go
 	for scanner.Scan() {
 		lineNum++
 		line := strings.TrimSpace(scanner.Text())
-		
+
 		// Skip empty lines and comments
 		if line == "" || strings.HasPrefix(line, "//") {
 			continue
@@ -433,7 +432,7 @@ func (p *GoWorkspaceParser) parseGoWorkContent(content string, workspaceInfo *Go
 			continue
 		}
 
-		// Handle replace block  
+		// Handle replace block
 		if matches := replaceRe.FindStringSubmatch(line); matches != nil {
 			replacement := strings.TrimSpace(matches[1])
 			if replacement == "" || strings.HasSuffix(replacement, "(") {
@@ -526,13 +525,13 @@ func (p *GoModuleParser) analyzeImportsInFile(filePath string, analysis *ImportA
 
 	lines := strings.Split(string(content), "\n")
 	inImportBlock := false
-	
+
 	importRe := regexp.MustCompile(`import\s*"([^"]+)"`)
 	importBlockRe := regexp.MustCompile(`import\s*\(`)
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		// Skip empty lines and comments
 		if line == "" || strings.HasPrefix(line, "//") {
 			continue
@@ -552,7 +551,7 @@ func (p *GoModuleParser) analyzeImportsInFile(filePath string, analysis *ImportA
 
 		// Extract import paths
 		var importPath string
-		
+
 		if inImportBlock {
 			// Inside import block - extract quoted path
 			if strings.Contains(line, "\"") {
@@ -721,12 +720,12 @@ func (p *GoModuleParser) isPrerelease(version string) bool {
 	// Check if version contains prerelease indicators
 	prereleaseIndicators := []string{"-alpha", "-beta", "-rc", "-pre", "-dev"}
 	lowerVersion := strings.ToLower(version)
-	
+
 	for _, indicator := range prereleaseIndicators {
 		if strings.Contains(lowerVersion, indicator) {
 			return true
 		}
 	}
-	
+
 	return false
 }

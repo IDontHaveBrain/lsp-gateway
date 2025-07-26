@@ -4,56 +4,56 @@ import (
 	"context"
 	"fmt"
 	"io/fs"
+	"lsp-gateway/internal/config"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 	"time"
-	"lsp-gateway/internal/config"
 )
 
 const (
-	DefaultMaxDepth    = 3
+	DefaultMaxDepth      = 3
 	DefaultFileSizeLimit = 50 * 1024 * 1024 // 50MB
-	DefaultMaxFiles    = 10000
-	ScanTimeout        = 30 * time.Second
+	DefaultMaxFiles      = 10000
+	ScanTimeout          = 30 * time.Second
 )
 
 // LanguageStats represents statistical information about a language in the project
 type LanguageStats struct {
-	Language         string            `json:"language" yaml:"language"`
-	FileCount        int               `json:"file_count" yaml:"file_count"`
-	TestFileCount    int               `json:"test_file_count" yaml:"test_file_count"`
-	TestFiles        int               `json:"test_files" yaml:"test_files"`
-	BuildFileScore   int               `json:"build_file_score" yaml:"build_file_score"`
-	DirectoryScore   int               `json:"directory_score" yaml:"directory_score"`
-	RecentActivity   int               `json:"recent_activity" yaml:"recent_activity"`
-	TotalScore       int               `json:"total_score" yaml:"total_score"`
-	Extensions       map[string]int    `json:"extensions" yaml:"extensions"`
-	BuildFiles       []string          `json:"build_files" yaml:"build_files"`
-	ConfigFiles      []string          `json:"config_files" yaml:"config_files"`
-	SourceDirs       []string          `json:"source_dirs" yaml:"source_dirs"`
+	Language       string         `json:"language" yaml:"language"`
+	FileCount      int            `json:"file_count" yaml:"file_count"`
+	TestFileCount  int            `json:"test_file_count" yaml:"test_file_count"`
+	TestFiles      int            `json:"test_files" yaml:"test_files"`
+	BuildFileScore int            `json:"build_file_score" yaml:"build_file_score"`
+	DirectoryScore int            `json:"directory_score" yaml:"directory_score"`
+	RecentActivity int            `json:"recent_activity" yaml:"recent_activity"`
+	TotalScore     int            `json:"total_score" yaml:"total_score"`
+	Extensions     map[string]int `json:"extensions" yaml:"extensions"`
+	BuildFiles     []string       `json:"build_files" yaml:"build_files"`
+	ConfigFiles    []string       `json:"config_files" yaml:"config_files"`
+	SourceDirs     []string       `json:"source_dirs" yaml:"source_dirs"`
 }
 
 // LanguageContext represents comprehensive context about a specific language in the project
 type LanguageContext struct {
-	Language        string                 `json:"language" yaml:"language"`                               // Language name (go, python, typescript, etc.)
-	RootPath        string                 `json:"root_path" yaml:"root_path"`                             // Language-specific root (may differ from project root)
-	FileCount       int                    `json:"file_count" yaml:"file_count"`                           // Number of source files found
-	TestFileCount   int                    `json:"test_file_count" yaml:"test_file_count"`                 // Number of test files found
-	Priority        int                    `json:"priority" yaml:"priority"`                               // Calculated priority score (1-100)
-	Confidence      float64                `json:"confidence" yaml:"confidence"`                           // Detection confidence (0.0-1.0)
-	BuildFiles      []string               `json:"build_files" yaml:"build_files"`                         // Build files for this language
-	ConfigFiles     []string               `json:"config_files" yaml:"config_files"`                       // Config files for this language
-	SourcePaths     []string               `json:"source_paths" yaml:"source_paths"`                       // Directories containing source files
-	TestPaths       []string               `json:"test_paths" yaml:"test_paths"`                           // Directories containing test files
-	FileExtensions  []string               `json:"file_extensions" yaml:"file_extensions"`                 // File extensions found for this language
-	Framework       string                 `json:"framework,omitempty" yaml:"framework,omitempty"`         // Detected framework (if any)
-	Version         string                 `json:"version,omitempty" yaml:"version,omitempty"`             // Language/framework version (if detectable)
-	LSPServerName   string                 `json:"lsp_server_name,omitempty" yaml:"lsp_server_name,omitempty"` // Recommended LSP server
-	Dependencies    []string               `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`   // Dependencies on other languages in project
-	Metadata        map[string]interface{} `json:"metadata,omitempty" yaml:"metadata,omitempty"`           // Language-specific metadata
+	Language       string                 `json:"language" yaml:"language"`                                   // Language name (go, python, typescript, etc.)
+	RootPath       string                 `json:"root_path" yaml:"root_path"`                                 // Language-specific root (may differ from project root)
+	FileCount      int                    `json:"file_count" yaml:"file_count"`                               // Number of source files found
+	TestFileCount  int                    `json:"test_file_count" yaml:"test_file_count"`                     // Number of test files found
+	Priority       int                    `json:"priority" yaml:"priority"`                                   // Calculated priority score (1-100)
+	Confidence     float64                `json:"confidence" yaml:"confidence"`                               // Detection confidence (0.0-1.0)
+	BuildFiles     []string               `json:"build_files" yaml:"build_files"`                             // Build files for this language
+	ConfigFiles    []string               `json:"config_files" yaml:"config_files"`                           // Config files for this language
+	SourcePaths    []string               `json:"source_paths" yaml:"source_paths"`                           // Directories containing source files
+	TestPaths      []string               `json:"test_paths" yaml:"test_paths"`                               // Directories containing test files
+	FileExtensions []string               `json:"file_extensions" yaml:"file_extensions"`                     // File extensions found for this language
+	Framework      string                 `json:"framework,omitempty" yaml:"framework,omitempty"`             // Detected framework (if any)
+	Version        string                 `json:"version,omitempty" yaml:"version,omitempty"`                 // Language/framework version (if detectable)
+	LSPServerName  string                 `json:"lsp_server_name,omitempty" yaml:"lsp_server_name,omitempty"` // Recommended LSP server
+	Dependencies   []string               `json:"dependencies,omitempty" yaml:"dependencies,omitempty"`       // Dependencies on other languages in project
+	Metadata       map[string]interface{} `json:"metadata,omitempty" yaml:"metadata,omitempty"`               // Language-specific metadata
 }
 
 // LanguageRanking represents a ranked language with scoring information
@@ -69,27 +69,27 @@ type LanguageRanking struct {
 
 // MultiLanguageProjectInfo represents comprehensive information about a multi-language project
 type MultiLanguageProjectInfo struct {
-	RootPath           string                     `json:"root_path" yaml:"root_path"`                       // Main project root
-	ProjectType        string                     `json:"project_type" yaml:"project_type"`                 // "monorepo", "multi-language", "frontend-backend", etc.
-	DominantLanguage   string                     `json:"dominant_language" yaml:"dominant_language"`       // Primary language based on scoring
-	Languages          map[string]*LanguageContext `json:"languages" yaml:"languages"`                      // Language name -> context
-	WorkspaceRoots     map[string]string          `json:"workspace_roots" yaml:"workspace_roots"`          // Language -> specific root path
-	BuildFiles         []string                   `json:"build_files" yaml:"build_files"`                   // All detected build files
-	ConfigFiles        []string                   `json:"config_files" yaml:"config_files"`                 // All detected config files
-	TotalFileCount     int                        `json:"total_file_count" yaml:"total_file_count"`         // Total files analyzed
-	ScanDepth          int                        `json:"scan_depth" yaml:"scan_depth"`                     // Actual depth reached during scan
-	ScanDuration       time.Duration              `json:"scan_duration" yaml:"scan_duration"`               // Time taken for analysis
-	DetectedAt         time.Time                  `json:"detected_at" yaml:"detected_at"`                   // When detection was performed
-	Metadata           map[string]interface{}     `json:"metadata,omitempty" yaml:"metadata,omitempty"`     // Extensible metadata
+	RootPath         string                      `json:"root_path" yaml:"root_path"`                   // Main project root
+	ProjectType      string                      `json:"project_type" yaml:"project_type"`             // "monorepo", "multi-language", "frontend-backend", etc.
+	DominantLanguage string                      `json:"dominant_language" yaml:"dominant_language"`   // Primary language based on scoring
+	Languages        map[string]*LanguageContext `json:"languages" yaml:"languages"`                   // Language name -> context
+	WorkspaceRoots   map[string]string           `json:"workspace_roots" yaml:"workspace_roots"`       // Language -> specific root path
+	BuildFiles       []string                    `json:"build_files" yaml:"build_files"`               // All detected build files
+	ConfigFiles      []string                    `json:"config_files" yaml:"config_files"`             // All detected config files
+	TotalFileCount   int                         `json:"total_file_count" yaml:"total_file_count"`     // Total files analyzed
+	ScanDepth        int                         `json:"scan_depth" yaml:"scan_depth"`                 // Actual depth reached during scan
+	ScanDuration     time.Duration               `json:"scan_duration" yaml:"scan_duration"`           // Time taken for analysis
+	DetectedAt       time.Time                   `json:"detected_at" yaml:"detected_at"`               // When detection was performed
+	Metadata         map[string]interface{}      `json:"metadata,omitempty" yaml:"metadata,omitempty"` // Extensible metadata
 }
 
 // ProjectPattern represents common project patterns for detection
 type ProjectPattern struct {
-	Name           string    `json:"name" yaml:"name"`                       // Pattern name
-	Languages      []string  `json:"languages" yaml:"languages"`             // Expected languages
-	DirectoryHints []string  `json:"directory_hints" yaml:"directory_hints"` // Directory structure hints
-	BuildFileHints []string  `json:"build_file_hints" yaml:"build_file_hints"` // Build file hints
-	Confidence     float64   `json:"confidence" yaml:"confidence"`           // Pattern confidence
+	Name           string   `json:"name" yaml:"name"`                         // Pattern name
+	Languages      []string `json:"languages" yaml:"languages"`               // Expected languages
+	DirectoryHints []string `json:"directory_hints" yaml:"directory_hints"`   // Directory structure hints
+	BuildFileHints []string `json:"build_file_hints" yaml:"build_file_hints"` // Build file hints
+	Confidence     float64  `json:"confidence" yaml:"confidence"`             // Pattern confidence
 }
 
 // Framework represents a detected framework within a language
@@ -123,34 +123,34 @@ type ProjectLanguageScanner struct {
 	FileSizeLimit  int64
 	MaxFiles       int
 	Timeout        time.Duration
-	
+
 	// Performance optimization fields
 	Cache              *ProjectCache
 	EnableEarlyExit    bool
 	MaxConcurrentScans int
-	FastModeThreshold  int  // Switch to fast mode for small projects
+	FastModeThreshold  int // Switch to fast mode for small projects
 	EnableCache        bool
-	
-	langPatterns    map[string]*LanguagePattern
-	buildFiles      map[string]string
-	configFiles     map[string]string
-	testPatterns    []string
-	sourceDirs      []string
-	
+
+	langPatterns map[string]*LanguagePattern
+	buildFiles   map[string]string
+	configFiles  map[string]string
+	testPatterns []string
+	sourceDirs   []string
+
 	// Fast-path detection cache
-	fastPathCache   map[string]*MultiLanguageProjectInfo
-	fastPathMutex   sync.RWMutex
+	fastPathCache map[string]*MultiLanguageProjectInfo
+	fastPathMutex sync.RWMutex
 }
 
 type LanguagePattern struct {
-	Language     string
-	Extensions   []string
-	BuildFiles   []string
-	ConfigFiles  []string 
-	SourceDirs   []string
-	TestDirs     []string
-	BaseScore    float64
-	BuildWeight  float64
+	Language    string
+	Extensions  []string
+	BuildFiles  []string
+	ConfigFiles []string
+	SourceDirs  []string
+	TestDirs    []string
+	BaseScore   float64
+	BuildWeight float64
 }
 
 func NewProjectLanguageScanner() *ProjectLanguageScanner {
@@ -159,13 +159,13 @@ func NewProjectLanguageScanner() *ProjectLanguageScanner {
 		FileSizeLimit: DefaultFileSizeLimit,
 		MaxFiles:      DefaultMaxFiles,
 		Timeout:       ScanTimeout,
-		
+
 		// Performance optimization defaults
 		EnableEarlyExit:    true,
 		MaxConcurrentScans: DefaultMaxConcurrentScans,
 		FastModeThreshold:  DefaultFastModeThreshold,
 		EnableCache:        true,
-		
+
 		IgnorePatterns: []string{
 			"node_modules", "venv", "env", ".venv", ".env",
 			".git", ".svn", ".hg", ".bzr",
@@ -176,17 +176,17 @@ func NewProjectLanguageScanner() *ProjectLanguageScanner {
 			"coverage", ".coverage", ".nyc_output",
 			"logs", "*.log", ".DS_Store", "Thumbs.db",
 		},
-		langPatterns: make(map[string]*LanguagePattern),
-		buildFiles:   make(map[string]string),
-		configFiles:  make(map[string]string),
+		langPatterns:  make(map[string]*LanguagePattern),
+		buildFiles:    make(map[string]string),
+		configFiles:   make(map[string]string),
 		fastPathCache: make(map[string]*MultiLanguageProjectInfo),
 	}
-	
+
 	// Initialize cache if enabled
 	if scanner.EnableCache {
 		scanner.Cache = NewProjectCache()
 	}
-	
+
 	scanner.initializeLanguagePatterns()
 	return scanner
 }
@@ -324,25 +324,25 @@ func (s *ProjectLanguageScanner) initializeLanguagePatterns() {
 			BuildWeight: 8.0,
 		},
 	}
-	
+
 	for _, pattern := range patterns {
 		s.langPatterns[pattern.Language] = pattern
-		
+
 		for _, buildFile := range pattern.BuildFiles {
 			s.buildFiles[buildFile] = pattern.Language
 		}
-		
+
 		for _, configFile := range pattern.ConfigFiles {
 			s.configFiles[configFile] = pattern.Language
 		}
 	}
-	
+
 	s.testPatterns = []string{
 		"test", "tests", "testing", "spec", "specs", "__tests__",
 		"*_test.*", "*_spec.*", "test_*.*", "spec_*.*",
 		"*.test.*", "*.spec.*",
 	}
-	
+
 	s.sourceDirs = []string{
 		"src", "source", "lib", "libs", "app", "main", "core",
 		"pkg", "internal", "cmd", "api", "server", "client",
@@ -358,7 +358,7 @@ func (s *ProjectLanguageScanner) ScanProjectCached(rootPath string) (*MultiLangu
 			return cached, nil
 		}
 	}
-	
+
 	// Try fast-path detection first
 	if fastResult, isFastPath := s.tryFastPathDetection(rootPath); isFastPath {
 		if s.EnableCache && s.Cache != nil {
@@ -366,18 +366,18 @@ func (s *ProjectLanguageScanner) ScanProjectCached(rootPath string) (*MultiLangu
 		}
 		return fastResult, nil
 	}
-	
+
 	// Fall back to full scan
 	result, err := s.ScanProject(rootPath)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Cache the result
 	if s.EnableCache && s.Cache != nil {
 		s.Cache.Set(rootPath, result)
 	}
-	
+
 	return result, nil
 }
 
@@ -387,7 +387,7 @@ func (s *ProjectLanguageScanner) ScanProjectIncremental(rootPath string, lastSca
 	if s.needsFullRescan(rootPath, lastScan) {
 		return s.ScanProjectCached(rootPath)
 	}
-	
+
 	// Try to get cached result and update incrementally
 	if s.EnableCache && s.Cache != nil {
 		if cached, hit := s.Cache.Get(rootPath); hit {
@@ -397,7 +397,7 @@ func (s *ProjectLanguageScanner) ScanProjectIncremental(rootPath string, lastSca
 			}
 		}
 	}
-	
+
 	// Fall back to full scan
 	return s.ScanProjectCached(rootPath)
 }
@@ -405,28 +405,28 @@ func (s *ProjectLanguageScanner) ScanProjectIncremental(rootPath string, lastSca
 func (s *ProjectLanguageScanner) ScanProject(rootPath string) (*MultiLanguageProjectInfo, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), s.Timeout)
 	defer cancel()
-	
+
 	// Add early termination context if enabled
 	if s.EnableEarlyExit {
 		ctx = s.addEarlyTerminationContext(ctx, rootPath)
 	}
-	
+
 	startTime := time.Now()
-	
+
 	absRoot, err := filepath.Abs(rootPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get absolute path: %w", err)
 	}
-	
+
 	stats := make(map[string]*LanguageStats)
 	var totalFiles int
 	var scanMutex sync.Mutex
-	
+
 	err = s.scanDirectoryRecursive(ctx, absRoot, 0, stats, &totalFiles, &scanMutex)
 	if err != nil {
 		return nil, fmt.Errorf("scan failed: %w", err)
 	}
-	
+
 	if len(stats) == 0 {
 		return &MultiLanguageProjectInfo{
 			ProjectType:    "empty",
@@ -442,33 +442,33 @@ func (s *ProjectLanguageScanner) ScanProject(rootPath string) (*MultiLanguagePro
 			Metadata:       make(map[string]interface{}),
 		}, nil
 	}
-	
+
 	rankings := s.calculateLanguagePriorities(stats)
 	projectType := s.identifyProjectType(rankings)
-	
+
 	var buildSystems []string
 	var sourceDirs []string
 	var configFiles []string
-	
+
 	for _, lang := range stats {
 		buildSystems = append(buildSystems, lang.BuildFiles...)
 		sourceDirs = append(sourceDirs, lang.SourceDirs...)
 		configFiles = append(configFiles, lang.ConfigFiles...)
 	}
-	
+
 	buildSystems = s.removeDuplicates(buildSystems)
 	sourceDirs = s.removeDuplicates(sourceDirs)
 	configFiles = s.removeDuplicates(configFiles)
-	
+
 	dominantLang := ""
 	if len(rankings) > 0 {
 		dominantLang = rankings[0].Language
 	}
-	
+
 	// Convert to new structure format
-	info := s.convertLegacyToNewFormat(rankings, absRoot, projectType, dominantLang, 
+	info := s.convertLegacyToNewFormat(rankings, absRoot, projectType, dominantLang,
 		buildSystems, sourceDirs, configFiles, totalFiles, time.Since(startTime), s.MaxDepth, len(stats))
-	
+
 	return info, nil
 }
 
@@ -478,49 +478,49 @@ func (s *ProjectLanguageScanner) scanDirectoryRecursive(ctx context.Context, dir
 		return ctx.Err()
 	default:
 	}
-	
+
 	if depth > s.MaxDepth {
 		return nil
 	}
-	
+
 	mutex.Lock()
 	if *totalFiles >= s.MaxFiles {
 		mutex.Unlock()
 		return nil
 	}
 	mutex.Unlock()
-	
+
 	if s.shouldIgnoreDirectory(filepath.Base(dirPath)) {
 		return nil
 	}
-	
+
 	err := filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // Continue on errors
 		}
-		
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
-		
+
 		if path == dirPath {
 			return nil
 		}
-		
+
 		if d.IsDir() {
 			if s.shouldIgnoreDirectory(d.Name()) {
 				return filepath.SkipDir
 			}
-			
+
 			relDepth := strings.Count(strings.TrimPrefix(path, dirPath), string(filepath.Separator))
 			if relDepth >= s.MaxDepth {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		
+
 		mutex.Lock()
 		if *totalFiles >= s.MaxFiles {
 			mutex.Unlock()
@@ -528,18 +528,18 @@ func (s *ProjectLanguageScanner) scanDirectoryRecursive(ctx context.Context, dir
 		}
 		*totalFiles++
 		mutex.Unlock()
-		
+
 		s.analyzeFile(path, dirPath, stats, mutex)
 		return nil
 	})
-	
+
 	return err
 }
 
 func (s *ProjectLanguageScanner) analyzeFile(filePath, rootPath string, stats map[string]*LanguageStats, mutex *sync.Mutex) {
 	fileName := filepath.Base(filePath)
 	ext := filepath.Ext(fileName)
-	
+
 	// Check build files first
 	if lang, exists := s.buildFiles[fileName]; exists {
 		mutex.Lock()
@@ -556,7 +556,7 @@ func (s *ProjectLanguageScanner) analyzeFile(filePath, rootPath string, stats ma
 		mutex.Unlock()
 		return
 	}
-	
+
 	// Check config files
 	if lang, exists := s.configFiles[fileName]; exists {
 		mutex.Lock()
@@ -573,21 +573,21 @@ func (s *ProjectLanguageScanner) analyzeFile(filePath, rootPath string, stats ma
 		mutex.Unlock()
 		return
 	}
-	
+
 	// Check language by extension
 	language := s.getFileLanguage(ext)
 	if language == "" {
 		return
 	}
-	
+
 	fileInfo, err := filepath.Glob(filePath)
 	if err != nil || len(fileInfo) == 0 {
 		return
 	}
-	
+
 	mutex.Lock()
 	defer mutex.Unlock()
-	
+
 	if stats[language] == nil {
 		stats[language] = &LanguageStats{
 			Language:    language,
@@ -597,15 +597,15 @@ func (s *ProjectLanguageScanner) analyzeFile(filePath, rootPath string, stats ma
 			SourceDirs:  []string{},
 		}
 	}
-	
+
 	stats[language].FileCount++
 	stats[language].Extensions[ext]++
-	
+
 	// Check if it's a test file
 	if s.isTestFile(fileName, filePath) {
 		stats[language].TestFiles++
 	}
-	
+
 	// Track source directories
 	relPath, _ := filepath.Rel(rootPath, filePath)
 	dirName := filepath.Dir(relPath)
@@ -637,27 +637,27 @@ func (s *ProjectLanguageScanner) getFileLanguage(extension string) string {
 func (s *ProjectLanguageScanner) isTestFile(fileName, filePath string) bool {
 	lowerName := strings.ToLower(fileName)
 	lowerPath := strings.ToLower(filePath)
-	
+
 	// Check common test patterns
 	testIndicators := []string{
 		"_test.", ".test.", "_spec.", ".spec.",
 		"test_", "spec_", "tests/", "test/", "__tests__/",
 		"testing/", "spec/", "specs/",
 	}
-	
+
 	for _, indicator := range testIndicators {
 		if strings.Contains(lowerName, indicator) || strings.Contains(lowerPath, indicator) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
 func (s *ProjectLanguageScanner) isSourceDirectory(dirPath string) bool {
 	lowerDir := strings.ToLower(dirPath)
 	parts := strings.Split(lowerDir, string(filepath.Separator))
-	
+
 	for _, part := range parts {
 		for _, sourceDir := range s.sourceDirs {
 			if part == sourceDir {
@@ -670,22 +670,22 @@ func (s *ProjectLanguageScanner) isSourceDirectory(dirPath string) bool {
 
 func (s *ProjectLanguageScanner) calculateLanguagePriorities(stats map[string]*LanguageStats) []LanguageRanking {
 	var rankings []LanguageRanking
-	
+
 	for _, langStats := range stats {
 		pattern := s.langPatterns[langStats.Language]
 		if pattern == nil {
 			continue
 		}
-		
+
 		// Base score from file count
 		baseScore := float64(langStats.FileCount) * pattern.BaseScore
-		
+
 		// Build file bonus
 		buildWeight := float64(len(langStats.BuildFiles)) * pattern.BuildWeight
-		
+
 		// Source directory structure bonus
 		structWeight := float64(len(langStats.SourceDirs)) * 2.0
-		
+
 		// Test files penalty (lower priority for test-heavy projects)
 		testPenalty := 0.0
 		if langStats.FileCount > 0 {
@@ -694,9 +694,9 @@ func (s *ProjectLanguageScanner) calculateLanguagePriorities(stats map[string]*L
 				testPenalty = baseScore * 0.1
 			}
 		}
-		
+
 		totalScore := baseScore + buildWeight + structWeight - testPenalty
-		
+
 		// Calculate confidence based on multiple indicators
 		confidence := 0.0
 		if langStats.FileCount > 0 {
@@ -708,22 +708,20 @@ func (s *ProjectLanguageScanner) calculateLanguagePriorities(stats map[string]*L
 		if len(langStats.SourceDirs) > 0 {
 			confidence += 0.3
 		}
-		
+
 		rankings = append(rankings, LanguageRanking{
-			Language:     langStats.Language,
-			Score:        totalScore,
-			FileCount:    langStats.FileCount,
-			BuildWeight:  buildWeight,
-			StructWeight: structWeight,
-			Confidence:   confidence,
+			Language:   langStats.Language,
+			Score:      totalScore,
+			Confidence: confidence,
+			Context:    nil, // Will be populated later
 		})
 	}
-	
+
 	// Sort by score descending
 	sort.Slice(rankings, func(i, j int) bool {
 		return rankings[i].Score > rankings[j].Score
 	})
-	
+
 	return rankings
 }
 
@@ -731,44 +729,44 @@ func (s *ProjectLanguageScanner) identifyProjectType(languages []LanguageRanking
 	if len(languages) == 0 {
 		return "empty"
 	}
-	
+
 	if len(languages) == 1 {
-		return "single-language"
+		return PROJECT_TYPE_SINGLE_LANGUAGE
 	}
-	
+
 	// Calculate language distribution
 	totalScore := 0.0
 	for _, lang := range languages {
 		totalScore += lang.Score
 	}
-	
+
 	if totalScore == 0 {
-		return "unknown"
+		return StateStringUnknown
 	}
-	
-	dominantRatio := languages[0].Score / totalScore
-	
+
+	dominantRatio := float64(languages[0].Score) / float64(totalScore)
+
 	// Single language project if one language dominates (>90%)
 	if dominantRatio > 0.9 {
-		return "single-language"
+		return PROJECT_TYPE_SINGLE_LANGUAGE
 	}
-	
+
 	// Check for common patterns
 	langNames := make([]string, len(languages))
 	for i, lang := range languages {
 		langNames[i] = lang.Language
 	}
-	
+
 	// Frontend-backend pattern
 	if s.hasFrontendBackendPattern(langNames) {
 		return "frontend-backend"
 	}
-	
+
 	// Microservices pattern (multiple languages with build systems)
 	if len(languages) >= 3 {
 		buildSystemCount := 0
 		for _, lang := range languages {
-			if lang.BuildWeight > 0 {
+			if lang.Score > 0 { // Use Score as a proxy for build system presence
 				buildSystemCount++
 			}
 		}
@@ -776,12 +774,12 @@ func (s *ProjectLanguageScanner) identifyProjectType(languages []LanguageRanking
 			return "microservices"
 		}
 	}
-	
+
 	// Monorepo pattern (multiple languages, clear separation)
 	if len(languages) >= 2 && dominantRatio < 0.7 {
 		return "monorepo"
 	}
-	
+
 	// Multi-language (languages intermixed)
 	return "multi-language"
 }
@@ -794,10 +792,10 @@ func (s *ProjectLanguageScanner) hasFrontendBackendPattern(languages []string) b
 		"go": true, "python": true, "java": true, "csharp": true,
 		"rust": true, "php": true, "ruby": true,
 	}
-	
+
 	hasFrontend := false
 	hasBackend := false
-	
+
 	for _, lang := range languages {
 		if frontendLangs[lang] {
 			hasFrontend = true
@@ -806,13 +804,13 @@ func (s *ProjectLanguageScanner) hasFrontendBackendPattern(languages []string) b
 			hasBackend = true
 		}
 	}
-	
+
 	return hasFrontend && hasBackend
 }
 
 func (s *ProjectLanguageScanner) shouldIgnoreDirectory(dirName string) bool {
 	lowerDir := strings.ToLower(dirName)
-	
+
 	for _, pattern := range s.IgnorePatterns {
 		lowerPattern := strings.ToLower(pattern)
 		if strings.HasPrefix(lowerPattern, "*") {
@@ -829,26 +827,26 @@ func (s *ProjectLanguageScanner) shouldIgnoreDirectory(dirName string) bool {
 			return true
 		}
 	}
-	
+
 	// Additional dynamic ignores for large directories
 	if strings.HasPrefix(dirName, ".") && len(dirName) > 1 {
 		return true
 	}
-	
+
 	return false
 }
 
 func (s *ProjectLanguageScanner) removeDuplicates(slice []string) []string {
 	keys := make(map[string]bool)
 	var result []string
-	
+
 	for _, item := range slice {
 		if !keys[item] {
 			keys[item] = true
 			result = append(result, item)
 		}
 	}
-	
+
 	return result
 }
 
@@ -889,19 +887,19 @@ func (s *ProjectLanguageScanner) ValidateConfiguration() error {
 	if s.MaxDepth <= 0 || s.MaxDepth > 10 {
 		return fmt.Errorf("max depth must be between 1 and 10, got %d", s.MaxDepth)
 	}
-	
+
 	if s.FileSizeLimit <= 0 {
 		return fmt.Errorf("file size limit must be positive, got %d", s.FileSizeLimit)
 	}
-	
+
 	if s.MaxFiles <= 0 {
 		return fmt.Errorf("max files must be positive, got %d", s.MaxFiles)
 	}
-	
+
 	if s.Timeout <= 0 {
 		return fmt.Errorf("timeout must be positive, got %v", s.Timeout)
 	}
-	
+
 	return nil
 }
 
@@ -948,14 +946,14 @@ func (info *MultiLanguageProjectInfo) GetLanguageContext(language string) *Langu
 func (info *MultiLanguageProjectInfo) GetRecommendedLSPServers() []string {
 	var servers []string
 	serverSet := make(map[string]bool)
-	
+
 	for _, ctx := range info.Languages {
 		if ctx.LSPServerName != "" && !serverSet[ctx.LSPServerName] {
 			servers = append(servers, ctx.LSPServerName)
 			serverSet[ctx.LSPServerName] = true
 		}
 	}
-	
+
 	sort.Strings(servers)
 	return servers
 }
@@ -983,7 +981,7 @@ func (info *MultiLanguageProjectInfo) ToProjectContext() *config.ProjectContext 
 	languages := make([]config.LanguageInfo, 0, len(info.Languages))
 	requiredLSPs := make([]string, 0)
 	lspSet := make(map[string]bool)
-	
+
 	for _, ctx := range info.Languages {
 		langInfo := config.LanguageInfo{
 			Language:     ctx.Language,
@@ -992,13 +990,13 @@ func (info *MultiLanguageProjectInfo) ToProjectContext() *config.ProjectContext 
 			RootMarkers:  ctx.BuildFiles,
 		}
 		languages = append(languages, langInfo)
-		
+
 		if ctx.LSPServerName != "" && !lspSet[ctx.LSPServerName] {
 			requiredLSPs = append(requiredLSPs, ctx.LSPServerName)
 			lspSet[ctx.LSPServerName] = true
 		}
 	}
-	
+
 	return &config.ProjectContext{
 		ProjectType:   info.ProjectType,
 		RootDirectory: info.RootPath,
@@ -1016,7 +1014,7 @@ func (info *MultiLanguageProjectInfo) String() string {
 	sb.WriteString(fmt.Sprintf("Project: %s (%s)\n", info.RootPath, info.ProjectType))
 	sb.WriteString(fmt.Sprintf("Dominant Language: %s\n", info.DominantLanguage))
 	sb.WriteString(fmt.Sprintf("Languages Found: %d\n", len(info.Languages)))
-	
+
 	for lang, ctx := range info.Languages {
 		sb.WriteString(fmt.Sprintf("  - %s: %d files, priority %d, confidence %.2f\n",
 			lang, ctx.FileCount, ctx.Priority, ctx.Confidence))
@@ -1028,7 +1026,7 @@ func (info *MultiLanguageProjectInfo) String() string {
 			sb.WriteString("\n")
 		}
 	}
-	
+
 	sb.WriteString(fmt.Sprintf("Total Files: %d\n", info.TotalFileCount))
 	sb.WriteString(fmt.Sprintf("Scan Duration: %v\n", info.ScanDuration))
 	return sb.String()
@@ -1042,7 +1040,7 @@ func (info *MultiLanguageProjectInfo) Validate() error {
 			Message: "root path cannot be empty",
 		}
 	}
-	
+
 	if !filepath.IsAbs(info.RootPath) {
 		return &ProjectDetectionError{
 			Type:    "validation",
@@ -1050,14 +1048,14 @@ func (info *MultiLanguageProjectInfo) Validate() error {
 			Path:    info.RootPath,
 		}
 	}
-	
+
 	if info.ProjectType == "" {
 		return &ProjectDetectionError{
 			Type:    "validation",
 			Message: "project type cannot be empty",
 		}
 	}
-	
+
 	validTypes := map[string]bool{
 		config.ProjectTypeSingle:          true,
 		config.ProjectTypeMulti:           true,
@@ -1069,26 +1067,26 @@ func (info *MultiLanguageProjectInfo) Validate() error {
 		config.ProjectTypeEmpty:           true,
 		config.ProjectTypeUnknown:         true,
 	}
-	
+
 	if !validTypes[info.ProjectType] {
 		return &ProjectDetectionError{
 			Type:    "validation",
 			Message: fmt.Sprintf("invalid project type: %s", info.ProjectType),
 		}
 	}
-	
+
 	if info.Languages == nil {
 		info.Languages = make(map[string]*LanguageContext)
 	}
-	
+
 	if info.WorkspaceRoots == nil {
 		info.WorkspaceRoots = make(map[string]string)
 	}
-	
+
 	if info.Metadata == nil {
 		info.Metadata = make(map[string]interface{})
 	}
-	
+
 	// Validate language contexts
 	for lang, ctx := range info.Languages {
 		if err := ctx.Validate(); err != nil {
@@ -1099,14 +1097,14 @@ func (info *MultiLanguageProjectInfo) Validate() error {
 			}
 		}
 	}
-	
+
 	if info.DetectedAt.IsZero() {
 		return &ProjectDetectionError{
 			Type:    "validation",
 			Message: "detected_at timestamp cannot be zero",
 		}
 	}
-	
+
 	return nil
 }
 
@@ -1140,7 +1138,7 @@ func (ctx *LanguageContext) GetPreferredServerConfig() *config.ServerConfig {
 	if ctx.LSPServerName == "" {
 		return nil
 	}
-	
+
 	// This would be enhanced to return actual server config based on LSPServerName
 	// For now, return a basic config structure
 	return &config.ServerConfig{
@@ -1153,7 +1151,7 @@ func (ctx *LanguageContext) GetPreferredServerConfig() *config.ServerConfig {
 // EstimateProjectSize estimates the project size based on file count and structure
 func (ctx *LanguageContext) EstimateProjectSize() string {
 	totalFiles := ctx.FileCount + ctx.TestFileCount
-	
+
 	if totalFiles < 50 {
 		return "small"
 	} else if totalFiles < 500 {
@@ -1173,55 +1171,55 @@ func (ctx *LanguageContext) Validate() error {
 	if ctx.Language == "" {
 		return fmt.Errorf("language cannot be empty")
 	}
-	
+
 	if ctx.RootPath != "" && !filepath.IsAbs(ctx.RootPath) {
 		return fmt.Errorf("root path must be absolute: %s", ctx.RootPath)
 	}
-	
+
 	if ctx.FileCount < 0 {
 		return fmt.Errorf("file count cannot be negative: %d", ctx.FileCount)
 	}
-	
+
 	if ctx.TestFileCount < 0 {
 		return fmt.Errorf("test file count cannot be negative: %d", ctx.TestFileCount)
 	}
-	
+
 	if ctx.Priority < 0 || ctx.Priority > 100 {
 		return fmt.Errorf("priority must be between 0 and 100: %d", ctx.Priority)
 	}
-	
+
 	if ctx.Confidence < 0.0 || ctx.Confidence > 1.0 {
 		return fmt.Errorf("confidence must be between 0.0 and 1.0: %f", ctx.Confidence)
 	}
-	
+
 	if ctx.BuildFiles == nil {
 		ctx.BuildFiles = []string{}
 	}
-	
+
 	if ctx.ConfigFiles == nil {
 		ctx.ConfigFiles = []string{}
 	}
-	
+
 	if ctx.SourcePaths == nil {
 		ctx.SourcePaths = []string{}
 	}
-	
+
 	if ctx.TestPaths == nil {
 		ctx.TestPaths = []string{}
 	}
-	
+
 	if ctx.FileExtensions == nil {
 		ctx.FileExtensions = []string{}
 	}
-	
+
 	if ctx.Dependencies == nil {
 		ctx.Dependencies = []string{}
 	}
-	
+
 	if ctx.Metadata == nil {
 		ctx.Metadata = make(map[string]interface{})
 	}
-	
+
 	return nil
 }
 
@@ -1260,10 +1258,10 @@ func (fd *FrameworkDetector) initializeFrameworkPatterns() {
 	patterns := []FrameworkPattern{
 		// JavaScript/TypeScript Frameworks
 		{
-			Name:         "React",
-			Language:     "javascript",
-			PackageFiles: []string{"package.json"},
-			Dependencies: []string{"react", "@types/react"},
+			Name:           "React",
+			Language:       "javascript",
+			PackageFiles:   []string{"package.json"},
+			Dependencies:   []string{"react", "@types/react"},
 			DirectoryHints: []string{"src/components", "public"},
 			ContentHints: map[string][]string{
 				"package.json": {"\"react\":", "\"@types/react\":"},
@@ -1271,22 +1269,22 @@ func (fd *FrameworkDetector) initializeFrameworkPatterns() {
 			Confidence: 0.9,
 		},
 		{
-			Name:         "React",
-			Language:     "typescript",
-			PackageFiles: []string{"package.json", "tsconfig.json"},
-			Dependencies: []string{"react", "@types/react", "typescript"},
+			Name:           "React",
+			Language:       "typescript",
+			PackageFiles:   []string{"package.json", "tsconfig.json"},
+			Dependencies:   []string{"react", "@types/react", "typescript"},
 			DirectoryHints: []string{"src/components", "public"},
 			ContentHints: map[string][]string{
-				"package.json": {"\"react\":", "\"typescript\":"},
+				"package.json":  {"\"react\":", "\"typescript\":"},
 				"tsconfig.json": {"\"jsx\":", "\"react\""},
 			},
 			Confidence: 0.95,
 		},
 		{
-			Name:         "Vue.js",
-			Language:     "javascript",
-			PackageFiles: []string{"package.json"},
-			Dependencies: []string{"vue", "@vue/cli"},
+			Name:           "Vue.js",
+			Language:       "javascript",
+			PackageFiles:   []string{"package.json"},
+			Dependencies:   []string{"vue", "@vue/cli"},
 			DirectoryHints: []string{"src/components", "src/views"},
 			ContentHints: map[string][]string{
 				"package.json": {"\"vue\":", "\"@vue/"},
@@ -1294,11 +1292,11 @@ func (fd *FrameworkDetector) initializeFrameworkPatterns() {
 			Confidence: 0.9,
 		},
 		{
-			Name:         "Angular",
-			Language:     "typescript",
-			ConfigFiles:  []string{"angular.json", ".angular-cli.json"},
-			PackageFiles: []string{"package.json"},
-			Dependencies: []string{"@angular/core", "@angular/cli"},
+			Name:           "Angular",
+			Language:       "typescript",
+			ConfigFiles:    []string{"angular.json", ".angular-cli.json"},
+			PackageFiles:   []string{"package.json"},
+			Dependencies:   []string{"@angular/core", "@angular/cli"},
 			DirectoryHints: []string{"src/app", "src/environments"},
 			ContentHints: map[string][]string{
 				"package.json": {"\"@angular/core\":", "\"@angular/cli\":"},
@@ -1306,11 +1304,11 @@ func (fd *FrameworkDetector) initializeFrameworkPatterns() {
 			Confidence: 0.95,
 		},
 		{
-			Name:         "Next.js",
-			Language:     "javascript",
-			ConfigFiles:  []string{"next.config.js", "next.config.ts"},
-			PackageFiles: []string{"package.json"},
-			Dependencies: []string{"next", "react"},
+			Name:           "Next.js",
+			Language:       "javascript",
+			ConfigFiles:    []string{"next.config.js", "next.config.ts"},
+			PackageFiles:   []string{"package.json"},
+			Dependencies:   []string{"next", "react"},
 			DirectoryHints: []string{"pages", "app", "public"},
 			ContentHints: map[string][]string{
 				"package.json": {"\"next\":", "\"scripts\".*\"dev\".*\"next\""},
@@ -1318,36 +1316,36 @@ func (fd *FrameworkDetector) initializeFrameworkPatterns() {
 			Confidence: 0.9,
 		},
 		{
-			Name:         "Express.js",
-			Language:     "javascript",
-			PackageFiles: []string{"package.json"},
-			Dependencies: []string{"express"},
+			Name:           "Express.js",
+			Language:       "javascript",
+			PackageFiles:   []string{"package.json"},
+			Dependencies:   []string{"express"},
 			DirectoryHints: []string{"routes", "middleware"},
 			ContentHints: map[string][]string{
 				"package.json": {"\"express\":"},
 			},
 			Confidence: 0.8,
 		},
-		
+
 		// Python Frameworks
 		{
-			Name:         "Django",
-			Language:     "python",
-			ConfigFiles:  []string{"manage.py", "settings.py"},
-			PackageFiles: []string{"requirements.txt", "pyproject.toml", "Pipfile"},
-			Dependencies: []string{"Django", "django"},
+			Name:           "Django",
+			Language:       "python",
+			ConfigFiles:    []string{"manage.py", "settings.py"},
+			PackageFiles:   []string{"requirements.txt", "pyproject.toml", "Pipfile"},
+			Dependencies:   []string{"Django", "django"},
 			DirectoryHints: []string{"apps", "templates", "static"},
 			ContentHints: map[string][]string{
 				"requirements.txt": {"Django", "django"},
-				"manage.py": {"django.core.management"},
+				"manage.py":        {"django.core.management"},
 			},
 			Confidence: 0.95,
 		},
 		{
-			Name:         "Flask",
-			Language:     "python",
-			PackageFiles: []string{"requirements.txt", "pyproject.toml"},
-			Dependencies: []string{"Flask", "flask"},
+			Name:           "Flask",
+			Language:       "python",
+			PackageFiles:   []string{"requirements.txt", "pyproject.toml"},
+			Dependencies:   []string{"Flask", "flask"},
 			DirectoryHints: []string{"templates", "static"},
 			ContentHints: map[string][]string{
 				"requirements.txt": {"Flask", "flask"},
@@ -1364,7 +1362,7 @@ func (fd *FrameworkDetector) initializeFrameworkPatterns() {
 			},
 			Confidence: 0.85,
 		},
-		
+
 		// Go Frameworks
 		{
 			Name:         "Gin",
@@ -1396,17 +1394,17 @@ func (fd *FrameworkDetector) initializeFrameworkPatterns() {
 			},
 			Confidence: 0.9,
 		},
-		
+
 		// Java Frameworks
 		{
-			Name:         "Spring Boot",
-			Language:     "java",
-			ConfigFiles:  []string{"application.properties", "application.yml"},
-			PackageFiles: []string{"pom.xml", "build.gradle"},
-			Dependencies: []string{"spring-boot-starter", "org.springframework.boot"},
+			Name:           "Spring Boot",
+			Language:       "java",
+			ConfigFiles:    []string{"application.properties", "application.yml"},
+			PackageFiles:   []string{"pom.xml", "build.gradle"},
+			Dependencies:   []string{"spring-boot-starter", "org.springframework.boot"},
 			DirectoryHints: []string{"src/main/java", "src/main/resources"},
 			ContentHints: map[string][]string{
-				"pom.xml": {"spring-boot-starter", "org.springframework.boot"},
+				"pom.xml":      {"spring-boot-starter", "org.springframework.boot"},
 				"build.gradle": {"spring-boot-starter", "org.springframework.boot"},
 			},
 			Confidence: 0.95,
@@ -1418,12 +1416,12 @@ func (fd *FrameworkDetector) initializeFrameworkPatterns() {
 			PackageFiles: []string{"pom.xml", "build.gradle"},
 			Dependencies: []string{"micronaut-core", "io.micronaut"},
 			ContentHints: map[string][]string{
-				"pom.xml": {"micronaut-core", "io.micronaut"},
+				"pom.xml":      {"micronaut-core", "io.micronaut"},
 				"build.gradle": {"micronaut-core", "io.micronaut"},
 			},
 			Confidence: 0.9,
 		},
-		
+
 		// Rust Frameworks
 		{
 			Name:         "Axum",
@@ -1446,7 +1444,7 @@ func (fd *FrameworkDetector) initializeFrameworkPatterns() {
 			Confidence: 0.9,
 		},
 	}
-	
+
 	// Group patterns by language
 	for _, pattern := range patterns {
 		fd.frameworkPatterns[pattern.Language] = append(fd.frameworkPatterns[pattern.Language], pattern)
@@ -1459,20 +1457,20 @@ func (fd *FrameworkDetector) DetectFrameworks(ctx *LanguageContext, projectRoot 
 	if !exists {
 		return []Framework{}
 	}
-	
+
 	var detected []Framework
-	
+
 	for _, pattern := range patterns {
 		if framework := fd.matchPattern(pattern, ctx, projectRoot); framework != nil {
 			detected = append(detected, *framework)
 		}
 	}
-	
+
 	// Sort by confidence (highest first)
 	sort.Slice(detected, func(i, j int) bool {
 		return detected[i].Confidence > detected[j].Confidence
 	})
-	
+
 	return detected
 }
 
@@ -1480,7 +1478,7 @@ func (fd *FrameworkDetector) DetectFrameworks(ctx *LanguageContext, projectRoot 
 func (fd *FrameworkDetector) matchPattern(pattern FrameworkPattern, ctx *LanguageContext, projectRoot string) *Framework {
 	confidence := 0.0
 	var configFile string
-	
+
 	// Check config files
 	for _, configFileName := range pattern.ConfigFiles {
 		for _, ctxConfig := range ctx.ConfigFiles {
@@ -1493,13 +1491,13 @@ func (fd *FrameworkDetector) matchPattern(pattern FrameworkPattern, ctx *Languag
 			}
 		}
 	}
-	
+
 	// Check package files and their content
 	for _, packageFileName := range pattern.PackageFiles {
 		for _, ctxConfig := range append(ctx.ConfigFiles, ctx.BuildFiles...) {
 			if strings.Contains(ctxConfig, packageFileName) {
 				confidence += 0.2
-				
+
 				// Check content hints if available
 				if contentHints, exists := pattern.ContentHints[packageFileName]; exists {
 					if fd.checkFileContent(ctxConfig, contentHints) {
@@ -1510,7 +1508,7 @@ func (fd *FrameworkDetector) matchPattern(pattern FrameworkPattern, ctx *Languag
 			}
 		}
 	}
-	
+
 	// Check directory hints
 	for _, dirHint := range pattern.DirectoryHints {
 		for _, sourcePath := range ctx.SourcePaths {
@@ -1520,7 +1518,7 @@ func (fd *FrameworkDetector) matchPattern(pattern FrameworkPattern, ctx *Languag
 			}
 		}
 	}
-	
+
 	// Only consider it a match if confidence is above threshold
 	if confidence >= 0.5 {
 		return &Framework{
@@ -1529,12 +1527,12 @@ func (fd *FrameworkDetector) matchPattern(pattern FrameworkPattern, ctx *Languag
 			ConfigFile: configFile,
 			Confidence: confidence,
 			Metadata: map[string]interface{}{
-				"detection_method": "pattern_matching",
+				"detection_method":   "pattern_matching",
 				"pattern_confidence": pattern.Confidence,
 			},
 		}
 	}
-	
+
 	return nil
 }
 
@@ -1566,17 +1564,17 @@ type DependencyAnalyzer struct {
 func NewDependencyAnalyzer() *DependencyAnalyzer {
 	return &DependencyAnalyzer{
 		sharedConfigPatterns: map[string][]string{
-			"docker": {"Dockerfile", "docker-compose.yml", ".dockerignore"},
+			"docker":     {"Dockerfile", "docker-compose.yml", ".dockerignore"},
 			"kubernetes": {"*.yaml", "*.yml", "kustomization.yaml"},
-			"terraform": {"*.tf", "terraform.tfvars"},
-			"make": {"Makefile", "makefile"},
-			"ci": {".github/workflows", ".gitlab-ci.yml", "Jenkinsfile", ".travis.yml"},
+			"terraform":  {"*.tf", "terraform.tfvars"},
+			"make":       {"Makefile", "makefile"},
+			"ci":         {".github/workflows", ".gitlab-ci.yml", "Jenkinsfile", ".travis.yml"},
 		},
 		apiBoundaryPatterns: map[string][]string{
-			"openapi": {"openapi.yaml", "swagger.yaml", "api.yaml"},
-			"graphql": {"schema.graphql", "*.graphql"},
+			"openapi":  {"openapi.yaml", "swagger.yaml", "api.yaml"},
+			"graphql":  {"schema.graphql", "*.graphql"},
 			"protobuf": {"*.proto"},
-			"rest": {"api/", "endpoints/", "routes/"},
+			"rest":     {"api/", "endpoints/", "routes/"},
 		},
 	}
 }
@@ -1585,15 +1583,15 @@ func NewDependencyAnalyzer() *DependencyAnalyzer {
 func (da *DependencyAnalyzer) AnalyzeDependencies(info *MultiLanguageProjectInfo) {
 	// Analyze shared configuration files
 	sharedConfigs := da.findSharedConfigurations(info)
-	
+
 	// Analyze API boundaries
 	apiBoundaries := da.findAPIBoundaries(info)
-	
+
 	// Update language contexts with dependency information
 	for _, ctx := range info.Languages {
 		ctx.Dependencies = da.calculateDependencies(ctx, info, sharedConfigs, apiBoundaries)
 	}
-	
+
 	// Add dependency metadata
 	if info.Metadata == nil {
 		info.Metadata = make(map[string]interface{})
@@ -1601,8 +1599,8 @@ func (da *DependencyAnalyzer) AnalyzeDependencies(info *MultiLanguageProjectInfo
 	info.Metadata["shared_configurations"] = sharedConfigs
 	info.Metadata["api_boundaries"] = apiBoundaries
 	info.Metadata["dependency_analysis"] = map[string]interface{}{
-		"analyzed_at": time.Now(),
-		"has_shared_build": len(sharedConfigs["build"]) > 0,
+		"analyzed_at":       time.Now(),
+		"has_shared_build":  len(sharedConfigs["build"]) > 0,
 		"has_api_contracts": len(apiBoundaries) > 0,
 	}
 }
@@ -1610,10 +1608,10 @@ func (da *DependencyAnalyzer) AnalyzeDependencies(info *MultiLanguageProjectInfo
 // findSharedConfigurations identifies shared configuration files
 func (da *DependencyAnalyzer) findSharedConfigurations(info *MultiLanguageProjectInfo) map[string][]string {
 	shared := make(map[string][]string)
-	
+
 	// Check build files and config files for shared patterns
 	allFiles := append(info.BuildFiles, info.ConfigFiles...)
-	
+
 	for category, patterns := range da.sharedConfigPatterns {
 		for _, file := range allFiles {
 			fileName := filepath.Base(file)
@@ -1624,21 +1622,21 @@ func (da *DependencyAnalyzer) findSharedConfigurations(info *MultiLanguageProjec
 			}
 		}
 	}
-	
+
 	return shared
 }
 
 // findAPIBoundaries identifies API boundary definitions
 func (da *DependencyAnalyzer) findAPIBoundaries(info *MultiLanguageProjectInfo) map[string][]string {
 	boundaries := make(map[string][]string)
-	
+
 	allFiles := append(info.BuildFiles, info.ConfigFiles...)
-	
+
 	for category, patterns := range da.apiBoundaryPatterns {
 		for _, file := range allFiles {
 			fileName := filepath.Base(file)
 			dirName := filepath.Dir(file)
-			
+
 			for _, pattern := range patterns {
 				if matched, _ := filepath.Match(pattern, fileName); matched {
 					boundaries[category] = append(boundaries[category], file)
@@ -1648,7 +1646,7 @@ func (da *DependencyAnalyzer) findAPIBoundaries(info *MultiLanguageProjectInfo) 
 			}
 		}
 	}
-	
+
 	return boundaries
 }
 
@@ -1656,7 +1654,7 @@ func (da *DependencyAnalyzer) findAPIBoundaries(info *MultiLanguageProjectInfo) 
 func (da *DependencyAnalyzer) calculateDependencies(ctx *LanguageContext, info *MultiLanguageProjectInfo, sharedConfigs, apiBoundaries map[string][]string) []string {
 	var dependencies []string
 	depSet := make(map[string]bool)
-	
+
 	// Check for shared build systems
 	if len(sharedConfigs["docker"]) > 0 {
 		// Languages that share Docker configuration likely depend on each other
@@ -1667,13 +1665,13 @@ func (da *DependencyAnalyzer) calculateDependencies(ctx *LanguageContext, info *
 			}
 		}
 	}
-	
+
 	// Check for API boundaries that suggest service communication
 	if len(apiBoundaries["rest"]) > 0 || len(apiBoundaries["graphql"]) > 0 {
 		// If there are REST/GraphQL APIs, frontend languages depend on backend languages
 		frontendLangs := map[string]bool{"javascript": true, "typescript": true}
 		backendLangs := map[string]bool{"go": true, "python": true, "java": true, "rust": true}
-		
+
 		if frontendLangs[ctx.Language] {
 			for lang := range info.Languages {
 				if backendLangs[lang] && !depSet[lang] {
@@ -1683,7 +1681,7 @@ func (da *DependencyAnalyzer) calculateDependencies(ctx *LanguageContext, info *
 			}
 		}
 	}
-	
+
 	// Check for shared libraries or modules (simplified heuristic)
 	if len(info.Languages) >= 2 && len(info.Languages) <= 4 {
 		// For small multi-language projects, assume some level of interdependency
@@ -1694,7 +1692,7 @@ func (da *DependencyAnalyzer) calculateDependencies(ctx *LanguageContext, info *
 			}
 		}
 	}
-	
+
 	return dependencies
 }
 
@@ -1709,10 +1707,10 @@ func (s *ProjectLanguageScanner) ScanProjectComprehensive(rootPath string) (*Mul
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Convert to comprehensive structure
 	info := s.convertToComprehensiveInfo(basicInfo)
-	
+
 	// Perform framework detection
 	frameworkDetector := NewFrameworkDetector()
 	for _, ctx := range info.Languages {
@@ -1723,20 +1721,20 @@ func (s *ProjectLanguageScanner) ScanProjectComprehensive(rootPath string) (*Mul
 			ctx.Version = frameworks[0].Version
 			ctx.Metadata["detected_frameworks"] = frameworks
 		}
-		
+
 		// Set recommended LSP server based on language and framework
 		ctx.LSPServerName = s.getRecommendedLSPServer(ctx.Language, ctx.Framework)
 	}
-	
+
 	// Perform dependency analysis
 	dependencyAnalyzer := NewDependencyAnalyzer()
 	dependencyAnalyzer.AnalyzeDependencies(info)
-	
+
 	// Validate the result
 	if err := info.Validate(); err != nil {
 		return nil, fmt.Errorf("comprehensive scan validation failed: %w", err)
 	}
-	
+
 	return info, nil
 }
 
@@ -1756,39 +1754,14 @@ func (s *ProjectLanguageScanner) convertToComprehensiveInfo(basicInfo *MultiLang
 		DetectedAt:       time.Now(),
 		Metadata:         basicInfo.Metadata,
 	}
-	
-	// Copy existing language contexts or create them if needed
+
+	// Convert language contexts (basicInfo.Languages is already a map[string]*LanguageContext)
 	for langName, langCtx := range basicInfo.Languages {
-		// Copy the existing context
-		ctx := &LanguageContext{
-			Language:       langCtx.Language,
-			RootPath:       langCtx.RootPath,
-			FileCount:      langCtx.FileCount,
-			TestFileCount:  langCtx.TestFileCount,
-			Priority:       langCtx.Priority,
-			Confidence:     langCtx.Confidence,
-			BuildFiles:     append([]string{}, langCtx.BuildFiles...),
-			ConfigFiles:    append([]string{}, langCtx.ConfigFiles...),
-			SourcePaths:    append([]string{}, langCtx.SourcePaths...),
-			TestPaths:      append([]string{}, langCtx.TestPaths...),
-			FileExtensions: append([]string{}, langCtx.FileExtensions...),
-			Framework:      langCtx.Framework,
-			Version:        langCtx.Version,
-			LSPServerName:  langCtx.LSPServerName,
-			Dependencies:   append([]string{}, langCtx.Dependencies...),
-			Metadata:       make(map[string]interface{}),
-		}
-		
-		// Copy metadata
-		for k, v := range langCtx.Metadata {
-			ctx.Metadata[k] = v
-		}
-		
 		// Set workspace root (for now, same as project root)
 		info.WorkspaceRoots[langName] = basicInfo.RootPath
-		info.Languages[langName] = ctx
+		info.Languages[langName] = langCtx
 	}
-	
+
 	return info
 }
 
@@ -1809,14 +1782,14 @@ func (s *ProjectLanguageScanner) getRecommendedLSPServer(language, framework str
 		"php":        "intelephense",
 		"swift":      "sourcekit-lsp",
 	}
-	
+
 	// Framework-specific overrides
 	if framework != "" {
 		frameworkServers := map[string]map[string]string{
 			"javascript": {
-				"React":    "typescript-language-server",
-				"Vue.js":   "vetur",
-				"Angular":  "typescript-language-server",
+				"React":   "typescript-language-server",
+				"Vue.js":  "vetur",
+				"Angular": "typescript-language-server",
 			},
 			"python": {
 				"Django":  "pylsp",
@@ -1824,18 +1797,18 @@ func (s *ProjectLanguageScanner) getRecommendedLSPServer(language, framework str
 				"FastAPI": "pylsp",
 			},
 		}
-		
+
 		if langServers, exists := frameworkServers[language]; exists {
 			if server, exists := langServers[framework]; exists {
 				return server
 			}
 		}
 	}
-	
+
 	if server, exists := serverMap[language]; exists {
 		return server
 	}
-	
+
 	return ""
 }
 
@@ -1852,7 +1825,7 @@ func (s *ProjectLanguageScanner) tryFastPathDetection(rootPath string) (*MultiLa
 		return cached, true
 	}
 	s.fastPathMutex.RUnlock()
-	
+
 	// Quick file system checks for obvious patterns
 	if info, isFastPath := s.detectObviousPatterns(rootPath); isFastPath {
 		// Cache the fast-path result
@@ -1861,7 +1834,7 @@ func (s *ProjectLanguageScanner) tryFastPathDetection(rootPath string) (*MultiLa
 		s.fastPathMutex.Unlock()
 		return info, true
 	}
-	
+
 	return nil, false
 }
 
@@ -1871,17 +1844,17 @@ func (s *ProjectLanguageScanner) detectObviousPatterns(rootPath string) (*MultiL
 	if s.hasFile(rootPath, "go.mod") {
 		return s.createFastPathResult(rootPath, "go", "single-language", []string{"go.mod"}), true
 	}
-	
+
 	// Check for Rust project
 	if s.hasFile(rootPath, "Cargo.toml") {
 		return s.createFastPathResult(rootPath, "rust", "single-language", []string{"Cargo.toml"}), true
 	}
-	
+
 	// Check for Node.js project without TypeScript
 	if s.hasFile(rootPath, "package.json") && !s.hasFile(rootPath, "tsconfig.json") {
 		return s.createFastPathResult(rootPath, "javascript", "single-language", []string{"package.json"}), true
 	}
-	
+
 	// Check for Python project
 	if s.hasFile(rootPath, "setup.py") || s.hasFile(rootPath, "pyproject.toml") {
 		var buildFiles []string
@@ -1893,7 +1866,7 @@ func (s *ProjectLanguageScanner) detectObviousPatterns(rootPath string) (*MultiL
 		}
 		return s.createFastPathResult(rootPath, "python", "single-language", buildFiles), true
 	}
-	
+
 	// Check for Java project
 	if s.hasFile(rootPath, "pom.xml") || s.hasFile(rootPath, "build.gradle") {
 		var buildFiles []string
@@ -1905,7 +1878,7 @@ func (s *ProjectLanguageScanner) detectObviousPatterns(rootPath string) (*MultiL
 		}
 		return s.createFastPathResult(rootPath, "java", "single-language", buildFiles), true
 	}
-	
+
 	return nil, false
 }
 
@@ -1923,7 +1896,7 @@ func (s *ProjectLanguageScanner) createFastPathResult(rootPath, language, projec
 		RootPath:       rootPath,
 		FileCount:      1, // Minimal estimate for fast path
 		TestFileCount:  0,
-		Priority:       100, // High priority for obvious match
+		Priority:       100,  // High priority for obvious match
 		Confidence:     0.95, // High confidence for fast path
 		BuildFiles:     buildFiles,
 		ConfigFiles:    []string{},
@@ -1933,13 +1906,13 @@ func (s *ProjectLanguageScanner) createFastPathResult(rootPath, language, projec
 		Dependencies:   []string{},
 		Metadata:       map[string]interface{}{"detection_method": "fast_path"},
 	}
-	
+
 	languages := make(map[string]*LanguageContext)
 	languages[language] = ctx
-	
+
 	workspaceRoots := make(map[string]string)
 	workspaceRoots[language] = rootPath
-	
+
 	return &MultiLanguageProjectInfo{
 		RootPath:         rootPath,
 		ProjectType:      projectType,
@@ -1973,14 +1946,14 @@ func (s *ProjectLanguageScanner) getLanguageExtensions(language string) []string
 func (s *ProjectLanguageScanner) addEarlyTerminationContext(ctx context.Context, rootPath string) context.Context {
 	// Create a context that can be cancelled early based on project size estimation
 	ctx, cancel := context.WithCancel(ctx)
-	
+
 	go func() {
 		// Quick directory size estimation
 		if s.estimateProjectSize(rootPath) < s.FastModeThreshold {
 			// Small project, no need for early termination
 			return
 		}
-		
+
 		// For large projects, implement intelligent early termination
 		// This is a placeholder for more sophisticated logic
 		select {
@@ -1990,7 +1963,7 @@ func (s *ProjectLanguageScanner) addEarlyTerminationContext(ctx context.Context,
 			return
 		}
 	}()
-	
+
 	return ctx
 }
 
@@ -2001,7 +1974,7 @@ func (s *ProjectLanguageScanner) estimateProjectSize(rootPath string) int {
 	if err != nil {
 		return 0
 	}
-	
+
 	count := 0
 	for _, entry := range entries {
 		if !s.shouldIgnoreDirectory(entry.Name()) {
@@ -2011,7 +1984,7 @@ func (s *ProjectLanguageScanner) estimateProjectSize(rootPath string) int {
 			}
 		}
 	}
-	
+
 	return count
 }
 
@@ -2022,7 +1995,7 @@ func (s *ProjectLanguageScanner) needsFullRescan(rootPath string, lastScan time.
 		"go.mod", "Cargo.toml", "package.json", "pom.xml", "build.gradle",
 		"setup.py", "pyproject.toml", "tsconfig.json",
 	}
-	
+
 	for _, file := range criticalFiles {
 		filePath := filepath.Join(rootPath, file)
 		if info, err := os.Stat(filePath); err == nil {
@@ -2031,7 +2004,7 @@ func (s *ProjectLanguageScanner) needsFullRescan(rootPath string, lastScan time.
 			}
 		}
 	}
-	
+
 	return false
 }
 
@@ -2039,12 +2012,12 @@ func (s *ProjectLanguageScanner) needsFullRescan(rootPath string, lastScan time.
 func (s *ProjectLanguageScanner) convertLegacyToNewFormat(rankings []LanguageRanking, rootPath, projectType, dominantLang string, buildSystems, sourceDirs, configFiles []string, totalFiles int, scanDuration time.Duration, maxDepth, languagesFound int) *MultiLanguageProjectInfo {
 	languages := make(map[string]*LanguageContext)
 	workspaceRoots := make(map[string]string)
-	
+
 	for _, ranking := range rankings {
 		ctx := &LanguageContext{
 			Language:       ranking.Language,
 			RootPath:       rootPath,
-			FileCount:      ranking.FileCount,
+			FileCount:      1, // Default file count since ranking doesn't have FileCount
 			TestFileCount:  0, // This would need to be calculated properly in a full implementation
 			Priority:       int(ranking.Score),
 			Confidence:     ranking.Confidence,
@@ -2056,11 +2029,11 @@ func (s *ProjectLanguageScanner) convertLegacyToNewFormat(rankings []LanguageRan
 			Dependencies:   []string{},
 			Metadata:       make(map[string]interface{}),
 		}
-		
+
 		languages[ranking.Language] = ctx
 		workspaceRoots[ranking.Language] = rootPath
 	}
-	
+
 	return &MultiLanguageProjectInfo{
 		RootPath:         rootPath,
 		ProjectType:      projectType,
@@ -2098,7 +2071,7 @@ func (s *ProjectLanguageScanner) SetCacheEnabled(enabled bool) {
 }
 
 // GetCacheStats returns cache statistics if caching is enabled
-func (s *ProjectLanguageScanner) GetCacheStats() *ProjectCacheStats {
+func (s *ProjectLanguageScanner) GetCacheStats() *CacheStats {
 	if s.Cache != nil {
 		stats := s.Cache.GetStats()
 		return &stats
@@ -2111,7 +2084,7 @@ func (s *ProjectLanguageScanner) InvalidateCache(rootPath string) {
 	if s.Cache != nil {
 		s.Cache.InvalidateProject(rootPath)
 	}
-	
+
 	// Also clear fast-path cache
 	s.fastPathMutex.Lock()
 	delete(s.fastPathCache, rootPath)
@@ -2123,7 +2096,7 @@ func (s *ProjectLanguageScanner) ClearAllCaches() {
 	if s.Cache != nil {
 		s.Cache.InvalidateAll()
 	}
-	
+
 	// Clear fast-path cache
 	s.fastPathMutex.Lock()
 	s.fastPathCache = make(map[string]*MultiLanguageProjectInfo)
@@ -2163,67 +2136,67 @@ func (s *ProjectLanguageScanner) SetEarlyExitEnabled(enabled bool) {
 // GetPerformanceMetrics returns performance metrics for the scanner
 func (s *ProjectLanguageScanner) GetPerformanceMetrics() map[string]interface{} {
 	metrics := make(map[string]interface{})
-	
+
 	// Add cache metrics if available
 	if s.Cache != nil {
 		stats := s.Cache.GetStats()
 		metrics["cache"] = map[string]interface{}{
-			"hit_ratio":         stats.HitRatio,
-			"total_entries":     stats.TotalEntries,
-			"hit_count":         stats.HitCount,
-			"miss_count":        stats.MissCount,
-			"background_scans":  stats.BackgroundScans,
+			"hit_ratio":           stats.HitRatio,
+			"total_entries":       stats.TotalEntries,
+			"hit_count":           stats.HitCount,
+			"miss_count":          stats.MissCount,
+			"background_scans":    stats.BackgroundScans,
 			"incremental_updates": stats.IncrementalUpdates,
 			"average_access_time": stats.AverageAccessTime.String(),
-			"cache_size_bytes":  stats.CacheSize,
+			"cache_size_bytes":    stats.CacheSize,
 		}
 	}
-	
+
 	// Add fast-path cache metrics
 	s.fastPathMutex.RLock()
 	fastPathEntries := len(s.fastPathCache)
 	s.fastPathMutex.RUnlock()
-	
+
 	metrics["fast_path"] = map[string]interface{}{
 		"entries": fastPathEntries,
 	}
-	
+
 	// Add configuration metrics
 	metrics["configuration"] = map[string]interface{}{
-		"max_depth":           s.MaxDepth,
-		"max_files":           s.MaxFiles,
-		"fast_mode_threshold": s.FastModeThreshold,
+		"max_depth":            s.MaxDepth,
+		"max_files":            s.MaxFiles,
+		"fast_mode_threshold":  s.FastModeThreshold,
 		"max_concurrent_scans": s.MaxConcurrentScans,
-		"early_exit_enabled":  s.EnableEarlyExit,
-		"cache_enabled":       s.EnableCache,
-		"timeout":             s.Timeout.String(),
+		"early_exit_enabled":   s.EnableEarlyExit,
+		"cache_enabled":        s.EnableCache,
+		"timeout":              s.Timeout.String(),
 	}
-	
+
 	return metrics
 }
 
 // =============================================================================
-// Advanced Performance Optimizations  
+// Advanced Performance Optimizations
 // =============================================================================
 
 // BatchScanProjects scans multiple projects concurrently with controlled concurrency
 func (s *ProjectLanguageScanner) BatchScanProjects(projectPaths []string) map[string]*MultiLanguageProjectInfo {
 	results := make(map[string]*MultiLanguageProjectInfo)
 	resultsMutex := sync.Mutex{}
-	
+
 	// Create semaphore for concurrency control
 	semaphore := make(chan struct{}, s.MaxConcurrentScans)
 	var wg sync.WaitGroup
-	
+
 	for _, path := range projectPaths {
 		wg.Add(1)
 		go func(projectPath string) {
 			defer wg.Done()
-			
+
 			// Acquire semaphore
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
-			
+
 			// Scan project
 			info, err := s.ScanProjectCached(projectPath)
 			if err == nil {
@@ -2233,20 +2206,20 @@ func (s *ProjectLanguageScanner) BatchScanProjects(projectPaths []string) map[st
 			}
 		}(path)
 	}
-	
+
 	wg.Wait()
 	return results
 }
 
 // OptimizeForLargeMonorepos configures the scanner for optimal large monorepo performance
 func (s *ProjectLanguageScanner) OptimizeForLargeMonorepos() {
-	s.MaxDepth = 5 // Deeper scanning for monorepos
+	s.MaxDepth = 5     // Deeper scanning for monorepos
 	s.MaxFiles = 50000 // Higher file limit
 	s.EnableEarlyExit = true
-	s.FastModeThreshold = 500 // Higher threshold for fast mode
-	s.MaxConcurrentScans = 8 // More concurrent scans
+	s.FastModeThreshold = 500   // Higher threshold for fast mode
+	s.MaxConcurrentScans = 8    // More concurrent scans
 	s.Timeout = 2 * time.Minute // Longer timeout
-	
+
 	// Enable caching if not already enabled
 	if !s.EnableCache {
 		s.SetCacheEnabled(true)
@@ -2255,20 +2228,20 @@ func (s *ProjectLanguageScanner) OptimizeForLargeMonorepos() {
 
 // OptimizeForSmallProjects configures the scanner for optimal small project performance
 func (s *ProjectLanguageScanner) OptimizeForSmallProjects() {
-	s.MaxDepth = 3 // Standard depth
-	s.MaxFiles = 1000 // Lower file limit
-	s.EnableEarlyExit = false // No need for early exit
-	s.FastModeThreshold = 50 // Lower threshold for fast mode
-	s.MaxConcurrentScans = 4 // Fewer concurrent scans
+	s.MaxDepth = 3               // Standard depth
+	s.MaxFiles = 1000            // Lower file limit
+	s.EnableEarlyExit = false    // No need for early exit
+	s.FastModeThreshold = 50     // Lower threshold for fast mode
+	s.MaxConcurrentScans = 4     // Fewer concurrent scans
 	s.Timeout = 10 * time.Second // Shorter timeout
 }
 
 // GetOptimalConfiguration returns optimal configuration based on project characteristics
 func (s *ProjectLanguageScanner) GetOptimalConfiguration(rootPath string) map[string]interface{} {
 	estimatedSize := s.estimateProjectSize(rootPath)
-	
+
 	config := make(map[string]interface{})
-	
+
 	if estimatedSize > 1000 {
 		// Large project configuration
 		config["max_depth"] = 5
@@ -2297,7 +2270,7 @@ func (s *ProjectLanguageScanner) GetOptimalConfiguration(rootPath string) map[st
 		config["timeout"] = "10s"
 		config["recommendation"] = "small_project"
 	}
-	
+
 	config["estimated_size"] = estimatedSize
 	return config
 }

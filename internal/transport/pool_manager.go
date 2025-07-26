@@ -77,14 +77,14 @@ type PoolStats struct {
 	SuccessCount int64  `json:"success_count"`
 
 	// Pool-specific metrics
-	CreationRate      float64   `json:"creation_rate"`
-	DestructionRate   float64   `json:"destruction_rate"`
-	ReuseRate         float64   `json:"reuse_rate"`
+	CreationRate      float64       `json:"creation_rate"`
+	DestructionRate   float64       `json:"destruction_rate"`
+	ReuseRate         float64       `json:"reuse_rate"`
 	AvgConnectionAge  time.Duration `json:"avg_connection_age"`
-	PeakConnections   int       `json:"peak_connections"`
-	MinConnections    int       `json:"min_connections"`
-	ConfiguredMaxSize int       `json:"configured_max_size"`
-	ConfiguredMinSize int       `json:"configured_min_size"`
+	PeakConnections   int           `json:"peak_connections"`
+	MinConnections    int           `json:"min_connections"`
+	ConfiguredMaxSize int           `json:"configured_max_size"`
+	ConfiguredMinSize int           `json:"configured_min_size"`
 }
 
 // PoolFactory defines the interface for creating and managing different types of connection pools
@@ -233,62 +233,62 @@ func (epf *EnhancedPoolFactory) GetSupportedTransports() []string {
 func (epf *EnhancedPoolFactory) initializeDefaultConfigs() {
 	// TCP transport default configuration
 	epf.defaultConfigs[TransportTCP] = &PoolConfig{
-		MinSize:                1,
-		MaxSize:                10,
-		WarmupSize:             2,
-		EnableDynamicSizing:    true,
-		TargetUtilization:      0.7,
-		ScaleUpThreshold:       0.8,
-		ScaleDownThreshold:     0.5,
-		MaxLifetime:            30 * time.Minute,
-		IdleTimeout:            5 * time.Minute,
-		HealthCheckInterval:    30 * time.Second,
-		MaxRetries:             3,
-		BaseDelay:              100 * time.Millisecond,
-		CircuitTimeout:         10 * time.Second,
-		MemoryLimitMB:          100,
-		CPULimitPercent:        80.0,
-		TransportType:          TransportTCP,
+		MinSize:             1,
+		MaxSize:             10,
+		WarmupSize:          2,
+		EnableDynamicSizing: true,
+		TargetUtilization:   0.7,
+		ScaleUpThreshold:    0.8,
+		ScaleDownThreshold:  0.5,
+		MaxLifetime:         30 * time.Minute,
+		IdleTimeout:         5 * time.Minute,
+		HealthCheckInterval: 30 * time.Second,
+		MaxRetries:          3,
+		BaseDelay:           100 * time.Millisecond,
+		CircuitTimeout:      10 * time.Second,
+		MemoryLimitMB:       100,
+		CPULimitPercent:     80.0,
+		TransportType:       TransportTCP,
 	}
 
 	// STDIO transport default configuration
 	epf.defaultConfigs[TransportStdio] = &PoolConfig{
-		MinSize:                1,
-		MaxSize:                5,
-		WarmupSize:             1,
-		EnableDynamicSizing:    false, // Less aggressive for STDIO
-		TargetUtilization:      0.8,
-		ScaleUpThreshold:       0.9,
-		ScaleDownThreshold:     0.6,
-		MaxLifetime:            15 * time.Minute,
-		IdleTimeout:            3 * time.Minute,
-		HealthCheckInterval:    1 * time.Minute,
-		MaxRetries:             5,
-		BaseDelay:              200 * time.Millisecond,
-		CircuitTimeout:         15 * time.Second,
-		MemoryLimitMB:          50,
-		CPULimitPercent:        60.0,
-		TransportType:          TransportStdio,
+		MinSize:             1,
+		MaxSize:             5,
+		WarmupSize:          1,
+		EnableDynamicSizing: false, // Less aggressive for STDIO
+		TargetUtilization:   0.8,
+		ScaleUpThreshold:    0.9,
+		ScaleDownThreshold:  0.6,
+		MaxLifetime:         15 * time.Minute,
+		IdleTimeout:         3 * time.Minute,
+		HealthCheckInterval: 1 * time.Minute,
+		MaxRetries:          5,
+		BaseDelay:           200 * time.Millisecond,
+		CircuitTimeout:      15 * time.Second,
+		MemoryLimitMB:       50,
+		CPULimitPercent:     60.0,
+		TransportType:       TransportStdio,
 	}
 
 	// HTTP transport default configuration
 	epf.defaultConfigs[TransportHTTP] = &PoolConfig{
-		MinSize:                2,
-		MaxSize:                20,
-		WarmupSize:             3,
-		EnableDynamicSizing:    true,
-		TargetUtilization:      0.6,
-		ScaleUpThreshold:       0.75,
-		ScaleDownThreshold:     0.4,
-		MaxLifetime:            45 * time.Minute,
-		IdleTimeout:            10 * time.Minute,
-		HealthCheckInterval:    20 * time.Second,
-		MaxRetries:             2,
-		BaseDelay:              50 * time.Millisecond,
-		CircuitTimeout:         5 * time.Second,
-		MemoryLimitMB:          200,
-		CPULimitPercent:        70.0,
-		TransportType:          TransportHTTP,
+		MinSize:             2,
+		MaxSize:             20,
+		WarmupSize:          3,
+		EnableDynamicSizing: true,
+		TargetUtilization:   0.6,
+		ScaleUpThreshold:    0.75,
+		ScaleDownThreshold:  0.4,
+		MaxLifetime:         45 * time.Minute,
+		IdleTimeout:         10 * time.Minute,
+		HealthCheckInterval: 20 * time.Second,
+		MaxRetries:          2,
+		BaseDelay:           50 * time.Millisecond,
+		CircuitTimeout:      5 * time.Second,
+		MemoryLimitMB:       200,
+		CPULimitPercent:     70.0,
+		TransportType:       TransportHTTP,
 	}
 }
 
@@ -329,22 +329,22 @@ func (epf *EnhancedPoolFactory) copyPoolConfig(original *PoolConfig) *PoolConfig
 // getGenericDefaultConfig returns a generic default configuration for unknown transport types
 func (epf *EnhancedPoolFactory) getGenericDefaultConfig(transport string) *PoolConfig {
 	return &PoolConfig{
-		MinSize:                1,
-		MaxSize:                5,
-		WarmupSize:             1,
-		EnableDynamicSizing:    false,
-		TargetUtilization:      0.7,
-		ScaleUpThreshold:       0.8,
-		ScaleDownThreshold:     0.5,
-		MaxLifetime:            20 * time.Minute,
-		IdleTimeout:            5 * time.Minute,
-		HealthCheckInterval:    1 * time.Minute,
-		MaxRetries:             3,
-		BaseDelay:              100 * time.Millisecond,
-		CircuitTimeout:         10 * time.Second,
-		MemoryLimitMB:          50,
-		CPULimitPercent:        60.0,
-		TransportType:          transport,
+		MinSize:             1,
+		MaxSize:             5,
+		WarmupSize:          1,
+		EnableDynamicSizing: false,
+		TargetUtilization:   0.7,
+		ScaleUpThreshold:    0.8,
+		ScaleDownThreshold:  0.5,
+		MaxLifetime:         20 * time.Minute,
+		IdleTimeout:         5 * time.Minute,
+		HealthCheckInterval: 1 * time.Minute,
+		MaxRetries:          3,
+		BaseDelay:           100 * time.Millisecond,
+		CircuitTimeout:      10 * time.Second,
+		MemoryLimitMB:       50,
+		CPULimitPercent:     60.0,
+		TransportType:       transport,
 	}
 }
 

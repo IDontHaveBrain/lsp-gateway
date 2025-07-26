@@ -21,8 +21,8 @@ const (
 	PriorityUrgent
 )
 
-// SelectionRequestContext provides context for server selection decisions
-type SelectionRequestContext struct {
+// ServerSelectionContext provides context for server selection decisions
+type ServerSelectionContext struct {
 	RequestID        string        `json:"requestId"`
 	URI              string        `json:"uri"`
 	Method           string        `json:"method"`
@@ -36,7 +36,7 @@ type SelectionRequestContext struct {
 
 // ServerSelector interface defines methods for selecting servers from pools
 type ServerSelector interface {
-	SelectServer(pool *LanguageServerPool, requestType string, context *SelectionRequestContext) (*ServerInstance, error)
+	SelectServer(pool *LanguageServerPool, requestType string, context *ServerSelectionContext) (*ServerInstance, error)
 	SelectMultipleServers(pool *LanguageServerPool, requestType string, maxServers int) ([]*ServerInstance, error)
 	UpdateServerMetrics(serverName string, responseTime time.Duration, success bool)
 	RebalancePool(pool *LanguageServerPool) error
@@ -47,7 +47,6 @@ type ServerSelector interface {
 type RoundRobinSelector struct {
 	name         string
 	currentIndex int64
-	mu           sync.RWMutex
 }
 
 // NewRoundRobinSelector creates a new round-robin selector
@@ -61,7 +60,7 @@ func (rr *RoundRobinSelector) GetName() string {
 	return rr.name
 }
 
-func (rr *RoundRobinSelector) SelectServer(pool *LanguageServerPool, requestType string, context *SelectionRequestContext) (*ServerInstance, error) {
+func (rr *RoundRobinSelector) SelectServer(pool *LanguageServerPool, requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	servers := pool.GetHealthyServers()
 	if len(servers) == 0 {
 		return nil, fmt.Errorf("no healthy servers available for language %s", pool.language)
@@ -129,7 +128,7 @@ func (lc *LeastConnectionsSelector) GetName() string {
 	return lc.name
 }
 
-func (lc *LeastConnectionsSelector) SelectServer(pool *LanguageServerPool, requestType string, context *SelectionRequestContext) (*ServerInstance, error) {
+func (lc *LeastConnectionsSelector) SelectServer(pool *LanguageServerPool, requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	servers := pool.GetHealthyServers()
 	if len(servers) == 0 {
 		return nil, fmt.Errorf("no healthy servers available for language %s", pool.language)
@@ -275,7 +274,7 @@ func (rt *ResponseTimeSelector) GetName() string {
 	return rt.name
 }
 
-func (rt *ResponseTimeSelector) SelectServer(pool *LanguageServerPool, requestType string, context *SelectionRequestContext) (*ServerInstance, error) {
+func (rt *ResponseTimeSelector) SelectServer(pool *LanguageServerPool, requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	servers := pool.GetHealthyServers()
 	if len(servers) == 0 {
 		return nil, fmt.Errorf("no healthy servers available for language %s", pool.language)
@@ -285,7 +284,7 @@ func (rt *ResponseTimeSelector) SelectServer(pool *LanguageServerPool, requestTy
 	defer rt.mu.Unlock()
 
 	var bestServer *ServerInstance
-	var bestResponseTime time.Duration = time.Duration(math.MaxInt64)
+	var bestResponseTime = time.Duration(math.MaxInt64)
 
 	for _, server := range servers {
 		if _, exists := rt.responseTimeMetrics[server.config.Name]; !exists {
@@ -450,7 +449,7 @@ func (pb *PerformanceBasedSelector) GetName() string {
 	return pb.name
 }
 
-func (pb *PerformanceBasedSelector) SelectServer(pool *LanguageServerPool, requestType string, context *SelectionRequestContext) (*ServerInstance, error) {
+func (pb *PerformanceBasedSelector) SelectServer(pool *LanguageServerPool, requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	servers := pool.GetHealthyServers()
 	if len(servers) == 0 {
 		return nil, fmt.Errorf("no healthy servers available for language %s", pool.language)
@@ -608,7 +607,7 @@ func (fb *FeatureBasedSelector) GetName() string {
 	return fb.name
 }
 
-func (fb *FeatureBasedSelector) SelectServer(pool *LanguageServerPool, requestType string, context *SelectionRequestContext) (*ServerInstance, error) {
+func (fb *FeatureBasedSelector) SelectServer(pool *LanguageServerPool, requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	servers := pool.GetHealthyServers()
 	if len(servers) == 0 {
 		return nil, fmt.Errorf("no healthy servers available for language %s", pool.language)
@@ -735,7 +734,6 @@ type MultiServerSelector struct {
 	primaryStrategy    ServerSelector
 	fallbackStrategies []ServerSelector
 	affinityRules      map[string]string // request type -> preferred server
-	mu                 sync.RWMutex
 }
 
 // NewMultiServerSelector creates a new multi-server selector
@@ -752,7 +750,7 @@ func (ms *MultiServerSelector) GetName() string {
 	return ms.name
 }
 
-func (ms *MultiServerSelector) SelectServer(pool *LanguageServerPool, requestType string, context *SelectionRequestContext) (*ServerInstance, error) {
+func (ms *MultiServerSelector) SelectServer(pool *LanguageServerPool, requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	// Try primary strategy first
 	if server, err := ms.primaryStrategy.SelectServer(pool, requestType, context); err == nil {
 		return server, nil
@@ -844,7 +842,6 @@ type HealthAwareSelector struct {
 	baseSelector      ServerSelector
 	healthThreshold   float64
 	maxUnhealthyRatio float64
-	mu                sync.RWMutex
 }
 
 // NewHealthAwareSelector creates a new health-aware selector
@@ -861,7 +858,7 @@ func (ha *HealthAwareSelector) GetName() string {
 	return ha.name
 }
 
-func (ha *HealthAwareSelector) SelectServer(pool *LanguageServerPool, requestType string, context *SelectionRequestContext) (*ServerInstance, error) {
+func (ha *HealthAwareSelector) SelectServer(pool *LanguageServerPool, requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	healthyServers := ha.getHealthyServers(pool)
 	if len(healthyServers) == 0 {
 		return nil, fmt.Errorf("no healthy servers available for language %s", pool.language)
@@ -942,7 +939,7 @@ func NewServerSelector(config *config.LoadBalancingConfig) (ServerSelector, erro
 	var err error
 
 	switch config.Strategy {
-	case "round_robin":
+	case string(LoadBalanceRoundRobin):
 		baseSelector = NewRoundRobinSelector()
 	case "least_connections":
 		baseSelector = NewLeastConnectionsSelector()

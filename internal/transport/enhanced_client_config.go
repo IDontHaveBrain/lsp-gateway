@@ -3,6 +3,7 @@ package transport
 import (
 	"fmt"
 	"time"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -25,11 +26,11 @@ type EnhancedClientConfig struct {
 	ConnectionSettings *ConnectionSettings `yaml:"connection_settings,omitempty" json:"connection_settings,omitempty"`
 
 	// Environment and working directory
-	Environment    map[string]string `yaml:"environment,omitempty" json:"environment,omitempty"`
-	WorkingDir     string            `yaml:"working_dir,omitempty" json:"working_dir,omitempty"`
-	
+	Environment map[string]string `yaml:"environment,omitempty" json:"environment,omitempty"`
+	WorkingDir  string            `yaml:"working_dir,omitempty" json:"working_dir,omitempty"`
+
 	// Initialization and health check settings
-	InitializationTimeout time.Duration `yaml:"initialization_timeout,omitempty" json:"initialization_timeout,omitempty"`
+	InitializationTimeout time.Duration        `yaml:"initialization_timeout,omitempty" json:"initialization_timeout,omitempty"`
 	HealthCheckSettings   *HealthCheckSettings `yaml:"health_check_settings,omitempty" json:"health_check_settings,omitempty"`
 
 	// Logging and debugging
@@ -64,13 +65,13 @@ type ConnectionSettings struct {
 	MaxConnsPerHost int               `yaml:"max_conns_per_host,omitempty" json:"max_conns_per_host,omitempty"`
 
 	// TLS settings (for HTTPS/secure TCP)
-	EnableTLS            bool     `yaml:"enable_tls,omitempty" json:"enable_tls,omitempty"`
-	TLSCertFile          string   `yaml:"tls_cert_file,omitempty" json:"tls_cert_file,omitempty"`
-	TLSKeyFile           string   `yaml:"tls_key_file,omitempty" json:"tls_key_file,omitempty"`
-	TLSCAFile            string   `yaml:"tls_ca_file,omitempty" json:"tls_ca_file,omitempty"`
+	EnableTLS             bool     `yaml:"enable_tls,omitempty" json:"enable_tls,omitempty"`
+	TLSCertFile           string   `yaml:"tls_cert_file,omitempty" json:"tls_cert_file,omitempty"`
+	TLSKeyFile            string   `yaml:"tls_key_file,omitempty" json:"tls_key_file,omitempty"`
+	TLSCAFile             string   `yaml:"tls_ca_file,omitempty" json:"tls_ca_file,omitempty"`
 	TLSInsecureSkipVerify bool     `yaml:"tls_insecure_skip_verify,omitempty" json:"tls_insecure_skip_verify,omitempty"`
-	TLSServerName        string   `yaml:"tls_server_name,omitempty" json:"tls_server_name,omitempty"`
-	TLSCipherSuites      []string `yaml:"tls_cipher_suites,omitempty" json:"tls_cipher_suites,omitempty"`
+	TLSServerName         string   `yaml:"tls_server_name,omitempty" json:"tls_server_name,omitempty"`
+	TLSCipherSuites       []string `yaml:"tls_cipher_suites,omitempty" json:"tls_cipher_suites,omitempty"`
 }
 
 // HealthCheckSettings defines how health checks should be performed
@@ -80,14 +81,14 @@ type HealthCheckSettings struct {
 	Timeout          time.Duration `yaml:"timeout" json:"timeout"`
 	FailureThreshold int           `yaml:"failure_threshold" json:"failure_threshold"`
 	SuccessThreshold int           `yaml:"success_threshold" json:"success_threshold"`
-	
+
 	// Health check method - "ping", "initialize", "custom"
 	Method       string                 `yaml:"method" json:"method"`
 	CustomParams map[string]interface{} `yaml:"custom_params,omitempty" json:"custom_params,omitempty"`
-	
+
 	// Recovery settings
-	EnableAutoRestart  bool          `yaml:"enable_auto_restart" json:"enable_auto_restart"`
-	RestartDelay       time.Duration `yaml:"restart_delay" json:"restart_delay"`
+	EnableAutoRestart   bool          `yaml:"enable_auto_restart" json:"enable_auto_restart"`
+	RestartDelay        time.Duration `yaml:"restart_delay" json:"restart_delay"`
 	MaxConsecutiveFails int           `yaml:"max_consecutive_fails" json:"max_consecutive_fails"`
 }
 
@@ -97,11 +98,11 @@ func (ecc *EnhancedClientConfig) Validate() error {
 	if ecc.Command == "" {
 		return fmt.Errorf("command is required")
 	}
-	
+
 	if ecc.Transport == "" {
 		return fmt.Errorf("transport type is required")
 	}
-	
+
 	// Validate transport type
 	supportedTransports := []string{TransportStdio, TransportTCP, TransportHTTP}
 	validTransport := false
@@ -231,10 +232,13 @@ func FromBasicClientConfig(basic *ClientConfig) *EnhancedClientConfig {
 		Args:      basic.Args,
 		Transport: basic.Transport,
 	}
-	
+
 	// Apply defaults
-	enhanced.SetDefaults()
-	
+	if err := enhanced.SetDefaults(); err != nil {
+		// SetDefaults is critical for proper initialization, panic if it fails
+		panic(fmt.Sprintf("failed to set defaults for enhanced client config: %v", err))
+	}
+
 	return enhanced
 }
 
@@ -401,28 +405,28 @@ func (ecc *EnhancedClientConfig) cloneConnectionSettings() *ConnectionSettings {
 
 	cs := ecc.ConnectionSettings
 	clone := &ConnectionSettings{
-		TCPAddress:           cs.TCPAddress,
-		TCPPort:              cs.TCPPort,
-		ConnectTimeout:       cs.ConnectTimeout,
-		ReadTimeout:          cs.ReadTimeout,
-		WriteTimeout:         cs.WriteTimeout,
-		KeepAlive:            cs.KeepAlive,
-		KeepAlivePeriod:      cs.KeepAlivePeriod,
-		BufferSize:           cs.BufferSize,
-		StdoutBufferSize:     cs.StdoutBufferSize,
-		StderrBufferSize:     cs.StderrBufferSize,
-		ProcessTimeout:       cs.ProcessTimeout,
-		HTTPEndpoint:         cs.HTTPEndpoint,
-		HTTPTimeout:          cs.HTTPTimeout,
-		MaxIdleConns:         cs.MaxIdleConns,
-		MaxConnsPerHost:      cs.MaxConnsPerHost,
-		EnableTLS:            cs.EnableTLS,
-		TLSCertFile:          cs.TLSCertFile,
-		TLSKeyFile:           cs.TLSKeyFile,
-		TLSCAFile:            cs.TLSCAFile,
+		TCPAddress:            cs.TCPAddress,
+		TCPPort:               cs.TCPPort,
+		ConnectTimeout:        cs.ConnectTimeout,
+		ReadTimeout:           cs.ReadTimeout,
+		WriteTimeout:          cs.WriteTimeout,
+		KeepAlive:             cs.KeepAlive,
+		KeepAlivePeriod:       cs.KeepAlivePeriod,
+		BufferSize:            cs.BufferSize,
+		StdoutBufferSize:      cs.StdoutBufferSize,
+		StderrBufferSize:      cs.StderrBufferSize,
+		ProcessTimeout:        cs.ProcessTimeout,
+		HTTPEndpoint:          cs.HTTPEndpoint,
+		HTTPTimeout:           cs.HTTPTimeout,
+		MaxIdleConns:          cs.MaxIdleConns,
+		MaxConnsPerHost:       cs.MaxConnsPerHost,
+		EnableTLS:             cs.EnableTLS,
+		TLSCertFile:           cs.TLSCertFile,
+		TLSKeyFile:            cs.TLSKeyFile,
+		TLSCAFile:             cs.TLSCAFile,
 		TLSInsecureSkipVerify: cs.TLSInsecureSkipVerify,
-		TLSServerName:        cs.TLSServerName,
-		TLSCipherSuites:      make([]string, len(cs.TLSCipherSuites)),
+		TLSServerName:         cs.TLSServerName,
+		TLSCipherSuites:       make([]string, len(cs.TLSCipherSuites)),
 	}
 
 	copy(clone.TLSCipherSuites, cs.TLSCipherSuites)

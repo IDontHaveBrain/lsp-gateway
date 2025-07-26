@@ -57,7 +57,7 @@ type ConfigGenerator interface {
 	GenerateFromDetected(ctx context.Context) (*ConfigGenerationResult, error)
 
 	GenerateForRuntime(ctx context.Context, runtime string) (*ConfigGenerationResult, error)
-	
+
 	GenerateMultiLanguageConfig(ctx context.Context, projectPath string, options *GenerationOptions) (*ConfigGenerationResult, error)
 
 	GenerateDefault() (*ConfigGenerationResult, error)
@@ -177,9 +177,9 @@ func NewConfigGenerator() *DefaultConfigGenerator {
 // GenerateMultiLanguageConfig generates configuration with multi-language awareness and optimization
 func (g *DefaultConfigGenerator) GenerateMultiLanguageConfig(ctx context.Context, projectPath string, options *GenerationOptions) (*ConfigGenerationResult, error) {
 	startTime := time.Now()
-	
+
 	g.logger.WithOperation("generate-multi-language-config").WithField("project_path", projectPath).Info("Generating multi-language configuration")
-	
+
 	result := &ConfigGenerationResult{
 		Config:           nil,
 		ServersGenerated: 0,
@@ -191,15 +191,15 @@ func (g *DefaultConfigGenerator) GenerateMultiLanguageConfig(ctx context.Context
 		Issues:           []string{},
 		Metadata:         make(map[string]interface{}),
 	}
-	
+
 	// Apply default options if none provided
 	if options == nil {
 		options = &GenerationOptions{
-			OptimizationMode:    "development",
-			EnableMultiServer:   true,
-			EnableSmartRouting:  true,
-			ProjectPath:         projectPath,
-			PerformanceProfile:  "medium",
+			OptimizationMode:   config.PerformanceProfileDevelopment,
+			EnableMultiServer:  true,
+			EnableSmartRouting: true,
+			ProjectPath:        projectPath,
+			PerformanceProfile: "medium",
 		}
 	}
 	
@@ -218,7 +218,7 @@ func (g *DefaultConfigGenerator) GenerateMultiLanguageConfig(ctx context.Context
 		result.Duration = time.Since(startTime)
 		return result, fmt.Errorf("multi-language config generation failed: %w", err)
 	}
-	
+
 	// Apply optimization based on mode
 	if options.OptimizationMode != "" {
 		optimizationManager := config.NewOptimizationManager()
@@ -228,7 +228,7 @@ func (g *DefaultConfigGenerator) GenerateMultiLanguageConfig(ctx context.Context
 			result.Messages = append(result.Messages, fmt.Sprintf("Applied %s optimization", options.OptimizationMode))
 		}
 	}
-	
+
 	// Convert to gateway config
 	gatewayConfig, err := g.integrator.ConvertToGatewayConfig(mlConfig)
 	if err != nil {
@@ -236,66 +236,66 @@ func (g *DefaultConfigGenerator) GenerateMultiLanguageConfig(ctx context.Context
 		result.Duration = time.Since(startTime)
 		return result, fmt.Errorf("gateway config conversion failed: %w", err)
 	}
-	
+
 	// Apply smart configuration based on project characteristics
-	g.applySmartConfiguration(gatewayConfig, projectInfo, options)
-	
+	g.applySmartConfiguration(gatewayConfig, mlConfig, options)
+
 	// Validate generated configuration
 	if err := gatewayConfig.Validate(); err != nil {
 		result.Issues = append(result.Issues, fmt.Sprintf("Generated configuration is invalid: %v", err))
 		result.Duration = time.Since(startTime)
 		return result, fmt.Errorf("configuration validation failed: %w", err)
 	}
-	
+
 	result.Config = gatewayConfig
 	result.ServersGenerated = len(gatewayConfig.Servers)
 	result.Duration = time.Since(startTime)
-	
+
 	// Populate metadata
 	result.Metadata["generation_method"] = "multi_language_aware"
-	result.Metadata["project_type"] = projectInfo.ProjectType
-	result.Metadata["languages_detected"] = len(projectInfo.LanguageContexts)
+	result.Metadata["project_type"] = mlConfig.ProjectInfo.ProjectType
+	result.Metadata["languages_detected"] = len(mlConfig.ProjectInfo.LanguageContexts)
 	result.Metadata["optimization_mode"] = options.OptimizationMode
 	result.Metadata["smart_routing_enabled"] = options.EnableSmartRouting
 	result.Metadata["multi_server_enabled"] = options.EnableMultiServer
-	
+
 	g.logger.UserSuccess(fmt.Sprintf("Multi-language configuration generated: %d servers for %d languages",
-		result.ServersGenerated, len(projectInfo.LanguageContexts)))
-	
+		result.ServersGenerated, len(mlConfig.ProjectInfo.LanguageContexts)))
+
 	return result, nil
 }
 
 // GenerateFromProjectPath is a convenience method that generates configuration from a project path with smart defaults
 func (g *DefaultConfigGenerator) GenerateFromProjectPath(ctx context.Context, projectPath string, optimizationMode string) (*ConfigGenerationResult, error) {
 	options := &GenerationOptions{
-		OptimizationMode:    optimizationMode,
-		EnableMultiServer:   true,
-		EnableSmartRouting:  true,
-		ProjectPath:         projectPath,
-		PerformanceProfile:  "medium",
+		OptimizationMode:   optimizationMode,
+		EnableMultiServer:  true,
+		EnableSmartRouting: true,
+		ProjectPath:        projectPath,
+		PerformanceProfile: "medium",
 	}
-	
+
 	if optimizationMode == "" {
-		options.OptimizationMode = "development"
+		options.OptimizationMode = config.PerformanceProfileDevelopment
 	}
-	
+
 	return g.GenerateMultiLanguageConfig(ctx, projectPath, options)
 }
 
 // GenerationOptions defines options for enhanced configuration generation
 type GenerationOptions struct {
-	OptimizationMode    string   `json:"optimization_mode"`     // "production", "development", "analysis"
-	EnableMultiServer   bool     `json:"enable_multi_server"`   // Enable concurrent server management
-	EnableSmartRouting  bool     `json:"enable_smart_routing"`  // Enable intelligent request routing
-	ProjectPath         string   `json:"project_path"`          // Project root path for detection
-	TargetLanguages     []string `json:"target_languages"`      // Specific languages to configure (optional)
-	PerformanceProfile  string   `json:"performance_profile"`   // "low", "medium", "high"
+	OptimizationMode   string   `json:"optimization_mode"`    // "production", "development", "analysis"
+	EnableMultiServer  bool     `json:"enable_multi_server"`  // Enable concurrent server management
+	EnableSmartRouting bool     `json:"enable_smart_routing"` // Enable intelligent request routing
+	ProjectPath        string   `json:"project_path"`         // Project root path for detection
+	TargetLanguages    []string `json:"target_languages"`     // Specific languages to configure (optional)
+	PerformanceProfile string   `json:"performance_profile"`  // "low", "medium", "high"
 }
 
 // applySmartConfiguration applies intelligent configuration based on project characteristics
-func (g *DefaultConfigGenerator) applySmartConfiguration(gatewayConfig *config.GatewayConfig, projectInfo *config.MultiLanguageProjectInfo, options *GenerationOptions) {
+func (g *DefaultConfigGenerator) applySmartConfiguration(gatewayConfig *config.GatewayConfig, mlConfig *config.MultiLanguageConfig, options *GenerationOptions) {
 	// Configure based on project type
-	switch projectInfo.ProjectType {
+	switch mlConfig.ProjectInfo.ProjectType {
 	case config.ProjectTypeMonorepo:
 		gatewayConfig.ProjectAware = true
 		gatewayConfig.EnableConcurrentServers = true
@@ -304,21 +304,21 @@ func (g *DefaultConfigGenerator) applySmartConfiguration(gatewayConfig *config.G
 			gatewayConfig.SmartRouterConfig.EnablePerformanceMonitoring = true
 			gatewayConfig.SmartRouterConfig.EnableCircuitBreaker = true
 		}
-		
+
 	case config.ProjectTypeMulti:
 		gatewayConfig.EnableConcurrentServers = true
 		gatewayConfig.MaxConcurrentServersPerLanguage = 2
 		if gatewayConfig.SmartRouterConfig != nil {
 			gatewayConfig.SmartRouterConfig.DefaultStrategy = "single_target_with_fallback"
 		}
-		
+
 	case config.ProjectTypeMicroservices:
 		gatewayConfig.EnableSmartRouting = true
 		if gatewayConfig.SmartRouterConfig != nil {
 			gatewayConfig.SmartRouterConfig.DefaultStrategy = "broadcast_aggregate"
 		}
 	}
-	
+
 	// Apply performance profile
 	switch options.PerformanceProfile {
 	case "high":
@@ -331,11 +331,13 @@ func (g *DefaultConfigGenerator) applySmartConfiguration(gatewayConfig *config.G
 		gatewayConfig.MaxConcurrentRequests = 50
 		gatewayConfig.Timeout = "15s"
 	}
-	
+
 	// Configure language-specific pools
-	if len(projectInfo.LanguageContexts) > 1 {
+	if len(mlConfig.ProjectInfo.LanguageContexts) > 1 {
 		// Create language pools for multi-language projects
-		gatewayConfig.MigrateServersToPool()
+		if err := gatewayConfig.MigrateServersToPool(); err != nil {
+			g.logger.WithOperation("migrate-servers").WithError(err).Warn("Failed to migrate servers to language pools, continuing with current configuration")
+		}
 	}
 }
 

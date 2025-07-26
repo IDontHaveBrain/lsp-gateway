@@ -8,37 +8,32 @@ import (
 )
 
 const (
-	// Optimization modes
-	OptimizationDevelopment = "development"
-	OptimizationProduction  = "production"
-	OptimizationAnalysis    = "analysis"
-
 	// Indexing strategies (smart is unique to this file)
-	IndexingStrategySmart       = "smart"
+	IndexingStrategySmart = "smart"
 
 	// Monorepo strategies
 	MonorepoStrategyLanguageSeparated = "language-separated"
-	MonorepoStrategyMixed            = "mixed"
-	MonorepoStrategyMicroservices    = "microservices"
+	MonorepoStrategyMixed             = "mixed"
+	MonorepoStrategyMicroservices     = "microservices"
 )
 
 type ServerConfigTemplate struct {
-	Name             string                               `yaml:"name"`
-	Command          string                               `yaml:"command"`
-	Args             []string                             `yaml:"args,omitempty"`
-	Transport        string                               `yaml:"transport"`
-	RootMarkers      []string                             `yaml:"root_markers"`
-	Settings         map[string]interface{}               `yaml:"settings,omitempty"`
-	LanguageSettings map[string]map[string]interface{}    `yaml:"language_settings,omitempty"`
-	ServerType       string                               `yaml:"server_type,omitempty"`
-	Priority         int                                  `yaml:"priority,omitempty"`
-	Weight           float64                              `yaml:"weight,omitempty"`
-	Constraints      *ServerConstraints                   `yaml:"constraints,omitempty"`
+	Name                  string                            `yaml:"name"`
+	Command               string                            `yaml:"command"`
+	Args                  []string                          `yaml:"args,omitempty"`
+	Transport             string                            `yaml:"transport"`
+	RootMarkers           []string                          `yaml:"root_markers"`
+	Settings              map[string]interface{}            `yaml:"settings,omitempty"`
+	LanguageSettings      map[string]map[string]interface{} `yaml:"language_settings,omitempty"`
+	ServerType            string                            `yaml:"server_type,omitempty"`
+	Priority              int                               `yaml:"priority,omitempty"`
+	Weight                float64                           `yaml:"weight,omitempty"`
+	Constraints           *ServerConstraints                `yaml:"constraints,omitempty"`
 	FrameworkEnhancements map[string]map[string]interface{} `yaml:"framework_enhancements,omitempty"`
 }
 
 type ConfigGenerator struct {
-	templates         map[string]*ServerConfigTemplate
+	templates          map[string]*ServerConfigTemplate
 	frameworkEnhancers map[string]FrameworkEnhancer
 	monorepoStrategies map[string]MonorepoStrategy
 	optimizationModes  map[string]OptimizationStrategy
@@ -56,7 +51,6 @@ type MonorepoStrategy interface {
 	OptimizeForLayout(config *MultiLanguageConfig, layout *MonorepoLayout) error
 }
 
-
 func NewConfigGenerator() *ConfigGenerator {
 	generator := &ConfigGenerator{
 		templates:          make(map[string]*ServerConfigTemplate),
@@ -64,12 +58,12 @@ func NewConfigGenerator() *ConfigGenerator {
 		monorepoStrategies: make(map[string]MonorepoStrategy),
 		optimizationModes:  make(map[string]OptimizationStrategy),
 	}
-	
+
 	generator.initializeDefaultTemplates()
 	generator.initializeFrameworkEnhancers()
 	generator.initializeMonorepoStrategies()
 	generator.initializeOptimizationModes()
-	
+
 	return generator
 }
 
@@ -93,20 +87,20 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 						"nilness":        true,
 						"fieldalignment": false,
 					},
-					"staticcheck":       true,
-					"gofumpt":           true,
-					"usePlaceholders":   true,
+					"staticcheck":        true,
+					"gofumpt":            true,
+					"usePlaceholders":    true,
 					"completeUnimported": true,
-					"deepCompletion":    true,
-					"semanticTokens":    true,
+					"deepCompletion":     true,
+					"semanticTokens":     true,
 					"codelenses": map[string]bool{
-						"gc_details":      true,
-						"generate":        true,
-						"regenerate_cgo":  true,
-						"test":            true,
-						"tidy":            true,
+						"gc_details":         true,
+						"generate":           true,
+						"regenerate_cgo":     true,
+						"test":               true,
+						"tidy":               true,
 						"upgrade_dependency": true,
-						"vendor":          true,
+						"vendor":             true,
 					},
 				},
 			},
@@ -152,23 +146,23 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 							"eager":   true,
 						},
 						"rope_autoimport": map[string]interface{}{
-							"enabled": true,
-							"completions": map[string]bool{"enabled": true},
+							"enabled":      true,
+							"completions":  map[string]bool{"enabled": true},
 							"code_actions": map[string]bool{"enabled": true},
 						},
 						"mypy-ls": map[string]interface{}{
-							"enabled": true,
+							"enabled":   true,
 							"live_mode": false,
-							"strict": false,
+							"strict":    false,
 						},
 						"black": map[string]interface{}{
-							"enabled": true,
+							"enabled":     true,
 							"line_length": 88,
-							"cache": "normal",
+							"cache":       "normal",
 						},
-						"isort": map[string]bool{"enabled": true},
+						"isort":    map[string]bool{"enabled": true},
 						"autopep8": map[string]bool{"enabled": false},
-						"yapf": map[string]bool{"enabled": false},
+						"yapf":     map[string]bool{"enabled": false},
 					},
 				},
 			},
@@ -190,7 +184,7 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 						"plugins": map[string]interface{}{
 							"rope_completion": map[string]interface{}{
 								"enabled": true,
-								"eager": true,
+								"eager":   true,
 							},
 						},
 					},
@@ -219,7 +213,7 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 						"enabled": "always",
 					},
 					"suggest": map[string]interface{}{
-						"completeFunctionCalls": true,
+						"completeFunctionCalls":              true,
 						"includeCompletionsForModuleExports": true,
 					},
 					"preferences": map[string]interface{}{
@@ -252,11 +246,11 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 				},
 				"javascript": map[string]interface{}{
 					"suggest": map[string]interface{}{
-						"completeFunctionCalls": true,
+						"completeFunctionCalls":              true,
 						"includeCompletionsForModuleExports": true,
 					},
 					"preferences": map[string]interface{}{
-						"checkJs": true,
+						"checkJs":               true,
 						"importModuleSpecifier": "relative",
 					},
 				},
@@ -264,7 +258,7 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 			LanguageSettings: map[string]map[string]interface{}{
 				"typescript": {
 					"preferences": map[string]interface{}{
-						"strictNullChecks": true,
+						"strictNullChecks":    true,
 						"strictFunctionTypes": true,
 					},
 				},
@@ -305,7 +299,7 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 				"nextjs": {
 					"typescript": map[string]interface{}{
 						"preferences": map[string]interface{}{
-							"jsxAttributeCompletionStyle": "auto",
+							"jsxAttributeCompletionStyle":   "auto",
 							"includePackageJsonAutoImports": "auto",
 						},
 					},
@@ -325,8 +319,8 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 					"configuration": map[string]interface{}{
 						"runtimes": []map[string]interface{}{
 							{
-								"name": "JavaSE-11",
-								"path": "/usr/lib/jvm/java-11-openjdk",
+								"name":    "JavaSE-11",
+								"path":    "/usr/lib/jvm/java-11-openjdk",
 								"default": true,
 							},
 							{
@@ -341,8 +335,8 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 						},
 					},
 					"completion": map[string]interface{}{
-						"enabled": true,
-						"overwrite": true,
+						"enabled":              true,
+						"overwrite":            true,
 						"guessMethodArguments": true,
 						"favoriteStaticMembers": []string{
 							"org.junit.Assert.*",
@@ -391,7 +385,7 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 					"format": map[string]interface{}{
 						"enabled": true,
 						"settings": map[string]interface{}{
-							"url": "https://raw.githubusercontent.com/google/styleguide/gh-pages/eclipse-java-google-style.xml",
+							"url":     "https://raw.githubusercontent.com/google/styleguide/gh-pages/eclipse-java-google-style.xml",
 							"profile": "GoogleStyle",
 						},
 					},
@@ -428,11 +422,11 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 				"rust-analyzer": map[string]interface{}{
 					"assist": map[string]interface{}{
 						"importGranularity": "module",
-						"importPrefix": "by_self",
+						"importPrefix":      "by_self",
 					},
 					"cargo": map[string]interface{}{
-						"loadOutDirsFromCheck": true,
-						"runBuildScripts": true,
+						"loadOutDirsFromCheck":           true,
+						"runBuildScripts":                true,
 						"useRustcWrapperForBuildScripts": true,
 					},
 					"procMacro": map[string]interface{}{
@@ -446,7 +440,7 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 					},
 					"completion": map[string]interface{}{
 						"addCallArgumentSnippets": true,
-						"addCallParenthesis": true,
+						"addCallParenthesis":      true,
 						"postfix": map[string]bool{
 							"enable": true,
 						},
@@ -476,14 +470,14 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 							"enable": true,
 						},
 						"closingBraceHints": map[string]interface{}{
-							"enable": true,
+							"enable":   true,
 							"minLines": 25,
 						},
 						"closureReturnTypeHints": map[string]string{
 							"enable": "never",
 						},
 						"lifetimeElisionHints": map[string]interface{}{
-							"enable": "never",
+							"enable":            "never",
 							"useParameterNames": false,
 						},
 						"maxLength": 25,
@@ -495,9 +489,9 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 						},
 						"renderColons": true,
 						"typeHints": map[string]interface{}{
-							"enable": true,
+							"enable":                    true,
 							"hideClosureInitialization": false,
-							"hideNamedConstructor": false,
+							"hideNamedConstructor":      false,
 						},
 					},
 					"lens": map[string]interface{}{
@@ -506,10 +500,10 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 							"enable": true,
 						},
 						"references": map[string]bool{
-							"adt.enable": false,
+							"adt.enable":         false,
 							"enumVariant.enable": false,
-							"method.enable": false,
-							"trait.enable": false,
+							"method.enable":      false,
+							"trait.enable":       false,
 						},
 						"run": map[string]bool{
 							"enable": true,
@@ -568,9 +562,9 @@ func (g *ConfigGenerator) initializeMonorepoStrategies() {
 }
 
 func (g *ConfigGenerator) initializeOptimizationModes() {
-	g.optimizationModes[OptimizationDevelopment] = NewDevelopmentOptimization()
-	g.optimizationModes[OptimizationProduction] = NewProductionOptimization()
-	g.optimizationModes[OptimizationAnalysis] = NewAnalysisOptimization()
+	g.optimizationModes[PerformanceProfileDevelopment] = NewDevelopmentOptimization()
+	g.optimizationModes[PerformanceProfileProduction] = NewProductionOptimization()
+	g.optimizationModes[PerformanceProfileAnalysis] = NewAnalysisOptimization()
 }
 
 func (g *ConfigGenerator) GenerateMultiLanguageConfig(projectInfo *MultiLanguageProjectInfo) (*MultiLanguageConfig, error) {
@@ -582,12 +576,12 @@ func (g *ConfigGenerator) GenerateMultiLanguageConfig(projectInfo *MultiLanguage
 		ProjectInfo:   projectInfo,
 		ServerConfigs: []*ServerConfig{},
 		WorkspaceConfig: &WorkspaceConfig{
-			MultiRoot:     len(projectInfo.LanguageContexts) > 1,
-			LanguageRoots: make(map[string]string),
-			SharedSettings: make(map[string]interface{}),
+			MultiRoot:               len(projectInfo.LanguageContexts) > 1,
+			LanguageRoots:           make(map[string]string),
+			SharedSettings:          make(map[string]interface{}),
 			CrossLanguageReferences: true,
 		},
-		OptimizedFor: OptimizationDevelopment,
+		OptimizedFor: PerformanceProfileDevelopment,
 		GeneratedAt:  time.Now(),
 		Version:      "1.0",
 		Metadata:     make(map[string]interface{}),
@@ -599,7 +593,7 @@ func (g *ConfigGenerator) GenerateMultiLanguageConfig(projectInfo *MultiLanguage
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate server config for %s: %w", langCtx.Language, err)
 		}
-		
+
 		if serverConfig != nil {
 			config.ServerConfigs = append(config.ServerConfigs, serverConfig)
 			config.WorkspaceConfig.LanguageRoots[langCtx.Language] = langCtx.RootPath
@@ -702,7 +696,8 @@ func (g *ConfigGenerator) applyBuildSystemSettings(serverConfig *ServerConfig, b
 			}
 		}
 	case "java":
-		if buildSystem == "gradle" {
+		switch buildSystem {
+		case "gradle":
 			if java, ok := serverConfig.Settings["java"].(map[string]interface{}); ok {
 				if importSettings, ok := java["import"].(map[string]interface{}); ok {
 					if gradle, ok := importSettings["gradle"].(map[string]interface{}); ok {
@@ -711,7 +706,7 @@ func (g *ConfigGenerator) applyBuildSystemSettings(serverConfig *ServerConfig, b
 					}
 				}
 			}
-		} else if buildSystem == "maven" {
+		case "maven":
 			if java, ok := serverConfig.Settings["java"].(map[string]interface{}); ok {
 				if importSettings, ok := java["import"].(map[string]interface{}); ok {
 					if maven, ok := importSettings["maven"].(map[string]interface{}); ok {
@@ -760,12 +755,12 @@ func (g *ConfigGenerator) applyComplexityOptimizations(serverConfig *ServerConfi
 		// Large codebase optimizations
 		serverConfig.Settings = g.applyLargeCodebaseOptimizations(serverConfig.Settings, serverConfig.Languages[0])
 	}
-	
+
 	if complexity.DependencyCount > 100 {
 		// High dependency count optimizations
 		serverConfig.Settings = g.applyHighDependencyOptimizations(serverConfig.Settings, serverConfig.Languages[0])
 	}
-	
+
 	return nil
 }
 
@@ -823,7 +818,7 @@ func (g *ConfigGenerator) applyFrameworkEnhancements(config *MultiLanguageConfig
 				break
 			}
 		}
-		
+
 		if serverConfig == nil {
 			continue
 		}
@@ -844,7 +839,7 @@ func (g *ConfigGenerator) applyFrameworkEnhancements(config *MultiLanguageConfig
 			}
 		}
 	}
-	
+
 	config.Metadata["enhanced_frameworks"] = len(frameworks)
 	return nil
 }
@@ -874,7 +869,7 @@ func (g *ConfigGenerator) applyMonorepoStrategy(config *MultiLanguageConfig, lay
 	if !exists {
 		return fmt.Errorf("unknown monorepo strategy: %s", layout.Strategy)
 	}
-	
+
 	return strategy.OptimizeForLayout(config, layout)
 }
 
@@ -896,19 +891,19 @@ func (g *ConfigGenerator) OptimizeForProjectType(config *MultiLanguageConfig, pr
 func (g *ConfigGenerator) optimizeForMonorepo(config *MultiLanguageConfig) error {
 	config.WorkspaceConfig.CrossLanguageReferences = true
 	config.WorkspaceConfig.IndexingStrategy = IndexingStrategySmart
-	config.OptimizedFor = OptimizationDevelopment
-	
+	config.OptimizedFor = PerformanceProfileDevelopment
+
 	// Enable shared settings for better cross-language integration
 	config.WorkspaceConfig.SharedSettings["enable_cross_language_navigation"] = true
 	config.WorkspaceConfig.SharedSettings["shared_symbol_index"] = true
-	
+
 	return nil
 }
 
 func (g *ConfigGenerator) optimizeForMicroservices(config *MultiLanguageConfig) error {
 	config.WorkspaceConfig.CrossLanguageReferences = false
 	config.WorkspaceConfig.IndexingStrategy = IndexingStrategyIncremental
-	
+
 	// Optimize for isolated services
 	for _, serverConfig := range config.ServerConfigs {
 		serverConfig.ServerType = ServerTypeSingle
@@ -916,13 +911,13 @@ func (g *ConfigGenerator) optimizeForMicroservices(config *MultiLanguageConfig) 
 			serverConfig.MaxConcurrentRequests = 25 // Lower for microservices
 		}
 	}
-	
+
 	return nil
 }
 
 func (g *ConfigGenerator) optimizeForFrontendBackend(config *MultiLanguageConfig) error {
 	config.WorkspaceConfig.CrossLanguageReferences = true
-	
+
 	// Separate frontend and backend optimizations
 	for _, serverConfig := range config.ServerConfigs {
 		language := serverConfig.Languages[0]
@@ -932,26 +927,26 @@ func (g *ConfigGenerator) optimizeForFrontendBackend(config *MultiLanguageConfig
 			serverConfig.Weight += 0.5 // Higher weight for backend
 		}
 	}
-	
+
 	return nil
 }
 
 func (g *ConfigGenerator) optimizeForPolyglot(config *MultiLanguageConfig) error {
 	config.WorkspaceConfig.CrossLanguageReferences = true
 	config.WorkspaceConfig.IndexingStrategy = IndexingStrategyFull
-	
+
 	// Enable maximum compatibility features
 	config.WorkspaceConfig.SharedSettings["polyglot_mode"] = true
 	config.WorkspaceConfig.SharedSettings["cross_language_completion"] = true
-	
+
 	return nil
 }
 
 func (g *ConfigGenerator) optimizeForGeneral(config *MultiLanguageConfig) error {
 	// Apply balanced optimizations
-	config.OptimizedFor = OptimizationDevelopment
+	config.OptimizedFor = PerformanceProfileDevelopment
 	config.WorkspaceConfig.IndexingStrategy = IndexingStrategyIncremental
-	
+
 	return nil
 }
 
@@ -985,7 +980,7 @@ func (g *ConfigGenerator) validateConstraints(constraints *ServerConstraints, la
 	if constraints == nil {
 		return true
 	}
-	
+
 	// Check file count constraints
 	if constraints.MinFileCount > 0 && langCtx.FileCount < constraints.MinFileCount {
 		return false
@@ -993,7 +988,7 @@ func (g *ConfigGenerator) validateConstraints(constraints *ServerConstraints, la
 	if constraints.MaxFileCount > 0 && langCtx.FileCount > constraints.MaxFileCount {
 		return false
 	}
-	
+
 	// Check required markers
 	if len(constraints.RequiredMarkers) > 0 {
 		for _, required := range constraints.RequiredMarkers {
@@ -1009,7 +1004,7 @@ func (g *ConfigGenerator) validateConstraints(constraints *ServerConstraints, la
 			}
 		}
 	}
-	
+
 	// Check excluded markers
 	for _, excluded := range constraints.ExcludedMarkers {
 		for _, marker := range langCtx.RootMarkers {
@@ -1018,7 +1013,7 @@ func (g *ConfigGenerator) validateConstraints(constraints *ServerConstraints, la
 			}
 		}
 	}
-	
+
 	return true
 }
 
@@ -1059,7 +1054,7 @@ func deepCopyMap(original map[string]interface{}) map[string]interface{} {
 	if original == nil {
 		return nil
 	}
-	
+
 	result := make(map[string]interface{})
 	for key, value := range original {
 		switch v := value.(type) {
@@ -1090,7 +1085,7 @@ func deepCopyLanguageSettingsMap(original map[string]map[string]interface{}) map
 	if original == nil {
 		return nil
 	}
-	
+
 	copy := make(map[string]map[string]interface{})
 	for lang, settings := range original {
 		copy[lang] = deepCopyMap(settings)
@@ -1102,39 +1097,39 @@ func deepCopyServerConstraints(original *ServerConstraints) *ServerConstraints {
 	if original == nil {
 		return nil
 	}
-	
+
 	result := &ServerConstraints{
 		MinFileCount: original.MinFileCount,
 		MaxFileCount: original.MaxFileCount,
 		MinVersion:   original.MinVersion,
 	}
-	
+
 	if original.RequiredMarkers != nil {
 		result.RequiredMarkers = make([]string, len(original.RequiredMarkers))
 		copy(result.RequiredMarkers, original.RequiredMarkers)
 	}
-	
+
 	if original.ExcludedMarkers != nil {
 		result.ExcludedMarkers = make([]string, len(original.ExcludedMarkers))
 		copy(result.ExcludedMarkers, original.ExcludedMarkers)
 	}
-	
+
 	if original.ProjectTypes != nil {
 		result.ProjectTypes = make([]string, len(original.ProjectTypes))
 		copy(result.ProjectTypes, original.ProjectTypes)
 	}
-	
+
 	return result
 }
 
 func deepMergeMap(dst, src map[string]interface{}) map[string]interface{} {
 	result := make(map[string]interface{})
-	
+
 	// Copy destination first
 	for key, value := range dst {
 		result[key] = value
 	}
-	
+
 	// Merge source
 	for key, srcValue := range src {
 		if dstValue, exists := result[key]; exists {
@@ -1147,6 +1142,6 @@ func deepMergeMap(dst, src map[string]interface{}) map[string]interface{} {
 		}
 		result[key] = srcValue
 	}
-	
+
 	return result
 }

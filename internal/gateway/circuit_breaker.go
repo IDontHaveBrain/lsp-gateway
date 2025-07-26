@@ -16,16 +16,23 @@ const (
 	CircuitBreakerStateHalfOpen
 )
 
+const (
+	StateStringClosed   = "closed"
+	StateStringOpen     = "open"
+	StateStringHalfOpen = "half-open"
+	StateStringUnknown  = "unknown"
+)
+
 func (s CircuitBreakerState) String() string {
 	switch s {
 	case CircuitBreakerStateClosed:
-		return "closed"
+		return StateStringClosed
 	case CircuitBreakerStateOpen:
-		return "open"
+		return StateStringOpen
 	case CircuitBreakerStateHalfOpen:
-		return "half-open"
+		return StateStringHalfOpen
 	default:
-		return "unknown"
+		return StateStringUnknown
 	}
 }
 
@@ -53,15 +60,15 @@ func DefaultCircuitBreakerConfig() *CircuitBreakerConfig {
 
 // CircuitBreakerMetrics tracks metrics for a circuit breaker
 type CircuitBreakerMetrics struct {
-	TotalRequests     int64     `json:"total_requests"`
-	SuccessfulRequests int64     `json:"successful_requests"`
-	FailedRequests    int64     `json:"failed_requests"`
-	RejectedRequests  int64     `json:"rejected_requests"`
-	LastStateChange   time.Time `json:"last_state_change"`
-	StateChangeCount  int64     `json:"state_change_count"`
+	TotalRequests       int64         `json:"total_requests"`
+	SuccessfulRequests  int64         `json:"successful_requests"`
+	FailedRequests      int64         `json:"failed_requests"`
+	RejectedRequests    int64         `json:"rejected_requests"`
+	LastStateChange     time.Time     `json:"last_state_change"`
+	StateChangeCount    int64         `json:"state_change_count"`
 	AverageResponseTime time.Duration `json:"average_response_time"`
-	LastFailureTime   time.Time `json:"last_failure_time"`
-	LastSuccessTime   time.Time `json:"last_success_time"`
+	LastFailureTime     time.Time     `json:"last_failure_time"`
+	LastSuccessTime     time.Time     `json:"last_success_time"`
 }
 
 // Copy creates a copy of the circuit breaker metrics
@@ -101,20 +108,20 @@ func (cbm *CircuitBreakerMetrics) GetSuccessRate() float64 {
 
 // CircuitBreaker implements the circuit breaker pattern for fault tolerance
 type CircuitBreaker struct {
-	config              *CircuitBreakerConfig
-	state               CircuitBreakerState
-	errorCount          int32
-	successCount        int32
-	lastFailureTime     time.Time
+	config               *CircuitBreakerConfig
+	state                CircuitBreakerState
+	errorCount           int32
+	successCount         int32
+	lastFailureTime      time.Time
 	halfOpenSuccessCount int32
-	requestCount        int32
-	metrics             *CircuitBreakerMetrics
-	mu                  sync.RWMutex
-	
+	requestCount         int32
+	metrics              *CircuitBreakerMetrics
+	mu                   sync.RWMutex
+
 	// Rolling window tracking
-	requestTimes        []time.Time
-	requestResults      []bool // true for success, false for failure
-	windowMu            sync.RWMutex
+	requestTimes   []time.Time
+	requestResults []bool // true for success, false for failure
+	windowMu       sync.RWMutex
 }
 
 // NewCircuitBreaker creates a new circuit breaker with default configuration
@@ -127,18 +134,18 @@ func NewCircuitBreaker(errorThreshold int, timeoutDuration time.Duration, maxHal
 		MinRequestsToTrip:     5,
 		RollingWindowDuration: 60 * time.Second,
 	}
-	
+
 	return NewCircuitBreakerWithConfig(config)
 }
 
 // NewCircuitBreakerWithConfig creates a new circuit breaker with custom configuration
 func NewCircuitBreakerWithConfig(config *CircuitBreakerConfig) *CircuitBreaker {
 	return &CircuitBreaker{
-		config:         config,
-		state:          CircuitBreakerStateClosed,
-		errorCount:     0,
-		successCount:   0,
-		requestCount:   0,
+		config:       config,
+		state:        CircuitBreakerStateClosed,
+		errorCount:   0,
+		successCount: 0,
+		requestCount: 0,
 		metrics: &CircuitBreakerMetrics{
 			LastStateChange: time.Now(),
 		},
@@ -188,7 +195,7 @@ func (cb *CircuitBreaker) CanExecute() bool {
 // RecordSuccess records a successful request
 func (cb *CircuitBreaker) RecordSuccess() {
 	cb.recordResult(true)
-	
+
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
@@ -211,7 +218,7 @@ func (cb *CircuitBreaker) RecordSuccess() {
 // RecordFailure records a failed request
 func (cb *CircuitBreaker) RecordFailure() {
 	cb.recordResult(false)
-	
+
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
@@ -223,10 +230,10 @@ func (cb *CircuitBreaker) RecordFailure() {
 	case CircuitBreakerStateClosed:
 		errorCount := atomic.AddInt32(&cb.errorCount, 1)
 		requestCount := atomic.LoadInt32(&cb.requestCount)
-		
+
 		// Check if we should trip the circuit breaker
-		if requestCount >= cb.config.MinRequestsToTrip && 
-		   int(errorCount) >= cb.config.ErrorThreshold {
+		if requestCount >= cb.config.MinRequestsToTrip &&
+			int(errorCount) >= cb.config.ErrorThreshold {
 			cb.transitionToOpen()
 		}
 	case CircuitBreakerStateHalfOpen:
@@ -292,13 +299,13 @@ func (cb *CircuitBreaker) recordResult(success bool) {
 	now := time.Now()
 	cb.requestTimes = append(cb.requestTimes, now)
 	cb.requestResults = append(cb.requestResults, success)
-	
+
 	atomic.AddInt32(&cb.requestCount, 1)
 
 	// Clean up old entries outside the rolling window
 	cutoff := now.Add(-cb.config.RollingWindowDuration)
 	validIndex := 0
-	
+
 	for i, t := range cb.requestTimes {
 		if t.After(cutoff) {
 			cb.requestTimes[validIndex] = cb.requestTimes[i]
@@ -306,7 +313,7 @@ func (cb *CircuitBreaker) recordResult(success bool) {
 			validIndex++
 		}
 	}
-	
+
 	cb.requestTimes = cb.requestTimes[:validIndex]
 	cb.requestResults = cb.requestResults[:validIndex]
 }
@@ -350,9 +357,9 @@ func (cb *CircuitBreaker) GetRollingWindowStats() *RollingWindowStats {
 
 	now := time.Now()
 	cutoff := now.Add(-cb.config.RollingWindowDuration)
-	
+
 	var totalRequests, successfulRequests, failedRequests int
-	
+
 	for i, t := range cb.requestTimes {
 		if t.After(cutoff) {
 			totalRequests++
@@ -519,7 +526,7 @@ func (cbm *CircuitBreakerManager) SetDefaultConfig(config *CircuitBreakerConfig)
 // ExecuteWithCircuitBreaker executes a function with circuit breaker protection
 func (cbm *CircuitBreakerManager) ExecuteWithCircuitBreaker(key string, fn func() error) error {
 	cb := cbm.GetCircuitBreaker(key)
-	
+
 	if !cb.CanExecute() {
 		return fmt.Errorf("circuit breaker %s is open", key)
 	}

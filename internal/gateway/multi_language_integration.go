@@ -21,15 +21,15 @@ type MultiLanguageIntegrator struct {
 	smartRouter        *SmartRouterImpl
 	projectDetector    *ProjectLanguageScanner
 	workspaceManager   *WorkspaceManager
-	
+
 	// Configuration
 	config *config.GatewayConfig
 	logger *mcp.StructuredLogger
-	
+
 	// Runtime state
-	activeProjects   map[string]*MultiLanguageProjectInfo
-	projectMutex     sync.RWMutex
-	initialized      bool
+	activeProjects map[string]*MultiLanguageProjectInfo
+	projectMutex   sync.RWMutex
+	initialized    bool
 }
 
 // NewMultiLanguageIntegrator creates a new multi-language integrator
@@ -40,23 +40,22 @@ func NewMultiLanguageIntegrator(gatewayConfig *config.GatewayConfig, logger *mcp
 		activeProjects: make(map[string]*MultiLanguageProjectInfo),
 		initialized:    false,
 	}
-	
+
 	// Initialize components
 	integrator.projectDetector = NewProjectLanguageScanner()
 	integrator.projectDetector.OptimizeForLargeMonorepos()
-	
+
 	// Create basic router first for workspace manager
 	baseRouter := NewRouter()
 	integrator.workspaceManager = NewWorkspaceManager(gatewayConfig, baseRouter, logger)
-	
+
 	// Create standard logger for multi-server manager compatibility
 	stdLogger := log.New(os.Stdout, "[MultiServer] ", log.LstdFlags)
 	integrator.multiServerManager = NewMultiServerManager(gatewayConfig, stdLogger)
-	
+
 	// Initialize smart router with project-aware routing if available
 	projectRouter := NewProjectAwareRouter(baseRouter, integrator.workspaceManager, logger)
 	integrator.smartRouter = NewSmartRouter(projectRouter, gatewayConfig, integrator.workspaceManager, logger)
-	
 	return integrator
 }
 
@@ -65,56 +64,55 @@ func (mli *MultiLanguageIntegrator) Initialize(ctx context.Context) error {
 	if mli.initialized {
 		return nil
 	}
-	
+
 	mli.logger.Info("Initializing multi-language LSP Gateway system...")
-	
+
 	// Initialize multi-server manager
 	if err := mli.multiServerManager.Initialize(); err != nil {
 		return fmt.Errorf("failed to initialize multi-server manager: %w", err)
 	}
-	
+
 	// Start multi-server manager
 	if err := mli.multiServerManager.Start(); err != nil {
 		return fmt.Errorf("failed to start multi-server manager: %w", err)
 	}
-	
-	// Skip workspace manager initialization - it's handled during creation
-	
+
+	// Workspace manager is initialized via constructor, no additional initialization needed
 	mli.initialized = true
 	mli.logger.Info("Multi-language LSP Gateway system initialized successfully")
-	
+
 	return nil
 }
 
 // DetectAndConfigureProject detects languages in a project and configures LSP servers
 func (mli *MultiLanguageIntegrator) DetectAndConfigureProject(projectPath string) (*MultiLanguageProjectInfo, error) {
 	mli.logger.Infof("Detecting languages in project: %s", projectPath)
-	
+
 	// Scan project for languages
 	projectInfo, err := mli.projectDetector.ScanProjectComprehensive(projectPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detect project languages: %w", err)
 	}
-	
+
 	mli.logger.Infof("Detected project type: %s with %d languages", 
 		projectInfo.ProjectType, len(projectInfo.Languages))
-	
+
 	// Log detected languages
 	for lang, ctx := range projectInfo.Languages {
 		mli.logger.Infof("  - %s: %d files, priority %d, confidence %.2f", 
 			lang, ctx.FileCount, ctx.Priority, ctx.Confidence)
 	}
-	
+
 	// Store project info
 	mli.projectMutex.Lock()
 	mli.activeProjects[projectPath] = projectInfo
 	mli.projectMutex.Unlock()
-	
+
 	// Configure workspace for multi-language support
 	if err := mli.configureWorkspaceForProject(projectInfo); err != nil {
 		mli.logger.Warnf("Warning: failed to configure workspace for project %s: %v", projectPath, err)
 	}
-	
+
 	return projectInfo, nil
 }
 
@@ -123,24 +121,24 @@ func (mli *MultiLanguageIntegrator) ProcessMultiLanguageRequest(ctx context.Cont
 	if !mli.initialized {
 		return nil, fmt.Errorf("multi-language integrator not initialized")
 	}
-	
+
 	// Determine project context
 	projectPath := mli.extractProjectPath(request.URI)
 	if projectPath == "" {
 		return nil, fmt.Errorf("unable to determine project path from request")
 	}
-	
+
 	// Get or detect project info
 	projectInfo, err := mli.getProjectInfo(projectPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project info: %w", err)
 	}
-	
+
 	// Route request using smart router
 	if mli.smartRouter != nil {
 		return mli.smartRouter.AggregateBroadcast(request)
 	}
-	
+
 	// Fallback to direct server management
 	return mli.processRequestDirect(ctx, request, projectInfo)
 }
@@ -151,25 +149,25 @@ func (mli *MultiLanguageIntegrator) ProcessCrossLanguageSymbolSearch(ctx context
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project info: %w", err)
 	}
-	
+
 	result := &CrossLanguageSymbolResult{
-		Query:     query,
-		Languages: make(map[string]*LanguageSymbolResult),
-		TotalSymbols: 0,
+		Query:          query,
+		Languages:      make(map[string]*LanguageSymbolResult),
+		TotalSymbols:   0,
 		ProcessingTime: 0,
 	}
-	
+
 	startTime := time.Now()
-	
+
 	// Search symbols in parallel across all languages
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	
+
 	for language, langCtx := range projectInfo.Languages {
 		wg.Add(1)
 		go func(lang string, ctx *LanguageContext) {
 			defer wg.Done()
-			
+
 			if langResult, err := mli.searchSymbolsInLanguage(lang, query, ctx); err == nil {
 				mu.Lock()
 				result.Languages[lang] = langResult
@@ -178,10 +176,10 @@ func (mli *MultiLanguageIntegrator) ProcessCrossLanguageSymbolSearch(ctx context
 			}
 		}(language, langCtx)
 	}
-	
+
 	wg.Wait()
 	result.ProcessingTime = time.Since(startTime)
-	
+
 	return result, nil
 }
 
@@ -191,15 +189,15 @@ func (mli *MultiLanguageIntegrator) GetProjectLanguageStatus(projectPath string)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get project info: %w", err)
 	}
-	
+
 	status := &ProjectLanguageStatus{
-		ProjectPath:   projectPath,
-		ProjectType:   projectInfo.ProjectType,
+		ProjectPath:    projectPath,
+		ProjectType:    projectInfo.ProjectType,
 		TotalLanguages: len(projectInfo.Languages),
-		Languages:     make(map[string]*LanguageStatus),
-		LastUpdated:   time.Now(),
+		Languages:      make(map[string]*LanguageStatus),
+		LastUpdated:    time.Now(),
 	}
-	
+
 	// Get status for each language
 	for language, langCtx := range projectInfo.Languages {
 		langStatus := &LanguageStatus{
@@ -211,16 +209,16 @@ func (mli *MultiLanguageIntegrator) GetProjectLanguageStatus(projectPath string)
 			LSPServerName: langCtx.LSPServerName,
 			ServerHealthy: false,
 		}
-		
+
 		// Check server health
 		if servers, err := mli.multiServerManager.GetHealthyServers(language); err == nil {
 			langStatus.ServerHealthy = len(servers) > 0
 			langStatus.ActiveServers = len(servers)
 		}
-		
+
 		status.Languages[language] = langStatus
 	}
-	
+
 	return status, nil
 }
 
@@ -229,19 +227,19 @@ func (mli *MultiLanguageIntegrator) GetMultiLanguageMetrics() (*MultiLanguageMet
 	if !mli.initialized {
 		return nil, fmt.Errorf("integrator not initialized")
 	}
-	
+
 	metrics := &MultiLanguageMetrics{
-		TotalProjects:    len(mli.activeProjects),
-		ActiveLanguages:  make(map[string]int),
-		ServerMetrics:    mli.multiServerManager.GetMetrics(),
-		RoutingMetrics:   nil,
-		LastUpdated:      time.Now(),
+		TotalProjects:   len(mli.activeProjects),
+		ActiveLanguages: make(map[string]int),
+		ServerMetrics:   mli.multiServerManager.GetMetrics(),
+		RoutingMetrics:  nil,
+		LastUpdated:     time.Now(),
 	}
-	
+
 	if mli.smartRouter != nil {
 		metrics.RoutingMetrics = mli.smartRouter.GetRoutingMetrics()
 	}
-	
+
 	// Count languages across all projects
 	mli.projectMutex.RLock()
 	for _, projectInfo := range mli.activeProjects {
@@ -250,34 +248,34 @@ func (mli *MultiLanguageIntegrator) GetMultiLanguageMetrics() (*MultiLanguageMet
 		}
 	}
 	mli.projectMutex.RUnlock()
-	
+
 	return metrics, nil
 }
 
 // Shutdown gracefully shuts down all components
 func (mli *MultiLanguageIntegrator) Shutdown() error {
 	mli.logger.Info("Shutting down multi-language LSP Gateway system...")
-	
+
 	var errors []error
-	
+
 	// Stop multi-server manager
 	if mli.multiServerManager != nil {
 		if err := mli.multiServerManager.Stop(); err != nil {
 			errors = append(errors, fmt.Errorf("failed to stop multi-server manager: %w", err))
 		}
 	}
-	
+
 	// Shutdown project detector
 	if mli.projectDetector != nil {
 		mli.projectDetector.Shutdown()
 	}
-	
+
 	mli.initialized = false
-	
+
 	if len(errors) > 0 {
 		return fmt.Errorf("shutdown errors: %v", errors)
 	}
-	
+
 	mli.logger.Info("Multi-language LSP Gateway system shut down successfully")
 	return nil
 }
@@ -285,35 +283,37 @@ func (mli *MultiLanguageIntegrator) Shutdown() error {
 // Private helper methods
 
 func (mli *MultiLanguageIntegrator) configureWorkspaceForProject(projectInfo *MultiLanguageProjectInfo) error {
-	// Create workspace configuration for multi-language project
-	workspaceConfig := &WorkspaceConfig{
-		ID:           fmt.Sprintf("ml-%d", time.Now().Unix()),
-		RootPath:     projectInfo.RootPath,
-		ProjectType:  projectInfo.ProjectType,
-		Languages:    make([]string, 0, len(projectInfo.Languages)),
-		CreatedAt:    time.Now(),
-	}
-	
+	// Create workspace discovery result for multi-language project
+	languages := make([]string, 0, len(projectInfo.Languages))
 	for language := range projectInfo.Languages {
-		workspaceConfig.Languages = append(workspaceConfig.Languages, language)
+		languages = append(languages, language)
 	}
-	
-	// Register workspace - temporarily disabled due to method signature mismatch
-	// TODO: Fix workspace creation once proper method signature is determined
-	// return mli.workspaceManager.createWorkspace(workspaceConfig)
-	return nil
+	discoveryResult := &WorkspaceDiscoveryResult{
+		WorkspaceID:      fmt.Sprintf("ml-%d", time.Now().Unix()),
+		RootPath:         projectInfo.RootPath,
+		ProjectType:      projectInfo.ProjectType,
+		Languages:        languages,
+		ConfigMarkers:    projectInfo.ConfigFiles,
+		MultiLangInfo:    projectInfo,
+		LanguageRoots:    projectInfo.WorkspaceRoots,
+		DominantLanguage: projectInfo.DominantLanguage,
+	}
+
+	// Register workspace
+	_, err := mli.workspaceManager.createWorkspace(discoveryResult)
+	return err
 }
 
 func (mli *MultiLanguageIntegrator) getProjectInfo(projectPath string) (*MultiLanguageProjectInfo, error) {
 	mli.projectMutex.RLock()
 	projectInfo, exists := mli.activeProjects[projectPath]
 	mli.projectMutex.RUnlock()
-	
+
 	if !exists {
 		// Detect project on-demand
 		return mli.DetectAndConfigureProject(projectPath)
 	}
-	
+
 	return projectInfo, nil
 }
 
@@ -321,37 +321,37 @@ func (mli *MultiLanguageIntegrator) extractProjectPath(fileURI string) string {
 	if !strings.HasPrefix(fileURI, "file://") {
 		return ""
 	}
-	
+
 	path := strings.TrimPrefix(fileURI, "file://")
-	
+
 	// Find project root by traversing up directories
 	for {
 		dir := filepath.Dir(path)
 		if dir == path { // Reached root
 			break
 		}
-		
+
 		// Check for common project markers
 		markers := []string{
-			"go.mod", "Cargo.toml", "package.json", "pom.xml", 
+			"go.mod", "Cargo.toml", "package.json", "pom.xml",
 			"pyproject.toml", "setup.py", ".git",
 		}
-		
+
 		for _, marker := range markers {
 			if _, err := os.Stat(filepath.Join(dir, marker)); err == nil {
 				return dir
 			}
 		}
-		
+
 		path = dir
 	}
-	
+
 	return filepath.Dir(strings.TrimPrefix(fileURI, "file://"))
 }
 
 func (mli *MultiLanguageIntegrator) processRequestDirect(ctx context.Context, request *LSPRequest, projectInfo *MultiLanguageProjectInfo) (*AggregatedResponse, error) {
 	// Direct processing fallback when smart router is not available
-	var language string
+	language := ""
 	if request.Context != nil {
 		language = request.Context.Language
 	}
@@ -360,24 +360,24 @@ func (mli *MultiLanguageIntegrator) processRequestDirect(ctx context.Context, re
 			language = lang
 		}
 	}
-	
+
 	if language == "" {
 		return nil, fmt.Errorf("unable to determine language for request")
 	}
-	
+
 	// Get server for language
 	servers, err := mli.multiServerManager.GetHealthyServers(language)
 	if err != nil || len(servers) == 0 {
 		return nil, fmt.Errorf("no healthy servers available for language %s", language)
 	}
-	
+
 	// Execute request on first healthy server
 	client := servers[0]
 	startTime := time.Now()
-	
+
 	result, err := client.SendRequest(ctx, request.Method, request.Params)
 	processingTime := time.Since(startTime)
-	
+
 	return &AggregatedResponse{
 		PrimaryResponse:    result,
 		AggregatedResult:   result,
@@ -395,25 +395,25 @@ func (mli *MultiLanguageIntegrator) searchSymbolsInLanguage(language, query stri
 	if err != nil || len(servers) == 0 {
 		return nil, fmt.Errorf("no healthy servers for language %s", language)
 	}
-	
+
 	// Prepare workspace/symbol request
 	symbolRequest := map[string]interface{}{
 		"query": query,
 	}
-	
+
 	// Execute request
 	client := servers[0]
 	result, err := client.SendRequest(context.Background(), "workspace/symbol", symbolRequest)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Parse symbols from result
 	var symbols []json.RawMessage
 	if err := json.Unmarshal(result, &symbols); err != nil {
 		return nil, fmt.Errorf("failed to parse symbol results: %w", err)
 	}
-	
+
 	return &LanguageSymbolResult{
 		Language: language,
 		Symbols:  symbols,
@@ -425,13 +425,13 @@ func (mli *MultiLanguageIntegrator) extractLanguageFromURI(fileURI string) (stri
 	if !strings.HasPrefix(fileURI, "file://") {
 		return "", fmt.Errorf("invalid file URI")
 	}
-	
+
 	path := strings.TrimPrefix(fileURI, "file://")
 	ext := filepath.Ext(path)
-	
+
 	extToLang := map[string]string{
 		".go":   "go",
-		".py":   "python", 
+		".py":   "python",
 		".js":   "javascript",
 		".ts":   "typescript",
 		".jsx":  "javascript",
@@ -439,19 +439,19 @@ func (mli *MultiLanguageIntegrator) extractLanguageFromURI(fileURI string) (stri
 		".java": "java",
 		".rs":   "rust",
 	}
-	
+
 	if lang, exists := extToLang[ext]; exists {
 		return lang, nil
 	}
-	
+
 	return "", fmt.Errorf("unable to determine language from URI: %s", fileURI)
 }
 
 // Data structures for multi-language operations
 
 type CrossLanguageSymbolResult struct {
-	Query          string                            `json:"query"`
-	Languages      map[string]*LanguageSymbolResult  `json:"languages"`
+	Query          string                           `json:"query"`
+	Languages      map[string]*LanguageSymbolResult `json:"languages"`
 	TotalSymbols   int                              `json:"total_symbols"`
 	ProcessingTime time.Duration                    `json:"processing_time"`
 }
@@ -482,11 +482,11 @@ type LanguageStatus struct {
 }
 
 type MultiLanguageMetrics struct {
-	TotalProjects   int                    `json:"total_projects"`
-	ActiveLanguages map[string]int         `json:"active_languages"`
-	ServerMetrics   *ManagerMetrics        `json:"server_metrics"`
-	RoutingMetrics  *RoutingMetrics        `json:"routing_metrics,omitempty"`
-	LastUpdated     time.Time              `json:"last_updated"`
+	TotalProjects   int             `json:"total_projects"`
+	ActiveLanguages map[string]int  `json:"active_languages"`
+	ServerMetrics   *ManagerMetrics `json:"server_metrics"`
+	RoutingMetrics  *RoutingMetrics `json:"routing_metrics,omitempty"`
+	LastUpdated     time.Time       `json:"last_updated"`
 }
 
 type WorkspaceConfig struct {

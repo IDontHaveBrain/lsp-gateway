@@ -1,0 +1,52 @@
+{
+  "sample_projects": {
+    "go_microservice": {
+      "type": "microservice",
+      "languages": ["go"],
+      "structure": {
+        "main.go": "package main\\n\\nimport \"fmt\"\\n\\nfunc main() {\\n\\tfmt.Println(\"Hello, World!\")\\n}",
+        "go.mod": "module test-service\\n\\ngo 1.21"
+      },
+      "build_files": ["go.mod"],
+      "expected_symbols": ["main"]
+    },
+    "python_django": {
+      "type": "web-application", 
+      "languages": ["python"],
+      "structure": {
+        "manage.py": "#!/usr/bin/env python\\nimport os\\nimport sys",
+        "requirements.txt": "Django==4.2.0"
+      },
+      "build_files": ["requirements.txt"],
+      "expected_symbols": ["main"]
+    },
+    "multi_language_monorepo": {
+      "type": "monorepo",
+      "languages": ["go", "python", "typescript"],
+      "structure": {
+        "README.md": "# Multi-Language Monorepo",
+        "backend/go.mod": "module backend\\n\\ngo 1.21",
+        "data-processing/requirements.txt": "pandas==1.5.0",
+        "frontend/package.json": "{\\n  \"name\": \"frontend\"\\n}"
+      },
+      "build_files": ["backend/go.mod", "data-processing/requirements.txt", "frontend/package.json"],
+      "expected_symbols": ["main", "process", "ApiClient"]
+    }
+  },
+  "test_scenarios": {
+    "definition_lookup": {
+      "requests": [
+        {
+          "method": "textDocument/definition",
+          "language": "go", 
+          "file": "main.go",
+          "position": {"line": 5, "character": 10},
+          "expected_result": {
+            "uri": "file://main.go",
+            "range": {"start": {"line": 3, "character": 5}, "end": {"line": 3, "character": 9}}
+          }
+        }
+      ]
+    }
+  }
+}

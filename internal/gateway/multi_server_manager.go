@@ -99,13 +99,13 @@ func (s ServerState) String() string {
 	case ServerStateUnhealthy:
 		return "unhealthy"
 	case ServerStateFailed:
-		return "failed"
+		return STATUS_FAILED
 	case ServerStateStopping:
 		return "stopping"
 	case ServerStateStopped:
 		return "stopped"
 	default:
-		return "unknown"
+		return StateStringUnknown
 	}
 }
 
@@ -117,10 +117,9 @@ type ServerInstance struct {
 	metrics         *SimpleServerMetrics
 	circuitBreaker  *CircuitBreaker
 	startTime       time.Time
-	lastUsed        int64
+	lastUsed        int64 // Changed to int64 for atomic operations
 	processID       int
 	memoryUsage     int64
-	connectionCount int32
 	state           ServerState
 	mu              sync.RWMutex
 }
@@ -134,7 +133,7 @@ func NewServerInstance(serverConfig *config.ServerConfig, client transport.LSPCl
 		metrics:        NewSimpleServerMetrics(),
 		circuitBreaker: NewCircuitBreaker(10, 30*time.Second, 5),
 		startTime:      time.Now(),
-		lastUsed:       time.Now().UnixNano(),
+		lastUsed:       time.Now().UnixNano(), // Store as nanoseconds
 		state:          ServerStateStarting,
 	}
 }
@@ -332,7 +331,7 @@ func (lsp *LanguageServerPool) GetHealthyServers() []*ServerInstance {
 
 // SelectServer selects the best server for a request
 func (lsp *LanguageServerPool) SelectServer(requestType string) (*ServerInstance, error) {
-	return lsp.SelectServerWithContext(requestType, &SelectionRequestContext{
+	return lsp.SelectServerWithContext(requestType, &ServerSelectionContext{
 		Method:   requestType,
 		Priority: PriorityNormal,
 		Timeout:  30 * time.Second,
@@ -340,7 +339,7 @@ func (lsp *LanguageServerPool) SelectServer(requestType string) (*ServerInstance
 }
 
 // SelectServerWithContext selects the best server for a request with context
-func (lsp *LanguageServerPool) SelectServerWithContext(requestType string, context *SelectionRequestContext) (*ServerInstance, error) {
+func (lsp *LanguageServerPool) SelectServerWithContext(requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	lsp.mu.RLock()
 	defer lsp.mu.RUnlock()
 
@@ -349,7 +348,7 @@ func (lsp *LanguageServerPool) SelectServerWithContext(requestType string, conte
 	}
 
 	if context == nil {
-		context = &SelectionRequestContext{
+		context = &ServerSelectionContext{
 			Method:   requestType,
 			Priority: PriorityNormal,
 			Timeout:  30 * time.Second,
@@ -424,8 +423,6 @@ type MultiServerManager struct {
 	metrics          *ManagerMetrics
 	circuitBreakers  map[string]*CircuitBreaker
 	resourceMonitor  *ResourceMonitor
-	smartRouter      *SmartRouterImpl
-	workspaceManager *WorkspaceManager
 	ctx              context.Context
 	cancel           context.CancelFunc
 	mu               sync.RWMutex
@@ -561,9 +558,14 @@ func (msm *MultiServerManager) Stop() error {
 	return nil
 }
 
-// GetServerForRequest gets the best server for a specific request
+// GetServerInstanceForRequest gets the best server instance for a specific request
+func (msm *MultiServerManager) GetServerInstanceForRequest(language string, requestType string) (*ServerInstance, error) {
+	return msm.GetServerForRequestWithContext(language, requestType, nil)
+}
+
+// GetServerForRequest implements ServerManager interface
 func (msm *MultiServerManager) GetServerForRequest(language string, requestType string) (transport.LSPClient, error) {
-	server, err := msm.GetServerForRequestWithContext(language, requestType, nil)
+	server, err := msm.GetServerInstanceForRequest(language, requestType)
 	if err != nil {
 		return nil, err
 	}
@@ -571,7 +573,7 @@ func (msm *MultiServerManager) GetServerForRequest(language string, requestType 
 }
 
 // GetServerForRequestWithContext gets the best server for a specific request with context
-func (msm *MultiServerManager) GetServerForRequestWithContext(language string, requestType string, context *SelectionRequestContext) (*ServerInstance, error) {
+func (msm *MultiServerManager) GetServerForRequestWithContext(language string, requestType string, context *ServerSelectionContext) (*ServerInstance, error) {
 	msm.mu.RLock()
 	defer msm.mu.RUnlock()
 
@@ -581,7 +583,7 @@ func (msm *MultiServerManager) GetServerForRequestWithContext(language string, r
 	}
 
 	if context == nil {
-		context = &SelectionRequestContext{
+		context = &ServerSelectionContext{
 			Method:   requestType,
 			Priority: PriorityNormal,
 			Timeout:  30 * time.Second,
@@ -599,18 +601,22 @@ func (msm *MultiServerManager) GetServerForRequestWithContext(language string, r
 	return server, nil
 }
 
-// GetServersForConcurrentRequest gets multiple servers for concurrent requests
+// GetServerInstancesForConcurrentRequest gets multiple server instances for concurrent requests
+func (msm *MultiServerManager) GetServerInstancesForConcurrentRequest(language string, maxServers int) ([]*ServerInstance, error) {
+	return msm.GetServersForConcurrentRequestWithType(language, "", maxServers)
+}
+
+// GetServersForConcurrentRequest implements ServerManager interface
 func (msm *MultiServerManager) GetServersForConcurrentRequest(language string, maxServers int) ([]transport.LSPClient, error) {
-	servers, err := msm.GetServersForConcurrentRequestWithType(language, "", maxServers)
+	servers, err := msm.GetServerInstancesForConcurrentRequest(language, maxServers)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	clients := make([]transport.LSPClient, len(servers))
 	for i, server := range servers {
 		clients[i] = server.client
 	}
-	
 	return clients, nil
 }
 
@@ -645,12 +651,11 @@ func (msm *MultiServerManager) GetHealthyServers(language string) ([]transport.L
 		return nil, fmt.Errorf("no server pool found for language %s", language)
 	}
 
-	healthyServers := pool.GetHealthyServers()
-	clients := make([]transport.LSPClient, len(healthyServers))
-	for i, server := range healthyServers {
-		clients[i] = server.client
+	healthyInstances := pool.GetHealthyServers()
+	clients := make([]transport.LSPClient, len(healthyInstances))
+	for i, instance := range healthyInstances {
+		clients[i] = instance.client
 	}
-
 	return clients, nil
 }
 
@@ -770,14 +775,14 @@ func (msm *MultiServerManager) UpdateServerMetrics(serverName string, responseTi
 	for _, pool := range msm.serverPools {
 		if server, exists := pool.servers[serverName]; exists {
 			server.UpdateMetrics(responseTime, success)
-			
+
 			// Update load balancer metrics
 			pool.loadBalancer.UpdateServerMetrics(serverName, responseTime, success)
 			pool.metrics.RecordServerSelection(serverName, responseTime, success)
-			
+
 			// Update manager metrics
 			msm.metrics.RecordRequest(responseTime, success)
-			
+
 			return nil
 		}
 	}
@@ -805,7 +810,7 @@ func (msm *MultiServerManager) RebalancePool(language string) error {
 	active := len(pool.activeServers)
 	pool.metrics.UpdatePoolStatus(language, total, active, healthy, pool.loadBalancer.GetStrategy())
 
-	msm.logger.Printf("Successfully rebalanced pool for language %s (strategy: %s, healthy: %d/%d)", 
+	msm.logger.Printf("Successfully rebalanced pool for language %s (strategy: %s, healthy: %d/%d)",
 		language, pool.loadBalancer.GetStrategy(), healthy, total)
 
 	return nil
@@ -956,10 +961,15 @@ type ServerManager interface {
 	GetMetrics() *ManagerMetrics
 }
 
+// ServerManagerInternal interface for internal methods that return ServerInstance
+type ServerManagerInternal interface {
+	GetServerInstanceForRequest(language string, requestType string) (*ServerInstance, error)
+	GetServerInstancesForConcurrentRequest(language string, maxServers int) ([]*ServerInstance, error)
+}
+
 // Ensure MultiServerManager implements ServerManager interface
 var _ ServerManager = (*MultiServerManager)(nil)
 
-// Implementation of ServerManager interface methods that return transport.LSPClient
 func (msm *MultiServerManager) StartAll() error {
 	return msm.Start()
 }
@@ -967,3 +977,18 @@ func (msm *MultiServerManager) StartAll() error {
 func (msm *MultiServerManager) StopAll() error {
 	return msm.Stop()
 }
+
+// GetConfig returns the server configuration
+func (si *ServerInstance) GetConfig() *config.ServerConfig {
+	si.mu.RLock()
+	defer si.mu.RUnlock()
+	return si.config
+}
+
+// GetClient returns the LSP client
+func (si *ServerInstance) GetClient() transport.LSPClient {
+	si.mu.RLock()
+	defer si.mu.RUnlock()
+	return si.client
+}
+

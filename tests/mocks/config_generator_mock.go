@@ -8,26 +8,34 @@ import (
 )
 
 type MockConfigGenerator struct {
-	GenerateFromDetectedFunc func(ctx context.Context) (*setup.ConfigGenerationResult, error)
-	GenerateForRuntimeFunc   func(ctx context.Context, runtime string) (*setup.ConfigGenerationResult, error)
-	GenerateDefaultFunc      func() (*setup.ConfigGenerationResult, error)
-	UpdateConfigFunc         func(existing *config.GatewayConfig, updates setup.ConfigUpdates) (*setup.ConfigUpdateResult, error)
-	ValidateConfigFunc       func(config *config.GatewayConfig) (*setup.ConfigValidationResult, error)
-	ValidateGeneratedFunc    func(config *config.GatewayConfig) (*setup.ConfigValidationResult, error)
-	SetLoggerFunc            func(logger *setup.SetupLogger)
+	GenerateFromDetectedFunc        func(ctx context.Context) (*setup.ConfigGenerationResult, error)
+	GenerateForRuntimeFunc          func(ctx context.Context, runtime string) (*setup.ConfigGenerationResult, error)
+	GenerateMultiLanguageConfigFunc func(ctx context.Context, projectPath string, options *setup.GenerationOptions) (*setup.ConfigGenerationResult, error)
+	GenerateDefaultFunc             func() (*setup.ConfigGenerationResult, error)
+	UpdateConfigFunc                func(existing *config.GatewayConfig, updates setup.ConfigUpdates) (*setup.ConfigUpdateResult, error)
+	ValidateConfigFunc              func(config *config.GatewayConfig) (*setup.ConfigValidationResult, error)
+	ValidateGeneratedFunc           func(config *config.GatewayConfig) (*setup.ConfigValidationResult, error)
+	SetLoggerFunc                   func(logger *setup.SetupLogger)
 
-	GenerateFromDetectedCalls []context.Context
-	GenerateForRuntimeCalls   []GenerateForRuntimeCall
-	GenerateDefaultCalls      int
-	UpdateConfigCalls         []UpdateConfigCall
-	ValidateConfigCalls       []*config.GatewayConfig
-	ValidateGeneratedCalls    []*config.GatewayConfig
-	SetLoggerCalls            []*setup.SetupLogger
+	GenerateFromDetectedCalls        []context.Context
+	GenerateForRuntimeCalls          []GenerateForRuntimeCall
+	GenerateMultiLanguageConfigCalls []GenerateMultiLanguageConfigCall
+	GenerateDefaultCalls             int
+	UpdateConfigCalls                []UpdateConfigCall
+	ValidateConfigCalls              []*config.GatewayConfig
+	ValidateGeneratedCalls           []*config.GatewayConfig
+	SetLoggerCalls                   []*setup.SetupLogger
 }
 
 type GenerateForRuntimeCall struct {
 	Ctx     context.Context
 	Runtime string
+}
+
+type GenerateMultiLanguageConfigCall struct {
+	Ctx         context.Context
+	ProjectPath string
+	Options     *setup.GenerationOptions
 }
 
 type UpdateConfigCall struct {
@@ -37,12 +45,13 @@ type UpdateConfigCall struct {
 
 func NewMockConfigGenerator() *MockConfigGenerator {
 	return &MockConfigGenerator{
-		GenerateFromDetectedCalls: make([]context.Context, 0),
-		GenerateForRuntimeCalls:   make([]GenerateForRuntimeCall, 0),
-		UpdateConfigCalls:         make([]UpdateConfigCall, 0),
-		ValidateConfigCalls:       make([]*config.GatewayConfig, 0),
-		ValidateGeneratedCalls:    make([]*config.GatewayConfig, 0),
-		SetLoggerCalls:            make([]*setup.SetupLogger, 0),
+		GenerateFromDetectedCalls:        make([]context.Context, 0),
+		GenerateForRuntimeCalls:          make([]GenerateForRuntimeCall, 0),
+		GenerateMultiLanguageConfigCalls: make([]GenerateMultiLanguageConfigCall, 0),
+		UpdateConfigCalls:                make([]UpdateConfigCall, 0),
+		ValidateConfigCalls:              make([]*config.GatewayConfig, 0),
+		ValidateGeneratedCalls:           make([]*config.GatewayConfig, 0),
+		SetLoggerCalls:                   make([]*setup.SetupLogger, 0),
 	}
 }
 
@@ -156,6 +165,65 @@ func (m *MockConfigGenerator) GenerateForRuntime(ctx context.Context, runtime st
 		Warnings:         []string{},
 		Issues:           []string{},
 		Metadata:         map[string]interface{}{"runtime": runtime, "mock": true},
+	}, nil
+}
+
+func (m *MockConfigGenerator) GenerateMultiLanguageConfig(ctx context.Context, projectPath string, options *setup.GenerationOptions) (*setup.ConfigGenerationResult, error) {
+	m.GenerateMultiLanguageConfigCalls = append(m.GenerateMultiLanguageConfigCalls, GenerateMultiLanguageConfigCall{
+		Ctx:         ctx,
+		ProjectPath: projectPath,
+		Options:     options,
+	})
+
+	if m.GenerateMultiLanguageConfigFunc != nil {
+		return m.GenerateMultiLanguageConfigFunc(ctx, projectPath, options)
+	}
+
+	// Default implementation - return multi-language config with common servers
+	return &setup.ConfigGenerationResult{
+		Config: &config.GatewayConfig{
+			Port: 8080,
+			Servers: []config.ServerConfig{
+				{
+					Name:      "go-lsp",
+					Languages: []string{"go"},
+					Command:   "gopls",
+					Args:      []string{},
+					Transport: "stdio",
+				},
+				{
+					Name:      "python-lsp",
+					Languages: []string{"python"},
+					Command:   "python",
+					Args:      []string{"-m", "pylsp"},
+					Transport: "stdio",
+				},
+				{
+					Name:      "typescript-lsp",
+					Languages: []string{"typescript", "javascript"},
+					Command:   "typescript-language-server",
+					Args:      []string{"--stdio"},
+					Transport: "stdio",
+				},
+				{
+					Name:      "java-lsp",
+					Languages: []string{"java"},
+					Command:   "java",
+					Args:      []string{"-jar", "/usr/local/share/jdtls/jdtls.jar"},
+					Transport: "stdio",
+				},
+			},
+		},
+		DetectionReport:  nil,
+		ServersGenerated: 4,
+		ServersSkipped:   0,
+		AutoDetected:     true,
+		GeneratedAt:      time.Now(),
+		Duration:         time.Millisecond * 750,
+		Messages:         []string{"Generated multi-language configuration for project: " + projectPath},
+		Warnings:         []string{},
+		Issues:           []string{},
+		Metadata:         map[string]interface{}{"project_path": projectPath, "multi_language": true, "mock": true},
 	}, nil
 }
 
@@ -330,6 +398,7 @@ func (m *MockConfigGenerator) SetLogger(logger *setup.SetupLogger) {
 func (m *MockConfigGenerator) Reset() {
 	m.GenerateFromDetectedCalls = make([]context.Context, 0)
 	m.GenerateForRuntimeCalls = make([]GenerateForRuntimeCall, 0)
+	m.GenerateMultiLanguageConfigCalls = make([]GenerateMultiLanguageConfigCall, 0)
 	m.GenerateDefaultCalls = 0
 	m.UpdateConfigCalls = make([]UpdateConfigCall, 0)
 	m.ValidateConfigCalls = make([]*config.GatewayConfig, 0)
@@ -338,6 +407,7 @@ func (m *MockConfigGenerator) Reset() {
 
 	m.GenerateFromDetectedFunc = nil
 	m.GenerateForRuntimeFunc = nil
+	m.GenerateMultiLanguageConfigFunc = nil
 	m.GenerateDefaultFunc = nil
 	m.UpdateConfigFunc = nil
 	m.ValidateConfigFunc = nil

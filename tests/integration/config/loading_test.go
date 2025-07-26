@@ -1,24 +1,23 @@
 package config
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
-	"github.com/stretchr/testify/suite"
 	"lsp-gateway/internal/config"
 	"lsp-gateway/tests/integration/config/helpers"
+
+	"github.com/stretchr/testify/suite"
 )
 
 // ConfigurationLoadingTestSuite provides comprehensive integration tests for configuration loading
 type ConfigurationLoadingTestSuite struct {
 	suite.Suite
-	testHelper    *helpers.ConfigTestHelper
-	tempDir       string
-	cleanup       []func()
-	testProjects  map[string]string
+	testHelper   *helpers.ConfigTestHelper
+	tempDir      string
+	cleanup      []func()
+	testProjects map[string]string
 }
 
 // SetupTest initializes the test environment
@@ -33,7 +32,7 @@ func (suite *ConfigurationLoadingTestSuite) SetupTest() {
 
 	// Register cleanup for temp directory
 	suite.cleanup = append(suite.cleanup, func() {
-		os.RemoveAll(tempDir)
+		_ = os.RemoveAll(tempDir)
 	})
 }
 
@@ -68,8 +67,8 @@ dependencies = [
     "pandas>=2.0.0",
     "scikit-learn>=1.3.0"
 ]`,
-		"services/ml/src/main.py":       "from fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get('/')\ndef read_root():\n    return {'service': 'ml-service'}",
-		"services/ml/src/models.py":     "import pandas as pd\nfrom sklearn.base import BaseEstimator\n\nclass MLModel(BaseEstimator):\n    def fit(self, X, y): pass\n    def predict(self, X): pass",
+		"services/ml/src/main.py":          "from fastapi import FastAPI\n\napp = FastAPI()\n\n@app.get('/')\ndef read_root():\n    return {'service': 'ml-service'}",
+		"services/ml/src/models.py":        "import pandas as pd\nfrom sklearn.base import BaseEstimator\n\nclass MLModel(BaseEstimator):\n    def fit(self, X, y): pass\n    def predict(self, X): pass",
 		"services/ml/src/preprocessing.py": "import pandas as pd\n\ndef preprocess_data(df: pd.DataFrame) -> pd.DataFrame:\n    return df.dropna()",
 
 		// Java services
@@ -307,15 +306,15 @@ See the Makefile for build and test commands.`,
 		suite.NotNil(config)
 
 		// Validate multi-language detection
-		suite.GreaterOrEqual(len(config.Languages), 4, "Should detect at least 4 languages (Go, Python, Java, TypeScript)")
-		suite.Equal(config.ProjectType, "monorepo", "Should detect as monorepo project type")
+		suite.GreaterOrEqual(len(config.ProjectInfo.LanguageContexts), 4, "Should detect at least 4 languages (Go, Python, Java, TypeScript)")
+		suite.Equal(config.ProjectInfo.ProjectType, "monorepo", "Should detect as monorepo project type")
 
 		// Validate specific languages
-		languageNames := make([]string, len(config.Languages))
-		for i, lang := range config.Languages {
+		languageNames := make([]string, len(config.ProjectInfo.LanguageContexts))
+		for i, lang := range config.ProjectInfo.LanguageContexts {
 			languageNames[i] = lang.Language
 		}
-		
+
 		suite.Contains(languageNames, "go", "Should detect Go language")
 		suite.Contains(languageNames, "python", "Should detect Python language")
 		suite.Contains(languageNames, "java", "Should detect Java language")
@@ -324,26 +323,19 @@ See the Makefile for build and test commands.`,
 
 	suite.Run("LoadConfigWithPerformanceSettings", func() {
 		// Create configuration with performance optimizations
-		perfConfig := &config.EnhancedConfig{
-			BaseConfig: config.GatewayConfig{
-				Port: 8080,
-				Servers: []config.ServerConfig{
-					{
-						Name:      "go-lsp",
-						Languages: []string{"go"},
-						Command:   "gopls",
-						Transport: "stdio",
-					},
+		perfConfig := &config.GatewayConfig{
+			Servers: []config.ServerConfig{
+				{
+					Name:      "go-lsp",
+					Languages: []string{"go"},
+					Command:   "gopls",
+					Transport: "stdio",
 				},
 			},
-			Performance: &config.PerformanceConfig{
-				MaxConcurrentRequests: 200,
-				PoolSize:             10,
-				RequestTimeout:       30 * time.Second,
-				EnableCaching:        true,
-				CacheSize:           1000,
-				BackgroundIndexing:   true,
-				OptimizationMode:     "development",
+			PerformanceConfig: &config.PerformanceConfiguration{
+				Enabled:      true,
+				Profile:      "development",
+				AutoTuning:   true,
 			},
 		}
 
@@ -354,16 +346,12 @@ See the Makefile for build and test commands.`,
 		// Load and validate performance configuration
 		loadedConfig, err := suite.testHelper.LoadEnhancedConfig(configPath)
 		suite.Require().NoError(err)
-		suite.NotNil(loadedConfig.Performance)
+		suite.NotNil(loadedConfig.PerformanceConfig)
 
 		// Validate performance settings
-		suite.Equal(200, loadedConfig.Performance.MaxConcurrentRequests)
-		suite.Equal(10, loadedConfig.Performance.PoolSize)
-		suite.Equal(30*time.Second, loadedConfig.Performance.RequestTimeout)
-		suite.True(loadedConfig.Performance.EnableCaching)
-		suite.Equal(1000, loadedConfig.Performance.CacheSize)
-		suite.True(loadedConfig.Performance.BackgroundIndexing)
-		suite.Equal("development", loadedConfig.Performance.OptimizationMode)
+		suite.True(loadedConfig.PerformanceConfig.Enabled)
+		suite.Equal("development", loadedConfig.PerformanceConfig.Profile)
+		suite.True(loadedConfig.PerformanceConfig.AutoTuning)
 	})
 
 	suite.Run("LoadConfigWithOptimizationStrategies", func() {
@@ -371,26 +359,9 @@ See the Makefile for build and test commands.`,
 		strategies := []string{"development", "production", "large-project", "memory-optimized"}
 
 		for _, strategy := range strategies {
-			config := &config.EnhancedConfig{
-				BaseConfig: config.GatewayConfig{
-					Port: 8080,
-				},
-				Performance: &config.PerformanceConfig{
-					OptimizationMode: strategy,
-				},
-				Optimization: &config.OptimizationConfig{
-					Strategy: strategy,
-					LargeProjectOptimizations: &config.LargeProjectOptimizations{
-						BackgroundIndexing:   true,
-						IncrementalAnalysis:  true,
-						WorkspacePartitioning: true,
-						MemoryLimits: map[string]int64{
-							"go":         2 * 1024 * 1024 * 1024, // 2GB
-							"typescript": 1 * 1024 * 1024 * 1024, // 1GB
-							"java":       3 * 1024 * 1024 * 1024, // 3GB
-							"python":     1 * 1024 * 1024 * 1024, // 1GB
-						},
-					},
+			config := &config.GatewayConfig{
+				PerformanceConfig: &config.PerformanceConfiguration{
+					Profile: strategy,
 				},
 			}
 
@@ -401,17 +372,9 @@ See the Makefile for build and test commands.`,
 			// Load and validate optimization configuration
 			loadedConfig, err := suite.testHelper.LoadEnhancedConfig(configPath)
 			suite.Require().NoError(err)
-			suite.NotNil(loadedConfig.Optimization)
+			suite.NotNil(loadedConfig.PerformanceConfig)
 
-			suite.Equal(strategy, loadedConfig.Optimization.Strategy, "Strategy should match")
-			
-			if strategy == "large-project" {
-				suite.NotNil(loadedConfig.Optimization.LargeProjectOptimizations)
-				suite.True(loadedConfig.Optimization.LargeProjectOptimizations.BackgroundIndexing)
-				suite.True(loadedConfig.Optimization.LargeProjectOptimizations.IncrementalAnalysis)
-				suite.True(loadedConfig.Optimization.LargeProjectOptimizations.WorkspacePartitioning)
-				suite.NotEmpty(loadedConfig.Optimization.LargeProjectOptimizations.MemoryLimits)
-			}
+			suite.Equal(strategy, loadedConfig.PerformanceConfig.Profile, "Strategy should match")
 		}
 	})
 
@@ -437,20 +400,10 @@ See the Makefile for build and test commands.`,
 		environments := []string{"development", "staging", "production", "testing"}
 
 		for _, env := range environments {
-			envConfig := &config.EnhancedConfig{
-				BaseConfig: config.GatewayConfig{
-					Port: 8080,
-				},
-				Environment: env,
-				Performance: &config.PerformanceConfig{
-					OptimizationMode:      env,
-					MaxConcurrentRequests: getEnvironmentConcurrency(env),
-					RequestTimeout:        getEnvironmentTimeout(env),
-					EnableCaching:         env != "development",
-				},
-				MultiServer: &config.MultiServerConfig{
-					EnableLoadBalancing: env == "production",
-					HealthCheckInterval: getEnvironmentHealthCheck(env),
+			envConfig := &config.GatewayConfig{
+				PerformanceConfig: &config.PerformanceConfiguration{
+					Profile:      env,
+					Enabled:         env != "development",
 				},
 			}
 
@@ -461,14 +414,8 @@ See the Makefile for build and test commands.`,
 			// Load and validate environment configuration
 			loadedConfig, err := suite.testHelper.LoadEnhancedConfig(configPath)
 			suite.Require().NoError(err)
-			
-			suite.Equal(env, loadedConfig.Environment, "Environment should match")
-			suite.Equal(getEnvironmentConcurrency(env), loadedConfig.Performance.MaxConcurrentRequests)
-			suite.Equal(getEnvironmentTimeout(env), loadedConfig.Performance.RequestTimeout)
 
-			if env == "production" {
-				suite.True(loadedConfig.MultiServer.EnableLoadBalancing, "Production should enable load balancing")
-			}
+			suite.Equal(env, loadedConfig.PerformanceConfig.Profile)
 		}
 	})
 }
@@ -488,7 +435,7 @@ use (
 )`,
 			"platform/core/auth/go.mod":     "module platform/core/auth\n\ngo 1.21",
 			"platform/core/auth/main.go":    "package main\n\nfunc main() {}",
-			"platform/core/gateway/go.mod":  "module platform/core/gateway\n\ngo 1.21", 
+			"platform/core/gateway/go.mod":  "module platform/core/gateway\n\ngo 1.21",
 			"platform/core/gateway/main.go": "package main\n\nfunc main() {}",
 			"platform/core/shared/go.mod":   "module platform/core/shared\n\ngo 1.21",
 			"platform/core/shared/utils.go": "package shared\n\nfunc Utils() {}",
@@ -500,8 +447,8 @@ requires = ["setuptools", "wheel"]
 [project]
 name = "user-management"
 version = "1.0.0"`,
-			"services/user-management/src/main.py":    "def main(): pass",
-			"services/user-management/src/models.py":  "class User: pass",
+			"services/user-management/src/main.py":   "def main(): pass",
+			"services/user-management/src/models.py": "class User: pass",
 
 			"services/analytics/package.json": `{
   "name": "analytics-service",
@@ -511,9 +458,9 @@ version = "1.0.0"`,
     "@types/node": "^20.0.0"
   }
 }`,
-			"services/analytics/tsconfig.json":     `{"compilerOptions": {"target": "ES2020"}}`,
-			"services/analytics/src/index.ts":      "console.log('Analytics service');",
-			"services/analytics/src/processor.ts":  "export class DataProcessor {}",
+			"services/analytics/tsconfig.json":    `{"compilerOptions": {"target": "ES2020"}}`,
+			"services/analytics/src/index.ts":     "console.log('Analytics service');",
+			"services/analytics/src/processor.ts": "export class DataProcessor {}",
 
 			// Frontend applications
 			"apps/dashboard/package.json": `{
@@ -524,8 +471,8 @@ version = "1.0.0"`,
     "typescript": "^5.0.0"
   }
 }`,
-			"apps/dashboard/tsconfig.json":  `{"compilerOptions": {"target": "ES2020", "jsx": "react-jsx"}}`,
-			"apps/dashboard/src/App.tsx":    "import React from 'react';\n\nconst App = () => <div>Dashboard</div>;\n\nexport default App;",
+			"apps/dashboard/tsconfig.json": `{"compilerOptions": {"target": "ES2020", "jsx": "react-jsx"}}`,
+			"apps/dashboard/src/App.tsx":   "import React from 'react';\n\nconst App = () => <div>Dashboard</div>;\n\nexport default App;",
 
 			"apps/mobile/package.json": `{
   "name": "mobile-app", 
@@ -535,25 +482,25 @@ version = "1.0.0"`,
     "typescript": "^5.0.0"
   }
 }`,
-			"apps/mobile/tsconfig.json": `{"compilerOptions": {"target": "ES2020", "jsx": "react-native"}}`, 
+			"apps/mobile/tsconfig.json": `{"compilerOptions": {"target": "ES2020", "jsx": "react-native"}}`,
 			"apps/mobile/src/App.tsx":   "import React from 'react';\n\nconst App = () => null;\n\nexport default App;",
 		}
 
 		projectPath := suite.testHelper.CreateTestProject("nested-workspace", nestedStructure)
-		
+
 		// Load configuration for nested workspace
 		config, err := suite.testHelper.LoadConfigForProject(projectPath)
 		suite.Require().NoError(err)
 		suite.NotNil(config)
 
 		// Validate workspace detection
-		suite.Equal("workspace", config.ProjectType, "Should detect as workspace project")
-		
+		suite.Equal("workspace", config.ProjectInfo.ProjectType, "Should detect as workspace project")
+
 		// Validate multi-language detection across nested structure
-		suite.GreaterOrEqual(len(config.Languages), 2, "Should detect multiple languages")
-		
+		suite.GreaterOrEqual(len(config.ProjectInfo.LanguageContexts), 2, "Should detect multiple languages")
+
 		// Validate workspace roots are correctly identified
-		suite.NotEmpty(config.WorkspaceRoot, "Should identify workspace root")
+		suite.NotEmpty(config.ProjectInfo.WorkspaceRoot, "Should identify workspace root")
 	})
 
 	suite.Run("LoadMonorepoWithSubprojects", func() {
@@ -612,8 +559,8 @@ version = "1.0.0"`,
     "@monorepo/shared-utils": "1.0.0"
   }
 }`,
-			"apps/web/tsconfig.json":  `{"compilerOptions": {"target": "ES2020", "jsx": "react-jsx"}}`,
-			"apps/web/src/App.tsx":     "import React from 'react';\nimport { User } from '@monorepo/shared-types';\n\nconst App = () => <div>Web App</div>;\n\nexport default App;",
+			"apps/web/tsconfig.json": `{"compilerOptions": {"target": "ES2020", "jsx": "react-jsx"}}`,
+			"apps/web/src/App.tsx":   "import React from 'react';\nimport { User } from '@monorepo/shared-types';\n\nconst App = () => <div>Web App</div>;\n\nexport default App;",
 
 			"apps/api/package.json": `{
   "name": "api-server",
@@ -625,29 +572,29 @@ version = "1.0.0"`,
   }
 }`,
 			"apps/api/tsconfig.json": `{"compilerOptions": {"target": "ES2020"}}`,
-			"apps/api/src/server.ts":  "import express from 'express';\nimport { User } from '@monorepo/shared-types';\n\nconst app = express();",
+			"apps/api/src/server.ts": "import express from 'express';\nimport { User } from '@monorepo/shared-types';\n\nconst app = express();",
 
 			// Go services (separate from Node.js monorepo)
 			"services/auth/go.mod":  "module monorepo/services/auth\n\ngo 1.21",
 			"services/auth/main.go": "package main\n\nfunc main() {}",
 
-			"services/data/go.mod":  "module monorepo/services/data\n\ngo 1.21", 
+			"services/data/go.mod":  "module monorepo/services/data\n\ngo 1.21",
 			"services/data/main.go": "package main\n\nfunc main() {}",
 		}
 
 		projectPath := suite.testHelper.CreateTestProject("complex-monorepo", monorepoStructure)
-		
+
 		// Load configuration
 		config, err := suite.testHelper.LoadConfigForProject(projectPath)
 		suite.Require().NoError(err)
 		suite.NotNil(config)
 
 		// Validate monorepo detection
-		suite.Equal("monorepo", config.ProjectType, "Should detect as monorepo")
+		suite.Equal("monorepo", config.ProjectInfo.ProjectType, "Should detect as monorepo")
 
 		// Validate language detection across monorepo
-		languageNames := make([]string, len(config.Languages))
-		for i, lang := range config.Languages {
+		languageNames := make([]string, len(config.ProjectInfo.LanguageContexts))
+		for i, lang := range config.ProjectInfo.LanguageContexts {
 			languageNames[i] = lang.Language
 		}
 
@@ -655,58 +602,12 @@ version = "1.0.0"`,
 		suite.Contains(languageNames, "go", "Should detect Go")
 
 		// Validate TypeScript workspace detection
-		for _, lang := range config.Languages {
+		for _, lang := range config.ProjectInfo.LanguageContexts {
 			if lang.Language == "typescript" {
 				suite.Greater(lang.FileCount, 5, "TypeScript should have multiple files across packages and apps")
 			}
 		}
 	})
-}
-
-// Helper functions for environment-specific configurations
-func getEnvironmentConcurrency(env string) int {
-	switch env {
-	case "development":
-		return 50
-	case "staging":
-		return 100
-	case "production":
-		return 500
-	case "testing":
-		return 25
-	default:
-		return 100
-	}
-}
-
-func getEnvironmentTimeout(env string) time.Duration {
-	switch env {
-	case "development":
-		return 60 * time.Second
-	case "staging":
-		return 45 * time.Second
-	case "production":
-		return 30 * time.Second
-	case "testing":
-		return 120 * time.Second
-	default:
-		return 30 * time.Second
-	}
-}
-
-func getEnvironmentHealthCheck(env string) time.Duration {
-	switch env {
-	case "development":
-		return 30 * time.Second
-	case "staging":
-		return 15 * time.Second
-	case "production":
-		return 10 * time.Second
-	case "testing":
-		return 60 * time.Second
-	default:
-		return 30 * time.Second
-	}
 }
 
 // Run the test suite

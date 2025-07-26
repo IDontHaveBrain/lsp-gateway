@@ -208,3 +208,4 @@ func (pm *SimplePoolMetrics) UpdatePoolStatus(language string, total, active, he
 	pm.HealthyServers = healthy
 	pm.LastUpdated = time.Now()
 }
+

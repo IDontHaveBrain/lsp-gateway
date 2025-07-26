@@ -81,11 +81,11 @@ const (
 	DIR_DOT_GIT      = ".git"
 
 	// Server requirements mapping
-	SERVER_GOPLS                    = "gopls"
-	SERVER_PYLSP                    = "pylsp"
-	SERVER_TYPESCRIPT_LANG_SERVER   = "typescript-language-server"
-	SERVER_JDTLS                    = "jdtls"
-	SERVER_RUST_ANALYZER            = "rust-analyzer"
+	SERVER_GOPLS                  = "gopls"
+	SERVER_PYLSP                  = "pylsp"
+	SERVER_TYPESCRIPT_LANG_SERVER = "typescript-language-server"
+	SERVER_JDTLS                  = "jdtls"
+	SERVER_RUST_ANALYZER          = "rust-analyzer"
 
 	// Detection priorities (higher number = higher priority)
 	PRIORITY_GO         = 100

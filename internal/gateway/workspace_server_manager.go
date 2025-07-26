@@ -26,7 +26,6 @@ type WorkspaceServerManager struct {
 	// Workspace resource limits
 	maxServersPerLanguage int
 	totalMemoryLimitMB    int64
-	currentMemoryUsage    int64
 
 	// Request tracking
 	activeRequests int32
@@ -42,7 +41,7 @@ type WorkspaceServerManager struct {
 	// Metrics and monitoring
 	lastResourceCheck time.Time
 	createdAt         time.Time
-	lastUsed          int64
+	lastUsed          int64 // Unix nanoseconds for atomic operations
 }
 
 // WorkspaceLanguagePool manages servers for a specific language within a workspace
@@ -124,6 +123,7 @@ func NewWorkspaceServerManager(workspaceID string, config *config.GatewayConfig,
 			}
 		}
 	}
+	// totalMemoryLimitMB uses default value since no config field exists
 
 	logger := log.Default()
 	if globalManager != nil && globalManager.logger != nil {
@@ -342,7 +342,9 @@ func (wsm *WorkspaceServerManager) StartServerForLanguage(language string) (*Ser
 	// Add to workspace pools
 	pool, err := wsm.GetOrCreateLanguagePool(language)
 	if err != nil {
-		server.Stop()
+		if stopErr := server.Stop(); stopErr != nil && wsm.logger != nil {
+			wsm.logger.Printf("Failed to stop server during cleanup: %v", stopErr)
+		}
 		return nil, fmt.Errorf("failed to get language pool: %w", err)
 	}
 
@@ -461,11 +463,7 @@ func (wsm *WorkspaceServerManager) checkResourceLimitsUnsafe(language string) bo
 
 	// Estimate memory usage (simplified)
 	estimatedMemoryMB := int64(totalServers * 128) // Assume 128MB per server
-	if estimatedMemoryMB >= wsm.totalMemoryLimitMB {
-		return false
-	}
-
-	return true
+	return estimatedMemoryMB < wsm.totalMemoryLimitMB
 }
 
 // canStartNewServer checks if we can start a new server for a language

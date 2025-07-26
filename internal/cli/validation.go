@@ -637,7 +637,7 @@ func ValidateProjectStructure(path, fieldName string) *ValidationError {
 	if !hasProjectStructure {
 		message := fmt.Sprintf("directory does not appear to be a project workspace: %s", normalizedPath)
 		if len(foundMarkers) > 0 {
-			message = fmt.Sprintf("directory contains some project markers (%v) but may not be a complete workspace: %s", 
+			message = fmt.Sprintf("directory contains some project markers (%v) but may not be a complete workspace: %s",
 				foundMarkers, normalizedPath)
 		}
 		return &ValidationError{

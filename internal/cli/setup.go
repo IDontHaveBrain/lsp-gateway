@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/installer"
 	"lsp-gateway/internal/setup"
 
@@ -27,19 +28,19 @@ var (
 	setupSkipVerify    bool
 	setupConfigPath    string
 	// Multi-language setup flags
-	setupMultiLanguage     bool
-	setupProjectPath       string
-	setupOptimizationMode  string
-	setupTemplate          string
+	setupMultiLanguage      bool
+	setupProjectPath        string
+	setupOptimizationMode   string
+	setupTemplate           string
 	setupEnableSmartRouting bool
-	setupEnableConcurrent  bool
+	setupEnableConcurrent   bool
 	setupPerformanceProfile string
-	setupProjectDetection  bool
-	setupWizardMode        bool
+	setupProjectDetection   bool
 	// Enhanced multi-language flags
-	setupTemplateName       string
-	setupEnableProjectDetection bool
-	setupEnableConcurrentServers bool
+)
+
+const (
+	verificationTypeMultiLanguage = "runMultiLanguageVerification"
 )
 
 // Setup result structures
@@ -79,11 +80,11 @@ type WizardState struct {
 	AvailableServers []string
 	ConfigPath       string
 	// Enhanced wizard state
-	ProjectAnalysis  *setup.ProjectAnalysis
-	SelectedTemplate *setup.ConfigurationTemplate
-	OptimizationMode string
-	PerformanceProfile string
-	EnableSmartRouting bool
+	ProjectAnalysis         *setup.ProjectAnalysis
+	SelectedTemplate        *setup.ConfigurationTemplate
+	OptimizationMode        string
+	PerformanceProfile      string
+	EnableSmartRouting      bool
 	EnableConcurrentServers bool
 }
 
@@ -437,7 +438,7 @@ func init() {
 	// Enhanced flags for all setup
 	setupAllCmd.Flags().BoolVar(&setupEnableSmartRouting, "enable-smart-routing", false, "Enable intelligent request routing")
 	setupAllCmd.Flags().BoolVar(&setupEnableConcurrent, "enable-concurrent-servers", false, "Enable concurrent server management")
-	setupAllCmd.Flags().StringVar(&setupOptimizationMode, "optimization-mode", "development", "Set optimization mode (development, production, analysis)")
+	setupAllCmd.Flags().StringVar(&setupOptimizationMode, "optimization-mode", config.PerformanceProfileDevelopment, "Set optimization mode (development, production, analysis)")
 
 	// Setup Multi-language command flags
 	setupMultiLanguageCmd.Flags().DurationVar(&setupTimeout, FLAG_TIMEOUT, 20*time.Minute, "Maximum time for multi-language setup process")
@@ -445,7 +446,7 @@ func init() {
 	setupMultiLanguageCmd.Flags().BoolVar(&setupJSON, FLAG_JSON, false, FLAG_DESCRIPTION_JSON_OUTPUT)
 	setupMultiLanguageCmd.Flags().BoolVarP(&setupVerbose, FLAG_VERBOSE, "v", false, "Enable verbose output with detailed progress")
 	setupMultiLanguageCmd.Flags().StringVar(&setupProjectPath, "project-path", "", "Project path for language detection (required)")
-	setupMultiLanguageCmd.Flags().StringVar(&setupOptimizationMode, "optimization-mode", "development", "Set optimization mode (development, production, analysis)")
+	setupMultiLanguageCmd.Flags().StringVar(&setupOptimizationMode, "optimization-mode", config.PerformanceProfileDevelopment, "Set optimization mode (development, production, analysis)")
 	setupMultiLanguageCmd.Flags().StringVar(&setupTemplate, "template", "", "Use configuration template (monorepo, microservices, single-project)")
 	setupMultiLanguageCmd.Flags().BoolVar(&setupEnableSmartRouting, "enable-smart-routing", false, "Enable intelligent request routing")
 	setupMultiLanguageCmd.Flags().BoolVar(&setupEnableConcurrent, "enable-concurrent-servers", false, "Enable concurrent server management")
@@ -460,7 +461,7 @@ func init() {
 	setupTemplateCmd.Flags().BoolVarP(&setupVerbose, FLAG_VERBOSE, "v", false, "Enable verbose output with detailed progress")
 	setupTemplateCmd.Flags().StringVar(&setupTemplate, "template", "", "Template name (monorepo, microservices, single-project, enterprise) (required)")
 	setupTemplateCmd.Flags().StringVar(&setupProjectPath, "project-path", ".", "Project path for template application")
-	setupTemplateCmd.Flags().StringVar(&setupOptimizationMode, "optimization-mode", "development", "Set optimization mode (development, production, analysis)")
+	setupTemplateCmd.Flags().StringVar(&setupOptimizationMode, "optimization-mode", config.PerformanceProfileDevelopment, "Set optimization mode (development, production, analysis)")
 	setupTemplateCmd.Flags().StringVar(&setupPerformanceProfile, "performance-profile", "medium", "Set performance profile (low, medium, high)")
 	setupTemplateCmd.Flags().BoolVar(&setupEnableSmartRouting, "enable-smart-routing", false, "Enable intelligent request routing")
 	setupTemplateCmd.Flags().BoolVar(&setupEnableConcurrent, "enable-concurrent-servers", false, "Enable concurrent server management")
@@ -497,51 +498,6 @@ func init() {
 
 	// Register setup command with root
 	rootCmd.AddCommand(setupCmd)
-}
-
-// GetSetupCmd returns the setup command for testing purposes
-func GetSetupCmd() *cobra.Command {
-	return setupCmd
-}
-
-// GetSetupAllCmd returns the setup all command for testing purposes
-func GetSetupAllCmd() *cobra.Command {
-	return setupAllCmd
-}
-
-// GetSetupWizardCmd returns the setup wizard command for testing purposes
-func GetSetupWizardCmd() *cobra.Command {
-	return setupWizardCmd
-}
-
-// GetSetupDetectCmd returns the setup detect command for testing purposes
-func GetSetupDetectCmd() *cobra.Command {
-	return setupDetectCmd
-}
-
-// GetSetupMultiLanguageCmd returns the setup multi-language command for testing purposes
-func GetSetupMultiLanguageCmd() *cobra.Command {
-	return setupMultiLanguageCmd
-}
-
-// GetSetupTemplateCmd returns the setup template command for testing purposes
-func GetSetupTemplateCmd() *cobra.Command {
-	return setupTemplateCmd
-}
-
-// GetSetupFlags returns current setup flag values for testing purposes
-func GetSetupFlags() (timeout time.Duration, force bool, jsonOutput bool, verbose bool, noInteractive bool, skipVerify bool) {
-	return setupTimeout, setupForce, setupJSON, setupVerbose, setupNoInteractive, setupSkipVerify
-}
-
-// SetSetupFlags sets setup flag values for testing purposes
-func SetSetupFlags(timeout time.Duration, force bool, jsonOutput bool, verbose bool, noInteractive bool, skipVerify bool) {
-	setupTimeout = timeout
-	setupForce = force
-	setupJSON = jsonOutput
-	setupVerbose = verbose
-	setupNoInteractive = noInteractive
-	setupSkipVerify = skipVerify
 }
 
 func runSetupAll(cmd *cobra.Command, args []string) error {
@@ -660,7 +616,7 @@ func runSetupAll(cmd *cobra.Command, args []string) error {
 
 func runSetupWizard(cmd *cobra.Command, args []string) error {
 	if setupJSON {
-		return NewValidationError("JSON output not supported in wizard mode", nil)
+		return NewValidationError("JSON output not supported in wizard mode", []string{})
 	}
 
 	if setupNoInteractive {
@@ -678,12 +634,12 @@ func runSetupWizard(cmd *cobra.Command, args []string) error {
 
 	// Initialize wizard state and result structure
 	wizardState := &WizardState{
-		SelectedRuntimes: make(map[string]bool),
-		SelectedServers:  make(map[string]bool),
-		ConfigPath:       setupConfigPath,
-		OptimizationMode: setupOptimizationMode,
-		PerformanceProfile: setupPerformanceProfile,
-		EnableSmartRouting: setupEnableSmartRouting,
+		SelectedRuntimes:        make(map[string]bool),
+		SelectedServers:         make(map[string]bool),
+		ConfigPath:              setupConfigPath,
+		OptimizationMode:        setupOptimizationMode,
+		PerformanceProfile:      setupPerformanceProfile,
+		EnableSmartRouting:      setupEnableSmartRouting,
 		EnableConcurrentServers: setupEnableConcurrent,
 	}
 
@@ -979,66 +935,6 @@ func wizardServerSelection(ctx context.Context, state *WizardState, result *Setu
 		}
 
 		fmt.Printf("✅ Selected %d language server(s) for installation\n", len(selections))
-	}
-
-	pressEnterToContinue("")
-	return nil
-}
-
-// wizardConfigurationOptions handles configuration customization
-func wizardConfigurationOptions(ctx context.Context, state *WizardState, result *SetupResult) error {
-	fmt.Println("⚙️  Step 3: Configuration Options")
-	fmt.Println("================================")
-	fmt.Println()
-
-	if setupVerbose {
-		fmt.Println("📝 Configuration determines how LSP Gateway routes requests")
-		fmt.Println("   and manages language servers. You can customize paths,")
-		fmt.Println("   timeouts, and advanced settings.")
-		fmt.Println()
-	}
-
-	// Configuration file path
-	fmt.Printf("📄 Current configuration path: %s\n", state.ConfigPath)
-
-	customPath, err := promptYesNo("Would you like to use a custom configuration file path?", false)
-	if err != nil {
-		return fmt.Errorf("failed to read user input: %w", err)
-	}
-
-	if customPath {
-		newPath, err := promptText("Enter configuration file path", state.ConfigPath)
-		if err != nil {
-			return fmt.Errorf("failed to read configuration path: %w", err)
-		}
-		state.ConfigPath = newPath
-		fmt.Printf("✅ Configuration will be saved to: %s\n", state.ConfigPath)
-	}
-
-	fmt.Println()
-
-	// Advanced settings
-	if setupVerbose {
-		fmt.Println("💡 Advanced settings allow you to customize server timeouts,")
-		fmt.Println("   performance options, and specific language server settings.")
-		fmt.Println()
-	}
-
-	advanced, err := promptYesNo("Configure advanced settings? (timeout, performance, etc.)", false)
-	if err != nil {
-		return fmt.Errorf("failed to read user input: %w", err)
-	}
-
-	state.AdvancedSettings = advanced
-
-	if advanced {
-		fmt.Println("📋 Advanced settings will be configured during installation.")
-		if setupVerbose {
-			fmt.Println("   This includes server-specific settings, timeouts, and")
-			fmt.Println("   performance optimizations based on your system.")
-		}
-	} else {
-		fmt.Println("📋 Using default settings for optimal performance.")
 	}
 
 	pressEnterToContinue("")
@@ -1530,7 +1426,7 @@ func wizardEnhancedConfigurationOptions(ctx context.Context, state *WizardState,
 
 	// Optimization mode selection
 	if state.OptimizationMode == "" {
-		optimizationModes := []string{"development", "production", "analysis"}
+		optimizationModes := []string{config.PerformanceProfileDevelopment, config.PerformanceProfileProduction, config.PerformanceProfileAnalysis}
 		fmt.Println("🎯 Optimization Modes:")
 		fmt.Println("  1) development - Fast startup, moderate resource usage")
 		fmt.Println("  2) production  - High performance, maximum concurrency")
@@ -1538,15 +1434,15 @@ func wizardEnhancedConfigurationOptions(ctx context.Context, state *WizardState,
 		fmt.Println()
 
 		// Auto-recommend based on project analysis
-		defaultMode := "development"
+		defaultMode := config.PerformanceProfileDevelopment
 		if state.ProjectAnalysis != nil {
 			switch state.ProjectAnalysis.Complexity {
 			case setup.ProjectComplexityHigh:
-				defaultMode = "production"
+				defaultMode = config.PerformanceProfileProduction
 			case setup.ProjectComplexityMedium:
-				defaultMode = "development"
+				defaultMode = config.PerformanceProfileDevelopment
 			case setup.ProjectComplexityLow:
-				defaultMode = "development"
+				defaultMode = config.PerformanceProfileDevelopment
 			}
 		}
 
@@ -1659,7 +1555,7 @@ func wizardGenerateEnhancedConfiguration(ctx context.Context, state *WizardState
 	// Determine optimization mode
 	optMode := state.OptimizationMode
 	if optMode == "" {
-		optMode = "development"
+		optMode = config.PerformanceProfileDevelopment
 	}
 
 	// Generate enhanced configuration
@@ -1904,8 +1800,6 @@ func setupConfiguration(ctx context.Context, result *SetupResult) error {
 
 // runFinalVerification performs final verification of the setup
 func runFinalVerification(ctx context.Context, result *SetupResult) ([]string, error) {
-	warnings := make([]string, 0)
-
 	// TODO: Implement comprehensive verification
 	// This would include:
 	// 1. Runtime verification
@@ -1917,9 +1811,8 @@ func runFinalVerification(ctx context.Context, result *SetupResult) ([]string, e
 		fmt.Println("Verification implementation in progress...")
 	}
 
-	return warnings, nil
+	return []string{}, nil
 }
-
 
 // generateSetupSummary calculates setup summary statistics
 func generateSetupSummary(result *SetupResult) {
@@ -2048,132 +1941,18 @@ func runSetupMultiLanguage(cmd *cobra.Command, args []string) error {
 	defer cancel()
 
 	startTime := time.Now()
+	result := initializeSetupResult()
 
-	if setupVerbose && !setupJSON {
-		fmt.Println("🌍 Starting LSP Gateway multi-language setup...")
-		fmt.Printf("Project path: %s\n", setupProjectPath)
-		fmt.Printf("Optimization mode: %s\n", setupOptimizationMode)
-		fmt.Printf("Performance profile: %s\n", setupPerformanceProfile)
-		if setupTemplate != "" {
-			fmt.Printf("Template: %s\n", setupTemplate)
-		}
-		fmt.Println()
+	printSetupHeader("🌍 Starting LSP Gateway multi-language setup...")
+
+	if err := executeMultiLanguagePhases(ctx, result); err != nil {
+		return err
 	}
 
-	// Initialize result structure
-	result := &SetupResult{
-		Success:           false,
-		RuntimesDetected:  make(map[string]*setup.RuntimeInfo),
-		RuntimesInstalled: make(map[string]*installer.InstallResult),
-		ServersInstalled:  make(map[string]*installer.InstallResult),
-		Issues:            make([]string, 0),
-		Warnings:          make([]string, 0),
-		Messages:          make([]string, 0),
-		Summary:           &SetupSummary{},
-	}
+	finalizeSetupResult(result, startTime)
+	addMultiLanguageSuccessMessages(result)
 
-	// Phase 1: Project Analysis and Language Detection
-	if setupVerbose && !setupJSON {
-		fmt.Println("🔍 Phase 1: Project Analysis and Language Detection")
-	}
-
-	err := analyzeMultiLanguageProject(ctx, result)
-	if err != nil {
-		result.Issues = append(result.Issues, fmt.Sprintf("Project analysis failed: %v", err))
-		if !setupJSON {
-			fmt.Printf("❌ Project analysis failed: %v\n", err)
-		}
-	} else if setupVerbose && !setupJSON {
-		fmt.Println("✓ Project analysis completed")
-	}
-
-	// Phase 2: Runtime Installation with Multi-language Optimization
-	if setupVerbose && !setupJSON {
-		fmt.Println("\n📦 Phase 2: Runtime Installation with Multi-language Optimization")
-	}
-
-	err = setupOptimizedRuntimes(ctx, result)
-	if err != nil {
-		result.Issues = append(result.Issues, fmt.Sprintf("Optimized runtime setup failed: %v", err))
-		if !setupJSON {
-			fmt.Printf("❌ Runtime setup failed: %v\n", err)
-		}
-	} else if setupVerbose && !setupJSON {
-		fmt.Printf("✓ Runtime setup completed (%d runtimes processed)\n", len(result.RuntimesInstalled))
-	}
-
-	// Phase 3: Language Server Installation with Smart Configuration
-	if setupVerbose && !setupJSON {
-		fmt.Println("\n🎆 Phase 3: Language Server Installation with Smart Configuration")
-	}
-
-	err = setupSmartLanguageServers(ctx, result)
-	if err != nil {
-		result.Issues = append(result.Issues, fmt.Sprintf("Smart server setup failed: %v", err))
-		if !setupJSON {
-			fmt.Printf("❌ Server setup failed: %v\n", err)
-		}
-	} else if setupVerbose && !setupJSON {
-		fmt.Printf("✓ Server setup completed (%d servers processed)\n", len(result.ServersInstalled))
-	}
-
-	// Phase 4: Multi-language Configuration Generation
-	if setupVerbose && !setupJSON {
-		fmt.Println("\n⚙️  Phase 4: Multi-language Configuration Generation")
-	}
-
-	err = generateMultiLanguageConfiguration(ctx, result)
-	if err != nil {
-		result.Issues = append(result.Issues, fmt.Sprintf("Multi-language configuration failed: %v", err))
-		if !setupJSON {
-			fmt.Printf("❌ Configuration generation failed: %v\n", err)
-		}
-	} else if setupVerbose && !setupJSON {
-		fmt.Println("✓ Multi-language configuration generated")
-	}
-
-	// Phase 5: Final Verification (optional)
-	if !setupSkipVerify {
-		if setupVerbose && !setupJSON {
-			fmt.Println("\n✓ Phase 5: Final Verification")
-		}
-
-		verificationWarnings, err := runMultiLanguageVerification(ctx, result)
-		if err != nil {
-			result.Issues = append(result.Issues, fmt.Sprintf("Verification failed: %v", err))
-			if !setupJSON {
-				fmt.Printf("⚠️  Verification warnings: %v\n", err)
-			}
-		} else {
-			result.Warnings = append(result.Warnings, verificationWarnings...)
-			if setupVerbose && !setupJSON && len(verificationWarnings) == 0 {
-				fmt.Println("✓ All multi-language verifications passed")
-			}
-		}
-	}
-
-	// Calculate final results
-	result.Duration = time.Since(startTime)
-	result.Success = len(result.Issues) == 0
-
-	// Generate summary
-	generateSetupSummary(result)
-
-	// Generate summary messages
-	if result.Success {
-		result.Messages = append(result.Messages, "Multi-language LSP Gateway setup completed successfully")
-		result.Messages = append(result.Messages, fmt.Sprintf("Setup duration: %v", result.Duration))
-		result.Messages = append(result.Messages, "Multi-language project support is now active")
-		result.Messages = append(result.Messages, "Run 'lsp-gateway server' to start the HTTP gateway")
-		result.Messages = append(result.Messages, "Run 'lsp-gateway mcp' to start the MCP server")
-	}
-
-	// Output results
-	if setupJSON {
-		return outputSetupResultsJSON(result)
-	} else {
-		return outputSetupResultsHuman(result)
-	}
+	return outputSetupResults(result)
 }
 
 // Template-based setup command implementation
@@ -2326,24 +2105,9 @@ func runSetupDetect(cmd *cobra.Command, args []string) error {
 	defer cancel()
 
 	startTime := time.Now()
+	result := initializeSetupResult()
 
-	if setupVerbose && !setupJSON {
-		fmt.Println("🔍 Starting LSP Gateway auto-detect setup...")
-		fmt.Printf("Project path: %s\n", setupProjectPath)
-		fmt.Println()
-	}
-
-	// Initialize result structure
-	result := &SetupResult{
-		Success:           false,
-		RuntimesDetected:  make(map[string]*setup.RuntimeInfo),
-		RuntimesInstalled: make(map[string]*installer.InstallResult),
-		ServersInstalled:  make(map[string]*installer.InstallResult),
-		Issues:            make([]string, 0),
-		Warnings:          make([]string, 0),
-		Messages:          make([]string, 0),
-		Summary:           &SetupSummary{},
-	}
+	printSetupHeader("🔍 Starting LSP Gateway auto-detect setup...")
 
 	// Phase 1: Project Detection and Analysis
 	if setupVerbose && !setupJSON {
@@ -2352,106 +2116,13 @@ func runSetupDetect(cmd *cobra.Command, args []string) error {
 
 	projectAnalysis, err := performSetupProjectDetection(ctx, setupProjectPath, result)
 	if err != nil {
-		result.Issues = append(result.Issues, fmt.Sprintf("Project detection failed: %v", err))
-		if !setupJSON {
-			fmt.Printf("❌ Project detection failed: %v\n", err)
-		}
-	} else if setupVerbose && !setupJSON {
-		fmt.Printf("✓ Detected %s project with %d languages\n", projectAnalysis.ProjectType, len(projectAnalysis.DetectedLanguages))
+		return err
 	}
 
-	// Phase 2: Template Selection
-	if setupVerbose && !setupJSON {
-		fmt.Println("\n📋 Phase 2: Template Selection")
-	}
+	finalizeSetupResult(result, startTime)
+	addDetectSuccessMessages(result, projectAnalysis)
 
-	selectedTemplate, err := selectOptimalTemplate(projectAnalysis, result)
-	if err != nil {
-		result.Warnings = append(result.Warnings, fmt.Sprintf("Template selection failed: %v", err))
-	} else if setupVerbose && !setupJSON {
-		fmt.Printf("✓ Selected template: %s\n", selectedTemplate.Name)
-	}
-
-	// Phase 3: Enhanced Configuration Generation
-	if setupVerbose && !setupJSON {
-		fmt.Println("\n⚙️  Phase 3: Enhanced Configuration Generation")
-	}
-
-	err = generateEnhancedConfiguration(ctx, projectAnalysis, selectedTemplate, result)
-	if err != nil {
-		result.Issues = append(result.Issues, fmt.Sprintf("Enhanced configuration failed: %v", err))
-		if !setupJSON {
-			fmt.Printf("❌ Configuration generation failed: %v\n", err)
-		}
-	} else if setupVerbose && !setupJSON {
-		fmt.Println("✓ Enhanced configuration generated")
-	}
-
-	// Phase 4: Optimized Runtime Installation
-	if setupVerbose && !setupJSON {
-		fmt.Println("\n📦 Phase 4: Optimized Runtime Installation")
-	}
-
-	err = setupOptimizedRuntimes(ctx, result)
-	if err != nil {
-		result.Issues = append(result.Issues, fmt.Sprintf("Runtime setup failed: %v", err))
-	} else if setupVerbose && !setupJSON {
-		fmt.Printf("✓ Runtime setup completed (%d runtimes)\n", len(result.RuntimesInstalled))
-	}
-
-	// Phase 5: Smart Language Server Setup
-	if setupVerbose && !setupJSON {
-		fmt.Println("\n🎆 Phase 5: Smart Language Server Setup")
-	}
-
-	err = setupSmartLanguageServers(ctx, result)
-	if err != nil {
-		result.Issues = append(result.Issues, fmt.Sprintf("Server setup failed: %v", err))
-	} else if setupVerbose && !setupJSON {
-		fmt.Printf("✓ Server setup completed (%d servers)\n", len(result.ServersInstalled))
-	}
-
-	// Phase 6: Final Verification
-	if !setupSkipVerify {
-		if setupVerbose && !setupJSON {
-			fmt.Println("\n✓ Phase 6: Final Verification")
-		}
-
-		verificationWarnings, err := runEnhancedVerification(ctx, result)
-		if err != nil {
-			result.Issues = append(result.Issues, fmt.Sprintf("Verification failed: %v", err))
-		} else {
-			result.Warnings = append(result.Warnings, verificationWarnings...)
-			if setupVerbose && !setupJSON && len(verificationWarnings) == 0 {
-				fmt.Println("✓ All verifications passed")
-			}
-		}
-	}
-
-	// Calculate final results
-	result.Duration = time.Since(startTime)
-	result.Success = len(result.Issues) == 0
-
-	generateSetupSummary(result)
-
-	// Generate summary messages
-	if result.Success {
-		result.Messages = append(result.Messages, "Auto-detect LSP Gateway setup completed successfully")
-		result.Messages = append(result.Messages, fmt.Sprintf("Setup duration: %v", result.Duration))
-		if projectAnalysis != nil {
-			result.Messages = append(result.Messages, fmt.Sprintf("Project: %s (%s complexity)", projectAnalysis.ProjectType, projectAnalysis.Complexity))
-			result.Messages = append(result.Messages, fmt.Sprintf("Languages: %v", projectAnalysis.DetectedLanguages))
-		}
-		result.Messages = append(result.Messages, "Run 'lsp-gateway server' to start the HTTP gateway")
-		result.Messages = append(result.Messages, "Run 'lsp-gateway mcp' to start the MCP server")
-	}
-
-	// Output results
-	if setupJSON {
-		return outputSetupResultsJSON(result)
-	} else {
-		return outputSetupResultsHuman(result)
-	}
+	return outputSetupResults(result)
 }
 
 // Enhanced implementations for multi-language setup phases
@@ -2524,16 +2195,16 @@ func generateEnhancedConfiguration(ctx context.Context, analysis *setup.ProjectA
 		// Auto-determine optimization mode based on project characteristics
 		switch analysis.Complexity {
 		case setup.ProjectComplexityHigh:
-			optMode = "production"
+			optMode = config.PerformanceProfileProduction
 		case setup.ProjectComplexityMedium:
-			optMode = "development"
+			optMode = config.PerformanceProfileDevelopment
 		case setup.ProjectComplexityLow:
-			optMode = "development"
+			optMode = config.PerformanceProfileDevelopment
 		default:
-			optMode = "development"
+			optMode = config.PerformanceProfileDevelopment
 		}
 	} else if optMode == "" {
-		optMode = "development"
+		optMode = config.PerformanceProfileDevelopment
 	}
 
 	// Generate configuration from project analysis
@@ -2584,7 +2255,7 @@ func generateMultiLanguageConfiguration(ctx context.Context, result *SetupResult
 
 	optMode := setupOptimizationMode
 	if optMode == "" {
-		optMode = "development"
+		optMode = config.PerformanceProfileDevelopment
 	}
 
 	configResult, err := enhancedGenerator.GenerateFromProject(ctx, setupProjectPath, optMode)
@@ -2606,7 +2277,7 @@ func runMultiLanguageVerification(ctx context.Context, result *SetupResult) ([]s
 }
 
 func runEnhancedVerification(ctx context.Context, result *SetupResult) ([]string, error) {
-	warnings := make([]string, 0)
+	var warnings []string // TODO: Implement enhanced verification warnings
 
 	// Enhanced verification with project-aware checks
 	if setupProjectPath != "" {
@@ -2655,13 +2326,6 @@ func setupTemplateLanguageServers(ctx context.Context, result *SetupResult) erro
 func generateTemplateConfiguration(ctx context.Context, result *SetupResult) error {
 	// Generate template-based configuration
 	enhancedGenerator := setup.NewEnhancedConfigurationGenerator()
-	templateManager := setup.NewConfigurationTemplateManager()
-
-	template, err := templateManager.GetTemplate(setupTemplate)
-	if err != nil {
-		return fmt.Errorf("template not found: %w", err)
-	}
-	_ = template // TODO: Use template when template processing is implemented
 
 	// Create project analysis for template application
 	var analysis *setup.ProjectAnalysis
@@ -2673,10 +2337,11 @@ func generateTemplateConfiguration(ctx context.Context, result *SetupResult) err
 	// Generate configuration with template
 	optMode := setupOptimizationMode
 	if optMode == "" {
-		optMode = "development"
+		optMode = config.PerformanceProfileDevelopment
 	}
 
 	var configResult *setup.ConfigGenerationResult
+	var err error
 	if analysis != nil {
 		configResult, err = enhancedGenerator.GenerateFromProject(ctx, setupProjectPath, optMode)
 	} else {
@@ -2694,4 +2359,240 @@ func generateTemplateConfiguration(ctx context.Context, result *SetupResult) err
 	result.Issues = append(result.Issues, configResult.Issues...)
 
 	return nil
+}
+
+// Helper functions for refactored setup commands
+
+func initializeSetupResult() *SetupResult {
+	return &SetupResult{
+		Success:           false,
+		RuntimesDetected:  make(map[string]*setup.RuntimeInfo),
+		RuntimesInstalled: make(map[string]*installer.InstallResult),
+		ServersInstalled:  make(map[string]*installer.InstallResult),
+		Issues:            make([]string, 0),
+		Warnings:          make([]string, 0),
+		Messages:          make([]string, 0),
+		Summary:           &SetupSummary{},
+	}
+}
+
+func printSetupHeader(message string) {
+	if setupVerbose && !setupJSON {
+		fmt.Println(message)
+		fmt.Printf("Project path: %s\n", setupProjectPath)
+		if setupOptimizationMode != "" {
+			fmt.Printf("Optimization mode: %s\n", setupOptimizationMode)
+		}
+		if setupPerformanceProfile != "" {
+			fmt.Printf("Performance profile: %s\n", setupPerformanceProfile)
+		}
+		if setupTemplate != "" {
+			fmt.Printf("Template: %s\n", setupTemplate)
+		}
+		fmt.Println()
+	}
+}
+
+type setupPhase struct {
+	name    string
+	icon    string
+	handler func(context.Context, *SetupResult) error
+}
+
+
+func executeMultiLanguagePhases(ctx context.Context, result *SetupResult) error {
+	phases := []setupPhase{
+		{"Phase 1: Project Analysis and Language Detection", "🔍", func(ctx context.Context, result *SetupResult) error {
+			return analyzeMultiLanguageProject(ctx, result)
+		}},
+		{"Phase 2: Runtime Installation with Multi-language Optimization", "📦", func(ctx context.Context, result *SetupResult) error {
+			err := setupOptimizedRuntimes(ctx, result)
+			if err == nil && setupVerbose && !setupJSON {
+				fmt.Printf("✓ Runtime setup completed (%d runtimes processed)\n", len(result.RuntimesInstalled))
+			}
+			return err
+		}},
+		{"Phase 3: Language Server Installation with Smart Configuration", "🎆", func(ctx context.Context, result *SetupResult) error {
+			err := setupSmartLanguageServers(ctx, result)
+			if err == nil && setupVerbose && !setupJSON {
+				fmt.Printf("✓ Server setup completed (%d servers processed)\n", len(result.ServersInstalled))
+			}
+			return err
+		}},
+		{"Phase 4: Multi-language Configuration Generation", "⚙️", func(ctx context.Context, result *SetupResult) error {
+			return generateMultiLanguageConfiguration(ctx, result)
+		}},
+	}
+
+	for _, phase := range phases {
+		if setupVerbose && !setupJSON {
+			fmt.Printf("\n%s %s\n", phase.icon, phase.name)
+		}
+		
+		err := phase.handler(ctx, result)
+		if err != nil {
+			result.Issues = append(result.Issues, fmt.Sprintf("%s failed: %v", phase.name, err))
+			if !setupJSON {
+				fmt.Printf("❌ %s failed: %v\n", phase.name, err)
+			}
+		} else if setupVerbose && !setupJSON && !strings.Contains(phase.name, "Runtime") && !strings.Contains(phase.name, "Server") {
+			fmt.Printf("✓ %s completed\n", phase.name)
+		}
+	}
+
+	if !setupSkipVerify {
+		return executeVerificationPhase(ctx, result, verificationTypeMultiLanguage)
+	}
+	return nil
+}
+
+func executeDetectPhases(ctx context.Context, result *SetupResult) (*setup.ProjectAnalysis, error) {
+	var projectAnalysis *setup.ProjectAnalysis
+	var selectedTemplate *setup.ConfigurationTemplate
+	var err error
+
+	// Phase 1: Project Detection and Analysis
+	if setupVerbose && !setupJSON {
+		fmt.Println("🔍 Phase 1: Project Detection and Analysis")
+	}
+	
+	projectAnalysis, err = performSetupProjectDetection(ctx, setupProjectPath, result)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Project detection failed: %v", err))
+		if !setupJSON {
+			fmt.Printf("❌ Project detection failed: %v\n", err)
+		}
+	} else if setupVerbose && !setupJSON {
+		fmt.Printf("✓ Detected %s project with %d languages\n", projectAnalysis.ProjectType, len(projectAnalysis.DetectedLanguages))
+	}
+
+	// Phase 2: Template Selection
+	if setupVerbose && !setupJSON {
+		fmt.Println("\n📋 Phase 2: Template Selection")
+	}
+	
+	selectedTemplate, err = selectOptimalTemplate(projectAnalysis, result)
+	if err != nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("Template selection failed: %v", err))
+	} else if setupVerbose && !setupJSON {
+		fmt.Printf("✓ Selected template: %s\n", selectedTemplate.Name)
+	}
+
+	// Remaining phases
+	phases := []setupPhase{
+		{"Phase 3: Enhanced Configuration Generation", "⚙️", func(ctx context.Context, result *SetupResult) error {
+			return generateEnhancedConfiguration(ctx, projectAnalysis, selectedTemplate, result)
+		}},
+		{"Phase 4: Optimized Runtime Installation", "📦", func(ctx context.Context, result *SetupResult) error {
+			err := setupOptimizedRuntimes(ctx, result)
+			if err == nil && setupVerbose && !setupJSON {
+				fmt.Printf("✓ Runtime setup completed (%d runtimes)\n", len(result.RuntimesInstalled))
+			}
+			return err
+		}},
+		{"Phase 5: Smart Language Server Setup", "🎆", func(ctx context.Context, result *SetupResult) error {
+			err := setupSmartLanguageServers(ctx, result)
+			if err == nil && setupVerbose && !setupJSON {
+				fmt.Printf("✓ Server setup completed (%d servers)\n", len(result.ServersInstalled))
+			}
+			return err
+		}},
+	}
+
+	for _, phase := range phases {
+		if setupVerbose && !setupJSON {
+			fmt.Printf("\n%s %s\n", phase.icon, phase.name)
+		}
+		
+		err := phase.handler(ctx, result)
+		if err != nil {
+			result.Issues = append(result.Issues, fmt.Sprintf("%s failed: %v", phase.name, err))
+			if !setupJSON {
+				fmt.Printf("❌ %s failed: %v\n", phase.name, err)
+			}
+		} else if setupVerbose && !setupJSON && !strings.Contains(phase.name, "Runtime") && !strings.Contains(phase.name, "Server") {
+			fmt.Printf("✓ %s completed\n", phase.name)
+		}
+	}
+
+	if !setupSkipVerify {
+		if err := executeVerificationPhase(ctx, result, "runEnhancedVerification"); err != nil {
+			return projectAnalysis, err
+		}
+	}
+
+	return projectAnalysis, nil
+}
+
+func executeVerificationPhase(ctx context.Context, result *SetupResult, verificationType string) error {
+	if setupVerbose && !setupJSON {
+		if verificationType == verificationTypeMultiLanguage {
+			fmt.Println("\n✓ Phase 5: Final Verification")
+		} else {
+			fmt.Println("\n✓ Phase 6: Final Verification")
+		}
+	}
+
+	var verificationWarnings []string
+	var err error
+
+	if verificationType == verificationTypeMultiLanguage {
+		verificationWarnings, err = runMultiLanguageVerification(ctx, result)
+	} else {
+		verificationWarnings, err = runEnhancedVerification(ctx, result)
+	}
+
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Verification failed: %v", err))
+		if !setupJSON && verificationType == verificationTypeMultiLanguage {
+			fmt.Printf("⚠️  Verification warnings: %v\n", err)
+		}
+	} else {
+		result.Warnings = append(result.Warnings, verificationWarnings...)
+		if setupVerbose && !setupJSON && len(verificationWarnings) == 0 {
+			if verificationType == verificationTypeMultiLanguage {
+				fmt.Println("✓ All multi-language verifications passed")
+			} else {
+				fmt.Println("✓ All verifications passed")
+			}
+		}
+	}
+	return nil
+}
+
+func finalizeSetupResult(result *SetupResult, startTime time.Time) {
+	result.Duration = time.Since(startTime)
+	result.Success = len(result.Issues) == 0
+	generateSetupSummary(result)
+}
+
+func addMultiLanguageSuccessMessages(result *SetupResult) {
+	if result.Success {
+		result.Messages = append(result.Messages, "Multi-language LSP Gateway setup completed successfully")
+		result.Messages = append(result.Messages, fmt.Sprintf("Setup duration: %v", result.Duration))
+		result.Messages = append(result.Messages, "Multi-language project support is now active")
+		result.Messages = append(result.Messages, "Run 'lsp-gateway server' to start the HTTP gateway")
+		result.Messages = append(result.Messages, "Run 'lsp-gateway mcp' to start the MCP server")
+	}
+}
+
+func addDetectSuccessMessages(result *SetupResult, projectAnalysis *setup.ProjectAnalysis) {
+	if result.Success {
+		result.Messages = append(result.Messages, "Auto-detect LSP Gateway setup completed successfully")
+		result.Messages = append(result.Messages, fmt.Sprintf("Setup duration: %v", result.Duration))
+		if projectAnalysis != nil {
+			result.Messages = append(result.Messages, fmt.Sprintf("Project: %s (%s complexity)", projectAnalysis.ProjectType, projectAnalysis.Complexity))
+			result.Messages = append(result.Messages, fmt.Sprintf("Languages: %v", projectAnalysis.DetectedLanguages))
+		}
+		result.Messages = append(result.Messages, "Run 'lsp-gateway server' to start the HTTP gateway")
+		result.Messages = append(result.Messages, "Run 'lsp-gateway mcp' to start the MCP server")
+	}
+}
+
+func outputSetupResults(result *SetupResult) error {
+	if setupJSON {
+		return outputSetupResultsJSON(result)
+	} else {
+		return outputSetupResultsHuman(result)
+	}
 }

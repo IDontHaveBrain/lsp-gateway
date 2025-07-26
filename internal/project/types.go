@@ -28,92 +28,92 @@ const (
 
 // Analysis thresholds and limits
 const (
-	DefaultAnalysisTimeout       = 30 * time.Second
-	DefaultMaxFiles              = 10000
-	DefaultMaxAnalysisDepth      = 5
-	LargeProjectFileThreshold    = 1000
-	HugeProjectFileThreshold     = 5000
-	HighConfidenceThreshold      = 0.8
-	MediumConfidenceThreshold    = 0.5
-	LowConfidenceThreshold       = 0.2
+	DefaultAnalysisTimeout    = 30 * time.Second
+	DefaultMaxFiles           = 10000
+	DefaultMaxAnalysisDepth   = 5
+	LargeProjectFileThreshold = 1000
+	HugeProjectFileThreshold  = 5000
+	HighConfidenceThreshold   = 0.8
+	MediumConfidenceThreshold = 0.5
+	LowConfidenceThreshold    = 0.2
 )
 
 // ProjectAnalysisResult contains the complete result of project detection and analysis
 // This structure unifies both comprehensive analysis results and simple CLI integration needs
 type ProjectAnalysisResult struct {
 	// Core identification and metadata
-	Path           string        `json:"path"`                     // Original input path
-	NormalizedPath string        `json:"normalized_path"`          // Normalized absolute path
-	Timestamp      time.Time     `json:"timestamp"`                // When analysis was performed
-	Duration       time.Duration `json:"duration"`                 // Total analysis time
-	Status         AnalysisStatus `json:"status"`                  // Overall analysis status
-	
+	Path           string         `json:"path"`            // Original input path
+	NormalizedPath string         `json:"normalized_path"` // Normalized absolute path
+	Timestamp      time.Time      `json:"timestamp"`       // When analysis was performed
+	Duration       time.Duration  `json:"duration"`        // Total analysis time
+	Status         AnalysisStatus `json:"status"`          // Overall analysis status
+
 	// Core project information
-	ProjectContext  *ProjectContext `json:"project_context,omitempty"`   // Main project detection results
-	ProjectConfig   interface{}     `json:"project_config,omitempty"`    // Generated configuration
-	
+	ProjectContext *ProjectContext `json:"project_context,omitempty"` // Main project detection results
+	ProjectConfig  interface{}     `json:"project_config,omitempty"`  // Generated configuration
+
 	// Analysis results and metrics
-	ProjectSize     ProjectSize     `json:"project_size"`                 // Project size metrics for CLI timeout adjustments
-	AnalysisDepth   int            `json:"analysis_depth"`               // Depth of analysis performed
-	DetectionScore  float64        `json:"detection_score"`              // Overall detection confidence (0-1)
-	ConfidenceLevel ConfidenceLevel `json:"confidence_level"`            // Human-readable confidence level
-	
+	ProjectSize     ProjectSize     `json:"project_size"`     // Project size metrics for CLI timeout adjustments
+	AnalysisDepth   int             `json:"analysis_depth"`   // Depth of analysis performed
+	DetectionScore  float64         `json:"detection_score"`  // Overall detection confidence (0-1)
+	ConfidenceLevel ConfidenceLevel `json:"confidence_level"` // Human-readable confidence level
+
 	// Error and warning information
-	Errors          []AnalysisError   `json:"errors,omitempty"`           // Analysis errors
-	Warnings        []AnalysisWarning `json:"warnings,omitempty"`         // Analysis warnings
-	Issues          []string          `json:"issues,omitempty"`           // General issues found
-	
+	Errors   []AnalysisError   `json:"errors,omitempty"`   // Analysis errors
+	Warnings []AnalysisWarning `json:"warnings,omitempty"` // Analysis warnings
+	Issues   []string          `json:"issues,omitempty"`   // General issues found
+
 	// Performance and resource metrics
-	PerformanceMetrics PerformanceMetrics `json:"performance_metrics"`    // Analysis performance data
-	
+	PerformanceMetrics PerformanceMetrics `json:"performance_metrics"` // Analysis performance data
+
 	// Validation and recommendations
-	ValidationErrors   []string           `json:"validation_errors,omitempty"`    // Project validation errors
-	ValidationWarnings []string           `json:"validation_warnings,omitempty"`  // Project validation warnings
-	Recommendations    []Recommendation   `json:"recommendations,omitempty"`      // Improvement recommendations
-	
+	ValidationErrors   []string         `json:"validation_errors,omitempty"`   // Project validation errors
+	ValidationWarnings []string         `json:"validation_warnings,omitempty"` // Project validation warnings
+	Recommendations    []Recommendation `json:"recommendations,omitempty"`     // Improvement recommendations
+
 	// Additional metadata and context
-	Metadata        map[string]interface{} `json:"metadata,omitempty"`     // Additional analysis metadata
-	RequiredServers []string               `json:"required_servers"`       // LSP servers needed
-	DetectedFrameworks []DetectedFramework `json:"detected_frameworks,omitempty"` // Framework information
+	Metadata           map[string]interface{} `json:"metadata,omitempty"`            // Additional analysis metadata
+	RequiredServers    []string               `json:"required_servers"`              // LSP servers needed
+	DetectedFrameworks []DetectedFramework    `json:"detected_frameworks,omitempty"` // Framework information
 }
 
 // ProjectSize contains metrics about project size for timeout and performance adjustments
 type ProjectSize struct {
-	TotalFiles       int   `json:"total_files"`        // Total number of files (used by CLI for timeouts)
-	SourceFiles      int   `json:"source_files"`       // Number of source code files
-	TestFiles        int   `json:"test_files"`         // Number of test files
-	ConfigFiles      int   `json:"config_files"`       // Number of configuration files
-	TotalLines       int   `json:"total_lines"`        // Total lines of code (estimated)
-	TotalSizeBytes   int64 `json:"total_size_bytes"`   // Total size in bytes
-	LinesOfCode      int   `json:"lines_of_code"`      // Actual lines of code (excluding comments/whitespace)
-	AverageFileSize  int64 `json:"average_file_size"`  // Average file size in bytes
+	TotalFiles      int   `json:"total_files"`       // Total number of files (used by CLI for timeouts)
+	SourceFiles     int   `json:"source_files"`      // Number of source code files
+	TestFiles       int   `json:"test_files"`        // Number of test files
+	ConfigFiles     int   `json:"config_files"`      // Number of configuration files
+	TotalLines      int   `json:"total_lines"`       // Total lines of code (estimated)
+	TotalSizeBytes  int64 `json:"total_size_bytes"`  // Total size in bytes
+	LinesOfCode     int   `json:"lines_of_code"`     // Actual lines of code (excluding comments/whitespace)
+	AverageFileSize int64 `json:"average_file_size"` // Average file size in bytes
 }
 
 // AnalysisError represents a structured error during analysis
 type AnalysisError struct {
-	Type        string                 `json:"type"`                   // Error type/category
-	Phase       string                 `json:"phase"`                  // Analysis phase where error occurred
-	Message     string                 `json:"message"`                // Error message
-	Path        string                 `json:"path,omitempty"`         // File/directory path related to error
-	Details     string                 `json:"details,omitempty"`      // Additional error details
-	Severity    ErrorSeverity          `json:"severity"`               // Error severity level
-	Recoverable bool                   `json:"recoverable"`            // Whether error is recoverable
-	Suggestions []string               `json:"suggestions,omitempty"`  // Recovery suggestions
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`     // Additional error metadata
-	Timestamp   time.Time              `json:"timestamp"`              // When error occurred
+	Type        string                 `json:"type"`                  // Error type/category
+	Phase       string                 `json:"phase"`                 // Analysis phase where error occurred
+	Message     string                 `json:"message"`               // Error message
+	Path        string                 `json:"path,omitempty"`        // File/directory path related to error
+	Details     string                 `json:"details,omitempty"`     // Additional error details
+	Severity    ErrorSeverity          `json:"severity"`              // Error severity level
+	Recoverable bool                   `json:"recoverable"`           // Whether error is recoverable
+	Suggestions []string               `json:"suggestions,omitempty"` // Recovery suggestions
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`    // Additional error metadata
+	Timestamp   time.Time              `json:"timestamp"`             // When error occurred
 }
 
 // AnalysisWarning represents a non-critical issue during analysis
 type AnalysisWarning struct {
-	Type        string                 `json:"type"`                   // Warning type/category
-	Phase       string                 `json:"phase"`                  // Analysis phase where warning occurred
-	Message     string                 `json:"message"`                // Warning message
-	Path        string                 `json:"path,omitempty"`         // File/directory path related to warning
-	Details     string                 `json:"details,omitempty"`      // Additional warning details
-	Severity    WarningSeverity        `json:"severity"`               // Warning severity level
-	Suggestions []string               `json:"suggestions,omitempty"`  // Improvement suggestions
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`     // Additional warning metadata
-	Timestamp   time.Time              `json:"timestamp"`              // When warning occurred
+	Type        string                 `json:"type"`                  // Warning type/category
+	Phase       string                 `json:"phase"`                 // Analysis phase where warning occurred
+	Message     string                 `json:"message"`               // Warning message
+	Path        string                 `json:"path,omitempty"`        // File/directory path related to warning
+	Details     string                 `json:"details,omitempty"`     // Additional warning details
+	Severity    WarningSeverity        `json:"severity"`              // Warning severity level
+	Suggestions []string               `json:"suggestions,omitempty"` // Improvement suggestions
+	Metadata    map[string]interface{} `json:"metadata,omitempty"`    // Additional warning metadata
+	Timestamp   time.Time              `json:"timestamp"`             // When warning occurred
 }
 
 // ErrorSeverity represents the severity level of analysis errors
@@ -138,26 +138,26 @@ const (
 
 // PerformanceMetrics contains timing and resource usage data
 type PerformanceMetrics struct {
-	AnalysisTime        time.Duration `json:"analysis_time"`        // Total analysis time
-	DetectionTime       time.Duration `json:"detection_time"`       // Time spent on detection
-	ValidationTime      time.Duration `json:"validation_time"`      // Time spent on validation
+	AnalysisTime         time.Duration `json:"analysis_time"`          // Total analysis time
+	DetectionTime        time.Duration `json:"detection_time"`         // Time spent on detection
+	ValidationTime       time.Duration `json:"validation_time"`        // Time spent on validation
 	ConfigGenerationTime time.Duration `json:"config_generation_time"` // Time spent generating config
-	FilesScanned        int           `json:"files_scanned"`        // Number of files scanned
-	DirsTraversed       int           `json:"dirs_traversed"`       // Number of directories traversed
-	MemoryUsageBytes    int64         `json:"memory_usage_bytes"`   // Peak memory usage
-	CacheHits           int           `json:"cache_hits"`           // Cache hit count
-	CacheMisses         int           `json:"cache_misses"`         // Cache miss count
+	FilesScanned         int           `json:"files_scanned"`          // Number of files scanned
+	DirsTraversed        int           `json:"dirs_traversed"`         // Number of directories traversed
+	MemoryUsageBytes     int64         `json:"memory_usage_bytes"`     // Peak memory usage
+	CacheHits            int           `json:"cache_hits"`             // Cache hit count
+	CacheMisses          int           `json:"cache_misses"`           // Cache miss count
 }
 
 // Recommendation represents an improvement suggestion
 type Recommendation struct {
-	Type        string                 `json:"type"`                   // Recommendation type
-	Priority    RecommendationPriority `json:"priority"`               // Priority level
-	Title       string                 `json:"title"`                  // Short title
-	Description string                 `json:"description"`            // Detailed description
-	Actions     []string               `json:"actions,omitempty"`      // Suggested actions
-	Benefits    []string               `json:"benefits,omitempty"`     // Expected benefits
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`     // Additional data
+	Type        string                 `json:"type"`               // Recommendation type
+	Priority    RecommendationPriority `json:"priority"`           // Priority level
+	Title       string                 `json:"title"`              // Short title
+	Description string                 `json:"description"`        // Detailed description
+	Actions     []string               `json:"actions,omitempty"`  // Suggested actions
+	Benefits    []string               `json:"benefits,omitempty"` // Expected benefits
+	Metadata    map[string]interface{} `json:"metadata,omitempty"` // Additional data
 }
 
 // RecommendationPriority represents recommendation priority levels
@@ -184,13 +184,13 @@ type DetectedFramework struct {
 type FrameworkType string
 
 const (
-	FrameworkTypeWeb       FrameworkType = "web"        // Web frameworks
-	FrameworkTypeAPI       FrameworkType = "api"        // API frameworks
-	FrameworkTypeDatabase  FrameworkType = "database"   // Database frameworks
-	FrameworkTypeTesting   FrameworkType = "testing"    // Testing frameworks
-	FrameworkTypeBuild     FrameworkType = "build"      // Build tools
-	FrameworkTypeUtility   FrameworkType = "utility"    // Utility libraries
-	FrameworkTypeUnknown   FrameworkType = "unknown"    // Unknown type
+	FrameworkTypeWeb      FrameworkType = "web"      // Web frameworks
+	FrameworkTypeAPI      FrameworkType = "api"      // API frameworks
+	FrameworkTypeDatabase FrameworkType = "database" // Database frameworks
+	FrameworkTypeTesting  FrameworkType = "testing"  // Testing frameworks
+	FrameworkTypeBuild    FrameworkType = "build"    // Build tools
+	FrameworkTypeUtility  FrameworkType = "utility"  // Utility libraries
+	FrameworkTypeUnknown  FrameworkType = "unknown"  // Unknown type
 )
 
 // Helper methods for ProjectAnalysisResult

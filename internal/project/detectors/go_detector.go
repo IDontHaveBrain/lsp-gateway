@@ -14,26 +14,26 @@ import (
 
 // GoProjectDetector implements LanguageDetector interface for Go project detection
 type GoProjectDetector struct {
-	logger         *setup.SetupLogger
-	executor       platform.CommandExecutor
-	versionChecker *setup.VersionChecker
-	goDetector     *setup.GoDetector
-	parser         *GoModuleParser
+	logger          *setup.SetupLogger
+	executor        platform.CommandExecutor
+	versionChecker  *setup.VersionChecker
+	goDetector      *setup.GoDetector
+	parser          *GoModuleParser
 	workspaceParser *GoWorkspaceParser
-	timeout        time.Duration
+	timeout         time.Duration
 }
 
 // GoDetectionMetadata contains Go-specific detection information
 type GoDetectionMetadata struct {
-	ModuleInfo      *GoModInfo                 `json:"module_info,omitempty"`
-	WorkspaceInfo   *GoWorkspaceInfo           `json:"workspace_info,omitempty"`
-	ImportAnalysis  *ImportAnalysis            `json:"import_analysis,omitempty"`
-	BuildTags       []string                   `json:"build_tags,omitempty"`
-	CGOEnabled      bool                       `json:"cgo_enabled"`
-	GoVersion       string                     `json:"go_version,omitempty"`
-	Dependencies    map[string]*types.GoDependencyInfo `json:"dependencies,omitempty"`
-	TestPackages    []string                   `json:"test_packages,omitempty"`
-	GeneratedFiles  []string                   `json:"generated_files,omitempty"`
+	ModuleInfo     *GoModInfo                         `json:"module_info,omitempty"`
+	WorkspaceInfo  *GoWorkspaceInfo                   `json:"workspace_info,omitempty"`
+	ImportAnalysis *ImportAnalysis                    `json:"import_analysis,omitempty"`
+	BuildTags      []string                           `json:"build_tags,omitempty"`
+	CGOEnabled     bool                               `json:"cgo_enabled"`
+	GoVersion      string                             `json:"go_version,omitempty"`
+	Dependencies   map[string]*types.GoDependencyInfo `json:"dependencies,omitempty"`
+	TestPackages   []string                           `json:"test_packages,omitempty"`
+	GeneratedFiles []string                           `json:"generated_files,omitempty"`
 }
 
 // NewGoProjectDetector creates a new Go project detector
@@ -57,7 +57,7 @@ func NewGoProjectDetector() *GoProjectDetector {
 // DetectLanguage implements LanguageDetector.DetectLanguage
 func (d *GoProjectDetector) DetectLanguage(ctx context.Context, path string) (*types.LanguageDetectionResult, error) {
 	startTime := time.Now()
-	
+
 	d.logger.WithField("path", path).Info("Starting Go project detection")
 
 	// Create timeout context
@@ -82,7 +82,7 @@ func (d *GoProjectDetector) DetectLanguage(ctx context.Context, path string) (*t
 	// Check for early exit due to context cancellation
 	select {
 	case <-timeoutCtx.Done():
-		return nil, types.NewDetectionError(types.PROJECT_TYPE_GO, "detection", path, 
+		return nil, types.NewDetectionError(types.PROJECT_TYPE_GO, "detection", path,
 			"Go detection timed out", timeoutCtx.Err())
 	default:
 	}
@@ -105,7 +105,7 @@ func (d *GoProjectDetector) DetectLanguage(ctx context.Context, path string) (*t
 	// Step 3: Analyze workspace structure (go.work)
 	workspaceConfidence, err := d.analyzeGoWorkspace(timeoutCtx, path, result)
 	if err != nil {
-		d.logger.WithError(err).Debug("Go workspace analysis failed") 
+		d.logger.WithError(err).Debug("Go workspace analysis failed")
 	} else {
 		confidence += workspaceConfidence
 	}
@@ -135,12 +135,12 @@ func (d *GoProjectDetector) DetectLanguage(ctx context.Context, path string) (*t
 	result.Metadata["detection_method"] = "comprehensive_go_analysis"
 
 	d.logger.WithFields(map[string]interface{}{
-		"path":             path,
-		"confidence":       result.Confidence,
-		"detection_time":   detectionTime,
-		"marker_files":     len(result.MarkerFiles),
-		"dependencies":     len(result.Dependencies),
-		"source_dirs":      len(result.SourceDirs),
+		"path":           path,
+		"confidence":     result.Confidence,
+		"detection_time": detectionTime,
+		"marker_files":   len(result.MarkerFiles),
+		"dependencies":   len(result.Dependencies),
+		"source_dirs":    len(result.SourceDirs),
 	}).Info("Go project detection completed")
 
 	return result, nil
@@ -299,11 +299,11 @@ func (d *GoProjectDetector) analyzeGoWorkspace(ctx context.Context, path string,
 func (d *GoProjectDetector) analyzeGoSources(ctx context.Context, path string, result *types.LanguageDetectionResult) (float64, error) {
 	confidence := 0.0
 	sourceAnalysis := &SourceAnalysis{
-		Packages:     make(map[string]*PackageInfo),
-		TestFiles:    []string{},
-		BuildTags:    make(map[string]bool),
-		CGOUsage:     false,
-		ImportPaths:  make(map[string]bool),
+		Packages:    make(map[string]*PackageInfo),
+		TestFiles:   []string{},
+		BuildTags:   make(map[string]bool),
+		CGOUsage:    false,
+		ImportPaths: make(map[string]bool),
 	}
 
 	// Walk directory tree looking for .go files
@@ -344,11 +344,11 @@ func (d *GoProjectDetector) analyzeGoSources(ctx context.Context, path string, r
 	// Calculate confidence based on findings
 	if len(sourceAnalysis.Packages) > 0 {
 		confidence += 0.3 // Found Go packages
-		
+
 		// Categorize directories
 		for pkgPath, pkgInfo := range sourceAnalysis.Packages {
 			relPath, _ := filepath.Rel(path, pkgPath)
-			
+
 			if pkgInfo.IsTest {
 				result.TestDirs = append(result.TestDirs, relPath)
 			} else {
@@ -360,7 +360,7 @@ func (d *GoProjectDetector) analyzeGoSources(ctx context.Context, path string, r
 	// Add metadata about source analysis
 	result.Metadata["go_packages_found"] = len(sourceAnalysis.Packages)
 	result.Metadata["go_source_analysis"] = sourceAnalysis
-	
+
 	if sourceAnalysis.CGOUsage {
 		result.Metadata["cgo_enabled"] = true
 		confidence += 0.05
@@ -403,7 +403,7 @@ func (d *GoProjectDetector) analyzeBuildConfiguration(ctx context.Context, path 
 	// Check for Go-specific tooling configuration
 	toolConfigs := []string{
 		".golangci.yml",
-		".golangci.yaml", 
+		".golangci.yaml",
 		"golangci.yml",
 		"golangci.yaml",
 		".goreleaser.yml",
@@ -442,7 +442,7 @@ func (d *GoProjectDetector) GetRequiredServers() []string {
 	return []string{types.SERVER_GOPLS}
 }
 
-// GetPriority implements LanguageDetector.GetPriority  
+// GetPriority implements LanguageDetector.GetPriority
 func (d *GoProjectDetector) GetPriority() int {
 	return types.PRIORITY_GO
 }
@@ -488,7 +488,7 @@ func (d *GoProjectDetector) ValidateStructure(ctx context.Context, path string) 
 	if runtimeInfo, err := d.goDetector.DetectGoWithContext(timeoutCtx); err == nil && runtimeInfo.Installed {
 		if !d.versionChecker.IsCompatible("go", runtimeInfo.Version) {
 			minVersion, _ := d.versionChecker.GetMinVersion("go")
-			validationErrors = append(validationErrors, 
+			validationErrors = append(validationErrors,
 				fmt.Sprintf("Go version %s is below minimum requirement %s", runtimeInfo.Version, minVersion))
 		}
 	}
@@ -534,7 +534,7 @@ func (d *GoProjectDetector) GetLanguageInfo(language string) (*types.LanguageInf
 func (d *GoProjectDetector) shouldSkipPath(filePath, rootPath string) bool {
 	relativePath, _ := filepath.Rel(rootPath, filePath)
 	pathComponents := strings.Split(relativePath, string(filepath.Separator))
-	
+
 	skipDirs := map[string]bool{
 		"vendor":       true,
 		"node_modules": true,
@@ -560,15 +560,15 @@ func (d *GoProjectDetector) hasGoSourceFiles(path string) (bool, error) {
 		if err != nil {
 			return nil
 		}
-		
+
 		if strings.HasSuffix(filePath, ".go") && !d.shouldSkipPath(filePath, path) {
 			found = true
 			return filepath.SkipDir // Found at least one, can stop
 		}
-		
+
 		return nil
 	})
-	
+
 	return found, err
 }
 
@@ -580,13 +580,13 @@ func (d *GoProjectDetector) isTestDependency(dep string) bool {
 		"github.com/onsi/gomega",
 		"gotest.tools",
 	}
-	
+
 	for _, prefix := range testPrefixes {
 		if strings.HasPrefix(dep, prefix) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -598,7 +598,7 @@ func (d *GoProjectDetector) analyzeGoSourceFile(filePath string, analysis *Sourc
 
 	lines := strings.Split(string(content), "\n")
 	dir := filepath.Dir(filePath)
-	
+
 	if analysis.Packages[dir] == nil {
 		analysis.Packages[dir] = &PackageInfo{
 			Path:      dir,
@@ -621,7 +621,7 @@ func (d *GoProjectDetector) analyzeGoSourceFile(filePath string, analysis *Sourc
 	// Analyze file content
 	for i, line := range lines {
 		line = strings.TrimSpace(line)
-		
+
 		// Check for build tags (must be in first few lines and start with // +build or //go:build)
 		if i < 10 && (strings.HasPrefix(line, "// +build") || strings.HasPrefix(line, "//go:build")) {
 			buildTag := strings.TrimPrefix(strings.TrimPrefix(line, "// +build"), "//go:build")
@@ -631,13 +631,13 @@ func (d *GoProjectDetector) analyzeGoSourceFile(filePath string, analysis *Sourc
 				pkgInfo.BuildTags = append(pkgInfo.BuildTags, buildTag)
 			}
 		}
-		
+
 		// Check for CGO usage
 		if strings.Contains(line, "import \"C\"") || strings.Contains(line, "/*") {
 			analysis.CGOUsage = true
 			pkgInfo.HasCGO = true
 		}
-		
+
 		// Extract import paths
 		if strings.HasPrefix(line, "import") && strings.Contains(line, "\"") {
 			// Simple import extraction - could be enhanced for better parsing

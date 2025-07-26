@@ -13,7 +13,7 @@ type IntegrationConfig struct {
 	AnalysisTimeout time.Duration `yaml:"analysis_timeout" json:"analysis_timeout"`
 	FileTimeout     time.Duration `yaml:"file_timeout" json:"file_timeout"`
 
-	// Detection depth limits  
+	// Detection depth limits
 	DetectionDepth    int `yaml:"detection_depth" json:"detection_depth"`
 	MaxDirectoryDepth int `yaml:"max_directory_depth" json:"max_directory_depth"`
 
@@ -29,19 +29,19 @@ type IntegrationConfig struct {
 	CacheSize              int  `yaml:"cache_size" json:"cache_size"`
 
 	// Logging and output preferences
-	LogLevel        string `yaml:"log_level" json:"log_level"`
-	EnableVerbose   bool   `yaml:"enable_verbose" json:"enable_verbose"`
-	EnableProgress  bool   `yaml:"enable_progress" json:"enable_progress"`
-	EnableMetrics   bool   `yaml:"enable_metrics" json:"enable_metrics"`
-	QuietMode       bool   `yaml:"quiet_mode" json:"quiet_mode"`
-	OutputFormat    string `yaml:"output_format" json:"output_format"`
+	LogLevel       string `yaml:"log_level" json:"log_level"`
+	EnableVerbose  bool   `yaml:"enable_verbose" json:"enable_verbose"`
+	EnableProgress bool   `yaml:"enable_progress" json:"enable_progress"`
+	EnableMetrics  bool   `yaml:"enable_metrics" json:"enable_metrics"`
+	QuietMode      bool   `yaml:"quiet_mode" json:"quiet_mode"`
+	OutputFormat   string `yaml:"output_format" json:"output_format"`
 
 	// Project-specific settings
-	SkipHiddenFiles    bool     `yaml:"skip_hidden_files" json:"skip_hidden_files"`
-	IgnorePatterns     []string `yaml:"ignore_patterns" json:"ignore_patterns"`
-	IncludePatterns    []string `yaml:"include_patterns" json:"include_patterns"`
-	FollowSymlinks     bool     `yaml:"follow_symlinks" json:"follow_symlinks"`
-	EnableErrorRecovery bool    `yaml:"enable_error_recovery" json:"enable_error_recovery"`
+	SkipHiddenFiles     bool     `yaml:"skip_hidden_files" json:"skip_hidden_files"`
+	IgnorePatterns      []string `yaml:"ignore_patterns" json:"ignore_patterns"`
+	IncludePatterns     []string `yaml:"include_patterns" json:"include_patterns"`
+	FollowSymlinks      bool     `yaml:"follow_symlinks" json:"follow_symlinks"`
+	EnableErrorRecovery bool     `yaml:"enable_error_recovery" json:"enable_error_recovery"`
 }
 
 // DefaultIntegrationConfig returns sensible defaults for all settings

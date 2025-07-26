@@ -47,14 +47,14 @@ func TestOptimizationStrategies(t *testing.T) {
 	t.Run("ProductionOptimization", func(t *testing.T) {
 		prodConfig := *mlConfig // Copy
 		prodOpt := config.NewProductionOptimization()
-		
+
 		err := prodOpt.ApplyOptimizations(&prodConfig)
 		if err != nil {
 			t.Fatalf("Failed to apply production optimization: %v", err)
 		}
 
-		if prodConfig.OptimizedFor != config.OptimizationProduction {
-			t.Errorf("Expected OptimizedFor to be %s, got %s", config.OptimizationProduction, prodConfig.OptimizedFor)
+		if prodConfig.OptimizedFor != config.PerformanceProfileProduction {
+			t.Errorf("Expected OptimizedFor to be %s, got %s", config.PerformanceProfileProduction, prodConfig.OptimizedFor)
 		}
 
 		// Check production-specific settings
@@ -73,14 +73,14 @@ func TestOptimizationStrategies(t *testing.T) {
 	t.Run("AnalysisOptimization", func(t *testing.T) {
 		analysisConfig := *mlConfig // Copy
 		analysisOpt := config.NewAnalysisOptimization()
-		
+
 		err := analysisOpt.ApplyOptimizations(&analysisConfig)
 		if err != nil {
 			t.Fatalf("Failed to apply analysis optimization: %v", err)
 		}
 
-		if analysisConfig.OptimizedFor != config.OptimizationAnalysis {
-			t.Errorf("Expected OptimizedFor to be %s, got %s", config.OptimizationAnalysis, analysisConfig.OptimizedFor)
+		if analysisConfig.OptimizedFor != config.PerformanceProfileAnalysis {
+			t.Errorf("Expected OptimizedFor to be %s, got %s", config.PerformanceProfileAnalysis, analysisConfig.OptimizedFor)
 		}
 
 		// Check analysis-specific settings
@@ -98,14 +98,14 @@ func TestOptimizationStrategies(t *testing.T) {
 	t.Run("DevelopmentOptimization", func(t *testing.T) {
 		devConfig := *mlConfig // Copy
 		devOpt := config.NewDevelopmentOptimization()
-		
+
 		err := devOpt.ApplyOptimizations(&devConfig)
 		if err != nil {
 			t.Fatalf("Failed to apply development optimization: %v", err)
 		}
 
-		if devConfig.OptimizedFor != config.OptimizationDevelopment {
-			t.Errorf("Expected OptimizedFor to be %s, got %s", config.OptimizationDevelopment, devConfig.OptimizedFor)
+		if devConfig.OptimizedFor != config.PerformanceProfileDevelopment {
+			t.Errorf("Expected OptimizedFor to be %s, got %s", config.PerformanceProfileDevelopment, devConfig.OptimizedFor)
 		}
 
 		// Check development-specific settings
@@ -122,7 +122,7 @@ func TestOptimizationManager(t *testing.T) {
 	// Test getting available strategies
 	strategies := manager.GetAvailableStrategies()
 	expectedStrategies := []string{"production", "analysis", "development"}
-	
+
 	if len(strategies) != len(expectedStrategies) {
 		t.Errorf("Expected %d strategies, got %d", len(expectedStrategies), len(strategies))
 	}
@@ -214,9 +214,7 @@ func TestConfigurationMigration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
-
-	integrator := config.NewConfigurationIntegrator()
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Test legacy gateway config migration
 	t.Run("LegacyGatewayMigration", func(t *testing.T) {
@@ -386,7 +384,7 @@ func TestFileIOIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Test YAML I/O
 	t.Run("YAMLFileIO", func(t *testing.T) {
@@ -448,8 +446,8 @@ func createTestMultiLanguageConfig(language, rootPath string) *config.MultiLangu
 				Frameworks:   []string{},
 			},
 		},
-		DetectedAt:    time.Now(),
-		Metadata:      make(map[string]interface{}),
+		DetectedAt: time.Now(),
+		Metadata:   make(map[string]interface{}),
 	}
 
 	generator := config.NewConfigGenerator()

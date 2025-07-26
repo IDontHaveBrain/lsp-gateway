@@ -15,60 +15,60 @@ import (
 
 // TypeScriptProjectDetector implements LanguageDetector interface for TypeScript/JavaScript project detection
 type TypeScriptProjectDetector struct {
-	logger         *setup.SetupLogger
-	executor       platform.CommandExecutor
-	versionChecker *setup.VersionChecker
-	nodeDetector   *setup.NodeJSDetector
-	parser         *PackageJsonParser
-	tsConfigParser *TsConfigParser
-	lockfileParser *LockfileParser
+	logger          *setup.SetupLogger
+	executor        platform.CommandExecutor
+	versionChecker  *setup.VersionChecker
+	nodeDetector    *setup.NodeJSDetector
+	parser          *PackageJsonParser
+	tsConfigParser  *TsConfigParser
+	lockfileParser  *LockfileParser
 	workspaceParser *WorkspaceParser
-	timeout        time.Duration
+	timeout         time.Duration
 }
 
 // TypeScriptDetectionMetadata contains TypeScript/JavaScript-specific detection information
 type TypeScriptDetectionMetadata struct {
-	PackageInfo       *PackageJsonInfo          `json:"package_info,omitempty"`
-	TSConfigInfo      *TSConfigInfo             `json:"tsconfig_info,omitempty"`
-	NodeJSInfo        *setup.NodeJSInfo         `json:"nodejs_info,omitempty"`
-	Framework         *FrameworkInfo            `json:"framework,omitempty"`
-	PackageManager    *PackageManagerInfo       `json:"package_manager,omitempty"`
-	BuildTools        []string                  `json:"build_tools,omitempty"`
-	TestFrameworks    []string                  `json:"test_frameworks,omitempty"`
-	LintingTools      []string                  `json:"linting_tools,omitempty"`
-	TypeScriptVersion string                    `json:"typescript_version,omitempty"`
-	ModuleType        string                    `json:"module_type,omitempty"` // "commonjs", "module", "mixed"
-	MonorepoInfo      *MonorepoInfo             `json:"monorepo_info,omitempty"`
+	PackageInfo       *PackageJsonInfo                           `json:"package_info,omitempty"`
+	TSConfigInfo      *TSConfigInfo                              `json:"tsconfig_info,omitempty"`
+	NodeJSInfo        *setup.NodeJSInfo                          `json:"nodejs_info,omitempty"`
+	Framework         *FrameworkInfo                             `json:"framework,omitempty"`
+	PackageManager    *PackageManagerInfo                        `json:"package_manager,omitempty"`
+	BuildTools        []string                                   `json:"build_tools,omitempty"`
+	TestFrameworks    []string                                   `json:"test_frameworks,omitempty"`
+	LintingTools      []string                                   `json:"linting_tools,omitempty"`
+	TypeScriptVersion string                                     `json:"typescript_version,omitempty"`
+	ModuleType        string                                     `json:"module_type,omitempty"` // "commonjs", "module", "mixed"
+	MonorepoInfo      *MonorepoInfo                              `json:"monorepo_info,omitempty"`
 	Dependencies      map[string]*types.TypeScriptDependencyInfo `json:"dependencies,omitempty"`
 	PeerDependencies  map[string]*types.TypeScriptDependencyInfo `json:"peer_dependencies,omitempty"`
 	OptionalDeps      map[string]*types.TypeScriptDependencyInfo `json:"optional_dependencies,omitempty"`
-	ProjectType       string                    `json:"project_type,omitempty"` // "library", "application", "tool", "monorepo"
+	ProjectType       string                                     `json:"project_type,omitempty"` // "library", "application", "tool", "monorepo"
 }
 
 // FrameworkInfo contains detected framework information
 type FrameworkInfo struct {
-	Name           string   `json:"name"`
-	Version        string   `json:"version,omitempty"`
-	ConfigFiles    []string `json:"config_files,omitempty"`
-	Dependencies   []string `json:"dependencies,omitempty"`
+	Name            string   `json:"name"`
+	Version         string   `json:"version,omitempty"`
+	ConfigFiles     []string `json:"config_files,omitempty"`
+	Dependencies    []string `json:"dependencies,omitempty"`
 	DevDependencies []string `json:"dev_dependencies,omitempty"`
-	BuildCommand   string   `json:"build_command,omitempty"`
-	DevCommand     string   `json:"dev_command,omitempty"`
-	TestCommand    string   `json:"test_command,omitempty"`
+	BuildCommand    string   `json:"build_command,omitempty"`
+	DevCommand      string   `json:"dev_command,omitempty"`
+	TestCommand     string   `json:"test_command,omitempty"`
 }
 
 // PackageManagerInfo contains package manager detection results
 type PackageManagerInfo struct {
-	Name         string   `json:"name"`
-	Version      string   `json:"version,omitempty"`
-	LockFile     string   `json:"lock_file,omitempty"`
-	Command      string   `json:"command"`
-	Available    bool     `json:"available"`
-	Issues       []string `json:"issues,omitempty"`
-	Recommended  bool     `json:"recommended"`
-	InstallCmd   string   `json:"install_cmd,omitempty"`
-	RunCmd       string   `json:"run_cmd,omitempty"`
-	AddCmd       string   `json:"add_cmd,omitempty"`
+	Name        string   `json:"name"`
+	Version     string   `json:"version,omitempty"`
+	LockFile    string   `json:"lock_file,omitempty"`
+	Command     string   `json:"command"`
+	Available   bool     `json:"available"`
+	Issues      []string `json:"issues,omitempty"`
+	Recommended bool     `json:"recommended"`
+	InstallCmd  string   `json:"install_cmd,omitempty"`
+	RunCmd      string   `json:"run_cmd,omitempty"`
+	AddCmd      string   `json:"add_cmd,omitempty"`
 }
 
 // MonorepoInfo contains monorepo detection results
@@ -90,22 +90,22 @@ func NewTypeScriptProjectDetector() *TypeScriptProjectDetector {
 	})
 
 	return &TypeScriptProjectDetector{
-		logger:         logger,
-		executor:       platform.NewCommandExecutor(),
-		versionChecker: setup.NewVersionChecker(),
-		nodeDetector:   setup.NewNodeJSDetector(logger),
-		parser:         NewPackageJsonParser(logger),
-		tsConfigParser: NewTsConfigParser(logger),
-		lockfileParser: NewLockfileParser(logger),
+		logger:          logger,
+		executor:        platform.NewCommandExecutor(),
+		versionChecker:  setup.NewVersionChecker(),
+		nodeDetector:    setup.NewNodeJSDetector(logger),
+		parser:          NewPackageJsonParser(logger),
+		tsConfigParser:  NewTsConfigParser(logger),
+		lockfileParser:  NewLockfileParser(logger),
 		workspaceParser: NewWorkspaceParser(logger),
-		timeout:        45 * time.Second,
+		timeout:         45 * time.Second,
 	}
 }
 
 // DetectLanguage implements LanguageDetector.DetectLanguage
 func (d *TypeScriptProjectDetector) DetectLanguage(ctx context.Context, path string) (*types.LanguageDetectionResult, error) {
 	startTime := time.Now()
-	
+
 	d.logger.WithField("path", path).Info("Starting TypeScript/JavaScript project detection")
 
 	// Create timeout context
@@ -130,7 +130,7 @@ func (d *TypeScriptProjectDetector) DetectLanguage(ctx context.Context, path str
 	// Check for early exit due to context cancellation
 	select {
 	case <-timeoutCtx.Done():
-		return nil, types.NewDetectionError(types.PROJECT_TYPE_TYPESCRIPT, "detection", path, 
+		return nil, types.NewDetectionError(types.PROJECT_TYPE_TYPESCRIPT, "detection", path,
 			"TypeScript detection timed out", timeoutCtx.Err())
 	default:
 	}
@@ -218,34 +218,34 @@ func (d *TypeScriptProjectDetector) DetectLanguage(ctx context.Context, path str
 // GetLanguageInfo implements LanguageDetector.GetLanguageInfo
 func (d *TypeScriptProjectDetector) GetLanguageInfo(language string) (*types.LanguageInfo, error) {
 	if language != types.PROJECT_TYPE_TYPESCRIPT && language != types.PROJECT_TYPE_NODEJS {
-		return nil, types.NewProjectError(types.ProjectErrorTypeConfiguration, "typescript_detector", "", 
+		return nil, types.NewProjectError(types.ProjectErrorTypeConfiguration, "typescript_detector", "",
 			fmt.Sprintf("unsupported project type: %s", language), nil)
 	}
 
 	info := &types.LanguageInfo{
-		Name:            language,
-		DisplayName:     "TypeScript/JavaScript",
-		FileExtensions:  []string{".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"},
-		MinVersion:      "14.0.0",
-		MaxVersion:      "",
-		BuildTools:      []string{"webpack", "vite", "rollup", "parcel", "esbuild", "swc", "tsc"},
-		PackageManager:  "npm",
-		TestFrameworks:  []string{"jest", "vitest", "mocha", "jasmine", "cypress", "playwright", "testing-library"},
-		LintTools:       []string{"eslint", "tslint", "jshint", "prettier", "biome"},
-		FormatTools:     []string{"prettier", "biome"},
-		LSPServers:      []string{types.SERVER_TYPESCRIPT_LANG_SERVER},
-		Capabilities:    []string{"static_analysis", "code_completion", "refactoring", "type_checking"},
+		Name:           language,
+		DisplayName:    "TypeScript/JavaScript",
+		FileExtensions: []string{".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"},
+		MinVersion:     "14.0.0",
+		MaxVersion:     "",
+		BuildTools:     []string{"webpack", "vite", "rollup", "parcel", "esbuild", "swc", "tsc"},
+		PackageManager: "npm",
+		TestFrameworks: []string{"jest", "vitest", "mocha", "jasmine", "cypress", "playwright", "testing-library"},
+		LintTools:      []string{"eslint", "tslint", "jshint", "prettier", "biome"},
+		FormatTools:    []string{"prettier", "biome"},
+		LSPServers:     []string{types.SERVER_TYPESCRIPT_LANG_SERVER},
+		Capabilities:   []string{"static_analysis", "code_completion", "refactoring", "type_checking"},
 		Metadata: map[string]interface{}{
 			"marker_files": d.GetMarkerFiles(),
 			"supported_tools": map[string][]string{
-				"build_tools":     {"webpack", "vite", "rollup", "parcel", "esbuild", "swc", "tsc"},
-				"test_frameworks": {"jest", "vitest", "mocha", "jasmine", "cypress", "playwright", "testing-library"},
-				"linters":         {"eslint", "tslint", "jshint", "prettier", "biome"},
+				"build_tools":      {"webpack", "vite", "rollup", "parcel", "esbuild", "swc", "tsc"},
+				"test_frameworks":  {"jest", "vitest", "mocha", "jasmine", "cypress", "playwright", "testing-library"},
+				"linters":          {"eslint", "tslint", "jshint", "prettier", "biome"},
 				"package_managers": {"npm", "yarn", "pnpm", "bun"},
-				"frameworks":      {"react", "vue", "angular", "svelte", "next", "nuxt", "express", "fastify"},
+				"frameworks":       {"react", "vue", "angular", "svelte", "next", "nuxt", "express", "fastify"},
 			},
 			"configuration_files": []string{
-				"package.json", "tsconfig.json", "jsconfig.json", ".eslintrc.*", 
+				"package.json", "tsconfig.json", "jsconfig.json", ".eslintrc.*",
 				".prettierrc.*", "webpack.config.*", "vite.config.*", "rollup.config.*",
 				"jest.config.*", "vitest.config.*", "cypress.config.*", "playwright.config.*",
 			},
@@ -382,7 +382,7 @@ func (d *TypeScriptProjectDetector) detectNodeJSRuntime(ctx context.Context, pat
 
 func (d *TypeScriptProjectDetector) analyzePackageJson(ctx context.Context, path string, result *types.LanguageDetectionResult, metadata *TypeScriptDetectionMetadata) (float64, error) {
 	packageJsonPath := filepath.Join(path, types.MARKER_PACKAGE_JSON)
-	
+
 	if _, err := os.Stat(packageJsonPath); os.IsNotExist(err) {
 		return 0.0, nil
 	}
@@ -421,7 +421,7 @@ func (d *TypeScriptProjectDetector) analyzePackageJson(ctx context.Context, path
 	d.analyzeDependencies(metadata)
 
 	confidence := 0.6 // Strong confidence for package.json presence
-	
+
 	// Boost confidence for TypeScript-specific dependencies
 	if d.hasTypeScriptDependencies(packageInfo) {
 		confidence += 0.2
@@ -433,7 +433,7 @@ func (d *TypeScriptProjectDetector) analyzePackageJson(ctx context.Context, path
 
 func (d *TypeScriptProjectDetector) analyzeTSConfig(ctx context.Context, path string, result *types.LanguageDetectionResult, metadata *TypeScriptDetectionMetadata) (float64, error) {
 	tsConfigPath := filepath.Join(path, types.MARKER_TSCONFIG)
-	
+
 	if _, err := os.Stat(tsConfigPath); os.IsNotExist(err) {
 		// Check for jsconfig.json as alternative
 		jsConfigPath := filepath.Join(path, "jsconfig.json")
@@ -606,11 +606,11 @@ func (d *TypeScriptProjectDetector) detectMonorepo(ctx context.Context, path str
 
 	// Check for various monorepo configuration files
 	monorepoConfigs := map[string]string{
-		"lerna.json":           "lerna",
-		"nx.json":              "nx", 
-		"rush.json":            "rush",
-		"pnpm-workspace.yaml":  "pnpm-workspaces",
-		"pnpm-workspace.yml":   "pnpm-workspaces",
+		"lerna.json":          "lerna",
+		"nx.json":             "nx",
+		"rush.json":           "rush",
+		"pnpm-workspace.yaml": "pnpm-workspaces",
+		"pnpm-workspace.yml":  "pnpm-workspaces",
 	}
 
 	for configFile, repoType := range monorepoConfigs {
@@ -756,7 +756,7 @@ func (d *TypeScriptProjectDetector) findTestDirectories(path string) []string {
 
 func (d *TypeScriptProjectDetector) hasTypeScriptDependencies(packageInfo *PackageJsonInfo) bool {
 	tsDepNames := []string{"typescript", "@types/node", "ts-node", "tsx", "tsc"}
-	
+
 	allDeps := make(map[string]string)
 	for k, v := range packageInfo.Dependencies {
 		allDeps[k] = v
@@ -837,9 +837,9 @@ func (d *TypeScriptProjectDetector) detectFrameworkFromDependencies(packageInfo 
 
 	// Framework priority order
 	frameworks := []struct {
-		name    string
-		keys    []string
-		config  []string
+		name     string
+		keys     []string
+		config   []string
 		buildCmd string
 		devCmd   string
 		testCmd  string
@@ -949,17 +949,17 @@ func (d *TypeScriptProjectDetector) detectLintingTools(path string, metadata *Ty
 
 	// Check for linting config files
 	lintConfigs := map[string]string{
-		".eslintrc.js":     "eslint",
-		".eslintrc.json":   "eslint", 
-		".eslintrc.yml":    "eslint",
-		".eslintrc.yaml":   "eslint",
-		".eslintrc":        "eslint",
-		"eslint.config.js": "eslint",
-		".prettierrc":      "prettier",
-		".prettierrc.js":   "prettier",
-		".prettierrc.json": "prettier",
-		"prettier.config.js": "prettier",
-		"tslint.json":      "tslint",
+		".eslintrc.js":        "eslint",
+		".eslintrc.json":      "eslint",
+		".eslintrc.yml":       "eslint",
+		".eslintrc.yaml":      "eslint",
+		".eslintrc":           "eslint",
+		"eslint.config.js":    "eslint",
+		".prettierrc":         "prettier",
+		".prettierrc.js":      "prettier",
+		".prettierrc.json":    "prettier",
+		"prettier.config.js":  "prettier",
+		"tslint.json":         "tslint",
 		"stylelint.config.js": "stylelint",
 	}
 
@@ -1067,12 +1067,12 @@ func (d *TypeScriptProjectDetector) hasFilesWithExtension(root string, extension
 
 func (d *TypeScriptProjectDetector) detectYarn(path string) *PackageManagerInfo {
 	info := &PackageManagerInfo{
-		Name:        "yarn",
-		Command:     "yarn",
-		LockFile:    types.MARKER_YARN_LOCK,
-		InstallCmd:  "yarn install",
-		RunCmd:      "yarn",
-		AddCmd:      "yarn add",
+		Name:       "yarn",
+		Command:    "yarn",
+		LockFile:   types.MARKER_YARN_LOCK,
+		InstallCmd: "yarn install",
+		RunCmd:     "yarn",
+		AddCmd:     "yarn add",
 	}
 
 	if d.executor.IsCommandAvailable("yarn") {
@@ -1089,12 +1089,12 @@ func (d *TypeScriptProjectDetector) detectYarn(path string) *PackageManagerInfo 
 
 func (d *TypeScriptProjectDetector) detectPnpm(path string) *PackageManagerInfo {
 	info := &PackageManagerInfo{
-		Name:        "pnpm",
-		Command:     "pnpm",
-		LockFile:    types.MARKER_PNPM_LOCK,
-		InstallCmd:  "pnpm install",
-		RunCmd:      "pnpm",
-		AddCmd:      "pnpm add",
+		Name:       "pnpm",
+		Command:    "pnpm",
+		LockFile:   types.MARKER_PNPM_LOCK,
+		InstallCmd: "pnpm install",
+		RunCmd:     "pnpm",
+		AddCmd:     "pnpm add",
 	}
 
 	if d.executor.IsCommandAvailable("pnpm") {
@@ -1111,12 +1111,12 @@ func (d *TypeScriptProjectDetector) detectPnpm(path string) *PackageManagerInfo 
 
 func (d *TypeScriptProjectDetector) detectNpm(path string) *PackageManagerInfo {
 	info := &PackageManagerInfo{
-		Name:        "npm",
-		Command:     "npm",
-		LockFile:    "package-lock.json",
-		InstallCmd:  "npm install",
-		RunCmd:      "npm run",
-		AddCmd:      "npm install",
+		Name:       "npm",
+		Command:    "npm",
+		LockFile:   "package-lock.json",
+		InstallCmd: "npm install",
+		RunCmd:     "npm run",
+		AddCmd:     "npm install",
 	}
 
 	if d.executor.IsCommandAvailable("npm") {
@@ -1133,12 +1133,12 @@ func (d *TypeScriptProjectDetector) detectNpm(path string) *PackageManagerInfo {
 
 func (d *TypeScriptProjectDetector) detectBun(path string) *PackageManagerInfo {
 	info := &PackageManagerInfo{
-		Name:        "bun",
-		Command:     "bun",
-		LockFile:    "bun.lockb",
-		InstallCmd:  "bun install",
-		RunCmd:      "bun run",
-		AddCmd:      "bun add",
+		Name:       "bun",
+		Command:    "bun",
+		LockFile:   "bun.lockb",
+		InstallCmd: "bun install",
+		RunCmd:     "bun run",
+		AddCmd:     "bun add",
 	}
 
 	if d.executor.IsCommandAvailable("bun") {
@@ -1158,8 +1158,8 @@ func (d *TypeScriptProjectDetector) determineProjectType(result *types.LanguageD
 
 	if metadata.PackageInfo != nil {
 		// Library indicators
-		if metadata.PackageInfo.Main != "" || metadata.PackageInfo.Module != "" || 
-		   len(metadata.PackageInfo.Exports) > 0 || metadata.PackageInfo.Types != "" {
+		if metadata.PackageInfo.Main != "" || metadata.PackageInfo.Module != "" ||
+			len(metadata.PackageInfo.Exports) > 0 || metadata.PackageInfo.Types != "" {
 			projectType = "library"
 		}
 

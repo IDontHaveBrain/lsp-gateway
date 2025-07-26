@@ -15,30 +15,30 @@ import (
 // WorkspaceContext manages project-aware context for MCP tools
 type WorkspaceContext struct {
 	// Project information
-	ProjectContext  *project.ProjectContext   `json:"project_context,omitempty"`
-	ConfigContext   *config.ProjectContext    `json:"config_context,omitempty"`
-	ProjectConfig   *config.ProjectConfig     `json:"project_config,omitempty"`
-	
+	ProjectContext *project.ProjectContext `json:"project_context,omitempty"`
+	ConfigContext  *config.ProjectContext  `json:"config_context,omitempty"`
+	ProjectConfig  *config.ProjectConfig   `json:"project_config,omitempty"`
+
 	// MCP-specific settings
-	ProjectPath     string                    `json:"project_path"`
-	WorkspaceRoots  []string                  `json:"workspace_roots"`
-	ActiveLanguages []string                  `json:"active_languages"`
-	EnabledServers  []string                  `json:"enabled_servers"`
-	
+	ProjectPath     string   `json:"project_path"`
+	WorkspaceRoots  []string `json:"workspace_roots"`
+	ActiveLanguages []string `json:"active_languages"`
+	EnabledServers  []string `json:"enabled_servers"`
+
 	// Caching and performance
-	DetectionCache  map[string]*project.ProjectContext `json:"-"`
-	LastDetection   time.Time                          `json:"last_detection"`
-	CacheTimeout    time.Duration                      `json:"cache_timeout"`
-	
+	DetectionCache map[string]*project.ProjectContext `json:"-"`
+	LastDetection  time.Time                          `json:"last_detection"`
+	CacheTimeout   time.Duration                      `json:"cache_timeout"`
+
 	// Thread safety
-	mutex          sync.RWMutex              `json:"-"`
-	detector       project.ProjectDetector   `json:"-"`
-	
+	mutex    sync.RWMutex            `json:"-"`
+	detector project.ProjectDetector `json:"-"`
+
 	// Status and metadata
-	IsInitialized  bool                      `json:"is_initialized"`
-	DetectionTime  time.Duration             `json:"detection_time"`
-	Errors         []string                  `json:"errors,omitempty"`
-	Warnings       []string                  `json:"warnings,omitempty"`
+	IsInitialized bool          `json:"is_initialized"`
+	DetectionTime time.Duration `json:"detection_time"`
+	Errors        []string      `json:"errors,omitempty"`
+	Warnings      []string      `json:"warnings,omitempty"`
 }
 
 // WorkspaceContextConfig holds configuration for workspace context
@@ -66,7 +66,7 @@ func NewWorkspaceContext(config *WorkspaceContextConfig) *WorkspaceContext {
 	if config == nil {
 		config = DefaultWorkspaceContextConfig()
 	}
-	
+
 	return &WorkspaceContext{
 		ProjectPath:     config.ProjectPath,
 		WorkspaceRoots:  config.WorkspaceRoots,
@@ -85,13 +85,13 @@ func NewWorkspaceContext(config *WorkspaceContextConfig) *WorkspaceContext {
 func (w *WorkspaceContext) Initialize(ctx context.Context) error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	
+
 	startTime := time.Now()
-	
+
 	// Clear previous state
 	w.Errors = make([]string, 0)
 	w.Warnings = make([]string, 0)
-	
+
 	// Auto-detect project if no explicit path provided
 	if w.ProjectPath == "" {
 		if cwd, err := os.Getwd(); err == nil {
@@ -100,7 +100,7 @@ func (w *WorkspaceContext) Initialize(ctx context.Context) error {
 			return fmt.Errorf("failed to get current directory: %w", err)
 		}
 	}
-	
+
 	// Perform project detection
 	projectCtx, err := w.detector.DetectProject(ctx, w.ProjectPath)
 	if err != nil {
@@ -110,22 +110,22 @@ func (w *WorkspaceContext) Initialize(ctx context.Context) error {
 		w.ProjectContext = projectCtx
 		w.updateFromProjectContext()
 	}
-	
+
 	// Convert to config format for compatibility
 	if w.ProjectContext != nil {
 		w.ConfigContext = w.convertToConfigContext(w.ProjectContext)
 		w.ProjectConfig = w.generateProjectConfig(w.ProjectContext)
 	}
-	
+
 	// Cache the detection result
 	if w.ProjectContext != nil {
 		w.DetectionCache[w.ProjectPath] = w.ProjectContext
 	}
-	
+
 	w.LastDetection = startTime
 	w.DetectionTime = time.Since(startTime)
 	w.IsInitialized = true
-	
+
 	return nil
 }
 
@@ -182,21 +182,21 @@ func (w *WorkspaceContext) GetWorkspaceRoots() []string {
 func (w *WorkspaceContext) IsFileInProject(uri string) bool {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
-	
+
 	if w.ProjectContext == nil {
 		return false
 	}
-	
+
 	// Convert URI to file path
 	filePath := w.uriToPath(uri)
 	if filePath == "" {
 		return false
 	}
-	
+
 	// Check if file is within project root
 	absProjectRoot, _ := filepath.Abs(w.ProjectContext.RootPath)
 	absFilePath, _ := filepath.Abs(filePath)
-	
+
 	return strings.HasPrefix(absFilePath, absProjectRoot)
 }
 
@@ -204,7 +204,7 @@ func (w *WorkspaceContext) IsFileInProject(uri string) bool {
 func (w *WorkspaceContext) GetProjectRoot() string {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
-	
+
 	if w.ProjectContext != nil {
 		return w.ProjectContext.RootPath
 	}
@@ -217,7 +217,7 @@ func (w *WorkspaceContext) GetLanguageForFile(uri string) string {
 	if filePath == "" {
 		return ""
 	}
-	
+
 	ext := strings.ToLower(filepath.Ext(filePath))
 	switch ext {
 	case ".go":
@@ -245,30 +245,30 @@ func (w *WorkspaceContext) GetLanguageForFile(uri string) string {
 func (w *WorkspaceContext) RefreshProject(ctx context.Context) error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	
+
 	// Check if refresh is needed
 	if time.Since(w.LastDetection) < w.CacheTimeout {
 		return nil // Cache still valid
 	}
-	
+
 	// Re-detect project
 	projectCtx, err := w.detector.DetectProject(ctx, w.ProjectPath)
 	if err != nil {
 		w.addError(fmt.Sprintf("Project refresh failed: %v", err))
 		return err
 	}
-	
+
 	w.ProjectContext = projectCtx
 	w.updateFromProjectContext()
-	
+
 	// Update config contexts
 	w.ConfigContext = w.convertToConfigContext(w.ProjectContext)
 	w.ProjectConfig = w.generateProjectConfig(w.ProjectContext)
-	
+
 	// Update cache
 	w.DetectionCache[w.ProjectPath] = w.ProjectContext
 	w.LastDetection = time.Now()
-	
+
 	return nil
 }
 
@@ -276,30 +276,30 @@ func (w *WorkspaceContext) RefreshProject(ctx context.Context) error {
 func (w *WorkspaceContext) EnhanceToolArgs(toolName string, args map[string]interface{}) map[string]interface{} {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
-	
+
 	if !w.IsInitialized || w.ProjectContext == nil {
 		return args
 	}
-	
+
 	enhanced := make(map[string]interface{})
 	for k, v := range args {
 		enhanced[k] = v
 	}
-	
+
 	// Add project context information
 	enhanced["project_root"] = w.ProjectContext.RootPath
 	enhanced["project_type"] = w.ProjectContext.ProjectType
 	enhanced["primary_language"] = w.ProjectContext.PrimaryLanguage
 	enhanced["active_languages"] = w.ActiveLanguages
 	enhanced["workspace_roots"] = w.WorkspaceRoots
-	
+
 	// Add file context if URI is provided
 	if uri, ok := args["uri"].(string); ok {
 		enhanced["is_in_project"] = w.IsFileInProject(uri)
 		enhanced["file_language"] = w.GetLanguageForFile(uri)
 		enhanced["relative_path"] = w.getRelativePath(uri)
 	}
-	
+
 	return enhanced
 }
 
@@ -307,9 +307,9 @@ func (w *WorkspaceContext) EnhanceToolArgs(toolName string, args map[string]inte
 func (w *WorkspaceContext) GetProjectMetadata() map[string]interface{} {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
-	
+
 	metadata := make(map[string]interface{})
-	
+
 	if w.ProjectContext != nil {
 		metadata["project_type"] = w.ProjectContext.ProjectType
 		metadata["primary_language"] = w.ProjectContext.PrimaryLanguage
@@ -321,11 +321,11 @@ func (w *WorkspaceContext) GetProjectMetadata() map[string]interface{} {
 		metadata["confidence"] = w.ProjectContext.Confidence
 		metadata["detection_time"] = w.ProjectContext.DetectionTime.String()
 	}
-	
+
 	metadata["is_project_aware"] = w.IsInitialized
 	metadata["cache_valid"] = time.Since(w.LastDetection) < w.CacheTimeout
 	metadata["workspace_roots"] = w.WorkspaceRoots
-	
+
 	return metadata
 }
 
@@ -335,10 +335,10 @@ func (w *WorkspaceContext) updateFromProjectContext() {
 	if w.ProjectContext == nil {
 		return
 	}
-	
+
 	w.ActiveLanguages = append([]string(nil), w.ProjectContext.Languages...)
 	w.EnabledServers = append([]string(nil), w.ProjectContext.RequiredServers...)
-	
+
 	// Add workspace root if different from project root
 	if w.ProjectContext.WorkspaceRoot != w.ProjectContext.RootPath {
 		w.WorkspaceRoots = []string{w.ProjectContext.WorkspaceRoot, w.ProjectContext.RootPath}
@@ -351,7 +351,7 @@ func (w *WorkspaceContext) convertToConfigContext(projectCtx *project.ProjectCon
 	if projectCtx == nil {
 		return nil
 	}
-	
+
 	var languages []config.LanguageInfo
 	for _, lang := range projectCtx.Languages {
 		langInfo := config.LanguageInfo{
@@ -361,7 +361,7 @@ func (w *WorkspaceContext) convertToConfigContext(projectCtx *project.ProjectCon
 		}
 		languages = append(languages, langInfo)
 	}
-	
+
 	configCtx := &config.ProjectContext{
 		ProjectType:   w.mapProjectType(projectCtx.ProjectType),
 		RootDirectory: projectCtx.RootPath,
@@ -371,7 +371,7 @@ func (w *WorkspaceContext) convertToConfigContext(projectCtx *project.ProjectCon
 		DetectedAt:    projectCtx.DetectedAt,
 		Metadata:      projectCtx.Metadata,
 	}
-	
+
 	return configCtx
 }
 
@@ -379,16 +379,16 @@ func (w *WorkspaceContext) generateProjectConfig(projectCtx *project.ProjectCont
 	if projectCtx == nil {
 		return nil
 	}
-	
+
 	projectConfig := &config.ProjectConfig{
-		ProjectID:     fmt.Sprintf("project_%s_%d", projectCtx.ProjectType, time.Now().Unix()),
-		Name:          projectCtx.DisplayName,
-		RootDirectory: projectCtx.RootPath,
+		ProjectID:      fmt.Sprintf("project_%s_%d", projectCtx.ProjectType, time.Now().Unix()),
+		Name:           projectCtx.DisplayName,
+		RootDirectory:  projectCtx.RootPath,
 		EnabledServers: projectCtx.RequiredServers,
-		GeneratedAt:   time.Now(),
-		Version:       "1.0.0",
+		GeneratedAt:    time.Now(),
+		Version:        "1.0.0",
 	}
-	
+
 	// Add server overrides based on project type
 	var overrides []config.ProjectServerOverride
 	for _, server := range projectCtx.RequiredServers {
@@ -398,9 +398,9 @@ func (w *WorkspaceContext) generateProjectConfig(projectCtx *project.ProjectCont
 		}
 		overrides = append(overrides, override)
 	}
-	
+
 	projectConfig.ServerOverrides = overrides
-	
+
 	return projectConfig
 }
 
@@ -455,7 +455,7 @@ func (w *WorkspaceContext) getRelativePath(uri string) string {
 	if filePath == "" || w.ProjectContext == nil {
 		return ""
 	}
-	
+
 	relPath, err := filepath.Rel(w.ProjectContext.RootPath, filePath)
 	if err != nil {
 		return filepath.Base(filePath)
@@ -466,7 +466,6 @@ func (w *WorkspaceContext) getRelativePath(uri string) string {
 func (w *WorkspaceContext) addError(error string) {
 	w.Errors = append(w.Errors, error)
 }
-
 
 // GetErrors returns all errors encountered during workspace context operations
 func (w *WorkspaceContext) GetErrors() []string {

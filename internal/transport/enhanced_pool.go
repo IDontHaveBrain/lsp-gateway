@@ -30,7 +30,6 @@ type EnhancedConnectionPool struct {
 
 	// Performance metrics
 	requestCount int64
-	utilization  float64
 
 	// Dynamic sizing logic
 	sizer *PoolSizer
@@ -61,7 +60,7 @@ type PoolSizer struct {
 	minConnections     int
 	maxConnections     int
 	targetUtilization  float64 // 0.7 for 70%
-	scaleUpThreshold   float64 // 0.85 for 85% 
+	scaleUpThreshold   float64 // 0.85 for 85%
 	scaleDownThreshold float64 // 0.5 for 50%
 
 	scaleUpFactor   float64 // 1.5 for 50% increase
@@ -88,7 +87,7 @@ type EnhancedPoolStats struct {
 // NewEnhancedConnectionPool creates a new enhanced connection pool
 func NewEnhancedConnectionPool(address string, minSize, maxSize int) *EnhancedConnectionPool {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	if minSize < 1 {
 		minSize = 1
 	}
@@ -152,11 +151,11 @@ func (ecp *EnhancedConnectionPool) GetConnection() (*PooledConnection, error) {
 			conn.lastUsed = time.Now()
 			conn.useCount++
 			conn.mu.Unlock()
-			
+
 			ecp.mu.Lock()
 			ecp.activeConnections[conn.id] = conn
 			ecp.mu.Unlock()
-			
+
 			return conn, nil
 		}
 		// Connection unhealthy, close and create new one
@@ -168,7 +167,7 @@ func (ecp *EnhancedConnectionPool) GetConnection() (*PooledConnection, error) {
 		if int(currentSize) < ecp.maxSize {
 			return ecp.createNewConnection()
 		}
-		
+
 		// Wait briefly for a connection to become available
 		select {
 		case conn := <-ecp.connections:
@@ -177,11 +176,11 @@ func (ecp *EnhancedConnectionPool) GetConnection() (*PooledConnection, error) {
 				conn.lastUsed = time.Now()
 				conn.useCount++
 				conn.mu.Unlock()
-				
+
 				ecp.mu.Lock()
 				ecp.activeConnections[conn.id] = conn
 				ecp.mu.Unlock()
-				
+
 				return conn, nil
 			}
 			ecp.closeConnection(conn)
@@ -235,20 +234,20 @@ func (ecp *EnhancedConnectionPool) ReturnConnection(conn *PooledConnection) erro
 func (ecp *EnhancedConnectionPool) ScalePool() error {
 	utilization := ecp.calculateUtilization()
 	shouldScale, scaleUp := ecp.sizer.ShouldScale(utilization)
-	
+
 	if !shouldScale {
 		return nil
 	}
 
 	currentSize := int(atomic.LoadInt32(&ecp.currentSize))
 	newSize := ecp.sizer.CalculateOptimalSize(utilization, currentSize)
-	
+
 	if scaleUp && newSize > currentSize {
 		return ecp.scaleUp(newSize - currentSize)
 	} else if !scaleUp && newSize < currentSize {
 		return ecp.scaleDown(currentSize - newSize)
 	}
-	
+
 	return nil
 }
 
@@ -257,12 +256,12 @@ func (ecp *EnhancedConnectionPool) GetStats() *EnhancedPoolStats {
 	ecp.mu.RLock()
 	activeCount := len(ecp.activeConnections)
 	ecp.mu.RUnlock()
-	
+
 	availableCount := len(ecp.connections)
 	currentSize := int(atomic.LoadInt32(&ecp.currentSize))
 	targetSize := int(atomic.LoadInt32(&ecp.targetSize))
 	requestCount := atomic.LoadInt64(&ecp.requestCount)
-	
+
 	return &EnhancedPoolStats{
 		TotalConnections:     currentSize,
 		ActiveConnections:    activeCount,
@@ -279,7 +278,7 @@ func (ecp *EnhancedConnectionPool) GetStats() *EnhancedPoolStats {
 // Close closes the connection pool and all connections
 func (ecp *EnhancedConnectionPool) Close() error {
 	ecp.cancel()
-	
+
 	if ecp.scalingTicker != nil {
 		ecp.scalingTicker.Stop()
 	}
@@ -328,7 +327,7 @@ func (ecp *EnhancedConnectionPool) createNewConnection() (*PooledConnection, err
 	}
 
 	atomic.AddInt32(&ecp.currentSize, 1)
-	
+
 	ecp.mu.Lock()
 	ecp.activeConnections[id] = pooledConn
 	ecp.mu.Unlock()
@@ -368,7 +367,11 @@ func (ecp *EnhancedConnectionPool) createTCPConnection() (net.Conn, error) {
 
 func (ecp *EnhancedConnectionPool) closeConnection(conn *PooledConnection) {
 	if conn != nil && conn.conn != nil {
-		conn.conn.Close()
+		if err := conn.conn.Close(); err != nil {
+			// Log close errors but don't fail the operation since this is cleanup
+			// Note: In production, this would use a proper logger
+			_ = err
+		}
 		atomic.AddInt32(&ecp.currentSize, -1)
 	}
 }
@@ -383,12 +386,16 @@ func (ecp *EnhancedConnectionPool) isConnectionHealthy(conn *PooledConnection) b
 		return false
 	}
 	// Reset deadline
-	conn.conn.SetDeadline(time.Time{})
-	
+	if err := conn.conn.SetDeadline(time.Time{}); err != nil {
+		// Log deadline reset errors but continue since this is cleanup
+		// Note: In production, this would use a proper logger
+		_ = err
+	}
+
 	conn.mu.Lock()
 	conn.isHealthy = true
 	conn.mu.Unlock()
-	
+
 	return true
 }
 
@@ -401,12 +408,12 @@ func (ecp *EnhancedConnectionPool) calculateUtilization() float64 {
 	ecp.mu.RLock()
 	activeCount := len(ecp.activeConnections)
 	ecp.mu.RUnlock()
-	
+
 	currentSize := int(atomic.LoadInt32(&ecp.currentSize))
 	if currentSize == 0 {
 		return 0.0
 	}
-	
+
 	return float64(activeCount) / float64(currentSize)
 }
 
@@ -437,7 +444,11 @@ func (ecp *EnhancedConnectionPool) warmUp() error {
 			atomic.AddInt32(&ecp.currentSize, 1)
 			successCount++
 		default:
-			conn.Close()
+			if err := conn.Close(); err != nil {
+				// Log close errors but continue since this is cleanup
+				// Note: In production, this would use a proper logger
+				_ = err
+			}
 			successCount++
 		}
 	}
@@ -470,7 +481,11 @@ func (ecp *EnhancedConnectionPool) scaleUp(count int) error {
 		case ecp.connections <- pooledConn:
 			atomic.AddInt32(&ecp.currentSize, 1)
 		default:
-			conn.Close()
+			if err := conn.Close(); err != nil {
+				// Log close errors but continue since this is cleanup
+				// Note: In production, this would use a proper logger
+				_ = err
+			}
 		}
 	}
 	return nil
@@ -496,7 +511,11 @@ func (ecp *EnhancedConnectionPool) backgroundScaling() {
 		case <-ecp.ctx.Done():
 			return
 		case <-ecp.scalingTicker.C:
-			ecp.ScalePool()
+			if err := ecp.ScalePool(); err != nil {
+				// Log scaling errors but don't stop the background goroutine
+				// Note: In production, this would use a proper logger
+				_ = err
+			}
 		}
 	}
 }

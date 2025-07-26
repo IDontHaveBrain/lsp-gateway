@@ -20,12 +20,12 @@ import (
 
 var (
 	// MCP command flag variables - exported for testing purposes
-	McpConfigPath            string
-	McpGatewayURL            string
-	McpPort                  int
-	McpTransport             string
-	McpTimeout               time.Duration
-	McpMaxRetries            int
+	McpConfigPath string
+	McpGatewayURL string
+	McpPort       int
+	McpTransport  string
+	McpTimeout    time.Duration
+	McpMaxRetries int
 	// Project-related flags - exported for testing purposes
 	McpProjectPath           string
 	McpAutoDetectProject     bool
@@ -70,18 +70,13 @@ func init() {
 	mcpCmd.Flags().StringVarP(&McpTransport, FLAG_DESCRIPTION_TRANSPORT, "t", transport.TransportStdio, "Transport type (stdio, tcp, http)")
 	mcpCmd.Flags().DurationVar(&McpTimeout, FLAG_TIMEOUT, 30*time.Second, "Request timeout duration")
 	mcpCmd.Flags().IntVar(&McpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
-	
+
 	// Project-related flags
 	mcpCmd.Flags().StringVarP(&McpProjectPath, FLAG_PROJECT, "P", "", FLAG_DESCRIPTION_PROJECT_PATH)
 	mcpCmd.Flags().BoolVar(&McpAutoDetectProject, FLAG_AUTO_DETECT_PROJECT, false, FLAG_DESCRIPTION_AUTO_DETECT_PROJECT)
 	mcpCmd.Flags().BoolVar(&McpGenerateProjectConfig, FLAG_GENERATE_PROJECT_CONFIG, false, FLAG_DESCRIPTION_GENERATE_PROJECT_CONFIG)
 
 	rootCmd.AddCommand(mcpCmd)
-}
-
-// GetMcpCmd returns the mcp command for testing purposes
-func GetMcpCmd() *cobra.Command {
-	return mcpCmd
 }
 
 func runMCPServer(_ *cobra.Command, args []string) error {
@@ -351,7 +346,7 @@ func performMCPProjectDetection() (*project.ProjectAnalysisResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create project integration: %w", err)
 	}
-	
+
 	// Perform detection and analysis
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -362,8 +357,8 @@ func performMCPProjectDetection() (*project.ProjectAnalysisResult, error) {
 	}
 
 	if result.ProjectContext != nil {
-		log.Printf("[INFO] MCP project detected: %s (%s) with languages: %v\n", 
-			result.ProjectContext.ProjectType, 
+		log.Printf("[INFO] MCP project detected: %s (%s) with languages: %v\n",
+			result.ProjectContext.ProjectType,
 			result.ProjectContext.RootPath,
 			result.ProjectContext.Languages)
 	}
@@ -377,9 +372,9 @@ func applyProjectAwareMCPConfig(cfg *mcp.ServerConfig, projectResult *project.Pr
 
 	// Update MCP server name to include project type
 	cfg.Name = fmt.Sprintf("lsp-gateway-mcp-%s", projectCtx.ProjectType)
-	
+
 	// Update description to include project information
-	cfg.Description = fmt.Sprintf("MCP server providing LSP functionality for %s project at %s", 
+	cfg.Description = fmt.Sprintf("MCP server providing LSP functionality for %s project at %s",
 		projectCtx.ProjectType, projectCtx.RootPath)
 
 	// Note: Project context is available in the projectCtx variable
@@ -389,7 +384,7 @@ func applyProjectAwareMCPConfig(cfg *mcp.ServerConfig, projectResult *project.Pr
 	if projectCtx.ProjectSize.TotalFiles > 1000 {
 		// Increase timeout for large projects
 		cfg.Timeout = cfg.Timeout + (30 * time.Second)
-		log.Printf("[INFO] Increased MCP timeout for large project (%d files)\n", 
+		log.Printf("[INFO] Increased MCP timeout for large project (%d files)\n",
 			projectCtx.ProjectSize.TotalFiles)
 	}
 
@@ -427,7 +422,7 @@ func generateMCPProjectConfig(cfg *mcp.ServerConfig, projectCtx *project.Project
 	// Generated configuration details are available through genResult and used
 	// throughout the MCP server for project-aware functionality
 
-	log.Printf("[INFO] Generated MCP project configuration: %d servers, %d optimizations\n", 
+	log.Printf("[INFO] Generated MCP project configuration: %d servers, %d optimizations\n",
 		genResult.ServersGenerated, genResult.OptimizationsApplied)
 }
 
@@ -443,8 +438,8 @@ func integrateMCPWithProjectAwareGateway(cfg *mcp.ServerConfig, projectResult *p
 		// Increase timeout for larger projects
 		originalTimeout := cfg.Timeout
 		cfg.Timeout = originalTimeout + (15 * time.Second)
-		
-		log.Printf("[INFO] Adjusted MCP timeout for large project (%d files): %s -> %s\n", 
+
+		log.Printf("[INFO] Adjusted MCP timeout for large project (%d files): %s -> %s\n",
 			projectResult.ProjectSize.TotalFiles, originalTimeout.String(), cfg.Timeout.String())
 	}
 

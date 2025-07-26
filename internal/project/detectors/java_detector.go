@@ -25,29 +25,29 @@ type JavaProjectDetector struct {
 
 // JavaDetectionMetadata contains detailed Java project analysis results
 type JavaDetectionMetadata struct {
-	JavaVersion      string                       `json:"java_version,omitempty"`
-	BuildSystem      string                       `json:"build_system,omitempty"`
-	JavaHome         string                       `json:"java_home,omitempty"`
-	MavenInfo        *types.MavenInfo           `json:"maven_info,omitempty"`
-	GradleInfo       *types.GradleInfo          `json:"gradle_info,omitempty"`
-	Dependencies     map[string]*JavaDependency   `json:"dependencies,omitempty"`
-	DevDependencies  map[string]*JavaDependency   `json:"dev_dependencies,omitempty"`
-	TestFrameworks   []string                     `json:"test_frameworks,omitempty"`
-	ProjectType      string                       `json:"project_type,omitempty"`
-	SourceDirs       []string                     `json:"source_dirs,omitempty"`
-	TestDirs         []string                     `json:"test_dirs,omitempty"`
-	EntryPoints      map[string]string            `json:"entry_points,omitempty"`
+	JavaVersion     string                     `json:"java_version,omitempty"`
+	BuildSystem     string                     `json:"build_system,omitempty"`
+	JavaHome        string                     `json:"java_home,omitempty"`
+	MavenInfo       *types.MavenInfo           `json:"maven_info,omitempty"`
+	GradleInfo      *types.GradleInfo          `json:"gradle_info,omitempty"`
+	Dependencies    map[string]*JavaDependency `json:"dependencies,omitempty"`
+	DevDependencies map[string]*JavaDependency `json:"dev_dependencies,omitempty"`
+	TestFrameworks  []string                   `json:"test_frameworks,omitempty"`
+	ProjectType     string                     `json:"project_type,omitempty"`
+	SourceDirs      []string                   `json:"source_dirs,omitempty"`
+	TestDirs        []string                   `json:"test_dirs,omitempty"`
+	EntryPoints     map[string]string          `json:"entry_points,omitempty"`
 }
 
 // JavaDependency contains detailed dependency information
 type JavaDependency struct {
-	GroupId      string `json:"group_id"`
-	ArtifactId   string `json:"artifact_id"`
-	Version      string `json:"version,omitempty"`
-	Scope        string `json:"scope,omitempty"`
-	Classifier   string `json:"classifier,omitempty"`
-	Type         string `json:"type,omitempty"`
-	Source       string `json:"source,omitempty"` // pom.xml, build.gradle, etc.
+	GroupId    string `json:"group_id"`
+	ArtifactId string `json:"artifact_id"`
+	Version    string `json:"version,omitempty"`
+	Scope      string `json:"scope,omitempty"`
+	Classifier string `json:"classifier,omitempty"`
+	Type       string `json:"type,omitempty"`
+	Source     string `json:"source,omitempty"` // pom.xml, build.gradle, etc.
 }
 
 // NewJavaProjectDetector creates a new comprehensive Java project detector
@@ -222,7 +222,7 @@ func (d *JavaProjectDetector) analyzeBuildSystemConfigs(ctx context.Context, pat
 	if _, err := os.Stat(pomPath); err == nil {
 		d.logger.Debug("Maven project detected")
 		analysis.BuildSystem = types.BUILD_SYSTEM_MAVEN
-		
+
 		mavenInfo, err := d.mavenParser.ParsePom(pomPath)
 		if err != nil {
 			d.logger.Warn("Failed to parse pom.xml")
@@ -241,7 +241,7 @@ func (d *JavaProjectDetector) analyzeBuildSystemConfigs(ctx context.Context, pat
 	for _, gradlePath := range gradlePaths {
 		if _, err := os.Stat(gradlePath); err == nil {
 			d.logger.Debug("Gradle project detected")
-			
+
 			// If we already found Maven, this is a mixed build system
 			if analysis.BuildSystem == types.BUILD_SYSTEM_MAVEN {
 				analysis.BuildSystem = "mixed"
@@ -273,11 +273,11 @@ func (d *JavaProjectDetector) validateJavaProjectStructure(ctx context.Context, 
 	d.logger.Debug("Validating Java project structure")
 
 	validation := &StructureValidation{
-		IsValid:        true,
-		SourceDirs:     []string{},
-		TestDirs:       []string{},
-		ConfigFiles:    []string{},
-		Issues:         []string{},
+		IsValid:     true,
+		SourceDirs:  []string{},
+		TestDirs:    []string{},
+		ConfigFiles: []string{},
+		Issues:      []string{},
 	}
 
 	// Standard Java directory structures to check
@@ -387,7 +387,6 @@ func (d *JavaProjectDetector) findMarkerFiles(path string) []string {
 	}
 	return found
 }
-
 
 // Supporting types for internal analysis
 

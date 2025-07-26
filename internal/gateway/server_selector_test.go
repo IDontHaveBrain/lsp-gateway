@@ -20,11 +20,11 @@ func createTestPool(t *testing.T, strategy string) *LanguageServerPool {
 	// Add mock servers
 	for i := 1; i <= 3; i++ {
 		serverConfig := &config.ServerConfig{
-			Name:     fmt.Sprintf("server%d", i),
+			Name:      fmt.Sprintf("server%d", i),
 			Languages: []string{"go"},
-			Command:  "gopls",
+			Command:   "gopls",
 		}
-		
+
 		server := &ServerInstance{
 			config:    serverConfig,
 			state:     ServerStateHealthy,
@@ -45,7 +45,7 @@ func TestRoundRobinSelector(t *testing.T) {
 	pool := createTestPool(t, "round_robin")
 	selector := NewRoundRobinSelector()
 
-	context := &SelectionRequestContext{
+	context := &ServerSelectionContext{
 		Method:   "textDocument/definition",
 		Priority: PriorityNormal,
 		Timeout:  30 * time.Second,
@@ -73,7 +73,7 @@ func TestLeastConnectionsSelector(t *testing.T) {
 	pool := createTestPool(t, "least_connections")
 	selector := NewLeastConnectionsSelector()
 
-	context := &SelectionRequestContext{
+	context := &ServerSelectionContext{
 		Method:   "textDocument/definition",
 		Priority: PriorityNormal,
 		Timeout:  30 * time.Second,
@@ -113,7 +113,7 @@ func TestResponseTimeSelector(t *testing.T) {
 	pool := createTestPool(t, "response_time")
 	selector := NewResponseTimeSelector()
 
-	context := &SelectionRequestContext{
+	context := &ServerSelectionContext{
 		Method:   "textDocument/definition",
 		Priority: PriorityNormal,
 		Timeout:  30 * time.Second,
@@ -145,7 +145,7 @@ func TestPerformanceBasedSelector(t *testing.T) {
 	selector := NewPerformanceBasedSelector(weights)
 	pool := createTestPool(t, "performance")
 
-	context := &SelectionRequestContext{
+	context := &ServerSelectionContext{
 		Method:   "textDocument/definition",
 		Priority: PriorityNormal,
 		Timeout:  30 * time.Second,
@@ -153,8 +153,8 @@ func TestPerformanceBasedSelector(t *testing.T) {
 
 	// Set up server metrics for performance scoring
 	for _, server := range pool.GetHealthyServers() {
-		server.metrics.UpdateMetrics(100*time.Millisecond, true)
-		server.metrics.healthScore = 0.9
+		server.metrics.RecordRequest(100*time.Millisecond, true)
+		server.metrics.HealthScore = 0.9
 	}
 
 	server, err := selector.SelectServer(pool, "textDocument/definition", context)
@@ -171,7 +171,7 @@ func TestFeatureBasedSelector(t *testing.T) {
 	selector := NewFeatureBasedSelector()
 	pool := createTestPool(t, "feature")
 
-	context := &SelectionRequestContext{
+	context := &ServerSelectionContext{
 		Method:           "textDocument/definition",
 		Priority:         PriorityNormal,
 		RequiredFeatures: []string{"basic"},
@@ -199,7 +199,7 @@ func TestMultiServerSelector(t *testing.T) {
 
 	selector := NewMultiServerSelector(primary, fallbacks)
 
-	context := &SelectionRequestContext{
+	context := &ServerSelectionContext{
 		Method:   "textDocument/definition",
 		Priority: PriorityNormal,
 		Timeout:  30 * time.Second,
@@ -239,10 +239,10 @@ func TestHealthAwareSelector(t *testing.T) {
 	// Set one server as unhealthy
 	servers := pool.GetHealthyServers()
 	if len(servers) > 0 {
-		servers[0].metrics.healthScore = 0.5 // Below threshold
+		servers[0].metrics.HealthScore = 0.5 // Below threshold
 	}
 
-	context := &SelectionRequestContext{
+	context := &ServerSelectionContext{
 		Method:   "textDocument/definition",
 		Priority: PriorityNormal,
 		Timeout:  30 * time.Second,
@@ -256,11 +256,12 @@ func TestHealthAwareSelector(t *testing.T) {
 
 	if server == nil {
 		t.Errorf("Expected a server to be selected")
+		return
 	}
 
 	// Verify selected server is healthy
-	if server.metrics.healthScore < 0.8 {
-		t.Errorf("Selected unhealthy server with score %f", server.metrics.healthScore)
+	if server.metrics.HealthScore < 0.8 {
+		t.Errorf("Selected unhealthy server with score %f", server.metrics.HealthScore)
 	}
 }
 
@@ -337,11 +338,11 @@ func TestLoadBalancerIntegration(t *testing.T) {
 	// Add test servers
 	for i := 1; i <= 3; i++ {
 		serverConfig := &config.ServerConfig{
-			Name:     fmt.Sprintf("server%d", i),
+			Name:      fmt.Sprintf("server%d", i),
 			Languages: []string{"go"},
-			Command:  "gopls",
+			Command:   "gopls",
 		}
-		
+
 		server := &ServerInstance{
 			config:    serverConfig,
 			state:     ServerStateHealthy,
@@ -355,7 +356,7 @@ func TestLoadBalancerIntegration(t *testing.T) {
 		}
 	}
 
-	context := &SelectionRequestContext{
+	context := &ServerSelectionContext{
 		Method:   "textDocument/definition",
 		Priority: PriorityNormal,
 		Timeout:  30 * time.Second,

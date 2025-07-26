@@ -8,9 +8,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/pelletier/go-toml/v2"
 	"lsp-gateway/internal/project/types"
 	"lsp-gateway/internal/setup"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 // PythonConfigParser provides comprehensive Python configuration parsing
@@ -20,9 +21,9 @@ type PythonConfigParser struct {
 
 // PyProjectInfo contains parsed pyproject.toml information (PEP 518/621)
 type PyProjectInfo struct {
-	BuildSystem     BuildSystemInfo            `json:"build_system,omitempty"`
-	Project         ProjectInfo                `json:"project,omitempty"`
-	Tool            ToolInfo                   `json:"tool,omitempty"`
+	BuildSystem     BuildSystemInfo                        `json:"build_system,omitempty"`
+	Project         ProjectInfo                            `json:"project,omitempty"`
+	Tool            ToolInfo                               `json:"tool,omitempty"`
 	Dependencies    map[string]*types.PythonDependencyInfo `json:"dependencies,omitempty"`
 	DevDependencies map[string]*types.PythonDependencyInfo `json:"dev_dependencies,omitempty"`
 }
@@ -35,20 +36,20 @@ type BuildSystemInfo struct {
 
 // ProjectInfo contains PEP 621 project metadata
 type ProjectInfo struct {
-	Name            string            `json:"name,omitempty"`
-	Version         string            `json:"version,omitempty"`
-	Description     string            `json:"description,omitempty"`
-	ReadmeFile      string            `json:"readme_file,omitempty"`
-	RequiresPython  string            `json:"requires_python,omitempty"`
-	License         map[string]string `json:"license,omitempty"`
-	Authors         []PersonInfo      `json:"authors,omitempty"`
-	Maintainers     []PersonInfo      `json:"maintainers,omitempty"`
-	Keywords        []string          `json:"keywords,omitempty"`
-	Classifiers     []string          `json:"classifiers,omitempty"`
-	URLs            map[string]string `json:"urls,omitempty"`
-	EntryPoints     map[string]string `json:"entry_points,omitempty"`
-	Dependencies    []string          `json:"dependencies,omitempty"`
-	OptionalDeps    map[string][]string `json:"optional_dependencies,omitempty"`
+	Name           string              `json:"name,omitempty"`
+	Version        string              `json:"version,omitempty"`
+	Description    string              `json:"description,omitempty"`
+	ReadmeFile     string              `json:"readme_file,omitempty"`
+	RequiresPython string              `json:"requires_python,omitempty"`
+	License        map[string]string   `json:"license,omitempty"`
+	Authors        []PersonInfo        `json:"authors,omitempty"`
+	Maintainers    []PersonInfo        `json:"maintainers,omitempty"`
+	Keywords       []string            `json:"keywords,omitempty"`
+	Classifiers    []string            `json:"classifiers,omitempty"`
+	URLs           map[string]string   `json:"urls,omitempty"`
+	EntryPoints    map[string]string   `json:"entry_points,omitempty"`
+	Dependencies   []string            `json:"dependencies,omitempty"`
+	OptionalDeps   map[string][]string `json:"optional_dependencies,omitempty"`
 }
 
 // PersonInfo contains author/maintainer information
@@ -69,18 +70,18 @@ type ToolInfo struct {
 
 // PoetryConfig contains Poetry-specific configuration
 type PoetryConfig struct {
-	Name            string                     `json:"name,omitempty"`
-	Version         string                     `json:"version,omitempty"`
-	Description     string                     `json:"description,omitempty"`
-	Authors         []string                   `json:"authors,omitempty"`
-	License         string                     `json:"license,omitempty"`
-	ReadmeFile      string                     `json:"readme,omitempty"`
-	Homepage        string                     `json:"homepage,omitempty"`
-	Repository      string                     `json:"repository,omitempty"`
-	Keywords        []string                   `json:"keywords,omitempty"`
-	Classifiers     []string                   `json:"classifiers,omitempty"`
-	Dependencies    map[string]interface{}     `json:"dependencies,omitempty"`
-	DevDependencies map[string]interface{}     `json:"dev_dependencies,omitempty"`
+	Name            string                            `json:"name,omitempty"`
+	Version         string                            `json:"version,omitempty"`
+	Description     string                            `json:"description,omitempty"`
+	Authors         []string                          `json:"authors,omitempty"`
+	License         string                            `json:"license,omitempty"`
+	ReadmeFile      string                            `json:"readme,omitempty"`
+	Homepage        string                            `json:"homepage,omitempty"`
+	Repository      string                            `json:"repository,omitempty"`
+	Keywords        []string                          `json:"keywords,omitempty"`
+	Classifiers     []string                          `json:"classifiers,omitempty"`
+	Dependencies    map[string]interface{}            `json:"dependencies,omitempty"`
+	DevDependencies map[string]interface{}            `json:"dev_dependencies,omitempty"`
 	Groups          map[string]map[string]interface{} `json:"groups,omitempty"`
 }
 
@@ -91,9 +92,9 @@ type PDMConfig struct {
 
 // SetuptoolsConfig contains setuptools-specific configuration
 type SetuptoolsConfig struct {
-	PackageDir  map[string]string `json:"package_dir,omitempty"`
+	PackageDir  map[string]string   `json:"package_dir,omitempty"`
 	PackageData map[string][]string `json:"package_data,omitempty"`
-	DataFiles   []interface{}     `json:"data_files,omitempty"`
+	DataFiles   []interface{}       `json:"data_files,omitempty"`
 }
 
 // BlackConfig contains Black formatter configuration
@@ -115,38 +116,38 @@ type PytestConfig struct {
 
 // MyPyConfig contains MyPy type checker configuration
 type MyPyConfig struct {
-	PythonVersion        string   `json:"python_version,omitempty"`
-	WarnReturnAny        bool     `json:"warn_return_any,omitempty"`
-	WarnUnusedConfigs    bool     `json:"warn_unused_configs,omitempty"`
-	DisallowUntyped      bool     `json:"disallow_untyped_defs,omitempty"`
-	Files                []string `json:"files,omitempty"`
-	ExcludePatterns      []string `json:"exclude,omitempty"`
+	PythonVersion     string   `json:"python_version,omitempty"`
+	WarnReturnAny     bool     `json:"warn_return_any,omitempty"`
+	WarnUnusedConfigs bool     `json:"warn_unused_configs,omitempty"`
+	DisallowUntyped   bool     `json:"disallow_untyped_defs,omitempty"`
+	Files             []string `json:"files,omitempty"`
+	ExcludePatterns   []string `json:"exclude,omitempty"`
 }
 
 // SetupPyInfo contains parsed setup.py information
 type SetupPyInfo struct {
-	Name            string            `json:"name,omitempty"`
-	Version         string            `json:"version,omitempty"`
-	Description     string            `json:"description,omitempty"`
-	LongDescription string            `json:"long_description,omitempty"`
-	Author          string            `json:"author,omitempty"`
-	AuthorEmail     string            `json:"author_email,omitempty"`
-	URL             string            `json:"url,omitempty"`
-	License         string            `json:"license,omitempty"`
-	Packages        []string          `json:"packages,omitempty"`
-	Dependencies    map[string]*types.PythonDependencyInfo `json:"install_requires,omitempty"`
+	Name            string                                            `json:"name,omitempty"`
+	Version         string                                            `json:"version,omitempty"`
+	Description     string                                            `json:"description,omitempty"`
+	LongDescription string                                            `json:"long_description,omitempty"`
+	Author          string                                            `json:"author,omitempty"`
+	AuthorEmail     string                                            `json:"author_email,omitempty"`
+	URL             string                                            `json:"url,omitempty"`
+	License         string                                            `json:"license,omitempty"`
+	Packages        []string                                          `json:"packages,omitempty"`
+	Dependencies    map[string]*types.PythonDependencyInfo            `json:"install_requires,omitempty"`
 	ExtraDeps       map[string]map[string]*types.PythonDependencyInfo `json:"extras_require,omitempty"`
-	PythonRequires  string            `json:"python_requires,omitempty"`
-	EntryPoints     map[string]string `json:"entry_points,omitempty"`
-	Classifiers     []string          `json:"classifiers,omitempty"`
+	PythonRequires  string                                            `json:"python_requires,omitempty"`
+	EntryPoints     map[string]string                                 `json:"entry_points,omitempty"`
+	Classifiers     []string                                          `json:"classifiers,omitempty"`
 }
 
 // PipfileInfo contains parsed Pipfile information
 type PipfileInfo struct {
-	Source       []PipfileSource            `json:"source,omitempty"`
-	Packages     map[string]*types.PythonDependencyInfo `json:"packages,omitempty"`
-	DevPackages  map[string]*types.PythonDependencyInfo `json:"dev_packages,omitempty"`
-	RequiresPython string                   `json:"requires_python,omitempty"`
+	Source         []PipfileSource                        `json:"source,omitempty"`
+	Packages       map[string]*types.PythonDependencyInfo `json:"packages,omitempty"`
+	DevPackages    map[string]*types.PythonDependencyInfo `json:"dev_packages,omitempty"`
+	RequiresPython string                                 `json:"requires_python,omitempty"`
 }
 
 // PipfileSource contains Pipfile source configuration
@@ -190,7 +191,7 @@ func (p *PythonConfigParser) ParsePyproject(ctx context.Context, path string) (*
 	// Parse project section (PEP 621)
 	if project, ok := rawData["project"].(map[string]interface{}); ok {
 		info.Project = p.parseProjectInfo(project)
-		
+
 		// Extract dependencies from project section
 		if deps, ok := project["dependencies"].([]interface{}); ok {
 			p.parseDependencyList(deps, info.Dependencies, "pyproject.toml")
@@ -212,7 +213,7 @@ func (p *PythonConfigParser) ParsePyproject(ctx context.Context, path string) (*
 	// Parse tool section
 	if tool, ok := rawData["tool"].(map[string]interface{}); ok {
 		info.Tool = p.parseToolInfo(tool)
-		
+
 		// Extract Poetry dependencies
 		if poetry, ok := tool["poetry"].(map[string]interface{}); ok {
 			if deps, ok := poetry["dependencies"].(map[string]interface{}); ok {
@@ -273,7 +274,7 @@ func (p *PythonConfigParser) ParseSetupPy(ctx context.Context, path string) (*Se
 
 	// Parse setup.py using regex patterns (simple approach)
 	contentStr := string(content)
-	
+
 	// Extract basic metadata
 	info.Name = p.extractSetupValue(contentStr, "name")
 	info.Version = p.extractSetupValue(contentStr, "version")
@@ -406,7 +407,7 @@ func (p *PythonConfigParser) ParsePipfile(ctx context.Context, path string) (map
 
 func (p *PythonConfigParser) parseBuildSystem(data map[string]interface{}) BuildSystemInfo {
 	buildSystem := BuildSystemInfo{}
-	
+
 	if requires, ok := data["requires"].([]interface{}); ok {
 		for _, req := range requires {
 			if reqStr, ok := req.(string); ok {
@@ -414,11 +415,11 @@ func (p *PythonConfigParser) parseBuildSystem(data map[string]interface{}) Build
 			}
 		}
 	}
-	
+
 	if backend, ok := data["build-backend"].(string); ok {
 		buildSystem.BuildBackend = backend
 	}
-	
+
 	return buildSystem
 }
 
@@ -746,10 +747,10 @@ func (p *PythonConfigParser) parseSingleDependency(depStr, source string) *types
 	// Parse standard dependency format: package[extra1,extra2]>=1.0.0,<2.0.0
 	depRegex := regexp.MustCompile(`^([a-zA-Z0-9_-]+)(?:\[([^\]]+)\])?(.*)$`)
 	matches := depRegex.FindStringSubmatch(depStr)
-	
+
 	if len(matches) > 1 {
 		depInfo.Name = matches[1]
-		
+
 		// Parse extras
 		if len(matches) > 2 && matches[2] != "" {
 			extras := strings.Split(matches[2], ",")
@@ -757,7 +758,7 @@ func (p *PythonConfigParser) parseSingleDependency(depStr, source string) *types
 				depInfo.Extras = append(depInfo.Extras, strings.TrimSpace(extra))
 			}
 		}
-		
+
 		// Parse version specifier
 		if len(matches) > 3 && matches[3] != "" {
 			depInfo.Specifier = strings.TrimSpace(matches[3])
