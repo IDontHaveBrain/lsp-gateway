@@ -191,6 +191,34 @@ func NewProjectLanguageScanner() *ProjectLanguageScanner {
 	return scanner
 }
 
+// NewProjectLanguageScannerWithoutCache creates a new ProjectLanguageScanner without cache
+// to avoid circular dependency when used by BackgroundScanner
+func NewProjectLanguageScannerWithoutCache() *ProjectLanguageScanner {
+	scanner := &ProjectLanguageScanner{
+		MaxConcurrentScans: DefaultMaxConcurrentScans,
+		FastModeThreshold:  DefaultFastModeThreshold,
+		EnableCache:        false, // Disabled to avoid circular dependency
+
+		IgnorePatterns: []string{
+			"node_modules", "venv", "env", ".venv", ".env",
+			".git", ".svn", ".hg", ".bzr",
+			"__pycache__", ".pytest_cache", ".mypy_cache",
+			"target", "build", "dist", "out", "output",
+			".idea", ".vscode", ".vs", "*.tmp", "*.temp",
+			".terraform", ".gradle", ".m2", "vendor",
+			"coverage", ".coverage", ".nyc_output",
+			"logs", "*.log", ".DS_Store", "Thumbs.db",
+		},
+		langPatterns:  make(map[string]*LanguagePattern),
+		buildFiles:    make(map[string]string),
+		configFiles:   make(map[string]string),
+		fastPathCache: make(map[string]*MultiLanguageProjectInfo),
+	}
+
+	scanner.initializeLanguagePatterns()
+	return scanner
+}
+
 func (s *ProjectLanguageScanner) initializeLanguagePatterns() {
 	patterns := []*LanguagePattern{
 		{

@@ -2,6 +2,7 @@ package project
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/project/types"
@@ -125,6 +126,11 @@ func NewProjectConfigGenerator(logger *setup.SetupLogger, registry setup.ServerR
 // GenerateFromProject generates a complete project-specific configuration
 func (g *ProjectConfigGeneratorImpl) GenerateFromProject(ctx context.Context, projectContext *ProjectContext) (*ProjectConfigGenerationResult, error) {
 	startTime := time.Now()
+
+	// Validate input parameters
+	if projectContext == nil {
+		return nil, errors.New("project context cannot be nil")
+	}
 
 	g.logger.WithOperation("generate-project-config").WithFields(map[string]interface{}{
 		"project_type": projectContext.ProjectType,

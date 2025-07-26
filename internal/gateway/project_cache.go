@@ -420,7 +420,7 @@ func NewBackgroundScanner(cache *ProjectCache, workers int) *BackgroundScanner {
 
 	bs := &BackgroundScanner{
 		cache:   cache,
-		scanner: NewProjectLanguageScanner(),
+		scanner: nil, // Will be set lazily to avoid circular dependency
 		queue:   make(chan string, workers*2), // Buffer for better performance
 		workers: workers,
 		ctx:     ctx,
@@ -429,6 +429,14 @@ func NewBackgroundScanner(cache *ProjectCache, workers int) *BackgroundScanner {
 
 	bs.Start()
 	return bs
+}
+
+// getScanner returns the scanner, creating it lazily to avoid circular dependency
+func (bs *BackgroundScanner) getScanner() *ProjectLanguageScanner {
+	if bs.scanner == nil {
+		bs.scanner = NewProjectLanguageScannerWithoutCache()
+	}
+	return bs.scanner
 }
 
 // Start begins the background scanning workers
@@ -485,7 +493,7 @@ func (bs *BackgroundScanner) scanProject(rootPath string) {
 	}
 
 	// Perform the scan
-	info, err := bs.scanner.ScanProjectComprehensive(rootPath)
+	info, err := bs.getScanner().ScanProjectComprehensive(rootPath)
 	if err != nil {
 		// Log error and continue
 		return
