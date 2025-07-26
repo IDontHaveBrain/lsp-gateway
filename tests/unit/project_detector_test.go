@@ -129,7 +129,7 @@ func (suite *ProjectDetectorTestSuite) TestBuildFileDetection() {
 		{"setup.py", "from setuptools import setup\n\nsetup(name='test')", "python", "Python setup file"},
 		{"pyproject.toml", "[build-system]\nrequires = [\"setuptools\"]", "python", "Python project file"},
 		{"requirements.txt", "flask==2.0.1\nrequests==2.28.0", "python", "Python requirements file"},
-		{"pom.xml", "<?xml version=\"1.0\"?>\n<project><modelVersion>4.0.0</modelVersion></project>", "java", "Maven POM file"},
+		{"pom.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project xmlns=\"http://maven.apache.org/POM/4.0.0\"\n         xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n         xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\">\n    <modelVersion>4.0.0</modelVersion>\n    <groupId>com.example</groupId>\n    <artifactId>test-project</artifactId>\n    <version>1.0.0</version>\n</project>", "java", "Maven POM file"},
 		{"build.gradle", "plugins {\n    id 'java'\n}", "java", "Gradle build file"},
 		{"Cargo.toml", "[package]\nname = \"test\"\nversion = \"0.1.0\"", "rust", "Cargo manifest file"},
 		{"Makefile", "all:\n\t@echo 'Building'", "c", "Make build file"},

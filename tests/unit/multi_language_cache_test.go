@@ -363,13 +363,16 @@ func TestCacheEntryValidation(t *testing.T) {
 	assert.True(t, hit)
 	assert.NotNil(t, info)
 
+	// Wait to ensure modification time difference
+	time.Sleep(100 * time.Millisecond)
+
 	// Modify directory to invalidate cache
 	testFile := filepath.Join(tempDir, "test.go")
 	err = os.WriteFile(testFile, []byte("package main"), 0644)
 	require.NoError(t, err)
 
-	// Wait a bit to ensure modification time changes
-	time.Sleep(10 * time.Millisecond)
+	// Wait a bit to ensure modification time changes and filesystem updates
+	time.Sleep(100 * time.Millisecond)
 
 	// Should now be invalid due to directory modification
 	info, hit = cache.Get(tempDir)

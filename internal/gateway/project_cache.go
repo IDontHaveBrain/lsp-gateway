@@ -373,12 +373,37 @@ func (pc *ProjectCache) cleanup() {
 }
 
 // getDirectoryModTime returns the last modification time of a directory
+// This includes checking files within the directory for a more accurate cache invalidation
 func (pc *ProjectCache) getDirectoryModTime(dirPath string) time.Time {
 	info, err := os.Stat(dirPath)
 	if err != nil {
 		return time.Time{}
 	}
-	return info.ModTime()
+	
+	dirModTime := info.ModTime()
+	
+	// Also check immediate files in the directory for changes
+	// This provides better cache invalidation when files are added/modified
+	entries, err := os.ReadDir(dirPath)
+	if err != nil {
+		return dirModTime
+	}
+	
+	maxModTime := dirModTime
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			entryPath := filepath.Join(dirPath, entry.Name())
+			entryInfo, err := os.Stat(entryPath)
+			if err != nil {
+				continue
+			}
+			if entryInfo.ModTime().After(maxModTime) {
+				maxModTime = entryInfo.ModTime()
+			}
+		}
+	}
+	
+	return maxModTime
 }
 
 // calculateEntrySize estimates the memory size of a cache entry

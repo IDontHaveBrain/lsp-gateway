@@ -374,11 +374,21 @@ func NewRemoteCache(config TierConfig) (*RemoteCache, error) {
 	}
 
 	// Initialize circuit breaker with configuration
-	circuitBreaker := gateway.NewCircuitBreaker(
-		config.BackendConfig.CircuitBreaker.FailureThreshold,
-		config.BackendConfig.CircuitBreaker.RecoveryTimeout,
-		int32(config.BackendConfig.CircuitBreaker.HalfOpenRequests),
-	)
+	var circuitBreaker *gateway.CircuitBreaker
+	if config.BackendConfig.CircuitBreaker != nil {
+		circuitBreaker = gateway.NewCircuitBreaker(
+			config.BackendConfig.CircuitBreaker.FailureThreshold,
+			config.BackendConfig.CircuitBreaker.RecoveryTimeout,
+			int32(config.BackendConfig.CircuitBreaker.HalfOpenRequests),
+		)
+	} else {
+		// Use default circuit breaker configuration
+		circuitBreaker = gateway.NewCircuitBreaker(
+			10,           // Default failure threshold
+			30*time.Second, // Default recovery timeout
+			5,            // Default half-open requests
+		)
+	}
 
 	// Initialize retry configuration
 	retryConfig := &RetryConfig{
