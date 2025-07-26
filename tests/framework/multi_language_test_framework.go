@@ -206,7 +206,7 @@ func NewMultiLanguageTestFramework(timeout time.Duration) *MultiLanguageTestFram
 
 	// Register cleanup for temp directory
 	framework.CleanupFuncs = append(framework.CleanupFuncs, func() {
-		os.RemoveAll(tempDir)
+		_ = os.RemoveAll(tempDir)
 	})
 
 	return framework
@@ -268,7 +268,7 @@ func (f *MultiLanguageTestFramework) CreateMultiLanguageProject(projectType Proj
 
 	// Register cleanup for project
 	f.CleanupFuncs = append(f.CleanupFuncs, func() {
-		os.RemoveAll(project.RootPath)
+		_ = os.RemoveAll(project.RootPath)
 	})
 
 	return project, nil

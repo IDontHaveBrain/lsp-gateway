@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"path/filepath"
@@ -366,27 +365,6 @@ func selectSuitableServers(servers []*RoutingServerInstance, context *RequestCon
 	return suitable
 }
 
-func selectLeastLoadedServer(servers []*RoutingServerInstance, context *RequestContext) *RoutingServerInstance {
-	var bestServer *RoutingServerInstance
-	lowestLoad := float64(1000000) // High initial value
-
-	for _, server := range servers {
-		if !server.Available {
-			continue
-		}
-
-		if !isServerSuitableForContext(server, context) {
-			continue
-		}
-
-		if server.LoadScore < lowestLoad {
-			lowestLoad = server.LoadScore
-			bestServer = server
-		}
-	}
-
-	return bestServer
-}
 
 func calculateServerScore(server *RoutingServerInstance, context *RequestContext) float64 {
 	score := 0.0
@@ -466,79 +444,9 @@ func getAggregatorForMethod(method string) ResponseAggregator {
 	return nil
 }
 
-func mergeDefinitionLocations(definitions []interface{}) interface{} {
-	// Implementation would merge definition locations, removing duplicates
-	// This is a simplified version - real implementation would handle LSP Location types
-	merged := make([]interface{}, 0)
-	seen := make(map[string]bool)
 
-	for _, def := range definitions {
-		if def == nil {
-			continue
-		}
 
-		// Convert to JSON string for deduplication (simplified approach)
-		if jsonBytes, err := json.Marshal(def); err == nil {
-			key := string(jsonBytes)
-			if !seen[key] {
-				seen[key] = true
-				merged = append(merged, def)
-			}
-		}
-	}
 
-	return merged
-}
-
-func mergeReferenceLocations(references []interface{}) interface{} {
-	// Similar to definition merging but for references
-	merged := make([]interface{}, 0)
-	seen := make(map[string]bool)
-
-	for _, ref := range references {
-		if ref == nil {
-			continue
-		}
-
-		if jsonBytes, err := json.Marshal(ref); err == nil {
-			key := string(jsonBytes)
-			if !seen[key] {
-				seen[key] = true
-				merged = append(merged, ref)
-			}
-		}
-	}
-
-	return merged
-}
-
-func mergeSymbols(symbols []interface{}) interface{} {
-	// Merge symbols from multiple servers, organizing by relevance
-	merged := make([]interface{}, 0)
-
-	for _, symbolSet := range symbols {
-		if symbolSet == nil {
-			continue
-		}
-
-		// Add all symbols - in real implementation would sort by relevance
-		merged = append(merged, symbolSet)
-	}
-
-	return merged
-}
-
-func isBetterHoverResponse(current, best interface{}) bool {
-	if best == nil {
-		return true
-	}
-
-	// Simplified comparison - real implementation would compare content richness
-	currentJSON, _ := json.Marshal(current)
-	bestJSON, _ := json.Marshal(best)
-
-	return len(currentJSON) > len(bestJSON)
-}
 
 // Utility functions
 
@@ -577,7 +485,7 @@ func detectLanguageFromURI(uri string) string {
 	case ".cs":
 		return "csharp"
 	default:
-		return "unknown"
+		return StateStringUnknown
 	}
 }
 

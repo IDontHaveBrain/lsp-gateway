@@ -593,7 +593,7 @@ func (g *TestProjectGenerator) Reset() {
 
 	// Clean up generated projects
 	for _, project := range g.Generated {
-		os.RemoveAll(project.RootPath)
+		_ = os.RemoveAll(project.RootPath)
 	}
 
 	g.Generated = make([]*TestProject, 0)

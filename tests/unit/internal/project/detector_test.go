@@ -50,7 +50,7 @@ func (suite *DefaultProjectDetectorTestSuite) SetupSuite() {
 
 func (suite *DefaultProjectDetectorTestSuite) TearDownSuite() {
 	if suite.tempDir != "" {
-		os.RemoveAll(suite.tempDir)
+		_ = os.RemoveAll(suite.tempDir)
 	}
 	if suite.performanceProfiler != nil {
 		suite.performanceProfiler.Reset()
@@ -285,7 +285,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_DetectP
 			// Create temporary directory for this test
 			testDir, err := os.MkdirTemp(suite.tempDir, fmt.Sprintf("type-test-%s-*", tc.name))
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create test files
 			for filePath, content := range tc.setupFiles {
@@ -355,7 +355,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_GetWork
 			// Create temporary directory for this test
 			testRootDir, err := os.MkdirTemp(suite.tempDir, fmt.Sprintf("workspace-test-%s-*", tc.name))
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testRootDir)
+			defer func() { _ = os.RemoveAll(testRootDir) }()
 
 			// Create test structure
 			for filePath, content := range tc.setupStructure {
@@ -439,7 +439,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_ScanWor
 	// Create a workspace with multiple projects
 	workspaceDir, err := os.MkdirTemp(suite.tempDir, "workspace-scan-test-*")
 	suite.Require().NoError(err)
-	defer os.RemoveAll(workspaceDir)
+	defer func() { _ = os.RemoveAll(workspaceDir) }()
 
 	// Create multiple projects in the workspace
 	projects := []struct {
@@ -595,7 +595,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_MaxDept
 	// Create deeply nested project structure
 	deepDir, err := os.MkdirTemp(suite.tempDir, "deep-test-*")
 	suite.Require().NoError(err)
-	defer os.RemoveAll(deepDir)
+	defer func() { _ = os.RemoveAll(deepDir) }()
 
 	// Create nested structure
 	currentPath := deepDir
@@ -648,7 +648,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_IgnoreP
 	// Create project with files that should be ignored
 	testDir, err := os.MkdirTemp(suite.tempDir, "ignore-test-*")
 	suite.Require().NoError(err)
-	defer os.RemoveAll(testDir)
+	defer func() { _ = os.RemoveAll(testDir) }()
 
 	// Create valid project files
 	validFiles := map[string]string{
@@ -774,8 +774,8 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_ErrorHa
 	// Test file instead of directory
 	tempFile, err := os.CreateTemp(suite.tempDir, "test-file-*")
 	suite.Require().NoError(err)
-	tempFile.Close()
-	defer os.Remove(tempFile.Name())
+	_ = tempFile.Close()
+	defer func() { _ = os.Remove(tempFile.Name()) }()
 
 	_, err = suite.detector.DetectProject(ctx, tempFile.Name())
 	suite.Error(err, "Should error when path is a file, not directory")
@@ -784,7 +784,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_ErrorHa
 	if runtime.GOOS != "windows" { // Skip on Windows due to different permission model
 		restrictedDir, err := os.MkdirTemp(suite.tempDir, "restricted-*")
 		suite.Require().NoError(err)
-		defer os.RemoveAll(restrictedDir)
+		defer func() { _ = os.RemoveAll(restrictedDir) }()
 
 		// Remove read permissions
 		err = os.Chmod(restrictedDir, 0000)
@@ -793,7 +793,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_ErrorHa
 		_, _ = suite.detector.DetectProject(ctx, restrictedDir)
 		// Should either error due to permissions or handle gracefully
 		// Restore permissions for cleanup
-		os.Chmod(restrictedDir, 0755)
+		_ = os.Chmod(restrictedDir, 0755)
 	}
 
 	// Test project type detection errors
@@ -812,7 +812,7 @@ func (suite *DefaultProjectDetectorTestSuite) TestDefaultProjectDetector_Perform
 	ctx := context.Background()
 	err := suite.performanceProfiler.Start(ctx)
 	suite.Require().NoError(err)
-	defer suite.performanceProfiler.Stop()
+	defer func() { _ = suite.performanceProfiler.Stop() }()
 
 	// Create test project for performance testing
 	config := &framework.ProjectGenerationConfig{
@@ -934,7 +934,7 @@ func TestDefaultProjectDetector_ContextCancellation(t *testing.T) {
 	// Create test project
 	tempDir, err := os.MkdirTemp("", "context-cancel-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create simple Go project
 	goMod := filepath.Join(tempDir, "go.mod")
@@ -964,7 +964,7 @@ func TestDefaultProjectDetector_SymlinkHandling(t *testing.T) {
 	// Create test directories
 	tempDir, err := os.MkdirTemp("", "symlink-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	realProjectDir := filepath.Join(tempDir, "real-project")
 	err = os.MkdirAll(realProjectDir, 0755)

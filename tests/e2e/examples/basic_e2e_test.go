@@ -351,6 +351,6 @@ func (r *E2ETestRunner) GetGlobalMetrics() *GlobalMetrics {
 
 func (r *E2ETestRunner) Cleanup() {
 	if r.Framework != nil {
-		r.Framework.CleanupAll()
+		_ = r.Framework.CleanupAll()
 	}
 }

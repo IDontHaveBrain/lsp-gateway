@@ -50,7 +50,7 @@ func (suite *GoDetectorTestSuite) SetupSuite() {
 
 func (suite *GoDetectorTestSuite) TearDownSuite() {
 	if suite.tempDir != "" {
-		os.RemoveAll(suite.tempDir)
+		_ = os.RemoveAll(suite.tempDir)
 	}
 	if suite.profiler != nil {
 		suite.profiler.Reset()
@@ -224,7 +224,7 @@ func main() {}`,
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create test files
 			for filePath, content := range tc.setupFiles {
@@ -358,7 +358,7 @@ exclude github.com/bad v1.0.0`,
 			// Create test file
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			goModPath := filepath.Join(testDir, "go.mod")
 			err = os.WriteFile(goModPath, []byte(tc.goModContent), 0644)
@@ -426,7 +426,7 @@ github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXl
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create go.mod
 			goModPath := filepath.Join(testDir, "go.mod")
@@ -527,7 +527,7 @@ use ./app`,
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create test files
 			for filePath, content := range tc.setupFiles {
@@ -652,7 +652,7 @@ func main() {}`,
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create test files
 			for filePath, content := range tc.setupFiles {
@@ -761,7 +761,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_BuildConfiguration() {
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create test files
 			for filePath, content := range tc.setupFiles {
@@ -861,7 +861,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_ConfidenceScoring() {
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create test files
 			for filePath, content := range tc.setupFiles {
@@ -922,7 +922,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_VersionDetection() {
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create go.mod
 			goModPath := filepath.Join(testDir, "go.mod")
@@ -1009,7 +1009,7 @@ go 1.19`,
 			// Create test file
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			goModPath := filepath.Join(testDir, "go.mod")
 			err = os.WriteFile(goModPath, []byte(tc.content), 0644)
@@ -1072,7 +1072,7 @@ replace github.com/example/shared => ./shared`,
 			// Create test file
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			goWorkPath := filepath.Join(testDir, "go.work")
 			err = os.WriteFile(goWorkPath, []byte(tc.content), 0644)
@@ -1134,7 +1134,7 @@ func main() {
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create go.mod
 			goModPath := filepath.Join(testDir, "go.mod")
@@ -1205,7 +1205,7 @@ require (
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create go.mod
 			goModPath := filepath.Join(testDir, "go.mod")
@@ -1336,7 +1336,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_ProjectValidation() {
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create test files
 			for filePath, content := range tc.setupFiles {
@@ -1389,8 +1389,8 @@ func (suite *GoDetectorTestSuite) TestGoDetector_ErrorHandling() {
 		restrictedDir, err := os.MkdirTemp(suite.tempDir, "restricted-*")
 		suite.Require().NoError(err)
 		defer func() {
-			os.Chmod(restrictedDir, 0755) // Restore permissions for cleanup
-			os.RemoveAll(restrictedDir)
+			_ = os.Chmod(restrictedDir, 0755) // Restore permissions for cleanup
+			_ = os.RemoveAll(restrictedDir)
 		}()
 
 		// Create a file first
@@ -1405,7 +1405,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_ErrorHandling() {
 		_, _ = suite.detector.DetectLanguage(ctx, restrictedDir)
 		// Should either handle gracefully or error - but not panic
 		suite.NotPanics(func() {
-			suite.detector.DetectLanguage(ctx, restrictedDir)
+			_, _ = suite.detector.DetectLanguage(ctx, restrictedDir)
 		}, "Should not panic on permission denied")
 	}
 }
@@ -1482,7 +1482,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_MalformedFiles() {
 			// Create test directory
 			testDir, err := os.MkdirTemp(suite.tempDir, tc.name+"-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(testDir)
+			defer func() { _ = os.RemoveAll(testDir) }()
 
 			// Create test files
 			for filePath, content := range tc.setupFiles {
@@ -1571,7 +1571,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_PerformanceProfile() {
 	ctx := context.Background()
 	err := suite.profiler.Start(ctx)
 	suite.Require().NoError(err)
-	defer suite.profiler.Stop()
+	defer func() { _ = suite.profiler.Stop() }()
 
 	// Generate using mock or create manually
 	testDir, err := os.MkdirTemp(suite.tempDir, "perf-test-*")

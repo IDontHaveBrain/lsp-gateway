@@ -41,7 +41,7 @@ func (suite *ProjectCacheTestSuite) TearDownTest() {
 		suite.cache.Shutdown()
 	}
 	if suite.tempDir != "" {
-		os.RemoveAll(suite.tempDir)
+		_ = os.RemoveAll(suite.tempDir)
 	}
 }
 
@@ -340,7 +340,7 @@ func TestCacheEntryValidation(t *testing.T) {
 	// Create a temporary directory for testing directory modification time
 	tempDir, err := os.MkdirTemp("", "cache-validation-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	projectInfo := &gateway.MultiLanguageProjectInfo{
 		RootPath:         tempDir,
@@ -393,7 +393,7 @@ func TestBackgroundScannerBasics(t *testing.T) {
 
 	tempDir, err := os.MkdirTemp("", "bg-scanner-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create a simple Go project
 	goMod := filepath.Join(tempDir, "go.mod")

@@ -32,7 +32,7 @@ func (suite *ProjectDetectorTestSuite) SetupTest() {
 
 func (suite *ProjectDetectorTestSuite) TearDownTest() {
 	if suite.tempDir != "" {
-		os.RemoveAll(suite.tempDir)
+		_ = os.RemoveAll(suite.tempDir)
 	}
 	if suite.scanner != nil {
 		suite.scanner.Shutdown()
@@ -141,7 +141,7 @@ func (suite *ProjectDetectorTestSuite) TestBuildFileDetection() {
 			// Create fresh temp directory for each test
 			tempDir, err := os.MkdirTemp("", "build-file-test-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(tempDir)
+			defer func() { _ = os.RemoveAll(tempDir) }()
 
 			// Create build file
 			fullPath := filepath.Join(tempDir, tc.filename)
@@ -197,7 +197,7 @@ func (suite *ProjectDetectorTestSuite) TestTestFileIdentification() {
 			// Create fresh temp directory for each test
 			tempDir, err := os.MkdirTemp("", "test-file-test-*")
 			suite.Require().NoError(err)
-			defer os.RemoveAll(tempDir)
+			defer func() { _ = os.RemoveAll(tempDir) }()
 
 			// Create test file
 			fullPath := filepath.Join(tempDir, tc.filename)
@@ -441,7 +441,7 @@ func (suite *ProjectDetectorTestSuite) TestProjectTypeIdentification() {
 			// Create fresh temp directory for each test
 			tempDir, err := os.MkdirTemp("", fmt.Sprintf("project-type-test-%s-*", tc.name))
 			suite.Require().NoError(err)
-			defer os.RemoveAll(tempDir)
+			defer func() { _ = os.RemoveAll(tempDir) }()
 
 			// Create project files
 			for file, content := range tc.files {
@@ -621,7 +621,7 @@ func (suite *ProjectDetectorTestSuite) TestFastPathDetection() {
 			// Create fresh temp directory for each test
 			tempDir, err := os.MkdirTemp("", fmt.Sprintf("fast-path-test-%s-*", tc.name))
 			suite.Require().NoError(err)
-			defer os.RemoveAll(tempDir)
+			defer func() { _ = os.RemoveAll(tempDir) }()
 
 			// Create single build file
 			fullPath := filepath.Join(tempDir, tc.filename)
@@ -825,7 +825,7 @@ func (suite *ProjectDetectorTestSuite) TestPerformanceOptimizations() {
 	// Test optimal configuration detection
 	tempDir, err := os.MkdirTemp("", "perf-test-*")
 	suite.Require().NoError(err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create small project
 	if err := os.WriteFile(filepath.Join(tempDir, "main.go"), []byte("package main\n\nfunc main() {}"), 0644); err != nil {
@@ -875,7 +875,7 @@ func (suite *ProjectDetectorTestSuite) TestErrorHandling() {
 	scanner.Timeout = 1 * time.Nanosecond // Very short timeout
 	tempDir, err := os.MkdirTemp("", "timeout-test-*")
 	suite.Require().NoError(err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create many files to trigger timeout
 	for i := 0; i < 1000; i++ {
@@ -900,7 +900,7 @@ func (suite *ProjectDetectorTestSuite) TestConcurrentScanning() {
 	for i := 0; i < 5; i++ {
 		tempDir, err := os.MkdirTemp("", fmt.Sprintf("concurrent-test-%d-*", i))
 		suite.Require().NoError(err)
-		defer os.RemoveAll(tempDir)
+		defer func() { _ = os.RemoveAll(tempDir) }()
 
 		// Create simple Go project
 		_ = os.WriteFile(filepath.Join(tempDir, "go.mod"), []byte(fmt.Sprintf("module project-%d\n\ngo 1.19", i)), 0644)
