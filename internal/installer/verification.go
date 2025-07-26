@@ -66,6 +66,8 @@ func (r *DefaultRuntimeInstaller) verifyBasicInstallation(result *types.Verifica
 		versionArgs = []string{"--version"}
 	} else if def.Name == "python" {
 		versionArgs = []string{"--version"}
+	} else if def.Name == "go" {
+		versionArgs = []string{"version"}
 	}
 	
 	versionResult, err := executor.Execute(commandName, versionArgs, 10*time.Second)
