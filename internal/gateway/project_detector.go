@@ -274,7 +274,7 @@ func (s *ProjectLanguageScanner) initializeLanguagePatterns() {
 		{
 			Language:    "kotlin",
 			Extensions:  []string{".kt", ".kts"},
-			BuildFiles:  []string{"build.gradle.kts", "pom.xml", "settings.gradle.kts"},
+			BuildFiles:  []string{"build.gradle.kts", "settings.gradle.kts"},
 			ConfigFiles: []string{"application.conf", "application.yml"},
 			SourceDirs:  []string{"src/main/kotlin", "src", "main"},
 			TestDirs:    []string{"src/test/kotlin", "test"},
