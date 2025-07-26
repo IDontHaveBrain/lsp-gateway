@@ -64,7 +64,7 @@ func CreateMockDetectionReport(platform platform.Platform, arch platform.Archite
 		Runtimes: map[string]*setup.RuntimeInfo{
 			"go":     CreateMockRuntimeInfo("go", "1.24.0", "/usr/local/go/bin/go", true, true),
 			"python": CreateMockRuntimeInfo("python", "3.11.0", "/usr/bin/python3", true, true),
-			"nodejs": CreateMockRuntimeInfo("nodejs", "20.0.0", "/usr/bin/node", true, true),
+			"nodejs": CreateMockRuntimeInfo("nodejs", "22.0.0", "/usr/bin/node", true, true),
 			"java":   CreateMockRuntimeInfo("java", "17.0.0", "/usr/bin/java", true, true),
 		},
 		Summary: setup.DetectionSummary{

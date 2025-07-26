@@ -92,6 +92,7 @@ func (u *UniversalServerStrategy) InstallServer(server string, options types.Ser
 			Runtime:  server,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Unsupported server: %s", server)},
+			Details:  map[string]interface{}{"server": server},
 		}, fmt.Errorf("unsupported server: %s", server)
 	}
 }
@@ -112,6 +113,7 @@ func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOption
 				Method:   "already_installed",
 				Duration: time.Since(start),
 				Messages: []string{"JDTLS already installed"},
+				Details:  map[string]interface{}{"server": ServerJDTLS, "executable": executablePath},
 			}, nil
 		}
 	}
@@ -124,6 +126,7 @@ func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOption
 			Runtime:  ServerJDTLS,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Failed to create temp directory: %v", err)},
+			Details:  map[string]interface{}{"server": ServerJDTLS},
 		}, err
 	}
 	defer func() { _ = os.RemoveAll(tempDir) }()
@@ -149,6 +152,7 @@ func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOption
 			Runtime:  ServerJDTLS,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Download failed: %v", downloadResult.Error)},
+			Details:  map[string]interface{}{"server": ServerJDTLS},
 		}, downloadResult.Error
 	}
 
@@ -159,6 +163,7 @@ func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOption
 			Runtime:  ServerJDTLS,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Failed to remove existing installation: %v", err)},
+			Details:  map[string]interface{}{"server": ServerJDTLS},
 		}, err
 	}
 
@@ -169,6 +174,7 @@ func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOption
 			Runtime:  ServerJDTLS,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Failed to extract archive: %v", err)},
+			Details:  map[string]interface{}{"server": ServerJDTLS},
 		}, err
 	}
 
@@ -179,6 +185,7 @@ func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOption
 			Runtime:  ServerJDTLS,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Failed to create executable script: %v", err)},
+			Details:  map[string]interface{}{"server": ServerJDTLS},
 		}, err
 	}
 
@@ -189,6 +196,7 @@ func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOption
 			Runtime:  ServerJDTLS,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Installation verification failed: %v", err)},
+			Details:  map[string]interface{}{"server": ServerJDTLS},
 		}, err
 	}
 
@@ -372,6 +380,7 @@ func (u *UniversalServerStrategy) installGopls(options types.ServerInstallOption
 			Runtime:  ServerGopls,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Installation failed: %v", err)},
+			Details:  map[string]interface{}{"server": ServerGopls},
 		}, err
 	}
 
@@ -381,6 +390,7 @@ func (u *UniversalServerStrategy) installGopls(options types.ServerInstallOption
 			Runtime:  ServerGopls,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Installation failed with exit code %d: %s", result.ExitCode, result.Stderr)},
+			Details:  map[string]interface{}{"server": ServerGopls},
 		}, fmt.Errorf("gopls installation failed")
 	}
 
@@ -390,6 +400,7 @@ func (u *UniversalServerStrategy) installGopls(options types.ServerInstallOption
 		Method:   "go_install",
 		Duration: time.Since(start),
 		Messages: []string{"Successfully installed gopls"},
+		Details:  map[string]interface{}{"server": ServerGopls},
 	}, nil
 }
 
@@ -404,6 +415,7 @@ func (u *UniversalServerStrategy) installPylsp(options types.ServerInstallOption
 			Runtime:  ServerPylsp,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Installation failed: %v", err)},
+			Details:  map[string]interface{}{"server": ServerPylsp},
 		}, err
 	}
 
@@ -413,6 +425,7 @@ func (u *UniversalServerStrategy) installPylsp(options types.ServerInstallOption
 			Runtime:  ServerPylsp,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Installation failed with exit code %d: %s", result.ExitCode, result.Stderr)},
+			Details:  map[string]interface{}{"server": ServerPylsp},
 		}, fmt.Errorf("pylsp installation failed")
 	}
 
@@ -422,6 +435,7 @@ func (u *UniversalServerStrategy) installPylsp(options types.ServerInstallOption
 		Method:   "pip_install",
 		Duration: time.Since(start),
 		Messages: []string{"Successfully installed python-lsp-server"},
+		Details:  map[string]interface{}{"server": ServerPylsp},
 	}, nil
 }
 
@@ -436,6 +450,7 @@ func (u *UniversalServerStrategy) installTypescriptLanguageServer(options types.
 			Runtime:  ServerTypeScriptLanguageServer,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Installation failed: %v", err)},
+			Details:  map[string]interface{}{"server": ServerTypeScriptLanguageServer},
 		}, err
 	}
 
@@ -445,6 +460,7 @@ func (u *UniversalServerStrategy) installTypescriptLanguageServer(options types.
 			Runtime:  ServerTypeScriptLanguageServer,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Installation failed with exit code %d: %s", result.ExitCode, result.Stderr)},
+			Details:  map[string]interface{}{"server": ServerTypeScriptLanguageServer},
 		}, fmt.Errorf("typescript-language-server installation failed")
 	}
 
@@ -454,6 +470,7 @@ func (u *UniversalServerStrategy) installTypescriptLanguageServer(options types.
 		Method:   "npm_global",
 		Duration: time.Since(start),
 		Messages: []string{"Successfully installed typescript-language-server"},
+		Details:  map[string]interface{}{"server": ServerTypeScriptLanguageServer},
 	}, nil
 }
 

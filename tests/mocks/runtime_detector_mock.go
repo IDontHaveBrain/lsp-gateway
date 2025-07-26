@@ -101,12 +101,12 @@ func (m *MockRuntimeDetector) DetectNodejs(ctx context.Context) (*setup.RuntimeI
 	return &setup.RuntimeInfo{
 		Name:      "nodejs",
 		Installed: true,
-		Version:   "20.0.0",
+		Version:   "22.0.0",
 		ParsedVersion: &setup.Version{
-			Major:    20,
+			Major:    22,
 			Minor:    0,
 			Patch:    0,
-			Original: "20.0.0",
+			Original: "22.0.0",
 		},
 		Compatible:   true,
 		MinVersion:   "22.0.0",

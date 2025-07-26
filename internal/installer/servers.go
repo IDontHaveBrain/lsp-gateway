@@ -113,6 +113,10 @@ func (s *DefaultServerInstaller) Install(server string, options types.ServerInst
 
 	if installResult != nil {
 		installResult.Duration = time.Since(startTime)
+		// Initialize Details map if nil to prevent panic
+		if installResult.Details == nil {
+			installResult.Details = make(map[string]interface{})
+		}
 		installResult.Details["platform"] = platform
 		return installResult, nil
 	}
