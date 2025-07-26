@@ -467,17 +467,259 @@ workflow_integration:
     collect_command: "python manage.py collectstatic --noinput"
     directories: ["static", "staticfiles"]
 
+# Django-Optimized SCIP Performance Configuration
+# SCIP indexing tuned for Django web applications with REST APIs,
+# background tasks, and modern Python development workflows
+performance_config:
+  # Django-Focused SCIP Configuration - Web Development
+  scip:
+    # Core SCIP settings optimized for Django
+    enabled: true
+    
+    # Django-specific index storage with app-aware organization
+    index_path: "/opt/lsp-gateway/django-scip-indices"
+    
+    # Balanced refresh for Django development cycles
+    auto_refresh: true
+    refresh_interval: "25m"  # Aligned with Django development cycles
+    
+    # Reliable fallback to pylsp for Django-specific features
+    fallback_to_lsp: true
+    fallback_timeout: "12s"  # Longer for Python startup
+    
+    # Django-optimized caching with app-aware partitioning
+    cache:
+      enabled: true
+      ttl: "75m"  # Good balance for Django development
+      max_size: 2500  # Appropriate for Django codebases
+      enable_app_partitioning: true  # Cache by Django apps
+      enable_virtual_env_awareness: true
+      
+    # Python/Django language settings
+    language_settings:
+      python:
+        enabled: true
+        
+        # Django-specific indexing strategies
+        indexing_strategies:
+          # Comprehensive Django analysis
+          django_full:
+            index_command: ["scip-python", "--django-mode", "--include-templates"]
+            index_timeout: "15m"
+            index_concurrency: 4
+            enable_django_orm_analysis: true
+            enable_template_analysis: true
+            enable_url_analysis: true
+            enable_form_analysis: true
+            django_settings_module: "myproject.settings.development"
+            
+          # Fast Django completion
+          django_fast:
+            index_command: ["scip-python", "--django-fast", "--skip-migrations"]
+            index_timeout: "8m" 
+            index_concurrency: 3
+            enable_django_orm_analysis: false
+            enable_template_analysis: false
+            django_settings_module: "myproject.settings.development"
+            
+          # Testing-focused analysis
+          django_test:
+            index_command: ["scip-python", "--django-test", "--include-factories"]
+            index_timeout: "10m"
+            index_concurrency: 2
+            enable_test_analysis: true
+            enable_factory_analysis: true
+            enable_fixture_analysis: true
+            django_settings_module: "myproject.settings.test"
+            
+        # Django-specific advanced features
+        django_features:
+          # Model and ORM analysis
+          orm:
+            enable_model_relationship_analysis: true
+            enable_migration_analysis: true
+            enable_queryset_optimization_hints: true
+            enable_database_index_suggestions: true
+            
+          # View and URL analysis
+          views:
+            enable_cbv_analysis: true  # Class-based views
+            enable_fbv_analysis: true  # Function-based views
+            enable_api_view_analysis: true  # DRF views
+            enable_permission_analysis: true
+            
+          # Template analysis
+          templates:
+            enable_template_inheritance_analysis: true
+            enable_template_tag_analysis: true
+            enable_static_file_analysis: true
+            enable_i18n_analysis: true
+            
+          # Forms and serializers
+          forms:
+            enable_form_validation_analysis: true
+            enable_modelform_analysis: true
+            enable_serializer_analysis: true  # DRF
+            
+          # Admin interface
+          admin:
+            enable_admin_class_analysis: true
+            enable_admin_customization_analysis: true
+            
+        # Virtual environment integration
+        virtual_env:
+          enable_auto_detection: true
+          venv_paths: [".venv", "venv", ".env", "env"]
+          requirements_files: ["requirements.txt", "requirements-dev.txt", "pyproject.toml"]
+          enable_poetry_support: true
+          enable_pipenv_support: true
+          
+        # Django project structure analysis
+        project_structure:
+          enable_apps_discovery: true
+          apps_directory: "apps"
+          settings_modules: [
+            "myproject.settings.development",
+            "myproject.settings.production", 
+            "myproject.settings.test"
+          ]
+          
+          # Directory-specific analysis
+          directories:
+            templates: "templates"
+            static: "static"
+            media: "media"
+            locale: "locale"
+            fixtures: "fixtures"
+            
+        # Framework integration
+        frameworks:
+          # Django REST Framework
+          drf:
+            enable_serializer_analysis: true
+            enable_viewset_analysis: true
+            enable_router_analysis: true
+            enable_permission_class_analysis: true
+            enable_pagination_analysis: true
+            
+          # Celery integration
+          celery:
+            enable_task_analysis: true
+            enable_beat_schedule_analysis: true
+            enable_worker_analysis: true
+            broker_url: "redis://localhost:6379/0"
+            
+          # Django Channels
+          channels:
+            enable_consumer_analysis: true
+            enable_websocket_analysis: true
+            enable_routing_analysis: true
+            
+        # Database integration
+        databases:
+          postgresql:
+            enable_migration_analysis: true
+            enable_index_optimization_hints: true
+            enable_query_analysis: true
+            
+          redis:
+            enable_cache_analysis: true
+            enable_session_analysis: true
+            
+    # Django-specific monitoring
+    monitoring:
+      enabled: true
+      
+      # Django application metrics
+      django_metrics:
+        track_model_query_time: true
+        track_template_render_time: true
+        track_view_response_time: true
+        track_migration_analysis_time: true
+        
+      # Python runtime metrics  
+      python_metrics:
+        track_import_resolution_time: true
+        track_virtual_env_activation_time: true
+        track_package_discovery_time: true
+        
+      # Development workflow metrics
+      workflow_metrics:
+        track_test_discovery_time: true
+        track_static_file_analysis_time: true
+        track_translation_analysis_time: true
+        
+    # Django development workflow integration
+    workflow_integration:
+      # Django management commands integration
+      management_commands:
+        enable_command_analysis: true
+        track_commonly_used_commands: [
+          "runserver", "migrate", "makemigrations", 
+          "collectstatic", "test", "shell", "createsuperuser"
+        ]
+        
+      # Development server integration
+      dev_server:
+        enable_auto_reload_analysis: true
+        enable_template_debugging: true
+        enable_sql_debugging: false  # Can be verbose
+        
+      # Testing integration
+      testing:
+        enable_pytest_integration: true
+        enable_django_test_integration: true
+        enable_factory_boy_integration: true
+        enable_coverage_analysis: true
+        
+      # Database workflow
+      database:
+        enable_migration_conflict_detection: true
+        enable_schema_analysis: true
+        enable_fixture_analysis: true
+        
+    # Smart routing for Django queries
+    smart_routing:
+      enabled: true
+      
+      # Django-specific routing strategies
+      routing_strategies:
+        # Route based on Django component type
+        component_based:
+          model_queries: "django_full"
+          view_queries: "django_full" 
+          template_queries: "django_full"
+          form_queries: "django_fast"
+          admin_queries: "django_fast"
+          
+        # Route based on development phase
+        development_phase:
+          initial_development: "django_fast"
+          feature_development: "django_full"
+          testing_phase: "django_test"
+          debugging: "django_full"
+          
+    # Django security and best practices
+    security:
+      enable_security_analysis: true
+      enable_csrf_analysis: true
+      enable_xss_detection: true
+      enable_sql_injection_detection: true
+      enable_secret_detection: true
+
 # Logging configuration
 logging:
   django_servers: true
   virtual_env_detection: true
   database_queries: false  # Can be verbose
   migration_tracking: true
+  scip_indexing: true  # Add SCIP-specific logging
   levels:
     pylsp: "info"
     django: "info"
     database: "warn"
     celery: "info"
+    scip_python: "info"  # SCIP indexer logging
 
 # Migration guide from basic Python configuration
 migration:

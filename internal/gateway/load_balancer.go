@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"lsp-gateway/internal/config"
+	configpkg "lsp-gateway/internal/config"
 )
 
 // LoadBalancerMetrics tracks load balancing performance
@@ -313,7 +313,7 @@ type LoadBalancer struct {
 
 // NewLoadBalancer creates a new load balancer with the specified strategy
 func NewLoadBalancer(strategy string) *LoadBalancer {
-	lbConfig := &config.LoadBalancingConfig{
+	lbConfig := &configpkg.LoadBalancingConfig{
 		Strategy:        strategy,
 		HealthThreshold: 0.8,
 		WeightFactors:   make(map[string]float64),
@@ -334,9 +334,9 @@ func NewLoadBalancer(strategy string) *LoadBalancer {
 }
 
 // NewLoadBalancerWithConfig creates a load balancer with specific configuration
-func NewLoadBalancerWithConfig(loadBalancingConfig *config.LoadBalancingConfig, logger *log.Logger) *LoadBalancer {
+func NewLoadBalancerWithConfig(loadBalancingConfig *configpkg.LoadBalancingConfig, logger *log.Logger) *LoadBalancer {
 	if loadBalancingConfig == nil {
-		loadBalancingConfig = &config.LoadBalancingConfig{
+		loadBalancingConfig = &configpkg.LoadBalancingConfig{
 			Strategy:        "round_robin",
 			HealthThreshold: 0.8,
 			WeightFactors:   make(map[string]float64),
@@ -451,12 +451,12 @@ func (lb *LoadBalancer) GetStrategy() string {
 }
 
 // SetStrategy changes the load balancing strategy
-func (lb *LoadBalancer) SetStrategy(strategy string, cfg *config.LoadBalancingConfig) error {
+func (lb *LoadBalancer) SetStrategy(strategy string, cfg *configpkg.LoadBalancingConfig) error {
 	lb.mu.Lock()
 	defer lb.mu.Unlock()
 
 	if cfg == nil {
-		cfg = &config.LoadBalancingConfig{
+		cfg = &configpkg.LoadBalancingConfig{
 			Strategy:        strategy,
 			HealthThreshold: 0.8,
 			WeightFactors:   make(map[string]float64),
@@ -502,7 +502,7 @@ func (lb *LoadBalancer) Reset() {
 	lb.metrics = NewLoadBalancerMetrics()
 
 	// Recreate selector to reset its internal state
-	lbConfig := &config.LoadBalancingConfig{
+	lbConfig := &configpkg.LoadBalancingConfig{
 		Strategy:        lb.strategy,
 		HealthThreshold: 0.8,
 		WeightFactors:   make(map[string]float64),

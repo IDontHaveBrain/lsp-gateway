@@ -193,7 +193,6 @@ func (sr *SmartRouterWithAggregation) routeWithEnhancement(request *LSPRequest) 
 	// Execute primary server first
 	primaryDecision := decisions[0]
 	primaryResult, primaryErr := sr.executeRequest(primaryDecision.Client, request)
-
 	// If primary succeeds and we have enhancement servers, query them
 	var enhancementResults []interface{}
 	var enhancementSources []string
@@ -222,7 +221,6 @@ func (sr *SmartRouterWithAggregation) routeWithEnhancement(request *LSPRequest) 
 	// Aggregate primary with enhancements
 	allResults := []interface{}{primaryResult}
 	allSources := []string{primaryDecision.TargetServers[0].Name}
-
 	for i, result := range enhancementResults {
 		if result != nil {
 			allResults = append(allResults, result)
@@ -250,7 +248,7 @@ func (sr *SmartRouterWithAggregation) routeWithEnhancement(request *LSPRequest) 
 	return &EnhancedAggregatedResponse{
 		AggregatedResponse: AggregatedResponse{
 			PrimaryResult:  aggregationResult.MergedResponse,
-			Strategy:       RoutingStrategyType(PrimaryWithEnhancement.Name()),
+			Strategy:       RoutingStrategyType(PrimaryWithEnhancementStrategyInstance.Name()),
 			ProcessingTime: time.Since(startTime),
 			ServerCount:    len(allResults),
 		},
@@ -440,7 +438,7 @@ func (sr *SmartRouterWithAggregation) createSingleTargetEnhancedResponse(result 
 	return &EnhancedAggregatedResponse{
 		AggregatedResponse: AggregatedResponse{
 			PrimaryResult: result,
-			Strategy:      RoutingStrategyType(SingleTargetWithFallback.Name()),
+			Strategy:      RoutingStrategyType(SingleTargetWithFallbackStrategy.Name()),
 			ServerCount:   1,
 		},
 		AggregationResult: aggregationResult,
@@ -502,9 +500,7 @@ func ExampleUsage() {
 		},
 		URI: "file:///path/to/file.go",
 		Context: &RequestContext{
-			FileURI:     "file:///path/to/file.go",
-			Language:    "go",
-			RequestType: LSP_METHOD_DEFINITION,
+			Language: "go",
 		},
 	}
 

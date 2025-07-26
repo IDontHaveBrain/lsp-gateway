@@ -2109,7 +2109,12 @@ func runSetupDetect(cmd *cobra.Command, args []string) error {
 
 	printSetupHeader("🔍 Starting LSP Gateway auto-detect setup...")
 
-	projectAnalysis, err := executeDetectPhases(ctx, result)
+	// Phase 1: Project Detection and Analysis
+	if setupVerbose && !setupJSON {
+		fmt.Println("🔍 Phase 1: Project Detection and Analysis")
+	}
+
+	projectAnalysis, err := performSetupProjectDetection(ctx, setupProjectPath, result)
 	if err != nil {
 		return err
 	}
@@ -2272,6 +2277,7 @@ func runMultiLanguageVerification(ctx context.Context, result *SetupResult) ([]s
 }
 
 func runEnhancedVerification(ctx context.Context, result *SetupResult) ([]string, error) {
+	var warnings []string // TODO: Implement enhanced verification warnings
 
 	// Enhanced verification with project-aware checks
 	if setupProjectPath != "" {
@@ -2281,6 +2287,7 @@ func runEnhancedVerification(ctx context.Context, result *SetupResult) ([]string
 	}
 
 	// Fallback to standard verification
+	_ = warnings // TODO: Use warnings when enhanced verification is implemented
 	return runFinalVerification(ctx, result)
 }
 

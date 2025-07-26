@@ -11,8 +11,6 @@ import (
 	"time"
 )
 
-// RoutingStrategyType defines different routing strategy types
-type RoutingStrategyType string
 
 const (
 	RoutingStrategySingle                 RoutingStrategyType = "single"
@@ -64,6 +62,8 @@ type RequestClassificationResult struct {
 	Timestamp              time.Time
 }
 
+// Note: RoutingStrategyType and constants are defined in smart_router.go
+
 // RequestTypeInfo provides detailed information about the LSP request type
 type RequestTypeInfo struct {
 	Method               string
@@ -112,6 +112,8 @@ type FrameworkInfo struct {
 	EntryPoints  []string
 	Dependencies []string
 }
+
+// Note: FrameworkDetector is defined in project_detector.go
 
 // RoutingHints provide optimization suggestions for request routing
 type RoutingHints struct {

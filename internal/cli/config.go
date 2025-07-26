@@ -768,16 +768,21 @@ func generateMultiLanguageConfig() (*config.GatewayConfig, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate multi-language configuration from project: %w", err)
 		}
-
+		
 		// result.Config is already a *config.GatewayConfig, no conversion needed
 		gatewayConfig := result.Config
-
+		
 		// Apply additional CLI flags
 		applyCliFlags(gatewayConfig)
-
-		fmt.Printf("✓ Multi-language configuration generated: %d servers\n",
-			result.ServersGenerated)
-
+		
+		languageCount := 0
+		if gatewayConfig.ProjectContext != nil {
+			languageCount = len(gatewayConfig.ProjectContext.Languages)
+		}
+		
+		fmt.Printf("✓ Multi-language configuration generated: %d servers, %d languages detected\n", 
+			result.ServersGenerated, languageCount)
+		
 		return gatewayConfig, nil
 	}
 
@@ -873,8 +878,17 @@ func generateProjectDetectedConfig() (*config.GatewayConfig, error) {
 	// Apply CLI flags
 	applyCliFlags(gatewayConfig)
 
+	languageCount := 0
+	projectType := "unknown"
+	if gatewayConfig.ProjectContext != nil {
+		languageCount = len(gatewayConfig.ProjectContext.Languages)
+		projectType = gatewayConfig.ProjectContext.ProjectType
+	}
+
 	fmt.Printf("✓ Project analysis complete:\n")
+	fmt.Printf("  Languages detected: %d\n", languageCount)
 	fmt.Printf("  Servers generated: %d\n", result.ServersGenerated)
+	fmt.Printf("  Project type: %s\n", projectType)
 
 	return gatewayConfig, nil
 }
@@ -899,7 +913,6 @@ func generateAutoDetectedConfig() (*config.GatewayConfig, error) {
 
 	// result.Config is already a *config.GatewayConfig, no conversion needed
 	gatewayConfig := result.Config
-
 	// Apply CLI flags and performance profile
 	applyCliFlags(gatewayConfig)
 
@@ -985,8 +998,8 @@ func ConfigMigrate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to load source configuration: %w", err)
 	}
 
-	// Migration configuration
-
+	// Enhanced configuration generator would be initialized here if needed for migration
+	
 	// Create migrated configuration with enhanced features
 	migratedCfg := migrateToEnhancedFormat(sourceCfg)
 
@@ -1486,11 +1499,14 @@ func migrateToEnhancedFormat(cfg *config.GatewayConfig) *config.GatewayConfig {
 				if !langMap[lang] {
 					langMap[lang] = true
 					pool := config.LanguageServerPool{
-						Language:            lang,
-						Servers:             make(map[string]*config.ServerConfig),
-						DefaultServer:       "",
-						LoadBalancingConfig: nil,
-						ResourceLimits:      nil,
+						Language:      lang,
+						Servers:       make(map[string]*config.ServerConfig),
+						DefaultServer: "",
+						LoadBalancingConfig: &config.LoadBalancingConfig{
+							Strategy:        "round_robin",
+							HealthThreshold: 0.8,
+						},
+						ResourceLimits: nil,
 					}
 					enhanced.LanguagePools = append(enhanced.LanguagePools, pool)
 				}

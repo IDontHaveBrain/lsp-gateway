@@ -58,10 +58,13 @@ type LanguageContext struct {
 
 // LanguageRanking represents a ranked language with scoring information
 type LanguageRanking struct {
-	Language   string           `json:"language" yaml:"language"`
-	Score      int              `json:"score" yaml:"score"`
-	Confidence float64          `json:"confidence" yaml:"confidence"`
-	Context    *LanguageContext `json:"context" yaml:"context"`
+	Language     string           `json:"language" yaml:"language"`
+	Score        float64          `json:"score" yaml:"score"`
+	FileCount    int              `json:"file_count" yaml:"file_count"`
+	BuildWeight  float64          `json:"build_weight" yaml:"build_weight"`
+	StructWeight float64          `json:"struct_weight" yaml:"struct_weight"`
+	Confidence   float64          `json:"confidence" yaml:"confidence"`
+	Context      *LanguageContext `json:"context" yaml:"context"`
 }
 
 // MultiLanguageProjectInfo represents comprehensive information about a multi-language project
@@ -708,7 +711,7 @@ func (s *ProjectLanguageScanner) calculateLanguagePriorities(stats map[string]*L
 
 		rankings = append(rankings, LanguageRanking{
 			Language:   langStats.Language,
-			Score:      int(totalScore),
+			Score:      totalScore,
 			Confidence: confidence,
 			Context:    nil, // Will be populated later
 		})
@@ -732,7 +735,7 @@ func (s *ProjectLanguageScanner) identifyProjectType(languages []LanguageRanking
 	}
 
 	// Calculate language distribution
-	totalScore := 0
+	totalScore := 0.0
 	for _, lang := range languages {
 		totalScore += lang.Score
 	}
@@ -2016,7 +2019,7 @@ func (s *ProjectLanguageScanner) convertLegacyToNewFormat(rankings []LanguageRan
 			RootPath:       rootPath,
 			FileCount:      1, // Default file count since ranking doesn't have FileCount
 			TestFileCount:  0, // This would need to be calculated properly in a full implementation
-			Priority:       ranking.Score,
+			Priority:       int(ranking.Score),
 			Confidence:     ranking.Confidence,
 			BuildFiles:     []string{}, // This would need to be populated from the scan
 			ConfigFiles:    []string{}, // This would need to be populated from the scan

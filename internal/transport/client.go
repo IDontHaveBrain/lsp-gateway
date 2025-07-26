@@ -50,11 +50,17 @@ const (
 )
 
 func NewLSPClient(config ClientConfig) (LSPClient, error) {
+	return NewLSPClientWithSCIP(config, nil)
+}
+
+// NewLSPClientWithSCIP creates a new LSP client with optional SCIP indexer support.
+// Pass nil for scipIndexer to disable SCIP indexing.
+func NewLSPClientWithSCIP(config ClientConfig, scipIndexer SCIPIndexer) (LSPClient, error) {
 	switch config.Transport {
 	case TransportStdio:
-		return NewStdioClient(config)
+		return NewStdioClientWithSCIP(config, scipIndexer)
 	case TransportTCP:
-		return NewTCPClient(config)
+		return NewTCPClientWithSCIP(config, scipIndexer)
 	default:
 		return nil, fmt.Errorf("%s: %s", ErrorUnsupportedTransport, config.Transport)
 	}

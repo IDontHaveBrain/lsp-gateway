@@ -11,6 +11,7 @@ import (
 	"lsp-gateway/internal/transport"
 )
 
+
 // Core routing decision types
 
 // RoutingDecision represents a complete routing decision with all required context
@@ -40,8 +41,8 @@ type RoutingDecision struct {
 	Language        string                   `json:"language,omitempty"`
 }
 
-// RequestContext contains comprehensive context information about the LSP request
-type RequestContext struct {
+// RoutingRequestContext contains basic context information for routing decisions
+type RoutingRequestContext struct {
 	FileURI              string            `json:"file_uri"`
 	Language             string            `json:"language"`
 	RequestType          string            `json:"request_type"`
@@ -112,7 +113,7 @@ type ServerPerformance struct {
 
 // Global strategy instances
 var (
-	PrimaryWithEnhancement = &PrimaryWithEnhancementStrategy{}
+	PrimaryWithEnhancementStrategyInstance = &PrimaryWithEnhancementStrategy{}
 )
 
 // Response aggregation interfaces and implementations
@@ -128,11 +129,92 @@ type ServerResponse struct {
 	Success      bool          `json:"success"`
 }
 
+// SymbolsAggregator aggregates document and workspace symbol responses
+type SymbolsAggregator struct{}
+
+func (sa *SymbolsAggregator) Aggregate(responses []interface{}, sources []string) (interface{}, error) {
+	var allSymbols []interface{}
+	successCount := 0
+	errorCount := 0
+	var primary interface{}
+
+	for _, resp := range responses {
+		if resp != nil {
+			successCount++
+			
+			if primary == nil {
+				primary = resp
+			}
+			
+			allSymbols = append(allSymbols, resp)
+		} else {
+			errorCount++
+		}
+	}
+
+	// Merge symbols and organize by relevance
+	aggregated := mergeSymbols(allSymbols)
+
+	return &AggregatedResponse{
+		PrimaryResponse:    primary,
+		SecondaryResponses: allSymbols[1:],
+		AggregatedResult:   aggregated,
+		ResponseSources:    sources,
+		AggregationMethod:  "symbols_merge",
+		SuccessCount:       successCount,
+		ErrorCount:         errorCount,
+	}, nil
+}
+
+func (sa *SymbolsAggregator) GetAggregationType() string {
+	return "symbols"
+}
+
+func (sa *SymbolsAggregator) SupportedMethods() []string {
+	return []string{"textDocument/documentSymbol", "workspace/symbol"}
+}
+
+// FirstSuccessAggregator returns the first successful response
+type FirstSuccessAggregator struct{}
+
+func (fsa *FirstSuccessAggregator) Aggregate(responses []interface{}, sources []string) (interface{}, error) {
+	for i, resp := range responses {
+		if resp != nil {
+			sourceName := ""
+			if i < len(sources) {
+				sourceName = sources[i]
+			}
+			return &AggregatedResponse{
+				PrimaryResponse:   resp,
+				AggregatedResult:  resp,
+				ResponseSources:   []string{sourceName},
+				AggregationMethod: "first_success",
+				SuccessCount:      1,
+				ErrorCount:        len(responses) - 1,
+			}, nil
+		}
+	}
+
+	return &AggregatedResponse{
+		AggregationMethod: "first_success",
+		SuccessCount:      0,
+		ErrorCount:        len(responses),
+	}, fmt.Errorf("no successful responses")
+}
+
+func (fsa *FirstSuccessAggregator) GetAggregationType() string {
+	return "first_success"
+}
+
+func (fsa *FirstSuccessAggregator) SupportedMethods() []string {
+	return []string{"*"} // Supports all methods as fallback
+}
+
 // Routing strategy interface and implementations
 
 // RoutingStrategy defines how requests should be routed to language servers
 type RoutingStrategy interface {
-	Route(request *LSPRequest, availableServers []*RoutingServerInstance) (*RoutingDecision, error)
+	Route(request *LSPRequest, availableServers []*ServerInstance) (*RoutingDecision, error)
 	Name() string
 	Description() string
 }
@@ -140,7 +222,7 @@ type RoutingStrategy interface {
 // SingleServerStrategy routes to a single best server
 type SingleServerStrategy struct{}
 
-func (sss *SingleServerStrategy) Route(request *LSPRequest, availableServers []*RoutingServerInstance) (*RoutingDecision, error) {
+func (sss *SingleServerStrategy) Route(request *LSPRequest, availableServers []*ServerInstance) (*RoutingDecision, error) {
 	if len(availableServers) == 0 {
 		return nil, fmt.Errorf("no available servers for request")
 	}
@@ -153,8 +235,11 @@ func (sss *SingleServerStrategy) Route(request *LSPRequest, availableServers []*
 
 	aggregator := getAggregatorForMethod(request.Method)
 
+	// Convert ServerInstance to RoutingServerInstance for routing decision
+	routingServer := convertToRoutingServerInstance(bestServer)
+
 	return &RoutingDecision{
-		TargetServers:      []*RoutingServerInstance{bestServer},
+		TargetServers:      []*RoutingServerInstance{routingServer},
 		RoutingStrategy:    "single_server",
 		RequestContext:     request.Context,
 		ResponseAggregator: aggregator,
@@ -176,7 +261,7 @@ func (sss *SingleServerStrategy) Description() string {
 // MultiServerStrategy routes to multiple servers and aggregates responses
 type MultiServerStrategy struct{}
 
-func (mss *MultiServerStrategy) Route(request *LSPRequest, availableServers []*RoutingServerInstance) (*RoutingDecision, error) {
+func (mss *MultiServerStrategy) Route(request *LSPRequest, availableServers []*ServerInstance) (*RoutingDecision, error) {
 	if len(availableServers) == 0 {
 		return nil, fmt.Errorf("no available servers for request")
 	}
@@ -189,8 +274,14 @@ func (mss *MultiServerStrategy) Route(request *LSPRequest, availableServers []*R
 
 	aggregator := getAggregatorForMethod(request.Method)
 
+	// Convert ServerInstances to RoutingServerInstances
+	routingServers := make([]*RoutingServerInstance, len(suitableServers))
+	for i, server := range suitableServers {
+		routingServers[i] = convertToRoutingServerInstance(server)
+	}
+
 	return &RoutingDecision{
-		TargetServers:      suitableServers,
+		TargetServers:      routingServers,
 		RoutingStrategy:    "multi_server",
 		RequestContext:     request.Context,
 		ResponseAggregator: aggregator,
@@ -212,7 +303,7 @@ func (mss *MultiServerStrategy) Description() string {
 // PrimaryWithEnhancementStrategy routes to a primary server with optional enhancement from secondary servers
 type PrimaryWithEnhancementStrategy struct{}
 
-func (pwes *PrimaryWithEnhancementStrategy) Route(request *LSPRequest, availableServers []*RoutingServerInstance) (*RoutingDecision, error) {
+func (pwes *PrimaryWithEnhancementStrategy) Route(request *LSPRequest, availableServers []*ServerInstance) (*RoutingDecision, error) {
 	if len(availableServers) == 0 {
 		return nil, fmt.Errorf("no available servers for request")
 	}
@@ -225,8 +316,11 @@ func (pwes *PrimaryWithEnhancementStrategy) Route(request *LSPRequest, available
 
 	aggregator := getAggregatorForMethod(request.Method)
 
+	// Convert ServerInstance to RoutingServerInstance
+	routingServer := convertToRoutingServerInstance(primaryServer)
+
 	return &RoutingDecision{
-		TargetServers:      []*RoutingServerInstance{primaryServer},
+		TargetServers:      []*RoutingServerInstance{routingServer},
 		RoutingStrategy:    "primary_with_enhancement",
 		RequestContext:     request.Context,
 		ResponseAggregator: aggregator,
@@ -247,11 +341,11 @@ func (pwes *PrimaryWithEnhancementStrategy) Description() string {
 
 // Helper functions for context creation and server selection
 
-// CreateRequestContextFromURI creates a RequestContext from a file URI and workspace information
-func CreateRequestContextFromURI(uri string, workspaceRoot string, projectType string) *RequestContext {
+// CreateRequestContextFromURI creates a RoutingRequestContext from a file URI and workspace information
+func CreateRequestContextFromURI(uri string, workspaceRoot string, projectType string) *RoutingRequestContext {
 	language := detectLanguageFromURI(uri)
 
-	return &RequestContext{
+	return &RoutingRequestContext{
 		FileURI:              uri,
 		Language:             language,
 		RequestType:          "file_based",
@@ -264,9 +358,9 @@ func CreateRequestContextFromURI(uri string, workspaceRoot string, projectType s
 	}
 }
 
-// CreateWorkspaceRequestContext creates a RequestContext for workspace-wide operations
-func CreateWorkspaceRequestContext(workspaceRoot string, projectType string, languages []string) *RequestContext {
-	return &RequestContext{
+// CreateWorkspaceRequestContext creates a RoutingRequestContext for workspace-wide operations
+func CreateWorkspaceRequestContext(workspaceRoot string, projectType string, languages []string) *RoutingRequestContext {
+	return &RoutingRequestContext{
 		FileURI:              "",
 		Language:             determineMainLanguage(languages),
 		RequestType:          "workspace",
@@ -322,7 +416,8 @@ func PreprocessLSPRequest(request *LSPRequest) error {
 
 	// Create or enhance context
 	if request.Context == nil && request.URI != "" {
-		request.Context = CreateRequestContextFromURI(request.URI, "", "")
+		routingCtx := CreateRequestContextFromURI(request.URI, "", "")
+		request.Context = convertRoutingToRequestContext(routingCtx)
 	}
 
 	return nil
@@ -330,12 +425,12 @@ func PreprocessLSPRequest(request *LSPRequest) error {
 
 // Server selection utilities
 
-func selectBestServer(servers []*RoutingServerInstance, context *RequestContext) *RoutingServerInstance {
-	var bestServer *RoutingServerInstance
+func selectBestServer(servers []*ServerInstance, context *RequestContext) *ServerInstance {
+	var bestServer *ServerInstance
 	bestScore := -1.0
 
 	for _, server := range servers {
-		if !server.Available {
+		if !server.IsHealthy() {
 			continue
 		}
 
@@ -349,11 +444,11 @@ func selectBestServer(servers []*RoutingServerInstance, context *RequestContext)
 	return bestServer
 }
 
-func selectSuitableServers(servers []*RoutingServerInstance, context *RequestContext) []*RoutingServerInstance {
-	var suitable []*RoutingServerInstance
+func selectSuitableServers(servers []*ServerInstance, context *RequestContext) []*ServerInstance {
+	var suitable []*ServerInstance
 
 	for _, server := range servers {
-		if !server.Available {
+		if !server.IsHealthy() {
 			continue
 		}
 
@@ -365,56 +460,81 @@ func selectSuitableServers(servers []*RoutingServerInstance, context *RequestCon
 	return suitable
 }
 
+func selectLeastLoadedServer(servers []*ServerInstance, context *RequestContext) *ServerInstance {
+	var bestServer *ServerInstance
+	lowestLoad := float64(1000000) // High initial value
 
-func calculateServerScore(server *RoutingServerInstance, context *RequestContext) float64 {
+	for _, server := range servers {
+		if !server.IsHealthy() {
+			continue
+		}
+
+		if !isServerSuitableForContext(server, context) {
+			continue
+		}
+
+		// Calculate load score based on metrics
+		metrics := server.GetMetrics()
+		loadScore := float64(metrics.ActiveConnections) + metrics.ErrorRate
+		
+		if loadScore < lowestLoad {
+			lowestLoad = loadScore
+			bestServer = server
+		}
+	}
+
+	return bestServer
+}
+
+func calculateServerScore(server *ServerInstance, context *RequestContext) float64 {
 	score := 0.0
 
 	// Language match (most important)
-	if server.Language == context.Language {
+	if supportsLanguage(server, context.Language) {
 		score += 100.0
-	} else if supportsLanguage(server, context.Language) {
-		score += 50.0
 	}
 
 	// Performance metrics
-	if server.Performance != nil {
-		score += server.Performance.SuccessRate * 20.0
-
+	metrics := server.GetMetrics()
+	if metrics != nil {
+		successRate := float64(metrics.SuccessCount) / float64(metrics.RequestCount)
+		if metrics.RequestCount == 0 {
+			successRate = 1.0 // Default for new servers
+		}
+		score += successRate * 20.0
+		
 		// Lower response time is better
-		if server.Performance.AverageResponseTime > 0 {
-			responseTimeScore := 1000.0 / float64(server.Performance.AverageResponseTime.Milliseconds())
-			score += responseTimeScore
+		if metrics.RequestCount > 0 {
+			avgResponseTime := float64(metrics.TotalResponseTime.Milliseconds()) / float64(metrics.RequestCount)
+			if avgResponseTime > 0 {
+				responseTimeScore := 1000.0 / avgResponseTime
+				score += responseTimeScore
+			}
 		}
 
-		// Circuit breaker penalty
-		if server.Performance.CircuitBreakerOpen {
-			score -= 50.0
-		}
+		// Error rate penalty
+		score -= metrics.ErrorRate * 30.0
+
+		// Load score (lower is better) - calculate from metrics
+		loadScore := float64(metrics.ActiveConnections) + metrics.ErrorRate
+		score -= loadScore
 	}
 
-	// Load score (lower is better)
-	score -= server.LoadScore
-
-	// Priority and weight
-	score += float64(server.Priority) * 10.0
-	score *= server.Weight
+	// Priority and weight from config
+	score += float64(server.GetConfig().Priority) * 10.0
 
 	return score
 }
 
-func isServerSuitableForContext(server *RoutingServerInstance, context *RequestContext) bool {
+func isServerSuitableForContext(server *ServerInstance, context *RequestContext) bool {
 	// Check language support
-	if server.Language == context.Language {
-		return true
-	}
-
 	if supportsLanguage(server, context.Language) {
 		return true
 	}
 
 	// Check if server is in the supported servers list
 	for _, supportedServer := range context.SupportedServers {
-		if server.Name == supportedServer {
+		if server.GetConfig().Name == supportedServer {
 			return true
 		}
 	}
@@ -422,12 +542,13 @@ func isServerSuitableForContext(server *RoutingServerInstance, context *RequestC
 	return false
 }
 
-func supportsLanguage(server *RoutingServerInstance, language string) bool {
-	if server.Config == nil {
+func supportsLanguage(server *ServerInstance, language string) bool {
+	config := server.GetConfig()
+	if config == nil {
 		return false
 	}
 
-	for _, lang := range server.Config.Languages {
+	for _, lang := range config.Languages {
 		if lang == language {
 			return true
 		}
@@ -440,8 +561,12 @@ func supportsLanguage(server *RoutingServerInstance, language string) bool {
 
 // TODO: Update to use response_aggregator.go registry system
 func getAggregatorForMethod(method string) ResponseAggregator {
-	// Temporary stub - needs to be updated to work with response_aggregator.go
-	return nil
+	switch method {
+	case LSP_METHOD_DOCUMENT_SYMBOL, LSP_METHOD_WORKSPACE_SYMBOL:
+		return &SymbolsAggregator{}
+	default:
+		return &FirstSuccessAggregator{}
+	}
 }
 
 
@@ -617,21 +742,110 @@ func (rd *RoutingDecision) SupportsAggregation() bool {
 // Enhanced request context methods
 
 // IsFileBasedRequest returns true if the request is for a specific file
-func (rc *RequestContext) IsFileBasedRequest() bool {
+func (rc *RoutingRequestContext) IsFileBasedRequest() bool {
 	return rc.FileURI != "" && rc.RequestType == "file_based"
 }
 
 // IsWorkspaceRequest returns true if the request is workspace-wide
-func (rc *RequestContext) IsWorkspaceRequest() bool {
+func (rc *RoutingRequestContext) IsWorkspaceRequest() bool {
 	return rc.RequestType == "workspace"
 }
 
 // GetFileExtension returns the file extension from the URI
-func (rc *RequestContext) GetFileExtension() string {
+func (rc *RoutingRequestContext) GetFileExtension() string {
 	if rc.FileURI == "" {
 		return ""
 	}
 	return filepath.Ext(rc.FileURI)
+}
+
+// Helper functions for type conversion
+
+// convertToRoutingServerInstance converts a ServerInstance to RoutingServerInstance
+func convertToRoutingServerInstance(server *ServerInstance) *RoutingServerInstance {
+	config := server.GetConfig()
+	language := ""
+	if len(config.Languages) > 0 {
+		language = config.Languages[0] // Use first language as primary
+	}
+
+	return &RoutingServerInstance{
+		Name:        config.Name,
+		Language:    language,
+		Available:   server.IsHealthy(),
+		LoadScore:   0.0, // Could be calculated from metrics if needed
+		Config:      config,
+		Client:      server.GetClient(),
+		LastUsed:    time.Now(),
+		Priority:    config.Priority,
+		Weight:      1.0, // Default weight
+		Performance: convertToServerPerformance(server.GetMetrics()),
+	}
+}
+
+// convertToServerPerformance converts metrics to ServerPerformance
+func convertToServerPerformance(metrics *SimpleServerMetrics) *ServerPerformance {
+	if metrics == nil {
+		return nil
+	}
+
+	var avgResponseTime time.Duration
+	if metrics.RequestCount > 0 {
+		avgResponseTime = time.Duration(metrics.TotalResponseTime.Nanoseconds() / metrics.RequestCount)
+	}
+
+	successRate := float64(1.0)
+	if metrics.RequestCount > 0 {
+		successRate = float64(metrics.SuccessCount) / float64(metrics.RequestCount)
+	}
+
+	return &ServerPerformance{
+		AverageResponseTime: avgResponseTime,
+		RequestCount:        metrics.RequestCount,
+		ErrorCount:          metrics.FailureCount,
+		SuccessRate:         successRate,
+		CircuitBreakerOpen:  false, // Would need circuit breaker state
+	}
+}
+
+// convertRoutingToRequestContext converts RoutingRequestContext to RequestContext
+func convertRoutingToRequestContext(routingCtx *RoutingRequestContext) *RequestContext {
+	if routingCtx == nil {
+		return nil
+	}
+
+	return &RequestContext{
+		FileURI:              routingCtx.FileURI,
+		Language:             routingCtx.Language,
+		RequestType:          routingCtx.RequestType,
+		WorkspaceRoot:        routingCtx.WorkspaceRoot,
+		ProjectType:          routingCtx.ProjectType,
+		CrossLanguageContext: routingCtx.CrossLanguageContext,
+		RequiresAggregation:  routingCtx.RequiresAggregation,
+		SupportedServers:     routingCtx.SupportedServers,
+		AdditionalContext:    convertStringMapToInterface(routingCtx.AdditionalContext),
+		WorkspaceID:          routingCtx.WorkspaceID,
+	}
+}
+
+// mergeSymbols merges symbol responses from multiple servers
+func mergeSymbols(symbols []interface{}) interface{} {
+	if len(symbols) == 0 {
+		return []interface{}{}
+	}
+
+	// For now, return all symbols combined
+	// In a more sophisticated implementation, this could deduplicate and organize
+	var merged []interface{}
+	for _, symbolSet := range symbols {
+		if symbolList, ok := symbolSet.([]interface{}); ok {
+			merged = append(merged, symbolList...)
+		} else {
+			merged = append(merged, symbolSet)
+		}
+	}
+
+	return merged
 }
 
 // Enhanced server instance methods
@@ -680,4 +894,16 @@ func (si *RoutingServerInstance) IsHealthy() bool {
 	return !si.Performance.CircuitBreakerOpen &&
 		si.Performance.SuccessRate >= 0.8 &&
 		time.Since(si.Performance.LastErrorTime) > time.Minute*5
+}
+
+// convertStringMapToInterface converts map[string]string to map[string]interface{}
+func convertStringMapToInterface(stringMap map[string]string) map[string]interface{} {
+	if stringMap == nil {
+		return nil
+	}
+	result := make(map[string]interface{})
+	for k, v := range stringMap {
+		result[k] = v
+	}
+	return result
 }

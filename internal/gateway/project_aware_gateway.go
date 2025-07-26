@@ -186,9 +186,7 @@ func (pag *EnhancedProjectAwareGateway) handleEnhancedRequestRouting(w http.Resp
 		URI:     uri,
 		JSONRPC: req.JSONRPC,
 		Context: &RequestContext{
-			FileURI:     uri,
 			Language:    language,
-			RequestType: req.Method,
 			WorkspaceID: workspace.GetID(),
 		},
 		Timestamp: time.Now(),
@@ -221,7 +219,7 @@ func (pag *EnhancedProjectAwareGateway) handleEnhancedRequestRouting(w http.Resp
 			if logger != nil {
 				logger.WithError(err).Error("Traditional routing failed")
 			}
-			pag.writeError(w, req.ID, MethodNotFound, "Method not found", err)
+			pag.writeError(w, req.ID, MethodNotFound, "Unable to route request", fmt.Errorf("no routing method available"))
 			return "", false
 		}
 		return serverName, true
@@ -233,7 +231,6 @@ func (pag *EnhancedProjectAwareGateway) handleEnhancedRequestRouting(w http.Resp
 	if len(decision.TargetServers) > 0 {
 		return decision.TargetServers[0].Name, true
 	}
-
 	return "", false
 }
 

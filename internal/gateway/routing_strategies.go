@@ -349,7 +349,7 @@ func (s *SingleTargetStrategy) Route(request *LSPRequest, availableServers []*St
 
 	decision := &RoutingDecision{
 		TargetServers:   []*RoutingServerInstance{serverInstance},
-		RoutingStrategy: "single_server",
+		RoutingStrategy: s.name,
 		Priority:        bestServer.Config.Priority,
 		Metadata: map[string]interface{}{
 			"health_score":       bestServer.HealthScore,
@@ -398,8 +398,10 @@ func (s *SingleTargetStrategy) calculateCompositeScore(server *StrategyServerIns
 	loadWeight := 0.3
 	configWeight := 0.3
 
+	healthScore := server.HealthScore
 	loadScore := 1.0 - server.LoadScore // Invert load score (lower load = higher score)
-	return (server.HealthScore * healthWeight) + (loadScore * loadWeight) + (server.Weight * configWeight)
+	weight := server.Weight
+	return (healthScore * healthWeight) + (loadScore * loadWeight) + (weight * configWeight)
 }
 
 // MultiTargetStrategy routes to multiple servers in parallel
@@ -472,13 +474,18 @@ func (m *MultiTargetStrategy) Route(request *LSPRequest, availableServers []*Str
 
 	var decisions []*RoutingDecision
 	for i, server := range selectedServers {
+		serverInstance := &RoutingServerInstance{
+			Name:     server.Config.Name,
+			Config:   server.Config,
+			Client:   server.Client,
+			Priority: server.Config.Priority,
+			Weight:   server.Weight,
+		}
+
 		decision := &RoutingDecision{
-			ServerName:   server.Config.Name,
-			ServerConfig: server.Config,
-			Client:       server.Client,
-			Priority:     server.Config.Priority,
-			Weight:       server.Weight,
-			Strategy:     nil,
+			TargetServers:   []*RoutingServerInstance{serverInstance},
+			RoutingStrategy: m.name,
+			Priority:        server.Config.Priority,
 			Metadata: map[string]interface{}{
 				"health_score":     server.HealthScore,
 				"load_score":       server.LoadScore,
@@ -609,13 +616,18 @@ func (b *BroadcastAggregateStrategy) Route(request *LSPRequest, availableServers
 
 	var decisions []*RoutingDecision
 	for i, server := range broadcastServers {
+		serverInstance := &RoutingServerInstance{
+			Name:     server.Config.Name,
+			Config:   server.Config,
+			Client:   server.Client,
+			Priority: server.Config.Priority,
+			Weight:   server.Weight,
+		}
+
 		decision := &RoutingDecision{
-			ServerName:   server.Config.Name,
-			ServerConfig: server.Config,
-			Client:       server.Client,
-			Priority:     server.Config.Priority,
-			Weight:       server.Weight,
-			Strategy:     nil,
+			TargetServers:   []*RoutingServerInstance{serverInstance},
+			RoutingStrategy: b.name,
+			Priority:        server.Config.Priority,
 			Metadata: map[string]interface{}{
 				"health_score":     server.HealthScore,
 				"broadcast_index":  i,
@@ -739,13 +751,18 @@ func (s *SequentialFallbackStrategy) Route(request *LSPRequest, availableServers
 	// Find the first healthy server that can handle the request
 	for i, server := range orderedServers {
 		if s.isServerSuitable(server) {
+			serverInstance := &RoutingServerInstance{
+				Name:     server.Config.Name,
+				Config:   server.Config,
+				Client:   server.Client,
+				Priority: server.Config.Priority,
+				Weight:   server.Weight,
+			}
+
 			decision := &RoutingDecision{
-				ServerName:   server.Config.Name,
-				ServerConfig: server.Config,
-				Client:       server.Client,
-				Priority:     server.Config.Priority,
-				Weight:       server.Weight,
-				Strategy:     nil,
+				TargetServers:   []*RoutingServerInstance{serverInstance},
+				RoutingStrategy: s.name,
+				Priority:        server.Config.Priority,
 				Metadata: map[string]interface{}{
 					"health_score":        server.HealthScore,
 					"fallback_level":      i,
@@ -857,13 +874,18 @@ func (l *LoadBalancedStrategy) Route(request *LSPRequest, availableServers []*St
 		return nil, fmt.Errorf("failed to select server using load balancing")
 	}
 
+	serverInstance := &RoutingServerInstance{
+		Name:     selectedServer.Config.Name,
+		Config:   selectedServer.Config,
+		Client:   selectedServer.Client,
+		Priority: selectedServer.Config.Priority,
+		Weight:   selectedServer.Weight,
+	}
+
 	decision := &RoutingDecision{
-		ServerName:   selectedServer.Config.Name,
-		ServerConfig: selectedServer.Config,
-		Client:       selectedServer.Client,
-		Priority:     selectedServer.Config.Priority,
-		Weight:       selectedServer.Weight,
-		Strategy:     nil,
+		TargetServers:   []*RoutingServerInstance{serverInstance},
+		RoutingStrategy: l.name,
+		Priority:        selectedServer.Config.Priority,
 		Metadata: map[string]interface{}{
 			"health_score":        selectedServer.HealthScore,
 			"load_score":          selectedServer.LoadScore,
@@ -934,13 +956,14 @@ func (l *LoadBalancedStrategy) selectLeastConnections(servers []*StrategyServerI
 
 	for _, server := range servers {
 		if server.Metrics != nil {
-			activeConns := server.Metrics.ActiveConnections
-			if int64(activeConns) < minConnections {
-				minConnections = int64(activeConns)
+			// Use LoadScore as a proxy for connection count (higher load = more connections)
+			loadValue := int64(server.LoadScore * 100) // Convert to comparable int
+			if loadValue < minConnections {
+				minConnections = loadValue
 				bestServer = server
 			}
 		} else {
-			// No metrics means no connections
+			// No metrics means low load
 			return server
 		}
 	}
@@ -1107,13 +1130,18 @@ func (c *CrossLanguageStrategy) Route(request *LSPRequest, availableServers []*S
 
 	var decisions []*RoutingDecision
 	for i, server := range selectedServers {
+		serverInstance := &RoutingServerInstance{
+			Name:     server.Config.Name,
+			Config:   server.Config,
+			Client:   server.Client,
+			Priority: server.Config.Priority,
+			Weight:   server.Weight,
+		}
+
 		decision := &RoutingDecision{
-			ServerName:   server.Config.Name,
-			ServerConfig: server.Config,
-			Client:       server.Client,
-			Priority:     server.Config.Priority,
-			Weight:       server.Weight,
-			Strategy:     nil,
+			TargetServers:   []*RoutingServerInstance{serverInstance},
+			RoutingStrategy: c.name,
+			Priority:        server.Config.Priority,
 			Metadata: map[string]interface{}{
 				"health_score":         server.HealthScore,
 				"supported_languages":  server.Config.Languages,
@@ -1324,6 +1352,9 @@ func (c *CrossLanguageStrategy) contains(slice []string, item string) bool {
 	return false
 }
 
+// Helper functions for server metrics and conversion
+
+
 // Helper function
 func min(a, b int) int {
 	if a < b {
@@ -1334,8 +1365,8 @@ func min(a, b int) int {
 
 // Global strategy instances
 var (
-	// SingleTargetWithFallback is the default routing strategy for single-target requests with fallback support
-	SingleTargetWithFallback = &SimpleRoutingStrategy{
+	// SingleTargetWithFallbackStrategy is the default routing strategy for single-target requests with fallback support
+	SingleTargetWithFallbackStrategy = &SimpleRoutingStrategy{
 		name:        "single_target_with_fallback",
 		description: "Routes to a single target server with fallback support",
 	}

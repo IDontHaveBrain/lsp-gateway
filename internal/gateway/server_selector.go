@@ -506,14 +506,22 @@ func (pb *PerformanceBasedSelector) calculatePerformanceScore(server *ServerInst
 	}
 
 	// Calculate response time score (lower is better, so invert)
-	responseTimeMs := float64(metrics.AverageResponseTime.Milliseconds())
-	responseTimeScore := 1.0 / (1.0 + responseTimeMs/1000.0)
+	// Use average response time calculated from total response time and request count
+	var responseTimeScore float64 = 1.0
+	if metrics.RequestCount > 0 {
+		averageResponseTime := metrics.TotalResponseTime / time.Duration(metrics.RequestCount)
+		responseTimeMs := float64(averageResponseTime.Milliseconds())
+		responseTimeScore = 1.0 / (1.0 + responseTimeMs/1000.0)
+	}
 
-	// Availability score is already between 0.0 and 1.0
-	availabilityScore := metrics.SuccessRate
+	// Availability score calculated from success rate
+	var availabilityScore float64 = 1.0
+	if metrics.RequestCount > 0 {
+		availabilityScore = float64(metrics.SuccessCount) / float64(metrics.RequestCount)
+	}
 
-	// Resource score based on health score
-	resourceScore := metrics.HealthScore
+	// Resource score based on inverse of error rate (health score)
+	resourceScore := 1.0 - metrics.ErrorRate
 
 	score := pb.serverScores[server.config.Name]
 	score.UpdateScore(responseTimeScore, availabilityScore, resourceScore, pb.weightFactors)
@@ -896,8 +904,11 @@ func (ha *HealthAwareSelector) isServerHealthy(server *ServerInstance) bool {
 		return false
 	}
 
-	return metrics.HealthScore >= ha.healthThreshold &&
-		metrics.CircuitBreakerState == "closed"
+	// Calculate health score from error rate (1.0 - error_rate)
+	healthScore := 1.0 - metrics.ErrorRate
+	
+	// For now, just check health score - circuit breaker is handled at transport level
+	return healthScore >= ha.healthThreshold
 }
 
 func (ha *HealthAwareSelector) getHealthyServers(pool *LanguageServerPool) []*ServerInstance {

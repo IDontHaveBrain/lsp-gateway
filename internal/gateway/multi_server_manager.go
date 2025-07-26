@@ -14,6 +14,70 @@ import (
 	"lsp-gateway/internal/transport"
 )
 
+// ResourceMonitor monitors system resource usage
+type ResourceMonitor struct {
+	ctx     context.Context
+	cancel  context.CancelFunc
+	running bool
+	mu      sync.RWMutex
+}
+
+// NewResourceMonitor creates a new resource monitor
+func NewResourceMonitor() *ResourceMonitor {
+	return &ResourceMonitor{
+		running: false,
+	}
+}
+
+// StartMonitoring starts resource monitoring
+func (rm *ResourceMonitor) StartMonitoring(ctx context.Context) error {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	
+	if rm.running {
+		return nil
+	}
+	
+	rm.ctx, rm.cancel = context.WithCancel(ctx)
+	rm.running = true
+	
+	// Start monitoring goroutine
+	go rm.monitorRoutine()
+	
+	return nil
+}
+
+// Stop stops resource monitoring
+func (rm *ResourceMonitor) Stop() {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+	
+	if !rm.running {
+		return
+	}
+	
+	if rm.cancel != nil {
+		rm.cancel()
+	}
+	rm.running = false
+}
+
+// monitorRoutine runs the monitoring loop
+func (rm *ResourceMonitor) monitorRoutine() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	
+	for {
+		select {
+		case <-rm.ctx.Done():
+			return
+		case <-ticker.C:
+			// Basic resource monitoring - placeholder for actual implementation
+			// In a real implementation, this would collect memory, CPU, etc.
+		}
+	}
+}
+
 // ServerState represents the current state of a server instance
 type ServerState int32
 
@@ -49,11 +113,12 @@ func (s ServerState) String() string {
 type ServerInstance struct {
 	config          *config.ServerConfig
 	client          transport.LSPClient
-	healthStatus    *HealthStatus
-	metrics         *ServerMetrics
+	healthStatus    *HealthStatusInfo
+	metrics         *SimpleServerMetrics
 	circuitBreaker  *CircuitBreaker
 	startTime       time.Time
 	lastUsed        int64 // Changed to int64 for atomic operations
+	processID       int
 	memoryUsage     int64
 	state           ServerState
 	mu              sync.RWMutex
@@ -64,8 +129,8 @@ func NewServerInstance(serverConfig *config.ServerConfig, client transport.LSPCl
 	return &ServerInstance{
 		config:         serverConfig,
 		client:         client,
-		healthStatus:   NewHealthStatus(),
-		metrics:        NewServerMetrics(),
+		healthStatus:   NewHealthStatusInfo(),
+		metrics:        NewSimpleServerMetrics(),
 		circuitBreaker: NewCircuitBreaker(10, 30*time.Second, 5),
 		startTime:      time.Now(),
 		lastUsed:       time.Now().UnixNano(), // Store as nanoseconds
@@ -149,7 +214,7 @@ func (si *ServerInstance) SendRequest(ctx context.Context, method string, params
 }
 
 // GetMetrics returns the server metrics
-func (si *ServerInstance) GetMetrics() *ServerMetrics {
+func (si *ServerInstance) GetMetrics() *SimpleServerMetrics {
 	si.mu.RLock()
 	defer si.mu.RUnlock()
 	return si.metrics.Copy()
@@ -169,6 +234,12 @@ func (si *ServerInstance) SetState(state ServerState) {
 	si.state = state
 }
 
+// GetLastUsedTime returns the last used timestamp as a time.Time
+func (si *ServerInstance) GetLastUsedTime() time.Time {
+	lastUsedNano := atomic.LoadInt64(&si.lastUsed)
+	return time.Unix(0, lastUsedNano)
+}
+
 // LanguageServerPool manages multiple servers for a single language
 type LanguageServerPool struct {
 	language          string
@@ -178,7 +249,7 @@ type LanguageServerPool struct {
 	healthMonitor     *HealthMonitor
 	resourceLimits    *config.ResourceLimits
 	selectionStrategy string
-	metrics           *PoolMetrics
+	metrics           *SimplePoolMetrics
 	mu                sync.RWMutex
 }
 
@@ -207,7 +278,7 @@ func NewLanguageServerPoolWithConfig(language string, resourceLimits *config.Res
 		healthMonitor:     NewHealthMonitor(30 * time.Second),
 		resourceLimits:    resourceLimits,
 		selectionStrategy: lbConfig.Strategy,
-		metrics:           NewPoolMetrics(),
+		metrics:           NewSimplePoolMetrics(),
 	}
 }
 
@@ -337,7 +408,7 @@ func (lsp *LanguageServerPool) rebuildActiveServers() {
 }
 
 // GetMetrics returns pool metrics
-func (lsp *LanguageServerPool) GetMetrics() *PoolMetrics {
+func (lsp *LanguageServerPool) GetMetrics() *SimplePoolMetrics {
 	lsp.mu.RLock()
 	defer lsp.mu.RUnlock()
 	return lsp.metrics.Copy()
@@ -906,3 +977,18 @@ func (msm *MultiServerManager) StartAll() error {
 func (msm *MultiServerManager) StopAll() error {
 	return msm.Stop()
 }
+
+// GetConfig returns the server configuration
+func (si *ServerInstance) GetConfig() *config.ServerConfig {
+	si.mu.RLock()
+	defer si.mu.RUnlock()
+	return si.config
+}
+
+// GetClient returns the LSP client
+func (si *ServerInstance) GetClient() transport.LSPClient {
+	si.mu.RLock()
+	defer si.mu.RUnlock()
+	return si.client
+}
+

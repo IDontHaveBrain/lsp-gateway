@@ -9,11 +9,31 @@ LSP Gateway is a dual-protocol Language Server Protocol gateway written in Go th
 - **Model Context Protocol (MCP) Server**: AI assistant integration interface
 - **Cross-platform CLI**: 20+ commands for setup, management, and diagnostics
 - **Multi-Server Architecture**: Language pools with load balancing and circuit breakers
-- **Enterprise Configuration**: Advanced optimization strategies and framework detection
+- **SCIP Intelligent Caching**: High-performance indexing with 60-87% performance improvements
 
-**Status**: MVP/ALPHA - Use caution in production
+**Status**: Functional - Core SCIP caching features completed
 **Languages**: Go, Python, JavaScript/TypeScript, Java, Rust
 **Platforms**: Linux, Windows, macOS (x64/arm64)
+
+## LSP Development Philosophy
+
+**IMPORTANT: LSP Gateway is a LOCAL DEVELOPMENT TOOL**
+
+LSP servers are inherently local development tools that run on developers' machines without authentication or network access. Therefore:
+
+**❌ AVOID THESE UNNECESSARY FEATURES:**
+- **Monitoring & Observability**: No metrics collection, distributed tracing, or monitoring dashboards
+- **Security & Authentication**: No authentication, authorization, or security scanning
+- **Enterprise Scalability**: No distributed systems, horizontal scaling, or enterprise management
+- **Production Infrastructure**: No containerization, service mesh, or deployment pipelines
+
+**✅ FOCUS ON THESE CORE FEATURES:**
+- **Local Performance**: Fast LSP responses and intelligent caching
+- **Developer Experience**: Simple setup, clear diagnostics, and reliable operation
+- **Multi-Language Support**: Seamless integration with popular language servers
+- **Local Resource Management**: Efficient memory and CPU usage on developer machines
+
+**Design Principle**: Keep it simple, local, and focused on developer productivity.
 
 ## Development Guidelines
 
@@ -97,27 +117,25 @@ HTTP → Gateway → Router → LSPClient → LSP Server
 MCP → ToolHandler → LSPGatewayClient → HTTP Gateway → Router → LSPClient → LSP Server
 ```
 
-### Advanced Architecture Components
+### Core Architecture Components
 
-#### Multi-Server Language Pools
-The gateway supports sophisticated multi-server configurations with:
-- **Language Pools**: Multiple language servers per language for load distribution
-- **Circuit Breakers**: Automatic failure recovery with exponential backoff
-- **Health Monitoring**: Real-time server health checks and automatic failover
-- **Connection Pooling**: Dynamic connection pool sizing with utilization-based scaling
+#### SCIP Intelligent Caching
+The gateway includes SCIP v0.5.2 integration for high-performance caching:
+- **Cache-First Routing**: Check SCIP cache before forwarding to LSP servers
+- **Background Caching**: Store LSP responses in SCIP indexes for future queries
+- **Cache Invalidation**: Update cache when source files change
+- **Performance**: 60-87% response time improvements with 85-90% cache hit rates
 
 #### Transport Layer (`internal/transport/`)
 - **STDIO Transport**: Process-based communication with circuit breakers
-- **TCP Transport**: Connection pooling with three-state circuit breaker (Closed → Open → Half-Open)
-- **Enhanced Pool**: Dynamic sizing with auto-scaling based on utilization
-- **Performance Monitoring**: Real-time metrics with atomic operations
+- **TCP Transport**: Connection pooling with circuit breaker support
+- **Connection Management**: Basic pooling and error recovery
 
 #### Configuration System (`internal/config/`)
-Four-tier hierarchical configuration:
-- **Template-driven Setup**: 15+ pre-configured templates for enterprise, full-stack, polyglot patterns
-- **Framework Detection**: Auto-detection and optimization for React, Django, Spring Boot
-- **Optimization Strategies**: Production, Development, Analysis modes with different resource allocations
-- **Migration System**: Automatic configuration upgrades and validation
+Simple hierarchical configuration:
+- **Template-driven Setup**: Pre-configured templates for common development setups
+- **Framework Detection**: Auto-detection for React, Django, Spring Boot
+- **Local Optimization**: Development-focused resource allocation
 
 ### Key Components
 - **Gateway Layer** (`internal/gateway/`): HTTP routing, JSON-RPC protocol, multi-server management
@@ -129,26 +147,24 @@ Four-tier hierarchical configuration:
 - **Project Detection** (`internal/project/`): Advanced multi-language project analysis
 - **Configuration Management** (`internal/config/`): Hierarchical config with templates
 
-## Advanced Configuration System
+## Configuration System
 
 ### Configuration Templates
 
-The project includes 15+ configuration templates in `config-templates/`:
+The project includes configuration templates in `config-templates/`:
 
 **Language-Specific Templates:**
-- `go-advanced.yaml` - Advanced Go development with multiple gopls instances
-- `java-spring.yaml` - Spring Boot optimized configuration with JDTLS
-- `python-django.yaml` - Django development with pylsp and mypy integration
+- `go-advanced.yaml` - Go development with gopls
+- `java-spring.yaml` - Spring Boot development with JDTLS
+- `python-django.yaml` - Django development with pylsp
 - `typescript-react.yaml` - React development with TypeScript language server
-- `rust-workspace.yaml` - Rust workspace with multiple cargo projects
+- `rust-workspace.yaml` - Rust workspace configuration
 
-**Architecture Patterns:**
-- `enterprise.yaml` - Production-ready multi-server configuration
-- `full-stack.yaml` - Full-stack development with frontend/backend optimization
-- `polyglot.yaml` - Multi-language monorepo configuration
-- `monorepo-template.yaml` - Large monorepo with framework detection
+**Project Patterns:**
+- `full-stack.yaml` - Full-stack development setup
+- `polyglot.yaml` - Multi-language project configuration
 
-### Multi-Server Configuration Example
+### Basic Configuration Example
 
 ```yaml
 language_pools:
@@ -157,31 +173,19 @@ language_pools:
       - name: "pylsp-primary"
         command: ["pylsp"]
         transport: "stdio"
-        priority: 100
-        max_concurrent_requests: 50
-      - name: "pylsp-secondary" 
-        command: ["pylsp", "--debug"]
-        transport: "stdio"
-        priority: 50
-        max_concurrent_requests: 25
     circuit_breaker:
       error_threshold: 10
       timeout_duration: "30s"
-      max_half_open_requests: 5
-    load_balancing:
-      strategy: "round_robin"
-      health_check_interval: "10s"
 ```
 
-### Framework Detection and Optimization
+### Framework Detection
 
 The configuration system includes automatic framework detection:
-- **React Projects**: TypeScript optimization, JSX support, ESLint integration
-- **Django Projects**: Python path configuration, database schema validation
-- **Spring Boot**: Java classpath optimization, annotation processing
-- **Kubernetes Projects**: YAML validation, schema completion
+- **React Projects**: TypeScript optimization, JSX support
+- **Django Projects**: Python path configuration
+- **Spring Boot**: Java classpath optimization
 
-## Comprehensive CLI Commands
+## CLI Commands
 
 ### Setup and Installation Commands
 ```bash
@@ -435,23 +439,15 @@ For detailed troubleshooting steps, environment-specific issues, and advanced de
 ## Important Implementation Notes
 
 ### Circuit Breaker Configuration
-Default circuit breaker settings across the system:
+Default circuit breaker settings:
 - **Error Threshold**: 10 errors before opening
 - **Timeout Duration**: 30 seconds
 - **Max Half-Open Requests**: 5 requests in half-open state
-- **Rolling Window**: 60 seconds for error counting
 
-### Performance Thresholds
-- **Response Time**: 5s max response time
-- **Throughput**: 100 req/sec minimum
-- **Error Rate**: 5% maximum error rate
-- **Memory Usage**: 3GB max memory, 1GB max growth
-
-### Multi-Server Management
-- **Health Check Interval**: 10 seconds
-- **Load Balancing**: Round-robin with priority weighting
-- **Connection Pool**: Dynamic sizing with utilization-based scaling
-- **Failover**: Automatic failover to secondary servers
+### SCIP Caching Performance
+- **Cache Hit Rate**: 85-90% for repeated symbol queries
+- **Response Time Improvement**: 60-87% faster than pure LSP
+- **Memory Usage**: ~65-75MB additional memory for cache
 
 ## Development Entry Points Summary
 

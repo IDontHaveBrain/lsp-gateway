@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"math/rand"
 	"net"
@@ -16,6 +17,13 @@ import (
 	"sync/atomic"
 	"time"
 )
+
+// tcpPendingRequest stores context for pending LSP requests to enable SCIP indexing
+type tcpPendingRequest struct {
+	respCh chan json.RawMessage
+	method string
+	params interface{}
+}
 
 type CircuitBreakerState int32
 
@@ -33,7 +41,7 @@ type TCPClient struct {
 	active   int32 // atomic flag for active state
 
 	// Request tracking with optimized synchronization
-	requests  map[string]chan json.RawMessage
+	requests  map[string]*tcpPendingRequest
 	requestMu sync.RWMutex
 	nextID    int64
 
@@ -49,6 +57,9 @@ type TCPClient struct {
 	baseDelay       time.Duration
 	circuitTimeout  time.Duration // time to wait before trying half-open
 	healthThreshold int64         // consecutive successes needed to close circuit
+
+	// SCIP indexer for background response caching
+	scipIndexer *SafeIndexerWrapper
 }
 
 // ConnectionPool manages TCP connections with health checking
@@ -70,6 +81,12 @@ type ConnectionHealth struct {
 }
 
 func NewTCPClient(config ClientConfig) (LSPClient, error) {
+	return NewTCPClientWithSCIP(config, nil)
+}
+
+// NewTCPClientWithSCIP creates a new TCP client with optional SCIP indexer support.
+// Pass nil for scipIndexer to disable SCIP indexing.
+func NewTCPClientWithSCIP(config ClientConfig, scipIndexer SCIPIndexer) (LSPClient, error) {
 	if config.Transport != TransportTCP {
 		return nil, fmt.Errorf("invalid transport for TCP client: %s", config.Transport)
 	}
@@ -82,16 +99,22 @@ func NewTCPClient(config ClientConfig) (LSPClient, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	connPool := NewConnectionPool(address, 5, ctx) // Pool of 5 connections
 
+	var scipWrapper *SafeIndexerWrapper
+	if scipIndexer != nil {
+		scipWrapper = NewSafeIndexerWrapper(scipIndexer, 10) // Default max 10 concurrent indexing goroutines
+	}
+
 	return &TCPClient{
 		config:          config,
 		connPool:        connPool,
-		requests:        make(map[string]chan json.RawMessage),
+		requests:        make(map[string]*tcpPendingRequest),
 		maxRetries:      5,
 		baseDelay:       100 * time.Millisecond,
 		circuitTimeout:  3 * time.Second,
 		healthThreshold: 1,
 		ctx:             ctx,
 		cancel:          cancel,
+		scipIndexer:     scipWrapper,
 	}, nil
 }
 
@@ -165,16 +188,26 @@ func (c *TCPClient) Stop() error {
 
 	// Clean up pending requests efficiently
 	c.requestMu.Lock()
-	for id, ch := range c.requests {
-		select {
-		case <-ch:
-			// Channel already closed
-		default:
-			close(ch)
+	for id, req := range c.requests {
+		if req != nil && req.respCh != nil {
+			select {
+			case <-req.respCh:
+				// Channel already closed
+			default:
+				close(req.respCh)
+			}
 		}
 		delete(c.requests, id)
 	}
 	c.requestMu.Unlock()
+
+	// Clean up SCIP indexer if present
+	if c.scipIndexer != nil {
+		if err := c.scipIndexer.Close(); err != nil {
+			// Log error but don't fail the shutdown
+			log.Printf("Error closing SCIP indexer: %v", err)
+		}
+	}
 
 	return nil
 }
@@ -191,23 +224,30 @@ func (c *TCPClient) SendRequest(ctx context.Context, method string, params inter
 
 	id := c.generateRequestID()
 	respCh := make(chan json.RawMessage, 1)
+	
+	// Store request context for SCIP indexing
+	pending := &tcpPendingRequest{
+		respCh: respCh,
+		method: method,
+		params: params,
+	}
 
 	// Register request efficiently
 	c.requestMu.Lock()
-	c.requests[id] = respCh
+	c.requests[id] = pending
 	c.requestMu.Unlock()
 
 	// Cleanup function without goroutines
 	defer func() {
 		c.requestMu.Lock()
-		if ch, exists := c.requests[id]; exists {
+		if req, exists := c.requests[id]; exists {
 			delete(c.requests, id)
-			if ch != nil {
+			if req != nil && req.respCh != nil {
 				select {
-				case <-ch:
+				case <-req.respCh:
 					// Already closed
 				default:
-					close(ch)
+					close(req.respCh)
 				}
 			}
 		}
@@ -415,10 +455,10 @@ func (c *TCPClient) handleMessage(msg *JSONRPCMessage) {
 
 	// Get response channel efficiently
 	c.requestMu.RLock()
-	respCh, exists := c.requests[idStr]
+	pending, exists := c.requests[idStr]
 	c.requestMu.RUnlock()
 
-	if !exists || respCh == nil {
+	if !exists || pending == nil || pending.respCh == nil {
 		return // No pending request for this ID
 	}
 
@@ -443,8 +483,11 @@ func (c *TCPClient) handleMessage(msg *JSONRPCMessage) {
 
 	// Send response without timeout (channel should not block)
 	select {
-	case respCh <- responseData:
-		// Successfully sent
+	case pending.respCh <- responseData:
+		// SCIP indexing hook - non-blocking background processing
+		if c.scipIndexer != nil && IsCacheableMethod(pending.method) {
+			c.scipIndexer.SafeIndexResponse(pending.method, pending.params, responseData, idStr)
+		}
 	default:
 		// Channel full or closed - request may have timed out
 	}

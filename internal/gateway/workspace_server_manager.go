@@ -108,9 +108,20 @@ func NewWorkspaceServerManager(workspaceID string, config *config.GatewayConfig,
 	maxServersPerLanguage := DefaultMaxServersPerLanguage
 	totalMemoryLimitMB := int64(DefaultTotalMemoryLimitMB)
 
-	// Use global configuration limits if available (currently using defaults)
-	if config != nil && config.MaxConcurrentServersPerLanguage > 0 {
-		maxServersPerLanguage = config.MaxConcurrentServersPerLanguage
+	// Use global configuration if available
+	if config != nil {
+		// Use existing MaxConcurrentServersPerLanguage field from GatewayConfig
+		if config.MaxConcurrentServersPerLanguage > 0 {
+			maxServersPerLanguage = config.MaxConcurrentServersPerLanguage
+		}
+		// For total memory limit, use a reasonable default based on max concurrent requests
+		if config.MaxConcurrentRequests > 0 {
+			// Estimate memory usage: assume ~100MB per concurrent request
+			estimatedMemoryMB := int64(config.MaxConcurrentRequests * 100)
+			if estimatedMemoryMB > totalMemoryLimitMB {
+				totalMemoryLimitMB = estimatedMemoryMB
+			}
+		}
 	}
 	// totalMemoryLimitMB uses default value since no config field exists
 
@@ -647,6 +658,12 @@ func (si *ServerInstance) UpdateMetrics(responseTime time.Duration, success bool
 	if success {
 		atomic.StoreInt64(&si.lastUsed, time.Now().UnixNano())
 	}
+}
+
+// GetLastUsedTime returns the last used timestamp as a time.Time
+func (wsm *WorkspaceServerManager) GetLastUsedTime() time.Time {
+	lastUsedNano := atomic.LoadInt64(&wsm.lastUsed)
+	return time.Unix(0, lastUsedNano)
 }
 
 // GetRequestHistory returns recent request history

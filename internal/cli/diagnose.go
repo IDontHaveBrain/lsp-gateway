@@ -28,7 +28,7 @@ var (
 	diagnosePerformance        bool
 	diagnoseRouting            bool
 	diagnoseResourceLimits     bool
-	diagnoseOptimizationFlag   bool
+	diagnoseOptimizationEnabled bool
 	diagnoseProjectPath        string
 	diagnoseCheckConsistency   bool
 	diagnosePerformanceMode    string
@@ -184,7 +184,7 @@ func init() {
 	diagnoseCmd.PersistentFlags().BoolVar(&diagnosePerformance, "performance", false, "Enable performance diagnostics")
 	diagnoseCmd.PersistentFlags().BoolVar(&diagnoseRouting, "routing", false, "Enable routing diagnostics")
 	diagnoseCmd.PersistentFlags().BoolVar(&diagnoseResourceLimits, "resource-limits", false, "Enable resource limit diagnostics")
-	diagnoseCmd.PersistentFlags().BoolVar(&diagnoseOptimizationFlag, "optimization", false, "Enable optimization diagnostics")
+	diagnoseCmd.PersistentFlags().BoolVar(&diagnoseOptimizationEnabled, "optimization", false, "Enable optimization diagnostics")
 	diagnoseCmd.PersistentFlags().StringVar(&diagnoseProjectPath, "project-path", "", "Project path for multi-language diagnostics")
 	diagnoseCmd.PersistentFlags().BoolVar(&diagnoseCheckConsistency, "check-consistency", false, "Enable consistency checking")
 	diagnoseCmd.PersistentFlags().StringVar(&diagnosePerformanceMode, "performance-mode", config.PerformanceProfileDevelopment, "Performance mode for diagnostics (development, production, analysis)")
@@ -1946,7 +1946,7 @@ func addEnhancedDiagnosticSummary(report *DiagnosticReport) {
 	if diagnoseResourceLimits {
 		enhancedFeatures = append(enhancedFeatures, "resource-limits")
 	}
-	if diagnoseOptimizationFlag {
+	if diagnoseOptimizationEnabled {
 		enhancedFeatures = append(enhancedFeatures, "optimization")
 	}
 	if diagnoseComprehensive {

@@ -190,7 +190,10 @@ type GatewayConfig struct {
 	EnableSmartRouting bool               `yaml:"enable_smart_routing,omitempty" json:"enable_smart_routing,omitempty"`
 	EnableEnhancements bool               `yaml:"enable_enhancements,omitempty" json:"enable_enhancements,omitempty"`
 	SmartRouterConfig  *SmartRouterConfig `yaml:"smart_router_config,omitempty" json:"smart_router_config,omitempty"`
-
+	
+	// SCIP Smart Router configuration
+	EnableSCIPRouting bool                    `yaml:"enable_scip_routing,omitempty" json:"enable_scip_routing,omitempty"`
+	SCIPConfig        *SCIPSmartRouterConfig `yaml:"scip_config,omitempty" json:"scip_config,omitempty"`
 	// Performance configuration
 	PerformanceConfig *PerformanceConfiguration `yaml:"performance_config,omitempty" json:"performance_config,omitempty"`
 }
@@ -205,6 +208,8 @@ type PerformanceConfiguration struct {
 	ResourceManager *ResourceManagerConfig `yaml:"resource_manager,omitempty" json:"resource_manager,omitempty"`
 	Timeouts        *TimeoutConfiguration  `yaml:"timeouts,omitempty" json:"timeouts,omitempty"`
 	LargeProject    *LargeProjectConfig    `yaml:"large_project,omitempty" json:"large_project,omitempty"`
+	SCIP            *SCIPConfiguration     `yaml:"scip,omitempty" json:"scip,omitempty"`
+	Storage         *StorageConfiguration  `yaml:"storage,omitempty" json:"storage,omitempty"`
 }
 
 // CachingConfiguration contains caching configuration
@@ -227,6 +232,76 @@ type CacheConfig struct {
 	Enabled bool          `yaml:"enabled" json:"enabled"`
 	TTL     time.Duration `yaml:"ttl,omitempty" json:"ttl,omitempty"`
 	MaxSize int64         `yaml:"max_size,omitempty" json:"max_size,omitempty"`
+}
+
+// SCIPConfiguration contains SCIP indexing configuration
+type SCIPConfiguration struct {
+	Enabled              bool                           `yaml:"enabled" json:"enabled"`
+	IndexPath            string                         `yaml:"index_path,omitempty" json:"index_path,omitempty"`
+	AutoRefresh          bool                           `yaml:"auto_refresh,omitempty" json:"auto_refresh,omitempty"`
+	RefreshInterval      time.Duration                  `yaml:"refresh_interval,omitempty" json:"refresh_interval,omitempty"`
+	FallbackToLSP        bool                           `yaml:"fallback_to_lsp,omitempty" json:"fallback_to_lsp,omitempty"`
+	CacheConfig          CacheConfig                    `yaml:"cache,omitempty" json:"cache,omitempty"`
+	LanguageSettings     map[string]*SCIPLanguageConfig `yaml:"language_settings,omitempty" json:"language_settings,omitempty"`
+}
+
+// SCIPLanguageConfig contains language-specific SCIP configuration
+type SCIPLanguageConfig struct {
+	Enabled           bool                   `yaml:"enabled" json:"enabled"`
+	IndexCommand      []string               `yaml:"index_command,omitempty" json:"index_command,omitempty"`
+	IndexTimeout      time.Duration          `yaml:"index_timeout,omitempty" json:"index_timeout,omitempty"`
+	IndexArguments    []string               `yaml:"index_arguments,omitempty" json:"index_arguments,omitempty"`
+	WorkspaceSettings map[string]interface{} `yaml:"workspace_settings,omitempty" json:"workspace_settings,omitempty"`
+}
+
+// SCIPSmartRouterConfig contains configuration for SCIP Smart Router integration
+type SCIPSmartRouterConfig struct {
+	StorePath          string                      `yaml:"store_path,omitempty" json:"store_path,omitempty"`
+	ProviderConfig     *SCIPProviderConfig         `yaml:"provider_config,omitempty" json:"provider_config,omitempty"`
+	RouterConfig       *SCIPRoutingConfig          `yaml:"router_config,omitempty" json:"router_config,omitempty"`
+	OptimizationConfig *AdaptiveOptimizationConfig `yaml:"optimization_config,omitempty" json:"optimization_config,omitempty"`
+}
+
+// SCIPProviderConfig configures the SCIP routing provider
+type SCIPProviderConfig struct {
+	HealthCheckInterval time.Duration `yaml:"health_check_interval,omitempty" json:"health_check_interval,omitempty"`
+	FallbackEnabled     bool          `yaml:"fallback_enabled,omitempty" json:"fallback_enabled,omitempty"`
+	FallbackTimeout     time.Duration `yaml:"fallback_timeout,omitempty" json:"fallback_timeout,omitempty"`
+	MinAcceptableQuality string       `yaml:"min_acceptable_quality,omitempty" json:"min_acceptable_quality,omitempty"`
+	EnableMetricsLogging bool         `yaml:"enable_metrics_logging,omitempty" json:"enable_metrics_logging,omitempty"`
+	EnableHealthLogging  bool         `yaml:"enable_health_logging,omitempty" json:"enable_health_logging,omitempty"`
+}
+
+// SCIPRoutingConfig configures SCIP-aware routing behavior
+type SCIPRoutingConfig struct {
+	DefaultStrategy           string                   `yaml:"default_strategy,omitempty" json:"default_strategy,omitempty"`
+	ConfidenceThreshold       float64                  `yaml:"confidence_threshold,omitempty" json:"confidence_threshold,omitempty"`
+	MaxSCIPLatency            time.Duration            `yaml:"max_scip_latency,omitempty" json:"max_scip_latency,omitempty"`
+	EnableFallback            bool                     `yaml:"enable_fallback,omitempty" json:"enable_fallback,omitempty"`
+	EnableAdaptiveLearning    bool                     `yaml:"enable_adaptive_learning,omitempty" json:"enable_adaptive_learning,omitempty"`
+	CachePrewarmEnabled       bool                     `yaml:"cache_prewarm_enabled,omitempty" json:"cache_prewarm_enabled,omitempty"`
+	MethodStrategies          map[string]string        `yaml:"method_strategies,omitempty" json:"method_strategies,omitempty"`
+	MethodConfidenceThresholds map[string]float64      `yaml:"method_confidence_thresholds,omitempty" json:"method_confidence_thresholds,omitempty"`
+	OptimizationInterval      time.Duration            `yaml:"optimization_interval,omitempty" json:"optimization_interval,omitempty"`
+	PerformanceWindowSize     int                      `yaml:"performance_window_size,omitempty" json:"performance_window_size,omitempty"`
+}
+
+// AdaptiveOptimizationConfig configures adaptive optimization behavior
+type AdaptiveOptimizationConfig struct {
+	OptimizationInterval    time.Duration `yaml:"optimization_interval,omitempty" json:"optimization_interval,omitempty"`
+	MinDataPoints          int           `yaml:"min_data_points,omitempty" json:"min_data_points,omitempty"`
+	ConfidenceThreshold    float64       `yaml:"confidence_threshold,omitempty" json:"confidence_threshold,omitempty"`
+	PerformanceThreshold   float64       `yaml:"performance_threshold,omitempty" json:"performance_threshold,omitempty"`
+	LearningRate           float64       `yaml:"learning_rate,omitempty" json:"learning_rate,omitempty"`
+	AdaptationRate         float64       `yaml:"adaptation_rate,omitempty" json:"adaptation_rate,omitempty"`
+	ExplorationRate        float64       `yaml:"exploration_rate,omitempty" json:"exploration_rate,omitempty"`
+	MaxThresholdAdjustment float64       `yaml:"max_threshold_adjustment,omitempty" json:"max_threshold_adjustment,omitempty"`
+	ThresholdDecayRate     float64       `yaml:"threshold_decay_rate,omitempty" json:"threshold_decay_rate,omitempty"`
+	StrategyEvaluationWindow int         `yaml:"strategy_evaluation_window,omitempty" json:"strategy_evaluation_window,omitempty"`
+	MinStrategyConfidence    float64     `yaml:"min_strategy_confidence,omitempty" json:"min_strategy_confidence,omitempty"`
+	CacheWarmingEnabled     bool         `yaml:"cache_warming_enabled,omitempty" json:"cache_warming_enabled,omitempty"`
+	WarmingTriggerThreshold float64      `yaml:"warming_trigger_threshold,omitempty" json:"warming_trigger_threshold,omitempty"`
+	MaxWarmingOperations   int           `yaml:"max_warming_operations,omitempty" json:"max_warming_operations,omitempty"`
 }
 
 // ResourceManagerConfig contains resource management configuration
@@ -278,6 +353,271 @@ type ServerPoolScalingConfig struct {
 // BackgroundIndexingConfig contains background indexing configuration
 type BackgroundIndexingConfig struct {
 	Enabled bool `yaml:"enabled" json:"enabled"`
+}
+
+// StorageConfiguration contains configuration for three-tier storage architecture
+type StorageConfiguration struct {
+	Enabled     bool                  `yaml:"enabled" json:"enabled"`
+	Version     string                `yaml:"version,omitempty" json:"version,omitempty"`
+	Profile     string                `yaml:"profile,omitempty" json:"profile,omitempty"`
+	Tiers       *StorageTiersConfig   `yaml:"tiers,omitempty" json:"tiers,omitempty"`
+	Strategy    *StorageStrategyConfig `yaml:"strategy,omitempty" json:"strategy,omitempty"`
+	Monitoring  *StorageMonitoringConfig `yaml:"monitoring,omitempty" json:"monitoring,omitempty"`
+	Maintenance *StorageMaintenanceConfig `yaml:"maintenance,omitempty" json:"maintenance,omitempty"`
+	Security    *StorageSecurityConfig `yaml:"security,omitempty" json:"security,omitempty"`
+}
+
+// StorageTiersConfig contains configuration for all storage tiers
+type StorageTiersConfig struct {
+	L1Memory *TierConfiguration `yaml:"l1_memory,omitempty" json:"l1_memory,omitempty"`
+	L2Disk   *TierConfiguration `yaml:"l2_disk,omitempty" json:"l2_disk,omitempty"`
+	L3Remote *TierConfiguration `yaml:"l3_remote,omitempty" json:"l3_remote,omitempty"`
+}
+
+// TierConfiguration contains configuration for a specific storage tier
+type TierConfiguration struct {
+	Enabled         bool                    `yaml:"enabled" json:"enabled"`
+	Capacity        string                  `yaml:"capacity,omitempty" json:"capacity,omitempty"`
+	MaxEntries      int64                   `yaml:"max_entries,omitempty" json:"max_entries,omitempty"`
+	EvictionPolicy  string                  `yaml:"eviction_policy,omitempty" json:"eviction_policy,omitempty"`
+	Backend         *BackendConfiguration   `yaml:"backend,omitempty" json:"backend,omitempty"`
+	Compression     *CompressionConfiguration `yaml:"compression,omitempty" json:"compression,omitempty"`
+	Encryption      *EncryptionConfiguration `yaml:"encryption,omitempty" json:"encryption,omitempty"`
+	Performance     *TierPerformanceConfig  `yaml:"performance,omitempty" json:"performance,omitempty"`
+	Reliability     *TierReliabilityConfig  `yaml:"reliability,omitempty" json:"reliability,omitempty"`
+}
+
+// BackendConfiguration contains storage backend configuration
+type BackendConfiguration struct {
+	Type             string                 `yaml:"type" json:"type"`
+	Path             string                 `yaml:"path,omitempty" json:"path,omitempty"`
+	Endpoint         string                 `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
+	Region           string                 `yaml:"region,omitempty" json:"region,omitempty"`
+	Bucket           string                 `yaml:"bucket,omitempty" json:"bucket,omitempty"`
+	ConnectionString string                 `yaml:"connection_string,omitempty" json:"connection_string,omitempty"`
+	Authentication   *AuthenticationConfig  `yaml:"authentication,omitempty" json:"authentication,omitempty"`
+	Options          map[string]interface{} `yaml:"options,omitempty" json:"options,omitempty"`
+}
+
+// AuthenticationConfig contains authentication configuration for storage backends
+type AuthenticationConfig struct {
+	Type        string `yaml:"type,omitempty" json:"type,omitempty"`
+	Username    string `yaml:"username,omitempty" json:"username,omitempty"`
+	Password    string `yaml:"password,omitempty" json:"password,omitempty"`
+	APIKey      string `yaml:"api_key,omitempty" json:"api_key,omitempty"`
+	SecretKey   string `yaml:"secret_key,omitempty" json:"secret_key,omitempty"`
+	Token       string `yaml:"token,omitempty" json:"token,omitempty"`
+	CertPath    string `yaml:"cert_path,omitempty" json:"cert_path,omitempty"`
+	KeyPath     string `yaml:"key_path,omitempty" json:"key_path,omitempty"`
+}
+
+// CompressionConfiguration contains compression settings
+type CompressionConfiguration struct {
+	Enabled   bool    `yaml:"enabled" json:"enabled"`
+	Algorithm string  `yaml:"algorithm,omitempty" json:"algorithm,omitempty"`
+	Level     int     `yaml:"level,omitempty" json:"level,omitempty"`
+	MinSize   int64   `yaml:"min_size,omitempty" json:"min_size,omitempty"`
+	Threshold float64 `yaml:"threshold,omitempty" json:"threshold,omitempty"`
+}
+
+// EncryptionConfiguration contains encryption settings
+type EncryptionConfiguration struct {
+	Enabled     bool          `yaml:"enabled" json:"enabled"`
+	Algorithm   string        `yaml:"algorithm,omitempty" json:"algorithm,omitempty"`
+	KeySize     int           `yaml:"key_size,omitempty" json:"key_size,omitempty"`
+	KeyRotation time.Duration `yaml:"key_rotation,omitempty" json:"key_rotation,omitempty"`
+	KeyPath     string        `yaml:"key_path,omitempty" json:"key_path,omitempty"`
+}
+
+// TierPerformanceConfig contains performance settings for a storage tier
+type TierPerformanceConfig struct {
+	MaxConcurrency       int           `yaml:"max_concurrency,omitempty" json:"max_concurrency,omitempty"`
+	TimeoutMs            int           `yaml:"timeout_ms,omitempty" json:"timeout_ms,omitempty"`
+	BatchSize            int           `yaml:"batch_size,omitempty" json:"batch_size,omitempty"`
+	ReadBufferSize       int           `yaml:"read_buffer_size,omitempty" json:"read_buffer_size,omitempty"`
+	WriteBufferSize      int           `yaml:"write_buffer_size,omitempty" json:"write_buffer_size,omitempty"`
+	ConnectionPoolSize   int           `yaml:"connection_pool_size,omitempty" json:"connection_pool_size,omitempty"`
+	KeepAlive            bool          `yaml:"keep_alive,omitempty" json:"keep_alive,omitempty"`
+	PrefetchEnabled      bool          `yaml:"prefetch_enabled,omitempty" json:"prefetch_enabled,omitempty"`
+	PrefetchSize         int           `yaml:"prefetch_size,omitempty" json:"prefetch_size,omitempty"`
+}
+
+// TierReliabilityConfig contains reliability settings for a storage tier
+type TierReliabilityConfig struct {
+	RetryCount           int           `yaml:"retry_count,omitempty" json:"retry_count,omitempty"`
+	RetryDelayMs         int           `yaml:"retry_delay_ms,omitempty" json:"retry_delay_ms,omitempty"`
+	CircuitBreaker       *CircuitBreakerConfiguration `yaml:"circuit_breaker,omitempty" json:"circuit_breaker,omitempty"`
+	HealthCheckInterval  time.Duration `yaml:"health_check_interval,omitempty" json:"health_check_interval,omitempty"`
+	FailureThreshold     int           `yaml:"failure_threshold,omitempty" json:"failure_threshold,omitempty"`
+	RecoveryTimeout      time.Duration `yaml:"recovery_timeout,omitempty" json:"recovery_timeout,omitempty"`
+	ReplicationEnabled   bool          `yaml:"replication_enabled,omitempty" json:"replication_enabled,omitempty"`
+	ReplicationFactor    int           `yaml:"replication_factor,omitempty" json:"replication_factor,omitempty"`
+}
+
+// CircuitBreakerConfiguration contains circuit breaker settings
+type CircuitBreakerConfiguration struct {
+	Enabled          bool          `yaml:"enabled" json:"enabled"`
+	FailureThreshold int           `yaml:"failure_threshold,omitempty" json:"failure_threshold,omitempty"`
+	RecoveryTimeout  time.Duration `yaml:"recovery_timeout,omitempty" json:"recovery_timeout,omitempty"`
+	HalfOpenRequests int           `yaml:"half_open_requests,omitempty" json:"half_open_requests,omitempty"`
+	MinRequestCount  int           `yaml:"min_request_count,omitempty" json:"min_request_count,omitempty"`
+}
+
+// StorageStrategyConfig contains configuration for storage strategies
+type StorageStrategyConfig struct {
+	PromotionStrategy *PromotionStrategyConfig `yaml:"promotion_strategy,omitempty" json:"promotion_strategy,omitempty"`
+	EvictionPolicy    *EvictionPolicyConfig    `yaml:"eviction_policy,omitempty" json:"eviction_policy,omitempty"`
+	AccessTracking    *AccessTrackingConfig    `yaml:"access_tracking,omitempty" json:"access_tracking,omitempty"`
+	AutoOptimization  *AutoOptimizationConfig  `yaml:"auto_optimization,omitempty" json:"auto_optimization,omitempty"`
+}
+
+// PromotionStrategyConfig contains promotion strategy configuration
+type PromotionStrategyConfig struct {
+	Type                 string                 `yaml:"type,omitempty" json:"type,omitempty"`
+	Enabled              bool                   `yaml:"enabled" json:"enabled"`
+	MinAccessCount       int64                  `yaml:"min_access_count,omitempty" json:"min_access_count,omitempty"`
+	MinAccessFrequency   float64                `yaml:"min_access_frequency,omitempty" json:"min_access_frequency,omitempty"`
+	AccessTimeWindow     time.Duration          `yaml:"access_time_window,omitempty" json:"access_time_window,omitempty"`
+	PromotionCooldown    time.Duration          `yaml:"promotion_cooldown,omitempty" json:"promotion_cooldown,omitempty"`
+	RecencyWeight        float64                `yaml:"recency_weight,omitempty" json:"recency_weight,omitempty"`
+	FrequencyWeight      float64                `yaml:"frequency_weight,omitempty" json:"frequency_weight,omitempty"`
+	SizeWeight           float64                `yaml:"size_weight,omitempty" json:"size_weight,omitempty"`
+	TierThresholds       map[string]float64     `yaml:"tier_thresholds,omitempty" json:"tier_thresholds,omitempty"`
+	CustomParameters     map[string]interface{} `yaml:"custom_parameters,omitempty" json:"custom_parameters,omitempty"`
+}
+
+// EvictionPolicyConfig contains eviction policy configuration
+type EvictionPolicyConfig struct {
+	Type                 string                 `yaml:"type,omitempty" json:"type,omitempty"`
+	Enabled              bool                   `yaml:"enabled" json:"enabled"`
+	EvictionThreshold    float64                `yaml:"eviction_threshold,omitempty" json:"eviction_threshold,omitempty"`
+	TargetUtilization    float64                `yaml:"target_utilization,omitempty" json:"target_utilization,omitempty"`
+	EvictionBatchSize    int                    `yaml:"eviction_batch_size,omitempty" json:"eviction_batch_size,omitempty"`
+	AccessAgeThreshold   time.Duration          `yaml:"access_age_threshold,omitempty" json:"access_age_threshold,omitempty"`
+	InactivityThreshold  time.Duration          `yaml:"inactivity_threshold,omitempty" json:"inactivity_threshold,omitempty"`
+	DefaultTTL           time.Duration          `yaml:"default_ttl,omitempty" json:"default_ttl,omitempty"`
+	MaxTTL               time.Duration          `yaml:"max_ttl,omitempty" json:"max_ttl,omitempty"`
+	SizeWeight           float64                `yaml:"size_weight,omitempty" json:"size_weight,omitempty"`
+	CustomParameters     map[string]interface{} `yaml:"custom_parameters,omitempty" json:"custom_parameters,omitempty"`
+}
+
+// AccessTrackingConfig contains access pattern tracking configuration
+type AccessTrackingConfig struct {
+	Enabled                bool          `yaml:"enabled" json:"enabled"`
+	TrackingGranularity    time.Duration `yaml:"tracking_granularity,omitempty" json:"tracking_granularity,omitempty"`
+	HistoryRetention       time.Duration `yaml:"history_retention,omitempty" json:"history_retention,omitempty"`
+	MaxTrackedKeys         int           `yaml:"max_tracked_keys,omitempty" json:"max_tracked_keys,omitempty"`
+	AnalysisInterval       time.Duration `yaml:"analysis_interval,omitempty" json:"analysis_interval,omitempty"`
+	MinSampleSize          int           `yaml:"min_sample_size,omitempty" json:"min_sample_size,omitempty"`
+	ConfidenceThreshold    float64       `yaml:"confidence_threshold,omitempty" json:"confidence_threshold,omitempty"`
+	SeasonalityDetection   bool          `yaml:"seasonality_detection,omitempty" json:"seasonality_detection,omitempty"`
+	TrendDetection         bool          `yaml:"trend_detection,omitempty" json:"trend_detection,omitempty"`
+	LocalityTracking       bool          `yaml:"locality_tracking,omitempty" json:"locality_tracking,omitempty"`
+	SemanticAnalysis       bool          `yaml:"semantic_analysis,omitempty" json:"semantic_analysis,omitempty"`
+}
+
+// AutoOptimizationConfig contains automatic optimization configuration
+type AutoOptimizationConfig struct {
+	Enabled              bool          `yaml:"enabled" json:"enabled"`
+	OptimizationInterval time.Duration `yaml:"optimization_interval,omitempty" json:"optimization_interval,omitempty"`
+	PerformanceThreshold float64       `yaml:"performance_threshold,omitempty" json:"performance_threshold,omitempty"`
+	CapacityThreshold    float64       `yaml:"capacity_threshold,omitempty" json:"capacity_threshold,omitempty"`
+	AutoRebalancing      bool          `yaml:"auto_rebalancing,omitempty" json:"auto_rebalancing,omitempty"`
+	AutoCompaction       bool          `yaml:"auto_compaction,omitempty" json:"auto_compaction,omitempty"`
+	AutoTuning           bool          `yaml:"auto_tuning,omitempty" json:"auto_tuning,omitempty"`
+	LearningEnabled      bool          `yaml:"learning_enabled,omitempty" json:"learning_enabled,omitempty"`
+}
+
+// StorageMonitoringConfig contains monitoring configuration
+type StorageMonitoringConfig struct {
+	Enabled           bool                   `yaml:"enabled" json:"enabled"`
+	MetricsInterval   time.Duration          `yaml:"metrics_interval,omitempty" json:"metrics_interval,omitempty"`
+	HealthInterval    time.Duration          `yaml:"health_interval,omitempty" json:"health_interval,omitempty"`
+	TraceRequests     bool                   `yaml:"trace_requests,omitempty" json:"trace_requests,omitempty"`
+	LogLevel          string                 `yaml:"log_level,omitempty" json:"log_level,omitempty"`
+	AlertThresholds   map[string]float64     `yaml:"alert_thresholds,omitempty" json:"alert_thresholds,omitempty"`
+	ExportFormat      string                 `yaml:"export_format,omitempty" json:"export_format,omitempty"`
+	ExportEndpoint    string                 `yaml:"export_endpoint,omitempty" json:"export_endpoint,omitempty"`
+	RetentionPeriod   time.Duration          `yaml:"retention_period,omitempty" json:"retention_period,omitempty"`
+	DetailedMetrics   bool                   `yaml:"detailed_metrics,omitempty" json:"detailed_metrics,omitempty"`
+}
+
+// StorageMaintenanceConfig contains maintenance configuration
+type StorageMaintenanceConfig struct {
+	Enabled             bool                      `yaml:"enabled" json:"enabled"`
+	Schedule            string                    `yaml:"schedule,omitempty" json:"schedule,omitempty"`
+	MaintenanceWindow   *MaintenanceWindowConfig  `yaml:"maintenance_window,omitempty" json:"maintenance_window,omitempty"`
+	CompactionEnabled   bool                      `yaml:"compaction_enabled,omitempty" json:"compaction_enabled,omitempty"`
+	CompactionThreshold float64                   `yaml:"compaction_threshold,omitempty" json:"compaction_threshold,omitempty"`
+	VacuumEnabled       bool                      `yaml:"vacuum_enabled,omitempty" json:"vacuum_enabled,omitempty"`
+	VacuumInterval      time.Duration             `yaml:"vacuum_interval,omitempty" json:"vacuum_interval,omitempty"`
+	CleanupEnabled      bool                      `yaml:"cleanup_enabled,omitempty" json:"cleanup_enabled,omitempty"`
+	CleanupAge          time.Duration             `yaml:"cleanup_age,omitempty" json:"cleanup_age,omitempty"`
+	BackupEnabled       bool                      `yaml:"backup_enabled,omitempty" json:"backup_enabled,omitempty"`
+	BackupInterval      time.Duration             `yaml:"backup_interval,omitempty" json:"backup_interval,omitempty"`
+	BackupRetention     time.Duration             `yaml:"backup_retention,omitempty" json:"backup_retention,omitempty"`
+}
+
+// MaintenanceWindowConfig contains maintenance window configuration
+type MaintenanceWindowConfig struct {
+	StartTime string        `yaml:"start_time,omitempty" json:"start_time,omitempty"`
+	EndTime   string        `yaml:"end_time,omitempty" json:"end_time,omitempty"`
+	Timezone  string        `yaml:"timezone,omitempty" json:"timezone,omitempty"`
+	Days      []string      `yaml:"days,omitempty" json:"days,omitempty"`
+	Blackouts []BlackoutPeriodConfig `yaml:"blackouts,omitempty" json:"blackouts,omitempty"`
+}
+
+// BlackoutPeriodConfig contains blackout period configuration
+type BlackoutPeriodConfig struct {
+	Start       time.Time `yaml:"start" json:"start"`
+	End         time.Time `yaml:"end" json:"end"`
+	Description string    `yaml:"description,omitempty" json:"description,omitempty"`
+	Recurring   bool      `yaml:"recurring,omitempty" json:"recurring,omitempty"`
+}
+
+// StorageSecurityConfig contains security configuration
+type StorageSecurityConfig struct {
+	EncryptionAtRest    bool                    `yaml:"encryption_at_rest,omitempty" json:"encryption_at_rest,omitempty"`
+	EncryptionInTransit bool                    `yaml:"encryption_in_transit,omitempty" json:"encryption_in_transit,omitempty"`
+	AccessControl       *AccessControlConfig    `yaml:"access_control,omitempty" json:"access_control,omitempty"`
+	AuditLogging        *AuditLoggingConfig     `yaml:"audit_logging,omitempty" json:"audit_logging,omitempty"`
+	DataClassification  *DataClassificationConfig `yaml:"data_classification,omitempty" json:"data_classification,omitempty"`
+}
+
+// AccessControlConfig contains access control configuration
+type AccessControlConfig struct {
+	Enabled        bool              `yaml:"enabled" json:"enabled"`
+	DefaultPolicy  string            `yaml:"default_policy,omitempty" json:"default_policy,omitempty"`
+	Roles          map[string]string `yaml:"roles,omitempty" json:"roles,omitempty"`
+	Permissions    map[string][]string `yaml:"permissions,omitempty" json:"permissions,omitempty"`
+	IPWhitelist    []string          `yaml:"ip_whitelist,omitempty" json:"ip_whitelist,omitempty"`
+	RateLimiting   *RateLimitingConfig `yaml:"rate_limiting,omitempty" json:"rate_limiting,omitempty"`
+}
+
+// RateLimitingConfig contains rate limiting configuration
+type RateLimitingConfig struct {
+	Enabled       bool          `yaml:"enabled" json:"enabled"`
+	RequestsPerMinute int       `yaml:"requests_per_minute,omitempty" json:"requests_per_minute,omitempty"`
+	BurstSize     int           `yaml:"burst_size,omitempty" json:"burst_size,omitempty"`
+	WindowSize    time.Duration `yaml:"window_size,omitempty" json:"window_size,omitempty"`
+}
+
+// AuditLoggingConfig contains audit logging configuration
+type AuditLoggingConfig struct {
+	Enabled       bool          `yaml:"enabled" json:"enabled"`
+	LogLevel      string        `yaml:"log_level,omitempty" json:"log_level,omitempty"`
+	LogLocation   string        `yaml:"log_location,omitempty" json:"log_location,omitempty"`
+	RetentionDays int           `yaml:"retention_days,omitempty" json:"retention_days,omitempty"`
+	LogFormat     string        `yaml:"log_format,omitempty" json:"log_format,omitempty"`
+	IncludeData   bool          `yaml:"include_data,omitempty" json:"include_data,omitempty"`
+}
+
+// DataClassificationConfig contains data classification configuration
+type DataClassificationConfig struct {
+	Enabled           bool              `yaml:"enabled" json:"enabled"`
+	DefaultLevel      string            `yaml:"default_level,omitempty" json:"default_level,omitempty"`
+	ClassificationRules map[string]string `yaml:"classification_rules,omitempty" json:"classification_rules,omitempty"`
+	HandlingPolicies  map[string]string `yaml:"handling_policies,omitempty" json:"handling_policies,omitempty"`
 }
 
 func DefaultConfig() *GatewayConfig {
@@ -383,6 +723,313 @@ func DefaultPerformanceConfiguration() *PerformanceConfiguration {
 			},
 			BackgroundIndexing: &BackgroundIndexingConfig{
 				Enabled: false,
+			},
+		},
+		SCIP: &SCIPConfiguration{
+			Enabled:         false,
+			IndexPath:       ".scip",
+			AutoRefresh:     false,
+			RefreshInterval: 30 * time.Minute,
+			FallbackToLSP:   true,
+			CacheConfig: CacheConfig{
+				Enabled: false,
+				TTL:     DefaultCacheTTL,
+				MaxSize: 1000,
+			},
+			LanguageSettings: map[string]*SCIPLanguageConfig{
+				"go": {
+					Enabled:      false,
+					IndexCommand: []string{"scip-go"},
+					IndexTimeout: 10 * time.Minute,
+					IndexArguments: []string{
+						"--module-path", ".",
+						"--output", ".scip/index.scip",
+					},
+					WorkspaceSettings: make(map[string]interface{}),
+				},
+				"typescript": {
+					Enabled:      false,
+					IndexCommand: []string{"scip-typescript"},
+					IndexTimeout: 15 * time.Minute,
+					IndexArguments: []string{
+						"--project-root", ".",
+						"--output", ".scip/index.scip",
+					},
+					WorkspaceSettings: make(map[string]interface{}),
+				},
+				"python": {
+					Enabled:      false,
+					IndexCommand: []string{"scip-python"},
+					IndexTimeout: 10 * time.Minute,
+					IndexArguments: []string{
+						"--project-root", ".",
+						"--output", ".scip/index.scip",
+					},
+					WorkspaceSettings: make(map[string]interface{}),
+				},
+			},
+		},
+		Storage: DefaultStorageConfiguration(),
+	}
+}
+
+// DefaultStorageConfiguration returns default storage configuration
+func DefaultStorageConfiguration() *StorageConfiguration {
+	return &StorageConfiguration{
+		Enabled: false,
+		Version: "1.0",
+		Profile: "development",
+		Tiers: &StorageTiersConfig{
+			L1Memory: &TierConfiguration{
+				Enabled:        true,
+				Capacity:       "4GB",
+				MaxEntries:     100000,
+				EvictionPolicy: "lru",
+				Backend: &BackendConfiguration{
+					Type: "memory",
+				},
+				Performance: &TierPerformanceConfig{
+					MaxConcurrency:     100,
+					TimeoutMs:          1000,
+					BatchSize:          100,
+					ReadBufferSize:     8192,
+					WriteBufferSize:    8192,
+					ConnectionPoolSize: 10,
+					KeepAlive:          true,
+					PrefetchEnabled:    true,
+					PrefetchSize:       10,
+				},
+				Reliability: &TierReliabilityConfig{
+					RetryCount:          3,
+					RetryDelayMs:        100,
+					HealthCheckInterval: 30 * time.Second,
+					FailureThreshold:    5,
+					RecoveryTimeout:     60 * time.Second,
+					CircuitBreaker: &CircuitBreakerConfiguration{
+						Enabled:          true,
+						FailureThreshold: 10,
+						RecoveryTimeout:  30 * time.Second,
+						HalfOpenRequests: 5,
+						MinRequestCount:  20,
+					},
+				},
+			},
+			L2Disk: &TierConfiguration{
+				Enabled:        false,
+				Capacity:       "200GB",
+				MaxEntries:     1000000,
+				EvictionPolicy: "lru",
+				Backend: &BackendConfiguration{
+					Type: "local_disk",
+					Path: "/opt/lsp-gateway/cache",
+				},
+				Compression: &CompressionConfiguration{
+					Enabled:   true,
+					Algorithm: "snappy",
+					Level:     3,
+					MinSize:   1024,
+					Threshold: 0.8,
+				},
+				Performance: &TierPerformanceConfig{
+					MaxConcurrency:     50,
+					TimeoutMs:          5000,
+					BatchSize:          50,
+					ReadBufferSize:     32768,
+					WriteBufferSize:    32768,
+					ConnectionPoolSize: 5,
+					KeepAlive:          true,
+					PrefetchEnabled:    false,
+					PrefetchSize:       5,
+				},
+				Reliability: &TierReliabilityConfig{
+					RetryCount:          3,
+					RetryDelayMs:        200,
+					HealthCheckInterval: 60 * time.Second,
+					FailureThreshold:    3,
+					RecoveryTimeout:     120 * time.Second,
+					CircuitBreaker: &CircuitBreakerConfiguration{
+						Enabled:          true,
+						FailureThreshold: 5,
+						RecoveryTimeout:  60 * time.Second,
+						HalfOpenRequests: 3,
+						MinRequestCount:  10,
+					},
+				},
+			},
+			L3Remote: &TierConfiguration{
+				Enabled:        false,
+				Capacity:       "unlimited",
+				MaxEntries:     -1,
+				EvictionPolicy: "ttl",
+				Backend: &BackendConfiguration{
+					Type:     "s3",
+					Endpoint: "https://s3.amazonaws.com",
+					Region:   "us-east-1",
+					Bucket:   "lsp-gateway-cache",
+					Authentication: &AuthenticationConfig{
+						Type: "aws_iam",
+					},
+				},
+				Compression: &CompressionConfiguration{
+					Enabled:   true,
+					Algorithm: "zstd",
+					Level:     5,
+					MinSize:   2048,
+					Threshold: 0.7,
+				},
+				Encryption: &EncryptionConfiguration{
+					Enabled:     true,
+					Algorithm:   "aes256",
+					KeySize:     256,
+					KeyRotation: 24 * time.Hour * 30, // 30 days
+				},
+				Performance: &TierPerformanceConfig{
+					MaxConcurrency:     20,
+					TimeoutMs:          10000,
+					BatchSize:          20,
+					ReadBufferSize:     65536,
+					WriteBufferSize:    65536,
+					ConnectionPoolSize: 5,
+					KeepAlive:          true,
+					PrefetchEnabled:    false,
+					PrefetchSize:       3,
+				},
+				Reliability: &TierReliabilityConfig{
+					RetryCount:          5,
+					RetryDelayMs:        500,
+					HealthCheckInterval: 5 * time.Minute,
+					FailureThreshold:    3,
+					RecoveryTimeout:     5 * time.Minute,
+					ReplicationEnabled:  true,
+					ReplicationFactor:   2,
+					CircuitBreaker: &CircuitBreakerConfiguration{
+						Enabled:          true,
+						FailureThreshold: 3,
+						RecoveryTimeout:  2 * time.Minute,
+						HalfOpenRequests: 2,
+						MinRequestCount:  5,
+					},
+				},
+			},
+		},
+		Strategy: &StorageStrategyConfig{
+			PromotionStrategy: &PromotionStrategyConfig{
+				Type:               "adaptive",
+				Enabled:            true,
+				MinAccessCount:     3,
+				MinAccessFrequency: 0.1,
+				AccessTimeWindow:   24 * time.Hour,
+				PromotionCooldown:  5 * time.Minute,
+				RecencyWeight:      0.4,
+				FrequencyWeight:    0.4,
+				SizeWeight:         0.2,
+				TierThresholds: map[string]float64{
+					"l1_to_l2": 0.7,
+					"l2_to_l1": 0.3,
+					"l2_to_l3": 0.8,
+					"l3_to_l2": 0.4,
+				},
+			},
+			EvictionPolicy: &EvictionPolicyConfig{
+				Type:                "lru",
+				Enabled:             true,
+				EvictionThreshold:   0.85,
+				TargetUtilization:   0.75,
+				EvictionBatchSize:   100,
+				AccessAgeThreshold:  7 * 24 * time.Hour,
+				InactivityThreshold: 3 * 24 * time.Hour,
+				DefaultTTL:          24 * time.Hour,
+				MaxTTL:              7 * 24 * time.Hour,
+				SizeWeight:          0.3,
+			},
+			AccessTracking: &AccessTrackingConfig{
+				Enabled:              true,
+				TrackingGranularity:  time.Minute,
+				HistoryRetention:     7 * 24 * time.Hour,
+				MaxTrackedKeys:       100000,
+				AnalysisInterval:     time.Hour,
+				MinSampleSize:        10,
+				ConfidenceThreshold:  0.7,
+				SeasonalityDetection: true,
+				TrendDetection:       true,
+				LocalityTracking:     true,
+				SemanticAnalysis:     false,
+			},
+			AutoOptimization: &AutoOptimizationConfig{
+				Enabled:              false,
+				OptimizationInterval: 6 * time.Hour,
+				PerformanceThreshold: 0.8,
+				CapacityThreshold:    0.8,
+				AutoRebalancing:      false,
+				AutoCompaction:       true,
+				AutoTuning:           false,
+				LearningEnabled:      false,
+			},
+		},
+		Monitoring: &StorageMonitoringConfig{
+			Enabled:         true,
+			MetricsInterval: 30 * time.Second,
+			HealthInterval:  60 * time.Second,
+			TraceRequests:   false,
+			LogLevel:        "info",
+			AlertThresholds: map[string]float64{
+				"hit_rate_low":      0.5,
+				"latency_high":      1000.0, // milliseconds
+				"error_rate_high":   0.05,   // 5%
+				"capacity_high":     0.9,    // 90%
+			},
+			ExportFormat:    "prometheus",
+			RetentionPeriod: 7 * 24 * time.Hour,
+			DetailedMetrics: false,
+		},
+		Maintenance: &StorageMaintenanceConfig{
+			Enabled:           true,
+			Schedule:          "0 2 * * *", // Daily at 2 AM
+			CompactionEnabled: true,
+			CompactionThreshold: 0.3,
+			VacuumEnabled:     true,
+			VacuumInterval:    24 * time.Hour,
+			CleanupEnabled:    true,
+			CleanupAge:        7 * 24 * time.Hour,
+			BackupEnabled:     false,
+			BackupInterval:    24 * time.Hour,
+			BackupRetention:   30 * 24 * time.Hour,
+			MaintenanceWindow: &MaintenanceWindowConfig{
+				StartTime: "02:00",
+				EndTime:   "04:00",
+				Timezone:  "UTC",
+				Days:      []string{"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"},
+			},
+		},
+		Security: &StorageSecurityConfig{
+			EncryptionAtRest:    false,
+			EncryptionInTransit: false,
+			AccessControl: &AccessControlConfig{
+				Enabled:       false,
+				DefaultPolicy: "deny",
+				RateLimiting: &RateLimitingConfig{
+					Enabled:           false,
+					RequestsPerMinute: 1000,
+					BurstSize:         100,
+					WindowSize:        time.Minute,
+				},
+			},
+			AuditLogging: &AuditLoggingConfig{
+				Enabled:       false,
+				LogLevel:      "info",
+				LogLocation:   "/var/log/lsp-gateway/audit.log",
+				RetentionDays: 30,
+				LogFormat:     "json",
+				IncludeData:   false,
+			},
+			DataClassification: &DataClassificationConfig{
+				Enabled:      false,
+				DefaultLevel: "internal",
+				ClassificationRules: map[string]string{
+					"*.secret": "confidential",
+					"*.key":    "confidential",
+					"*.cert":   "restricted",
+				},
 			},
 		},
 	}

@@ -2921,3 +2921,514 @@ func (tv *TemplateValidator) isValidServerName(name string) bool {
 	validNamePattern := regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
 	return validNamePattern.MatchString(name) && len(name) <= 50
 }
+// SCIPValidator provides comprehensive validation for SCIP configuration
+type SCIPValidator struct{}
+
+// NewSCIPValidator creates a new SCIP configuration validator
+func NewSCIPValidator() *SCIPValidator {
+	return &SCIPValidator{}
+}
+
+// ValidateSCIPConfiguration validates the complete SCIP configuration
+func (sv *SCIPValidator) ValidateSCIPConfiguration(config *GatewayConfig) ComponentValidationResult {
+	var errors []ValidationError
+	var warnings []ValidationWarning
+	score := 100
+
+	if config.PerformanceConfig == nil || config.PerformanceConfig.SCIP == nil {
+		return ComponentValidationResult{
+			Component:       "scip_configuration",
+			Score:           100,
+			Errors:          errors,
+			Warnings:        warnings,
+			Recommendations: []ValidationRecommendation{},
+		}
+	}
+
+	scip := config.PerformanceConfig.SCIP
+
+	// Validate core SCIP configuration
+	sv.validateSCIPCore(scip, &errors, &warnings, &score)
+	
+	// Validate SCIP index path
+	sv.validateSCIPIndexPath(scip, &errors, &warnings, &score)
+	
+	// Validate SCIP timeouts and intervals
+	sv.validateSCIPTimeouts(scip, &errors, &warnings, &score)
+	
+	// Validate SCIP cache configuration
+	sv.validateSCIPCache(scip, &errors, &warnings, &score)
+	
+	// Validate language-specific configurations
+	sv.validateSCIPLanguageSettings(scip, &errors, &warnings, &score)
+
+	// Generate recommendations
+	recommendations := sv.generateSCIPRecommendations(scip, errors, warnings)
+
+	return ComponentValidationResult{
+		Component:       "scip_configuration",
+		Score:           score,
+		Errors:          errors,
+		Warnings:        warnings,
+		Recommendations: recommendations,
+	}
+}
+
+// validateSCIPCore validates core SCIP configuration settings
+func (sv *SCIPValidator) validateSCIPCore(scip *SCIPConfiguration, errors *[]ValidationError, warnings *[]ValidationWarning, score *int) {
+	if !scip.Enabled {
+		*warnings = append(*warnings, ValidationWarning{
+			Component:  "scip_configuration",
+			Field:      "enabled",
+			Message:    "SCIP indexing is disabled",
+			Suggestion: "Enable SCIP indexing for improved code navigation performance",
+			Impact:     "Falling back to LSP-only queries, potentially slower responses",
+			Category:   "performance",
+			RuleID:     "SCIP001",
+		})
+		*score -= 5
+	}
+
+	// Validate fallback behavior
+	if scip.Enabled && !scip.FallbackToLSP {
+		*warnings = append(*warnings, ValidationWarning{
+			Component:  "scip_configuration",
+			Field:      "fallback_to_lsp",
+			Message:    "SCIP fallback to LSP is disabled",
+			Suggestion: "Enable LSP fallback for better reliability when SCIP indices are unavailable",
+			Impact:     "Queries may fail when SCIP indices are incomplete or unavailable",
+			Category:   "reliability",
+			RuleID:     "SCIP002",
+		})
+		*score -= 10
+	}
+}
+
+// validateSCIPIndexPath validates the SCIP index storage path
+func (sv *SCIPValidator) validateSCIPIndexPath(scip *SCIPConfiguration, errors *[]ValidationError, warnings *[]ValidationWarning, score *int) {
+	if !scip.Enabled {
+		return
+	}
+
+	if scip.IndexPath == "" {
+		*errors = append(*errors, ValidationError{
+			Component:  "scip_configuration",
+			Field:      "index_path",
+			Message:    "SCIP index path is not configured",
+			Severity:   SeverityError,
+			Suggestion: "Configure index_path to specify where SCIP indices should be stored",
+			Impact:     "SCIP indexing cannot function without a storage path",
+			Category:   "configuration",
+			RuleID:     "SCIP003",
+		})
+		*score -= 25
+		return
+	}
+
+	// Check if path is absolute
+	if !filepath.IsAbs(scip.IndexPath) {
+		*warnings = append(*warnings, ValidationWarning{
+			Component:  "scip_configuration",
+			Field:      "index_path",
+			Message:    fmt.Sprintf("SCIP index path is relative: %s", scip.IndexPath),
+			Suggestion: "Use absolute paths for SCIP index storage to avoid ambiguity",
+			Impact:     "May cause path resolution issues in different execution contexts",
+			Category:   "filesystem",
+			RuleID:     "SCIP004",
+		})
+		*score -= 8
+	}
+
+	// Check if path looks reasonable (not in system directories)
+	systemPaths := []string{"/bin", "/sbin", "/usr/bin", "/usr/sbin", "/etc", "/root"}
+	for _, sysPath := range systemPaths {
+		if strings.HasPrefix(scip.IndexPath, sysPath) {
+			*warnings = append(*warnings, ValidationWarning{
+				Component:  "scip_configuration",
+				Field:      "index_path",
+				Message:    fmt.Sprintf("SCIP index path is in system directory: %s", scip.IndexPath),
+				Suggestion: "Use a dedicated application data directory for SCIP indices",
+				Impact:     "May cause permission issues or interfere with system operations",
+				Category:   "filesystem",
+				RuleID:     "SCIP005",
+			})
+			*score -= 12
+			break
+		}
+	}
+}
+
+// validateSCIPTimeouts validates SCIP timing configuration
+func (sv *SCIPValidator) validateSCIPTimeouts(scip *SCIPConfiguration, errors *[]ValidationError, warnings *[]ValidationWarning, score *int) {
+	if !scip.Enabled {
+		return
+	}
+
+	// Validate refresh interval
+	if scip.AutoRefresh {
+		if scip.RefreshInterval == 0 {
+			*warnings = append(*warnings, ValidationWarning{
+				Component:  "scip_configuration",
+				Field:      "refresh_interval",
+				Message:    "Auto-refresh is enabled but refresh interval is not set",
+				Suggestion: "Set refresh_interval to control how often SCIP indices are rebuilt",
+				Impact:     "Will use default interval which may not be optimal for your workflow",
+				Category:   "configuration",
+				RuleID:     "SCIP006",
+			})
+			*score -= 5
+		} else {
+			// Check if interval is reasonable (5m to 24h)
+			minInterval := 5 * time.Minute
+			maxInterval := 24 * time.Hour
+			
+			if scip.RefreshInterval < minInterval {
+				*warnings = append(*warnings, ValidationWarning{
+					Component:  "scip_configuration",
+					Field:      "refresh_interval",
+					Message:    fmt.Sprintf("SCIP refresh interval is very short: %v", scip.RefreshInterval),
+					Suggestion: "Consider using at least 5 minutes to avoid excessive resource usage",
+					Impact:     "May cause high CPU and I/O usage due to frequent index rebuilds",
+					Category:   "performance",
+					RuleID:     "SCIP007",
+				})
+				*score -= 15
+			}
+			
+			if scip.RefreshInterval > maxInterval {
+				*warnings = append(*warnings, ValidationWarning{
+					Component:  "scip_configuration",
+					Field:      "refresh_interval",
+					Message:    fmt.Sprintf("SCIP refresh interval is very long: %v", scip.RefreshInterval),
+					Suggestion: "Consider using a shorter interval for more up-to-date indices",
+					Impact:     "SCIP indices may become stale, leading to outdated navigation results",
+					Category:   "performance",
+					RuleID:     "SCIP008",
+				})
+				*score -= 8
+			}
+		}
+	}
+}
+
+// validateSCIPCache validates SCIP cache configuration
+func (sv *SCIPValidator) validateSCIPCache(scip *SCIPConfiguration, errors *[]ValidationError, warnings *[]ValidationWarning, score *int) {
+	if !scip.Enabled {
+		return
+	}
+
+	cache := &scip.CacheConfig
+	
+	if !cache.Enabled {
+		*warnings = append(*warnings, ValidationWarning{
+			Component:  "scip_configuration",
+			Field:      "cache.enabled",
+			Message:    "SCIP caching is disabled",
+			Suggestion: "Enable caching to improve SCIP query performance",
+			Impact:     "SCIP queries may be slower without caching",
+			Category:   "performance",
+			RuleID:     "SCIP009",
+		})
+		*score -= 10
+		return
+	}
+
+	// Validate cache TTL
+	if cache.TTL == 0 {
+		*warnings = append(*warnings, ValidationWarning{
+			Component:  "scip_configuration",
+			Field:      "cache.ttl",
+			Message:    "SCIP cache TTL is not set",
+			Suggestion: "Configure cache TTL to control how long SCIP results are cached",
+			Impact:     "Will use default cache TTL which may not be optimal",
+			Category:   "configuration",
+			RuleID:     "SCIP010",
+		})
+		*score -= 5
+	} else {
+		// Check reasonable TTL range (1m to 24h)
+		minTTL := 1 * time.Minute
+		maxTTL := 24 * time.Hour
+		
+		if cache.TTL < minTTL {
+			*warnings = append(*warnings, ValidationWarning{
+				Component:  "scip_configuration",
+				Field:      "cache.ttl",
+				Message:    fmt.Sprintf("SCIP cache TTL is very short: %v", cache.TTL),
+				Suggestion: "Consider using at least 1 minute for effective caching",
+				Impact:     "Cache may not be effective due to frequent expiration",
+				Category:   "performance",
+				RuleID:     "SCIP011",
+			})
+			*score -= 8
+		}
+		
+		if cache.TTL > maxTTL {
+			*warnings = append(*warnings, ValidationWarning{
+				Component:  "scip_configuration",
+				Field:      "cache.ttl",
+				Message:    fmt.Sprintf("SCIP cache TTL is very long: %v", cache.TTL),
+				Suggestion: "Consider using a shorter TTL to ensure cache freshness",
+				Impact:     "Cached results may become stale",
+				Category:   "performance",
+				RuleID:     "SCIP012",
+			})
+			*score -= 5
+		}
+	}
+
+	// Validate cache size
+	if cache.MaxSize == 0 {
+		*warnings = append(*warnings, ValidationWarning{
+			Component:  "scip_configuration",
+			Field:      "cache.max_size",
+			Message:    "SCIP cache max size is not set",
+			Suggestion: "Configure cache max_size to control memory usage",
+			Impact:     "Cache may grow unbounded, potentially causing memory issues",
+			Category:   "configuration",
+			RuleID:     "SCIP013",
+		})
+		*score -= 8
+	} else if cache.MaxSize < 100 {
+		*warnings = append(*warnings, ValidationWarning{
+			Component:  "scip_configuration",
+			Field:      "cache.max_size",
+			Message:    fmt.Sprintf("SCIP cache size is very small: %d", cache.MaxSize),
+			Suggestion: "Consider using at least 100 entries for effective caching",
+			Impact:     "Cache may not be effective due to frequent eviction",
+			Category:   "performance",
+			RuleID:     "SCIP014",
+		})
+		*score -= 5
+	}
+}
+
+// validateSCIPLanguageSettings validates language-specific SCIP configuration
+func (sv *SCIPValidator) validateSCIPLanguageSettings(scip *SCIPConfiguration, errors *[]ValidationError, warnings *[]ValidationWarning, score *int) {
+	if !scip.Enabled || len(scip.LanguageSettings) == 0 {
+		return
+	}
+
+	supportedLanguages := map[string]bool{
+		"go": true, "golang": true, "python": true, "typescript": true, "javascript": true,
+		"java": true, "rust": true, "cpp": true, "c++": true, "c": true,
+	}
+
+	for lang, config := range scip.LanguageSettings {
+		// Check if language is supported
+		if !supportedLanguages[strings.ToLower(lang)] {
+			*warnings = append(*warnings, ValidationWarning{
+				Component:  "scip_configuration",
+				Field:      fmt.Sprintf("language_settings.%s", lang),
+				Message:    fmt.Sprintf("Language '%s' may not be fully supported by SCIP", lang),
+				Suggestion: "Verify that SCIP indexer exists for this language",
+				Impact:     "SCIP indexing may not work for this language",
+				Category:   "configuration",
+				RuleID:     "SCIP015",
+			})
+			*score -= 5
+		}
+
+		if config == nil {
+			*errors = append(*errors, ValidationError{
+				Component:  "scip_configuration",
+				Field:      fmt.Sprintf("language_settings.%s", lang),
+				Message:    fmt.Sprintf("Language configuration for '%s' is null", lang),
+				Severity:   SeverityError,
+				Suggestion: "Provide a valid configuration object for the language",
+				Impact:     "SCIP indexing will not work for this language",
+				Category:   "configuration",
+				RuleID:     "SCIP016",
+			})
+			*score -= 20
+			continue
+		}
+
+		// Validate individual language configuration
+		sv.validateSCIPLanguageConfig(lang, config, errors, warnings, score)
+	}
+}
+
+// validateSCIPLanguageConfig validates a single language's SCIP configuration
+func (sv *SCIPValidator) validateSCIPLanguageConfig(lang string, config *SCIPLanguageConfig, errors *[]ValidationError, warnings *[]ValidationWarning, score *int) {
+	if !config.Enabled {
+		return
+	}
+
+	// Validate index command
+	if len(config.IndexCommand) == 0 {
+		*errors = append(*errors, ValidationError{
+			Component:  "scip_configuration",
+			Field:      fmt.Sprintf("language_settings.%s.index_command", lang),
+			Message:    fmt.Sprintf("Index command not specified for language '%s'", lang),
+			Severity:   SeverityError,
+			Suggestion: fmt.Sprintf("Specify the SCIP indexer command for %s", lang),
+			Impact:     "SCIP indexing cannot be performed for this language",
+			Category:   "configuration",
+			RuleID:     "SCIP017",
+		})
+		*score -= 25
+		return
+	}
+
+	// Check if the indexer executable might exist (basic name check)
+	expectedIndexers := map[string][]string{
+		"go":         {"scip-go", "gopls"},
+		"python":     {"scip-python", "scip-python3"},
+		"typescript": {"scip-typescript", "scip-ts"},
+		"javascript": {"scip-typescript", "scip-js"},
+		"java":       {"scip-java", "scip-jvm"},
+		"rust":       {"scip-rust", "rust-analyzer"},
+	}
+
+	if expectedCommands, exists := expectedIndexers[strings.ToLower(lang)]; exists {
+		command := config.IndexCommand[0]
+		isExpected := false
+		for _, expected := range expectedCommands {
+			if strings.Contains(strings.ToLower(command), expected) {
+				isExpected = true
+				break
+			}
+		}
+		if !isExpected {
+			*warnings = append(*warnings, ValidationWarning{
+				Component:  "scip_configuration",
+				Field:      fmt.Sprintf("language_settings.%s.index_command", lang),
+				Message:    fmt.Sprintf("Unexpected indexer command for %s: %s", lang, command),
+				Suggestion: fmt.Sprintf("Consider using one of: %v", expectedCommands),
+				Impact:     "Indexing may fail if the command is incorrect",
+				Category:   "configuration",
+				RuleID:     "SCIP018",
+			})
+			*score -= 8
+		}
+	}
+
+	// Validate index timeout
+	if config.IndexTimeout == 0 {
+		*warnings = append(*warnings, ValidationWarning{
+			Component:  "scip_configuration",
+			Field:      fmt.Sprintf("language_settings.%s.index_timeout", lang),
+			Message:    fmt.Sprintf("Index timeout not set for language '%s'", lang),
+			Suggestion: "Set an appropriate timeout to prevent hanging indexing operations",
+			Impact:     "Indexing operations may hang indefinitely",
+			Category:   "reliability",
+			RuleID:     "SCIP019",
+		})
+		*score -= 8
+	} else {
+		// Check reasonable timeout range (1m to 30m)
+		minTimeout := 1 * time.Minute
+		maxTimeout := 30 * time.Minute
+		
+		if config.IndexTimeout < minTimeout {
+			*warnings = append(*warnings, ValidationWarning{
+				Component:  "scip_configuration",
+				Field:      fmt.Sprintf("language_settings.%s.index_timeout", lang),
+				Message:    fmt.Sprintf("Index timeout is very short for %s: %v", lang, config.IndexTimeout),
+				Suggestion: "Consider using at least 1 minute for indexing operations",
+				Impact:     "Indexing operations may timeout prematurely for large codebases",
+				Category:   "performance",
+				RuleID:     "SCIP020",
+			})
+			*score -= 10
+		}
+		
+		if config.IndexTimeout > maxTimeout {
+			*warnings = append(*warnings, ValidationWarning{
+				Component:  "scip_configuration",
+				Field:      fmt.Sprintf("language_settings.%s.index_timeout", lang),
+				Message:    fmt.Sprintf("Index timeout is very long for %s: %v", lang, config.IndexTimeout),
+				Suggestion: "Consider using a shorter timeout to avoid resource exhaustion",
+				Impact:     "May tie up resources for extended periods during indexing",
+				Category:   "performance",
+				RuleID:     "SCIP021",
+			})
+			*score -= 5
+		}
+	}
+}
+
+// generateSCIPRecommendations generates actionable recommendations for SCIP configuration
+func (sv *SCIPValidator) generateSCIPRecommendations(scip *SCIPConfiguration, errors []ValidationError, warnings []ValidationWarning) []ValidationRecommendation {
+	var recommendations []ValidationRecommendation
+
+	if !scip.Enabled {
+		recommendations = append(recommendations, ValidationRecommendation{
+			Category:    "performance",
+			Priority:    "high",
+			Title:       "Enable SCIP Indexing",
+			Description: "SCIP indexing provides fast persistent code navigation and cross-references",
+			Action:      "Set 'scip.enabled: true' and configure index_path",
+			Benefits:    []string{"Faster code navigation", "Persistent symbol information", "Cross-repository references"},
+			Risks:       []string{"Additional disk space usage", "Initial indexing time"},
+			Config: map[string]interface{}{
+				"scip": map[string]interface{}{
+					"enabled":           true,
+					"index_path":        "/opt/lsp-gateway/scip-indices",
+					"auto_refresh":      true,
+					"refresh_interval":  "30m",
+					"fallback_to_lsp":   true,
+				},
+			},
+		})
+	}
+
+	if scip.Enabled && len(scip.LanguageSettings) == 0 {
+		recommendations = append(recommendations, ValidationRecommendation{
+			Category:    "configuration",
+			Priority:    "high",
+			Title:       "Configure Language-Specific SCIP Settings",
+			Description: "Language-specific settings optimize SCIP indexing for different programming languages",
+			Action:      "Add language_settings section with indexer commands and timeouts",
+			Benefits:    []string{"Optimized indexing per language", "Better error handling", "Language-specific features"},
+			Risks:       []string{"Increased configuration complexity"},
+			Config: map[string]interface{}{
+				"language_settings": map[string]interface{}{
+					"go": map[string]interface{}{
+						"enabled":       true,
+						"index_command": []string{"scip-go"},
+						"index_timeout": "10m",
+					},
+				},
+			},
+		})
+	}
+
+	if scip.Enabled && !scip.CacheConfig.Enabled {
+		recommendations = append(recommendations, ValidationRecommendation{
+			Category:    "performance",
+			Priority:    "medium",
+			Title:       "Enable SCIP Caching",
+			Description: "Caching SCIP results improves query response times significantly",
+			Action:      "Enable cache configuration with appropriate TTL and size limits",
+			Benefits:    []string{"Faster query responses", "Reduced index access", "Better user experience"},
+			Risks:       []string{"Additional memory usage", "Cache invalidation complexity"},
+			Config: map[string]interface{}{
+				"cache": map[string]interface{}{
+					"enabled":  true,
+					"ttl":      "30m",
+					"max_size": 1000,
+				},
+			},
+		})
+	}
+
+	if scip.Enabled && !scip.AutoRefresh {
+		recommendations = append(recommendations, ValidationRecommendation{
+			Category:    "maintenance",
+			Priority:    "medium",
+			Title:       "Enable SCIP Auto-Refresh",
+			Description: "Automatic refresh keeps SCIP indices up-to-date with code changes",
+			Action:      "Enable auto_refresh with an appropriate refresh_interval",
+			Benefits:    []string{"Up-to-date navigation data", "Automatic maintenance", "Consistent user experience"},
+			Risks:       []string{"Resource usage during refresh", "Temporary performance impact"},
+			Config: map[string]interface{}{
+				"auto_refresh":      true,
+				"refresh_interval":  "30m",
+			},
+		})
+	}
+
+	return recommendations
+}

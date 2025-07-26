@@ -131,6 +131,7 @@ func (pc *ProjectCache) Get(rootPath string) (*MultiLanguageProjectInfo, bool) {
 	defer func() {
 		// Update access time statistics
 		// This could be enhanced with a sliding window for better average calculation
+		// TODO: Add access time tracking when needed
 	}()
 
 	pc.mutex.RLock()

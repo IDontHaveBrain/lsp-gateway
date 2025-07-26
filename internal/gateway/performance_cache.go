@@ -27,7 +27,7 @@ type PerformanceCache interface {
 	RecordRequestMetrics(serverName, method string, responseTime time.Duration, success bool)
 	RecordRoutingDecision(method, serverName string, strategy interface{})
 	GetServerMetrics(serverName string) *ServerMetrics
-	GetMethodMetrics(method string) *MethodMetrics
+	GetPerformanceMethodMetrics(method string) *CacheMethodMetrics
 
 	// Health monitoring
 	UpdateServerHealth(serverName string, healthScore float64)
@@ -207,8 +207,8 @@ func (sm *ServerMetrics) Copy() *ServerMetrics {
 	}
 }
 
-// MethodMetrics aggregates performance data by LSP method
-type MethodMetrics struct {
+// CacheMethodMetrics aggregates performance data by LSP method for caching
+type CacheMethodMetrics struct {
 	Method              string             `json:"method"`
 	TotalRequests       int64              `json:"total_requests"`
 	AverageResponseTime time.Duration      `json:"average_response_time"`
@@ -255,7 +255,7 @@ type IntelligentPerformanceCache struct {
 	compressedCache    map[string]*PerformanceCacheEntry // L2 cache
 	persistentCache    map[string]*PerformanceCacheEntry // L3 cache
 	serverMetrics      map[string]*ServerMetrics
-	methodMetrics      map[string]*MethodMetrics
+	methodMetrics      map[string]*CacheMethodMetrics
 	cacheStats         *PerformanceCacheStats
 	running            bool
 	ctx                context.Context
@@ -290,7 +290,7 @@ func NewIntelligentPerformanceCache(config *PerformanceCacheConfig) *Intelligent
 		compressedCache: make(map[string]*PerformanceCacheEntry),
 		persistentCache: make(map[string]*PerformanceCacheEntry),
 		serverMetrics:   make(map[string]*ServerMetrics),
-		methodMetrics:   make(map[string]*MethodMetrics),
+		methodMetrics:   make(map[string]*CacheMethodMetrics),
 		cacheStats:      &PerformanceCacheStats{},
 	}
 }
@@ -529,7 +529,7 @@ func (pc *IntelligentPerformanceCache) RecordRequestMetrics(serverName, method s
 	pc.updateResponseTimeMetrics(serverMetrics, responseTime)
 
 	// Update method metrics
-	methodMetrics := pc.getOrCreateMethodMetrics(method)
+	methodMetrics := pc.getOrCreatePerformanceMethodMetrics(method)
 	methodMetrics.TotalRequests++
 	pc.updateMethodResponseTime(methodMetrics, responseTime)
 	pc.updateMethodServerPerformance(methodMetrics, serverName, responseTime)
@@ -544,7 +544,7 @@ func (pc *IntelligentPerformanceCache) RecordRoutingDecision(method, serverName 
 	defer pc.mutex.Unlock()
 
 	// Update method metrics with routing strategy information
-	methodMetrics := pc.getOrCreateMethodMetrics(method)
+	methodMetrics := pc.getOrCreatePerformanceMethodMetrics(method)
 	methodMetrics.TotalRequests++
 
 	// Update server metrics with routing decision
@@ -572,8 +572,8 @@ func (pc *IntelligentPerformanceCache) GetServerMetrics(serverName string) *Serv
 	return nil
 }
 
-// GetMethodMetrics returns performance metrics for a method
-func (pc *IntelligentPerformanceCache) GetMethodMetrics(method string) *MethodMetrics {
+// GetPerformanceMethodMetrics returns performance metrics for a method
+func (pc *IntelligentPerformanceCache) GetPerformanceMethodMetrics(method string) *CacheMethodMetrics {
 	pc.mutex.RLock()
 	defer pc.mutex.RUnlock()
 
@@ -792,12 +792,12 @@ func (pc *IntelligentPerformanceCache) getOrCreateServerMetrics(serverName strin
 	return metrics
 }
 
-func (pc *IntelligentPerformanceCache) getOrCreateMethodMetrics(method string) *MethodMetrics {
+func (pc *IntelligentPerformanceCache) getOrCreatePerformanceMethodMetrics(method string) *CacheMethodMetrics {
 	if metrics, exists := pc.methodMetrics[method]; exists {
 		return metrics
 	}
 
-	metrics := &MethodMetrics{
+	metrics := &CacheMethodMetrics{
 		Method:            method,
 		ServerPerformance: make(map[string]float64),
 		OptimalTTL:        pc.config.DefaultTTL,
@@ -887,7 +887,7 @@ func (pc *IntelligentPerformanceCache) calculateHealthScore(metrics *ServerMetri
 	metrics.HealthScore = successComponent + responseTimeComponent + loadComponent
 }
 
-func (pc *IntelligentPerformanceCache) updateMethodResponseTime(metrics *MethodMetrics, responseTime time.Duration) {
+func (pc *IntelligentPerformanceCache) updateMethodResponseTime(metrics *CacheMethodMetrics, responseTime time.Duration) {
 	alpha := 0.1
 	if metrics.AverageResponseTime == 0 {
 		metrics.AverageResponseTime = responseTime
@@ -897,7 +897,7 @@ func (pc *IntelligentPerformanceCache) updateMethodResponseTime(metrics *MethodM
 	}
 }
 
-func (pc *IntelligentPerformanceCache) updateMethodServerPerformance(metrics *MethodMetrics, serverName string, responseTime time.Duration) {
+func (pc *IntelligentPerformanceCache) updateMethodServerPerformance(metrics *CacheMethodMetrics, serverName string, responseTime time.Duration) {
 	currentPerf, exists := metrics.ServerPerformance[serverName]
 	if !exists {
 		metrics.ServerPerformance[serverName] = float64(responseTime.Nanoseconds())
@@ -1024,7 +1024,7 @@ func (pc *IntelligentPerformanceCache) updateMemoryUsage() {
 	pc.cacheStats.MemoryUsage = totalSize
 }
 
-func (pc *IntelligentPerformanceCache) updateMethodCacheHitRate(metrics *MethodMetrics) {
+func (pc *IntelligentPerformanceCache) updateMethodCacheHitRate(metrics *CacheMethodMetrics) {
 	// This would be calculated based on actual cache hits for this method
 	// For now, use overall cache hit rate as approximation
 	metrics.CacheHitRate = pc.cacheStats.CacheHitRate

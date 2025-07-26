@@ -11,6 +11,29 @@ type ServerVerifier interface {
 	VerifyServer(serverName string) (*ServerVerificationResult, error)
 }
 
+type ProjectScanner interface {
+	ScanProject(rootPath string) (*config.MultiLanguageProjectInfo, error)
+}
+
+// SimpleProjectScanner is a basic implementation that avoids import cycles
+type SimpleProjectScanner struct{}
+
+func NewSimpleProjectScanner() *SimpleProjectScanner {
+	return &SimpleProjectScanner{}
+}
+
+func (s *SimpleProjectScanner) ScanProject(rootPath string) (*config.MultiLanguageProjectInfo, error) {
+	// Basic implementation to avoid import cycle
+	// TODO: Replace with proper implementation once import cycle is resolved
+	return &config.MultiLanguageProjectInfo{
+		ProjectType:      "mixed",
+		RootDirectory:    rootPath,
+		LanguageContexts: []*config.LanguageContext{},
+		DetectedAt:       time.Now(),
+		Metadata:         make(map[string]interface{}),
+	}, nil
+}
+
 type ServerRegistry interface {
 	GetServersByRuntime(runtime string) []*ServerDefinition
 	GetServer(serverName string) (*ServerDefinition, error)
@@ -130,6 +153,7 @@ type DefaultConfigGenerator struct {
 	// Multi-language enhancements
 	multiLangGenerator *config.ConfigGenerator
 	integrator         *config.ConfigurationIntegrator
+	projectScanner     ProjectScanner
 }
 
 func NewConfigGenerator() *DefaultConfigGenerator {
@@ -142,6 +166,7 @@ func NewConfigGenerator() *DefaultConfigGenerator {
 		// Initialize multi-language components
 		multiLangGenerator: config.NewConfigGenerator(),
 		integrator:         config.NewConfigurationIntegrator(),
+		projectScanner:     NewSimpleProjectScanner(),
 	}
 
 	generator.initializeTemplates()
@@ -177,9 +202,17 @@ func (g *DefaultConfigGenerator) GenerateMultiLanguageConfig(ctx context.Context
 			PerformanceProfile: "medium",
 		}
 	}
-
-	// Generate multi-language configuration from project path
-	mlConfig, err := config.AutoGenerateConfigFromPath(projectPath)
+	
+	// Scan project for language detection
+	projectInfo, err := g.projectScanner.ScanProject(projectPath)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Project scanning failed: %v", err))
+		result.Duration = time.Since(startTime)
+		return result, fmt.Errorf("project scanning failed: %w", err)
+	}
+	
+	// Generate multi-language configuration
+	mlConfig, err := g.multiLangGenerator.GenerateMultiLanguageConfig(projectInfo)
 	if err != nil {
 		result.Issues = append(result.Issues, fmt.Sprintf("Multi-language config generation failed: %v", err))
 		result.Duration = time.Since(startTime)
