@@ -147,6 +147,7 @@ This document provides critical file locations and code references for quick AI/
 ## 🧪 Testing Infrastructure
 
 ### E2E Testing
+- `tests/e2e/setup_cli_e2e_test.go` - Comprehensive setup CLI E2E test suite with JSON validation
 - `tests/e2e/typescript_advanced_e2e_test.go` - Advanced TypeScript workflow validation
 - `tests/e2e/scenarios/lsp_workflow_scenarios.go` - Real-world LSP usage scenarios
 - `tests/e2e/scenarios/performance_scenarios.go` - Performance benchmark scenarios
@@ -171,6 +172,8 @@ This document provides critical file locations and code references for quick AI/
 ### Development Commands
 - `make local` - Build for current platform
 - `make test-unit` - Fast unit tests (<60s)
+- `make test-simple-quick` - Quick E2E validation (1 minute)
+- `make test-integration` - Integration test suite
 - `make test-lsp-validation-short` - Quick LSP validation (2min)
 - `make quality` - Format + lint + security analysis
 

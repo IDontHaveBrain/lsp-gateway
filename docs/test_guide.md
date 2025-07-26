@@ -23,6 +23,7 @@ go test ./internal/...        # Direct unit test execution
 make test-simple-quick        # Quick E2E validation (1min)
 make test-lsp-validation-short # Short LSP validation (2min)
 make test-lsp-validation      # Full LSP validation (5min)
+make test-e2e-setup-cli       # Setup CLI E2E tests (5min)
 ```
 
 ## Test Categories
@@ -42,10 +43,22 @@ Essential E2E scenarios only:
 - **Basic LSP Workflow**: Definition, references, hover for real development scenarios
 - **Multi-Language Support**: Go, Python, TypeScript integration with actual language servers
 - **Protocol Validation**: HTTP JSON-RPC and MCP protocol basics
+- **Setup CLI Testing**: Comprehensive binary execution tests for setup automation
 - **Simple Error Handling**: Basic failure recovery without complex simulation
 
 **Location**: `tests/e2e/` and `tests/integration/` directories
 **Approach**: Real language server integration, no synthetic project generation
+
+### Setup CLI E2E Tests
+Comprehensive binary execution tests for setup automation:
+- **Real Binary Testing**: Execute actual compiled binary with various command combinations
+- **JSON Output Validation**: Parse and validate complex JSON response structures  
+- **Command Coverage**: Tests setup all, detect, wizard, template commands with real scenarios
+- **Error Handling**: Validates proper error responses for invalid inputs and edge cases
+- **Project Integration**: Tests with real project structures (Go, Python, etc.)
+
+**Location**: `tests/e2e/setup_cli_e2e_test.go`
+**Approach**: Direct binary execution with comprehensive JSON parsing and validation
 
 ## Test Commands
 
@@ -69,6 +82,9 @@ make test-unit
 # LSP validation tests
 make test-lsp-validation-short  # 2 minutes
 make test-lsp-validation        # 5 minutes
+
+# Setup CLI E2E tests
+make test-e2e-setup-cli         # 5 minutes
 
 # Basic integration tests
 make test-integration           # 3-5 minutes
@@ -110,6 +126,14 @@ Essential performance requirements:
 - Test **essential LSP methods** - definition, hover, references
 - Keep scenarios **simple and realistic**
 - Avoid performance testing unless critical
+
+### Writing Setup CLI E2E Tests
+- Test **real binary execution** with actual command combinations
+- Validate **JSON output structure** and content accuracy
+- Cover **error scenarios** and edge cases with proper response validation
+- Use **real project structures** for authentic testing environments
+- Focus on **command coverage** - setup all, detect, wizard, template scenarios
+- Ensure **cross-platform compatibility** where applicable
 
 ### Test Maintenance
 - **Delete tests** that don't add value or test trivial functionality  
