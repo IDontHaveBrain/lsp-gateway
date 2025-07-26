@@ -202,7 +202,7 @@ func (g *DefaultConfigGenerator) GenerateMultiLanguageConfig(ctx context.Context
 			PerformanceProfile: "medium",
 		}
 	}
-	
+
 	// Scan project for language detection
 	projectInfo, err := g.projectScanner.ScanProject(projectPath)
 	if err != nil {
@@ -210,7 +210,7 @@ func (g *DefaultConfigGenerator) GenerateMultiLanguageConfig(ctx context.Context
 		result.Duration = time.Since(startTime)
 		return result, fmt.Errorf("project scanning failed: %w", err)
 	}
-	
+
 	// Generate multi-language configuration
 	mlConfig, err := g.multiLangGenerator.GenerateMultiLanguageConfig(projectInfo)
 	if err != nil {

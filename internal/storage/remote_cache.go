@@ -25,45 +25,45 @@ import (
 // Provides <200ms access time with multiple backend support and network resilience
 type RemoteCache struct {
 	// Configuration
-	config       TierConfig
-	backendType  BackendType
-	
+	config      TierConfig
+	backendType BackendType
+
 	// Backend implementations
-	backends     map[string]RemoteBackend
+	backends      map[string]RemoteBackend
 	activeBackend string
-	backendMu    sync.RWMutex
-	
+	backendMu     sync.RWMutex
+
 	// Network resilience
-	httpClient   *http.Client
+	httpClient     *http.Client
 	circuitBreaker *gateway.CircuitBreaker
-	retryConfig  *RetryConfig
-	
+	retryConfig    *RetryConfig
+
 	// Compression and serialization
-	compression  CompressionProvider
-	serializer   SerializationProvider
-	
+	compression CompressionProvider
+	serializer  SerializationProvider
+
 	// Connection management
 	connectionPool *ConnectionPool
-	
+
 	// Background operations
-	syncManager  *BackgroundSyncManager
-	
+	syncManager *BackgroundSyncManager
+
 	// Statistics and monitoring
-	stats        *remoteStats
-	health       *remoteHealth
-	capacity     *remoteCapacity
-	
+	stats    *remoteStats
+	health   *remoteHealth
+	capacity *remoteCapacity
+
 	// Concurrency control
-	mu           sync.RWMutex
-	closed       int32
-	
+	mu     sync.RWMutex
+	closed int32
+
 	// Background processes
 	maintenanceCancel context.CancelFunc
 	maintenanceDone   chan struct{}
-	
+
 	// Authentication
 	authProvider AuthProvider
-	
+
 	// Performance tracking
 	latencyHistogram  map[string]*LatencyTracker
 	throughputTracker *ThroughputTracker
@@ -75,22 +75,22 @@ type RemoteBackend interface {
 	// Backend identification
 	GetBackendType() BackendType
 	GetEndpoint() string
-	
+
 	// Core operations with context support
 	Get(ctx context.Context, key string) ([]byte, *StorageMetadata, error)
 	Put(ctx context.Context, key string, data []byte, metadata *StorageMetadata) error
 	Delete(ctx context.Context, key string) error
 	Exists(ctx context.Context, key string) (bool, error)
-	
+
 	// Batch operations for efficiency
 	GetBatch(ctx context.Context, keys []string) (map[string][]byte, error)
 	PutBatch(ctx context.Context, entries map[string][]byte) error
 	DeleteBatch(ctx context.Context, keys []string) error
-	
+
 	// Health and diagnostics
 	Ping(ctx context.Context) error
 	GetStats(ctx context.Context) (*BackendStats, error)
-	
+
 	// Lifecycle management
 	Initialize(ctx context.Context, config BackendConfig) error
 	Close() error
@@ -98,45 +98,45 @@ type RemoteBackend interface {
 
 // HTTPRestBackend implements HTTP REST API backend
 type HTTPRestBackend struct {
-	endpoint     string
-	client       *http.Client
-	auth         AuthProvider
-	compression  bool
-	headers      map[string]string
-	timeout      time.Duration
-	mu           sync.RWMutex
+	endpoint    string
+	client      *http.Client
+	auth        AuthProvider
+	compression bool
+	headers     map[string]string
+	timeout     time.Duration
+	mu          sync.RWMutex
 }
 
 // S3Backend implements S3-compatible storage backend
 type S3Backend struct {
-	endpoint     string
-	bucket       string
-	region       string
-	accessKey    string
-	secretKey    string
-	client       *http.Client
-	useSSL       bool
-	pathStyle    bool
-	mu           sync.RWMutex
+	endpoint  string
+	bucket    string
+	region    string
+	accessKey string
+	secretKey string
+	client    *http.Client
+	useSSL    bool
+	pathStyle bool
+	mu        sync.RWMutex
 }
 
 // RedisBackend implements Redis cluster backend
 type RedisBackend struct {
-	client       *redis.ClusterClient
-	keyPrefix    string
-	db           int
-	timeout      time.Duration
-	compression  bool
-	mu           sync.RWMutex
+	client      *redis.ClusterClient
+	keyPrefix   string
+	db          int
+	timeout     time.Duration
+	compression bool
+	mu          sync.RWMutex
 }
 
 // CustomBackend allows for extensible custom protocols
 type CustomBackend struct {
-	protocol     string
-	endpoint     string
-	handler      CustomProtocolHandler
-	config       map[string]interface{}
-	mu           sync.RWMutex
+	protocol string
+	endpoint string
+	handler  CustomProtocolHandler
+	config   map[string]interface{}
+	mu       sync.RWMutex
 }
 
 // RetryConfig defines retry behavior for network operations
@@ -161,10 +161,10 @@ type ConnectionPool struct {
 
 // PooledConnection represents a reusable network connection
 type PooledConnection struct {
-	conn        net.Conn
-	lastUsed    time.Time
-	inUse       bool
-	backend     string
+	conn     net.Conn
+	lastUsed time.Time
+	inUse    bool
+	backend  string
 }
 
 // BackgroundSyncManager handles asynchronous operations
@@ -233,60 +233,60 @@ type CustomProtocolHandler interface {
 // Statistics and monitoring types
 type remoteStats struct {
 	mu sync.RWMutex
-	
+
 	// Request statistics
-	totalRequests    int64
+	totalRequests   int64
 	cacheHits       int64
 	cacheMisses     int64
 	networkRequests int64
-	
+
 	// Performance metrics
-	avgLatency      time.Duration
-	p50Latency      time.Duration
-	p95Latency      time.Duration
-	p99Latency      time.Duration
-	maxLatency      time.Duration
-	
+	avgLatency time.Duration
+	p50Latency time.Duration
+	p95Latency time.Duration
+	p99Latency time.Duration
+	maxLatency time.Duration
+
 	// Network metrics
 	bytesTransferred int64
 	networkErrors    int64
 	timeoutErrors    int64
 	retryCount       int64
-	
+
 	// Backend metrics
 	backendSwitches  int64
 	compressionRatio float64
-	
+
 	// Operation counts
 	getOperations    int64
 	putOperations    int64
 	deleteOperations int64
 	batchOperations  int64
-	
+
 	// Background sync metrics
-	syncOperations   int64
-	syncErrors       int64
-	queueSize        int64
-	
+	syncOperations int64
+	syncErrors     int64
+	queueSize      int64
+
 	startTime time.Time
 }
 
 type remoteHealth struct {
 	mu sync.RWMutex
-	
-	healthy          bool
-	status           TierStatus
-	lastCheck        time.Time
-	issues           []HealthIssue
-	
+
+	healthy   bool
+	status    TierStatus
+	lastCheck time.Time
+	issues    []HealthIssue
+
 	// Backend health
-	backendHealth    map[string]bool
-	activeBackends   []string
-	
+	backendHealth  map[string]bool
+	activeBackends []string
+
 	// Network health
-	networkLatency   time.Duration
-	packetLoss       float64
-	
+	networkLatency time.Duration
+	packetLoss     float64
+
 	// Circuit breaker state
 	circuitBreaker struct {
 		state        gateway.CircuitBreakerState
@@ -298,17 +298,17 @@ type remoteHealth struct {
 
 type remoteCapacity struct {
 	mu sync.RWMutex
-	
-	maxCapacity      int64
-	usedCapacity     int64
+
+	maxCapacity       int64
+	usedCapacity      int64
 	availableCapacity int64
-	maxEntries       int64
-	usedEntries      int64
-	utilizationPct   float64
-	
+	maxEntries        int64
+	usedEntries       int64
+	utilizationPct    float64
+
 	// Network capacity
-	bandwidth        int64
-	maxThroughput    float64
+	bandwidth         int64
+	maxThroughput     float64
 	currentThroughput float64
 }
 
@@ -363,8 +363,8 @@ func NewRemoteCache(config TierConfig) (*RemoteCache, error) {
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: false,
 		},
-		DisableKeepAlives:   false,
-		DisableCompression:  false,
+		DisableKeepAlives:      false,
+		DisableCompression:     false,
 		MaxResponseHeaderBytes: 1 << 20, // 1MB
 	}
 
@@ -414,8 +414,8 @@ func NewRemoteCache(config TierConfig) (*RemoteCache, error) {
 			backendHealth: make(map[string]bool),
 		},
 		capacity: &remoteCapacity{
-			maxCapacity:   config.MaxCapacity,
-			maxEntries:    config.MaxEntries,
+			maxCapacity: config.MaxCapacity,
+			maxEntries:  config.MaxEntries,
 		},
 		latencyHistogram: make(map[string]*LatencyTracker),
 		maintenanceDone:  make(chan struct{}),
@@ -431,10 +431,10 @@ func NewRemoteCache(config TierConfig) (*RemoteCache, error) {
 
 	// Initialize connection pool
 	rc.connectionPool = &ConnectionPool{
-		maxConnections:    config.BackendConfig.MaxConnections,
-		idleTimeout:       60 * time.Second,
-		keepAlive:         30 * time.Second,
-		connectionMap:     make(map[string]*PooledConnection),
+		maxConnections: config.BackendConfig.MaxConnections,
+		idleTimeout:    60 * time.Second,
+		keepAlive:      30 * time.Second,
+		connectionMap:  make(map[string]*PooledConnection),
 	}
 
 	// Initialize background sync manager
@@ -514,7 +514,7 @@ func (rc *RemoteCache) Get(ctx context.Context, key string) (*CacheEntry, error)
 
 	rc.circuitBreaker.RecordSuccess()
 	atomic.AddInt64(&rc.stats.cacheHits, 1)
-	
+
 	// Update access patterns
 	if entry != nil {
 		entry.Touch()
@@ -631,7 +631,7 @@ func (rc *RemoteCache) GetBatch(ctx context.Context, keys []string) (map[string]
 	}
 
 	rc.circuitBreaker.RecordSuccess()
-	
+
 	// Update hit/miss statistics
 	hits := int64(len(result))
 	misses := int64(len(keys)) - hits
@@ -824,7 +824,7 @@ func (rc *RemoteCache) GetCapacity() TierCapacity {
 func (rc *RemoteCache) Flush(ctx context.Context) error {
 	// Wait for background sync operations to complete
 	rc.syncManager.wg.Wait()
-	
+
 	// Force synchronization of any pending operations
 	return rc.forceSyncPendingOperations(ctx)
 }
@@ -917,11 +917,11 @@ func (rc *RemoteCache) initializeBackends(ctx context.Context) error {
 func (rc *RemoteCache) getActiveBackend() RemoteBackend {
 	rc.backendMu.RLock()
 	defer rc.backendMu.RUnlock()
-	
+
 	if rc.activeBackend == "" {
 		return nil
 	}
-	
+
 	return rc.backends[rc.activeBackend]
 }
 
@@ -1014,7 +1014,7 @@ func (rc *RemoteCache) performGetBatch(ctx context.Context, keys []string) (map[
 	}
 
 	result := make(map[string]*CacheEntry)
-	
+
 	for key, data := range rawData {
 		// Deserialize cache entry
 		var entry CacheEntry
@@ -1035,7 +1035,7 @@ func (rc *RemoteCache) performPutBatch(ctx context.Context, entries map[string]*
 	}
 
 	serializedData := make(map[string][]byte)
-	
+
 	for key, entry := range entries {
 		data, err := rc.serializer.Serialize(entry)
 		if err != nil {
@@ -1203,13 +1203,13 @@ func (rc *RemoteCache) maintenanceRoutine(ctx context.Context) {
 func (rc *RemoteCache) performMaintenance(ctx context.Context) {
 	// Update health status
 	rc.updateHealthStatus(ctx)
-	
+
 	// Update capacity metrics
 	rc.updateCapacityMetrics(ctx)
-	
+
 	// Cleanup expired connections
 	rc.cleanupConnections()
-	
+
 	// Update performance metrics
 	rc.updatePerformanceMetrics()
 }
@@ -1218,12 +1218,12 @@ func (rc *RemoteCache) performMaintenance(ctx context.Context) {
 
 func (rc *RemoteCache) executeWithRetry(ctx context.Context, operation string, fn func() error) error {
 	var lastErr error
-	
+
 	for attempt := 0; attempt <= rc.retryConfig.MaxRetries; attempt++ {
 		if attempt > 0 {
 			// Calculate backoff delay with jitter
 			delay := rc.calculateBackoffDelay(attempt)
-			
+
 			select {
 			case <-time.After(delay):
 			case <-ctx.Done():
@@ -1240,7 +1240,7 @@ func (rc *RemoteCache) executeWithRetry(ctx context.Context, operation string, f
 		}
 
 		lastErr = err
-		
+
 		// Check if error is retryable
 		if !rc.isRetryableError(err) {
 			break
@@ -1249,13 +1249,13 @@ func (rc *RemoteCache) executeWithRetry(ctx context.Context, operation string, f
 		atomic.AddInt64(&rc.stats.networkErrors, 1)
 	}
 
-	return fmt.Errorf("operation %s failed after %d attempts: %w", 
+	return fmt.Errorf("operation %s failed after %d attempts: %w",
 		operation, rc.retryConfig.MaxRetries+1, lastErr)
 }
 
 func (rc *RemoteCache) calculateBackoffDelay(attempt int) time.Duration {
 	// Exponential backoff with jitter
-	delay := float64(rc.retryConfig.InitialDelay) * 
+	delay := float64(rc.retryConfig.InitialDelay) *
 		func(base float64, exp int) float64 {
 			result := 1.0
 			for i := 0; i < exp; i++ {
@@ -1278,7 +1278,7 @@ func (rc *RemoteCache) calculateBackoffDelay(attempt int) time.Duration {
 
 func (rc *RemoteCache) isRetryableError(err error) bool {
 	errStr := strings.ToLower(err.Error())
-	
+
 	for _, retryable := range rc.retryConfig.RetryableErrors {
 		if strings.Contains(errStr, strings.ToLower(retryable)) {
 			return true
@@ -1316,7 +1316,7 @@ func (rc *RemoteCache) recordLatency(operation string, latency time.Duration) {
 
 	tracker.mu.Lock()
 	defer tracker.mu.Unlock()
-	
+
 	// Find appropriate bucket
 	for i, threshold := range tracker.bucketRanges {
 		if latency <= threshold {
@@ -1324,9 +1324,9 @@ func (rc *RemoteCache) recordLatency(operation string, latency time.Duration) {
 			break
 		}
 	}
-	
+
 	tracker.totalSamples++
-	
+
 	// Update global latency stats
 	rc.updateLatencyStats(latency)
 }
@@ -1359,7 +1359,7 @@ func (rc *RemoteCache) updateHealthStatus(ctx context.Context) {
 	defer rc.health.mu.Unlock()
 
 	rc.health.lastCheck = time.Now()
-	
+
 	// Check backend health
 	healthy := true
 	issues := []HealthIssue{}
@@ -1394,7 +1394,7 @@ func (rc *RemoteCache) updateHealthStatus(ctx context.Context) {
 
 	rc.health.healthy = healthy
 	rc.health.issues = issues
-	
+
 	if healthy {
 		rc.health.status = TierStatusHealthy
 	} else {
@@ -1438,9 +1438,9 @@ func (rc *RemoteCache) updatePerformanceMetrics() {
 	now := time.Now()
 	// Add current window
 	rc.throughputTracker.timeWindows = append(rc.throughputTracker.timeWindows, now)
-	rc.throughputTracker.requestCounts = append(rc.throughputTracker.requestCounts, 
+	rc.throughputTracker.requestCounts = append(rc.throughputTracker.requestCounts,
 		atomic.LoadInt64(&rc.stats.totalRequests))
-	rc.throughputTracker.byteCounts = append(rc.throughputTracker.byteCounts, 
+	rc.throughputTracker.byteCounts = append(rc.throughputTracker.byteCounts,
 		atomic.LoadInt64(&rc.stats.bytesTransferred))
 
 	// Remove old windows
@@ -1454,7 +1454,7 @@ func (rc *RemoteCache) updatePerformanceMetrics() {
 			validIndex++
 		}
 	}
-	
+
 	rc.throughputTracker.timeWindows = rc.throughputTracker.timeWindows[:validIndex]
 	rc.throughputTracker.requestCounts = rc.throughputTracker.requestCounts[:validIndex]
 	rc.throughputTracker.byteCounts = rc.throughputTracker.byteCounts[:validIndex]
@@ -1561,14 +1561,14 @@ func NewCompressionProvider(config *CompressionConfig) CompressionProvider {
 	if config.Type == CompressionZstd {
 		encoder, _ := zstd.NewWriter(nil, zstd.WithEncoderLevel(zstd.EncoderLevel(config.Level)))
 		decoder, _ := zstd.NewReader(nil)
-		
+
 		return &ZstdCompressionProvider{
 			encoder: encoder,
 			decoder: decoder,
 			level:   zstd.EncoderLevel(config.Level),
 		}
 	}
-	
+
 	// Default to no compression
 	return &NoCompressionProvider{}
 }

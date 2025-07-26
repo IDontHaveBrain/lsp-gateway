@@ -18,22 +18,22 @@ type LSPSCIPMapper struct {
 	config       *SCIPConfig
 	statsTracker *MapperStats
 	mutex        sync.RWMutex
-	
+
 	// Performance tracking
-	requestCount     int64
-	successCount     int64
-	errorCount       int64
-	avgResponseTime  time.Duration
-	lastRequestTime  time.Time
+	requestCount    int64
+	successCount    int64
+	errorCount      int64
+	avgResponseTime time.Duration
+	lastRequestTime time.Time
 }
 
 // LSPParams represents parameters for LSP method calls
 type LSPParams struct {
-	Method     string                 `json:"method"`
-	URI        string                 `json:"uri,omitempty"`
-	Position   *LSPPosition           `json:"position,omitempty"`
-	Query      string                 `json:"query,omitempty"`
-	Context    map[string]interface{} `json:"context,omitempty"`
+	Method       string                  `json:"method"`
+	URI          string                  `json:"uri,omitempty"`
+	Position     *LSPPosition            `json:"position,omitempty"`
+	Query        string                  `json:"query,omitempty"`
+	Context      map[string]interface{}  `json:"context,omitempty"`
 	TextDocument *TextDocumentIdentifier `json:"textDocument,omitempty"`
 }
 
@@ -71,7 +71,7 @@ type DocumentSymbolParams struct {
 	TextDocument TextDocumentIdentifier `json:"textDocument"`
 }
 
-// WorkspaceSymbolParams represents parameters for workspace symbol requests  
+// WorkspaceSymbolParams represents parameters for workspace symbol requests
 type WorkspaceSymbolParams struct {
 	Query string `json:"query"`
 }
@@ -142,24 +142,24 @@ type Hover struct {
 
 // MapperStats tracks performance statistics for the mapper
 type MapperStats struct {
-	TotalRequests      int64         `json:"total_requests"`
-	SuccessfulRequests int64         `json:"successful_requests"`
-	FailedRequests     int64         `json:"failed_requests"`
+	TotalRequests       int64         `json:"total_requests"`
+	SuccessfulRequests  int64         `json:"successful_requests"`
+	FailedRequests      int64         `json:"failed_requests"`
 	AverageResponseTime time.Duration `json:"average_response_time"`
-	LastRequestTime    time.Time     `json:"last_request_time"`
-	
+	LastRequestTime     time.Time     `json:"last_request_time"`
+
 	// Method-specific statistics
 	DefinitionRequests      int64 `json:"definition_requests"`
 	ReferencesRequests      int64 `json:"references_requests"`
-	HoverRequests          int64 `json:"hover_requests"`
-	DocumentSymbolRequests int64 `json:"document_symbol_requests"`
+	HoverRequests           int64 `json:"hover_requests"`
+	DocumentSymbolRequests  int64 `json:"document_symbol_requests"`
 	WorkspaceSymbolRequests int64 `json:"workspace_symbol_requests"`
-	
+
 	// Performance metrics
-	FastQueries  int64 `json:"fast_queries"`  // < 5ms
-	SlowQueries  int64 `json:"slow_queries"`  // > 50ms
-	CacheHits    int64 `json:"cache_hits"`
-	CacheMisses  int64 `json:"cache_misses"`
+	FastQueries int64 `json:"fast_queries"` // < 5ms
+	SlowQueries int64 `json:"slow_queries"` // > 50ms
+	CacheHits   int64 `json:"cache_hits"`
+	CacheMisses int64 `json:"cache_misses"`
 }
 
 // NewLSPSCIPMapper creates a new LSP to SCIP query mapper
@@ -216,7 +216,7 @@ func (m *LSPSCIPMapper) MapDefinition(params *LSPParams) (json.RawMessage, error
 
 	// Query SCIP store
 	result := m.scipStore.Query("textDocument/definition", scipParams)
-	
+
 	if !result.Found {
 		if result.Error != "" {
 			return nil, fmt.Errorf("SCIP query failed: %s", result.Error)
@@ -258,7 +258,7 @@ func (m *LSPSCIPMapper) MapReferences(params *LSPParams) (json.RawMessage, error
 
 	// Query SCIP store
 	result := m.scipStore.Query("textDocument/references", scipParams)
-	
+
 	if !result.Found {
 		if result.Error != "" {
 			return nil, fmt.Errorf("SCIP query failed: %s", result.Error)
@@ -297,7 +297,7 @@ func (m *LSPSCIPMapper) MapHover(params *LSPParams) (json.RawMessage, error) {
 
 	// Query SCIP store
 	result := m.scipStore.Query("textDocument/hover", scipParams)
-	
+
 	if !result.Found {
 		if result.Error != "" {
 			return nil, fmt.Errorf("SCIP query failed: %s", result.Error)
@@ -332,7 +332,7 @@ func (m *LSPSCIPMapper) MapDocumentSymbol(params *LSPParams) (json.RawMessage, e
 
 	// Query SCIP store
 	result := m.scipStore.Query("textDocument/documentSymbol", scipParams)
-	
+
 	if !result.Found {
 		if result.Error != "" {
 			return nil, fmt.Errorf("SCIP query failed: %s", result.Error)
@@ -365,7 +365,7 @@ func (m *LSPSCIPMapper) MapWorkspaceSymbol(params *LSPParams) (json.RawMessage, 
 
 	// Query SCIP store
 	result := m.scipStore.Query("workspace/symbol", scipParams)
-	
+
 	if !result.Found {
 		if result.Error != "" {
 			return nil, fmt.Errorf("SCIP query failed: %s", result.Error)
@@ -385,7 +385,7 @@ func (m *LSPSCIPMapper) MapWorkspaceSymbol(params *LSPParams) (json.RawMessage, 
 // QuerySCIP provides the main query interface for LSP methods
 func (m *LSPSCIPMapper) QuerySCIP(method string, params interface{}) SCIPQueryResult {
 	startTime := time.Now()
-	
+
 	// Increment request count
 	atomic.AddInt64(&m.requestCount, 1)
 
@@ -404,7 +404,7 @@ func (m *LSPSCIPMapper) QuerySCIP(method string, params interface{}) SCIPQueryRe
 
 	// Query the SCIP store
 	result := m.scipStore.Query(method, params)
-	
+
 	// Update statistics
 	if result.Found {
 		atomic.AddInt64(&m.successCount, 1)
@@ -430,7 +430,7 @@ func (m *LSPSCIPMapper) QuerySCIP(method string, params interface{}) SCIPQueryRe
 	m.updateLastRequestTime()
 
 	if m.config.Logging.LogQueries {
-		log.Printf("LSP-SCIP: Query for method %s completed in %v (found: %t, cache_hit: %t, confidence: %.2f)", 
+		log.Printf("LSP-SCIP: Query for method %s completed in %v (found: %t, cache_hit: %t, confidence: %.2f)",
 			method, queryTime, result.Found, result.CacheHit, result.Confidence)
 	}
 
@@ -440,24 +440,24 @@ func (m *LSPSCIPMapper) QuerySCIP(method string, params interface{}) SCIPQueryRe
 // ConvertLSPPositionToByteOffset converts LSP line/character position to byte offset
 func (m *LSPSCIPMapper) ConvertLSPPositionToByteOffset(content string, position LSPPosition) (int, error) {
 	lines := strings.Split(content, "\n")
-	
+
 	if position.Line >= len(lines) {
 		return 0, fmt.Errorf("line %d exceeds document length %d", position.Line, len(lines))
 	}
 
 	byteOffset := 0
-	
+
 	// Add bytes for all previous lines
 	for i := 0; i < position.Line; i++ {
 		byteOffset += len(lines[i]) + 1 // +1 for newline character
 	}
-	
+
 	// Add bytes for character position in current line
 	currentLine := lines[position.Line]
 	if position.Character > utf8.RuneCountInString(currentLine) {
 		return 0, fmt.Errorf("character %d exceeds line length %d", position.Character, utf8.RuneCountInString(currentLine))
 	}
-	
+
 	// Convert character position to byte position
 	runeIndex := 0
 	for byteIndex, _ := range currentLine {
@@ -470,7 +470,7 @@ func (m *LSPSCIPMapper) ConvertLSPPositionToByteOffset(content string, position 
 			byteOffset += len(currentLine)
 		}
 	}
-	
+
 	return byteOffset, nil
 }
 
@@ -482,7 +482,7 @@ func (m *LSPSCIPMapper) ConvertByteOffsetToLSPPosition(content string, byteOffse
 
 	lines := strings.Split(content[:byteOffset], "\n")
 	line := len(lines) - 1
-	
+
 	var character int
 	if line > 0 {
 		lastLine := lines[line]
@@ -526,7 +526,7 @@ func (m *LSPSCIPMapper) GetStats() MapperStats {
 
 	requestCount := atomic.LoadInt64(&m.requestCount)
 	successCount := atomic.LoadInt64(&m.successCount)
-	
+
 	stats := *m.statsTracker
 	stats.TotalRequests = requestCount
 	stats.SuccessfulRequests = successCount
@@ -587,17 +587,17 @@ func (m *LSPSCIPMapper) validateLSPWorkspaceSymbolResponse(response json.RawMess
 
 func (m *LSPSCIPMapper) updateRequestStats(method string, startTime time.Time) {
 	queryTime := time.Since(startTime)
-	
+
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
-	
+
 	// Update average response time (simple moving average)
 	if m.avgResponseTime == 0 {
 		m.avgResponseTime = queryTime
 	} else {
 		m.avgResponseTime = (m.avgResponseTime + queryTime) / 2
 	}
-	
+
 	// Update method-specific counters
 	switch method {
 	case "definition":
@@ -706,7 +706,7 @@ func (m *LSPSCIPMapper) GenerateErrorResponse(method string, err error) (json.Ra
 // LogPerformanceWarning logs warnings for queries that exceed performance targets
 func (m *LSPSCIPMapper) LogPerformanceWarning(method string, queryTime time.Duration, uri string) {
 	if m.config.Logging.LogQueries && queryTime > 25*time.Millisecond {
-		log.Printf("LSP-SCIP Performance Warning: Method %s took %v (target: <10ms, max: 25ms) for URI %s", 
+		log.Printf("LSP-SCIP Performance Warning: Method %s took %v (target: <10ms, max: 25ms) for URI %s",
 			method, queryTime, uri)
 	}
 }
@@ -718,8 +718,8 @@ func (m *LSPSCIPMapper) Close() error {
 
 	if m.config.Logging.LogIndexOperations {
 		stats := m.GetStats()
-		log.Printf("LSP-SCIP Mapper closing: %d total requests, %d successful, %.2f%% success rate, avg response: %v", 
-			stats.TotalRequests, stats.SuccessfulRequests, 
+		log.Printf("LSP-SCIP Mapper closing: %d total requests, %d successful, %.2f%% success rate, avg response: %v",
+			stats.TotalRequests, stats.SuccessfulRequests,
 			float64(stats.SuccessfulRequests)/float64(stats.TotalRequests)*100.0,
 			stats.AverageResponseTime)
 	}

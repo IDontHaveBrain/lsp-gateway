@@ -109,18 +109,18 @@ func (sm *SimpleServerMetrics) Copy() *SimpleServerMetrics {
 
 // SimplePoolMetrics tracks basic performance metrics for a language server pool
 type SimplePoolMetrics struct {
-	Language            string                    `json:"language"`
-	TotalServers        int                       `json:"total_servers"`
-	ActiveServers       int                       `json:"active_servers"`
-	HealthyServers      int                       `json:"healthy_servers"`
-	TotalRequests       int64                     `json:"total_requests"`
-	SuccessfulRequests  int64                     `json:"successful_requests"`
-	FailedRequests      int64                     `json:"failed_requests"`
-	AverageResponseTime time.Duration             `json:"average_response_time"`
-	LoadDistribution    map[string]int64          `json:"load_distribution"`
+	Language            string                          `json:"language"`
+	TotalServers        int                             `json:"total_servers"`
+	ActiveServers       int                             `json:"active_servers"`
+	HealthyServers      int                             `json:"healthy_servers"`
+	TotalRequests       int64                           `json:"total_requests"`
+	SuccessfulRequests  int64                           `json:"successful_requests"`
+	FailedRequests      int64                           `json:"failed_requests"`
+	AverageResponseTime time.Duration                   `json:"average_response_time"`
+	LoadDistribution    map[string]int64                `json:"load_distribution"`
 	ServerMetrics       map[string]*SimpleServerMetrics `json:"server_metrics"`
-	LastUpdated         time.Time                 `json:"last_updated"`
-	mu                  sync.RWMutex              `json:"-"`
+	LastUpdated         time.Time                       `json:"last_updated"`
+	mu                  sync.RWMutex                    `json:"-"`
 }
 
 // NewSimplePoolMetrics creates a new simple pool metrics instance
@@ -182,7 +182,7 @@ func (pm *SimplePoolMetrics) RecordServerSelection(serverName string, responseTi
 	if pm.AverageResponseTime == 0 {
 		pm.AverageResponseTime = responseTime
 	} else {
-		alpha := 0.1 // Smoothing factor for exponential moving average  
+		alpha := 0.1 // Smoothing factor for exponential moving average
 		pm.AverageResponseTime = time.Duration(float64(pm.AverageResponseTime)*(1-alpha) + float64(responseTime)*alpha)
 	}
 
@@ -208,4 +208,3 @@ func (pm *SimplePoolMetrics) UpdatePoolStatus(language string, total, active, he
 	pm.HealthyServers = healthy
 	pm.LastUpdated = time.Now()
 }
-

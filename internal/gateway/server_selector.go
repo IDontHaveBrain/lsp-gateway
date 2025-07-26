@@ -906,7 +906,7 @@ func (ha *HealthAwareSelector) isServerHealthy(server *ServerInstance) bool {
 
 	// Calculate health score from error rate (1.0 - error_rate)
 	healthScore := 1.0 - metrics.ErrorRate
-	
+
 	// For now, just check health score - circuit breaker is handled at transport level
 	return healthScore >= ha.healthThreshold
 }

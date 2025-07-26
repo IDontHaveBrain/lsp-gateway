@@ -13,54 +13,54 @@ import (
 
 // SCIPSymbolSearchResult represents an enhanced symbol search result
 type SCIPSymbolSearchResult struct {
-	Symbol           string                 `json:"symbol"`
-	DisplayName      string                 `json:"displayName"`
-	Kind             string                 `json:"kind"`
-	Language         string                 `json:"language"`
-	URI              string                 `json:"uri"`
-	Range            *LSPRange              `json:"range"`
-	ContainerName    string                 `json:"containerName,omitempty"`
-	Confidence       float64                `json:"confidence"`
-	SemanticSimilarity float64              `json:"semanticSimilarity,omitempty"`
-	Documentation    string                 `json:"documentation,omitempty"`
-	Signature        string                 `json:"signature,omitempty"`
-	Context          *SymbolContext         `json:"context,omitempty"`
+	Symbol             string         `json:"symbol"`
+	DisplayName        string         `json:"displayName"`
+	Kind               string         `json:"kind"`
+	Language           string         `json:"language"`
+	URI                string         `json:"uri"`
+	Range              *LSPRange      `json:"range"`
+	ContainerName      string         `json:"containerName,omitempty"`
+	Confidence         float64        `json:"confidence"`
+	SemanticSimilarity float64        `json:"semanticSimilarity,omitempty"`
+	Documentation      string         `json:"documentation,omitempty"`
+	Signature          string         `json:"signature,omitempty"`
+	Context            *SymbolContext `json:"context,omitempty"`
 }
 
 // CrossLanguageReference represents a cross-language symbol reference
 type CrossLanguageReference struct {
-	SourceSymbol     string                 `json:"sourceSymbol"`
-	SourceLanguage   string                 `json:"sourceLanguage"`
-	TargetSymbol     string                 `json:"targetSymbol"`
-	TargetLanguage   string                 `json:"targetLanguage"`
-	RelationshipType string                 `json:"relationshipType"`
-	URI              string                 `json:"uri"`
-	Range            *LSPRange              `json:"range"`
-	Confidence       float64                `json:"confidence"`
-	Context          *ReferenceContext      `json:"context,omitempty"`
+	SourceSymbol     string            `json:"sourceSymbol"`
+	SourceLanguage   string            `json:"sourceLanguage"`
+	TargetSymbol     string            `json:"targetSymbol"`
+	TargetLanguage   string            `json:"targetLanguage"`
+	RelationshipType string            `json:"relationshipType"`
+	URI              string            `json:"uri"`
+	Range            *LSPRange         `json:"range"`
+	Confidence       float64           `json:"confidence"`
+	Context          *ReferenceContext `json:"context,omitempty"`
 }
 
 // SemanticAnalysisResult represents comprehensive semantic analysis
 type SemanticAnalysisResult struct {
-	FileURI              string                    `json:"fileUri"`
-	Language             string                    `json:"language"`
-	Structure            *CodeStructure            `json:"structure"`
-	Dependencies         []DependencyInfo          `json:"dependencies"`
-	Complexity           *ComplexityMetrics        `json:"complexity"`
-	Relationships        []SymbolRelationship      `json:"relationships"`
-	QualityMetrics       *CodeQualityMetrics       `json:"qualityMetrics,omitempty"`
-	Recommendations      []string                  `json:"recommendations,omitempty"`
-	AnalysisTime         time.Duration             `json:"analysisTime"`
-	Confidence           float64                   `json:"confidence"`
+	FileURI         string               `json:"fileUri"`
+	Language        string               `json:"language"`
+	Structure       *CodeStructure       `json:"structure"`
+	Dependencies    []DependencyInfo     `json:"dependencies"`
+	Complexity      *ComplexityMetrics   `json:"complexity"`
+	Relationships   []SymbolRelationship `json:"relationships"`
+	QualityMetrics  *CodeQualityMetrics  `json:"qualityMetrics,omitempty"`
+	Recommendations []string             `json:"recommendations,omitempty"`
+	AnalysisTime    time.Duration        `json:"analysisTime"`
+	Confidence      float64              `json:"confidence"`
 }
 
 // SymbolContext provides contextual information about a symbol
 type SymbolContext struct {
-	EnclosingScope   string   `json:"enclosingScope,omitempty"`
-	ImportedFrom     string   `json:"importedFrom,omitempty"`
-	UsagePatterns    []string `json:"usagePatterns,omitempty"`
-	RelatedSymbols   []string `json:"relatedSymbols,omitempty"`
-	AccessModifiers  []string `json:"accessModifiers,omitempty"`
+	EnclosingScope  string   `json:"enclosingScope,omitempty"`
+	ImportedFrom    string   `json:"importedFrom,omitempty"`
+	UsagePatterns   []string `json:"usagePatterns,omitempty"`
+	RelatedSymbols  []string `json:"relatedSymbols,omitempty"`
+	AccessModifiers []string `json:"accessModifiers,omitempty"`
 }
 
 // ReferenceContext provides context for cross-language references
@@ -73,53 +73,53 @@ type ReferenceContext struct {
 
 // CodeStructure represents the structural analysis of code
 type CodeStructure struct {
-	Classes          int            `json:"classes"`
-	Functions        int            `json:"functions"`
-	Variables        int            `json:"variables"`
-	Interfaces       int            `json:"interfaces"`
-	Modules          int            `json:"modules"`
-	LinesOfCode      int            `json:"linesOfCode"`
-	SymbolHierarchy  *SymbolTree    `json:"symbolHierarchy,omitempty"`
+	Classes         int         `json:"classes"`
+	Functions       int         `json:"functions"`
+	Variables       int         `json:"variables"`
+	Interfaces      int         `json:"interfaces"`
+	Modules         int         `json:"modules"`
+	LinesOfCode     int         `json:"linesOfCode"`
+	SymbolHierarchy *SymbolTree `json:"symbolHierarchy,omitempty"`
 }
 
 // DependencyInfo represents dependency analysis
 type DependencyInfo struct {
-	Name             string   `json:"name"`
-	Type             string   `json:"type"`
-	Source           string   `json:"source"`
-	Version          string   `json:"version,omitempty"`
-	IsExternal       bool     `json:"isExternal"`
-	UsageCount       int      `json:"usageCount"`
-	ImportedSymbols  []string `json:"importedSymbols,omitempty"`
+	Name            string   `json:"name"`
+	Type            string   `json:"type"`
+	Source          string   `json:"source"`
+	Version         string   `json:"version,omitempty"`
+	IsExternal      bool     `json:"isExternal"`
+	UsageCount      int      `json:"usageCount"`
+	ImportedSymbols []string `json:"importedSymbols,omitempty"`
 }
 
 // ComplexityMetrics represents code complexity analysis
 type ComplexityMetrics struct {
-	CyclomaticComplexity   int     `json:"cyclomaticComplexity"`
-	CognitiveComplexity    int     `json:"cognitiveComplexity"`
-	NestingDepth           int     `json:"nestingDepth"`
-	FanIn                  int     `json:"fanIn"`
-	FanOut                 int     `json:"fanOut"`
-	MaintainabilityIndex   float64 `json:"maintainabilityIndex"`
+	CyclomaticComplexity int     `json:"cyclomaticComplexity"`
+	CognitiveComplexity  int     `json:"cognitiveComplexity"`
+	NestingDepth         int     `json:"nestingDepth"`
+	FanIn                int     `json:"fanIn"`
+	FanOut               int     `json:"fanOut"`
+	MaintainabilityIndex float64 `json:"maintainabilityIndex"`
 }
 
 // SymbolRelationship represents relationships between symbols
 type SymbolRelationship struct {
-	FromSymbol       string  `json:"fromSymbol"`
-	ToSymbol         string  `json:"toSymbol"`
-	RelationType     string  `json:"relationType"`
-	Confidence       float64 `json:"confidence"`
-	CrossLanguage    bool    `json:"crossLanguage,omitempty"`
+	FromSymbol    string  `json:"fromSymbol"`
+	ToSymbol      string  `json:"toSymbol"`
+	RelationType  string  `json:"relationType"`
+	Confidence    float64 `json:"confidence"`
+	CrossLanguage bool    `json:"crossLanguage,omitempty"`
 }
 
 // CodeQualityMetrics represents code quality analysis
 type CodeQualityMetrics struct {
-	Readability      float64 `json:"readability"`
-	Maintainability  float64 `json:"maintainability"`
-	Testability      float64 `json:"testability"`
-	Modularity       float64 `json:"modularity"`
-	Reusability      float64 `json:"reusability"`
-	OverallScore     float64 `json:"overallScore"`
+	Readability     float64 `json:"readability"`
+	Maintainability float64 `json:"maintainability"`
+	Testability     float64 `json:"testability"`
+	Modularity      float64 `json:"modularity"`
+	Reusability     float64 `json:"reusability"`
+	OverallScore    float64 `json:"overallScore"`
 }
 
 // SymbolTree represents hierarchical symbol structure
@@ -144,17 +144,17 @@ type LSPPosition struct {
 // handleSCIPIntelligentSymbolSearch implements intelligent symbol search with SCIP
 func (h *SCIPEnhancedToolHandler) handleSCIPIntelligentSymbolSearch(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
 	startTime := time.Now()
-	
+
 	// Extract and validate arguments
 	query, ok := args["query"].(string)
 	if !ok || query == "" {
 		return h.createErrorResult("Query parameter is required", MCPErrorInvalidParams)
 	}
-	
+
 	scope := getStringArgument(args, "scope", "workspace")
 	maxResults := getIntArgument(args, "maxResults", 20)
 	includeSemanticSimilarity := getBoolArgument(args, "includeSemanticSimilarity", true)
-	
+
 	// Language filtering
 	var languageFilter []string
 	if languages, ok := args["languages"].([]interface{}); ok {
@@ -164,20 +164,20 @@ func (h *SCIPEnhancedToolHandler) handleSCIPIntelligentSymbolSearch(ctx context.
 			}
 		}
 	}
-	
+
 	// Create context with appropriate timeout
 	queryCtx, cancel := context.WithTimeout(ctx, h.config.SymbolSearchTimeout)
 	defer cancel()
-	
+
 	// Perform SCIP-powered symbol search
 	results, err := h.performIntelligentSymbolSearch(queryCtx, query, scope, languageFilter, maxResults, includeSemanticSimilarity)
 	if err != nil {
 		return h.createErrorResult(fmt.Sprintf("Symbol search failed: %v", err), MCPErrorInternalError)
 	}
-	
+
 	// Calculate confidence based on result quality
 	confidence := h.calculateSearchConfidence(query, results)
-	
+
 	// Create enhanced result
 	searchResult := map[string]interface{}{
 		"query":          query,
@@ -190,7 +190,7 @@ func (h *SCIPEnhancedToolHandler) handleSCIPIntelligentSymbolSearch(ctx context.
 		"confidence":     confidence,
 		"semanticSearch": includeSemanticSimilarity,
 	}
-	
+
 	return &ToolResult{
 		Content: []ContentBlock{{
 			Type: "text",
@@ -203,9 +203,9 @@ func (h *SCIPEnhancedToolHandler) handleSCIPIntelligentSymbolSearch(ctx context.
 			},
 		}},
 		Meta: &ResponseMetadata{
-			Timestamp:   time.Now().Format(time.RFC3339),
-			Duration:    time.Since(startTime).String(),
-			LSPMethod:   "scip_intelligent_symbol_search",
+			Timestamp: time.Now().Format(time.RFC3339),
+			Duration:  time.Since(startTime).String(),
+			LSPMethod: "scip_intelligent_symbol_search",
 			RequestInfo: map[string]interface{}{
 				"query":      query,
 				"confidence": confidence,
@@ -224,26 +224,26 @@ func (h *SCIPEnhancedToolHandler) performIntelligentSymbolSearch(
 	maxResults int,
 	includeSemanticSimilarity bool,
 ) ([]SCIPSymbolSearchResult, error) {
-	
+
 	// First, try SCIP workspace symbol search
 	scipResults, err := h.searchSymbolsViaSCIP(ctx, query, scope, languageFilter)
 	if err != nil {
 		return nil, fmt.Errorf("SCIP search failed: %w", err)
 	}
-	
+
 	// Enhance results with semantic similarity if requested
 	if includeSemanticSimilarity && h.symbolResolver != nil {
 		scipResults = h.enhanceWithSemanticSimilarity(ctx, query, scipResults)
 	}
-	
+
 	// Apply intelligent ranking based on multiple factors
 	h.rankSearchResults(scipResults, query)
-	
+
 	// Limit results
 	if len(scipResults) > maxResults {
 		scipResults = scipResults[:maxResults]
 	}
-	
+
 	return scipResults, nil
 }
 
@@ -254,17 +254,17 @@ func (h *SCIPEnhancedToolHandler) searchSymbolsViaSCIP(
 	scope string,
 	languageFilter []string,
 ) ([]SCIPSymbolSearchResult, error) {
-	
+
 	// Create SCIP workspace symbol query
 	scipParams := map[string]interface{}{
 		"query": query,
 		"scope": scope,
 	}
-	
+
 	if len(languageFilter) > 0 {
 		scipParams["languages"] = languageFilter
 	}
-	
+
 	// Query SCIP store
 	scipQueryResult := h.scipStore.Query("workspace/symbol", scipParams)
 	if !scipQueryResult.Found {
@@ -273,13 +273,13 @@ func (h *SCIPEnhancedToolHandler) searchSymbolsViaSCIP(
 		}
 		return []SCIPSymbolSearchResult{}, nil
 	}
-	
+
 	// Parse SCIP response
 	var scipSymbols []map[string]interface{}
 	if err := json.Unmarshal(scipQueryResult.Response, &scipSymbols); err != nil {
 		return nil, fmt.Errorf("failed to parse SCIP response: %w", err)
 	}
-	
+
 	// Convert to enhanced search results
 	var results []SCIPSymbolSearchResult
 	for _, symbol := range scipSymbols {
@@ -289,7 +289,7 @@ func (h *SCIPEnhancedToolHandler) searchSymbolsViaSCIP(
 		}
 		results = append(results, result)
 	}
-	
+
 	return results, nil
 }
 
@@ -298,77 +298,77 @@ func (h *SCIPEnhancedToolHandler) convertSCIPSymbolToSearchResult(symbol map[str
 	result := SCIPSymbolSearchResult{
 		Confidence: baseConfidence,
 	}
-	
+
 	// Extract core symbol information
 	if name, ok := symbol["name"].(string); ok {
 		result.Symbol = name
 		result.DisplayName = name
 	}
-	
+
 	if kind, ok := symbol["kind"].(float64); ok {
 		result.Kind = h.convertSymbolKind(int(kind))
 	}
-	
+
 	if uri, ok := symbol["location"].(map[string]interface{})["uri"].(string); ok {
 		result.URI = uri
 		result.Language = h.detectLanguageFromURI(uri)
 	}
-	
+
 	// Extract range information
 	if location, ok := symbol["location"].(map[string]interface{}); ok {
 		if range_, ok := location["range"].(map[string]interface{}); ok {
 			result.Range = h.convertToLSPRange(range_)
 		}
 	}
-	
+
 	// Extract container name
 	if containerName, ok := symbol["containerName"].(string); ok {
 		result.ContainerName = containerName
 	}
-	
+
 	// Add context information
 	result.Context = &SymbolContext{}
 	if containerName := result.ContainerName; containerName != "" {
 		result.Context.EnclosingScope = containerName
 	}
-	
+
 	return result, nil
 }
 
 // handleSCIPCrossLanguageReferences implements cross-language reference finding
 func (h *SCIPEnhancedToolHandler) handleSCIPCrossLanguageReferences(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
 	startTime := time.Now()
-	
+
 	// Extract and validate position arguments
 	uri, line, character, err := h.extractPositionArguments(args)
 	if err != nil {
 		return h.createErrorResult(err.Error(), MCPErrorInvalidParams)
 	}
-	
+
 	// Extract additional options
 	includeImplementations := getBoolArgument(args, "includeImplementations", true)
 	includeInheritance := getBoolArgument(args, "includeInheritance", true)
 	crossLanguageDepth := getIntArgument(args, "crossLanguageDepth", 3)
-	
+
 	// Create context with timeout
 	queryCtx, cancel := context.WithTimeout(ctx, h.config.CrossLanguageTimeout)
 	defer cancel()
-	
+
 	// Perform cross-language reference analysis
 	references, err := h.performCrossLanguageReferenceAnalysis(
-		queryCtx, uri, line, character, 
+		queryCtx, uri, line, character,
 		includeImplementations, includeInheritance, crossLanguageDepth,
 	)
 	if err != nil {
 		return h.createErrorResult(fmt.Sprintf("Cross-language reference analysis failed: %v", err), MCPErrorInternalError)
 	}
-	
+
 	// Calculate confidence
 	confidence := h.calculateReferenceConfidence(references)
-	
+
 	// Group references by language for better organization
 	groupedRefs := h.groupReferencesByLanguage(references)
-	
+
 	// Create result
 	analysisResult := map[string]interface{}{
 		"sourcePosition": map[string]interface{}{
@@ -376,16 +376,16 @@ func (h *SCIPEnhancedToolHandler) handleSCIPCrossLanguageReferences(ctx context.
 			"line":      line,
 			"character": character,
 		},
-		"totalReferences":        len(references),
+		"totalReferences":         len(references),
 		"crossLanguageReferences": references,
-		"groupedByLanguage":      groupedRefs,
-		"includeImplementations": includeImplementations,
-		"includeInheritance":     includeInheritance,
-		"maxDepth":               crossLanguageDepth,
-		"analysisTime":           time.Since(startTime).Milliseconds(),
-		"confidence":             confidence,
+		"groupedByLanguage":       groupedRefs,
+		"includeImplementations":  includeImplementations,
+		"includeInheritance":      includeInheritance,
+		"maxDepth":                crossLanguageDepth,
+		"analysisTime":            time.Since(startTime).Milliseconds(),
+		"confidence":              confidence,
 	}
-	
+
 	return &ToolResult{
 		Content: []ContentBlock{{
 			Type: "text",
@@ -397,9 +397,9 @@ func (h *SCIPEnhancedToolHandler) handleSCIPCrossLanguageReferences(ctx context.
 			},
 		}},
 		Meta: &ResponseMetadata{
-			Timestamp:   time.Now().Format(time.RFC3339),
-			Duration:    time.Since(startTime).String(),
-			LSPMethod:   "scip_cross_language_references",
+			Timestamp: time.Now().Format(time.RFC3339),
+			Duration:  time.Since(startTime).String(),
+			LSPMethod: "scip_cross_language_references",
 			RequestInfo: map[string]interface{}{
 				"uri":        uri,
 				"confidence": confidence,
@@ -417,22 +417,22 @@ func (h *SCIPEnhancedToolHandler) performCrossLanguageReferenceAnalysis(
 	includeImplementations, includeInheritance bool,
 	maxDepth int,
 ) ([]CrossLanguageReference, error) {
-	
+
 	// First, resolve the symbol at the given position
 	position := indexing.Position{Line: int32(line), Character: int32(character)}
 	resolvedSymbol, err := h.symbolResolver.ResolveSymbolAtPosition(uri, position)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve symbol: %w", err)
 	}
-	
+
 	var allReferences []CrossLanguageReference
-	
+
 	// Find direct references using SCIP
 	directRefs, err := h.findDirectCrossLanguageReferences(ctx, resolvedSymbol)
 	if err == nil {
 		allReferences = append(allReferences, directRefs...)
 	}
-	
+
 	// Find implementation references if requested
 	if includeImplementations {
 		implRefs, err := h.findImplementationReferences(ctx, resolvedSymbol, maxDepth)
@@ -440,7 +440,7 @@ func (h *SCIPEnhancedToolHandler) performCrossLanguageReferenceAnalysis(
 			allReferences = append(allReferences, implRefs...)
 		}
 	}
-	
+
 	// Find inheritance references if requested
 	if includeInheritance {
 		inheritRefs, err := h.findInheritanceReferences(ctx, resolvedSymbol, maxDepth)
@@ -448,43 +448,43 @@ func (h *SCIPEnhancedToolHandler) performCrossLanguageReferenceAnalysis(
 			allReferences = append(allReferences, inheritRefs...)
 		}
 	}
-	
+
 	// Remove duplicates and sort by confidence
 	allReferences = h.deduplicateReferences(allReferences)
 	sort.Slice(allReferences, func(i, j int) bool {
 		return allReferences[i].Confidence > allReferences[j].Confidence
 	})
-	
+
 	return allReferences, nil
 }
 
 // handleSCIPSemanticCodeAnalysis implements semantic code analysis
 func (h *SCIPEnhancedToolHandler) handleSCIPSemanticCodeAnalysis(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
 	startTime := time.Now()
-	
+
 	// Extract arguments
 	uri, ok := args["uri"].(string)
 	if !ok || uri == "" {
 		return h.createErrorResult("URI parameter is required", MCPErrorInvalidParams)
 	}
-	
+
 	analysisType := getStringArgument(args, "analysisType", "all")
 	includeMetrics := getBoolArgument(args, "includeMetrics", true)
 	includeRelationships := getBoolArgument(args, "includeRelationships", true)
-	
+
 	// Create context with timeout
 	queryCtx, cancel := context.WithTimeout(ctx, h.config.ContextAnalysisTimeout)
 	defer cancel()
-	
+
 	// Perform semantic analysis
 	analysis, err := h.performSemanticCodeAnalysis(queryCtx, uri, analysisType, includeMetrics, includeRelationships)
 	if err != nil {
 		return h.createErrorResult(fmt.Sprintf("Semantic analysis failed: %v", err), MCPErrorInternalError)
 	}
-	
+
 	// Set analysis time
 	analysis.AnalysisTime = time.Since(startTime)
-	
+
 	return &ToolResult{
 		Content: []ContentBlock{{
 			Type: "text",
@@ -496,13 +496,13 @@ func (h *SCIPEnhancedToolHandler) handleSCIPSemanticCodeAnalysis(ctx context.Con
 			},
 		}},
 		Meta: &ResponseMetadata{
-			Timestamp:   time.Now().Format(time.RFC3339),
-			Duration:    time.Since(startTime).String(),
-			LSPMethod:   "scip_semantic_code_analysis",
+			Timestamp: time.Now().Format(time.RFC3339),
+			Duration:  time.Since(startTime).String(),
+			LSPMethod: "scip_semantic_code_analysis",
 			RequestInfo: map[string]interface{}{
-				"uri":         uri,
-				"confidence":  analysis.Confidence,
-				"scip_used":   true,
+				"uri":        uri,
+				"confidence": analysis.Confidence,
+				"scip_used":  true,
 			},
 		},
 	}, nil
@@ -515,13 +515,13 @@ func (h *SCIPEnhancedToolHandler) performSemanticCodeAnalysis(
 	analysisType string,
 	includeMetrics, includeRelationships bool,
 ) (*SemanticAnalysisResult, error) {
-	
+
 	result := &SemanticAnalysisResult{
 		FileURI:    uri,
 		Language:   h.detectLanguageFromURI(uri),
 		Confidence: 0.8, // Base confidence
 	}
-	
+
 	// Perform structural analysis
 	if analysisType == "all" || analysisType == "structure" {
 		structure, err := h.analyzeCodeStructure(ctx, uri)
@@ -529,7 +529,7 @@ func (h *SCIPEnhancedToolHandler) performSemanticCodeAnalysis(
 			result.Structure = structure
 		}
 	}
-	
+
 	// Perform dependency analysis
 	if analysisType == "all" || analysisType == "dependencies" {
 		deps, err := h.analyzeDependencies(ctx, uri)
@@ -537,7 +537,7 @@ func (h *SCIPEnhancedToolHandler) performSemanticCodeAnalysis(
 			result.Dependencies = deps
 		}
 	}
-	
+
 	// Perform complexity analysis
 	if analysisType == "all" || analysisType == "complexity" {
 		complexity, err := h.analyzeComplexity(ctx, uri)
@@ -545,7 +545,7 @@ func (h *SCIPEnhancedToolHandler) performSemanticCodeAnalysis(
 			result.Complexity = complexity
 		}
 	}
-	
+
 	// Perform relationship analysis
 	if (analysisType == "all" || analysisType == "relationships") && includeRelationships {
 		relationships, err := h.analyzeSymbolRelationships(ctx, uri)
@@ -553,16 +553,16 @@ func (h *SCIPEnhancedToolHandler) performSemanticCodeAnalysis(
 			result.Relationships = relationships
 		}
 	}
-	
+
 	// Calculate quality metrics if requested
 	if includeMetrics {
 		metrics := h.calculateQualityMetrics(result)
 		result.QualityMetrics = metrics
 	}
-	
+
 	// Generate recommendations
 	result.Recommendations = h.generateRecommendations(result)
-	
+
 	return result, nil
 }
 
@@ -574,17 +574,17 @@ func (h *SCIPEnhancedToolHandler) extractPositionArguments(args map[string]inter
 	if !ok || uri == "" {
 		return "", 0, 0, fmt.Errorf("URI parameter is required")
 	}
-	
+
 	line, ok := args["line"].(float64)
 	if !ok {
 		return "", 0, 0, fmt.Errorf("line parameter is required and must be a number")
 	}
-	
+
 	character, ok := args["character"].(float64)
 	if !ok {
 		return "", 0, 0, fmt.Errorf("character parameter is required and must be a number")
 	}
-	
+
 	return uri, int(line), int(character), nil
 }
 
@@ -665,7 +665,7 @@ func (h *SCIPEnhancedToolHandler) convertSymbolKind(kind int) string {
 		25: "Operator",
 		26: "TypeParameter",
 	}
-	
+
 	if kindStr, exists := kinds[kind]; exists {
 		return kindStr
 	}
@@ -675,7 +675,7 @@ func (h *SCIPEnhancedToolHandler) convertSymbolKind(kind int) string {
 // convertToLSPRange converts a range map to LSPRange
 func (h *SCIPEnhancedToolHandler) convertToLSPRange(rangeMap map[string]interface{}) *LSPRange {
 	lspRange := &LSPRange{}
-	
+
 	if start, ok := rangeMap["start"].(map[string]interface{}); ok {
 		if line, ok := start["line"].(float64); ok {
 			lspRange.Start.Line = int(line)
@@ -684,7 +684,7 @@ func (h *SCIPEnhancedToolHandler) convertToLSPRange(rangeMap map[string]interfac
 			lspRange.Start.Character = int(char)
 		}
 	}
-	
+
 	if end, ok := rangeMap["end"].(map[string]interface{}); ok {
 		if line, ok := end["line"].(float64); ok {
 			lspRange.End.Line = int(line)
@@ -693,7 +693,7 @@ func (h *SCIPEnhancedToolHandler) convertToLSPRange(rangeMap map[string]interfac
 			lspRange.End.Character = int(char)
 		}
 	}
-	
+
 	return lspRange
 }
 
@@ -704,21 +704,21 @@ func (h *SCIPEnhancedToolHandler) calculateSearchConfidence(query string, result
 	if len(results) == 0 {
 		return 0.0
 	}
-	
+
 	// Base confidence on result quality and quantity
 	var totalConfidence float64
 	for _, result := range results {
 		totalConfidence += result.Confidence
 	}
-	
+
 	avgConfidence := totalConfidence / float64(len(results))
-	
+
 	// Adjust based on query specificity
 	querySpecificity := float64(len(query)) / 20.0 // Normalize by typical symbol length
 	if querySpecificity > 1.0 {
 		querySpecificity = 1.0
 	}
-	
+
 	return (avgConfidence + querySpecificity) / 2.0
 }
 
@@ -727,12 +727,12 @@ func (h *SCIPEnhancedToolHandler) calculateReferenceConfidence(references []Cros
 	if len(references) == 0 {
 		return 0.0
 	}
-	
+
 	var totalConfidence float64
 	for _, ref := range references {
 		totalConfidence += ref.Confidence
 	}
-	
+
 	return totalConfidence / float64(len(references))
 }
 
@@ -756,12 +756,12 @@ func (h *SCIPEnhancedToolHandler) rankSearchResults(results []SCIPSymbolSearchRe
 		if exactI != exactJ {
 			return exactI
 		}
-		
+
 		// Then by confidence
 		if results[i].Confidence != results[j].Confidence {
 			return results[i].Confidence > results[j].Confidence
 		}
-		
+
 		// Then by semantic similarity if available
 		return results[i].SemanticSimilarity > results[j].SemanticSimilarity
 	})
@@ -785,7 +785,7 @@ func (h *SCIPEnhancedToolHandler) findInheritanceReferences(ctx context.Context,
 func (h *SCIPEnhancedToolHandler) deduplicateReferences(refs []CrossLanguageReference) []CrossLanguageReference {
 	seen := make(map[string]bool)
 	var unique []CrossLanguageReference
-	
+
 	for _, ref := range refs {
 		key := fmt.Sprintf("%s:%s:%d:%d", ref.URI, ref.TargetSymbol, ref.Range.Start.Line, ref.Range.Start.Character)
 		if !seen[key] {
@@ -793,17 +793,17 @@ func (h *SCIPEnhancedToolHandler) deduplicateReferences(refs []CrossLanguageRefe
 			unique = append(unique, ref)
 		}
 	}
-	
+
 	return unique
 }
 
 func (h *SCIPEnhancedToolHandler) groupReferencesByLanguage(refs []CrossLanguageReference) map[string][]CrossLanguageReference {
 	grouped := make(map[string][]CrossLanguageReference)
-	
+
 	for _, ref := range refs {
 		grouped[ref.TargetLanguage] = append(grouped[ref.TargetLanguage], ref)
 	}
-	
+
 	return grouped
 }
 
@@ -860,14 +860,14 @@ func (h *SCIPEnhancedToolHandler) analyzeSymbolRelationships(ctx context.Context
 func (h *SCIPEnhancedToolHandler) calculateQualityMetrics(analysis *SemanticAnalysisResult) *CodeQualityMetrics {
 	// Simplified quality calculation based on analysis results
 	metrics := &CodeQualityMetrics{}
-	
+
 	if analysis.Complexity != nil {
 		// Lower complexity = higher quality
 		metrics.Maintainability = 100.0 - float64(analysis.Complexity.CyclomaticComplexity)*2.0
 		metrics.Readability = 100.0 - float64(analysis.Complexity.NestingDepth)*10.0
 		metrics.Testability = 100.0 - float64(analysis.Complexity.CognitiveComplexity)*1.5
 	}
-	
+
 	if analysis.Structure != nil {
 		// Good modular structure increases reusability
 		if analysis.Structure.Classes > 0 && analysis.Structure.Functions > 0 {
@@ -875,11 +875,11 @@ func (h *SCIPEnhancedToolHandler) calculateQualityMetrics(analysis *SemanticAnal
 			metrics.Reusability = 75.0
 		}
 	}
-	
+
 	// Calculate overall score
-	metrics.OverallScore = (metrics.Readability + metrics.Maintainability + 
+	metrics.OverallScore = (metrics.Readability + metrics.Maintainability +
 		metrics.Testability + metrics.Modularity + metrics.Reusability) / 5.0
-	
+
 	// Ensure scores are within valid range
 	metrics.Readability = clamp(metrics.Readability, 0, 100)
 	metrics.Maintainability = clamp(metrics.Maintainability, 0, 100)
@@ -887,13 +887,13 @@ func (h *SCIPEnhancedToolHandler) calculateQualityMetrics(analysis *SemanticAnal
 	metrics.Modularity = clamp(metrics.Modularity, 0, 100)
 	metrics.Reusability = clamp(metrics.Reusability, 0, 100)
 	metrics.OverallScore = clamp(metrics.OverallScore, 0, 100)
-	
+
 	return metrics
 }
 
 func (h *SCIPEnhancedToolHandler) generateRecommendations(analysis *SemanticAnalysisResult) []string {
 	var recommendations []string
-	
+
 	if analysis.Complexity != nil {
 		if analysis.Complexity.CyclomaticComplexity > 10 {
 			recommendations = append(recommendations, "Consider breaking down complex functions to reduce cyclomatic complexity")
@@ -902,7 +902,7 @@ func (h *SCIPEnhancedToolHandler) generateRecommendations(analysis *SemanticAnal
 			recommendations = append(recommendations, "Reduce nesting depth by extracting methods or using early returns")
 		}
 	}
-	
+
 	if analysis.QualityMetrics != nil {
 		if analysis.QualityMetrics.Maintainability < 70 {
 			recommendations = append(recommendations, "Improve code maintainability by simplifying complex logic")
@@ -911,7 +911,7 @@ func (h *SCIPEnhancedToolHandler) generateRecommendations(analysis *SemanticAnal
 			recommendations = append(recommendations, "Make code more testable by reducing dependencies and complexity")
 		}
 	}
-	
+
 	return recommendations
 }
 

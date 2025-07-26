@@ -53,20 +53,19 @@ type RPCError struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-
 // RequestContext provides context information for LSP requests
 type RequestContext struct {
-	ProjectType           string                 `json:"project_type,omitempty"`
-	ServerName            string                 `json:"server_name,omitempty"`
-	Language              string                 `json:"language,omitempty"`
-	WorkspaceID           string                 `json:"workspace_id,omitempty"`
-	FileURI               string                 `json:"file_uri,omitempty"`
-	RequestType           string                 `json:"request_type,omitempty"`
-	WorkspaceRoot         string                 `json:"workspace_root,omitempty"`
-	CrossLanguageContext  bool                   `json:"cross_language_context,omitempty"`
-	RequiresAggregation   bool                   `json:"requires_aggregation,omitempty"`
-	SupportedServers      []string               `json:"supported_servers,omitempty"`
-	AdditionalContext     map[string]interface{} `json:"additional_context,omitempty"`
+	ProjectType          string                 `json:"project_type,omitempty"`
+	ServerName           string                 `json:"server_name,omitempty"`
+	Language             string                 `json:"language,omitempty"`
+	WorkspaceID          string                 `json:"workspace_id,omitempty"`
+	FileURI              string                 `json:"file_uri,omitempty"`
+	RequestType          string                 `json:"request_type,omitempty"`
+	WorkspaceRoot        string                 `json:"workspace_root,omitempty"`
+	CrossLanguageContext bool                   `json:"cross_language_context,omitempty"`
+	RequiresAggregation  bool                   `json:"requires_aggregation,omitempty"`
+	SupportedServers     []string               `json:"supported_servers,omitempty"`
+	AdditionalContext    map[string]interface{} `json:"additional_context,omitempty"`
 }
 
 // IsWorkspaceRequest checks if this is a workspace-level request
@@ -107,7 +106,6 @@ const (
 	LSPMethodWorkspaceSymbol = "workspace/symbol"
 )
 
-
 const (
 	LSPMethodInitialize              = "initialize"
 	LSPMethodInitialized             = "initialized"
@@ -130,7 +128,6 @@ const (
 	LoggerFieldProjectName = "project_name"
 	URIPrefixWorkspace     = "workspace://"
 )
-
 
 // RequestTracker tracks concurrent requests for performance monitoring
 type RequestTracker struct {
@@ -586,7 +583,7 @@ func NewGateway(config *config.GatewayConfig) (*Gateway, error) {
 		var scipMapper *indexing.LSPSCIPMapper
 
 		// Initialize SCIP store if configured
-		if config.PerformanceConfig != nil && config.PerformanceConfig.SCIP != nil && 
+		if config.PerformanceConfig != nil && config.PerformanceConfig.SCIP != nil &&
 			config.PerformanceConfig.SCIP.Enabled && config.PerformanceConfig.SCIP.CacheConfig.Enabled {
 			scipConfig := &indexing.SCIPConfig{
 				CacheConfig: indexing.CacheConfig{
@@ -963,16 +960,16 @@ func (g *Gateway) shouldUseSCIPRouting(method string) bool {
 	if !g.enableSCIPRouting || g.scipSmartRouter == nil {
 		return false
 	}
-	
+
 	// SCIP routing is beneficial for symbol-related queries
 	scipBeneficialMethods := map[string]bool{
-		LSP_METHOD_DEFINITION:      true,  // Symbol definitions work well with SCIP
-		LSP_METHOD_REFERENCES:      true,  // Reference finding benefits from SCIP cache
-		LSP_METHOD_DOCUMENT_SYMBOL: true,  // Document symbols can be cached
+		LSP_METHOD_DEFINITION:       true, // Symbol definitions work well with SCIP
+		LSP_METHOD_REFERENCES:       true, // Reference finding benefits from SCIP cache
+		LSP_METHOD_DOCUMENT_SYMBOL:  true, // Document symbols can be cached
 		LSP_METHOD_WORKSPACE_SYMBOL: true, // Workspace symbol search benefits from indexing
-		LSP_METHOD_HOVER:           true,  // Hover information can be cached
+		LSP_METHOD_HOVER:            true, // Hover information can be cached
 	}
-	
+
 	return scipBeneficialMethods[method]
 }
 
@@ -985,7 +982,7 @@ func (g *Gateway) processSCIPAwareRequest(w http.ResponseWriter, r *http.Request
 		URI:     g.extractURIFromParamsSimple(req.Params),
 		Context: g.createRequestContext(req, serverName),
 	}
-	
+
 	// Get SCIP routing decision
 	decision, err := g.scipSmartRouter.RouteWithSCIPAwareness(lspRequest)
 	if err != nil {
@@ -995,13 +992,13 @@ func (g *Gateway) processSCIPAwareRequest(w http.ResponseWriter, r *http.Request
 		g.processSingleServerRequest(w, r, req, serverName, logger, startTime)
 		return
 	}
-	
+
 	// Track routing decision for optimization
 	if g.adaptiveMetrics != nil {
 		trackedDecision := g.createTrackedDecision(decision, req, startTime)
 		g.adaptiveMetrics.TrackRoutingDecision(trackedDecision)
 	}
-	
+
 	// Process based on routing decision
 	if decision.UseSCIP && decision.SCIPResult != nil && decision.SCIPResult.Found {
 		// Use SCIP result
@@ -1026,17 +1023,17 @@ func (g *Gateway) processSCIPAwareRequest(w http.ResponseWriter, r *http.Request
 // processSCIPResponse processes a successful SCIP query result
 func (g *Gateway) processSCIPResponse(w http.ResponseWriter, req JSONRPCRequest, decision *SCIPRoutingDecision, logger *mcp.StructuredLogger, startTime time.Time) {
 	if logger != nil {
-		logger.Debugf("Processing SCIP result for %s (confidence: %.2f, cache_hit: %v)", 
+		logger.Debugf("Processing SCIP result for %s (confidence: %.2f, cache_hit: %v)",
 			req.Method, decision.SCIPConfidence, decision.SCIPResult.CacheHit)
 	}
-	
+
 	// Create JSON-RPC response from SCIP result
 	response := JSONRPCResponse{
 		JSONRPC: JSONRPCVersion,
 		ID:      req.ID,
 		Result:  decision.SCIPResult.Response,
 	}
-	
+
 	// Add performance headers if available
 	if decision.SCIPResult.QueryTime > 0 {
 		w.Header().Set("X-Query-Time", decision.SCIPResult.QueryTime.String())
@@ -1044,7 +1041,7 @@ func (g *Gateway) processSCIPResponse(w http.ResponseWriter, req JSONRPCRequest,
 	w.Header().Set("X-Source", "SCIP")
 	w.Header().Set("X-Cache-Hit", fmt.Sprintf("%v", decision.SCIPResult.CacheHit))
 	w.Header().Set("X-Confidence", fmt.Sprintf("%.2f", decision.SCIPConfidence))
-	
+
 	// Send response
 	w.Header().Set("Content-Type", HTTPContentTypeJSON)
 	if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -1054,7 +1051,7 @@ func (g *Gateway) processSCIPResponse(w http.ResponseWriter, req JSONRPCRequest,
 		g.writeError(w, req.ID, InternalError, "Failed to encode response", fmt.Errorf("failed to encode response"))
 		return
 	}
-	
+
 	// Log performance metrics
 	if logger != nil {
 		totalTime := time.Since(startTime)
@@ -1075,7 +1072,7 @@ func (g *Gateway) extractURIFromParamsSimple(params interface{}) string {
 	if params == nil {
 		return ""
 	}
-	
+
 	// Handle different parameter structures
 	switch p := params.(type) {
 	case map[string]interface{}:
@@ -1090,7 +1087,7 @@ func (g *Gateway) extractURIFromParamsSimple(params interface{}) string {
 			return uri
 		}
 	}
-	
+
 	return ""
 }
 
@@ -1107,22 +1104,22 @@ func (g *Gateway) createRequestContext(req JSONRPCRequest, serverName string) *R
 // createTrackedDecision creates a tracked decision for performance optimization
 func (g *Gateway) createTrackedDecision(decision *SCIPRoutingDecision, req JSONRPCRequest, startTime time.Time) *TrackedDecision {
 	return &TrackedDecision{
-		ID:                fmt.Sprintf("%v_%d", req.ID, time.Now().UnixNano()),
-		Timestamp:         startTime,
-		Method:            req.Method,
-		Strategy:          decision.Strategy,
-		Source:            g.getSourceFromDecision(decision),
-		Confidence:        decision.Confidence,
-		ExpectedLatency:   decision.ExpectedLatency,
-		QueryAnalysis:     decision.QueryAnalysis,
-		DecisionReason:    decision.DecisionReason,
-		SCIPQueried:       decision.SCIPQueried,
-		UsedFallback:      decision.FallbackToLSP,
-		ActualLatency:     0, // Will be updated when request completes
-		Success:           false, // Will be updated when request completes
-		AccuracyScore:     float64(decision.SCIPConfidence),
-		CacheHit:          decision.SCIPResult != nil && decision.SCIPResult.CacheHit,
-		ComplexityLevel:   decision.QueryAnalysis.Complexity,
+		ID:              fmt.Sprintf("%v_%d", req.ID, time.Now().UnixNano()),
+		Timestamp:       startTime,
+		Method:          req.Method,
+		Strategy:        decision.Strategy,
+		Source:          g.getSourceFromDecision(decision),
+		Confidence:      decision.Confidence,
+		ExpectedLatency: decision.ExpectedLatency,
+		QueryAnalysis:   decision.QueryAnalysis,
+		DecisionReason:  decision.DecisionReason,
+		SCIPQueried:     decision.SCIPQueried,
+		UsedFallback:    decision.FallbackToLSP,
+		ActualLatency:   0,     // Will be updated when request completes
+		Success:         false, // Will be updated when request completes
+		AccuracyScore:   float64(decision.SCIPConfidence),
+		CacheHit:        decision.SCIPResult != nil && decision.SCIPResult.CacheHit,
+		ComplexityLevel: decision.QueryAnalysis.Complexity,
 	}
 }
 
@@ -1150,7 +1147,7 @@ func (g *Gateway) processRoutingDecision(w http.ResponseWriter, r *http.Request,
 		g.writeError(w, req.ID, InternalError, "Failed to route request", fmt.Errorf("failed to route request"))
 		return
 	}
-	
+
 	g.processSingleServerRequest(w, r, req, serverName, logger, startTime)
 }
 
@@ -1562,25 +1559,25 @@ func (g *Gateway) handleRequest(w http.ResponseWriter, r *http.Request, req JSON
 		if logger != nil {
 			logger.Debug("Checking SCIP cache for request")
 		}
-		
+
 		// Query SCIP cache
 		scipResult := g.scipStore.Query(req.Method, req.Params)
 		if scipResult.Found {
 			if logger != nil {
 				logger.WithFields(map[string]interface{}{
-					"cache_hit":    scipResult.CacheHit,
-					"query_time":   scipResult.QueryTime.String(),
-					"confidence":   scipResult.Confidence,
+					"cache_hit":  scipResult.CacheHit,
+					"query_time": scipResult.QueryTime.String(),
+					"confidence": scipResult.Confidence,
 				}).Info("SCIP cache hit - returning cached response")
 			}
-			
+
 			// Return cached response directly
 			response := JSONRPCResponse{
 				JSONRPC: JSONRPCVersion,
 				ID:      req.ID,
 				Result:  scipResult.Response,
 			}
-			
+
 			if err := json.NewEncoder(w).Encode(response); err != nil {
 				if logger != nil {
 					logger.WithError(err).Error("Failed to encode cached JSON response")
@@ -1589,19 +1586,19 @@ func (g *Gateway) handleRequest(w http.ResponseWriter, r *http.Request, req JSON
 					fmt.Errorf("failed to encode cached response: %w", err))
 				return
 			}
-			
+
 			// Log cache hit metrics
 			duration := time.Since(startTime)
 			if logger != nil {
 				logger.WithFields(map[string]interface{}{
-					"duration":     duration.String(),
-					"source":       "scip_cache",
-					"cache_hit":    true,
+					"duration":  duration.String(),
+					"source":    "scip_cache",
+					"cache_hit": true,
 				}).Info("Cached request processed successfully")
 			}
 			return
 		}
-		
+
 		if logger != nil {
 			logger.Debug("SCIP cache miss - falling back to LSP server")
 		}
@@ -1713,8 +1710,6 @@ func (g *Gateway) writeError(w http.ResponseWriter, id interface{}, code int, me
 
 // Enhanced helper functions for robust file system operations
 
-
-
 // Enhanced request processing methods for SmartRouter integration
 
 // processAggregatedRequest handles requests that need aggregated responses from multiple servers
@@ -1730,13 +1725,12 @@ func (g *Gateway) processAggregatedRequest(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-
 	// Create LSPRequest for SmartRouter
 	lspRequest := &LSPRequest{
-		Method:    req.Method,
-		Params:    req.Params,
-		URI:       uri,
-		Context:   convertRoutingToRequestContext(CreateRequestContextFromURI(uri, "", "")),
+		Method:  req.Method,
+		Params:  req.Params,
+		URI:     uri,
+		Context: convertRoutingToRequestContext(CreateRequestContextFromURI(uri, "", "")),
 	}
 
 	// Use SmartRouter to aggregate responses
@@ -1776,10 +1770,10 @@ func (g *Gateway) processAggregatedRequest(w http.ResponseWriter, r *http.Reques
 	duration := time.Since(startTime)
 	if logger != nil {
 		logger.WithFields(map[string]interface{}{
-			"duration":        duration.String(),
-			"source_count":    len(aggregatedResponse.ResponseSources),
-			"success_count":   aggregatedResponse.SuccessCount,
-			"error_count":     aggregatedResponse.ErrorCount,
+			"duration":           duration.String(),
+			"source_count":       len(aggregatedResponse.ResponseSources),
+			"success_count":      aggregatedResponse.SuccessCount,
+			"error_count":        aggregatedResponse.ErrorCount,
 			"aggregation_method": aggregatedResponse.AggregationMethod,
 		}).Info("Aggregated request processed successfully")
 	}
@@ -1810,7 +1804,7 @@ func (g *Gateway) processSingleServerRequestWithSmartRouter(w http.ResponseWrite
 						language = lang
 					}
 				}
-				
+
 				if language != "" {
 					client, err := workspace.getOrCreateLanguageClient(language, g.Config, g.Logger)
 					if err == nil {
@@ -1859,6 +1853,7 @@ func (g *Gateway) processRequestWithClient(w http.ResponseWriter, r *http.Reques
 
 	g.handleRequest(w, r, req, client, logger, startTime)
 }
+
 // GetSmartRouter returns the SmartRouter instance for external access
 func (g *Gateway) GetSmartRouter() *SmartRouterImpl {
 	return g.smartRouter
@@ -2080,7 +2075,7 @@ func convertToSCIPProviderConfig(cfg *config.SCIPProviderConfig) *SCIPProviderCo
 	if cfg == nil {
 		return nil
 	}
-	
+
 	// Parse min acceptable quality
 	quality := QualityLow // default
 	switch cfg.MinAcceptableQuality {
@@ -2091,18 +2086,18 @@ func convertToSCIPProviderConfig(cfg *config.SCIPProviderConfig) *SCIPProviderCo
 	case "low":
 		quality = QualityLow
 	}
-	
+
 	return &SCIPProviderConfig{
 		HealthCheckInterval:  cfg.HealthCheckInterval,
-		FallbackEnabled:     cfg.FallbackEnabled,
-		FallbackTimeout:     cfg.FallbackTimeout,
+		FallbackEnabled:      cfg.FallbackEnabled,
+		FallbackTimeout:      cfg.FallbackTimeout,
 		MinAcceptableQuality: quality,
 		EnableMetricsLogging: cfg.EnableMetricsLogging,
 		EnableHealthLogging:  cfg.EnableHealthLogging,
 		// Leave nested configs nil for now - can be expanded if needed
 		PerformanceTargets:      nil,
 		RoutingHealthThresholds: nil,
-		CacheSettings:          nil,
+		CacheSettings:           nil,
 	}
 }
 
@@ -2110,23 +2105,23 @@ func convertToSCIPRoutingConfig(cfg *config.SCIPRoutingConfig) *SCIPRoutingConfi
 	if cfg == nil {
 		return nil
 	}
-	
+
 	// Convert method strategies
 	methodStrategies := make(map[string]SCIPRoutingStrategyType)
 	for method, strategy := range cfg.MethodStrategies {
 		methodStrategies[method] = SCIPRoutingStrategyType(strategy)
 	}
-	
+
 	// Convert method confidence thresholds
 	methodConfidenceThresholds := make(map[string]ConfidenceLevel)
 	for method, threshold := range cfg.MethodConfidenceThresholds {
 		methodConfidenceThresholds[method] = ConfidenceLevel(threshold)
 	}
-	
+
 	return &SCIPRoutingConfig{
 		DefaultStrategy:            SCIPRoutingStrategyType(cfg.DefaultStrategy),
 		ConfidenceThreshold:        ConfidenceLevel(cfg.ConfidenceThreshold),
-		MaxSCIPLatency:            cfg.MaxSCIPLatency,
+		MaxSCIPLatency:             cfg.MaxSCIPLatency,
 		EnableFallback:             cfg.EnableFallback,
 		EnableAdaptiveLearning:     cfg.EnableAdaptiveLearning,
 		CachePrewarmEnabled:        cfg.CachePrewarmEnabled,
@@ -2141,22 +2136,21 @@ func convertToAdaptiveOptimizationConfig(cfg *config.AdaptiveOptimizationConfig)
 	if cfg == nil {
 		return nil
 	}
-	
+
 	return &AdaptiveOptimizationConfig{
-		OptimizationInterval:       cfg.OptimizationInterval,
-		MinDataPoints:             cfg.MinDataPoints,
-		ConfidenceThreshold:       cfg.ConfidenceThreshold,
-		PerformanceThreshold:      cfg.PerformanceThreshold,
-		LearningRate:              cfg.LearningRate,
-		AdaptationRate:            cfg.AdaptationRate,
-		ExplorationRate:           cfg.ExplorationRate,
-		MaxThresholdAdjustment:    cfg.MaxThresholdAdjustment,
-		ThresholdDecayRate:        cfg.ThresholdDecayRate,
-		StrategyEvaluationWindow:  cfg.StrategyEvaluationWindow,
-		MinStrategyConfidence:     cfg.MinStrategyConfidence,
-		CacheWarmingEnabled:       cfg.CacheWarmingEnabled,
-		WarmingTriggerThreshold:   cfg.WarmingTriggerThreshold,
-		MaxWarmingOperations:      cfg.MaxWarmingOperations,
+		OptimizationInterval:     cfg.OptimizationInterval,
+		MinDataPoints:            cfg.MinDataPoints,
+		ConfidenceThreshold:      cfg.ConfidenceThreshold,
+		PerformanceThreshold:     cfg.PerformanceThreshold,
+		LearningRate:             cfg.LearningRate,
+		AdaptationRate:           cfg.AdaptationRate,
+		ExplorationRate:          cfg.ExplorationRate,
+		MaxThresholdAdjustment:   cfg.MaxThresholdAdjustment,
+		ThresholdDecayRate:       cfg.ThresholdDecayRate,
+		StrategyEvaluationWindow: cfg.StrategyEvaluationWindow,
+		MinStrategyConfidence:    cfg.MinStrategyConfidence,
+		CacheWarmingEnabled:      cfg.CacheWarmingEnabled,
+		WarmingTriggerThreshold:  cfg.WarmingTriggerThreshold,
+		MaxWarmingOperations:     cfg.MaxWarmingOperations,
 	}
 }
-

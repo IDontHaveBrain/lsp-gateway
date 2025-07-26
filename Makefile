@@ -111,9 +111,24 @@ security:
 	gosec -conf .gosec.json ./...
 
 check-deadcode:
-	@echo "Running dead code analysis..."
+	@echo "Running dead code analysis (production code only)..."
 	@command -v deadcode >/dev/null 2>&1 || { echo "deadcode not found. Install: go install golang.org/x/tools/cmd/deadcode@latest"; exit 1; }
-	deadcode -test ./...
+	deadcode -filter="github.com/.*|cmd/.*|internal/.*" ./...
+
+check-deadcode-strict:
+	@echo "Running strict dead code analysis (including tests)..."
+	@command -v deadcode >/dev/null 2>&1 || { echo "deadcode not found. Install: go install golang.org/x/tools/cmd/deadcode@latest"; exit 1; }
+	deadcode -test -filter="github.com/.*|cmd/.*|internal/.*" ./...
+
+check-deadcode-main:
+	@echo "Running dead code analysis (main packages only)..."
+	@command -v deadcode >/dev/null 2>&1 || { echo "deadcode not found. Install: go install golang.org/x/tools/cmd/deadcode@latest"; exit 1; }
+	deadcode -filter="cmd/.*" ./cmd/...
+
+check-deadcode-internal:
+	@echo "Running dead code analysis (internal packages only)..."
+	@command -v deadcode >/dev/null 2>&1 || { echo "deadcode not found. Install: go install golang.org/x/tools/cmd/deadcode@latest"; exit 1; }
+	deadcode -filter="internal/.*" ./internal/...
 
 # Combined quality check
 quality: format lint security
@@ -215,9 +230,13 @@ help:
 	@echo "  test-unit - Run unit tests only"
 	@echo ""
 	@echo "Quality:"
-	@echo "  lint      - Run linter"
-	@echo "  security  - Run security analysis"
-	@echo "  quality   - Run all quality checks"
+	@echo "  lint                  - Run linter"
+	@echo "  security              - Run security analysis"
+	@echo "  check-deadcode        - Run dead code analysis (production only, fewer false positives)"
+	@echo "  check-deadcode-strict - Run strict dead code analysis (including tests)"
+	@echo "  check-deadcode-main   - Run dead code analysis (main packages only)"
+	@echo "  check-deadcode-internal - Run dead code analysis (internal packages only)"
+	@echo "  quality               - Run all quality checks"
 	@echo ""
 	@echo "Testing:"
 	@echo "  test-simple-quick      - Quick validation tests"

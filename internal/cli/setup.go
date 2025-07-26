@@ -2399,7 +2399,6 @@ type setupPhase struct {
 	handler func(context.Context, *SetupResult) error
 }
 
-
 func executeMultiLanguagePhases(ctx context.Context, result *SetupResult) error {
 	phases := []setupPhase{
 		{"Phase 1: Project Analysis and Language Detection", "🔍", func(ctx context.Context, result *SetupResult) error {
@@ -2428,7 +2427,7 @@ func executeMultiLanguagePhases(ctx context.Context, result *SetupResult) error 
 		if setupVerbose && !setupJSON {
 			fmt.Printf("\n%s %s\n", phase.icon, phase.name)
 		}
-		
+
 		err := phase.handler(ctx, result)
 		if err != nil {
 			result.Issues = append(result.Issues, fmt.Sprintf("%s failed: %v", phase.name, err))
@@ -2455,7 +2454,7 @@ func executeDetectPhases(ctx context.Context, result *SetupResult) (*setup.Proje
 	if setupVerbose && !setupJSON {
 		fmt.Println("🔍 Phase 1: Project Detection and Analysis")
 	}
-	
+
 	projectAnalysis, err = performSetupProjectDetection(ctx, setupProjectPath, result)
 	if err != nil {
 		result.Issues = append(result.Issues, fmt.Sprintf("Project detection failed: %v", err))
@@ -2470,7 +2469,7 @@ func executeDetectPhases(ctx context.Context, result *SetupResult) (*setup.Proje
 	if setupVerbose && !setupJSON {
 		fmt.Println("\n📋 Phase 2: Template Selection")
 	}
-	
+
 	selectedTemplate, err = selectOptimalTemplate(projectAnalysis, result)
 	if err != nil {
 		result.Warnings = append(result.Warnings, fmt.Sprintf("Template selection failed: %v", err))
@@ -2503,7 +2502,7 @@ func executeDetectPhases(ctx context.Context, result *SetupResult) (*setup.Proje
 		if setupVerbose && !setupJSON {
 			fmt.Printf("\n%s %s\n", phase.icon, phase.name)
 		}
-		
+
 		err := phase.handler(ctx, result)
 		if err != nil {
 			result.Issues = append(result.Issues, fmt.Sprintf("%s failed: %v", phase.name, err))

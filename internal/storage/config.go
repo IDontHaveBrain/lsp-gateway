@@ -11,36 +11,36 @@ import (
 // Storage configuration validation constants
 const (
 	// Capacity parsing
-	MinCapacityBytes = 1024 * 1024      // 1MB minimum
+	MinCapacityBytes = 1024 * 1024                    // 1MB minimum
 	MaxCapacityBytes = 1024 * 1024 * 1024 * 1024 * 10 // 10TB maximum
-	
+
 	// Entry limits
 	MinMaxEntries = 100
 	MaxMaxEntries = 100 * 1000 * 1000 // 100M entries
-	
+
 	// Performance limits
 	MinConcurrency = 1
 	MaxConcurrency = 1000
-	MinTimeoutMs = 100
-	MaxTimeoutMs = 300000 // 5 minutes
-	MinBatchSize = 1
-	MaxBatchSize = 10000
-	
+	MinTimeoutMs   = 100
+	MaxTimeoutMs   = 300000 // 5 minutes
+	MinBatchSize   = 1
+	MaxBatchSize   = 10000
+
 	// Reliability limits
-	MinRetryCount = 0
-	MaxRetryCount = 10
-	MinRetryDelayMs = 10
-	MaxRetryDelayMs = 60000 // 1 minute
+	MinRetryCount       = 0
+	MaxRetryCount       = 10
+	MinRetryDelayMs     = 10
+	MaxRetryDelayMs     = 60000 // 1 minute
 	MinFailureThreshold = 1
 	MaxFailureThreshold = 100
-	
+
 	// Access tracking limits
-	MinSampleSize = 5
-	MaxSampleSize = 10000
+	MinSampleSize          = 5
+	MaxSampleSize          = 10000
 	MinConfidenceThreshold = 0.1
 	MaxConfidenceThreshold = 1.0
-	MinMaxTrackedKeys = 100
-	MaxMaxTrackedKeys = 10 * 1000 * 1000 // 10M keys
+	MinMaxTrackedKeys      = 100
+	MaxMaxTrackedKeys      = 10 * 1000 * 1000 // 10M keys
 )
 
 // Valid configuration values
@@ -48,35 +48,35 @@ var (
 	ValidBackendTypes = []string{
 		"memory", "local_disk", "network_disk", "s3", "redis", "database", "custom",
 	}
-	
+
 	ValidCompressionAlgorithms = []string{
 		"none", "gzip", "lz4", "zstd", "snappy",
 	}
-	
+
 	ValidEncryptionAlgorithms = []string{
 		"none", "aes256", "chacha20", "aes-gcm",
 	}
-	
+
 	ValidEvictionPolicies = []string{
 		"lru", "lfu", "ttl", "size", "adaptive", "predictive", "custom",
 	}
-	
+
 	ValidPromotionStrategies = []string{
 		"lfu", "lru", "adaptive", "predictive", "hybrid", "custom",
 	}
-	
+
 	ValidAuthenticationTypes = []string{
 		"none", "basic", "bearer", "aws_iam", "oauth2", "client_cert",
 	}
-	
+
 	ValidLogLevels = []string{
 		"debug", "info", "warn", "error", "fatal",
 	}
-	
+
 	ValidExportFormats = []string{
 		"json", "prometheus", "csv", "influxdb",
 	}
-	
+
 	ValidClassificationLevels = []string{
 		"public", "internal", "confidential", "restricted",
 	}
@@ -99,40 +99,40 @@ func ValidateStorageConfiguration(config *StorageConfiguration) error {
 	if config == nil {
 		return fmt.Errorf("storage configuration cannot be nil")
 	}
-	
+
 	validator := NewStorageConfigValidator()
-	
+
 	// Validate basic configuration
 	validator.validateBasicConfig(config)
-	
+
 	// Validate tiers
 	if config.Tiers != nil {
 		validator.validateTiersConfig(config.Tiers)
 	}
-	
+
 	// Validate strategy
 	if config.Strategy != nil {
 		validator.validateStrategyConfig(config.Strategy)
 	}
-	
+
 	// Validate monitoring
 	if config.Monitoring != nil {
 		validator.validateMonitoringConfig(config.Monitoring)
 	}
-	
+
 	// Validate maintenance
 	if config.Maintenance != nil {
 		validator.validateMaintenanceConfig(config.Maintenance)
 	}
-	
+
 	// Validate security
 	if config.Security != nil {
 		validator.validateSecurityConfig(config.Security)
 	}
-	
+
 	// Cross-validation
 	validator.validateCrossConfiguration(config)
-	
+
 	return validator.getError()
 }
 
@@ -141,7 +141,7 @@ func (v *StorageConfigValidator) validateBasicConfig(config *StorageConfiguratio
 	if config.Version == "" {
 		v.addError("storage version cannot be empty")
 	}
-	
+
 	if config.Profile != "" {
 		validProfiles := []string{"development", "production", "analysis", "custom"}
 		if !contains(validProfiles, config.Profile) {
@@ -153,28 +153,28 @@ func (v *StorageConfigValidator) validateBasicConfig(config *StorageConfiguratio
 // validateTiersConfig validates storage tiers configuration
 func (v *StorageConfigValidator) validateTiersConfig(config *StorageTiersConfig) {
 	enabledTiers := 0
-	
+
 	if config.L1Memory != nil {
 		v.validateTierConfiguration("L1Memory", config.L1Memory)
 		if config.L1Memory.Enabled {
 			enabledTiers++
 		}
 	}
-	
+
 	if config.L2Disk != nil {
 		v.validateTierConfiguration("L2Disk", config.L2Disk)
 		if config.L2Disk.Enabled {
 			enabledTiers++
 		}
 	}
-	
+
 	if config.L3Remote != nil {
 		v.validateTierConfiguration("L3Remote", config.L3Remote)
 		if config.L3Remote.Enabled {
 			enabledTiers++
 		}
 	}
-	
+
 	if enabledTiers == 0 {
 		v.addError("at least one storage tier must be enabled")
 	}
@@ -183,44 +183,44 @@ func (v *StorageConfigValidator) validateTiersConfig(config *StorageTiersConfig)
 // validateTierConfiguration validates individual tier configuration
 func (v *StorageConfigValidator) validateTierConfiguration(tierName string, config *TierConfiguration) {
 	prefix := fmt.Sprintf("tier %s", tierName)
-	
+
 	// Validate capacity
 	if config.Capacity != "" && config.Capacity != "unlimited" {
 		if _, err := ParseCapacity(config.Capacity); err != nil {
 			v.addError("%s: invalid capacity format: %s", prefix, err.Error())
 		}
 	}
-	
+
 	// Validate max entries
 	if config.MaxEntries != -1 && (config.MaxEntries < MinMaxEntries || config.MaxEntries > MaxMaxEntries) {
 		v.addError("%s: max entries must be between %d and %d or -1 for unlimited", prefix, MinMaxEntries, MaxMaxEntries)
 	}
-	
+
 	// Validate eviction policy
 	if config.EvictionPolicy != "" && !contains(ValidEvictionPolicies, config.EvictionPolicy) {
 		v.addError("%s: invalid eviction policy: %s, must be one of %v", prefix, config.EvictionPolicy, ValidEvictionPolicies)
 	}
-	
+
 	// Validate backend
 	if config.Backend != nil {
 		v.validateBackendConfiguration(prefix, config.Backend)
 	}
-	
+
 	// Validate compression
 	if config.Compression != nil {
 		v.validateCompressionConfiguration(prefix, config.Compression)
 	}
-	
+
 	// Validate encryption
 	if config.Encryption != nil {
 		v.validateEncryptionConfiguration(prefix, config.Encryption)
 	}
-	
+
 	// Validate performance
 	if config.Performance != nil {
 		v.validateTierPerformanceConfig(prefix, config.Performance)
 	}
-	
+
 	// Validate reliability
 	if config.Reliability != nil {
 		v.validateTierReliabilityConfig(prefix, config.Reliability)
@@ -233,11 +233,11 @@ func (v *StorageConfigValidator) validateBackendConfiguration(prefix string, con
 		v.addError("%s: backend type cannot be empty", prefix)
 		return
 	}
-	
+
 	if !contains(ValidBackendTypes, config.Type) {
 		v.addError("%s: invalid backend type: %s, must be one of %v", prefix, config.Type, ValidBackendTypes)
 	}
-	
+
 	// Type-specific validations
 	switch config.Type {
 	case "local_disk":
@@ -260,7 +260,7 @@ func (v *StorageConfigValidator) validateBackendConfiguration(prefix string, con
 			v.addError("%s: connection_string is required for database backend", prefix)
 		}
 	}
-	
+
 	// Validate authentication
 	if config.Authentication != nil {
 		v.validateAuthenticationConfig(prefix, config.Authentication)
@@ -273,15 +273,15 @@ func (v *StorageConfigValidator) validateCompressionConfiguration(prefix string,
 		if config.Algorithm != "" && !contains(ValidCompressionAlgorithms, config.Algorithm) {
 			v.addError("%s: invalid compression algorithm: %s, must be one of %v", prefix, config.Algorithm, ValidCompressionAlgorithms)
 		}
-		
+
 		if config.Level < 0 || config.Level > 9 {
 			v.addError("%s: compression level must be between 0 and 9", prefix)
 		}
-		
+
 		if config.MinSize < 0 {
 			v.addError("%s: compression min_size must be non-negative", prefix)
 		}
-		
+
 		if config.Threshold < 0 || config.Threshold > 1 {
 			v.addError("%s: compression threshold must be between 0 and 1", prefix)
 		}
@@ -294,14 +294,14 @@ func (v *StorageConfigValidator) validateEncryptionConfiguration(prefix string, 
 		if config.Algorithm != "" && !contains(ValidEncryptionAlgorithms, config.Algorithm) {
 			v.addError("%s: invalid encryption algorithm: %s, must be one of %v", prefix, config.Algorithm, ValidEncryptionAlgorithms)
 		}
-		
+
 		if config.KeySize != 0 {
 			validKeySizes := []int{128, 192, 256}
 			if !containsInt(validKeySizes, config.KeySize) {
 				v.addError("%s: invalid key size: %d, must be one of %v", prefix, config.KeySize, validKeySizes)
 			}
 		}
-		
+
 		if config.KeyRotation < 0 {
 			v.addError("%s: key rotation duration must be non-negative", prefix)
 		}
@@ -313,27 +313,27 @@ func (v *StorageConfigValidator) validateTierPerformanceConfig(prefix string, co
 	if config.MaxConcurrency < MinConcurrency || config.MaxConcurrency > MaxConcurrency {
 		v.addError("%s: max_concurrency must be between %d and %d", prefix, MinConcurrency, MaxConcurrency)
 	}
-	
+
 	if config.TimeoutMs < MinTimeoutMs || config.TimeoutMs > MaxTimeoutMs {
 		v.addError("%s: timeout_ms must be between %d and %d", prefix, MinTimeoutMs, MaxTimeoutMs)
 	}
-	
+
 	if config.BatchSize < MinBatchSize || config.BatchSize > MaxBatchSize {
 		v.addError("%s: batch_size must be between %d and %d", prefix, MinBatchSize, MaxBatchSize)
 	}
-	
+
 	if config.ReadBufferSize < 0 {
 		v.addError("%s: read_buffer_size must be non-negative", prefix)
 	}
-	
+
 	if config.WriteBufferSize < 0 {
 		v.addError("%s: write_buffer_size must be non-negative", prefix)
 	}
-	
+
 	if config.ConnectionPoolSize < 0 {
 		v.addError("%s: connection_pool_size must be non-negative", prefix)
 	}
-	
+
 	if config.PrefetchSize < 0 {
 		v.addError("%s: prefetch_size must be non-negative", prefix)
 	}
@@ -344,27 +344,27 @@ func (v *StorageConfigValidator) validateTierReliabilityConfig(prefix string, co
 	if config.RetryCount < MinRetryCount || config.RetryCount > MaxRetryCount {
 		v.addError("%s: retry_count must be between %d and %d", prefix, MinRetryCount, MaxRetryCount)
 	}
-	
+
 	if config.RetryDelayMs < MinRetryDelayMs || config.RetryDelayMs > MaxRetryDelayMs {
 		v.addError("%s: retry_delay_ms must be between %d and %d", prefix, MinRetryDelayMs, MaxRetryDelayMs)
 	}
-	
+
 	if config.FailureThreshold < MinFailureThreshold || config.FailureThreshold > MaxFailureThreshold {
 		v.addError("%s: failure_threshold must be between %d and %d", prefix, MinFailureThreshold, MaxFailureThreshold)
 	}
-	
+
 	if config.HealthCheckInterval < 0 {
 		v.addError("%s: health_check_interval must be non-negative", prefix)
 	}
-	
+
 	if config.RecoveryTimeout < 0 {
 		v.addError("%s: recovery_timeout must be non-negative", prefix)
 	}
-	
+
 	if config.ReplicationFactor < 0 {
 		v.addError("%s: replication_factor must be non-negative", prefix)
 	}
-	
+
 	// Validate circuit breaker
 	if config.CircuitBreaker != nil {
 		v.validateCircuitBreakerConfiguration(prefix, config.CircuitBreaker)
@@ -377,15 +377,15 @@ func (v *StorageConfigValidator) validateCircuitBreakerConfiguration(prefix stri
 		if config.FailureThreshold < 1 {
 			v.addError("%s: circuit breaker failure_threshold must be at least 1", prefix)
 		}
-		
+
 		if config.RecoveryTimeout < 0 {
 			v.addError("%s: circuit breaker recovery_timeout must be non-negative", prefix)
 		}
-		
+
 		if config.HalfOpenRequests < 1 {
 			v.addError("%s: circuit breaker half_open_requests must be at least 1", prefix)
 		}
-		
+
 		if config.MinRequestCount < 1 {
 			v.addError("%s: circuit breaker min_request_count must be at least 1", prefix)
 		}
@@ -397,7 +397,7 @@ func (v *StorageConfigValidator) validateAuthenticationConfig(prefix string, con
 	if config.Type != "" && !contains(ValidAuthenticationTypes, config.Type) {
 		v.addError("%s: invalid authentication type: %s, must be one of %v", prefix, config.Type, ValidAuthenticationTypes)
 	}
-	
+
 	switch config.Type {
 	case "basic":
 		if config.Username == "" {
@@ -425,15 +425,15 @@ func (v *StorageConfigValidator) validateStrategyConfig(config *StorageStrategyC
 	if config.PromotionStrategy != nil {
 		v.validatePromotionStrategyConfig(config.PromotionStrategy)
 	}
-	
+
 	if config.EvictionPolicy != nil {
 		v.validateEvictionPolicyConfig(config.EvictionPolicy)
 	}
-	
+
 	if config.AccessTracking != nil {
 		v.validateAccessTrackingConfig(config.AccessTracking)
 	}
-	
+
 	if config.AutoOptimization != nil {
 		v.validateAutoOptimizationConfig(config.AutoOptimization)
 	}
@@ -444,36 +444,36 @@ func (v *StorageConfigValidator) validatePromotionStrategyConfig(config *Promoti
 	if config.Type != "" && !contains(ValidPromotionStrategies, config.Type) {
 		v.addError("invalid promotion strategy type: %s, must be one of %v", config.Type, ValidPromotionStrategies)
 	}
-	
+
 	if config.MinAccessCount < 0 {
 		v.addError("promotion strategy min_access_count must be non-negative")
 	}
-	
+
 	if config.MinAccessFrequency < 0 || config.MinAccessFrequency > 1 {
 		v.addError("promotion strategy min_access_frequency must be between 0 and 1")
 	}
-	
+
 	if config.AccessTimeWindow < 0 {
 		v.addError("promotion strategy access_time_window must be non-negative")
 	}
-	
+
 	if config.PromotionCooldown < 0 {
 		v.addError("promotion strategy promotion_cooldown must be non-negative")
 	}
-	
+
 	// Validate weights
 	if config.RecencyWeight < 0 || config.RecencyWeight > 1 {
 		v.addError("promotion strategy recency_weight must be between 0 and 1")
 	}
-	
+
 	if config.FrequencyWeight < 0 || config.FrequencyWeight > 1 {
 		v.addError("promotion strategy frequency_weight must be between 0 and 1")
 	}
-	
+
 	if config.SizeWeight < 0 || config.SizeWeight > 1 {
 		v.addError("promotion strategy size_weight must be between 0 and 1")
 	}
-	
+
 	// Validate tier thresholds
 	for tier, threshold := range config.TierThresholds {
 		if threshold < 0 || threshold > 1 {
@@ -487,35 +487,35 @@ func (v *StorageConfigValidator) validateEvictionPolicyConfig(config *EvictionPo
 	if config.Type != "" && !contains(ValidEvictionPolicies, config.Type) {
 		v.addError("invalid eviction policy type: %s, must be one of %v", config.Type, ValidEvictionPolicies)
 	}
-	
+
 	if config.EvictionThreshold < 0 || config.EvictionThreshold > 1 {
 		v.addError("eviction policy eviction_threshold must be between 0 and 1")
 	}
-	
+
 	if config.TargetUtilization < 0 || config.TargetUtilization > 1 {
 		v.addError("eviction policy target_utilization must be between 0 and 1")
 	}
-	
+
 	if config.EvictionBatchSize < 1 {
 		v.addError("eviction policy eviction_batch_size must be at least 1")
 	}
-	
+
 	if config.AccessAgeThreshold < 0 {
 		v.addError("eviction policy access_age_threshold must be non-negative")
 	}
-	
+
 	if config.InactivityThreshold < 0 {
 		v.addError("eviction policy inactivity_threshold must be non-negative")
 	}
-	
+
 	if config.DefaultTTL < 0 {
 		v.addError("eviction policy default_ttl must be non-negative")
 	}
-	
+
 	if config.MaxTTL < 0 {
 		v.addError("eviction policy max_ttl must be non-negative")
 	}
-	
+
 	if config.SizeWeight < 0 || config.SizeWeight > 1 {
 		v.addError("eviction policy size_weight must be between 0 and 1")
 	}
@@ -526,23 +526,23 @@ func (v *StorageConfigValidator) validateAccessTrackingConfig(config *AccessTrac
 	if config.TrackingGranularity < 0 {
 		v.addError("access tracking tracking_granularity must be non-negative")
 	}
-	
+
 	if config.HistoryRetention < 0 {
 		v.addError("access tracking history_retention must be non-negative")
 	}
-	
+
 	if config.MaxTrackedKeys < MinMaxTrackedKeys || config.MaxTrackedKeys > MaxMaxTrackedKeys {
 		v.addError("access tracking max_tracked_keys must be between %d and %d", MinMaxTrackedKeys, MaxMaxTrackedKeys)
 	}
-	
+
 	if config.AnalysisInterval < 0 {
 		v.addError("access tracking analysis_interval must be non-negative")
 	}
-	
+
 	if config.MinSampleSize < MinSampleSize || config.MinSampleSize > MaxSampleSize {
 		v.addError("access tracking min_sample_size must be between %d and %d", MinSampleSize, MaxSampleSize)
 	}
-	
+
 	if config.ConfidenceThreshold < MinConfidenceThreshold || config.ConfidenceThreshold > MaxConfidenceThreshold {
 		v.addError("access tracking confidence_threshold must be between %f and %f", MinConfidenceThreshold, MaxConfidenceThreshold)
 	}
@@ -553,11 +553,11 @@ func (v *StorageConfigValidator) validateAutoOptimizationConfig(config *AutoOpti
 	if config.OptimizationInterval < 0 {
 		v.addError("auto optimization optimization_interval must be non-negative")
 	}
-	
+
 	if config.PerformanceThreshold < 0 || config.PerformanceThreshold > 1 {
 		v.addError("auto optimization performance_threshold must be between 0 and 1")
 	}
-	
+
 	if config.CapacityThreshold < 0 || config.CapacityThreshold > 1 {
 		v.addError("auto optimization capacity_threshold must be between 0 and 1")
 	}
@@ -568,23 +568,23 @@ func (v *StorageConfigValidator) validateMonitoringConfig(config *StorageMonitor
 	if config.MetricsInterval < 0 {
 		v.addError("monitoring metrics_interval must be non-negative")
 	}
-	
+
 	if config.HealthInterval < 0 {
 		v.addError("monitoring health_interval must be non-negative")
 	}
-	
+
 	if config.LogLevel != "" && !contains(ValidLogLevels, config.LogLevel) {
 		v.addError("invalid monitoring log_level: %s, must be one of %v", config.LogLevel, ValidLogLevels)
 	}
-	
+
 	if config.ExportFormat != "" && !contains(ValidExportFormats, config.ExportFormat) {
 		v.addError("invalid monitoring export_format: %s, must be one of %v", config.ExportFormat, ValidExportFormats)
 	}
-	
+
 	if config.RetentionPeriod < 0 {
 		v.addError("monitoring retention_period must be non-negative")
 	}
-	
+
 	// Validate alert thresholds
 	for metric, threshold := range config.AlertThresholds {
 		switch metric {
@@ -607,27 +607,27 @@ func (v *StorageConfigValidator) validateMaintenanceConfig(config *StorageMainte
 			v.addError("invalid maintenance schedule: %s", err.Error())
 		}
 	}
-	
+
 	if config.CompactionThreshold < 0 || config.CompactionThreshold > 1 {
 		v.addError("maintenance compaction_threshold must be between 0 and 1")
 	}
-	
+
 	if config.VacuumInterval < 0 {
 		v.addError("maintenance vacuum_interval must be non-negative")
 	}
-	
+
 	if config.CleanupAge < 0 {
 		v.addError("maintenance cleanup_age must be non-negative")
 	}
-	
+
 	if config.BackupInterval < 0 {
 		v.addError("maintenance backup_interval must be non-negative")
 	}
-	
+
 	if config.BackupRetention < 0 {
 		v.addError("maintenance backup_retention must be non-negative")
 	}
-	
+
 	// Validate maintenance window
 	if config.MaintenanceWindow != nil {
 		v.validateMaintenanceWindowConfig(config.MaintenanceWindow)
@@ -641,13 +641,13 @@ func (v *StorageConfigValidator) validateMaintenanceWindowConfig(config *Mainten
 			v.addError("invalid maintenance window start_time format, expected HH:MM")
 		}
 	}
-	
+
 	if config.EndTime != "" {
 		if !isValidTimeFormat(config.EndTime) {
 			v.addError("invalid maintenance window end_time format, expected HH:MM")
 		}
 	}
-	
+
 	validDays := []string{"sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"}
 	for _, day := range config.Days {
 		if !contains(validDays, strings.ToLower(day)) {
@@ -661,11 +661,11 @@ func (v *StorageConfigValidator) validateSecurityConfig(config *StorageSecurityC
 	if config.AccessControl != nil {
 		v.validateAccessControlConfig(config.AccessControl)
 	}
-	
+
 	if config.AuditLogging != nil {
 		v.validateAuditLoggingConfig(config.AuditLogging)
 	}
-	
+
 	if config.DataClassification != nil {
 		v.validateDataClassificationConfig(config.DataClassification)
 	}
@@ -679,7 +679,7 @@ func (v *StorageConfigValidator) validateAccessControlConfig(config *AccessContr
 			v.addError("invalid access control default_policy: %s, must be one of %v", config.DefaultPolicy, validPolicies)
 		}
 	}
-	
+
 	if config.RateLimiting != nil {
 		v.validateRateLimitingConfig(config.RateLimiting)
 	}
@@ -690,11 +690,11 @@ func (v *StorageConfigValidator) validateRateLimitingConfig(config *RateLimiting
 	if config.RequestsPerMinute < 0 {
 		v.addError("rate limiting requests_per_minute must be non-negative")
 	}
-	
+
 	if config.BurstSize < 0 {
 		v.addError("rate limiting burst_size must be non-negative")
 	}
-	
+
 	if config.WindowSize < 0 {
 		v.addError("rate limiting window_size must be non-negative")
 	}
@@ -705,11 +705,11 @@ func (v *StorageConfigValidator) validateAuditLoggingConfig(config *AuditLogging
 	if config.LogLevel != "" && !contains(ValidLogLevels, config.LogLevel) {
 		v.addError("invalid audit logging log_level: %s, must be one of %v", config.LogLevel, ValidLogLevels)
 	}
-	
+
 	if config.RetentionDays < 0 {
 		v.addError("audit logging retention_days must be non-negative")
 	}
-	
+
 	if config.LogFormat != "" {
 		validFormats := []string{"json", "text", "csv"}
 		if !contains(validFormats, config.LogFormat) {
@@ -723,7 +723,7 @@ func (v *StorageConfigValidator) validateDataClassificationConfig(config *DataCl
 	if config.DefaultLevel != "" && !contains(ValidClassificationLevels, config.DefaultLevel) {
 		v.addError("invalid data classification default_level: %s, must be one of %v", config.DefaultLevel, ValidClassificationLevels)
 	}
-	
+
 	for _, level := range config.ClassificationRules {
 		if !contains(ValidClassificationLevels, level) {
 			v.addError("invalid data classification level in rules: %s, must be one of %v", level, ValidClassificationLevels)
@@ -739,28 +739,28 @@ func (v *StorageConfigValidator) validateCrossConfiguration(config *StorageConfi
 			v.addError("access tracking requires monitoring to be enabled")
 		}
 	}
-	
+
 	if config.Strategy != nil && config.Strategy.AutoOptimization != nil && config.Strategy.AutoOptimization.Enabled {
 		if config.Strategy.AccessTracking == nil || !config.Strategy.AccessTracking.Enabled {
 			v.addError("auto optimization requires access tracking to be enabled")
 		}
 	}
-	
+
 	// Validate tier hierarchy
 	if config.Tiers != nil {
 		l1Enabled := config.Tiers.L1Memory != nil && config.Tiers.L1Memory.Enabled
 		l2Enabled := config.Tiers.L2Disk != nil && config.Tiers.L2Disk.Enabled
 		l3Enabled := config.Tiers.L3Remote != nil && config.Tiers.L3Remote.Enabled
-		
+
 		if l3Enabled && !l2Enabled && !l1Enabled {
 			v.addError("L3 remote tier cannot be enabled without L1 or L2 tiers")
 		}
-		
+
 		if l2Enabled && !l1Enabled {
 			v.addWarning("L2 disk tier is enabled without L1 memory tier, which may impact performance")
 		}
 	}
-	
+
 	// Validate security consistency
 	if config.Security != nil {
 		if config.Security.EncryptionAtRest && config.Tiers != nil {
@@ -770,7 +770,7 @@ func (v *StorageConfigValidator) validateCrossConfiguration(config *StorageConfi
 					v.addWarning("encryption at rest is enabled but L2 disk tier does not have encryption configured")
 				}
 			}
-			
+
 			if config.Tiers.L3Remote != nil && config.Tiers.L3Remote.Enabled {
 				if config.Tiers.L3Remote.Encryption == nil || !config.Tiers.L3Remote.Encryption.Enabled {
 					v.addWarning("encryption at rest is enabled but L3 remote tier does not have encryption configured")
@@ -799,7 +799,7 @@ func (v *StorageConfigValidator) getError() error {
 	if len(v.errors) == 0 {
 		return nil
 	}
-	
+
 	return fmt.Errorf("storage configuration validation failed:\n- %s", strings.Join(v.errors, "\n- "))
 }
 
@@ -810,23 +810,23 @@ func ParseCapacity(capacity string) (int64, error) {
 	if capacity == "" || capacity == "unlimited" {
 		return -1, nil
 	}
-	
+
 	// Regular expression to parse capacity string
 	re := regexp.MustCompile(`^(\d+(?:\.\d+)?)\s*([KMGT]?B?)$`)
 	matches := re.FindStringSubmatch(strings.ToUpper(capacity))
-	
+
 	if len(matches) != 3 {
 		return 0, fmt.Errorf("invalid capacity format: %s, expected format like '4GB', '200MB'", capacity)
 	}
-	
+
 	value, err := strconv.ParseFloat(matches[1], 64)
 	if err != nil {
 		return 0, fmt.Errorf("invalid numeric value in capacity: %s", matches[1])
 	}
-	
+
 	unit := matches[2]
 	var multiplier int64
-	
+
 	switch unit {
 	case "", "B":
 		multiplier = 1
@@ -841,17 +841,17 @@ func ParseCapacity(capacity string) (int64, error) {
 	default:
 		return 0, fmt.Errorf("invalid capacity unit: %s, supported units: B, KB, MB, GB, TB", unit)
 	}
-	
+
 	bytes := int64(value * float64(multiplier))
-	
+
 	if bytes < MinCapacityBytes {
 		return 0, fmt.Errorf("capacity too small: %d bytes, minimum: %d bytes", bytes, MinCapacityBytes)
 	}
-	
+
 	if bytes > MaxCapacityBytes {
 		return 0, fmt.Errorf("capacity too large: %d bytes, maximum: %d bytes", bytes, MaxCapacityBytes)
 	}
-	
+
 	return bytes, nil
 }
 
@@ -862,29 +862,29 @@ func ValidateCronExpression(expr string) error {
 	if len(fields) != 5 && len(fields) != 6 {
 		return fmt.Errorf("cron expression must have 5 or 6 fields, got %d", len(fields))
 	}
-	
+
 	// Basic field validation (simplified)
 	fieldNames := []string{"minute", "hour", "day", "month", "weekday"}
 	if len(fields) == 6 {
 		fieldNames = append([]string{"second"}, fieldNames...)
 	}
-	
+
 	for i, field := range fields {
 		if field == "*" || field == "?" {
 			continue
 		}
-		
+
 		// Check for ranges, lists, and steps
 		if strings.Contains(field, "-") || strings.Contains(field, ",") || strings.Contains(field, "/") {
 			continue
 		}
-		
+
 		// Check if it's a valid number for the field
 		num, err := strconv.Atoi(field)
 		if err != nil {
 			return fmt.Errorf("invalid value for %s field: %s", fieldNames[i], field)
 		}
-		
+
 		// Basic range validation
 		switch fieldNames[i] {
 		case "second", "minute":
@@ -909,7 +909,7 @@ func ValidateCronExpression(expr string) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -1104,7 +1104,7 @@ func DefaultStorageConfiguration() *StorageConfiguration {
 // GetDefaultStorageConfigForProfile returns default storage configuration for a specific profile
 func GetDefaultStorageConfigForProfile(profile string) *StorageConfiguration {
 	defaultConfig := DefaultStorageConfiguration()
-	
+
 	switch profile {
 	case "production":
 		return getProductionStorageConfig(defaultConfig)
@@ -1122,7 +1122,7 @@ func getProductionStorageConfig(base *StorageConfiguration) *StorageConfiguratio
 	config := *base
 	config.Profile = "production"
 	config.Enabled = true
-	
+
 	// Enable all tiers for production
 	if config.Tiers != nil {
 		if config.Tiers.L1Memory != nil {
@@ -1137,13 +1137,13 @@ func getProductionStorageConfig(base *StorageConfiguration) *StorageConfiguratio
 			config.Tiers.L3Remote.Enabled = true
 		}
 	}
-	
+
 	// Enable monitoring and security
 	if config.Monitoring != nil {
 		config.Monitoring.Enabled = true
 		config.Monitoring.DetailedMetrics = true
 	}
-	
+
 	if config.Security != nil {
 		config.Security.EncryptionAtRest = true
 		config.Security.EncryptionInTransit = true
@@ -1151,12 +1151,12 @@ func getProductionStorageConfig(base *StorageConfiguration) *StorageConfiguratio
 			config.Security.AuditLogging.Enabled = true
 		}
 	}
-	
+
 	// Enable auto-optimization
 	if config.Strategy != nil && config.Strategy.AutoOptimization != nil {
 		config.Strategy.AutoOptimization.Enabled = true
 	}
-	
+
 	return &config
 }
 
@@ -1165,7 +1165,7 @@ func getDevelopmentStorageConfig(base *StorageConfiguration) *StorageConfigurati
 	config := *base
 	config.Profile = "development"
 	config.Enabled = false // Disabled by default for development
-	
+
 	// Only enable L1 memory tier for development
 	if config.Tiers != nil {
 		if config.Tiers.L1Memory != nil {
@@ -1179,20 +1179,20 @@ func getDevelopmentStorageConfig(base *StorageConfiguration) *StorageConfigurati
 			config.Tiers.L3Remote.Enabled = false
 		}
 	}
-	
+
 	// Simplified monitoring for development
 	if config.Monitoring != nil {
 		config.Monitoring.Enabled = true
 		config.Monitoring.DetailedMetrics = false
 		config.Monitoring.LogLevel = "debug"
 	}
-	
+
 	// Minimal security for development
 	if config.Security != nil {
 		config.Security.EncryptionAtRest = false
 		config.Security.EncryptionInTransit = false
 	}
-	
+
 	return &config
 }
 
@@ -1201,7 +1201,7 @@ func getAnalysisStorageConfig(base *StorageConfiguration) *StorageConfiguration 
 	config := *base
 	config.Profile = "analysis"
 	config.Enabled = true
-	
+
 	// Enable all tiers with large capacities for analysis
 	if config.Tiers != nil {
 		if config.Tiers.L1Memory != nil {
@@ -1216,20 +1216,20 @@ func getAnalysisStorageConfig(base *StorageConfiguration) *StorageConfiguration 
 			config.Tiers.L3Remote.Enabled = true
 		}
 	}
-	
+
 	// Enhanced monitoring and access tracking for analysis
 	if config.Monitoring != nil {
 		config.Monitoring.Enabled = true
 		config.Monitoring.DetailedMetrics = true
 		config.Monitoring.TraceRequests = true
 	}
-	
+
 	if config.Strategy != nil && config.Strategy.AccessTracking != nil {
 		config.Strategy.AccessTracking.Enabled = true
 		config.Strategy.AccessTracking.SemanticAnalysis = true
 		config.Strategy.AccessTracking.SeasonalityDetection = true
 		config.Strategy.AccessTracking.TrendDetection = true
 	}
-	
+
 	return &config
 }

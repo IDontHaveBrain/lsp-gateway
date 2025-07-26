@@ -11,7 +11,6 @@ import (
 	"time"
 )
 
-
 const (
 	RoutingStrategySingle                 RoutingStrategyType = "single"
 	RoutingStrategyFirst                  RoutingStrategyType = "first"

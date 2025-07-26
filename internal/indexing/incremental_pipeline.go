@@ -15,27 +15,27 @@ import (
 // IncrementalUpdatePipeline provides comprehensive incremental update capabilities with <30s latency
 type IncrementalUpdatePipeline struct {
 	// Core components
-	fileWatcher       *FileSystemWatcher
-	dependencyGraph   *DependencyGraph
-	updateQueue       *UpdateQueue
-	workerPool        *UpdateWorkerPool
-	conflictResolver  *ConflictResolutionEngine
-	
+	fileWatcher      *FileSystemWatcher
+	dependencyGraph  *DependencyGraph
+	updateQueue      *UpdateQueue
+	workerPool       *UpdateWorkerPool
+	conflictResolver *ConflictResolutionEngine
+
 	// SCIP integration
-	scipStore         SCIPStore
-	symbolResolver    *SymbolResolver
+	scipStore          SCIPStore
+	symbolResolver     *SymbolResolver
 	watcherIntegration *WatcherIntegration
-	
+
 	// Configuration and monitoring
-	config            *PipelineConfig
-	stats             *PipelineStats
-	healthMonitor     *HealthMonitor
-	
+	config        *PipelineConfig
+	stats         *PipelineStats
+	healthMonitor *HealthMonitor
+
 	// State management
-	isRunning         bool
-	lastUpdate        time.Time
-	updateCount       int64
-	
+	isRunning   bool
+	lastUpdate  time.Time
+	updateCount int64
+
 	// Coordination
 	coordinationChannel chan *CoordinationEvent
 	stopChannel         chan struct{}
@@ -49,123 +49,123 @@ type PipelineConfig struct {
 	TargetLatency         time.Duration `yaml:"target_latency" json:"target_latency"`
 	MaxUpdateTime         time.Duration `yaml:"max_update_time" json:"max_update_time"`
 	BatchProcessingWindow time.Duration `yaml:"batch_processing_window" json:"batch_processing_window"`
-	
+
 	// Component configuration
-	FileWatcherConfig     *FileWatcherConfig     `yaml:"file_watcher,omitempty" json:"file_watcher,omitempty"`
-	DependencyGraphConfig *DependencyGraphConfig `yaml:"dependency_graph,omitempty" json:"dependency_graph,omitempty"`
-	UpdateQueueConfig     *UpdateQueueConfig     `yaml:"update_queue,omitempty" json:"update_queue,omitempty"`
-	WorkerPoolConfig      *WorkerPoolConfig      `yaml:"worker_pool,omitempty" json:"worker_pool,omitempty"`
+	FileWatcherConfig     *FileWatcherConfig        `yaml:"file_watcher,omitempty" json:"file_watcher,omitempty"`
+	DependencyGraphConfig *DependencyGraphConfig    `yaml:"dependency_graph,omitempty" json:"dependency_graph,omitempty"`
+	UpdateQueueConfig     *UpdateQueueConfig        `yaml:"update_queue,omitempty" json:"update_queue,omitempty"`
+	WorkerPoolConfig      *WorkerPoolConfig         `yaml:"worker_pool,omitempty" json:"worker_pool,omitempty"`
 	ConflictConfig        *ConflictResolutionConfig `yaml:"conflict_resolution,omitempty" json:"conflict_resolution,omitempty"`
-	
+
 	// Pipeline optimization
-	EnableIntelligentBatching bool     `yaml:"enable_intelligent_batching" json:"enable_intelligent_batching"`
-	EnablePredictivePreloading bool    `yaml:"enable_predictive_preloading" json:"enable_predictive_preloading"`
-	EnableAdaptiveThrottling  bool     `yaml:"enable_adaptive_throttling" json:"enable_adaptive_throttling"`
+	EnableIntelligentBatching        bool `yaml:"enable_intelligent_batching" json:"enable_intelligent_batching"`
+	EnablePredictivePreloading       bool `yaml:"enable_predictive_preloading" json:"enable_predictive_preloading"`
+	EnableAdaptiveThrottling         bool `yaml:"enable_adaptive_throttling" json:"enable_adaptive_throttling"`
 	EnableProactiveConflictDetection bool `yaml:"enable_proactive_conflict_detection" json:"enable_proactive_conflict_detection"`
-	
+
 	// Resource management
-	MaxMemoryUsage        int64         `yaml:"max_memory_usage_mb" json:"max_memory_usage_mb"`
-	MaxConcurrentOperations int         `yaml:"max_concurrent_operations" json:"max_concurrent_operations"`
-	ResourceCheckInterval time.Duration `yaml:"resource_check_interval" json:"resource_check_interval"`
-	
+	MaxMemoryUsage          int64         `yaml:"max_memory_usage_mb" json:"max_memory_usage_mb"`
+	MaxConcurrentOperations int           `yaml:"max_concurrent_operations" json:"max_concurrent_operations"`
+	ResourceCheckInterval   time.Duration `yaml:"resource_check_interval" json:"resource_check_interval"`
+
 	// Quality assurance
-	EnableIntegrityChecks bool          `yaml:"enable_integrity_checks" json:"enable_integrity_checks"`
-	EnablePerformanceMonitoring bool   `yaml:"enable_performance_monitoring" json:"enable_performance_monitoring"`
-	EnableDetailedLogging   bool        `yaml:"enable_detailed_logging" json:"enable_detailed_logging"`
+	EnableIntegrityChecks       bool `yaml:"enable_integrity_checks" json:"enable_integrity_checks"`
+	EnablePerformanceMonitoring bool `yaml:"enable_performance_monitoring" json:"enable_performance_monitoring"`
+	EnableDetailedLogging       bool `yaml:"enable_detailed_logging" json:"enable_detailed_logging"`
 }
 
 // PipelineStats tracks comprehensive pipeline performance metrics
 type PipelineStats struct {
 	// Core metrics
-	TotalUpdates          int64         `json:"total_updates"`
-	SuccessfulUpdates     int64         `json:"successful_updates"`
-	FailedUpdates         int64         `json:"failed_updates"`
-	AverageLatency        time.Duration `json:"average_latency"`
-	P95Latency            time.Duration `json:"p95_latency"`
-	P99Latency            time.Duration `json:"p99_latency"`
-	
+	TotalUpdates      int64         `json:"total_updates"`
+	SuccessfulUpdates int64         `json:"successful_updates"`
+	FailedUpdates     int64         `json:"failed_updates"`
+	AverageLatency    time.Duration `json:"average_latency"`
+	P95Latency        time.Duration `json:"p95_latency"`
+	P99Latency        time.Duration `json:"p99_latency"`
+
 	// Performance metrics
-	ThroughputPerSecond   float64       `json:"throughput_per_second"`
-	BytesProcessedPerSecond float64     `json:"bytes_processed_per_second"`
-	UpdatesUnderSLA       int64         `json:"updates_under_sla"`
-	SLAComplianceRate     float64       `json:"sla_compliance_rate"`
-	
+	ThroughputPerSecond     float64 `json:"throughput_per_second"`
+	BytesProcessedPerSecond float64 `json:"bytes_processed_per_second"`
+	UpdatesUnderSLA         int64   `json:"updates_under_sla"`
+	SLAComplianceRate       float64 `json:"sla_compliance_rate"`
+
 	// Component metrics
-	FileWatcherStats      *WatcherStats      `json:"file_watcher_stats"`
-	DependencyGraphStats  *DependencyGraphStats `json:"dependency_graph_stats"`
-	UpdateQueueStats      *UpdateQueueStats  `json:"update_queue_stats"`
-	WorkerPoolStats       *WorkerPoolStats   `json:"worker_pool_stats"`
-	ConflictStats         *ConflictResolutionStats `json:"conflict_stats"`
-	
+	FileWatcherStats     *WatcherStats            `json:"file_watcher_stats"`
+	DependencyGraphStats *DependencyGraphStats    `json:"dependency_graph_stats"`
+	UpdateQueueStats     *UpdateQueueStats        `json:"update_queue_stats"`
+	WorkerPoolStats      *WorkerPoolStats         `json:"worker_pool_stats"`
+	ConflictStats        *ConflictResolutionStats `json:"conflict_stats"`
+
 	// Health metrics
-	OverallHealth         string        `json:"overall_health"`
-	ComponentHealth       map[string]string `json:"component_health"`
-	LastHealthCheck       time.Time     `json:"last_health_check"`
-	
+	OverallHealth   string            `json:"overall_health"`
+	ComponentHealth map[string]string `json:"component_health"`
+	LastHealthCheck time.Time         `json:"last_health_check"`
+
 	// Resource usage
-	CurrentMemoryUsage    int64         `json:"current_memory_usage_mb"`
-	PeakMemoryUsage       int64         `json:"peak_memory_usage_mb"`
-	MemoryEfficiency      float64       `json:"memory_efficiency"`
-	
+	CurrentMemoryUsage int64   `json:"current_memory_usage_mb"`
+	PeakMemoryUsage    int64   `json:"peak_memory_usage_mb"`
+	MemoryEfficiency   float64 `json:"memory_efficiency"`
+
 	// Error tracking
-	ErrorRate             float64       `json:"error_rate"`
-	LastError             string        `json:"last_error,omitempty"`
-	LastErrorTime         time.Time     `json:"last_error_time,omitempty"`
-	
+	ErrorRate     float64   `json:"error_rate"`
+	LastError     string    `json:"last_error,omitempty"`
+	LastErrorTime time.Time `json:"last_error_time,omitempty"`
+
 	// Timing
-	UptimeSeconds         int64         `json:"uptime_seconds"`
-	LastUpdate            time.Time     `json:"last_update"`
-	
-	mutex                 sync.RWMutex
-	startTime             time.Time
+	UptimeSeconds int64     `json:"uptime_seconds"`
+	LastUpdate    time.Time `json:"last_update"`
+
+	mutex     sync.RWMutex
+	startTime time.Time
 }
 
 // CoordinationEvent represents an event requiring pipeline coordination
 type CoordinationEvent struct {
-	Type        CoordinationEventType `json:"type"`
-	Source      string                `json:"source"`
-	Target      string                `json:"target,omitempty"`
-	Data        interface{}           `json:"data,omitempty"`
-	Timestamp   time.Time             `json:"timestamp"`
-	Priority    int                   `json:"priority"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Type      CoordinationEventType  `json:"type"`
+	Source    string                 `json:"source"`
+	Target    string                 `json:"target,omitempty"`
+	Data      interface{}            `json:"data,omitempty"`
+	Timestamp time.Time              `json:"timestamp"`
+	Priority  int                    `json:"priority"`
+	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // CoordinationEventType represents types of coordination events
 type CoordinationEventType string
 
 const (
-	EventFileChanged         CoordinationEventType = "file_changed"
-	EventDependencyUpdated   CoordinationEventType = "dependency_updated"
-	EventConflictDetected    CoordinationEventType = "conflict_detected"
-	EventBatchReady          CoordinationEventType = "batch_ready"
-	EventResourceThreshold   CoordinationEventType = "resource_threshold"
-	EventHealthAlert         CoordinationEventType = "health_alert"
-	EventPerformanceAlert    CoordinationEventType = "performance_alert"
+	EventFileChanged       CoordinationEventType = "file_changed"
+	EventDependencyUpdated CoordinationEventType = "dependency_updated"
+	EventConflictDetected  CoordinationEventType = "conflict_detected"
+	EventBatchReady        CoordinationEventType = "batch_ready"
+	EventResourceThreshold CoordinationEventType = "resource_threshold"
+	EventHealthAlert       CoordinationEventType = "health_alert"
+	EventPerformanceAlert  CoordinationEventType = "performance_alert"
 )
 
 // HealthMonitor monitors the health of all pipeline components
 type HealthMonitor struct {
-	pipeline          *IncrementalUpdatePipeline
-	config            *HealthMonitorConfig
-	healthChecks      map[string]HealthCheck
-	lastHealthStatus  map[string]HealthStatus
-	alertHandlers     []AlertHandler
-	
+	pipeline         *IncrementalUpdatePipeline
+	config           *HealthMonitorConfig
+	healthChecks     map[string]HealthCheck
+	lastHealthStatus map[string]HealthStatus
+	alertHandlers    []AlertHandler
+
 	monitoringInterval time.Duration
-	isRunning         bool
-	stopChannel       chan struct{}
-	
-	mutex             sync.RWMutex
+	isRunning          bool
+	stopChannel        chan struct{}
+
+	mutex sync.RWMutex
 }
 
 // HealthMonitorConfig contains health monitoring configuration
 type HealthMonitorConfig struct {
-	CheckInterval       time.Duration `yaml:"check_interval" json:"check_interval"`
-	FailureThreshold    int           `yaml:"failure_threshold" json:"failure_threshold"`
-	RecoveryThreshold   int           `yaml:"recovery_threshold" json:"recovery_threshold"`
-	AlertCooldown       time.Duration `yaml:"alert_cooldown" json:"alert_cooldown"`
-	EnableAutoRecovery  bool          `yaml:"enable_auto_recovery" json:"enable_auto_recovery"`
+	CheckInterval      time.Duration `yaml:"check_interval" json:"check_interval"`
+	FailureThreshold   int           `yaml:"failure_threshold" json:"failure_threshold"`
+	RecoveryThreshold  int           `yaml:"recovery_threshold" json:"recovery_threshold"`
+	AlertCooldown      time.Duration `yaml:"alert_cooldown" json:"alert_cooldown"`
+	EnableAutoRecovery bool          `yaml:"enable_auto_recovery" json:"enable_auto_recovery"`
 }
 
 // HealthCheck represents a health check function
@@ -173,12 +173,12 @@ type HealthCheck func() HealthStatus
 
 // HealthStatus represents the health status of a component
 type HealthStatus struct {
-	Component     string            `json:"component"`
-	Status        string            `json:"status"` // "healthy", "degraded", "unhealthy"
-	Message       string            `json:"message,omitempty"`
-	LastCheck     time.Time         `json:"last_check"`
-	ResponseTime  time.Duration     `json:"response_time"`
-	Metadata      map[string]interface{} `json:"metadata,omitempty"`
+	Component    string                 `json:"component"`
+	Status       string                 `json:"status"` // "healthy", "degraded", "unhealthy"
+	Message      string                 `json:"message,omitempty"`
+	LastCheck    time.Time              `json:"last_check"`
+	ResponseTime time.Duration          `json:"response_time"`
+	Metadata     map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // AlertHandler handles health alerts
@@ -187,24 +187,24 @@ type AlertHandler func(HealthStatus)
 // ConflictResolutionEngine handles advanced conflict detection and resolution
 type ConflictResolutionEngine struct {
 	// Core configuration
-	config            *ConflictResolutionConfig
-	stats             *ConflictResolutionStats
-	
+	config *ConflictResolutionConfig
+	stats  *ConflictResolutionStats
+
 	// Active state tracking
-	activeUpdates     map[string]*UpdateRequest
-	conflictHistory   []*ConflictEvent
+	activeUpdates        map[string]*UpdateRequest
+	conflictHistory      []*ConflictEvent
 	resolutionStrategies map[ConflictType]ResolutionStrategy
-	
+
 	// Advanced features
 	predictiveDetector *PredictiveConflictDetector
-	mergingEngine     *AutoMergingEngine
-	versionTracker    *VersionTracker
-	
+	mergingEngine      *AutoMergingEngine
+	versionTracker     *VersionTracker
+
 	// Coordination
 	notificationChannel chan *ConflictNotification
 	resolutionChannel   chan *ConflictResolution
-	
-	mutex             sync.RWMutex
+
+	mutex sync.RWMutex
 }
 
 // ConflictResolutionConfig contains conflict resolution configuration
@@ -219,32 +219,32 @@ type ConflictResolutionConfig struct {
 
 // ConflictResolutionStats tracks conflict resolution performance
 type ConflictResolutionStats struct {
-	TotalConflicts        int64         `json:"total_conflicts"`
-	ResolvedConflicts     int64         `json:"resolved_conflicts"`
-	UnresolvedConflicts   int64         `json:"unresolved_conflicts"`
-	AutoMergedConflicts   int64         `json:"auto_merged_conflicts"`
-	ManualConflicts       int64         `json:"manual_conflicts"`
-	
+	TotalConflicts      int64 `json:"total_conflicts"`
+	ResolvedConflicts   int64 `json:"resolved_conflicts"`
+	UnresolvedConflicts int64 `json:"unresolved_conflicts"`
+	AutoMergedConflicts int64 `json:"auto_merged_conflicts"`
+	ManualConflicts     int64 `json:"manual_conflicts"`
+
 	AvgResolutionTime     time.Duration `json:"avg_resolution_time"`
 	ConflictRate          float64       `json:"conflict_rate"`
 	ResolutionSuccessRate float64       `json:"resolution_success_rate"`
-	
-	ConflictsByType       map[ConflictType]int64 `json:"conflicts_by_type"`
-	
-	mutex                 sync.RWMutex
+
+	ConflictsByType map[ConflictType]int64 `json:"conflicts_by_type"`
+
+	mutex sync.RWMutex
 }
 
 // ConflictEvent represents a conflict between updates
 type ConflictEvent struct {
-	ID              string            `json:"id"`
-	Type            ConflictType      `json:"type"`
-	FilePath        string            `json:"file_path"`
-	ConflictingUpdates []*UpdateRequest `json:"conflicting_updates"`
-	DetectedAt      time.Time         `json:"detected_at"`
-	ResolvedAt      time.Time         `json:"resolved_at,omitempty"`
-	Resolution      *ConflictResolution `json:"resolution,omitempty"`
-	Severity        ConflictSeverity  `json:"severity"`
-	Metadata        map[string]interface{} `json:"metadata,omitempty"`
+	ID                 string                 `json:"id"`
+	Type               ConflictType           `json:"type"`
+	FilePath           string                 `json:"file_path"`
+	ConflictingUpdates []*UpdateRequest       `json:"conflicting_updates"`
+	DetectedAt         time.Time              `json:"detected_at"`
+	ResolvedAt         time.Time              `json:"resolved_at,omitempty"`
+	Resolution         *ConflictResolution    `json:"resolution,omitempty"`
+	Severity           ConflictSeverity       `json:"severity"`
+	Metadata           map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // ConflictType represents different types of conflicts
@@ -272,30 +272,30 @@ const (
 type ResolutionStrategy string
 
 const (
-	StrategyLastWins    ResolutionStrategy = "last_wins"
-	StrategyFirstWins   ResolutionStrategy = "first_wins"
-	StrategyAutoMerge   ResolutionStrategy = "auto_merge"
+	StrategyLastWins     ResolutionStrategy = "last_wins"
+	StrategyFirstWins    ResolutionStrategy = "first_wins"
+	StrategyAutoMerge    ResolutionStrategy = "auto_merge"
 	StrategyManualReview ResolutionStrategy = "manual_review"
-	StrategyReject      ResolutionStrategy = "reject"
+	StrategyReject       ResolutionStrategy = "reject"
 )
 
 // MergingStrategy defines how auto-merging works
 type MergingStrategy string
 
 const (
-	MergeThreeWay     MergingStrategy = "three_way"
-	MergeContentBased MergingStrategy = "content_based"
+	MergeThreeWay      MergingStrategy = "three_way"
+	MergeContentBased  MergingStrategy = "content_based"
 	MergeSemanticBased MergingStrategy = "semantic_based"
-	MergeSymbolBased  MergingStrategy = "symbol_based"
+	MergeSymbolBased   MergingStrategy = "symbol_based"
 )
 
 // ConflictNotification represents a conflict notification
 type ConflictNotification struct {
-	Conflict    *ConflictEvent    `json:"conflict"`
-	Urgency     string            `json:"urgency"`
-	Recipients  []string          `json:"recipients,omitempty"`
-	Message     string            `json:"message"`
-	Timestamp   time.Time         `json:"timestamp"`
+	Conflict   *ConflictEvent `json:"conflict"`
+	Urgency    string         `json:"urgency"`
+	Recipients []string       `json:"recipients,omitempty"`
+	Message    string         `json:"message"`
+	Timestamp  time.Time      `json:"timestamp"`
 }
 
 // PredictiveConflictDetector predicts potential conflicts before they occur
@@ -303,103 +303,103 @@ type PredictiveConflictDetector struct {
 	patterns        map[string]*ConflictPattern
 	riskAssessment  *RiskAssessment
 	predictionModel *PredictionModel
-	
-	mutex           sync.RWMutex
+
+	mutex sync.RWMutex
 }
 
 // ConflictPattern represents a pattern that leads to conflicts
 type ConflictPattern struct {
-	Pattern     string            `json:"pattern"`
-	Frequency   int64             `json:"frequency"`
-	Confidence  float64           `json:"confidence"`
-	LastSeen    time.Time         `json:"last_seen"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	Pattern    string                 `json:"pattern"`
+	Frequency  int64                  `json:"frequency"`
+	Confidence float64                `json:"confidence"`
+	LastSeen   time.Time              `json:"last_seen"`
+	Metadata   map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // RiskAssessment assesses the risk of conflicts
 type RiskAssessment struct {
-	FileRiskScores      map[string]float64 `json:"file_risk_scores"`
-	SymbolRiskScores    map[string]float64 `json:"symbol_risk_scores"`
+	FileRiskScores       map[string]float64 `json:"file_risk_scores"`
+	SymbolRiskScores     map[string]float64 `json:"symbol_risk_scores"`
 	DependencyRiskScores map[string]float64 `json:"dependency_risk_scores"`
-	
-	LastUpdate          time.Time          `json:"last_update"`
+
+	LastUpdate time.Time `json:"last_update"`
 }
 
 // PredictionModel predicts conflict likelihood
 type PredictionModel struct {
-	ModelType     string            `json:"model_type"`
-	Accuracy      float64           `json:"accuracy"`
-	LastTrained   time.Time         `json:"last_trained"`
-	Features      []string          `json:"features"`
-	Weights       map[string]float64 `json:"weights,omitempty"`
+	ModelType   string             `json:"model_type"`
+	Accuracy    float64            `json:"accuracy"`
+	LastTrained time.Time          `json:"last_trained"`
+	Features    []string           `json:"features"`
+	Weights     map[string]float64 `json:"weights,omitempty"`
 }
 
 // AutoMergingEngine handles automatic merging of compatible changes
 type AutoMergingEngine struct {
-	strategy        MergingStrategy
-	mergeRules      []*MergeRule
-	mergeStats      *MergeStats
-	
-	mutex           sync.RWMutex
+	strategy   MergingStrategy
+	mergeRules []*MergeRule
+	mergeStats *MergeStats
+
+	mutex sync.RWMutex
 }
 
 // MergeRule defines rules for automatic merging
 type MergeRule struct {
-	ID          string            `json:"id"`
-	Condition   string            `json:"condition"`
-	Action      string            `json:"action"`
-	Priority    int               `json:"priority"`
-	Enabled     bool              `json:"enabled"`
-	Metadata    map[string]interface{} `json:"metadata,omitempty"`
+	ID        string                 `json:"id"`
+	Condition string                 `json:"condition"`
+	Action    string                 `json:"action"`
+	Priority  int                    `json:"priority"`
+	Enabled   bool                   `json:"enabled"`
+	Metadata  map[string]interface{} `json:"metadata,omitempty"`
 }
 
 // MergeStats tracks merging performance
 type MergeStats struct {
-	TotalMerges         int64   `json:"total_merges"`
-	SuccessfulMerges    int64   `json:"successful_merges"`
-	FailedMerges        int64   `json:"failed_merges"`
-	MergeSuccessRate    float64 `json:"merge_success_rate"`
-	AvgMergeTime        time.Duration `json:"avg_merge_time"`
-	
-	mutex               sync.RWMutex
+	TotalMerges      int64         `json:"total_merges"`
+	SuccessfulMerges int64         `json:"successful_merges"`
+	FailedMerges     int64         `json:"failed_merges"`
+	MergeSuccessRate float64       `json:"merge_success_rate"`
+	AvgMergeTime     time.Duration `json:"avg_merge_time"`
+
+	mutex sync.RWMutex
 }
 
 // VersionTracker tracks file and symbol versions for conflict detection
 type VersionTracker struct {
-	fileVersions    map[string]*FileVersion
-	symbolVersions  map[string]*SymbolVersion
-	versionHistory  []*VersionEvent
-	
-	mutex           sync.RWMutex
+	fileVersions   map[string]*FileVersion
+	symbolVersions map[string]*SymbolVersion
+	versionHistory []*VersionEvent
+
+	mutex sync.RWMutex
 }
 
 // FileVersion tracks the version of a file
 type FileVersion struct {
-	FilePath        string    `json:"file_path"`
-	Version         int64     `json:"version"`
-	Checksum        string    `json:"checksum"`
-	LastModified    time.Time `json:"last_modified"`
-	ModifiedBy      string    `json:"modified_by,omitempty"`
+	FilePath     string    `json:"file_path"`
+	Version      int64     `json:"version"`
+	Checksum     string    `json:"checksum"`
+	LastModified time.Time `json:"last_modified"`
+	ModifiedBy   string    `json:"modified_by,omitempty"`
 }
 
 // SymbolVersion tracks the version of a symbol
 type SymbolVersion struct {
-	Symbol          string    `json:"symbol"`
-	Version         int64     `json:"version"`
-	DefinitionFile  string    `json:"definition_file"`
-	LastModified    time.Time `json:"last_modified"`
-	Signature       string    `json:"signature,omitempty"`
+	Symbol         string    `json:"symbol"`
+	Version        int64     `json:"version"`
+	DefinitionFile string    `json:"definition_file"`
+	LastModified   time.Time `json:"last_modified"`
+	Signature      string    `json:"signature,omitempty"`
 }
 
 // VersionEvent represents a version change event
 type VersionEvent struct {
-	ID          string    `json:"id"`
-	Type        string    `json:"type"`
-	Target      string    `json:"target"`
-	OldVersion  int64     `json:"old_version"`
-	NewVersion  int64     `json:"new_version"`
-	Timestamp   time.Time `json:"timestamp"`
-	Source      string    `json:"source,omitempty"`
+	ID         string    `json:"id"`
+	Type       string    `json:"type"`
+	Target     string    `json:"target"`
+	OldVersion int64     `json:"old_version"`
+	NewVersion int64     `json:"new_version"`
+	Timestamp  time.Time `json:"timestamp"`
+	Source     string    `json:"source,omitempty"`
 }
 
 // NewIncrementalUpdatePipeline creates a new incremental update pipeline
@@ -475,24 +475,24 @@ func NewIncrementalUpdatePipeline(scipStore SCIPStore, symbolResolver *SymbolRes
 // DefaultPipelineConfig returns default pipeline configuration
 func DefaultPipelineConfig() *PipelineConfig {
 	return &PipelineConfig{
-		TargetLatency:         30 * time.Second,
-		MaxUpdateTime:         120 * time.Second,
-		BatchProcessingWindow: 5 * time.Second,
-		FileWatcherConfig:     DefaultFileWatcherConfig(),
-		DependencyGraphConfig: DefaultDependencyGraphConfig(),
-		UpdateQueueConfig:     DefaultUpdateQueueConfig(),
-		WorkerPoolConfig:      DefaultWorkerPoolConfig(),
-		ConflictConfig:        DefaultConflictResolutionConfig(),
-		EnableIntelligentBatching: true,
-		EnablePredictivePreloading: true,
-		EnableAdaptiveThrottling: true,
+		TargetLatency:                    30 * time.Second,
+		MaxUpdateTime:                    120 * time.Second,
+		BatchProcessingWindow:            5 * time.Second,
+		FileWatcherConfig:                DefaultFileWatcherConfig(),
+		DependencyGraphConfig:            DefaultDependencyGraphConfig(),
+		UpdateQueueConfig:                DefaultUpdateQueueConfig(),
+		WorkerPoolConfig:                 DefaultWorkerPoolConfig(),
+		ConflictConfig:                   DefaultConflictResolutionConfig(),
+		EnableIntelligentBatching:        true,
+		EnablePredictivePreloading:       true,
+		EnableAdaptiveThrottling:         true,
 		EnableProactiveConflictDetection: true,
-		MaxMemoryUsage:        2048, // 2GB
-		MaxConcurrentOperations: 100,
-		ResourceCheckInterval: 30 * time.Second,
-		EnableIntegrityChecks: true,
-		EnablePerformanceMonitoring: true,
-		EnableDetailedLogging: false,
+		MaxMemoryUsage:                   2048, // 2GB
+		MaxConcurrentOperations:          100,
+		ResourceCheckInterval:            30 * time.Second,
+		EnableIntegrityChecks:            true,
+		EnablePerformanceMonitoring:      true,
+		EnableDetailedLogging:            false,
 	}
 }
 
@@ -548,7 +548,7 @@ func (pipeline *IncrementalUpdatePipeline) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to start health monitor: %w", err)
 	}
 
-	log.Printf("IncrementalUpdatePipeline: Started successfully with target latency %v", 
+	log.Printf("IncrementalUpdatePipeline: Started successfully with target latency %v",
 		pipeline.config.TargetLatency)
 	return nil
 }
@@ -614,17 +614,17 @@ func (pipeline *IncrementalUpdatePipeline) Stop() error {
 // ProcessFileChange processes a file change through the pipeline
 func (pipeline *IncrementalUpdatePipeline) ProcessFileChange(event *FileChangeEvent) error {
 	startTime := time.Now()
-	
+
 	// Create update request
 	request := &UpdateRequest{
-		ID:         pipeline.generateRequestID(event),
-		FilePath:   event.FilePath,
-		Operation:  OpFileUpdate,
-		Priority:   pipeline.calculatePriority(event),
-		Timestamp:  event.Timestamp,
-		Language:   event.Language,
-		FileSize:   event.FileSize,
-		Metadata:   event.Metadata,
+		ID:        pipeline.generateRequestID(event),
+		FilePath:  event.FilePath,
+		Operation: OpFileUpdate,
+		Priority:  pipeline.calculatePriority(event),
+		Timestamp: event.Timestamp,
+		Language:  event.Language,
+		FileSize:  event.FileSize,
+		Metadata:  event.Metadata,
 	}
 
 	// Check for conflicts
@@ -731,20 +731,20 @@ func (pipeline *IncrementalUpdatePipeline) coordinateFileChange(event *FileChang
 		}
 	}
 
-	log.Printf("Pipeline: Coordinated %d dependent updates for %s", 
+	log.Printf("Pipeline: Coordinated %d dependent updates for %s",
 		len(impact.DirectlyAffected), event.FilePath)
 }
 
 // Helper methods
 
 func (pipeline *IncrementalUpdatePipeline) generateRequestID(event *FileChangeEvent) string {
-	hash := md5.Sum([]byte(fmt.Sprintf("%s:%s:%d", 
+	hash := md5.Sum([]byte(fmt.Sprintf("%s:%s:%d",
 		event.FilePath, event.Operation, event.Timestamp.UnixNano())))
 	return fmt.Sprintf("req_%x", hash[:8])
 }
 
 func (pipeline *IncrementalUpdatePipeline) generateDependentRequestID(event *FileChangeEvent, dependentFile string) string {
-	hash := md5.Sum([]byte(fmt.Sprintf("dep_%s:%s:%d", 
+	hash := md5.Sum([]byte(fmt.Sprintf("dep_%s:%s:%d",
 		dependentFile, event.FilePath, event.Timestamp.UnixNano())))
 	return fmt.Sprintf("dep_%x", hash[:8])
 }
@@ -752,17 +752,17 @@ func (pipeline *IncrementalUpdatePipeline) generateDependentRequestID(event *Fil
 func (pipeline *IncrementalUpdatePipeline) calculatePriority(event *FileChangeEvent) int {
 	// Calculate priority based on file type, size, and other factors
 	priority := 3 // Default normal priority
-	
+
 	// Critical files get higher priority
 	if pipeline.isCriticalFile(event.FilePath) {
 		priority = 1
 	}
-	
+
 	// Large files get lower priority
 	if event.FileSize > 1024*1024 { // > 1MB
 		priority += 1
 	}
-	
+
 	return priority
 }
 
@@ -773,39 +773,39 @@ func (pipeline *IncrementalUpdatePipeline) isCriticalFile(filePath string) bool 
 		".yaml": true, ".yml": true, ".json": true, ".toml": true,
 		".config": true, ".cfg": true,
 	}
-	
+
 	if criticalExts[ext] {
 		return true
 	}
-	
+
 	// Check for main files
 	basename := strings.ToLower(filepath.Base(filePath))
 	if strings.Contains(basename, "main") || strings.Contains(basename, "index") {
 		return true
 	}
-	
+
 	return false
 }
 
 func (pipeline *IncrementalUpdatePipeline) recordLatency(duration time.Duration) {
 	pipeline.stats.mutex.Lock()
 	defer pipeline.stats.mutex.Unlock()
-	
+
 	atomic.AddInt64(&pipeline.stats.TotalUpdates, 1)
-	
+
 	if duration <= pipeline.config.TargetLatency {
 		atomic.AddInt64(&pipeline.stats.UpdatesUnderSLA, 1)
 	}
-	
+
 	// Update average latency (exponential moving average)
 	if pipeline.stats.AverageLatency == 0 {
 		pipeline.stats.AverageLatency = duration
 	} else {
 		alpha := 0.1
-		pipeline.stats.AverageLatency = time.Duration(float64(pipeline.stats.AverageLatency)*(1-alpha) + 
+		pipeline.stats.AverageLatency = time.Duration(float64(pipeline.stats.AverageLatency)*(1-alpha) +
 			float64(duration)*alpha)
 	}
-	
+
 	// Update P95/P99 (simplified)
 	if duration > pipeline.stats.P95Latency {
 		pipeline.stats.P95Latency = duration
@@ -813,7 +813,7 @@ func (pipeline *IncrementalUpdatePipeline) recordLatency(duration time.Duration)
 	if duration > pipeline.stats.P99Latency {
 		pipeline.stats.P99Latency = duration
 	}
-	
+
 	// Calculate SLA compliance rate
 	total := atomic.LoadInt64(&pipeline.stats.TotalUpdates)
 	underSLA := atomic.LoadInt64(&pipeline.stats.UpdatesUnderSLA)
@@ -837,11 +837,11 @@ func (pipeline *IncrementalUpdatePipeline) handleConflict(conflict *ConflictEven
 	if err != nil {
 		return fmt.Errorf("failed to resolve conflict: %w", err)
 	}
-	
+
 	if resolution.Resolution == "reject" {
 		return fmt.Errorf("request rejected due to unresolvable conflict")
 	}
-	
+
 	return nil
 }
 
@@ -874,27 +874,27 @@ func (pipeline *IncrementalUpdatePipeline) coordinatePerformanceResponse(event *
 func (pipeline *IncrementalUpdatePipeline) GetStats() *PipelineStats {
 	pipeline.stats.mutex.RLock()
 	defer pipeline.stats.mutex.RUnlock()
-	
+
 	stats := *pipeline.stats
-	
+
 	// Gather component stats
 	stats.FileWatcherStats = pipeline.fileWatcher.GetStats()
 	stats.DependencyGraphStats = pipeline.dependencyGraph.GetStats()
 	stats.UpdateQueueStats = pipeline.updateQueue.GetStats()
 	stats.WorkerPoolStats = pipeline.workerPool.GetStats()
 	stats.ConflictStats = pipeline.conflictResolver.GetStats()
-	
+
 	// Calculate derived metrics
 	stats.UptimeSeconds = int64(time.Since(stats.startTime).Seconds())
 	if stats.UptimeSeconds > 0 {
 		stats.ThroughputPerSecond = float64(atomic.LoadInt64(&stats.TotalUpdates)) / float64(stats.UptimeSeconds)
 	}
-	
+
 	// Health status
 	stats.OverallHealth = pipeline.healthMonitor.GetOverallHealth()
 	stats.ComponentHealth = pipeline.healthMonitor.GetComponentHealth()
 	stats.LastHealthCheck = pipeline.healthMonitor.GetLastHealthCheck()
-	
+
 	return &stats
 }
 
@@ -938,15 +938,15 @@ func NewConflictResolutionEngine(config *ConflictResolutionConfig) (*ConflictRes
 	if config == nil {
 		config = DefaultConflictResolutionConfig()
 	}
-	
+
 	return &ConflictResolutionEngine{
-		config:              config,
-		stats:               NewConflictResolutionStats(),
-		activeUpdates:       make(map[string]*UpdateRequest),
-		conflictHistory:     make([]*ConflictEvent, 0),
+		config:               config,
+		stats:                NewConflictResolutionStats(),
+		activeUpdates:        make(map[string]*UpdateRequest),
+		conflictHistory:      make([]*ConflictEvent, 0),
 		resolutionStrategies: make(map[ConflictType]ResolutionStrategy),
-		notificationChannel: make(chan *ConflictNotification, 100),
-		resolutionChannel:   make(chan *ConflictResolution, 100),
+		notificationChannel:  make(chan *ConflictNotification, 100),
+		resolutionChannel:    make(chan *ConflictResolution, 100),
 	}, nil
 }
 
@@ -1008,10 +1008,10 @@ func (hm *HealthMonitor) GetOverallHealth() string {
 
 func (hm *HealthMonitor) GetComponentHealth() map[string]string {
 	return map[string]string{
-		"file_watcher":     "healthy",
-		"dependency_graph": "healthy",
-		"update_queue":     "healthy",
-		"worker_pool":      "healthy",
+		"file_watcher":      "healthy",
+		"dependency_graph":  "healthy",
+		"update_queue":      "healthy",
+		"worker_pool":       "healthy",
 		"conflict_resolver": "healthy",
 	}
 }

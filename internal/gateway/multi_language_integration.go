@@ -94,12 +94,12 @@ func (mli *MultiLanguageIntegrator) DetectAndConfigureProject(projectPath string
 		return nil, fmt.Errorf("failed to detect project languages: %w", err)
 	}
 
-	mli.logger.Infof("Detected project type: %s with %d languages", 
+	mli.logger.Infof("Detected project type: %s with %d languages",
 		projectInfo.ProjectType, len(projectInfo.Languages))
 
 	// Log detected languages
 	for lang, ctx := range projectInfo.Languages {
-		mli.logger.Infof("  - %s: %d files, priority %d, confidence %.2f", 
+		mli.logger.Infof("  - %s: %d files, priority %d, confidence %.2f",
 			lang, ctx.FileCount, ctx.Priority, ctx.Confidence)
 	}
 
@@ -379,13 +379,23 @@ func (mli *MultiLanguageIntegrator) processRequestDirect(ctx context.Context, re
 	processingTime := time.Since(startTime)
 
 	return &AggregatedResponse{
-		PrimaryResponse:    result,
-		AggregatedResult:   result,
-		ProcessingTime:     processingTime,
-		AggregationMethod:  "single_server",
-		ResponseSources:    []string{language + "_server"},
-		SuccessCount:       func() int { if err == nil { return 1 }; return 0 }(),
-		ErrorCount:         func() int { if err != nil { return 1 }; return 0 }(),
+		PrimaryResponse:   result,
+		AggregatedResult:  result,
+		ProcessingTime:    processingTime,
+		AggregationMethod: "single_server",
+		ResponseSources:   []string{language + "_server"},
+		SuccessCount: func() int {
+			if err == nil {
+				return 1
+			}
+			return 0
+		}(),
+		ErrorCount: func() int {
+			if err != nil {
+				return 1
+			}
+			return 0
+		}(),
 	}, err
 }
 

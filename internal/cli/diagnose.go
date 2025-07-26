@@ -24,16 +24,16 @@ var (
 	diagnoseTimeout time.Duration
 	diagnoseAll     bool
 	// Multi-language diagnostic flags
-	diagnoseMultiLanguage      bool
-	diagnosePerformance        bool
-	diagnoseRouting            bool
-	diagnoseResourceLimits     bool
+	diagnoseMultiLanguage       bool
+	diagnosePerformance         bool
+	diagnoseRouting             bool
+	diagnoseResourceLimits      bool
 	diagnoseOptimizationEnabled bool
-	diagnoseProjectPath        string
-	diagnoseCheckConsistency   bool
-	diagnosePerformanceMode    string
-	diagnoseComprehensive      bool
-	diagnoseTemplateValidation bool
+	diagnoseProjectPath         string
+	diagnoseCheckConsistency    bool
+	diagnosePerformanceMode     string
+	diagnoseComprehensive       bool
+	diagnoseTemplateValidation  bool
 )
 
 var diagnoseCmd = &cobra.Command{

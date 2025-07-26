@@ -8,6 +8,12 @@ import (
 	"time"
 )
 
+// TestableSCIPIndexer extends SCIPIndexer with testing-specific methods
+type TestableSCIPIndexer interface {
+	SCIPIndexer
+	GetIndexedRequests() []IndexedRequest
+}
+
 // IntegrationSCIPIndexer simulates a real SCIP indexer for integration testing
 type IntegrationSCIPIndexer struct {
 	mu              sync.RWMutex
@@ -16,7 +22,7 @@ type IntegrationSCIPIndexer struct {
 	indexDelay      time.Duration
 }
 
-func NewIntegrationSCIPIndexer() *IntegrationSCIPIndexer {
+func NewTestSCIPIndexer() *IntegrationSCIPIndexer {
 	return &IntegrationSCIPIndexer{
 		indexedRequests: make([]IndexedRequest, 0),
 		enabled:         true,
@@ -70,7 +76,7 @@ func (i *IntegrationSCIPIndexer) SetEnabled(enabled bool) {
 
 // TestStdioClientSCIPIntegration tests the full SCIP indexing flow with stdio client
 func TestStdioClientSCIPIntegration(t *testing.T) {
-	scipIndexer := NewIntegrationSCIPIndexer()
+	scipIndexer := NewTestSCIPIndexer()
 	
 	config := ClientConfig{
 		Command:   "echo", // Simple command for testing
@@ -105,7 +111,7 @@ func TestStdioClientSCIPIntegration(t *testing.T) {
 
 // TestTCPClientSCIPIntegration tests the full SCIP indexing flow with TCP client
 func TestTCPClientSCIPIntegration(t *testing.T) {
-	scipIndexer := NewIntegrationSCIPIndexer()
+	scipIndexer := NewTestSCIPIndexer()
 	
 	config := ClientConfig{
 		Command:   "localhost:9999", // Non-existent server for testing
@@ -141,7 +147,7 @@ func TestTCPClientSCIPIntegration(t *testing.T) {
 
 // TestClientFactoryWithSCIP tests the client factory functions with SCIP support
 func TestClientFactoryWithSCIP(t *testing.T) {
-	scipIndexer := NewIntegrationSCIPIndexer()
+	scipIndexer := NewTestSCIPIndexer()
 	
 	// Test STDIO client creation
 	stdioConfig := ClientConfig{
@@ -205,7 +211,7 @@ func TestClientFactoryWithSCIP(t *testing.T) {
 
 // TestSCIPIndexingPerformance tests that SCIP indexing doesn't impact transport performance
 func TestSCIPIndexingPerformance(t *testing.T) {
-	scipIndexer := NewIntegrationSCIPIndexer()
+	scipIndexer := NewTestSCIPIndexer()
 	
 	// Create wrapper with limited goroutines to test resource management
 	wrapper := NewSafeIndexerWrapper(scipIndexer, 3)
@@ -263,7 +269,7 @@ func TestSCIPIndexingPerformance(t *testing.T) {
 
 // BenchmarkSCIPIndexingOverhead benchmarks the overhead of SCIP indexing
 func BenchmarkSCIPIndexingOverhead(b *testing.B) {
-	scipIndexer := NewIntegrationSCIPIndexer()
+	scipIndexer := NewTestSCIPIndexer()
 	wrapper := NewSafeIndexerWrapper(scipIndexer, 10)
 	
 	response := json.RawMessage(`{"result": {"uri": "file:///test.go", "range": {"start": {"line": 10, "character": 5}, "end": {"line": 10, "character": 15}}}}`)
@@ -287,7 +293,7 @@ func BenchmarkSCIPIndexingOverhead(b *testing.B) {
 
 // TestSCIPIndexerResourceManagement tests proper resource cleanup and management
 func TestSCIPIndexerResourceManagement(t *testing.T) {
-	scipIndexer := NewIntegrationSCIPIndexer()
+	scipIndexer := NewTestSCIPIndexer()
 	
 	// Create multiple clients with SCIP indexing
 	configs := []ClientConfig{

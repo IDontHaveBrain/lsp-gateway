@@ -3,12 +3,12 @@ package transport
 import (
 	"context"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
 	"gopkg.in/yaml.v3"
 )
-
 
 // PoolManagerRegistry provides centralized management of pool managers
 type PoolManagerRegistry struct {
@@ -65,7 +65,7 @@ func (pmr *PoolManagerRegistry) UnregisterPool(id string) error {
 
 	if err := pool.Shutdown(ctx); err != nil {
 		// Log the error but don't fail the unregistration
-		fmt.Printf("Warning: error shutting down pool %s: %v\n", id, err)
+		log.Printf("Warning: error shutting down pool %s: %v\n", id, err)
 	}
 
 	delete(pmr.pools, id)
@@ -228,7 +228,7 @@ func (elc *EnhancedLSPClient) Stop() error {
 	// Unregister from the global registry
 	if err := elc.registry.UnregisterPool(elc.poolID); err != nil {
 		// This is not a critical error, just log it
-		fmt.Printf("Warning: failed to unregister pool %s: %v\n", elc.poolID, err)
+		log.Printf("Warning: failed to unregister pool %s: %v\n", elc.poolID, err)
 	}
 
 	return nil
@@ -404,13 +404,13 @@ func MonitorPoolHealth(ctx context.Context, interval time.Duration) error {
 			stats := registry.GetAllStats()
 			for poolID, stat := range stats {
 				if !stat.IsHealthy {
-					fmt.Printf("Warning: Pool %s is unhealthy - Error rate: %.2f%%, Unhealthy connections: %d\n",
+					log.Printf("Warning: Pool %s is unhealthy - Error rate: %.2f%%, Unhealthy connections: %d\n",
 						poolID, stat.ErrorRate*100, stat.UnhealthyConnections)
 
 					// Attempt to get the pool and run health check
 					if pool, err := registry.GetPool(poolID); err == nil {
 						if err := pool.HealthCheck(); err != nil {
-							fmt.Printf("Health check failed for pool %s: %v\n", poolID, err)
+							log.Printf("Health check failed for pool %s: %v\n", poolID, err)
 						}
 					}
 				}
@@ -471,7 +471,7 @@ func CleanupOrphanedPools(ctx context.Context) error {
 
 		// Run health check to determine if pool is still viable
 		if err := pool.HealthCheck(); err != nil {
-			fmt.Printf("Removing orphaned pool %s due to health check failure: %v\n", poolID, err)
+			log.Printf("Removing orphaned pool %s due to health check failure: %v\n", poolID, err)
 			if err := registry.UnregisterPool(poolID); err != nil {
 				errors = append(errors, fmt.Errorf("failed to unregister pool %s: %w", poolID, err))
 			}

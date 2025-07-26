@@ -132,7 +132,7 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 	c.mu.Unlock()
 
 	respCh := make(chan json.RawMessage, 1)
-	
+
 	// Store request context for SCIP indexing
 	pending := &pendingRequest{
 		respCh: respCh,

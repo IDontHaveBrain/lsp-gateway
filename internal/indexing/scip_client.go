@@ -19,14 +19,14 @@ import (
 // SCIPClient provides core SCIP functionality for loading, parsing, and querying SCIP index files
 type SCIPClient struct {
 	// Index storage and management
-	indices      map[string]*SCIPIndexData // path -> index data
-	symbolIndex  map[string]*SymbolEntry   // symbol -> entry
+	indices       map[string]*SCIPIndexData // path -> index data
+	symbolIndex   map[string]*SymbolEntry   // symbol -> entry
 	documentIndex map[string]*DocumentData  // file path -> document
-	
-	// Configuration and state  
-	config       *SCIPConfig
-	mutex        sync.RWMutex
-	
+
+	// Configuration and state
+	config *SCIPConfig
+	mutex  sync.RWMutex
+
 	// Performance tracking
 	stats        *ClientStats
 	lastActivity time.Time
@@ -34,12 +34,12 @@ type SCIPClient struct {
 
 // SCIPIndexData represents loaded SCIP index data
 type SCIPIndexData struct {
-	Metadata     *scip.Metadata
-	Documents    []*scip.Document
-	LoadedAt     time.Time
-	FilePath     string
-	FileSize     int64
-	CheckSum     string
+	Metadata  *scip.Metadata
+	Documents []*scip.Document
+	LoadedAt  time.Time
+	FilePath  string
+	FileSize  int64
+	CheckSum  string
 }
 
 // DocumentData represents processed document information
@@ -56,41 +56,41 @@ type DocumentData struct {
 
 // SymbolEntry represents a symbol with its metadata and locations
 type SymbolEntry struct {
-	Symbol         string
-	DisplayName    string
-	Kind           scip.SymbolInformation_Kind
-	Documentation  []*SCIPDocumentation
-	Relationships  []*scip.Relationship
-	Signature      *SCIPSignature
-	Occurrences    []*OccurrenceEntry
-	DefinitionURI  string
+	Symbol          string
+	DisplayName     string
+	Kind            scip.SymbolInformation_Kind
+	Documentation   []*SCIPDocumentation
+	Relationships   []*scip.Relationship
+	Signature       *SCIPSignature
+	Occurrences     []*OccurrenceEntry
+	DefinitionURI   string
 	DefinitionRange *scip.Range
 }
 
 // OccurrenceEntry represents a symbol occurrence
 type OccurrenceEntry struct {
-	Range         *scip.Range
-	Symbol        string
-	Role          int32
-	SyntaxKind    scip.SyntaxKind
-	Diagnostics   []*scip.Diagnostic
+	Range          *scip.Range
+	Symbol         string
+	Role           int32
+	SyntaxKind     scip.SyntaxKind
+	Diagnostics    []*scip.Diagnostic
 	EnclosingRange *scip.Range
 }
 
 // ClientStats tracks performance and usage statistics
 type ClientStats struct {
-	IndexLoads        int64
-	TotalDocuments    int64
-	TotalSymbols      int64
-	TotalOccurrences  int64
-	MemoryUsage       int64
-	AverageLoadTime   time.Duration
-	LastLoadTime      time.Time
-	QueryCount        int64
-	AverageQueryTime  time.Duration
-	ErrorCount        int64
-	LastError         string
-	LastErrorTime     time.Time
+	IndexLoads       int64
+	TotalDocuments   int64
+	TotalSymbols     int64
+	TotalOccurrences int64
+	MemoryUsage      int64
+	AverageLoadTime  time.Duration
+	LastLoadTime     time.Time
+	QueryCount       int64
+	AverageQueryTime time.Duration
+	ErrorCount       int64
+	LastError        string
+	LastErrorTime    time.Time
 }
 
 // SCIPVisitor implements the IndexVisitor interface for processing SCIP data
@@ -113,12 +113,12 @@ func NewSCIPClient(config *SCIPConfig) (*SCIPClient, error) {
 	}
 
 	client := &SCIPClient{
-		indices:      make(map[string]*SCIPIndexData),
-		symbolIndex:  make(map[string]*SymbolEntry),
+		indices:       make(map[string]*SCIPIndexData),
+		symbolIndex:   make(map[string]*SymbolEntry),
 		documentIndex: make(map[string]*DocumentData),
-		config:       config,
-		stats:        &ClientStats{},
-		lastActivity: time.Now(),
+		config:        config,
+		stats:         &ClientStats{},
+		lastActivity:  time.Now(),
 	}
 
 	return client, nil
@@ -191,7 +191,7 @@ func (c *SCIPClient) LoadIndex(indexPath string) error {
 
 	c.stats.IndexLoads++
 	if c.config.Logging.LogIndexOperations {
-		fmt.Printf("SCIP: Successfully loaded index from %s (%d documents, %d symbols)\n", 
+		fmt.Printf("SCIP: Successfully loaded index from %s (%d documents, %d symbols)\n",
 			indexPath, c.stats.TotalDocuments, c.stats.TotalSymbols)
 	}
 
@@ -221,20 +221,20 @@ func (c *SCIPClient) ParseSCIPFile(reader io.Reader, filePath string, fileSize i
 	if err != nil {
 		return fmt.Errorf("failed to read SCIP data: %w", err)
 	}
-	
+
 	// Create a SCIP Index and unmarshal using protobuf
 	var index scip.Index
 	if err := proto.Unmarshal(data, &index); err != nil {
 		return fmt.Errorf("SCIP unmarshaling failed: %w", err)
 	}
-	
+
 	// Process the metadata
 	if index.Metadata != nil {
 		if err := visitor.VisitMetadata(index.Metadata); err != nil {
 			return fmt.Errorf("failed to visit metadata: %w", err)
 		}
 	}
-	
+
 	// Process all documents
 	for _, doc := range index.Documents {
 		if err := visitor.VisitDocument(doc); err != nil {
@@ -266,7 +266,7 @@ func (v *SCIPVisitor) VisitMetadata(metadata *scip.Metadata) error {
 	}
 
 	v.indexData.Metadata = metadata
-	
+
 	// Log metadata information if configured
 	if v.client.config.Logging.LogIndexOperations {
 		fmt.Printf("SCIP: Processing metadata - Version: %s, Tool: %s, Project: %s\n",
@@ -332,7 +332,7 @@ func (v *SCIPVisitor) processDocument(document *scip.Document) (*DocumentData, e
 				Value:  docStr,
 			})
 		}
-		
+
 		symEntry := &SymbolEntry{
 			Symbol:        symbol.Symbol,
 			DisplayName:   symbol.DisplayName,
@@ -351,11 +351,11 @@ func (v *SCIPVisitor) processDocument(document *scip.Document) (*DocumentData, e
 	// Process occurrences
 	for _, occurrence := range document.Occurrences {
 		occEntry := &OccurrenceEntry{
-			Range:         ConvertSCIPRangeToRange(occurrence.Range),
-			Symbol:        occurrence.Symbol,
-			Role:          occurrence.SymbolRoles,
-			SyntaxKind:    occurrence.SyntaxKind,
-			Diagnostics:   occurrence.Diagnostics,
+			Range:          ConvertSCIPRangeToRange(occurrence.Range),
+			Symbol:         occurrence.Symbol,
+			Role:           occurrence.SymbolRoles,
+			SyntaxKind:     occurrence.SyntaxKind,
+			Diagnostics:    occurrence.Diagnostics,
 			EnclosingRange: ConvertSCIPRangeToRange(occurrence.EnclosingRange),
 		}
 
@@ -364,7 +364,7 @@ func (v *SCIPVisitor) processDocument(document *scip.Document) (*DocumentData, e
 		// Link to symbol entry
 		if symEntry, exists := v.client.symbolIndex[occurrence.Symbol]; exists {
 			symEntry.Occurrences = append(symEntry.Occurrences, occEntry)
-			
+
 			// Set definition if this is a definition occurrence
 			if occurrence.SymbolRoles&int32(scip.SymbolRole_Definition) != 0 {
 				symEntry.DefinitionURI = document.RelativePath
@@ -402,7 +402,7 @@ func (c *SCIPClient) GetDocumentData(filePath string) (*DocumentData, error) {
 
 	// Normalize path
 	normPath := filepath.Clean(filePath)
-	
+
 	// Try exact match first
 	if docData, exists := c.documentIndex[normPath]; exists {
 		return docData, nil
@@ -487,7 +487,7 @@ func (c *SCIPClient) GetStats() *ClientStats {
 	// Create a copy to avoid concurrent modification
 	statsCopy := *c.stats
 	statsCopy.MemoryUsage = c.estimateMemoryUsage()
-	
+
 	return &statsCopy
 }
 
@@ -542,13 +542,13 @@ func (c *SCIPClient) removeIndex(indexPath string) {
 		// Remove associated symbols and documents
 		for _, doc := range indexData.Documents {
 			delete(c.documentIndex, doc.RelativePath)
-			
+
 			// Remove symbols from this document
 			for _, symbol := range doc.Symbols {
 				delete(c.symbolIndex, symbol.Symbol)
 			}
 		}
-		
+
 		delete(c.indices, indexPath)
 	}
 }
@@ -563,21 +563,21 @@ func (c *SCIPClient) recordError(err error) {
 // estimateMemoryUsage provides a rough estimate of memory usage
 func (c *SCIPClient) estimateMemoryUsage() int64 {
 	var total int64
-	
+
 	// Base structure overhead
 	total += 1024 * 8 // Base struct sizes
-	
+
 	// Index data
 	total += int64(len(c.indices) * 512)
-	
-	// Symbol index  
+
+	// Symbol index
 	for symbol, entry := range c.symbolIndex {
 		total += int64(len(symbol) * 2) // UTF-16 estimate
 		total += int64(len(entry.DisplayName) * 2)
 		total += int64(len(entry.Occurrences) * 128) // Rough per-occurrence size
-		total += 256 // Base entry overhead
+		total += 256                                 // Base entry overhead
 	}
-	
+
 	// Document index
 	for path, doc := range c.documentIndex {
 		total += int64(len(path) * 2)
@@ -585,7 +585,7 @@ func (c *SCIPClient) estimateMemoryUsage() int64 {
 		total += int64(len(doc.Occurrences) * 128)
 		total += 512 // Base document overhead
 	}
-	
+
 	return total
 }
 
@@ -594,23 +594,23 @@ func validateSCIPConfig(config *SCIPConfig) error {
 	if config.Performance.QueryTimeout <= 0 {
 		return fmt.Errorf("query timeout must be positive")
 	}
-	
+
 	if config.Performance.MaxConcurrentQueries <= 0 {
 		return fmt.Errorf("max concurrent queries must be positive")
 	}
-	
+
 	if config.Performance.IndexLoadTimeout <= 0 {
 		return fmt.Errorf("index load timeout must be positive")
 	}
-	
+
 	if config.CacheConfig.MaxSize < 0 {
 		return fmt.Errorf("cache max size cannot be negative")
 	}
-	
+
 	if config.CacheConfig.TTL < 0 {
 		return fmt.Errorf("cache TTL cannot be negative")
 	}
-	
+
 	return nil
 }
 
@@ -625,7 +625,7 @@ func (c *SCIPClient) GetLoadedIndices() map[string]*SCIPIndexData {
 		indexCopy := *v
 		result[k] = &indexCopy
 	}
-	
+
 	return result
 }
 
@@ -650,8 +650,8 @@ var _ SCIPStore = (*SCIPClientAdapter)(nil)
 
 // SCIPClientAdapter adapts SCIPClient to work with the existing SCIPStore interface
 type SCIPClientAdapter struct {
-	client *SCIPClient
-	cache  map[string]json.RawMessage
+	client     *SCIPClient
+	cache      map[string]json.RawMessage
 	cacheMutex sync.RWMutex
 }
 
@@ -671,7 +671,7 @@ func (a *SCIPClientAdapter) LoadIndex(path string) error {
 // Query implements SCIPStore interface (basic implementation)
 func (a *SCIPClientAdapter) Query(method string, params interface{}) SCIPQueryResult {
 	startTime := time.Now()
-	
+
 	// This is a simplified implementation - a full implementation would
 	// map LSP queries to SCIP data structures
 	result := SCIPQueryResult{
@@ -682,7 +682,7 @@ func (a *SCIPClientAdapter) Query(method string, params interface{}) SCIPQueryRe
 		Confidence: 0.0,
 		Error:      "query not implemented in base SCIP client",
 	}
-	
+
 	return result
 }
 
@@ -690,7 +690,7 @@ func (a *SCIPClientAdapter) Query(method string, params interface{}) SCIPQueryRe
 func (a *SCIPClientAdapter) CacheResponse(method string, params interface{}, response json.RawMessage) error {
 	a.cacheMutex.Lock()
 	defer a.cacheMutex.Unlock()
-	
+
 	key := fmt.Sprintf("%s:%v", method, params)
 	a.cache[key] = response
 	return nil
@@ -700,7 +700,7 @@ func (a *SCIPClientAdapter) CacheResponse(method string, params interface{}, res
 func (a *SCIPClientAdapter) InvalidateFile(filePath string) {
 	a.cacheMutex.Lock()
 	defer a.cacheMutex.Unlock()
-	
+
 	// Simple implementation - remove all cache entries
 	// A more sophisticated implementation would track file associations
 	for key := range a.cache {
@@ -713,7 +713,7 @@ func (a *SCIPClientAdapter) InvalidateFile(filePath string) {
 // GetStats implements SCIPStore interface
 func (a *SCIPClientAdapter) GetStats() SCIPStoreStats {
 	clientStats := a.client.GetStats()
-	
+
 	return SCIPStoreStats{
 		IndexesLoaded:    int(clientStats.IndexLoads),
 		TotalQueries:     clientStats.QueryCount,
@@ -730,6 +730,6 @@ func (a *SCIPClientAdapter) Close() error {
 	a.cacheMutex.Lock()
 	a.cache = make(map[string]json.RawMessage)
 	a.cacheMutex.Unlock()
-	
+
 	return a.client.Close()
 }

@@ -82,7 +82,7 @@ type SCIPStorageAdapter interface {
 	QueryWithTierHint(method string, params interface{}, preferredTier TierType) indexing.SCIPQueryResult
 	CacheResponseWithTier(method string, params interface{}, response json.RawMessage, tier TierType) error
 	GetTierStatistics() map[TierType]*TierStats
-	
+
 	// Advanced cache management
 	PrewarmCache(ctx context.Context, entries map[string]*CacheEntry) error
 	OptimizeStorage(ctx context.Context) (*OptimizationResult, error)
@@ -123,12 +123,12 @@ type CompressionProvider interface {
 	// Compression operations
 	Compress(data []byte) ([]byte, error)
 	Decompress(data []byte) ([]byte, error)
-	
+
 	// Compression analysis
 	EstimateCompressionRatio(data []byte) float64
 	GetCompressionType() CompressionType
 	GetCompressionLevel() int
-	
+
 	// Configuration
 	SetCompressionLevel(level int) error
 	SetCompressionType(compressionType CompressionType) error
@@ -140,11 +140,11 @@ type EncryptionProvider interface {
 	// Encryption operations
 	Encrypt(data []byte) ([]byte, error)
 	Decrypt(data []byte) ([]byte, error)
-	
+
 	// Key management
 	RotateKeys() error
 	GetKeyInfo() *KeyInfo
-	
+
 	// Configuration
 	SetEncryptionAlgorithm(algorithm EncryptionAlgorithm) error
 	SetKeySize(size int) error
@@ -192,11 +192,11 @@ type PromotionStrategy interface {
 	// Promotion decision logic
 	ShouldPromote(entry *CacheEntry, accessPattern *AccessPattern, currentTier TierType) (bool, TierType)
 	CalculatePromotionPriority(entry *CacheEntry, accessPattern *AccessPattern) int
-	
+
 	// Batch promotion optimization
 	SelectPromotionCandidates(tier TierType, maxCandidates int) ([]*PromotionCandidate, error)
 	OptimizePromotionBatch(candidates []*PromotionCandidate) ([]*PromotionCandidate, error)
-	
+
 	// Strategy configuration
 	UpdateParameters(params PromotionParameters) error
 	GetStrategyType() PromotionStrategyType
@@ -209,11 +209,11 @@ type EvictionPolicy interface {
 	// Eviction decision logic
 	ShouldEvict(entry *CacheEntry, accessPattern *AccessPattern, currentTier TierType) (bool, TierType)
 	CalculateEvictionPriority(entry *CacheEntry, accessPattern *AccessPattern) int
-	
+
 	// Batch eviction optimization
 	SelectEvictionCandidates(tier TierType, requiredSpace int64) ([]*EvictionCandidate, error)
 	OptimizeEvictionBatch(candidates []*EvictionCandidate) ([]*EvictionCandidate, error)
-	
+
 	// Policy configuration
 	UpdateParameters(params EvictionParameters) error
 	GetPolicyType() EvictionPolicyType
@@ -228,17 +228,17 @@ type AccessPattern interface {
 	GetAccessFrequency(key string, timeWindow time.Duration) float64
 	GetAccessRecency(key string) time.Duration
 	GetAccessLocality(key string) *LocalityInfo
-	
+
 	// Pattern analysis
 	AnalyzePattern(key string) *PatternAnalysis
 	PredictFutureAccess(key string, horizon time.Duration) float64
 	ClassifyAccessPattern(key string) AccessPatternType
-	
+
 	// Bulk operations
 	GetTopAccessedKeys(tier TierType, limit int) ([]string, error)
 	GetColdKeys(tier TierType, threshold time.Duration) ([]string, error)
 	GetHotKeys(tier TierType, threshold float64) ([]string, error)
-	
+
 	// Configuration
 	UpdateTrackingParameters(params AccessTrackingParameters) error
 	PurgeOldPatterns(cutoff time.Time) error

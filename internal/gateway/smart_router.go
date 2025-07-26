@@ -22,8 +22,8 @@ const (
 	BroadcastAggregate       RoutingStrategyType = "broadcast_aggregate"
 	MultiTargetParallel      RoutingStrategyType = "multi_target_parallel"
 	PrimaryWithEnhancement   RoutingStrategyType = "primary_with_enhancement"
-	LoadBalanced            RoutingStrategyType = "load_balanced"
-	RoundRobin              RoutingStrategyType = "round_robin"
+	LoadBalanced             RoutingStrategyType = "load_balanced"
+	RoundRobin               RoutingStrategyType = "round_robin"
 )
 
 // Implement RoutingStrategy interface for RoutingStrategyType
@@ -246,11 +246,11 @@ func (sr *SmartRouterImpl) AggregateBroadcast(request *LSPRequest) (*AggregatedR
 			// Safety check for TargetServers
 			if len(dec.TargetServers) == 0 {
 				responses[idx] = ServerResponse{
-					ServerName:   "unknown",
-					Response:     nil,
-					Error:        fmt.Errorf("no target servers available"),
-					Duration:     time.Duration(0),
-					Success:      false,
+					ServerName: "unknown",
+					Response:   nil,
+					Error:      fmt.Errorf("no target servers available"),
+					Duration:   time.Duration(0),
+					Success:    false,
 				}
 				return
 			}
@@ -258,11 +258,11 @@ func (sr *SmartRouterImpl) AggregateBroadcast(request *LSPRequest) (*AggregatedR
 			responseTime := time.Since(reqStart)
 
 			responses[idx] = ServerResponse{
-				ServerName:   dec.TargetServers[0].Config.Name,
-				Response:     result,
-				Error:        err,
-				Duration:     responseTime,
-				Success:      err == nil,
+				ServerName: dec.TargetServers[0].Config.Name,
+				Response:   result,
+				Error:      err,
+				Duration:   responseTime,
+				Success:    err == nil,
 			}
 
 			// Update server performance metrics
@@ -313,7 +313,7 @@ func (sr *SmartRouterImpl) AggregateBroadcast(request *LSPRequest) (*AggregatedR
 		AggregationMethod:  string(sr.GetRoutingStrategy(request.Method)),
 		SuccessCount:       successCount,
 		ErrorCount:         len(decisions) - successCount,
-		Warnings:          []string{},
+		Warnings:           []string{},
 	}
 
 	// Update strategy metrics
@@ -493,12 +493,12 @@ func (sr *SmartRouterImpl) routeSingleTargetWithFallback(request *LSPRequest) (*
 					Language:      request.Context.Language,
 					RequestType:   request.Method,
 					WorkspaceRoot: "", // TODO: Extract from request.Context when available
-					ProjectType:   "", // TODO: Extract from request.Context when available  
+					ProjectType:   "", // TODO: Extract from request.Context when available
 					WorkspaceID:   request.Context.WorkspaceID,
 				},
-				Priority:        server.Priority,
-				CreatedAt:       time.Now(),
-				DecisionID:      fmt.Sprintf("decision_%d", time.Now().UnixNano()),
+				Priority:   server.Priority,
+				CreatedAt:  time.Now(),
+				DecisionID: fmt.Sprintf("decision_%d", time.Now().UnixNano()),
 			}, nil
 		}
 	}
@@ -556,12 +556,12 @@ func (sr *SmartRouterImpl) routeLoadBalanced(request *LSPRequest) (*RoutingDecis
 			Language:      request.Context.Language,
 			RequestType:   request.Method,
 			WorkspaceRoot: "", // TODO: Extract from request.Context when available
-			ProjectType:   "", // TODO: Extract from request.Context when available  
+			ProjectType:   "", // TODO: Extract from request.Context when available
 			WorkspaceID:   request.Context.WorkspaceID,
 		},
-		Priority:        selectedServer.Priority,
-		CreatedAt:       time.Now(),
-		DecisionID:      fmt.Sprintf("decision_%d", time.Now().UnixNano()),
+		Priority:   selectedServer.Priority,
+		CreatedAt:  time.Now(),
+		DecisionID: fmt.Sprintf("decision_%d", time.Now().UnixNano()),
 	}, nil
 }
 
@@ -598,12 +598,12 @@ func (sr *SmartRouterImpl) routeMultiTarget(request *LSPRequest) ([]*RoutingDeci
 					Language:      request.Context.Language,
 					RequestType:   request.Method,
 					WorkspaceRoot: "", // TODO: Extract from request.Context when available
-					ProjectType:   "", // TODO: Extract from request.Context when available  
+					ProjectType:   "", // TODO: Extract from request.Context when available
 					WorkspaceID:   request.Context.WorkspaceID,
 				},
-				Priority:        server.Priority,
-				CreatedAt:       time.Now(),
-				DecisionID:      fmt.Sprintf("decision_%d", time.Now().UnixNano()),
+				Priority:   server.Priority,
+				CreatedAt:  time.Now(),
+				DecisionID: fmt.Sprintf("decision_%d", time.Now().UnixNano()),
 			})
 		}
 	}
@@ -659,19 +659,19 @@ func (sr *SmartRouterImpl) routeTraditional(request *LSPRequest) (*RoutingDecisi
 		return nil, fmt.Errorf("failed to get client for server %s: %w", serverName, err)
 	}
 	return &RoutingDecision{
-		TargetServers: nil, // TODO: Implement proper ServerInstance creation
+		TargetServers:   nil, // TODO: Implement proper ServerInstance creation
 		RoutingStrategy: string(SingleTargetWithFallback),
 		RequestContext: &RequestContext{
 			FileURI:       request.URI,
 			Language:      request.Context.Language,
 			RequestType:   request.Method,
 			WorkspaceRoot: "", // TODO: Extract from request.Context when available
-			ProjectType:   "", // TODO: Extract from request.Context when available  
+			ProjectType:   "", // TODO: Extract from request.Context when available
 			WorkspaceID:   request.Context.WorkspaceID,
 		},
-		Priority:        serverConfig.Priority,
-		CreatedAt:       time.Now(),
-		DecisionID:      fmt.Sprintf("decision_%d", time.Now().UnixNano()),
+		Priority:   serverConfig.Priority,
+		CreatedAt:  time.Now(),
+		DecisionID: fmt.Sprintf("decision_%d", time.Now().UnixNano()),
 	}, nil
 }
 

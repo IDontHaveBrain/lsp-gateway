@@ -22,37 +22,37 @@ type SymbolResolver struct {
 	cache           *ResolutionCache
 	stats           *ResolverStats
 	mutex           sync.RWMutex
-	
+
 	// Performance optimization
-	requestCount    int64
+	requestCount        int64
 	totalResolutionTime int64
-	lastOptimization time.Time
+	lastOptimization    time.Time
 }
 
 // PositionIndex provides O(log n) spatial indexing for fast position-based lookups
 type PositionIndex struct {
-	documents   map[string]*DocumentIndex  // file -> position index
+	documents   map[string]*DocumentIndex // file -> position index
 	spatialTree *IntervalTree             // Fast range overlap queries
-	symbols     map[string]*IndexedSymbol  // symbol -> indexed data
+	symbols     map[string]*IndexedSymbol // symbol -> indexed data
 	mutex       sync.RWMutex
-	
+
 	// Performance metrics
-	queryCount      int64
-	avgQueryTime    time.Duration
-	cacheHitRate    float64
-	lastReindex     time.Time
+	queryCount   int64
+	avgQueryTime time.Duration
+	cacheHitRate float64
+	lastReindex  time.Time
 }
 
 // DocumentIndex represents spatial index for a single document
 type DocumentIndex struct {
-	uri            string
-	intervalTree   *IntervalTree        // Ranges -> symbols
-	symbolMap      map[string]*IndexedSymbol // Quick symbol lookup
-	lineIndex      []int32              // Line start byte offsets
-	lastModified   time.Time
-	symbolCount    int
-	queryCount     int64
-	avgQueryTime   time.Duration
+	uri          string
+	intervalTree *IntervalTree             // Ranges -> symbols
+	symbolMap    map[string]*IndexedSymbol // Quick symbol lookup
+	lineIndex    []int32                   // Line start byte offsets
+	lastModified time.Time
+	symbolCount  int
+	queryCount   int64
+	avgQueryTime time.Duration
 }
 
 // IntervalTree implements an efficient interval tree for range overlap queries
@@ -79,69 +79,69 @@ type Interval struct {
 
 // IndexedSymbol represents a symbol with optimized access patterns
 type IndexedSymbol struct {
-	symbol         string
-	displayName    string
-	kind           scip.SymbolInformation_Kind
-	uri            string
+	symbol          string
+	displayName     string
+	kind            scip.SymbolInformation_Kind
+	uri             string
 	definitionRange *scip.Range
-	occurrences    []*IndexedOccurrence
-	relationships  []*SymbolRelationship
-	signature      *SCIPSignature
-	documentation  string
-	
+	occurrences     []*IndexedOccurrence
+	relationships   []*SymbolRelationship
+	signature       *SCIPSignature
+	documentation   string
+
 	// Performance data
-	accessCount    int64
-	lastAccessed   time.Time
-	resolvedRefs   []*ResolvedReference // Cached references
-	cacheValid     bool
+	accessCount  int64
+	lastAccessed time.Time
+	resolvedRefs []*ResolvedReference // Cached references
+	cacheValid   bool
 }
 
 // IndexedOccurrence represents an optimized occurrence for fast access
 type IndexedOccurrence struct {
-	range_        *scip.Range
-	role          int32
-	syntaxKind    scip.SyntaxKind
+	range_         *scip.Range
+	role           int32
+	syntaxKind     scip.SyntaxKind
 	enclosingRange *scip.Range
 	contextSymbols []string // Surrounding symbols for disambiguation
 }
 
 // SymbolGraph manages symbol relationships and cross-references
 type SymbolGraph struct {
-	symbols     map[string]*SymbolNode    // symbol -> node
-	references  map[string][]*Reference   // symbol -> references
-	inheritance map[string][]*SymbolNode  // inheritance relationships
+	symbols     map[string]*SymbolNode         // symbol -> node
+	references  map[string][]*Reference        // symbol -> references
+	inheritance map[string][]*SymbolNode       // inheritance relationships
 	crossLang   map[string][]*CrossLanguageRef // cross-language refs
-	typeGraph   map[string]*TypeRelation  // type relationships
+	typeGraph   map[string]*TypeRelation       // type relationships
 	mutex       sync.RWMutex
-	
+
 	// Graph metrics
-	nodeCount     int
-	edgeCount     int
-	avgDepth      float64
-	lastUpdate    time.Time
+	nodeCount  int
+	edgeCount  int
+	avgDepth   float64
+	lastUpdate time.Time
 }
 
 // SymbolNode represents a node in the symbol relationship graph
 type SymbolNode struct {
-	symbol        string
-	kind          scip.SymbolInformation_Kind
-	language      string
-	uri           string
-	definition    *scip.Range
-	
+	symbol     string
+	kind       scip.SymbolInformation_Kind
+	language   string
+	uri        string
+	definition *scip.Range
+
 	// Relationships
-	parents       []*SymbolNode    // Inheritance/composition
-	children      []*SymbolNode    // Derived symbols
-	references    []*Reference     // All references
-	implementations []*SymbolNode  // Interface implementations
-	
+	parents         []*SymbolNode // Inheritance/composition
+	children        []*SymbolNode // Derived symbols
+	references      []*Reference  // All references
+	implementations []*SymbolNode // Interface implementations
+
 	// Context information
-	scope         *ScopeInfo
-	typeInfo      *TypeInfo
-	
+	scope    *ScopeInfo
+	typeInfo *TypeInfo
+
 	// Performance tracking
-	popularity    int64    // Access frequency
-	lastAccessed  time.Time
+	popularity   int64 // Access frequency
+	lastAccessed time.Time
 }
 
 // Reference represents a symbol reference with context
@@ -157,20 +157,20 @@ type Reference struct {
 
 // ReferenceContext provides disambiguation context
 type ReferenceContext struct {
-	enclosingScope   string
-	nearbySymbols    []string
-	syntaxContext    string
-	semanticContext  map[string]interface{}
+	enclosingScope  string
+	nearbySymbols   []string
+	syntaxContext   string
+	semanticContext map[string]interface{}
 }
 
 // CrossLanguageRef represents cross-language symbol references
 type CrossLanguageRef struct {
-	sourceSymbol  string
-	sourceLang    string
-	targetSymbol  string
-	targetLang    string
-	relationship  string // "calls", "imports", "extends", etc.
-	confidence    float64
+	sourceSymbol string
+	sourceLang   string
+	targetSymbol string
+	targetLang   string
+	relationship string // "calls", "imports", "extends", etc.
+	confidence   float64
 }
 
 // TypeRelation represents type relationships for advanced resolution
@@ -183,30 +183,30 @@ type TypeRelation struct {
 
 // ScopeInfo provides scope context for symbol disambiguation
 type ScopeInfo struct {
-	scopeType    string // "function", "class", "namespace", etc.
-	parentScope  string
-	childScopes  []string
+	scopeType      string // "function", "class", "namespace", etc.
+	parentScope    string
+	childScopes    []string
 	visibleSymbols []string
 }
 
 // TypeInfo provides type information for symbol resolution
 type TypeInfo struct {
-	typeName     string
-	typeParams   []string
-	baseTypes    []string
-	interfaces   []string
-	isGeneric    bool
-	constraints  map[string]string
+	typeName    string
+	typeParams  []string
+	baseTypes   []string
+	interfaces  []string
+	isGeneric   bool
+	constraints map[string]string
 }
 
 // RangeCalculator provides advanced geometric operations for symbol ranges
 type RangeCalculator struct {
-	cache        map[string]*RangeResult // Cached calculations
-	mutex        sync.RWMutex
-	
+	cache map[string]*RangeResult // Cached calculations
+	mutex sync.RWMutex
+
 	// Performance metrics
-	calcCount    int64
-	avgCalcTime  time.Duration
+	calcCount   int64
+	avgCalcTime time.Duration
 }
 
 // RangeResult represents cached range calculation results
@@ -220,23 +220,23 @@ type RangeResult struct {
 // ResolverConfig provides configuration for symbol resolution
 type ResolverConfig struct {
 	// Performance settings
-	MaxResolveTime     time.Duration `json:"max_resolve_time"`
-	CacheSize          int           `json:"cache_size"`
-	CacheTTL           time.Duration `json:"cache_ttl"`
-	MaxConcurrent      int           `json:"max_concurrent"`
-	
+	MaxResolveTime time.Duration `json:"max_resolve_time"`
+	CacheSize      int           `json:"cache_size"`
+	CacheTTL       time.Duration `json:"cache_ttl"`
+	MaxConcurrent  int           `json:"max_concurrent"`
+
 	// Resolution settings
-	EnableCrossLanguage   bool    `json:"enable_cross_language"`
-	EnableFuzzyMatching   bool    `json:"enable_fuzzy_matching"`
-	FuzzyThreshold        float64 `json:"fuzzy_threshold"`
-	MaxContextDistance    int     `json:"max_context_distance"`
-	EnableTypeInference   bool    `json:"enable_type_inference"`
-	
+	EnableCrossLanguage bool    `json:"enable_cross_language"`
+	EnableFuzzyMatching bool    `json:"enable_fuzzy_matching"`
+	FuzzyThreshold      float64 `json:"fuzzy_threshold"`
+	MaxContextDistance  int     `json:"max_context_distance"`
+	EnableTypeInference bool    `json:"enable_type_inference"`
+
 	// Index settings
-	IndexUpdateInterval   time.Duration `json:"index_update_interval"`
-	EnableSpatialIndex    bool          `json:"enable_spatial_index"`
-	SpatialIndexDepth     int           `json:"spatial_index_depth"`
-	
+	IndexUpdateInterval time.Duration `json:"index_update_interval"`
+	EnableSpatialIndex  bool          `json:"enable_spatial_index"`
+	SpatialIndexDepth   int           `json:"spatial_index_depth"`
+
 	// Advanced features
 	EnableInheritanceGraph bool `json:"enable_inheritance_graph"`
 	EnableSemanticSearch   bool `json:"enable_semantic_search"`
@@ -245,12 +245,12 @@ type ResolverConfig struct {
 
 // ResolutionCache provides high-performance caching for symbol resolution
 type ResolutionCache struct {
-	entries     map[string]*SymbolResolverCacheEntry
-	lru         *SymbolResolverLRUList
-	maxSize     int
-	ttl         time.Duration
-	mutex       sync.RWMutex
-	
+	entries map[string]*SymbolResolverCacheEntry
+	lru     *SymbolResolverLRUList
+	maxSize int
+	ttl     time.Duration
+	mutex   sync.RWMutex
+
 	// Performance metrics
 	hitCount    int64
 	missCount   int64
@@ -277,104 +277,104 @@ type SymbolResolverLRUList struct {
 // ResolverStats tracks performance and usage statistics
 type ResolverStats struct {
 	// Resolution metrics
-	TotalResolutions    int64         `json:"total_resolutions"`
-	SuccessfulResolutions int64       `json:"successful_resolutions"`
-	FailedResolutions   int64         `json:"failed_resolutions"`
-	AvgResolutionTime   time.Duration `json:"avg_resolution_time"`
-	P95ResolutionTime   time.Duration `json:"p95_resolution_time"`
-	P99ResolutionTime   time.Duration `json:"p99_resolution_time"`
-	
+	TotalResolutions      int64         `json:"total_resolutions"`
+	SuccessfulResolutions int64         `json:"successful_resolutions"`
+	FailedResolutions     int64         `json:"failed_resolutions"`
+	AvgResolutionTime     time.Duration `json:"avg_resolution_time"`
+	P95ResolutionTime     time.Duration `json:"p95_resolution_time"`
+	P99ResolutionTime     time.Duration `json:"p99_resolution_time"`
+
 	// Cache metrics
-	CacheHitRate        float64       `json:"cache_hit_rate"`
-	CacheSize           int           `json:"cache_size"`
-	CacheEvictions      int64         `json:"cache_evictions"`
-	
+	CacheHitRate   float64 `json:"cache_hit_rate"`
+	CacheSize      int     `json:"cache_size"`
+	CacheEvictions int64   `json:"cache_evictions"`
+
 	// Index metrics
-	IndexSize           int           `json:"index_size"`
-	SymbolCount         int           `json:"symbol_count"`
-	DocumentCount       int           `json:"document_count"`
-	LastIndexUpdate     time.Time     `json:"last_index_update"`
-	
+	IndexSize       int       `json:"index_size"`
+	SymbolCount     int       `json:"symbol_count"`
+	DocumentCount   int       `json:"document_count"`
+	LastIndexUpdate time.Time `json:"last_index_update"`
+
 	// Performance metrics
-	MemoryUsage         int64         `json:"memory_usage_bytes"`
-	ConcurrentRequests  int64         `json:"concurrent_requests"`
-	MaxConcurrentRequests int64       `json:"max_concurrent_requests"`
-	
+	MemoryUsage           int64 `json:"memory_usage_bytes"`
+	ConcurrentRequests    int64 `json:"concurrent_requests"`
+	MaxConcurrentRequests int64 `json:"max_concurrent_requests"`
+
 	// Advanced metrics
-	CrossLanguageRefs   int64         `json:"cross_language_refs"`
-	InheritanceChains   int64         `json:"inheritance_chains"`
-	TypeInferences      int64         `json:"type_inferences"`
-	
-	mutex               sync.RWMutex
-	lastReset           time.Time
+	CrossLanguageRefs int64 `json:"cross_language_refs"`
+	InheritanceChains int64 `json:"inheritance_chains"`
+	TypeInferences    int64 `json:"type_inferences"`
+
+	mutex     sync.RWMutex
+	lastReset time.Time
 }
 
 // ResolvedSymbol represents a fully resolved symbol with all context
 type ResolvedSymbol struct {
 	// Core symbol information
-	Symbol          string                      `json:"symbol"`
-	DisplayName     string                      `json:"display_name"`
-	Kind            scip.SymbolInformation_Kind `json:"kind"`
-	URI             string                      `json:"uri"`
-	Range           *scip.Range                 `json:"range"`
-	
+	Symbol      string                      `json:"symbol"`
+	DisplayName string                      `json:"display_name"`
+	Kind        scip.SymbolInformation_Kind `json:"kind"`
+	URI         string                      `json:"uri"`
+	Range       *scip.Range                 `json:"range"`
+
 	// Resolution metadata
-	Confidence      float64                     `json:"confidence"`
-	ResolutionTime  time.Duration               `json:"resolution_time"`
-	ResolutionPath  []string                    `json:"resolution_path"`
-	
+	Confidence     float64       `json:"confidence"`
+	ResolutionTime time.Duration `json:"resolution_time"`
+	ResolutionPath []string      `json:"resolution_path"`
+
 	// Symbol details
-	Definition      *SymbolDefinition           `json:"definition,omitempty"`
-	References      []*SymbolReference          `json:"references,omitempty"`
-	RelatedSymbols  []*RelatedSymbol           `json:"related_symbols,omitempty"`
-	Documentation   string                      `json:"documentation,omitempty"`
-	Signature       *SCIPSignature              `json:"signature,omitempty"`
-	
+	Definition     *SymbolDefinition  `json:"definition,omitempty"`
+	References     []*SymbolReference `json:"references,omitempty"`
+	RelatedSymbols []*RelatedSymbol   `json:"related_symbols,omitempty"`
+	Documentation  string             `json:"documentation,omitempty"`
+	Signature      *SCIPSignature     `json:"signature,omitempty"`
+
 	// Context information
-	Scope           *ScopeInfo                  `json:"scope,omitempty"`
-	TypeInfo        *TypeInfo                   `json:"type_info,omitempty"`
-	
+	Scope    *ScopeInfo `json:"scope,omitempty"`
+	TypeInfo *TypeInfo  `json:"type_info,omitempty"`
+
 	// Cross-language information
-	CrossLanguageRefs []*CrossLanguageRef       `json:"cross_language_refs,omitempty"`
-	
+	CrossLanguageRefs []*CrossLanguageRef `json:"cross_language_refs,omitempty"`
+
 	// Disambiguation data
-	Context         *ReferenceContext           `json:"context,omitempty"`
-	Alternatives    []*AlternativeSymbol        `json:"alternatives,omitempty"`
+	Context      *ReferenceContext    `json:"context,omitempty"`
+	Alternatives []*AlternativeSymbol `json:"alternatives,omitempty"`
 }
 
 // SymbolDefinition represents a symbol definition location
 type SymbolDefinition struct {
-	URI         string      `json:"uri"`
-	Range       *scip.Range `json:"range"`
-	Symbol      string      `json:"symbol"`
-	Confidence  float64     `json:"confidence"`
+	URI        string      `json:"uri"`
+	Range      *scip.Range `json:"range"`
+	Symbol     string      `json:"symbol"`
+	Confidence float64     `json:"confidence"`
 }
 
 // SymbolReference represents a symbol reference location
 type SymbolReference struct {
-	URI         string      `json:"uri"`
-	Range       *scip.Range `json:"range"`
-	Role        int32       `json:"role"`
-	Context     *ReferenceContext `json:"context,omitempty"`
-	Confidence  float64     `json:"confidence"`
+	URI        string            `json:"uri"`
+	Range      *scip.Range       `json:"range"`
+	Role       int32             `json:"role"`
+	Context    *ReferenceContext `json:"context,omitempty"`
+	Confidence float64           `json:"confidence"`
 }
 
 // RelatedSymbol represents a symbol related through inheritance, composition, etc.
 type RelatedSymbol struct {
-	Symbol       string                      `json:"symbol"`
-	Relationship string                      `json:"relationship"`
-	URI          string                      `json:"uri"`
-	Range        *scip.Range                 `json:"range"`
-	Confidence   float64                     `json:"confidence"`
+	Symbol       string      `json:"symbol"`
+	Relationship string      `json:"relationship"`
+	URI          string      `json:"uri"`
+	Range        *scip.Range `json:"range"`
+	Confidence   float64     `json:"confidence"`
 }
 
 // AlternativeSymbol represents alternative symbol interpretations
 type AlternativeSymbol struct {
-	Symbol      string      `json:"symbol"`
-	Reason      string      `json:"reason"`
-	Confidence  float64     `json:"confidence"`
-	URI         string      `json:"uri"`
-	Range       *scip.Range `json:"range"`
+	Symbol     string      `json:"symbol"`
+	Reason     string      `json:"reason"`
+	Confidence float64     `json:"confidence"`
+	URI        string      `json:"uri"`
+	Range      *scip.Range `json:"range"`
 }
 
 // Position represents a position for symbol resolution
@@ -385,18 +385,18 @@ type Position struct {
 
 const (
 	// Performance targets from enterprise config
-	TargetResolutionTimeP99    = 10 * time.Millisecond
-	TargetCacheHitRate         = 0.85
-	TargetCrossLanguageTime    = 25 * time.Millisecond
-	
+	TargetResolutionTimeP99 = 10 * time.Millisecond
+	TargetCacheHitRate      = 0.85
+	TargetCrossLanguageTime = 25 * time.Millisecond
+
 	// Default configuration values
-	DefaultCacheSize           = 10000
-	DefaultCacheTTL            = 30 * time.Minute
-	DefaultMaxConcurrent       = 100
-	DefaultFuzzyThreshold      = 0.8
-	DefaultMaxContextDistance  = 50
-	DefaultSpatialIndexDepth   = 8
-	
+	DefaultCacheSize          = 10000
+	DefaultCacheTTL           = 30 * time.Minute
+	DefaultMaxConcurrent      = 100
+	DefaultFuzzyThreshold     = 0.8
+	DefaultMaxContextDistance = 50
+	DefaultSpatialIndexDepth  = 8
+
 	// Interval tree constants
 	IntervalTreeRebalanceThreshold = 1000
 	NodePoolSize                   = 1000
@@ -407,48 +407,48 @@ func NewSymbolResolver(client *SCIPClient, config *ResolverConfig) (*SymbolResol
 	if client == nil {
 		return nil, fmt.Errorf("SCIP client cannot be nil")
 	}
-	
+
 	if config == nil {
 		config = DefaultResolverConfig()
 	}
-	
+
 	resolver := &SymbolResolver{
-		scipClient:      client,
-		positionIndex:   NewPositionIndex(),
-		symbolGraph:     NewSymbolGraph(),
-		rangeCalculator: NewRangeCalculator(),
-		config:          config,
-		cache:           NewResolutionCache(config.CacheSize, config.CacheTTL),
-		stats:           NewResolverStats(),
+		scipClient:       client,
+		positionIndex:    NewPositionIndex(),
+		symbolGraph:      NewSymbolGraph(),
+		rangeCalculator:  NewRangeCalculator(),
+		config:           config,
+		cache:            NewResolutionCache(config.CacheSize, config.CacheTTL),
+		stats:            NewResolverStats(),
 		lastOptimization: time.Now(),
 	}
-	
+
 	// Initialize position index from existing SCIP data
 	if err := resolver.initializeFromSCIPClient(); err != nil {
 		return nil, fmt.Errorf("failed to initialize resolver: %w", err)
 	}
-	
+
 	return resolver, nil
 }
 
 // DefaultResolverConfig returns default configuration optimized for performance
 func DefaultResolverConfig() *ResolverConfig {
 	return &ResolverConfig{
-		MaxResolveTime:        TargetResolutionTimeP99,
-		CacheSize:             DefaultCacheSize,
-		CacheTTL:              DefaultCacheTTL,
-		MaxConcurrent:         DefaultMaxConcurrent,
-		EnableCrossLanguage:   true,
-		EnableFuzzyMatching:   true,
-		FuzzyThreshold:        DefaultFuzzyThreshold,
-		MaxContextDistance:    DefaultMaxContextDistance,
-		EnableTypeInference:   true,
-		IndexUpdateInterval:   5 * time.Minute,
-		EnableSpatialIndex:    true,
-		SpatialIndexDepth:     DefaultSpatialIndexDepth,
+		MaxResolveTime:         TargetResolutionTimeP99,
+		CacheSize:              DefaultCacheSize,
+		CacheTTL:               DefaultCacheTTL,
+		MaxConcurrent:          DefaultMaxConcurrent,
+		EnableCrossLanguage:    true,
+		EnableFuzzyMatching:    true,
+		FuzzyThreshold:         DefaultFuzzyThreshold,
+		MaxContextDistance:     DefaultMaxContextDistance,
+		EnableTypeInference:    true,
+		IndexUpdateInterval:    5 * time.Minute,
+		EnableSpatialIndex:     true,
+		SpatialIndexDepth:      DefaultSpatialIndexDepth,
 		EnableInheritanceGraph: true,
-		EnableSemanticSearch:  true,
-		TrackSymbolPopularity: true,
+		EnableSemanticSearch:   true,
+		TrackSymbolPopularity:  true,
 	}
 }
 
@@ -456,37 +456,37 @@ func DefaultResolverConfig() *ResolverConfig {
 func (r *SymbolResolver) ResolveSymbolAtPosition(uri string, position Position) (*ResolvedSymbol, error) {
 	startTime := time.Now()
 	atomic.AddInt64(&r.requestCount, 1)
-	
+
 	// Check cache first
 	cacheKey := fmt.Sprintf("%s:%d:%d", uri, position.Line, position.Character)
 	if cached := r.cache.Get(cacheKey); cached != nil {
 		r.stats.recordCacheHit()
 		return cached, nil
 	}
-	
+
 	r.stats.recordCacheMiss()
-	
+
 	// Context for timeout handling
 	ctx, cancel := context.WithTimeout(context.Background(), r.config.MaxResolveTime)
 	defer cancel()
-	
+
 	// Perform resolution
 	result, err := r.resolveSymbolAtPositionInternal(ctx, uri, position)
 	if err != nil {
 		r.stats.recordFailure(time.Since(startTime))
 		return nil, err
 	}
-	
+
 	// Cache successful result
 	r.cache.Set(cacheKey, result)
-	
+
 	// Update performance metrics
 	resolutionTime := time.Since(startTime)
 	atomic.AddInt64(&r.totalResolutionTime, int64(resolutionTime))
 	r.stats.recordSuccess(resolutionTime)
-	
+
 	result.ResolutionTime = resolutionTime
-	
+
 	return result, nil
 }
 
@@ -497,28 +497,28 @@ func (r *SymbolResolver) resolveSymbolAtPositionInternal(ctx context.Context, ur
 	if err != nil {
 		return nil, fmt.Errorf("failed to get document index: %w", err)
 	}
-	
+
 	// Convert LSP position to byte offset
 	byteOffset := r.positionToByteOffset(docIndex, position)
-	
+
 	// Find symbol at position using interval tree
 	candidates := docIndex.FindSymbolsAtPosition(byteOffset)
 	if len(candidates) == 0 {
 		return nil, fmt.Errorf("no symbol found at position %d:%d", position.Line, position.Character)
 	}
-	
+
 	// Select best candidate using disambiguation
 	bestCandidate, err := r.disambiguateSymbols(ctx, candidates, position)
 	if err != nil {
 		return nil, fmt.Errorf("failed to disambiguate symbols: %w", err)
 	}
-	
+
 	// Build resolved symbol with full context
 	resolved, err := r.buildResolvedSymbol(ctx, bestCandidate, uri, position)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build resolved symbol: %w", err)
 	}
-	
+
 	return resolved, nil
 }
 
@@ -527,29 +527,29 @@ func (r *SymbolResolver) FindDefinition(symbol *ResolvedSymbol) (*SymbolDefiniti
 	if symbol == nil {
 		return nil, fmt.Errorf("symbol cannot be nil")
 	}
-	
+
 	// Check cache
 	cacheKey := fmt.Sprintf("def:%s", symbol.Symbol)
 	if cached := r.cache.GetDefinition(cacheKey); cached != nil {
 		return cached, nil
 	}
-	
+
 	// Look up symbol in graph
 	node := r.symbolGraph.GetSymbolNode(symbol.Symbol)
 	if node == nil {
 		return nil, fmt.Errorf("symbol not found in graph: %s", symbol.Symbol)
 	}
-	
+
 	definition := &SymbolDefinition{
 		URI:        node.uri,
 		Range:      node.definition,
 		Symbol:     symbol.Symbol,
 		Confidence: 1.0,
 	}
-	
+
 	// Cache result
 	r.cache.SetDefinition(cacheKey, definition)
-	
+
 	return definition, nil
 }
 
@@ -558,16 +558,16 @@ func (r *SymbolResolver) FindReferences(symbol *ResolvedSymbol) ([]*SymbolRefere
 	if symbol == nil {
 		return nil, fmt.Errorf("symbol cannot be nil")
 	}
-	
+
 	// Check cache
 	cacheKey := fmt.Sprintf("refs:%s", symbol.Symbol)
 	if cached := r.cache.GetReferences(cacheKey); cached != nil {
 		return cached, nil
 	}
-	
+
 	// Get all references from symbol graph
 	refs := r.symbolGraph.GetReferences(symbol.Symbol)
-	
+
 	// Convert to SymbolReference format
 	symbolRefs := make([]*SymbolReference, 0, len(refs))
 	for _, ref := range refs {
@@ -580,10 +580,10 @@ func (r *SymbolResolver) FindReferences(symbol *ResolvedSymbol) ([]*SymbolRefere
 		}
 		symbolRefs = append(symbolRefs, symbolRef)
 	}
-	
+
 	// Cache result
 	r.cache.SetReferences(cacheKey, symbolRefs)
-	
+
 	return symbolRefs, nil
 }
 
@@ -592,15 +592,15 @@ func (r *SymbolResolver) FindRelatedSymbols(symbol *ResolvedSymbol) ([]*RelatedS
 	if symbol == nil {
 		return nil, fmt.Errorf("symbol cannot be nil")
 	}
-	
+
 	// Check cache
 	cacheKey := fmt.Sprintf("related:%s", symbol.Symbol)
 	if cached := r.cache.GetRelatedSymbols(cacheKey); cached != nil {
 		return cached, nil
 	}
-	
+
 	var related []*RelatedSymbol
-	
+
 	// Find inheritance relationships
 	if r.config.EnableInheritanceGraph {
 		inheritanceRefs := r.symbolGraph.GetInheritanceChain(symbol.Symbol)
@@ -614,7 +614,7 @@ func (r *SymbolResolver) FindRelatedSymbols(symbol *ResolvedSymbol) ([]*RelatedS
 			})
 		}
 	}
-	
+
 	// Find cross-language references
 	if r.config.EnableCrossLanguage {
 		crossRefs := r.symbolGraph.GetCrossLanguageRefs(symbol.Symbol)
@@ -622,16 +622,16 @@ func (r *SymbolResolver) FindRelatedSymbols(symbol *ResolvedSymbol) ([]*RelatedS
 			related = append(related, &RelatedSymbol{
 				Symbol:       ref.targetSymbol,
 				Relationship: ref.relationship,
-				URI:          "", // Will be resolved separately
+				URI:          "",  // Will be resolved separately
 				Range:        nil, // Will be resolved separately
 				Confidence:   ref.confidence,
 			})
 		}
 	}
-	
+
 	// Cache result
 	r.cache.SetRelatedSymbols(cacheKey, related)
-	
+
 	return related, nil
 }
 
@@ -639,27 +639,27 @@ func (r *SymbolResolver) FindRelatedSymbols(symbol *ResolvedSymbol) ([]*RelatedS
 func (r *SymbolResolver) BuildPositionIndex(documents []*scip.Document) error {
 	r.positionIndex.mutex.Lock()
 	defer r.positionIndex.mutex.Unlock()
-	
+
 	startTime := time.Now()
-	
+
 	// Clear existing index
 	r.positionIndex.documents = make(map[string]*DocumentIndex)
 	r.positionIndex.symbols = make(map[string]*IndexedSymbol)
-	
+
 	// Process each document
 	for _, doc := range documents {
 		if err := r.indexDocument(doc); err != nil {
 			return fmt.Errorf("failed to index document %s: %w", doc.RelativePath, err)
 		}
 	}
-	
+
 	// Build spatial tree
 	r.positionIndex.spatialTree = r.buildSpatialTree()
-	
+
 	// Update statistics
 	r.positionIndex.lastReindex = time.Now()
 	r.stats.recordIndexUpdate(time.Since(startTime), len(documents))
-	
+
 	return nil
 }
 
@@ -668,25 +668,25 @@ func (r *SymbolResolver) UpdatePositionIndex(document *scip.Document) error {
 	if document == nil {
 		return fmt.Errorf("document cannot be nil")
 	}
-	
+
 	r.positionIndex.mutex.Lock()
 	defer r.positionIndex.mutex.Unlock()
-	
+
 	// Remove existing document index
 	if existing, exists := r.positionIndex.documents[document.RelativePath]; exists {
 		r.removeDocumentFromIndex(existing)
 	}
-	
+
 	// Index the updated document
 	if err := r.indexDocument(document); err != nil {
 		return fmt.Errorf("failed to update document index: %w", err)
 	}
-	
+
 	// Rebuild spatial tree if necessary
 	if r.shouldRebuildSpatialTree() {
 		r.positionIndex.spatialTree = r.buildSpatialTree()
 	}
-	
+
 	return nil
 }
 
@@ -694,26 +694,26 @@ func (r *SymbolResolver) UpdatePositionIndex(document *scip.Document) error {
 func (r *SymbolResolver) GetStats() *ResolverStats {
 	r.stats.mutex.RLock()
 	defer r.stats.mutex.RUnlock()
-	
+
 	// Create a copy to avoid concurrent modification
 	stats := *r.stats
-	
+
 	// Calculate derived metrics
 	if stats.TotalResolutions > 0 {
 		totalTime := atomic.LoadInt64(&r.totalResolutionTime)
 		stats.AvgResolutionTime = time.Duration(totalTime / stats.TotalResolutions)
 	}
-	
+
 	// Update cache statistics
 	stats.CacheHitRate = r.cache.GetHitRate()
 	stats.CacheSize = r.cache.Size()
 	stats.CacheEvictions = r.cache.GetEvictions()
-	
+
 	// Update index statistics
 	stats.IndexSize = r.positionIndex.Size()
 	stats.SymbolCount = r.symbolGraph.SymbolCount()
 	stats.DocumentCount = r.positionIndex.DocumentCount()
-	
+
 	return &stats
 }
 
@@ -721,15 +721,15 @@ func (r *SymbolResolver) GetStats() *ResolverStats {
 func (r *SymbolResolver) Close() error {
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
-	
+
 	// Clear caches
 	r.cache.Clear()
-	
+
 	// Clear indices
 	r.positionIndex.Clear()
 	r.symbolGraph.Clear()
 	r.rangeCalculator.Clear()
-	
+
 	return nil
 }
 
@@ -752,7 +752,7 @@ func (pi *PositionIndex) GetDocumentIndex(uri string) (*DocumentIndex, error) {
 		return doc, nil
 	}
 	pi.mutex.RUnlock()
-	
+
 	return nil, fmt.Errorf("document index not found: %s", uri)
 }
 
@@ -774,7 +774,7 @@ func (pi *PositionIndex) DocumentCount() int {
 func (pi *PositionIndex) Clear() {
 	pi.mutex.Lock()
 	defer pi.mutex.Unlock()
-	
+
 	pi.documents = make(map[string]*DocumentIndex)
 	pi.symbols = make(map[string]*IndexedSymbol)
 	pi.spatialTree = NewIntervalTree()
@@ -787,10 +787,10 @@ func (di *DocumentIndex) FindSymbolsAtPosition(byteOffset int32) []*IndexedSymbo
 	if di.intervalTree == nil {
 		return nil
 	}
-	
+
 	// Query interval tree for overlapping ranges
 	overlapping := di.intervalTree.QueryPoint(byteOffset)
-	
+
 	// Extract symbols from overlapping intervals
 	var symbols []*IndexedSymbol
 	for _, interval := range overlapping {
@@ -798,22 +798,22 @@ func (di *DocumentIndex) FindSymbolsAtPosition(byteOffset int32) []*IndexedSymbo
 			symbols = append(symbols, symbolList...)
 		}
 	}
-	
+
 	// Sort by specificity (smaller ranges first)
 	sort.Slice(symbols, func(i, j int) bool {
 		rangeI := symbols[i].definitionRange
 		rangeJ := symbols[j].definitionRange
-		
+
 		if rangeI == nil || rangeJ == nil {
 			return rangeI != nil
 		}
-		
+
 		sizeI := rangeI.End.Character - rangeI.Start.Character
 		sizeJ := rangeJ.End.Character - rangeJ.Start.Character
-		
+
 		return sizeI < sizeJ
 	})
-	
+
 	return symbols
 }
 
@@ -835,7 +835,7 @@ func (it *IntervalTree) Insert(start, end int32, symbols []*IndexedSymbol) {
 		end:   end,
 		data:  symbols,
 	}
-	
+
 	node := it.nodePool.Get().(*IntervalNode)
 	node.interval = interval
 	node.symbols = symbols
@@ -843,7 +843,7 @@ func (it *IntervalTree) Insert(start, end int32, symbols []*IndexedSymbol) {
 	node.left = nil
 	node.right = nil
 	node.height = 1
-	
+
 	it.root = it.insertNode(it.root, node)
 	it.size++
 }
@@ -860,21 +860,21 @@ func (it *IntervalTree) insertNode(root, newNode *IntervalNode) *IntervalNode {
 	if root == nil {
 		return newNode
 	}
-	
+
 	// Standard BST insertion based on start position
 	if newNode.interval.start < root.interval.start {
 		root.left = it.insertNode(root.left, newNode)
 	} else {
 		root.right = it.insertNode(root.right, newNode)
 	}
-	
+
 	// Update height and max end
 	root.height = 1 + maxInt(it.getHeight(root.left), it.getHeight(root.right))
 	root.maxEnd = maxInt32(root.interval.end, maxInt32(it.getMaxEnd(root.left), it.getMaxEnd(root.right)))
-	
+
 	// AVL rebalancing
 	balance := it.getBalance(root)
-	
+
 	// Left heavy
 	if balance > 1 {
 		if newNode.interval.start < root.left.interval.start {
@@ -884,7 +884,7 @@ func (it *IntervalTree) insertNode(root, newNode *IntervalNode) *IntervalNode {
 			return it.rotateRight(root)
 		}
 	}
-	
+
 	// Right heavy
 	if balance < -1 {
 		if newNode.interval.start > root.right.interval.start {
@@ -894,7 +894,7 @@ func (it *IntervalTree) insertNode(root, newNode *IntervalNode) *IntervalNode {
 			return it.rotateLeft(root)
 		}
 	}
-	
+
 	return root
 }
 
@@ -903,17 +903,17 @@ func (it *IntervalTree) queryPointRecursive(node *IntervalNode, point int32, res
 	if node == nil {
 		return
 	}
-	
+
 	// Check if current interval contains the point
 	if node.interval.start <= point && point <= node.interval.end {
 		*result = append(*result, node.interval)
 	}
-	
+
 	// Recursively search left subtree if it might contain overlapping intervals
 	if node.left != nil && it.getMaxEnd(node.left) >= point {
 		it.queryPointRecursive(node.left, point, result)
 	}
-	
+
 	// Recursively search right subtree if necessary
 	if node.right != nil && node.interval.start <= point {
 		it.queryPointRecursive(node.right, point, result)
@@ -946,14 +946,14 @@ func (it *IntervalTree) rotateLeft(node *IntervalNode) *IntervalNode {
 	right := node.right
 	node.right = right.left
 	right.left = node
-	
+
 	// Update heights and maxEnd
 	node.height = 1 + maxInt(it.getHeight(node.left), it.getHeight(node.right))
 	right.height = 1 + maxInt(it.getHeight(right.left), it.getHeight(right.right))
-	
+
 	node.maxEnd = maxInt32(node.interval.end, maxInt32(it.getMaxEnd(node.left), it.getMaxEnd(node.right)))
 	right.maxEnd = maxInt32(right.interval.end, maxInt32(it.getMaxEnd(right.left), it.getMaxEnd(right.right)))
-	
+
 	return right
 }
 
@@ -961,14 +961,14 @@ func (it *IntervalTree) rotateRight(node *IntervalNode) *IntervalNode {
 	left := node.left
 	node.left = left.right
 	left.right = node
-	
+
 	// Update heights and maxEnd
 	node.height = 1 + maxInt(it.getHeight(node.left), it.getHeight(node.right))
 	left.height = 1 + maxInt(it.getHeight(left.left), it.getHeight(left.right))
-	
+
 	node.maxEnd = maxInt32(node.interval.end, maxInt32(it.getMaxEnd(node.left), it.getMaxEnd(node.right)))
 	left.maxEnd = maxInt32(left.interval.end, maxInt32(it.getMaxEnd(left.left), it.getMaxEnd(left.right)))
-	
+
 	return left
 }
 
@@ -1024,7 +1024,7 @@ func (sg *SymbolGraph) SymbolCount() int {
 func (sg *SymbolGraph) Clear() {
 	sg.mutex.Lock()
 	defer sg.mutex.Unlock()
-	
+
 	sg.symbols = make(map[string]*SymbolNode)
 	sg.references = make(map[string][]*Reference)
 	sg.inheritance = make(map[string][]*SymbolNode)
@@ -1046,17 +1046,17 @@ func (rc *RangeCalculator) Intersects(r1, r2 *scip.Range) bool {
 	if r1 == nil || r2 == nil {
 		return false
 	}
-	
+
 	// Check line intersection first
 	if r1.End.Line < r2.Start.Line || r2.End.Line < r1.Start.Line {
 		return false
 	}
-	
+
 	// If on same line, check character intersection
 	if r1.Start.Line == r2.Start.Line && r1.End.Line == r2.End.Line {
 		return !(r1.End.Character < r2.Start.Character || r2.End.Character < r1.Start.Character)
 	}
-	
+
 	return true
 }
 
@@ -1065,22 +1065,22 @@ func (rc *RangeCalculator) Contains(outer, inner *scip.Range) bool {
 	if outer == nil || inner == nil {
 		return false
 	}
-	
+
 	// Check if inner range is completely within outer range
 	if inner.Start.Line < outer.Start.Line || inner.End.Line > outer.End.Line {
 		return false
 	}
-	
+
 	// Check start position
 	if inner.Start.Line == outer.Start.Line && inner.Start.Character < outer.Start.Character {
 		return false
 	}
-	
+
 	// Check end position
 	if inner.End.Line == outer.End.Line && inner.End.Character > outer.End.Character {
 		return false
 	}
-	
+
 	return true
 }
 
@@ -1089,15 +1089,15 @@ func (rc *RangeCalculator) Distance(r1, r2 *scip.Range) int32 {
 	if r1 == nil || r2 == nil {
 		return -1
 	}
-	
+
 	// If ranges intersect, distance is 0
 	if rc.Intersects(r1, r2) {
 		return 0
 	}
-	
+
 	// Calculate minimum distance between ranges
 	var distance int32
-	
+
 	if r1.End.Line < r2.Start.Line {
 		// r1 is completely before r2
 		distance = (r2.Start.Line-r1.End.Line)*1000 + (r2.Start.Character - r1.End.Character)
@@ -1112,7 +1112,7 @@ func (rc *RangeCalculator) Distance(r1, r2 *scip.Range) int32 {
 			distance = r1.Start.Character - r2.End.Character
 		}
 	}
-	
+
 	return distance
 }
 
@@ -1121,27 +1121,27 @@ func (rc *RangeCalculator) FindNearestSymbol(position Position, symbols []*Index
 	if len(symbols) == 0 {
 		return nil
 	}
-	
+
 	var nearest *IndexedSymbol
 	var minDistance int32 = -1
-	
+
 	posRange := &scip.Range{
 		Start: scip.Position{Line: position.Line, Character: position.Character},
 		End:   scip.Position{Line: position.Line, Character: position.Character},
 	}
-	
+
 	for _, symbol := range symbols {
 		if symbol.definitionRange == nil {
 			continue
 		}
-		
+
 		distance := rc.Distance(posRange, symbol.definitionRange)
 		if distance >= 0 && (minDistance < 0 || distance < minDistance) {
 			nearest = symbol
 			minDistance = distance
 		}
 	}
-	
+
 	return nearest
 }
 
@@ -1150,7 +1150,7 @@ func (rc *RangeCalculator) ExpandRange(range_ *scip.Range, context map[string]in
 	if range_ == nil {
 		return nil
 	}
-	
+
 	// Create expanded range (simple implementation)
 	expanded := &scip.Range{
 		Start: scip.Position{
@@ -1162,7 +1162,7 @@ func (rc *RangeCalculator) ExpandRange(range_ *scip.Range, context map[string]in
 			Character: range_.End.Character + 1,
 		},
 	}
-	
+
 	return expanded
 }
 
@@ -1190,12 +1190,12 @@ func (rc *ResolutionCache) Get(key string) *ResolvedSymbol {
 	rc.mutex.RLock()
 	entry, exists := rc.entries[key]
 	rc.mutex.RUnlock()
-	
+
 	if !exists {
 		atomic.AddInt64(&rc.missCount, 1)
 		return nil
 	}
-	
+
 	// Check TTL
 	if time.Since(entry.cachedAt) > rc.ttl {
 		rc.mutex.Lock()
@@ -1204,14 +1204,14 @@ func (rc *ResolutionCache) Get(key string) *ResolvedSymbol {
 		atomic.AddInt64(&rc.missCount, 1)
 		return nil
 	}
-	
+
 	// Move to front of LRU
 	rc.mutex.Lock()
 	rc.lru.moveToFront(entry)
 	entry.lastAccess = time.Now()
 	entry.accessCount++
 	rc.mutex.Unlock()
-	
+
 	atomic.AddInt64(&rc.hitCount, 1)
 	return entry.result
 }
@@ -1220,12 +1220,12 @@ func (rc *ResolutionCache) Get(key string) *ResolvedSymbol {
 func (rc *ResolutionCache) Set(key string, result *ResolvedSymbol) {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
-	
+
 	// Remove existing entry if present
 	if existing, exists := rc.entries[key]; exists {
 		rc.lru.remove(existing)
 	}
-	
+
 	// Create new entry
 	entry := &SymbolResolverCacheEntry{
 		key:         key,
@@ -1234,11 +1234,11 @@ func (rc *ResolutionCache) Set(key string, result *ResolvedSymbol) {
 		lastAccess:  time.Now(),
 		accessCount: 1,
 	}
-	
+
 	// Add to cache
 	rc.entries[key] = entry
 	rc.lru.addToFront(entry)
-	
+
 	// Evict if necessary
 	for len(rc.entries) > rc.maxSize {
 		oldest := rc.lru.removeLast()
@@ -1287,11 +1287,11 @@ func (rc *ResolutionCache) GetHitRate() float64 {
 	hits := float64(atomic.LoadInt64(&rc.hitCount))
 	misses := float64(atomic.LoadInt64(&rc.missCount))
 	total := hits + misses
-	
+
 	if total == 0 {
 		return 0
 	}
-	
+
 	return hits / total
 }
 
@@ -1311,7 +1311,7 @@ func (rc *ResolutionCache) GetEvictions() int64 {
 func (rc *ResolutionCache) Clear() {
 	rc.mutex.Lock()
 	defer rc.mutex.Unlock()
-	
+
 	rc.entries = make(map[string]*SymbolResolverCacheEntry)
 	rc.lru = &SymbolResolverLRUList{}
 }
@@ -1347,13 +1347,13 @@ func (lru *SymbolResolverLRUList) remove(entry *SymbolResolverCacheEntry) {
 	} else {
 		lru.head = entry.next
 	}
-	
+
 	if entry.next != nil {
 		entry.next.prev = entry.prev
 	} else {
 		lru.tail = entry.prev
 	}
-	
+
 	entry.prev = nil
 	entry.next = nil
 	lru.size--
@@ -1370,7 +1370,7 @@ func (lru *SymbolResolverLRUList) removeLast() *SymbolResolverCacheEntry {
 	if lru.tail == nil {
 		return nil
 	}
-	
+
 	last := lru.tail
 	lru.remove(last)
 	return last
@@ -1389,10 +1389,10 @@ func NewResolverStats() *ResolverStats {
 func (rs *ResolverStats) recordSuccess(duration time.Duration) {
 	rs.mutex.Lock()
 	defer rs.mutex.Unlock()
-	
+
 	rs.TotalResolutions++
 	rs.SuccessfulResolutions++
-	
+
 	// Update timing statistics
 	if rs.TotalResolutions == 1 {
 		rs.AvgResolutionTime = duration
@@ -1401,7 +1401,7 @@ func (rs *ResolverStats) recordSuccess(duration time.Duration) {
 		alpha := 0.1
 		rs.AvgResolutionTime = time.Duration(float64(rs.AvgResolutionTime)*(1-alpha) + float64(duration)*alpha)
 	}
-	
+
 	// Update P95/P99 (simplified - would use proper percentile calculation in production)
 	if duration > rs.P95ResolutionTime {
 		rs.P95ResolutionTime = duration
@@ -1415,7 +1415,7 @@ func (rs *ResolverStats) recordSuccess(duration time.Duration) {
 func (rs *ResolverStats) recordFailure(duration time.Duration) {
 	rs.mutex.Lock()
 	defer rs.mutex.Unlock()
-	
+
 	rs.TotalResolutions++
 	rs.FailedResolutions++
 }
@@ -1434,7 +1434,7 @@ func (rs *ResolverStats) recordCacheMiss() {
 func (rs *ResolverStats) recordIndexUpdate(duration time.Duration, documentCount int) {
 	rs.mutex.Lock()
 	defer rs.mutex.Unlock()
-	
+
 	rs.LastIndexUpdate = time.Now()
 	rs.DocumentCount = documentCount
 }
@@ -1445,23 +1445,23 @@ func (rs *ResolverStats) recordIndexUpdate(duration time.Duration, documentCount
 func (r *SymbolResolver) initializeFromSCIPClient() error {
 	// Get all loaded indices from SCIP client
 	indices := r.scipClient.GetLoadedIndices()
-	
+
 	// Extract documents from all indices
 	var allDocuments []*scip.Document
 	for _, indexData := range indices {
 		allDocuments = append(allDocuments, indexData.Documents...)
 	}
-	
+
 	// Build position index
 	if err := r.BuildPositionIndex(allDocuments); err != nil {
 		return fmt.Errorf("failed to build position index: %w", err)
 	}
-	
+
 	// Build symbol graph
 	if err := r.buildSymbolGraph(allDocuments); err != nil {
 		return fmt.Errorf("failed to build symbol graph: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -1474,13 +1474,13 @@ func (r *SymbolResolver) indexDocument(doc *scip.Document) error {
 		intervalTree: NewIntervalTree(),
 		lastModified: time.Now(),
 	}
-	
+
 	// Process all symbol occurrences
 	for _, occurrence := range doc.Occurrences {
 		if occurrence.Range == nil {
 			continue
 		}
-		
+
 		// Create indexed symbol if not exists
 		symbolKey := occurrence.Symbol
 		indexedSymbol, exists := r.positionIndex.symbols[symbolKey]
@@ -1493,20 +1493,20 @@ func (r *SymbolResolver) indexDocument(doc *scip.Document) error {
 			}
 			r.positionIndex.symbols[symbolKey] = indexedSymbol
 		}
-		
+
 		// Create indexed occurrence
 		indexedOcc := &IndexedOccurrence{
 			range_:         ConvertSCIPRangeToRange(occurrence.Range),
-			role:          occurrence.SymbolRoles,
-			syntaxKind:    occurrence.SyntaxKind,
+			role:           occurrence.SymbolRoles,
+			syntaxKind:     occurrence.SyntaxKind,
 			enclosingRange: ConvertSCIPRangeToRange(occurrence.EnclosingRange),
 		}
-		
+
 		indexedSymbol.occurrences = append(indexedSymbol.occurrences, indexedOcc)
-		
+
 		// Add to document symbol map
 		docIndex.symbolMap[symbolKey] = indexedSymbol
-		
+
 		// Add to interval tree
 		// SCIP range format: [start_line, start_character, end_line, end_character]
 		if len(occurrence.Range) >= 4 {
@@ -1516,13 +1516,13 @@ func (r *SymbolResolver) indexDocument(doc *scip.Document) error {
 				[]*IndexedSymbol{indexedSymbol},
 			)
 		}
-		
+
 		docIndex.symbolCount++
 	}
-	
+
 	// Store document index
 	r.positionIndex.documents[doc.RelativePath] = docIndex
-	
+
 	return nil
 }
 
@@ -1534,7 +1534,7 @@ func (r *SymbolResolver) buildSymbolGraph(documents []*scip.Document) error {
 			return fmt.Errorf("failed to process document for graph: %w", err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -1545,28 +1545,28 @@ func (r *SymbolResolver) processDocumentForGraph(doc *scip.Document) error {
 		if symInfo == nil {
 			continue
 		}
-		
+
 		// Create symbol node
 		node := &SymbolNode{
-			symbol:      symInfo.Symbol,
-			kind:        symInfo.Kind,
-			uri:         doc.RelativePath,
+			symbol:       symInfo.Symbol,
+			kind:         symInfo.Kind,
+			uri:          doc.RelativePath,
 			lastAccessed: time.Now(),
 		}
-		
+
 		// Process relationships
 		for _, rel := range symInfo.Relationships {
 			if rel == nil {
 				continue
 			}
-			
+
 			// Add to symbol graph based on relationship type
 			r.symbolGraph.mutex.Lock()
 			r.symbolGraph.symbols[symInfo.Symbol] = node
 			r.symbolGraph.mutex.Unlock()
 		}
 	}
-	
+
 	return nil
 }
 
@@ -1581,24 +1581,24 @@ func (r *SymbolResolver) disambiguateSymbols(ctx context.Context, candidates []*
 	if len(candidates) == 1 {
 		return candidates[0], nil
 	}
-	
+
 	// Use various disambiguation strategies
-	
+
 	// 1. Prefer more specific symbols (smaller ranges)
 	sort.Slice(candidates, func(i, j int) bool {
 		rangeI := candidates[i].definitionRange
 		rangeJ := candidates[j].definitionRange
-		
+
 		if rangeI == nil || rangeJ == nil {
 			return rangeI != nil
 		}
-		
+
 		sizeI := rangeI.End.Character - rangeI.Start.Character
 		sizeJ := rangeJ.End.Character - rangeJ.Start.Character
-		
+
 		return sizeI < sizeJ
 	})
-	
+
 	// 2. Consider symbol popularity
 	bestCandidate := candidates[0]
 	for _, candidate := range candidates[1:] {
@@ -1606,39 +1606,39 @@ func (r *SymbolResolver) disambiguateSymbols(ctx context.Context, candidates []*
 			bestCandidate = candidate
 		}
 	}
-	
+
 	return bestCandidate, nil
 }
 
 // buildResolvedSymbol constructs a complete ResolvedSymbol with all context
 func (r *SymbolResolver) buildResolvedSymbol(ctx context.Context, symbol *IndexedSymbol, uri string, position Position) (*ResolvedSymbol, error) {
 	resolved := &ResolvedSymbol{
-		Symbol:      symbol.symbol,
-		DisplayName: symbol.displayName,
-		Kind:        symbol.kind,
-		URI:         uri,
-		Range:       symbol.definitionRange,
-		Confidence:  1.0,
+		Symbol:         symbol.symbol,
+		DisplayName:    symbol.displayName,
+		Kind:           symbol.kind,
+		URI:            uri,
+		Range:          symbol.definitionRange,
+		Confidence:     1.0,
 		ResolutionPath: []string{"position_based", "disambiguation", "context_resolution"},
 	}
-	
+
 	// Add documentation if available
 	resolved.Documentation = symbol.documentation
-	
+
 	// Add signature if available
 	resolved.Signature = symbol.signature
-	
+
 	// Update access tracking
 	atomic.AddInt64(&symbol.accessCount, 1)
 	symbol.lastAccessed = time.Now()
-	
+
 	return resolved, nil
 }
 
 // buildSpatialTree builds a spatial tree for efficient range queries
 func (r *SymbolResolver) buildSpatialTree() *IntervalTree {
 	tree := NewIntervalTree()
-	
+
 	// Add all symbol ranges to the spatial tree
 	for _, symbol := range r.positionIndex.symbols {
 		if symbol.definitionRange != nil {
@@ -1649,7 +1649,7 @@ func (r *SymbolResolver) buildSpatialTree() *IntervalTree {
 			)
 		}
 	}
-	
+
 	return tree
 }
 
@@ -1664,7 +1664,7 @@ func (r *SymbolResolver) removeDocumentFromIndex(docIndex *DocumentIndex) {
 			}
 		}
 	}
-	
+
 	// Remove document index
 	delete(r.positionIndex.documents, docIndex.uri)
 }

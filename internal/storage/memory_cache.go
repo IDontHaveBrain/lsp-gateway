@@ -22,38 +22,38 @@ import (
 // with LRU eviction, compression support, and comprehensive monitoring
 type L1MemoryCache struct {
 	// Core cache storage with O(1) LRU operations
-	entries    map[string]*memoryCacheEntry
-	lruHead    *memoryCacheEntry
-	lruTail    *memoryCacheEntry
-	
+	entries map[string]*memoryCacheEntry
+	lruHead *memoryCacheEntry
+	lruTail *memoryCacheEntry
+
 	// Concurrency control with RWMutex for better read performance
-	mu         sync.RWMutex
-	
+	mu sync.RWMutex
+
 	// Configuration
-	config     *L1MemoryCacheConfig
-	
+	config *L1MemoryCacheConfig
+
 	// Compression providers
 	compressor CompressionProvider
-	
+
 	// Atomic counters for thread-safe metrics
-	stats      *l1CacheStats
-	
+	stats *l1CacheStats
+
 	// Background maintenance
-	stopCh     chan struct{}
-	cleanupWg  sync.WaitGroup
-	
+	stopCh    chan struct{}
+	cleanupWg sync.WaitGroup
+
 	// Circuit breaker for self-protection
 	circuitBreaker *circuitBreaker
-	
+
 	// Object pool for reducing GC pressure
 	entryPool  sync.Pool
 	bufferPool sync.Pool
-	
+
 	// Health monitoring
-	health     *l1CacheHealth
-	
+	health *l1CacheHealth
+
 	// Started flag
-	started    atomic.Bool
+	started atomic.Bool
 }
 
 // memoryCacheEntry represents an entry in the LRU cache
@@ -70,16 +70,16 @@ type memoryCacheEntry struct {
 
 // L1MemoryCacheConfig contains configuration for the L1 memory cache
 type L1MemoryCacheConfig struct {
-	MaxCapacity          int64         `json:"max_capacity"`
-	MaxEntries           int64         `json:"max_entries"`
-	EvictionThreshold    float64       `json:"eviction_threshold"`
-	CompressionEnabled   bool          `json:"compression_enabled"`
-	CompressionThreshold int64         `json:"compression_threshold"`
-	CompressionType      CompressionType `json:"compression_type"`
-	TTLCheckInterval     time.Duration `json:"ttl_check_interval"`
-	MetricsInterval      time.Duration `json:"metrics_interval"`
+	MaxCapacity          int64                 `json:"max_capacity"`
+	MaxEntries           int64                 `json:"max_entries"`
+	EvictionThreshold    float64               `json:"eviction_threshold"`
+	CompressionEnabled   bool                  `json:"compression_enabled"`
+	CompressionThreshold int64                 `json:"compression_threshold"`
+	CompressionType      CompressionType       `json:"compression_type"`
+	TTLCheckInterval     time.Duration         `json:"ttl_check_interval"`
+	MetricsInterval      time.Duration         `json:"metrics_interval"`
 	CircuitBreakerConfig *CircuitBreakerConfig `json:"circuit_breaker_config"`
-	PoolSizes            *PoolSizes    `json:"pool_sizes"`
+	PoolSizes            *PoolSizes            `json:"pool_sizes"`
 }
 
 // PoolSizes configures object pool sizes for memory optimization
@@ -91,65 +91,65 @@ type PoolSizes struct {
 // l1CacheStats provides atomic counters for cache statistics
 type l1CacheStats struct {
 	// Request metrics
-	totalRequests   atomic.Int64
-	cacheHits       atomic.Int64
-	cacheMisses     atomic.Int64
-	
+	totalRequests atomic.Int64
+	cacheHits     atomic.Int64
+	cacheMisses   atomic.Int64
+
 	// Performance metrics
-	totalLatency    atomic.Int64 // nanoseconds
-	maxLatency      atomic.Int64 // nanoseconds
-	minLatency      atomic.Int64 // nanoseconds
-	
+	totalLatency atomic.Int64 // nanoseconds
+	maxLatency   atomic.Int64 // nanoseconds
+	minLatency   atomic.Int64 // nanoseconds
+
 	// Capacity metrics
-	currentEntries  atomic.Int64
-	currentSize     atomic.Int64
-	peakEntries     atomic.Int64
-	peakSize        atomic.Int64
-	
+	currentEntries atomic.Int64
+	currentSize    atomic.Int64
+	peakEntries    atomic.Int64
+	peakSize       atomic.Int64
+
 	// Operation metrics
-	evictions       atomic.Int64
-	compressions    atomic.Int64
-	decompressions  atomic.Int64
-	ttlExpirations  atomic.Int64
-	
+	evictions      atomic.Int64
+	compressions   atomic.Int64
+	decompressions atomic.Int64
+	ttlExpirations atomic.Int64
+
 	// Error metrics
-	errors          atomic.Int64
-	compressionErrors atomic.Int64
+	errors              atomic.Int64
+	compressionErrors   atomic.Int64
 	decompressionErrors atomic.Int64
-	
+
 	// Time tracking
-	startTime       time.Time
-	lastReset       atomic.Value // time.Time
+	startTime time.Time
+	lastReset atomic.Value // time.Time
 }
 
 // l1CacheHealth tracks health status
 type l1CacheHealth struct {
-	mu             sync.RWMutex
-	healthy        bool
-	issues         []HealthIssue
-	lastCheck      time.Time
-	healthScore    float64
-	circuitState   CircuitBreakerState
+	mu           sync.RWMutex
+	healthy      bool
+	issues       []HealthIssue
+	lastCheck    time.Time
+	healthScore  float64
+	circuitState CircuitBreakerState
 }
 
 // circuitBreaker provides self-protection against cascading failures
 type circuitBreaker struct {
-	mu           sync.RWMutex
-	state        CircuitBreakerState
-	failures     atomic.Int64
-	lastFailure  atomic.Value // time.Time
-	nextRetry    atomic.Value // time.Time
-	config       *CircuitBreakerConfig
+	mu          sync.RWMutex
+	state       CircuitBreakerState
+	failures    atomic.Int64
+	lastFailure atomic.Value // time.Time
+	nextRetry   atomic.Value // time.Time
+	config      *CircuitBreakerConfig
 }
 
 // defaultL1Config returns default configuration for L1 memory cache
 func defaultL1Config() *L1MemoryCacheConfig {
 	return &L1MemoryCacheConfig{
 		MaxCapacity:          8 * 1024 * 1024 * 1024, // 8GB
-		MaxEntries:           1000000,                  // 1M entries
-		EvictionThreshold:    0.8,                      // 80% utilization
+		MaxEntries:           1000000,                // 1M entries
+		EvictionThreshold:    0.8,                    // 80% utilization
 		CompressionEnabled:   true,
-		CompressionThreshold: 1024,                     // 1KB
+		CompressionThreshold: 1024, // 1KB
 		CompressionType:      CompressionLZ4,
 		TTLCheckInterval:     30 * time.Second,
 		MetricsInterval:      10 * time.Second,
@@ -172,7 +172,7 @@ func NewL1MemoryCache(config *L1MemoryCacheConfig) *L1MemoryCache {
 	if config == nil {
 		config = defaultL1Config()
 	}
-	
+
 	cache := &L1MemoryCache{
 		entries:        make(map[string]*memoryCacheEntry),
 		config:         config,
@@ -181,16 +181,16 @@ func NewL1MemoryCache(config *L1MemoryCacheConfig) *L1MemoryCache {
 		health:         &l1CacheHealth{healthy: true, healthScore: 1.0},
 		circuitBreaker: newCircuitBreaker(config.CircuitBreakerConfig),
 	}
-	
+
 	// Initialize compression provider
 	cache.compressor = newCompressionProvider(config.CompressionType)
-	
+
 	// Initialize object pools
 	cache.initializePools()
-	
+
 	// Initialize LRU sentinel nodes
 	cache.initializeLRU()
-	
+
 	return cache
 }
 
@@ -201,7 +201,7 @@ func (c *L1MemoryCache) initializePools() {
 			return &memoryCacheEntry{}
 		},
 	}
-	
+
 	c.bufferPool = sync.Pool{
 		New: func() interface{} {
 			return bytes.NewBuffer(make([]byte, 0, 4096))
@@ -222,21 +222,21 @@ func (c *L1MemoryCache) Initialize(ctx context.Context, config TierConfig) error
 	if c.started.Load() {
 		return errors.New("L1 memory cache already initialized")
 	}
-	
+
 	// Update configuration if provided
 	if config.BackendConfig.Options != nil {
 		if err := c.updateConfigFromTierConfig(config); err != nil {
 			return fmt.Errorf("failed to update configuration: %w", err)
 		}
 	}
-	
+
 	// Start background processes
 	c.cleanupWg.Add(2)
 	go c.ttlCleanupWorker()
 	go c.metricsWorker()
-	
+
 	c.started.Store(true)
-	
+
 	return nil
 }
 
@@ -248,44 +248,44 @@ func (c *L1MemoryCache) Get(ctx context.Context, key string) (*CacheEntry, error
 		c.recordLatency(latency)
 		c.stats.totalRequests.Add(1)
 	}()
-	
+
 	// Circuit breaker check
 	if !c.circuitBreaker.canExecute() {
 		c.stats.errors.Add(1)
 		return nil, errors.New("circuit breaker open")
 	}
-	
+
 	c.mu.RLock()
 	entry, exists := c.entries[key]
 	c.mu.RUnlock()
-	
+
 	if !exists {
 		c.stats.cacheMisses.Add(1)
 		c.circuitBreaker.recordFailure()
 		return nil, fmt.Errorf("key not found: %s", key)
 	}
-	
+
 	// Check TTL expiration
 	if entry.value.IsExpired() {
 		c.mu.Lock()
 		c.removeLRU(entry)
 		delete(c.entries, key)
 		c.mu.Unlock()
-		
+
 		c.stats.cacheMisses.Add(1)
 		c.stats.ttlExpirations.Add(1)
 		return nil, fmt.Errorf("key expired: %s", key)
 	}
-	
+
 	// Move to front of LRU
 	c.mu.Lock()
 	c.moveToFront(entry)
 	c.mu.Unlock()
-	
+
 	// Update access metadata
 	entry.value.Touch()
 	entry.accessTime = time.Now()
-	
+
 	// Decompress if needed
 	result := entry.value
 	if entry.compressed != nil {
@@ -295,18 +295,18 @@ func (c *L1MemoryCache) Get(ctx context.Context, key string) (*CacheEntry, error
 			c.circuitBreaker.recordFailure()
 			return nil, fmt.Errorf("decompression failed: %w", err)
 		}
-		
+
 		if err := json.Unmarshal(decompressed, result); err != nil {
 			c.stats.errors.Add(1)
 			return nil, fmt.Errorf("deserialization failed: %w", err)
 		}
-		
+
 		c.stats.decompressions.Add(1)
 	}
-	
+
 	c.stats.cacheHits.Add(1)
 	c.circuitBreaker.recordSuccess()
-	
+
 	return result, nil
 }
 
@@ -318,23 +318,23 @@ func (c *L1MemoryCache) Put(ctx context.Context, key string, entry *CacheEntry) 
 		c.recordLatency(latency)
 		c.stats.totalRequests.Add(1)
 	}()
-	
+
 	// Circuit breaker check
 	if !c.circuitBreaker.canExecute() {
 		c.stats.errors.Add(1)
 		return errors.New("circuit breaker open")
 	}
-	
+
 	// Serialize and optionally compress the entry
 	data, err := json.Marshal(entry)
 	if err != nil {
 		c.stats.errors.Add(1)
 		return fmt.Errorf("serialization failed: %w", err)
 	}
-	
+
 	var compressed []byte
 	entrySize := int64(len(data))
-	
+
 	if c.config.CompressionEnabled && entrySize > c.config.CompressionThreshold {
 		compressed, err = c.compress(data)
 		if err != nil {
@@ -345,16 +345,16 @@ func (c *L1MemoryCache) Put(ctx context.Context, key string, entry *CacheEntry) 
 			entrySize = int64(len(compressed))
 		}
 	}
-	
+
 	// Calculate checksum
 	entry.Checksum = c.calculateChecksum(data)
 	entry.Size = int64(len(data))
 	entry.CompressedSize = entrySize
 	entry.CurrentTier = TierL1Memory
-	
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// Check if eviction is needed
 	if c.needsEviction(entrySize) {
 		if err := c.evictLRU(); err != nil {
@@ -362,13 +362,13 @@ func (c *L1MemoryCache) Put(ctx context.Context, key string, entry *CacheEntry) 
 			return fmt.Errorf("eviction failed: %w", err)
 		}
 	}
-	
+
 	// Remove existing entry if present
 	if existing, exists := c.entries[key]; exists {
 		c.removeLRU(existing)
 		c.returnEntryToPool(existing)
 	}
-	
+
 	// Create new entry
 	newEntry := c.getEntryFromPool()
 	newEntry.key = key
@@ -377,22 +377,22 @@ func (c *L1MemoryCache) Put(ctx context.Context, key string, entry *CacheEntry) 
 	newEntry.size = entrySize
 	newEntry.accessTime = time.Now()
 	newEntry.createTime = time.Now()
-	
+
 	// Add to cache and LRU front
 	c.entries[key] = newEntry
 	c.addToFront(newEntry)
-	
+
 	// Update metrics
 	c.stats.currentEntries.Store(int64(len(c.entries)))
 	c.stats.currentSize.Add(entrySize)
-	
+
 	if currentEntries := c.stats.currentEntries.Load(); currentEntries > c.stats.peakEntries.Load() {
 		c.stats.peakEntries.Store(currentEntries)
 	}
 	if currentSize := c.stats.currentSize.Load(); currentSize > c.stats.peakSize.Load() {
 		c.stats.peakSize.Store(currentSize)
 	}
-	
+
 	c.circuitBreaker.recordSuccess()
 	return nil
 }
@@ -401,20 +401,20 @@ func (c *L1MemoryCache) Put(ctx context.Context, key string, entry *CacheEntry) 
 func (c *L1MemoryCache) Delete(ctx context.Context, key string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	entry, exists := c.entries[key]
 	if !exists {
 		return fmt.Errorf("key not found: %s", key)
 	}
-	
+
 	c.removeLRU(entry)
 	delete(c.entries, key)
-	
+
 	c.stats.currentEntries.Store(int64(len(c.entries)))
 	c.stats.currentSize.Add(-entry.size)
-	
+
 	c.returnEntryToPool(entry)
-	
+
 	return nil
 }
 
@@ -423,11 +423,11 @@ func (c *L1MemoryCache) Exists(ctx context.Context, key string) (bool, error) {
 	c.mu.RLock()
 	entry, exists := c.entries[key]
 	c.mu.RUnlock()
-	
+
 	if !exists {
 		return false, nil
 	}
-	
+
 	// Check TTL expiration
 	if entry.value.IsExpired() {
 		// Remove expired entry
@@ -435,50 +435,50 @@ func (c *L1MemoryCache) Exists(ctx context.Context, key string) (bool, error) {
 		c.removeLRU(entry)
 		delete(c.entries, key)
 		c.mu.Unlock()
-		
+
 		c.stats.ttlExpirations.Add(1)
 		return false, nil
 	}
-	
+
 	return true, nil
 }
 
 // GetBatch implements StorageTier interface for efficient batch operations
 func (c *L1MemoryCache) GetBatch(ctx context.Context, keys []string) (map[string]*CacheEntry, error) {
 	result := make(map[string]*CacheEntry, len(keys))
-	
+
 	for _, key := range keys {
 		if entry, err := c.Get(ctx, key); err == nil {
 			result[key] = entry
 		}
 	}
-	
+
 	return result, nil
 }
 
 // PutBatch implements StorageTier interface for efficient batch operations
 func (c *L1MemoryCache) PutBatch(ctx context.Context, entries map[string]*CacheEntry) error {
 	var lastError error
-	
+
 	for key, entry := range entries {
 		if err := c.Put(ctx, key, entry); err != nil {
 			lastError = err
 		}
 	}
-	
+
 	return lastError
 }
 
 // DeleteBatch implements StorageTier interface
 func (c *L1MemoryCache) DeleteBatch(ctx context.Context, keys []string) error {
 	var lastError error
-	
+
 	for _, key := range keys {
 		if err := c.Delete(ctx, key); err != nil {
 			lastError = err
 		}
 	}
-	
+
 	return lastError
 }
 
@@ -486,15 +486,15 @@ func (c *L1MemoryCache) DeleteBatch(ctx context.Context, keys []string) error {
 func (c *L1MemoryCache) Invalidate(ctx context.Context, pattern string) (int, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	var toDelete []string
-	
+
 	for key := range c.entries {
 		if matched, _ := c.matchPattern(key, pattern); matched {
 			toDelete = append(toDelete, key)
 		}
 	}
-	
+
 	for _, key := range toDelete {
 		if entry, exists := c.entries[key]; exists {
 			c.removeLRU(entry)
@@ -502,9 +502,9 @@ func (c *L1MemoryCache) Invalidate(ctx context.Context, pattern string) (int, er
 			c.returnEntryToPool(entry)
 		}
 	}
-	
+
 	c.stats.currentEntries.Store(int64(len(c.entries)))
-	
+
 	return len(toDelete), nil
 }
 
@@ -512,9 +512,9 @@ func (c *L1MemoryCache) Invalidate(ctx context.Context, pattern string) (int, er
 func (c *L1MemoryCache) InvalidateByFile(ctx context.Context, filePath string) (int, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	var toDelete []string
-	
+
 	for key, entry := range c.entries {
 		for _, path := range entry.value.FilePaths {
 			if path == filePath {
@@ -523,7 +523,7 @@ func (c *L1MemoryCache) InvalidateByFile(ctx context.Context, filePath string) (
 			}
 		}
 	}
-	
+
 	for _, key := range toDelete {
 		if entry, exists := c.entries[key]; exists {
 			c.removeLRU(entry)
@@ -531,9 +531,9 @@ func (c *L1MemoryCache) InvalidateByFile(ctx context.Context, filePath string) (
 			c.returnEntryToPool(entry)
 		}
 	}
-	
+
 	c.stats.currentEntries.Store(int64(len(c.entries)))
-	
+
 	return len(toDelete), nil
 }
 
@@ -541,15 +541,15 @@ func (c *L1MemoryCache) InvalidateByFile(ctx context.Context, filePath string) (
 func (c *L1MemoryCache) InvalidateByProject(ctx context.Context, projectPath string) (int, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	var toDelete []string
-	
+
 	for key, entry := range c.entries {
 		if entry.value.ProjectPath == projectPath {
 			toDelete = append(toDelete, key)
 		}
 	}
-	
+
 	for _, key := range toDelete {
 		if entry, exists := c.entries[key]; exists {
 			c.removeLRU(entry)
@@ -557,9 +557,9 @@ func (c *L1MemoryCache) InvalidateByProject(ctx context.Context, projectPath str
 			c.returnEntryToPool(entry)
 		}
 	}
-	
+
 	c.stats.currentEntries.Store(int64(len(c.entries)))
-	
+
 	return len(toDelete), nil
 }
 
@@ -567,20 +567,20 @@ func (c *L1MemoryCache) InvalidateByProject(ctx context.Context, projectPath str
 func (c *L1MemoryCache) Clear(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// Return all entries to pool
 	for _, entry := range c.entries {
 		c.returnEntryToPool(entry)
 	}
-	
+
 	// Clear all data structures
 	c.entries = make(map[string]*memoryCacheEntry)
 	c.initializeLRU()
-	
+
 	// Reset metrics
 	c.stats.currentEntries.Store(0)
 	c.stats.currentSize.Store(0)
-	
+
 	return nil
 }
 
@@ -588,24 +588,24 @@ func (c *L1MemoryCache) Clear(ctx context.Context) error {
 func (c *L1MemoryCache) GetStats() TierStats {
 	totalRequests := c.stats.totalRequests.Load()
 	cacheHits := c.stats.cacheHits.Load()
-	
+
 	var hitRate float64
 	if totalRequests > 0 {
 		hitRate = float64(cacheHits) / float64(totalRequests)
 	}
-	
+
 	var avgLatency time.Duration
 	if totalRequests > 0 {
 		avgLatency = time.Duration(c.stats.totalLatency.Load() / totalRequests)
 	}
-	
+
 	uptime := time.Since(c.stats.startTime)
-	
+
 	var requestsPerSecond float64
 	if uptime.Seconds() > 0 {
 		requestsPerSecond = float64(totalRequests) / uptime.Seconds()
 	}
-	
+
 	return TierStats{
 		TierType:          TierL1Memory,
 		TotalCapacity:     c.config.MaxCapacity,
@@ -635,26 +635,26 @@ func (c *L1MemoryCache) GetStats() TierStats {
 func (c *L1MemoryCache) GetHealth() TierHealth {
 	c.health.mu.RLock()
 	defer c.health.mu.RUnlock()
-	
+
 	health := TierHealth{
-		TierType:   TierL1Memory,
-		Healthy:    c.health.healthy,
-		LastCheck:  c.health.lastCheck,
-		Issues:     append([]HealthIssue{}, c.health.issues...),
-		Metrics:    c.getHealthMetrics(),
+		TierType:  TierL1Memory,
+		Healthy:   c.health.healthy,
+		LastCheck: c.health.lastCheck,
+		Issues:    append([]HealthIssue{}, c.health.issues...),
+		Metrics:   c.getHealthMetrics(),
 	}
-	
+
 	health.CircuitBreaker.State = c.circuitBreaker.getState()
 	health.CircuitBreaker.FailureCount = int(c.circuitBreaker.failures.Load())
-	
+
 	if lastFailure := c.circuitBreaker.lastFailure.Load(); lastFailure != nil {
 		health.CircuitBreaker.LastFailure = lastFailure.(time.Time)
 	}
-	
+
 	if nextRetry := c.circuitBreaker.nextRetry.Load(); nextRetry != nil {
 		health.CircuitBreaker.NextRetry = nextRetry.(time.Time)
 	}
-	
+
 	return health
 }
 
@@ -662,12 +662,12 @@ func (c *L1MemoryCache) GetHealth() TierHealth {
 func (c *L1MemoryCache) GetCapacity() TierCapacity {
 	currentSize := c.stats.currentSize.Load()
 	currentEntries := c.stats.currentEntries.Load()
-	
+
 	var utilizationPct float64
 	if c.config.MaxCapacity > 0 {
 		utilizationPct = float64(currentSize) / float64(c.config.MaxCapacity) * 100
 	}
-	
+
 	return TierCapacity{
 		TierType:          TierL1Memory,
 		MaxCapacity:       c.config.MaxCapacity,
@@ -700,21 +700,21 @@ func (c *L1MemoryCache) Close() error {
 	if !c.started.Load() {
 		return nil
 	}
-	
+
 	close(c.stopCh)
 	c.cleanupWg.Wait()
-	
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// Return all entries to pool
 	for _, entry := range c.entries {
 		c.returnEntryToPool(entry)
 	}
-	
+
 	c.entries = nil
 	c.started.Store(false)
-	
+
 	return nil
 }
 
@@ -749,16 +749,16 @@ func (c *L1MemoryCache) evictLRU() error {
 	if c.lruTail.prev == c.lruHead {
 		return errors.New("no entries to evict")
 	}
-	
+
 	toEvict := c.lruTail.prev
 	c.removeLRU(toEvict)
 	delete(c.entries, toEvict.key)
-	
+
 	c.stats.currentSize.Add(-toEvict.size)
 	c.stats.evictions.Add(1)
-	
+
 	c.returnEntryToPool(toEvict)
-	
+
 	return nil
 }
 
@@ -766,22 +766,22 @@ func (c *L1MemoryCache) evictLRU() error {
 func (c *L1MemoryCache) needsEviction(newEntrySize int64) bool {
 	currentSize := c.stats.currentSize.Load()
 	currentEntries := c.stats.currentEntries.Load()
-	
+
 	// Check capacity limits
-	if (currentSize+newEntrySize) > c.config.MaxCapacity {
+	if (currentSize + newEntrySize) > c.config.MaxCapacity {
 		return true
 	}
-	
+
 	if currentEntries >= c.config.MaxEntries {
 		return true
 	}
-	
+
 	// Check threshold
 	utilizationPct := float64(currentSize+newEntrySize) / float64(c.config.MaxCapacity)
 	if utilizationPct > c.config.EvictionThreshold {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -792,7 +792,7 @@ func (c *L1MemoryCache) compress(data []byte) ([]byte, error) {
 	if c.compressor == nil {
 		return nil, errors.New("no compressor available")
 	}
-	
+
 	return c.compressor.Compress(data)
 }
 
@@ -801,7 +801,7 @@ func (c *L1MemoryCache) decompress(data []byte) ([]byte, error) {
 	if c.compressor == nil {
 		return nil, errors.New("no compressor available")
 	}
-	
+
 	return c.compressor.Decompress(data)
 }
 
@@ -819,30 +819,30 @@ func (c *L1MemoryCache) matchPattern(key, pattern string) (bool, error) {
 	if pattern == "*" {
 		return true, nil
 	}
-	
+
 	if strings.Contains(pattern, "*") {
 		parts := strings.Split(pattern, "*")
 		if len(parts) == 2 {
 			return strings.HasPrefix(key, parts[0]) && strings.HasSuffix(key, parts[1]), nil
 		}
 	}
-	
+
 	return key == pattern, nil
 }
 
 // getHealthMetrics returns health-related metrics
 func (c *L1MemoryCache) getHealthMetrics() map[string]float64 {
 	metrics := make(map[string]float64)
-	
+
 	totalRequests := c.stats.totalRequests.Load()
 	if totalRequests > 0 {
 		metrics["hit_rate"] = float64(c.stats.cacheHits.Load()) / float64(totalRequests)
 		metrics["error_rate"] = float64(c.stats.errors.Load()) / float64(totalRequests)
 	}
-	
+
 	metrics["utilization"] = float64(c.stats.currentSize.Load()) / float64(c.config.MaxCapacity)
 	metrics["entry_count"] = float64(c.stats.currentEntries.Load())
-	
+
 	return metrics
 }
 
@@ -852,7 +852,7 @@ func (c *L1MemoryCache) calculateErrorRate() float64 {
 	if totalRequests == 0 {
 		return 0.0
 	}
-	
+
 	return float64(c.stats.errors.Load()) / float64(totalRequests)
 }
 
@@ -860,7 +860,7 @@ func (c *L1MemoryCache) calculateErrorRate() float64 {
 func (c *L1MemoryCache) recordLatency(latency time.Duration) {
 	nanos := latency.Nanoseconds()
 	c.stats.totalLatency.Add(nanos)
-	
+
 	// Update max latency
 	for {
 		current := c.stats.maxLatency.Load()
@@ -868,7 +868,7 @@ func (c *L1MemoryCache) recordLatency(latency time.Duration) {
 			break
 		}
 	}
-	
+
 	// Update min latency
 	for {
 		current := c.stats.minLatency.Load()
@@ -908,10 +908,10 @@ func (c *L1MemoryCache) returnEntryToPool(entry *memoryCacheEntry) {
 // ttlCleanupWorker periodically removes expired entries
 func (c *L1MemoryCache) ttlCleanupWorker() {
 	defer c.cleanupWg.Done()
-	
+
 	ticker := time.NewTicker(c.config.TTLCheckInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-c.stopCh:
@@ -925,10 +925,10 @@ func (c *L1MemoryCache) ttlCleanupWorker() {
 // metricsWorker periodically updates metrics and health status
 func (c *L1MemoryCache) metricsWorker() {
 	defer c.cleanupWg.Done()
-	
+
 	ticker := time.NewTicker(c.config.MetricsInterval)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-c.stopCh:
@@ -943,15 +943,15 @@ func (c *L1MemoryCache) metricsWorker() {
 func (c *L1MemoryCache) cleanupExpiredEntries() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	var toDelete []string
-	
+
 	for key, entry := range c.entries {
 		if entry.value.IsExpired() {
 			toDelete = append(toDelete, key)
 		}
 	}
-	
+
 	for _, key := range toDelete {
 		if entry, exists := c.entries[key]; exists {
 			c.removeLRU(entry)
@@ -960,7 +960,7 @@ func (c *L1MemoryCache) cleanupExpiredEntries() {
 			c.stats.ttlExpirations.Add(1)
 		}
 	}
-	
+
 	if len(toDelete) > 0 {
 		c.stats.currentEntries.Store(int64(len(c.entries)))
 	}
@@ -970,10 +970,10 @@ func (c *L1MemoryCache) cleanupExpiredEntries() {
 func (c *L1MemoryCache) updateHealthStatus() {
 	c.health.mu.Lock()
 	defer c.health.mu.Unlock()
-	
+
 	c.health.lastCheck = time.Now()
 	c.health.issues = c.health.issues[:0] // Clear existing issues
-	
+
 	// Check error rate
 	errorRate := c.calculateErrorRate()
 	if errorRate > 0.05 { // 5% error threshold
@@ -985,7 +985,7 @@ func (c *L1MemoryCache) updateHealthStatus() {
 			Component: "L1MemoryCache",
 		})
 	}
-	
+
 	// Check memory utilization
 	utilization := float64(c.stats.currentSize.Load()) / float64(c.config.MaxCapacity)
 	if utilization > 0.9 { // 90% utilization threshold
@@ -997,7 +997,7 @@ func (c *L1MemoryCache) updateHealthStatus() {
 			Component: "L1MemoryCache",
 		})
 	}
-	
+
 	// Update health score
 	c.health.healthScore = c.calculateHealthScore()
 	c.health.healthy = c.health.healthScore > 0.7 && len(c.health.issues) == 0
@@ -1007,45 +1007,45 @@ func (c *L1MemoryCache) updateHealthStatus() {
 // calculateHealthScore calculates an overall health score
 func (c *L1MemoryCache) calculateHealthScore() float64 {
 	score := 1.0
-	
+
 	// Penalize high error rate
 	errorRate := c.calculateErrorRate()
 	score -= errorRate * 0.5
-	
+
 	// Penalize high utilization
 	utilization := float64(c.stats.currentSize.Load()) / float64(c.config.MaxCapacity)
 	if utilization > 0.8 {
 		score -= (utilization - 0.8) * 0.5
 	}
-	
+
 	// Penalize circuit breaker issues
 	if c.circuitBreaker.getState() != CircuitBreakerClosed {
 		score -= 0.3
 	}
-	
+
 	if score < 0 {
 		score = 0
 	}
-	
+
 	return score
 }
 
 // updateConfigFromTierConfig updates cache configuration from tier config
 func (c *L1MemoryCache) updateConfigFromTierConfig(config TierConfig) error {
 	options := config.BackendConfig.Options
-	
+
 	if maxCapacity, ok := options["max_capacity"].(int64); ok {
 		c.config.MaxCapacity = maxCapacity
 	}
-	
+
 	if maxEntries, ok := options["max_entries"].(int64); ok {
 		c.config.MaxEntries = maxEntries
 	}
-	
+
 	if compressionEnabled, ok := options["compression_enabled"].(bool); ok {
 		c.config.CompressionEnabled = compressionEnabled
 	}
-	
+
 	return nil
 }
 
@@ -1059,7 +1059,7 @@ func newCircuitBreaker(config *CircuitBreakerConfig) *circuitBreaker {
 			config: config,
 		}
 	}
-	
+
 	return &circuitBreaker{
 		state:  CircuitBreakerClosed,
 		config: config,
@@ -1071,11 +1071,11 @@ func (cb *circuitBreaker) canExecute() bool {
 	if cb.config == nil || !cb.config.Enabled {
 		return true
 	}
-	
+
 	cb.mu.RLock()
 	state := cb.state
 	cb.mu.RUnlock()
-	
+
 	switch state {
 	case CircuitBreakerClosed:
 		return true
@@ -1101,10 +1101,10 @@ func (cb *circuitBreaker) recordSuccess() {
 	if cb.config == nil || !cb.config.Enabled {
 		return
 	}
-	
+
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
-	
+
 	if cb.state == CircuitBreakerHalfOpen {
 		cb.state = CircuitBreakerClosed
 		cb.failures.Store(0)
@@ -1116,10 +1116,10 @@ func (cb *circuitBreaker) recordFailure() {
 	if cb.config == nil || !cb.config.Enabled {
 		return
 	}
-	
+
 	failures := cb.failures.Add(1)
 	cb.lastFailure.Store(time.Now())
-	
+
 	if failures >= int64(cb.config.FailureThreshold) {
 		cb.mu.Lock()
 		cb.state = CircuitBreakerOpen
@@ -1197,7 +1197,7 @@ func (cp *simpleCompressionProvider) decompressGzip(data []byte) ([]byte, error)
 		return nil, err
 	}
 	defer reader.Close()
-	
+
 	var buf bytes.Buffer
 	if _, err := buf.ReadFrom(reader); err != nil {
 		return nil, err
