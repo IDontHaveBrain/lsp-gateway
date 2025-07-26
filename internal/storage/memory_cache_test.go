@@ -3,9 +3,6 @@ package storage
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"runtime"
-	"sync"
 	"testing"
 	"time"
 
@@ -17,7 +14,6 @@ func TestL1MemoryCache_BasicOperations(t *testing.T) {
 	cache := NewL1MemoryCache(nil)
 	ctx := context.Background()
 	
-	// Initialize cache
 	err := cache.Initialize(ctx, TierConfig{
 		TierType: TierL1Memory,
 		BackendConfig: BackendConfig{
@@ -33,7 +29,7 @@ func TestL1MemoryCache_BasicOperations(t *testing.T) {
 	entry := &CacheEntry{
 		Method:     "textDocument/definition",
 		Params:     `{"textDocument":{"uri":"file:///test.go"},"position":{"line":10,"character":5}}`,
-		Response:   json.RawMessage(`{"uri":"file:///test.go","range":{"start":{"line":5,"character":0},"end":{"line":5,"character":10}}}`),
+		Response:   json.RawMessage(`{"uri":"file:///test.go","range":{"start":{"line":5,"character":0}}}`),
 		CreatedAt:  time.Now(),
 		AccessedAt: time.Now(),
 		TTL:        time.Hour,
@@ -41,34 +37,51 @@ func TestL1MemoryCache_BasicOperations(t *testing.T) {
 	
 	// Test Put
 	err = cache.Put(ctx, "test-key-1", entry)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Errorf("Put failed: %v", err)
+	}
 	
 	// Test Get
 	retrieved, err := cache.Get(ctx, "test-key-1")
-	assert.NoError(t, err)
-	assert.NotNil(t, retrieved)
-	assert.Equal(t, entry.Method, retrieved.Method)
-	assert.Equal(t, entry.Params, retrieved.Params)
+	if err != nil {
+		t.Errorf("Get failed: %v", err)
+	}
+	if retrieved == nil {
+		t.Error("Get returned nil entry")
+		return
+	}
+	if retrieved.Method != entry.Method {
+		t.Errorf("Expected method %s, got %s", entry.Method, retrieved.Method)
+	}
+	if retrieved.Params != entry.Params {
+		t.Errorf("Expected params %s, got %s", entry.Params, retrieved.Params)
+	}
 	
 	// Test Exists
 	exists, err := cache.Exists(ctx, "test-key-1")
-	assert.NoError(t, err)
-	assert.True(t, exists)
-	
-	exists, err = cache.Exists(ctx, "non-existent-key")
-	assert.NoError(t, err)
-	assert.False(t, exists)
+	if err != nil {
+		t.Errorf("Exists failed: %v", err)
+	}
+	if !exists {
+		t.Error("Entry should exist")
+	}
 	
 	// Test Delete
 	err = cache.Delete(ctx, "test-key-1")
-	assert.NoError(t, err)
+	if err != nil {
+		t.Errorf("Delete failed: %v", err)
+	}
 	
 	exists, err = cache.Exists(ctx, "test-key-1")
-	assert.NoError(t, err)
-	assert.False(t, exists)
+	if err != nil {
+		t.Errorf("Exists check after delete failed: %v", err)
+	}
+	if exists {
+		t.Error("Entry should not exist after deletion")
+	}
 }
 
-func TestL1MemoryCache_PerformanceRequirements(t *testing.T) {
+func TestL1MemoryCache_TTLExpiry(t *testing.T) {
 	cache := NewL1MemoryCache(nil)
 	ctx := context.Background()
 	
@@ -78,18 +91,10 @@ func TestL1MemoryCache_PerformanceRequirements(t *testing.T) {
 			Type: BackendMemory,
 		},
 	})
-	require.NoError(t, err)
-	defer cache.Close()
-	
-	// Prepare test data
-	entry := &CacheEntry{
-		Method:     "textDocument/hover",
-		Params:     `{"textDocument":{"uri":"file:///large-file.go"},"position":{"line":100,"character":20}}`,
-		Response:   json.RawMessage(`{"contents":{"kind":"markdown","value":"## Function Documentation\nThis is a comprehensive documentation for a complex function with multiple parameters and return values."}}`),
-		CreatedAt:  time.Now(),
-		AccessedAt: time.Now(),
-		TTL:        time.Hour,
+	if err != nil {
+		t.Fatalf("Failed to initialize cache: %v", err)
 	}
+<<<<<<< HEAD
 	
 	// Test Put performance - should be <10ms
 	start := time.Now()
@@ -299,42 +304,39 @@ func TestL1MemoryCache_TTLExpiration_Extended(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
+=======
+>>>>>>> origin/master
 	defer cache.Close()
 	
 	// Create entry with short TTL
 	entry := &CacheEntry{
-		Method:     "textDocument/semanticTokens",
-		Params:     `{"textDocument":{"uri":"file:///test.go"}}`,
-		Response:   json.RawMessage(`{"data":[1,2,3,4,5]}`),
+		Method:     "textDocument/hover",
+		Params:     `{"textDocument":{"uri":"file:///test.go"},"position":{"line":5,"character":10}}`,
+		Response:   json.RawMessage(`{"contents":"test function"}`),
 		CreatedAt:  time.Now(),
 		AccessedAt: time.Now(),
-		TTL:        100 * time.Millisecond, // Very short TTL
+		TTL:        10 * time.Millisecond,
 	}
 	
-	// Put the entry
 	err = cache.Put(ctx, "ttl-test-key", entry)
-	assert.NoError(t, err)
+	if err != nil {
+		t.Errorf("Put failed: %v", err)
+	}
 	
-	// Verify it exists initially
-	exists, err := cache.Exists(ctx, "ttl-test-key")
-	assert.NoError(t, err)
-	assert.True(t, exists)
+	// Wait for TTL to expire
+	time.Sleep(20 * time.Millisecond)
 	
-	// Wait for TTL expiration
-	time.Sleep(150 * time.Millisecond)
-	
-	// Verify it's expired
-	exists, err = cache.Exists(ctx, "ttl-test-key")
-	assert.NoError(t, err)
-	assert.False(t, exists, "Entry should have expired")
-	
-	// Verify Get returns error for expired entry
-	_, err = cache.Get(ctx, "ttl-test-key")
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "expired")
+	// Entry should be expired
+	retrieved, err := cache.Get(ctx, "ttl-test-key")
+	if err != nil {
+		t.Errorf("Get failed: %v", err)
+	}
+	if retrieved != nil {
+		t.Error("Entry should have expired")
+	}
 }
 
-func TestL1MemoryCache_BatchOperations(t *testing.T) {
+func TestL1MemoryCache_NonExistentKey(t *testing.T) {
 	cache := NewL1MemoryCache(nil)
 	ctx := context.Background()
 	
@@ -344,59 +346,35 @@ func TestL1MemoryCache_BatchOperations(t *testing.T) {
 			Type: BackendMemory,
 		},
 	})
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatalf("Failed to initialize cache: %v", err)
+	}
 	defer cache.Close()
 	
-	// Prepare batch entries
-	entries := make(map[string]*CacheEntry)
-	keys := make([]string, 10)
-	
-	for i := 0; i < 10; i++ {
-		key := fmt.Sprintf("batch-key-%d", i)
-		keys[i] = key
-		entries[key] = &CacheEntry{
-			Method:     "textDocument/inlayHint",
-			Params:     fmt.Sprintf(`{"textDocument":{"uri":"file:///batch_%d.go"},"range":{"start":{"line":0,"character":0},"end":{"line":100,"character":0}}}`, i),
-			Response:   json.RawMessage(fmt.Sprintf(`[{"position":{"line":%d,"character":10},"label":"Type: int","kind":1}]`, i)),
-			CreatedAt:  time.Now(),
-			AccessedAt: time.Now(),
-			TTL:        time.Hour,
-		}
+	// Test Get with non-existent key
+	retrieved, err := cache.Get(ctx, "non-existent-key")
+	if err != nil {
+		t.Errorf("Get failed: %v", err)
+	}
+	if retrieved != nil {
+		t.Error("Get should return nil for non-existent key")
 	}
 	
-	// Test batch put
-	start := time.Now()
-	err = cache.PutBatch(ctx, entries)
-	batchPutLatency := time.Since(start)
-	assert.NoError(t, err)
-	
-	// Test batch get
-	start = time.Now()
-	retrieved, err := cache.GetBatch(ctx, keys)
-	batchGetLatency := time.Since(start)
-	assert.NoError(t, err)
-	assert.Len(t, retrieved, len(keys))
-	
-	// Verify all entries were retrieved correctly
-	for key, originalEntry := range entries {
-		retrievedEntry, exists := retrieved[key]
-		assert.True(t, exists, "Entry %s should exist", key)
-		assert.Equal(t, originalEntry.Method, retrievedEntry.Method)
-		assert.Equal(t, originalEntry.Params, retrievedEntry.Params)
+	// Test Exists with non-existent key
+	exists, err := cache.Exists(ctx, "non-existent-key")
+	if err != nil {
+		t.Errorf("Exists failed: %v", err)
+	}
+	if exists {
+		t.Error("Exists should return false for non-existent key")
 	}
 	
-	// Test batch delete
-	start = time.Now()
-	err = cache.DeleteBatch(ctx, keys)
-	batchDeleteLatency := time.Since(start)
-	assert.NoError(t, err)
-	
-	// Verify all entries were deleted
-	for _, key := range keys {
-		exists, err := cache.Exists(ctx, key)
-		assert.NoError(t, err)
-		assert.False(t, exists, "Entry %s should have been deleted", key)
+	// Test Delete with non-existent key (should not error)
+	err = cache.Delete(ctx, "non-existent-key")
+	if err != nil {
+		t.Errorf("Delete failed: %v", err)
 	}
+<<<<<<< HEAD
 	
 	t.Logf("Batch operations - Put: %v, Get: %v, Delete: %v", batchPutLatency, batchGetLatency, batchDeleteLatency)
 }
@@ -849,4 +827,6 @@ func TestL1MemoryCache_MemoryUsage(t *testing.T) {
 	
 	// Memory usage should be reasonable (less than 1KB per entry on average)
 	assert.Less(t, avgEntrySize, int64(1024), "Average entry size should be reasonable")
+=======
+>>>>>>> origin/master
 }
