@@ -1378,7 +1378,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_ErrorHandling() {
 	// Test empty directory
 	emptyDir, err := os.MkdirTemp(suite.tempDir, "empty-*")
 	suite.Require().NoError(err)
-	defer os.RemoveAll(emptyDir)
+	defer func() { _ = os.RemoveAll(emptyDir) }()
 
 	result, err := suite.detector.DetectLanguage(ctx, emptyDir)
 	suite.NoError(err, "Should handle empty directory gracefully")
@@ -1414,7 +1414,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_TimeoutHandling() {
 	// Create a project
 	testDir, err := os.MkdirTemp(suite.tempDir, "timeout-test-*")
 	suite.Require().NoError(err)
-	defer os.RemoveAll(testDir)
+	defer func() { _ = os.RemoveAll(testDir) }()
 
 	goModPath := filepath.Join(testDir, "go.mod")
 	err = os.WriteFile(goModPath, []byte("module test\n\ngo 1.20"), 0644)
@@ -1513,7 +1513,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_LargeProject() {
 	// Create large project structure
 	testDir, err := os.MkdirTemp(suite.tempDir, "large-project-*")
 	suite.Require().NoError(err)
-	defer os.RemoveAll(testDir)
+	defer func() { _ = os.RemoveAll(testDir) }()
 
 	// Create go.mod
 	goModPath := filepath.Join(testDir, "go.mod")
@@ -1576,7 +1576,7 @@ func (suite *GoDetectorTestSuite) TestGoDetector_PerformanceProfile() {
 	// Generate using mock or create manually
 	testDir, err := os.MkdirTemp(suite.tempDir, "perf-test-*")
 	suite.Require().NoError(err)
-	defer os.RemoveAll(testDir)
+	defer func() { _ = os.RemoveAll(testDir) }()
 
 	// Create complex project structure manually
 	files := map[string]string{
@@ -1645,7 +1645,7 @@ func (suite *GoDetectorTestSuite) BenchmarkSimpleGoDetection() {
 	// Create simple Go project
 	testDir, err := os.MkdirTemp(suite.tempDir, "bench-simple-*")
 	suite.Require().NoError(err)
-	defer os.RemoveAll(testDir)
+	defer func() { _ = os.RemoveAll(testDir) }()
 
 	files := map[string]string{
 		"go.mod":  "module bench-test\n\ngo 1.20",
@@ -1675,7 +1675,7 @@ func (suite *GoDetectorTestSuite) BenchmarkComplexGoDetection() {
 	// Create complex Go project
 	testDir, err := os.MkdirTemp(suite.tempDir, "bench-complex-*")
 	suite.Require().NoError(err)
-	defer os.RemoveAll(testDir)
+	defer func() { _ = os.RemoveAll(testDir) }()
 
 	files := map[string]string{
 		"go.mod": `module bench-complex
@@ -1728,7 +1728,7 @@ func TestGoDetector_ContextCancellation(t *testing.T) {
 	// Create test project
 	tempDir, err := os.MkdirTemp("", "context-cancel-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	goModPath := filepath.Join(tempDir, "go.mod")
 	err = os.WriteFile(goModPath, []byte("module test\n\ngo 1.20"), 0644)
@@ -1752,7 +1752,7 @@ func TestGoDetector_VendorDirectorySkipping(t *testing.T) {
 	// Create test project with vendor directory
 	tempDir, err := os.MkdirTemp("", "vendor-skip-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	files := map[string]string{
 		"go.mod":                    "module test\n\ngo 1.20",

@@ -999,7 +999,7 @@ func TestDefaultProjectDetector_EmptyDirectory(t *testing.T) {
 	// Create empty directory
 	tempDir, err := os.MkdirTemp("", "empty-dir-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Test detection on empty directory
 	detector := project.NewProjectDetector()
@@ -1022,7 +1022,7 @@ func TestDefaultProjectDetector_LargeDirectoryStructure(t *testing.T) {
 	// Create directory with many files
 	tempDir, err := os.MkdirTemp("", "large-dir-test-*")
 	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func() { _ = os.RemoveAll(tempDir) }()
 
 	// Create base project files
 	goMod := filepath.Join(tempDir, "go.mod")
