@@ -42,6 +42,24 @@ LSP servers are inherently local development tools that run on developers' machi
 - **README.md**: Installation, setup, or usage changes  
 - **Config examples**: Schema or option changes
 - **Test documentation**: Framework or procedure changes
+- **AI Code Reference**: Keep `docs/ai_code_reference.md` updated with new critical files and code locations
+
+### AI/Agent Code Navigation
+**📖 AI Code Reference Guide**: See [docs/ai_code_reference.md](docs/ai_code_reference.md)
+
+For AI/Agent quick navigation, this project maintains a comprehensive code reference document that includes:
+- Critical file locations with `path:line` references
+- Core entry points and business logic locations
+- Key architecture components and their roles
+- Important configuration and setup files
+- Performance-critical code sections
+
+**IMPORTANT**: Always update `docs/ai_code_reference.md` when:
+- Adding new core functionality or entry points
+- Modifying critical business logic locations
+- Changing key configuration structures
+- Refactoring major architectural components
+- Adding new CLI commands or MCP tools
 
 Verify all examples work before completing tasks.
 
@@ -110,7 +128,6 @@ The project includes configuration templates in `config-templates/`:
 - `java-spring.yaml` - Spring Boot development with JDTLS
 - `python-django.yaml` - Django development with pylsp
 - `typescript-react.yaml` - React development with TypeScript language server
-- `rust-workspace.yaml` - Rust workspace configuration
 
 **Project Patterns:**
 - `full-stack.yaml` - Full-stack development setup
@@ -215,15 +232,6 @@ make security                 # Run gosec security analysis
 make quality                  # Format + lint + security
 ```
 
-### Testing Commands
-```bash
-make test                     # Run all tests
-make test-unit               # Fast unit tests only (<60s)
-make test-simple-quick       # Quick validation (1min)
-make test-lsp-validation-short # Short LSP validation (2min)
-make test-integration        # Integration tests
-```
-
 ### Development Workflow
 ```bash
 # Quick development cycle
@@ -236,30 +244,13 @@ make test-unit && make test-lsp-validation-short
 make test && make quality
 ```
 
-## Multi-Language Development Workflows
+## Development Workflows
 
-### Go Development
-- **Entry Point**: `cmd/lsp-gateway/main.go`
+### Key Development Areas
 - **Core Logic**: `internal/` packages with interface-based design
-- **Testing**: Unit tests co-located with packages
-- **Tools**: golangci-lint, gosec, go vet
-
-### Configuration Development
-- **Templates**: Add new templates to `config-templates/`
-- **Schema**: Update `internal/config/schema.go` for new options
-- **Validation**: Add validation rules in `internal/config/validation.go`
-- **Migration**: Update `internal/config/migration.go` for schema changes
-
-### Transport Layer Development
-- **STDIO**: Modify `internal/transport/stdio.go`
-- **TCP**: Modify `internal/transport/tcp.go`
-- **Circuit Breakers**: Configure in `internal/transport/circuit_breaker.go`
-- **Performance**: Monitor with `internal/transport/pool_metrics.go`
-
-### MCP Integration Development
-- **Protocol**: Update `mcp/server.go` for new MCP methods
-- **Tools**: Add new LSP tools in `mcp/tools.go`
-- **Transport**: Support both stdio and tcp in `mcp/transport.go`
+- **Configuration**: Templates in `config-templates/`, schema in `internal/config/`
+- **Transport Layer**: STDIO/TCP implementations in `internal/transport/`
+- **MCP Integration**: Protocol and tools in `mcp/`
 
 ## Installation and Setup
 
@@ -272,20 +263,10 @@ make local                           # Build for current platform
 
 ### Manual Setup
 ```bash
-# 1. Install runtimes
-./bin/lsp-gateway setup runtimes
-
-# 2. Install language servers
-./bin/lsp-gateway install gopls
-./bin/lsp-gateway install pylsp
-./bin/lsp-gateway install typescript-language-server
-./bin/lsp-gateway install jdtls
-
-# 3. Generate configuration
-./bin/lsp-gateway config generate --auto-detect
-
-# 4. Validate setup
-./bin/lsp-gateway verify
+./bin/lsp-gateway setup runtimes                     # Install runtimes
+./bin/lsp-gateway install <server>                   # Install language servers
+./bin/lsp-gateway config generate --auto-detect      # Generate configuration
+./bin/lsp-gateway verify                            # Validate setup
 ```
 
 ### Requirements
@@ -309,20 +290,6 @@ make local                           # Build for current platform
 - **Config issues**: `./bin/lsp-gateway config validate`
 - **Language server issues**: `./bin/lsp-gateway install <server> --force`
 - **Build issues**: `make clean && make local`
-
-## Key File Locations
-
-### Entry Points
-- **Main CLI**: `cmd/lsp-gateway/main.go`
-- **CLI root**: `internal/cli/root.go`
-- **Gateway logic**: `internal/gateway/handlers.go`
-- **MCP server**: `mcp/server.go`
-- **Configuration**: `internal/config/config.go`
-
-### Important Directories
-- **Config templates**: `config-templates/`
-- **Testing**: `tests/e2e/`, `tests/integration/`, `tests/unit/`
-- **Documentation**: `docs/test_guide.md`, `docs/troubleshooting.md`
 
 ## Architecture Notes
 
