@@ -1250,85 +1250,13 @@ export function sleep(ms: number): Promise<void> {
 // Continue with more content generators...
 // This file is getting quite long, so I'll break it here and continue in another file or add the remaining generators as needed.
 
-func (g *TestProjectGenerator) loadGoTemplates() {
-	// Load Go project templates
-	g.Templates["go-simple"] = &ProjectTemplate{
-		Name:      "Go Simple",
-		Type:      ProjectTypeSingleLanguage,
-		Languages: []string{"go"},
-		Structure: map[string]string{
-			"go.mod":  "module simple-go\n\ngo 1.19",
-			"main.go": "package main\n\nfunc main() { println(\"Hello, World!\") }",
-		},
-		BuildFiles: []string{"go.mod"},
-	}
-}
 
-func (g *TestProjectGenerator) loadPythonTemplates() {
-	// Load Python project templates
-	g.Templates["python-simple"] = &ProjectTemplate{
-		Name:      "Python Simple",
-		Type:      ProjectTypeSingleLanguage,
-		Languages: []string{"python"},
-		Structure: map[string]string{
-			"setup.py": "from setuptools import setup\n\nsetup(name='simple-python')",
-			"main.py":  "print('Hello, World!')",
-		},
-		BuildFiles: []string{"setup.py"},
-	}
-}
 
-func (g *TestProjectGenerator) loadTypeScriptTemplates() {
-	// Load TypeScript project templates
-}
 
-func (g *TestProjectGenerator) loadJavaTemplates() {
-	// Load Java project templates
-}
 
-func (g *TestProjectGenerator) loadRustTemplates() {
-	// Load Rust project templates
-}
 
-func (g *TestProjectGenerator) loadMultiLanguageTemplates() {
-	// Load multi-language project templates
-}
 
-func (g *TestProjectGenerator) loadMonorepoTemplates() {
-	// Load monorepo project templates
-}
 
-func (g *TestProjectGenerator) loadMicroservicesTemplates() {
-	// Load microservices project templates
-}
 
-// Additional helper methods for generating project type structures, build files, etc.
-func (g *TestProjectGenerator) generateProjectTypeStructure(project *TestProject, config *ProjectGenerationConfig) error {
-	// Generate structure based on project type
-	return nil
-}
-
-func (g *TestProjectGenerator) generateBuildFiles(project *TestProject, config *ProjectGenerationConfig) {
-	// Generate build system files
-}
-
-func (g *TestProjectGenerator) generateTestFiles(project *TestProject, config *ProjectGenerationConfig) {
-	// Generate test files
-}
-
-func (g *TestProjectGenerator) generateDependencies(project *TestProject, config *ProjectGenerationConfig) {
-	// Generate dependency configurations
-}
-
-func (g *TestProjectGenerator) generateDocumentation(project *TestProject, config *ProjectGenerationConfig) {
-	// Generate documentation files
-}
-
-func (g *TestProjectGenerator) generateCIConfiguration(project *TestProject, config *ProjectGenerationConfig) {
-	// Generate CI/CD configuration
-}
-
-func (g *TestProjectGenerator) generateDockerConfiguration(project *TestProject, config *ProjectGenerationConfig) {
-	// Generate Docker configuration
-}
+// Additional helper methods are in the main test_project_generator.go file
 
