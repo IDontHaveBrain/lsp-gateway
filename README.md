@@ -6,7 +6,7 @@
 - **HTTP JSON-RPC Gateway**: REST API for IDEs and development tools
 - **MCP Server**: Model Context Protocol server for AI assistants (Claude, GPT, etc.)
 
-**Features**: 4 languages supported • Cross-platform • Auto-setup • 20+ CLI commands
+**Features**: 6 core LSP features • 4 languages supported • Cross-platform • Auto-setup • 20+ CLI commands
 
 > 🎉 **Phase 2 SCIP Intelligent Caching**: Complete with 590-line Enhanced MCP Tools, Smart Router, Three-Tier Storage, and 60-87% performance improvements!
 
@@ -66,7 +66,13 @@ curl -X POST http://localhost:8080/jsonrpc \
   }'
 ```
 
-**Available methods**: `textDocument/definition`, `textDocument/references`, `textDocument/documentSymbol`, `workspace/symbol`, `textDocument/hover`
+**Supported LSP methods** (6 core features only):
+- `textDocument/definition` - Go to definition
+- `textDocument/references` - Find all references  
+- `textDocument/hover` - Hover information
+- `textDocument/documentSymbol` - Document symbols
+- `workspace/symbol` - Workspace symbol search
+- `textDocument/completion` - Code completion
 
 ### MCP Server for AI Integration
 
@@ -82,12 +88,13 @@ Configure AI tools (Claude Desktop, etc.):
 }
 ```
 
-**MCP Tools Available**:
+**MCP Tools Available** (6 core LSP features):
 - `goto_definition` - Navigate to symbol definitions  
 - `find_references` - Find all references to a symbol
 - `get_hover_info` - Get hover information for symbols
 - `get_document_symbols` - List symbols in a document
 - `search_workspace_symbols` - Search workspace symbols
+- `get_completion` - Get code completion suggestions
 
 ### Node.js Integration
 
@@ -109,6 +116,23 @@ npm run server      # Start HTTP Gateway
 npm run diagnose    # System diagnostics
 npm run version     # Show version
 ```
+
+## 🎯 Supported LSP Features
+
+> **⚠️ IMPORTANT**: LSP Gateway supports **exactly 6 core LSP features** only, focused on essential developer productivity.
+
+| **LSP Method** | **Description** | **Use Case** |
+|----------------|-----------------|--------------|
+| `textDocument/definition` | Go to definition | Navigate to symbol definitions |
+| `textDocument/references` | Find all references | Find all uses of a symbol |
+| `textDocument/hover` | Hover information | Get documentation and type info |
+| `textDocument/documentSymbol` | Document symbols | Get document outline/structure |
+| `workspace/symbol` | Workspace symbol search | Search symbols across files |
+| `textDocument/completion` | Code completion | IntelliSense and autocompletion |
+
+**✅ Supported**: These 6 features provide the core IDE experience for local development.
+
+**❌ Not Supported**: Advanced features like formatting, diagnostics, code actions, refactoring, etc. are intentionally excluded to keep the gateway simple and focused.
 
 ## Commands
 

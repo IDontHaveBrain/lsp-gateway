@@ -1,0 +1,67 @@
+[
+  {
+    "uri": "file:///workspace/src/components/UserComponent.tsx",
+    "range": {
+      "start": {
+        "line": 8,
+        "character": 32
+      },
+      "end": {
+        "line": 8,
+        "character": 41
+      }
+    }
+  },
+  {
+    "uri": "file:///workspace/src/components/UserList.tsx",
+    "range": {
+      "start": {
+        "line": 22,
+        "character": 15
+      },
+      "end": {
+        "line": 22,
+        "character": 24
+      }
+    }
+  },
+  {
+    "uri": "file:///workspace/src/hooks/useUser.ts",
+    "range": {
+      "start": {
+        "line": 12,
+        "character": 25
+      },
+      "end": {
+        "line": 12,
+        "character": 34
+      }
+    }
+  },
+  {
+    "uri": "file:///workspace/src/services/UserService.ts",
+    "range": {
+      "start": {
+        "line": 45,
+        "character": 18
+      },
+      "end": {
+        "line": 45,
+        "character": 27
+      }
+    }
+  },
+  {
+    "uri": "file:///workspace/src/types/api.d.ts",
+    "range": {
+      "start": {
+        "line": 67,
+        "character": 20
+      },
+      "end": {
+        "line": 67,
+        "character": 29
+      }
+    }
+  }
+]

@@ -34,6 +34,38 @@ LSP servers are inherently local development tools that run on developers' machi
 
 **Design Principle**: Keep it simple, local, and focused on developer productivity.
 
+## Supported LSP Features
+
+**CRITICAL: LSP Gateway supports ONLY 6 specific LSP features**
+
+The LSP Gateway is intentionally limited to core development features that provide maximum developer productivity with minimal complexity. All development, testing, and feature work must focus exclusively on these 6 features:
+
+### ✅ Supported Features (6 Total)
+1. **`textDocument/definition`** - Go to definition functionality
+2. **`textDocument/references`** - Find all references to symbols
+3. **`textDocument/hover`** - Hover information and documentation
+4. **`textDocument/documentSymbol`** - Document symbol outline/tree
+5. **`workspace/symbol`** - Workspace-wide symbol search
+6. **`textDocument/completion`** - Code completion and IntelliSense
+
+### ❌ Unsupported Features
+**All other LSP features are explicitly NOT supported**, including but not limited to:
+- Code formatting (`textDocument/formatting`)
+- Diagnostics (`textDocument/publishDiagnostics`)
+- Code actions (`textDocument/codeAction`)
+- Refactoring (`textDocument/rename`)
+- Signature help (`textDocument/signatureHelp`)
+- Semantic tokens (`textDocument/semanticTokens`)
+
+### Development Constraints
+- **Feature Development**: Only implement and enhance the 6 supported features
+- **Testing Focus**: All tests must validate only the 6 supported features
+- **API Design**: Gateway APIs should only expose the 6 supported operations
+- **Performance Optimization**: SCIP caching and performance improvements target only supported features
+- **Error Handling**: Gracefully reject requests for unsupported LSP methods
+
+**Rationale**: This focused approach ensures reliable, high-performance operation for essential development tasks while avoiding the complexity of maintaining dozens of LSP features.
+
 ## Development Guidelines
 
 ### Documentation Updates

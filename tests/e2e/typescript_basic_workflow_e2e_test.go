@@ -55,7 +55,6 @@ type TypeScriptWorkflowResult struct {
 	DocumentSymbolsCount   int
 	CompletionItemsCount   int
 	TypeInformationValid   bool
-	DiagnosticsCount       int
 	WorkflowLatency        time.Duration
 	ErrorCount             int
 	RequestCount           int
@@ -357,7 +356,6 @@ func (suite *TypeScriptBasicWorkflowE2ETestSuite) TestTypeScriptSpecificFeatures
 		feature     string
 		description string
 	}{
-		{"Type Checking", "diagnostics", "TypeScript type checking and error diagnostics"},
 		{"Interface Navigation", "interface_nav", "Navigate between interface definitions and implementations"},
 		{"Import Resolution", "import_resolution", "Resolve TypeScript imports and modules"},
 		{"Generic Type Handling", "generics", "Handle TypeScript generic types and constraints"},
@@ -370,7 +368,6 @@ func (suite *TypeScriptBasicWorkflowE2ETestSuite) TestTypeScriptSpecificFeatures
 
 			// Validate TypeScript-specific features
 			suite.True(result.TypeInformationValid, "Type information should be valid for %s", tc.feature)
-			suite.GreaterOrEqual(result.DiagnosticsCount, 0, "Diagnostics should be available for %s", tc.feature)
 			
 			if tc.feature == "completion" {
 				suite.Greater(result.CompletionItemsCount, 0, "Completion items should be available")
@@ -513,6 +510,9 @@ func (suite *TypeScriptBasicWorkflowE2ETestSuite) TestPerformanceValidation() {
 
 	for _, tc := range testCases {
 		suite.Run(tc.name, func() {
+			// Reset mock state to ensure clean state for each performance test
+			suite.mockClient.Reset()
+			
 			// Setup sufficient responses for performance test
 			for i := 0; i < tc.requestCount; i++ {
 				suite.mockClient.QueueResponse(json.RawMessage(`{
@@ -713,31 +713,14 @@ func (suite *TypeScriptBasicWorkflowE2ETestSuite) executeBasicLSPWorkflow(fileNa
 func (suite *TypeScriptBasicWorkflowE2ETestSuite) executeTypeScriptSpecificWorkflow(feature string) TypeScriptWorkflowResult {
 	result := TypeScriptWorkflowResult{}
 
+	// Reset mock state to ensure clean state for each feature test
+	suite.mockClient.Reset()
+
 	startTime := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
 
 	switch feature {
-	case "diagnostics":
-		// Mock diagnostic response for type checking
-		suite.mockClient.QueueResponse(json.RawMessage(`[
-			{
-				"range": {"start": {"line": 5, "character": 10}, "end": {"line": 5, "character": 20}},
-				"severity": 1,
-				"message": "Property 'someProperty' does not exist on type 'User'",
-				"source": "typescript"
-			}
-		]`))
-		resp, err := suite.mockClient.SendLSPRequest(ctx, "textDocument/publishDiagnostics", map[string]interface{}{
-			"uri": fmt.Sprintf("file://%s/main.ts", suite.workspaceRoot),
-		})
-		if err == nil && resp != nil {
-			var diagnostics []interface{}
-			if json.Unmarshal(resp, &diagnostics) == nil {
-				result.DiagnosticsCount = len(diagnostics)
-			}
-		}
-
 	case "completion":
 		// Mock completion response
 		suite.mockClient.QueueResponse(json.RawMessage(`{
@@ -761,12 +744,15 @@ func (suite *TypeScriptBasicWorkflowE2ETestSuite) executeTypeScriptSpecificWorkf
 		}
 
 	default:
-		// Generic TypeScript feature test
+		// Generic TypeScript feature test using supported LSP features
 		suite.mockClient.QueueResponse(suite.createTypeScriptDefinitionResponse())
-		suite.mockClient.SendLSPRequest(ctx, mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION, map[string]interface{}{
+		_, err := suite.mockClient.SendLSPRequest(ctx, mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION, map[string]interface{}{
 			"textDocument": map[string]string{"uri": fmt.Sprintf("file://%s/main.ts", suite.workspaceRoot)},
 			"position":     LSPPosition{Line: 3, Character: 10},
 		})
+		if err != nil {
+			result.ErrorCount++
+		}
 	}
 
 	result.WorkflowLatency = time.Since(startTime)

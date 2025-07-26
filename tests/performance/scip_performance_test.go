@@ -169,17 +169,15 @@ func NewSCIPPerformanceTest(t *testing.T) *SCIPPerformanceTest {
 			"textDocument/hover",
 			"textDocument/documentSymbol",
 			"workspace/symbol",
-		},
-		
-		// LSP-only methods (not supported by SCIP in Phase 1)
-		LSPOnlyMethods: []string{
 			"textDocument/completion",
-			"textDocument/signatureHelp",
-			"textDocument/formatting",
-			"textDocument/codeAction",
 		},
 		
-		// Mixed protocol testing ratios (SCIP-enabled vs LSP-only requests)
+		// LSP-only methods (not supported by SCIP - none in Phase 1)
+		LSPOnlyMethods: []string{
+			// All supported methods are now SCIP-enabled
+		},
+		
+		// Mixed protocol testing ratios (for testing different request patterns)
 		MixedProtocolRatios: []float64{0.2, 0.5, 0.8},
 
 		// Initialize metrics tracking
@@ -320,7 +318,7 @@ func (test *SCIPPerformanceTest) TestSCIPMixedProtocolPerformance(t *testing.T) 
 		test.baselineMetrics = baselineMetrics
 	}
 
-	t.Log("Testing mixed protocol performance with 100+ concurrent requests...")
+	t.Log("Testing SCIP performance with 100+ concurrent requests...")
 
 	// Test different concurrency levels and protocol ratios
 	for _, concurrency := range test.TestConcurrency {
@@ -331,8 +329,8 @@ func (test *SCIPPerformanceTest) TestSCIPMixedProtocolPerformance(t *testing.T) 
 				test.validateMixedProtocolPerformance(t, comparison)
 				test.performanceComparisons = append(test.performanceComparisons, comparison)
 
-				t.Logf("Mixed protocol (C=%d, SCIP=%.0f%%): Throughput=%.2f req/sec, Cache hit=%.2f%%, Regression=%t",
-					concurrency, scipRatio*100, comparison.SCIPMetrics.ThroughputReqPerSec,
+				t.Logf("SCIP performance (C=%d): Throughput=%.2f req/sec, Cache hit=%.2f%%, Regression=%t",
+					concurrency, comparison.SCIPMetrics.ThroughputReqPerSec,
 					comparison.SCIPMetrics.CacheHitRate*100, comparison.PerformanceRegression)
 			})
 		}
@@ -343,13 +341,13 @@ func (test *SCIPPerformanceTest) TestSCIPMixedProtocolPerformance(t *testing.T) 
 func (test *SCIPPerformanceTest) TestSCIPPerformanceRegression(t *testing.T) {
 	ctx := context.Background()
 
-	// Test with SCIP enabled but using only LSP-only methods
+	// Test with SCIP enabled but simulating LSP-only behavior (no caching)
 	if err := test.setupSCIPEnvironment(ctx); err != nil {
 		t.Fatalf("Failed to setup SCIP environment: %v", err)
 	}
 	defer test.cleanup()
 
-	t.Log("Testing performance regression with SCIP enabled but using LSP-only methods...")
+	t.Log("Testing performance regression with SCIP infrastructure overhead...")
 
 	scipLSPOnlyMetrics, err := test.measureLSPOnlyPerformanceWithSCIP(ctx, test.BaselineConcurrency, 60*time.Second)
 	if err != nil {
@@ -370,7 +368,7 @@ func (test *SCIPPerformanceTest) TestSCIPPerformanceRegression(t *testing.T) {
 		}
 	}
 
-	t.Logf("LSP-only with SCIP overhead: Throughput regression=%.2f%%, Response time regression=%.2f%%",
+	t.Logf("SCIP infrastructure overhead: Throughput regression=%.2f%%, Response time regression=%.2f%%",
 		regression.ThroughputRegressionPercent, regression.ResponseTimeRegressionPercent)
 }
 
@@ -691,35 +689,9 @@ func (test *SCIPPerformanceTest) measureMixedProtocolPerformance(t *testing.T, c
 
 func (test *SCIPPerformanceTest) mixedProtocolWorker(workerID int, scipRatio float64, endTime time.Time, results chan<- *SCIPRequestResult) {
 	for time.Now().Before(endTime) {
-		var method string
-		useSCIP := rand.Float64() < scipRatio
-
-		if useSCIP {
-			method = test.SCIPSupportedMethods[rand.Intn(len(test.SCIPSupportedMethods))]
-			test.performSCIPRequest(method, results)
-		} else {
-			method = test.LSPOnlyMethods[rand.Intn(len(test.LSPOnlyMethods))]
-			startTime := time.Now()
-			err := test.simulateLSPRequest(method, true)
-			responseTime := time.Since(startTime)
-
-			result := &SCIPRequestResult{
-				Method:          method,
-				Success:         err == nil,
-				ResponseTime:    responseTime,
-				CacheHit:        false,
-				SCIPUsed:        false,
-				Error:           err,
-				Timestamp:       startTime,
-				MemoryAllocated: test.measureCurrentMemoryUsage(),
-			}
-
-			select {
-			case results <- result:
-			case <-time.After(500 * time.Millisecond):
-				// Avoid blocking
-			}
-		}
+		// Since all supported methods are now SCIP-enabled, always use SCIP methods
+		method := test.SCIPSupportedMethods[rand.Intn(len(test.SCIPSupportedMethods))]
+		test.performSCIPRequest(method, results)
 
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -763,12 +735,6 @@ func (test *SCIPPerformanceTest) getMethodBaseProcessingTime(method string) time
 		return time.Duration(30+rand.Intn(80)) * time.Millisecond
 	case "textDocument/completion":
 		return time.Duration(25+rand.Intn(60)) * time.Millisecond
-	case "textDocument/signatureHelp":
-		return time.Duration(8+rand.Intn(20)) * time.Millisecond
-	case "textDocument/formatting":
-		return time.Duration(50+rand.Intn(100)) * time.Millisecond
-	case "textDocument/codeAction":
-		return time.Duration(20+rand.Intn(60)) * time.Millisecond
 	default:
 		return time.Duration(15+rand.Intn(30)) * time.Millisecond
 	}
@@ -1012,9 +978,10 @@ func (test *SCIPPerformanceTest) measureLSPOnlyPerformanceWithSCIP(ctx context.C
 }
 
 func (test *SCIPPerformanceTest) lspOnlyWithSCIPWorker(workerID int, endTime time.Time, results chan<- *SCIPRequestResult) {
+	// Since all supported methods are SCIP-enabled, use SCIP methods but disable caching
+	// to simulate LSP-only behavior and measure SCIP infrastructure overhead
 	for time.Now().Before(endTime) {
-		// Use only LSP-only methods that SCIP doesn't support
-		method := test.LSPOnlyMethods[rand.Intn(len(test.LSPOnlyMethods))]
+		method := test.SCIPSupportedMethods[rand.Intn(len(test.SCIPSupportedMethods))]
 		
 		startTime := time.Now()
 		err := test.simulateLSPRequest(method, true) // With SCIP infrastructure overhead
@@ -1024,7 +991,7 @@ func (test *SCIPPerformanceTest) lspOnlyWithSCIPWorker(workerID int, endTime tim
 			Method:          method,
 			Success:         err == nil,
 			ResponseTime:    responseTime,
-			CacheHit:        false, // LSP-only methods don't use cache
+			CacheHit:        false, // Simulate LSP-only behavior without cache
 			SCIPUsed:        false,
 			Error:           err,
 			Timestamp:       startTime,
@@ -1138,33 +1105,9 @@ func (test *SCIPPerformanceTest) measureHighConcurrencyLoad(ctx context.Context,
 
 func (test *SCIPPerformanceTest) highLoadWorker(workerID int, endTime time.Time, results chan<- *SCIPRequestResult) {
 	for time.Now().Before(endTime) {
-		// Mix of SCIP and LSP-only requests
-		if rand.Float64() < 0.6 { // 60% SCIP requests
-			method := test.SCIPSupportedMethods[rand.Intn(len(test.SCIPSupportedMethods))]
-			test.performSCIPRequest(method, results)
-		} else {
-			method := test.LSPOnlyMethods[rand.Intn(len(test.LSPOnlyMethods))]
-			startTime := time.Now()
-			err := test.simulateLSPRequest(method, true)
-			responseTime := time.Since(startTime)
-
-			result := &SCIPRequestResult{
-				Method:          method,
-				Success:         err == nil,
-				ResponseTime:    responseTime,
-				CacheHit:        false,
-				SCIPUsed:        false,
-				Error:           err,
-				Timestamp:       startTime,
-				MemoryAllocated: test.measureCurrentMemoryUsage(),
-			}
-
-			select {
-			case results <- result:
-			case <-time.After(500 * time.Millisecond):
-				// Avoid blocking under high load
-			}
-		}
+		// Since all supported methods are SCIP-enabled, use SCIP methods
+		method := test.SCIPSupportedMethods[rand.Intn(len(test.SCIPSupportedMethods))]
+		test.performSCIPRequest(method, results)
 
 		time.Sleep(5 * time.Millisecond) // Minimal delay for high load
 	}

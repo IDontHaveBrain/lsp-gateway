@@ -694,4 +694,4 @@ func (d *DefaultProjectDetector) GetSupportedLanguages() []string {
 // - python_detector.go for Python projects
 // - nodejs_detector.go for Node.js projects
 // - java_detector.go for Java projects
-// - typescript_detector.go for TypeScript projects
+// - detectors/typescript_detector.go for TypeScript projects

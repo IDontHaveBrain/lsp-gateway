@@ -43,39 +43,6 @@ type ConfigFile struct {
 	Type     string // tsconfig, package.json, etc.
 }
 
-// TypeScriptRefactoringResult captures results from advanced refactoring operations
-type TypeScriptRefactoringResult struct {
-	RenameSuccess         bool
-	ExtractInterfaceSuccess bool
-	MoveSymbolSuccess     bool
-	ImportOrganizationSuccess bool
-	CrossFileChangesCount int
-	RefactoringLatency    time.Duration
-	ErrorCount            int
-	ValidationSuccess     bool
-}
-
-// TypeScriptBuildConfigResult captures results from build configuration hot reload tests
-type TypeScriptBuildConfigResult struct {
-	TsconfigReloadSuccess      bool
-	PathMappingUpdateSuccess   bool
-	IncrementalCompileSuccess  bool
-	FrameworkConfigSuccess     bool
-	RevalidationLatency        time.Duration
-	ErrorCount                 int
-	ConfigChangeDetected       bool
-}
-
-// TypeScriptModernFeaturesResult captures results from TypeScript 5.x+ features testing
-type TypeScriptModernFeaturesResult struct {
-	DecoratorsSupported        bool
-	SatisfiesOperatorSupported bool
-	ConstAssertionsSupported   bool
-	UtilityTypesSupported      bool
-	FeatureValidationLatency   time.Duration
-	ErrorCount                 int
-	TypeInferenceAccurate      bool
-}
 
 // TypeScriptFrameworkResult captures results from framework-specific integration tests
 type TypeScriptFrameworkResult struct {
@@ -1053,8 +1020,8 @@ func (suite *TypeScriptAdvancedE2ETestSuite) TestCrossProtocolAdvancedValidation
 
 	for _, protocol := range protocols {
 		suite.Run(protocol.name, func() {
-			// Setup protocol-specific responses for advanced methods
-			suite.setupAdvancedProtocolResponses(protocol.name, advancedMethods)
+			// Setup protocol-specific responses for supported methods
+			suite.setupSupportedProtocolResponses(protocol.name, supportedMethods)
 
 			ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 			defer cancel()
@@ -1062,9 +1029,9 @@ func (suite *TypeScriptAdvancedE2ETestSuite) TestCrossProtocolAdvancedValidation
 			startTime := time.Now()
 			successCount := 0
 
-			// Test advanced LSP methods through the protocol
-			for _, method := range advancedMethods {
-				resp, err := suite.mockClient.SendLSPRequest(ctx, method, suite.createAdvancedTestParams(method))
+			// Test supported LSP methods through the protocol
+			for _, method := range supportedMethods {
+				resp, err := suite.mockClient.SendLSPRequest(ctx, method, suite.createSupportedTestParams(method))
 				if err == nil && resp != nil {
 					successCount++
 				}
@@ -1072,14 +1039,14 @@ func (suite *TypeScriptAdvancedE2ETestSuite) TestCrossProtocolAdvancedValidation
 
 			protocolLatency := time.Since(startTime)
 
-			// Validate advanced protocol functionality
-			suite.Equal(len(advancedMethods), successCount, "All advanced LSP methods should work through %s protocol", protocol.name)
-			suite.Less(protocolLatency, 8*time.Second, "%s protocol should handle advanced operations efficiently", protocol.name)
+			// Validate supported protocol functionality
+			suite.Equal(len(supportedMethods), successCount, "All supported LSP methods should work through %s protocol", protocol.name)
+			suite.Less(protocolLatency, 6*time.Second, "%s protocol should handle supported operations efficiently", protocol.name)
 			
-			// Validate advanced operation call counts
-			for _, method := range advancedMethods {
+			// Validate supported operation call counts
+			for _, method := range supportedMethods {
 				suite.GreaterOrEqual(suite.mockClient.GetCallCount(method), 1, 
-					"Advanced method %s should be called through %s", method, protocol.name)
+					"Supported method %s should be called through %s", method, protocol.name)
 			}
 		})
 	}
@@ -1130,6 +1097,9 @@ func (suite *TypeScriptAdvancedE2ETestSuite) TestAdvancedOperationsPerformance()
 
 	for _, test := range performanceTests {
 		suite.Run(test.name, func() {
+			// Reset mock state to ensure clean state for each performance test
+			suite.mockClient.Reset()
+			
 			// Setup sufficient responses for performance test with complexity consideration
 			for i := 0; i < test.requestCount; i++ {
 				suite.mockClient.QueueResponse(suite.createAdvancedOperationResponse(test.operationType))
@@ -1147,6 +1117,10 @@ func (suite *TypeScriptAdvancedE2ETestSuite) TestAdvancedOperationsPerformance()
 					defer wg.Done()
 					
 					requestsPerWorker := test.requestCount / test.concurrency
+					// Handle remainder - give extra requests to first few workers
+					if workerID < test.requestCount%test.concurrency {
+						requestsPerWorker++
+					}
 					for j := 0; j < requestsPerWorker; j++ {
 						ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 						_, err := suite.mockClient.SendLSPRequest(ctx, test.operationType, suite.createAdvancedTestParams(test.operationType))
@@ -1180,193 +1154,114 @@ func (suite *TypeScriptAdvancedE2ETestSuite) TestAdvancedOperationsPerformance()
 
 // Helper methods for executing advanced workflows
 
-// executeRefactoringOperation executes advanced TypeScript refactoring operations
-func (suite *TypeScriptAdvancedE2ETestSuite) executeRefactoringOperation(operation, targetFile, targetSymbol string) TypeScriptRefactoringResult {
-	result := TypeScriptRefactoringResult{}
+// executeAdvancedDefinitionReferences executes advanced definition and references operations
+func (suite *TypeScriptAdvancedE2ETestSuite) executeAdvancedDefinitionReferences(targetFile, targetSymbol string) TypeScriptAdvancedResult {
+	result := TypeScriptAdvancedResult{}
 	
-	// Setup mock responses for refactoring operations
-	suite.setupRefactoringResponses(operation, targetFile, targetSymbol)
+	// Setup mock responses for definition and references
+	suite.setupDefinitionReferencesResponses(targetFile, targetSymbol)
 	
 	startTime := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
 
-	switch operation {
-	case "textDocument/rename":
-		// First, prepare rename to check if symbol can be renamed safely
-		prepareResp, err := suite.mockClient.SendLSPRequest(ctx, "textDocument/prepareRename", map[string]interface{}{
-			"textDocument": map[string]string{"uri": fmt.Sprintf("file://%s/%s", suite.workspaceRoot, targetFile)},
-			"position":     map[string]int{"line": 10, "character": 15},
-		})
-		
-		if err == nil && prepareResp != nil {
-			// Execute the actual rename
-			renameResp, err := suite.mockClient.SendLSPRequest(ctx, "textDocument/rename", map[string]interface{}{
-				"textDocument": map[string]string{"uri": fmt.Sprintf("file://%s/%s", suite.workspaceRoot, targetFile)},
-				"position":     map[string]int{"line": 10, "character": 15},
-				"newName":      fmt.Sprintf("%s_Renamed", targetSymbol),
-			})
-			
-			result.RenameSuccess = err == nil && renameResp != nil
-			if result.RenameSuccess {
-				// Parse workspace edit to count cross-file changes
-				var workspaceEdit map[string]interface{}
-				if json.Unmarshal(renameResp, &workspaceEdit) == nil {
-					if changes, ok := workspaceEdit["changes"].(map[string]interface{}); ok {
-						result.CrossFileChangesCount = len(changes)
-					}
-				}
-			}
-		}
+	// Test definition navigation
+	definitionResp, err := suite.mockClient.SendLSPRequest(ctx, mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION, map[string]interface{}{
+		"textDocument": map[string]string{"uri": fmt.Sprintf("file://%s/%s", suite.workspaceRoot, targetFile)},
+		"position":     map[string]int{"line": 10, "character": 15},
+	})
+	result.DefinitionSuccess = err == nil && definitionResp != nil
 
-	case "textDocument/codeAction":
-		// Request code actions for extract interface or organize imports
-		codeActionResp, err := suite.mockClient.SendLSPRequest(ctx, "textDocument/codeAction", map[string]interface{}{
-			"textDocument": map[string]string{"uri": fmt.Sprintf("file://%s/%s", suite.workspaceRoot, targetFile)},
-			"range": map[string]interface{}{
-				"start": map[string]int{"line": 5, "character": 0},
-				"end":   map[string]int{"line": 20, "character": 0},
-			},
-			"context": map[string]interface{}{
-				"only": []string{"refactor.extract", "source.organizeImports"},
-			},
-		})
-		
-		if err == nil && codeActionResp != nil {
-			var codeActions []interface{}
-			if json.Unmarshal(codeActionResp, &codeActions) == nil {
-				result.ExtractInterfaceSuccess = len(codeActions) > 0
-				result.ImportOrganizationSuccess = strings.Contains(targetSymbol, "imports")
-				result.CrossFileChangesCount = len(codeActions)
-			}
-		}
+	// Test references finding
+	referencesResp, err := suite.mockClient.SendLSPRequest(ctx, mcp.LSP_METHOD_TEXT_DOCUMENT_REFERENCES, map[string]interface{}{
+		"textDocument": map[string]string{"uri": fmt.Sprintf("file://%s/%s", suite.workspaceRoot, targetFile)},
+		"position":     map[string]int{"line": 10, "character": 15},
+		"context":      map[string]bool{"includeDeclaration": true},
+	})
+	result.ReferencesSuccess = err == nil && referencesResp != nil
 
-	case "workspace/executeCommand":
-		// Execute move symbol command
-		executeResp, err := suite.mockClient.SendLSPRequest(ctx, "workspace/executeCommand", map[string]interface{}{
-			"command": "typescript.moveToFile",
-			"arguments": []interface{}{
-				fmt.Sprintf("file://%s/%s", suite.workspaceRoot, targetFile),
-				targetSymbol,
-				fmt.Sprintf("file://%s/src/types/NewLocation.ts", suite.workspaceRoot),
-			},
-		})
-		
-		result.MoveSymbolSuccess = err == nil && executeResp != nil
-		result.CrossFileChangesCount = 2 // Source and destination files
+	// Count cross-file queries
+	if result.DefinitionSuccess && result.ReferencesSuccess {
+		result.CrossFileQueriesCount = 2
+	} else if result.DefinitionSuccess || result.ReferencesSuccess {
+		result.CrossFileQueriesCount = 1
 	}
 
-	result.RefactoringLatency = time.Since(startTime)
-	result.ValidationSuccess = result.RenameSuccess || result.ExtractInterfaceSuccess || result.MoveSymbolSuccess || result.ImportOrganizationSuccess
+	result.OperationLatency = time.Since(startTime)
+	result.ValidationSuccess = result.DefinitionSuccess && result.ReferencesSuccess
 	result.ErrorCount = 0 // Mock implementation doesn't generate errors
 
 	return result
 }
 
-// executeBuildConfigHotReload executes build configuration hot reload tests
-func (suite *TypeScriptAdvancedE2ETestSuite) executeBuildConfigHotReload(configFile, changeType string) TypeScriptBuildConfigResult {
-	result := TypeScriptBuildConfigResult{}
+// executeAdvancedSymbolSearch executes advanced symbol search operations
+func (suite *TypeScriptAdvancedE2ETestSuite) executeAdvancedSymbolSearch(testFile, searchType string) TypeScriptAdvancedResult {
+	result := TypeScriptAdvancedResult{}
 	
-	// Setup mock responses for config changes
-	suite.setupConfigHotReloadResponses(configFile, changeType)
+	// Setup mock responses for symbol search
+	suite.setupSymbolSearchResponses(testFile, searchType)
 	
 	startTime := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
 
-	// Simulate file change notification
-	_, err := suite.mockClient.SendLSPRequest(ctx, "workspace/didChangeWatchedFiles", map[string]interface{}{
-		"changes": []map[string]interface{}{
-			{
-				"uri":  fmt.Sprintf("file://%s/%s", suite.workspaceRoot, configFile),
-				"type": 2, // Changed
-			},
-		},
-	})
-	
-	result.ConfigChangeDetected = err == nil
-
-	// Test different types of configuration changes
-	switch changeType {
-	case "compilerOptions":
-		// Test compiler options reload
-		diagnosticsResp, err := suite.mockClient.SendLSPRequest(ctx, "textDocument/publishDiagnostics", map[string]interface{}{
-			"uri": fmt.Sprintf("file://%s/src/components/UserComponent.tsx", suite.workspaceRoot),
-		})
-		result.TsconfigReloadSuccess = err == nil && diagnosticsResp != nil
-
-	case "paths":
-		// Test path mapping updates
-		definitionResp, err := suite.mockClient.SendLSPRequest(ctx, mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION, map[string]interface{}{
-			"textDocument": map[string]string{"uri": fmt.Sprintf("file://%s/src/components/UserComponent.tsx", suite.workspaceRoot)},
-			"position":     map[string]int{"line": 1, "character": 25}, // Import statement
-		})
-		result.PathMappingUpdateSuccess = err == nil && definitionResp != nil
-
-	case "incremental":
-		// Test incremental compilation
+	if searchType == "document" {
+		// Test document symbol extraction
 		symbolsResp, err := suite.mockClient.SendLSPRequest(ctx, mcp.LSP_METHOD_TEXT_DOCUMENT_SYMBOLS, map[string]interface{}{
-			"textDocument": map[string]string{"uri": fmt.Sprintf("file://%s/src/types/Advanced.ts", suite.workspaceRoot)},
+			"textDocument": map[string]string{"uri": fmt.Sprintf("file://%s/%s", suite.workspaceRoot, testFile)},
 		})
-		result.IncrementalCompileSuccess = err == nil && symbolsResp != nil
-
-	case "framework":
-		// Test framework-specific config changes (JSX, decorators)
-		hoverResp, err := suite.mockClient.SendLSPRequest(ctx, mcp.LSP_METHOD_TEXT_DOCUMENT_HOVER, map[string]interface{}{
-			"textDocument": map[string]string{"uri": fmt.Sprintf("file://%s/src/components/UserComponent.tsx", suite.workspaceRoot)},
-			"position":     map[string]int{"line": 5, "character": 1}, // Decorator
+		result.SymbolsSuccess = err == nil && symbolsResp != nil
+		result.CrossFileQueriesCount = 1
+	} else if searchType == "workspace" {
+		// Test workspace symbol search
+		workspaceSymbolsResp, err := suite.mockClient.SendLSPRequest(ctx, mcp.LSP_METHOD_WORKSPACE_SYMBOL, map[string]interface{}{
+			"query": "User",
 		})
-		result.FrameworkConfigSuccess = err == nil && hoverResp != nil
+		result.WorkspaceSymbolSuccess = err == nil && workspaceSymbolsResp != nil
+		result.CrossFileQueriesCount = 1
 	}
 
-	result.RevalidationLatency = time.Since(startTime)
+	result.OperationLatency = time.Since(startTime)
+	result.ValidationSuccess = result.SymbolsSuccess || result.WorkspaceSymbolSuccess
 	result.ErrorCount = 0
 
 	return result
 }
 
-// executeModernTypeScriptFeatureTest executes modern TypeScript 5.x+ feature tests
-func (suite *TypeScriptAdvancedE2ETestSuite) executeModernTypeScriptFeatureTest(feature, testFile string) TypeScriptModernFeaturesResult {
-	result := TypeScriptModernFeaturesResult{}
+// executeAdvancedTypeScriptFeatureTest executes advanced TypeScript feature tests
+func (suite *TypeScriptAdvancedE2ETestSuite) executeAdvancedTypeScriptFeatureTest(feature, testFile string) TypeScriptAdvancedFeaturesResult {
+	result := TypeScriptAdvancedFeaturesResult{}
 	
-	// Setup mock responses for modern features
-	suite.setupModernFeatureResponses(feature, testFile)
+	// Setup mock responses for advanced features
+	suite.setupAdvancedFeatureResponses(feature, testFile)
 	
 	startTime := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
 
 	switch feature {
-	case "decorators":
-		// Test decorator support
+	case "hover":
+		// Test hover information for complex types
 		hoverResp, err := suite.mockClient.SendLSPRequest(ctx, mcp.LSP_METHOD_TEXT_DOCUMENT_HOVER, map[string]interface{}{
 			"textDocument": map[string]string{"uri": fmt.Sprintf("file://%s/%s", suite.workspaceRoot, testFile)},
-			"position":     map[string]int{"line": 6, "character": 1}, // @component decorator
+			"position":     map[string]int{"line": 6, "character": 1}, // Complex type position
 		})
-		result.DecoratorsSupported = err == nil && hoverResp != nil && strings.Contains(string(hoverResp), "decorator")
+		result.ComplexTypesSupported = err == nil && hoverResp != nil && strings.Contains(string(hoverResp), "generic")
 
-	case "satisfies":
-		// Test satisfies operator
-		diagnosticsResp, err := suite.mockClient.SendLSPRequest(ctx, "textDocument/publishDiagnostics", map[string]interface{}{
-			"uri": fmt.Sprintf("file://%s/%s", suite.workspaceRoot, testFile),
-		})
-		result.SatisfiesOperatorSupported = err == nil && diagnosticsResp != nil
-
-	case "const_assertions":
-		// Test const assertions
+	case "completion":
+		// Test completion for advanced types
 		completionResp, err := suite.mockClient.SendLSPRequest(ctx, "textDocument/completion", map[string]interface{}{
 			"textDocument": map[string]string{"uri": fmt.Sprintf("file://%s/%s", suite.workspaceRoot, testFile)},
 			"position":     map[string]int{"line": 50, "character": 10},
 		})
-		result.ConstAssertionsSupported = err == nil && completionResp != nil
-
-	case "utility_types":
-		// Test advanced utility types
+		result.UtilityTypesSupported = err == nil && completionResp != nil
+		
+		// Test definition navigation for generic constraints
 		definitionResp, err := suite.mockClient.SendLSPRequest(ctx, mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION, map[string]interface{}{
 			"textDocument": map[string]string{"uri": fmt.Sprintf("file://%s/%s", suite.workspaceRoot, testFile)},
-			"position":     map[string]int{"line": 25, "character": 15}, // Utility type usage
+			"position":     map[string]int{"line": 25, "character": 15}, // Generic constraint
 		})
-		result.UtilityTypesSupported = err == nil && definitionResp != nil
+		result.GenericConstraintsSupported = err == nil && definitionResp != nil
 	}
 
 	result.FeatureValidationLatency = time.Since(startTime)
@@ -1428,141 +1323,109 @@ func (suite *TypeScriptAdvancedE2ETestSuite) executeFrameworkIntegrationTest(fra
 
 // Helper methods for creating mock responses
 
-func (suite *TypeScriptAdvancedE2ETestSuite) setupRefactoringResponses(operation, targetFile, targetSymbol string) {
-	switch operation {
-	case "textDocument/rename":
-		// Prepare rename response
-		suite.mockClient.QueueResponse(json.RawMessage(`{
-			"range": {
-				"start": {"line": 10, "character": 15},
-				"end": {"line": 10, "character": 30}
-			},
-			"placeholder": "` + targetSymbol + `"
-		}`))
-		
-		// Rename response with workspace edit
-		suite.mockClient.QueueResponse(json.RawMessage(`{
-			"changes": {
-				"file:///workspace/` + targetFile + `": [
+func (suite *TypeScriptAdvancedE2ETestSuite) setupDefinitionReferencesResponses(targetFile, targetSymbol string) {
+	// Definition response
+	suite.mockClient.QueueResponse(json.RawMessage(`{
+		"uri": "file:///workspace/` + targetFile + `",
+		"range": {
+			"start": {"line": 10, "character": 15},
+			"end": {"line": 10, "character": 30}
+		}
+	}`))
+	
+	// References response
+	suite.mockClient.QueueResponse(json.RawMessage(`[
+		{
+			"uri": "file:///workspace/` + targetFile + `",
+			"range": {"start": {"line": 10, "character": 15}, "end": {"line": 10, "character": 30}}
+		},
+		{
+			"uri": "file:///workspace/src/types/User.ts",
+			"range": {"start": {"line": 5, "character": 17}, "end": {"line": 5, "character": 32}}
+		},
+		{
+			"uri": "file:///workspace/src/server/api/userController.ts",
+			"range": {"start": {"line": 3, "character": 9}, "end": {"line": 3, "character": 24}}
+		}
+	]`))
+}
+
+func (suite *TypeScriptAdvancedE2ETestSuite) setupSymbolSearchResponses(testFile, searchType string) {
+	switch searchType {
+	case "document":
+		// Document symbols response
+		suite.mockClient.QueueResponse(json.RawMessage(`[
+			{
+				"name": "UserComponent",
+				"kind": 12,
+				"range": {"start": {"line": 20, "character": 0}, "end": {"line": 80, "character": 1}},
+				"detail": "React.FunctionComponent<UserComponentProps<T>>",
+				"children": [
 					{
-						"range": {"start": {"line": 10, "character": 15}, "end": {"line": 10, "character": 30}},
-						"newText": "` + targetSymbol + `_Renamed"
-					}
-				],
-				"file:///workspace/src/types/User.ts": [
-					{
-						"range": {"start": {"line": 5, "character": 17}, "end": {"line": 5, "character": 32}},
-						"newText": "` + targetSymbol + `_Renamed"
+						"name": "handleUserClick",
+						"kind": 6,
+						"range": {"start": {"line": 25, "character": 4}, "end": {"line": 28, "character": 6}}
 					}
 				]
+			},
+			{
+				"name": "UserComponentProps",
+				"kind": 11,
+				"range": {"start": {"line": 12, "character": 0}, "end": {"line": 18, "character": 1}},
+				"detail": "interface UserComponentProps<T extends User>"
 			}
-		}`))
+		]`))
 
-	case "textDocument/codeAction":
+	case "workspace":
+		// Workspace symbols response
 		suite.mockClient.QueueResponse(json.RawMessage(`[
 			{
-				"title": "Extract interface",
-				"kind": "refactor.extract.interface",
-				"edit": {
-					"changes": {
-						"file:///workspace/` + targetFile + `": [
-							{
-								"range": {"start": {"line": 5, "character": 0}, "end": {"line": 20, "character": 0}},
-								"newText": "interface ExtractedInterface {\n  // extracted properties\n}\n"
-							}
-						]
-					}
+				"name": "User",
+				"kind": 11,
+				"location": {
+					"uri": "file:///workspace/src/types/User.ts",
+					"range": {"start": {"line": 5, "character": 0}, "end": {"line": 15, "character": 1}}
 				}
 			},
 			{
-				"title": "Organize imports",
-				"kind": "source.organizeImports",
-				"edit": {
-					"changes": {
-						"file:///workspace/` + targetFile + `": [
-							{
-								"range": {"start": {"line": 0, "character": 0}, "end": {"line": 5, "character": 0}},
-								"newText": "import React from 'react';\nimport { User } from '../types/User';\n"
-							}
-						]
-					}
+				"name": "UserService",
+				"kind": 5,
+				"location": {
+					"uri": "file:///workspace/src/services/UserService.ts",
+					"range": {"start": {"line": 8, "character": 0}, "end": {"line": 50, "character": 1}}
 				}
 			}
 		]`))
-
-	case "workspace/executeCommand":
-		suite.mockClient.QueueResponse(json.RawMessage(`{
-			"success": true,
-			"filesChanged": [
-				"file:///workspace/` + targetFile + `",
-				"file:///workspace/src/types/NewLocation.ts"
-			]
-		}`))
 	}
 }
 
-func (suite *TypeScriptAdvancedE2ETestSuite) setupConfigHotReloadResponses(configFile, changeType string) {
-	// File change notification response
-	suite.mockClient.QueueResponse(json.RawMessage(`{"acknowledged": true}`))
-
-	switch changeType {
-	case "compilerOptions":
-		suite.mockClient.QueueResponse(json.RawMessage(`[
-			{
-				"range": {"start": {"line": 10, "character": 5}, "end": {"line": 10, "character": 20}},
-				"severity": 1,
-				"message": "Compiler options updated - type checking enabled",
-				"source": "typescript"
-			}
-		]`))
-
-	case "paths":
-		suite.mockClient.QueueResponse(json.RawMessage(`{
-			"uri": "file:///workspace/src/components/UserComponent.tsx",
-			"range": {
-				"start": {"line": 1, "character": 25},
-				"end": {"line": 1, "character": 45}
-			}
-		}`))
-
-	default:
-		suite.mockClient.QueueResponse(json.RawMessage(`{"revalidated": true, "timestamp": "` + time.Now().Format(time.RFC3339) + `"}`))
-	}
-}
-
-func (suite *TypeScriptAdvancedE2ETestSuite) setupModernFeatureResponses(feature, testFile string) {
+func (suite *TypeScriptAdvancedE2ETestSuite) setupAdvancedFeatureResponses(feature, testFile string) {
 	switch feature {
-	case "decorators":
+	case "hover":
+		// Hover response for complex generic types
 		suite.mockClient.QueueResponse(json.RawMessage(`{
 			"contents": {
 				"kind": "markdown",
-				"value": "` + "```typescript\n@component decorator\n```" + `\n\nStage 3 decorator for component registration"
+				"value": "` + "```typescript\ninterface UserComponentProps<T extends User>\n```" + `\n\nGeneric interface with complex constraints for advanced TypeScript types"
 			},
 			"range": {
 				"start": {"line": 6, "character": 1},
-				"end": {"line": 6, "character": 11}
+				"end": {"line": 6, "character": 20}
 			}
 		}`))
 
-	case "satisfies":
-		suite.mockClient.QueueResponse(json.RawMessage(`[
-			{
-				"range": {"start": {"line": 15, "character": 10}, "end": {"line": 15, "character": 25}},
-				"severity": 1,
-				"message": "Type satisfies Record<string, any>",
-				"source": "typescript"
-			}
-		]`))
-
-	case "const_assertions":
+	case "completion":
+		// Completion response for utility types and complex generics
 		suite.mockClient.QueueResponse(json.RawMessage(`{
 			"items": [
-				{"label": "userPermissions", "kind": 13, "detail": "readonly ['read', 'write', 'delete']"},
-				{"label": "as const", "kind": 14, "detail": "const assertion"}
+				{"label": "Omit", "kind": 13, "detail": "Omit<T, K> - Utility type for omitting properties", "insertText": "Omit<"},
+				{"label": "Pick", "kind": 13, "detail": "Pick<T, K> - Utility type for picking properties", "insertText": "Pick<"},
+				{"label": "Partial", "kind": 13, "detail": "Partial<T> - Makes all properties optional", "insertText": "Partial<"},
+				{"label": "Record", "kind": 13, "detail": "Record<K, T> - Object type with specified keys", "insertText": "Record<"}
 			]
 		}`))
-
-	case "utility_types":
+		
+		// Definition response for generic constraints
 		suite.mockClient.QueueResponse(json.RawMessage(`{
 			"uri": "file:///workspace/` + testFile + `",
 			"range": {
@@ -1627,31 +1490,59 @@ func (suite *TypeScriptAdvancedE2ETestSuite) setupFrameworkIntegrationResponses(
 	}
 }
 
-func (suite *TypeScriptAdvancedE2ETestSuite) setupAdvancedProtocolResponses(protocol string, methods []string) {
+func (suite *TypeScriptAdvancedE2ETestSuite) setupSupportedProtocolResponses(protocol string, methods []string) {
 	baseResponses := map[string]json.RawMessage{
-		"textDocument/rename": json.RawMessage(`{
-			"changes": {
-				"file:///workspace/test.ts": [
-					{"range": {"start": {"line": 1, "character": 0}, "end": {"line": 1, "character": 10}}, "newText": "newName"}
-				]
+		"textDocument/definition": json.RawMessage(`{
+			"uri": "file:///workspace/src/components/UserComponent.tsx",
+			"range": {
+				"start": {"line": 10, "character": 15},
+				"end": {"line": 10, "character": 30}
 			}
 		}`),
-		"textDocument/prepareRename": json.RawMessage(`{
-			"range": {"start": {"line": 1, "character": 0}, "end": {"line": 1, "character": 10}},
-			"placeholder": "symbolName"
-		}`),
-		"textDocument/codeAction": json.RawMessage(`[
-			{"title": "Extract function", "kind": "refactor.extract.function"},
-			{"title": "Organize imports", "kind": "source.organizeImports"}
+		"textDocument/references": json.RawMessage(`[
+			{
+				"uri": "file:///workspace/src/components/UserComponent.tsx",
+				"range": {"start": {"line": 10, "character": 15}, "end": {"line": 10, "character": 30}}
+			},
+			{
+				"uri": "file:///workspace/src/types/User.ts",
+				"range": {"start": {"line": 5, "character": 17}, "end": {"line": 5, "character": 32}}
+			}
 		]`),
-		"workspace/executeCommand": json.RawMessage(`{"success": true}`),
+		"textDocument/hover": json.RawMessage(`{
+			"contents": {
+				"kind": "markdown",
+				"value": "` + "```typescript\ninterface UserComponentProps<T extends User>\n```" + `\n\nAdvanced generic interface with complex constraints"
+			},
+			"range": {
+				"start": {"line": 10, "character": 15},
+				"end": {"line": 10, "character": 30}
+			}
+		}`),
+		"textDocument/documentSymbol": json.RawMessage(`[
+			{
+				"name": "UserComponent",
+				"kind": 12,
+				"range": {"start": {"line": 20, "character": 0}, "end": {"line": 80, "character": 1}},
+				"detail": "React.FunctionComponent<UserComponentProps<T>>"
+			}
+		]`),
+		"workspace/symbol": json.RawMessage(`[
+			{
+				"name": "User",
+				"kind": 11,
+				"location": {
+					"uri": "file:///workspace/src/types/User.ts",
+					"range": {"start": {"line": 5, "character": 0}, "end": {"line": 15, "character": 1}}
+				}
+			}
+		]`),
 		"textDocument/completion": json.RawMessage(`{
 			"items": [
-				{"label": "advancedMethod", "kind": 2, "detail": "() => Promise<void>"}
+				{"label": "UserComponent", "kind": 5, "detail": "React.FunctionComponent", "insertText": "UserComponent"},
+				{"label": "useState", "kind": 3, "detail": "<T>(initialState: T): [T, Dispatch<SetStateAction<T>>]", "insertText": "useState"}
 			]
 		}`),
-		"textDocument/didChange": json.RawMessage(`{"acknowledged": true}`),
-		"workspace/didChangeWatchedFiles": json.RawMessage(`{"processed": true}`),
 	}
 
 	for _, method := range methods {
@@ -1663,88 +1554,73 @@ func (suite *TypeScriptAdvancedE2ETestSuite) setupAdvancedProtocolResponses(prot
 	}
 }
 
-func (suite *TypeScriptAdvancedE2ETestSuite) createAdvancedTestParams(method string) map[string]interface{} {
+func (suite *TypeScriptAdvancedE2ETestSuite) createSupportedTestParams(method string) map[string]interface{} {
 	baseParams := map[string]interface{}{
 		"textDocument": map[string]string{"uri": "file:///workspace/src/components/UserComponent.tsx"},
 		"position":     map[string]int{"line": 10, "character": 15},
 	}
 
 	switch method {
-	case "textDocument/rename":
-		baseParams["newName"] = "RenamedSymbol"
+	case "textDocument/definition":
 		return baseParams
-	case "textDocument/codeAction":
-		baseParams["range"] = map[string]interface{}{
-			"start": map[string]int{"line": 5, "character": 0},
-			"end":   map[string]int{"line": 15, "character": 0},
-		}
-		baseParams["context"] = map[string]interface{}{
-			"only": []string{"refactor", "source.organizeImports"},
-		}
+	case "textDocument/references":
+		baseParams["context"] = map[string]bool{"includeDeclaration": true}
 		return baseParams
-	case "workspace/executeCommand":
+	case "textDocument/hover":
+		return baseParams
+	case "textDocument/documentSymbol":
 		return map[string]interface{}{
-			"command":   "typescript.organizeImports",
-			"arguments": []interface{}{baseParams["textDocument"]},
+			"textDocument": baseParams["textDocument"],
+		}
+	case "workspace/symbol":
+		return map[string]interface{}{
+			"query": "User",
 		}
 	case "textDocument/completion":
 		baseParams["context"] = map[string]interface{}{
 			"triggerKind": 1,
 		}
 		return baseParams
-	case "textDocument/didChange":
-		return map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri":     baseParams["textDocument"].(map[string]string)["uri"],
-				"version": 2,
-			},
-			"contentChanges": []map[string]interface{}{
-				{
-					"range": map[string]interface{}{
-						"start": map[string]int{"line": 10, "character": 0},
-						"end":   map[string]int{"line": 10, "character": 0},
-					},
-					"text": "// New comment\n",
-				},
-			},
-		}
-	case "workspace/didChangeWatchedFiles":
-		return map[string]interface{}{
-			"changes": []map[string]interface{}{
-				{
-					"uri":  "file:///workspace/tsconfig.json",
-					"type": 2, // Changed
-				},
-			},
-		}
 	default:
 		return baseParams
 	}
 }
 
-func (suite *TypeScriptAdvancedE2ETestSuite) createAdvancedOperationResponse(operationType string) json.RawMessage {
+func (suite *TypeScriptAdvancedE2ETestSuite) createSupportedOperationResponse(operationType string) json.RawMessage {
 	responses := map[string]json.RawMessage{
-		"textDocument/rename": json.RawMessage(`{
-			"changes": {
-				"file:///workspace/src/components/UserComponent.tsx": [
-					{"range": {"start": {"line": 10, "character": 15}, "end": {"line": 10, "character": 30}}, "newText": "RenamedSymbol"}
-				],
-				"file:///workspace/src/types/User.ts": [
-					{"range": {"start": {"line": 5, "character": 17}, "end": {"line": 5, "character": 32}}, "newText": "RenamedSymbol"}
-				]
+		"textDocument/definition": json.RawMessage(`{
+			"uri": "file:///workspace/src/components/UserComponent.tsx",
+			"range": {
+				"start": {"line": 10, "character": 15},
+				"end": {"line": 10, "character": 30}
 			}
 		}`),
-		"textDocument/codeAction": json.RawMessage(`[
+		"textDocument/references": json.RawMessage(`[
 			{
-				"title": "Extract to function",
-				"kind": "refactor.extract.function",
-				"edit": {
-					"changes": {
-						"file:///workspace/src/components/UserComponent.tsx": [
-							{"range": {"start": {"line": 5, "character": 0}, "end": {"line": 15, "character": 0}}, "newText": "extractedFunction();\n\nfunction extractedFunction() {\n  // extracted code\n}\n"}
-						]
-					}
-				}
+				"uri": "file:///workspace/src/components/UserComponent.tsx",
+				"range": {"start": {"line": 10, "character": 15}, "end": {"line": 10, "character": 30}}
+			},
+			{
+				"uri": "file:///workspace/src/types/User.ts",
+				"range": {"start": {"line": 5, "character": 17}, "end": {"line": 5, "character": 32}}
+			}
+		]`),
+		"textDocument/hover": json.RawMessage(`{
+			"contents": {
+				"kind": "markdown",
+				"value": "` + "```typescript\ninterface UserComponentProps<T extends User>\n```" + `\n\nAdvanced generic interface with complex type constraints"
+			},
+			"range": {
+				"start": {"line": 10, "character": 15},
+				"end": {"line": 10, "character": 30}
+			}
+		}`),
+		"textDocument/documentSymbol": json.RawMessage(`[
+			{
+				"name": "UserComponent",
+				"kind": 12,
+				"range": {"start": {"line": 20, "character": 0}, "end": {"line": 80, "character": 1}},
+				"detail": "React.FunctionComponent<UserComponentProps<T>>"
 			}
 		]`),
 		"textDocument/completion": json.RawMessage(`{

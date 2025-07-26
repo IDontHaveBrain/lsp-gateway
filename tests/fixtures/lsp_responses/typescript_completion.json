@@ -1,0 +1,94 @@
+{
+  "items": [
+    {
+      "label": "useState",
+      "kind": 3,
+      "detail": "<T>(initialState: T | (() => T)): [T, Dispatch<SetStateAction<T>>]",
+      "documentation": {
+        "kind": "markdown",
+        "value": "React hook for managing component state with type safety.\n\n**Generic Parameter:**\n- `T` - Type of the state value\n\n**Returns:** Tuple with current state and setter function"
+      },
+      "insertText": "useState<${1:type}>(${2:initialValue})",
+      "insertTextFormat": 2,
+      "sortText": "0001",
+      "filterText": "useState",
+      "textEdit": {
+        "range": {
+          "start": {
+            "line": 25,
+            "character": 8
+          },
+          "end": {
+            "line": 25,
+            "character": 8
+          }
+        },
+        "newText": "useState"
+      }
+    },
+    {
+      "label": "UserProps",
+      "kind": 8,
+      "detail": "interface UserProps",
+      "documentation": {
+        "kind": "markdown",
+        "value": "Interface defining props for User components.\n\n**Properties:**\n- `id: number` - User identifier\n- `name: string` - Display name\n- `email?: string` - Optional email\n- `roles: Role[]` - User roles array"
+      },
+      "insertText": "UserProps",
+      "sortText": "0002",
+      "filterText": "UserProps"
+    },
+    {
+      "label": "fetchUserData",
+      "kind": 2,
+      "detail": "<T extends User>(id: number): Promise<ApiResponse<T>>",
+      "documentation": {
+        "kind": "markdown",
+        "value": "Async function to fetch user data with generic type constraint.\n\n**Generic Constraint:** `T extends User`\n\n**Parameters:**\n- `id: number` - User ID to fetch\n\n**Returns:** Promise resolving to API response with user data"
+      },
+      "insertText": "fetchUserData<${1:UserType}>(${2:userId})",
+      "insertTextFormat": 2,
+      "sortText": "0003",
+      "filterText": "fetchUserData"
+    },
+    {
+      "label": "Component",
+      "kind": 7,
+      "detail": "React.Component<Props, State>",
+      "documentation": {
+        "kind": "markdown",
+        "value": "React class component with TypeScript generics for props and state."
+      },
+      "insertText": "Component<${1:Props}, ${2:State}>",
+      "insertTextFormat": 2,
+      "sortText": "0004",
+      "filterText": "Component"
+    },
+    {
+      "label": "@Injectable",
+      "kind": 14,
+      "detail": "decorator",
+      "documentation": {
+        "kind": "markdown",
+        "value": "TypeScript decorator for dependency injection.\n\n**Usage:** Apply to classes that should be injectable services."
+      },
+      "insertText": "@Injectable()",
+      "sortText": "0005",
+      "filterText": "Injectable"
+    },
+    {
+      "label": "Partial<T>",
+      "kind": 8,
+      "detail": "type Partial<T>",
+      "documentation": {
+        "kind": "markdown",
+        "value": "Utility type that makes all properties of T optional.\n\n**Generic Parameter:**\n- `T` - Type to make partial\n\n**Example:** `Partial<UserProps>` makes all UserProps optional"
+      },
+      "insertText": "Partial<${1:Type}>",
+      "insertTextFormat": 2,
+      "sortText": "0006",
+      "filterText": "Partial"
+    }
+  ],
+  "isIncomplete": false
+}

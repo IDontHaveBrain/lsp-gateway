@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -156,30 +155,6 @@ func (m *LSPWorkflowManager) executeStep(ctx context.Context, step WorkflowStep,
 	var request map[string]interface{}
 
 	switch step.Method {
-	case "textDocument/didOpen":
-		content := step.Content
-		if content == "" && step.URI != "" {
-			// Read content from file
-			filePath := filepath.Join(projectDir, step.URI)
-			data, err := os.ReadFile(filePath)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read file %s: %w", filePath, err)
-			}
-			content = string(data)
-		}
-
-		request = map[string]interface{}{
-			"method": step.Method,
-			"params": map[string]interface{}{
-				"textDocument": map[string]interface{}{
-					"uri":        fmt.Sprintf("file://%s", filepath.Join(projectDir, step.URI)),
-					"languageId": "go", // TODO: detect from file extension
-					"version":    1,
-					"text":       content,
-				},
-			},
-		}
-
 	case "textDocument/definition":
 		request = map[string]interface{}{
 			"method": step.Method,
@@ -302,11 +277,6 @@ func GetDefaultGoWorkflowScenario() *LSPWorkflowScenario {
 		Timeout:     2 * time.Minute,
 		Parallel:    false,
 		Steps: []WorkflowStep{
-			{
-				Name:   "Open main.go file",
-				Method: "textDocument/didOpen",
-				URI:    "main.go",
-			},
 			{
 				Name:     "Get definition of main function",
 				Method:   "textDocument/definition",
