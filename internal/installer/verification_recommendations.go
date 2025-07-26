@@ -68,7 +68,7 @@ func (r *DefaultRuntimeInstaller) generateRecommendations(result *types.Verifica
 			fmt.Sprintf("⚠️ HIGH: %d high-priority issues found. Some functionality may be limited.", highIssues))
 	}
 
-	if criticalIssues == 0 && result.Installed {
+	if criticalIssues == 0 && result.Installed && len(result.Runtime) > 0 {
 		recommendations = append(recommendations,
 			fmt.Sprintf("✅ %s runtime is installed and functional.", strings.ToUpper(result.Runtime[:1])+result.Runtime[1:]))
 	}
