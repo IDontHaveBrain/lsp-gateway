@@ -495,7 +495,7 @@ func (s *ProjectLanguageScanner) ScanProject(rootPath string) (*MultiLanguagePro
 
 	// Convert to new structure format
 	info := s.convertLegacyToNewFormat(rankings, absRoot, projectType, dominantLang,
-		buildSystems, sourceDirs, configFiles, totalFiles, time.Since(startTime), s.MaxDepth, len(stats))
+		buildSystems, sourceDirs, configFiles, totalFiles, time.Since(startTime), s.MaxDepth, len(stats), stats)
 
 	return info, nil
 }
@@ -731,10 +731,20 @@ func (s *ProjectLanguageScanner) calculateLanguagePriorities(stats map[string]*L
 			confidence += 0.3
 		}
 		if len(langStats.BuildFiles) > 0 {
-			confidence += 0.4
+			confidence += 0.6  // Increased confidence for build files
 		}
 		if len(langStats.SourceDirs) > 0 {
 			confidence += 0.3
+		}
+		
+		// Ensure minimum confidence for languages with build files
+		if len(langStats.BuildFiles) > 0 && confidence < 0.5 {
+			confidence = 0.5
+		}
+		
+		// Ensure minimum score for languages with build files (even without source files)
+		if len(langStats.BuildFiles) > 0 && totalScore < 1.0 {
+			totalScore = buildWeight  // Ensure build files give meaningful score
 		}
 
 		rankings = append(rankings, LanguageRanking{
@@ -2037,11 +2047,14 @@ func (s *ProjectLanguageScanner) needsFullRescan(rootPath string, lastScan time.
 }
 
 // convertLegacyToNewFormat converts legacy ranking format to new MultiLanguageProjectInfo format
-func (s *ProjectLanguageScanner) convertLegacyToNewFormat(rankings []LanguageRanking, rootPath, projectType, dominantLang string, buildSystems, sourceDirs, configFiles []string, totalFiles int, scanDuration time.Duration, maxDepth, languagesFound int) *MultiLanguageProjectInfo {
+func (s *ProjectLanguageScanner) convertLegacyToNewFormat(rankings []LanguageRanking, rootPath, projectType, dominantLang string, buildSystems, sourceDirs, configFiles []string, totalFiles int, scanDuration time.Duration, maxDepth, languagesFound int, stats map[string]*LanguageStats) *MultiLanguageProjectInfo {
 	languages := make(map[string]*LanguageContext)
 	workspaceRoots := make(map[string]string)
 
 	for _, ranking := range rankings {
+		// Get the corresponding stats for this language
+		langStats, hasStats := stats[ranking.Language]
+		
 		ctx := &LanguageContext{
 			Language:       ranking.Language,
 			RootPath:       rootPath,
@@ -2049,13 +2062,22 @@ func (s *ProjectLanguageScanner) convertLegacyToNewFormat(rankings []LanguageRan
 			TestFileCount:  0, // This would need to be calculated properly in a full implementation
 			Priority:       int(ranking.Score),
 			Confidence:     ranking.Confidence,
-			BuildFiles:     []string{}, // This would need to be populated from the scan
-			ConfigFiles:    []string{}, // This would need to be populated from the scan
-			SourcePaths:    []string{}, // This would need to be populated from the scan
-			TestPaths:      []string{}, // This would need to be populated from the scan
+			BuildFiles:     []string{}, // Default to empty
+			ConfigFiles:    []string{}, // Default to empty
+			SourcePaths:    []string{}, // Default to empty
+			TestPaths:      []string{}, // Default to empty
 			FileExtensions: s.getLanguageExtensions(ranking.Language),
 			Dependencies:   []string{},
 			Metadata:       make(map[string]interface{}),
+		}
+		
+		// Populate from stats if available
+		if hasStats {
+			ctx.FileCount = langStats.FileCount
+			ctx.TestFileCount = langStats.TestFiles
+			ctx.BuildFiles = append([]string{}, langStats.BuildFiles...) // Copy slice
+			ctx.ConfigFiles = append([]string{}, langStats.ConfigFiles...) // Copy slice
+			ctx.SourcePaths = append([]string{}, langStats.SourceDirs...) // Copy slice
 		}
 
 		languages[ranking.Language] = ctx
