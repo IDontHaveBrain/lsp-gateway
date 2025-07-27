@@ -317,7 +317,9 @@ func shutdownHTTPServer(server *http.Server) error {
 func validateServerParams() error {
 	err := ValidateMultiple(
 		func() *ValidationError {
-			return ValidateFilePath(configPath, "config", "read")
+			// Don't validate config file existence here - it will be handled later
+			// with auto-generation if needed
+			return nil
 		},
 		func() *ValidationError {
 			return ValidatePort(port, "port")
@@ -508,7 +510,48 @@ func performProjectDetection() (*project.ProjectAnalysisResult, error) {
 
 // loadConfigurationWithProject loads configuration with optional project-specific overrides
 func loadConfigurationWithProject(projectResult *project.ProjectAnalysisResult) (*config.GatewayConfig, error) {
-	// Load base configuration
+	// Check if config file exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		log.Printf("[WARN] Configuration file not found: %s\n", configPath)
+		
+		// Try to auto-generate configuration
+		log.Printf("[INFO] Attempting to auto-generate configuration...\n")
+		
+		// Determine project path for auto-generation
+		projectPath := "."
+		if projectResult != nil && projectResult.ProjectContext != nil && projectResult.ProjectContext.RootPath != "" {
+			projectPath = projectResult.ProjectContext.RootPath
+		}
+		
+		// Auto-generate multi-language configuration
+		multiLangConfig, err := config.AutoGenerateConfigFromPath(projectPath)
+		if err != nil {
+			log.Printf("[ERROR] Failed to auto-generate configuration: %v\n", err)
+			return nil, fmt.Errorf("configuration file not found and auto-generation failed: %w", err)
+		}
+		
+		// Convert to gateway configuration
+		cfg, err := multiLangConfig.ToGatewayConfig()
+		if err != nil {
+			log.Printf("[ERROR] Failed to convert auto-generated configuration: %v\n", err)
+			return nil, fmt.Errorf("failed to convert auto-generated configuration: %w", err)
+		}
+		
+		log.Printf("[INFO] Successfully auto-generated configuration with %d servers\n", len(cfg.Servers))
+		
+		// Apply project-specific configuration if available and requested
+		if projectResult != nil && projectResult.ProjectContext != nil && generateProjectConfig {
+			log.Printf("[INFO] Applying project-specific configuration enhancements\n")
+			if err := applyProjectConfiguration(cfg, projectResult); err != nil {
+				log.Printf("[WARN] Failed to apply project configuration: %v\n", err)
+				// Continue with auto-generated configuration
+			}
+		}
+		
+		return cfg, nil
+	}
+	
+	// Load base configuration from existing file
 	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
 		return nil, err

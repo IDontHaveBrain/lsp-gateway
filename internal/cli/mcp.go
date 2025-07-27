@@ -691,46 +691,36 @@ func performAutoDetectionAndSetup() ([]*config.ServerConfig, error) {
 
 	log.Printf("[INFO] Starting automatic project detection at: %s\n", wd)
 
-	// Create project detector
-	detector := project.NewProjectDetector()
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	// Perform project detection
-	projectContext, err := detector.DetectProject(ctx, wd)
+	// Use the same auto-generation logic as the server command
+	// This ensures consistent behavior and uses the correct executable paths
+	multiLangConfig, err := config.AutoGenerateConfigFromPath(wd)
 	if err != nil {
-		return nil, fmt.Errorf("automatic project detection failed: %w", err)
+		return nil, fmt.Errorf("failed to auto-generate configuration: %w", err)
 	}
 
-	if projectContext.ProjectType == "unknown" || len(projectContext.Languages) == 0 {
-		return nil, fmt.Errorf("no supported languages detected in current directory: %s", wd)
-	}
-
-	log.Printf("[INFO] Detected project type: %s with languages: %v\n", 
-		projectContext.ProjectType, projectContext.Languages)
-
-	// Create project config generator
-	logger := setup.NewSetupLogger(&setup.SetupLoggerConfig{
-		Component: "mcp-auto-detection",
-	})
-	registry := setup.NewDefaultServerRegistry()
-	verifier := setup.NewDefaultServerVerifier()
-	generator := project.NewProjectConfigGenerator(logger, registry, verifier)
-
-	// Generate project-specific configuration
-	genResult, err := generator.GenerateFromProject(ctx, projectContext)
+	// Convert to gateway configuration
+	gatewayConfig, err := multiLangConfig.ToGatewayConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate configuration from detected project: %w", err)
+		return nil, fmt.Errorf("failed to convert multi-language config to gateway config: %w", err)
 	}
 
-	if genResult.GatewayConfig == nil || len(genResult.GatewayConfig.Servers) == 0 {
-		return nil, fmt.Errorf("no LSP servers were configured for detected project languages: %v", projectContext.Languages)
+	if len(gatewayConfig.Servers) == 0 {
+		return nil, fmt.Errorf("no LSP servers were configured for detected project")
+	}
+
+	// Ensure Java servers are properly configured for auto-installation
+	for i := range gatewayConfig.Servers {
+		if gatewayConfig.Servers[i].Name == "eclipse-jdtls" {
+			// The command should already be set to the correct executable path
+			// from installer.GetJDTLSExecutablePath() in multi_language_generator.go
+			log.Printf("[INFO] JDTLS server configured with command: %s", gatewayConfig.Servers[i].Command)
+		}
 	}
 
 	// Convert to []*config.ServerConfig format
-	serverConfigs := make([]*config.ServerConfig, len(genResult.GatewayConfig.Servers))
-	for i := range genResult.GatewayConfig.Servers {
-		serverConfigs[i] = &genResult.GatewayConfig.Servers[i]
+	serverConfigs := make([]*config.ServerConfig, len(gatewayConfig.Servers))
+	for i := range gatewayConfig.Servers {
+		serverConfigs[i] = &gatewayConfig.Servers[i]
 	}
 
 	log.Printf("[INFO] Auto-generated %d LSP server configurations\n", len(serverConfigs))

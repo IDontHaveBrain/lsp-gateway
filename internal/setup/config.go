@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"lsp-gateway/internal/config"
+	"lsp-gateway/internal/installer"
 	"lsp-gateway/internal/types"
 	"time"
 )
@@ -1343,19 +1344,21 @@ func (g *DefaultConfigGenerator) generateServerConfig(ctx context.Context, runti
 		serverConfig.Args = []string{}
 
 	case SERVER_PYLSP:
+		// pylsp uses stdio by default, no additional args needed
 		serverConfig.Args = []string{}
 
 	case "typescript-language-server":
 		serverConfig.Args = []string{"--stdio"}
 
 	case SERVER_JDTLS:
-		if verificationResult.Path != "" {
-			serverConfig.Command = verificationResult.Path
-		}
-		serverConfig.Args = []string{}
+		// Always use the installer path to ensure we get the correct JDTLS executable
+		serverConfig.Command = installer.GetJDTLSExecutablePath()
+		// Use actual JDTLS args: includes --stdio, -configuration, -data
+		serverConfig.Args = installer.GetJDTLSArgs()
 	}
 
-	if serverDef.DefaultConfig != nil {
+	// Skip DefaultConfig override for JDTLS as we use custom path and args
+	if serverDef.DefaultConfig != nil && serverDef.Name != SERVER_JDTLS {
 		if command, ok := serverDef.DefaultConfig["command"].(string); ok && command != "" {
 			serverConfig.Command = command
 		}
@@ -1387,8 +1390,8 @@ func (g *DefaultConfigGenerator) initializeTemplates() {
 		RuntimeName:       "python",
 		ServerName:        SERVER_PYLSP,
 		ConfigName:        "python-lsp",
-		Command:           SERVER_PYLSP,
-		Args:              []string{},
+		Command:           "python",
+		Args:              []string{"-m", "pylsp"},
 		Languages:         []string{"python"},
 		Transport:         "stdio",
 		RequiredRuntime:   "python",
@@ -1411,8 +1414,8 @@ func (g *DefaultConfigGenerator) initializeTemplates() {
 		RuntimeName:       "java",
 		ServerName:        SERVER_JDTLS,
 		ConfigName:        "java-lsp",
-		Command:           SERVER_JDTLS,
-		Args:              []string{},
+		Command:           installer.GetJDTLSExecutablePath(),
+		Args:              installer.GetJDTLSArgs(),
 		Languages:         []string{"java"},
 		Transport:         "stdio",
 		RequiredRuntime:   "java",
@@ -1536,10 +1539,12 @@ func (r *DefaultServerRegistry) GetServersByRuntime(runtime string) []*ServerDef
 	var servers []*ServerDefinition
 
 	runtimeToServers := map[string][]string{
-		"go":     {SERVER_GOPLS},
-		"python": {SERVER_PYLSP},
-		"nodejs": {"typescript-language-server"},
-		"java":   {SERVER_JDTLS},
+		"go":         {SERVER_GOPLS},
+		"python":     {SERVER_PYLSP},
+		"nodejs":     {"typescript-language-server"},
+		"typescript": {"typescript-language-server"},
+		"javascript": {"typescript-language-server"},
+		"java":       {SERVER_JDTLS},
 	}
 
 	serverNames, exists := runtimeToServers[runtime]
