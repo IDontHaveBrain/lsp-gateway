@@ -122,10 +122,10 @@ This document provides critical file locations and code references for quick AI/
 - `internal/indexing/lsp_scip_mapper.go:45-289` - LSP-to-SCIP protocol mapping and type conversion
 - `internal/indexing/watcher.go:37-184` - File system monitoring for real-time index updates
 
-### Three-Tier SCIP Caching Architecture
+### Two-Tier SCIP Caching Architecture
 - **Tier 1 - Memory Cache**: `internal/storage/memory_cache.go:21-78` - Hot data with 1ms access time
 - **Tier 2 - Local Storage**: `internal/indexing/scip_store.go:189-267` - Persistent SCIP indexes
-- **Tier 3 - LSP Fallback**: `internal/gateway/handlers.go:1557-1605` - Cache-miss LSP routing
+- **LSP Fallback**: `internal/gateway/handlers.go:1557-1605` - Cache-miss LSP routing
 - **Cache Coordination**: `internal/storage/hybrid_manager.go:92-145` - Multi-tier cache orchestration
 
 ### Enhanced MCP Tools

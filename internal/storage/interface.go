@@ -9,8 +9,8 @@ import (
 	"lsp-gateway/internal/indexing"
 )
 
-// StorageTier defines the core interface for all storage tiers in the three-tier architecture
-// All tiers (L1 Memory, L2 Disk, L3 Remote) implement this interface for consistent operations
+// StorageTier defines the core interface for all storage tiers in the two-tier architecture
+// All tiers (L1 Memory, L2 Disk) implement this interface for consistent operations
 type StorageTier interface {
 	// Core CRUD operations
 	Get(ctx context.Context, key string) (*CacheEntry, error)
@@ -44,9 +44,9 @@ type StorageTier interface {
 	GetTierLevel() int
 }
 
-// ThreeTierStorage coordinates operations across L1, L2, and L3 storage tiers
+// TwoTierStorage coordinates operations across L1 and L2 storage tiers
 // Implements intelligent cache management with promotion/eviction strategies
-type ThreeTierStorage interface {
+type TwoTierStorage interface {
 	// Primary operations delegate to appropriate tier based on strategy
 	Get(ctx context.Context, key string) (*CacheEntry, error)
 	Put(ctx context.Context, key string, entry *CacheEntry) error
@@ -73,12 +73,12 @@ type ThreeTierStorage interface {
 	Shutdown(ctx context.Context) error
 }
 
-// SCIPStorageAdapter adapts the three-tier storage system to work with existing SCIP interfaces
+// SCIPStorageAdapter adapts the two-tier storage system to work with existing SCIP interfaces
 // Provides seamless integration with indexing.SCIPStore while adding multi-tier capabilities
 type SCIPStorageAdapter interface {
 	indexing.SCIPStore
 
-	// Enhanced operations leveraging three-tier architecture
+	// Enhanced operations leveraging two-tier architecture
 	QueryWithTierHint(method string, params interface{}, preferredTier TierType) indexing.SCIPQueryResult
 	CacheResponseWithTier(method string, params interface{}, response json.RawMessage, tier TierType) error
 	GetTierStatistics() map[TierType]*TierStats
@@ -118,7 +118,7 @@ type StorageBackend interface {
 }
 
 // CompressionProvider defines interface for data compression in storage tiers
-// Enables space optimization especially for L2 disk and L3 remote storage
+// Enables space optimization especially for L2 disk storage
 type CompressionProvider interface {
 	// Compression operations
 	Compress(data []byte) ([]byte, error)
@@ -135,7 +135,7 @@ type CompressionProvider interface {
 }
 
 // EncryptionProvider defines interface for data encryption in storage tiers
-// Provides security for sensitive code data especially in remote storage
+// Provides security for sensitive code data in storage tiers
 type EncryptionProvider interface {
 	// Encryption operations
 	Encrypt(data []byte) ([]byte, error)

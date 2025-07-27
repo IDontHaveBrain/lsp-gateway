@@ -16,9 +16,8 @@ import (
 // PerformanceCache provides enterprise-grade multi-level caching for SCIP operations
 type PerformanceCache struct {
 	// Multi-level cache hierarchy
-	l1Cache *MemoryCache      // Hot data, microsecond access
-	l2Cache *DiskCache        // Warm data, millisecond access
-	l3Cache *DistributedCache // Cold data, network access
+	l1Cache *MemoryCache // Hot data, microsecond access
+	l2Cache *DiskCache   // Warm data, millisecond access
 
 	// Cache management
 	evictionManager *EvictionManager // Intelligent eviction policies
@@ -45,9 +44,6 @@ type PerformanceCacheConfig struct {
 
 	// L2 Disk Cache Configuration
 	L2Config DiskCacheConfig `json:"l2_config"`
-
-	// L3 Distributed Cache Configuration
-	L3Config DistributedCacheConfig `json:"l3_config"`
 
 	// Eviction Configuration
 	EvictionConfig EvictionConfig `json:"eviction_config"`
@@ -85,19 +81,7 @@ type DiskCacheConfig struct {
 	CompactionRatio  float64       `json:"compaction_ratio"`  // Compaction threshold
 }
 
-// DistributedCacheConfig configures L3 distributed cache
-type DistributedCacheConfig struct {
-	Enabled         bool          `json:"enabled"`
-	Type            string        `json:"type"`             // redis, memcached, etc.
-	Endpoints       []string      `json:"endpoints"`        // Cache server endpoints
-	TTL             time.Duration `json:"ttl"`              // Default TTL
-	ConnectTimeout  time.Duration `json:"connect_timeout"`  // Connection timeout
-	RequestTimeout  time.Duration `json:"request_timeout"`  // Request timeout
-	MaxConnections  int           `json:"max_connections"`  // Connection pool size
-	EnableSharding  bool          `json:"enable_sharding"`  // Enable consistent hashing
-	EnableFailover  bool          `json:"enable_failover"`  // Enable automatic failover
-	ReplicationMode string        `json:"replication_mode"` // sync, async, none
-}
+
 
 // EvictionConfig configures intelligent eviction policies
 type EvictionConfig struct {
@@ -139,7 +123,7 @@ type CacheEntry struct {
 	// Performance tracking
 	HeatScore     float64   `json:"heat_score"`     // Popularity-based score
 	PromotionTime time.Time `json:"promotion_time"` // Last promotion timestamp
-	Level         int       `json:"level"`          // Cache level (1, 2, or 3)
+	Level         int       `json:"level"`          // Cache level (1 or 2)
 
 	// Compression and encoding
 	IsCompressed     bool    `json:"is_compressed"`
@@ -221,64 +205,15 @@ type MmapFile struct {
 	refCount int32
 }
 
-// DistributedCache implements L3 distributed cache
-type DistributedCache struct {
-	config   DistributedCacheConfig
-	client   DistributedCacheClient
-	hasher   ConsistentHasher
-	failover *FailoverManager
 
-	// Connection management
-	connections []*CacheConnection
-	connMutex   sync.RWMutex
 
-	// Circuit breaker
-	circuitBreaker *CircuitBreaker
-}
 
-// DistributedCacheClient defines the interface for distributed cache operations
-type DistributedCacheClient interface {
-	Get(key string) ([]byte, error)
-	Set(key string, value []byte, ttl time.Duration) error
-	Delete(key string) error
-	Exists(key string) (bool, error)
-	TTL(key string) (time.Duration, error)
-	Ping() error
-	Close() error
-}
 
-// ConsistentHasher provides consistent hashing for distributed cache
-type ConsistentHasher struct {
-	ring     map[uint32]string
-	nodes    []string
-	replicas int
-	mutex    sync.RWMutex
-}
 
-// FailoverManager handles distributed cache failover
-type FailoverManager struct {
-	primary     string
-	secondaries []string
-	current     string
-	mutex       sync.RWMutex
 
-	// Health checking
-	healthChecker *HealthChecker
-	failureCount  map[string]int
-	lastFailure   map[string]time.Time
-}
 
-// CircuitBreaker implements circuit breaker pattern for distributed cache
-type CircuitBreaker struct {
-	failureThreshold int
-	recoveryTimeout  time.Duration
-	requestTimeout   time.Duration
 
-	state        int32 // 0: closed, 1: open, 2: half-open
-	failureCount int32
-	lastFailure  time.Time
-	mutex        sync.RWMutex
-}
+
 
 // EvictionManager implements intelligent multi-policy eviction
 type EvictionManager struct {
@@ -348,9 +283,8 @@ type CacheStats struct {
 	HitRate       float64 `json:"hit_rate"`
 
 	// Level-specific metrics
-	L1Stats MemoryCacheStats      `json:"l1_stats"`
-	L2Stats DiskCacheStats        `json:"l2_stats"`
-	L3Stats DistributedCacheStats `json:"l3_stats"`
+	L1Stats MemoryCacheStats `json:"l1_stats"`
+	L2Stats DiskCacheStats   `json:"l2_stats"`
 
 	// Performance metrics
 	AverageLatency time.Duration `json:"average_latency"`
@@ -398,16 +332,7 @@ type DiskCacheStats struct {
 	AverageLatency  time.Duration `json:"average_latency"`
 }
 
-// DistributedCacheStats provides L3 cache statistics
-type DistributedCacheStats struct {
-	ActiveConnections int           `json:"active_connections"`
-	TotalConnections  int           `json:"total_connections"`
-	HitCount          int64         `json:"hit_count"`
-	MissCount         int64         `json:"miss_count"`
-	ErrorCount        int64         `json:"error_count"`
-	NetworkLatency    time.Duration `json:"network_latency"`
-	FailoverCount     int64         `json:"failover_count"`
-}
+
 
 // EvictionStats provides eviction statistics
 type EvictionStats struct {
@@ -444,14 +369,6 @@ func NewPerformanceCache(config *PerformanceCacheConfig) (*PerformanceCache, err
 		cache.l2Cache = l2Cache
 	}
 
-	// Initialize L3 distributed cache
-	if config.L3Config.Enabled {
-		l3Cache, err := NewDistributedCache(config.L3Config)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create L3 cache: %w", err)
-		}
-		cache.l3Cache = l3Cache
-	}
 
 	// Initialize eviction manager
 	cache.evictionManager = NewEvictionManager(config.EvictionConfig)
@@ -490,17 +407,6 @@ func DefaultPerformanceCacheConfig() *PerformanceCacheConfig {
 			UseMemoryMap:     true,
 			EnableCompaction: true,
 			CompactionRatio:  0.7,
-		},
-		L3Config: DistributedCacheConfig{
-			Enabled:         false, // Disabled by default
-			Type:            "redis",
-			TTL:             24 * time.Hour,
-			ConnectTimeout:  5 * time.Second,
-			RequestTimeout:  1 * time.Second,
-			MaxConnections:  10,
-			EnableSharding:  true,
-			EnableFailover:  true,
-			ReplicationMode: "async",
 		},
 		EvictionConfig: EvictionConfig{
 			Policies:             []string{"LRU", "TTL", "MEMORY_PRESSURE", "POPULARITY"},
@@ -559,26 +465,6 @@ func (pc *PerformanceCache) Get(key string) (*CacheEntry, error) {
 		}
 	}
 
-	// Try L3 cache (cold data)
-	if pc.l3Cache != nil {
-		if entry, err := pc.l3Cache.Get(key); err == nil && entry != nil {
-			atomic.AddInt64(&pc.totalHits, 1)
-
-			// Promote to L2 or L1 based on heat score
-			if pc.shouldPromote(entry, 3, 2) {
-				targetLevel := 2
-				if pc.shouldPromote(entry, 3, 1) {
-					targetLevel = 1
-				}
-				pc.promoteEntry(entry, 3, targetLevel)
-				atomic.AddInt64(&pc.totalPromotions, 1)
-			}
-
-			pc.updateStats(startTime, 3)
-			entry.updateAccess()
-			return entry, nil
-		}
-	}
 
 	// Cache miss
 	atomic.AddInt64(&pc.totalMisses, 1)
@@ -622,16 +508,6 @@ func (pc *PerformanceCache) Set(key string, value []byte, ttl time.Duration) err
 			return pc.l2Cache.Set(key, entry)
 		}
 		return pc.l1Cache.Set(key, entry)
-	case 3:
-		if pc.l3Cache != nil {
-			return pc.l3Cache.Set(key, entry)
-		}
-		if pc.l2Cache != nil {
-			entry.Level = 2
-			return pc.l2Cache.Set(key, entry)
-		}
-		entry.Level = 1
-		return pc.l1Cache.Set(key, entry)
 	default:
 		return pc.l1Cache.Set(key, entry)
 	}
@@ -653,12 +529,6 @@ func (pc *PerformanceCache) Invalidate(pattern string) error {
 		}
 	}
 
-	// Invalidate from L3
-	if pc.l3Cache != nil {
-		if err := pc.l3Cache.Invalidate(pattern); err != nil {
-			errors = append(errors, fmt.Errorf("L3 invalidation failed: %w", err))
-		}
-	}
 
 	if len(errors) > 0 {
 		return fmt.Errorf("invalidation errors: %v", errors)
@@ -708,10 +578,6 @@ func (pc *PerformanceCache) GetStats() *CacheStats {
 		stats.L2Stats = pc.l2Cache.GetStats()
 	}
 
-	// Collect L3 stats
-	if pc.l3Cache != nil {
-		stats.L3Stats = pc.l3Cache.GetStats()
-	}
 
 	return stats
 }
@@ -733,9 +599,6 @@ func (pc *PerformanceCache) Cleanup() {
 		pc.l2Cache.Close()
 	}
 
-	if pc.l3Cache != nil {
-		pc.l3Cache.Close()
-	}
 
 	// Cleanup managers
 	if pc.evictionManager != nil {
@@ -755,8 +618,6 @@ func (pc *PerformanceCache) shouldPromote(entry *CacheEntry, fromLevel, toLevel 
 
 	// Promotion thresholds
 	thresholds := map[string]float64{
-		"3to2": 0.6, // L3 to L2
-		"3to1": 0.8, // L3 to L1
 		"2to1": 0.7, // L2 to L1
 	}
 
@@ -821,10 +682,6 @@ func (pc *PerformanceCache) promoteEntry(entry *CacheEntry, fromLevel, toLevel i
 			if pc.l2Cache != nil {
 				pc.l2Cache.Delete(entry.Key)
 			}
-		case 3:
-			if pc.l3Cache != nil {
-				pc.l3Cache.Delete(entry.Key)
-			}
 		}
 	}()
 }
@@ -864,8 +721,8 @@ func (pc *PerformanceCache) determineInitialLevel(entry *CacheEntry) int {
 		return 2
 	}
 
-	// Large entries go to L3
-	return 3
+	// Large entries go to L2
+	return 2
 }
 
 func (pc *PerformanceCache) compressEntry(entry *CacheEntry) error {
@@ -1058,10 +915,7 @@ func NewDiskCache(config DiskCacheConfig) (*DiskCache, error) {
 	return &DiskCache{config: config}, nil
 }
 
-func NewDistributedCache(config DistributedCacheConfig) (*DistributedCache, error) {
-	// Implementation would create a fully functional L3 distributed cache
-	return &DistributedCache{config: config}, nil
-}
+
 
 func NewEvictionManager(config EvictionConfig) *EvictionManager {
 	// Implementation would create a fully functional eviction manager
@@ -1120,27 +974,17 @@ func (dc *DiskCache) Close() {}
 
 func (dc *DiskCache) CleanupExpired() {}
 
-func (dsc *DistributedCache) Get(key string) (*CacheEntry, error) {
-	return nil, fmt.Errorf("not implemented")
-}
 
-func (dsc *DistributedCache) Set(key string, entry *CacheEntry) error {
-	return fmt.Errorf("not implemented")
-}
 
-func (dsc *DistributedCache) Delete(key string) error {
-	return fmt.Errorf("not implemented")
-}
 
-func (dsc *DistributedCache) Invalidate(pattern string) error {
-	return fmt.Errorf("not implemented")
-}
 
-func (dsc *DistributedCache) GetStats() DistributedCacheStats {
-	return DistributedCacheStats{}
-}
 
-func (dsc *DistributedCache) Close() {}
+
+
+
+
+
+
 
 func (em *EvictionManager) TriggerEmergencyEviction() {}
 

@@ -11,7 +11,7 @@ import (
 // This file contains concrete implementations and supporting types for those interfaces
 
 // CacheCoordinator manages intelligent coordination between tiers
-// Orchestrates promotion, eviction, and rebalancing across the three-tier system
+// Orchestrates promotion, eviction, and rebalancing across the two-tier system
 type CacheCoordinator interface {
 	// Tier coordination
 	CoordinateAccess(ctx context.Context, key string, preferredTier TierType) (*CacheEntry, TierType, error)

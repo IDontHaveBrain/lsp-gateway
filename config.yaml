@@ -204,52 +204,6 @@ performance_config:
           health_check_interval: 1m0s
           failure_threshold: 3
           recovery_timeout: 2m0s
-      l3_remote:
-        enabled: false
-        capacity: unlimited
-        max_entries: -1
-        eviction_policy: ttl
-        backend:
-          type: s3
-          endpoint: https://s3.amazonaws.com
-          region: us-east-1
-          bucket: lsp-gateway-cache
-          authentication:
-            type: aws_iam
-        compression:
-          enabled: true
-          algorithm: zstd
-          level: 5
-          min_size: 2048
-          threshold: 0.7
-        encryption:
-          enabled: true
-          algorithm: aes256
-          key_size: 256
-          key_rotation: 720h0m0s
-        performance:
-          max_concurrency: 20
-          timeout_ms: 10000
-          batch_size: 20
-          read_buffer_size: 65536
-          write_buffer_size: 65536
-          connection_pool_size: 5
-          keep_alive: true
-          prefetch_size: 3
-        reliability:
-          retry_count: 5
-          retry_delay_ms: 500
-          circuit_breaker:
-            enabled: true
-            failure_threshold: 3
-            recovery_timeout: 2m0s
-            half_open_requests: 2
-            min_request_count: 5
-          health_check_interval: 5m0s
-          failure_threshold: 3
-          recovery_timeout: 5m0s
-          replication_enabled: true
-          replication_factor: 2
     strategy:
       promotion_strategy:
         type: adaptive
@@ -264,8 +218,6 @@ performance_config:
         tier_thresholds:
           l1_to_l2: 0.7
           l2_to_l1: 0.3
-          l2_to_l3: 0.8
-          l3_to_l2: 0.4
       eviction_policy:
         type: lru
         enabled: true

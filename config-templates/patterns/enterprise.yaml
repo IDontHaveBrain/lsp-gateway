@@ -794,15 +794,15 @@ performance_config:
       cross_region_replication: true
       backup_storage: "s3://enterprise-backup/scip-indices"
 
-  # Enterprise Three-Tier Storage Architecture
-  # Provides L1 Memory, L2 Disk, and L3 Remote storage for optimal performance
+  # Enterprise Two-Tier Storage Architecture
+  # Provides L1 Memory and L2 Disk storage for optimal performance
   storage:
     # Storage enabled for enterprise performance and scalability
     enabled: true
     version: "1.0"
     profile: "production"
     
-    # Three-tier architecture configuration
+    # Two-tier architecture configuration
     tiers:
       # L1: In-memory cache for ultra-fast access (<10ms)
       l1_memory:
@@ -879,63 +879,6 @@ performance_config:
             recovery_timeout: "60s"
             half_open_requests: 5
             min_request_count: 20
-      
-      # L3: Remote/distributed cache for unlimited storage (<200ms)
-      l3_remote:
-        enabled: true
-        capacity: "unlimited"
-        max_entries: -1
-        eviction_policy: "ttl"
-        
-        backend:
-          type: "s3"
-          endpoint: "https://s3.amazonaws.com"
-          region: "us-east-1"
-          bucket: "enterprise-lsp-gateway-cache"
-          authentication:
-            type: "aws_iam"
-            api_key: "${AWS_ACCESS_KEY_ID}"
-            secret_key: "${AWS_SECRET_ACCESS_KEY}"
-        
-        compression:
-          enabled: true
-          algorithm: "zstd"
-          level: 6
-          min_size: 4096
-          threshold: 0.7
-        
-        encryption:
-          enabled: true
-          algorithm: "aes256"
-          key_size: 256
-          key_rotation: "720h"  # 30 days
-          key_path: "/etc/lsp-gateway/encryption/storage.key"
-        
-        performance:
-          max_concurrency: 50
-          timeout_ms: 120000  # 2 minutes for remote
-          batch_size: 20
-          read_buffer_size: 131072
-          write_buffer_size: 131072
-          connection_pool_size: 10
-          keep_alive: true
-          prefetch_enabled: false
-          prefetch_size: 5
-        
-        reliability:
-          retry_count: 7
-          retry_delay_ms: 1000
-          health_check_interval: "2m"
-          failure_threshold: 2
-          recovery_timeout: "5m"
-          replication_enabled: true
-          replication_factor: 3
-          circuit_breaker:
-            enabled: true
-            failure_threshold: 3
-            recovery_timeout: "5m"
-            half_open_requests: 2
-            min_request_count: 10
     
     # Enterprise storage strategies
     strategy:
@@ -953,8 +896,6 @@ performance_config:
         tier_thresholds:
           "l1_to_l2": 0.8
           "l2_to_l1": 0.2
-          "l2_to_l3": 0.9
-          "l3_to_l2": 0.3
         custom_parameters:
           enable_ml_prediction: true
           prediction_model: "gradient_boost"
