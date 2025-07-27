@@ -1,12 +1,17 @@
 package cli
 
 import (
+	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -142,10 +147,8 @@ func createMCPHTTPServer(server *mcp.Server, port int) *http.Server {
 		}
 	})
 
-	mux.HandleFunc("/mcp", func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", transport.HTTP_CONTENT_TYPE_JSON)
-		w.WriteHeader(http.StatusNotImplemented)
-		_, _ = fmt.Fprintf(w, `{"error":"HTTP MCP transport not yet implemented","message":"Use stdio transport for now"}`)
+	mux.HandleFunc("/mcp", func(w http.ResponseWriter, r *http.Request) {
+		handleMCPHTTPRequest(w, r, server)
 	})
 
 	return &http.Server{
@@ -153,6 +156,206 @@ func createMCPHTTPServer(server *mcp.Server, port int) *http.Server {
 		Handler:      mux,
 		ReadTimeout:  30 * time.Second,
 		WriteTimeout: 30 * time.Second,
+	}
+}
+
+// handleMCPHTTPRequest handles HTTP-based MCP protocol requests
+func handleMCPHTTPRequest(w http.ResponseWriter, r *http.Request, server *mcp.Server) {
+	// Set response headers
+	w.Header().Set("Content-Type", transport.HTTP_CONTENT_TYPE_JSON)
+	w.Header().Set(mcp.HTTP_HEADER_MCP_PROTOCOL_VERSION, mcp.ProtocolVersion)
+	
+	// Validate HTTP method
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		response := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"error": map[string]interface{}{
+				"code":    -32600,
+				"message": "Invalid Request",
+				"data":    "Only POST method is supported for MCP HTTP transport",
+			},
+		}
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+	
+	// Validate MCP-Protocol-Version header
+	clientVersion := r.Header.Get(mcp.HTTP_HEADER_MCP_PROTOCOL_VERSION)
+	if clientVersion == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		response := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"error": map[string]interface{}{
+				"code":    -32600,
+				"message": "Invalid Request", 
+				"data":    "Missing required MCP-Protocol-Version header",
+			},
+		}
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+	
+	if clientVersion != mcp.ProtocolVersion {
+		w.WriteHeader(http.StatusBadRequest)
+		response := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"error": map[string]interface{}{
+				"code":    -32600,
+				"message": "Invalid Request",
+				"data":    fmt.Sprintf("Incompatible MCP protocol version: %s (server supports: %s)", clientVersion, mcp.ProtocolVersion),
+			},
+		}
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+	
+	// Read request body
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		response := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"error": map[string]interface{}{
+				"code":    -32700,
+				"message": "Parse error",
+				"data":    fmt.Sprintf("Failed to read request body: %v", err),
+			},
+		}
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+	
+	// Validate Content-Type
+	contentType := r.Header.Get("Content-Type")
+	if !strings.Contains(contentType, "application/json") {
+		w.WriteHeader(http.StatusBadRequest)
+		response := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"error": map[string]interface{}{
+				"code":    -32600,
+				"message": "Invalid Request",
+				"data":    "Content-Type must be application/json",
+			},
+		}
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+	
+	// Create a pipe to simulate stdio communication with the existing MCP server
+	pr, pw := io.Pipe()
+	responseReader, responseWriter := io.Pipe()
+	
+	// Set up server IO
+	originalInput := server.Input
+	originalOutput := server.Output
+	server.SetIO(pr, responseWriter)
+	
+	// Restore original IO when done
+	defer func() {
+		server.SetIO(originalInput, originalOutput)
+		pw.Close()
+		responseWriter.Close()
+	}()
+	
+	// Channel to capture the response
+	responseChan := make(chan []byte, 1)
+	errorChan := make(chan error, 1)
+	
+	// Start a goroutine to read the MCP server's response
+	go func() {
+		defer responseReader.Close()
+		
+		// Read the full response using MCP protocol format
+		reader := bufio.NewReader(responseReader)
+		
+		// Read Content-Length header
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			errorChan <- fmt.Errorf("failed to read Content-Length: %v", err)
+			return
+		}
+		
+		// Parse Content-Length
+		if !strings.HasPrefix(line, "Content-Length:") {
+			errorChan <- fmt.Errorf("expected Content-Length header, got: %s", line)
+			return
+		}
+		
+		lengthStr := strings.TrimSpace(strings.TrimPrefix(line, "Content-Length:"))
+		contentLength, err := strconv.Atoi(lengthStr)
+		if err != nil {
+			errorChan <- fmt.Errorf("invalid Content-Length: %v", err)
+			return
+		}
+		
+		// Read empty line
+		_, err = reader.ReadString('\n')
+		if err != nil {
+			errorChan <- fmt.Errorf("failed to read separator: %v", err)
+			return
+		}
+		
+		// Read response body
+		responseBody := make([]byte, contentLength)
+		_, err = io.ReadFull(reader, responseBody)
+		if err != nil {
+			errorChan <- fmt.Errorf("failed to read response body: %v", err)
+			return
+		}
+		
+		responseChan <- responseBody
+	}()
+	
+	// Send the request to the MCP server using the same format as stdio transport
+	messageContent := string(body)
+	message := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(messageContent), messageContent)
+	
+	_, err = pw.Write([]byte(message))
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		response := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"error": map[string]interface{}{
+				"code":    -32603,
+				"message": "Internal error",
+				"data":    fmt.Sprintf("Failed to send request to MCP server: %v", err),
+			},
+		}
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+	
+	// Wait for response with timeout
+	select {
+	case responseBody := <-responseChan:
+		// Send the JSON response directly
+		w.WriteHeader(http.StatusOK)
+		w.Write(responseBody)
+		
+	case err := <-errorChan:
+		w.WriteHeader(http.StatusInternalServerError)
+		response := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"error": map[string]interface{}{
+				"code":    -32603,
+				"message": "Internal error",
+				"data":    fmt.Sprintf("MCP server error: %v", err),
+			},
+		}
+		json.NewEncoder(w).Encode(response)
+		
+	case <-time.After(30 * time.Second):
+		w.WriteHeader(http.StatusRequestTimeout)
+		response := map[string]interface{}{
+			"jsonrpc": "2.0",
+			"error": map[string]interface{}{
+				"code":    -32603,
+				"message": "Internal error",
+				"data":    "Request timeout waiting for MCP server response",
+			},
+		}
+		json.NewEncoder(w).Encode(response)
 	}
 }
 

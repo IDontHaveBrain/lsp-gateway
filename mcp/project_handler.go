@@ -209,9 +209,48 @@ func (h *ProjectAwareToolHandler) GetProjectMetadata() map[string]interface{} {
 
 func (h *ProjectAwareToolHandler) registerProjectTools() {
 	// Register new project-specific tools
+	analyzeProjectTitle := "Analyze Project Structure"
+	analyzeProjectOutputSchema := &map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"type": map[string]interface{}{"type": "string"},
+						"text": map[string]interface{}{"type": "string"},
+						"data": map[string]interface{}{
+							"type": "object",
+							"properties": map[string]interface{}{
+								"project_type": map[string]interface{}{"type": "string"},
+								"primary_language": map[string]interface{}{"type": "string"},
+								"languages": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{"type": "string"},
+								},
+								"root_path": map[string]interface{}{"type": "string"},
+								"confidence": map[string]interface{}{"type": "number"},
+								"is_valid": map[string]interface{}{"type": "boolean"},
+							},
+						},
+					},
+				},
+			},
+			"meta": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"timestamp": map[string]interface{}{"type": "string"},
+					"lspMethod": map[string]interface{}{"type": "string"},
+				},
+			},
+		},
+	}
 	h.Tools["analyze_project_structure"] = Tool{
-		Name:        "analyze_project_structure",
-		Description: "Analyze the structure and characteristics of the current project",
+		Name:         "analyze_project_structure",
+		Title:        &analyzeProjectTitle,
+		Description:  "Analyze the structure and characteristics of the current project",
+		OutputSchema: analyzeProjectOutputSchema,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -234,9 +273,69 @@ func (h *ProjectAwareToolHandler) registerProjectTools() {
 		},
 	}
 
+	findProjectSymbolsTitle := "Find Project Symbols"
+	findProjectSymbolsOutputSchema := &map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"type": map[string]interface{}{"type": "string"},
+						"text": map[string]interface{}{"type": "string"},
+						"data": map[string]interface{}{
+							"type": "array",
+							"items": map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"name": map[string]interface{}{"type": "string"},
+									"kind": map[string]interface{}{"type": "integer"},
+									"location": map[string]interface{}{
+										"type": "object",
+										"properties": map[string]interface{}{
+											"uri": map[string]interface{}{"type": "string"},
+											"range": map[string]interface{}{
+												"type": "object",
+												"properties": map[string]interface{}{
+													"start": map[string]interface{}{
+														"type": "object",
+														"properties": map[string]interface{}{
+															"line": map[string]interface{}{"type": "integer"},
+															"character": map[string]interface{}{"type": "integer"},
+														},
+													},
+													"end": map[string]interface{}{
+														"type": "object",
+														"properties": map[string]interface{}{
+															"line": map[string]interface{}{"type": "integer"},
+															"character": map[string]interface{}{"type": "integer"},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"meta": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"timestamp": map[string]interface{}{"type": "string"},
+					"lspMethod": map[string]interface{}{"type": "string"},
+				},
+			},
+		},
+	}
 	h.Tools["find_project_symbols"] = Tool{
-		Name:        "find_project_symbols",
-		Description: "Search for symbols across the entire project with project-aware scoping",
+		Name:         "find_project_symbols",
+		Title:        &findProjectSymbolsTitle,
+		Description:  "Search for symbols across the entire project with project-aware scoping",
+		OutputSchema: findProjectSymbolsOutputSchema,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -258,9 +357,54 @@ func (h *ProjectAwareToolHandler) registerProjectTools() {
 		},
 	}
 
+	getProjectConfigTitle := "Get Project Configuration"
+	getProjectConfigOutputSchema := &map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"type": map[string]interface{}{"type": "string"},
+						"text": map[string]interface{}{"type": "string"},
+						"data": map[string]interface{}{
+							"type": "object",
+							"properties": map[string]interface{}{
+								"project_context": map[string]interface{}{"type": "object"},
+								"config_context": map[string]interface{}{"type": "object"},
+								"project_config": map[string]interface{}{"type": "object"},
+								"workspace_roots": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{"type": "string"},
+								},
+								"active_languages": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{"type": "string"},
+								},
+								"enabled_servers": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{"type": "string"},
+								},
+							},
+						},
+					},
+				},
+			},
+			"meta": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"timestamp": map[string]interface{}{"type": "string"},
+					"lspMethod": map[string]interface{}{"type": "string"},
+				},
+			},
+		},
+	}
 	h.Tools["get_project_config"] = Tool{
-		Name:        "get_project_config",
-		Description: "Retrieve project configuration and metadata",
+		Name:         "get_project_config",
+		Title:        &getProjectConfigTitle,
+		Description:  "Retrieve project configuration and metadata",
+		OutputSchema: getProjectConfigOutputSchema,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -278,9 +422,56 @@ func (h *ProjectAwareToolHandler) registerProjectTools() {
 		},
 	}
 
+	validateProjectTitle := "Validate Project Structure"
+	validateProjectOutputSchema := &map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"type": map[string]interface{}{"type": "string"},
+						"text": map[string]interface{}{"type": "string"},
+						"data": map[string]interface{}{
+							"type": "object",
+							"properties": map[string]interface{}{
+								"is_valid": map[string]interface{}{"type": "boolean"},
+								"validation_errors": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{"type": "string"},
+								},
+								"validation_warnings": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{"type": "string"},
+								},
+								"marker_files": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{"type": "string"},
+								},
+								"required_servers": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{"type": "string"},
+								},
+							},
+						},
+					},
+				},
+			},
+			"meta": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"timestamp": map[string]interface{}{"type": "string"},
+					"lspMethod": map[string]interface{}{"type": "string"},
+				},
+			},
+		},
+	}
 	h.Tools["validate_project_structure"] = Tool{
-		Name:        "validate_project_structure",
-		Description: "Validate project structure and configuration",
+		Name:         "validate_project_structure",
+		Title:        &validateProjectTitle,
+		Description:  "Validate project structure and configuration",
+		OutputSchema: validateProjectOutputSchema,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -298,9 +489,49 @@ func (h *ProjectAwareToolHandler) registerProjectTools() {
 		},
 	}
 
+	discoverDepsTitle := "Discover Workspace Dependencies"
+	discoverDepsOutputSchema := &map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"type": map[string]interface{}{"type": "string"},
+						"text": map[string]interface{}{"type": "string"},
+						"data": map[string]interface{}{
+							"type": "object",
+							"properties": map[string]interface{}{
+								"dependencies": map[string]interface{}{"type": "object"},
+								"dev_dependencies": map[string]interface{}{"type": "object"},
+								"build_files": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{"type": "string"},
+								},
+								"config_files": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{"type": "string"},
+								},
+							},
+						},
+					},
+				},
+			},
+			"meta": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"timestamp": map[string]interface{}{"type": "string"},
+					"lspMethod": map[string]interface{}{"type": "string"},
+				},
+			},
+		},
+	}
 	h.Tools["discover_workspace_dependencies"] = Tool{
-		Name:        "discover_workspace_dependencies",
-		Description: "Analyze project dependencies and their relationships",
+		Name:         "discover_workspace_dependencies",
+		Title:        &discoverDepsTitle,
+		Description:  "Analyze project dependencies and their relationships",
+		OutputSchema: discoverDepsOutputSchema,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{

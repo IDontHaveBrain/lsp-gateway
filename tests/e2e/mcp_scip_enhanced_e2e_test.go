@@ -1605,7 +1605,7 @@ multi_server_config:
 
 	// Initialize MCP connection
 	initMsg := createTestMCPMessage(1, "initialize", map[string]interface{}{
-		"protocolVersion": "2024-11-05",
+		"protocolVersion": "2025-06-18",
 		"capabilities":    map[string]interface{}{},
 	})
 
