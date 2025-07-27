@@ -135,7 +135,6 @@ type OptimizedCache struct {
 	// Multi-level cache structure
 	l1Cache map[string]*CacheEntry // Hot data
 	l2Cache map[string]*CacheEntry // Warm data
-	l3Cache map[string]*CacheEntry // Cold data
 
 	// Cache management
 	maxSize          int
@@ -149,7 +148,6 @@ type OptimizedCache struct {
 	// Performance metrics
 	hitRateL1        float64
 	hitRateL2        float64
-	hitRateL3        float64
 	compressionRatio float64
 
 	mutex sync.RWMutex
@@ -740,7 +738,6 @@ func NewOptimizedCache(config *OptimizationConfig) *OptimizedCache {
 	return &OptimizedCache{
 		l1Cache:          make(map[string]*CacheEntry),
 		l2Cache:          make(map[string]*CacheEntry),
-		l3Cache:          make(map[string]*CacheEntry),
 		accessPatterns:   make(map[string]*AccessPattern),
 		hotKeys:          make([]string, 0),
 		compressionLevel: config.CacheCompressionLevel,

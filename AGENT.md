@@ -81,10 +81,9 @@ MCP → ToolHandler → LSPGatewayClient → HTTP Gateway → Router → LSPClie
 ### SCIP Intelligent Caching Architecture
 The gateway includes sophisticated SCIP v0.5.2 integration with multi-tier storage:
 
-**Three-Tier Storage System**:
+**Two-Tier Storage System**:
 - **L1 Memory**: <10ms access, 8GB capacity, LRU with compression
-- **L2 Disk**: SSD/HDD with memory-mapped files, <50ms access  
-- **L3 Remote**: Redis/distributed cache, <200ms access
+- **L2 Disk**: SSD/HDD with memory-mapped files, <50ms access
 
 **Performance Characteristics**:
 - **Cache-First Routing**: Check SCIP cache before forwarding to LSP servers

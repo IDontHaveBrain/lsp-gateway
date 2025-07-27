@@ -279,11 +279,8 @@ performance_config:
           keep_alive: true
           prefetch_enabled: false
       
-      # L2 and L3 disabled for simple development
+      # L2 disabled for simple development
       l2_disk:
-        enabled: false
-      
-      l3_remote:
         enabled: false
     
     # Simple strategies for development

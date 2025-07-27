@@ -5,10 +5,8 @@ go 1.24.0
 toolchain go1.24.5
 
 require (
-	github.com/aws/aws-sdk-go v1.55.7
 	github.com/dgraph-io/badger/v4 v4.8.0
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/go-redis/redis/v8 v8.11.5
 	github.com/goccy/go-yaml v1.13.5
 	github.com/golang/snappy v1.0.0
 	github.com/klauspost/compress v1.18.0
@@ -16,7 +14,6 @@ require (
 	github.com/sourcegraph/scip v0.5.2
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.10.0
-	github.com/vmihailenco/msgpack/v5 v5.4.1
 	golang.org/x/text v0.27.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/yaml.v2 v2.4.0
@@ -41,7 +38,6 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.6 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/ristretto/v2 v2.2.0 // indirect
-	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/docker/cli v24.0.4+incompatible // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/docker/docker v24.0.4+incompatible // indirect
@@ -67,7 +63,6 @@ require (
 	github.com/imdario/mergo v0.3.4 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jdxcode/netrc v0.0.0-20221124155335-4616370d1a84 // indirect
-	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/pgzip v1.2.6 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -93,7 +88,6 @@ require (
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/tetratelabs/wazero v1.3.0 // indirect
 	github.com/vbatts/tar-split v0.11.3 // indirect
-	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/otel v1.37.0 // indirect
 	go.opentelemetry.io/otel/metric v1.37.0 // indirect

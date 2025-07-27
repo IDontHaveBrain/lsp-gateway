@@ -9,13 +9,12 @@ import (
 
 // Core storage types and enums
 
-// TierType represents the three storage tiers in the architecture
+// TierType represents the two storage tiers in the architecture
 type TierType int
 
 const (
 	TierL1Memory TierType = iota + 1 // L1: In-memory cache (<10ms access)
 	TierL2Disk                       // L2: SSD/HDD storage (<50ms access)
-	TierL3Remote                     // L3: Remote/network storage (<200ms access)
 )
 
 func (t TierType) String() string {
@@ -24,8 +23,6 @@ func (t TierType) String() string {
 		return "L1_Memory"
 	case TierL2Disk:
 		return "L2_Disk"
-	case TierL3Remote:
-		return "L3_Remote"
 	default:
 		return "Unknown"
 	}
@@ -38,10 +35,6 @@ const (
 	BackendMemory BackendType = iota + 1
 	BackendLocalDisk
 	BackendNetworkDisk
-	BackendS3
-	BackendRedis
-	BackendDatabase
-	BackendCustom
 )
 
 func (b BackendType) String() string {
@@ -52,14 +45,6 @@ func (b BackendType) String() string {
 		return "LocalDisk"
 	case BackendNetworkDisk:
 		return "NetworkDisk"
-	case BackendS3:
-		return "S3"
-	case BackendRedis:
-		return "Redis"
-	case BackendDatabase:
-		return "Database"
-	case BackendCustom:
-		return "Custom"
 	default:
 		return "Unknown"
 	}
@@ -131,7 +116,7 @@ type CacheEntry struct {
 	AccessedAt time.Time       `json:"accessed_at"`
 	TTL        time.Duration   `json:"ttl"`
 
-	// Enhanced metadata for three-tier storage
+	// Enhanced metadata for two-tier storage
 	Key            string `json:"key"`
 	Size           int64  `json:"size"`
 	CompressedSize int64  `json:"compressed_size,omitempty"`
@@ -523,7 +508,6 @@ const (
 	CachingHintNone CachingHint = iota
 	CachingHintPreferMemory
 	CachingHintPreferDisk
-	CachingHintPreferRemote
 	CachingHintNoCache
 	CachingHintPinned
 )
@@ -534,8 +518,6 @@ func (h CachingHint) String() string {
 		return "PreferMemory"
 	case CachingHintPreferDisk:
 		return "PreferDisk"
-	case CachingHintPreferRemote:
-		return "PreferRemote"
 	case CachingHintNoCache:
 		return "NoCache"
 	case CachingHintPinned:
@@ -927,7 +909,6 @@ type StorageConfiguration struct {
 type StorageTiersConfig struct {
 	L1Memory *TierConfiguration `json:"l1_memory,omitempty" yaml:"l1_memory,omitempty"`
 	L2Disk   *TierConfiguration `json:"l2_disk,omitempty" yaml:"l2_disk,omitempty"`
-	L3Remote *TierConfiguration `json:"l3_remote,omitempty" yaml:"l3_remote,omitempty"`
 }
 
 // TierConfiguration contains configuration for an individual storage tier

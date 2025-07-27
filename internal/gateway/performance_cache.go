@@ -230,7 +230,6 @@ type PerformanceCacheStats struct {
 	CompressionRatio  float64   `json:"compression_ratio"`
 	L1Entries         int64     `json:"l1_entries"`
 	L2Entries         int64     `json:"l2_entries"`
-	L3Entries         int64     `json:"l3_entries"`
 	HotDataPercentage float64   `json:"hot_data_percentage"`
 	LastOptimization  time.Time `json:"last_optimization"`
 }
@@ -251,9 +250,8 @@ type PerformanceCacheConfig struct {
 type IntelligentPerformanceCache struct {
 	config             *PerformanceCacheConfig
 	mutex              sync.RWMutex
-	cache              map[string]*PerformanceCacheEntry // L1 cache
-	compressedCache    map[string]*PerformanceCacheEntry // L2 cache
-	persistentCache    map[string]*PerformanceCacheEntry // L3 cache
+	cache           map[string]*PerformanceCacheEntry // L1 cache
+	compressedCache map[string]*PerformanceCacheEntry // L2 cache
 	serverMetrics      map[string]*ServerMetrics
 	methodMetrics      map[string]*CacheMethodMetrics
 	cacheStats         *PerformanceCacheStats
@@ -288,7 +286,6 @@ func NewIntelligentPerformanceCache(config *PerformanceCacheConfig) *Intelligent
 		config:          config,
 		cache:           make(map[string]*PerformanceCacheEntry),
 		compressedCache: make(map[string]*PerformanceCacheEntry),
-		persistentCache: make(map[string]*PerformanceCacheEntry),
 		serverMetrics:   make(map[string]*ServerMetrics),
 		methodMetrics:   make(map[string]*CacheMethodMetrics),
 		cacheStats:      &PerformanceCacheStats{},
@@ -397,9 +394,9 @@ func (pc *IntelligentPerformanceCache) CacheResponse(key string, response interf
 	case 2:
 		pc.compressedCache[key] = entry
 		pc.cacheStats.L2Entries++
-	case 3:
-		pc.persistentCache[key] = entry
-		pc.cacheStats.L3Entries++
+	default:
+		pc.compressedCache[key] = entry
+		pc.cacheStats.L2Entries++
 	}
 
 	pc.cacheStats.TotalEntries++
@@ -456,18 +453,6 @@ func (pc *IntelligentPerformanceCache) GetCachedResponse(key string) (interface{
 		}
 	}
 
-	// Check L3 cache
-	if entry, exists := pc.persistentCache[key]; exists {
-		if pc.isEntryValid(entry) {
-			entry.AccessCount++
-			entry.LastAccess = time.Now()
-			pc.hitCount++
-			return entry.Response, true
-		} else {
-			delete(pc.persistentCache, key)
-			pc.cacheStats.L3Entries--
-		}
-	}
 
 	pc.missCount++
 	return nil, false
@@ -498,12 +483,6 @@ func (pc *IntelligentPerformanceCache) InvalidateCache(pattern string) error {
 		}
 	}
 
-	for key := range pc.persistentCache {
-		if regex.MatchString(key) {
-			delete(pc.persistentCache, key)
-			pc.cacheStats.L3Entries--
-		}
-	}
 
 	pc.updateCacheStats()
 	return nil
@@ -687,10 +666,8 @@ func (pc *IntelligentPerformanceCache) calculatePriority(key string, size int64)
 func (pc *IntelligentPerformanceCache) determineCacheLevel(entry *PerformanceCacheEntry) int {
 	if entry.Priority >= 3 && entry.Size < 10*1024 {
 		return 1 // L1 for high priority, small items
-	} else if entry.Size < 100*1024 {
-		return 2 // L2 for medium items
 	}
-	return 3 // L3 for large items
+	return 2 // L2 for larger items
 }
 
 func (pc *IntelligentPerformanceCache) isEntryValid(entry *PerformanceCacheEntry) bool {
@@ -699,7 +676,7 @@ func (pc *IntelligentPerformanceCache) isEntryValid(entry *PerformanceCacheEntry
 
 func (pc *IntelligentPerformanceCache) shouldEvict() bool {
 	maxEntries := pc.config.MaxCacheEntries
-	currentEntries := len(pc.cache) + len(pc.compressedCache) + len(pc.persistentCache)
+	currentEntries := len(pc.cache) + len(pc.compressedCache)
 
 	return currentEntries > maxEntries || pc.cacheStats.MemoryUsage > pc.config.MaxMemoryMB*1024*1024
 }
@@ -726,10 +703,6 @@ func (pc *IntelligentPerformanceCache) evictEntries() {
 		entries = append(entries, entryInfo{key, entry, 2, score})
 	}
 
-	for key, entry := range pc.persistentCache {
-		score := pc.calculateEvictionScore(entry)
-		entries = append(entries, entryInfo{key, entry, 3, score})
-	}
 
 	// Sort by eviction score (lower is more likely to be evicted)
 	sort.Slice(entries, func(i, j int) bool {
@@ -751,9 +724,6 @@ func (pc *IntelligentPerformanceCache) evictEntries() {
 		case 2:
 			delete(pc.compressedCache, entry.key)
 			pc.cacheStats.L2Entries--
-		case 3:
-			delete(pc.persistentCache, entry.key)
-			pc.cacheStats.L3Entries--
 		}
 		pc.evictions++
 	}
@@ -984,7 +954,7 @@ func (pc *IntelligentPerformanceCache) updateAllMetrics() {
 }
 
 func (pc *IntelligentPerformanceCache) updateCacheStats() {
-	pc.cacheStats.TotalEntries = int64(len(pc.cache) + len(pc.compressedCache) + len(pc.persistentCache))
+	pc.cacheStats.TotalEntries = int64(len(pc.cache) + len(pc.compressedCache))
 	pc.updateMemoryUsage()
 
 	totalRequests := pc.hitCount + pc.missCount
@@ -1017,9 +987,6 @@ func (pc *IntelligentPerformanceCache) updateMemoryUsage() {
 		}
 	}
 
-	for _, entry := range pc.persistentCache {
-		totalSize += entry.Size
-	}
 
 	pc.cacheStats.MemoryUsage = totalSize
 }
@@ -1042,15 +1009,6 @@ func (pc *IntelligentPerformanceCache) optimizeCacheLevels() {
 		}
 	}
 
-	for key, entry := range pc.persistentCache {
-		if entry.AccessCount > 5 && entry.Size < 100*1024 {
-			// Move to L2
-			pc.compressedCache[key] = entry
-			delete(pc.persistentCache, key)
-			pc.cacheStats.L2Entries++
-			pc.cacheStats.L3Entries--
-		}
-	}
 }
 
 func (pc *IntelligentPerformanceCache) optimizeTTL() {

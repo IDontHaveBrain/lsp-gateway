@@ -168,12 +168,6 @@ func (v *StorageConfigValidator) validateTiersConfig(config *StorageTiersConfig)
 		}
 	}
 
-	if config.L3Remote != nil {
-		v.validateTierConfiguration("L3Remote", config.L3Remote)
-		if config.L3Remote.Enabled {
-			enabledTiers++
-		}
-	}
 
 	if enabledTiers == 0 {
 		v.addError("at least one storage tier must be enabled")
@@ -750,11 +744,6 @@ func (v *StorageConfigValidator) validateCrossConfiguration(config *StorageConfi
 	if config.Tiers != nil {
 		l1Enabled := config.Tiers.L1Memory != nil && config.Tiers.L1Memory.Enabled
 		l2Enabled := config.Tiers.L2Disk != nil && config.Tiers.L2Disk.Enabled
-		l3Enabled := config.Tiers.L3Remote != nil && config.Tiers.L3Remote.Enabled
-
-		if l3Enabled && !l2Enabled && !l1Enabled {
-			v.addError("L3 remote tier cannot be enabled without L1 or L2 tiers")
-		}
 
 		if l2Enabled && !l1Enabled {
 			v.addWarning("L2 disk tier is enabled without L1 memory tier, which may impact performance")
@@ -771,11 +760,6 @@ func (v *StorageConfigValidator) validateCrossConfiguration(config *StorageConfi
 				}
 			}
 
-			if config.Tiers.L3Remote != nil && config.Tiers.L3Remote.Enabled {
-				if config.Tiers.L3Remote.Encryption == nil || !config.Tiers.L3Remote.Encryption.Enabled {
-					v.addWarning("encryption at rest is enabled but L3 remote tier does not have encryption configured")
-				}
-			}
 		}
 	}
 }
@@ -999,27 +983,6 @@ func DefaultStorageConfiguration() *StorageConfiguration {
 					FailureThreshold: 5,
 				},
 			},
-			L3Remote: &TierConfiguration{
-				Enabled:        false,
-				Capacity:       "unlimited",
-				MaxEntries:     -1,
-				EvictionPolicy: "ttl",
-				Backend: &BackendConfiguration{
-					Type: "s3",
-				},
-				Performance: &TierPerformanceConfig{
-					MaxConcurrency:  2,
-					TimeoutMs:       30000,
-					BatchSize:       10,
-					ReadBufferSize:  16384,
-					WriteBufferSize: 16384,
-				},
-				Reliability: &TierReliabilityConfig{
-					RetryCount:       5,
-					RetryDelayMs:     1000,
-					FailureThreshold: 3,
-				},
-			},
 		},
 		Strategy: &StorageStrategyConfig{
 			PromotionStrategy: &PromotionStrategyConfig{
@@ -1123,7 +1086,7 @@ func getProductionStorageConfig(base *StorageConfiguration) *StorageConfiguratio
 	config.Profile = "production"
 	config.Enabled = true
 
-	// Enable all tiers for production
+	// Enable L1 and L2 tiers for production
 	if config.Tiers != nil {
 		if config.Tiers.L1Memory != nil {
 			config.Tiers.L1Memory.Enabled = true
@@ -1132,9 +1095,6 @@ func getProductionStorageConfig(base *StorageConfiguration) *StorageConfiguratio
 		if config.Tiers.L2Disk != nil {
 			config.Tiers.L2Disk.Enabled = true
 			config.Tiers.L2Disk.Capacity = "500GB"
-		}
-		if config.Tiers.L3Remote != nil {
-			config.Tiers.L3Remote.Enabled = true
 		}
 	}
 
@@ -1175,9 +1135,6 @@ func getDevelopmentStorageConfig(base *StorageConfiguration) *StorageConfigurati
 		if config.Tiers.L2Disk != nil {
 			config.Tiers.L2Disk.Enabled = false
 		}
-		if config.Tiers.L3Remote != nil {
-			config.Tiers.L3Remote.Enabled = false
-		}
 	}
 
 	// Simplified monitoring for development
@@ -1202,7 +1159,7 @@ func getAnalysisStorageConfig(base *StorageConfiguration) *StorageConfiguration 
 	config.Profile = "analysis"
 	config.Enabled = true
 
-	// Enable all tiers with large capacities for analysis
+	// Enable L1 and L2 tiers with large capacities for analysis
 	if config.Tiers != nil {
 		if config.Tiers.L1Memory != nil {
 			config.Tiers.L1Memory.Enabled = true
@@ -1211,9 +1168,6 @@ func getAnalysisStorageConfig(base *StorageConfiguration) *StorageConfiguration 
 		if config.Tiers.L2Disk != nil {
 			config.Tiers.L2Disk.Enabled = true
 			config.Tiers.L2Disk.Capacity = "1TB"
-		}
-		if config.Tiers.L3Remote != nil {
-			config.Tiers.L3Remote.Enabled = true
 		}
 	}
 

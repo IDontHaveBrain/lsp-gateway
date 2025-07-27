@@ -355,7 +355,7 @@ type BackgroundIndexingConfig struct {
 	Enabled bool `yaml:"enabled" json:"enabled"`
 }
 
-// StorageConfiguration contains configuration for three-tier storage architecture
+// StorageConfiguration contains configuration for two-tier storage architecture
 type StorageConfiguration struct {
 	Enabled     bool                      `yaml:"enabled" json:"enabled"`
 	Version     string                    `yaml:"version,omitempty" json:"version,omitempty"`
@@ -371,7 +371,6 @@ type StorageConfiguration struct {
 type StorageTiersConfig struct {
 	L1Memory *TierConfiguration `yaml:"l1_memory,omitempty" json:"l1_memory,omitempty"`
 	L2Disk   *TierConfiguration `yaml:"l2_disk,omitempty" json:"l2_disk,omitempty"`
-	L3Remote *TierConfiguration `yaml:"l3_remote,omitempty" json:"l3_remote,omitempty"`
 }
 
 // TierConfiguration contains configuration for a specific storage tier
@@ -856,61 +855,6 @@ func DefaultStorageConfiguration() *StorageConfiguration {
 					},
 				},
 			},
-			L3Remote: &TierConfiguration{
-				Enabled:        false,
-				Capacity:       "unlimited",
-				MaxEntries:     -1,
-				EvictionPolicy: "ttl",
-				Backend: &BackendConfiguration{
-					Type:     "s3",
-					Endpoint: "https://s3.amazonaws.com",
-					Region:   "us-east-1",
-					Bucket:   "lsp-gateway-cache",
-					Authentication: &AuthenticationConfig{
-						Type: "aws_iam",
-					},
-				},
-				Compression: &CompressionConfiguration{
-					Enabled:   true,
-					Algorithm: "zstd",
-					Level:     5,
-					MinSize:   2048,
-					Threshold: 0.7,
-				},
-				Encryption: &EncryptionConfiguration{
-					Enabled:     true,
-					Algorithm:   "aes256",
-					KeySize:     256,
-					KeyRotation: 24 * time.Hour * 30, // 30 days
-				},
-				Performance: &TierPerformanceConfig{
-					MaxConcurrency:     20,
-					TimeoutMs:          10000,
-					BatchSize:          20,
-					ReadBufferSize:     65536,
-					WriteBufferSize:    65536,
-					ConnectionPoolSize: 5,
-					KeepAlive:          true,
-					PrefetchEnabled:    false,
-					PrefetchSize:       3,
-				},
-				Reliability: &TierReliabilityConfig{
-					RetryCount:          5,
-					RetryDelayMs:        500,
-					HealthCheckInterval: 5 * time.Minute,
-					FailureThreshold:    3,
-					RecoveryTimeout:     5 * time.Minute,
-					ReplicationEnabled:  true,
-					ReplicationFactor:   2,
-					CircuitBreaker: &CircuitBreakerConfiguration{
-						Enabled:          true,
-						FailureThreshold: 3,
-						RecoveryTimeout:  2 * time.Minute,
-						HalfOpenRequests: 2,
-						MinRequestCount:  5,
-					},
-				},
-			},
 		},
 		Strategy: &StorageStrategyConfig{
 			PromotionStrategy: &PromotionStrategyConfig{
@@ -926,8 +870,6 @@ func DefaultStorageConfiguration() *StorageConfiguration {
 				TierThresholds: map[string]float64{
 					"l1_to_l2": 0.7,
 					"l2_to_l1": 0.3,
-					"l2_to_l3": 0.8,
-					"l3_to_l2": 0.4,
 				},
 			},
 			EvictionPolicy: &EvictionPolicyConfig{

@@ -10,14 +10,13 @@ import (
 	"time"
 )
 
-// HybridStorageManager implements intelligent three-tier storage coordination
-// Orchestrates L1 Memory, L2 Disk, and L3 Remote storage tiers with intelligent
+// HybridStorageManager implements intelligent two-tier storage coordination
+// Orchestrates L1 Memory and L2 Disk storage tiers with intelligent
 // promotion/eviction strategies and comprehensive monitoring
 type HybridStorageManager struct {
 	// Storage tiers
 	l1Memory StorageTier
 	l2Disk   StorageTier
-	l3Remote StorageTier
 
 	// Intelligent strategies
 	promotionStrategy PromotionStrategy
@@ -44,7 +43,6 @@ type HybridStorageManager struct {
 	// Circuit breakers for tier protection
 	l1CircuitBreaker *tierCircuitBreaker
 	l2CircuitBreaker *tierCircuitBreaker
-	l3CircuitBreaker *tierCircuitBreaker
 
 	// Health monitoring
 	health         *hybridHealth
@@ -67,7 +65,6 @@ type HybridStorageConfig struct {
 	// Tier configuration
 	L1Config *TierConfig `json:"l1_config"`
 	L2Config *TierConfig `json:"l2_config"`
-	L3Config *TierConfig `json:"l3_config"`
 
 	// Strategy configuration
 	PromotionConfig *PromotionParameters      `json:"promotion_config"`
@@ -103,7 +100,6 @@ type hybridStats struct {
 	totalRequests atomic.Int64
 	l1Hits        atomic.Int64
 	l2Hits        atomic.Int64
-	l3Hits        atomic.Int64
 	totalMisses   atomic.Int64
 
 	// Operation metrics
@@ -116,13 +112,11 @@ type hybridStats struct {
 	totalLatency atomic.Int64 // nanoseconds
 	l1Latency    atomic.Int64
 	l2Latency    atomic.Int64
-	l3Latency    atomic.Int64
 
 	// Error metrics
 	totalErrors atomic.Int64
 	l1Errors    atomic.Int64
 	l2Errors    atomic.Int64
-	l3Errors    atomic.Int64
 
 	// Background operation metrics
 	backgroundPromotions atomic.Int64
@@ -132,7 +126,6 @@ type hybridStats struct {
 	// Circuit breaker metrics
 	l1CircuitBreakerTrips atomic.Int64
 	l2CircuitBreakerTrips atomic.Int64
-	l3CircuitBreakerTrips atomic.Int64
 
 	// Start time for uptime calculation
 	startTime time.Time
@@ -219,13 +212,12 @@ func NewHybridStorageManager(config *HybridStorageConfig, observer Observability
 	// Initialize circuit breakers
 	hsm.l1CircuitBreaker = newTierCircuitBreaker(TierL1Memory, config.CircuitBreakerConfig)
 	hsm.l2CircuitBreaker = newTierCircuitBreaker(TierL2Disk, config.CircuitBreakerConfig)
-	hsm.l3CircuitBreaker = newTierCircuitBreaker(TierL3Remote, config.CircuitBreakerConfig)
 
 	return hsm, nil
 }
 
 // Initialize initializes the hybrid storage manager with storage tiers
-func (hsm *HybridStorageManager) Initialize(ctx context.Context, l1 StorageTier, l2 StorageTier, l3 StorageTier) error {
+func (hsm *HybridStorageManager) Initialize(ctx context.Context, l1 StorageTier, l2 StorageTier) error {
 	if hsm.started.Load() {
 		return errors.New("hybrid storage manager already initialized")
 	}
@@ -234,7 +226,6 @@ func (hsm *HybridStorageManager) Initialize(ctx context.Context, l1 StorageTier,
 	hsm.tierMu.Lock()
 	hsm.l1Memory = l1
 	hsm.l2Disk = l2
-	hsm.l3Remote = l3
 	hsm.tierMu.Unlock()
 
 	// Initialize tiers
@@ -288,15 +279,6 @@ func (hsm *HybridStorageManager) Get(ctx context.Context, key string) (*CacheEnt
 		entry.Touch()
 		// Promote to L1 asynchronously
 		hsm.promoteInBackground(ctx, key, entry, TierL2Disk, TierL1Memory)
-		return entry, nil
-	}
-
-	// Try L3 (Remote) last
-	if entry, err := hsm.tryGetFromTier(ctx, TierL3Remote, key); err == nil {
-		hsm.stats.l3Hits.Add(1)
-		entry.Touch()
-		// Promote to L2 asynchronously
-		hsm.promoteInBackground(ctx, key, entry, TierL3Remote, TierL2Disk)
 		return entry, nil
 	}
 
@@ -362,7 +344,7 @@ func (hsm *HybridStorageManager) Delete(ctx context.Context, key string) error {
 	var errors []error
 
 	// Delete from all tiers concurrently
-	results := make(chan error, 3)
+	results := make(chan error, 2)
 
 	go func() {
 		results <- hsm.deleteFromTier(ctx, TierL1Memory, key)
@@ -370,12 +352,9 @@ func (hsm *HybridStorageManager) Delete(ctx context.Context, key string) error {
 	go func() {
 		results <- hsm.deleteFromTier(ctx, TierL2Disk, key)
 	}()
-	go func() {
-		results <- hsm.deleteFromTier(ctx, TierL3Remote, key)
-	}()
 
 	// Collect results
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		if err := <-results; err != nil {
 			errors = append(errors, err)
 		}
@@ -530,7 +509,7 @@ func (hsm *HybridStorageManager) InvalidateFile(ctx context.Context, filePath st
 		tier  TierType
 		count int
 		err   error
-	}, 3)
+	}, 2)
 
 	go func() {
 		count, err := hsm.invalidateInTier(ctx, TierL1Memory, filePath)
@@ -550,17 +529,8 @@ func (hsm *HybridStorageManager) InvalidateFile(ctx context.Context, filePath st
 		}{TierL2Disk, count, err}
 	}()
 
-	go func() {
-		count, err := hsm.invalidateInTier(ctx, TierL3Remote, filePath)
-		results <- struct {
-			tier  TierType
-			count int
-			err   error
-		}{TierL3Remote, count, err}
-	}()
-
 	// Collect results
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		res := <-results
 		if res.err != nil {
 			result.Errors = append(result.Errors, res.err)
@@ -591,7 +561,7 @@ func (hsm *HybridStorageManager) InvalidateProject(ctx context.Context, projectP
 		tier  TierType
 		count int
 		err   error
-	}, 3)
+	}, 2)
 
 	go func() {
 		count, err := hsm.invalidateProjectInTier(ctx, TierL1Memory, projectPath)
@@ -611,17 +581,8 @@ func (hsm *HybridStorageManager) InvalidateProject(ctx context.Context, projectP
 		}{TierL2Disk, count, err}
 	}()
 
-	go func() {
-		count, err := hsm.invalidateProjectInTier(ctx, TierL3Remote, projectPath)
-		results <- struct {
-			tier  TierType
-			count int
-			err   error
-		}{TierL3Remote, count, err}
-	}()
-
 	// Collect results
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		res := <-results
 		if res.err != nil {
 			result.Errors = append(result.Errors, res.err)
@@ -652,7 +613,7 @@ func (hsm *HybridStorageManager) InvalidatePattern(ctx context.Context, pattern 
 		tier  TierType
 		count int
 		err   error
-	}, 3)
+	}, 2)
 
 	go func() {
 		count, err := hsm.invalidatePatternInTier(ctx, TierL1Memory, pattern)
@@ -672,17 +633,8 @@ func (hsm *HybridStorageManager) InvalidatePattern(ctx context.Context, pattern 
 		}{TierL2Disk, count, err}
 	}()
 
-	go func() {
-		count, err := hsm.invalidatePatternInTier(ctx, TierL3Remote, pattern)
-		results <- struct {
-			tier  TierType
-			count int
-			err   error
-		}{TierL3Remote, count, err}
-	}()
-
 	// Collect results
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 2; i++ {
 		res := <-results
 		if res.err != nil {
 			result.Errors = append(result.Errors, res.err)
@@ -718,14 +670,10 @@ func (hsm *HybridStorageManager) GetSystemStats() *SystemStats {
 		tierStats := hsm.l2Disk.GetStats()
 		stats.TierStats[TierL2Disk] = &tierStats
 	}
-	if hsm.l3Remote != nil {
-		tierStats := hsm.l3Remote.GetStats()
-		stats.TierStats[TierL3Remote] = &tierStats
-	}
 	hsm.tierMu.RUnlock()
 
 	// Calculate overall hit rate
-	totalHits := hsm.stats.l1Hits.Load() + hsm.stats.l2Hits.Load() + hsm.stats.l3Hits.Load()
+	totalHits := hsm.stats.l1Hits.Load() + hsm.stats.l2Hits.Load()
 	totalRequests := hsm.stats.totalRequests.Load()
 	if totalRequests > 0 {
 		stats.OverallHitRate = float64(totalHits) / float64(totalRequests)
@@ -787,8 +735,6 @@ func (hsm *HybridStorageManager) GetTierStats(tierType TierType) *TierStats {
 		tier = hsm.l1Memory
 	case TierL2Disk:
 		tier = hsm.l2Disk
-	case TierL3Remote:
-		tier = hsm.l3Remote
 	default:
 		return nil
 	}
@@ -844,11 +790,6 @@ func (hsm *HybridStorageManager) Shutdown(ctx context.Context) error {
 				shutdownErr = fmt.Errorf("failed to close L2 tier: %w", err)
 			}
 		}
-		if hsm.l3Remote != nil {
-			if err := hsm.l3Remote.Close(); err != nil {
-				shutdownErr = fmt.Errorf("failed to close L3 tier: %w", err)
-			}
-		}
 
 		hsm.started.Store(false)
 	})
@@ -872,12 +813,6 @@ func (hsm *HybridStorageManager) initializeTiers(ctx context.Context) error {
 	if hsm.l2Disk != nil {
 		if err := hsm.l2Disk.Initialize(ctx, *hsm.config.L2Config); err != nil {
 			return fmt.Errorf("failed to initialize L2 tier: %w", err)
-		}
-	}
-
-	if hsm.l3Remote != nil {
-		if err := hsm.l3Remote.Initialize(ctx, *hsm.config.L3Config); err != nil {
-			return fmt.Errorf("failed to initialize L3 tier: %w", err)
 		}
 	}
 
@@ -1089,11 +1024,6 @@ func (hsm *HybridStorageManager) tryGetFromTier(ctx context.Context, tierType Ti
 		if err != nil {
 			hsm.stats.l2Errors.Add(1)
 		}
-	case TierL3Remote:
-		hsm.stats.l3Latency.Add(int64(latency))
-		if err != nil {
-			hsm.stats.l3Errors.Add(1)
-		}
 	}
 
 	return entry, err
@@ -1110,8 +1040,6 @@ func (hsm *HybridStorageManager) getFromTier(ctx context.Context, tierType TierT
 		tier = hsm.l1Memory
 	case TierL2Disk:
 		tier = hsm.l2Disk
-	case TierL3Remote:
-		tier = hsm.l3Remote
 	default:
 		return nil, fmt.Errorf("unknown tier type: %s", tierType)
 	}
@@ -1134,8 +1062,6 @@ func (hsm *HybridStorageManager) putInTier(ctx context.Context, tierType TierTyp
 		tier = hsm.l1Memory
 	case TierL2Disk:
 		tier = hsm.l2Disk
-	case TierL3Remote:
-		tier = hsm.l3Remote
 	default:
 		return fmt.Errorf("unknown tier type: %s", tierType)
 	}
@@ -1164,8 +1090,6 @@ func (hsm *HybridStorageManager) deleteFromTier(ctx context.Context, tierType Ti
 		tier = hsm.l1Memory
 	case TierL2Disk:
 		tier = hsm.l2Disk
-	case TierL3Remote:
-		tier = hsm.l3Remote
 	default:
 		return fmt.Errorf("unknown tier type: %s", tierType)
 	}
@@ -1187,10 +1111,8 @@ func (hsm *HybridStorageManager) determineInitialTier(entry *CacheEntry) TierTyp
 		return TierL1Memory
 	case CachingHintPreferDisk:
 		return TierL2Disk
-	case CachingHintPreferRemote:
-		return TierL3Remote
 	case CachingHintNoCache:
-		return TierL3Remote
+		return TierL2Disk
 	case CachingHintPinned:
 		return TierL1Memory
 	}
@@ -1198,16 +1120,14 @@ func (hsm *HybridStorageManager) determineInitialTier(entry *CacheEntry) TierTyp
 	// Size-based decision
 	if entry.Size <= 1024*1024 { // 1MB
 		return TierL1Memory
-	} else if entry.Size <= 100*1024*1024 { // 100MB
-		return TierL2Disk
 	} else {
-		return TierL3Remote
+		return TierL2Disk
 	}
 }
 
 // putWithFallback attempts to store an entry with fallback to other tiers
 func (hsm *HybridStorageManager) putWithFallback(ctx context.Context, key string, entry *CacheEntry, preferredTier TierType) error {
-	tiers := []TierType{TierL1Memory, TierL2Disk, TierL3Remote}
+	tiers := []TierType{TierL1Memory, TierL2Disk}
 
 	// Try preferred tier first
 	if err := hsm.putInTier(ctx, preferredTier, key, entry); err == nil {
@@ -1250,11 +1170,6 @@ func (hsm *HybridStorageManager) promoteInBackground(ctx context.Context, key st
 
 // performBackgroundPromotions performs background promotion operations
 func (hsm *HybridStorageManager) performBackgroundPromotions(ctx context.Context) {
-	// Get promotion candidates from L3 to L2
-	if candidates, err := hsm.getPromotionCandidatesForTier(ctx, TierL3Remote, TierL2Disk); err == nil {
-		hsm.processPromotionCandidates(ctx, candidates)
-	}
-
 	// Get promotion candidates from L2 to L1
 	if candidates, err := hsm.getPromotionCandidatesForTier(ctx, TierL2Disk, TierL1Memory); err == nil {
 		hsm.processPromotionCandidates(ctx, candidates)
@@ -1303,8 +1218,6 @@ func (hsm *HybridStorageManager) getCircuitBreaker(tierType TierType) *tierCircu
 		return hsm.l1CircuitBreaker
 	case TierL2Disk:
 		return hsm.l2CircuitBreaker
-	case TierL3Remote:
-		return hsm.l3CircuitBreaker
 	default:
 		return nil
 	}
@@ -1385,8 +1298,6 @@ func (hsm *HybridStorageManager) getTier(tierType TierType) StorageTier {
 		return hsm.l1Memory
 	case TierL2Disk:
 		return hsm.l2Disk
-	case TierL3Remote:
-		return hsm.l3Remote
 	default:
 		return nil
 	}
