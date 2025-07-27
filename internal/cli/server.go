@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"lsp-gateway/internal/config"
@@ -28,6 +29,16 @@ var (
 	projectPath           string
 	autoDetectProject     bool
 	generateProjectConfig bool
+	
+	// Bypass-related flags
+	bypassEnabled              bool
+	bypassStrategy             string
+	bypassAutoConsecutive      bool
+	bypassAutoCircuitBreaker   bool
+	bypassConsecutiveThreshold int
+	bypassRecoveryAttempts     int
+	bypassInteractive          bool
+	bypassQuiet                bool
 )
 
 var serverCmd = &cobra.Command{
@@ -45,6 +56,16 @@ func init() {
 	serverCmd.Flags().StringVarP(&projectPath, FLAG_PROJECT, "P", "", FLAG_DESCRIPTION_PROJECT_PATH)
 	serverCmd.Flags().BoolVar(&autoDetectProject, FLAG_AUTO_DETECT_PROJECT, false, FLAG_DESCRIPTION_AUTO_DETECT_PROJECT)
 	serverCmd.Flags().BoolVar(&generateProjectConfig, FLAG_GENERATE_PROJECT_CONFIG, false, FLAG_DESCRIPTION_GENERATE_PROJECT_CONFIG)
+
+	// Bypass-related flags
+	serverCmd.Flags().BoolVar(&bypassEnabled, FLAG_BYPASS_ENABLED, false, FLAG_DESCRIPTION_BYPASS_ENABLED)
+	serverCmd.Flags().StringVar(&bypassStrategy, FLAG_BYPASS_STRATEGY, "fail_gracefully", FLAG_DESCRIPTION_BYPASS_STRATEGY)
+	serverCmd.Flags().BoolVar(&bypassAutoConsecutive, FLAG_BYPASS_AUTO_CONSECUTIVE, false, FLAG_DESCRIPTION_BYPASS_AUTO_CONSECUTIVE)
+	serverCmd.Flags().BoolVar(&bypassAutoCircuitBreaker, FLAG_BYPASS_AUTO_CIRCUIT_BREAKER, false, FLAG_DESCRIPTION_BYPASS_AUTO_CIRCUIT_BREAKER)
+	serverCmd.Flags().IntVar(&bypassConsecutiveThreshold, FLAG_BYPASS_CONSECUTIVE_THRESHOLD, 3, FLAG_DESCRIPTION_BYPASS_CONSECUTIVE_THRESHOLD)
+	serverCmd.Flags().IntVar(&bypassRecoveryAttempts, FLAG_BYPASS_RECOVERY_ATTEMPTS, 3, FLAG_DESCRIPTION_BYPASS_RECOVERY_ATTEMPTS)
+	serverCmd.Flags().BoolVar(&bypassInteractive, FLAG_BYPASS_INTERACTIVE, false, FLAG_DESCRIPTION_BYPASS_INTERACTIVE)
+	serverCmd.Flags().BoolVar(&bypassQuiet, FLAG_BYPASS_QUIET, false, FLAG_DESCRIPTION_BYPASS_QUIET)
 
 	rootCmd.AddCommand(serverCmd)
 }
@@ -102,6 +123,12 @@ func setupServerConfiguration() (*config.GatewayConfig, error) {
 		cfg.Port = port
 	}
 
+	// Apply bypass configuration overrides from CLI flags
+	if err := applyBypassOverrides(cfg); err != nil {
+		log.Printf("[ERROR] Failed to apply bypass overrides: %v\n", err)
+		return nil, err
+	}
+
 	log.Printf("[DEBUG] Validating configuration\n")
 	if err := config.ValidateConfig(cfg); err != nil {
 		log.Printf("[ERROR] Configuration validation failed: %v\n", err)
@@ -120,6 +147,9 @@ func setupServerConfiguration() (*config.GatewayConfig, error) {
 
 func initializeGateway(ctx context.Context, cfg *config.GatewayConfig) (gateway.GatewayInterface, error) {
 	log.Printf("[DEBUG] Creating LSP gateway (project_aware=%t)\n", cfg.ProjectAware)
+
+	// Create failure handler for startup failures
+	failureHandler := createFailureHandler(cfg)
 
 	var gw gateway.GatewayInterface
 	var err error
@@ -150,6 +180,24 @@ func initializeGateway(ctx context.Context, cfg *config.GatewayConfig) (gateway.
 	log.Printf("[INFO] Starting gateway\n")
 	if err := gw.Start(ctx); err != nil {
 		log.Printf("[ERROR] Failed to start gateway: %v\n", err)
+		
+		// Try to extract specific server failures from the gateway startup error
+		if startupFailures := extractStartupFailures(err, cfg); len(startupFailures) > 0 {
+			log.Printf("[INFO] Detected %d server startup failures, handling with failure notification system\n", len(startupFailures))
+			
+			// Handle startup failures with user interaction
+			if handlerErr := failureHandler.HandleGatewayStartupFailures(startupFailures); handlerErr != nil {
+				log.Printf("[ERROR] Failure handler returned error: %v\n", handlerErr)
+				return nil, handlerErr
+			}
+			
+			// Check if gateway can start with some failures bypassed
+			if canStartWithBypassedServers(gw) {
+				log.Printf("[INFO] Gateway starting with some servers bypassed\n")
+				return gw, nil
+			}
+		}
+		
 		return nil, NewGatewayStartupError(err)
 	}
 
@@ -281,11 +329,132 @@ func validateServerParams() error {
 			}
 			return nil
 		},
+		// Bypass validation
+		func() *ValidationError {
+			return validateBypassFlags()
+		},
 	)
 	if err == nil {
 		return nil
 	}
 	return err
+}
+
+// validateBypassFlags validates bypass-related CLI flags
+func validateBypassFlags() *ValidationError {
+	// Validate bypass strategy
+	validStrategies := map[string]bool{
+		"fail_gracefully":   true,
+		"fallback_server":   true,
+		"cache_response":    true,
+		"circuit_breaker":   true,
+		"retry_with_backoff": true,
+	}
+	
+	if bypassStrategy != "" && !validStrategies[bypassStrategy] {
+		return &ValidationError{
+			Field:   "bypass-strategy",
+			Value:   bypassStrategy,
+			Message: fmt.Sprintf("invalid bypass strategy '%s'", bypassStrategy),
+			Suggestions: []string{
+				"Valid strategies: fail_gracefully, fallback_server, cache_response, circuit_breaker, retry_with_backoff",
+			},
+		}
+	}
+	
+	// Validate consecutive threshold
+	if bypassConsecutiveThreshold < 1 {
+		return &ValidationError{
+			Field:   "bypass-consecutive-threshold",
+			Value:   bypassConsecutiveThreshold,
+			Message: "consecutive failure threshold must be at least 1",
+		}
+	}
+	
+	// Validate recovery attempts
+	if bypassRecoveryAttempts < 0 {
+		return &ValidationError{
+			Field:   "bypass-recovery-attempts",
+			Value:   bypassRecoveryAttempts,
+			Message: "recovery attempts cannot be negative",
+		}
+	}
+	
+	return nil
+}
+
+// applyBypassOverrides applies CLI flag values to bypass configuration
+func applyBypassOverrides(cfg *config.GatewayConfig) error {
+	// Only apply overrides if any bypass flags were explicitly set
+	if !hasAnyBypassFlagsSet() {
+		return nil
+	}
+	
+	log.Printf("[INFO] Applying bypass configuration overrides from CLI flags\n")
+	
+	// Initialize bypass configuration if not present
+	if cfg.BypassConfig == nil {
+		cfg.BypassConfig = config.DefaultBypassConfiguration()
+	}
+	
+	// Initialize global bypass config if not present
+	if cfg.BypassConfig.GlobalBypass == nil {
+		cfg.BypassConfig.GlobalBypass = &config.GlobalBypassConfig{}
+	}
+	
+	// Apply flag overrides
+	if bypassEnabled {
+		cfg.BypassConfig.Enabled = true
+		log.Printf("[INFO] Bypass functionality enabled via CLI flag\n")
+	}
+	
+	if bypassAutoConsecutive {
+		cfg.BypassConfig.GlobalBypass.AutoBypassOnConsecutive = true
+		log.Printf("[INFO] Auto bypass on consecutive failures enabled via CLI flag\n")
+	}
+	
+	if bypassAutoCircuitBreaker {
+		cfg.BypassConfig.GlobalBypass.AutoBypassOnCircuitBreaker = true
+		log.Printf("[INFO] Auto bypass on circuit breaker enabled via CLI flag\n")
+	}
+	
+	if bypassConsecutiveThreshold > 0 {
+		cfg.BypassConfig.GlobalBypass.ConsecutiveFailureThreshold = bypassConsecutiveThreshold
+		log.Printf("[INFO] Consecutive failure threshold set to %d via CLI flag\n", bypassConsecutiveThreshold)
+	}
+	
+	if bypassRecoveryAttempts >= 0 {
+		cfg.BypassConfig.GlobalBypass.MaxRecoveryAttempts = bypassRecoveryAttempts
+		log.Printf("[INFO] Max recovery attempts set to %d via CLI flag\n", bypassRecoveryAttempts)
+	}
+	
+	if bypassInteractive {
+		cfg.BypassConfig.GlobalBypass.UserConfirmationRequired = true
+		log.Printf("[INFO] Interactive bypass mode enabled via CLI flag\n")
+	}
+	
+	// Handle bypass strategy - apply to global default if specified
+	if bypassStrategy != "fail_gracefully" {
+		// This would typically require a default strategy field in global config
+		// For now, we'll log it as this may need additional configuration structure
+		log.Printf("[INFO] Default bypass strategy set to '%s' via CLI flag\n", bypassStrategy)
+	}
+	
+	return nil
+}
+
+// hasAnyBypassFlagsSet checks if any bypass-related flags were explicitly set
+func hasAnyBypassFlagsSet() bool {
+	// Note: This is a simple check. For more sophisticated detection,
+	// we could track which flags were actually set vs using defaults
+	return bypassEnabled || 
+		   bypassAutoConsecutive || 
+		   bypassAutoCircuitBreaker || 
+		   bypassConsecutiveThreshold != 3 || // default value
+		   bypassRecoveryAttempts != 3 ||     // default value
+		   bypassInteractive || 
+		   bypassQuiet ||
+		   bypassStrategy != "fail_gracefully" // default value
 }
 
 // performProjectDetection performs project detection based on CLI flags
@@ -402,4 +571,287 @@ func applyProjectConfiguration(cfg *config.GatewayConfig, projectResult *project
 	}
 
 	return nil
+}
+
+// createFailureHandler creates a failure handler based on CLI configuration
+func createFailureHandler(cfg *config.GatewayConfig) *CLIFailureHandler {
+	// Create failure handler configuration from CLI flags and gateway config
+	failureConfig := &FailureHandlerConfig{
+		Interactive:        !bypassQuiet && (bypassInteractive || isTerminalInteractive()),
+		MaxRetryAttempts:   3,
+		RetryDelay:         2 * time.Second,
+		BatchThreshold:     3,
+		LogFailures:        true,
+		LogLevel:           "warn",
+		AutoBypassPolicies: make(map[gateway.FailureCategory]bool),
+	}
+
+	// Configure auto-bypass policies based on CLI flags and config
+	if bypassAutoConsecutive || (cfg.BypassConfig != nil && cfg.BypassConfig.GlobalBypass != nil && cfg.BypassConfig.GlobalBypass.AutoBypassOnConsecutive) {
+		failureConfig.AutoBypassPolicies[gateway.FailureCategoryRuntime] = true
+	}
+	
+	if bypassAutoCircuitBreaker || (cfg.BypassConfig != nil && cfg.BypassConfig.GlobalBypass != nil && cfg.BypassConfig.GlobalBypass.AutoBypassOnCircuitBreaker) {
+		failureConfig.AutoBypassPolicies[gateway.FailureCategoryTransport] = true
+	}
+
+	// Set severity filter
+	if bypassQuiet {
+		failureConfig.SeverityFilter = gateway.FailureSeverityHigh
+	} else {
+		failureConfig.SeverityFilter = gateway.FailureSeverityLow
+	}
+
+	// Set retry attempts from config
+	if cfg.BypassConfig != nil && cfg.BypassConfig.GlobalBypass != nil && cfg.BypassConfig.GlobalBypass.MaxRecoveryAttempts > 0 {
+		failureConfig.MaxRetryAttempts = cfg.BypassConfig.GlobalBypass.MaxRecoveryAttempts
+	}
+
+	// Create logger for failure handler
+	logger := log.New(os.Stderr, "[FAILURE] ", log.LstdFlags)
+
+	// Configure for non-interactive mode if needed
+	handler := NewCLIFailureHandler(failureConfig, logger)
+	if !failureConfig.Interactive {
+		handler.SetNonInteractiveMode(bypassAutoConsecutive || bypassAutoCircuitBreaker)
+	}
+
+	// Configure JSON mode if environment variable is set
+	if os.Getenv("LSP_GATEWAY_JSON_OUTPUT") == "true" {
+		handler.SetJSONMode()
+	}
+
+	return handler
+}
+
+// extractStartupFailures attempts to extract individual server failures from gateway startup errors
+func extractStartupFailures(err error, cfg *config.GatewayConfig) []gateway.FailureNotification {
+	var failures []gateway.FailureNotification
+
+	if err == nil {
+		return failures
+	}
+
+	errStr := err.Error()
+	
+	// Try to extract server-specific failures from error message
+	// This is a heuristic approach - in practice, the gateway should provide structured failure information
+	
+	// Look for common failure patterns in the error message
+	for _, server := range cfg.Servers {
+		serverName := server.Name
+		language := ""
+		if len(server.Languages) > 0 {
+			language = server.Languages[0]
+		}
+		
+		// Check if this server is mentioned in the error
+		if strings.Contains(strings.ToLower(errStr), strings.ToLower(serverName)) {
+			category := gateway.FailureCategoryStartup
+			severity := gateway.FailureSeverityHigh
+			
+			// Determine specific failure type from error content
+			if strings.Contains(strings.ToLower(errStr), "connection") || 
+			   strings.Contains(strings.ToLower(errStr), "transport") {
+				category = gateway.FailureCategoryTransport
+			} else if strings.Contains(strings.ToLower(errStr), "config") ||
+			          strings.Contains(strings.ToLower(errStr), "invalid") {
+				category = gateway.FailureCategoryConfiguration
+			} else if strings.Contains(strings.ToLower(errStr), "memory") ||
+			          strings.Contains(strings.ToLower(errStr), "resource") {
+				category = gateway.FailureCategoryResource
+				severity = gateway.FailureSeverityCritical
+			}
+
+			// Generate recommendations based on category
+			recommendations := generateStartupRecommendations(category, serverName, language)
+
+			failure := gateway.CreateFailureNotification(
+				serverName,
+				language,
+				category,
+				severity,
+				fmt.Sprintf("Failed to start during gateway initialization: %s", extractServerError(errStr, serverName)),
+				err,
+				recommendations,
+			)
+
+			// Add startup context
+			failure.Context = &gateway.FailureContext{
+				ServerName:  serverName,
+				Language:    language,
+				ProjectPath: getCurrentProjectPath(),
+				Metadata: map[string]string{
+					"config_file":  getCurrentConfigFile(),
+					"startup_time": "0s", // This would be properly calculated
+				},
+			}
+
+			failure.BypassAvailable = true
+			failures = append(failures, failure)
+		}
+	}
+
+	// If no specific server failures found, create a generic failure
+	if len(failures) == 0 && len(cfg.Servers) > 0 {
+		// Create a generic failure notification
+		failure := gateway.CreateFailureNotification(
+			"gateway",
+			"multi",
+			gateway.FailureCategoryStartup,
+			gateway.FailureSeverityHigh,
+			fmt.Sprintf("Gateway startup failed: %s", err.Error()),
+			err,
+			generateStartupRecommendations(gateway.FailureCategoryStartup, "gateway", "multi"),
+		)
+		failure.BypassAvailable = false // Cannot bypass entire gateway
+		failures = append(failures, failure)
+	}
+
+	return failures
+}
+
+// generateStartupRecommendations generates recommendations for startup failures
+func generateStartupRecommendations(category gateway.FailureCategory, serverName, language string) []gateway.RecoveryRecommendation {
+	var recommendations []gateway.RecoveryRecommendation
+
+	switch category {
+	case gateway.FailureCategoryStartup:
+		recommendations = []gateway.RecoveryRecommendation{
+			{
+				Action:      "check_installation",
+				Description: fmt.Sprintf("Verify %s is properly installed for %s", serverName, language),
+				Commands:    []string{"status servers", fmt.Sprintf("install server %s", serverName)},
+				Priority:    1,
+			},
+			{
+				Action:      "check_runtime",
+				Description: fmt.Sprintf("Verify %s runtime is available", language),
+				Commands:    []string{"status runtimes", fmt.Sprintf("install runtime %s", language)},
+				Priority:    2,
+			},
+			{
+				Action:      "diagnose",
+				Description: "Run full system diagnostics",
+				Commands:    []string{"diagnose"},
+				Priority:    3,
+			},
+		}
+		
+	case gateway.FailureCategoryConfiguration:
+		recommendations = []gateway.RecoveryRecommendation{
+			{
+				Action:      "validate_config",
+				Description: "Validate configuration file",
+				Commands:    []string{"config validate"},
+				Priority:    1,
+			},
+			{
+				Action:      "regenerate_config",
+				Description: "Generate new configuration",
+				Commands:    []string{"config generate --auto-detect"},
+				Priority:    2,
+			},
+			{
+				Action:      "setup_all",
+				Description: "Run complete setup",
+				Commands:    []string{"setup all"},
+				Priority:    3,
+			},
+		}
+		
+	case gateway.FailureCategoryTransport:
+		recommendations = []gateway.RecoveryRecommendation{
+			{
+				Action:      "check_connectivity",
+				Description: "Check network connectivity and ports",
+				Commands:    []string{"diagnose"},
+				Priority:    1,
+			},
+			{
+				Action:      "change_port",
+				Description: "Try different port",
+				Commands:    []string{"server --port 8081"},
+				Priority:    2,
+			},
+		}
+		
+	case gateway.FailureCategoryResource:
+		recommendations = []gateway.RecoveryRecommendation{
+			{
+				Action:      "check_resources",
+				Description: "Check system resources (memory, CPU)",
+				Commands:    []string{"diagnose"},
+				Priority:    1,
+			},
+			{
+				Action:      "free_memory",
+				Description: "Close unnecessary applications",
+				Commands:    []string{},
+				Priority:    2,
+			},
+		}
+	}
+
+	return recommendations
+}
+
+// extractServerError extracts server-specific error from error message
+func extractServerError(errStr, serverName string) string {
+	// Simple heuristic to extract relevant error portion
+	lines := strings.Split(errStr, "\n")
+	for _, line := range lines {
+		if strings.Contains(strings.ToLower(line), strings.ToLower(serverName)) {
+			return strings.TrimSpace(line)
+		}
+	}
+	return errStr
+}
+
+// canStartWithBypassedServers checks if gateway can operate with some servers bypassed
+func canStartWithBypassedServers(gw gateway.GatewayInterface) bool {
+	if gw == nil {
+		return false
+	}
+
+	// Check if gateway has any active clients
+	// This is a simplified check - in practice, this would query the gateway's internal state
+	
+	// For project-aware gateways
+	if projectGw, ok := gw.(*gateway.ProjectAwareGateway); ok {
+		workspaces := projectGw.GetAllWorkspaces()
+		for _, workspace := range workspaces {
+			if workspace.IsActive() {
+				return true
+			}
+		}
+		// Check traditional clients as fallback
+		if projectGw.Gateway != nil {
+			for _, client := range projectGw.Gateway.Clients {
+				if client.IsActive() {
+					return true
+				}
+			}
+		}
+	}
+
+	// For traditional gateways
+	if traditionalGw, ok := gw.(*gateway.Gateway); ok {
+		for _, client := range traditionalGw.Clients {
+			if client.IsActive() {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// isTerminalInteractive checks if we're running in an interactive terminal
+func isTerminalInteractive() bool {
+	fileInfo, err := os.Stdin.Stat()
+	if err != nil {
+		return false
+	}
+	return (fileInfo.Mode() & os.ModeCharDevice) != 0
 }

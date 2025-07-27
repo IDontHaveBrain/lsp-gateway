@@ -88,6 +88,8 @@ const (
 	ServerStateFailed
 	ServerStateStopping
 	ServerStateStopped
+	ServerStateBypassed
+	ServerStateBypassedRecovering
 )
 
 func (s ServerState) String() string {
@@ -104,24 +106,42 @@ func (s ServerState) String() string {
 		return "stopping"
 	case ServerStateStopped:
 		return "stopped"
+	case ServerStateBypassed:
+		return "bypassed"
+	case ServerStateBypassedRecovering:
+		return "bypassed_recovering"
 	default:
 		return StateStringUnknown
 	}
 }
 
+// BypassDecisionType represents the type of bypass decision
+type BypassDecisionType string
+
+const (
+	BypassDecisionUserManual        BypassDecisionType = "user_manual"
+	BypassDecisionAutoConsecutive   BypassDecisionType = "auto_consecutive_failures"
+	BypassDecisionAutoCircuitBreaker BypassDecisionType = "auto_circuit_breaker"
+	BypassDecisionAutoHealthDegraded BypassDecisionType = "auto_health_degraded"
+)
+
 // ServerInstance represents a single LSP server instance
 type ServerInstance struct {
-	config         *config.ServerConfig
-	client         transport.LSPClient
-	healthStatus   *HealthStatusInfo
-	metrics        *SimpleServerMetrics
-	circuitBreaker *CircuitBreaker
-	startTime      time.Time
-	lastUsed       int64 // Changed to int64 for atomic operations
-	processID      int
-	memoryUsage    int64
-	state          ServerState
-	mu             sync.RWMutex
+	config              *config.ServerConfig
+	client              transport.LSPClient
+	healthStatus        *HealthStatusInfo
+	metrics             *SimpleServerMetrics
+	circuitBreaker      *CircuitBreaker
+	startTime           time.Time
+	lastUsed            int64 // Changed to int64 for atomic operations
+	processID           int
+	memoryUsage         int64
+	state               ServerState
+	bypassReason        string
+	bypassTimestamp     time.Time
+	userBypassDecision  bool
+	bypassDecisionType  BypassDecisionType
+	mu                  sync.RWMutex
 }
 
 // NewServerInstance creates a new server instance
@@ -183,11 +203,35 @@ func (si *ServerInstance) IsHealthy() bool {
 	return si.state == ServerStateHealthy && si.healthStatus.IsHealthy
 }
 
-// IsActive returns true if the server is active
+// IsActive returns true if the server is active (excludes bypassed servers)
 func (si *ServerInstance) IsActive() bool {
 	si.mu.RLock()
 	defer si.mu.RUnlock()
+	
+	// Bypassed servers are not considered active for routing
+	if si.state == ServerStateBypassed {
+		return false
+	}
+	
+	// Bypassed recovering servers may be considered active for limited testing
+	if si.state == ServerStateBypassedRecovering {
+		return si.client.IsActive() && si.CanAttemptRecovery()
+	}
+	
 	return si.client.IsActive() && (si.state == ServerStateHealthy || si.state == ServerStateUnhealthy)
+}
+
+// IsAvailableForRouting returns true if server can be used for routing (includes bypass recovering)
+func (si *ServerInstance) IsAvailableForRouting() bool {
+	si.mu.RLock()
+	defer si.mu.RUnlock()
+	
+	// Fully bypassed servers are not available
+	if si.state == ServerStateBypassed {
+		return false
+	}
+	
+	return si.client.IsActive() && (si.state == ServerStateHealthy || si.state == ServerStateUnhealthy || si.state == ServerStateBypassedRecovering)
 }
 
 // SendRequest sends a request to the server instance
@@ -416,34 +460,40 @@ func (lsp *LanguageServerPool) GetMetrics() *SimplePoolMetrics {
 
 // MultiServerManager manages multiple LSP server pools
 type MultiServerManager struct {
-	config          *config.GatewayConfig
-	serverPools     map[string]*LanguageServerPool
-	healthMonitor   *HealthMonitor
-	loadBalancer    *LoadBalancer
-	metrics         *ManagerMetrics
-	circuitBreakers map[string]*CircuitBreaker
-	resourceMonitor *ResourceMonitor
-	ctx             context.Context
-	cancel          context.CancelFunc
-	mu              sync.RWMutex
-	logger          *log.Logger
+	config             *config.GatewayConfig
+	serverPools        map[string]*LanguageServerPool
+	healthMonitor      *HealthMonitor
+	loadBalancer       *LoadBalancer
+	metrics            *ManagerMetrics
+	circuitBreakers    map[string]*CircuitBreaker
+	resourceMonitor    *ResourceMonitor
+	bypassStateManager *BypassStateManager
+	ctx                context.Context
+	cancel             context.CancelFunc
+	mu                 sync.RWMutex
+	logger             *log.Logger
 }
 
 // NewMultiServerManager creates a new multi-server manager
 func NewMultiServerManager(config *config.GatewayConfig, logger *log.Logger) *MultiServerManager {
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// Create bypass state manager with default state directory
+	stateDir := "./data" // Default state directory
+	bypassStateManager := NewBypassStateManager(stateDir, logger)
+
 	return &MultiServerManager{
-		config:          config,
-		serverPools:     make(map[string]*LanguageServerPool),
-		healthMonitor:   NewHealthMonitor(30 * time.Second),
-		loadBalancer:    NewLoadBalancer("round_robin"),
-		metrics:         NewManagerMetrics(),
-		circuitBreakers: make(map[string]*CircuitBreaker),
-		resourceMonitor: NewResourceMonitor(),
-		ctx:             ctx,
-		cancel:          cancel,
-		logger:          logger,
+		config:             config,
+		serverPools:        make(map[string]*LanguageServerPool),
+		healthMonitor:      NewHealthMonitorWithBypassManager(30*time.Second, bypassStateManager),
+		loadBalancer:       NewLoadBalancer("round_robin"),
+		metrics:            NewManagerMetrics(),
+		circuitBreakers:    make(map[string]*CircuitBreaker),
+		resourceMonitor:    NewResourceMonitor(),
+		bypassStateManager: bypassStateManager,
+		ctx:                ctx,
+		cancel:             cancel,
+		logger:             logger,
 	}
 }
 
@@ -499,6 +549,11 @@ func (msm *MultiServerManager) Start() error {
 	// Start health monitoring
 	if err := msm.healthMonitor.StartMonitoring(msm.ctx); err != nil {
 		return fmt.Errorf("failed to start health monitoring: %w", err)
+	}
+
+	// Sync bypass states from persistence
+	if err := msm.healthMonitor.SyncBypassStatesFromPersistence(); err != nil {
+		msm.logger.Printf("Warning: Failed to sync bypass states: %v", err)
 	}
 
 	// Start resource monitoring
@@ -842,6 +897,105 @@ func (msm *MultiServerManager) RebalanceAllPools() error {
 	return nil
 }
 
+// BypassServer manually bypasses a server
+func (msm *MultiServerManager) BypassServer(serverName, reason string, userDecision bool) error {
+	msm.mu.Lock()
+	defer msm.mu.Unlock()
+
+	// Find the server in all pools
+	for language, pool := range msm.serverPools {
+		if server, exists := pool.servers[serverName]; exists {
+			decisionType := BypassDecisionUserManual
+			if !userDecision {
+				decisionType = BypassDecisionAutoHealthDegraded
+			}
+
+			// Set bypass state on server instance
+			server.SetBypassState(reason, decisionType, userDecision)
+
+			// Persist bypass state
+			if err := msm.bypassStateManager.SetBypassState(
+				serverName, language, reason, decisionType, userDecision); err != nil {
+				msm.logger.Printf("Warning: Failed to persist bypass state for server %s: %v", serverName, err)
+			}
+
+			// Rebuild active servers list
+			pool.rebuildActiveServers()
+
+			msm.logger.Printf("Server %s bypassed: %s (user: %t)", serverName, reason, userDecision)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("server %s not found", serverName)
+}
+
+// UnbypassServer removes bypass state from a server
+func (msm *MultiServerManager) UnbypassServer(serverName string) error {
+	msm.mu.Lock()
+	defer msm.mu.Unlock()
+
+	// Find the server in all pools
+	for _, pool := range msm.serverPools {
+		if server, exists := pool.servers[serverName]; exists {
+			if !server.IsBypassed() {
+				return fmt.Errorf("server %s is not bypassed", serverName)
+			}
+
+			// Clear bypass state on server instance
+			server.ClearBypassState()
+
+			// Remove from persistent storage
+			if err := msm.bypassStateManager.ClearBypassState(serverName); err != nil {
+				msm.logger.Printf("Warning: Failed to clear bypass state for server %s: %v", serverName, err)
+			}
+
+			// Rebuild active servers list
+			pool.rebuildActiveServers()
+
+			msm.logger.Printf("Server %s unblypassed", serverName)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("server %s not found", serverName)
+}
+
+// AttemptBypassRecovery attempts to recover a bypassed server
+func (msm *MultiServerManager) AttemptBypassRecovery(serverName string) error {
+	return msm.healthMonitor.AttemptBypassRecovery(serverName)
+}
+
+// GetBypassedServers returns all bypassed servers
+func (msm *MultiServerManager) GetBypassedServers() []*BypassStateEntry {
+	return msm.bypassStateManager.GetAllBypassedServers()
+}
+
+// GetBypassedServersByLanguage returns bypassed servers for a specific language
+func (msm *MultiServerManager) GetBypassedServersByLanguage(language string) []*BypassStateEntry {
+	return msm.bypassStateManager.GetBypassedServersByLanguage(language)
+}
+
+// GetBypassStatistics returns bypass statistics
+func (msm *MultiServerManager) GetBypassStatistics() map[string]interface{} {
+	return msm.bypassStateManager.GetBypassStatistics()
+}
+
+// CleanupExpiredBypassEntries removes old bypass entries
+func (msm *MultiServerManager) CleanupExpiredBypassEntries() error {
+	return msm.bypassStateManager.CleanupExpiredEntries()
+}
+
+// IsServerBypassed checks if a server is bypassed
+func (msm *MultiServerManager) IsServerBypassed(serverName string) bool {
+	return msm.bypassStateManager.IsBypassed(serverName)
+}
+
+// GetServerBypassInfo returns bypass information for a server
+func (msm *MultiServerManager) GetServerBypassInfo(serverName string) *BypassStateEntry {
+	return msm.bypassStateManager.GetBypassInfo(serverName)
+}
+
 // SetLoadBalancingStrategy changes the load balancing strategy for a specific language pool
 func (msm *MultiServerManager) SetLoadBalancingStrategy(language string, strategy string) error {
 	msm.mu.Lock()
@@ -990,4 +1144,97 @@ func (si *ServerInstance) GetClient() transport.LSPClient {
 	si.mu.RLock()
 	defer si.mu.RUnlock()
 	return si.client
+}
+
+// IsBypassed returns true if the server is currently bypassed
+func (si *ServerInstance) IsBypassed() bool {
+	si.mu.RLock()
+	defer si.mu.RUnlock()
+	return si.state == ServerStateBypassed || si.state == ServerStateBypassedRecovering
+}
+
+// CanAttemptRecovery returns true if the server can attempt recovery from bypass state
+func (si *ServerInstance) CanAttemptRecovery() bool {
+	si.mu.RLock()
+	defer si.mu.RUnlock()
+	
+	if si.state != ServerStateBypassed {
+		return false
+	}
+	
+	// Don't attempt recovery for user manual bypasses without user intervention
+	if si.bypassDecisionType == BypassDecisionUserManual {
+		return false
+	}
+	
+	// Allow recovery attempts for auto bypasses after a cooldown period
+	return time.Since(si.bypassTimestamp) > 5*time.Minute
+}
+
+// SetBypassState sets the server to bypassed state with reason
+func (si *ServerInstance) SetBypassState(reason string, decisionType BypassDecisionType, userDecision bool) {
+	si.mu.Lock()
+	defer si.mu.Unlock()
+	
+	si.state = ServerStateBypassed
+	si.bypassReason = reason
+	si.bypassTimestamp = time.Now()
+	si.userBypassDecision = userDecision
+	si.bypassDecisionType = decisionType
+	
+	// Update health status to reflect bypass
+	si.healthStatus.IsHealthy = false
+	si.healthStatus.LastError = fmt.Sprintf("Server bypassed: %s", reason)
+	si.healthStatus.LastHealthCheck = time.Now()
+}
+
+// ClearBypassState clears the bypass state and transitions to healthy if possible
+func (si *ServerInstance) ClearBypassState() {
+	si.mu.Lock()
+	defer si.mu.Unlock()
+	
+	if !si.IsBypassed() {
+		return
+	}
+	
+	// Clear bypass fields
+	si.bypassReason = ""
+	si.bypassTimestamp = time.Time{}
+	si.userBypassDecision = false
+	si.bypassDecisionType = ""
+	
+	// Reset circuit breaker to give server a fresh start
+	si.circuitBreaker.Reset()
+	
+	// Transition to healthy state if client is active
+	if si.client.IsActive() {
+		si.state = ServerStateHealthy
+		si.healthStatus.IsHealthy = true
+		si.healthStatus.LastError = ""
+		si.healthStatus.ConsecutiveFailures = 0
+	} else {
+		si.state = ServerStateUnhealthy
+	}
+	
+	si.healthStatus.LastHealthCheck = time.Now()
+}
+
+// GetBypassInfo returns bypass information
+func (si *ServerInstance) GetBypassInfo() (bool, string, time.Time, BypassDecisionType, bool) {
+	si.mu.RLock()
+	defer si.mu.RUnlock()
+	return si.IsBypassed(), si.bypassReason, si.bypassTimestamp, si.bypassDecisionType, si.userBypassDecision
+}
+
+// UpdateMetrics updates server performance metrics
+func (si *ServerInstance) UpdateMetrics(responseTime time.Duration, success bool) {
+	si.mu.Lock()
+	defer si.mu.Unlock()
+	
+	if si.metrics != nil {
+		si.metrics.RecordRequest(responseTime, success)
+	}
+	
+	// Update last used time
+	atomic.StoreInt64(&si.lastUsed, time.Now().UnixNano())
 }

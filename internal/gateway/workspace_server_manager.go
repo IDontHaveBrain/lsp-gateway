@@ -646,19 +646,6 @@ func (wsm *WorkspaceServerManager) RecordRequest(record RequestRecord) {
 	atomic.AddInt32(&wsm.activeRequests, -1)
 }
 
-// UpdateServerMetrics method to ServerInstance (if not already present)
-func (si *ServerInstance) UpdateMetrics(responseTime time.Duration, success bool) {
-	si.mu.Lock()
-	defer si.mu.Unlock()
-
-	if si.metrics != nil {
-		si.metrics.RecordRequest(responseTime, success)
-	}
-
-	if success {
-		atomic.StoreInt64(&si.lastUsed, time.Now().UnixNano())
-	}
-}
 
 // GetLastUsedTime returns the last used timestamp as a time.Time
 func (wsm *WorkspaceServerManager) GetLastUsedTime() time.Time {
