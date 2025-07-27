@@ -29,6 +29,7 @@ var (
 	McpMaxRetries int
 	// DirectLSP mode flag - exported for testing purposes
 	McpDirectLSP     bool
+	McpHTTPGateway   bool
 	McpLSPConfigPath string
 	// Project-related flags - exported for testing purposes
 	McpProjectPath           string
@@ -47,32 +48,32 @@ clients to interact with language servers for code analysis, symbol search, defi
 lookup, and reference finding.
 
 Operation Modes:
-- HTTP Gateway Mode (default): Routes requests through the LSP Gateway HTTP server
-- DirectLSP Mode: Connects directly to LSP servers without HTTP gateway dependency
+- DirectLSP Mode (default): Connects directly to LSP servers with STDIO transport for optimal performance
+- HTTP Gateway Mode: Routes requests through the LSP Gateway HTTP server
 
 Features:
-- MCP protocol implementation
+- MCP protocol implementation with STDIO transport
 - LSP method mapping to MCP tools
-- Multiple transport support (stdio, tcp, http)
-- Direct LSP connections for reduced latency
+- Direct LSP connections for reduced latency (default)
+- Automatic project detection and LSP server configuration
 - Configuration-driven LSP server management
 - Graceful shutdown handling
 
 Examples:
-  # Start MCP server with HTTP Gateway mode (default)
+  # Start MCP server with DirectLSP mode (default)
   lsp-gateway mcp
 
   # Start with DirectLSP mode using config file
-  lsp-gateway mcp --direct-lsp --lsp-config config.yaml
+  lsp-gateway mcp --lsp-config config.yaml
 
-  # Start with DirectLSP mode using automatic project detection
+  # Start with DirectLSP mode and auto-detection (same as default)
   lsp-gateway mcp --direct-lsp
 
-  # Start with custom LSP Gateway URL
-  lsp-gateway mcp --gateway http://localhost:9090
+  # Start with HTTP Gateway mode
+  lsp-gateway mcp --http-gateway
 
-  # Start with HTTP transport on specific port
-  lsp-gateway mcp --transport http --port 3000
+  # Start with HTTP Gateway mode and custom URL
+  lsp-gateway mcp --http-gateway --gateway http://localhost:9090
 
   # Start with custom configuration and timeout
   lsp-gateway mcp --config mcp-config.yaml --timeout 60s`,
@@ -87,8 +88,9 @@ func init() {
 	mcpCmd.Flags().DurationVar(&McpTimeout, FLAG_TIMEOUT, 30*time.Second, "Request timeout duration")
 	mcpCmd.Flags().IntVar(&McpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
 
-	// DirectLSP mode flags
-	mcpCmd.Flags().BoolVar(&McpDirectLSP, "direct-lsp", false, "Use direct LSP connections instead of HTTP gateway")
+	// DirectLSP mode flags (DirectLSP is now the default)
+	mcpCmd.Flags().BoolVar(&McpDirectLSP, "direct-lsp", true, "Use direct LSP connections (default)")
+	mcpCmd.Flags().BoolVar(&McpHTTPGateway, "http-gateway", false, "Use HTTP gateway mode instead of direct LSP connections")
 	mcpCmd.Flags().StringVar(&McpLSPConfigPath, "lsp-config", "", "LSP server configuration file path (optional for direct-lsp mode - uses auto-detection if not provided)")
 
 	// Project-related flags
@@ -100,6 +102,11 @@ func init() {
 }
 
 func runMCPServer(_ *cobra.Command, args []string) error {
+	// Handle flag conflicts - if --http-gateway is specified, use HTTP gateway mode
+	if McpHTTPGateway {
+		McpDirectLSP = false
+	}
+
 	if McpDirectLSP {
 		if McpLSPConfigPath != "" {
 			log.Printf("[INFO] Starting MCP server with DirectLSP mode, transport=%s, lsp_config=%s\n", McpTransport, McpLSPConfigPath)
