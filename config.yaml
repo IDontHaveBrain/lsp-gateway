@@ -1,22 +1,28 @@
 servers:
-    - name: typescript-language-server-lsp
-      languages:
-        - typescript
-        - javascript
-      command: typescript-language-server
-      args:
-        - --stdio
-      transport: stdio
     - name: gopls-lsp
       languages:
         - go
-      command: gopls
+      command: /home/skawn/go/bin/gopls
       args: []
       transport: stdio
     - name: pylsp-lsp
       languages:
         - python
-      command: pylsp
+      command: /home/skawn/.local/bin/pylsp
+      args: []
+      transport: stdio
+    - name: typescript-language-server-lsp
+      languages:
+        - typescript
+        - javascript
+      command: /home/skawn/.nvm/versions/node/v22.17.1/bin/typescript-language-server
+      args:
+        - --stdio
+      transport: stdio
+    - name: jdtls-lsp
+      languages:
+        - java
+      command: /home/skawn/.local/share/lsp-gateway/jdtls/bin/jdtls
       args: []
       transport: stdio
 port: 8080

@@ -110,4 +110,24 @@ const (
 	// Homebrew packages
 	HOMEBREW_PYTHON_3_11 = "python@3.11"
 	HOMEBREW_OPENJDK_21  = "openjdk@21"
+	
+	// Java 21 Runtime Constants
+	JAVA21_RUNTIME_DIR       = "java21"
+	JAVA21_EXECUTABLE_NAME   = "java"
+	JAVA21_VERSION_MAJOR     = "21"
+	JAVA21_MIN_VERSION       = "21.0.0"
+	JAVA21_ADOPTIUM_BASE_URL = "https://api.adoptium.net/v3/binary/latest/21/ga"
+	
+	// Java 21 Installation Messages
+	JAVA21_DOWNLOAD_SUCCESS = "Successfully downloaded Java 21 runtime"
+	JAVA21_INSTALL_SUCCESS  = "Successfully installed Java 21 runtime"
+	JAVA21_VERIFY_SUCCESS   = "Java 21 runtime verification passed"
+	JAVA21_ALREADY_INSTALLED = "Java 21 runtime already installed"
+	
+	// Java 21 Error Messages
+	JAVA21_DOWNLOAD_FAILED    = "Failed to download Java 21 runtime"
+	JAVA21_INSTALL_FAILED     = "Failed to install Java 21 runtime"
+	JAVA21_VERIFY_FAILED      = "Java 21 runtime verification failed"
+	JAVA21_NOT_FOUND          = "Java 21 runtime not found"
+	JAVA21_PLATFORM_UNSUPPORTED = "Platform not supported for Java 21 runtime"
 )

@@ -40,6 +40,10 @@ func (w *WindowsRuntimeStrategy) InstallRuntime(runtime string, options types.In
 		err = w.Strategy.InstallNodejs(options.Version)
 	case RuntimeJava:
 		err = w.Strategy.InstallJava(options.Version)
+	case "java21":
+		// Use dedicated Java 21 runtime manager for Java 21 installation
+		manager := NewJava21RuntimeManager()
+		err = manager.DownloadAndInstall(options.Force)
 	default:
 		return &types.InstallResult{
 			Success:  false,
@@ -124,6 +128,10 @@ func (l *LinuxRuntimeStrategy) InstallRuntime(runtime string, options types.Inst
 		err = l.Strategy.InstallNodejs(options.Version)
 	case RuntimeJava:
 		err = l.Strategy.InstallJava(options.Version)
+	case "java21":
+		// Use dedicated Java 21 runtime manager for Java 21 installation
+		manager := NewJava21RuntimeManager()
+		err = manager.DownloadAndInstall(options.Force)
 	default:
 		return &types.InstallResult{
 			Success:  false,
@@ -204,6 +212,10 @@ func (m *MacOSRuntimeStrategy) InstallRuntime(runtime string, options types.Inst
 		err = m.Strategy.InstallNodejs(options.Version)
 	case RuntimeJava:
 		err = m.Strategy.InstallJava(options.Version)
+	case "java21":
+		// Use dedicated Java 21 runtime manager for Java 21 installation
+		manager := NewJava21RuntimeManager()
+		err = manager.DownloadAndInstall(options.Force)
 	default:
 		return &types.InstallResult{
 			Success:  false,

@@ -405,7 +405,7 @@ func (s *ServerRegistry) registerDefaults() {
 		Name:              ServerJDTLS,
 		DisplayName:       "Eclipse JDT Language Server",
 		Runtime:           RuntimeJava,
-		MinVersion:        "1.48.0",
+		MinVersion:        "1.43.0",
 		MinRuntimeVersion: "21.0.0",
 		InstallCmd:        []string{"# Automated download and installation from Eclipse releases"},
 		VerifyCmd:         jdtlsVerifyCmd,
