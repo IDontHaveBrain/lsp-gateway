@@ -142,7 +142,7 @@ quality: format lint security
 # TESTING TARGETS
 # =============================================================================
 
-.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-go test-java-real test-python-real test-typescript-real test-e2e-advanced test-e2e-workflow test-e2e-setup-cli test-e2e-mcp test-mcp-stdio test-mcp-tcp setup-simple-repos
+.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-go test-java-real test-python-real test-typescript-real test-e2e-advanced test-e2e-workflow test-e2e-setup-cli test-e2e-mcp test-mcp-stdio test-mcp-tcp test-mcp-tools test-mcp-scip setup-simple-repos
 setup-simple-repos:
 	@echo "Setting up test repositories..."
 	./scripts/setup-simple-repos.sh || echo "Setup script not found, skipping..."
@@ -227,8 +227,8 @@ test-e2e-setup-cli:
 
 # MCP E2E Test Targets
 test-e2e-mcp:
-	@echo "Running MCP E2E tests..."
-	$(GOTEST) -v -timeout 600s -run "TestMCP" ./tests/e2e/mcp_protocol_e2e_test.go
+	@echo "Running comprehensive MCP E2E tests..."
+	$(GOTEST) -v -timeout 600s -run "TestMCP" ./tests/e2e/mcp_protocol_e2e_test.go ./tests/e2e/mcp_tools_e2e_test.go ./tests/e2e/mcp_scip_enhanced_e2e_test.go
 
 test-mcp-stdio:
 	@echo "Running MCP STDIO protocol tests..."
@@ -237,6 +237,14 @@ test-mcp-stdio:
 test-mcp-tcp:
 	@echo "Running MCP TCP protocol tests..."
 	$(GOTEST) -v -timeout 300s -run "TestMCPTCPProtocol" ./tests/e2e/mcp_protocol_e2e_test.go
+
+test-mcp-tools:
+	@echo "Running comprehensive MCP tools E2E tests..."
+	$(GOTEST) -v -timeout 600s ./tests/e2e/mcp_tools_e2e_test.go
+
+test-mcp-scip:
+	@echo "Running SCIP-enhanced MCP E2E tests..."
+	$(GOTEST) -v -timeout 900s ./tests/e2e/mcp_scip_enhanced_e2e_test.go
 
 
 # =============================================================================
@@ -297,11 +305,13 @@ help:
 	@echo "  test-e2e-workflow      - E2E workflow tests"
 	@echo "  test-e2e-advanced      - Advanced E2E test scenarios"
 	@echo "  test-e2e-setup-cli     - Setup CLI E2E tests (binary execution)"
-	@echo "  test-e2e-mcp           - MCP protocol E2E tests (STDIO and TCP)"
+	@echo "  test-e2e-mcp           - Comprehensive MCP E2E tests (all MCP functionality)"
 	@echo ""
 	@echo "MCP Protocol Testing:"
 	@echo "  test-mcp-stdio         - MCP STDIO protocol tests"
 	@echo "  test-mcp-tcp           - MCP TCP protocol tests"
+	@echo "  test-mcp-tools         - MCP tools E2E tests (all 5 LSP tools with real servers)"
+	@echo "  test-mcp-scip          - SCIP-enhanced MCP E2E tests (performance and intelligence)"
 	@echo ""
 	@echo "Language-Specific E2E Tests:"
 	@echo "  test-e2e-java          - Java E2E tests (mock and real JDTLS)"
