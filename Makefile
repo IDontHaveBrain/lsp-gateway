@@ -142,7 +142,7 @@ quality: format lint security
 # TESTING TARGETS
 # =============================================================================
 
-.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-go test-java-real test-python-real test-typescript-real test-e2e-advanced test-e2e-workflow test-e2e-setup-cli setup-simple-repos
+.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-go test-java-real test-python-real test-typescript-real test-e2e-advanced test-e2e-workflow test-e2e-setup-cli test-npm-cli setup-simple-repos
 setup-simple-repos:
 	@echo "Setting up test repositories..."
 	./scripts/setup-simple-repos.sh || echo "Setup script not found, skipping..."
@@ -224,6 +224,10 @@ test-e2e-workflow:
 test-e2e-setup-cli:
 	@echo "Running Setup CLI E2E tests..."
 	$(GOTEST) -v -timeout 300s -run "TestSetupCliE2ETestSuite" ./tests/e2e/setup_cli_e2e_test.go
+
+test-npm-cli:
+	@echo "Running npm-cli E2E tests..."
+	$(GOTEST) -v -timeout 600s -run "TestNpmCliE2ETestSuite" ./tests/e2e/npm_cli_e2e_test.go
 
 
 # =============================================================================
