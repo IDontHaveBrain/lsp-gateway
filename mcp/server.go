@@ -188,6 +188,45 @@ func NewServer(config *ServerConfig) *Server {
 	}
 }
 
+// NewServerWithDirectLSP creates a new MCP server with DirectLSPManager instead of HTTP gateway client
+func NewServerWithDirectLSP(config *ServerConfig, directLSPManager *DirectLSPManager) (*Server, error) {
+	if config == nil {
+		config = DefaultConfig()
+	}
+
+	if directLSPManager == nil {
+		return nil, fmt.Errorf("DirectLSPManager cannot be nil")
+	}
+
+	// Create tool handler with DirectLSPManager instead of LSPGatewayClient
+	toolHandler := NewToolHandlerWithDirectLSP(directLSPManager)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	protocolLimits := &ProtocolConstants{
+		MaxMessageSize:  10 * 1024 * 1024,
+		MaxHeaderSize:   4096,
+		MaxMethodLength: 256,
+		MaxParamsSize:   5 * 1024 * 1024,
+		MessageTimeout:  30 * time.Second,
+		MaxHeaderLines:  20,
+	}
+
+	return &Server{
+		Config:          config,
+		Client:          nil, // No HTTP gateway client in DirectLSP mode
+		ToolHandler:     toolHandler,
+		Input:           os.Stdin,
+		Output:          os.Stdout,
+		ctx:             ctx,
+		cancel:          cancel,
+		Initialized:     false,
+		Logger:          log.New(os.Stderr, MCPLogPrefix, log.LstdFlags|log.Lshortfile),
+		ProtocolLimits:  protocolLimits,
+		RecoveryContext: &RecoveryContext{},
+	}, nil
+}
+
 func (s *Server) SetIO(input io.Reader, output io.Writer) {
 	s.Input = input
 	s.Output = output
@@ -195,7 +234,22 @@ func (s *Server) SetIO(input io.Reader, output io.Writer) {
 
 func (s *Server) Start() error {
 	s.Logger.Printf("Starting MCP server %s v%s", s.Config.Name, s.Config.Version)
-	s.Logger.Printf("LSP Gateway URL: %s", s.Config.LSPGatewayURL)
+	if s.Client != nil {
+		s.Logger.Printf("LSP Gateway URL: %s", s.Config.LSPGatewayURL)
+	} else {
+		s.Logger.Printf("DirectLSP mode: Using direct LSP server connections")
+	}
+
+	// Start DirectLSP manager if present (detected by nil Client)
+	if s.Client == nil && s.ToolHandler != nil {
+		// Try to access DirectLSPManager through the tool handler
+		if directLSPClient, ok := s.ToolHandler.Client.(*DirectLSPManager); ok {
+			if err := directLSPClient.Start(s.ctx); err != nil {
+				return fmt.Errorf("failed to start DirectLSP manager: %w", err)
+			}
+			s.Logger.Printf("DirectLSP manager started successfully")
+		}
+	}
 
 	s.wg.Add(1)
 	go s.messageLoop()
@@ -255,6 +309,18 @@ func (s *Server) ShouldAttemptRecovery(err error) bool {
 
 func (s *Server) Stop() error {
 	s.Logger.Println("Stopping MCP server")
+	
+	// Stop DirectLSP manager if present
+	if s.Client == nil && s.ToolHandler != nil {
+		if directLSPClient, ok := s.ToolHandler.Client.(*DirectLSPManager); ok {
+			if err := directLSPClient.Stop(); err != nil {
+				s.Logger.Printf("Warning: Error stopping DirectLSP manager: %v", err)
+			} else {
+				s.Logger.Printf("DirectLSP manager stopped successfully")
+			}
+		}
+	}
+	
 	s.cancel()
 	s.wg.Wait()
 	return nil

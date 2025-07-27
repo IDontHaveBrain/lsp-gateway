@@ -524,23 +524,50 @@ func (g *ProjectConfigGeneratorImpl) generateProjectConfig(ctx context.Context, 
 func (g *ProjectConfigGeneratorImpl) convertToConfigProjectContext(projectContext *ProjectContext) *config.ProjectContext {
 	var languages []config.LanguageInfo
 	for _, lang := range projectContext.Languages {
+		// Map detected language to LSP server language for validation compatibility
+		mappedLanguage := g.mapDetectedLanguageToLSPLanguage(lang)
+		
 		langInfo := config.LanguageInfo{
-			Language:     lang,
-			FilePatterns: []string{fmt.Sprintf("*.%s", lang)}, // Basic pattern
+			Language:     mappedLanguage,
+			FilePatterns: []string{fmt.Sprintf("*.%s", lang)}, // Basic pattern based on original language
 			FileCount:    1,                                   // Placeholder
 		}
 		languages = append(languages, langInfo)
 	}
 
+	// Map required server names to match generated server names (add -project suffix)
+	mappedRequiredLSPs := make([]string, len(projectContext.RequiredServers))
+	for i, serverName := range projectContext.RequiredServers {
+		mappedRequiredLSPs[i] = fmt.Sprintf("%s-project", serverName)
+	}
+	
 	return &config.ProjectContext{
 		ProjectType:   g.mapProjectType(projectContext.ProjectType),
 		RootDirectory: projectContext.RootPath,
 		WorkspaceRoot: projectContext.WorkspaceRoot,
 		Languages:     languages,
-		RequiredLSPs:  projectContext.RequiredServers,
+		RequiredLSPs:  mappedRequiredLSPs,
 		DetectedAt:    projectContext.DetectedAt,
 		Metadata:      projectContext.Metadata,
 	}
+}
+
+// mapDetectedLanguageToLSPLanguage maps project detection language names to LSP server language names
+func (g *ProjectConfigGeneratorImpl) mapDetectedLanguageToLSPLanguage(detectedLanguage string) string {
+	languageMap := map[string]string{
+		"nodejs":     "javascript", // Node.js projects map to javascript
+		"javascript": "javascript", // JavaScript projects (no change)
+		"typescript": "typescript", // TypeScript projects (no change)
+		"js":         "javascript", // Common JS abbreviation
+		"ts":         "typescript", // Common TS abbreviation
+	}
+	
+	if mapped, exists := languageMap[detectedLanguage]; exists {
+		return mapped
+	}
+	
+	// Return original language if no mapping exists
+	return detectedLanguage
 }
 
 // Language-specific optimization implementations

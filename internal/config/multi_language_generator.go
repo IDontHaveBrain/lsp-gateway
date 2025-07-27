@@ -621,15 +621,21 @@ func (g *ConfigGenerator) GenerateMultiLanguageConfig(projectInfo *MultiLanguage
 }
 
 func (g *ConfigGenerator) GenerateServerConfig(langCtx *LanguageContext) (*ServerConfig, error) {
-	template, exists := g.templates[langCtx.Language]
+	// Normalize language name to match template keys
+	normalizedLanguage := g.normalizeLanguageName(langCtx.Language)
+	
+	template, exists := g.templates[normalizedLanguage]
 	if !exists {
-		return nil, fmt.Errorf("no template found for language: %s", langCtx.Language)
+		return nil, fmt.Errorf("no template found for language: %s (normalized from: %s)", normalizedLanguage, langCtx.Language)
 	}
 
+	// Map language name for Languages field (for request routing)
+	mappedLanguage := g.mapLanguageForRouting(langCtx.Language)
+	
 	// Create server config from template
 	serverConfig := &ServerConfig{
 		Name:             template.Name,
-		Languages:        []string{langCtx.Language},
+		Languages:        []string{mappedLanguage},
 		Command:          template.Command,
 		Args:             make([]string, len(template.Args)),
 		Transport:        template.Transport,
@@ -1144,4 +1150,40 @@ func deepMergeMap(dst, src map[string]interface{}) map[string]interface{} {
 	}
 
 	return result
+}
+
+// normalizeLanguageName maps project detection language names to LSP server template keys
+func (g *ConfigGenerator) normalizeLanguageName(language string) string {
+	languageMap := map[string]string{
+		"nodejs":     "typescript", // Node.js projects use TypeScript language server
+		"javascript": "typescript", // JavaScript projects also use TypeScript language server
+		"typescript": "typescript", // TypeScript projects (no change)
+		"js":         "typescript", // Common JS abbreviation
+		"ts":         "typescript", // Common TS abbreviation
+	}
+	
+	if normalized, exists := languageMap[language]; exists {
+		return normalized
+	}
+	
+	// Return original language if no mapping exists
+	return language
+}
+
+// mapLanguageForRouting maps project detection language names to LSP server language names for request routing
+func (g *ConfigGenerator) mapLanguageForRouting(language string) string {
+	routingMap := map[string]string{
+		"nodejs":     "javascript", // Node.js projects route to javascript
+		"javascript": "javascript", // JavaScript projects (no change)
+		"typescript": "typescript", // TypeScript projects (no change)
+		"js":         "javascript", // Common JS abbreviation
+		"ts":         "typescript", // Common TS abbreviation
+	}
+	
+	if mapped, exists := routingMap[language]; exists {
+		return mapped
+	}
+	
+	// Return original language if no mapping exists
+	return language
 }

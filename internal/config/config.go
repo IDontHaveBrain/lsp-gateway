@@ -1716,8 +1716,11 @@ func (gc *GatewayConfig) EnhanceWithMultiLanguage(mlConfig *MultiLanguageConfig)
 		gc.ProjectContext.Languages = make([]LanguageInfo, len(mlConfig.ProjectInfo.LanguageContexts))
 		for i, langCtx := range mlConfig.ProjectInfo.LanguageContexts {
 			if langCtx != nil {
+				// Map detected language to LSP server language for validation
+				mappedLanguage := mapDetectedLanguageToLSPLanguage(langCtx.Language)
+				
 				gc.ProjectContext.Languages[i] = LanguageInfo{
-					Language:     langCtx.Language,
+					Language:     mappedLanguage,
 					FilePatterns: langCtx.FilePatterns,
 					FileCount:    langCtx.FileCount,
 					RootMarkers:  langCtx.RootMarkers,
@@ -3123,4 +3126,22 @@ func AutoGenerateConfigFromPath(projectPath string) (*MultiLanguageConfig, error
 	}
 
 	return generator.GenerateMultiLanguageConfig(projectInfo)
+}
+
+// mapDetectedLanguageToLSPLanguage maps project detection language names to LSP server language names
+func mapDetectedLanguageToLSPLanguage(detectedLanguage string) string {
+	languageMap := map[string]string{
+		"nodejs":     "javascript", // Node.js projects map to javascript
+		"javascript": "javascript", // JavaScript projects (no change)
+		"typescript": "typescript", // TypeScript projects (no change)
+		"js":         "javascript", // Common JS abbreviation
+		"ts":         "typescript", // Common TS abbreviation
+	}
+	
+	if mapped, exists := languageMap[detectedLanguage]; exists {
+		return mapped
+	}
+	
+	// Return original language if no mapping exists
+	return detectedLanguage
 }

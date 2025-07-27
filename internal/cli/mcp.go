@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/project"
 	"lsp-gateway/internal/setup"
 	"lsp-gateway/internal/transport"
@@ -26,6 +27,9 @@ var (
 	McpTransport  string
 	McpTimeout    time.Duration
 	McpMaxRetries int
+	// DirectLSP mode flag - exported for testing purposes
+	McpDirectLSP     bool
+	McpLSPConfigPath string
 	// Project-related flags - exported for testing purposes
 	McpProjectPath           string
 	McpAutoDetectProject     bool
@@ -37,20 +41,32 @@ var mcpCmd = &cobra.Command{
 	Short: "Start the MCP server",
 	Long: `Start the Model Context Protocol (MCP) server that provides LSP functionality.
 
-The MCP server acts as a bridge between MCP clients and the LSP Gateway, exposing
-LSP methods as MCP tools. This enables AI assistants and other MCP clients to
-interact with language servers for code analysis, symbol search, definition lookup,
-and reference finding.
+The MCP server acts as a bridge between MCP clients and Language Server Protocol (LSP)
+servers, exposing LSP methods as MCP tools. This enables AI assistants and other MCP
+clients to interact with language servers for code analysis, symbol search, definition
+lookup, and reference finding.
+
+Operation Modes:
+- HTTP Gateway Mode (default): Routes requests through the LSP Gateway HTTP server
+- DirectLSP Mode: Connects directly to LSP servers without HTTP gateway dependency
 
 Features:
 - MCP protocol implementation
 - LSP method mapping to MCP tools
 - Multiple transport support (stdio, tcp, http)
+- Direct LSP connections for reduced latency
+- Configuration-driven LSP server management
 - Graceful shutdown handling
 
 Examples:
-  # Start MCP server with default settings (stdio transport)
+  # Start MCP server with HTTP Gateway mode (default)
   lsp-gateway mcp
+
+  # Start with DirectLSP mode using config file
+  lsp-gateway mcp --direct-lsp --lsp-config config.yaml
+
+  # Start with DirectLSP mode using automatic project detection
+  lsp-gateway mcp --direct-lsp
 
   # Start with custom LSP Gateway URL
   lsp-gateway mcp --gateway http://localhost:9090
@@ -71,6 +87,10 @@ func init() {
 	mcpCmd.Flags().DurationVar(&McpTimeout, FLAG_TIMEOUT, 30*time.Second, "Request timeout duration")
 	mcpCmd.Flags().IntVar(&McpMaxRetries, "max-retries", 3, "Maximum retries for failed requests")
 
+	// DirectLSP mode flags
+	mcpCmd.Flags().BoolVar(&McpDirectLSP, "direct-lsp", false, "Use direct LSP connections instead of HTTP gateway")
+	mcpCmd.Flags().StringVar(&McpLSPConfigPath, "lsp-config", "", "LSP server configuration file path (optional for direct-lsp mode - uses auto-detection if not provided)")
+
 	// Project-related flags
 	mcpCmd.Flags().StringVarP(&McpProjectPath, FLAG_PROJECT, "P", "", FLAG_DESCRIPTION_PROJECT_PATH)
 	mcpCmd.Flags().BoolVar(&McpAutoDetectProject, FLAG_AUTO_DETECT_PROJECT, false, FLAG_DESCRIPTION_AUTO_DETECT_PROJECT)
@@ -80,7 +100,15 @@ func init() {
 }
 
 func runMCPServer(_ *cobra.Command, args []string) error {
-	log.Printf("[INFO] Starting MCP server with transport=%s, gateway_url=%s\n", McpTransport, McpGatewayURL)
+	if McpDirectLSP {
+		if McpLSPConfigPath != "" {
+			log.Printf("[INFO] Starting MCP server with DirectLSP mode, transport=%s, lsp_config=%s\n", McpTransport, McpLSPConfigPath)
+		} else {
+			log.Printf("[INFO] Starting MCP server with DirectLSP mode, transport=%s, using auto-detection\n", McpTransport)
+		}
+	} else {
+		log.Printf("[INFO] Starting MCP server with HTTP Gateway mode, transport=%s, gateway_url=%s\n", McpTransport, McpGatewayURL)
+	}
 
 	logger := createMCPLogger()
 	server, err := setupMCPServer(logger)
@@ -261,7 +289,17 @@ func setupMCPServer(logger *mcp.StructuredLogger) (*mcp.Server, error) {
 	logger.Info("MCP configuration validated successfully")
 
 	logger.Debug("Creating MCP server")
-	server := mcp.NewServer(cfg)
+	var server *mcp.Server
+	if McpDirectLSP {
+		// Create MCP server with DirectLSPManager
+		server, err = createMCPServerWithDirectLSP(cfg, logger)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create MCP server with DirectLSP: %w", err)
+		}
+	} else {
+		// Create MCP server with HTTP Gateway Client
+		server = mcp.NewServer(cfg)
+	}
 	logger.Info("MCP server created successfully")
 
 	return server, nil
@@ -307,6 +345,13 @@ func validateMCPParams() error {
 		func() *ValidationError {
 			if McpProjectPath != "" {
 				return ValidateProjectPath(McpProjectPath, "project")
+			}
+			return nil
+		},
+		// DirectLSP validation
+		func() *ValidationError {
+			if McpLSPConfigPath != "" {
+				return ValidateFilePath(McpLSPConfigPath, "lsp-config", "read")
 			}
 			return nil
 		},
@@ -426,6 +471,67 @@ func generateMCPProjectConfig(cfg *mcp.ServerConfig, projectCtx *project.Project
 		genResult.ServersGenerated, genResult.OptimizationsApplied)
 }
 
+// performAutoDetectionAndSetup performs automatic project detection and generates LSP server configurations
+func performAutoDetectionAndSetup() ([]*config.ServerConfig, error) {
+	// Use current working directory as project root
+	wd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current working directory: %w", err)
+	}
+
+	log.Printf("[INFO] Starting automatic project detection at: %s\n", wd)
+
+	// Create project detector
+	detector := project.NewProjectDetector()
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	// Perform project detection
+	projectContext, err := detector.DetectProject(ctx, wd)
+	if err != nil {
+		return nil, fmt.Errorf("automatic project detection failed: %w", err)
+	}
+
+	if projectContext.ProjectType == "unknown" || len(projectContext.Languages) == 0 {
+		return nil, fmt.Errorf("no supported languages detected in current directory: %s", wd)
+	}
+
+	log.Printf("[INFO] Detected project type: %s with languages: %v\n", 
+		projectContext.ProjectType, projectContext.Languages)
+
+	// Create project config generator
+	logger := setup.NewSetupLogger(&setup.SetupLoggerConfig{
+		Component: "mcp-auto-detection",
+	})
+	registry := setup.NewDefaultServerRegistry()
+	verifier := setup.NewDefaultServerVerifier()
+	generator := project.NewProjectConfigGenerator(logger, registry, verifier)
+
+	// Generate project-specific configuration
+	genResult, err := generator.GenerateFromProject(ctx, projectContext)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate configuration from detected project: %w", err)
+	}
+
+	if genResult.GatewayConfig == nil || len(genResult.GatewayConfig.Servers) == 0 {
+		return nil, fmt.Errorf("no LSP servers were configured for detected project languages: %v", projectContext.Languages)
+	}
+
+	// Convert to []*config.ServerConfig format
+	serverConfigs := make([]*config.ServerConfig, len(genResult.GatewayConfig.Servers))
+	for i := range genResult.GatewayConfig.Servers {
+		serverConfigs[i] = &genResult.GatewayConfig.Servers[i]
+	}
+
+	log.Printf("[INFO] Auto-generated %d LSP server configurations\n", len(serverConfigs))
+	for _, serverConfig := range serverConfigs {
+		log.Printf("[INFO] - %s: %s (languages: %v)\n", 
+			serverConfig.Name, serverConfig.Command, serverConfig.Languages)
+	}
+
+	return serverConfigs, nil
+}
+
 // integrateMCPWithProjectAwareGateway attempts to integrate MCP server with project-aware gateway
 func integrateMCPWithProjectAwareGateway(cfg *mcp.ServerConfig, projectResult *project.ProjectAnalysisResult) {
 	if projectResult == nil || projectResult.ProjectContext == nil {
@@ -444,4 +550,86 @@ func integrateMCPWithProjectAwareGateway(cfg *mcp.ServerConfig, projectResult *p
 	}
 
 	log.Printf("[INFO] Integrated MCP server with project-aware gateway capabilities\n")
+}
+
+// LoadServerConfigsFromFile loads LSP server configurations from a config file
+func LoadServerConfigsFromFile(configPath string) ([]*config.ServerConfig, error) {
+	if configPath == "" {
+		return nil, fmt.Errorf("configuration file path cannot be empty")
+	}
+
+	// Check if file exists first for better error messages
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("LSP configuration file not found: %s. Use --lsp-config to specify a valid config file", configPath)
+	}
+
+	gatewayConfig, err := config.LoadConfig(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load LSP configuration from %s: %w", configPath, err)
+	}
+
+	if len(gatewayConfig.Servers) == 0 {
+		return nil, fmt.Errorf("no LSP servers configured in %s. DirectLSP mode requires at least one server configuration", configPath)
+	}
+
+	// Convert []ServerConfig to []*ServerConfig
+	serverConfigs := make([]*config.ServerConfig, len(gatewayConfig.Servers))
+	for i := range gatewayConfig.Servers {
+		serverConfigs[i] = &gatewayConfig.Servers[i]
+	}
+
+	// Validate each server configuration
+	for _, serverConfig := range serverConfigs {
+		if err := serverConfig.Validate(); err != nil {
+			return nil, fmt.Errorf("invalid LSP server configuration for '%s': %w", serverConfig.Name, err)
+		}
+	}
+
+	log.Printf("[INFO] Loaded %d LSP server configurations from %s", len(serverConfigs), configPath)
+	for _, serverConfig := range serverConfigs {
+		log.Printf("[INFO] - %s: %s (languages: %v)", serverConfig.Name, serverConfig.Command, serverConfig.Languages)
+	}
+	return serverConfigs, nil
+}
+
+// createMCPServerWithDirectLSP creates an MCP server with DirectLSPManager instead of HTTP gateway
+func createMCPServerWithDirectLSP(cfg *mcp.ServerConfig, logger *mcp.StructuredLogger) (*mcp.Server, error) {
+	var serverConfigs []*config.ServerConfig
+	var err error
+
+	if McpLSPConfigPath != "" {
+		// Load LSP server configurations from file
+		serverConfigs, err = LoadServerConfigsFromFile(McpLSPConfigPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load LSP server configurations: %w", err)
+		}
+	} else {
+		// Perform automatic project detection and configuration generation
+		serverConfigs, err = performAutoDetectionAndSetup()
+		if err != nil {
+			return nil, fmt.Errorf("failed to auto-detect and configure LSP servers: %w", err)
+		}
+	}
+
+	// Create DirectLSPManager configuration
+	directLSPConfig := &mcp.DirectLSPManagerConfig{
+		ServerConfigs: serverConfigs,
+		Logger:        log.New(os.Stderr, "[DirectLSPManager] ", log.LstdFlags|log.Lshortfile),
+	}
+
+	// Create DirectLSPManager
+	directLSPManager, err := mcp.NewDirectLSPManager(directLSPConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create DirectLSPManager: %w", err)
+	}
+
+	logger.WithField("servers", len(serverConfigs)).Info("Created DirectLSPManager with LSP servers")
+
+	// Create MCP server with DirectLSPManager
+	server, err := mcp.NewServerWithDirectLSP(cfg, directLSPManager)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create MCP server with DirectLSP: %w", err)
+	}
+
+	return server, nil
 }

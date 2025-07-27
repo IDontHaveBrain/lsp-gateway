@@ -119,6 +119,12 @@ func NewToolHandler(client LSPClient) *ToolHandler {
 	return handler
 }
 
+// NewToolHandlerWithDirectLSP creates a ToolHandler with DirectLSPManager as the LSP client
+// DirectLSPManager implements the LSPClient interface, so it can be used directly
+func NewToolHandlerWithDirectLSP(directLSPManager *DirectLSPManager) *ToolHandler {
+	return NewToolHandler(directLSPManager)
+}
+
 func (h *ToolHandler) RegisterDefaultTools() {
 	h.Tools["goto_definition"] = Tool{
 		Name:        "goto_definition",
