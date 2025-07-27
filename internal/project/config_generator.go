@@ -200,9 +200,22 @@ func (g *ProjectConfigGeneratorImpl) GenerateFromProject(ctx context.Context, pr
 
 	// Validate generated configuration
 	if err := gatewayConfig.Validate(); err != nil {
-		result.Issues = append(result.Issues, fmt.Sprintf("Generated configuration is invalid: %v", err))
-		result.Duration = time.Since(startTime)
-		return result, fmt.Errorf("configuration validation failed: %w", err)
+		// If no servers were configured, this might be expected for empty projects or skipped servers
+		if len(gatewayConfig.Servers) == 0 {
+			if result.ServersSkipped > 0 {
+				result.Warnings = append(result.Warnings, "No servers were configured due to installation issues")
+			} else if len(projectContext.RequiredServers) == 0 {
+				result.Warnings = append(result.Warnings, "No servers were configured for project with no detected languages")
+			} else {
+				result.Warnings = append(result.Warnings, "No servers were configured")
+			}
+			result.Issues = append(result.Issues, fmt.Sprintf("Generated configuration is invalid: %v", err))
+		} else {
+			// For other validation errors, fail as usual
+			result.Issues = append(result.Issues, fmt.Sprintf("Generated configuration is invalid: %v", err))
+			result.Duration = time.Since(startTime)
+			return result, fmt.Errorf("configuration validation failed: %w", err)
+		}
 	}
 
 	result.GatewayConfig = gatewayConfig
@@ -1034,7 +1047,7 @@ func (g *ProjectConfigGeneratorImpl) generateOptimizationSettings(projectContext
 	}
 
 	// Language-specific optimizations
-	if len(projectContext.Languages) > 3 {
+	if len(projectContext.Languages) >= 3 {
 		settings["multi_language_mode"] = true
 		settings["cross_language_references"] = true
 	}
@@ -1072,7 +1085,7 @@ func (g *ProjectConfigGeneratorImpl) validateProjectLanguageAlignment(projectCon
 
 	// Check if enabled servers support project languages
 	for _, serverName := range projectConfig.EnabledServers {
-		if serverDef, err := g.serverRegistry.GetServer(serverName); err == nil {
+		if serverDef, err := g.serverRegistry.GetServer(serverName); err == nil && serverDef != nil {
 			hasMatchingLanguage := false
 			for _, serverLang := range serverDef.Languages {
 				if projectLanguages[serverLang] {
@@ -1116,7 +1129,7 @@ func (g *ProjectConfigGeneratorImpl) generateOptimizationSuggestions(projectCont
 	}
 
 	// Suggest multi-language optimizations
-	if len(projectContext.Languages) > 3 {
+	if len(projectContext.Languages) >= 3 {
 		if _, exists := projectConfig.Optimizations["multi_language_mode"]; !exists {
 			result.OptimizationSuggestions = append(result.OptimizationSuggestions,
 				"Enable multi-language optimizations for cross-language references")

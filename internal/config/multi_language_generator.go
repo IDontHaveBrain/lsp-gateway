@@ -753,6 +753,54 @@ func (g *ConfigGenerator) GenerateMultiLanguageConfig(projectInfo *MultiLanguage
 	return config, nil
 }
 
+// GenerateDefaultMultiLanguageConfig generates a default multi-language configuration
+// with support for common languages when project detection fails
+func (g *ConfigGenerator) GenerateDefaultMultiLanguageConfig() (*MultiLanguageConfig, error) {
+	// Create default project info with common languages
+	defaultProjectInfo := &MultiLanguageProjectInfo{
+		ProjectType:   ProjectTypeMulti,
+		RootDirectory: ".",
+		LanguageContexts: []*LanguageContext{
+			// Java configuration
+			{
+				Language:     "java",
+				FilePatterns: []string{"*.java"},
+				RootMarkers:  []string{"pom.xml", "build.gradle", "build.gradle.kts"},
+				RootPath:     ".",
+				FileCount:    10,
+			},
+			// Python configuration
+			{
+				Language:     "python",
+				FilePatterns: []string{"*.py"},
+				RootMarkers:  []string{"pyproject.toml", "requirements.txt", "setup.py"},
+				RootPath:     ".",
+				FileCount:    10,
+			},
+			// Go configuration
+			{
+				Language:     "go",
+				FilePatterns: []string{"*.go"},
+				RootMarkers:  []string{"go.mod", "go.sum"},
+				RootPath:     ".",
+				FileCount:    10,
+			},
+			// TypeScript/JavaScript configuration
+			{
+				Language:     "typescript",
+				FilePatterns: []string{"*.ts", "*.tsx", "*.js", "*.jsx"},
+				RootMarkers:  []string{"tsconfig.json", "package.json"},
+				RootPath:     ".",
+				FileCount:    10,
+			},
+		},
+		DetectedAt: time.Now(),
+		Metadata:   make(map[string]interface{}),
+	}
+
+	return g.GenerateMultiLanguageConfig(defaultProjectInfo)
+}
+
 func (g *ConfigGenerator) GenerateServerConfig(langCtx *LanguageContext) (*ServerConfig, error) {
 	// Normalize language name to match template keys
 	normalizedLanguage := g.normalizeLanguageName(langCtx.Language)

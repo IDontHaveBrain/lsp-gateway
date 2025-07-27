@@ -192,6 +192,28 @@ func (d *TypeScriptProjectDetector) DetectLanguage(ctx context.Context, path str
 
 	// Step 8: Finalize detection results
 	result.Confidence = confidence
+	
+	// Add bonus confidence for having multiple TypeScript indicators
+	tsIndicators := 0
+	if metadata.TSConfigInfo != nil {
+		tsIndicators++
+	}
+	if d.hasTypeScriptFiles(path) {
+		tsIndicators++
+	}
+	if d.hasTypeScriptDependencies(metadata.PackageInfo) {
+		tsIndicators++
+	}
+	
+	// Add bonus for multiple indicators (synergy bonus)
+	if tsIndicators >= 2 {
+		confidence += 0.05 * float64(tsIndicators-1)
+		if confidence > 1.0 {
+			confidence = 1.0
+		}
+		result.Confidence = confidence
+	}
+	
 	result.Metadata["typescript_metadata"] = metadata
 
 	// Determine final project type based on analysis

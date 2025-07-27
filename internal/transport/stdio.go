@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"lsp-gateway/internal/installer"
+	"lsp-gateway/internal/types"
 	"math"
 	"math/rand"
 	"os"
@@ -85,6 +87,15 @@ func (c *StdioClient) Start(ctx context.Context) error {
 
 	if c.active {
 		return fmt.Errorf("client already active")
+	}
+
+	// Check if this is JDTLS and needs auto-installation
+	if c.isJDTLSCommand() && !c.isJDTLSInstalled() {
+		log.Printf("[INFO] JDTLS not found at %s, attempting auto-installation...", c.config.Command)
+		if err := c.installJDTLS(); err != nil {
+			return fmt.Errorf("failed to auto-install JDTLS: %w", err)
+		}
+		log.Printf("[INFO] JDTLS installation completed successfully")
 	}
 
 	c.cmd = exec.CommandContext(ctx, c.config.Command, c.config.Args...)
@@ -673,4 +684,41 @@ func (c *StdioClient) GetProcessPIDForTesting() int {
 		return c.cmd.Process.Pid
 	}
 	return -1
+}
+
+// isJDTLSCommand checks if this client is for JDTLS
+func (c *StdioClient) isJDTLSCommand() bool {
+	// Check if the command contains "jdtls" in the path
+	return strings.Contains(c.config.Command, "jdtls")
+}
+
+// isJDTLSInstalled checks if JDTLS is already installed
+func (c *StdioClient) isJDTLSInstalled() bool {
+	// Check if the command path exists
+	_, err := os.Stat(c.config.Command)
+	return err == nil
+}
+
+// installJDTLS installs JDTLS and Java 21 runtime if needed
+func (c *StdioClient) installJDTLS() error {
+	// Create universal server strategy for installation
+	strategy := installer.NewUniversalServerStrategy()
+	
+	// Install JDTLS with auto-installation of Java 21
+	options := types.ServerInstallOptions{
+		Force:   false, // Don't force reinstall if already present
+		Timeout: 5 * time.Minute, // Give enough time for download
+	}
+	
+	result, err := strategy.InstallServer(installer.ServerJDTLS, options)
+	if err != nil {
+		return fmt.Errorf("JDTLS installation failed: %w", err)
+	}
+	
+	if !result.Success {
+		return fmt.Errorf("JDTLS installation failed: %v", result.Errors)
+	}
+	
+	log.Printf("[INFO] JDTLS installed successfully at: %s", result.Path)
+	return nil
 }

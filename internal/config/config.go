@@ -3384,21 +3384,34 @@ func LoadMultiLanguageConfig(filepath string) (*MultiLanguageConfig, error) {
 func AutoGenerateConfigFromPath(projectPath string) (*MultiLanguageConfig, error) {
 	generator := NewConfigGenerator()
 
-	// Create basic project info for the path
+	// Simple language detection based on file markers
+	detectedLanguages := detectLanguagesFromPath(projectPath)
+	
+	if len(detectedLanguages) == 0 {
+		// If no languages detected, fall back to default multi-language config
+		return generator.GenerateDefaultMultiLanguageConfig()
+	}
+
+	// Create language contexts from detected languages
+	var languageContexts []*LanguageContext
+	for _, lang := range detectedLanguages {
+		ctx := &LanguageContext{
+			Language:     lang,
+			RootPath:     projectPath,
+			FilePatterns: getFilePatterns(lang),
+			RootMarkers:  getRootMarkers(lang),
+			FileCount:    10, // Default estimate
+		}
+		languageContexts = append(languageContexts, ctx)
+	}
+
+	// Create project info with detected languages
 	projectInfo := &MultiLanguageProjectInfo{
-		ProjectType:   ProjectTypeMulti,
-		RootDirectory: projectPath,
-		LanguageContexts: []*LanguageContext{
-			{
-				Language:     "go",
-				FilePatterns: []string{"*.go"},
-				FileCount:    10,
-				RootMarkers:  []string{"go.mod"},
-				RootPath:     projectPath,
-			},
-		},
-		DetectedAt: time.Now(),
-		Metadata:   make(map[string]interface{}),
+		ProjectType:      ProjectTypeMulti,
+		RootDirectory:    projectPath,
+		LanguageContexts: languageContexts,
+		DetectedAt:       time.Now(),
+		Metadata:         make(map[string]interface{}),
 	}
 
 	return generator.GenerateMultiLanguageConfig(projectInfo)
@@ -3420,4 +3433,81 @@ func mapDetectedLanguageToLSPLanguage(detectedLanguage string) string {
 	
 	// Return original language if no mapping exists
 	return detectedLanguage
+}
+
+// detectLanguagesFromPath detects languages in a project path by checking for marker files
+func detectLanguagesFromPath(projectPath string) []string {
+	var detectedLanguages []string
+	languageMarkers := map[string][]string{
+		"java":       {"pom.xml", "build.gradle", "build.gradle.kts", "*.java"},
+		"go":         {"go.mod", "go.sum", "*.go"},
+		"python":     {"pyproject.toml", "requirements.txt", "setup.py", "*.py"},
+		"javascript": {"package.json", "*.js", "*.jsx"},
+		"typescript": {"tsconfig.json", "*.ts", "*.tsx"},
+		"rust":       {"Cargo.toml", "*.rs"},
+		"cpp":        {"CMakeLists.txt", "Makefile", "*.cpp", "*.cc", "*.h"},
+		"csharp":     {"*.csproj", "*.sln", "*.cs"},
+	}
+
+	for language, markers := range languageMarkers {
+		for _, marker := range markers {
+			// Check if marker file exists
+			if strings.Contains(marker, "*") {
+				// Pattern matching - check if any file matches
+				pattern := filepath.Join(projectPath, marker)
+				matches, _ := filepath.Glob(pattern)
+				if len(matches) > 0 {
+					detectedLanguages = append(detectedLanguages, language)
+					break
+				}
+			} else {
+				// Exact file match
+				markerPath := filepath.Join(projectPath, marker)
+				if _, err := os.Stat(markerPath); err == nil {
+					detectedLanguages = append(detectedLanguages, language)
+					break
+				}
+			}
+		}
+	}
+
+	return detectedLanguages
+}
+
+// getFilePatterns returns file patterns for a language
+func getFilePatterns(language string) []string {
+	patterns := map[string][]string{
+		"go":         {"*.go"},
+		"python":     {"*.py"},
+		"javascript": {"*.js", "*.jsx", "*.mjs"},
+		"typescript": {"*.ts", "*.tsx"},
+		"java":       {"*.java"},
+		"rust":       {"*.rs"},
+		"cpp":        {"*.cpp", "*.cc", "*.cxx", "*.hpp", "*.h"},
+		"csharp":     {"*.cs"},
+	}
+	
+	if p, ok := patterns[language]; ok {
+		return p
+	}
+	return []string{"*"}
+}
+
+// getRootMarkers returns root markers for a language
+func getRootMarkers(language string) []string {
+	markers := map[string][]string{
+		"go":         {"go.mod", "go.sum"},
+		"python":     {"pyproject.toml", "requirements.txt", "setup.py"},
+		"javascript": {"package.json", "node_modules"},
+		"typescript": {"tsconfig.json", "package.json"},
+		"java":       {"pom.xml", "build.gradle", "build.gradle.kts"},
+		"rust":       {"Cargo.toml"},
+		"cpp":        {"CMakeLists.txt", "Makefile", ".clangd"},
+		"csharp":     {"*.csproj", "*.sln"},
+	}
+	
+	if m, ok := markers[language]; ok {
+		return m
+	}
+	return []string{}
 }
