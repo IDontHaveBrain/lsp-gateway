@@ -517,6 +517,75 @@ func (c *SCIPClient) IsHealthy() bool {
 	return true
 }
 
+// Query performs a query against the SCIP indices without context
+func (c *SCIPClient) Query(symbol string) (*SymbolEntry, error) {
+	return c.GetSymbolByName(symbol)
+}
+
+// QueryWithContext performs a query against the SCIP indices with context support
+func (c *SCIPClient) QueryWithContext(ctx context.Context, symbol string) (*SymbolEntry, error) {
+	// Check context cancellation
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	// Perform the query with timeout from context
+	resultChan := make(chan struct {
+		result *SymbolEntry
+		err    error
+	}, 1)
+
+	go func() {
+		result, err := c.GetSymbolByName(symbol)
+		resultChan <- struct {
+			result *SymbolEntry
+			err    error
+		}{result, err}
+	}()
+
+	// Wait for result or context cancellation
+	select {
+	case <-ctx.Done():
+		c.recordError(ctx.Err())
+		return nil, ctx.Err()
+	case res := <-resultChan:
+		if res.err != nil {
+			c.recordError(res.err)
+		}
+		return res.result, res.err
+	}
+}
+
+// HealthCheck returns the health status of the SCIP client
+func (c *SCIPClient) HealthCheck() struct {
+	Status       string    `json:"status"`
+	LastActivity time.Time `json:"last_activity"`
+	IndexCount   int       `json:"index_count"`
+	ErrorCount   int64     `json:"error_count"`
+} {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	status := "healthy"
+	if !c.IsHealthy() {
+		status = "degraded"
+	}
+
+	return struct {
+		Status       string    `json:"status"`
+		LastActivity time.Time `json:"last_activity"`
+		IndexCount   int       `json:"index_count"`
+		ErrorCount   int64     `json:"error_count"`
+	}{
+		Status:       status,
+		LastActivity: c.lastActivity,
+		IndexCount:   len(c.indices),
+		ErrorCount:   c.stats.ErrorCount,
+	}
+}
+
 // Close cleans up resources and closes the client
 func (c *SCIPClient) Close() error {
 	c.mutex.Lock()

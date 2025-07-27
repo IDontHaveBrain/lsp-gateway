@@ -304,7 +304,7 @@ func (s *ProjectLanguageScanner) initializeLanguagePatterns() {
 		{
 			Language:    "c",
 			Extensions:  []string{".c", ".h"},
-			BuildFiles:  []string{"Makefile", "configure.ac", "CMakeLists.txt"},
+			BuildFiles:  []string{"Makefile", "configure.ac"},
 			ConfigFiles: []string{"config.h", "configure.ac"},
 			SourceDirs:  []string{"src", "source", "lib", "include"},
 			TestDirs:    []string{"test", "tests"},

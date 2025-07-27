@@ -2,6 +2,8 @@ package indexing
 
 import (
 	"encoding/json"
+	"os"
+	"strconv"
 	"time"
 
 	"github.com/sourcegraph/scip/bindings/go/scip"
@@ -144,3 +146,87 @@ func ConvertRangeToSCIPRange(range_ *scip.Range) []int32 {
 		range_.End.Character,
 	}
 }
+
+// LoadSCIPConfigWithEnv loads SCIP configuration with environment variable overrides
+func LoadSCIPConfigWithEnv() *SCIPConfig {
+	config := &SCIPConfig{
+		CacheConfig: CacheConfig{
+			Enabled: true,
+			MaxSize: 1000,
+			TTL:     30 * time.Minute,
+		},
+		Logging: LoggingConfig{
+			LogQueries:         false,
+			LogCacheOperations: false,
+			LogIndexOperations: true,
+		},
+		Performance: PerformanceConfig{
+			QueryTimeout:         10 * time.Second,
+			MaxConcurrentQueries: 50,
+			IndexLoadTimeout:     5 * time.Minute,
+		},
+	}
+
+	// Apply environment variable overrides
+	if val := os.Getenv("SCIP_CACHE_ENABLED"); val != "" {
+		if enabled, err := strconv.ParseBool(val); err == nil {
+			config.CacheConfig.Enabled = enabled
+		}
+	}
+
+	if val := os.Getenv("SCIP_CACHE_MAX_SIZE"); val != "" {
+		if size, err := strconv.Atoi(val); err == nil {
+			config.CacheConfig.MaxSize = size
+		}
+	}
+
+	if val := os.Getenv("SCIP_CACHE_TTL"); val != "" {
+		if ttl, err := time.ParseDuration(val); err == nil {
+			config.CacheConfig.TTL = ttl
+		}
+	}
+
+	if val := os.Getenv("SCIP_QUERY_TIMEOUT"); val != "" {
+		if timeout, err := time.ParseDuration(val); err == nil {
+			config.Performance.QueryTimeout = timeout
+		}
+	}
+
+	if val := os.Getenv("SCIP_LOG_QUERIES"); val != "" {
+		if logQueries, err := strconv.ParseBool(val); err == nil {
+			config.Logging.LogQueries = logQueries
+		}
+	}
+
+	if val := os.Getenv("SCIP_LOG_CACHE_OPERATIONS"); val != "" {
+		if logCache, err := strconv.ParseBool(val); err == nil {
+			config.Logging.LogCacheOperations = logCache
+		}
+	}
+
+	if val := os.Getenv("SCIP_LOG_INDEX_OPERATIONS"); val != "" {
+		if logIndex, err := strconv.ParseBool(val); err == nil {
+			config.Logging.LogIndexOperations = logIndex
+		}
+	}
+
+	if val := os.Getenv("SCIP_MAX_CONCURRENT_QUERIES"); val != "" {
+		if maxQueries, err := strconv.Atoi(val); err == nil {
+			config.Performance.MaxConcurrentQueries = maxQueries
+		}
+	}
+
+	if val := os.Getenv("SCIP_INDEX_LOAD_TIMEOUT"); val != "" {
+		if timeout, err := time.ParseDuration(val); err == nil {
+			config.Performance.IndexLoadTimeout = timeout
+		}
+	}
+
+	return config
+}
+
+// StoreStats is an alias for SCIPStoreStats for backward compatibility
+type StoreStats = SCIPStoreStats
+
+// Note: LSP types (LSPParams, TextDocumentIdentifier, LSPPosition, LSPLocation, LSPRange) 
+// are defined in lsp_scip_mapper.go to avoid duplication
