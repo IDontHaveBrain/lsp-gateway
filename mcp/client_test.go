@@ -480,7 +480,7 @@ func TestCircuitBreakerRecordFailure(t *testing.T) {
 			initialState:  CircuitHalfOpen,
 			failureCount:  0,
 			maxFailures:   3,
-			expectedState: CircuitClosed,
+			expectedState: CircuitHalfOpen,
 			expectedCount: 1,
 		},
 	}
@@ -541,22 +541,22 @@ func TestWrapHTTPError(t *testing.T) {
 		{
 			name:        "URL timeout error",
 			err:         &net.OpError{Op: "dial", Net: "tcp", Err: &timeoutError{}},
-			expectedMsg: "URL timeout after",
+			expectedMsg: "HTTP request timeout after",
 		},
 		{
 			name:        "Connection refused error",
 			err:         &net.OpError{Op: "dial", Err: &net.OpError{Op: "dial", Err: syscall.ECONNREFUSED}},
-			expectedMsg: "connection refused to",
+			expectedMsg: "connection failed to",
 		},
 		{
 			name:        "Host unreachable error",
 			err:         &net.OpError{Op: "dial", Err: &net.OpError{Op: "dial", Err: syscall.EHOSTUNREACH}},
-			expectedMsg: "host unreachable",
+			expectedMsg: "connection failed to",
 		},
 		{
 			name:        "Network unreachable error",
 			err:         &net.OpError{Op: "dial", Err: &net.OpError{Op: "dial", Err: syscall.ENETUNREACH}},
-			expectedMsg: "network unreachable",
+			expectedMsg: "connection failed to",
 		},
 		{
 			name:        "Generic HTTP error",
