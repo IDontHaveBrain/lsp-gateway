@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"lsp-gateway/tests/e2e/testutils"
 )
 
 // InstallRuntimeResult represents the JSON output from install runtime commands
@@ -31,77 +32,7 @@ type InstallRuntimeResult struct {
 	} `json:"results"`
 }
 
-// Shared types from setup CLI (copied for standalone test file)
-type SetupResult struct {
-	Success               bool                               `json:"success"`
-	Duration              int64                              `json:"duration"`
-	RuntimesDetected      map[string]RuntimeDetectionResult `json:"runtimes_detected"`
-	ServersInstalled      map[string]ServerInstallResult    `json:"servers_installed,omitempty"`
-	ConfigGeneration      *ConfigGenerationResult           `json:"config_generation,omitempty"`
-	ProjectDetection      *ProjectDetectionResult           `json:"project_detection,omitempty"`
-	ValidationResults     map[string]ValidationResult       `json:"validation_results,omitempty"`
-	Errors                []string                           `json:"errors,omitempty"`
-	Warnings              []string                           `json:"warnings,omitempty"`
-	Summary               *SetupSummary                     `json:"summary"`
-	StatusMessages        []string                           `json:"status_messages,omitempty"`
-}
 
-type RuntimeDetectionResult struct {
-	Name           string                 `json:"Name"`
-	Installed      bool                   `json:"Installed"`
-	Version        string                 `json:"Version"`
-	ParsedVersion  interface{}            `json:"ParsedVersion"`
-	Compatible     bool                   `json:"Compatible"`
-	MinVersion     string                 `json:"MinVersion"`
-	Path           string                 `json:"Path"`
-	WorkingDir     string                 `json:"WorkingDir"`
-	DetectionCmd   string                 `json:"DetectionCmd"`
-	Issues         []string               `json:"Issues"`
-	Warnings       []string               `json:"Warnings"`
-	Metadata       map[string]interface{} `json:"Metadata"`
-	DetectedAt     string                 `json:"DetectedAt"`
-	Duration       int64                  `json:"Duration"`
-}
-
-type ServerInstallResult struct {
-	Installed bool   `json:"installed"`
-	Version   string `json:"version"`
-	Path      string `json:"path"`
-	Error     string `json:"error,omitempty"`
-}
-
-type ConfigGenerationResult struct {
-	Generated    bool   `json:"generated"`
-	Path         string `json:"path"`
-	TemplateUsed string `json:"template_used,omitempty"`
-	Error        string `json:"error,omitempty"`
-}
-
-type ProjectDetectionResult struct {
-	ProjectType     string              `json:"project_type"`
-	Languages       []string            `json:"languages"`
-	Frameworks      []string            `json:"frameworks"`
-	BuildSystems    []string            `json:"build_systems"`
-	Confidence      float64             `json:"confidence"`
-	Recommendations map[string]string   `json:"recommendations"`
-}
-
-type ValidationResult struct {
-	Valid   bool   `json:"valid"`
-	Message string `json:"message"`
-	Error   string `json:"error,omitempty"`
-}
-
-type SetupSummary struct {
-	TotalRuntimes        int `json:"total_runtimes"`
-	RuntimesInstalled    int `json:"runtimes_installed"`
-	RuntimesAlreadyExist int `json:"runtimes_already_exist"`
-	RuntimesFailed       int `json:"runtimes_failed"`
-	TotalServers         int `json:"total_servers"`
-	ServersInstalled     int `json:"servers_installed"`
-	ServersAlreadyExist  int `json:"servers_already_exist"`
-	ServersFailed        int `json:"servers_failed"`
-}
 
 // NpmCliE2ETestSuite provides comprehensive E2E tests for npm-cli functionality
 // Tests real-world npm integration scenarios including Node.js runtime installation,
@@ -119,8 +50,8 @@ type NpmCliE2ETestSuite struct {
 type NpmInstallResult struct {
 	Success          bool                            `json:"success"`
 	Duration         int64                           `json:"duration"`
-	NodeJsRuntime    *RuntimeDetectionResult         `json:"nodejs_runtime,omitempty"`
-	TypeScriptServer *ServerInstallResult            `json:"typescript_server,omitempty"`
+	NodeJsRuntime    *testutils.RuntimeDetectionResult         `json:"nodejs_runtime,omitempty"`
+	TypeScriptServer *testutils.ServerInstallResult            `json:"typescript_server,omitempty"`
 	ProjectDetection *NpmProjectDetectionResult      `json:"project_detection,omitempty"`
 	PackageManager   *PackageManagerDetectionResult  `json:"package_manager,omitempty"`
 	Errors           []string                        `json:"errors,omitempty"`
@@ -296,7 +227,7 @@ func (suite *NpmCliE2ETestSuite) TestTypeScriptLanguageServerInstallation() {
 			
 			// Extract and parse JSON output
 			jsonOutput := suite.extractJSON(output)
-			var result SetupResult
+			var result testutils.SetupResult
 			err = json.Unmarshal([]byte(jsonOutput), &result)
 			require.NoError(suite.T(), err, "Should parse JSON output")
 			
@@ -398,7 +329,7 @@ func (suite *NpmCliE2ETestSuite) TestNpmProjectDetection() {
 			require.NotEmpty(suite.T(), output, "Should produce output")
 			
 			// Parse detection results
-			var result SetupResult
+			var result testutils.SetupResult
 			err = json.Unmarshal([]byte(output), &result)
 			require.NoError(suite.T(), err, "Should parse JSON output")
 			
@@ -562,7 +493,7 @@ func (suite *NpmCliE2ETestSuite) validateNodeJsInstallResult(result struct {
 }
 
 // validateTypeScriptServer validates TypeScript language server installation
-func (suite *NpmCliE2ETestSuite) validateTypeScriptServer(server ServerInstallResult) {
+func (suite *NpmCliE2ETestSuite) validateTypeScriptServer(server testutils.ServerInstallResult) {
 	require.True(suite.T(), server.Installed, "TypeScript server should be installed")
 	require.NotEmpty(suite.T(), server.Version, "Should have version information")
 	require.NotEmpty(suite.T(), server.Path, "Should have path information")

@@ -26,11 +26,11 @@ type TypeScriptRealServerIntegrationTestSuite struct {
 	lspClient         transport.LSPClient
 	clientConfig      transport.ClientConfig
 	projectFiles      map[string]string
-	performanceMetrics *PerformanceMetrics
+	performanceMetrics *TypeScriptServerMetrics
 }
 
-// PerformanceMetrics tracks actual performance data from real TypeScript server
-type PerformanceMetrics struct {
+// TypeScriptServerMetrics tracks actual performance data from real TypeScript server
+type TypeScriptServerMetrics struct {
 	InitializationTime   time.Duration
 	FirstResponseTime    time.Duration
 	AverageResponseTime  time.Duration
@@ -52,7 +52,7 @@ type TypeScriptIntegrationResult struct {
 	DocumentSymbolSupport  bool
 	WorkspaceSymbolSupport bool
 	CompletionSupport      bool
-	PerformanceMetrics     *PerformanceMetrics
+	PerformanceMetrics     *TypeScriptServerMetrics
 	ErrorCount            int
 	TestDuration          time.Duration
 }
@@ -69,7 +69,7 @@ func (suite *TypeScriptRealServerIntegrationTestSuite) SetupSuite() {
 	// Create real TypeScript project structure
 	suite.createTestProject()
 	
-	suite.performanceMetrics = &PerformanceMetrics{}
+	suite.performanceMetrics = &TypeScriptServerMetrics{}
 }
 
 // SetupTest initializes a fresh LSP client for each test

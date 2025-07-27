@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"lsp-gateway/tests/e2e/testutils"
 )
 
 // SetupCliE2ETestSuite provides comprehensive E2E tests for setup CLI commands
@@ -25,77 +26,7 @@ type SetupCliE2ETestSuite struct {
 	originalDir  string
 }
 
-// SetupResult represents the JSON output structure from setup commands
-type SetupResult struct {
-	Success               bool                               `json:"success"`
-	Duration              int64                              `json:"duration"`
-	RuntimesDetected      map[string]RuntimeDetectionResult `json:"runtimes_detected"`
-	ServersInstalled      map[string]ServerInstallResult    `json:"servers_installed,omitempty"`
-	ConfigGeneration      *ConfigGenerationResult           `json:"config_generation,omitempty"`
-	ProjectDetection      *ProjectDetectionResult           `json:"project_detection,omitempty"`
-	ValidationResults     map[string]ValidationResult       `json:"validation_results,omitempty"`
-	Errors                []string                           `json:"errors,omitempty"`
-	Warnings              []string                           `json:"warnings,omitempty"`
-	Summary               *SetupSummary                     `json:"summary"`
-	StatusMessages        []string                           `json:"status_messages,omitempty"`
-}
 
-type RuntimeDetectionResult struct {
-	Name           string                 `json:"Name"`
-	Installed      bool                   `json:"Installed"`
-	Version        string                 `json:"Version"`
-	ParsedVersion  interface{}            `json:"ParsedVersion"`
-	Compatible     bool                   `json:"Compatible"`
-	MinVersion     string                 `json:"MinVersion"`
-	Path           string                 `json:"Path"`
-	WorkingDir     string                 `json:"WorkingDir"`
-	DetectionCmd   string                 `json:"DetectionCmd"`
-	Issues         []string               `json:"Issues"`
-	Warnings       []string               `json:"Warnings"`
-	Metadata       map[string]interface{} `json:"Metadata"`
-	DetectedAt     string                 `json:"DetectedAt"`
-	Duration       int64                  `json:"Duration"`
-}
-
-type ServerInstallResult struct {
-	Installed bool   `json:"installed"`
-	Version   string `json:"version"`
-	Path      string `json:"path"`
-	Error     string `json:"error,omitempty"`
-}
-
-type ConfigGenerationResult struct {
-	Generated    bool   `json:"generated"`
-	Path         string `json:"path"`
-	TemplateUsed string `json:"template_used,omitempty"`
-	Error        string `json:"error,omitempty"`
-}
-
-type ProjectDetectionResult struct {
-	ProjectType     string              `json:"project_type"`
-	Languages       []string            `json:"languages"`
-	Frameworks      []string            `json:"frameworks"`
-	BuildSystems    []string            `json:"build_systems"`
-	Confidence      float64             `json:"confidence"`
-	Recommendations map[string]string   `json:"recommendations"`
-}
-
-type ValidationResult struct {
-	Valid   bool   `json:"valid"`
-	Message string `json:"message"`
-	Error   string `json:"error,omitempty"`
-}
-
-type SetupSummary struct {
-	TotalRuntimes        int `json:"total_runtimes"`
-	RuntimesInstalled    int `json:"runtimes_installed"`
-	RuntimesAlreadyExist int `json:"runtimes_already_exist"`
-	RuntimesFailed       int `json:"runtimes_failed"`
-	TotalServers         int `json:"total_servers"`
-	ServersInstalled     int `json:"servers_installed"`
-	ServersAlreadyExist  int `json:"servers_already_exist"`
-	ServersFailed        int `json:"servers_failed"`
-}
 
 // SetupSuite initializes the test suite with binary path and test environment
 func (suite *SetupCliE2ETestSuite) SetupSuite() {
@@ -158,7 +89,7 @@ func (suite *SetupCliE2ETestSuite) TestSetupAllCommand_BasicExecution() {
 	suite.NotEmpty(output, "Should produce output")
 	
 	// Validate JSON output structure
-	var result SetupResult
+	var result testutils.SetupResult
 	suite.validateJSONOutput(output, &result)
 	
 	// Validate basic result structure
@@ -198,7 +129,7 @@ func (suite *SetupCliE2ETestSuite) TestSetupAllCommand_JSONOutputValidation() {
 	suite.Contains([]int{0, 1}, exitCode, "Exit code should be 0 or 1")
 	
 	// Parse and validate comprehensive JSON structure
-	var result SetupResult
+	var result testutils.SetupResult
 	suite.validateJSONOutput(output, &result)
 	
 	// Validate required fields are present
@@ -254,7 +185,7 @@ func (suite *SetupCliE2ETestSuite) TestSetupDetectCommand_ProjectDetection() {
 	suite.NotEmpty(output, "Should produce output")
 	
 	// Parse JSON output
-	var result SetupResult
+	var result testutils.SetupResult
 	suite.validateJSONOutput(output, &result)
 	
 	// Validate project detection results
@@ -357,7 +288,7 @@ func (suite *SetupCliE2ETestSuite) TestSetupCommand_TimeoutScenarios() {
 	
 	if strings.Contains(output, "{") {
 		// If JSON output is present, validate it
-		var result SetupResult
+		var result testutils.SetupResult
 		if suite.validateJSONOutputNoFail(output, &result) {
 			suite.False(result.Success, "Result should not be successful on timeout")
 			suite.Greater(len(result.Errors), 0, "Should have error messages")
@@ -435,7 +366,7 @@ func (suite *SetupCliE2ETestSuite) executeCommand(cmd *exec.Cmd) (string, int, e
 }
 
 // validateJSONOutput validates that output is valid JSON and unmarshals it
-func (suite *SetupCliE2ETestSuite) validateJSONOutput(output string, result *SetupResult) {
+func (suite *SetupCliE2ETestSuite) validateJSONOutput(output string, result *testutils.SetupResult) {
 	output = suite.extractJSONFromOutput(output)
 	suite.True(json.Valid([]byte(output)), "Output should be valid JSON: %s", output)
 	
@@ -444,7 +375,7 @@ func (suite *SetupCliE2ETestSuite) validateJSONOutput(output string, result *Set
 }
 
 // validateJSONOutputNoFail same as validateJSONOutput but doesn't fail test, returns success
-func (suite *SetupCliE2ETestSuite) validateJSONOutputNoFail(output string, result *SetupResult) bool {
+func (suite *SetupCliE2ETestSuite) validateJSONOutputNoFail(output string, result *testutils.SetupResult) bool {
 	output = suite.extractJSONFromOutput(output)
 	if !json.Valid([]byte(output)) {
 		return false

@@ -2,16 +2,13 @@ package e2e_test
 
 import (
 	"bufio"
-	"encoding/json"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -21,6 +18,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"lsp-gateway/tests/e2e/testutils"
 )
 
 // SCIP-enhanced MCP tools E2E tests
@@ -41,8 +39,8 @@ type MCPServerSession struct {
 	cleanup func()
 }
 
-// PerformanceMetrics captures detailed performance measurements for SCIP tools
-type PerformanceMetrics struct {
+// SCIPPerformanceMetrics captures detailed performance measurements for SCIP tools
+type SCIPPerformanceMetrics struct {
 	ResponseTimes     []time.Duration `json:"response_times"`
 	CacheHitRate      float64         `json:"cache_hit_rate"`
 	MemoryUsageMB     float64         `json:"memory_usage_mb"`
@@ -66,15 +64,6 @@ type TimedToolResult struct {
 	MemoryAfter  float64       `json:"memory_after_mb"`
 }
 
-// MCPMessage represents a JSON-RPC message for MCP protocol
-type MCPMessage struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      interface{} `json:"id,omitempty"`
-	Method  string      `json:"method,omitempty"`
-	Params  interface{} `json:"params,omitempty"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   interface{} `json:"error,omitempty"`
-}
 
 // TestSCIPIntelligentSymbolSearch tests SCIP-powered intelligent symbol search
 func TestSCIPIntelligentSymbolSearch(t *testing.T) {
@@ -663,7 +652,7 @@ func TestSCIPCachePerformance(t *testing.T) {
 			"scip_semantic_code_analysis",
 		}
 
-		allMetrics := make(map[string]*PerformanceMetrics)
+		allMetrics := make(map[string]*SCIPPerformanceMetrics)
 
 		for _, toolName := range tools {
 			var testParams []map[string]interface{}
@@ -1235,7 +1224,7 @@ func TestSCIPToolsRegistration(t *testing.T) {
 
 	// Get tools list
 	listMsg := createTestMCPMessage(2, "tools/list", nil)
-	response, err := sendMCPStdioMessage(session.stdin, session.reader, listMsg)
+	response, err := testutils.SendMCPStdioMessage(session.stdin, session.reader, listMsg)
 	require.NoError(t, err)
 	require.NotNil(t, response.Result)
 
@@ -1274,7 +1263,7 @@ func TestSCIPToolsRegistration(t *testing.T) {
 // Performance Measurement Helper Functions
 
 // measureSCIPToolPerformance measures performance metrics for SCIP tool operations
-func measureSCIPToolPerformance(t *testing.T, session *MCPServerSession, toolName string, testQueries []map[string]interface{}, iterations int) *PerformanceMetrics {
+func measureSCIPToolPerformance(t *testing.T, session *MCPServerSession, toolName string, testQueries []map[string]interface{}, iterations int) *SCIPPerformanceMetrics {
 	var responseTimes []time.Duration
 	var cacheHits int
 	var successCount int
@@ -1304,7 +1293,7 @@ func measureSCIPToolPerformance(t *testing.T, session *MCPServerSession, toolNam
 }
 
 // measureColdCachePerformance measures performance without cache benefits
-func measureColdCachePerformance(t *testing.T, session *MCPServerSession, toolName string, testQueries []map[string]interface{}, iterations int) *PerformanceMetrics {
+func measureColdCachePerformance(t *testing.T, session *MCPServerSession, toolName string, testQueries []map[string]interface{}, iterations int) *SCIPPerformanceMetrics {
 	var responseTimes []time.Duration
 	var successCount int
 
@@ -1365,9 +1354,9 @@ func callTimedSCIPTool(t *testing.T, session *MCPServerSession, toolName string,
 }
 
 // analyzeTimedResults analyzes a collection of timed tool results
-func analyzeTimedResults(results []*TimedToolResult) *PerformanceMetrics {
+func analyzeTimedResults(results []*TimedToolResult) *SCIPPerformanceMetrics {
 	if len(results) == 0 {
-		return &PerformanceMetrics{}
+		return &SCIPPerformanceMetrics{}
 	}
 
 	var responseTimes []time.Duration
@@ -1395,9 +1384,9 @@ func analyzeTimedResults(results []*TimedToolResult) *PerformanceMetrics {
 }
 
 // calculateMetrics computes comprehensive performance metrics
-func calculateMetrics(responseTimes []time.Duration, cacheHits, successCount, totalRequests int, maxMemoryMB float64) *PerformanceMetrics {
+func calculateMetrics(responseTimes []time.Duration, cacheHits, successCount, totalRequests int, maxMemoryMB float64) *SCIPPerformanceMetrics {
 	if len(responseTimes) == 0 {
-		return &PerformanceMetrics{}
+		return &SCIPPerformanceMetrics{}
 	}
 
 	// Convert to milliseconds for calculations
@@ -1419,7 +1408,7 @@ func calculateMetrics(responseTimes []time.Duration, cacheHits, successCount, to
 		p99Index = len(responseMs) - 1
 	}
 
-	return &PerformanceMetrics{
+	return &SCIPPerformanceMetrics{
 		ResponseTimes:     responseTimes,
 		CacheHitRate:      float64(cacheHits) / float64(totalRequests),
 		MemoryUsageMB:     maxMemoryMB,
@@ -1520,20 +1509,68 @@ func setupSCIPMCPServer(t *testing.T) *MCPServerSession {
 	tempDir := createTestWorkspace(t)
 
 	// Build binary
-	projectRoot := getProjectRoot()
+	projectRoot, err := testutils.GetProjectRoot()
+	require.NoError(t, err)
 	binaryPath := filepath.Join(projectRoot, "bin", "lsp-gateway")
 
 	// Find available port for gateway
-	gatewayPort := findAvailablePort(t)
+	gatewayPort, err := testutils.FindAvailablePort()
+	require.NoError(t, err)
 	gatewayURL := fmt.Sprintf("http://localhost:%d", gatewayPort)
 
 	// Create temporary config file
-	configPath := createTempConfig(t, gatewayPort)
+	configContent := fmt.Sprintf(`
+servers:
+- name: go-lsp
+  languages:
+  - go
+  command: gopls
+  args: []
+  transport: stdio
+  root_markers:
+  - go.mod
+  - go.sum
+  priority: 1
+  weight: 1.0
+- name: python-lsp
+  languages:
+  - python
+  command: pylsp
+  args: []
+  transport: stdio
+  root_markers:
+  - setup.py
+  - pyproject.toml
+  - requirements.txt
+  priority: 1
+  weight: 1.0
+- name: typescript-lsp
+  languages:
+  - typescript
+  - javascript
+  command: typescript-language-server
+  args: ["--stdio"]
+  transport: stdio
+  root_markers:
+  - package.json
+  - tsconfig.json
+  priority: 1
+  weight: 1.0
+port: %d
+timeout: 45s
+max_concurrent_requests: 150
+multi_server_config:
+  primary: null
+  secondary: []
+  selection_strategy: load_balance
+`, gatewayPort)
+	configPath, _, err := testutils.CreateTempConfig(configContent)
+	require.NoError(t, err)
 
 	// Start LSP Gateway server first
 	gatewayCmd := exec.Command(binaryPath, "server", "--config", configPath)
 	gatewayCmd.Dir = projectRoot
-	err := gatewayCmd.Start()
+	err = gatewayCmd.Start()
 	require.NoError(t, err)
 
 	// Wait for gateway to start
@@ -1572,7 +1609,7 @@ func setupSCIPMCPServer(t *testing.T) *MCPServerSession {
 		"capabilities":    map[string]interface{}{},
 	})
 
-	response, err := sendMCPStdioMessage(stdin, reader, initMsg)
+	response, err := testutils.SendMCPStdioMessage(stdin, reader, initMsg)
 	require.NoError(t, err)
 	require.NotNil(t, response.Result)
 
@@ -1607,7 +1644,7 @@ func callSCIPTool(t *testing.T, session *MCPServerSession, toolName string, para
 		"arguments": params,
 	})
 
-	response, err := sendMCPStdioMessage(session.stdin, session.reader, callMsg)
+	response, err := testutils.SendMCPStdioMessage(session.stdin, session.reader, callMsg)
 	if err != nil {
 		return nil, err
 	}
@@ -1698,9 +1735,9 @@ func validateSCIPToolResponse(result *ToolResult, expectedFields []string) error
 }
 
 // createTestMCPMessage creates a test MCP message
-func createTestMCPMessage(id interface{}, method string, params interface{}) MCPMessage {
-	return MCPMessage{
-		JSONRPC: "2.0",
+func createTestMCPMessage(id interface{}, method string, params interface{}) testutils.MCPMessage {
+	return testutils.MCPMessage{
+		Jsonrpc: "2.0",
 		ID:      id,
 		Method:  method,
 		Params:  params,
@@ -4722,150 +4759,7 @@ volumes:
 	require.NoError(t, err)
 }
 
-// findAvailablePort finds an available port for testing
-func findAvailablePort(t *testing.T) int {
-	listener, err := net.Listen("tcp", ":0")
-	require.NoError(t, err)
-	port := listener.Addr().(*net.TCPAddr).Port
-	listener.Close()
-	return port
-}
 
-// getProjectRoot returns the project root directory
-func getProjectRoot() string {
-	wd, _ := os.Getwd()
-	for wd != "/" {
-		if _, err := os.Stat(filepath.Join(wd, "go.mod")); err == nil {
-			return wd
-		}
-		wd = filepath.Dir(wd)
-	}
-	return "."
-}
-
-// createTempConfig creates a temporary configuration file for testing
-func createTempConfig(t *testing.T, port int) string {
-	configContent := fmt.Sprintf(`
-servers:
-- name: go-lsp
-  languages:
-  - go
-  command: gopls
-  args: []
-  transport: stdio
-  root_markers:
-  - go.mod
-  - go.sum
-  priority: 1
-  weight: 1.0
-- name: python-lsp
-  languages:
-  - python
-  command: pylsp
-  args: []
-  transport: stdio
-  root_markers:
-  - setup.py
-  - pyproject.toml
-  - requirements.txt
-  priority: 1
-  weight: 1.0
-- name: typescript-lsp
-  languages:
-  - typescript
-  - javascript
-  command: typescript-language-server
-  args: ["--stdio"]
-  transport: stdio
-  root_markers:
-  - package.json
-  - tsconfig.json
-  priority: 1
-  weight: 1.0
-port: %d
-timeout: 45s
-max_concurrent_requests: 150
-multi_server_config:
-  primary: null
-  secondary: []
-  selection_strategy: load_balance
-`, port)
-
-	tmpFile, err := os.CreateTemp("", "lsp-gateway-test-*.yaml")
-	require.NoError(t, err)
-
-	_, err = tmpFile.WriteString(configContent)
-	require.NoError(t, err)
-
-	err = tmpFile.Close()
-	require.NoError(t, err)
-
-	return tmpFile.Name()
-}
-
-// sendMCPStdioMessage sends a JSON-RPC message via STDIO and reads the response
-func sendMCPStdioMessage(stdin io.WriteCloser, reader *bufio.Reader, msg MCPMessage) (*MCPMessage, error) {
-	// Serialize message
-	msgBytes, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
-	}
-
-	// Send with Content-Length header
-	message := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(msgBytes), msgBytes)
-	_, err = stdin.Write([]byte(message))
-	if err != nil {
-		return nil, err
-	}
-
-	// Read response
-	return readMCPStdioMessage(reader)
-}
-
-// readMCPStdioMessage reads a JSON-RPC message from STDIO
-func readMCPStdioMessage(reader *bufio.Reader) (*MCPMessage, error) {
-	// Read Content-Length header
-	var contentLength int
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			return nil, err
-		}
-
-		line = strings.TrimSpace(line)
-		if line == "" {
-			break // Empty line indicates end of headers
-		}
-
-		if strings.HasPrefix(line, "Content-Length:") {
-			lengthStr := strings.TrimSpace(strings.TrimPrefix(line, "Content-Length:"))
-			contentLength, err = strconv.Atoi(lengthStr)
-			if err != nil {
-				return nil, fmt.Errorf("invalid Content-Length: %s", lengthStr)
-			}
-		}
-	}
-
-	if contentLength == 0 {
-		return nil, fmt.Errorf("missing Content-Length header")
-	}
-
-	// Read message body
-	messageBytes := make([]byte, contentLength)
-	_, err := io.ReadFull(reader, messageBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	// Parse JSON-RPC message
-	var response MCPMessage
-	err = json.Unmarshal(messageBytes, &response)
-	if err != nil {
-		return nil, err
-	}
-
-	return &response, nil
-}
 
 // TestSCIPCrossLanguageAPIIntegration tests SCIP analysis of API integration patterns
 func TestSCIPCrossLanguageAPIIntegration(t *testing.T) {
