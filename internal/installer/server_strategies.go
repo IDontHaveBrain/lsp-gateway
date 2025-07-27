@@ -1,6 +1,7 @@
 package installer
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -18,7 +19,7 @@ const (
 	JDTLSVersion        = "1.48.0"
 	JDTLSTimestamp      = "202506271502"
 	JDTLSChecksum       = "b0a7fa1240e2caf1296d59ea709c525d4a631fbefda49e7182e07e00c1de62c9"
-	JDTLSDownloadURL    = "http://download.eclipse.org/jdtls/milestones/" + JDTLSVersion + "/jdt-language-server-" + JDTLSVersion + "-" + JDTLSTimestamp + ".tar.gz"
+	JDTLSDownloadURL    = "https://download.eclipse.org/jdtls/milestones/" + JDTLSVersion + "/jdt-language-server-" + JDTLSVersion + "-" + JDTLSTimestamp + ".tar.gz"
 	JDTLSInstallDir     = "jdtls"
 	JDTLSExecutableName = "jdtls"
 )
@@ -43,8 +44,8 @@ func getJDTLSInstallPath() string {
 	}
 }
 
-// getJDTLSExecutablePath returns the path to the jdtls executable script
-func getJDTLSExecutablePath() string {
+// GetJDTLSExecutablePath returns the path to the jdtls executable script
+func GetJDTLSExecutablePath() string {
 	installPath := getJDTLSInstallPath()
 	if runtime.GOOS == "windows" {
 		return filepath.Join(installPath, "bin", "jdtls.bat")
@@ -54,8 +55,9 @@ func getJDTLSExecutablePath() string {
 
 // getJDTLSVerificationCommands returns the platform-specific verification commands for JDTLS
 func getJDTLSVerificationCommands() []string {
-	executablePath := getJDTLSExecutablePath()
-	return []string{executablePath, "--version"}
+	executablePath := GetJDTLSExecutablePath()
+	// JDTLS doesn't support --version, use --help for basic functionality test
+	return []string{executablePath, "--help"}
 }
 
 // getGoplsInstallPaths returns potential installation paths for gopls
@@ -269,7 +271,7 @@ func (u *UniversalServerStrategy) InstallServer(server string, options types.Ser
 // installJDTLS installs Eclipse JDT Language Server
 func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOptions, start time.Time) (*types.InstallResult, error) {
 	installPath := getJDTLSInstallPath()
-	executablePath := getJDTLSExecutablePath()
+	executablePath := GetJDTLSExecutablePath()
 
 	// Check if already installed and not forcing reinstall
 	if !options.Force {
@@ -343,29 +345,60 @@ func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOption
 			Runtime:  ServerJDTLS,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Failed to extract archive: %v", err)},
-			Details:  map[string]interface{}{"server": ServerJDTLS},
+			Details:  map[string]interface{}{"server": ServerJDTLS, "archive_path": archivePath, "install_path": installPath},
+		}, err
+	}
+
+	// Validate post-extraction structure
+	if err := u.validatePostExtraction(installPath); err != nil {
+		return &types.InstallResult{
+			Success:  false,
+			Runtime:  ServerJDTLS,
+			Duration: time.Since(start),
+			Errors:   []string{fmt.Sprintf("Post-extraction validation failed: %v", err)},
+			Details:  map[string]interface{}{"server": ServerJDTLS, "install_path": installPath},
 		}, err
 	}
 
 	// Create executable script
-	if err := u.createJDTLSScript(installPath); err != nil {
+	platform := options.Platform
+	if platform == "" {
+		platform = runtime.GOOS
+	}
+	if err := u.createJDTLSScript(installPath, platform); err != nil {
 		return &types.InstallResult{
 			Success:  false,
 			Runtime:  ServerJDTLS,
 			Duration: time.Since(start),
 			Errors:   []string{fmt.Sprintf("Failed to create executable script: %v", err)},
-			Details:  map[string]interface{}{"server": ServerJDTLS},
+			Details:  map[string]interface{}{"server": ServerJDTLS, "install_path": installPath, "platform": platform},
 		}, err
 	}
 
-	// Verify installation
-	if _, err := os.Stat(executablePath); err != nil {
+	// Validate script content and permissions
+	if err := u.validateScriptIntegrity(executablePath, installPath); err != nil {
 		return &types.InstallResult{
 			Success:  false,
 			Runtime:  ServerJDTLS,
 			Duration: time.Since(start),
-			Errors:   []string{fmt.Sprintf("Installation verification failed: %v", err)},
-			Details:  map[string]interface{}{"server": ServerJDTLS},
+			Errors:   []string{fmt.Sprintf("Script validation failed: %v", err)},
+			Details:  map[string]interface{}{"server": ServerJDTLS, "executable_path": executablePath},
+		}, err
+	}
+
+	// Comprehensive installation validation
+	if err := u.validateJDTLSInstallation(executablePath); err != nil {
+		return &types.InstallResult{
+			Success:  false,
+			Runtime:  ServerJDTLS,
+			Duration: time.Since(start),
+			Errors:   []string{fmt.Sprintf("Installation validation failed: %v", err)},
+			Details:  map[string]interface{}{
+				"server": ServerJDTLS, 
+				"executable_path": executablePath,
+				"install_path": installPath,
+				"troubleshooting": "Check Java installation and PATH configuration",
+			},
 		}, err
 	}
 
@@ -393,7 +426,7 @@ func (u *UniversalServerStrategy) installJDTLS(options types.ServerInstallOption
 }
 
 // createJDTLSScript creates the executable script for jdtls
-func (u *UniversalServerStrategy) createJDTLSScript(installPath string) error {
+func (u *UniversalServerStrategy) createJDTLSScript(installPath string, platform string) error {
 	binDir := filepath.Join(installPath, "bin")
 	if err := os.MkdirAll(binDir, 0755); err != nil {
 		return fmt.Errorf("failed to create bin directory: %w", err)
@@ -405,13 +438,190 @@ func (u *UniversalServerStrategy) createJDTLSScript(installPath string) error {
 		return fmt.Errorf("failed to find JDTLS jar: %w", err)
 	}
 
-	if runtime.GOOS == "windows" {
-		return u.createWindowsJDTLSScript(binDir, jarPath)
+	if platform == "windows" {
+		return u.createWindowsJDTLSScript(binDir, jarPath, platform)
 	}
-	return u.createUnixJDTLSScript(binDir, jarPath)
+	return u.createUnixJDTLSScript(binDir, jarPath, platform)
 }
 
-// findJDTLSJar finds the main JDTLS jar file
+// validatePostExtraction validates that key files exist after JDTLS extraction
+func (u *UniversalServerStrategy) validatePostExtraction(installPath string) error {
+	// Check required directories exist
+	requiredDirs := []string{
+		filepath.Join(installPath, "plugins"),
+		filepath.Join(installPath, "config_linux"),
+	}
+	
+	// Add platform-specific config directories
+	switch runtime.GOOS {
+	case "windows":
+		requiredDirs = append(requiredDirs, filepath.Join(installPath, "config_win"))
+	case "darwin":
+		requiredDirs = append(requiredDirs, filepath.Join(installPath, "config_mac"))
+	}
+	
+	for _, dir := range requiredDirs {
+		if stat, err := os.Stat(dir); err != nil {
+			return fmt.Errorf("required directory missing: %s", dir)
+		} else if !stat.IsDir() {
+			return fmt.Errorf("path exists but is not a directory: %s", dir)
+		}
+	}
+	
+	// Verify the main JDTLS jar exists
+	pluginsDir := filepath.Join(installPath, "plugins")
+	entries, err := os.ReadDir(pluginsDir)
+	if err != nil {
+		return fmt.Errorf("cannot read plugins directory: %w", err)
+	}
+	
+	var foundMainJar bool
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasPrefix(entry.Name(), "org.eclipse.jdt.ls.core_") && strings.HasSuffix(entry.Name(), ".jar") {
+			foundMainJar = true
+			break
+		}
+	}
+	
+	if !foundMainJar {
+		return fmt.Errorf("JDTLS main jar (org.eclipse.jdt.ls.core_*.jar) not found in plugins directory")
+	}
+	
+	return nil
+}
+
+// validateScriptIntegrity validates that the created script has correct content and permissions
+func (u *UniversalServerStrategy) validateScriptIntegrity(executablePath, installPath string) error {
+	// Check if script file exists
+	stat, err := os.Stat(executablePath)
+	if err != nil {
+		return fmt.Errorf("script file not found: %w", err)
+	}
+	
+	// Check script permissions (should be executable)
+	mode := stat.Mode()
+	if mode&0111 == 0 {
+		return fmt.Errorf("script is not executable: %s (mode: %o)", executablePath, mode)
+	}
+	
+	// Read and validate script content
+	content, err := os.ReadFile(executablePath)
+	if err != nil {
+		return fmt.Errorf("cannot read script content: %w", err)
+	}
+	
+	scriptContent := string(content)
+	
+	// Validate script contains expected elements
+	expectedElements := []string{
+		"org.eclipse.jdt.ls.core",  // Main class reference
+		"-jar",                     // Java jar execution
+		"configuration",            // Configuration directory reference
+	}
+	
+	for _, element := range expectedElements {
+		if !strings.Contains(scriptContent, element) {
+			return fmt.Errorf("script missing expected element: %s", element)
+		}
+	}
+	
+	// Validate script points to existing jar file
+	jarPath, err := u.findJDTLSJar(installPath)
+	if err != nil {
+		return fmt.Errorf("cannot find jar referenced in script: %w", err)
+	}
+	
+	// The script should reference the jar path (accounting for different path formats)
+	jarName := filepath.Base(jarPath)
+	if !strings.Contains(scriptContent, jarName) {
+		return fmt.Errorf("script does not reference the correct jar file: %s", jarName)
+	}
+	
+	return nil
+}
+
+// validateJDTLSInstallation performs comprehensive validation of JDTLS installation
+func (u *UniversalServerStrategy) validateJDTLSInstallation(executablePath string) error {
+	// Check if the executable file exists
+	if _, err := os.Stat(executablePath); err != nil {
+		return fmt.Errorf("executable not found at %s: %w", executablePath, err)
+	}
+
+	// Validate Java environment first
+	if err := u.validateJavaEnvironment(); err != nil {
+		return fmt.Errorf("Java environment validation failed: %w", err)
+	}
+
+	// JDTLS is a Language Server Protocol server, not a CLI tool that supports --help or --version
+	// Instead of trying to run it (which requires workspace setup), we validate:
+	// 1. Script exists and is executable (already checked above)
+	// 2. Java is available (already checked above)
+	// 3. Script contains proper Java invocation and jar references
+	
+	// Read and validate script content to ensure it's properly formed
+	content, err := os.ReadFile(executablePath)
+	if err != nil {
+		return fmt.Errorf("cannot read executable script: %w", err)
+	}
+	
+	scriptContent := string(content)
+	
+	// Validate script contains essential JDTLS elements
+	requiredElements := []string{
+		"java",                              // Java invocation
+		"eclipse.application=org.eclipse.jdt.ls.core.id1", // JDTLS application
+		"-jar",                             // Jar execution
+		"configuration",                    // Configuration directory
+		"data",                            // Data/workspace directory
+	}
+	
+	for _, element := range requiredElements {
+		if !strings.Contains(scriptContent, element) {
+			return fmt.Errorf("script validation failed: missing required element '%s'", element)
+		}
+	}
+	
+	// Additional check: ensure the jar file referenced in the script actually exists
+	jarPath, err := u.findJDTLSJar(filepath.Dir(filepath.Dir(executablePath)))
+	if err != nil {
+		return fmt.Errorf("script validation failed: %w", err)
+	}
+	
+	if _, err := os.Stat(jarPath); err != nil {
+		return fmt.Errorf("script validation failed: referenced jar file does not exist at %s", jarPath)
+	}
+
+	return nil
+}
+
+// validateJavaEnvironment checks if Java is available and suitable for JDTLS
+func (u *UniversalServerStrategy) validateJavaEnvironment() error {
+	// Try to find Java executable
+	javaCmd := "java"
+	if javaHome := os.Getenv("JAVA_HOME"); javaHome != "" {
+		javaCmd = filepath.Join(javaHome, "bin", "java")
+	}
+	
+	// Test Java availability and version
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	
+	cmd := exec.CommandContext(ctx, javaCmd, "-version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("Java not available or not working (command: %s): %w, output: %s", javaCmd, err, string(output))
+	}
+	
+	// Basic validation that Java is responding
+	outputStr := strings.ToLower(string(output))
+	if !strings.Contains(outputStr, "java") && !strings.Contains(outputStr, "openjdk") {
+		return fmt.Errorf("Java version output does not look valid: %s", string(output))
+	}
+	
+	return nil
+}
+
+// findJDTLSJar finds the main JDTLS launcher jar file
 func (u *UniversalServerStrategy) findJDTLSJar(installPath string) (string, error) {
 	pluginsDir := filepath.Join(installPath, "plugins")
 
@@ -420,6 +630,20 @@ func (u *UniversalServerStrategy) findJDTLSJar(installPath string) (string, erro
 		return "", fmt.Errorf("failed to read plugins directory: %w", err)
 	}
 
+	// First, try to find the main Eclipse launcher jar (preferred method)
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		name := entry.Name()
+		// Look for the main equinox launcher jar (not platform-specific ones)
+		if strings.HasPrefix(name, "org.eclipse.equinox.launcher_") && strings.HasSuffix(name, ".jar") {
+			return filepath.Join(pluginsDir, name), nil
+		}
+	}
+
+	// Second, try to find the JDTLS core jar
 	for _, entry := range entries {
 		if entry.IsDir() {
 			continue
@@ -431,11 +655,11 @@ func (u *UniversalServerStrategy) findJDTLSJar(installPath string) (string, erro
 		}
 	}
 
-	return "", fmt.Errorf("JDTLS core jar not found in plugins directory")
+	return "", fmt.Errorf("JDTLS launcher jar (org.eclipse.equinox.launcher_*.jar) or core jar not found in plugins directory")
 }
 
 // createWindowsJDTLSScript creates a Windows batch script for jdtls
-func (u *UniversalServerStrategy) createWindowsJDTLSScript(binDir, jarPath string) error {
+func (u *UniversalServerStrategy) createWindowsJDTLSScript(binDir, jarPath string, platform string) error {
 	scriptPath := filepath.Join(binDir, "jdtls.bat")
 
 	// Convert paths to Windows format
@@ -461,21 +685,42 @@ if "%%1" == "" (
     set WORKSPACE=%%1
 )
 
-REM Launch JDTLS
-%%JAVA_CMD%% ^
-    -Declipse.application=org.eclipse.jdt.ls.core.id1 ^
-    -Dosgi.bundles.defaultStartLevel=4 ^
-    -Declipse.product=org.eclipse.jdt.ls.core.product ^
-    -Dlog.level=ALL ^
-    -Xmx1G ^
-    --add-modules=ALL-SYSTEM ^
-    --add-opens java.base/java.util=ALL-UNNAMED ^
-    --add-opens java.base/java.lang=ALL-UNNAMED ^
-    -jar "%s" ^
-    -configuration "%s" ^
-    -data "%%WORKSPACE%%" ^
-    %%*
-`, jarPath, configDir)
+REM Determine launch method based on jar type
+for %%F in ("%s") do set JAR_NAME=%%~nxF
+
+echo %%JAR_NAME%% | findstr /i "equinox.launcher" >nul
+if %%errorlevel%% == 0 (
+    REM Use equinox launcher with Eclipse application
+    %%JAVA_CMD%% ^
+        -Declipse.application=org.eclipse.jdt.ls.core.id1 ^
+        -Dosgi.bundles.defaultStartLevel=4 ^
+        -Declipse.product=org.eclipse.jdt.ls.core.product ^
+        -Dlog.level=ALL ^
+        -Xmx1G ^
+        --add-modules=ALL-SYSTEM ^
+        --add-opens java.base/java.util=ALL-UNNAMED ^
+        --add-opens java.base/java.lang=ALL-UNNAMED ^
+        -jar "%s" ^
+        -configuration "%s" ^
+        -data "%%WORKSPACE%%" ^
+        %%*
+) else (
+    REM Use core jar with Eclipse launcher mechanism
+    %%JAVA_CMD%% ^
+        -Declipse.application=org.eclipse.jdt.ls.core.id1 ^
+        -Dosgi.bundles.defaultStartLevel=4 ^
+        -Declipse.product=org.eclipse.jdt.ls.core.product ^
+        -Dlog.level=ALL ^
+        -Xmx1G ^
+        --add-modules=ALL-SYSTEM ^
+        --add-opens java.base/java.util=ALL-UNNAMED ^
+        --add-opens java.base/java.lang=ALL-UNNAMED ^
+        -jar "%s" ^
+        -configuration "%s" ^
+        -data "%%WORKSPACE%%" ^
+        %%*
+)
+`, jarPath, jarPath, configDir, jarPath, configDir)
 
 	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0755); err != nil {
 		return fmt.Errorf("failed to write Windows script: %w", err)
@@ -485,11 +730,13 @@ REM Launch JDTLS
 }
 
 // createUnixJDTLSScript creates a Unix shell script for jdtls
-func (u *UniversalServerStrategy) createUnixJDTLSScript(binDir, jarPath string) error {
+func (u *UniversalServerStrategy) createUnixJDTLSScript(binDir, jarPath string, platform string) error {
 	scriptPath := filepath.Join(binDir, "jdtls")
 
 	var configDir string
-	switch runtime.GOOS {
+	switch platform {
+	case "windows":
+		configDir = filepath.Join(filepath.Dir(jarPath), "..", "config_win")
 	case "darwin":
 		configDir = filepath.Join(filepath.Dir(jarPath), "..", "config_mac")
 	default:
@@ -515,21 +762,41 @@ else
     shift
 fi
 
-# Launch JDTLS
-exec "$JAVA_CMD" \
-    -Declipse.application=org.eclipse.jdt.ls.core.id1 \
-    -Dosgi.bundles.defaultStartLevel=4 \
-    -Declipse.product=org.eclipse.jdt.ls.core.product \
-    -Dlog.level=ALL \
-    -Xmx1G \
-    --add-modules=ALL-SYSTEM \
-    --add-opens java.base/java.util=ALL-UNNAMED \
-    --add-opens java.base/java.lang=ALL-UNNAMED \
-    -jar "%s" \
-    -configuration "%s" \
-    -data "$WORKSPACE" \
-    "$@"
-`, jarPath, configDir)
+# Determine launch method based on jar type
+JAR_NAME=$(basename "%s")
+
+if [[ "$JAR_NAME" == *"equinox.launcher"* ]]; then
+    # Use equinox launcher with Eclipse application
+    exec "$JAVA_CMD" \
+        -Declipse.application=org.eclipse.jdt.ls.core.id1 \
+        -Dosgi.bundles.defaultStartLevel=4 \
+        -Declipse.product=org.eclipse.jdt.ls.core.product \
+        -Dlog.level=ALL \
+        -Xmx1G \
+        --add-modules=ALL-SYSTEM \
+        --add-opens java.base/java.util=ALL-UNNAMED \
+        --add-opens java.base/java.lang=ALL-UNNAMED \
+        -jar "%s" \
+        -configuration "%s" \
+        -data "$WORKSPACE" \
+        "$@"
+else
+    # Use core jar with Eclipse launcher mechanism
+    exec "$JAVA_CMD" \
+        -Declipse.application=org.eclipse.jdt.ls.core.id1 \
+        -Dosgi.bundles.defaultStartLevel=4 \
+        -Declipse.product=org.eclipse.jdt.ls.core.product \
+        -Dlog.level=ALL \
+        -Xmx1G \
+        --add-modules=ALL-SYSTEM \
+        --add-opens java.base/java.util=ALL-UNNAMED \
+        --add-opens java.base/java.lang=ALL-UNNAMED \
+        -jar "%s" \
+        -configuration "%s" \
+        -data "$WORKSPACE" \
+        "$@"
+fi
+`, jarPath, jarPath, configDir, jarPath, configDir)
 
 	if err := os.WriteFile(scriptPath, []byte(scriptContent), 0755); err != nil {
 		return fmt.Errorf("failed to write Unix script: %w", err)
@@ -732,7 +999,7 @@ func (u *UniversalServerStrategy) VerifyServer(server string) (*types.Verificati
 
 // verifyJDTLS verifies JDTLS installation
 func (u *UniversalServerStrategy) verifyJDTLS() (*types.VerificationResult, error) {
-	executablePath := getJDTLSExecutablePath()
+	executablePath := GetJDTLSExecutablePath()
 
 	result := &types.VerificationResult{
 		Runtime: ServerJDTLS,

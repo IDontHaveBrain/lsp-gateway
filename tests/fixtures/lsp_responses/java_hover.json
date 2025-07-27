@@ -1,0 +1,10 @@
+{
+  "contents": {
+    "kind": "markdown",
+    "value": "```java\n@SpringBootApplication\npublic class Application\n```\n\nMain Spring Boot application class with embedded health controller.\n\n**Annotations:**\n- `@SpringBootApplication` - Enables Spring Boot auto-configuration\n\n**Methods:**\n- `main(String[] args): void` - Application entry point\n- `getContext(): ApplicationContext` - Get Spring application context\n\n**Inner Classes:**\n- `HealthController` - REST controller for health checks\n- `HealthStatus` - Record for health status response\n\n**Package:** `com.example.app`\n\n**Dependencies:**\n- Spring Boot Starter Web\n- Spring Boot Starter Data JPA\n- Spring Boot Starter Test"
+  },
+  "range": {
+    "start": {"line": 8, "character": 13},
+    "end": {"line": 8, "character": 24}
+  }
+}

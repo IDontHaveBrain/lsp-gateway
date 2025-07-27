@@ -13,8 +13,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/suite"
+	"lsp-gateway/internal/installer"
 	"lsp-gateway/internal/transport"
 	"lsp-gateway/mcp"
+	"lsp-gateway/tests/e2e/testutils"
 )
 
 // JavaRealJDTLSE2ETestSuite provides comprehensive integration tests
@@ -290,32 +292,17 @@ func (suite *JavaRealJDTLSE2ETestSuite) isJDTLSServerAvailable() bool {
 }
 
 func (suite *JavaRealJDTLSE2ETestSuite) getJDTLSPath() string {
-	// Check common JDTLS installation paths
-	paths := []string{
-		"/usr/local/bin/jdtls",
-		"/opt/jdtls/bin/jdtls",
-		"/usr/bin/jdtls",
-		"jdtls", // PATH lookup
+	// Use LSP Gateway's actual installation path logic
+	jdtlsPath := installer.GetJDTLSExecutablePath()
+	
+	// Check if the LSP Gateway installed version exists
+	if _, err := os.Stat(jdtlsPath); err == nil {
+		return jdtlsPath
 	}
 	
-	for _, path := range paths {
-		if _, err := exec.LookPath(path); err == nil {
-			return path
-		}
-	}
-	
-	// Try java -jar approach for Eclipse JDT.LS
-	jdtlsJarPaths := []string{
-		"/opt/jdtls/plugins/org.eclipse.equinox.launcher_*.jar",
-		"/usr/local/share/java/jdtls/plugins/org.eclipse.equinox.launcher_*.jar",
-	}
-	
-	for _, jarPath := range jdtlsJarPaths {
-		matches, _ := filepath.Glob(jarPath)
-		if len(matches) > 0 {
-			// Return java command with jar path
-			return "java"
-		}
+	// Fallback to PATH lookup for external installations
+	if path, err := exec.LookPath("jdtls"); err == nil {
+		return path
 	}
 	
 	return ""
@@ -326,8 +313,11 @@ func (suite *JavaRealJDTLSE2ETestSuite) createTestProject() {
 	suite.projectRoot, err = os.MkdirTemp("", "java-integration-test-*")
 	suite.Require().NoError(err, "Should create temporary project directory")
 
-	// Copy the existing Java fixture project
-	fixtureRoot := filepath.Join("tests", "e2e", "fixtures", "java-project")
+	// Copy the existing Java fixture project using proper path resolution
+	fixturesDir, err := testutils.GetE2EFixturesDir()
+	suite.Require().NoError(err, "Should get E2E fixtures directory")
+	
+	fixtureRoot := filepath.Join(fixturesDir, "java-project")
 	suite.copyDirectory(fixtureRoot, suite.projectRoot)
 	
 	// Store project files for reference
