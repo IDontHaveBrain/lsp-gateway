@@ -87,6 +87,8 @@ const (
 	RecoveryReconnect
 	RecoveryReplace
 	RecoveryIgnore
+	RecoveryBypassAuto
+	RecoveryBypassUser
 )
 
 func (rs RecoveryStrategy) String() string {
@@ -99,6 +101,10 @@ func (rs RecoveryStrategy) String() string {
 		return "replace"
 	case RecoveryIgnore:
 		return "ignore"
+	case RecoveryBypassAuto:
+		return "bypass_auto"
+	case RecoveryBypassUser:
+		return "bypass_user"
 	default:
 		return StateStringUnknown
 	}
@@ -257,6 +263,10 @@ func (shc *ServerHealthChecker) triggerRecovery() {
 		shc.reconnectServer()
 	case RecoveryReplace:
 		shc.replaceServer()
+	case RecoveryBypassAuto:
+		shc.bypassServerAuto()
+	case RecoveryBypassUser:
+		shc.bypassServerUser()
 	case RecoveryIgnore:
 		// Do nothing, just log
 	}
@@ -289,12 +299,27 @@ func (shc *ServerHealthChecker) replaceServer() {
 	// and replace the current one in the pool
 }
 
+// bypassServerAuto automatically bypasses the server due to health issues
+func (shc *ServerHealthChecker) bypassServerAuto() {
+	reason := fmt.Sprintf("Auto-bypassed after %d consecutive failures", 
+		shc.server.healthStatus.ConsecutiveFailures)
+	
+	shc.server.SetBypassState(reason, BypassDecisionAutoConsecutive, false)
+}
+
+// bypassServerUser bypasses the server based on user decision
+func (shc *ServerHealthChecker) bypassServerUser() {
+	reason := "User-initiated bypass due to health degradation"
+	shc.server.SetBypassState(reason, BypassDecisionUserManual, true)
+}
+
 // HealthMonitor manages health checking for all servers
 type HealthMonitor struct {
 	checkInterval      time.Duration
 	healthCheckers     map[string]*ServerHealthChecker
 	alertThresholds    *MonitorHealthThresholds
 	recoveryStrategies map[string]RecoveryStrategy
+	bypassStateManager *BypassStateManager
 	ctx                context.Context
 	cancel             context.CancelFunc
 	mu                 sync.RWMutex
@@ -311,6 +336,13 @@ func NewHealthMonitor(checkInterval time.Duration) *HealthMonitor {
 		ctx:                ctx,
 		cancel:             cancel,
 	}
+}
+
+// NewHealthMonitorWithBypassManager creates a new health monitor with bypass state manager
+func NewHealthMonitorWithBypassManager(checkInterval time.Duration, bypassStateManager *BypassStateManager) *HealthMonitor {
+	hm := NewHealthMonitor(checkInterval)
+	hm.bypassStateManager = bypassStateManager
+	return hm
 }
 
 // StartMonitoring starts health monitoring for all registered servers
@@ -482,6 +514,87 @@ func (hm *HealthMonitor) SetRecoveryStrategy(serverName string, strategy Recover
 	return nil
 }
 
+// SetBypassStateManager sets the bypass state manager
+func (hm *HealthMonitor) SetBypassStateManager(bsm *BypassStateManager) {
+	hm.mu.Lock()
+	defer hm.mu.Unlock()
+	hm.bypassStateManager = bsm
+}
+
+// SyncBypassStatesFromPersistence syncs bypass states from persistent storage
+func (hm *HealthMonitor) SyncBypassStatesFromPersistence() error {
+	if hm.bypassStateManager == nil {
+		return fmt.Errorf("bypass state manager not configured")
+	}
+
+	hm.mu.Lock()
+	defer hm.mu.Unlock()
+
+	// Get all bypassed servers from persistence
+	bypassedServers := hm.bypassStateManager.GetAllBypassedServers()
+
+	for _, entry := range bypassedServers {
+		if checker, exists := hm.healthCheckers[entry.ServerName]; exists {
+			// Apply bypass state to server instance
+			checker.server.SetBypassState(
+				entry.BypassReason,
+				entry.BypassDecisionType,
+				entry.UserBypassDecision,
+			)
+		}
+	}
+
+	return nil
+}
+
+// AttemptBypassRecovery attempts to recover a bypassed server
+func (hm *HealthMonitor) AttemptBypassRecovery(serverName string) error {
+	hm.mu.Lock()
+	defer hm.mu.Unlock()
+
+	checker, exists := hm.healthCheckers[serverName]
+	if !exists {
+		return fmt.Errorf("server %s not found in health monitor", serverName)
+	}
+
+	if !checker.server.IsBypassed() {
+		return fmt.Errorf("server %s is not bypassed", serverName)
+	}
+
+	if !checker.server.CanAttemptRecovery() {
+		return fmt.Errorf("server %s cannot attempt recovery yet", serverName)
+	}
+
+	// Record recovery attempt in persistence
+	if hm.bypassStateManager != nil {
+		if err := hm.bypassStateManager.RecordRecoveryAttempt(serverName); err != nil {
+			return fmt.Errorf("failed to record recovery attempt: %w", err)
+		}
+	}
+
+	// Transition to bypassed recovering state
+	checker.server.SetState(ServerStateBypassedRecovering)
+
+	// Perform health check to see if server has recovered
+	go func() {
+		time.Sleep(2 * time.Second) // Brief delay
+		checker.performHealthCheck()
+		
+		// If health check passed, clear bypass state
+		if checker.server.healthStatus.IsHealthy {
+			checker.server.ClearBypassState()
+			if hm.bypassStateManager != nil {
+				hm.bypassStateManager.ClearBypassState(serverName)
+			}
+		} else {
+			// Revert to bypassed state if still unhealthy
+			checker.server.SetState(ServerStateBypassed)
+		}
+	}()
+
+	return nil
+}
+
 // GetHealthSummary returns a summary of health status across all servers
 func (hm *HealthMonitor) GetHealthSummary() *HealthSummary {
 	hm.mu.RLock()
@@ -492,11 +605,14 @@ func (hm *HealthMonitor) GetHealthSummary() *HealthSummary {
 		HealthyServers:   0,
 		UnhealthyServers: 0,
 		FailedServers:    0,
+		BypassedServers:  0,
 		LastCheckTime:    time.Now(),
 	}
 
 	for _, checker := range hm.healthCheckers {
 		switch {
+		case checker.server.IsBypassed():
+			summary.BypassedServers++
 		case checker.server.healthStatus.IsHealthy:
 			summary.HealthyServers++
 		case checker.server.GetState() == ServerStateFailed:
@@ -515,6 +631,7 @@ type HealthSummary struct {
 	HealthyServers   int       `json:"healthy_servers"`
 	UnhealthyServers int       `json:"unhealthy_servers"`
 	FailedServers    int       `json:"failed_servers"`
+	BypassedServers  int       `json:"bypassed_servers"`
 	LastCheckTime    time.Time `json:"last_check_time"`
 }
 

@@ -1,0 +1,416 @@
+# Bypass Strategies Configuration Template for LSP Gateway
+# This template documents all available bypass strategies, their use cases, and configuration options
+
+bypass_strategies:
+  version: "1.0"
+  description: "Comprehensive guide to LSP Gateway bypass strategies for handling server failures"
+  
+  # Strategy definitions with detailed explanations
+  strategies:
+    
+    # 1. Fail Gracefully Strategy
+    fail_gracefully:
+      name: "Fail Gracefully"
+      description: "Return empty or default responses instead of errors when server fails"
+      use_cases:
+        - "Non-critical LSP features where empty response is acceptable"
+        - "Development environments where some degradation is tolerable"
+        - "Temporary fallback while investigating server issues"
+      
+      configuration:
+        # Response type to return when bypassing
+        # Options: "empty", "default", "cached", "minimal"
+        response_type: "empty"
+        
+        # Whether to log bypass events
+        log_bypass_events: true
+        
+        # Custom response templates for different LSP methods
+        response_templates:
+          "textDocument/completion": 
+            isIncomplete: false
+            items: []
+          "textDocument/hover": null
+          "textDocument/definition": []
+          "textDocument/references": []
+          "workspace/symbol": []
+          "textDocument/documentSymbol": []
+            
+      # Performance impact: Very Low
+      performance_impact: "very_low"
+      
+      # Recovery behavior
+      recovery:
+        automatic: true
+        check_interval: "30s"
+        
+      # Best for languages/servers
+      recommended_for:
+        - "Non-critical language support"
+        - "Experimental or unstable LSP servers"
+        - "Development environments"
+    
+    # 2. Fallback Server Strategy
+    fallback_server:
+      name: "Fallback Server"
+      description: "Switch to a backup server when primary server fails"
+      use_cases:
+        - "Mission-critical environments requiring high availability"
+        - "Production systems with zero-tolerance for LSP failures"
+        - "Large teams where LSP downtime impacts productivity"
+      
+      configuration:
+        # Fallback server selection method
+        # Options: "specified", "auto_select", "round_robin", "least_loaded"
+        selection_method: "specified"
+        
+        # Health check configuration for fallback servers
+        health_check:
+          enabled: true
+          interval: "10s"
+          timeout: "5s"
+          max_failures: 3
+          
+        # Load balancing between fallback servers
+        load_balancing:
+          enabled: true
+          strategy: "round_robin"
+          health_threshold: 0.8
+          
+        # Automatic failback to primary when recovered
+        auto_failback:
+          enabled: true
+          delay: "2m"
+          health_checks: 5
+          
+      # Performance impact: Low to Medium
+      performance_impact: "low_medium"
+      
+      # Recovery behavior
+      recovery:
+        automatic: true
+        primary_check_interval: "60s"
+        failback_delay: "2m"
+        
+      # Best for languages/servers
+      recommended_for:
+        - "Go (gopls with go-langserver backup)"
+        - "Python (pylsp with pyright backup)"
+        - "Java (eclipse.jdt.ls with java-language-server backup)"
+        - "Production environments"
+    
+    # 3. Cache Response Strategy
+    cache_response:
+      name: "Cache Response"
+      description: "Return cached responses from previous successful requests"
+      use_cases:
+        - "Repetitive queries where stale data is acceptable"
+        - "Read-heavy workloads with infrequent changes"
+        - "Temporary bypass during server maintenance"
+      
+      configuration:
+        # Cache configuration
+        cache:
+          # Maximum cache age before considering stale
+          max_age: "5m"
+          
+          # Maximum number of cached responses
+          max_entries: 1000
+          
+          # Cache eviction strategy
+          # Options: "lru", "lfu", "ttl", "size"
+          eviction_strategy: "lru"
+          
+          # Whether to serve stale responses when server is down
+          serve_stale: true
+          
+          # Maximum staleness tolerance
+          max_staleness: "30m"
+          
+        # Method-specific cache settings
+        method_cache_config:
+          "textDocument/hover":
+            ttl: "10m"
+            max_staleness: "1h"
+          "textDocument/definition":
+            ttl: "5m"
+            max_staleness: "30m"
+          "textDocument/completion":
+            ttl: "2m"
+            max_staleness: "10m"
+            
+      # Performance impact: Low
+      performance_impact: "low"
+      
+      # Recovery behavior
+      recovery:
+        automatic: true
+        cache_refresh_on_recovery: true
+        
+      # Best for languages/servers
+      recommended_for:
+        - "Static analysis features"
+        - "Documentation lookups"
+        - "Symbol definitions in stable codebases"
+    
+    # 4. Circuit Breaker Strategy
+    circuit_breaker:
+      name: "Circuit Breaker"
+      description: "Temporarily stop sending requests to failing server to allow recovery"
+      use_cases:
+        - "Servers that need time to recover from overload"
+        - "Preventing cascade failures in multi-server environments"
+        - "Resource-constrained environments"
+      
+      configuration:
+        # Circuit breaker states and transitions
+        states:
+          # Closed state (normal operation)
+          closed:
+            failure_threshold: 5
+            failure_window: "1m"
+            
+          # Open state (bypassing server)
+          open:
+            timeout: "30s"
+            
+          # Half-open state (testing recovery)
+          half_open:
+            success_threshold: 3
+            max_test_requests: 5
+            
+        # Circuit breaker behavior
+        behavior:
+          # What to do when circuit is open
+          # Options: "fail_fast", "cache_response", "fallback_server", "empty_response"
+          open_action: "cache_response"
+          
+          # Enable gradual recovery testing
+          gradual_recovery: true
+          
+          # Request sampling in half-open state
+          half_open_sampling: 0.1
+          
+      # Performance impact: Low
+      performance_impact: "low"
+      
+      # Recovery behavior
+      recovery:
+        automatic: true
+        gradual: true
+        test_interval: "10s"
+        
+      # Best for languages/servers
+      recommended_for:
+        - "TypeScript/JavaScript (tsserver)"
+        - "Rust (rust-analyzer)"
+        - "High-traffic development environments"
+    
+    # 5. Retry with Backoff Strategy
+    retry_with_backoff:
+      name: "Retry with Exponential Backoff"
+      description: "Retry failed requests with increasing delays between attempts"
+      use_cases:
+        - "Transient network failures"
+        - "Servers with occasional startup delays"
+        - "Rate-limited or throttled services"
+      
+      configuration:
+        # Retry configuration
+        retry:
+          # Maximum number of retry attempts
+          max_attempts: 3
+          
+          # Initial delay before first retry
+          initial_delay: "1s"
+          
+          # Maximum delay between retries
+          max_delay: "30s"
+          
+          # Backoff multiplier (exponential growth)
+          backoff_multiplier: 2.0
+          
+          # Add random jitter to prevent thundering herd
+          jitter: true
+          
+          # Jitter factor (0.0-1.0)
+          jitter_factor: 0.1
+          
+        # Conditions for retrying
+        retry_conditions:
+          - "connection_timeout"
+          - "connection_refused"
+          - "temporary_failure"
+          - "rate_limited"
+          
+        # Don't retry on these conditions
+        no_retry_conditions:
+          - "authentication_failure"
+          - "invalid_request"
+          - "server_crash"
+          
+      # Performance impact: Medium
+      performance_impact: "medium"
+      
+      # Recovery behavior
+      recovery:
+        automatic: true
+        reset_on_success: true
+        
+      # Best for languages/servers
+      recommended_for:
+        - "Python servers (pylsp, pyright)"
+        - "Network-based LSP servers"
+        - "Servers with known startup delays"
+    
+    # 6. Adaptive Strategy
+    adaptive:
+      name: "Adaptive Strategy"
+      description: "Dynamically choose bypass strategy based on failure patterns and context"
+      use_cases:
+        - "Complex multi-language projects"
+        - "Environments with varying server reliability"
+        - "Production systems requiring optimal resilience"
+      
+      configuration:
+        # Adaptation configuration
+        adaptation:
+          # Enable machine learning for strategy selection
+          ml_enabled: false
+          
+          # Historical data window for analysis
+          analysis_window: "1h"
+          
+          # Minimum data points before adaptation
+          min_data_points: 50
+          
+          # Strategy selection weights
+          strategy_weights:
+            fail_gracefully: 0.2
+            fallback_server: 0.3
+            cache_response: 0.2
+            circuit_breaker: 0.2
+            retry_with_backoff: 0.1
+            
+        # Context-aware rules for strategy selection
+        selection_rules:
+          - condition: "consecutive_failures > 5"
+            strategy: "circuit_breaker"
+            weight: 1.0
+            
+          - condition: "error_rate > 0.5"
+            strategy: "fallback_server"
+            weight: 0.9
+            
+          - condition: "response_time > 10s"
+            strategy: "cache_response"
+            weight: 0.8
+            
+          - condition: "memory_usage > 2GB"
+            strategy: "circuit_breaker"
+            weight: 0.7
+            
+      # Performance impact: Medium to High
+      performance_impact: "medium_high"
+      
+      # Recovery behavior
+      recovery:
+        automatic: true
+        adaptive: true
+        strategy_reevaluation: "5m"
+        
+      # Best for languages/servers
+      recommended_for:
+        - "Large polyglot projects"
+        - "Enterprise environments"
+        - "Systems with complex failure patterns"
+
+  # Strategy selection guidelines
+  selection_guidelines:
+    description: "Guidelines for choosing the appropriate bypass strategy"
+    
+    by_environment:
+      development:
+        recommended: ["fail_gracefully", "cache_response"]
+        description: "Prioritize simplicity and fast feedback"
+        
+      staging:
+        recommended: ["circuit_breaker", "retry_with_backoff"]
+        description: "Test resilience mechanisms without full complexity"
+        
+      production:
+        recommended: ["fallback_server", "adaptive"]
+        description: "Maximize availability and reliability"
+        
+    by_failure_type:
+      startup_failure:
+        recommended: ["retry_with_backoff", "fallback_server"]
+        description: "Allow time for server initialization or use backup"
+        
+      memory_exhaustion:
+        recommended: ["circuit_breaker", "fallback_server"]
+        description: "Give server time to recover or switch to healthy alternative"
+        
+      network_issues:
+        recommended: ["retry_with_backoff", "cache_response"]
+        description: "Retry transient issues or use cached data"
+        
+      performance_degradation:
+        recommended: ["cache_response", "circuit_breaker"]
+        description: "Reduce load on struggling server"
+        
+    by_request_type:
+      critical_requests:
+        - "textDocument/definition"
+        - "textDocument/references"
+        recommended: ["fallback_server", "cache_response"]
+        
+      best_effort_requests:
+        - "textDocument/completion"
+        - "textDocument/hover"
+        recommended: ["fail_gracefully", "cache_response"]
+        
+      expensive_requests:
+        - "workspace/symbol"
+        - "textDocument/documentSymbol"
+        recommended: ["circuit_breaker", "cache_response"]
+        
+  # Performance characteristics
+  performance_comparison:
+    - strategy: "fail_gracefully"
+      latency: "< 1ms"
+      memory_overhead: "None"
+      cpu_overhead: "None"
+      
+    - strategy: "fallback_server"
+      latency: "Variable (depends on fallback)"
+      memory_overhead: "Low"
+      cpu_overhead: "Low"
+      
+    - strategy: "cache_response"
+      latency: "< 5ms"
+      memory_overhead: "Medium"
+      cpu_overhead: "Low"
+      
+    - strategy: "circuit_breaker"
+      latency: "< 1ms (when open)"
+      memory_overhead: "Low"
+      cpu_overhead: "Low"
+      
+    - strategy: "retry_with_backoff"
+      latency: "High (during retries)"
+      memory_overhead: "Low"
+      cpu_overhead: "Low"
+      
+    - strategy: "adaptive"
+      latency: "Variable"
+      memory_overhead: "Medium"
+      cpu_overhead: "Medium"
+      
+  # Implementation notes
+  implementation_notes:
+    - "Strategies can be combined (e.g., circuit breaker + fallback server)"
+    - "Monitor bypass strategy effectiveness with metrics"
+    - "Regularly review and tune strategy configurations"
+    - "Test bypass strategies in staging environments"
+    - "Consider user experience impact when choosing strategies"

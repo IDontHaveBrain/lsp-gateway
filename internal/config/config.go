@@ -130,6 +130,7 @@ type ServerConfig struct {
 	Constraints      *ServerConstraints                `yaml:"constraints,omitempty" json:"constraints,omitempty"`
 	Frameworks       []string                          `yaml:"frameworks,omitempty" json:"frameworks,omitempty"`
 	Version          string                            `yaml:"version,omitempty" json:"version,omitempty"`
+	BypassConfig     *ServerBypassConfig               `yaml:"bypass_config,omitempty" json:"bypass_config,omitempty"`
 }
 
 // SmartRouterConfig contains configuration for the SmartRouter
@@ -196,6 +197,8 @@ type GatewayConfig struct {
 	SCIPConfig        *SCIPSmartRouterConfig `yaml:"scip_config,omitempty" json:"scip_config,omitempty"`
 	// Performance configuration
 	PerformanceConfig *PerformanceConfiguration `yaml:"performance_config,omitempty" json:"performance_config,omitempty"`
+	// Bypass configuration
+	BypassConfig *BypassConfiguration `yaml:"bypass_config,omitempty" json:"bypass_config,omitempty"`
 }
 
 // PerformanceConfiguration contains configuration for performance optimization
@@ -648,6 +651,9 @@ func DefaultConfig() *GatewayConfig {
 
 		// Performance configuration defaults
 		PerformanceConfig: DefaultPerformanceConfiguration(),
+		
+		// Bypass configuration defaults
+		BypassConfig: DefaultBypassConfiguration(),
 
 		Servers: []ServerConfig{
 			{
@@ -977,58 +983,6 @@ func DefaultStorageConfiguration() *StorageConfiguration {
 	}
 }
 
-func (c *GatewayConfig) Validate() error {
-	if c.Port < 0 || c.Port > 65535 {
-		return fmt.Errorf("invalid port: %d, must be between 0 and 65535", c.Port)
-	}
-
-	if len(c.Servers) == 0 {
-		return fmt.Errorf("at least one server must be configured")
-	}
-
-	names := make(map[string]bool)
-	for _, server := range c.Servers {
-		if err := server.Validate(); err != nil {
-			return fmt.Errorf("server %s: %w", server.Name, err)
-		}
-
-		if names[server.Name] {
-			return fmt.Errorf("duplicate server name: %s", server.Name)
-		}
-		names[server.Name] = true
-	}
-
-	if c.ProjectContext != nil {
-		if err := c.ProjectContext.Validate(); err != nil {
-			return fmt.Errorf("project context validation failed: %w", err)
-		}
-	}
-
-	if c.ProjectConfig != nil {
-		if err := c.ProjectConfig.Validate(); err != nil {
-			return fmt.Errorf("project config validation failed: %w", err)
-		}
-	}
-
-	// Validate multi-server configuration
-	if err := c.ValidateMultiServerConfig(); err != nil {
-		return fmt.Errorf("multi-server configuration validation failed: %w", err)
-	}
-
-	// Validate configuration consistency
-	if err := c.ValidateConsistency(); err != nil {
-		return fmt.Errorf("configuration consistency validation failed: %w", err)
-	}
-
-	// Validate performance configuration
-	if c.PerformanceConfig != nil {
-		if err := c.PerformanceConfig.Validate(); err != nil {
-			return fmt.Errorf("performance configuration validation failed: %w", err)
-		}
-	}
-
-	return nil
-}
 
 func (s *ServerConfig) Validate() error {
 	if s.Name == "" {
@@ -1509,6 +1463,328 @@ type ResourceLimits struct {
 	MaxConcurrentRequests int   `yaml:"max_concurrent_requests" json:"max_concurrent_requests"`
 	MaxProcesses          int   `yaml:"max_processes" json:"max_processes"`
 	RequestTimeoutSeconds int   `yaml:"request_timeout_seconds" json:"request_timeout_seconds"`
+}
+
+// ServerBypassConfig contains bypass configuration for a specific server
+type ServerBypassConfig struct {
+	Enabled               bool                    `yaml:"enabled" json:"enabled"`
+	BypassConditions      []string                `yaml:"bypass_conditions,omitempty" json:"bypass_conditions,omitempty"`
+	BypassStrategy        string                  `yaml:"bypass_strategy,omitempty" json:"bypass_strategy,omitempty"`
+	FallbackServer        string                  `yaml:"fallback_server,omitempty" json:"fallback_server,omitempty"`
+	RecoveryAttempts      int                     `yaml:"recovery_attempts,omitempty" json:"recovery_attempts,omitempty"`
+	HealthThreshold       float64                 `yaml:"health_threshold,omitempty" json:"health_threshold,omitempty"`
+	CooldownPeriod        string                  `yaml:"cooldown_period,omitempty" json:"cooldown_period,omitempty"`
+	Timeouts              *BypassTimeouts         `yaml:"timeouts,omitempty" json:"timeouts,omitempty"`
+	FailureThresholds     *BypassFailureThresholds `yaml:"failure_thresholds,omitempty" json:"failure_thresholds,omitempty"`
+	MethodConfigs         map[string]*BypassMethodConfig `yaml:"method_configs,omitempty" json:"method_configs,omitempty"`
+	CircuitBreakerConfig  *BypassCircuitBreakerConfig    `yaml:"circuit_breaker,omitempty" json:"circuit_breaker,omitempty"`
+	NotificationConfig    *BypassNotificationConfig      `yaml:"notifications,omitempty" json:"notifications,omitempty"`
+}
+
+// BypassTimeouts contains timeout configurations for bypass functionality
+type BypassTimeouts struct {
+	Startup       string `yaml:"startup,omitempty" json:"startup,omitempty"`
+	Request       string `yaml:"request,omitempty" json:"request,omitempty"`
+	WorkspaceInit string `yaml:"workspace_init,omitempty" json:"workspace_init,omitempty"`
+	Shutdown      string `yaml:"shutdown,omitempty" json:"shutdown,omitempty"`
+}
+
+// BypassFailureThresholds contains failure threshold configurations
+type BypassFailureThresholds struct {
+	ConsecutiveFailures int     `yaml:"consecutive_failures,omitempty" json:"consecutive_failures,omitempty"`
+	ErrorRatePercent    int     `yaml:"error_rate_percent,omitempty" json:"error_rate_percent,omitempty"`
+	ResponseTimeMs      int     `yaml:"response_time_ms,omitempty" json:"response_time_ms,omitempty"`
+	MemoryUsageMB       int     `yaml:"memory_usage_mb,omitempty" json:"memory_usage_mb,omitempty"`
+	CPUUsagePercent     float64 `yaml:"cpu_usage_percent,omitempty" json:"cpu_usage_percent,omitempty"`
+}
+
+// BypassMethodConfig contains method-specific bypass configuration
+type BypassMethodConfig struct {
+	Timeout          string                 `yaml:"timeout,omitempty" json:"timeout,omitempty"`
+	BypassStrategy   string                 `yaml:"bypass_strategy,omitempty" json:"bypass_strategy,omitempty"`
+	CacheTTL         string                 `yaml:"cache_ttl,omitempty" json:"cache_ttl,omitempty"`
+	FallbackEnabled  bool                   `yaml:"fallback_enabled,omitempty" json:"fallback_enabled,omitempty"`
+	FallbackResponse map[string]interface{} `yaml:"fallback_response,omitempty" json:"fallback_response,omitempty"`
+	ServeStale       bool                   `yaml:"serve_stale,omitempty" json:"serve_stale,omitempty"`
+	MaxResults       int                    `yaml:"max_results,omitempty" json:"max_results,omitempty"`
+}
+
+// BypassCircuitBreakerConfig contains circuit breaker configuration for bypass
+type BypassCircuitBreakerConfig struct {
+	Enabled            bool   `yaml:"enabled" json:"enabled"`
+	FailureThreshold   int    `yaml:"failure_threshold,omitempty" json:"failure_threshold,omitempty"`
+	SuccessThreshold   int    `yaml:"success_threshold,omitempty" json:"success_threshold,omitempty"`
+	Timeout            string `yaml:"timeout,omitempty" json:"timeout,omitempty"`
+	FailureWindowSize  int    `yaml:"failure_window_size,omitempty" json:"failure_window_size,omitempty"`
+}
+
+// BypassNotificationConfig contains notification configuration for bypass events
+type BypassNotificationConfig struct {
+	Enabled  bool     `yaml:"enabled" json:"enabled"`
+	Levels   []string `yaml:"levels,omitempty" json:"levels,omitempty"`
+	Channels struct {
+		Console bool `yaml:"console,omitempty" json:"console,omitempty"`
+		LogFile bool `yaml:"log_file,omitempty" json:"log_file,omitempty"`
+		Webhook bool `yaml:"webhook,omitempty" json:"webhook,omitempty"`
+	} `yaml:"channels,omitempty" json:"channels,omitempty"`
+}
+
+// LanguageBypassConfig contains language-specific bypass configuration
+type LanguageBypassConfig struct {
+	Language              string                      `yaml:"language" json:"language"`
+	Strategy              string                      `yaml:"strategy,omitempty" json:"strategy,omitempty"`
+	Conditions            []string                    `yaml:"conditions,omitempty" json:"conditions,omitempty"`
+	Timeout               string                      `yaml:"timeout,omitempty" json:"timeout,omitempty"`
+	PerformanceThresholds *LanguagePerformanceThresholds `yaml:"performance_thresholds,omitempty" json:"performance_thresholds,omitempty"`
+	Recovery              *LanguageRecoveryConfig     `yaml:"recovery,omitempty" json:"recovery,omitempty"`
+}
+
+// LanguagePerformanceThresholds contains performance thresholds for language-specific bypass
+type LanguagePerformanceThresholds struct {
+	MaxResponseTime string  `yaml:"max_response_time,omitempty" json:"max_response_time,omitempty"`
+	MaxMemoryUsage  string  `yaml:"max_memory_usage,omitempty" json:"max_memory_usage,omitempty"`
+	MaxCPUUsage     float64 `yaml:"max_cpu_usage,omitempty" json:"max_cpu_usage,omitempty"`
+}
+
+// LanguageRecoveryConfig contains recovery configuration for language-specific bypass
+type LanguageRecoveryConfig struct {
+	Enabled     bool   `yaml:"enabled" json:"enabled"`
+	MaxAttempts int    `yaml:"max_attempts,omitempty" json:"max_attempts,omitempty"`
+	Cooldown    string `yaml:"cooldown,omitempty" json:"cooldown,omitempty"`
+	HealthCheckMethod string `yaml:"health_check_method,omitempty" json:"health_check_method,omitempty"`
+}
+
+// ProjectPatternConfig contains project pattern-specific configuration
+type ProjectPatternConfig struct {
+	Patterns      []string `yaml:"patterns,omitempty" json:"patterns,omitempty"`
+	Optimizations []string `yaml:"optimizations,omitempty" json:"optimizations,omitempty"`
+	ServerInstances int    `yaml:"server_instances,omitempty" json:"server_instances,omitempty"`
+	MemoryLimit     string `yaml:"memory_limit,omitempty" json:"memory_limit,omitempty"`
+	ConcurrentRequests int `yaml:"concurrent_requests,omitempty" json:"concurrent_requests,omitempty"`
+}
+
+// GlobalBypassConfig contains global bypass configuration settings
+type GlobalBypassConfig struct {
+	EnableGlobalBypass          bool   `yaml:"enable_global_bypass" json:"enable_global_bypass"`
+	AutoBypassOnConsecutive     bool   `yaml:"auto_bypass_on_consecutive" json:"auto_bypass_on_consecutive"`
+	AutoBypassOnCircuitBreaker  bool   `yaml:"auto_bypass_on_circuit_breaker" json:"auto_bypass_on_circuit_breaker"`
+	AutoBypassOnHealthDegraded  bool   `yaml:"auto_bypass_on_health_degraded" json:"auto_bypass_on_health_degraded"`
+	ConsecutiveFailureThreshold int    `yaml:"consecutive_failure_threshold" json:"consecutive_failure_threshold"`
+	RecoveryCheckInterval       string `yaml:"recovery_check_interval" json:"recovery_check_interval"`
+	MaxRecoveryAttempts         int    `yaml:"max_recovery_attempts" json:"max_recovery_attempts"`
+	UserConfirmationRequired    bool   `yaml:"user_confirmation_required" json:"user_confirmation_required"`
+}
+
+// BypassMonitoringConfig contains monitoring configuration for bypass events
+type BypassMonitoringConfig struct {
+	Enabled         bool                    `yaml:"enabled" json:"enabled"`
+	RetentionPeriod string                  `yaml:"retention_period,omitempty" json:"retention_period,omitempty"`
+	Export          *BypassExportConfig     `yaml:"export,omitempty" json:"export,omitempty"`
+}
+
+// BypassExportConfig contains export configuration for bypass metrics
+type BypassExportConfig struct {
+	Enabled  bool   `yaml:"enabled" json:"enabled"`
+	Format   string `yaml:"format,omitempty" json:"format,omitempty"`
+	Endpoint string `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
+}
+
+// BypassAdvancedConfig contains advanced bypass features configuration
+type BypassAdvancedConfig struct {
+	PredictiveBypass      bool `yaml:"predictive_bypass,omitempty" json:"predictive_bypass,omitempty"`
+	MLOptimization        bool `yaml:"ml_optimization,omitempty" json:"ml_optimization,omitempty"`
+	RecommendationSystem  bool `yaml:"recommendation_system,omitempty" json:"recommendation_system,omitempty"`
+	AuditTrail            bool `yaml:"audit_trail,omitempty" json:"audit_trail,omitempty"`
+}
+
+// BypassConfiguration contains comprehensive bypass configuration for the LSP Gateway
+type BypassConfiguration struct {
+	// Enable bypass functionality globally
+	Enabled bool   `yaml:"enabled" json:"enabled"`
+	Version string `yaml:"version,omitempty" json:"version,omitempty"`
+	
+	// Global bypass settings
+	GlobalBypass *GlobalBypassConfig `yaml:"global_bypass,omitempty" json:"global_bypass,omitempty"`
+	
+	// Server-specific bypass configurations
+	ServerBypass []*ServerBypassConfig `yaml:"server_bypass,omitempty" json:"server_bypass,omitempty"`
+	
+	// Language-specific bypass configurations
+	LanguageBypass map[string]*LanguageBypassConfig `yaml:"language_bypass,omitempty" json:"language_bypass,omitempty"`
+	
+	// Circuit breaker configuration
+	CircuitBreaker *BypassCircuitBreakerConfig `yaml:"circuit_breaker,omitempty" json:"circuit_breaker,omitempty"`
+	
+	// Notification settings
+	Notifications *BypassNotificationConfig `yaml:"notifications,omitempty" json:"notifications,omitempty"`
+	
+	// Monitoring and metrics
+	Monitoring *BypassMonitoringConfig `yaml:"monitoring,omitempty" json:"monitoring,omitempty"`
+	
+	// Advanced features
+	Advanced *BypassAdvancedConfig `yaml:"advanced,omitempty" json:"advanced,omitempty"`
+}
+
+// Validate validates the bypass configuration
+func (bc *BypassConfiguration) Validate() error {
+	if bc == nil {
+		return nil // Optional configuration
+	}
+	
+	// Validate global bypass configuration
+	if bc.GlobalBypass != nil {
+		if err := bc.validateGlobalBypass(); err != nil {
+			return fmt.Errorf("global bypass configuration invalid: %w", err)
+		}
+	}
+	
+	// Validate server-specific configurations
+	for i, serverConfig := range bc.ServerBypass {
+		if err := bc.validateServerBypass(serverConfig); err != nil {
+			return fmt.Errorf("server bypass configuration [%d] invalid: %w", i, err)
+		}
+	}
+	
+	// Validate language-specific configurations
+	for language, langConfig := range bc.LanguageBypass {
+		if err := bc.validateLanguageBypass(langConfig); err != nil {
+			return fmt.Errorf("language bypass configuration for %s invalid: %w", language, err)
+		}
+	}
+	
+	return nil
+}
+
+// validateGlobalBypass validates global bypass settings
+func (bc *BypassConfiguration) validateGlobalBypass() error {
+	gb := bc.GlobalBypass
+	if gb.ConsecutiveFailureThreshold < 1 {
+		return fmt.Errorf("consecutive failure threshold must be at least 1")
+	}
+	if gb.MaxRecoveryAttempts < 0 {
+		return fmt.Errorf("max recovery attempts cannot be negative")
+	}
+	return nil
+}
+
+// validateServerBypass validates server-specific bypass configuration
+func (bc *BypassConfiguration) validateServerBypass(sc *ServerBypassConfig) error {
+	if sc == nil {
+		return fmt.Errorf("server bypass configuration cannot be nil")
+	}
+	
+	// Validate bypass strategies
+	validStrategies := map[string]bool{
+		"fail_gracefully":   true,
+		"fallback_server":   true,
+		"cache_response":    true,
+		"circuit_breaker":   true,
+		"retry_with_backoff": true,
+	}
+	
+	if sc.BypassStrategy != "" && !validStrategies[sc.BypassStrategy] {
+		return fmt.Errorf("invalid bypass strategy: %s", sc.BypassStrategy)
+	}
+	
+	// Validate health threshold
+	if sc.HealthThreshold < 0.0 || sc.HealthThreshold > 1.0 {
+		return fmt.Errorf("health threshold must be between 0.0 and 1.0")
+	}
+	
+	return nil
+}
+
+// validateLanguageBypass validates language-specific bypass configuration
+func (bc *BypassConfiguration) validateLanguageBypass(lc *LanguageBypassConfig) error {
+	if lc == nil {
+		return fmt.Errorf("language bypass configuration cannot be nil")
+	}
+	
+	// Validate performance thresholds
+	if lc.PerformanceThresholds != nil {
+		if lc.PerformanceThresholds.MaxCPUUsage < 0 || lc.PerformanceThresholds.MaxCPUUsage > 100 {
+			return fmt.Errorf("max CPU usage must be between 0 and 100")
+		}
+	}
+	
+	return nil
+}
+
+// DefaultBypassConfiguration returns a default bypass configuration
+func DefaultBypassConfiguration() *BypassConfiguration {
+	return &BypassConfiguration{
+		Enabled: true,
+		Version: "1.0",
+		GlobalBypass: &GlobalBypassConfig{
+			EnableGlobalBypass:          true,
+			AutoBypassOnConsecutive:     true,
+			AutoBypassOnCircuitBreaker:  true,
+			AutoBypassOnHealthDegraded:  false,
+			ConsecutiveFailureThreshold: 3,
+			RecoveryCheckInterval:       "5m",
+			MaxRecoveryAttempts:         3,
+			UserConfirmationRequired:    false,
+		},
+		CircuitBreaker: &BypassCircuitBreakerConfig{
+			Enabled:           true,
+			FailureThreshold:  5,
+			SuccessThreshold:  3,
+			Timeout:           "30s",
+			FailureWindowSize: 10,
+		},
+		Notifications: &BypassNotificationConfig{
+			Enabled: true,
+			Levels:  []string{"warning", "error", "critical"},
+		},
+		Monitoring: &BypassMonitoringConfig{
+			Enabled:         true,
+			RetentionPeriod: "24h",
+		},
+		Advanced: &BypassAdvancedConfig{
+			PredictiveBypass:     false,
+			MLOptimization:       false,
+			RecommendationSystem: true,
+			AuditTrail:          true,
+		},
+	}
+}
+
+// Validate validates the gateway configuration including bypass settings
+func (gc *GatewayConfig) Validate() error {
+	if gc == nil {
+		return fmt.Errorf("gateway configuration cannot be nil")
+	}
+	
+	// Validate basic configuration
+	if gc.Port <= 0 || gc.Port > 65535 {
+		return fmt.Errorf("invalid port: %d (must be between 1 and 65535)", gc.Port)
+	}
+	
+	if len(gc.Servers) == 0 {
+		return fmt.Errorf("at least one server must be configured")
+	}
+	
+	// Validate server configurations
+	for i, server := range gc.Servers {
+		if server.Name == "" {
+			return fmt.Errorf("server[%d] name cannot be empty", i)
+		}
+		if server.Command == "" {
+			return fmt.Errorf("server[%d] command cannot be empty", i)
+		}
+		if len(server.Languages) == 0 {
+			return fmt.Errorf("server[%d] must support at least one language", i)
+		}
+	}
+	
+	// Validate bypass configuration if present
+	if gc.BypassConfig != nil {
+		if err := gc.BypassConfig.Validate(); err != nil {
+			return fmt.Errorf("bypass configuration validation failed: %w", err)
+		}
+	}
+	
+	return nil
 }
 
 // Multi-server configuration methods

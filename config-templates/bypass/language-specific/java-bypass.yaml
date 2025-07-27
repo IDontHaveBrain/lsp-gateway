@@ -1,0 +1,542 @@
+# Java Language Bypass Configuration Template for LSP Gateway
+# Optimized bypass settings for Java language servers (eclipse.jdt.ls, java-language-server)
+
+java_bypass_config:
+  version: "1.0"
+  language: "java"
+  description: "Specialized bypass configuration for Java language servers"
+  
+  # Java language server configurations
+  servers:
+    # Eclipse JDT Language Server
+    "eclipse.jdt.ls":
+      name: "eclipse.jdt.ls"
+      description: "Eclipse JDT Language Server (official)"
+      bypass_enabled: true
+      
+      # Java-specific failure conditions
+      bypass_conditions:
+        - "jvm_startup_failure"    # JVM fails to start or initialize
+        - "classpath_resolution"   # Java classpath resolution issues
+        - "build_path_errors"      # Project build path configuration errors
+        - "maven_gradle_sync"      # Build tool synchronization failures
+        - "workspace_corruption"   # Eclipse workspace corruption
+        - "heap_exhaustion"        # JVM heap memory exhaustion
+        - "compilation_timeout"    # Java compilation taking too long
+        - "dependency_download"    # Maven/Gradle dependency download failures
+        
+      # Primary bypass strategy for Eclipse JDT
+      bypass_strategy: "fallback_server"
+      
+      # Fallback to alternative Java language server
+      fallback_server: "java-language-server"
+      
+      # Java-specific timeouts
+      timeouts:
+        startup: "45s"          # JVM and workspace initialization can be very slow
+        request: "20s"          # Java analysis can be complex
+        compilation: "120s"     # Full project compilation
+        dependency_resolution: "180s" # Maven/Gradle can be slow
+        workspace_init: "300s"  # Large Java workspaces need significant time
+        shutdown: "15s"
+        
+      # Failure thresholds optimized for Java
+      failure_thresholds:
+        consecutive_failures: 2
+        error_rate_percent: 15
+        response_time_ms: 12000  # Java analysis can be slow
+        memory_usage_mb: 4096    # Java projects require significant memory
+        
+      # Java-specific recovery settings
+      recovery:
+        enabled: true
+        max_attempts: 2
+        cooldown: "8m"
+        health_check_method: "textDocument/hover"
+        workspace_reload: true
+        jvm_restart: true
+        
+      # Performance optimizations for Java
+      performance:
+        # JVM heap configuration
+        jvm_heap_size: "4G"
+        jvm_initial_heap: "1G"
+        
+        # Java project optimization
+        large_project_mode: true
+        file_count_threshold: 5000
+        
+        # Java-specific optimizations
+        java_optimizations:
+          # Skip test sources for faster analysis
+          exclude_test_sources: false
+          
+          # Optimize for Maven/Gradle projects
+          build_tool_aware: true
+          
+          # Java version compatibility
+          source_compatibility: "11"
+          target_compatibility: "11"
+          
+          # Annotation processing
+          annotation_processing: true
+          
+    # Alternative Java Language Server
+    java-language-server:
+      name: "java-language-server"
+      description: "Alternative Java language server implementation"
+      bypass_enabled: true
+      
+      bypass_conditions:
+        - "initialization_failure"
+        - "classpath_scanning_timeout"
+        - "limited_features"
+        
+      bypass_strategy: "circuit_breaker"
+      
+      timeouts:
+        startup: "30s"
+        request: "15s"
+        classpath_scan: "60s"
+        shutdown: "8s"
+        
+      failure_thresholds:
+        consecutive_failures: 4
+        error_rate_percent: 25
+        response_time_ms: 10000
+        memory_usage_mb: 2048
+        
+      # Feature limitations compared to Eclipse JDT
+      feature_limitations:
+        - "Limited refactoring support"
+        - "Basic completion only"
+        - "No advanced debugging"
+        - "Limited Maven/Gradle integration"
+        
+    # Language Server for Java (Microsoft)
+    "vscode-java":
+      name: "vscode-java"
+      description: "Microsoft's Java language server for VS Code"
+      bypass_enabled: true
+      
+      bypass_conditions:
+        - "vscode_extension_issues"
+        - "configuration_mismatch"
+        - "feature_incompatibility"
+        
+      bypass_strategy: "retry_with_backoff"
+      
+      timeouts:
+        startup: "35s"
+        request: "18s"
+        project_import: "90s"
+        shutdown: "10s"
+        
+      # VS Code specific features
+      vscode_features:
+        debugging: true
+        testing: true
+        maven_gradle: true
+        spring_boot: true
+        
+  # Java-specific bypass strategies
+  language_strategies:
+    # Strategy for build tool synchronization failures
+    build_sync_failure:
+      strategy: "retry_with_backoff"
+      max_attempts: 3
+      initial_delay: "10s"
+      max_delay: "120s"
+      conditions:
+        - "Maven synchronization failed"
+        - "Gradle sync failed"
+        - "Dependency resolution failed"
+        
+    # Strategy for large Java projects
+    large_project_handling:
+      strategy: "circuit_breaker"
+      file_count_threshold: 3000
+      memory_threshold: "6GB"
+      response_time_threshold: "20s"
+      workspace_partitioning: true
+      
+    # Strategy for classpath issues
+    classpath_resolution_failure:
+      strategy: "fallback_server"
+      conditions:
+        - "ClassNotFoundException"
+        - "NoClassDefFoundError"
+        - "Classpath entry not found"
+      fallback_delay: "30s"
+      
+    # Strategy for JVM memory issues
+    jvm_memory_handling:
+      strategy: "circuit_breaker"
+      memory_monitoring: true
+      gc_optimization: true
+      heap_dump_on_oom: true
+      
+  # Java project patterns and optimizations
+  project_patterns:
+    # Maven projects
+    maven:
+      patterns:
+        - "pom.xml"
+        - "src/main/java"
+        - "src/test/java"
+        - "target/"
+      optimizations:
+        - "Maven lifecycle integration"
+        - "Dependency management"
+        - "Multi-module support"
+      server_preference: "eclipse.jdt.ls"
+      build_tool: "maven"
+      
+    # Gradle projects
+    gradle:
+      patterns:
+        - "build.gradle"
+        - "build.gradle.kts"
+        - "gradle.properties"
+        - "gradlew"
+      optimizations:
+        - "Gradle task integration"
+        - "Build script analysis"
+        - "Dependency resolution"
+      server_preference: "eclipse.jdt.ls"
+      build_tool: "gradle"
+      
+    # Spring Boot projects
+    spring_boot:
+      patterns:
+        - "application.properties"
+        - "application.yml"
+        - "@SpringBootApplication"
+        - "spring-boot-starter"
+      optimizations:
+        - "Spring framework support"
+        - "Auto-configuration analysis"
+        - "Profile-aware configuration"
+      server_preference: "eclipse.jdt.ls"
+      framework: "spring_boot"
+      
+    # Android projects
+    android:
+      patterns:
+        - "AndroidManifest.xml"
+        - "app/build.gradle"
+        - "res/"
+        - "java/"
+      optimizations:
+        - "Android SDK integration"
+        - "Resource analysis"
+        - "Manifest validation"
+      server_preference: "eclipse.jdt.ls"
+      platform: "android"
+      
+    # Enterprise Java (Jakarta EE)
+    enterprise:
+      patterns:
+        - "beans.xml"
+        - "persistence.xml"
+        - "web.xml"
+        - "@Entity"
+      optimizations:
+        - "JPA entity support"
+        - "CDI bean analysis"
+        - "Enterprise annotations"
+      server_preference: "eclipse.jdt.ls"
+      platform: "jakarta_ee"
+      
+    # Multi-module Maven projects
+    multi_module:
+      patterns:
+        - "parent pom.xml"
+        - "modules/"
+        - "*/pom.xml"
+      optimizations:
+        - "Inter-module dependencies"
+        - "Aggregated builds"
+        - "Cross-module navigation"
+      server_preference: "eclipse.jdt.ls"
+      
+  # Java-specific method configurations
+  method_configs:
+    # Java definition lookup
+    "textDocument/definition":
+      timeout: "15s"
+      bypass_strategy: "cache_response"
+      cache_ttl: "10m"
+      cross_jar_navigation: true
+      
+    # Java completion
+    "textDocument/completion":
+      timeout: "12s"
+      bypass_strategy: "fail_gracefully"
+      max_items: 100
+      include_imports: true
+      fallback_response:
+        isIncomplete: false
+        items: []
+        
+    # Java hover information
+    "textDocument/hover":
+      timeout: "10s"
+      bypass_strategy: "cache_response"
+      cache_ttl: "15m"
+      include_javadoc: true
+      
+    # Java references
+    "textDocument/references":
+      timeout: "25s"
+      bypass_strategy: "fallback_server"
+      max_results: 300
+      include_jar_files: true
+      
+    # Java workspace symbols
+    "workspace/symbol":
+      timeout: "30s"
+      bypass_strategy: "circuit_breaker"
+      failure_threshold: 2
+      index_jar_files: true
+      
+    # Java document symbols
+    "textDocument/documentSymbol":
+      timeout: "18s"
+      bypass_strategy: "cache_response"
+      cache_ttl: "25m"
+      hierarchical: true
+      
+    # Java code actions
+    "textDocument/codeAction":
+      timeout: "15s"
+      bypass_strategy: "fail_gracefully"
+      include_refactoring: true
+      include_quick_fixes: true
+      
+    # Java formatting
+    "textDocument/formatting":
+      timeout: "8s"
+      bypass_strategy: "fail_gracefully"
+      use_project_settings: true
+      
+  # Java version compatibility
+  version_compatibility:
+    # Java 21+ (LTS)
+    java_21_plus:
+      features:
+        - "Virtual threads"
+        - "Pattern matching"
+        - "Record patterns"
+        - "String templates"
+      optimizations:
+        - "Modern language features"
+        - "Enhanced performance"
+        - "Project Loom support"
+      jvm_args: ["--enable-preview"]
+      
+    # Java 17 (LTS)
+    java_17:
+      features:
+        - "Sealed classes"
+        - "Pattern matching for instanceof"
+        - "Records"
+        - "Text blocks"
+      optimizations:
+        - "Stable modern features"
+        - "Production-ready configuration"
+      recommended: true
+      
+    # Java 11 (LTS)
+    java_11:
+      features:
+        - "Local variable type inference"
+        - "HTTP Client API"
+        - "Module system"
+      optimizations:
+        - "Stable feature set"
+        - "Enterprise compatibility"
+        
+    # Java 8
+    java_8:
+      features:
+        - "Lambda expressions"
+        - "Stream API"
+        - "Optional"
+      optimizations:
+        - "Legacy compatibility"
+        - "Conservative settings"
+        
+  # Java-specific error patterns and responses
+  error_patterns:
+    compilation_errors:
+      patterns:
+        - "cannot find symbol"
+        - "package .* does not exist"
+        - "incompatible types"
+      bypass_action: "cache_response"
+      serve_stale: true
+      compile_suggestion: true
+      
+    classpath_errors:
+      patterns:
+        - "ClassNotFoundException"
+        - "NoClassDefFoundError"
+        - "java.lang.ClassLoader"
+      bypass_action: "retry_with_backoff"
+      classpath_refresh: true
+      
+    build_tool_errors:
+      patterns:
+        - "Maven build failed"
+        - "Gradle sync failed"
+        - "Dependency resolution failed"
+      bypass_action: "retry_with_backoff"
+      build_refresh: true
+      
+    jvm_errors:
+      patterns:
+        - "OutOfMemoryError"
+        - "Java heap space"
+        - "GC overhead limit exceeded"
+      bypass_action: "circuit_breaker"
+      heap_increase: true
+      
+    workspace_errors:
+      patterns:
+        - "Workspace corruption"
+        - "Project import failed"
+        - "Build path incomplete"
+      bypass_action: "fallback_server"
+      workspace_cleanup: true
+      
+  # Build tool configurations
+  build_tools:
+    # Maven configuration
+    maven:
+      bypass_adjustments:
+        - "Increase dependency download timeout"
+        - "Handle multi-module projects"
+        - "Optimize for large repositories"
+      settings:
+        offline_mode: false
+        update_snapshots: true
+        parallel_builds: true
+        
+    # Gradle configuration
+    gradle:
+      bypass_adjustments:
+        - "Optimize for large builds"
+        - "Handle configuration cache"
+        - "Support Kotlin DSL"
+      settings:
+        daemon: true
+        parallel: true
+        configuration_cache: true
+        
+  # Framework-specific configurations
+  framework_configs:
+    # Spring Boot-specific settings
+    spring_boot:
+      bypass_adjustments:
+        - "Optimize for Spring context loading"
+        - "Handle auto-configuration"
+        - "Support profile-specific configs"
+      server_settings:
+        spring_aware: true
+        auto_config_analysis: true
+        
+    # Jakarta EE-specific settings
+    jakarta_ee:
+      bypass_adjustments:
+        - "Enterprise bean analysis"
+        - "JPA entity relationship mapping"
+        - "CDI bean discovery"
+      server_settings:
+        jpa_support: true
+        cdi_support: true
+        
+    # Android-specific settings
+    android:
+      bypass_adjustments:
+        - "Android SDK integration"
+        - "Resource compilation"
+        - "Manifest analysis"
+      server_settings:
+        android_sdk_path: "${ANDROID_HOME}"
+        target_sdk: "34"
+        
+  # Development environment considerations
+  development_environments:
+    # Local development
+    local_dev:
+      bypass_aggressiveness: "conservative"
+      jvm_heap_size: "4G"
+      parallel_builds: true
+      incremental_compilation: true
+      
+    # Docker containers
+    docker:
+      bypass_aggressiveness: "moderate"
+      memory_optimization: true
+      volume_optimization: true
+      multi_stage_builds: true
+      
+    # Remote development
+    remote_dev:
+      bypass_aggressiveness: "moderate"
+      network_optimization: true
+      distributed_builds: true
+      remote_debugging: true
+      
+    # CI/CD pipelines
+    ci_cd:
+      bypass_aggressiveness: "aggressive"
+      fail_fast: true
+      clean_builds: true
+      test_optimization: true
+      
+  # Monitoring and alerting for Java-specific issues
+  monitoring:
+    # Java-specific metrics
+    metrics:
+      - "jvm_heap_usage"
+      - "compilation_time"
+      - "classpath_resolution_time"
+      - "dependency_download_time"
+      - "garbage_collection_frequency"
+      
+    # Alerts for Java development
+    alerts:
+      high_memory_usage:
+        threshold: "5GB"
+        action: "increase_heap_size"
+        
+      slow_compilation:
+        threshold: "2m average"
+        action: "optimize_build_configuration"
+        
+      frequent_classpath_errors:
+        threshold: "25% error rate"
+        action: "refresh_dependencies"
+        
+      build_tool_failures:
+        threshold: "3 failures in 1 hour"
+        action: "check_build_configuration"
+        
+      workspace_corruption:
+        threshold: "2 corruptions in 24h"
+        action: "investigate_workspace_stability"
+        
+  # Best practices for Java bypass configuration
+  best_practices:
+    - "Allocate sufficient JVM heap memory (4GB minimum for large projects)"
+    - "Use fallback servers for mission-critical Java development"
+    - "Configure longer timeouts for Maven/Gradle dependency resolution"
+    - "Cache analysis results for stable Java code"
+    - "Monitor JVM memory usage and garbage collection"
+    - "Use circuit breaker for large Java workspaces"
+    - "Configure build tool integration properly"
+    - "Test bypass configuration with different project sizes"
+    - "Consider Java version when setting language server features"
+    - "Optimize workspace settings for your development style"

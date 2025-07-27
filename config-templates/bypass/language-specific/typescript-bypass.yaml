@@ -1,0 +1,516 @@
+# TypeScript Language Bypass Configuration Template for LSP Gateway
+# Optimized bypass settings for TypeScript language servers (tsserver, typescript-language-server)
+
+typescript_bypass_config:
+  version: "1.0"
+  language: "typescript"
+  description: "Specialized bypass configuration for TypeScript language servers"
+  
+  # TypeScript language server configurations
+  servers:
+    # TypeScript Server (tsserver)
+    tsserver:
+      name: "tsserver"
+      description: "Official TypeScript language server"
+      bypass_enabled: true
+      
+      # TypeScript-specific failure conditions
+      bypass_conditions:
+        - "compilation_errors"    # TypeScript compilation failures
+        - "node_modules_issues"   # Node.js module resolution problems
+        - "type_checking_timeout" # Type checking taking too long
+        - "memory_exhaustion"     # High memory usage from large projects
+        - "project_reload_loop"   # Infinite project reload cycles
+        - "workspace_corruption"  # Corrupted TypeScript workspace
+        - "npm_install_required"  # Missing dependencies
+        
+      # Primary bypass strategy for tsserver
+      bypass_strategy: "circuit_breaker"
+      
+      # Fallback to typescript-language-server
+      fallback_server: "typescript-language-server"
+      
+      # TypeScript-specific timeouts
+      timeouts:
+        startup: "18s"          # TypeScript project compilation can be slow
+        request: "10s"          # Type checking can be complex
+        compilation: "45s"      # Full project compilation
+        type_checking: "30s"    # Type checking timeout
+        shutdown: "8s"
+        
+      # Failure thresholds optimized for TypeScript
+      failure_thresholds:
+        consecutive_failures: 2
+        error_rate_percent: 20
+        response_time_ms: 5000   # TypeScript can be fast when properly configured
+        memory_usage_mb: 2048    # TypeScript projects can be memory-intensive
+        
+      # TypeScript-specific recovery settings
+      recovery:
+        enabled: true
+        max_attempts: 3
+        cooldown: "90s"
+        health_check_method: "textDocument/hover"
+        project_reload: true
+        
+      # Performance optimizations for TypeScript
+      performance:
+        # Cache TypeScript compilation results
+        compilation_cache_enabled: true
+        compilation_cache_ttl: "5m"
+        
+        # Optimize for large TypeScript projects
+        large_project_mode: true
+        file_count_threshold: 1000
+        
+        # TypeScript-specific optimizations
+        typescript_optimizations:
+          # Skip node_modules type checking by default
+          skip_lib_check: true
+          
+          # Optimize for modern TypeScript
+          target: "ES2020"
+          
+          # Incremental compilation
+          incremental: true
+          
+          # Project references support
+          project_references: true
+          
+    # TypeScript Language Server (alternative implementation)
+    typescript-language-server:
+      name: "typescript-language-server"
+      description: "Alternative TypeScript language server implementation"
+      bypass_enabled: true
+      
+      bypass_conditions:
+        - "initialization_timeout"
+        - "workspace_scan_failure"
+        - "node_binary_missing"
+        
+      bypass_strategy: "retry_with_backoff"
+      
+      timeouts:
+        startup: "15s"
+        request: "8s"
+        workspace_scan: "25s"
+        shutdown: "5s"
+        
+      failure_thresholds:
+        consecutive_failures: 4
+        error_rate_percent: 25
+        response_time_ms: 4000
+        memory_usage_mb: 1536
+        
+      # Alternative server limitations
+      feature_differences:
+        - "Different refactoring capabilities"
+        - "Varying completion quality"
+        - "Different error reporting"
+        
+    # Volar (Vue + TypeScript)
+    volar:
+      name: "volar"
+      description: "Vue.js TypeScript language server"
+      bypass_enabled: true
+      
+      bypass_conditions:
+        - "vue_compilation_errors"
+        - "template_analysis_failure"
+        - "script_setup_issues"
+        
+      bypass_strategy: "fallback_server"
+      fallback_server: "tsserver"
+      
+      timeouts:
+        startup: "20s"
+        request: "12s"
+        template_analysis: "15s"
+        shutdown: "6s"
+        
+      # Vue-specific features
+      vue_features:
+        template_type_checking: true
+        script_setup_support: true
+        composition_api: true
+        
+  # TypeScript-specific bypass strategies
+  language_strategies:
+    # Strategy for compilation errors
+    compilation_error_handling:
+      strategy: "cache_response"
+      cache_duration: "3m"
+      serve_stale: true
+      conditions:
+        - "Type '.*' is not assignable"
+        - "Cannot find module"
+        - "Property '.*' does not exist"
+        
+    # Strategy for large TypeScript projects
+    large_project_handling:
+      strategy: "circuit_breaker"
+      file_count_threshold: 800
+      memory_threshold: "3GB"
+      response_time_threshold: "8s"
+      project_splitting: true
+      
+    # Strategy for Node.js module issues
+    module_resolution_failure:
+      strategy: "retry_with_backoff"
+      max_attempts: 4
+      initial_delay: "2s"
+      max_delay: "20s"
+      npm_install_check: true
+      
+  # TypeScript project patterns and optimizations
+  project_patterns:
+    # React TypeScript projects
+    react_typescript:
+      patterns:
+        - "tsconfig.json"
+        - "src/"
+        - "public/"
+        - "package.json"
+        - "*.tsx"
+      optimizations:
+        - "React JSX support"
+        - "Component prop type checking"
+        - "Hook type inference"
+      server_preference: "tsserver"
+      jsx_factory: "React.createElement"
+      
+    # Next.js projects
+    nextjs:
+      patterns:
+        - "next.config.js"
+        - "pages/"
+        - "app/"
+        - "components/"
+      optimizations:
+        - "Next.js API route support"
+        - "Static generation types"
+        - "Dynamic import optimization"
+      server_preference: "tsserver"
+      
+    # Angular projects
+    angular:
+      patterns:
+        - "angular.json"
+        - "src/app/"
+        - "*.component.ts"
+        - "*.service.ts"
+      optimizations:
+        - "Angular decorator support"
+        - "Template type checking"
+        - "Dependency injection types"
+      server_preference: "typescript-language-server"
+      
+    # Vue.js TypeScript projects
+    vue_typescript:
+      patterns:
+        - "vue.config.js"
+        - "src/"
+        - "*.vue"
+        - "tsconfig.json"
+      optimizations:
+        - "Vue SFC support"
+        - "Composition API types"
+        - "Template expression checking"
+      server_preference: "volar"
+      
+    # Node.js TypeScript projects
+    nodejs_typescript:
+      patterns:
+        - "src/"
+        - "dist/"
+        - "tsconfig.json"
+        - "package.json"
+        - "index.ts"
+      optimizations:
+        - "Node.js types support"
+        - "CommonJS/ESM compatibility"
+        - "API route optimization"
+      server_preference: "tsserver"
+      
+    # Monorepo TypeScript projects
+    monorepo:
+      patterns:
+        - "packages/"
+        - "apps/"
+        - "libs/"
+        - "tsconfig.base.json"
+        - "lerna.json"
+      optimizations:
+        - "Project references"
+        - "Incremental builds"
+        - "Cross-package type checking"
+      server_preference: "tsserver"
+      
+  # TypeScript-specific method configurations
+  method_configs:
+    # TypeScript definition lookup
+    "textDocument/definition":
+      timeout: "8s"
+      bypass_strategy: "cache_response"
+      cache_ttl: "4m"
+      cross_file_navigation: true
+      
+    # TypeScript completion
+    "textDocument/completion":
+      timeout: "6s"
+      bypass_strategy: "fail_gracefully"
+      max_items: 75
+      include_auto_imports: true
+      fallback_response:
+        isIncomplete: false
+        items: []
+        
+    # TypeScript hover information
+    "textDocument/hover":
+      timeout: "5s"
+      bypass_strategy: "cache_response"
+      cache_ttl: "8m"
+      include_documentation: true
+      
+    # TypeScript references
+    "textDocument/references":
+      timeout: "12s"
+      bypass_strategy: "fallback_server"
+      max_results: 150
+      include_declaration: true
+      
+    # TypeScript workspace symbols
+    "workspace/symbol":
+      timeout: "15s"
+      bypass_strategy: "circuit_breaker"
+      failure_threshold: 2
+      fuzzy_matching: true
+      
+    # TypeScript document symbols
+    "textDocument/documentSymbol":
+      timeout: "10s"
+      bypass_strategy: "cache_response"
+      cache_ttl: "12m"
+      hierarchical: true
+      
+    # TypeScript code actions
+    "textDocument/codeAction":
+      timeout: "7s"
+      bypass_strategy: "fail_gracefully"
+      include_refactoring: true
+      
+    # TypeScript rename
+    "textDocument/rename":
+      timeout: "10s"
+      bypass_strategy: "fallback_server"
+      prepare_rename: true
+      
+  # TypeScript build configurations
+  build_configs:
+    # Development build
+    development:
+      incremental: true
+      source_maps: true
+      type_checking: "basic"
+      skip_lib_check: true
+      
+    # Production build
+    production:
+      incremental: false
+      source_maps: false
+      type_checking: "strict"
+      optimization: true
+      
+    # Watch mode
+    watch:
+      incremental: true
+      watch_options:
+        exclude_directories: ["node_modules", "dist"]
+        polling: false
+        
+  # TypeScript-specific error patterns and responses
+  error_patterns:
+    type_errors:
+      patterns:
+        - "Type '.*' is not assignable to type"
+        - "Property '.*' does not exist on type"
+        - "Cannot find name"
+      bypass_action: "cache_response"
+      serve_stale: true
+      type_suggestion: true
+      
+    module_errors:
+      patterns:
+        - "Cannot find module"
+        - "Module not found"
+        - "Cannot resolve module"
+      bypass_action: "retry_with_backoff"
+      auto_install: true
+      
+    compilation_errors:
+      patterns:
+        - "Cannot compile modules"
+        - "Compilation failed"
+        - "Build failed"
+      bypass_action: "circuit_breaker"
+      build_retry: true
+      
+    memory_errors:
+      patterns:
+        - "JavaScript heap out of memory"
+        - "FATAL ERROR: Ineffective mark-compacts"
+      bypass_action: "circuit_breaker"
+      memory_optimization: true
+      
+    workspace_errors:
+      patterns:
+        - "Cannot read property of undefined"
+        - "Workspace corruption detected"
+        - "Project reload required"
+      bypass_action: "fallback_server"
+      workspace_reload: true
+      
+  # TypeScript version compatibility
+  version_compatibility:
+    # TypeScript 5.0+
+    typescript_5_plus:
+      features:
+        - "Decorators"
+        - "const assertions"
+        - "satisfies operator"
+        - "Better performance"
+      optimizations:
+        - "Use latest language features"
+        - "Enhanced type checking"
+        
+    # TypeScript 4.5-4.9
+    typescript_4_5_to_4_9:
+      features:
+        - "Template literal types"
+        - "Conditional types"
+        - "Mapped types"
+      optimizations:
+        - "Modern feature set"
+        - "Stable configuration"
+        
+    # TypeScript 4.0-4.4
+    typescript_4_0_to_4_4:
+      features:
+        - "Variadic tuple types"
+        - "Labeled tuple elements"
+        - "Short-circuit assignment"
+      optimizations:
+        - "Moderate feature set"
+        - "Backward compatibility"
+        
+    # TypeScript 3.x
+    typescript_3_x:
+      features:
+        - "Basic generics"
+        - "Union types"
+        - "Intersection types"
+      optimizations:
+        - "Conservative settings"
+        - "Legacy compatibility"
+        
+  # Framework-specific configurations
+  framework_configs:
+    # React-specific settings
+    react:
+      bypass_adjustments:
+        - "Optimize for JSX/TSX files"
+        - "Component prop validation"
+        - "Hook dependency analysis"
+      server_settings:
+        jsx: "react-jsx"
+        strict_null_checks: true
+        
+    # Angular-specific settings
+    angular:
+      bypass_adjustments:
+        - "Decorator metadata support"
+        - "Template type checking"
+        - "Ivy renderer optimization"
+      server_settings:
+        experimental_decorators: true
+        emit_decorator_metadata: true
+        
+    # Vue-specific settings
+    vue:
+      bypass_adjustments:
+        - "Single File Component support"
+        - "Template expression checking"
+        - "Composition API types"
+      server_settings:
+        jsx: "preserve"
+        module_resolution: "node"
+        
+  # Development environment considerations
+  development_environments:
+    # Local development
+    local_dev:
+      bypass_aggressiveness: "conservative"
+      auto_completion: true
+      real_time_type_checking: true
+      interactive_error_resolution: true
+      
+    # Docker containers
+    docker:
+      bypass_aggressiveness: "moderate"
+      node_modules_volume: true
+      build_cache_optimization: true
+      memory_limit_awareness: true
+      
+    # Remote development
+    remote_dev:
+      bypass_aggressiveness: "moderate"
+      file_sync_optimization: true
+      network_latency_tolerance: true
+      bandwidth_optimization: true
+      
+    # CI/CD pipelines
+    ci_cd:
+      bypass_aggressiveness: "aggressive"
+      fail_fast: true
+      no_incremental_builds: true
+      strict_type_checking: true
+      
+  # Monitoring and alerting for TypeScript-specific issues
+  monitoring:
+    # TypeScript-specific metrics
+    metrics:
+      - "typescript_compilation_time"
+      - "type_checking_duration"
+      - "memory_usage_during_compilation"
+      - "error_rate_by_type"
+      
+    # Alerts for TypeScript development
+    alerts:
+      slow_compilation:
+        threshold: "30s"
+        action: "optimize_tsconfig"
+        
+      high_memory_usage:
+        threshold: "3GB"
+        action: "enable_incremental_builds"
+        
+      frequent_type_errors:
+        threshold: "40% error rate"
+        action: "review_type_definitions"
+        
+      workspace_corruption:
+        threshold: "3 reloads in 10 minutes"
+        action: "investigate_project_structure"
+        
+  # Best practices for TypeScript bypass configuration
+  best_practices:
+    - "Use circuit breaker for large TypeScript projects"
+    - "Cache type information for stable code"
+    - "Enable incremental compilation for faster builds"
+    - "Configure appropriate memory limits for Node.js"
+    - "Use project references for monorepos"
+    - "Monitor compilation times and optimize tsconfig"
+    - "Set up proper fallback servers for critical projects"
+    - "Test bypass configuration with different project sizes"
+    - "Consider framework-specific optimizations"
+    - "Regularly update TypeScript and language server versions"

@@ -1,0 +1,356 @@
+# Go Language Bypass Configuration Template for LSP Gateway
+# Optimized bypass settings for Go language servers (gopls, go-langserver)
+
+go_bypass_config:
+  version: "1.0"
+  language: "go"
+  description: "Specialized bypass configuration for Go language servers"
+  
+  # Go language server configurations
+  servers:
+    # Primary Go Language Server (gopls)
+    gopls:
+      name: "gopls"
+      description: "Official Go language server"
+      bypass_enabled: true
+      
+      # Go-specific failure conditions
+      bypass_conditions:
+        - "startup_failure"      # gopls fails to initialize
+        - "memory_exhaustion"    # High memory usage in large Go projects
+        - "module_resolution"    # Go module resolution issues
+        - "build_errors"         # Go build/compile errors blocking LSP
+        - "workspace_timeout"    # Workspace initialization timeout
+        - "concurrent_limit"     # Too many concurrent requests
+        
+      # Primary bypass strategy for gopls
+      bypass_strategy: "fallback_server"
+      
+      # Fallback to alternative Go server
+      fallback_server: "go-langserver"
+      
+      # Go-specific timeouts
+      timeouts:
+        startup: "20s"          # Go module resolution can be slow
+        request: "15s"          # Allow time for Go compilation
+        workspace_init: "60s"   # Large Go workspaces need time
+        shutdown: "10s"
+        
+      # Failure thresholds optimized for Go
+      failure_thresholds:
+        consecutive_failures: 3
+        error_rate_percent: 20
+        response_time_ms: 8000   # Go analysis can be slow
+        memory_usage_mb: 2048    # Go projects can be memory-intensive
+        
+      # Go-specific recovery settings
+      recovery:
+        enabled: true
+        max_attempts: 3
+        cooldown: "3m"
+        health_check_method: "textDocument/hover"
+        
+      # Performance optimizations for Go
+      performance:
+        # Cache Go module information
+        module_cache_enabled: true
+        module_cache_ttl: "10m"
+        
+        # Optimize for large Go projects
+        large_project_mode: true
+        file_count_threshold: 500
+        
+        # Go-specific optimizations
+        go_optimizations:
+          # Skip vendor directories
+          exclude_vendor: true
+          
+          # Optimize for Go modules
+          module_aware: true
+          
+          # Build tag optimization
+          build_tags: ["integration", "unit"]
+          
+    # Alternative Go Language Server (go-langserver)
+    go-langserver:
+      name: "go-langserver"
+      description: "Alternative Go language server (backup)"
+      bypass_enabled: true
+      
+      bypass_conditions:
+        - "connection_failure"
+        - "timeout"
+        - "high_latency"
+        
+      bypass_strategy: "circuit_breaker"
+      
+      timeouts:
+        startup: "15s"
+        request: "10s"
+        workspace_init: "30s"
+        shutdown: "5s"
+        
+      failure_thresholds:
+        consecutive_failures: 5
+        error_rate_percent: 30
+        response_time_ms: 6000
+        memory_usage_mb: 1024
+        
+      # Limited features compared to gopls
+      feature_limitations:
+        - "No workspace symbols"
+        - "Limited refactoring support"
+        - "Basic completion only"
+        
+  # Go-specific bypass strategies
+  language_strategies:
+    # Strategy for Go module resolution issues
+    module_resolution_failure:
+      strategy: "retry_with_backoff"
+      max_attempts: 5
+      initial_delay: "2s"
+      max_delay: "30s"
+      conditions:
+        - "go.mod not found"
+        - "module download failed"
+        - "proxy timeout"
+        
+    # Strategy for large Go projects
+    large_project_handling:
+      strategy: "circuit_breaker"
+      file_count_threshold: 1000
+      memory_threshold: "4GB"
+      response_time_threshold: "10s"
+      
+    # Strategy for Go build issues
+    build_error_handling:
+      strategy: "cache_response"
+      cache_duration: "5m"
+      allowed_stale_duration: "30m"
+      methods:
+        - "textDocument/hover"
+        - "textDocument/definition"
+        
+  # Go project patterns and optimizations
+  project_patterns:
+    # Standard Go project layout
+    standard_layout:
+      patterns:
+        - "cmd/"
+        - "internal/"
+        - "pkg/"
+        - "go.mod"
+        - "go.sum"
+      optimizations:
+        - "Enable module-aware mode"
+        - "Cache vendor dependencies"
+        - "Optimize for microservices"
+        
+    # Monorepo Go projects
+    monorepo:
+      patterns:
+        - "services/*/go.mod"
+        - "libs/*/go.mod"
+        - "tools/*/go.mod"
+      optimizations:
+        - "Multiple workspace folders"
+        - "Per-service server instances"
+        - "Shared module cache"
+        
+    # Legacy GOPATH projects
+    gopath_legacy:
+      patterns:
+        - "$GOPATH/src/"
+        - "Godeps/"
+        - "vendor/"
+      optimizations:
+        - "GOPATH compatibility mode"
+        - "Legacy build constraints"
+        - "Vendor directory handling"
+        
+  # Go-specific method configurations
+  method_configs:
+    # Go definition lookup
+    "textDocument/definition":
+      timeout: "10s"
+      bypass_strategy: "cache_response"
+      cache_ttl: "5m"
+      fallback_enabled: true
+      
+    # Go completion
+    "textDocument/completion":
+      timeout: "5s"
+      bypass_strategy: "fail_gracefully"
+      fallback_response:
+        isIncomplete: false
+        items: []
+        
+    # Go hover information
+    "textDocument/hover":
+      timeout: "8s"
+      bypass_strategy: "cache_response"
+      cache_ttl: "10m"
+      serve_stale: true
+      
+    # Go references
+    "textDocument/references":
+      timeout: "15s"
+      bypass_strategy: "fallback_server"
+      max_results: 100
+      
+    # Go workspace symbols
+    "workspace/symbol":
+      timeout: "20s"
+      bypass_strategy: "circuit_breaker"
+      failure_threshold: 3
+      
+    # Go document symbols
+    "textDocument/documentSymbol":
+      timeout: "12s"
+      bypass_strategy: "cache_response"
+      cache_ttl: "15m"
+      
+  # Go workspace configurations
+  workspace_configs:
+    # Single module workspace
+    single_module:
+      server_instances: 1
+      memory_limit: "1GB"
+      concurrent_requests: 10
+      
+    # Multi-module workspace
+    multi_module:
+      server_instances: 2
+      memory_limit: "2GB" 
+      concurrent_requests: 20
+      module_isolation: true
+      
+    # Large codebase (>10k files)
+    large_codebase:
+      server_instances: 3
+      memory_limit: "4GB"
+      concurrent_requests: 15
+      indexing_strategy: "incremental"
+      background_indexing: true
+      
+  # Go-specific error patterns and responses
+  error_patterns:
+    module_errors:
+      patterns:
+        - "cannot find module"
+        - "module not found"
+        - "go.mod file not found"
+      bypass_action: "retry_with_backoff"
+      max_attempts: 3
+      
+    build_errors:
+      patterns:
+        - "build constraints exclude all Go files"
+        - "package .* is not in GOROOT"
+        - "undefined: .*"
+      bypass_action: "cache_response"
+      serve_stale: true
+      
+    network_errors:
+      patterns:
+        - "dial tcp.*connection refused"
+        - "proxy.*timeout"
+        - "TLS handshake timeout"
+      bypass_action: "retry_with_backoff"
+      jitter: true
+      
+    memory_errors:
+      patterns:
+        - "runtime: out of memory"
+        - "fatal error: runtime: out of memory"
+        - "cannot allocate memory"
+      bypass_action: "circuit_breaker"
+      circuit_timeout: "5m"
+      
+  # Go development environment considerations
+  development_environments:
+    # Local development
+    local_dev:
+      bypass_aggressiveness: "conservative"
+      cache_responses: true
+      fallback_enabled: true
+      interactive_prompts: true
+      
+    # CI/CD pipelines
+    ci_cd:
+      bypass_aggressiveness: "aggressive"
+      fail_fast: true
+      cache_responses: false
+      timeout_reduction: "50%"
+      
+    # Remote development (containers, VMs)
+    remote_dev:
+      bypass_aggressiveness: "moderate"
+      network_retry_enabled: true
+      resource_monitoring: true
+      connection_pooling: true
+      
+  # Go version compatibility
+  version_compatibility:
+    # Go 1.21+
+    go_1_21_plus:
+      features:
+        - "Enhanced workspace support"
+        - "Improved module resolution"
+        - "Better memory management"
+      optimizations:
+        - "Use latest gopls features"
+        - "Enable experimental features"
+        
+    # Go 1.18-1.20
+    go_1_18_to_1_20:
+      features:
+        - "Generics support"
+        - "Workspace mode"
+        - "Fuzzy matching"
+      optimizations:
+        - "Moderate feature set"
+        - "Stable configuration"
+        
+    # Go 1.17 and below
+    go_1_17_below:
+      features:
+        - "Basic LSP support"
+        - "Limited workspace features"
+      optimizations:
+        - "Conservative settings"
+        - "Legacy compatibility mode"
+        
+  # Monitoring and alerting for Go-specific issues
+  monitoring:
+    # Go-specific metrics
+    metrics:
+      - "go_module_resolution_time"
+      - "go_build_error_rate"
+      - "go_memory_usage_trend"
+      - "go_workspace_init_duration"
+      
+    # Alerts for Go development
+    alerts:
+      high_memory_usage:
+        threshold: "3GB"
+        action: "scale_up_or_bypass"
+        
+      slow_module_resolution:
+        threshold: "30s"
+        action: "check_network_proxy"
+        
+      frequent_build_errors:
+        threshold: "50% error rate"
+        action: "verify_go_installation"
+        
+  # Best practices for Go bypass configuration
+  best_practices:
+    - "Always have a fallback server configured for critical Go projects"
+    - "Cache hover and definition responses for stable code"
+    - "Use circuit breaker for large Go workspaces"
+    - "Monitor Go module proxy connectivity"
+    - "Optimize for your specific Go project structure"
+    - "Test bypass configuration with large Go codebases"
+    - "Consider Go version when setting timeouts"
+    - "Use background indexing for large projects"

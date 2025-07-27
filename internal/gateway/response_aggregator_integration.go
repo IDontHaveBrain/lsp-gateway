@@ -18,8 +18,8 @@ type SmartRouterWithAggregation struct {
 }
 
 // NewSmartRouterWithAggregation creates a new SmartRouter with aggregation capabilities
-func NewSmartRouterWithAggregation(projectRouter *ProjectAwareRouter, config *config.GatewayConfig, workspaceManager *WorkspaceManager, logger *mcp.StructuredLogger) *SmartRouterWithAggregation {
-	baseRouter := NewSmartRouter(projectRouter, config, workspaceManager, logger)
+func NewSmartRouterWithAggregation(projectRouter *ProjectAwareRouter, config *config.GatewayConfig, workspaceManager *WorkspaceManager, logger *mcp.StructuredLogger, bypassStateManager *BypassStateManager) *SmartRouterWithAggregation {
+	baseRouter := NewSmartRouter(projectRouter, config, workspaceManager, logger, bypassStateManager)
 
 	return &SmartRouterWithAggregation{
 		SmartRouterImpl:    baseRouter,
@@ -480,8 +480,9 @@ func ExampleResponseAggregatorUsage() {
 	var config *config.GatewayConfig       // Assume this is loaded
 	var workspaceManager *WorkspaceManager // Assume this is created
 	var logger *mcp.StructuredLogger       // Assume this is configured
+	var bypassStateManager *BypassStateManager // Assume this is created
 
-	enhancedRouter := NewSmartRouterWithAggregation(projectRouter, config, workspaceManager, logger)
+	enhancedRouter := NewSmartRouterWithAggregation(projectRouter, config, workspaceManager, logger, bypassStateManager)
 
 	// 2. Enable or disable aggregation based on configuration
 	enhancedRouter.SetAggregationEnabled(true)
