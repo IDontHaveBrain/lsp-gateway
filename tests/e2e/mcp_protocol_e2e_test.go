@@ -132,7 +132,7 @@ smart_router_config:
 		ID:      1,
 		Method:  "initialize",
 		Params: map[string]interface{}{
-			"protocolVersion": "2024-11-05",
+			"protocolVersion": "2025-06-18",
 			"capabilities":    map[string]interface{}{},
 		},
 	}
@@ -259,7 +259,7 @@ smart_router_config:
 		ID:      1,
 		Method:  "initialize", 
 		Params: map[string]interface{}{
-			"protocolVersion": "2024-11-05",
+			"protocolVersion": "2025-06-18",
 			"capabilities":    map[string]interface{}{},
 		},
 	}
@@ -371,7 +371,7 @@ smart_router_config:
 		ID:      1,
 		Method:  "initialize",
 		Params: map[string]interface{}{
-			"protocolVersion": "2024-11-05",
+			"protocolVersion": "2025-06-18",
 			"capabilities":    map[string]interface{}{},
 		},
 	}
@@ -498,7 +498,7 @@ func main() {
 		ID:      1,
 		Method:  "initialize",
 		Params: map[string]interface{}{
-			"protocolVersion": "2024-11-05",
+			"protocolVersion": "2025-06-18",
 			"capabilities":    map[string]interface{}{},
 		},
 	}

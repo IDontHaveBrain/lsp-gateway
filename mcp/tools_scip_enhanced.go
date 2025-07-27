@@ -212,9 +212,58 @@ func DefaultSCIPEnhancedToolConfig() *SCIPEnhancedToolConfig {
 // registerSCIPEnhancedTools registers all SCIP-enhanced MCP tools
 func (h *SCIPEnhancedToolHandler) registerSCIPEnhancedTools() {
 	// Enhanced symbol search tools
+	scipSymbolSearchTitle := "SCIP Intelligent Symbol Search"
+	scipSymbolSearchOutputSchema := &map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"type": map[string]interface{}{"type": "string"},
+						"text": map[string]interface{}{"type": "string"},
+						"data": map[string]interface{}{
+							"type": "object",
+							"properties": map[string]interface{}{
+								"symbols": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{
+										"type": "object",
+										"properties": map[string]interface{}{
+											"name": map[string]interface{}{"type": "string"},
+											"kind": map[string]interface{}{"type": "string"},
+											"language": map[string]interface{}{"type": "string"},
+											"location": map[string]interface{}{"type": "object"},
+											"confidence": map[string]interface{}{"type": "number"},
+											"semanticSimilarity": map[string]interface{}{"type": "number"},
+										},
+									},
+								},
+								"totalResults": map[string]interface{}{"type": "integer"},
+								"searchMetrics": map[string]interface{}{"type": "object"},
+							},
+						},
+					},
+				},
+			},
+			"isError": map[string]interface{}{"type": "boolean"},
+			"meta": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"timestamp": map[string]interface{}{"type": "string"},
+					"duration": map[string]interface{}{"type": "string"},
+					"scipAvailable": map[string]interface{}{"type": "boolean"},
+					"cacheHit": map[string]interface{}{"type": "boolean"},
+				},
+			},
+		},
+	}
 	h.Tools["scip_intelligent_symbol_search"] = Tool{
-		Name:        "scip_intelligent_symbol_search",
-		Description: "Intelligent symbol search with SCIP-powered semantic understanding across languages",
+		Name:         "scip_intelligent_symbol_search",
+		Title:        &scipSymbolSearchTitle,
+		Description:  "Intelligent symbol search with SCIP-powered semantic understanding across languages",
+		OutputSchema: scipSymbolSearchOutputSchema,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -250,9 +299,58 @@ func (h *SCIPEnhancedToolHandler) registerSCIPEnhancedTools() {
 	}
 
 	// Cross-language reference tools
+	scipCrossLangTitle := "SCIP Cross-Language References"
+	scipCrossLangOutputSchema := &map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"type": map[string]interface{}{"type": "string"},
+						"text": map[string]interface{}{"type": "string"},
+						"data": map[string]interface{}{
+							"type": "object",
+							"properties": map[string]interface{}{
+								"crossLanguageReferences": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{
+										"type": "object",
+										"properties": map[string]interface{}{
+											"uri": map[string]interface{}{"type": "string"},
+											"range": map[string]interface{}{"type": "object"},
+											"language": map[string]interface{}{"type": "string"},
+											"referenceType": map[string]interface{}{"type": "string"},
+											"depth": map[string]interface{}{"type": "integer"},
+										},
+									},
+								},
+								"implementations": map[string]interface{}{"type": "array"},
+								"inheritanceChain": map[string]interface{}{"type": "array"},
+								"analysisDepth": map[string]interface{}{"type": "integer"},
+							},
+						},
+					},
+				},
+			},
+			"isError": map[string]interface{}{"type": "boolean"},
+			"meta": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"timestamp": map[string]interface{}{"type": "string"},
+					"duration": map[string]interface{}{"type": "string"},
+					"scipAvailable": map[string]interface{}{"type": "boolean"},
+					"cacheHit": map[string]interface{}{"type": "boolean"},
+				},
+			},
+		},
+	}
 	h.Tools["scip_cross_language_references"] = Tool{
-		Name:        "scip_cross_language_references",
-		Description: "Find cross-language references and dependencies using SCIP symbol relationships",
+		Name:         "scip_cross_language_references",
+		Title:        &scipCrossLangTitle,
+		Description:  "Find cross-language references and dependencies using SCIP symbol relationships",
+		OutputSchema: scipCrossLangOutputSchema,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -290,9 +388,63 @@ func (h *SCIPEnhancedToolHandler) registerSCIPEnhancedTools() {
 	}
 
 	// Semantic code analysis tools
+	scipSemanticTitle := "SCIP Semantic Code Analysis"
+	scipSemanticOutputSchema := &map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"type": map[string]interface{}{"type": "string"},
+						"text": map[string]interface{}{"type": "string"},
+						"data": map[string]interface{}{
+							"type": "object",
+							"properties": map[string]interface{}{
+								"structure": map[string]interface{}{
+									"type": "object",
+									"properties": map[string]interface{}{
+										"symbols": map[string]interface{}{"type": "array"},
+										"hierarchy": map[string]interface{}{"type": "object"},
+										"complexity": map[string]interface{}{"type": "object"},
+									},
+								},
+								"dependencies": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{"type": "object"},
+								},
+								"metrics": map[string]interface{}{
+									"type": "object",
+									"properties": map[string]interface{}{
+										"linesOfCode": map[string]interface{}{"type": "integer"},
+										"cyclomaticComplexity": map[string]interface{}{"type": "number"},
+										"maintainabilityIndex": map[string]interface{}{"type": "number"},
+									},
+								},
+								"relationships": map[string]interface{}{"type": "array"},
+							},
+						},
+					},
+				},
+			},
+			"isError": map[string]interface{}{"type": "boolean"},
+			"meta": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"timestamp": map[string]interface{}{"type": "string"},
+					"duration": map[string]interface{}{"type": "string"},
+					"scipAvailable": map[string]interface{}{"type": "boolean"},
+					"cacheHit": map[string]interface{}{"type": "boolean"},
+				},
+			},
+		},
+	}
 	h.Tools["scip_semantic_code_analysis"] = Tool{
-		Name:        "scip_semantic_code_analysis",
-		Description: "Deep semantic code analysis using SCIP symbol understanding",
+		Name:         "scip_semantic_code_analysis",
+		Title:        &scipSemanticTitle,
+		Description:  "Deep semantic code analysis using SCIP symbol understanding",
+		OutputSchema: scipSemanticOutputSchema,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -322,9 +474,65 @@ func (h *SCIPEnhancedToolHandler) registerSCIPEnhancedTools() {
 	}
 
 	// Context-aware assistance tools
+	scipContextTitle := "SCIP Context-Aware Assistance"
+	scipContextOutputSchema := &map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"type": map[string]interface{}{"type": "string"},
+						"text": map[string]interface{}{"type": "string"},
+						"data": map[string]interface{}{
+							"type": "object",
+							"properties": map[string]interface{}{
+								"contextType": map[string]interface{}{"type": "string"},
+								"suggestions": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{
+										"type": "object",
+										"properties": map[string]interface{}{
+											"text": map[string]interface{}{"type": "string"},
+											"kind": map[string]interface{}{"type": "string"},
+											"confidence": map[string]interface{}{"type": "number"},
+											"detail": map[string]interface{}{"type": "string"},
+										},
+									},
+								},
+								"relatedCode": map[string]interface{}{"type": "array"},
+								"documentation": map[string]interface{}{
+									"type": "object",
+									"properties": map[string]interface{}{
+										"summary": map[string]interface{}{"type": "string"},
+										"details": map[string]interface{}{"type": "string"},
+										"examples": map[string]interface{}{"type": "array"},
+									},
+								},
+								"contextAnalysis": map[string]interface{}{"type": "object"},
+							},
+						},
+					},
+				},
+			},
+			"isError": map[string]interface{}{"type": "boolean"},
+			"meta": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"timestamp": map[string]interface{}{"type": "string"},
+					"duration": map[string]interface{}{"type": "string"},
+					"scipAvailable": map[string]interface{}{"type": "boolean"},
+					"cacheHit": map[string]interface{}{"type": "boolean"},
+				},
+			},
+		},
+	}
 	h.Tools["scip_context_aware_assistance"] = Tool{
-		Name:        "scip_context_aware_assistance",
-		Description: "Context-aware AI assistance with SCIP-powered workspace understanding",
+		Name:         "scip_context_aware_assistance",
+		Title:        &scipContextTitle,
+		Description:  "Context-aware AI assistance with SCIP-powered workspace understanding",
+		OutputSchema: scipContextOutputSchema,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -362,9 +570,67 @@ func (h *SCIPEnhancedToolHandler) registerSCIPEnhancedTools() {
 	}
 
 	// Workspace intelligence tools
+	scipWorkspaceTitle := "SCIP Workspace Intelligence"
+	scipWorkspaceOutputSchema := &map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"type": map[string]interface{}{"type": "string"},
+						"text": map[string]interface{}{"type": "string"},
+						"data": map[string]interface{}{
+							"type": "object",
+							"properties": map[string]interface{}{
+								"overview": map[string]interface{}{
+									"type": "object",
+									"properties": map[string]interface{}{
+										"totalFiles": map[string]interface{}{"type": "integer"},
+										"totalSymbols": map[string]interface{}{"type": "integer"},
+										"languages": map[string]interface{}{"type": "array"},
+										"projectHealth": map[string]interface{}{"type": "number"},
+									},
+								},
+								"hotspots": map[string]interface{}{"type": "array"},
+								"dependencies": map[string]interface{}{"type": "object"},
+								"unusedCode": map[string]interface{}{"type": "array"},
+								"complexityMetrics": map[string]interface{}{"type": "object"},
+								"recommendations": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{
+										"type": "object",
+										"properties": map[string]interface{}{
+											"category": map[string]interface{}{"type": "string"},
+											"description": map[string]interface{}{"type": "string"},
+											"priority": map[string]interface{}{"type": "string"},
+											"impact": map[string]interface{}{"type": "string"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"isError": map[string]interface{}{"type": "boolean"},
+			"meta": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"timestamp": map[string]interface{}{"type": "string"},
+					"duration": map[string]interface{}{"type": "string"},
+					"scipAvailable": map[string]interface{}{"type": "boolean"},
+					"cacheHit": map[string]interface{}{"type": "boolean"},
+				},
+			},
+		},
+	}
 	h.Tools["scip_workspace_intelligence"] = Tool{
-		Name:        "scip_workspace_intelligence",
-		Description: "Comprehensive workspace intelligence and insights using SCIP indexing",
+		Name:         "scip_workspace_intelligence",
+		Title:        &scipWorkspaceTitle,
+		Description:  "Comprehensive workspace intelligence and insights using SCIP indexing",
+		OutputSchema: scipWorkspaceOutputSchema,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -395,9 +661,67 @@ func (h *SCIPEnhancedToolHandler) registerSCIPEnhancedTools() {
 	}
 
 	// Refactoring suggestions tools
+	scipRefactoringTitle := "SCIP Refactoring Suggestions"
+	scipRefactoringOutputSchema := &map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"type": map[string]interface{}{"type": "string"},
+						"text": map[string]interface{}{"type": "string"},
+						"data": map[string]interface{}{
+							"type": "object",
+							"properties": map[string]interface{}{
+								"suggestions": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{
+										"type": "object",
+										"properties": map[string]interface{}{
+											"type": map[string]interface{}{"type": "string"},
+											"title": map[string]interface{}{"type": "string"},
+											"description": map[string]interface{}{"type": "string"},
+											"confidence": map[string]interface{}{"type": "number"},
+											"range": map[string]interface{}{"type": "object"},
+											"newCode": map[string]interface{}{"type": "string"},
+											"impact": map[string]interface{}{"type": "object"},
+										},
+									},
+								},
+								"impactAnalysis": map[string]interface{}{
+									"type": "object",
+									"properties": map[string]interface{}{
+										"affectedFiles": map[string]interface{}{"type": "array"},
+										"breakingChanges": map[string]interface{}{"type": "boolean"},
+										"riskLevel": map[string]interface{}{"type": "string"},
+										"estimatedEffort": map[string]interface{}{"type": "string"},
+									},
+								},
+								"qualityMetrics": map[string]interface{}{"type": "object"},
+							},
+						},
+					},
+				},
+			},
+			"isError": map[string]interface{}{"type": "boolean"},
+			"meta": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"timestamp": map[string]interface{}{"type": "string"},
+					"duration": map[string]interface{}{"type": "string"},
+					"scipAvailable": map[string]interface{}{"type": "boolean"},
+					"cacheHit": map[string]interface{}{"type": "boolean"},
+				},
+			},
+		},
+	}
 	h.Tools["scip_refactoring_suggestions"] = Tool{
-		Name:        "scip_refactoring_suggestions",
-		Description: "Intelligent refactoring suggestions based on SCIP symbol analysis",
+		Name:         "scip_refactoring_suggestions",
+		Title:        &scipRefactoringTitle,
+		Description:  "Intelligent refactoring suggestions based on SCIP symbol analysis",
+		OutputSchema: scipRefactoringOutputSchema,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{

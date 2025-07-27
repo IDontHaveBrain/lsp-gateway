@@ -12,9 +12,11 @@ const (
 )
 
 type Tool struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	InputSchema map[string]interface{} `json:"inputSchema"`
+	Name         string                  `json:"name"`
+	Title        *string                 `json:"title,omitempty"`
+	Description  string                  `json:"description"`
+	InputSchema  map[string]interface{}  `json:"inputSchema"`
+	OutputSchema *map[string]interface{} `json:"outputSchema,omitempty"`
 }
 
 type MCPErrorCode int
@@ -126,9 +128,65 @@ func NewToolHandlerWithDirectLSP(directLSPManager *DirectLSPManager) *ToolHandle
 }
 
 func (h *ToolHandler) RegisterDefaultTools() {
+	gotoDefTitle := "Go to Definition"
+	gotoDefOutputSchema := &map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"type": map[string]interface{}{"type": "string"},
+						"text": map[string]interface{}{"type": "string"},
+						"data": map[string]interface{}{
+							"type": "array",
+							"items": map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"uri": map[string]interface{}{"type": "string"},
+									"range": map[string]interface{}{
+										"type": "object",
+										"properties": map[string]interface{}{
+											"start": map[string]interface{}{
+												"type": "object",
+												"properties": map[string]interface{}{
+													"line": map[string]interface{}{"type": "integer"},
+													"character": map[string]interface{}{"type": "integer"},
+												},
+											},
+											"end": map[string]interface{}{
+												"type": "object",
+												"properties": map[string]interface{}{
+													"line": map[string]interface{}{"type": "integer"},
+													"character": map[string]interface{}{"type": "integer"},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"isError": map[string]interface{}{"type": "boolean"},
+			"meta": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"timestamp": map[string]interface{}{"type": "string"},
+					"duration": map[string]interface{}{"type": "string"},
+					"lspMethod": map[string]interface{}{"type": "string"},
+					"cacheHit": map[string]interface{}{"type": "boolean"},
+				},
+			},
+		},
+	}
 	h.Tools["goto_definition"] = Tool{
-		Name:        "goto_definition",
-		Description: "Navigate to the definition of a symbol at a specific position in a file",
+		Name:         "goto_definition",
+		Title:        &gotoDefTitle,
+		Description:  "Navigate to the definition of a symbol at a specific position in a file",
+		OutputSchema: gotoDefOutputSchema,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -149,9 +207,65 @@ func (h *ToolHandler) RegisterDefaultTools() {
 		},
 	}
 
+	findRefsTitle := "Find References"
+	findRefsOutputSchema := &map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"type": map[string]interface{}{"type": "string"},
+						"text": map[string]interface{}{"type": "string"},
+						"data": map[string]interface{}{
+							"type": "array",
+							"items": map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"uri": map[string]interface{}{"type": "string"},
+									"range": map[string]interface{}{
+										"type": "object",
+										"properties": map[string]interface{}{
+											"start": map[string]interface{}{
+												"type": "object",
+												"properties": map[string]interface{}{
+													"line": map[string]interface{}{"type": "integer"},
+													"character": map[string]interface{}{"type": "integer"},
+												},
+											},
+											"end": map[string]interface{}{
+												"type": "object",
+												"properties": map[string]interface{}{
+													"line": map[string]interface{}{"type": "integer"},
+													"character": map[string]interface{}{"type": "integer"},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"isError": map[string]interface{}{"type": "boolean"},
+			"meta": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"timestamp": map[string]interface{}{"type": "string"},
+					"duration": map[string]interface{}{"type": "string"},
+					"lspMethod": map[string]interface{}{"type": "string"},
+					"cacheHit": map[string]interface{}{"type": "boolean"},
+				},
+			},
+		},
+	}
 	h.Tools["find_references"] = Tool{
-		Name:        "find_references",
-		Description: "Find all references to a symbol at a specific position in a file",
+		Name:         "find_references",
+		Title:        &findRefsTitle,
+		Description:  "Find all references to a symbol at a specific position in a file",
+		OutputSchema: findRefsOutputSchema,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -177,9 +291,71 @@ func (h *ToolHandler) RegisterDefaultTools() {
 		},
 	}
 
+	hoverTitle := "Get Hover Information"
+	hoverOutputSchema := &map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"type": map[string]interface{}{"type": "string"},
+						"text": map[string]interface{}{"type": "string"},
+						"data": map[string]interface{}{
+							"type": "object",
+							"properties": map[string]interface{}{
+								"contents": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{
+										"type": "object",
+										"properties": map[string]interface{}{
+											"language": map[string]interface{}{"type": "string"},
+											"value": map[string]interface{}{"type": "string"},
+										},
+									},
+								},
+								"range": map[string]interface{}{
+									"type": "object",
+									"properties": map[string]interface{}{
+										"start": map[string]interface{}{
+											"type": "object",
+											"properties": map[string]interface{}{
+												"line": map[string]interface{}{"type": "integer"},
+												"character": map[string]interface{}{"type": "integer"},
+											},
+										},
+										"end": map[string]interface{}{
+											"type": "object",
+											"properties": map[string]interface{}{
+												"line": map[string]interface{}{"type": "integer"},
+												"character": map[string]interface{}{"type": "integer"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"isError": map[string]interface{}{"type": "boolean"},
+			"meta": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"timestamp": map[string]interface{}{"type": "string"},
+					"duration": map[string]interface{}{"type": "string"},
+					"lspMethod": map[string]interface{}{"type": "string"},
+					"cacheHit": map[string]interface{}{"type": "boolean"},
+				},
+			},
+		},
+	}
 	h.Tools["get_hover_info"] = Tool{
-		Name:        "get_hover_info",
-		Description: "Get hover information for a symbol at a specific position in a file",
+		Name:         "get_hover_info",
+		Title:        &hoverTitle,
+		Description:  "Get hover information for a symbol at a specific position in a file",
+		OutputSchema: hoverOutputSchema,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -200,9 +376,89 @@ func (h *ToolHandler) RegisterDefaultTools() {
 		},
 	}
 
+	docSymbolsTitle := "Get Document Symbols"
+	docSymbolsOutputSchema := &map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"type": map[string]interface{}{"type": "string"},
+						"text": map[string]interface{}{"type": "string"},
+						"data": map[string]interface{}{
+							"type": "array",
+							"items": map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"name": map[string]interface{}{"type": "string"},
+									"kind": map[string]interface{}{"type": "integer"},
+									"range": map[string]interface{}{
+										"type": "object",
+										"properties": map[string]interface{}{
+											"start": map[string]interface{}{
+												"type": "object",
+												"properties": map[string]interface{}{
+													"line": map[string]interface{}{"type": "integer"},
+													"character": map[string]interface{}{"type": "integer"},
+												},
+											},
+											"end": map[string]interface{}{
+												"type": "object",
+												"properties": map[string]interface{}{
+													"line": map[string]interface{}{"type": "integer"},
+													"character": map[string]interface{}{"type": "integer"},
+												},
+											},
+										},
+									},
+									"selectionRange": map[string]interface{}{
+										"type": "object",
+										"properties": map[string]interface{}{
+											"start": map[string]interface{}{
+												"type": "object",
+												"properties": map[string]interface{}{
+													"line": map[string]interface{}{"type": "integer"},
+													"character": map[string]interface{}{"type": "integer"},
+												},
+											},
+											"end": map[string]interface{}{
+												"type": "object",
+												"properties": map[string]interface{}{
+													"line": map[string]interface{}{"type": "integer"},
+													"character": map[string]interface{}{"type": "integer"},
+												},
+											},
+										},
+									},
+									"children": map[string]interface{}{
+										"type": "array",
+										"items": map[string]interface{}{"type": "object"},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"isError": map[string]interface{}{"type": "boolean"},
+			"meta": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"timestamp": map[string]interface{}{"type": "string"},
+					"duration": map[string]interface{}{"type": "string"},
+					"lspMethod": map[string]interface{}{"type": "string"},
+					"cacheHit": map[string]interface{}{"type": "boolean"},
+				},
+			},
+		},
+	}
 	h.Tools["get_document_symbols"] = Tool{
-		Name:        "get_document_symbols",
-		Description: "Get all symbols in a document",
+		Name:         "get_document_symbols",
+		Title:        &docSymbolsTitle,
+		Description:  "Get all symbols in a document",
+		OutputSchema: docSymbolsOutputSchema,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
@@ -215,9 +471,73 @@ func (h *ToolHandler) RegisterDefaultTools() {
 		},
 	}
 
+	workspaceSymbolsTitle := "Search Workspace Symbols"
+	workspaceSymbolsOutputSchema := &map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"type": map[string]interface{}{"type": "string"},
+						"text": map[string]interface{}{"type": "string"},
+						"data": map[string]interface{}{
+							"type": "array",
+							"items": map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"name": map[string]interface{}{"type": "string"},
+									"kind": map[string]interface{}{"type": "integer"},
+									"location": map[string]interface{}{
+										"type": "object",
+										"properties": map[string]interface{}{
+											"uri": map[string]interface{}{"type": "string"},
+											"range": map[string]interface{}{
+												"type": "object",
+												"properties": map[string]interface{}{
+													"start": map[string]interface{}{
+														"type": "object",
+														"properties": map[string]interface{}{
+															"line": map[string]interface{}{"type": "integer"},
+															"character": map[string]interface{}{"type": "integer"},
+														},
+													},
+													"end": map[string]interface{}{
+														"type": "object",
+														"properties": map[string]interface{}{
+															"line": map[string]interface{}{"type": "integer"},
+															"character": map[string]interface{}{"type": "integer"},
+														},
+													},
+												},
+											},
+										},
+									},
+									"containerName": map[string]interface{}{"type": "string"},
+								},
+							},
+						},
+					},
+				},
+			},
+			"isError": map[string]interface{}{"type": "boolean"},
+			"meta": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"timestamp": map[string]interface{}{"type": "string"},
+					"duration": map[string]interface{}{"type": "string"},
+					"lspMethod": map[string]interface{}{"type": "string"},
+					"cacheHit": map[string]interface{}{"type": "boolean"},
+				},
+			},
+		},
+	}
 	h.Tools["search_workspace_symbols"] = Tool{
-		Name:        "search_workspace_symbols",
-		Description: "Search for symbols in the workspace",
+		Name:         "search_workspace_symbols",
+		Title:        &workspaceSymbolsTitle,
+		Description:  "Search for symbols in the workspace",
+		OutputSchema: workspaceSymbolsOutputSchema,
 		InputSchema: map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{

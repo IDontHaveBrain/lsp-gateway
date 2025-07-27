@@ -18,7 +18,7 @@ import (
 
 const (
 	JSONRPCFieldName           = "jsonrpc"
-	ProtocolVersion            = "2024-11-05"
+	ProtocolVersion            = "2025-06-18"
 	MCPLogPrefix               = "[MCP] "
 	ContentTypeApplicationJSON = "application/json"
 	ContentLengthHeader        = "Content-Length"
@@ -920,6 +920,7 @@ func (s *Server) handlePingWithValidation(ctx context.Context, msg MCPMessage) e
 func IsCompatibleProtocolVersion(version string) bool {
 	compatibleVersions := []string{
 		ProtocolVersion,
+		"2024-11-05",
 		"2024-10-07",
 		"2024-09-01",
 	}
