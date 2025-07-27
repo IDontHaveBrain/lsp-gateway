@@ -16,6 +16,7 @@ import (
 	"lsp-gateway/internal/setup"
 
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 )
 
 // Setup command flags
@@ -52,10 +53,22 @@ type SetupResult struct {
 	ServersInstalled  map[string]*installer.InstallResult `json:"servers_installed,omitempty"`
 	ConfigGenerated   bool                                `json:"config_generated"`
 	ConfigPath        string                              `json:"config_path,omitempty"`
+	ProjectDetection  *ProjectDetectionResult             `json:"project_detection,omitempty"`
 	Issues            []string                            `json:"issues,omitempty"`
+	Errors            []string                            `json:"errors,omitempty"`
 	Warnings          []string                            `json:"warnings,omitempty"`
 	Messages          []string                            `json:"messages,omitempty"`
 	Summary           *SetupSummary                       `json:"summary,omitempty"`
+}
+
+// ProjectDetectionResult contains project detection results for JSON output
+type ProjectDetectionResult struct {
+	ProjectType     string              `json:"project_type"`
+	Languages       []string            `json:"languages"`
+	Frameworks      []string            `json:"frameworks"`
+	BuildSystems    []string            `json:"build_systems"`
+	Confidence      float64             `json:"confidence"`
+	Recommendations map[string]string   `json:"recommendations"`
 }
 
 // SetupSummary provides a summary of the setup operation
@@ -227,6 +240,17 @@ Examples:
   lsp-gateway setup wizard --verbose       # Verbose wizard with detailed explanations
   lsp-gateway setup multi-language --project-path /path/to/project  # Multi-language setup
   lsp-gateway setup template --template monorepo                    # Template-based setup`,
+	Args:      cobra.ExactArgs(1),
+	ValidArgs: []string{"all", "wizard", "multi-language", "template", "detect"},
+	RunE:      runSetupInvalidArgs,
+}
+
+// runSetupInvalidArgs handles invalid subcommand arguments
+func runSetupInvalidArgs(cmd *cobra.Command, args []string) error {
+	if len(args) > 0 {
+		return fmt.Errorf("Error: unknown setup subcommand '%s'. Valid subcommands are: all, wizard, multi-language, template, detect", args[0])
+	}
+	return fmt.Errorf("Error: setup command requires a subcommand. Valid subcommands are: all, wizard, multi-language, template, detect")
 }
 
 var setupAllCmd = &cobra.Command{
@@ -500,6 +524,20 @@ func init() {
 	rootCmd.AddCommand(setupCmd)
 }
 
+// isTimeoutError checks if an error is due to context timeout/cancellation
+func isTimeoutError(ctx context.Context, err error) bool {
+	if ctx.Err() == context.DeadlineExceeded || ctx.Err() == context.Canceled {
+		return true
+	}
+	if err == context.DeadlineExceeded || err == context.Canceled {
+		return true
+	}
+	errStr := strings.ToLower(err.Error())
+	return strings.Contains(errStr, "timeout") || 
+		   strings.Contains(errStr, "deadline exceeded") || 
+		   strings.Contains(errStr, "context canceled")
+}
+
 func runSetupAll(cmd *cobra.Command, args []string) error {
 	ctx, cancel := context.WithTimeout(cmd.Context(), setupTimeout)
 	defer cancel()
@@ -521,6 +559,7 @@ func runSetupAll(cmd *cobra.Command, args []string) error {
 		RuntimesInstalled: make(map[string]*installer.InstallResult),
 		ServersInstalled:  make(map[string]*installer.InstallResult),
 		Issues:            make([]string, 0),
+		Errors:            make([]string, 0),
 		Warnings:          make([]string, 0),
 		Messages:          make([]string, 0),
 		Summary:           &SetupSummary{},
@@ -533,7 +572,14 @@ func runSetupAll(cmd *cobra.Command, args []string) error {
 
 	err := setupRuntimes(ctx, result)
 	if err != nil {
-		result.Issues = append(result.Issues, fmt.Sprintf("Runtime setup failed: %v", err))
+		if isTimeoutError(ctx, err) {
+			timeoutMsg := fmt.Sprintf("Runtime setup timed out after %v: %v", setupTimeout, err)
+			result.Issues = append(result.Issues, timeoutMsg)
+			result.Errors = append(result.Errors, timeoutMsg)
+		} else {
+			result.Issues = append(result.Issues, fmt.Sprintf("Runtime setup failed: %v", err))
+			result.Errors = append(result.Errors, fmt.Sprintf("Runtime setup failed: %v", err))
+		}
 		if !setupJSON {
 			fmt.Printf("❌ Runtime setup failed: %v\n", err)
 		}
@@ -548,7 +594,14 @@ func runSetupAll(cmd *cobra.Command, args []string) error {
 
 	err = setupServers(ctx, result)
 	if err != nil {
-		result.Issues = append(result.Issues, fmt.Sprintf("Server setup failed: %v", err))
+		if isTimeoutError(ctx, err) {
+			timeoutMsg := fmt.Sprintf("Server setup timed out after %v: %v", setupTimeout, err)
+			result.Issues = append(result.Issues, timeoutMsg)
+			result.Errors = append(result.Errors, timeoutMsg)
+		} else {
+			result.Issues = append(result.Issues, fmt.Sprintf("Server setup failed: %v", err))
+			result.Errors = append(result.Errors, fmt.Sprintf("Server setup failed: %v", err))
+		}
 		if !setupJSON {
 			fmt.Printf("❌ Server setup failed: %v\n", err)
 		}
@@ -563,7 +616,14 @@ func runSetupAll(cmd *cobra.Command, args []string) error {
 
 	err = setupConfiguration(ctx, result)
 	if err != nil {
-		result.Issues = append(result.Issues, fmt.Sprintf("Configuration setup failed: %v", err))
+		if isTimeoutError(ctx, err) {
+			timeoutMsg := fmt.Sprintf("Configuration setup timed out after %v: %v", setupTimeout, err)
+			result.Issues = append(result.Issues, timeoutMsg)
+			result.Errors = append(result.Errors, timeoutMsg)
+		} else {
+			result.Issues = append(result.Issues, fmt.Sprintf("Configuration setup failed: %v", err))
+			result.Errors = append(result.Errors, fmt.Sprintf("Configuration setup failed: %v", err))
+		}
 		if !setupJSON {
 			fmt.Printf("❌ Configuration setup failed: %v\n", err)
 		}
@@ -579,7 +639,14 @@ func runSetupAll(cmd *cobra.Command, args []string) error {
 
 		verificationWarnings, err := runFinalVerification(ctx, result)
 		if err != nil {
-			result.Issues = append(result.Issues, fmt.Sprintf("Verification failed: %v", err))
+			if isTimeoutError(ctx, err) {
+				timeoutMsg := fmt.Sprintf("Verification timed out after %v: %v", setupTimeout, err)
+				result.Issues = append(result.Issues, timeoutMsg)
+				result.Errors = append(result.Errors, timeoutMsg)
+			} else {
+				result.Issues = append(result.Issues, fmt.Sprintf("Verification failed: %v", err))
+				result.Errors = append(result.Errors, fmt.Sprintf("Verification failed: %v", err))
+			}
 			if !setupJSON {
 				fmt.Printf("⚠️  Verification warnings: %v\n", err)
 			}
@@ -593,7 +660,7 @@ func runSetupAll(cmd *cobra.Command, args []string) error {
 
 	// Calculate final results
 	result.Duration = time.Since(startTime)
-	result.Success = len(result.Issues) == 0
+	result.Success = len(result.Issues) == 0 && len(result.Errors) == 0
 
 	// Generate summary
 	generateSetupSummary(result)
@@ -700,7 +767,7 @@ func runSetupWizard(cmd *cobra.Command, args []string) error {
 
 	// Step 9: Final Summary
 	result.Duration = time.Since(startTime)
-	result.Success = len(result.Issues) == 0
+	result.Success = len(result.Issues) == 0 && len(result.Errors) == 0
 
 	generateSetupSummary(result)
 
@@ -1222,8 +1289,8 @@ func wizardGenerateConfiguration(ctx context.Context, state *WizardState, result
 		return NewInstallerCreationError("config generator")
 	}
 
-	// Generate configuration from detected runtimes
-	configResult, err := configGenerator.GenerateFromDetected(ctx)
+	// Generate configuration from detected runtimes and server installation results
+	configResult, err := configGenerator.GenerateFromDetectedWithInstallResults(ctx, result.RuntimesDetected, result.ServersInstalled)
 	if err != nil {
 		return fmt.Errorf("configuration generation failed: %w", err)
 	}
@@ -1776,8 +1843,8 @@ func setupConfiguration(ctx context.Context, result *SetupResult) error {
 		return NewInstallerCreationError("config generator")
 	}
 
-	// Generate configuration from detected runtimes
-	configResult, err := configGenerator.GenerateFromDetected(ctx)
+	// Generate configuration from detected runtimes and server installation results
+	configResult, err := configGenerator.GenerateFromDetectedWithInstallResults(ctx, result.RuntimesDetected, result.ServersInstalled)
 	if err != nil {
 		return fmt.Errorf("configuration generation failed: %w", err)
 	}
@@ -1792,8 +1859,23 @@ func setupConfiguration(ctx context.Context, result *SetupResult) error {
 		return fmt.Errorf("generated configuration is invalid: %v", validationResult.Issues)
 	}
 
+	// Write configuration to file
+	configPath := "config.yaml" // Default path
+	
+	// Write configuration to YAML file
+	configData, err := yaml.Marshal(configResult.Config)
+	if err != nil {
+		return fmt.Errorf("failed to marshal configuration to YAML: %w", err)
+	}
+
+	if err := os.WriteFile(configPath, configData, 0644); err != nil {
+		return fmt.Errorf("failed to write configuration file: %w", err)
+	}
+
 	result.ConfigGenerated = true
-	result.ConfigPath = "config.yaml" // Default path
+	result.ConfigPath = configPath
+
+	fmt.Printf("✅ Configuration saved to %s\n", configPath)
 
 	return nil
 }
@@ -1830,7 +1912,8 @@ func outputSetupResultsJSON(result *SetupResult) error {
 	fmt.Println(string(jsonData))
 
 	if !result.Success {
-		return fmt.Errorf("setup completed with %d issues", len(result.Issues))
+		totalErrors := len(result.Issues) + len(result.Errors)
+		return fmt.Errorf("setup completed with %d errors", totalErrors)
 	}
 
 	return nil
@@ -1924,7 +2007,8 @@ func outputSetupResultsHuman(result *SetupResult) error {
 
 	// Return error if setup failed
 	if !result.Success {
-		return fmt.Errorf("setup completed with %d issues", len(result.Issues))
+		totalErrors := len(result.Issues) + len(result.Errors)
+		return fmt.Errorf("setup completed with %d errors", totalErrors)
 	}
 
 	return nil
@@ -1982,6 +2066,7 @@ func runSetupTemplate(cmd *cobra.Command, args []string) error {
 		RuntimesInstalled: make(map[string]*installer.InstallResult),
 		ServersInstalled:  make(map[string]*installer.InstallResult),
 		Issues:            make([]string, 0),
+		Errors:            make([]string, 0),
 		Warnings:          make([]string, 0),
 		Messages:          make([]string, 0),
 		Summary:           &SetupSummary{},
@@ -2049,7 +2134,7 @@ func runSetupTemplate(cmd *cobra.Command, args []string) error {
 
 	// Calculate final results
 	result.Duration = time.Since(startTime)
-	result.Success = len(result.Issues) == 0
+	result.Success = len(result.Issues) == 0 && len(result.Errors) == 0
 
 	// Generate summary
 	generateSetupSummary(result)
@@ -2146,6 +2231,9 @@ func performSetupProjectDetection(ctx context.Context, projectPath string, resul
 		fmt.Printf("  Files: %d\n", analysis.FileCount)
 	}
 
+	// Convert analysis to ProjectDetectionResult for JSON output
+	result.ProjectDetection = convertToProjectDetectionResult(analysis)
+
 	result.Messages = append(result.Messages, fmt.Sprintf("Analyzed %s project with %d languages", analysis.ProjectType, len(analysis.DetectedLanguages)))
 
 	return analysis, nil
@@ -2154,6 +2242,116 @@ func performSetupProjectDetection(ctx context.Context, projectPath string, resul
 func performProjectDetectionWithResult(ctx context.Context, projectPath string, result *SetupResult) error {
 	_, err := performSetupProjectDetection(ctx, projectPath, result)
 	return err
+}
+
+// convertToProjectDetectionResult converts setup.ProjectAnalysis to ProjectDetectionResult
+func convertToProjectDetectionResult(analysis *setup.ProjectAnalysis) *ProjectDetectionResult {
+	if analysis == nil {
+		return &ProjectDetectionResult{
+			ProjectType:     "unknown",
+			Languages:       []string{},
+			Frameworks:      []string{},
+			BuildSystems:    []string{},
+			Confidence:      0.0,
+			Recommendations: make(map[string]string),
+		}
+	}
+
+	// Extract framework names from DetectedFramework structs
+	frameworks := make([]string, 0, len(analysis.Frameworks))
+	for _, framework := range analysis.Frameworks {
+		if framework != nil {
+			frameworks = append(frameworks, framework.Name)
+		}
+	}
+
+	// Calculate confidence based on detection results
+	confidence := calculateDetectionConfidence(analysis)
+
+	// Generate basic recommendations
+	recommendations := generateBasicRecommendations(analysis)
+
+	return &ProjectDetectionResult{
+		ProjectType:     analysis.ProjectType,
+		Languages:       analysis.DetectedLanguages,
+		Frameworks:      frameworks,
+		BuildSystems:    analysis.BuildSystems,
+		Confidence:      confidence,
+		Recommendations: recommendations,
+	}
+}
+
+// calculateDetectionConfidence calculates confidence score based on detection results
+func calculateDetectionConfidence(analysis *setup.ProjectAnalysis) float64 {
+	if analysis == nil {
+		return 0.0
+	}
+
+	confidence := 0.0
+
+	// Base confidence from having a recognized project type
+	if analysis.ProjectType != "" && analysis.ProjectType != "unknown" {
+		confidence += 0.3
+	}
+
+	// Add confidence for detected languages
+	if len(analysis.DetectedLanguages) > 0 {
+		confidence += 0.4
+	}
+
+	// Add confidence for detected frameworks
+	if len(analysis.Frameworks) > 0 {
+		confidence += 0.2
+	}
+
+	// Add confidence for detected build systems
+	if len(analysis.BuildSystems) > 0 {
+		confidence += 0.1
+	}
+
+	// Ensure confidence is between 0.0 and 1.0
+	if confidence > 1.0 {
+		confidence = 1.0
+	}
+
+	return confidence
+}
+
+// generateBasicRecommendations generates basic setup recommendations
+func generateBasicRecommendations(analysis *setup.ProjectAnalysis) map[string]string {
+	recommendations := make(map[string]string)
+
+	if analysis == nil {
+		return recommendations
+	}
+
+	// Recommend LSP servers based on detected languages
+	for _, lang := range analysis.DetectedLanguages {
+		switch lang {
+		case "go":
+			recommendations["lsp_server_go"] = "gopls"
+		case "python":
+			recommendations["lsp_server_python"] = "pylsp"
+		case "javascript", "typescript":
+			recommendations["lsp_server_typescript"] = "typescript-language-server"
+		case "java":
+			recommendations["lsp_server_java"] = "jdtls"
+		}
+	}
+
+	// Project type specific recommendations
+	if analysis.ProjectType != "" {
+		recommendations["project_setup"] = fmt.Sprintf("Detected %s project - configure appropriate language servers", analysis.ProjectType)
+	}
+
+	// Framework specific recommendations
+	for _, framework := range analysis.Frameworks {
+		if framework != nil {
+			recommendations[fmt.Sprintf("framework_%s", framework.Name)] = framework.Name + " detected - consider framework-specific LSP settings"
+		}
+	}
+
+	return recommendations
 }
 
 func selectOptimalTemplate(analysis *setup.ProjectAnalysis, result *SetupResult) (*setup.ConfigurationTemplate, error) {
@@ -2207,14 +2405,14 @@ func generateEnhancedConfiguration(ctx context.Context, analysis *setup.ProjectA
 		optMode = config.PerformanceProfileDevelopment
 	}
 
-	// Generate configuration from project analysis
+	// Generate configuration from project analysis using installation results
 	var configResult *setup.ConfigGenerationResult
 	var err error
 
 	if analysis != nil {
-		configResult, err = enhancedGenerator.GenerateFromProject(ctx, setupProjectPath, optMode)
+		configResult, err = enhancedGenerator.GenerateFromProjectWithInstallResults(ctx, setupProjectPath, optMode, result.RuntimesDetected, result.ServersInstalled)
 	} else {
-		configResult, err = enhancedGenerator.GenerateDefaultForEnvironment(ctx, optMode)
+		configResult, err = enhancedGenerator.GenerateFromInstallationResults(ctx, result.RuntimesDetected, result.ServersInstalled, optMode)
 	}
 
 	if err != nil {
@@ -2228,10 +2426,34 @@ func generateEnhancedConfiguration(ctx context.Context, analysis *setup.ProjectA
 			configPath = "config.yaml"
 		}
 
-		// TODO: Implement configuration file writing
+		// Debug: Log configuration before writing
+		fmt.Printf("DEBUG: About to write config with %d servers\n", len(configResult.Config.Servers))
+		for i, server := range configResult.Config.Servers {
+			fmt.Printf("DEBUG: Server %d: %s (languages: %v)\n", i, server.Name, server.Languages)
+		}
+
+		// Write configuration to YAML file
+		configData, err := yaml.Marshal(configResult.Config)
+		if err != nil {
+			return fmt.Errorf("failed to marshal configuration to YAML: %w", err)
+		}
+
+		// Debug: Log marshaled data length
+		fmt.Printf("DEBUG: Marshaled config data length: %d bytes\n", len(configData))
+		previewLength := 500
+		if len(configData) < previewLength {
+			previewLength = len(configData)
+		}
+		fmt.Printf("DEBUG: First %d chars of YAML:\n%s\n", previewLength, string(configData[:previewLength]))
+
+		if err := os.WriteFile(configPath, configData, 0644); err != nil {
+			return fmt.Errorf("failed to write configuration file: %w", err)
+		}
+
 		result.ConfigGenerated = true
 		result.ConfigPath = configPath
 		result.Messages = append(result.Messages, configResult.Messages...)
+		result.Messages = append(result.Messages, fmt.Sprintf("Configuration saved to %s", configPath))
 		result.Warnings = append(result.Warnings, configResult.Warnings...)
 		result.Issues = append(result.Issues, configResult.Issues...)
 	}
@@ -2479,22 +2701,22 @@ func executeDetectPhases(ctx context.Context, result *SetupResult) (*setup.Proje
 
 	// Remaining phases
 	phases := []setupPhase{
-		{"Phase 3: Enhanced Configuration Generation", "⚙️", func(ctx context.Context, result *SetupResult) error {
-			return generateEnhancedConfiguration(ctx, projectAnalysis, selectedTemplate, result)
-		}},
-		{"Phase 4: Optimized Runtime Installation", "📦", func(ctx context.Context, result *SetupResult) error {
+		{"Phase 3: Optimized Runtime Installation", "📦", func(ctx context.Context, result *SetupResult) error {
 			err := setupOptimizedRuntimes(ctx, result)
 			if err == nil && setupVerbose && !setupJSON {
 				fmt.Printf("✓ Runtime setup completed (%d runtimes)\n", len(result.RuntimesInstalled))
 			}
 			return err
 		}},
-		{"Phase 5: Smart Language Server Setup", "🎆", func(ctx context.Context, result *SetupResult) error {
+		{"Phase 4: Smart Language Server Setup", "🎆", func(ctx context.Context, result *SetupResult) error {
 			err := setupSmartLanguageServers(ctx, result)
 			if err == nil && setupVerbose && !setupJSON {
 				fmt.Printf("✓ Server setup completed (%d servers)\n", len(result.ServersInstalled))
 			}
 			return err
+		}},
+		{"Phase 5: Enhanced Configuration Generation", "⚙️", func(ctx context.Context, result *SetupResult) error {
+			return generateEnhancedConfiguration(ctx, projectAnalysis, selectedTemplate, result)
 		}},
 	}
 
@@ -2526,7 +2748,7 @@ func executeDetectPhases(ctx context.Context, result *SetupResult) (*setup.Proje
 func executeVerificationPhase(ctx context.Context, result *SetupResult, verificationType string) error {
 	if setupVerbose && !setupJSON {
 		if verificationType == verificationTypeMultiLanguage {
-			fmt.Println("\n✓ Phase 5: Final Verification")
+			fmt.Println("\n✓ Phase 6: Final Verification")
 		} else {
 			fmt.Println("\n✓ Phase 6: Final Verification")
 		}
@@ -2561,7 +2783,7 @@ func executeVerificationPhase(ctx context.Context, result *SetupResult, verifica
 
 func finalizeSetupResult(result *SetupResult, startTime time.Time) {
 	result.Duration = time.Since(startTime)
-	result.Success = len(result.Issues) == 0
+	result.Success = len(result.Issues) == 0 && len(result.Errors) == 0
 	generateSetupSummary(result)
 }
 

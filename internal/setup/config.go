@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"lsp-gateway/internal/config"
+	"lsp-gateway/internal/types"
 	"time"
 )
 
@@ -56,9 +57,13 @@ type ServerVerificationResult struct {
 type ConfigGenerator interface {
 	GenerateFromDetected(ctx context.Context) (*ConfigGenerationResult, error)
 
+	GenerateFromDetectedWithInstallResults(ctx context.Context, detectedRuntimes map[string]*RuntimeInfo, serverInstallResults map[string]*types.InstallResult) (*ConfigGenerationResult, error)
+
 	GenerateForRuntime(ctx context.Context, runtime string) (*ConfigGenerationResult, error)
 
 	GenerateMultiLanguageConfig(ctx context.Context, projectPath string, options *GenerationOptions) (*ConfigGenerationResult, error)
+
+	GenerateMultiLanguageConfigWithInstallResults(ctx context.Context, projectPath string, options *GenerationOptions, detectedRuntimes map[string]*RuntimeInfo, serverInstallResults map[string]*types.InstallResult) (*ConfigGenerationResult, error)
 
 	GenerateDefault() (*ConfigGenerationResult, error)
 
@@ -533,6 +538,313 @@ func (g *DefaultConfigGenerator) GenerateFromDetected(ctx context.Context) (*Con
 		result.ServersGenerated, detectionReport.Summary.InstalledRuntimes))
 
 	return result, nil
+}
+
+// GenerateFromDetectedWithInstallResults generates configuration using installation results instead of verification
+func (g *DefaultConfigGenerator) GenerateFromDetectedWithInstallResults(ctx context.Context, detectedRuntimes map[string]*RuntimeInfo, serverInstallResults map[string]*types.InstallResult) (*ConfigGenerationResult, error) {
+	startTime := time.Now()
+
+	g.logger.WithOperation("generate-from-install-results").Info("Starting configuration generation from installation results")
+
+	result := &ConfigGenerationResult{
+		Config:           nil,
+		ServersGenerated: 0,
+		ServersSkipped:   0,
+		AutoDetected:     true,
+		GeneratedAt:      startTime,
+		Messages:         []string{},
+		Warnings:         []string{},
+		Issues:           []string{},
+		Metadata:         make(map[string]interface{}),
+	}
+
+	// Create base configuration
+	gatewayConfig := &config.GatewayConfig{
+		Port:                  8080,
+		MaxConcurrentRequests: 100,
+		Servers:               []config.ServerConfig{},
+	}
+
+	// Use installation results instead of detection
+	successfulInstalls := 0
+	for serverName, installResult := range serverInstallResults {
+		if !installResult.Success {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("Skipping %s: installation failed", serverName))
+			result.ServersSkipped++
+			continue
+		}
+
+		// Get runtime info for this server
+		runtimeInfo := g.getRuntimeInfoForServer(serverName, detectedRuntimes)
+		if runtimeInfo == nil {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("Skipping %s: runtime not detected", serverName))
+			result.ServersSkipped++
+			continue
+		}
+
+		// Get server definition
+		serverDef, err := g.serverRegistry.GetServer(serverName)
+		if err != nil {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("Skipping %s: server definition not found", serverName))
+			result.ServersSkipped++
+			continue
+		}
+
+		// Generate server config from installation result
+		serverConfig := g.generateServerConfigFromInstallResult(installResult, serverDef)
+		if serverConfig != nil {
+			gatewayConfig.Servers = append(gatewayConfig.Servers, *serverConfig)
+			result.ServersGenerated++
+			successfulInstalls++
+			result.Messages = append(result.Messages,
+				fmt.Sprintf("Generated configuration for %s (installed: %s)", serverDef.DisplayName, installResult.Version))
+		} else {
+			result.ServersSkipped++
+		}
+	}
+
+	// If no servers were generated, fall back to default configuration
+	if len(gatewayConfig.Servers) == 0 {
+		result.Warnings = append(result.Warnings, "No successful server installations found, using default configuration")
+		defaultResult, err := g.GenerateDefault()
+		if err != nil {
+			result.Issues = append(result.Issues, fmt.Sprintf("Failed to generate default configuration: %v", err))
+			result.Duration = time.Since(startTime)
+			return result, fmt.Errorf("default configuration generation failed: %w", err)
+		}
+		gatewayConfig = defaultResult.Config
+		result.ServersGenerated = defaultResult.ServersGenerated
+		result.Messages = append(result.Messages, "Used default configuration as fallback")
+	}
+
+	// Validate generated configuration
+	if err := gatewayConfig.Validate(); err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Generated configuration is invalid: %v", err))
+		result.Duration = time.Since(startTime)
+		return result, fmt.Errorf("configuration validation failed: %w", err)
+	}
+
+	result.Config = gatewayConfig
+	result.Duration = time.Since(startTime)
+
+	// Populate metadata
+	result.Metadata["generation_method"] = "install_results_based"
+	result.Metadata["successful_installs"] = successfulInstalls
+	result.Metadata["total_install_results"] = len(serverInstallResults)
+	result.Metadata["runtimes_detected"] = len(detectedRuntimes)
+
+	g.logger.UserSuccess(fmt.Sprintf("Configuration generated from installation results: %d servers from %d successful installations",
+		result.ServersGenerated, successfulInstalls))
+
+	return result, nil
+}
+
+// GenerateMultiLanguageConfigWithInstallResults generates multi-language configuration using installation results
+func (g *DefaultConfigGenerator) GenerateMultiLanguageConfigWithInstallResults(ctx context.Context, projectPath string, options *GenerationOptions, detectedRuntimes map[string]*RuntimeInfo, serverInstallResults map[string]*types.InstallResult) (*ConfigGenerationResult, error) {
+	startTime := time.Now()
+
+	g.logger.WithOperation("generate-multi-language-with-install-results").WithField("project_path", projectPath).Info("Generating multi-language configuration with installation results")
+
+	result := &ConfigGenerationResult{
+		Config:           nil,
+		ServersGenerated: 0,
+		ServersSkipped:   0,
+		AutoDetected:     true,
+		GeneratedAt:      startTime,
+		Messages:         []string{},
+		Warnings:         []string{},
+		Issues:           []string{},
+		Metadata:         make(map[string]interface{}),
+	}
+
+	// Apply default options if none provided
+	if options == nil {
+		options = &GenerationOptions{
+			OptimizationMode:   config.PerformanceProfileDevelopment,
+			EnableMultiServer:  true,
+			EnableSmartRouting: true,
+			ProjectPath:        projectPath,
+			PerformanceProfile: "medium",
+		}
+	}
+
+	// Scan project for language detection
+	projectInfo, err := g.projectScanner.ScanProject(projectPath)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Project scanning failed: %v", err))
+		result.Duration = time.Since(startTime)
+		return result, fmt.Errorf("project scanning failed: %w", err)
+	}
+
+	// Create base configuration
+	gatewayConfig := &config.GatewayConfig{
+		Port:                  8080,
+		MaxConcurrentRequests: 100,
+		Servers:               []config.ServerConfig{},
+	}
+
+	// Filter servers based on installation results and target languages
+	successfulInstalls := 0
+	for serverName, installResult := range serverInstallResults {
+		if !installResult.Success {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("Skipping %s: installation failed", serverName))
+			result.ServersSkipped++
+			continue
+		}
+
+		// Get server definition and check if it matches target languages
+		serverDef, err := g.serverRegistry.GetServer(serverName)
+		if err != nil {
+			result.Warnings = append(result.Warnings,
+				fmt.Sprintf("Skipping %s: server definition not found", serverName))
+			result.ServersSkipped++
+			continue
+		}
+
+		// Check if server supports any of the target languages
+		if options.TargetLanguages != nil && len(options.TargetLanguages) > 0 {
+			if !g.serverSupportsTargetLanguages(serverDef, options.TargetLanguages) {
+				result.Messages = append(result.Messages,
+					fmt.Sprintf("Skipping %s: doesn't support target languages %v", serverName, options.TargetLanguages))
+				result.ServersSkipped++
+				continue
+			}
+		}
+
+		// Generate server config from installation result
+		serverConfig := g.generateServerConfigFromInstallResult(installResult, serverDef)
+		if serverConfig != nil {
+			gatewayConfig.Servers = append(gatewayConfig.Servers, *serverConfig)
+			result.ServersGenerated++
+			successfulInstalls++
+			result.Messages = append(result.Messages,
+				fmt.Sprintf("Generated configuration for %s (installed: %s)", serverDef.DisplayName, installResult.Version))
+		} else {
+			result.ServersSkipped++
+		}
+	}
+
+	// Apply optimization based on mode
+	if options.OptimizationMode != "" {
+		optimizationManager := config.NewOptimizationManager()
+		// Create a minimal MultiLanguageConfig for optimization
+		mlConfig := &config.MultiLanguageConfig{
+			ProjectInfo: projectInfo,
+		}
+		if err := optimizationManager.ApplyOptimization(mlConfig, options.OptimizationMode); err != nil {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("Optimization failed: %v", err))
+		} else {
+			result.Messages = append(result.Messages, fmt.Sprintf("Applied %s optimization", options.OptimizationMode))
+		}
+	}
+
+	// Apply smart configuration based on project characteristics
+	if projectInfo != nil {
+		mlConfig := &config.MultiLanguageConfig{ProjectInfo: projectInfo}
+		g.applySmartConfiguration(gatewayConfig, mlConfig, options)
+	}
+
+	// Validate generated configuration
+	if err := gatewayConfig.Validate(); err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Generated configuration is invalid: %v", err))
+		result.Duration = time.Since(startTime)
+		return result, fmt.Errorf("configuration validation failed: %w", err)
+	}
+
+	result.Config = gatewayConfig
+	result.Duration = time.Since(startTime)
+
+	// Populate metadata
+	result.Metadata["generation_method"] = "multi_language_install_results"
+	result.Metadata["project_type"] = projectInfo.ProjectType
+	result.Metadata["successful_installs"] = successfulInstalls
+	result.Metadata["optimization_mode"] = options.OptimizationMode
+	result.Metadata["smart_routing_enabled"] = options.EnableSmartRouting
+	result.Metadata["multi_server_enabled"] = options.EnableMultiServer
+
+	g.logger.UserSuccess(fmt.Sprintf("Multi-language configuration generated from installation results: %d servers for project type %s",
+		result.ServersGenerated, projectInfo.ProjectType))
+
+	return result, nil
+}
+
+// Helper methods
+
+// getRuntimeInfoForServer finds the runtime info for a given server
+func (g *DefaultConfigGenerator) getRuntimeInfoForServer(serverName string, detectedRuntimes map[string]*RuntimeInfo) *RuntimeInfo {
+	// Map server names to their runtimes
+	serverToRuntime := map[string]string{
+		"gopls":                      "go",
+		"pylsp":                      "python",
+		"typescript-language-server": "nodejs",
+		"jdtls":                      "java",
+	}
+
+	runtimeName, exists := serverToRuntime[serverName]
+	if !exists {
+		return nil
+	}
+
+	return detectedRuntimes[runtimeName]
+}
+
+// generateServerConfigFromInstallResult creates a server config from installation result
+func (g *DefaultConfigGenerator) generateServerConfigFromInstallResult(installResult *types.InstallResult, serverDef *ServerDefinition) *config.ServerConfig {
+	serverConfig := &config.ServerConfig{
+		Name:      serverDef.Name + "-lsp", // Generate config name from server name
+		Languages: serverDef.Languages,
+		Command:   serverDef.Name,
+		Args:      []string{},
+		Transport: "stdio", // Default transport
+	}
+
+	// Use path from install result if available
+	if installResult.Path != "" {
+		serverConfig.Command = installResult.Path
+	}
+
+	// Apply server-specific configurations
+	switch serverDef.Name {
+	case "gopls":
+		serverConfig.Args = []string{}
+
+	case "pylsp":
+		serverConfig.Args = []string{}
+
+	case "typescript-language-server":
+		serverConfig.Args = []string{"--stdio"}
+
+	case "jdtls":
+		serverConfig.Args = []string{}
+	}
+
+	// Apply default config from server definition if available
+	if serverDef.DefaultConfig != nil {
+		if transport, ok := serverDef.DefaultConfig["transport"].(string); ok && transport != "" {
+			serverConfig.Transport = transport
+		}
+		if args, ok := serverDef.DefaultConfig["args"].([]string); ok && len(args) > 0 {
+			serverConfig.Args = args
+		}
+	}
+
+	return serverConfig
+}
+
+// serverSupportsTargetLanguages checks if a server supports any of the target languages
+func (g *DefaultConfigGenerator) serverSupportsTargetLanguages(serverDef *ServerDefinition, targetLanguages []string) bool {
+	for _, targetLang := range targetLanguages {
+		for _, serverLang := range serverDef.Languages {
+			if targetLang == serverLang {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (g *DefaultConfigGenerator) GenerateDefault() (*ConfigGenerationResult, error) {

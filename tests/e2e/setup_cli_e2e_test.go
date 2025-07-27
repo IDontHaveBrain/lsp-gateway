@@ -259,8 +259,14 @@ func (suite *SetupCliE2ETestSuite) TestSetupDetectCommand_ProjectDetection() {
 	
 	// Validate project detection results
 	suite.NotNil(result.ProjectDetection, "Project detection should be present")
-	suite.Contains(result.ProjectDetection.Languages, "go", "Should detect Go language")
-	suite.Greater(result.ProjectDetection.Confidence, 0.5, "Should have reasonable confidence")
+	if result.ProjectDetection != nil {
+		suite.Contains(result.ProjectDetection.Languages, "go", "Should detect Go language")
+		suite.Greater(result.ProjectDetection.Confidence, 0.5, "Should have reasonable confidence")
+		suite.NotEmpty(result.ProjectDetection.ProjectType, "Should have a project type")
+		suite.NotNil(result.ProjectDetection.Recommendations, "Should have recommendations")
+	} else {
+		suite.Fail("ProjectDetection is nil - project detection failed to populate results")
+	}
 	
 	// Validate that Go runtime is detected
 	if goDetection, exists := result.RuntimesDetected["go"]; exists && goDetection.Installed {
@@ -342,7 +348,7 @@ func (suite *SetupCliE2ETestSuite) TestSetupCommand_TimeoutScenarios() {
 	defer cancel()
 	
 	// Test with very short timeout
-	cmd := exec.CommandContext(ctx, suite.binaryPath, "setup", "all", "--timeout", "1s", "--json")
+	cmd := exec.CommandContext(ctx, suite.binaryPath, "setup", "all", "--timeout", "1ms", "--json")
 	output, exitCode, err := suite.executeCommand(cmd)
 	
 	// Should handle timeout gracefully
