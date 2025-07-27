@@ -25,6 +25,30 @@ const (
 	ContentTypeHeader          = "Content-Type"
 )
 
+type InitializationState int
+
+const (
+	NotInitialized InitializationState = iota
+	Initializing
+	Initialized
+	Failed
+)
+
+func (s InitializationState) String() string {
+	switch s {
+	case NotInitialized:
+		return "NotInitialized"
+	case Initializing:
+		return "Initializing"
+	case Initialized:
+		return "Initialized"
+	case Failed:
+		return "Failed"
+	default:
+		return "Unknown"
+	}
+}
+
 const (
 	JSONRPCErrorCodeParseError     = -32700
 	JSONRPCErrorCodeInvalidRequest = -32600
@@ -148,7 +172,9 @@ type Server struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	Initialized     bool
+	initStateMu sync.RWMutex
+	initState   InitializationState
+
 	Logger          *log.Logger
 	ProtocolLimits  *ProtocolConstants
 	RecoveryContext *RecoveryContext
@@ -181,7 +207,7 @@ func NewServer(config *ServerConfig) *Server {
 		Output:          os.Stdout,
 		ctx:             ctx,
 		cancel:          cancel,
-		Initialized:     false,
+		initState:       NotInitialized,
 		Logger:          log.New(os.Stderr, MCPLogPrefix, log.LstdFlags|log.Lshortfile),
 		ProtocolLimits:  protocolLimits,
 		RecoveryContext: &RecoveryContext{},
@@ -220,7 +246,7 @@ func NewServerWithDirectLSP(config *ServerConfig, directLSPManager *DirectLSPMan
 		Output:          os.Stdout,
 		ctx:             ctx,
 		cancel:          cancel,
-		Initialized:     false,
+		initState:       NotInitialized,
 		Logger:          log.New(os.Stderr, MCPLogPrefix, log.LstdFlags|log.Lshortfile),
 		ProtocolLimits:  protocolLimits,
 		RecoveryContext: &RecoveryContext{},
@@ -307,6 +333,79 @@ func (s *Server) ShouldAttemptRecovery(err error) bool {
 	return true
 }
 
+func (s *Server) GetInitializationState() InitializationState {
+	s.initStateMu.RLock()
+	defer s.initStateMu.RUnlock()
+	return s.initState
+}
+
+func (s *Server) SetInitializationState(newState InitializationState) error {
+	s.initStateMu.Lock()
+	defer s.initStateMu.Unlock()
+
+	if err := s.validateInitializationStateTransition(s.initState, newState); err != nil {
+		return err
+	}
+
+	oldState := s.initState
+	s.initState = newState
+	s.logInitializationStateChange(oldState, newState, "")
+	return nil
+}
+
+func (s *Server) IsInitialized() bool {
+	return s.GetInitializationState() == Initialized
+}
+
+func (s *Server) isValidStateTransition(from, to InitializationState) bool {
+	switch from {
+	case NotInitialized:
+		return to == Initializing || to == Failed
+	case Initializing:
+		return to == Initialized || to == Failed
+	case Initialized:
+		return to == NotInitialized
+	case Failed:
+		return to == NotInitialized || to == Initializing
+	default:
+		return false
+	}
+}
+
+// sendNotInitializedError sends a standardized error response for requests made before initialization
+func (s *Server) sendNotInitializedError(id interface{}) error {
+	return s.SendError(id, JSONRPCErrorCodeServerNotInit, JSONRPCErrorMessageServerNotInit, ERROR_CALL_INITIALIZE_FIRST)
+}
+
+// sendInitializingError sends a standardized error response for requests made during initialization
+func (s *Server) sendInitializingError(id interface{}) error {
+	return s.SendError(id, JSONRPCErrorCodeInvalidRequest, JSONRPCErrorMessageInvalidRequest, "Server is currently initializing. Please wait for initialization to complete.")
+}
+
+// sendInitializationFailedError sends a standardized error response when initialization has failed
+func (s *Server) sendInitializationFailedError(id interface{}) error {
+	return s.SendError(id, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, "Server initialization failed. Please reinitialize the server.")
+}
+
+// validateInitializationStateTransition validates and logs a potential state transition
+func (s *Server) validateInitializationStateTransition(from, to InitializationState) error {
+	if !s.isValidStateTransition(from, to) {
+		s.Logger.Printf("Invalid initialization state transition attempted: %s -> %s", from, to)
+		return fmt.Errorf("invalid state transition from %s to %s", from, to)
+	}
+	return nil
+}
+
+// logInitializationStateChange logs initialization state changes with consistent formatting
+func (s *Server) logInitializationStateChange(from, to InitializationState, context string) {
+	timestamp := time.Now().Format("2006-01-02 15:04:05.000")
+	if context != "" {
+		s.Logger.Printf("[%s] Initialization state changed: %s -> %s (%s)", timestamp, from, to, context)
+	} else {
+		s.Logger.Printf("[%s] Initialization state changed: %s -> %s", timestamp, from, to)
+	}
+}
+
 func (s *Server) Stop() error {
 	s.Logger.Println("Stopping MCP server")
 	
@@ -321,6 +420,11 @@ func (s *Server) Stop() error {
 		}
 	}
 	
+	s.initStateMu.Lock()
+	oldState := s.initState
+	s.initState = NotInitialized
+	s.initStateMu.Unlock()
+	s.logInitializationStateChange(oldState, NotInitialized, "server stopping")
 	s.cancel()
 	s.wg.Wait()
 	return nil
@@ -829,13 +933,42 @@ func (s *Server) AttemptRecovery(ctx context.Context, reader *bufio.Reader, orig
 }
 
 func (s *Server) handleInitializeWithValidation(ctx context.Context, msg MCPMessage) error {
+	currentState := s.GetInitializationState()
+	if currentState == Initialized {
+		return s.SendError(msg.ID, JSONRPCErrorCodeInvalidRequest, JSONRPCErrorMessageInvalidRequest, "Server already initialized")
+	}
+	if currentState == Initializing {
+		return s.SendError(msg.ID, JSONRPCErrorCodeInvalidRequest, JSONRPCErrorMessageInvalidRequest, "Initialization already in progress")
+	}
+
+	s.initStateMu.Lock()
+	if err := s.validateInitializationStateTransition(s.initState, Initializing); err != nil {
+		s.initStateMu.Unlock()
+		s.Logger.Printf("Failed to set initializing state: %v", err)
+		return s.SendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, "Failed to update initialization state")
+	}
+	oldState := s.initState
+	s.initState = Initializing
+	s.initStateMu.Unlock()
+	s.logInitializationStateChange(oldState, Initializing, "initialize request received")
+
 	var params InitializeParams
 	if msg.Params != nil {
 		paramBytes, err := json.Marshal(msg.Params)
 		if err != nil {
+			s.initStateMu.Lock()
+			oldState := s.initState
+			s.initState = Failed
+			s.initStateMu.Unlock()
+			s.logInitializationStateChange(oldState, Failed, "parameter marshaling failed")
 			return s.SendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, fmt.Sprintf("Failed to marshal initialize params: %v", err))
 		}
 		if err := json.Unmarshal(paramBytes, &params); err != nil {
+			s.initStateMu.Lock()
+			oldState := s.initState
+			s.initState = Failed
+			s.initStateMu.Unlock()
+			s.logInitializationStateChange(oldState, Failed, "parameter parsing failed")
 			return s.SendError(msg.ID, JSONRPCErrorCodeInvalidParams, JSONRPCErrorMessageInvalidParams, fmt.Sprintf("Failed to parse initialize params: %v", err))
 		}
 	}
@@ -857,15 +990,37 @@ func (s *Server) handleInitializeWithValidation(ctx context.Context, msg MCPMess
 		},
 	}
 
-	s.Initialized = true
-	s.Logger.Printf("MCP server initialized with client protocol version: %s", params.ProtocolVersion)
+	s.initStateMu.Lock()
+	if err := s.validateInitializationStateTransition(s.initState, Initialized); err != nil {
+		s.Logger.Printf("Failed to set initialized state: %v", err)
+		failedOldState := s.initState
+		s.initState = Failed
+		s.initStateMu.Unlock()
+		s.logInitializationStateChange(failedOldState, Failed, "state validation failed during completion")
+		return s.SendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, "Failed to complete initialization")
+	}
+	successOldState := s.initState
+	s.initState = Initialized
+	s.initStateMu.Unlock()
+	s.logInitializationStateChange(successOldState, Initialized, "initialization completed successfully")
 
+	s.Logger.Printf("MCP server initialized with client protocol version: %s", params.ProtocolVersion)
 	return s.SendResponse(msg.ID, result)
 }
 
 func (s *Server) handleListToolsWithValidation(ctx context.Context, msg MCPMessage) error {
-	if !s.Initialized {
-		return s.SendError(msg.ID, JSONRPCErrorCodeServerNotInit, JSONRPCErrorMessageServerNotInit, ERROR_CALL_INITIALIZE_FIRST)
+	currentState := s.GetInitializationState()
+	switch currentState {
+	case NotInitialized:
+		return s.sendNotInitializedError(msg.ID)
+	case Initializing:
+		return s.sendInitializingError(msg.ID)
+	case Failed:
+		return s.sendInitializationFailedError(msg.ID)
+	case Initialized:
+		// Continue with normal execution
+	default:
+		return s.SendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, "Unknown initialization state")
 	}
 
 	tools := s.ToolHandler.ListTools()
@@ -878,8 +1033,18 @@ func (s *Server) handleListToolsWithValidation(ctx context.Context, msg MCPMessa
 }
 
 func (s *Server) handleCallToolWithValidation(ctx context.Context, msg MCPMessage) error {
-	if !s.Initialized {
-		return s.SendError(msg.ID, JSONRPCErrorCodeServerNotInit, JSONRPCErrorMessageServerNotInit, ERROR_CALL_INITIALIZE_FIRST)
+	currentState := s.GetInitializationState()
+	switch currentState {
+	case NotInitialized:
+		return s.sendNotInitializedError(msg.ID)
+	case Initializing:
+		return s.sendInitializingError(msg.ID)
+	case Failed:
+		return s.sendInitializationFailedError(msg.ID)
+	case Initialized:
+		// Continue with normal execution
+	default:
+		return s.SendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, "Unknown initialization state")
 	}
 
 	var call ToolCall
