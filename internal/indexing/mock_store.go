@@ -52,6 +52,40 @@ func NewSCIPIndexStore(config *SCIPConfig) SCIPStore {
 	return NewRealSCIPStore(config)
 }
 
+// NewMockSCIPStore creates a new mock SCIP store for testing
+func NewMockSCIPStore(config *SCIPConfig) SCIPStore {
+	if config == nil {
+		// Provide default configuration for testing
+		config = &SCIPConfig{
+			CacheConfig: CacheConfig{
+				Enabled: true,
+				MaxSize: 1000,
+				TTL:     10 * time.Minute,
+			},
+			Logging: LoggingConfig{
+				LogQueries:         false,
+				LogCacheOperations: false,
+				LogIndexOperations: false,
+			},
+			Performance: PerformanceConfig{
+				QueryTimeout:         5 * time.Second,
+				MaxConcurrentQueries: 10,
+				IndexLoadTimeout:     30 * time.Second,
+			},
+		}
+	}
+
+	return &MockSCIPStore{
+		config:              config,
+		cache:               make(map[string]*SCIPCacheEntry),
+		stats:               SCIPStoreStats{},
+		startTime:           time.Now(),
+		CacheHitProbability: 0.8, // 80% cache hit rate for testing
+		ResponseLatencyMs:   10,  // 10ms base latency
+		FailureProbability:  0.1, // 10% failure rate for testing
+	}
+}
+
 // LoadIndex loads a SCIP index from the specified path (mock implementation)
 func (s *MockSCIPStore) LoadIndex(path string) error {
 	s.mutex.Lock()

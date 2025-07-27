@@ -305,6 +305,36 @@ func (v *DefaultServerVerifier) verifyJdtlsInstallation(result *ServerVerificati
 	// Check for executable wrapper script that users actually run
 	executablePath := GetJDTLSExecutablePath()
 	
+	// First verify Java 21 runtime is available (required for JDTLS)
+	java21Result, err := VerifyJava21Installation()
+	if err != nil {
+		v.addServerIssue(result, types.IssueSeverityCritical, types.IssueCategoryDependencies,
+			"Java 21 Verification Failed",
+			fmt.Sprintf("Failed to verify Java 21 runtime required for JDTLS: %v", err),
+			"Install Java 21 runtime using: lsp-gateway setup java21",
+			map[string]interface{}{"error": err.Error(), "java21_required": true})
+		return
+	}
+
+	if !java21Result.Installed || !java21Result.Compatible {
+		v.addServerIssue(result, types.IssueSeverityCritical, types.IssueCategoryDependencies,
+			"Java 21 Runtime Required",
+			"JDTLS requires Java 21 runtime but it is not properly installed or compatible",
+			"Install Java 21 runtime using: lsp-gateway setup java21",
+			map[string]interface{}{
+				"java21_installed": java21Result.Installed,
+				"java21_compatible": java21Result.Compatible,
+				"java21_version": java21Result.Version,
+				"java21_issues": len(java21Result.Issues),
+			})
+		return
+	}
+
+	// Store Java 21 verification results in metadata
+	result.Metadata["java21_verification"] = java21Result
+	result.Metadata["java21_runtime_path"] = java21Result.Path
+	result.Metadata["java21_version"] = java21Result.Version
+	
 	// Try the primary executable path first
 	if info, err := os.Stat(executablePath); err == nil && !info.IsDir() {
 		result.Installed = true

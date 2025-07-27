@@ -40,7 +40,7 @@ var installCmd = &cobra.Command{
 and their associated language servers for LSP Gateway functionality.
 
 Available install targets:
-- runtime <name>: Install specific runtime (go, python, nodejs, java)
+- runtime <name>: Install specific runtime (go, python, nodejs, java, java21)
 - runtime all:    Install all missing runtimes
 - server <name>:  Install specific language server (gopls, pylsp, typescript-language-server, jdtls)
 - servers:        Install all missing language servers
@@ -48,6 +48,7 @@ Available install targets:
 Examples:
   lsp-gateway install runtime go           # Install Go runtime
   lsp-gateway install runtime python       # Install Python runtime
+  lsp-gateway install runtime java21       # Install Java 21 runtime (required for JDTLS)
   lsp-gateway install runtime all          # Install all missing runtimes
   lsp-gateway install runtime go --force   # Force reinstall Go runtime
   lsp-gateway install runtime go --version 1.21.0  # Install specific version
@@ -67,6 +68,7 @@ Supported runtimes:
 - python: Python programming language (3.9+)
 - nodejs: Node.js JavaScript runtime (22.0+)
 - java:   Java Development Kit (17+)
+- java21: Java 21 Runtime (21.0+) - Required for JDTLS
 - all:    Install all missing runtimes
 
 The installer will:
@@ -80,7 +82,7 @@ Installation methods vary by platform:
 - macOS:   Homebrew (brew)
 - Windows: winget, Chocolatey`,
 	Args:      cobra.ExactArgs(1),
-	ValidArgs: []string{"go", "python", "nodejs", "java", allRuntimesKeyword},
+	ValidArgs: []string{"go", "python", "nodejs", "java", "java21", allRuntimesKeyword},
 	RunE:      runInstallRuntime,
 }
 
@@ -105,7 +107,7 @@ Installation methods:
 - gopls:     go install golang.org/x/tools/gopls@latest
 - pylsp:     pip install python-lsp-server
 - typescript-language-server: npm install -g typescript-language-server typescript
-- jdtls:     Automated download from Eclipse releases with checksum verification (requires Java 17+)`,
+- jdtls:     Automated download from Eclipse releases with checksum verification (requires Java 21+)`,
 	Args:      cobra.ExactArgs(1),
 	ValidArgs: []string{"gopls", "pylsp", "typescript-language-server", "jdtls"},
 	RunE:      runInstallServer,

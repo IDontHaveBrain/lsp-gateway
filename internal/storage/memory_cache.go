@@ -261,8 +261,8 @@ func (c *L1MemoryCache) Get(ctx context.Context, key string) (*CacheEntry, error
 
 	if !exists {
 		c.stats.cacheMisses.Add(1)
-		c.circuitBreaker.recordFailure()
-		return nil, fmt.Errorf("key not found: %s", key)
+		// Cache miss is not a failure - it's normal operation
+		return nil, nil
 	}
 
 	// Check TTL expiration
@@ -274,7 +274,8 @@ func (c *L1MemoryCache) Get(ctx context.Context, key string) (*CacheEntry, error
 
 		c.stats.cacheMisses.Add(1)
 		c.stats.ttlExpirations.Add(1)
-		return nil, fmt.Errorf("key expired: %s", key)
+		// Expired entries should be treated as cache misses, not errors
+		return nil, nil
 	}
 
 	// Move to front of LRU
@@ -404,7 +405,8 @@ func (c *L1MemoryCache) Delete(ctx context.Context, key string) error {
 
 	entry, exists := c.entries[key]
 	if !exists {
-		return fmt.Errorf("key not found: %s", key)
+		// Return nil for non-existent keys to make delete operation idempotent
+		return nil
 	}
 
 	c.removeLRU(entry)

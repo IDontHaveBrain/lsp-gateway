@@ -292,6 +292,8 @@ func (r *DefaultRuntimeInstaller) Verify(runtime string) (*types.VerificationRes
 		r.verifyNodejs(result, runtimeDef)
 	case RuntimeJava:
 		r.verifyJava(result, runtimeDef)
+	case "java21":
+		r.verifyJava21(result, runtimeDef)
 	default:
 		return nil, NewInstallerError(InstallerErrorTypeUnsupported, runtime,
 			fmt.Sprintf("verification not supported for runtime: %s", runtime), nil)
@@ -326,7 +328,7 @@ func (r *DefaultRuntimeInstaller) GetPlatformStrategy(platform string) types.Run
 }
 
 func (r *DefaultRuntimeInstaller) GetSupportedRuntimes() []string {
-	return []string{"go", "python", "nodejs", "java"}
+	return []string{"go", "python", "nodejs", "java", "java21"}
 }
 
 func (r *DefaultRuntimeInstaller) GetRuntimeInfo(runtime string) (*types.RuntimeDefinition, error) {
@@ -391,6 +393,16 @@ func (r *RuntimeRegistry) registerDefaults() {
 		Name:               "java",
 		DisplayName:        "Java Development Kit",
 		MinVersion:         "17.0.0",
+		RecommendedVersion: "21.0.0",
+		InstallMethods:     map[string]types.InstallMethod{},
+		VerificationCmd:    []string{"java", "-version"},
+		EnvVars:            map[string]string{},
+	}
+
+	r.runtimes["java21"] = &types.RuntimeDefinition{
+		Name:               "java21",
+		DisplayName:        "Java 21 Runtime",
+		MinVersion:         "21.0.0",
 		RecommendedVersion: "21.0.0",
 		InstallMethods:     map[string]types.InstallMethod{},
 		VerificationCmd:    []string{"java", "-version"},
@@ -470,4 +482,63 @@ func (r *DefaultRuntimeInstaller) verifyJava(result *types.VerificationResult, d
 	r.verifyJavaCompiler(result)
 
 	r.verifyJavaDevelopmentTools(result)
+}
+
+func (r *DefaultRuntimeInstaller) verifyJava21(result *types.VerificationResult, def *types.RuntimeDefinition) {
+	// Use the comprehensive Java 21 verification utilities
+	java21Result, err := VerifyJava21Installation()
+	if err != nil {
+		r.addIssue(result, types.IssueSeverityCritical, types.IssueCategoryInstallation,
+			"Java 21 Verification Failed",
+			fmt.Sprintf("Failed to verify Java 21 installation: %v", err),
+			"Check Java 21 installation and try reinstalling",
+			map[string]interface{}{"error": err.Error()})
+		return
+	}
+
+	// Map Java 21 verification results to standard VerificationResult format
+	result.Installed = java21Result.Installed
+	result.Compatible = java21Result.Compatible
+	result.Version = java21Result.Version
+	result.Path = java21Result.Path
+	result.Runtime = java21Result.Runtime
+	result.VerifiedAt = java21Result.VerifiedAt
+	result.Duration = java21Result.Duration
+
+	// Copy environment variables
+	for key, value := range java21Result.EnvironmentVars {
+		result.EnvironmentVars[key] = value
+	}
+
+	// Copy metadata
+	for key, value := range java21Result.Metadata {
+		result.Metadata[key] = value
+	}
+
+	// Copy detailed information
+	for key, value := range java21Result.Details {
+		result.Details[key] = value
+	}
+
+	// Convert Java 21 issues to standard issues format
+	for _, java21Issue := range java21Result.Issues {
+		result.Issues = append(result.Issues, types.Issue{
+			Severity:    java21Issue.Severity,
+			Category:    java21Issue.Category,
+			Title:       java21Issue.Title,
+			Description: java21Issue.Description,
+			Solution:    java21Issue.Solution,
+			Details:     java21Issue.Details,
+		})
+	}
+
+	// Add Java 21 specific recommendations
+	if len(java21Result.Recommendations) > 0 {
+		result.Details["java21_recommendations"] = java21Result.Recommendations
+	}
+
+	// Set runtime-specific details
+	result.Details["java21_verification"] = true
+	result.Details["java21_executable_path"] = GetJava21ExecutablePath()
+	result.Details["java21_install_path"] = GetJava21InstallPath()
 }

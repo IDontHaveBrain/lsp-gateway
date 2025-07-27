@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"lsp-gateway/internal/indexing"
-	"lsp-gateway/internal/transport"
 )
 
 // TestSCIPProductionReadiness validates SCIP components for production deployment
@@ -498,25 +497,13 @@ func testResourceManagement(t *testing.T) {
 	})
 	
 	t.Run("CacheEvictionUnderPressure", func(t *testing.T) {
-		config := &indexing.SCIPConfig{
-			CacheConfig: indexing.CacheConfig{
-				Enabled: true,
-				MaxSize: 10, // Very small cache
-				TTL:     1 * time.Hour,
-			},
-		}
+			
+		// Create a small cache configuration for testing eviction
+		cacheConfig := indexing.DefaultPerformanceCacheConfig()
+		cacheConfig.L1Config.MaxSize = 10 // Very small cache for testing
+		cacheConfig.L1Config.TTL = 1 * time.Hour
 		
-		cache, err := indexing.NewPerformanceCache(&indexing.PerformanceCacheConfig{
-			MaxSize:              10,
-			TTL:                  1 * time.Hour,
-			EvictionPolicy:       "lru",
-			EnableDistributed:    false,
-			EnablePreloading:     false,
-			PreloadPaths:         nil,
-			MonitoringInterval:   1 * time.Minute,
-			CompressionEnabled:   false,
-			CompressionThreshold: 1024,
-		})
+		cache, err := indexing.NewPerformanceCache(cacheConfig)
 		if err != nil {
 			t.Fatalf("Failed to create cache: %v", err)
 		}
@@ -534,12 +521,12 @@ func testResourceManagement(t *testing.T) {
 		
 		// Check cache size
 		stats := cache.GetStats()
-		if stats.Size > 10 {
-			t.Errorf("Cache size exceeds limit: %d > 10", stats.Size)
+		if stats.L1Stats.Size > 10 {
+			t.Errorf("Cache size exceeds limit: %d > 10", stats.L1Stats.Size)
 		}
 		
 		// Verify eviction happened
-		if stats.Evictions == 0 {
+		if stats.L1Stats.EvictionCount == 0 {
 			t.Error("Expected evictions, got none")
 		}
 	})
@@ -855,8 +842,37 @@ func (s *failingMockStore) SearchSymbols(query string) ([]*indexing.SymbolEntry,
 	return []*indexing.SymbolEntry{}, nil
 }
 
-func (s *failingMockStore) GetStats() *indexing.StoreStats {
-	return &indexing.StoreStats{}
+func (s *failingMockStore) Query(method string, params interface{}) indexing.SCIPQueryResult {
+	if rand.Float64() < s.failureRate {
+		return indexing.SCIPQueryResult{
+			Found:     false,
+			Method:    method,
+			Error:     "simulated SCIP failure",
+			CacheHit:  false,
+			QueryTime: 10 * time.Millisecond,
+		}
+	}
+	return indexing.SCIPQueryResult{
+		Found:     true,
+		Method:    method,
+		CacheHit:  false,
+		QueryTime: 10 * time.Millisecond,
+	}
+}
+
+func (s *failingMockStore) CacheResponse(method string, params interface{}, response json.RawMessage) error {
+	if rand.Float64() < s.failureRate {
+		return fmt.Errorf("simulated cache failure")
+	}
+	return nil
+}
+
+func (s *failingMockStore) InvalidateFile(filePath string) {
+	// No-op for failing mock
+}
+
+func (s *failingMockStore) GetStats() indexing.SCIPStoreStats {
+	return indexing.SCIPStoreStats{}
 }
 
 func (s *failingMockStore) Close() error {
@@ -892,8 +908,27 @@ func (s *slowMockStore) SearchSymbols(query string) ([]*indexing.SymbolEntry, er
 	return []*indexing.SymbolEntry{}, nil
 }
 
-func (s *slowMockStore) GetStats() *indexing.StoreStats {
-	return &indexing.StoreStats{}
+func (s *slowMockStore) Query(method string, params interface{}) indexing.SCIPQueryResult {
+	time.Sleep(s.delay)
+	return indexing.SCIPQueryResult{
+		Found:     true,
+		Method:    method,
+		CacheHit:  false,
+		QueryTime: s.delay,
+	}
+}
+
+func (s *slowMockStore) CacheResponse(method string, params interface{}, response json.RawMessage) error {
+	time.Sleep(s.delay)
+	return nil
+}
+
+func (s *slowMockStore) InvalidateFile(filePath string) {
+	time.Sleep(s.delay)
+}
+
+func (s *slowMockStore) GetStats() indexing.SCIPStoreStats {
+	return indexing.SCIPStoreStats{}
 }
 
 func (s *slowMockStore) Close() error {
