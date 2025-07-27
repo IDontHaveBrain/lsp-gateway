@@ -2,9 +2,14 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
+
+	"lsp-gateway/internal/installer"
 )
 
 const (
@@ -71,6 +76,125 @@ func NewConfigGenerator() *ConfigGenerator {
 	generator.initializeBypassTemplates()
 
 	return generator
+}
+
+// detectAvailableJavaRuntimes detects available Java runtimes on the current platform
+func detectAvailableJavaRuntimes() []map[string]interface{} {
+	var runtimes []map[string]interface{}
+
+	// Check JAVA_HOME first
+	if javaHome := os.Getenv("JAVA_HOME"); javaHome != "" {
+		if _, err := os.Stat(javaHome); err == nil {
+			runtimes = append(runtimes, map[string]interface{}{
+				"name":    "JAVA_HOME",
+				"path":    javaHome,
+				"default": true,
+			})
+		}
+	}
+
+	// Platform-specific Java detection
+	switch runtime.GOOS {
+	case "darwin": // macOS
+		macPaths := []string{
+			"/Library/Java/JavaVirtualMachines",
+			"/opt/homebrew/Cellar/openjdk",
+			"/usr/local/Cellar/openjdk",
+		}
+		for _, basePath := range macPaths {
+			if entries, err := os.ReadDir(basePath); err == nil {
+				for _, entry := range entries {
+					if entry.IsDir() {
+						javaPath := filepath.Join(basePath, entry.Name(), "Contents", "Home")
+						if _, err := os.Stat(javaPath); err == nil {
+							runtimes = append(runtimes, map[string]interface{}{
+								"name": "JavaSE-" + extractJavaVersion(entry.Name()),
+								"path": javaPath,
+							})
+						}
+					}
+				}
+			}
+		}
+
+	case "linux":
+		linuxPaths := []string{
+			"/usr/lib/jvm",
+			"/opt/java",
+			"/usr/local/java",
+		}
+		for _, basePath := range linuxPaths {
+			if entries, err := os.ReadDir(basePath); err == nil {
+				for _, entry := range entries {
+					if entry.IsDir() {
+						javaPath := filepath.Join(basePath, entry.Name())
+						if _, err := os.Stat(filepath.Join(javaPath, "bin", "java")); err == nil {
+							runtimes = append(runtimes, map[string]interface{}{
+								"name": "JavaSE-" + extractJavaVersion(entry.Name()),
+								"path": javaPath,
+							})
+						}
+					}
+				}
+			}
+		}
+
+	case "windows":
+		windowsPaths := []string{
+			"C:\\Program Files\\Java",
+			"C:\\Program Files (x86)\\Java",
+		}
+		for _, basePath := range windowsPaths {
+			if entries, err := os.ReadDir(basePath); err == nil {
+				for _, entry := range entries {
+					if entry.IsDir() {
+						javaPath := filepath.Join(basePath, entry.Name())
+						if _, err := os.Stat(filepath.Join(javaPath, "bin", "java.exe")); err == nil {
+							runtimes = append(runtimes, map[string]interface{}{
+								"name": "JavaSE-" + extractJavaVersion(entry.Name()),
+								"path": javaPath,
+							})
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// If no runtimes found, provide fallback defaults
+	if len(runtimes) == 0 {
+		runtimes = []map[string]interface{}{
+			{
+				"name":    "JavaSE-11",
+				"path":    "/usr/lib/jvm/java-11-openjdk",
+				"default": true,
+			},
+			{
+				"name": "JavaSE-17",
+				"path": "/usr/lib/jvm/java-17-openjdk",
+			},
+		}
+	}
+
+	return runtimes
+}
+
+// extractJavaVersion extracts Java version from directory name
+func extractJavaVersion(dirName string) string {
+	// Common patterns: jdk-11, openjdk-17, java-11-openjdk, 11.0.2, etc.
+	if strings.Contains(dirName, "11") {
+		return "11"
+	}
+	if strings.Contains(dirName, "17") {
+		return "17"
+	}
+	if strings.Contains(dirName, "21") {
+		return "21"
+	}
+	if strings.Contains(dirName, "8") {
+		return "8"
+	}
+	return "11" // Default fallback
 }
 
 func (g *ConfigGenerator) initializeDefaultTemplates() {
@@ -314,7 +438,8 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 		},
 		"java": {
 			Name:        "eclipse-jdtls",
-			Command:     "jdtls",
+			Command:     installer.GetJDTLSExecutablePath(),
+			Args:        installer.GetJDTLSArgs(),
 			Transport:   "stdio",
 			RootMarkers: []string{"pom.xml", "build.gradle", "build.gradle.kts", ".project", "settings.gradle"},
 			ServerType:  ServerTypeWorkspace,
@@ -323,17 +448,7 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 			Settings: map[string]interface{}{
 				"java": map[string]interface{}{
 					"configuration": map[string]interface{}{
-						"runtimes": []map[string]interface{}{
-							{
-								"name":    "JavaSE-11",
-								"path":    "/usr/lib/jvm/java-11-openjdk",
-								"default": true,
-							},
-							{
-								"name": "JavaSE-17",
-								"path": "/usr/lib/jvm/java-17-openjdk",
-							},
-						},
+						"runtimes": detectAvailableJavaRuntimes(),
 					},
 					"compile": map[string]interface{}{
 						"nullAnalysis": map[string]interface{}{
@@ -673,6 +788,11 @@ func (g *ConfigGenerator) GenerateServerConfig(langCtx *LanguageContext) (*Serve
 	copy(serverConfig.RootMarkers, template.RootMarkers)
 	copy(serverConfig.Frameworks, langCtx.Frameworks)
 
+	// Apply project-specific workspace configuration for workspace-type servers
+	if err := g.applyProjectSpecificWorkspaceConfig(serverConfig, langCtx); err != nil {
+		return nil, fmt.Errorf("failed to apply project-specific workspace config: %w", err)
+	}
+
 	// Apply language context specific settings
 	if err := g.applyLanguageContextSettings(serverConfig, langCtx); err != nil {
 		return nil, fmt.Errorf("failed to apply language context settings: %w", err)
@@ -689,6 +809,38 @@ func (g *ConfigGenerator) GenerateServerConfig(langCtx *LanguageContext) (*Serve
 	}
 
 	return serverConfig, nil
+}
+
+// applyProjectSpecificWorkspaceConfig applies project-specific workspace configuration
+// for workspace-type servers that require isolated workspace directories
+func (g *ConfigGenerator) applyProjectSpecificWorkspaceConfig(serverConfig *ServerConfig, langCtx *LanguageContext) error {
+	// Only apply to workspace-type servers
+	if serverConfig.ServerType != ServerTypeWorkspace {
+		return nil
+	}
+
+	// Apply project-specific configuration based on server name
+	switch serverConfig.Name {
+	case "eclipse-jdtls":
+		// Replace static JDTLS args with project-specific workspace
+		if langCtx.RootPath != "" {
+			serverConfig.Args = installer.GetJDTLSArgsForProject(langCtx.RootPath)
+		} else {
+			// Fallback to legacy behavior if no project root available
+			serverConfig.Args = installer.GetJDTLSArgs()
+		}
+		
+	// Future workspace-type servers can be added here
+	// case "rust-analyzer":
+	//     // Apply Rust-specific workspace configuration
+	// case "omnisharp":
+	//     // Apply C#-specific workspace configuration
+	
+	default:
+		// For other workspace-type servers, keep existing args
+	}
+
+	return nil
 }
 
 func (g *ConfigGenerator) applyLanguageContextSettings(serverConfig *ServerConfig, langCtx *LanguageContext) error {

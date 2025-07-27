@@ -2,6 +2,7 @@ package installer
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 	"os"
 	"os/exec"
@@ -1258,5 +1259,77 @@ func (u *UniversalServerStrategy) GetInstallCommand(server, version string) ([]s
 		return []string{"npm", "install", "-g", "typescript-language-server", "typescript"}, nil
 	default:
 		return []string{}, fmt.Errorf("unsupported server: %s", server)
+	}
+}
+
+// GetJDTLSConfigDir returns the platform-specific configuration directory for JDTLS
+func GetJDTLSConfigDir() string {
+	installPath := getJDTLSInstallPath()
+	
+	switch runtime.GOOS {
+	case "windows":
+		return filepath.Join(installPath, "config_win")
+	case "darwin":
+		return filepath.Join(installPath, "config_mac")
+	default:
+		return filepath.Join(installPath, "config_linux")
+	}
+}
+
+// GetJDTLSWorkspaceDir returns a dynamic workspace directory path for JDTLS
+// Deprecated: Use GetJDTLSWorkspaceDirForProject for project isolation
+func GetJDTLSWorkspaceDir() string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(os.TempDir(), "jdtls-workspace")
+	}
+	return filepath.Join(homeDir, ".cache", "jdtls-workspace")
+}
+
+// GetJDTLSWorkspaceDirForProject returns a project-specific workspace directory for JDTLS
+func GetJDTLSWorkspaceDirForProject(projectPath string) string {
+	if projectPath == "" {
+		return GetJDTLSWorkspaceDir() // Fallback to legacy behavior
+	}
+	
+	// Generate project-specific workspace hash
+	projectHash := generateProjectHash(projectPath)
+	
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(os.TempDir(), "jdtls-workspace", projectHash)
+	}
+	return filepath.Join(homeDir, ".cache", "jdtls-workspace", projectHash)
+}
+
+// generateProjectHash creates a stable hash based on project path
+func generateProjectHash(projectPath string) string {
+	absPath, err := filepath.Abs(projectPath)
+	if err != nil {
+		absPath = projectPath
+	}
+	
+	// Create 12-character hash for workspace isolation
+	h := sha256.New()
+	h.Write([]byte(absPath))
+	return fmt.Sprintf("%x", h.Sum(nil))[:12]
+}
+
+// GetJDTLSArgs returns the complete arguments array for JDTLS with platform-specific configuration
+// Deprecated: Use GetJDTLSArgsForProject for project isolation
+func GetJDTLSArgs() []string {
+	return []string{
+		"--stdio",
+		"-configuration", GetJDTLSConfigDir(),
+		"-data", GetJDTLSWorkspaceDir(),
+	}
+}
+
+// GetJDTLSArgsForProject returns project-specific arguments array for JDTLS
+func GetJDTLSArgsForProject(projectPath string) []string {
+	return []string{
+		"--stdio",
+		"-configuration", GetJDTLSConfigDir(),
+		"-data", GetJDTLSWorkspaceDirForProject(projectPath),
 	}
 }
