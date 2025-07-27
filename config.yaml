@@ -1,10 +1,4 @@
 servers:
-    - name: jdtls-lsp
-      languages:
-        - java
-      command: /home/skawn/.local/share/lsp-gateway/jdtls/plugins/org.eclipse.jdt.ls.core_1.48.0.202506271502.jar
-      args: []
-      transport: stdio
     - name: gopls-lsp
       languages:
         - go
@@ -24,6 +18,12 @@ servers:
       command: /home/skawn/.nvm/versions/node/v22.17.1/bin/typescript-language-server
       args:
         - --stdio
+      transport: stdio
+    - name: jdtls-lsp
+      languages:
+        - java
+      command: /home/skawn/.local/share/lsp-gateway/jdtls/bin/jdtls
+      args: []
       transport: stdio
 port: 8080
 max_concurrent_requests: 100

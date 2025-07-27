@@ -343,7 +343,7 @@ func (s *Server) messageLoop() {
 
 		msgCtx, msgCancel := context.WithTimeout(s.ctx, s.ProtocolLimits.MessageTimeout)
 
-		message, err := s.ReadMessageWithRecovery(reader)
+		message, err := s.ReadMessageWithRecovery(msgCtx, reader)
 		if err != nil {
 			msgCancel()
 
@@ -360,7 +360,7 @@ func (s *Server) messageLoop() {
 			consecutiveErrors++
 			s.Logger.Printf("Error reading message (attempt %d/%d): %v", consecutiveErrors, maxConsecutiveErrors, err)
 
-			if s.shouldAttemptRecovery(err) && s.AttemptRecovery(reader, err) {
+			if s.shouldAttemptRecovery(err) && s.AttemptRecovery(msgCtx, reader, err) {
 				consecutiveErrors = 0
 				continue
 			}
@@ -396,7 +396,7 @@ func (s *Server) messageLoop() {
 	}
 }
 
-func (s *Server) ReadMessageWithRecovery(reader *bufio.Reader) (string, error) {
+func (s *Server) ReadMessageWithRecovery(ctx context.Context, reader *bufio.Reader) (string, error) {
 	var contentLength int
 	headerLines := 0
 	headerSize := 0
@@ -407,7 +407,7 @@ func (s *Server) ReadMessageWithRecovery(reader *bufio.Reader) (string, error) {
 			return "", fmt.Errorf("too many header lines (max %d)", s.ProtocolLimits.MaxHeaderLines)
 		}
 
-		line, err := reader.ReadString('\n')
+		line, err := s.readLineWithContext(ctx, reader)
 		if err != nil {
 			if err == io.EOF {
 				return "", err
@@ -459,7 +459,7 @@ func (s *Server) ReadMessageWithRecovery(reader *bufio.Reader) (string, error) {
 	}
 
 	content := make([]byte, contentLength)
-	n, err := io.ReadFull(reader, content)
+	n, err := s.readFullWithContext(ctx, reader, content)
 	if err != nil {
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			return "", err
@@ -788,7 +788,7 @@ func (s *Server) UpdateRecoveryContext(errorType string) {
 	}
 }
 
-func (s *Server) AttemptRecovery(reader *bufio.Reader, originalErr error) bool {
+func (s *Server) AttemptRecovery(ctx context.Context, reader *bufio.Reader, originalErr error) bool {
 	s.Logger.Printf("Attempting recovery from error: %v", originalErr)
 
 	if s.isEOFError(originalErr) {
@@ -799,13 +799,13 @@ func (s *Server) AttemptRecovery(reader *bufio.Reader, originalErr error) bool {
 	buffer := make([]byte, 512)
 	for i := 0; i < 5; i++ {
 		select {
-		case <-s.ctx.Done():
+		case <-ctx.Done():
 			s.Logger.Println("Recovery cancelled due to context")
 			return false
 		default:
 		}
 
-		n, err := reader.Read(buffer)
+		n, err := s.readBufferWithContext(ctx, reader, buffer)
 		if err != nil {
 			if err == io.EOF {
 				s.Logger.Printf("EOF encountered during recovery attempt %d", i+1)
@@ -994,4 +994,64 @@ func (s *Server) isConnectionError(err error) bool {
 		strings.Contains(errStr, "connection reset") ||
 		strings.Contains(errStr, "connection closed") ||
 		strings.Contains(errStr, "use of closed network connection")
+}
+
+func (s *Server) readLineWithContext(ctx context.Context, reader *bufio.Reader) (string, error) {
+	type result struct {
+		line string
+		err  error
+	}
+
+	ch := make(chan result, 1)
+	go func() {
+		line, err := reader.ReadString('\n')
+		ch <- result{line: line, err: err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case res := <-ch:
+		return res.line, res.err
+	}
+}
+
+func (s *Server) readFullWithContext(ctx context.Context, reader *bufio.Reader, buf []byte) (int, error) {
+	type result struct {
+		n   int
+		err error
+	}
+
+	ch := make(chan result, 1)
+	go func() {
+		n, err := io.ReadFull(reader, buf)
+		ch <- result{n: n, err: err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	case res := <-ch:
+		return res.n, res.err
+	}
+}
+
+func (s *Server) readBufferWithContext(ctx context.Context, reader *bufio.Reader, buf []byte) (int, error) {
+	type result struct {
+		n   int
+		err error
+	}
+
+	ch := make(chan result, 1)
+	go func() {
+		n, err := reader.Read(buf)
+		ch <- result{n: n, err: err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return 0, ctx.Err()
+	case res := <-ch:
+		return res.n, res.err
+	}
 }

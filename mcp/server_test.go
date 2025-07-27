@@ -209,7 +209,8 @@ func TestReadMessageWithRecovery(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			reader := bufio.NewReader(strings.NewReader(tt.input))
-			result, err := server.ReadMessageWithRecovery(reader)
+			ctx := context.Background()
+			result, err := server.ReadMessageWithRecovery(ctx, reader)
 
 			if tt.expectError {
 				if err == nil {
@@ -318,7 +319,8 @@ func TestAttemptRecovery(t *testing.T) {
 
 	t.Run("EOF error - no recovery", func(t *testing.T) {
 		reader := bufio.NewReader(strings.NewReader(""))
-		result := server.AttemptRecovery(reader, io.EOF)
+		ctx := context.Background()
+		result := server.AttemptRecovery(ctx, reader, io.EOF)
 		
 		if result {
 			t.Errorf("Expected false for EOF error, got true")
@@ -331,7 +333,8 @@ func TestAttemptRecovery(t *testing.T) {
 		server.ctx = ctx
 
 		reader := bufio.NewReader(strings.NewReader("some data"))
-		result := server.AttemptRecovery(reader, errors.New("some error"))
+		testCtx := context.Background()
+		result := server.AttemptRecovery(testCtx, reader, errors.New("some error"))
 		
 		if result {
 			t.Errorf("Expected false for cancelled context, got true")
@@ -343,7 +346,8 @@ func TestAttemptRecovery(t *testing.T) {
 		input := fmt.Sprintf("garbage data\n%s: 10\nmore data", ContentLengthHeader)
 		reader := bufio.NewReader(strings.NewReader(input))
 		
-		result := server.AttemptRecovery(reader, errors.New("parse error"))
+		ctx := context.Background()
+		result := server.AttemptRecovery(ctx, reader, errors.New("parse error"))
 		
 		if !result {
 			t.Errorf("Expected successful recovery, got false")
@@ -355,7 +359,8 @@ func TestAttemptRecovery(t *testing.T) {
 		input := "garbage data without content-length header"
 		reader := bufio.NewReader(strings.NewReader(input))
 		
-		result := server.AttemptRecovery(reader, errors.New("parse error"))
+		ctx := context.Background()
+		result := server.AttemptRecovery(ctx, reader, errors.New("parse error"))
 		
 		if result {
 			t.Errorf("Expected failed recovery, got true")
