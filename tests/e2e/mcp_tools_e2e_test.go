@@ -4,32 +4,20 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"lsp-gateway/mcp"
 	e2e_test "lsp-gateway/tests/e2e/helpers"
+	"lsp-gateway/tests/e2e/testutils"
 )
 
-// MCPMessage represents a JSON-RPC message for MCP protocol
-type MCPMessage struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      interface{} `json:"id,omitempty"`
-	Method  string      `json:"method,omitempty"`
-	Params  interface{} `json:"params,omitempty"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   interface{} `json:"error,omitempty"`
-}
 
 // MCPToolsE2ETestSuite provides comprehensive E2E tests for all 5 MCP tools
 // with real LSP server integration, addressing the critical gap in MCP testing
@@ -90,7 +78,11 @@ type MCPToolTestResult struct {
 // SetupSuite initializes the test suite with multi-language test projects
 func (suite *MCPToolsE2ETestSuite) SetupSuite() {
 	suite.testTimeout = 300 * time.Second // 5 minutes for comprehensive testing
-	suite.projectRoot = getProjectRoot()
+	var err error
+	suite.projectRoot, err = testutils.GetProjectRoot()
+	if err != nil {
+		suite.T().Fatalf("Failed to get project root: %v", err)
+	}
 	suite.binaryPath = filepath.Join(suite.projectRoot, "bin", "lsp-gateway")
 	suite.assertionHelper = e2e_test.NewAssertionHelper(suite.T())
 	
@@ -632,7 +624,14 @@ func (suite *MCPToolsE2ETestSuite) executeMCPToolTestWithContext(toolName, langu
 	startTime := time.Now()
 	
 	// Start LSP Gateway and MCP server
-	gatewayPort := findAvailablePort(suite.T())
+	gatewayPort, err := testutils.FindAvailablePort()
+	if err != nil {
+		return MCPToolTestResult{
+			ToolName:     toolName,
+			Success:      false,
+			ErrorMessage: fmt.Sprintf("Failed to find available port: %v", err),
+		}
+	}
 	configPath := suite.createTempConfigForLanguage(language, gatewayPort)
 	defer os.Remove(configPath)
 
@@ -641,7 +640,7 @@ func (suite *MCPToolsE2ETestSuite) executeMCPToolTestWithContext(toolName, langu
 	// Start gateway
 	gatewayCmd := exec.Command(suite.binaryPath, "server", "--config", configPath)
 	gatewayCmd.Dir = suite.projectRoot
-	err := gatewayCmd.Start()
+	err = gatewayCmd.Start()
 	if err != nil {
 		return MCPToolTestResult{
 			ToolName:     toolName,
@@ -704,8 +703,8 @@ func (suite *MCPToolsE2ETestSuite) executeMCPToolTestWithContext(toolName, langu
 	reader := bufio.NewReader(stdout)
 
 	// Initialize MCP
-	initMsg := MCPMessage{
-		JSONRPC: "2.0",
+	initMsg := testutils.MCPMessage{
+		Jsonrpc: "2.0",
 		ID:      1,
 		Method:  "initialize",
 		Params: map[string]interface{}{
@@ -714,7 +713,7 @@ func (suite *MCPToolsE2ETestSuite) executeMCPToolTestWithContext(toolName, langu
 		},
 	}
 
-	_, err = sendMCPStdioMessage(stdin, reader, initMsg)
+	_, err = testutils.SendMCPStdioMessage(stdin, reader, initMsg)
 	if err != nil {
 		return MCPToolTestResult{
 			ToolName:     toolName,
@@ -742,8 +741,8 @@ func (suite *MCPToolsE2ETestSuite) executeMCPToolTestWithContext(toolName, langu
 	}
 
 	// Execute MCP tool call
-	callMsg := MCPMessage{
-		JSONRPC: "2.0",
+	callMsg := testutils.MCPMessage{
+		Jsonrpc: "2.0",
 		ID:      2,
 		Method:  "tools/call",
 		Params: map[string]interface{}{
@@ -752,7 +751,7 @@ func (suite *MCPToolsE2ETestSuite) executeMCPToolTestWithContext(toolName, langu
 		},
 	}
 
-	response, err := sendMCPStdioMessage(stdin, reader, callMsg)
+	response, err := testutils.SendMCPStdioMessage(stdin, reader, callMsg)
 	responseTime := time.Since(startTime)
 	
 	result := MCPToolTestResult{
@@ -1329,7 +1328,28 @@ func (suite *MCPToolsE2ETestSuite) getTestFileURI(language, fileName string) str
 func (suite *MCPToolsE2ETestSuite) createTempConfigForLanguage(language string, port int) string {
 	_, exists := suite.testProjects[language]
 	if !exists {
-		return createTempConfig(suite.T(), port) // Fallback to default config
+		configContent := fmt.Sprintf(`
+servers:
+- name: go-lsp
+  languages:
+  - go
+  command: gopls
+  args: []
+  transport: stdio
+  root_markers:
+  - go.mod
+  - go.sum
+  priority: 1
+  weight: 1.0
+port: %d
+timeout: 45s
+max_concurrent_requests: 150
+`, port)
+		tempFile, _, err := testutils.CreateTempConfig(configContent)
+		if err != nil {
+			return ""
+		}
+		return tempFile // Fallback to default config
 	}
 
 	var configContent string
@@ -1407,47 +1427,7 @@ timeout: 45s
 max_concurrent_requests: 150
 `, port)
 	default:
-		return createTempConfig(suite.T(), port)
-	}
-
-	tempFile, err := os.CreateTemp("", fmt.Sprintf("lsp-gateway-%s-test-*.yaml", language))
-	require.NoError(suite.T(), err)
-	
-	_, err = tempFile.WriteString(configContent)
-	require.NoError(suite.T(), err)
-	
-	err = tempFile.Close()
-	require.NoError(suite.T(), err)
-	
-	return tempFile.Name()
-}
-
-// Helper functions (shared with other E2E tests)
-
-// findAvailablePort finds an available TCP port
-func findAvailablePort(t *testing.T) int {
-	listener, err := net.Listen("tcp", ":0")
-	require.NoError(t, err)
-	port := listener.Addr().(*net.TCPAddr).Port
-	listener.Close()
-	return port
-}
-
-// getProjectRoot returns the project root directory
-func getProjectRoot() string {
-	wd, _ := os.Getwd()
-	for wd != "/" {
-		if _, err := os.Stat(filepath.Join(wd, "go.mod")); err == nil {
-			return wd
-		}
-		wd = filepath.Dir(wd)
-	}
-	return "."
-}
-
-// createTempConfig creates a temporary configuration file for testing
-func createTempConfig(t *testing.T, port int) string {
-	configContent := fmt.Sprintf(`
+		configContent := fmt.Sprintf(`
 servers:
 - name: go-lsp
   languages:
@@ -1463,90 +1443,22 @@ servers:
 port: %d
 timeout: 45s
 max_concurrent_requests: 150
-multi_server_config:
-  primary: null
-  secondary: []
-  selection_strategy: load_balance
-  concurrent_limit: 3
-  resource_sharing: true
-  health_check_interval: 30s
-  max_retries: 3
-enable_concurrent_servers: true
-max_concurrent_servers_per_language: 2
-enable_smart_routing: true
-smart_router_config:
-  default_strategy: single_target_with_fallback
-  method_strategies:
-    textDocument/definition: single_target_with_fallback
 `, port)
+		tempFile, _, err := testutils.CreateTempConfig(configContent)
+		if err != nil {
+			return ""
+		}
+		return tempFile
+	}
 
-	tempFile, err := os.CreateTemp("", "lsp-gateway-test-*.yaml")
-	require.NoError(t, err)
+	tempFile, _, err := testutils.CreateTempConfig(configContent)
+	if err != nil {
+		return ""
+	}
 	
-	_, err = tempFile.WriteString(configContent)
-	require.NoError(t, err)
-	
-	err = tempFile.Close()
-	require.NoError(t, err)
-	
-	return tempFile.Name()
+	return tempFile
 }
 
-// sendMCPStdioMessage sends a message via STDIO and returns the response
-func sendMCPStdioMessage(stdin io.WriteCloser, reader *bufio.Reader, msg MCPMessage) (*MCPMessage, error) {
-	// Serialize message
-	msgBytes, err := json.Marshal(msg)
-	if err != nil {
-		return nil, err
-	}
-
-	// Send with Content-Length header
-	message := fmt.Sprintf("Content-Length: %d\r\n\r\n%s", len(msgBytes), msgBytes)
-	_, err = stdin.Write([]byte(message))
-	if err != nil {
-		return nil, err
-	}
-
-	// Read response
-	return readMCPStdioMessage(reader)
-}
-
-// readMCPStdioMessage reads a JSON-RPC message from STDIO
-func readMCPStdioMessage(reader *bufio.Reader) (*MCPMessage, error) {
-	// Read Content-Length header
-	line, _, err := reader.ReadLine()
-	if err != nil {
-		return nil, err
-	}
-
-	contentLengthStr := strings.TrimPrefix(string(line), "Content-Length: ")
-	contentLength, err := strconv.Atoi(strings.TrimSpace(contentLengthStr))
-	if err != nil {
-		return nil, fmt.Errorf("invalid Content-Length: %s", contentLengthStr)
-	}
-
-	// Read empty line
-	_, _, err = reader.ReadLine()
-	if err != nil {
-		return nil, err
-	}
-
-	// Read message body
-	msgBytes := make([]byte, contentLength)
-	_, err = io.ReadFull(reader, msgBytes)
-	if err != nil {
-		return nil, err
-	}
-
-	// Parse JSON-RPC message
-	var msg MCPMessage
-	err = json.Unmarshal(msgBytes, &msg)
-	if err != nil {
-		return nil, err
-	}
-
-	return &msg, nil
-}
 
 // Test suite runner
 func TestMCPToolsE2ETestSuite(t *testing.T) {

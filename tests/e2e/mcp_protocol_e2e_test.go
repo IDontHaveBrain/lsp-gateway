@@ -17,17 +17,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"lsp-gateway/tests/e2e/testutils"
 )
 
-// MCPMessage represents a JSON-RPC message for MCP protocol
-type MCPMessage struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      interface{} `json:"id,omitempty"`
-	Method  string      `json:"method,omitempty"`
-	Params  interface{} `json:"params,omitempty"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   interface{} `json:"error,omitempty"`
-}
 
 // TestMCPStdioProtocol tests MCP server STDIO communication
 func TestMCPStdioProtocol(t *testing.T) {
@@ -36,21 +29,56 @@ func TestMCPStdioProtocol(t *testing.T) {
 	}
 
 	// Build binary
-	projectRoot := getProjectRoot()
+	projectRoot, err := testutils.GetProjectRoot()
+	require.NoError(t, err)
 	binaryPath := filepath.Join(projectRoot, "bin", "lsp-gateway")
 	
 	// Find available port for gateway
-	gatewayPort := findAvailablePort(t)
+	gatewayPort, err := testutils.FindAvailablePort()
+	require.NoError(t, err)
 	gatewayURL := fmt.Sprintf("http://localhost:%d", gatewayPort)
 	
 	// Create temporary config file
-	configPath := createTempConfig(t, gatewayPort)
-	defer os.Remove(configPath)
+	configContent := fmt.Sprintf(`
+servers:
+- name: go-lsp
+  languages:
+  - go
+  command: gopls
+  args: []
+  transport: stdio
+  root_markers:
+  - go.mod
+  - go.sum
+  priority: 1
+  weight: 1.0
+port: %d
+timeout: 45s
+max_concurrent_requests: 150
+multi_server_config:
+  primary: null
+  secondary: []
+  selection_strategy: load_balance
+  concurrent_limit: 3
+  resource_sharing: true
+  health_check_interval: 30s
+  max_retries: 3
+enable_concurrent_servers: true
+max_concurrent_servers_per_language: 2
+enable_smart_routing: true
+smart_router_config:
+  default_strategy: single_target_with_fallback
+  method_strategies:
+    textDocument/definition: single_target_with_fallback
+`, gatewayPort)
+	configPath, configCleanup, err := testutils.CreateTempConfig(configContent)
+	require.NoError(t, err)
+	defer configCleanup()
 	
 	// Start LSP Gateway server first
 	gatewayCmd := exec.Command(binaryPath, "server", "--config", configPath)
 	gatewayCmd.Dir = projectRoot
-	err := gatewayCmd.Start()
+	err = gatewayCmd.Start()
 	require.NoError(t, err)
 	
 	defer func() {
@@ -99,8 +127,8 @@ func TestMCPStdioProtocol(t *testing.T) {
 	reader := bufio.NewReader(stdout)
 
 	// Test MCP initialize
-	initMsg := MCPMessage{
-		JSONRPC: "2.0",
+	initMsg := testutils.MCPMessage{
+		Jsonrpc: "2.0",
 		ID:      1,
 		Method:  "initialize",
 		Params: map[string]interface{}{
@@ -111,7 +139,7 @@ func TestMCPStdioProtocol(t *testing.T) {
 
 	response, err := sendMCPStdioMessage(stdin, reader, initMsg)
 	require.NoError(t, err)
-	assert.Equal(t, "2.0", response.JSONRPC)
+	assert.Equal(t, "2.0", response.Jsonrpc)
 	assert.Equal(t, 1, int(response.ID.(float64)))
 	assert.NotNil(t, response.Result)
 
@@ -125,22 +153,58 @@ func TestMCPTCPProtocol(t *testing.T) {
 	}
 
 	// Build binary
-	projectRoot := getProjectRoot()
+	projectRoot, err := testutils.GetProjectRoot()
+	require.NoError(t, err)
 	binaryPath := filepath.Join(projectRoot, "bin", "lsp-gateway")
 	
 	// Find available ports
-	gatewayPort := findAvailablePort(t)
-	mcpPort := findAvailablePort(t)
+	gatewayPort, err := testutils.FindAvailablePort()
+	require.NoError(t, err)
+	mcpPort, err := testutils.FindAvailablePort()
+	require.NoError(t, err)
 	gatewayURL := fmt.Sprintf("http://localhost:%d", gatewayPort)
 	
 	// Create temporary config file
-	configPath := createTempConfig(t, gatewayPort)
-	defer os.Remove(configPath)
+	configContent := fmt.Sprintf(`
+servers:
+- name: go-lsp
+  languages:
+  - go
+  command: gopls
+  args: []
+  transport: stdio
+  root_markers:
+  - go.mod
+  - go.sum
+  priority: 1
+  weight: 1.0
+port: %d
+timeout: 45s
+max_concurrent_requests: 150
+multi_server_config:
+  primary: null
+  secondary: []
+  selection_strategy: load_balance
+  concurrent_limit: 3
+  resource_sharing: true
+  health_check_interval: 30s
+  max_retries: 3
+enable_concurrent_servers: true
+max_concurrent_servers_per_language: 2
+enable_smart_routing: true
+smart_router_config:
+  default_strategy: single_target_with_fallback
+  method_strategies:
+    textDocument/definition: single_target_with_fallback
+`, gatewayPort)
+	configPath, configCleanup, err := testutils.CreateTempConfig(configContent)
+	require.NoError(t, err)
+	defer configCleanup()
 	
 	// Start LSP Gateway server first
 	gatewayCmd := exec.Command(binaryPath, "server", "--config", configPath)
 	gatewayCmd.Dir = projectRoot
-	err := gatewayCmd.Start()
+	err = gatewayCmd.Start()
 	require.NoError(t, err)
 	
 	defer func() {
@@ -190,8 +254,8 @@ func TestMCPTCPProtocol(t *testing.T) {
 	reader := bufio.NewReader(conn)
 
 	// Test MCP initialize
-	initMsg := MCPMessage{
-		JSONRPC: "2.0",
+	initMsg := testutils.MCPMessage{
+		Jsonrpc: "2.0",
 		ID:      1,
 		Method:  "initialize", 
 		Params: map[string]interface{}{
@@ -202,7 +266,7 @@ func TestMCPTCPProtocol(t *testing.T) {
 
 	response, err := sendMCPTCPMessage(conn, reader, initMsg)
 	require.NoError(t, err)
-	assert.Equal(t, "2.0", response.JSONRPC)
+	assert.Equal(t, "2.0", response.Jsonrpc)
 	assert.Equal(t, 1, int(response.ID.(float64)))
 	assert.NotNil(t, response.Result)
 
@@ -216,21 +280,56 @@ func TestMCPToolsList(t *testing.T) {
 	}
 
 	// Build binary
-	projectRoot := getProjectRoot()
+	projectRoot, err := testutils.GetProjectRoot()
+	require.NoError(t, err)
 	binaryPath := filepath.Join(projectRoot, "bin", "lsp-gateway")
 	
 	// Find available port for gateway
-	gatewayPort := findAvailablePort(t)
+	gatewayPort, err := testutils.FindAvailablePort()
+	require.NoError(t, err)
 	gatewayURL := fmt.Sprintf("http://localhost:%d", gatewayPort)
 	
 	// Create temporary config file
-	configPath := createTempConfig(t, gatewayPort)
-	defer os.Remove(configPath)
+	configContent := fmt.Sprintf(`
+servers:
+- name: go-lsp
+  languages:
+  - go
+  command: gopls
+  args: []
+  transport: stdio
+  root_markers:
+  - go.mod
+  - go.sum
+  priority: 1
+  weight: 1.0
+port: %d
+timeout: 45s
+max_concurrent_requests: 150
+multi_server_config:
+  primary: null
+  secondary: []
+  selection_strategy: load_balance
+  concurrent_limit: 3
+  resource_sharing: true
+  health_check_interval: 30s
+  max_retries: 3
+enable_concurrent_servers: true
+max_concurrent_servers_per_language: 2
+enable_smart_routing: true
+smart_router_config:
+  default_strategy: single_target_with_fallback
+  method_strategies:
+    textDocument/definition: single_target_with_fallback
+`, gatewayPort)
+	configPath, configCleanup, err := testutils.CreateTempConfig(configContent)
+	require.NoError(t, err)
+	defer configCleanup()
 	
 	// Start LSP Gateway server first
 	gatewayCmd := exec.Command(binaryPath, "server", "--config", configPath)
 	gatewayCmd.Dir = projectRoot
-	err := gatewayCmd.Start()
+	err = gatewayCmd.Start()
 	require.NoError(t, err)
 	
 	defer func() {
@@ -267,8 +366,8 @@ func TestMCPToolsList(t *testing.T) {
 	reader := bufio.NewReader(stdout)
 
 	// Initialize first
-	initMsg := MCPMessage{
-		JSONRPC: "2.0",
+	initMsg := testutils.MCPMessage{
+		Jsonrpc: "2.0",
 		ID:      1,
 		Method:  "initialize",
 		Params: map[string]interface{}{
@@ -281,15 +380,15 @@ func TestMCPToolsList(t *testing.T) {
 	require.NoError(t, err)
 
 	// Test tools/list
-	listMsg := MCPMessage{
-		JSONRPC: "2.0",
+	listMsg := testutils.MCPMessage{
+		Jsonrpc: "2.0",
 		ID:      2,
 		Method:  "tools/list",
 	}
 
 	response, err := sendMCPStdioMessage(stdin, reader, listMsg)
 	require.NoError(t, err)
-	assert.Equal(t, "2.0", response.JSONRPC)
+	assert.Equal(t, "2.0", response.Jsonrpc)
 	assert.Equal(t, 2, int(response.ID.(float64)))
 	assert.NotNil(t, response.Result)
 
@@ -345,11 +444,13 @@ func main() {
 	require.NoError(t, err)
 
 	// Build binary
-	projectRoot := getProjectRoot()
+	projectRoot, err := testutils.GetProjectRoot()
+	require.NoError(t, err)
 	binaryPath := filepath.Join(projectRoot, "bin", "lsp-gateway")
 	
 	// Find available port for gateway
-	gatewayPort := findAvailablePort(t)
+	gatewayPort, err := testutils.FindAvailablePort()
+	require.NoError(t, err)
 	gatewayURL := fmt.Sprintf("http://localhost:%d", gatewayPort)
 	
 	// Start LSP Gateway server first
@@ -392,8 +493,8 @@ func main() {
 	reader := bufio.NewReader(stdout)
 
 	// Initialize
-	initMsg := MCPMessage{
-		JSONRPC: "2.0",
+	initMsg := testutils.MCPMessage{
+		Jsonrpc: "2.0",
 		ID:      1,
 		Method:  "initialize",
 		Params: map[string]interface{}{
@@ -406,8 +507,8 @@ func main() {
 	require.NoError(t, err)
 
 	// Test get_document_symbols tool call
-	callMsg := MCPMessage{
-		JSONRPC: "2.0",
+	callMsg := testutils.MCPMessage{
+		Jsonrpc: "2.0",
 		ID:      3,
 		Method:  "tools/call",
 		Params: map[string]interface{}{
@@ -420,7 +521,7 @@ func main() {
 
 	response, err := sendMCPStdioMessage(stdin, reader, callMsg)
 	require.NoError(t, err)
-	assert.Equal(t, "2.0", response.JSONRPC)
+	assert.Equal(t, "2.0", response.Jsonrpc)
 	assert.Equal(t, 3, int(response.ID.(float64)))
 
 	// Should have result or graceful error
@@ -434,7 +535,7 @@ func main() {
 }
 
 // sendMCPStdioMessage sends a message via STDIO and returns the response
-func sendMCPStdioMessage(stdin io.WriteCloser, reader *bufio.Reader, msg MCPMessage) (*MCPMessage, error) {
+func sendMCPStdioMessage(stdin io.WriteCloser, reader *bufio.Reader, msg testutils.MCPMessage) (*testutils.MCPMessage, error) {
 	// Serialize message
 	msgBytes, err := json.Marshal(msg)
 	if err != nil {
@@ -453,7 +554,7 @@ func sendMCPStdioMessage(stdin io.WriteCloser, reader *bufio.Reader, msg MCPMess
 }
 
 // sendMCPTCPMessage sends a message via TCP and returns the response
-func sendMCPTCPMessage(conn net.Conn, reader *bufio.Reader, msg MCPMessage) (*MCPMessage, error) {
+func sendMCPTCPMessage(conn net.Conn, reader *bufio.Reader, msg testutils.MCPMessage) (*testutils.MCPMessage, error) {
 	// Serialize message
 	msgBytes, err := json.Marshal(msg)
 	if err != nil {
@@ -472,7 +573,7 @@ func sendMCPTCPMessage(conn net.Conn, reader *bufio.Reader, msg MCPMessage) (*MC
 }
 
 // readMCPStdioMessage reads a JSON-RPC message from STDIO
-func readMCPStdioMessage(reader *bufio.Reader) (*MCPMessage, error) {
+func readMCPStdioMessage(reader *bufio.Reader) (*testutils.MCPMessage, error) {
 	// Read Content-Length header
 	line, _, err := reader.ReadLine()
 	if err != nil {
@@ -499,7 +600,7 @@ func readMCPStdioMessage(reader *bufio.Reader) (*MCPMessage, error) {
 	}
 
 	// Parse JSON-RPC message
-	var msg MCPMessage
+	var msg testutils.MCPMessage
 	err = json.Unmarshal(msgBytes, &msg)
 	if err != nil {
 		return nil, err
@@ -509,74 +610,9 @@ func readMCPStdioMessage(reader *bufio.Reader) (*MCPMessage, error) {
 }
 
 // readMCPTCPMessage reads a JSON-RPC message from TCP
-func readMCPTCPMessage(reader *bufio.Reader) (*MCPMessage, error) {
+func readMCPTCPMessage(reader *bufio.Reader) (*testutils.MCPMessage, error) {
 	return readMCPStdioMessage(reader) // Same format for both
 }
 
-// findAvailablePort finds an available TCP port
-func findAvailablePort(t *testing.T) int {
-	listener, err := net.Listen("tcp", ":0")
-	require.NoError(t, err)
-	port := listener.Addr().(*net.TCPAddr).Port
-	listener.Close()
-	return port
-}
 
-// getProjectRoot returns the project root directory
-func getProjectRoot() string {
-	wd, _ := os.Getwd()
-	for wd != "/" {
-		if _, err := os.Stat(filepath.Join(wd, "go.mod")); err == nil {
-			return wd
-		}
-		wd = filepath.Dir(wd)
-	}
-	return "."
-}
 
-// createTempConfig creates a temporary configuration file for testing
-func createTempConfig(t *testing.T, port int) string {
-	configContent := fmt.Sprintf(`
-servers:
-- name: go-lsp
-  languages:
-  - go
-  command: gopls
-  args: []
-  transport: stdio
-  root_markers:
-  - go.mod
-  - go.sum
-  priority: 1
-  weight: 1.0
-port: %d
-timeout: 45s
-max_concurrent_requests: 150
-multi_server_config:
-  primary: null
-  secondary: []
-  selection_strategy: load_balance
-  concurrent_limit: 3
-  resource_sharing: true
-  health_check_interval: 30s
-  max_retries: 3
-enable_concurrent_servers: true
-max_concurrent_servers_per_language: 2
-enable_smart_routing: true
-smart_router_config:
-  default_strategy: single_target_with_fallback
-  method_strategies:
-    textDocument/definition: single_target_with_fallback
-`, port)
-
-	tempFile, err := os.CreateTemp("", "lsp-gateway-test-*.yaml")
-	require.NoError(t, err)
-	
-	_, err = tempFile.WriteString(configContent)
-	require.NoError(t, err)
-	
-	err = tempFile.Close()
-	require.NoError(t, err)
-	
-	return tempFile.Name()
-}
