@@ -142,7 +142,7 @@ quality: format lint security
 # TESTING TARGETS
 # =============================================================================
 
-.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-go test-java-real test-python-real test-typescript-real test-e2e-advanced test-e2e-workflow test-e2e-setup-cli test-e2e-mcp test-mcp-stdio test-mcp-tcp test-mcp-tools test-mcp-scip test-npm-cli setup-simple-repos
+.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-go test-java-real test-python-real test-typescript-real test-e2e-advanced test-e2e-workflow test-e2e-setup-cli test-e2e-mcp test-mcp-stdio test-mcp-tcp test-mcp-tools test-mcp-scip test-npm-cli test-npm-mcp test-npm-mcp-quick test-npm-mcp-js test-npm-mcp-go setup-simple-repos
 setup-simple-repos:
 	@echo "Setting up test repositories..."
 	./scripts/setup-simple-repos.sh || echo "Setup script not found, skipping..."
@@ -250,6 +250,22 @@ test-npm-cli:
 	@echo "Running npm-cli E2E tests..."
 	$(GOTEST) -v -timeout 600s -run "TestNpmCliE2ETestSuite" ./tests/e2e/npm_cli_e2e_test.go
 
+# NPM-MCP Test Targets  
+test-npm-mcp:
+	@echo "Running comprehensive NPM-MCP tests..."
+	./scripts/test-npm-mcp.sh --verbose
+
+test-npm-mcp-quick:
+	@echo "Running quick NPM-MCP tests..."
+	./scripts/test-npm-mcp.sh --quick --verbose
+
+test-npm-mcp-js:
+	@echo "Running NPM-MCP JavaScript tests only..."
+	./scripts/test-npm-mcp.sh --js-only --verbose
+
+test-npm-mcp-go:
+	@echo "Running NPM-MCP Go integration tests only..."
+	./scripts/test-npm-mcp.sh --go-only --verbose
 
 # =============================================================================
 # UTILITY TARGETS
@@ -327,6 +343,12 @@ help:
 	@echo "  test-java-real         - Java real JDTLS integration"
 	@echo "  test-python-real       - Python real pylsp integration"
 	@echo "  test-typescript-real   - TypeScript real server integration"
+	@echo ""
+	@echo "NPM-MCP Integration Testing:"
+	@echo "  test-npm-mcp           - Comprehensive NPM-MCP tests (JavaScript + Go)"
+	@echo "  test-npm-mcp-quick     - Quick NPM-MCP tests"
+	@echo "  test-npm-mcp-js        - JavaScript E2E tests only"
+	@echo "  test-npm-mcp-go        - Go integration tests only"
 	@echo ""
 	@echo "Utility:"
 	@echo "  install   - Install binary to GOPATH"
