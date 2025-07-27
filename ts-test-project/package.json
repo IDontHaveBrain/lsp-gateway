@@ -1,0 +1,17 @@
+{
+  "name": "ts-test-project",
+  "version": "1.0.0",
+  "description": "Test project for TypeScript language server",
+  "main": "index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "dependencies": {
+    "express": "^4.18.0"
+  }
+}
