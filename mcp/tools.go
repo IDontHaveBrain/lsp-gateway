@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 )
@@ -97,12 +98,17 @@ type ContentBlock struct {
 	Annotations map[string]interface{} `json:"annotations,omitempty"`
 }
 
+// LSPClient interface defines the methods needed for LSP communication
+type LSPClient interface {
+	SendLSPRequest(ctx context.Context, method string, params interface{}) (json.RawMessage, error)
+}
+
 type ToolHandler struct {
-	Client *LSPGatewayClient
+	Client LSPClient
 	Tools  map[string]Tool
 }
 
-func NewToolHandler(client *LSPGatewayClient) *ToolHandler {
+func NewToolHandler(client LSPClient) *ToolHandler {
 	handler := &ToolHandler{
 		Client: client,
 		Tools:  make(map[string]Tool),

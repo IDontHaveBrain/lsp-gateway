@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -158,19 +159,16 @@ func (m *MockMcpClient) SendLSPRequest(ctx context.Context, method string, param
 	if len(m.queuedResponses) > 0 {
 		response := m.queuedResponses[0]
 		m.queuedResponses = m.queuedResponses[1:]  // Always consume the response
-		// Try to validate if the response format matches the expected method
-		if m.isResponseCompatibleWithMethod(response, method) {
-			m.metrics.SuccessfulReqs++
-			return response, nil
-		}
-		// If not compatible, fall through to default responses
+		// Return queued response regardless of compatibility
+		m.metrics.SuccessfulReqs++
+		return response, nil
 	}
 
 	// Fall back to default responses
 	m.metrics.SuccessfulReqs++
 	switch method {
 	case "textDocument/definition":
-		return json.RawMessage(`[{"uri":"file://test.go","range":{"start":{"line":10,"character":0}}}]`), nil
+		return json.RawMessage(`{"uri":"file://test.go","range":{"start":{"line":10,"character":0}}}`), nil
 	case "textDocument/hover":
 		return json.RawMessage(`{"contents":"test hover content"}`), nil
 	case "textDocument/references":
@@ -182,7 +180,7 @@ func (m *MockMcpClient) SendLSPRequest(ctx context.Context, method string, param
 	case "textDocument/completion":
 		return json.RawMessage(`{"items":[{"label":"testCompletion","kind":1}]}`), nil
 	default:
-		return json.RawMessage(`{}`), nil
+		return json.RawMessage(`{"result":"success"}`), nil
 	}
 }
 
@@ -284,23 +282,6 @@ func (m *MockMcpClient) GetTotalCallCount() int {
 	return len(m.SendLSPRequestCalls)
 }
 
-// isResponseCompatibleWithMethod checks if a queued response is compatible with the method being called
-func (m *MockMcpClient) isResponseCompatibleWithMethod(response json.RawMessage, method string) bool {
-	// Quick heuristic: check if response format matches expected format for the method
-	responseStr := string(response)
-	
-	switch method {
-	case "textDocument/documentSymbol", "textDocument/references", "workspace/symbol":
-		// These methods expect arrays
-		return len(responseStr) > 0 && responseStr[0] == '['
-	case "textDocument/definition", "textDocument/hover", "textDocument/completion":
-		// These methods can accept objects or arrays
-		return len(responseStr) > 0 && (responseStr[0] == '{' || responseStr[0] == '[')
-	default:
-		// For unsupported methods, reject
-		return false
-	}
-}
 
 // QueueError adds an error to the queue that will be returned by SendLSPRequest
 func (m *MockMcpClient) QueueError(err error) {
@@ -313,6 +294,8 @@ func (m *MockMcpClient) QueueError(err error) {
 func (m *MockMcpClient) UpdateMetrics(totalRequests, successfulRequests, failedRequests, errorCount, warningCount int, averageLatency time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	
+	// Record the call for testing purposes
 	m.UpdateMetricsCalls = append(m.UpdateMetricsCalls, UpdateMetricsCall{
 		TotalRequests:      totalRequests,
 		SuccessfulRequests: successfulRequests,
@@ -321,6 +304,13 @@ func (m *MockMcpClient) UpdateMetrics(totalRequests, successfulRequests, failedR
 		WarningCount:       warningCount,
 		AverageLatency:     averageLatency,
 	})
+	
+	// Actually update the metrics values
+	m.metrics.TotalRequests = int64(totalRequests)
+	m.metrics.SuccessfulReqs = int64(successfulRequests)
+	m.metrics.FailedRequests = int64(failedRequests)
+	m.metrics.TimeoutCount = int64(errorCount)
+	m.metrics.AverageLatency = averageLatency
 }
 
 // SetCircuitBreakerConfig simulates setting circuit breaker configuration
@@ -338,7 +328,6 @@ func (m *MockMcpClient) GetMetrics() mcp.ConnectionMetrics {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.GetMetricsCalls = append(m.GetMetricsCalls, struct{}{})
-	m.metrics.TotalRequests = m.metrics.SuccessfulReqs + m.metrics.FailedRequests
 	return *m.metrics
 }
 
@@ -406,17 +395,17 @@ func (m *MockMcpClient) CategorizeError(err error) mcp.ErrorCategory {
 	
 	errStr := err.Error()
 	switch {
-	case fmt.Sprintf("network") == errStr:
+	case strings.Contains(errStr, "network"):
 		return mcp.ErrorCategoryNetwork
-	case fmt.Sprintf("timeout") == errStr:
+	case strings.Contains(errStr, "timeout"):
 		return mcp.ErrorCategoryTimeout
-	case fmt.Sprintf("server error") == errStr:
+	case strings.Contains(errStr, "server error"):
 		return mcp.ErrorCategoryServer
-	case fmt.Sprintf("client error") == errStr:
+	case strings.Contains(errStr, "client error"):
 		return mcp.ErrorCategoryClient
-	case fmt.Sprintf("rate limit") == errStr:
+	case strings.Contains(errStr, "rate limit"):
 		return mcp.ErrorCategoryRateLimit
-	case fmt.Sprintf("protocol error") == errStr:
+	case strings.Contains(errStr, "protocol error"):
 		return mcp.ErrorCategoryProtocol
 	default:
 		return mcp.ErrorCategoryUnknown

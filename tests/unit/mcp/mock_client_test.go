@@ -26,13 +26,13 @@ func TestMockMcpClient_SendLSPRequest_DefaultBehavior(t *testing.T) {
 	require.NoError(t, err, "SendLSPRequest should not return an error by default")
 	assert.NotNil(t, result, "Result should not be nil")
 
-	var response map[string]interface{}
-	err = json.Unmarshal(result, &response)
-	require.NoError(t, err, "Result should be valid JSON")
+	// For workspace/symbol, expect an array response (LSP-compliant)
+	var symbols []interface{}
+	err = json.Unmarshal(result, &symbols)
+	require.NoError(t, err, "Result should be valid JSON array")
 
-	symbols, exists := response["symbols"]
-	assert.True(t, exists, "Response should contain symbols")
-	assert.NotNil(t, symbols, "Symbols should not be nil")
+	assert.NotEmpty(t, symbols, "Symbols array should not be empty")
+	assert.Len(t, symbols, 1, "Should contain one symbol")
 
 	assert.Len(t, mockClient.SendLSPRequestCalls, 1, "Should record one call")
 	assert.Equal(t, method, mockClient.SendLSPRequestCalls[0].Method, "Method should match")
@@ -253,23 +253,39 @@ func TestMockMcpClient_DefaultResponses(t *testing.T) {
 	tests := []struct {
 		method   string
 		expected string
+		isArray  bool
 	}{
-		{mcp.LSP_METHOD_WORKSPACE_SYMBOL, "symbols"},
-		{mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION, "uri"},
-		{mcp.LSP_METHOD_TEXT_DOCUMENT_HOVER, "contents"},
-		{"custom/method", "result"},
+		{mcp.LSP_METHOD_WORKSPACE_SYMBOL, "name", true}, // Array response, check for symbol properties
+		{mcp.LSP_METHOD_TEXT_DOCUMENT_DEFINITION, "uri", false},
+		{mcp.LSP_METHOD_TEXT_DOCUMENT_HOVER, "contents", false},
+		{"custom/method", "result", false},
 	}
 
 	for _, test := range tests {
 		result, err := mockClient.SendLSPRequest(ctx, test.method, nil)
 		require.NoError(t, err, "Should not error for method: %s", test.method)
 
-		var response map[string]interface{}
-		err = json.Unmarshal(result, &response)
-		require.NoError(t, err, "Should unmarshal response for: %s", test.method)
+		if test.isArray {
+			// Handle array responses (like workspace/symbol)
+			var arrayResponse []interface{}
+			err = json.Unmarshal(result, &arrayResponse)
+			require.NoError(t, err, "Should unmarshal array response for: %s", test.method)
+			assert.NotEmpty(t, arrayResponse, "Array response should not be empty for: %s", test.method)
+			
+			// Check first element has expected property
+			firstElement, ok := arrayResponse[0].(map[string]interface{})
+			require.True(t, ok, "First element should be an object for: %s", test.method)
+			_, exists := firstElement[test.expected]
+			assert.True(t, exists, "First element should contain %s for method %s", test.expected, test.method)
+		} else {
+			// Handle object responses
+			var response map[string]interface{}
+			err = json.Unmarshal(result, &response)
+			require.NoError(t, err, "Should unmarshal response for: %s", test.method)
 
-		_, exists := response[test.expected]
-		assert.True(t, exists, "Response should contain %s for method %s", test.expected, test.method)
+			_, exists := response[test.expected]
+			assert.True(t, exists, "Response should contain %s for method %s", test.expected, test.method)
+		}
 	}
 }
 
