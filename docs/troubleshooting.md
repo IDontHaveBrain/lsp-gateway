@@ -13,31 +13,50 @@ Start with these commands to identify issues:
 # Comprehensive diagnostics
 ./bin/lsp-gateway diagnose
 
+# Enhanced diagnostic capabilities
+./bin/lsp-gateway diagnose runtimes     # Runtime detection and validation
+./bin/lsp-gateway diagnose routing      # Request routing and LSP connections
+./bin/lsp-gateway diagnose performance  # Performance metrics and SCIP cache
+
 # Check server status
 ./bin/lsp-gateway status
+./bin/lsp-gateway status runtimes       # Runtime-specific status
 
 # Verify installation
 ./bin/lsp-gateway verify
+./bin/lsp-gateway verify runtime <lang> # Verify specific language runtime
+
+# System information
+./bin/lsp-gateway version               # Version and build information
 ```
 
 ## Common Issues
 
 ### 1. Configuration Problems
 
-**Symptoms**: Server won't start, invalid configuration errors
+**Symptoms**: Server won't start, invalid configuration errors, template issues
 
 ```bash
 # Validate configuration
 ./bin/lsp-gateway config validate
+./bin/lsp-gateway config validate --verbose    # Detailed validation output
 
-# Check available templates
-./bin/lsp-gateway config templates
+# Show current effective configuration
+./bin/lsp-gateway config show                  # Display merged configuration
+./bin/lsp-gateway config show --format json    # JSON format output
 
-# Regenerate configuration
-./bin/lsp-gateway config generate --force
+# Configuration generation and templates
+./bin/lsp-gateway config generate --force      # Regenerate configuration
+./bin/lsp-gateway config templates             # List available templates
 
-# Detailed validation with verbose output
-./bin/lsp-gateway config validate --verbose
+# Advanced configuration management
+./bin/lsp-gateway config migrate               # Migrate old configuration format
+./bin/lsp-gateway config optimize              # Optimize config for performance
+
+# Project detection and setup
+./bin/lsp-gateway setup detect                 # Detect project languages
+./bin/lsp-gateway setup template <name>        # Apply specific template
+./bin/lsp-gateway setup multi-language         # Multi-language project setup
 ```
 
 ### 2. Language Server Issues
@@ -66,11 +85,16 @@ Start with these commands to identify issues:
 
 ### 3. Performance Issues
 
-**Symptoms**: Slow responses, high memory usage, timeouts
+**Symptoms**: Slow responses, high memory usage, timeouts, poor SCIP cache performance
 
 ```bash
 # Run performance diagnostics
 ./bin/lsp-gateway performance
+./bin/lsp-gateway diagnose performance         # Enhanced performance metrics
+
+# SCIP cache diagnostics
+./bin/lsp-gateway diagnose --verbose           # Includes cache hit rates
+./bin/lsp-gateway status                       # Shows cache utilization
 
 # Check circuit breaker status
 ./bin/lsp-gateway diagnose --verbose
@@ -78,7 +102,7 @@ Start with these commands to identify issues:
 # Run performance tests
 make test-integration
 
-# Monitor memory usage
+# Monitor system resources
 htop # or top on macOS
 ```
 
@@ -87,6 +111,12 @@ htop # or top on macOS
 - **Connection Pool**: Check pool utilization in diagnostics
 - **Memory**: 3GB max limit, 1GB growth threshold
 - **Response Time**: 5s max - check server load
+
+**SCIP Cache Troubleshooting:**
+- **Low Cache Hit Rate (<85%)**: Check file watching, ensure source files aren't changing rapidly
+- **High Memory Usage**: Cache uses 65-75MB additional memory - normal behavior
+- **Cache Invalidation Issues**: Restart server to rebuild cache, check file permissions
+- **Performance Regression**: Verify 60-87% response time improvement with cache enabled
 
 ### 4. Connection Issues
 
@@ -127,21 +157,87 @@ make quality  # format + lint + security
 make test-simple-quick
 ```
 
-### 6. MCP Integration Issues
+### 6. Setup and Installation Problems
 
-**Symptoms**: AI assistant can't connect, MCP protocol errors
+**Symptoms**: Runtime detection failures, language server installation issues, multi-language setup problems
+
+```bash
+# Enhanced setup diagnostics
+./bin/lsp-gateway setup detect                 # Detect project languages and requirements
+./bin/lsp-gateway diagnose runtimes            # Validate runtime installations
+
+# Runtime-specific verification
+./bin/lsp-gateway verify runtime go            # Verify Go runtime
+./bin/lsp-gateway verify runtime python        # Verify Python runtime
+./bin/lsp-gateway verify runtime node          # Verify Node.js runtime
+./bin/lsp-gateway verify runtime java          # Verify Java runtime
+
+# Template-based setup
+./bin/lsp-gateway setup template go-advanced   # Apply Go template
+./bin/lsp-gateway setup template python-django # Apply Django template
+./bin/lsp-gateway setup multi-language         # Multi-language project setup
+
+# Troubleshoot setup issues
+./bin/lsp-gateway setup all --verbose          # Verbose setup output
+./bin/lsp-gateway install <server> --force     # Force reinstall language server
+```
+
+**Common Setup Problems:**
+
+**Runtime Detection Failures:**
+- **Go**: Check `go version` (requires 1.24+), verify GOPATH/GOROOT
+- **Python**: Verify `python3` and `pip3` availability, check virtual environments
+- **Node.js**: Check `node --version` (requires 22+), verify npm/yarn access
+- **Java**: Verify JDK installation (requires 17+), check JAVA_HOME
+
+**Language Server Installation Issues:**
+- **Permission Errors**: Check npm/pip permissions, use `--force` flag
+- **Network Issues**: Verify internet connectivity, check proxy settings
+- **Version Conflicts**: Use `install <server> --force` to override existing installations
+- **Missing Dependencies**: Run `setup all` to install missing runtimes
+
+**Multi-Language Project Problems:**
+- **Template Conflicts**: Use project-specific templates instead of generic ones
+- **Resource Conflicts**: Check memory and CPU limits in configuration
+- **Path Issues**: Verify language-specific PATH configuration in templates
+
+### 7. MCP Integration Issues
+
+**Symptoms**: AI assistant can't connect, MCP protocol errors, tool failures
 
 ```bash
 # Start MCP server in debug mode
-./bin/lsp-gateway mcp --config config.yaml --debug
+./bin/lsp-gateway mcp --config config.yaml --debug --verbose
 
-# Check MCP transport options
+# Check MCP transport options and configuration
 ./bin/lsp-gateway mcp --help
+./bin/lsp-gateway config show               # Verify MCP configuration
 
-# Test MCP connection
+# Diagnose MCP protocol issues
+./bin/lsp-gateway diagnose routing          # Check MCP to LSP routing
+./bin/lsp-gateway status                    # Verify MCP server status
+
+# Test MCP connection by transport type
 # For stdio: Check if process starts correctly
+echo '{"jsonrpc":"2.0","method":"initialize","id":1}' | ./bin/lsp-gateway mcp --config config.yaml
+
 # For tcp: Check if port is available and accessible
+./bin/lsp-gateway mcp --config config.yaml --transport tcp --port 3000
+lsof -i :3000  # Verify port binding
 ```
+
+**Common MCP Protocol Problems:**
+- **STDIO Transport**: Process startup issues, stdin/stdout redirection conflicts
+- **TCP Transport**: Port binding failures, firewall blocking, connection timeouts  
+- **Tool Failures**: LSP method not supported, gateway routing errors
+- **Protocol Errors**: JSON-RPC format issues, missing method implementations
+- **AI Assistant Integration**: Capability mismatch, transport configuration errors
+
+**MCP Protocol Debugging:**
+- **Enable Verbose Logging**: Use `--debug --verbose` for detailed protocol traces
+- **Test Individual Tools**: Verify each LSP feature works via HTTP before MCP
+- **Check Transport Layer**: Ensure chosen transport (stdio/tcp) works correctly
+- **Validate Protocol Messages**: Check JSON-RPC 2.0 format compliance
 
 ## Advanced Troubleshooting
 
@@ -154,17 +250,72 @@ Monitor circuit breaker status in diagnostics:
 
 ### Configuration Debugging
 
-Check configuration hierarchy:
+Check configuration hierarchy and troubleshoot config issues:
 ```bash
 # Show effective configuration
 ./bin/lsp-gateway config show
+./bin/lsp-gateway config show --format json    # JSON format for analysis
 
 # Validate specific template
 ./bin/lsp-gateway config templates --show enterprise
+./bin/lsp-gateway config templates             # List all available templates
 
 # Test configuration generation
-./bin/lsp-gateway config generate --dry-run
+./bin/lsp-gateway config generate --dry-run    # Test without writing files
+./bin/lsp-gateway config generate --force      # Force regeneration
+
+# Advanced configuration management
+./bin/lsp-gateway config migrate               # Migrate legacy configurations
+./bin/lsp-gateway config optimize              # Optimize for current setup
+./bin/lsp-gateway config validate --verbose    # Detailed validation output
+
+# Project-specific configuration
+./bin/lsp-gateway setup detect                 # Auto-detect project requirements
+./bin/lsp-gateway setup template <name>        # Apply template to current project
 ```
+
+### SCIP Cache Diagnostics
+
+Monitor and troubleshoot SCIP intelligent caching performance:
+
+```bash
+# SCIP cache performance diagnostics
+./bin/lsp-gateway diagnose performance         # Cache hit rates and performance metrics
+./bin/lsp-gateway status                       # Cache utilization and memory usage
+
+# Cache management operations
+# Cache is managed automatically - manual operations for troubleshooting only
+rm -rf ~/.cache/lsp-gateway/scip               # Reset cache (restart required)
+
+# Performance baseline creation
+./bin/lsp-gateway diagnose performance --baseline  # Create performance baseline
+./bin/lsp-gateway diagnose performance --compare   # Compare with baseline
+
+# Cache monitoring commands
+./bin/lsp-gateway diagnose --verbose           # Detailed cache statistics
+```
+
+**SCIP Cache Issues and Solutions:**
+
+**Low Cache Hit Rate (<85%)**:
+- **Cause**: Rapidly changing source files, file watching issues
+- **Solution**: Check file permissions, reduce file modification frequency during testing
+- **Diagnosis**: Monitor cache hit rates with `diagnose performance`
+
+**High Memory Usage (>100MB cache)**:
+- **Cause**: Large codebase, many indexed symbols
+- **Normal**: 65-75MB additional memory usage is expected
+- **Solution**: Monitor with system tools, restart if memory growth is excessive
+
+**Cache Invalidation Problems**:
+- **Symptoms**: Stale responses, outdated symbol information
+- **Solution**: Restart LSP Gateway to rebuild cache, check file watching
+- **Prevention**: Ensure proper file permissions for cache directory
+
+**Performance Regression**:
+- **Expected**: 60-87% response time improvement with cache
+- **Diagnosis**: Compare performance with and without cache using baselines
+- **Solution**: Verify SCIP indexing is working, check for cache corruption
 
 ### Log Analysis
 
@@ -227,10 +378,26 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ## Getting Help
 
 1. **Enable verbose logging** with `--verbose --debug` flags
-2. **Run full diagnostics** with `./bin/lsp-gateway diagnose --verbose`
-3. **Check the logs** for specific error messages
+2. **Run comprehensive diagnostics**:
+   ```bash
+   ./bin/lsp-gateway diagnose --verbose          # Full system diagnostics
+   ./bin/lsp-gateway diagnose runtimes           # Runtime-specific issues
+   ./bin/lsp-gateway diagnose performance        # Performance and SCIP cache
+   ./bin/lsp-gateway diagnose routing            # Request routing and connections
+   ```
+3. **Check system status and configuration**:
+   ```bash
+   ./bin/lsp-gateway status runtimes             # Runtime status
+   ./bin/lsp-gateway config show                 # Effective configuration
+   ./bin/lsp-gateway version                     # Version and build info
+   ```
 4. **Test with minimal configuration** using basic templates
 5. **Verify system requirements** (Go 1.24+, Node.js 22+)
+6. **Enable shell completion** for easier command usage:
+   ```bash
+   ./bin/lsp-gateway completion bash >> ~/.bashrc  # Bash completion
+   ./bin/lsp-gateway completion zsh >> ~/.zshrc    # Zsh completion
+   ```
 
 ## Configuration Templates
 

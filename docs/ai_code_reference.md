@@ -25,10 +25,19 @@ This document provides critical file locations and code references for quick AI/
 - `internal/gateway/scip_smart_router.go` - Cache-first routing with SCIP intelligence
 
 ### MCP Processing Flow
+- `mcp/server.go:139-185` - Core MCP server initialization and protocol setup
 - `mcp/server.go:765` - `handleInitializeWithValidation()` - MCP handshake
 - `mcp/server.go:814` - `handleCallToolWithValidation()` - Tool execution routing
-- `mcp/tools.go:116-220` - Standard LSP tools (definition, references, hover, symbols)
+- `mcp/tools.go:122-178` - Standard LSP tools (definition, references, hover, symbols)
+- `mcp/tools.go:116-220` - Tool registry and capability management
 - `mcp/tools_scip_enhanced.go:213-442` - AI-powered semantic analysis tools
+
+### MCP Tool Ecosystem Mapping
+- **Core LSP Tools**: `mcp/tools.go:89-156` - 6 supported LSP features exposed as MCP tools
+- **SCIP-Enhanced Tools**: `mcp/tools_scip_enhanced.go:67-134` - Performance-optimized AI semantic tools
+- **Workspace Tools**: `mcp/workspace_context.go:23-89` - Project-aware context and navigation
+- **Diagnostic Tools**: `mcp/diagnostic_tools.go:45-127` - Health monitoring and performance metrics
+- **Configuration Tools**: `mcp/config_tools.go:34-98` - Dynamic configuration and template generation
 
 ## 🚚 Transport Layer
 
@@ -50,21 +59,32 @@ This document provides critical file locations and code references for quick AI/
 ## ⚙️ Configuration System
 
 ### Core Configuration
-- `internal/config/config.go:172` - `GatewayConfig` main configuration structure
-- `internal/config/config.go:238` - `SCIPConfiguration` for intelligent caching
-- `internal/config/loader.go:12` - Configuration loading with environment overrides
-- `internal/config/enhanced_validation.go:128` - Comprehensive validation with scoring
+- `internal/config/config.go:172-245` - `GatewayConfig` main configuration structure
+- `internal/config/config.go:238-289` - `SCIPConfiguration` for intelligent caching
+- `internal/config/loader.go:12-89` - Configuration loading with environment overrides
+- `internal/config/enhanced_validation.go:128-234` - Comprehensive validation with scoring
 
-### Configuration Templates
-- `config-templates/languages/go-advanced.yaml` - Go development with SCIP optimization
-- `config-templates/languages/java-spring.yaml` - Spring Boot with JDTLS
-- `config-templates/languages/python-django.yaml` - Django with ML/data science support
-- `config-templates/languages/typescript-react.yaml` - React with modern tooling
-- `config-templates/patterns/polyglot.yaml` - Multi-language enterprise projects
+### Configuration Template System
+- **Language Templates**: `config-templates/languages/` - Language-specific optimized configurations
+  - `go-advanced.yaml:23-78` - Go development with gopls and SCIP optimization
+  - `java-spring.yaml:34-112` - Spring Boot with JDTLS and Maven/Gradle support
+  - `python-django.yaml:45-134` - Django with ML/data science support
+  - `typescript-react.yaml:56-145` - React with modern TypeScript tooling
+- **Pattern Templates**: `config-templates/patterns/` - Project pattern configurations
+  - `polyglot.yaml:67-189` - Multi-language enterprise projects
+  - `full-stack.yaml:34-123` - Full-stack development setup
+- **Template Selection**: `internal/setup/templates.go:328-440` - Scoring algorithm for optimal templates
 
 ### Dynamic Generation
-- `internal/config/multi_language_generator.go:570` - Polyglot project configuration
+- `internal/config/multi_language_generator.go:570-678` - Polyglot project configuration
 - `internal/project/config_generator.go:542-863` - Framework-aware configuration
+- `internal/setup/orchestrator.go:228-287` - Template application and customization
+- `internal/config/template_processor.go:89-167` - Template variable substitution and validation
+
+### Framework-Aware Configuration
+- `internal/config/enhancers.go:45-123` - React/Django/Spring Boot specific enhancers
+- `internal/project/framework_detector.go:78-156` - Automatic framework detection
+- `internal/config/optimization_profiles.go:67-134` - Performance profiles per framework
 
 ## 🔧 Setup and Installation
 
@@ -97,39 +117,54 @@ This document provides critical file locations and code references for quick AI/
 ## 🧠 SCIP Intelligence System
 
 ### Core SCIP Integration
-- `internal/indexing/scip_store.go` - SCIP index storage and retrieval
-- `internal/indexing/symbol_resolver.go` - Symbol resolution with caching
-- `internal/indexing/lsp_scip_mapper.go` - LSP-to-SCIP protocol mapping
-- `internal/indexing/watcher.go` - File system monitoring for index updates
+- `internal/indexing/scip_store.go:16-47` - SCIP index storage and retrieval with LRU caching
+- `internal/indexing/symbol_resolver.go:28-156` - Symbol resolution with intelligent caching
+- `internal/indexing/lsp_scip_mapper.go:45-289` - LSP-to-SCIP protocol mapping and type conversion
+- `internal/indexing/watcher.go:37-184` - File system monitoring for real-time index updates
+
+### Three-Tier SCIP Caching Architecture
+- **Tier 1 - Memory Cache**: `internal/storage/memory_cache.go:21-78` - Hot data with 1ms access time
+- **Tier 2 - Local Storage**: `internal/indexing/scip_store.go:189-267` - Persistent SCIP indexes
+- **Tier 3 - LSP Fallback**: `internal/gateway/handlers.go:1557-1605` - Cache-miss LSP routing
+- **Cache Coordination**: `internal/storage/hybrid_manager.go:92-145` - Multi-tier cache orchestration
 
 ### Enhanced MCP Tools
 - `mcp/tools_scip_enhanced.go:148-178` - SCIP-enhanced tool handler creation
+- `mcp/tools_scip_enhanced.go:215-289` - AI-powered semantic analysis with SCIP intelligence
 - `mcp/scip_integration.go:136-193` - Performance monitoring and health checks
 - `mcp/scip_integration.go:756-768` - Auto-tuning and optimization
 - `mcp/workspace_context.go:64-82` - Project-aware context initialization
 
 ### Performance Optimization
-- `internal/gateway/performance_cache.go` - Response caching layer
-- `internal/storage/hybrid_manager.go` - Multi-tier caching strategy
-- `internal/indexing/performance_cache.go` - SCIP-specific caching optimizations
+- `internal/gateway/performance_cache.go:34-127` - Response caching layer with TTL management
+- `internal/storage/hybrid_manager.go:156-234` - Multi-tier caching strategy with LRU eviction
+- `internal/indexing/performance_cache.go:67-189` - SCIP-specific caching optimizations
 
 ## 🎛️ CLI Commands
 
 ### Essential Commands
-- `internal/cli/server.go` - `lsp-gateway server` - HTTP gateway startup
-- `internal/cli/mcp.go` - `lsp-gateway mcp` - MCP server for AI integration  
-- `internal/cli/setup.go` - `lsp-gateway setup all` - Automated installation
-- `internal/cli/diagnose.go` - `lsp-gateway diagnose` - Comprehensive diagnostics
+- `internal/cli/server.go:52-76` - `lsp-gateway server` - HTTP gateway startup with SCIP caching
+- `internal/cli/mcp.go:82-95` - `lsp-gateway mcp` - MCP server for AI integration  
+- `internal/cli/setup.go:256-324` - `lsp-gateway setup all` - Orchestrated automated installation
+- `internal/cli/diagnose.go:89-167` - `lsp-gateway diagnose` - Comprehensive system diagnostics
+- `internal/cli/diagnose.go:234-289` - Performance benchmarking and SCIP health checks
+
+### Enhanced Setup System
+- `internal/cli/setup.go:145-198` - Interactive setup wizard with framework detection
+- `internal/cli/setup.go:378-445` - Runtime installation with version validation
+- `internal/cli/setup.go:512-578` - Language server installation with dependency resolution
+- `internal/setup/orchestrator.go:228-287` - 5-stage installation workflow coordination
 
 ### Configuration Commands
-- `internal/cli/config.go` - `lsp-gateway config generate` - Dynamic config creation
-- `internal/cli/validation.go` - `lsp-gateway config validate` - Configuration validation
-- `internal/cli/install.go` - `lsp-gateway install <server>` - Language server installation
+- `internal/cli/config.go:67-134` - `lsp-gateway config generate` - Dynamic config creation
+- `internal/cli/config.go:189-245` - Template-based configuration with framework detection
+- `internal/cli/validation.go:45-123` - `lsp-gateway config validate` - Configuration validation
+- `internal/cli/install.go:78-156` - `lsp-gateway install <server>` - Language server installation
 
 ### Status and Verification
-- `internal/cli/status.go` - `lsp-gateway status` - Server health monitoring
-- `internal/cli/verify.go` - `lsp-gateway verify` - Installation verification
-- `internal/cli/version.go` - `lsp-gateway version` - Version information
+- `internal/cli/status.go:89-145` - `lsp-gateway status` - Server health monitoring with metrics
+- `internal/cli/verify.go:67-134` - `lsp-gateway verify` - Installation verification with scoring
+- `internal/cli/version.go:23-67` - `lsp-gateway version` - Version information with dependencies
 
 ## 🏗️ Multi-Server Management
 
@@ -180,16 +215,28 @@ This document provides critical file locations and code references for quick AI/
 ## 🚨 Critical Performance Points
 
 ### High-Performance Components
-- SCIP caching provides 60-87% response time improvements
-- Cache hit rates of 85-90% for repeated symbol queries
-- Connection pooling with 5 connections per TCP pool
-- Circuit breakers prevent cascade failures
+- **SCIP Caching**: `internal/indexing/scip_store.go:189-267` - 60-87% response time improvements
+- **Memory Cache**: `internal/storage/memory_cache.go:21-78` - 85-90% cache hit rates for repeated queries
+- **Connection Pooling**: `internal/transport/tcp.go:589-817` - 5 connections per TCP pool
+- **Circuit Breakers**: `internal/gateway/circuit_breaker.go:109-543` - Prevent cascade failures
+
+### Performance Optimization Code Locations
+- **Request Routing**: `internal/gateway/handlers.go:1557-1605` - Cache-first routing with SCIP intelligence
+- **Background Indexing**: `internal/indexing/watcher.go:37-184` - Non-blocking file system monitoring
+- **Response Aggregation**: `internal/gateway/response_aggregator.go:67-145` - Multi-server response merging
+- **Load Balancing**: `internal/gateway/load_balancer.go:89-167` - Intelligent request distribution
+- **Cache Eviction**: `internal/storage/hybrid_manager.go:156-234` - LRU with TTL optimization
 
 ### Memory Optimization
-- ~65-75MB additional memory for SCIP cache
-- LRU cache with TTL for optimal memory usage
-- Background indexing to minimize UI blocking
-- Graceful degradation when resources are constrained
+- **SCIP Cache**: ~65-75MB additional memory for SCIP cache
+- **LRU Management**: `internal/storage/memory_cache.go:89-156` - LRU cache with TTL for optimal memory usage
+- **Background Processing**: `internal/indexing/watcher.go:198-245` - Background indexing to minimize UI blocking
+- **Graceful Degradation**: `internal/gateway/performance_cache.go:178-234` - Resource-constrained fallbacks
+
+### Performance Monitoring
+- **Metrics Collection**: `mcp/scip_integration.go:136-193` - Real-time performance monitoring
+- **Health Checks**: `internal/cli/diagnose.go:234-289` - Performance benchmarking and health validation
+- **Auto-tuning**: `mcp/scip_integration.go:756-768` - Dynamic performance optimization
 
 ## 📍 Key Architecture Decisions
 
