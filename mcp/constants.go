@@ -9,7 +9,8 @@ const (
 	ERROR_CALL_INITIALIZE_FIRST = "Call initialize first"
 	ERROR_INVALID_JSON_RPC      = "invalid JSON-RPC version: %s"
 
-	HTTP_HEADER_CONTENT_TYPE = "Content-Type"
+	HTTP_HEADER_CONTENT_TYPE     = "Content-Type"
+	HTTP_HEADER_MCP_PROTOCOL_VERSION = "MCP-Protocol-Version"
 
 	LSP_METHOD_WORKSPACE_SYMBOL           = "workspace/symbol"
 	LSP_METHOD_TEXT_DOCUMENT_DEFINITION   = "textDocument/definition"
