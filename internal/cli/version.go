@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	Version     = "development"
+	Version     = "0.0.1"
 	GitCommit   = ERROR_UNKNOWN_VALUE
 	GitBranch   = ERROR_UNKNOWN_VALUE
 	BuildTime   = ERROR_UNKNOWN_VALUE

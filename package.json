@@ -1,10 +1,10 @@
 {
   "name": "lsp-gateway",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "A gateway that provides a single endpoint for symbol navigation across multiple open-source language servers",
   "main": "lib/index.js",
   "bin": {
-    "lsp-gateway": "bin/lsp-gateway"
+    "lspg": "bin/lsp-gateway"
   },
   "scripts": {
     "postinstall": "node lib/index.js install-binary",
@@ -59,10 +59,10 @@
   "dependencies": {},
   "devDependencies": {},
   "optionalDependencies": {
-    "lsp-gateway-linux-x64": "^0.1.0",
-    "lsp-gateway-darwin-x64": "^0.1.0",
-    "lsp-gateway-darwin-arm64": "^0.1.0",
-    "lsp-gateway-win32-x64": "^0.1.0"
+    "lsp-gateway-linux-x64": "^0.0.1",
+    "lsp-gateway-darwin-x64": "^0.0.1",
+    "lsp-gateway-darwin-arm64": "^0.0.1",
+    "lsp-gateway-win32-x64": "^0.0.1"
   },
   "preferGlobal": true,
   "publishConfig": {
