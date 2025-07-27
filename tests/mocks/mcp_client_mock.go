@@ -168,17 +168,156 @@ func (m *MockMcpClient) SendLSPRequest(ctx context.Context, method string, param
 	m.metrics.SuccessfulReqs++
 	switch method {
 	case "textDocument/definition":
-		return json.RawMessage(`{"uri":"file://test.go","range":{"start":{"line":10,"character":0}}}`), nil
+		return json.RawMessage(`{
+			"uri": "file:///workspace/test.go",
+			"range": {
+				"start": {"line": 10, "character": 0},
+				"end": {"line": 10, "character": 10}
+			}
+		}`), nil
 	case "textDocument/hover":
-		return json.RawMessage(`{"contents":"test hover content"}`), nil
+		return json.RawMessage(`{
+			"contents": {
+				"kind": "markdown",
+				"value": "Test hover content with documentation."
+			},
+			"range": {
+				"start": {"line": 10, "character": 0},
+				"end": {"line": 10, "character": 10}
+			}
+		}`), nil
 	case "textDocument/references":
-		return json.RawMessage(`[{"uri":"file://test.go","range":{"start":{"line":5,"character":0}}}]`), nil
+		return json.RawMessage(`[
+			{
+				"uri": "file:///workspace/test.go",
+				"range": {
+					"start": {"line": 5, "character": 0},
+					"end": {"line": 5, "character": 10}
+				}
+			},
+			{
+				"uri": "file:///workspace/other.go",
+				"range": {
+					"start": {"line": 15, "character": 5},
+					"end": {"line": 15, "character": 15}
+				}
+			}
+		]`), nil
 	case "textDocument/documentSymbol":
-		return json.RawMessage(`[{"name":"TestClass","kind":5,"range":{"start":{"line":1,"character":0},"end":{"line":10,"character":1}},"selectionRange":{"start":{"line":1,"character":6},"end":{"line":1,"character":15}},"children":[{"name":"testMethod","kind":6,"range":{"start":{"line":3,"character":4},"end":{"line":5,"character":5}},"selectionRange":{"start":{"line":3,"character":4},"end":{"line":3,"character":14}}},{"name":"testProperty","kind":7,"range":{"start":{"line":2,"character":4},"end":{"line":2,"character":16}},"selectionRange":{"start":{"line":2,"character":4},"end":{"line":2,"character":16}}}]},{"name":"TestFunction","kind":12,"range":{"start":{"line":12,"character":0},"end":{"line":15,"character":1}},"selectionRange":{"start":{"line":12,"character":9},"end":{"line":12,"character":21}}},{"name":"TestInterface","kind":11,"range":{"start":{"line":17,"character":0},"end":{"line":20,"character":1}},"selectionRange":{"start":{"line":17,"character":10},"end":{"line":17,"character":23}}},{"name":"TestEnum","kind":10,"range":{"start":{"line":22,"character":0},"end":{"line":26,"character":1}},"selectionRange":{"start":{"line":22,"character":5},"end":{"line":22,"character":13}}}]`), nil
+		return json.RawMessage(`[
+			{
+				"name": "TestClass",
+				"kind": 5,
+				"detail": "class",
+				"range": {
+					"start": {"line": 1, "character": 0},
+					"end": {"line": 10, "character": 1}
+				},
+				"selectionRange": {
+					"start": {"line": 1, "character": 6},
+					"end": {"line": 1, "character": 15}
+				},
+				"children": [
+					{
+						"name": "testMethod",
+						"kind": 6,
+						"detail": "method",
+						"range": {
+							"start": {"line": 3, "character": 4},
+							"end": {"line": 5, "character": 5}
+						},
+						"selectionRange": {
+							"start": {"line": 3, "character": 4},
+							"end": {"line": 3, "character": 14}
+						}
+					},
+					{
+						"name": "testProperty",
+						"kind": 7,
+						"detail": "field",
+						"range": {
+							"start": {"line": 2, "character": 4},
+							"end": {"line": 2, "character": 16}
+						},
+						"selectionRange": {
+							"start": {"line": 2, "character": 4},
+							"end": {"line": 2, "character": 16}
+						}
+					}
+				]
+			},
+			{
+				"name": "TestFunction",
+				"kind": 12,
+				"detail": "function",
+				"range": {
+					"start": {"line": 12, "character": 0},
+					"end": {"line": 15, "character": 1}
+				},
+				"selectionRange": {
+					"start": {"line": 12, "character": 9},
+					"end": {"line": 12, "character": 21}
+				}
+			},
+			{
+				"name": "TestInterface",
+				"kind": 11,
+				"detail": "interface",
+				"range": {
+					"start": {"line": 17, "character": 0},
+					"end": {"line": 20, "character": 1}
+				},
+				"selectionRange": {
+					"start": {"line": 17, "character": 10},
+					"end": {"line": 17, "character": 23}
+				}
+			},
+			{
+				"name": "TestEnum",
+				"kind": 10,
+				"detail": "enum",
+				"range": {
+					"start": {"line": 22, "character": 0},
+					"end": {"line": 26, "character": 1}
+				},
+				"selectionRange": {
+					"start": {"line": 22, "character": 5},
+					"end": {"line": 22, "character": 13}
+				}
+			}
+		]`), nil
 	case "workspace/symbol":
-		return json.RawMessage(`[{"name":"WorkspaceSymbol","kind":5,"location":{"uri":"file://test.go"}}]`), nil
+		return json.RawMessage(`[
+			{
+				"name": "WorkspaceSymbol",
+				"kind": 5,
+				"location": {
+					"uri": "file:///workspace/test.go",
+					"range": {
+						"start": {"line": 1, "character": 0},
+						"end": {"line": 1, "character": 15}
+					}
+				},
+				"containerName": "TestPackage"
+			}
+		]`), nil
 	case "textDocument/completion":
-		return json.RawMessage(`{"items":[{"label":"testCompletion","kind":1}]}`), nil
+		return json.RawMessage(`{
+			"isIncomplete": false,
+			"items": [
+				{
+					"label": "testCompletion",
+					"kind": 1,
+					"detail": "test completion item",
+					"documentation": {
+						"kind": "markdown",
+						"value": "Test completion documentation"
+					},
+					"insertText": "testCompletion",
+					"insertTextFormat": 1
+				}
+			]
+		}`), nil
 	default:
 		return json.RawMessage(`{"result":"success"}`), nil
 	}

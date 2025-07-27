@@ -1,10 +1,12 @@
 package installer
 
 import (
+	"context"
 	"fmt"
 	"lsp-gateway/internal/platform"
 	"lsp-gateway/internal/types"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -300,7 +302,19 @@ func (v *DefaultServerVerifier) verifyTypeScriptLSInstallation(result *ServerVer
 }
 
 func (v *DefaultServerVerifier) verifyJdtlsInstallation(result *ServerVerificationResult) {
-	// Use the actual installation path first, then fallback to legacy paths
+	// Check for executable wrapper script that users actually run
+	executablePath := GetJDTLSExecutablePath()
+	
+	// Try the primary executable path first
+	if info, err := os.Stat(executablePath); err == nil && !info.IsDir() {
+		result.Installed = true
+		result.Path = executablePath
+		result.Metadata["executable_path"] = executablePath
+		result.Metadata["installation_dir"] = filepath.Dir(filepath.Dir(executablePath))
+		return
+	}
+
+	// Fallback: check legacy installation paths for wrapper scripts
 	actualInstallPath := getJDTLSInstallPath()
 	possiblePaths := []string{
 		actualInstallPath, // Primary installation path
@@ -319,27 +333,31 @@ func (v *DefaultServerVerifier) verifyJdtlsInstallation(result *ServerVerificati
 
 	var foundPath string
 	for _, path := range possiblePaths {
-		if info, err := os.Stat(path); err == nil && info.IsDir() {
-			jarPattern := filepath.Join(path, "plugins", "org.eclipse.jdt.ls.core_*.jar")
-			matches, err := filepath.Glob(jarPattern)
-			if err == nil && len(matches) > 0 {
-				foundPath = matches[0]
-				result.Path = foundPath
-				result.Metadata["jar_path"] = foundPath
-				result.Metadata["installation_dir"] = path
-				break
-			}
+		var execPath string
+		if platform.IsWindows() {
+			execPath = filepath.Join(path, "bin", "jdtls.bat")
+		} else {
+			execPath = filepath.Join(path, "bin", "jdtls")
+		}
+		
+		if info, err := os.Stat(execPath); err == nil && !info.IsDir() {
+			foundPath = execPath
+			result.Path = foundPath
+			result.Metadata["executable_path"] = foundPath
+			result.Metadata["installation_dir"] = path
+			break
 		}
 	}
 
 	if foundPath == "" {
 		v.addServerIssue(result, types.IssueSeverityCritical, types.IssueCategoryInstallation,
 			"JDTLS Not Found",
-			"Eclipse JDT Language Server is not installed in common locations",
-			"Download and extract JDTLS from Eclipse releases",
+			"Eclipse JDT Language Server executable script is not installed",
+			"Run setup to install JDTLS with wrapper scripts",
 			map[string]interface{}{
-				"searched_paths": possiblePaths,
-				"download_url":   "https://download.eclipse.org/jdtls/",
+				"searched_executable": executablePath,
+				"searched_paths":      possiblePaths,
+				"expected_executable": "bin/jdtls or bin/jdtls.bat",
 			})
 		return
 	}
@@ -586,30 +604,48 @@ func (v *DefaultServerVerifier) healthCheckTypeScriptLS(result *ServerHealthResu
 }
 
 func (v *DefaultServerVerifier) healthCheckJdtls(result *ServerHealthResult) {
-	result.TestMethod = "installation_check"
+	result.TestMethod = "executable_test"
 
-	// Use the actual installation path first, then fallback to legacy paths
-	actualInstallPath := getJDTLSInstallPath()
-	possiblePaths := []string{
-		actualInstallPath, // Primary installation path
-		filepath.Join(os.Getenv("HOME"), ".local", "share", "eclipse.jdt.ls"),
-		"/opt/eclipse.jdt.ls",
+	// Test the actual executable wrapper script
+	executablePath := GetJDTLSExecutablePath()
+	
+	// First check if the executable exists
+	if _, err := os.Stat(executablePath); err != nil {
+		result.Responsive = false
+		result.ExitCode = 1
+		result.Error = fmt.Sprintf("JDTLS executable not found at: %s", executablePath)
+		return
 	}
 
-	for _, path := range possiblePaths {
-		jarPattern := filepath.Join(path, "plugins", "org.eclipse.jdt.ls.core_*.jar")
-		matches, err := filepath.Glob(jarPattern)
-		if err == nil && len(matches) > 0 {
-			result.Responsive = true
-			result.ExitCode = 0
-			result.Output = fmt.Sprintf("Found JDTLS at: %s", matches[0])
+	// Test script execution with help flag (safer than --version which isn't supported)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	
+	cmd := exec.CommandContext(ctx, executablePath, "--help")
+	output, err := cmd.CombinedOutput()
+	
+	if err != nil {
+		// If --help fails, try without any arguments (may show usage)
+		ctx2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel2()
+		
+		cmd2 := exec.CommandContext(ctx2, executablePath)
+		output2, err2 := cmd2.CombinedOutput()
+		
+		if err2 != nil {
+			result.Responsive = false
+			result.ExitCode = 1
+			result.Error = fmt.Sprintf("JDTLS executable test failed: %v", err)
+			result.Output = string(output)
 			return
 		}
+		
+		output = output2
 	}
 
-	result.Responsive = false
-	result.ExitCode = 1
-	result.Error = "JDTLS installation not found"
+	result.Responsive = true
+	result.ExitCode = 0
+	result.Output = fmt.Sprintf("JDTLS executable is functional at: %s", executablePath)
 }
 
 func (v *DefaultServerVerifier) generateServerRecommendations(result *ServerVerificationResult, serverDef *ServerDefinition) {

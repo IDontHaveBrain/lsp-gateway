@@ -123,16 +123,54 @@ func (d *FileDownloader) downloadAttempt(client *http.Client, options DownloadOp
 	}
 	defer func() { _ = outFile.Close() }()
 
-	// Make the HTTP request
+	// Make the HTTP request with enhanced error context
 	resp, err := client.Get(options.URL)
 	if err != nil {
-		return fmt.Errorf("failed to download file: %w", err)
+		// Provide more specific error messages for common network issues
+		errStr := err.Error()
+		switch {
+		case strings.Contains(errStr, "no such host"):
+			return fmt.Errorf("network error - host not found: %s (check internet connection and URL)", options.URL)
+		case strings.Contains(errStr, "connection refused"):
+			return fmt.Errorf("network error - connection refused: %s (server may be down or port blocked)", options.URL)
+		case strings.Contains(errStr, "timeout"):
+			return fmt.Errorf("network error - request timeout: %s (check internet connection or try again later)", options.URL)
+		case strings.Contains(errStr, "certificate"):
+			return fmt.Errorf("security error - SSL/TLS certificate issue: %s (server certificate may be invalid)", options.URL)
+		case strings.Contains(errStr, "protocol"):
+			return fmt.Errorf("protocol error: %s - %w (check URL format)", options.URL, err)
+		default:
+			return fmt.Errorf("network error downloading file: %s - %w", options.URL, err)
+		}
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	// Check for HTTP errors
+	// Check for HTTP errors with enhanced context
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("HTTP error: %d %s", resp.StatusCode, resp.Status)
+		switch resp.StatusCode {
+		case http.StatusNotFound:
+			return fmt.Errorf("file not found on server (404): %s - check if URL is correct and file exists", options.URL)
+		case http.StatusForbidden:
+			return fmt.Errorf("access forbidden (403): %s - server denied access to file", options.URL)
+		case http.StatusUnauthorized:
+			return fmt.Errorf("unauthorized access (401): %s - authentication may be required", options.URL)
+		case http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
+			location := resp.Header.Get("Location")
+			if location != "" {
+				return fmt.Errorf("redirect response (%d): %s -> %s - server redirected to different URL, automatic redirect may have failed", resp.StatusCode, options.URL, location)
+			}
+			return fmt.Errorf("redirect response (%d): %s - server redirected but no location provided", resp.StatusCode, options.URL)
+		case http.StatusInternalServerError:
+			return fmt.Errorf("server error (500): %s - remote server encountered an internal error", options.URL)
+		case http.StatusBadGateway:
+			return fmt.Errorf("bad gateway (502): %s - server acting as gateway received invalid response", options.URL)
+		case http.StatusServiceUnavailable:
+			return fmt.Errorf("service unavailable (503): %s - server temporarily unavailable", options.URL)
+		case http.StatusGatewayTimeout:
+			return fmt.Errorf("gateway timeout (504): %s - server timeout while acting as gateway", options.URL)
+		default:
+			return fmt.Errorf("HTTP error %d (%s): %s - unexpected server response", resp.StatusCode, resp.Status, options.URL)
+		}
 	}
 
 	// Get content length for progress tracking
@@ -174,7 +212,10 @@ func (d *FileDownloader) downloadAttempt(client *http.Client, options DownloadOp
 		if strings.EqualFold(actualChecksum, options.ExpectedChecksum) {
 			result.Verified = true
 		} else {
-			return fmt.Errorf("checksum mismatch: expected %s, got %s", options.ExpectedChecksum, actualChecksum)
+			return fmt.Errorf("checksum verification failed: expected %s, got %s. "+
+				"This indicates the downloaded file is corrupted or modified. "+
+				"The file may have been tampered with or the download was incomplete", 
+				options.ExpectedChecksum, actualChecksum)
 		}
 	} else {
 		// If no expected checksum, mark as verified (download was successful)
@@ -189,14 +230,14 @@ func ExtractTarGz(archivePath, destDir string) error {
 	// Open the archive file
 	file, err := os.Open(archivePath)
 	if err != nil {
-		return fmt.Errorf("failed to open archive: %w", err)
+		return fmt.Errorf("failed to open archive %s: %w (check if file exists and has correct permissions)", archivePath, err)
 	}
 	defer func() { _ = file.Close() }()
 
 	// Create gzip reader
 	gzipReader, err := gzip.NewReader(file)
 	if err != nil {
-		return fmt.Errorf("failed to create gzip reader: %w", err)
+		return fmt.Errorf("failed to read gzip archive %s: %w (file may be corrupted or not a valid .tar.gz)", archivePath, err)
 	}
 	defer func() { _ = gzipReader.Close() }()
 
@@ -205,7 +246,7 @@ func ExtractTarGz(archivePath, destDir string) error {
 
 	// Create destination directory
 	if err := os.MkdirAll(destDir, 0755); err != nil {
-		return fmt.Errorf("failed to create destination directory: %w", err)
+		return fmt.Errorf("failed to create destination directory %s: %w (check permissions and disk space)", destDir, err)
 	}
 
 	// Extract files
@@ -215,7 +256,7 @@ func ExtractTarGz(archivePath, destDir string) error {
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("failed to read tar header: %w", err)
+			return fmt.Errorf("failed to read tar header from %s: %w (archive may be corrupted)", archivePath, err)
 		}
 
 		// Construct the full path
@@ -231,19 +272,19 @@ func ExtractTarGz(archivePath, destDir string) error {
 		case tar.TypeDir:
 			// Create directory
 			if err := os.MkdirAll(destPath, os.FileMode(header.Mode)); err != nil {
-				return fmt.Errorf("failed to create directory %s: %w", destPath, err)
+				return fmt.Errorf("failed to create directory %s: %w (check permissions and disk space)", destPath, err)
 			}
 
 		case tar.TypeReg:
 			// Create parent directory if it doesn't exist
 			if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-				return fmt.Errorf("failed to create parent directory for %s: %w", destPath, err)
+				return fmt.Errorf("failed to create parent directory for %s: %w (check permissions and disk space)", destPath, err)
 			}
 
 			// Create and write file
 			outFile, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY, os.FileMode(header.Mode))
 			if err != nil {
-				return fmt.Errorf("failed to create file %s: %w", destPath, err)
+				return fmt.Errorf("failed to create file %s: %w (check permissions and disk space)", destPath, err)
 			}
 
 			if _, err := io.Copy(outFile, tarReader); err != nil {

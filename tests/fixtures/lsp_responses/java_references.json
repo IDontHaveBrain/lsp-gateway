@@ -1,0 +1,51 @@
+[
+  {
+    "uri": "file:///workspace/src/main/java/com/example/app/Application.java",
+    "range": {
+      "start": {"line": 8, "character": 13},
+      "end": {"line": 8, "character": 24}
+    }
+  },
+  {
+    "uri": "file:///workspace/src/main/java/com/example/app/controller/UserController.java",
+    "range": {
+      "start": {"line": 16, "character": 13},
+      "end": {"line": 16, "character": 27}
+    }
+  },
+  {
+    "uri": "file:///workspace/src/main/java/com/example/app/service/UserService.java",
+    "range": {
+      "start": {"line": 16, "character": 13},
+      "end": {"line": 16, "character": 24}
+    }
+  },
+  {
+    "uri": "file:///workspace/src/main/java/com/example/app/entity/User.java",
+    "range": {
+      "start": {"line": 17, "character": 13},
+      "end": {"line": 17, "character": 17}
+    }
+  },
+  {
+    "uri": "file:///workspace/src/main/java/com/example/app/entity/UserRole.java",
+    "range": {
+      "start": {"line": 4, "character": 12},
+      "end": {"line": 4, "character": 20}
+    }
+  },
+  {
+    "uri": "file:///workspace/src/main/java/com/example/app/repository/UserRepository.java",
+    "range": {
+      "start": {"line": 14, "character": 17},
+      "end": {"line": 14, "character": 31}
+    }
+  },
+  {
+    "uri": "file:///workspace/src/main/java/com/example/app/exception/UserNotFoundException.java",
+    "range": {
+      "start": {"line": 6, "character": 13},
+      "end": {"line": 6, "character": 33}
+    }
+  }
+]

@@ -572,7 +572,7 @@ func TestDetectLanguage_JavaFilesOnly(t *testing.T) {
 
 // Test no Java files
 func TestDetectLanguage_NoJavaFiles(t *testing.T) {
-	testDir := createEmptyProject(t)
+	testDir := createJavaEmptyProject(t)
 	defer os.RemoveAll(testDir)
 
 	detector := NewJavaLanguageDetector()
