@@ -126,7 +126,7 @@ This document provides critical file locations and code references for quick AI/
 - **Tier 1 - Memory Cache**: `internal/storage/memory_cache.go:21-78` - Hot data with 1ms access time
 - **Tier 2 - Local Storage**: `internal/indexing/scip_store.go:189-267` - Persistent SCIP indexes
 - **LSP Fallback**: `internal/gateway/handlers.go:1557-1605` - Cache-miss LSP routing
-- **Cache Coordination**: `internal/storage/hybrid_manager.go:92-145` - Multi-tier cache orchestration
+- **Cache Coordination**: `internal/storage/hybrid_manager.go:92-145` - Two-tier cache orchestration
 
 ### Enhanced MCP Tools
 - `mcp/tools_scip_enhanced.go:148-178` - SCIP-enhanced tool handler creation
@@ -137,7 +137,7 @@ This document provides critical file locations and code references for quick AI/
 
 ### Performance Optimization
 - `internal/gateway/performance_cache.go:34-127` - Response caching layer with TTL management
-- `internal/storage/hybrid_manager.go:156-234` - Multi-tier caching strategy with LRU eviction
+- `internal/storage/hybrid_manager.go:156-234` - Two-tier caching strategy with LRU eviction
 - `internal/indexing/performance_cache.go:67-189` - SCIP-specific caching optimizations
 
 ## 🎛️ CLI Commands
