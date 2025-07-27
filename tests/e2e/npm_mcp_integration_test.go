@@ -2,7 +2,7 @@
 // Go-based integration test runner for NPM-MCP functionality
 // This complements the JavaScript e2e tests by providing Go test infrastructure
 
-package e2e
+package e2e_test
 
 import (
 	"context"
