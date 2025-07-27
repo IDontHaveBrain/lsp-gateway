@@ -3,6 +3,7 @@ package installer
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -55,6 +56,174 @@ func getJDTLSExecutablePath() string {
 func getJDTLSVerificationCommands() []string {
 	executablePath := getJDTLSExecutablePath()
 	return []string{executablePath, "--version"}
+}
+
+// getGoplsInstallPaths returns potential installation paths for gopls
+func getGoplsInstallPaths() []string {
+	paths := []string{}
+	
+	// Try GOBIN first
+	if gobin := os.Getenv("GOBIN"); gobin != "" {
+		paths = append(paths, filepath.Join(gobin, "gopls"))
+	}
+	
+	// Try GOPATH/bin
+	if gopath := os.Getenv("GOPATH"); gopath != "" {
+		paths = append(paths, filepath.Join(gopath, "bin", "gopls"))
+	}
+	
+	// Try default GOPATH
+	home := os.Getenv("HOME")
+	if home != "" {
+		defaultGopath := filepath.Join(home, "go")
+		paths = append(paths, filepath.Join(defaultGopath, "bin", "gopls"))
+	}
+	
+	// Windows specific paths
+	if runtime.GOOS == "windows" {
+		if userProfile := os.Getenv("USERPROFILE"); userProfile != "" {
+			paths = append(paths, filepath.Join(userProfile, "go", "bin", "gopls.exe"))
+		}
+	}
+	
+	return paths
+}
+
+// getPylspInstallPaths returns potential installation paths for pylsp
+func getPylspInstallPaths() []string {
+	paths := []string{}
+	
+	// User-specific pip install paths
+	home := os.Getenv("HOME")
+	if home != "" {
+		// Linux/macOS user site-packages
+		paths = append(paths, filepath.Join(home, ".local", "bin", "pylsp"))
+	}
+	
+	// Windows specific paths
+	if runtime.GOOS == "windows" {
+		if userProfile := os.Getenv("USERPROFILE"); userProfile != "" {
+			paths = append(paths, filepath.Join(userProfile, "AppData", "Local", "Programs", "Python", "Scripts", "pylsp.exe"))
+			paths = append(paths, filepath.Join(userProfile, "AppData", "Roaming", "Python", "Scripts", "pylsp.exe"))
+		}
+		if appData := os.Getenv("APPDATA"); appData != "" {
+			paths = append(paths, filepath.Join(appData, "Python", "Scripts", "pylsp.exe"))
+		}
+	}
+	
+	// Common system paths
+	commonPaths := []string{
+		"/usr/local/bin/pylsp",
+		"/usr/bin/pylsp",
+		"/opt/homebrew/bin/pylsp", // macOS Homebrew
+	}
+	paths = append(paths, commonPaths...)
+	
+	return paths
+}
+
+// getTypeScriptLanguageServerInstallPaths returns potential installation paths for typescript-language-server
+func getTypeScriptLanguageServerInstallPaths() []string {
+	paths := []string{}
+	
+	// Try to get npm global prefix
+	if result, err := exec.Command("npm", "config", "get", "prefix").Output(); err == nil {
+		prefix := strings.TrimSpace(string(result))
+		if prefix != "" {
+			if runtime.GOOS == "windows" {
+				paths = append(paths, filepath.Join(prefix, "typescript-language-server.cmd"))
+			} else {
+				paths = append(paths, filepath.Join(prefix, "bin", "typescript-language-server"))
+			}
+		}
+	}
+	
+	// Default npm global paths
+	home := os.Getenv("HOME")
+	if home != "" && runtime.GOOS != "windows" {
+		paths = append(paths, filepath.Join(home, ".npm-global", "bin", "typescript-language-server"))
+	}
+	
+	// Windows specific paths
+	if runtime.GOOS == "windows" {
+		if userProfile := os.Getenv("USERPROFILE"); userProfile != "" {
+			paths = append(paths, filepath.Join(userProfile, "AppData", "Roaming", "npm", "typescript-language-server.cmd"))
+		}
+		if appData := os.Getenv("APPDATA"); appData != "" {
+			paths = append(paths, filepath.Join(appData, "npm", "typescript-language-server.cmd"))
+		}
+	}
+	
+	// Common system paths
+	commonPaths := []string{
+		"/usr/local/bin/typescript-language-server",
+		"/usr/bin/typescript-language-server",
+		"/opt/homebrew/bin/typescript-language-server", // macOS Homebrew
+	}
+	paths = append(paths, commonPaths...)
+	
+	return paths
+}
+
+// verifyCommandWithPaths checks command availability using installation paths and PATH fallback
+func verifyCommandWithPaths(executor platform.CommandExecutor, command string, installPaths []string) (bool, string, error) {
+	// First, check installation-specific paths
+	for _, path := range installPaths {
+		if _, err := os.Stat(path); err == nil {
+			// Verify the file is executable by running it with a version check
+			if result, err := executor.Execute(path, []string{"--version"}, 3*time.Second); err == nil && result.ExitCode == 0 {
+				return true, path, nil
+			}
+			// Some servers may not support --version, try --help
+			if result, err := executor.Execute(path, []string{"--help"}, 3*time.Second); err == nil && result.ExitCode == 0 {
+				return true, path, nil
+			}
+			// If file exists but isn't executable, note this as a potential issue
+		}
+	}
+	
+	// Fall back to PATH-based verification
+	if executor.IsCommandAvailable(command) {
+		// Try to get the full path for the command
+		if path, err := exec.LookPath(command); err == nil {
+			return true, path, nil
+		}
+		return true, command, nil // Command available but path unknown
+	}
+	
+	return false, "", fmt.Errorf("command %s not found in installation paths or PATH", command)
+}
+
+// updatePathEnvironment adds installation directories to PATH for verification
+func updatePathEnvironment(installPaths []string) map[string]string {
+	env := make(map[string]string)
+	currentPath := os.Getenv("PATH")
+	
+	// Extract directory paths from full executable paths
+	dirs := make(map[string]bool)
+	for _, fullPath := range installPaths {
+		dir := filepath.Dir(fullPath)
+		if _, err := os.Stat(dir); err == nil {
+			dirs[dir] = true
+		}
+	}
+	
+	// Build new PATH
+	pathSeparator := ":"
+	if runtime.GOOS == "windows" {
+		pathSeparator = ";"
+	}
+	
+	newPathParts := []string{currentPath}
+	for dir := range dirs {
+		// Only add if not already in PATH
+		if !strings.Contains(currentPath, dir) {
+			newPathParts = append([]string{dir}, newPathParts...)
+		}
+	}
+	
+	env["PATH"] = strings.Join(newPathParts, pathSeparator)
+	return env
 }
 
 // Server Strategy Wrappers - these implement the ServerPlatformStrategy interface
@@ -406,37 +575,104 @@ func (u *UniversalServerStrategy) installGopls(options types.ServerInstallOption
 
 // installPylsp installs the Python language server using pip
 func (u *UniversalServerStrategy) installPylsp(options types.ServerInstallOptions, start time.Time) (*types.InstallResult, error) {
-	cmd := []string{"pip", "install", "python-lsp-server"}
-
-	result, err := u.executor.Execute(cmd[0], cmd[1:], 5*time.Minute)
-	if err != nil {
-		return &types.InstallResult{
-			Success:  false,
-			Runtime:  ServerPylsp,
-			Duration: time.Since(start),
-			Errors:   []string{fmt.Sprintf("Installation failed: %v", err)},
-			Details:  map[string]interface{}{"server": ServerPylsp},
-		}, err
+	// Try multiple installation strategies to handle different Python environments
+	strategies := []struct {
+		name        string
+		cmd         []string
+		description string
+	}{
+		{
+			name:        "pip_with_break_system_packages",
+			cmd:         []string{"pip", "install", "python-lsp-server", "--break-system-packages"},
+			description: "Install using pip with --break-system-packages flag (for externally-managed environments)",
+		},
+		{
+			name:        "pip_user_install",
+			cmd:         []string{"pip", "install", "--user", "python-lsp-server"},
+			description: "Install using pip with --user flag",
+		},
+		{
+			name:        "pip3_with_break_system_packages",
+			cmd:         []string{"pip3", "install", "python-lsp-server", "--break-system-packages"},
+			description: "Install using pip3 with --break-system-packages flag",
+		},
+		{
+			name:        "pip3_user_install",
+			cmd:         []string{"pip3", "install", "--user", "python-lsp-server"},
+			description: "Install using pip3 with --user flag",
+		},
+		{
+			name:        "python_module_pip",
+			cmd:         []string{"python3", "-m", "pip", "install", "python-lsp-server", "--break-system-packages"},
+			description: "Install using python3 -m pip with --break-system-packages flag",
+		},
+		{
+			name:        "python_module_pip_user",
+			cmd:         []string{"python3", "-m", "pip", "install", "--user", "python-lsp-server"},
+			description: "Install using python3 -m pip with --user flag",
+		},
 	}
 
-	if result.ExitCode != 0 {
+	var lastError error
+	var allErrors []string
+
+	for _, strategy := range strategies {
+		result, err := u.executor.Execute(strategy.cmd[0], strategy.cmd[1:], 5*time.Minute)
+		
+		if err != nil {
+			lastError = err
+			errorMsg := fmt.Sprintf("%s failed: %v", strategy.description, err)
+			allErrors = append(allErrors, errorMsg)
+			continue
+		}
+
+		if result.ExitCode != 0 {
+			lastError = fmt.Errorf("pylsp installation failed with strategy: %s", strategy.name)
+			
+			// Check for externally-managed-environment error
+			errorMsg := result.Stderr
+			if strings.Contains(strings.ToLower(errorMsg), "externally-managed-environment") {
+				errorMsg = fmt.Sprintf("%s failed: Python environment is externally managed (PEP 668). %s", 
+					strategy.description, result.Stderr)
+			} else {
+				errorMsg = fmt.Sprintf("%s failed with exit code %d: %s", 
+					strategy.description, result.ExitCode, result.Stderr)
+			}
+			allErrors = append(allErrors, errorMsg)
+			continue
+		}
+
+		// Success with this strategy
 		return &types.InstallResult{
-			Success:  false,
+			Success:  true,
 			Runtime:  ServerPylsp,
+			Method:   strategy.name,
 			Duration: time.Since(start),
-			Errors:   []string{fmt.Sprintf("Installation failed with exit code %d: %s", result.ExitCode, result.Stderr)},
-			Details:  map[string]interface{}{"server": ServerPylsp},
-		}, fmt.Errorf("pylsp installation failed")
+			Messages: []string{
+				fmt.Sprintf("Successfully installed python-lsp-server using: %s", strategy.description),
+				result.Stdout,
+			},
+			Details: map[string]interface{}{
+				"server":           ServerPylsp,
+				"strategy":         strategy.name,
+				"command":          strings.Join(strategy.cmd, " "),
+				"installation_output": result.Stdout,
+			},
+		}, nil
 	}
 
+	// All strategies failed
 	return &types.InstallResult{
-		Success:  true,
+		Success:  false,
 		Runtime:  ServerPylsp,
-		Method:   "pip_install",
 		Duration: time.Since(start),
-		Messages: []string{"Successfully installed python-lsp-server"},
-		Details:  map[string]interface{}{"server": ServerPylsp},
-	}, nil
+		Errors:   allErrors,
+		Details: map[string]interface{}{
+			"server":             ServerPylsp,
+			"attempted_strategies": len(strategies),
+			"last_error":         lastError.Error(),
+		},
+	}, fmt.Errorf("all installation strategies failed: %v", lastError)
 }
 
 // installTypescriptLanguageServer installs the TypeScript language server using npm
@@ -514,12 +750,20 @@ func (u *UniversalServerStrategy) verifyJDTLS() (*types.VerificationResult, erro
 		return result, nil
 	}
 
+	// Try to verify the executable is functional
+	if versionResult, err := u.executor.Execute(executablePath, []string{"--version"}, 5*time.Second); err == nil && versionResult.ExitCode == 0 {
+		result.Details["version_output"] = strings.TrimSpace(versionResult.Stdout)
+	} else {
+		// JDTLS may not support --version, try a basic functional test
+		result.Details["version_check_failed"] = true
+	}
+
 	result.Installed = true
 	result.Path = executablePath
 	result.Version = JDTLSVersion
 	result.Compatible = true
 	result.Details["install_path"] = getJDTLSInstallPath()
-	result.Details["executable"] = executablePath
+	result.Details["executable_path"] = executablePath
 
 	return result, nil
 }
@@ -529,19 +773,35 @@ func (u *UniversalServerStrategy) verifyGopls() (*types.VerificationResult, erro
 	result := &types.VerificationResult{
 		Runtime: ServerGopls,
 		Issues:  []types.Issue{},
+		Details: make(map[string]interface{}),
 	}
 
-	if !u.executor.IsCommandAvailable("gopls") {
+	// Get potential installation paths
+	installPaths := getGoplsInstallPaths()
+	result.Details["searched_paths"] = installPaths
+
+	// Check installation-aware verification
+	found, executablePath, err := verifyCommandWithPaths(u.executor, "gopls", installPaths)
+	if !found {
 		result.Issues = append(result.Issues, types.Issue{
 			Severity:    types.IssueSeverityHigh,
 			Title:       "gopls not found",
-			Description: "gopls command is not available in PATH",
+			Description: fmt.Sprintf("gopls command is not available in installation paths or PATH. Error: %v", err),
 		})
 		return result, nil
 	}
 
 	result.Installed = true
 	result.Compatible = true
+	result.Path = executablePath
+	result.Details["executable_path"] = executablePath
+
+	// Try to get version information
+	if versionResult, err := u.executor.Execute(executablePath, []string{"version"}, 5*time.Second); err == nil && versionResult.ExitCode == 0 {
+		result.Version = strings.TrimSpace(versionResult.Stdout)
+		result.Details["version_output"] = result.Version
+	}
+
 	return result, nil
 }
 
@@ -550,19 +810,35 @@ func (u *UniversalServerStrategy) verifyPylsp() (*types.VerificationResult, erro
 	result := &types.VerificationResult{
 		Runtime: ServerPylsp,
 		Issues:  []types.Issue{},
+		Details: make(map[string]interface{}),
 	}
 
-	if !u.executor.IsCommandAvailable("pylsp") {
+	// Get potential installation paths
+	installPaths := getPylspInstallPaths()
+	result.Details["searched_paths"] = installPaths
+
+	// Check installation-aware verification
+	found, executablePath, err := verifyCommandWithPaths(u.executor, "pylsp", installPaths)
+	if !found {
 		result.Issues = append(result.Issues, types.Issue{
 			Severity:    types.IssueSeverityHigh,
 			Title:       "pylsp not found",
-			Description: "pylsp command is not available in PATH",
+			Description: fmt.Sprintf("pylsp command is not available in installation paths or PATH. Error: %v", err),
 		})
 		return result, nil
 	}
 
 	result.Installed = true
 	result.Compatible = true
+	result.Path = executablePath
+	result.Details["executable_path"] = executablePath
+
+	// Try to get version information
+	if versionResult, err := u.executor.Execute(executablePath, []string{"--version"}, 5*time.Second); err == nil && versionResult.ExitCode == 0 {
+		result.Version = strings.TrimSpace(versionResult.Stdout)
+		result.Details["version_output"] = result.Version
+	}
+
 	return result, nil
 }
 
@@ -571,19 +847,35 @@ func (u *UniversalServerStrategy) verifyTypescriptLanguageServer() (*types.Verif
 	result := &types.VerificationResult{
 		Runtime: ServerTypeScriptLanguageServer,
 		Issues:  []types.Issue{},
+		Details: make(map[string]interface{}),
 	}
 
-	if !u.executor.IsCommandAvailable("typescript-language-server") {
+	// Get potential installation paths
+	installPaths := getTypeScriptLanguageServerInstallPaths()
+	result.Details["searched_paths"] = installPaths
+
+	// Check installation-aware verification
+	found, executablePath, err := verifyCommandWithPaths(u.executor, "typescript-language-server", installPaths)
+	if !found {
 		result.Issues = append(result.Issues, types.Issue{
 			Severity:    types.IssueSeverityHigh,
 			Title:       "typescript-language-server not found",
-			Description: "typescript-language-server command is not available in PATH",
+			Description: fmt.Sprintf("typescript-language-server command is not available in installation paths or PATH. Error: %v", err),
 		})
 		return result, nil
 	}
 
 	result.Installed = true
 	result.Compatible = true
+	result.Path = executablePath
+	result.Details["executable_path"] = executablePath
+
+	// Try to get version information
+	if versionResult, err := u.executor.Execute(executablePath, []string{"--version"}, 5*time.Second); err == nil && versionResult.ExitCode == 0 {
+		result.Version = strings.TrimSpace(versionResult.Stdout)
+		result.Details["version_output"] = result.Version
+	}
+
 	return result, nil
 }
 
@@ -595,7 +887,7 @@ func (u *UniversalServerStrategy) GetInstallCommand(server, version string) ([]s
 	case ServerGopls:
 		return []string{"go", "install", "golang.org/x/tools/gopls@latest"}, nil
 	case ServerPylsp:
-		return []string{"pip", "install", "python-lsp-server"}, nil
+		return []string{"pip", "install", "python-lsp-server", "--break-system-packages"}, nil
 	case ServerTypeScriptLanguageServer:
 		return []string{"npm", "install", "-g", "typescript-language-server", "typescript"}, nil
 	default:

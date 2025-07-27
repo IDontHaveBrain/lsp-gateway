@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"lsp-gateway/internal/config"
+	"lsp-gateway/internal/types"
 	"os"
 	"path/filepath"
 	"strings"
@@ -122,6 +123,249 @@ func (g *EnhancedConfigurationGenerator) GenerateFromProject(ctx context.Context
 		result.ServersGenerated, projectAnalysis.ProjectType, len(projectAnalysis.DetectedLanguages)))
 
 	return result, nil
+}
+
+// GenerateFromProjectWithInstallResults generates an optimized configuration from project analysis using installation results
+func (g *EnhancedConfigurationGenerator) GenerateFromProjectWithInstallResults(ctx context.Context, projectPath string, optimizationMode string, detectedRuntimes map[string]*RuntimeInfo, serverInstallResults map[string]*types.InstallResult) (*ConfigGenerationResult, error) {
+	startTime := time.Now()
+
+	g.logger.WithOperation("enhanced-generate-from-project-install-results").WithField("project_path", projectPath).Info("Starting enhanced project configuration generation from installation results")
+
+	result := &ConfigGenerationResult{
+		Config:           nil,
+		ServersGenerated: 0,
+		ServersSkipped:   0,
+		AutoDetected:     true,
+		GeneratedAt:      startTime,
+		Messages:         []string{},
+		Warnings:         []string{},
+		Issues:           []string{},
+		Metadata:         make(map[string]interface{}),
+	}
+
+	// Perform comprehensive project analysis
+	projectAnalysis, err := g.projectAnalyzer.AnalyzeProject(projectPath)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Project analysis failed: %v", err))
+		result.Duration = time.Since(startTime)
+		return result, fmt.Errorf("project analysis failed: %w", err)
+	}
+
+	result.Messages = append(result.Messages, fmt.Sprintf("Analyzed project: %s (%s)", projectAnalysis.ProjectType, projectAnalysis.Complexity))
+
+	// Select appropriate configuration template
+	template, err := g.templateManager.SelectTemplate(projectAnalysis)
+	if err != nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("Template selection failed, using default: %v", err))
+		template = g.templateManager.GetDefaultTemplate()
+	} else {
+		result.Messages = append(result.Messages, fmt.Sprintf("Selected template: %s", template.Name))
+	}
+
+	// Generate base configuration using template and installation results
+	options := &GenerationOptions{
+		OptimizationMode:   optimizationMode,
+		EnableMultiServer:  template.EnableMultiServer,
+		EnableSmartRouting: template.EnableSmartRouting,
+		ProjectPath:        projectPath,
+		TargetLanguages:    projectAnalysis.DetectedLanguages,
+		PerformanceProfile: g.determinePerformanceProfile(projectAnalysis),
+	}
+
+	baseResult, err := g.configGenerator.GenerateMultiLanguageConfigWithInstallResults(ctx, projectPath, options, detectedRuntimes, serverInstallResults)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Base configuration generation failed: %v", err))
+		result.Duration = time.Since(startTime)
+		return result, fmt.Errorf("base configuration generation failed: %w", err)
+	}
+
+	// Apply template-specific enhancements
+	if err := g.applyTemplateEnhancements(baseResult.Config, template, projectAnalysis); err != nil {
+		result.Warnings = append(result.Warnings, fmt.Sprintf("Template enhancement failed: %v", err))
+	} else {
+		result.Messages = append(result.Messages, "Applied template-specific enhancements")
+	}
+
+	// Apply optimization-specific configurations
+	if optimizationMode != "" {
+		if err := g.optimizationMgr.ApplyOptimizationConfig(baseResult.Config, optimizationMode, projectAnalysis); err != nil {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("Optimization configuration failed: %v", err))
+		} else {
+			result.Messages = append(result.Messages, fmt.Sprintf("Applied %s optimization configuration", optimizationMode))
+		}
+	}
+
+	// Merge results
+	result.Config = baseResult.Config
+	result.ServersGenerated = baseResult.ServersGenerated
+	result.ServersSkipped = baseResult.ServersSkipped
+	result.Messages = append(result.Messages, baseResult.Messages...)
+	result.Warnings = append(result.Warnings, baseResult.Warnings...)
+	result.Issues = append(result.Issues, baseResult.Issues...)
+
+	// Add enhanced metadata
+	result.Metadata = baseResult.Metadata
+	result.Metadata["enhanced_generation"] = true
+	result.Metadata["project_analysis"] = projectAnalysis.ToMetadata()
+	result.Metadata["template_used"] = template.Name
+	result.Metadata["template_version"] = template.Version
+	result.Metadata["optimization_applied"] = optimizationMode
+	result.Metadata["install_results_used"] = true
+	result.Metadata["successful_installs"] = g.countSuccessfulInstalls(serverInstallResults)
+
+	result.Duration = time.Since(startTime)
+
+	g.logger.UserSuccess(fmt.Sprintf("Enhanced configuration generated from installation results: %d servers for %s project with %d languages",
+		result.ServersGenerated, projectAnalysis.ProjectType, len(projectAnalysis.DetectedLanguages)))
+
+	return result, nil
+}
+
+// GenerateFromInstallationResults generates configuration primarily based on installation results
+func (g *EnhancedConfigurationGenerator) GenerateFromInstallationResults(ctx context.Context, detectedRuntimes map[string]*RuntimeInfo, serverInstallResults map[string]*types.InstallResult, optimizationMode string) (*ConfigGenerationResult, error) {
+	startTime := time.Now()
+
+	g.logger.WithOperation("enhanced-generate-from-installation-results").Info("Starting enhanced configuration generation from installation results")
+
+	result := &ConfigGenerationResult{
+		Config:           nil,
+		ServersGenerated: 0,
+		ServersSkipped:   0,
+		AutoDetected:     true,
+		GeneratedAt:      startTime,
+		Messages:         []string{},
+		Warnings:         []string{},
+		Issues:           []string{},
+		Metadata:         make(map[string]interface{}),
+	}
+
+	// Use base generator to create configuration from installation results
+	baseResult, err := g.configGenerator.GenerateFromDetectedWithInstallResults(ctx, detectedRuntimes, serverInstallResults)
+	if err != nil {
+		result.Issues = append(result.Issues, fmt.Sprintf("Base configuration generation failed: %v", err))
+		result.Duration = time.Since(startTime)
+		return result, fmt.Errorf("base configuration generation failed: %w", err)
+	}
+
+	// Apply optimization if specified
+	if optimizationMode != "" {
+		// Create a basic analysis for optimization
+		analysis := &ProjectAnalysis{
+			ProjectType:       config.ProjectTypeSingle,
+			Complexity:        ProjectComplexityMedium,
+			DetectedLanguages: g.extractLanguagesFromInstallResults(serverInstallResults),
+		}
+
+		if err := g.optimizationMgr.ApplyOptimizationConfig(baseResult.Config, optimizationMode, analysis); err != nil {
+			result.Warnings = append(result.Warnings, fmt.Sprintf("Optimization configuration failed: %v", err))
+		} else {
+			result.Messages = append(result.Messages, fmt.Sprintf("Applied %s optimization configuration", optimizationMode))
+		}
+	}
+
+	// Apply smart configuration enhancements based on installation results
+	g.applyInstallationResultEnhancements(baseResult.Config, serverInstallResults)
+
+	// Merge results
+	result.Config = baseResult.Config
+	result.ServersGenerated = baseResult.ServersGenerated
+	result.ServersSkipped = baseResult.ServersSkipped
+	result.Messages = append(result.Messages, baseResult.Messages...)
+	result.Warnings = append(result.Warnings, baseResult.Warnings...)
+	result.Issues = append(result.Issues, baseResult.Issues...)
+
+	// Add enhanced metadata
+	result.Metadata = baseResult.Metadata
+	result.Metadata["enhanced_generation"] = true
+	result.Metadata["optimization_applied"] = optimizationMode
+	result.Metadata["install_results_used"] = true
+	result.Metadata["successful_installs"] = g.countSuccessfulInstalls(serverInstallResults)
+	result.Metadata["total_install_attempts"] = len(serverInstallResults)
+
+	result.Duration = time.Since(startTime)
+
+	g.logger.UserSuccess(fmt.Sprintf("Enhanced configuration generated from installation results: %d servers from %d successful installations",
+		result.ServersGenerated, g.countSuccessfulInstalls(serverInstallResults)))
+
+	return result, nil
+}
+
+// Helper methods for installation result processing
+
+// countSuccessfulInstalls counts the number of successful server installations
+func (g *EnhancedConfigurationGenerator) countSuccessfulInstalls(serverInstallResults map[string]*types.InstallResult) int {
+	count := 0
+	for _, result := range serverInstallResults {
+		if result.Success {
+			count++
+		}
+	}
+	return count
+}
+
+// extractLanguagesFromInstallResults extracts supported languages from installation results
+func (g *EnhancedConfigurationGenerator) extractLanguagesFromInstallResults(serverInstallResults map[string]*types.InstallResult) []string {
+	languageSet := make(map[string]bool)
+
+	// Map servers to their languages
+	serverLanguages := map[string][]string{
+		"gopls":                      {"go"},
+		"pylsp":                      {"python"},
+		"typescript-language-server": {"typescript", "javascript"},
+		"jdtls":                      {"java"},
+	}
+
+	for serverName, result := range serverInstallResults {
+		if result.Success {
+			if languages, exists := serverLanguages[serverName]; exists {
+				for _, lang := range languages {
+					languageSet[lang] = true
+				}
+			}
+		}
+	}
+
+	var languages []string
+	for lang := range languageSet {
+		languages = append(languages, lang)
+	}
+
+	return languages
+}
+
+// applyInstallationResultEnhancements applies configuration enhancements based on installation results
+func (g *EnhancedConfigurationGenerator) applyInstallationResultEnhancements(cfg *config.GatewayConfig, serverInstallResults map[string]*types.InstallResult) {
+	successfulInstalls := g.countSuccessfulInstalls(serverInstallResults)
+
+	// Configure based on number of successful installations
+	if successfulInstalls > 2 {
+		// Multi-server configuration
+		cfg.EnableConcurrentServers = true
+		cfg.MaxConcurrentServersPerLanguage = 2
+
+		// Enhanced smart routing for multiple servers
+		if cfg.SmartRouterConfig != nil {
+			cfg.SmartRouterConfig.EnablePerformanceMonitoring = true
+			cfg.SmartRouterConfig.DefaultStrategy = "single_target_with_fallback"
+		}
+	} else if successfulInstalls > 1 {
+		// Dual-server configuration
+		cfg.EnableConcurrentServers = true
+		cfg.MaxConcurrentServersPerLanguage = 1
+	}
+
+	// Adjust resource limits based on installation count
+	switch {
+	case successfulInstalls >= 4:
+		cfg.MaxConcurrentRequests = 200
+		cfg.Timeout = "45s"
+	case successfulInstalls >= 2:
+		cfg.MaxConcurrentRequests = 150
+		cfg.Timeout = "30s"
+	default:
+		cfg.MaxConcurrentRequests = 100
+		cfg.Timeout = "15s"
+	}
 }
 
 // determinePerformanceProfile determines the appropriate performance profile based on project analysis
