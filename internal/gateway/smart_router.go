@@ -92,6 +92,11 @@ type SmartRouter interface {
 	// Backward compatibility
 	GetServerForFile(fileURI string) (string, error)
 	GetServerForLanguage(language string) (string, error)
+
+	// Bypass management
+	IsServerBypassed(serverName string) bool
+	GetBypassedServers() map[string]*BypassStateEntry
+	GetNonBypassedServersForLanguage(language string) []string
 }
 
 // SmartRouterImpl implements the SmartRouter interface with advanced routing capabilities
@@ -116,12 +121,15 @@ type SmartRouterImpl struct {
 	// Load balancing state
 	roundRobinCounters map[string]int
 	rrMu               sync.RWMutex
+
+	// Bypass state management
+	bypassStateManager *BypassStateManager
 }
 
 // CircuitBreaker implements circuit breaker pattern for server resilience
 
 // NewSmartRouter creates a new SmartRouter with default configurations
-func NewSmartRouter(projectRouter *ProjectAwareRouter, config *config.GatewayConfig, workspaceManager *WorkspaceManager, logger *mcp.StructuredLogger) *SmartRouterImpl {
+func NewSmartRouter(projectRouter *ProjectAwareRouter, config *config.GatewayConfig, workspaceManager *WorkspaceManager, logger *mcp.StructuredLogger, bypassStateManager *BypassStateManager) *SmartRouterImpl {
 	sr := &SmartRouterImpl{
 		ProjectAwareRouter: projectRouter,
 		config:             config,
@@ -133,8 +141,9 @@ func NewSmartRouter(projectRouter *ProjectAwareRouter, config *config.GatewayCon
 			StrategyMetrics: make(map[string]*StrategyMetrics),
 			LastUpdated:     time.Now(),
 		},
-		circuitBreakers:    make(map[string]*CircuitBreaker),
-		roundRobinCounters: make(map[string]int),
+		circuitBreakers:     make(map[string]*CircuitBreaker),
+		roundRobinCounters:  make(map[string]int),
+		bypassStateManager: bypassStateManager,
 	}
 
 	// Set default routing strategies for common LSP methods
@@ -675,10 +684,63 @@ func (sr *SmartRouterImpl) routeTraditional(request *LSPRequest) (*RoutingDecisi
 	}, nil
 }
 
+// Bypass management methods
+
+// IsServerBypassed checks if a server is currently bypassed
+func (sr *SmartRouterImpl) IsServerBypassed(serverName string) bool {
+	if sr.bypassStateManager == nil {
+		return false
+	}
+	return sr.bypassStateManager.IsBypassed(serverName)
+}
+
+// GetBypassedServers returns all currently bypassed servers
+func (sr *SmartRouterImpl) GetBypassedServers() map[string]*BypassStateEntry {
+	if sr.bypassStateManager == nil {
+		return make(map[string]*BypassStateEntry)
+	}
+	
+	result := make(map[string]*BypassStateEntry)
+	bypassedServers := sr.bypassStateManager.GetAllBypassedServers()
+	
+	for _, entry := range bypassedServers {
+		result[entry.ServerName] = entry
+	}
+	
+	return result
+}
+
+// GetNonBypassedServersForLanguage returns non-bypassed servers for a language
+func (sr *SmartRouterImpl) GetNonBypassedServersForLanguage(language string) []string {
+	// Get all servers for language
+	servers, err := sr.config.GetServersForLanguage(language, 10) // Get up to 10 servers
+	if err != nil {
+		return []string{}
+	}
+	
+	var nonBypassed []string
+	for _, server := range servers {
+		if !sr.IsServerBypassed(server.Name) {
+			nonBypassed = append(nonBypassed, server.Name)
+		}
+	}
+	
+	return nonBypassed
+}
+
 // Helper methods for server selection and health management
 
 // isServerHealthy checks if a server is healthy and not circuit broken
 func (sr *SmartRouterImpl) isServerHealthy(serverName string) bool {
+	// First check if server is bypassed
+	if sr.bypassStateManager != nil && sr.bypassStateManager.IsBypassed(serverName) {
+		if sr.logger != nil {
+			sr.logger.Debugf("SmartRouter: Server %s is bypassed, skipping", serverName)
+		}
+		return false
+	}
+
+	// Then check circuit breaker state
 	sr.cbMu.RLock()
 	defer sr.cbMu.RUnlock()
 

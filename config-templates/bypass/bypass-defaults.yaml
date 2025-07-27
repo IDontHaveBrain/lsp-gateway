@@ -1,0 +1,294 @@
+# Default Bypass Configuration Template for LSP Gateway
+# This template provides sensible default bypass settings with comprehensive failure handling
+
+bypass_config:
+  # Enable bypass functionality globally
+  enabled: true
+  
+  # Configuration version for compatibility tracking
+  version: "1.0"
+  
+  # Global bypass settings that apply to all servers
+  global_bypass:
+    # Enable global bypass functionality
+    enabled: true
+    
+    # Interactive mode - prompt user for bypass decisions when possible
+    interactive_mode: true
+    
+    # Default strategy when no specific strategy is configured
+    # Options: "fail_gracefully", "fallback_server", "cache_response", "circuit_breaker", "retry_with_backoff"
+    default_strategy: "fail_gracefully"
+    
+    # Default timeout before triggering bypass mechanisms
+    failure_timeout: "30s"
+    
+    # Maximum number of retry attempts before triggering bypass
+    max_retry_attempts: 3
+    
+    # Backoff multiplier for retry attempts (exponential backoff)
+    retry_backoff_multiplier: 2.0
+    
+    # Base delay for retry backoff (first retry after this delay)
+    retry_base_delay: "1s"
+    
+    # Maximum delay for retry backoff
+    retry_max_delay: "30s"
+    
+    # Quiet mode - reduce bypass-related logging
+    quiet_mode: false
+    
+    # Enable automatic recovery attempts
+    auto_recovery_enabled: true
+    
+    # Cooldown period before attempting recovery from bypass state
+    recovery_cooldown: "5m"
+    
+    # Maximum recovery attempts before giving up
+    max_recovery_attempts: 3
+    
+  # Server-specific bypass configurations
+  server_bypass:
+    # Go Language Server (gopls) bypass configuration
+    - server: "gopls"
+      bypass_enabled: true
+      
+      # Conditions that trigger bypass for this server
+      # Options: "connection_failure", "timeout", "crash", "memory_limit", "startup_failure", "high_latency", "consecutive_failures"
+      bypass_conditions: 
+        - "connection_failure"
+        - "timeout" 
+        - "crash"
+        - "startup_failure"
+        - "consecutive_failures"
+      
+      # Primary bypass strategy for this server
+      bypass_strategy: "fallback_server"
+      
+      # Fallback server to use when primary fails
+      fallback_server: "gopls-backup"
+      
+      # Number of recovery attempts before permanent bypass
+      recovery_attempts: 3
+      
+      # Health threshold (0.0-1.0) below which server is considered unhealthy
+      health_threshold: 0.8
+      
+      # Cooldown period before attempting recovery
+      cooldown_period: "2m"
+      
+      # Server-specific timeout overrides
+      timeouts:
+        startup: "15s"
+        request: "10s"
+        shutdown: "5s"
+      
+      # Failure thresholds for triggering bypass
+      failure_thresholds:
+        consecutive_failures: 3
+        error_rate_percent: 25
+        response_time_ms: 5000
+        memory_usage_mb: 1024
+        
+    # Python Language Server (pylsp) bypass configuration  
+    - server: "pylsp"
+      bypass_enabled: true
+      bypass_conditions:
+        - "connection_failure"
+        - "timeout"
+        - "memory_limit"
+        - "startup_failure"
+      bypass_strategy: "retry_with_backoff"
+      recovery_attempts: 5
+      health_threshold: 0.7
+      cooldown_period: "3m"
+      timeouts:
+        startup: "20s"
+        request: "15s"
+        shutdown: "5s"
+      failure_thresholds:
+        consecutive_failures: 4
+        error_rate_percent: 30
+        response_time_ms: 8000
+        memory_usage_mb: 2048
+        
+    # TypeScript Language Server (tsserver) bypass configuration
+    - server: "tsserver"
+      bypass_enabled: true
+      bypass_conditions:
+        - "connection_failure"
+        - "timeout"
+        - "memory_limit"
+        - "high_latency"
+      bypass_strategy: "circuit_breaker"
+      recovery_attempts: 4
+      health_threshold: 0.75
+      cooldown_period: "90s"
+      timeouts:
+        startup: "10s"
+        request: "8s"
+        shutdown: "3s"
+      failure_thresholds:
+        consecutive_failures: 2
+        error_rate_percent: 20
+        response_time_ms: 3000
+        memory_usage_mb: 1536
+  
+  # Language-specific bypass configurations
+  language_bypass:
+    # Go language bypass settings
+    go:
+      # Primary bypass strategy for Go projects
+      strategy: "fallback_server"
+      
+      # Conditions specific to Go language servers
+      conditions:
+        - "timeout"
+        - "high_latency"
+        - "memory_limit"
+        
+      # Language-specific timeout
+      timeout: "15s"
+      
+      # Performance thresholds for Go
+      performance_thresholds:
+        max_response_time: "5s"
+        max_memory_usage: "1GB"
+        max_cpu_usage: 80
+        
+      # Go-specific recovery settings
+      recovery:
+        enabled: true
+        max_attempts: 3
+        cooldown: "2m"
+        
+    # Python language bypass settings
+    python:
+      strategy: "retry_with_backoff"
+      conditions:
+        - "startup_failure"
+        - "connection_failure"
+        - "memory_limit"
+      timeout: "20s"
+      performance_thresholds:
+        max_response_time: "8s"
+        max_memory_usage: "2GB"
+        max_cpu_usage: 85
+      recovery:
+        enabled: true
+        max_attempts: 5
+        cooldown: "3m"
+        
+    # TypeScript language bypass settings
+    typescript:
+      strategy: "circuit_breaker"
+      conditions:
+        - "high_latency"
+        - "memory_limit"
+        - "consecutive_failures"
+      timeout: "12s"
+      performance_thresholds:
+        max_response_time: "4s"
+        max_memory_usage: "1.5GB"
+        max_cpu_usage: 75
+      recovery:
+        enabled: true
+        max_attempts: 4
+        cooldown: "90s"
+        
+    # JavaScript language bypass settings
+    javascript:
+      strategy: "circuit_breaker"
+      conditions:
+        - "high_latency"
+        - "memory_limit"
+        - "timeout"
+      timeout: "10s"
+      performance_thresholds:
+        max_response_time: "3s"
+        max_memory_usage: "1GB"
+        max_cpu_usage: 70
+      recovery:
+        enabled: true
+        max_attempts: 3
+        cooldown: "60s"
+        
+    # Java language bypass settings
+    java:
+      strategy: "fallback_server"
+      conditions:
+        - "startup_failure"
+        - "memory_limit"
+        - "timeout"
+        - "consecutive_failures"
+      timeout: "30s"
+      performance_thresholds:
+        max_response_time: "10s"
+        max_memory_usage: "4GB"
+        max_cpu_usage: 90
+      recovery:
+        enabled: true
+        max_attempts: 2
+        cooldown: "5m"
+  
+  # Circuit breaker configuration for bypass mechanisms
+  circuit_breaker:
+    # Enable circuit breaker functionality
+    enabled: true
+    
+    # Failure threshold to open circuit breaker
+    failure_threshold: 5
+    
+    # Success threshold to close circuit breaker
+    success_threshold: 3
+    
+    # Timeout before transitioning to half-open state
+    timeout: "30s"
+    
+    # Window size for failure rate calculation
+    failure_window_size: 10
+    
+  # Notification settings for bypass events
+  notifications:
+    # Enable bypass event notifications
+    enabled: true
+    
+    # Notification levels: "info", "warning", "error", "critical"
+    levels:
+      - "warning"
+      - "error"
+      - "critical"
+      
+    # Notification channels
+    channels:
+      console: true
+      log_file: true
+      webhook: false
+      
+  # Monitoring and metrics collection for bypass events
+  monitoring:
+    # Enable bypass metrics collection
+    enabled: true
+    
+    # Metrics retention period
+    retention_period: "24h"
+    
+    # Export metrics to external systems
+    export:
+      enabled: false
+      format: "prometheus"
+      endpoint: ""
+      
+  # Advanced bypass features
+  advanced:
+    # Enable predictive bypass based on historical patterns
+    predictive_bypass: false
+    
+    # Enable machine learning for bypass optimization
+    ml_optimization: false
+    
+    # Enable bypass recommendation system
+    recommendation_system: true
+    
+    # Bypass decision audit trail
+    audit_trail: true

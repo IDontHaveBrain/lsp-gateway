@@ -518,6 +518,10 @@ type Gateway struct {
 	// Enhancement components
 	enableEnhancements bool
 	health_monitor     *HealthMonitor
+
+	// Bypass management
+	bypassStateManager     *BypassStateManager
+	fallbackStrategyManager *FallbackStrategyManager
 }
 
 func NewGateway(config *config.GatewayConfig) (*Gateway, error) {
@@ -563,8 +567,12 @@ func NewGateway(config *config.GatewayConfig) (*Gateway, error) {
 		}
 	}
 
+	// Create bypass state manager for SmartRouter
+	stateDir := "./data" // Default state directory
+	bypassStateManager := NewBypassStateManager(stateDir, nil) // Using nil logger for now
+
 	// Create SmartRouter with all components
-	smartRouter := NewSmartRouter(projectRouter, config, workspaceManager, logger)
+	smartRouter := NewSmartRouter(projectRouter, config, workspaceManager, logger, bypassStateManager)
 
 	// Check for SmartRouter configuration
 	enableSmartRouting := config.EnableSmartRouting
@@ -1505,6 +1513,12 @@ func (g *Gateway) handleRequestRouting(w http.ResponseWriter, req JSONRPCRequest
 
 // processSingleServerRequest processes a request using a single server (backward compatibility)
 func (g *Gateway) processSingleServerRequest(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, serverName string, logger *mcp.StructuredLogger, startTime time.Time) {
+	// Check if server is bypassed first
+	if g.bypassStateManager != nil && g.bypassStateManager.IsBypassed(serverName) {
+		g.handleBypassedServerRequest(w, r, req, serverName, logger, startTime)
+		return
+	}
+
 	client, exists := g.GetClient(serverName)
 	if !exists {
 		if logger != nil {
@@ -1530,6 +1544,90 @@ func (g *Gateway) processSingleServerRequest(w http.ResponseWriter, r *http.Requ
 	}
 
 	g.handleRequest(w, r, req, client, logger, startTime)
+}
+
+// handleBypassedServerRequest handles requests when the target server is bypassed
+func (g *Gateway) handleBypassedServerRequest(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, serverName string, logger *mcp.StructuredLogger, startTime time.Time) {
+	if logger != nil {
+		logger.WithField("bypassed_server", serverName).Info("Handling request for bypassed server using fallback strategies")
+	}
+
+	// Get bypass information
+	bypassInfo := g.bypassStateManager.GetBypassInfo(serverName)
+	if bypassInfo == nil {
+		// Server is no longer bypassed, retry normal processing
+		g.processSingleServerRequest(w, r, req, serverName, logger, startTime)
+		return
+	}
+
+	// Use fallback strategy manager if available
+	if g.fallbackStrategyManager != nil {
+		// Create LSP request for fallback processing
+		uri := g.extractURIFromParamsSimple(req.Params)
+		language, _ := g.extractLanguageFromURI(uri) // Ignore error for fallback processing
+		lspRequest := &LSPRequest{
+			Method: req.Method,
+			Params: req.Params,
+			URI:    uri,
+			Context: &RequestContext{
+				Language:     language,
+				ServerName:   serverName,
+				RequestType:  req.Method,
+				FileURI:      uri,
+			},
+		}
+
+		fallbackResponse, err := g.fallbackStrategyManager.HandleBypassedRequest(r.Context(), lspRequest, bypassInfo)
+		if err != nil {
+			if logger != nil {
+				logger.WithError(err).Error("All fallback strategies failed")
+			}
+			g.writeError(w, req.ID, InternalError, "Server bypassed and no fallback available", err)
+			return
+		}
+
+		if fallbackResponse.Success {
+			// Return successful fallback response
+			response := JSONRPCResponse{
+				JSONRPC: JSONRPCVersion,
+				ID:      req.ID,
+				Result:  fallbackResponse.Result,
+			}
+
+			w.Header().Set("X-LSP-Fallback-Strategy", fallbackResponse.StrategyUsed)
+			w.Header().Set("X-LSP-Fallback-Source", fallbackResponse.Source)
+			if fallbackResponse.Warning != "" {
+				w.Header().Set("X-LSP-Warning", fallbackResponse.Warning)
+			}
+
+			if err := json.NewEncoder(w).Encode(response); err != nil {
+				if logger != nil {
+					logger.WithError(err).Error("Failed to encode fallback response")
+				}
+				g.writeError(w, req.ID, InternalError, "Internal error", err)
+				return
+			}
+
+			if logger != nil {
+				logger.WithFields(map[string]interface{}{
+					"strategy":         fallbackResponse.StrategyUsed,
+					"source":          fallbackResponse.Source,
+					"confidence":      fallbackResponse.Confidence,
+					"processing_time": fallbackResponse.ProcessingTime,
+				}).Info("Fallback strategy succeeded")
+			}
+			return
+		}
+	}
+
+	// No fallback available or all fallbacks failed
+	if logger != nil {
+		logger.WithField("bypass_reason", bypassInfo.BypassReason).Error("Server is bypassed and no fallback strategy available")
+	}
+	
+	g.writeError(w, req.ID, InternalError, 
+		fmt.Sprintf("Server %s is bypassed: %s", serverName, bypassInfo.BypassReason),
+		fmt.Errorf("server %s bypassed with reason: %s", serverName, bypassInfo.BypassReason))
 }
 
 func (g *Gateway) handleNotification(w http.ResponseWriter, r *http.Request, req JSONRPCRequest, client transport.LSPClient, logger *mcp.StructuredLogger, startTime time.Time) {

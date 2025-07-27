@@ -1,0 +1,507 @@
+# Python Language Bypass Configuration Template for LSP Gateway
+# Optimized bypass settings for Python language servers (pylsp, pyright, jedi-language-server)
+
+python_bypass_config:
+  version: "1.0"
+  language: "python"
+  description: "Specialized bypass configuration for Python language servers"
+  
+  # Python language server configurations
+  servers:
+    # Python LSP Server (pylsp) - Jedi-based
+    pylsp:
+      name: "pylsp"
+      description: "Python LSP Server based on Jedi"
+      bypass_enabled: true
+      
+      # Python-specific failure conditions
+      bypass_conditions:
+        - "import_resolution"    # Python import resolution failures
+        - "virtual_env_issues"   # Virtual environment activation problems
+        - "dependency_missing"   # Missing Python dependencies
+        - "syntax_errors"        # Python syntax errors blocking analysis
+        - "slow_indexing"        # Slow Python module indexing
+        - "memory_overflow"      # High memory usage from large projects
+        - "encoding_errors"      # Python file encoding issues
+        
+      # Primary bypass strategy for pylsp
+      bypass_strategy: "retry_with_backoff"
+      
+      # Fallback to Pyright
+      fallback_server: "pyright"
+      
+      # Python-specific timeouts
+      timeouts:
+        startup: "25s"          # Python environment setup can be slow
+        request: "20s"          # Python analysis can be complex
+        import_resolution: "30s" # Import resolution may take time
+        shutdown: "8s"
+        
+      # Failure thresholds optimized for Python
+      failure_thresholds:
+        consecutive_failures: 4
+        error_rate_percent: 30
+        response_time_ms: 10000  # Python analysis can be slow
+        memory_usage_mb: 3072    # Large Python projects use more memory
+        
+      # Python-specific recovery settings
+      recovery:
+        enabled: true
+        max_attempts: 5
+        cooldown: "4m"
+        health_check_method: "textDocument/hover"
+        environment_refresh: true
+        
+      # Performance optimizations for Python
+      performance:
+        # Cache Python import information
+        import_cache_enabled: true
+        import_cache_ttl: "15m"
+        
+        # Virtual environment optimization
+        venv_detection: true
+        venv_cache_enabled: true
+        
+        # Python-specific optimizations
+        python_optimizations:
+          # Skip __pycache__ directories
+          exclude_pycache: true
+          
+          # Optimize for virtual environments
+          venv_aware: true
+          
+          # Python version compatibility
+          python_versions: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+          
+    # Pyright (Microsoft's Python language server)
+    pyright:
+      name: "pyright"
+      description: "Microsoft's fast Python language server"
+      bypass_enabled: true
+      
+      bypass_conditions:
+        - "type_checking_timeout"
+        - "node_js_issues"       # Pyright requires Node.js
+        - "config_invalid"
+        - "workspace_too_large"
+        
+      bypass_strategy: "circuit_breaker"
+      
+      # Fallback to Jedi Language Server
+      fallback_server: "jedi-language-server"
+      
+      timeouts:
+        startup: "15s"
+        request: "12s"
+        type_checking: "25s"
+        shutdown: "5s"
+        
+      failure_thresholds:
+        consecutive_failures: 3
+        error_rate_percent: 25
+        response_time_ms: 8000
+        memory_usage_mb: 2048
+        
+      # Pyright-specific features
+      features:
+        type_checking: "strict"
+        auto_import_completions: true
+        workspace_symbols: true
+        
+    # Jedi Language Server
+    jedi-language-server:
+      name: "jedi-language-server"
+      description: "Pure Python language server based on Jedi"
+      bypass_enabled: true
+      
+      bypass_conditions:
+        - "jedi_import_errors"
+        - "slow_completion"
+        - "memory_limit"
+        
+      bypass_strategy: "fail_gracefully"
+      
+      timeouts:
+        startup: "20s"
+        request: "15s"
+        completion: "8s"
+        shutdown: "6s"
+        
+      failure_thresholds:
+        consecutive_failures: 6
+        error_rate_percent: 35
+        response_time_ms: 12000
+        memory_usage_mb: 1536
+        
+  # Python-specific bypass strategies
+  language_strategies:
+    # Strategy for import resolution issues
+    import_resolution_failure:
+      strategy: "retry_with_backoff"
+      max_attempts: 4
+      initial_delay: "3s"
+      max_delay: "45s"
+      conditions:
+        - "ModuleNotFoundError"
+        - "ImportError"
+        - "No module named"
+        
+    # Strategy for virtual environment issues
+    virtual_env_handling:
+      strategy: "fallback_server"
+      detection_methods:
+        - "Check VIRTUAL_ENV"
+        - "Look for pyvenv.cfg"
+        - "Find activate script"
+      fallback_delay: "5s"
+      
+    # Strategy for large Python projects
+    large_project_handling:
+      strategy: "circuit_breaker"
+      file_count_threshold: 2000
+      memory_threshold: "4GB"
+      response_time_threshold: "15s"
+      
+  # Python project patterns and optimizations
+  project_patterns:
+    # Django projects
+    django:
+      patterns:
+        - "manage.py"
+        - "settings.py"
+        - "wsgi.py"
+        - "asgi.py"
+      optimizations:
+        - "Django-aware import resolution"
+        - "Template language support"
+        - "Model introspection"
+      server_preference: "pylsp"
+      
+    # Flask projects
+    flask:
+      patterns:
+        - "app.py"
+        - "application.py"
+        - "requirements.txt"
+        - "config.py"
+      optimizations:
+        - "Flask extension detection"
+        - "Blueprint analysis"
+        - "Jinja2 template support"
+      server_preference: "pyright"
+      
+    # FastAPI projects
+    fastapi:
+      patterns:
+        - "main.py"
+        - "app/"
+        - "routers/"
+        - "models/"
+      optimizations:
+        - "Pydantic model support"
+        - "Type hints optimization"
+        - "Async/await analysis"
+      server_preference: "pyright"
+      
+    # Data science projects
+    data_science:
+      patterns:
+        - "*.ipynb"
+        - "requirements.txt"
+        - "environment.yml"
+        - "data/"
+      optimizations:
+        - "Jupyter notebook support"
+        - "NumPy/Pandas optimization"
+        - "Scientific library stubs"
+      server_preference: "pylsp"
+      
+    # Package development
+    package_dev:
+      patterns:
+        - "setup.py"
+        - "setup.cfg" 
+        - "pyproject.toml"
+        - "src/"
+      optimizations:
+        - "Package structure awareness"
+        - "Entry point detection"
+        - "Dependency analysis"
+      server_preference: "pyright"
+      
+  # Python-specific method configurations
+  method_configs:
+    # Python definition lookup
+    "textDocument/definition":
+      timeout: "12s"
+      bypass_strategy: "cache_response"
+      cache_ttl: "8m"
+      fallback_enabled: true
+      import_resolution: true
+      
+    # Python completion
+    "textDocument/completion":
+      timeout: "8s"
+      bypass_strategy: "fail_gracefully"
+      max_items: 50
+      fallback_response:
+        isIncomplete: false
+        items: []
+        
+    # Python hover information
+    "textDocument/hover":
+      timeout: "10s"
+      bypass_strategy: "cache_response"
+      cache_ttl: "12m"
+      include_docstrings: true
+      
+    # Python references
+    "textDocument/references":
+      timeout: "18s"
+      bypass_strategy: "fallback_server"
+      max_results: 200
+      cross_file_search: true
+      
+    # Python workspace symbols
+    "workspace/symbol":
+      timeout: "25s"
+      bypass_strategy: "circuit_breaker"
+      failure_threshold: 2
+      index_imports: true
+      
+    # Python document symbols
+    "textDocument/documentSymbol":
+      timeout: "15s"
+      bypass_strategy: "cache_response"
+      cache_ttl: "20m"
+      include_classes: true
+      include_functions: true
+      
+  # Python virtual environment configurations
+  virtual_env_configs:
+    # Standard venv
+    venv:
+      detection_patterns:
+        - "pyvenv.cfg"
+        - "bin/activate"
+        - "Scripts/activate.bat"
+      activation_check: true
+      path_resolution: "automatic"
+      
+    # Conda environments
+    conda:
+      detection_patterns:
+        - "conda-meta/"
+        - "environment.yml"
+        - "environment.yaml"
+      conda_command: "conda"
+      env_activation: "conda activate"
+      
+    # Poetry environments
+    poetry:
+      detection_patterns:
+        - "pyproject.toml"
+        - "poetry.lock"
+      poetry_command: "poetry"
+      env_activation: "poetry shell"
+      
+    # Pipenv environments
+    pipenv:
+      detection_patterns:
+        - "Pipfile"
+        - "Pipfile.lock"
+      pipenv_command: "pipenv"
+      env_activation: "pipenv shell"
+      
+  # Python-specific error patterns and responses
+  error_patterns:
+    import_errors:
+      patterns:
+        - "ModuleNotFoundError: No module named"
+        - "ImportError: cannot import name"
+        - "ImportError: No module named"
+      bypass_action: "retry_with_backoff"
+      max_attempts: 3
+      install_suggestion: true
+      
+    syntax_errors:
+      patterns:
+        - "SyntaxError: invalid syntax"
+        - "IndentationError:"
+        - "TabError:"
+      bypass_action: "cache_response"
+      serve_stale: false
+      
+    encoding_errors:
+      patterns:
+        - "UnicodeDecodeError:"
+        - "UnicodeEncodeError:"
+        - "codec can't decode"
+      bypass_action: "fail_gracefully"
+      encoding_detection: true
+      
+    environment_errors:
+      patterns:
+        - "Python executable not found"
+        - "Virtual environment not activated"
+        - "PYTHONPATH"
+      bypass_action: "fallback_server"
+      environment_check: true
+      
+    memory_errors:
+      patterns:
+        - "MemoryError"
+        - "Out of memory"
+        - "Cannot allocate memory"
+      bypass_action: "circuit_breaker"
+      memory_optimization: true
+      
+  # Python version compatibility
+  version_compatibility:
+    # Python 3.12+
+    python_3_12_plus:
+      features:
+        - "Enhanced type hints"
+        - "Improved error messages"
+        - "Performance optimizations"
+      optimizations:
+        - "Use latest language features"
+        - "Enable strict type checking"
+        
+    # Python 3.9-3.11
+    python_3_9_to_3_11:
+      features:
+        - "Structural pattern matching"
+        - "Union types with |"
+        - "Generic aliases"
+      optimizations:
+        - "Modern feature set"
+        - "Type hint optimization"
+        
+    # Python 3.8
+    python_3_8:
+      features:
+        - "Assignment expressions"
+        - "Positional-only parameters"
+        - "f-string = for debugging"
+      optimizations:
+        - "Stable feature set"
+        - "Backward compatibility"
+        
+    # Python 3.7 and below
+    python_3_7_below:
+      features:
+        - "Basic type hints"
+        - "Limited async support"
+      optimizations:
+        - "Conservative settings"
+        - "Legacy compatibility"
+        
+  # Python framework-specific configurations
+  framework_configs:
+    # Django-specific settings
+    django:
+      bypass_adjustments:
+        - "Increase timeout for model introspection"
+        - "Cache template analysis"
+        - "Optimize for large project structure"
+      server_settings:
+        pylsp:
+          plugins:
+            django: true
+            templates: true
+        pyright:
+          django_stubs: true
+          
+    # FastAPI-specific settings
+    fastapi:
+      bypass_adjustments:
+        - "Optimize for async/await patterns"
+        - "Enhanced Pydantic model support"
+        - "Type hint validation"
+      server_settings:
+        pyright:
+          strict_mode: true
+          type_checking_mode: "strict"
+          
+    # Data science-specific settings
+    data_science:
+      bypass_adjustments:
+        - "Higher memory limits"
+        - "Longer analysis timeouts"
+        - "NumPy/Pandas stub support"
+      server_settings:
+        pylsp:
+          plugins:
+            numpy: true
+            pandas: true
+            matplotlib: true
+            
+  # Development environment considerations
+  development_environments:
+    # Local development
+    local_dev:
+      bypass_aggressiveness: "conservative"
+      virtual_env_detection: true
+      dependency_installation_prompt: true
+      interactive_error_resolution: true
+      
+    # Docker containers
+    docker:
+      bypass_aggressiveness: "moderate"
+      path_mapping: true
+      volume_optimization: true
+      environment_variable_passthrough: true
+      
+    # Remote development (SSH, WSL)
+    remote_dev:
+      bypass_aggressiveness: "moderate"
+      network_optimization: true
+      file_sync_awareness: true
+      latency_tolerance: "high"
+      
+    # CI/CD pipelines
+    ci_cd:
+      bypass_aggressiveness: "aggressive"
+      fail_fast: true
+      minimal_analysis: true
+      cache_disabled: true
+      
+  # Monitoring and alerting for Python-specific issues
+  monitoring:
+    # Python-specific metrics
+    metrics:
+      - "python_import_resolution_time"
+      - "virtual_env_detection_success_rate"
+      - "python_syntax_error_rate"
+      - "dependency_installation_time"
+      
+    # Alerts for Python development
+    alerts:
+      frequent_import_errors:
+        threshold: "30% of requests"
+        action: "check_virtual_environment"
+        
+      slow_completion:
+        threshold: "15s average"
+        action: "optimize_python_path"
+        
+      memory_usage_high:
+        threshold: "4GB"
+        action: "reduce_project_scope"
+        
+      syntax_error_spike:
+        threshold: "50% error rate"
+        action: "verify_python_syntax"
+        
+  # Best practices for Python bypass configuration
+  best_practices:
+    - "Always configure virtual environment detection"
+    - "Set higher timeouts for large Python projects"
+    - "Use retry strategy for import resolution issues"
+    - "Cache hover and completion responses for stable code"
+    - "Consider Python framework when choosing servers"
+    - "Monitor virtual environment activation status"
+    - "Optimize for your Python version and dependencies"
+    - "Test with different Python project structures"
+    - "Configure appropriate memory limits for data science projects"

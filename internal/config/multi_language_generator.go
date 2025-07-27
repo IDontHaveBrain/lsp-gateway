@@ -30,6 +30,7 @@ type ServerConfigTemplate struct {
 	Weight                float64                           `yaml:"weight,omitempty"`
 	Constraints           *ServerConstraints                `yaml:"constraints,omitempty"`
 	FrameworkEnhancements map[string]map[string]interface{} `yaml:"framework_enhancements,omitempty"`
+	BypassTemplate        *ServerBypassConfig               `yaml:"bypass_template,omitempty"`
 }
 
 type ConfigGenerator struct {
@@ -37,6 +38,8 @@ type ConfigGenerator struct {
 	frameworkEnhancers map[string]FrameworkEnhancer
 	monorepoStrategies map[string]MonorepoStrategy
 	optimizationModes  map[string]OptimizationStrategy
+	bypassTemplates    map[string]*LanguageBypassConfig
+	bypassDefaults     *GlobalBypassConfig
 }
 
 type FrameworkEnhancer interface {
@@ -57,12 +60,15 @@ func NewConfigGenerator() *ConfigGenerator {
 		frameworkEnhancers: make(map[string]FrameworkEnhancer),
 		monorepoStrategies: make(map[string]MonorepoStrategy),
 		optimizationModes:  make(map[string]OptimizationStrategy),
+		bypassTemplates:    make(map[string]*LanguageBypassConfig),
+		bypassDefaults:     nil,
 	}
 
 	generator.initializeDefaultTemplates()
 	generator.initializeFrameworkEnhancers()
 	generator.initializeMonorepoStrategies()
 	generator.initializeOptimizationModes()
+	generator.initializeBypassTemplates()
 
 	return generator
 }
@@ -567,6 +573,18 @@ func (g *ConfigGenerator) initializeOptimizationModes() {
 	g.optimizationModes[PerformanceProfileAnalysis] = NewAnalysisOptimization()
 }
 
+func (g *ConfigGenerator) initializeBypassTemplates() {
+	// Load bypass defaults from template
+	g.bypassDefaults = g.loadGlobalBypassDefaults()
+	
+	// Load language-specific bypass templates
+	g.bypassTemplates["go"] = g.loadLanguageBypassTemplate("go")
+	g.bypassTemplates["python"] = g.loadLanguageBypassTemplate("python")
+	g.bypassTemplates["typescript"] = g.loadLanguageBypassTemplate("typescript")
+	g.bypassTemplates["javascript"] = g.loadLanguageBypassTemplate("javascript")
+	g.bypassTemplates["java"] = g.loadLanguageBypassTemplate("java")
+}
+
 func (g *ConfigGenerator) GenerateMultiLanguageConfig(projectInfo *MultiLanguageProjectInfo) (*MultiLanguageConfig, error) {
 	if projectInfo == nil {
 		return nil, fmt.Errorf("project info cannot be nil")
@@ -658,6 +676,11 @@ func (g *ConfigGenerator) GenerateServerConfig(langCtx *LanguageContext) (*Serve
 	// Apply language context specific settings
 	if err := g.applyLanguageContextSettings(serverConfig, langCtx); err != nil {
 		return nil, fmt.Errorf("failed to apply language context settings: %w", err)
+	}
+
+	// Apply bypass configuration
+	if err := g.applyBypassConfiguration(serverConfig, langCtx); err != nil {
+		return nil, fmt.Errorf("failed to apply bypass configuration: %w", err)
 	}
 
 	// Validate constraints against language context
@@ -1186,4 +1209,270 @@ func (g *ConfigGenerator) mapLanguageForRouting(language string) string {
 	
 	// Return original language if no mapping exists
 	return language
+}
+
+func (g *ConfigGenerator) loadGlobalBypassDefaults() *GlobalBypassConfig {
+	return &GlobalBypassConfig{}
+}
+
+func (g *ConfigGenerator) loadLanguageBypassTemplate(language string) *LanguageBypassConfig {
+	switch language {
+	case "go":
+		return &LanguageBypassConfig{
+			Language:    "go",
+			Strategy:    "auto",
+			Conditions:  []string{"consecutive_failures", "circuit_breaker"},
+			Timeout:     "30s",
+			PerformanceThresholds: &LanguagePerformanceThresholds{
+				MaxResponseTime: "5s",
+				MaxMemoryUsage:  "512MB",
+				MaxCPUUsage:     80.0,
+			},
+			Recovery: &LanguageRecoveryConfig{
+				Enabled:     true,
+				MaxAttempts: 3,
+				Cooldown:    "30s",
+				HealthCheckMethod: "ping",
+			},
+		}
+	case "python":
+		return &LanguageBypassConfig{
+			Language:    "python",
+			Strategy:    "auto",
+			Conditions:  []string{"consecutive_failures", "circuit_breaker"},
+			Timeout:     "30s",
+			PerformanceThresholds: &LanguagePerformanceThresholds{
+				MaxResponseTime: "10s",
+				MaxMemoryUsage:  "1GB",
+				MaxCPUUsage:     85.0,
+			},
+			Recovery: &LanguageRecoveryConfig{
+				Enabled:     true,
+				MaxAttempts: 3,
+				Cooldown:    "30s",
+				HealthCheckMethod: "ping",
+			},
+		}
+	case "typescript", "javascript":
+		return &LanguageBypassConfig{
+			Language:    language,
+			Strategy:    "auto",
+			Conditions:  []string{"consecutive_failures", "circuit_breaker"},
+			Timeout:     "20s",
+			PerformanceThresholds: &LanguagePerformanceThresholds{
+				MaxResponseTime: "8s",
+				MaxMemoryUsage:  "800MB",
+				MaxCPUUsage:     75.0,
+			},
+			Recovery: &LanguageRecoveryConfig{
+				Enabled:     true,
+				MaxAttempts: 3,
+				Cooldown:    "30s",
+				HealthCheckMethod: "ping",
+			},
+		}
+	case "java":
+		return &LanguageBypassConfig{
+			Language:    "java",
+			Strategy:    "manual", // Java servers are slower to start, require manual intervention
+			Conditions:  []string{"consecutive_failures"},
+			Timeout:     "60s",
+			PerformanceThresholds: &LanguagePerformanceThresholds{
+				MaxResponseTime: "15s",
+				MaxMemoryUsage:  "2GB",
+				MaxCPUUsage:     90.0,
+			},
+			Recovery: &LanguageRecoveryConfig{
+				Enabled:     true,
+				MaxAttempts: 5,
+				Cooldown:    "60s",
+				HealthCheckMethod: "workspace_health",
+			},
+		}
+	default:
+		return &LanguageBypassConfig{
+			Language:    language,
+			Strategy:    "auto",
+			Conditions:  []string{"consecutive_failures", "circuit_breaker"},
+			Timeout:     "30s",
+			PerformanceThresholds: &LanguagePerformanceThresholds{
+				MaxResponseTime: "10s",
+				MaxMemoryUsage:  "1GB",
+				MaxCPUUsage:     80.0,
+			},
+			Recovery: &LanguageRecoveryConfig{
+				Enabled:     true,
+				MaxAttempts: 3,
+				Cooldown:    "30s",
+				HealthCheckMethod: "ping",
+			},
+		}
+	}
+}
+
+// applyBypassConfiguration applies bypass configuration to the server config
+func (g *ConfigGenerator) applyBypassConfiguration(serverConfig *ServerConfig, langCtx *LanguageContext) error {
+	// Get language-specific bypass template
+	normalizedLanguage := g.normalizeLanguageName(langCtx.Language)
+	bypassTemplate, exists := g.bypassTemplates[normalizedLanguage]
+	if !exists {
+		// Use default bypass template if specific language template doesn't exist
+		bypassTemplate = g.loadLanguageBypassTemplate("default")
+	}
+
+	// Create bypass configuration based on template
+	bypassConfig := &ServerBypassConfig{
+		Enabled:               true,
+		BypassStrategy:        bypassTemplate.Strategy,
+		BypassConditions:      make([]string, len(bypassTemplate.Conditions)),
+		RecoveryAttempts:      bypassTemplate.Recovery.MaxAttempts,
+		CooldownPeriod:        bypassTemplate.Recovery.Cooldown,
+		Timeouts: &BypassTimeouts{
+			Request: bypassTemplate.Timeout,
+		},
+		FailureThresholds: &BypassFailureThresholds{
+			ConsecutiveFailures: 3, // Default value
+			ErrorRatePercent:    25, // Default value
+		},
+	}
+
+	// Copy conditions
+	copy(bypassConfig.BypassConditions, bypassTemplate.Conditions)
+
+	// Apply performance thresholds if available
+	if bypassTemplate.PerformanceThresholds != nil {
+		if bypassTemplate.PerformanceThresholds.MaxResponseTime != "" {
+			bypassConfig.Timeouts.Request = bypassTemplate.PerformanceThresholds.MaxResponseTime
+		}
+		// Convert memory usage to MB if needed (simple parsing)
+		if bypassTemplate.PerformanceThresholds.MaxMemoryUsage != "" {
+			if bypassTemplate.PerformanceThresholds.MaxMemoryUsage == "512MB" {
+				bypassConfig.FailureThresholds.MemoryUsageMB = 512
+			} else if bypassTemplate.PerformanceThresholds.MaxMemoryUsage == "1GB" {
+				bypassConfig.FailureThresholds.MemoryUsageMB = 1024
+			} else if bypassTemplate.PerformanceThresholds.MaxMemoryUsage == "2GB" {
+				bypassConfig.FailureThresholds.MemoryUsageMB = 2048
+			} else if bypassTemplate.PerformanceThresholds.MaxMemoryUsage == "800MB" {
+				bypassConfig.FailureThresholds.MemoryUsageMB = 800
+			} else {
+				bypassConfig.FailureThresholds.MemoryUsageMB = 1024 // Default
+			}
+		}
+		bypassConfig.FailureThresholds.CPUUsagePercent = bypassTemplate.PerformanceThresholds.MaxCPUUsage
+	}
+
+	// Apply project-specific optimizations
+	if err := g.applyProjectSpecificBypassOptimizations(bypassConfig, langCtx); err != nil {
+		return fmt.Errorf("failed to apply project-specific bypass optimizations: %w", err)
+	}
+
+	// Set the bypass configuration on the server config
+	serverConfig.BypassConfig = bypassConfig
+
+	return nil
+}
+
+// applyProjectSpecificBypassOptimizations applies project-specific bypass optimizations
+func (g *ConfigGenerator) applyProjectSpecificBypassOptimizations(bypassConfig *ServerBypassConfig, langCtx *LanguageContext) error {
+	// Apply complexity-based optimizations
+	if langCtx.Complexity != nil {
+		if langCtx.Complexity.LinesOfCode > 100000 {
+			// Large codebase - be more conservative with bypass
+			bypassConfig.FailureThresholds.ConsecutiveFailures = 5
+			bypassConfig.RecoveryAttempts = 2
+			bypassConfig.CooldownPeriod = "5m"
+		}
+
+		if langCtx.Complexity.DependencyCount > 100 {
+			// High dependency count - longer timeouts
+			if bypassConfig.Timeouts != nil {
+				bypassConfig.Timeouts.Startup = "30s"
+				bypassConfig.Timeouts.Request = "20s"
+			}
+		}
+	}
+
+	// Apply build system specific optimizations
+	if langCtx.BuildSystem != "" {
+		switch langCtx.BuildSystem {
+		case "gradle", "maven":
+			// Java build systems - longer startup timeouts
+			if bypassConfig.Timeouts != nil {
+				bypassConfig.Timeouts.Startup = "45s"
+			}
+		case "cargo":
+			// Rust build system - moderate timeouts
+			if bypassConfig.Timeouts != nil {
+				bypassConfig.Timeouts.Startup = "20s"
+			}
+		}
+	}
+
+	// Apply framework-specific optimizations
+	for _, framework := range langCtx.Frameworks {
+		switch framework {
+		case "spring-boot":
+			// Spring Boot takes longer to start
+			if bypassConfig.Timeouts != nil {
+				bypassConfig.Timeouts.Startup = "60s"
+			}
+		case "django":
+			// Django projects may have complex database migrations
+			if bypassConfig.Timeouts != nil {
+				bypassConfig.Timeouts.Startup = "30s"
+			}
+		case "react", "angular", "vue":
+			// Frontend frameworks - faster recovery
+			bypassConfig.RecoveryAttempts = 5
+			bypassConfig.CooldownPeriod = "1m"
+		}
+	}
+
+	return nil
+}
+
+// generateBypassConfigForLanguage generates bypass configuration for a specific language and project type
+func (g *ConfigGenerator) generateBypassConfigForLanguage(language, projectType string) *ServerBypassConfig {
+	// Get language-specific bypass template
+	normalizedLanguage := g.normalizeLanguageName(language)
+	bypassTemplate, exists := g.bypassTemplates[normalizedLanguage]
+	if !exists {
+		bypassTemplate = g.loadLanguageBypassTemplate("default")
+	}
+
+	// Create base bypass configuration
+	baseConfig := &ServerBypassConfig{
+		Enabled:          true,
+		BypassStrategy:   bypassTemplate.Strategy,
+		BypassConditions: make([]string, len(bypassTemplate.Conditions)),
+		RecoveryAttempts: bypassTemplate.Recovery.MaxAttempts,
+		CooldownPeriod:   bypassTemplate.Recovery.Cooldown,
+		Timeouts: &BypassTimeouts{
+			Request: bypassTemplate.Timeout,
+		},
+		FailureThresholds: &BypassFailureThresholds{
+			ConsecutiveFailures: 3,
+			ErrorRatePercent:    25,
+		},
+	}
+
+	copy(baseConfig.BypassConditions, bypassTemplate.Conditions)
+
+	// Apply project type specific optimizations
+	switch projectType {
+	case ProjectTypeMonorepo:
+		baseConfig.FailureThresholds.ConsecutiveFailures = 5 // More tolerant for complex monorepos
+		baseConfig.CooldownPeriod = "3m"
+	case ProjectTypeMicroservices:
+		baseConfig.RecoveryAttempts = 2 // Fail fast for microservices
+		baseConfig.CooldownPeriod = "30s"
+	case ProjectTypeFrontendBackend:
+		if g.isFrontendLanguage(language) {
+			baseConfig.RecoveryAttempts = 5 // More attempts for frontend
+		} else if g.isBackendLanguage(language) {
+			baseConfig.FailureThresholds.ConsecutiveFailures = 4 // Backend services should be stable
+		}
+	}
+
+	return baseConfig
 }

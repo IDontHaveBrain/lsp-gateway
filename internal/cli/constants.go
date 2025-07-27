@@ -41,6 +41,16 @@ const (
 	FLAG_PROJECT                 = "project"
 	FLAG_AUTO_DETECT_PROJECT     = "auto-detect-project"
 	FLAG_GENERATE_PROJECT_CONFIG = "generate-project-config"
+	
+	// Bypass-related flags
+	FLAG_BYPASS_ENABLED              = "bypass-enabled"
+	FLAG_BYPASS_STRATEGY             = "bypass-strategy"
+	FLAG_BYPASS_AUTO_CONSECUTIVE     = "bypass-auto-consecutive"
+	FLAG_BYPASS_AUTO_CIRCUIT_BREAKER = "bypass-auto-circuit-breaker"
+	FLAG_BYPASS_CONSECUTIVE_THRESHOLD = "bypass-consecutive-threshold"
+	FLAG_BYPASS_RECOVERY_ATTEMPTS    = "bypass-recovery-attempts"
+	FLAG_BYPASS_INTERACTIVE          = "bypass-interactive"
+	FLAG_BYPASS_QUIET                = "bypass-quiet"
 
 	FLAG_DESCRIPTION_CONFIG_PATH             = "Configuration file path"
 	FLAG_DESCRIPTION_PROJECT_PATH            = "Project workspace path"
@@ -49,6 +59,16 @@ const (
 	FLAG_DESCRIPTION_JSON_OUTPUT             = "Output in JSON format"
 	FLAG_DESCRIPTION_JSON_RESULTS            = "Output results in JSON format"
 	FLAG_DESCRIPTION_INSTALLATION_TIMEOUT    = "Installation timeout"
+	
+	// Bypass flag descriptions
+	FLAG_DESCRIPTION_BYPASS_ENABLED              = "Enable global bypass functionality"
+	FLAG_DESCRIPTION_BYPASS_STRATEGY             = "Default bypass strategy (fail_gracefully, fallback_server, cache_response, circuit_breaker, retry_with_backoff)"
+	FLAG_DESCRIPTION_BYPASS_AUTO_CONSECUTIVE     = "Enable automatic bypass on consecutive failures"
+	FLAG_DESCRIPTION_BYPASS_AUTO_CIRCUIT_BREAKER = "Enable automatic bypass on circuit breaker activation"
+	FLAG_DESCRIPTION_BYPASS_CONSECUTIVE_THRESHOLD = "Number of consecutive failures before triggering bypass"
+	FLAG_DESCRIPTION_BYPASS_RECOVERY_ATTEMPTS    = "Maximum number of recovery attempts"
+	FLAG_DESCRIPTION_BYPASS_INTERACTIVE          = "Enable interactive mode for bypass decisions"
+	FLAG_DESCRIPTION_BYPASS_QUIET                = "Enable quiet mode to reduce bypass-related logging"
 
 	VALUE_CONFIGURATION  = "configuration"
 	VALUE_CONFIG_YAML    = "config.yaml"

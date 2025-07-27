@@ -55,7 +55,10 @@ func NewMultiLanguageIntegrator(gatewayConfig *config.GatewayConfig, logger *mcp
 
 	// Initialize smart router with project-aware routing if available
 	projectRouter := NewProjectAwareRouter(baseRouter, integrator.workspaceManager, logger)
-	integrator.smartRouter = NewSmartRouter(projectRouter, gatewayConfig, integrator.workspaceManager, logger)
+	// Create bypass state manager for SmartRouter
+	stateDir := "./data" // Default state directory
+	bypassStateManager := NewBypassStateManager(stateDir, nil) // Using nil logger for now
+	integrator.smartRouter = NewSmartRouter(projectRouter, gatewayConfig, integrator.workspaceManager, logger, bypassStateManager)
 	return integrator
 }
 
