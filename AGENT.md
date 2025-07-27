@@ -289,3 +289,8 @@ make clean && make local     # Clean rebuild for development
 - **Cache Hit Rate**: 85-90% for repeated symbol queries
 - **Response Time Improvement**: 60-87% faster than pure LSP
 - **Memory Usage**: ~65-75MB additional memory for cache
+
+## Protocol Versions
+
+### Model Context Protocol (MCP)
+- **Current Active Version**: 2025-06-18
