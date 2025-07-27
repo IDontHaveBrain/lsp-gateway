@@ -100,7 +100,7 @@ servers:
       
       custom_config:
         enable_enterprise_features: true
-        enable_distributed_caching: true
+        enable_advanced_caching: true
         enable_cross_datacenter_replication: true
         enable_advanced_profiling: true
     
@@ -663,14 +663,11 @@ performance_config:
     fallback_to_lsp: true
     fallback_timeout: "5s"
     
-    # Enterprise caching with Redis-like distributed cache
+    # Enterprise caching for two-tier storage optimization
     cache:
       enabled: true
       ttl: "2h"  # Longer TTL for enterprise stability
       max_size: 10000  # Large cache for enterprise scale
-      distributed: true
-      redis_endpoint: "redis://enterprise-cache:6379/0"
-      cluster_mode: true
       
     # Advanced enterprise features
     advanced:
@@ -894,8 +891,8 @@ performance_config:
         frequency_weight: 0.5
         size_weight: 0.2
         tier_thresholds:
-          "l1_to_l2": 0.8
-          "l2_to_l1": 0.2
+          "memory_to_disk": 0.8
+          "disk_to_memory": 0.2
         custom_parameters:
           enable_ml_prediction: true
           prediction_model: "gradient_boost"
