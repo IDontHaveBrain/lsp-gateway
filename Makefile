@@ -182,7 +182,7 @@ quality: format lint security
 # TESTING TARGETS
 # =============================================================================
 
-.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-go test-java-real test-python-real test-typescript-real test-e2e-advanced test-e2e-workflow test-e2e-setup-cli test-e2e-mcp test-mcp-stdio test-mcp-tcp test-mcp-tools test-mcp-scip test-mcp-comprehensive test-mcp-lsp-tools-all test-mcp-performance-suite test-mcp-enhanced-quick test-npm-cli test-npm-mcp test-npm-mcp-quick test-npm-mcp-js test-npm-mcp-go setup-simple-repos
+.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-go test-java-real test-python-real test-python-patterns test-python-patterns-quick test-python-comprehensive test-typescript-real test-e2e-advanced test-e2e-workflow test-e2e-setup-cli test-e2e-mcp test-mcp-stdio test-mcp-tcp test-mcp-tools test-mcp-scip test-mcp-comprehensive test-mcp-lsp-tools-all test-mcp-performance-suite test-mcp-enhanced-quick test-npm-cli test-npm-mcp test-npm-mcp-quick test-npm-mcp-js test-npm-mcp-go validate-python-patterns-integration validate-python-patterns-integration-quick test-python-patterns-integration setup-simple-repos
 setup-simple-repos:
 	@echo "Setting up test repositories..."
 	./scripts/setup-simple-repos.sh || echo "Setup script not found, skipping..."
@@ -251,6 +251,19 @@ test-python-real:
 test-typescript-real:
 	@echo "Running TypeScript real server integration tests..."
 	$(GOTEST) -v -timeout 600s -run "TestTypeScriptReal.*IntegrationTestSuite" ./tests/e2e/...
+
+# Python Patterns E2E Test Targets
+test-python-patterns:
+	@echo "Running comprehensive Python patterns e2e tests with real server..."
+	./scripts/test-python-patterns.sh --verbose
+
+test-python-patterns-quick:
+	@echo "Running quick Python patterns validation tests..."
+	./scripts/test-python-patterns.sh --quick --verbose
+
+test-python-comprehensive:
+	@echo "Running complete Python test suite including patterns..."
+	./scripts/test-python-patterns.sh --comprehensive --verbose
 
 # Advanced E2E Test Targets
 test-e2e-advanced:
@@ -323,6 +336,19 @@ test-npm-mcp-js:
 test-npm-mcp-go:
 	@echo "Running NPM-MCP Go integration tests only..."
 	./scripts/test-npm-mcp.sh --go-only --verbose
+
+# Integration Validation Targets
+validate-python-patterns-integration:
+	@echo "Running Python patterns integration validation..."
+	./scripts/validate-python-patterns-integration.sh --verbose
+
+validate-python-patterns-integration-quick:
+	@echo "Running quick Python patterns integration validation..."
+	./scripts/validate-python-patterns-integration.sh --quick --verbose
+
+test-python-patterns-integration:
+	@echo "Running Python patterns integration tests..."
+	$(GOTEST) -v -timeout 600s -run "PythonPatternsIntegration" ./tests/integration/...
 
 # =============================================================================
 # UTILITY TARGETS
@@ -405,6 +431,9 @@ help:
 	@echo "Real Language Server Integration:"
 	@echo "  test-java-real         - Java real JDTLS integration"
 	@echo "  test-python-real       - Python real pylsp integration"
+	@echo "  test-python-patterns   - Comprehensive Python patterns e2e tests with real server"
+	@echo "  test-python-patterns-quick - Quick Python patterns validation tests"
+	@echo "  test-python-comprehensive - Complete Python test suite including patterns"
 	@echo "  test-typescript-real   - TypeScript real server integration"
 	@echo ""
 	@echo "NPM-MCP Integration Testing:"
@@ -412,6 +441,11 @@ help:
 	@echo "  test-npm-mcp-quick     - Quick NPM-MCP tests"
 	@echo "  test-npm-mcp-js        - JavaScript E2E tests only"
 	@echo "  test-npm-mcp-go        - Go integration tests only"
+	@echo ""
+	@echo "Integration Validation:"
+	@echo "  validate-python-patterns-integration       - Complete Python patterns integration validation"
+	@echo "  validate-python-patterns-integration-quick - Quick Python patterns integration validation"
+	@echo "  test-python-patterns-integration           - Go-based Python patterns integration tests"
 	@echo ""
 	@echo "Utility:"
 	@echo "  install   - Install binary to GOPATH"
