@@ -931,7 +931,7 @@ func (d *TypeScriptProjectDetector) detectBuildTools(path string, metadata *Type
 
 		for _, tool := range buildToolDeps {
 			if _, exists := allDeps[tool]; exists {
-				if !containsString(buildTools, tool) {
+				if !tsContainsString(buildTools, tool) {
 					buildTools = append(buildTools, tool)
 				}
 			}
@@ -987,7 +987,7 @@ func (d *TypeScriptProjectDetector) detectLintingTools(path string, metadata *Ty
 
 	for configFile, tool := range lintConfigs {
 		if _, err := os.Stat(filepath.Join(path, configFile)); err == nil {
-			if !containsString(lintingTools, tool) {
+			if !tsContainsString(lintingTools, tool) {
 				lintingTools = append(lintingTools, tool)
 			}
 		}
@@ -1010,7 +1010,7 @@ func (d *TypeScriptProjectDetector) detectLintingTools(path string, metadata *Ty
 				if baseTool == "@typescript-eslint" {
 					baseTool = "eslint"
 				}
-				if !containsString(lintingTools, baseTool) {
+				if !tsContainsString(lintingTools, baseTool) {
 					lintingTools = append(lintingTools, baseTool)
 				}
 			}
@@ -1209,7 +1209,7 @@ func max(a, b float64) float64 {
 	return b
 }
 
-func containsString(slice []string, item string) bool {
+func tsContainsString(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
 			return true

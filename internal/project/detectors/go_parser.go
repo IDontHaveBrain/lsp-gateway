@@ -113,7 +113,9 @@ func (p *GoModuleParser) ParseGoMod(ctx context.Context, goModPath string) (*GoM
 	// Validate parsed information
 	if err := p.validateGoModInfo(modInfo); err != nil {
 		p.logger.WithError(err).WithField("path", goModPath).Warn("go.mod validation issues found")
-		// Don't return error - just log warning for validation issues
+		// Return error for critical validation failures
+		return nil, types.NewDetectionError(types.PROJECT_TYPE_GO, "validation", goModPath,
+			fmt.Sprintf("go.mod validation failed: %v", err), err)
 	}
 
 	parseTime := time.Since(startTime)

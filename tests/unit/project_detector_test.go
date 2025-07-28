@@ -663,50 +663,83 @@ func (suite *ProjectDetectorTestSuite) TestCacheIntegration() {
 	suite.createFile("go.mod", "module test\n\ngo 1.19")
 	suite.createFile("main.go", "package main\n\nfunc main() {}")
 
-	// First scan (should cache)
-	start := time.Now()
-	info1, err := suite.scanner.ScanProjectCached(suite.tempDir)
-	firstScanDuration := time.Since(start)
+	// Get initial cache stats to establish baseline
+	initialStats := suite.scanner.GetCacheStats()
+	initialHitCount := int64(0)
+	initialMissCount := int64(0)
+	if initialStats != nil {
+		initialHitCount = initialStats.HitCount
+		initialMissCount = initialStats.MissCount
+	}
 
+	// First scan (should be cache miss)
+	info1, err := suite.scanner.ScanProjectCached(suite.tempDir)
 	suite.Require().NoError(err)
 	suite.NotNil(info1)
 
-	// Second scan (should use cache)
-	start = time.Now()
-	info2, err := suite.scanner.ScanProjectCached(suite.tempDir)
-	secondScanDuration := time.Since(start)
+	// Verify cache miss occurred
+	stats1 := suite.scanner.GetCacheStats()
+	if stats1 != nil {
+		suite.GreaterOrEqual(stats1.MissCount, initialMissCount+1, "First scan should be cache miss")
+	}
 
+	// Second scan (should be cache hit)
+	info2, err := suite.scanner.ScanProjectCached(suite.tempDir)
 	suite.Require().NoError(err)
 	suite.NotNil(info2)
 
-	// Cache should make second scan much faster
-	suite.Less(secondScanDuration, firstScanDuration/2, "Cached scan should be much faster")
+	// Verify cache hit occurred
+	stats2 := suite.scanner.GetCacheStats()
+	if stats2 != nil {
+		suite.GreaterOrEqual(stats2.HitCount, initialHitCount+1, "Second scan should be cache hit")
+		suite.Greater(stats2.HitRatio, 0.0, "Should have positive hit ratio after cache hit")
+	}
 
-	// Results should be identical
-	suite.Equal(info1.ProjectType, info2.ProjectType)
-	suite.Equal(info1.DominantLanguage, info2.DominantLanguage)
-	suite.Equal(len(info1.Languages), len(info2.Languages))
+	// Results should be functionally identical (cache should return same data)
+	suite.Equal(info1.ProjectType, info2.ProjectType, "Cached result should have same project type")
+	suite.Equal(info1.DominantLanguage, info2.DominantLanguage, "Cached result should have same dominant language")
+	suite.Equal(len(info1.Languages), len(info2.Languages), "Cached result should have same language count")
+	suite.Equal(info1.RootPath, info2.RootPath, "Cached result should have same root path")
 
-	// Test cache invalidation
+	// Test detailed language context consistency
+	for lang, ctx1 := range info1.Languages {
+		ctx2, exists := info2.Languages[lang]
+		suite.True(exists, fmt.Sprintf("Cached result should contain language %s", lang))
+		suite.Equal(ctx1.Language, ctx2.Language, fmt.Sprintf("Language context for %s should be identical", lang))
+		suite.Equal(ctx1.FileCount, ctx2.FileCount, fmt.Sprintf("File count for %s should be identical", lang))
+		suite.Equal(ctx1.Priority, ctx2.Priority, fmt.Sprintf("Priority for %s should be identical", lang))
+	}
+
+	// Test cache invalidation functionality
 	suite.scanner.InvalidateCache(suite.tempDir)
 
-	start = time.Now()
+	// Scan after invalidation (should be cache miss again)
 	info3, err := suite.scanner.ScanProjectCached(suite.tempDir)
-	thirdScanDuration := time.Since(start)
-
 	suite.Require().NoError(err)
 	suite.NotNil(info3)
 
-	// After invalidation, should take similar time to first scan
-	suite.Greater(thirdScanDuration, secondScanDuration*2,
-		"Scan after cache invalidation should be slower than cached scan")
+	// Verify cache miss occurred after invalidation
+	stats3 := suite.scanner.GetCacheStats()
+	if stats3 != nil {
+		suite.Greater(stats3.MissCount, stats2.MissCount, "Scan after invalidation should be cache miss")
+	}
 
-	// Test cache statistics
-	stats := suite.scanner.GetCacheStats()
-	if stats != nil {
-		suite.GreaterOrEqual(stats.HitCount, int64(1), "Should have cache hits")
-		suite.GreaterOrEqual(stats.MissCount, int64(1), "Should have cache misses")
-		suite.Greater(stats.HitRatio, 0.0, "Should have positive hit ratio")
+	// Results should still be functionally identical (same project, same results)
+	suite.Equal(info1.ProjectType, info3.ProjectType, "Results after invalidation should be consistent")
+	suite.Equal(info1.DominantLanguage, info3.DominantLanguage, "Dominant language should be consistent after invalidation")
+
+	// Test cache statistics are properly tracked
+	finalStats := suite.scanner.GetCacheStats()
+	if finalStats != nil {
+		suite.GreaterOrEqual(finalStats.HitCount, int64(1), "Should have at least one cache hit")
+		suite.GreaterOrEqual(finalStats.MissCount, int64(2), "Should have at least two cache misses (initial + post-invalidation)")
+		suite.GreaterOrEqual(finalStats.TotalEntries, 0, "Total entries should be non-negative")
+		
+		// Verify hit ratio calculation is reasonable
+		if finalStats.HitCount+finalStats.MissCount > 0 {
+			expectedHitRatio := float64(finalStats.HitCount) / float64(finalStats.HitCount+finalStats.MissCount)
+			suite.InDelta(expectedHitRatio, finalStats.HitRatio, 0.01, "Hit ratio should be calculated correctly")
+		}
 	}
 }
 
