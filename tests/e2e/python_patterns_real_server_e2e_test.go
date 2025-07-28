@@ -18,7 +18,7 @@ import (
 )
 
 // PythonPatternsE2ETestSuite provides comprehensive E2E tests for Python LSP features
-// using real lspg server integration with the faif/python-patterns repository
+// using real lspg server integration with modular repository management
 type PythonPatternsE2ETestSuite struct {
 	suite.Suite
 	
@@ -31,8 +31,8 @@ type PythonPatternsE2ETestSuite struct {
 	projectRoot     string
 	testTimeout     time.Duration
 	
-	// Python-specific components
-	repoManager     *testutils.PythonRepoManager
+	// Modular repository management
+	repoManager     testutils.RepositoryManager
 	repoDir         string
 	pythonFiles     map[string]string
 	
@@ -173,7 +173,7 @@ var PythonPatternTestDatabase = map[string]TestFileData{
 	},
 }
 
-// SetupSuite initializes the test suite with Python patterns repository
+// SetupSuite initializes the test suite with Python patterns repository using modular system
 func (suite *PythonPatternsE2ETestSuite) SetupSuite() {
 	suite.testTimeout = 5 * time.Minute
 	
@@ -184,15 +184,19 @@ func (suite *PythonPatternsE2ETestSuite) SetupSuite() {
 	suite.tempDir, err = os.MkdirTemp("", "python-patterns-e2e-*")
 	suite.Require().NoError(err, "Failed to create temp directory")
 	
-	// Initialize Python repository manager
-	repoConfig := testutils.DefaultPythonRepoConfig()
-	repoConfig.TargetDir = filepath.Join(suite.tempDir, "python-patterns")
-	repoConfig.CloneTimeout = 300 * time.Second
-	repoConfig.EnableLogging = true
+	// Initialize modular Python repository manager
+	repoConfig := testutils.GenericRepoConfig{
+		LanguageConfig: testutils.GetPythonLanguageConfig(),
+		TargetDir:      filepath.Join(suite.tempDir, "python-patterns"),
+		CloneTimeout:   300 * time.Second,
+		EnableLogging:  true,
+		ForceClean:     true,
+		PreserveGitDir: false,
+	}
 	
-	suite.repoManager = testutils.NewPythonRepoManager(repoConfig)
+	suite.repoManager = testutils.NewGenericRepoManager(repoConfig)
 	
-	// Clone and setup repository
+	// Setup repository using modular interface
 	suite.repoDir, err = suite.repoManager.SetupRepository()
 	suite.Require().NoError(err, "Failed to setup Python patterns repository")
 	
@@ -209,7 +213,7 @@ func (suite *PythonPatternsE2ETestSuite) SetupSuite() {
 	// Discover Python files for testing
 	suite.discoverPythonFiles()
 	
-	// Create test configuration
+	// Create test configuration using modular system
 	suite.createTestConfig()
 }
 
@@ -258,7 +262,7 @@ func (suite *PythonPatternsE2ETestSuite) TearDownTest() {
 	suite.collectTestMetrics()
 }
 
-// TearDownSuite performs final cleanup
+// TearDownSuite performs final cleanup using modular repository manager
 func (suite *PythonPatternsE2ETestSuite) TearDownSuite() {
 	if suite.repoManager != nil {
 		if err := suite.repoManager.Cleanup(); err != nil {
@@ -660,29 +664,20 @@ func (suite *PythonPatternsE2ETestSuite) validateDocumentSymbolResponse(symbols 
 	return matchCount > 0
 }
 
-// Configuration and utility methods
+// Configuration and utility methods using modular system
 func (suite *PythonPatternsE2ETestSuite) createTestConfig() {
-	configContent := fmt.Sprintf(`
-servers:
-- name: python-pylsp
-  languages: ["python"]
-  command: pylsp
-  args: []
-  transport: stdio
-  root_markers: ["pyproject.toml", "requirements.txt", ".git"]
-  priority: 1
-  weight: 1.0
-
-port: %d
-timeout: 30s
-max_concurrent_requests: 100
-logging:
-  level: debug
-`, suite.gatewayPort)
-
-	suite.configPath = filepath.Join(suite.tempDir, "test-config.yaml")
-	err := os.WriteFile(suite.configPath, []byte(configContent), 0644)
-	suite.Require().NoError(err, "Failed to create test config")
+	// Use modular language configuration system
+	options := testutils.DefaultLanguageConfigOptions("python")
+	options.TestPort = fmt.Sprintf("%d", suite.gatewayPort)
+	options.ConfigType = "main"
+	
+	configPath, cleanup, err := testutils.CreateLanguageConfig(suite.repoManager, options)
+	suite.Require().NoError(err, "Failed to create modular test config")
+	
+	suite.configPath = configPath
+	
+	// Store cleanup function for later use (could be added as a field if needed)
+	_ = cleanup // We'll handle cleanup in TearDownSuite through tempDir removal
 }
 
 func (suite *PythonPatternsE2ETestSuite) updateConfigPort() {
@@ -692,28 +687,28 @@ func (suite *PythonPatternsE2ETestSuite) updateConfigPort() {
 func (suite *PythonPatternsE2ETestSuite) discoverPythonFiles() {
 	suite.pythonFiles = make(map[string]string)
 	
-	err := filepath.Walk(suite.repoDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		
-		if strings.HasSuffix(path, ".py") && !strings.Contains(path, "__pycache__") {
-			relPath, _ := filepath.Rel(suite.repoDir, path)
-			content, readErr := os.ReadFile(path)
-			if readErr == nil {
-				suite.pythonFiles[relPath] = string(content)
-			}
-		}
-		
-		return nil
-	})
+	// Use modular repository manager to get test files
+	testFiles, err := suite.repoManager.GetTestFiles()
+	suite.Require().NoError(err, "Failed to get test files from repository manager")
+	suite.Require().Greater(len(testFiles), 0, "No Python files found in repository")
 	
-	suite.Require().NoError(err, "Failed to discover Python files")
-	suite.Require().Greater(len(suite.pythonFiles), 0, "No Python files found in repository")
+	// Read content for each discovered file
+	workspaceDir := suite.repoManager.GetWorkspaceDir()
+	for _, relPath := range testFiles {
+		fullPath := filepath.Join(workspaceDir, relPath)
+		content, readErr := os.ReadFile(fullPath)
+		if readErr == nil && strings.HasSuffix(relPath, ".py") {
+			suite.pythonFiles[relPath] = string(content)
+		}
+	}
+	
+	suite.Require().Greater(len(suite.pythonFiles), 0, "No Python files with content found")
 }
 
 func (suite *PythonPatternsE2ETestSuite) getFileURI(filePath string) string {
-	return "file://" + filepath.Join(suite.repoDir, filePath)
+	// Use modular repository manager to get workspace directory
+	workspaceDir := suite.repoManager.GetWorkspaceDir()
+	return "file://" + filepath.Join(workspaceDir, filePath)
 }
 
 func (suite *PythonPatternsE2ETestSuite) verifyServerReadiness(ctx context.Context) {
