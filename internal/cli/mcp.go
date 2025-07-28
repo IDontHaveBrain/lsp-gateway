@@ -19,6 +19,7 @@ import (
 	"lsp-gateway/internal/project"
 	"lsp-gateway/internal/setup"
 	"lsp-gateway/internal/transport"
+	"lsp-gateway/internal/version"
 	"lsp-gateway/mcp"
 
 	"github.com/spf13/cobra"
@@ -473,7 +474,7 @@ func setupMCPServer(logger *mcp.StructuredLogger) (*mcp.Server, error) {
 	cfg := &mcp.ServerConfig{
 		Name:          "lsp-gateway-mcp",
 		Description:   "MCP server providing LSP functionality through LSP Gateway",
-		Version:       "0.1.0",
+		Version:       version.Version,
 		LSPGatewayURL: McpGatewayURL,
 		Transport:     McpTransport,
 		Timeout:       McpTimeout,

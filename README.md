@@ -22,14 +22,14 @@
 # 1. Clone and build (2 minutes)
 git clone [repository-url]
 cd lsp-gateway
-make local
+make local                    # Builds binary + creates global 'lspg' command
 
 # 2. Automated setup (2 minutes) 
-./bin/lsp-gateway setup all          # Installs runtimes + language servers + config
+lspg setup all               # Installs runtimes + language servers + config
 
 # 3. Start using (30 seconds)
-./bin/lsp-gateway server --config config.yaml    # HTTP Gateway (port 8080)
-./bin/lsp-gateway mcp --config config.yaml       # MCP Server for AI assistants
+lspg server --config config.yaml    # HTTP Gateway (port 8080)
+lspg mcp --config config.yaml       # MCP Server for AI assistants
 ```
 
 ## Usage
@@ -43,7 +43,7 @@ Configure AI tools (Claude Desktop, etc.):
 {
   "mcpServers": {
     "lsp-gateway": {
-      "command": "lsp-gateway", 
+      "command": "lspg", 
       "args": ["mcp"]
     }
   }
@@ -77,21 +77,22 @@ npm run server      # Start HTTP Gateway
 
 ### Server Operations
 ```bash
-./bin/lsp-gateway server             # Start HTTP Gateway (port 8080)
-./bin/lsp-gateway mcp                # Start MCP Server for AI assistants
+lspg server             # Start HTTP Gateway (port 8080)
+lspg mcp                # Start MCP Server for AI assistants
 ```
 
 ### Setup & Management
 ```bash
-./bin/lsp-gateway setup all          # Complete automated setup
-./bin/lsp-gateway status             # System status
-./bin/lsp-gateway diagnose           # System diagnostics
-./bin/lsp-gateway config validate    # Validate configuration
+lspg setup all          # Complete automated setup
+lspg status             # System status
+lspg diagnose           # System diagnostics
+lspg config validate    # Validate configuration
 ```
 
 ### Build
 ```bash
-make local        # Build for current platform
+make local        # Build + create global 'lspg' command
+make unlink       # Remove global 'lspg' command
 make test         # Run tests
 ```
 
@@ -110,7 +111,7 @@ servers:
     transport: "stdio"
 ```
 
-Generate configuration: `./bin/lsp-gateway config generate --auto-detect`
+Generate configuration: `./bin/lspg config generate --auto-detect`
 
 📖 **Configuration Guide**: See [CLAUDE.md](CLAUDE.md) for templates, framework detection, and advanced options.
 
@@ -118,24 +119,24 @@ Generate configuration: `./bin/lsp-gateway config generate --auto-detect`
 
 ### Quick Diagnostics
 ```bash
-./bin/lsp-gateway diagnose              # Comprehensive diagnostics
-./bin/lsp-gateway status                # System status
-./bin/lsp-gateway config validate       # Validate configuration
+./bin/lspg diagnose              # Comprehensive diagnostics
+./bin/lspg status                # System status
+./bin/lspg config validate       # Validate configuration
 ```
 
 ### Common Issues
 ```bash
 # Installation problems
-./bin/lsp-gateway setup all             # Reinstall everything
+./bin/lspg setup all             # Reinstall everything
 
 # Configuration issues  
-./bin/lsp-gateway config generate --auto-detect  # Regenerate config
+./bin/lspg config generate --auto-detect  # Regenerate config
 
 # Build problems
 make clean && make local                # Clean rebuild
 
 # Port conflicts
-./bin/lsp-gateway server --port 8081    # Use different port
+./bin/lspg server --port 8081    # Use different port
 ```
 
 📖 **Troubleshooting Guide**: See [docs/troubleshooting.md](docs/troubleshooting.md) for comprehensive troubleshooting.
@@ -154,7 +155,7 @@ make clean && make local                # Clean rebuild
 Configure your IDE to send LSP requests to `http://localhost:8080/jsonrpc`
 
 ### AI Assistant Integration  
-Start MCP server: `./bin/lsp-gateway mcp` and configure your AI tool
+Start MCP server: `./bin/lspg mcp` and configure your AI tool
 
 📖 **Testing Guide**: See [docs/test_guide.md](docs/test_guide.md) for testing infrastructure and procedures.
 
@@ -162,4 +163,4 @@ Start MCP server: `./bin/lsp-gateway mcp` and configure your AI tool
 
 ---
 
-**Get Started**: `./bin/lsp-gateway setup all` 🚀
+**Get Started**: `./bin/lspg setup all` 🚀

@@ -8,26 +8,26 @@ Start with these commands to identify issues:
 
 ```bash
 # Overall system health check
-./bin/lsp-gateway health
+./bin/lspg health
 
 # Comprehensive diagnostics
-./bin/lsp-gateway diagnose
+./bin/lspg diagnose
 
 # Enhanced diagnostic capabilities
-./bin/lsp-gateway diagnose runtimes     # Runtime detection and validation
-./bin/lsp-gateway diagnose routing      # Request routing and LSP connections
-./bin/lsp-gateway diagnose performance  # Performance metrics and SCIP cache
+./bin/lspg diagnose runtimes     # Runtime detection and validation
+./bin/lspg diagnose routing      # Request routing and LSP connections
+./bin/lspg diagnose performance  # Performance metrics and SCIP cache
 
 # Check server status
-./bin/lsp-gateway status
-./bin/lsp-gateway status runtimes       # Runtime-specific status
+./bin/lspg status
+./bin/lspg status runtimes       # Runtime-specific status
 
 # Verify installation
-./bin/lsp-gateway verify
-./bin/lsp-gateway verify runtime <lang> # Verify specific language runtime
+./bin/lspg verify
+./bin/lspg verify runtime <lang> # Verify specific language runtime
 
 # System information
-./bin/lsp-gateway version               # Version and build information
+./bin/lspg version               # Version and build information
 ```
 
 ## Common Issues
@@ -38,25 +38,25 @@ Start with these commands to identify issues:
 
 ```bash
 # Validate configuration
-./bin/lsp-gateway config validate
-./bin/lsp-gateway config validate --verbose    # Detailed validation output
+./bin/lspg config validate
+./bin/lspg config validate --verbose    # Detailed validation output
 
 # Show current effective configuration
-./bin/lsp-gateway config show                  # Display merged configuration
-./bin/lsp-gateway config show --format json    # JSON format output
+./bin/lspg config show                  # Display merged configuration
+./bin/lspg config show --format json    # JSON format output
 
 # Configuration generation and templates
-./bin/lsp-gateway config generate --force      # Regenerate configuration
-./bin/lsp-gateway config templates             # List available templates
+./bin/lspg config generate --force      # Regenerate configuration
+./bin/lspg config templates             # List available templates
 
 # Advanced configuration management
-./bin/lsp-gateway config migrate               # Migrate old configuration format
-./bin/lsp-gateway config optimize              # Optimize config for performance
+./bin/lspg config migrate               # Migrate old configuration format
+./bin/lspg config optimize              # Optimize config for performance
 
 # Project detection and setup
-./bin/lsp-gateway setup detect                 # Detect project languages
-./bin/lsp-gateway setup template <name>        # Apply specific template
-./bin/lsp-gateway setup multi-language         # Multi-language project setup
+./bin/lspg setup detect                 # Detect project languages
+./bin/lspg setup template <name>        # Apply specific template
+./bin/lspg setup multi-language         # Multi-language project setup
 ```
 
 ### 2. Language Server Issues
@@ -65,16 +65,16 @@ Start with these commands to identify issues:
 
 ```bash
 # Check language server status
-./bin/lsp-gateway status
+./bin/lspg status
 
 # Verify language server installation
-./bin/lsp-gateway verify
+./bin/lspg verify
 
 # Reinstall problematic server
-./bin/lsp-gateway install <server-name> --force
+./bin/lspg install <server-name> --force
 
 # Check runtime detection
-./bin/lsp-gateway detect --verbose
+./bin/lspg detect --verbose
 ```
 
 **Common Language Server Problems:**
@@ -89,15 +89,15 @@ Start with these commands to identify issues:
 
 ```bash
 # Run performance diagnostics
-./bin/lsp-gateway performance
-./bin/lsp-gateway diagnose performance         # Enhanced performance metrics
+./bin/lspg performance
+./bin/lspg diagnose performance         # Enhanced performance metrics
 
 # SCIP cache diagnostics
-./bin/lsp-gateway diagnose --verbose           # Includes cache hit rates
-./bin/lsp-gateway status                       # Shows cache utilization
+./bin/lspg diagnose --verbose           # Includes cache hit rates
+./bin/lspg status                       # Shows cache utilization
 
 # Check circuit breaker status
-./bin/lsp-gateway diagnose --verbose
+./bin/lspg diagnose --verbose
 
 # Run performance tests
 make test-integration
@@ -124,13 +124,13 @@ htop # or top on macOS
 
 ```bash
 # Check transport layer health
-./bin/lsp-gateway health
+./bin/lspg health
 
 # Verify network connectivity
-./bin/lsp-gateway diagnose --network
+./bin/lspg diagnose --network
 
 # Reset connection pools
-pkill lsp-gateway && ./bin/lsp-gateway server --config config.yaml
+pkill lspg && ./bin/lspg server --config config.yaml
 
 # Check port availability (HTTP mode)
 lsof -i :8080  # or netstat -an | grep 8080
@@ -163,23 +163,23 @@ make test-simple-quick
 
 ```bash
 # Enhanced setup diagnostics
-./bin/lsp-gateway setup detect                 # Detect project languages and requirements
-./bin/lsp-gateway diagnose runtimes            # Validate runtime installations
+./bin/lspg setup detect                 # Detect project languages and requirements
+./bin/lspg diagnose runtimes            # Validate runtime installations
 
 # Runtime-specific verification
-./bin/lsp-gateway verify runtime go            # Verify Go runtime
-./bin/lsp-gateway verify runtime python        # Verify Python runtime
-./bin/lsp-gateway verify runtime node          # Verify Node.js runtime
-./bin/lsp-gateway verify runtime java          # Verify Java runtime
+./bin/lspg verify runtime go            # Verify Go runtime
+./bin/lspg verify runtime python        # Verify Python runtime
+./bin/lspg verify runtime node          # Verify Node.js runtime
+./bin/lspg verify runtime java          # Verify Java runtime
 
 # Template-based setup
-./bin/lsp-gateway setup template go-advanced   # Apply Go template
-./bin/lsp-gateway setup template python-django # Apply Django template
-./bin/lsp-gateway setup multi-language         # Multi-language project setup
+./bin/lspg setup template go-advanced   # Apply Go template
+./bin/lspg setup template python-django # Apply Django template
+./bin/lspg setup multi-language         # Multi-language project setup
 
 # Troubleshoot setup issues
-./bin/lsp-gateway setup all --verbose          # Verbose setup output
-./bin/lsp-gateway install <server> --force     # Force reinstall language server
+./bin/lspg setup all --verbose          # Verbose setup output
+./bin/lspg install <server> --force     # Force reinstall language server
 ```
 
 **Common Setup Problems:**
@@ -207,22 +207,22 @@ make test-simple-quick
 
 ```bash
 # Start MCP server in debug mode
-./bin/lsp-gateway mcp --config config.yaml --debug --verbose
+./bin/lspg mcp --config config.yaml --debug --verbose
 
 # Check MCP transport options and configuration
-./bin/lsp-gateway mcp --help
-./bin/lsp-gateway config show               # Verify MCP configuration
+./bin/lspg mcp --help
+./bin/lspg config show               # Verify MCP configuration
 
 # Diagnose MCP protocol issues
-./bin/lsp-gateway diagnose routing          # Check MCP to LSP routing
-./bin/lsp-gateway status                    # Verify MCP server status
+./bin/lspg diagnose routing          # Check MCP to LSP routing
+./bin/lspg status                    # Verify MCP server status
 
 # Test MCP connection by transport type
 # For stdio: Check if process starts correctly
-echo '{"jsonrpc":"2.0","method":"initialize","id":1}' | ./bin/lsp-gateway mcp --config config.yaml
+echo '{"jsonrpc":"2.0","method":"initialize","id":1}' | ./bin/lspg mcp --config config.yaml
 
 # For tcp: Check if port is available and accessible
-./bin/lsp-gateway mcp --config config.yaml --transport tcp --port 3000
+./bin/lspg mcp --config config.yaml --transport tcp --port 3000
 lsof -i :3000  # Verify port binding
 ```
 
@@ -253,25 +253,25 @@ Monitor circuit breaker status in diagnostics:
 Check configuration hierarchy and troubleshoot config issues:
 ```bash
 # Show effective configuration
-./bin/lsp-gateway config show
-./bin/lsp-gateway config show --format json    # JSON format for analysis
+./bin/lspg config show
+./bin/lspg config show --format json    # JSON format for analysis
 
 # Validate specific template
-./bin/lsp-gateway config templates --show enterprise
-./bin/lsp-gateway config templates             # List all available templates
+./bin/lspg config templates --show enterprise
+./bin/lspg config templates             # List all available templates
 
 # Test configuration generation
-./bin/lsp-gateway config generate --dry-run    # Test without writing files
-./bin/lsp-gateway config generate --force      # Force regeneration
+./bin/lspg config generate --dry-run    # Test without writing files
+./bin/lspg config generate --force      # Force regeneration
 
 # Advanced configuration management
-./bin/lsp-gateway config migrate               # Migrate legacy configurations
-./bin/lsp-gateway config optimize              # Optimize for current setup
-./bin/lsp-gateway config validate --verbose    # Detailed validation output
+./bin/lspg config migrate               # Migrate legacy configurations
+./bin/lspg config optimize              # Optimize for current setup
+./bin/lspg config validate --verbose    # Detailed validation output
 
 # Project-specific configuration
-./bin/lsp-gateway setup detect                 # Auto-detect project requirements
-./bin/lsp-gateway setup template <name>        # Apply template to current project
+./bin/lspg setup detect                 # Auto-detect project requirements
+./bin/lspg setup template <name>        # Apply template to current project
 ```
 
 ### SCIP Cache Diagnostics
@@ -280,19 +280,19 @@ Monitor and troubleshoot SCIP intelligent caching performance:
 
 ```bash
 # SCIP cache performance diagnostics
-./bin/lsp-gateway diagnose performance         # Cache hit rates and performance metrics
-./bin/lsp-gateway status                       # Cache utilization and memory usage
+./bin/lspg diagnose performance         # Cache hit rates and performance metrics
+./bin/lspg status                       # Cache utilization and memory usage
 
 # Cache management operations
 # Cache is managed automatically - manual operations for troubleshooting only
 rm -rf ~/.cache/lsp-gateway/scip               # Reset cache (restart required)
 
 # Performance baseline creation
-./bin/lsp-gateway diagnose performance --baseline  # Create performance baseline
-./bin/lsp-gateway diagnose performance --compare   # Compare with baseline
+./bin/lspg diagnose performance --baseline  # Create performance baseline
+./bin/lspg diagnose performance --compare   # Compare with baseline
 
 # Cache monitoring commands
-./bin/lsp-gateway diagnose --verbose           # Detailed cache statistics
+./bin/lspg diagnose --verbose           # Detailed cache statistics
 ```
 
 **SCIP Cache Issues and Solutions:**
@@ -322,7 +322,7 @@ rm -rf ~/.cache/lsp-gateway/scip               # Reset cache (restart required)
 Enable verbose logging:
 ```bash
 # Start with debug logging
-./bin/lsp-gateway server --config config.yaml --debug --verbose
+./bin/lspg server --config config.yaml --debug --verbose
 
 # Check system logs
 journalctl -u lsp-gateway  # systemd systems
@@ -347,7 +347,7 @@ go test -v ./tests/integration/...
 
 ```bash
 # Permission issues
-xattr -d com.apple.quarantine ./bin/lsp-gateway
+xattr -d com.apple.quarantine ./bin/lspg
 
 # Homebrew conflicts
 brew uninstall conflicting-package
@@ -380,23 +380,23 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 1. **Enable verbose logging** with `--verbose --debug` flags
 2. **Run comprehensive diagnostics**:
    ```bash
-   ./bin/lsp-gateway diagnose --verbose          # Full system diagnostics
-   ./bin/lsp-gateway diagnose runtimes           # Runtime-specific issues
-   ./bin/lsp-gateway diagnose performance        # Performance and SCIP cache
-   ./bin/lsp-gateway diagnose routing            # Request routing and connections
+   ./bin/lspg diagnose --verbose          # Full system diagnostics
+   ./bin/lspg diagnose runtimes           # Runtime-specific issues
+   ./bin/lspg diagnose performance        # Performance and SCIP cache
+   ./bin/lspg diagnose routing            # Request routing and connections
    ```
 3. **Check system status and configuration**:
    ```bash
-   ./bin/lsp-gateway status runtimes             # Runtime status
-   ./bin/lsp-gateway config show                 # Effective configuration
-   ./bin/lsp-gateway version                     # Version and build info
+   ./bin/lspg status runtimes             # Runtime status
+   ./bin/lspg config show                 # Effective configuration
+   ./bin/lspg version                     # Version and build info
    ```
 4. **Test with minimal configuration** using basic templates
 5. **Verify system requirements** (Go 1.24+, Node.js 20+)
 6. **Enable shell completion** for easier command usage:
    ```bash
-   ./bin/lsp-gateway completion bash >> ~/.bashrc  # Bash completion
-   ./bin/lsp-gateway completion zsh >> ~/.zshrc    # Zsh completion
+   ./bin/lspg completion bash >> ~/.bashrc  # Bash completion
+   ./bin/lspg completion zsh >> ~/.zshrc    # Zsh completion
    ```
 
 ## Configuration Templates
@@ -407,4 +407,4 @@ For complex setups, start with these templates:
 - `enterprise.yaml` - Production-ready configuration
 - `development.yaml` - Development-optimized settings
 
-Use `./bin/lsp-gateway config templates` to see all available templates.
+Use `./bin/lspg config templates` to see all available templates.

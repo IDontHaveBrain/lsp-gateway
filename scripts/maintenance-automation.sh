@@ -311,7 +311,7 @@ phase_post_maintenance_validation() {
     
     # Check LSP Gateway functionality
     if [[ "$DRY_RUN" != true ]]; then
-        if ! ./bin/lsp-gateway version >/dev/null 2>&1; then
+        if ! ./bin/lspg version >/dev/null 2>&1; then
             log_error "LSP Gateway binary is not functional"
             return 1
         fi

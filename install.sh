@@ -168,7 +168,7 @@ fi
 print_info "🔨 Building Go binary..."
 execute_or_dry_run "make local VERSION=0.0.1"
 if [ "$DRY_RUN" = false ]; then
-    if [ ! -f "bin/lsp-gateway" ]; then
+    if [ ! -f "bin/lspg" ]; then
         print_error "Failed to build Go binary"
         exit 1
     fi
@@ -176,7 +176,7 @@ if [ "$DRY_RUN" = false ]; then
 fi
 
 # Step 4: Make binary executable
-execute_or_dry_run "chmod +x bin/lsp-gateway"
+execute_or_dry_run "chmod +x bin/lspg"
 if [ "$DRY_RUN" = false ]; then
     print_success "Binary made executable"
 fi
@@ -184,10 +184,10 @@ fi
 # Step 5: Test binary
 print_info "🧪 Testing Go binary..."
 if [ "$DRY_RUN" = true ]; then
-    print_dry_run "./bin/lsp-gateway version"
+    print_dry_run "./bin/lspg version"
 else
-    if ./bin/lsp-gateway version >/dev/null 2>&1; then
-        BINARY_VERSION=$(./bin/lsp-gateway version 2>/dev/null | grep "Version:" | awk '{print $2}' || echo "0.0.1")
+    if ./bin/lspg version >/dev/null 2>&1; then
+        BINARY_VERSION=$(./bin/lspg version 2>/dev/null | grep "Version:" | awk '{print $2}' || echo "0.0.1")
         print_success "Binary test passed - Version: $BINARY_VERSION"
     else
         print_error "Binary test failed"

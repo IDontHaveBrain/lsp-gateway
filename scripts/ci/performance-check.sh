@@ -91,7 +91,7 @@ check_prerequisites() {
     fi
     
     # Check if binary exists
-    if [[ ! -f "$PROJECT_ROOT/bin/lsp-gateway" ]]; then
+    if [[ ! -f "$PROJECT_ROOT/bin/lspg" ]]; then
         log_warning "LSP Gateway binary not found, building..."
         cd "$PROJECT_ROOT"
         make local

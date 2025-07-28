@@ -104,7 +104,7 @@ check_prerequisites() {
     
     # Check if binary exists for integration tests
     if [[ "$TEST_TYPE" == "integration" || "$TEST_TYPE" == "all" || "$TEST_TYPE" == "lsp-validation" ]]; then
-        if [[ ! -f "$PROJECT_ROOT/bin/lsp-gateway" ]]; then
+        if [[ ! -f "$PROJECT_ROOT/bin/lspg" ]]; then
             log_warning "LSP Gateway binary not found, building..."
             cd "$PROJECT_ROOT"
             make local

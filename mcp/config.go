@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"lsp-gateway/internal/transport"
+	"lsp-gateway/internal/version"
 )
 
 type ServerConfig struct {
@@ -37,7 +38,7 @@ func DefaultConfig() *ServerConfig {
 	return &ServerConfig{
 		Name:          "lsp-gateway-mcp",
 		Description:   "MCP server providing LSP functionality through LSP Gateway",
-		Version:       "0.1.0",
+		Version:       version.Version,
 		LSPGatewayURL: "http://localhost:8080",
 		Transport:     transport.TransportStdio,
 		Timeout:       30 * time.Second,

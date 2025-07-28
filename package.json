@@ -4,13 +4,13 @@
   "description": "A gateway that provides a single endpoint for symbol navigation across multiple open-source language servers",
   "main": "lib/index.js",
   "bin": {
-    "lspg": "bin/lsp-gateway"
+    "lspg": "bin/lspg"
   },
   "scripts": {
     "postinstall": "node lib/index.js install-binary",
-    "server": "./bin/lsp-gateway server",
-    "diagnose": "./bin/lsp-gateway diagnose",
-    "version": "./bin/lsp-gateway version"
+    "server": "./bin/lspg server",
+    "diagnose": "./bin/lspg diagnose",
+    "version": "./bin/lspg version"
   },
   "keywords": [
     "lsp",
