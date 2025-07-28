@@ -112,7 +112,7 @@ func createReactProject(t *testing.T) string {
     "prettier": "^2.7.1"
   },
   "engines": {
-    "node": ">=16.0.0",
+    "node": ">=20.0.0",
     "npm": ">=8.0.0"
   },
   "browserslist": {
@@ -426,7 +426,7 @@ func createTypeScriptProject(t *testing.T) string {
     "@typescript-eslint/eslint-plugin": "^5.59.8"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=20.0.0"
   }
 }`
 
@@ -721,8 +721,8 @@ func TestDetectLanguage_ReactProject(t *testing.T) {
 	}
 
 	// Verify Node.js version from engines
-	if result.Version != ">=16.0.0" {
-		t.Errorf("Expected version to be '>=16.0.0', got %s", result.Version)
+	if result.Version != ">=20.0.0" {
+		t.Errorf("Expected version to be '>=20.0.0', got %s", result.Version)
 	}
 
 	// Verify project metadata
@@ -1177,8 +1177,8 @@ func TestDetectNodeVersion(t *testing.T) {
 	}
 
 	// Version from package.json should take precedence
-	if result.Version != ">=16.0.0" {
-		t.Errorf("Expected version from package.json to be '>=16.0.0', got %s", result.Version)
+	if result.Version != ">=20.0.0" {
+		t.Errorf("Expected version from package.json to be '>=20.0.0', got %s", result.Version)
 	}
 
 	// Test version detection failure

@@ -1407,7 +1407,7 @@ func (g *DefaultConfigGenerator) initializeTemplates() {
 		Languages:         []string{"typescript", "javascript"},
 		Transport:         "stdio",
 		RequiredRuntime:   "nodejs",
-		MinRuntimeVersion: "22.0.0",
+		MinRuntimeVersion: "20.0.0",
 	}
 
 	g.templates[SERVER_JDTLS] = &ServerConfigTemplate{

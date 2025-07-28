@@ -80,7 +80,7 @@ Start with these commands to identify issues:
 **Common Language Server Problems:**
 - **gopls**: Check Go version (requires 1.18+)
 - **pylsp**: Verify Python environment and pip installation
-- **typescript-language-server**: Check Node.js version (requires 16+)
+- **typescript-language-server**: Check Node.js version (requires 20+)
 - **jdtls**: Verify Java SDK installation (requires JDK 17+)
 
 ### 3. Performance Issues
@@ -187,7 +187,7 @@ make test-simple-quick
 **Runtime Detection Failures:**
 - **Go**: Check `go version` (requires 1.24+), verify GOPATH/GOROOT
 - **Python**: Verify `python3` and `pip3` availability, check virtual environments
-- **Node.js**: Check `node --version` (requires 22+), verify npm/yarn access
+- **Node.js**: Check `node --version` (requires 20+), verify npm/yarn access
 - **Java**: Verify JDK installation (requires 17+), check JAVA_HOME
 
 **Language Server Installation Issues:**
@@ -392,7 +392,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
    ./bin/lsp-gateway version                     # Version and build info
    ```
 4. **Test with minimal configuration** using basic templates
-5. **Verify system requirements** (Go 1.24+, Node.js 22+)
+5. **Verify system requirements** (Go 1.24+, Node.js 20+)
 6. **Enable shell completion** for easier command usage:
    ```bash
    ./bin/lsp-gateway completion bash >> ~/.bashrc  # Bash completion

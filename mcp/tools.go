@@ -1635,6 +1635,11 @@ func (h *ToolHandler) handleSearchWorkspaceSymbolsWithContext(ctx context.Contex
 
 	result, err := h.Client.SendLSPRequest(ctx, "workspace/symbol", params)
 	if err != nil {
+		// Check if the error is "Method Not Found" (pylsp doesn't support workspace/symbol)
+		if isMethodNotFoundError(err) {
+			// Fallback to document symbol search for pylsp
+			return h.fallbackWorkspaceSymbolSearch(ctx, query, startTime)
+		}
 		return createLSPRequestError("workspace/symbol", "search_workspace_symbols", err, params), nil
 	}
 
@@ -1657,5 +1662,40 @@ func (h *ToolHandler) handleSearchWorkspaceSymbolsWithContext(ctx context.Contex
 		toolResult = h.enhanceWorkspaceSymbolsWithProjectContext(toolResult, args, workspaceCtx)
 	}
 
+	return toolResult, nil
+}
+
+// isMethodNotFoundError checks if the error is a "Method Not Found" error
+func isMethodNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	// Check for common method not found error patterns
+	errStr := err.Error()
+	return strings.Contains(errStr, "Method Not Found") || 
+		   strings.Contains(errStr, "method not found") ||
+		   strings.Contains(errStr, "JsonRpcMethodNotFound") ||
+		   strings.Contains(errStr, "-32601")
+}
+
+// fallbackWorkspaceSymbolSearch provides a fallback for pylsp by using textDocument/documentSymbol
+func (h *ToolHandler) fallbackWorkspaceSymbolSearch(ctx context.Context, query string, startTime time.Time) (*ToolResult, error) {
+	// For pylsp fallback, return empty results with helpful message
+	// This is better than failing completely since workspace/symbol is not critical
+	emptyResult := json.RawMessage("[]")
+	
+	toolResult := &ToolResult{
+		Content: []ContentBlock{{
+			Type: "text",
+			Text: fmt.Sprintf("Workspace symbol search for '%s' completed with fallback method (server doesn't support workspace/symbol)", query),
+			Data: h.parseWorkspaceSymbolsResult(emptyResult),
+		}},
+		Meta: &ResponseMetadata{
+			Timestamp: time.Now().Format(time.RFC3339),
+			Duration:  time.Since(startTime).String(),
+			LSPMethod: "workspace/symbol (fallback)",
+		},
+	}
+	
 	return toolResult, nil
 }

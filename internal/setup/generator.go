@@ -826,6 +826,16 @@ func (pa *ProjectAnalyzer) detectFrameworks(projectPath string, analysis *Projec
 			ConfigFiles: []string{"package.json"},
 			Patterns:    []string{"react", "@types/react"},
 		},
+		"vue": {
+			Language:    "typescript",
+			ConfigFiles: []string{"package.json"},
+			Patterns:    []string{"vue", "@vue/cli", "@vue/core"},
+		},
+		"express": {
+			Language:    "typescript",
+			ConfigFiles: []string{"package.json"},
+			Patterns:    []string{"express"},
+		},
 		"django": {
 			Language:    "python",
 			ConfigFiles: []string{"manage.py", "requirements.txt", "pyproject.toml"},
@@ -1082,13 +1092,28 @@ func (pa *ProjectAnalyzer) detectBuildSystems(projectPath string, analysis *Proj
 		"pom.xml":        "maven",
 		"Cargo.toml":     "cargo",
 		"go.mod":         "go-modules",
-		"package.json":   "npm",
 		"pyproject.toml": "python-build",
 	}
 
+	// Check for non-Node.js build systems first
 	for file, system := range buildSystemFiles {
 		if _, err := os.Stat(filepath.Join(projectPath, file)); err == nil {
 			analysis.BuildSystems = append(analysis.BuildSystems, system)
+		}
+	}
+
+	// For Node.js projects, detect package manager from lock files (prioritized over package.json)
+	if _, err := os.Stat(filepath.Join(projectPath, "package.json")); err == nil {
+		// Check for specific package manager lock files first
+		if _, err := os.Stat(filepath.Join(projectPath, "pnpm-lock.yaml")); err == nil {
+			analysis.BuildSystems = append(analysis.BuildSystems, "pnpm")
+		} else if _, err := os.Stat(filepath.Join(projectPath, "yarn.lock")); err == nil {
+			analysis.BuildSystems = append(analysis.BuildSystems, "yarn")
+		} else if _, err := os.Stat(filepath.Join(projectPath, "package-lock.json")); err == nil {
+			analysis.BuildSystems = append(analysis.BuildSystems, "npm")
+		} else {
+			// Default to npm if package.json exists but no lock files found
+			analysis.BuildSystems = append(analysis.BuildSystems, "npm")
 		}
 	}
 }

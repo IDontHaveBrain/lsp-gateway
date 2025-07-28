@@ -382,8 +382,8 @@ func (r *RuntimeRegistry) registerDefaults() {
 	r.runtimes["nodejs"] = &types.RuntimeDefinition{
 		Name:               "nodejs",
 		DisplayName:        "Node.js JavaScript Runtime",
-		MinVersion:         "22.0.0",
-		RecommendedVersion: "22.0.0",
+		MinVersion:         "20.0.0",
+		RecommendedVersion: "18.0.0",
 		InstallMethods:     map[string]types.InstallMethod{},
 		VerificationCmd:    []string{"node", "--version"},
 		EnvVars:            map[string]string{},

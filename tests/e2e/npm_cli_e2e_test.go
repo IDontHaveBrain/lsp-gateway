@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -329,8 +328,9 @@ func (suite *NpmCliE2ETestSuite) TestNpmProjectDetection() {
 			require.NotEmpty(suite.T(), output, "Should produce output")
 			
 			// Parse detection results
+			jsonOutput := suite.extractJSON(output)
 			var result testutils.SetupResult
-			err = json.Unmarshal([]byte(output), &result)
+			err = json.Unmarshal([]byte(jsonOutput), &result)
 			require.NoError(suite.T(), err, "Should parse JSON output")
 			
 			// Validate project detection
@@ -514,35 +514,31 @@ func (suite *NpmCliE2ETestSuite) executeCommand(cmd *exec.Cmd) (string, int, err
 
 // extractJSON extracts JSON portion from mixed text/JSON output
 func (suite *NpmCliE2ETestSuite) extractJSON(output string) string {
-	lines := strings.Split(output, "\n")
-	var jsonLines []string
-	inJSON := false
+	// Find JSON start and end positions
+	jsonStart := -1
+	jsonEnd := -1
 	braceCount := 0
 	
-	for _, line := range lines {
-		// Check if line starts JSON (contains opening brace)
-		if strings.Contains(line, "{") && !inJSON {
-			inJSON = true
-		}
-		
-		if inJSON {
-			jsonLines = append(jsonLines, line)
-			// Count braces to determine when JSON ends
-			braceCount += strings.Count(line, "{")
-			braceCount -= strings.Count(line, "}")
-			
-			// When braces balance out, JSON is complete
-			if braceCount == 0 {
+	for i, char := range output {
+		if char == '{' {
+			if jsonStart == -1 {
+				jsonStart = i
+			}
+			braceCount++
+		} else if char == '}' {
+			braceCount--
+			if braceCount == 0 && jsonStart != -1 {
+				jsonEnd = i + 1
 				break
 			}
 		}
 	}
 	
-	if len(jsonLines) == 0 {
+	if jsonStart == -1 || jsonEnd == -1 {
 		return output // No JSON found, return original
 	}
 	
-	return strings.Join(jsonLines, "\n")
+	return output[jsonStart:jsonEnd]
 }
 
 // findProjectRoot finds the project root directory

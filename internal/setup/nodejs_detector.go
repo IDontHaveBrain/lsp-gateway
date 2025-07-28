@@ -404,7 +404,7 @@ func (d *NodeJSDetector) GetInstallationGuidance(info *NodeJSInfo) []string {
 	var guidance []string
 
 	if !info.Installed {
-		guidance = append(guidance, "Node.js is not installed. Install Node.js 22.0.0 or later:")
+		guidance = append(guidance, "Node.js is not installed. Install Node.js 20.0.0 or later:")
 
 		switch runtime.GOOS {
 		case "windows":
