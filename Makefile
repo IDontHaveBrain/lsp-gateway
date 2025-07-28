@@ -174,7 +174,11 @@ quality: format lint security
 # TESTING TARGETS
 # =============================================================================
 
+<<<<<<< HEAD
+.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-go test-go-comprehensive test-java-real test-python-real test-python-patterns test-python-patterns-quick test-python-comprehensive test-typescript-real test-e2e-advanced test-e2e-workflow test-e2e-setup-cli test-e2e-mcp test-mcp-stdio test-mcp-tcp test-mcp-tools test-mcp-scip test-npm-cli test-npm-mcp test-npm-mcp-quick test-npm-mcp-js test-npm-mcp-go validate-python-patterns-integration validate-python-patterns-integration-quick test-python-patterns-integration setup-simple-repos
+=======
 .PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-javascript test-e2e-go test-go-comprehensive test-java-real test-python-real test-python-patterns test-python-patterns-quick test-python-comprehensive test-typescript-real test-javascript-e2e test-javascript-quick test-javascript-mcp test-javascript-comprehensive test-e2e-advanced test-e2e-workflow test-e2e-setup-cli test-e2e-mcp test-mcp-stdio test-mcp-tcp test-mcp-tools test-mcp-scip test-mcp-comprehensive test-mcp-lsp-tools-all test-mcp-performance-suite test-mcp-enhanced-quick test-npm-cli test-npm-mcp test-npm-mcp-quick test-npm-mcp-js test-npm-mcp-go validate-python-patterns-integration validate-python-patterns-integration-quick test-python-patterns-integration setup-simple-repos
+>>>>>>> origin/master
 setup-simple-repos:
 	@echo "Setting up test repositories..."
 	./scripts/setup-simple-repos.sh || echo "Setup script not found, skipping..."
@@ -197,13 +201,7 @@ test-jdtls-integration:
 	@echo "Running Java E2E tests with real JDTLS..."
 	$(GOTEST) -v -timeout 900s -run "TestJava.*E2ETestSuite" ./tests/e2e/...
 
-test-circuit-breaker:
-	@echo "Running circuit breaker E2E tests..."
-	$(GOTEST) -v -timeout 300s -run "TestCircuitBreakerE2ESuite" ./tests/e2e/...
-
-test-circuit-breaker-comprehensive:
-	@echo "Running comprehensive circuit breaker scenarios..."
-	$(GOTEST) -v -timeout 600s -run "TestCircuitBreakerComprehensiveScenarios" ./tests/e2e/...
+# Circuit breaker tests removed - not aligned with E2E philosophy
 
 # E2E Test Suite Targets
 test-e2e-quick:
@@ -322,22 +320,7 @@ test-mcp-scip:
 	@echo "Running SCIP-enhanced MCP E2E tests..."
 	$(GOTEST) -v -timeout 900s ./tests/e2e/mcp_scip_enhanced_e2e_test.go
 
-# Comprehensive MCP E2E Test Targets
-test-mcp-comprehensive:
-	@echo "Running comprehensive MCP E2E test suite with fatih/color..."
-	$(GOTEST) -v -timeout 1200s ./tests/e2e/mcp/suites/...
-
-test-mcp-lsp-tools-all:
-	@echo "Running all 6 LSP features via MCP (definition, references, hover, symbols, completion)..."
-	$(GOTEST) -v -timeout 600s -run "MCPLSPToolsE2ETestSuite" ./tests/e2e/mcp/suites/...
-
-test-mcp-performance-suite:
-	@echo "Running MCP performance and load tests..."
-	$(GOTEST) -v -timeout 900s -run "MCPPerformanceE2ETestSuite" ./tests/e2e/mcp/suites/...
-
-test-mcp-enhanced-quick:
-	@echo "Running quick validation of enhanced MCP test client..."
-	$(GOTEST) -v -short -timeout 180s -run "TestBasicMCPClientFunctionality" ./tests/e2e/mcp/suites/...
+# MCP comprehensive test suites removed - over-engineered infrastructure
 
 test-npm-cli:
 	@echo "Running npm-cli E2E tests..."
@@ -407,7 +390,6 @@ help:
 	@echo "  tidy      - Tidy go modules"
 	@echo "  format    - Format code"
 	@echo "  test      - Run all tests"
-	@echo "  test-unit - Run unit tests only"
 	@echo ""
 	@echo "Quality:"
 	@echo "  lint                  - Run linter"
@@ -421,8 +403,6 @@ help:
 	@echo "Testing:"
 	@echo "  test-simple-quick      - Quick validation tests"
 	@echo "  test-lsp-validation    - Full LSP validation"
-	@echo "  test-circuit-breaker   - Circuit breaker E2E tests"
-	@echo "  test-circuit-breaker-comprehensive - Comprehensive circuit breaker scenarios"
 	@echo "  setup-simple-repos     - Setup test repositories"
 	@echo ""
 	@echo "E2E Testing:"
@@ -438,13 +418,6 @@ help:
 	@echo "  test-mcp-tcp           - MCP TCP protocol tests"
 	@echo "  test-mcp-tools         - MCP tools E2E tests (all 5 LSP tools with real servers)"
 	@echo "  test-mcp-scip          - SCIP-enhanced MCP E2E tests (performance and intelligence)"
-	@echo ""
-	@echo "Comprehensive MCP E2E Testing:"
-	@echo "  test-mcp-comprehensive     - Comprehensive MCP E2E test suite with fatih/color"
-	@echo "  test-mcp-lsp-tools-all     - All 6 LSP features via MCP (definition, references, hover, symbols, completion)"
-	@echo "  test-mcp-performance-suite - MCP performance and load tests"
-	@echo "  test-mcp-enhanced-quick    - Quick validation of enhanced MCP test client"
-	@echo ""
 	@echo "Language-Specific E2E Tests:"
 	@echo "  test-e2e-java          - Java E2E tests (mock and real JDTLS)"
 	@echo "  test-e2e-python        - Python E2E tests"
