@@ -386,7 +386,7 @@ func (t *TsConfigParser) ValidateTSConfig(filePath string) error {
 		if target, ok := info.CompilerOptions["target"]; ok {
 			if targetStr, ok := target.(string); ok {
 				validTargets := []string{"ES3", "ES5", "ES6", "ES2015", "ES2016", "ES2017", "ES2018", "ES2019", "ES2020", "ES2021", "ES2022", "ESNext"}
-				if !contains(validTargets, strings.ToUpper(targetStr)) {
+				if !parserContainsString(validTargets, strings.ToUpper(targetStr)) {
 					issues = append(issues, fmt.Sprintf("invalid target: %s", targetStr))
 				}
 			}
@@ -396,7 +396,7 @@ func (t *TsConfigParser) ValidateTSConfig(filePath string) error {
 		if module, ok := info.CompilerOptions["module"]; ok {
 			if moduleStr, ok := module.(string); ok {
 				validModules := []string{"CommonJS", "AMD", "System", "UMD", "ES6", "ES2015", "ES2020", "ESNext", "None"}
-				if !contains(validModules, moduleStr) {
+				if !parserContainsString(validModules, moduleStr) {
 					issues = append(issues, fmt.Sprintf("invalid module type: %s", moduleStr))
 				}
 			}
@@ -1043,7 +1043,7 @@ func (l *LockfileParser) parseYarnProperty(line string, dep *LockedDependency) {
 
 // Utility functions
 
-func contains(slice []string, item string) bool {
+func parserContainsString(slice []string, item string) bool {
 	for _, s := range slice {
 		if s == item {
 			return true

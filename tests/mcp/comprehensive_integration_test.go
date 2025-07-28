@@ -351,7 +351,7 @@ func (ct *ComprehensiveMCPTest) testMCPConnection() {
 	ct.t.Log("Testing MCP connection")
 
 	// Connect to server
-	err := ct.client.Connect()
+	err := ct.client.Connect(context.Background())
 	ct.testHelper.AssertNoError(err, "Failed to connect to MCP server")
 
 	// Verify connection state

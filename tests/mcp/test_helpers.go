@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -135,7 +136,7 @@ func NewMockTransport() *MockTransport {
 }
 
 // Connect simulates connection
-func (mt *MockTransport) Connect() error {
+func (mt *MockTransport) Connect(ctx context.Context) error {
 	if mt.closed {
 		return fmt.Errorf("transport is closed")
 	}
@@ -156,7 +157,7 @@ func (mt *MockTransport) Disconnect() error {
 }
 
 // Send simulates sending data
-func (mt *MockTransport) Send(data []byte) error {
+func (mt *MockTransport) Send(ctx context.Context, data []byte) error {
 	if !mt.connected {
 		return fmt.Errorf("not connected")
 	}
@@ -169,7 +170,7 @@ func (mt *MockTransport) Send(data []byte) error {
 }
 
 // Receive simulates receiving data
-func (mt *MockTransport) Receive() ([]byte, error) {
+func (mt *MockTransport) Receive(ctx context.Context) ([]byte, error) {
 	if !mt.connected {
 		return nil, fmt.Errorf("not connected")
 	}
@@ -247,9 +248,9 @@ func CreateTestClient(t *testing.T, config ...ClientConfig) (*TestMCPClient, *Mo
 	}
 	
 	transport := NewMockTransport()
-	client := NewTestMCPClient(cfg, transport)
+	testClient := NewTestMCPClient(cfg, transport)
 	
-	return client, transport
+	return testClient, transport
 }
 
 // STDIOTransport implements Transport interface for STDIO communication

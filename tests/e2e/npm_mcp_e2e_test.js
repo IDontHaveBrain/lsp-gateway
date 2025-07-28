@@ -152,7 +152,7 @@ mcp:
             
             assert(typeof binaryPath === 'string', 'Binary path should be a string');
             assert(binaryPath.length > 0, 'Binary path should not be empty');
-            assert(binaryPath.includes('lsp-gateway'), 'Binary path should include lsp-gateway');
+            assert(binaryPath.includes('lspg'), 'Binary path should include lspg');
             
             if (TEST_CONFIG.VERBOSE) {
                 console.log(`   Binary path: ${binaryPath}`);
@@ -265,7 +265,7 @@ mcp:
             
             // Check if the path is reasonable (contains expected parts)
             assert(
-                binaryPath.includes('lsp-gateway') || binaryPath.includes('node_modules'),
+                binaryPath.includes('lspg') || binaryPath.includes('node_modules'),
                 'Binary path should be reasonable'
             );
         });

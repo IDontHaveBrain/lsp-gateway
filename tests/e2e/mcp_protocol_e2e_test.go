@@ -31,7 +31,7 @@ func TestMCPStdioProtocol(t *testing.T) {
 	// Build binary
 	projectRoot, err := testutils.GetProjectRoot()
 	require.NoError(t, err)
-	binaryPath := filepath.Join(projectRoot, "bin", "lsp-gateway")
+	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
 	
 	// Find available port for gateway
 	gatewayPort, err := testutils.FindAvailablePort()
@@ -155,7 +155,7 @@ func TestMCPTCPProtocol(t *testing.T) {
 	// Build binary
 	projectRoot, err := testutils.GetProjectRoot()
 	require.NoError(t, err)
-	binaryPath := filepath.Join(projectRoot, "bin", "lsp-gateway")
+	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
 	
 	// Find available ports
 	gatewayPort, err := testutils.FindAvailablePort()
@@ -282,7 +282,7 @@ func TestMCPToolsList(t *testing.T) {
 	// Build binary
 	projectRoot, err := testutils.GetProjectRoot()
 	require.NoError(t, err)
-	binaryPath := filepath.Join(projectRoot, "bin", "lsp-gateway")
+	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
 	
 	// Find available port for gateway
 	gatewayPort, err := testutils.FindAvailablePort()
@@ -446,7 +446,7 @@ func main() {
 	// Build binary
 	projectRoot, err := testutils.GetProjectRoot()
 	require.NoError(t, err)
-	binaryPath := filepath.Join(projectRoot, "bin", "lsp-gateway")
+	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
 	
 	// Find available port for gateway
 	gatewayPort, err := testutils.FindAvailablePort()
