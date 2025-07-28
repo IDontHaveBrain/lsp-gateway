@@ -494,7 +494,7 @@ func (d *GoProjectDetector) ValidateStructure(ctx context.Context, path string) 
 	}
 
 	if len(validationErrors) > 0 {
-		return types.NewValidationError(types.PROJECT_TYPE_GO, "Go project validation failed", nil)
+		return types.NewValidationError(types.PROJECT_TYPE_GO, strings.Join(validationErrors, "; "), nil)
 	}
 
 	d.logger.WithField("path", path).Debug("Go project structure validation passed")

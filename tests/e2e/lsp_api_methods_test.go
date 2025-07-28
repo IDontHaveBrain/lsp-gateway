@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/suite"
-	"lsp-gateway/mcp"
 	"lsp-gateway/tests/e2e/helpers"
 	"lsp-gateway/tests/e2e/testutils"
 )
@@ -306,12 +305,12 @@ class Server {
     }
 
     public async start(): Promise<void> {
-        console.log(\`Starting server \${this.name} on port \${this.port}\`);
+        console.log("Starting server " + this.name + " on port " + this.port);
         this.running = true;
     }
 
     public async stop(): Promise<void> {
-        console.log(\`Stopping server \${this.name}\`);
+        console.log("Stopping server " + this.name);
         this.running = false;
     }
 

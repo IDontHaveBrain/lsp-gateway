@@ -1511,7 +1511,7 @@ func setupSCIPMCPServer(t *testing.T) *MCPServerSession {
 	// Build binary
 	projectRoot, err := testutils.GetProjectRoot()
 	require.NoError(t, err)
-	binaryPath := filepath.Join(projectRoot, "bin", "lsp-gateway")
+	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
 
 	// Find available port for gateway
 	gatewayPort, err := testutils.FindAvailablePort()
