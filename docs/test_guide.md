@@ -1,13 +1,21 @@
 # Test Guide
 
-LSP Gateway testing guide focused on essential functionality with minimal overhead.
+LSP Gateway testing focused exclusively on E2E and integration tests for essential functionality validation.
 
 ## Testing Philosophy
 
-**Simplified, essential-only testing approach:**
-- **Unit Tests**: Core logic only - no integration testing disguised as unit tests
-- **E2E Tests**: Real-world usage scenarios only - no enterprise-scale simulation
-- **Focus**: Essential functionality for local development workflows
+**E2E and Integration Testing Only:**
+- **E2E Tests**: Real-world developer workflows with actual language servers
+- **Integration Tests**: Component interaction validation and protocol testing
+- **Focus**: Essential functionality for local development - no unit tests, no over-engineering
+- **Approach**: Test what users actually experience in practice
+
+**Principles:**
+- Test real usage scenarios, not implementation details
+- Use actual language servers whenever possible
+- Validate core LSP functionality across multiple languages
+- Keep test scenarios simple and maintainable
+- Progressive removal of non-essential test infrastructure
 
 ## Quick Reference
 
@@ -15,490 +23,273 @@ LSP Gateway testing guide focused on essential functionality with minimal overhe
 
 ```bash
 # Quick development cycle (<5 minutes)
-make test-unit && make test-simple-quick
+make test-simple-quick
 
-# Pre-commit validation (5-10 minutes)
-make test-unit && make test-lsp-validation-short
+# Pre-commit validation (5-10 minutes)  
+make test-e2e-quick && make test-integration-quick
 
 # Full validation before PR (15-30 minutes)
-make test-unit && make test-lsp-validation && make test-e2e-advanced
+make test-e2e-full && make test-integration
 ```
 
-### Test Commands by Category
+### Essential Test Commands
 
-#### Unit Tests (<60s)
-```bash
-make test-unit                # All unit tests
-go test ./internal/...        # Direct execution
-```
-
-#### Quick Tests (<5min)
+#### Quick E2E Tests (<5min)
 ```bash
 make test-simple-quick        # Basic E2E validation
 make test-e2e-quick          # Quick E2E suite
-make test-lsp-validation-short # Short LSP validation
-make test-mcp-stdio          # MCP STDIO tests
-make test-npm-mcp-quick      # Quick NPM-MCP tests
+make test-python-patterns-quick   # Quick Python validation (5-10min)
 ```
 
-#### Standard Tests (5-15min)
+#### Language-Specific E2E (10-15min)
 ```bash
-make test-lsp-validation     # Full LSP validation
-make test-e2e-setup-cli      # Setup CLI E2E tests
-make test-e2e-python         # Python E2E tests
-make test-e2e-typescript     # TypeScript E2E tests
-make test-e2e-go            # Go E2E tests
-make test-e2e-mcp           # Comprehensive MCP tests
-make test-npm-mcp           # Full NPM-MCP tests
-```
-
-#### Language-Specific Tests (10-15min)
-```bash
-make test-e2e-java          # Java with JDTLS
+make test-python-real        # Real pylsp integration
+make test-go-e2e            # Go with gopls
+make test-javascript-e2e     # JavaScript/TypeScript
 make test-java-real         # Real JDTLS integration
-make test-python-real       # Real pylsp integration
-make test-python-patterns-quick   # Quick Python patterns validation (5-10min)
-make test-typescript-real   # Real tsserver integration
 ```
 
-#### Comprehensive Tests (20-30min)
+#### Comprehensive E2E (20-30min)
 ```bash
-make test-e2e-advanced      # Advanced scenarios
-make test-e2e-full         # Full test suite
+make test-e2e-full          # Full E2E test suite
 make test-python-patterns   # Comprehensive Python patterns (15-20min)
-make test-python-comprehensive # Complete Python test suite (20-25min)
+make test-python-comprehensive # Complete Python validation (20-25min)
+```
+
+#### Integration Tests
+```bash
+make test-integration       # Core integration tests
+make test-mcp-integration   # MCP protocol integration
+make test-config-integration # Configuration validation
 ```
 
 ## Test Categories
 
-### Unit Tests
-**Coverage**: Core gateway logic, configuration, transport, project detection
-**Location**: `*_test.go` files co-located with source
-**Approach**: Standard Go testing, no complex frameworks
-
 ### E2E Tests
-**Scenarios**: LSP workflow, multi-language support, protocol validation, error handling
-**Location**: `tests/e2e/`, `tests/integration/`
-**Approach**: Real language server integration when possible
+**Purpose**: Validate complete developer workflows with real language servers
+**Location**: `tests/e2e/`
+**Coverage**: 
+- All 6 supported LSP methods (definition, references, hover, documentSymbol, workspaceSymbol, completion)
+- Multi-language support (Python, Go, JavaScript, Java, Rust)
+- Real repository testing with modular repository management system
+- Performance validation under realistic conditions
 
-### Language Server Integration
-- **JDTLS** (Java): Eclipse JDT Language Server
-- **pylsp** (Python): Python LSP server
-- **tsserver** (TypeScript): TypeScript Language Server
-- **gopls** (Go): Go language server
+**Key Test Suites:**
+- `python_patterns_real_server_e2e_test.go` - Comprehensive Python testing with real repositories
+- `go_basic_e2e_test.go` - Go language server integration
+- `javascript_basic_e2e_test.go` - JavaScript/TypeScript validation
+- Language-agnostic tests using modular repository system
 
-### Python Patterns E2E Testing
+### Integration Tests  
+**Purpose**: Validate component interactions and protocol compliance
+**Location**: `tests/integration/`
+**Coverage**:
+- LSP protocol validation
+- Configuration system integration
+- MCP server integration
+- Transport layer validation
+- Error handling and recovery
 
-Test Python language server integration using real repositories and comprehensive LSP method validation:
+## Modular Repository Management
+
+**Multi-Language E2E Testing System:**
+
+The modular repository system enables consistent testing across programming languages:
 
 ```bash
-make test-python-patterns-quick    # Quick validation (5-10min)
-make test-python-patterns          # Comprehensive patterns testing (15-20min)
-make test-python-comprehensive     # Full Python test suite (20-25min)
+# Language-specific repository managers
+make test-python-modular     # Python with faif/python-patterns
+make test-go-modular        # Go with golang/example  
+make test-js-modular        # JavaScript with microsoft/TypeScript
+make test-java-modular      # Java with spring-projects/spring-boot
+make test-rust-modular      # Rust with rust-lang/cargo
 ```
 
-**Features**:
-- Real repository analysis using Git-based test projects
-- Comprehensive LSP method validation across different Python project types
-- Performance benchmarking with realistic codebases
-- Integration with existing Python test infrastructure
-- Repository-based testing with automated setup and cleanup
-
-**Test Coverage**:
-- All 6 supported LSP methods (definition, references, hover, symbols, completion)
-- Multiple Python project patterns (Django, Flask, data science, CLI tools)
-- Error handling and edge cases with real-world scenarios
-- Performance validation under realistic loads
-
-**Troubleshooting**:
-- Test failures: Check `./scripts/test-python-patterns.sh --verbose` output
-- Repository setup issues: Verify Git access and network connectivity
-- Language server problems: Use `./bin/lspg diagnose --language python`
-- Timeout issues: Adjust test timeouts in configuration files
+**Benefits:**
+- Unified interface for all language testing
+- Real repository analysis with Git-based test projects
+- Consistent test patterns across languages
+- Easy extension to new programming languages
+- Automatic repository setup and cleanup
 
 ## Performance Requirements
 
-- Response Time: <5 seconds
-- Throughput: >100 requests/second
-- Error Rate: <5%
-- Memory Usage: <3GB total, <1GB growth
-- Test Suite: Unit tests <60s, E2E <30min
-
-## Test Infrastructure
-
-### Organization (55+ test files)
-- **Unit Tests**: 35+ files in `internal/**/*_test.go`
-- **Integration Tests**: 8+ files in `tests/integration/`
-- **E2E Tests**: 12+ files in `tests/e2e/`
-
-### Mock Infrastructure (8+ mocks)
-Streamlined implementations for essential testing:
-- Mock LSP Server (87 lines)
-- Mock MCP Client (50 lines)
-- Mock Transport, Project Detector, Config
-- Mock Circuit Breaker, NPM Client, SCIP Cache
-
-### Real Server Testing
-Complete integration with actual language servers for production validation.
+**E2E Test Performance:**
+- LSP Response Time: <5 seconds
+- Test Suite Execution: E2E <30min, Integration <15min
+- Repository Setup: <60 seconds per language
+- Memory Usage: <3GB total during testing
+- Success Rate: >95% for essential functionality
 
 ## Development Guidelines
 
-### Writing Tests
+### Writing E2E Tests
 
-**Unit Tests**
-- Test core business logic only
-- Use standard Go testing
-- Focus on error conditions and edge cases
-- Keep tests fast and independent
+**Essential Functionality Focus:**
+- Test actual developer workflows (go-to-definition, find references, hover)
+- Use real language servers with realistic codebases
+- Validate core LSP methods across multiple file types
+- Test error conditions that users encounter
 
-**E2E Tests**
-- Test actual developer workflows
-- Use real language servers when possible
-- Test essential LSP methods (definition, hover, references)
-- Keep scenarios simple and realistic
+**Implementation Patterns:**
+```go
+// Use modular repository system
+repoManager := testutils.NewPythonRepositoryManager()
+workspaceDir, err := repoManager.SetupRepository()
 
-**Language-Specific Tests**
-- Focus on real language servers
-- Test common development scenarios
-- Validate language-specific features
-- Keep test projects minimal
+// Test real LSP functionality
+locations, err := client.Definition(ctx, fileURI, position)
+assert.NoError(err)
+assert.NotEmpty(locations)
+```
+
+### Writing Integration Tests
+
+**Component Interaction Validation:**
+- Test protocol compliance (JSON-RPC, MCP)
+- Validate configuration loading and validation
+- Test transport layer reliability
+- Verify error handling and recovery mechanisms
+
+**Focus Areas:**
+- Configuration system integration
+- Protocol message handling
+- Connection management
+- Resource cleanup
 
 ### Test Maintenance
-- Delete tests that don't add value
-- Simplify over-engineered tests
-- Remove redundant infrastructure
-- Update tests only when behavior changes
 
-## Troubleshooting
+**Continuous Simplification:**
+- Remove unit tests progressively
+- Eliminate redundant test infrastructure
+- Consolidate similar test scenarios
+- Focus on user-facing functionality only
 
-### Diagnostics
+**Quality Gates:**
+- All E2E tests must use real language servers
+- Integration tests must validate actual component interactions
+- No testing of implementation details
+- Test scenarios must reflect real usage patterns
+
+## Language Server Integration
+
+**Supported Language Servers:**
+- **Python**: `pylsp` with real repository testing
+- **Go**: `gopls` with golang/example repository
+- **JavaScript/TypeScript**: `typescript-language-server` with TypeScript repository
+- **Java**: `jdtls` with Spring Boot repository
+- **Rust**: `rust-analyzer` with Cargo repository
+
+**Integration Approach:**
+- Use actual language server binaries
+- Test with real project repositories
+- Validate language-specific features
+- Performance testing under realistic loads
+
+## Real Repository Testing
+
+**Python Patterns E2E:**
 ```bash
-./bin/lspg diagnose
-./bin/lspg verify
-go test -v -run TestSpecificScenario ./tests/
+make test-python-patterns-quick    # Quick validation (5-10min)
+make test-python-patterns          # Comprehensive testing (15-20min)
 ```
 
-### Common Issues
+**Features:**
+- Real Git repository analysis (faif/python-patterns)
+- Comprehensive LSP method validation across Python patterns
+- Performance benchmarking with realistic codebases
+- Automatic repository setup, testing, and cleanup
 
-**Language Server Issues**
-```bash
-# Reinstall language server
-./bin/lspg install <server> --force
-
-# Language-specific diagnostics
-./bin/lspg diagnose --language <language>
-```
-
-**Test Failures**
-- Configuration: `./bin/lspg config validate`
-- Performance: `./bin/lspg performance`
-- Verbose output: `go test -v -run TestName`
-
-## Summary
-
-LSP Gateway testing focuses on essential functionality for local development:
-- Fast unit tests (<60s) for core logic
-- Practical E2E tests with real language servers
-- Simple infrastructure without over-engineering
-- Clear workflows for different development stages
-
-The test suite provides comprehensive coverage while maintaining simplicity and fast feedback loops.
+**Other Language Repositories:**
+- Go: golang/example for standard library patterns
+- JavaScript: microsoft/TypeScript for complex TypeScript codebase
+- Java: spring-projects/spring-boot for enterprise patterns
+- Rust: rust-lang/cargo for systems programming patterns
 
 ## HttpClient Testing Infrastructure
 
-**Real server HTTP testing infrastructure for comprehensive LSP Gateway validation.**
-
-### HttpClient Overview
-
-The HttpClient provides production-like testing against running LSP Gateway instances:
-- **Real Connections**: Direct HTTP/JSON-RPC to gateway server
-- **Performance Metrics**: Latency, throughput, error rates
-- **Request Recording**: Full request/response capture for debugging
-- **Retry Logic**: Exponential backoff with configurable attempts
-- **Connection Pooling**: Efficient resource management
-
-### Quick Start
-
-#### Basic Usage
+**Real Server HTTP Testing:**
 ```go
-// Create client with default config
-config := testutils.DefaultHttpClientConfig()
-client := testutils.NewHttpClient(config)
-defer client.Close()
-
-// Health check
-err := client.HealthCheck(ctx)
-
-// LSP method calls
-locations, err := client.Definition(ctx, "file:///path/to/file.go", testutils.Position{Line: 10, Character: 5})
-symbols, err := client.WorkspaceSymbol(ctx, "myFunction")
-```
-
-#### Custom Configuration
-```go
+// Production-like testing against running gateway
 config := testutils.HttpClientConfig{
     BaseURL:         "http://localhost:8080",
-    Timeout:         10 * time.Second,
-    MaxRetries:      3,
-    RetryDelay:      500 * time.Millisecond,
     EnableLogging:   true,
     EnableRecording: true,
-    WorkspaceID:     "test-workspace",
-    ProjectPath:     "/path/to/project",
 }
 client := testutils.NewHttpClient(config)
-```
 
-### Test Commands
-
-#### Real Server E2E Tests
-```bash
-# HTTP connection testing
-make test-e2e-http-connection     # Connection validation and health checks
-
-# LSP API method testing
-make test-e2e-lsp-api-methods     # All 6 supported LSP methods
-make test-e2e-lsp-edge-cases      # Error handling and edge cases  
-make test-e2e-lsp-validation      # Request/response validation
-
-# Performance testing
-make test-e2e-lsp-performance     # Latency and throughput benchmarks
-```
-
-#### Individual Test Files
-```bash
-# Connection tests
-go test -v ./tests/e2e -run TestHttpConnection
-
-# API method tests  
-go test -v ./tests/e2e -run TestLSPAPIMethods
-
-# Performance benchmarks
-go test -v ./tests/e2e -run TestLSPPerformance -bench=.
-```
-
-### Supported LSP Methods
-
-The HttpClient supports all 6 LSP Gateway methods:
-
-#### 1. Go to Definition
-```go
-positions, err := client.Definition(ctx, fileURI, testutils.Position{Line: 10, Character: 5})
-```
-
-#### 2. Find References  
-```go
-locations, err := client.References(ctx, fileURI, position, true) // includeDeclaration
-```
-
-#### 3. Hover Information
-```go
-hover, err := client.Hover(ctx, fileURI, position)
-if hover != nil {
-    fmt.Println("Hover content:", hover.Contents)
-}
-```
-
-#### 4. Document Symbols
-```go
-symbols, err := client.DocumentSymbol(ctx, fileURI)
-for _, symbol := range symbols {
-    fmt.Printf("Symbol: %s (kind: %d)\n", symbol.Name, symbol.Kind)
-}
-```
-
-#### 5. Workspace Symbol Search
-```go
-symbols, err := client.WorkspaceSymbol(ctx, "function")
-```
-
-#### 6. Code Completion
-```go
-completion, err := client.Completion(ctx, fileURI, position)
-if completion != nil {
-    for _, item := range completion.Items {
-        fmt.Printf("Completion: %s\n", item.Label)
-    }
-}
-```
-
-### Performance Testing
-
-#### Benchmark Execution
-```go
-// Run concurrent requests
-func BenchmarkDefinitionRequests(b *testing.B) {
-    client := testutils.NewHttpClient(testutils.DefaultHttpClientConfig())
-    defer client.Close()
-    
-    b.ResetTimer()
-    b.RunParallel(func(pb *testing.PB) {
-        for pb.Next() {
-            _, err := client.Definition(ctx, fileURI, position)
-            if err != nil {
-                b.Error(err)
-            }
-        }
-    })
-}
-```
-
-#### Metrics Collection
-```go
-// Get performance metrics
-metrics := client.GetMetrics()
-fmt.Printf("Average latency: %v\n", metrics.AverageLatency)
-fmt.Printf("Success rate: %.2f%%\n", 
-    float64(metrics.SuccessfulReqs)/float64(metrics.TotalRequests)*100)
-```
-
-#### Load Testing Pattern
-```go
-func TestConcurrentRequests(t *testing.T) {
-    client := testutils.NewHttpClient(config)
-    defer client.Close()
-    
-    // Clear metrics
-    client.ClearMetrics()
-    
-    // Run concurrent load
-    concurrency := 10
-    requestsPerWorker := 50
-    
-    var wg sync.WaitGroup
-    for i := 0; i < concurrency; i++ {
-        wg.Add(1)
-        go func() {
-            defer wg.Done()
-            for j := 0; j < requestsPerWorker; j++ {
-                client.Definition(ctx, fileURI, position)
-            }
-        }()
-    }
-    wg.Wait()
-    
-    // Validate metrics
-    metrics := client.GetMetrics()
-    assert.True(t, metrics.AverageLatency < 100*time.Millisecond)
-    assert.True(t, metrics.SuccessfulReqs >= concurrency*requestsPerWorker*0.95) // 95% success
-}
-```
-
-### Request Recording & Debugging
-
-#### Enable Recording
-```go
-config := testutils.DefaultHttpClientConfig()
-config.EnableRecording = true
-client := testutils.NewHttpClient(config)
-
-// Make requests
-client.Definition(ctx, fileURI, position)
-
-// Get recordings for debugging
-recordings := client.GetRecordings()
-for _, req := range recordings {
-    fmt.Printf("Method: %s, Duration: %v, Error: %s\n", 
-        req.Metadata["lsp_method"], req.Duration, req.Error)
-}
-```
-
-#### Mock Mode Testing
-```go
-config := testutils.DefaultHttpClientConfig()
-config.MockMode = true
-client := testutils.NewHttpClient(config)
-
-// Set mock responses
-mockLocations := []testutils.Location{
-    {URI: "file:///test.go", Range: testutils.Range{...}},
-}
-client.SetMockResponse("textDocument/definition", mockLocations)
-
-// Test with mocks
+// Test all LSP methods
 locations, err := client.Definition(ctx, fileURI, position)
-// Returns mock response
+symbols, err := client.WorkspaceSymbol(ctx, "query")
+hover, err := client.Hover(ctx, fileURI, position)
 ```
 
-### Integration with Test Suites
+**Performance Testing:**
+- Concurrent request validation
+- Latency and throughput measurement  
+- Success rate monitoring
+- Resource usage tracking
 
-#### Suite Setup Pattern
-```go
-type HttpTestSuite struct {
-    suite.Suite
-    httpClient  *testutils.HttpClient
-    gatewayCmd  *exec.Cmd
-    tempDir     string
-}
+## Troubleshooting
 
-func (s *HttpTestSuite) SetupTest() {
-    config := testutils.HttpClientConfig{
-        BaseURL:         fmt.Sprintf("http://localhost:%d", s.gatewayPort),
-        Timeout:         10 * time.Second,
-        EnableRecording: true,
-    }
-    s.httpClient = testutils.NewHttpClient(config)
-}
-
-func (s *HttpTestSuite) TearDownTest() {
-    if s.httpClient != nil {
-        s.httpClient.Close()
-    }
-}
-```
-
-#### Validation Helpers
-```go
-func (s *HttpTestSuite) ValidateSuccessfulRequest(locations []testutils.Location, err error) {
-    s.Require().NoError(err)
-    s.Assert().NotEmpty(locations)
-    
-    // Check metrics
-    metrics := s.httpClient.GetMetrics()
-    s.Assert().True(metrics.SuccessfulReqs > 0)
-    s.Assert().True(metrics.AverageLatency < 5*time.Second)
-}
-```
-
-### Performance Benchmarks
-
-#### Expected Performance
-- **Response Time**: <100ms for definition/references
-- **Throughput**: >100 requests/second  
-- **Success Rate**: >95% under normal load
-- **Memory Growth**: <10MB per 1000 requests
-
-#### Benchmark Commands
+### E2E Test Failures
 ```bash
-# Run all performance tests
-make test-e2e-lsp-performance
+# Repository setup issues
+./bin/lspg diagnose --language python
+git config --list  # Verify Git access
 
-# Specific benchmarks
-go test -bench=BenchmarkDefinition ./tests/e2e
-go test -bench=BenchmarkConcurrent ./tests/e2e
+# Language server problems  
+./bin/lspg install pylsp --force
+./bin/lspg verify --language python
+
+# Verbose test output
+go test -v -run TestPythonPatternsE2E ./tests/e2e/
 ```
 
-### Troubleshooting
-
-#### Connection Issues
+### Integration Test Issues
 ```bash
-# Test gateway health directly
-curl http://localhost:8080/health
+# Configuration validation
+./bin/lspg config validate
 
-# Validate configuration
-./bin/lsp-gateway config validate
+# Protocol testing
+./bin/lspg diagnose --transport stdio
 
-# Check logs with verbose client
-config.EnableLogging = true
+# Component interaction
+go test -v -run TestIntegration ./tests/integration/
 ```
 
-#### Performance Issues
-```go
-// Check client metrics
-metrics := client.GetMetrics()
-fmt.Printf("Connection errors: %d\n", metrics.ConnectionErrors)
-fmt.Printf("Timeout errors: %d\n", metrics.TimeoutErrors)
-fmt.Printf("Average latency: %v\n", metrics.AverageLatency)
+### Performance Issues
+```bash
+# Performance diagnostics
+./bin/lspg performance
+
+# Resource monitoring
+go test -bench=. -memprofile=mem.prof ./tests/e2e/
+go tool pprof mem.prof
 ```
 
-The HttpClient testing infrastructure enables comprehensive validation of LSP Gateway under realistic conditions, providing confidence in production behavior through real server testing.
+## Migration Path
+
+**Progressive Removal of Unit Tests:**
+1. **Phase 1**: Focus new development on E2E/integration tests only
+2. **Phase 2**: Remove unit tests for components covered by E2E tests
+3. **Phase 3**: Eliminate mock infrastructure and test utilities
+4. **Phase 4**: Consolidate remaining tests into essential E2E scenarios
+
+**Timeline:**
+- Immediate: Stop writing new unit tests
+- Next release: Remove 50% of existing unit tests
+- Following releases: Progressive elimination of remaining unit tests
+- Final state: E2E and integration tests only
+
+## Summary
+
+LSP Gateway testing is streamlined to focus exclusively on what users experience:
+
+- **E2E Tests**: Real language servers, real repositories, real workflows
+- **Integration Tests**: Component interactions and protocol compliance  
+- **Essential Focus**: Core LSP functionality that developers depend on
+- **Modular System**: Consistent testing across all supported languages
+- **Performance Validation**: Realistic load testing with actual codebases
+
+The simplified approach provides comprehensive coverage while eliminating testing overhead and complexity.
