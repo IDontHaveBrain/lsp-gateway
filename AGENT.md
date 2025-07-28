@@ -38,9 +38,9 @@ Code formatting, Diagnostics, Code actions, Refactoring, Signature help, Semanti
 
 **Development Quick Start**:
 ```bash
-make local && make test-simple-quick    # Build and validate
-./bin/lsp-gateway setup all            # Complete setup
-./bin/lsp-gateway server --config config.yaml    # Start server
+make local && make test-simple-quick    # Build + global link + validate
+lspg setup all                  # Complete setup
+lspg server --config config.yaml       # Start server
 ```
 **📖 Docs**: [README.md](README.md) (setup), [docs/troubleshooting.md](docs/troubleshooting.md) (diagnostics), [docs/test_guide.md](docs/test_guide.md) (testing)
 
@@ -70,10 +70,10 @@ MCP → ToolHandler → LSPGatewayClient → HTTP Gateway → Router → LSPClie
 ### Key Commands
 ```bash
 # Server Operations
-./bin/lsp-gateway server --config config.yaml    # HTTP gateway
-./bin/lsp-gateway mcp --config config.yaml       # MCP server
-./bin/lsp-gateway diagnose                       # Diagnostics
-./bin/lsp-gateway setup all                      # Auto setup
+./bin/lspg server --config config.yaml    # HTTP gateway
+./bin/lspg mcp --config config.yaml       # MCP server
+./bin/lspg diagnose                       # Diagnostics
+./bin/lspg setup all                      # Auto setup
 ```
 
 ### Testing
@@ -94,7 +94,8 @@ make test                                        # Full suite
 
 ### Build & Quality
 ```bash
-make local                    # Build for current platform  
+make local                    # Build + global link
+make unlink                   # Remove global link
 make build                    # Build all platforms
 make quality                  # Format + lint + security
 make release VERSION=v1.0.0   # Release build
@@ -120,10 +121,10 @@ Always update docs after changes:
 
 ```bash
 # Setup
-make local && ./bin/lsp-gateway setup all
+make local && lspg setup all
 
 # Diagnostics
-./bin/lsp-gateway diagnose
+lspg diagnose
 make clean && make local     # Clean rebuild
 ```
 

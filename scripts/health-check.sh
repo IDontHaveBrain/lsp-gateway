@@ -174,7 +174,7 @@ check_lsp_servers() {
 check_lsp_gateway_binary() {
     log "Checking LSP Gateway binary..."
     
-    local binary_path="$PROJECT_ROOT/bin/lsp-gateway"
+    local binary_path="$PROJECT_ROOT/bin/lspg"
     
     if [[ ! -f "$binary_path" ]]; then
         log_error "LSP Gateway binary not found at: $binary_path"

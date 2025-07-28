@@ -7,14 +7,10 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"lsp-gateway/internal/version"
 )
 
 var (
-	Version     = "0.0.1"
-	GitCommit   = ERROR_UNKNOWN_VALUE
-	GitBranch   = ERROR_UNKNOWN_VALUE
-	BuildTime   = ERROR_UNKNOWN_VALUE
-	BuildUser   = ERROR_UNKNOWN_VALUE
 	VersionJSON bool
 )
 
@@ -69,11 +65,11 @@ For troubleshooting, include version output when reporting issues.`,
 
 func runVersion(_ *cobra.Command, args []string) error {
 	versionInfo := VersionInfo{
-		Version:      Version,
-		GitCommit:    GitCommit,
-		GitBranch:    GitBranch,
-		BuildTime:    BuildTime,
-		BuildUser:    BuildUser,
+		Version:      version.Version,
+		GitCommit:    version.GitCommit,
+		GitBranch:    version.GitBranch,
+		BuildTime:    version.BuildTime,
+		BuildUser:    version.BuildUser,
 		GoVersion:    runtime.Version(),
 		Platform:     runtime.GOOS,
 		Architecture: runtime.GOARCH,
@@ -93,28 +89,28 @@ func runVersion(_ *cobra.Command, args []string) error {
 	fmt.Printf("===============================\n\n")
 	fmt.Printf("Version:      %s\n", versionInfo.Version)
 
-	if GitCommit != ERROR_UNKNOWN_VALUE {
-		if len(GitCommit) > 7 {
-			fmt.Printf("Git Commit:   %s (%s)\n", GitCommit[:7], GitCommit)
+	if version.GitCommit != "unknown" {
+		if len(version.GitCommit) > 7 {
+			fmt.Printf("Git Commit:   %s (%s)\n", version.GitCommit[:7], version.GitCommit)
 		} else {
-			fmt.Printf("Git Commit:   %s\n", GitCommit)
+			fmt.Printf("Git Commit:   %s\n", version.GitCommit)
 		}
 	}
 
-	if GitBranch != ERROR_UNKNOWN_VALUE {
-		fmt.Printf("Git Branch:   %s\n", GitBranch)
+	if version.GitBranch != "unknown" {
+		fmt.Printf("Git Branch:   %s\n", version.GitBranch)
 	}
 
-	if BuildTime != ERROR_UNKNOWN_VALUE {
-		if t, err := time.Parse(time.RFC3339, BuildTime); err == nil {
+	if version.BuildTime != "unknown" {
+		if t, err := time.Parse(time.RFC3339, version.BuildTime); err == nil {
 			fmt.Printf("Build Time:   %s\n", t.Format("2006-01-02 15:04:05 UTC"))
 		} else {
-			fmt.Printf("Build Time:   %s\n", BuildTime)
+			fmt.Printf("Build Time:   %s\n", version.BuildTime)
 		}
 	}
 
-	if BuildUser != ERROR_UNKNOWN_VALUE {
-		fmt.Printf("Build User:   %s\n", BuildUser)
+	if version.BuildUser != "unknown" {
+		fmt.Printf("Build User:   %s\n", version.BuildUser)
 	}
 
 	fmt.Printf("\nRuntime Information:\n")

@@ -2,11 +2,26 @@
 # Simplified build system for solo development
 
 # Configuration
-BINARY_NAME := lsp-gateway
+BINARY_NAME := lspg
 MAIN_PATH := cmd/lsp-gateway/main.go
 BUILD_DIR := bin
-VERSION ?= dev
-LDFLAGS := -s -w -X main.version=$(VERSION)
+
+# Extract version from package.json if available, fallback to 'dev'
+VERSION ?= $(shell if [ -f package.json ]; then node -p "require('./package.json').version" 2>/dev/null || echo "dev"; else echo "dev"; fi)
+
+# Build info
+BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
+GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+GIT_BRANCH := $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+BUILD_USER := $(shell whoami)
+
+# LD flags to inject version and build info
+LDFLAGS := -s -w \
+	-X 'lsp-gateway/internal/version.Version=$(VERSION)' \
+	-X 'lsp-gateway/internal/version.GitCommit=$(GIT_COMMIT)' \
+	-X 'lsp-gateway/internal/version.GitBranch=$(GIT_BRANCH)' \
+	-X 'lsp-gateway/internal/version.BuildTime=$(BUILD_TIME)' \
+	-X 'lsp-gateway/internal/version.BuildUser=$(BUILD_USER)'
 
 # Go parameters
 GOCMD := go
@@ -22,13 +37,24 @@ PLATFORMS := linux/amd64 darwin/amd64 darwin/arm64 windows/amd64
 # BUILD TARGETS
 # =============================================================================
 
-.PHONY: all build local clean
+.PHONY: all build local clean unlink
 all: build
 
 # Build for current platform (most common use case)
 local: $(BUILD_DIR)
 	@echo "Building for current platform..."
 	$(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	@echo "Linking npm package globally..."
+	@if command -v npm >/dev/null 2>&1; then \
+		if [ -f package.json ]; then \
+			npm link; \
+			echo "✅ npm link completed - 'lspg' command is now available globally"; \
+		else \
+			echo "⚠️  package.json not found, skipping npm link"; \
+		fi; \
+	else \
+		echo "⚠️  npm not found, skipping npm link"; \
+	fi
 
 # Build for all platforms
 build: $(BUILD_DIR)
@@ -65,6 +91,20 @@ clean:
 	@echo "Cleaning build artifacts..."
 	rm -rf $(BUILD_DIR)
 	$(GOCLEAN)
+
+# Unlink npm package globally
+unlink:
+	@echo "Unlinking npm package globally..."
+	@if command -v npm >/dev/null 2>&1; then \
+		if [ -f package.json ]; then \
+			npm unlink -g lsp-gateway 2>/dev/null || true; \
+			echo "✅ npm unlink completed - 'lspg' command removed from global scope"; \
+		else \
+			echo "⚠️  package.json not found, skipping npm unlink"; \
+		fi; \
+	else \
+		echo "⚠️  npm not found, skipping npm unlink"; \
+	fi
 
 # =============================================================================
 # DEVELOPMENT TARGETS
