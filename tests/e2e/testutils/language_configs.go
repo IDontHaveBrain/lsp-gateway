@@ -40,19 +40,20 @@ func GetGoLanguageConfig() LanguageConfig {
 	}
 }
 
-// GetJavaScriptLanguageConfig returns configuration for JavaScript/TypeScript testing
+// GetJavaScriptLanguageConfig returns configuration for JavaScript/TypeScript testing using chalk repository with fixed commit
 func GetJavaScriptLanguageConfig() LanguageConfig {
 	return LanguageConfig{
 		Language:     "javascript",
-		RepoURL:      "https://github.com/microsoft/TypeScript.git",
-		TestPaths:    []string{"src", "lib"},
-		FilePatterns: []string{"*.js", "*.ts", "*.jsx", "*.tsx"},
+		RepoURL:      "https://github.com/chalk/chalk.git",
+		TestPaths:    []string{"source", "test"},
+		FilePatterns: []string{"*.js", "*.ts", "*.mjs", "*.jsx", "*.tsx"},
 		RootMarkers:  []string{"package.json", "tsconfig.json"},
-		ExcludePaths: []string{"node_modules", ".git", "dist", "build"},
-		RepoSubDir:   "TypeScript",
+		ExcludePaths: []string{"node_modules", ".git", "dist", "build", "coverage"},
+		RepoSubDir:   "chalk",
 		CustomVariables: map[string]string{
-			"lsp_server": "typescript-language-server",
-			"transport":  "stdio",
+			"lsp_server":   "typescript-language-server",
+			"transport":    "stdio",
+			"commit_hash":  "5dbc1e2", // Fixed commit hash for v5.4.1
 		},
 	}
 }
@@ -129,7 +130,7 @@ func NewGoRepositoryManager(customConfig ...GenericRepoConfig) *GenericRepoManag
 	return NewGenericRepoManager(config)
 }
 
-// NewJavaScriptRepositoryManager creates a repository manager configured for JavaScript/TypeScript testing
+// NewJavaScriptRepositoryManager creates a repository manager configured for JavaScript/TypeScript testing with chalk repository
 func NewJavaScriptRepositoryManager(customConfig ...GenericRepoConfig) *GenericRepoManager {
 	var config GenericRepoConfig
 	if len(customConfig) > 0 {
@@ -139,11 +140,20 @@ func NewJavaScriptRepositoryManager(customConfig ...GenericRepoConfig) *GenericR
 			CloneTimeout:   300 * time.Second,
 			EnableLogging:  true,
 			ForceClean:     false,
-			PreserveGitDir: false,
+			PreserveGitDir: true,  // Keep .git for commit checkout
 		}
 	}
 	
-	config.LanguageConfig = GetJavaScriptLanguageConfig()
+	langConfig := GetJavaScriptLanguageConfig()
+	config.LanguageConfig = langConfig
+	
+	// Extract commit hash from language config if not already set
+	if config.CommitHash == "" {
+		if commitHash, exists := langConfig.CustomVariables["commit_hash"]; exists {
+			config.CommitHash = commitHash
+		}
+	}
+	
 	return NewGenericRepoManager(config)
 }
 

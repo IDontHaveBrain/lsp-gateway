@@ -174,7 +174,7 @@ quality: format lint security
 # TESTING TARGETS
 # =============================================================================
 
-.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-go test-go-comprehensive test-java-real test-python-real test-python-patterns test-python-patterns-quick test-python-comprehensive test-typescript-real test-e2e-advanced test-e2e-workflow test-e2e-setup-cli test-e2e-mcp test-mcp-stdio test-mcp-tcp test-mcp-tools test-mcp-scip test-mcp-comprehensive test-mcp-lsp-tools-all test-mcp-performance-suite test-mcp-enhanced-quick test-npm-cli test-npm-mcp test-npm-mcp-quick test-npm-mcp-js test-npm-mcp-go validate-python-patterns-integration validate-python-patterns-integration-quick test-python-patterns-integration setup-simple-repos
+.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-javascript test-e2e-go test-go-comprehensive test-java-real test-python-real test-python-patterns test-python-patterns-quick test-python-comprehensive test-typescript-real test-javascript-e2e test-javascript-quick test-javascript-mcp test-javascript-comprehensive test-e2e-advanced test-e2e-workflow test-e2e-setup-cli test-e2e-mcp test-mcp-stdio test-mcp-tcp test-mcp-tools test-mcp-scip test-mcp-comprehensive test-mcp-lsp-tools-all test-mcp-performance-suite test-mcp-enhanced-quick test-npm-cli test-npm-mcp test-npm-mcp-quick test-npm-mcp-js test-npm-mcp-go validate-python-patterns-integration validate-python-patterns-integration-quick test-python-patterns-integration setup-simple-repos
 setup-simple-repos:
 	@echo "Setting up test repositories..."
 	./scripts/setup-simple-repos.sh || echo "Setup script not found, skipping..."
@@ -226,6 +226,33 @@ test-e2e-python:
 test-e2e-typescript:
 	@echo "Running TypeScript E2E tests..."
 	$(GOTEST) -v -timeout 600s -run "TestTypeScript.*E2ETestSuite" ./tests/e2e/...
+
+# JavaScript/TypeScript E2E Test Targets  
+test-e2e-javascript:
+	@echo "Running JavaScript E2E tests..."
+	$(GOTEST) -v -timeout 900s -run "TestJavaScript.*E2ETestSuite" ./tests/e2e/...
+
+test-javascript-e2e: test-e2e-javascript
+
+test-javascript-quick:
+	@echo "Running quick JavaScript validation..."
+	$(GOTEST) -v -short -timeout 300s -run "TestJavaScriptBasic.*" ./tests/e2e/...
+
+test-javascript-real-client:
+	@echo "Running comprehensive JavaScript Real Client E2E tests with chalk repository..."
+	$(GOTEST) -v -timeout 1200s -run "TestJavaScriptRealClientComprehensiveE2ETestSuite" ./tests/e2e/...
+
+test-javascript-mcp:
+	@echo "Running JavaScript MCP integration tests..."
+	$(GOTEST) -v -timeout 600s -run "TestJavaScript.*MCP.*" ./tests/e2e/...
+
+test-javascript-mcp-integration:
+	@echo "Running comprehensive JavaScript MCP integration tests..."
+	$(GOTEST) -v -timeout 900s -run "TestJavaScriptMCPIntegration" ./tests/integration/...
+
+test-javascript-comprehensive:
+	@echo "Running comprehensive JavaScript test suite with chalk repository..."
+	$(GOTEST) -v -timeout 1200s -run "TestJavaScript.*|TestNPM.*JavaScript.*" ./tests/e2e/... ./tests/integration/...
 
 test-e2e-go:
 	@echo "Running Go E2E tests..."
@@ -422,6 +449,7 @@ help:
 	@echo "  test-e2e-java          - Java E2E tests (mock and real JDTLS)"
 	@echo "  test-e2e-python        - Python E2E tests"
 	@echo "  test-e2e-typescript    - TypeScript E2E tests"
+	@echo "  test-e2e-javascript    - JavaScript E2E tests"
 	@echo "  test-e2e-go            - Go E2E tests"
 	@echo ""
 	@echo "Real Language Server Integration:"
@@ -431,6 +459,14 @@ help:
 	@echo "  test-python-patterns-quick - Quick Python patterns validation tests"
 	@echo "  test-python-comprehensive - Complete Python test suite including patterns"
 	@echo "  test-typescript-real   - TypeScript real server integration"
+	@echo ""
+	@echo "JavaScript Testing:"
+	@echo "  test-javascript-e2e              - JavaScript/TypeScript E2E validation (10-15min)"
+	@echo "  test-javascript-quick            - Quick JavaScript validation (<5min)"
+	@echo "  test-javascript-real-client      - Comprehensive Real Client E2E with chalk repository (15-20min)"
+	@echo "  test-javascript-mcp              - JavaScript MCP E2E integration testing"
+	@echo "  test-javascript-mcp-integration  - Comprehensive JavaScript MCP integration tests"
+	@echo "  test-javascript-comprehensive    - Full JavaScript test suite with chalk repository (20-25min)"
 	@echo ""
 	@echo "NPM-MCP Integration Testing:"
 	@echo "  test-npm-mcp           - Comprehensive NPM-MCP tests (JavaScript + Go)"
