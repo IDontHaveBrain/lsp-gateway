@@ -75,10 +75,11 @@ make test-config-integration # Configuration validation
 - Performance validation under realistic conditions
 
 **Key Test Suites:**
-- `python_patterns_real_server_e2e_test.go` - Python testing using testutils.GenericRepoManager
-- `go_basic_e2e_test.go` - Go language server integration with testutils
-- `javascript_basic_e2e_test.go` - JavaScript/TypeScript validation with testutils
-- All tests use unified testutils repository management system
+- `python_e2e_comprehensive_test.go` - Comprehensive Python testing with unified repository system
+- `python_workflow_validation_test.go` - Python workflow validation using modular infrastructure
+- `go_basic_e2e_test.go` - Go language server integration
+- `javascript_basic_e2e_test.go` - JavaScript/TypeScript validation
+- Language-agnostic tests using unified modular repository system
 
 ### Integration Tests  
 **Purpose**: Validate component interactions and protocol compliance
