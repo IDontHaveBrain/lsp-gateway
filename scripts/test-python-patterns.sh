@@ -290,7 +290,7 @@ run_python_patterns_tests() {
     fi
 
     # Run the specific Python patterns test that uses PythonRepoManager
-    local test_pattern="TestPythonLSPFeaturesComprehensiveTestSuite"
+    local test_pattern="TestPythonE2EComprehensiveTestSuite"
     
     log_verbose "Executing: go test ${test_args[*]} -run ${test_pattern} ${E2E_DIR}"
     log_info "Test timeout: ${TEST_TIMEOUT} seconds"

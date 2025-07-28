@@ -229,7 +229,7 @@ test-e2e-java:
 
 test-e2e-python:
 	@echo "Running Python E2E tests..."
-	$(GOTEST) -v -timeout 600s -run "TestPython.*E2ETestSuite" ./tests/e2e/...
+	$(GOTEST) -v -timeout 600s -run "TestPython.*TestSuite" ./tests/e2e/...
 
 test-e2e-typescript:
 	@echo "Running TypeScript E2E tests..."
@@ -246,7 +246,7 @@ test-java-real:
 
 test-python-real:
 	@echo "Running Python real pylsp integration tests..."
-	$(GOTEST) -v -timeout 600s -run "TestPythonReal.*IntegrationTestSuite" ./tests/e2e/...
+	$(GOTEST) -v -timeout 600s -run "TestPythonE2EComprehensiveTestSuite" ./tests/e2e/...
 
 test-typescript-real:
 	@echo "Running TypeScript real server integration tests..."
@@ -268,11 +268,11 @@ test-python-comprehensive:
 # Advanced E2E Test Targets
 test-e2e-advanced:
 	@echo "Running advanced E2E test scenarios..."
-	$(GOTEST) -v -timeout 1200s -run ".*Advanced.*E2ETestSuite" ./tests/e2e/...
+	$(GOTEST) -v -timeout 1200s -run ".*Advanced.*E2ETestSuite|.*Comprehensive.*TestSuite" ./tests/e2e/...
 
 test-e2e-workflow:
 	@echo "Running E2E workflow tests..."
-	$(GOTEST) -v -timeout 900s -run ".*BasicWorkflow.*E2ETestSuite" ./tests/e2e/...
+	$(GOTEST) -v -timeout 900s -run ".*Workflow.*TestSuite" ./tests/e2e/...
 
 test-e2e-setup-cli:
 	@echo "Running Setup CLI E2E tests..."

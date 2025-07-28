@@ -72,7 +72,7 @@ The validation system tests the following integration points:
 
 ### 2. Go Integration Tests
 
-**Location:** `tests/integration/python_patterns_integration_test.go`
+**Location:** `tests/integration/python_patterns_integration_test.go` (Integration test validation for unified repository system)
 
 **Purpose:** Go-based integration tests for deep validation
 

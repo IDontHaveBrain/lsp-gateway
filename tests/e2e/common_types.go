@@ -56,4 +56,4 @@ type TypeScriptBuildConfigResult struct {
 	RevalidationLatency       time.Duration
 }
 
-// PythonIntegrationResult is defined in python_real_pylsp_integration_test.go to avoid redeclaration
+// PythonIntegrationResult is defined in python_e2e_comprehensive_test.go to avoid redeclaration
