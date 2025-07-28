@@ -52,7 +52,7 @@ type GoWorkflowResult struct {
 	ErrorEncountered      error
 }
 
-// Note: LSPPosition is defined in typescript_basic_workflow_e2e_test.go
+// Note: LSPPosition is defined in common_types.go
 
 // SetupSuite initializes the test suite with Go-specific configurations
 func (suite *GoBasicWorkflowE2ETestSuite) SetupSuite() {

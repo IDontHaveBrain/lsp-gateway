@@ -45,7 +45,8 @@ make test-python-patterns-quick   # Quick Python validation (5-10min)
 ```bash
 make test-python-real        # Real pylsp integration
 make test-go-e2e            # Go with gopls
-make test-javascript-e2e     # JavaScript/TypeScript
+make test-javascript-e2e     # JavaScript/TypeScript basic E2E
+make test-javascript-real-client  # Comprehensive JavaScript Real Client E2E with chalk repository
 make test-java-real         # Real JDTLS integration
 ```
 
@@ -60,6 +61,7 @@ make test-python-comprehensive # Complete Python validation (20-25min)
 ```bash
 make test-integration       # Core integration tests
 make test-mcp-integration   # MCP protocol integration
+make test-javascript-mcp-integration  # Comprehensive JavaScript MCP integration tests
 make test-config-integration # Configuration validation
 ```
 
@@ -78,7 +80,9 @@ make test-config-integration # Configuration validation
 - `python_e2e_comprehensive_test.go` - Comprehensive Python testing with unified repository system
 - `python_workflow_validation_test.go` - Python workflow validation using modular infrastructure
 - `go_basic_e2e_test.go` - Go language server integration
-- `javascript_basic_e2e_test.go` - JavaScript/TypeScript validation
+- `javascript_basic_e2e_test.go` - JavaScript/TypeScript basic validation
+- `javascript_real_client_comprehensive_e2e_test.go` - Comprehensive JavaScript Real Client E2E with chalk repository
+- `javascript_mcp_e2e_test.go` - JavaScript MCP E2E tests with chalk repository
 - Language-agnostic tests using unified modular repository system
 
 ### Integration Tests  
@@ -87,7 +91,7 @@ make test-config-integration # Configuration validation
 **Coverage**:
 - LSP protocol validation
 - Configuration system integration
-- MCP server integration
+- MCP server integration (including comprehensive JavaScript MCP integration)
 - Transport layer validation
 - Error handling and recovery
 
@@ -234,7 +238,7 @@ assert.NotEmpty(locations)
 **Language Server Integration via testutils:**
 - **Python**: `pylsp` with faif/python-patterns repository
 - **Go**: `gopls` with golang/example repository  
-- **JavaScript/TypeScript**: `typescript-language-server` with TypeScript repository
+- **JavaScript/TypeScript**: `typescript-language-server` with chalk repository (commit: 5dbc1e2)
 - **Java**: `jdtls` with Spring Boot repository
 - **Rust**: `rust-analyzer` with Cargo repository
 
@@ -252,7 +256,9 @@ assert.NotEmpty(locations)
 # Language-specific E2E tests using common testutils system
 make test-python-patterns-quick    # Python with faif/python-patterns
 make test-go-e2e                   # Go with golang/example
-make test-javascript-e2e           # JavaScript with microsoft/TypeScript
+make test-javascript-e2e           # JavaScript basic E2E with chalk
+make test-javascript-real-client   # Comprehensive JavaScript Real Client E2E with chalk
+make test-javascript-mcp-integration # JavaScript MCP integration with chalk
 ```
 
 **testutils Repository Management Features:**
@@ -265,7 +271,7 @@ make test-javascript-e2e           # JavaScript with microsoft/TypeScript
 **Supported Test Repositories:**
 - **Python**: faif/python-patterns (design patterns)
 - **Go**: golang/example (standard library examples)
-- **JavaScript**: microsoft/TypeScript (complex TypeScript codebase)
+- **JavaScript**: chalk/chalk (terminal string styling library, commit: 5dbc1e2)
 - **Java**: spring-projects/spring-boot (enterprise patterns)
 - **Rust**: rust-lang/cargo (systems programming)
 
