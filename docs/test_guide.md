@@ -57,6 +57,7 @@ make test-npm-mcp           # Full NPM-MCP tests
 make test-e2e-java          # Java with JDTLS
 make test-java-real         # Real JDTLS integration
 make test-python-real       # Real pylsp integration
+make test-python-patterns-quick   # Quick Python patterns validation (5-10min)
 make test-typescript-real   # Real tsserver integration
 ```
 
@@ -64,6 +65,8 @@ make test-typescript-real   # Real tsserver integration
 ```bash
 make test-e2e-advanced      # Advanced scenarios
 make test-e2e-full         # Full test suite
+make test-python-patterns   # Comprehensive Python patterns (15-20min)
+make test-python-comprehensive # Complete Python test suite (20-25min)
 ```
 
 ## Test Categories
@@ -83,6 +86,35 @@ make test-e2e-full         # Full test suite
 - **pylsp** (Python): Python LSP server
 - **tsserver** (TypeScript): TypeScript Language Server
 - **gopls** (Go): Go language server
+
+### Python Patterns E2E Testing
+
+Test Python language server integration using real repositories and comprehensive LSP method validation:
+
+```bash
+make test-python-patterns-quick    # Quick validation (5-10min)
+make test-python-patterns          # Comprehensive patterns testing (15-20min)
+make test-python-comprehensive     # Full Python test suite (20-25min)
+```
+
+**Features**:
+- Real repository analysis using Git-based test projects
+- Comprehensive LSP method validation across different Python project types
+- Performance benchmarking with realistic codebases
+- Integration with existing Python test infrastructure
+- Repository-based testing with automated setup and cleanup
+
+**Test Coverage**:
+- All 6 supported LSP methods (definition, references, hover, symbols, completion)
+- Multiple Python project patterns (Django, Flask, data science, CLI tools)
+- Error handling and edge cases with real-world scenarios
+- Performance validation under realistic loads
+
+**Troubleshooting**:
+- Test failures: Check `./scripts/test-python-patterns.sh --verbose` output
+- Repository setup issues: Verify Git access and network connectivity
+- Language server problems: Use `./bin/lspg diagnose --language python`
+- Timeout issues: Adjust test timeouts in configuration files
 
 ## Performance Requirements
 

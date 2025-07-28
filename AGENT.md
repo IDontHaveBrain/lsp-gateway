@@ -81,10 +81,12 @@ MCP → ToolHandler → LSPGatewayClient → HTTP Gateway → Router → LSPClie
 # Quick tests
 make test-unit                    # Unit tests (<60s)
 make test-simple-quick            # E2E validation (1min)
+make test-python-patterns-quick   # Quick Python patterns (5-10min)
 
 # Development workflow
 make test-unit && make test-simple-quick         # Quick (2-5min)
 make test-lsp-validation-short && make test-e2e-quick  # Pre-commit (5-10min)
+make test-python-patterns && make test-python-comprehensive  # Python validation (20-25min)
 make test                                        # Full suite
 ```
 
@@ -105,6 +107,7 @@ make release VERSION=v1.0.0   # Release build
 ```bash
 make local && make test-simple-quick              # Quick cycle
 make test-unit && make test-lsp-validation-short  # Pre-commit  
+make test-python-patterns-quick                   # Python validation
 make test && make quality                         # Before PR
 ```
 
