@@ -82,7 +82,7 @@ func testErrorHandlingScenarios(t *testing.T) {
 	})
 	
 	t.Run("InvalidRequestHandling", func(t *testing.T) {
-		store := indexing.NewMockSCIPStore(config)
+		store := indexing.NewRealSCIPStore(config)
 		mapper := indexing.NewLSPSCIPMapper(store, config)
 		
 		// Test with nil parameters
@@ -423,7 +423,7 @@ func testResourceManagement(t *testing.T) {
 			}
 			
 			// Simulate some operations
-			store := indexing.NewMockSCIPStore(config)
+			store := indexing.NewRealSCIPStore(config)
 			mapper := indexing.NewLSPSCIPMapper(store, config)
 			
 			for j := 0; j < 10; j++ {
@@ -547,7 +547,7 @@ func testConcurrentAccess(t *testing.T) {
 			},
 		}
 		
-		store := indexing.NewMockSCIPStore(config)
+		store := indexing.NewRealSCIPStore(config)
 		mapper := indexing.NewLSPSCIPMapper(store, config)
 		defer mapper.Close()
 		
@@ -653,7 +653,7 @@ func testConcurrentAccess(t *testing.T) {
 			},
 		}
 		
-		store := indexing.NewMockSCIPStore(config)
+		store := indexing.NewRealSCIPStore(config)
 		mapper := indexing.NewLSPSCIPMapper(store, config)
 		defer mapper.Close()
 		
@@ -746,7 +746,7 @@ func testOperationalFeatures(t *testing.T) {
 			},
 		}
 		
-		store := indexing.NewMockSCIPStore(config)
+		store := indexing.NewRealSCIPStore(config)
 		mapper := indexing.NewLSPSCIPMapper(store, config)
 		defer mapper.Close()
 		

@@ -76,6 +76,24 @@ func GetJavaLanguageConfig() LanguageConfig {
 	}
 }
 
+// GetTypeScriptLanguageConfig returns configuration for TypeScript testing using Microsoft's TypeScript repository
+func GetTypeScriptLanguageConfig() LanguageConfig {
+	return LanguageConfig{
+		Language:     "typescript",
+		RepoURL:      "https://github.com/microsoft/TypeScript.git",
+		TestPaths:    []string{"src", "tests"},
+		FilePatterns: []string{"*.ts", "*.tsx", "*.js", "*.jsx"},
+		RootMarkers:  []string{"tsconfig.json", "package.json"},
+		ExcludePaths: []string{"node_modules", ".git", "built", "lib", "dist", "coverage"},
+		RepoSubDir:   "TypeScript",
+		CustomVariables: map[string]string{
+			"lsp_server":   "typescript-language-server",
+			"transport":    "stdio",
+			"commit_hash":  "v5.6.2", // Fixed version tag for stability
+		},
+	}
+}
+
 // GetRustLanguageConfig returns configuration for Rust testing
 func GetRustLanguageConfig() LanguageConfig {
 	return LanguageConfig{
@@ -173,6 +191,33 @@ func NewJavaRepositoryManager(customConfig ...GenericRepoConfig) *GenericRepoMan
 	}
 	
 	langConfig := GetJavaLanguageConfig()
+	config.LanguageConfig = langConfig
+	
+	// Extract commit hash from language config if not already set
+	if config.CommitHash == "" {
+		if commitHash, exists := langConfig.CustomVariables["commit_hash"]; exists {
+			config.CommitHash = commitHash
+		}
+	}
+	
+	return NewGenericRepoManager(config)
+}
+
+// NewTypeScriptRepositoryManager creates a repository manager configured for TypeScript testing with Microsoft TypeScript repository
+func NewTypeScriptRepositoryManager(customConfig ...GenericRepoConfig) *GenericRepoManager {
+	var config GenericRepoConfig
+	if len(customConfig) > 0 {
+		config = customConfig[0]
+	} else {
+		config = GenericRepoConfig{
+			CloneTimeout:   300 * time.Second,
+			EnableLogging:  true,
+			ForceClean:     false,
+			PreserveGitDir: true, // Keep .git for commit checkout
+		}
+	}
+	
+	langConfig := GetTypeScriptLanguageConfig()
 	config.LanguageConfig = langConfig
 	
 	// Extract commit hash from language config if not already set
