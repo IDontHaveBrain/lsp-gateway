@@ -34,7 +34,7 @@ func TestMCPClientUsageExample(t *testing.T) {
 	// Step 2: Demonstrate basic connection
 	t.Log("Step 2: Connecting to MCP server")
 	
-	err := client.Connect()
+	err := client.Connect(context.Background())
 	require.NoError(t, err, "Failed to connect client")
 
 	assert.True(t, client.IsConnected(), "Client should be connected")
@@ -252,7 +252,7 @@ func TestMCPServerIntegration(t *testing.T) {
 	client := NewTestMCPClient(config, transport)
 
 	// Connect and test
-	err = client.Connect()
+	err = client.Connect(context.Background())
 	require.NoError(t, err, "Failed to connect to real server")
 
 	t.Log("✓ Connected to real MCP server")
@@ -293,8 +293,8 @@ func BenchmarkMCPClientPerformance(b *testing.B) {
 	defer client.Shutdown()
 
 	// Setup
-	transport.Connect()
-	client.Connect()
+	transport.Connect(context.Background())
+	client.Connect(context.Background())
 
 	// Simulate responses
 	for i := 0; i < b.N; i++ {
