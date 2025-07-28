@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"sync"
@@ -113,13 +114,13 @@ type HttpClientConfig struct {
 	KeepAlive          time.Duration
 }
 
-// DefaultHttpClientConfig returns a default configuration
+// DefaultHttpClientConfig returns a default configuration optimized for test environments
 func DefaultHttpClientConfig() HttpClientConfig {
 	return HttpClientConfig{
 		BaseURL:            "http://localhost:8080",
-		Timeout:            30 * time.Second,
+		Timeout:            10 * time.Second, // Increased for test stability
 		MaxRetries:         3,
-		RetryDelay:         time.Second,
+		RetryDelay:         500 * time.Millisecond, // Faster retries for tests
 		EnableLogging:      true,
 		EnableRecording:    false,
 		MockMode:           false,
@@ -127,8 +128,8 @@ func DefaultHttpClientConfig() HttpClientConfig {
 		ProjectPath:        "/tmp/test-project",
 		UserAgent:          "LSP-Gateway-E2E-Test/1.0",
 		MaxResponseSize:    10 * 1024 * 1024, // 10MB
-		ConnectionPoolSize: 10,
-		KeepAlive:          30 * time.Second,
+		ConnectionPoolSize: 20, // Increased for concurrent tests
+		KeepAlive:          30 * time.Second, // Longer keep-alive for test efficiency
 	}
 }
 
@@ -149,7 +150,7 @@ func NewHttpClient(config HttpClientConfig) *HttpClient {
 		config.BaseURL = "http://localhost:8080"
 	}
 	if config.Timeout == 0 {
-		config.Timeout = 30 * time.Second
+		config.Timeout = 5 * time.Second
 	}
 	if config.MaxRetries == 0 {
 		config.MaxRetries = 3
@@ -167,15 +168,36 @@ func NewHttpClient(config HttpClientConfig) *HttpClient {
 		config.ConnectionPoolSize = 10
 	}
 	if config.KeepAlive == 0 {
-		config.KeepAlive = 30 * time.Second
+		config.KeepAlive = 15 * time.Second
 	}
 
-	// Create HTTP transport with connection pooling and keep-alive
+	// Create HTTP transport optimized for test environment with proper connection management
 	transport := &http.Transport{
-		MaxIdleConns:        config.ConnectionPoolSize,
-		MaxIdleConnsPerHost: config.ConnectionPoolSize,
-		IdleConnTimeout:     config.KeepAlive,
-		DisableKeepAlives:   false,
+		// Connection pool settings
+		MaxIdleConns:        config.ConnectionPoolSize * 2,           // Allow more idle connections
+		MaxIdleConnsPerHost: config.ConnectionPoolSize,                // Per-host limit
+		MaxConnsPerHost:     config.ConnectionPoolSize * 3,           // Total connections per host
+		IdleConnTimeout:     config.KeepAlive,                        // How long idle connections stay open
+		
+		// Timeout settings for connection establishment
+		DialContext: (&net.Dialer{
+			Timeout:   3 * time.Second,  // Connection establishment timeout
+			KeepAlive: config.KeepAlive, // TCP keep-alive
+		}).DialContext,
+		
+		// TLS and response timeouts
+		TLSHandshakeTimeout:   5 * time.Second,  // TLS handshake timeout
+		ResponseHeaderTimeout: 5 * time.Second,  // Response header timeout
+		ExpectContinueTimeout: 1 * time.Second,  // 100-continue timeout
+		
+		// Connection reuse and keep-alive
+		DisableKeepAlives:     false,            // Enable keep-alive
+		DisableCompression:    false,            // Enable compression
+		ForceAttemptHTTP2:     false,            // Stick to HTTP/1.1 for simplicity
+		
+		// Important: Enable connection draining for better cleanup
+		WriteBufferSize: 4096,  // Write buffer size
+		ReadBufferSize:  4096,  // Read buffer size
 	}
 
 	httpClient := &http.Client{
@@ -208,7 +230,10 @@ func (c *HttpClient) HealthCheck(ctx context.Context) error {
 		c.updateMetrics(0, err, true)
 		return fmt.Errorf("health check failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		// Ensure connection cleanup with proper draining
+		c.drainAndCloseResponse(resp)
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		c.updateMetrics(0, fmt.Errorf("health check returned status %d", resp.StatusCode), false)
@@ -217,6 +242,37 @@ func (c *HttpClient) HealthCheck(ctx context.Context) error {
 
 	c.updateMetrics(0, nil, false)
 	return nil
+}
+
+// FastHealthCheck performs a lightweight HEAD-based health check for faster server detection
+func (c *HttpClient) FastHealthCheck(ctx context.Context) error {
+	url := fmt.Sprintf("%s/health", c.config.BaseURL)
+	
+	req, err := http.NewRequestWithContext(ctx, "HEAD", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create fast health check request: %w", err)
+	}
+
+	c.setStandardHeaders(req)
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		c.updateMetrics(0, err, true)
+		return fmt.Errorf("fast health check failed: %w", err)
+	}
+	defer func() {
+		// Ensure connection cleanup with proper draining
+		c.drainAndCloseResponse(resp)
+	}()
+
+	// Accept 2xx and 3xx status codes for HEAD requests
+	if resp.StatusCode >= 200 && resp.StatusCode < 400 {
+		c.updateMetrics(0, nil, false)
+		return nil
+	}
+
+	c.updateMetrics(0, fmt.Errorf("fast health check returned status %d", resp.StatusCode), false)
+	return fmt.Errorf("fast health check returned status %d", resp.StatusCode)
 }
 
 // Definition sends a textDocument/definition request
@@ -396,24 +452,12 @@ func (c *HttpClient) sendLSPRequest(ctx context.Context, method string, params i
 	startTime := time.Now()
 	requestID := fmt.Sprintf("req-%d", time.Now().UnixNano())
 
-	// Build JSON-RPC request with workspace extensions
+	// Build JSON-RPC request compliant with JSON-RPC 2.0 specification
 	jsonRPCRequest := map[string]interface{}{
 		"jsonrpc": "2.0",
 		"id":      requestID,
 		"method":  method,
 		"params":  params,
-	}
-
-	// Add workspace context if configured
-	if c.config.WorkspaceID != "" || c.config.ProjectPath != "" {
-		if paramsMap, ok := params.(map[string]interface{}); ok {
-			if c.config.WorkspaceID != "" {
-				paramsMap["workspace_id"] = c.config.WorkspaceID
-			}
-			if c.config.ProjectPath != "" {
-				paramsMap["project_path"] = c.config.ProjectPath
-			}
-		}
 	}
 
 	requestBody, err := json.Marshal(jsonRPCRequest)
@@ -426,13 +470,25 @@ func (c *HttpClient) sendLSPRequest(ctx context.Context, method string, params i
 	var response json.RawMessage
 	var lastErr error
 
-	// Retry logic with exponential backoff
+	// Retry logic with exponential backoff and connection pool management
 	for attempt := 0; attempt <= c.config.MaxRetries; attempt++ {
 		if attempt > 0 {
+			// Exponential backoff with jitter for connection pool recovery
+			backoffDelay := c.config.RetryDelay * time.Duration(attempt)
+			
+			// Add jitter to prevent thundering herd
+			jitter := time.Duration(attempt) * 50 * time.Millisecond
+			backoffDelay += jitter
+			
+			// If connection error, give connection pool time to recover
+			if lastErr != nil && c.isConnectionPoolError(lastErr) {
+				backoffDelay = backoffDelay * 2 // Double delay for pool errors
+			}
+			
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
-			case <-time.After(c.config.RetryDelay * time.Duration(attempt)):
+			case <-time.After(backoffDelay):
 			}
 		}
 
@@ -443,6 +499,11 @@ func (c *HttpClient) sendLSPRequest(ctx context.Context, method string, params i
 
 		// Don't retry on context cancellation or timeout
 		if ctx.Err() != nil {
+			break
+		}
+		
+		// Don't retry on non-retriable errors (e.g., 4xx HTTP status codes)
+		if !c.isRetriableError(lastErr) {
 			break
 		}
 	}
@@ -474,23 +535,37 @@ func (c *HttpClient) executeRequest(ctx context.Context, url string, requestBody
 		c.updateMetrics(duration, err, true)
 		return nil, fmt.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		// Ensure proper connection cleanup with draining in all paths
+		c.drainAndCloseResponse(resp)
+	}()
 
-	// Check for HTTP errors
+	// Check for HTTP errors - drain response body even on HTTP errors to enable connection reuse
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		duration := time.Since(startTime)
 		err = fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
 		c.updateMetrics(duration, err, false)
+		
+		// Drain response body on HTTP error to enable connection reuse
+		c.drainResponseBody(resp)
 		return nil, err
 	}
 
-	// Read response with size limit
+	// Read response with size limit and proper error handling
 	limitReader := io.LimitReader(resp.Body, c.config.MaxResponseSize)
 	responseBody, err := io.ReadAll(limitReader)
 	if err != nil {
 		duration := time.Since(startTime)
 		c.updateMetrics(duration, err, false)
+		
+		// Drain remaining response body on read error to enable connection reuse
+		c.drainResponseBody(resp)
 		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	
+	// Drain any remaining bytes if we hit the size limit to enable connection reuse
+	if int64(len(responseBody)) == c.config.MaxResponseSize {
+		c.drainResponseBody(resp)
 	}
 
 	// Update metrics
@@ -533,6 +608,9 @@ func (c *HttpClient) setStandardHeaders(req *http.Request) {
 	
 	if c.config.WorkspaceID != "" {
 		req.Header.Set("X-Workspace-ID", c.config.WorkspaceID)
+	}
+	if c.config.ProjectPath != "" {
+		req.Header.Set("X-Project-Path", c.config.ProjectPath)
 	}
 }
 
@@ -655,12 +733,107 @@ func (c *HttpClient) ClearMockResponses() {
 	c.mockResponses = make(map[string]interface{})
 }
 
-// Close gracefully closes the HTTP client and cleans up resources
+// drainResponseBody drains remaining response body to enable connection reuse
+func (c *HttpClient) drainResponseBody(resp *http.Response) {
+	if resp == nil || resp.Body == nil {
+		return
+	}
+	
+	// Drain up to 64KB of remaining response body with timeout
+	const maxDrainBytes = 64 * 1024
+	drained := int64(0)
+	buf := make([]byte, 1024)
+	
+	// Set a short deadline for draining to prevent hanging
+	if conn, ok := resp.Body.(interface{ SetReadDeadline(time.Time) error }); ok {
+		conn.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+	}
+	
+	for drained < maxDrainBytes {
+		n, err := resp.Body.Read(buf)
+		drained += int64(n)
+		if err != nil {
+			break // EOF or other error - done draining
+		}
+	}
+}
+
+// drainAndCloseResponse properly drains and closes response body for connection reuse
+func (c *HttpClient) drainAndCloseResponse(resp *http.Response) {
+	if resp == nil || resp.Body == nil {
+		return
+	}
+	
+	// First drain any remaining body content
+	c.drainResponseBody(resp)
+	
+	// Then close the body
+	resp.Body.Close()
+}
+
+// Close gracefully closes the HTTP client and cleans up all resources
 func (c *HttpClient) Close() error {
 	if transport, ok := c.client.Transport.(*http.Transport); ok {
+		// Close all idle connections
 		transport.CloseIdleConnections()
+		
+		// Wait a brief moment for connections to close cleanly
+		time.Sleep(10 * time.Millisecond)
 	}
+	
+	// Clear internal state
+	c.mu.Lock()
+	c.recordings = c.recordings[:0]
+	c.mockResponses = make(map[string]interface{})
+	c.mu.Unlock()
+	
+	c.ClearMetrics()
+	
 	return nil
+}
+
+// isConnectionPoolError checks if the error is related to connection pool exhaustion
+func (c *HttpClient) isConnectionPoolError(err error) bool {
+	if err == nil {
+		return false
+	}
+	
+	errStr := err.Error()
+	return strings.Contains(errStr, "connection refused") ||
+		   strings.Contains(errStr, "too many open files") ||
+		   strings.Contains(errStr, "connection reset") ||
+		   strings.Contains(errStr, "connection pool") ||
+		   strings.Contains(errStr, "no such host") ||
+		   strings.Contains(errStr, "network is unreachable")
+}
+
+// isRetriableError determines if an error should trigger a retry
+func (c *HttpClient) isRetriableError(err error) bool {
+	if err == nil {
+		return false
+	}
+	
+	errStr := err.Error()
+	
+	// Don't retry client errors (4xx) 
+	if strings.Contains(errStr, "HTTP 4") {
+		return false
+	}
+	
+	// Don't retry on parse errors or malformed requests
+	if strings.Contains(errStr, "failed to parse") ||
+	   strings.Contains(errStr, "failed to marshal") ||
+	   strings.Contains(errStr, "invalid") {
+		return false
+	}
+	
+	// Retry on server errors (5xx), connection errors, and timeouts
+	return strings.Contains(errStr, "HTTP 5") ||
+		   strings.Contains(errStr, "connection") ||
+		   strings.Contains(errStr, "timeout") ||
+		   strings.Contains(errStr, "deadline exceeded") ||
+		   strings.Contains(errStr, "temporary") ||
+		   strings.Contains(errStr, "request failed")
 }
 
 // ValidateConnection performs a comprehensive connection validation

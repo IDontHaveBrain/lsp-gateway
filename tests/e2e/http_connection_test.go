@@ -27,7 +27,7 @@ type HttpConnectionTestSuite struct {
 }
 
 func (suite *HttpConnectionTestSuite) SetupSuite() {
-	suite.testTimeout = 45 * time.Second
+	suite.testTimeout = 15 * time.Second
 	
 	var err error
 	suite.projectRoot, err = testutils.GetProjectRoot()
@@ -45,7 +45,7 @@ func (suite *HttpConnectionTestSuite) SetupSuite() {
 func (suite *HttpConnectionTestSuite) SetupTest() {
 	config := testutils.HttpClientConfig{
 		BaseURL:         fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
-		Timeout:         10 * time.Second,
+		Timeout:         3 * time.Second,
 		MaxRetries:      3,
 		RetryDelay:      500 * time.Millisecond,
 		EnableLogging:   true,
@@ -103,7 +103,10 @@ func (suite *HttpConnectionTestSuite) startGatewayServer() {
 	err := suite.gatewayCmd.Start()
 	suite.Require().NoError(err)
 	
-	time.Sleep(2 * time.Second)
+	// Wait for server to be ready instead of fixed delay
+	baseURL := fmt.Sprintf("http://localhost:%d", suite.gatewayPort)
+	err = testutils.WaitForServerReady(baseURL)
+	suite.Require().NoError(err, "Gateway server failed to become ready")
 }
 
 func (suite *HttpConnectionTestSuite) TestBasicConnectionLifecycle() {
@@ -143,8 +146,6 @@ func (suite *HttpConnectionTestSuite) TestBasicConnectionLifecycle() {
 
 		ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 		defer cancel()
-
-		time.Sleep(3 * time.Second)
 
 		err := suite.httpClient.ValidateConnection(ctx)
 		suite.NoError(err, "Connection validation should succeed")
@@ -189,8 +190,6 @@ func (suite *HttpConnectionTestSuite) TestConnectionTimeouts() {
 				suite.gatewayCmd.Wait()
 			}
 		}()
-
-		time.Sleep(3 * time.Second)
 
 		extremelyShortConfig := testutils.HttpClientConfig{
 			BaseURL:    fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
@@ -268,8 +267,6 @@ func (suite *HttpConnectionTestSuite) TestConnectionPooling() {
 			}
 		}()
 
-		time.Sleep(3 * time.Second)
-
 		poolConfig := testutils.HttpClientConfig{
 			BaseURL:            fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
 			Timeout:            10 * time.Second,
@@ -303,8 +300,6 @@ func (suite *HttpConnectionTestSuite) TestConnectionPooling() {
 				suite.gatewayCmd.Wait()
 			}
 		}()
-
-		time.Sleep(3 * time.Second)
 
 		concurrentConfig := testutils.HttpClientConfig{
 			BaseURL:            fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
@@ -363,8 +358,6 @@ func (suite *HttpConnectionTestSuite) TestServerLifecycleHandling() {
 		ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 		defer cancel()
 
-		time.Sleep(2 * time.Second)
-
 		err := suite.httpClient.HealthCheck(ctx)
 		suite.NoError(err, "Health check should succeed initially")
 
@@ -373,13 +366,18 @@ func (suite *HttpConnectionTestSuite) TestServerLifecycleHandling() {
 			suite.gatewayCmd.Wait()
 		}
 
-		time.Sleep(1 * time.Second)
+		// Wait for server to actually be down
+		config := testutils.QuickPollingConfig()
+		condition := func() (bool, error) {
+			err := suite.httpClient.HealthCheck(ctx)
+			return err != nil, nil // Wait until health check fails
+		}
+		testutils.WaitForCondition(condition, config, "server to be shut down")
 
 		err = suite.httpClient.HealthCheck(ctx)
 		suite.Error(err, "Health check should fail after server shutdown")
 
 		suite.startGatewayServer()
-		time.Sleep(3 * time.Second)
 
 		suite.Eventually(func() bool {
 			err := suite.httpClient.HealthCheck(ctx)
@@ -396,8 +394,6 @@ func (suite *HttpConnectionTestSuite) TestServerLifecycleHandling() {
 
 		ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 		defer cancel()
-
-		time.Sleep(2 * time.Second)
 
 		err := suite.httpClient.HealthCheck(ctx)
 		suite.NoError(err, "Health check should succeed before shutdown")
@@ -419,7 +415,13 @@ func (suite *HttpConnectionTestSuite) TestServerLifecycleHandling() {
 			}
 		}
 
-		time.Sleep(1 * time.Second)
+		// Wait for server to actually be down
+		config := testutils.QuickPollingConfig()
+		condition := func() (bool, error) {
+			err := suite.httpClient.HealthCheck(ctx)
+			return err != nil, nil // Wait until health check fails
+		}
+		testutils.WaitForCondition(condition, config, "server to be shut down gracefully")
 
 		err = suite.httpClient.HealthCheck(ctx)
 		suite.Error(err, "Health check should fail after graceful shutdown")
@@ -435,8 +437,6 @@ func (suite *HttpConnectionTestSuite) TestConnectionErrorScenarios() {
 				suite.gatewayCmd.Wait()
 			}
 		}()
-
-		time.Sleep(3 * time.Second)
 
 		ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 		defer cancel()
@@ -471,8 +471,6 @@ func (suite *HttpConnectionTestSuite) TestConnectionErrorScenarios() {
 			}
 		}()
 
-		time.Sleep(3 * time.Second)
-
 		ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 		defer cancel()
 
@@ -495,8 +493,6 @@ func (suite *HttpConnectionTestSuite) TestPerformanceUnderLoad() {
 				suite.gatewayCmd.Wait()
 			}
 		}()
-
-		time.Sleep(3 * time.Second)
 
 		loadConfig := testutils.HttpClientConfig{
 			BaseURL:            fmt.Sprintf("http://localhost:%d", suite.gatewayPort),

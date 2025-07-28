@@ -84,7 +84,7 @@ type PackageManagerDetectionResult struct {
 
 // SetupSuite initializes the npm-cli E2E test environment
 func (suite *NpmCliE2ETestSuite) SetupSuite() {
-	suite.testTimeout = 600 * time.Second // 10 minutes for npm operations
+	suite.testTimeout = 15 * time.Second // Optimized timeout for npm operations
 
 	// Find binary path relative to test location
 	suite.projectRoot = findProjectRoot(suite.T())

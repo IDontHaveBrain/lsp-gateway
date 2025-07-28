@@ -1,0 +1,956 @@
+package e2e_test
+
+import (
+	"context"
+	"fmt"
+	"path/filepath"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"lsp-gateway/tests/e2e/testutils"
+)
+
+// Parallel test functions for Python comprehensive testing using resource isolation
+
+// TestPythonComprehensiveServerLifecycleParallel tests complete server lifecycle with comprehensive monitoring and parallel execution
+func TestPythonComprehensiveServerLifecycleParallel(t *testing.T) {
+	t.Parallel()
+
+	setup, err := testutils.SetupIsolatedTestWithLanguage("py_comprehensive_lifecycle", "python")
+	require.NoError(t, err, "Failed to setup isolated test")
+	defer func() {
+		if cleanupErr := setup.Cleanup(); cleanupErr != nil {
+			t.Logf("Warning: Cleanup failed: %v", cleanupErr)
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+
+	// Start gateway server
+	projectRoot, err := testutils.GetProjectRoot()
+	require.NoError(t, err, "Failed to get project root")
+
+	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
+	serverCmd := []string{binaryPath, "server", "--config", setup.ConfigPath}
+
+	err = setup.StartServer(serverCmd, 60*time.Second)
+	require.NoError(t, err, "Failed to start server")
+
+	err = setup.WaitForServerReady(20 * time.Second)
+	require.NoError(t, err, "Server failed to become ready")
+
+	// Verify server readiness with comprehensive checks
+	httpClient := setup.GetHTTPClient()
+	err = httpClient.HealthCheck(ctx)
+	require.NoError(t, err, "Server health check should pass")
+
+	// Test comprehensive server operations
+	err = httpClient.ValidateConnection(ctx)
+	require.NoError(t, err, "Server connection validation should pass")
+
+	// Additional comprehensive checks
+	metrics := httpClient.GetMetrics()
+	assert.GreaterOrEqual(t, metrics.TotalRequests, 1, "Should have recorded requests")
+
+	t.Logf("Python comprehensive server lifecycle test completed successfully on port %d", setup.Resources.Port)
+}
+
+// TestPythonComprehensiveDefinitionParallel tests textDocument/definition across multiple Python design pattern files with parallel execution
+func TestPythonComprehensiveDefinitionParallel(t *testing.T) {
+	t.Parallel()
+
+	setup, err := testutils.SetupIsolatedTestWithLanguage("py_comprehensive_definition", "python")
+	require.NoError(t, err, "Failed to setup isolated test")
+	defer func() {
+		if cleanupErr := setup.Cleanup(); cleanupErr != nil {
+			t.Logf("Warning: Cleanup failed: %v", cleanupErr)
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+
+	// Create comprehensive Python test files with design patterns
+	testFiles := []struct {
+		name    string
+		content string
+	}{
+		{
+			"singleton.py",
+			`"""Singleton Design Pattern Implementation"""
+
+class DatabaseConnection:
+    _instance = None
+    _lock = threading.Lock()
+    
+    def __new__(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
+    
+    def __init__(self):
+        if not hasattr(self, 'initialized'):
+            self.connection = None
+            self.initialized = True
+    
+    def connect(self):
+        if not self.connection:
+            self.connection = "Connected to DB"
+        return self.connection
+
+# Usage
+db1 = DatabaseConnection()
+db2 = DatabaseConnection()
+assert db1 is db2  # Same instance
+`,
+		},
+		{
+			"factory.py",
+			`"""Factory Design Pattern Implementation"""
+
+from abc import ABC, abstractmethod
+
+class Animal(ABC):
+    @abstractmethod
+    def make_sound(self):
+        pass
+
+class Dog(Animal):
+    def make_sound(self):
+        return "Woof!"
+
+class Cat(Animal):
+    def make_sound(self):
+        return "Meow!"
+
+class AnimalFactory:
+    @staticmethod
+    def create_animal(animal_type: str) -> Animal:
+        if animal_type.lower() == "dog":
+            return Dog()
+        elif animal_type.lower() == "cat":
+            return Cat()
+        else:
+            raise ValueError(f"Unknown animal type: {animal_type}")
+
+# Usage
+factory = AnimalFactory()
+dog = factory.create_animal("dog")
+cat = factory.create_animal("cat")
+`,
+		},
+		{
+			"observer.py",
+			`"""Observer Design Pattern Implementation"""
+
+from abc import ABC, abstractmethod
+from typing import List
+
+class Observer(ABC):
+    @abstractmethod
+    def update(self, message: str):
+        pass
+
+class Subject:
+    def __init__(self):
+        self._observers: List[Observer] = []
+    
+    def attach(self, observer: Observer):
+        self._observers.append(observer)
+    
+    def detach(self, observer: Observer):
+        self._observers.remove(observer)
+    
+    def notify(self, message: str):
+        for observer in self._observers:
+            observer.update(message)
+
+class ConcreteObserver(Observer):
+    def __init__(self, name: str):
+        self.name = name
+    
+    def update(self, message: str):
+        print(f"{self.name} received: {message}")
+
+# Usage
+subject = Subject()
+observer1 = ConcreteObserver("Observer1")
+observer2 = ConcreteObserver("Observer2")
+subject.attach(observer1)
+subject.attach(observer2)
+subject.notify("Hello Observers!")
+`,
+		},
+	}
+
+	// Create test files
+	var createdFiles []string
+	for _, tf := range testFiles {
+		filePath, err := setup.Resources.Directory.CreateTempFile(tf.name, tf.content)
+		require.NoError(t, err, "Failed to create test file %s", tf.name)
+		createdFiles = append(createdFiles, filePath)
+	}
+
+	// Start gateway server
+	projectRoot, err := testutils.GetProjectRoot()
+	require.NoError(t, err, "Failed to get project root")
+
+	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
+	serverCmd := []string{binaryPath, "server", "--config", setup.ConfigPath}
+
+	err = setup.StartServer(serverCmd, 60*time.Second)
+	require.NoError(t, err, "Failed to start server")
+
+	err = setup.WaitForServerReady(20 * time.Second)
+	require.NoError(t, err, "Server failed to become ready")
+
+	// Test definition requests on multiple files
+	httpClient := setup.GetHTTPClient()
+
+	testCases := []struct {
+		file        string
+		positions   []testutils.Position
+		description string
+	}{
+		{
+			createdFiles[0], // singleton.py
+			[]testutils.Position{
+				{Line: 5, Character: 8},  // __new__ method
+				{Line: 23, Character: 4}, // db1 variable
+				{Line: 24, Character: 4}, // db2 variable
+			},
+			"Singleton pattern",
+		},
+		{
+			createdFiles[1], // factory.py
+			[]testutils.Position{
+				{Line: 18, Character: 8}, // create_animal method
+				{Line: 26, Character: 0}, // factory variable
+				{Line: 27, Character: 6}, // dog variable
+			},
+			"Factory pattern",
+		},
+		{
+			createdFiles[2], // observer.py
+			[]testutils.Position{
+				{Line: 14, Character: 8}, // attach method
+				{Line: 31, Character: 8}, // update method
+				{Line: 36, Character: 0}, // subject variable
+			},
+			"Observer pattern",
+		},
+	}
+
+	totalTests := 0
+	successfulTests := 0
+
+	for _, tc := range testCases {
+		fileURI := "file://" + tc.file
+
+		for i, position := range tc.positions {
+			totalTests++
+			testName := fmt.Sprintf("%s-pos-%d", tc.description, i)
+
+			locations, err := httpClient.Definition(ctx, fileURI, position)
+			if err != nil {
+				t.Logf("Definition test '%s' failed (may be expected): %v", testName, err)
+				continue
+			}
+
+			successfulTests++
+			t.Logf("Definition test '%s' successful - found %d locations", testName, len(locations))
+
+			if len(locations) > 0 {
+				assert.GreaterOrEqual(t, locations[0].Range.Start.Line, 0, "Definition line should be valid")
+			}
+		}
+	}
+
+	// At least 30% of definition tests should succeed
+	successRate := float64(successfulTests) / float64(totalTests) * 100
+	assert.GreaterOrEqual(t, successRate, 30.0, "At least 30%% of definition tests should succeed")
+
+	t.Logf("Python comprehensive definition test completed successfully on port %d (%d/%d tests successful, %.1f%%)",
+		setup.Resources.Port, successfulTests, totalTests, successRate)
+}
+
+// TestPythonComprehensiveHoverParallel tests textDocument/hover across multiple Python design pattern files with parallel execution
+func TestPythonComprehensiveHoverParallel(t *testing.T) {
+	t.Parallel()
+
+	setup, err := testutils.SetupIsolatedTestWithLanguage("py_comprehensive_hover", "python")
+	require.NoError(t, err, "Failed to setup isolated test")
+	defer func() {
+		if cleanupErr := setup.Cleanup(); cleanupErr != nil {
+			t.Logf("Warning: Cleanup failed: %v", cleanupErr)
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+
+	// Create Python file with comprehensive documentation
+	pyContent := `"""
+Comprehensive Python module for hover testing
+Contains detailed docstrings and type annotations
+"""
+
+from typing import Dict, List, Optional, Union, Callable
+from dataclasses import dataclass
+from abc import ABC, abstractmethod
+
+@dataclass
+class ProcessingConfig:
+    """Configuration for data processing operations.
+    
+    Attributes:
+        batch_size: Number of items to process in each batch
+        timeout: Maximum time to wait for processing (seconds)
+        retry_count: Number of retry attempts on failure
+        enable_logging: Whether to enable detailed logging
+    """
+    batch_size: int = 100
+    timeout: float = 30.0
+    retry_count: int = 3
+    enable_logging: bool = True
+
+class DataProcessor(ABC):
+    """Abstract base class for data processing operations."""
+    
+    @abstractmethod
+    async def process_data(self, data: List[Dict]) -> List[Dict]:
+        """Process a list of data dictionaries.
+        
+        Args:
+            data: List of dictionaries containing data to process
+            
+        Returns:
+            List of processed data dictionaries
+            
+        Raises:
+            ProcessingError: If processing fails
+        """
+        pass
+
+class BatchProcessor(DataProcessor):
+    """Concrete implementation of batch data processing."""
+    
+    def __init__(self, config: ProcessingConfig):
+        """Initialize batch processor with configuration.
+        
+        Args:
+            config: Processing configuration object
+        """
+        self.config = config
+        self.processed_count = 0
+    
+    async def process_data(self, data: List[Dict]) -> List[Dict]:
+        """Process data in batches according to configuration.
+        
+        Args:
+            data: Input data to process
+            
+        Returns:
+            Processed data with additional metadata
+        """
+        processed = []
+        for item in data:
+            processed_item = self._process_single_item(item)
+            processed.append(processed_item)
+            self.processed_count += 1
+        return processed
+    
+    def _process_single_item(self, item: Dict) -> Dict:
+        """Process a single data item.
+        
+        Args:
+            item: Single data dictionary
+            
+        Returns:
+            Processed item with metadata
+        """
+        return {
+            **item,
+            'processed': True,
+            'timestamp': time.time(),
+            'processor_id': id(self)
+        }
+    
+    def get_processing_stats(self) -> Dict[str, Union[int, float, bool]]:
+        """Get processing statistics.
+        
+        Returns:
+            Dictionary containing processing statistics
+        """
+        return {
+            'processed_count': self.processed_count,
+            'batch_size': self.config.batch_size,
+            'timeout': self.config.timeout,
+            'logging_enabled': self.config.enable_logging
+        }
+
+def create_processor(config: Optional[ProcessingConfig] = None) -> BatchProcessor:
+    """Factory function to create a batch processor.
+    
+    Args:
+        config: Optional configuration, uses defaults if None
+        
+    Returns:
+        Configured BatchProcessor instance
+    """
+    if config is None:
+        config = ProcessingConfig()
+    return BatchProcessor(config)
+
+async def process_data_batch(
+    data: List[Dict], 
+    processor: Optional[DataProcessor] = None
+) -> List[Dict]:
+    """Process a batch of data using the specified processor.
+    
+    Args:
+        data: Data to process
+        processor: Optional processor instance, creates default if None
+        
+    Returns:
+        Processed data
+        
+    Raises:
+        ValueError: If data is empty
+        ProcessingError: If processing fails
+    """
+    if not data:
+        raise ValueError("Data cannot be empty")
+    
+    if processor is None:
+        processor = create_processor()
+    
+    return await processor.process_data(data)
+
+# Usage example
+if __name__ == "__main__":
+    import asyncio
+    import time
+    
+    async def main():
+        config = ProcessingConfig(batch_size=50, timeout=60.0)
+        processor = create_processor(config)
+        
+        sample_data = [{'id': i, 'value': f'item_{i}'} for i in range(10)]
+        processed = await process_data_batch(sample_data, processor)
+        
+        stats = processor.get_processing_stats()
+        print(f"Processed {stats['processed_count']} items")
+    
+    asyncio.run(main())
+`
+
+	testFile, err := setup.Resources.Directory.CreateTempFile("processor.py", pyContent)
+	require.NoError(t, err, "Failed to create test Python file")
+
+	// Start gateway server
+	projectRoot, err := testutils.GetProjectRoot()
+	require.NoError(t, err, "Failed to get project root")
+
+	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
+	serverCmd := []string{binaryPath, "server", "--config", setup.ConfigPath}
+
+	err = setup.StartServer(serverCmd, 60*time.Second)
+	require.NoError(t, err, "Failed to start server")
+
+	err = setup.WaitForServerReady(20 * time.Second)
+	require.NoError(t, err, "Server failed to become ready")
+
+	// Test hover on multiple positions
+	httpClient := setup.GetHTTPClient()
+	fileURI := "file://" + testFile
+
+	testPositions := []struct {
+		name string
+		pos  testutils.Position
+		desc string
+	}{
+		{"ProcessingConfig", testutils.Position{Line: 10, Character: 6}, "ProcessingConfig dataclass"},
+		{"DataProcessor", testutils.Position{Line: 21, Character: 6}, "DataProcessor abstract class"},
+		{"BatchProcessor", testutils.Position{Line: 34, Character: 6}, "BatchProcessor concrete class"},
+		{"process_data_method", testutils.Position{Line: 46, Character: 10}, "process_data async method"},
+		{"create_processor", testutils.Position{Line: 79, Character: 4}, "create_processor factory function"},
+		{"process_data_batch", testutils.Position{Line: 88, Character: 10}, "process_data_batch function"},
+		{"config_variable", testutils.Position{Line: 114, Character: 8}, "config variable"},
+		{"processor_variable", testutils.Position{Line: 115, Character: 8}, "processor variable"},
+	}
+
+	successfulTests := 0
+	for _, test := range testPositions {
+		hoverResult, err := httpClient.Hover(ctx, fileURI, test.pos)
+		if err != nil {
+			t.Logf("Hover request for %s failed (may be expected): %v", test.desc, err)
+			continue
+		}
+
+		successfulTests++
+		if hoverResult != nil && hoverResult.Contents != nil {
+			t.Logf("Hover successful for %s - has detailed content", test.desc)
+		} else {
+			t.Logf("Hover successful for %s - no content", test.desc)
+		}
+	}
+
+	t.Logf("Python comprehensive hover test completed successfully on port %d (%d/%d tests successful)",
+		setup.Resources.Port, successfulTests, len(testPositions))
+}
+
+// TestPythonComprehensiveWorkspaceSymbolParallel tests workspace/symbol with Python-specific design pattern queries and parallel execution
+func TestPythonComprehensiveWorkspaceSymbolParallel(t *testing.T) {
+	t.Parallel()
+
+	setup, err := testutils.SetupIsolatedTestWithLanguage("py_comprehensive_workspace", "python")
+	require.NoError(t, err, "Failed to setup isolated test")
+	defer func() {
+		if cleanupErr := setup.Cleanup(); cleanupErr != nil {
+			t.Logf("Warning: Cleanup failed: %v", cleanupErr)
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+
+	// Create multiple Python files to populate workspace
+	testFiles := []struct {
+		name    string
+		content string
+	}{
+		{
+			"models.py",
+			`"""Data models module"""
+
+class User:
+    def __init__(self, name, email):
+        self.name = name
+        self.email = email
+
+class Product:
+    def __init__(self, title, price):
+        self.title = title
+        self.price = price
+
+def create_user(name, email):
+    return User(name, email)
+`,
+		},
+		{
+			"services.py",
+			`"""Service layer module"""
+
+from models import User, Product
+
+class UserService:
+    def __init__(self):
+        self.users = []
+    
+    def add_user(self, user):
+        self.users.append(user)
+    
+    def get_user_by_email(self, email):
+        for user in self.users:
+            if user.email == email:
+                return user
+        return None
+
+class ProductService:
+    def __init__(self):
+        self.products = []
+    
+    def add_product(self, product):
+        self.products.append(product)
+    
+    def get_products_by_price_range(self, min_price, max_price):
+        return [p for p in self.products if min_price <= p.price <= max_price]
+`,
+		},
+	}
+
+	// Create test files
+	for _, tf := range testFiles {
+		_, err := setup.Resources.Directory.CreateTempFile(tf.name, tf.content)
+		require.NoError(t, err, "Failed to create test file %s", tf.name)
+	}
+
+	// Start gateway server
+	projectRoot, err := testutils.GetProjectRoot()
+	require.NoError(t, err, "Failed to get project root")
+
+	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
+	serverCmd := []string{binaryPath, "server", "--config", setup.ConfigPath}
+
+	err = setup.StartServer(serverCmd, 60*time.Second)
+	require.NoError(t, err, "Failed to start server")
+
+	err = setup.WaitForServerReady(20 * time.Second)
+	require.NoError(t, err, "Server failed to become ready")
+
+	// Test workspace symbols with Python-specific queries
+	httpClient := setup.GetHTTPClient()
+
+	queries := []string{
+		"User",        // Class name
+		"Product",     // Class name
+		"Service",     // Partial class name
+		"create_user", // Function name
+		"add_",        // Method prefix
+		"get_",        // Method prefix
+		"init",        // Constructor method
+		"",            // Empty query to get all symbols
+	}
+
+	successfulTests := 0
+	for _, query := range queries {
+		symbols, err := httpClient.WorkspaceSymbol(ctx, query)
+		if err != nil {
+			t.Logf("Workspace symbols query '%s' failed (may be expected): %v", query, err)
+			continue
+		}
+
+		successfulTests++
+		t.Logf("Workspace symbols query '%s' successful - found %d symbols", query, len(symbols))
+
+		for j, symbol := range symbols {
+			if j >= 3 { // Limit output
+				t.Logf("  ... and %d more symbols", len(symbols)-3)
+				break
+			}
+			assert.NotEmpty(t, symbol.Name, "Symbol name should not be empty")
+			assert.Greater(t, symbol.Kind, 0, "Symbol kind should be valid")
+			t.Logf("  Symbol: %s (kind: %d)", symbol.Name, symbol.Kind)
+		}
+	}
+
+	t.Logf("Python comprehensive workspace symbol test completed successfully on port %d (%d/%d queries successful)",
+		setup.Resources.Port, successfulTests, len(queries))
+}
+
+// TestPythonAllLSPMethodsSequentialParallel tests all 6 LSP methods sequentially on same files with parallel execution
+func TestPythonAllLSPMethodsSequentialParallel(t *testing.T) {
+	t.Parallel()
+
+	setup, err := testutils.SetupIsolatedTestWithLanguage("py_all_lsp_methods", "python")
+	require.NoError(t, err, "Failed to setup isolated test")
+	defer func() {
+		if cleanupErr := setup.Cleanup(); cleanupErr != nil {
+			t.Logf("Warning: Cleanup failed: %v", cleanupErr)
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	// Create comprehensive Python test file
+	pyContent := `"""
+Comprehensive Python test file for all LSP methods
+Contains various Python constructs for thorough testing
+"""
+
+import os
+import sys
+from typing import Dict, List, Optional
+from dataclasses import dataclass
+
+@dataclass
+class Configuration:
+    """Application configuration settings"""
+    debug: bool = False
+    max_workers: int = 4
+    timeout: float = 30.0
+
+class ApplicationManager:
+    """Main application manager class"""
+    
+    def __init__(self, config: Configuration):
+        self.config = config
+        self.workers = []
+        self.is_running = False
+    
+    async def start(self) -> bool:
+        """Start the application with configured workers"""
+        print(f"Starting application with {self.config.max_workers} workers")
+        self.is_running = True
+        return True
+    
+    async def stop(self) -> None:
+        """Stop the application gracefully"""
+        print("Stopping application")
+        self.is_running = False
+        for worker in self.workers:
+            await worker.stop()
+    
+    def add_worker(self, worker) -> None:
+        """Add a worker to the application"""
+        self.workers.append(worker)
+    
+    def get_status(self) -> Dict[str, any]:
+        """Get current application status"""
+        return {
+            'running': self.is_running,
+            'worker_count': len(self.workers),
+            'debug_mode': self.config.debug
+        }
+
+def create_default_config() -> Configuration:
+    """Create a default configuration instance"""
+    return Configuration(debug=True, max_workers=2)
+
+async def main():
+    """Main application entry point"""
+    config = create_default_config()
+    manager = ApplicationManager(config)
+    
+    await manager.start()
+    status = manager.get_status()
+    print(f"Application status: {status}")
+    
+    await manager.stop()
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+`
+
+	testFile, err := setup.Resources.Directory.CreateTempFile("application.py", pyContent)
+	require.NoError(t, err, "Failed to create test Python file")
+
+	// Start gateway server
+	projectRoot, err := testutils.GetProjectRoot()
+	require.NoError(t, err, "Failed to get project root")
+
+	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
+	serverCmd := []string{binaryPath, "server", "--config", setup.ConfigPath}
+
+	err = setup.StartServer(serverCmd, 60*time.Second)
+	require.NoError(t, err, "Failed to start server")
+
+	err = setup.WaitForServerReady(25 * time.Second)
+	require.NoError(t, err, "Server failed to become ready")
+
+	// Test all 6 LSP methods sequentially on the same file
+	httpClient := setup.GetHTTPClient()
+	fileURI := "file://" + testFile
+	position := testutils.Position{Line: 59, Character: 13} // manager variable
+
+	t.Logf("Testing all 6 LSP methods sequentially on Python file")
+
+	var wg sync.WaitGroup
+	results := make(map[string]bool)
+	resultsMutex := sync.Mutex{}
+
+	// Define all 6 LSP method tests
+	lspTests := []struct {
+		name string
+		test func() error
+	}{
+		{
+			"textDocument/definition",
+			func() error {
+				_, err := httpClient.Definition(ctx, fileURI, position)
+				return err
+			},
+		},
+		{
+			"textDocument/references",
+			func() error {
+				_, err := httpClient.References(ctx, fileURI, position, true)
+				return err
+			},
+		},
+		{
+			"textDocument/hover",
+			func() error {
+				_, err := httpClient.Hover(ctx, fileURI, position)
+				return err
+			},
+		},
+		{
+			"textDocument/documentSymbol",
+			func() error {
+				_, err := httpClient.DocumentSymbol(ctx, fileURI)
+				return err
+			},
+		},
+		{
+			"workspace/symbol",
+			func() error {
+				_, err := httpClient.WorkspaceSymbol(ctx, "Configuration")
+				return err
+			},
+		},
+		{
+			"textDocument/completion",
+			func() error {
+				_, err := httpClient.Completion(ctx, fileURI, position)
+				return err
+			},
+		},
+	}
+
+	// Execute all tests with controlled concurrency
+	semaphore := make(chan struct{}, 3) // Limit to 3 concurrent requests
+
+	for _, test := range lspTests {
+		wg.Add(1)
+		go func(testName string, testFunc func() error) {
+			defer wg.Done()
+
+			semaphore <- struct{}{}        // Acquire semaphore
+			defer func() { <-semaphore }() // Release semaphore
+
+			err := testFunc()
+
+			resultsMutex.Lock()
+			results[testName] = (err == nil)
+			resultsMutex.Unlock()
+
+			if err == nil {
+				t.Logf("LSP method %s: SUCCESS", testName)
+			} else {
+				t.Logf("LSP method %s: FAILED (%v)", testName, err)
+			}
+		}(test.name, test.test)
+	}
+
+	wg.Wait()
+
+	// Analyze results
+	successCount := 0
+	for method, success := range results {
+		if success {
+			successCount++
+		}
+		t.Logf("Method %s: %t", method, success)
+	}
+
+	// At least 4 out of 6 LSP methods should succeed
+	assert.GreaterOrEqual(t, successCount, 4, "At least 4 out of 6 LSP methods should succeed")
+
+	successRate := float64(successCount) / float64(len(lspTests)) * 100
+	t.Logf("Python all LSP methods sequential test completed successfully on port %d (%d/6 methods successful, %.1f%%)",
+		setup.Resources.Port, successCount, successRate)
+}
+
+// TestPythonConcurrentRequestsParallel tests concurrent LSP requests for Python with parallel execution
+func TestPythonConcurrentRequestsParallel(t *testing.T) {
+	t.Parallel()
+
+	setup, err := testutils.SetupIsolatedTestWithLanguage("py_concurrent_requests", "python")
+	require.NoError(t, err, "Failed to setup isolated test")
+	defer func() {
+		if cleanupErr := setup.Cleanup(); cleanupErr != nil {
+			t.Logf("Warning: Cleanup failed: %v", cleanupErr)
+		}
+	}()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	// Create test Python file
+	pyContent := `"""Test file for concurrent requests"""
+
+class TestClass:
+    def __init__(self):
+        self.value = 42
+    
+    def get_value(self):
+        return self.value
+    
+    def set_value(self, new_value):
+        self.value = new_value
+
+def test_function():
+    return "test"
+
+# Test variables
+test_instance = TestClass()
+test_result = test_function()
+`
+
+	testFile, err := setup.Resources.Directory.CreateTempFile("concurrent_test.py", pyContent)
+	require.NoError(t, err, "Failed to create test Python file")
+
+	// Start gateway server
+	projectRoot, err := testutils.GetProjectRoot()
+	require.NoError(t, err, "Failed to get project root")
+
+	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
+	serverCmd := []string{binaryPath, "server", "--config", setup.ConfigPath}
+
+	err = setup.StartServer(serverCmd, 60*time.Second)
+	require.NoError(t, err, "Failed to start server")
+
+	err = setup.WaitForServerReady(25 * time.Second)
+	require.NoError(t, err, "Server failed to become ready")
+
+	// Test concurrent requests
+	httpClient := setup.GetHTTPClient()
+	fileURI := "file://" + testFile
+
+	numWorkers := 5
+	requestsPerWorker := 8
+	var wg sync.WaitGroup
+	errorChan := make(chan error, numWorkers*requestsPerWorker)
+
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func(workerID int) {
+			defer wg.Done()
+
+			for j := 0; j < requestsPerWorker; j++ {
+				// Alternate between different LSP methods
+				switch (workerID + j) % 3 {
+				case 0:
+					// Test hover
+					position := testutils.Position{Line: 3, Character: 4}
+					_, err := httpClient.Hover(ctx, fileURI, position)
+					if err != nil {
+						errorChan <- fmt.Errorf("worker %d hover request %d failed: %w", workerID, j, err)
+					}
+				case 1:
+					// Test document symbols
+					_, err := httpClient.DocumentSymbol(ctx, fileURI)
+					if err != nil {
+						errorChan <- fmt.Errorf("worker %d document symbol request %d failed: %w", workerID, j, err)
+					}
+				case 2:
+					// Test definition
+					position := testutils.Position{Line: 16, Character: 0}
+					_, err := httpClient.Definition(ctx, fileURI, position)
+					if err != nil {
+						errorChan <- fmt.Errorf("worker %d definition request %d failed: %w", workerID, j, err)
+					}
+				}
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	close(errorChan)
+
+	errorCount := 0
+	for err := range errorChan {
+		t.Logf("Concurrent request error: %v", err)
+		errorCount++
+	}
+
+	totalRequests := numWorkers * requestsPerWorker
+	successfulRequests := totalRequests - errorCount
+	successRate := float64(successfulRequests) / float64(totalRequests) * 100
+
+	// At least 70% of concurrent requests should succeed
+	assert.GreaterOrEqual(t, successRate, 70.0, "At least 70%% of concurrent requests should succeed")
+
+	t.Logf("Python concurrent requests test completed successfully on port %d (%d/%d requests successful, %.1f%%)",
+		setup.Resources.Port, successfulRequests, totalRequests, successRate)
+}

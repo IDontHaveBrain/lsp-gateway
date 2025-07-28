@@ -11,7 +11,7 @@ type SimpleTimeoutManager struct {
 
 func NewSimpleTimeoutManager() *SimpleTimeoutManager {
 	return &SimpleTimeoutManager{
-		defaultTimeout: 30 * time.Second,
+		defaultTimeout: 10 * time.Second,
 	}
 }
 
@@ -23,17 +23,17 @@ func (tm *SimpleTimeoutManager) CreateTimeoutContext(parent context.Context, ope
 func (tm *SimpleTimeoutManager) getTimeoutForOperation(operation string) time.Duration {
 	switch operation {
 	case "server_startup":
-		return 30 * time.Second
+		return 2 * time.Second
 	case "lsp_request":
-		return 5 * time.Second
+		return 3 * time.Second
 	case "workspace_load":
-		return 20 * time.Second
+		return 8 * time.Second
 	case "integration_test":
-		return 3 * time.Minute
+		return 15 * time.Second
 	case "repository_clone":
-		return 5 * time.Minute
+		return 2 * time.Minute
 	case "concurrent_test":
-		return 5 * time.Minute
+		return 2 * time.Minute
 	default:
 		return tm.defaultTimeout
 	}

@@ -44,7 +44,7 @@ type GoComprehensiveRealClientE2ETestSuite struct {
 }
 
 func (suite *GoComprehensiveRealClientE2ETestSuite) SetupSuite() {
-	suite.testTimeout = 10 * time.Minute
+	suite.testTimeout = 15 * time.Second
 	suite.testResults = make(map[string]bool)
 	
 	var err error
@@ -78,9 +78,9 @@ func (suite *GoComprehensiveRealClientE2ETestSuite) SetupTest() {
 	// Configure HttpClient for comprehensive testing
 	config := testutils.HttpClientConfig{
 		BaseURL:            fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
-		Timeout:            60 * time.Second,
+		Timeout:            5 * time.Second,
 		MaxRetries:         5,
-		RetryDelay:         2 * time.Second,
+		RetryDelay:         500 * time.Millisecond,
 		EnableLogging:      true,
 		EnableRecording:    true,
 		WorkspaceID:        fmt.Sprintf("go-comprehensive-%d", time.Now().UnixNano()),
@@ -88,7 +88,7 @@ func (suite *GoComprehensiveRealClientE2ETestSuite) SetupTest() {
 		UserAgent:          "LSP-Gateway-Go-Comprehensive-E2E/1.0",
 		MaxResponseSize:    100 * 1024 * 1024, // 100MB for large responses
 		ConnectionPoolSize: 20,
-		KeepAlive:          120 * time.Second,
+		KeepAlive:          30 * time.Second,
 	}
 
 	suite.httpClient = testutils.NewHttpClient(config)
@@ -557,15 +557,16 @@ func (suite *GoComprehensiveRealClientE2ETestSuite) stopGatewayServer() {
 }
 
 func (suite *GoComprehensiveRealClientE2ETestSuite) waitForServerReadiness() {
-	maxRetries := 60
-	for i := 0; i < maxRetries; i++ {
-		if suite.checkServerHealth() {
-			suite.T().Logf("Server ready after %d attempts", i+1)
-			return
-		}
-		time.Sleep(2 * time.Second)
+	config := testutils.DefaultPollingConfig()
+	config.Timeout = 120 * time.Second // Keep original 60 * 2s = 120s timeout
+	config.Interval = 2 * time.Second // Keep original interval
+	
+	condition := func() (bool, error) {
+		return suite.checkServerHealth(), nil
 	}
-	suite.Require().Fail("Server failed to become ready within timeout")
+	
+	err := testutils.WaitForCondition(condition, config, "server to be ready")
+	suite.Require().NoError(err, "Server failed to become ready within timeout")
 }
 
 func (suite *GoComprehensiveRealClientE2ETestSuite) checkServerHealth() bool {
@@ -573,7 +574,7 @@ func (suite *GoComprehensiveRealClientE2ETestSuite) checkServerHealth() bool {
 		return false
 	}
 	
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	
 	err := suite.httpClient.HealthCheck(ctx)

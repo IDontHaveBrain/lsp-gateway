@@ -165,7 +165,7 @@ func createMCPHTTPServer(server *mcp.Server, port int) *http.Server {
 func handleMCPHTTPRequest(w http.ResponseWriter, r *http.Request, server *mcp.Server) {
 	// Set response headers
 	w.Header().Set("Content-Type", transport.HTTP_CONTENT_TYPE_JSON)
-	w.Header().Set(mcp.HTTP_HEADER_MCP_PROTOCOL_VERSION, mcp.ProtocolVersion)
+	w.Header().Set(mcp.HTTP_HEADER_MCP_PROTOCOL_VERSION, mcp.DefaultProtocolVersion)
 	
 	// Validate HTTP method
 	if r.Method != http.MethodPost {
@@ -198,14 +198,14 @@ func handleMCPHTTPRequest(w http.ResponseWriter, r *http.Request, server *mcp.Se
 		return
 	}
 	
-	if clientVersion != mcp.ProtocolVersion {
+	if clientVersion != mcp.DefaultProtocolVersion {
 		w.WriteHeader(http.StatusBadRequest)
 		response := map[string]interface{}{
 			"jsonrpc": "2.0",
 			"error": map[string]interface{}{
 				"code":    -32600,
 				"message": "Invalid Request",
-				"data":    fmt.Sprintf("Incompatible MCP protocol version: %s (server supports: %s)", clientVersion, mcp.ProtocolVersion),
+				"data":    fmt.Sprintf("Incompatible MCP protocol version: %s (server supports: %s)", clientVersion, mcp.DefaultProtocolVersion),
 			},
 		}
 		json.NewEncoder(w).Encode(response)

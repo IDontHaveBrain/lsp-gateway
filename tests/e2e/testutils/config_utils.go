@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -185,4 +186,61 @@ servers:
     command: ["gopls"]
     transport: "stdio"
 `
+}
+
+// DetectNodePath dynamically detects the global Node.js modules path
+// Returns the path to global node_modules directory for NODE_PATH environment variable
+func DetectNodePath() string {
+	// First, try to use npm root -g to get the global node_modules path
+	if cmd := exec.Command("npm", "root", "-g"); cmd != nil {
+		if output, err := cmd.Output(); err == nil {
+			path := strings.TrimSpace(string(output))
+			if path != "" && isValidNodePath(path) {
+				return path
+			}
+		}
+	}
+
+	// Fallback to common global node_modules paths
+	commonPaths := []string{
+		"/usr/local/lib/node_modules",
+		"/usr/lib/node_modules", 
+		"/opt/homebrew/lib/node_modules",  // macOS Homebrew on Apple Silicon
+		"/home/linuxbrew/.linuxbrew/lib/node_modules", // Linux Homebrew
+		filepath.Join(os.Getenv("HOME"), ".npm-global", "lib", "node_modules"), // npm config prefix
+	}
+
+	// Add paths based on NODE_PREFIX if set
+	if nodePrefix := os.Getenv("NODE_PREFIX"); nodePrefix != "" {
+		commonPaths = append([]string{filepath.Join(nodePrefix, "lib", "node_modules")}, commonPaths...)
+	}
+
+	// Add paths based on npm prefix config
+	if cmd := exec.Command("npm", "config", "get", "prefix"); cmd != nil {
+		if output, err := cmd.Output(); err == nil {
+			prefix := strings.TrimSpace(string(output))
+			if prefix != "" && prefix != "undefined" {
+				commonPaths = append([]string{filepath.Join(prefix, "lib", "node_modules")}, commonPaths...)
+			}
+		}
+	}
+
+	// Return the first valid path found
+	for _, path := range commonPaths {
+		if isValidNodePath(path) {
+			return path
+		}
+	}
+
+	// Final fallback - return the most common default path
+	return "/usr/local/lib/node_modules"
+}
+
+// isValidNodePath checks if a path exists and is a valid node_modules directory
+func isValidNodePath(path string) bool {
+	if path == "" {
+		return false
+	}
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }

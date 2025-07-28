@@ -30,7 +30,7 @@ type SetupCliE2ETestSuite struct {
 
 // SetupSuite initializes the test suite with binary path and test environment
 func (suite *SetupCliE2ETestSuite) SetupSuite() {
-	suite.testTimeout = 120 * time.Second
+	suite.testTimeout = 15 * time.Second
 	
 	// Get project root and binary path
 	projectRoot, err := os.Getwd()
@@ -173,7 +173,7 @@ func (suite *SetupCliE2ETestSuite) TestSetupDetectCommand_ProjectDetection() {
 	// Create a sample Go project structure
 	suite.createSampleGoProject()
 	
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	
 	// Execute setup detect command
@@ -249,7 +249,7 @@ func (suite *SetupCliE2ETestSuite) TestSetupCommand_ErrorHandling() {
 	
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 			defer cancel()
 			
 			cmd := exec.CommandContext(ctx, suite.binaryPath)
@@ -275,7 +275,7 @@ func (suite *SetupCliE2ETestSuite) TestSetupCommand_ErrorHandling() {
 
 // TestSetupCommand_TimeoutScenarios tests timeout handling
 func (suite *SetupCliE2ETestSuite) TestSetupCommand_TimeoutScenarios() {
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	
 	// Test with very short timeout
@@ -302,7 +302,7 @@ func (suite *SetupCliE2ETestSuite) TestSetupCommand_TimeoutScenarios() {
 // TestSetupWizardCommand_NonInteractive tests wizard command in non-interactive scenarios
 func (suite *SetupCliE2ETestSuite) TestSetupWizardCommand_NonInteractive() {
 	// Test wizard command help
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	
 	cmd := exec.CommandContext(ctx, suite.binaryPath, "setup", "wizard", "--help")
@@ -328,7 +328,7 @@ func (suite *SetupCliE2ETestSuite) TestSetupTemplateCommand_TemplateValidation()
 	
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			
 			cmd := exec.CommandContext(ctx, suite.binaryPath, "setup", "template", 

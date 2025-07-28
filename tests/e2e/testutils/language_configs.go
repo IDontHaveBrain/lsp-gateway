@@ -28,7 +28,7 @@ func GetGoLanguageConfig() LanguageConfig {
 	return LanguageConfig{
 		Language:     "go",
 		RepoURL:      "https://github.com/golang/example.git",
-		TestPaths:    []string{".", "cmd", "pkg", "internal"},
+		TestPaths:    []string{"hello", "helloserver", "outyet", "gotypes", "template", "slog-handler-guide", "appengine-hello", "ragserver"},
 		FilePatterns: []string{"*.go"},
 		RootMarkers:  []string{"go.mod", "go.sum"},
 		ExcludePaths: []string{"vendor", ".git", "testdata"},

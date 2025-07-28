@@ -12,10 +12,11 @@ import (
 
 	"github.com/stretchr/testify/suite"
 	"lsp-gateway/tests/e2e/testutils"
+	"lsp-gateway/tests/e2e/fixtures"
 )
 
-// JavaScriptRealClientComprehensiveE2ETestSuite tests all 6 supported LSP methods for JavaScript using Real HTTP Client with chalk repository
-type JavaScriptRealClientComprehensiveE2ETestSuite struct {
+// PythonRealClientComprehensiveE2ETestSuite tests all 6 supported LSP methods for Python using Real HTTP Client with design pattern scenarios
+type PythonRealClientComprehensiveE2ETestSuite struct {
 	suite.Suite
 	
 	// Core infrastructure
@@ -27,11 +28,11 @@ type JavaScriptRealClientComprehensiveE2ETestSuite struct {
 	projectRoot     string
 	testTimeout     time.Duration
 	
-	// Chalk repository management with fixed commit hash
+	// Python design patterns repository management
 	repoManager     testutils.RepositoryManager
 	repoDir         string
-	jsFiles         []string
-	testFiles       []string
+	pyFiles         []string
+	patternScenarios []fixtures.PythonPatternScenario
 	
 	// Server state tracking
 	serverStarted   bool
@@ -40,8 +41,8 @@ type JavaScriptRealClientComprehensiveE2ETestSuite struct {
 	testResults     map[string]*TestResult
 }
 
-// SetupSuite initializes the comprehensive test suite for JavaScript using chalk repository
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) SetupSuite() {
+// SetupSuite initializes the comprehensive test suite for Python using design pattern scenarios
+func (suite *PythonRealClientComprehensiveE2ETestSuite) SetupSuite() {
 	suite.testTimeout = 15 * time.Second
 	suite.testResults = make(map[string]*TestResult)
 	
@@ -49,28 +50,32 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) SetupSuite() {
 	suite.projectRoot, err = testutils.GetProjectRoot()
 	suite.Require().NoError(err, "Failed to get project root")
 	
-	suite.tempDir, err = os.MkdirTemp("", "js-real-comprehensive-e2e-*")
+	suite.tempDir, err = os.MkdirTemp("", "py-real-comprehensive-e2e-*")
 	suite.Require().NoError(err, "Failed to create temp directory")
 	
-	// Initialize chalk repository manager with fixed commit
-	suite.repoManager = testutils.NewJavaScriptRepositoryManager()
+	// Initialize Python repository manager with design patterns
+	suite.repoManager = testutils.NewPythonRepositoryManager()
 	
-	// Setup chalk repository
+	// Setup Python repository with design pattern scenarios
 	suite.repoDir, err = suite.repoManager.SetupRepository()
-	suite.Require().NoError(err, "Failed to setup chalk repository")
+	suite.Require().NoError(err, "Failed to setup Python repository")
 	
-	// Discover JavaScript/TypeScript files for comprehensive testing
-	suite.discoverJavaScriptFiles()
+	// Load all 13 Python design pattern scenarios
+	suite.patternScenarios = fixtures.GetAllPythonPatternScenarios()
+	suite.Require().Equal(13, len(suite.patternScenarios), "Expected 13 Python design pattern scenarios")
 	
-	// Create test configuration for JavaScript comprehensive testing
+	// Discover Python files for comprehensive testing
+	suite.discoverPythonFiles()
+	
+	// Create test configuration for Python comprehensive testing
 	suite.createComprehensiveTestConfig()
 	
-	suite.T().Logf("Comprehensive JavaScript E2E test suite initialized with chalk repository (commit: 5dbc1e2)")
-	suite.T().Logf("Found %d JavaScript files for testing", len(suite.jsFiles))
+	suite.T().Logf("Comprehensive Python E2E test suite initialized with %d design pattern scenarios", len(suite.patternScenarios))
+	suite.T().Logf("Found %d Python files for testing", len(suite.pyFiles))
 }
 
 // SetupTest initializes fresh components for each test
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) SetupTest() {
+func (suite *PythonRealClientComprehensiveE2ETestSuite) SetupTest() {
 	var err error
 	suite.gatewayPort, err = testutils.FindAvailablePort()
 	suite.Require().NoError(err, "Failed to find available port")
@@ -78,7 +83,7 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) SetupTest() {
 	// Update config with new port
 	suite.updateConfigPort()
 
-	// Configure HttpClient for comprehensive JavaScript testing
+	// Configure HttpClient for comprehensive Python testing
 	config := testutils.HttpClientConfig{
 		BaseURL:            fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
 		Timeout:            5 * time.Second,
@@ -86,9 +91,9 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) SetupTest() {
 		RetryDelay:         1 * time.Second,
 		EnableLogging:      true,
 		EnableRecording:    true,
-		WorkspaceID:        fmt.Sprintf("js-comprehensive-test-%d", time.Now().UnixNano()),
+		WorkspaceID:        fmt.Sprintf("py-comprehensive-test-%d", time.Now().UnixNano()),
 		ProjectPath:        suite.repoDir,
-		UserAgent:          "LSP-Gateway-JavaScript-Comprehensive-E2E/1.0",
+		UserAgent:          "LSP-Gateway-Python-Comprehensive-E2E/1.0",
 		MaxResponseSize:    100 * 1024 * 1024,
 		ConnectionPoolSize: 20,
 		KeepAlive:          30 * time.Second,
@@ -99,7 +104,7 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) SetupTest() {
 }
 
 // TearDownTest cleans up per-test resources
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TearDownTest() {
+func (suite *PythonRealClientComprehensiveE2ETestSuite) TearDownTest() {
 	suite.stopGatewayServer()
 	
 	if suite.httpClient != nil {
@@ -109,12 +114,12 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TearDownTest() {
 }
 
 // TearDownSuite performs final cleanup and reports comprehensive test results
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TearDownSuite() {
+func (suite *PythonRealClientComprehensiveE2ETestSuite) TearDownSuite() {
 	suite.reportComprehensiveTestResults()
 	
 	if suite.repoManager != nil {
 		if err := suite.repoManager.Cleanup(); err != nil {
-			suite.T().Logf("Warning: Failed to cleanup chalk repository: %v", err)
+			suite.T().Logf("Warning: Failed to cleanup Python repository: %v", err)
 		}
 	}
 	
@@ -125,8 +130,8 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TearDownSuite() {
 	}
 }
 
-// TestJavaScriptComprehensiveServerLifecycle tests complete server lifecycle with comprehensive monitoring
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptComprehensiveServerLifecycle() {
+// TestPythonComprehensiveServerLifecycle tests complete server lifecycle with comprehensive monitoring
+func (suite *PythonRealClientComprehensiveE2ETestSuite) TestPythonComprehensiveServerLifecycle() {
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
 	
@@ -137,26 +142,41 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptCompre
 	suite.testComprehensiveServerOperations(ctx)
 }
 
-// TestJavaScriptDefinitionComprehensive tests textDocument/definition across multiple chalk files
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptDefinitionComprehensive() {
+// TestPythonComprehensiveDefinition tests textDocument/definition across multiple Python design pattern files
+func (suite *PythonRealClientComprehensiveE2ETestSuite) TestPythonComprehensiveDefinition() {
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
 	
 	suite.startGatewayServer()
 	defer suite.stopGatewayServer()
 	
-	// Test definition on multiple JavaScript files from chalk repository
-	for i, testFile := range suite.getTestFilesSubset(5) {
+	// Test definition on multiple Python files using design pattern scenarios
+	definitionScenarios := fixtures.GetScenariosForLSPMethod("textDocument/definition")
+	testFiles := suite.getTestFilesSubset(5)
+	
+	for i, testFile := range testFiles {
 		testName := fmt.Sprintf("definition-test-%d", i)
 		start := time.Now()
 		
 		fileURI := suite.getFileURI(testFile)
 		
-		// Test multiple positions in the file
-		positions := []testutils.Position{
-			{Line: 0, Character: 0},
-			{Line: 1, Character: 0},
-			{Line: 5, Character: 10},
+		// Use scenario-specific test positions if available
+		var positions []testutils.Position
+		if i < len(definitionScenarios) {
+			scenario := definitionScenarios[i]
+			for _, pos := range scenario.TestPositions {
+				positions = append(positions, testutils.Position{
+					Line:      pos.Line,
+					Character: pos.Character,
+				})
+			}
+		} else {
+			// Fallback to default positions
+			positions = []testutils.Position{
+				{Line: 0, Character: 0},
+				{Line: 1, Character: 0},
+				{Line: 5, Character: 10},
+			}
 		}
 		
 		for j, position := range positions {
@@ -185,21 +205,37 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptDefini
 	}
 }
 
-// TestJavaScriptReferencesComprehensive tests textDocument/references across multiple chalk files
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptReferencesComprehensive() {
+// TestPythonComprehensiveReferences tests textDocument/references across multiple Python design pattern files
+func (suite *PythonRealClientComprehensiveE2ETestSuite) TestPythonComprehensiveReferences() {
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
 	
 	suite.startGatewayServer()
 	defer suite.stopGatewayServer()
 	
-	// Test references on multiple JavaScript files from chalk repository
-	for i, testFile := range suite.getTestFilesSubset(5) {
+	// Test references on multiple Python files using design pattern scenarios
+	referencesScenarios := fixtures.GetScenariosForLSPMethod("textDocument/references")
+	testFiles := suite.getTestFilesSubset(5)
+	
+	for i, testFile := range testFiles {
 		testName := fmt.Sprintf("references-test-%d", i)
 		start := time.Now()
 		
 		fileURI := suite.getFileURI(testFile)
-		position := testutils.Position{Line: 0, Character: 0}
+		
+		// Use scenario-specific test position if available
+		var position testutils.Position
+		if i < len(referencesScenarios) {
+			scenario := referencesScenarios[i]
+			if len(scenario.TestPositions) > 0 {
+				pos := scenario.TestPositions[0]
+				position = testutils.Position{Line: pos.Line, Character: pos.Character}
+			} else {
+				position = testutils.Position{Line: 0, Character: 0}
+			}
+		} else {
+			position = testutils.Position{Line: 0, Character: 0}
+		}
 		
 		references, err := suite.httpClient.References(ctx, fileURI, position, true)
 		
@@ -222,21 +258,37 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptRefere
 	}
 }
 
-// TestJavaScriptHoverComprehensive tests textDocument/hover across multiple chalk files
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptHoverComprehensive() {
+// TestPythonComprehensiveHover tests textDocument/hover across multiple Python design pattern files
+func (suite *PythonRealClientComprehensiveE2ETestSuite) TestPythonComprehensiveHover() {
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
 	
 	suite.startGatewayServer()
 	defer suite.stopGatewayServer()
 	
-	// Test hover on multiple JavaScript files from chalk repository
-	for i, testFile := range suite.getTestFilesSubset(5) {
+	// Test hover on multiple Python files using design pattern scenarios
+	hoverScenarios := fixtures.GetScenariosForLSPMethod("textDocument/hover")
+	testFiles := suite.getTestFilesSubset(5)
+	
+	for i, testFile := range testFiles {
 		testName := fmt.Sprintf("hover-test-%d", i)
 		start := time.Now()
 		
 		fileURI := suite.getFileURI(testFile)
-		position := testutils.Position{Line: 0, Character: 0}
+		
+		// Use scenario-specific test position if available
+		var position testutils.Position
+		if i < len(hoverScenarios) {
+			scenario := hoverScenarios[i]
+			if len(scenario.TestPositions) > 0 {
+				pos := scenario.TestPositions[0]
+				position = testutils.Position{Line: pos.Line, Character: pos.Character}
+			} else {
+				position = testutils.Position{Line: 0, Character: 0}
+			}
+		} else {
+			position = testutils.Position{Line: 0, Character: 0}
+		}
 		
 		hover, err := suite.httpClient.Hover(ctx, fileURI, position)
 		
@@ -258,16 +310,19 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptHoverC
 	}
 }
 
-// TestJavaScriptDocumentSymbolComprehensive tests textDocument/documentSymbol across multiple chalk files
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptDocumentSymbolComprehensive() {
+// TestPythonComprehensiveDocumentSymbol tests textDocument/documentSymbol across multiple Python design pattern files
+func (suite *PythonRealClientComprehensiveE2ETestSuite) TestPythonComprehensiveDocumentSymbol() {
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
 	
 	suite.startGatewayServer()
 	defer suite.stopGatewayServer()
 	
-	// Test document symbols on multiple JavaScript files from chalk repository
-	for i, testFile := range suite.getTestFilesSubset(5) {
+	// Test document symbols on multiple Python files using design pattern scenarios
+	documentSymbolScenarios := fixtures.GetScenariosForLSPMethod("textDocument/documentSymbol")
+	testFiles := suite.getTestFilesSubset(5)
+	
+	for i, testFile := range testFiles {
 		testName := fmt.Sprintf("document-symbol-test-%d", i)
 		start := time.Now()
 		
@@ -286,32 +341,39 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptDocume
 		suite.testResults[testName] = result
 		
 		if err == nil {
-			suite.T().Logf("Document symbol test successful for %s - found %d symbols", 
-				testFile, len(symbols))
+			expectedSymbolCount := 0
+			if i < len(documentSymbolScenarios) {
+				expectedSymbolCount = len(documentSymbolScenarios[i].ExpectedSymbols)
+			}
+			suite.T().Logf("Document symbol test successful for %s - found %d symbols (expected ~%d)", 
+				testFile, len(symbols), expectedSymbolCount)
 		} else {
 			suite.T().Logf("Document symbol test failed for %s: %v", testFile, err)
 		}
 	}
 }
 
-// TestJavaScriptWorkspaceSymbolComprehensive tests workspace/symbol with various queries
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptWorkspaceSymbolComprehensive() {
+// TestPythonComprehensiveWorkspaceSymbol tests workspace/symbol with Python-specific design pattern queries
+func (suite *PythonRealClientComprehensiveE2ETestSuite) TestPythonComprehensiveWorkspaceSymbol() {
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
 	
 	suite.startGatewayServer()
 	defer suite.stopGatewayServer()
 	
-	// Test workspace symbols with chalk-specific queries
+	// Test workspace symbols with Python design pattern-specific queries
 	queries := []string{
-		"chalk",
-		"color",
-		"style",
-		"ansi",
-		"export",
-		"function",
-		"const",
-		"",  // Empty query to get all symbols
+		"pattern",      // Generic pattern-related symbols
+		"class",        // Python class symbols
+		"def",          // Python function/method definitions
+		"import",       // Python import statements
+		"decorator",    // Decorator pattern symbols
+		"singleton",    // Singleton pattern symbols
+		"factory",      // Factory pattern symbols
+		"observer",     // Observer pattern symbols
+		"adapter",      // Adapter pattern symbols
+		"command",      // Command pattern symbols
+		"",             // Empty query to get all symbols
 	}
 	
 	for i, query := range queries {
@@ -339,21 +401,37 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptWorksp
 	}
 }
 
-// TestJavaScriptCompletionComprehensive tests textDocument/completion across multiple chalk files
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptCompletionComprehensive() {
+// TestPythonComprehensiveCompletion tests textDocument/completion across multiple Python design pattern files
+func (suite *PythonRealClientComprehensiveE2ETestSuite) TestPythonComprehensiveCompletion() {
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
 	
 	suite.startGatewayServer()
 	defer suite.stopGatewayServer()
 	
-	// Test completion on multiple JavaScript files from chalk repository
-	for i, testFile := range suite.getTestFilesSubset(3) {
+	// Test completion on multiple Python files using design pattern scenarios
+	completionScenarios := fixtures.GetScenariosForLSPMethod("textDocument/completion")
+	testFiles := suite.getTestFilesSubset(3)
+	
+	for i, testFile := range testFiles {
 		testName := fmt.Sprintf("completion-test-%d", i)
 		start := time.Now()
 		
 		fileURI := suite.getFileURI(testFile)
-		position := testutils.Position{Line: 0, Character: 0}
+		
+		// Use scenario-specific test position if available
+		var position testutils.Position
+		if i < len(completionScenarios) {
+			scenario := completionScenarios[i]
+			if len(scenario.TestPositions) > 0 {
+				pos := scenario.TestPositions[0]
+				position = testutils.Position{Line: pos.Line, Character: pos.Character}
+			} else {
+				position = testutils.Position{Line: 0, Character: 0}
+			}
+		} else {
+			position = testutils.Position{Line: 0, Character: 0}
+		}
 		
 		completions, err := suite.httpClient.Completion(ctx, fileURI, position)
 		
@@ -376,8 +454,8 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptComple
 	}
 }
 
-// TestJavaScriptAllLSPMethodsSequential tests all 6 LSP methods sequentially on same files
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptAllLSPMethodsSequential() {
+// TestPythonAllLSPMethodsSequential tests all 6 LSP methods sequentially on same files
+func (suite *PythonRealClientComprehensiveE2ETestSuite) TestPythonAllLSPMethodsSequential() {
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
 	
@@ -387,9 +465,17 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptAllLSP
 	// Test all 6 LSP methods on the same file for comprehensive validation
 	testFile := suite.getTestFilesSubset(1)[0]
 	fileURI := suite.getFileURI(testFile)
-	position := testutils.Position{Line: 0, Character: 0}
 	
-	suite.T().Logf("Testing all 6 LSP methods sequentially on chalk file: %s", testFile)
+	// Use first design pattern scenario position if available
+	var position testutils.Position
+	if len(suite.patternScenarios) > 0 && len(suite.patternScenarios[0].TestPositions) > 0 {
+		pos := suite.patternScenarios[0].TestPositions[0]
+		position = testutils.Position{Line: pos.Line, Character: pos.Character}
+	} else {
+		position = testutils.Position{Line: 0, Character: 0}
+	}
+	
+	suite.T().Logf("Testing all 6 LSP methods sequentially on Python file: %s", testFile)
 	
 	// 1. textDocument/definition
 	start := time.Now()
@@ -425,7 +511,7 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptAllLSP
 	
 	// 5. workspace/symbol
 	start = time.Now()
-	wsSymbols, err := suite.httpClient.WorkspaceSymbol(ctx, "chalk")
+	wsSymbols, err := suite.httpClient.WorkspaceSymbol(ctx, "pattern")
 	suite.testResults["sequential-workspace-symbol"] = &TestResult{
 		Method: "workspace/symbol", File: testFile, Success: err == nil,
 		Duration: time.Since(start), Error: err, Response: wsSymbols,
@@ -456,64 +542,62 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) TestJavaScriptAllLSP
 
 // Helper methods for comprehensive testing
 
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) discoverJavaScriptFiles() {
+func (suite *PythonRealClientComprehensiveE2ETestSuite) discoverPythonFiles() {
 	testFiles, err := suite.repoManager.GetTestFiles()
-	suite.Require().NoError(err, "Failed to get JavaScript test files from chalk repository")
-	suite.Require().Greater(len(testFiles), 0, "No JavaScript files found in chalk repository")
+	suite.Require().NoError(err, "Failed to get Python test files from repository")
+	suite.Require().Greater(len(testFiles), 0, "No Python files found in repository")
 	
-	// Filter and categorize JavaScript/TypeScript files
+	// Filter and categorize Python files
 	for _, file := range testFiles {
 		ext := filepath.Ext(file)
-		if ext == ".js" || ext == ".mjs" {
-			suite.jsFiles = append(suite.jsFiles, file)
-		}
-		if ext == ".js" || ext == ".ts" || ext == ".mjs" || ext == ".jsx" || ext == ".tsx" {
-			suite.testFiles = append(suite.testFiles, file)
+		if ext == ".py" {
+			suite.pyFiles = append(suite.pyFiles, file)
 		}
 	}
 	
-	suite.Require().Greater(len(suite.jsFiles), 0, "No JavaScript files found in chalk repository")
-	suite.T().Logf("Discovered %d JavaScript files and %d total test files in chalk repository", 
-		len(suite.jsFiles), len(suite.testFiles))
+	suite.Require().Greater(len(suite.pyFiles), 0, "No Python files found in repository")
+	suite.T().Logf("Discovered %d Python files in repository with %d design pattern scenarios", 
+		len(suite.pyFiles), len(suite.patternScenarios))
 }
 
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) getTestFilesSubset(count int) []string {
-	if len(suite.jsFiles) <= count {
-		return suite.jsFiles
+func (suite *PythonRealClientComprehensiveE2ETestSuite) getTestFilesSubset(count int) []string {
+	if len(suite.pyFiles) <= count {
+		return suite.pyFiles
 	}
-	return suite.jsFiles[:count]
+	return suite.pyFiles[:count]
 }
 
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) createComprehensiveTestConfig() {
-	options := testutils.DefaultLanguageConfigOptions("javascript")
+func (suite *PythonRealClientComprehensiveE2ETestSuite) createComprehensiveTestConfig() {
+	options := testutils.DefaultLanguageConfigOptions("python")
 	options.TestPort = fmt.Sprintf("%d", suite.gatewayPort)
 	options.ConfigType = "main"
 	
-	// Add comprehensive JavaScript-specific custom variables
-	options.CustomVariables["NODE_PATH"] = "/usr/local/lib/node_modules"
-	options.CustomVariables["TS_NODE_PROJECT"] = "tsconfig.json"
-	options.CustomVariables["REPOSITORY"] = "chalk"
-	options.CustomVariables["COMMIT_HASH"] = "5dbc1e2"
+	// Add comprehensive Python-specific custom variables
+	options.CustomVariables["PYTHONPATH"] = suite.repoDir
+	options.CustomVariables["PYTHON_LSP_SERVER"] = "pylsp"
+	options.CustomVariables["REPOSITORY"] = "python-patterns"
+	options.CustomVariables["DESIGN_PATTERNS"] = "13"
 	options.CustomVariables["TEST_MODE"] = "comprehensive"
 	options.CustomVariables["LSP_TIMEOUT"] = "60"
+	options.CustomVariables["PATTERN_TYPES"] = "creational,structural,behavioral"
 	
 	configPath, cleanup, err := testutils.CreateLanguageConfig(suite.repoManager, options)
-	suite.Require().NoError(err, "Failed to create JavaScript comprehensive test config")
+	suite.Require().NoError(err, "Failed to create Python comprehensive test config")
 	
 	suite.configPath = configPath
 	_ = cleanup // Will be cleaned up via tempDir
 }
 
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) updateConfigPort() {
+func (suite *PythonRealClientComprehensiveE2ETestSuite) updateConfigPort() {
 	suite.createComprehensiveTestConfig()
 }
 
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) getFileURI(filePath string) string {
+func (suite *PythonRealClientComprehensiveE2ETestSuite) getFileURI(filePath string) string {
 	workspaceDir := suite.repoManager.GetWorkspaceDir()
 	return "file://" + filepath.Join(workspaceDir, filePath)
 }
 
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) startGatewayServer() {
+func (suite *PythonRealClientComprehensiveE2ETestSuite) startGatewayServer() {
 	if suite.serverStarted {
 		return
 	}
@@ -528,10 +612,10 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) startGatewayServer()
 	suite.waitForServerReadiness()
 	suite.serverStarted = true
 	
-	suite.T().Logf("Gateway server started for comprehensive JavaScript testing on port %d", suite.gatewayPort)
+	suite.T().Logf("Gateway server started for comprehensive Python testing on port %d", suite.gatewayPort)
 }
 
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) stopGatewayServer() {
+func (suite *PythonRealClientComprehensiveE2ETestSuite) stopGatewayServer() {
 	if !suite.serverStarted || suite.gatewayCmd == nil {
 		return
 	}
@@ -556,7 +640,7 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) stopGatewayServer() 
 	suite.serverStarted = false
 }
 
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) waitForServerReadiness() {
+func (suite *PythonRealClientComprehensiveE2ETestSuite) waitForServerReadiness() {
 	config := testutils.DefaultPollingConfig()
 	config.Timeout = 120 * time.Second // Keep original 60 * 2s = 120s timeout
 	config.Interval = 2 * time.Second // Keep original interval
@@ -569,7 +653,7 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) waitForServerReadine
 	suite.Require().NoError(err, "Server failed to become ready within timeout")
 }
 
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) checkServerHealth() bool {
+func (suite *PythonRealClientComprehensiveE2ETestSuite) checkServerHealth() bool {
 	if suite.httpClient == nil {
 		return false
 	}
@@ -581,18 +665,18 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) checkServerHealth() 
 	return err == nil
 }
 
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) verifyServerReadiness(ctx context.Context) {
+func (suite *PythonRealClientComprehensiveE2ETestSuite) verifyServerReadiness(ctx context.Context) {
 	err := suite.httpClient.HealthCheck(ctx)
 	suite.Require().NoError(err, "Server health check should pass")
 }
 
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) testComprehensiveServerOperations(ctx context.Context) {
+func (suite *PythonRealClientComprehensiveE2ETestSuite) testComprehensiveServerOperations(ctx context.Context) {
 	err := suite.httpClient.ValidateConnection(ctx)
 	suite.Require().NoError(err, "Server connection validation should pass")
 }
 
-func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) reportComprehensiveTestResults() {
-	suite.T().Logf("=== Comprehensive JavaScript E2E Test Results ===")
+func (suite *PythonRealClientComprehensiveE2ETestSuite) reportComprehensiveTestResults() {
+	suite.T().Logf("=== Comprehensive Python E2E Test Results ===")
 	
 	methodCounts := make(map[string]int)
 	methodSuccesses := make(map[string]int)
@@ -636,12 +720,22 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) reportComprehensiveT
 	suite.T().Logf("Total duration: %v", totalDuration)
 	suite.T().Logf("Average duration: %v", totalDuration/time.Duration(totalTests))
 	
+	// Python design pattern specific metrics
+	suite.T().Logf("=== Design Pattern Integration ===")
+	suite.T().Logf("Design pattern scenarios: %d", len(suite.patternScenarios))
+	suite.T().Logf("Creational patterns: %d", len(fixtures.GetCreationalPatternScenarios()))
+	suite.T().Logf("Structural patterns: %d", len(fixtures.GetStructuralPatternScenarios()))
+	suite.T().Logf("Behavioral patterns: %d", len(fixtures.GetBehavioralPatternScenarios()))
+	
 	// Verify comprehensive test quality requirements
 	suite.GreaterOrEqual(overallSuccessRate, 80.0, "Overall success rate should be at least 80%")
 	suite.LessOrEqual(totalDuration.Minutes(), 15.0, "Total test duration should be under 15 minutes")
+	
+	suite.T().Logf("Python comprehensive E2E test completed with %.1f%% success rate using %d design pattern scenarios", 
+		overallSuccessRate, len(suite.patternScenarios))
 }
 
 // Test runner function
-func TestJavaScriptRealClientComprehensiveE2ETestSuite(t *testing.T) {
-	suite.Run(t, new(JavaScriptRealClientComprehensiveE2ETestSuite))
+func TestPythonRealClientComprehensiveE2ETestSuite(t *testing.T) {
+	suite.Run(t, new(PythonRealClientComprehensiveE2ETestSuite))
 }

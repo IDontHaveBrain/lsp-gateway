@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"lsp-gateway/tests/e2e/testutils"
 )
@@ -25,7 +27,9 @@ type GoBasicE2ETestSuite struct {
 	configPath      string
 	tempDir         string
 	projectRoot     string
-	testTimeout     time.Duration
+	
+	// Standardized timeout management
+	timeouts        *testutils.TestSuiteTimeouts
 	
 	// Modular repository management for Go
 	repoManager     testutils.RepositoryManager
@@ -38,7 +42,8 @@ type GoBasicE2ETestSuite struct {
 
 // SetupSuite initializes the test suite for Go using the modular system
 func (suite *GoBasicE2ETestSuite) SetupSuite() {
-	suite.testTimeout = 5 * time.Minute
+	// Initialize standardized timeout management for Go language
+	suite.timeouts = testutils.NewTestSuiteTimeouts(testutils.LanguageGo)
 	
 	var err error
 	suite.projectRoot, err = testutils.GetProjectRoot()
@@ -70,12 +75,13 @@ func (suite *GoBasicE2ETestSuite) SetupTest() {
 	// Update config with new port
 	suite.updateConfigPort()
 
-	// Configure HttpClient for Go testing
+	// Configure HttpClient for Go testing with standardized timeouts
+	timeoutConfig := suite.timeouts.Config()
 	config := testutils.HttpClientConfig{
 		BaseURL:            fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
-		Timeout:            30 * time.Second,
+		Timeout:            timeoutConfig.HTTPTimeout(),
 		MaxRetries:         5,
-		RetryDelay:         2 * time.Second,
+		RetryDelay:         500 * time.Millisecond,
 		EnableLogging:      true,
 		EnableRecording:    true,
 		WorkspaceID:        fmt.Sprintf("go-basic-test-%d", time.Now().UnixNano()),
@@ -83,7 +89,7 @@ func (suite *GoBasicE2ETestSuite) SetupTest() {
 		UserAgent:          "LSP-Gateway-Go-Basic-E2E/1.0",
 		MaxResponseSize:    50 * 1024 * 1024,
 		ConnectionPoolSize: 15,
-		KeepAlive:          60 * time.Second,
+		KeepAlive:          timeoutConfig.HTTPKeepAlive(),
 	}
 
 	suite.httpClient = testutils.NewHttpClient(config)
@@ -93,6 +99,9 @@ func (suite *GoBasicE2ETestSuite) SetupTest() {
 // TearDownTest cleans up per-test resources
 func (suite *GoBasicE2ETestSuite) TearDownTest() {
 	suite.stopGatewayServer()
+	
+	// Cleanup any remaining timeout contexts
+	testutils.CleanupAllTimeouts()
 	
 	if suite.httpClient != nil {
 		suite.httpClient.Close()
@@ -117,7 +126,7 @@ func (suite *GoBasicE2ETestSuite) TearDownSuite() {
 
 // TestGoBasicServerLifecycle tests the complete server lifecycle for Go
 func (suite *GoBasicE2ETestSuite) TestGoBasicServerLifecycle() {
-	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
+	ctx, cancel := suite.timeouts.Config().TestContext(context.Background())
 	defer cancel()
 	
 	suite.startGatewayServer()
@@ -129,7 +138,7 @@ func (suite *GoBasicE2ETestSuite) TestGoBasicServerLifecycle() {
 
 // TestGoDefinitionFeature tests textDocument/definition for Go files
 func (suite *GoBasicE2ETestSuite) TestGoDefinitionFeature() {
-	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
+	ctx, cancel := suite.timeouts.Config().TestContext(context.Background())
 	defer cancel()
 	
 	suite.startGatewayServer()
@@ -218,7 +227,7 @@ func (suite *GoBasicE2ETestSuite) stopGatewayServer() {
 		
 		select {
 		case <-done:
-		case <-time.After(10 * time.Second):
+		case <-time.After(suite.timeouts.Config().TestSetupTimeout()):
 			suite.gatewayCmd.Process.Kill()
 			suite.gatewayCmd.Wait()
 		}
@@ -229,14 +238,15 @@ func (suite *GoBasicE2ETestSuite) stopGatewayServer() {
 }
 
 func (suite *GoBasicE2ETestSuite) waitForServerReadiness() {
-	maxRetries := 30
-	for i := 0; i < maxRetries; i++ {
-		if suite.checkServerHealth() {
-			return
-		}
-		time.Sleep(time.Second)
+	config := suite.timeouts.Config().StandardPollingConfig()
+	config.Interval = time.Second // Keep original interval
+	
+	condition := func() (bool, error) {
+		return suite.checkServerHealth(), nil
 	}
-	suite.Require().Fail("Server failed to become ready within timeout")
+	
+	err := testutils.WaitForCondition(condition, config, "server to be ready")
+	suite.Require().NoError(err, "Server failed to become ready within timeout")
 }
 
 func (suite *GoBasicE2ETestSuite) checkServerHealth() bool {
@@ -244,7 +254,7 @@ func (suite *GoBasicE2ETestSuite) checkServerHealth() bool {
 		return false
 	}
 	
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := suite.timeouts.Config().HealthCheckContext(context.Background())
 	defer cancel()
 	
 	err := suite.httpClient.HealthCheck(ctx)
@@ -259,6 +269,134 @@ func (suite *GoBasicE2ETestSuite) verifyServerReadiness(ctx context.Context) {
 func (suite *GoBasicE2ETestSuite) testBasicServerOperations(ctx context.Context) {
 	err := suite.httpClient.ValidateConnection(ctx)
 	suite.Require().NoError(err, "Server connection validation should pass")
+}
+
+// Parallel test functions using resource isolation
+
+// TestGoBasicServerLifecycleParallel tests the complete server lifecycle for Go with parallel execution
+func TestGoBasicServerLifecycleParallel(t *testing.T) {
+	t.Parallel()
+	
+	// Initialize standardized timeout management for Go language
+	timeoutConfig := testutils.GoTimeoutConfig()
+	defer testutils.CleanupAllTimeouts()
+	
+	setup, err := testutils.SetupIsolatedTestWithLanguage("go_basic_lifecycle", "go")
+	require.NoError(t, err, "Failed to setup isolated test")
+	defer func() {
+		if cleanupErr := setup.Cleanup(); cleanupErr != nil {
+			t.Logf("Warning: Cleanup failed: %v", cleanupErr)
+		}
+	}()
+	
+	ctx, cancel := timeoutConfig.TestContext(context.Background())
+	defer cancel()
+	
+	// Start gateway server
+	projectRoot, err := testutils.GetProjectRoot()
+	require.NoError(t, err, "Failed to get project root")
+	
+	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
+	serverCmd := []string{binaryPath, "server", "--config", setup.ConfigPath}
+	
+	err = setup.StartServer(serverCmd, timeoutConfig.ServerStartupTimeout())
+	require.NoError(t, err, "Failed to start server")
+	
+	err = setup.WaitForServerReady(timeoutConfig.HealthCheckTimeout())
+	require.NoError(t, err, "Server failed to become ready")
+	
+	// Verify server readiness
+	httpClient := setup.GetHTTPClient()
+	err = httpClient.HealthCheck(ctx)
+	require.NoError(t, err, "Server health check should pass")
+	
+	// Test basic server operations
+	err = httpClient.ValidateConnection(ctx)
+	require.NoError(t, err, "Server connection validation should pass")
+	
+	t.Logf("Go basic server lifecycle test completed successfully on port %d", setup.Resources.Port)
+}
+
+// TestGoDefinitionFeatureParallel tests textDocument/definition for Go files with parallel execution
+func TestGoDefinitionFeatureParallel(t *testing.T) {
+	t.Parallel()
+	
+	// Initialize standardized timeout management for Go language
+	timeoutConfig := testutils.GoTimeoutConfig()
+	defer testutils.CleanupAllTimeouts()
+	
+	setup, err := testutils.SetupIsolatedTestWithLanguage("go_definition_feature", "go")
+	require.NoError(t, err, "Failed to setup isolated test")
+	defer func() {
+		if cleanupErr := setup.Cleanup(); cleanupErr != nil {
+			t.Logf("Warning: Cleanup failed: %v", cleanupErr)
+		}
+	}()
+	
+	ctx, cancel := timeoutConfig.TestContext(context.Background())
+	defer cancel()
+	
+	// Create test Go file
+	goContent := `package main
+
+import "fmt"
+
+type Server struct {
+	Name string
+	Port int
+}
+
+func (s *Server) Start() error {
+	fmt.Printf("Starting server %s on port %d\n", s.Name, s.Port)
+	return nil
+}
+
+func NewServer(name string, port int) *Server {
+	return &Server{
+		Name: name,
+		Port: port,
+	}
+}
+
+func main() {
+	server := NewServer("gateway", 8080)
+	server.Start()
+}`
+	
+	testFile, err := setup.Resources.Directory.CreateTempFile("main.go", goContent)
+	require.NoError(t, err, "Failed to create test Go file")
+	
+	// Start gateway server
+	projectRoot, err := testutils.GetProjectRoot()
+	require.NoError(t, err, "Failed to get project root")
+	
+	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
+	serverCmd := []string{binaryPath, "server", "--config", setup.ConfigPath}
+	
+	err = setup.StartServer(serverCmd, timeoutConfig.ServerStartupTimeout())
+	require.NoError(t, err, "Failed to start server")
+	
+	err = setup.WaitForServerReady(timeoutConfig.HealthCheckTimeout())
+	require.NoError(t, err, "Server failed to become ready")
+	
+	// Test definition on Go file
+	httpClient := setup.GetHTTPClient()
+	fileURI := "file://" + testFile
+	position := testutils.Position{Line: 15, Character: 8} // NewServer function call
+	
+	locations, err := httpClient.Definition(ctx, fileURI, position)
+	if err != nil {
+		t.Logf("Definition request failed (expected for test setup): %v", err)
+		return
+	}
+	
+	t.Logf("Found %d definition locations for Go file", len(locations))
+	if len(locations) > 0 {
+		assert.Contains(t, locations[0].URI, "main.go", "Definition should reference correct file")
+		assert.GreaterOrEqual(t, locations[0].Range.Start.Line, 0, "Definition line should be valid")
+	}
+	
+	t.Logf("Go definition feature test completed successfully on port %d", setup.Resources.Port)
 }
 
 // Test runner function

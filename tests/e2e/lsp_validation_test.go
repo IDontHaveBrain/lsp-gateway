@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -57,7 +58,7 @@ type LSPResponseValidation struct {
 }
 
 func (suite *LSPValidationTestSuite) SetupSuite() {
-	suite.testTimeout = 60 * time.Second
+	suite.testTimeout = 15 * time.Second
 	
 	var err error
 	suite.projectRoot, err = testutils.GetProjectRoot()
@@ -76,7 +77,7 @@ func (suite *LSPValidationTestSuite) SetupSuite() {
 func (suite *LSPValidationTestSuite) SetupTest() {
 	config := testutils.HttpClientConfig{
 		BaseURL:         fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
-		Timeout:         15 * time.Second,
+		Timeout:         3 * time.Second,
 		MaxRetries:      3,
 		RetryDelay:      500 * time.Millisecond,
 		EnableLogging:   true,
@@ -512,25 +513,26 @@ func (suite *LSPValidationTestSuite) TestWorkspaceContextValidation() {
 		suite.Greater(len(recordings), 0, "Should have recorded requests")
 
 		for _, recording := range recordings {
-			// Check headers for workspace context
+			// Check headers for workspace context (JSON-RPC compliant approach)
 			if workspaceID, exists := recording.Headers["X-Workspace-ID"]; exists {
 				suite.NotEmpty(workspaceID, "Workspace ID header should not be empty if present")
 			}
+			if projectPath, exists := recording.Headers["X-Project-Path"]; exists {
+				suite.NotEmpty(projectPath, "Project path header should not be empty if present")
+			}
 
-			// Check request body for workspace parameters
+			// Validate JSON-RPC request body format compliance
 			if bodyMap, ok := recording.Body.(map[string]interface{}); ok {
+				// Ensure JSON-RPC 2.0 compliance - no custom parameters in payload
+				suite.Equal("2.0", bodyMap["jsonrpc"], "Request should use JSON-RPC 2.0")
+				suite.NotEmpty(bodyMap["id"], "Request should have an ID")
+				suite.NotEmpty(bodyMap["method"], "Request should have a method")
+				
+				// Verify parameters contain only LSP-standard fields
 				if params, ok := bodyMap["params"].(map[string]interface{}); ok {
-					// Check for workspace_id parameter
-					if workspaceID, exists := params["workspace_id"]; exists {
-						suite.IsType("", workspaceID, "workspace_id should be string")
-						suite.NotEmpty(workspaceID.(string), "workspace_id should not be empty")
-					}
-
-					// Check for project_path parameter
-					if projectPath, exists := params["project_path"]; exists {
-						suite.IsType("", projectPath, "project_path should be string")
-						suite.NotEmpty(projectPath.(string), "project_path should not be empty")
-					}
+					// These custom parameters should NOT exist in JSON-RPC compliant requests
+					suite.NotContains(params, "workspace_id", "workspace_id should not be in JSON-RPC params")
+					suite.NotContains(params, "project_path", "project_path should not be in JSON-RPC params")
 				}
 			}
 		}
@@ -707,6 +709,191 @@ func (suite *LSPValidationTestSuite) TestResponseTimingValidation() {
 				metrics.AverageLatency, metrics.MinLatency, metrics.MaxLatency)
 		}
 	})
+}
+
+func (suite *LSPValidationTestSuite) TestLSPPositionParameterValidation() {
+	suite.T().Run("PositionParameterValidation", func(t *testing.T) {
+		suite.startGatewayServer()
+		defer suite.stopGatewayServer()
+
+		ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
+		defer cancel()
+
+		suite.waitForServerReady(ctx)
+
+		testFile := fmt.Sprintf("file://%s/main.go", suite.tempDir)
+
+		// Test cases for invalid position parameters
+		invalidPositionTests := []struct {
+			name     string
+			position interface{}
+			expectedErrorPattern string
+		}{
+			{
+				name:     "Negative line",
+				position: map[string]interface{}{"line": -1, "character": 0},
+				expectedErrorPattern: "position.line must be non-negative",
+			},
+			{
+				name:     "Negative character",
+				position: map[string]interface{}{"line": 0, "character": -1},
+				expectedErrorPattern: "position.character must be non-negative",
+			},
+			{
+				name:     "Both negative",
+				position: map[string]interface{}{"line": -5, "character": -10},
+				expectedErrorPattern: "position.line must be non-negative",
+			},
+			{
+				name:     "Missing line field",
+				position: map[string]interface{}{"character": 0},
+				expectedErrorPattern: "position missing line field",
+			},
+			{
+				name:     "Missing character field",
+				position: map[string]interface{}{"line": 0},
+				expectedErrorPattern: "position missing character field",
+			},
+			{
+				name:     "Line as string",
+				position: map[string]interface{}{"line": "0", "character": 0},
+				expectedErrorPattern: "position.line must be a number",
+			},
+			{
+				name:     "Character as string",
+				position: map[string]interface{}{"line": 0, "character": "0"},
+				expectedErrorPattern: "position.character must be a number",
+			},
+			{
+				name:     "Position as null",
+				position: nil,
+				expectedErrorPattern: "position parameter is required",
+			},
+			{
+				name:     "Position as string",
+				position: "invalid",
+				expectedErrorPattern: "position must be an object",
+			},
+		}
+
+		// Test each invalid position for different LSP methods
+		lspMethods := []struct {
+			method string
+			requestFunc func(position interface{}) (*JSONRPCResponse, error)
+		}{
+			{
+				method: "textDocument/definition",
+				requestFunc: func(position interface{}) (*JSONRPCResponse, error) {
+					return suite.makeJSONRPCRequest(ctx, "textDocument/definition", map[string]interface{}{
+						"textDocument": map[string]interface{}{"uri": testFile},
+						"position": position,
+					})
+				},
+			},
+			{
+				method: "textDocument/hover",
+				requestFunc: func(position interface{}) (*JSONRPCResponse, error) {
+					return suite.makeJSONRPCRequest(ctx, "textDocument/hover", map[string]interface{}{
+						"textDocument": map[string]interface{}{"uri": testFile},
+						"position": position,
+					})
+				},
+			},
+			{
+				method: "textDocument/completion",
+				requestFunc: func(position interface{}) (*JSONRPCResponse, error) {
+					return suite.makeJSONRPCRequest(ctx, "textDocument/completion", map[string]interface{}{
+						"textDocument": map[string]interface{}{"uri": testFile},
+						"position": position,
+					})
+				},
+			},
+		}
+
+		for _, lspMethod := range lspMethods {
+			for _, test := range invalidPositionTests {
+				suite.T().Run(fmt.Sprintf("%s_%s", lspMethod.method, test.name), func(t *testing.T) {
+					resp, err := lspMethod.requestFunc(test.position)
+					
+					// Should get a response with an error, not a network error
+					suite.NoError(err, "Should get JSON-RPC response, not network error")
+					suite.NotNil(resp, "Should get a response")
+					
+					if resp != nil && resp.Error != nil {
+						// Validate the error structure
+						suite.Equal(-32602, resp.Error.Code, "Should return InvalidParams error code")
+						suite.Contains(resp.Error.Message, test.expectedErrorPattern, "Error message should contain expected pattern")
+					} else {
+						suite.T().Logf("Response: %+v", resp)
+						suite.Fail("Response should contain an error")
+					}
+				})
+			}
+		}
+
+		// Test valid positions should work
+		suite.T().Run("ValidPositions", func(t *testing.T) {
+			validPositions := []map[string]interface{}{
+				{"line": 0, "character": 0},
+				{"line": 1, "character": 5},
+				{"line": 100, "character": 50},
+			}
+
+			for _, validPos := range validPositions {
+				resp, err := suite.makeJSONRPCRequest(ctx, "textDocument/definition", map[string]interface{}{
+					"textDocument": map[string]interface{}{"uri": testFile},
+					"position": validPos,
+				})
+				
+				suite.NoError(err, "Valid position should not cause network error")
+				suite.NotNil(resp, "Should get a response")
+				// Note: The response might contain an LSP error if the file doesn't exist,
+				// but it should not be a parameter validation error
+				if resp.Error != nil {
+					suite.NotEqual(-32602, resp.Error.Code, "Should not get InvalidParams error for valid position")
+				}
+			}
+		})
+	})
+}
+
+// makeJSONRPCRequest makes a direct JSON-RPC request to test parameter validation
+func (suite *LSPValidationTestSuite) makeJSONRPCRequest(ctx context.Context, method string, params interface{}) (*JSONRPCResponse, error) {
+	request := JSONRPCRequest{
+		JSONRPC: "2.0",
+		ID:      "test-validation",
+		Method:  method,
+		Params:  params,
+	}
+
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", 
+		fmt.Sprintf("http://localhost:%d/jsonrpc", suite.gatewayPort), 
+		strings.NewReader(string(jsonData)))
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "lsp-gateway-test")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	var jsonResp JSONRPCResponse
+	if err := json.NewDecoder(resp.Body).Decode(&jsonResp); err != nil {
+		return nil, err
+	}
+
+	return &jsonResp, nil
 }
 
 func TestLSPValidationTestSuite(t *testing.T) {

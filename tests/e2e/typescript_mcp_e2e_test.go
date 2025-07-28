@@ -572,7 +572,7 @@ func (suite *TypeScriptMCPE2ETestSuite) createMCPTestConfig() {
 	options.ConfigType = "main"
 	
 	// Add TypeScript-specific MCP custom variables
-	options.CustomVariables["NODE_PATH"] = "/usr/local/lib/node_modules"
+	options.CustomVariables["NODE_PATH"] = testutils.DetectNodePath()
 	options.CustomVariables["TS_NODE_PROJECT"] = "tsconfig.json"
 	options.CustomVariables["REPOSITORY"] = "TypeScript"
 	options.CustomVariables["VERSION_TAG"] = "v5.6.2"
@@ -622,8 +622,14 @@ func (suite *TypeScriptMCPE2ETestSuite) startMCPServer() {
 	err := suite.mcpCmd.Start()
 	suite.Require().NoError(err, "Failed to start MCP server")
 	
-	// Give MCP server time to start
-	time.Sleep(5 * time.Second)
+	// Wait for MCP server to be ready (check via gateway health)
+	config := testutils.QuickPollingConfig()
+	condition := func() (bool, error) {
+		return suite.checkGatewayHealth(), nil
+	}
+	err = testutils.WaitForCondition(condition, config, "MCP server to be ready")
+	suite.Require().NoError(err, "MCP server failed to become ready")
+	
 	suite.mcpStarted = true
 	
 	suite.T().Logf("MCP server started for TypeScript testing on port %d", suite.mcpPort)
@@ -680,15 +686,16 @@ func (suite *TypeScriptMCPE2ETestSuite) stopMCPServer() {
 }
 
 func (suite *TypeScriptMCPE2ETestSuite) waitForGatewayReadiness() {
-	maxRetries := 90
-	for i := 0; i < maxRetries; i++ {
-		if suite.checkGatewayHealth() {
-			suite.T().Logf("Gateway server ready after %d seconds", i+1)
-			return
-		}
-		time.Sleep(2 * time.Second)
+	config := testutils.DefaultPollingConfig()
+	config.Timeout = 45 * time.Second // Keep original 90 * 0.5s = 45s total timeout
+	config.Interval = 500 * time.Millisecond // Keep original interval
+	
+	condition := func() (bool, error) {
+		return suite.checkGatewayHealth(), nil
 	}
-	suite.Require().Fail("Gateway server failed to become ready within timeout")
+	
+	err := testutils.WaitForCondition(condition, config, "Gateway server to be ready")
+	suite.Require().NoError(err, "Gateway server failed to become ready within timeout")
 }
 
 func (suite *TypeScriptMCPE2ETestSuite) checkGatewayHealth() bool {
@@ -696,7 +703,7 @@ func (suite *TypeScriptMCPE2ETestSuite) checkGatewayHealth() bool {
 		return false
 	}
 	
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	
 	err := suite.httpClient.HealthCheck(ctx)

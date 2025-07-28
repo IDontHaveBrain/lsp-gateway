@@ -103,7 +103,7 @@ func (ghc *GenericHealthChecker) checkGitIntegrity(repoPath string) error {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	// Check git status
@@ -229,7 +229,7 @@ func (ghc *GenericHealthChecker) testNetworkConnectivity() error {
 		return fmt.Errorf("could not extract host information from URL: %s", ghc.repoURL)
 	}
 
-	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), 10*time.Second)
+	conn, err := net.DialTimeout("tcp", net.JoinHostPort(host, port), 3*time.Second)
 	if err != nil {
 		return fmt.Errorf("connectivity test failed for %s:%s: %w", host, port, err)
 	}
@@ -239,7 +239,7 @@ func (ghc *GenericHealthChecker) testNetworkConnectivity() error {
 }
 
 func (ghc *GenericHealthChecker) testGitConnectivity() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, "git", "ls-remote", "--heads", ghc.repoURL)

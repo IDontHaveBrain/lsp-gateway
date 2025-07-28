@@ -43,7 +43,7 @@ type GoRealClientComprehensiveE2ETestSuite struct {
 
 // SetupSuite initializes the comprehensive test suite for Go using golang/example repository
 func (suite *GoRealClientComprehensiveE2ETestSuite) SetupSuite() {
-	suite.testTimeout = 10 * time.Minute
+	suite.testTimeout = 15 * time.Second
 	suite.testResults = make(map[string]*TestResult)
 	
 	var err error
@@ -82,9 +82,9 @@ func (suite *GoRealClientComprehensiveE2ETestSuite) SetupTest() {
 	// Configure HttpClient for comprehensive Go testing
 	config := testutils.HttpClientConfig{
 		BaseURL:            fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
-		Timeout:            60 * time.Second,
+		Timeout:            5 * time.Second,
 		MaxRetries:         3,
-		RetryDelay:         3 * time.Second,
+		RetryDelay:         1 * time.Second,
 		EnableLogging:      true,
 		EnableRecording:    true,
 		WorkspaceID:        fmt.Sprintf("go-comprehensive-test-%d", time.Now().UnixNano()),
@@ -92,7 +92,7 @@ func (suite *GoRealClientComprehensiveE2ETestSuite) SetupTest() {
 		UserAgent:          "LSP-Gateway-Go-Comprehensive-E2E/1.0",
 		MaxResponseSize:    100 * 1024 * 1024,
 		ConnectionPoolSize: 20,
-		KeepAlive:          120 * time.Second,
+		KeepAlive:          30 * time.Second,
 	}
 
 	suite.httpClient = testutils.NewHttpClient(config)
@@ -339,14 +339,16 @@ func (suite *GoRealClientComprehensiveE2ETestSuite) stopGatewayServer() {
 }
 
 func (suite *GoRealClientComprehensiveE2ETestSuite) waitForServerReadiness() {
-	maxRetries := 60 // Increased for comprehensive tests
-	for i := 0; i < maxRetries; i++ {
-		if suite.checkServerHealth() {
-			return
-		}
-		time.Sleep(time.Second)
+	config := testutils.DefaultPollingConfig()
+	config.Timeout = 60 * time.Second // Keep original 60 * 1s = 60s timeout for comprehensive tests
+	config.Interval = time.Second // Keep original interval
+	
+	condition := func() (bool, error) {
+		return suite.checkServerHealth(), nil
 	}
-	suite.Require().Fail("Server failed to become ready within timeout")
+	
+	err := testutils.WaitForCondition(condition, config, "server to be ready")
+	suite.Require().NoError(err, "Server failed to become ready within timeout")
 }
 
 func (suite *GoRealClientComprehensiveE2ETestSuite) checkServerHealth() bool {

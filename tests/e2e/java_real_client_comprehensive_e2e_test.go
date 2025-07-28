@@ -26,6 +26,7 @@ type JavaRealClientComprehensiveE2ETestSuite struct {
 	tempDir         string
 	projectRoot     string
 	testTimeout     time.Duration
+	jdtlsCacheDir   string // Unique cache directory per test
 	
 	// Clean-code repository management with fixed commit hash
 	repoManager     testutils.RepositoryManager
@@ -49,9 +50,32 @@ type JavaTestResult struct {
 	Response  interface{}
 }
 
+// createUniqueJDTLSCacheDir creates a unique cache directory for JDTLS per test
+func (suite *JavaRealClientComprehensiveE2ETestSuite) createUniqueJDTLSCacheDir() (string, error) {
+	// Create unique cache directory using test name and timestamp
+	testName := suite.T().Name()
+	timestamp := time.Now().UnixNano()
+	cacheDirName := fmt.Sprintf("jdtls-cache-comprehensive-%s-%d", testName, timestamp)
+	
+	cacheDir, err := os.MkdirTemp("", cacheDirName)
+	if err != nil {
+		return "", fmt.Errorf("failed to create JDTLS cache directory: %w", err)
+	}
+	
+	return cacheDir, nil
+}
+
+// cleanupJDTLSCacheDir removes the unique JDTLS cache directory
+func (suite *JavaRealClientComprehensiveE2ETestSuite) cleanupJDTLSCacheDir() {
+	if suite.jdtlsCacheDir != "" {
+		_ = os.RemoveAll(suite.jdtlsCacheDir)
+		suite.jdtlsCacheDir = ""
+	}
+}
+
 // SetupSuite initializes the comprehensive test suite for Java using clean-code repository
 func (suite *JavaRealClientComprehensiveE2ETestSuite) SetupSuite() {
-	suite.testTimeout = 10 * time.Minute
+	suite.testTimeout = 15 * time.Second
 	suite.testResults = make(map[string]*JavaTestResult)
 	
 	var err error
@@ -84,15 +108,19 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) SetupTest() {
 	suite.gatewayPort, err = testutils.FindAvailablePort()
 	suite.Require().NoError(err, "Failed to find available port")
 
-	// Update config with new port
+	// Create unique cache directory for this test
+	suite.jdtlsCacheDir, err = suite.createUniqueJDTLSCacheDir()
+	suite.Require().NoError(err, "Failed to create unique JDTLS cache directory")
+
+	// Update config with new port and cache directory
 	suite.updateConfigPort()
 
 	// Configure HttpClient for comprehensive Java testing
 	config := testutils.HttpClientConfig{
 		BaseURL:            fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
-		Timeout:            60 * time.Second,
+		Timeout:            5 * time.Second,
 		MaxRetries:         3,
-		RetryDelay:         3 * time.Second,
+		RetryDelay:         1 * time.Second,
 		EnableLogging:      true,
 		EnableRecording:    true,
 		WorkspaceID:        fmt.Sprintf("java-comprehensive-test-%d", time.Now().UnixNano()),
@@ -100,7 +128,7 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) SetupTest() {
 		UserAgent:          "LSP-Gateway-Java-Comprehensive-E2E/1.0",
 		MaxResponseSize:    100 * 1024 * 1024,
 		ConnectionPoolSize: 20,
-		KeepAlive:          120 * time.Second,
+		KeepAlive:          30 * time.Second,
 	}
 
 	suite.httpClient = testutils.NewHttpClient(config)
@@ -115,6 +143,9 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TearDownTest() {
 		suite.httpClient.Close()
 		suite.httpClient = nil
 	}
+	
+	// Clean up unique JDTLS cache directory
+	suite.cleanupJDTLSCacheDir()
 }
 
 // TearDownSuite performs final cleanup and reports comprehensive test results
@@ -132,6 +163,9 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TearDownSuite() {
 			suite.T().Logf("Warning: Failed to remove temp directory: %v", err)
 		}
 	}
+	
+	// Ensure final cleanup of any remaining cache directory
+	suite.cleanupJDTLSCacheDir()
 }
 
 // TestJavaComprehensiveServerLifecycle tests complete server lifecycle with comprehensive monitoring
@@ -504,6 +538,12 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) createComprehensiveTestCon
 	options.CustomVariables["LSP_TIMEOUT"] = "60"
 	options.CustomVariables["JDTLS_TIMEOUT"] = "90"
 	
+	// Add unique cache directory variables for template substitution
+	if suite.jdtlsCacheDir != "" {
+		options.CustomVariables["JDTLS_CACHE_DIR"] = suite.jdtlsCacheDir
+	}
+	options.CustomVariables["WORKSPACE_ID"] = fmt.Sprintf("java-comprehensive-%d", time.Now().UnixNano())
+	
 	configPath, cleanup, err := testutils.CreateLanguageConfig(suite.repoManager, options)
 	suite.Require().NoError(err, "Failed to create Java comprehensive test config")
 	
@@ -564,15 +604,16 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) stopGatewayServer() {
 }
 
 func (suite *JavaRealClientComprehensiveE2ETestSuite) waitForServerReadiness() {
-	maxRetries := 60
-	for i := 0; i < maxRetries; i++ {
-		if suite.checkServerHealth() {
-			suite.T().Logf("Server ready after %d seconds", i+1)
-			return
-		}
-		time.Sleep(2 * time.Second)
+	config := testutils.DefaultPollingConfig()
+	config.Timeout = 120 * time.Second // Keep original 60 * 2s = 120s timeout
+	config.Interval = 2 * time.Second // Keep original interval
+	
+	condition := func() (bool, error) {
+		return suite.checkServerHealth(), nil
 	}
-	suite.Require().Fail("Server failed to become ready within timeout")
+	
+	err := testutils.WaitForCondition(condition, config, "server to be ready")
+	suite.Require().NoError(err, "Server failed to become ready within timeout")
 }
 
 func (suite *JavaRealClientComprehensiveE2ETestSuite) checkServerHealth() bool {
@@ -580,7 +621,7 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) checkServerHealth() bool {
 		return false
 	}
 	
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	
 	err := suite.httpClient.HealthCheck(ctx)

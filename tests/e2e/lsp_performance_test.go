@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"sync"
 	"syscall"
 	"testing"
@@ -50,7 +51,7 @@ type BenchmarkResult struct {
 }
 
 func (suite *LSPPerformanceTestSuite) SetupSuite() {
-	suite.testTimeout = 120 * time.Second // Longer timeout for performance tests
+	suite.testTimeout = 30 * time.Second // Optimized timeout for performance tests
 
 	var err error
 	suite.projectRoot, err = testutils.GetProjectRoot()
@@ -69,7 +70,7 @@ func (suite *LSPPerformanceTestSuite) SetupSuite() {
 func (suite *LSPPerformanceTestSuite) SetupTest() {
 	config := testutils.HttpClientConfig{
 		BaseURL:            fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
-		Timeout:            30 * time.Second,
+		Timeout:            5 * time.Second,
 		MaxRetries:         2,
 		RetryDelay:         100 * time.Millisecond,
 		EnableLogging:      false, // Disable logging for performance tests
@@ -77,7 +78,7 @@ func (suite *LSPPerformanceTestSuite) SetupTest() {
 		WorkspaceID:        "perf-test-workspace",
 		ProjectPath:        suite.tempDir,
 		ConnectionPoolSize: 50, // Larger pool for performance testing
-		KeepAlive:          60 * time.Second,
+		KeepAlive:          20 * time.Second,
 	}
 	suite.httpClient = testutils.NewHttpClient(config)
 }
@@ -228,7 +229,10 @@ func (suite *LSPPerformanceTestSuite) startGatewayServer() {
 	err := suite.gatewayCmd.Start()
 	suite.Require().NoError(err)
 
-	time.Sleep(5 * time.Second) // Longer startup time for performance tests
+	// Wait for server to be ready with quick polling for performance tests
+	baseURL := fmt.Sprintf("http://localhost:%d", suite.gatewayPort)
+	err = testutils.WaitForServerReadyQuick(baseURL)
+	suite.Require().NoError(err, "Gateway server failed to become ready")
 }
 
 func (suite *LSPPerformanceTestSuite) stopGatewayServer() {
@@ -518,15 +522,10 @@ func (suite *LSPPerformanceTestSuite) runConcurrentPerformanceTest(ctx context.C
 }
 
 func (suite *LSPPerformanceTestSuite) sortDurations(durations []time.Duration) {
-	// Simple bubble sort for durations
-	n := len(durations)
-	for i := 0; i < n-1; i++ {
-		for j := 0; j < n-i-1; j++ {
-			if durations[j] > durations[j+1] {
-				durations[j], durations[j+1] = durations[j+1], durations[j]
-			}
-		}
-	}
+	// Efficient O(n log n) sort using Go's standard library
+	sort.Slice(durations, func(i, j int) bool {
+		return durations[i] < durations[j]
+	})
 }
 
 func (suite *LSPPerformanceTestSuite) TestMemoryUsage() {

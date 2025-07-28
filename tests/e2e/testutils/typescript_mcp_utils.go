@@ -664,14 +664,20 @@ func (helper *TypeScriptMCPTestHelper) GetCommonTypeScriptQueries() []string {
 
 // WaitForServerReadiness waits for the MCP server to be ready with retries
 func (helper *TypeScriptMCPTestHelper) WaitForServerReadiness(maxRetries int) error {
-	for i := 0; i < maxRetries; i++ {
+	config := DefaultPollingConfig()
+	config.Timeout = time.Duration(maxRetries) * time.Second // Approximate original timeout
+	config.BackoffFactor = 1.2 // Gentler backoff than exponential
+	config.MaxInterval = 3 * time.Second
+	
+	condition := func() (bool, error) {
 		response, err := helper.SendInitializeRequest()
-		if err == nil && helper.AssertValidResponse(response) == nil {
-			return nil
+		if err != nil {
+			return false, nil // Not ready yet, keep trying
 		}
-		time.Sleep(time.Duration(i+1) * time.Second)
+		return helper.AssertValidResponse(response) == nil, nil
 	}
-	return fmt.Errorf("server not ready after %d retries", maxRetries)
+	
+	return WaitForCondition(condition, config, "MCP server to be ready for initialization")
 }
 
 // LogResponse logs response information for debugging

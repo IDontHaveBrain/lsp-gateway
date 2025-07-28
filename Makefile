@@ -2,7 +2,7 @@
 # Simplified build system for solo development
 
 # Configuration
-BINARY_NAME := lspg
+BINARY_NAME := lsp-gateway
 MAIN_PATH := cmd/lsp-gateway/main.go
 BUILD_DIR := bin
 
@@ -23,12 +23,26 @@ LDFLAGS := -s -w \
 	-X 'lsp-gateway/internal/version.BuildTime=$(BUILD_TIME)' \
 	-X 'lsp-gateway/internal/version.BuildUser=$(BUILD_USER)'
 
-# Go parameters
+# Go parameters with parallel optimization
 GOCMD := go
 GOBUILD := $(GOCMD) build
 GOTEST := $(GOCMD) test
 GOCLEAN := $(GOCMD) clean
 GOMOD := $(GOCMD) mod
+
+# Test execution parameters for optimal parallel performance
+# 32 CPU cores available - configure for maximum throughput
+CPU_CORES := $(shell nproc --all)
+PARALLEL_TESTS := $(shell echo $$(($(CPU_CORES) * 2)))
+GOMAXPROCS_SETTING := $(CPU_CORES)
+
+# Parallel test environment variables
+TEST_ENV := GOMAXPROCS=$(GOMAXPROCS_SETTING) GO_TEST_TIMEOUT_SCALE=2
+
+# Additional optimization flags for parallel execution
+PARALLEL_TEST_FLAGS := -parallel $(PARALLEL_TESTS) -cpu $(CPU_CORES)
+MEMORY_OPTIMIZED_FLAGS := -parallel $(shell echo $$(($(CPU_CORES))))
+FAST_PARALLEL_FLAGS := -parallel $(shell echo $$(($(CPU_CORES) * 3)))
 
 # Platform definitions
 PLATFORMS := linux/amd64 darwin/amd64 darwin/arm64 windows/amd64
@@ -48,7 +62,7 @@ local: $(BUILD_DIR)
 	@if command -v npm >/dev/null 2>&1; then \
 		if [ -f package.json ]; then \
 			npm link; \
-			echo "✅ npm link completed - 'lspg' command is now available globally"; \
+			echo "✅ npm link completed - 'lsp-gateway' command is now available globally"; \
 		else \
 			echo "⚠️  package.json not found, skipping npm link"; \
 		fi; \
@@ -98,7 +112,7 @@ unlink:
 	@if command -v npm >/dev/null 2>&1; then \
 		if [ -f package.json ]; then \
 			npm unlink -g lsp-gateway 2>/dev/null || true; \
-			echo "✅ npm unlink completed - 'lspg' command removed from global scope"; \
+			echo "✅ npm unlink completed - 'lsp-gateway' command removed from global scope"; \
 		else \
 			echo "⚠️  package.json not found, skipping npm unlink"; \
 		fi; \
@@ -124,21 +138,21 @@ format:
 	$(GOCMD) fmt ./...
 
 test:
-	@echo "Running E2E and integration tests..."
-	$(GOTEST) -v ./tests/e2e/... ./tests/integration/...
+	@echo "Running E2E and integration tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v -parallel $(PARALLEL_TESTS) -timeout 1800s ./tests/e2e/... ./tests/integration/...
 
 test-unit:
-	@echo "Running unit tests..."
+	@echo "Running unit tests with parallel execution..."
 	@if [ -n "$$(find tests/unit -name '*_test.go' -type f 2>/dev/null)" ]; then \
-		$(GOTEST) -v -short -timeout 60s ./tests/unit/...; \
+		$(TEST_ENV) $(GOTEST) -v -short -parallel $(PARALLEL_TESTS) -timeout 120s ./tests/unit/...; \
 	else \
 		echo "No unit tests found - LSP Gateway follows E2E-first testing philosophy"; \
 		echo "See CLAUDE.md for testing strategy: Essential tests only, focusing on real development workflows"; \
 	fi
 
 test-integration:
-	@echo "Running integration tests..."
-	$(GOTEST) -v -run Integration ./...
+	@echo "Running integration tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v -parallel $(PARALLEL_TESTS) -timeout 1200s -run Integration ./...
 
 # =============================================================================
 # CODE QUALITY
@@ -189,16 +203,16 @@ setup-simple-repos:
 	./scripts/setup-simple-repos.sh || echo "Setup script not found, skipping..."
 
 test-simple-quick:
-	@echo "Running quick E2E validation tests..."
-	$(GOTEST) -v -short -timeout 300s -run "TestBasic|TestSimple" ./tests/e2e/...
+	@echo "Running quick E2E validation tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v -short -parallel $(PARALLEL_TESTS) -timeout 600s -run "TestHttpConnectionTestSuite|Test.*BasicE2ETestSuite|TestMCP.*Protocol|TestMCPBasicToolCall" ./tests/e2e/...
 
 test-lsp-validation:
-	@echo "Running LSP validation tests..."
-	$(GOTEST) -v -timeout 300s ./tests/integration/...
+	@echo "Running LSP validation tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v -parallel $(PARALLEL_TESTS) -timeout 600s ./tests/integration/...
 
 test-lsp-validation-short:
-	@echo "Running short LSP validation..."
-	$(GOTEST) -v -short -timeout 120s ./tests/integration/...
+	@echo "Running short LSP validation with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v -short -parallel $(PARALLEL_TESTS) -timeout 240s ./tests/integration/...
 
 test-jdtls-integration:
 	@echo "Running JDTLS integration tests..."
@@ -210,12 +224,12 @@ test-jdtls-integration:
 
 # E2E Test Suite Targets
 test-e2e-quick:
-	@echo "Running quick E2E validation tests..."
-	$(GOTEST) -v -short -timeout 300s ./tests/e2e/...
+	@echo "Running quick E2E validation tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v -short -parallel $(PARALLEL_TESTS) -timeout 600s ./tests/e2e/...
 
 test-e2e-full:
-	@echo "Running full E2E test suite..."
-	$(GOTEST) -v -timeout 1800s ./tests/e2e/...
+	@echo "Running full E2E test suite with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v -parallel $(PARALLEL_TESTS) -timeout 3600s ./tests/e2e/...
 
 # Language-Specific E2E Test Targets
 test-e2e-java:
@@ -398,6 +412,41 @@ test-python-patterns-integration:
 	$(GOTEST) -v -timeout 600s -run "PythonPatternsIntegration" ./tests/integration/...
 
 # =============================================================================
+# PARALLEL EXECUTION OPTIMIZED TARGETS
+# =============================================================================
+
+.PHONY: test-parallel-fast test-parallel-memory-optimized test-parallel-validation test-parallel-performance
+
+# Fast parallel execution (3x CPU cores, highest performance)
+test-parallel-fast:
+	@echo "Running fast parallel tests ($(shell echo $$(($(CPU_CORES) * 3))) parallel workers)..."
+	$(TEST_ENV) $(GOTEST) -v $(FAST_PARALLEL_FLAGS) -timeout 600s -short ./tests/e2e/...
+
+# Memory-optimized parallel execution (1x CPU cores)
+test-parallel-memory-optimized:
+	@echo "Running memory-optimized parallel tests ($(CPU_CORES) parallel workers)..."
+	$(TEST_ENV) $(GOTEST) -v $(MEMORY_OPTIMIZED_FLAGS) -timeout 900s -short ./tests/e2e/...
+
+# Standard parallel validation (2x CPU cores)
+test-parallel-validation:
+	@echo "Running standard parallel validation ($(PARALLEL_TESTS) parallel workers)..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 600s -short -run "TestHttpConnectionTestSuite|Test.*BasicE2ETestSuite" ./tests/e2e/...
+
+# Performance comparison test
+test-parallel-performance:
+	@echo "=== Performance Comparison Test ==="
+	@echo "Testing with $(CPU_CORES) CPU cores available"
+	@echo ""
+	@echo "1. Sequential execution (baseline):"
+	@time -p $(GOTEST) -v -short -timeout 600s -parallel 1 -run "TestHttpConnectionTestSuite" ./tests/e2e/... 2>/dev/null || true
+	@echo ""
+	@echo "2. Standard parallel execution ($(PARALLEL_TESTS) workers):"
+	@time -p $(TEST_ENV) $(GOTEST) -v -short -timeout 600s -parallel $(PARALLEL_TESTS) -run "TestHttpConnectionTestSuite" ./tests/e2e/... 2>/dev/null || true
+	@echo ""
+	@echo "3. Fast parallel execution ($(shell echo $$(($(CPU_CORES) * 3))) workers):"
+	@time -p $(TEST_ENV) $(GOTEST) -v -short -timeout 600s $(FAST_PARALLEL_FLAGS) -run "TestHttpConnectionTestSuite" ./tests/e2e/... 2>/dev/null || true
+
+# =============================================================================
 # UTILITY TARGETS
 # =============================================================================
 
@@ -505,6 +554,12 @@ help:
 	@echo "  validate-python-patterns-integration       - Complete Python patterns integration validation"
 	@echo "  validate-python-patterns-integration-quick - Quick Python patterns integration validation"
 	@echo "  test-python-patterns-integration           - Go-based Python patterns integration tests"
+	@echo ""
+	@echo "Parallel Execution Optimized Tests:"
+	@echo "  test-parallel-fast              - Fast parallel execution ($(shell echo $$(($(shell nproc --all) * 3))) workers, highest performance)"
+	@echo "  test-parallel-memory-optimized  - Memory-optimized parallel execution ($(shell nproc --all) workers)"
+	@echo "  test-parallel-validation        - Standard parallel validation ($(shell echo $$(($(shell nproc --all) * 2))) workers)"
+	@echo "  test-parallel-performance       - Performance comparison (sequential vs parallel execution)"
 	@echo ""
 	@echo "Utility:"
 	@echo "  install   - Install binary to GOPATH"

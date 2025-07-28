@@ -88,8 +88,9 @@ smart_router_config:
 		}
 	}()
 	
-	// Wait for gateway to start
-	time.Sleep(3 * time.Second)
+	// Wait for gateway to be ready
+	err = testutils.WaitForServerReady(gatewayURL)
+	require.NoError(t, err, "Gateway server failed to become ready")
 	
 	// Start MCP server via STDIO (default transport)
 	cmd := exec.Command(binaryPath, "mcp", "--gateway", gatewayURL)
@@ -214,8 +215,9 @@ smart_router_config:
 		}
 	}()
 	
-	// Wait for gateway to start
-	time.Sleep(3 * time.Second)
+	// Wait for gateway to be ready
+	err = testutils.WaitForServerReady(gatewayURL)
+	require.NoError(t, err, "Gateway server failed to become ready")
 	
 	// Start MCP server via TCP
 	cmd := exec.Command(binaryPath, "mcp", "--transport", "tcp", "--port", strconv.Itoa(mcpPort), "--gateway", gatewayURL)
@@ -243,8 +245,21 @@ smart_router_config:
 		}
 	}()
 
-	// Wait for server to start (increase timeout for TCP)
-	time.Sleep(5 * time.Second)
+	// Wait for MCP TCP server to be ready
+	config := testutils.DefaultPollingConfig()
+	config.Timeout = 15 * time.Second
+	
+	condition := func() (bool, error) {
+		conn, err := net.DialTimeout("tcp", fmt.Sprintf("localhost:%d", mcpPort), 2*time.Second)
+		if err != nil {
+			return false, nil // Not ready yet
+		}
+		conn.Close()
+		return true, nil
+	}
+	
+	err = testutils.WaitForCondition(condition, config, "MCP TCP server to be available")
+	require.NoError(t, err, "MCP TCP server failed to become ready")
 
 	// Connect to MCP TCP server
 	conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", mcpPort))
@@ -339,8 +354,9 @@ smart_router_config:
 		}
 	}()
 	
-	// Wait for gateway to start
-	time.Sleep(3 * time.Second)
+	// Wait for gateway to be ready
+	err = testutils.WaitForServerReady(gatewayURL)
+	require.NoError(t, err, "Gateway server failed to become ready")
 	
 	// Start MCP server
 	cmd := exec.Command(binaryPath, "mcp", "--gateway", gatewayURL)
@@ -466,8 +482,9 @@ func main() {
 		}
 	}()
 	
-	// Wait for gateway to start
-	time.Sleep(3 * time.Second)
+	// Wait for gateway to be ready
+	err = testutils.WaitForServerReady(gatewayURL)
+	require.NoError(t, err, "Gateway server failed to become ready")
 	
 	// Start MCP server
 	cmd := exec.Command(binaryPath, "mcp", "--gateway", gatewayURL)

@@ -27,7 +27,7 @@ type LSPEdgeCasesTestSuite struct {
 }
 
 func (suite *LSPEdgeCasesTestSuite) SetupSuite() {
-	suite.testTimeout = 60 * time.Second
+	suite.testTimeout = 15 * time.Second
 	
 	var err error
 	suite.projectRoot, err = testutils.GetProjectRoot()
@@ -45,7 +45,7 @@ func (suite *LSPEdgeCasesTestSuite) SetupSuite() {
 func (suite *LSPEdgeCasesTestSuite) SetupTest() {
 	config := testutils.HttpClientConfig{
 		BaseURL:         fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
-		Timeout:         10 * time.Second,
+		Timeout:         3 * time.Second,
 		MaxRetries:      2,
 		RetryDelay:      200 * time.Millisecond,
 		EnableLogging:   true,

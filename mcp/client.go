@@ -275,7 +275,7 @@ func (c *LSPGatewayClient) sendSingleRequest(ctx context.Context, request JSONRP
 	httpReq.Header.Set("Accept", transport.HTTP_CONTENT_TYPE_JSON)
 	httpReq.Header.Set("User-Agent", "LSP-Gateway-MCP-Client/1.0")
 	httpReq.Header.Set("Content-Length", strconv.Itoa(len(requestBody)))
-	httpReq.Header.Set(HTTP_HEADER_MCP_PROTOCOL_VERSION, ProtocolVersion)
+	httpReq.Header.Set(HTTP_HEADER_MCP_PROTOCOL_VERSION, DefaultProtocolVersion)
 
 	requestID := fmt.Sprintf("%v", request.ID)
 	httpReq.Header.Set("X-Request-ID", requestID)

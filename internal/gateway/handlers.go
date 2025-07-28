@@ -913,6 +913,11 @@ func (g *Gateway) HandleJSONRPC(w http.ResponseWriter, r *http.Request) {
 		requestLogger = requestLogger.WithField("lsp_method", req.Method)
 	}
 
+	// Validate LSP-specific parameters
+	if !g.validateLSPParameters(w, req, requestLogger) {
+		return
+	}
+
 	serverName, ok := g.handleRequestRouting(w, req, requestLogger)
 	if !ok {
 		return
@@ -1497,6 +1502,262 @@ func (g *Gateway) parseAndValidateJSONRPC(w http.ResponseWriter, r *http.Request
 	}
 
 	return req, true
+}
+
+// validateLSPParameters validates LSP-specific parameters according to the LSP specification
+func (g *Gateway) validateLSPParameters(w http.ResponseWriter, req JSONRPCRequest, logger *mcp.StructuredLogger) bool {
+	if logger != nil {
+		logger.WithField("method", req.Method).Debug("Validating LSP parameters")
+	}
+	
+	switch req.Method {
+	case LSPMethodDefinition, LSPMethodHover, "textDocument/completion":
+		return g.validateTextDocumentPositionParams(w, req, logger)
+	case LSPMethodReferences:
+		return g.validateTextDocumentPositionParams(w, req, logger) && g.validateReferencesContext(w, req, logger)
+	case LSPMethodDocumentSymbol:
+		return g.validateTextDocumentParams(w, req, logger)
+	case LSPMethodWorkspaceSymbol:
+		return g.validateWorkspaceSymbolParams(w, req, logger)
+	}
+	
+	if logger != nil {
+		logger.WithField("method", req.Method).Debug("No validation required for method")
+	}
+	return true
+}
+
+// validateTextDocumentPositionParams validates parameters for position-based LSP requests
+func (g *Gateway) validateTextDocumentPositionParams(w http.ResponseWriter, req JSONRPCRequest, logger *mcp.StructuredLogger) bool {
+	if logger != nil {
+		logger.WithField("method", req.Method).Debug("Validating TextDocumentPositionParams")
+	}
+	
+	params, ok := req.Params.(map[string]interface{})
+	if !ok {
+		if logger != nil {
+			logger.WithField("params_type", fmt.Sprintf("%T", req.Params)).Error("Invalid params structure for TextDocumentPositionParams")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: expected object", fmt.Errorf("params must be an object"))
+		return false
+	}
+
+	// Validate textDocument parameter
+	if !g.validateTextDocumentParam(w, req, params, logger) {
+		return false
+	}
+
+	// Validate position parameter
+	position, exists := params["position"]
+	if !exists {
+		if logger != nil {
+			logger.Error("Missing position parameter")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: missing position", fmt.Errorf("position parameter is required"))
+		return false
+	}
+
+	if logger != nil {
+		logger.WithField("position", position).Debug("Found position parameter")
+	}
+
+	posMap, ok := position.(map[string]interface{})
+	if !ok {
+		if logger != nil {
+			logger.WithField("position_type", fmt.Sprintf("%T", position)).Error("Invalid position parameter structure")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: position must be an object", fmt.Errorf("position must be an object"))
+		return false
+	}
+
+	// Validate line field
+	line, exists := posMap["line"]
+	if !exists {
+		if logger != nil {
+			logger.Error("Missing line field in position")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: position missing line field", fmt.Errorf("position.line is required"))
+		return false
+	}
+
+	lineNum, ok := line.(float64)
+	if !ok {
+		if logger != nil {
+			logger.Error("Invalid line field type in position")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: position.line must be a number", fmt.Errorf("position.line must be a number"))
+		return false
+	}
+
+	if lineNum < 0 {
+		if logger != nil {
+			logger.WithField("line", lineNum).Error("Invalid line field value in position")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: position.line must be non-negative", fmt.Errorf("position.line must be >= 0, got %v", lineNum))
+		return false
+	}
+
+	// Validate character field
+	character, exists := posMap["character"]
+	if !exists {
+		if logger != nil {
+			logger.Error("Missing character field in position")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: position missing character field", fmt.Errorf("position.character is required"))
+		return false
+	}
+
+	charNum, ok := character.(float64)
+	if !ok {
+		if logger != nil {
+			logger.Error("Invalid character field type in position")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: position.character must be a number", fmt.Errorf("position.character must be a number"))
+		return false
+	}
+
+	if charNum < 0 {
+		if logger != nil {
+			logger.WithField("character", charNum).Error("Invalid character field value in position")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: position.character must be non-negative", fmt.Errorf("position.character must be >= 0, got %v", charNum))
+		return false
+	}
+
+	return true
+}
+
+// validateTextDocumentParams validates parameters for document-based LSP requests
+func (g *Gateway) validateTextDocumentParams(w http.ResponseWriter, req JSONRPCRequest, logger *mcp.StructuredLogger) bool {
+	params, ok := req.Params.(map[string]interface{})
+	if !ok {
+		if logger != nil {
+			logger.Error("Invalid params structure for TextDocumentParams")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: expected object", fmt.Errorf("params must be an object"))
+		return false
+	}
+
+	return g.validateTextDocumentParam(w, req, params, logger)
+}
+
+// validateTextDocumentParam validates the textDocument parameter common to many LSP requests
+func (g *Gateway) validateTextDocumentParam(w http.ResponseWriter, req JSONRPCRequest, params map[string]interface{}, logger *mcp.StructuredLogger) bool {
+	textDoc, exists := params["textDocument"]
+	if !exists {
+		if logger != nil {
+			logger.Error("Missing textDocument parameter")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: missing textDocument", fmt.Errorf("textDocument parameter is required"))
+		return false
+	}
+
+	textDocMap, ok := textDoc.(map[string]interface{})
+	if !ok {
+		if logger != nil {
+			logger.Error("Invalid textDocument parameter structure")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: textDocument must be an object", fmt.Errorf("textDocument must be an object"))
+		return false
+	}
+
+	uri, exists := textDocMap["uri"]
+	if !exists {
+		if logger != nil {
+			logger.Error("Missing uri field in textDocument")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: textDocument missing uri field", fmt.Errorf("textDocument.uri is required"))
+		return false
+	}
+
+	uriStr, ok := uri.(string)
+	if !ok {
+		if logger != nil {
+			logger.Error("Invalid uri field type in textDocument")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: textDocument.uri must be a string", fmt.Errorf("textDocument.uri must be a string"))
+		return false
+	}
+
+	if !strings.HasPrefix(uriStr, "file://") {
+		if logger != nil {
+			logger.WithField("uri", uriStr).Error("Invalid uri format in textDocument")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: textDocument.uri must be a file URI", fmt.Errorf("textDocument.uri must start with 'file://', got %s", uriStr))
+		return false
+	}
+
+	return true
+}
+
+// validateReferencesContext validates the context parameter for references requests
+func (g *Gateway) validateReferencesContext(w http.ResponseWriter, req JSONRPCRequest, logger *mcp.StructuredLogger) bool {
+	params, ok := req.Params.(map[string]interface{})
+	if !ok {
+		return true // Already validated in validateTextDocumentPositionParams
+	}
+
+	context, exists := params["context"]
+	if !exists {
+		if logger != nil {
+			logger.Error("Missing context parameter for references request")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: missing context", fmt.Errorf("context parameter is required for references"))
+		return false
+	}
+
+	contextMap, ok := context.(map[string]interface{})
+	if !ok {
+		if logger != nil {
+			logger.Error("Invalid context parameter structure")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: context must be an object", fmt.Errorf("context must be an object"))
+		return false
+	}
+
+	includeDeclaration, exists := contextMap["includeDeclaration"]
+	if exists {
+		if _, ok := includeDeclaration.(bool); !ok {
+			if logger != nil {
+				logger.Error("Invalid includeDeclaration field type in context")
+			}
+			g.writeError(w, req.ID, InvalidParams, "Invalid parameters: context.includeDeclaration must be a boolean", fmt.Errorf("context.includeDeclaration must be a boolean"))
+			return false
+		}
+	}
+
+	return true
+}
+
+// validateWorkspaceSymbolParams validates parameters for workspace symbol requests
+func (g *Gateway) validateWorkspaceSymbolParams(w http.ResponseWriter, req JSONRPCRequest, logger *mcp.StructuredLogger) bool {
+	params, ok := req.Params.(map[string]interface{})
+	if !ok {
+		if logger != nil {
+			logger.Error("Invalid params structure for WorkspaceSymbolParams")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: expected object", fmt.Errorf("params must be an object"))
+		return false
+	}
+
+	query, exists := params["query"]
+	if !exists {
+		if logger != nil {
+			logger.Error("Missing query parameter for workspace symbol request")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: missing query", fmt.Errorf("query parameter is required"))
+		return false
+	}
+
+	if _, ok := query.(string); !ok {
+		if logger != nil {
+			logger.Error("Invalid query parameter type")
+		}
+		g.writeError(w, req.ID, InvalidParams, "Invalid parameters: query must be a string", fmt.Errorf("query must be a string"))
+		return false
+	}
+
+	return true
 }
 
 func (g *Gateway) handleRequestRouting(w http.ResponseWriter, req JSONRPCRequest, logger *mcp.StructuredLogger) (string, bool) {

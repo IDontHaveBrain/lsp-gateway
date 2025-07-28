@@ -18,7 +18,7 @@ import (
 
 const (
 	JSONRPCFieldName           = "jsonrpc"
-	ProtocolVersion            = "2025-06-18"
+	DefaultProtocolVersion     = "2025-06-18"
 	MCPLogPrefix               = "[MCP] "
 	ContentTypeApplicationJSON = "application/json"
 	ContentLengthHeader        = "Content-Length"
@@ -99,6 +99,11 @@ const (
 )
 
 const (
+	JSONRPCErrorCodeUnsupportedVersion = -32001
+	JSONRPCErrorMessageUnsupportedVersion = "Unsupported protocol version"
+)
+
+const (
 	MCPValidationValueRequestAndResponse    = "request_and_response"
 	MCPValidationValueNeitherRequestNorResp = "neither_request_nor_response"
 )
@@ -160,6 +165,49 @@ type RecoveryContext struct {
 	recoveryStart  time.Time
 }
 
+// ProtocolFormat represents the detected message format
+type ProtocolFormat int
+
+const (
+	ProtocolFormatUnknown ProtocolFormat = iota
+	ProtocolFormatJSON    // Direct JSON (Claude Code format)
+	ProtocolFormatLSP     // LSP Content-Length format
+)
+
+func (pf ProtocolFormat) String() string {
+	switch pf {
+	case ProtocolFormatJSON:
+		return "JSON"
+	case ProtocolFormatLSP:
+		return "LSP"
+	default:
+		return "Unknown"
+	}
+}
+
+// ConnectionContext holds per-connection protocol state
+type ConnectionContext struct {
+	mu             sync.RWMutex
+	protocolFormat ProtocolFormat
+	detected       bool
+	buffer         []byte
+}
+
+// SetProtocolFormat safely sets the protocol format for this connection
+func (cc *ConnectionContext) SetProtocolFormat(format ProtocolFormat) {
+	cc.mu.Lock()
+	defer cc.mu.Unlock()
+	cc.protocolFormat = format
+	cc.detected = true
+}
+
+// GetProtocolFormat safely gets the protocol format for this connection
+func (cc *ConnectionContext) GetProtocolFormat() (ProtocolFormat, bool) {
+	cc.mu.RLock()
+	defer cc.mu.RUnlock()
+	return cc.protocolFormat, cc.detected
+}
+
 type Server struct {
 	Config      *ServerConfig
 	Client      *LSPGatewayClient
@@ -179,8 +227,12 @@ type Server struct {
 	ProtocolLimits  *ProtocolConstants
 	RecoveryContext *RecoveryContext
 	
-	// Track protocol format for responses
-	useDirectJSON bool
+	// Per-connection protocol context (thread-safe)
+	connContext *ConnectionContext
+	
+	// Track negotiated protocol version
+	negotiatedVersionMu sync.RWMutex
+	negotiatedVersion   string
 }
 
 func NewServer(config *ServerConfig) *Server {
@@ -214,6 +266,7 @@ func NewServer(config *ServerConfig) *Server {
 		Logger:          log.New(os.Stderr, MCPLogPrefix, log.LstdFlags|log.Lshortfile),
 		ProtocolLimits:  protocolLimits,
 		RecoveryContext: &RecoveryContext{},
+		connContext:     &ConnectionContext{},
 	}
 }
 
@@ -253,6 +306,7 @@ func NewServerWithDirectLSP(config *ServerConfig, directLSPManager *DirectLSPMan
 		Logger:          log.New(os.Stderr, MCPLogPrefix, log.LstdFlags|log.Lshortfile),
 		ProtocolLimits:  protocolLimits,
 		RecoveryContext: &RecoveryContext{},
+		connContext:     &ConnectionContext{},
 	}, nil
 }
 
@@ -352,6 +406,13 @@ func (s *Server) SetInitializationState(newState InitializationState) error {
 
 	oldState := s.initState
 	s.initState = newState
+	
+	// Reset negotiated version when transitioning to NotInitialized
+	if newState == NotInitialized {
+		s.setNegotiatedVersion("")
+		s.Logger.Printf("Protocol version negotiation reset due to state transition: %s -> %s", oldState, newState)
+	}
+	
 	s.logInitializationStateChange(oldState, newState, "")
 	return nil
 }
@@ -422,6 +483,10 @@ func (s *Server) Stop() error {
 			}
 		}
 	}
+	
+	// Reset negotiated version
+	s.setNegotiatedVersion("")
+	s.Logger.Printf("Protocol version negotiation reset on server stop")
 	
 	s.initStateMu.Lock()
 	oldState := s.initState
@@ -520,42 +585,158 @@ func (s *Server) messageLoop() {
 }
 
 func (s *Server) ReadMessageWithRecovery(ctx context.Context, reader *bufio.Reader) (string, error) {
-	// Peek at the first byte to determine protocol format
-	firstByte, err := reader.Peek(1)
+	return s.readMessageWithProtocolDetection(ctx, reader)
+}
+
+// readMessageWithProtocolDetection implements robust protocol detection with state machine
+func (s *Server) readMessageWithProtocolDetection(ctx context.Context, reader *bufio.Reader) (string, error) {
+	// Check if protocol is already detected for this connection
+	if format, detected := s.connContext.GetProtocolFormat(); detected {
+		switch format {
+		case ProtocolFormatJSON:
+			return s.readJSONMessage(ctx, reader)
+		case ProtocolFormatLSP:
+			return s.readLSPMessage(ctx, reader)
+		default:
+			return "", fmt.Errorf("invalid protocol format: %v", format)
+		}
+	}
+
+	// Protocol not detected yet - perform detection with timeout
+	detectionCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	return s.detectAndReadMessage(detectionCtx, reader)
+}
+
+// detectAndReadMessage performs protocol detection and reads the first message
+func (s *Server) detectAndReadMessage(ctx context.Context, reader *bufio.Reader) (string, error) {
+	// Buffer for protocol detection - peek more bytes for reliable detection
+	peekSize := 32
+	headerBuffer, err := s.peekWithTimeout(ctx, reader, peekSize)
 	if err != nil {
 		if err == io.EOF {
 			return "", err
 		}
-		return "", fmt.Errorf("failed to peek at first byte: %w", err)
+		return "", fmt.Errorf("failed to peek for protocol detection: %w", err)
 	}
 
-	// Check if this is direct JSON (Claude Code format)
-	if len(firstByte) > 0 && firstByte[0] == '{' {
-		// Read the entire JSON line
-		line, err := s.readLineWithContext(ctx, reader)
-		if err != nil {
-			return "", fmt.Errorf("failed to read JSON line: %w", err)
-		}
-
-		line = strings.TrimSpace(line)
-		if !utf8.ValidString(line) {
-			return "", fmt.Errorf("invalid UTF-8 encoding in JSON message")
-		}
-
-		if len(line) > s.ProtocolLimits.MaxMessageSize {
-			return "", fmt.Errorf("message size too large: %d bytes (max %d)", len(line), s.ProtocolLimits.MaxMessageSize)
-		}
-
-		s.Logger.Printf("Received direct JSON message (Claude Code format): %d bytes", len(line))
-		s.useDirectJSON = true  // Remember to use direct JSON for responses
-		return line, nil
+	// Detect protocol format based on header content
+	format, err := s.detectProtocolFormat(headerBuffer)
+	if err != nil {
+		return "", fmt.Errorf("protocol detection failed: %w", err)
 	}
 
-	// Standard LSP protocol with Content-Length headers
+	// Set detected protocol format for this connection
+	s.connContext.SetProtocolFormat(format)
+	s.Logger.Printf("Detected protocol format: %s", format)
+
+	// Read message using detected format
+	switch format {
+	case ProtocolFormatJSON:
+		return s.readJSONMessage(ctx, reader)
+	case ProtocolFormatLSP:
+		return s.readLSPMessage(ctx, reader)
+	default:
+		return "", fmt.Errorf("unsupported protocol format: %v", format)
+	}
+}
+
+// peekWithTimeout safely peeks data with context timeout
+func (s *Server) peekWithTimeout(ctx context.Context, reader *bufio.Reader, size int) ([]byte, error) {
+	type result struct {
+		data []byte
+		err  error
+	}
+
+	ch := make(chan result, 1)
+	go func() {
+		data, err := reader.Peek(size)
+		ch <- result{data: data, err: err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("peek timeout: %w", ctx.Err())
+	case res := <-ch:
+		return res.data, res.err
+	}
+}
+
+// detectProtocolFormat analyzes header data to determine protocol format
+func (s *Server) detectProtocolFormat(headerData []byte) (ProtocolFormat, error) {
+	if len(headerData) == 0 {
+		return ProtocolFormatUnknown, fmt.Errorf("no data available for protocol detection")
+	}
+
+	// Convert to string for analysis
+	headerStr := string(headerData)
+	
+	// Check for JSON format: starts with '{' and contains valid JSON structure
+	if headerData[0] == '{' {
+		// Additional validation: check if it looks like valid JSON start
+		if strings.Contains(headerStr[:min(len(headerStr), 20)], "\"jsonrpc\"") ||
+		   strings.Contains(headerStr[:min(len(headerStr), 20)], "\"method\"") ||
+		   strings.Contains(headerStr[:min(len(headerStr), 20)], "\"id\"") {
+			return ProtocolFormatJSON, nil
+		}
+	}
+
+	// Check for LSP Content-Length format
+	headerLower := strings.ToLower(headerStr)
+	if strings.HasPrefix(headerLower, "content-length:") {
+		return ProtocolFormatLSP, nil
+	}
+
+	// Look for Content-Length anywhere in the first few bytes (case insensitive)
+	if strings.Contains(headerLower, "content-length:") {
+		return ProtocolFormatLSP, nil
+	}
+
+	// If starts with printable ASCII and no clear JSON markers, likely LSP
+	if headerData[0] >= 32 && headerData[0] <= 126 && headerData[0] != '{' {
+		// Check if it looks like HTTP-style headers
+		if strings.Contains(headerStr, ":") {
+			return ProtocolFormatLSP, nil
+		}
+	}
+
+	// Default to JSON if data starts with '{' but no clear validation
+	if headerData[0] == '{' {
+		return ProtocolFormatJSON, nil
+	}
+
+	return ProtocolFormatUnknown, fmt.Errorf("unable to detect protocol format from header: %q", 
+		string(headerData[:min(len(headerData), 16)]))
+}
+
+// readJSONMessage reads a direct JSON message (Claude Code format)
+func (s *Server) readJSONMessage(ctx context.Context, reader *bufio.Reader) (string, error) {
+	line, err := s.readLineWithContext(ctx, reader)
+	if err != nil {
+		return "", fmt.Errorf("failed to read JSON line: %w", err)
+	}
+
+	line = strings.TrimSpace(line)
+	if !utf8.ValidString(line) {
+		return "", fmt.Errorf("invalid UTF-8 encoding in JSON message")
+	}
+
+	if len(line) > s.ProtocolLimits.MaxMessageSize {
+		return "", fmt.Errorf("message size too large: %d bytes (max %d)", len(line), s.ProtocolLimits.MaxMessageSize)
+	}
+
+	s.Logger.Printf("Received direct JSON message: %d bytes", len(line))
+	return line, nil
+}
+
+// readLSPMessage reads an LSP Content-Length format message
+func (s *Server) readLSPMessage(ctx context.Context, reader *bufio.Reader) (string, error) {
 	var contentLength int
 	headerLines := 0
 	headerSize := 0
 
+	// Read headers
 	for {
 		headerLines++
 		if headerLines > s.ProtocolLimits.MaxHeaderLines {
@@ -613,6 +794,7 @@ func (s *Server) ReadMessageWithRecovery(ctx context.Context, reader *bufio.Read
 		return "", fmt.Errorf("missing or zero %s header", ContentLengthHeader)
 	}
 
+	// Read message content
 	content := make([]byte, contentLength)
 	n, err := s.readFullWithContext(ctx, reader, content)
 	if err != nil {
@@ -630,7 +812,16 @@ func (s *Server) ReadMessageWithRecovery(ctx context.Context, reader *bufio.Read
 		return "", fmt.Errorf("invalid UTF-8 encoding in message content")
 	}
 
+	s.Logger.Printf("Received LSP Content-Length message: %d bytes", len(contentStr))
 	return contentStr, nil
+}
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func (s *Server) HandleMessageWithValidation(ctx context.Context, data string) error {
@@ -739,8 +930,17 @@ func (s *Server) SendMessage(msg MCPMessage) error {
 	default:
 	}
 
-	// If using direct JSON (Claude Code format), send JSON directly with newline
-	if s.useDirectJSON {
+	// Use per-connection protocol format for response formatting
+	format, detected := s.connContext.GetProtocolFormat()
+	if !detected {
+		// Default to LSP format if protocol not yet detected
+		format = ProtocolFormatLSP
+		s.Logger.Printf("Warning: Protocol format not detected, defaulting to LSP format")
+	}
+
+	switch format {
+	case ProtocolFormatJSON:
+		// Direct JSON (Claude Code format) - send JSON directly with newline
 		contentWithNewline := content + "\n"
 		if _, err := s.Output.Write([]byte(contentWithNewline)); err != nil {
 			if s.isConnectionError(err) {
@@ -750,7 +950,9 @@ func (s *Server) SendMessage(msg MCPMessage) error {
 			s.Logger.Printf("Failed to write JSON response: %v", err)
 			return fmt.Errorf("failed to write JSON: %w", err)
 		}
-	} else {
+		s.Logger.Printf("Sent JSON format message: id=%v, size=%d bytes", msg.ID, len(content))
+		
+	case ProtocolFormatLSP:
 		// Standard LSP protocol with Content-Length headers
 		header := ContentLengthHeader + ": " + strconv.Itoa(len(content)) + "\r\n\r\n"
 
@@ -771,9 +973,12 @@ func (s *Server) SendMessage(msg MCPMessage) error {
 			s.Logger.Printf("Failed to write response content: %v", err)
 			return fmt.Errorf("failed to write content: %w", err)
 		}
+		s.Logger.Printf("Sent LSP format message: id=%v, size=%d bytes", msg.ID, len(content))
+		
+	default:
+		return fmt.Errorf("unsupported protocol format for sending: %v", format)
 	}
 
-	s.Logger.Printf("Sent message: id=%v, size=%d bytes", msg.ID, len(content))
 	return nil
 }
 
@@ -1026,6 +1231,7 @@ func (s *Server) handleInitializeWithValidation(ctx context.Context, msg MCPMess
 			oldState := s.initState
 			s.initState = Failed
 			s.initStateMu.Unlock()
+			s.setNegotiatedVersion("") // Reset version on failure
 			s.logInitializationStateChange(oldState, Failed, "parameter marshaling failed")
 			return s.SendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, fmt.Sprintf("Failed to marshal initialize params: %v", err))
 		}
@@ -1034,17 +1240,31 @@ func (s *Server) handleInitializeWithValidation(ctx context.Context, msg MCPMess
 			oldState := s.initState
 			s.initState = Failed
 			s.initStateMu.Unlock()
+			s.setNegotiatedVersion("") // Reset version on failure
 			s.logInitializationStateChange(oldState, Failed, "parameter parsing failed")
 			return s.SendError(msg.ID, JSONRPCErrorCodeInvalidParams, JSONRPCErrorMessageInvalidParams, fmt.Sprintf("Failed to parse initialize params: %v", err))
 		}
 	}
 
-	if params.ProtocolVersion != "" && !IsCompatibleProtocolVersion(params.ProtocolVersion) {
-		s.Logger.Printf("Warning: Potentially incompatible protocol version: %s", params.ProtocolVersion)
+	// Perform protocol version negotiation
+	negotiatedVersion, err := s.negotiateProtocolVersion(params.ProtocolVersion)
+	if err != nil {
+		s.initStateMu.Lock()
+		oldState := s.initState
+		s.initState = Failed
+		s.initStateMu.Unlock()
+		s.setNegotiatedVersion("") // Reset version on failure
+		s.logInitializationStateChange(oldState, Failed, "protocol version negotiation failed")
+		s.Logger.Printf("Protocol version negotiation failed: client=%s, error=%v", params.ProtocolVersion, err)
+		return s.SendError(msg.ID, JSONRPCErrorCodeUnsupportedVersion, JSONRPCErrorMessageUnsupportedVersion, err.Error())
 	}
+	
+	// Store negotiated version
+	s.setNegotiatedVersion(negotiatedVersion)
+	s.Logger.Printf("Protocol version negotiation successful: client=%s, negotiated=%s", params.ProtocolVersion, negotiatedVersion)
 
 	result := InitializeResult{
-		ProtocolVersion: ProtocolVersion,
+		ProtocolVersion: negotiatedVersion,
 		Capabilities: map[string]interface{}{
 			"tools": map[string]interface{}{
 				"listChanged": false,
@@ -1062,6 +1282,7 @@ func (s *Server) handleInitializeWithValidation(ctx context.Context, msg MCPMess
 		failedOldState := s.initState
 		s.initState = Failed
 		s.initStateMu.Unlock()
+		s.setNegotiatedVersion("") // Reset version on failure
 		s.logInitializationStateChange(failedOldState, Failed, "state validation failed during completion")
 		return s.SendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, "Failed to complete initialization")
 	}
@@ -1148,21 +1369,103 @@ func (s *Server) handlePingWithValidation(ctx context.Context, msg MCPMessage) e
 	return s.SendResponse(msg.ID, result)
 }
 
-func IsCompatibleProtocolVersion(version string) bool {
-	compatibleVersions := []string{
-		ProtocolVersion,
-		"2024-11-05",
-		"2024-10-07",
-		"2024-09-01",
+// negotiateProtocolVersion performs MCP protocol version negotiation
+// Returns the best compatible version between client and server capabilities
+func (s *Server) negotiateProtocolVersion(clientVersion string) (string, error) {
+	// If client doesn't specify version, use default
+	if clientVersion == "" {
+		s.Logger.Printf("Client did not specify protocol version, using default: %s", DefaultProtocolVersion)
+		return DefaultProtocolVersion, nil
 	}
+	
+	// Get server supported versions in preference order (newest first)
+	supportedVersions := GetSupportedProtocolVersions()
+	
+	// Check if client version is directly supported
+	for _, serverVersion := range supportedVersions {
+		if clientVersion == serverVersion {
+			s.Logger.Printf("Exact version match found: %s", clientVersion)
+			return clientVersion, nil
+		}
+	}
+	
+	// Try to find compatible version using compatibility matrix
+	compatibleVersion := findCompatibleVersion(clientVersion, supportedVersions)
+	if compatibleVersion != "" {
+		s.Logger.Printf("Compatible version found: client=%s, server=%s", clientVersion, compatibleVersion)
+		return compatibleVersion, nil
+	}
+	
+	// No compatible version found
+	supportedStr := strings.Join(supportedVersions, ", ")
+	return "", fmt.Errorf("Client version '%s' is not compatible with server versions [%s]", clientVersion, supportedStr)
+}
 
-	for _, v := range compatibleVersions {
+// setNegotiatedVersion stores the negotiated protocol version thread-safely
+func (s *Server) setNegotiatedVersion(version string) {
+	s.negotiatedVersionMu.Lock()
+	defer s.negotiatedVersionMu.Unlock()
+	s.negotiatedVersion = version
+}
+
+// getNegotiatedVersion retrieves the negotiated protocol version thread-safely
+func (s *Server) getNegotiatedVersion() string {
+	s.negotiatedVersionMu.RLock()
+	defer s.negotiatedVersionMu.RUnlock()
+	if s.negotiatedVersion == "" {
+		return DefaultProtocolVersion
+	}
+	return s.negotiatedVersion
+}
+
+// GetSupportedProtocolVersions returns supported MCP protocol versions in preference order
+func GetSupportedProtocolVersions() []string {
+	return []string{
+		"2025-06-18", // Current default version
+		"2024-11-05", // Previous stable version
+		"2024-10-07", // Older stable version
+		"2024-09-01", // Legacy version
+	}
+}
+
+// findCompatibleVersion finds a compatible version using version compatibility matrix
+func findCompatibleVersion(clientVersion string, serverVersions []string) string {
+	// Version compatibility matrix - maps client versions to compatible server versions
+	compatibilityMatrix := map[string][]string{
+		"2025-06-18": {"2025-06-18", "2024-11-05"},
+		"2024-11-05": {"2025-06-18", "2024-11-05", "2024-10-07"},
+		"2024-10-07": {"2024-11-05", "2024-10-07", "2024-09-01"},
+		"2024-09-01": {"2024-10-07", "2024-09-01"},
+	}
+	
+	compatibleWithClient, exists := compatibilityMatrix[clientVersion]
+	if !exists {
+		return "" // Unknown client version
+	}
+	
+	// Find first server version that is compatible with client
+	for _, serverVersion := range serverVersions {
+		for _, compatibleVersion := range compatibleWithClient {
+			if serverVersion == compatibleVersion {
+				return serverVersion
+			}
+		}
+	}
+	
+	return "" // No compatible version found
+}
+
+func IsCompatibleProtocolVersion(version string) bool {
+	supportedVersions := GetSupportedProtocolVersions()
+	
+	for _, v := range supportedVersions {
 		if version == v {
 			return true
 		}
 	}
-
-	return false
+	
+	// Check compatibility matrix for indirect compatibility
+	return findCompatibleVersion(version, supportedVersions) != ""
 }
 
 func (s *Server) GetRecoveryMetrics() map[string]interface{} {
@@ -1176,6 +1479,19 @@ func (s *Server) GetRecoveryMetrics() map[string]interface{} {
 		"last_malformed":   s.RecoveryContext.lastMalformed,
 		"last_parse_error": s.RecoveryContext.lastParseError,
 		"recovery_start":   s.RecoveryContext.recoveryStart,
+	}
+}
+
+// GetVersionNegotiationInfo returns information about protocol version negotiation
+func (s *Server) GetVersionNegotiationInfo() map[string]interface{} {
+	negotiatedVersion := s.getNegotiatedVersion()
+	supportedVersions := GetSupportedProtocolVersions()
+	
+	return map[string]interface{}{
+		"negotiated_version": negotiatedVersion,
+		"supported_versions": supportedVersions,
+		"default_version":    DefaultProtocolVersion,
+		"is_negotiated":      negotiatedVersion != "" && negotiatedVersion != DefaultProtocolVersion,
 	}
 }
 

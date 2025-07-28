@@ -43,7 +43,7 @@ type TypeScriptRealClientComprehensiveE2ETestSuite struct {
 
 // SetupSuite initializes the comprehensive test suite for TypeScript using Microsoft TypeScript repository
 func (suite *TypeScriptRealClientComprehensiveE2ETestSuite) SetupSuite() {
-	suite.testTimeout = 15 * time.Minute
+	suite.testTimeout = 15 * time.Second
 	suite.testResults = make(map[string]*TestResult)
 	
 	var err error
@@ -82,9 +82,9 @@ func (suite *TypeScriptRealClientComprehensiveE2ETestSuite) SetupTest() {
 	// Configure HttpClient for comprehensive TypeScript testing
 	config := testutils.HttpClientConfig{
 		BaseURL:            fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
-		Timeout:            90 * time.Second,
+		Timeout:            5 * time.Second,
 		MaxRetries:         3,
-		RetryDelay:         5 * time.Second,
+		RetryDelay:         1 * time.Second,
 		EnableLogging:      true,
 		EnableRecording:    true,
 		WorkspaceID:        fmt.Sprintf("ts-comprehensive-test-%d", time.Now().UnixNano()),
@@ -92,7 +92,7 @@ func (suite *TypeScriptRealClientComprehensiveE2ETestSuite) SetupTest() {
 		UserAgent:          "LSP-Gateway-TypeScript-Comprehensive-E2E/1.0",
 		MaxResponseSize:    100 * 1024 * 1024,
 		ConnectionPoolSize: 20,
-		KeepAlive:          120 * time.Second,
+		KeepAlive:          30 * time.Second,
 	}
 
 	suite.httpClient = testutils.NewHttpClient(config)
@@ -558,15 +558,16 @@ func (suite *TypeScriptRealClientComprehensiveE2ETestSuite) stopGatewayServer() 
 }
 
 func (suite *TypeScriptRealClientComprehensiveE2ETestSuite) waitForServerReadiness() {
-	maxRetries := 90
-	for i := 0; i < maxRetries; i++ {
-		if suite.checkServerHealth() {
-			suite.T().Logf("Server ready after %d seconds", i+1)
-			return
-		}
-		time.Sleep(2 * time.Second)
+	config := testutils.DefaultPollingConfig()
+	config.Timeout = 180 * time.Second // Keep original 90 * 2s = 180s timeout
+	config.Interval = 2 * time.Second // Keep original interval
+	
+	condition := func() (bool, error) {
+		return suite.checkServerHealth(), nil
 	}
-	suite.Require().Fail("Server failed to become ready within timeout")
+	
+	err := testutils.WaitForCondition(condition, config, "server to be ready")
+	suite.Require().NoError(err, "Server failed to become ready within timeout")
 }
 
 func (suite *TypeScriptRealClientComprehensiveE2ETestSuite) checkServerHealth() bool {
@@ -574,7 +575,7 @@ func (suite *TypeScriptRealClientComprehensiveE2ETestSuite) checkServerHealth() 
 		return false
 	}
 	
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	
 	err := suite.httpClient.HealthCheck(ctx)
