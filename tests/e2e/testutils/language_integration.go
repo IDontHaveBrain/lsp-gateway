@@ -144,7 +144,7 @@ func SetupLanguageTestEnvironment(language string, scenario LanguageTestScenario
 	// Create configuration
 	options := DefaultLanguageConfigOptions(language)
 	options.ConfigType = scenario.ConfigType
-	options.Port = scenario.Port
+	options.TestPort = scenario.Port
 	
 	// Add scenario-specific variables
 	if options.CustomVariables == nil {

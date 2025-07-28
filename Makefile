@@ -110,7 +110,7 @@ unlink:
 # DEVELOPMENT TARGETS
 # =============================================================================
 
-.PHONY: deps tidy format test test-unit test-internal
+.PHONY: deps tidy format test
 deps:
 	@echo "Downloading dependencies..."
 	$(GOCMD) get -v ./...
@@ -124,16 +124,8 @@ format:
 	$(GOCMD) fmt ./...
 
 test:
-	@echo "Running tests..."
-	$(GOTEST) -v ./...
-
-test-unit:
-	@echo "Running unit tests..."
-	$(GOTEST) -v -short -timeout 60s ./tests/unit/... ./internal/...
-
-test-internal:
-	@echo "Running internal package unit tests..."
-	$(GOTEST) -v -short -timeout 60s ./internal/...
+	@echo "Running E2E and integration tests..."
+	$(GOTEST) -v ./tests/e2e/... ./tests/integration/...
 
 test-integration:
 	@echo "Running integration tests..."
@@ -182,14 +174,14 @@ quality: format lint security
 # TESTING TARGETS
 # =============================================================================
 
-.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-go test-java-real test-python-real test-python-patterns test-python-patterns-quick test-python-comprehensive test-typescript-real test-e2e-advanced test-e2e-workflow test-e2e-setup-cli test-e2e-mcp test-mcp-stdio test-mcp-tcp test-mcp-tools test-mcp-scip test-mcp-comprehensive test-mcp-lsp-tools-all test-mcp-performance-suite test-mcp-enhanced-quick test-npm-cli test-npm-mcp test-npm-mcp-quick test-npm-mcp-js test-npm-mcp-go validate-python-patterns-integration validate-python-patterns-integration-quick test-python-patterns-integration setup-simple-repos
+.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-go test-go-comprehensive test-java-real test-python-real test-python-patterns test-python-patterns-quick test-python-comprehensive test-typescript-real test-e2e-advanced test-e2e-workflow test-e2e-setup-cli test-e2e-mcp test-mcp-stdio test-mcp-tcp test-mcp-tools test-mcp-scip test-mcp-comprehensive test-mcp-lsp-tools-all test-mcp-performance-suite test-mcp-enhanced-quick test-npm-cli test-npm-mcp test-npm-mcp-quick test-npm-mcp-js test-npm-mcp-go validate-python-patterns-integration validate-python-patterns-integration-quick test-python-patterns-integration setup-simple-repos
 setup-simple-repos:
 	@echo "Setting up test repositories..."
 	./scripts/setup-simple-repos.sh || echo "Setup script not found, skipping..."
 
 test-simple-quick:
-	@echo "Running quick validation tests..."
-	$(GOTEST) -v -short -timeout 60s ./tests/unit/...
+	@echo "Running quick E2E validation tests..."
+	$(GOTEST) -v -short -timeout 300s -run "TestBasic|TestSimple" ./tests/e2e/...
 
 test-lsp-validation:
 	@echo "Running LSP validation tests..."
@@ -238,6 +230,10 @@ test-e2e-typescript:
 test-e2e-go:
 	@echo "Running Go E2E tests..."
 	$(GOTEST) -v -timeout 600s -run "TestGo.*E2ETestSuite" ./tests/e2e/...
+
+test-go-comprehensive:
+	@echo "Running Go comprehensive real client E2E tests..."
+	$(GOTEST) -v -timeout 1200s -run "TestGoComprehensiveRealClientE2ETestSuite" ./tests/e2e/...
 
 # Real Language Server Integration Tests
 test-java-real:

@@ -59,7 +59,7 @@ func NewGenericRepoManager(config GenericRepoConfig) *GenericRepoManager {
 	}
 
 	if config.TargetDir == "" {
-		uniqueID := generateUniqueID()
+		uniqueID := fmt.Sprintf("%d", time.Now().UnixNano())
 		config.TargetDir = filepath.Join("/tmp", fmt.Sprintf("lspg-%s-e2e-tests", config.LanguageConfig.Language), uniqueID)
 	}
 

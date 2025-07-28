@@ -1,4 +1,4 @@
-package helpers
+package e2e_test
 
 import (
 	"fmt"

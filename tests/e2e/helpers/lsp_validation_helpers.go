@@ -1,4 +1,4 @@
-package helpers
+package e2e_test
 
 import (
 	"fmt"
@@ -8,7 +8,6 @@ import (
 	"lsp-gateway/tests/e2e/fixtures"
 	"lsp-gateway/tests/e2e/testutils"
 
-	"github.com/stretchr/testify/assert"
 )
 
 // LSPValidationContext provides context for LSP response validation

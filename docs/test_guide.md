@@ -71,7 +71,7 @@ make test-config-integration # Configuration validation
 **Coverage**: 
 - All 6 supported LSP methods (definition, references, hover, documentSymbol, workspaceSymbol, completion)
 - Multi-language support (Python, Go, JavaScript, Java, Rust)
-- Real repository testing with modular repository management system
+- Real repository testing with unified testutils repository management system
 - Performance validation under realistic conditions
 
 **Key Test Suites:**
@@ -91,27 +91,80 @@ make test-config-integration # Configuration validation
 - Transport layer validation
 - Error handling and recovery
 
-## Modular Repository Management
+## Unified Repository Management System
 
-**Multi-Language E2E Testing System:**
+**testutils Package - Common Repository Management:**
 
-The modular repository system enables consistent testing across programming languages:
+The `tests/e2e/testutils` package provides a unified repository management system for all language testing:
 
-```bash
-# Language-specific repository managers
-make test-python-modular     # Python with faif/python-patterns
-make test-go-modular        # Go with golang/example  
-make test-js-modular        # JavaScript with microsoft/TypeScript
-make test-java-modular      # Java with spring-projects/spring-boot
-make test-rust-modular      # Rust with rust-lang/cargo
+```go
+// Generic repository manager for any language
+repoManager := testutils.NewPythonRepositoryManager()
+workspaceDir, err := repoManager.SetupRepository()
+
+// Language-specific factory functions available:
+// - testutils.NewPythonRepositoryManager()
+// - testutils.NewGoRepositoryManager() 
+// - testutils.NewJavaScriptRepositoryManager()
+// - testutils.NewJavaRepositoryManager()
+// - testutils.NewRustRepositoryManager()
 ```
 
+**Key Components:**
+- **GenericRepoManager**: Unified interface implementing RepositoryManager
+- **LanguageConfig**: Language-specific configurations (repo URLs, file patterns, test paths)
+- **Language Integration Functions**: High-level setup for complete test environments
+- **Backward Compatibility**: Adapters maintain compatibility with existing tests
+
 **Benefits:**
-- Unified interface for all language testing
-- Real repository analysis with Git-based test projects
-- Consistent test patterns across languages
-- Easy extension to new programming languages
-- Automatic repository setup and cleanup
+- Single codebase for all language repository management
+- Predefined configurations for common test repositories
+- Automatic Git cloning, validation, and cleanup
+- Consistent interface across all programming languages
+- Easy extension to new languages via configuration
+
+## testutils Package Structure
+
+**Core Components:**
+
+- **`repository_manager.go`**: GenericRepoManager implementing unified RepositoryManager interface
+- **`language_configs.go`**: Predefined configurations and factory functions for all supported languages
+- **`language_integration.go`**: High-level functions for complete test environment setup
+- **`python_repo_adapter.go`**: Backward compatibility adapter for existing Python tests
+
+**Key Interfaces:**
+```go
+type RepositoryManager interface {
+    SetupRepository() (string, error)
+    GetTestFiles() ([]string, error)
+    GetWorkspaceDir() string
+    Cleanup() error
+    ValidateRepository() error
+    GetLastError() error
+}
+```
+
+**Usage Pattern:**
+```go
+// 1. Create language-specific repository manager
+repoManager := testutils.NewPythonRepositoryManager()
+
+// 2. Setup repository (handles Git operations)
+workspaceDir, err := repoManager.SetupRepository()
+if err != nil {
+    return err
+}
+defer repoManager.Cleanup()
+
+// 3. Get test files automatically
+testFiles, err := repoManager.GetTestFiles()
+
+// 4. Use files for LSP testing
+for _, testFile := range testFiles {
+    fileURI := "file://" + filepath.Join(workspaceDir, testFile)
+    // Perform LSP operations...
+}
+```
 
 ## Performance Requirements
 
@@ -134,9 +187,13 @@ make test-rust-modular      # Rust with rust-lang/cargo
 
 **Implementation Patterns:**
 ```go
-// Use modular repository system
+// Using the unified repository management system
 repoManager := testutils.NewPythonRepositoryManager()
 workspaceDir, err := repoManager.SetupRepository()
+defer repoManager.Cleanup()
+
+// Get test files automatically
+testFiles, err := repoManager.GetTestFiles()
 
 // Test real LSP functionality
 locations, err := client.Definition(ctx, fileURI, position)
@@ -174,43 +231,65 @@ assert.NotEmpty(locations)
 
 ## Language Server Integration
 
-**Supported Language Servers:**
-- **Python**: `pylsp` with real repository testing
-- **Go**: `gopls` with golang/example repository
+**Language Server Integration via testutils:**
+- **Python**: `pylsp` with faif/python-patterns repository
+- **Go**: `gopls` with golang/example repository  
 - **JavaScript/TypeScript**: `typescript-language-server` with TypeScript repository
 - **Java**: `jdtls` with Spring Boot repository
 - **Rust**: `rust-analyzer` with Cargo repository
 
 **Integration Approach:**
-- Use actual language server binaries
-- Test with real project repositories
-- Validate language-specific features
-- Performance testing under realistic loads
+- **Unified Repository Management**: testutils.GenericRepoManager handles all repository operations
+- **Language-Specific Configurations**: Predefined settings for each language server
+- **Automatic Setup**: Repository cloning, validation, and cleanup managed by testutils
+- **Real Project Testing**: Use actual open-source projects for realistic validation
+- **Performance Testing**: Realistic load testing with actual codebases
 
-## Real Repository Testing
+## Real Repository Testing with testutils
 
-**Python Patterns E2E:**
+**Unified Repository Testing:**
 ```bash
-make test-python-patterns-quick    # Quick validation (5-10min)
-make test-python-patterns          # Comprehensive testing (15-20min)
+# Language-specific E2E tests using common testutils system
+make test-python-patterns-quick    # Python with faif/python-patterns
+make test-go-e2e                   # Go with golang/example
+make test-javascript-e2e           # JavaScript with microsoft/TypeScript
 ```
 
-**Features:**
-- Real Git repository analysis (faif/python-patterns)
-- Comprehensive LSP method validation across Python patterns
-- Performance benchmarking with realistic codebases
-- Automatic repository setup, testing, and cleanup
+**testutils Repository Management Features:**
+- **Automatic Repository Setup**: Git cloning with configurable timeouts
+- **Language-Specific Configurations**: Predefined configs for Python, Go, JS, Java, Rust
+- **File Discovery**: Automatic test file detection based on patterns and paths
+- **Validation**: Repository structure and content validation
+- **Cleanup Management**: Automatic workspace cleanup with error handling
 
-**Other Language Repositories:**
-- Go: golang/example for standard library patterns
-- JavaScript: microsoft/TypeScript for complex TypeScript codebase
-- Java: spring-projects/spring-boot for enterprise patterns
-- Rust: rust-lang/cargo for systems programming patterns
+**Supported Test Repositories:**
+- **Python**: faif/python-patterns (design patterns)
+- **Go**: golang/example (standard library examples)
+- **JavaScript**: microsoft/TypeScript (complex TypeScript codebase)
+- **Java**: spring-projects/spring-boot (enterprise patterns)
+- **Rust**: rust-lang/cargo (systems programming)
+
+**Usage Example:**
+```go
+// Create repository manager with predefined configuration
+repoManager := testutils.NewPythonRepositoryManager()
+workspaceDir, err := repoManager.SetupRepository()
+defer repoManager.Cleanup()
+
+// Repository manager handles all Git operations automatically
+testFiles, err := repoManager.GetTestFiles()
+// Test files are discovered based on language configuration
+```
 
 ## HttpClient Testing Infrastructure
 
-**Real Server HTTP Testing:**
+**Real Server HTTP Testing with testutils:**
 ```go
+// Setup repository using unified system
+repoManager := testutils.NewPythonRepositoryManager()
+workspaceDir, err := repoManager.SetupRepository()
+defer repoManager.Cleanup()
+
 // Production-like testing against running gateway
 config := testutils.HttpClientConfig{
     BaseURL:         "http://localhost:8080",
@@ -219,7 +298,9 @@ config := testutils.HttpClientConfig{
 }
 client := testutils.NewHttpClient(config)
 
-// Test all LSP methods
+// Test all LSP methods with real repository files
+testFiles, _ := repoManager.GetTestFiles()
+fileURI := "file://" + filepath.Join(workspaceDir, testFiles[0])
 locations, err := client.Definition(ctx, fileURI, position)
 symbols, err := client.WorkspaceSymbol(ctx, "query")
 hover, err := client.Hover(ctx, fileURI, position)
@@ -235,16 +316,19 @@ hover, err := client.Hover(ctx, fileURI, position)
 
 ### E2E Test Failures
 ```bash
-# Repository setup issues
+# Repository setup issues - testutils handles Git operations
 ./bin/lspg diagnose --language python
-git config --list  # Verify Git access
+git config --list  # Verify Git access for testutils repository cloning
 
 # Language server problems  
 ./bin/lspg install pylsp --force
 ./bin/lspg verify --language python
 
-# Verbose test output
+# Verbose test output with testutils debugging
 go test -v -run TestPythonPatternsE2E ./tests/e2e/
+
+# Debug repository manager issues
+# testutils.GenericRepoManager provides detailed logging when EnableLogging=true
 ```
 
 ### Integration Test Issues
@@ -271,26 +355,28 @@ go tool pprof mem.prof
 
 ## Migration Path
 
-**Progressive Removal of Unit Tests:**
-1. **Phase 1**: Focus new development on E2E/integration tests only
-2. **Phase 2**: Remove unit tests for components covered by E2E tests
-3. **Phase 3**: Eliminate mock infrastructure and test utilities
-4. **Phase 4**: Consolidate remaining tests into essential E2E scenarios
+**Unified Testing with testutils:**
+1. **Current State**: All E2E tests use unified testutils repository management
+2. **Repository Management**: Single GenericRepoManager interface for all languages
+3. **Configuration System**: Predefined language configurations eliminate custom setup
+4. **Backward Compatibility**: Existing tests continue working with adapter pattern
 
-**Timeline:**
-- Immediate: Stop writing new unit tests
-- Next release: Remove 50% of existing unit tests
-- Following releases: Progressive elimination of remaining unit tests
-- Final state: E2E and integration tests only
+**Benefits:**
+- Consistent repository management across all languages
+- Reduced code duplication in test setup
+- Easier maintenance and extension to new languages
+- Automatic Git operations with proper error handling
+- Standardized test file discovery and validation
 
 ## Summary
 
-LSP Gateway testing is streamlined to focus exclusively on what users experience:
+LSP Gateway testing is streamlined with unified testutils repository management:
 
-- **E2E Tests**: Real language servers, real repositories, real workflows
+- **E2E Tests**: Real language servers, real repositories via testutils.GenericRepoManager
 - **Integration Tests**: Component interactions and protocol compliance  
-- **Essential Focus**: Core LSP functionality that developers depend on
-- **Modular System**: Consistent testing across all supported languages
-- **Performance Validation**: Realistic load testing with actual codebases
+- **Unified Repository Management**: Single testutils package handles all language repository operations
+- **Consistent Interface**: RepositoryManager interface across Python, Go, JavaScript, Java, Rust
+- **Automated Operations**: Git cloning, file discovery, validation, and cleanup handled by testutils
+- **Performance Validation**: Realistic load testing with actual codebases from open-source projects
 
-The simplified approach provides comprehensive coverage while eliminating testing overhead and complexity.
+The testutils approach provides comprehensive coverage with consistent repository management across all languages.
