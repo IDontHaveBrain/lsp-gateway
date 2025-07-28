@@ -446,6 +446,18 @@ func (s *ProjectLanguageScanner) ScanProject(rootPath string) (*MultiLanguagePro
 		return nil, fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
+	// Validate that the path exists and is a directory
+	fileInfo, err := os.Stat(absRoot)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("path does not exist: %s", absRoot)
+		}
+		return nil, fmt.Errorf("failed to stat path: %w", err)
+	}
+	if !fileInfo.IsDir() {
+		return nil, fmt.Errorf("path is not a directory: %s", absRoot)
+	}
+
 	stats := make(map[string]*LanguageStats)
 	var totalFiles int
 	var scanMutex sync.Mutex
@@ -637,16 +649,26 @@ func (s *ProjectLanguageScanner) analyzeFile(filePath, rootPath string, stats ma
 	// Track source directories
 	relPath, _ := filepath.Rel(rootPath, filePath)
 	dirName := filepath.Dir(relPath)
-	if s.isSourceDirectory(dirName) {
+	
+	// Consider root directory (".") as a valid source directory for source files
+	isValidSourceDir := s.isSourceDirectory(dirName) || (dirName == "." || dirName == "")
+	
+	if isValidSourceDir {
+		// Normalize directory path for storage
+		normalizedDir := dirName
+		if normalizedDir == "." {
+			normalizedDir = "" // Use empty string to represent root
+		}
+		
 		found := false
 		for _, existingDir := range stats[language].SourceDirs {
-			if existingDir == dirName {
+			if existingDir == normalizedDir {
 				found = true
 				break
 			}
 		}
 		if !found {
-			stats[language].SourceDirs = append(stats[language].SourceDirs, dirName)
+			stats[language].SourceDirs = append(stats[language].SourceDirs, normalizedDir)
 		}
 	}
 }
@@ -740,6 +762,11 @@ func (s *ProjectLanguageScanner) calculateLanguagePriorities(stats map[string]*L
 		// Ensure minimum confidence for languages with build files
 		if len(langStats.BuildFiles) > 0 && confidence < 0.5 {
 			confidence = 0.5
+		}
+		
+		// Ensure confidence never exceeds 1.0
+		if confidence > 1.0 {
+			confidence = 1.0
 		}
 		
 		// Ensure minimum score for languages with build files (even without source files)
@@ -891,21 +918,15 @@ func (s *ProjectLanguageScanner) removeDuplicates(slice []string) []string {
 // Additional utility methods for integration
 
 func (s *ProjectLanguageScanner) SetMaxDepth(depth int) {
-	if depth > 0 && depth <= 10 {
-		s.MaxDepth = depth
-	}
+	s.MaxDepth = depth
 }
 
 func (s *ProjectLanguageScanner) SetFileSizeLimit(limit int64) {
-	if limit > 0 {
-		s.FileSizeLimit = limit
-	}
+	s.FileSizeLimit = limit
 }
 
 func (s *ProjectLanguageScanner) SetMaxFiles(maxFiles int) {
-	if maxFiles > 0 {
-		s.MaxFiles = maxFiles
-	}
+	s.MaxFiles = maxFiles
 }
 
 func (s *ProjectLanguageScanner) AddIgnorePattern(pattern string) {
@@ -1153,7 +1174,12 @@ func (info *MultiLanguageProjectInfo) Validate() error {
 // GetMainSourcePath returns the primary source directory for the language
 func (ctx *LanguageContext) GetMainSourcePath() string {
 	if len(ctx.SourcePaths) > 0 {
-		return ctx.SourcePaths[0]
+		path := ctx.SourcePaths[0]
+		// If empty string (representing root), return a meaningful path
+		if path == "" {
+			return "."
+		}
+		return path
 	}
 	return ""
 }

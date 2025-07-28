@@ -143,7 +143,7 @@ make clean && make local                # Clean rebuild
 ## Requirements
 
 - **Go 1.24+** (primary requirement)
-- **Node.js 22.0.0+** (optional, for npm integration)
+- **Node.js 20.0.0+** (optional, for npm integration)
 - **Platforms**: Linux, macOS (x64/arm64), Windows (x64)
 
 **Language runtimes** (auto-installed): Go, Python 3.9+, Java 17+

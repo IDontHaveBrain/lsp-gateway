@@ -11,7 +11,7 @@ This document provides critical file locations and code references for quick AI/
 - `internal/cli/mcp.go:82-95` - MCP server for AI assistant integration
 
 ### Key Business Logic
-- `internal/gateway/handlers.go:889-920` - **CRITICAL** - Primary HTTP JSON-RPC request handler
+- `internal/gateway/handlers.go:897-928` - **CRITICAL** - Primary HTTP JSON-RPC request handler
 - `internal/gateway/handlers.go:523-716` - Gateway initialization with project awareness
 - `internal/gateway/handlers.go:1557-1605` - SCIP cache-first routing (60-87% performance boost)
 - `mcp/server.go:444-463` - MCP protocol bridge to LSP capabilities
@@ -19,7 +19,7 @@ This document provides critical file locations and code references for quick AI/
 ## 🔄 Request Processing Flow
 
 ### HTTP Gateway Flow
-- `internal/gateway/handlers.go:889` - `HandleJSONRPC()` - Main HTTP entry point
+- `internal/gateway/handlers.go:897` - `HandleJSONRPC()` - Main HTTP entry point
 - `internal/gateway/handlers.go:132-199` - Request tracking and lifecycle management
 - `internal/gateway/smart_router.go` - 6 routing strategies with performance metrics
 - `internal/gateway/scip_smart_router.go` - Cache-first routing with SCIP intelligence
@@ -28,12 +28,12 @@ This document provides critical file locations and code references for quick AI/
 - `mcp/server.go:139-185` - Core MCP server initialization and protocol setup
 - `mcp/server.go:765` - `handleInitializeWithValidation()` - MCP handshake
 - `mcp/server.go:814` - `handleCallToolWithValidation()` - Tool execution routing
-- `mcp/tools.go:122-178` - Standard LSP tools (definition, references, hover, symbols)
-- `mcp/tools.go:116-220` - Tool registry and capability management
+- `mcp/tools.go:850-1272` - Standard LSP tools registration and implementation
+- `mcp/tools.go:1682` - `fallbackWorkspaceSymbolSearch()` - Fallback for pylsp workspace/symbol
 - `mcp/tools_scip_enhanced.go:213-442` - AI-powered semantic analysis tools
 
 ### MCP Tool Ecosystem Mapping
-- **Core LSP Tools**: `mcp/tools.go:89-156` - 6 supported LSP features exposed as MCP tools
+- **Core LSP Tools**: `mcp/tools.go:850-1272` - 6 supported LSP features exposed as MCP tools
 - **SCIP-Enhanced Tools**: `mcp/tools_scip_enhanced.go:67-134` - Performance-optimized AI semantic tools
 - **Workspace Tools**: `mcp/workspace_context.go:23-89` - Project-aware context and navigation
 - **Diagnostic Tools**: `mcp/diagnostic_tools.go:45-127` - Health monitoring and performance metrics
@@ -99,7 +99,7 @@ This document provides critical file locations and code references for quick AI/
 - `internal/installer/runtime_strategies.go` - Platform-specific installation strategies
 
 ### Version Requirements
-- `internal/setup/version.go:35-47` - Minimum versions (Go 1.19+, Python 3.9+, Node.js 22+, Java 17+)
+- `internal/setup/version.go:35-47` - Minimum versions (Go 1.19+, Python 3.9+, Node.js 20+, Java 17+)
 
 ## 🔍 Project Detection
 
