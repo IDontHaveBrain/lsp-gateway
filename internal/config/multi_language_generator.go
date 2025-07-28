@@ -756,17 +756,24 @@ func (g *ConfigGenerator) GenerateMultiLanguageConfig(projectInfo *MultiLanguage
 // GenerateDefaultMultiLanguageConfig generates a default multi-language configuration
 // with support for common languages when project detection fails
 func (g *ConfigGenerator) GenerateDefaultMultiLanguageConfig() (*MultiLanguageConfig, error) {
+	// Get current working directory as absolute path
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current working directory: %w", err)
+	}
+	
 	// Create default project info with common languages
 	defaultProjectInfo := &MultiLanguageProjectInfo{
 		ProjectType:   ProjectTypeMulti,
-		RootDirectory: ".",
+		RootDirectory: currentDir,
+		WorkspaceRoot: currentDir,
 		LanguageContexts: []*LanguageContext{
 			// Java configuration
 			{
 				Language:     "java",
 				FilePatterns: []string{"*.java"},
 				RootMarkers:  []string{"pom.xml", "build.gradle", "build.gradle.kts"},
-				RootPath:     ".",
+				RootPath:     currentDir,
 				FileCount:    10,
 			},
 			// Python configuration
@@ -774,7 +781,7 @@ func (g *ConfigGenerator) GenerateDefaultMultiLanguageConfig() (*MultiLanguageCo
 				Language:     "python",
 				FilePatterns: []string{"*.py"},
 				RootMarkers:  []string{"pyproject.toml", "requirements.txt", "setup.py"},
-				RootPath:     ".",
+				RootPath:     currentDir,
 				FileCount:    10,
 			},
 			// Go configuration
@@ -782,7 +789,7 @@ func (g *ConfigGenerator) GenerateDefaultMultiLanguageConfig() (*MultiLanguageCo
 				Language:     "go",
 				FilePatterns: []string{"*.go"},
 				RootMarkers:  []string{"go.mod", "go.sum"},
-				RootPath:     ".",
+				RootPath:     currentDir,
 				FileCount:    10,
 			},
 			// TypeScript/JavaScript configuration
@@ -790,7 +797,7 @@ func (g *ConfigGenerator) GenerateDefaultMultiLanguageConfig() (*MultiLanguageCo
 				Language:     "typescript",
 				FilePatterns: []string{"*.ts", "*.tsx", "*.js", "*.jsx"},
 				RootMarkers:  []string{"tsconfig.json", "package.json"},
-				RootPath:     ".",
+				RootPath:     currentDir,
 				FileCount:    10,
 			},
 		},

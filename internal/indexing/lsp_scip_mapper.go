@@ -713,11 +713,26 @@ func (m *LSPSCIPMapper) LogPerformanceWarning(method string, queryTime time.Dura
 
 // Close cleanly shuts down the mapper and releases resources
 func (m *LSPSCIPMapper) Close() error {
+	var stats MapperStats
+	var shouldLog bool
+	
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
-	if m.config.Logging.LogIndexOperations {
-		stats := m.GetStats()
+	shouldLog = m.config.Logging.LogIndexOperations
+	if shouldLog {
+		requestCount := atomic.LoadInt64(&m.requestCount)
+		successCount := atomic.LoadInt64(&m.successCount)
+		
+		stats = *m.statsTracker
+		stats.TotalRequests = requestCount
+		stats.SuccessfulRequests = successCount
+		stats.FailedRequests = atomic.LoadInt64(&m.errorCount)
+		stats.AverageResponseTime = m.avgResponseTime
+		stats.LastRequestTime = m.lastRequestTime
+	}
+
+	if shouldLog {
 		log.Printf("LSP-SCIP Mapper closing: %d total requests, %d successful, %.2f%% success rate, avg response: %v",
 			stats.TotalRequests, stats.SuccessfulRequests,
 			float64(stats.SuccessfulRequests)/float64(stats.TotalRequests)*100.0,

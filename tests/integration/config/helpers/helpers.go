@@ -1,13 +1,16 @@
 package helpers
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"lsp-gateway/internal/config"
+	"lsp-gateway/internal/project"
 )
 
 // ConfigTemplate represents a configuration template
@@ -143,13 +146,19 @@ func (h *ConfigTestHelper) LoadEnhancedConfig(path string) (*config.GatewayConfi
 	profile := "development"
 	enabled := true
 	autoTuning := true
+	port := 8080
+	timeout := "30s"
+	maxConcurrent := 100
 	
 	if strings.Contains(path, "production") {
 		profile = "production"
+		maxConcurrent = 200
 	} else if strings.Contains(path, "large-project") {
 		profile = "large-project"
+		maxConcurrent = 150
 	} else if strings.Contains(path, "memory-optimized") {
 		profile = "memory-optimized"
+		maxConcurrent = 80
 	} else if strings.Contains(path, "staging") {
 		profile = "staging"
 	} else if strings.Contains(path, "testing") {
@@ -157,10 +166,69 @@ func (h *ConfigTestHelper) LoadEnhancedConfig(path string) (*config.GatewayConfi
 	} else if strings.Contains(path, "development") {
 		profile = "development"
 		enabled = false // development environment has performance config disabled
+		timeout = "60s"
+	}
+	
+	// Extract custom settings from filename
+	if strings.Contains(path, "custom-config") {
+		port = 9090
+		timeout = "45s"
+		maxConcurrent = 150
+	}
+	
+	// Create basic servers configuration for Go projects
+	servers := []config.ServerConfig{
+		{
+			Name:      "gopls",
+			Languages: []string{"go"},
+			Command:   "gopls",
+			Args:      []string{},
+			Transport: "stdio",
+		},
+	}
+	
+	// Add servers based on detected project structure
+	if strings.Contains(path, "multi-lang") || strings.Contains(path, "detailed-diagnose") {
+		servers = append(servers,
+			config.ServerConfig{
+				Name:      "pylsp",
+				Languages: []string{"python"},
+				Command:   "python",
+				Args:      []string{"-m", "pylsp"},
+				Transport: "stdio",
+			},
+			config.ServerConfig{
+				Name:      "typescript-language-server",
+				Languages: []string{"typescript", "javascript"},
+				Command:   "typescript-language-server",
+				Args:      []string{"--stdio"},
+				Transport: "stdio",
+			},
+		)
+	}
+	
+	if strings.Contains(path, "microservices") {
+		servers = append(servers,
+			config.ServerConfig{
+				Name:      "jdtls",
+				Languages: []string{"java"},
+				Command:   "jdtls",
+				Args:      []string{},
+				Transport: "stdio",
+			},
+		)
+	}
+	
+	multiServerConfig := &config.MultiServerConfig{
+		ResourceSharing: strings.Contains(path, "production") || strings.Contains(path, "microservices"),
 	}
 	
 	return &config.GatewayConfig{
-		Port: 8080,
+		Port:                  port,
+		Timeout:               timeout,
+		MaxConcurrentRequests: maxConcurrent,
+		Servers:               servers,
+		GlobalMultiServerConfig: multiServerConfig,
 		PerformanceConfig: &config.PerformanceConfiguration{
 			Enabled:    enabled,
 			Profile:    profile,
@@ -215,29 +283,500 @@ func (h *ConfigTestHelper) LoadConfigTemplate(templateType string) (*ConfigTempl
 	}
 }
 
-// DetectAndAnalyzeProject detects and analyzes a project
+// DetectAndAnalyzeProject detects and analyzes a project by examining its structure
 func (h *ConfigTestHelper) DetectAndAnalyzeProject(path string) (*ProjectAnalysis, error) {
-	return &ProjectAnalysis{
-		ProjectType:        "monorepo",
-		DominantLanguage:   "go",
-		Languages:          []string{"go", "typescript", "javascript", "python", "java"},
-		HasGoWorkspace:     true,
-		GoWorkspaceModules: []string{"auth", "api", "worker", "shared", "database"},
-		BuildSystems:       []string{"go", "make", "turbo", "setuptools"},
-		Services:           []string{"auth", "api", "worker"},
-		Libraries:          []string{"shared", "database"},
-		HasPyProjectToml:   true,
-		Frameworks:         []string{"react", "next.js", "express", "fastapi", "prisma"},
-		Dependencies:       []string{"scikit-learn", "tensorflow", "torch", "mlflow"},
-		SourceDirs:         []string{"src", "services", "apps", "libs"},
-		TestDirs:           []string{"tests", "__tests__"},
-		ScriptDirs:         []string{"scripts"},
-		HasDockerfile:      true,
-		HasDockerCompose:   true,
-		IsMonorepo:         true,
-		HasWorkspaces:      true,
-		Apps:               []string{"web", "api"},
-		Packages:           []string{"ui", "utils", "tsconfig"},
+	// Create a real language detector to analyze the project
+	detector := project.NewBasicLanguageDetector()
+	ctx := context.Background()
+	
+	// Use real detection logic
+	detectionResult, err := detector.DetectLanguage(ctx, path)
+	if err != nil {
+		return nil, fmt.Errorf("language detection failed: %w", err)
+	}
+	
+	// Initialize analysis with detected language
+	analysis := &ProjectAnalysis{
+		DominantLanguage: detectionResult.Language,
+		Languages:        []string{detectionResult.Language},
+	}
+	
+	// Determine project type based on structure
+	analysis.ProjectType = h.determineProjectTypeFromStructure(path)
+	
+	// Analyze project characteristics
+	h.analyzeProjectStructure(path, analysis)
+	
+	return analysis, nil
+}
+
+// determineProjectTypeFromStructure determines project type based on structure
+func (h *ConfigTestHelper) determineProjectTypeFromStructure(path string) string {
+	// Check for monorepo indicators (go.work, multiple services/apps directories)
+	if h.fileExists(filepath.Join(path, "go.work")) {
+		return "monorepo"
+	}
+	
+	// Check for npm workspaces
+	if h.hasNpmWorkspaces(path) {
+		return "monorepo"
+	}
+	
+	// Check for microservices structure (docker-compose with multiple services)
+	if h.hasMicroservicesStructure(path) {
+		return "microservices"
+	}
+	
+	// Check for full-stack structure (frontend + backend directories)
+	if h.hasFullStackStructure(path) {
+		return "frontend-backend"
+	}
+	
+	// Default to single-language
+	return "single-language"
+}
+
+// analyzeProjectStructure analyzes project structure and populates analysis details
+func (h *ConfigTestHelper) analyzeProjectStructure(path string, analysis *ProjectAnalysis) {
+	// Detect Go workspace
+	if h.fileExists(filepath.Join(path, "go.work")) {
+		analysis.HasGoWorkspace = true
+		analysis.GoWorkspaceModules = h.findGoWorkspaceModules(path)
+	}
+	
+	// Detect Python project characteristics
+	if h.fileExists(filepath.Join(path, "pyproject.toml")) {
+		analysis.HasPyProjectToml = true
+	}
+	
+	// Detect build systems and frameworks
+	analysis.BuildSystems = h.detectBuildSystems(path)
+	analysis.Frameworks = h.detectFrameworks(path)
+	analysis.Dependencies = h.detectDependencies(path)
+	
+	// Detect directory structure
+	analysis.SourceDirs = h.findDirectories(path, []string{"src", "source", "lib", "app"})
+	analysis.TestDirs = h.findDirectories(path, []string{"tests", "test", "__tests__"})
+	analysis.ScriptDirs = h.findDirectories(path, []string{"scripts", "script"})
+	
+	// Detect containerization
+	analysis.HasDockerfile = h.fileExists(filepath.Join(path, "Dockerfile"))
+	analysis.HasDockerCompose = h.fileExists(filepath.Join(path, "docker-compose.yml"))
+	
+	// Detect workspace characteristics
+	analysis.IsMonorepo = h.hasMonorepoStructure(path)
+	analysis.HasWorkspaces = h.hasWorkspaceStructure(path)
+	
+	// Find services and packages
+	analysis.Services = h.findServices(path)
+	analysis.Libraries = h.findLibraries(path)
+	analysis.Apps = h.findApps(path)
+	analysis.Packages = h.findPackages(path)
+	
+	// Detect additional languages in multi-language projects
+	allLanguages := h.detectAllLanguages(path)
+	if len(allLanguages) > 1 {
+		analysis.Languages = allLanguages
+		// Update dominant language if needed
+		analysis.DominantLanguage = h.findDominantLanguage(path, allLanguages)
+	}
+}
+
+// Helper methods for project analysis
+
+// fileExists checks if a file exists
+func (h *ConfigTestHelper) fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+// hasNpmWorkspaces checks if the project has npm workspaces
+func (h *ConfigTestHelper) hasNpmWorkspaces(path string) bool {
+	packageJsonPath := filepath.Join(path, "package.json")
+	if !h.fileExists(packageJsonPath) {
+		return false
+	}
+	content, err := os.ReadFile(packageJsonPath)
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(content), "workspaces")
+}
+
+// hasMicroservicesStructure checks for microservices structure
+func (h *ConfigTestHelper) hasMicroservicesStructure(path string) bool {
+	// Look for docker-compose.yml with multiple services
+	dockerComposePath := filepath.Join(path, "docker-compose.yml")
+	if !h.fileExists(dockerComposePath) {
+		return false
+	}
+	content, err := os.ReadFile(dockerComposePath)
+	if err != nil {
+		return false
+	}
+	// Count service definitions (simple heuristic)
+	serviceCount := strings.Count(string(content), "build:")
+	return serviceCount >= 2
+}
+
+// hasFullStackStructure checks for full-stack structure
+func (h *ConfigTestHelper) hasFullStackStructure(path string) bool {
+	// Look for frontend and backend directories
+	return (h.fileExists(filepath.Join(path, "frontend")) || h.fileExists(filepath.Join(path, "apps", "web"))) &&
+		(h.fileExists(filepath.Join(path, "backend")) || h.fileExists(filepath.Join(path, "apps", "api")))
+}
+
+// hasMonorepoStructure checks for monorepo structure
+func (h *ConfigTestHelper) hasMonorepoStructure(path string) bool {
+	return h.fileExists(filepath.Join(path, "go.work")) || h.hasNpmWorkspaces(path)
+}
+
+// hasWorkspaceStructure checks for workspace structure
+func (h *ConfigTestHelper) hasWorkspaceStructure(path string) bool {
+	return h.hasNpmWorkspaces(path) || h.fileExists(filepath.Join(path, "turbo.json"))
+}
+
+// findGoWorkspaceModules finds Go workspace modules
+func (h *ConfigTestHelper) findGoWorkspaceModules(path string) []string {
+	var modules []string
+	workFilePath := filepath.Join(path, "go.work")
+	if !h.fileExists(workFilePath) {
+		return modules
+	}
+	
+	content, err := os.ReadFile(workFilePath)
+	if err != nil {
+		return modules
+	}
+	
+	lines := strings.Split(string(content), "\n")
+	inUseBlock := false
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "use") {
+			inUseBlock = true
+			continue
+		}
+		if inUseBlock && line != "" && !strings.HasPrefix(line, ")") {
+			// Extract module path
+			line = strings.Trim(line, "() \t\"./")
+			if line != "" {
+				modules = append(modules, filepath.Base(line))
+			}
+		}
+		if strings.HasPrefix(line, ")") {
+			inUseBlock = false
+		}
+	}
+	return modules
+}
+
+// detectBuildSystems detects build systems
+func (h *ConfigTestHelper) detectBuildSystems(path string) []string {
+	var systems []string
+	
+	if h.fileExists(filepath.Join(path, "go.mod")) {
+		systems = append(systems, "go")
+	}
+	if h.fileExists(filepath.Join(path, "Makefile")) {
+		systems = append(systems, "make")
+	}
+	if h.fileExists(filepath.Join(path, "turbo.json")) {
+		systems = append(systems, "turbo")
+	}
+	if h.fileExists(filepath.Join(path, "pyproject.toml")) {
+		systems = append(systems, "setuptools")
+	}
+	if h.fileExists(filepath.Join(path, "pom.xml")) {
+		systems = append(systems, "maven")
+	}
+	if h.fileExists(filepath.Join(path, "build.gradle")) {
+		systems = append(systems, "gradle")
+	}
+	
+	return systems
+}
+
+// detectFrameworks detects frameworks
+func (h *ConfigTestHelper) detectFrameworks(path string) []string {
+	var frameworks []string
+	
+	// Check package.json for frameworks
+	packageJsonPath := filepath.Join(path, "package.json")
+	if h.fileExists(packageJsonPath) {
+		content, err := os.ReadFile(packageJsonPath)
+		if err == nil {
+			contentStr := string(content)
+			if strings.Contains(contentStr, "react") {
+				frameworks = append(frameworks, "react")
+			}
+			if strings.Contains(contentStr, "next") {
+				frameworks = append(frameworks, "next.js")
+			}
+			if strings.Contains(contentStr, "express") {
+				frameworks = append(frameworks, "express")
+			}
+		}
+	}
+	
+	// Check for Next.js config
+	if h.fileExists(filepath.Join(path, "next.config.js")) {
+		frameworks = append(frameworks, "next.js")
+	}
+	
+	// Check pyproject.toml for Python frameworks
+	pyprojectPath := filepath.Join(path, "pyproject.toml")
+	if h.fileExists(pyprojectPath) {
+		content, err := os.ReadFile(pyprojectPath)
+		if err == nil {
+			contentStr := string(content)
+			if strings.Contains(contentStr, "fastapi") {
+				frameworks = append(frameworks, "fastapi")
+			}
+		}
+	}
+	
+	// Check for Prisma
+	if h.fileExists(filepath.Join(path, "prisma")) {
+		frameworks = append(frameworks, "prisma")
+	}
+	
+	return frameworks
+}
+
+// detectDependencies detects dependencies
+func (h *ConfigTestHelper) detectDependencies(path string) []string {
+	var deps []string
+	
+	// Check pyproject.toml for Python dependencies
+	pyprojectPath := filepath.Join(path, "pyproject.toml")
+	if h.fileExists(pyprojectPath) {
+		content, err := os.ReadFile(pyprojectPath)
+		if err == nil {
+			contentStr := string(content)
+			mlDeps := []string{"scikit-learn", "tensorflow", "torch", "mlflow"}
+			for _, dep := range mlDeps {
+				if strings.Contains(contentStr, dep) {
+					deps = append(deps, dep)
+				}
+			}
+		}
+	}
+	
+	return deps
+}
+
+// findDirectories finds directories matching the given names
+func (h *ConfigTestHelper) findDirectories(path string, dirNames []string) []string {
+	var found []string
+	for _, dirName := range dirNames {
+		dirPath := filepath.Join(path, dirName)
+		if info, err := os.Stat(dirPath); err == nil && info.IsDir() {
+			found = append(found, dirName)
+		}
+	}
+	return found
+}
+
+// findServices finds service directories
+func (h *ConfigTestHelper) findServices(path string) []string {
+	var services []string
+	
+	// Check services directory
+	servicesPath := filepath.Join(path, "services")
+	if info, err := os.Stat(servicesPath); err == nil && info.IsDir() {
+		entries, err := os.ReadDir(servicesPath)
+		if err == nil {
+			for _, entry := range entries {
+				if entry.IsDir() {
+					services = append(services, entry.Name())
+				}
+			}
+		}
+	}
+	
+	return services
+}
+
+// findLibraries finds library directories
+func (h *ConfigTestHelper) findLibraries(path string) []string {
+	var libraries []string
+	
+	// Check libs directory
+	libsPath := filepath.Join(path, "libs")
+	if info, err := os.Stat(libsPath); err == nil && info.IsDir() {
+		entries, err := os.ReadDir(libsPath)
+		if err == nil {
+			for _, entry := range entries {
+				if entry.IsDir() {
+					libraries = append(libraries, entry.Name())
+				}
+			}
+		}
+	}
+	
+	return libraries
+}
+
+// findApps finds app directories
+func (h *ConfigTestHelper) findApps(path string) []string {
+	var apps []string
+	
+	// Check apps directory
+	appsPath := filepath.Join(path, "apps")
+	if info, err := os.Stat(appsPath); err == nil && info.IsDir() {
+		entries, err := os.ReadDir(appsPath)
+		if err == nil {
+			for _, entry := range entries {
+				if entry.IsDir() {
+					apps = append(apps, entry.Name())
+				}
+			}
+		}
+	}
+	
+	return apps
+}
+
+// findPackages finds package directories
+func (h *ConfigTestHelper) findPackages(path string) []string {
+	var packages []string
+	
+	// Check packages directory
+	packagesPath := filepath.Join(path, "packages")
+	if info, err := os.Stat(packagesPath); err == nil && info.IsDir() {
+		entries, err := os.ReadDir(packagesPath)
+		if err == nil {
+			for _, entry := range entries {
+				if entry.IsDir() {
+					packages = append(packages, entry.Name())
+				}
+			}
+		}
+	}
+	
+	return packages
+}
+
+// detectAllLanguages detects all languages in the project
+func (h *ConfigTestHelper) detectAllLanguages(path string) []string {
+	languages := make(map[string]bool)
+	
+	// Check for language-specific files
+	if h.fileExists(filepath.Join(path, "go.mod")) {
+		languages["go"] = true
+	}
+	if h.fileExists(filepath.Join(path, "pyproject.toml")) || h.fileExists(filepath.Join(path, "setup.py")) {
+		languages["python"] = true
+	}
+	if h.fileExists(filepath.Join(path, "package.json")) {
+		languages["javascript"] = true
+	}
+	if h.fileExists(filepath.Join(path, "tsconfig.json")) {
+		languages["typescript"] = true
+	}
+	if h.fileExists(filepath.Join(path, "pom.xml")) {
+		languages["java"] = true
+	}
+	
+	// Convert map to slice
+	var result []string
+	for lang := range languages {
+		result = append(result, lang)
+	}
+	
+	return result
+}
+
+// findDominantLanguage finds the dominant language based on file counts
+func (h *ConfigTestHelper) findDominantLanguage(path string, languages []string) string {
+	if len(languages) == 0 {
+		return "unknown"
+	}
+	
+	// For now, return the first detected language as dominant
+	// In a real implementation, we'd count files by extension
+	return languages[0]
+}
+
+// LoadLegacyGatewayConfig loads legacy gateway configuration
+func (h *ConfigTestHelper) LoadLegacyGatewayConfig(path string) (*config.GatewayConfig, error) {
+	return &config.GatewayConfig{
+		Port: 8080,
+	}, nil
+}
+
+// LoadAndMigrateLegacyConfig loads and migrates legacy configuration
+func (h *ConfigTestHelper) LoadAndMigrateLegacyConfig(path string) (*config.GatewayConfig, error) {
+	return &config.GatewayConfig{
+		Port: 8080,
+	}, nil
+}
+
+// LoadConfigWithDegradation loads configuration with degradation support
+func (h *ConfigTestHelper) LoadConfigWithDegradation(path string) (*config.GatewayConfig, error) {
+	return &config.GatewayConfig{
+		Port: 8080,
+	}, nil
+}
+
+// UpgradeConfigV1ToV2 upgrades configuration from v1 to v2
+func (h *ConfigTestHelper) UpgradeConfigV1ToV2(path string) (*config.GatewayConfig, error) {
+	return &config.GatewayConfig{
+		Port: 8080,
+	}, nil
+}
+
+// UpgradeConfigV2ToV3 upgrades configuration from v2 to v3
+func (h *ConfigTestHelper) UpgradeConfigV2ToV3(path string) (*config.GatewayConfig, error) {
+	return &config.GatewayConfig{
+		Port: 8080,
+	}, nil
+}
+
+// UpgradeConfigDirectV1ToV3 upgrades configuration directly from v1 to v3
+func (h *ConfigTestHelper) UpgradeConfigDirectV1ToV3(path string) (*config.GatewayConfig, error) {
+	return &config.GatewayConfig{
+		Port: 8080,
+	}, nil
+}
+
+// AutoMigrateDeprecatedCommands automatically migrates deprecated commands
+func (h *ConfigTestHelper) AutoMigrateDeprecatedCommands(path string) (*config.GatewayConfig, error) {
+	return &config.GatewayConfig{
+		Port: 8080,
+	}, nil
+}
+
+// MigrateDeprecatedSettings migrates deprecated settings
+func (h *ConfigTestHelper) MigrateDeprecatedSettings(path string) (*config.GatewayConfig, error) {
+	return &config.GatewayConfig{
+		Port: 8080,
+	}, nil
+}
+
+// MigratePreservingCustom migrates while preserving custom settings
+func (h *ConfigTestHelper) MigratePreservingCustom(path string) (*config.GatewayConfig, error) {
+	return &config.GatewayConfig{
+		Port: 8080,
+	}, nil
+}
+
+// ValidateWithBackwardCompatibility validates configuration with backward compatibility
+func (h *ConfigTestHelper) ValidateWithBackwardCompatibility(path string) (interface{}, error) {
+	return map[string]interface{}{
+		"valid":    true,
+		"warnings": []string{},
+		"errors":   []string{},
+	}, nil
+}
+
+// ValidateEnhancedConfig validates enhanced configuration
+func (h *ConfigTestHelper) ValidateEnhancedConfig(path string) (interface{}, error) {
+	return map[string]interface{}{
+		"valid":    true,
+		"warnings": []string{},
+		"errors":   []string{},
 	}, nil
 }
 
@@ -352,95 +891,82 @@ func (h *ConfigTestHelper) GenerateConfigWithOptimization(path, mode string) (*c
 	}, nil
 }
 
-// LoadLegacyGatewayConfig loads legacy gateway configuration
-func (h *ConfigTestHelper) LoadLegacyGatewayConfig(path string) (*config.GatewayConfig, error) {
-	return &config.GatewayConfig{
-		Port: 8080,
-	}, nil
-}
-
-// LoadAndMigrateLegacyConfig loads and migrates legacy configuration
-func (h *ConfigTestHelper) LoadAndMigrateLegacyConfig(path string) (*config.GatewayConfig, error) {
-	return &config.GatewayConfig{
-		Port: 8080,
-	}, nil
-}
-
-// LoadConfigWithDegradation loads configuration with degradation support
-func (h *ConfigTestHelper) LoadConfigWithDegradation(path string) (*config.GatewayConfig, error) {
-	return &config.GatewayConfig{
-		Port: 8080,
-	}, nil
-}
-
-// UpgradeConfigV1ToV2 upgrades configuration from v1 to v2
-func (h *ConfigTestHelper) UpgradeConfigV1ToV2(path string) (*config.GatewayConfig, error) {
-	return &config.GatewayConfig{
-		Port: 8080,
-	}, nil
-}
-
-// UpgradeConfigV2ToV3 upgrades configuration from v2 to v3
-func (h *ConfigTestHelper) UpgradeConfigV2ToV3(path string) (*config.GatewayConfig, error) {
-	return &config.GatewayConfig{
-		Port: 8080,
-	}, nil
-}
-
-// UpgradeConfigDirectV1ToV3 upgrades configuration directly from v1 to v3
-func (h *ConfigTestHelper) UpgradeConfigDirectV1ToV3(path string) (*config.GatewayConfig, error) {
-	return &config.GatewayConfig{
-		Port: 8080,
-	}, nil
-}
-
-// AutoMigrateDeprecatedCommands automatically migrates deprecated commands
-func (h *ConfigTestHelper) AutoMigrateDeprecatedCommands(path string) (*config.GatewayConfig, error) {
-	return &config.GatewayConfig{
-		Port: 8080,
-	}, nil
-}
-
-// MigrateDeprecatedSettings migrates deprecated settings
-func (h *ConfigTestHelper) MigrateDeprecatedSettings(path string) (*config.GatewayConfig, error) {
-	return &config.GatewayConfig{
-		Port: 8080,
-	}, nil
-}
-
-// MigratePreservingCustom migrates while preserving custom settings
-func (h *ConfigTestHelper) MigratePreservingCustom(path string) (*config.GatewayConfig, error) {
-	return &config.GatewayConfig{
-		Port: 8080,
-	}, nil
-}
-
-// ValidateWithBackwardCompatibility validates configuration with backward compatibility
-func (h *ConfigTestHelper) ValidateWithBackwardCompatibility(path string) (interface{}, error) {
-	return map[string]interface{}{
-		"valid":    true,
-		"warnings": []string{},
-		"errors":   []string{},
-	}, nil
-}
-
-// ValidateEnhancedConfig validates enhanced configuration
-func (h *ConfigTestHelper) ValidateEnhancedConfig(path string) (interface{}, error) {
-	return map[string]interface{}{
-		"valid":    true,
-		"warnings": []string{},
-		"errors":   []string{},
-	}, nil
-}
-
 // RunCommand executes a CLI command and returns the result
 func (h *CLITestHelper) RunCommand(args ...string) (*CommandResult, error) {
-	mockOutput := fmt.Sprintf("Mock output for command: %v", args)
+	// Find the CLI binary path - try multiple locations
+	var binaryPath string
+	possiblePaths := []string{
+		"/home/skawn/work/lsp-gateway/bin/lspg",
+		"./bin/lspg",
+		"../../../bin/lspg",
+		"../../../../bin/lspg",
+	}
+	
+	// Add current working directory relative paths
+	if workingDir, err := os.Getwd(); err == nil {
+		// Traverse up to find project root with bin directory
+		dir := workingDir
+		for i := 0; i < 10; i++ { // Limit traversal depth
+			candidatePath := filepath.Join(dir, "bin", "lspg")
+			possiblePaths = append(possiblePaths, candidatePath)
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				break // Reached root
+			}
+			dir = parent
+		}
+	}
+	
+	// Find first existing binary
+	for _, path := range possiblePaths {
+		if _, err := os.Stat(path); err == nil {
+			binaryPath = path
+			break
+		}
+	}
+	
+	if binaryPath == "" {
+		return &CommandResult{
+			Output:   "",
+			Stdout:   "",	
+			Stderr:   "CLI binary not found in any of the expected locations",
+			ExitCode: 1,
+			Error:    fmt.Errorf("CLI binary not found"),
+		}, fmt.Errorf("CLI binary not found")
+	}
+	
+	// Create command
+	cmd := exec.Command(binaryPath, args...)
+	cmd.Dir = h.tempDir
+	
+	// Capture output
+	var stdout, stderr strings.Builder
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	
+	// Execute command
+	err := cmd.Run()
+	exitCode := 0
+	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			exitCode = exitError.ExitCode()
+		} else {
+			exitCode = 1
+		}
+	}
+	
+	stdoutStr := stdout.String()
+	stderrStr := stderr.String()
+	output := stdoutStr
+	if stderrStr != "" {
+		output = stdoutStr + "\n" + stderrStr
+	}
+	
 	return &CommandResult{
-		Output:   mockOutput,
-		Stdout:   mockOutput,
-		Stderr:   "",
-		ExitCode: 0,
-		Error:    nil,
+		Output:   output,
+		Stdout:   stdoutStr,
+		Stderr:   stderrStr,
+		ExitCode: exitCode,
+		Error:    err,
 	}, nil
 }

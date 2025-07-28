@@ -127,6 +127,15 @@ test:
 	@echo "Running E2E and integration tests..."
 	$(GOTEST) -v ./tests/e2e/... ./tests/integration/...
 
+test-unit:
+	@echo "Running unit tests..."
+	@if [ -n "$$(find tests/unit -name '*_test.go' -type f 2>/dev/null)" ]; then \
+		$(GOTEST) -v -short -timeout 60s ./tests/unit/...; \
+	else \
+		echo "No unit tests found - LSP Gateway follows E2E-first testing philosophy"; \
+		echo "See CLAUDE.md for testing strategy: Essential tests only, focusing on real development workflows"; \
+	fi
+
 test-integration:
 	@echo "Running integration tests..."
 	$(GOTEST) -v -run Integration ./...
@@ -334,23 +343,23 @@ test-e2e-setup-cli:
 # MCP E2E Test Targets
 test-e2e-mcp:
 	@echo "Running comprehensive MCP E2E tests..."
-	$(GOTEST) -v -timeout 600s -run "TestMCP" ./tests/e2e/mcp_protocol_e2e_test.go ./tests/e2e/mcp_tools_e2e_test.go ./tests/e2e/mcp_scip_enhanced_e2e_test.go
+	$(GOTEST) -v -timeout 600s -run "TestMCP" ./tests/e2e/common_types.go ./tests/e2e/mcp_protocol_e2e_test.go ./tests/e2e/mcp_tools_e2e_test.go ./tests/e2e/mcp_scip_enhanced_e2e_test.go
 
 test-mcp-stdio:
 	@echo "Running MCP STDIO protocol tests..."
-	$(GOTEST) -v -timeout 300s -run "TestMCPStdioProtocol" ./tests/e2e/mcp_protocol_e2e_test.go
+	$(GOTEST) -v -timeout 300s -run "TestMCPStdioProtocol" ./tests/e2e/common_types.go ./tests/e2e/mcp_protocol_e2e_test.go
 
 test-mcp-tcp:
 	@echo "Running MCP TCP protocol tests..."
-	$(GOTEST) -v -timeout 300s -run "TestMCPTCPProtocol" ./tests/e2e/mcp_protocol_e2e_test.go
+	$(GOTEST) -v -timeout 300s -run "TestMCPTCPProtocol" ./tests/e2e/common_types.go ./tests/e2e/mcp_protocol_e2e_test.go
 
 test-mcp-tools:
 	@echo "Running comprehensive MCP tools E2E tests..."
-	$(GOTEST) -v -timeout 600s ./tests/e2e/mcp_tools_e2e_test.go
+	$(GOTEST) -v -timeout 600s ./tests/e2e/common_types.go ./tests/e2e/mcp_tools_e2e_test.go
 
 test-mcp-scip:
 	@echo "Running SCIP-enhanced MCP E2E tests..."
-	$(GOTEST) -v -timeout 900s ./tests/e2e/mcp_scip_enhanced_e2e_test.go
+	$(GOTEST) -v -timeout 900s ./tests/e2e/common_types.go ./tests/e2e/mcp_scip_enhanced_e2e_test.go
 
 # MCP comprehensive test suites removed - over-engineered infrastructure
 

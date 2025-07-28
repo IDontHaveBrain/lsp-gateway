@@ -3,7 +3,7 @@
 # Supports: definition, references, hover, document symbols, workspace symbols, completion
 
 # Gateway configuration for test scenarios
-port: ${TEST_PORT:-8080}
+port: ${TEST_PORT}
 timeout: "30s"
 max_concurrent_requests: 50
 project_aware: true

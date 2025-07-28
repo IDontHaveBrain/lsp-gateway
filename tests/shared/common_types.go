@@ -1,4 +1,4 @@
-package testutils
+package shared
 
 import "encoding/json"
 
@@ -18,7 +18,6 @@ type MCPMessage struct {
 	Result  interface{} `json:"result,omitempty"`
 	Error   interface{} `json:"error,omitempty"`
 }
-
 
 // MCPRequest represents a generic MCP request structure
 type MCPRequest struct {

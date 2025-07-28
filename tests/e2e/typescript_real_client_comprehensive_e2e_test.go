@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -41,14 +40,6 @@ type TypeScriptRealClientComprehensiveE2ETestSuite struct {
 	testResults     map[string]*TestResult
 }
 
-type TestResult struct {
-	Method    string
-	File      string
-	Success   bool
-	Duration  time.Duration
-	Error     error
-	Response  interface{}
-}
 
 // SetupSuite initializes the comprehensive test suite for TypeScript using Microsoft TypeScript repository
 func (suite *TypeScriptRealClientComprehensiveE2ETestSuite) SetupSuite() {

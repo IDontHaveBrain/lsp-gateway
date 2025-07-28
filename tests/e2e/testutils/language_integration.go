@@ -49,6 +49,8 @@ func CreateLanguageConfig(repoManager RepositoryManager, options LanguageConfigO
 	templateName := fmt.Sprintf("%s_config", options.Language)
 	if options.ConfigType == "server" {
 		templateName = fmt.Sprintf("%s_test_server", options.Language)
+	} else if options.ConfigType == "mcp" {
+		templateName = fmt.Sprintf("%s_mcp", options.Language)
 	}
 
 	// Set up variables for template substitution
@@ -76,7 +78,7 @@ func CreateLanguageConfig(repoManager RepositoryManager, options LanguageConfigO
 	configOptions := TempConfigOptions{
 		Template:    templateName,
 		Variables:   variables,
-		FilePrefix:  fmt.Sprintf("%s_config_", options.Language),
+		FilePrefix:  fmt.Sprintf("%s_", templateName),
 		FileSuffix:  ".yaml",
 	}
 
