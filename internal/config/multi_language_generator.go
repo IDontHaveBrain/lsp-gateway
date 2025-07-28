@@ -297,7 +297,7 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 				},
 			},
 			Constraints: &ServerConstraints{
-				RequiredMarkers: []string{"*.py"},
+				RequiredMarkers: []string{}, // No specific markers required, Python detection is based on file existence
 				ProjectTypes:    []string{"python", "monorepo", "multi-language"},
 				MinFileCount:    1,
 			},
@@ -399,7 +399,7 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 				},
 			},
 			Constraints: &ServerConstraints{
-				RequiredMarkers: []string{"tsconfig.json", "package.json"},
+				RequiredMarkers: []string{"package.json"}, // Only require package.json to support both TS and JS projects
 				ProjectTypes:    []string{"typescript", "javascript", "monorepo", "multi-language", "frontend-backend"},
 				MinFileCount:    1,
 			},
@@ -661,7 +661,7 @@ func (g *ConfigGenerator) initializeDefaultTemplates() {
 				},
 			},
 			Constraints: &ServerConstraints{
-				RequiredMarkers: []string{"*.cpp", "*.cc", "*.cxx", "*.h", "*.hpp"},
+				RequiredMarkers: []string{}, // No specific markers required, C++ detection is based on file existence
 				ProjectTypes:    []string{"cpp", "c", "monorepo", "multi-language"},
 				MinFileCount:    1,
 			},
