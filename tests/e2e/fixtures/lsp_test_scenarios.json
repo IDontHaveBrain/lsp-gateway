@@ -1,0 +1,124 @@
+{
+  "test_scenarios": {
+    "go": {
+      "sample_files": [
+        {
+          "filename": "main.go",
+          "content": "package main\n\nimport \"fmt\"\n\ntype Server struct {\n\tName string\n\tPort int\n}\n\nfunc (s *Server) Start() error {\n\tfmt.Printf(\"Starting server %s on port %d\\n\", s.Name, s.Port)\n\treturn nil\n}\n\nfunc NewServer(name string, port int) *Server {\n\treturn &Server{\n\t\tName: name,\n\t\tPort: port,\n\t}\n}\n\nfunc main() {\n\tserver := NewServer(\"gateway\", 8080)\n\tserver.Start()\n}",
+          "test_positions": {
+            "definition": {"line": 15, "character": 8},
+            "references": {"line": 7, "character": 5},
+            "hover": {"line": 9, "character": 10},
+            "completion": {"line": 22, "character": 10}
+          }
+        },
+        {
+          "filename": "handler.go",
+          "content": "package main\n\nimport (\n\t\"net/http\"\n\t\"encoding/json\"\n)\n\ntype Handler struct {\n\tserver *Server\n}\n\nfunc (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {\n\tif r.Method == \"GET\" {\n\t\tresponse := map[string]interface{}{\n\t\t\t\"server\": h.server.Name,\n\t\t\t\"port\": h.server.Port,\n\t\t\t\"status\": \"running\",\n\t\t}\n\t\tjson.NewEncoder(w).Encode(response)\n\t}\n}\n\nfunc NewHandler(server *Server) *Handler {\n\treturn &Handler{server: server}\n}",
+          "test_positions": {
+            "definition": {"line": 23, "character": 15},
+            "references": {"line": 8, "character": 5},
+            "hover": {"line": 12, "character": 15},
+            "completion": {"line": 15, "character": 15}
+          }
+        }
+      ],
+      "expected_symbols": ["Server", "Start", "NewServer", "main", "Handler", "ServeHTTP", "NewHandler"],
+      "workspace_queries": ["Server", "Handler", "main", "New"]
+    },
+    "python": {
+      "sample_files": [
+        {
+          "filename": "server.py",
+          "content": "\"\"\"LSP Gateway Server Module\"\"\"\n\nimport asyncio\nfrom typing import Optional, List\n\n\nclass Server:\n    \"\"\"Main server class for LSP Gateway\"\"\"\n    \n    def __init__(self, name: str, port: int):\n        self.name = name\n        self.port = port\n        self.running = False\n    \n    async def start(self) -> None:\n        \"\"\"Start the server\"\"\"\n        print(f\"Starting server {self.name} on port {self.port}\")\n        self.running = True\n    \n    async def stop(self) -> None:\n        \"\"\"Stop the server\"\"\"\n        print(f\"Stopping server {self.name}\")\n        self.running = False\n\n\ndef create_server(name: str, port: int) -> Server:\n    \"\"\"Factory function to create a server instance\"\"\"\n    return Server(name, port)\n\n\nasync def main():\n    \"\"\"Main entry point\"\"\"\n    server = create_server(\"gateway\", 8080)\n    await server.start()\n\n\nif __name__ == \"__main__\":\n    asyncio.run(main())",
+          "test_positions": {
+            "definition": {"line": 32, "character": 15},
+            "references": {"line": 7, "character": 6},
+            "hover": {"line": 15, "character": 10},
+            "completion": {"line": 33, "character": 15}
+          }
+        },
+        {
+          "filename": "handler.py",
+          "content": "\"\"\"HTTP Handler Module\"\"\"\n\nimport json\nfrom typing import Dict, Any\nfrom .server import Server\n\n\nclass Handler:\n    \"\"\"HTTP request handler\"\"\"\n    \n    def __init__(self, server: Server):\n        self.server = server\n    \n    def handle_request(self, method: str, path: str) -> Dict[str, Any]:\n        \"\"\"Handle HTTP request\"\"\"\n        if method == \"GET\" and path == \"/status\":\n            return {\n                \"server\": self.server.name,\n                \"port\": self.server.port,\n                \"status\": \"running\" if self.server.running else \"stopped\"\n            }\n        return {\"error\": \"Not found\"}\n    \n    def to_json(self, data: Dict[str, Any]) -> str:\n        \"\"\"Convert data to JSON\"\"\"\n        return json.dumps(data)\n\n\ndef create_handler(server: Server) -> Handler:\n    \"\"\"Factory function to create handler\"\"\"\n    return Handler(server)",
+          "test_positions": {
+            "definition": {"line": 29, "character": 11},
+            "references": {"line": 8, "character": 6},
+            "hover": {"line": 14, "character": 8},
+            "completion": {"line": 18, "character": 25}
+          }
+        }
+      ],
+      "expected_symbols": ["Server", "__init__", "start", "stop", "create_server", "main", "Handler", "handle_request"],
+      "workspace_queries": ["Server", "Handler", "main", "create"]
+    },
+    "typescript": {
+      "sample_files": [
+        {
+          "filename": "server.ts",
+          "content": "/**\n * LSP Gateway Server Implementation\n */\n\ninterface ServerConfig {\n    name: string;\n    port: number;\n    timeout?: number;\n}\n\nclass Server {\n    private name: string;\n    private port: number;\n    private timeout: number;\n    private running: boolean = false;\n\n    constructor(config: ServerConfig) {\n        this.name = config.name;\n        this.port = config.port;\n        this.timeout = config.timeout || 30000;\n    }\n\n    public async start(): Promise<void> {\n        console.log(`Starting server ${this.name} on port ${this.port}`);\n        this.running = true;\n    }\n\n    public async stop(): Promise<void> {\n        console.log(`Stopping server ${this.name}`);\n        this.running = false;\n    }\n\n    public isRunning(): boolean {\n        return this.running;\n    }\n}\n\nexport function createServer(config: ServerConfig): Server {\n    return new Server(config);\n}\n\nexport default Server;",
+          "test_positions": {
+            "definition": {"line": 38, "character": 15},
+            "references": {"line": 11, "character": 6},
+            "hover": {"line": 23, "character": 15},
+            "completion": {"line": 25, "character": 10}
+          }
+        },
+        {
+          "filename": "handler.ts",
+          "content": "/**\n * HTTP Handler Implementation\n */\n\nimport Server from './server';\n\ninterface RequestData {\n    method: string;\n    path: string;\n    headers?: Record<string, string>;\n}\n\ninterface ResponseData {\n    status: number;\n    data: any;\n    headers?: Record<string, string>;\n}\n\nclass Handler {\n    private server: Server;\n\n    constructor(server: Server) {\n        this.server = server;\n    }\n\n    public handleRequest(request: RequestData): ResponseData {\n        if (request.method === 'GET' && request.path === '/status') {\n            return {\n                status: 200,\n                data: {\n                    server: this.server.name,\n                    running: this.server.isRunning()\n                }\n            };\n        }\n        return {\n            status: 404,\n            data: { error: 'Not found' }\n        };\n    }\n}\n\nexport function createHandler(server: Server): Handler {\n    return new Handler(server);\n}\n\nexport default Handler;",
+          "test_positions": {
+            "definition": {"line": 43, "character": 15},
+            "references": {"line": 19, "character": 6},
+            "hover": {"line": 26, "character": 11},
+            "completion": {"line": 31, "character": 25}
+          }
+        }
+      ],
+      "expected_symbols": ["ServerConfig", "Server", "start", "stop", "createServer", "Handler", "handleRequest"],
+      "workspace_queries": ["Server", "Handler", "Config", "create"]
+    },
+    "java": {
+      "sample_files": [
+        {
+          "filename": "Server.java",
+          "content": "package com.example.gateway;\n\nimport java.util.concurrent.CompletableFuture;\n\n/**\n * LSP Gateway Server Implementation\n */\npublic class Server {\n    private final String name;\n    private final int port;\n    private final int timeout;\n    private boolean running = false;\n\n    public Server(String name, int port) {\n        this(name, port, 30000);\n    }\n\n    public Server(String name, int port, int timeout) {\n        this.name = name;\n        this.port = port;\n        this.timeout = timeout;\n    }\n\n    public CompletableFuture<Void> start() {\n        return CompletableFuture.runAsync(() -> {\n            System.out.printf(\"Starting server %s on port %d%n\", name, port);\n            running = true;\n        });\n    }\n\n    public CompletableFuture<Void> stop() {\n        return CompletableFuture.runAsync(() -> {\n            System.out.printf(\"Stopping server %s%n\", name);\n            running = false;\n        });\n    }\n\n    public boolean isRunning() {\n        return running;\n    }\n\n    public String getName() {\n        return name;\n    }\n\n    public int getPort() {\n        return port;\n    }\n\n    public static Server createServer(String name, int port) {\n        return new Server(name, port);\n    }\n}",
+          "test_positions": {
+            "definition": {"line": 50, "character": 15},
+            "references": {"line": 8, "character": 13},
+            "hover": {"line": 24, "character": 10},
+            "completion": {"line": 35, "character": 10}
+          }
+        },
+        {
+          "filename": "Handler.java",
+          "content": "package com.example.gateway;\n\nimport java.util.HashMap;\nimport java.util.Map;\nimport com.fasterxml.jackson.databind.ObjectMapper;\n\n/**\n * HTTP Request Handler\n */\npublic class Handler {\n    private final Server server;\n    private final ObjectMapper mapper;\n\n    public Handler(Server server) {\n        this.server = server;\n        this.mapper = new ObjectMapper();\n    }\n\n    public Map<String, Object> handleRequest(String method, String path) {\n        Map<String, Object> response = new HashMap<>();\n        \n        if (\"GET\".equals(method) && \"/status\".equals(path)) {\n            response.put(\"server\", server.getName());\n            response.put(\"port\", server.getPort());\n            response.put(\"running\", server.isRunning());\n            return response;\n        }\n        \n        response.put(\"error\", \"Not found\");\n        return response;\n    }\n\n    public String toJson(Map<String, Object> data) throws Exception {\n        return mapper.writeValueAsString(data);\n    }\n\n    public static Handler createHandler(Server server) {\n        return new Handler(server);\n    }\n}",
+          "test_positions": {
+            "definition": {"line": 37, "character": 15},
+            "references": {"line": 10, "character": 13},
+            "hover": {"line": 19, "character": 15},
+            "completion": {"line": 23, "character": 25}
+          }
+        }
+      ],
+      "expected_symbols": ["Server", "start", "stop", "createServer", "Handler", "handleRequest", "createHandler"],
+      "workspace_queries": ["Server", "Handler", "create", "start"]
+    }
+  },
+  "test_configurations": {
+    "timeout_settings": {
+      "default": "15s",
+      "long_running": "30s",
+      "quick": "5s"
+    },
+    "retry_settings": {
+      "max_retries": 3,
+      "retry_delay": "500ms"
+    },
+    "performance_thresholds": {
+      "response_time": "2s",
+      "error_rate": 0.05,
+      "throughput": 10.0
+    }
+  }
+}
