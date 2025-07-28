@@ -174,7 +174,7 @@ quality: format lint security
 # TESTING TARGETS
 # =============================================================================
 
-.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-javascript test-e2e-go test-go-comprehensive test-java-real test-python-real test-python-patterns test-python-patterns-quick test-python-comprehensive test-typescript-real test-typescript-basic test-typescript-mcp test-typescript-mcp-integration test-typescript-quick test-typescript-all test-javascript-e2e test-javascript-quick test-javascript-mcp test-javascript-comprehensive test-e2e-advanced test-e2e-workflow test-e2e-setup-cli test-e2e-mcp test-mcp-stdio test-mcp-tcp test-mcp-tools test-mcp-scip test-mcp-comprehensive test-mcp-lsp-tools-all test-mcp-performance-suite test-mcp-enhanced-quick test-npm-cli test-npm-mcp test-npm-mcp-quick test-npm-mcp-js test-npm-mcp-go validate-python-patterns-integration validate-python-patterns-integration-quick test-python-patterns-integration setup-simple-repos
+.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-javascript test-e2e-go test-go-comprehensive test-java-real test-java-real-client test-java-mcp test-python-real test-python-patterns test-python-patterns-quick test-python-comprehensive test-typescript-real test-typescript-basic test-typescript-mcp test-typescript-mcp-integration test-typescript-quick test-typescript-all test-javascript-e2e test-javascript-quick test-javascript-mcp test-javascript-comprehensive test-e2e-advanced test-e2e-workflow test-e2e-setup-cli test-e2e-mcp test-mcp-stdio test-mcp-tcp test-mcp-tools test-mcp-scip test-mcp-comprehensive test-mcp-lsp-tools-all test-mcp-performance-suite test-mcp-enhanced-quick test-npm-cli test-npm-mcp test-npm-mcp-quick test-npm-mcp-js test-npm-mcp-go validate-python-patterns-integration validate-python-patterns-integration-quick test-python-patterns-integration setup-simple-repos
 setup-simple-repos:
 	@echo "Setting up test repositories..."
 	./scripts/setup-simple-repos.sh || echo "Setup script not found, skipping..."
@@ -260,6 +260,14 @@ test-go-comprehensive:
 test-java-real:
 	@echo "Running Java real JDTLS integration tests..."
 	$(GOTEST) -v -timeout 900s -run "TestJavaRealJDTLSE2ETestSuite" ./tests/e2e/...
+
+test-java-real-client:
+	@echo "Running comprehensive Java Real Client E2E tests with clean-code repository..."
+	$(GOTEST) -v -timeout 1200s -run "TestJavaRealClientComprehensiveE2ETestSuite" ./tests/e2e/...
+
+test-java-mcp:
+	@echo "Running Java MCP integration tests..."
+	$(GOTEST) -v -timeout 600s -run "TestJava.*MCP.*" ./tests/e2e/...
 
 test-python-real:
 	@echo "Running Python real pylsp integration tests..."
@@ -443,6 +451,8 @@ help:
 	@echo ""
 	@echo "Real Language Server Integration:"
 	@echo "  test-java-real         - Java real JDTLS integration"
+	@echo "  test-java-real-client  - Comprehensive Java Real Client E2E with clean-code repository (15-20min)"
+	@echo "  test-java-mcp          - Java MCP integration tests (10-15min)"
 	@echo "  test-python-real       - Python real pylsp integration"
 	@echo "  test-python-patterns   - Comprehensive Python patterns e2e tests with real server"
 	@echo "  test-python-patterns-quick - Quick Python patterns validation tests"
