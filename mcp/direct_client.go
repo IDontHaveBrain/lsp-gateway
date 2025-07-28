@@ -105,35 +105,55 @@ func (dm *DirectLSPManager) SendLSPRequest(ctx context.Context, method string, p
 	dm.mu.RLock()
 	defer dm.mu.RUnlock()
 
+	dm.logger.Printf("[DEBUG] SendLSPRequest called: method=%s, params=%+v", method, params)
+
 	// Try to determine target server from request parameters
 	serverName, err := dm.determineTargetServer(method, params)
 	if err != nil {
+		dm.logger.Printf("[ERROR] Failed to determine target server: %v", err)
 		return nil, fmt.Errorf("failed to determine target server: %w", err)
 	}
 
+	dm.logger.Printf("[DEBUG] Determined target server: %s", serverName)
+
 	client, exists := dm.clients[serverName]
 	if !exists {
+		dm.logger.Printf("[ERROR] LSP client not found for server: %s", serverName)
 		return nil, fmt.Errorf("LSP client not found for server: %s", serverName)
 	}
 
 	// Forward request to the appropriate LSP server
-	dm.logger.Printf("Routing %s request to server: %s", method, serverName)
-	return client.SendRequest(ctx, method, params)
+	dm.logger.Printf("[DEBUG] Routing %s request to server: %s", method, serverName)
+	result, err := client.SendRequest(ctx, method, params)
+	if err != nil {
+		dm.logger.Printf("[ERROR] LSP server %s returned error: %v", serverName, err)
+		return nil, err
+	}
+	dm.logger.Printf("[DEBUG] LSP server %s returned result: %d bytes", serverName, len(result))
+	return result, nil
 }
 
 // determineTargetServer determines which LSP server should handle the request
 // This implementation uses a simple heuristic based on file extensions or defaults to the first server
 func (dm *DirectLSPManager) determineTargetServer(method string, params interface{}) (string, error) {
+	dm.logger.Printf("[DEBUG] determineTargetServer: method=%s, paramsType=%T", method, params)
+	
 	// Try to extract file information from parameters to determine language
 	if paramsMap, ok := params.(map[string]interface{}); ok {
+		dm.logger.Printf("[DEBUG] Params is map, checking for textDocument")
 		if textDoc, exists := paramsMap["textDocument"]; exists {
+			dm.logger.Printf("[DEBUG] Found textDocument: %+v", textDoc)
 			if textDocMap, ok := textDoc.(map[string]interface{}); ok {
 				if uri, exists := textDocMap["uri"]; exists {
 					if uriStr, ok := uri.(string); ok {
+						dm.logger.Printf("[DEBUG] Extracted URI: %s", uriStr)
 						language := dm.inferLanguageFromURI(uriStr)
+						dm.logger.Printf("[DEBUG] Inferred language: %s", language)
 						if serverName, exists := dm.languageMap[language]; exists {
+							dm.logger.Printf("[DEBUG] Found server for language %s: %s", language, serverName)
 							return serverName, nil
 						}
+						dm.logger.Printf("[DEBUG] No server found for language: %s", language)
 					}
 				}
 			}
@@ -142,8 +162,11 @@ func (dm *DirectLSPManager) determineTargetServer(method string, params interfac
 		// Check for direct URI parameter
 		if uri, exists := paramsMap["uri"]; exists {
 			if uriStr, ok := uri.(string); ok {
+				dm.logger.Printf("[DEBUG] Found direct URI: %s", uriStr)
 				language := dm.inferLanguageFromURI(uriStr)
+				dm.logger.Printf("[DEBUG] Inferred language from direct URI: %s", language)
 				if serverName, exists := dm.languageMap[language]; exists {
+					dm.logger.Printf("[DEBUG] Found server for language %s: %s", language, serverName)
 					return serverName, nil
 				}
 			}

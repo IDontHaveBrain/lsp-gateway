@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
 	"strconv"
 	"strings"
@@ -798,10 +799,13 @@ type ToolCall struct {
 }
 
 type ToolResult struct {
-	Content []ContentBlock    `json:"content"`
-	IsError bool              `json:"isError,omitempty"`
-	Error   *StructuredError  `json:"error,omitempty"`
-	Meta    *ResponseMetadata `json:"meta,omitempty"`
+	Content           []ContentBlock         `json:"content"`
+	StructuredContent map[string]interface{} `json:"structuredContent,omitempty"`
+	IsError           bool                   `json:"isError,omitempty"`
+	Meta              *ResponseMetadata      `json:"_meta,omitempty"`
+	
+	// Deprecated: Remove after migration to MCP standard format
+	Error *StructuredError `json:"-"`
 }
 
 type ResponseMetadata struct {
@@ -1282,27 +1286,23 @@ func (h *ToolHandler) ListTools() []Tool {
 func (h *ToolHandler) CallTool(ctx context.Context, call ToolCall) (*ToolResult, error) {
 	tool, exists := h.Tools[call.Name]
 	if !exists {
+		availableTools := h.getAvailableToolNames()
+		errorMessage := fmt.Sprintf("Unknown tool: %s\n\nThe requested tool is not registered or does not exist.\n\nAvailable tools: %s\n\nSuggestions:\n- Check the tool name for typos\n- Use one of the available tools listed above\n- Verify the tool is supported in this version", 
+			call.Name, strings.Join(availableTools, ", "))
+		
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
-				Text: fmt.Sprintf("Unknown tool: %s", call.Name),
+				Text: errorMessage,
 			}},
-			IsError: true,
-			Error: &StructuredError{
-				Code:    MCPErrorMethodNotFound,
-				Message: fmt.Sprintf("Tool '%s' is not available", call.Name),
-				Details: "The requested tool is not registered or does not exist",
-				Context: map[string]interface{}{
-					"tool":           call.Name,
-					"available_tools": h.getAvailableToolNames(),
+			StructuredContent: map[string]interface{}{
+				"error": map[string]interface{}{
+					"code":            "METHOD_NOT_FOUND",
+					"tool":            call.Name,
+					"available_tools": availableTools,
 				},
-				Suggestions: []string{
-					"Check the tool name for typos",
-					"Use one of the available tools listed in the context",
-					"Verify the tool is supported in this version",
-				},
-				Retryable: false,
 			},
+			IsError: true,
 		}, nil
 	}
 
@@ -1318,25 +1318,20 @@ func (h *ToolHandler) CallTool(ctx context.Context, call ToolCall) (*ToolResult,
 	case "search_workspace_symbols":
 		return h.handleSearchWorkspaceSymbols(ctx, call.Arguments)
 	default:
+		errorMessage := fmt.Sprintf("Tool '%s' exists but is not implemented\n\nThe tool is registered but its handler is not implemented.\n\nSuggestions:\n- Contact support to request implementation of this tool\n- Use an alternative tool if available", tool.Name)
+		
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
-				Text: fmt.Sprintf("Tool '%s' exists but is not implemented", tool.Name),
+				Text: errorMessage,
 			}},
-			IsError: true,
-			Error: &StructuredError{
-				Code:    MCPErrorUnsupportedFeature,
-				Message: fmt.Sprintf("Tool '%s' is not implemented", tool.Name),
-				Details: "The tool is registered but its handler is not implemented",
-				Context: map[string]interface{}{
+			StructuredContent: map[string]interface{}{
+				"error": map[string]interface{}{
+					"code": "UNSUPPORTED_FEATURE",
 					"tool": tool.Name,
 				},
-				Suggestions: []string{
-					"Contact support to request implementation of this tool",
-					"Use an alternative tool if available",
-				},
-				Retryable: false,
 			},
+			IsError: true,
 		}, nil
 	}
 }
@@ -1362,13 +1357,27 @@ func (h *ToolHandler) handleGotoDefinitionWithContext(ctx context.Context, args 
 	validator := NewParameterValidator()
 	uri, line, character, err := validator.ValidatePositionParams(args)
 	if err != nil {
+		structErr := err.(*StructuredError)
+		errorMessage := fmt.Sprintf("Parameter validation failed: %s\n\n%s", structErr.Message, structErr.Details)
+		if len(structErr.Suggestions) > 0 {
+			errorMessage += "\n\nSuggestions:\n- " + strings.Join(structErr.Suggestions, "\n- ")
+		}
+		
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
-				Text: "Parameter validation failed",
+				Text: errorMessage,
 			}},
+			StructuredContent: map[string]interface{}{
+				"error": map[string]interface{}{
+					"code":        "INVALID_PARAMS",
+					"message":     structErr.Message,
+					"details":     structErr.Details,
+					"context":     structErr.Context,
+					"suggestions": structErr.Suggestions,
+				},
+			},
 			IsError: true,
-			Error:   err.(*StructuredError),
 		}, nil
 	}
 
@@ -1421,26 +1430,54 @@ func (h *ToolHandler) handleFindReferencesWithContext(ctx context.Context, args 
 	validator := NewParameterValidator()
 	uri, line, character, err := validator.ValidatePositionParams(args)
 	if err != nil {
+		structErr := err.(*StructuredError)
+		errorMessage := fmt.Sprintf("Parameter validation failed: %s\n\n%s", structErr.Message, structErr.Details)
+		if len(structErr.Suggestions) > 0 {
+			errorMessage += "\n\nSuggestions:\n- " + strings.Join(structErr.Suggestions, "\n- ")
+		}
+		
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
-				Text: "Parameter validation failed",
+				Text: errorMessage,
 			}},
+			StructuredContent: map[string]interface{}{
+				"error": map[string]interface{}{
+					"code":        "INVALID_PARAMS",
+					"message":     structErr.Message,
+					"details":     structErr.Details,
+					"context":     structErr.Context,
+					"suggestions": structErr.Suggestions,
+				},
+			},
 			IsError: true,
-			Error:   err.(*StructuredError),
 		}, nil
 	}
 
 	// Validate includeDeclaration parameter
 	includeDeclaration, err := getBoolParam(args, "includeDeclaration", true)
 	if err != nil {
+		structErr := err.(*StructuredError)
+		errorMessage := fmt.Sprintf("Parameter validation failed: %s\n\n%s", structErr.Message, structErr.Details)
+		if len(structErr.Suggestions) > 0 {
+			errorMessage += "\n\nSuggestions:\n- " + strings.Join(structErr.Suggestions, "\n- ")
+		}
+		
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
-				Text: "Parameter validation failed",
+				Text: errorMessage,
 			}},
+			StructuredContent: map[string]interface{}{
+				"error": map[string]interface{}{
+					"code":        "INVALID_PARAMS",
+					"message":     structErr.Message,
+					"details":     structErr.Details,
+					"context":     structErr.Context,
+					"suggestions": structErr.Suggestions,
+				},
+			},
 			IsError: true,
-			Error:   err.(*StructuredError),
 		}, nil
 	}
 
@@ -1496,13 +1533,27 @@ func (h *ToolHandler) handleGetHoverInfoWithContext(ctx context.Context, args ma
 	validator := NewParameterValidator()
 	uri, line, character, err := validator.ValidatePositionParams(args)
 	if err != nil {
+		structErr := err.(*StructuredError)
+		errorMessage := fmt.Sprintf("Parameter validation failed: %s\n\n%s", structErr.Message, structErr.Details)
+		if len(structErr.Suggestions) > 0 {
+			errorMessage += "\n\nSuggestions:\n- " + strings.Join(structErr.Suggestions, "\n- ")
+		}
+		
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
-				Text: "Parameter validation failed",
+				Text: errorMessage,
 			}},
+			StructuredContent: map[string]interface{}{
+				"error": map[string]interface{}{
+					"code":        "INVALID_PARAMS",
+					"message":     structErr.Message,
+					"details":     structErr.Details,
+					"context":     structErr.Context,
+					"suggestions": structErr.Suggestions,
+				},
+			},
 			IsError: true,
-			Error:   err.(*StructuredError),
 		}, nil
 	}
 
@@ -1550,28 +1601,57 @@ func (h *ToolHandler) handleGetDocumentSymbols(ctx context.Context, args map[str
 // Enhanced version with workspace context support
 func (h *ToolHandler) handleGetDocumentSymbolsWithContext(ctx context.Context, args map[string]interface{}, workspaceCtx *WorkspaceContext) (*ToolResult, error) {
 	startTime := time.Now()
+	log.Printf("[DEBUG] handleGetDocumentSymbols called with args: %+v", args)
 
 	// Validate required parameters
 	uri, err := getStringParam(args, "uri", true)
 	if err != nil {
+		structErr := err.(*StructuredError)
+		errorMessage := fmt.Sprintf("Parameter validation failed: %s\n\n%s", structErr.Message, structErr.Details)
+		if len(structErr.Suggestions) > 0 {
+			errorMessage += "\n\nSuggestions:\n- " + strings.Join(structErr.Suggestions, "\n- ")
+		}
+		
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
-				Text: "Parameter validation failed",
+				Text: errorMessage,
 			}},
+			StructuredContent: map[string]interface{}{
+				"error": map[string]interface{}{
+					"code":        "INVALID_PARAMS",
+					"message":     structErr.Message,
+					"details":     structErr.Details,
+					"context":     structErr.Context,
+					"suggestions": structErr.Suggestions,
+				},
+			},
 			IsError: true,
-			Error:   err.(*StructuredError),
 		}, nil
 	}
 
 	if err := validateURI(uri); err != nil {
+		structErr := err.(*StructuredError)
+		errorMessage := fmt.Sprintf("Parameter validation failed: %s\n\n%s", structErr.Message, structErr.Details)
+		if len(structErr.Suggestions) > 0 {
+			errorMessage += "\n\nSuggestions:\n- " + strings.Join(structErr.Suggestions, "\n- ")
+		}
+		
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
-				Text: "Parameter validation failed",
+				Text: errorMessage,
 			}},
+			StructuredContent: map[string]interface{}{
+				"error": map[string]interface{}{
+					"code":        "INVALID_PARAMS",
+					"message":     structErr.Message,
+					"details":     structErr.Details,
+					"context":     structErr.Context,
+					"suggestions": structErr.Suggestions,
+				},
+			},
 			IsError: true,
-			Error:   err.(*StructuredError),
 		}, nil
 	}
 
@@ -1581,10 +1661,13 @@ func (h *ToolHandler) handleGetDocumentSymbolsWithContext(ctx context.Context, a
 		},
 	}
 
+	log.Printf("[DEBUG] Sending LSP request: method=textDocument/documentSymbol, params=%+v", params)
 	result, err := h.Client.SendLSPRequest(ctx, "textDocument/documentSymbol", params)
 	if err != nil {
+		log.Printf("[ERROR] LSP request failed: %v", err)
 		return createLSPRequestError("textDocument/documentSymbol", "get_document_symbols", err, params), nil
 	}
+	log.Printf("[DEBUG] LSP request successful, result length: %d bytes", len(result))
 
 	// Create enhanced result with project context
 	toolResult := &ToolResult{
@@ -1619,13 +1702,27 @@ func (h *ToolHandler) handleSearchWorkspaceSymbolsWithContext(ctx context.Contex
 	// Validate required parameters
 	query, err := getStringParam(args, "query", true)
 	if err != nil {
+		structErr := err.(*StructuredError)
+		errorMessage := fmt.Sprintf("Parameter validation failed: %s\n\n%s", structErr.Message, structErr.Details)
+		if len(structErr.Suggestions) > 0 {
+			errorMessage += "\n\nSuggestions:\n- " + strings.Join(structErr.Suggestions, "\n- ")
+		}
+		
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
-				Text: "Parameter validation failed",
+				Text: errorMessage,
 			}},
+			StructuredContent: map[string]interface{}{
+				"error": map[string]interface{}{
+					"code":        "INVALID_PARAMS",
+					"message":     structErr.Message,
+					"details":     structErr.Details,
+					"context":     structErr.Context,
+					"suggestions": structErr.Suggestions,
+				},
+			},
 			IsError: true,
-			Error:   err.(*StructuredError),
 		}, nil
 	}
 

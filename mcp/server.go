@@ -223,6 +223,12 @@ type Server struct {
 	initStateMu sync.RWMutex
 	initState   InitializationState
 
+	// Initialization timeout and recovery
+	initTimeout      time.Duration
+	initDeadline     time.Time
+	autoRecovery     bool
+	recoveryAttempts int
+
 	Logger          *log.Logger
 	ProtocolLimits  *ProtocolConstants
 	RecoveryContext *RecoveryContext
@@ -267,6 +273,9 @@ func NewServer(config *ServerConfig) *Server {
 		ProtocolLimits:  protocolLimits,
 		RecoveryContext: &RecoveryContext{},
 		connContext:     &ConnectionContext{},
+		// Initialize timeout and recovery settings
+		initTimeout:  30 * time.Second,
+		autoRecovery: true,
 	}
 }
 
@@ -307,6 +316,9 @@ func NewServerWithDirectLSP(config *ServerConfig, directLSPManager *DirectLSPMan
 		ProtocolLimits:  protocolLimits,
 		RecoveryContext: &RecoveryContext{},
 		connContext:     &ConnectionContext{},
+		// Initialize timeout and recovery settings
+		initTimeout:  30 * time.Second,
+		autoRecovery: true,
 	}, nil
 }
 
@@ -316,6 +328,13 @@ func (s *Server) SetIO(input io.Reader, output io.Writer) {
 }
 
 func (s *Server) Start() error {
+	// Debug: Log working directory and process info
+	if cwd, err := os.Getwd(); err == nil {
+		s.Logger.Printf("[DEBUG] MCP Server Working Directory: %s", cwd)
+	}
+	s.Logger.Printf("[DEBUG] Process Args: %v", os.Args)
+	s.Logger.Printf("[DEBUG] Environment Variables: CLAUDE_PROJECT_ROOT=%s", os.Getenv("CLAUDE_PROJECT_ROOT"))
+	
 	s.Logger.Printf("Starting MCP server %s v%s", s.Config.Name, s.Config.Version)
 	if s.Client != nil {
 		s.Logger.Printf("LSP Gateway URL: %s", s.Config.LSPGatewayURL)
@@ -498,6 +517,71 @@ func (s *Server) Stop() error {
 	return nil
 }
 
+// checkInitializationTimeout checks if initialization has exceeded the timeout
+func (s *Server) checkInitializationTimeout() bool {
+	if s.initTimeout <= 0 {
+		return false // No timeout set
+	}
+	
+	s.initStateMu.RLock()
+	state := s.initState
+	deadline := s.initDeadline
+	s.initStateMu.RUnlock()
+	
+	if state == Initializing && !deadline.IsZero() && time.Now().After(deadline) {
+		s.Logger.Printf("Initialization timeout exceeded (%v), attempting recovery", s.initTimeout)
+		return true
+	}
+	return false
+}
+
+// attemptInitializationRecovery attempts to recover from initialization timeout
+func (s *Server) attemptInitializationRecovery() bool {
+	if !s.autoRecovery {
+		return false
+	}
+	
+	s.initStateMu.Lock()
+	defer s.initStateMu.Unlock()
+	
+	s.recoveryAttempts++
+	s.Logger.Printf("Attempting initialization recovery (attempt %d)", s.recoveryAttempts)
+	
+	if s.recoveryAttempts > 3 {
+		s.Logger.Printf("Maximum recovery attempts exceeded, marking as failed")
+		s.initState = Failed
+		return false
+	}
+	
+	// Reset initialization with extended timeout
+	s.initState = NotInitialized
+	s.initDeadline = time.Time{} // Clear deadline
+	s.Logger.Printf("Initialization recovery attempt %d: reset to NotInitialized", s.recoveryAttempts)
+	return true
+}
+
+// isInitializationStable checks if the server is in a stable state for operations
+func (s *Server) isInitializationStable() bool {
+	s.initStateMu.RLock()
+	defer s.initStateMu.RUnlock()
+	
+	// Consider initialization "stable enough" for tool operations if:
+	// 1. Fully initialized, OR
+	// 2. Currently initializing but tools are available (DirectLSP mode), OR  
+	// 3. Failed but auto-recovery is enabled
+	switch s.initState {
+	case Initialized:
+		return true
+	case Initializing:
+		// In DirectLSP mode, tools are available during initialization
+		return s.Client == nil
+	case Failed:
+		return s.autoRecovery
+	default:
+		return false
+	}
+}
+
 func (s *Server) messageLoop() {
 	defer s.wg.Done()
 
@@ -513,6 +597,13 @@ func (s *Server) messageLoop() {
 			s.Logger.Println("Message loop terminated by context cancellation")
 			return
 		default:
+		}
+
+		// Check for initialization timeout and attempt recovery
+		if s.checkInitializationTimeout() {
+			if !s.attemptInitializationRecovery() {
+				s.Logger.Println("Initialization recovery failed, continuing with limited functionality")
+			}
 		}
 
 		msgCtx, msgCancel := context.WithTimeout(s.ctx, s.ProtocolLimits.MessageTimeout)
@@ -590,36 +681,58 @@ func (s *Server) ReadMessageWithRecovery(ctx context.Context, reader *bufio.Read
 
 // readMessageWithProtocolDetection implements robust protocol detection with state machine
 func (s *Server) readMessageWithProtocolDetection(ctx context.Context, reader *bufio.Reader) (string, error) {
+	s.Logger.Printf("[DEBUG] readMessageWithProtocolDetection called")
+	
 	// Check if protocol is already detected for this connection
 	if format, detected := s.connContext.GetProtocolFormat(); detected {
+		s.Logger.Printf("[DEBUG] Protocol already detected: %v", format)
 		switch format {
 		case ProtocolFormatJSON:
+			s.Logger.Printf("[DEBUG] Reading JSON message")
 			return s.readJSONMessage(ctx, reader)
 		case ProtocolFormatLSP:
+			s.Logger.Printf("[DEBUG] Reading LSP message")
 			return s.readLSPMessage(ctx, reader)
 		default:
+			s.Logger.Printf("[ERROR] Invalid protocol format: %v", format)
 			return "", fmt.Errorf("invalid protocol format: %v", format)
 		}
 	}
 
 	// Protocol not detected yet - perform detection with timeout
+	s.Logger.Printf("[DEBUG] Protocol not detected yet, performing detection with 5s timeout")
 	detectionCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	return s.detectAndReadMessage(detectionCtx, reader)
+	result, err := s.detectAndReadMessage(detectionCtx, reader)
+	if err != nil {
+		s.Logger.Printf("[DEBUG] detectAndReadMessage failed: %v", err)
+	} else {
+		s.Logger.Printf("[DEBUG] detectAndReadMessage succeeded, result length: %d", len(result))
+	}
+	return result, err
 }
 
 // detectAndReadMessage performs protocol detection and reads the first message
 func (s *Server) detectAndReadMessage(ctx context.Context, reader *bufio.Reader) (string, error) {
+	s.Logger.Printf("[DEBUG] detectAndReadMessage called")
+	
 	// Buffer for protocol detection - peek more bytes for reliable detection
 	peekSize := 32
+	s.Logger.Printf("[DEBUG] Attempting to peek %d bytes for protocol detection", peekSize)
+	
 	headerBuffer, err := s.peekWithTimeout(ctx, reader, peekSize)
 	if err != nil {
+		s.Logger.Printf("[DEBUG] peekWithTimeout failed: %v", err)
 		if err == io.EOF {
+			s.Logger.Printf("[DEBUG] EOF encountered during peek")
 			return "", err
 		}
+		s.Logger.Printf("[ERROR] Failed to peek for protocol detection: %v", err)
 		return "", fmt.Errorf("failed to peek for protocol detection: %w", err)
 	}
+	
+	s.Logger.Printf("[DEBUG] Successfully peeked %d bytes: %q", len(headerBuffer), string(headerBuffer))
 
 	// Detect protocol format based on header content
 	format, err := s.detectProtocolFormat(headerBuffer)
@@ -712,21 +825,28 @@ func (s *Server) detectProtocolFormat(headerData []byte) (ProtocolFormat, error)
 
 // readJSONMessage reads a direct JSON message (Claude Code format)
 func (s *Server) readJSONMessage(ctx context.Context, reader *bufio.Reader) (string, error) {
+	s.Logger.Printf("[DEBUG] readJSONMessage called")
+	
 	line, err := s.readLineWithContext(ctx, reader)
 	if err != nil {
+		s.Logger.Printf("[ERROR] Failed to read JSON line: %v", err)
 		return "", fmt.Errorf("failed to read JSON line: %w", err)
 	}
 
+	s.Logger.Printf("[DEBUG] Raw line read: %d bytes, content: %q", len(line), line)
+	
 	line = strings.TrimSpace(line)
 	if !utf8.ValidString(line) {
+		s.Logger.Printf("[ERROR] Invalid UTF-8 encoding in JSON message")
 		return "", fmt.Errorf("invalid UTF-8 encoding in JSON message")
 	}
 
 	if len(line) > s.ProtocolLimits.MaxMessageSize {
+		s.Logger.Printf("[ERROR] Message size too large: %d bytes (max %d)", len(line), s.ProtocolLimits.MaxMessageSize)
 		return "", fmt.Errorf("message size too large: %d bytes (max %d)", len(line), s.ProtocolLimits.MaxMessageSize)
 	}
 
-	s.Logger.Printf("Received direct JSON message: %d bytes", len(line))
+	s.Logger.Printf("[DEBUG] Received direct JSON message: %d bytes, content: %s", len(line), line)
 	return line, nil
 }
 
@@ -825,11 +945,16 @@ func min(a, b int) int {
 }
 
 func (s *Server) HandleMessageWithValidation(ctx context.Context, data string) error {
+	s.Logger.Printf("[DEBUG] HandleMessageWithValidation called with data length: %d", len(data))
+	s.Logger.Printf("[DEBUG] Message content: %s", data)
+	
 	if len(data) == 0 {
+		s.Logger.Printf("[ERROR] Empty message received")
 		return s.SendError(nil, JSONRPCErrorCodeParseError, JSONRPCErrorMessageParseError, "Empty message content")
 	}
 
 	if len(data) > s.ProtocolLimits.MaxMessageSize {
+		s.Logger.Printf("[ERROR] Message too large: %d bytes", len(data))
 		return s.SendError(nil, JSONRPCErrorCodeParseError, JSONRPCErrorMessageParseError, fmt.Sprintf("Message too large: %d bytes", len(data)))
 	}
 
@@ -848,25 +973,29 @@ func (s *Server) HandleMessageWithValidation(ctx context.Context, data string) e
 		return s.SendError(msg.ID, JSONRPCErrorCodeInvalidRequest, JSONRPCErrorMessageInvalidRequest, err.Error())
 	}
 
-	s.Logger.Printf("Processing message: method=%s, id=%v", msg.Method, msg.ID)
+	s.Logger.Printf("[DEBUG] Processing message: method=%s, id=%v", msg.Method, msg.ID)
 
 	handlerCtx, cancel := context.WithTimeout(ctx, s.ProtocolLimits.MessageTimeout)
 	defer cancel()
 
 	switch msg.Method {
 	case MCPMethodInitialize:
+		s.Logger.Printf("[DEBUG] Handling initialize method")
 		return s.handleInitializeWithValidation(handlerCtx, msg)
 	case MCPMethodToolsList:
+		s.Logger.Printf("[DEBUG] Handling tools/list method")
 		return s.handleListToolsWithValidation(handlerCtx, msg)
 	case MCPMethodToolsCall:
+		s.Logger.Printf("[DEBUG] Handling tools/call method")
 		return s.handleCallToolWithValidation(handlerCtx, msg)
 	case MCPMethodPing:
+		s.Logger.Printf("[DEBUG] Handling ping method")
 		return s.handlePingWithValidation(handlerCtx, msg)
 	case MCPMethodNotificationInit:
-		s.Logger.Println("Received initialization notification")
+		s.Logger.Printf("[DEBUG] Received initialization notification")
 		return nil
 	default:
-		s.Logger.Printf("Unknown method requested: %s", msg.Method)
+		s.Logger.Printf("[ERROR] Unknown method requested: %s", msg.Method)
 		if msg.ID != nil {
 			return s.SendError(msg.ID, JSONRPCErrorCodeMethodNotFound, JSONRPCErrorMessageMethodNotFound, fmt.Sprintf("Unknown method: %s", msg.Method))
 		}
@@ -951,6 +1080,7 @@ func (s *Server) SendMessage(msg MCPMessage) error {
 			return fmt.Errorf("failed to write JSON: %w", err)
 		}
 		s.Logger.Printf("Sent JSON format message: id=%v, size=%d bytes", msg.ID, len(content))
+		s.Logger.Printf("[DEBUG] JSON Response sent: %s", content)
 		
 	case ProtocolFormatLSP:
 		// Standard LSP protocol with Content-Length headers
@@ -974,6 +1104,7 @@ func (s *Server) SendMessage(msg MCPMessage) error {
 			return fmt.Errorf("failed to write content: %w", err)
 		}
 		s.Logger.Printf("Sent LSP format message: id=%v, size=%d bytes", msg.ID, len(content))
+		s.Logger.Printf("[DEBUG] LSP Response sent: %s", content)
 		
 	default:
 		return fmt.Errorf("unsupported protocol format for sending: %v", format)
@@ -1220,6 +1351,10 @@ func (s *Server) handleInitializeWithValidation(ctx context.Context, msg MCPMess
 	}
 	oldState := s.initState
 	s.initState = Initializing
+	// Set initialization deadline for timeout tracking
+	if s.initTimeout > 0 {
+		s.initDeadline = time.Now().Add(s.initTimeout)
+	}
 	s.initStateMu.Unlock()
 	s.logInitializationStateChange(oldState, Initializing, "initialize request received")
 
@@ -1301,7 +1436,8 @@ func (s *Server) handleListToolsWithValidation(ctx context.Context, msg MCPMessa
 	case NotInitialized:
 		return s.sendNotInitializedError(msg.ID)
 	case Initializing:
-		return s.sendInitializingError(msg.ID)
+		// Allow tools/list during initialization since tools are already registered
+		s.Logger.Printf("Allowing tools/list during initialization phase")
 	case Failed:
 		return s.sendInitializationFailedError(msg.ID)
 	case Initialized:
@@ -1315,50 +1451,65 @@ func (s *Server) handleListToolsWithValidation(ctx context.Context, msg MCPMessa
 		"tools": tools,
 	}
 
-	s.Logger.Printf("Listed %d tools", len(tools))
+	s.Logger.Printf("Listed %d tools (state: %s)", len(tools), currentState.String())
 	return s.SendResponse(msg.ID, result)
 }
 
 func (s *Server) handleCallToolWithValidation(ctx context.Context, msg MCPMessage) error {
+	s.Logger.Printf("[DEBUG] handleCallToolWithValidation called with msg.ID=%v", msg.ID)
+	
 	currentState := s.GetInitializationState()
+	s.Logger.Printf("[DEBUG] Current initialization state: %s", currentState.String())
+	
 	switch currentState {
 	case NotInitialized:
+		s.Logger.Printf("[ERROR] Tool call rejected - not initialized")
 		return s.sendNotInitializedError(msg.ID)
 	case Initializing:
-		return s.sendInitializingError(msg.ID)
+		// Allow tool calls during initialization since DirectLSP servers are already started
+		s.Logger.Printf("[DEBUG] Allowing tool call during initialization phase")
 	case Failed:
+		s.Logger.Printf("[ERROR] Tool call rejected - initialization failed")
 		return s.sendInitializationFailedError(msg.ID)
 	case Initialized:
-		// Continue with normal execution
+		s.Logger.Printf("[DEBUG] Tool call accepted - fully initialized")
 	default:
+		s.Logger.Printf("[ERROR] Unknown initialization state: %s", currentState.String())
 		return s.SendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, "Unknown initialization state")
 	}
 
 	var call ToolCall
 	if msg.Params != nil {
+		s.Logger.Printf("[DEBUG] Parsing tool call params: %+v", msg.Params)
 		paramBytes, err := json.Marshal(msg.Params)
 		if err != nil {
+			s.Logger.Printf("[ERROR] Failed to marshal tool call params: %v", err)
 			return s.SendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, fmt.Sprintf("Failed to marshal tool call params: %v", err))
 		}
 		if err := json.Unmarshal(paramBytes, &call); err != nil {
+			s.Logger.Printf("[ERROR] Failed to parse tool call params: %v", err)
 			return s.SendError(msg.ID, JSONRPCErrorCodeInvalidParams, JSONRPCErrorMessageInvalidParams, fmt.Sprintf("Failed to parse tool call params: %v", err))
 		}
 	} else {
+		s.Logger.Printf("[ERROR] Missing tool call parameters")
 		return s.SendError(msg.ID, JSONRPCErrorCodeInvalidParams, JSONRPCErrorMessageInvalidParams, "Missing tool call parameters")
 	}
 
 	if call.Name == "" {
+		s.Logger.Printf("[ERROR] Tool name is empty")
 		return s.SendError(msg.ID, JSONRPCErrorCodeInvalidParams, JSONRPCErrorMessageInvalidParams, "Tool name is required")
 	}
 
+	s.Logger.Printf("[DEBUG] Calling tool: name=%s, args=%+v", call.Name, call.Arguments)
 	result, err := s.ToolHandler.CallTool(ctx, call)
 
 	if err != nil {
-		s.Logger.Printf("Tool call failed: tool=%s, error=%v", call.Name, err)
+		s.Logger.Printf("[ERROR] Tool call failed: tool=%s, error=%v", call.Name, err)
 		return s.SendError(msg.ID, JSONRPCErrorCodeInternalError, JSONRPCErrorMessageInternalError, err.Error())
 	}
 
-	s.Logger.Printf("Tool call completed: tool=%s, success=%t", call.Name, !result.IsError)
+	s.Logger.Printf("[DEBUG] Tool call completed: tool=%s, success=%t, result_length=%d", call.Name, !result.IsError, len(result.Content))
+	s.Logger.Printf("[DEBUG] Sending response for msg.ID=%v", msg.ID)
 	return s.SendResponse(msg.ID, result)
 }
 
