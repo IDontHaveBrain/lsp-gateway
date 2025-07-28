@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -440,6 +441,82 @@ func runMCPHTTPServer(ctx context.Context, server *mcp.Server, port int, logger 
 	return runMCPHTTPLifecycle(ctx, httpServer, port, logger)
 }
 
+func runMCPTCPServer(ctx context.Context, server *mcp.Server, port int, logger *mcp.StructuredLogger) error {
+	stderrLogger := log.New(os.Stderr, "", log.LstdFlags)
+	stderrLogger.Printf("[INFO] Starting MCP server with TCP transport on port %d\n", port)
+
+	// Create TCP listener
+	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
+	if err != nil {
+		return fmt.Errorf("failed to create TCP listener: %w", err)
+	}
+	defer listener.Close()
+
+	stderrLogger.Printf("[INFO] MCP TCP server listening on %s\n", listener.Addr().String())
+
+	// Handle shutdown signals
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+	serverErr := make(chan error, 1)
+
+	// Accept connections in a goroutine
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				conn, err := listener.Accept()
+				if err != nil {
+					select {
+					case <-ctx.Done():
+						return
+					default:
+						stderrLogger.Printf("[ERROR] Failed to accept TCP connection: %v\n", err)
+						continue
+					}
+				}
+
+				stderrLogger.Printf("[INFO] Accepted TCP connection from %s\n", conn.RemoteAddr().String())
+
+				// Set connection as server I/O
+				server.Input = conn
+				server.Output = conn
+
+				// Start server in goroutine
+				go func(conn net.Conn) {
+					defer conn.Close()
+					if err := server.Start(); err != nil {
+						stderrLogger.Printf("[ERROR] MCP server error: %v\n", err)
+						serverErr <- err
+					}
+				}(conn)
+			}
+		}
+	}()
+
+	// Wait for shutdown signal or error
+	select {
+	case <-sigCh:
+		stderrLogger.Printf("[INFO] Received shutdown signal\n")
+	case err := <-serverErr:
+		return err
+	case <-ctx.Done():
+		stderrLogger.Printf("[INFO] Context cancelled\n")
+	}
+
+	stderrLogger.Printf("[INFO] Shutting down MCP TCP server\n")
+
+	if err := server.Stop(); err != nil {
+		stderrLogger.Printf("[WARN] Error stopping MCP server during shutdown: %v\n", err)
+	} else {
+		stderrLogger.Printf("[INFO] MCP TCP server stopped successfully\n")
+	}
+
+	return nil
+}
+
 func createMCPLogger() *mcp.StructuredLogger {
 	logConfig := &mcp.LoggerConfig{
 		Level:              mcp.LogLevelInfo,
@@ -522,6 +599,11 @@ func runMCPTransport(ctx context.Context, server *mcp.Server, logger *mcp.Struct
 	if McpTransport == transport.TransportHTTP {
 		logger.WithField("port", McpPort).Info("Using HTTP transport for MCP server")
 		return runMCPHTTPServer(ctx, server, McpPort, logger)
+	}
+
+	if McpTransport == transport.TransportTCP {
+		logger.WithField("port", McpPort).Info("Using TCP transport for MCP server")
+		return runMCPTCPServer(ctx, server, McpPort, logger)
 	}
 
 	logger.Info("Using stdio transport for MCP server")

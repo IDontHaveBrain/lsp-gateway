@@ -83,7 +83,7 @@ func (suite *MCPToolsE2ETestSuite) SetupSuite() {
 	if err != nil {
 		suite.T().Fatalf("Failed to get project root: %v", err)
 	}
-	suite.binaryPath = filepath.Join(suite.projectRoot, "bin", "lsp-gateway")
+	suite.binaryPath = filepath.Join(suite.projectRoot, "bin", "lspg")
 	suite.assertionHelper = e2e_test.NewAssertionHelper(suite.T())
 	
 	// Create comprehensive test projects for multiple languages

@@ -19,53 +19,53 @@ import (
 
 type LSPPerformanceTestSuite struct {
 	suite.Suite
-	httpClient     *testutils.HttpClient
-	assertHelper   *e2e_test.AssertionHelper
-	gatewayCmd     *exec.Cmd
-	gatewayPort    int
-	configPath     string
-	tempDir        string
-	projectRoot    string
-	testTimeout    time.Duration
+	httpClient   *testutils.HttpClient
+	assertHelper *e2e_test.AssertionHelper
+	gatewayCmd   *exec.Cmd
+	gatewayPort  int
+	configPath   string
+	tempDir      string
+	projectRoot  string
+	testTimeout  time.Duration
 }
 
 type PerformanceMetrics struct {
-	TotalRequests    int
-	SuccessfulReqs   int
-	FailedRequests   int
-	AverageLatency   time.Duration
-	MinLatency       time.Duration
-	MaxLatency       time.Duration
-	Throughput       float64 // requests per second
-	ConcurrentUsers  int
-	TestDuration     time.Duration
-	MemoryUsage      int64 // bytes
-	CPUUsage         float64 // percentage
+	TotalRequests   int
+	SuccessfulReqs  int
+	FailedRequests  int
+	AverageLatency  time.Duration
+	MinLatency      time.Duration
+	MaxLatency      time.Duration
+	Throughput      float64 // requests per second
+	ConcurrentUsers int
+	TestDuration    time.Duration
+	MemoryUsage     int64   // bytes
+	CPUUsage        float64 // percentage
 }
 
 type BenchmarkResult struct {
-	Method          string
-	Metrics         PerformanceMetrics
-	Percentiles     map[int]time.Duration // 50th, 90th, 95th, 99th percentiles
-	ErrorRate       float64
-	CacheHitRate    float64
+	Method       string
+	Metrics      PerformanceMetrics
+	Percentiles  map[int]time.Duration // 50th, 90th, 95th, 99th percentiles
+	ErrorRate    float64
+	CacheHitRate float64
 }
 
 func (suite *LSPPerformanceTestSuite) SetupSuite() {
 	suite.testTimeout = 120 * time.Second // Longer timeout for performance tests
-	
+
 	var err error
 	suite.projectRoot, err = testutils.GetProjectRoot()
 	suite.Require().NoError(err)
-	
+
 	suite.tempDir, err = os.MkdirTemp("", "lsp-performance-test-*")
 	suite.Require().NoError(err)
-	
+
 	suite.gatewayPort, err = testutils.FindAvailablePort()
 	suite.Require().NoError(err)
 
 	suite.assertHelper = e2e_test.NewAssertionHelper(suite.T())
-	
+
 	suite.createTestConfig()
 	suite.setupPerformanceTestFiles()
 }
@@ -80,7 +80,7 @@ func (suite *LSPPerformanceTestSuite) SetupTest() {
 		EnableRecording:    false, // Disable recording for performance tests
 		WorkspaceID:        "perf-test-workspace",
 		ProjectPath:        suite.tempDir,
-		ConnectionPoolSize: 50,    // Larger pool for performance testing
+		ConnectionPoolSize: 50, // Larger pool for performance testing
 		KeepAlive:          60 * time.Second,
 	}
 	suite.httpClient = testutils.NewHttpClient(config)
@@ -139,9 +139,9 @@ import "fmt"
 func main() {
 	fmt.Println("Hello, World!")
 }`,
-		"complex.go": suite.generateComplexGoFile(100),
-		"large.go": suite.generateComplexGoFile(500),
-		"structs.go": suite.generateStructsFile(50),
+		"complex.go":    suite.generateComplexGoFile(100),
+		"large.go":      suite.generateComplexGoFile(500),
+		"structs.go":    suite.generateStructsFile(50),
 		"interfaces.go": suite.generateInterfacesFile(20),
 	}
 
@@ -160,7 +160,7 @@ func main() {
 
 func (suite *LSPPerformanceTestSuite) generateComplexGoFile(numFunctions int) string {
 	content := "package main\n\nimport (\n\t\"fmt\"\n\t\"time\"\n\t\"context\"\n)\n\n"
-	
+
 	// Add structs
 	content += "type ComplexStruct struct {\n"
 	for i := 0; i < 10; i++ {
@@ -198,7 +198,7 @@ func (suite *LSPPerformanceTestSuite) generateComplexGoFile(numFunctions int) st
 
 func (suite *LSPPerformanceTestSuite) generateStructsFile(numStructs int) string {
 	content := "package main\n\n"
-	
+
 	for i := 0; i < numStructs; i++ {
 		content += fmt.Sprintf("type Struct%d struct {\n", i)
 		for j := 0; j < 5; j++ {
@@ -206,13 +206,13 @@ func (suite *LSPPerformanceTestSuite) generateStructsFile(numStructs int) string
 		}
 		content += "}\n\n"
 	}
-	
+
 	return content
 }
 
 func (suite *LSPPerformanceTestSuite) generateInterfacesFile(numInterfaces int) string {
 	content := "package main\n\n"
-	
+
 	for i := 0; i < numInterfaces; i++ {
 		content += fmt.Sprintf("type Interface%d interface {\n", i)
 		for j := 0; j < 3; j++ {
@@ -220,7 +220,7 @@ func (suite *LSPPerformanceTestSuite) generateInterfacesFile(numInterfaces int) 
 		}
 		content += "}\n\n"
 	}
-	
+
 	return content
 }
 
@@ -228,10 +228,10 @@ func (suite *LSPPerformanceTestSuite) startGatewayServer() {
 	binaryPath := filepath.Join(suite.projectRoot, "bin", "lsp-gateway")
 	suite.gatewayCmd = exec.Command(binaryPath, "server", "--config", suite.configPath)
 	suite.gatewayCmd.Dir = suite.projectRoot
-	
+
 	err := suite.gatewayCmd.Start()
 	suite.Require().NoError(err)
-	
+
 	time.Sleep(5 * time.Second) // Longer startup time for performance tests
 }
 
@@ -403,11 +403,11 @@ func (suite *LSPPerformanceTestSuite) TestConcurrentPerformance() {
 		for _, concurrency := range concurrencyLevels {
 			suite.T().Run(fmt.Sprintf("Concurrency_%d", concurrency), func(t *testing.T) {
 				result := suite.runConcurrentPerformanceTest(ctx, concurrency, requestsPerLevel)
-				
+
 				suite.T().Logf("Concurrency %d results:", concurrency)
-				suite.T().Logf("  Total requests: %d", result.TotalRequests)
-				suite.T().Logf("  Successful: %d", result.SuccessfulReqs)
-				suite.T().Logf("  Failed: %d", result.FailedRequests)
+				suite.T().Logf("  Total requests: %d", result.Metrics.TotalRequests)
+				suite.T().Logf("  Successful: %d", result.Metrics.SuccessfulReqs)
+				suite.T().Logf("  Failed: %d", result.Metrics.FailedRequests)
 				suite.T().Logf("  Error rate: %.2f%%", result.ErrorRate*100)
 				suite.T().Logf("  Average latency: %v", result.Metrics.AverageLatency)
 				suite.T().Logf("  Throughput: %.2f req/s", result.Metrics.Throughput)
@@ -427,23 +427,23 @@ func (suite *LSPPerformanceTestSuite) TestConcurrentPerformance() {
 func (suite *LSPPerformanceTestSuite) runConcurrentPerformanceTest(ctx context.Context, concurrency, requestsPerWorker int) BenchmarkResult {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	
+
 	latencies := make([]time.Duration, 0, concurrency*requestsPerWorker)
 	successCount := 0
 	errorCount := 0
-	
+
 	testFile := fmt.Sprintf("file://%s/complex.go", suite.tempDir)
-	
+
 	startTime := time.Now()
-	
+
 	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
-			
+
 			for j := 0; j < requestsPerWorker; j++ {
 				requestStart := time.Now()
-				
+
 				// Rotate through different LSP methods
 				var err error
 				switch (workerID*requestsPerWorker + j) % 6 {
@@ -460,9 +460,9 @@ func (suite *LSPPerformanceTestSuite) runConcurrentPerformanceTest(ctx context.C
 				case 5:
 					_, err = suite.httpClient.Completion(ctx, testFile, testutils.Position{Line: 20, Character: 5})
 				}
-				
+
 				latency := time.Since(requestStart)
-				
+
 				mu.Lock()
 				latencies = append(latencies, latency)
 				if err != nil {
@@ -474,27 +474,27 @@ func (suite *LSPPerformanceTestSuite) runConcurrentPerformanceTest(ctx context.C
 			}
 		}(i)
 	}
-	
+
 	wg.Wait()
 	totalDuration := time.Since(startTime)
 
 	// Calculate metrics
 	totalRequests := len(latencies)
-	
+
 	// Sort latencies for percentile calculations
 	suite.sortDurations(latencies)
-	
+
 	var totalLatency time.Duration
 	minLatency := latencies[0]
 	maxLatency := latencies[len(latencies)-1]
-	
+
 	for _, latency := range latencies {
 		totalLatency += latency
 	}
-	
+
 	avgLatency := totalLatency / time.Duration(totalRequests)
 	throughput := float64(totalRequests) / totalDuration.Seconds()
-	
+
 	// Calculate percentiles
 	percentiles := map[int]time.Duration{
 		50: latencies[totalRequests*50/100],
@@ -502,7 +502,7 @@ func (suite *LSPPerformanceTestSuite) runConcurrentPerformanceTest(ctx context.C
 		95: latencies[totalRequests*95/100],
 		99: latencies[totalRequests*99/100],
 	}
-	
+
 	return BenchmarkResult{
 		Method: "Mixed",
 		Metrics: PerformanceMetrics{
@@ -584,12 +584,12 @@ func (suite *LSPPerformanceTestSuite) TestMemoryUsage() {
 		suite.T().Logf("  Initial allocated: %d bytes", initialMemStats.Alloc)
 		suite.T().Logf("  Final allocated: %d bytes", finalMemStats.Alloc)
 		suite.T().Logf("  Memory growth: %d bytes", memoryGrowth)
-		suite.T().Logf("  Memory growth per request: %d bytes", memoryGrowth/int64(numRequests))
+		suite.T().Logf("  Memory growth per request: %d bytes", int64(memoryGrowth)/int64(numRequests))
 		suite.T().Logf("  Total mallocs: %d", finalMemStats.Mallocs-initialMemStats.Mallocs)
 		suite.T().Logf("  GC cycles: %d", finalMemStats.NumGC-initialMemStats.NumGC)
 
 		// Assertions for memory usage
-		memoryGrowthPerRequest := memoryGrowth / int64(numRequests)
+		memoryGrowthPerRequest := int64(memoryGrowth) / int64(numRequests)
 		suite.Less(memoryGrowthPerRequest, int64(10*1024), "Memory growth per request should be < 10KB")
 	})
 }
@@ -618,7 +618,7 @@ func (suite *LSPPerformanceTestSuite) TestThroughputScaling() {
 		for _, testCase := range testCases {
 			suite.T().Run(testCase.name, func(t *testing.T) {
 				testFile := fmt.Sprintf("file://%s/%s", suite.tempDir, testCase.filename)
-				
+
 				suite.httpClient.ClearMetrics()
 				startTime := time.Now()
 
@@ -661,17 +661,16 @@ func TestLSPPerformanceTestSuite(t *testing.T) {
 func BenchmarkLSPDefinitionSingle(b *testing.B) {
 	suite := &LSPPerformanceTestSuite{}
 	suite.Suite.SetT(&testing.T{})
-	
+
 	// Quick setup
-	var err error
 	suite.projectRoot, _ = testutils.GetProjectRoot()
 	suite.tempDir, _ = os.MkdirTemp("", "bench-*")
 	defer os.RemoveAll(suite.tempDir)
-	
+
 	suite.gatewayPort, _ = testutils.FindAvailablePort()
 	suite.createTestConfig()
 	suite.setupPerformanceTestFiles()
-	
+
 	config := testutils.DefaultHttpClientConfig()
 	config.BaseURL = fmt.Sprintf("http://localhost:%d", suite.gatewayPort)
 	config.EnableLogging = false
@@ -685,17 +684,16 @@ func BenchmarkLSPDefinitionSingle(b *testing.B) {
 func BenchmarkLSPReferencesSingle(b *testing.B) {
 	suite := &LSPPerformanceTestSuite{}
 	suite.Suite.SetT(&testing.T{})
-	
+
 	// Quick setup
-	var err error
 	suite.projectRoot, _ = testutils.GetProjectRoot()
 	suite.tempDir, _ = os.MkdirTemp("", "bench-*")
 	defer os.RemoveAll(suite.tempDir)
-	
+
 	suite.gatewayPort, _ = testutils.FindAvailablePort()
 	suite.createTestConfig()
 	suite.setupPerformanceTestFiles()
-	
+
 	config := testutils.DefaultHttpClientConfig()
 	config.BaseURL = fmt.Sprintf("http://localhost:%d", suite.gatewayPort)
 	config.EnableLogging = false

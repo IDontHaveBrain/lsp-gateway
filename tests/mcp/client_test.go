@@ -14,15 +14,6 @@ import (
 	"time"
 )
 
-// Transport interface for MCP communication
-type Transport interface {
-	Connect() error
-	Disconnect() error
-	Send(data []byte) error
-	Receive() ([]byte, error)
-	IsConnected() bool
-	Close() error
-}
 
 // TestMCPClient is a test client for MCP protocol testing
 type TestMCPClient struct {
@@ -626,7 +617,7 @@ func (c *TestMCPClient) Ping() error {
 }
 
 // Connect establishes the transport connection
-func (c *TestMCPClient) Connect() error {
+func (c *TestMCPClient) Connect(ctx context.Context) error {
 	c.logger.Printf("Connecting to MCP server")
 	
 	// Check current state
@@ -641,7 +632,7 @@ func (c *TestMCPClient) Connect() error {
 	}
 	
 	// Connect transport
-	if err := c.transport.Connect(); err != nil {
+	if err := c.transport.Connect(ctx); err != nil {
 		c.state.SetState(Disconnected) // Revert on failure
 		return fmt.Errorf("transport connection failed: %w", err)
 	}

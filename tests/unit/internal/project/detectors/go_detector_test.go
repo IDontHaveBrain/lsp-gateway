@@ -1754,9 +1754,18 @@ func TestGoDetector_VendorDirectorySkipping(t *testing.T) {
 	if sourceAnalysis, ok := result.Metadata["go_source_analysis"]; ok {
 		analysis := sourceAnalysis.(*detectors.SourceAnalysis)
 		for pkgPath := range analysis.Packages {
-			assert.False(t, strings.Contains(pkgPath, "vendor"), "Should not include vendor packages")
-			assert.False(t, strings.Contains(pkgPath, "node_modules"), "Should not include node_modules")
-			assert.False(t, strings.Contains(pkgPath, ".git"), "Should not include .git")
+			// Get relative path from temp directory to check for vendor directories
+			relPath, err := filepath.Rel(tempDir, pkgPath)
+			if err != nil {
+				t.Fatalf("Failed to get relative path: %v", err)
+			}
+			
+			pathComponents := strings.Split(relPath, string(filepath.Separator))
+			for _, component := range pathComponents {
+				assert.NotEqual(t, "vendor", component, "Should not include vendor directories")
+				assert.NotEqual(t, "node_modules", component, "Should not include node_modules directories")
+				assert.NotEqual(t, ".git", component, "Should not include .git directories")
+			}
 		}
 	}
 }

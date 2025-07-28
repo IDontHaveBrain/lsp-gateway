@@ -787,7 +787,60 @@ func (s *ProjectLanguageScanner) calculateLanguagePriorities(stats map[string]*L
 		return rankings[i].Score > rankings[j].Score
 	})
 
+	// Apply priority scaling to map scores to expected priority ranges (0-100)
+	s.scalePrioritiesToExpectedRanges(rankings)
+
 	return rankings
+}
+
+// scalePrioritiesToExpectedRanges scales the raw scores to match expected priority thresholds
+func (s *ProjectLanguageScanner) scalePrioritiesToExpectedRanges(rankings []LanguageRanking) {
+	if len(rankings) == 0 {
+		return
+	}
+
+	// Find the highest score to use as reference
+	maxScore := rankings[0].Score
+	if maxScore <= 0 {
+		return
+	}
+
+	for i := range rankings {
+		rawScore := rankings[i].Score
+		
+		// Calculate priority based on characteristics of the language
+		priority := 0.0
+		
+		// Base priority from normalized score (0-50 range)
+		normalizedScore := (rawScore / maxScore) * 50.0
+		priority += normalizedScore
+		
+		// Boost for languages with build files (primary indicator of project type)
+		// This ensures languages with build systems get into primary (>=80) or secondary (>=40) ranges
+		if rawScore >= maxScore * 0.8 {
+			// Dominant language gets primary priority (80-100)
+			priority = 80.0 + (normalizedScore * 0.4) // Scale to 80-100
+		} else if rawScore >= maxScore * 0.5 {
+			// Secondary languages get medium priority (40-79)
+			priority = 40.0 + (normalizedScore * 0.8) // Scale to 40-79
+		} else if rawScore >= maxScore * 0.2 {
+			// Tertiary languages get lower priority (20-39)
+			priority = 20.0 + (normalizedScore * 0.4) // Scale to 20-39
+		} else {
+			// Minor languages get minimal priority (1-19)
+			priority = 1.0 + (normalizedScore * 0.38) // Scale to 1-19
+		}
+		
+		// Ensure priority is within valid range and is an integer when converted
+		if priority > 100.0 {
+			priority = 100.0
+		}
+		if priority < 1.0 {
+			priority = 1.0
+		}
+		
+		rankings[i].Score = priority
+	}
 }
 
 func (s *ProjectLanguageScanner) identifyProjectType(languages []LanguageRanking) string {
@@ -2093,6 +2146,7 @@ func (s *ProjectLanguageScanner) convertLegacyToNewFormat(rankings []LanguageRan
 			SourcePaths:    []string{}, // Default to empty
 			TestPaths:      []string{}, // Default to empty
 			FileExtensions: s.getLanguageExtensions(ranking.Language),
+			LSPServerName:  s.getRecommendedLSPServer(ranking.Language, ""), // Set recommended LSP server
 			Dependencies:   []string{},
 			Metadata:       make(map[string]interface{}),
 		}
