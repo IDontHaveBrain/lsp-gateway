@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -17,7 +18,6 @@ import (
 	"lsp-gateway/internal/installer"
 	projecttypes "lsp-gateway/internal/project/types"
 	"lsp-gateway/internal/types"
-	"lsp-gateway/tests/testdata"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -495,9 +495,10 @@ func TestJDTLSIntegration_VerificationProcess(t *testing.T) {
 
 // JDTLSTestEnvironment provides a test environment for JDTLS integration tests
 type JDTLSTestEnvironment struct {
-	t       *testing.T
-	tempDir string
-	testCtx *testdata.TestContext
+	t         *testing.T
+	tempDir   string
+	testCtx   context.Context
+	testCancel context.CancelFunc
 }
 
 // NewJDTLSTestEnvironment creates a new JDTLS test environment
@@ -505,10 +506,13 @@ func NewJDTLSTestEnvironment(t *testing.T) *JDTLSTestEnvironment {
 	tempDir, err := os.MkdirTemp("", "jdtls-integration-test-*")
 	require.NoError(t, err, "Should create temp directory")
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5 * time.Minute)
+	
 	return &JDTLSTestEnvironment{
-		t:       t,
-		tempDir: tempDir,
-		testCtx: testdata.NewTestContext(5 * time.Minute),
+		t:         t,
+		tempDir:   tempDir,
+		testCtx:   ctx,
+		testCancel: cancel,
 	}
 }
 
@@ -522,8 +526,8 @@ func (env *JDTLSTestEnvironment) Cleanup() {
 	if env.tempDir != "" {
 		_ = os.RemoveAll(env.tempDir)
 	}
-	if env.testCtx != nil {
-		env.testCtx.Cleanup()
+	if env.testCancel != nil {
+		env.testCancel()
 	}
 }
 

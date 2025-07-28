@@ -49,6 +49,26 @@ type SCIPCache struct {
 	stopCleanup   chan struct{}
 }
 
+// SCIPCacheEntry represents a cached SCIP query response
+type SCIPCacheEntry struct {
+	Method     string          `json:"method"`
+	Params     string          `json:"params"` // JSON-encoded parameters
+	Response   json.RawMessage `json:"response"`
+	CreatedAt  time.Time       `json:"created_at"`
+	AccessedAt time.Time       `json:"accessed_at"`
+	TTL        time.Duration   `json:"ttl"`
+}
+
+// IsExpired checks if the cache entry has expired
+func (e *SCIPCacheEntry) IsExpired() bool {
+	return time.Since(e.CreatedAt) > e.TTL
+}
+
+// Touch updates the accessed time for the cache entry
+func (e *SCIPCacheEntry) Touch() {
+	e.AccessedAt = time.Now()
+}
+
 // SCIPCacheEntryExtended extends the existing SCIPCacheEntry with LRU support
 type SCIPCacheEntryExtended struct {
 	*SCIPCacheEntry
@@ -611,6 +631,25 @@ func (c *SCIPCache) Close() {
 	c.entries = make(map[string]*SCIPCacheEntryExtended)
 	c.lruList = list.New()
 	c.mutex.Unlock()
+}
+
+// SupportedLSPMethods contains the LSP methods that SCIP indexing supports
+var SupportedLSPMethods = []string{
+	"textDocument/definition",
+	"textDocument/references",
+	"textDocument/hover",
+	"textDocument/documentSymbol",
+	"workspace/symbol",
+}
+
+// IsSupportedMethod checks if the given LSP method is supported by SCIP indexing
+func IsSupportedMethod(method string) bool {
+	for _, supported := range SupportedLSPMethods {
+		if method == supported {
+			return true
+		}
+	}
+	return false
 }
 
 // Ensure RealSCIPStore implements SCIPStore interface at compile time

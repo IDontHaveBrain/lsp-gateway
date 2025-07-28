@@ -212,7 +212,7 @@ phase_lsp_validation() {
     # Run performance benchmarks if quarterly maintenance
     if [[ "$MAINTENANCE_TYPE" == "quarterly" && "$DRY_RUN" != true ]]; then
         log "Running performance benchmarks..."
-        if ! timeout 900 ./scripts/run-benchmarks.sh; then
+        if ! timeout 900 ./scripts/benchmark-python-patterns-integration.sh; then
             log_warning "Performance benchmarks failed"
         else
             log_success "Performance benchmarks completed"
