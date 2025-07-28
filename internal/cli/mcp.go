@@ -114,12 +114,12 @@ func runMCPServer(_ *cobra.Command, args []string) error {
 
 	if McpDirectLSP {
 		if McpLSPConfigPath != "" {
-			log.Printf("[INFO] Starting MCP server with DirectLSP mode, transport=%s, lsp_config=%s\n", McpTransport, McpLSPConfigPath)
+			log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] Starting MCP server with DirectLSP mode, transport=%s, lsp_config=%s\n", McpTransport, McpLSPConfigPath)
 		} else {
-			log.Printf("[INFO] Starting MCP server with DirectLSP mode, transport=%s, using auto-detection\n", McpTransport)
+			log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] Starting MCP server with DirectLSP mode, transport=%s, using auto-detection\n", McpTransport)
 		}
 	} else {
-		log.Printf("[INFO] Starting MCP server with HTTP Gateway mode, transport=%s, gateway_url=%s\n", McpTransport, McpGatewayURL)
+		log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] Starting MCP server with HTTP Gateway mode, transport=%s, gateway_url=%s\n", McpTransport, McpGatewayURL)
 	}
 
 	logger := createMCPLogger()
@@ -392,46 +392,48 @@ func shutdownMCPHTTPServerInternal(httpServer *http.Server) error {
 
 // RunMCPStdioServer starts the MCP server with stdio transport - exported for testing
 func RunMCPStdioServer(ctx context.Context, server *mcp.Server) error {
-	log.Printf("[INFO] Starting MCP server with stdio transport, gateway_url=%s\n", McpGatewayURL)
+	// MCP uses stdio protocol - all logs must go to stderr to avoid breaking the protocol
+	stderrLogger := log.New(os.Stderr, "", log.LstdFlags)
+	stderrLogger.Printf("[INFO] Starting MCP server with stdio transport, gateway_url=%s\n", McpGatewayURL)
 
 	serverErr := make(chan error, 1)
 	go func() {
-		log.Printf("[DEBUG] Starting MCP server\n")
+		stderrLogger.Printf("[DEBUG] Starting MCP server\n")
 		if err := server.Start(); err != nil {
-			log.Printf("[ERROR] MCP server startup failed: %v\n", err)
+			stderrLogger.Printf("[ERROR] MCP server startup failed: %v\n", err)
 			serverErr <- NewMCPServerError("failed to start", err)
 		} else {
-			log.Printf("[INFO] MCP server started successfully\n")
+			stderrLogger.Printf("[INFO] MCP server started successfully\n")
 		}
 	}()
 
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	log.Printf("[INFO] MCP server is running, waiting for requests\n")
+	stderrLogger.Printf("[INFO] MCP server is running, waiting for requests\n")
 
 	select {
 	case <-sigCh:
-		log.Printf("[INFO] Received shutdown signal\n")
+		stderrLogger.Printf("[INFO] Received shutdown signal\n")
 	case err := <-serverErr:
 		return err
 	case <-ctx.Done():
-		log.Printf("[INFO] Context cancelled\n")
+		stderrLogger.Printf("[INFO] Context cancelled\n")
 	}
 
-	log.Printf("[INFO] Shutting down MCP server\n")
+	stderrLogger.Printf("[INFO] Shutting down MCP server\n")
 
 	if err := server.Stop(); err != nil {
-		log.Printf("[WARN] Error stopping MCP server during shutdown: %v\n", err)
+		stderrLogger.Printf("[WARN] Error stopping MCP server during shutdown: %v\n", err)
 	} else {
-		log.Printf("[INFO] MCP server stopped successfully\n")
+		stderrLogger.Printf("[INFO] MCP server stopped successfully\n")
 	}
 
 	return nil
 }
 
 func runMCPHTTPServer(ctx context.Context, server *mcp.Server, port int, logger *mcp.StructuredLogger) error {
-	log.Printf("[INFO] Starting MCP server with HTTP transport on port %d\n", port)
+	log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] Starting MCP server with HTTP transport on port %d\n", port)
 
 	httpServer := createMCPHTTPServer(server, port)
 	return runMCPHTTPLifecycle(ctx, httpServer, port, logger)
@@ -457,14 +459,14 @@ func createMCPLogger() *mcp.StructuredLogger {
 
 func setupMCPServer(logger *mcp.StructuredLogger) (*mcp.Server, error) {
 	if err := validateMCPParams(); err != nil {
-		log.Printf("[ERROR] MCP parameter validation failed: %v\n", err)
+		log.New(os.Stderr, "", log.LstdFlags).Printf("[ERROR] MCP parameter validation failed: %v\n", err)
 		return nil, err
 	}
 
 	// Project detection step for MCP
 	projectResult, err := performMCPProjectDetection()
 	if err != nil {
-		log.Printf("[WARN] MCP project detection failed: %v\n", err)
+		log.New(os.Stderr, "", log.LstdFlags).Printf("[WARN] MCP project detection failed: %v\n", err)
 		// Continue with default configuration
 	}
 
@@ -485,10 +487,10 @@ func setupMCPServer(logger *mcp.StructuredLogger) (*mcp.Server, error) {
 		integrateMCPWithProjectAwareGateway(cfg, projectResult)
 	}
 
-	log.Printf("[DEBUG] MCP server configuration created\n")
+	log.New(os.Stderr, "", log.LstdFlags).Printf("[DEBUG] MCP server configuration created\n")
 
 	if McpConfigPath != "" {
-		log.Printf("[INFO] Configuration file specified (currently using command-line flags): %s\n", McpConfigPath)
+		log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] Configuration file specified (currently using command-line flags): %s\n", McpConfigPath)
 	}
 
 	logger.Debug("Validating MCP configuration")
@@ -594,7 +596,7 @@ func performMCPProjectDetection() (*project.ProjectAnalysisResult, error) {
 		return nil, fmt.Errorf("no project path specified for MCP detection")
 	}
 
-	log.Printf("[INFO] Starting MCP project detection at path: %s\n", detectionPath)
+	log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] Starting MCP project detection at path: %s\n", detectionPath)
 
 	// Create project integration
 	integration, err := project.NewProjectIntegration(project.DefaultIntegrationConfig())
@@ -612,7 +614,7 @@ func performMCPProjectDetection() (*project.ProjectAnalysisResult, error) {
 	}
 
 	if result.ProjectContext != nil {
-		log.Printf("[INFO] MCP project detected: %s (%s) with languages: %v\n",
+		log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] MCP project detected: %s (%s) with languages: %v\n",
 			result.ProjectContext.ProjectType,
 			result.ProjectContext.RootPath,
 			result.ProjectContext.Languages)
@@ -639,17 +641,17 @@ func applyProjectAwareMCPConfig(cfg *mcp.ServerConfig, projectResult *project.Pr
 	if projectCtx.ProjectSize.TotalFiles > 1000 {
 		// Increase timeout for large projects
 		cfg.Timeout = cfg.Timeout + (30 * time.Second)
-		log.Printf("[INFO] Increased MCP timeout for large project (%d files)\n",
+		log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] Increased MCP timeout for large project (%d files)\n",
 			projectCtx.ProjectSize.TotalFiles)
 	}
 
 	// Generate project-specific configuration if requested
 	if McpGenerateProjectConfig {
-		log.Printf("[INFO] Generating project-specific MCP configuration\n")
+		log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] Generating project-specific MCP configuration\n")
 		generateMCPProjectConfig(cfg, projectCtx)
 	}
 
-	log.Printf("[INFO] Applied project-aware MCP configuration for %s project\n", projectCtx.ProjectType)
+	log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] Applied project-aware MCP configuration for %s project\n", projectCtx.ProjectType)
 }
 
 // generateMCPProjectConfig generates and persists project-specific MCP configuration
@@ -670,14 +672,14 @@ func generateMCPProjectConfig(cfg *mcp.ServerConfig, projectCtx *project.Project
 
 	genResult, err := generator.GenerateFromProject(ctx, projectCtx)
 	if err != nil {
-		log.Printf("[WARN] Failed to generate MCP project configuration: %v\n", err)
+		log.New(os.Stderr, "", log.LstdFlags).Printf("[WARN] Failed to generate MCP project configuration: %v\n", err)
 		return
 	}
 
 	// Generated configuration details are available through genResult and used
 	// throughout the MCP server for project-aware functionality
 
-	log.Printf("[INFO] Generated MCP project configuration: %d servers, %d optimizations\n",
+	log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] Generated MCP project configuration: %d servers, %d optimizations\n",
 		genResult.ServersGenerated, genResult.OptimizationsApplied)
 }
 
@@ -689,7 +691,7 @@ func performAutoDetectionAndSetup() ([]*config.ServerConfig, error) {
 		return nil, fmt.Errorf("failed to get current working directory: %w", err)
 	}
 
-	log.Printf("[INFO] Starting automatic project detection at: %s\n", wd)
+	log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] Starting automatic project detection at: %s\n", wd)
 
 	// Use the same auto-generation logic as the server command
 	// This ensures consistent behavior and uses the correct executable paths
@@ -713,7 +715,7 @@ func performAutoDetectionAndSetup() ([]*config.ServerConfig, error) {
 		if gatewayConfig.Servers[i].Name == "eclipse-jdtls" {
 			// The command should already be set to the correct executable path
 			// from installer.GetJDTLSExecutablePath() in multi_language_generator.go
-			log.Printf("[INFO] JDTLS server configured with command: %s", gatewayConfig.Servers[i].Command)
+			log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] JDTLS server configured with command: %s", gatewayConfig.Servers[i].Command)
 		}
 	}
 
@@ -723,9 +725,9 @@ func performAutoDetectionAndSetup() ([]*config.ServerConfig, error) {
 		serverConfigs[i] = &gatewayConfig.Servers[i]
 	}
 
-	log.Printf("[INFO] Auto-generated %d LSP server configurations\n", len(serverConfigs))
+	log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] Auto-generated %d LSP server configurations\n", len(serverConfigs))
 	for _, serverConfig := range serverConfigs {
-		log.Printf("[INFO] - %s: %s (languages: %v)\n", 
+		log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] - %s: %s (languages: %v)\n", 
 			serverConfig.Name, serverConfig.Command, serverConfig.Languages)
 	}
 
@@ -735,7 +737,7 @@ func performAutoDetectionAndSetup() ([]*config.ServerConfig, error) {
 // integrateMCPWithProjectAwareGateway attempts to integrate MCP server with project-aware gateway
 func integrateMCPWithProjectAwareGateway(cfg *mcp.ServerConfig, projectResult *project.ProjectAnalysisResult) {
 	if projectResult == nil || projectResult.ProjectContext == nil {
-		log.Printf("[DEBUG] No project context available for MCP-gateway integration\n")
+		log.New(os.Stderr, "", log.LstdFlags).Printf("[DEBUG] No project context available for MCP-gateway integration\n")
 		return
 	}
 
@@ -745,11 +747,11 @@ func integrateMCPWithProjectAwareGateway(cfg *mcp.ServerConfig, projectResult *p
 		originalTimeout := cfg.Timeout
 		cfg.Timeout = originalTimeout + (15 * time.Second)
 
-		log.Printf("[INFO] Adjusted MCP timeout for large project (%d files): %s -> %s\n",
+		log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] Adjusted MCP timeout for large project (%d files): %s -> %s\n",
 			projectResult.ProjectSize.TotalFiles, originalTimeout.String(), cfg.Timeout.String())
 	}
 
-	log.Printf("[INFO] Integrated MCP server with project-aware gateway capabilities\n")
+	log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] Integrated MCP server with project-aware gateway capabilities\n")
 }
 
 // LoadServerConfigsFromFile loads LSP server configurations from a config file
@@ -785,9 +787,9 @@ func LoadServerConfigsFromFile(configPath string) ([]*config.ServerConfig, error
 		}
 	}
 
-	log.Printf("[INFO] Loaded %d LSP server configurations from %s", len(serverConfigs), configPath)
+	log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] Loaded %d LSP server configurations from %s", len(serverConfigs), configPath)
 	for _, serverConfig := range serverConfigs {
-		log.Printf("[INFO] - %s: %s (languages: %v)", serverConfig.Name, serverConfig.Command, serverConfig.Languages)
+		log.New(os.Stderr, "", log.LstdFlags).Printf("[INFO] - %s: %s (languages: %v)", serverConfig.Name, serverConfig.Command, serverConfig.Languages)
 	}
 	return serverConfigs, nil
 }

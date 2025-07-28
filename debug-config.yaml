@@ -1,9 +1,0 @@
-Detecting runtimes and generating enhanced configuration...
-Generating auto-detected configuration for production environment...
-✓ Default configuration generated for production environment
-✓ Auto-detected configuration generated:
-  Environment: production
-  Performance profile: medium
-  Servers configured: 1
-✓ Configuration written to: config.yaml
-Note: Advanced configuration generation will be available once setup integration is complete.

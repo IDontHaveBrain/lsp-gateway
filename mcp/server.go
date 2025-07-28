@@ -178,6 +178,9 @@ type Server struct {
 	Logger          *log.Logger
 	ProtocolLimits  *ProtocolConstants
 	RecoveryContext *RecoveryContext
+	
+	// Track protocol format for responses
+	useDirectJSON bool
 }
 
 func NewServer(config *ServerConfig) *Server {
@@ -436,6 +439,8 @@ func (s *Server) messageLoop() {
 	reader := bufio.NewReader(s.Input)
 	consecutiveErrors := 0
 	maxConsecutiveErrors := 10
+	messagesProcessed := 0
+	consecutiveEOFs := 0
 
 	for {
 		select {
@@ -452,8 +457,20 @@ func (s *Server) messageLoop() {
 			msgCancel()
 
 			if err == io.EOF {
-				s.Logger.Println("Input stream closed gracefully")
-				return
+				// If we've processed at least one message, exit gracefully
+				if messagesProcessed > 0 {
+					s.Logger.Println("Input stream closed gracefully")
+					return
+				}
+				// If no messages processed yet, just log and continue
+				// This handles the case where stdin is closed but the client expects us to stay alive
+				if consecutiveEOFs == 0 {
+					s.Logger.Println("EOF detected but no messages processed yet, continuing to run...")
+				}
+				consecutiveEOFs++
+				// Sleep longer to avoid busy-waiting
+				time.Sleep(1 * time.Second)
+				continue
 			}
 
 			if s.isEOFError(err) {
@@ -488,6 +505,8 @@ func (s *Server) messageLoop() {
 		}
 
 		consecutiveErrors = 0
+		consecutiveEOFs = 0
+		messagesProcessed++
 
 		go func(ctx context.Context, msg string) {
 			defer msgCancel()
@@ -501,6 +520,38 @@ func (s *Server) messageLoop() {
 }
 
 func (s *Server) ReadMessageWithRecovery(ctx context.Context, reader *bufio.Reader) (string, error) {
+	// Peek at the first byte to determine protocol format
+	firstByte, err := reader.Peek(1)
+	if err != nil {
+		if err == io.EOF {
+			return "", err
+		}
+		return "", fmt.Errorf("failed to peek at first byte: %w", err)
+	}
+
+	// Check if this is direct JSON (Claude Code format)
+	if len(firstByte) > 0 && firstByte[0] == '{' {
+		// Read the entire JSON line
+		line, err := s.readLineWithContext(ctx, reader)
+		if err != nil {
+			return "", fmt.Errorf("failed to read JSON line: %w", err)
+		}
+
+		line = strings.TrimSpace(line)
+		if !utf8.ValidString(line) {
+			return "", fmt.Errorf("invalid UTF-8 encoding in JSON message")
+		}
+
+		if len(line) > s.ProtocolLimits.MaxMessageSize {
+			return "", fmt.Errorf("message size too large: %d bytes (max %d)", len(line), s.ProtocolLimits.MaxMessageSize)
+		}
+
+		s.Logger.Printf("Received direct JSON message (Claude Code format): %d bytes", len(line))
+		s.useDirectJSON = true  // Remember to use direct JSON for responses
+		return line, nil
+	}
+
+	// Standard LSP protocol with Content-Length headers
 	var contentLength int
 	headerLines := 0
 	headerSize := 0
@@ -681,7 +732,6 @@ func (s *Server) SendMessage(msg MCPMessage) error {
 	}
 
 	content := string(data)
-	header := ContentLengthHeader + ": " + strconv.Itoa(len(content)) + "\r\n\r\n"
 
 	select {
 	case <-s.ctx.Done():
@@ -689,22 +739,38 @@ func (s *Server) SendMessage(msg MCPMessage) error {
 	default:
 	}
 
-	if _, err := s.Output.Write([]byte(header)); err != nil {
-		if s.isConnectionError(err) {
-			s.Logger.Printf("Connection closed while writing header: %v", err)
-			return fmt.Errorf("connection closed: %w", err)
+	// If using direct JSON (Claude Code format), send JSON directly with newline
+	if s.useDirectJSON {
+		contentWithNewline := content + "\n"
+		if _, err := s.Output.Write([]byte(contentWithNewline)); err != nil {
+			if s.isConnectionError(err) {
+				s.Logger.Printf("Connection closed while writing JSON: %v", err)
+				return fmt.Errorf("connection closed: %w", err)
+			}
+			s.Logger.Printf("Failed to write JSON response: %v", err)
+			return fmt.Errorf("failed to write JSON: %w", err)
 		}
-		s.Logger.Printf("Failed to write response header: %v", err)
-		return fmt.Errorf("failed to write header: %w", err)
-	}
+	} else {
+		// Standard LSP protocol with Content-Length headers
+		header := ContentLengthHeader + ": " + strconv.Itoa(len(content)) + "\r\n\r\n"
 
-	if _, err := s.Output.Write([]byte(content)); err != nil {
-		if s.isConnectionError(err) {
-			s.Logger.Printf("Connection closed while writing content: %v", err)
-			return fmt.Errorf("connection closed: %w", err)
+		if _, err := s.Output.Write([]byte(header)); err != nil {
+			if s.isConnectionError(err) {
+				s.Logger.Printf("Connection closed while writing header: %v", err)
+				return fmt.Errorf("connection closed: %w", err)
+			}
+			s.Logger.Printf("Failed to write response header: %v", err)
+			return fmt.Errorf("failed to write header: %w", err)
 		}
-		s.Logger.Printf("Failed to write response content: %v", err)
-		return fmt.Errorf("failed to write content: %w", err)
+
+		if _, err := s.Output.Write([]byte(content)); err != nil {
+			if s.isConnectionError(err) {
+				s.Logger.Printf("Connection closed while writing content: %v", err)
+				return fmt.Errorf("connection closed: %w", err)
+			}
+			s.Logger.Printf("Failed to write response content: %v", err)
+			return fmt.Errorf("failed to write content: %w", err)
+		}
 	}
 
 	s.Logger.Printf("Sent message: id=%v, size=%d bytes", msg.ID, len(content))

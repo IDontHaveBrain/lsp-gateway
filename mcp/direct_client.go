@@ -87,6 +87,10 @@ func (dm *DirectLSPManager) createLSPClient(serverConfig *config.ServerConfig) (
 		Transport: serverConfig.Transport,
 	}
 
+	// Debug log to verify Args are being passed
+	dm.logger.Printf("Creating LSP client for %s with command: %s, args: %v", 
+		serverConfig.Name, serverConfig.Command, serverConfig.Args)
+
 	// Create client with SCIP integration if available
 	if dm.scipIndexer != nil {
 		return transport.NewLSPClientWithSCIP(clientConfig, dm.scipIndexer)
