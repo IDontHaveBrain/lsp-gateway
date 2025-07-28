@@ -190,7 +190,6 @@ This document provides critical file locations and code references for quick AI/
 ### Integration Testing
 - `tests/integration/scip/scip_integration_test_suite.go` - SCIP system integration tests
 - `tests/integration/scip_mcp_integration_test.go` - MCP-SCIP integration validation
-- `tests/performance/scip_performance_test.go` - SCIP performance benchmarks
 
 ### Test Data
 - `tests/fixtures/lsp_responses/` - Mock LSP responses for testing

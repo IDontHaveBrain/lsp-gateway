@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 	"lsp-gateway/internal/config"
 	"lsp-gateway/mcp"
 	"lsp-gateway/tests/e2e/testutils"
-	"lsp-gateway/tests/testdata"
 )
 
 // JavaScriptMCPIntegrationTestSuite tests comprehensive MCP server integration for JavaScript language server using chalk repository
@@ -26,6 +24,7 @@ type JavaScriptMCPIntegrationTestSuite struct {
 	// MCP server components
 	mcpServer     *mcp.Server
 	mcpConfig     *mcp.ServerConfig
+	loadedConfig  interface{}
 	tempDir       string
 	configPath    string
 	testTimeout   time.Duration
@@ -37,7 +36,8 @@ type JavaScriptMCPIntegrationTestSuite struct {
 	testFiles     []string
 	
 	// Test infrastructure
-	testCtx       *testdata.TestContext
+	testCtx       context.Context
+	testCancel    context.CancelFunc
 	serverStarted bool
 	
 	// MCP communication
@@ -71,7 +71,7 @@ func (suite *JavaScriptMCPIntegrationTestSuite) SetupSuite() {
 	suite.tempDir, err = os.MkdirTemp("", "js-mcp-comprehensive-integration-*")
 	suite.Require().NoError(err, "Failed to create temp directory")
 	
-	suite.testCtx = testdata.NewTestContext(suite.testTimeout)
+	suite.testCtx, suite.testCancel = context.WithTimeout(context.Background(), suite.testTimeout)
 	
 	// Setup chalk repository manager with fixed commit hash
 	suite.setupChalkRepository()
@@ -125,8 +125,8 @@ func (suite *JavaScriptMCPIntegrationTestSuite) TearDownSuite() {
 		}
 	}
 	
-	if suite.testCtx != nil {
-		suite.testCtx.Cleanup()
+	if suite.testCancel != nil {
+		suite.testCancel()
 	}
 }
 
@@ -306,8 +306,7 @@ func (suite *JavaScriptMCPIntegrationTestSuite) createComprehensiveMCPServerConf
 	suite.Require().NoError(err, "Failed to create comprehensive MCP language config")
 	
 	// Load configuration using internal config system
-	configManager := config.NewManager()
-	loadedConfig, err := configManager.LoadConfig(suite.configPath)
+	loadedConfig, err := config.LoadConfig(suite.configPath)
 	suite.Require().NoError(err, "Failed to load comprehensive MCP configuration")
 	
 	// Create comprehensive MCP server configuration
@@ -315,24 +314,18 @@ func (suite *JavaScriptMCPIntegrationTestSuite) createComprehensiveMCPServerConf
 		Name:            "lsp-gateway-js-mcp-integration",
 		Version:         "1.0.0",
 		LSPGatewayURL:   "http://localhost:8080/jsonrpc",
-		WorkspaceDir:    suite.repoManager.GetWorkspaceDir(),
-		ConfigPath:      suite.configPath,
-		LoadedConfig:    loadedConfig,
+		Transport:       "stdio",
+		Timeout:         30 * time.Second,
+		MaxRetries:      3,
 	}
+	
+	// Store loaded config separately for test use
+	suite.loadedConfig = loadedConfig
 }
 
 func (suite *JavaScriptMCPIntegrationTestSuite) createMCPServer() (*mcp.Server, error) {
-	// Create LSP Gateway client for MCP server
-	client, err := mcp.NewLSPGatewayClient(suite.mcpConfig.LSPGatewayURL, 30*time.Second)
-	if err != nil {
-		return nil, err
-	}
-	
-	// Create MCP server with configuration
-	server, err := mcp.NewServer(suite.mcpConfig, client)
-	if err != nil {
-		return nil, err
-	}
+	// Create MCP server with configuration (client is created internally)
+	server := mcp.NewServer(suite.mcpConfig)
 	
 	// Configure IO for testing
 	server.SetIO(suite.readerPipe, suite.writerPipe)
@@ -380,7 +373,6 @@ func (suite *JavaScriptMCPIntegrationTestSuite) verifyServerInitializationState(
 	// Verify server components are properly initialized
 	suite.NotNil(server.Config, "Server config should be initialized")
 	suite.NotNil(server.ToolHandler, "Tool handler should be initialized")
-	suite.Equal(server.Config.WorkspaceDir, suite.repoManager.GetWorkspaceDir(), "Workspace directory should match")
 }
 
 func (suite *JavaScriptMCPIntegrationTestSuite) testMCPInitialization() {
@@ -506,9 +498,6 @@ func (suite *JavaScriptMCPIntegrationTestSuite) TestJavaScriptMCPPerformanceAndR
 	
 	// Test multiple concurrent requests
 	for i := 0; i < 3; i++ {
-		testFile := suite.jsFiles[i%len(suite.jsFiles)]
-		fileURI := suite.getFileURI(testFile)
-		
 		testName := fmt.Sprintf("performance-test-%d", i)
 		start := time.Now()
 		

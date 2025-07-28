@@ -14,14 +14,12 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/suite"
-	"lsp-gateway/tests/e2e/helpers"
 	"lsp-gateway/tests/e2e/testutils"
 )
 
 type LSPAPIMethodsTestSuite struct {
 	suite.Suite
 	httpClient     *testutils.HttpClient
-	assertHelper   *e2e_test.AssertionHelper
 	gatewayCmd     *exec.Cmd
 	gatewayPort    int
 	configPath     string
@@ -62,7 +60,6 @@ func (suite *LSPAPIMethodsTestSuite) SetupSuite() {
 	suite.gatewayPort, err = testutils.FindAvailablePort()
 	suite.Require().NoError(err)
 
-	suite.assertHelper = e2e_test.NewAssertionHelper(suite.T())
 	
 	suite.createTestConfig()
 	suite.setupTestFixtures()
@@ -427,7 +424,7 @@ func (suite *LSPAPIMethodsTestSuite) TestLSPDefinitionMethod() {
 					return
 				}
 
-				suite.assertHelper.AssertNotEmpty(locations, fmt.Sprintf("%s definition locations", language))
+				suite.Require().NotEmpty(locations, fmt.Sprintf("%s definition locations", language))
 				
 				if len(locations) > 0 {
 					location := locations[0]

@@ -59,19 +59,38 @@ func GetJavaScriptLanguageConfig() LanguageConfig {
 	}
 }
 
-// GetJavaLanguageConfig returns configuration for Java testing
+// GetJavaLanguageConfig returns configuration for Java testing using in28minutes/clean-code repository with fixed commit
 func GetJavaLanguageConfig() LanguageConfig {
 	return LanguageConfig{
 		Language:     "java",
-		RepoURL:      "https://github.com/spring-projects/spring-boot.git",
-		TestPaths:    []string{"spring-boot-project/spring-boot/src/main/java"},
+		RepoURL:      "https://github.com/in28minutes/clean-code.git",
+		TestPaths:    []string{"src/main/java", "src/test/java", "."},
 		FilePatterns: []string{"*.java"},
-		RootMarkers:  []string{"pom.xml", "build.gradle"},
-		ExcludePaths: []string{"target", ".git", ".m2"},
-		RepoSubDir:   "spring-boot",
+		RootMarkers:  []string{"pom.xml", "build.gradle", "README.md"},
+		ExcludePaths: []string{"target", ".git", ".m2", "bin", "build"},
+		RepoSubDir:   "clean-code",
 		CustomVariables: map[string]string{
-			"lsp_server": "jdtls",
-			"transport":  "stdio",
+			"lsp_server":   "jdtls",
+			"transport":    "stdio",
+			"commit_hash":  "9a55768b26988766e4413019ed4cd23055a66709", // Fixed commit hash for clean-code examples
+		},
+	}
+}
+
+// GetTypeScriptLanguageConfig returns configuration for TypeScript testing using Microsoft's TypeScript repository
+func GetTypeScriptLanguageConfig() LanguageConfig {
+	return LanguageConfig{
+		Language:     "typescript",
+		RepoURL:      "https://github.com/microsoft/TypeScript.git",
+		TestPaths:    []string{"src", "tests"},
+		FilePatterns: []string{"*.ts", "*.tsx", "*.js", "*.jsx"},
+		RootMarkers:  []string{"tsconfig.json", "package.json"},
+		ExcludePaths: []string{"node_modules", ".git", "built", "lib", "dist", "coverage"},
+		RepoSubDir:   "TypeScript",
+		CustomVariables: map[string]string{
+			"lsp_server":   "typescript-language-server",
+			"transport":    "stdio",
+			"commit_hash":  "v5.6.2", // Fixed version tag for stability
 		},
 	}
 }
@@ -167,7 +186,7 @@ func NewJavaScriptRepositoryManager(customConfig ...GenericRepoConfig) *GenericR
 	return NewGenericRepoManager(config)
 }
 
-// NewJavaRepositoryManager creates a repository manager configured for Java testing
+// NewJavaRepositoryManager creates a repository manager configured for Java testing with clean-code repository
 func NewJavaRepositoryManager(customConfig ...GenericRepoConfig) *GenericRepoManager {
 	var config GenericRepoConfig
 	if len(customConfig) > 0 {
@@ -177,11 +196,47 @@ func NewJavaRepositoryManager(customConfig ...GenericRepoConfig) *GenericRepoMan
 			CloneTimeout:   300 * time.Second,
 			EnableLogging:  true,
 			ForceClean:     false,
-			PreserveGitDir: false,
+			PreserveGitDir: true,  // Keep .git for commit checkout
 		}
 	}
 	
-	config.LanguageConfig = GetJavaLanguageConfig()
+	langConfig := GetJavaLanguageConfig()
+	config.LanguageConfig = langConfig
+	
+	// Extract commit hash from language config if not already set
+	if config.CommitHash == "" {
+		if commitHash, exists := langConfig.CustomVariables["commit_hash"]; exists {
+			config.CommitHash = commitHash
+		}
+	}
+	
+	return NewGenericRepoManager(config)
+}
+
+// NewTypeScriptRepositoryManager creates a repository manager configured for TypeScript testing with Microsoft TypeScript repository
+func NewTypeScriptRepositoryManager(customConfig ...GenericRepoConfig) *GenericRepoManager {
+	var config GenericRepoConfig
+	if len(customConfig) > 0 {
+		config = customConfig[0]
+	} else {
+		config = GenericRepoConfig{
+			CloneTimeout:   300 * time.Second,
+			EnableLogging:  true,
+			ForceClean:     false,
+			PreserveGitDir: true, // Keep .git for commit checkout
+		}
+	}
+	
+	langConfig := GetTypeScriptLanguageConfig()
+	config.LanguageConfig = langConfig
+	
+	// Extract commit hash from language config if not already set
+	if config.CommitHash == "" {
+		if commitHash, exists := langConfig.CustomVariables["commit_hash"]; exists {
+			config.CommitHash = commitHash
+		}
+	}
+	
 	return NewGenericRepoManager(config)
 }
 
