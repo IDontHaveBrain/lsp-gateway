@@ -14,14 +14,12 @@ import (
 
 	"github.com/stretchr/testify/suite"
 	"lsp-gateway/mcp"
-	"lsp-gateway/tests/e2e/helpers"
 	"lsp-gateway/tests/e2e/testutils"
 )
 
 type LSPValidationTestSuite struct {
 	suite.Suite
 	httpClient     *testutils.HttpClient
-	assertHelper   *e2e_test.AssertionHelper
 	gatewayCmd     *exec.Cmd
 	gatewayPort    int
 	configPath     string
@@ -71,8 +69,6 @@ func (suite *LSPValidationTestSuite) SetupSuite() {
 	suite.gatewayPort, err = testutils.FindAvailablePort()
 	suite.Require().NoError(err)
 
-	suite.assertHelper = e2e_test.NewAssertionHelper(suite.T())
-	
 	suite.createTestConfig()
 	suite.setupTestFiles()
 }
