@@ -114,6 +114,12 @@ func CreateJavaLanguageConfig(repoManager RepositoryManager) (string, func(), er
 	return CreateLanguageConfig(repoManager, options)
 }
 
+// CreateTypeScriptLanguageConfig creates TypeScript configuration
+func CreateTypeScriptLanguageConfig(repoManager RepositoryManager) (string, func(), error) {
+	options := DefaultLanguageConfigOptions("typescript")
+	return CreateLanguageConfig(repoManager, options)
+}
+
 // SetupLanguageTestEnvironment sets up a complete test environment for any language
 func SetupLanguageTestEnvironment(language string, scenario LanguageTestScenario) (RepositoryManager, string, func(), error) {
 	var repoManager RepositoryManager
@@ -125,8 +131,10 @@ func SetupLanguageTestEnvironment(language string, scenario LanguageTestScenario
 		repoManager = NewPythonRepositoryManager()
 	case "go":
 		repoManager = NewGoRepositoryManager()
-	case "javascript", "typescript":
+	case "javascript":
 		repoManager = NewJavaScriptRepositoryManager()
+	case "typescript":
+		repoManager = NewTypeScriptRepositoryManager()
 	case "java":
 		repoManager = NewJavaRepositoryManager()
 	case "rust":
