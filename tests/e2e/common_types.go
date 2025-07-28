@@ -56,4 +56,36 @@ type TypeScriptBuildConfigResult struct {
 	RevalidationLatency       time.Duration
 }
 
+// TestResult represents test results for E2E tests
+// Shared across multiple test suites to avoid redeclaration
+type TestResult struct {
+	Method    string
+	File      string
+	Success   bool
+	Duration  time.Duration
+	Error     error
+	Response  interface{}
+}
+
+// MCPToolCallParams represents parameters for MCP tool calls
+// Shared across MCP test suites to avoid redeclaration
+type MCPToolCallParams struct {
+	URI       string `json:"uri,omitempty"`
+	Line      int    `json:"line,omitempty"`
+	Character int    `json:"character,omitempty"`
+	Query     string `json:"query,omitempty"`
+}
+
+// PythonSymbol represents a Python symbol
+// Shared across Python test suites to avoid redeclaration
+type PythonSymbol struct {
+	Name        string
+	Kind        string
+	Position    LSPPosition
+	Type        string 
+	Description string
+	Line        int
+	Character   int
+}
+
 // PythonIntegrationResult is defined in python_e2e_comprehensive_test.go to avoid redeclaration

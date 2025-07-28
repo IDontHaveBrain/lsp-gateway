@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -39,15 +38,6 @@ type JavaScriptRealClientComprehensiveE2ETestSuite struct {
 	
 	// Test metrics
 	testResults     map[string]*TestResult
-}
-
-type TestResult struct {
-	Method    string
-	File      string
-	Success   bool
-	Duration  time.Duration
-	Error     error
-	Response  interface{}
 }
 
 // SetupSuite initializes the comprehensive test suite for JavaScript using chalk repository

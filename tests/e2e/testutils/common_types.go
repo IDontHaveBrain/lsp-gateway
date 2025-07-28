@@ -12,12 +12,6 @@ type MCPMessage struct {
 	Error   interface{} `json:"error,omitempty"`
 }
 
-// LSPPosition represents a position in a text document
-// Shared across all language-specific E2E tests
-type LSPPosition struct {
-	Line      int `json:"line"`
-	Character int `json:"character"`
-}
 
 // MCPRequest represents a generic MCP request structure
 type MCPRequest struct {
