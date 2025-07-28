@@ -41,6 +41,7 @@ type GenericRepoConfig struct {
 	EnableLogging    bool
 	ForceClean       bool
 	PreserveGitDir   bool
+	CommitHash       string // Optional: specific commit hash to checkout
 }
 
 // GenericRepoManager implements RepositoryManager for any programming language
@@ -66,6 +67,7 @@ func NewGenericRepoManager(config GenericRepoConfig) *GenericRepoManager {
 	return &GenericRepoManager{
 		config:       config,
 		workspaceDir: config.TargetDir,
+		commitHash:   config.CommitHash,
 	}
 }
 
@@ -230,12 +232,31 @@ func (grm *GenericRepoManager) cloneRepository() error {
 	ctx, cancel := context.WithTimeout(context.Background(), grm.config.CloneTimeout)
 	defer cancel()
 
-	// Use shallow clone for performance
-	cmd := exec.CommandContext(ctx, "git", "clone", "--depth=1", grm.config.LanguageConfig.RepoURL, repoDir)
+	var cmd *exec.Cmd
+	if grm.commitHash != "" {
+		// Full clone needed for specific commit checkout
+		grm.log("Cloning full repository for commit checkout: %s", grm.commitHash)
+		cmd = exec.CommandContext(ctx, "git", "clone", grm.config.LanguageConfig.RepoURL, repoDir)
+	} else {
+		// Use shallow clone for performance when no specific commit needed
+		cmd = exec.CommandContext(ctx, "git", "clone", "--depth=1", grm.config.LanguageConfig.RepoURL, repoDir)
+	}
+	
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		os.RemoveAll(repoDir) // Clean up failed clone
 		return fmt.Errorf("git clone failed: %w, output: %s", err, string(output))
+	}
+
+	// Checkout specific commit if specified
+	if grm.commitHash != "" {
+		grm.log("Checking out commit: %s", grm.commitHash)
+		cmd = exec.CommandContext(ctx, "git", "-C", repoDir, "checkout", grm.commitHash)
+		output, err = cmd.CombinedOutput()
+		if err != nil {
+			os.RemoveAll(repoDir) // Clean up failed checkout
+			return fmt.Errorf("git checkout %s failed: %w, output: %s", grm.commitHash, err, string(output))
+		}
 	}
 
 	// Remove .git directory if not preserving
