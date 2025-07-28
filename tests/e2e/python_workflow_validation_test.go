@@ -34,20 +34,7 @@ type PythonWorkflowFile struct {
 	Dependencies  []string
 }
 
-// PythonSymbol represents a Python symbol with LSP metadata
-type PythonSymbol struct {
-	Name        string
-	Kind        int    // LSP SymbolKind
-	Position    LSPPosition
-	Type        string 
-	Description string
-}
 
-// LSPPosition represents a position in source code
-type LSPPosition struct {
-	Line      int `json:"line"`
-	Character int `json:"character"`
-}
 
 // WorkflowResult captures comprehensive workflow validation results
 type WorkflowResult struct {
@@ -228,10 +215,10 @@ async def http_exception_handler(request, exc: HTTPException):
     )
 `,
 			Symbols: []PythonSymbol{
-				{Name: "UserCreate", Kind: 5, Position: LSPPosition{Line: 18, Character: 6}, Type: "class", Description: "Pydantic model for user creation"},
-				{Name: "create_user", Kind: 12, Position: LSPPosition{Line: 68, Character: 10}, Type: "function", Description: "Async user creation endpoint"},
-				{Name: "ServiceStatus", Kind: 5, Position: LSPPosition{Line: 40, Character: 6}, Type: "class", Description: "Service status enum"},
-				{Name: "health_check", Kind: 12, Position: LSPPosition{Line: 108, Character: 10}, Type: "function", Description: "Health check endpoint"},
+				{Name: "UserCreate", Kind: "class", Position: LSPPosition{Line: 18, Character: 6}, Type: "class", Description: "Pydantic model for user creation"},
+				{Name: "create_user", Kind: "function", Position: LSPPosition{Line: 68, Character: 10}, Type: "function", Description: "Async user creation endpoint"},
+				{Name: "ServiceStatus", Kind: "class", Position: LSPPosition{Line: 40, Character: 6}, Type: "class", Description: "Service status enum"},
+				{Name: "health_check", Kind: "function", Position: LSPPosition{Line: 108, Character: 10}, Type: "function", Description: "Health check endpoint"},
 			},
 		},
 
@@ -414,11 +401,11 @@ class UserManager(models.Manager['User']):
 User.add_to_class('objects', UserManager())
 `,
 			Symbols: []PythonSymbol{
-				{Name: "UserRole", Kind: 5, Position: LSPPosition{Line: 26, Character: 6}, Type: "class", Description: "User role enum with permissions"},
-				{Name: "UserAudit", Kind: 5, Position: LSPPosition{Line: 42, Character: 6}, Type: "class", Description: "Generic audit dataclass"},
-				{Name: "User", Kind: 5, Position: LSPPosition{Line: 50, Character: 6}, Type: "class", Description: "Django user model"},
-				{Name: "to_dict", Kind: 6, Position: LSPPosition{Line: 119, Character: 8}, Type: "method", Description: "Convert user to dictionary"},
-				{Name: "UserManager", Kind: 5, Position: LSPPosition{Line: 145, Character: 6}, Type: "class", Description: "Custom user manager"},
+				{Name: "UserRole", Kind: "class", Position: LSPPosition{Line: 26, Character: 6}, Type: "class", Description: "User role enum with permissions"},
+				{Name: "UserAudit", Kind: "class", Position: LSPPosition{Line: 42, Character: 6}, Type: "class", Description: "Generic audit dataclass"},
+				{Name: "User", Kind: "class", Position: LSPPosition{Line: 50, Character: 6}, Type: "class", Description: "Django user model"},
+				{Name: "to_dict", Kind: "method", Position: LSPPosition{Line: 119, Character: 8}, Type: "method", Description: "Convert user to dictionary"},
+				{Name: "UserManager", Kind: "class", Position: LSPPosition{Line: 145, Character: 6}, Type: "class", Description: "Custom user manager"},
 			},
 		},
 
@@ -693,10 +680,10 @@ if __name__ == "__main__":
     asyncio.run(main())
 `,
 			Symbols: []PythonSymbol{
-				{Name: "ProcessingStatus", Kind: 5, Position: LSPPosition{Line: 24, Character: 6}, Type: "class", Description: "Processing status enum"},
-				{Name: "AsyncMLPipeline", Kind: 5, Position: LSPPosition{Line: 86, Character: 6}, Type: "class", Description: "Async ML pipeline class"},
-				{Name: "load_data", Kind: 6, Position: LSPPosition{Line: 104, Character: 14}, Type: "method", Description: "Async data loading method"},
-				{Name: "run_parallel_pipelines", Kind: 12, Position: LSPPosition{Line: 192, Character: 10}, Type: "function", Description: "Parallel pipeline runner"},
+				{Name: "ProcessingStatus", Kind: "class", Position: LSPPosition{Line: 24, Character: 6}, Type: "class", Description: "Processing status enum"},
+				{Name: "AsyncMLPipeline", Kind: "class", Position: LSPPosition{Line: 86, Character: 6}, Type: "class", Description: "Async ML pipeline class"},
+				{Name: "load_data", Kind: "method", Position: LSPPosition{Line: 104, Character: 14}, Type: "method", Description: "Async data loading method"},
+				{Name: "run_parallel_pipelines", Kind: "function", Position: LSPPosition{Line: 192, Character: 10}, Type: "function", Description: "Parallel pipeline runner"},
 			},
 		},
 
@@ -1013,10 +1000,10 @@ pytestmark = [
 ]
 `,
 			Symbols: []PythonSymbol{
-				{Name: "TestUser", Kind: 5, Position: LSPPosition{Line: 13, Character: 6}, Type: "class", Description: "Test user dataclass"},
-				{Name: "test_user_validation_comprehensive", Kind: 12, Position: LSPPosition{Line: 55, Character: 4}, Type: "function", Description: "Comprehensive user validation test"},
-				{Name: "test_async_user_operations", Kind: 12, Position: LSPPosition{Line: 73, Character: 10}, Type: "function", Description: "Async user operations test"},
-				{Name: "TestAdvancedUserWorkflows", Kind: 5, Position: LSPPosition{Line: 191, Character: 6}, Type: "class", Description: "Advanced user workflow tests"},
+				{Name: "TestUser", Kind: "class", Position: LSPPosition{Line: 13, Character: 6}, Type: "class", Description: "Test user dataclass"},
+				{Name: "test_user_validation_comprehensive", Kind: "function", Position: LSPPosition{Line: 55, Character: 4}, Type: "function", Description: "Comprehensive user validation test"},
+				{Name: "test_async_user_operations", Kind: "function", Position: LSPPosition{Line: 73, Character: 10}, Type: "function", Description: "Async user operations test"},
+				{Name: "TestAdvancedUserWorkflows", Kind: "class", Position: LSPPosition{Line: 191, Character: 6}, Type: "class", Description: "Advanced user workflow tests"},
 			},
 		},
 	}

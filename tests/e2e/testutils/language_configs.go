@@ -23,7 +23,7 @@ func GetPythonLanguageConfig() LanguageConfig {
 	}
 }
 
-// GetGoLanguageConfig returns configuration for Go testing using a typical Go repository
+// GetGoLanguageConfig returns configuration for Go testing using golang/example repository with fixed commit
 func GetGoLanguageConfig() LanguageConfig {
 	return LanguageConfig{
 		Language:     "go",
@@ -34,8 +34,9 @@ func GetGoLanguageConfig() LanguageConfig {
 		ExcludePaths: []string{"vendor", ".git", "testdata"},
 		RepoSubDir:   "example",
 		CustomVariables: map[string]string{
-			"lsp_server": "gopls",
-			"transport":  "stdio",
+			"lsp_server":   "gopls",
+			"transport":    "stdio",
+			"commit_hash":  "8b40562", // Fixed commit hash for consistent testing environment (HEAD as of July 2025)
 		},
 	}
 }
@@ -112,7 +113,7 @@ func NewPythonRepositoryManager(customConfig ...GenericRepoConfig) *GenericRepoM
 	return NewGenericRepoManager(config)
 }
 
-// NewGoRepositoryManager creates a repository manager configured for Go testing
+// NewGoRepositoryManager creates a repository manager configured for Go testing with golang/example repository
 func NewGoRepositoryManager(customConfig ...GenericRepoConfig) *GenericRepoManager {
 	var config GenericRepoConfig
 	if len(customConfig) > 0 {
@@ -122,11 +123,20 @@ func NewGoRepositoryManager(customConfig ...GenericRepoConfig) *GenericRepoManag
 			CloneTimeout:   300 * time.Second,
 			EnableLogging:  true,
 			ForceClean:     false,
-			PreserveGitDir: false,
+			PreserveGitDir: true,  // Keep .git for commit checkout
 		}
 	}
 	
-	config.LanguageConfig = GetGoLanguageConfig()
+	langConfig := GetGoLanguageConfig()
+	config.LanguageConfig = langConfig
+	
+	// Extract commit hash from language config if not already set
+	if config.CommitHash == "" {
+		if commitHash, exists := langConfig.CustomVariables["commit_hash"]; exists {
+			config.CommitHash = commitHash
+		}
+	}
+	
 	return NewGenericRepoManager(config)
 }
 

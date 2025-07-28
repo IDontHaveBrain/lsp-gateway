@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"sort"
 	"sync"
-	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -19,7 +18,6 @@ import (
 	"lsp-gateway/tests/e2e/mcp/helpers"
 	"lsp-gateway/tests/e2e/mcp/types"
 	"lsp-gateway/tests/e2e/testutils"
-	mcp "lsp-gateway/tests/mcp"
 )
 
 type MCPPerformanceE2ETestSuite struct {
@@ -336,17 +334,17 @@ func (suite *MCPPerformanceE2ETestSuite) TestMCPToolDefinitionPerformance() {
 		cancel()
 		
 		if err != nil {
-			b.Fatalf("Tool call failed: %v", err)
+			t.Fatalf("Tool call failed: %v", err)
 		}
 		if result.Error != nil {
-			b.Fatalf("Tool returned error: %v", result.Error)
+			t.Fatalf("Tool returned error: %v", result.Error)
 		}
 	}
 }
 
-// BenchmarkMCPToolReferences benchmarks find_references tool performance
-func (suite *MCPPerformanceE2ETestSuite) BenchmarkMCPToolReferences() {
-	b := suite.T().(*testing.B)
+// TestMCPToolReferencesPerformance tests find_references tool performance
+func (suite *MCPPerformanceE2ETestSuite) TestMCPToolReferencesPerformance() {
+	t := suite.T()
 	
 	testParams := map[string]interface{}{
 		"uri":                fmt.Sprintf("file://%s/color.go", suite.workspace.RootPath),
@@ -361,17 +359,17 @@ func (suite *MCPPerformanceE2ETestSuite) BenchmarkMCPToolReferences() {
 		cancel()
 		
 		if err != nil {
-			b.Fatalf("Tool call failed: %v", err)
+			t.Fatalf("Tool call failed: %v", err)
 		}
 		if result.Error != nil {
-			b.Fatalf("Tool returned error: %v", result.Error)
+			t.Fatalf("Tool returned error: %v", result.Error)
 		}
 	}
 }
 
-// BenchmarkMCPToolHover benchmarks hover tool performance
-func (suite *MCPPerformanceE2ETestSuite) BenchmarkMCPToolHover() {
-	b := suite.T().(*testing.B)
+// TestMCPToolHoverPerformance tests hover tool performance
+func (suite *MCPPerformanceE2ETestSuite) TestMCPToolHoverPerformance() {
+	t := suite.T()
 	
 	testParams := map[string]interface{}{
 		"uri":       fmt.Sprintf("file://%s/color.go", suite.workspace.RootPath),
@@ -385,17 +383,17 @@ func (suite *MCPPerformanceE2ETestSuite) BenchmarkMCPToolHover() {
 		cancel()
 		
 		if err != nil {
-			b.Fatalf("Tool call failed: %v", err)
+			t.Fatalf("Tool call failed: %v", err)
 		}
 		if result.Error != nil {
-			b.Fatalf("Tool returned error: %v", result.Error)
+			t.Fatalf("Tool returned error: %v", result.Error)
 		}
 	}
 }
 
-// BenchmarkMCPToolDocumentSymbols benchmarks document_symbols tool performance
-func (suite *MCPPerformanceE2ETestSuite) BenchmarkMCPToolDocumentSymbols() {
-	b := suite.T().(*testing.B)
+// TestMCPToolDocumentSymbolsPerformance tests document_symbols tool performance
+func (suite *MCPPerformanceE2ETestSuite) TestMCPToolDocumentSymbolsPerformance() {
+	t := suite.T()
 	
 	testParams := map[string]interface{}{
 		"uri": fmt.Sprintf("file://%s/color.go", suite.workspace.RootPath),
@@ -407,17 +405,17 @@ func (suite *MCPPerformanceE2ETestSuite) BenchmarkMCPToolDocumentSymbols() {
 		cancel()
 		
 		if err != nil {
-			b.Fatalf("Tool call failed: %v", err)
+			t.Fatalf("Tool call failed: %v", err)
 		}
 		if result.Error != nil {
-			b.Fatalf("Tool returned error: %v", result.Error)
+			t.Fatalf("Tool returned error: %v", result.Error)
 		}
 	}
 }
 
-// BenchmarkMCPToolWorkspaceSymbol benchmarks workspace_symbol tool performance
-func (suite *MCPPerformanceE2ETestSuite) BenchmarkMCPToolWorkspaceSymbol() {
-	b := suite.T().(*testing.B)
+// TestMCPToolWorkspaceSymbolPerformance tests workspace_symbol tool performance
+func (suite *MCPPerformanceE2ETestSuite) TestMCPToolWorkspaceSymbolPerformance() {
+	t := suite.T()
 	
 	queries := []string{"Color", "Attribute", "New", "Sprint", "Print"}
 	
@@ -432,17 +430,17 @@ func (suite *MCPPerformanceE2ETestSuite) BenchmarkMCPToolWorkspaceSymbol() {
 		cancel()
 		
 		if err != nil {
-			b.Fatalf("Tool call failed: %v", err)
+			t.Fatalf("Tool call failed: %v", err)
 		}
 		if result.Error != nil {
-			b.Fatalf("Tool returned error: %v", result.Error)
+			t.Fatalf("Tool returned error: %v", result.Error)
 		}
 	}
 }
 
-// BenchmarkMCPToolCompletion benchmarks completion tool performance
-func (suite *MCPPerformanceE2ETestSuite) BenchmarkMCPToolCompletion() {
-	b := suite.T().(*testing.B)
+// TestMCPToolCompletionPerformance tests completion tool performance
+func (suite *MCPPerformanceE2ETestSuite) TestMCPToolCompletionPerformance() {
+	t := suite.T()
 	
 	testParams := map[string]interface{}{
 		"uri":       fmt.Sprintf("file://%s/color.go", suite.workspace.RootPath),
@@ -456,10 +454,10 @@ func (suite *MCPPerformanceE2ETestSuite) BenchmarkMCPToolCompletion() {
 		cancel()
 		
 		if err != nil {
-			b.Fatalf("Tool call failed: %v", err)
+			t.Fatalf("Tool call failed: %v", err)
 		}
 		if result.Error != nil {
-			b.Fatalf("Tool returned error: %v", result.Error)
+			t.Fatalf("Tool returned error: %v", result.Error)
 		}
 	}
 }

@@ -56,14 +56,6 @@ type TestSymbol struct {
 	Type      string
 }
 
-// MCPToolCallParams represents parameters for MCP tool calls
-type MCPToolCallParams struct {
-	URI       string `json:"uri,omitempty"`
-	Line      int    `json:"line,omitempty"`
-	Character int    `json:"character,omitempty"`
-	Query     string `json:"query,omitempty"`
-}
-
 // MCPToolTestResult captures the results of MCP tool testing
 type MCPToolTestResult struct {
 	ToolName        string

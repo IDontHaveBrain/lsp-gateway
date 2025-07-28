@@ -174,7 +174,7 @@ quality: format lint security
 # TESTING TARGETS
 # =============================================================================
 
-.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-javascript test-e2e-go test-go-comprehensive test-java-real test-python-real test-python-patterns test-python-patterns-quick test-python-comprehensive test-typescript-real test-javascript-e2e test-javascript-quick test-javascript-mcp test-javascript-comprehensive test-e2e-advanced test-e2e-workflow test-e2e-setup-cli test-e2e-mcp test-mcp-stdio test-mcp-tcp test-mcp-tools test-mcp-scip test-mcp-comprehensive test-mcp-lsp-tools-all test-mcp-performance-suite test-mcp-enhanced-quick test-npm-cli test-npm-mcp test-npm-mcp-quick test-npm-mcp-js test-npm-mcp-go validate-python-patterns-integration validate-python-patterns-integration-quick test-python-patterns-integration setup-simple-repos
+.PHONY: test-simple-quick test-lsp-validation test-jdtls-integration test-circuit-breaker test-circuit-breaker-comprehensive test-e2e-quick test-e2e-full test-e2e-java test-e2e-python test-e2e-typescript test-e2e-javascript test-e2e-go test-go-comprehensive test-go-real-client test-go-mcp-comprehensive test-java-real test-python-real test-python-patterns test-python-patterns-quick test-python-comprehensive test-typescript-real test-javascript-e2e test-javascript-quick test-javascript-mcp test-javascript-comprehensive test-e2e-advanced test-e2e-workflow test-e2e-setup-cli test-e2e-mcp test-mcp-stdio test-mcp-tcp test-mcp-tools test-mcp-scip test-mcp-comprehensive test-mcp-lsp-tools-all test-mcp-performance-suite test-mcp-enhanced-quick test-npm-cli test-npm-mcp test-npm-mcp-quick test-npm-mcp-js test-npm-mcp-go validate-python-patterns-integration validate-python-patterns-integration-quick test-python-patterns-integration setup-simple-repos
 setup-simple-repos:
 	@echo "Setting up test repositories..."
 	./scripts/setup-simple-repos.sh || echo "Setup script not found, skipping..."
@@ -260,7 +260,15 @@ test-e2e-go:
 
 test-go-comprehensive:
 	@echo "Running Go comprehensive real client E2E tests..."
-	$(GOTEST) -v -timeout 1200s -run "TestGoComprehensiveRealClientE2ETestSuite" ./tests/e2e/...
+	$(GOTEST) -v -timeout 1200s -run "TestGoRealClientComprehensiveE2ETestSuite" ./tests/e2e/...
+
+test-go-real-client:
+	@echo "Running comprehensive Go Real Client E2E tests with golang/example repository..."
+	$(GOTEST) -v -timeout 1200s -run "TestGoRealClientComprehensiveE2ETestSuite" ./tests/e2e/...
+
+test-go-mcp-comprehensive:
+	@echo "Running comprehensive Go MCP E2E tests with golang/example repository..."
+	$(GOTEST) -v -timeout 1200s -run "TestGoMCPComprehensiveE2ETestSuite" ./tests/e2e/...
 
 # Real Language Server Integration Tests
 test-java-real:
@@ -407,7 +415,6 @@ help:
 	@echo "  tidy      - Tidy go modules"
 	@echo "  format    - Format code"
 	@echo "  test      - Run all tests"
-	@echo "  test-unit - Run unit tests only"
 	@echo ""
 	@echo "Quality:"
 	@echo "  lint                  - Run linter"
@@ -467,6 +474,12 @@ help:
 	@echo "  test-javascript-mcp              - JavaScript MCP E2E integration testing"
 	@echo "  test-javascript-mcp-integration  - Comprehensive JavaScript MCP integration tests"
 	@echo "  test-javascript-comprehensive    - Full JavaScript test suite with chalk repository (20-25min)"
+	@echo ""
+	@echo "Go Testing:"
+	@echo "  test-e2e-go              - Go E2E tests (10-15min)"
+	@echo "  test-go-comprehensive    - Go comprehensive real client E2E tests with golang/example repository (15-20min)"
+	@echo "  test-go-real-client      - Comprehensive Go Real Client E2E tests with golang/example repository (15-20min)"
+	@echo "  test-go-mcp-comprehensive - Comprehensive Go MCP E2E tests with golang/example repository (15-20min)"
 	@echo ""
 	@echo "NPM-MCP Integration Testing:"
 	@echo "  test-npm-mcp           - Comprehensive NPM-MCP tests (JavaScript + Go)"

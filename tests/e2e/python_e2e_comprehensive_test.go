@@ -16,7 +16,6 @@ import (
 	"github.com/stretchr/testify/suite"
 	"lsp-gateway/internal/transport"
 	"lsp-gateway/tests/e2e/benchmarks"
-	"lsp-gateway/tests/e2e/helpers"
 	"lsp-gateway/tests/e2e/mcp/client"
 	"lsp-gateway/tests/e2e/testutils"
 	mcp "lsp-gateway/tests/mcp"
@@ -54,7 +53,7 @@ type PythonE2EComprehensiveTestSuite struct {
 	performanceMetrics   *ComprehensivePerformanceMetrics
 	benchmarker         *benchmarks.LSPPerformanceBenchmarker
 	benchmarkResults    *benchmarks.LSPBenchmarkResults
-	validationResults   []*helpers.LSPValidationResult
+	// validationResults   []*LSPValidationResult
 
 	// Test Data and State
 	pythonFiles      map[string]*PythonFileInfo
@@ -80,13 +79,6 @@ type PythonFileInfo struct {
 	TestPositions    []testutils.Position
 }
 
-type PythonSymbol struct {
-	Name      string
-	Line      int
-	Character int
-	Kind      string
-	Type      string
-}
 
 type ComprehensivePerformanceMetrics struct {
 	ServerStartupTime       time.Duration
@@ -282,12 +274,9 @@ func (suite *PythonE2EComprehensiveTestSuite) SetupSuite() {
 	
 	// Setup performance benchmarker
 	benchmarkConfig := benchmarks.DefaultLSPBenchmarkConfig()
-	benchmarkConfig.RequestsPerMethod = 20
-	benchmarkConfig.ConcurrentRequests = 3
-	benchmarkConfig.EnableDetailedMetrics = true
 	
-	suite.benchmarker = benchmarks.NewLSPPerformanceBenchmarker(benchmarkConfig)
-	suite.validationResults = make([]*helpers.LSPValidationResult, 0)
+	suite.benchmarker = benchmarks.NewLSPPerformanceBenchmarker(benchmarkConfig, suite.testTimeout)
+	// suite.validationResults = make([]*LSPValidationResult, 0)
 	
 	// Discover and analyze Python files
 	suite.discoverPythonFiles()
@@ -663,8 +652,7 @@ func (suite *PythonE2EComprehensiveTestSuite) setupHTTPClient(ctx context.Contex
 		MockMode:             false, 
 		ProjectPath:          suite.repoDir,
 		WorkspaceID:          "python-patterns-comprehensive",
-		EnableRequestLogging: true,
-		EnableMetrics:        true,
+		EnableLogging: true,
 	}
 	
 	suite.httpClient = testutils.NewHttpClient(httpConfig)
@@ -763,17 +751,7 @@ func (suite *PythonE2EComprehensiveTestSuite) testHTTPDefinition(ctx context.Con
 		for _, position := range fileInfo.TestPositions {
 			totalTests++
 			
-			params := map[string]interface{}{
-				"textDocument": map[string]interface{}{
-					"uri": fileURI,
-				},
-				"position": map[string]interface{}{
-					"line":      position.Line,
-					"character": position.Character,
-				},
-			}
-			
-			result, err := suite.httpClient.SendLSPRequest(ctx, "textDocument/definition", params)
+			result, err := suite.httpClient.Definition(ctx, fileURI, position)
 			if err != nil {
 				suite.T().Logf("HTTP Definition request failed for %s at %v: %v", patternName, position, err)
 				continue
@@ -798,20 +776,7 @@ func (suite *PythonE2EComprehensiveTestSuite) testHTTPReferences(ctx context.Con
 		for _, position := range fileInfo.TestPositions {
 			totalTests++
 			
-			params := map[string]interface{}{
-				"textDocument": map[string]interface{}{
-					"uri": fileURI,
-				},
-				"position": map[string]interface{}{
-					"line":      position.Line,
-					"character": position.Character,
-				},
-				"context": map[string]interface{}{
-					"includeDeclaration": true,
-				},
-			}
-			
-			result, err := suite.httpClient.SendLSPRequest(ctx, "textDocument/references", params)
+			result, err := suite.httpClient.References(ctx, fileURI, position, true)
 			if err != nil {
 				suite.T().Logf("HTTP References request failed for %s at %v: %v", patternName, position, err)
 				continue
@@ -836,17 +801,7 @@ func (suite *PythonE2EComprehensiveTestSuite) testHTTPHover(ctx context.Context)
 		for _, position := range fileInfo.TestPositions {
 			totalTests++
 			
-			params := map[string]interface{}{
-				"textDocument": map[string]interface{}{
-					"uri": fileURI,
-				},
-				"position": map[string]interface{}{
-					"line":      position.Line,
-					"character": position.Character,
-				},
-			}
-			
-			result, err := suite.httpClient.SendLSPRequest(ctx, "textDocument/hover", params)
+			result, err := suite.httpClient.Hover(ctx, fileURI, position)
 			if err != nil {
 				suite.T().Logf("HTTP Hover request failed for %s at %v: %v", patternName, position, err)
 				continue
@@ -869,13 +824,7 @@ func (suite *PythonE2EComprehensiveTestSuite) testHTTPDocumentSymbol(ctx context
 		fileURI := suite.getFileURI(fileInfo.RelativePath)
 		totalTests++
 		
-		params := map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri": fileURI,
-			},
-		}
-		
-		result, err := suite.httpClient.SendLSPRequest(ctx, "textDocument/documentSymbol", params)
+		result, err := suite.httpClient.DocumentSymbol(ctx, fileURI)
 		if err != nil {
 			suite.T().Logf("HTTP DocumentSymbol request failed for %s: %v", patternName, err)
 			continue
@@ -894,11 +843,7 @@ func (suite *PythonE2EComprehensiveTestSuite) testHTTPWorkspaceSymbol(ctx contex
 	successCount := 0
 	
 	for _, query := range queries {
-		params := map[string]interface{}{
-			"query": query,
-		}
-		
-		result, err := suite.httpClient.SendLSPRequest(ctx, "workspace/symbol", params)
+		result, err := suite.httpClient.WorkspaceSymbol(ctx, query)
 		if err != nil {
 			suite.T().Logf("HTTP WorkspaceSymbol request failed for query '%s': %v", query, err)
 			continue
@@ -927,17 +872,7 @@ func (suite *PythonE2EComprehensiveTestSuite) testHTTPCompletion(ctx context.Con
 			
 			totalTests++
 			
-			params := map[string]interface{}{
-				"textDocument": map[string]interface{}{
-					"uri": fileURI,
-				},
-				"position": map[string]interface{}{
-					"line":      completionPos.Line,
-					"character": completionPos.Character,
-				},
-			}
-			
-			result, err := suite.httpClient.SendLSPRequest(ctx, "textDocument/completion", params)
+			result, err := suite.httpClient.Completion(ctx, fileURI, completionPos)
 			if err != nil {
 				suite.T().Logf("HTTP Completion request failed for %s at %v: %v", patternName, completionPos, err)
 				continue
@@ -1883,6 +1818,29 @@ func (t *stdioMCPTransport) SendMessage(ctx context.Context, message *mcp.MCPMes
 		ID:      message.ID,
 		Result:  map[string]interface{}{"status": "ok"},
 	}, nil
+}
+
+// Close implements the Close method required by the Transport interface
+func (t *stdioMCPTransport) Close() error {
+	return t.Disconnect()
+}
+
+// Send implements the Send method required by the Transport interface
+func (t *stdioMCPTransport) Send(ctx context.Context, data []byte) error {
+	if !t.IsConnected() {
+		return fmt.Errorf("transport not connected")
+	}
+	// For test implementation, we just validate the connection
+	return nil
+}
+
+// Receive implements the Receive method required by the Transport interface
+func (t *stdioMCPTransport) Receive(ctx context.Context) ([]byte, error) {
+	if !t.IsConnected() {
+		return nil, fmt.Errorf("transport not connected")
+	}
+	// For test implementation, return mock data
+	return []byte(`{"jsonrpc":"2.0","id":1,"result":{}}`), nil
 }
 
 // Test suite runner
