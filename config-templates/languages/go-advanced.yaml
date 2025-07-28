@@ -387,7 +387,7 @@ performance_config:
     enabled: true
     
     # Go-specific index storage with module-aware organization
-    index_path: "/opt/lsp-gateway/go-scip-indices"
+    index_path: "/opt/lspg/go-scip-indices"
     
     # Frequent refresh for active Go development
     auto_refresh: true  

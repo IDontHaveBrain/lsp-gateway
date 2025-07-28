@@ -141,8 +141,8 @@ Complete integration with actual language servers for production validation.
 
 ### Diagnostics
 ```bash
-./bin/lsp-gateway diagnose
-./bin/lsp-gateway verify
+./bin/lspg diagnose
+./bin/lspg verify
 go test -v -run TestSpecificScenario ./tests/
 ```
 
@@ -151,15 +151,15 @@ go test -v -run TestSpecificScenario ./tests/
 **Language Server Issues**
 ```bash
 # Reinstall language server
-./bin/lsp-gateway install <server> --force
+./bin/lspg install <server> --force
 
 # Language-specific diagnostics
-./bin/lsp-gateway diagnose --language <language>
+./bin/lspg diagnose --language <language>
 ```
 
 **Test Failures**
-- Configuration: `./bin/lsp-gateway config validate`
-- Performance: `./bin/lsp-gateway performance`
+- Configuration: `./bin/lspg config validate`
+- Performance: `./bin/lspg performance`
 - Verbose output: `go test -v -run TestName`
 
 ## Summary

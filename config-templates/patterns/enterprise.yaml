@@ -22,10 +22,10 @@ log_level: "info"
 # Enterprise-grade TLS and security
 security:
   enable_tls: true
-  tls_cert_file: "/etc/lsp-gateway/certs/server.crt"
-  tls_key_file: "/etc/lsp-gateway/certs/server.key"
+  tls_cert_file: "/etc/lspg/certs/server.crt"
+  tls_key_file: "/etc/lspg/certs/server.key"
   enable_mtls: true
-  client_ca_file: "/etc/lsp-gateway/certs/ca.crt"
+  client_ca_file: "/etc/lspg/certs/ca.crt"
   enable_rbac: true
   auth_provider: "oauth2"
   
@@ -121,8 +121,8 @@ servers:
       # TLS for secure communication
       enable_tls: true
       tls_insecure_skip_verify: false
-      tls_cert_file: "/etc/lsp-gateway/certs/gopls.crt"
-      tls_key_file: "/etc/lsp-gateway/certs/gopls.key"
+      tls_cert_file: "/etc/lspg/certs/gopls.crt"
+      tls_key_file: "/etc/lspg/certs/gopls.key"
     
     health_check_settings:
       enabled: true
@@ -653,7 +653,7 @@ performance_config:
     enabled: true
     
     # Enterprise-grade index storage with distributed architecture
-    index_path: "/opt/lsp-gateway/enterprise-scip-indices"
+    index_path: "/opt/lspg/enterprise-scip-indices"
     
     # High-frequency refresh for continuous integration environments  
     auto_refresh: true
@@ -844,7 +844,7 @@ performance_config:
         
         backend:
           type: "local_disk"
-          path: "/opt/lsp-gateway/enterprise-cache"
+          path: "/opt/lspg/enterprise-cache"
         
         compression:
           enabled: true

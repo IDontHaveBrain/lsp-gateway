@@ -142,8 +142,8 @@ const (
 	MSG_PROPERLY_INSTALLED    = "%s runtime %s is properly installed and compatible"
 	MSG_SERVER_FUNCTIONAL     = "%s server is properly installed and functional"
 	MSG_ADD_LANGUAGE_CONFIGS  = "Add language server configurations"
-	MSG_TRY_INSTALL_SERVER    = "Try: ./lsp-gateway install server %s"
-	MSG_TRY_INSTALL_RUNTIME   = "Try: ./lsp-gateway install runtime %s"
+	MSG_TRY_INSTALL_SERVER    = "Try: lspg install server %s"
+	MSG_TRY_INSTALL_RUNTIME   = "Try: lspg install runtime %s"
 
 	ERROR_UNKNOWN_VALUE         = "unknown"
 	ERROR_FILE_NOT_EXIST        = "file does not exist: %s"
@@ -169,7 +169,7 @@ const (
 	SUGGESTION_SUPPORTED_SERVERS  = "Supported servers: %s"
 	SUGGESTION_SUPPORTED_RUNTIMES = "Supported runtimes: %s"
 
-	AUTO_INSTALL_SUGGESTION     = "Use automatic installation: ./lsp-gateway install runtime %s"
+	AUTO_INSTALL_SUGGESTION     = "Use automatic installation: lspg install runtime %s"
 	SERVER_NOT_INSTALLED        = "%s server not installed"
 	SERVER_COMPATIBILITY_ISSUES = "%s server installed but has compatibility issues"
 

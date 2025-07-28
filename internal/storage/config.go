@@ -968,7 +968,7 @@ func DefaultStorageConfiguration() *StorageConfiguration {
 				EvictionPolicy: "lru",
 				Backend: &BackendConfiguration{
 					Type: "local_disk",
-					Path: "/tmp/lsp-gateway-cache",
+					Path: "/tmp/lspg-cache",
 				},
 				Performance: &TierPerformanceConfig{
 					MaxConcurrency:  5,

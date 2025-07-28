@@ -477,7 +477,7 @@ performance_config:
     enabled: true
     
     # Django-specific index storage with app-aware organization
-    index_path: "/opt/lsp-gateway/django-scip-indices"
+    index_path: "/opt/lspg/django-scip-indices"
     
     # Balanced refresh for Django development cycles
     auto_refresh: true

@@ -67,22 +67,22 @@ Features:
 
 Examples:
   # Start MCP server with DirectLSP mode (default)
-  lsp-gateway mcp
+  lspg mcp
 
   # Start with DirectLSP mode using config file
-  lsp-gateway mcp --lsp-config config.yaml
+  lspg mcp --lsp-config config.yaml
 
   # Start with DirectLSP mode and auto-detection (same as default)
-  lsp-gateway mcp --direct-lsp
+  lspg mcp --direct-lsp
 
   # Start with HTTP Gateway mode
-  lsp-gateway mcp --http-gateway
+  lspg mcp --http-gateway
 
   # Start with HTTP Gateway mode and custom URL
-  lsp-gateway mcp --http-gateway --gateway http://localhost:9090
+  lspg mcp --http-gateway --gateway http://localhost:9090
 
   # Start with custom configuration and timeout
-  lsp-gateway mcp --config mcp-config.yaml --timeout 60s`,
+  lspg mcp --config mcp-config.yaml --timeout 60s`,
 	RunE: runMCPServer,
 }
 
@@ -472,7 +472,7 @@ func setupMCPServer(logger *mcp.StructuredLogger) (*mcp.Server, error) {
 	}
 
 	cfg := &mcp.ServerConfig{
-		Name:          "lsp-gateway-mcp",
+		Name:          "lspg-mcp",
 		Description:   "MCP server providing LSP functionality through LSP Gateway",
 		Version:       version.Version,
 		LSPGatewayURL: McpGatewayURL,
@@ -629,7 +629,7 @@ func applyProjectAwareMCPConfig(cfg *mcp.ServerConfig, projectResult *project.Pr
 	projectCtx := projectResult.ProjectContext
 
 	// Update MCP server name to include project type
-	cfg.Name = fmt.Sprintf("lsp-gateway-mcp-%s", projectCtx.ProjectType)
+	cfg.Name = fmt.Sprintf("lspg-mcp-%s", projectCtx.ProjectType)
 
 	// Update description to include project information
 	cfg.Description = fmt.Sprintf("MCP server providing LSP functionality for %s project at %s",

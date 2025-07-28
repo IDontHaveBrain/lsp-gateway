@@ -454,7 +454,7 @@ func (fh *CLIFailureHandler) executeDebug(serverNames []string, failures []gatew
 		for i, rec := range failure.Recommendations {
 			fmt.Fprintf(os.Stderr, "     %d. %s\n", i+1, rec.Description)
 			for _, cmd := range rec.Commands {
-				fmt.Fprintf(os.Stderr, "        Command: lsp-gateway %s\n", cmd)
+				fmt.Fprintf(os.Stderr, "        Command: lspg %s\n", cmd)
 			}
 		}
 		fmt.Fprintf(os.Stderr, "\n")
@@ -469,9 +469,9 @@ func (fh *CLIFailureHandler) executeConfigure() error {
 	// Note: This would trigger the configuration generation process
 	// For now, just provide guidance
 	fmt.Fprintf(os.Stderr, "\n💡 Configuration suggestions:\n")
-	fmt.Fprintf(os.Stderr, "   1. Run: lsp-gateway config generate --auto-detect\n")
-	fmt.Fprintf(os.Stderr, "   2. Run: lsp-gateway setup all\n")
-	fmt.Fprintf(os.Stderr, "   3. Run: lsp-gateway diagnose\n")
+	fmt.Fprintf(os.Stderr, "   1. Run: lspg config generate --auto-detect\n")
+	fmt.Fprintf(os.Stderr, "   2. Run: lspg setup all\n")
+	fmt.Fprintf(os.Stderr, "   3. Run: lspg diagnose\n")
 	
 	return nil
 }

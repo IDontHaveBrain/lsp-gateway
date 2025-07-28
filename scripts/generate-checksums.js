@@ -52,10 +52,10 @@ async function generateChecksums() {
   console.log(`🔐 Generating SHA-256 checksums for LSP Gateway ${version}...\n`);
 
   const platforms = [
-    { key: 'linux-x64', filename: 'lsp-gateway-linux' },
-    { key: 'win32-x64', filename: 'lsp-gateway-windows.exe' },
-    { key: 'darwin-x64', filename: 'lsp-gateway-macos' },
-    { key: 'darwin-arm64', filename: 'lsp-gateway-macos-arm64' }
+    { key: 'linux-x64', filename: 'lspg-linux' },
+    { key: 'win32-x64', filename: 'lspg-windows.exe' },
+    { key: 'darwin-x64', filename: 'lspg-macos' },
+    { key: 'darwin-arm64', filename: 'lspg-macos-arm64' }
   ];
 
   const binDir = path.join(__dirname, '..', 'bin');

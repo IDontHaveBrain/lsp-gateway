@@ -42,22 +42,22 @@ This command shows detailed version information including:
 💻 USAGE EXAMPLES:
 
   Basic version info:
-    lsp-gateway version                    # Human-readable version information
+    lspg version                    # Human-readable version information
     
   JSON output for automation:
-    lsp-gateway version --json             # Machine-readable JSON format
+    lspg version --json             # Machine-readable JSON format
     
   Integration examples:
-    VERSION=$(lsp-gateway version --json | jq -r '.version')
-    lsp-gateway version | grep "Version:"  # Extract specific information
+    VERSION=$(lspg version --json | jq -r '.version')
+    lspg version | grep "Version:"  # Extract specific information
 
 🔧 BUILD INFORMATION:
 Version information can be customized at build time using:
   go build -ldflags "-X 'lsp-gateway/internal/cli.Version=v1.0.0'"
 
 🚀 QUICK CHECKS:
-  lsp-gateway version && lsp-gateway status  # Version + system status
-  lsp-gateway version --json | jq           # Pretty-print JSON version info
+  lspg version && lspg status  # Version + system status
+  lspg version --json | jq           # Pretty-print JSON version info
 
 For troubleshooting, include version output when reporting issues.`,
 	RunE: runVersion,

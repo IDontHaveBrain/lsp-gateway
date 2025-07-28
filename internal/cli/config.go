@@ -62,31 +62,31 @@ Available subcommands:
 
 Examples:
   # Generate default configuration
-  lsp-gateway config generate
+  lspg config generate
 
   # Generate configuration based on detected runtimes
-  lsp-gateway config generate --auto-detect
+  lspg config generate --auto-detect
 
   # Validate existing configuration
-  lsp-gateway config validate
+  lspg config validate
 
   # Show current configuration in JSON format
-  lsp-gateway config show --json
+  lspg config show --json
 
   # Generate multi-language configuration
-  lsp-gateway config generate --multi-language --project-path /path/to/project
+  lspg config generate --multi-language --project-path /path/to/project
 
   # Generate optimized configuration
-  lsp-gateway config generate --optimization-mode production --enable-smart-routing
+  lspg config generate --optimization-mode production --enable-smart-routing
 
   # Validate comprehensive multi-language setup
-  lsp-gateway config validate --comprehensive --check-multi-language
+  lspg config validate --comprehensive --check-multi-language
 
   # Migrate legacy configuration
-  lsp-gateway config migrate --from legacy-config.yaml --to multi-config.yaml
+  lspg config migrate --from legacy-config.yaml --to multi-config.yaml
 
   # Optimize existing configuration
-  lsp-gateway config optimize --mode production --apply-performance-tuning`,
+  lspg config optimize --mode production --apply-performance-tuning`,
 	RunE: ConfigShow, // Default to showing config when no subcommand specified
 }
 
@@ -105,31 +105,31 @@ language mappings, and transport settings based on detected capabilities.
 
 Examples:
   # Generate configuration with auto-detection
-  lsp-gateway config generate --auto-detect
+  lspg config generate --auto-detect
 
   # Generate configuration for specific runtime
-  lsp-gateway config generate --runtime go
+  lspg config generate --runtime go
 
   # Generate default configuration
-  lsp-gateway config generate
+  lspg config generate
 
   # Generate to specific file with overwrite
-  lsp-gateway config generate --output custom-config.yaml --overwrite
+  lspg config generate --output custom-config.yaml --overwrite
 
   # Generate with comments for documentation
-  lsp-gateway config generate --include-comments
+  lspg config generate --include-comments
 
   # Generate multi-language configuration with project detection
-  lsp-gateway config generate --multi-language --project-path /path/to/project
+  lspg config generate --multi-language --project-path /path/to/project
 
   # Generate with optimization mode and template
-  lsp-gateway config generate --optimization-mode production --template monorepo
+  lspg config generate --optimization-mode production --template monorepo
 
   # Generate with smart routing and concurrent servers
-  lsp-gateway config generate --enable-smart-routing --enable-concurrent-servers
+  lspg config generate --enable-smart-routing --enable-concurrent-servers
 
   # Generate with performance profile
-  lsp-gateway config generate --performance-profile high --project-detection`,
+  lspg config generate --performance-profile high --project-detection`,
 	RunE: ConfigGenerate,
 }
 
@@ -150,25 +150,25 @@ where possible (checking if configured servers are actually available).
 
 Examples:
   # Validate default configuration file
-  lsp-gateway config validate
+  lspg config validate
 
   # Validate specific configuration file
-  lsp-gateway config validate --config /path/to/config.yaml
+  lspg config validate --config /path/to/config.yaml
 
   # Validate with JSON output for automation
-  lsp-gateway config validate --json
+  lspg config validate --json
 
   # Quick syntax check only
-  lsp-gateway config validate --validate-only
+  lspg config validate --validate-only
 
   # Comprehensive validation with multi-language checks
-  lsp-gateway config validate --comprehensive --check-multi-language
+  lspg config validate --comprehensive --check-multi-language
 
   # Validate routing and performance settings
-  lsp-gateway config validate --validate-routing --check-performance
+  lspg config validate --validate-routing --check-performance
 
   # Check resource limits and multi-language consistency
-  lsp-gateway config validate --check-resource-limits --check-multi-language`,
+  lspg config validate --check-resource-limits --check-multi-language`,
 	RunE: ConfigValidate,
 }
 
@@ -187,16 +187,16 @@ The output can be formatted as human-readable text or JSON for automation.
 
 Examples:
   # Show current configuration
-  lsp-gateway config show
+  lspg config show
 
   # Show configuration from specific file
-  lsp-gateway config show --config /path/to/config.yaml
+  lspg config show --config /path/to/config.yaml
 
   # Show configuration in JSON format
-  lsp-gateway config show --json
+  lspg config show --json
 
   # Show configuration with validation information
-  lsp-gateway config show --validate`,
+  lspg config show --validate`,
 	RunE: ConfigShow,
 }
 
@@ -214,10 +214,10 @@ This command converts older configuration formats to support:
 
 Examples:
   # Migrate legacy configuration
-  lsp-gateway config migrate --from legacy-config.yaml --to multi-config.yaml
+  lspg config migrate --from legacy-config.yaml --to multi-config.yaml
 
   # Migrate with automatic optimization
-  lsp-gateway config migrate --from old.yaml --to new.yaml --optimization-mode production`,
+  lspg config migrate --from old.yaml --to new.yaml --optimization-mode production`,
 	RunE: ConfigMigrate,
 }
 
@@ -235,10 +235,10 @@ This command applies various optimization strategies including:
 
 Examples:
   # Optimize for production use
-  lsp-gateway config optimize --mode production --apply-performance-tuning
+  lspg config optimize --mode production --apply-performance-tuning
 
   # Optimize with smart routing enabled
-  lsp-gateway config optimize --mode production --enable-smart-routing`,
+  lspg config optimize --mode production --enable-smart-routing`,
 	RunE: ConfigOptimize,
 }
 
@@ -443,8 +443,8 @@ func determineConfigOutputPath() (string, error) {
 			Type:    ErrorTypeConfig,
 			Message: fmt.Sprintf("Configuration file %s already exists", outputPath),
 			Suggestions: []string{
-				"Use --overwrite flag: lsp-gateway config generate --overwrite",
-				"Choose different output file: lsp-gateway config generate --output config-new.yaml",
+				"Use --overwrite flag: lspg config generate --overwrite",
+				"Choose different output file: lspg config generate --output config-new.yaml",
 				fmt.Sprintf("Remove existing file: rm %s", outputPath),
 				"Backup existing file before overwriting",
 			},
@@ -528,7 +528,7 @@ func WriteConfigurationFile(cfg *config.GatewayConfig, path string, includeComme
 
 func writeConfigHeader(file *os.File, path string) error {
 	header := `# LSP Gateway Configuration
-# Generated by lsp-gateway config generate
+# Generated by lspg config generate
 #
 # This configuration file defines the LSP Gateway server settings,
 # including port configuration and language server definitions.

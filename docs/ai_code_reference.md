@@ -143,10 +143,10 @@ This document provides critical file locations and code references for quick AI/
 ## 🎛️ CLI Commands
 
 ### Essential Commands
-- `internal/cli/server.go:52-76` - `lsp-gateway server` - HTTP gateway startup with SCIP caching
-- `internal/cli/mcp.go:82-95` - `lsp-gateway mcp` - MCP server for AI integration  
-- `internal/cli/setup.go:256-324` - `lsp-gateway setup all` - Orchestrated automated installation
-- `internal/cli/diagnose.go:89-167` - `lsp-gateway diagnose` - Comprehensive system diagnostics
+- `internal/cli/server.go:52-76` - `lspg server` - HTTP gateway startup with SCIP caching
+- `internal/cli/mcp.go:82-95` - `lspg mcp` - MCP server for AI integration  
+- `internal/cli/setup.go:256-324` - `lspg setup all` - Orchestrated automated installation
+- `internal/cli/diagnose.go:89-167` - `lspg diagnose` - Comprehensive system diagnostics
 - `internal/cli/diagnose.go:234-289` - Performance benchmarking and SCIP health checks
 
 ### Enhanced Setup System
@@ -156,15 +156,15 @@ This document provides critical file locations and code references for quick AI/
 - `internal/setup/orchestrator.go:228-287` - 5-stage installation workflow coordination
 
 ### Configuration Commands
-- `internal/cli/config.go:67-134` - `lsp-gateway config generate` - Dynamic config creation
+- `internal/cli/config.go:67-134` - `lspg config generate` - Dynamic config creation
 - `internal/cli/config.go:189-245` - Template-based configuration with framework detection
-- `internal/cli/validation.go:45-123` - `lsp-gateway config validate` - Configuration validation
-- `internal/cli/install.go:78-156` - `lsp-gateway install <server>` - Language server installation
+- `internal/cli/validation.go:45-123` - `lspg config validate` - Configuration validation
+- `internal/cli/install.go:78-156` - `lspg install <server>` - Language server installation
 
 ### Status and Verification
-- `internal/cli/status.go:89-145` - `lsp-gateway status` - Server health monitoring with metrics
-- `internal/cli/verify.go:67-134` - `lsp-gateway verify` - Installation verification with scoring
-- `internal/cli/version.go:23-67` - `lsp-gateway version` - Version information with dependencies
+- `internal/cli/status.go:89-145` - `lspg status` - Server health monitoring with metrics
+- `internal/cli/verify.go:67-134` - `lspg verify` - Installation verification with scoring
+- `internal/cli/version.go:23-67` - `lspg version` - Version information with dependencies
 
 ## 🏗️ Multi-Server Management
 

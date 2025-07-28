@@ -73,7 +73,7 @@ func (e *CLIError) Error() string {
 	if len(e.RelatedCmds) > 0 {
 		parts = append(parts, "\n\n🔗 Related commands:")
 		for _, cmd := range e.RelatedCmds {
-			parts = append(parts, fmt.Sprintf("   lsp-gateway %s", cmd))
+			parts = append(parts, fmt.Sprintf("   lspg %s", cmd))
 		}
 	}
 
@@ -87,9 +87,9 @@ func NewConfigError(message string, cause error) *CLIError {
 		Cause:   cause,
 		Suggestions: []string{
 			"Check if config file exists with: ls -la config.yaml",
-			"Generate a new config with: lsp-gateway config generate",
-			"Validate existing config with: lsp-gateway config validate",
-			"Run complete setup: lsp-gateway setup all",
+			"Generate a new config with: lspg config generate",
+			"Validate existing config with: lspg config validate",
+			"Run complete setup: lspg setup all",
 		},
 		RelatedCmds: []string{
 			"config generate",
@@ -105,9 +105,9 @@ func NewConfigNotFoundError(configPath string) *CLIError {
 		Type:    ErrorTypeConfig,
 		Message: fmt.Sprintf("Configuration file not found: %s", configPath),
 		Suggestions: []string{
-			fmt.Sprintf("Create config file: lsp-gateway config generate --output %s", configPath),
-			"Run complete setup: lsp-gateway setup all",
-			"Run diagnostics to check system: lsp-gateway diagnose",
+			fmt.Sprintf("Create config file: lspg config generate --output %s", configPath),
+			"Run complete setup: lspg setup all",
+			"Run diagnostics to check system: lspg diagnose",
 			"Check current directory: pwd && ls -la *.yaml",
 		},
 		RelatedCmds: []string{
@@ -123,7 +123,7 @@ func NewPortInUseError(port int) *CLIError {
 		Type:    ErrorTypeNetwork,
 		Message: fmt.Sprintf("Port %d is already in use", port),
 		Suggestions: []string{
-			fmt.Sprintf("Use a different port: lsp-gateway server --port %d", port+1),
+			fmt.Sprintf("Use a different port: lspg server --port %d", port+1),
 			fmt.Sprintf("Check what's using the port: lsof -i :%d", port),
 			fmt.Sprintf("Kill process using port: sudo kill $(lsof -t -i:%d)", port),
 			"Wait a moment and try again (port may be in TIME_WAIT state)",
@@ -142,9 +142,9 @@ func NewRuntimeNotFoundError(runtime string) *CLIError {
 		Message: fmt.Sprintf("Runtime '%s' not found or not supported", runtime),
 		Suggestions: []string{
 			fmt.Sprintf("Supported runtimes: %s", strings.Join(supportedRuntimes, ", ")),
-			fmt.Sprintf("Install runtime: lsp-gateway install runtime %s", runtime),
-			"Check runtime status: lsp-gateway status runtimes",
-			"Run system diagnostics: lsp-gateway diagnose",
+			fmt.Sprintf("Install runtime: lspg install runtime %s", runtime),
+			"Check runtime status: lspg status runtimes",
+			"Run system diagnostics: lspg diagnose",
 		},
 		RelatedCmds: []string{
 			"install runtime <name>",
@@ -162,9 +162,9 @@ func NewServerNotFoundError(server string) *CLIError {
 		Message: fmt.Sprintf("Language server '%s' not found or not supported", server),
 		Suggestions: []string{
 			fmt.Sprintf("Supported servers: %s", strings.Join(supportedServers, ", ")),
-			fmt.Sprintf("Install server: lsp-gateway install server %s", server),
-			"Install all servers: lsp-gateway install servers",
-			"Check server status: lsp-gateway status servers",
+			fmt.Sprintf("Install server: lspg install server %s", server),
+			"Install all servers: lspg install servers",
+			"Check server status: lspg status servers",
 		},
 		RelatedCmds: []string{
 			"install server <name>",
@@ -182,7 +182,7 @@ func NewPermissionError(path string, operation string) *CLIError {
 		Suggestions: []string{
 			fmt.Sprintf("Check file permissions: ls -la %s", path),
 			fmt.Sprintf(SUGGESTION_FIX_PERMISSIONS, path),
-			"Run with elevated privileges if needed: sudo lsp-gateway ...",
+			"Run with elevated privileges if needed: sudo lspg ...",
 			"Check directory permissions for parent folders",
 		},
 		RelatedCmds: []string{
@@ -195,8 +195,8 @@ func NewPermissionError(path string, operation string) *CLIError {
 func NewValidationError(item string, issues []string) *CLIError {
 	suggestions := []string{
 		"Fix the validation issues listed above",
-		"Regenerate configuration: lsp-gateway config generate",
-		"Run complete setup to fix configuration: lsp-gateway setup all",
+		"Regenerate configuration: lspg config generate",
+		"Run complete setup to fix configuration: lspg setup all",
 	}
 
 	if len(issues) > 0 {
@@ -249,8 +249,8 @@ func HandleServerStartError(err error, port int) error {
 			Message: fmt.Sprintf("Permission denied: cannot bind to privileged port %d", port),
 			Cause:   err,
 			Suggestions: []string{
-				fmt.Sprintf("Use a non-privileged port: lsp-gateway server --port %d", 8080),
-				"Run with elevated privileges: sudo lsp-gateway server",
+				fmt.Sprintf("Use a non-privileged port: lspg server --port %d", 8080),
+				"Run with elevated privileges: sudo lspg server",
 				"Use a port above 1024 (recommended)",
 			},
 			RelatedCmds: []string{
@@ -264,10 +264,10 @@ func HandleServerStartError(err error, port int) error {
 		Message: "Failed to start server",
 		Cause:   err,
 		Suggestions: []string{
-			"Check configuration: lsp-gateway config validate",
-			"Run diagnostics: lsp-gateway diagnose",
-			"Verify runtime installations: lsp-gateway status runtimes",
-			"Try a different port: lsp-gateway server --port 8081",
+			"Check configuration: lspg config validate",
+			"Run diagnostics: lspg diagnose",
+			"Verify runtime installations: lspg status runtimes",
+			"Try a different port: lspg server --port 8081",
 		},
 		RelatedCmds: []string{
 			"config validate",
@@ -283,9 +283,9 @@ func NewGatewayStartupError(cause error) *CLIError {
 		Message: "Failed to start LSP Gateway",
 		Cause:   cause,
 		Suggestions: []string{
-			"Check configuration: lsp-gateway config validate",
-			"Verify runtime installations: lsp-gateway status runtimes",
-			"Run system diagnostics: lsp-gateway diagnose",
+			"Check configuration: lspg config validate",
+			"Verify runtime installations: lspg status runtimes",
+			"Run system diagnostics: lspg diagnose",
 			"Check for conflicting processes on the port",
 		},
 		RelatedCmds: []string{
@@ -304,7 +304,7 @@ func NewInstallerNotAvailableError(component string) *CLIError {
 		Suggestions: []string{
 			"Check system compatibility",
 			"Verify platform support",
-			"Run diagnostics: lsp-gateway diagnose",
+			"Run diagnostics: lspg diagnose",
 			"Report issue if platform should be supported",
 		},
 		RelatedCmds: []string{
@@ -344,7 +344,7 @@ func NewUnsupportedRuntimeError(runtime string, supportedRuntimes []string) *CLI
 		Message: fmt.Sprintf("Runtime '%s' is not supported", runtime),
 		Suggestions: []string{
 			fmt.Sprintf("Supported runtimes are: %s", strings.Join(supportedRuntimes, ", ")),
-			"Use 'lsp-gateway status runtimes' to see available runtimes",
+			"Use 'lspg status runtimes' to see available runtimes",
 			"Install missing runtime with package manager (apt, brew, npm, etc.)",
 			"Check spelling of runtime name",
 		},
@@ -361,7 +361,7 @@ func NewInstallerCreationError(component string) *CLIError {
 		Type:    ErrorTypeInstallation,
 		Message: fmt.Sprintf("Failed to initialize %s installer", component),
 		Suggestions: []string{
-			"Check if platform is supported: lsp-gateway diagnose",
+			"Check if platform is supported: lspg diagnose",
 			"Verify system dependencies are available",
 			"Check available disk space: df -h",
 			"Try running with elevated privileges if needed",
@@ -396,7 +396,7 @@ func NewInfoRetrievalError(component string, cause error) *CLIError {
 		Cause:   cause,
 		Suggestions: []string{
 			fmt.Sprintf("Check if %s is properly installed", component),
-			"Run system diagnostics: lsp-gateway diagnose",
+			"Run system diagnostics: lspg diagnose",
 			"Verify system dependencies are available",
 			"Check system resources and permissions",
 		},
@@ -414,8 +414,8 @@ func NewMCPServerError(message string, cause error) *CLIError {
 		Message: fmt.Sprintf("MCP server error: %s", message),
 		Cause:   cause,
 		Suggestions: []string{
-			"Check LSP Gateway configuration: lsp-gateway config validate",
-			"Verify language servers are available: lsp-gateway status servers",
+			"Check LSP Gateway configuration: lspg config validate",
+			"Verify language servers are available: lspg status servers",
 			"Try restarting the MCP server",
 			"Check network connectivity if using TCP transport",
 		},

@@ -37,19 +37,19 @@ comprehensive bypass management including:
 
 Examples:
   # List all bypassed servers
-  lsp-gateway bypass list
+  lspg bypass list
 
   # Bypass a specific server manually
-  lsp-gateway bypass set python-server --reason "Memory issues"
+  lspg bypass set python-server --reason "Memory issues"
 
   # Remove bypass for a server (re-enable)
-  lsp-gateway bypass clear python-server
+  lspg bypass clear python-server
 
   # Show bypass statistics
-  lsp-gateway bypass stats
+  lspg bypass stats
 
   # Check if a server can attempt recovery
-  lsp-gateway bypass recovery python-server`,
+  lspg bypass recovery python-server`,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 }
@@ -68,13 +68,13 @@ This command shows:
 
 Examples:
   # List all bypassed servers
-  lsp-gateway bypass list
+  lspg bypass list
 
   # List in JSON format for automation
-  lsp-gateway bypass list --json
+  lspg bypass list --json
 
   # Verbose output with full details
-  lsp-gateway bypass list --verbose`,
+  lspg bypass list --verbose`,
 	RunE: bypassList,
 }
 
@@ -91,13 +91,13 @@ receiving requests until the bypass is cleared. This is useful when:
 
 Examples:
   # Bypass a server with a reason
-  lsp-gateway bypass set python-server --reason "Under maintenance"
+  lspg bypass set python-server --reason "Under maintenance"
 
   # Bypass with specific strategy
-  lsp-gateway bypass set go-server --reason "Memory leak" --strategy fallback_cache
+  lspg bypass set go-server --reason "Memory leak" --strategy fallback_cache
 
   # Force bypass even if server is healthy
-  lsp-gateway bypass set ts-server --reason "Testing" --force`,
+  lspg bypass set ts-server --reason "Testing" --force`,
 	Args: cobra.ExactArgs(1),
 	RunE: bypassSet,
 }
@@ -115,10 +115,10 @@ This command re-enables a previously bypassed server by:
 
 Examples:
   # Re-enable a bypassed server
-  lsp-gateway bypass clear python-server
+  lspg bypass clear python-server
 
   # Force clear even if server might not be ready
-  lsp-gateway bypass clear go-server --force`,
+  lspg bypass clear go-server --force`,
 	Args: cobra.ExactArgs(1),
 	RunE: bypassClear,
 }
@@ -137,10 +137,10 @@ This command displays:
 
 Examples:
   # Show bypass statistics
-  lsp-gateway bypass stats
+  lspg bypass stats
 
   # JSON output for monitoring
-  lsp-gateway bypass stats --json`,
+  lspg bypass stats --json`,
 	RunE: bypassStats,
 }
 
@@ -158,10 +158,10 @@ This command shows:
 
 Examples:
   # Check recovery status for a server
-  lsp-gateway bypass recovery python-server
+  lspg bypass recovery python-server
 
   # Verbose recovery information
-  lsp-gateway bypass recovery go-server --verbose`,
+  lspg bypass recovery go-server --verbose`,
 	Args: cobra.ExactArgs(1),
 	RunE: bypassRecovery,
 }
@@ -395,7 +395,7 @@ func bypassRecovery(cmd *cobra.Command, args []string) error {
 	if bypassVerbose {
 		fmt.Printf("\nRecommendations:\n")
 		if bypassInfo.UserBypassDecision {
-			fmt.Printf("  - This is a manual bypass; use 'lsp-gateway bypass clear %s' to re-enable\n", serverName)
+			fmt.Printf("  - This is a manual bypass; use 'lspg bypass clear %s' to re-enable\n", serverName)
 		} else if canAttempt {
 			fmt.Printf("  - Server is eligible for automatic recovery\n")
 			fmt.Printf("  - Recovery will be attempted on next health check\n")

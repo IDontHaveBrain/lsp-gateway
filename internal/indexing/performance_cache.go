@@ -400,7 +400,7 @@ func DefaultPerformanceCacheConfig() *PerformanceCacheConfig {
 		},
 		L2Config: DiskCacheConfig{
 			Enabled:          true,
-			Directory:        "/tmp/lsp-gateway-cache",
+			Directory:        "/tmp/lspg-cache",
 			MaxSize:          5 * 1024 * 1024 * 1024, // 5GB
 			MaxFiles:         100000,
 			TTL:              2 * time.Hour,

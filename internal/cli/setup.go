@@ -232,14 +232,14 @@ Available setup modes:
 - template:      Template-based setup for specific project types
 
 Examples:
-  lsp-gateway setup all                    # Complete automated setup
-  lsp-gateway setup all --force            # Force reinstall all components
-  lsp-gateway setup all --timeout 15m      # Set custom timeout
-  lsp-gateway setup all --json             # Output results in JSON format
-  lsp-gateway setup wizard                 # Interactive setup wizard
-  lsp-gateway setup wizard --verbose       # Verbose wizard with detailed explanations
-  lsp-gateway setup multi-language --project-path /path/to/project  # Multi-language setup
-  lsp-gateway setup template --template monorepo                    # Template-based setup`,
+  lspg setup all                    # Complete automated setup
+  lspg setup all --force            # Force reinstall all components
+  lspg setup all --timeout 15m      # Set custom timeout
+  lspg setup all --json             # Output results in JSON format
+  lspg setup wizard                 # Interactive setup wizard
+  lspg setup wizard --verbose       # Verbose wizard with detailed explanations
+  lspg setup multi-language --project-path /path/to/project  # Multi-language setup
+  lspg setup template --template monorepo                    # Template-based setup`,
 	Args:      cobra.ExactArgs(1),
 	ValidArgs: []string{"all", "wizard", "multi-language", "template", "detect"},
 	RunE:      runSetupInvalidArgs,
@@ -324,13 +324,13 @@ and configures optimal language server settings.
 
 Examples:
   # Setup with project detection
-  lsp-gateway setup multi-language --project-path /path/to/project
+  lspg setup multi-language --project-path /path/to/project
 
   # Setup with optimization mode
-  lsp-gateway setup multi-language --project-path /path/to/project --optimization-mode production
+  lspg setup multi-language --project-path /path/to/project --optimization-mode production
 
   # Setup with template and smart routing
-  lsp-gateway setup multi-language --template monorepo --enable-smart-routing`,
+  lspg setup multi-language --template monorepo --enable-smart-routing`,
 	RunE: runSetupMultiLanguage,
 }
 
@@ -356,13 +356,13 @@ var setupTemplateCmd = &cobra.Command{
 
 Examples:
   # Setup monorepo template
-  lsp-gateway setup template --template monorepo
+  lspg setup template --template monorepo
 
   # Setup with performance profile
-  lsp-gateway setup template --template production --performance-profile high
+  lspg setup template --template production --performance-profile high
 
   # Setup with custom project path
-  lsp-gateway setup template --template microservices --project-path /path/to/services`,
+  lspg setup template --template microservices --project-path /path/to/services`,
 	RunE: runSetupTemplate,
 }
 
@@ -392,13 +392,13 @@ var setupDetectCmd = &cobra.Command{
 
 Examples:
   # Detect and setup current directory
-  lsp-gateway setup detect
+  lspg setup detect
 
   # Detect with specific project path
-  lsp-gateway setup detect --project-path /path/to/project
+  lspg setup detect --project-path /path/to/project
 
   # Detect with optimization mode override
-  lsp-gateway setup detect --optimization-mode production`,
+  lspg setup detect --optimization-mode production`,
 	RunE: runSetupDetect,
 }
 
@@ -669,8 +669,8 @@ func runSetupAll(cmd *cobra.Command, args []string) error {
 	if result.Success {
 		result.Messages = append(result.Messages, "LSP Gateway setup completed successfully")
 		result.Messages = append(result.Messages, fmt.Sprintf("Setup duration: %v", result.Duration))
-		result.Messages = append(result.Messages, "Run 'lsp-gateway server' to start the HTTP gateway")
-		result.Messages = append(result.Messages, "Run 'lsp-gateway mcp' to start the MCP server")
+		result.Messages = append(result.Messages, "Run 'lspg server' to start the HTTP gateway")
+		result.Messages = append(result.Messages, "Run 'lspg mcp' to start the MCP server")
 	}
 
 	// Output results
@@ -777,8 +777,8 @@ func runSetupWizard(cmd *cobra.Command, args []string) error {
 		if wizardState.ProjectAnalysis != nil {
 			result.Messages = append(result.Messages, fmt.Sprintf("Project type: %s with %d languages", wizardState.ProjectAnalysis.ProjectType, len(wizardState.ProjectAnalysis.DetectedLanguages)))
 		}
-		result.Messages = append(result.Messages, "Run 'lsp-gateway server' to start the HTTP gateway")
-		result.Messages = append(result.Messages, "Run 'lsp-gateway mcp' to start the MCP server")
+		result.Messages = append(result.Messages, "Run 'lspg server' to start the HTTP gateway")
+		result.Messages = append(result.Messages, "Run 'lspg mcp' to start the MCP server")
 	}
 
 	return outputSetupResultsHuman(result)
@@ -2144,8 +2144,8 @@ func runSetupTemplate(cmd *cobra.Command, args []string) error {
 		result.Messages = append(result.Messages, fmt.Sprintf("Template-based LSP Gateway setup completed successfully (%s)", setupTemplate))
 		result.Messages = append(result.Messages, fmt.Sprintf("Setup duration: %v", result.Duration))
 		result.Messages = append(result.Messages, fmt.Sprintf("Template '%s' optimizations are now active", setupTemplate))
-		result.Messages = append(result.Messages, "Run 'lsp-gateway server' to start the HTTP gateway")
-		result.Messages = append(result.Messages, "Run 'lsp-gateway mcp' to start the MCP server")
+		result.Messages = append(result.Messages, "Run 'lspg server' to start the HTTP gateway")
+		result.Messages = append(result.Messages, "Run 'lspg mcp' to start the MCP server")
 	}
 
 	// Output results
@@ -2792,8 +2792,8 @@ func addMultiLanguageSuccessMessages(result *SetupResult) {
 		result.Messages = append(result.Messages, "Multi-language LSP Gateway setup completed successfully")
 		result.Messages = append(result.Messages, fmt.Sprintf("Setup duration: %v", result.Duration))
 		result.Messages = append(result.Messages, "Multi-language project support is now active")
-		result.Messages = append(result.Messages, "Run 'lsp-gateway server' to start the HTTP gateway")
-		result.Messages = append(result.Messages, "Run 'lsp-gateway mcp' to start the MCP server")
+		result.Messages = append(result.Messages, "Run 'lspg server' to start the HTTP gateway")
+		result.Messages = append(result.Messages, "Run 'lspg mcp' to start the MCP server")
 	}
 }
 
@@ -2805,8 +2805,8 @@ func addDetectSuccessMessages(result *SetupResult, projectAnalysis *setup.Projec
 			result.Messages = append(result.Messages, fmt.Sprintf("Project: %s (%s complexity)", projectAnalysis.ProjectType, projectAnalysis.Complexity))
 			result.Messages = append(result.Messages, fmt.Sprintf("Languages: %v", projectAnalysis.DetectedLanguages))
 		}
-		result.Messages = append(result.Messages, "Run 'lsp-gateway server' to start the HTTP gateway")
-		result.Messages = append(result.Messages, "Run 'lsp-gateway mcp' to start the MCP server")
+		result.Messages = append(result.Messages, "Run 'lspg server' to start the HTTP gateway")
+		result.Messages = append(result.Messages, "Run 'lspg mcp' to start the MCP server")
 	}
 }
 

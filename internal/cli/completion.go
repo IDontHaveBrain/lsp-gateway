@@ -26,34 +26,34 @@ user experience by reducing typing and helping discover available options.
 💻 USAGE EXAMPLES:
 
   Generate completion for your shell:
-    lsp-gateway completion bash     # Generate bash completion
-    lsp-gateway completion zsh      # Generate zsh completion
-    lsp-gateway completion fish     # Generate fish completion
-    lsp-gateway completion powershell # Generate PowerShell completion
+    lspg completion bash     # Generate bash completion
+    lspg completion zsh      # Generate zsh completion
+    lspg completion fish     # Generate fish completion
+    lspg completion powershell # Generate PowerShell completion
 
 🔧 INSTALLATION:
 
   Bash (add to ~/.bashrc):
-    source <(lsp-gateway completion bash)
+    source <(lspg completion bash)
     
   Zsh (add to ~/.zshrc):
-    source <(lsp-gateway completion zsh)
+    source <(lspg completion zsh)
     
   Fish (save to ~/.config/fish/completions/):
-    lsp-gateway completion fish > ~/.config/fish/completions/lsp-gateway.fish
+    lspg completion fish > ~/.config/fish/completions/lsp-gateway.fish
     
   PowerShell (add to profile):
-    lsp-gateway completion powershell | Out-String | Invoke-Expression
+    lspg completion powershell | Out-String | Invoke-Expression
 
 📝 PERSISTENT INSTALLATION:
 
   Save completion script to file:
-    lsp-gateway completion bash > /etc/bash_completion.d/lsp-gateway
-    lsp-gateway completion zsh > /usr/local/share/zsh/site-functions/_lsp-gateway
+    lspg completion bash > /etc/bash_completion.d/lsp-gateway
+    lspg completion zsh > /usr/local/share/zsh/site-functions/_lsp-gateway
     
   For user-specific installation:
     mkdir -p ~/.local/share/bash-completion/completions
-    lsp-gateway completion bash > ~/.local/share/bash-completion/completions/lsp-gateway
+    lspg completion bash > ~/.local/share/bash-completion/completions/lsp-gateway
 
 🚀 FEATURES:
   • Command and subcommand completion

@@ -59,25 +59,25 @@ Diagnostic Areas:
 
 Examples:
   # Run all diagnostics
-  lsp-gateway diagnose
+  lspg diagnose
   
   # Diagnose only runtimes
-  lsp-gateway diagnose runtimes
+  lspg diagnose runtimes
   
   # Verbose diagnostic output
-  lsp-gateway diagnose --verbose
+  lspg diagnose --verbose
   
   # JSON output for automation
-  lsp-gateway diagnose --json
+  lspg diagnose --json
   
   # Multi-language diagnostics
-  lsp-gateway diagnose --multi-language --project-path /path/to/project
+  lspg diagnose --multi-language --project-path /path/to/project
   
   # Performance diagnostics
-  lsp-gateway diagnose --performance --performance-mode production
+  lspg diagnose --performance --performance-mode production
   
   # Routing diagnostics
-  lsp-gateway diagnose --routing --check-consistency`,
+  lspg diagnose --routing --check-consistency`,
 	RunE: diagnoseSystem,
 }
 
@@ -95,10 +95,10 @@ This command performs comprehensive checks on all supported runtimes including:
 
 Examples:
   # Diagnose all runtimes
-  lsp-gateway diagnose runtimes
+  lspg diagnose runtimes
   
   # Verbose runtime diagnostics
-  lsp-gateway diagnose runtimes --verbose`,
+  lspg diagnose runtimes --verbose`,
 	RunE: diagnoseRuntimes,
 }
 
@@ -116,10 +116,10 @@ This command performs comprehensive checks on all supported language servers inc
 
 Examples:
   # Diagnose all language servers
-  lsp-gateway diagnose servers
+  lspg diagnose servers
   
   # Verbose server diagnostics
-  lsp-gateway diagnose servers --verbose`,
+  lspg diagnose servers --verbose`,
 	RunE: diagnoseServers,
 }
 
@@ -137,16 +137,16 @@ This command performs comprehensive checks on configuration including:
 
 Examples:
   # Diagnose configuration
-  lsp-gateway diagnose config
+  lspg diagnose config
   
   # Verbose configuration diagnostics
-  lsp-gateway diagnose config --verbose
+  lspg diagnose config --verbose
   
   # Multi-language configuration diagnostics
-  lsp-gateway diagnose config --multi-language --project-path /path/to/project
+  lspg diagnose config --multi-language --project-path /path/to/project
   
   # Performance configuration diagnostics
-  lsp-gateway diagnose config --performance --performance-mode production`,
+  lspg diagnose config --performance --performance-mode production`,
 	RunE: diagnoseConfig,
 }
 
@@ -164,13 +164,13 @@ This command performs comprehensive checks on optimization including:
 
 Examples:
   # Diagnose optimization settings
-  lsp-gateway diagnose optimization
+  lspg diagnose optimization
   
   # Check production optimization settings
-  lsp-gateway diagnose optimization --performance-mode production
+  lspg diagnose optimization --performance-mode production
   
   # Comprehensive optimization analysis
-  lsp-gateway diagnose optimization --check-consistency --performance`,
+  lspg diagnose optimization --check-consistency --performance`,
 	RunE: diagnoseOptimization,
 }
 
@@ -323,7 +323,7 @@ func diagnoseSystem(cmd *cobra.Command, args []string) error {
 			Suggestions: []string{
 				"Check if language servers are properly installed",
 				"Verify servers are accessible in your PATH",
-				"Install missing servers: lsp-gateway install servers",
+				"Install missing servers: lspg install servers",
 			},
 			RelatedCmds: []string{
 				"status servers",
@@ -339,8 +339,8 @@ func diagnoseSystem(cmd *cobra.Command, args []string) error {
 			Message: "Configuration diagnostics encountered issues",
 			Cause:   err,
 			Suggestions: []string{
-				"Validate configuration file: lsp-gateway config validate",
-				"Generate a fresh config: lsp-gateway config generate --overwrite",
+				"Validate configuration file: lspg config validate",
+				"Generate a fresh config: lspg config generate --overwrite",
 				"Check config file permissions and syntax",
 			},
 			RelatedCmds: []string{
@@ -434,7 +434,7 @@ func diagnoseSystem(cmd *cobra.Command, args []string) error {
 			Cause:   err,
 			Suggestions: []string{
 				"Check terminal output capabilities",
-				"Try redirecting output: lsp-gateway diagnose > diagnostics.txt",
+				"Try redirecting output: lspg diagnose > diagnostics.txt",
 				"Report this as a bug if it persists",
 			},
 		}
@@ -479,7 +479,7 @@ func diagnoseRuntimes(cmd *cobra.Command, args []string) error {
 			result.Message = fmt.Sprintf("Failed to verify %s runtime: %v", runtimeName, err)
 			result.Suggestions = []string{
 				fmt.Sprintf("Check if %s is installed", runtimeName),
-				fmt.Sprintf("Try: ./lsp-gateway install runtime %s", runtimeName),
+				fmt.Sprintf("Try: ./lspg install runtime %s", runtimeName),
 			}
 		} else {
 			result.Details["installed"] = verifyResult.Installed
@@ -492,7 +492,7 @@ func diagnoseRuntimes(cmd *cobra.Command, args []string) error {
 				result.Message = fmt.Sprintf("%s runtime not installed", cases.Title(language.English).String(runtimeName))
 				result.Suggestions = []string{
 					fmt.Sprintf("Install %s runtime", runtimeName),
-					fmt.Sprintf("Use automatic installation: ./lsp-gateway install runtime %s", runtimeName),
+					fmt.Sprintf("Use automatic installation: ./lspg install runtime %s", runtimeName),
 				}
 			} else if !verifyResult.Compatible {
 				result.Status = StatusWarning
@@ -571,7 +571,7 @@ func diagnoseServers(cmd *cobra.Command, args []string) error {
 			result.Message = fmt.Sprintf("Failed to verify %s server: %v", serverName, err)
 			result.Suggestions = []string{
 				fmt.Sprintf("Check if %s is installed", serverName),
-				fmt.Sprintf("Try: ./lsp-gateway install server %s", serverName),
+				fmt.Sprintf("Try: ./lspg install server %s", serverName),
 			}
 		} else {
 			result.Details["installed"] = verifyResult.Installed
@@ -584,7 +584,7 @@ func diagnoseServers(cmd *cobra.Command, args []string) error {
 				result.Message = fmt.Sprintf("%s server not installed", serverName)
 				result.Suggestions = []string{
 					fmt.Sprintf("Install %s server", serverName),
-					fmt.Sprintf("Use automatic installation: ./lsp-gateway install server %s", serverName),
+					fmt.Sprintf("Use automatic installation: ./lspg install server %s", serverName),
 				}
 			} else if !verifyResult.Compatible {
 				result.Status = StatusWarning
@@ -643,7 +643,7 @@ func diagnoseConfig(cmd *cobra.Command, args []string) error {
 		configResult.Status = StatusFailed
 		configResult.Message = fmt.Sprintf("Failed to load configuration: %v", err)
 		configResult.Suggestions = []string{
-			"Generate a new configuration file: ./lsp-gateway config generate",
+			"Generate a new configuration file: ./lspg config generate",
 			"Check that config.yaml exists and has correct syntax",
 			"Ensure the file has proper permissions",
 		}
@@ -661,7 +661,7 @@ func diagnoseConfig(cmd *cobra.Command, args []string) error {
 			configResult.Suggestions = []string{
 				"Fix configuration validation issues",
 				"Review server configurations",
-				"Regenerate config: ./lsp-gateway config generate",
+				"Regenerate config: ./lspg config generate",
 			}
 		} else {
 			configResult.Status = StatusPassed
@@ -758,7 +758,7 @@ func runRuntimeDiagnostics(_ context.Context, report *DiagnosticReport) error {
 			result.Message = fmt.Sprintf("Failed to verify %s runtime: %v", name, err)
 			result.Suggestions = []string{
 				fmt.Sprintf("Check if %s is installed", name),
-				fmt.Sprintf("Try: ./lsp-gateway install runtime %s", name),
+				fmt.Sprintf("Try: ./lspg install runtime %s", name),
 			}
 		} else {
 			result.Details["installed"] = verifyResult.Installed
@@ -778,7 +778,7 @@ func runRuntimeDiagnostics(_ context.Context, report *DiagnosticReport) error {
 				result.Message = fmt.Sprintf("%s runtime not installed", cases.Title(language.English).String(name))
 				result.Suggestions = []string{
 					fmt.Sprintf("Install %s runtime", name),
-					fmt.Sprintf("Use automatic installation: ./lsp-gateway install runtime %s", name),
+					fmt.Sprintf("Use automatic installation: ./lspg install runtime %s", name),
 				}
 			} else if !verifyResult.Compatible {
 				result.Status = StatusWarning
@@ -810,7 +810,7 @@ func runRuntimeDiagnostics(_ context.Context, report *DiagnosticReport) error {
 			Timestamp: time.Now(),
 			Suggestions: []string{
 				"Install at least one runtime (Go is recommended)",
-				"Use: ./lsp-gateway install runtime go",
+				"Use: ./lspg install runtime go",
 				"LSP Gateway requires runtimes to support language servers",
 			},
 		})
@@ -867,7 +867,7 @@ func runServerDiagnostics(_ context.Context, report *DiagnosticReport) error {
 			result.Status = StatusFailed
 			result.Message = fmt.Sprintf("Failed to verify %s server: %v", serverName, err)
 			result.Suggestions = []string{
-				fmt.Sprintf("Try: ./lsp-gateway install server %s", serverName),
+				fmt.Sprintf("Try: ./lspg install server %s", serverName),
 			}
 		} else {
 			result.Details["installed"] = verifyResult.Installed
@@ -886,7 +886,7 @@ func runServerDiagnostics(_ context.Context, report *DiagnosticReport) error {
 				result.Message = fmt.Sprintf("%s server not installed", serverName)
 				result.Suggestions = []string{
 					fmt.Sprintf("Install %s server", serverName),
-					fmt.Sprintf("Use: ./lsp-gateway install server %s", serverName),
+					fmt.Sprintf("Use: ./lspg install server %s", serverName),
 				}
 			} else if !verifyResult.Compatible {
 				result.Status = StatusWarning
@@ -909,7 +909,7 @@ func runServerDiagnostics(_ context.Context, report *DiagnosticReport) error {
 			Timestamp: time.Now(),
 			Suggestions: []string{
 				"Install language servers for your development needs",
-				"Use: ./lsp-gateway install server gopls (for Go)",
+				"Use: ./lspg install server gopls (for Go)",
 			},
 		})
 	} else {
@@ -936,7 +936,7 @@ func runConfigDiagnostics(ctx context.Context, report *DiagnosticReport) error {
 		result.Status = StatusFailed
 		result.Message = fmt.Sprintf("Failed to load configuration: %v", err)
 		result.Suggestions = []string{
-			"Generate a new configuration file: ./lsp-gateway config generate",
+			"Generate a new configuration file: ./lspg config generate",
 			"Check that config.yaml exists and has correct syntax",
 		}
 		result.Details["file_exists"] = false
@@ -950,7 +950,7 @@ func runConfigDiagnostics(ctx context.Context, report *DiagnosticReport) error {
 			result.Message = fmt.Sprintf("Configuration has validation issues: %v", validationErr)
 			result.Suggestions = []string{
 				"Fix configuration validation issues",
-				"Regenerate config: ./lsp-gateway config generate",
+				"Regenerate config: ./lspg config generate",
 			}
 		} else {
 			result.Status = StatusPassed
@@ -1455,7 +1455,7 @@ func runTemplateValidationDiagnostics(ctx context.Context, report *DiagnosticRep
 		result.Message = "Cannot load configuration for template validation"
 		result.Suggestions = []string{
 			"Ensure configuration file exists",
-			"Generate configuration: lsp-gateway config generate",
+			"Generate configuration: lspg config generate",
 		}
 	} else {
 		// Validate against built-in templates
@@ -1696,7 +1696,7 @@ func runPerformanceDiagnostics(ctx context.Context, report *DiagnosticReport) er
 		result.Message = "Cannot load configuration for performance analysis"
 		result.Suggestions = []string{
 			"Ensure configuration file exists",
-			"Generate configuration: lsp-gateway config generate",
+			"Generate configuration: lspg config generate",
 		}
 	} else {
 		// Enhanced performance analysis with optimization manager
@@ -1996,7 +1996,7 @@ func routingDiagnosticsConfigError(result *DiagnosticResult, report *DiagnosticR
 	result.Message = "Cannot load configuration for routing analysis"
 	result.Suggestions = []string{
 		"Ensure configuration file exists",
-		"Generate configuration: lsp-gateway config generate",
+		"Generate configuration: lspg config generate",
 	}
 	report.Results = append(report.Results, *result)
 	return nil

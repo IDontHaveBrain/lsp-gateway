@@ -185,7 +185,7 @@ func (d *DiskCache) Initialize(ctx context.Context, config TierConfig) error {
 	if d.config.BackendConfig.ConnectionString != "" {
 		d.dbPath = d.config.BackendConfig.ConnectionString
 	} else {
-		d.dbPath = filepath.Join(os.TempDir(), "lsp-gateway-disk-cache")
+		d.dbPath = filepath.Join(os.TempDir(), "lspg-disk-cache")
 	}
 
 	// Ensure directory exists

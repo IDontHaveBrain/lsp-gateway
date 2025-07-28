@@ -21,8 +21,8 @@ func (cm *ConfigManager) LoadAndValidateConfig(configPath string) (*config.Gatew
 			Path:    configPath,
 			Suggestions: []string{
 				fmt.Sprintf(SUGGESTION_CREATE_CONFIG, configPath),
-				"Run complete setup: lsp-gateway setup all",
-				"Run diagnostics to check system: lsp-gateway diagnose",
+				"Run complete setup: lspg setup all",
+				"Run diagnostics to check system: lspg diagnose",
 			},
 		}
 	}
@@ -49,8 +49,8 @@ func (cm *ConfigManager) LoadAndValidateConfig(configPath string) (*config.Gatew
 			Cause:   err,
 			Suggestions: []string{
 				"Check YAML syntax",
-				"Validate config: lsp-gateway config validate",
-				"Regenerate config: lsp-gateway config generate",
+				"Validate config: lspg config validate",
+				"Regenerate config: lspg config generate",
 			},
 		}
 	}
@@ -63,8 +63,8 @@ func (cm *ConfigManager) LoadAndValidateConfig(configPath string) (*config.Gatew
 			Cause:   err,
 			Suggestions: []string{
 				"Fix validation issues",
-				"Regenerate config: lsp-gateway config generate",
-				"Run complete setup to fix configuration: lsp-gateway setup all",
+				"Regenerate config: lspg config generate",
+				"Run complete setup to fix configuration: lspg setup all",
 			},
 		}
 	}

@@ -34,10 +34,10 @@ The verification process includes:
 5. Validate compatibility with LSP Gateway
 
 Examples:
-  lsp-gateway verify runtime go       # Verify Go installation
-  lsp-gateway verify runtime python   # Verify Python installation
-  lsp-gateway verify runtime all      # Verify all runtimes
-  lsp-gateway verify runtime go --verbose  # Detailed verification output`,
+  lspg verify runtime go       # Verify Go installation
+  lspg verify runtime python   # Verify Python installation
+  lspg verify runtime all      # Verify all runtimes
+  lspg verify runtime go --verbose  # Detailed verification output`,
 }
 
 var verifyRuntimeCmd = &cobra.Command{
@@ -264,7 +264,7 @@ func displayVerificationSummary(results []RuntimeVerificationResult) {
 		fmt.Printf("\n⚠ All runtimes are installed but some have issues\n")
 	} else {
 		fmt.Printf("\n✗ Some runtimes are missing or have issues\n")
-		fmt.Printf("Run 'lsp-gateway install runtime all' to install missing runtimes\n")
+		fmt.Printf("Run 'lspg install runtime all' to install missing runtimes\n")
 	}
 
 	hasIssues := false

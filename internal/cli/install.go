@@ -46,16 +46,16 @@ Available install targets:
 - servers:        Install all missing language servers
 
 Examples:
-  lsp-gateway install runtime go           # Install Go runtime
-  lsp-gateway install runtime python       # Install Python runtime
-  lsp-gateway install runtime java21       # Install Java 21 runtime (required for JDTLS)
-  lsp-gateway install runtime all          # Install all missing runtimes
-  lsp-gateway install runtime go --force   # Force reinstall Go runtime
-  lsp-gateway install runtime go --version 1.21.0  # Install specific version
-  lsp-gateway install server gopls         # Install Go language server
-  lsp-gateway install server pylsp         # Install Python language server
-  lsp-gateway install servers              # Install all missing language servers
-  lsp-gateway install servers --force      # Force reinstall all language servers`,
+  lspg install runtime go           # Install Go runtime
+  lspg install runtime python       # Install Python runtime
+  lspg install runtime java21       # Install Java 21 runtime (required for JDTLS)
+  lspg install runtime all          # Install all missing runtimes
+  lspg install runtime go --force   # Force reinstall Go runtime
+  lspg install runtime go --version 1.21.0  # Install specific version
+  lspg install server gopls         # Install Go language server
+  lspg install server pylsp         # Install Python language server
+  lspg install servers              # Install all missing language servers
+  lspg install servers --force      # Force reinstall all language servers`,
 }
 
 var installRuntimeCmd = &cobra.Command{

@@ -36,7 +36,7 @@ type ToolConfig struct {
 
 func DefaultConfig() *ServerConfig {
 	return &ServerConfig{
-		Name:          "lsp-gateway-mcp",
+		Name:          "lspg-mcp",
 		Description:   "MCP server providing LSP functionality through LSP Gateway",
 		Version:       version.Version,
 		LSPGatewayURL: "http://localhost:8080",

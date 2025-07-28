@@ -522,7 +522,7 @@ performance_config:
     enabled: true
     
     # Shared index storage for cross-language navigation
-    index_path: "/opt/lsp-gateway/polyglot-scip-indices"
+    index_path: "/opt/lspg/polyglot-scip-indices"
     
     # Balanced refresh for active polyglot development
     auto_refresh: true

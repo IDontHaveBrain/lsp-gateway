@@ -826,7 +826,7 @@ func DefaultStorageConfiguration() *StorageConfiguration {
 				EvictionPolicy: "lru",
 				Backend: &BackendConfiguration{
 					Type: "local_disk",
-					Path: "/opt/lsp-gateway/cache",
+					Path: "/opt/lspg/cache",
 				},
 				Compression: &CompressionConfiguration{
 					Enabled:   true,

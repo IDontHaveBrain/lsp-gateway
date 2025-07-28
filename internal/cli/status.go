@@ -38,19 +38,19 @@ of your LSP Gateway installation, including:
 
 Examples:
   # Show all status information
-  lsp-gateway status
+  lspg status
   
   # Show only runtime status
-  lsp-gateway status runtimes
+  lspg status runtimes
   
   # Show specific runtime status
-  lsp-gateway status runtime go
+  lspg status runtime go
   
   # Output as JSON for automation
-  lsp-gateway status --json
+  lspg status --json
   
   # Verbose output with detailed information
-  lsp-gateway status --verbose`,
+  lspg status --verbose`,
 	RunE: statusAll,
 }
 
@@ -68,10 +68,10 @@ This command displays information about runtime installations including:
 
 Examples:
   # Show all runtime status
-  lsp-gateway status runtimes
+  lspg status runtimes
   
   # JSON output
-  lsp-gateway status runtimes --json`,
+  lspg status runtimes --json`,
 	RunE: statusRuntimes,
 }
 
@@ -91,10 +91,10 @@ This command provides detailed information about a single runtime including:
 
 Examples:
   # Show Go runtime status
-  lsp-gateway status runtime go
+  lspg status runtime go
   
   # Show Python runtime status with verbose output
-  lsp-gateway status runtime python --verbose`,
+  lspg status runtime python --verbose`,
 	Args: cobra.ExactArgs(1),
 	RunE: statusRuntime,
 }
@@ -114,10 +114,10 @@ This command displays information about language server installations including:
 
 Examples:
   # Show all server status
-  lsp-gateway status servers
+  lspg status servers
   
   # JSON output
-  lsp-gateway status servers --json`,
+  lspg status servers --json`,
 	RunE: statusServers,
 }
 
@@ -137,10 +137,10 @@ This command provides detailed information about a single server including:
 
 Examples:
   # Show gopls status
-  lsp-gateway status server gopls
+  lspg status server gopls
   
   # Show TypeScript language server status with verbose output
-  lsp-gateway status server typescript-language-server --verbose`,
+  lspg status server typescript-language-server --verbose`,
 	Args: cobra.ExactArgs(1),
 	RunE: statusServer,
 }
@@ -326,7 +326,7 @@ func statusRuntime(cmd *cobra.Command, args []string) error {
 			Suggestions: []string{
 				fmt.Sprintf("Install %s runtime", runtimeName),
 				fmt.Sprintf("Check if %s is available in your PATH", runtimeName),
-				"Run system diagnostics: lsp-gateway diagnose",
+				"Run system diagnostics: lspg diagnose",
 				"Try manual installation and verification",
 			},
 			RelatedCmds: []string{
@@ -716,9 +716,9 @@ func statusServer(cmd *cobra.Command, args []string) error {
 			Message: fmt.Sprintf("Failed to verify %s language server", serverName),
 			Cause:   err,
 			Suggestions: []string{
-				fmt.Sprintf("Install %s: lsp-gateway install server %s", serverName, serverName),
-				"Check runtime dependencies: lsp-gateway status runtimes",
-				"Run system diagnostics: lsp-gateway diagnose",
+				fmt.Sprintf("Install %s: lspg install server %s", serverName, serverName),
+				"Check runtime dependencies: lspg status runtimes",
+				"Run system diagnostics: lspg diagnose",
 				"Verify the server is in your PATH environment variable",
 			},
 			RelatedCmds: []string{
@@ -1045,9 +1045,9 @@ func getServerStatusAndVersion(verifyResult *types.VerificationResult, err error
 func printQuickActions() {
 	fmt.Printf("Quick Actions:\n")
 	fmt.Printf("--------------\n")
-	fmt.Printf("• Install all dependencies: lsp-gateway install servers\n")
-	fmt.Printf("• Run full diagnostics:     lsp-gateway diagnose\n")
-	fmt.Printf("• Start HTTP Gateway:       lsp-gateway server\n")
-	fmt.Printf("• Start MCP Server:         lsp-gateway mcp\n")
-	fmt.Printf("• Generate config:          lsp-gateway config generate\n")
+	fmt.Printf("• Install all dependencies: lspg install servers\n")
+	fmt.Printf("• Run full diagnostics:     lspg diagnose\n")
+	fmt.Printf("• Start HTTP Gateway:       lspg server\n")
+	fmt.Printf("• Start MCP Server:         lspg mcp\n")
+	fmt.Printf("• Generate config:          lspg config generate\n")
 }

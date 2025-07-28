@@ -285,7 +285,7 @@ Monitor and troubleshoot SCIP intelligent caching performance:
 
 # Cache management operations
 # Cache is managed automatically - manual operations for troubleshooting only
-rm -rf ~/.cache/lsp-gateway/scip               # Reset cache (restart required)
+rm -rf ~/.cache/lspg/scip               # Reset cache (restart required)
 
 # Performance baseline creation
 ./bin/lspg diagnose performance --baseline  # Create performance baseline
@@ -325,8 +325,8 @@ Enable verbose logging:
 ./bin/lspg server --config config.yaml --debug --verbose
 
 # Check system logs
-journalctl -u lsp-gateway  # systemd systems
-tail -f /var/log/lsp-gateway.log  # if configured
+journalctl -u lspg  # systemd systems
+tail -f /var/log/lspg.log  # if configured
 ```
 
 ### Testing Issues

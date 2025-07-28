@@ -25,12 +25,12 @@ from initial setup to advanced usage scenarios.
 💻 USAGE EXAMPLES:
 
   Show all workflows:
-    lsp-gateway help workflows
+    lspg help workflows
     
   Show specific workflow:
-    lsp-gateway help workflows first-time
-    lsp-gateway help workflows development
-    lsp-gateway help workflows troubleshooting`,
+    lspg help workflows first-time
+    lspg help workflows development
+    lspg help workflows troubleshooting`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: runHelpWorkflows,
 }
@@ -68,27 +68,27 @@ func showAllWorkflows() {
 Choose a workflow to see detailed step-by-step instructions:
 
 🚀 FIRST-TIME SETUP:
-  lsp-gateway help workflows first-time
+  lspg help workflows first-time
   Complete initial setup from scratch to working system
 
 💻 DEVELOPMENT WORKFLOW:
-  lsp-gateway help workflows development  
+  lspg help workflows development  
   Daily development tasks and common operations
 
 🔧 MAINTENANCE:
-  lsp-gateway help workflows maintenance
+  lspg help workflows maintenance
   System maintenance, updates, and health checks
 
 🔗 INTEGRATION:
-  lsp-gateway help workflows integration
+  lspg help workflows integration
   IDE integration and AI assistant setup
 
 🚨 TROUBLESHOOTING:
-  lsp-gateway help workflows troubleshooting
+  lspg help workflows troubleshooting
   Common problems and their solutions
 
 For specific workflow details, use:
-  lsp-gateway help workflows <workflow-name>
+  lspg help workflows <workflow-name>
 `)
 }
 
@@ -102,13 +102,13 @@ Complete setup from fresh system to working LSP Gateway:
 STEP 1: Quick Setup (Recommended)
 ----------------------------------
 # Complete automated setup (recommended for first-time users)
-lsp-gateway setup all
+lspg setup all
 
 # Verify installation
-lsp-gateway status
+lspg status
 
 # Start server
-lsp-gateway server
+lspg server
 
 
 STEP 2: Manual Setup (Alternative)
@@ -116,22 +116,22 @@ STEP 2: Manual Setup (Alternative)
 # For users who prefer step-by-step manual control:
 
 # Generate configuration
-lsp-gateway config generate
+lspg config generate
 
 # Install runtimes (if needed)
-lsp-gateway install runtime go
-lsp-gateway install runtime python
-lsp-gateway install runtime nodejs
+lspg install runtime go
+lspg install runtime python
+lspg install runtime nodejs
 
 # Install language servers
-lsp-gateway install servers
+lspg install servers
 
 # Verify installation
-lsp-gateway verify runtime all
-lsp-gateway status servers
+lspg verify runtime all
+lspg status servers
 
 # Start server
-lsp-gateway server --config config.yaml
+lspg server --config config.yaml
 
 
 STEP 3: Verification
@@ -150,13 +150,13 @@ curl -X POST http://localhost:8080/jsonrpc \
   }'
 
 # Test MCP Server (in separate terminal)
-lsp-gateway mcp --config config.yaml
+lspg mcp --config config.yaml
 
 
 STEP 4: Integration
 -------------------
 # Setup shell completion
-lsp-gateway completion bash > ~/.bash_completion.d/lsp-gateway
+lspg completion bash > ~/.bash_completion.d/lsp-gateway
 source ~/.bashrc
 
 # Configure your IDE to use: http://localhost:8080/jsonrpc
@@ -164,8 +164,8 @@ source ~/.bashrc
 
 TROUBLESHOOTING:
 If setup fails:
-1. Try automated setup: lsp-gateway setup all --force
-2. Run diagnostics: lsp-gateway diagnose
+1. Try automated setup: lspg setup all --force
+2. Run diagnostics: lspg diagnose
 3. Check individual steps with manual setup (STEP 2)
 `)
 }
@@ -180,70 +180,70 @@ Daily development tasks and common operations:
 DAILY STARTUP:
 --------------
 # Check system status
-lsp-gateway status
+lspg status
 
 # Start HTTP Gateway (for IDE integration)
-lsp-gateway server &
+lspg server &
 
 # Start MCP Server (for AI assistants)
-lsp-gateway mcp &
+lspg mcp &
 
 
 CONFIGURATION MANAGEMENT:
 -------------------------
 # View current configuration
-lsp-gateway config show
+lspg config show
 
 # Validate configuration
-lsp-gateway config validate
+lspg config validate
 
 # Regenerate configuration (after installing new runtimes)
-lsp-gateway config generate --overwrite
+lspg config generate --overwrite
 
 
 RUNTIME MANAGEMENT:
 -------------------
 # Check runtime status
-lsp-gateway status runtimes
+lspg status runtimes
 
 # Install missing runtime
-lsp-gateway install runtime python
+lspg install runtime python
 
 # Verify runtime installation
-lsp-gateway verify runtime python
+lspg verify runtime python
 
 
 SERVER MANAGEMENT:
 ------------------
 # Check language server status
-lsp-gateway status servers
+lspg status servers
 
 # Install missing servers
-lsp-gateway install servers
+lspg install servers
 
 # Verify specific server
-lsp-gateway status server gopls
+lspg status server gopls
 
 
 MAINTENANCE:
 ------------
 # Run system diagnostics
-lsp-gateway diagnose
+lspg diagnose
 
 # Update language servers (force reinstall)
-lsp-gateway install servers --force
+lspg install servers --force
 
 # Clean restart
-pkill lsp-gateway
-lsp-gateway server
+pkill lspg
+lspg server
 
 
 PROJECT SWITCHING:
 ------------------
 # Different config per project
 cd /path/to/project
-lsp-gateway config generate --output .lsp-gateway.yaml
-lsp-gateway server --config .lsp-gateway.yaml
+lspg config generate --output .lsp-gateway.yaml
+lspg server --config .lsp-gateway.yaml
 `)
 }
 
@@ -257,37 +257,37 @@ System maintenance, updates, and health checks:
 REGULAR HEALTH CHECKS:
 ----------------------
 # Full system diagnostic
-lsp-gateway diagnose --verbose
+lspg diagnose --verbose
 
 # Check all component status
-lsp-gateway status
-lsp-gateway status runtimes
-lsp-gateway status servers
+lspg status
+lspg status runtimes
+lspg status servers
 
 # Verify installations
-lsp-gateway verify runtime all
+lspg verify runtime all
 
 
 UPDATING COMPONENTS:
 --------------------
 # Update language servers
-lsp-gateway install servers --force
+lspg install servers --force
 
 # Update specific server
-lsp-gateway install server gopls --force
+lspg install server gopls --force
 
 # Regenerate config after updates
-lsp-gateway config generate --overwrite
+lspg config generate --overwrite
 
 
 PERFORMANCE OPTIMIZATION:
 -------------------------
 # Check for issues
-lsp-gateway diagnose
+lspg diagnose
 
 # Restart with clean configuration
-lsp-gateway config generate --overwrite
-lsp-gateway server --config config.yaml
+lspg config generate --overwrite
+lspg server --config config.yaml
 
 
 BACKUP AND RESTORE:
@@ -296,32 +296,32 @@ BACKUP AND RESTORE:
 cp config.yaml config.yaml.backup
 
 # Export current setup
-lsp-gateway config show --json > setup-backup.json
-lsp-gateway status --json > status-backup.json
+lspg config show --json > setup-backup.json
+lspg status --json > status-backup.json
 
 # Restore from backup
 cp config.yaml.backup config.yaml
-lsp-gateway config validate
+lspg config validate
 
 
 TROUBLESHOOTING WORKFLOW:
 -------------------------
 1. Run diagnostics:
-   lsp-gateway diagnose --verbose
+   lspg diagnose --verbose
 
 2. Check component status:
-   lsp-gateway status runtimes
-   lsp-gateway status servers
+   lspg status runtimes
+   lspg status servers
 
 3. Verify installations:
-   lsp-gateway verify runtime go
-   lsp-gateway verify runtime python
+   lspg verify runtime go
+   lspg verify runtime python
 
 4. Regenerate configuration:
-   lsp-gateway config generate --overwrite
+   lspg config generate --overwrite
 
 5. Test functionality:
-   lsp-gateway server --config config.yaml
+   lspg server --config config.yaml
 
 
 CLEANUP:
@@ -330,8 +330,8 @@ CLEANUP:
 rm -f config.yaml.old config.yaml.backup
 
 # Clean install (if needed)
-lsp-gateway install runtime all --force
-lsp-gateway install servers --force
+lspg install runtime all --force
+lspg install servers --force
 `)
 }
 
@@ -345,7 +345,7 @@ IDE integration and AI assistant setup:
 IDE/EDITOR INTEGRATION:
 -----------------------
 # Start HTTP Gateway
-lsp-gateway server --port 8080
+lspg server --port 8080
 
 # Configure your IDE LSP client to use:
 # HTTP endpoint: http://localhost:8080/jsonrpc
@@ -381,20 +381,20 @@ let g:lsp_settings = {
 AI ASSISTANT INTEGRATION (MCP):
 -------------------------------
 # Start MCP Server
-lsp-gateway mcp --config config.yaml
+lspg mcp --config config.yaml
 
 # For Claude Desktop, add to config:
 {
   "mcpServers": {
     "lsp-gateway": {
-      "command": "lsp-gateway",
+      "command": "lspg",
       "args": ["mcp", "--config", "config.yaml"]
     }
   }
 }
 
 # For other AI assistants using MCP:
-lsp-gateway mcp --transport http --port 3000
+lspg mcp --transport http --port 3000
 
 
 HTTP API INTEGRATION:
@@ -443,79 +443,79 @@ Common problems and their systematic resolution:
 STEP 1: IDENTIFY THE PROBLEM
 ----------------------------
 # Run comprehensive diagnostics
-lsp-gateway diagnose --verbose --all
+lspg diagnose --verbose --all
 
 # Check system status
-lsp-gateway status --verbose
-lsp-gateway version
+lspg status --verbose
+lspg version
 
 
 STEP 2: COMMON ISSUES & SOLUTIONS
 ---------------------------------
 
 "Configuration file not found":
-  → lsp-gateway setup all
-  → lsp-gateway config generate (if manual setup preferred)
-  → lsp-gateway diagnose
+  → lspg setup all
+  → lspg config generate (if manual setup preferred)
+  → lspg diagnose
 
 "Port already in use":
   → lsof -i :8080
-  → lsp-gateway server --port 8081
+  → lspg server --port 8081
   → sudo kill $(lsof -t -i:8080)
 
 "Language server not found":
-  → lsp-gateway setup all
-  → lsp-gateway status servers
-  → lsp-gateway install servers (if manual setup preferred)
+  → lspg setup all
+  → lspg status servers
+  → lspg install servers (if manual setup preferred)
 
 "Server fails to start":
-  → lsp-gateway setup all --force
-  → lsp-gateway config validate
-  → lsp-gateway diagnose
+  → lspg setup all --force
+  → lspg config validate
+  → lspg diagnose
 
 "Runtime not detected":
-  → lsp-gateway setup all
+  → lspg setup all
   → which go python node java
-  → lsp-gateway install runtime go (if manual setup preferred)
+  → lspg install runtime go (if manual setup preferred)
 
 "Permission denied":
   → ls -la config.yaml
   → chmod 644 config.yaml
-  → lsp-gateway server --port 8080
+  → lspg server --port 8080
 
 "Server not responding":
   → curl http://localhost:8080/jsonrpc
-  → lsp-gateway server --config config.yaml --verbose
+  → lspg server --config config.yaml --verbose
   → Check firewall settings
 
 
 STEP 3: SYSTEMATIC DEBUGGING
 -----------------------------
 1. Check prerequisites:
-   lsp-gateway status runtimes
+   lspg status runtimes
 
 2. Verify configuration:
-   lsp-gateway config validate
+   lspg config validate
 
 3. Test each component:
-   lsp-gateway verify runtime go
-   lsp-gateway verify runtime python
+   lspg verify runtime go
+   lspg verify runtime python
 
 4. Check network connectivity:
    curl -I http://localhost:8080
 
 5. Review logs:
-   lsp-gateway server --verbose
+   lspg server --verbose
 
 6. Reset to known good state:
-   lsp-gateway install runtime all --force
-   lsp-gateway install servers --force
+   lspg install runtime all --force
+   lspg install servers --force
 
 
 STEP 4: ADVANCED TROUBLESHOOTING
 ---------------------------------
 # Check process status
-ps aux | grep lsp-gateway
+ps aux | grep lspg
 
 # Check listening ports
 netstat -tulpn | grep :8080
@@ -537,16 +537,16 @@ STEP 5: RESET AND REINSTALL
 ----------------------------
 # Complete reset (if all else fails)
 rm -f config.yaml
-lsp-gateway setup all --force
-lsp-gateway server
+lspg setup all --force
+lspg server
 
 
 GET HELP:
 ---------
 If problems persist:
-1. Include output of: lsp-gateway version
-2. Include output of: lsp-gateway diagnose --verbose
-3. Include output of: lsp-gateway status --verbose
+1. Include output of: lspg version
+2. Include output of: lspg diagnose --verbose
+3. Include output of: lspg status --verbose
 4. Describe exact error messages and steps to reproduce
 `)
 }
