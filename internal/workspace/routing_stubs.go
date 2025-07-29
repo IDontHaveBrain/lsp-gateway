@@ -11,11 +11,14 @@ import (
 
 // RoutingMetrics provides routing performance metrics (simple stub)
 type RoutingMetrics struct {
-	RequestCount     int64            `json:"request_count"`
-	SuccessfulRoutes int64            `json:"successful_routes"`
-	FailedRoutes     int64            `json:"failed_routes"`
-	StrategyUsage    map[string]int64 `json:"strategy_usage"`
-	LastUpdated      time.Time        `json:"last_updated"`
+	RequestCount       int64            `json:"request_count"`
+	TotalRequests      int64            `json:"total_requests"`
+	SuccessfulRoutes   int64            `json:"successful_routes"`
+	SuccessfulRequests int64            `json:"successful_requests"`
+	FailedRoutes       int64            `json:"failed_routes"`
+	SuccessRate        float64          `json:"success_rate"`
+	StrategyUsage      map[string]int64 `json:"strategy_usage"`
+	LastUpdated        time.Time        `json:"last_updated"`
 }
 
 // RoutingErrorType represents types of routing errors
@@ -26,6 +29,10 @@ const (
 	RoutingErrorClientNotFound
 	RoutingErrorTimeout
 	RoutingErrorProjectNotResolved
+	ErrorInvalidRequest
+	ErrorProjectResolution
+	ErrorClientSelection
+	ErrorClientCommunication
 )
 
 // RoutingDecision represents routing decision (compatible stub)
@@ -68,6 +75,9 @@ type SubProjectRequestRouter interface {
 	RouteRequest(ctx context.Context, request *JSONRPCRequest) (*RoutingDecision, error)
 	HandleRoutingFailure(ctx context.Context, request *JSONRPCRequest, err error) (*JSONRPCResponse, error)
 	GetRoutingMetrics() *RoutingMetrics
+	GetSupportedMethods() []string
+	SelectRoutingStrategy(method string, subProject *SubProject) RoutingStrategy
+	ExtractFileURI(request *JSONRPCRequest) (string, error)
 	SetResolver(resolver SubProjectResolver)
 	SetClientManager(manager SubProjectClientManager)
 	Shutdown(ctx context.Context) error
@@ -86,17 +96,30 @@ func NewSubProjectRequestRouter(logger *mcp.StructuredLogger) SubProjectRequestR
 
 // Stub request router implementation  
 type stubRequestRouter struct {
-	logger  *mcp.StructuredLogger
-	metrics *RoutingMetrics
+	logger    *mcp.StructuredLogger
+	metrics   *RoutingMetrics
+	isShutdown bool
 }
 
 func (s *stubRequestRouter) RouteRequest(ctx context.Context, request *JSONRPCRequest) (*RoutingDecision, error) {
+	if s.isShutdown {
+		return nil, fmt.Errorf("router is shutdown")
+	}
 	// Always return error to fall back to simple routing
 	return nil, fmt.Errorf("enhanced routing not implemented, using simple routing")
 }
 
 func (s *stubRequestRouter) HandleRoutingFailure(ctx context.Context, request *JSONRPCRequest, err error) (*JSONRPCResponse, error) {
-	return nil, fmt.Errorf("fallback routing not implemented")
+	// Create an error response instead of returning an error
+	response := &JSONRPCResponse{
+		JSONRPC: JSONRPCVersion,
+		ID:      request.ID,
+		Error: &RPCError{
+			Code:    -32603,
+			Message: fmt.Sprintf("Routing failed: %v", err),
+		},
+	}
+	return response, nil
 }
 
 func (s *stubRequestRouter) GetRoutingMetrics() *RoutingMetrics {
@@ -109,6 +132,17 @@ func (s *stubRequestRouter) GetRoutingMetrics() *RoutingMetrics {
 	return s.metrics
 }
 
+func (s *stubRequestRouter) GetSupportedMethods() []string {
+	return []string{
+		"textDocument/definition",
+		"textDocument/references",
+		"textDocument/hover",
+		"textDocument/documentSymbol",
+		"textDocument/completion",
+		"workspace/symbol",
+	}
+}
+
 func (s *stubRequestRouter) SetResolver(resolver SubProjectResolver) {
 	// Stub - no-op
 }
@@ -117,7 +151,48 @@ func (s *stubRequestRouter) SetClientManager(manager SubProjectClientManager) {
 	// Stub - no-op  
 }
 
+func (s *stubRequestRouter) SelectRoutingStrategy(method string, subProject *SubProject) RoutingStrategy {
+	// Return a basic stub strategy for supported methods
+	supportedMethods := map[string]bool{
+		"textDocument/definition":    true,
+		"textDocument/references":    true,
+		"textDocument/hover":        true,
+		"textDocument/documentSymbol": true,
+		"textDocument/completion":    true,
+		"workspace/symbol":          true,
+	}
+	
+	if supportedMethods[method] {
+		return NewStubRoutingStrategy("single_target")
+	}
+	return nil
+}
+
+func (s *stubRequestRouter) ExtractFileURI(request *JSONRPCRequest) (string, error) {
+	if request.Method == "workspace/symbol" {
+		return "", nil
+	}
+	
+	params, ok := request.Params.(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("invalid request parameters")
+	}
+	
+	textDoc, ok := params["textDocument"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("missing textDocument in parameters")
+	}
+	
+	uri, ok := textDoc["uri"].(string)
+	if !ok {
+		return "", fmt.Errorf("missing or invalid URI in textDocument")
+	}
+	
+	return uri, nil
+}
+
 func (s *stubRequestRouter) Shutdown(ctx context.Context) error {
+	s.isShutdown = true
 	return nil
 }
 

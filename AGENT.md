@@ -31,6 +31,11 @@ LSP Gateway is a dual-protocol Language Server Protocol gateway written in Go:
 5. **`workspace/symbol`** - Workspace search
 6. **`textDocument/completion`** - Code completion
 
+### 🚀 Enhanced Capabilities
+- **Multi-project workspace support** - Cross-language symbol resolution
+- **Intelligent sub-project routing** - Context-aware request routing
+- **Performance-optimized caching** - SCIP + workspace-aware caching
+
 ### ❌ NOT Supported
 Code formatting, Diagnostics, Code actions, Refactoring, Signature help, Semantic tokens, and all other LSP features.
 
@@ -39,8 +44,8 @@ Code formatting, Diagnostics, Code actions, Refactoring, Signature help, Semanti
 **Development Quick Start**:
 ```bash
 make local && make test-simple-quick    # Build + global link + validate
-lspg setup all                  # Complete setup
-lspg server --config config.yaml       # Start server
+lspg setup all                          # Complete setup + workspace detection
+lspg server --config config.yaml       # Start with workspace support
 ```
 **📖 Docs**: [README.md](README.md) (setup), [docs/troubleshooting.md](docs/troubleshooting.md) (diagnostics), [docs/test_guide.md](docs/test_guide.md) (testing)
 
@@ -48,9 +53,16 @@ lspg server --config config.yaml       # Start server
 
 ### Request Flow
 ```
-HTTP → Gateway → Router → LSPClient → LSP Server
-MCP → ToolHandler → LSPGatewayClient → HTTP Gateway → Router → LSPClient → LSP Server
+HTTP → Gateway → WorkspaceManager → Router → LSPClient → LSP Server
+MCP → ToolHandler → LSPGatewayClient → HTTP Gateway → WorkspaceManager → Router → LSPClient → LSP Server
 ```
+
+### Workspace Management System
+- **Multi-Project Support** (`internal/workspace/`): Hierarchical workspace configuration, cross-language project detection, sub-project routing
+- **Workspace Gateway** (`internal/workspace/gateway.go`): Simplified single workspace operation with sub-project routing capabilities
+- **Client Management** (`internal/workspace/client_manager.go`): Language-specific LSP client lifecycle management
+- **Configuration Manager** (`internal/workspace/config_manager.go`): Workspace-specific configuration loading with global → workspace → environment hierarchy
+- **Sub-Project Resolution** (`internal/workspace/subproject_resolver.go`): Intelligent routing for complex project structures
 
 ### SCIP Caching (v0.5.2)
 - **L1 Memory**: <10ms, 8GB capacity, LRU
@@ -59,6 +71,7 @@ MCP → ToolHandler → LSPGatewayClient → HTTP Gateway → Router → LSPClie
 
 ### Key Components
 - **Gateway** (`internal/gateway/`): HTTP routing, JSON-RPC
+- **Workspace** (`internal/workspace/`): Multi-project management, configuration hierarchy, sub-project routing
 - **Transport** (`internal/transport/`): STDIO/TCP with circuit breakers
 - **CLI** (`internal/cli/`): 20+ command system
 - **Setup** (`internal/setup/`): Auto-installation
@@ -76,21 +89,43 @@ MCP → ToolHandler → LSPGatewayClient → HTTP Gateway → Router → LSPClie
 ./bin/lspg setup all                      # Auto setup
 ```
 
-### Testing
-```bash
-# Quick tests
-make test-unit                    # Unit tests (<60s)
-make test-simple-quick            # E2E validation (1min)
-make test-python-patterns-quick   # Quick Python patterns (5-10min)
+### Testing Philosophy & Capabilities
+- **Parallel Execution Optimization**: Up to 3x CPU cores for maximum throughput
+- **Multi-Project Testing**: Complete workspace scenarios with cross-language validation
+- **Real Server Integration**: Actual language server testing (JDTLS, pylsp, gopls, typescript-language-server)
+- **Performance Testing**: Memory usage, cache hit rates, parallel execution benchmarks
+- **MCP Protocol Validation**: STDIO/TCP transport, tools integration, SCIP enhancement
 
-# Development workflow
-make test-unit && make test-simple-quick         # Quick (2-5min)
-make test-lsp-validation-short && make test-e2e-quick  # Pre-commit (5-10min)
-make test-python-patterns && make test-python-comprehensive  # Python validation (20-25min)
-make test                                        # Full suite
+### Testing Targets by Category
+
+**Quick Validation (2-5min)**:
+```bash
+make test-simple-quick            # Basic E2E validation
+make test-lsp-validation-short    # Short LSP validation
+make test-parallel-validation     # Standard parallel validation
 ```
 
-**Philosophy**: Essential tests only, focusing on real development workflows.
+**Language-Specific Real Server Testing (10-20min each)**:
+```bash
+make test-go-real-client          # Go with golang/example repo
+make test-java-real-client        # Java with clean-code repo
+make test-javascript-real-client  # JavaScript with chalk repo
+make test-typescript-real         # TypeScript comprehensive
+make test-python-patterns         # Python with real patterns
+```
+
+**Multi-Project & Performance (15-30min)**:
+```bash
+make test-multi-project-workspace # Cross-language workspace testing
+make test-parallel-performance    # Performance comparison
+make test-workspace-integration   # Workspace component integration
+```
+
+**Parallel Execution Optimization**:
+```bash
+make test-parallel-fast              # 3x CPU cores (fastest)
+make test-parallel-memory-optimized  # 1x CPU cores (memory efficient)
+```
 
 ## Development Workflow
 
@@ -103,12 +138,24 @@ make quality                  # Format + lint + security
 make release VERSION=v1.0.0   # Release build
 ```
 
-### Development Cycle
+### Enhanced Development Workflows
 ```bash
-make local && make test-simple-quick              # Quick cycle
-make test-unit && make test-lsp-validation-short  # Pre-commit  
-make test-python-patterns-quick                   # Python validation
-make test && make quality                         # Before PR
+# Quick development cycle (2-5min)
+make local && make test-simple-quick
+
+# Pre-commit validation (5-15min)
+make test-unit && make test-lsp-validation-short && make test-parallel-validation
+
+# Language-specific validation (10-20min each)
+make test-python-patterns-quick          # Python development
+make test-javascript-quick               # JavaScript development
+make test-typescript-quick               # TypeScript development
+
+# Performance & integration validation (15-30min)
+make test-workspace-integration && make test-parallel-performance
+
+# Full validation before PR (30-60min)
+make test && make test-workspace-comprehensive && make quality
 ```
 
 ## Development Guidelines
@@ -139,6 +186,8 @@ make clean && make local     # Clean rebuild
 
 **Gateway Core**: `internal/gateway/interface.go:10`, `internal/gateway/handlers.go:889`, `internal/gateway/smart_router.go:165`
 
+**Workspace System**: `internal/workspace/gateway.go:18`, `internal/workspace/config_manager.go:162`, `internal/workspace/client_manager.go`, `internal/workspace/subproject_resolver.go`
+
 **Transport**: `internal/transport/client.go:30`, `internal/transport/stdio.go:28`, `internal/transport/tcp.go:36`
 
 **SCIP System**: `internal/indexing/scip_store.go:16`, `internal/storage/memory_cache.go:21`, `internal/indexing/watcher.go:37`
@@ -146,6 +195,8 @@ make clean && make local     # Clean rebuild
 **MCP**: `mcp/server.go:139`, `mcp/tools.go:122`, `mcp/tools_scip_enhanced.go:215`
 
 **Config/Setup**: `internal/config/multi_language_generator.go:570`, `internal/setup/orchestrator.go:228`, `internal/project/detector.go:132`
+
+**Testing Infrastructure**: `tests/e2e/multi_project_workspace_e2e_test.go:17`, `tests/e2e/testutils/multi_project_manager.go`, `tests/integration/workspace/`
 
 ## Notes
 

@@ -7,8 +7,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"lsp-gateway/internal/project"
 )
 
 // TestSubProjectResolver_Integration tests the complete resolver system integration

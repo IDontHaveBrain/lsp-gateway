@@ -11,8 +11,14 @@ import (
 
 	"lsp-gateway/internal/indexing"
 	"lsp-gateway/internal/transport"
+	"lsp-gateway/internal/workspace"
 	"github.com/sourcegraph/scip/bindings/go/scip"
 )
+
+// Workspace type aliases for easier testing
+type WorkspaceManager = workspace.WorkspaceManager
+type WorkspaceConfig = workspace.WorkspaceConfig
+type WorkspaceSCIPCache = workspace.WorkspaceSCIPCache
 
 // SCIPTestSuite provides comprehensive testing infrastructure for SCIP integration tests
 type SCIPTestSuite struct {
@@ -24,11 +30,17 @@ type SCIPTestSuite struct {
 	performanceCache *indexing.PerformanceCache
 	scipIndexer     transport.SCIPIndexer
 	
+	// Workspace components
+	workspaceManager WorkspaceManager
+	workspaceConfigs map[string]*WorkspaceConfig
+	workspaceCaches  map[string]WorkspaceSCIPCache
+	
 	// Test infrastructure
 	testDataDir     string
 	tempDir         string
 	scipIndices     map[string]string // language -> index file path
 	testProjects    map[string]*TestProject
+	workspaceProjects map[string][]*TestProject // workspace -> projects
 	
 	// Performance tracking
 	metrics         *TestMetrics
@@ -71,6 +83,14 @@ type SCIPTestConfig struct {
 	// Concurrency testing
 	MaxConcurrentRequests   int           `json:"max_concurrent_requests"`
 	ConcurrencyTestDuration time.Duration `json:"concurrency_test_duration"`
+	
+	// Workspace testing
+	EnableWorkspaceTests      bool     `json:"enable_workspace_tests"`
+	WorkspaceIsolationTests   bool     `json:"workspace_isolation_tests"`
+	WorkspacePerformanceTests bool     `json:"workspace_performance_tests"`
+	TestWorkspaces           []string  `json:"test_workspaces"`
+	WorkspaceMemoryLimit     int64     `json:"workspace_memory_limit_mb"`
+	WorkspaceQueryTimeout    time.Duration `json:"workspace_query_timeout"`
 }
 
 // TestProject represents a synthetic project for testing
@@ -131,7 +151,25 @@ type TestMetrics struct {
 	CrossLanguageQueries int64 `json:"cross_language_queries"`
 	LanguageCoverage    map[string]int `json:"language_coverage"`
 	
+	// Workspace metrics
+	WorkspaceQueries     int64                    `json:"workspace_queries"`
+	WorkspaceCacheHits   int64                    `json:"workspace_cache_hits"`
+	WorkspaceStats       map[string]*WorkspaceMetrics `json:"workspace_stats"`
+	
 	mutex               sync.RWMutex  `json:"-"`
+}
+
+// WorkspaceMetrics tracks workspace-specific testing metrics
+type WorkspaceMetrics struct {
+	WorkspaceRoot    string        `json:"workspace_root"`
+	CacheHitRate     float64       `json:"cache_hit_rate"`
+	QueryCount       int64         `json:"query_count"`
+	AverageLatency   time.Duration `json:"average_latency"`
+	MemoryUsage      int64         `json:"memory_usage_bytes"`
+	ProjectCount     int           `json:"project_count"`
+	LanguageCount    int           `json:"language_count"`
+	IsolationLevel   string        `json:"isolation_level"`
+	LastQuery        time.Time     `json:"last_query"`
 }
 
 // BenchmarkResult stores benchmark execution results
@@ -187,7 +225,13 @@ func NewSCIPTestSuite(config *SCIPTestConfig) (*SCIPTestSuite, error) {
 		tempDir:          tempDir,
 		scipIndices:      make(map[string]string),
 		testProjects:     make(map[string]*TestProject),
-		metrics:          &TestMetrics{LanguageCoverage: make(map[string]int)},
+		workspaceProjects: make(map[string][]*TestProject),
+		workspaceConfigs: make(map[string]*WorkspaceConfig),
+		workspaceCaches:  make(map[string]WorkspaceSCIPCache),
+		metrics:          &TestMetrics{
+			LanguageCoverage: make(map[string]int),
+			WorkspaceStats:   make(map[string]*WorkspaceMetrics),
+		},
 		benchmarkResults: make(map[string]*BenchmarkResult),
 		config:           config,
 		cleanupHandlers:  make([]func() error, 0),
@@ -233,6 +277,12 @@ func DefaultSCIPTestConfig() *SCIPTestConfig {
 		CacheTestDuration:      5 * time.Minute,
 		MaxConcurrentRequests:  50,
 		ConcurrencyTestDuration: 2 * time.Minute,
+		EnableWorkspaceTests:    true,
+		WorkspaceIsolationTests: true,
+		WorkspacePerformanceTests: true,
+		TestWorkspaces:         []string{"workspace1", "workspace2", "workspace3"},
+		WorkspaceMemoryLimit:   200, // 200MB
+		WorkspaceQueryTimeout:  15 * time.Millisecond,
 	}
 }
 
@@ -251,6 +301,9 @@ func (suite *SCIPTestSuite) initializeTestData() error {
 		"performance_data",
 		"error_scenarios",
 		"cache_test_data",
+		"workspace_test_data",
+		"workspace_cache_isolation",
+		"multi_workspace_projects",
 	}
 	
 	for _, subdir := range subdirs {

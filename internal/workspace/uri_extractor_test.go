@@ -187,7 +187,11 @@ func TestURIExtractor_normalizeURI(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := extractor.normalizeURI(tt.input)
+			result, err := extractor.NormalizeURI(tt.input)
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
 			if result != tt.expected {
 				t.Errorf("expected %q, got %q", tt.expected, result)
 			}

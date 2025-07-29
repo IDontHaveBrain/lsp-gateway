@@ -1,21 +1,16 @@
 package workspace
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"lsp-gateway/internal/config"
-	"lsp-gateway/internal/transport"
 )
 
 func TestWorkspaceGateway_NewWorkspaceGateway(t *testing.T) {

@@ -8,7 +8,6 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
-	"time"
 )
 
 func TestWorkspaceGateway_GetSubProjectClient(t *testing.T) {

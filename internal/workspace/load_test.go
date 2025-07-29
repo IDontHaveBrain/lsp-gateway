@@ -3,7 +3,6 @@ package workspace
 import (
 	"context"
 	"fmt"
-	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -398,7 +397,7 @@ func executeLoadTest(testSuite *WorkspaceTestSuite, scenario *LoadTestScenario) 
 	)
 	
 	latencies := make([]time.Duration, 0, 10000)
-	var latencyMu sync.Mutex
+	var latencyMu sync.RWMutex
 
 	// Time series data collection
 	dataPointTicker := time.NewTicker(5 * time.Second)
@@ -482,7 +481,7 @@ func executeLoadTest(testSuite *WorkspaceTestSuite, scenario *LoadTestScenario) 
 func executeLoadTestPhases(ctx context.Context, testSuite *WorkspaceTestSuite, 
 	scenario *LoadTestScenario, workspaceNames []string,
 	totalRequests, successfulRequests, failedRequests, latencySum, minLatency, maxLatency *atomic.Int64,
-	latencies *[]time.Duration, latencyMu *sync.Mutex,
+	latencies *[]time.Duration, latencyMu *sync.RWMutex,
 	metricsCollector *MetricsCollector, results *LoadTestResults) error {
 
 	// Phase 1: Ramp-up
@@ -519,7 +518,7 @@ func executeLoadTestPhases(ctx context.Context, testSuite *WorkspaceTestSuite,
 func executeRampUpPhase(ctx context.Context, testSuite *WorkspaceTestSuite,
 	scenario *LoadTestScenario, workspaceNames []string,
 	totalRequests, successfulRequests, failedRequests, latencySum, minLatency, maxLatency *atomic.Int64,
-	latencies *[]time.Duration, latencyMu *sync.Mutex,
+	latencies *[]time.Duration, latencyMu *sync.RWMutex,
 	metricsCollector *MetricsCollector, results *LoadTestResults) error {
 
 	rampCtx, rampCancel := context.WithTimeout(ctx, scenario.RampUpDuration)
@@ -554,7 +553,7 @@ func executeRampUpPhase(ctx context.Context, testSuite *WorkspaceTestSuite,
 func executeSustainedLoadPhase(ctx context.Context, testSuite *WorkspaceTestSuite,
 	scenario *LoadTestScenario, workspaceNames []string,
 	totalRequests, successfulRequests, failedRequests, latencySum, minLatency, maxLatency *atomic.Int64,
-	latencies *[]time.Duration, latencyMu *sync.Mutex,
+	latencies *[]time.Duration, latencyMu *sync.RWMutex,
 	metricsCollector *MetricsCollector, results *LoadTestResults) error {
 
 	loadCtx, loadCancel := context.WithTimeout(ctx, scenario.Duration)
@@ -570,7 +569,7 @@ func executeSustainedLoadPhase(ctx context.Context, testSuite *WorkspaceTestSuit
 func executeRampDownPhase(ctx context.Context, testSuite *WorkspaceTestSuite,
 	scenario *LoadTestScenario, workspaceNames []string,
 	totalRequests, successfulRequests, failedRequests, latencySum, minLatency, maxLatency *atomic.Int64,
-	latencies *[]time.Duration, latencyMu *sync.Mutex,
+	latencies *[]time.Duration, latencyMu *sync.RWMutex,
 	metricsCollector *MetricsCollector, results *LoadTestResults) error {
 
 	rampCtx, rampCancel := context.WithTimeout(ctx, scenario.RampDownDuration)
@@ -605,7 +604,7 @@ func executeRampDownPhase(ctx context.Context, testSuite *WorkspaceTestSuite,
 func executeLoadStep(ctx context.Context, testSuite *WorkspaceTestSuite,
 	scenario *LoadTestScenario, workspaceNames []string, concurrentUsers int,
 	totalRequests, successfulRequests, failedRequests, latencySum, minLatency, maxLatency *atomic.Int64,
-	latencies *[]time.Duration, latencyMu *sync.Mutex,
+	latencies *[]time.Duration, latencyMu *sync.RWMutex,
 	metricsCollector *MetricsCollector, results *LoadTestResults) {
 
 	var wg sync.WaitGroup

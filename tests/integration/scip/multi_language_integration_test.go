@@ -16,6 +16,8 @@ func TestMultiLanguageIntegration(t *testing.T) {
 	config := DefaultSCIPTestConfig()
 	config.CrossLanguageReferences = true
 	config.EnabledLanguages = []string{"go", "typescript", "python", "java"}
+	config.EnableWorkspaceTests = true
+	config.WorkspaceIsolationTests = true
 
 	suite, err := NewSCIPTestSuite(config)
 	if err != nil {
@@ -42,6 +44,17 @@ func TestMultiLanguageIntegration(t *testing.T) {
 	t.Run("LanguageCoverageValidation", func(t *testing.T) {
 		testLanguageCoverageValidation(t, suite)
 	})
+
+	// Add workspace-aware multi-language tests
+	if config.EnableWorkspaceTests {
+		t.Run("WorkspaceMultiLanguageIntegration", func(t *testing.T) {
+			testWorkspaceMultiLanguageIntegration(t, suite)
+		})
+
+		t.Run("WorkspaceLanguageIsolation", func(t *testing.T) {
+			testWorkspaceLanguageIsolation(t, suite)
+		})
+	}
 
 	// Validate overall performance
 	suite.ValidatePerformanceTargets(t)
@@ -867,5 +880,348 @@ func testUnsupportedLanguages(t *testing.T, suite *SCIPTestSuite) {
 				}
 			}
 		})
+	}
+}
+
+// testWorkspaceMultiLanguageIntegration tests multi-language support within workspaces
+func testWorkspaceMultiLanguageIntegration(t *testing.T, suite *SCIPTestSuite) {
+	// Create workspace with multiple language projects
+	workspaceRoot := filepath.Join(suite.tempDir, "multi-lang-workspace")
+	
+	configManager := &TestWorkspaceConfigManager{
+		workspaceRoot: workspaceRoot,
+	}
+	
+	scipFactory := workspace.NewWorkspaceSCIPFactory(configManager)
+	
+	scipConfig := &indexing.SCIPConfig{
+		CacheConfig: indexing.CacheConfig{
+			Enabled: true,
+			MaxSize: 5000,
+			TTL:     20 * time.Minute,
+		},
+		Performance: indexing.PerformanceConfig{
+			QueryTimeout:         15 * time.Millisecond,
+			MaxConcurrentQueries: 8,
+			IndexLoadTimeout:     1 * time.Minute,
+		},
+	}
+	
+	store, err := scipFactory.CreateStoreWithConfig(workspaceRoot, scipConfig)
+	if err != nil {
+		t.Fatalf("Failed to create workspace SCIP store: %v", err)
+	}
+	defer store.Close()
+
+	// Test multi-language queries within single workspace
+	languageTests := []struct {
+		language string
+		fileName string
+		symbol   string
+	}{
+		{"go", "main.go", "UserService"},
+		{"typescript", "index.ts", "UserComponent"},
+		{"python", "user.py", "UserModel"},
+		{"java", "User.java", "UserRepository"},
+	}
+
+	for _, test := range languageTests {
+		t.Run(fmt.Sprintf("%s_in_workspace", test.language), func(t *testing.T) {
+			uri := fmt.Sprintf("file://%s/%s/%s", workspaceRoot, test.language, test.fileName)
+			
+			// Test definition lookup
+			defParams := map[string]interface{}{
+				"textDocument": map[string]interface{}{
+					"uri": uri,
+				},
+				"position": map[string]interface{}{
+					"line":      10,
+					"character": 5,
+				},
+			}
+			
+			startTime := time.Now()
+			result := store.Query("textDocument/definition", defParams)
+			queryTime := time.Since(startTime)
+			
+			// Verify workspace context
+			if result.Metadata != nil {
+				if wsRoot, ok := result.Metadata["workspace_root"]; ok {
+					if wsRoot != workspaceRoot {
+						t.Errorf("Workspace context error: expected %s, got %s", workspaceRoot, wsRoot)
+					}
+				}
+			}
+			
+			// Record metrics
+			suite.recordWorkspaceQueryMetrics(workspaceRoot, queryTime, result.CacheHit, result.Found)
+			
+			t.Logf("Multi-language workspace query (%s): %v, found=%v, cache_hit=%v",
+				test.language, queryTime, result.Found, result.CacheHit)
+		})
+	}
+
+	// Test workspace symbol search across languages
+	t.Run("workspace_symbol_search", func(t *testing.T) {
+		searchQueries := []string{"User", "Service", "Component", "Repository"}
+		
+		for _, query := range searchQueries {
+			params := map[string]interface{}{
+				"query": query,
+			}
+			
+			startTime := time.Now()
+			result := store.Query("workspace/symbol", params)
+			queryTime := time.Since(startTime)
+			
+			// Verify workspace isolation
+			if result.Metadata != nil {
+				if wsRoot, ok := result.Metadata["workspace_root"]; ok {
+					if wsRoot != workspaceRoot {
+						t.Errorf("Workspace symbol search isolation error: expected %s, got %s", 
+							workspaceRoot, wsRoot)
+					}
+				}
+			}
+			
+			suite.recordWorkspaceQueryMetrics(workspaceRoot, queryTime, result.CacheHit, result.Found)
+			
+			t.Logf("Workspace symbol search '%s': %v, found=%v, cache_hit=%v",
+				query, queryTime, result.Found, result.CacheHit)
+		}
+	})
+}
+
+// testWorkspaceLanguageIsolation tests language-specific isolation within workspaces
+func testWorkspaceLanguageIsolation(t *testing.T, suite *SCIPTestSuite) {
+	// Create separate workspaces for each language to test isolation
+	languages := []string{"go", "typescript", "python", "java"}
+	workspaceStores := make(map[string]indexing.SCIPStore)
+
+	// Setup isolated workspaces
+	for _, lang := range languages {
+		workspaceRoot := filepath.Join(suite.tempDir, fmt.Sprintf("%s-workspace", lang))
+		
+		configManager := &TestWorkspaceConfigManager{
+			workspaceRoot: workspaceRoot,
+		}
+		
+		scipFactory := workspace.NewWorkspaceSCIPFactory(configManager)
+		
+		scipConfig := &indexing.SCIPConfig{
+			CacheConfig: indexing.CacheConfig{
+				Enabled: true,
+				MaxSize: 2000,
+				TTL:     15 * time.Minute,
+			},
+			Performance: indexing.PerformanceConfig{
+				QueryTimeout:         10 * time.Millisecond,
+				MaxConcurrentQueries: 5,
+				IndexLoadTimeout:     30 * time.Second,
+			},
+		}
+		
+		store, err := scipFactory.CreateStoreWithConfig(workspaceRoot, scipConfig)
+		if err != nil {
+			t.Fatalf("Failed to create %s workspace store: %v", lang, err)
+		}
+		
+		workspaceStores[lang] = store
+		defer store.Close()
+	}
+
+	// Test isolation between language workspaces
+	testData := map[string]string{
+		"go":         "GoUserService",
+		"typescript": "TSUserComponent", 
+		"python":     "PyUserModel",
+		"java":       "JavaUserRepository",
+	}
+
+	// Cache language-specific data in each workspace
+	for lang, symbolData := range testData {
+		store := workspaceStores[lang]
+		workspaceStore := store.(*workspace.WorkspaceSCIPStore)
+		
+		// Cache definition data
+		defResponse := []byte(fmt.Sprintf(`[{"uri": "file:///%s-workspace/main.%s", "range": {"start": {"line": 5, "character": 0}, "end": {"line": 5, "character": %d}}}]`,
+			lang, getFileExtension(lang), len(symbolData)))
+		
+		params := map[string]interface{}{
+			"textDocument": map[string]interface{}{
+				"uri": fmt.Sprintf("file:///%s-workspace/main.%s", lang, getFileExtension(lang)),
+			},
+			"position": map[string]interface{}{
+				"line":      5,
+				"character": 0,
+			},
+		}
+		
+		if err := workspaceStore.CacheResponse("textDocument/definition", params, defResponse); err != nil {
+			t.Errorf("Failed to cache definition for %s: %v", lang, err)
+		}
+	}
+
+	// Verify isolation: each workspace should only access its own data
+	for lang, expectedData := range testData {
+		store := workspaceStores[lang]
+		
+		params := map[string]interface{}{
+			"textDocument": map[string]interface{}{
+				"uri": fmt.Sprintf("file:///%s-workspace/main.%s", lang, getFileExtension(lang)),
+			},
+			"position": map[string]interface{}{
+				"line":      5,
+				"character": 0,
+			},
+		}
+		
+		result := store.Query("textDocument/definition", params)
+		
+		if !result.Found {
+			t.Errorf("Language %s data not found in its own workspace", lang)
+			continue
+		}
+		
+		if !result.CacheHit {
+			t.Errorf("Expected cache hit for %s workspace data", lang)
+		}
+		
+		// Verify workspace context
+		if result.Metadata != nil {
+			if wsRoot, ok := result.Metadata["workspace_root"]; ok {
+				expectedWsRoot := filepath.Join(suite.tempDir, fmt.Sprintf("%s-workspace", lang))
+				if wsRoot != expectedWsRoot {
+					t.Errorf("Workspace isolation error for %s: expected %s, got %s",
+						lang, expectedWsRoot, wsRoot)
+				}
+			}
+		}
+		
+		t.Logf("Language isolation verified for %s: cache_hit=%v, workspace_isolated=%v",
+			lang, result.CacheHit, result.Metadata != nil)
+	}
+
+	// Test cross-workspace isolation (negative test)
+	for sourceLang, sourceStore := range workspaceStores {
+		for otherLang := range testData {
+			if sourceLang == otherLang {
+				continue
+			}
+			
+			// Try to query other language's data from this workspace
+			params := map[string]interface{}{
+				"textDocument": map[string]interface{}{
+					"uri": fmt.Sprintf("file:///%s-workspace/main.%s", otherLang, getFileExtension(otherLang)),
+				},
+				"position": map[string]interface{}{
+					"line":      5,
+					"character": 0,
+				},
+			}
+			
+			result := sourceStore.Query("textDocument/definition", params)
+			
+			// Should not find data from other workspace
+			if result.Found && result.CacheHit {
+				t.Errorf("Isolation violation: %s workspace found cached data from %s workspace",
+					sourceLang, otherLang)
+			}
+			
+			// Verify workspace context remains correct
+			if result.Metadata != nil {
+				if wsRoot, ok := result.Metadata["workspace_root"]; ok {
+					expectedWsRoot := filepath.Join(suite.tempDir, fmt.Sprintf("%s-workspace", sourceLang))
+					if wsRoot != expectedWsRoot {
+						t.Errorf("Cross-workspace context error: %s query from %s workspace shows wrong context",
+							otherLang, sourceLang)
+					}
+				}
+			}
+		}
+	}
+	
+	t.Logf("Language workspace isolation verification completed for %d languages", len(languages))
+}
+
+// Helper types for workspace tests
+type TestWorkspaceConfigManager struct {
+	workspaceRoot string
+}
+
+func (m *TestWorkspaceConfigManager) GetWorkspaceDirectory(workspaceRoot string) string {
+	return filepath.Join(workspaceRoot, ".lsp-gateway")
+}
+
+func (m *TestWorkspaceConfigManager) LoadWorkspaceConfig(workspaceRoot string) (*WorkspaceConfig, error) {
+	return &WorkspaceConfig{
+		Workspace: workspace.WorkspaceInfo{
+			WorkspaceID: fmt.Sprintf("test-ws-%s", filepath.Base(workspaceRoot)),
+			Name:        filepath.Base(workspaceRoot),
+			RootPath:    workspaceRoot,
+			Hash:        fmt.Sprintf("hash-%s", filepath.Base(workspaceRoot)),
+			CreatedAt:   time.Now(),
+			LastUpdated: time.Now(),
+			Version:     "1.0.0",
+		},
+	}, nil
+}
+
+func getFileExtension(language string) string {
+	switch language {
+	case "go":
+		return "go"
+	case "typescript":
+		return "ts"
+	case "python":
+		return "py"
+	case "java":  
+		return "java"
+	default:
+		return "txt"
+	}
+}
+
+func (suite *SCIPTestSuite) recordWorkspaceQueryMetrics(workspaceRoot string, queryTime time.Duration, cacheHit, success bool) {
+	suite.metrics.mutex.Lock()
+	defer suite.metrics.mutex.Unlock()
+	
+	suite.metrics.WorkspaceQueries++
+	
+	if cacheHit {
+		suite.metrics.WorkspaceCacheHits++
+	}
+	
+	// Update or create workspace-specific metrics
+	if suite.metrics.WorkspaceStats == nil {
+		suite.metrics.WorkspaceStats = make(map[string]*WorkspaceMetrics)
+	}
+	
+	wsMetrics, exists := suite.metrics.WorkspaceStats[workspaceRoot]
+	if !exists {
+		wsMetrics = &WorkspaceMetrics{
+			WorkspaceRoot:  workspaceRoot,
+			IsolationLevel: "strong",
+		}
+		suite.metrics.WorkspaceStats[workspaceRoot] = wsMetrics
+	}
+	
+	wsMetrics.QueryCount++
+	wsMetrics.LastQuery = time.Now()
+	
+	// Update average latency (simple moving average)
+	if wsMetrics.AverageLatency == 0 {
+		wsMetrics.AverageLatency = queryTime
+	} else {
+		wsMetrics.AverageLatency = (wsMetrics.AverageLatency + queryTime) / 2
+	}
+	
+	// Update cache hit rate
+	if cacheHit {
+		hits := float64(wsMetrics.QueryCount-1) * wsMetrics.CacheHitRate + 1
+		wsMetrics.CacheHitRate = hits / float64(wsMetrics.QueryCount)
+	} else {
+		hits := float64(wsMetrics.QueryCount-1) * wsMetrics.CacheHitRate  
+		wsMetrics.CacheHitRate = hits / float64(wsMetrics.QueryCount)
 	}
 }

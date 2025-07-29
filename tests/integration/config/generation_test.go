@@ -1,11 +1,15 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
+	"lsp-gateway/internal/project"
+	"lsp-gateway/internal/workspace"
 	"lsp-gateway/tests/integration/config/helpers"
 )
 
@@ -1558,6 +1562,706 @@ func exactMatchString(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+// TestMultiProjectWorkspaceGeneration tests multi-project workspace configuration generation
+func (suite *AutoGenerationTestSuite) TestMultiProjectWorkspaceGeneration() {
+	suite.Run("DetectAndGenerateMultiProjectWorkspace", func() {
+		// Create multi-project workspace structure
+		workspaceStructure := map[string]string{
+			// Root workspace configuration
+			"workspace.code-workspace": `{
+  "folders": [
+    {"path": "./backend"},
+    {"path": "./frontend"},
+    {"path": "./services/auth"},
+    {"path": "./services/ml"}
+  ],
+  "settings": {
+    "go.toolsManagement.checkForUpdates": "local"
+  }
+}`,
+			"lsp-gateway.yaml": `# Global workspace configuration
+version: "3.0"
+workspace:
+  multi_project: true
+  resource_quota:
+    max_memory_mb: 2048
+    max_concurrent_requests: 150`,
+
+			// Backend Go service
+			"backend/go.mod":  "module workspace/backend\n\ngo 1.21",
+			"backend/main.go": "package main\n\nfunc main() {}",
+			"backend/handlers/auth.go": "package handlers\n\ntype AuthHandler struct{}",
+			"backend/models/user.go":   "package models\n\ntype User struct{ ID int }",
+			"backend/lsp-gateway.yaml": `# Backend sub-project config
+version: "3.0"
+sub_project:
+  name: "backend"
+  language: "go"
+  root_dir: "."
+servers:
+  - name: "gopls"
+    languages: ["go"]
+    command: "gopls"
+    transport: "stdio"`,
+
+			// Frontend TypeScript application
+			"frontend/package.json": `{
+  "name": "frontend",
+  "version": "1.0.0",
+  "dependencies": {
+    "react": "^18.2.0",
+    "typescript": "^5.0.0"
+  }
+}`,
+			"frontend/tsconfig.json": `{"compilerOptions": {"target": "ES2020", "jsx": "react-jsx"}}`,
+			"frontend/src/App.tsx":   "import React from 'react';\n\nconst App = () => <div>Frontend</div>;\n\nexport default App;",
+			"frontend/lsp-gateway.yaml": `# Frontend sub-project config
+version: "3.0"
+sub_project:
+  name: "frontend"
+  language: "typescript"
+  root_dir: "."
+servers:
+  - name: "typescript-language-server"
+    languages: ["typescript", "javascript"]
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    transport: "stdio"`,
+
+			// Auth microservice
+			"services/auth/go.mod":  "module workspace/services/auth\n\ngo 1.21",
+			"services/auth/main.go": "package main\n\nfunc main() {}",
+			"services/auth/auth.go": "package main\n\ntype AuthService struct{}",
+			"services/auth/lsp-gateway.yaml": `# Auth service config
+version: "3.0"
+sub_project:
+  name: "auth-service"
+  language: "go"
+  root_dir: "."
+resource_quota:
+  max_memory_mb: 512
+  max_concurrent_requests: 50`,
+
+			// ML Python service
+			"services/ml/pyproject.toml": `[build-system]
+requires = ["setuptools", "wheel"]
+
+[project]
+name = "ml-service"
+version = "1.0.0"
+dependencies = ["fastapi", "scikit-learn"]`,
+			"services/ml/src/main.py":   "from fastapi import FastAPI\n\napp = FastAPI()",
+			"services/ml/src/models.py": "import sklearn\n\nclass MLModel: pass",
+			"services/ml/lsp-gateway.yaml": `# ML service config
+version: "3.0"
+sub_project:
+  name: "ml-service"
+  language: "python"
+  root_dir: "."
+resource_quota:
+  max_memory_mb: 1024
+  max_concurrent_requests: 30`,
+		}
+
+		projectPath := suite.testHelper.CreateTestProject("multi-project-workspace", workspaceStructure)
+
+		// Create workspace detector and config manager
+		detector := workspace.NewWorkspaceDetector()
+		configManager := workspace.NewWorkspaceConfigManager()
+
+		// Detect workspace structure
+		ctx := context.Background()
+		workspaceInfo, err := detector.DetectWorkspace(ctx, projectPath)
+		suite.Require().NoError(err)
+		suite.NotNil(workspaceInfo)
+
+		// Validate workspace detection
+		suite.True(workspaceInfo.IsMultiProject, "Should detect as multi-project workspace")
+		suite.GreaterOrEqual(len(workspaceInfo.SubProjects), 4, "Should detect at least 4 sub-projects")
+		suite.Equal(projectPath, workspaceInfo.RootPath, "Should set correct root path")
+
+		// Validate detected sub-projects
+		detectedProjects := make(map[string]*workspace.DetectedSubProject)
+		for _, subProject := range workspaceInfo.SubProjects {
+			detectedProjects[subProject.Name] = subProject
+		}
+
+		// Check backend sub-project
+		backendProject := detectedProjects["backend"]
+		suite.NotNil(backendProject, "Should detect backend sub-project")
+		suite.Equal("go", backendProject.Language, "Backend should be detected as Go")
+		suite.Contains(backendProject.RelativePath, "backend", "Backend should have correct path")
+
+		// Check frontend sub-project
+		frontendProject := detectedProjects["frontend"]
+		suite.NotNil(frontendProject, "Should detect frontend sub-project")
+		suite.Equal("typescript", frontendProject.Language, "Frontend should be detected as TypeScript")
+		suite.Contains(frontendProject.RelativePath, "frontend", "Frontend should have correct path")
+
+		// Generate workspace configuration
+		workspaceConfig, err := configManager.GenerateWorkspaceConfig(ctx, workspaceInfo)
+		suite.Require().NoError(err)
+		suite.NotNil(workspaceConfig)
+
+		// Validate workspace configuration
+		suite.True(workspaceConfig.MultiProject, "Should enable multi-project mode")
+		suite.GreaterOrEqual(len(workspaceConfig.WorkspaceFolders), 4, "Should configure workspace folders")
+		suite.NotNil(workspaceConfig.ResourceQuota, "Should configure resource quota")
+		suite.Equal(2048, workspaceConfig.ResourceQuota.MaxMemoryMB, "Should set global memory limit")
+
+		// Generate sub-project configurations
+		subProjectConfigs, err := configManager.GenerateSubProjectConfigs(ctx, workspaceInfo)
+		suite.Require().NoError(err)
+		suite.NotNil(subProjectConfigs)
+		suite.GreaterOrEqual(len(subProjectConfigs), 4, "Should generate configs for all sub-projects")
+
+		// Validate sub-project configurations
+		for _, subConfig := range subProjectConfigs {
+			suite.NotEmpty(subConfig.Name, "Sub-project should have name")
+			suite.NotEmpty(subConfig.Language, "Sub-project should have language")
+			suite.NotEmpty(subConfig.RootDir, "Sub-project should have root directory")
+			suite.GreaterOrEqual(len(subConfig.LSPServers), 1, "Sub-project should have LSP servers")
+		}
+	})
+
+	suite.Run("GenerateWorkspaceConfigurationHierarchy", func() {
+		// Create hierarchical workspace structure
+		hierarchicalStructure := map[string]string{
+			// Global configuration
+			"lsp-gateway-global.yaml": `# Global configuration
+version: "3.0"
+global:
+  timeout: "60s"
+  max_concurrent_requests: 200
+  performance_profile: "production"
+  log_level: "info"
+default_servers:
+  - name: "gopls"
+    languages: ["go"]
+    command: "gopls"
+    transport: "stdio"
+    settings:
+      "gopls":
+        "analyses":
+          "unusedparams": true`,
+
+			// Workspace configuration
+			"lsp-gateway.yaml": `# Workspace configuration
+version: "3.0"
+workspace:
+  multi_project: true
+  name: "hierarchical-workspace"
+  resource_quota:
+    max_memory_mb: 4096
+    max_concurrent_requests: 150
+  server_sharing: true
+inherits_from: "lsp-gateway-global.yaml"`,
+
+			// Platform core (Go workspace)
+			"platform/go.work": `go 1.21
+
+use (
+	./auth
+	./gateway
+	./shared
+)`,
+			"platform/lsp-gateway.yaml": `# Platform sub-project config
+version: "3.0"
+sub_project:
+  name: "platform-core"
+  language: "go"
+  workspace_type: "go_workspace"
+resource_quota:
+  max_memory_mb: 1024
+inherits_from: "../lsp-gateway.yaml"`,
+			"platform/auth/go.mod":     "module platform/auth\n\ngo 1.21",
+			"platform/auth/main.go":    "package main\n\nfunc main() {}",
+			"platform/gateway/go.mod":  "module platform/gateway\n\ngo 1.21",
+			"platform/gateway/main.go": "package main\n\nfunc main() {}",
+			"platform/shared/go.mod":   "module platform/shared\n\ngo 1.21",
+			"platform/shared/utils.go": "package shared\n\nfunc Utils() {}",
+
+			// Services with language-specific configs
+			"services/user/pyproject.toml": `[project]
+name = "user-service"
+version = "1.0.0"
+dependencies = ["fastapi", "pydantic"]`,
+			"services/user/src/main.py":   "from fastapi import FastAPI\n\napp = FastAPI()",
+			"services/user/lsp-gateway.yaml": `# User service config
+version: "3.0"
+sub_project:
+  name: "user-service"
+  language: "python"
+servers:
+  - name: "pylsp"
+    languages: ["python"]
+    command: "python"
+    args: ["-m", "pylsp"]
+    transport: "stdio"
+    settings:
+      "pylsp":
+        "plugins":
+          "pycodestyle":
+            "enabled": true
+resource_quota:
+  max_memory_mb: 512
+inherits_from: "../../lsp-gateway.yaml"`,
+
+			"services/analytics/package.json": `{
+  "name": "analytics-service",
+  "version": "1.0.0",
+  "dependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}`,
+			"services/analytics/tsconfig.json": `{"compilerOptions": {"target": "ES2020"}}`,
+			"services/analytics/src/index.ts": "console.log('Analytics service');",
+			"services/analytics/lsp-gateway.yaml": `# Analytics service config
+version: "3.0"
+sub_project:
+  name: "analytics-service"
+  language: "typescript"
+servers:
+  - name: "typescript-language-server"
+    languages: ["typescript", "javascript"]
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    transport: "stdio"
+resource_quota:
+  max_memory_mb: 768
+inherits_from: "../../lsp-gateway.yaml"`,
+		}
+
+		projectPath := suite.testHelper.CreateTestProject("hierarchical-workspace", hierarchicalStructure)
+
+		// Create workspace detector and config manager
+		detector := workspace.NewWorkspaceDetector()
+		configManager := workspace.NewWorkspaceConfigManager()
+
+		// Load workspace configuration with hierarchy
+		ctx := context.Background()
+		workspaceConfig, err := configManager.LoadWorkspaceConfig(ctx, projectPath)
+		suite.Require().NoError(err)
+		suite.NotNil(workspaceConfig)
+
+		// Validate workspace configuration hierarchy
+		suite.Equal("hierarchical-workspace", workspaceConfig.Name, "Should set workspace name")
+		suite.True(workspaceConfig.MultiProject, "Should enable multi-project mode")
+		suite.Equal(4096, workspaceConfig.ResourceQuota.MaxMemoryMB, "Should inherit workspace memory quota")
+		suite.Equal(150, workspaceConfig.ResourceQuota.MaxConcurrentRequests, "Should set workspace request limit")
+
+		// Validate server sharing configuration
+		suite.True(workspaceConfig.ServerSharing, "Should enable server sharing")
+
+		// Detect and validate sub-projects with hierarchy
+		workspaceInfo, err := detector.DetectWorkspace(ctx, projectPath)
+		suite.Require().NoError(err)
+		suite.GreaterOrEqual(len(workspaceInfo.SubProjects), 3, "Should detect platform and services")
+
+		// Generate sub-project configurations with inheritance
+		subProjectConfigs, err := configManager.GenerateSubProjectConfigs(ctx, workspaceInfo)
+		suite.Require().NoError(err)
+
+		// Validate configuration inheritance
+		for _, subConfig := range subProjectConfigs {
+			// All sub-projects should inherit global timeout
+			suite.NotEmpty(subConfig.GlobalTimeout, "Should inherit global timeout")
+			
+			// Resource quotas should be properly set
+			suite.NotNil(subConfig.ResourceQuota, "Should have resource quota")
+			suite.LessOrEqual(subConfig.ResourceQuota.MaxMemoryMB, 4096, "Should respect workspace memory limit")
+			
+			// LSP servers should be configured based on language
+			suite.GreaterOrEqual(len(subConfig.LSPServers), 1, "Should have LSP servers")
+		}
+	})
+
+	suite.Run("GenerateResourceManagedConfiguration", func() {
+		// Create resource-intensive multi-project workspace
+		resourceManagedStructure := map[string]string{
+			// Workspace with resource management
+			"lsp-gateway.yaml": `# Resource-managed workspace
+version: "3.0"
+workspace:
+  multi_project: true
+  resource_management:
+    enabled: true
+    mode: "strict"
+    global_quota:
+      max_memory_mb: 8192
+      max_concurrent_requests: 300
+      max_sub_projects: 50
+    per_project_limits:
+      default_memory_mb: 256
+      default_concurrent_requests: 10
+      max_memory_mb: 2048
+      max_concurrent_requests: 50
+  isolation:
+    enabled: true
+    level: "process"
+  monitoring:
+    enabled: true
+    metrics_collection: true`,
+
+			// Large Go monorepo (high resource usage)
+			"backend/go.work": `go 1.21
+
+use (
+	./api
+	./auth
+	./billing
+	./notifications
+	./analytics
+	./shared
+)`,
+			"backend/lsp-gateway.yaml": `# Backend monorepo config
+version: "3.0"
+sub_project:
+  name: "backend-monorepo"
+  language: "go"
+  workspace_type: "go_workspace"
+  complexity: "high"
+resource_quota:
+  max_memory_mb: 2048
+  max_concurrent_requests: 50
+  priority: "high"
+servers:
+  - name: "gopls"
+    languages: ["go"]
+    command: "gopls"
+    transport: "stdio"
+    settings:
+      "gopls":
+        "memoryMode": "Conservative"
+        "analyses":
+          "unusedparams": false  # Disable for performance`,
+			"backend/api/go.mod":           "module backend/api\n\ngo 1.21",
+			"backend/api/main.go":          "package main\n\nfunc main() {}",
+			"backend/auth/go.mod":          "module backend/auth\n\ngo 1.21",
+			"backend/auth/main.go":         "package main\n\nfunc main() {}",
+			"backend/billing/go.mod":       "module backend/billing\n\ngo 1.21",
+			"backend/billing/main.go":      "package main\n\nfunc main() {}",
+			"backend/notifications/go.mod": "module backend/notifications\n\ngo 1.21",
+			"backend/notifications/main.go": "package main\n\nfunc main() {}",
+			"backend/analytics/go.mod":     "module backend/analytics\n\ngo 1.21",
+			"backend/analytics/main.go":    "package main\n\nfunc main() {}",
+			"backend/shared/go.mod":        "module backend/shared\n\ngo 1.21",
+			"backend/shared/utils.go":      "package shared\n\nfunc Utils() {}",
+
+			// Python ML services (medium resource usage)
+			"ml/pyproject.toml": `[project]
+name = "ml-platform"
+version = "1.0.0"
+dependencies = [
+  "fastapi>=0.100.0",
+  "tensorflow>=2.13.0",
+  "torch>=2.0.0",
+  "scikit-learn>=1.3.0",
+  "pandas>=2.0.0",
+  "numpy>=1.24.0"
+]`,
+			"ml/src/training/model.py":   "import tensorflow as tf\n\nclass MLModel: pass",
+			"ml/src/inference/api.py":    "from fastapi import FastAPI\n\napp = FastAPI()",
+			"ml/src/data/processor.py":   "import pandas as pd\n\nclass DataProcessor: pass",
+			"ml/lsp-gateway.yaml": `# ML platform config
+version: "3.0"
+sub_project:
+  name: "ml-platform"
+  language: "python"
+  complexity: "medium"
+resource_quota:
+  max_memory_mb: 1024
+  max_concurrent_requests: 20
+  priority: "medium"
+servers:
+  - name: "pylsp"
+    languages: ["python"]
+    command: "python"
+    args: ["-m", "pylsp"]
+    transport: "stdio"`,
+
+			// Multiple small TypeScript projects (low resource usage)
+			"frontend/web/package.json": `{"name": "web-app", "version": "1.0.0", "dependencies": {"react": "^18.0.0", "typescript": "^5.0.0"}}`,
+			"frontend/web/tsconfig.json": `{"compilerOptions": {"target": "ES2020", "jsx": "react-jsx"}}`,
+			"frontend/web/src/App.tsx": "import React from 'react';\n\nconst App = () => <div>Web</div>;\n\nexport default App;",
+			"frontend/web/lsp-gateway.yaml": `# Web app config
+version: "3.0"
+sub_project:
+  name: "web-app"
+  language: "typescript"
+  complexity: "low"
+resource_quota:
+  max_memory_mb: 256
+  max_concurrent_requests: 10
+  priority: "low"`,
+
+			"frontend/mobile/package.json": `{"name": "mobile-app", "version": "1.0.0", "dependencies": {"react-native": "^0.72.0", "typescript": "^5.0.0"}}`,
+			"frontend/mobile/tsconfig.json": `{"compilerOptions": {"target": "ES2020", "jsx": "react-native"}}`,
+			"frontend/mobile/src/App.tsx": "import React from 'react';\n\nconst App = () => null;\n\nexport default App;",
+			"frontend/mobile/lsp-gateway.yaml": `# Mobile app config
+version: "3.0"
+sub_project:
+  name: "mobile-app"
+  language: "typescript"
+  complexity: "low"
+resource_quota:
+  max_memory_mb: 256
+  max_concurrent_requests: 10
+  priority: "low"`,
+
+			"frontend/admin/package.json": `{"name": "admin-dashboard", "version": "1.0.0", "dependencies": {"vue": "^3.3.0", "typescript": "^5.0.0"}}`,
+			"frontend/admin/tsconfig.json": `{"compilerOptions": {"target": "ES2020"}}`,
+			"frontend/admin/src/main.ts": "import { createApp } from 'vue';\n\ncreateApp({}).mount('#app');",
+			"frontend/admin/lsp-gateway.yaml": `# Admin dashboard config
+version: "3.0"
+sub_project:
+  name: "admin-dashboard"
+  language: "typescript"
+  complexity: "low"
+resource_quota:
+  max_memory_mb: 256
+  max_concurrent_requests: 10
+  priority: "low"`,
+		}
+
+		projectPath := suite.testHelper.CreateTestProject("resource-managed-workspace", resourceManagedStructure)
+
+		// Create workspace detector and config manager
+		detector := workspace.NewWorkspaceDetector()
+		configManager := workspace.NewWorkspaceConfigManager()
+
+		// Detect workspace and generate configuration with resource management
+		ctx := context.Background()
+		workspaceInfo, err := detector.DetectWorkspace(ctx, projectPath)
+		suite.Require().NoError(err)
+		suite.GreaterOrEqual(len(workspaceInfo.SubProjects), 4, "Should detect multiple sub-projects")
+
+		// Generate workspace configuration with resource management
+		workspaceConfig, err := configManager.GenerateWorkspaceConfig(ctx, workspaceInfo)
+		suite.Require().NoError(err)
+		suite.NotNil(workspaceConfig)
+
+		// Validate resource management configuration
+		suite.True(workspaceConfig.ResourceManagement.Enabled, "Should enable resource management")
+		suite.Equal("strict", workspaceConfig.ResourceManagement.Mode, "Should use strict resource mode")
+		suite.Equal(8192, workspaceConfig.ResourceQuota.MaxMemoryMB, "Should set global memory limit")
+		suite.Equal(300, workspaceConfig.ResourceQuota.MaxConcurrentRequests, "Should set global request limit")
+		suite.Equal(50, workspaceConfig.ResourceQuota.MaxSubProjects, "Should set sub-project limit")
+
+		// Validate isolation configuration
+		suite.True(workspaceConfig.Isolation.Enabled, "Should enable isolation")
+		suite.Equal("process", workspaceConfig.Isolation.Level, "Should use process-level isolation")
+
+		// Generate sub-project configurations with resource allocation
+		subProjectConfigs, err := configManager.GenerateSubProjectConfigs(ctx, workspaceInfo)
+		suite.Require().NoError(err)
+
+		// Validate resource allocation across sub-projects
+		totalAllocatedMemory := 0
+		totalAllocatedRequests := 0
+		highPriorityProjects := 0
+		mediumPriorityProjects := 0
+		lowPriorityProjects := 0
+
+		for _, subConfig := range subProjectConfigs {
+			suite.NotNil(subConfig.ResourceQuota, "Should have resource quota")
+			suite.GreaterOrEqual(subConfig.ResourceQuota.MaxMemoryMB, 256, "Should have minimum memory")
+			suite.LessOrEqual(subConfig.ResourceQuota.MaxMemoryMB, 2048, "Should not exceed per-project limit")
+			
+			totalAllocatedMemory += subConfig.ResourceQuota.MaxMemoryMB
+			totalAllocatedRequests += subConfig.ResourceQuota.MaxConcurrentRequests
+			
+			// Count projects by priority
+			switch subConfig.Priority {
+			case "high":
+				highPriorityProjects++
+			case "medium":
+				mediumPriorityProjects++
+			case "low":
+				lowPriorityProjects++
+			}
+		}
+
+		// Validate resource allocation doesn't exceed global limits
+		suite.LessOrEqual(totalAllocatedMemory, 8192, "Total allocated memory should not exceed global limit")
+		suite.LessOrEqual(totalAllocatedRequests, 300, "Total allocated requests should not exceed global limit")
+		suite.Equal(1, highPriorityProjects, "Should have one high priority project (backend)")
+		suite.Equal(1, mediumPriorityProjects, "Should have one medium priority project (ML)")
+		suite.GreaterOrEqual(lowPriorityProjects, 3, "Should have multiple low priority projects (frontend)")
+	})
+}
+
+// TestLSPServerConfigurationMapping tests LSP server configuration with multiple workspace folders
+func (suite *AutoGenerationTestSuite) TestLSPServerConfigurationMapping() {
+	suite.Run("MapLSPServersToWorkspaceFolders", func() {
+		// Create workspace with diverse language distribution
+		workspaceStructure := map[string]string{
+			// Root workspace configuration
+			"lsp-gateway.yaml": `# Multi-folder workspace
+version: "3.0"
+workspace:
+  multi_project: true
+  server_mapping:
+    strategy: "per_language"
+    sharing: "enabled"
+    isolation: "workspace_folder"
+  workspace_folders:
+    - name: "core"
+      path: "./core"
+      languages: ["go"]
+    - name: "services"
+      path: "./services"
+      languages: ["go", "python", "java"]
+    - name: "frontend"
+      path: "./frontend"
+      languages: ["typescript", "javascript"]
+    - name: "tools"
+      path: "./tools"
+      languages: ["python", "shell"]`,
+
+			// Core Go workspace
+			"core/go.work": `go 1.21
+
+use (
+	./api
+	./gateway
+	./shared
+)`,
+			"core/api/go.mod":     "module core/api\n\ngo 1.21",
+			"core/api/main.go":    "package main\n\nfunc main() {}",
+			"core/gateway/go.mod": "module core/gateway\n\ngo 1.21",
+			"core/gateway/main.go": "package main\n\nfunc main() {}",
+			"core/shared/go.mod":  "module core/shared\n\ngo 1.21",
+			"core/shared/utils.go": "package shared\n\nfunc Utils() {}",
+
+			// Services in multiple languages
+			"services/auth/go.mod":  "module services/auth\n\ngo 1.21",
+			"services/auth/main.go": "package main\n\nfunc main() {}",
+			"services/ml/pyproject.toml": `[project]
+name = "ml-service"
+version = "1.0.0"
+dependencies = ["fastapi"]`,
+			"services/ml/src/main.py": "from fastapi import FastAPI\n\napp = FastAPI()",
+			"services/notification/pom.xml": `<?xml version="1.0"?>
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>notification</artifactId>
+  <version>1.0.0</version>
+</project>`,
+			"services/notification/src/main/java/Main.java": "public class Main { public static void main(String[] args) {} }",
+
+			// Frontend TypeScript/JavaScript
+			"frontend/web/package.json": `{"name": "web", "version": "1.0.0", "dependencies": {"react": "^18.0.0", "typescript": "^5.0.0"}}`,
+			"frontend/web/tsconfig.json": `{"compilerOptions": {"target": "ES2020", "jsx": "react-jsx"}}`,
+			"frontend/web/src/App.tsx": "import React from 'react';\n\nconst App = () => <div>Web</div>;\nexport default App;",
+			"frontend/mobile/package.json": `{"name": "mobile", "version": "1.0.0", "dependencies": {"react-native": "^0.72.0"}}`,
+			"frontend/mobile/src/index.js": "import React from 'react';\n\nconst App = () => null;\nexport default App;",
+
+			// Tools and scripts
+			"tools/deploy/requirements.txt": "ansible>=6.0.0\nrequests>=2.28.0",
+			"tools/deploy/deploy.py": "import ansible\n\ndef deploy(): pass",
+			"tools/scripts/build.sh": "#!/bin/bash\necho 'Building project...'",
+			"tools/scripts/test.sh": "#!/bin/bash\necho 'Running tests...'",
+		}
+
+		projectPath := suite.testHelper.CreateTestProject("lsp-server-mapping", workspaceStructure)
+
+		// Create workspace detector and config manager
+		detector := workspace.NewWorkspaceDetector()
+		configManager := workspace.NewWorkspaceConfigManager()
+
+		// Detect workspace structure
+		ctx := context.Background()
+		workspaceInfo, err := detector.DetectWorkspace(ctx, projectPath)
+		suite.Require().NoError(err)
+		suite.NotNil(workspaceInfo)
+
+		// Generate workspace configuration with LSP server mapping
+		workspaceConfig, err := configManager.GenerateWorkspaceConfig(ctx, workspaceInfo)
+		suite.Require().NoError(err)
+		suite.NotNil(workspaceConfig)
+
+		// Validate workspace folder configuration
+		suite.GreaterOrEqual(len(workspaceConfig.WorkspaceFolders), 4, "Should configure workspace folders")
+		suite.Equal("per_language", workspaceConfig.ServerMapping.Strategy, "Should use per-language mapping strategy")
+		suite.True(workspaceConfig.ServerMapping.Sharing, "Should enable server sharing")
+		suite.Equal("workspace_folder", workspaceConfig.ServerMapping.Isolation, "Should isolate by workspace folder")
+
+		// Validate workspace folder mappings
+		foldersByName := make(map[string]*workspace.WorkspaceFolder)
+		for _, folder := range workspaceConfig.WorkspaceFolders {
+			foldersByName[folder.Name] = folder
+		}
+
+		// Check core folder
+		coreFolder := foldersByName["core"]
+		suite.NotNil(coreFolder, "Should have core folder")
+		suite.Contains(coreFolder.Languages, "go", "Core folder should support Go")
+		suite.Contains(coreFolder.Path, "core", "Core folder should have correct path")
+
+		// Check services folder
+		servicesFolder := foldersByName["services"]
+		suite.NotNil(servicesFolder, "Should have services folder")
+		suite.Contains(servicesFolder.Languages, "go", "Services folder should support Go")
+		suite.Contains(servicesFolder.Languages, "python", "Services folder should support Python")
+		suite.Contains(servicesFolder.Languages, "java", "Services folder should support Java")
+
+		// Check frontend folder
+		frontendFolder := foldersByName["frontend"]
+		suite.NotNil(frontendFolder, "Should have frontend folder")
+		suite.Contains(frontendFolder.Languages, "typescript", "Frontend folder should support TypeScript")
+		suite.Contains(frontendFolder.Languages, "javascript", "Frontend folder should support JavaScript")
+
+		// Generate LSP server configurations
+		lspServerConfigs, err := configManager.GenerateLSPServerConfigs(ctx, workspaceInfo, workspaceConfig)
+		suite.Require().NoError(err)
+		suite.NotNil(lspServerConfigs)
+
+		// Validate LSP server mappings
+		serversByLanguage := make(map[string][]*workspace.LSPServerConfig)
+		for _, server := range lspServerConfigs {
+			for _, lang := range server.Languages {
+				serversByLanguage[lang] = append(serversByLanguage[lang], server)
+			}
+		}
+
+		// Validate Go LSP servers
+		goServers := serversByLanguage["go"]
+		suite.GreaterOrEqual(len(goServers), 1, "Should have Go LSP servers")
+		goServer := goServers[0]
+		suite.Equal("gopls", goServer.Command, "Should use gopls for Go")
+		suite.GreaterOrEqual(len(goServer.WorkspaceFolders), 2, "Go server should serve multiple workspace folders")
+
+		// Validate Python LSP servers
+		pythonServers := serversByLanguage["python"]
+		suite.GreaterOrEqual(len(pythonServers), 1, "Should have Python LSP servers")
+		pythonServer := pythonServers[0]
+		suite.Contains([]string{"pylsp", "python"}, pythonServer.Command, "Should use appropriate Python LSP server")
+
+		// Validate TypeScript LSP servers
+		tsServers := serversByLanguage["typescript"]
+		suite.GreaterOrEqual(len(tsServers), 1, "Should have TypeScript LSP servers")
+		tsServer := tsServers[0]
+		suite.Equal("typescript-language-server", tsServer.Command, "Should use typescript-language-server")
+
+		// Validate Java LSP servers
+		javaServers := serversByLanguage["java"]
+		suite.GreaterOrEqual(len(javaServers), 1, "Should have Java LSP servers")
+		javaServer := javaServers[0]
+		suite.Contains([]string{"jdtls", "java-language-server"}, javaServer.Command, "Should use appropriate Java LSP server")
+
+		// Validate server sharing configuration
+		for _, server := range lspServerConfigs {
+			if len(server.WorkspaceFolders) > 1 {
+				suite.True(server.Shared, "Multi-folder servers should be marked as shared")
+				suite.NotEmpty(server.IsolationLevel, "Shared servers should have isolation level")
+			}
+		}
+	})
 }
 
 // Run the test suite

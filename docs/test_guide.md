@@ -30,6 +30,9 @@ make test-e2e-quick && make test-integration-quick
 
 # Full validation before PR (15-30 minutes)
 make test-e2e-full && make test-integration
+
+# Multi-project workspace testing (10-15 minutes)
+make test-multi-project-e2e && make test-workspace-integration
 ```
 
 ### Essential Test Commands
@@ -39,6 +42,14 @@ make test-e2e-full && make test-integration
 make test-simple-quick        # Basic E2E validation
 make test-e2e-quick          # Quick E2E suite
 make test-python-patterns-quick   # Quick Python validation (5-10min)
+```
+
+#### Multi-Project Workspace Tests (10-15min)
+```bash
+make test-multi-project-e2e      # Multi-project workspace E2E tests
+make test-workspace-integration  # Workspace integration tests
+make test-multi-project-quick    # Quick multi-project validation
+go test ./tests/e2e -run TestMultiProjectWorkspace # Direct execution
 ```
 
 #### Language-Specific E2E (10-15min)
@@ -63,6 +74,8 @@ make test-integration       # Core integration tests
 make test-mcp-integration   # MCP protocol integration
 make test-javascript-mcp-integration  # Comprehensive JavaScript MCP integration tests
 make test-config-integration # Configuration validation
+make test-workspace-integration # Multi-project workspace integration
+make test-scip-workspace    # SCIP workspace isolation tests
 ```
 
 ## Test Categories
@@ -83,6 +96,7 @@ make test-config-integration # Configuration validation
 - `javascript_basic_e2e_test.go` - JavaScript/TypeScript basic validation
 - `javascript_real_client_comprehensive_e2e_test.go` - Comprehensive JavaScript Real Client E2E with chalk repository
 - `javascript_mcp_e2e_test.go` - JavaScript MCP E2E tests with chalk repository
+- `multi_project_workspace_e2e_test.go` - Multi-project workspace E2E testing with sub-project routing
 - Language-agnostic tests using unified modular repository system
 
 ### Integration Tests  
@@ -94,6 +108,25 @@ make test-config-integration # Configuration validation
 - MCP server integration (including comprehensive JavaScript MCP integration)
 - Transport layer validation
 - Error handling and recovery
+
+### Multi-Project Workspace Tests
+**Purpose**: Validate multi-project workspace functionality with sub-project routing and isolation
+**Location**: `tests/e2e/` and `tests/integration/workspace/`
+**Coverage**:
+- Multi-project workspace detection (Go, Python, TypeScript, Java)
+- Sub-project LSP request routing and client management
+- Workspace-isolated SCIP cache performance and isolation
+- Cross-project symbol resolution and references
+- Resource allocation and isolation between sub-projects
+- Configuration generation for multi-project workspaces
+
+**Key Test Areas:**
+- **Workspace Detection**: Automatic detection of all sub-projects within workspace directory
+- **Request Routing**: LSP requests routed to correct sub-project based on file path
+- **Client Management**: Independent LSP client instances per sub-project per language
+- **Cache Isolation**: Workspace-specific SCIP cache with performance validation
+- **Performance**: Sub-project resolution <1ms, LSP responses <5s, memory <3GB
+- **Resource Management**: Per-workspace port allocation, memory quotas, and cleanup
 
 ## Unified Repository Management System
 
@@ -112,12 +145,20 @@ workspaceDir, err := repoManager.SetupRepository()
 // - testutils.NewJavaScriptRepositoryManager()
 // - testutils.NewJavaRepositoryManager()
 // - testutils.NewRustRepositoryManager()
+
+// Multi-project workspace manager
+multiManager := testutils.NewMultiProjectManager(config)
+workspaceDir, err := multiManager.SetupMultiProjectWorkspace([]string{"go", "python", "java"})
+subProjects := multiManager.GetSubProjects()
 ```
 
 **Key Components:**
 - **GenericRepoManager**: Unified interface implementing RepositoryManager
 - **LanguageConfig**: Language-specific configurations (repo URLs, file patterns, test paths)
 - **Language Integration Functions**: High-level setup for complete test environments
+- **MultiProjectManager**: Multi-project workspace creation and management
+- **SubProjectUtils**: Sub-project file discovery and cross-project reference testing
+- **RoutingTestHelpers**: Request routing validation and performance testing
 - **Backward Compatibility**: Adapters maintain compatibility with existing tests
 
 **Benefits:**
@@ -135,6 +176,9 @@ workspaceDir, err := repoManager.SetupRepository()
 - **`language_configs.go`**: Predefined configurations and factory functions for all supported languages
 - **`language_integration.go`**: High-level functions for complete test environment setup
 - **`python_repo_adapter.go`**: Backward compatibility adapter for existing Python tests
+- **`multi_project_manager.go`**: Multi-project workspace creation and management
+- **`sub_project_utils.go`**: Sub-project file discovery and LSP client helpers
+- **`routing_test_helpers.go`**: Request routing validation and performance testing
 
 **Key Interfaces:**
 ```go
@@ -146,27 +190,43 @@ type RepositoryManager interface {
     ValidateRepository() error
     GetLastError() error
 }
+
+type MultiProjectRepositoryManager interface {
+    SetupMultiProjectWorkspace(languages []string) (string, error)
+    GetSubProjects() []*SubProjectInfo
+    GetSubProjectPath(projectType string) (string, error)
+    ValidateMultiProject() error
+    Cleanup() error
+}
 ```
 
 **Usage Pattern:**
 ```go
-// 1. Create language-specific repository manager
+// Single-language testing
 repoManager := testutils.NewPythonRepositoryManager()
-
-// 2. Setup repository (handles Git operations)
 workspaceDir, err := repoManager.SetupRepository()
-if err != nil {
-    return err
-}
 defer repoManager.Cleanup()
 
-// 3. Get test files automatically
 testFiles, err := repoManager.GetTestFiles()
-
-// 4. Use files for LSP testing
 for _, testFile := range testFiles {
     fileURI := "file://" + filepath.Join(workspaceDir, testFile)
     // Perform LSP operations...
+}
+
+// Multi-project workspace testing
+config := testutils.DefaultMultiProjectConfig()
+multiManager := testutils.NewMultiProjectManager(config)
+workspaceDir, err := multiManager.SetupMultiProjectWorkspace([]string{"go", "python", "java"})
+defer multiManager.Cleanup()
+
+subProjects := multiManager.GetSubProjects()
+for _, project := range subProjects {
+    // Test sub-project specific functionality
+    files, err := project.GetTestFiles()
+    for _, file := range files {
+        fileURI := "file://" + filepath.Join(project.ProjectPath, file)
+        // Test sub-project routing and LSP functionality...
+    }
 }
 ```
 
@@ -178,6 +238,14 @@ for _, testFile := range testFiles {
 - Repository Setup: <60 seconds per language
 - Memory Usage: <3GB total during testing
 - Success Rate: >95% for essential functionality
+
+**Multi-Project Performance Requirements:**
+- Sub-project Detection: <5 seconds for typical workspaces
+- Sub-project Routing: <1ms per request routing decision  
+- Multi-project Workspace Setup: <2 minutes for 4+ languages
+- Cross-project Symbol Resolution: <10 seconds
+- Workspace Memory Usage: <2GB per workspace instance
+- SCIP Cache Performance: 60-87% improvement, 85-90% hit rates
 
 ## Development Guidelines
 
@@ -191,18 +259,52 @@ for _, testFile := range testFiles {
 
 **Implementation Patterns:**
 ```go
-// Using the unified repository management system
+// Single-language testing using unified repository management
 repoManager := testutils.NewPythonRepositoryManager()
 workspaceDir, err := repoManager.SetupRepository()
 defer repoManager.Cleanup()
 
-// Get test files automatically
 testFiles, err := repoManager.GetTestFiles()
-
-// Test real LSP functionality
 locations, err := client.Definition(ctx, fileURI, position)
 assert.NoError(err)
 assert.NotEmpty(locations)
+
+// Multi-project workspace testing
+multiManager := testutils.NewMultiProjectManager(config)
+workspaceDir, err := multiManager.SetupMultiProjectWorkspace([]string{"go", "python"})
+defer multiManager.Cleanup()
+
+// Test sub-project routing
+client := testutils.NewHttpClient(config)
+client.SetWorkspaceRoot(workspaceDir)
+results, err := client.DefinitionInSubProject(ctx, goFileURI, position, "go")
+assert.NoError(err)
+assert.NotEmpty(results)
+```
+
+### Writing Multi-Project Tests
+
+**Multi-Project Workspace Focus:**
+- Test sub-project detection across multiple languages
+- Validate request routing to correct sub-project clients
+- Test cross-project symbol resolution and references  
+- Verify workspace isolation and resource management
+
+**Testing Patterns:**
+```go
+// Setup multi-project workspace
+config := testutils.DefaultMultiProjectConfig()
+manager := testutils.NewMultiProjectManager(config)
+workspaceDir, err := manager.SetupMultiProjectWorkspace([]string{"go", "python", "java"})
+
+// Test routing validation
+router := testutils.NewRoutingTestHelper(workspaceDir)
+routingResults, err := router.ValidateSubProjectRouting(ctx, subProjects)
+assert.True(routingResults.AllRoutedCorrectly)
+
+// Test performance requirements
+perfResults, err := router.BenchmarkSubProjectResolution(ctx, 1000)
+assert.Less(perfResults.AvgRoutingTime, time.Millisecond)
 ```
 
 ### Writing Integration Tests
@@ -212,12 +314,14 @@ assert.NotEmpty(locations)
 - Validate configuration loading and validation
 - Test transport layer reliability
 - Verify error handling and recovery mechanisms
+- Test multi-project workspace integration
 
 **Focus Areas:**
 - Configuration system integration
 - Protocol message handling
 - Connection management
 - Resource cleanup
+- Multi-project workspace detection and routing
 
 ### Test Maintenance
 
@@ -376,13 +480,24 @@ go tool pprof mem.prof
 
 ## Summary
 
-LSP Gateway testing is streamlined with unified testutils repository management:
+LSP Gateway testing is streamlined with unified testutils repository management and comprehensive multi-project workspace support:
 
 - **E2E Tests**: Real language servers, real repositories via testutils.GenericRepoManager
-- **Integration Tests**: Component interactions and protocol compliance  
+- **Multi-Project E2E Tests**: Multi-language workspace testing with sub-project routing validation  
+- **Integration Tests**: Component interactions and protocol compliance
+- **Workspace Integration Tests**: Multi-project detection, routing, and isolation testing
 - **Unified Repository Management**: Single testutils package handles all language repository operations
+- **Multi-Project Support**: testutils.MultiProjectManager for cross-language workspace testing
 - **Consistent Interface**: RepositoryManager interface across Python, Go, JavaScript, Java, Rust
 - **Automated Operations**: Git cloning, file discovery, validation, and cleanup handled by testutils
 - **Performance Validation**: Realistic load testing with actual codebases from open-source projects
+- **Sub-Project Performance**: <1ms routing, <5s LSP responses, workspace isolation validation
 
-The testutils approach provides comprehensive coverage with consistent repository management across all languages.
+**Enhanced Testing Capabilities:**
+- **Multi-Project Workspace Detection**: Automatic detection of Go, Python, TypeScript, Java sub-projects
+- **Request Routing Validation**: LSP requests routed to correct sub-project clients
+- **Cross-Project Symbol Resolution**: Workspace/symbol queries across multiple projects
+- **Resource Isolation Testing**: Workspace-specific SCIP cache and memory management
+- **Performance Benchmarking**: Sub-project resolution, routing latency, and throughput testing
+
+The enhanced testutils approach provides comprehensive coverage with consistent repository management across all languages plus robust multi-project workspace functionality validation.

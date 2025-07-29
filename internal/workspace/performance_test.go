@@ -1,15 +1,15 @@
 package workspace
 
 import (
-	"context"
+	"encoding/json"
 	"fmt"
 	"runtime"
 	"sync"
 	"testing"
 	"time"
 
-	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/project"
+	"lsp-gateway/internal/storage"
 )
 
 // BenchmarkWorkspaceStartup benchmarks workspace gateway startup performance
@@ -431,8 +431,30 @@ func TestCachePerformanceIsolation(t *testing.T) {
 
 	// Test cache isolation by setting different values for same key
 	key := "test-key"
-	entry1 := &TestCacheEntry{Key: key, Value: "workspace1-data"}
-	entry2 := &TestCacheEntry{Key: key, Value: "workspace2-data"}
+	now := time.Now()
+	
+	// Create proper storage.CacheEntry instances
+	response1, _ := json.Marshal("workspace1-data")
+	entry1 := &storage.CacheEntry{
+		Method:     "test/method",
+		Params:     "{}",
+		Response:   response1,
+		CreatedAt:  now,
+		AccessedAt: now,
+		TTL:        time.Hour,
+		Key:        key,
+	}
+	
+	response2, _ := json.Marshal("workspace2-data")
+	entry2 := &storage.CacheEntry{
+		Method:     "test/method",
+		Params:     "{}",
+		Response:   response2,
+		CreatedAt:  now,
+		AccessedAt: now,
+		TTL:        time.Hour,
+		Key:        key,
+	}
 	
 	err = cache1.Set(key, entry1, time.Hour)
 	if err != nil {
@@ -455,7 +477,12 @@ func TestCachePerformanceIsolation(t *testing.T) {
 		t.Fatalf("Entry not found in cache2")
 	}
 	
-	if retrieved1.Value == retrieved2.Value {
+	// Compare the response data to verify isolation
+	var data1, data2 string
+	json.Unmarshal(retrieved1.Response, &data1)
+	json.Unmarshal(retrieved2.Response, &data2)
+	
+	if data1 == data2 {
 		t.Errorf("Cache isolation failed: both caches returned same value")
 	}
 	
@@ -463,7 +490,16 @@ func TestCachePerformanceIsolation(t *testing.T) {
 	const numOperations = 100
 	for i := 0; i < numOperations; i++ {
 		testKey := fmt.Sprintf("perf-key-%d", i%10) // 10 unique keys, repeated
-		testEntry := &TestCacheEntry{Key: testKey, Value: fmt.Sprintf("data-%d", i)}
+		testResponse, _ := json.Marshal(fmt.Sprintf("data-%d", i))
+		testEntry := &storage.CacheEntry{
+			Method:     "test/method",
+			Params:     "{}",
+			Response:   testResponse,
+			CreatedAt:  time.Now(),
+			AccessedAt: time.Now(),
+			TTL:        time.Hour,
+			Key:        testKey,
+		}
 		
 		cache1.Set(testKey, testEntry, time.Hour)
 		cache1.Get(testKey) // This should be a hit
@@ -532,8 +568,3 @@ func TestWorkspaceScaling(t *testing.T) {
 		maxWorkspaces, totalTime, avgTimePerWorkspace)
 }
 
-// TestCacheEntry represents a simple cache entry for testing
-type TestCacheEntry struct {
-	Key   string      `json:"key"`
-	Value interface{} `json:"value"`
-}

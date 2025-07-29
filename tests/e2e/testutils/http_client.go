@@ -8,6 +8,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -69,6 +71,18 @@ type CompletionList struct {
 	Items        []CompletionItem `json:"items"`
 }
 
+// SubProjectMetrics tracks performance metrics for a specific sub-project
+type SubProjectMetrics struct {
+	Language           string        `json:"language"`
+	TotalRequests      int           `json:"total_requests"`
+	SuccessfulRequests int           `json:"successful_requests"`
+	FailedRequests     int           `json:"failed_requests"`
+	AverageLatency     time.Duration `json:"average_latency"`
+	RoutingErrors      int           `json:"routing_errors"`
+	TotalLatency       time.Duration `json:"total_latency"`
+	mu                 sync.RWMutex
+}
+
 // RequestMetrics tracks performance metrics for requests
 type RequestMetrics struct {
 	TotalRequests     int           `json:"total_requests"`
@@ -81,6 +95,8 @@ type RequestMetrics struct {
 	ResponseSizes     []int         `json:"response_sizes"`
 	ConnectionErrors  int           `json:"connection_errors"`
 	TimeoutErrors     int           `json:"timeout_errors"`
+	SubProjectMetrics map[string]*SubProjectMetrics `json:"sub_project_metrics"`
+	CrossProjectRequests int       `json:"cross_project_requests"`
 	mu                sync.RWMutex
 }
 
@@ -112,6 +128,9 @@ type HttpClientConfig struct {
 	MaxResponseSize    int64
 	ConnectionPoolSize int
 	KeepAlive          time.Duration
+	WorkspaceRoot      string
+	SubProjects        map[string]*SubProjectInfo
+	EnableSubProjectMetrics bool
 }
 
 // DefaultHttpClientConfig returns a default configuration optimized for test environments
@@ -140,6 +159,7 @@ type HttpClient struct {
 	metrics      *RequestMetrics
 	recordings   []RecordedRequest
 	mockResponses map[string]interface{}
+	workspaceRoot string
 	mu           sync.RWMutex
 }
 
@@ -205,12 +225,17 @@ func NewHttpClient(config HttpClientConfig) *HttpClient {
 		Transport: transport,
 	}
 
+	metrics := &RequestMetrics{
+		SubProjectMetrics: make(map[string]*SubProjectMetrics),
+	}
+
 	return &HttpClient{
 		config:        config,
 		client:        httpClient,
-		metrics:       &RequestMetrics{},
+		metrics:       metrics,
 		recordings:    make([]RecordedRequest, 0),
 		mockResponses: make(map[string]interface{}),
+		workspaceRoot: config.WorkspaceRoot,
 	}
 }
 
@@ -716,7 +741,9 @@ func (c *HttpClient) ClearRecordings() {
 func (c *HttpClient) ClearMetrics() {
 	c.metrics.mu.Lock()
 	defer c.metrics.mu.Unlock()
-	c.metrics = &RequestMetrics{}
+	c.metrics = &RequestMetrics{
+		SubProjectMetrics: make(map[string]*SubProjectMetrics),
+	}
 }
 
 // SetMockResponse sets a mock response for the given LSP method
@@ -850,4 +877,329 @@ func (c *HttpClient) ValidateConnection(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// Multi-Project Support Methods
+
+// SetWorkspaceRoot sets the workspace root directory for multi-project support
+func (c *HttpClient) SetWorkspaceRoot(workspaceRoot string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.workspaceRoot = workspaceRoot
+	c.config.WorkspaceRoot = workspaceRoot
+}
+
+// GetWorkspaceRoot returns the current workspace root directory
+func (c *HttpClient) GetWorkspaceRoot() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.workspaceRoot
+}
+
+// DefinitionInSubProject sends a textDocument/definition request scoped to a specific sub-project
+func (c *HttpClient) DefinitionInSubProject(ctx context.Context, subProject *SubProjectInfo, fileName string, position Position) ([]Location, error) {
+	if subProject == nil {
+		return nil, fmt.Errorf("subProject cannot be nil")
+	}
+
+	startTime := time.Now()
+	fileURI, err := c.buildSubProjectURI(subProject, fileName)
+	if err != nil {
+		c.updateSubProjectMetrics(subProject, time.Since(startTime), err)
+		return nil, fmt.Errorf("failed to build file URI: %w", err)
+	}
+
+	if err := c.validateSubProjectFile(subProject, fileName); err != nil {
+		c.updateSubProjectMetrics(subProject, time.Since(startTime), err)
+		return nil, fmt.Errorf("file validation failed: %w", err)
+	}
+
+	locations, err := c.Definition(ctx, fileURI, position)
+	c.updateSubProjectMetrics(subProject, time.Since(startTime), err)
+
+	if err != nil {
+		return nil, fmt.Errorf("definition request failed in %s project: %w", subProject.Language, err)
+	}
+
+	return locations, nil
+}
+
+// ReferencesInSubProject sends a textDocument/references request scoped to a specific sub-project
+func (c *HttpClient) ReferencesInSubProject(ctx context.Context, subProject *SubProjectInfo, fileName string, position Position, includeDeclaration bool) ([]Location, error) {
+	if subProject == nil {
+		return nil, fmt.Errorf("subProject cannot be nil")
+	}
+
+	startTime := time.Now()
+	fileURI, err := c.buildSubProjectURI(subProject, fileName)
+	if err != nil {
+		c.updateSubProjectMetrics(subProject, time.Since(startTime), err)
+		return nil, fmt.Errorf("failed to build file URI: %w", err)
+	}
+
+	if err := c.validateSubProjectFile(subProject, fileName); err != nil {
+		c.updateSubProjectMetrics(subProject, time.Since(startTime), err)
+		return nil, fmt.Errorf("file validation failed: %w", err)
+	}
+
+	locations, err := c.References(ctx, fileURI, position, includeDeclaration)
+	c.updateSubProjectMetrics(subProject, time.Since(startTime), err)
+
+	if err != nil {
+		return nil, fmt.Errorf("references request failed in %s project: %w", subProject.Language, err)
+	}
+
+	return locations, nil
+}
+
+// WorkspaceSymbolInSubProject sends a workspace/symbol request scoped to a specific sub-project
+func (c *HttpClient) WorkspaceSymbolInSubProject(ctx context.Context, subProject *SubProjectInfo, query string) ([]SymbolInformation, error) {
+	if subProject == nil {
+		return nil, fmt.Errorf("subProject cannot be nil")
+	}
+
+	startTime := time.Now()
+	
+	// For workspace symbol requests, we need to set appropriate headers to scope the request
+	originalProjectPath := c.config.ProjectPath
+	c.config.ProjectPath = subProject.ProjectPath
+	defer func() {
+		c.config.ProjectPath = originalProjectPath
+	}()
+
+	symbols, err := c.WorkspaceSymbol(ctx, query)
+	c.updateSubProjectMetrics(subProject, time.Since(startTime), err)
+
+	if err != nil {
+		return nil, fmt.Errorf("workspace symbol request failed in %s project: %w", subProject.Language, err)
+	}
+
+	// Track cross-project requests if symbols from other projects are returned
+	c.trackCrossProjectRequest(subProject, symbols)
+
+	return symbols, nil
+}
+
+// Helper functions for URI handling
+
+// buildSubProjectURI constructs a file:// URI for a file within a sub-project
+func (c *HttpClient) buildSubProjectURI(subProject *SubProjectInfo, fileName string) (string, error) {
+	if subProject == nil {
+		return "", fmt.Errorf("subProject cannot be nil")
+	}
+
+	if fileName == "" {
+		return "", fmt.Errorf("fileName cannot be empty")
+	}
+
+	// If already a file:// URI, return as is
+	if strings.HasPrefix(fileName, "file://") {
+		return fileName, nil
+	}
+
+	// Handle both absolute and relative paths
+	var absolutePath string
+	if filepath.IsAbs(fileName) {
+		absolutePath = fileName
+	} else {
+		absolutePath = filepath.Join(subProject.ProjectPath, fileName)
+	}
+
+	// Clean the path and convert to file:// URI
+	cleanPath := filepath.Clean(absolutePath)
+	return fmt.Sprintf("file://%s", cleanPath), nil
+}
+
+// validateSubProjectFile validates that a file exists within the sub-project boundaries
+func (c *HttpClient) validateSubProjectFile(subProject *SubProjectInfo, fileName string) error {
+	if subProject == nil {
+		return fmt.Errorf("subProject cannot be nil")
+	}
+
+	if fileName == "" {
+		return fmt.Errorf("fileName cannot be empty")
+	}
+
+	// Convert to absolute path
+	var absolutePath string
+	if strings.HasPrefix(fileName, "file://") {
+		absolutePath = strings.TrimPrefix(fileName, "file://")
+	} else if filepath.IsAbs(fileName) {
+		absolutePath = fileName
+	} else {
+		absolutePath = filepath.Join(subProject.ProjectPath, fileName)
+	}
+
+	// Check if file is within sub-project boundaries
+	relPath, err := filepath.Rel(subProject.ProjectPath, absolutePath)
+	if err != nil {
+		return fmt.Errorf("failed to resolve relative path: %w", err)
+	}
+
+	if strings.HasPrefix(relPath, "..") {
+		return fmt.Errorf("file is outside sub-project boundaries: %s", fileName)
+	}
+
+	// Check if file exists (optional validation)
+	if _, err := os.Stat(absolutePath); err != nil {
+		if os.IsNotExist(err) {
+			// File doesn't exist - this might be OK for some LSP operations
+			// Return a warning but don't fail the validation
+			return nil
+		}
+		return fmt.Errorf("failed to stat file: %w", err)
+	}
+
+	return nil
+}
+
+// updateSubProjectMetrics updates metrics for a specific sub-project
+func (c *HttpClient) updateSubProjectMetrics(subProject *SubProjectInfo, duration time.Duration, err error) {
+	if !c.config.EnableSubProjectMetrics || subProject == nil {
+		return
+	}
+
+	c.metrics.mu.Lock()
+	defer c.metrics.mu.Unlock()
+
+	// Get or create sub-project metrics
+	subMetrics, exists := c.metrics.SubProjectMetrics[subProject.Language]
+	if !exists {
+		subMetrics = &SubProjectMetrics{
+			Language: subProject.Language,
+		}
+		c.metrics.SubProjectMetrics[subProject.Language] = subMetrics
+	}
+
+	subMetrics.mu.Lock()
+	defer subMetrics.mu.Unlock()
+
+	subMetrics.TotalRequests++
+
+	if err != nil {
+		subMetrics.FailedRequests++
+		// Check if it's a routing error
+		if strings.Contains(err.Error(), "routing") || strings.Contains(err.Error(), "not found") {
+			subMetrics.RoutingErrors++
+		}
+		return
+	}
+
+	subMetrics.SuccessfulRequests++
+	subMetrics.TotalLatency += duration
+
+	if subMetrics.SuccessfulRequests > 0 {
+		subMetrics.AverageLatency = subMetrics.TotalLatency / time.Duration(subMetrics.SuccessfulRequests)
+	}
+}
+
+// trackCrossProjectRequest tracks requests that return results from multiple projects
+func (c *HttpClient) trackCrossProjectRequest(sourceProject *SubProjectInfo, symbols []SymbolInformation) {
+	if !c.config.EnableSubProjectMetrics || sourceProject == nil {
+		return
+	}
+
+	// Check if any symbols are from different projects
+	sourceProjectPath := sourceProject.ProjectPath
+	crossProjectFound := false
+
+	for _, symbol := range symbols {
+		filePath := strings.TrimPrefix(symbol.Location.URI, "file://")
+		if !strings.HasPrefix(filePath, sourceProjectPath) {
+			crossProjectFound = true
+			break
+		}
+	}
+
+	if crossProjectFound {
+		c.metrics.mu.Lock()
+		c.metrics.CrossProjectRequests++
+		c.metrics.mu.Unlock()
+	}
+}
+
+// GetSubProjectMetrics returns metrics for a specific sub-project
+func (c *HttpClient) GetSubProjectMetrics(language string) (*SubProjectMetrics, bool) {
+	c.metrics.mu.RLock()
+	defer c.metrics.mu.RUnlock()
+	
+	metrics, exists := c.metrics.SubProjectMetrics[language]
+	if !exists {
+		return nil, false
+	}
+	
+	// Return a copy to prevent external modification
+	metrics.mu.RLock()
+	defer metrics.mu.RUnlock()
+	
+	return &SubProjectMetrics{
+		Language:           metrics.Language,
+		TotalRequests:      metrics.TotalRequests,
+		SuccessfulRequests: metrics.SuccessfulRequests,
+		FailedRequests:     metrics.FailedRequests,
+		AverageLatency:     metrics.AverageLatency,
+		RoutingErrors:      metrics.RoutingErrors,
+		TotalLatency:       metrics.TotalLatency,
+	}, true
+}
+
+// GetAllSubProjectMetrics returns metrics for all sub-projects
+func (c *HttpClient) GetAllSubProjectMetrics() map[string]*SubProjectMetrics {
+	c.metrics.mu.RLock()
+	defer c.metrics.mu.RUnlock()
+	
+	result := make(map[string]*SubProjectMetrics)
+	for language, metrics := range c.metrics.SubProjectMetrics {
+		metrics.mu.RLock()
+		result[language] = &SubProjectMetrics{
+			Language:           metrics.Language,
+			TotalRequests:      metrics.TotalRequests,
+			SuccessfulRequests: metrics.SuccessfulRequests,
+			FailedRequests:     metrics.FailedRequests,
+			AverageLatency:     metrics.AverageLatency,
+			RoutingErrors:      metrics.RoutingErrors,
+			TotalLatency:       metrics.TotalLatency,
+		}
+		metrics.mu.RUnlock()
+	}
+	
+	return result
+}
+
+// GetCrossProjectRequestCount returns the number of cross-project requests made
+func (c *HttpClient) GetCrossProjectRequestCount() int {
+	c.metrics.mu.RLock()
+	defer c.metrics.mu.RUnlock()
+	return c.metrics.CrossProjectRequests
+}
+
+// ClearSubProjectMetrics clears metrics for a specific sub-project
+func (c *HttpClient) ClearSubProjectMetrics(language string) {
+	c.metrics.mu.Lock()
+	defer c.metrics.mu.Unlock()
+	
+	if metrics, exists := c.metrics.SubProjectMetrics[language]; exists {
+		metrics.mu.Lock()
+		metrics.TotalRequests = 0
+		metrics.SuccessfulRequests = 0
+		metrics.FailedRequests = 0
+		metrics.AverageLatency = 0
+		metrics.RoutingErrors = 0
+		metrics.TotalLatency = 0
+		metrics.mu.Unlock()
+	}
+}
+
+// EnableSubProjectMetrics enables or disables sub-project metrics collection
+func (c *HttpClient) EnableSubProjectMetrics(enable bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.config.EnableSubProjectMetrics = enable
+}
+
+// IsSubProjectMetricsEnabled returns whether sub-project metrics collection is enabled
+func (c *HttpClient) IsSubProjectMetricsEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.config.EnableSubProjectMetrics
 }

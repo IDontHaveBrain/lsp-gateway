@@ -77,17 +77,17 @@ type mockLSPClient struct {
 	active    bool
 }
 
-func (m *mockLSPClient) SendRequest(ctx context.Context, method string, params interface{}) ([]byte, error) {
+func (m *mockLSPClient) SendRequest(ctx context.Context, method string, params interface{}) (json.RawMessage, error) {
 	if err, exists := m.errors[method]; exists {
 		return nil, err
 	}
 	
 	if response, exists := m.responses[method]; exists {
-		return []byte(response), nil
+		return json.RawMessage(response), nil
 	}
 	
 	// Default response
-	return []byte(`{"result": []}`), nil
+	return json.RawMessage(`{"result": []}`), nil
 }
 
 func (m *mockLSPClient) SendNotification(ctx context.Context, method string, params interface{}) error {
@@ -365,8 +365,8 @@ func TestRouteRequest_InvalidURI(t *testing.T) {
 	
 	// Check error type
 	if routingErr, ok := err.(*RoutingError); ok {
-		if routingErr.Type != ErrorInvalidRequest {
-			t.Errorf("Expected ErrorInvalidRequest, got %s", routingErr.Type)
+		if routingErr.ErrorType != ErrorInvalidRequest {
+			t.Errorf("Expected ErrorInvalidRequest, got %v", routingErr.ErrorType)
 		}
 	} else {
 		t.Error("Expected RoutingError type")
@@ -377,8 +377,8 @@ func TestRouteRequest_ProjectResolutionFailure(t *testing.T) {
 	// Setup mock resolver that fails
 	resolver := &mockSubProjectResolver{
 		err: &RoutingError{
-			Type:    ErrorProjectResolution,
-			Message: "Project not found",
+			ErrorType: ErrorProjectResolution,
+			Message:   "Project not found",
 		},
 	}
 	
@@ -396,8 +396,8 @@ func TestRouteRequest_ProjectResolutionFailure(t *testing.T) {
 	}
 	
 	if routingErr, ok := err.(*RoutingError); ok {
-		if routingErr.Type != ErrorProjectResolution {
-			t.Errorf("Expected ErrorProjectResolution, got %s", routingErr.Type)
+		if routingErr.ErrorType != ErrorProjectResolution {
+			t.Errorf("Expected ErrorProjectResolution, got %v", routingErr.ErrorType)
 		}
 	} else {
 		t.Error("Expected RoutingError type")
@@ -413,8 +413,8 @@ func TestRouteRequest_ClientSelectionFailure(t *testing.T) {
 	resolver := &mockSubProjectResolver{projects: projects}
 	clientManager := &mockClientManager{
 		err: &RoutingError{
-			Type:    ErrorClientSelection,
-			Message: "No client available",
+			ErrorType: ErrorClientSelection,
+			Message:   "No client available",
 		},
 	}
 	
@@ -433,8 +433,8 @@ func TestRouteRequest_ClientSelectionFailure(t *testing.T) {
 	}
 	
 	if routingErr, ok := err.(*RoutingError); ok {
-		if routingErr.Type != ErrorClientSelection {
-			t.Errorf("Expected ErrorClientSelection, got %s", routingErr.Type)
+		if routingErr.ErrorType != ErrorClientSelection {
+			t.Errorf("Expected ErrorClientSelection, got %v", routingErr.ErrorType)
 		}
 	} else {
 		t.Error("Expected RoutingError type")
@@ -485,8 +485,8 @@ func TestHandleRoutingFailure(t *testing.T) {
 	
 	request := createTestRequest("textDocument/definition", "file:///test/file.go")
 	originalError := &RoutingError{
-		Type:    ErrorClientCommunication,
-		Message: "Client communication failed",
+		ErrorType: ErrorClientCommunication,
+		Message:   "Client communication failed",
 	}
 	
 	ctx := context.Background()
