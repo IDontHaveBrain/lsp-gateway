@@ -217,6 +217,93 @@ func (c *LSPGatewayClient) SendLSPRequest(ctx context.Context, method string, pa
 	return response.Result, nil
 }
 
+// SendNotification implements the LSPClient interface for sending notifications to LSP gateway
+func (c *LSPGatewayClient) SendNotification(ctx context.Context, method string, params interface{}) error {
+	start := time.Now()
+
+	c.metrics.mu.Lock()
+	c.metrics.TotalRequests++
+	c.metrics.LastRequestTime = start
+	c.metrics.mu.Unlock()
+
+	if !c.circuitBreaker.AllowRequest() {
+		c.logger.Printf("Circuit breaker is open, rejecting notification for method: %s", method)
+		c.updateFailureMetrics()
+		return fmt.Errorf("circuit breaker is open: too many failures")
+	}
+
+	// Notifications don't have an ID
+	request := JSONRPCRequest{
+		JSONRPC: JSONRPCVersion,
+		Method:  method,
+		Params:  params,
+	}
+
+	c.logger.Printf("Sending LSP notification: method=%s", method)
+
+	// For notifications, we don't expect a response
+	err := c.sendNotificationWithRetry(ctx, request)
+
+	latency := time.Since(start)
+	c.updateLatencyMetrics(latency)
+
+	if err != nil {
+		c.logger.Printf("LSP notification failed: method=%s, error=%v, latency=%v", method, err, latency)
+		c.circuitBreaker.RecordFailure()
+		c.updateFailureMetrics()
+		return c.enhanceError(fmt.Errorf("failed to send LSP notification: %w", err), method)
+	}
+
+	c.logger.Printf("LSP notification successful: method=%s, latency=%v", method, latency)
+	c.circuitBreaker.RecordSuccess()
+	c.updateSuccessMetrics()
+
+	return nil
+}
+
+// sendNotificationWithRetry sends a notification request with retry logic
+func (c *LSPGatewayClient) sendNotificationWithRetry(ctx context.Context, request JSONRPCRequest) error {
+	var lastErr error
+
+	for attempt := 0; attempt <= c.retryPolicy.MaxRetries; attempt++ {
+		if attempt > 0 {
+			waitTime := c.calculateBackoff(attempt)
+			c.logger.Printf("Retrying notification (attempt %d/%d) after %v: method=%s", attempt+1, c.retryPolicy.MaxRetries+1, waitTime, request.Method)
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(waitTime):
+			}
+		}
+
+		err := c.sendSingleNotification(ctx, request)
+		if err == nil {
+			if attempt > 0 {
+				c.logger.Printf("Notification succeeded after %d retries: method=%s", attempt, request.Method)
+			}
+			return nil
+		}
+
+		lastErr = err
+		errorCategory := c.categorizeError(err)
+
+		c.logger.Printf("Notification attempt %d failed: method=%s, error=%v, category=%v", attempt+1, request.Method, err, errorCategory)
+
+		if !c.shouldRetryError(errorCategory) {
+			c.logger.Printf("Not retrying notification due to error category: %v", errorCategory)
+			break
+		}
+
+		if attempt >= c.retryPolicy.MaxRetries {
+			break
+		}
+	}
+
+	c.logger.Printf("Notification failed after %d attempts: method=%s, final_error=%v", c.retryPolicy.MaxRetries+1, request.Method, lastErr)
+	return fmt.Errorf("notification failed after %d attempts: %w", c.retryPolicy.MaxRetries+1, lastErr)
+}
+
 func (c *LSPGatewayClient) sendRequestWithRetry(ctx context.Context, request JSONRPCRequest, response *JSONRPCResponse) error {
 	var lastErr error
 
@@ -319,6 +406,58 @@ func (c *LSPGatewayClient) sendSingleRequest(ctx context.Context, request JSONRP
 		return fmt.Errorf("invalid JSON-RPC version: %s", response.JSONRPC)
 	}
 
+	return nil
+}
+
+// sendSingleNotification sends a single notification request without expecting a response
+func (c *LSPGatewayClient) sendSingleNotification(ctx context.Context, request JSONRPCRequest) error {
+	requestBody, err := json.Marshal(request)
+	if err != nil {
+		return fmt.Errorf("failed to marshal notification: %w", err)
+	}
+
+	url := c.baseURL + "/jsonrpc"
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(requestBody))
+	if err != nil {
+		return fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	httpReq.Header.Set(HTTP_HEADER_CONTENT_TYPE, transport.HTTP_CONTENT_TYPE_JSON)
+	httpReq.Header.Set("Accept", transport.HTTP_CONTENT_TYPE_JSON)
+	httpReq.Header.Set("User-Agent", "LSP-Gateway-MCP-Client/1.0")
+	httpReq.Header.Set("Content-Length", strconv.Itoa(len(requestBody)))
+	httpReq.Header.Set(HTTP_HEADER_MCP_PROTOCOL_VERSION, DefaultProtocolVersion)
+	
+	// Notifications don't have a request ID, but we can add a header for tracking
+	httpReq.Header.Set("X-Notification-Method", request.Method)
+
+	requestStart := time.Now()
+	httpResp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return c.wrapHTTPError(err, url, time.Since(requestStart))
+	}
+	defer func() {
+		if closeErr := httpResp.Body.Close(); closeErr != nil {
+			c.logger.Printf("Failed to close response body: %v", closeErr)
+		}
+	}()
+
+	if httpResp.StatusCode != http.StatusOK {
+		body, readErr := io.ReadAll(httpResp.Body)
+		if readErr != nil {
+			body = []byte(fmt.Sprintf("failed to read error response: %v", readErr))
+		}
+
+		errorMsg := string(body)
+		if len(errorMsg) > 500 {
+			errorMsg = errorMsg[:500] + "..."
+		}
+
+		return c.createHTTPStatusError(httpResp.StatusCode, errorMsg, url)
+	}
+
+	// For notifications, we don't need to parse the response body
+	// Just ensure the request was accepted by the server
 	return nil
 }
 

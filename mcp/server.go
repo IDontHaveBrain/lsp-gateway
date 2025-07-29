@@ -333,7 +333,7 @@ func (s *Server) Start() error {
 		s.Logger.Printf("[DEBUG] MCP Server Working Directory: %s", cwd)
 	}
 	s.Logger.Printf("[DEBUG] Process Args: %v", os.Args)
-	s.Logger.Printf("[DEBUG] Environment Variables: CLAUDE_PROJECT_ROOT=%s", os.Getenv("CLAUDE_PROJECT_ROOT"))
+	s.Logger.Printf("[DEBUG] MCP Server initialized for working directory-based project detection")
 	
 	s.Logger.Printf("Starting MCP server %s v%s", s.Config.Name, s.Config.Version)
 	if s.Client != nil {

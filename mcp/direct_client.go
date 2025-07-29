@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"lsp-gateway/internal/config"
 	"lsp-gateway/internal/transport"
@@ -105,7 +106,7 @@ func (dm *DirectLSPManager) SendLSPRequest(ctx context.Context, method string, p
 	dm.mu.RLock()
 	defer dm.mu.RUnlock()
 
-	dm.logger.Printf("[DEBUG] SendLSPRequest called: method=%s, params=%+v", method, params)
+	dm.logger.Printf("[DEBUG-DIRECT] SendLSPRequest ENTRY: method=%s, params=%+v", method, params)
 
 	// Try to determine target server from request parameters
 	serverName, err := dm.determineTargetServer(method, params)
@@ -114,29 +115,121 @@ func (dm *DirectLSPManager) SendLSPRequest(ctx context.Context, method string, p
 		return nil, fmt.Errorf("failed to determine target server: %w", err)
 	}
 
-	dm.logger.Printf("[DEBUG] Determined target server: %s", serverName)
+	dm.logger.Printf("[DEBUG-DIRECT] Determined target server: %s", serverName)
+
+	client, exists := dm.clients[serverName]
+	if !exists {
+		dm.logger.Printf("[ERROR-DIRECT] LSP client not found for server: %s", serverName)
+		return nil, fmt.Errorf("LSP client not found for server: %s", serverName)
+	}
+	dm.logger.Printf("[DEBUG-DIRECT] Found LSP client for server: %s, client active: %v", serverName, client.IsActive())
+
+	// Forward request to the appropriate LSP server with timeout protection
+	dm.logger.Printf("[DEBUG-DIRECT] About to forward request to LSP server: %s", serverName)
+	
+	// Add timeout protection to prevent infinite waiting
+	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	
+	// Use goroutine with timeout to prevent infinite waiting at client.SendRequest level
+	resultCh := make(chan json.RawMessage, 1)
+	errCh := make(chan error, 1)
+	
+	go func() {
+		dm.logger.Printf("[DEBUG-DIRECT] GOROUTINE: About to call client.SendRequest")
+		result, err := client.SendRequest(timeoutCtx, method, params)
+		if err != nil {
+			dm.logger.Printf("[DEBUG-DIRECT] GOROUTINE: client.SendRequest returned error: %v", err)
+			errCh <- err
+		} else {
+			dm.logger.Printf("[DEBUG-DIRECT] GOROUTINE: client.SendRequest returned success: %d bytes", len(result))
+			resultCh <- result
+		}
+	}()
+	
+	dm.logger.Printf("[DEBUG-DIRECT] BEFORE select - waiting for client.SendRequest response")
+	select {
+	case result := <-resultCh:
+		dm.logger.Printf("[DEBUG-DIRECT] AFTER select - received result from client.SendRequest: %d bytes", len(result))
+		return result, nil
+	case err := <-errCh:
+		dm.logger.Printf("[DEBUG-DIRECT] AFTER select - received error from client.SendRequest: %v", err)
+		return nil, err
+	case <-timeoutCtx.Done():
+		dm.logger.Printf("[ERROR-DIRECT] TIMEOUT: client.SendRequest exceeded 30s timeout for method %s", method)
+		return nil, fmt.Errorf("LSP request timeout after 30s: method=%s, server=%s", method, serverName)
+	case <-time.After(35*time.Second):
+		dm.logger.Printf("[ERROR-DIRECT] HARD TIMEOUT: client.SendRequest exceeded 35s hard timeout for method %s", method)
+		return nil, fmt.Errorf("LSP request hard timeout after 35s: method=%s, server=%s", method, serverName)
+	}
+}
+
+// SendNotification implements the LSPClient interface for sending notifications to LSP servers
+func (dm *DirectLSPManager) SendNotification(ctx context.Context, method string, params interface{}) error {
+	dm.mu.RLock()
+	defer dm.mu.RUnlock()
+
+	dm.logger.Printf("[DEBUG] SendNotification called: method=%s, params=%+v", method, params)
+
+	// Try to determine target server from request parameters
+	serverName, err := dm.determineTargetServer(method, params)
+	if err != nil {
+		dm.logger.Printf("[ERROR] Failed to determine target server for notification: %v", err)
+		return fmt.Errorf("failed to determine target server: %w", err)
+	}
+
+	dm.logger.Printf("[DEBUG] Determined target server for notification: %s", serverName)
 
 	client, exists := dm.clients[serverName]
 	if !exists {
 		dm.logger.Printf("[ERROR] LSP client not found for server: %s", serverName)
-		return nil, fmt.Errorf("LSP client not found for server: %s", serverName)
+		return fmt.Errorf("LSP client not found for server: %s", serverName)
 	}
 
-	// Forward request to the appropriate LSP server
-	dm.logger.Printf("[DEBUG] Routing %s request to server: %s", method, serverName)
-	result, err := client.SendRequest(ctx, method, params)
+	// Forward notification to the appropriate LSP server
+	dm.logger.Printf("[DEBUG] Routing %s notification to server: %s", method, serverName)
+	err = client.SendNotification(ctx, method, params)
 	if err != nil {
-		dm.logger.Printf("[ERROR] LSP server %s returned error: %v", serverName, err)
-		return nil, err
+		dm.logger.Printf("[ERROR] LSP server %s returned error for notification: %v", serverName, err)
+		return err
 	}
-	dm.logger.Printf("[DEBUG] LSP server %s returned result: %d bytes", serverName, len(result))
-	return result, nil
+	dm.logger.Printf("[DEBUG] LSP server %s processed notification successfully", serverName)
+	return nil
 }
 
 // determineTargetServer determines which LSP server should handle the request
 // This implementation uses a simple heuristic based on file extensions or defaults to the first server
 func (dm *DirectLSPManager) determineTargetServer(method string, params interface{}) (string, error) {
-	dm.logger.Printf("[DEBUG] determineTargetServer: method=%s, paramsType=%T", method, params)
+	dm.logger.Printf("[DEBUG] determineTargetServer ENTRY: method=%s, paramsType=%T", method, params)
+	
+	// Add timeout protection to prevent infinite waiting in parameter processing
+	done := make(chan struct{})
+	var serverName string
+	var err error
+	
+	go func() {
+		defer close(done)
+		serverName, err = dm.doTargetServerDetermination(method, params)
+	}()
+	
+	select {
+	case <-done:
+		dm.logger.Printf("[DEBUG] determineTargetServer completed: server=%s, error=%v", serverName, err)
+		return serverName, err
+	case <-time.After(5 * time.Second):
+		dm.logger.Printf("[ERROR] determineTargetServer TIMEOUT after 5s - falling back to first available server")
+		// Emergency fallback - return first available server
+		for fallbackServer := range dm.clients {
+			dm.logger.Printf("[EMERGENCY] Using emergency fallback server: %s", fallbackServer)
+			return fallbackServer, nil
+		}
+		return "", fmt.Errorf("timeout determining target server and no servers available")
+	}
+}
+
+// doTargetServerDetermination performs the actual server determination logic
+func (dm *DirectLSPManager) doTargetServerDetermination(method string, params interface{}) (string, error) {
+	dm.logger.Printf("[DEBUG] doTargetServerDetermination: method=%s, paramsType=%T", method, params)
 	
 	// Try to extract file information from parameters to determine language
 	if paramsMap, ok := params.(map[string]interface{}); ok {
@@ -173,12 +266,38 @@ func (dm *DirectLSPManager) determineTargetServer(method string, params interfac
 		}
 	}
 
-	// Fallback to first available server
+	dm.logger.Printf("[DEBUG] Starting fallback server selection, available servers: %d", len(dm.clients))
+	
+	// First pass: Try to find an active server
+	clientCount := 0
+	var inactiveServers []string
+	
 	for serverName := range dm.clients {
-		dm.logger.Printf("Using fallback server %s for method %s", serverName, method)
+		clientCount++
+		dm.logger.Printf("[DEBUG] Checking fallback server %d: %s", clientCount, serverName)
+		
+		// Verify the client exists and is functional
+		if client, exists := dm.clients[serverName]; exists && client != nil {
+			if client.IsActive() {
+				dm.logger.Printf("[DEBUG] Using active fallback server %s for method %s", serverName, method)
+				return serverName, nil
+			} else {
+				dm.logger.Printf("[DEBUG] Server %s is inactive, adding to fallback list", serverName)
+				inactiveServers = append(inactiveServers, serverName)
+			}
+		} else {
+			dm.logger.Printf("[DEBUG] Skipping invalid client: %s (exists: %v, nil: %v)", serverName, exists, client == nil)
+		}
+	}
+	
+	// Second pass: If no active servers, try inactive ones (they might recover)
+	if len(inactiveServers) > 0 {
+		serverName := inactiveServers[0]
+		dm.logger.Printf("[DEBUG] No active servers found, using inactive fallback server %s for method %s", serverName, method)
 		return serverName, nil
 	}
 
+	dm.logger.Printf("[ERROR] No LSP servers available after checking %d clients", clientCount)
 	return "", fmt.Errorf("no LSP servers available")
 }
 
@@ -187,6 +306,8 @@ func (dm *DirectLSPManager) inferLanguageFromURI(uri string) string {
 	// Basic file extension to language mapping
 	extensionMap := map[string]string{
 		".go":   "go",
+		".mod":  "go",     // Go module files
+		".sum":  "go",     // Go checksum files
 		".py":   "python",
 		".ts":   "typescript",
 		".tsx":  "typescript",

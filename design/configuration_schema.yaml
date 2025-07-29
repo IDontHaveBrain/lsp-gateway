@@ -1,0 +1,486 @@
+# SubProjectRouter Configuration Schema
+# This file defines the complete configuration structure for the SubProjectRouter system
+
+# Root configuration
+subproject_router:
+  # Enable/disable SubProjectRouter (fallback to traditional routing if disabled)
+  enabled: true
+  
+  # Router core settings
+  router:
+    # Default routing strategy for requests
+    default_strategy: "single_target_with_fallback"
+    
+    # Method-specific routing strategies
+    method_strategies:
+      "textDocument/definition": "single_target_with_fallback"
+      "textDocument/references": "parallel_aggregate"
+      "textDocument/hover": "primary_with_enhancement"
+      "textDocument/documentSymbol": "single_target_with_fallback"
+      "workspace/symbol": "broadcast_aggregate"
+      "textDocument/completion": "load_balanced"
+    
+    # Fallback strategies in order of preference
+    fallback_strategies:
+      - "alternative_client"
+      - "workspace_level"
+      - "cached_response"
+      - "read_only_mode"
+    
+    # Request routing rules
+    routing_rules:
+      - name: "priority_language_server"
+        condition:
+          file_extension: [".go", ".mod"]
+          project_type: "go"
+        action:
+          preferred_client: "gopls"
+          strategy: "single_target_with_fallback"
+      
+      - name: "typescript_react_routing"
+        condition:
+          file_extension: [".tsx", ".jsx"]
+          project_type: "typescript"
+        action:
+          preferred_client: "typescript-language-server"
+          enhancement_clients: ["eslint-lsp"]
+          strategy: "primary_with_enhancement"
+      
+      - name: "cross_project_references"
+        condition:
+          method: "textDocument/references"
+          cross_project_dependencies: true
+        action:
+          strategy: "multi_project_aggregate"
+          max_projects: 10
+
+  # Workspace configuration
+  workspace:
+    # Workspace root directories (multiple roots supported)
+    roots:
+      - "/home/skawn/work/lsp-gateway"
+      - "/home/skawn/work/other-project"
+    
+    # Paths to exclude from project discovery
+    exclude_paths:
+      - "node_modules"
+      - ".git"
+      - "target"
+      - "dist"
+      - "build"
+      - ".vscode"
+      - ".idea"
+      - "*.log"
+    
+    # Patterns to include in project discovery
+    include_patterns:
+      - "**/*.go"
+      - "**/*.py"
+      - "**/*.js"
+      - "**/*.ts"
+      - "**/*.java"
+      - "**/pom.xml"
+      - "**/package.json"
+      - "**/go.mod"
+      - "**/requirements.txt"
+    
+    # Maximum depth for project discovery
+    discovery_depth: 5
+    
+    # Watch for file system changes
+    watch_for_changes: true
+    
+    # File system watcher configuration
+    watcher:
+      debounce_interval: "500ms"
+      batch_size: 100
+      exclude_patterns:
+        - "**/.git/**"
+        - "**/node_modules/**"
+        - "**/target/**"
+
+  # Project configuration
+  projects:
+    # Enable automatic project discovery
+    auto_discovery: true
+    
+    # Project detection rules
+    detection_rules:
+      - language: "go"
+        markers:
+          - "go.mod"
+          - "go.sum"
+        source_dirs: [".", "cmd", "internal", "pkg"]
+        test_dirs: [".", "test", "tests"]
+        confidence_boost: 0.9
+      
+      - language: "python"
+        markers:
+          - "requirements.txt"
+          - "pyproject.toml"
+          - "setup.py"
+          - "Pipfile"
+        source_dirs: [".", "src", "lib"]
+        test_dirs: ["test", "tests"]
+        confidence_boost: 0.8
+      
+      - language: "typescript"
+        markers:
+          - "package.json"
+          - "tsconfig.json"
+        source_dirs: ["src", "lib"]
+        test_dirs: ["test", "tests", "__tests__"]
+        confidence_boost: 0.8
+      
+      - language: "java"
+        markers:
+          - "pom.xml"
+          - "build.gradle"
+          - "build.gradle.kts"
+        source_dirs: ["src/main/java", "src"]
+        test_dirs: ["src/test/java", "test"]
+        confidence_boost: 0.9
+    
+    # Project-specific overrides
+    overrides:
+      "/home/skawn/work/lsp-gateway":
+        name: "LSP Gateway"
+        type: "go"
+        primary_language: "go"
+        languages: ["go", "yaml", "markdown"]
+        lsp_clients:
+          go: "gopls"
+          yaml: "yaml-language-server"
+        custom_config:
+          gopls:
+            settings:
+              build.buildFlags: ["-tags=integration"]
+      
+      "/home/skawn/work/frontend-app":
+        name: "Frontend App"
+        type: "typescript"
+        primary_language: "typescript"
+        languages: ["typescript", "javascript", "css", "html"]
+        lsp_clients:
+          typescript: "typescript-language-server"
+          css: "vscode-css-languageserver"
+    
+    # Maximum project hierarchy depth
+    hierarchy_depth: 3
+    
+    # Project cache settings
+    cache:
+      ttl: "30m"
+      max_size: 1000
+      cleanup_interval: "10m"
+
+  # Client configuration
+  clients:
+    # Global client settings
+    global:
+      # Connection timeout for LSP clients
+      connection_timeout: "30s"
+      
+      # Request timeout
+      request_timeout: "10s"
+      
+      # Maximum concurrent requests per client
+      max_concurrent_requests: 10
+      
+      # Client health check interval
+      health_check_interval: "30s"
+      
+      # Client restart strategy
+      restart_strategy: "exponential_backoff"
+      restart_max_attempts: 3
+      restart_initial_delay: "1s"
+      restart_max_delay: "30s"
+    
+    # Language-specific client configurations
+    language_specific:
+      go:
+        client_type: "gopls"
+        settings:
+          build.buildFlags: []
+          ui.completion.usePlaceholders: true
+          ui.diagnostic.analyses:
+            unusedparams: true
+            shadow: true
+        initialization_options:
+          usePlaceholders: true
+        capabilities:
+          textDocument:
+            completion:
+              completionItem:
+                snippetSupport: true
+    
+    # Client pool configuration
+    pool:
+      # Maximum clients per language per project
+      max_clients_per_language: 3
+      
+      # Client idle timeout before cleanup
+      idle_timeout: "10m"
+      
+      # Pool cleanup interval
+      cleanup_interval: "5m"
+      
+      # Warm-up settings
+      warmup:
+        enabled: true
+        priority_languages: ["go", "typescript", "python"]
+        max_warmup_clients: 2
+
+  # Performance configuration
+  performance:
+    # Concurrency limits
+    concurrency:
+      max_concurrent_requests: 100
+      max_concurrent_project_resolutions: 20
+      max_concurrent_client_operations: 50
+      worker_pool_size: 10
+    
+    # Timeout settings
+    timeouts:
+      project_resolution: "2s"
+      client_selection: "1s"
+      request_processing: "30s"
+      health_check: "5s"
+      shutdown: "10s"
+    
+    # Cache configuration
+    cache:
+      # Project resolution cache
+      project_resolution:
+        enabled: true
+        ttl: "5m"
+        max_size: 10000
+        cleanup_interval: "1m"
+      
+      # Client response cache
+      response_cache:
+        enabled: true
+        method_ttl:
+          "textDocument/hover": "2m"
+          "textDocument/documentSymbol": "5m"
+          "workspace/symbol": "10m"
+        max_size_mb: 100
+        compression: true
+      
+      # SCIP integration cache
+      scip_cache:
+        enabled: true
+        memory_limit_mb: 256
+        disk_limit_mb: 1024
+        ttl: "1h"
+    
+    # Memory management
+    memory:
+      # Object pooling
+      request_pool_size: 1000
+      response_pool_size: 1000
+      
+      # GC optimization
+      gc_target_percentage: 50
+      memory_limit_mb: 2048
+      
+      # Memory profiling
+      profiling:
+        enabled: false
+        interval: "30s"
+        heap_profile_rate: 512000
+
+  # Observability configuration
+  observability:
+    # Metrics configuration
+    metrics:
+      enabled: true
+      endpoint: "/metrics"
+      interval: "15s"
+      
+      # Metric categories to collect
+      categories:
+        - "requests"
+        - "routing"
+        - "clients"
+        - "projects"
+        - "performance"
+        - "errors"
+      
+      # Custom metrics
+      custom_metrics:
+        - name: "project_resolution_cache_hit_rate"
+          type: "gauge"
+          description: "Cache hit rate for project resolution"
+        
+        - name: "cross_project_requests_total"
+          type: "counter"
+          description: "Total cross-project requests"
+          labels: ["source_project", "target_project"]
+    
+    # Logging configuration
+    logging:
+      level: "info"
+      format: "json"
+      output: "stdout"
+      
+      # Component-specific log levels
+      components:
+        router: "debug"
+        client_manager: "info"
+        project_resolver: "info"
+        metrics: "warn"
+      
+      # Request logging
+      request_logging:
+        enabled: true
+        include_params: false
+        include_response: false
+        max_body_size: 1024
+      
+      # Structured logging fields
+      fields:
+        service: "lsp-gateway"
+        component: "subproject-router"
+        version: "0.6.0"
+    
+    # Tracing configuration
+    tracing:
+      enabled: false
+      provider: "jaeger"
+      endpoint: "http://localhost:14268/api/traces"
+      sample_rate: 0.1
+      
+      # Trace configuration
+      traces:
+        request_processing: true
+        project_resolution: true
+        client_communication: true
+        cache_operations: false
+    
+    # Health checks
+    health:
+      endpoint: "/health"
+      checks:
+        - name: "router_status"
+          type: "component"
+          interval: "10s"
+        
+        - name: "client_pool_health"
+          type: "aggregate"
+          interval: "30s"
+        
+        - name: "project_cache_status"
+          type: "cache"
+          interval: "1m"
+      
+      # Health check thresholds
+      thresholds:
+        error_rate: 0.05  # 5% error rate threshold
+        latency_p99: "5s" # 99th percentile latency threshold
+        client_failures: 3 # Max client failures before unhealthy
+
+  # Security configuration (future extension)
+  security:
+    # Authentication
+    authentication:
+      enabled: false
+      type: "none"  # none, api_key, oauth2, jwt
+    
+    # Authorization
+    authorization:
+      enabled: false
+      default_policy: "allow"
+    
+    # Rate limiting
+    rate_limiting:
+      enabled: false
+      requests_per_minute: 1000
+      burst_size: 100
+
+  # Development and debugging
+  development:
+    # Debug mode
+    debug_mode: false
+    
+    # Debug endpoints
+    debug_endpoints:
+      enabled: false
+      prefix: "/debug"
+      endpoints:
+        - "pprof"
+        - "trace"
+        - "metrics"
+        - "config"
+    
+    # Mock clients for testing
+    mock_clients:
+      enabled: false
+      languages: ["go", "python"]
+      response_delay: "100ms"
+    
+    # Feature flags
+    feature_flags:
+      enable_cross_project_references: true
+      enable_enhanced_hover: true
+      enable_parallel_completion: false
+      enable_experimental_caching: false
+
+# Integration with existing gateway configuration
+gateway_integration:
+  # Handler integration mode
+  integration_mode: "middleware"  # middleware, replacement, hybrid
+  
+  # Backward compatibility
+  backward_compatibility:
+    enabled: true
+    fallback_to_traditional: true
+    log_fallbacks: true
+  
+  # Migration settings
+  migration:
+    gradual_rollout: true
+    rollout_percentage: 100
+    feature_toggles:
+      - "subproject_routing"
+      - "enhanced_project_detection"
+      - "cross_project_analysis"
+
+# Environment-specific overrides
+environments:
+  development:
+    subproject_router:
+      observability:
+        logging:
+          level: "debug"
+        metrics:
+          enabled: true
+      development:
+        debug_mode: true
+        debug_endpoints:
+          enabled: true
+  
+  testing:
+    subproject_router:
+      clients:
+        global:
+          connection_timeout: "5s"
+          request_timeout: "3s"
+      development:
+        mock_clients:
+          enabled: true
+  
+  production:
+    subproject_router:
+      performance:
+        concurrency:
+          max_concurrent_requests: 500
+        cache:
+          response_cache:
+            max_size_mb: 500
+      observability:
+        metrics:
+          interval: "10s"
+        tracing:
+          enabled: true
+          sample_rate: 0.01

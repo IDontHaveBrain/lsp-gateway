@@ -541,7 +541,7 @@ func (d *DefaultProjectDetector) buildProjectContext(rootPath string, results []
 	ctx.BuildFiles = d.removeDuplicates(ctx.BuildFiles)
 
 	// Calculate project size
-	ctx.ProjectSize = d.calculateProjectSize(rootPath)
+	ctx.ProjectSize = d.calculateProjectSize(context.Background(), rootPath)
 
 	return ctx, nil
 }
@@ -633,10 +633,17 @@ func (d *DefaultProjectDetector) removeDuplicates(slice []string) []string {
 	return result
 }
 
-func (d *DefaultProjectDetector) calculateProjectSize(rootPath string) types.ProjectSize {
+func (d *DefaultProjectDetector) calculateProjectSize(ctx context.Context, rootPath string) types.ProjectSize {
 	size := types.ProjectSize{}
 
 	err := filepath.WalkDir(rootPath, func(path string, entry fs.DirEntry, err error) error {
+		// Check for context cancellation to prevent infinite blocking
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		
 		if err != nil {
 			return nil
 		}

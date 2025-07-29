@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -827,6 +828,7 @@ type ContentBlock struct {
 // LSPClient interface defines the methods needed for LSP communication
 type LSPClient interface {
 	SendLSPRequest(ctx context.Context, method string, params interface{}) (json.RawMessage, error)
+	SendNotification(ctx context.Context, method string, params interface{}) error
 }
 
 type ToolHandler struct {
@@ -1391,7 +1393,11 @@ func (h *ToolHandler) handleGotoDefinitionWithContext(ctx context.Context, args 
 		},
 	}
 
-	result, err := h.Client.SendLSPRequest(ctx, "textDocument/definition", params)
+	// Create timeout context for LSP request to prevent infinite wait
+	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	
+	result, err := h.Client.SendLSPRequest(timeoutCtx, "textDocument/definition", params)
 	if err != nil {
 		return createLSPRequestError("textDocument/definition", "goto_definition", err, params), nil
 	}
@@ -1494,7 +1500,11 @@ func (h *ToolHandler) handleFindReferencesWithContext(ctx context.Context, args 
 		},
 	}
 
-	result, err := h.Client.SendLSPRequest(ctx, "textDocument/references", params)
+	// Create timeout context for LSP request to prevent infinite wait
+	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	
+	result, err := h.Client.SendLSPRequest(timeoutCtx, "textDocument/references", params)
 	if err != nil {
 		return createLSPRequestError("textDocument/references", "find_references", err, params), nil
 	}
@@ -1567,7 +1577,11 @@ func (h *ToolHandler) handleGetHoverInfoWithContext(ctx context.Context, args ma
 		},
 	}
 
-	result, err := h.Client.SendLSPRequest(ctx, LSPMethodHover, params)
+	// Create timeout context for LSP request to prevent infinite wait
+	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	
+	result, err := h.Client.SendLSPRequest(timeoutCtx, LSPMethodHover, params)
 	if err != nil {
 		return createLSPRequestError(LSPMethodHover, "get_hover_info", err, params), nil
 	}
@@ -1601,7 +1615,7 @@ func (h *ToolHandler) handleGetDocumentSymbols(ctx context.Context, args map[str
 // Enhanced version with workspace context support
 func (h *ToolHandler) handleGetDocumentSymbolsWithContext(ctx context.Context, args map[string]interface{}, workspaceCtx *WorkspaceContext) (*ToolResult, error) {
 	startTime := time.Now()
-	log.Printf("[DEBUG] handleGetDocumentSymbols called with args: %+v", args)
+	log.Printf("[DEBUG-TOOLS] handleGetDocumentSymbols ENTRY: uri from args=%+v", args)
 
 	// Validate required parameters
 	uri, err := getStringParam(args, "uri", true)
@@ -1661,13 +1675,51 @@ func (h *ToolHandler) handleGetDocumentSymbolsWithContext(ctx context.Context, a
 		},
 	}
 
-	log.Printf("[DEBUG] Sending LSP request: method=textDocument/documentSymbol, params=%+v", params)
-	result, err := h.Client.SendLSPRequest(ctx, "textDocument/documentSymbol", params)
+	// First, send textDocument/didOpen notification to inform LSP server about the file
+	log.Printf("[DEBUG-TOOLS] Sending textDocument/didOpen notification for: %s", uri)
+	
+	// Read file content for didOpen notification
+	filePath := strings.TrimPrefix(uri, "file://")
+	fileContent := ""
+	if content, err := os.ReadFile(filePath); err == nil {
+		fileContent = string(content)
+	}
+	
+	// Send didOpen notification
+	didOpenParams := map[string]interface{}{
+		"textDocument": map[string]interface{}{
+			"uri":        uri,
+			"languageId": h.inferLanguageFromFileURI(uri),
+			"version":    1,
+			"text":       fileContent,
+		},
+	}
+	
+	// Send notification (no response expected)
+	if err := h.Client.SendNotification(ctx, "textDocument/didOpen", didOpenParams); err != nil {
+		log.Printf("[WARN] Failed to send didOpen notification: %v", err)
+		// Continue anyway - some LSP servers might work without it
+	}
+	
+	// Small delay to allow LSP server to process the file
+	time.Sleep(100 * time.Millisecond)
+
+	log.Printf("[DEBUG-TOOLS] Preparing to send LSP request: method=textDocument/documentSymbol, params=%+v", params)
+	
+	// Create timeout context for LSP request to prevent infinite wait
+	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	
+	deadline, _ := timeoutCtx.Deadline()
+	log.Printf("[DEBUG-TOOLS] About to call SendLSPRequest with timeout context, deadline=%v", deadline)
+	log.Printf("[DEBUG-TOOLS] BEFORE SendLSPRequest call - this is where infinite wait may occur")
+	result, err := h.Client.SendLSPRequest(timeoutCtx, "textDocument/documentSymbol", params)
+	log.Printf("[DEBUG-TOOLS] AFTER SendLSPRequest call - returned from potential infinite wait")
 	if err != nil {
-		log.Printf("[ERROR] LSP request failed: %v", err)
+		log.Printf("[ERROR-TOOLS] LSP request failed: %v", err)
 		return createLSPRequestError("textDocument/documentSymbol", "get_document_symbols", err, params), nil
 	}
-	log.Printf("[DEBUG] LSP request successful, result length: %d bytes", len(result))
+	log.Printf("[DEBUG-TOOLS] LSP request successful, result length: %d bytes", len(result))
 
 	// Create enhanced result with project context
 	toolResult := &ToolResult{
@@ -1730,7 +1782,11 @@ func (h *ToolHandler) handleSearchWorkspaceSymbolsWithContext(ctx context.Contex
 		"query": query,
 	}
 
-	result, err := h.Client.SendLSPRequest(ctx, "workspace/symbol", params)
+	// Create timeout context for LSP request to prevent infinite wait
+	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	
+	result, err := h.Client.SendLSPRequest(timeoutCtx, "workspace/symbol", params)
 	if err != nil {
 		// Check if the error is "Method Not Found" (pylsp doesn't support workspace/symbol)
 		if isMethodNotFoundError(err) {
@@ -1795,4 +1851,35 @@ func (h *ToolHandler) fallbackWorkspaceSymbolSearch(ctx context.Context, query s
 	}
 	
 	return toolResult, nil
+}
+
+// inferLanguageFromFileURI attempts to determine programming language from file URI
+func (h *ToolHandler) inferLanguageFromFileURI(uri string) string {
+	// Basic file extension to language mapping
+	extensionMap := map[string]string{
+		".go":    "go",
+		".py":    "python",
+		".ts":    "typescript",
+		".tsx":   "typescript",
+		".js":    "javascript",
+		".jsx":   "javascript",
+		".java":  "java",
+		".kt":    "kotlin",
+		".rs":    "rust",
+		".cpp":   "cpp",
+		".c":     "c",
+		".cs":    "csharp",
+		".php":   "php",
+		".rb":    "ruby",
+		".swift": "swift",
+	}
+
+	// Extract file extension from URI
+	for ext, lang := range extensionMap {
+		if len(uri) > len(ext) && uri[len(uri)-len(ext):] == ext {
+			return lang
+		}
+	}
+
+	return "unknown"
 }

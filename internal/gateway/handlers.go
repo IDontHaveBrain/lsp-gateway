@@ -1968,7 +1968,11 @@ func (g *Gateway) handleRequest(w http.ResponseWriter, r *http.Request, req JSON
 		logger.Debug("Sending request to LSP server")
 	}
 
-	result, err := client.SendRequest(r.Context(), req.Method, req.Params)
+	// Create timeout context to prevent infinite wait
+	timeoutCtx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	result, err := client.SendRequest(timeoutCtx, req.Method, req.Params)
 	if err != nil {
 		if logger != nil {
 			logger.WithError(err).Error("LSP server request failed")

@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"lsp-gateway/internal/config"
-	"lsp-gateway/internal/gateway"
 	"lsp-gateway/internal/project"
-	"lsp-gateway/internal/setup"
+	"lsp-gateway/internal/project/types"
+	"lsp-gateway/internal/workspace"
 
 	"github.com/spf13/cobra"
 )
@@ -86,13 +86,16 @@ func runServerWithContext(ctx context.Context, _ *cobra.Command, args []string) 
 		return err
 	}
 
-	gw, err := initializeGateway(ctx, cfg)
+	workspaceCtx, workspaceConfig, gw, err := initializeWorkspaceGateway(ctx, cfg)
 	if err != nil {
 		return err
 	}
-	defer cleanupGateway(gw)
+	defer cleanupWorkspaceGateway(gw)
 
-	server := createHTTPServer(cfg, gw)
+	log.Printf("[INFO] Workspace initialized: ID=%s, Root=%s, Type=%s, Languages=%v\n",
+		workspaceCtx.ID, workspaceCtx.Root, workspaceCtx.ProjectType, workspaceCtx.Languages)
+
+	server := createHTTPServer(cfg, gw, workspaceConfig)
 	return runServerLifecycle(ctx, server, cfg.Port)
 }
 
@@ -102,15 +105,17 @@ func setupServerConfiguration() (*config.GatewayConfig, error) {
 		return nil, err
 	}
 
-	// Project detection step
-	projectConfig, err := performProjectDetection()
+	// Workspace detection step (simplified from project detection)
+	workspaceRoot, err := os.Getwd()
 	if err != nil {
-		log.Printf("[WARN] Project detection failed: %v\n", err)
-		// Continue with default configuration loading
+		log.Printf("[ERROR] Failed to get current working directory: %v\n", err)
+		return nil, fmt.Errorf("failed to get current working directory: %w", err)
 	}
 
+	log.Printf("[INFO] Using workspace root: %s\n", workspaceRoot)
+
 	log.Printf("[DEBUG] Loading configuration\n")
-	cfg, err := loadConfigurationWithProject(projectConfig)
+	cfg, err := loadConfiguration()
 	if err != nil {
 		log.Printf("[ERROR] Failed to load configuration from %s: %v\n", configPath, err)
 		return nil, HandleConfigError(err, configPath)
@@ -118,10 +123,29 @@ func setupServerConfiguration() (*config.GatewayConfig, error) {
 
 	log.Printf("[INFO] Configuration loaded from %s\n", configPath)
 
+	// Initialize port manager for dynamic port allocation
+	var allocatedPort int
 	if port != DefaultServerPort {
 		log.Printf("[INFO] Port override specified: default_port=%d, override_port=%d\n", DefaultServerPort, port)
-		cfg.Port = port
+		allocatedPort = port
+	} else {
+		// Use workspace port manager for dynamic allocation
+		portManager, err := workspace.NewWorkspacePortManager()
+		if err != nil {
+			log.Printf("[WARN] Failed to initialize port manager, using default port: %v\n", err)
+			allocatedPort = DefaultServerPort
+		} else {
+			allocatedPort, err = portManager.AllocatePort(workspaceRoot)
+			if err != nil {
+				log.Printf("[WARN] Port allocation failed, using default port: %v\n", err)
+				allocatedPort = DefaultServerPort
+			} else {
+				log.Printf("[INFO] Allocated port %d for workspace %s\n", allocatedPort, workspaceRoot)
+			}
+		}
 	}
+
+	cfg.Port = allocatedPort
 
 	// Apply bypass configuration overrides from CLI flags
 	if err := applyBypassOverrides(cfg); err != nil {
@@ -145,134 +169,217 @@ func setupServerConfiguration() (*config.GatewayConfig, error) {
 	return cfg, nil
 }
 
-func initializeGateway(ctx context.Context, cfg *config.GatewayConfig) (gateway.GatewayInterface, error) {
-	log.Printf("[DEBUG] Creating LSP gateway (project_aware=%t)\n", cfg.ProjectAware)
+func initializeWorkspaceGateway(ctx context.Context, cfg *config.GatewayConfig) (*workspace.WorkspaceContext, *workspace.WorkspaceConfig, workspace.WorkspaceGateway, error) {
+	log.Printf("[DEBUG] Initializing workspace-based gateway\n")
 
-	// Create failure handler for startup failures
-	failureHandler := createFailureHandler(cfg)
+	// Create workspace detector
+	workspaceDetector := workspace.NewWorkspaceDetector()
 
-	var gw gateway.GatewayInterface
-	var err error
-
-	if cfg.ProjectAware {
-		gw, err = gateway.NewProjectAwareGateway(cfg)
-		if err != nil {
-			log.Printf("[WARN] Failed to create project-aware gateway, falling back to traditional: %v\n", err)
-			// Fallback to traditional gateway
-			gw, err = gateway.NewGateway(cfg)
-			if err != nil {
-				log.Printf("[ERROR] Failed to create fallback gateway: %v\n", err)
-				return nil, NewGatewayStartupError(err)
-			}
-			log.Printf("[INFO] Traditional gateway created as fallback\n")
-		} else {
-			log.Printf("[INFO] Project-aware gateway created successfully\n")
-		}
-	} else {
-		gw, err = gateway.NewGateway(cfg)
-		if err != nil {
-			log.Printf("[ERROR] Failed to create gateway: %v\n", err)
-			return nil, NewGatewayStartupError(err)
-		}
-		log.Printf("[INFO] Traditional gateway created successfully\n")
+	// Detect workspace context
+	workspaceCtx, err := workspaceDetector.DetectWorkspace()
+	if err != nil {
+		log.Printf("[ERROR] Workspace detection failed: %v\n", err)
+		return nil, nil, nil, fmt.Errorf("workspace detection failed: %w", err)
 	}
 
-	log.Printf("[INFO] Starting gateway\n")
+	log.Printf("[INFO] Workspace detected: ID=%s, Type=%s, Languages=%v\n",
+		workspaceCtx.ID, workspaceCtx.ProjectType, workspaceCtx.Languages)
+
+	// Create workspace config manager
+	configManager := workspace.NewWorkspaceConfigManager()
+
+	// Generate or load workspace configuration
+	workspaceConfig, err := loadOrGenerateWorkspaceConfig(configManager, workspaceCtx)
+	if err != nil {
+		log.Printf("[ERROR] Failed to load/generate workspace configuration: %v\n", err)
+		return nil, nil, nil, fmt.Errorf("workspace configuration failed: %w", err)
+	}
+
+	// Create workspace gateway
+	gw := workspace.NewWorkspaceGateway()
+
+	// Initialize gateway with workspace configuration
+	gatewayConfig := &workspace.WorkspaceGatewayConfig{
+		WorkspaceRoot:    workspaceCtx.Root,
+		ExtensionMapping: createDefaultExtensionMapping(),
+		Timeout:          30 * time.Second,
+		EnableLogging:    true,
+	}
+
+	if err := gw.Initialize(ctx, workspaceConfig, gatewayConfig); err != nil {
+		log.Printf("[ERROR] Failed to initialize workspace gateway: %v\n", err)
+		return nil, nil, nil, fmt.Errorf("gateway initialization failed: %w", err)
+	}
+
+	log.Printf("[INFO] Starting workspace gateway\n")
 	if err := gw.Start(ctx); err != nil {
-		log.Printf("[ERROR] Failed to start gateway: %v\n", err)
+		log.Printf("[ERROR] Failed to start workspace gateway: %v\n", err)
 		
-		// Try to extract specific server failures from the gateway startup error
-		if startupFailures := extractStartupFailures(err, cfg); len(startupFailures) > 0 {
-			log.Printf("[INFO] Detected %d server startup failures, handling with failure notification system\n", len(startupFailures))
-			
-			// Handle startup failures with user interaction
-			if handlerErr := failureHandler.HandleGatewayStartupFailures(startupFailures); handlerErr != nil {
-				log.Printf("[ERROR] Failure handler returned error: %v\n", handlerErr)
-				return nil, handlerErr
-			}
-			
-			// Check if gateway can start with some failures bypassed
-			if canStartWithBypassedServers(gw) {
-				log.Printf("[INFO] Gateway starting with some servers bypassed\n")
-				return gw, nil
-			}
+		// Check if gateway can start with partial functionality
+		health := gw.Health()
+		if health.ActiveClients > 0 {
+			log.Printf("[INFO] Gateway starting with %d active clients (some servers may have failed)\n", health.ActiveClients)
+			return workspaceCtx, workspaceConfig, gw, nil
 		}
 		
-		return nil, NewGatewayStartupError(err)
+		return nil, nil, nil, fmt.Errorf("gateway startup failed: %w", err)
 	}
 
-	return gw, nil
+	log.Printf("[INFO] Workspace gateway started successfully with %d clients\n", gw.Health().ActiveClients)
+	return workspaceCtx, workspaceConfig, gw, nil
 }
 
-func cleanupGateway(gw gateway.GatewayInterface) {
+func cleanupWorkspaceGateway(gw workspace.WorkspaceGateway) {
 	if gw != nil {
 		if err := gw.Stop(); err != nil {
-			log.Printf("[WARN] Error stopping gateway during shutdown: %v\n", err)
+			log.Printf("[WARN] Error stopping workspace gateway during shutdown: %v\n", err)
 		}
 	}
 }
 
-func createHTTPServer(cfg *config.GatewayConfig, gw gateway.GatewayInterface) *http.Server {
+// loadOrGenerateWorkspaceConfig loads existing workspace config or generates new one
+func loadOrGenerateWorkspaceConfig(configManager workspace.WorkspaceConfigManager, workspaceCtx *workspace.WorkspaceContext) (*workspace.WorkspaceConfig, error) {
+	// Try to load existing workspace configuration
+	workspaceConfig, err := configManager.LoadWorkspaceConfig(workspaceCtx.Root)
+	if err == nil {
+		log.Printf("[INFO] Loaded existing workspace configuration\n")
+		return workspaceConfig, nil
+	}
+
+	log.Printf("[INFO] Generating new workspace configuration\n")
+
+	// Create project context for config generation
+	projectCtx := &project.ProjectContext{
+		ProjectType: workspaceCtx.ProjectType,
+		RootPath:    workspaceCtx.Root,
+		Languages:   workspaceCtx.Languages,
+		Metadata:    make(map[string]interface{}),
+	}
+
+	// Generate new workspace configuration
+	if err := configManager.GenerateWorkspaceConfig(workspaceCtx.Root, projectCtx); err != nil {
+		return nil, fmt.Errorf("failed to generate workspace config: %w", err)
+	}
+
+	// Load the newly generated configuration
+	workspaceConfig, err = configManager.LoadWorkspaceConfig(workspaceCtx.Root)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load generated workspace config: %w", err)
+	}
+
+	log.Printf("[INFO] Generated and loaded workspace configuration with %d servers\n", len(workspaceConfig.Servers))
+	return workspaceConfig, nil
+}
+
+// createDefaultExtensionMapping creates default file extension to language mappings
+func createDefaultExtensionMapping() map[string]string {
+	return map[string]string{
+		".go":   types.PROJECT_TYPE_GO,
+		".mod":  types.PROJECT_TYPE_GO,
+		".py":   types.PROJECT_TYPE_PYTHON,
+		".pyx":  types.PROJECT_TYPE_PYTHON,
+		".pyi":  types.PROJECT_TYPE_PYTHON,
+		".js":   types.PROJECT_TYPE_NODEJS,
+		".jsx":  types.PROJECT_TYPE_NODEJS,
+		".mjs":  types.PROJECT_TYPE_NODEJS,
+		".cjs":  types.PROJECT_TYPE_NODEJS,
+		".ts":   types.PROJECT_TYPE_TYPESCRIPT,
+		".tsx":  types.PROJECT_TYPE_TYPESCRIPT,
+		".java": types.PROJECT_TYPE_JAVA,
+	}
+}
+
+// loadConfiguration loads configuration without project-specific logic
+func loadConfiguration() (*config.GatewayConfig, error) {
+	// Check if config file exists
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		log.Printf("[WARN] Configuration file not found: %s\n", configPath)
+		
+		// Try to auto-generate configuration
+		log.Printf("[INFO] Attempting to auto-generate configuration...\n")
+		
+		// Use current working directory for auto-generation
+		wd, err := os.Getwd()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get working directory: %w", err)
+		}
+		
+		// Auto-generate multi-language configuration
+		multiLangConfig, err := config.AutoGenerateConfigFromPath(wd)
+		if err != nil {
+			return nil, fmt.Errorf("configuration file not found and auto-generation failed: %w", err)
+		}
+		
+		// Convert to gateway configuration
+		cfg, err := multiLangConfig.ToGatewayConfig()
+		if err != nil {
+			return nil, fmt.Errorf("failed to convert auto-generated configuration: %w", err)
+		}
+		
+		log.Printf("[INFO] Successfully auto-generated configuration with %d servers\n", len(cfg.Servers))
+		return cfg, nil
+	}
+	
+	// Load base configuration from existing file
+	return config.LoadConfig(configPath)
+}
+
+func createHTTPServer(cfg *config.GatewayConfig, gw workspace.WorkspaceGateway, workspaceConfig *workspace.WorkspaceConfig) *http.Server {
 	log.Printf("[DEBUG] Setting up HTTP server\n")
 
 	// Create a new ServeMux to avoid global state conflicts in tests
 	mux := http.NewServeMux()
 	mux.HandleFunc("/jsonrpc", gw.HandleJSONRPC)
 
-	// Add health check endpoint
+	// Add simplified health check endpoint using WorkspaceGateway.Health()
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		// Check if gateway is properly initialized
 		if gw == nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = fmt.Fprintf(w, `{"status":"error","message":"gateway not initialized","timestamp":%d}`, time.Now().Unix())
+			_, _ = fmt.Fprintf(w, `{"status":"error","message":"workspace gateway not initialized","timestamp":%d}`, time.Now().Unix())
 			return
 		}
 
-		// Check health based on gateway type
-		hasActiveClient := false
-		clientCount := 0
-		isProjectAware := false
+		// Get health status from workspace gateway
+		health := gw.Health()
 
-		// Try to cast to ProjectAwareGateway first
-		if projectGw, ok := gw.(*gateway.ProjectAwareGateway); ok {
-			isProjectAware = true
-			// Check workspace clients
-			workspaces := projectGw.GetAllWorkspaces()
-			for _, workspace := range workspaces {
-				if workspace.IsActive() {
-					hasActiveClient = true
-					clientCount++
-				}
-			}
-			// Also check traditional clients as fallback
-			if !hasActiveClient && projectGw.Gateway != nil {
-				for _, client := range projectGw.Clients {
-					if client.IsActive() {
-						hasActiveClient = true
-						clientCount++
-					}
-				}
-			}
-		} else if traditionalGw, ok := gw.(*gateway.Gateway); ok {
-			// Traditional gateway health check
-			if len(traditionalGw.Clients) > 0 {
-				for _, client := range traditionalGw.Clients {
-					if client.IsActive() {
-						hasActiveClient = true
-						clientCount++
-					}
-				}
-			}
+		// Determine HTTP status based on health
+		statusCode := http.StatusServiceUnavailable
+		if health.IsHealthy {
+			statusCode = http.StatusOK
 		}
 
-		if hasActiveClient {
-			w.WriteHeader(http.StatusOK)
-			_, _ = fmt.Fprintf(w, `{"status":"ok","active_clients":%d,"project_aware":%t,"timestamp":%d}`,
-				clientCount, isProjectAware, time.Now().Unix())
-		} else {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = fmt.Fprintf(w, `{"status":"starting","message":"no active LSP clients yet","project_aware":%t,"timestamp":%d}`,
-				isProjectAware, time.Now().Unix())
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(statusCode)
+
+		// Create simplified health response
+		healthResponse := map[string]interface{}{
+			"status":         getHealthStatus(health.IsHealthy),
+			"workspace_root": health.WorkspaceRoot,
+			"active_clients": health.ActiveClients,
+			"workspace_type": "single",
+			"timestamp":      time.Now().Unix(),
+		}
+
+		// Add client details if available
+		if len(health.ClientStatuses) > 0 {
+			healthResponse["client_statuses"] = health.ClientStatuses
+		}
+
+		// Add errors if any
+		if len(health.Errors) > 0 {
+			healthResponse["errors"] = health.Errors
+		}
+
+		// Add workspace information
+		if workspaceConfig != nil {
+			healthResponse["workspace_id"] = workspaceConfig.Workspace.WorkspaceID
+			healthResponse["project_type"] = workspaceConfig.Workspace.ProjectType
+			healthResponse["languages"] = workspaceConfig.Workspace.Languages
+		}
+
+		if _, err := fmt.Fprintf(w, "%s", formatHealthResponse(healthResponse)); err != nil {
+			log.Printf("[WARN] Failed to write health response: %v\n", err)
 		}
 	})
 
@@ -324,10 +431,17 @@ func validateServerParams() error {
 		func() *ValidationError {
 			return ValidatePort(port, "port")
 		},
-		// Project validation
+		// Workspace validation (simplified from project validation)
 		func() *ValidationError {
 			if projectPath != "" {
-				return ValidateProjectPath(projectPath, "project")
+				// Validate workspace path if specified
+				if _, err := os.Stat(projectPath); os.IsNotExist(err) {
+					return &ValidationError{
+						Field:   "project",
+						Value:   projectPath,
+						Message: fmt.Sprintf("workspace path does not exist: %s", projectPath),
+					}
+				}
 			}
 			return nil
 		},
@@ -459,17 +573,15 @@ func hasAnyBypassFlagsSet() bool {
 		   bypassStrategy != "fail_gracefully" // default value
 }
 
-// performProjectDetection performs project detection based on CLI flags
-func performProjectDetection() (*project.ProjectAnalysisResult, error) {
-	// Skip project detection if no flags are set
-	if !autoDetectProject && projectPath == "" {
-		return nil, nil
-	}
-
-	// Determine project path
+// Legacy function - replaced by workspace detection approach
+// Kept for backward compatibility with CLI flags but simplified
+func performWorkspaceDetection() (*workspace.WorkspaceContext, error) {
+	// Use workspace detector instead of complex project detection
+	detector := workspace.NewWorkspaceDetector()
+	
+	// Determine detection path from CLI flags or use current directory
 	detectionPath := projectPath
 	if autoDetectProject && detectionPath == "" {
-		// Use current working directory
 		wd, err := os.Getwd()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get working directory: %w", err)
@@ -478,416 +590,70 @@ func performProjectDetection() (*project.ProjectAnalysisResult, error) {
 	}
 
 	if detectionPath == "" {
-		return nil, fmt.Errorf("no project path specified for detection")
+		// Use current directory as default
+		return detector.DetectWorkspace()
 	}
 
-	log.Printf("[INFO] Starting project detection at path: %s\n", detectionPath)
-
-	// Create project integration
-	integration, err := project.NewProjectIntegration(project.DefaultIntegrationConfig())
-	if err != nil {
-		return nil, fmt.Errorf("failed to create project integration: %w", err)
-	}
-
-	// Perform detection and analysis
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	result, err := integration.DetectAndAnalyzeProject(ctx, detectionPath)
-	if err != nil {
-		return nil, fmt.Errorf("project detection failed: %w", err)
-	}
-
-	if result.ProjectContext != nil {
-		log.Printf("[INFO] Project detected: %s (%s) with languages: %v\n",
-			result.ProjectContext.ProjectType,
-			result.ProjectContext.RootPath,
-			result.ProjectContext.Languages)
-	}
-
-	return result, nil
+	log.Printf("[INFO] Starting workspace detection at path: %s\n", detectionPath)
+	return detector.DetectWorkspaceAt(detectionPath)
 }
 
-// loadConfigurationWithProject loads configuration with optional project-specific overrides
-func loadConfigurationWithProject(projectResult *project.ProjectAnalysisResult) (*config.GatewayConfig, error) {
-	// Check if config file exists
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		log.Printf("[WARN] Configuration file not found: %s\n", configPath)
-		
-		// Try to auto-generate configuration
-		log.Printf("[INFO] Attempting to auto-generate configuration...\n")
-		
-		// Determine project path for auto-generation
-		projectPath := "."
-		if projectResult != nil && projectResult.ProjectContext != nil && projectResult.ProjectContext.RootPath != "" {
-			projectPath = projectResult.ProjectContext.RootPath
-		}
-		
-		// Auto-generate multi-language configuration
-		multiLangConfig, err := config.AutoGenerateConfigFromPath(projectPath)
-		if err != nil {
-			log.Printf("[ERROR] Failed to auto-generate configuration: %v\n", err)
-			return nil, fmt.Errorf("configuration file not found and auto-generation failed: %w", err)
-		}
-		
-		// Convert to gateway configuration
-		cfg, err := multiLangConfig.ToGatewayConfig()
-		if err != nil {
-			log.Printf("[ERROR] Failed to convert auto-generated configuration: %v\n", err)
-			return nil, fmt.Errorf("failed to convert auto-generated configuration: %w", err)
-		}
-		
-		log.Printf("[INFO] Successfully auto-generated configuration with %d servers\n", len(cfg.Servers))
-		
-		// Apply project-specific configuration if available and requested
-		if projectResult != nil && projectResult.ProjectContext != nil && generateProjectConfig {
-			log.Printf("[INFO] Applying project-specific configuration enhancements\n")
-			if err := applyProjectConfiguration(cfg, projectResult); err != nil {
-				log.Printf("[WARN] Failed to apply project configuration: %v\n", err)
-				// Continue with auto-generated configuration
-			}
-		}
-		
-		return cfg, nil
-	}
-	
-	// Load base configuration from existing file
-	cfg, err := config.LoadConfig(configPath)
-	if err != nil {
-		return nil, err
-	}
 
-	// Apply project-specific configuration if available and requested
-	if projectResult != nil && projectResult.ProjectContext != nil && generateProjectConfig {
-		log.Printf("[INFO] Generating project-specific configuration\n")
 
-		if err := applyProjectConfiguration(cfg, projectResult); err != nil {
-			log.Printf("[WARN] Failed to apply project configuration: %v\n", err)
-			// Continue with base configuration
-		}
-	}
 
-	return cfg, nil
-}
 
-// applyProjectConfiguration applies project-specific configuration to the gateway config
-func applyProjectConfiguration(cfg *config.GatewayConfig, projectResult *project.ProjectAnalysisResult) error {
-	projectCtx := projectResult.ProjectContext
 
-	// Create project-aware logger
-	logger := setup.NewSetupLogger(&setup.SetupLoggerConfig{
-		Component: "project-config-generator",
-	})
 
-	// Create config generator with proper registry and verifier
-	registry := setup.NewDefaultServerRegistry()
-	verifier := setup.NewDefaultServerVerifier()
-	generator := project.NewProjectConfigGenerator(logger, registry, verifier)
-
-	// Generate project-specific configuration
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	genResult, err := generator.GenerateFromProject(ctx, projectCtx)
-	if err != nil {
-		return fmt.Errorf("failed to generate project configuration: %w", err)
-	}
-
-	// Apply the generated configuration to the existing config
-	if genResult.GatewayConfig != nil {
-		// Merge project-aware settings
-		if genResult.GatewayConfig.ProjectAware {
-			cfg.ProjectAware = true
-			cfg.ProjectContext = genResult.GatewayConfig.ProjectContext
-		}
-
-		// Add project-specific servers to the existing servers
-		cfg.Servers = append(cfg.Servers, genResult.GatewayConfig.Servers...)
-
-		// Apply project configuration if available
-		if genResult.GatewayConfig.ProjectConfig != nil {
-			cfg.ProjectConfig = genResult.GatewayConfig.ProjectConfig
-		}
-
-		log.Printf("[INFO] Applied project configuration: %d additional servers configured\n",
-			len(genResult.GatewayConfig.Servers))
-	}
-
-	return nil
-}
-
-// createFailureHandler creates a failure handler based on CLI configuration
-func createFailureHandler(cfg *config.GatewayConfig) *CLIFailureHandler {
-	// Create failure handler configuration from CLI flags and gateway config
-	failureConfig := &FailureHandlerConfig{
-		Interactive:        !bypassQuiet && (bypassInteractive || isTerminalInteractive()),
-		MaxRetryAttempts:   3,
-		RetryDelay:         2 * time.Second,
-		BatchThreshold:     3,
-		LogFailures:        true,
-		LogLevel:           "warn",
-		AutoBypassPolicies: make(map[gateway.FailureCategory]bool),
-	}
-
-	// Configure auto-bypass policies based on CLI flags and config
-	if bypassAutoConsecutive || (cfg.BypassConfig != nil && cfg.BypassConfig.GlobalBypass != nil && cfg.BypassConfig.GlobalBypass.AutoBypassOnConsecutive) {
-		failureConfig.AutoBypassPolicies[gateway.FailureCategoryRuntime] = true
-	}
-	
-	if bypassAutoCircuitBreaker || (cfg.BypassConfig != nil && cfg.BypassConfig.GlobalBypass != nil && cfg.BypassConfig.GlobalBypass.AutoBypassOnCircuitBreaker) {
-		failureConfig.AutoBypassPolicies[gateway.FailureCategoryTransport] = true
-	}
-
-	// Set severity filter
-	if bypassQuiet {
-		failureConfig.SeverityFilter = gateway.FailureSeverityHigh
-	} else {
-		failureConfig.SeverityFilter = gateway.FailureSeverityLow
-	}
-
-	// Set retry attempts from config
-	if cfg.BypassConfig != nil && cfg.BypassConfig.GlobalBypass != nil && cfg.BypassConfig.GlobalBypass.MaxRecoveryAttempts > 0 {
-		failureConfig.MaxRetryAttempts = cfg.BypassConfig.GlobalBypass.MaxRecoveryAttempts
-	}
-
-	// Create logger for failure handler
-	logger := log.New(os.Stderr, "[FAILURE] ", log.LstdFlags)
-
-	// Configure for non-interactive mode if needed
-	handler := NewCLIFailureHandler(failureConfig, logger)
-	if !failureConfig.Interactive {
-		handler.SetNonInteractiveMode(bypassAutoConsecutive || bypassAutoCircuitBreaker)
-	}
-
-	// Configure JSON mode if environment variable is set
-	if os.Getenv("LSP_GATEWAY_JSON_OUTPUT") == "true" {
-		handler.SetJSONMode()
-	}
-
-	return handler
-}
-
-// extractStartupFailures attempts to extract individual server failures from gateway startup errors
-func extractStartupFailures(err error, cfg *config.GatewayConfig) []gateway.FailureNotification {
-	var failures []gateway.FailureNotification
-
-	if err == nil {
-		return failures
-	}
-
-	errStr := err.Error()
-	
-	// Try to extract server-specific failures from error message
-	// This is a heuristic approach - in practice, the gateway should provide structured failure information
-	
-	// Look for common failure patterns in the error message
-	for _, server := range cfg.Servers {
-		serverName := server.Name
-		language := ""
-		if len(server.Languages) > 0 {
-			language = server.Languages[0]
-		}
-		
-		// Check if this server is mentioned in the error
-		if strings.Contains(strings.ToLower(errStr), strings.ToLower(serverName)) {
-			category := gateway.FailureCategoryStartup
-			severity := gateway.FailureSeverityHigh
-			
-			// Determine specific failure type from error content
-			if strings.Contains(strings.ToLower(errStr), "connection") || 
-			   strings.Contains(strings.ToLower(errStr), "transport") {
-				category = gateway.FailureCategoryTransport
-			} else if strings.Contains(strings.ToLower(errStr), "config") ||
-			          strings.Contains(strings.ToLower(errStr), "invalid") {
-				category = gateway.FailureCategoryConfiguration
-			} else if strings.Contains(strings.ToLower(errStr), "memory") ||
-			          strings.Contains(strings.ToLower(errStr), "resource") {
-				category = gateway.FailureCategoryResource
-				severity = gateway.FailureSeverityCritical
-			}
-
-			// Generate recommendations based on category
-			recommendations := generateStartupRecommendations(category, serverName, language)
-
-			failure := gateway.CreateFailureNotification(
-				serverName,
-				language,
-				category,
-				severity,
-				fmt.Sprintf("Failed to start during gateway initialization: %s", extractServerError(errStr, serverName)),
-				err,
-				recommendations,
-			)
-
-			// Add startup context
-			failure.Context = &gateway.FailureContext{
-				ServerName:  serverName,
-				Language:    language,
-				ProjectPath: getCurrentProjectPath(),
-				Metadata: map[string]string{
-					"config_file":  getCurrentConfigFile(),
-					"startup_time": "0s", // This would be properly calculated
-				},
-			}
-
-			failure.BypassAvailable = true
-			failures = append(failures, failure)
-		}
-	}
-
-	// If no specific server failures found, create a generic failure
-	if len(failures) == 0 && len(cfg.Servers) > 0 {
-		// Create a generic failure notification
-		failure := gateway.CreateFailureNotification(
-			"gateway",
-			"multi",
-			gateway.FailureCategoryStartup,
-			gateway.FailureSeverityHigh,
-			fmt.Sprintf("Gateway startup failed: %s", err.Error()),
-			err,
-			generateStartupRecommendations(gateway.FailureCategoryStartup, "gateway", "multi"),
-		)
-		failure.BypassAvailable = false // Cannot bypass entire gateway
-		failures = append(failures, failure)
-	}
-
-	return failures
-}
-
-// generateStartupRecommendations generates recommendations for startup failures
-func generateStartupRecommendations(category gateway.FailureCategory, serverName, language string) []gateway.RecoveryRecommendation {
-	var recommendations []gateway.RecoveryRecommendation
-
-	switch category {
-	case gateway.FailureCategoryStartup:
-		recommendations = []gateway.RecoveryRecommendation{
-			{
-				Action:      "check_installation",
-				Description: fmt.Sprintf("Verify %s is properly installed for %s", serverName, language),
-				Commands:    []string{"status servers", fmt.Sprintf("install server %s", serverName)},
-				Priority:    1,
-			},
-			{
-				Action:      "check_runtime",
-				Description: fmt.Sprintf("Verify %s runtime is available", language),
-				Commands:    []string{"status runtimes", fmt.Sprintf("install runtime %s", language)},
-				Priority:    2,
-			},
-			{
-				Action:      "diagnose",
-				Description: "Run full system diagnostics",
-				Commands:    []string{"diagnose"},
-				Priority:    3,
-			},
-		}
-		
-	case gateway.FailureCategoryConfiguration:
-		recommendations = []gateway.RecoveryRecommendation{
-			{
-				Action:      "validate_config",
-				Description: "Validate configuration file",
-				Commands:    []string{"config validate"},
-				Priority:    1,
-			},
-			{
-				Action:      "regenerate_config",
-				Description: "Generate new configuration",
-				Commands:    []string{"config generate --auto-detect"},
-				Priority:    2,
-			},
-			{
-				Action:      "setup_all",
-				Description: "Run complete setup",
-				Commands:    []string{"setup all"},
-				Priority:    3,
-			},
-		}
-		
-	case gateway.FailureCategoryTransport:
-		recommendations = []gateway.RecoveryRecommendation{
-			{
-				Action:      "check_connectivity",
-				Description: "Check network connectivity and ports",
-				Commands:    []string{"diagnose"},
-				Priority:    1,
-			},
-			{
-				Action:      "change_port",
-				Description: "Try different port",
-				Commands:    []string{"server --port 8081"},
-				Priority:    2,
-			},
-		}
-		
-	case gateway.FailureCategoryResource:
-		recommendations = []gateway.RecoveryRecommendation{
-			{
-				Action:      "check_resources",
-				Description: "Check system resources (memory, CPU)",
-				Commands:    []string{"diagnose"},
-				Priority:    1,
-			},
-			{
-				Action:      "free_memory",
-				Description: "Close unnecessary applications",
-				Commands:    []string{},
-				Priority:    2,
-			},
-		}
-	}
-
-	return recommendations
-}
-
-// extractServerError extracts server-specific error from error message
-func extractServerError(errStr, serverName string) string {
-	// Simple heuristic to extract relevant error portion
-	lines := strings.Split(errStr, "\n")
-	for _, line := range lines {
-		if strings.Contains(strings.ToLower(line), strings.ToLower(serverName)) {
-			return strings.TrimSpace(line)
-		}
-	}
-	return errStr
-}
-
-// canStartWithBypassedServers checks if gateway can operate with some servers bypassed
-func canStartWithBypassedServers(gw gateway.GatewayInterface) bool {
+// canStartWithBypassedServers checks if workspace gateway can operate with some servers bypassed
+func canStartWithBypassedServers(gw workspace.WorkspaceGateway) bool {
 	if gw == nil {
 		return false
 	}
 
-	// Check if gateway has any active clients
-	// This is a simplified check - in practice, this would query the gateway's internal state
+	// Use workspace gateway health check for simplified validation
+	health := gw.Health()
+	return health.IsHealthy && health.ActiveClients > 0
+}
+
+// getHealthStatus returns string status based on health boolean
+func getHealthStatus(isHealthy bool) string {
+	if isHealthy {
+		return "ok"
+	}
+	return "unhealthy"
+}
+
+// formatHealthResponse formats health response as JSON string
+func formatHealthResponse(response map[string]interface{}) string {
+	// Simple JSON formatting without external dependencies
+	var parts []string
 	
-	// For project-aware gateways
-	if projectGw, ok := gw.(*gateway.ProjectAwareGateway); ok {
-		workspaces := projectGw.GetAllWorkspaces()
-		for _, workspace := range workspaces {
-			if workspace.IsActive() {
-				return true
-			}
-		}
-		// Check traditional clients as fallback
-		if projectGw.Gateway != nil {
-			for _, client := range projectGw.Gateway.Clients {
-				if client.IsActive() {
-					return true
+	for key, value := range response {
+		switch v := value.(type) {
+		case string:
+			parts = append(parts, fmt.Sprintf(`"%s":"%s"`, key, v))
+		case int:
+			parts = append(parts, fmt.Sprintf(`"%s":%d`, key, v))
+		case int64:
+			parts = append(parts, fmt.Sprintf(`"%s":%d`, key, v))
+		case bool:
+			parts = append(parts, fmt.Sprintf(`"%s":%t`, key, v))
+		case []string:
+			if len(v) > 0 {
+				var items []string
+				for _, item := range v {
+					items = append(items, fmt.Sprintf(`"%s"`, item))
 				}
+				parts = append(parts, fmt.Sprintf(`"%s":[%s]`, key, strings.Join(items, ",")))
+			} else {
+				parts = append(parts, fmt.Sprintf(`"%s":[]`, key))
 			}
+		default:
+			// Skip complex types for now
 		}
 	}
-
-	// For traditional gateways
-	if traditionalGw, ok := gw.(*gateway.Gateway); ok {
-		for _, client := range traditionalGw.Clients {
-			if client.IsActive() {
-				return true
-			}
-		}
-	}
-
-	return false
+	
+	return fmt.Sprintf("{%s}", strings.Join(parts, ","))
 }
 
 // isTerminalInteractive checks if we're running in an interactive terminal

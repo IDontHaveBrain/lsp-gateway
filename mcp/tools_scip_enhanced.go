@@ -866,9 +866,7 @@ func (h *SCIPEnhancedToolHandler) checkSCIPAvailability() {
 
 	if available {
 		// Test SCIP store with a simple query
-		_, cancel := context.WithTimeout(context.Background(), 1*time.Second)
-		defer cancel()
-
+		// Note: Query method has built-in 5-second timeout for concurrency control
 		testResult := h.scipStore.Query("test", map[string]interface{}{})
 		available = testResult.Error == "" || strings.Contains(testResult.Error, "degraded mode")
 	}

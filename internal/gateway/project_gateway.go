@@ -391,7 +391,11 @@ func (pg *ProjectAwareGateway) handleWorkspaceRequest(w http.ResponseWriter, r *
 		logger.Debug("Sending workspace-aware request to LSP server")
 	}
 
-	result, err := client.SendRequest(r.Context(), req.Method, req.Params)
+	// Create timeout context to prevent infinite wait
+	timeoutCtx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
+	defer cancel()
+
+	result, err := client.SendRequest(timeoutCtx, req.Method, req.Params)
 	if err != nil {
 		if logger != nil {
 			logger.WithError(err).Error("Workspace-aware LSP server request failed")
