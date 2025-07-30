@@ -399,14 +399,56 @@ func (mpm *ConcreteMultiProjectManager) setupSubProject(language string) error {
 func (mpm *ConcreteMultiProjectManager) setupSubProjectParallel(language string) (*SubProjectInfo, *GenericRepoManager, error) {
 	mpm.log("Setting up %s sub-project (parallel)", language)
 
-	// Check if pooling enabled and available
-	if mpm.poolingEnabled && mpm.serverPoolManager != nil {
-		// Use pooled server approach
-		return mpm.setupWithPooledServer(language)
+	// Get language configuration
+	langConfig, err := mpm.getLanguageConfig(language)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get language config for %s: %w", language, err)
 	}
-	
-	// Fallback to existing approach
-	return mpm.setupWithFreshServer(language)
+
+	// Create sub-project directory
+	subProjectDir := mpm.getSubProjectName(language)
+	subProjectPath := filepath.Join(mpm.workspaceDir, subProjectDir)
+
+	// Create repository manager configuration
+	repoConfig := GenericRepoConfig{
+		LanguageConfig: langConfig,
+		TargetDir:      subProjectPath,
+		CloneTimeout:   mpm.config.CloneTimeout,
+		EnableLogging:  mpm.config.EnableLogging,
+		ForceClean:     mpm.config.ForceClean,
+		PreserveGitDir: mpm.config.PreserveGitDir,
+	}
+
+	// Extract commit hash from language config if available
+	if commitHash, exists := langConfig.CustomVariables["commit_hash"]; exists {
+		repoConfig.CommitHash = commitHash
+	}
+
+	// Create and setup repository manager
+	repoManager := NewGenericRepoManager(repoConfig)
+	actualPath, err := repoManager.SetupRepository()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to setup repository for %s: %w", language, err)
+	}
+
+	// Get test files
+	testFiles, err := repoManager.GetTestFiles()
+	if err != nil {
+		mpm.log("Warning: failed to get test files for %s: %v", language, err)
+		testFiles = []string{} // Continue with empty test files
+	}
+
+	// Create SubProjectInfo
+	subProjectInfo := &SubProjectInfo{
+		Language:    language,
+		ProjectPath: actualPath,
+		RootMarkers: langConfig.RootMarkers,
+		TestFiles:   testFiles,
+		LSPConfig:   langConfig.CustomVariables,
+	}
+
+	mpm.log("Successfully set up %s sub-project at: %s (parallel)", language, actualPath)
+	return subProjectInfo, repoManager, nil
 }
 
 // logPerformanceMetrics logs performance metrics for each language setup
@@ -474,197 +516,5 @@ func (mpm *ConcreteMultiProjectManager) getSubProjectName(language string) strin
 		return "rust-project"
 	default:
 		return fmt.Sprintf("%s-project", language)
-	}
-}
-
-// initializePoolingSupport initializes the server pooling infrastructure
-func (mpm *ConcreteMultiProjectManager) initializePoolingSupport() {
-	mpm.log("Initializing server pooling support")
-	
-	// Initialize pooling validator
-	mpm.poolingValidator = NewPoolingIntegrationValidator()
-	
-	// Get or initialize the global pool manager
-	mpm.serverPoolManager = pooling.GetGlobalPoolManager()
-	
-	if mpm.serverPoolManager == nil && mpm.config.PoolConfig != nil {
-		// Initialize global pool manager with provided config
-		err := pooling.InitializeGlobalPoolManager(mpm.config.PoolConfig)
-		if err != nil {
-			mpm.log("Warning: Failed to initialize global pool manager: %v", err)
-			mpm.poolingEnabled = false
-			return
-		}
-		mpm.serverPoolManager = pooling.GetGlobalPoolManager()
-	}
-	
-	// Start pooling if we have a pool manager
-	if mpm.serverPoolManager != nil && !mpm.serverPoolManager.IsRunning() {
-		ctx := context.Background()
-		err := pooling.StartPooling(ctx)
-		if err != nil {
-			mpm.log("Warning: Failed to start pooling: %v", err)
-			mpm.poolingEnabled = false
-			return
-		}
-	}
-	
-	mpm.log("Server pooling initialized successfully")
-}
-
-// setupWithPooledServer sets up a sub-project using pooled servers
-func (mpm *ConcreteMultiProjectManager) setupWithPooledServer(language string) (*SubProjectInfo, *GenericRepoManager, error) {
-	mpm.log("Setting up %s sub-project with pooled server", language)
-	
-	// Validate pooling is available
-	if err := mpm.validatePoolingAvailable(); err != nil {
-		if mpm.config.FallbackOnPoolingFailure {
-			mpm.log("Pooling not available, falling back to fresh server for %s: %v", language, err)
-			return mpm.setupWithFreshServer(language)
-		}
-		return nil, nil, fmt.Errorf("pooling required but not available for %s: %w", language, err)
-	}
-	
-	// Setup repository first (same as fresh server approach)
-	subProject, repoManager, err := mpm.setupRepositoryForLanguage(language)
-	if err != nil {
-		return nil, nil, err
-	}
-	
-	// Record that we used pooling for this language
-	mpm.metricsMu.Lock()
-	mpm.poolingMetrics[language] = &PooledClientMetrics{
-		Language:          language,
-		Workspace:         subProject.ProjectPath,
-		UsePooling:        true,
-		AllocationSuccess: true,
-		FallbackUsed:      false,
-	}
-	mpm.metricsMu.Unlock()
-	
-	mpm.log("Successfully set up %s sub-project with pooled server at: %s", language, subProject.ProjectPath)
-	return subProject, repoManager, nil
-}
-
-// setupWithFreshServer sets up a sub-project using a fresh server (existing approach)
-func (mpm *ConcreteMultiProjectManager) setupWithFreshServer(language string) (*SubProjectInfo, *GenericRepoManager, error) {
-	mpm.log("Setting up %s sub-project with fresh server", language)
-	
-	// Use the existing implementation (setupSubProjectParallel logic)
-	subProject, repoManager, err := mpm.setupRepositoryForLanguage(language)
-	if err != nil {
-		return nil, nil, err
-	}
-	
-	// Record that we used fresh server for this language
-	mpm.metricsMu.Lock()
-	mpm.poolingMetrics[language] = &PooledClientMetrics{
-		Language:     language,
-		Workspace:    subProject.ProjectPath,
-		UsePooling:   false,
-		FallbackUsed: true,
-	}
-	mpm.metricsMu.Unlock()
-	
-	mpm.log("Successfully set up %s sub-project with fresh server at: %s", language, subProject.ProjectPath)
-	return subProject, repoManager, nil
-}
-
-// setupRepositoryForLanguage handles the common repository setup logic
-func (mpm *ConcreteMultiProjectManager) setupRepositoryForLanguage(language string) (*SubProjectInfo, *GenericRepoManager, error) {
-	// Get language configuration
-	langConfig, err := mpm.getLanguageConfig(language)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get language config for %s: %w", language, err)
-	}
-
-	// Create sub-project directory
-	subProjectDir := mpm.getSubProjectName(language)
-	subProjectPath := filepath.Join(mpm.workspaceDir, subProjectDir)
-
-	// Create repository manager configuration
-	repoConfig := GenericRepoConfig{
-		LanguageConfig: langConfig,
-		TargetDir:      subProjectPath,
-		CloneTimeout:   mpm.config.CloneTimeout,
-		EnableLogging:  mpm.config.EnableLogging,
-		ForceClean:     mpm.config.ForceClean,
-		PreserveGitDir: mpm.config.PreserveGitDir,
-	}
-
-	// Extract commit hash from language config if available
-	if commitHash, exists := langConfig.CustomVariables["commit_hash"]; exists {
-		repoConfig.CommitHash = commitHash
-	}
-
-	// Create and setup repository manager
-	repoManager := NewGenericRepoManager(repoConfig)
-	actualPath, err := repoManager.SetupRepository()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to setup repository for %s: %w", language, err)
-	}
-
-	// Get test files
-	testFiles, err := repoManager.GetTestFiles()
-	if err != nil {
-		mpm.log("Warning: failed to get test files for %s: %v", language, err)
-		testFiles = []string{} // Continue with empty test files
-	}
-
-	// Create SubProjectInfo
-	subProjectInfo := &SubProjectInfo{
-		Language:    language,
-		ProjectPath: actualPath,
-		RootMarkers: langConfig.RootMarkers,
-		TestFiles:   testFiles,
-		LSPConfig:   langConfig.CustomVariables,
-	}
-
-	return subProjectInfo, repoManager, nil
-}
-
-// validatePoolingAvailable checks if pooling is available and working
-func (mpm *ConcreteMultiProjectManager) validatePoolingAvailable() error {
-	if !mpm.poolingEnabled {
-		return fmt.Errorf("pooling is disabled in configuration")
-	}
-	
-	if mpm.serverPoolManager == nil {
-		return fmt.Errorf("server pool manager is not initialized")
-	}
-	
-	if !mpm.serverPoolManager.IsRunning() {
-		return fmt.Errorf("server pool manager is not running")
-	}
-	
-	if mpm.poolingValidator != nil {
-		return mpm.poolingValidator.ValidateIntegration()
-	}
-	
-	return nil
-}
-
-// GetPoolingMetrics returns pooling metrics for all languages
-func (mpm *ConcreteMultiProjectManager) GetPoolingMetrics() map[string]*PooledClientMetrics {
-	mpm.metricsMu.Lock()
-	defer mpm.metricsMu.Unlock()
-	
-	// Return a copy to prevent external modification
-	result := make(map[string]*PooledClientMetrics)
-	for k, v := range mpm.poolingMetrics {
-		result[k] = v
-	}
-	return result
-}
-
-// GetPoolingStatus returns the current pooling status
-func (mpm *ConcreteMultiProjectManager) GetPoolingStatus() map[string]interface{} {
-	if mpm.poolingValidator != nil {
-		return mpm.poolingValidator.GetPoolingStatus()
-	}
-	
-	return map[string]interface{}{
-		"pooling_enabled": mpm.poolingEnabled,
-		"error":          "pooling validator not initialized",
 	}
 }

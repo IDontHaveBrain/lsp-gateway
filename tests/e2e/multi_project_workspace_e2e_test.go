@@ -49,7 +49,7 @@ func (suite *MultiProjectWorkspaceE2ETestSuite) SetupSuite() {
 	config := testutils.EnhancedMultiProjectConfig{
 		WorkspaceName: "e2e-test-workspace",
 		Languages:     []string{"go", "python", "typescript", "java"},
-		CloneTimeout:  300 * time.Second,
+		CloneTimeout:  120 * time.Second,
 		EnableLogging: true,
 		ForceClean:    true,
 		ParallelSetup: true,

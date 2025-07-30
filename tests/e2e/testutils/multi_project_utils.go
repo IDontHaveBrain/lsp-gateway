@@ -40,7 +40,7 @@ type MultiProjectManager struct {
 func NewMultiProjectManager(config EnhancedMultiProjectConfig) *MultiProjectManager {
 	// Set defaults
 	if config.CloneTimeout == 0 {
-		config.CloneTimeout = 300 * time.Second
+		config.CloneTimeout = 120 * time.Second
 	}
 	if config.WorkspaceName == "" {
 		config.WorkspaceName = "multi-project-workspace"
@@ -608,7 +608,7 @@ func CreateDefaultMultiProjectManager() *MultiProjectManager {
 	config := EnhancedMultiProjectConfig{
 		WorkspaceName:  "default-multi-project",
 		Languages:      []string{"go", "python", "typescript", "java"},
-		CloneTimeout:   300 * time.Second,
+		CloneTimeout:   120 * time.Second,
 		EnableLogging:  true,
 		ForceClean:     true,
 		PreserveGitDir: true,

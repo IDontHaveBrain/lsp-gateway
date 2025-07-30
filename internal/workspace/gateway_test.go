@@ -14,6 +14,7 @@ import (
 )
 
 func TestWorkspaceGateway_NewWorkspaceGateway(t *testing.T) {
+	t.Parallel()
 	gateway := NewWorkspaceGateway()
 	if gateway == nil {
 		t.Fatal("NewWorkspaceGateway returned nil")
@@ -21,6 +22,7 @@ func TestWorkspaceGateway_NewWorkspaceGateway(t *testing.T) {
 }
 
 func TestWorkspaceGateway_Initialize(t *testing.T) {
+	t.Parallel()
 	gateway := NewWorkspaceGateway()
 	
 	workspaceConfig := &WorkspaceConfig{
@@ -57,6 +59,7 @@ func TestWorkspaceGateway_Initialize(t *testing.T) {
 }
 
 func TestWorkspaceGateway_ExtractLanguageFromURI(t *testing.T) {
+	t.Parallel()
 	gateway := NewWorkspaceGateway().(*workspaceGateway)
 	
 	// Initialize with default extension mappings
@@ -127,6 +130,7 @@ func TestWorkspaceGateway_ExtractLanguageFromURI(t *testing.T) {
 }
 
 func TestWorkspaceGateway_ParseLogLevel(t *testing.T) {
+	t.Parallel()
 	gateway := NewWorkspaceGateway().(*workspaceGateway)
 	
 	tests := []struct {
@@ -156,6 +160,7 @@ func TestWorkspaceGateway_ParseLogLevel(t *testing.T) {
 }
 
 func TestWorkspaceGateway_Health(t *testing.T) {
+	t.Parallel()
 	gateway := NewWorkspaceGateway()
 	
 	workspaceConfig := &WorkspaceConfig{
@@ -199,6 +204,7 @@ func TestWorkspaceGateway_Health(t *testing.T) {
 }
 
 func TestWorkspaceGateway_DefaultExtensionMappings(t *testing.T) {
+	t.Parallel()
 	gateway := NewWorkspaceGateway().(*workspaceGateway)
 	gateway.addDefaultExtensionMappings()
 	
@@ -313,6 +319,7 @@ func createGatewayTestWorkspace(t *testing.T) (string, func()) {
 // COMPREHENSIVE UNIT TESTS FOR SUB-PROJECT ROUTING
 
 func TestWorkspaceGateway_SubProjectRouting(t *testing.T) {
+	t.Parallel()
 	tempDir, cleanup := createGatewayTestWorkspace(t)
 	defer cleanup()
 	
@@ -352,6 +359,7 @@ func TestWorkspaceGateway_SubProjectRouting(t *testing.T) {
 
 // TestEnhancedWorkspaceGateway_SubProjectRouting tests the new sub-project routing functionality
 func TestEnhancedWorkspaceGateway_SubProjectRouting(t *testing.T) {
+	t.Parallel()
 	tempDir, cleanup := createGatewayTestWorkspace(t)
 	defer cleanup()
 	
@@ -387,6 +395,7 @@ func TestEnhancedWorkspaceGateway_SubProjectRouting(t *testing.T) {
 
 // TestEnhancedWorkspaceGateway_FallbackRouting tests fallback from sub-project to legacy routing
 func TestEnhancedWorkspaceGateway_FallbackRouting(t *testing.T) {
+	t.Parallel()
 	tempDir, cleanup := createGatewayTestWorkspace(t)
 	defer cleanup()
 	
@@ -436,6 +445,7 @@ func TestEnhancedWorkspaceGateway_FallbackRouting(t *testing.T) {
 
 // TestEnhancedWorkspaceGateway_BackwardCompatibility tests that existing functionality still works
 func TestEnhancedWorkspaceGateway_BackwardCompatibility(t *testing.T) {
+	t.Parallel()
 	tempDir, cleanup := createGatewayTestWorkspace(t)
 	defer cleanup()
 	

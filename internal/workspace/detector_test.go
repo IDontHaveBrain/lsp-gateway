@@ -13,6 +13,7 @@ import (
 )
 
 func TestNewWorkspaceDetector(t *testing.T) {
+	t.Parallel()
 	detector := NewWorkspaceDetector()
 	if detector == nil {
 		t.Fatal("NewWorkspaceDetector returned nil")
@@ -26,6 +27,7 @@ func TestNewWorkspaceDetector(t *testing.T) {
 }
 
 func TestDetectWorkspace(t *testing.T) {
+	t.Parallel()
 	detector := NewWorkspaceDetector()
 	
 	workspace, err := detector.DetectWorkspace()
@@ -61,6 +63,7 @@ func TestDetectWorkspace(t *testing.T) {
 }
 
 func TestDetectWorkspaceAt(t *testing.T) {
+	t.Parallel()
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "workspace_test")
 	if err != nil {
@@ -101,6 +104,7 @@ func TestDetectWorkspaceAt(t *testing.T) {
 }
 
 func TestGenerateWorkspaceID(t *testing.T) {
+	t.Parallel()
 	detector := NewWorkspaceDetector()
 	
 	// Test ID generation consistency
@@ -129,6 +133,7 @@ func TestGenerateWorkspaceID(t *testing.T) {
 }
 
 func TestValidateWorkspace(t *testing.T) {
+	t.Parallel()
 	detector := NewWorkspaceDetector()
 
 	// Test empty path
@@ -168,6 +173,7 @@ func TestValidateWorkspace(t *testing.T) {
 }
 
 func TestMultiLanguageDetection(t *testing.T) {
+	t.Parallel()
 	// Create a temporary directory for testing
 	tempDir, err := os.MkdirTemp("", "multi_lang_test")
 	if err != nil {
@@ -228,6 +234,7 @@ type pathTestCase struct {
 
 // TestDetectSubProjects tests basic sub-project detection functionality
 func TestDetectSubProjects(t *testing.T) {
+	t.Parallel()
 	// Create test workspace structure
 	workspace, cleanup := createTestWorkspace(t, map[string]interface{}{
 		"go.mod":                  "module root",
@@ -295,6 +302,7 @@ func TestDetectSubProjects(t *testing.T) {
 
 // TestNestedProjectDetection tests handling of nested projects
 func TestNestedProjectDetection(t *testing.T) {
+	t.Parallel()
 	workspace, cleanup := createTestWorkspace(t, map[string]interface{}{
 		"go.mod":                         "module root",
 		"services/go.mod":                "module services",
@@ -329,6 +337,7 @@ func TestNestedProjectDetection(t *testing.T) {
 
 // TestMaxDepthLimit tests depth limit enforcement
 func TestMaxDepthLimit(t *testing.T) {
+	t.Parallel()
 	workspace, cleanup := createNestedProjects(t, 7) // Create projects beyond max depth
 	defer cleanup()
 
@@ -354,6 +363,7 @@ func TestMaxDepthLimit(t *testing.T) {
 
 // TestIgnoreDirectories tests that common directories are ignored
 func TestIgnoreDirectories(t *testing.T) {
+	t.Parallel()
 	workspace, cleanup := createTestWorkspace(t, map[string]interface{}{
 		"go.mod":                            "module root",
 		"node_modules/some-package/go.mod":  "module ignored1",
@@ -396,6 +406,7 @@ func TestIgnoreDirectories(t *testing.T) {
 
 // TestProjectPathMapping tests file path to project mapping
 func TestProjectPathMapping(t *testing.T) {
+	t.Parallel()
 	workspace, cleanup := createTestWorkspace(t, map[string]interface{}{
 		"go.mod":                  "module root",
 		"frontend/package.json":   `{"name": "frontend"}`,
@@ -443,6 +454,7 @@ func TestProjectPathMapping(t *testing.T) {
 
 // TestMultiLanguageWorkspace tests complex multi-project workspace
 func TestMultiLanguageWorkspace(t *testing.T) {
+	t.Parallel()
 	workspace, cleanup := createTestWorkspace(t, map[string]interface{}{
 		"go.mod":                     "module root",
 		"README.md":                  "# Root Project",
@@ -524,6 +536,7 @@ func TestMultiLanguageWorkspace(t *testing.T) {
 
 // TestSubProjectIDGeneration tests unique ID generation for sub-projects
 func TestSubProjectIDGeneration(t *testing.T) {
+	t.Parallel()
 	workspace, cleanup := createTestWorkspace(t, map[string]interface{}{
 		"go.mod":                  "module root",
 		"frontend/package.json":   `{"name": "frontend"}`,
@@ -576,6 +589,7 @@ func TestSubProjectIDGeneration(t *testing.T) {
 
 // TestBackwardCompatibility tests that legacy API behavior is unchanged
 func TestBackwardCompatibility(t *testing.T) {
+	t.Parallel()
 	// Test with single Go project (should behave like legacy)
 	singleProject, cleanup1 := createTestWorkspace(t, map[string]interface{}{
 		"go.mod": "module test",
@@ -633,6 +647,7 @@ func TestBackwardCompatibility(t *testing.T) {
 
 // TestPerformanceLimits tests file scanning limits and performance
 func TestPerformanceLimits(t *testing.T) {
+	t.Parallel()
 	workspace, cleanup := createLargeWorkspace(t, 100) // 100 subdirectories
 	defer cleanup()
 
@@ -665,6 +680,7 @@ func TestPerformanceLimits(t *testing.T) {
 
 // TestPermissionErrors tests graceful handling of permission denied directories
 func TestPermissionErrors(t *testing.T) {
+	t.Parallel()
 	workspace, cleanup := createTestWorkspace(t, map[string]interface{}{
 		"go.mod": "module root",
 		"accessible/package.json": `{"name": "accessible"}`,
@@ -712,6 +728,7 @@ func TestPermissionErrors(t *testing.T) {
 
 // TestFindSubProjectForPath tests the FindSubProjectForPath functionality
 func TestFindSubProjectForPath(t *testing.T) {
+	t.Parallel()
 	workspace, cleanup := createTestWorkspace(t, map[string]interface{}{
 		"go.mod":                  "module root",
 		"frontend/package.json":   `{"name": "frontend"}`,
@@ -774,6 +791,7 @@ func TestFindSubProjectForPath(t *testing.T) {
 
 // TestEmptyAndUnknownProjects tests handling of edge cases
 func TestEmptyAndUnknownProjects(t *testing.T) {
+	t.Parallel()
 	// Test completely empty directory
 	emptyDir, err := os.MkdirTemp("", "empty_workspace_test")
 	if err != nil {
@@ -827,6 +845,7 @@ func TestEmptyAndUnknownProjects(t *testing.T) {
 
 // TestWorkspaceHashGeneration tests workspace hash generation with sub-projects
 func TestWorkspaceHashGeneration(t *testing.T) {
+	t.Parallel()
 	workspace, cleanup := createTestWorkspace(t, map[string]interface{}{
 		"go.mod":                  "module root",
 		"frontend/package.json":   `{"name": "frontend"}`,

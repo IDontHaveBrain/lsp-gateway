@@ -13,6 +13,7 @@ import (
 )
 
 func TestWorkspaceSCIPCache_Initialize(t *testing.T) {
+	t.Parallel()
 	// Create temporary workspace directory
 	tempDir, err := os.MkdirTemp("", "workspace-scip-cache-test")
 	if err != nil {
@@ -62,6 +63,7 @@ func TestWorkspaceSCIPCache_Initialize(t *testing.T) {
 }
 
 func TestWorkspaceSCIPCache_SetAndGet(t *testing.T) {
+	t.Parallel()
 	// Setup cache
 	tempDir, cache := setupTestCache(t)
 	defer os.RemoveAll(tempDir)
@@ -100,6 +102,7 @@ func TestWorkspaceSCIPCache_SetAndGet(t *testing.T) {
 }
 
 func TestWorkspaceSCIPCache_InvalidateFile(t *testing.T) {
+	t.Parallel()
 	// Setup cache
 	tempDir, cache := setupTestCache(t)
 	defer os.RemoveAll(tempDir)
@@ -154,6 +157,7 @@ func TestWorkspaceSCIPCache_InvalidateFile(t *testing.T) {
 }
 
 func TestWorkspaceSCIPCache_WorkspaceIsolation(t *testing.T) {
+	t.Parallel()
 	// Create two separate workspace directories
 	tempDir1, err := os.MkdirTemp("", "workspace1")
 	if err != nil {
@@ -224,6 +228,7 @@ func TestWorkspaceSCIPCache_WorkspaceIsolation(t *testing.T) {
 }
 
 func TestWorkspaceSCIPCache_Performance(t *testing.T) {
+	t.Parallel()
 	// Setup cache
 	tempDir, cache := setupTestCache(t)
 	defer os.RemoveAll(tempDir)
@@ -258,6 +263,7 @@ func TestWorkspaceSCIPCache_Performance(t *testing.T) {
 }
 
 func TestWorkspaceSCIPCache_MemoryManagement(t *testing.T) {
+	t.Parallel()
 	// Setup cache with small memory limit
 	tempDir, err := os.MkdirTemp("", "workspace-memory-test")
 	if err != nil {
@@ -313,6 +319,7 @@ func TestWorkspaceSCIPCache_MemoryManagement(t *testing.T) {
 }
 
 func TestWorkspaceSCIPCache_Optimization(t *testing.T) {
+	t.Parallel()
 	// Setup cache
 	tempDir, cache := setupTestCache(t)
 	defer os.RemoveAll(tempDir)
@@ -344,6 +351,7 @@ func TestWorkspaceSCIPCache_Optimization(t *testing.T) {
 }
 
 func TestWorkspaceSCIPCache_DirectoryStructure(t *testing.T) {
+	t.Parallel()
 	// Setup cache
 	tempDir, cache := setupTestCache(t)
 	defer os.RemoveAll(tempDir)

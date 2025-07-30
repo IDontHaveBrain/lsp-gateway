@@ -1,0 +1,304 @@
+package testutils
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"strconv"
+	"strings"
+
+	"lsp-gateway/internal/testing/pooling"
+	"lsp-gateway/internal/transport"
+)
+
+// PoolingConfig controls pooling behavior for test clients
+type PoolingConfig struct {
+	EnablePooling      bool
+	PoolConfigFile     string
+	FallbackOnFailure  bool
+	UseEnvironmentVars bool
+}
+
+// DefaultPoolingConfig returns sensible defaults for test pooling
+func DefaultPoolingConfig() *PoolingConfig {
+	return &PoolingConfig{
+		EnablePooling:      true,
+		FallbackOnFailure:  true,
+		UseEnvironmentVars: true,
+	}
+}
+
+// NewLSPClientWithOptionalPooling creates an LSP client with optional pooling support
+func NewLSPClientWithOptionalPooling(language string, workspace string, config transport.ClientConfig, poolingConfig *PoolingConfig) (transport.LSPClient, error) {
+	if poolingConfig == nil {
+		poolingConfig = DefaultPoolingConfig()
+	}
+
+	// Check if pooling should be used
+	usePooling := shouldUsePooling(language, poolingConfig)
+	
+	if usePooling && pooling.IsPoolingEnabled() {
+		// Try to create pool-enabled client
+		clientConfig := pooling.ClientConfig{
+			Language:  language,
+			Command:   config.Command,
+			Args:      config.Args,
+			Transport: string(config.Transport),
+			Workspace: workspace,
+		}
+		
+		client, err := pooling.NewPoolEnabledLSPClient(language, workspace, clientConfig)
+		if err == nil {
+			return client, nil
+		}
+		
+		// If pooling fails and fallback is enabled, continue to regular client
+		if !poolingConfig.FallbackOnFailure {
+			return nil, fmt.Errorf("failed to create pooled client for %s: %w", language, err)
+		}
+	}
+	
+	// Create regular transport client as fallback
+	return transport.NewLSPClient(config)
+}
+
+// NewLSPClientAuto creates an LSP client with automatic pooling detection
+func NewLSPClientAuto(language string, workspace string, config transport.ClientConfig) (transport.LSPClient, error) {
+	poolingConfig := DefaultPoolingConfig()
+	
+	// Auto-detect based on environment variables
+	if envVal := os.Getenv("LSPG_ENABLE_POOLING"); envVal != "" {
+		if enabled, err := strconv.ParseBool(envVal); err == nil {
+			poolingConfig.EnablePooling = enabled
+		}
+	}
+	
+	// Check for language-specific environment overrides
+	envKey := fmt.Sprintf("LSPG_ENABLE_POOLING_%s", strings.ToUpper(language))
+	if envVal := os.Getenv(envKey); envVal != "" {
+		if enabled, err := strconv.ParseBool(envVal); err == nil {
+			poolingConfig.EnablePooling = enabled
+		}
+	}
+	
+	return NewLSPClientWithOptionalPooling(language, workspace, config, poolingConfig)
+}
+
+// shouldUsePooling determines if pooling should be used for a given language
+func shouldUsePooling(language string, config *PoolingConfig) bool {
+	if !config.EnablePooling {
+		return false
+	}
+	
+	// Check environment variables if enabled
+	if config.UseEnvironmentVars {
+		// Global override
+		if envVal := os.Getenv("LSPG_DISABLE_POOLING"); envVal != "" {
+			if disabled, err := strconv.ParseBool(envVal); err == nil && disabled {
+				return false
+			}
+		}
+		
+		// Language-specific override
+		envKey := fmt.Sprintf("LSPG_DISABLE_POOLING_%s", strings.ToUpper(language))
+		if envVal := os.Getenv(envKey); envVal != "" {
+			if disabled, err := strconv.ParseBool(envVal); err == nil && disabled {
+				return false
+			}
+		}
+	}
+	
+	// Check if the language is supported for pooling
+	return isLanguageSupportedForPooling(language)
+}
+
+// isLanguageSupportedForPooling checks if a language has pooling support
+func isLanguageSupportedForPooling(language string) bool {
+	supportedLanguages := map[string]bool{
+		"java":       true,
+		"typescript": true,
+		"javascript": true,
+		"go":         true,
+		"golang":     true,
+		"python":     true,
+		"py":         true,
+	}
+	
+	return supportedLanguages[strings.ToLower(language)]
+}
+
+// PooledClientMetrics provides metrics about pooled client usage
+type PooledClientMetrics struct {
+	Language           string        `json:"language"`
+	Workspace          string        `json:"workspace"`
+	UsePooling         bool          `json:"use_pooling"`
+	AllocationSuccess  bool          `json:"allocation_success"`
+	FallbackUsed       bool          `json:"fallback_used"`
+	StartupTime        string        `json:"startup_time"`
+	AllocationTime     string        `json:"allocation_time"`
+}
+
+// MeasuredPooledClient wraps a client to collect performance metrics
+type MeasuredPooledClient struct {
+	transport.LSPClient
+	metrics *PooledClientMetrics
+}
+
+// NewMeasuredPooledClient creates a client wrapper that collects metrics
+func NewMeasuredPooledClient(language string, workspace string, config transport.ClientConfig, poolingConfig *PoolingConfig) (*MeasuredPooledClient, error) {
+	metrics := &PooledClientMetrics{
+		Language:  language,
+		Workspace: workspace,
+	}
+	
+	client, err := NewLSPClientWithOptionalPooling(language, workspace, config, poolingConfig)
+	if err != nil {
+		return nil, err
+	}
+	
+	// Determine if pooling was actually used
+	if poolingClient, ok := client.(*pooling.PoolEnabledLSPClient); ok {
+		metrics.UsePooling = true
+		metrics.AllocationSuccess = true
+		_ = poolingClient // Use the variable to avoid unused variable error
+	} else {
+		metrics.UsePooling = false
+		metrics.FallbackUsed = true
+	}
+	
+	return &MeasuredPooledClient{
+		LSPClient: client,
+		metrics:   metrics,
+	}, nil
+}
+
+// GetMetrics returns the collected metrics
+func (mpc *MeasuredPooledClient) GetMetrics() *PooledClientMetrics {
+	return mpc.metrics
+}
+
+// Start wraps the client Start method to measure startup time
+func (mpc *MeasuredPooledClient) Start(ctx context.Context) error {
+	// For now, just delegate to the underlying client
+	// In a full implementation, this would measure startup time
+	return mpc.LSPClient.Start(ctx)
+}
+
+// PoolingIntegrationValidator validates pooling integration
+type PoolingIntegrationValidator struct {
+	poolManager *pooling.ServerPoolManager
+}
+
+// NewPoolingIntegrationValidator creates a new validator
+func NewPoolingIntegrationValidator() *PoolingIntegrationValidator {
+	return &PoolingIntegrationValidator{
+		poolManager: pooling.GetGlobalPoolManager(),
+	}
+}
+
+// ValidateIntegration performs comprehensive integration validation
+func (piv *PoolingIntegrationValidator) ValidateIntegration() error {
+	if piv.poolManager == nil {
+		return fmt.Errorf("global pool manager is not initialized")
+	}
+	
+	if !piv.poolManager.IsRunning() {
+		return fmt.Errorf("pool manager is not running")
+	}
+	
+	// Get health status
+	health := piv.poolManager.Health()
+	if health == nil {
+		return fmt.Errorf("unable to get pool health information")
+	}
+	
+	if health.TotalServers == 0 {
+		return fmt.Errorf("no servers are running in any language pool")
+	}
+	
+	return nil
+}
+
+// GetPoolingStatus returns the current pooling status
+func (piv *PoolingIntegrationValidator) GetPoolingStatus() map[string]interface{} {
+	status := map[string]interface{}{
+		"pool_manager_initialized": piv.poolManager != nil,
+		"pool_manager_running":     false,
+		"health":                   nil,
+		"metrics":                  nil,
+		"stats":                    nil,
+	}
+	
+	if piv.poolManager != nil {
+		status["pool_manager_running"] = piv.poolManager.IsRunning()
+		
+		if piv.poolManager.IsRunning() {
+			status["health"] = piv.poolManager.Health()
+			status["metrics"] = piv.poolManager.GetMetrics()
+		}
+	}
+	
+	status["stats"] = pooling.GetPoolStats()
+	
+	return status
+}
+
+// TestPoolingIntegration performs a quick integration test
+func TestPoolingIntegration(ctx context.Context, language string) error {
+	// Try to create a pooled client
+	config := transport.ClientConfig{
+		Command:   getDefaultCommand(language),
+		Args:      getDefaultArgs(language),
+		Transport: transport.TransportStdio,
+	}
+	
+	client, err := NewLSPClientAuto(language, "/tmp/test-workspace", config)
+	if err != nil {
+		return fmt.Errorf("failed to create client for %s: %w", language, err)
+	}
+	
+	// Try to start it
+	err = client.Start(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to start client for %s: %w", language, err)
+	}
+	
+	// Stop it
+	err = client.Stop()
+	if err != nil {
+		return fmt.Errorf("failed to stop client for %s: %w", language, err)
+	}
+	
+	return nil
+}
+
+// getDefaultCommand returns the default command for a language
+func getDefaultCommand(language string) string {
+	commands := map[string]string{
+		"java":       "jdtls",
+		"typescript": "typescript-language-server",
+		"javascript": "typescript-language-server",
+		"go":         "gopls",
+		"golang":     "gopls",
+		"python":     "pylsp",
+		"py":         "pylsp",
+	}
+	
+	return commands[strings.ToLower(language)]
+}
+
+// getDefaultArgs returns the default arguments for a language
+func getDefaultArgs(language string) []string {
+	args := map[string][]string{
+		"java":       {},
+		"typescript": {"--stdio"},
+		"javascript": {"--stdio"},
+		"go":         {},
+		"golang":     {},
+		"python":     {},
+		"py":         {},
+	}
+	
+	return args[strings.ToLower(language)]
+}

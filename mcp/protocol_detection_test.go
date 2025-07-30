@@ -12,6 +12,7 @@ import (
 )
 
 func TestProtocolDetection(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name     string
 		input    string
@@ -64,6 +65,7 @@ func TestProtocolDetection(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			server := NewServer(nil)
 			
 			if tt.input == "" {
@@ -96,6 +98,7 @@ func TestProtocolDetection(t *testing.T) {
 }
 
 func TestProtocolDetectionConcurrency(t *testing.T) {
+	t.Parallel()
 	// Test that multiple concurrent protocol detections don't interfere with each other
 	numGoroutines := 10
 	var wg sync.WaitGroup
@@ -178,6 +181,7 @@ func TestProtocolDetectionConcurrency(t *testing.T) {
 }
 
 func TestConnectionContextThreadSafety(t *testing.T) {
+	t.Parallel()
 	ctx := &ConnectionContext{}
 	numGoroutines := 100
 	var wg sync.WaitGroup
@@ -221,6 +225,7 @@ func TestConnectionContextThreadSafety(t *testing.T) {
 }
 
 func TestJSONMessageReading(t *testing.T) {
+	t.Parallel()
 	server := NewServer(nil)
 	
 	testMessage := `{"jsonrpc":"2.0","method":"initialize","id":1}` + "\n"
@@ -242,6 +247,7 @@ func TestJSONMessageReading(t *testing.T) {
 }
 
 func TestLSPMessageReading(t *testing.T) {
+	t.Parallel()
 	server := NewServer(nil)
 	
 	content := `{"jsonrpc":"2.0","method":"initialize","id":1}`
@@ -263,6 +269,7 @@ func TestLSPMessageReading(t *testing.T) {
 }
 
 func TestProtocolDetectionTimeout(t *testing.T) {
+	t.Parallel()
 	server := NewServer(nil)
 	
 	// Create a reader that will block
@@ -283,6 +290,7 @@ func TestProtocolDetectionTimeout(t *testing.T) {
 }
 
 func TestSendMessageWithProtocolFormat(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name           string
 		protocolFormat ProtocolFormat
@@ -311,6 +319,7 @@ func TestSendMessageWithProtocolFormat(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var output bytes.Buffer
 			server := NewServer(nil)
 			server.Output = &output

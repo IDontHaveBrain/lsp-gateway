@@ -121,7 +121,7 @@ func NewPythonRepositoryManager(customConfig ...GenericRepoConfig) *GenericRepoM
 		config = customConfig[0]
 	} else {
 		config = GenericRepoConfig{
-			CloneTimeout:   300 * time.Second,
+			CloneTimeout:   120 * time.Second,
 			EnableLogging:  true,
 			ForceClean:     false,
 			PreserveGitDir: false,
@@ -139,7 +139,7 @@ func NewGoRepositoryManager(customConfig ...GenericRepoConfig) *GenericRepoManag
 		config = customConfig[0]
 	} else {
 		config = GenericRepoConfig{
-			CloneTimeout:   300 * time.Second,
+			CloneTimeout:   120 * time.Second,
 			EnableLogging:  true,
 			ForceClean:     false,
 			PreserveGitDir: true,  // Keep .git for commit checkout
@@ -166,7 +166,7 @@ func NewJavaScriptRepositoryManager(customConfig ...GenericRepoConfig) *GenericR
 		config = customConfig[0]
 	} else {
 		config = GenericRepoConfig{
-			CloneTimeout:   300 * time.Second,
+			CloneTimeout:   120 * time.Second,
 			EnableLogging:  true,
 			ForceClean:     false,
 			PreserveGitDir: true,  // Keep .git for commit checkout
@@ -193,7 +193,7 @@ func NewJavaRepositoryManager(customConfig ...GenericRepoConfig) *GenericRepoMan
 		config = customConfig[0]
 	} else {
 		config = GenericRepoConfig{
-			CloneTimeout:   300 * time.Second,
+			CloneTimeout:   120 * time.Second,
 			EnableLogging:  true,
 			ForceClean:     false,
 			PreserveGitDir: true,  // Keep .git for commit checkout
@@ -220,7 +220,7 @@ func NewTypeScriptRepositoryManager(customConfig ...GenericRepoConfig) *GenericR
 		config = customConfig[0]
 	} else {
 		config = GenericRepoConfig{
-			CloneTimeout:   300 * time.Second,
+			CloneTimeout:   120 * time.Second,
 			EnableLogging:  true,
 			ForceClean:     false,
 			PreserveGitDir: true, // Keep .git for commit checkout
@@ -247,7 +247,7 @@ func NewRustRepositoryManager(customConfig ...GenericRepoConfig) *GenericRepoMan
 		config = customConfig[0]
 	} else {
 		config = GenericRepoConfig{
-			CloneTimeout:   300 * time.Second,
+			CloneTimeout:   120 * time.Second,
 			EnableLogging:  true,
 			ForceClean:     false,
 			PreserveGitDir: false,
@@ -345,7 +345,7 @@ func NewCustomRepositoryManager(langConfig LanguageConfig, repoConfig ...Generic
 		config = repoConfig[0]
 	} else {
 		config = GenericRepoConfig{
-			CloneTimeout:   300 * time.Second,
+			CloneTimeout:   120 * time.Second,
 			EnableLogging:  true,
 			ForceClean:     false,
 			PreserveGitDir: false,

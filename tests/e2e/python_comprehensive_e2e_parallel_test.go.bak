@@ -37,7 +37,9 @@ func TestPythonComprehensiveServerLifecycleParallel(t *testing.T) {
 	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
 	serverCmd := []string{binaryPath, "server", "--config", setup.ConfigPath}
 
-	err = setup.StartServer(serverCmd, 60*time.Second)
+	// Use optimized timeout for Python server startup (15s)
+	var timeoutConfig = testutils.NewTimeoutConfig(testutils.LanguagePython, testutils.SystemNormal)
+	err = setup.StartServer(serverCmd, timeoutConfig.ServerStartupTimeout())
 	require.NoError(t, err, "Failed to start server")
 
 	err = setup.WaitForServerReady(20 * time.Second)
@@ -204,7 +206,9 @@ subject.notify("Hello Observers!")
 	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
 	serverCmd := []string{binaryPath, "server", "--config", setup.ConfigPath}
 
-	err = setup.StartServer(serverCmd, 60*time.Second)
+	// Use optimized timeout for Python server startup (15s)
+	var timeoutConfig = testutils.NewTimeoutConfig(testutils.LanguagePython, testutils.SystemNormal)
+	err = setup.StartServer(serverCmd, timeoutConfig.ServerStartupTimeout())
 	require.NoError(t, err, "Failed to start server")
 
 	err = setup.WaitForServerReady(20 * time.Second)
@@ -461,7 +465,9 @@ if __name__ == "__main__":
 	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
 	serverCmd := []string{binaryPath, "server", "--config", setup.ConfigPath}
 
-	err = setup.StartServer(serverCmd, 60*time.Second)
+	// Use optimized timeout for Python server startup (15s)
+	var timeoutConfig = testutils.NewTimeoutConfig(testutils.LanguagePython, testutils.SystemNormal)
+	err = setup.StartServer(serverCmd, timeoutConfig.ServerStartupTimeout())
 	require.NoError(t, err, "Failed to start server")
 
 	err = setup.WaitForServerReady(20 * time.Second)
@@ -589,7 +595,9 @@ class ProductService:
 	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
 	serverCmd := []string{binaryPath, "server", "--config", setup.ConfigPath}
 
-	err = setup.StartServer(serverCmd, 60*time.Second)
+	// Use optimized timeout for Python server startup (15s)
+	var timeoutConfig = testutils.NewTimeoutConfig(testutils.LanguagePython, testutils.SystemNormal)
+	err = setup.StartServer(serverCmd, timeoutConfig.ServerStartupTimeout())
 	require.NoError(t, err, "Failed to start server")
 
 	err = setup.WaitForServerReady(20 * time.Second)
@@ -647,7 +655,9 @@ func TestPythonAllLSPMethodsSequentialParallel(t *testing.T) {
 		}
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	// Use optimized timeout for Python test context
+	var timeoutConfig = testutils.NewTimeoutConfig(testutils.LanguagePython, testutils.SystemNormal)
+	ctx, cancel := timeoutConfig.TestContext(context.Background())
 	defer cancel()
 
 	// Create comprehensive Python test file
@@ -731,7 +741,9 @@ if __name__ == "__main__":
 	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
 	serverCmd := []string{binaryPath, "server", "--config", setup.ConfigPath}
 
-	err = setup.StartServer(serverCmd, 60*time.Second)
+	// Use optimized timeout for Python server startup (15s)
+	var timeoutConfig = testutils.NewTimeoutConfig(testutils.LanguagePython, testutils.SystemNormal)
+	err = setup.StartServer(serverCmd, timeoutConfig.ServerStartupTimeout())
 	require.NoError(t, err, "Failed to start server")
 
 	err = setup.WaitForServerReady(25 * time.Second)
@@ -853,7 +865,9 @@ func TestPythonConcurrentRequestsParallel(t *testing.T) {
 		}
 	}()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	// Use optimized timeout for Python test context
+	var timeoutConfig = testutils.NewTimeoutConfig(testutils.LanguagePython, testutils.SystemNormal)
+	ctx, cancel := timeoutConfig.TestContext(context.Background())
 	defer cancel()
 
 	// Create test Python file
@@ -887,7 +901,9 @@ test_result = test_function()
 	binaryPath := filepath.Join(projectRoot, "bin", "lspg")
 	serverCmd := []string{binaryPath, "server", "--config", setup.ConfigPath}
 
-	err = setup.StartServer(serverCmd, 60*time.Second)
+	// Use optimized timeout for Python server startup (15s)
+	var timeoutConfig = testutils.NewTimeoutConfig(testutils.LanguagePython, testutils.SystemNormal)
+	err = setup.StartServer(serverCmd, timeoutConfig.ServerStartupTimeout())
 	require.NoError(t, err, "Failed to start server")
 
 	err = setup.WaitForServerReady(25 * time.Second)

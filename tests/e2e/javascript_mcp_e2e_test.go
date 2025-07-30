@@ -170,7 +170,7 @@ func (suite *JavaScriptMCPE2ETestSuite) setupChalkRepositoryManager() {
 	
 	// Create custom repo config with commit hash
 	repoConfig := testutils.GenericRepoConfig{
-		CloneTimeout:   300 * time.Second,
+		CloneTimeout:   120 * time.Second,
 		EnableLogging:  true,
 		ForceClean:     false,
 		PreserveGitDir: true,  // Keep .git for commit checkout

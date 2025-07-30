@@ -240,6 +240,7 @@ func createTestRequest(method, uri string) *JSONRPCRequest {
 // Test cases
 
 func TestNewSubProjectRequestRouter(t *testing.T) {
+	t.Parallel()
 	logger := mcp.NewStructuredLogger(&mcp.LoggerConfig{Level: mcp.LogLevelInfo})
 	router := NewSubProjectRequestRouter(logger)
 	
@@ -283,6 +284,7 @@ func TestNewSubProjectRequestRouter(t *testing.T) {
 }
 
 func TestRouteRequest_Success(t *testing.T) {
+	t.Parallel()
 	// Setup mocks
 	projects := map[string]*SubProject{
 		"project1": createTestProject("project1", "/path/to/project1", "go", []string{"go"}),
@@ -345,6 +347,7 @@ func TestRouteRequest_Success(t *testing.T) {
 }
 
 func TestRouteRequest_InvalidURI(t *testing.T) {
+	t.Parallel()
 	logger := mcp.NewStructuredLogger(&mcp.LoggerConfig{Level: mcp.LogLevelInfo})
 	router := NewSubProjectRequestRouter(logger)
 	
@@ -374,6 +377,7 @@ func TestRouteRequest_InvalidURI(t *testing.T) {
 }
 
 func TestRouteRequest_ProjectResolutionFailure(t *testing.T) {
+	t.Parallel()
 	// Setup mock resolver that fails
 	resolver := &mockSubProjectResolver{
 		err: &RoutingError{
@@ -405,6 +409,7 @@ func TestRouteRequest_ProjectResolutionFailure(t *testing.T) {
 }
 
 func TestRouteRequest_ClientSelectionFailure(t *testing.T) {
+	t.Parallel()
 	// Setup resolver with project but client manager that fails
 	projects := map[string]*SubProject{
 		"project1": createTestProject("project1", "/path/to/project1", "go", []string{"go"}),
@@ -442,6 +447,7 @@ func TestRouteRequest_ClientSelectionFailure(t *testing.T) {
 }
 
 func TestSelectRoutingStrategy(t *testing.T) {
+	t.Parallel()
 	logger := mcp.NewStructuredLogger(&mcp.LoggerConfig{Level: mcp.LogLevelInfo})
 	router := NewSubProjectRequestRouter(logger)
 	
@@ -480,6 +486,7 @@ func TestSelectRoutingStrategy(t *testing.T) {
 }
 
 func TestHandleRoutingFailure(t *testing.T) {
+	t.Parallel()
 	logger := mcp.NewStructuredLogger(&mcp.LoggerConfig{Level: mcp.LogLevelInfo})
 	router := NewSubProjectRequestRouter(logger)
 	
@@ -512,6 +519,7 @@ func TestHandleRoutingFailure(t *testing.T) {
 }
 
 func TestGetRoutingMetrics(t *testing.T) {
+	t.Parallel()
 	logger := mcp.NewStructuredLogger(&mcp.LoggerConfig{Level: mcp.LogLevelInfo})
 	router := NewSubProjectRequestRouter(logger)
 	
@@ -540,6 +548,7 @@ func TestGetRoutingMetrics(t *testing.T) {
 }
 
 func TestRouterShutdown(t *testing.T) {
+	t.Parallel()
 	logger := mcp.NewStructuredLogger(&mcp.LoggerConfig{Level: mcp.LogLevelInfo})
 	router := NewSubProjectRequestRouter(logger)
 	
@@ -564,6 +573,7 @@ func TestRouterShutdown(t *testing.T) {
 }
 
 func TestExtractFileURI(t *testing.T) {
+	t.Parallel()
 	logger := mcp.NewStructuredLogger(&mcp.LoggerConfig{Level: mcp.LogLevelInfo})
 	router := NewSubProjectRequestRouter(logger)
 	

@@ -11,6 +11,7 @@ import (
 
 // TestSubProjectResolver_Integration tests the complete resolver system integration
 func TestSubProjectResolver_Integration(t *testing.T) {
+	t.Parallel()
 	// Create temporary workspace
 	tempDir := createTempWorkspace(t)
 	defer os.RemoveAll(tempDir)
@@ -109,6 +110,7 @@ func TestSubProjectResolver_Integration(t *testing.T) {
 
 // TestPathTrie_Operations tests the path trie data structure operations
 func TestPathTrie_Operations(t *testing.T) {
+	t.Parallel()
 	trie := NewPathTrie()
 
 	// Create test projects
@@ -191,6 +193,7 @@ func TestPathTrie_Operations(t *testing.T) {
 
 // TestResolverCache_LRU tests the LRU cache functionality
 func TestResolverCache_LRU(t *testing.T) {
+	t.Parallel()
 	cache := NewResolverCache(3, 5*time.Minute) // Small capacity for testing
 	defer cache.Close()
 
@@ -238,6 +241,7 @@ func TestResolverCache_LRU(t *testing.T) {
 
 // TestResolverCache_TTL tests cache TTL expiration
 func TestResolverCache_TTL(t *testing.T) {
+	t.Parallel()
 	shortTTL := 50 * time.Millisecond
 	cache := NewResolverCache(10, shortTTL)
 	defer cache.Close()
@@ -269,6 +273,7 @@ func TestResolverCache_TTL(t *testing.T) {
 
 // TestResolverCache_Invalidation tests cache invalidation functionality
 func TestResolverCache_Invalidation(t *testing.T) {
+	t.Parallel()
 	cache := NewResolverCache(10, 5*time.Minute)
 	defer cache.Close()
 
@@ -301,6 +306,7 @@ func TestResolverCache_Invalidation(t *testing.T) {
 
 // TestSubProject_Hierarchy tests project hierarchy building
 func TestSubProject_Hierarchy(t *testing.T) {
+	t.Parallel()
 	tempDir := createTempWorkspace(t)
 	defer os.RemoveAll(tempDir)
 
@@ -355,6 +361,7 @@ func TestSubProject_Hierarchy(t *testing.T) {
 
 // TestSubProjectResolver_Performance tests performance characteristics
 func TestSubProjectResolver_Performance(t *testing.T) {
+	t.Parallel()
 	tempDir := createTempWorkspace(t)
 	defer os.RemoveAll(tempDir)
 
@@ -409,6 +416,7 @@ func TestSubProjectResolver_Performance(t *testing.T) {
 
 // TestSubProjectResolver_ErrorHandling tests error handling scenarios
 func TestSubProjectResolver_ErrorHandling(t *testing.T) {
+	t.Parallel()
 	resolver := NewSubProjectResolver("/nonexistent", nil)
 	defer resolver.Close()
 
@@ -434,6 +442,7 @@ func TestSubProjectResolver_ErrorHandling(t *testing.T) {
 
 // TestSubProjectResolver_ConcurrentAccess tests thread safety
 func TestSubProjectResolver_ConcurrentAccess(t *testing.T) {
+	t.Parallel()
 	tempDir := createTempWorkspace(t)
 	defer os.RemoveAll(tempDir)
 

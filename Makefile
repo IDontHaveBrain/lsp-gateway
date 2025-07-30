@@ -215,10 +215,10 @@ test-lsp-validation-short:
 	$(TEST_ENV) $(GOTEST) -v -short -parallel $(PARALLEL_TESTS) -timeout 240s ./tests/integration/...
 
 test-jdtls-integration:
-	@echo "Running JDTLS integration tests..."
-	$(GOTEST) -v -timeout 600s -run "TestJDTLS" ./tests/integration/...
+	@echo "Running JDTLS integration tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 600s -run "TestJDTLS" ./tests/integration/...
 	@echo "Running Java E2E tests with real JDTLS..."
-	$(GOTEST) -v -timeout 900s -run "TestJava.*E2ETestSuite" ./tests/e2e/...
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 900s -run "TestJava.*E2ETestSuite" ./tests/e2e/...
 
 # Circuit breaker tests removed - not aligned with E2E philosophy
 
@@ -229,104 +229,104 @@ test-e2e-quick:
 
 test-e2e-full:
 	@echo "Running full E2E test suite with parallel execution..."
-	$(TEST_ENV) $(GOTEST) -v -parallel $(PARALLEL_TESTS) -timeout 3600s ./tests/e2e/...
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 1800s ./tests/e2e/...
 
 # Language-Specific E2E Test Targets
 test-e2e-java:
-	@echo "Running Java E2E tests (mock and real JDTLS)..."
-	$(GOTEST) -v -timeout 900s -run "TestJava.*E2ETestSuite|TestJavaRealJDTLSE2ETestSuite" ./tests/e2e/...
+	@echo "Running Java E2E tests (mock and real JDTLS) with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 900s -run "TestJava.*E2ETestSuite|TestJavaRealJDTLSE2ETestSuite" ./tests/e2e/...
 
 test-e2e-python:
-	@echo "Running Python E2E tests..."
-	$(GOTEST) -v -timeout 600s -run "TestPython.*TestSuite" ./tests/e2e/...
+	@echo "Running Python E2E tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 600s -run "TestPython.*TestSuite" ./tests/e2e/...
 
 test-e2e-typescript:
-	@echo "Running TypeScript E2E tests..."
-	$(GOTEST) -v -timeout 600s -run "TestTypeScript.*E2ETestSuite" ./tests/e2e/...
+	@echo "Running TypeScript E2E tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 600s -run "TestTypeScript.*E2ETestSuite" ./tests/e2e/...
 
 # JavaScript/TypeScript E2E Test Targets  
 test-e2e-javascript:
-	@echo "Running JavaScript E2E tests..."
-	$(GOTEST) -v -timeout 900s -run "TestJavaScript.*E2ETestSuite" ./tests/e2e/...
+	@echo "Running JavaScript E2E tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 900s -run "TestJavaScript.*E2ETestSuite" ./tests/e2e/...
 
-test-javascript-e2e: test-e2e-javascript
+# Removed duplicate target - use test-e2e-javascript directly
 
 test-javascript-quick:
-	@echo "Running quick JavaScript validation..."
-	$(GOTEST) -v -short -timeout 300s -run "TestJavaScriptBasic.*" ./tests/e2e/...
+	@echo "Running quick JavaScript validation with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v -short $(FAST_PARALLEL_FLAGS) -timeout 300s -run "TestJavaScriptBasic.*" ./tests/e2e/...
 
 test-javascript-real-client:
 	@echo "Running comprehensive JavaScript Real Client E2E tests with chalk repository..."
-	$(GOTEST) -v -timeout 1200s -run "TestJavaScriptRealClientComprehensiveE2ETestSuite" ./tests/e2e/...
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 900s -run "TestJavaScriptRealClientComprehensiveE2ETestSuite" ./tests/e2e/...
 
 test-javascript-mcp:
-	@echo "Running JavaScript MCP integration tests..."
-	$(GOTEST) -v -timeout 600s -run "TestJavaScript.*MCP.*" ./tests/e2e/...
+	@echo "Running JavaScript MCP integration tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 600s -run "TestJavaScript.*MCP.*" ./tests/e2e/...
 
 test-javascript-mcp-integration:
-	@echo "Running comprehensive JavaScript MCP integration tests..."
-	$(GOTEST) -v -timeout 900s -run "TestJavaScriptMCPIntegration" ./tests/integration/...
+	@echo "Running comprehensive JavaScript MCP integration tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 900s -run "TestJavaScriptMCPIntegration" ./tests/integration/...
 
 test-javascript-comprehensive:
 	@echo "Running comprehensive JavaScript test suite with chalk repository..."
-	$(GOTEST) -v -timeout 1200s -run "TestJavaScript.*|TestNPM.*JavaScript.*" ./tests/e2e/... ./tests/integration/...
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 900s -run "TestJavaScript.*|TestNPM.*JavaScript.*" ./tests/e2e/... ./tests/integration/...
 
 test-e2e-go:
-	@echo "Running Go E2E tests..."
-	$(GOTEST) -v -timeout 600s -run "TestGo.*E2ETestSuite" ./tests/e2e/...
+	@echo "Running Go E2E tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 600s -run "TestGo.*E2ETestSuite" ./tests/e2e/...
 
 test-go-comprehensive:
-	@echo "Running Go comprehensive real client E2E tests..."
-	$(GOTEST) -v -timeout 1200s -run "TestGoRealClientComprehensiveE2ETestSuite" ./tests/e2e/...
+	@echo "Running Go comprehensive real client E2E tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 900s -run "TestGoRealClientComprehensiveE2ETestSuite" ./tests/e2e/...
 
 test-go-real-client:
 	@echo "Running comprehensive Go Real Client E2E tests with golang/example repository..."
-	$(GOTEST) -v -timeout 1200s -run "TestGoRealClientComprehensiveE2ETestSuite" ./tests/e2e/...
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 900s -run "TestGoRealClientComprehensiveE2ETestSuite" ./tests/e2e/...
 
 test-go-mcp-comprehensive:
 	@echo "Running comprehensive Go MCP E2E tests with golang/example repository..."
-	$(GOTEST) -v -timeout 1200s -run "TestGoMCPComprehensiveE2ETestSuite" ./tests/e2e/...
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 900s -run "TestGoMCPComprehensiveE2ETestSuite" ./tests/e2e/...
 
 # Real Language Server Integration Tests
 test-java-real:
-	@echo "Running Java real JDTLS integration tests..."
-	$(GOTEST) -v -timeout 900s -run "TestJavaRealJDTLSE2ETestSuite" ./tests/e2e/...
+	@echo "Running Java real JDTLS integration tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 900s -run "TestJavaRealJDTLSE2ETestSuite" ./tests/e2e/...
 
 test-java-real-client:
 	@echo "Running comprehensive Java Real Client E2E tests with clean-code repository..."
-	$(GOTEST) -v -timeout 1200s -run "TestJavaRealClientComprehensiveE2ETestSuite" ./tests/e2e/...
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 900s -run "TestJavaRealClientComprehensiveE2ETestSuite" ./tests/e2e/...
 
 test-java-mcp:
-	@echo "Running Java MCP integration tests..."
-	$(GOTEST) -v -timeout 600s -run "TestJava.*MCP.*" ./tests/e2e/...
+	@echo "Running Java MCP integration tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 600s -run "TestJava.*MCP.*" ./tests/e2e/...
 
 test-python-real:
-	@echo "Running Python real pylsp integration tests..."
-	$(GOTEST) -v -timeout 600s -run "TestPythonE2EComprehensiveTestSuite" ./tests/e2e/...
+	@echo "Running Python real pylsp integration tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 600s -run "TestPythonE2EComprehensiveTestSuite" ./tests/e2e/...
 
 test-typescript-real:
-	@echo "Running TypeScript real client comprehensive E2E tests..."
-	$(GOTEST) -v -timeout 600s -run "TestTypeScriptRealClientComprehensiveE2ETestSuite" ./tests/e2e/...
+	@echo "Running TypeScript real client comprehensive E2E tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 600s -run "TestTypeScriptRealClientComprehensiveE2ETestSuite" ./tests/e2e/...
 
 test-typescript-basic:
-	@echo "Running TypeScript basic E2E tests..."
-	$(GOTEST) -v -timeout 300s -run "TestTypeScriptBasicE2ETestSuite" ./tests/e2e/...
+	@echo "Running TypeScript basic E2E tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 300s -run "TestTypeScriptBasicE2ETestSuite" ./tests/e2e/...
 
 test-typescript-mcp:
-	@echo "Running TypeScript MCP E2E tests..."
-	$(GOTEST) -v -timeout 600s -run "TestTypeScriptMCPE2ETestSuite" ./tests/e2e/...
+	@echo "Running TypeScript MCP E2E tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 600s -run "TestTypeScriptMCPE2ETestSuite" ./tests/e2e/...
 
 test-typescript-mcp-integration:
-	@echo "Running comprehensive TypeScript MCP integration tests..."
-	$(GOTEST) -v -timeout 900s -run "TestTypeScriptMCPE2ETestSuite" ./tests/e2e/...
+	@echo "Running comprehensive TypeScript MCP integration tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 900s -run "TestTypeScriptMCPE2ETestSuite" ./tests/e2e/...
 
 test-typescript-quick:
-	@echo "Running quick TypeScript validation tests..."
-	$(GOTEST) -v -short -timeout 300s -run "TestTypeScriptBasic.*" ./tests/e2e/...
+	@echo "Running quick TypeScript validation tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v -short $(FAST_PARALLEL_FLAGS) -timeout 300s -run "TestTypeScriptBasic.*" ./tests/e2e/...
 
 test-typescript-all:
-	@echo "Running all TypeScript tests..."
-	$(GOTEST) -v -timeout 1200s -run "TestTypeScript.*" ./tests/e2e/...
+	@echo "Running all TypeScript tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 900s -run "TestTypeScript.*" ./tests/e2e/...
 
 # Python Patterns E2E Test Targets
 test-python-patterns:
@@ -343,43 +343,43 @@ test-python-comprehensive:
 
 # Advanced E2E Test Targets
 test-e2e-advanced:
-	@echo "Running advanced E2E test scenarios..."
-	$(GOTEST) -v -timeout 1200s -run ".*Advanced.*E2ETestSuite|.*Comprehensive.*TestSuite" ./tests/e2e/...
+	@echo "Running advanced E2E test scenarios with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 900s -run ".*Advanced.*E2ETestSuite|.*Comprehensive.*TestSuite" ./tests/e2e/...
 
 test-e2e-workflow:
-	@echo "Running E2E workflow tests..."
-	$(GOTEST) -v -timeout 900s -run ".*Workflow.*TestSuite" ./tests/e2e/...
+	@echo "Running E2E workflow tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 900s -run ".*Workflow.*TestSuite" ./tests/e2e/...
 
 test-e2e-setup-cli:
-	@echo "Running Setup CLI E2E tests..."
-	$(GOTEST) -v -timeout 300s -run "TestSetupCliE2ETestSuite" ./tests/e2e/setup_cli_e2e_test.go
+	@echo "Running Setup CLI E2E tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 300s -run "TestSetupCliE2ETestSuite" ./tests/e2e/setup_cli_e2e_test.go
 
 # MCP E2E Test Targets
 test-e2e-mcp:
-	@echo "Running comprehensive MCP E2E tests..."
-	$(GOTEST) -v -timeout 600s -run "TestMCP" ./tests/e2e/common_types.go ./tests/e2e/mcp_protocol_e2e_test.go ./tests/e2e/mcp_tools_e2e_test.go ./tests/e2e/mcp_scip_enhanced_e2e_test.go
+	@echo "Running comprehensive MCP E2E tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 600s -run "TestMCP" ./tests/e2e/common_types.go ./tests/e2e/mcp_protocol_e2e_test.go ./tests/e2e/mcp_tools_e2e_test.go ./tests/e2e/mcp_scip_enhanced_e2e_test.go
 
 test-mcp-stdio:
-	@echo "Running MCP STDIO protocol tests..."
-	$(GOTEST) -v -timeout 300s -run "TestMCPStdioProtocol" ./tests/e2e/common_types.go ./tests/e2e/mcp_protocol_e2e_test.go
+	@echo "Running MCP STDIO protocol tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(FAST_PARALLEL_FLAGS) -timeout 300s -run "TestMCPStdioProtocol" ./tests/e2e/common_types.go ./tests/e2e/mcp_protocol_e2e_test.go
 
 test-mcp-tcp:
-	@echo "Running MCP TCP protocol tests..."
-	$(GOTEST) -v -timeout 300s -run "TestMCPTCPProtocol" ./tests/e2e/common_types.go ./tests/e2e/mcp_protocol_e2e_test.go
+	@echo "Running MCP TCP protocol tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(FAST_PARALLEL_FLAGS) -timeout 300s -run "TestMCPTCPProtocol" ./tests/e2e/common_types.go ./tests/e2e/mcp_protocol_e2e_test.go
 
 test-mcp-tools:
-	@echo "Running comprehensive MCP tools E2E tests..."
-	$(GOTEST) -v -timeout 600s ./tests/e2e/common_types.go ./tests/e2e/mcp_tools_e2e_test.go
+	@echo "Running comprehensive MCP tools E2E tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 600s ./tests/e2e/common_types.go ./tests/e2e/mcp_tools_e2e_test.go
 
 test-mcp-scip:
-	@echo "Running SCIP-enhanced MCP E2E tests..."
-	$(GOTEST) -v -timeout 900s ./tests/e2e/common_types.go ./tests/e2e/mcp_scip_enhanced_e2e_test.go
+	@echo "Running SCIP-enhanced MCP E2E tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 900s ./tests/e2e/common_types.go ./tests/e2e/mcp_scip_enhanced_e2e_test.go
 
 # MCP comprehensive test suites removed - over-engineered infrastructure
 
 test-npm-cli:
-	@echo "Running npm-cli E2E tests..."
-	$(GOTEST) -v -timeout 600s -run "TestNpmCliE2ETestSuite" ./tests/e2e/npm_cli_e2e_test.go
+	@echo "Running npm-cli E2E tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 600s -run "TestNpmCliE2ETestSuite" ./tests/e2e/npm_cli_e2e_test.go
 
 # NPM-MCP Test Targets  
 test-npm-mcp:
@@ -408,8 +408,8 @@ validate-python-patterns-integration-quick:
 	./scripts/validate-python-patterns-integration.sh --quick --verbose
 
 test-python-patterns-integration:
-	@echo "Running Python patterns integration tests..."
-	$(GOTEST) -v -timeout 600s -run "PythonPatternsIntegration" ./tests/integration/...
+	@echo "Running Python patterns integration tests with parallel execution..."
+	$(TEST_ENV) $(GOTEST) -v $(PARALLEL_TEST_FLAGS) -timeout 600s -run "PythonPatternsIntegration" ./tests/integration/...
 
 # =============================================================================
 # PARALLEL EXECUTION OPTIMIZED TARGETS

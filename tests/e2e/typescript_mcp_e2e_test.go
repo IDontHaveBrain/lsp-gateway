@@ -82,7 +82,7 @@ func (suite *TypeScriptMCPE2ETestSuite) SetupTest() {
 	// Configure HttpClient for TypeScript MCP testing
 	config := testutils.HttpClientConfig{
 		BaseURL:            fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
-		Timeout:            90 * time.Second,
+		Timeout:            30 * time.Second,
 		MaxRetries:         3,
 		RetryDelay:         3 * time.Second,
 		EnableLogging:      true,
@@ -92,7 +92,7 @@ func (suite *TypeScriptMCPE2ETestSuite) SetupTest() {
 		UserAgent:          "LSP-Gateway-TypeScript-MCP-E2E/1.0",
 		MaxResponseSize:    75 * 1024 * 1024,
 		ConnectionPoolSize: 15,
-		KeepAlive:          90 * time.Second,
+		KeepAlive:          30 * time.Second,
 	}
 
 	suite.httpClient = testutils.NewHttpClient(config)

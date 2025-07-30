@@ -14,6 +14,7 @@ import (
 )
 
 func TestWorkspaceConfigManager_GenerateAndLoad(t *testing.T) {
+	t.Parallel()
 	testDir := t.TempDir()
 	workspaceRoot := filepath.Join(testDir, "test-workspace")
 	
@@ -66,6 +67,7 @@ go 1.21
 }
 
 func TestWorkspaceConfigManager_DirectoryManagement(t *testing.T) {
+	t.Parallel()
 	testDir := t.TempDir()
 	workspaceRoot := filepath.Join(testDir, "test-workspace")
 	
@@ -107,6 +109,7 @@ func TestWorkspaceConfigManager_DirectoryManagement(t *testing.T) {
 }
 
 func TestWorkspaceConfigManager_Validation(t *testing.T) {
+	t.Parallel()
 	wcm := NewWorkspaceConfigManager()
 
 	if err := wcm.ValidateWorkspaceConfig(nil); err == nil {
@@ -145,6 +148,7 @@ func TestWorkspaceConfigManager_Validation(t *testing.T) {
 }
 
 func TestWorkspaceConfigManager_GetWorkspaceDirectory(t *testing.T) {
+	t.Parallel()
 	testDir := t.TempDir()
 	wcm := NewWorkspaceConfigManagerWithOptions(&WorkspaceConfigManagerOptions{
 		BaseConfigDir: testDir,
@@ -176,6 +180,7 @@ func TestWorkspaceConfigManager_GetWorkspaceDirectory(t *testing.T) {
 
 // TestWorkspaceConfigManager_MultiProjectGeneration tests multi-project workspace generation
 func TestWorkspaceConfigManager_MultiProjectGeneration(t *testing.T) {
+	t.Parallel()
 	testDir := t.TempDir()
 	workspaceRoot := filepath.Join(testDir, "multi-workspace")
 	
@@ -318,6 +323,7 @@ if __name__ == "__main__":
 
 // TestWorkspaceConfigManager_SubProjectConfigs tests sub-project configuration methods
 func TestWorkspaceConfigManager_SubProjectConfigs(t *testing.T) {
+	t.Parallel()
 	testDir := t.TempDir()
 	workspaceRoot := filepath.Join(testDir, "sub-project-test")
 	
@@ -430,6 +436,7 @@ func TestWorkspaceConfigManager_SubProjectConfigs(t *testing.T) {
 
 // TestWorkspaceConfigManager_MultiProjectValidation tests validation with multi-project scenarios
 func TestWorkspaceConfigManager_MultiProjectValidation(t *testing.T) {
+	t.Parallel()
 	testDir := t.TempDir()
 	wcm := NewWorkspaceConfigManagerWithOptions(&WorkspaceConfigManagerOptions{
 		BaseConfigDir: testDir,
@@ -603,6 +610,7 @@ func TestWorkspaceConfigManager_MultiProjectValidation(t *testing.T) {
 
 // TestWorkspaceConfigManager_ServerConfigurationIntegration tests server configuration with multiple workspace folders
 func TestWorkspaceConfigManager_ServerConfigurationIntegration(t *testing.T) {
+	t.Parallel()
 	testDir := t.TempDir()
 	workspaceRoot := filepath.Join(testDir, "server-integration-test")
 	
@@ -716,6 +724,7 @@ setup(name="scripts", version="1.0.0")
 
 // TestWorkspaceConfigManager_BackwardCompatibility tests backward compatibility with single-project workspaces
 func TestWorkspaceConfigManager_BackwardCompatibility(t *testing.T) {
+	t.Parallel()
 	testDir := t.TempDir()
 	wcm := NewWorkspaceConfigManagerWithOptions(&WorkspaceConfigManagerOptions{
 		BaseConfigDir: testDir,
@@ -825,6 +834,7 @@ go 1.21
 
 // TestWorkspaceConfigManager_ConfigurationRoundtrip tests the full configuration lifecycle
 func TestWorkspaceConfigManager_ConfigurationRoundtrip(t *testing.T) {
+	t.Parallel()
 	testDir := t.TempDir()
 	workspaceRoot := filepath.Join(testDir, "roundtrip-test")
 	
@@ -941,6 +951,7 @@ setup(name="analytics", version="1.0.0")
 
 // TestWorkspaceConfigManager_ErrorHandling tests comprehensive error scenarios
 func TestWorkspaceConfigManager_ErrorHandling(t *testing.T) {
+	t.Parallel()
 	testDir := t.TempDir()
 	wcm := NewWorkspaceConfigManagerWithOptions(&WorkspaceConfigManagerOptions{
 		BaseConfigDir: testDir,

@@ -142,6 +142,7 @@ func createTestLogger() *mcp.StructuredLogger {
 
 // TestClientRegistry tests the client registry functionality
 func TestClientRegistry(t *testing.T) {
+	t.Parallel()
 	config := DefaultClientManagerConfig()
 	logger := createTestLogger()
 	registry := NewClientRegistry(config, logger)
@@ -229,6 +230,7 @@ func TestClientRegistry(t *testing.T) {
 
 // TestClientHealthMonitor tests the health monitoring functionality
 func TestClientHealthMonitor(t *testing.T) {
+	t.Parallel()
 	config := DefaultClientManagerConfig()
 	logger := createTestLogger()
 	registry := NewClientRegistry(config, logger)
@@ -301,6 +303,7 @@ func TestClientHealthMonitor(t *testing.T) {
 
 // TestCircuitBreaker tests the circuit breaker functionality
 func TestCircuitBreaker(t *testing.T) {
+	t.Parallel()
 	breaker := NewCircuitBreaker(3, 100*time.Millisecond)
 
 	t.Run("InitialState", func(t *testing.T) {
@@ -350,6 +353,7 @@ func TestCircuitBreaker(t *testing.T) {
 
 // TestSubProjectClientManager tests the main client manager functionality
 func TestSubProjectClientManager(t *testing.T) {
+	t.Parallel()
 	workspaceConfig := createTestWorkspaceConfig()
 	config := DefaultClientManagerConfig()
 	config.EnableLazyInitialization = true
@@ -421,6 +425,7 @@ func TestSubProjectClientManager(t *testing.T) {
 
 // TestConcurrentAccess tests thread safety of the client manager
 func TestConcurrentAccess(t *testing.T) {
+	t.Parallel()
 	workspaceConfig := createTestWorkspaceConfig()
 	config := DefaultClientManagerConfig()
 	logger := createTestLogger()
@@ -482,6 +487,7 @@ func TestConcurrentAccess(t *testing.T) {
 
 // TestRegistryCleanup tests the cleanup functionality
 func TestRegistryCleanup(t *testing.T) {
+	t.Parallel()
 	config := DefaultClientManagerConfig()
 	logger := createTestLogger()
 	registry := NewClientRegistry(config, logger)
@@ -530,6 +536,7 @@ func TestRegistryCleanup(t *testing.T) {
 
 // TestClientManagerShutdown tests graceful shutdown
 func TestClientManagerShutdown(t *testing.T) {
+	t.Parallel()
 	workspaceConfig := createTestWorkspaceConfig()
 	config := DefaultClientManagerConfig()
 	logger := createTestLogger()
@@ -629,6 +636,7 @@ func BenchmarkClientOperations(b *testing.B) {
 
 // TestErrorRecovery tests error recovery scenarios
 func TestErrorRecovery(t *testing.T) {
+	t.Parallel()
 	config := DefaultClientManagerConfig()
 	config.EnableAutoRestart = true
 	logger := createTestLogger()

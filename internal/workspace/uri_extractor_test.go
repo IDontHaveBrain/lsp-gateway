@@ -5,6 +5,7 @@ import (
 )
 
 func TestURIExtractor_ExtractFileURI(t *testing.T) {
+	t.Parallel()
 	extractor := NewURIExtractor(nil)
 
 	tests := []struct {
@@ -139,6 +140,7 @@ func TestURIExtractor_ExtractFileURI(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			uri, err := extractor.ExtractFileURI(tt.method, tt.params)
 			
 			if tt.expectedError {
@@ -161,6 +163,7 @@ func TestURIExtractor_ExtractFileURI(t *testing.T) {
 }
 
 func TestURIExtractor_normalizeURI(t *testing.T) {
+	t.Parallel()
 	extractor := NewURIExtractor(nil)
 
 	tests := []struct {
@@ -187,6 +190,7 @@ func TestURIExtractor_normalizeURI(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			result, err := extractor.NormalizeURI(tt.input)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)

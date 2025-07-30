@@ -10,6 +10,7 @@ import (
 )
 
 func TestNewWorkspacePortManager(t *testing.T) {
+	t.Parallel()
 	pm, err := NewWorkspacePortManager()
 	if err != nil {
 		t.Fatalf("Failed to create WorkspacePortManager: %v", err)
@@ -21,6 +22,7 @@ func TestNewWorkspacePortManager(t *testing.T) {
 }
 
 func TestCalculateTargetPort(t *testing.T) {
+	t.Parallel()
 	pm, err := NewWorkspacePortManager()
 	if err != nil {
 		t.Fatalf("Failed to create WorkspacePortManager: %v", err)
@@ -58,6 +60,7 @@ func TestCalculateTargetPort(t *testing.T) {
 }
 
 func TestPortAllocationAndRelease(t *testing.T) {
+	t.Parallel()
 	pm, err := NewWorkspacePortManager()
 	if err != nil {
 		t.Fatalf("Failed to create WorkspacePortManager: %v", err)
@@ -128,6 +131,7 @@ func TestPortAllocationAndRelease(t *testing.T) {
 }
 
 func TestPortReallocation(t *testing.T) {
+	t.Parallel()
 	pm, err := NewWorkspacePortManager()
 	if err != nil {
 		t.Fatalf("Failed to create WorkspacePortManager: %v", err)
@@ -153,6 +157,7 @@ func TestPortReallocation(t *testing.T) {
 }
 
 func TestPortCollisionResolution(t *testing.T) {
+	t.Parallel()
 	pm, err := NewWorkspacePortManager()
 	if err != nil {
 		t.Fatalf("Failed to create WorkspacePortManager: %v", err)
@@ -178,6 +183,7 @@ func TestPortCollisionResolution(t *testing.T) {
 }
 
 func TestIsPortAvailable(t *testing.T) {
+	t.Parallel()
 	pm, err := NewWorkspacePortManager()
 	if err != nil {
 		t.Fatalf("Failed to create WorkspacePortManager: %v", err)
@@ -213,6 +219,7 @@ func TestIsPortAvailable(t *testing.T) {
 }
 
 func TestPortRegistry(t *testing.T) {
+	t.Parallel()
 	pm, err := NewWorkspacePortManager()
 	if err != nil {
 		t.Fatalf("Failed to create WorkspacePortManager: %v", err)
@@ -259,6 +266,7 @@ func TestPortRegistry(t *testing.T) {
 }
 
 func TestPortLocking(t *testing.T) {
+	t.Parallel()
 	pm, err := NewWorkspacePortManager()
 	if err != nil {
 		t.Fatalf("Failed to create WorkspacePortManager: %v", err)
@@ -296,6 +304,7 @@ func TestPortLocking(t *testing.T) {
 }
 
 func TestPortErrorHandling(t *testing.T) {
+	t.Parallel()
 	// Test various error conditions
 	err := NewPortAllocationFailedError("/test/workspace", nil)
 	if err.Type != PortErrorTypeAllocation {
@@ -315,6 +324,7 @@ func TestPortErrorHandling(t *testing.T) {
 }
 
 func TestCleanupStalePorts(t *testing.T) {
+	t.Parallel()
 	pm, err := NewWorkspacePortManager()
 	if err != nil {
 		t.Fatalf("Failed to create WorkspacePortManager: %v", err)
