@@ -191,9 +191,17 @@ func (wg *workspaceGateway) Initialize(ctx context.Context, workspaceConfig *Wor
 	}
 
 	// NEW: Initialize simple request router for feature-flagged integration
-	if wg.subProjectResolver != nil && wg.clientManager != nil {
+	if wg.subProjectResolver != nil && wg.clientManager != nil && wg.requestRouter != nil {
 		wg.simpleRequestRouter = NewSimpleRequestRouter(wg.subProjectResolver, wg.clientManager, wg.logger)
 		wg.enableSubProjects = true // Enable by default, can be controlled via config
+		if wg.logger != nil {
+			wg.logger.Info("Sub-project routing enabled with all dependencies satisfied")
+		}
+	} else {
+		if wg.logger != nil {
+			wg.logger.Warn("Sub-project routing disabled due to missing dependencies")
+		}
+		wg.enableSubProjects = false
 	}
 
 	return nil
@@ -463,6 +471,9 @@ func (wg *workspaceGateway) GetSubProjectClient(subProjectID, language string) (
 	if wg.clientManager == nil {
 		return nil, fmt.Errorf("client manager not initialized")
 	}
+	if wg.subProjectResolver == nil {
+		return nil, fmt.Errorf("sub-project resolver not initialized")
+	}
 
 	return wg.clientManager.GetClient(subProjectID, language)
 }
@@ -592,7 +603,9 @@ func (wg *workspaceGateway) Health() GatewayHealth {
 			}
 
 			// Get client manager health
-			if managerHealth, err := wg.clientManager.HealthCheck(context.Background()); err == nil {
+			ctx, cancel := context.WithTimeout(wg.ctx, 5*time.Second)
+			defer cancel()
+			if managerHealth, err := wg.clientManager.HealthCheck(ctx); err == nil {
 				health.ClientManagerHealth = managerHealth
 			} else {
 				errors = append(errors, fmt.Sprintf("client manager health check failed: %v", err))

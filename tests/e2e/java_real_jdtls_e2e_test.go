@@ -34,9 +34,9 @@ type JavaRealJDTLSE2ETestSuite struct {
 
 // JavaPerformanceMetrics tracks actual performance data from real JDTLS server
 type JavaPerformanceMetrics struct {
-	InitializationTime   time.Duration
-	FirstResponseTime    time.Duration
-	AverageResponseTime  time.Duration
+	InitializationTime  time.Duration
+	FirstResponseTime   time.Duration
+	AverageResponseTime time.Duration
 	MemoryUsage         int64
 	ProcessPID          int
 	TotalRequests       int
@@ -48,36 +48,39 @@ type JavaPerformanceMetrics struct {
 
 // JavaIntegrationResult captures comprehensive test results for supported LSP features
 type JavaIntegrationResult struct {
-	ServerStartSuccess      bool
-	InitializationSuccess   bool
-	ProjectLoadSuccess      bool
-	DefinitionAccuracy      bool  // textDocument/definition
-	ReferencesWork          bool  // textDocument/references
-	HoverInformationWorks   bool  // textDocument/hover
-	DocumentSymbolsWork     bool  // textDocument/documentSymbol
-	WorkspaceSymbolsWork    bool  // workspace/symbol
-	CompletionWorks         bool  // textDocument/completion
+	ServerStartSuccess       bool
+	InitializationSuccess    bool
+	ProjectLoadSuccess       bool
+	DefinitionAccuracy       bool // textDocument/definition
+	ReferencesWork           bool // textDocument/references
+	HoverInformationWorks    bool // textDocument/hover
+	DocumentSymbolsWork      bool // textDocument/documentSymbol
+	WorkspaceSymbolsWork     bool // workspace/symbol
+	CompletionWorks          bool // textDocument/completion
 	ClasspathResolutionWorks bool
-	MavenIntegrationWorks   bool
-	JavaTypeInferenceWorks  bool
+	MavenIntegrationWorks    bool
+	JavaTypeInferenceWorks   bool
 	CrossFileNavigationWorks bool
-	PerformanceMetrics      *JavaPerformanceMetrics
-	TestDuration           time.Duration
-	ErrorCount             int
+	PerformanceMetrics       *JavaPerformanceMetrics
+	TestDuration             time.Duration
+	ErrorCount               int
 }
 
 // createUniqueJDTLSCacheDir creates a unique cache directory for JDTLS per test
 func (suite *JavaRealJDTLSE2ETestSuite) createUniqueJDTLSCacheDir() (string, error) {
 	// Create unique cache directory using test name and timestamp
 	testName := suite.T().Name()
+	// Sanitize test name by replacing path separators that break os.MkdirTemp
+	testName = strings.ReplaceAll(testName, "/", "-")
+	testName = strings.ReplaceAll(testName, "\\", "-") // Handle Windows paths
 	timestamp := time.Now().UnixNano()
 	cacheDirName := fmt.Sprintf("jdtls-cache-%s-%d", testName, timestamp)
-	
+
 	cacheDir, err := os.MkdirTemp("", cacheDirName)
 	if err != nil {
 		return "", fmt.Errorf("failed to create JDTLS cache directory: %w", err)
 	}
-	
+
 	return cacheDir, nil
 }
 
@@ -92,7 +95,7 @@ func (suite *JavaRealJDTLSE2ETestSuite) cleanupJDTLSCacheDir() {
 // SetupSuite initializes the test suite with real Java project structure
 func (suite *JavaRealJDTLSE2ETestSuite) SetupSuite() {
 	suite.testTimeout = 5 * time.Minute // Extended timeout for JDTLS operations (slower than pylsp)
-	
+
 	// Verify JDTLS is available
 	if !suite.isJDTLSServerAvailable() {
 		suite.T().Skip("JDTLS not available, skipping real server integration tests")
@@ -100,7 +103,7 @@ func (suite *JavaRealJDTLSE2ETestSuite) SetupSuite() {
 
 	// Create real Java project structure
 	suite.createTestProject()
-	
+
 	suite.performanceMetrics = &JavaPerformanceMetrics{}
 }
 
@@ -111,21 +114,21 @@ func (suite *JavaRealJDTLSE2ETestSuite) SetupTest() {
 	if jdtlsPath == "" {
 		suite.T().Skip("JDTLS executable not found, skipping test")
 	}
-	
+
 	// Create unique cache directory for this test
 	var err error
 	suite.jdtlsCacheDir, err = suite.createUniqueJDTLSCacheDir()
 	suite.Require().NoError(err, "Should create unique JDTLS cache directory")
-	
+
 	suite.clientConfig = transport.ClientConfig{
 		Command: jdtlsPath,
 		Args: []string{
 			"-configuration", suite.jdtlsCacheDir, // Unique workspace cache directory per test
-			"-data", suite.projectRoot,             // Workspace data directory
+			"-data", suite.projectRoot, // Workspace data directory
 		},
 		Transport: transport.TransportStdio,
 	}
-	
+
 	suite.lspClient, err = transport.NewLSPClient(suite.clientConfig)
 	suite.Require().NoError(err, "Should create LSP client")
 }
@@ -138,17 +141,17 @@ func (suite *JavaRealJDTLSE2ETestSuite) TearDownTest() {
 			suite.T().Logf("Warning: Error stopping LSP client: %v", err)
 		}
 	}
-	
+
 	// Clean up unique JDTLS cache directory
 	suite.cleanupJDTLSCacheDir()
 }
 
-// TearDownSuite cleans up the test project  
+// TearDownSuite cleans up the test project
 func (suite *JavaRealJDTLSE2ETestSuite) TearDownSuite() {
 	if suite.projectRoot != "" {
 		_ = os.RemoveAll(suite.projectRoot)
 	}
-	
+
 	// Ensure final cleanup of any remaining cache directory
 	suite.cleanupJDTLSCacheDir()
 }
@@ -159,34 +162,34 @@ func (suite *JavaRealJDTLSE2ETestSuite) TestRealJDTLSServerLifecycle() {
 	defer cancel()
 
 	startTime := time.Now()
-	
+
 	// Step 1: Start the actual JDTLS language server
 	jdtlsStartTime := time.Now()
 	err := suite.lspClient.Start(ctx)
 	suite.Require().NoError(err, "Should start JDTLS process")
 	suite.performanceMetrics.ProcessPID = suite.getProcessPID()
 	suite.performanceMetrics.JDTLSStartupTime = time.Since(jdtlsStartTime)
-	
+
 	// Step 2: Initialize the server with proper Java capabilities
 	initResult := suite.initializeServer(ctx)
 	suite.True(initResult, "Server initialization should succeed")
 	suite.performanceMetrics.InitializationTime = time.Since(startTime)
-	
+
 	// Step 3: Open the Java project workspace
 	suite.openWorkspace(ctx)
-	
+
 	// Step 4: Test core LSP functionality with real Java analysis
 	result := suite.executeComprehensiveJavaWorkflow(ctx)
-	
+
 	// Step 5: Validate all aspects of real Java integration
 	suite.validateJavaIntegrationResult(result)
-	
+
 	// Step 6: Measure final performance metrics
 	result.TestDuration = time.Since(startTime)
 	suite.recordPerformanceMetrics(result)
-	
+
 	suite.T().Logf("Real Java integration test completed in %v", result.TestDuration)
-	suite.T().Logf("JDTLS startup: %v, Server PID: %d, Total requests: %d, Success rate: %.2f%%", 
+	suite.T().Logf("JDTLS startup: %v, Server PID: %d, Total requests: %d, Success rate: %.2f%%",
 		suite.performanceMetrics.JDTLSStartupTime,
 		suite.performanceMetrics.ProcessPID,
 		suite.performanceMetrics.TotalRequests,
@@ -201,14 +204,14 @@ func (suite *JavaRealJDTLSE2ETestSuite) TestRealJavaFeatures() {
 	// Start and initialize server
 	err := suite.lspClient.Start(ctx)
 	suite.Require().NoError(err, "Should start server")
-	
+
 	suite.initializeServer(ctx)
 	suite.openWorkspace(ctx)
 
 	featureTests := []struct {
-		name           string
-		testFunction   func(context.Context) bool
-		description    string
+		name         string
+		testFunction func(context.Context) bool
+		description  string
 	}{
 		{
 			name:         "Definition",
@@ -247,10 +250,10 @@ func (suite *JavaRealJDTLSE2ETestSuite) TestRealJavaFeatures() {
 			startTime := time.Now()
 			success := test.testFunction(ctx)
 			duration := time.Since(startTime)
-			
+
 			suite.True(success, "%s should succeed", test.description)
 			suite.Less(duration, 60*time.Second, "%s should complete within reasonable time", test.name) // Java can be slower
-			
+
 			suite.T().Logf("%s completed in %v", test.name, duration)
 		})
 	}
@@ -264,7 +267,7 @@ func (suite *JavaRealJDTLSE2ETestSuite) TestRealJDTLSPerformance() {
 	// Start server and initialize
 	err := suite.lspClient.Start(ctx)
 	suite.Require().NoError(err, "Should start server")
-	
+
 	suite.initializeServer(ctx)
 	suite.openWorkspace(ctx)
 
@@ -301,13 +304,13 @@ func (suite *JavaRealJDTLSE2ETestSuite) TestRealJDTLSPerformance() {
 	for _, test := range performanceTests {
 		suite.Run(test.name, func() {
 			result := suite.executePerformanceTest(ctx, test.requestCount, test.concurrency)
-			
-			suite.Less(result.TotalDuration, test.maxAcceptableTime, 
+
+			suite.Less(result.TotalDuration, test.maxAcceptableTime,
 				"Performance test should complete within acceptable time")
 			suite.GreaterOrEqual(result.SuccessRate, test.expectedSuccessRate,
 				"Success rate should meet expectations")
-			
-			suite.T().Logf("%s: %d requests in %v (%.2f req/s, %.2f%% success)", 
+
+			suite.T().Logf("%s: %d requests in %v (%.2f req/s, %.2f%% success)",
 				test.name, test.requestCount, result.TotalDuration,
 				float64(test.requestCount)/result.TotalDuration.Seconds(),
 				result.SuccessRate*100)
@@ -326,17 +329,17 @@ func (suite *JavaRealJDTLSE2ETestSuite) isJDTLSServerAvailable() bool {
 func (suite *JavaRealJDTLSE2ETestSuite) getJDTLSPath() string {
 	// Use LSP Gateway's actual installation path logic
 	jdtlsPath := installer.GetJDTLSExecutablePath()
-	
+
 	// Check if the LSP Gateway installed version exists
 	if _, err := os.Stat(jdtlsPath); err == nil {
 		return jdtlsPath
 	}
-	
+
 	// Fallback to PATH lookup for external installations
 	if path, err := exec.LookPath("jdtls"); err == nil {
 		return path
 	}
-	
+
 	return ""
 }
 
@@ -348,18 +351,18 @@ func (suite *JavaRealJDTLSE2ETestSuite) createTestProject() {
 	// Copy the existing Java fixture project using proper path resolution
 	fixturesDir, err := testutils.GetE2EFixturesDir()
 	suite.Require().NoError(err, "Should get E2E fixtures directory")
-	
+
 	fixtureRoot := filepath.Join(fixturesDir, "java-project")
 	suite.copyDirectory(fixtureRoot, suite.projectRoot)
-	
+
 	// Store project files for reference
 	suite.projectFiles = map[string]string{
-		"pom.xml": "Maven project configuration",
-		"src/main/java/com/test/Main.java": "Main class file",
-		"src/main/java/com/test/model/User.java": "User model class",
-		"src/main/java/com/test/service/UserService.java": "User service class",
+		"pom.xml":                                               "Maven project configuration",
+		"src/main/java/com/test/Main.java":                      "Main class file",
+		"src/main/java/com/test/model/User.java":                "User model class",
+		"src/main/java/com/test/service/UserService.java":       "User service class",
 		"src/main/java/com/test/controller/UserController.java": "User controller class",
-		"src/test/java/com/test/UserServiceTest.java": "User service test class",
+		"src/test/java/com/test/UserServiceTest.java":           "User service test class",
 	}
 }
 
@@ -368,27 +371,27 @@ func (suite *JavaRealJDTLSE2ETestSuite) copyDirectory(src, dst string) {
 		if err != nil {
 			return err
 		}
-		
+
 		relPath, err := filepath.Rel(src, path)
 		if err != nil {
 			return err
 		}
-		
+
 		dstPath := filepath.Join(dst, relPath)
-		
+
 		if info.IsDir() {
 			return os.MkdirAll(dstPath, info.Mode())
 		}
-		
+
 		// Copy file
 		content, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}
-		
+
 		return os.WriteFile(dstPath, content, info.Mode())
 	})
-	
+
 	suite.Require().NoError(err, "Should copy fixture directory")
 }
 
@@ -405,21 +408,21 @@ func (suite *JavaRealJDTLSE2ETestSuite) initializeServer(ctx context.Context) bo
 			"textDocument": map[string]interface{}{
 				"synchronization": map[string]interface{}{
 					"dynamicRegistration": true,
-					"willSave":           true,
-					"willSaveWaitUntil":  true,
-					"didSave":            true,
+					"willSave":            true,
+					"willSaveWaitUntil":   true,
+					"didSave":             true,
 				},
 				"completion": map[string]interface{}{
 					"dynamicRegistration": true,
 					"completionItem": map[string]interface{}{
-						"snippetSupport": true,
+						"snippetSupport":          true,
 						"commitCharactersSupport": true,
-						"documentationFormat": []string{"markdown", "plaintext"},
+						"documentationFormat":     []string{"markdown", "plaintext"},
 					},
 				},
 				"hover": map[string]interface{}{
 					"dynamicRegistration": true,
-					"contentFormat": []string{"markdown", "plaintext"},
+					"contentFormat":       []string{"markdown", "plaintext"},
 				},
 				"definition": map[string]interface{}{
 					"dynamicRegistration": true,
@@ -449,12 +452,12 @@ func (suite *JavaRealJDTLSE2ETestSuite) initializeServer(ctx context.Context) bo
 						},
 					},
 					"completion": map[string]interface{}{
-						"enabled": true,
+						"enabled":   true,
 						"overwrite": true,
 					},
 					"sources": map[string]interface{}{
 						"organizeImports": map[string]interface{}{
-							"starThreshold": 99,
+							"starThreshold":       99,
 							"staticStarThreshold": 99,
 						},
 					},
@@ -491,13 +494,13 @@ func (suite *JavaRealJDTLSE2ETestSuite) initializeServer(ctx context.Context) bo
 
 func (suite *JavaRealJDTLSE2ETestSuite) openWorkspace(ctx context.Context) {
 	workspaceStartTime := time.Now()
-	
+
 	// Open all Java files in the project workspace
 	err := filepath.Walk(suite.projectRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		
+
 		if strings.HasSuffix(path, ".java") {
 			content, err := os.ReadFile(path)
 			if err != nil {
@@ -519,7 +522,7 @@ func (suite *JavaRealJDTLSE2ETestSuite) openWorkspace(ctx context.Context) {
 		}
 		return nil
 	})
-	
+
 	if err != nil {
 		suite.T().Logf("Error walking project directory: %v", err)
 	}
@@ -527,7 +530,7 @@ func (suite *JavaRealJDTLSE2ETestSuite) openWorkspace(ctx context.Context) {
 	// Wait for JDTLS to process the workspace with intelligent polling
 	config := testutils.SlowPollingConfig()
 	config.Timeout = 30 * time.Second // Java analysis can take longer
-	
+
 	condition := func() (bool, error) {
 		// Test workspace symbol query to see if workspace is ready
 		// TODO: Fix WorkspaceSymbol method call once interface is updated
@@ -535,13 +538,13 @@ func (suite *JavaRealJDTLSE2ETestSuite) openWorkspace(ctx context.Context) {
 		time.Sleep(1 * time.Second)
 		return true, nil
 	}
-	
+
 	err = testutils.WaitForCondition(condition, config, "JDTLS workspace to be fully processed")
 	if err != nil {
 		suite.T().Logf("Warning: JDTLS workspace processing check failed: %v", err)
 		// Continue with test even if polling failed
 	}
-	
+
 	suite.performanceMetrics.WorkspaceLoadTime = time.Since(workspaceStartTime)
 }
 
@@ -550,29 +553,29 @@ func (suite *JavaRealJDTLSE2ETestSuite) executeComprehensiveJavaWorkflow(ctx con
 		ServerStartSuccess:    true,
 		InitializationSuccess: true,
 		ProjectLoadSuccess:    true,
-		PerformanceMetrics:   suite.performanceMetrics,
+		PerformanceMetrics:    suite.performanceMetrics,
 	}
 
 	startTime := time.Now()
 
 	// Test 1: Go to definition
 	result.DefinitionAccuracy = suite.testGoToDefinition(ctx)
-	
+
 	// Test 2: Find references
 	result.ReferencesWork = suite.testFindReferences(ctx)
-	
+
 	// Test 3: Hover information
 	result.HoverInformationWorks = suite.testHoverInformation(ctx)
-	
+
 	// Test 4: Document symbols
 	result.DocumentSymbolsWork = suite.testDocumentSymbols(ctx)
-	
+
 	// Test 5: Workspace symbols
 	result.WorkspaceSymbolsWork = suite.testWorkspaceSymbols(ctx)
-	
+
 	// Test 6: Code completion
 	result.CompletionWorks = suite.testCompletion(ctx)
-	
+
 	// Additional Java-specific tests
 	result.ClasspathResolutionWorks = suite.testClasspathResolution(ctx)
 	result.MavenIntegrationWorks = suite.testMavenIntegration(ctx)
@@ -591,7 +594,7 @@ func (suite *JavaRealJDTLSE2ETestSuite) testGoToDefinition(ctx context.Context) 
 			"uri": fmt.Sprintf("file://%s", filePath),
 		},
 		"position": map[string]interface{}{
-			"line":      2, // import com.test.model.User;
+			"line":      2,  // import com.test.model.User;
 			"character": 25, // Position of "User"
 		},
 	})
@@ -612,7 +615,7 @@ func (suite *JavaRealJDTLSE2ETestSuite) testGoToDefinition(ctx context.Context) 
 	}
 
 	suite.performanceMetrics.SuccessfulRequests++
-	
+
 	// Verify definition points to User.java file
 	if len(definitions) > 0 {
 		if def, ok := definitions[0].(map[string]interface{}); ok {
@@ -687,7 +690,7 @@ func (suite *JavaRealJDTLSE2ETestSuite) testHoverInformation(ctx context.Context
 	}
 
 	suite.performanceMetrics.SuccessfulRequests++
-	
+
 	// Verify hover contains method signature information
 	if contents, exists := hoverResult["contents"]; exists {
 		contentStr := fmt.Sprintf("%v", contents)
@@ -721,7 +724,7 @@ func (suite *JavaRealJDTLSE2ETestSuite) testDocumentSymbols(ctx context.Context)
 	}
 
 	suite.performanceMetrics.SuccessfulRequests++
-	
+
 	// Verify User class is found in symbols
 	for _, symbol := range symbols {
 		if sym, ok := symbol.(map[string]interface{}); ok {
@@ -786,7 +789,7 @@ func (suite *JavaRealJDTLSE2ETestSuite) testCompletion(ctx context.Context) bool
 	}
 
 	suite.performanceMetrics.SuccessfulRequests++
-	
+
 	// Check if completion items exist
 	if items, exists := completions["items"]; exists {
 		if itemList, ok := items.([]interface{}); ok {
@@ -831,42 +834,42 @@ type JavaPerformanceTestResult struct {
 
 func (suite *JavaRealJDTLSE2ETestSuite) executePerformanceTest(ctx context.Context, requestCount, concurrency int) *JavaPerformanceTestResult {
 	startTime := time.Now()
-	
+
 	var wg sync.WaitGroup
 	successChan := make(chan bool, requestCount)
-	
+
 	// Execute concurrent requests
 	requestsPerWorker := requestCount / concurrency
 	for i := 0; i < concurrency; i++ {
 		wg.Add(1)
 		go func(workerID int) {
 			defer wg.Done()
-			
+
 			for j := 0; j < requestsPerWorker; j++ {
 				// Alternate between different types of supported LSP requests
 				var success bool
 				switch j % 6 {
 				case 0:
-					success = suite.testGoToDefinition(ctx)    // textDocument/definition
+					success = suite.testGoToDefinition(ctx) // textDocument/definition
 				case 1:
-					success = suite.testFindReferences(ctx)    // textDocument/references
+					success = suite.testFindReferences(ctx) // textDocument/references
 				case 2:
-					success = suite.testHoverInformation(ctx)  // textDocument/hover
+					success = suite.testHoverInformation(ctx) // textDocument/hover
 				case 3:
-					success = suite.testDocumentSymbols(ctx)   // textDocument/documentSymbol
+					success = suite.testDocumentSymbols(ctx) // textDocument/documentSymbol
 				case 4:
-					success = suite.testWorkspaceSymbols(ctx)  // workspace/symbol
+					success = suite.testWorkspaceSymbols(ctx) // workspace/symbol
 				case 5:
-					success = suite.testCompletion(ctx)        // textDocument/completion
+					success = suite.testCompletion(ctx) // textDocument/completion
 				}
 				successChan <- success
 			}
 		}(i)
 	}
-	
+
 	wg.Wait()
 	close(successChan)
-	
+
 	// Calculate results
 	totalDuration := time.Since(startTime)
 	successCount := 0
@@ -875,7 +878,7 @@ func (suite *JavaRealJDTLSE2ETestSuite) executePerformanceTest(ctx context.Conte
 			successCount++
 		}
 	}
-	
+
 	return &JavaPerformanceTestResult{
 		TotalDuration: totalDuration,
 		SuccessRate:   float64(successCount) / float64(requestCount),
@@ -908,10 +911,10 @@ func (suite *JavaRealJDTLSE2ETestSuite) validateJavaIntegrationResult(result *Ja
 	suite.True(result.MavenIntegrationWorks, "Maven integration should work")
 	suite.True(result.JavaTypeInferenceWorks, "Java type inference should work")
 	suite.True(result.CrossFileNavigationWorks, "Cross-file navigation should work")
-	
+
 	suite.Less(result.TestDuration, suite.testTimeout, "Test should complete within timeout")
 	suite.Equal(0, result.ErrorCount, "Should have no errors in comprehensive test")
-	
+
 	// Performance validations
 	suite.NotNil(result.PerformanceMetrics, "Performance metrics should be collected")
 	if result.PerformanceMetrics != nil {
@@ -927,7 +930,7 @@ func (suite *JavaRealJDTLSE2ETestSuite) recordPerformanceMetrics(result *JavaInt
 	if suite.performanceMetrics.TotalRequests > 0 {
 		suite.performanceMetrics.AverageResponseTime = result.TestDuration / time.Duration(suite.performanceMetrics.TotalRequests)
 	}
-	
+
 	result.PerformanceMetrics = suite.performanceMetrics
 }
 

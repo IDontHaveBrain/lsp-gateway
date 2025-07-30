@@ -150,7 +150,7 @@ func (d *PythonProjectDetector) GetMarkerFiles() []string {
 		types.MARKER_REQUIREMENTS,
 		types.MARKER_PIPFILE,
 		"setup.cfg",
-		"pytypes.toml",
+		"pyproject.toml",
 		"Pipfile.lock",
 		"poetry.lock",
 		"pdm.lock",
@@ -231,17 +231,17 @@ func (d *PythonProjectDetector) analyzePythonConfigs(ctx context.Context, path s
 		EntryPoints:     make(map[string]string),
 	}
 
-	// Parse pytypes.toml
-	pyprojectPath := filepath.Join(path, "pytypes.toml")
+	// Parse pyproject.toml
+	pyprojectPath := filepath.Join(path, "pyproject.toml")
 	if _, err := os.Stat(pyprojectPath); err == nil {
 		pyprojectInfo, err := d.parser.ParsePyproject(ctx, pyprojectPath)
 		if err != nil {
-			d.logger.WithError(err).Debug("Failed to parse pytypes.toml")
+			d.logger.WithError(err).Debug("Failed to parse pyproject.toml")
 		} else {
 			metadata.PyProjectInfo = pyprojectInfo
 			metadata.BuildBackend = pyprojectInfo.BuildSystem.BuildBackend
-			d.mergeDependencies(metadata.Dependencies, pyprojectInfo.Dependencies, "pytypes.toml")
-			d.mergeDependencies(metadata.DevDependencies, pyprojectInfo.DevDependencies, "pytypes.toml")
+			d.mergeDependencies(metadata.Dependencies, pyprojectInfo.Dependencies, "pyproject.toml")
+			d.mergeDependencies(metadata.DevDependencies, pyprojectInfo.DevDependencies, "pyproject.toml")
 		}
 	}
 
@@ -432,8 +432,8 @@ func (d *PythonProjectDetector) detectProjectPythonVersion(ctx context.Context, 
 		return strings.TrimSpace(string(content)), nil
 	}
 
-	// Check pytypes.toml python version requirement
-	pyprojectPath := filepath.Join(path, "pytypes.toml")
+	// Check pyproject.toml python version requirement
+	pyprojectPath := filepath.Join(path, "pyproject.toml")
 	if _, err := os.Stat(pyprojectPath); err == nil {
 		pyproject, err := d.parser.ParsePyproject(ctx, pyprojectPath)
 		if err == nil && pyproject.Project.RequiresPython != "" {
@@ -480,11 +480,11 @@ func (d *PythonProjectDetector) hasPythonSourceFiles(ctx context.Context, path s
 }
 
 func (d *PythonProjectDetector) validateConfigurationFiles(ctx context.Context, path string) error {
-	// Validate pytypes.toml if present
-	pyprojectPath := filepath.Join(path, "pytypes.toml")
+	// Validate pyproject.toml if present
+	pyprojectPath := filepath.Join(path, "pyproject.toml")
 	if _, err := os.Stat(pyprojectPath); err == nil {
 		if _, err := d.parser.ParsePyproject(ctx, pyprojectPath); err != nil {
-			return fmt.Errorf("invalid pytypes.toml: %w", err)
+			return fmt.Errorf("invalid pyproject.toml: %w", err)
 		}
 	}
 
@@ -531,7 +531,7 @@ func (d *PythonProjectDetector) calculateConfidence(markerFiles []string, hasRun
 	// Boost for modern configuration files
 	for _, marker := range markerFiles {
 		switch marker {
-		case "pytypes.toml":
+		case "pyproject.toml":
 			confidence += 0.4
 		case "setup.py":
 			confidence += 0.3

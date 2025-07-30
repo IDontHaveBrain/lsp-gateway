@@ -14,7 +14,7 @@ import (
 
 // RealSCIPStore is the production implementation of SCIPStore using actual SCIP indexing
 type RealSCIPStore struct {
-	scipClient interface{} // SCIPClient placeholder - will be replaced when client is fixed
+	scipClient SCIPStore // Active SCIP client adapter for querying indices
 	cache      *SCIPCache
 	config     *SCIPConfig
 	stats      SCIPStoreStats
@@ -103,12 +103,21 @@ func NewRealSCIPStore(config *SCIPConfig) SCIPStore {
 		}
 	}
 
-	// Create SCIP client - placeholder for when client is fixed
-	var scipClient interface{}
-	if config.Logging.LogIndexOperations {
-		log.Printf("SCIP: Client temporarily disabled due to API compatibility issues, using degraded mode")
+	// Create SCIP client using the working SCIPClient implementation
+	var scipClient SCIPStore
+	baseClient, err := NewSCIPClient(config)
+	if err != nil {
+		if config.Logging.LogIndexOperations {
+			log.Printf("SCIP: Failed to create SCIP client: %v, using degraded mode", err)
+		}
+		scipClient = nil
+	} else {
+		// Wrap the SCIP client with the adapter to implement SCIPStore interface
+		scipClient = NewSCIPClientAdapter(baseClient)
+		if config.Logging.LogIndexOperations {
+			log.Printf("SCIP: Client successfully initialized with indexing capabilities")
+		}
 	}
-	scipClient = nil
 
 	// Create cache
 	cache := NewSCIPCache(config.CacheConfig)
@@ -170,8 +179,11 @@ func (s *RealSCIPStore) LoadIndex(path string) error {
 		return nil
 	}
 
-	// TODO: Load through SCIP client when client is fixed
-	// For now, simulate successful load in degraded mode
+	// Load through SCIP client
+	if err := s.scipClient.LoadIndex(path); err != nil {
+		return fmt.Errorf("failed to load SCIP index: %w", err)
+	}
+
 	s.stats.IndexesLoaded++
 	return nil
 }
@@ -259,26 +271,73 @@ func (s *RealSCIPStore) Query(method string, params interface{}) SCIPQueryResult
 
 // performSCIPQuery executes the actual SCIP query based on the LSP method
 func (s *RealSCIPStore) performSCIPQuery(method string, params interface{}, queryID int64, startTime time.Time) SCIPQueryResult {
-	// Currently in degraded mode - return appropriate response
-	return SCIPQueryResult{
-		Found:      false,
-		Method:     method,
-		Error:      "SCIP client temporarily unavailable - running in degraded mode",
-		CacheHit:   false,
-		QueryTime:  time.Since(startTime),
-		Confidence: 0.0,
-		Metadata: map[string]interface{}{
-			"query_id":       queryID,
-			"implementation": "real_scip",
-			"degraded_mode":  true,
-		},
+	// Check if SCIP client is available
+	if s.scipClient == nil {
+		// Fallback to degraded mode
+		return SCIPQueryResult{
+			Found:      false,
+			Method:     method,
+			Error:      "SCIP client unavailable - running in degraded mode",
+			CacheHit:   false,
+			QueryTime:  time.Since(startTime),
+			Confidence: 0.0,
+			Metadata: map[string]interface{}{
+				"query_id":       queryID,
+				"implementation": "real_scip",
+				"degraded_mode":  true,
+			},
+		}
 	}
+
+	// Use the actual SCIP client to perform the query
+	result := s.scipClient.Query(method, params)
+
+	// Add metadata to the result
+	if result.Metadata == nil {
+		result.Metadata = make(map[string]interface{})
+	}
+	result.Metadata["query_id"] = queryID
+	result.Metadata["implementation"] = "real_scip"
+	result.Metadata["degraded_mode"] = false
+
+	// Update query time to include our processing time
+	result.QueryTime = time.Since(startTime)
+
+	return result
 }
 
 // executeQuery maps LSP methods to SCIP client operations
-// TODO: Implement when SCIP client is available
 func (s *RealSCIPStore) executeQuery(ctx context.Context, method string, params interface{}) (json.RawMessage, float64, error) {
-	return nil, 0.0, fmt.Errorf("SCIP client unavailable - method %s not implemented in degraded mode", method)
+	if s.scipClient == nil {
+		return nil, 0.0, fmt.Errorf("SCIP client unavailable - method %s not implemented in degraded mode", method)
+	}
+
+	// Check context cancellation
+	select {
+	case <-ctx.Done():
+		return nil, 0.0, ctx.Err()
+	default:
+	}
+
+	// Perform the query using the SCIP client
+	result := s.scipClient.Query(method, params)
+
+	if !result.Found {
+		if result.Error != "" {
+			return nil, 0.0, fmt.Errorf("SCIP query failed: %s", result.Error)
+		}
+		// Return empty response for no results based on method type
+		switch method {
+		case "textDocument/definition", "textDocument/references", "textDocument/documentSymbol", "workspace/symbol":
+			return json.RawMessage("[]"), 0.0, nil
+		case "textDocument/hover":
+			return json.RawMessage("null"), 0.0, nil
+		default:
+			return json.RawMessage("null"), 0.0, nil
+		}
+	}
+
+	return result.Response, result.Confidence, nil
 }
 
 // TODO: Query handlers will be implemented when SCIP client is available
@@ -392,8 +451,12 @@ func (s *RealSCIPStore) Close() error {
 		s.cache.Close()
 	}
 
-	// TODO: Close SCIP client when available
-	// Currently using interface{} placeholder
+	// Close SCIP client if available
+	if s.scipClient != nil {
+		if err := s.scipClient.Close(); err != nil && s.config.Logging.LogIndexOperations {
+			log.Printf("SCIP: Error closing SCIP client: %v", err)
+		}
+	}
 
 	if s.config.Logging.LogIndexOperations {
 		log.Println("SCIP: Real store closed successfully")

@@ -691,7 +691,7 @@ func (g *ConfigGenerator) initializeOptimizationModes() {
 func (g *ConfigGenerator) initializeBypassTemplates() {
 	// Load bypass defaults from template
 	g.bypassDefaults = g.loadGlobalBypassDefaults()
-	
+
 	// Load language-specific bypass templates
 	g.bypassTemplates["go"] = g.loadLanguageBypassTemplate("go")
 	g.bypassTemplates["python"] = g.loadLanguageBypassTemplate("python")
@@ -761,7 +761,7 @@ func (g *ConfigGenerator) GenerateDefaultMultiLanguageConfig() (*MultiLanguageCo
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current working directory: %w", err)
 	}
-	
+
 	// Create default project info with common languages
 	defaultProjectInfo := &MultiLanguageProjectInfo{
 		ProjectType:   ProjectTypeMulti,
@@ -811,7 +811,7 @@ func (g *ConfigGenerator) GenerateDefaultMultiLanguageConfig() (*MultiLanguageCo
 func (g *ConfigGenerator) GenerateServerConfig(langCtx *LanguageContext) (*ServerConfig, error) {
 	// Normalize language name to match template keys
 	normalizedLanguage := g.normalizeLanguageName(langCtx.Language)
-	
+
 	template, exists := g.templates[normalizedLanguage]
 	if !exists {
 		return nil, fmt.Errorf("no template found for language: %s (normalized from: %s)", normalizedLanguage, langCtx.Language)
@@ -819,7 +819,7 @@ func (g *ConfigGenerator) GenerateServerConfig(langCtx *LanguageContext) (*Serve
 
 	// Map language name for Languages field (for request routing)
 	mappedLanguage := g.mapLanguageForRouting(langCtx.Language)
-	
+
 	// Create server config from template
 	serverConfig := &ServerConfig{
 		Name:             template.Name,
@@ -884,13 +884,13 @@ func (g *ConfigGenerator) applyProjectSpecificWorkspaceConfig(serverConfig *Serv
 			// Fallback to legacy behavior if no project root available
 			serverConfig.Args = installer.GetJDTLSArgs()
 		}
-		
+
 	// Future workspace-type servers can be added here
 	// case "rust-analyzer":
 	//     // Apply Rust-specific workspace configuration
 	// case "omnisharp":
 	//     // Apply C#-specific workspace configuration
-	
+
 	default:
 		// For other workspace-type servers, keep existing args
 	}
@@ -1391,11 +1391,11 @@ func (g *ConfigGenerator) normalizeLanguageName(language string) string {
 		"js":         "typescript", // Common JS abbreviation
 		"ts":         "typescript", // Common TS abbreviation
 	}
-	
+
 	if normalized, exists := languageMap[language]; exists {
 		return normalized
 	}
-	
+
 	// Return original language if no mapping exists
 	return language
 }
@@ -1403,17 +1403,17 @@ func (g *ConfigGenerator) normalizeLanguageName(language string) string {
 // mapLanguageForRouting maps project detection language names to LSP server language names for request routing
 func (g *ConfigGenerator) mapLanguageForRouting(language string) string {
 	routingMap := map[string]string{
-		"nodejs":     "javascript", // Node.js projects route to javascript
-		"javascript": "javascript", // JavaScript projects (no change)
+		"nodejs":     "typescript", // Node.js projects route to typescript
+		"javascript": "typescript", // JavaScript projects route to typescript
 		"typescript": "typescript", // TypeScript projects (no change)
-		"js":         "javascript", // Common JS abbreviation
+		"js":         "typescript", // Common JS abbreviation
 		"ts":         "typescript", // Common TS abbreviation
 	}
-	
+
 	if mapped, exists := routingMap[language]; exists {
 		return mapped
 	}
-	
+
 	// Return original language if no mapping exists
 	return language
 }
@@ -1426,91 +1426,91 @@ func (g *ConfigGenerator) loadLanguageBypassTemplate(language string) *LanguageB
 	switch language {
 	case "go":
 		return &LanguageBypassConfig{
-			Language:    "go",
-			Strategy:    "auto",
-			Conditions:  []string{"consecutive_failures", "circuit_breaker"},
-			Timeout:     "30s",
+			Language:   "go",
+			Strategy:   "auto",
+			Conditions: []string{"consecutive_failures", "circuit_breaker"},
+			Timeout:    "30s",
 			PerformanceThresholds: &LanguagePerformanceThresholds{
 				MaxResponseTime: "5s",
 				MaxMemoryUsage:  "512MB",
 				MaxCPUUsage:     80.0,
 			},
 			Recovery: &LanguageRecoveryConfig{
-				Enabled:     true,
-				MaxAttempts: 3,
-				Cooldown:    "30s",
+				Enabled:           true,
+				MaxAttempts:       3,
+				Cooldown:          "30s",
 				HealthCheckMethod: "ping",
 			},
 		}
 	case "python":
 		return &LanguageBypassConfig{
-			Language:    "python",
-			Strategy:    "auto",
-			Conditions:  []string{"consecutive_failures", "circuit_breaker"},
-			Timeout:     "30s",
+			Language:   "python",
+			Strategy:   "auto",
+			Conditions: []string{"consecutive_failures", "circuit_breaker"},
+			Timeout:    "30s",
 			PerformanceThresholds: &LanguagePerformanceThresholds{
 				MaxResponseTime: "10s",
 				MaxMemoryUsage:  "1GB",
 				MaxCPUUsage:     85.0,
 			},
 			Recovery: &LanguageRecoveryConfig{
-				Enabled:     true,
-				MaxAttempts: 3,
-				Cooldown:    "30s",
+				Enabled:           true,
+				MaxAttempts:       3,
+				Cooldown:          "30s",
 				HealthCheckMethod: "ping",
 			},
 		}
 	case "typescript", "javascript":
 		return &LanguageBypassConfig{
-			Language:    language,
-			Strategy:    "auto",
-			Conditions:  []string{"consecutive_failures", "circuit_breaker"},
-			Timeout:     "20s",
+			Language:   language,
+			Strategy:   "auto",
+			Conditions: []string{"consecutive_failures", "circuit_breaker"},
+			Timeout:    "20s",
 			PerformanceThresholds: &LanguagePerformanceThresholds{
 				MaxResponseTime: "8s",
 				MaxMemoryUsage:  "800MB",
 				MaxCPUUsage:     75.0,
 			},
 			Recovery: &LanguageRecoveryConfig{
-				Enabled:     true,
-				MaxAttempts: 3,
-				Cooldown:    "30s",
+				Enabled:           true,
+				MaxAttempts:       3,
+				Cooldown:          "30s",
 				HealthCheckMethod: "ping",
 			},
 		}
 	case "java":
 		return &LanguageBypassConfig{
-			Language:    "java",
-			Strategy:    "manual", // Java servers are slower to start, require manual intervention
-			Conditions:  []string{"consecutive_failures"},
-			Timeout:     "60s",
+			Language:   "java",
+			Strategy:   "manual", // Java servers are slower to start, require manual intervention
+			Conditions: []string{"consecutive_failures"},
+			Timeout:    "60s",
 			PerformanceThresholds: &LanguagePerformanceThresholds{
 				MaxResponseTime: "15s",
 				MaxMemoryUsage:  "2GB",
 				MaxCPUUsage:     90.0,
 			},
 			Recovery: &LanguageRecoveryConfig{
-				Enabled:     true,
-				MaxAttempts: 5,
-				Cooldown:    "60s",
+				Enabled:           true,
+				MaxAttempts:       5,
+				Cooldown:          "60s",
 				HealthCheckMethod: "workspace_health",
 			},
 		}
 	default:
 		return &LanguageBypassConfig{
-			Language:    language,
-			Strategy:    "auto",
-			Conditions:  []string{"consecutive_failures", "circuit_breaker"},
-			Timeout:     "30s",
+			Language:   language,
+			Strategy:   "auto",
+			Conditions: []string{"consecutive_failures", "circuit_breaker"},
+			Timeout:    "30s",
 			PerformanceThresholds: &LanguagePerformanceThresholds{
 				MaxResponseTime: "10s",
 				MaxMemoryUsage:  "1GB",
 				MaxCPUUsage:     80.0,
 			},
 			Recovery: &LanguageRecoveryConfig{
-				Enabled:     true,
-				MaxAttempts: 3,
-				Cooldown:    "30s",
+				Enabled:           true,
+				MaxAttempts:       3,
+				Cooldown:          "30s",
 				HealthCheckMethod: "ping",
 			},
 		}
@@ -1529,16 +1529,16 @@ func (g *ConfigGenerator) applyBypassConfiguration(serverConfig *ServerConfig, l
 
 	// Create bypass configuration based on template
 	bypassConfig := &ServerBypassConfig{
-		Enabled:               true,
-		BypassStrategy:        bypassTemplate.Strategy,
-		BypassConditions:      make([]string, len(bypassTemplate.Conditions)),
-		RecoveryAttempts:      bypassTemplate.Recovery.MaxAttempts,
-		CooldownPeriod:        bypassTemplate.Recovery.Cooldown,
+		Enabled:          true,
+		BypassStrategy:   bypassTemplate.Strategy,
+		BypassConditions: make([]string, len(bypassTemplate.Conditions)),
+		RecoveryAttempts: bypassTemplate.Recovery.MaxAttempts,
+		CooldownPeriod:   bypassTemplate.Recovery.Cooldown,
 		Timeouts: &BypassTimeouts{
 			Request: bypassTemplate.Timeout,
 		},
 		FailureThresholds: &BypassFailureThresholds{
-			ConsecutiveFailures: 3, // Default value
+			ConsecutiveFailures: 3,  // Default value
 			ErrorRatePercent:    25, // Default value
 		},
 	}

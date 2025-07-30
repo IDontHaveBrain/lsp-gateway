@@ -1,0 +1,83 @@
+# Java MCP Integration Test Configuration
+# Optimized for MCP testing with JDTLS language server
+port: ${TEST_PORT}
+timeout: "45s"
+max_concurrent_requests: 80
+project_aware: true
+
+# Single Java server for MCP testing
+servers:
+  - name: "jdtls"
+    languages: ["java"]
+    command: "jdtls"
+    args: [
+      "-configuration", "${JDTLS_CACHE_DIR}",
+      "-data", "${TEST_WORKSPACE}",
+      "--add-modules=ALL-SYSTEM",
+      "--add-opens", "java.base/java.util=ALL-UNNAMED",
+      "--add-opens", "java.base/java.lang=ALL-UNNAMED"
+    ]
+    transport: "stdio"
+    root_markers: ["pom.xml", "build.gradle", ".project"]
+    
+    settings:
+      java:
+        configuration:
+          updateBuildConfiguration: "interactive"
+        compile:
+          nullAnalysis:
+            mode: "automatic"
+        sources:
+          organizeImports:
+            starThreshold: 99
+            staticStarThreshold: 99
+        import:
+          gradle:
+            enabled: true
+            wrapper:
+              enabled: true
+          maven:
+            enabled: true
+    
+    environment:
+      JAVA_HOME: "${JAVA_HOME}"
+      MAVEN_HOME: "${MAVEN_HOME}"
+
+# MCP-specific configuration
+mcp:
+  enabled: true
+  tools:
+    - "textDocument/definition"
+    - "textDocument/references"
+    - "textDocument/hover"
+    - "textDocument/documentSymbol"
+    - "workspace/symbol"
+    - "textDocument/completion"
+  
+  transport:
+    type: "stdio"
+    timeout: "45s"
+    
+  protocol:
+    version: "2025-06-18"
+    capabilities:
+      tools: true
+
+# Test settings
+test_settings:
+  timeouts:
+    server_startup: "45s"
+    lsp_request: "15s"
+    
+  performance:
+    max_response_time_ms: 10000
+    max_memory_usage_mb: 1024
+    
+  file_patterns:
+    include:
+      - "src/**/*.java"
+      - "*.java"
+    exclude:
+      - "target/**"
+      - ".git/**"
+      - "build/**"

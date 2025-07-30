@@ -492,11 +492,11 @@ func (v *ParameterValidator) ValidatePositionParams(args map[string]interface{})
 func createValidationErrorResult(validationErrors []ValidationError) *ToolResult {
 	var messages []string
 	var suggestions []string
-	context := make(map[string]interface{})
-	
+	contextData := make(map[string]interface{})
+
 	for _, ve := range validationErrors {
 		messages = append(messages, ve.Message)
-		context[ve.Field] = map[string]interface{}{
+		contextData[ve.Field] = map[string]interface{}{
 			"value":    ve.Value,
 			"expected": ve.Expected,
 			"actual":   ve.Actual,
@@ -520,7 +520,7 @@ func createValidationErrorResult(validationErrors []ValidationError) *ToolResult
 			Code:        MCPErrorValidationFailed,
 			Message:     "Multiple validation errors occurred",
 			Details:     fmt.Sprintf("Found %d validation error(s)", len(validationErrors)),
-			Context:     context,
+			Context:     contextData,
 			Suggestions: suggestions,
 			Retryable:   true,
 		},
@@ -557,7 +557,7 @@ func createParameterMissingError(paramName, toolName string) *ToolResult {
 // createParameterTypeError creates a ToolResult for parameter type errors
 func createParameterTypeError(paramName, expected, actual, toolName string) *ToolResult {
 	var suggestions []string
-	
+
 	// Add specific suggestions based on the parameter type
 	switch expected {
 	case "string":
@@ -588,7 +588,7 @@ func createParameterTypeError(paramName, expected, actual, toolName string) *Too
 			"Check the parameter type in your request",
 		}
 	}
-	
+
 	suggestions = append(suggestions, fmt.Sprintf("Refer to the '%s' tool documentation for parameter specifications", toolName))
 
 	return &ToolResult{
@@ -617,9 +617,9 @@ func createParameterTypeError(paramName, expected, actual, toolName string) *Too
 func createLSPRequestError(method, toolName string, err error, requestParams map[string]interface{}) *ToolResult {
 	var suggestions []string
 	var errorCode MCPErrorCode = MCPErrorLSPServerError
-	
+
 	errorMsg := err.Error()
-	
+
 	// Analyze error type and provide specific suggestions
 	if strings.Contains(strings.ToLower(errorMsg), "connection") {
 		errorCode = MCPErrorConnectionFailed
@@ -676,7 +676,7 @@ func createLSPRequestError(method, toolName string, err error, requestParams map
 func createURIValidationError(uri, toolName string, parseError error) *ToolResult {
 	var suggestions []string
 	var details string
-	
+
 	if strings.TrimSpace(uri) == "" {
 		details = "URI cannot be empty or whitespace"
 		suggestions = []string{
@@ -722,8 +722,8 @@ func createURIValidationError(uri, toolName string, parseError error) *ToolResul
 			Message: fmt.Sprintf("Invalid URI format for tool '%s'", toolName),
 			Details: details,
 			Context: map[string]interface{}{
-				"tool":       toolName,
-				"uri":        uri,
+				"tool": toolName,
+				"uri":  uri,
 				"valid_examples": []string{
 					"file:///home/user/project/main.go",
 					"file:///C:/Users/user/project/main.js",
@@ -740,7 +740,7 @@ func createURIValidationError(uri, toolName string, parseError error) *ToolResul
 func createPositionValidationError(line, character int, toolName string) *ToolResult {
 	var details string
 	var suggestions []string
-	
+
 	if line < 0 && character < 0 {
 		details = fmt.Sprintf("Both line (%d) and character (%d) positions are invalid. LSP positions are 0-based and must be non-negative.", line, character)
 		suggestions = []string{
@@ -781,11 +781,11 @@ func createPositionValidationError(line, character int, toolName string) *ToolRe
 			Message: fmt.Sprintf("Invalid position parameters for tool '%s'", toolName),
 			Details: details,
 			Context: map[string]interface{}{
-				"tool":      toolName,
-				"line":      line,
-				"character": character,
-				"min_line":  0,
-				"min_char":  0,
+				"tool":            toolName,
+				"line":            line,
+				"character":       character,
+				"min_line":        0,
+				"min_char":        0,
 				"position_format": "0-based indexing",
 			},
 			Suggestions: suggestions,
@@ -804,7 +804,7 @@ type ToolResult struct {
 	StructuredContent map[string]interface{} `json:"structuredContent,omitempty"`
 	IsError           bool                   `json:"isError,omitempty"`
 	Meta              *ResponseMetadata      `json:"_meta,omitempty"`
-	
+
 	// Deprecated: Remove after migration to MCP standard format
 	Error *StructuredError `json:"-"`
 }
@@ -877,14 +877,14 @@ func (h *ToolHandler) RegisterDefaultTools() {
 											"start": map[string]interface{}{
 												"type": "object",
 												"properties": map[string]interface{}{
-													"line": map[string]interface{}{"type": "integer"},
+													"line":      map[string]interface{}{"type": "integer"},
 													"character": map[string]interface{}{"type": "integer"},
 												},
 											},
 											"end": map[string]interface{}{
 												"type": "object",
 												"properties": map[string]interface{}{
-													"line": map[string]interface{}{"type": "integer"},
+													"line":      map[string]interface{}{"type": "integer"},
 													"character": map[string]interface{}{"type": "integer"},
 												},
 											},
@@ -901,9 +901,9 @@ func (h *ToolHandler) RegisterDefaultTools() {
 				"type": "object",
 				"properties": map[string]interface{}{
 					"timestamp": map[string]interface{}{"type": "string"},
-					"duration": map[string]interface{}{"type": "string"},
+					"duration":  map[string]interface{}{"type": "string"},
 					"lspMethod": map[string]interface{}{"type": "string"},
-					"cacheHit": map[string]interface{}{"type": "boolean"},
+					"cacheHit":  map[string]interface{}{"type": "boolean"},
 				},
 			},
 		},
@@ -956,14 +956,14 @@ func (h *ToolHandler) RegisterDefaultTools() {
 											"start": map[string]interface{}{
 												"type": "object",
 												"properties": map[string]interface{}{
-													"line": map[string]interface{}{"type": "integer"},
+													"line":      map[string]interface{}{"type": "integer"},
 													"character": map[string]interface{}{"type": "integer"},
 												},
 											},
 											"end": map[string]interface{}{
 												"type": "object",
 												"properties": map[string]interface{}{
-													"line": map[string]interface{}{"type": "integer"},
+													"line":      map[string]interface{}{"type": "integer"},
 													"character": map[string]interface{}{"type": "integer"},
 												},
 											},
@@ -980,9 +980,9 @@ func (h *ToolHandler) RegisterDefaultTools() {
 				"type": "object",
 				"properties": map[string]interface{}{
 					"timestamp": map[string]interface{}{"type": "string"},
-					"duration": map[string]interface{}{"type": "string"},
+					"duration":  map[string]interface{}{"type": "string"},
 					"lspMethod": map[string]interface{}{"type": "string"},
-					"cacheHit": map[string]interface{}{"type": "boolean"},
+					"cacheHit":  map[string]interface{}{"type": "boolean"},
 				},
 			},
 		},
@@ -1037,7 +1037,7 @@ func (h *ToolHandler) RegisterDefaultTools() {
 										"type": "object",
 										"properties": map[string]interface{}{
 											"language": map[string]interface{}{"type": "string"},
-											"value": map[string]interface{}{"type": "string"},
+											"value":    map[string]interface{}{"type": "string"},
 										},
 									},
 								},
@@ -1047,14 +1047,14 @@ func (h *ToolHandler) RegisterDefaultTools() {
 										"start": map[string]interface{}{
 											"type": "object",
 											"properties": map[string]interface{}{
-												"line": map[string]interface{}{"type": "integer"},
+												"line":      map[string]interface{}{"type": "integer"},
 												"character": map[string]interface{}{"type": "integer"},
 											},
 										},
 										"end": map[string]interface{}{
 											"type": "object",
 											"properties": map[string]interface{}{
-												"line": map[string]interface{}{"type": "integer"},
+												"line":      map[string]interface{}{"type": "integer"},
 												"character": map[string]interface{}{"type": "integer"},
 											},
 										},
@@ -1070,9 +1070,9 @@ func (h *ToolHandler) RegisterDefaultTools() {
 				"type": "object",
 				"properties": map[string]interface{}{
 					"timestamp": map[string]interface{}{"type": "string"},
-					"duration": map[string]interface{}{"type": "string"},
+					"duration":  map[string]interface{}{"type": "string"},
 					"lspMethod": map[string]interface{}{"type": "string"},
-					"cacheHit": map[string]interface{}{"type": "boolean"},
+					"cacheHit":  map[string]interface{}{"type": "boolean"},
 				},
 			},
 		},
@@ -1126,14 +1126,14 @@ func (h *ToolHandler) RegisterDefaultTools() {
 											"start": map[string]interface{}{
 												"type": "object",
 												"properties": map[string]interface{}{
-													"line": map[string]interface{}{"type": "integer"},
+													"line":      map[string]interface{}{"type": "integer"},
 													"character": map[string]interface{}{"type": "integer"},
 												},
 											},
 											"end": map[string]interface{}{
 												"type": "object",
 												"properties": map[string]interface{}{
-													"line": map[string]interface{}{"type": "integer"},
+													"line":      map[string]interface{}{"type": "integer"},
 													"character": map[string]interface{}{"type": "integer"},
 												},
 											},
@@ -1145,21 +1145,21 @@ func (h *ToolHandler) RegisterDefaultTools() {
 											"start": map[string]interface{}{
 												"type": "object",
 												"properties": map[string]interface{}{
-													"line": map[string]interface{}{"type": "integer"},
+													"line":      map[string]interface{}{"type": "integer"},
 													"character": map[string]interface{}{"type": "integer"},
 												},
 											},
 											"end": map[string]interface{}{
 												"type": "object",
 												"properties": map[string]interface{}{
-													"line": map[string]interface{}{"type": "integer"},
+													"line":      map[string]interface{}{"type": "integer"},
 													"character": map[string]interface{}{"type": "integer"},
 												},
 											},
 										},
 									},
 									"children": map[string]interface{}{
-										"type": "array",
+										"type":  "array",
 										"items": map[string]interface{}{"type": "object"},
 									},
 								},
@@ -1173,9 +1173,9 @@ func (h *ToolHandler) RegisterDefaultTools() {
 				"type": "object",
 				"properties": map[string]interface{}{
 					"timestamp": map[string]interface{}{"type": "string"},
-					"duration": map[string]interface{}{"type": "string"},
+					"duration":  map[string]interface{}{"type": "string"},
 					"lspMethod": map[string]interface{}{"type": "string"},
-					"cacheHit": map[string]interface{}{"type": "boolean"},
+					"cacheHit":  map[string]interface{}{"type": "boolean"},
 				},
 			},
 		},
@@ -1225,14 +1225,14 @@ func (h *ToolHandler) RegisterDefaultTools() {
 													"start": map[string]interface{}{
 														"type": "object",
 														"properties": map[string]interface{}{
-															"line": map[string]interface{}{"type": "integer"},
+															"line":      map[string]interface{}{"type": "integer"},
 															"character": map[string]interface{}{"type": "integer"},
 														},
 													},
 													"end": map[string]interface{}{
 														"type": "object",
 														"properties": map[string]interface{}{
-															"line": map[string]interface{}{"type": "integer"},
+															"line":      map[string]interface{}{"type": "integer"},
 															"character": map[string]interface{}{"type": "integer"},
 														},
 													},
@@ -1252,9 +1252,9 @@ func (h *ToolHandler) RegisterDefaultTools() {
 				"type": "object",
 				"properties": map[string]interface{}{
 					"timestamp": map[string]interface{}{"type": "string"},
-					"duration": map[string]interface{}{"type": "string"},
+					"duration":  map[string]interface{}{"type": "string"},
 					"lspMethod": map[string]interface{}{"type": "string"},
-					"cacheHit": map[string]interface{}{"type": "boolean"},
+					"cacheHit":  map[string]interface{}{"type": "boolean"},
 				},
 			},
 		},
@@ -1275,6 +1275,93 @@ func (h *ToolHandler) RegisterDefaultTools() {
 			"required": []string{"query"},
 		},
 	}
+
+	completionTitle := "Get Code Completion"
+	completionOutputSchema := &map[string]interface{}{
+		"type": "object",
+		"properties": map[string]interface{}{
+			"content": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"type": map[string]interface{}{"type": "string"},
+						"text": map[string]interface{}{"type": "string"},
+						"data": map[string]interface{}{
+							"type": "object",
+							"properties": map[string]interface{}{
+								"items": map[string]interface{}{
+									"type": "array",
+									"items": map[string]interface{}{
+										"type": "object",
+										"properties": map[string]interface{}{
+											"label":      map[string]interface{}{"type": "string"},
+											"kind":       map[string]interface{}{"type": "integer"},
+											"detail":     map[string]interface{}{"type": "string"},
+											"documentation": map[string]interface{}{
+												"type": "object",
+												"properties": map[string]interface{}{
+													"kind":  map[string]interface{}{"type": "string"},
+													"value": map[string]interface{}{"type": "string"},
+												},
+											},
+											"insertText": map[string]interface{}{"type": "string"},
+											"sortText":   map[string]interface{}{"type": "string"},
+											"filterText": map[string]interface{}{"type": "string"},
+										},
+									},
+								},
+								"isIncomplete": map[string]interface{}{"type": "boolean"},
+							},
+						},
+					},
+				},
+			},
+			"isError": map[string]interface{}{"type": "boolean"},
+			"meta": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"timestamp": map[string]interface{}{"type": "string"},
+					"duration":  map[string]interface{}{"type": "string"},
+					"lspMethod": map[string]interface{}{"type": "string"},
+					"cacheHit":  map[string]interface{}{"type": "boolean"},
+				},
+			},
+		},
+	}
+	h.Tools["get_completion"] = Tool{
+		Name:         "get_completion",
+		Title:        &completionTitle,
+		Description:  "Get code completion suggestions at a specific position in a file",
+		OutputSchema: completionOutputSchema,
+		InputSchema: map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"uri": map[string]interface{}{
+					"type":        "string",
+					"description": "File URI (e.g., file:///path/to/file.go)",
+				},
+				"line": map[string]interface{}{
+					"type":        "integer",
+					"description": "Line number (0-based)",
+				},
+				"character": map[string]interface{}{
+					"type":        "integer",
+					"description": "Character position (0-based)",
+				},
+				"triggerKind": map[string]interface{}{
+					"type":        "integer",
+					"description": "Completion trigger kind (1=invoked, 2=triggerCharacter, 3=incomplete)",
+					"default":     1,
+				},
+				"triggerCharacter": map[string]interface{}{
+					"type":        "string",
+					"description": "Character that triggered completion (when triggerKind=2)",
+				},
+			},
+			"required": []string{"uri", "line", "character"},
+		},
+	}
 }
 
 func (h *ToolHandler) ListTools() []Tool {
@@ -1289,9 +1376,9 @@ func (h *ToolHandler) CallTool(ctx context.Context, call ToolCall) (*ToolResult,
 	tool, exists := h.Tools[call.Name]
 	if !exists {
 		availableTools := h.getAvailableToolNames()
-		errorMessage := fmt.Sprintf("Unknown tool: %s\n\nThe requested tool is not registered or does not exist.\n\nAvailable tools: %s\n\nSuggestions:\n- Check the tool name for typos\n- Use one of the available tools listed above\n- Verify the tool is supported in this version", 
+		errorMessage := fmt.Sprintf("Unknown tool: %s\n\nThe requested tool is not registered or does not exist.\n\nAvailable tools: %s\n\nSuggestions:\n- Check the tool name for typos\n- Use one of the available tools listed above\n- Verify the tool is supported in this version",
 			call.Name, strings.Join(availableTools, ", "))
-		
+
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
@@ -1319,9 +1406,11 @@ func (h *ToolHandler) CallTool(ctx context.Context, call ToolCall) (*ToolResult,
 		return h.handleGetDocumentSymbols(ctx, call.Arguments)
 	case "search_workspace_symbols":
 		return h.handleSearchWorkspaceSymbols(ctx, call.Arguments)
+	case "get_completion":
+		return h.handleGetCompletion(ctx, call.Arguments)
 	default:
 		errorMessage := fmt.Sprintf("Tool '%s' exists but is not implemented\n\nThe tool is registered but its handler is not implemented.\n\nSuggestions:\n- Contact support to request implementation of this tool\n- Use an alternative tool if available", tool.Name)
-		
+
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
@@ -1364,7 +1453,7 @@ func (h *ToolHandler) handleGotoDefinitionWithContext(ctx context.Context, args 
 		if len(structErr.Suggestions) > 0 {
 			errorMessage += "\n\nSuggestions:\n- " + strings.Join(structErr.Suggestions, "\n- ")
 		}
-		
+
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
@@ -1396,7 +1485,7 @@ func (h *ToolHandler) handleGotoDefinitionWithContext(ctx context.Context, args 
 	// Create timeout context for LSP request to prevent infinite wait
 	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	
+
 	result, err := h.Client.SendLSPRequest(timeoutCtx, "textDocument/definition", params)
 	if err != nil {
 		return createLSPRequestError("textDocument/definition", "goto_definition", err, params), nil
@@ -1441,7 +1530,7 @@ func (h *ToolHandler) handleFindReferencesWithContext(ctx context.Context, args 
 		if len(structErr.Suggestions) > 0 {
 			errorMessage += "\n\nSuggestions:\n- " + strings.Join(structErr.Suggestions, "\n- ")
 		}
-		
+
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
@@ -1468,7 +1557,7 @@ func (h *ToolHandler) handleFindReferencesWithContext(ctx context.Context, args 
 		if len(structErr.Suggestions) > 0 {
 			errorMessage += "\n\nSuggestions:\n- " + strings.Join(structErr.Suggestions, "\n- ")
 		}
-		
+
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
@@ -1503,7 +1592,7 @@ func (h *ToolHandler) handleFindReferencesWithContext(ctx context.Context, args 
 	// Create timeout context for LSP request to prevent infinite wait
 	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	
+
 	result, err := h.Client.SendLSPRequest(timeoutCtx, "textDocument/references", params)
 	if err != nil {
 		return createLSPRequestError("textDocument/references", "find_references", err, params), nil
@@ -1548,7 +1637,7 @@ func (h *ToolHandler) handleGetHoverInfoWithContext(ctx context.Context, args ma
 		if len(structErr.Suggestions) > 0 {
 			errorMessage += "\n\nSuggestions:\n- " + strings.Join(structErr.Suggestions, "\n- ")
 		}
-		
+
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
@@ -1580,7 +1669,7 @@ func (h *ToolHandler) handleGetHoverInfoWithContext(ctx context.Context, args ma
 	// Create timeout context for LSP request to prevent infinite wait
 	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	
+
 	result, err := h.Client.SendLSPRequest(timeoutCtx, LSPMethodHover, params)
 	if err != nil {
 		return createLSPRequestError(LSPMethodHover, "get_hover_info", err, params), nil
@@ -1625,7 +1714,7 @@ func (h *ToolHandler) handleGetDocumentSymbolsWithContext(ctx context.Context, a
 		if len(structErr.Suggestions) > 0 {
 			errorMessage += "\n\nSuggestions:\n- " + strings.Join(structErr.Suggestions, "\n- ")
 		}
-		
+
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
@@ -1650,7 +1739,7 @@ func (h *ToolHandler) handleGetDocumentSymbolsWithContext(ctx context.Context, a
 		if len(structErr.Suggestions) > 0 {
 			errorMessage += "\n\nSuggestions:\n- " + strings.Join(structErr.Suggestions, "\n- ")
 		}
-		
+
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
@@ -1677,14 +1766,14 @@ func (h *ToolHandler) handleGetDocumentSymbolsWithContext(ctx context.Context, a
 
 	// First, send textDocument/didOpen notification to inform LSP server about the file
 	log.Printf("[DEBUG-TOOLS] Sending textDocument/didOpen notification for: %s", uri)
-	
+
 	// Read file content for didOpen notification
 	filePath := strings.TrimPrefix(uri, "file://")
 	fileContent := ""
 	if content, err := os.ReadFile(filePath); err == nil {
 		fileContent = string(content)
 	}
-	
+
 	// Send didOpen notification
 	didOpenParams := map[string]interface{}{
 		"textDocument": map[string]interface{}{
@@ -1694,22 +1783,22 @@ func (h *ToolHandler) handleGetDocumentSymbolsWithContext(ctx context.Context, a
 			"text":       fileContent,
 		},
 	}
-	
+
 	// Send notification (no response expected)
 	if err := h.Client.SendNotification(ctx, "textDocument/didOpen", didOpenParams); err != nil {
 		log.Printf("[WARN] Failed to send didOpen notification: %v", err)
 		// Continue anyway - some LSP servers might work without it
 	}
-	
+
 	// Small delay to allow LSP server to process the file
 	time.Sleep(100 * time.Millisecond)
 
 	log.Printf("[DEBUG-TOOLS] Preparing to send LSP request: method=textDocument/documentSymbol, params=%+v", params)
-	
+
 	// Create timeout context for LSP request to prevent infinite wait
 	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	
+
 	deadline, _ := timeoutCtx.Deadline()
 	log.Printf("[DEBUG-TOOLS] About to call SendLSPRequest with timeout context, deadline=%v", deadline)
 	log.Printf("[DEBUG-TOOLS] BEFORE SendLSPRequest call - this is where infinite wait may occur")
@@ -1759,7 +1848,7 @@ func (h *ToolHandler) handleSearchWorkspaceSymbolsWithContext(ctx context.Contex
 		if len(structErr.Suggestions) > 0 {
 			errorMessage += "\n\nSuggestions:\n- " + strings.Join(structErr.Suggestions, "\n- ")
 		}
-		
+
 		return &ToolResult{
 			Content: []ContentBlock{{
 				Type: "text",
@@ -1785,7 +1874,7 @@ func (h *ToolHandler) handleSearchWorkspaceSymbolsWithContext(ctx context.Contex
 	// Create timeout context for LSP request to prevent infinite wait
 	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	
+
 	result, err := h.Client.SendLSPRequest(timeoutCtx, "workspace/symbol", params)
 	if err != nil {
 		// Check if the error is "Method Not Found" (pylsp doesn't support workspace/symbol)
@@ -1818,6 +1907,145 @@ func (h *ToolHandler) handleSearchWorkspaceSymbolsWithContext(ctx context.Contex
 	return toolResult, nil
 }
 
+func (h *ToolHandler) handleGetCompletion(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
+	return h.handleGetCompletionWithContext(ctx, args, nil)
+}
+
+// Enhanced version with workspace context support
+func (h *ToolHandler) handleGetCompletionWithContext(ctx context.Context, args map[string]interface{}, workspaceCtx *WorkspaceContext) (*ToolResult, error) {
+	startTime := time.Now()
+
+	// Validate required parameters
+	validator := NewParameterValidator()
+	uri, line, character, err := validator.ValidatePositionParams(args)
+	if err != nil {
+		structErr := err.(*StructuredError)
+		errorMessage := fmt.Sprintf("Parameter validation failed: %s\n\n%s", structErr.Message, structErr.Details)
+		if len(structErr.Suggestions) > 0 {
+			errorMessage += "\n\nSuggestions:\n- " + strings.Join(structErr.Suggestions, "\n- ")
+		}
+
+		return &ToolResult{
+			Content: []ContentBlock{{
+				Type: "text",
+				Text: errorMessage,
+			}},
+			StructuredContent: map[string]interface{}{
+				"error": map[string]interface{}{
+					"code":        "INVALID_PARAMS",
+					"message":     structErr.Message,
+					"details":     structErr.Details,
+					"context":     structErr.Context,
+					"suggestions": structErr.Suggestions,
+				},
+			},
+			IsError: true,
+		}, nil
+	}
+
+	// Validate optional parameters
+	triggerKind, err := getIntParam(args, "triggerKind", false, 1)
+	if err != nil {
+		structErr := err.(*StructuredError)
+		errorMessage := fmt.Sprintf("Parameter validation failed: %s\n\n%s", structErr.Message, structErr.Details)
+		if len(structErr.Suggestions) > 0 {
+			errorMessage += "\n\nSuggestions:\n- " + strings.Join(structErr.Suggestions, "\n- ")
+		}
+
+		return &ToolResult{
+			Content: []ContentBlock{{
+				Type: "text",
+				Text: errorMessage,
+			}},
+			StructuredContent: map[string]interface{}{
+				"error": map[string]interface{}{
+					"code":        "INVALID_PARAMS",
+					"message":     structErr.Message,
+					"details":     structErr.Details,
+					"context":     structErr.Context,
+					"suggestions": structErr.Suggestions,
+				},
+			},
+			IsError: true,
+		}, nil
+	}
+
+	triggerCharacter, err := getStringParam(args, "triggerCharacter", false)
+	if err != nil {
+		structErr := err.(*StructuredError)
+		errorMessage := fmt.Sprintf("Parameter validation failed: %s\n\n%s", structErr.Message, structErr.Details)
+		if len(structErr.Suggestions) > 0 {
+			errorMessage += "\n\nSuggestions:\n- " + strings.Join(structErr.Suggestions, "\n- ")
+		}
+
+		return &ToolResult{
+			Content: []ContentBlock{{
+				Type: "text",
+				Text: errorMessage,
+			}},
+			StructuredContent: map[string]interface{}{
+				"error": map[string]interface{}{
+					"code":        "INVALID_PARAMS",
+					"message":     structErr.Message,
+					"details":     structErr.Details,
+					"context":     structErr.Context,
+					"suggestions": structErr.Suggestions,
+				},
+			},
+			IsError: true,
+		}, nil
+	}
+
+	// Build completion context
+	completionContext := map[string]interface{}{
+		"triggerKind": triggerKind,
+	}
+	if triggerCharacter != "" {
+		completionContext["triggerCharacter"] = triggerCharacter
+	}
+
+	params := map[string]interface{}{
+		"textDocument": map[string]interface{}{
+			"uri": uri,
+		},
+		"position": map[string]interface{}{
+			"line":      line,
+			"character": character,
+		},
+		"context": completionContext,
+	}
+
+	// Create timeout context for LSP request to prevent infinite wait
+	timeoutCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	result, err := h.Client.SendLSPRequest(timeoutCtx, "textDocument/completion", params)
+	if err != nil {
+		return createLSPRequestError("textDocument/completion", "get_completion", err, params), nil
+	}
+
+	// Create enhanced result with project context
+	toolResult := &ToolResult{
+		Content: []ContentBlock{{
+			Type: "text",
+			Text: string(result),
+			Data: h.parseCompletionResult(result),
+		}},
+		Meta: &ResponseMetadata{
+			Timestamp: time.Now().Format(time.RFC3339),
+			Duration:  time.Since(startTime).String(),
+			LSPMethod: "textDocument/completion",
+		},
+	}
+
+	// Enhance with workspace context if available
+	if workspaceCtx != nil && workspaceCtx.IsProjectAware() {
+		toolResult = h.enhanceCompletionWithProjectContext(toolResult, args, workspaceCtx)
+	}
+
+	return toolResult, nil
+}
+
 // isMethodNotFoundError checks if the error is a "Method Not Found" error
 func isMethodNotFoundError(err error) bool {
 	if err == nil {
@@ -1825,10 +2053,10 @@ func isMethodNotFoundError(err error) bool {
 	}
 	// Check for common method not found error patterns
 	errStr := err.Error()
-	return strings.Contains(errStr, "Method Not Found") || 
-		   strings.Contains(errStr, "method not found") ||
-		   strings.Contains(errStr, "JsonRpcMethodNotFound") ||
-		   strings.Contains(errStr, "-32601")
+	return strings.Contains(errStr, "Method Not Found") ||
+		strings.Contains(errStr, "method not found") ||
+		strings.Contains(errStr, "JsonRpcMethodNotFound") ||
+		strings.Contains(errStr, "-32601")
 }
 
 // fallbackWorkspaceSymbolSearch provides a fallback for pylsp by using textDocument/documentSymbol
@@ -1836,7 +2064,7 @@ func (h *ToolHandler) fallbackWorkspaceSymbolSearch(ctx context.Context, query s
 	// For pylsp fallback, return empty results with helpful message
 	// This is better than failing completely since workspace/symbol is not critical
 	emptyResult := json.RawMessage("[]")
-	
+
 	toolResult := &ToolResult{
 		Content: []ContentBlock{{
 			Type: "text",
@@ -1849,7 +2077,7 @@ func (h *ToolHandler) fallbackWorkspaceSymbolSearch(ctx context.Context, query s
 			LSPMethod: "workspace/symbol (fallback)",
 		},
 	}
-	
+
 	return toolResult, nil
 }
 

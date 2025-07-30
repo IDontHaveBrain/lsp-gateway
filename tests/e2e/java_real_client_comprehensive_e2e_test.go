@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -17,51 +18,54 @@ import (
 // JavaRealClientComprehensiveE2ETestSuite tests all 6 supported LSP methods for Java using Real HTTP Client with clean-code repository
 type JavaRealClientComprehensiveE2ETestSuite struct {
 	suite.Suite
-	
+
 	// Core infrastructure
-	httpClient      *testutils.HttpClient
-	gatewayCmd      *exec.Cmd
-	gatewayPort     int
-	configPath      string
-	tempDir         string
-	projectRoot     string
-	testTimeout     time.Duration
-	jdtlsCacheDir   string // Unique cache directory per test
-	
+	httpClient    *testutils.HttpClient
+	gatewayCmd    *exec.Cmd
+	gatewayPort   int
+	configPath    string
+	tempDir       string
+	projectRoot   string
+	testTimeout   time.Duration
+	jdtlsCacheDir string // Unique cache directory per test
+
 	// Clean-code repository management with fixed commit hash
-	repoManager     testutils.RepositoryManager
-	repoDir         string
-	javaFiles       []string
-	testFiles       []string
-	
+	repoManager testutils.RepositoryManager
+	repoDir     string
+	javaFiles   []string
+	testFiles   []string
+
 	// Server state tracking
-	serverStarted   bool
-	
+	serverStarted bool
+
 	// Test metrics
-	testResults     map[string]*JavaTestResult
+	testResults map[string]*JavaTestResult
 }
 
 type JavaTestResult struct {
-	Method    string
-	File      string
-	Success   bool
-	Duration  time.Duration
-	Error     error
-	Response  interface{}
+	Method   string
+	File     string
+	Success  bool
+	Duration time.Duration
+	Error    error
+	Response interface{}
 }
 
 // createUniqueJDTLSCacheDir creates a unique cache directory for JDTLS per test
 func (suite *JavaRealClientComprehensiveE2ETestSuite) createUniqueJDTLSCacheDir() (string, error) {
 	// Create unique cache directory using test name and timestamp
 	testName := suite.T().Name()
+	// Sanitize test name by replacing path separators that break os.MkdirTemp
+	testName = strings.ReplaceAll(testName, "/", "-")
+	testName = strings.ReplaceAll(testName, "\\", "-") // Handle Windows paths
 	timestamp := time.Now().UnixNano()
 	cacheDirName := fmt.Sprintf("jdtls-cache-comprehensive-%s-%d", testName, timestamp)
-	
+
 	cacheDir, err := os.MkdirTemp("", cacheDirName)
 	if err != nil {
 		return "", fmt.Errorf("failed to create JDTLS cache directory: %w", err)
 	}
-	
+
 	return cacheDir, nil
 }
 
@@ -77,27 +81,27 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) cleanupJDTLSCacheDir() {
 func (suite *JavaRealClientComprehensiveE2ETestSuite) SetupSuite() {
 	suite.testTimeout = 15 * time.Second
 	suite.testResults = make(map[string]*JavaTestResult)
-	
+
 	var err error
 	suite.projectRoot, err = testutils.GetProjectRoot()
 	suite.Require().NoError(err, "Failed to get project root")
-	
+
 	suite.tempDir, err = os.MkdirTemp("", "java-real-comprehensive-e2e-*")
 	suite.Require().NoError(err, "Failed to create temp directory")
-	
+
 	// Initialize clean-code repository manager with fixed commit
 	suite.repoManager = testutils.NewJavaRepositoryManager()
-	
+
 	// Setup clean-code repository
 	suite.repoDir, err = suite.repoManager.SetupRepository()
 	suite.Require().NoError(err, "Failed to setup clean-code repository")
-	
+
 	// Discover Java files for comprehensive testing
 	suite.discoverJavaFiles()
-	
+
 	// Create test configuration for Java comprehensive testing
 	suite.createComprehensiveTestConfig()
-	
+
 	suite.T().Logf("Comprehensive Java E2E test suite initialized with clean-code repository (commit: 9a55768)")
 	suite.T().Logf("Found %d Java files for testing", len(suite.javaFiles))
 }
@@ -138,12 +142,12 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) SetupTest() {
 // TearDownTest cleans up per-test resources
 func (suite *JavaRealClientComprehensiveE2ETestSuite) TearDownTest() {
 	suite.stopGatewayServer()
-	
+
 	if suite.httpClient != nil {
 		suite.httpClient.Close()
 		suite.httpClient = nil
 	}
-	
+
 	// Clean up unique JDTLS cache directory
 	suite.cleanupJDTLSCacheDir()
 }
@@ -151,19 +155,19 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TearDownTest() {
 // TearDownSuite performs final cleanup and reports comprehensive test results
 func (suite *JavaRealClientComprehensiveE2ETestSuite) TearDownSuite() {
 	suite.reportComprehensiveTestResults()
-	
+
 	if suite.repoManager != nil {
 		if err := suite.repoManager.Cleanup(); err != nil {
 			suite.T().Logf("Warning: Failed to cleanup clean-code repository: %v", err)
 		}
 	}
-	
+
 	if suite.tempDir != "" {
 		if err := os.RemoveAll(suite.tempDir); err != nil {
 			suite.T().Logf("Warning: Failed to remove temp directory: %v", err)
 		}
 	}
-	
+
 	// Ensure final cleanup of any remaining cache directory
 	suite.cleanupJDTLSCacheDir()
 }
@@ -172,10 +176,10 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TearDownSuite() {
 func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaComprehensiveServerLifecycle() {
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
-	
+
 	suite.startGatewayServer()
 	defer suite.stopGatewayServer()
-	
+
 	suite.verifyServerReadiness(ctx)
 	suite.testComprehensiveServerOperations(ctx)
 }
@@ -184,29 +188,29 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaComprehensiveServe
 func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaDefinitionComprehensive() {
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
-	
+
 	suite.startGatewayServer()
 	defer suite.stopGatewayServer()
-	
+
 	// Test definition on multiple Java files from clean-code repository
 	for i, testFile := range suite.getTestFilesSubset(5) {
-		testName := fmt.Sprintf("definition-test-%d", i)  
+		testName := fmt.Sprintf("definition-test-%d", i)
 		start := time.Now()
-		
+
 		fileURI := suite.getFileURI(testFile)
-		
+
 		// Test multiple positions in Java files - focusing on class and method declarations
 		positions := []testutils.Position{
-			{Line: 0, Character: 0},   // Package/import area
-			{Line: 5, Character: 10},  // Potential class area
-			{Line: 10, Character: 5},  // Method area
+			{Line: 0, Character: 0},  // Package/import area
+			{Line: 5, Character: 10}, // Potential class area
+			{Line: 10, Character: 5}, // Method area
 		}
-		
+
 		for j, position := range positions {
 			posTestName := fmt.Sprintf("%s-pos-%d", testName, j)
-			
+
 			locations, err := suite.httpClient.Definition(ctx, fileURI, position)
-			
+
 			result := &JavaTestResult{
 				Method:   "textDocument/definition",
 				File:     testFile,
@@ -216,12 +220,12 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaDefinitionComprehe
 				Response: locations,
 			}
 			suite.testResults[posTestName] = result
-			
+
 			if err == nil {
-				suite.T().Logf("Definition test successful for %s at position %+v - found %d locations", 
+				suite.T().Logf("Definition test successful for %s at position %+v - found %d locations",
 					testFile, position, len(locations))
 			} else {
-				suite.T().Logf("Definition test failed for %s at position %+v: %v", 
+				suite.T().Logf("Definition test failed for %s at position %+v: %v",
 					testFile, position, err)
 			}
 		}
@@ -232,20 +236,20 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaDefinitionComprehe
 func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaReferencesComprehensive() {
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
-	
+
 	suite.startGatewayServer()
 	defer suite.stopGatewayServer()
-	
+
 	// Test references on multiple Java files from clean-code repository
 	for i, testFile := range suite.getTestFilesSubset(5) {
 		testName := fmt.Sprintf("references-test-%d", i)
 		start := time.Now()
-		
+
 		fileURI := suite.getFileURI(testFile)
 		position := testutils.Position{Line: 5, Character: 10} // Focus on class/method area
-		
+
 		references, err := suite.httpClient.References(ctx, fileURI, position, true)
-		
+
 		result := &JavaTestResult{
 			Method:   "textDocument/references",
 			File:     testFile,
@@ -255,9 +259,9 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaReferencesComprehe
 			Response: references,
 		}
 		suite.testResults[testName] = result
-		
+
 		if err == nil {
-			suite.T().Logf("References test successful for %s - found %d references", 
+			suite.T().Logf("References test successful for %s - found %d references",
 				testFile, len(references))
 		} else {
 			suite.T().Logf("References test failed for %s: %v", testFile, err)
@@ -269,20 +273,20 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaReferencesComprehe
 func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaHoverComprehensive() {
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
-	
+
 	suite.startGatewayServer()
 	defer suite.stopGatewayServer()
-	
+
 	// Test hover on multiple Java files from clean-code repository
 	for i, testFile := range suite.getTestFilesSubset(5) {
 		testName := fmt.Sprintf("hover-test-%d", i)
 		start := time.Now()
-		
+
 		fileURI := suite.getFileURI(testFile)
 		position := testutils.Position{Line: 10, Character: 10} // Focus on method/variable area
-		
+
 		hover, err := suite.httpClient.Hover(ctx, fileURI, position)
-		
+
 		result := &JavaTestResult{
 			Method:   "textDocument/hover",
 			File:     testFile,
@@ -292,7 +296,7 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaHoverComprehensive
 			Response: hover,
 		}
 		suite.testResults[testName] = result
-		
+
 		if err == nil {
 			suite.T().Logf("Hover test successful for %s", testFile)
 		} else {
@@ -305,19 +309,19 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaHoverComprehensive
 func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaDocumentSymbolComprehensive() {
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
-	
+
 	suite.startGatewayServer()
 	defer suite.stopGatewayServer()
-	
+
 	// Test document symbols on multiple Java files from clean-code repository
 	for i, testFile := range suite.getTestFilesSubset(5) {
 		testName := fmt.Sprintf("document-symbol-test-%d", i)
 		start := time.Now()
-		
+
 		fileURI := suite.getFileURI(testFile)
-		
+
 		symbols, err := suite.httpClient.DocumentSymbol(ctx, fileURI)
-		
+
 		result := &JavaTestResult{
 			Method:   "textDocument/documentSymbol",
 			File:     testFile,
@@ -327,9 +331,9 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaDocumentSymbolComp
 			Response: symbols,
 		}
 		suite.testResults[testName] = result
-		
+
 		if err == nil {
-			suite.T().Logf("Document symbol test successful for %s - found %d symbols", 
+			suite.T().Logf("Document symbol test successful for %s - found %d symbols",
 				testFile, len(symbols))
 		} else {
 			suite.T().Logf("Document symbol test failed for %s: %v", testFile, err)
@@ -341,28 +345,28 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaDocumentSymbolComp
 func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaWorkspaceSymbolComprehensive() {
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
-	
+
 	suite.startGatewayServer()
 	defer suite.stopGatewayServer()
-	
+
 	// Test workspace symbols with clean-code/Java-specific queries
 	queries := []string{
-		"Calculator",      // Common clean-code class name
-		"String",         // Java built-in type
-		"List",           // Common collection type
-		"main",           // Main method
-		"public",         // Access modifier
-		"class",          // Class keyword
-		"method",         // Common method term
-		"",               // Empty query to get all symbols
+		"Calculator", // Common clean-code class name
+		"String",     // Java built-in type
+		"List",       // Common collection type
+		"main",       // Main method
+		"public",     // Access modifier
+		"class",      // Class keyword
+		"method",     // Common method term
+		"",           // Empty query to get all symbols
 	}
-	
+
 	for i, query := range queries {
 		testName := fmt.Sprintf("workspace-symbol-test-%d", i)
 		start := time.Now()
-		
+
 		symbols, err := suite.httpClient.WorkspaceSymbol(ctx, query)
-		
+
 		result := &JavaTestResult{
 			Method:   "workspace/symbol",
 			File:     fmt.Sprintf("query:'%s'", query),
@@ -372,9 +376,9 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaWorkspaceSymbolCom
 			Response: symbols,
 		}
 		suite.testResults[testName] = result
-		
+
 		if err == nil {
-			suite.T().Logf("Workspace symbol test successful for query '%s' - found %d symbols", 
+			suite.T().Logf("Workspace symbol test successful for query '%s' - found %d symbols",
 				query, len(symbols))
 		} else {
 			suite.T().Logf("Workspace symbol test failed for query '%s': %v", query, err)
@@ -386,20 +390,20 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaWorkspaceSymbolCom
 func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaCompletionComprehensive() {
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
-	
+
 	suite.startGatewayServer()
 	defer suite.stopGatewayServer()
-	
+
 	// Test completion on multiple Java files from clean-code repository
 	for i, testFile := range suite.getTestFilesSubset(3) {
 		testName := fmt.Sprintf("completion-test-%d", i)
 		start := time.Now()
-		
+
 		fileURI := suite.getFileURI(testFile)
 		position := testutils.Position{Line: 15, Character: 5} // Focus on method body area
-		
+
 		completions, err := suite.httpClient.Completion(ctx, fileURI, position)
-		
+
 		result := &JavaTestResult{
 			Method:   "textDocument/completion",
 			File:     testFile,
@@ -409,9 +413,9 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaCompletionComprehe
 			Response: completions,
 		}
 		suite.testResults[testName] = result
-		
+
 		if err == nil {
-			suite.T().Logf("Completion test successful for %s - found %d completions", 
+			suite.T().Logf("Completion test successful for %s - found %d completions",
 				testFile, len(completions.Items))
 		} else {
 			suite.T().Logf("Completion test failed for %s: %v", testFile, err)
@@ -423,25 +427,25 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaCompletionComprehe
 func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaAllLSPMethodsSequential() {
 	ctx, cancel := context.WithTimeout(context.Background(), suite.testTimeout)
 	defer cancel()
-	
+
 	suite.startGatewayServer()
 	defer suite.stopGatewayServer()
-	
+
 	// Test all 6 LSP methods on the same file for comprehensive validation
 	testFile := suite.getTestFilesSubset(1)[0]
 	fileURI := suite.getFileURI(testFile)
 	position := testutils.Position{Line: 10, Character: 10} // Focus on class/method area
-	
+
 	suite.T().Logf("Testing all 6 LSP methods sequentially on clean-code file: %s", testFile)
-	
+
 	// 1. textDocument/definition
 	start := time.Now()
 	definitions, err := suite.httpClient.Definition(ctx, fileURI, position)
 	suite.testResults["sequential-definition"] = &JavaTestResult{
-		Method: "textDocument/definition", File: testFile, Success: err == nil, 
+		Method: "textDocument/definition", File: testFile, Success: err == nil,
 		Duration: time.Since(start), Error: err, Response: definitions,
 	}
-	
+
 	// 2. textDocument/references
 	start = time.Now()
 	references, err := suite.httpClient.References(ctx, fileURI, position, true)
@@ -449,7 +453,7 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaAllLSPMethodsSeque
 		Method: "textDocument/references", File: testFile, Success: err == nil,
 		Duration: time.Since(start), Error: err, Response: references,
 	}
-	
+
 	// 3. textDocument/hover
 	start = time.Now()
 	hover, err := suite.httpClient.Hover(ctx, fileURI, position)
@@ -457,7 +461,7 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaAllLSPMethodsSeque
 		Method: "textDocument/hover", File: testFile, Success: err == nil,
 		Duration: time.Since(start), Error: err, Response: hover,
 	}
-	
+
 	// 4. textDocument/documentSymbol
 	start = time.Now()
 	docSymbols, err := suite.httpClient.DocumentSymbol(ctx, fileURI)
@@ -465,7 +469,7 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaAllLSPMethodsSeque
 		Method: "textDocument/documentSymbol", File: testFile, Success: err == nil,
 		Duration: time.Since(start), Error: err, Response: docSymbols,
 	}
-	
+
 	// 5. workspace/symbol
 	start = time.Now()
 	wsSymbols, err := suite.httpClient.WorkspaceSymbol(ctx, "Calculator")
@@ -473,7 +477,7 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaAllLSPMethodsSeque
 		Method: "workspace/symbol", File: testFile, Success: err == nil,
 		Duration: time.Since(start), Error: err, Response: wsSymbols,
 	}
-	
+
 	// 6. textDocument/completion
 	start = time.Now()
 	completions, err := suite.httpClient.Completion(ctx, fileURI, position)
@@ -481,18 +485,18 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) TestJavaAllLSPMethodsSeque
 		Method: "textDocument/completion", File: testFile, Success: err == nil,
 		Duration: time.Since(start), Error: err, Response: completions,
 	}
-	
+
 	// Verify all methods completed
-	sequentialTests := []string{"sequential-definition", "sequential-references", "sequential-hover", 
+	sequentialTests := []string{"sequential-definition", "sequential-references", "sequential-hover",
 		"sequential-document-symbol", "sequential-workspace-symbol", "sequential-completion"}
-	
+
 	successCount := 0
 	for _, testName := range sequentialTests {
 		if result, exists := suite.testResults[testName]; exists && result.Success {
 			successCount++
 		}
 	}
-	
+
 	suite.T().Logf("Sequential LSP methods test completed: %d/6 methods successful", successCount)
 	suite.GreaterOrEqual(successCount, 4, "At least 4 out of 6 LSP methods should succeed")
 }
@@ -503,7 +507,7 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) discoverJavaFiles() {
 	testFiles, err := suite.repoManager.GetTestFiles()
 	suite.Require().NoError(err, "Failed to get Java test files from clean-code repository")
 	suite.Require().Greater(len(testFiles), 0, "No Java files found in clean-code repository")
-	
+
 	// Filter and categorize Java files
 	for _, file := range testFiles {
 		ext := filepath.Ext(file)
@@ -512,7 +516,7 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) discoverJavaFiles() {
 			suite.testFiles = append(suite.testFiles, file)
 		}
 	}
-	
+
 	suite.Require().Greater(len(suite.javaFiles), 0, "No Java files found in clean-code repository")
 	suite.T().Logf("Discovered %d Java files in clean-code repository", len(suite.javaFiles))
 }
@@ -528,7 +532,7 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) createComprehensiveTestCon
 	options := testutils.DefaultLanguageConfigOptions("java")
 	options.TestPort = fmt.Sprintf("%d", suite.gatewayPort)
 	options.ConfigType = "main"
-	
+
 	// Add comprehensive Java-specific custom variables
 	options.CustomVariables["JAVA_HOME"] = "/usr/lib/jvm/default-java"
 	options.CustomVariables["CLASSPATH"] = "."
@@ -537,16 +541,16 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) createComprehensiveTestCon
 	options.CustomVariables["TEST_MODE"] = "comprehensive"
 	options.CustomVariables["LSP_TIMEOUT"] = "60"
 	options.CustomVariables["JDTLS_TIMEOUT"] = "90"
-	
+
 	// Add unique cache directory variables for template substitution
 	if suite.jdtlsCacheDir != "" {
 		options.CustomVariables["JDTLS_CACHE_DIR"] = suite.jdtlsCacheDir
 	}
 	options.CustomVariables["WORKSPACE_ID"] = fmt.Sprintf("java-comprehensive-%d", time.Now().UnixNano())
-	
+
 	configPath, cleanup, err := testutils.CreateLanguageConfig(suite.repoManager, options)
 	suite.Require().NoError(err, "Failed to create Java comprehensive test config")
-	
+
 	suite.configPath = configPath
 	_ = cleanup // Will be cleaned up via tempDir
 }
@@ -564,17 +568,17 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) startGatewayServer() {
 	if suite.serverStarted {
 		return
 	}
-	
+
 	binaryPath := filepath.Join(suite.projectRoot, "bin", "lspg")
 	suite.gatewayCmd = exec.Command(binaryPath, "server", "--config", suite.configPath)
 	suite.gatewayCmd.Dir = suite.projectRoot
-	
+
 	err := suite.gatewayCmd.Start()
 	suite.Require().NoError(err, "Failed to start gateway server")
-	
+
 	suite.waitForServerReadiness()
 	suite.serverStarted = true
-	
+
 	suite.T().Logf("Gateway server started for comprehensive Java testing on port %d", suite.gatewayPort)
 }
 
@@ -582,15 +586,15 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) stopGatewayServer() {
 	if !suite.serverStarted || suite.gatewayCmd == nil {
 		return
 	}
-	
+
 	if suite.gatewayCmd.Process != nil {
 		suite.gatewayCmd.Process.Signal(syscall.SIGTERM)
-		
+
 		done := make(chan error)
 		go func() {
 			done <- suite.gatewayCmd.Wait()
 		}()
-		
+
 		select {
 		case <-done:
 		case <-time.After(15 * time.Second):
@@ -598,7 +602,7 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) stopGatewayServer() {
 			suite.gatewayCmd.Wait()
 		}
 	}
-	
+
 	suite.gatewayCmd = nil
 	suite.serverStarted = false
 }
@@ -606,12 +610,12 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) stopGatewayServer() {
 func (suite *JavaRealClientComprehensiveE2ETestSuite) waitForServerReadiness() {
 	config := testutils.DefaultPollingConfig()
 	config.Timeout = 120 * time.Second // Keep original 60 * 2s = 120s timeout
-	config.Interval = 2 * time.Second // Keep original interval
-	
+	config.Interval = 2 * time.Second  // Keep original interval
+
 	condition := func() (bool, error) {
 		return suite.checkServerHealth(), nil
 	}
-	
+
 	err := testutils.WaitForCondition(condition, config, "server to be ready")
 	suite.Require().NoError(err, "Server failed to become ready within timeout")
 }
@@ -620,10 +624,10 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) checkServerHealth() bool {
 	if suite.httpClient == nil {
 		return false
 	}
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	
+
 	err := suite.httpClient.HealthCheck(ctx)
 	return err == nil
 }
@@ -640,41 +644,41 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) testComprehensiveServerOpe
 
 func (suite *JavaRealClientComprehensiveE2ETestSuite) reportComprehensiveTestResults() {
 	suite.T().Logf("=== Comprehensive Java E2E Test Results ===")
-	
+
 	methodCounts := make(map[string]int)
 	methodSuccesses := make(map[string]int)
 	totalDuration := time.Duration(0)
-	
+
 	for testName, result := range suite.testResults {
 		methodCounts[result.Method]++
 		if result.Success {
 			methodSuccesses[result.Method]++
 		}
 		totalDuration += result.Duration
-		
+
 		status := "PASS"
 		if !result.Success {
 			status = "FAIL"
 		}
-		
+
 		suite.T().Logf("[%s] %s - %s (%v)", status, result.Method, testName, result.Duration)
 		if !result.Success && result.Error != nil {
 			suite.T().Logf("  Error: %v", result.Error)
 		}
 	}
-	
+
 	suite.T().Logf("=== Method Summary ===")
 	for method := range methodCounts {
 		successRate := float64(methodSuccesses[method]) / float64(methodCounts[method]) * 100
 		suite.T().Logf("%s: %d/%d (%.1f%%)", method, methodSuccesses[method], methodCounts[method], successRate)
 	}
-	
+
 	totalTests := len(suite.testResults)
 	totalSuccesses := 0
 	for _, count := range methodSuccesses {
 		totalSuccesses += count
 	}
-	
+
 	overallSuccessRate := float64(totalSuccesses) / float64(totalTests) * 100
 	suite.T().Logf("=== Overall Results ===")
 	suite.T().Logf("Total tests: %d", totalTests)
@@ -682,7 +686,7 @@ func (suite *JavaRealClientComprehensiveE2ETestSuite) reportComprehensiveTestRes
 	suite.T().Logf("Success rate: %.1f%%", overallSuccessRate)
 	suite.T().Logf("Total duration: %v", totalDuration)
 	suite.T().Logf("Average duration: %v", totalDuration/time.Duration(totalTests))
-	
+
 	// Verify comprehensive test quality requirements
 	suite.GreaterOrEqual(overallSuccessRate, 80.0, "Overall success rate should be at least 80%")
 	suite.LessOrEqual(totalDuration.Minutes(), 15.0, "Total test duration should be under 15 minutes")

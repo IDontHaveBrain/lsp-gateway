@@ -129,17 +129,6 @@ type SymbolTree struct {
 	Children []*SymbolTree `json:"children,omitempty"`
 }
 
-// LSPRange represents an LSP range for compatibility
-type LSPRange struct {
-	Start LSPPosition `json:"start"`
-	End   LSPPosition `json:"end"`
-}
-
-// LSPPosition represents an LSP position
-type LSPPosition struct {
-	Line      int `json:"line"`
-	Character int `json:"character"`
-}
 
 // handleSCIPIntelligentSymbolSearch implements intelligent symbol search with SCIP
 func (h *SCIPEnhancedToolHandler) handleSCIPIntelligentSymbolSearch(ctx context.Context, args map[string]interface{}) (*ToolResult, error) {
