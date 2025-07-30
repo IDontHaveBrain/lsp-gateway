@@ -22,60 +22,45 @@ LSP Gateway testing focused exclusively on E2E and integration tests for essenti
 ### Development Workflows
 
 ```bash
-# Quick development cycle (<5 minutes)
-make test-simple-quick
+# Quick development cycle (2-5min)
+make local && make test-simple-quick
 
-# Pre-commit validation (5-10 minutes)  
-make test-e2e-quick && make test-integration-quick
+# Pre-commit validation (5-15min)
+make test-unit && make test-lsp-validation-short && make test-parallel-validation
 
-# Full validation before PR (15-30 minutes)
-make test-e2e-full && make test-integration
-
-# Multi-project workspace testing (10-15 minutes)
-make test-multi-project-e2e && make test-workspace-integration
+# Full validation before PR (30-60min)
+make test && make test-workspace-integration && make quality
 ```
 
 ### Essential Test Commands
 
-#### Quick E2E Tests (<5min)
+#### Quick Validation (2-5min)
 ```bash
-make test-simple-quick        # Basic E2E validation
-make test-e2e-quick          # Quick E2E suite
-make test-python-patterns-quick   # Quick Python validation (5-10min)
+make test-simple-quick            # Basic E2E validation
+make test-lsp-validation-short    # Short LSP validation
+make test-parallel-validation     # Standard parallel validation
 ```
 
-#### Multi-Project Workspace Tests (10-15min)
+#### Language-Specific Real Server Testing (10-20min each)
 ```bash
-make test-multi-project-e2e      # Multi-project workspace E2E tests
-make test-workspace-integration  # Workspace integration tests
-make test-multi-project-quick    # Quick multi-project validation
-go test ./tests/e2e -run TestMultiProjectWorkspace # Direct execution
+make test-go-real-client          # Go with golang/example repo
+make test-java-real-client        # Java with clean-code repo
+make test-javascript-real-client  # JavaScript with chalk repo
+make test-typescript-real         # TypeScript comprehensive
+make test-python-patterns         # Python with real patterns
 ```
 
-#### Language-Specific E2E (10-15min)
+#### Multi-Project & Performance (15-30min)
 ```bash
-make test-python-real        # Real pylsp integration
-make test-go-e2e            # Go with gopls
-make test-javascript-e2e     # JavaScript/TypeScript basic E2E
-make test-javascript-real-client  # Comprehensive JavaScript Real Client E2E with chalk repository
-make test-java-real         # Real JDTLS integration
+make test-multi-project-workspace # Cross-language workspace testing
+make test-parallel-performance    # Performance comparison
+make test-workspace-integration   # Workspace component integration
 ```
 
-#### Comprehensive E2E (20-30min)
+#### Parallel Execution Optimization
 ```bash
-make test-e2e-full          # Full E2E test suite
-make test-python-patterns   # Comprehensive Python patterns (15-20min)
-make test-python-comprehensive # Complete Python validation (20-25min)
-```
-
-#### Integration Tests
-```bash
-make test-integration       # Core integration tests
-make test-mcp-integration   # MCP protocol integration
-make test-javascript-mcp-integration  # Comprehensive JavaScript MCP integration tests
-make test-config-integration # Configuration validation
-make test-workspace-integration # Multi-project workspace integration
-make test-scip-workspace    # SCIP workspace isolation tests
+make test-parallel-fast              # 3x CPU cores (fastest)
+make test-parallel-memory-optimized  # 1x CPU cores (memory efficient)
 ```
 
 ## Test Categories
@@ -85,19 +70,18 @@ make test-scip-workspace    # SCIP workspace isolation tests
 **Location**: `tests/e2e/`
 **Coverage**: 
 - All 6 supported LSP methods (definition, references, hover, documentSymbol, workspaceSymbol, completion)
-- Multi-language support (Python, Go, JavaScript, Java, Rust)
-- Real repository testing with unified testutils repository management system
+- Multi-language support (Go, Python, JavaScript/TypeScript, Java)
+- Real repository testing with actual open-source projects
 - Performance validation under realistic conditions
 
 **Key Test Suites:**
-- `python_e2e_comprehensive_test.go` - Comprehensive Python testing with unified repository system
-- `python_workflow_validation_test.go` - Python workflow validation using modular infrastructure
-- `go_basic_e2e_test.go` - Go language server integration
+- `python_basic_e2e_test.go` - Python E2E tests with pylsp
+- `go_basic_e2e_test.go` - Go language server integration with gopls
 - `javascript_basic_e2e_test.go` - JavaScript/TypeScript basic validation
-- `javascript_real_client_comprehensive_e2e_test.go` - Comprehensive JavaScript Real Client E2E with chalk repository
-- `javascript_mcp_e2e_test.go` - JavaScript MCP E2E tests with chalk repository
-- `multi_project_workspace_e2e_test.go` - Multi-project workspace E2E testing with sub-project routing
-- Language-agnostic tests using unified modular repository system
+- `typescript_basic_e2e_test.go` - TypeScript E2E tests
+- `java_real_jdtls_e2e_test.go` - Java integration with JDTLS
+- `multi_project_workspace_e2e_test.go` - Multi-project workspace testing
+- Real client comprehensive tests for each language
 
 ### Integration Tests  
 **Purpose**: Validate component interactions and protocol compliance
@@ -105,129 +89,71 @@ make test-scip-workspace    # SCIP workspace isolation tests
 **Coverage**:
 - LSP protocol validation
 - Configuration system integration
-- MCP server integration (including comprehensive JavaScript MCP integration)
-- Transport layer validation
-- Error handling and recovery
+- MCP server integration
+- Transport layer validation (STDIO/TCP)
+- Workspace management integration
+- SCIP caching integration
 
 ### Multi-Project Workspace Tests
-**Purpose**: Validate multi-project workspace functionality with sub-project routing and isolation
-**Location**: `tests/e2e/` and `tests/integration/workspace/`
+**Purpose**: Validate multi-project workspace functionality with sub-project routing
+**Location**: `tests/e2e/multi_project_workspace_e2e_test.go` and `tests/integration/workspace/`
 **Coverage**:
 - Multi-project workspace detection (Go, Python, TypeScript, Java)
 - Sub-project LSP request routing and client management
-- Workspace-isolated SCIP cache performance and isolation
-- Cross-project symbol resolution and references
+- Workspace-isolated SCIP cache performance
+- Cross-project symbol resolution
 - Resource allocation and isolation between sub-projects
-- Configuration generation for multi-project workspaces
 
 **Key Test Areas:**
-- **Workspace Detection**: Automatic detection of all sub-projects within workspace directory
+- **Workspace Detection**: Automatic detection of all sub-projects within workspace
 - **Request Routing**: LSP requests routed to correct sub-project based on file path
 - **Client Management**: Independent LSP client instances per sub-project per language
-- **Cache Isolation**: Workspace-specific SCIP cache with performance validation
+- **Cache Isolation**: Workspace-specific SCIP cache with 60-87% performance improvement
 - **Performance**: Sub-project resolution <1ms, LSP responses <5s, memory <3GB
-- **Resource Management**: Per-workspace port allocation, memory quotas, and cleanup
 
-## Unified Repository Management System
+## Test Infrastructure
 
-**testutils Package - Common Repository Management:**
-
-The `tests/e2e/testutils` package provides a unified repository management system for all language testing:
+### testutils Package
+The `tests/e2e/testutils` package provides unified test infrastructure:
 
 ```go
-// Generic repository manager for any language
+// Repository management for real project testing
 repoManager := testutils.NewPythonRepositoryManager()
 workspaceDir, err := repoManager.SetupRepository()
+defer repoManager.Cleanup()
 
-// Language-specific factory functions available:
-// - testutils.NewPythonRepositoryManager()
-// - testutils.NewGoRepositoryManager() 
-// - testutils.NewJavaScriptRepositoryManager()
-// - testutils.NewJavaRepositoryManager()
-// - testutils.NewRustRepositoryManager()
-
-// Multi-project workspace manager
+// Multi-project workspace testing
 multiManager := testutils.NewMultiProjectManager(config)
 workspaceDir, err := multiManager.SetupMultiProjectWorkspace([]string{"go", "python", "java"})
-subProjects := multiManager.GetSubProjects()
+defer multiManager.Cleanup()
 ```
 
 **Key Components:**
-- **GenericRepoManager**: Unified interface implementing RepositoryManager
-- **LanguageConfig**: Language-specific configurations (repo URLs, file patterns, test paths)
-- **Language Integration Functions**: High-level setup for complete test environments
-- **MultiProjectManager**: Multi-project workspace creation and management
-- **SubProjectUtils**: Sub-project file discovery and cross-project reference testing
-- **RoutingTestHelpers**: Request routing validation and performance testing
-- **Backward Compatibility**: Adapters maintain compatibility with existing tests
+- **Repository Management**: Automated Git cloning and cleanup for real projects
+- **Multi-Project Support**: Cross-language workspace creation and testing
+- **HTTP Client Testing**: Production-like testing against running gateway
+- **Performance Utilities**: Latency, throughput, and resource usage measurement
 
-**Benefits:**
-- Single codebase for all language repository management
-- Predefined configurations for common test repositories
-- Automatic Git cloning, validation, and cleanup
-- Consistent interface across all programming languages
-- Easy extension to new languages via configuration
+### Real Project Testing
 
-## testutils Package Structure
+**Supported Test Repositories:**
+- **Python**: faif/python-patterns (design patterns)
+- **Go**: golang/example (standard library examples)
+- **JavaScript**: chalk/chalk (terminal string styling library)
+- **Java**: spring-projects/spring-boot (enterprise patterns)
+- **TypeScript**: Real-world TypeScript projects
 
-**Core Components:**
-
-- **`repository_manager.go`**: GenericRepoManager implementing unified RepositoryManager interface
-- **`language_configs.go`**: Predefined configurations and factory functions for all supported languages
-- **`language_integration.go`**: High-level functions for complete test environment setup
-- **`python_repo_adapter.go`**: Backward compatibility adapter for existing Python tests
-- **`multi_project_manager.go`**: Multi-project workspace creation and management
-- **`sub_project_utils.go`**: Sub-project file discovery and LSP client helpers
-- **`routing_test_helpers.go`**: Request routing validation and performance testing
-
-**Key Interfaces:**
-```go
-type RepositoryManager interface {
-    SetupRepository() (string, error)
-    GetTestFiles() ([]string, error)
-    GetWorkspaceDir() string
-    Cleanup() error
-    ValidateRepository() error
-    GetLastError() error
-}
-
-type MultiProjectRepositoryManager interface {
-    SetupMultiProjectWorkspace(languages []string) (string, error)
-    GetSubProjects() []*SubProjectInfo
-    GetSubProjectPath(projectType string) (string, error)
-    ValidateMultiProject() error
-    Cleanup() error
-}
-```
-
-**Usage Pattern:**
+**Usage:**
 ```go
 // Single-language testing
 repoManager := testutils.NewPythonRepositoryManager()
 workspaceDir, err := repoManager.SetupRepository()
 defer repoManager.Cleanup()
 
-testFiles, err := repoManager.GetTestFiles()
-for _, testFile := range testFiles {
-    fileURI := "file://" + filepath.Join(workspaceDir, testFile)
-    // Perform LSP operations...
-}
-
 // Multi-project workspace testing
-config := testutils.DefaultMultiProjectConfig()
 multiManager := testutils.NewMultiProjectManager(config)
 workspaceDir, err := multiManager.SetupMultiProjectWorkspace([]string{"go", "python", "java"})
 defer multiManager.Cleanup()
-
-subProjects := multiManager.GetSubProjects()
-for _, project := range subProjects {
-    // Test sub-project specific functionality
-    files, err := project.GetTestFiles()
-    for _, file := range files {
-        fileURI := "file://" + filepath.Join(project.ProjectPath, file)
-        // Test sub-project routing and LSP functionality...
-    }
-}
 ```
 
 ## Performance Requirements
@@ -239,12 +165,10 @@ for _, project := range subProjects {
 - Memory Usage: <3GB total during testing
 - Success Rate: >95% for essential functionality
 
-**Multi-Project Performance Requirements:**
+**Multi-Project Performance:**
 - Sub-project Detection: <5 seconds for typical workspaces
 - Sub-project Routing: <1ms per request routing decision  
-- Multi-project Workspace Setup: <2 minutes for 4+ languages
 - Cross-project Symbol Resolution: <10 seconds
-- Workspace Memory Usage: <2GB per workspace instance
 - SCIP Cache Performance: 60-87% improvement, 85-90% hit rates
 
 ## Development Guidelines
@@ -257,9 +181,8 @@ for _, project := range subProjects {
 - Validate core LSP methods across multiple file types
 - Test error conditions that users encounter
 
-**Implementation Patterns:**
 ```go
-// Single-language testing using unified repository management
+// Basic E2E test pattern
 repoManager := testutils.NewPythonRepositoryManager()
 workspaceDir, err := repoManager.SetupRepository()
 defer repoManager.Cleanup()
@@ -268,18 +191,6 @@ testFiles, err := repoManager.GetTestFiles()
 locations, err := client.Definition(ctx, fileURI, position)
 assert.NoError(err)
 assert.NotEmpty(locations)
-
-// Multi-project workspace testing
-multiManager := testutils.NewMultiProjectManager(config)
-workspaceDir, err := multiManager.SetupMultiProjectWorkspace([]string{"go", "python"})
-defer multiManager.Cleanup()
-
-// Test sub-project routing
-client := testutils.NewHttpClient(config)
-client.SetWorkspaceRoot(workspaceDir)
-results, err := client.DefinitionInSubProject(ctx, goFileURI, position, "go")
-assert.NoError(err)
-assert.NotEmpty(results)
 ```
 
 ### Writing Multi-Project Tests
@@ -290,46 +201,19 @@ assert.NotEmpty(results)
 - Test cross-project symbol resolution and references  
 - Verify workspace isolation and resource management
 
-**Testing Patterns:**
 ```go
-// Setup multi-project workspace
-config := testutils.DefaultMultiProjectConfig()
-manager := testutils.NewMultiProjectManager(config)
-workspaceDir, err := manager.SetupMultiProjectWorkspace([]string{"go", "python", "java"})
+// Multi-project test pattern
+multiManager := testutils.NewMultiProjectManager(config)
+workspaceDir, err := multiManager.SetupMultiProjectWorkspace([]string{"go", "python", "java"})
+defer multiManager.Cleanup()
 
-// Test routing validation
+// Test routing and performance
 router := testutils.NewRoutingTestHelper(workspaceDir)
 routingResults, err := router.ValidateSubProjectRouting(ctx, subProjects)
 assert.True(routingResults.AllRoutedCorrectly)
-
-// Test performance requirements
-perfResults, err := router.BenchmarkSubProjectResolution(ctx, 1000)
-assert.Less(perfResults.AvgRoutingTime, time.Millisecond)
 ```
 
-### Writing Integration Tests
-
-**Component Interaction Validation:**
-- Test protocol compliance (JSON-RPC, MCP)
-- Validate configuration loading and validation
-- Test transport layer reliability
-- Verify error handling and recovery mechanisms
-- Test multi-project workspace integration
-
-**Focus Areas:**
-- Configuration system integration
-- Protocol message handling
-- Connection management
-- Resource cleanup
-- Multi-project workspace detection and routing
-
 ### Test Maintenance
-
-**Continuous Simplification:**
-- Remove unit tests progressively
-- Eliminate redundant test infrastructure
-- Consolidate similar test scenarios
-- Focus on user-facing functionality only
 
 **Quality Gates:**
 - All E2E tests must use real language servers
@@ -339,165 +223,66 @@ assert.Less(perfResults.AvgRoutingTime, time.Millisecond)
 
 ## Language Server Integration
 
-**Language Server Integration via testutils:**
+**Supported Language Servers:**
 - **Python**: `pylsp` with faif/python-patterns repository
 - **Go**: `gopls` with golang/example repository  
-- **JavaScript/TypeScript**: `typescript-language-server` with chalk repository (commit: 5dbc1e2)
+- **JavaScript/TypeScript**: `typescript-language-server` with chalk repository
 - **Java**: `jdtls` with Spring Boot repository
-- **Rust**: `rust-analyzer` with Cargo repository
 
 **Integration Approach:**
-- **Unified Repository Management**: testutils.GenericRepoManager handles all repository operations
-- **Language-Specific Configurations**: Predefined settings for each language server
-- **Automatic Setup**: Repository cloning, validation, and cleanup managed by testutils
 - **Real Project Testing**: Use actual open-source projects for realistic validation
+- **Automated Setup**: Repository cloning, validation, and cleanup managed by testutils
 - **Performance Testing**: Realistic load testing with actual codebases
-
-## Real Repository Testing with testutils
-
-**Unified Repository Testing:**
-```bash
-# Language-specific E2E tests using common testutils system
-make test-python-patterns-quick    # Python with faif/python-patterns
-make test-go-e2e                   # Go with golang/example
-make test-javascript-e2e           # JavaScript basic E2E with chalk
-make test-javascript-real-client   # Comprehensive JavaScript Real Client E2E with chalk
-make test-javascript-mcp-integration # JavaScript MCP integration with chalk
-```
-
-**testutils Repository Management Features:**
-- **Automatic Repository Setup**: Git cloning with configurable timeouts
-- **Language-Specific Configurations**: Predefined configs for Python, Go, JS, Java, Rust
-- **File Discovery**: Automatic test file detection based on patterns and paths
-- **Validation**: Repository structure and content validation
-- **Cleanup Management**: Automatic workspace cleanup with error handling
-
-**Supported Test Repositories:**
-- **Python**: faif/python-patterns (design patterns)
-- **Go**: golang/example (standard library examples)
-- **JavaScript**: chalk/chalk (terminal string styling library, commit: 5dbc1e2)
-- **Java**: spring-projects/spring-boot (enterprise patterns)
-- **Rust**: rust-lang/cargo (systems programming)
-
-**Usage Example:**
-```go
-// Create repository manager with predefined configuration
-repoManager := testutils.NewPythonRepositoryManager()
-workspaceDir, err := repoManager.SetupRepository()
-defer repoManager.Cleanup()
-
-// Repository manager handles all Git operations automatically
-testFiles, err := repoManager.GetTestFiles()
-// Test files are discovered based on language configuration
-```
-
-## HttpClient Testing Infrastructure
-
-**Real Server HTTP Testing with testutils:**
-```go
-// Setup repository using unified system
-repoManager := testutils.NewPythonRepositoryManager()
-workspaceDir, err := repoManager.SetupRepository()
-defer repoManager.Cleanup()
-
-// Production-like testing against running gateway
-config := testutils.HttpClientConfig{
-    BaseURL:         "http://localhost:8080",
-    EnableLogging:   true,
-    EnableRecording: true,
-}
-client := testutils.NewHttpClient(config)
-
-// Test all LSP methods with real repository files
-testFiles, _ := repoManager.GetTestFiles()
-fileURI := "file://" + filepath.Join(workspaceDir, testFiles[0])
-locations, err := client.Definition(ctx, fileURI, position)
-symbols, err := client.WorkspaceSymbol(ctx, "query")
-hover, err := client.Hover(ctx, fileURI, position)
-```
-
-**Performance Testing:**
-- Concurrent request validation
-- Latency and throughput measurement  
-- Success rate monitoring
-- Resource usage tracking
 
 ## Troubleshooting
 
-### E2E Test Failures
+### Common Issues
 ```bash
-# Repository setup issues - testutils handles Git operations
-./bin/lspg diagnose --language python
-git config --list  # Verify Git access for testutils repository cloning
+# Repository setup issues
+lspg diagnose --language python
+git config --list  # Verify Git access
 
 # Language server problems  
-./bin/lspg install pylsp --force
-./bin/lspg verify --language python
+lspg setup all --force
+lspg diagnose
 
-# Verbose test output with testutils debugging
-go test -v -run TestPythonPatternsE2E ./tests/e2e/
+# Verbose test output
+go test -v -run TestPythonE2E ./tests/e2e/
 
-# Debug repository manager issues
-# testutils.GenericRepoManager provides detailed logging when EnableLogging=true
+# Performance diagnostics
+go test -bench=. -memprofile=mem.prof ./tests/e2e/
+go tool pprof mem.prof
 ```
 
-### Integration Test Issues
+### Configuration Validation
 ```bash
 # Configuration validation
-./bin/lspg config validate
+lspg config validate
 
 # Protocol testing
-./bin/lspg diagnose --transport stdio
+lspg diagnose --transport stdio
 
 # Component interaction
 go test -v -run TestIntegration ./tests/integration/
 ```
 
-### Performance Issues
-```bash
-# Performance diagnostics
-./bin/lspg performance
-
-# Resource monitoring
-go test -bench=. -memprofile=mem.prof ./tests/e2e/
-go tool pprof mem.prof
-```
-
-## Migration Path
-
-**Unified Testing with testutils:**
-1. **Current State**: All E2E tests use unified testutils repository management
-2. **Repository Management**: Single GenericRepoManager interface for all languages
-3. **Configuration System**: Predefined language configurations eliminate custom setup
-4. **Backward Compatibility**: Existing tests continue working with adapter pattern
-
-**Benefits:**
-- Consistent repository management across all languages
-- Reduced code duplication in test setup
-- Easier maintenance and extension to new languages
-- Automatic Git operations with proper error handling
-- Standardized test file discovery and validation
-
 ## Summary
 
-LSP Gateway testing is streamlined with unified testutils repository management and comprehensive multi-project workspace support:
+LSP Gateway testing focuses on essential functionality with streamlined infrastructure:
 
-- **E2E Tests**: Real language servers, real repositories via testutils.GenericRepoManager
-- **Multi-Project E2E Tests**: Multi-language workspace testing with sub-project routing validation  
-- **Integration Tests**: Component interactions and protocol compliance
-- **Workspace Integration Tests**: Multi-project detection, routing, and isolation testing
-- **Unified Repository Management**: Single testutils package handles all language repository operations
-- **Multi-Project Support**: testutils.MultiProjectManager for cross-language workspace testing
-- **Consistent Interface**: RepositoryManager interface across Python, Go, JavaScript, Java, Rust
-- **Automated Operations**: Git cloning, file discovery, validation, and cleanup handled by testutils
-- **Performance Validation**: Realistic load testing with actual codebases from open-source projects
-- **Sub-Project Performance**: <1ms routing, <5s LSP responses, workspace isolation validation
+**Core Testing:**
+- **E2E Tests**: Real language servers with actual open-source repositories
+- **Integration Tests**: Component interactions and protocol compliance  
+- **Multi-Project Tests**: Cross-language workspace testing with sub-project routing
+- **Performance Tests**: SCIP caching, parallel execution, memory management
 
-**Enhanced Testing Capabilities:**
-- **Multi-Project Workspace Detection**: Automatic detection of Go, Python, TypeScript, Java sub-projects
-- **Request Routing Validation**: LSP requests routed to correct sub-project clients
-- **Cross-Project Symbol Resolution**: Workspace/symbol queries across multiple projects
-- **Resource Isolation Testing**: Workspace-specific SCIP cache and memory management
-- **Performance Benchmarking**: Sub-project resolution, routing latency, and throughput testing
+**Key Features:**
+- **Real Project Testing**: Python (faif/python-patterns), Go (golang/example), JavaScript (chalk), Java (Spring Boot)
+- **Multi-Project Support**: Cross-language workspace detection, routing, and isolation
+- **Performance Requirements**: <5s LSP responses, <1ms routing, 60-87% SCIP performance improvement
+- **Parallel Execution**: Optimized test execution with configurable CPU core usage
 
-The enhanced testutils approach provides comprehensive coverage with consistent repository management across all languages plus robust multi-project workspace functionality validation.
+**Testing Infrastructure:**
+- **testutils Package**: Unified repository management and multi-project workspace creation
+- **HTTP Client Testing**: Production-like testing against running gateway
+- **Performance Utilities**: Latency, throughput, and resource usage measurement
