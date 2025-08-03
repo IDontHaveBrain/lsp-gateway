@@ -1,0 +1,45 @@
+# Minimal Go LSP E2E Test Configuration
+# Simple configuration for basic LSP feature testing
+
+# Gateway HTTP configuration
+port: ${TEST_PORT:-8080}
+timeout: "30s"
+
+# Simple server configuration for Go testing
+servers:
+  - name: "go-test-server"
+    languages: ["go"]
+    command: "gopls"
+    args: ["serve"]
+    transport: "stdio"
+    workspace_folders: ["${TEST_WORKSPACE}"]
+    
+    # Simple settings for testing
+    settings:
+      gopls:
+        staticcheck: false
+        analyses:
+          unusedparams: false
+        codelenses:
+          test: false
+        memoryMode: "Normal"
+
+# Basic logging for E2E tests
+logging:
+  level: "info"
+  enable_request_logging: false
+
+# Disable complex features for E2E test simplicity
+enable_smart_routing: false
+enable_enhancements: false
+project_aware: false
+enable_concurrent_servers: false
+
+# Performance settings for testing
+performance_config:
+  scip:
+    enabled: false
+  cache:
+    enabled: false
+  monitoring:
+    enabled: false

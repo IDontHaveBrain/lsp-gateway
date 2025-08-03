@@ -1,0 +1,43 @@
+{
+  "name": "lsp-gateway",
+  "version": "0.0.1",
+  "description": "Local LSP gateway for development - HTTP JSON-RPC and MCP server for 4 languages",
+  "bin": {
+    "lsp-gateway": "bin/lsp-gateway"
+  },
+  "scripts": {
+    "server": "./bin/lsp-gateway server",
+    "mcp": "./bin/lsp-gateway mcp",
+    "status": "./bin/lsp-gateway status",
+    "test": "./bin/lsp-gateway test",
+    "build": "make local",
+    "clean": "make clean"
+  },
+  "keywords": [
+    "lsp",
+    "language-server",
+    "gateway",
+    "local-development",
+    "go",
+    "python",
+    "typescript",
+    "javascript",
+    "java",
+    "gopls",
+    "pylsp",
+    "jdtls"
+  ],
+  "author": "LSP Gateway Team",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "bin/",
+    "config.yaml",
+    "README.md"
+  ],
+  "dependencies": {},
+  "devDependencies": {},
+  "preferGlobal": true
+}

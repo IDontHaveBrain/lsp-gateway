@@ -1,0 +1,226 @@
+{
+  "global": {
+    "nosec": "enabled",
+    "audit": "enabled",
+    "fmt": "json",
+    "severity": "low",
+    "confidence": "medium",
+    "ssa": false
+  },
+  "exclude": [
+    "G304",
+    "G306",
+    "G301",
+    "G302",
+    "G112",
+    "G114",
+    "G108",
+    "G104"
+  ],
+  "exclude-generated": [
+    "*_test.go",
+    "*_benchmark_test.go", 
+    "testutil/*.go",
+    "testdata/*.go",
+    "mock_*.go",
+    "**/fixtures/*.go"
+  ],
+  "exclude-dir": [
+    "node_modules",
+    "vendor",
+    ".git",
+    "dist",
+    "bin",
+    "coverage",
+    "reports",
+    "test-data",
+    "test-repositories",
+    "internal/testing",
+    "internal/integration/testutil",
+    "internal/integration/fixtures",
+    "lsp-results",
+    "repo-validation"
+  ],
+  "include": [
+    "**/*.go"
+  ],
+  "config": {
+    "G101": {
+      "pattern": "(?i)(?:password|passwd|pwd|secret|token|api[_-]?key|private[_-]?key)",
+      "ignore_entropy": false,
+      "entropy_threshold": 80.0,
+      "per_char_threshold": 3.0,
+      "truncate": 32
+    },
+    "G115": {
+      "ignore_nosec": false
+    },
+    "G204": {
+      "whitelist": [
+        "go",
+        "make",
+        "npm",
+        "node",
+        "python",
+        "pip",
+        "brew",
+        "apt-get",
+        "yum",
+        "gopls",
+        "typescript-language-server",
+        "jdtls"
+      ]
+    },
+    "G301": {
+      "mode": "0750"
+    },
+    "G302": {
+      "mode": "0600"
+    },
+    "G404": {
+      "ignore_nosec": false
+    }
+  },
+  "rules": {
+    "G101": {
+      "description": "Look for hard coded credentials",
+      "enabled": true
+    },
+    "G102": {
+      "description": "Bind to all interfaces",
+      "enabled": false
+    },
+    "G103": {
+      "description": "Audit the use of unsafe block",
+      "enabled": true
+    },
+    "G104": {
+      "description": "Audit errors not checked",
+      "enabled": false
+    },
+    "G106": {
+      "description": "Audit the use of ssh.InsecureIgnoreHostKey",
+      "enabled": true
+    },
+    "G107": {
+      "description": "Url provided to HTTP request as taint input",
+      "enabled": false
+    },
+    "G108": {
+      "description": "Profiling endpoint automatically exposed on /debug/pprof",
+      "enabled": false
+    },
+    "G109": {
+      "description": "Potential Integer overflow made by strconv.Atoi result conversion to int16/32",
+      "enabled": true
+    },
+    "G110": {
+      "description": "Potential DoS vulnerability via decompression bomb",
+      "enabled": true
+    },
+    "G111": {
+      "description": "Potential directory traversal",
+      "enabled": true
+    },
+    "G112": {
+      "description": "Potential slowloris attack",
+      "enabled": false
+    },
+    "G113": {
+      "description": "Usage of Rat.SetString in math/big with an overflow (CVE-2022-23772)",
+      "enabled": true
+    },
+    "G114": {
+      "description": "Use of net/http serve function that has no support for setting timeouts",
+      "enabled": false
+    },
+    "G115": {
+      "description": "Potential integer overflow when converting between integer types",
+      "enabled": true
+    },
+    "G201": {
+      "description": "SQL query construction using format string",
+      "enabled": true
+    },
+    "G202": {
+      "description": "SQL query construction using string concatenation",
+      "enabled": true
+    },
+    "G203": {
+      "description": "Use of unescaped data in HTML templates",
+      "enabled": true
+    },
+    "G204": {
+      "description": "Audit use of command execution",
+      "enabled": true
+    },
+    "G301": {
+      "description": "Poor file permissions used when creating a directory",
+      "enabled": false
+    },
+    "G302": {
+      "description": "Poor file permissions used with chmod",
+      "enabled": false
+    },
+    "G303": {
+      "description": "Creating tempfile using a predictable path",
+      "enabled": false
+    },
+    "G304": {
+      "description": "File path provided as taint input",
+      "enabled": false
+    },
+    "G305": {
+      "description": "File traversal when extracting zip archive",
+      "enabled": true
+    },
+    "G306": {
+      "description": "Poor file permissions used when writing to a file",
+      "enabled": false
+    },
+    "G307": {
+      "description": "Deferring a method which returns an error",
+      "enabled": false
+    },
+    "G401": {
+      "description": "Detect the usage of DES, RC4, MD5 or SHA1",
+      "enabled": true
+    },
+    "G402": {
+      "description": "Look for bad TLS connection settings",
+      "enabled": true
+    },
+    "G403": {
+      "description": "Ensure minimum RSA key length of 2048 bits",
+      "enabled": true
+    },
+    "G404": {
+      "description": "Insecure random number source (rand)",
+      "enabled": true
+    },
+    "G501": {
+      "description": "Import blacklist: crypto/md5",
+      "enabled": true
+    },
+    "G502": {
+      "description": "Import blacklist: crypto/des",
+      "enabled": true
+    },
+    "G503": {
+      "description": "Import blacklist: crypto/rc4",
+      "enabled": true
+    },
+    "G504": {
+      "description": "Import blacklist: net/http/cgi",
+      "enabled": true
+    },
+    "G505": {
+      "description": "Import blacklist: crypto/sha1",
+      "enabled": true
+    },
+    "G601": {
+      "description": "Implicit memory aliasing of items from a range statement",
+      "enabled": true
+    }
+  }
+}

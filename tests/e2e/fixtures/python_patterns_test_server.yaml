@@ -1,0 +1,410 @@
+# Python Patterns Test Server Configuration
+# Specialized server configuration for Python patterns e2e testing
+# Designed for integration with PythonRepoManager and test scenarios
+
+# Test server gateway configuration
+port: ${TEST_PORT:-8081}  # Different port to avoid conflicts
+timeout: "25s"
+max_concurrent_requests: 30
+project_aware: true
+enable_concurrent_servers: false
+max_concurrent_servers_per_language: 1  # Single server for focused testing
+
+# Minimal multi-server configuration for testing
+multi_server_config:
+  selection_strategy: "first_available"  # Simplest strategy for tests
+  concurrent_limit: 1
+  resource_sharing: false  # Isolated for test predictability
+  health_check_interval: "20s"
+  max_retries: 2
+
+# Test-specific project context
+project_context:
+  project_type: "test_patterns"
+  root_directory: "${workspaceFolder}"
+  languages:
+    - language: "python"
+      frameworks: ["test_patterns", "examples"]
+      file_patterns: ["*.py"]
+      root_markers: ["patterns/", "__init__.py"]
+
+# Simplified server configuration for test reliability
+servers:
+  # Primary test server with minimal configuration
+  - name: "python-test-server"
+    languages: ["python"]
+    command: "pylsp"
+    transport: "stdio"
+    root_markers: ["patterns/", "*.py"]
+    
+    # Test-focused settings
+    settings:
+      pylsp:
+        plugins:
+          # Essential LSP features only
+          jedi_completion:
+            enabled: true
+            include_params: true
+            include_class_objects: true
+            include_function_objects: false  # Simplified
+            fuzzy: false  # Predictable results
+            eager: false  # Faster startup
+            resolve_at_most: 10
+            
+          jedi_definition:
+            enabled: true
+            follow_imports: true
+            follow_builtin_imports: false
+            
+          jedi_hover:
+            enabled: true
+            
+          jedi_references:
+            enabled: true
+            
+          jedi_symbols:
+            enabled: true
+            all_scopes: false  # Simplified scope
+            include_import_symbols: false
+            
+          # Minimal linting for test consistency
+          pycodestyle:
+            enabled: true
+            ignore: ["E501", "W503", "E203", "E731", "W605", "E402"]
+            maxLineLength: 120
+            
+          pyflakes:
+            enabled: true
+            
+          # All other plugins disabled for test speed
+          pylint:
+            enabled: false
+          mypy:
+            enabled: false
+          black:
+            enabled: false
+          isort:
+            enabled: false
+          pydocstyle:
+            enabled: false
+          mccabe:
+            enabled: false
+            
+    # Test environment settings
+    environment:
+      PYTHONPATH: "${workspaceFolder}:${workspaceFolder}/patterns"
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      TEST_MODE: "1"
+      
+    # Test server pool configuration
+    pool_config:
+      min_size: 1
+      max_size: 2
+      warmup_size: 1
+      
+      # Fixed configuration for test predictability
+      enable_dynamic_sizing: false
+      
+      # Test-appropriate timeouts
+      max_lifetime: 10m
+      idle_timeout: 3m
+      health_check_interval: 20s
+      
+      # Quick retry for test scenarios
+      max_retries: 2
+      base_delay: 50ms
+      circuit_timeout: 10s
+      
+      # Resource limits for test environment
+      memory_limit_mb: 512  # Increased for parallel test stability
+      cpu_limit_percent: 30.0
+      
+      transport_type: "stdio"
+      custom_config:
+        process_isolation: true
+        test_mode: true
+        debug_mode: false
+        
+    # Health monitoring optimized for tests
+    health_check_settings:
+      enabled: true
+      interval: 20s
+      timeout: 5s
+      failure_threshold: 1  # Fail fast for tests
+      success_threshold: 1
+      method: "ping"
+      enable_auto_restart: true
+      restart_delay: 3s
+      max_consecutive_fails: 1
+
+# Smart routing disabled for test simplicity
+enable_smart_routing: false
+enable_enhancements: false
+
+# Test-specific patterns and scenarios
+test_patterns:
+  # Behavioral patterns testing
+  behavioral:
+    patterns_dir: "patterns/behavioral"
+    test_files:
+      - "observer.py"
+      - "strategy.py"
+      - "command.py"
+      - "iterator.py"
+    expected_symbols:
+      - "Observer"
+      - "Strategy"
+      - "Command"
+      - "Iterator"
+      
+  # Creational patterns testing
+  creational:
+    patterns_dir: "patterns/creational"
+    test_files:
+      - "factory.py"
+      - "singleton.py"
+      - "builder.py"
+      - "prototype.py"
+    expected_symbols:
+      - "Factory"
+      - "Singleton"
+      - "Builder"
+      - "Prototype"
+      
+  # Structural patterns testing
+  structural:
+    patterns_dir: "patterns/structural"
+    test_files:
+      - "adapter.py"
+      - "decorator.py"
+      - "facade.py"
+      - "proxy.py"
+    expected_symbols:
+      - "Adapter"
+      - "Decorator"
+      - "Facade"
+      - "Proxy"
+
+# LSP method testing configuration
+lsp_method_tests:
+  # Definition testing
+  "textDocument/definition":
+    timeout: "3s"
+    expected_response_fields: ["uri", "range"]
+    test_scenarios:
+      - "class_definition"
+      - "function_definition"
+      - "method_definition"
+      - "variable_definition"
+      
+  # References testing
+  "textDocument/references":
+    timeout: "5s"
+    expected_response_fields: ["uri", "range"]
+    max_references: 50
+    test_scenarios:
+      - "class_references"
+      - "function_references"
+      - "method_references"
+      
+  # Hover testing
+  "textDocument/hover":
+    timeout: "2s"
+    expected_response_fields: ["contents"]
+    test_scenarios:
+      - "class_hover"
+      - "function_hover"
+      - "method_hover"
+      - "docstring_hover"
+      
+  # Completion testing
+  "textDocument/completion":
+    timeout: "3s"
+    expected_response_fields: ["items"]
+    max_completion_items: 30
+    test_scenarios:
+      - "class_completion"
+      - "method_completion"
+      - "import_completion"
+      
+  # Document symbols testing
+  "textDocument/documentSymbol":
+    timeout: "3s"
+    expected_response_fields: ["name", "kind", "range"]
+    test_scenarios:
+      - "class_symbols"
+      - "function_symbols"
+      - "method_symbols"
+      
+  # Workspace symbols testing
+  "workspace/symbol":
+    timeout: "8s"
+    expected_response_fields: ["name", "kind", "location"]
+    max_symbols: 100
+    test_scenarios:
+      - "global_class_search"
+      - "global_function_search"
+      - "pattern_name_search"
+
+# Test data validation
+test_validation:
+  # Repository structure validation
+  repository_structure:
+    required_directories:
+      - "patterns"
+      - "patterns/behavioral"
+      - "patterns/creational"
+      - "patterns/structural"
+    required_files:
+      - "patterns/__init__.py"
+    min_python_files: 5
+    
+  # Symbol validation
+  symbol_validation:
+    required_symbol_types:
+      - "class"
+      - "function"
+      - "method"
+    min_symbols_per_file: 1
+    max_symbols_per_file: 20
+    
+  # Content validation
+  content_validation:
+    min_file_size: 100  # bytes
+    max_file_size: 10000  # bytes
+    required_patterns:
+      - "class "
+      - "def "
+    forbidden_patterns:
+      - "import os"  # No system imports in patterns
+      - "subprocess"
+
+# Performance benchmarks for test scenarios
+performance_benchmarks:
+  # Response time benchmarks
+  response_times:
+    definition_max_ms: 2000
+    references_max_ms: 3000
+    hover_max_ms: 1000
+    completion_max_ms: 2000
+    document_symbols_max_ms: 2000
+    workspace_symbols_max_ms: 5000
+    
+  # Resource usage benchmarks
+  resource_usage:
+    max_memory_mb: 256
+    max_cpu_percent: 50
+    max_startup_time_ms: 10000
+    
+  # Throughput benchmarks
+  throughput:
+    requests_per_second: 10
+    concurrent_requests: 5
+    max_queue_size: 20
+
+# Error scenarios for robust testing
+error_scenarios:
+  # Server failure scenarios
+  server_failures:
+    - "server_crash"
+    - "server_timeout"
+    - "server_memory_limit"
+    
+  # Request failure scenarios
+  request_failures:
+    - "invalid_file_path"
+    - "invalid_position"
+    - "malformed_request"
+    
+  # Recovery scenarios
+  recovery_scenarios:
+    - "server_restart"
+    - "fallback_response"
+    - "graceful_degradation"
+
+# Test environment configuration
+test_environment:
+  # Workspace settings
+  workspace:
+    temp_directory: "/tmp/lsp-gateway-python-patterns-test"
+    cleanup_policy: "always"
+    isolation_level: "process"
+    
+  # Network settings
+  network:
+    timeout: "30s"
+    retry_count: 2
+    allow_external: false  # No external network calls during tests
+    
+  # Resource limits
+  resources:
+    max_memory: "512MB"
+    max_disk: "1GB"
+    max_processes: 3
+    max_open_files: 100
+
+# Integration settings
+integration:
+  # PythonRepoManager integration
+  repo_manager:
+    config_override:
+      clone_timeout: "120s"  # Shorter for test server
+      enable_logging: true
+      force_clean: true
+      preserve_git_dir: false
+      
+  # Test runner integration
+  test_runner:
+    parallel_execution: false  # Sequential for predictable results
+    fail_fast: true
+    verbose_output: true
+    capture_logs: true
+    
+  # CI/CD integration
+  ci_integration:
+    export_results: true
+    result_format: "json"
+    include_performance_metrics: true
+    include_error_details: true
+
+# Logging configuration for test server
+logging:
+  level: "debug"  # More verbose for test troubleshooting
+  output: "console"  # Direct output for test visibility
+  include_timestamps: true
+  include_request_ids: true
+  
+  # Component-specific logging
+  components:
+    pylsp: "info"
+    test_server: "debug"
+    repo_manager: "info"
+    performance: "info"
+    
+  # Log file settings (if file output needed)
+  file_logging:
+    enabled: false  # Console only for tests
+    rotation: false
+    max_size: "10MB"
+
+# Monitoring and metrics for test analysis
+monitoring:
+  enabled: true
+  
+  # Test-specific metrics
+  metrics:
+    - "request_count"
+    - "response_time"
+    - "error_rate"
+    - "memory_usage"
+    - "cpu_usage"
+    
+  # Metric collection intervals
+  collection:
+    interval: "5s"
+    retention: "1h"  # Short retention for tests
+    
+  # Alerting disabled for tests
+  alerting:
+    enabled: false

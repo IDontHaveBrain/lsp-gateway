@@ -1,0 +1,114 @@
+# Python E2E Test Configuration
+# General-purpose configuration for Python LSP testing
+
+# Gateway configuration
+port: ${TEST_PORT:-8080}
+timeout: "25s"
+max_concurrent_requests: 50
+project_aware: true
+enable_concurrent_servers: false
+max_concurrent_servers_per_language: 2
+
+# Project context for Python testing
+project_context:
+  project_type: "python_project"
+  root_directory: "${workspaceFolder}"
+  languages:
+    - language: "python"
+      frameworks: ["python"]
+      file_patterns: ["*.py"]
+      root_markers: ["*.py", "__init__.py", "setup.py", "pyproject.toml"]
+
+# Python server configuration
+servers:
+  - name: "pylsp-server"
+    languages: ["python"]
+    command: "pylsp"
+    transport: "stdio"
+    priority: 3
+    weight: 3.0
+    max_concurrent_requests: 30
+    root_markers: ["*.py", "__init__.py"]
+    server_startup_timeout: 20s
+    request_timeout: 8s
+    
+    # Essential pylsp configuration for testing
+    settings:
+      pylsp:
+        plugins:
+          # Core LSP features
+          jedi_completion:
+            enabled: true
+            include_params: true
+            include_class_objects: true
+            include_function_objects: true
+            fuzzy: false
+            eager: false
+            resolve_at_most: 15
+            
+          jedi_definition:
+            enabled: true
+            follow_imports: true
+            follow_builtin_imports: false
+            
+          jedi_hover:
+            enabled: true
+            
+          jedi_references:
+            enabled: true
+            
+          jedi_symbols:
+            enabled: true
+            all_scopes: false
+            include_import_symbols: false
+            
+          # Basic linting
+          pycodestyle:
+            enabled: true
+            ignore: ["E501", "W503", "E203", "E731", "W605", "E402"]
+            maxLineLength: 120
+            
+          pyflakes:
+            enabled: true
+            
+          # Disable heavy plugins for testing
+          pylint:
+            enabled: false
+          mypy:
+            enabled: false
+          black:
+            enabled: false
+          isort:
+            enabled: false
+          pydocstyle:
+            enabled: false
+          mccabe:
+            enabled: false
+            
+    # Environment configuration
+    environment:
+      PYTHONPATH: "${workspaceFolder}"
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+      
+    # Health monitoring
+    health_check_settings:
+      enabled: true
+      interval: 15s
+      timeout: 5s
+      failure_threshold: 2
+      success_threshold: 1
+      method: "ping"
+      enable_auto_restart: true
+      restart_delay: 3s
+
+# Smart routing disabled for test simplicity
+enable_smart_routing: false
+enable_enhancements: false
+
+# Logging configuration
+logging:
+  level: "info"
+  output: "console"
+  include_timestamps: true
+  include_request_ids: true

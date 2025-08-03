@@ -1,0 +1,467 @@
+# JavaScript/TypeScript MCP E2E Test Configuration
+# Optimized for testing JavaScript LSP features with chalk repository
+# Supports: definition, references, hover, document symbols, workspace symbols, completion
+
+# Gateway configuration for test scenarios
+port: ${TEST_PORT}
+timeout: "22s"
+max_concurrent_requests: 50
+project_aware: true
+enable_concurrent_servers: false
+max_concurrent_servers_per_language: 2
+
+# Test project context for chalk repository
+project_context:
+  project_type: "single-language"
+  root_directory: "${workspaceFolder}"
+  languages:
+    - language: "javascript"
+      frameworks: ["chalk", "terminal-styling", "color"]
+      file_patterns: ["*.js", "*.ts", "*.mjs"]
+      root_markers: ["package.json", "tsconfig.json", "*.js"]
+
+# JavaScript language server pool optimized for testing
+language_pools:
+  - language: "javascript"
+    default_server: "typescript-language-server-test"
+    servers:
+      # Primary test server with essential features
+      typescript-language-server-test:
+        name: "typescript-language-server-test"
+        languages: ["javascript", "typescript"]
+        command: "typescript-language-server"
+        args: ["--stdio"]
+        transport: "stdio"
+        priority: 3
+        weight: 3.0
+        max_concurrent_requests: 30
+        root_markers: ["package.json", "tsconfig.json"]
+        
+        # Test-optimized TypeScript language server configuration
+        settings:
+          typescript:
+            preferences:
+              # Core LSP features for testing
+              includeCompletionsForModuleExports: true
+              includeCompletionsWithInsertText: true
+              allowTextChangesInNewFiles: true
+              includeCompletionsForImportStatements: true
+              
+            suggest:
+              # Completion settings
+              enabled: true
+              includeAutomaticOptionalChainCompletions: true
+              includeCompletionsWithSnippetText: true
+              
+            # Diagnostics settings for test stability
+            diagnostics:
+              ignoredCodes: [6133, 6138, 7016, 7006]  # Relaxed for test examples
+              
+            # IntelliSense settings
+            intelliSense:
+              includeAutomaticOptionalChainCompletions: true
+              
+          javascript:
+            preferences:
+              includeCompletionsForModuleExports: true
+              includeCompletionsWithInsertText: true
+              allowTextChangesInNewFiles: true
+              
+            suggest:
+              enabled: true
+              includeAutomaticOptionalChainCompletions: true
+              includeCompletionsWithSnippetText: true
+              
+        # Test environment
+        environment:
+          NODE_PATH: "${workspaceFolder}/node_modules:${NODE_PATH:-}"
+          TS_NODE_PROJECT: "tsconfig.json"
+          
+      # Fallback server for error scenarios
+      typescript-language-server-fallback:
+        name: "typescript-language-server-fallback"
+        languages: ["javascript", "typescript"]
+        command: "typescript-language-server"
+        args: ["--stdio"]
+        transport: "stdio"
+        priority: 1
+        weight: 1.0
+        max_concurrent_requests: 20
+        root_markers: ["package.json"]
+        
+        # Minimal configuration for fallback
+        settings:
+          typescript:
+            preferences:
+              includeCompletionsForModuleExports: true
+            suggest:
+              enabled: true
+              
+        environment:
+          NODE_PATH: "${workspaceFolder}/node_modules"
+          
+    # Load balancing for test scenarios
+    load_balancing:
+      strategy: "round_robin"
+      health_threshold: 0.70
+      weight_factors:
+        typescript-language-server-test: 3.0
+        typescript-language-server-fallback: 1.0
+        
+    # Resource limits for test environment
+    resource_limits:
+      max_memory_mb: 1024
+      max_concurrent_requests: 50
+      max_processes: 3
+      request_timeout_seconds: 30
+
+  # TypeScript language server pool (same servers as JavaScript)
+  - language: "typescript"
+    default_server: "typescript-language-server-test"
+    servers:
+      # Primary test server with essential features
+      typescript-language-server-test:
+        name: "typescript-language-server-test"
+        languages: ["javascript", "typescript"]
+        command: "typescript-language-server"
+        args: ["--stdio"]
+        transport: "stdio"
+        priority: 3
+        weight: 3.0
+        max_concurrent_requests: 30
+        root_markers: ["package.json", "tsconfig.json"]
+        
+        # Test-optimized TypeScript language server configuration
+        settings:
+          typescript:
+            preferences:
+              # Core LSP features for testing
+              includeCompletionsForModuleExports: true
+              includeCompletionsWithInsertText: true
+              allowTextChangesInNewFiles: true
+              includeCompletionsForImportStatements: true
+              
+            suggest:
+              # Completion settings
+              enabled: true
+              includeAutomaticOptionalChainCompletions: true
+              includeCompletionsWithSnippetText: true
+              
+            # Diagnostics settings for test stability
+            diagnostics:
+              ignoredCodes: [6133, 6138, 7016, 7006]  # Relaxed for test examples
+              
+            # IntelliSense settings
+            intelliSense:
+              includeAutomaticOptionalChainCompletions: true
+              
+          javascript:
+            preferences:
+              includeCompletionsForModuleExports: true
+              includeCompletionsWithInsertText: true
+              allowTextChangesInNewFiles: true
+              
+            suggest:
+              enabled: true
+              includeAutomaticOptionalChainCompletions: true
+              includeCompletionsWithSnippetText: true
+              
+        # Test environment
+        environment:
+          NODE_PATH: "${workspaceFolder}/node_modules:${NODE_PATH:-}"
+          TS_NODE_PROJECT: "tsconfig.json"
+          
+      # Fallback server for error scenarios
+      typescript-language-server-fallback:
+        name: "typescript-language-server-fallback"
+        languages: ["javascript", "typescript"]
+        command: "typescript-language-server"
+        args: ["--stdio"]
+        transport: "stdio"
+        priority: 1
+        weight: 1.0
+        max_concurrent_requests: 20
+        root_markers: ["package.json"]
+        
+        # Minimal configuration for fallback
+        settings:
+          typescript:
+            preferences:
+              includeCompletionsForModuleExports: true
+            suggest:
+              enabled: true
+              
+        environment:
+          NODE_PATH: "${workspaceFolder}/node_modules"
+          
+    # Load balancing for test scenarios
+    load_balancing:
+      strategy: "round_robin"
+      health_threshold: 0.70
+      weight_factors:
+        typescript-language-server-test: 3.0
+        typescript-language-server-fallback: 1.0
+        
+    # Resource limits for test environment
+    resource_limits:
+      max_memory_mb: 1024
+      max_concurrent_requests: 50
+      max_processes: 3
+      request_timeout_seconds: 30
+
+# Enhanced pool configuration for JavaScript test servers
+servers:
+  - name: "javascript-chalk-test-pool"
+    languages: ["javascript", "typescript"]
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    transport: "stdio"
+    root_markers: ["package.json", "tsconfig.json"]
+    
+    # Pool configuration optimized for testing
+    pool_config:
+      min_size: 1
+      max_size: 3
+      warmup_size: 1
+      
+      # Conservative scaling for test stability
+      enable_dynamic_sizing: false
+      
+      # Test-appropriate lifecycle
+      max_lifetime: 15m
+      idle_timeout: 5m
+      health_check_interval: 30s
+      
+      # Retry configuration for test reliability
+      max_retries: 3
+      base_delay: 100ms
+      circuit_timeout: 15s
+      
+      # Memory limits for test environment
+      memory_limit_mb: 512
+      cpu_limit_percent: 50.0
+      
+      transport_type: "stdio"
+      custom_config:
+        process_isolation: true
+        node_modules_support: true
+        test_mode: true
+        
+    # Health monitoring for test stability
+    health_check_settings:
+      enabled: true
+      interval: 30s
+      timeout: 4s
+      failure_threshold: 2
+      success_threshold: 1
+      method: "ping"
+      enable_auto_restart: true
+      restart_delay: 5s
+      max_consecutive_fails: 2
+      
+    # Test environment
+    environment:
+      NODE_PATH: "${workspaceFolder}/node_modules:${NODE_PATH:-}"
+      TS_NODE_PROJECT: "tsconfig.json"
+
+# Smart routing optimized for test scenarios
+enable_smart_routing: true
+enable_enhancements: false
+smart_router_config:
+  default_strategy: "single_target_with_fallback"
+  method_strategies:
+    "textDocument/definition": "single_target_with_fallback"
+    "textDocument/references": "single_target_with_fallback"
+    "textDocument/hover": "single_target_with_fallback"
+    "textDocument/completion": "single_target_with_fallback"
+    "textDocument/documentSymbol": "single_target_with_fallback"
+    "workspace/symbol": "single_target_with_fallback"
+  enable_performance_monitoring: true
+  enable_circuit_breaker: true
+  circuit_breaker_threshold: 3
+  circuit_breaker_timeout: "15s"
+
+# Test-specific optimizations
+optimizations:
+  javascript:
+    # Node modules handling
+    node_modules:
+      auto_detect: true
+      include_types: true
+      
+    # Chalk project structure
+    project_structure:
+      source_directory: "source"
+      test_directory: "test"
+      types_directory: "index.d.ts"
+      
+    # Package management for tests
+    package_managers:
+      - name: "npm"
+        enabled: true
+        
+    # Code quality tools disabled for test performance
+    linting: []
+    
+    # Testing frameworks (minimal)
+    testing:
+      - name: "ava"
+        enabled: true
+
+# Test repository configurations for JavaScript projects
+test_repositories:
+  # Main chalk repository
+  chalk:
+    repo_url: "https://github.com/chalk/chalk.git"
+    workspace_path: "${TEST_WORKSPACE}/chalk"
+    source_dir: "source"
+    test_files_pattern: "source/**/*.js"
+    commit_hash: "${COMMIT_HASH:-5dbc1e2}"
+
+# Test-optimized SCIP performance configuration
+performance_config:
+  # SCIP disabled for test simplicity and speed
+  scip:
+    enabled: false
+    
+  # Test-focused caching
+  cache:
+    enabled: true
+    memory_limit: "256MB"
+    ttl: "30m"
+    
+  # Test monitoring
+  monitoring:
+    enabled: true
+    collect_detailed_metrics: false
+
+# Logging configuration for test scenarios
+logging:
+  level: "info"
+  enable_request_logging: true
+  enable_performance_logging: true
+  levels:
+    typescript-language-server: "info"
+    chalk: "info"
+    test_runner: "debug"
+
+# MCP-specific configuration
+mcp:
+  enabled: true
+  tools:
+    - "textDocument/definition"
+    - "textDocument/references"
+    - "textDocument/hover"
+    - "textDocument/documentSymbol"
+    - "workspace/symbol"
+    - "textDocument/completion"
+  
+  # MCP transport settings
+  transport:
+    type: "stdio"
+    timeout: "22s"
+    
+  # MCP protocol settings
+  protocol:
+    version: "2025-06-18"
+    capabilities:
+      tools: true
+      resources: false
+      prompts: false
+
+# Test-specific settings
+test_settings:
+  # Timeout settings optimized for test scenarios
+  timeouts:
+    server_startup: "18s"
+    lsp_request: "8s"
+    definition: "6s"
+    references: "8s"
+    hover: "4s"
+    completion: "8s"
+    document_symbols: "6s"
+    workspace_symbols: "8s"
+    
+  # Performance expectations for tests
+  performance:
+    max_response_time_ms: 8000
+    max_memory_usage_mb: 512
+    max_startup_time_ms: 18000
+    
+  # Test file patterns
+  file_patterns:
+    include:
+      - "source/**/*.js"
+      - "source/**/*.ts"
+      - "source/**/*.mjs"
+      - "*.js"
+      - "*.ts"
+    exclude:
+      - "node_modules/**"
+      - "*.d.ts"
+      - ".git/**"
+      - "dist/**"
+      - "build/**"
+      
+  # LSP method validation
+  supported_methods:
+    - "textDocument/definition"
+    - "textDocument/references" 
+    - "textDocument/hover"
+    - "textDocument/completion"
+    - "textDocument/documentSymbol"
+    - "workspace/symbol"
+    
+  # Test data expectations
+  test_expectations:
+    min_js_files: 3
+    expected_directories:
+      - "source"
+      - "test"
+    required_symbols:
+      - "function"
+      - "class"
+      - "const"
+      - "export"
+
+# Integration with repository manager
+repo_manager_integration:
+  # Repository management settings
+  repository:
+    clone_timeout: "300s"
+    checkout_timeout: "60s"
+    validation_timeout: "30s"
+    
+  # Workspace management
+  workspace:
+    base_dir: "/tmp/lsp-gateway-javascript-e2e-tests"
+    cleanup_on_exit: true
+    preserve_on_error: false
+    
+  # File discovery settings
+  file_discovery:
+    source_dir: "source"
+    recursive: true
+    include_js_files: true
+    include_ts_files: true
+    max_files: 200
+
+# Error handling and recovery for tests
+error_handling:
+  # Test-appropriate error recovery
+  recovery:
+    max_retry_attempts: 2
+    retry_delay: "2s"
+    exponential_backoff: false
+    
+  # Error reporting for test diagnostics
+  reporting:
+    log_all_errors: true
+    include_stack_traces: true
+    error_context_size: 3
+    
+  # Bypass strategies for test stability
+  bypass_strategies:
+    server_failure: "fallback_server"
+    timeout: "fail_fast"
+    memory_limit: "restart_server"

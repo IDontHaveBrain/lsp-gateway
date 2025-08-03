@@ -1,0 +1,91 @@
+# E2E Test Configuration for LSP Gateway MCP Integration
+# Comprehensive configuration for different E2E testing scenarios
+
+default:
+  timeout: 300s
+  max_concurrency: 10
+  retry_attempts: 3
+  cleanup_timeout: 30s
+  log_level: "info"
+
+scenarios:
+  basic-mcp-workflow:
+    description: "Basic MCP client workflow testing"
+    timeout: 60s
+    concurrency: 5
+    lsp_methods:
+      - "workspace/symbol"
+      - "textDocument/definition"
+      - "textDocument/hover"
+    expected_success_rate: 0.95
+    max_response_time: "5s"
+
+  lsp-method-validation:
+    description: "Complete LSP method validation"
+    timeout: 120s
+    concurrency: 10
+    lsp_methods:
+      - "workspace/symbol"
+      - "textDocument/definition"
+      - "textDocument/references"
+      - "textDocument/hover"
+      - "textDocument/documentSymbol"
+    expected_success_rate: 0.98
+    max_response_time: "3s"
+
+  circuit-breaker-testing:
+    description: "Circuit breaker behavior validation"
+    timeout: 180s
+    circuit_breaker:
+      max_failures: 5
+      timeout: "60s"
+      max_half_open_requests: 3
+    error_scenarios:
+      - type: "network"
+        count: 10
+        recovery_after: 15
+      - type: "timeout"
+        count: 8
+        recovery_after: 10
+      - type: "server"
+        count: 6
+        recovery_after: 5
+
+  performance-validation:
+    description: "Performance and load testing"
+    timeout: 300s
+    load_test:
+      concurrent_users: [10, 25, 50, 100]
+      duration: "60s"
+      ramp_up_time: "10s"
+    thresholds:
+      max_response_time: "5s"
+      min_throughput: 100  # requests per second
+      max_error_rate: 0.05
+      max_memory_usage: "2GB"  # Aligned with reduced cache limit
+      max_memory_growth: "1GB"
+
+mcp_client:
+  base_url: "http://localhost:8080"
+  timeout: "30s"
+  max_retries: 3
+  retry_policy:
+    initial_backoff: "500ms"
+    max_backoff: "30s"
+    backoff_factor: 2.0
+    jitter_enabled: true
+
+validation:
+  response_structure: true
+  required_fields: true
+  data_types: true
+  performance_thresholds: true
+  error_handling: true
+  concurrency_safety: true
+
+reporting:
+  format: "json"
+  include_metrics: true
+  include_errors: true
+  include_performance: true
+  output_directory: "./test-results/e2e"

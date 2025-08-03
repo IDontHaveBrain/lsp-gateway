@@ -1,0 +1,38 @@
+# Default Configuration for LSP Gateway
+# Simplified CLI with basic LSP server integration for all supported languages
+
+servers:
+  # Go Language Server
+  go:
+    command: "gopls"
+    args: ["serve"]
+    working_dir: ""
+    initialization_options: {}
+
+  # Python Language Server  
+  python:
+    command: "pylsp"
+    args: []
+    working_dir: ""
+    initialization_options: {}
+
+  # JavaScript Language Server
+  javascript:
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    working_dir: ""
+    initialization_options: {}
+
+  # TypeScript Language Server
+  typescript:
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    working_dir: ""
+    initialization_options: {}
+
+  # Java Language Server
+  java:
+    command: "jdtls"
+    args: []
+    working_dir: ""
+    initialization_options: {}

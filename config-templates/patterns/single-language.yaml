@@ -1,0 +1,110 @@
+# Single Language Project Configuration
+# Use Case: Projects using one primary language (Go, Python, JavaScript/TypeScript, Java)
+# Architecture: Simplified CLI with basic LSP server integration
+# Project Scale: Small to medium projects, local development
+# Supported Features: 6 essential LSP features (definition, references, hover, documentSymbol, workspace/symbol, completion)
+
+# Choose one language server configuration below by uncommenting it:
+
+# =============================================================================
+# GO LANGUAGE SERVER
+# =============================================================================
+servers:
+  go:
+    command: "gopls"
+    args: []
+    working_dir: ""
+    initialization_options: {}
+
+# Prerequisites: go install golang.org/x/tools/gopls@latest
+# File types: .go, go.mod, go.sum
+# Usage: lsp-gateway server --config config.yaml
+
+# =============================================================================
+# PYTHON LANGUAGE SERVER (Alternative - comment out Go section above)
+# =============================================================================
+# servers:
+#   python:
+#     command: "pylsp"
+#     args: []
+#     working_dir: ""
+#     initialization_options: {}
+
+# Prerequisites: pip install python-lsp-server
+# File types: .py, .pyi
+# Usage: lsp-gateway server --config config.yaml
+
+# =============================================================================
+# JAVASCRIPT LANGUAGE SERVER (Alternative - comment out sections above)  
+# =============================================================================
+# servers:
+#   javascript:
+#     command: "typescript-language-server"
+#     args: ["--stdio"]
+#     working_dir: ""
+#     initialization_options: {}
+
+# Prerequisites: npm install -g typescript-language-server typescript
+# File types: .js, .jsx
+# Usage: lsp-gateway server --config config.yaml
+
+# =============================================================================
+# TYPESCRIPT LANGUAGE SERVER (Alternative - comment out sections above)
+# =============================================================================
+# servers:
+#   typescript:
+#     command: "typescript-language-server" 
+#     args: ["--stdio"]
+#     working_dir: ""
+#     initialization_options: {}
+
+# Prerequisites: npm install -g typescript-language-server typescript
+# File types: .ts, .tsx
+# Usage: lsp-gateway server --config config.yaml
+
+# =============================================================================
+# JAVA LANGUAGE SERVER (Alternative - comment out sections above)
+# =============================================================================
+# servers:
+#   java:
+#     command: "jdtls"
+#     args: []
+#     working_dir: ""
+#     initialization_options: {}
+
+# Prerequisites: Download and install Eclipse JDT Language Server
+# File types: .java
+# Usage: lsp-gateway server --config config.yaml
+
+# =============================================================================
+# CONFIGURATION NOTES
+# =============================================================================
+#
+# 1. Single Language Focus:
+#    - Only configure one language server per project
+#    - Comment out unused language sections
+#    - Keeps configuration simple and focused
+#
+# 2. Working Directory:
+#    - Leave empty ("") to use project root directory
+#    - Set to specific path if your project has a different structure
+#
+# 3. Initialization Options:
+#    - Add language server specific settings as needed
+#    - Example for Go: {"gopls": {"analyses": {"unusedparams": true}}}
+#    - Example for Python: {"pylsp": {"plugins": {"pycodestyle": {"enabled": true}}}}
+#
+# 4. CLI Commands:
+#    - lsp-gateway server --config config.yaml  # Start HTTP gateway (:8080)
+#    - lsp-gateway mcp                          # Start MCP server for AI
+#    - lsp-gateway status                       # Check server status  
+#    - lsp-gateway test                         # Test connections
+#
+# 5. Migration to Multi-Language:
+#    - When adding more languages, use multi-language-template.yaml instead
+#    - Simple migration: just add more server entries to the servers: section
+#
+# 6. Local Development:
+#    - Optimized for individual developer workflows
+#    - No enterprise features or complex pooling
+#    - Direct LSP server integration with minimal overhead

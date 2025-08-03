@@ -1,0 +1,8 @@
+servers:
+  - name: gopls-lsp
+    languages:
+      - go
+    command: /home/skawn/go/bin/gopls
+    args: []
+    transport: stdio
+port: 8080

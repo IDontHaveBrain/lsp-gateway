@@ -1,0 +1,9 @@
+# Simple Test Configuration for LSP Gateway
+# Minimal test setup
+
+servers:
+  go:
+    command: "gopls"
+    args: ["serve"]
+    working_dir: ""
+    initialization_options: {}

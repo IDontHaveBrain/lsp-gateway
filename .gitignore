@@ -4,6 +4,8 @@
 *.iws
 *.ipr
 out/
+
+# Binaries
 *.exe
 *.exe~
 *.dll
@@ -11,8 +13,97 @@ out/
 *.dylib
 *.test
 *.out
+
+# Go workspace
 go.work
 go.work.sum
+
+# Environment
 .env
+
+# Coverage files and reports
+coverage/
+coverage.out
+coverage.html
+*.coverprofile
+c.out
+
+# Test reports
+test-reports/
+junit.xml
+
+# Build artifacts
+dist/
+bin/
+build/
+
+# IDE and editor files
+.vscode/
+.vs/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Log files
+*.log
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# Dependency directories
+vendor/
+node_modules/
+
+# Analysis and report files
+*_results*.txt
+*_results*.json
+*_results*.sarif
+*_report*.txt
+*_report*.json
+*_report*.sarif
+security_*.txt
+security_*.json
+security_*.sarif
+lint_*.txt
+errcheck_*.txt
+staticcheck_*.txt
+
+# Binary executables (project-specific)
+lsp-gateway
+
+# Cache directories
+.serena/
+
+# Test repositories - ignore cloned repositories but keep directory structure
+test-repositories/go/kubernetes/
+test-repositories/go/docker/
+test-repositories/go/golang/
+test-repositories/go/prometheus/
+test-repositories/python/django/
+test-repositories/python/flask/
+test-repositories/python/numpy/
+test-repositories/python/pandas/
+test-repositories/typescript/vscode/
+test-repositories/typescript/angular/
+test-repositories/typescript/react/
+test-repositories/typescript/typescript/
+test-repositories/java/spring-boot/
+test-repositories/java/elasticsearch/
+test-repositories/java/kafka/
+test-repositories/java/maven/
+# Exclude documentation files except README.md and files in docs folder
 *.md
-.*
+!README.md
+!docs/
+!docs/**/*.md

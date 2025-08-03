@@ -1,0 +1,9 @@
+# Minimal Configuration for LSP Gateway
+# Single language example - Go only
+
+servers:
+  go:
+    command: "gopls"
+    args: ["serve"]
+    working_dir: ""
+    initialization_options: {}

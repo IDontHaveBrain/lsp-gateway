@@ -1,0 +1,660 @@
+package server
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"log"
+	"os"
+	"time"
+
+	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/project"
+)
+
+// MCPServer provides Model Context Protocol bridge to LSP functionality
+type MCPServer struct {
+	lspManager *LSPManager
+	logger     *log.Logger
+	ctx        context.Context
+	cancel     context.CancelFunc
+}
+
+// MCP Protocol Types - JSON-RPC 2.0 Compliant
+type MCPRequest struct {
+	JSONRPC string      `json:"jsonrpc"`
+	ID      interface{} `json:"id"`
+	Method  string      `json:"method"`
+	Params  interface{} `json:"params,omitempty"`
+}
+
+type MCPResponse struct {
+	JSONRPC string      `json:"jsonrpc"`
+	ID      interface{} `json:"id"`
+	Result  interface{} `json:"result,omitempty"`
+	Error   *MCPError   `json:"error,omitempty"`
+}
+
+type MCPError struct {
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data,omitempty"`
+}
+
+// Tool content types for structured output
+type ToolContent struct {
+	Type     string      `json:"type"`
+	Text     string      `json:"text,omitempty"`
+	Data     interface{} `json:"data,omitempty"`
+	MimeType string      `json:"mimeType,omitempty"`
+}
+
+// NewMCPServer creates a new MCP server
+func NewMCPServer(cfg *config.Config) (*MCPServer, error) {
+	if cfg == nil {
+		cfg = config.GetDefaultConfig()
+	}
+
+	lspManager, err := NewLSPManager(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create LSP manager: %w", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	return &MCPServer{
+		lspManager: lspManager,
+		logger:     log.New(os.Stderr, "[MCP] ", log.LstdFlags),
+		ctx:        ctx,
+		cancel:     cancel,
+	}, nil
+}
+
+// Start starts the MCP server
+func (m *MCPServer) Start() error {
+	return m.lspManager.Start(m.ctx)
+}
+
+// Stop stops the MCP server
+func (m *MCPServer) Stop() error {
+	m.cancel()
+	return m.lspManager.Stop()
+}
+
+// Run runs the MCP server with STDIO transport
+func (m *MCPServer) Run(input io.Reader, output io.Writer) error {
+	defer m.cancel()
+
+	if err := m.Start(); err != nil {
+		return fmt.Errorf("failed to start LSP manager: %w", err)
+	}
+	defer m.Stop()
+
+	// Use line-based I/O as required by MCP STDIO transport spec
+	scanner := bufio.NewScanner(input)
+
+	for scanner.Scan() {
+		select {
+		case <-m.ctx.Done():
+			return m.ctx.Err()
+		default:
+		}
+
+		line := scanner.Text()
+		if line == "" {
+			continue
+		}
+
+		var req MCPRequest
+		if err := json.Unmarshal([]byte(line), &req); err != nil {
+			m.logger.Printf("decode error: %v", err)
+			continue
+		}
+
+		response := m.handleRequest(&req)
+
+		// Encode response as single line JSON (no embedded newlines)
+		responseBytes, err := json.Marshal(response)
+		if err != nil {
+			m.logger.Printf("encode error: %v", err)
+			continue
+		}
+
+		// Write response followed by newline as required by spec
+		if _, err := fmt.Fprintf(output, "%s\n", string(responseBytes)); err != nil {
+			m.logger.Printf("write error: %v", err)
+			continue
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("input scan error: %w", err)
+	}
+
+	return nil
+}
+
+// handleRequest processes MCP requests
+func (m *MCPServer) handleRequest(req *MCPRequest) *MCPResponse {
+	switch req.Method {
+	case "initialize":
+		return m.handleInitialize(req)
+	case "tools/list":
+		return m.handleToolsList(req)
+	case "tools/call":
+		return m.handleToolCall(req)
+	default:
+		return &MCPResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Error: &MCPError{
+				Code:    -32601,
+				Message: fmt.Sprintf("method not found: %s", req.Method),
+				Data:    map[string]interface{}{"method": req.Method},
+			},
+		}
+	}
+}
+
+// handleInitialize handles MCP initialize request
+func (m *MCPServer) handleInitialize(req *MCPRequest) *MCPResponse {
+	return &MCPResponse{
+		JSONRPC: "2.0",
+		ID:      req.ID,
+		Result: map[string]interface{}{
+			"protocolVersion": "2025-06-18",
+			"capabilities": map[string]interface{}{
+				"tools": map[string]interface{}{
+					"listChanged": true,
+				},
+				"logging": map[string]interface{}{},
+			},
+			"serverInfo": map[string]interface{}{
+				"name":    "lsp-gateway-mcp",
+				"version": "2.0.0",
+				"title":   "LSP Gateway MCP Server",
+			},
+			"_meta": map[string]interface{}{
+				"lsp-gateway": map[string]interface{}{
+					"supportedLanguages": []string{"go", "python", "javascript", "typescript", "java"},
+					"lspFeatures":        []string{"definition", "references", "hover", "documentSymbol", "workspaceSymbol", "completion"},
+				},
+			},
+		},
+	}
+}
+
+// handleToolsList returns available LSP tools
+func (m *MCPServer) handleToolsList(req *MCPRequest) *MCPResponse {
+	tools := []map[string]interface{}{
+		{
+			"name":        "goto_definition",
+			"title":       "Go to Definition",
+			"description": "Navigate to the definition of a symbol at a specific position in a file",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"uri": map[string]interface{}{
+						"type":        "string",
+						"description": "File URI (e.g., file:///path/to/file.go)",
+						"pattern":     "^file://",
+					},
+					"line": map[string]interface{}{
+						"type":        "integer",
+						"description": "Line number (0-based)",
+						"minimum":     0,
+					},
+					"character": map[string]interface{}{
+						"type":        "integer",
+						"description": "Character position (0-based)",
+						"minimum":     0,
+					},
+				},
+				"required":             []string{"uri", "line", "character"},
+				"additionalProperties": false,
+			},
+		},
+		{
+			"name":        "find_references",
+			"title":       "Find References",
+			"description": "Find all references to a symbol at a specific position in a file",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"uri": map[string]interface{}{
+						"type":        "string",
+						"description": "File URI (e.g., file:///path/to/file.go)",
+					},
+					"line": map[string]interface{}{
+						"type":        "integer",
+						"description": "Line number (0-based)",
+					},
+					"character": map[string]interface{}{
+						"type":        "integer",
+						"description": "Character position (0-based)",
+					},
+					"includeDeclaration": map[string]interface{}{
+						"type":        "boolean",
+						"description": "Include the declaration in the results",
+						"default":     true,
+					},
+				},
+				"required": []string{"uri", "line", "character"},
+			},
+		},
+		{
+			"name":        "get_hover_info",
+			"title":       "Get Hover Information",
+			"description": "Get hover information for a symbol at a specific position in a file",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"uri": map[string]interface{}{
+						"type":        "string",
+						"description": "File URI (e.g., file:///path/to/file.go)",
+					},
+					"line": map[string]interface{}{
+						"type":        "integer",
+						"description": "Line number (0-based)",
+					},
+					"character": map[string]interface{}{
+						"type":        "integer",
+						"description": "Character position (0-based)",
+					},
+				},
+				"required": []string{"uri", "line", "character"},
+			},
+		},
+		{
+			"name":        "get_document_symbols",
+			"title":       "Get Document Symbols",
+			"description": "Get all symbols in a document",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"uri": map[string]interface{}{
+						"type":        "string",
+						"description": "Document URI (e.g., file:///path/to/file.go)",
+					},
+				},
+				"required": []string{"uri"},
+			},
+		},
+		{
+			"name":        "search_workspace_symbols",
+			"title":       "Search Workspace Symbols",
+			"description": "Search for symbols in the workspace with pagination support",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"query": map[string]interface{}{
+						"type":        "string",
+						"description": "Search query for symbol names",
+					},
+				},
+				"required": []string{"query"},
+			},
+		},
+		{
+			"name":        "get_completion",
+			"title":       "Get Code Completion",
+			"description": "Get code completion suggestions at a specific position in a file",
+			"inputSchema": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"uri": map[string]interface{}{
+						"type":        "string",
+						"description": "File URI (e.g., file:///path/to/file.go)",
+					},
+					"line": map[string]interface{}{
+						"type":        "integer",
+						"description": "Line number (0-based)",
+					},
+					"character": map[string]interface{}{
+						"type":        "integer",
+						"description": "Character position (0-based)",
+					},
+					"triggerKind": map[string]interface{}{
+						"type":        "integer",
+						"description": "Completion trigger kind (1=invoked, 2=triggerCharacter, 3=incomplete)",
+						"default":     1,
+					},
+					"triggerCharacter": map[string]interface{}{
+						"type":        "string",
+						"description": "Character that triggered completion (when triggerKind=2)",
+					},
+				},
+				"required": []string{"uri", "line", "character"},
+			},
+		},
+	}
+
+	return &MCPResponse{
+		JSONRPC: "2.0",
+		ID:      req.ID,
+		Result: map[string]interface{}{
+			"tools": tools,
+		},
+	}
+}
+
+// handleToolCall executes LSP tool calls
+func (m *MCPServer) handleToolCall(req *MCPRequest) *MCPResponse {
+	params, ok := req.Params.(map[string]interface{})
+	if !ok {
+		return &MCPResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Error: &MCPError{
+				Code:    -32602,
+				Message: "Invalid params: expected object",
+				Data:    map[string]interface{}{"received": fmt.Sprintf("%T", req.Params)},
+			},
+		}
+	}
+
+	name, ok := params["name"].(string)
+	if !ok {
+		return &MCPResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Error: &MCPError{
+				Code:    -32602,
+				Message: "Missing required parameter: name",
+				Data:    map[string]interface{}{"parameter": "name"},
+			},
+		}
+	}
+
+	args, ok := params["arguments"].(map[string]interface{})
+	if !ok {
+		args = make(map[string]interface{})
+	}
+
+	var result interface{}
+	var err error
+
+	switch name {
+	case "goto_definition":
+		result, err = m.handleGotoDefinition(args)
+	case "find_references":
+		result, err = m.handleFindReferences(args)
+	case "get_hover_info":
+		result, err = m.handleGetHover(args)
+	case "get_document_symbols":
+		result, err = m.handleGetDocumentSymbols(args)
+	case "search_workspace_symbols":
+		result, err = m.handleSearchWorkspaceSymbols(args)
+	case "get_completion":
+		result, err = m.handleGetCompletion(args)
+	default:
+		return &MCPResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Error: &MCPError{
+				Code:    -32601,
+				Message: fmt.Sprintf("Tool not found: %s", name),
+				Data:    map[string]interface{}{"tool": name},
+			},
+		}
+	}
+
+	if err != nil {
+		return &MCPResponse{
+			JSONRPC: "2.0",
+			ID:      req.ID,
+			Error: &MCPError{
+				Code:    -32000,
+				Message: fmt.Sprintf("Tool execution failed: %s", err.Error()),
+				Data:    map[string]interface{}{"tool": name, "error": err.Error()},
+			},
+		}
+	}
+
+	return &MCPResponse{
+		JSONRPC: "2.0",
+		ID:      req.ID,
+		Result: map[string]interface{}{
+			"content": []map[string]interface{}{
+				{
+					"type": "text",
+					"text": formatStructuredResult(result, name),
+				},
+			},
+			"isError": false,
+			"_meta": map[string]interface{}{
+				"tool":      name,
+				"timestamp": fmt.Sprintf("%d", time.Now().Unix()),
+			},
+		},
+	}
+}
+
+// LSP Tool Handlers
+func (m *MCPServer) handleGotoDefinition(params map[string]interface{}) (interface{}, error) {
+	if err := validatePositionParams(params); err != nil {
+		return nil, err
+	}
+
+	lspParams, err := m.buildPositionParams(params)
+	if err != nil {
+		return nil, err
+	}
+
+	return m.lspManager.ProcessRequest(m.ctx, "textDocument/definition", lspParams)
+}
+
+func (m *MCPServer) handleFindReferences(params map[string]interface{}) (interface{}, error) {
+	if err := validatePositionParams(params); err != nil {
+		return nil, err
+	}
+
+	lspParams, err := m.buildPositionParams(params)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add includeDeclaration parameter
+	if includeDecl, ok := params["includeDeclaration"].(bool); ok {
+		lspParams["context"] = map[string]interface{}{
+			"includeDeclaration": includeDecl,
+		}
+	} else {
+		lspParams["context"] = map[string]interface{}{
+			"includeDeclaration": true,
+		}
+	}
+
+	return m.lspManager.ProcessRequest(m.ctx, "textDocument/references", lspParams)
+}
+
+func (m *MCPServer) handleGetHover(params map[string]interface{}) (interface{}, error) {
+	if err := validatePositionParams(params); err != nil {
+		return nil, err
+	}
+
+	lspParams, err := m.buildPositionParams(params)
+	if err != nil {
+		return nil, err
+	}
+
+	return m.lspManager.ProcessRequest(m.ctx, "textDocument/hover", lspParams)
+}
+
+func (m *MCPServer) handleGetDocumentSymbols(params map[string]interface{}) (interface{}, error) {
+	uri, ok := params["uri"].(string)
+	if !ok || uri == "" {
+		return nil, fmt.Errorf("missing or invalid uri parameter")
+	}
+	if !isValidFileURI(uri) {
+		return nil, fmt.Errorf("uri must be a valid file:// URI")
+	}
+
+	lspParams := map[string]interface{}{
+		"textDocument": map[string]interface{}{
+			"uri": uri,
+		},
+	}
+
+	return m.lspManager.ProcessRequest(m.ctx, "textDocument/documentSymbol", lspParams)
+}
+
+func (m *MCPServer) handleSearchWorkspaceSymbols(params map[string]interface{}) (interface{}, error) {
+	query, ok := params["query"].(string)
+	if !ok || query == "" {
+		return nil, fmt.Errorf("missing or invalid query parameter")
+	}
+	if len(query) > 100 {
+		return nil, fmt.Errorf("query too long (max 100 characters)")
+	}
+
+	lspParams := map[string]interface{}{
+		"query": query,
+	}
+
+	return m.lspManager.ProcessRequest(m.ctx, "workspace/symbol", lspParams)
+}
+
+func (m *MCPServer) handleGetCompletion(params map[string]interface{}) (interface{}, error) {
+	if err := validatePositionParams(params); err != nil {
+		return nil, err
+	}
+
+	lspParams, err := m.buildPositionParams(params)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add completion context
+	context := map[string]interface{}{
+		"triggerKind": 1, // Default: invoked
+	}
+
+	if triggerKind, ok := params["triggerKind"].(float64); ok {
+		context["triggerKind"] = int(triggerKind)
+	}
+
+	if triggerChar, ok := params["triggerCharacter"].(string); ok {
+		context["triggerCharacter"] = triggerChar
+	}
+
+	lspParams["context"] = context
+
+	return m.lspManager.ProcessRequest(m.ctx, "textDocument/completion", lspParams)
+}
+
+// Helper Functions
+func (m *MCPServer) buildPositionParams(params map[string]interface{}) (map[string]interface{}, error) {
+	uri, ok := params["uri"].(string)
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid uri parameter")
+	}
+
+	line, ok := params["line"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid line parameter")
+	}
+
+	character, ok := params["character"].(float64)
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid character parameter")
+	}
+
+	return map[string]interface{}{
+		"textDocument": map[string]interface{}{
+			"uri": uri,
+		},
+		"position": map[string]interface{}{
+			"line":      int(line),
+			"character": int(character),
+		},
+	}, nil
+}
+
+func formatStructuredResult(result interface{}, toolName string) string {
+	if result == nil {
+		return fmt.Sprintf("Tool '%s' returned no results", toolName)
+	}
+
+	data, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("Error formatting result for tool '%s': %v", toolName, err)
+	}
+
+	return string(data)
+}
+
+// Input validation for MCP tools
+func validatePositionParams(params map[string]interface{}) error {
+	uri, ok := params["uri"].(string)
+	if !ok || uri == "" {
+		return fmt.Errorf("missing or invalid uri parameter")
+	}
+	if !isValidFileURI(uri) {
+		return fmt.Errorf("uri must be a valid file:// URI")
+	}
+
+	line, ok := params["line"].(float64)
+	if !ok || line < 0 {
+		return fmt.Errorf("missing or invalid line parameter (must be >= 0)")
+	}
+
+	character, ok := params["character"].(float64)
+	if !ok || character < 0 {
+		return fmt.Errorf("missing or invalid character parameter (must be >= 0)")
+	}
+
+	return nil
+}
+
+func isValidFileURI(uri string) bool {
+	return len(uri) > 7 && uri[:7] == "file://"
+}
+
+// RunMCPServer starts an MCP server with the specified configuration
+func RunMCPServer(configPath string) error {
+	var cfg *config.Config
+	if configPath != "" {
+		loadedConfig, err := config.LoadConfig(configPath)
+		if err != nil {
+			log.Printf("Warning: Failed to load config from %s, using defaults: %v", configPath, err)
+			cfg = config.GetDefaultConfig()
+		} else {
+			cfg = loadedConfig
+		}
+	} else {
+		// Auto-detect languages in current directory
+		wd, err := os.Getwd()
+		if err != nil {
+			log.Printf("Warning: Failed to get working directory, using defaults: %v", err)
+			cfg = config.GetDefaultConfig()
+		} else {
+			log.Printf("🔍 Auto-detecting languages in: %s", wd)
+			cfg = config.GenerateAutoConfig(wd, project.GetAvailableLanguages)
+			if cfg == nil || len(cfg.Servers) == 0 {
+				log.Printf("Warning: No languages detected or LSP servers unavailable, using defaults")
+				cfg = config.GetDefaultConfig()
+			} else {
+				languages := make([]string, 0, len(cfg.Servers))
+				for lang := range cfg.Servers {
+					languages = append(languages, lang)
+				}
+				log.Printf("✅ Auto-detected languages: %v", languages)
+			}
+		}
+	}
+
+	server, err := NewMCPServer(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to create MCP server: %w", err)
+	}
+
+	log.Printf("🚀 MCP Server started")
+	log.Printf("📡 Available LSP tools: goto_definition, find_references, get_hover_info, get_document_symbols, search_workspace_symbols, get_completion")
+	log.Printf("🔗 Protocol: Model Context Protocol v2025-06-18 (STDIO)")
+	log.Printf("🔧 Enhanced with: JSON-RPC 2.0 compliance, input validation, structured output")
+
+	return server.Run(os.Stdin, os.Stdout)
+}

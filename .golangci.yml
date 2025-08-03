@@ -1,0 +1,98 @@
+# golangci-lint configuration for LSP Gateway
+# Open source individual project: Balanced quality maintenance for solo development
+
+version: "2"
+
+run:
+  timeout: 5m
+  skip-dirs:
+    - vendor
+    - tests/temp
+
+linters:
+  enable:
+    # Critical correctness (essential for quality)
+    - errcheck        # Check error handling (essential)
+    - staticcheck     # Advanced static analysis
+    - govet           # Vet examines Go source code
+    
+    # Basic code quality 
+    - unused          # Find unused code
+    - ineffassign     # Detect ineffectual assignments
+    - misspell        # Fix spelling mistakes
+    
+    # Moderate complexity checking (balanced for solo development)
+    - gocyclo         # Cyclomatic complexity
+    
+    # Useful quality checks (not too strict)
+    - goconst         # Repeated strings as constants (helpful for maintenance)
+    
+    # Note: Excluded gocognit, revive, unconvert for development speed
+
+linters-settings:
+  # Relaxed settings for solo open source development
+  unused:
+    field-writes-are-uses: true      # Mark struct fields written to as used
+    post-statements-are-reads: false  # Treat i++ as read+write vs just write
+    exported-fields-are-used: true   # Consider exported fields as used
+    exported-is-used: true          # Consider exported functions/vars as used
+    parameters-are-used: true        # Consider function parameters as used
+    local-variables-are-used: true   # Consider local variables as used
+
+  staticcheck:
+    checks: ["all", "-SA1019"]       # Enable all but deprecated usage warnings
+
+  gocyclo:
+    min-complexity: 20  # Balanced for solo development (maintains quality)
+  funlen:
+    lines: 120         # Balanced for solo development (maintains quality)
+    statements: 70     # Balanced for solo development (maintains quality)
+  lll:
+    line-length: 150   # Balanced for solo development (maintains quality)
+  goconst:
+    min-len: 3         # Minimum string length to check
+    min-occurrences: 5 # Minimum occurrences before suggesting constant
+
+issues:
+  # Balanced exclusion rules for solo development (maintain quality)
+  exclude-use-default: false  # Don't use default exclusions
+  exclude-rules:
+    # Exclude complexity checks from test files (but keep correctness checks)
+    - path: _test\.go
+      linters:
+        - funlen
+        - gocyclo
+        - goconst
+    
+    # Allow some test-specific patterns
+    - path: _test\.go
+      text: "Error return value.*is not checked"
+      linters:
+        - errcheck
+    
+    # Relax checks for example and demo code
+    - path: examples/
+      linters:
+        - errcheck
+        - unused
+        - goconst
+    
+    # Relax checks for temporary or development files
+    - path: internal/temp/
+      linters:
+        - errcheck
+        - unused
+        - gocyclo
+    
+    # Allow longer functions in main/setup files (often contain initialization logic)
+    - path: cmd/.*main\.go
+      linters:
+        - funlen
+        - gocyclo
+
+  # Reasonable limits for individual development
+  max-issues-per-linter: 30   # Reasonable limit to encourage fixes
+  max-same-issues: 5          # Encourage fixing repeated issues
+
+severity:
+  default: warning  # All issues as warnings for faster development

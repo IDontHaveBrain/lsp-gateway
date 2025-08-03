@@ -1,0 +1,73 @@
+# Simple Multi-Language Configuration
+# Use Case: Projects using multiple supported languages (Go, Python, JavaScript/TypeScript, Java)
+# Architecture: Simplified CLI with basic LSP server integration
+# Supported Languages: Go, Python, JavaScript, TypeScript, Java (4 languages only)
+# Supported Features: 6 essential LSP features (definition, references, hover, documentSymbol, workspace/symbol, completion)
+
+# Basic server configuration for all supported languages
+servers:
+  # Go Language Server
+  go:
+    command: "gopls"
+    args: []
+    working_dir: ""
+    initialization_options: {}
+
+  # Python Language Server  
+  python:
+    command: "pylsp"
+    args: []
+    working_dir: ""
+    initialization_options: {}
+
+  # JavaScript Language Server
+  javascript:
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    working_dir: ""
+    initialization_options: {}
+
+  # TypeScript Language Server
+  typescript:
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    working_dir: ""
+    initialization_options: {}
+
+  # Java Language Server
+  java:
+    command: "jdtls"
+    args: []
+    working_dir: ""
+    initialization_options: {}
+
+# Configuration Notes:
+# 
+# 1. Language Detection:
+#    - .go files -> go server
+#    - .py files -> python server  
+#    - .js, .jsx files -> javascript server
+#    - .ts, .tsx files -> typescript server
+#    - .java files -> java server
+#
+# 2. Server Commands:
+#    - Ensure language servers are installed on your system
+#    - gopls: go install golang.org/x/tools/gopls@latest
+#    - pylsp: pip install python-lsp-server
+#    - typescript-language-server: npm install -g typescript-language-server typescript
+#    - jdtls: Download from Eclipse JDT LS releases
+#
+# 3. Working Directory:
+#    - Leave empty to use project root
+#    - Set to specific path if needed for your setup
+#
+# 4. Customization:
+#    - Add initialization_options for server-specific settings
+#    - Modify args array for custom server parameters
+#    - Set working_dir for specific workspace configurations
+#
+# 5. CLI Usage:
+#    - lsp-gateway server --config config.yaml  # Start HTTP gateway on :8080
+#    - lsp-gateway mcp                          # Start MCP server for AI assistants
+#    - lsp-gateway status                       # Show server status
+#    - lsp-gateway test                         # Test server connections
