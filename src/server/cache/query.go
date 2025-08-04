@@ -593,7 +593,7 @@ func (q *SCIPQueryManager) ExtractURI(params interface{}) (string, error) {
 		for k := range p {
 			keys = append(keys, k)
 		}
-		
+
 		return "", fmt.Errorf("no URI found in untyped parameters, available keys: %v", keys)
 	default:
 		return "", fmt.Errorf("unsupported parameter type: %T", params)

@@ -51,6 +51,9 @@ git clone <repository-url>
 cd lsp-gateway
 make local                    # Build and install globally
 
+# Alternative: Install via npm (if available)
+npm install -g lsp-gateway
+
 # 2. Install language servers (optional - for specific languages)
 go install golang.org/x/tools/gopls@latest
 npm install -g typescript-language-server typescript
@@ -73,6 +76,11 @@ make build          # Build for all platforms
 make clean          # Remove build artifacts
 make tidy           # Tidy go modules
 make unlink         # Remove npm global link
+
+# Cache-specific build commands
+make cache-verify   # Verify cache dependencies are available
+make cache-test     # Run cache tests
+make cache-clean    # Clean cache data
 ```
 
 ### Quality Commands (Working)
@@ -85,10 +93,12 @@ make quality-full   # All checks (format + vet + lint + security)
 
 ### Testing Commands (Working)
 ```bash
+# Direct Go test commands (recommended)
 go test -v ./src/internal/project/...    # Unit tests for language detection
-go test -v ./tests/e2e/...               # E2E tests (requires LSP servers)
+go test -v ./tests/unit/...              # Config unit tests
+go test -v ./src/server/cache/...        # Cache system tests
 
-# Specific E2E tests with real GitHub repositories
+# E2E tests with real GitHub repositories (slow - requires LSP servers)
 cd tests/e2e
 go test -v -run "TestGoRealClientComprehensiveE2ETestSuite" .
 go test -v -run "TestPythonRealClientComprehensiveE2ETestSuite" .
@@ -114,6 +124,13 @@ lsp-gateway cache index                    # Proactively index files for faster 
 # Alternative via npm (after make local):
 npm run server                             # Start HTTP Gateway
 npm run mcp                                # Start MCP Server
+npm run status                             # Show LSP server status
+npm run test                               # Test LSP server connections
+npm run build                              # Build via make local
+npm run clean                              # Clean build artifacts
+npm run cache-verify                       # Verify cache dependencies
+npm run cache-test                         # Run cache tests  
+npm run cache-clean                        # Clean cache data
 ```
 
 ## Configuration
@@ -146,7 +163,7 @@ servers:
 # SCIP Cache Configuration (enabled by default)
 cache:
   enabled: true                               # Always enabled for optimal performance
-  storage_path: ".lsp-gateway/scip-cache"     # Cache storage directory  
+  storage_path: ".lsp-gateway/scip-cache"     # Cache storage (auto-generates project-specific paths)
   max_memory_mb: 256                          # Memory limit in MB
   ttl: "24h"                                  # Cache time-to-live (24h for daily dev workflow)
   languages: ["go", "python", "typescript", "java"]  # Cached languages
@@ -193,6 +210,22 @@ lsp-gateway mcp --config config.yaml
 
 **MCP Tools Available**: `goto_definition`, `find_references`, `get_hover_info`, `get_document_symbols`, `search_workspace_symbols`, `get_completion`
 
+### Claude Desktop Integration
+Add to your Claude Desktop configuration:
+```json
+{
+  "mcpServers": {
+    "lsp-gateway": {
+      "command": "lsp-gateway",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### IDE Integration
+Point your IDE's LSP client to `http://localhost:8080/jsonrpc` after starting the HTTP gateway.
+
 ## SCIP Cache System
 
 ### Performance Benefits
@@ -203,6 +236,7 @@ lsp-gateway mcp --config config.yaml
 
 ### Cache Architecture
 - **Three-tier storage**: Hot memory cache, warm LRU cache, cold disk storage
+- **Project isolation**: Auto-generates unique cache paths per project to prevent conflicts
 - **Background indexing**: Automatic symbol extraction and relationship building
 - **Smart invalidation**: File system monitoring with cascade dependency updates
 - **Health monitoring**: Continuous performance and health tracking
@@ -221,10 +255,10 @@ The SCIP cache is specifically optimized for AI assistant usage patterns:
 src/
 ├── cmd/lsp-gateway/     # Application entry point
 ├── server/              # Core server implementations (HTTP, MCP, LSP)
-│   ├── lsp_manager.go   # Core LSP orchestration (967 lines) with mandatory SCIP cache
+│   ├── lsp_manager.go   # Core LSP orchestration with mandatory SCIP cache
 │   ├── gateway.go       # HTTP JSON-RPC gateway with cache monitoring endpoints
 │   ├── mcp_server.go    # MCP server implementation with cache optimization
-│   ├── cache/           # SCIP cache system (NEW)
+│   ├── cache/           # SCIP cache system
 │   │   ├── interfaces.go    # Cache interfaces and types
 │   │   ├── manager.go       # Core cache manager with lifecycle management
 │   │   ├── storage.go       # Three-tier storage (memory/LRU/disk)
@@ -236,8 +270,8 @@ src/
 │   ├── process/         # LSP server process lifecycle with graceful shutdown
 │   ├── protocol/        # JSON-RPC protocol handling with Content-Length headers
 │   └── aggregators/     # Workspace symbol aggregation across multiple clients
-├── cli/                 # Command-line interface and commands (with cache commands)
-├── config/              # Configuration types, loading, and auto-generation (with cache config)
+├── cli/                 # Command-line interface and commands
+├── config/              # Configuration types, loading, and auto-generation
 └── internal/            # Internal supporting packages
     ├── common/          # STDIO-safe logging utilities
     ├── project/         # Language detection and project analysis
@@ -249,13 +283,13 @@ tests/                   # All test code (E2E tests with real LSP servers and ca
 ### Core Architecture Components
 
 **Core Files:**
-- **`src/server/lsp_manager.go`** (967 lines) - LSP client management and orchestration
-- **`src/server/errors/translator.go`** (84 lines) - Error translation with method-specific suggestions
-- **`src/server/capabilities/detector.go`** (102 lines) - LSP server capability detection
-- **`src/server/documents/manager.go`** (128 lines) - Document state management
-- **`src/server/process/manager.go`** (242 lines) - Process lifecycle with 5s graceful shutdown
-- **`src/server/protocol/jsonrpc.go`** (211 lines) - JSON-RPC protocol with LSP Content-Length headers
-- **`src/server/aggregators/workspace_symbol.go`** (174 lines) - Multi-client workspace symbol aggregation
+- **`src/server/lsp_manager.go`** - LSP client management and orchestration
+- **`src/server/errors/translator.go`** - Error translation with method-specific suggestions
+- **`src/server/capabilities/detector.go`** - LSP server capability detection
+- **`src/server/documents/manager.go`** - Document state management
+- **`src/server/process/manager.go`** - Process lifecycle with 5s graceful shutdown
+- **`src/server/protocol/jsonrpc.go`** - JSON-RPC protocol with LSP Content-Length headers
+- **`src/server/aggregators/workspace_symbol.go`** - Multi-client workspace symbol aggregation
 
 **Design Patterns:**
 - **Interface-Based Design**: Each module has clean interfaces for dependency injection
@@ -404,8 +438,10 @@ go test -v ./src/internal/project/...    # Language detection tests
 ```bash
 lsp-gateway status           # Check LSP server availability (fast)
 lsp-gateway test            # Test LSP server connections
+lsp-gateway cache status    # Check cache status and configuration
+lsp-gateway cache health    # Detailed cache health diagnostics
 make quality                # Validate code format and vet
-curl http://localhost:8080/health  # Test HTTP gateway
+curl http://localhost:8080/health  # Test HTTP gateway (includes cache status)
 ```
 
 ### Common Issues
@@ -478,7 +514,7 @@ client := &StdioClient{
 ```
 
 ### Architecture Philosophy
-The project prioritizes **simplicity, modularity, and reliability**. The recent refactoring achieved significant code reduction (1,546 → 967 lines in lsp_manager.go) while improving maintainability through Single Responsibility Principle. Auto-configuration eliminates manual setup for MCP mode, graceful process management prevents LSP server crashes, and the modular system focuses on 4 languages with 6 essential LSP features.
+The project prioritizes **simplicity, modularity, and reliability**. Auto-configuration eliminates manual setup for MCP mode, graceful process management prevents LSP server crashes, and the modular system focuses on 4 languages with 6 essential LSP features.
 
 Each module has a clear interface and single responsibility, making the codebase easier to understand, test, and extend. STDIO communication is carefully managed to avoid interference with LSP protocol messages.
 

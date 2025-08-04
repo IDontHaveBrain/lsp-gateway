@@ -213,7 +213,7 @@ func hasJavaScriptIndicators(packageJsonPath string) bool {
 				"installer.js", // Binary installer
 				"wrapper.js",   // Binary wrapper
 			}
-			
+
 			isWrapper := false
 			for _, pattern := range wrapperPatterns {
 				if fileName == pattern {
@@ -221,7 +221,7 @@ func hasJavaScriptIndicators(packageJsonPath string) bool {
 					break
 				}
 			}
-			
+
 			// If not a wrapper pattern, consider it a real JavaScript project
 			if !isWrapper {
 				return true

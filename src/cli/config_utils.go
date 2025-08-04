@@ -14,7 +14,7 @@ import (
 // LoadConfigWithFallback loads configuration with automatic fallback
 func LoadConfigWithFallback(configPath string) *config.Config {
 	var cfg *config.Config
-	
+
 	if configPath != "" {
 		loadedConfig, err := config.LoadConfig(configPath)
 		if err != nil {
@@ -38,17 +38,17 @@ func LoadConfigWithFallback(configPath string) *config.Config {
 			cfg = config.GetDefaultConfig()
 		}
 	}
-	
+
 	// Auto-detect installed servers if using default configurations
 	autoDetectInstalledServers(cfg)
-	
+
 	return cfg
 }
 
 // LoadConfigWithAutoDetection loads configuration with auto-detection like MCP server
 func LoadConfigWithAutoDetection(configPath string) *config.Config {
 	var cfg *config.Config
-	
+
 	if configPath != "" {
 		loadedConfig, err := config.LoadConfig(configPath)
 		if err != nil {
@@ -72,10 +72,10 @@ func LoadConfigWithAutoDetection(configPath string) *config.Config {
 			cfg = autoDetectConfig()
 		}
 	}
-	
+
 	// Auto-detect installed servers if using default configurations
 	autoDetectInstalledServers(cfg)
-	
+
 	return cfg
 }
 
@@ -86,20 +86,20 @@ func autoDetectConfig() *config.Config {
 		common.CLILogger.Warn("Failed to get working directory, using defaults: %v", err)
 		return config.GetDefaultConfig()
 	}
-	
+
 	common.CLILogger.Info("Auto-detecting languages in: %s", wd)
 	cfg := config.GenerateAutoConfig(wd, project.GetAvailableLanguages)
 	if cfg == nil || len(cfg.Servers) == 0 {
 		common.CLILogger.Warn("No languages detected or LSP servers unavailable, using defaults")
 		return config.GetDefaultConfig()
 	}
-	
+
 	languages := make([]string, 0, len(cfg.Servers))
 	for lang := range cfg.Servers {
 		languages = append(languages, lang)
 	}
 	common.CLILogger.Info("Auto-detected languages: %v", languages)
-	
+
 	return cfg
 }
 
@@ -135,7 +135,7 @@ func autoDetectInstalledServers(cfg *config.Config) {
 func getInstalledJdtlsPath(homeDir string) string {
 	// Standard installation path: ~/.lsp-gateway/tools/java/bin/jdtls
 	var jdtlsPath string
-	
+
 	if runtime.GOOS == "windows" {
 		jdtlsPath = filepath.Join(homeDir, ".lsp-gateway", "tools", "java", "bin", "jdtls.bat")
 	} else {

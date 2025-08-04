@@ -627,7 +627,7 @@ func (m *SCIPInvalidationManager) GetStats() map[string]interface{} {
 func (m *SCIPInvalidationManager) hasFileContentChanged(uri string) (bool, error) {
 	// Convert URI to file path
 	filePath := strings.TrimPrefix(uri, "file://")
-	
+
 	// Calculate current file hash
 	currentHash, err := m.calculateFileHash(filePath)
 	if err != nil {
@@ -647,7 +647,7 @@ func (m *SCIPInvalidationManager) hasFileContentChanged(uri string) (bool, error
 
 	// Compare hashes
 	hasChanged := currentHash != previousHash
-	
+
 	// Update hash if changed
 	if hasChanged {
 		m.updateFileHash(uri, currentHash)
@@ -697,7 +697,7 @@ func (m *SCIPInvalidationManager) removeFileHash(uri string) {
 // trackFileForChanges starts tracking a file for content changes
 func (m *SCIPInvalidationManager) trackFileForChanges(uri string) error {
 	filePath := strings.TrimPrefix(uri, "file://")
-	
+
 	hash, err := m.calculateFileHash(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to calculate initial hash for %s: %w", uri, err)

@@ -76,7 +76,7 @@ func expandServerPaths(config *Config) error {
 
 		expandedCommand, err := ExpandPath(serverConfig.Command)
 		if err != nil {
-			return fmt.Errorf("failed to expand path for server %s command '%s': %w", 
+			return fmt.Errorf("failed to expand path for server %s command '%s': %w",
 				serverName, serverConfig.Command, err)
 		}
 		serverConfig.Command = expandedCommand
@@ -84,7 +84,7 @@ func expandServerPaths(config *Config) error {
 		if serverConfig.WorkingDir != "" {
 			expandedWorkingDir, err := ExpandPath(serverConfig.WorkingDir)
 			if err != nil {
-				return fmt.Errorf("failed to expand working directory for server %s: %w", 
+				return fmt.Errorf("failed to expand working directory for server %s: %w",
 					serverName, err)
 			}
 			serverConfig.WorkingDir = expandedWorkingDir
@@ -290,14 +290,14 @@ func GetProjectSpecificCachePath(workingDir string) string {
 		// Fallback to the working directory if unable to get absolute path
 		absPath = workingDir
 	}
-	
+
 	// Create a safe directory name from the absolute path
 	// Replace path separators and other problematic characters with underscores
 	projectName := filepath.Base(absPath)
 	if projectName == "." || projectName == "/" {
 		projectName = "root"
 	}
-	
+
 	// Add a hash of the full path to handle duplicate project names in different locations
 	hasher := md5.New()
 	hasher.Write([]byte(absPath))
@@ -305,13 +305,13 @@ func GetProjectSpecificCachePath(workingDir string) string {
 	if len(pathHash) > 8 {
 		pathHash = pathHash[:8] // Use first 8 characters of hash
 	}
-	
+
 	home, err := os.UserHomeDir()
 	if err != nil {
 		// Fallback to current directory if unable to get home
 		return filepath.Join(workingDir, ".lsp-gateway-cache")
 	}
-	
+
 	return filepath.Join(home, ".lsp-gateway", "scip-cache", fmt.Sprintf("%s-%s", projectName, pathHash))
 }
 
@@ -395,12 +395,12 @@ func DetectAndGenerateConfig(workingDir string, detector func(string) ([]string,
 
 	common.CLILogger.Info("Detected languages: %v", languages)
 	config := GenerateConfigForLanguages(languages)
-	
+
 	// Set project-specific cache path for multiple instance support
 	projectCachePath := GetProjectSpecificCachePath(workingDir)
 	config.SetCacheStoragePath(projectCachePath)
 	common.CLILogger.Info("Using project-specific cache path: %s", projectCachePath)
-	
+
 	return config
 }
 

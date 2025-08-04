@@ -33,10 +33,10 @@ func RunServer(addr string, configPath string) error {
 	}
 
 	log.Printf("✅ Simple LSP Gateway started on %s", addr)
-	
+
 	// Display SCIP cache status
 	displayGatewayCacheStatus(gateway)
-	
+
 	log.Printf("📡 Available languages: go, python, nodejs, typescript, java")
 	log.Printf("🔗 HTTP JSON-RPC endpoint: http://%s/jsonrpc", addr)
 	log.Printf("❤️  Health check endpoint: http://%s/health", addr)
@@ -76,7 +76,7 @@ func RunServer(addr string, configPath string) error {
 func RunMCPServer(configPath string, mode types.MCPMode) error {
 	// Display cache status before starting MCP server
 	displayMCPCacheStatus(configPath)
-	
+
 	return server.RunMCPServer(configPath, mode)
 }
 
@@ -244,7 +244,7 @@ func TestConnection(configPath string) error {
 	if finalCacheMetrics != nil {
 		common.CLILogger.Info("")
 		common.CLILogger.Info("📈 Cache Performance:")
-		
+
 		// Access the cache directly to get proper metrics
 		cache := manager.GetCache()
 		if healthMetrics, healthErr := cache.HealthCheck(); healthErr == nil && healthMetrics != nil {
@@ -253,12 +253,12 @@ func TestConnection(configPath string) error {
 			if totalRequests > 0 {
 				hitRate = float64(healthMetrics.HitCount) / float64(totalRequests) * 100
 			}
-			
+
 			common.CLILogger.Info("   Cache Hits: %d (%.1f%% hit rate)", healthMetrics.HitCount, hitRate)
 			common.CLILogger.Info("   Cache Misses: %d", healthMetrics.MissCount)
-			common.CLILogger.Info("   New Entries: %d (%.1fMB cached)", 
+			common.CLILogger.Info("   New Entries: %d (%.1fMB cached)",
 				healthMetrics.EntryCount, float64(healthMetrics.TotalSize)/(1024*1024))
-			
+
 			if totalRequests > 0 {
 				common.CLILogger.Info("   Cache Contributed: ✅ Improved response times")
 			} else {

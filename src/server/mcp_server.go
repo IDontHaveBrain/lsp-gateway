@@ -859,7 +859,7 @@ func RunMCPServer(configPath string, cliMode types.MCPMode) error {
 
 	// Determine final mode with priority: CLI > Config > Default
 	finalMode := determineFinalMode(cliMode, cfg)
-	
+
 	common.LSPLogger.Info("Starting MCP server in %s mode: %s", finalMode, finalMode.GetDescription())
 
 	server, err := NewMCPServerWithMode(cfg, finalMode)
@@ -881,7 +881,7 @@ func determineFinalMode(cliMode types.MCPMode, cfg *config.Config) types.MCPMode
 	if cliMode != "" {
 		return cliMode
 	}
-	
+
 	// Priority 2: Config file (if provided)
 	if cfg != nil {
 		configMode := cfg.GetMCPMode()
@@ -889,7 +889,7 @@ func determineFinalMode(cliMode types.MCPMode, cfg *config.Config) types.MCPMode
 			return configMode
 		}
 	}
-	
+
 	// Priority 3: Default
 	return types.DefaultMCPMode
 }

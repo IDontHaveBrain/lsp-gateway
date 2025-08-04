@@ -56,7 +56,7 @@ func displayMCPCacheStatus(configPath string) {
 	}
 
 	metrics, healthErr := cache.HealthCheck()
-	
+
 	common.LSPLogger.Info("🚀 Starting MCP Server...")
 	if healthErr != nil {
 		common.LSPLogger.Error("❌ SCIP Cache: Health check failed (%v)", healthErr)

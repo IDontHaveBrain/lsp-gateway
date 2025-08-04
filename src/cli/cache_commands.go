@@ -81,10 +81,10 @@ func ClearCache(configPath string, force bool) error {
 		common.CLILogger.Info("")
 		common.CLILogger.Warn("⚠️  This will clear all cached LSP responses.")
 		common.CLILogger.Info("Type 'yes' to confirm cache clear: ")
-		
+
 		var response string
 		fmt.Scanln(&response)
-		
+
 		if strings.ToLower(response) != "yes" {
 			common.CLILogger.Info("❌ Cache clear cancelled")
 			return nil
@@ -308,7 +308,7 @@ func IndexCacheProactively(configPath string, verbose bool) error {
 		if initialMetrics != nil {
 			entriesAdded = finalMetrics.EntryCount - initialMetrics.EntryCount
 		}
-		
+
 		sizeMB := float64(finalMetrics.TotalSize) / (1024 * 1024)
 		common.CLILogger.Info("📊 Final Cache Status: %d entries (+%d), %.1fMB used",
 			finalMetrics.EntryCount, entriesAdded, sizeMB)
@@ -388,7 +388,7 @@ func detectWorkspaceFiles(activeLanguages []string, verbose bool) ([]WorkspaceFi
 						Language: language,
 						URI:      uri,
 					})
-					
+
 					if verbose {
 						common.CLILogger.Info("   Found %s file: %s", language, path)
 					}

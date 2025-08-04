@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -28,7 +28,7 @@ func DefaultSCIPConfig() *SCIPConfig {
 	return &SCIPConfig{
 		Enabled:        true,
 		MaxSize:        100 * 1024 * 1024, // 100MB
-		TTL:            24 * time.Hour,     // 24h for daily dev workflow
+		TTL:            24 * time.Hour,    // 24h for daily dev workflow
 		EvictionPolicy: "lru",
 		BackgroundSync: true,
 		HealthCheckTTL: 5 * time.Minute,
@@ -734,7 +734,7 @@ func (w *SCIPStorageWrapper) Store(key CacheKey, entry *CacheEntry) error {
 		LastModified: entry.Timestamp,
 		Size:         entry.Size,
 	}
-	
+
 	return w.storage.StoreDocument(context.Background(), doc)
 }
 
@@ -743,11 +743,11 @@ func (w *SCIPStorageWrapper) Retrieve(key CacheKey) (*CacheEntry, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if doc == nil {
 		return nil, nil
 	}
-	
+
 	// Convert SCIP document back to cache entry
 	entry := &CacheEntry{
 		Key:        key,
@@ -756,7 +756,7 @@ func (w *SCIPStorageWrapper) Retrieve(key CacheKey) (*CacheEntry, error) {
 		AccessedAt: doc.LastModified,
 		Size:       doc.Size,
 	}
-	
+
 	return entry, nil
 }
 
@@ -794,16 +794,16 @@ func (q *SCIPQueryWrapper) BuildKey(method string, params interface{}) (CacheKey
 	if err != nil {
 		return CacheKey{}, err
 	}
-	
+
 	// Create hash of parameters
 	data, err := json.Marshal(params)
 	if err != nil {
 		return CacheKey{}, err
 	}
-	
+
 	// Simple hash - in production would use proper hash function
 	hash := fmt.Sprintf("%x", len(data))
-	
+
 	return CacheKey{
 		Method: method,
 		URI:    uri,
@@ -878,7 +878,7 @@ func (q *SCIPQueryWrapper) ExtractURI(params interface{}) (string, error) {
 				}
 			}
 		}
-		
+
 		return "", fmt.Errorf("unable to extract URI from parameters type: %T", params)
 	}
 }

@@ -7,13 +7,13 @@
 
 **Focus**: 6 core LSP features • 4 languages • Local development tool
 
-📖 **Complete Guide**: [CLAUDE.md](CLAUDE.md) for architecture and development workflows
+**Complete Guide**: [CLAUDE.md](CLAUDE.md) for architecture and development workflows
 
 ---
 
-## 🚀 Quick Start (5 Minutes)
+## Quick Start (5 Minutes)
 
-**Requirements**: Go 1.24+, language servers installed
+**Requirements**: Go 1.24+, Node.js 18+, language servers installed
 
 ```bash
 # 1. Clone and build
@@ -49,7 +49,7 @@ make unlink       # Remove global 'lsp-gateway' command
 make quality      # Essential checks (format + vet)
 ```
 
-## 🎯 Supported LSP Features
+## Supported LSP Features
 
 **Exactly 6 core LSP features** for essential developer productivity:
 
@@ -95,18 +95,15 @@ Configure AI tools (Claude Desktop, etc.):
 
 ## Configuration
 
-Default `config.yaml` supports all 4 languages:
+Auto-detected configuration or create `config.yaml`:
 
 ```yaml
 servers:
   go:
     command: "gopls"
-    args: []
+    args: ["serve"]
   python:
     command: "pyright-langserver"
-    args: ["--stdio"]
-  javascript:
-    command: "typescript-language-server"
     args: ["--stdio"]
   typescript:
     command: "typescript-language-server"
@@ -115,6 +112,8 @@ servers:
     command: "jdtls"
     args: []
 ```
+
+See [CLAUDE.md](CLAUDE.md) for complete configuration options including SCIP cache settings.
 
 ## Troubleshooting
 
@@ -137,35 +136,13 @@ lsp-gateway server --port 8081    # Use different port
 which gopls                       # Check if language server is in PATH
 ```
 
-## Requirements
-
-- **Go 1.24+** for building from source
-- **Language servers**: Install manually for each language you need:
-  - Go: `go install golang.org/x/tools/gopls@latest`
-  - Python: `npm install -g pyright`
-  - TypeScript/JS: `npm install -g typescript-language-server typescript`
-  - Java: Install Eclipse JDT Language Server
-- **Platforms**: Linux, macOS (x64/arm64), Windows (x64)
-
-## Integration Examples
-
 ### IDE Integration
-Point your IDE's LSP client to `http://localhost:8080/jsonrpc`
+Point your IDE's LSP client to `http://localhost:8080/jsonrpc` after starting the HTTP gateway.
 
-### AI Assistant Integration  
+### Additional Endpoints
 ```bash
-lsp-gateway mcp    # Start MCP server, configure in your AI tool
+curl http://localhost:8080/health       # Health check
+curl http://localhost:8080/cache/stats  # Cache performance metrics
 ```
 
-### Node.js Integration
-```bash
-npm install -g lsp-gateway
-lsp-gateway server    # Start HTTP Gateway
-# Or using npm scripts:
-npm run server        # Start HTTP Gateway
-npm run mcp           # Start MCP Server
-```
-
----
-
-**Get Started**: `make local && lsp-gateway server` 🚀
+**Platforms**: Linux, macOS (x64/arm64), Windows (x64)
