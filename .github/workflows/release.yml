@@ -1,0 +1,183 @@
+name: Release (Modern)
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Extract version from tag
+      id: version
+      run: |
+        TAG=${GITHUB_REF#refs/tags/}
+        VERSION=${TAG#v}
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "Tag: $TAG, Version: $VERSION"
+
+    - name: Build multi-platform binaries
+      run: |
+        echo "Building binaries for version ${{ steps.version.outputs.version }}"
+        make build
+
+    - name: Verify binaries
+      run: |
+        echo "Verifying built binaries:"
+        ls -la bin/
+        file bin/lsp-gateway-*
+
+    - name: Generate changelog
+      id: changelog
+      run: |
+        # Extract changelog from recent commits or create default
+        if [ -f CHANGELOG.md ]; then
+          # Extract the latest version section
+          awk '/^## \[/{if(found) exit; if(/\[${{ steps.version.outputs.version }}\]/) found=1} found' CHANGELOG.md > changelog_current.md
+        fi
+        
+        # If no changelog found, create from recent commits
+        if [ ! -s changelog_current.md ]; then
+          echo "### Changes in ${{ steps.version.outputs.tag }}" > changelog_current.md
+          echo "" >> changelog_current.md
+          git log --pretty=format:"- %s" $(git describe --tags --abbrev=0 HEAD~1)..HEAD >> changelog_current.md 2>/dev/null || echo "- Initial release" >> changelog_current.md
+        fi
+
+    - name: Create release notes
+      run: |
+        cat > release_notes.md << 'EOF'
+        ## LSP Gateway ${{ steps.version.outputs.tag }}
+        
+        $(cat changelog_current.md)
+        
+        ### 🚀 Features
+        - **Local LSP Gateway**: HTTP JSON-RPC server on localhost:8080
+        - **MCP Server**: Model Context Protocol for AI assistant integration
+        - **Auto-Configuration**: Automatic language detection and setup
+        - **Multi-Language Support**: Go, Python, TypeScript/JavaScript, Java
+        - **6 Essential LSP Methods**: Definition, References, Hover, Document Symbols, Workspace Symbols, Completion
+        
+        ### 📦 Installation Options
+        
+        **🎯 Via npm (Recommended - Cross-platform)**
+        ```bash
+        npm install -g lsp-gateway@${{ steps.version.outputs.version }}
+        ```
+        
+        **📥 Via Binary Download**
+        1. Download the appropriate binary for your platform below
+        2. Make executable: `chmod +x lsp-gateway-*` (Linux/macOS)
+        3. Move to PATH: `mv lsp-gateway-* /usr/local/bin/lsp-gateway`
+        
+        ### 🖥 Platform Support
+        | Platform | Binary | Architecture |
+        |----------|--------|-------------|
+        | Linux | `lsp-gateway-linux` | x86_64 |
+        | Windows | `lsp-gateway-windows.exe` | x86_64 |
+        | macOS Intel | `lsp-gateway-macos` | x86_64 |
+        | macOS Apple Silicon | `lsp-gateway-macos-arm64` | ARM64 |
+        
+        ### 🏃‍♂️ Quick Start
+        ```bash
+        # 1. Install language servers (optional, for specific languages)
+        go install golang.org/x/tools/gopls@latest                    # Go
+        npm install -g pyright                                        # Python
+        npm install -g typescript-language-server typescript         # TypeScript/JS
+        # Java: Download Eclipse JDT Language Server manually
+        
+        # 2. Check which LSP servers are available
+        lsp-gateway status
+        
+        # 3. Start LSP Gateway
+        lsp-gateway server              # HTTP JSON-RPC gateway (port 8080)
+        lsp-gateway mcp                 # MCP server (auto-detects languages)
+        
+        # 4. Test LSP server connections
+        lsp-gateway test
+        ```
+        
+        ### 🔧 Configuration
+        ```bash
+        # Generate default config
+        lsp-gateway create-config
+        
+        # Use custom config
+        lsp-gateway server --config config.yaml
+        lsp-gateway mcp --config config.yaml
+        ```
+        
+        ### 📝 Requirements
+        - **Runtime**: No dependencies for binary usage
+        - **Development**: Go 1.24.0+, Node.js 18+ (for npm)
+        - **Language servers**: Install manually as needed
+        
+        ### 🔗 Integration Examples
+        
+        **HTTP JSON-RPC (for IDEs)**
+        ```bash
+        curl -X POST http://localhost:8080/jsonrpc \
+          -H "Content-Type: application/json" \
+          -d '{"jsonrpc":"2.0","id":1,"method":"textDocument/hover","params":{"textDocument":{"uri":"file:///path/to/file.go"},"position":{"line":10,"character":5}}}'
+        ```
+        
+        **MCP Server (for AI assistants)**
+        ```bash
+        lsp-gateway mcp  # Provides LSP tools for Claude, ChatGPT, etc.
+        ```
+        
+        ---
+        📚 **Documentation**: https://github.com/IDontHaveBrain/lsp-gateway#readme  
+        🐛 **Issues**: https://github.com/IDontHaveBrain/lsp-gateway/issues  
+        ⭐ **Star us**: https://github.com/IDontHaveBrain/lsp-gateway
+        EOF
+
+    - name: Create Release with gh CLI
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release create ${{ steps.version.outputs.tag }} \
+          --title "LSP Gateway ${{ steps.version.outputs.tag }}" \
+          --notes-file release_notes.md \
+          ./bin/lsp-gateway-linux \
+          ./bin/lsp-gateway-windows.exe \
+          ./bin/lsp-gateway-macos \
+          ./bin/lsp-gateway-macos-arm64 \
+          ./config.yaml
+
+    - name: Release Summary
+      run: |
+        echo "🎉 Release ${{ steps.version.outputs.tag }} created successfully!"
+        echo ""
+        echo "📦 Assets uploaded:"
+        echo "  ✅ lsp-gateway-linux (Linux x64)"
+        echo "  ✅ lsp-gateway-windows.exe (Windows x64)" 
+        echo "  ✅ lsp-gateway-macos (macOS Intel)"
+        echo "  ✅ lsp-gateway-macos-arm64 (macOS Apple Silicon)"
+        echo "  ✅ config.yaml (Configuration template)"
+        echo ""
+        echo "🔗 Release URL: https://github.com/IDontHaveBrain/lsp-gateway/releases/tag/${{ steps.version.outputs.tag }}"
+        echo ""
+        echo "📋 Post-release checklist:"
+        echo "  □ Update package.json version to ${{ steps.version.outputs.version }}"
+        echo "  □ Publish npm package: npm publish"
+        echo "  □ Update documentation if needed"
+        echo "  □ Announce release in community channels"
+        echo ""
+        echo "🎯 Installation command:"
+        echo "  npm install -g lsp-gateway@${{ steps.version.outputs.version }}"
