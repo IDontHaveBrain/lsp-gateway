@@ -44,6 +44,12 @@ jobs:
         file bin/lsp-gateway-*
 
 
+    - name: Delete existing release (if exists)
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        gh release delete ${{ steps.version.outputs.tag }} --yes --cleanup-tag || echo "Release ${{ steps.version.outputs.tag }} doesn't exist, continuing..."
+
     - name: Create Release with gh CLI
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -51,7 +57,6 @@ jobs:
         gh release create ${{ steps.version.outputs.tag }} \
           --title "LSP Gateway ${{ steps.version.outputs.tag }}" \
           --generate-notes \
-          --clobber \
           ./bin/lsp-gateway-linux \
           ./bin/lsp-gateway-windows.exe \
           ./bin/lsp-gateway-macos \
