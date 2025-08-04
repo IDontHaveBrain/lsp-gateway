@@ -591,7 +591,7 @@ func (suite *ComprehensiveTestBaseSuite) TestDefinitionComprehensive() {
 		},
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
 
 	response, err := suite.makeJSONRPCRequest(ctx, httpClient, definitionRequest)
@@ -652,7 +652,7 @@ func (suite *ComprehensiveTestBaseSuite) TestReferencesComprehensive() {
 		},
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
 
 	response, err := suite.makeJSONRPCRequest(ctx, httpClient, referencesRequest)
@@ -713,7 +713,7 @@ func (suite *ComprehensiveTestBaseSuite) TestHoverComprehensive() {
 		},
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
 
 	suite.T().Logf("Making hover request at line %d, character %d...", testFile.HoverPos.Line, testFile.HoverPos.Character)
@@ -767,7 +767,7 @@ func (suite *ComprehensiveTestBaseSuite) TestDocumentSymbolComprehensive() {
 		},
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
 
 	response, err := suite.makeJSONRPCRequest(ctx, httpClient, documentSymbolRequest)
@@ -817,7 +817,7 @@ func (suite *ComprehensiveTestBaseSuite) TestWorkspaceSymbolComprehensive() {
 		},
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
 
 	response, err := suite.makeJSONRPCRequest(ctx, httpClient, workspaceSymbolRequest)
@@ -876,7 +876,7 @@ func (suite *ComprehensiveTestBaseSuite) TestCompletionComprehensive() {
 		},
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
 
 	response, err := suite.makeJSONRPCRequest(ctx, httpClient, completionRequest)
@@ -928,8 +928,12 @@ func (suite *ComprehensiveTestBaseSuite) TestAllLSPMethodsSequential() {
 	testFile, err := suite.repoManager.GetTestFile(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get test file")
 
-	// Wait for LSP server to fully initialize
-	time.Sleep(5 * time.Second)
+	// Wait for LSP server to fully initialize (longer for Java)
+	initTimeout := 5 * time.Second
+	if suite.Config.Language == "java" {
+		initTimeout = 15 * time.Second // Java LSP server needs more time to initialize
+	}
+	time.Sleep(initTimeout)
 
 	// Test all 6 LSP methods sequentially
 	suite.testMethodSequentially(httpClient, fileURI, testFile, "textDocument/definition", testFile.DefinitionPos)
@@ -968,7 +972,7 @@ func (suite *ComprehensiveTestBaseSuite) testMethodSequentially(httpClient *test
 		}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
 
 	response, err := suite.makeJSONRPCRequest(ctx, httpClient, request)
@@ -1000,7 +1004,7 @@ func (suite *ComprehensiveTestBaseSuite) testDocumentSymbolSequentially(httpClie
 		},
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
 
 	response, err := suite.makeJSONRPCRequest(ctx, httpClient, request)
@@ -1030,7 +1034,7 @@ func (suite *ComprehensiveTestBaseSuite) testWorkspaceSymbolSequentially(httpCli
 		},
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
 
 	response, err := suite.makeJSONRPCRequest(ctx, httpClient, request)
@@ -1135,6 +1139,24 @@ func (suite *ComprehensiveTestBaseSuite) GetCacheViolationsSummary() string {
 	}
 
 	return summary
+}
+
+// getLanguageTimeout returns language-specific timeout for LSP requests
+func (suite *ComprehensiveTestBaseSuite) getLanguageTimeout() time.Duration {
+	switch suite.Config.Language {
+	case "java":
+		// Java LSP server (jdtls) is significantly slower, especially for initial operations
+		return 60 * time.Second
+	case "python":
+		// Python LSP server can be slow for large projects
+		return 30 * time.Second
+	case "go", "javascript", "typescript":
+		// These are generally faster
+		return 15 * time.Second
+	default:
+		// Default timeout for unknown languages
+		return 20 * time.Second
+	}
 }
 
 // GetCacheHealthHistory returns cache health checkpoint history

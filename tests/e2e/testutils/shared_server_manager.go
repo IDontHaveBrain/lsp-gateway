@@ -138,10 +138,10 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 	mgr.gatewayCmd = cmd
 	mgr.serverStarted = true
 
-	// Create HTTP client for the shared server
+	// Create HTTP client for the shared server with timeout long enough for Java LSP server
 	mgr.httpClient = NewHttpClient(HttpClientConfig{
 		BaseURL: fmt.Sprintf("http://localhost:%d", port),
-		Timeout: 10 * time.Second,
+		Timeout: 70 * time.Second, // Increased to accommodate Java LSP server (60s) + buffer
 	})
 
 	// Wait for server to be ready
