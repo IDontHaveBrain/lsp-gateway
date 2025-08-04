@@ -13,7 +13,7 @@ cache:
   enabled: true
   storage_path: ".lsp-gateway/scip-cache"
   max_memory_mb: 256
-  ttl: "30m"
+  ttl: "24h"
   languages: ["go"]
   background_index: true
   health_check_interval: "5m"

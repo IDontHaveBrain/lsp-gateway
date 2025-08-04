@@ -16,6 +16,7 @@ import (
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/installer"
+	"lsp-gateway/src/internal/types"
 	versionpkg "lsp-gateway/src/internal/version"
 	"lsp-gateway/src/server"
 )
@@ -368,6 +369,7 @@ const (
 	CmdCacheStats     = "stats"
 	CmdCacheIndex     = "index"
 	FlagConfig        = "config"
+	FlagMode          = "mode"
 	FlagPort          = "port"
 	FlagForce         = "force"
 	FlagOffline       = "offline"
@@ -379,6 +381,7 @@ const (
 // CLI Variables
 var (
 	configPath  string
+	mcpMode     string
 	port        int
 	force       bool
 	offline     bool
@@ -462,9 +465,20 @@ The MCP server includes SCIP cache support that improves response times for:
 - Hover information and documentation
 - Code completion suggestions
 
+Modes:
+  lsp       Direct LSP mapping with minimal processing (default)
+  enhanced  AI-optimized tools with processed, structured responses
+
 Usage Examples:
-  lsp-gateway mcp                           # Start with default configuration
+  lsp-gateway mcp                           # Start in default mode (lsp)
+  lsp-gateway mcp --mode=enhanced           # Start in enhanced mode
   lsp-gateway mcp --config custom.yaml     # Start with custom configuration
+  lsp-gateway mcp --mode=enhanced --config custom.yaml  # Combined usage
+
+Configuration Priority (highest to lowest):
+1. CLI flag (--mode)
+2. Configuration file (mcp.mode)
+3. Default (lsp)
 
 Configuration:
 The MCP server uses the same configuration file as the HTTP gateway, supporting
@@ -476,7 +490,7 @@ Configure your AI assistant to connect to this MCP server:
 - Command: lsp-gateway mcp
 - Working Directory: Your project root
 
-Supported Tools:
+Supported Tools (behavior varies by mode):
 - goto_definition: Navigate to symbol definitions
 - find_references: Find all symbol references  
 - get_hover_info: Get symbol documentation
@@ -742,6 +756,16 @@ Examples:
 	RunE: runCacheIndexCmd,
 }
 
+// getModeStrings returns a slice of valid mode strings for help text
+func getModeStrings() []string {
+	modes := types.ValidModes()
+	strs := make([]string, len(modes))
+	for i, mode := range modes {
+		strs[i] = string(mode)
+	}
+	return strs
+}
+
 func init() {
 	// Server command flags
 	serverCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional, will use defaults if not provided)")
@@ -749,6 +773,7 @@ func init() {
 
 	// MCP command flags
 	mcpCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
+	mcpCmd.Flags().StringVar(&mcpMode, FlagMode, "", fmt.Sprintf("MCP server mode (%s)", strings.Join(getModeStrings(), "|")))
 
 	// Status command flags
 	statusCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
@@ -821,10 +846,20 @@ func runServerCmd(cmd *cobra.Command, args []string) error {
 }
 
 func runMCPCmd(cmd *cobra.Command, args []string) error {
+	// Parse and validate mode from CLI flag
+	var parsedMode types.MCPMode
+	if mcpMode != "" {
+		var err error
+		parsedMode, err = types.ParseMCPMode(mcpMode)
+		if err != nil {
+			return fmt.Errorf("invalid mode: %w", err)
+		}
+	}
+	
 	// Display cache status before starting MCP server
 	displayMCPCacheStatus(configPath)
 	
-	return server.RunMCPServer(configPath)
+	return server.RunMCPServer(configPath, parsedMode)
 }
 
 func runStatusCmd(cmd *cobra.Command, args []string) error {

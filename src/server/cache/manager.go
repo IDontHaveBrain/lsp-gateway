@@ -28,7 +28,7 @@ func DefaultSCIPConfig() *SCIPConfig {
 	return &SCIPConfig{
 		Enabled:        true,
 		MaxSize:        100 * 1024 * 1024, // 100MB
-		TTL:            30 * time.Minute,
+		TTL:            24 * time.Hour,     // 24h for daily dev workflow
 		EvictionPolicy: "lru",
 		BackgroundSync: true,
 		HealthCheckTTL: 5 * time.Minute,

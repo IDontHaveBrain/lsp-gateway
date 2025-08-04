@@ -9,12 +9,19 @@ import (
 
 	"gopkg.in/yaml.v3"
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/types"
 )
 
-// Config contains LSP server configuration and optional SCIP cache settings
+// Config contains LSP server configuration, SCIP cache settings, and MCP configuration
 type Config struct {
 	Servers map[string]*ServerConfig `yaml:"servers"`
 	Cache   *SCIPConfig              `yaml:"cache"`
+	MCP     *MCPConfig               `yaml:"mcp,omitempty"`
+}
+
+// MCPConfig contains MCP server specific configuration
+type MCPConfig struct {
+	Mode types.MCPMode `yaml:"mode,omitempty"`
 }
 
 // ServerConfig contains configuration for a single LSP server
@@ -98,6 +105,13 @@ func validateConfig(config *Config) error {
 	if config.Cache != nil {
 		if err := validateSCIPConfig(config.Cache); err != nil {
 			return fmt.Errorf("invalid cache configuration: %w", err)
+		}
+	}
+
+	// Validate MCP config if present
+	if config.MCP != nil {
+		if config.MCP.Mode != "" && !config.MCP.Mode.IsValid() {
+			return fmt.Errorf("invalid MCP mode: %s", config.MCP.Mode)
 		}
 	}
 
@@ -193,6 +207,9 @@ func GetDefaultConfig() *Config {
 		},
 		// Cache is enabled by default with standard settings
 		Cache: GetDefaultSCIPConfig(),
+		MCP: &MCPConfig{
+			Mode: types.DefaultMCPMode,
+		},
 	}
 }
 
@@ -203,7 +220,7 @@ func GetDefaultSCIPConfig() *SCIPConfig {
 		Enabled:             true, // Enabled by default for improved performance
 		StoragePath:         filepath.Join(home, ".lsp-gateway", "scip-cache"),
 		MaxMemoryMB:         256,
-		TTL:                 30 * time.Minute,
+		TTL:                 24 * time.Hour, // 24 hours for daily development workflow
 		Languages:           []string{"go", "python", "typescript", "java"},
 		BackgroundIndex:     true,
 		HealthCheckInterval: 5 * time.Minute,
@@ -231,6 +248,10 @@ func GenerateConfigForLanguages(languages []string) *Config {
 	// Create new config with only requested languages
 	config := &Config{
 		Servers: make(map[string]*ServerConfig),
+		Cache:   GetDefaultSCIPConfig(),
+		MCP: &MCPConfig{
+			Mode: types.DefaultMCPMode,
+		},
 	}
 
 	for _, language := range languages {
@@ -381,4 +402,12 @@ func (c *Config) SetCacheLanguages(languages []string) error {
 
 	c.Cache.Languages = languages
 	return nil
+}
+
+// GetMCPMode returns the MCP mode from config, falling back to default if not set
+func (c *Config) GetMCPMode() types.MCPMode {
+	if c.MCP != nil && c.MCP.Mode != "" {
+		return c.MCP.Mode
+	}
+	return types.DefaultMCPMode
 }

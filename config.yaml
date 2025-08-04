@@ -43,7 +43,7 @@ cache:
   enabled: true                               # Enabled by default for improved performance
   storage_path: ".lsp-gateway/scip-cache"     # Cache storage directory (relative to project root)
   max_memory_mb: 256                          # Memory limit in MB (adjust based on system)
-  ttl: "30m"                                  # Cache time-to-live (30m, 1h, 2h, etc.)
+  ttl: "24h"                                  # Cache time-to-live (24h for daily dev workflow)
   languages: ["go", "python", "typescript", "java"]  # Languages to cache
   background_index: true                      # Enable background indexing for better performance
   health_check_interval: "5m"                # Health check interval (5m, 10m, etc.)
@@ -66,7 +66,7 @@ cache:
 #    - Consider other applications when setting limits
 #
 # 4. Performance Tuning:
-#    - ttl: Longer TTL = less frequent updates, better performance
+#    - ttl: 24h TTL optimized for daily development workflow
 #    - background_index: Enable for better responsiveness
 #    - health_check_interval: Monitor cache health periodically
 #

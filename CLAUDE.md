@@ -148,7 +148,7 @@ cache:
   enabled: true                               # Always enabled for optimal performance
   storage_path: ".lsp-gateway/scip-cache"     # Cache storage directory  
   max_memory_mb: 256                          # Memory limit in MB
-  ttl: "30m"                                  # Cache time-to-live
+  ttl: "24h"                                  # Cache time-to-live (24h for daily dev workflow)
   languages: ["go", "python", "typescript", "java"]  # Cached languages
   background_index: true                      # Background cache optimization
   health_check_interval: "5m"                # Health monitoring frequency

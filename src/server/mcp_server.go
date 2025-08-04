@@ -13,6 +13,7 @@ import (
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/project"
+	"lsp-gateway/src/internal/types"
 	versionpkg "lsp-gateway/src/internal/version"
 	"lsp-gateway/src/server/cache"
 )
@@ -25,6 +26,7 @@ type MCPServer struct {
 	cacheWarmer *cache.CacheWarmupManager
 	ctx         context.Context
 	cancel      context.CancelFunc
+	mode        types.MCPMode
 }
 
 // MCP Protocol Types - JSON-RPC 2.0 Compliant
@@ -58,6 +60,10 @@ type ToolContent struct {
 
 // NewMCPServer creates a new MCP server with always-on SCIP cache for optimal LLM performance
 func NewMCPServer(cfg *config.Config) (*MCPServer, error) {
+	return NewMCPServerWithMode(cfg, types.DefaultMCPMode)
+}
+
+func NewMCPServerWithMode(cfg *config.Config, mode types.MCPMode) (*MCPServer, error) {
 	if cfg == nil {
 		cfg = config.GetDefaultConfig()
 	}
@@ -93,6 +99,7 @@ func NewMCPServer(cfg *config.Config) (*MCPServer, error) {
 		cacheWarmer: cacheWarmer,
 		ctx:         ctx,
 		cancel:      cancel,
+		mode:        mode,
 	}, nil
 }
 
@@ -836,7 +843,7 @@ func (m *MCPServer) preWarmSymbolVariations(query string) {
 }
 
 // RunMCPServer starts an MCP server with the specified configuration
-func RunMCPServer(configPath string) error {
+func RunMCPServer(configPath string, cliMode types.MCPMode) error {
 	var cfg *config.Config
 	if configPath != "" {
 		loadedConfig, err := config.LoadConfig(configPath)
@@ -868,7 +875,12 @@ func RunMCPServer(configPath string) error {
 		}
 	}
 
-	server, err := NewMCPServer(cfg)
+	// Determine final mode with priority: CLI > Config > Default
+	finalMode := determineFinalMode(cliMode, cfg)
+	
+	common.LSPLogger.Info("Starting MCP server in %s mode: %s", finalMode, finalMode.GetDescription())
+
+	server, err := NewMCPServerWithMode(cfg, finalMode)
 	if err != nil {
 		return fmt.Errorf("failed to create MCP server: %w", err)
 	}
@@ -879,4 +891,23 @@ func RunMCPServer(configPath string) error {
 	common.LSPLogger.Info("Enhanced with: JSON-RPC 2.0 compliance, input validation, structured output")
 
 	return server.Run(os.Stdin, os.Stdout)
+}
+
+// determineFinalMode resolves the final mode based on CLI and config priorities
+func determineFinalMode(cliMode types.MCPMode, cfg *config.Config) types.MCPMode {
+	// Priority 1: CLI flag (if provided)
+	if cliMode != "" {
+		return cliMode
+	}
+	
+	// Priority 2: Config file (if provided)
+	if cfg != nil {
+		configMode := cfg.GetMCPMode()
+		if configMode != "" {
+			return configMode
+		}
+	}
+	
+	// Priority 3: Default
+	return types.DefaultMCPMode
 }

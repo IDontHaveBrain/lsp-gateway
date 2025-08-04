@@ -28,8 +28,8 @@ func TestGetDefaultConfig_CacheEnabledByDefault(t *testing.T) {
 		t.Errorf("Expected max memory to be 256MB, got %d", config.Cache.MaxMemoryMB)
 	}
 
-	if config.Cache.TTL != 30*time.Minute {
-		t.Errorf("Expected TTL to be 30 minutes, got %v", config.Cache.TTL)
+	if config.Cache.TTL != 24*time.Hour {
+		t.Errorf("Expected TTL to be 24 hours, got %v", config.Cache.TTL)
 	}
 
 	if !config.Cache.BackgroundIndex {
