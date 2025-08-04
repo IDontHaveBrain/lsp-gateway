@@ -106,7 +106,7 @@ unlink:
 # DEVELOPMENT TARGETS
 # =============================================================================
 
-.PHONY: deps tidy format test test-unit test-integration test-quick
+.PHONY: deps tidy format test test-unit test-integration test-e2e test-quick
 deps:
 	@echo "Downloading dependencies..."
 	$(GOCMD) get -v ./...
@@ -135,6 +135,10 @@ test-unit:
 test-integration:
 	@echo "Running integration tests..."
 	$(GOTEST) -v -timeout 600s -run Integration ./...
+
+test-e2e:
+	@echo "Running E2E tests..."
+	$(GOTEST) -v -timeout 600s ./tests/e2e/...
 
 test-quick:
 	@echo "Running quick validation tests..."
@@ -209,6 +213,7 @@ help:
 	@echo "  test               - Run all tests"
 	@echo "  test-unit          - Run unit tests"
 	@echo "  test-integration   - Run integration tests"
+	@echo "  test-e2e           - Run E2E tests"
 	@echo "  test-quick         - Run quick validation tests"
 	@echo ""
 	@echo "Quality Commands:"

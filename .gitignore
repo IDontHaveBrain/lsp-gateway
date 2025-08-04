@@ -85,23 +85,16 @@ lsp-gateway
 # Cache directories
 .serena/
 
-# Test repositories - ignore cloned repositories but keep directory structure
-test-repositories/go/kubernetes/
-test-repositories/go/docker/
-test-repositories/go/golang/
-test-repositories/go/prometheus/
-test-repositories/python/django/
-test-repositories/python/flask/
-test-repositories/python/numpy/
-test-repositories/python/pandas/
-test-repositories/typescript/vscode/
-test-repositories/typescript/angular/
-test-repositories/typescript/react/
-test-repositories/typescript/typescript/
-test-repositories/java/spring-boot/
-test-repositories/java/elasticsearch/
-test-repositories/java/kafka/
-test-repositories/java/maven/
+# E2E test repositories - ignore cloned test repositories
+# Repositories downloaded during E2E tests (typically in /tmp but just in case)
+lsp-gateway-e2e-repos*/
+go-gorilla-mux/
+python-requests/  
+typescript-is/
+java-spring-petclinic/
+
+# Legacy test repository paths (kept for compatibility)
+test-repositories/
 # Exclude documentation files except README.md and files in docs folder
 *.md
 !README.md
