@@ -54,12 +54,19 @@ type ComprehensiveTestBaseSuite struct {
 	cacheDir            string
 	cacheIsolationMgr   *testutils.CacheIsolationManager
 	cacheIsolationLevel testutils.IsolationLevel
+
+	// Shared server management (NEW)
+	sharedServerManager *testutils.SharedServerManager
+	useSharedServer     bool // Flag to enable/disable shared server mode
 }
 
 // SetupSuite initializes the comprehensive test suite
 func (suite *ComprehensiveTestBaseSuite) SetupSuite() {
 	suite.testTimeout = 120 * time.Second
 	suite.gatewayPort = 8080
+
+	// Enable shared server mode by default (can be disabled by individual tests)
+	suite.useSharedServer = true
 
 	// Create temp directory for repositories
 	tempDir, err := ioutil.TempDir("", "lsp-gateway-e2e-repos")
@@ -74,8 +81,12 @@ func (suite *ComprehensiveTestBaseSuite) SetupSuite() {
 		suite.projectRoot = filepath.Dir(filepath.Dir(cwd))
 	}
 
+	// Setup test workspace for the repository
+	err = suite.setupTestWorkspace()
+	require.NoError(suite.T(), err, "Failed to setup test workspace during SetupSuite")
+
 	// Initialize cache isolation manager
-	suite.cacheIsolationLevel = testutils.StrictIsolation // Default to strict isolation
+	suite.cacheIsolationLevel = testutils.BasicIsolation // Use basic isolation for shared server
 	cacheIsolationConfig := testutils.DefaultCacheIsolationConfig()
 	cacheIsolationConfig.IsolationLevel = suite.cacheIsolationLevel
 
@@ -84,30 +95,60 @@ func (suite *ComprehensiveTestBaseSuite) SetupSuite() {
 
 	// Setup isolated cache directory
 	suite.cacheDir = suite.cacheIsolationMgr.GetCacheDirectory()
+
+	// Initialize shared server manager if enabled
+	if suite.useSharedServer {
+		suite.sharedServerManager = testutils.NewSharedServerManager(suite.repoDir, suite.cacheIsolationMgr)
+		
+		// Start the shared server once for all tests in this suite
+		err = suite.sharedServerManager.StartSharedServer(suite.T())
+		require.NoError(suite.T(), err, "Failed to start shared LSP server")
+		
+		suite.T().Logf("🚀 Shared server mode enabled for %s tests", suite.Config.DisplayName)
+	}
 }
 
 // SetupTest prepares each test with isolated cache
 func (suite *ComprehensiveTestBaseSuite) SetupTest() {
 	testName := suite.T().Name()
 
-	// Initialize cache isolation for this test
-	err := suite.cacheIsolationMgr.InitializeIsolation(testName)
-	require.NoError(suite.T(), err, "Failed to initialize cache isolation")
+	// In shared server mode, register with the shared server
+	if suite.useSharedServer && suite.sharedServerManager != nil {
+		suite.sharedServerManager.RegisterTest(testName, suite.T())
+		
+		// Update HTTP client and port from shared server
+		suite.httpClient = suite.sharedServerManager.GetHTTPClient()
+		suite.gatewayPort = suite.sharedServerManager.GetServerPort()
+		
+		suite.T().Logf("🔗 Test '%s' connected to shared server on port %d", testName, suite.gatewayPort)
+	} else {
+		// Legacy mode: Initialize cache isolation for individual server
+		err := suite.cacheIsolationMgr.InitializeIsolation(testName)
+		require.NoError(suite.T(), err, "Failed to initialize cache isolation")
 
-	// Validate clean cache state
-	err = suite.cacheIsolationMgr.ValidateCleanState()
-	require.NoError(suite.T(), err, "Cache isolation validation failed")
+		// Validate clean cache state
+		err = suite.cacheIsolationMgr.ValidateCleanState()
+		require.NoError(suite.T(), err, "Cache isolation validation failed")
 
-	// Update cache directory to isolated one
-	suite.cacheDir = suite.cacheIsolationMgr.GetCacheDirectory()
+		// Update cache directory to isolated one
+		suite.cacheDir = suite.cacheIsolationMgr.GetCacheDirectory()
 
-	suite.T().Logf("🔒 Cache isolation initialized for test '%s' with directory: %s", testName, suite.cacheDir)
+		suite.T().Logf("🔒 Cache isolation initialized for test '%s' with directory: %s", testName, suite.cacheDir)
+	}
 }
 
 // TearDownTest cleans up after each test with cache isolation validation
 func (suite *ComprehensiveTestBaseSuite) TearDownTest() {
 	testName := suite.T().Name()
 
+	// In shared server mode, just unregister from shared server
+	if suite.useSharedServer && suite.sharedServerManager != nil {
+		suite.sharedServerManager.UnregisterTest(testName, suite.T())
+		suite.T().Logf("🔗 Test '%s' disconnected from shared server", testName)
+		return
+	}
+
+	// Legacy mode: Individual server cleanup
 	// Record final cache state if server is running
 	if suite.serverStarted {
 		healthURL := fmt.Sprintf("http://localhost:%d/health", suite.gatewayPort)
@@ -142,6 +183,17 @@ func (suite *ComprehensiveTestBaseSuite) TearDownTest() {
 
 // TearDownSuite cleans up after all tests
 func (suite *ComprehensiveTestBaseSuite) TearDownSuite() {
+	// Stop shared server if it's running
+	if suite.useSharedServer && suite.sharedServerManager != nil {
+		if err := suite.sharedServerManager.StopSharedServer(suite.T()); err != nil {
+			suite.T().Logf("Warning: Failed to stop shared server: %v", err)
+		}
+		
+		// Log shared server statistics
+		serverInfo := suite.sharedServerManager.GetServerInfo()
+		suite.T().Logf("📊 Shared server served %v total tests for %s", serverInfo["total_tests"], suite.Config.DisplayName)
+	}
+
 	if suite.repoManager != nil {
 		suite.repoManager.Cleanup()
 	}
@@ -165,6 +217,51 @@ func (suite *ComprehensiveTestBaseSuite) TearDownSuite() {
 	if suite.tempDir != "" {
 		os.RemoveAll(suite.tempDir)
 	}
+}
+
+// ensureServerAvailable ensures a server (shared or individual) is available for testing
+func (suite *ComprehensiveTestBaseSuite) ensureServerAvailable() (*testutils.HttpClient, error) {
+	if suite.useSharedServer && suite.sharedServerManager != nil {
+		// Shared server mode: Use existing shared server
+		if !suite.sharedServerManager.IsServerRunning() {
+			return nil, fmt.Errorf("shared server is not running")
+		}
+		
+		httpClient := suite.sharedServerManager.GetHTTPClient()
+		if httpClient == nil {
+			return nil, fmt.Errorf("shared server HTTP client is not available")
+		}
+		
+		return httpClient, nil
+	}
+	
+	// Legacy individual server mode
+	err := suite.setupTestWorkspace()
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup test workspace: %w", err)
+	}
+
+	err = suite.startGatewayServer()
+	if err != nil {
+		return nil, fmt.Errorf("failed to start gateway server: %w", err)
+	}
+
+	err = suite.waitForServerReady()
+	if err != nil {
+		return nil, fmt.Errorf("server failed to become ready: %w", err)
+	}
+
+	httpClient := testutils.NewHttpClient(testutils.HttpClientConfig{
+		BaseURL: fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
+		Timeout: 10 * time.Second,
+	})
+	
+	return httpClient, nil
+}
+
+// DisableSharedServer disables shared server mode for this test suite
+func (suite *ComprehensiveTestBaseSuite) DisableSharedServer() {
+	suite.useSharedServer = false
 }
 
 // stopGatewayServer stops the gateway server
@@ -467,19 +564,9 @@ func (suite *ComprehensiveTestBaseSuite) TestComprehensiveServerLifecycle() {
 func (suite *ComprehensiveTestBaseSuite) TestDefinitionComprehensive() {
 	suite.T().Logf("Testing %s definition", suite.Config.DisplayName)
 
-	err := suite.setupTestWorkspace()
-	require.NoError(suite.T(), err, "Failed to setup test workspace")
-
-	err = suite.startGatewayServer()
-	require.NoError(suite.T(), err, "Failed to start gateway server")
-
-	err = suite.waitForServerReady()
-	require.NoError(suite.T(), err, "Server failed to become ready")
-
-	httpClient := testutils.NewHttpClient(testutils.HttpClientConfig{
-		BaseURL: fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
-		Timeout: 10 * time.Second,
-	})
+	// Ensure server is available (shared or individual)
+	httpClient, err := suite.ensureServerAvailable()
+	require.NoError(suite.T(), err, "Failed to ensure server is available")
 
 	fileURI, err := suite.repoManager.GetFileURI(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get file URI")
@@ -535,19 +622,9 @@ func (suite *ComprehensiveTestBaseSuite) TestDefinitionComprehensive() {
 func (suite *ComprehensiveTestBaseSuite) TestReferencesComprehensive() {
 	suite.T().Logf("Testing %s references", suite.Config.DisplayName)
 
-	err := suite.setupTestWorkspace()
-	require.NoError(suite.T(), err, "Failed to setup test workspace")
-
-	err = suite.startGatewayServer()
-	require.NoError(suite.T(), err, "Failed to start gateway server")
-
-	err = suite.waitForServerReady()
-	require.NoError(suite.T(), err, "Server failed to become ready")
-
-	httpClient := testutils.NewHttpClient(testutils.HttpClientConfig{
-		BaseURL: fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
-		Timeout: 10 * time.Second,
-	})
+	// Ensure server is available (shared or individual)
+	httpClient, err := suite.ensureServerAvailable()
+	require.NoError(suite.T(), err, "Failed to ensure server is available")
 
 	fileURI, err := suite.repoManager.GetFileURI(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get file URI")
@@ -603,23 +680,9 @@ func (suite *ComprehensiveTestBaseSuite) TestReferencesComprehensive() {
 func (suite *ComprehensiveTestBaseSuite) TestHoverComprehensive() {
 	suite.T().Logf("Testing %s hover - REAL E2E TEST", suite.Config.DisplayName)
 
-	// Set up test workspace with real repository
-	err := suite.setupTestWorkspace()
-	require.NoError(suite.T(), err, "Failed to setup test workspace")
-
-	// Start the LSP gateway server
-	err = suite.startGatewayServer()
-	require.NoError(suite.T(), err, "Failed to start gateway server")
-
-	// Wait for server to be ready
-	err = suite.waitForServerReady()
-	require.NoError(suite.T(), err, "Server failed to become ready")
-
-	// Create HTTP client
-	httpClient := testutils.NewHttpClient(testutils.HttpClientConfig{
-		BaseURL: fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
-		Timeout: 10 * time.Second,
-	})
+	// Ensure server is available (shared or individual)
+	httpClient, err := suite.ensureServerAvailable()
+	require.NoError(suite.T(), err, "Failed to ensure server is available")
 
 	// Get test file info from repository manager
 	fileURI, err := suite.repoManager.GetFileURI(suite.Config.Language, 0)
@@ -684,19 +747,9 @@ func (suite *ComprehensiveTestBaseSuite) TestHoverComprehensive() {
 func (suite *ComprehensiveTestBaseSuite) TestDocumentSymbolComprehensive() {
 	suite.T().Logf("Testing %s document symbols", suite.Config.DisplayName)
 
-	err := suite.setupTestWorkspace()
-	require.NoError(suite.T(), err, "Failed to setup test workspace")
-
-	err = suite.startGatewayServer()
-	require.NoError(suite.T(), err, "Failed to start gateway server")
-
-	err = suite.waitForServerReady()
-	require.NoError(suite.T(), err, "Server failed to become ready")
-
-	httpClient := testutils.NewHttpClient(testutils.HttpClientConfig{
-		BaseURL: fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
-		Timeout: 10 * time.Second,
-	})
+	// Ensure server is available (shared or individual)
+	httpClient, err := suite.ensureServerAvailable()
+	require.NoError(suite.T(), err, "Failed to ensure server is available")
 
 	fileURI, err := suite.repoManager.GetFileURI(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get file URI")
@@ -746,19 +799,9 @@ func (suite *ComprehensiveTestBaseSuite) TestDocumentSymbolComprehensive() {
 func (suite *ComprehensiveTestBaseSuite) TestWorkspaceSymbolComprehensive() {
 	suite.T().Logf("Testing %s workspace symbols", suite.Config.DisplayName)
 
-	err := suite.setupTestWorkspace()
-	require.NoError(suite.T(), err, "Failed to setup test workspace")
-
-	err = suite.startGatewayServer()
-	require.NoError(suite.T(), err, "Failed to start gateway server")
-
-	err = suite.waitForServerReady()
-	require.NoError(suite.T(), err, "Server failed to become ready")
-
-	httpClient := testutils.NewHttpClient(testutils.HttpClientConfig{
-		BaseURL: fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
-		Timeout: 10 * time.Second,
-	})
+	// Ensure server is available (shared or individual)
+	httpClient, err := suite.ensureServerAvailable()
+	require.NoError(suite.T(), err, "Failed to ensure server is available")
 
 	testFile, err := suite.repoManager.GetTestFile(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get test file")
@@ -806,19 +849,9 @@ func (suite *ComprehensiveTestBaseSuite) TestWorkspaceSymbolComprehensive() {
 func (suite *ComprehensiveTestBaseSuite) TestCompletionComprehensive() {
 	suite.T().Logf("Testing %s completion", suite.Config.DisplayName)
 
-	err := suite.setupTestWorkspace()
-	require.NoError(suite.T(), err, "Failed to setup test workspace")
-
-	err = suite.startGatewayServer()
-	require.NoError(suite.T(), err, "Failed to start gateway server")
-
-	err = suite.waitForServerReady()
-	require.NoError(suite.T(), err, "Server failed to become ready")
-
-	httpClient := testutils.NewHttpClient(testutils.HttpClientConfig{
-		BaseURL: fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
-		Timeout: 10 * time.Second,
-	})
+	// Ensure server is available (shared or individual)
+	httpClient, err := suite.ensureServerAvailable()
+	require.NoError(suite.T(), err, "Failed to ensure server is available")
 
 	fileURI, err := suite.repoManager.GetFileURI(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get file URI")
@@ -885,20 +918,9 @@ func (suite *ComprehensiveTestBaseSuite) TestAllLSPMethodsSequential() {
 	}
 	suite.T().Logf("Testing %s all LSP methods sequentially", suite.Config.DisplayName)
 
-	// Set up workspace once for all tests
-	err := suite.setupTestWorkspace()
-	require.NoError(suite.T(), err, "Failed to setup test workspace")
-
-	err = suite.startGatewayServer()
-	require.NoError(suite.T(), err, "Failed to start gateway server")
-
-	err = suite.waitForServerReady()
-	require.NoError(suite.T(), err, "Server failed to become ready")
-
-	httpClient := testutils.NewHttpClient(testutils.HttpClientConfig{
-		BaseURL: fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
-		Timeout: 10 * time.Second,
-	})
+	// Ensure server is available (shared or individual)
+	httpClient, err := suite.ensureServerAvailable()
+	require.NoError(suite.T(), err, "Failed to ensure server is available")
 
 	fileURI, err := suite.repoManager.GetFileURI(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get file URI")

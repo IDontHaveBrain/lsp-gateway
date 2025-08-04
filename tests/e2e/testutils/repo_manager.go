@@ -58,10 +58,10 @@ func GetTestRepositories() map[string]*TestRepository {
 			TestFiles: []TestFile{
 				{
 					Path:          "mux.go",
-					DefinitionPos: Position{Line: 18, Character: 5},  // Router struct definition
-					ReferencePos:  Position{Line: 65, Character: 10}, // Router usage in NewRouter
-					HoverPos:      Position{Line: 18, Character: 10}, // Router struct name
-					CompletionPos: Position{Line: 100, Character: 5}, // Inside function for completion
+					DefinitionPos: Position{Line: 46, Character: 5},  // type Router struct definition (Line 47, 0-based = 46)
+					ReferencePos:  Position{Line: 24, Character: 10}, // NewRouter usage of Router (Line 25, 0-based = 24)
+					HoverPos:      Position{Line: 46, Character: 10}, // Router struct name
+					CompletionPos: Position{Line: 25, Character: 15}, // Inside return statement for completion
 					SymbolQuery:   "Router",
 				},
 			},
@@ -74,10 +74,10 @@ func GetTestRepositories() map[string]*TestRepository {
 			TestFiles: []TestFile{
 				{
 					Path:          "requests/api.py",
-					DefinitionPos: Position{Line: 15, Character: 4},  // get function definition
-					ReferencePos:  Position{Line: 25, Character: 10}, // function usage
-					HoverPos:      Position{Line: 15, Character: 8},  // function name
-					CompletionPos: Position{Line: 30, Character: 4},  // inside function
+					DefinitionPos: Position{Line: 61, Character: 4},  // def get function definition (Line 62, 0-based = 61)
+					ReferencePos:  Position{Line: 13, Character: 4},  // request function reference
+					HoverPos:      Position{Line: 61, Character: 8},  // get function name
+					CompletionPos: Position{Line: 65, Character: 4},  // inside get function for completion
 					SymbolQuery:   "get",
 				},
 			},
@@ -90,10 +90,10 @@ func GetTestRepositories() map[string]*TestRepository {
 			TestFiles: []TestFile{
 				{
 					Path:          "source/index.ts",
-					DefinitionPos: Position{Line: 50, Character: 8},  // is object definition
-					ReferencePos:  Position{Line: 100, Character: 5}, // is usage
-					HoverPos:      Position{Line: 50, Character: 12}, // type annotation
-					CompletionPos: Position{Line: 200, Character: 3}, // completion point
+					DefinitionPos: Position{Line: 101, Character: 9}, // function is definition (Line 102, 0-based = 101)
+					ReferencePos:  Position{Line: 737, Character: 15}, // export default is usage (Line 738, 0-based = 737)
+					HoverPos:      Position{Line: 101, Character: 12}, // is function name
+					CompletionPos: Position{Line: 103, Character: 4}, // inside is function for completion
 					SymbolQuery:   "is",
 				},
 			},
@@ -106,10 +106,10 @@ func GetTestRepositories() map[string]*TestRepository {
 			TestFiles: []TestFile{
 				{
 					Path:          "src/main/java/org/springframework/samples/petclinic/PetClinicApplication.java",
-					DefinitionPos: Position{Line: 29, Character: 13}, // PetClinicApplication class name
-					ReferencePos:  Position{Line: 32, Character: 16}, // SpringApplication.run usage
-					HoverPos:      Position{Line: 28, Character: 5},  // @SpringBootApplication annotation
-					CompletionPos: Position{Line: 33, Character: 8},  // inside main method
+					DefinitionPos: Position{Line: 29, Character: 13}, // public class PetClinicApplication (Line 30, 0-based = 29)
+					ReferencePos:  Position{Line: 32, Character: 16}, // SpringApplication.run(PetClinicApplication.class) usage (Line 33, 0-based = 32)
+					HoverPos:      Position{Line: 27, Character: 1},  // @SpringBootApplication annotation (Line 28, 0-based = 27)
+					CompletionPos: Position{Line: 32, Character: 20}, // inside main method for completion
 					SymbolQuery:   "PetClinicApplication",
 				},
 			},
