@@ -1,0 +1,203 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  e2e-tests:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24.0'
+        check-latest: true
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install Go dependencies
+      run: go mod download
+
+    - name: Build LSP Gateway
+      run: make local
+
+    - name: Install LSP servers
+      run: |
+        # Install Go LSP server
+        go install golang.org/x/tools/gopls@latest
+        
+        # Install Python LSP server
+        npm install -g pyright
+        
+        # Install TypeScript/JavaScript LSP server
+        npm install -g typescript-language-server typescript
+        
+        # Install Java LSP server using lsp-gateway install command
+        echo "Installing Java LSP server (JDK + Eclipse JDT)..."
+        if timeout 25m ./bin/lsp-gateway install java; then
+          echo "✅ Java LSP server installation completed"
+        else
+          echo "❌ Java LSP server installation failed or timed out"
+          exit 1
+        fi
+        
+        # Verify installations
+        echo "Checking LSP server installations..."
+        gopls version || echo "gopls installation failed"
+        pyright --version || echo "pyright installation failed"
+        typescript-language-server --version || echo "typescript-language-server installation failed"
+        
+        # Check Java installation
+        ./bin/lsp-gateway status
+
+    - name: Run E2E tests
+      run: |
+        cd tests/e2e
+        
+        # Set exit code tracking
+        EXIT_CODE=0
+        
+        # Run Go E2E tests
+        echo "🧪 Running Go E2E tests..."
+        if go test -v -timeout 600s -run "TestGoRealClientComprehensiveE2ETestSuite" .; then
+          echo "✅ Go E2E tests passed"
+        else
+          echo "❌ Go E2E tests failed"
+          EXIT_CODE=1
+        fi
+        
+        # Run Python E2E tests
+        echo "🧪 Running Python E2E tests..."
+        if go test -v -timeout 600s -run "TestPythonRealClientComprehensiveE2ETestSuite" .; then
+          echo "✅ Python E2E tests passed"
+        else
+          echo "❌ Python E2E tests failed"
+          EXIT_CODE=1
+        fi
+        
+        # Run TypeScript E2E tests
+        echo "🧪 Running TypeScript E2E tests..."
+        if go test -v -timeout 600s -run "TestTypeScriptRealClientComprehensiveE2ETestSuite" .; then
+          echo "✅ TypeScript E2E tests passed"
+        else
+          echo "❌ TypeScript E2E tests failed"
+          EXIT_CODE=1
+        fi
+        
+        # Run JavaScript E2E tests
+        echo "🧪 Running JavaScript E2E tests..."
+        if go test -v -timeout 600s -run "TestJavaScriptRealClientComprehensiveE2ETestSuite" .; then
+          echo "✅ JavaScript E2E tests passed"
+        else
+          echo "❌ JavaScript E2E tests failed"
+          EXIT_CODE=1
+        fi
+        
+        # Java E2E tests
+        echo "🧪 Running Java E2E tests..."
+        if go test -v -timeout 600s -run "TestJavaRealClientComprehensiveE2ETestSuite" .; then
+          echo "✅ Java E2E tests passed"
+        else
+          echo "❌ Java E2E tests failed"
+          EXIT_CODE=1
+        fi
+        
+        # Summary
+        if [ $EXIT_CODE -eq 0 ]; then
+          echo "🎉 All E2E tests passed (Go, Python, TypeScript, JavaScript, Java)!"
+        else
+          echo "💥 Some E2E tests failed - see logs above for details"
+          exit $EXIT_CODE
+        fi
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: e2e-test-results
+        path: |
+          tests/e2e/test_results.log
+          tests/e2e/*.log
+        retention-days: 7
+
+    - name: Upload test repositories
+      uses: actions/upload-artifact@v4
+      if: failure()
+      with:
+        name: test-repositories
+        path: |
+          /tmp/lsp-gateway-test-repos/
+        retention-days: 3
+
+  build-quality:
+    name: Build Quality Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24.0'
+        check-latest: true
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: go mod download
+
+    - name: Run quality checks
+      run: |
+        make format
+        make vet
+        
+        # Check if code is properly formatted
+        if [ -n "$(gofmt -l .)" ]; then
+          echo "Code is not formatted. Please run 'make format'"
+          exit 1
+        fi
+
+    - name: Build for all platforms
+      run: make build
+
+    - name: Run unit tests
+      run: make test-unit
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts
+        path: bin/
+        retention-days: 7
