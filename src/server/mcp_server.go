@@ -105,22 +105,16 @@ func NewMCPServerWithMode(cfg *config.Config, mode types.MCPMode) (*MCPServer, e
 
 // Start starts the MCP server with cache warming for optimal LLM performance
 func (m *MCPServer) Start() error {
-	// Start SCIP cache first (if available)
-	if m.scipCache != nil {
-		if err := m.scipCache.Start(m.ctx); err != nil {
-			common.LSPLogger.Error("Failed to start SCIP cache: %v, continuing without cache", err)
-			// Graceful degradation: Continue without cache
-			m.scipCache = nil
-		} else {
-			common.LSPLogger.Info("MCP server: SCIP cache started successfully")
-		}
-	} else {
-		common.LSPLogger.Warn("MCP server: Starting without SCIP cache (cache unavailable)")
-	}
-
-	// Start LSP manager with cache integration
+	// Start LSP manager (which handles SCIP cache startup internally)
 	if err := m.lspManager.Start(m.ctx); err != nil {
 		return fmt.Errorf("failed to start LSP manager: %w", err)
+	}
+
+	// Log cache status after LSP manager has started
+	if m.scipCache != nil {
+		common.LSPLogger.Info("MCP server: SCIP cache started successfully")
+	} else {
+		common.LSPLogger.Warn("MCP server: Starting without SCIP cache (cache unavailable)")
 	}
 
 	// Start cache warmer for proactive optimization (if cache is available)
@@ -142,26 +136,14 @@ func (m *MCPServer) Stop() error {
 		common.LSPLogger.Info("MCP server: Cache warmer stopped")
 	}
 
-	// Stop LSP manager
+	// Stop LSP manager (which handles SCIP cache shutdown internally)
 	lspErr := m.lspManager.Stop()
 	if lspErr != nil {
 		common.LSPLogger.Error("Error stopping LSP manager: %v", lspErr)
-	}
-
-	// Stop SCIP cache (if available)
-	var cacheErr error
-	if m.scipCache != nil {
-		cacheErr = m.scipCache.Stop()
-		if cacheErr != nil {
-			common.LSPLogger.Error("Error stopping SCIP cache: %v", cacheErr)
-		}
-	}
-
-	// Return the first error encountered
-	if lspErr != nil {
 		return lspErr
 	}
-	return cacheErr
+
+	return nil
 }
 
 // Run runs the MCP server with STDIO transport

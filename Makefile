@@ -43,6 +43,31 @@ all: build
 local: $(BUILD_DIR)
 	@echo "Building for current platform with cache enabled..."
 	$(GOBUILD) -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	@echo "Creating npm wrapper script..."
+	@echo '#!/usr/bin/env node' > $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo '' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo 'const { spawn } = require("child_process");' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo 'const path = require("path");' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo 'const fs =  require("fs");' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo '' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo 'const binaryName = process.platform === "win32" ? "lsp-gateway.exe" : "lsp-gateway";' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo 'const binaryPath = path.join(__dirname, binaryName);' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo '' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo 'if (!fs.existsSync(binaryPath)) {' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo '  console.error("❌ LSP Gateway binary not found at:", binaryPath);' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo '  console.error("   Please run \"make local\" to build the binary");' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo '  process.exit(1);' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo '}' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo '' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo 'const args = process.argv.slice(2);' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo 'const child = spawn(binaryPath, args, { stdio: "inherit" });' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo '' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo 'process.on("SIGINT", () => child.kill("SIGINT"));' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo 'process.on("SIGTERM", () => child.kill("SIGTERM"));' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo 'child.on("close", (code) => process.exit(code || 0));' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo 'child.on("error", (error) => { console.error("❌ Failed to start LSP Gateway:", error.message); process.exit(1); });' >> $(BUILD_DIR)/$(BINARY_NAME).js
+	@chmod +x $(BUILD_DIR)/$(BINARY_NAME).js
+	@echo "✅ Wrapper script created"
 	@echo "Linking npm package globally..."
 	@if command -v npm >/dev/null 2>&1; then \
 		if [ -f package.json ]; then \
