@@ -41,6 +41,17 @@ servers:
     working_dir: ""
     initialization_options: {}
 
+# SCIP Cache Configuration (Enabled by default)
+# Standard production settings for improved performance
+cache:
+  enabled: true                               # Enabled by default for improved performance
+  storage_path: ".lsp-gateway/scip-cache"     # Cache storage directory
+  max_memory_mb: 256                          # Memory limit in MB
+  ttl: "30m"                                  # Cache time-to-live
+  languages: ["go", "python", "typescript", "java"]  # Languages to cache
+  background_index: true                      # Enable background indexing
+  health_check_interval: "5m"                # Health check interval
+
 # Configuration Notes:
 # 
 # 1. Language Detection:

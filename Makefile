@@ -19,6 +19,9 @@ LDFLAGS := -s -w \
 	-X lsp-gateway/src/internal/version.GitCommit=$(GIT_COMMIT) \
 	-X lsp-gateway/src/internal/version.BuildDate=$(BUILD_TIME)
 
+# Build tags for cache functionality
+BUILD_TAGS := cache_enabled
+
 # Go parameters
 GOCMD := go
 GOBUILD := $(GOCMD) build
@@ -38,8 +41,8 @@ all: build
 
 # Build for current platform (most common use case)
 local: $(BUILD_DIR)
-	@echo "Building for current platform..."
-	$(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
+	@echo "Building for current platform with cache enabled..."
+	$(GOBUILD) -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 	@echo "Linking npm package globally..."
 	@if command -v npm >/dev/null 2>&1; then \
 		if [ -f package.json ]; then \
@@ -62,23 +65,23 @@ build: $(BUILD_DIR)
 		if [ $$os = "windows" ]; then output=$$output.exe; fi; \
 		if [ $$os = "darwin" ] && [ $$arch = "arm64" ]; then output=$(BUILD_DIR)/$(BINARY_NAME)-macos-arm64; fi; \
 		if [ $$os = "darwin" ] && [ $$arch = "amd64" ]; then output=$(BUILD_DIR)/$(BINARY_NAME)-macos; fi; \
-		echo "Building $$os/$$arch -> $$output"; \
-		GOOS=$$os GOARCH=$$arch $(GOBUILD) -ldflags "$(LDFLAGS)" -o $$output $(MAIN_PATH); \
+		echo "Building $$os/$$arch -> $$output with cache enabled"; \
+		GOOS=$$os GOARCH=$$arch $(GOBUILD) -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o $$output $(MAIN_PATH); \
 	done
 
 # Individual platform builds (for convenience)
 .PHONY: linux windows macos macos-arm64
 linux: $(BUILD_DIR)
-	GOOS=linux GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux $(MAIN_PATH)
+	GOOS=linux GOARCH=amd64 $(GOBUILD) -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-linux $(MAIN_PATH)
 
 windows: $(BUILD_DIR)
-	GOOS=windows GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows.exe $(MAIN_PATH)
+	GOOS=windows GOARCH=amd64 $(GOBUILD) -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-windows.exe $(MAIN_PATH)
 
 macos: $(BUILD_DIR)
-	GOOS=darwin GOARCH=amd64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-macos $(MAIN_PATH)
+	GOOS=darwin GOARCH=amd64 $(GOBUILD) -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-macos $(MAIN_PATH)
 
 macos-arm64: $(BUILD_DIR)
-	GOOS=darwin GOARCH=arm64 $(GOBUILD) -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-macos-arm64 $(MAIN_PATH)
+	GOOS=darwin GOARCH=arm64 $(GOBUILD) -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME)-macos-arm64 $(MAIN_PATH)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -101,6 +104,25 @@ unlink:
 	else \
 		echo "⚠️  npm not found, skipping npm unlink"; \
 	fi
+
+# =============================================================================
+# CACHE TARGETS
+# =============================================================================
+
+.PHONY: cache-verify cache-test cache-clean
+cache-verify:
+	@echo "Verifying cache dependencies..."
+	@$(GOCMD) list -m github.com/fsnotify/fsnotify
+	@echo "✅ Cache dependencies verified"
+
+cache-test:
+	@echo "Running cache tests..."
+	$(GOTEST) -v -tags "$(BUILD_TAGS)" -timeout 300s ./src/server/cache/... ./src/server/scip/...
+
+cache-clean:
+	@echo "Cleaning cache data..."
+	@rm -rf /tmp/lsp-gateway-scip-cache
+	@echo "✅ Cache data cleaned"
 
 # =============================================================================
 # DEVELOPMENT TARGETS
@@ -180,8 +202,8 @@ quality-full: format vet lint security
 
 .PHONY: install release info help
 install:
-	@echo "Installing binary..."
-	$(GOBUILD) -ldflags "$(LDFLAGS)" -o $(GOPATH)/bin/$(BINARY_NAME) $(MAIN_PATH)
+	@echo "Installing binary with cache enabled..."
+	$(GOBUILD) -tags "$(BUILD_TAGS)" -ldflags "$(LDFLAGS)" -o $(GOPATH)/bin/$(BINARY_NAME) $(MAIN_PATH)
 
 release:
 	@if [ "$(VERSION)" = "dev" ]; then echo "Set VERSION for release: make release VERSION=v1.0.0"; exit 1; fi
@@ -199,10 +221,15 @@ help:
 	@echo "=================================="
 	@echo ""
 	@echo "Build Commands:"
-	@echo "  local     - Build for current platform + npm link"
-	@echo "  build     - Build for all platforms"
+	@echo "  local     - Build for current platform + npm link (with cache enabled)"
+	@echo "  build     - Build for all platforms (with cache enabled)"
 	@echo "  clean     - Clean build artifacts"
 	@echo "  unlink    - Remove npm global link"
+	@echo ""
+	@echo "Cache Commands:"
+	@echo "  cache-verify - Verify cache dependencies are available"
+	@echo "  cache-test   - Run cache tests"
+	@echo "  cache-clean  - Clean cache data"
 	@echo ""
 	@echo "Development Commands:"
 	@echo "  deps      - Download dependencies"
@@ -230,7 +257,9 @@ help:
 	@echo "  help      - Show this help"
 	@echo ""
 	@echo "Example Usage:"
-	@echo "  make local         # Most common - build and install"
+	@echo "  make local         # Most common - build and install with cache enabled"
+	@echo "  make cache-verify  # Verify cache dependencies"
+	@echo "  make cache-test    # Test cache functionality"
 	@echo "  make test-quick    # Quick validation"
 	@echo "  make quality       # Essential quality checks"
 	@echo "  make quality-full  # Full quality checks"

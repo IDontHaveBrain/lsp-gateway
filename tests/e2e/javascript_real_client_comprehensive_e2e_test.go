@@ -19,7 +19,7 @@ func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) SetupSuite() {
 	suite.Config = base.LanguageConfig{
 		Language:      "javascript",
 		DisplayName:   "JavaScript",
-		HasRepoMgmt:   false,
+		HasRepoMgmt:   true,
 		HasAllLSPTest: true,
 	}
 

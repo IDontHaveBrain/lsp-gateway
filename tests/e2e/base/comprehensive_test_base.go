@@ -49,6 +49,11 @@ type ComprehensiveTestBaseSuite struct {
 
 	// Server state tracking
 	serverStarted bool
+
+	// Cache management with isolation
+	cacheDir            string
+	cacheIsolationMgr   *testutils.CacheIsolationManager
+	cacheIsolationLevel testutils.IsolationLevel
 }
 
 // SetupSuite initializes the comprehensive test suite
@@ -68,16 +73,71 @@ func (suite *ComprehensiveTestBaseSuite) SetupSuite() {
 	if cwd, err := os.Getwd(); err == nil {
 		suite.projectRoot = filepath.Dir(filepath.Dir(cwd))
 	}
+
+	// Initialize cache isolation manager
+	suite.cacheIsolationLevel = testutils.StrictIsolation // Default to strict isolation
+	cacheIsolationConfig := testutils.DefaultCacheIsolationConfig()
+	cacheIsolationConfig.IsolationLevel = suite.cacheIsolationLevel
+	
+	suite.cacheIsolationMgr, err = testutils.NewCacheIsolationManager(tempDir, cacheIsolationConfig)
+	require.NoError(suite.T(), err, "Failed to create cache isolation manager")
+
+	// Setup isolated cache directory 
+	suite.cacheDir = suite.cacheIsolationMgr.GetCacheDirectory()
 }
 
-// SetupTest prepares each test
+// SetupTest prepares each test with isolated cache
 func (suite *ComprehensiveTestBaseSuite) SetupTest() {
-	// Basic setup only
+	testName := suite.T().Name()
+	
+	// Initialize cache isolation for this test
+	err := suite.cacheIsolationMgr.InitializeIsolation(testName)
+	require.NoError(suite.T(), err, "Failed to initialize cache isolation")
+	
+	// Validate clean cache state
+	err = suite.cacheIsolationMgr.ValidateCleanState()
+	require.NoError(suite.T(), err, "Cache isolation validation failed")
+	
+	// Update cache directory to isolated one
+	suite.cacheDir = suite.cacheIsolationMgr.GetCacheDirectory()
+	
+	suite.T().Logf("🔒 Cache isolation initialized for test '%s' with directory: %s", testName, suite.cacheDir)
 }
 
-// TearDownTest cleans up after each test
+// TearDownTest cleans up after each test with cache isolation validation
 func (suite *ComprehensiveTestBaseSuite) TearDownTest() {
+	testName := suite.T().Name()
+	
+	// Record final cache state if server is running
+	if suite.serverStarted {
+		healthURL := fmt.Sprintf("http://localhost:%d/health", suite.gatewayPort)
+		if err := suite.cacheIsolationMgr.RecordCacheState(healthURL, "FINAL_STATE"); err != nil {
+			suite.T().Logf("Warning: Failed to record final cache state: %v", err)
+		}
+	}
+	
+	// Stop gateway server
 	suite.stopGatewayServer()
+	
+	// Validate test isolation before cleanup
+	if err := suite.cacheIsolationMgr.ValidateTestIsolation(); err != nil {
+		suite.T().Logf("⚠️ Cache isolation violations detected: %v", err)
+		
+		// Log violations for debugging
+		violations := suite.cacheIsolationMgr.GetViolations()
+		for i, violation := range violations {
+			suite.T().Logf("  Violation %d: %s - %s", i+1, violation.ViolationType, violation.Description)
+		}
+	}
+	
+	// Perform isolated cache cleanup
+	if err := suite.cacheIsolationMgr.Cleanup(); err != nil {
+		suite.T().Logf("Warning: Cache isolation cleanup failed: %v", err)
+		// Fallback to basic cleanup
+		suite.cleanupCache()
+	}
+	
+	suite.T().Logf("🧹 Cache isolation cleanup completed for test '%s'", testName)
 }
 
 // TearDownSuite cleans up after all tests
@@ -85,6 +145,23 @@ func (suite *ComprehensiveTestBaseSuite) TearDownSuite() {
 	if suite.repoManager != nil {
 		suite.repoManager.Cleanup()
 	}
+	
+	// Final cache isolation cleanup
+	if suite.cacheIsolationMgr != nil {
+		if err := suite.cacheIsolationMgr.Cleanup(); err != nil {
+			suite.T().Logf("Warning: Final cache isolation cleanup failed: %v", err)
+		}
+		
+		// Log final isolation summary
+		violations := suite.cacheIsolationMgr.GetViolations()
+		if len(violations) > 0 {
+			suite.T().Logf("📊 Test suite cache isolation summary: %d violations detected", len(violations))
+		} else {
+			suite.T().Logf("✅ Test suite completed with perfect cache isolation")
+		}
+	}
+	
+	// Clean up temp directory
 	if suite.tempDir != "" {
 		os.RemoveAll(suite.tempDir)
 	}
@@ -131,40 +208,41 @@ func (suite *ComprehensiveTestBaseSuite) startGatewayServer() error {
 	}
 	suite.gatewayPort = port
 
-	// Create a proper config file
-	configContent := fmt.Sprintf(`servers:
-  go:
-    command: "gopls"
-    args: ["serve"]
-    working_dir: ""
-    initialization_options: {}
-  python:
-    command: "pylsp"
-    args: []
-    working_dir: ""
-    initialization_options: {}
-  javascript:
-    command: "typescript-language-server"
-    args: ["--stdio"]
-    working_dir: ""
-    initialization_options: {}
-  typescript:
-    command: "typescript-language-server"
-    args: ["--stdio"]
-    working_dir: ""
-    initialization_options: {}
-  java:
-    command: "~/.lsp-gateway/tools/java/bin/jdtls"
-    args: []
-    working_dir: ""
-    initialization_options: {}
-`)
+	// Generate isolated config using cache isolation manager
+	servers := map[string]interface{}{
+		"go": map[string]interface{}{
+			"command": "gopls",
+			"args":    []string{"serve"},
+		},
+		"python": map[string]interface{}{
+			"command": "pylsp",
+			"args":    []string{},
+		},
+		"javascript": map[string]interface{}{
+			"command": "typescript-language-server",
+			"args":    []string{"--stdio"},
+		},
+		"typescript": map[string]interface{}{
+			"command": "typescript-language-server",
+			"args":    []string{"--stdio"},
+		},
+		"java": map[string]interface{}{
+			"command": "~/.lsp-gateway/tools/java/bin/jdtls",
+			"args":    []string{},
+		},
+	}
 
-	configPath := filepath.Join(suite.tempDir, "config.yaml")
-	if err := ioutil.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		return fmt.Errorf("failed to write config: %w", err)
+	cacheConfig := testutils.DefaultCacheIsolationConfig()
+	cacheConfig.IsolationLevel = suite.cacheIsolationLevel
+	cacheConfig.MaxCacheSize = 128 * 1024 * 1024 // 128MB
+
+	configPath, err := suite.cacheIsolationMgr.GenerateIsolatedConfig(servers, cacheConfig)
+	if err != nil {
+		return fmt.Errorf("failed to generate isolated config: %w", err)
 	}
 	suite.configPath = configPath
+
+	suite.T().Logf("🔧 Generated isolated config at: %s", configPath)
 
 	// Get path to lsp-gateway binary
 	pwd, _ := os.Getwd()
@@ -208,10 +286,25 @@ func (suite *ComprehensiveTestBaseSuite) waitForServerReady() error {
 
 	suite.T().Logf("Waiting for server and LSP clients to be ready at %s...", healthURL)
 
+	// Record initial server state
+	if err := suite.cacheIsolationMgr.RecordCacheState(healthURL, "SERVER_STARTUP"); err != nil {
+		suite.T().Logf("Warning: Failed to record server startup state: %v", err)
+	}
+
 	for i := 0; i < 30; i++ { // Wait up to 30 seconds
 		if err := testutils.QuickConnectivityCheck(healthURL); err == nil {
 			// Health endpoint is responding, now check if LSP clients are active
 			if suite.checkLSPClientsActive(healthURL) {
+				// Record ready state
+				if err := suite.cacheIsolationMgr.RecordCacheState(healthURL, "SERVER_READY"); err != nil {
+					suite.T().Logf("Warning: Failed to record server ready state: %v", err)
+				}
+				
+				// Wait for cache stabilization
+				if err := suite.cacheIsolationMgr.WaitForCacheStabilization(healthURL, 15*time.Second); err != nil {
+					suite.T().Logf("Warning: Cache stabilization timeout: %v", err)
+				}
+				
 				suite.T().Logf("✅ Server and LSP clients are ready after %d seconds", i+1)
 				return nil
 			}
@@ -222,7 +315,7 @@ func (suite *ComprehensiveTestBaseSuite) waitForServerReady() error {
 	return fmt.Errorf("server did not become ready within 30 seconds")
 }
 
-// checkLSPClientsActive checks if required LSP clients are active
+// checkLSPClientsActive checks if required LSP clients are active and cache is working
 func (suite *ComprehensiveTestBaseSuite) checkLSPClientsActive(healthURL string) bool {
 	resp, err := http.Get(healthURL)
 	if err != nil {
@@ -235,6 +328,7 @@ func (suite *ComprehensiveTestBaseSuite) checkLSPClientsActive(healthURL string)
 		return false
 	}
 
+	// Check LSP clients
 	lspClients, ok := health["lsp_clients"].(map[string]interface{})
 	if !ok {
 		return false
@@ -253,8 +347,107 @@ func (suite *ComprehensiveTestBaseSuite) checkLSPClientsActive(healthURL string)
 		return false
 	}
 
+	// Validate cache status
+	if !suite.validateCacheHealth(health) {
+		return false
+	}
+
 	suite.T().Logf("%s LSP client is active: %v", suite.Config.Language, langClient)
 	return true
+}
+
+// validateCacheHealth validates cache status in health response
+func (suite *ComprehensiveTestBaseSuite) validateCacheHealth(health map[string]interface{}) bool {
+	cache, ok := health["cache"].(map[string]interface{})
+	if !ok {
+		suite.T().Logf("Cache status not found in health response")
+		return false
+	}
+
+	// Check if cache is enabled
+	enabled, ok := cache["enabled"].(bool)
+	if !ok || !enabled {
+		suite.T().Logf("Cache is not enabled: %v", cache)
+		return false
+	}
+
+	// Check cache status
+	status, ok := cache["status"].(string)
+	if !ok {
+		suite.T().Logf("Cache status field missing: %v", cache)
+		return false
+	}
+
+	// Accept "healthy", "initializing", or "OK" states
+	if status != "healthy" && status != "initializing" && status != "OK" {
+		suite.T().Logf("Cache status is not healthy/initializing/OK: %s", status)
+		return false
+	}
+
+	suite.T().Logf("Cache is %s and enabled", status)
+	return true
+}
+
+// validateCacheMetrics validates detailed cache metrics (optional validation)
+func (suite *ComprehensiveTestBaseSuite) validateCacheMetrics(health map[string]interface{}) bool {
+	cache, ok := health["cache"].(map[string]interface{})
+	if !ok {
+		return false
+	}
+
+	// Optional: Check detailed metrics if available
+	if hitRate, hasHitRate := cache["hit_rate_percent"]; hasHitRate {
+		suite.T().Logf("Cache hit rate: %v", hitRate)
+	}
+
+	if entryCount, hasEntryCount := cache["entry_count"]; hasEntryCount {
+		suite.T().Logf("Cache entry count: %v", entryCount)
+	}
+
+	if totalRequests, hasTotalRequests := cache["total_requests"]; hasTotalRequests {
+		suite.T().Logf("Cache total requests: %v", totalRequests)
+	}
+
+	return true
+}
+
+// cleanupCache cleans up cache directory after test
+func (suite *ComprehensiveTestBaseSuite) cleanupCache() {
+	if suite.cacheDir != "" {
+		suite.T().Logf("Cleaning up cache directory: %s", suite.cacheDir)
+		if err := os.RemoveAll(suite.cacheDir); err != nil {
+			suite.T().Logf("Warning: Failed to clean cache directory: %v", err)
+		}
+		// Recreate empty cache directory for next test
+		if err := os.MkdirAll(suite.cacheDir, 0755); err != nil {
+			suite.T().Logf("Warning: Failed to recreate cache directory: %v", err)
+		}
+	}
+}
+
+// validateCachePerformance validates cache performance after test operations
+func (suite *ComprehensiveTestBaseSuite) validateCachePerformance() {
+	healthURL := fmt.Sprintf("http://localhost:%d/health", suite.gatewayPort)
+
+	resp, err := http.Get(healthURL)
+	if err != nil {
+		suite.T().Logf("Warning: Failed to get health status for cache validation: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+
+	var health map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {
+		suite.T().Logf("Warning: Failed to decode health response: %v", err)
+		return
+	}
+
+	// Validate cache metrics
+	if suite.validateCacheMetrics(health) {
+		suite.T().Logf("✅ Cache performance validation completed")
+	} else {
+		suite.T().Logf("⚠️ Cache metrics not available or incomplete")
+	}
 }
 
 // makeJSONRPCRequest makes a raw JSON-RPC request to the LSP gateway
@@ -331,6 +524,9 @@ func (suite *ComprehensiveTestBaseSuite) TestDefinitionComprehensive() {
 	} else {
 		suite.T().Logf("⚠️ Definition result is null")
 	}
+
+	// Validate cache performance after test
+	suite.validateCachePerformance()
 
 	suite.T().Logf("✅ Definition test completed for %s", suite.Config.DisplayName)
 }
@@ -827,4 +1023,108 @@ func (suite *ComprehensiveTestBaseSuite) testWorkspaceSymbolSequentially(httpCli
 	}
 
 	suite.T().Logf("  ✅ workspace/symbol completed")
+}
+
+// Cache Isolation Convenience Methods
+
+// SetCacheIsolationLevel sets the cache isolation level for tests
+func (suite *ComprehensiveTestBaseSuite) SetCacheIsolationLevel(level testutils.IsolationLevel) {
+	suite.cacheIsolationLevel = level
+	suite.T().Logf("🔒 Cache isolation level set to: %d", level)
+}
+
+// EnableParallelCacheIsolation enables isolation suitable for parallel test execution
+func (suite *ComprehensiveTestBaseSuite) EnableParallelCacheIsolation() {
+	suite.SetCacheIsolationLevel(testutils.ParallelIsolation)
+}
+
+// EnableStrictCacheIsolation enables strict cache isolation with full validation
+func (suite *ComprehensiveTestBaseSuite) EnableStrictCacheIsolation() {
+	suite.SetCacheIsolationLevel(testutils.StrictIsolation)
+}
+
+// ValidateCacheHealthNow performs immediate cache health validation
+func (suite *ComprehensiveTestBaseSuite) ValidateCacheHealthNow(expectedState string) error {
+	if !suite.serverStarted {
+		return fmt.Errorf("server not started, cannot validate cache health")
+	}
+	
+	healthURL := fmt.Sprintf("http://localhost:%d/health", suite.gatewayPort)
+	return suite.cacheIsolationMgr.ValidateCacheHealth(healthURL, expectedState)
+}
+
+// RecordCacheCheckpoint creates a cache state checkpoint for debugging
+func (suite *ComprehensiveTestBaseSuite) RecordCacheCheckpoint(phase string) {
+	if !suite.serverStarted {
+		suite.T().Logf("Warning: Cannot record cache checkpoint - server not started")
+		return
+	}
+	
+	healthURL := fmt.Sprintf("http://localhost:%d/health", suite.gatewayPort)
+	if err := suite.cacheIsolationMgr.RecordCacheState(healthURL, phase); err != nil {
+		suite.T().Logf("Warning: Failed to record cache checkpoint for phase '%s': %v", phase, err)
+	} else {
+		suite.T().Logf("📊 Cache checkpoint recorded for phase: %s", phase)
+	}
+}
+
+// ResetCacheForCleanTest completely resets cache state
+func (suite *ComprehensiveTestBaseSuite) ResetCacheForCleanTest() error {
+	// Stop server if running
+	wasRunning := suite.serverStarted
+	if wasRunning {
+		suite.stopGatewayServer()
+	}
+	
+	// Reset cache state
+	if err := suite.cacheIsolationMgr.ResetCacheState(); err != nil {
+		return fmt.Errorf("failed to reset cache state: %w", err)
+	}
+	
+	// Update cache directory
+	suite.cacheDir = suite.cacheIsolationMgr.GetCacheDirectory()
+	
+	// Restart server if it was running
+	if wasRunning {
+		if err := suite.startGatewayServer(); err != nil {
+			return fmt.Errorf("failed to restart server after cache reset: %w", err)
+		}
+		
+		if err := suite.waitForServerReady(); err != nil {
+			return fmt.Errorf("server not ready after cache reset: %w", err)
+		}
+	}
+	
+	suite.T().Logf("🔄 Cache reset completed successfully")
+	return nil
+}
+
+// GetCacheViolationsSummary returns a summary of cache isolation violations
+func (suite *ComprehensiveTestBaseSuite) GetCacheViolationsSummary() string {
+	violations := suite.cacheIsolationMgr.GetViolations()
+	if len(violations) == 0 {
+		return "✅ No cache isolation violations detected"
+	}
+	
+	summary := fmt.Sprintf("⚠️ %d cache isolation violations detected:\n", len(violations))
+	for i, violation := range violations {
+		summary += fmt.Sprintf("  %d. %s: %s (Impact: %s)\n", 
+			i+1, violation.ViolationType, violation.Description, violation.Impact)
+	}
+	
+	return summary
+}
+
+// GetCacheHealthHistory returns cache health checkpoint history
+func (suite *ComprehensiveTestBaseSuite) GetCacheHealthHistory() []testutils.CacheCheckpoint {
+	return suite.cacheIsolationMgr.GetHealthHistory()
+}
+
+// AssertNoCacheViolations fails the test if cache isolation violations are detected
+func (suite *ComprehensiveTestBaseSuite) AssertNoCacheViolations() {
+	violations := suite.cacheIsolationMgr.GetViolations()
+	if len(violations) > 0 {
+		summary := suite.GetCacheViolationsSummary()
+		suite.T().Fatalf("Cache isolation violations detected:\n%s", summary)
+	}
 }

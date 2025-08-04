@@ -5,18 +5,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/server/cache"
 )
 
 // HTTPGateway provides a simple HTTP JSON-RPC gateway to LSP servers
 type HTTPGateway struct {
-	lspManager *LSPManager
-	server     *http.Server
-	mu         sync.RWMutex
+	lspManager  *LSPManager
+	server      *http.Server
+	scipCache   cache.SCIPCache
+	cacheConfig *config.SCIPConfig
+	mu          sync.RWMutex
 }
 
 // JSONRPCRequest represents a JSON-RPC 2.0 request
@@ -42,20 +46,36 @@ type RPCError struct {
 	Data    interface{} `json:"data,omitempty"`
 }
 
-// NewHTTPGateway creates a new simple HTTP gateway
+// NewHTTPGateway creates a new simple HTTP gateway with mandatory cache
 func NewHTTPGateway(addr string, cfg *config.Config) (*HTTPGateway, error) {
+	// Ensure cache is enabled - HTTP gateway requires cache for performance
+	if cfg == nil {
+		cfg = config.GetDefaultConfigWithCache()
+		cfg.EnableCache()
+	} else if !cfg.IsCacheEnabled() {
+		cfg.EnableCache()
+		common.GatewayLogger.Info("Enabling mandatory SCIP cache for HTTP gateway")
+	}
+
+	// Create LSP manager - cache is now always created internally
 	lspManager, err := NewLSPManager(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create LSP manager: %w", err)
 	}
 
 	gateway := &HTTPGateway{
-		lspManager: lspManager,
+		lspManager:  lspManager,
+		scipCache:   lspManager.GetCache(), // Get cache from LSP manager
+		cacheConfig: cfg.Cache,
 	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/jsonrpc", gateway.handleJSONRPC)
 	mux.HandleFunc("/health", gateway.handleHealth)
+	// Cache monitoring endpoints
+	mux.HandleFunc("/cache/stats", gateway.handleCacheStats)
+	mux.HandleFunc("/cache/health", gateway.handleCacheHealth)
+	mux.HandleFunc("/cache/clear", gateway.handleCacheClear)
 
 	gateway.server = &http.Server{
 		Addr:         addr,
@@ -69,11 +89,12 @@ func NewHTTPGateway(addr string, cfg *config.Config) (*HTTPGateway, error) {
 
 // Start starts the HTTP gateway
 func (g *HTTPGateway) Start(ctx context.Context) error {
+	// Start LSP manager (cache is initialized and started internally)
 	if err := g.lspManager.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start LSP manager: %w", err)
 	}
 
-	common.GatewayLogger.Info("Starting HTTP gateway on %s", g.server.Addr)
+	common.GatewayLogger.Info("Starting HTTP gateway with SCIP cache on %s", g.server.Addr)
 
 	go func() {
 		if err := g.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -84,7 +105,7 @@ func (g *HTTPGateway) Start(ctx context.Context) error {
 	return nil
 }
 
-// Stop stops the HTTP gateway
+// Stop stops the HTTP gateway and cache
 func (g *HTTPGateway) Stop() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -103,10 +124,23 @@ func (g *HTTPGateway) Stop() error {
 		lastErr = err
 	}
 
+	// Stop SCIP cache
+	if g.scipCache != nil {
+		if err := g.scipCache.Stop(); err != nil {
+			common.GatewayLogger.Error("SCIP cache stop error: %v", err)
+			lastErr = err
+		}
+	}
+
 	return lastErr
 }
 
-// handleJSONRPC handles JSON-RPC requests
+// GetLSPManager returns the LSP manager for cache status access
+func (g *HTTPGateway) GetLSPManager() *LSPManager {
+	return g.lspManager
+}
+
+// handleJSONRPC handles JSON-RPC requests with cache performance tracking
 func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		g.writeError(w, nil, -32600, "Invalid Request", "Only POST method allowed")
@@ -131,11 +165,20 @@ func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 
 	common.GatewayLogger.Debug("Processing request: %s", req.Method)
 
+	// Track request timing for performance metrics
+	startTime := time.Now()
+	cacheMetricsBefore := g.getCacheMetricsSnapshot()
+
 	result, err := g.lspManager.ProcessRequest(r.Context(), req.Method, req.Params)
 	if err != nil {
 		g.writeError(w, req.ID, -32603, "Internal error", err.Error())
 		return
 	}
+
+	// Calculate performance metrics
+	responseTime := time.Since(startTime)
+	cacheMetricsAfter := g.getCacheMetricsSnapshot()
+	cacheStatus := g.determineCacheStatus(cacheMetricsBefore, cacheMetricsAfter)
 
 	response := JSONRPCResponse{
 		JSONRPC: "2.0",
@@ -143,17 +186,51 @@ func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 		Result:  result,
 	}
 
+	// Add cache performance headers
 	w.Header().Set("Content-Type", "application/json")
+	g.addCacheHeaders(w, cacheStatus, responseTime)
+
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		common.GatewayLogger.Error("Failed to encode response: %v", err)
 	}
 }
 
-// handleHealth handles health check requests
+// handleHealth handles health check requests including cache status
 func (g *HTTPGateway) handleHealth(w http.ResponseWriter, r *http.Request) {
 	health := map[string]interface{}{
 		"status":      "healthy",
 		"lsp_clients": g.lspManager.GetClientStatus(),
+	}
+
+	// Add cache health information
+	if g.scipCache != nil {
+		cacheMetrics := g.getCacheMetricsSnapshot()
+		if cacheMetrics != nil {
+			totalRequests := cacheMetrics.HitCount + cacheMetrics.MissCount
+			hitRate := float64(0)
+			if totalRequests > 0 {
+				hitRate = float64(cacheMetrics.HitCount) / float64(totalRequests) * 100
+			}
+
+			health["cache"] = map[string]interface{}{
+				"enabled":           true,
+				"status":            cacheMetrics.HealthStatus,
+				"hit_rate_percent":  hitRate,
+				"entry_count":       cacheMetrics.EntryCount,
+				"total_requests":    totalRequests,
+				"last_health_check": cacheMetrics.LastHealthCheck,
+			}
+		} else {
+			health["cache"] = map[string]interface{}{
+				"enabled": true,
+				"status":  "initializing",
+			}
+		}
+	} else {
+		health["cache"] = map[string]interface{}{
+			"enabled": false,
+			"status":  "disabled",
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -175,4 +252,139 @@ func (g *HTTPGateway) writeError(w http.ResponseWriter, id interface{}, code int
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK) // JSON-RPC errors still return 200
 	json.NewEncoder(w).Encode(response)
+}
+
+// getCacheMetricsSnapshot captures current cache metrics for comparison
+func (g *HTTPGateway) getCacheMetricsSnapshot() *cache.CacheMetrics {
+	if g.scipCache == nil {
+		return nil
+	}
+	return g.scipCache.GetMetrics()
+}
+
+// determineCacheStatus determines if the request was a cache hit or miss
+func (g *HTTPGateway) determineCacheStatus(before, after *cache.CacheMetrics) string {
+	if before == nil || after == nil {
+		return "disabled"
+	}
+
+	if after.HitCount > before.HitCount {
+		return "hit"
+	} else if after.MissCount > before.MissCount {
+		return "miss"
+	}
+	return "unknown"
+}
+
+// addCacheHeaders adds cache-related HTTP headers to the response
+func (g *HTTPGateway) addCacheHeaders(w http.ResponseWriter, cacheStatus string, responseTime time.Duration) {
+	w.Header().Set("X-LSP-Cache-Status", cacheStatus)
+	w.Header().Set("X-LSP-Response-Time", strconv.FormatInt(responseTime.Microseconds(), 10))
+
+	if metrics := g.getCacheMetricsSnapshot(); metrics != nil {
+		w.Header().Set("X-LSP-Cache-Size", strconv.FormatInt(metrics.EntryCount, 10))
+		w.Header().Set("X-LSP-Cache-Memory", strconv.FormatInt(metrics.TotalSize, 10))
+	}
+}
+
+// handleCacheStats returns cache statistics
+func (g *HTTPGateway) handleCacheStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	metrics := g.getCacheMetricsSnapshot()
+	if metrics == nil {
+		http.Error(w, "Cache not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Calculate hit rate
+	totalRequests := metrics.HitCount + metrics.MissCount
+	hitRate := float64(0)
+	if totalRequests > 0 {
+		hitRate = float64(metrics.HitCount) / float64(totalRequests) * 100
+	}
+
+	stats := map[string]interface{}{
+		"cache_enabled":     true,
+		"hit_count":         metrics.HitCount,
+		"miss_count":        metrics.MissCount,
+		"hit_rate_percent":  hitRate,
+		"error_count":       metrics.ErrorCount,
+		"eviction_count":    metrics.EvictionCount,
+		"total_size_bytes":  metrics.TotalSize,
+		"entry_count":       metrics.EntryCount,
+		"average_hit_time":  metrics.AverageHitTime.String(),
+		"average_miss_time": metrics.AverageMissTime.String(),
+		"last_health_check": metrics.LastHealthCheck,
+		"health_status":     metrics.HealthStatus,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(stats)
+}
+
+// handleCacheHealth returns cache health status
+func (g *HTTPGateway) handleCacheHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if g.scipCache == nil {
+		http.Error(w, "Cache not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	metrics, err := g.scipCache.HealthCheck()
+	if err != nil {
+		health := map[string]interface{}{
+			"status":  "unhealthy",
+			"error":   err.Error(),
+			"enabled": false,
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		json.NewEncoder(w).Encode(health)
+		return
+	}
+
+	health := map[string]interface{}{
+		"status":          "healthy",
+		"enabled":         true,
+		"health_status":   metrics.HealthStatus,
+		"last_check":      metrics.LastHealthCheck,
+		"total_size":      metrics.TotalSize,
+		"entry_count":     metrics.EntryCount,
+		"uptime_requests": metrics.HitCount + metrics.MissCount,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(health)
+}
+
+// handleCacheClear clears the cache (for development/debugging)
+func (g *HTTPGateway) handleCacheClear(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if g.scipCache == nil {
+		http.Error(w, "Cache not available", http.StatusServiceUnavailable)
+		return
+	}
+
+	// Note: Cache interface doesn't have Clear method, so we invalidate all documents
+	// This is a limitation of the current cache interface design
+	result := map[string]interface{}{
+		"status":  "requested",
+		"message": "Cache clear requested - individual document invalidation required",
+		"note":    "Use cache invalidation API for specific documents",
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
 }

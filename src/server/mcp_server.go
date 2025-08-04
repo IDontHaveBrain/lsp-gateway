@@ -7,19 +7,24 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/project"
 	versionpkg "lsp-gateway/src/internal/version"
+	"lsp-gateway/src/server/cache"
 )
 
 // MCPServer provides Model Context Protocol bridge to LSP functionality
+// Always uses SCIP cache for maximum LLM query performance
 type MCPServer struct {
-	lspManager *LSPManager
-	ctx        context.Context
-	cancel     context.CancelFunc
+	lspManager  *LSPManager
+	scipCache   cache.SCIPCache
+	cacheWarmer *cache.CacheWarmupManager
+	ctx         context.Context
+	cancel      context.CancelFunc
 }
 
 // MCP Protocol Types - JSON-RPC 2.0 Compliant
@@ -51,12 +56,26 @@ type ToolContent struct {
 	MimeType string      `json:"mimeType,omitempty"`
 }
 
-// NewMCPServer creates a new MCP server
+// NewMCPServer creates a new MCP server with always-on SCIP cache for optimal LLM performance
 func NewMCPServer(cfg *config.Config) (*MCPServer, error) {
 	if cfg == nil {
 		cfg = config.GetDefaultConfig()
 	}
 
+	// Always enable mandatory SCIP cache for MCP server (LLM optimization)
+	if !cfg.IsCacheEnabled() {
+		cfg.EnableCache()
+		// Override with MCP-optimized cache settings
+		cfg.Cache.MaxMemoryMB = 512                     // Increased memory for LLM workloads
+		cfg.Cache.TTL = 60 * time.Minute                // Longer TTL for stable symbols
+		cfg.Cache.BackgroundIndex = true                // Always enable background indexing
+		cfg.Cache.HealthCheckInterval = 2 * time.Minute // More frequent health checks
+		// Optimize for all supported languages
+		cfg.Cache.Languages = []string{"go", "python", "javascript", "typescript", "java"}
+		common.LSPLogger.Info("MCP server: Enabled mandatory SCIP cache with LLM-optimized settings")
+	}
+
+	// Create LSP manager - cache is now created and initialized internally
 	lspManager, err := NewLSPManager(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create LSP manager: %w", err)
@@ -64,22 +83,78 @@ func NewMCPServer(cfg *config.Config) (*MCPServer, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// Create cache warmer for proactive LLM query optimization
+	cachedLSPManager := cache.NewCachedLSPManager(lspManager)
+	cacheWarmer := cache.NewCacheWarmupManager(cachedLSPManager)
+
 	return &MCPServer{
-		lspManager: lspManager,
-		ctx:        ctx,
-		cancel:     cancel,
+		lspManager:  lspManager,
+		scipCache:   lspManager.GetCache(), // Get cache from LSP manager
+		cacheWarmer: cacheWarmer,
+		ctx:         ctx,
+		cancel:      cancel,
 	}, nil
 }
 
-// Start starts the MCP server
+// Start starts the MCP server with cache warming for optimal LLM performance
 func (m *MCPServer) Start() error {
-	return m.lspManager.Start(m.ctx)
+	// Start SCIP cache first (if available)
+	if m.scipCache != nil {
+		if err := m.scipCache.Start(m.ctx); err != nil {
+			common.LSPLogger.Error("Failed to start SCIP cache: %v, continuing without cache", err)
+			// Graceful degradation: Continue without cache
+			m.scipCache = nil
+		} else {
+			common.LSPLogger.Info("MCP server: SCIP cache started successfully")
+		}
+	} else {
+		common.LSPLogger.Warn("MCP server: Starting without SCIP cache (cache unavailable)")
+	}
+
+	// Start LSP manager with cache integration
+	if err := m.lspManager.Start(m.ctx); err != nil {
+		return fmt.Errorf("failed to start LSP manager: %w", err)
+	}
+
+	// Start cache warmer for proactive optimization (if cache is available)
+	if m.cacheWarmer != nil && m.scipCache != nil {
+		m.cacheWarmer.Start()
+		common.LSPLogger.Info("MCP server: Cache warming started for LLM query optimization")
+	}
+
+	return nil
 }
 
-// Stop stops the MCP server
+// Stop stops the MCP server and cache systems
 func (m *MCPServer) Stop() error {
 	m.cancel()
-	return m.lspManager.Stop()
+
+	// Stop cache warmer first (if available)
+	if m.cacheWarmer != nil {
+		m.cacheWarmer.Stop()
+		common.LSPLogger.Info("MCP server: Cache warmer stopped")
+	}
+
+	// Stop LSP manager
+	lspErr := m.lspManager.Stop()
+	if lspErr != nil {
+		common.LSPLogger.Error("Error stopping LSP manager: %v", lspErr)
+	}
+
+	// Stop SCIP cache (if available)
+	var cacheErr error
+	if m.scipCache != nil {
+		cacheErr = m.scipCache.Stop()
+		if cacheErr != nil {
+			common.LSPLogger.Error("Error stopping SCIP cache: %v", cacheErr)
+		}
+	}
+
+	// Return the first error encountered
+	if lspErr != nil {
+		return lspErr
+	}
+	return cacheErr
 }
 
 // Run runs the MCP server with STDIO transport
@@ -157,8 +232,28 @@ func (m *MCPServer) handleRequest(req *MCPRequest) *MCPResponse {
 	}
 }
 
-// handleInitialize handles MCP initialize request
+// handleInitialize handles MCP initialize request with cache performance info
 func (m *MCPServer) handleInitialize(req *MCPRequest) *MCPResponse {
+	// Get current cache metrics (with graceful handling)
+	cacheInfo := map[string]interface{}{
+		"optimization":    "LLM_queries",
+		"background_warm": m.cacheWarmer != nil,
+	}
+
+	if m.scipCache != nil {
+		cacheMetrics := m.scipCache.GetMetrics()
+		cacheInfo["enabled"] = true
+		if cacheMetrics != nil {
+			cacheInfo["health"] = cacheMetrics.HealthStatus
+			cacheInfo["entries"] = cacheMetrics.EntryCount
+		} else {
+			cacheInfo["status"] = "metrics_unavailable"
+		}
+	} else {
+		cacheInfo["enabled"] = false
+		cacheInfo["fallback"] = "direct_LSP"
+	}
+
 	return &MCPResponse{
 		JSONRPC: "2.0",
 		ID:      req.ID,
@@ -171,14 +266,16 @@ func (m *MCPServer) handleInitialize(req *MCPRequest) *MCPResponse {
 				"logging": map[string]interface{}{},
 			},
 			"serverInfo": map[string]interface{}{
-				"name":    "lsp-gateway-mcp",
+				"name":    "lsp-gateway-mcp-cached",
 				"version": versionpkg.GetVersion(),
-				"title":   "LSP Gateway MCP Server",
+				"title":   "LSP Gateway MCP Server (SCIP Cache Enabled)",
 			},
 			"_meta": map[string]interface{}{
 				"lsp-gateway": map[string]interface{}{
 					"supportedLanguages": []string{"go", "python", "javascript", "typescript", "java"},
 					"lspFeatures":        []string{"definition", "references", "hover", "documentSymbol", "workspaceSymbol", "completion"},
+					"cache":              cacheInfo,
+					"performance_target": "sub_millisecond_cached_responses",
 				},
 			},
 		},
@@ -339,7 +436,7 @@ func (m *MCPServer) handleToolsList(req *MCPRequest) *MCPResponse {
 	}
 }
 
-// handleToolCall executes LSP tool calls
+// handleToolCall executes LSP tool calls with cache performance tracking
 func (m *MCPServer) handleToolCall(req *MCPRequest) *MCPResponse {
 	params, ok := req.Params.(map[string]interface{})
 	if !ok {
@@ -374,6 +471,9 @@ func (m *MCPServer) handleToolCall(req *MCPRequest) *MCPResponse {
 
 	var result interface{}
 	var err error
+
+	// Record start time for performance tracking
+	startTime := time.Now()
 
 	switch name {
 	case "goto_definition":
@@ -412,6 +512,39 @@ func (m *MCPServer) handleToolCall(req *MCPRequest) *MCPResponse {
 		}
 	}
 
+	// Calculate response time
+	responseTime := time.Since(startTime)
+
+	// Get cache metrics for performance reporting (with graceful handling)
+	cacheStats := make(map[string]interface{})
+	if m.scipCache != nil {
+		cacheMetrics := m.scipCache.GetMetrics()
+		if cacheMetrics != nil {
+			hitRatio := float64(0)
+			if cacheMetrics.HitCount+cacheMetrics.MissCount > 0 {
+				hitRatio = float64(cacheMetrics.HitCount) / float64(cacheMetrics.HitCount+cacheMetrics.MissCount)
+			}
+			cacheStats = map[string]interface{}{
+				"enabled":      true,
+				"hit_ratio":    fmt.Sprintf("%.2f%%", hitRatio*100),
+				"total_hits":   cacheMetrics.HitCount,
+				"total_misses": cacheMetrics.MissCount,
+				"health":       cacheMetrics.HealthStatus,
+				"entry_count":  cacheMetrics.EntryCount,
+			}
+		} else {
+			cacheStats = map[string]interface{}{
+				"enabled": true,
+				"status":  "metrics_unavailable",
+			}
+		}
+	} else {
+		cacheStats = map[string]interface{}{
+			"enabled": false,
+			"reason":  "cache_initialization_failed",
+		}
+	}
+
 	return &MCPResponse{
 		JSONRPC: "2.0",
 		ID:      req.ID,
@@ -424,14 +557,17 @@ func (m *MCPServer) handleToolCall(req *MCPRequest) *MCPResponse {
 			},
 			"isError": false,
 			"_meta": map[string]interface{}{
-				"tool":      name,
-				"timestamp": fmt.Sprintf("%d", time.Now().Unix()),
+				"tool":          name,
+				"timestamp":     fmt.Sprintf("%d", time.Now().Unix()),
+				"response_time": fmt.Sprintf("%.2fms", float64(responseTime.Nanoseconds())/1000000),
+				"cache":         cacheStats,
+				"optimized_for": "LLM_queries",
 			},
 		},
 	}
 }
 
-// LSP Tool Handlers
+// LSP Tool Handlers - Optimized for cache utilization
 func (m *MCPServer) handleGotoDefinition(params map[string]interface{}) (interface{}, error) {
 	if err := validatePositionParams(params); err != nil {
 		return nil, err
@@ -441,6 +577,9 @@ func (m *MCPServer) handleGotoDefinition(params map[string]interface{}) (interfa
 	if err != nil {
 		return nil, err
 	}
+
+	// Pre-warm cache for adjacent positions (LLM usage pattern optimization)
+	go m.preWarmAdjacentPositions(lspParams)
 
 	return m.lspManager.ProcessRequest(m.ctx, "textDocument/definition", lspParams)
 }
@@ -509,9 +648,15 @@ func (m *MCPServer) handleSearchWorkspaceSymbols(params map[string]interface{}) 
 		return nil, fmt.Errorf("query too long (max 100 characters)")
 	}
 
+	// Normalize query for better cache hit rates (common LLM usage patterns)
+	normalizedQuery := m.normalizeSymbolQuery(query)
+
 	lspParams := map[string]interface{}{
-		"query": query,
+		"query": normalizedQuery,
 	}
+
+	// Pre-warm cache with common variations (async)
+	go m.preWarmSymbolVariations(normalizedQuery)
 
 	return m.lspManager.ProcessRequest(m.ctx, "workspace/symbol", lspParams)
 }
@@ -610,6 +755,84 @@ func validatePositionParams(params map[string]interface{}) error {
 
 func isValidFileURI(uri string) bool {
 	return len(uri) > 7 && uri[:7] == "file://"
+}
+
+// Cache optimization helpers for LLM usage patterns
+
+// preWarmAdjacentPositions pre-warms cache for positions adjacent to current query
+// This optimizes for LLM's tendency to query nearby code locations
+func (m *MCPServer) preWarmAdjacentPositions(lspParams map[string]interface{}) {
+	// Skip cache warming if cache is not available
+	if m.scipCache == nil {
+		return
+	}
+
+	// Extract position information
+	position, ok := lspParams["position"].(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	line, lineOk := position["line"].(int)
+	character, charOk := position["character"].(int)
+	if !lineOk || !charOk {
+		return
+	}
+
+	// Pre-warm cache for adjacent lines (common LLM pattern)
+	adjacents := []struct{ lineOffset, charOffset int }{
+		{-1, 0}, {1, 0}, {0, -5}, {0, 5}, // Adjacent lines and characters
+	}
+
+	for _, adj := range adjacents {
+		if line+adj.lineOffset >= 0 && character+adj.charOffset >= 0 {
+			adjParams := make(map[string]interface{})
+			for k, v := range lspParams {
+				adjParams[k] = v
+			}
+			adjParams["position"] = map[string]interface{}{
+				"line":      line + adj.lineOffset,
+				"character": character + adj.charOffset,
+			}
+
+			// Fire and forget - cache warming
+			go func(params map[string]interface{}) {
+				m.lspManager.ProcessRequest(m.ctx, "textDocument/definition", params)
+			}(adjParams)
+		}
+	}
+}
+
+// normalizeSymbolQuery normalizes symbol queries for better cache hit rates
+func (m *MCPServer) normalizeSymbolQuery(query string) string {
+	// Simple normalization: trim whitespace, convert to lowercase for better cache hits
+	query = strings.TrimSpace(query)
+	query = strings.ToLower(query)
+	return query
+}
+
+// preWarmSymbolVariations pre-warms cache with common symbol query variations
+func (m *MCPServer) preWarmSymbolVariations(query string) {
+	// Skip cache warming if cache is not available
+	if m.scipCache == nil || len(query) < 2 {
+		return
+	}
+
+	// Common LLM patterns: prefixes and partial matches
+	variations := []string{
+		query[:len(query)/2], // Half query
+		query + "*",          // Wildcard
+	}
+
+	for _, variation := range variations {
+		if variation != query && len(variation) > 1 {
+			params := map[string]interface{}{"query": variation}
+			// Fire and forget - cache warming
+			go func(p map[string]interface{}) {
+				m.lspManager.ProcessRequest(m.ctx, "workspace/symbol", p)
+			}(params)
+		}
+	}
 }
 
 // RunMCPServer starts an MCP server with the specified configuration

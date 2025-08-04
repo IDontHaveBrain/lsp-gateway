@@ -227,9 +227,16 @@ test_repositories:
 
 # Test-optimized SCIP performance configuration
 performance_config:
-  # SCIP disabled for test simplicity and speed
+  # SCIP enabled for mandatory cache functionality
   scip:
-    enabled: false
+    enabled: true
+    index_path: ".scip"
+    batch_size: 500
+    memory_limit: "128MB"
+    timeout: "10s"
+    cache_ttl: "15m"
+    max_file_size_mb: 10
+    enable_compression: true
     
   # Test-focused caching
   cache:
