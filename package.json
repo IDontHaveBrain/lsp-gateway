@@ -10,6 +10,7 @@
     "mcp": "./bin/lsp-gateway mcp",
     "status": "./bin/lsp-gateway status",
     "test": "./bin/lsp-gateway test",
+    "version": "./bin/lsp-gateway version",
     "build": "make local",
     "clean": "make clean"
   },

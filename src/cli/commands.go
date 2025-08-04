@@ -15,6 +15,7 @@ import (
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/installer"
+	versionpkg "lsp-gateway/src/internal/version"
 	"lsp-gateway/src/server"
 )
 
@@ -300,12 +301,14 @@ const (
 	CmdStatus         = "status"
 	CmdTest           = "test"
 	CmdInstall        = "install"
+	CmdVersion        = "version"
 	FlagConfig        = "config"
 	FlagPort          = "port"
 	FlagForce         = "force"
 	FlagOffline       = "offline"
 	FlagVersion       = "version"
 	FlagInstallPath   = "install-path"
+	FlagVerbose       = "verbose"
 )
 
 // CLI Variables
@@ -316,6 +319,7 @@ var (
 	offline     bool
 	version     string
 	installPath string
+	verbose     bool
 )
 
 // Root command
@@ -414,6 +418,21 @@ var testCmd = &cobra.Command{
 	Short: "Test LSP server connections",
 	Long:  `Test connections to configured LSP servers.`,
 	RunE:  runTestCmd,
+}
+
+// Version command
+var versionCmd = &cobra.Command{
+	Use:   CmdVersion,
+	Short: "Show version information",
+	Long: `Display version information for LSP Gateway.
+
+By default, shows only the version number. Use --verbose for detailed build information
+including commit hash, build date, and Go version.
+
+Examples:
+  lsp-gateway version              # Show version number
+  lsp-gateway version --verbose    # Show detailed build information`,
+	RunE: runVersionCmd,
 }
 
 // Install command
@@ -541,6 +560,9 @@ func init() {
 	// Test command flags
 	testCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
 
+	// Version command flags
+	versionCmd.Flags().BoolVarP(&verbose, FlagVerbose, "v", false, "Show detailed version information")
+
 	// Install command flags
 	installCmd.PersistentFlags().BoolVarP(&force, FlagForce, "f", false, "Force reinstall even if already installed")
 	installCmd.PersistentFlags().BoolVar(&offline, FlagOffline, false, "Use offline/cached installers only")
@@ -562,6 +584,7 @@ func init() {
 	rootCmd.AddCommand(mcpCmd)
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(testCmd)
+	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(installCmd)
 }
 
@@ -594,6 +617,15 @@ func runStatusCmd(cmd *cobra.Command, args []string) error {
 
 func runTestCmd(cmd *cobra.Command, args []string) error {
 	return TestConnection(configPath)
+}
+
+func runVersionCmd(cmd *cobra.Command, args []string) error {
+	if verbose {
+		fmt.Println(versionpkg.GetFullVersionInfo())
+		return nil
+	}
+	fmt.Printf("lsp-gateway %s\n", versionpkg.GetVersion())
+	return nil
 }
 
 // Install functions

@@ -12,6 +12,7 @@ import (
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/project"
+	versionpkg "lsp-gateway/src/internal/version"
 )
 
 // MCPServer provides Model Context Protocol bridge to LSP functionality
@@ -171,7 +172,7 @@ func (m *MCPServer) handleInitialize(req *MCPRequest) *MCPResponse {
 			},
 			"serverInfo": map[string]interface{}{
 				"name":    "lsp-gateway-mcp",
-				"version": "2.0.0",
+				"version": versionpkg.GetVersion(),
 				"title":   "LSP Gateway MCP Server",
 			},
 			"_meta": map[string]interface{}{

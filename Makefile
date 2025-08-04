@@ -13,8 +13,11 @@ VERSION ?= $(shell if [ -f package.json ]; then node -p "require('./package.json
 BUILD_TIME := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
-# LD flags (simplified - no internal/version dependency)
-LDFLAGS := -s -w
+# LD flags - inject version information into the binary
+LDFLAGS := -s -w \
+	-X lsp-gateway/src/internal/version.Version=$(VERSION) \
+	-X lsp-gateway/src/internal/version.GitCommit=$(GIT_COMMIT) \
+	-X lsp-gateway/src/internal/version.BuildDate=$(BUILD_TIME)
 
 # Go parameters
 GOCMD := go
