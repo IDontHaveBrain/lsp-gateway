@@ -21,10 +21,10 @@ project_context:
 
 # Python server configuration
 servers:
-  - name: "pyright-server"
+  - name: "pylsp-server"
     languages: ["python"]
-    command: "pyright-langserver"
-    args: ["--stdio"]
+    command: "pylsp"
+    args: []
     transport: "stdio"
     priority: 3
     weight: 3.0
@@ -33,7 +33,7 @@ servers:
     server_startup_timeout: 20s
     request_timeout: 8s
     
-    # Pyright configuration for testing
+    # Pylsp configuration for testing
     settings: {}
             
     # Environment configuration

@@ -23,7 +23,7 @@ make local                    # Builds + creates global 'lsp-gateway' command
 
 # 2. Install language servers (choose what you need)
 go install golang.org/x/tools/gopls@latest                    # Go
-npm install -g pyright                                        # Python  
+pip install python-lsp-server                               # Python  
 npm install -g typescript-language-server typescript         # TypeScript/JS
 # Java: Install Eclipse JDT Language Server manually
 

@@ -105,7 +105,7 @@ func GetTestRepositories() map[string]*TestRepository {
 			CommitHash: "v0.31.3", // stable release tag (lightweight JavaScript functional library)
 			TestFiles: []TestFile{
 				{
-					Path:          "source/compose.js", // Pure JavaScript functional programming utilities
+					Path:          "source/compose.js",               // Pure JavaScript functional programming utilities
 					DefinitionPos: Position{Line: 23, Character: 23}, // export default compose function definition (Line 24, 0-based = 23)
 					ReferencePos:  Position{Line: 26, Character: 2},  // pipe function reference usage (Line 27, 0-based = 26)
 					HoverPos:      Position{Line: 23, Character: 28}, // compose function name

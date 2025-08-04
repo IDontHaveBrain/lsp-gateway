@@ -49,7 +49,7 @@ jobs:
         go install golang.org/x/tools/gopls@latest
         
         # Install Python LSP server
-        npm install -g pyright
+        pip install python-lsp-server
         
         # Install TypeScript/JavaScript LSP server
         npm install -g typescript-language-server typescript
@@ -66,7 +66,7 @@ jobs:
         # Verify installations
         echo "Checking LSP server installations..."
         gopls version || echo "gopls installation failed"
-        pyright --version || echo "pyright installation failed"
+        pylsp --version || echo "pylsp installation failed"
         typescript-language-server --version || echo "typescript-language-server installation failed"
         
         # Check Java installation

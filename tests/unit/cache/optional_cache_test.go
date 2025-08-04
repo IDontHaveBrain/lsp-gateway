@@ -37,12 +37,12 @@ func TestOptionalCacheIntegration(t *testing.T) {
 		{
 			name: "Cache enabled - should work with cache",
 			cacheConfig: &config.CacheConfig{
-				Enabled:      true,
-				MaxMemoryMB:  64,
-				TTLHours:     1,
-				StoragePath:  "/tmp/test-cache",
-				Languages:    []string{"go"},
-				DiskCache:    false,
+				Enabled:     true,
+				MaxMemoryMB: 64,
+				TTLHours:    1,
+				StoragePath: "/tmp/test-cache",
+				Languages:   []string{"go"},
+				DiskCache:   false,
 			},
 			expectCache: true,
 			description: "LSP manager should work with cache when properly configured",
@@ -155,12 +155,14 @@ func TestSimpleCacheCreation(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, simpleCache)
-				assert.True(t, simpleCache.IsEnabled())
 
 				// Verify cache can be started and stopped
 				ctx := context.Background()
 				err = simpleCache.Start(ctx)
 				assert.NoError(t, err)
+
+				// Check IsEnabled after starting
+				assert.True(t, simpleCache.IsEnabled())
 
 				err = simpleCache.Stop()
 				assert.NoError(t, err)
@@ -193,8 +195,8 @@ func TestCacheOptionalMethods(t *testing.T) {
 	metrics := manager.GetCacheMetrics()
 	assert.Nil(t, metrics, "GetCacheMetrics should return nil for nil cache")
 
-	cache := manager.GetCache()
-	assert.Nil(t, cache, "GetCache should return nil when no cache is configured")
+	currentCache := manager.GetCache()
+	assert.Nil(t, currentCache, "GetCache should return nil when no cache is configured")
 
 	// Test SetCache method for optional injection
 	simpleCache, err := cache.NewSimpleCache(64)

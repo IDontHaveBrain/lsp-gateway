@@ -36,7 +36,7 @@ func NewHttpClient(config HttpClientConfig) *HttpClient {
 		config.BaseURL = "http://localhost:8080"
 	}
 	if config.Timeout == 0 {
-		config.Timeout = 10 * time.Second
+		config.Timeout = 30 * time.Second
 	}
 	if config.MaxRetries == 0 {
 		config.MaxRetries = 3

@@ -10,8 +10,6 @@ func ValidateCommand(command string, args []string) error {
 	allowedCommands := map[string]bool{
 		"gopls":                      true,
 		"pyls":                       true,
-		"pyright-langserver":         true,
-		"pyright":                    true,
 		"typescript-language-server": true,
 		"tsserver":                   true,
 		"java":                       true,

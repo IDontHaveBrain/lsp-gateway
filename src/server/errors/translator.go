@@ -22,7 +22,7 @@ func (t *LSPErrorTranslator) TranslateAndLogError(serverName, line string, conte
 		hasWorkspaceSymbol := strings.Contains(strings.Join(context, " "), "workspace") ||
 			strings.Contains(strings.Join(context, " "), "symbol")
 
-		if hasWorkspaceSymbol || serverName == "pyright-langserver" {
+		if hasWorkspaceSymbol || serverName == "pylsp" {
 			common.LSPLogger.Warn("LSP %s: Server doesn't support workspace/symbol feature. %s",
 				serverName,
 				t.GetMethodSuggestion(serverName, "workspace/symbol"))
@@ -52,13 +52,13 @@ func (t *LSPErrorTranslator) TranslateAndLogError(serverName, line string, conte
 func (t *LSPErrorTranslator) GetMethodSuggestion(serverName, method string) string {
 	switch {
 	case serverName == "python" && method == "workspace/symbol":
-		return "Ensure 'pyright-langserver' is installed via 'npm install -g pyright' for better workspace symbol support."
+		return "Ensure 'pylsp' is installed via 'pip install python-lsp-server' for better workspace symbol support."
 	case serverName == "python" && strings.Contains(method, "semanticTokens"):
-		return "Ensure 'pyright-langserver' is installed via 'npm install -g pyright' for semantic token support."
-	case serverName == "pyright-langserver" && method == "workspace/symbol":
-		return "pyright-langserver doesn't support workspace/symbol. Install pyright with 'npm install -g pyright' and configure python server to use 'pyright-langserver --stdio'."
-	case serverName == "pyright-langserver" && strings.Contains(method, "semanticTokens"):
-		return "pyright-langserver has limited semantic token support. Install pyright with 'npm install -g pyright' for better semantic features."
+		return "Ensure 'pylsp' is installed via 'pip install python-lsp-server' for semantic token support."
+	case serverName == "pylsp" && method == "workspace/symbol":
+		return "pylsp supports workspace/symbol. Ensure 'pylsp' is installed via 'pip install python-lsp-server'."
+	case serverName == "pylsp" && strings.Contains(method, "semanticTokens"):
+		return "pylsp has semantic token support. Ensure 'pylsp' is installed via 'pip install python-lsp-server'.'"
 	default:
 		return "Check your LSP server documentation for supported features or consider alternative servers."
 	}

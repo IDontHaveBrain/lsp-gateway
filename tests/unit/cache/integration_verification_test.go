@@ -97,7 +97,7 @@ func TestOptionalCacheIntegrationVerification(t *testing.T) {
 
 		manager, err := server.NewLSPManager(cfg)
 		require.NoError(t, err, "Should create LSP manager")
-		
+
 		// Initially no cache
 		cacheInstance := manager.GetCache()
 		assert.Nil(t, cacheInstance, "Should have no cache initially")
@@ -105,7 +105,7 @@ func TestOptionalCacheIntegrationVerification(t *testing.T) {
 		// Inject cache
 		simpleCache, err := cache.NewSimpleCache(64)
 		require.NoError(t, err, "Should create simple cache for injection")
-		
+
 		manager.SetCache(simpleCache)
 		injectedCache := manager.GetCache()
 		assert.NotNil(t, injectedCache, "Should have cache after injection")

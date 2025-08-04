@@ -33,12 +33,12 @@ servers:
   # Primary test server with minimal configuration
   - name: "python-test-server"
     languages: ["python"]
-    command: "pyright-langserver"
-    args: ["--stdio"]
+    command: "pylsp"
+    args: []
     transport: "stdio"
     root_markers: ["patterns/", "*.py"]
     
-    # Pyright configuration for testing
+    # Pylsp configuration for testing
     settings: {}
             
     # Test environment settings
@@ -328,7 +328,7 @@ logging:
   
   # Component-specific logging
   components:
-    pyright: "info"
+    pylsp: "info"
     test_server: "debug"
     repo_manager: "info"
     performance: "info"

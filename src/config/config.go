@@ -35,15 +35,15 @@ type ServerConfig struct {
 
 // CacheConfig contains unified cache configuration settings with simple units
 type CacheConfig struct {
-	Enabled             bool     `yaml:"enabled"`                // Cache enabled by default
-	StoragePath         string   `yaml:"storage_path"`           // Cache storage directory  
-	MaxMemoryMB         int      `yaml:"max_memory_mb"`          // Memory limit in MB (simple units)
-	TTLHours            int      `yaml:"ttl_hours"`              // Cache TTL in hours (simple units)
-	Languages           []string `yaml:"languages"`              // Supported languages for caching
-	BackgroundIndex     bool     `yaml:"background_index"`       // Enable background indexing
-	HealthCheckMinutes  int      `yaml:"health_check_minutes"`   // Health check interval in minutes (simple units)
-	EvictionPolicy      string   `yaml:"eviction_policy"`        // Cache eviction policy (lru, simple)
-	DiskCache           bool     `yaml:"disk_cache"`             // Enable disk persistence
+	Enabled            bool     `yaml:"enabled"`              // Cache enabled by default
+	StoragePath        string   `yaml:"storage_path"`         // Cache storage directory
+	MaxMemoryMB        int      `yaml:"max_memory_mb"`        // Memory limit in MB (simple units)
+	TTLHours           int      `yaml:"ttl_hours"`            // Cache TTL in hours (simple units)
+	Languages          []string `yaml:"languages"`            // Supported languages for caching
+	BackgroundIndex    bool     `yaml:"background_index"`     // Enable background indexing
+	HealthCheckMinutes int      `yaml:"health_check_minutes"` // Health check interval in minutes (simple units)
+	EvictionPolicy     string   `yaml:"eviction_policy"`      // Cache eviction policy (lru, simple)
+	DiskCache          bool     `yaml:"disk_cache"`           // Enable disk persistence
 }
 
 // ExpandPath expands ~ to the user's home directory in file paths

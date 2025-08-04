@@ -87,7 +87,7 @@ with Model Context Protocol (MCP) server functionality for AI assistant integrat
 
 💡 SUPPORTED LANGUAGES:
   • Go (gopls) - Definition lookup, references, symbols, hover
-  • Python (pyright) - Code analysis, completion, diagnostics  
+  • Python (pylsp) - Code analysis, completion, diagnostics  
   • TypeScript/JavaScript (typescript-language-server) - Full language support
   • Java (jdtls) - Enterprise-grade Java development
 
@@ -196,7 +196,7 @@ For Java, it downloads and installs a complete JDK along with Eclipse JDT Langua
 Available commands:
   lsp-gateway install all           # Install all supported language servers
   lsp-gateway install go            # Install Go language server (gopls)
-  lsp-gateway install python        # Install Python language server (pyright)
+  lsp-gateway install python        # Install Python language server (pylsp)
   lsp-gateway install typescript    # Install TypeScript language server
   lsp-gateway install javascript    # Install JavaScript language server (same as TypeScript)
   lsp-gateway install java          # Install Java JDK + Eclipse JDT Language Server
@@ -268,7 +268,7 @@ var (
 	installPythonCmd = &cobra.Command{
 		Use:   "python",
 		Short: "Install Python language server",
-		Long:  `Install Python language server (pyright) using npm.`,
+		Long:  `Install Python language server (pylsp) using pip.`,
 		RunE:  runInstallPythonCmd,
 	}
 

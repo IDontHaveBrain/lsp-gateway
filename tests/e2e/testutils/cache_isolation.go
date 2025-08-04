@@ -476,7 +476,7 @@ func (m *CacheIsolationManager) GenerateIsolatedConfig(servers map[string]interf
 	configContent += "  enabled: true\n"
 	configContent += fmt.Sprintf("  storage_path: \"%s\"\n", m.cacheDir)
 	configContent += fmt.Sprintf("  max_memory_mb: %d\n", config.MaxCacheSize/(1024*1024))
-	
+
 	// Convert duration string to hours (simplified units)
 	ttlHours := 1 // Default to 1 hour
 	if config.TTL == "10m" {
@@ -485,10 +485,10 @@ func (m *CacheIsolationManager) GenerateIsolatedConfig(servers map[string]interf
 		ttlHours = 24
 	}
 	configContent += fmt.Sprintf("  ttl_hours: %d\n", ttlHours)
-	
+
 	configContent += "  languages: [\"go\", \"python\", \"typescript\", \"java\"]\n"
 	configContent += fmt.Sprintf("  background_index: %t\n", config.BackgroundIndexing)
-	
+
 	// Convert health check interval to minutes (simplified units)
 	healthMinutes := 1 // Default to 1 minute
 	if config.HealthCheckInterval == "1m" {

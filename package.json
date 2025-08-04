@@ -33,7 +33,7 @@
     "javascript", 
     "java",
     "gopls",
-    "pyright",
+    "pylsp",
     "jdtls",
     "mcp",
     "model-context-protocol",

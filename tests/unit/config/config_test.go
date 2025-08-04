@@ -2,7 +2,6 @@ package config_test
 
 import (
 	"testing"
-	"time"
 
 	"lsp-gateway/src/config"
 )

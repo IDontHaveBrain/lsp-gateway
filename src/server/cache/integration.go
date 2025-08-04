@@ -42,8 +42,8 @@ func (c *SimpleCacheIntegration) IsEnabled() bool {
 // GetStatus - DEPRECATED: Returns minimal status (detailed metrics moved to LSPManager)
 func (c *SimpleCacheIntegration) GetStatus() map[string]interface{} {
 	return map[string]interface{}{
-		"status":     "deprecated",
-		"message":    "Use LSPManager cache methods instead",
-		"migration":  "Replace with direct LSPManager.SetCache() usage",
+		"status":    "deprecated",
+		"message":   "Use LSPManager cache methods instead",
+		"migration": "Replace with direct LSPManager.SetCache() usage",
 	}
 }

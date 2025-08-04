@@ -13,16 +13,16 @@ type SimpleCache interface {
 	Lookup(method string, params interface{}) (interface{}, bool, error)
 	Store(method string, params interface{}, response interface{}) error
 	InvalidateDocument(uri string) error
-	
+
 	// Lifecycle management
 	Start(ctx context.Context) error
 	Stop() error
-	
+
 	// Status and metrics
 	GetMetrics() *CacheMetrics
 	HealthCheck() (*CacheMetrics, error)
 	IsEnabled() bool
-	
+
 	// Compatibility methods for SCIPCache interface - use proper config type
 	Initialize(config *config.CacheConfig) error
 }
@@ -98,12 +98,12 @@ func ExampleSimpleCache() SimpleCache {
 func ExampleOptionalCacheInjection(lspManager interface{ SetCache(cache SCIPCache) }) {
 	// Create cache with graceful degradation
 	cache := ExampleSimpleCache()
-	
+
 	// Inject cache (can be nil) - SimpleCache implements SCIPCache now
 	if cache != nil {
 		lspManager.SetCache(cache)
 	}
-	
+
 	// LSP manager now works with or without cache
 }
 
@@ -111,10 +111,10 @@ func ExampleOptionalCacheInjection(lspManager interface{ SetCache(cache SCIPCach
 func ExampleDirectIntegration() {
 	// Create cache
 	cache := ExampleSimpleCache()
-	
+
 	// Create direct integration
 	integration := NewDirectCacheIntegration(cache)
-	
+
 	// Use with LSP fallback
 	result, err := integration.ProcessRequest(
 		context.Background(),
@@ -125,7 +125,7 @@ func ExampleDirectIntegration() {
 			return "definition result", nil
 		},
 	)
-	
+
 	_ = result
 	_ = err
 }

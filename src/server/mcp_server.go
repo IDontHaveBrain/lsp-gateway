@@ -72,10 +72,10 @@ func NewMCPServerWithMode(cfg *config.Config, mode types.MCPMode) (*MCPServer, e
 	if !cfg.IsCacheEnabled() {
 		cfg.EnableCache()
 		// Override with MCP-optimized cache settings
-		cfg.Cache.MaxMemoryMB = 512          // Increased memory for LLM workloads
-		cfg.Cache.TTLHours = 1               // 1 hour TTL for stable symbols
-		cfg.Cache.BackgroundIndex = true     // Always enable background indexing
-		cfg.Cache.HealthCheckMinutes = 2     // More frequent health checks (every 2 minutes)
+		cfg.Cache.MaxMemoryMB = 512      // Increased memory for LLM workloads
+		cfg.Cache.TTLHours = 1           // 1 hour TTL for stable symbols
+		cfg.Cache.BackgroundIndex = true // Always enable background indexing
+		cfg.Cache.HealthCheckMinutes = 2 // More frequent health checks (every 2 minutes)
 		// Optimize for all supported languages
 		cfg.Cache.Languages = []string{"go", "python", "javascript", "typescript", "java"}
 		common.LSPLogger.Info("MCP server: Enabled mandatory SCIP cache with LLM-optimized settings")

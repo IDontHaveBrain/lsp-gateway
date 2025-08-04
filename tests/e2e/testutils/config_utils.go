@@ -47,8 +47,8 @@ func GetMultiLanguageTestConfig() string {
     working_dir: ""
     initialization_options: {}
   python:
-    command: "pyright-langserver"
-    args: ["--stdio"]
+    command: "pylsp"
+    args: []
     working_dir: ""
     initialization_options: {}
   javascript:
