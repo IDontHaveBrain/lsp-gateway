@@ -1,4 +1,4 @@
-name: Release (Modern)
+name: Release
 
 on:
   push:
@@ -31,6 +31,18 @@ jobs:
         echo "tag=$TAG" >> $GITHUB_OUTPUT
         echo "version=$VERSION" >> $GITHUB_OUTPUT
         echo "Tag: $TAG, Version: $VERSION"
+
+    - name: Debug directory structure
+      run: |
+        echo "Current working directory: $(pwd)"
+        echo "Directory contents:"
+        ls -la
+        echo "src directory contents:"
+        ls -la src/ 2>/dev/null || echo "src directory not found"
+        echo "src/cmd directory contents:"
+        ls -la src/cmd/ 2>/dev/null || echo "src/cmd directory not found"
+        echo "src/cmd/lsp-gateway directory contents:"
+        ls -la src/cmd/lsp-gateway/ 2>/dev/null || echo "src/cmd/lsp-gateway directory not found"
 
     - name: Build multi-platform binaries
       run: |

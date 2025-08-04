@@ -3,7 +3,7 @@
 
 # Configuration
 BINARY_NAME := lsp-gateway
-MAIN_PATH := src/cmd/lsp-gateway/main.go
+MAIN_PATH := lsp-gateway/src/cmd/lsp-gateway
 BUILD_DIR := bin
 
 # Extract version from package.json if available, fallback to 'dev'
