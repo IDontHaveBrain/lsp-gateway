@@ -1,42 +1,69 @@
 {
-  "name": "lsp-gateway",
+  "name": "lsp-gateway", 
   "version": "0.0.1",
   "description": "Local LSP gateway for development - HTTP JSON-RPC and MCP server for 4 languages",
+  "main": "lib/index.js",
   "bin": {
-    "lsp-gateway": "bin/lsp-gateway"
+    "lsp-gateway": "bin/lsp-gateway.js"
   },
   "scripts": {
-    "server": "./bin/lsp-gateway server",
-    "mcp": "./bin/lsp-gateway mcp",
-    "status": "./bin/lsp-gateway status",
-    "test": "./bin/lsp-gateway test",
-    "version": "./bin/lsp-gateway version",
+    "server": "node bin/lsp-gateway.js server",
+    "mcp": "node bin/lsp-gateway.js mcp", 
+    "status": "node bin/lsp-gateway.js status",
+    "test": "node bin/lsp-gateway.js test",
+    "version": "node bin/lsp-gateway.js version",
     "build": "make local",
-    "clean": "make clean"
+    "clean": "make clean",
+    "postinstall": "node lib/installer.js || node -e \"console.log('Binary setup will be handled on first run')\""
   },
   "keywords": [
     "lsp",
     "language-server",
+    "language-server-protocol",
     "gateway",
     "local-development",
-    "go",
+    "development-tools",
+    "go", 
     "python",
     "typescript",
-    "javascript",
+    "javascript", 
     "java",
     "gopls",
     "pyright",
-    "jdtls"
+    "jdtls",
+    "mcp",
+    "model-context-protocol",
+    "ai-tools",
+    "ide-integration"
   ],
   "author": "LSP Gateway Team",
   "license": "MIT",
+  "homepage": "https://github.com/IDontHaveBrain/lsp-gateway#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IDontHaveBrain/lsp-gateway.git"
+  },
+  "bugs": {
+    "url": "https://github.com/IDontHaveBrain/lsp-gateway/issues"
+  },
   "engines": {
     "node": ">=18.0.0"
   },
+  "os": [
+    "darwin",
+    "linux", 
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
   "files": [
     "bin/",
+    "lib/",
     "config.yaml",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "dependencies": {},
   "devDependencies": {},

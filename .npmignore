@@ -1,26 +1,28 @@
-# Build and development files
-/cmd/
-/internal/
-/scripts/
-Makefile
+# Go source code and build files
+src/
 *.go
 go.mod
 go.sum
-lsp-gateway
+Makefile
 
-# Test files
+# Development and build scripts
+scripts/
+install.sh
+/build/
+/cmd/
+/internal/
+
+# Test files and directories
+tests/
+test-*
 *_test.go
-test_*.sh
+*.test
+test-repositories/
+worktrees/
+
+# Documentation (keep only README.md and config.yaml)
 *.md
-todo.md
-
-# Development files
-.git/
-.gitignore
-.vscode/
-.idea/
-
-# Documentation (keep only essential README)
+!README.md
 ARCHITECTURE_REDESIGN.md
 IMPLEMENTATION_PLAN.md
 MVP_SPECIFICATION.md
@@ -28,14 +30,50 @@ JAVA_LSP_TESTING_SUMMARY.md
 JAVA_LSP_TEST_REPORT.md
 CLAUDE.md
 
-# Temporary files
+# Development files
+.git/
+.github/
+.gitignore
+.vscode/
+.idea/
+
+# Configuration files (except default config)
+*.yaml
+*.yml
+!config.yaml
+test-config*.yaml
+simple-config.yaml
+
+# Temporary and log files
 *.tmp
 *.log
+*.pid
+*.out
+health-check.log
+health-alerts.log
+maintenance-automation.log
+
+# Node.js files (keep lib/ but exclude development files)
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+package-lock.json
 
 # OS files
 .DS_Store
 Thumbs.db
+
+# Coverage and reports
+coverage/
+*.html
+performance-results/
+test-results/
+
+# Maintenance and backup files
+.maintenance-backups/
+*.tar.gz
+
+# Runtime files
+lsp-gateway
+lsp-gateway.exe
