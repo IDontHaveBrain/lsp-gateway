@@ -1,48 +1,50 @@
-package config
+package config_test
 
 import (
 	"testing"
 	"time"
+
+	"lsp-gateway/src/config"
 )
 
 func TestGetDefaultConfig_CacheEnabledByDefault(t *testing.T) {
-	config := GetDefaultConfig()
+	cfg := config.GetDefaultConfig()
 
 	// Verify cache is not nil
-	if config.Cache == nil {
+	if cfg.Cache == nil {
 		t.Fatal("Expected cache to be included by default, but it was nil")
 	}
 
 	// Verify cache is enabled by default
-	if !config.Cache.Enabled {
+	if !cfg.Cache.Enabled {
 		t.Error("Expected cache to be enabled by default, but it was disabled")
 	}
 
 	// Verify default cache settings
 	expectedStoragePath := ".lsp-gateway/scip-cache"
-	if !containsPath(config.Cache.StoragePath, expectedStoragePath) {
-		t.Errorf("Expected storage path to contain %s, got %s", expectedStoragePath, config.Cache.StoragePath)
+	if !containsPath(cfg.Cache.StoragePath, expectedStoragePath) {
+		t.Errorf("Expected storage path to contain %s, got %s", expectedStoragePath, cfg.Cache.StoragePath)
 	}
 
-	if config.Cache.MaxMemoryMB != 256 {
-		t.Errorf("Expected max memory to be 256MB, got %d", config.Cache.MaxMemoryMB)
+	if cfg.Cache.MaxMemoryMB != 256 {
+		t.Errorf("Expected max memory to be 256MB, got %d", cfg.Cache.MaxMemoryMB)
 	}
 
-	if config.Cache.TTL != 24*time.Hour {
-		t.Errorf("Expected TTL to be 24 hours, got %v", config.Cache.TTL)
+	if cfg.Cache.TTL != 24*time.Hour {
+		t.Errorf("Expected TTL to be 24 hours, got %v", cfg.Cache.TTL)
 	}
 
-	if !config.Cache.BackgroundIndex {
+	if !cfg.Cache.BackgroundIndex {
 		t.Error("Expected background index to be enabled by default")
 	}
 
-	if config.Cache.HealthCheckInterval != 5*time.Minute {
-		t.Errorf("Expected health check interval to be 5 minutes, got %v", config.Cache.HealthCheckInterval)
+	if cfg.Cache.HealthCheckInterval != 5*time.Minute {
+		t.Errorf("Expected health check interval to be 5 minutes, got %v", cfg.Cache.HealthCheckInterval)
 	}
 }
 
 func TestGetDefaultSCIPConfig_EnabledByDefault(t *testing.T) {
-	scipConfig := GetDefaultSCIPConfig()
+	scipConfig := config.GetDefaultSCIPConfig()
 
 	if !scipConfig.Enabled {
 		t.Error("Expected SCIP config to be enabled by default")
@@ -69,44 +71,44 @@ func TestGetDefaultSCIPConfig_EnabledByDefault(t *testing.T) {
 }
 
 func TestConfig_IsCacheEnabled(t *testing.T) {
-	config := GetDefaultConfig()
+	cfg := config.GetDefaultConfig()
 
 	// Should be enabled by default now
-	if !config.IsCacheEnabled() {
+	if !cfg.IsCacheEnabled() {
 		t.Error("Expected IsCacheEnabled() to return true for default config")
 	}
 
 	// Test with disabled cache
-	config.Cache.Enabled = false
-	if config.IsCacheEnabled() {
+	cfg.Cache.Enabled = false
+	if cfg.IsCacheEnabled() {
 		t.Error("Expected IsCacheEnabled() to return false when cache is disabled")
 	}
 
 	// Test with nil cache
-	config.Cache = nil
-	if config.IsCacheEnabled() {
+	cfg.Cache = nil
+	if cfg.IsCacheEnabled() {
 		t.Error("Expected IsCacheEnabled() to return false when cache is nil")
 	}
 }
 
 func TestConfig_HasCache(t *testing.T) {
-	config := GetDefaultConfig()
+	cfg := config.GetDefaultConfig()
 
 	// Should have cache by default now
-	if !config.HasCache() {
+	if !cfg.HasCache() {
 		t.Error("Expected HasCache() to return true for default config")
 	}
 
 	// Test with nil cache
-	config.Cache = nil
-	if config.HasCache() {
+	cfg.Cache = nil
+	if cfg.HasCache() {
 		t.Error("Expected HasCache() to return false when cache is nil")
 	}
 }
 
 func TestGetDefaultConfigWithCache_ReturnsDefaultConfig(t *testing.T) {
-	defaultConfig := GetDefaultConfig()
-	cacheConfig := GetDefaultConfigWithCache()
+	defaultConfig := config.GetDefaultConfig()
+	cacheConfig := config.GetDefaultConfigWithCache()
 
 	// Since GetDefaultConfig() now includes cache, these should be equivalent
 	if defaultConfig.Cache == nil || cacheConfig.Cache == nil {
