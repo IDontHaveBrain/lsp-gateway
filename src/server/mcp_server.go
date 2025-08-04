@@ -6,18 +6,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"time"
 
 	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/project"
 )
 
 // MCPServer provides Model Context Protocol bridge to LSP functionality
 type MCPServer struct {
 	lspManager *LSPManager
-	logger     *log.Logger
 	ctx        context.Context
 	cancel     context.CancelFunc
 }
@@ -66,7 +65,6 @@ func NewMCPServer(cfg *config.Config) (*MCPServer, error) {
 
 	return &MCPServer{
 		lspManager: lspManager,
-		logger:     log.New(os.Stderr, "[MCP] ", log.LstdFlags),
 		ctx:        ctx,
 		cancel:     cancel,
 	}, nil
@@ -109,7 +107,7 @@ func (m *MCPServer) Run(input io.Reader, output io.Writer) error {
 
 		var req MCPRequest
 		if err := json.Unmarshal([]byte(line), &req); err != nil {
-			m.logger.Printf("decode error: %v", err)
+			common.LSPLogger.Error("decode error: %v", err)
 			continue
 		}
 
@@ -118,13 +116,13 @@ func (m *MCPServer) Run(input io.Reader, output io.Writer) error {
 		// Encode response as single line JSON (no embedded newlines)
 		responseBytes, err := json.Marshal(response)
 		if err != nil {
-			m.logger.Printf("encode error: %v", err)
+			common.LSPLogger.Error("encode error: %v", err)
 			continue
 		}
 
 		// Write response followed by newline as required by spec
 		if _, err := fmt.Fprintf(output, "%s\n", string(responseBytes)); err != nil {
-			m.logger.Printf("write error: %v", err)
+			common.LSPLogger.Error("write error: %v", err)
 			continue
 		}
 	}
@@ -619,7 +617,7 @@ func RunMCPServer(configPath string) error {
 	if configPath != "" {
 		loadedConfig, err := config.LoadConfig(configPath)
 		if err != nil {
-			log.Printf("Warning: Failed to load config from %s, using defaults: %v", configPath, err)
+			common.LSPLogger.Warn("Failed to load config from %s, using defaults: %v", configPath, err)
 			cfg = config.GetDefaultConfig()
 		} else {
 			cfg = loadedConfig
@@ -628,20 +626,20 @@ func RunMCPServer(configPath string) error {
 		// Auto-detect languages in current directory
 		wd, err := os.Getwd()
 		if err != nil {
-			log.Printf("Warning: Failed to get working directory, using defaults: %v", err)
+			common.LSPLogger.Warn("Failed to get working directory, using defaults: %v", err)
 			cfg = config.GetDefaultConfig()
 		} else {
-			log.Printf("🔍 Auto-detecting languages in: %s", wd)
+			common.LSPLogger.Info("Auto-detecting languages in: %s", wd)
 			cfg = config.GenerateAutoConfig(wd, project.GetAvailableLanguages)
 			if cfg == nil || len(cfg.Servers) == 0 {
-				log.Printf("Warning: No languages detected or LSP servers unavailable, using defaults")
+				common.LSPLogger.Warn("No languages detected or LSP servers unavailable, using defaults")
 				cfg = config.GetDefaultConfig()
 			} else {
 				languages := make([]string, 0, len(cfg.Servers))
 				for lang := range cfg.Servers {
 					languages = append(languages, lang)
 				}
-				log.Printf("✅ Auto-detected languages: %v", languages)
+				common.LSPLogger.Info("Auto-detected languages: %v", languages)
 			}
 		}
 	}
@@ -651,10 +649,10 @@ func RunMCPServer(configPath string) error {
 		return fmt.Errorf("failed to create MCP server: %w", err)
 	}
 
-	log.Printf("🚀 MCP Server started")
-	log.Printf("📡 Available LSP tools: goto_definition, find_references, get_hover_info, get_document_symbols, search_workspace_symbols, get_completion")
-	log.Printf("🔗 Protocol: Model Context Protocol v2025-06-18 (STDIO)")
-	log.Printf("🔧 Enhanced with: JSON-RPC 2.0 compliance, input validation, structured output")
+	common.LSPLogger.Info("MCP Server started")
+	common.LSPLogger.Info("Available LSP tools: goto_definition, find_references, get_hover_info, get_document_symbols, search_workspace_symbols, get_completion")
+	common.LSPLogger.Info("Protocol: Model Context Protocol v2025-06-18 (STDIO)")
+	common.LSPLogger.Info("Enhanced with: JSON-RPC 2.0 compliance, input validation, structured output")
 
 	return server.Run(os.Stdin, os.Stdout)
 }

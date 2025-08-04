@@ -15,13 +15,13 @@ type JavaRealClientComprehensiveE2ETestSuite struct {
 
 // SetupSuite initializes the test suite for Java
 func (suite *JavaRealClientComprehensiveE2ETestSuite) SetupSuite() {
-	// Initialize with Java configuration
-	suite.ComprehensiveTestBaseSuite = *base.NewComprehensiveTestSuite(base.LanguageConfig{
+	// Initialize language configuration
+	suite.Config = base.LanguageConfig{
 		Language:      "java",
 		DisplayName:   "Java",
-		HasRepoMgmt:   false,
+		HasRepoMgmt:   true,
 		HasAllLSPTest: true,
-	})
+	}
 
 	// Call base setup
 	suite.ComprehensiveTestBaseSuite.SetupSuite()

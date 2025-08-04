@@ -15,8 +15,8 @@ servers:
 
   # Python Language Server  
   python:
-    command: "pylsp"
-    args: []
+    command: "pyright-langserver"
+    args: ["--stdio"]
     working_dir: ""
     initialization_options: {}
 
@@ -53,7 +53,7 @@ servers:
 # 2. Server Commands:
 #    - Ensure language servers are installed on your system
 #    - gopls: go install golang.org/x/tools/gopls@latest
-#    - pylsp: pip install python-lsp-server
+#    - pyright: npm install -g pyright
 #    - typescript-language-server: npm install -g typescript-language-server typescript
 #    - jdtls: Download from Eclipse JDT LS releases
 #

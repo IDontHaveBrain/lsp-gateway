@@ -1,7 +1,7 @@
 workspace:
   workspace_id: ws_1754129070
   name: e2e
-  root_path: /home/skawn/work/lsp-gateway/tests/e2e
+  root_path: ~/work/lsp-gateway/tests/e2e
   project_type: ""
   languages:
   - go
@@ -21,11 +21,11 @@ sub_projects:
 - id: java_17e332b4_1754129070
   name: fixtures-multi_project_workspace-java-backend
   relative_path: fixtures/multi_project_workspace/java-backend
-  absolute_path: /home/skawn/work/lsp-gateway/tests/e2e/fixtures/multi_project_workspace/java-backend
+  absolute_path: ~/work/lsp-gateway/tests/e2e/fixtures/multi_project_workspace/java-backend
   project_type: java
   languages:
   - java
-  workspace_folder: /home/skawn/work/lsp-gateway/tests/e2e/fixtures/multi_project_workspace/java-backend
+  workspace_folder: ~/work/lsp-gateway/tests/e2e/fixtures/multi_project_workspace/java-backend
   resource_quota:
     max_memory_mb: 768
     max_concurrency: 10
@@ -33,11 +33,11 @@ sub_projects:
 - id: python_b3e148d4_1754129070
   name: fixtures-multi_project_workspace-python-api
   relative_path: fixtures/multi_project_workspace/python-api
-  absolute_path: /home/skawn/work/lsp-gateway/tests/e2e/fixtures/multi_project_workspace/python-api
+  absolute_path: ~/work/lsp-gateway/tests/e2e/fixtures/multi_project_workspace/python-api
   project_type: python
   languages:
   - python
-  workspace_folder: /home/skawn/work/lsp-gateway/tests/e2e/fixtures/multi_project_workspace/python-api
+  workspace_folder: ~/work/lsp-gateway/tests/e2e/fixtures/multi_project_workspace/python-api
   resource_quota:
     max_memory_mb: 256
     max_concurrency: 4
@@ -45,11 +45,11 @@ sub_projects:
 - id: java_9506709f_1754129070
   name: fixtures-java-project
   relative_path: fixtures/java-project
-  absolute_path: /home/skawn/work/lsp-gateway/tests/e2e/fixtures/java-project
+  absolute_path: ~/work/lsp-gateway/tests/e2e/fixtures/java-project
   project_type: java
   languages:
   - java
-  workspace_folder: /home/skawn/work/lsp-gateway/tests/e2e/fixtures/java-project
+  workspace_folder: ~/work/lsp-gateway/tests/e2e/fixtures/java-project
   resource_quota:
     max_memory_mb: 768
     max_concurrency: 10
@@ -57,12 +57,12 @@ sub_projects:
 - id: mixed_2ace8ef0_1754129070
   name: fixtures-multi_project_workspace-frontend
   relative_path: fixtures/multi_project_workspace/frontend
-  absolute_path: /home/skawn/work/lsp-gateway/tests/e2e/fixtures/multi_project_workspace/frontend
+  absolute_path: ~/work/lsp-gateway/tests/e2e/fixtures/multi_project_workspace/frontend
   project_type: mixed
   languages:
   - nodejs
   - typescript
-  workspace_folder: /home/skawn/work/lsp-gateway/tests/e2e/fixtures/multi_project_workspace/frontend
+  workspace_folder: ~/work/lsp-gateway/tests/e2e/fixtures/multi_project_workspace/frontend
   resource_quota:
     max_memory_mb: 256
     max_concurrency: 4
@@ -70,11 +70,11 @@ sub_projects:
 - id: go_bc1ab73c_1754129070
   name: fixtures-multi_project_workspace-go-service
   relative_path: fixtures/multi_project_workspace/go-service
-  absolute_path: /home/skawn/work/lsp-gateway/tests/e2e/fixtures/multi_project_workspace/go-service
+  absolute_path: ~/work/lsp-gateway/tests/e2e/fixtures/multi_project_workspace/go-service
   project_type: go
   languages:
   - go
-  workspace_folder: /home/skawn/work/lsp-gateway/tests/e2e/fixtures/multi_project_workspace/go-service
+  workspace_folder: ~/work/lsp-gateway/tests/e2e/fixtures/multi_project_workspace/go-service
   resource_quota:
     max_memory_mb: 512
     max_concurrency: 8
@@ -84,7 +84,7 @@ servers:
     name: gopls-lsp
     languages:
     - go
-    command: /home/skawn/go/bin/gopls
+    command: ~/go/bin/gopls
     args: []
     transport: stdio
     workspace_roots:
@@ -213,14 +213,14 @@ cache:
     max_size: 50
 logging:
   level: info
-  output_file: /home/skawn/work/lsp-gateway/tests/e2e/.lsp-gateway/logs/workspace.log
+  output_file: ~/work/lsp-gateway/tests/e2e/.lsp-gateway/logs/workspace.log
   max_size_mb: 10
   max_backups: 3
   max_age_days: 7
 directories:
-  root: /home/skawn/work/lsp-gateway/tests/e2e/.lsp-gateway
-  config: /home/skawn/work/lsp-gateway/tests/e2e/.lsp-gateway
-  cache: /home/skawn/work/lsp-gateway/tests/e2e/.lsp-gateway/cache
-  logs: /home/skawn/work/lsp-gateway/tests/e2e/.lsp-gateway/logs
-  index: /home/skawn/work/lsp-gateway/tests/e2e/.lsp-gateway/index
-  state: /home/skawn/work/lsp-gateway/tests/e2e/.lsp-gateway/state.json
+  root: ~/work/lsp-gateway/tests/e2e/.lsp-gateway
+  config: ~/work/lsp-gateway/tests/e2e/.lsp-gateway
+  cache: ~/work/lsp-gateway/tests/e2e/.lsp-gateway/cache
+  logs: ~/work/lsp-gateway/tests/e2e/.lsp-gateway/logs
+  index: ~/work/lsp-gateway/tests/e2e/.lsp-gateway/index
+  state: ~/work/lsp-gateway/tests/e2e/.lsp-gateway/state.json

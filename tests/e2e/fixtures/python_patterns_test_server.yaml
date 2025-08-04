@@ -33,62 +33,13 @@ servers:
   # Primary test server with minimal configuration
   - name: "python-test-server"
     languages: ["python"]
-    command: "pylsp"
+    command: "pyright-langserver"
+    args: ["--stdio"]
     transport: "stdio"
     root_markers: ["patterns/", "*.py"]
     
-    # Test-focused settings
-    settings:
-      pylsp:
-        plugins:
-          # Essential LSP features only
-          jedi_completion:
-            enabled: true
-            include_params: true
-            include_class_objects: true
-            include_function_objects: false  # Simplified
-            fuzzy: false  # Predictable results
-            eager: false  # Faster startup
-            resolve_at_most: 10
-            
-          jedi_definition:
-            enabled: true
-            follow_imports: true
-            follow_builtin_imports: false
-            
-          jedi_hover:
-            enabled: true
-            
-          jedi_references:
-            enabled: true
-            
-          jedi_symbols:
-            enabled: true
-            all_scopes: false  # Simplified scope
-            include_import_symbols: false
-            
-          # Minimal linting for test consistency
-          pycodestyle:
-            enabled: true
-            ignore: ["E501", "W503", "E203", "E731", "W605", "E402"]
-            maxLineLength: 120
-            
-          pyflakes:
-            enabled: true
-            
-          # All other plugins disabled for test speed
-          pylint:
-            enabled: false
-          mypy:
-            enabled: false
-          black:
-            enabled: false
-          isort:
-            enabled: false
-          pydocstyle:
-            enabled: false
-          mccabe:
-            enabled: false
+    # Pyright configuration for testing
+    settings: {}
             
     # Test environment settings
     environment:
@@ -377,7 +328,7 @@ logging:
   
   # Component-specific logging
   components:
-    pylsp: "info"
+    pyright: "info"
     test_server: "debug"
     repo_manager: "info"
     performance: "info"

@@ -9,16 +9,31 @@ import (
 func ValidateCommand(command string, args []string) error {
 	allowedCommands := map[string]bool{
 		"gopls":                      true,
-		"pylsp":                      true,
 		"pyls":                       true,
+		"pyright-langserver":         true,
+		"pyright":                    true,
 		"typescript-language-server": true,
 		"tsserver":                   true,
 		"java":                       true,
 		"node":                       true,
 		"python":                     true,
 		"python3":                    true,
+		"pylsp":                      true,
 		"jdtls":                      true,
 		"jdtls.py":                   true,
+		// Installation tools
+		"go":      true,
+		"npm":     true,
+		"npx":     true,
+		"pip":     true,
+		"pip3":    true,
+		"curl":    true,
+		"wget":    true,
+		"tar":     true,
+		"unzip":   true,
+		"apt-get": true,
+		"brew":    true,
+		"echo":    true,
 	}
 
 	baseName := filepath.Base(command)

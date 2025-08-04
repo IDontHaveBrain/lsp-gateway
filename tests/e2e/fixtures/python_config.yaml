@@ -21,9 +21,10 @@ project_context:
 
 # Python server configuration
 servers:
-  - name: "pylsp-server"
+  - name: "pyright-server"
     languages: ["python"]
-    command: "pylsp"
+    command: "pyright-langserver"
+    args: ["--stdio"]
     transport: "stdio"
     priority: 3
     weight: 3.0
@@ -32,58 +33,8 @@ servers:
     server_startup_timeout: 20s
     request_timeout: 8s
     
-    # Essential pylsp configuration for testing
-    settings:
-      pylsp:
-        plugins:
-          # Core LSP features
-          jedi_completion:
-            enabled: true
-            include_params: true
-            include_class_objects: true
-            include_function_objects: true
-            fuzzy: false
-            eager: false
-            resolve_at_most: 15
-            
-          jedi_definition:
-            enabled: true
-            follow_imports: true
-            follow_builtin_imports: false
-            
-          jedi_hover:
-            enabled: true
-            
-          jedi_references:
-            enabled: true
-            
-          jedi_symbols:
-            enabled: true
-            all_scopes: false
-            include_import_symbols: false
-            
-          # Basic linting
-          pycodestyle:
-            enabled: true
-            ignore: ["E501", "W503", "E203", "E731", "W605", "E402"]
-            maxLineLength: 120
-            
-          pyflakes:
-            enabled: true
-            
-          # Disable heavy plugins for testing
-          pylint:
-            enabled: false
-          mypy:
-            enabled: false
-          black:
-            enabled: false
-          isort:
-            enabled: false
-          pydocstyle:
-            enabled: false
-          mccabe:
-            enabled: false
+    # Pyright configuration for testing
+    settings: {}
             
     # Environment configuration
     environment:

@@ -11,8 +11,8 @@ servers:
 
   # Python Language Server  
   python:
-    command: "pylsp"
-    args: []
+    command: "pyright-langserver"
+    args: ["--stdio"]
     working_dir: ""
     initialization_options: {}
 

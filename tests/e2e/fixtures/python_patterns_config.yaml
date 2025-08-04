@@ -23,69 +23,22 @@ project_context:
 # Python language server pool optimized for testing
 language_pools:
   - language: "python"
-    default_server: "pylsp-test"
+    default_server: "pyright-test"
     servers:
       # Primary test server with essential features
-      pylsp-test:
-        name: "pylsp-test"
+      pyright-test:
+        name: "pyright-test"
         languages: ["python"]
-        command: "pylsp"
+        command: "pyright-langserver"
+        args: ["--stdio"]
         transport: "stdio"
         priority: 3
         weight: 3.0
         max_concurrent_requests: 30
         root_markers: ["patterns/", "*.py"]
         
-        # Test-optimized pylsp configuration
-        settings:
-          pylsp:
-            plugins:
-              # Core LSP features for testing
-              jedi_completion:
-                enabled: true
-                include_params: true
-                include_class_objects: true
-                include_function_objects: true
-                fuzzy: false  # Disabled for predictable testing
-                eager: false  # Faster startup
-                resolve_at_most: 15
-                
-              jedi_definition:
-                enabled: true
-                follow_imports: true
-                follow_builtin_imports: false  # Faster for tests
-                
-              jedi_hover:
-                enabled: true
-                
-              jedi_references:
-                enabled: true
-                
-              jedi_symbols:
-                enabled: true
-                all_scopes: true
-                include_import_symbols: false  # Simplified for tests
-                
-              # Minimal linting for test stability
-              pycodestyle:
-                enabled: true
-                ignore: ["E501", "W503", "E203", "E731", "W605"]  # Relaxed for pattern examples
-                maxLineLength: 120
-                
-              pyflakes:
-                enabled: true
-                
-              # Disable heavy plugins for test performance
-              pylint:
-                enabled: false
-              mypy:
-                enabled: false
-              black:
-                enabled: false
-              isort:
-                enabled: false
-              pydocstyle:
-                enabled: false
+        # Pyright configuration for testing
+        settings: {}
                 
         # Test environment
         environment:
@@ -94,11 +47,11 @@ language_pools:
           PYTHONUNBUFFERED: "1"
           
       # Fallback server for error scenarios
-      pylsp-fallback:
-        name: "pylsp-fallback"
+      pyright-fallback:
+        name: "pyright-fallback"
         languages: ["python"]
-        command: "pylsp"
-        args: ["--check-parent-process"]
+        command: "pyright-langserver"
+        args: ["--stdio"]
         transport: "stdio"
         priority: 1
         weight: 1.0
@@ -106,20 +59,7 @@ language_pools:
         root_markers: ["*.py"]
         
         # Minimal configuration for fallback
-        settings:
-          pylsp:
-            plugins:
-              jedi_completion:
-                enabled: true
-                resolve_at_most: 5
-              jedi_definition:
-                enabled: true
-              jedi_hover:
-                enabled: true
-              pycodestyle:
-                enabled: false
-              pyflakes:
-                enabled: false
+        settings: {}
                 
         environment:
           PYTHONPATH: "${workspaceFolder}"
@@ -129,8 +69,8 @@ language_pools:
       strategy: "round_robin"  # Predictable for testing
       health_threshold: 0.70
       weight_factors:
-        pylsp-test: 3.0
-        pylsp-fallback: 1.0
+        pyright-test: 3.0
+        pyright-fallback: 1.0
         
     # Resource limits for test environment
     resource_limits:
@@ -143,8 +83,8 @@ language_pools:
 servers:
   - name: "python-patterns-test-pool"
     languages: ["python"]
-    command: "python"
-    args: ["-m", "pylsp"]
+    command: "pyright-langserver"
+    args: ["--stdio"]
     transport: "stdio"
     root_markers: ["patterns/", "*.py"]
     
@@ -280,7 +220,7 @@ logging:
   enable_request_logging: true
   enable_performance_logging: true
   levels:
-    pylsp: "info"
+    pyright: "info"
     patterns: "info"
     test_runner: "debug"
 

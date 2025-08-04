@@ -15,13 +15,13 @@ type TypeScriptRealClientComprehensiveE2ETestSuite struct {
 
 // SetupSuite initializes the test suite for TypeScript
 func (suite *TypeScriptRealClientComprehensiveE2ETestSuite) SetupSuite() {
-	// Initialize with TypeScript configuration
-	suite.ComprehensiveTestBaseSuite = *base.NewComprehensiveTestSuite(base.LanguageConfig{
+	// Initialize language configuration
+	suite.Config = base.LanguageConfig{
 		Language:      "typescript",
 		DisplayName:   "TypeScript",
 		HasRepoMgmt:   false,
 		HasAllLSPTest: true,
-	})
+	}
 
 	// Call base setup
 	suite.ComprehensiveTestBaseSuite.SetupSuite()

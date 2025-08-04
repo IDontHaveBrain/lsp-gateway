@@ -15,13 +15,13 @@ type PythonRealClientComprehensiveE2ETestSuite struct {
 
 // SetupSuite initializes the test suite for Python
 func (suite *PythonRealClientComprehensiveE2ETestSuite) SetupSuite() {
-	// Initialize with Python configuration
-	suite.ComprehensiveTestBaseSuite = *base.NewComprehensiveTestSuite(base.LanguageConfig{
+	// Initialize language configuration
+	suite.Config = base.LanguageConfig{
 		Language:      "python",
 		DisplayName:   "Python",
 		HasRepoMgmt:   true,
 		HasAllLSPTest: true,
-	})
+	}
 
 	// Call base setup
 	suite.ComprehensiveTestBaseSuite.SetupSuite()

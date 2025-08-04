@@ -4,18 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
 	"time"
 
 	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/common"
 )
 
 // HTTPGateway provides a simple HTTP JSON-RPC gateway to LSP servers
 type HTTPGateway struct {
 	lspManager *LSPManager
-	logger     *log.Logger
 	server     *http.Server
 	mu         sync.RWMutex
 }
@@ -52,7 +51,6 @@ func NewHTTPGateway(addr string, cfg *config.Config) (*HTTPGateway, error) {
 
 	gateway := &HTTPGateway{
 		lspManager: lspManager,
-		logger:     log.New(log.Writer(), "[Gateway] ", log.LstdFlags),
 	}
 
 	mux := http.NewServeMux()
@@ -75,11 +73,11 @@ func (g *HTTPGateway) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to start LSP manager: %w", err)
 	}
 
-	g.logger.Printf("Starting HTTP gateway on %s", g.server.Addr)
+	common.GatewayLogger.Info("Starting HTTP gateway on %s", g.server.Addr)
 
 	go func() {
 		if err := g.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			g.logger.Printf("HTTP server error: %v", err)
+			common.GatewayLogger.Error("HTTP server error: %v", err)
 		}
 	}()
 
@@ -95,13 +93,13 @@ func (g *HTTPGateway) Stop() error {
 
 	if g.server != nil {
 		if err := g.server.Shutdown(ctx); err != nil {
-			g.logger.Printf("HTTP server shutdown error: %v", err)
+			common.GatewayLogger.Error("HTTP server shutdown error: %v", err)
 			lastErr = err
 		}
 	}
 
 	if err := g.lspManager.Stop(); err != nil {
-		g.logger.Printf("LSP manager stop error: %v", err)
+		common.GatewayLogger.Error("LSP manager stop error: %v", err)
 		lastErr = err
 	}
 
@@ -131,7 +129,7 @@ func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	g.logger.Printf("Processing request: %s", req.Method)
+	common.GatewayLogger.Debug("Processing request: %s", req.Method)
 
 	result, err := g.lspManager.ProcessRequest(r.Context(), req.Method, req.Params)
 	if err != nil {
@@ -147,7 +145,7 @@ func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		g.logger.Printf("Failed to encode response: %v", err)
+		common.GatewayLogger.Error("Failed to encode response: %v", err)
 	}
 }
 

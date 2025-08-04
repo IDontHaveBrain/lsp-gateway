@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -104,4 +105,41 @@ func SafeError(format string, args ...interface{}) {
 func SafeDebug(format string, args ...interface{}) {
 	logger := NewSafeLogger("SAFE")
 	logger.Debug(format, args...)
+}
+
+// SanitizeErrorForLogging removes stack traces and verbose details from error messages
+func SanitizeErrorForLogging(err interface{}) string {
+	if err == nil {
+		return ""
+	}
+
+	errStr := fmt.Sprintf("%v", err)
+
+	// Check if this is a TypeScript server error with stack trace
+	if strings.Contains(errStr, "TypeScript Server Error") {
+		lines := strings.Split(errStr, "\n")
+		if len(lines) > 0 {
+			// Return only the first few lines, skip the stack trace
+			var cleanLines []string
+			for i, line := range lines {
+				// Skip stack trace lines (lines starting with spaces and "at ")
+				if i > 2 && strings.HasPrefix(strings.TrimSpace(line), "at ") {
+					break
+				}
+				cleanLines = append(cleanLines, line)
+				// Limit to first 3 lines to keep it concise
+				if i >= 2 {
+					break
+				}
+			}
+			return strings.Join(cleanLines, " | ")
+		}
+	}
+
+	// For other errors, limit length and remove excessive details
+	if len(errStr) > 200 {
+		return errStr[:200] + "..."
+	}
+
+	return errStr
 }

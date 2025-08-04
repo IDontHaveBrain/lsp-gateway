@@ -145,13 +145,13 @@ check_lsp_servers() {
         lsp_check_passed=false
     fi
     
-    # Check python-lsp-server
-    if command -v pylsp >/dev/null 2>&1; then
-        local pylsp_version
-        pylsp_version=$(pylsp --version 2>/dev/null || echo "unknown")
-        log_success "python-lsp-server available: $pylsp_version"
+    # Check pyright
+    if command -v pyright-langserver >/dev/null 2>&1; then
+        local pyright_version
+        pyright_version=$(pyright --version 2>/dev/null || echo "unknown")
+        log_success "pyright available: $pyright_version"
     else
-        log_warning "python-lsp-server not found (optional)"
+        log_warning "pyright not found (optional)"
     fi
     
     # Check typescript-language-server

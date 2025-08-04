@@ -15,13 +15,13 @@ type GoRealClientComprehensiveE2ETestSuite struct {
 
 // SetupSuite initializes the test suite for Go
 func (suite *GoRealClientComprehensiveE2ETestSuite) SetupSuite() {
-	// Initialize with Go configuration
-	suite.ComprehensiveTestBaseSuite = *base.NewComprehensiveTestSuite(base.LanguageConfig{
+	// Initialize language configuration
+	suite.Config = base.LanguageConfig{
 		Language:      "go",
 		DisplayName:   "Go",
 		HasRepoMgmt:   true,
-		HasAllLSPTest: false,
-	})
+		HasAllLSPTest: true,
+	}
 
 	// Call base setup
 	suite.ComprehensiveTestBaseSuite.SetupSuite()
@@ -54,6 +54,10 @@ func (suite *GoRealClientComprehensiveE2ETestSuite) TestGoWorkspaceSymbolCompreh
 
 func (suite *GoRealClientComprehensiveE2ETestSuite) TestGoCompletionComprehensive() {
 	suite.TestCompletionComprehensive()
+}
+
+func (suite *GoRealClientComprehensiveE2ETestSuite) TestGoAllLSPMethodsSequential() {
+	suite.TestAllLSPMethodsSequential()
 }
 
 // TestGoRealClientComprehensiveE2ETestSuite runs the test suite

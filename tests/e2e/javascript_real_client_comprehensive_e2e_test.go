@@ -15,13 +15,13 @@ type JavaScriptRealClientComprehensiveE2ETestSuite struct {
 
 // SetupSuite initializes the test suite for JavaScript
 func (suite *JavaScriptRealClientComprehensiveE2ETestSuite) SetupSuite() {
-	// Initialize with JavaScript configuration
-	suite.ComprehensiveTestBaseSuite = *base.NewComprehensiveTestSuite(base.LanguageConfig{
+	// Initialize language configuration
+	suite.Config = base.LanguageConfig{
 		Language:      "javascript",
 		DisplayName:   "JavaScript",
 		HasRepoMgmt:   false,
 		HasAllLSPTest: true,
-	})
+	}
 
 	// Call base setup
 	suite.ComprehensiveTestBaseSuite.SetupSuite()

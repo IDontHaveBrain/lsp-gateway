@@ -24,7 +24,7 @@
     "javascript",
     "java",
     "gopls",
-    "pylsp",
+    "pyright",
     "jdtls"
   ],
   "author": "LSP Gateway Team",

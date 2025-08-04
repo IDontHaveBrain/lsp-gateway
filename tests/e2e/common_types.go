@@ -2,8 +2,6 @@ package e2e_test
 
 import (
 	"time"
-
-	lsp "lsp-gateway/internal/models/lsp"
 )
 
 // TypeScriptRefactoringResult captures results from TypeScript refactoring operations
@@ -78,7 +76,7 @@ type MCPToolCallParams struct {
 type PythonSymbol struct {
 	Name        string
 	Kind        string
-	Position    lsp.Position
+	Position    Position
 	Type        string
 	Description string
 	Line        int

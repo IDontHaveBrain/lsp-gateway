@@ -348,11 +348,11 @@ setup_lsp_servers() {
     
     # Python LSP server
     log_info "Installing Python LSP server..."
-    if ! command_exists pylsp || [[ "$FORCE" == "true" ]]; then
-        pip install --user python-lsp-server[all] || pip install python-lsp-server[all]
-        log_success "python-lsp-server installed"
+    if ! command_exists pyright-langserver || [[ "$FORCE" == "true" ]]; then
+        npm install -g pyright
+        log_success "pyright installed"
     else
-        log_info "python-lsp-server already installed"
+        log_info "pyright already installed"
     fi
     
     # TypeScript/JavaScript LSP server
@@ -1051,10 +1051,10 @@ display_summary() {
         echo "❌ gopls: Not installed"
     fi
     
-    if command_exists pylsp; then
-        echo "✅ python-lsp-server: Installed"
+    if command_exists pyright-langserver; then
+        echo "✅ pyright: Installed"
     else
-        echo "❌ python-lsp-server: Not installed"
+        echo "❌ pyright: Not installed"
     fi
     
     if command_exists typescript-language-server; then

@@ -8,8 +8,6 @@ import (
 	"io"
 	"net/http"
 	"time"
-
-	lsp "lsp-gateway/internal/models/lsp"
 )
 
 // HttpClientConfig configures the simplified HttpClient
@@ -71,47 +69,8 @@ func (c *HttpClient) FastHealthCheck() error {
 	return c.HealthCheck()
 }
 
-// Definition makes a textDocument/definition request
-func (c *HttpClient) Definition(ctx context.Context, params lsp.DefinitionParams) (*lsp.Location, error) {
-	var result lsp.Location
-	err := c.sendLSPRequest(ctx, "textDocument/definition", params, &result)
-	return &result, err
-}
-
-// References makes a textDocument/references request
-func (c *HttpClient) References(ctx context.Context, params lsp.ReferenceParams) ([]lsp.Location, error) {
-	var result []lsp.Location
-	err := c.sendLSPRequest(ctx, "textDocument/references", params, &result)
-	return result, err
-}
-
-// DocumentSymbol makes a textDocument/documentSymbol request
-func (c *HttpClient) DocumentSymbol(ctx context.Context, params lsp.DocumentSymbolParams) ([]lsp.DocumentSymbol, error) {
-	var result []lsp.DocumentSymbol
-	err := c.sendLSPRequest(ctx, "textDocument/documentSymbol", params, &result)
-	return result, err
-}
-
-// WorkspaceSymbol makes a workspace/symbol request
-func (c *HttpClient) WorkspaceSymbol(ctx context.Context, params lsp.WorkspaceSymbolParams) ([]lsp.SymbolInformation, error) {
-	var result []lsp.SymbolInformation
-	err := c.sendLSPRequest(ctx, "workspace/symbol", params, &result)
-	return result, err
-}
-
-// Hover makes a textDocument/hover request
-func (c *HttpClient) Hover(ctx context.Context, params lsp.HoverParams) (*lsp.Hover, error) {
-	var result lsp.Hover
-	err := c.sendLSPRequest(ctx, "textDocument/hover", params, &result)
-	return &result, err
-}
-
-// Completion makes a textDocument/completion request
-func (c *HttpClient) Completion(ctx context.Context, params lsp.CompletionParams) (*lsp.CompletionList, error) {
-	var result lsp.CompletionList
-	err := c.sendLSPRequest(ctx, "textDocument/completion", params, &result)
-	return &result, err
-}
+// Note: Removed typed LSP methods to avoid internal package dependencies
+// Use MakeRawJSONRPCRequest for E2E testing instead
 
 // sendLSPRequest sends a JSON-RPC LSP request
 func (c *HttpClient) sendLSPRequest(ctx context.Context, method string, params interface{}, result interface{}) error {
@@ -190,4 +149,42 @@ func (c *HttpClient) GetWorkspaceRoot() string {
 
 func (c *HttpClient) ValidateConnection() error {
 	return c.FastHealthCheck()
+}
+
+// MakeRawJSONRPCRequest makes a raw JSON-RPC request and returns the parsed response
+func (c *HttpClient) MakeRawJSONRPCRequest(ctx context.Context, request map[string]interface{}) (map[string]interface{}, error) {
+	jsonData, err := json.Marshal(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	url := fmt.Sprintf("%s/jsonrpc", c.config.BaseURL)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", c.config.UserAgent)
+	if c.config.WorkspaceID != "" {
+		req.Header.Set("X-Workspace-ID", c.config.WorkspaceID)
+	}
+
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	var response map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
+	}
+
+	return response, nil
 }

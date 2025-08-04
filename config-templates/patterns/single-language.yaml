@@ -25,12 +25,12 @@ servers:
 # =============================================================================
 # servers:
 #   python:
-#     command: "pylsp"
-#     args: []
+#     command: "pyright-langserver"
+#     args: ["--stdio"]
 #     working_dir: ""
 #     initialization_options: {}
 
-# Prerequisites: pip install python-lsp-server
+# Prerequisites: npm install -g pyright
 # File types: .py, .pyi
 # Usage: lsp-gateway server --config config.yaml
 
@@ -92,7 +92,7 @@ servers:
 # 3. Initialization Options:
 #    - Add language server specific settings as needed
 #    - Example for Go: {"gopls": {"analyses": {"unusedparams": true}}}
-#    - Example for Python: {"pylsp": {"plugins": {"pycodestyle": {"enabled": true}}}}
+#    - Example for Python: {"pyright": {"disableOrganizeImports": false, "analysis": {"typeCheckingMode": "basic"}}}
 #
 # 4. CLI Commands:
 #    - lsp-gateway server --config config.yaml  # Start HTTP gateway (:8080)

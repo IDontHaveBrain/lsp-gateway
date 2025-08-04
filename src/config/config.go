@@ -142,9 +142,9 @@ func GenerateConfigForLanguages(languages []string) *Config {
 				WorkingDir:            serverConfig.WorkingDir,
 				InitializationOptions: serverConfig.InitializationOptions,
 			}
-			common.CLILogger.Info(fmt.Sprintf("Added %s server configuration", language))
+			common.CLILogger.Info("Added %s server configuration", language)
 		} else {
-			common.CLILogger.Warn(fmt.Sprintf("No default configuration found for language: %s", language))
+			common.CLILogger.Warn("No default configuration found for language: %s", language)
 		}
 	}
 
@@ -167,7 +167,7 @@ func DetectAndGenerateConfig(workingDir string, detector func(string) ([]string,
 		var err error
 		workingDir, err = os.Getwd()
 		if err != nil {
-			common.CLILogger.Error(fmt.Sprintf("Failed to get working directory: %v", err))
+			common.CLILogger.Error("Failed to get working directory: %v", err)
 			return GetDefaultConfig()
 		}
 	}
@@ -175,7 +175,7 @@ func DetectAndGenerateConfig(workingDir string, detector func(string) ([]string,
 	// Detect available languages using the provided detector
 	languages, err := detector(workingDir)
 	if err != nil {
-		common.CLILogger.Error(fmt.Sprintf("Failed to detect languages: %v", err))
+		common.CLILogger.Error("Failed to detect languages: %v", err)
 		return GetDefaultConfig()
 	}
 
@@ -184,7 +184,7 @@ func DetectAndGenerateConfig(workingDir string, detector func(string) ([]string,
 		return GetDefaultConfig()
 	}
 
-	common.CLILogger.Info(fmt.Sprintf("Detected languages: %v", languages))
+	common.CLILogger.Info("Detected languages: %v", languages)
 	return GenerateConfigForLanguages(languages)
 }
 
