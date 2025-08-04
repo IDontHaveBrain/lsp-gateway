@@ -549,6 +549,52 @@ func (q *SCIPQueryManager) ExtractURI(params interface{}) (string, error) {
 		return p.TextDocument.URI, nil
 	case *lsp.WorkspaceSymbolParams:
 		return "", nil // Workspace symbols don't have a specific URI
+	case map[string]interface{}:
+		// Handle untyped parameters from CLI cache indexing
+		if p == nil {
+			return "", fmt.Errorf("no parameters provided")
+		}
+
+		// Try textDocument.uri first (most common case)
+		if textDoc, ok := p["textDocument"].(map[string]interface{}); ok {
+			if uri, ok := textDoc["uri"].(string); ok && uri != "" {
+				return uri, nil
+			}
+		}
+
+		// Try direct uri parameter (alternative format)
+		if uri, ok := p["uri"].(string); ok && uri != "" {
+			return uri, nil
+		}
+
+		// For workspace/symbol requests, no URI is expected - return empty string
+		if query, ok := p["query"]; ok && query != nil {
+			return "", nil
+		}
+
+		// Handle textDocument/documentSymbol with just textDocument
+		if textDoc, exists := p["textDocument"]; exists {
+			if textDocMap, ok := textDoc.(map[string]interface{}); ok {
+				if uri, ok := textDocMap["uri"].(string); ok && uri != "" {
+					return uri, nil
+				}
+			}
+		}
+
+		// Handle potential position-based requests without textDocument
+		if position, exists := p["position"]; exists && position != nil {
+			// This might be a malformed request, but we should not fail completely
+			common.LSPLogger.Debug("ExtractURI: Found position parameter without textDocument, assuming no URI needed")
+			return "", nil
+		}
+
+		// Additional debug information for troubleshooting
+		var keys []string
+		for k := range p {
+			keys = append(keys, k)
+		}
+		
+		return "", fmt.Errorf("no URI found in untyped parameters, available keys: %v", keys)
 	default:
 		return "", fmt.Errorf("unsupported parameter type: %T", params)
 	}

@@ -1,6 +1,7 @@
 package project
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -101,7 +102,10 @@ func analyzeFile(filePath, workingDir string, detected map[string]*DetectedLangu
 	case ".py":
 		addDetection(detected, "python", 10, fmt.Sprintf("*.py file: %s", fileName))
 	case ".js", ".jsx":
-		addDetection(detected, "javascript", 10, fmt.Sprintf("*.js file: %s", fileName))
+		// Only detect JavaScript if it's not a build/infrastructure file
+		if !isInfrastructureJSFile(filePath, workingDir) {
+			addDetection(detected, "javascript", 10, fmt.Sprintf("*.js file: %s", fileName))
+		}
 	case ".ts", ".tsx":
 		addDetection(detected, "typescript", 10, fmt.Sprintf("*.ts file: %s", fileName))
 	case ".java":
@@ -115,11 +119,11 @@ func analyzeFile(filePath, workingDir string, detected map[string]*DetectedLangu
 	case "go.sum":
 		addDetection(detected, "go", 15, "go.sum file")
 	case "package.json":
-		// Check if it's TypeScript or JavaScript
+		// Check if it's TypeScript or JavaScript project
 		if hasTypeScriptIndicators(filePath) {
 			addDetection(detected, "typescript", 25, "package.json with TypeScript")
-		} else {
-			addDetection(detected, "javascript", 25, "package.json file")
+		} else if hasJavaScriptIndicators(filePath) {
+			addDetection(detected, "javascript", 25, "package.json with JavaScript")
 		}
 	case "tsconfig.json":
 		addDetection(detected, "typescript", 30, "tsconfig.json file")
@@ -136,18 +140,205 @@ func analyzeFile(filePath, workingDir string, detected map[string]*DetectedLangu
 	}
 }
 
-// hasTypeScriptIndicators checks if package.json indicates TypeScript usage
+// hasTypeScriptIndicators checks if package.json indicates actual TypeScript project usage
 func hasTypeScriptIndicators(packageJsonPath string) bool {
+	// First check if tsconfig.json exists in the same directory
+	dir := filepath.Dir(packageJsonPath)
+	if _, err := os.Stat(filepath.Join(dir, "tsconfig.json")); err == nil {
+		return true
+	}
+
 	content, err := os.ReadFile(packageJsonPath)
 	if err != nil {
 		return false
 	}
 
-	contentStr := string(content)
-	return strings.Contains(contentStr, "typescript") ||
-		strings.Contains(contentStr, "@types/") ||
-		strings.Contains(contentStr, "ts-") ||
-		strings.Contains(contentStr, ".ts\"")
+	// Parse package.json to check for actual TypeScript project setup
+	var packageData map[string]interface{}
+	if err := json.Unmarshal(content, &packageData); err != nil {
+		return false
+	}
+
+	// Check for TypeScript in main dependencies (not devDependencies)
+	if deps, ok := packageData["dependencies"].(map[string]interface{}); ok {
+		if _, hasTS := deps["typescript"]; hasTS {
+			return true
+		}
+	}
+
+	// Check for TypeScript-specific scripts (build/dev scripts with tsc)
+	if scripts, ok := packageData["scripts"].(map[string]interface{}); ok {
+		for _, script := range scripts {
+			if scriptStr, ok := script.(string); ok {
+				if strings.Contains(scriptStr, "tsc ") || strings.Contains(scriptStr, "tsc\"") {
+					return true
+				}
+			}
+		}
+	}
+
+	// Check for @types in dependencies (indicates TypeScript usage)
+	if deps, ok := packageData["dependencies"].(map[string]interface{}); ok {
+		for depName := range deps {
+			if strings.HasPrefix(depName, "@types/") {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// hasJavaScriptIndicators checks if package.json indicates actual JavaScript project usage
+func hasJavaScriptIndicators(packageJsonPath string) bool {
+	content, err := os.ReadFile(packageJsonPath)
+	if err != nil {
+		return false
+	}
+
+	// Parse package.json to check for actual JavaScript project setup
+	var packageData map[string]interface{}
+	if err := json.Unmarshal(content, &packageData); err != nil {
+		return false
+	}
+
+	// Check for main entry point, but exclude wrapper/installer patterns
+	if main, ok := packageData["main"].(string); ok && main != "" {
+		// If main points to a .js file, check if it's not just a wrapper
+		if strings.HasSuffix(main, ".js") {
+			// Exclude common wrapper patterns
+			fileName := filepath.Base(main)
+			wrapperPatterns := []string{
+				"index.js",     // Generic npm package entry point
+				"installer.js", // Binary installer
+				"wrapper.js",   // Binary wrapper
+			}
+			
+			isWrapper := false
+			for _, pattern := range wrapperPatterns {
+				if fileName == pattern {
+					isWrapper = true
+					break
+				}
+			}
+			
+			// If not a wrapper pattern, consider it a real JavaScript project
+			if !isWrapper {
+				return true
+			}
+		}
+	}
+
+	// Check for JavaScript-specific dependencies (not TypeScript)
+	if deps, ok := packageData["dependencies"].(map[string]interface{}); ok {
+		// Look for common JavaScript-only frameworks/libraries
+		jsLibraries := []string{"express", "react", "vue", "angular", "lodash", "axios", "webpack"}
+		for _, lib := range jsLibraries {
+			if _, hasLib := deps[lib]; hasLib {
+				return true
+			}
+		}
+	}
+
+	// Check for JavaScript-specific scripts (not build scripts)
+	if scripts, ok := packageData["scripts"].(map[string]interface{}); ok {
+		for scriptName, script := range scripts {
+			if scriptStr, ok := script.(string); ok {
+				// Look for actual JavaScript development scripts (not build scripts)
+				if scriptName == "start" && strings.Contains(scriptStr, "node ") {
+					return true
+				}
+				if scriptName == "dev" && strings.Contains(scriptStr, "node ") {
+					return true
+				}
+			}
+		}
+	}
+
+	// Check if there are actual JavaScript source files in src/ directory
+	dir := filepath.Dir(packageJsonPath)
+	srcDir := filepath.Join(dir, "src")
+	if _, err := os.Stat(srcDir); err == nil {
+		// Check if src/ contains .js files that aren't build files
+		hasAppJS := false
+		filepath.WalkDir(srcDir, func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
+			}
+			if strings.HasSuffix(path, ".js") && !isInfrastructureJSFile(path, dir) {
+				hasAppJS = true
+				return filepath.SkipAll
+			}
+			return nil
+		})
+		if hasAppJS {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isInfrastructureJSFile checks if a .js file is a build/infrastructure file
+func isInfrastructureJSFile(filePath, workingDir string) bool {
+	relPath, err := filepath.Rel(workingDir, filePath)
+	if err != nil {
+		// If we can't get relative path, be conservative and allow detection
+		return false
+	}
+
+	// Normalize path separators
+	relPath = filepath.ToSlash(relPath)
+
+	// Check for common infrastructure/build directories
+	infrastructurePaths := []string{
+		"scripts/",
+		"build/",
+		"lib/",
+		"bin/",
+		"tools/",
+		"config/",
+		"webpack",
+		"rollup",
+		"babel",
+		"jest",
+		"test/",
+		"tests/",
+		"spec/",
+		"__tests__/",
+		"node_modules/",
+		"dist/",
+		"out/",
+	}
+
+	for _, infraPath := range infrastructurePaths {
+		if strings.HasPrefix(relPath, infraPath) {
+			return true
+		}
+	}
+
+	// Check for common infrastructure filenames
+	fileName := filepath.Base(filePath)
+	infrastructureFiles := []string{
+		"webpack.config.js",
+		"rollup.config.js",
+		"babel.config.js",
+		"jest.config.js",
+		"gulpfile.js",
+		"gruntfile.js",
+		"build.js",
+		"installer.js",
+		"postinstall.js",
+		"preinstall.js",
+	}
+
+	for _, infraFile := range infrastructureFiles {
+		if fileName == infraFile {
+			return true
+		}
+	}
+
+	return false
 }
 
 // addDetection adds or updates a language detection

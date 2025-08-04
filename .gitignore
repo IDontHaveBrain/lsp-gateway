@@ -84,6 +84,7 @@ lsp-gateway
 
 # Cache directories
 .serena/
+.lsp-gateway/
 
 # E2E test repositories - ignore cloned test repositories
 # Repositories downloaded during E2E tests (typically in /tmp but just in case)

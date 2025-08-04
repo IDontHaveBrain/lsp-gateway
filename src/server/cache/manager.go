@@ -819,19 +819,66 @@ func (q *SCIPQueryWrapper) IsValidEntry(entry *CacheEntry, ttl time.Duration) bo
 }
 
 func (q *SCIPQueryWrapper) ExtractURI(params interface{}) (string, error) {
-	// Try to extract URI from common LSP parameter types
-	if data, err := json.Marshal(params); err == nil {
-		var parsed struct {
-			TextDocument struct {
-				URI string `json:"uri"`
-			} `json:"textDocument"`
+	// Use the same logic as SCIPQueryManager.ExtractURI for consistency
+	switch p := params.(type) {
+	case map[string]interface{}:
+		// Handle untyped parameters from CLI cache indexing
+		if p == nil {
+			return "", fmt.Errorf("no parameters provided")
 		}
-		if err := json.Unmarshal(data, &parsed); err == nil {
-			if parsed.TextDocument.URI != "" {
-				return parsed.TextDocument.URI, nil
+
+		// Try textDocument.uri first (most common case)
+		if textDoc, ok := p["textDocument"].(map[string]interface{}); ok {
+			if uri, ok := textDoc["uri"].(string); ok && uri != "" {
+				return uri, nil
 			}
 		}
+
+		// Try direct uri parameter (alternative format)
+		if uri, ok := p["uri"].(string); ok && uri != "" {
+			return uri, nil
+		}
+
+		// For workspace/symbol requests, no URI is expected - return empty string
+		if query, ok := p["query"]; ok && query != nil {
+			return "", nil
+		}
+
+		// Handle potential position-based requests without textDocument
+		if position, exists := p["position"]; exists && position != nil {
+			return "", nil
+		}
+
+		// Fallback: try JSON marshaling/unmarshaling for structured types
+		if data, err := json.Marshal(params); err == nil {
+			var parsed struct {
+				TextDocument struct {
+					URI string `json:"uri"`
+				} `json:"textDocument"`
+			}
+			if err := json.Unmarshal(data, &parsed); err == nil {
+				if parsed.TextDocument.URI != "" {
+					return parsed.TextDocument.URI, nil
+				}
+			}
+		}
+
+		return "", nil // Return empty string instead of error for unhandled cases
+	default:
+		// Try JSON marshaling/unmarshaling for other types
+		if data, err := json.Marshal(params); err == nil {
+			var parsed struct {
+				TextDocument struct {
+					URI string `json:"uri"`
+				} `json:"textDocument"`
+			}
+			if err := json.Unmarshal(data, &parsed); err == nil {
+				if parsed.TextDocument.URI != "" {
+					return parsed.TextDocument.URI, nil
+				}
+			}
+		}
+		
+		return "", fmt.Errorf("unable to extract URI from parameters type: %T", params)
 	}
-	
-	return "", fmt.Errorf("unable to extract URI from parameters")
 }
