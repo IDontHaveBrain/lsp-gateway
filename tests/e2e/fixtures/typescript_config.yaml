@@ -145,7 +145,7 @@ servers:
       # Test-appropriate lifecycle
       max_lifetime: 20m
       idle_timeout: 7m
-      health_check_interval: 30s
+      health_check_interval: 1m
       
       # Retry configuration for test reliability
       max_retries: 3

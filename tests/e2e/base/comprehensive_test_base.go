@@ -78,36 +78,36 @@ func (suite *ComprehensiveTestBaseSuite) SetupSuite() {
 	suite.cacheIsolationLevel = testutils.StrictIsolation // Default to strict isolation
 	cacheIsolationConfig := testutils.DefaultCacheIsolationConfig()
 	cacheIsolationConfig.IsolationLevel = suite.cacheIsolationLevel
-	
+
 	suite.cacheIsolationMgr, err = testutils.NewCacheIsolationManager(tempDir, cacheIsolationConfig)
 	require.NoError(suite.T(), err, "Failed to create cache isolation manager")
 
-	// Setup isolated cache directory 
+	// Setup isolated cache directory
 	suite.cacheDir = suite.cacheIsolationMgr.GetCacheDirectory()
 }
 
 // SetupTest prepares each test with isolated cache
 func (suite *ComprehensiveTestBaseSuite) SetupTest() {
 	testName := suite.T().Name()
-	
+
 	// Initialize cache isolation for this test
 	err := suite.cacheIsolationMgr.InitializeIsolation(testName)
 	require.NoError(suite.T(), err, "Failed to initialize cache isolation")
-	
+
 	// Validate clean cache state
 	err = suite.cacheIsolationMgr.ValidateCleanState()
 	require.NoError(suite.T(), err, "Cache isolation validation failed")
-	
+
 	// Update cache directory to isolated one
 	suite.cacheDir = suite.cacheIsolationMgr.GetCacheDirectory()
-	
+
 	suite.T().Logf("🔒 Cache isolation initialized for test '%s' with directory: %s", testName, suite.cacheDir)
 }
 
 // TearDownTest cleans up after each test with cache isolation validation
 func (suite *ComprehensiveTestBaseSuite) TearDownTest() {
 	testName := suite.T().Name()
-	
+
 	// Record final cache state if server is running
 	if suite.serverStarted {
 		healthURL := fmt.Sprintf("http://localhost:%d/health", suite.gatewayPort)
@@ -115,28 +115,28 @@ func (suite *ComprehensiveTestBaseSuite) TearDownTest() {
 			suite.T().Logf("Warning: Failed to record final cache state: %v", err)
 		}
 	}
-	
+
 	// Stop gateway server
 	suite.stopGatewayServer()
-	
+
 	// Validate test isolation before cleanup
 	if err := suite.cacheIsolationMgr.ValidateTestIsolation(); err != nil {
 		suite.T().Logf("⚠️ Cache isolation violations detected: %v", err)
-		
+
 		// Log violations for debugging
 		violations := suite.cacheIsolationMgr.GetViolations()
 		for i, violation := range violations {
 			suite.T().Logf("  Violation %d: %s - %s", i+1, violation.ViolationType, violation.Description)
 		}
 	}
-	
+
 	// Perform isolated cache cleanup
 	if err := suite.cacheIsolationMgr.Cleanup(); err != nil {
 		suite.T().Logf("Warning: Cache isolation cleanup failed: %v", err)
 		// Fallback to basic cleanup
 		suite.cleanupCache()
 	}
-	
+
 	suite.T().Logf("🧹 Cache isolation cleanup completed for test '%s'", testName)
 }
 
@@ -145,13 +145,13 @@ func (suite *ComprehensiveTestBaseSuite) TearDownSuite() {
 	if suite.repoManager != nil {
 		suite.repoManager.Cleanup()
 	}
-	
+
 	// Final cache isolation cleanup
 	if suite.cacheIsolationMgr != nil {
 		if err := suite.cacheIsolationMgr.Cleanup(); err != nil {
 			suite.T().Logf("Warning: Final cache isolation cleanup failed: %v", err)
 		}
-		
+
 		// Log final isolation summary
 		violations := suite.cacheIsolationMgr.GetViolations()
 		if len(violations) > 0 {
@@ -160,7 +160,7 @@ func (suite *ComprehensiveTestBaseSuite) TearDownSuite() {
 			suite.T().Logf("✅ Test suite completed with perfect cache isolation")
 		}
 	}
-	
+
 	// Clean up temp directory
 	if suite.tempDir != "" {
 		os.RemoveAll(suite.tempDir)
@@ -299,12 +299,12 @@ func (suite *ComprehensiveTestBaseSuite) waitForServerReady() error {
 				if err := suite.cacheIsolationMgr.RecordCacheState(healthURL, "SERVER_READY"); err != nil {
 					suite.T().Logf("Warning: Failed to record server ready state: %v", err)
 				}
-				
+
 				// Wait for cache stabilization
 				if err := suite.cacheIsolationMgr.WaitForCacheStabilization(healthURL, 15*time.Second); err != nil {
 					suite.T().Logf("Warning: Cache stabilization timeout: %v", err)
 				}
-				
+
 				suite.T().Logf("✅ Server and LSP clients are ready after %d seconds", i+1)
 				return nil
 			}
@@ -1048,7 +1048,7 @@ func (suite *ComprehensiveTestBaseSuite) ValidateCacheHealthNow(expectedState st
 	if !suite.serverStarted {
 		return fmt.Errorf("server not started, cannot validate cache health")
 	}
-	
+
 	healthURL := fmt.Sprintf("http://localhost:%d/health", suite.gatewayPort)
 	return suite.cacheIsolationMgr.ValidateCacheHealth(healthURL, expectedState)
 }
@@ -1059,7 +1059,7 @@ func (suite *ComprehensiveTestBaseSuite) RecordCacheCheckpoint(phase string) {
 		suite.T().Logf("Warning: Cannot record cache checkpoint - server not started")
 		return
 	}
-	
+
 	healthURL := fmt.Sprintf("http://localhost:%d/health", suite.gatewayPort)
 	if err := suite.cacheIsolationMgr.RecordCacheState(healthURL, phase); err != nil {
 		suite.T().Logf("Warning: Failed to record cache checkpoint for phase '%s': %v", phase, err)
@@ -1075,26 +1075,26 @@ func (suite *ComprehensiveTestBaseSuite) ResetCacheForCleanTest() error {
 	if wasRunning {
 		suite.stopGatewayServer()
 	}
-	
+
 	// Reset cache state
 	if err := suite.cacheIsolationMgr.ResetCacheState(); err != nil {
 		return fmt.Errorf("failed to reset cache state: %w", err)
 	}
-	
+
 	// Update cache directory
 	suite.cacheDir = suite.cacheIsolationMgr.GetCacheDirectory()
-	
+
 	// Restart server if it was running
 	if wasRunning {
 		if err := suite.startGatewayServer(); err != nil {
 			return fmt.Errorf("failed to restart server after cache reset: %w", err)
 		}
-		
+
 		if err := suite.waitForServerReady(); err != nil {
 			return fmt.Errorf("server not ready after cache reset: %w", err)
 		}
 	}
-	
+
 	suite.T().Logf("🔄 Cache reset completed successfully")
 	return nil
 }
@@ -1105,13 +1105,13 @@ func (suite *ComprehensiveTestBaseSuite) GetCacheViolationsSummary() string {
 	if len(violations) == 0 {
 		return "✅ No cache isolation violations detected"
 	}
-	
+
 	summary := fmt.Sprintf("⚠️ %d cache isolation violations detected:\n", len(violations))
 	for i, violation := range violations {
-		summary += fmt.Sprintf("  %d. %s: %s (Impact: %s)\n", 
+		summary += fmt.Sprintf("  %d. %s: %s (Impact: %s)\n",
 			i+1, violation.ViolationType, violation.Description, violation.Impact)
 	}
-	
+
 	return summary
 }
 

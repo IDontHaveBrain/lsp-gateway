@@ -58,38 +58,38 @@ type CacheCheckpoint struct {
 
 // CacheViolation represents a detected cache isolation violation
 type CacheViolation struct {
-	Timestamp   time.Time
+	Timestamp     time.Time
 	ViolationType string
-	Description string
-	Impact      string
-	TestPhase   string
+	Description   string
+	Impact        string
+	TestPhase     string
 }
 
 // CacheIsolationConfig configures cache isolation behavior
 type CacheIsolationConfig struct {
-	IsolationLevel          IsolationLevel
-	MaxCacheSize           int64
-	TTL                    string
-	HealthCheckInterval    string
-	BackgroundIndexing     bool
-	ValidateStateChanges   bool
-	ForceCleanupOnFailure  bool
-	ParallelSafety         bool
-	CustomCachePrefix      string
+	IsolationLevel        IsolationLevel
+	MaxCacheSize          int64
+	TTL                   string
+	HealthCheckInterval   string
+	BackgroundIndexing    bool
+	ValidateStateChanges  bool
+	ForceCleanupOnFailure bool
+	ParallelSafety        bool
+	CustomCachePrefix     string
 }
 
 // DefaultCacheIsolationConfig returns default isolation configuration
 func DefaultCacheIsolationConfig() CacheIsolationConfig {
 	return CacheIsolationConfig{
-		IsolationLevel:          StrictIsolation,
-		MaxCacheSize:           64 * 1024 * 1024, // 64MB
-		TTL:                    "10m",
-		HealthCheckInterval:    "30s",
-		BackgroundIndexing:     true,
-		ValidateStateChanges:   true,
-		ForceCleanupOnFailure:  true,
-		ParallelSafety:         true,
-		CustomCachePrefix:      "",
+		IsolationLevel:        StrictIsolation,
+		MaxCacheSize:          64 * 1024 * 1024, // 64MB
+		TTL:                   "10m",
+		HealthCheckInterval:   "1m",
+		BackgroundIndexing:    true,
+		ValidateStateChanges:  true,
+		ForceCleanupOnFailure: true,
+		ParallelSafety:        true,
+		CustomCachePrefix:     "",
 	}
 }
 
@@ -112,16 +112,16 @@ func NewCacheIsolationManager(baseDir string, config CacheIsolationConfig) (*Cac
 	}
 
 	manager := &CacheIsolationManager{
-		baseDir:       baseDir,
-		testID:        testID,
-		cacheDir:      filepath.Join(baseDir, fmt.Sprintf("cache-%s", testID)),
-		cleanupPaths:  make([]string, 0),
-		isolation:     config.IsolationLevel,
+		baseDir:      baseDir,
+		testID:       testID,
+		cacheDir:     filepath.Join(baseDir, fmt.Sprintf("cache-%s", testID)),
+		cleanupPaths: make([]string, 0),
+		isolation:    config.IsolationLevel,
 		healthTracker: &CacheHealthTracker{
 			checkpoints: make([]CacheCheckpoint, 0),
 			violations:  make([]CacheViolation, 0),
 		},
-		mu: sync.RWMutex{},  
+		mu: sync.RWMutex{},
 	}
 
 	return manager, nil
@@ -159,10 +159,10 @@ func (m *CacheIsolationManager) InitializeIsolation(testName string) error {
 		Valid:     true,
 		Issues:    make([]string, 0),
 		State: map[string]interface{}{
-			"cache_dir":     m.cacheDir,
-			"test_id":       m.testID,
-			"isolation":     m.isolation,
-			"initialized":   true,
+			"cache_dir":   m.cacheDir,
+			"test_id":     m.testID,
+			"isolation":   m.isolation,
+			"initialized": true,
 		},
 	}
 
@@ -444,7 +444,14 @@ func (m *CacheIsolationManager) GenerateIsolatedConfig(servers map[string]interf
 		configContent += fmt.Sprintf("  %s:\n", name)
 		if server, ok := serverConfig.(map[string]interface{}); ok {
 			if command, hasCmd := server["command"]; hasCmd {
-				configContent += fmt.Sprintf("    command: \"%s\"\n", command)
+				// Expand ~ paths in command
+				expandedCommand := command
+				if cmdStr, ok := command.(string); ok {
+					if expanded, err := expandPath(cmdStr); err == nil {
+						expandedCommand = expanded
+					}
+				}
+				configContent += fmt.Sprintf("    command: \"%s\"\n", expandedCommand)
 			}
 			if args, hasArgs := server["args"]; hasArgs {
 				if argsList, ok := args.([]string); ok {
@@ -732,4 +739,26 @@ func generateUniqueTestID() (string, error) {
 	randomHex := hex.EncodeToString(bytes)
 
 	return fmt.Sprintf("%d-%s", timestamp, randomHex[:8]), nil
+}
+
+// expandPath expands ~ to the user's home directory in file paths
+func expandPath(path string) (string, error) {
+	if !strings.HasPrefix(path, "~") {
+		return path, nil
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return path, fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	if path == "~" {
+		return homeDir, nil
+	}
+
+	if strings.HasPrefix(path, "~/") {
+		return filepath.Join(homeDir, path[2:]), nil
+	}
+
+	return path, nil
 }

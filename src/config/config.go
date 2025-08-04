@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -44,6 +45,54 @@ type SCIPConfig struct {
 	HealthCheckInterval time.Duration `yaml:"health_check_interval"` // Health monitoring interval
 }
 
+// ExpandPath expands ~ to the user's home directory in file paths
+func ExpandPath(path string) (string, error) {
+	if !strings.HasPrefix(path, "~") {
+		return path, nil
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return path, fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	if path == "~" {
+		return homeDir, nil
+	}
+
+	if strings.HasPrefix(path, "~/") {
+		return filepath.Join(homeDir, path[2:]), nil
+	}
+
+	return path, nil
+}
+
+// expandServerPaths expands ~ paths in server configurations
+func expandServerPaths(config *Config) error {
+	for serverName, serverConfig := range config.Servers {
+		if serverConfig == nil {
+			continue
+		}
+
+		expandedCommand, err := ExpandPath(serverConfig.Command)
+		if err != nil {
+			return fmt.Errorf("failed to expand path for server %s command '%s': %w", 
+				serverName, serverConfig.Command, err)
+		}
+		serverConfig.Command = expandedCommand
+
+		if serverConfig.WorkingDir != "" {
+			expandedWorkingDir, err := ExpandPath(serverConfig.WorkingDir)
+			if err != nil {
+				return fmt.Errorf("failed to expand working directory for server %s: %w", 
+					serverName, err)
+			}
+			serverConfig.WorkingDir = expandedWorkingDir
+		}
+	}
+	return nil
+}
+
 // LoadConfig loads configuration from a YAML file
 func LoadConfig(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
@@ -54,6 +103,11 @@ func LoadConfig(path string) (*Config, error) {
 	var config Config
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse config file: %w", err)
+	}
+
+	// Expand ~ paths in server configurations
+	if err := expandServerPaths(&config); err != nil {
+		return nil, fmt.Errorf("failed to expand paths in config: %w", err)
 	}
 
 	// Validate config
