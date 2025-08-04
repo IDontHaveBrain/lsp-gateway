@@ -11,28 +11,89 @@ LSP Gateway is a dual-protocol Language Server Protocol gateway for local develo
 - **Cross-platform CLI** with essential setup and management commands
 - **Auto-Configuration** - automatically detects project languages when no config provided
 
+**Local Development Tool**: Designed for individual developers working locally, not enterprise features.
+
 **Supported Languages**: Go, Python, JavaScript/TypeScript, Java (4 languages)
 
-**Supported LSP Features**: Exactly 6 essential features - `textDocument/definition`, `textDocument/references`, `textDocument/hover`, `textDocument/documentSymbol`, `workspace/symbol`, `textDocument/completion`
+**Supported LSP Features**: Exactly 6 essential features:
+
+| LSP Method | Description |
+|------------|-------------|
+| `textDocument/definition` | Go to definition |
+| `textDocument/references` | Find all references |
+| `textDocument/hover` | Show documentation on hover |
+| `textDocument/documentSymbol` | Document outline/symbols |
+| `workspace/symbol` | Workspace-wide symbol search |
+| `textDocument/completion` | Code completion |
+
+## Requirements
+
+- **Go 1.24.0+** - Required for building LSP Gateway (current: 1.24.5)
+- **Node.js 18+** - For npm global linking and scripts
+- **Platform Support**: Linux, macOS (x64/arm64), Windows (x64)
+
+**Language Servers** (manual installation required):
+```bash
+go install golang.org/x/tools/gopls@latest                    # Go
+npm install -g pyright                                        # Python  
+npm install -g typescript-language-server typescript         # TypeScript/JS
+# Java: Eclipse JDT Language Server - install manually via Eclipse downloads
+```
+
+## Quick Setup
+
+**5-minute setup for immediate use:**
+
+```bash
+# 1. Clone and build
+git clone <repository-url>
+cd lsp-gateway
+make local                    # Build and install globally
+
+# 2. Install language servers (optional - for specific languages)
+go install golang.org/x/tools/gopls@latest
+npm install -g typescript-language-server typescript
+
+# 3. Test availability  
+lsp-gateway status           # Check which LSP servers are available
+
+# 4. Start using
+lsp-gateway mcp              # Auto-detect languages and start MCP server
+# OR
+lsp-gateway server           # Start HTTP gateway on port 8080
+```
 
 ## Essential Commands
 
-### Build Commands
+### Build Commands (Working)
 ```bash
 make local          # Build for current platform + npm global link (most common)
 make build          # Build for all platforms 
 make clean          # Remove build artifacts
 make tidy           # Tidy go modules
+make unlink         # Remove npm global link
 ```
 
-### Quality Commands
+### Quality Commands (Working)
 ```bash
 make format         # Format Go code
 make vet            # Run go vet (built-in, may have import warnings)
 make quality        # Essential checks (format + vet)
+make quality-full   # All checks (format + vet + lint + security)
 ```
 
-**Note**: `make lint`, `make security`, `make test` reference outdated paths and are not currently functional.
+### Testing Commands (Working)
+```bash
+go test -v ./src/internal/project/...    # Unit tests for language detection
+go test -v ./tests/e2e/...               # E2E tests (requires LSP servers)
+
+# Specific E2E tests with real GitHub repositories
+cd tests/e2e
+go test -v -run "TestGoRealClientComprehensiveE2ETestSuite" .
+go test -v -run "TestPythonRealClientComprehensiveE2ETestSuite" .
+go test -v -run "TestTypeScriptRealClientComprehensiveE2ETestSuite" .
+go test -v -run "TestJavaRealClientComprehensiveE2ETestSuite" .
+```
 
 ### Development Commands
 ```bash
@@ -41,71 +102,286 @@ lsp-gateway mcp                             # Start MCP Server, auto-detects lan
 lsp-gateway mcp --config config.yaml       # Start MCP with explicit config
 lsp-gateway status                          # Show LSP server availability (fast)
 lsp-gateway test                           # Test LSP server connections
+
+# Alternative via npm (after make local):
+npm run server                             # Start HTTP Gateway
+npm run mcp                                # Start MCP Server
 ```
 
-## Current Architecture
+## Configuration
 
-### Core Package Architecture
-Clean package organization under `src/`:
+### YAML Configuration Format
+```yaml
+# config.yaml - Correct format
+servers:
+  go:
+    command: "gopls"
+    args: ["serve"]
+    working_dir: ""
+    initialization_options: {}
+  python:
+    command: "pyright-langserver"
+    args: ["--stdio"]
+    working_dir: ""
+    initialization_options: {}
+  typescript:
+    command: "typescript-language-server"
+    args: ["--stdio"]
+    working_dir: ""
+    initialization_options: {}
+  java:
+    command: "jdtls"
+    args: []
+    working_dir: ""
+    initialization_options: {}
+```
 
-- **`src/server/lsp_manager.go`** - LSP client management with graceful shutdown and process lifecycle
-- **`src/server/mcp_server.go`** - MCP server implementation for AI assistant integration
-- **`src/server/gateway.go`** - HTTP JSON-RPC gateway with clean request handling
-- **`src/cli/commands.go`** - CLI command implementations and server lifecycle
-- **`src/config/config.go`** - YAML configuration with auto-generation and language detection
+## Usage Examples
 
-**3-Layer Flow**: HTTP Gateway → LSP Manager → LSP Client  
-**MCP Flow**: MCP Protocol → LSP Manager → LSP Client
+### HTTP Gateway Integration
+```bash
+# Start HTTP gateway
+lsp-gateway server --config config.yaml
 
-### Package Structure
+# Test with curl
+curl -X POST http://localhost:8080/jsonrpc \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "textDocument/hover",
+    "params": {
+      "textDocument": {"uri": "file:///path/to/file.go"},
+      "position": {"line": 10, "character": 5}
+    }
+  }'
+
+# Health check
+curl http://localhost:8080/health
+```
+
+### MCP Server Integration  
+```bash
+# Auto-detect languages in current directory
+lsp-gateway mcp
+
+# Use with explicit config
+lsp-gateway mcp --config config.yaml
+```
+
+**MCP Tools Available**: `goto_definition`, `find_references`, `get_hover_info`, `get_document_symbols`, `search_workspace_symbols`, `get_completion`
+
+## Architecture
+
+### Modular Package Structure
 ```
 src/
 ├── cmd/lsp-gateway/     # Application entry point
 ├── server/              # Core server implementations (HTTP, MCP, LSP)
+│   ├── lsp_manager.go   # Core LSP orchestration (967 lines)
+│   ├── gateway.go       # HTTP JSON-RPC gateway
+│   ├── mcp_server.go    # MCP server implementation
+│   ├── errors/          # LSP error translation and user-friendly messaging
+│   ├── capabilities/    # LSP server capability detection
+│   ├── documents/       # Document state management and didOpen notifications
+│   ├── process/         # LSP server process lifecycle with graceful shutdown
+│   ├── protocol/        # JSON-RPC protocol handling with Content-Length headers
+│   └── aggregators/     # Workspace symbol aggregation across multiple clients
 ├── cli/                 # Command-line interface and commands
 ├── config/              # Configuration types, loading, and auto-generation
 └── internal/            # Internal supporting packages
     ├── common/          # STDIO-safe logging utilities
-    ├── models/lsp/      # LSP protocol definitions (test validation)
     ├── project/         # Language detection and project analysis
     ├── security/        # Command validation (active security)
     └── types/          # Shared types
-tests/                   # All test code (E2E tests)
+tests/                   # All test code (E2E tests with real LSP servers)
 ```
 
-### Key Internal Components
-- **`src/internal/common/logging.go`** - STDIO-safe logging with levels
-- **`src/internal/project/detector.go`** - Automatic language detection based on file extensions and project structure
-- **`src/internal/security/command_validation.go`** - LSP server command validation
-- **`src/internal/models/lsp/protocol.go`** - LSP protocol definitions for validation
+### Core Architecture Components
 
-## Project-Specific Development Patterns
+**Core Files:**
+- **`src/server/lsp_manager.go`** (967 lines) - LSP client management and orchestration
+- **`src/server/errors/translator.go`** (84 lines) - Error translation with method-specific suggestions
+- **`src/server/capabilities/detector.go`** (102 lines) - LSP server capability detection
+- **`src/server/documents/manager.go`** (128 lines) - Document state management
+- **`src/server/process/manager.go`** (242 lines) - Process lifecycle with 5s graceful shutdown
+- **`src/server/protocol/jsonrpc.go`** (211 lines) - JSON-RPC protocol with LSP Content-Length headers
+- **`src/server/aggregators/workspace_symbol.go`** (174 lines) - Multi-client workspace symbol aggregation
 
-### Code Conventions
+**Design Patterns:**
+- **Interface-Based Design**: Each module has clean interfaces for dependency injection
+- **Single Responsibility**: Each module handles one specific concern
 - **Manager Pattern**: All managers use `Initialize()`, `Start()`, `Stop()` methods
 - **Constructor Pattern**: Use `New*` prefix returning `(*Type, error)`
+
+**Flow Architecture:**
+- **HTTP Flow**: HTTP Gateway → LSP Manager → Module Interfaces → LSP Client
+- **MCP Flow**: MCP Protocol → LSP Manager → Module Interfaces → LSP Client
+
+## Development Patterns
+
+### Code Conventions
 - **Error Handling**: Structured errors with wrapping and graceful degradation
 - **Untyped JSON-RPC**: Uses `interface{}` for LSP parameters/results (intentional simplicity)
-- **Safe Logging**: Use `common.LSPLogger`, `common.GatewayLogger`, `common.CLILogger` for STDIO-safe output
+- **Dependency Injection**: All modules injected via interfaces
+
+### **MANDATORY Logging Standards**
+**CRITICAL**: Use ONLY the unified logging system from `src/internal/common/logging.go`
+
+#### **Required Usage:**
+```go
+import "lsp-gateway/src/internal/common"
+
+// Use appropriate logger for context:
+common.LSPLogger.Info("LSP server started for %s", language)
+common.GatewayLogger.Error("HTTP request failed: %v", err) 
+common.CLILogger.Warn("Config file not found, using defaults")
+```
+
+#### **Logger Selection by Context:**
+- **`common.LSPLogger`** - LSP client management, MCP server operations, language detection
+- **`common.GatewayLogger`** - HTTP gateway operations, JSON-RPC processing, web server lifecycle
+- **`common.CLILogger`** - CLI commands, configuration loading, user-facing operations
+
+#### **STRICTLY FORBIDDEN:**
+```go
+// ❌ NEVER USE - Interferes with LSP protocol STDIO communication
+fmt.Print*, fmt.Printf, fmt.Println
+log.Print*, log.Printf, log.Println
+logger := log.New(...) // Custom loggers
+
+// ✅ ALWAYS USE - STDIO-safe, structured logging
+common.CLILogger.Info("message")
+common.LSPLogger.Error("error: %v", err)
+common.GatewayLogger.Debug("debug info")
+```
+
+#### **STDIO Safety Requirement:**
+All logging MUST use stderr-only to prevent interference with LSP JSON-RPC protocol communication over stdin/stdout.
+
+**Critical**: LSP servers communicate via stdin/stdout. Any logging to stdout breaks the protocol.
 
 ### Key Design Decisions
-- **Auto-Configuration**: MCP mode automatically detects languages in current directory when no config provided
-- **Graceful Process Management**: LSP servers follow proper shutdown sequence (`shutdown` → `exit` → 5s timeout)
-- **Security First**: All LSP server commands validated through `internal/security/command_validation.go`
-- **Local Focus**: No enterprise features (auth, monitoring, distributed systems)
-- **STDIO Safety**: All logging uses stderr-only to avoid LSP protocol interference
 
-### Configuration Approach
-- **YAML-based**: Simple configuration with language server defaults
-- **Auto-Detection**: Intelligent language detection from file extensions and project structure in MCP mode
-- **Dynamic Generation**: `config.GenerateAutoConfig()` creates configs for detected languages
-- **Default Servers**: `gopls serve`, `pylsp`, `typescript-language-server --stdio`, `jdtls`
+**Auto-Configuration** - `src/config/config.go`, `src/internal/project/detector.go`
+- MCP mode automatically detects languages when no config provided
+- Scans file extensions, project files (go.mod, package.json, etc.)
+- Only includes languages with installed/available LSP servers
+
+**Graceful Process Management** - `src/server/process/manager.go`
+- 5-second shutdown sequence: `shutdown` → `exit` → 5s timeout → force kill
+- Process monitoring distinguishes crashes vs normal shutdown
+- Interface-based design with `ShutdownSender` for LSP protocol integration
+
+**Security First** - `src/internal/security/command_validation.go`
+- All LSP server commands validated through whitelist approach
+- Prevents malicious LSP server execution and shell injection
+
+**Modular Interface Design** - All modules use dependency injection:
+```go
+type DocumentManager interface { ... }
+type ProcessManager interface { ... } 
+type JSONRPCProtocol interface { ... }
+type WorkspaceSymbolAggregator interface { ... }
+type ErrorTranslator interface { ... }
+type CapabilityDetector interface { ... }
+```
+
+**Local Focus**: No enterprise features (auth, monitoring, distributed systems)
 
 ### LSP Communication
 - **STDIO Protocol**: Full LSP JSON-RPC over stdin/stdout with Content-Length headers
-- **Graceful Shutdown**: 5-second timeout for proper LSP shutdown sequence before force termination
-- **Process Management**: Manual process control using `exec.Command` (not `exec.CommandContext`)
-- **Error Recovery**: Enhanced error reporting distinguishing crashes vs initialization failures
+- **Capability Detection**: Parses server capabilities from `initialize` response
+- **Method Validation**: Checks if server supports requested LSP method before routing
+- **Error Recovery**: Enhanced error reporting with user-friendly alternatives
+- **Multi-Client Aggregation**: Workspace symbols collected from all active clients in parallel
+
+## Testing
+
+### E2E Testing with Real GitHub Repositories
+**Architecture**: E2E tests use real GitHub repositories instead of fixtures for realistic testing.
+
+```bash
+# Run comprehensive E2E tests with real LSP servers and GitHub projects
+cd tests/e2e
+go test -v -run "TestGoRealClientComprehensiveE2ETestSuite" .
+go test -v -run "TestPythonRealClientComprehensiveE2ETestSuite" .
+go test -v -run "TestTypeScriptRealClientComprehensiveE2ETestSuite" .
+
+# Test all 6 LSP methods sequentially
+go test -v -run "TestGoAllLSPMethodsSequential" .
+
+# All E2E tests (requires LSP servers installed)
+go test -v ./tests/e2e/...
+```
+
+**E2E Test Features:**
+- **Real GitHub Projects**: Uses actual open-source repositories
+  - Go: `gorilla/mux` (v1.8.0)
+  - Python: `psf/requests` (v2.28.2)
+  - TypeScript: `sindresorhus/is` (v5.4.1)
+  - Java: `spring-projects/spring-petclinic` (v2.7.3)
+- **Repository Manager**: `testutils/repo_manager.go` handles cloning and test position management
+- **All 6 LSP Methods**: Comprehensive testing of definition, references, hover, documentSymbol, workspace/symbol, completion
+- **Real LSP Integration**: Tests with actual LSP servers (gopls, pyright, typescript-language-server)
+- **Server Lifecycle**: Graceful shutdown testing and health monitoring
+- **Reproducible**: Fixed commit hashes ensure consistent test environments
+
+**Repository-Based Testing Architecture:**
+```go
+// testutils/repo_manager.go provides:
+type TestRepository struct {
+    Language   string
+    URL        string
+    CommitHash string
+    TestFiles  []TestFile // Predefined test positions
+}
+
+// Automatic repository setup and cleanup
+repoManager := testutils.NewRepoManager(tempDir)
+repoDir, err := repoManager.SetupRepository("go")
+```
+
+### Unit Testing
+```bash
+go test -v ./src/internal/project/...    # Language detection tests
+```
+
+**Test-Driven Development:** All E2E tests use real LSP servers and real GitHub repositories - no mocks. Tests validate actual LSP protocol communication in realistic environments.
+
+## Troubleshooting
+
+### Quick Diagnostics
+```bash
+lsp-gateway status           # Check LSP server availability (fast)
+lsp-gateway test            # Test LSP server connections
+make quality                # Validate code format and vet
+curl http://localhost:8080/health  # Test HTTP gateway
+```
+
+### Common Issues
+
+**Build Problems:**
+```bash
+make clean && make local    # Clean rebuild and install
+make tidy                   # Update Go dependencies
+```
+
+**Port Conflicts:**
+```bash
+lsp-gateway server --port 8081  # Use different port
+```
+
+**Missing Language Servers:**
+```bash
+which gopls                 # Check if language server is installed
+lsp-gateway status          # See which servers are available
+```
+
+**Process Issues:**
+- LSP servers auto-terminate after 5s timeout during graceful shutdown
+- Check logs in stderr for STDIO-safe error messages
+- Use `lsp-gateway status` for non-destructive server checks
 
 ## Important Constraints
 
@@ -115,8 +391,8 @@ tests/                   # All test code (E2E tests)
 - **Local development focus**: No authentication/monitoring complexity
 
 ### Development Guidelines
-- **Simplified architecture**: All core functionality in `src/` package
-- **Clean separation**: `cmd/` (entry), `server/` (core), `cli/` (commands), `internal/` (support)
+- **Modular architecture**: 7 focused modules with clear interfaces
+- **Clean separation**: Each module has single responsibility
 - **No auto-installation**: Users must manually install language servers
 - **Security active**: Command validation prevents malicious LSP server execution
 
@@ -127,114 +403,34 @@ tests/                   # All test code (E2E tests)
 - **NO Enterprise Features**: Avoid authentication, monitoring, distributed systems
 - **Keep It Simple**: Focus on core LSP-to-HTTP and LSP-to-MCP bridging
 
-## Key Files for Reference
+## Working with This Codebase
 
-### Core Server Package
-- **`src/server/lsp_manager.go`** - LSP client management with graceful shutdown and process lifecycle
-- **`src/server/mcp_server.go`** - MCP server for AI assistant integration with auto-configuration
-- **`src/server/gateway.go`** - HTTP JSON-RPC request processing
+### Start Here for Development:
+- **`src/server/lsp_manager.go`** - Core LSP orchestration and client management
+- **`src/server/process/manager.go`** - Process lifecycle and graceful shutdown
+- **`src/server/protocol/jsonrpc.go`** - JSON-RPC protocol handling
+- **`src/internal/project/detector.go`** - Language detection logic
+- **`src/config/config.go`** - YAML configuration loading with auto-generation
 
-### CLI and Configuration
-- **`src/cli/commands.go`** - Server lifecycle and CLI commands with non-destructive status checks
-- **`src/config/config.go`** - YAML configuration with auto-generation and language detection
+### Module Integration Pattern:
+```go
+// Example of how modules are integrated
+manager := &LSPManager{
+    documentManager:     documents.NewLSPDocumentManager(),
+    workspaceAggregator: aggregators.NewWorkspaceSymbolAggregator(),
+}
 
-### Supporting Infrastructure
-- **`src/internal/project/detector.go`** - Automatic language detection based on file extensions and project structure
-- **`src/internal/common/logging.go`** - STDIO-safe logging utilities with levels
-- **`src/internal/security/command_validation.go`** - Command validation for security
-
-### Entry Point and Build
-- **`src/cmd/lsp-gateway/main.go`** - Application entry point
-- **`Makefile`** - Build automation with working targets (`make local`, `make build`, `make quality`)
-- **`package.json`** - NPM integration for global command linking
-
-## Development Workflow
-
-1. **Setup**: `make tidy && make local` to build and install globally
-2. **Development**: Use working make targets for validation (`make quality`)
-3. **Testing**: Manual testing with `lsp-gateway status` and `lsp-gateway test`
-
-### Server Testing
-```bash
-# Test server availability (fast, non-destructive)
-lsp-gateway status                        # Check LSP server availability
-
-# Test functionality
-lsp-gateway test --config config.yaml    # Test LSP server connections
-
-# Start servers
-lsp-gateway server --config config.yaml  # HTTP Gateway (port 8080)
-lsp-gateway mcp                          # MCP Server with auto-detection
-lsp-gateway mcp --config config.yaml    # MCP Server with explicit config
-
-# Health check
-curl http://localhost:8080/health
+client := &StdioClient{
+    processManager:   process.NewLSPProcessManager(),
+    jsonrpcProtocol:  protocol.NewLSPJSONRPCProtocol(language),
+    errorTranslator:  errors.NewLSPErrorTranslator(),
+    capDetector:      capabilities.NewLSPCapabilityDetector(),
+}
 ```
-
-### Working Make Targets
-```bash
-make local           # Build and npm link (most common)
-make build          # Cross-platform build
-make clean          # Clean artifacts  
-make tidy           # Go mod tidy
-make format         # Go fmt
-make vet            # Go vet (may show import warnings)
-make quality        # Format + vet
-```
-
-## Auto-Configuration Features
-
-### MCP Mode Auto-Detection
-When `lsp-gateway mcp` is run without `--config`, it automatically:
-1. **Scans current directory** for language-specific files and project structures
-2. **Detects languages** based on file extensions (`.go`, `.py`, `.js/.jsx`, `.ts/.tsx`, `.java`)
-3. **Analyzes project files** (`go.mod`, `package.json`, `requirements.txt`, `tsconfig.json`, `pom.xml`)
-4. **Checks LSP server availability** using `exec.LookPath` and security validation
-5. **Generates configuration** for available languages only
-6. **Starts LSP servers** for detected languages
-
-### Detection Examples
-```bash
-cd go-project && lsp-gateway mcp
-# 🔍 Auto-detecting languages: [go]
-
-cd full-stack-project && lsp-gateway mcp  
-# 🔍 Auto-detecting languages: [typescript javascript python go]
-
-lsp-gateway mcp --config config.yaml
-# Uses explicit configuration (no auto-detection)
-```
-
-## Recent Improvements
-
-### Process Management Fixes
-- **Resolved "signal: killed" crashes**: Fixed aggressive process termination
-- **Proper LSP shutdown**: Implements `shutdown` → `exit` → 5s timeout sequence
-- **Status command safety**: No longer starts/stops servers for status checks
-- **Graceful termination**: Uses `exec.Command` instead of `exec.CommandContext` for manual control
-
-### Enhanced Configuration
-- **Auto-generation**: `config.GenerateAutoConfig()` creates configs for detected languages
-- **Language detection**: `project.DetectLanguages()` and `project.GetAvailableLanguages()`
-- **Availability checking**: `project.IsLSPServerAvailable()` validates server installation
-
-## Current System Status
-
-- **Build System**: Functional with core targets (`make local`, `make build`, `make quality`)
-- **LSP Communication**: All 4 language servers working (Go, Python, JavaScript/TypeScript) when installed
-- **Auto-Configuration**: MCP mode automatically detects and configures available languages
-- **Process Management**: Stable with proper shutdown sequences and error handling
-- **Security**: Command validation active, prevents malicious LSP server execution
-
-### Working with This Codebase
-- **Start Here**: `src/server/lsp_manager.go` - contains LSP client management and graceful shutdown
-- **Auto-Detection**: `src/internal/project/detector.go` - language detection logic
-- **HTTP Gateway**: `src/server/gateway.go` - handles JSON-RPC over HTTP
-- **MCP Integration**: `src/server/mcp_server.go` - AI assistant protocol with auto-configuration
-- **CLI Commands**: `src/cli/commands.go` - server lifecycle and command implementations
-- **Configuration**: `src/config/config.go` - YAML loading with auto-generation
 
 ### Architecture Philosophy
-The project prioritizes simplicity and reliability. Auto-configuration eliminates manual setup for MCP mode, graceful process management prevents LSP server crashes, and the entire system focuses on 4 languages with 6 essential LSP features. STDIO communication is carefully managed to avoid interference with LSP protocol messages.
+The project prioritizes **simplicity, modularity, and reliability**. The recent refactoring achieved significant code reduction (1,546 → 967 lines in lsp_manager.go) while improving maintainability through Single Responsibility Principle. Auto-configuration eliminates manual setup for MCP mode, graceful process management prevents LSP server crashes, and the modular system focuses on 4 languages with 6 essential LSP features.
+
+Each module has a clear interface and single responsibility, making the codebase easier to understand, test, and extend. STDIO communication is carefully managed to avoid interference with LSP protocol messages.
 
 This LSP Gateway provides a clean, focused solution for local LSP functionality with both HTTP and MCP protocol support, featuring automatic language detection and robust process management for seamless IDE and AI assistant integration.

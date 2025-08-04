@@ -23,12 +23,12 @@ make local                    # Builds + creates global 'lsp-gateway' command
 
 # 2. Install language servers (choose what you need)
 go install golang.org/x/tools/gopls@latest                    # Go
-pip install python-lsp-server                                 # Python  
+npm install -g pyright                                        # Python  
 npm install -g typescript-language-server typescript         # TypeScript/JS
 # Java: Install Eclipse JDT Language Server manually
 
 # 3. Start using
-lsp-gateway server            # HTTP Gateway (port 8080) - uses config.yaml
+lsp-gateway server            # HTTP Gateway (port 8080)
 lsp-gateway mcp               # MCP Server for AI assistants
 ```
 
@@ -46,7 +46,6 @@ lsp-gateway test               # Test LSP server connections
 ```bash
 make local        # Build + create global 'lsp-gateway' command
 make unlink       # Remove global 'lsp-gateway' command  
-make test-quick   # Run quick validation tests
 make quality      # Essential checks (format + vet)
 ```
 
@@ -104,8 +103,8 @@ servers:
     command: "gopls"
     args: []
   python:
-    command: "pylsp"
-    args: []
+    command: "pyright-langserver"
+    args: ["--stdio"]
   javascript:
     command: "typescript-language-server"
     args: ["--stdio"]
@@ -143,7 +142,7 @@ which gopls                       # Check if language server is in PATH
 - **Go 1.24+** for building from source
 - **Language servers**: Install manually for each language you need:
   - Go: `go install golang.org/x/tools/gopls@latest`
-  - Python: `pip install python-lsp-server`
+  - Python: `npm install -g pyright`
   - TypeScript/JS: `npm install -g typescript-language-server typescript`
   - Java: Install Eclipse JDT Language Server
 - **Platforms**: Linux, macOS (x64/arm64), Windows (x64)
