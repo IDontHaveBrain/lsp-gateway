@@ -74,10 +74,10 @@ func GetTestRepositories() map[string]*TestRepository {
 			TestFiles: []TestFile{
 				{
 					Path:          "requests/api.py",
-					DefinitionPos: Position{Line: 61, Character: 4},  // def get function definition (Line 62, 0-based = 61)
-					ReferencePos:  Position{Line: 13, Character: 4},  // request function reference
-					HoverPos:      Position{Line: 61, Character: 8},  // get function name
-					CompletionPos: Position{Line: 65, Character: 4},  // inside get function for completion
+					DefinitionPos: Position{Line: 61, Character: 4}, // def get function definition (Line 62, 0-based = 61)
+					ReferencePos:  Position{Line: 13, Character: 4}, // request function reference
+					HoverPos:      Position{Line: 61, Character: 8}, // get function name
+					CompletionPos: Position{Line: 65, Character: 4}, // inside get function for completion
 					SymbolQuery:   "get",
 				},
 			},
@@ -90,11 +90,27 @@ func GetTestRepositories() map[string]*TestRepository {
 			TestFiles: []TestFile{
 				{
 					Path:          "source/index.ts",
-					DefinitionPos: Position{Line: 101, Character: 9}, // function is definition (Line 102, 0-based = 101)
+					DefinitionPos: Position{Line: 101, Character: 9},  // function is definition (Line 102, 0-based = 101)
 					ReferencePos:  Position{Line: 737, Character: 15}, // export default is usage (Line 738, 0-based = 737)
 					HoverPos:      Position{Line: 101, Character: 12}, // is function name
-					CompletionPos: Position{Line: 103, Character: 4}, // inside is function for completion
+					CompletionPos: Position{Line: 103, Character: 4},  // inside is function for completion
 					SymbolQuery:   "is",
+				},
+			},
+		},
+		"javascript": {
+			Language:   "javascript",
+			Name:       "ramda",
+			URL:        "https://github.com/ramda/ramda.git",
+			CommitHash: "v0.31.3", // stable release tag (lightweight JavaScript functional library)
+			TestFiles: []TestFile{
+				{
+					Path:          "source/compose.js", // Pure JavaScript functional programming utilities
+					DefinitionPos: Position{Line: 23, Character: 23}, // export default compose function definition (Line 24, 0-based = 23)
+					ReferencePos:  Position{Line: 26, Character: 2},  // pipe function reference usage (Line 27, 0-based = 26)
+					HoverPos:      Position{Line: 23, Character: 28}, // compose function name
+					CompletionPos: Position{Line: 25, Character: 4},  // inside compose function for completion
+					SymbolQuery:   "compose",
 				},
 			},
 		},

@@ -23,17 +23,17 @@ type SharedServerManager struct {
 	projectRoot   string
 	repoDir       string
 	serverStarted bool
-	
+
 	// HTTP client for server communication
 	httpClient *HttpClient
 
 	// Cache isolation manager for shared server
 	cacheIsolationMgr *CacheIsolationManager
-	
+
 	// Test tracking
 	testCount   int
 	activeTests map[string]bool
-	
+
 	// Context for cancellation
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -42,7 +42,7 @@ type SharedServerManager struct {
 // NewSharedServerManager creates a new shared server manager
 func NewSharedServerManager(repoDir string, cacheIsolationMgr *CacheIsolationManager) *SharedServerManager {
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	return &SharedServerManager{
 		repoDir:           repoDir,
 		cacheIsolationMgr: cacheIsolationMgr,
@@ -95,7 +95,7 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 
 	// Use a shared cache configuration that can be isolated per test
 	cacheConfig := DefaultCacheIsolationConfig()
-	cacheConfig.IsolationLevel = BasicIsolation // Use basic isolation for shared server
+	cacheConfig.IsolationLevel = BasicIsolation  // Use basic isolation for shared server
 	cacheConfig.MaxCacheSize = 256 * 1024 * 1024 // 256MB for shared server
 
 	configPath, err := mgr.cacheIsolationMgr.GenerateIsolatedConfig(servers, cacheConfig)
@@ -157,7 +157,7 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 // waitForServerReady waits for the shared server to be ready
 func (mgr *SharedServerManager) waitForServerReady(t *testing.T) error {
 	healthURL := fmt.Sprintf("http://localhost:%d/health", mgr.gatewayPort)
-	
+
 	t.Logf("⏳ Waiting for shared server to be ready at %s...", healthURL)
 
 	maxRetries := 60 // 60 seconds timeout
@@ -176,7 +176,7 @@ func (mgr *SharedServerManager) waitForServerReady(t *testing.T) error {
 				return nil
 			}
 		}
-		
+
 		time.Sleep(1 * time.Second)
 	}
 
@@ -201,10 +201,10 @@ func (mgr *SharedServerManager) GetServerPort() int {
 func (mgr *SharedServerManager) RegisterTest(testName string, t *testing.T) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	mgr.activeTests[testName] = true
 	mgr.testCount++
-	
+
 	t.Logf("📝 Registered test '%s' with shared server (active tests: %d)", testName, len(mgr.activeTests))
 }
 
@@ -212,9 +212,9 @@ func (mgr *SharedServerManager) RegisterTest(testName string, t *testing.T) {
 func (mgr *SharedServerManager) UnregisterTest(testName string, t *testing.T) {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	delete(mgr.activeTests, testName)
-	
+
 	t.Logf("📝 Unregistered test '%s' from shared server (active tests: %d)", testName, len(mgr.activeTests))
 }
 
@@ -229,7 +229,7 @@ func (mgr *SharedServerManager) IsServerRunning() bool {
 func (mgr *SharedServerManager) StopSharedServer(t *testing.T) error {
 	mgr.mu.Lock()
 	defer mgr.mu.Unlock()
-	
+
 	return mgr.stopSharedServer(t)
 }
 
@@ -277,7 +277,7 @@ func (mgr *SharedServerManager) stopSharedServer(t *testing.T) error {
 
 	mgr.gatewayCmd = nil
 	mgr.serverStarted = false
-	
+
 	t.Logf("✅ Shared LSP gateway server stopped successfully")
 	return nil
 }
@@ -293,7 +293,7 @@ func (mgr *SharedServerManager) GetActiveTestCount() int {
 func (mgr *SharedServerManager) GetServerInfo() map[string]interface{} {
 	mgr.mu.RLock()
 	defer mgr.mu.RUnlock()
-	
+
 	return map[string]interface{}{
 		"running":      mgr.serverStarted,
 		"port":         mgr.gatewayPort,

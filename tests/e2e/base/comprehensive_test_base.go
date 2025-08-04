@@ -65,7 +65,7 @@ func (suite *ComprehensiveTestBaseSuite) SetupSuite() {
 	suite.testTimeout = 120 * time.Second
 	suite.gatewayPort = 8080
 
-	// Enable shared server mode by default (can be disabled by individual tests)
+	// Enable shared server mode for better performance and reduce test overhead
 	suite.useSharedServer = true
 
 	// Create temp directory for repositories
@@ -99,11 +99,11 @@ func (suite *ComprehensiveTestBaseSuite) SetupSuite() {
 	// Initialize shared server manager if enabled
 	if suite.useSharedServer {
 		suite.sharedServerManager = testutils.NewSharedServerManager(suite.repoDir, suite.cacheIsolationMgr)
-		
+
 		// Start the shared server once for all tests in this suite
 		err = suite.sharedServerManager.StartSharedServer(suite.T())
 		require.NoError(suite.T(), err, "Failed to start shared LSP server")
-		
+
 		suite.T().Logf("🚀 Shared server mode enabled for %s tests", suite.Config.DisplayName)
 	}
 }
@@ -115,11 +115,11 @@ func (suite *ComprehensiveTestBaseSuite) SetupTest() {
 	// In shared server mode, register with the shared server
 	if suite.useSharedServer && suite.sharedServerManager != nil {
 		suite.sharedServerManager.RegisterTest(testName, suite.T())
-		
+
 		// Update HTTP client and port from shared server
 		suite.httpClient = suite.sharedServerManager.GetHTTPClient()
 		suite.gatewayPort = suite.sharedServerManager.GetServerPort()
-		
+
 		suite.T().Logf("🔗 Test '%s' connected to shared server on port %d", testName, suite.gatewayPort)
 	} else {
 		// Legacy mode: Initialize cache isolation for individual server
@@ -188,7 +188,7 @@ func (suite *ComprehensiveTestBaseSuite) TearDownSuite() {
 		if err := suite.sharedServerManager.StopSharedServer(suite.T()); err != nil {
 			suite.T().Logf("Warning: Failed to stop shared server: %v", err)
 		}
-		
+
 		// Log shared server statistics
 		serverInfo := suite.sharedServerManager.GetServerInfo()
 		suite.T().Logf("📊 Shared server served %v total tests for %s", serverInfo["total_tests"], suite.Config.DisplayName)
@@ -226,15 +226,15 @@ func (suite *ComprehensiveTestBaseSuite) ensureServerAvailable() (*testutils.Htt
 		if !suite.sharedServerManager.IsServerRunning() {
 			return nil, fmt.Errorf("shared server is not running")
 		}
-		
+
 		httpClient := suite.sharedServerManager.GetHTTPClient()
 		if httpClient == nil {
 			return nil, fmt.Errorf("shared server HTTP client is not available")
 		}
-		
+
 		return httpClient, nil
 	}
-	
+
 	// Legacy individual server mode
 	err := suite.setupTestWorkspace()
 	if err != nil {
@@ -255,7 +255,7 @@ func (suite *ComprehensiveTestBaseSuite) ensureServerAvailable() (*testutils.Htt
 		BaseURL: fmt.Sprintf("http://localhost:%d", suite.gatewayPort),
 		Timeout: 10 * time.Second,
 	})
-	
+
 	return httpClient, nil
 }
 
@@ -574,7 +574,7 @@ func (suite *ComprehensiveTestBaseSuite) TestDefinitionComprehensive() {
 	testFile, err := suite.repoManager.GetTestFile(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get test file")
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	definitionRequest := map[string]interface{}{
 		"jsonrpc": "2.0",
@@ -632,7 +632,7 @@ func (suite *ComprehensiveTestBaseSuite) TestReferencesComprehensive() {
 	testFile, err := suite.repoManager.GetTestFile(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get test file")
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	referencesRequest := map[string]interface{}{
 		"jsonrpc": "2.0",
@@ -695,7 +695,7 @@ func (suite *ComprehensiveTestBaseSuite) TestHoverComprehensive() {
 
 	// Give LSP server time to initialize
 	suite.T().Logf("Waiting for LSP server to fully initialize...")
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// Test hover request
 	hoverRequest := map[string]interface{}{
@@ -754,7 +754,7 @@ func (suite *ComprehensiveTestBaseSuite) TestDocumentSymbolComprehensive() {
 	fileURI, err := suite.repoManager.GetFileURI(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get file URI")
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	documentSymbolRequest := map[string]interface{}{
 		"jsonrpc": "2.0",
@@ -806,7 +806,7 @@ func (suite *ComprehensiveTestBaseSuite) TestWorkspaceSymbolComprehensive() {
 	testFile, err := suite.repoManager.GetTestFile(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get test file")
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	workspaceSymbolRequest := map[string]interface{}{
 		"jsonrpc": "2.0",
@@ -859,7 +859,7 @@ func (suite *ComprehensiveTestBaseSuite) TestCompletionComprehensive() {
 	testFile, err := suite.repoManager.GetTestFile(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get test file")
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	completionRequest := map[string]interface{}{
 		"jsonrpc": "2.0",
@@ -929,7 +929,7 @@ func (suite *ComprehensiveTestBaseSuite) TestAllLSPMethodsSequential() {
 	require.NoError(suite.T(), err, "Failed to get test file")
 
 	// Wait for LSP server to fully initialize
-	time.Sleep(3 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	// Test all 6 LSP methods sequentially
 	suite.testMethodSequentially(httpClient, fileURI, testFile, "textDocument/definition", testFile.DefinitionPos)

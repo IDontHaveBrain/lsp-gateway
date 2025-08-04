@@ -7,17 +7,16 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"gopkg.in/yaml.v3"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/types"
 )
 
-// Config contains LSP server configuration, SCIP cache settings, and MCP configuration
+// Config contains LSP server configuration, unified cache settings, and MCP configuration
 type Config struct {
 	Servers map[string]*ServerConfig `yaml:"servers"`
-	Cache   *SCIPConfig              `yaml:"cache"`
+	Cache   *CacheConfig             `yaml:"cache"`
 	MCP     *MCPConfig               `yaml:"mcp,omitempty"`
 }
 
@@ -34,15 +33,17 @@ type ServerConfig struct {
 	InitializationOptions interface{} `yaml:"initialization_options,omitempty"`
 }
 
-// SCIPConfig contains SCIP cache configuration settings
-type SCIPConfig struct {
-	Enabled             bool          `yaml:"enabled"`               // Enabled by default
-	StoragePath         string        `yaml:"storage_path"`          // Cache storage directory
-	MaxMemoryMB         int           `yaml:"max_memory_mb"`         // Memory limit in MB
-	TTL                 time.Duration `yaml:"ttl"`                   // Cache TTL
-	Languages           []string      `yaml:"languages"`             // Supported languages for caching
-	BackgroundIndex     bool          `yaml:"background_index"`      // Enable background indexing
-	HealthCheckInterval time.Duration `yaml:"health_check_interval"` // Health monitoring interval
+// CacheConfig contains unified cache configuration settings with simple units
+type CacheConfig struct {
+	Enabled             bool     `yaml:"enabled"`                // Cache enabled by default
+	StoragePath         string   `yaml:"storage_path"`           // Cache storage directory  
+	MaxMemoryMB         int      `yaml:"max_memory_mb"`          // Memory limit in MB (simple units)
+	TTLHours            int      `yaml:"ttl_hours"`              // Cache TTL in hours (simple units)
+	Languages           []string `yaml:"languages"`              // Supported languages for caching
+	BackgroundIndex     bool     `yaml:"background_index"`       // Enable background indexing
+	HealthCheckMinutes  int      `yaml:"health_check_minutes"`   // Health check interval in minutes (simple units)
+	EvictionPolicy      string   `yaml:"eviction_policy"`        // Cache eviction policy (lru, simple)
+	DiskCache           bool     `yaml:"disk_cache"`             // Enable disk persistence
 }
 
 // ExpandPath expands ~ to the user's home directory in file paths
@@ -156,9 +157,9 @@ func validateConfig(config *Config) error {
 		}
 	}
 
-	// Validate SCIP cache configuration if present
+	// Validate cache configuration if present
 	if config.Cache != nil {
-		if err := validateSCIPConfig(config.Cache); err != nil {
+		if err := validateCacheConfig(config.Cache); err != nil {
 			return fmt.Errorf("invalid cache configuration: %w", err)
 		}
 	}
@@ -173,8 +174,8 @@ func validateConfig(config *Config) error {
 	return nil
 }
 
-// validateSCIPConfig validates SCIP cache configuration
-func validateSCIPConfig(cache *SCIPConfig) error {
+// validateCacheConfig validates unified cache configuration with simple units
+func validateCacheConfig(cache *CacheConfig) error {
 	// Memory validation
 	if cache.MaxMemoryMB <= 0 {
 		return fmt.Errorf("max_memory_mb must be greater than 0, got %d", cache.MaxMemoryMB)
@@ -185,7 +186,7 @@ func validateSCIPConfig(cache *SCIPConfig) error {
 	runtime.ReadMemStats(&memStats)
 	systemMemoryMB := int(memStats.Sys / 1024 / 1024)
 	if cache.MaxMemoryMB > systemMemoryMB/2 {
-		common.CLILogger.Warn("SCIP cache memory limit (%dMB) is more than 50%% of system memory (%dMB)",
+		common.CLILogger.Warn("Cache memory limit (%dMB) is more than 50%% of system memory (%dMB)",
 			cache.MaxMemoryMB, systemMemoryMB)
 	}
 
@@ -194,20 +195,29 @@ func validateSCIPConfig(cache *SCIPConfig) error {
 		return fmt.Errorf("storage_path cannot be empty")
 	}
 
-	// TTL validation
-	if cache.TTL <= 0 {
-		return fmt.Errorf("ttl must be greater than 0, got %v", cache.TTL)
+	// TTL validation (in hours)
+	if cache.TTLHours <= 0 {
+		return fmt.Errorf("ttl_hours must be greater than 0, got %d", cache.TTLHours)
 	}
-	if cache.TTL < time.Minute {
-		return fmt.Errorf("ttl must be at least 1 minute, got %v", cache.TTL)
+	if cache.TTLHours < 1 {
+		return fmt.Errorf("ttl_hours must be at least 1 hour, got %d", cache.TTLHours)
 	}
 
-	// Health check interval validation
-	if cache.HealthCheckInterval <= 0 {
-		return fmt.Errorf("health_check_interval must be greater than 0, got %v", cache.HealthCheckInterval)
+	// Health check interval validation (in minutes)
+	if cache.HealthCheckMinutes <= 0 {
+		return fmt.Errorf("health_check_minutes must be greater than 0, got %d", cache.HealthCheckMinutes)
 	}
-	if cache.HealthCheckInterval < time.Minute {
-		return fmt.Errorf("health_check_interval must be at least 1 minute, got %v", cache.HealthCheckInterval)
+	if cache.HealthCheckMinutes < 1 {
+		return fmt.Errorf("health_check_minutes must be at least 1 minute, got %d", cache.HealthCheckMinutes)
+	}
+
+	// Eviction policy validation
+	validPolicies := map[string]bool{
+		"lru":    true,
+		"simple": true,
+	}
+	if cache.EvictionPolicy != "" && !validPolicies[cache.EvictionPolicy] {
+		return fmt.Errorf("invalid eviction_policy: %s (must be 'lru' or 'simple')", cache.EvictionPolicy)
 	}
 
 	// Language validation - ensure only supported languages
@@ -261,24 +271,26 @@ func GetDefaultConfig() *Config {
 			},
 		},
 		// Cache is enabled by default with standard settings
-		Cache: GetDefaultSCIPConfig(),
+		Cache: GetDefaultCacheConfig(),
 		MCP: &MCPConfig{
 			Mode: types.DefaultMCPMode,
 		},
 	}
 }
 
-// GetDefaultSCIPConfig returns a default SCIP cache configuration (enabled by default)
-func GetDefaultSCIPConfig() *SCIPConfig {
+// GetDefaultCacheConfig returns a default cache configuration with simple units (enabled by default)
+func GetDefaultCacheConfig() *CacheConfig {
 	home, _ := os.UserHomeDir()
-	return &SCIPConfig{
-		Enabled:             true, // Enabled by default for improved performance
-		StoragePath:         filepath.Join(home, ".lsp-gateway", "scip-cache"),
-		MaxMemoryMB:         256,
-		TTL:                 24 * time.Hour, // 24 hours for daily development workflow
-		Languages:           []string{"go", "python", "typescript", "java"},
-		BackgroundIndex:     true,
-		HealthCheckInterval: 5 * time.Minute,
+	return &CacheConfig{
+		Enabled:            true, // Enabled by default for improved performance
+		StoragePath:        filepath.Join(home, ".lsp-gateway", "cache"),
+		MaxMemoryMB:        256,
+		TTLHours:           24, // 24 hours for daily development workflow
+		Languages:          []string{"go", "python", "typescript", "java"},
+		BackgroundIndex:    true,
+		HealthCheckMinutes: 5, // 5 minutes
+		EvictionPolicy:     "lru",
+		DiskCache:          false, // Simple in-memory cache by default
 	}
 }
 
@@ -336,7 +348,7 @@ func GenerateConfigForLanguages(languages []string) *Config {
 	// Create new config with only requested languages
 	config := &Config{
 		Servers: make(map[string]*ServerConfig),
-		Cache:   GetDefaultSCIPConfig(),
+		Cache:   GetDefaultCacheConfig(),
 		MCP: &MCPConfig{
 			Mode: types.DefaultMCPMode,
 		},
@@ -411,45 +423,45 @@ func GenerateAutoConfig(workingDir string, getAvailableLanguages func(string) ([
 	return DetectAndGenerateConfig(workingDir, getAvailableLanguages)
 }
 
-// SCIP Cache Management Functions
+// Cache Management Functions
 
-// HasCache returns true if the configuration has SCIP cache settings
+// HasCache returns true if the configuration has cache settings
 func (c *Config) HasCache() bool {
 	return c.Cache != nil
 }
 
-// IsCacheEnabled returns true if SCIP cache is enabled
+// IsCacheEnabled returns true if cache is enabled
 func (c *Config) IsCacheEnabled() bool {
 	return c.Cache != nil && c.Cache.Enabled
 }
 
-// EnableCache enables SCIP cache with default settings if not present
+// EnableCache enables cache with default settings if not present
 func (c *Config) EnableCache() {
 	if c.Cache == nil {
-		c.Cache = GetDefaultSCIPConfig()
+		c.Cache = GetDefaultCacheConfig()
 	}
 	c.Cache.Enabled = true
 }
 
-// DisableCache disables SCIP cache but preserves settings
+// DisableCache disables cache but preserves settings
 func (c *Config) DisableCache() {
 	if c.Cache != nil {
 		c.Cache.Enabled = false
 	}
 }
 
-// SetCacheStoragePath sets the SCIP cache storage path
+// SetCacheStoragePath sets the cache storage path
 func (c *Config) SetCacheStoragePath(path string) {
 	if c.Cache == nil {
-		c.Cache = GetDefaultSCIPConfig()
+		c.Cache = GetDefaultCacheConfig()
 	}
 	c.Cache.StoragePath = path
 }
 
-// SetCacheMemoryLimit sets the SCIP cache memory limit in MB
+// SetCacheMemoryLimit sets the cache memory limit in MB
 func (c *Config) SetCacheMemoryLimit(memoryMB int) error {
 	if c.Cache == nil {
-		c.Cache = GetDefaultSCIPConfig()
+		c.Cache = GetDefaultCacheConfig()
 	}
 
 	if memoryMB <= 0 {
@@ -460,24 +472,24 @@ func (c *Config) SetCacheMemoryLimit(memoryMB int) error {
 	return nil
 }
 
-// SetCacheTTL sets the SCIP cache TTL
-func (c *Config) SetCacheTTL(ttl time.Duration) error {
+// SetCacheTTLHours sets the cache TTL in hours (simple units)
+func (c *Config) SetCacheTTLHours(hours int) error {
 	if c.Cache == nil {
-		c.Cache = GetDefaultSCIPConfig()
+		c.Cache = GetDefaultCacheConfig()
 	}
 
-	if ttl < time.Minute {
-		return fmt.Errorf("TTL must be at least 1 minute, got %v", ttl)
+	if hours < 1 {
+		return fmt.Errorf("TTL must be at least 1 hour, got %d", hours)
 	}
 
-	c.Cache.TTL = ttl
+	c.Cache.TTLHours = hours
 	return nil
 }
 
-// SetCacheLanguages sets the languages for SCIP cache
+// SetCacheLanguages sets the languages for cache
 func (c *Config) SetCacheLanguages(languages []string) error {
 	if c.Cache == nil {
-		c.Cache = GetDefaultSCIPConfig()
+		c.Cache = GetDefaultCacheConfig()
 	}
 
 	// Validate languages

@@ -72,10 +72,10 @@ func NewMCPServerWithMode(cfg *config.Config, mode types.MCPMode) (*MCPServer, e
 	if !cfg.IsCacheEnabled() {
 		cfg.EnableCache()
 		// Override with MCP-optimized cache settings
-		cfg.Cache.MaxMemoryMB = 512                     // Increased memory for LLM workloads
-		cfg.Cache.TTL = 60 * time.Minute                // Longer TTL for stable symbols
-		cfg.Cache.BackgroundIndex = true                // Always enable background indexing
-		cfg.Cache.HealthCheckInterval = 2 * time.Minute // More frequent health checks
+		cfg.Cache.MaxMemoryMB = 512          // Increased memory for LLM workloads
+		cfg.Cache.TTLHours = 1               // 1 hour TTL for stable symbols
+		cfg.Cache.BackgroundIndex = true     // Always enable background indexing
+		cfg.Cache.HealthCheckMinutes = 2     // More frequent health checks (every 2 minutes)
 		// Optimize for all supported languages
 		cfg.Cache.Languages = []string{"go", "python", "javascript", "typescript", "java"}
 		common.LSPLogger.Info("MCP server: Enabled mandatory SCIP cache with LLM-optimized settings")
@@ -89,9 +89,8 @@ func NewMCPServerWithMode(cfg *config.Config, mode types.MCPMode) (*MCPServer, e
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Create cache warmer for proactive LLM query optimization
-	cachedLSPManager := cache.NewCachedLSPManager(lspManager)
-	cacheWarmer := cache.NewCacheWarmupManager(cachedLSPManager)
+	// Simple cache system - no enterprise warmup needed
+	cacheWarmer := cache.NewCacheWarmupManager(nil) // Simplified stub
 
 	return &MCPServer{
 		lspManager:  lspManager,

@@ -95,25 +95,11 @@ Configure AI tools (Claude Desktop, etc.):
 
 ## Configuration
 
-Auto-detected configuration or create `config.yaml`:
+**Auto-detection mode** (recommended): `lsp-gateway mcp` automatically detects languages and available LSP servers.
 
-```yaml
-servers:
-  go:
-    command: "gopls"
-    args: ["serve"]
-  python:
-    command: "pyright-langserver"
-    args: ["--stdio"]
-  typescript:
-    command: "typescript-language-server"
-    args: ["--stdio"]
-  java:
-    command: "jdtls"
-    args: []
-```
+**Custom configuration**: Create `config.yaml` for advanced settings, cache configuration, and server customization.
 
-See [CLAUDE.md](CLAUDE.md) for complete configuration options including SCIP cache settings.
+**Complete guide**: [docs/configuration.md](docs/configuration.md) covers all configuration options, templates, and examples.
 
 ## Troubleshooting
 

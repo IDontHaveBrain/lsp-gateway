@@ -94,43 +94,16 @@ type LSPManager struct {
 	documentManager     documents.DocumentManager
 	workspaceAggregator aggregators.WorkspaceSymbolAggregator
 
-	// Mandatory SCIP cache integration - always present
+	// Optional SCIP cache integration - can be nil for simple usage
 	scipCache cache.SCIPCache
 }
 
-// convertConfigToCache converts application-level SCIPConfig to cache-level SCIPConfig
-func convertConfigToCache(appConfig *config.SCIPConfig) *cache.SCIPConfig {
-	if appConfig == nil {
-		// Return default cache config when no app config provided
-		return cache.DefaultSCIPConfig()
-	}
+// Removed convertConfigToCache - now using unified config.CacheConfig directly
 
-	return &cache.SCIPConfig{
-		Enabled:        appConfig.Enabled,
-		MaxSize:        int64(appConfig.MaxMemoryMB) * 1024 * 1024, // Convert MB to bytes
-		TTL:            appConfig.TTL,
-		EvictionPolicy: "lru", // Default eviction policy
-		BackgroundSync: appConfig.BackgroundIndex,
-		HealthCheckTTL: appConfig.HealthCheckInterval,
-	}
-}
-
-// NewLSPManager creates a new LSP manager with mandatory SCIP cache
+// NewLSPManager creates a new LSP manager with unified cache configuration
 func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 	if cfg == nil {
 		cfg = config.GetDefaultConfig()
-	}
-
-	// Always create cache - convert config to cache-specific format
-	cacheConfig := convertConfigToCache(cfg.Cache)
-	scipCache, err := cache.NewSCIPCacheManager(cacheConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create SCIP cache: %w", err)
-	}
-
-	// Initialize the cache
-	if err := scipCache.Initialize(cacheConfig); err != nil {
-		return nil, fmt.Errorf("failed to initialize SCIP cache: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -143,20 +116,38 @@ func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 		cancel:              cancel,
 		documentManager:     documents.NewLSPDocumentManager(),
 		workspaceAggregator: aggregators.NewWorkspaceSymbolAggregator(),
-		scipCache:           scipCache,
+		scipCache:           nil, // Optional cache - set to nil initially
 	}
 
-	common.LSPLogger.Info("LSP manager initialized with mandatory SCIP cache integration")
+	// Try to create cache with unified config - graceful degradation if it fails
+	if cfg.Cache != nil && cfg.Cache.Enabled {
+		scipCache, err := cache.NewSCIPCacheManager(cfg.Cache)
+		if err != nil {
+			common.LSPLogger.Warn("Failed to create cache (continuing without cache): %v", err)
+		} else {
+			manager.scipCache = scipCache
+			common.LSPLogger.Info("LSP manager initialized with unified cache integration")
+		}
+	}
+
+	if manager.scipCache == nil {
+		common.LSPLogger.Info("LSP manager initialized without cache - using direct LSP mode")
+	}
+
 	return manager, nil
 }
 
 // Start initializes and starts all configured LSP clients
 func (m *LSPManager) Start(ctx context.Context) error {
-	// Start cache - always present and required
-	if err := m.scipCache.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start SCIP cache: %w", err)
+	// Start cache if available - optional integration
+	if m.scipCache != nil {
+		if err := m.scipCache.Start(ctx); err != nil {
+			common.LSPLogger.Warn("Failed to start SCIP cache (continuing without cache): %v", err)
+			m.scipCache = nil // Disable cache on start failure
+		} else {
+			common.LSPLogger.Info("SCIP cache started successfully")
+		}
 	}
-	common.LSPLogger.Info("SCIP cache started successfully")
 
 	common.LSPLogger.Info("Starting LSP manager with %d servers", len(m.config.Servers))
 
@@ -213,11 +204,13 @@ func (m *LSPManager) Start(ctx context.Context) error {
 func (m *LSPManager) Stop() error {
 	m.cancel()
 
-	// Stop cache - always present
-	if err := m.scipCache.Stop(); err != nil {
-		common.LSPLogger.Warn("Failed to stop SCIP cache: %v", err)
-	} else {
-		common.LSPLogger.Info("SCIP cache stopped successfully")
+	// Stop cache if available - optional integration
+	if m.scipCache != nil {
+		if err := m.scipCache.Stop(); err != nil {
+			common.LSPLogger.Warn("Failed to stop SCIP cache: %v", err)
+		} else {
+			common.LSPLogger.Info("SCIP cache stopped successfully")
+		}
 	}
 
 	m.mu.Lock()
@@ -299,8 +292,8 @@ func (m *LSPManager) CheckServerAvailability() map[string]ClientStatus {
 
 // ProcessRequest processes a JSON-RPC request by routing it to the appropriate LSP client
 func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params interface{}) (interface{}, error) {
-	// Try cache lookup first - cache is always present and method is cacheable
-	if m.isCacheableMethod(method) {
+	// Try cache lookup first if cache is available and method is cacheable
+	if m.scipCache != nil && m.isCacheableMethod(method) {
 		if result, found, err := m.scipCache.Lookup(method, params); err == nil && found {
 			common.LSPLogger.Debug("Cache hit for method=%s", method)
 			return result, nil
@@ -323,8 +316,8 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 			m.mu.RUnlock()
 			result, err := m.workspaceAggregator.ProcessWorkspaceSymbol(ctx, clients, params)
 
-			// Cache the result if successful - cache is always available
-			if err == nil && m.isCacheableMethod(method) {
+			// Cache the result if successful and cache is available
+			if err == nil && m.scipCache != nil && m.isCacheableMethod(method) {
 				if cacheErr := m.scipCache.Store(method, params, result); cacheErr != nil {
 					common.LSPLogger.Debug("Failed to cache workspace/symbol result: %v", cacheErr)
 				} else {
@@ -367,8 +360,8 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 	// Send request to LSP server
 	result, err := client.SendRequest(ctx, method, params)
 
-	// Cache the result if successful - cache is always available
-	if err == nil && m.isCacheableMethod(method) {
+	// Cache the result if successful and cache is available
+	if err == nil && m.scipCache != nil && m.isCacheableMethod(method) {
 		if cacheErr := m.scipCache.Store(method, params, result); cacheErr != nil {
 			common.LSPLogger.Debug("Failed to cache LSP response for method=%s: %v", method, cacheErr)
 		} else {
@@ -550,20 +543,36 @@ func (m *LSPManager) isCacheableMethod(method string) bool {
 	return cacheableMethods[method]
 }
 
-// InvalidateCache invalidates cached entries for a document
+// InvalidateCache invalidates cached entries for a document (optional cache)
 func (m *LSPManager) InvalidateCache(uri string) error {
+	if m.scipCache == nil {
+		return nil // No cache to invalidate
+	}
 	common.LSPLogger.Debug("Invalidating cache for document: %s", uri)
 	return m.scipCache.InvalidateDocument(uri)
 }
 
-// GetCacheMetrics returns cache performance metrics
+// GetCacheMetrics returns cache performance metrics (optional cache)
 func (m *LSPManager) GetCacheMetrics() interface{} {
+	if m.scipCache == nil {
+		return nil // No cache metrics available
+	}
 	return m.scipCache.GetMetrics()
 }
 
-// GetCache returns the SCIP cache instance for external access
+// GetCache returns the SCIP cache instance for external access (optional cache)
 func (m *LSPManager) GetCache() cache.SCIPCache {
-	return m.scipCache
+	return m.scipCache // Can be nil
+}
+
+// SetCache allows optional cache injection for flexible integration
+func (m *LSPManager) SetCache(cache cache.SCIPCache) {
+	m.scipCache = cache
+	if cache != nil {
+		common.LSPLogger.Info("Cache injected into LSP manager")
+	} else {
+		common.LSPLogger.Info("Cache removed from LSP manager")
+	}
 }
 
 // ensureDocumentOpen sends a textDocument/didOpen notification if needed

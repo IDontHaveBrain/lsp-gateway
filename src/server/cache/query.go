@@ -2,10 +2,7 @@ package cache
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -48,16 +45,6 @@ type QueryMetrics struct {
 	CacheMisses     int64
 	AvgResponseTime time.Duration
 	LastResetTime   time.Time
-}
-
-// QueryCircuitBreaker provides fallback mechanism when cache fails
-type QueryCircuitBreaker struct {
-	failures    int
-	lastFailure time.Time
-	state       string // "closed", "open", "half-open"
-	threshold   int
-	timeout     time.Duration
-	mu          sync.RWMutex
 }
 
 // SCIPQueryIndex holds the high-performance in-memory indexes
@@ -107,13 +94,11 @@ type FastSCIPQuery interface {
 	IsHealthy() bool
 }
 
-// SCIPQueryManager implements the FastSCIPQuery interface
+// SCIPQueryManager - DEPRECATED: Complex query wrapper removed, use direct cache operations
 type SCIPQueryManager struct {
-	index          *SCIPQueryIndex
-	circuitBreaker *QueryCircuitBreaker
-	metrics        *QueryMetrics
-	fallbackLSP    LSPFallback // Fallback to actual LSP servers
-	mu             sync.RWMutex
+	fallbackLSP LSPFallback // Direct fallback to LSP servers
+	metrics     *QueryMetrics
+	mu          sync.RWMutex
 }
 
 // LSPFallback interface for fallback to actual LSP servers
@@ -121,363 +106,98 @@ type LSPFallback interface {
 	ProcessRequest(ctx context.Context, method string, params interface{}) (interface{}, error)
 }
 
-// NewSCIPQueryManager creates a new SCIP query manager
+// NewSCIPQueryManager - DEPRECATED: Creates simplified query manager (complex indexing removed)
 func NewSCIPQueryManager(fallback LSPFallback) *SCIPQueryManager {
+	common.LSPLogger.Warn("SCIPQueryManager is deprecated - use direct LSPManager cache integration")
 	return &SCIPQueryManager{
-		index: &SCIPQueryIndex{
-			SymbolIndex:     make(map[string]*lsp.SymbolInformation),
-			PositionIndex:   make(map[PositionKey]string),
-			ReferenceGraph:  make(map[string][]*lsp.Location),
-			DocumentSymbols: make(map[string]*DocumentSymbolTree),
-			HoverCache:      make(map[PositionKey]*lsp.Hover),
-			CompletionCache: make(map[PositionKey]*CompletionContext),
-			WorkspaceIndex:  make(map[string][]*lsp.SymbolInformation),
-			IndexedURIs:     make(map[string]time.Time),
-		},
-		circuitBreaker: &QueryCircuitBreaker{
-			threshold: 5,
-			timeout:   30 * time.Second,
-			state:     "closed",
-		},
+		fallbackLSP: fallback,
 		metrics: &QueryMetrics{
 			LastResetTime: time.Now(),
 		},
-		fallbackLSP: fallback,
 	}
 }
 
-// GetDefinition provides sub-millisecond definition lookups
+// GetDefinition - DEPRECATED: Direct LSP fallback (complex indexing removed)
 func (q *SCIPQueryManager) GetDefinition(ctx context.Context, params *lsp.DefinitionParams) ([]*lsp.Location, error) {
 	start := time.Now()
 	defer func() {
 		q.updateMetrics(time.Since(start))
 	}()
 
-	// Circuit breaker check
-	if !q.circuitBreaker.allowRequest() {
-		return q.fallbackToLSPDefinition(ctx, params)
-	}
-
-	q.index.mu.RLock()
-	defer q.index.mu.RUnlock()
-
-	posKey := PositionKey{
-		URI:       params.TextDocument.URI,
-		Line:      params.Position.Line,
-		Character: params.Position.Character,
-	}
-
-	// Fast position -> symbol lookup
-	symbolName, exists := q.index.PositionIndex[posKey]
-	if !exists {
-		q.metrics.CacheMisses++
-		return q.fallbackToLSPDefinition(ctx, params)
-	}
-
-	// Fast symbol -> definition lookup
-	symbolInfo, exists := q.index.SymbolIndex[symbolName]
-	if !exists {
-		q.metrics.CacheMisses++
-		return q.fallbackToLSPDefinition(ctx, params)
-	}
-
-	q.metrics.CacheHits++
-	return []*lsp.Location{&symbolInfo.Location}, nil
+	// Simplified implementation - direct LSP fallback
+	q.metrics.CacheMisses++
+	return q.fallbackToLSPDefinition(ctx, params)
 }
 
-// GetReferences provides fast reference lookups via graph traversal
+// GetReferences - DEPRECATED: Direct LSP fallback (complex graph traversal removed)
 func (q *SCIPQueryManager) GetReferences(ctx context.Context, params *lsp.ReferenceParams) ([]*lsp.Location, error) {
 	start := time.Now()
 	defer func() {
 		q.updateMetrics(time.Since(start))
 	}()
 
-	if !q.circuitBreaker.allowRequest() {
-		return q.fallbackToLSPReferences(ctx, params)
-	}
-
-	q.index.mu.RLock()
-	defer q.index.mu.RUnlock()
-
-	posKey := PositionKey{
-		URI:       params.TextDocument.URI,
-		Line:      params.Position.Line,
-		Character: params.Position.Character,
-	}
-
-	// Get symbol at position
-	symbolName, exists := q.index.PositionIndex[posKey]
-	if !exists {
-		q.metrics.CacheMisses++
-		return q.fallbackToLSPReferences(ctx, params)
-	}
-
-	// Fast reference graph traversal
-	references, exists := q.index.ReferenceGraph[symbolName]
-	if !exists {
-		q.metrics.CacheMisses++
-		return q.fallbackToLSPReferences(ctx, params)
-	}
-
-	// Include declaration if requested
-	result := make([]*lsp.Location, 0, len(references)+1)
-	if params.Context.IncludeDeclaration {
-		if symbolInfo, exists := q.index.SymbolIndex[symbolName]; exists {
-			result = append(result, &symbolInfo.Location)
-		}
-	}
-	result = append(result, references...)
-
-	q.metrics.CacheHits++
-	return result, nil
+	// Simplified implementation - direct LSP fallback
+	q.metrics.CacheMisses++
+	return q.fallbackToLSPReferences(ctx, params)
 }
 
-// GetHover provides fast hover information extraction
+// GetHover - DEPRECATED: Direct LSP fallback (complex hover caching removed)
 func (q *SCIPQueryManager) GetHover(ctx context.Context, params *lsp.HoverParams) (*lsp.Hover, error) {
 	start := time.Now()
 	defer func() {
 		q.updateMetrics(time.Since(start))
 	}()
 
-	if !q.circuitBreaker.allowRequest() {
-		return q.fallbackToLSPHover(ctx, params)
-	}
-
-	q.index.mu.RLock()
-	defer q.index.mu.RUnlock()
-
-	posKey := PositionKey{
-		URI:       params.TextDocument.URI,
-		Line:      params.Position.Line,
-		Character: params.Position.Character,
-	}
-
-	// Fast hover cache lookup
-	if hover, exists := q.index.HoverCache[posKey]; exists {
-		q.metrics.CacheHits++
-		return hover, nil
-	}
-
-	// Try symbol-based hover
-	if symbolName, exists := q.index.PositionIndex[posKey]; exists {
-		if symbolInfo, exists := q.index.SymbolIndex[symbolName]; exists {
-			// Build hover from symbol information
-			hover := &lsp.Hover{
-				Contents: map[string]interface{}{
-					"kind":  "markdown",
-					"value": fmt.Sprintf("**%s** (%s)", symbolInfo.Name, symbolKindToString(symbolInfo.Kind)),
-				},
-				Range: &lsp.Range{
-					Start: lsp.Position{Line: params.Position.Line, Character: params.Position.Character},
-					End:   lsp.Position{Line: params.Position.Line, Character: params.Position.Character},
-				},
-			}
-			q.metrics.CacheHits++
-			return hover, nil
-		}
-	}
-
+	// Simplified implementation - direct LSP fallback
 	q.metrics.CacheMisses++
 	return q.fallbackToLSPHover(ctx, params)
 }
 
-// GetDocumentSymbols provides fast document outline
+// GetDocumentSymbols - DEPRECATED: Direct LSP fallback (complex symbol tree removed)
 func (q *SCIPQueryManager) GetDocumentSymbols(ctx context.Context, params *lsp.DocumentSymbolParams) ([]*lsp.DocumentSymbol, error) {
 	start := time.Now()
 	defer func() {
 		q.updateMetrics(time.Since(start))
 	}()
 
-	if !q.circuitBreaker.allowRequest() {
-		return q.fallbackToLSPDocumentSymbols(ctx, params)
-	}
-
-	q.index.mu.RLock()
-	defer q.index.mu.RUnlock()
-
-	// Fast document symbol lookup
-	if symbolTree, exists := q.index.DocumentSymbols[params.TextDocument.URI]; exists {
-		q.metrics.CacheHits++
-		return symbolTree.Symbols, nil
-	}
-
+	// Simplified implementation - direct LSP fallback
 	q.metrics.CacheMisses++
 	return q.fallbackToLSPDocumentSymbols(ctx, params)
 }
 
-// GetWorkspaceSymbols provides fast workspace-wide symbol search
+// GetWorkspaceSymbols - DEPRECATED: Direct LSP fallback (complex fuzzy matching removed)
 func (q *SCIPQueryManager) GetWorkspaceSymbols(ctx context.Context, params *lsp.WorkspaceSymbolParams) ([]*lsp.SymbolInformation, error) {
 	start := time.Now()
 	defer func() {
 		q.updateMetrics(time.Since(start))
 	}()
 
-	if !q.circuitBreaker.allowRequest() {
-		return q.fallbackToLSPWorkspaceSymbols(ctx, params)
-	}
-
-	q.index.mu.RLock()
-	defer q.index.mu.RUnlock()
-
-	query := strings.ToLower(params.Query)
-	if query == "" {
-		// Return all symbols (limit to reasonable amount)
-		var allSymbols []*lsp.SymbolInformation
-		for _, symbols := range q.index.WorkspaceIndex {
-			allSymbols = append(allSymbols, symbols...)
-			if len(allSymbols) >= 1000 { // Reasonable limit
-				break
-			}
-		}
-		q.metrics.CacheHits++
-		return allSymbols, nil
-	}
-
-	// Fuzzy symbol matching
-	var matchedSymbols []*lsp.SymbolInformation
-	for symbolName, symbols := range q.index.WorkspaceIndex {
-		if strings.Contains(strings.ToLower(symbolName), query) {
-			matchedSymbols = append(matchedSymbols, symbols...)
-		}
-	}
-
-	// Sort by relevance (name length, then alphabetically)
-	sort.Slice(matchedSymbols, func(i, j int) bool {
-		a, b := matchedSymbols[i], matchedSymbols[j]
-		if len(a.Name) != len(b.Name) {
-			return len(a.Name) < len(b.Name)
-		}
-		return a.Name < b.Name
-	})
-
-	// Limit results
-	if len(matchedSymbols) > 100 {
-		matchedSymbols = matchedSymbols[:100]
-	}
-
-	q.metrics.CacheHits++
-	return matchedSymbols, nil
+	// Simplified implementation - direct LSP fallback
+	q.metrics.CacheMisses++
+	return q.fallbackToLSPWorkspaceSymbols(ctx, params)
 }
 
-// GetCompletion provides fast completion context analysis
+// GetCompletion - DEPRECATED: Direct LSP fallback (complex context analysis removed)
 func (q *SCIPQueryManager) GetCompletion(ctx context.Context, params *lsp.CompletionParams) (*lsp.CompletionList, error) {
 	start := time.Now()
 	defer func() {
 		q.updateMetrics(time.Since(start))
 	}()
 
-	if !q.circuitBreaker.allowRequest() {
-		return q.fallbackToLSPCompletion(ctx, params)
-	}
-
-	q.index.mu.RLock()
-	defer q.index.mu.RUnlock()
-
-	posKey := PositionKey{
-		URI:       params.TextDocument.URI,
-		Line:      params.Position.Line,
-		Character: params.Position.Character,
-	}
-
-	// Check completion context cache
-	if context, exists := q.index.CompletionCache[posKey]; exists &&
-		time.Since(context.LastUpdated) < 5*time.Minute {
-
-		var items []*lsp.CompletionItem
-
-		// Add scope symbols as completion items
-		for _, symbolName := range context.ScopeSymbols {
-			if symbolInfo, exists := q.index.SymbolIndex[symbolName]; exists {
-				items = append(items, &lsp.CompletionItem{
-					Label:  symbolInfo.Name,
-					Kind:   symbolKindToCompletionKind(symbolInfo.Kind),
-					Detail: symbolInfo.ContainerName,
-				})
-			}
-		}
-
-		// Add imported symbols
-		for _, symbolName := range context.ImportedSymbols {
-			if symbolInfo, exists := q.index.SymbolIndex[symbolName]; exists {
-				items = append(items, &lsp.CompletionItem{
-					Label:  symbolInfo.Name,
-					Kind:   symbolKindToCompletionKind(symbolInfo.Kind),
-					Detail: symbolInfo.ContainerName,
-				})
-			}
-		}
-
-		q.metrics.CacheHits++
-		return &lsp.CompletionList{
-			IsIncomplete: false,
-			Items:        items,
-		}, nil
-	}
-
+	// Simplified implementation - direct LSP fallback
 	q.metrics.CacheMisses++
 	return q.fallbackToLSPCompletion(ctx, params)
 }
 
-// UpdateIndex updates the query index with new symbol information
+// UpdateIndex - DEPRECATED: No-op method (complex indexing removed)
 func (q *SCIPQueryManager) UpdateIndex(uri string, symbols []*lsp.SymbolInformation, documentSymbols []*lsp.DocumentSymbol) error {
-	q.index.mu.Lock()
-	defer q.index.mu.Unlock()
-
-	common.LSPLogger.Debug("Updating SCIP index for URI: %s with %d symbols", uri, len(symbols))
-
-	// Clear existing data for this URI
-	q.clearDocumentFromIndex(uri)
-
-	// Update symbol index and position index
-	for _, symbol := range symbols {
-		q.index.SymbolIndex[symbol.Name] = symbol
-
-		// Create position key for this symbol
-		posKey := PositionKey{
-			URI:       symbol.Location.URI,
-			Line:      symbol.Location.Range.Start.Line,
-			Character: symbol.Location.Range.Start.Character,
-		}
-		q.index.PositionIndex[posKey] = symbol.Name
-
-		// Update workspace index for search
-		lowerName := strings.ToLower(symbol.Name)
-		if _, exists := q.index.WorkspaceIndex[lowerName]; !exists {
-			q.index.WorkspaceIndex[lowerName] = []*lsp.SymbolInformation{}
-		}
-		q.index.WorkspaceIndex[lowerName] = append(q.index.WorkspaceIndex[lowerName], symbol)
-	}
-
-	// Update document symbols
-	if len(documentSymbols) > 0 {
-		flatSymbols := make(map[string]*lsp.DocumentSymbol)
-		q.flattenDocumentSymbols(documentSymbols, flatSymbols)
-
-		q.index.DocumentSymbols[uri] = &DocumentSymbolTree{
-			Symbols:  documentSymbols,
-			Flat:     flatSymbols,
-			Modified: time.Now(),
-		}
-	}
-
-	// Update metadata
-	q.index.IndexedURIs[uri] = time.Now()
-	q.index.LastUpdated = time.Now()
-	q.index.TotalSymbols = len(q.index.SymbolIndex)
-
-	common.LSPLogger.Debug("SCIP index updated. Total symbols: %d", q.index.TotalSymbols)
+	common.LSPLogger.Debug("UpdateIndex called for URI: %s (no-op in simplified implementation)", uri)
 	return nil
 }
 
-// InvalidateDocument removes a document from the index
+// InvalidateDocument - DEPRECATED: No-op method (complex indexing removed)
 func (q *SCIPQueryManager) InvalidateDocument(uri string) error {
-	q.index.mu.Lock()
-	defer q.index.mu.Unlock()
-
-	q.clearDocumentFromIndex(uri)
-	delete(q.index.IndexedURIs, uri)
-
-	common.LSPLogger.Debug("Invalidated SCIP index for URI: %s", uri)
+	common.LSPLogger.Debug("InvalidateDocument called for URI: %s (no-op in simplified implementation)", uri)
 	return nil
 }
 
@@ -496,31 +216,20 @@ func (q *SCIPQueryManager) GetMetrics() *QueryMetrics {
 	}
 }
 
-// IsHealthy returns true if the query manager is healthy
+// IsHealthy - DEPRECATED: Always returns true (complex health checks removed)
 func (q *SCIPQueryManager) IsHealthy() bool {
-	q.mu.RLock()
-	defer q.mu.RUnlock()
-
-	return q.circuitBreaker.state != "open" &&
-		q.index.TotalSymbols > 0 &&
-		time.Since(q.index.LastUpdated) < 1*time.Hour
+	return true // Simplified implementation - always healthy
 }
 
-// BuildKey implements the SCIPQuery interface
+// BuildKey - DEPRECATED: Simplified implementation (complex key building removed)
 func (q *SCIPQueryManager) BuildKey(method string, params interface{}) (CacheKey, error) {
 	uri, err := q.ExtractURI(params)
 	if err != nil {
 		return CacheKey{}, err
 	}
 
-	// Create a hash of the parameters for uniqueness
-	paramBytes, err := json.Marshal(params)
-	if err != nil {
-		return CacheKey{}, fmt.Errorf("failed to marshal params: %w", err)
-	}
-
-	// Simple hash based on content
-	hash := fmt.Sprintf("%x", len(paramBytes))
+	// Simplified hash based on method and URI only
+	hash := fmt.Sprintf("%s-%s", method, uri)
 
 	return CacheKey{
 		Method: method,
@@ -602,91 +311,19 @@ func (q *SCIPQueryManager) ExtractURI(params interface{}) (string, error) {
 
 // Helper methods
 
-// clearDocumentFromIndex removes all index entries for a document
+// clearDocumentFromIndex - DEPRECATED: No-op method (complex indexing removed)
 func (q *SCIPQueryManager) clearDocumentFromIndex(uri string) {
-	// Collect symbols to remove first
-	var symbolsToRemove []string
-	for symbolName, symbolInfo := range q.index.SymbolIndex {
-		if symbolInfo.Location.URI == uri {
-			symbolsToRemove = append(symbolsToRemove, symbolName)
-		}
-	}
-
-	// Remove symbols from SymbolIndex
-	for _, symbolName := range symbolsToRemove {
-		delete(q.index.SymbolIndex, symbolName)
-	}
-
-	// Remove from ReferenceGraph
-	for _, symbolName := range symbolsToRemove {
-		delete(q.index.ReferenceGraph, symbolName)
-	}
-
-	// Remove from WorkspaceIndex
-	for symbolName, symbols := range q.index.WorkspaceIndex {
-		var filteredSymbols []*lsp.SymbolInformation
-		for _, symbol := range symbols {
-			if symbol.Location.URI != uri {
-				filteredSymbols = append(filteredSymbols, symbol)
-			}
-		}
-		if len(filteredSymbols) == 0 {
-			delete(q.index.WorkspaceIndex, symbolName)
-		} else {
-			q.index.WorkspaceIndex[symbolName] = filteredSymbols
-		}
-	}
-
-	// Remove from position index
-	var keysToDelete []PositionKey
-	for posKey := range q.index.PositionIndex {
-		if posKey.URI == uri {
-			keysToDelete = append(keysToDelete, posKey)
-		}
-	}
-	for _, key := range keysToDelete {
-		delete(q.index.PositionIndex, key)
-	}
-
-	// Remove from hover cache
-	var hoverKeysToDelete []PositionKey
-	for posKey := range q.index.HoverCache {
-		if posKey.URI == uri {
-			hoverKeysToDelete = append(hoverKeysToDelete, posKey)
-		}
-	}
-	for _, key := range hoverKeysToDelete {
-		delete(q.index.HoverCache, key)
-	}
-
-	// Remove from completion cache
-	var completionKeysToDelete []PositionKey
-	for posKey := range q.index.CompletionCache {
-		if posKey.URI == uri {
-			completionKeysToDelete = append(completionKeysToDelete, posKey)
-		}
-	}
-	for _, key := range completionKeysToDelete {
-		delete(q.index.CompletionCache, key)
-	}
-
-	// Remove document symbols
-	delete(q.index.DocumentSymbols, uri)
+	// Simplified implementation - no indexing to clear
+	common.LSPLogger.Debug("clearDocumentFromIndex called for URI: %s (no-op in simplified implementation)", uri)
 }
 
-// flattenDocumentSymbols creates a flat lookup map from hierarchical symbols
+// flattenDocumentSymbols - DEPRECATED: No-op method (complex symbol flattening removed)
 func (q *SCIPQueryManager) flattenDocumentSymbols(symbols []*lsp.DocumentSymbol, flat map[string]*lsp.DocumentSymbol) {
-	for _, symbol := range symbols {
-		flat[symbol.Name] = symbol
-		if symbol.Children != nil {
-			q.flattenDocumentSymbols(symbol.Children, flat)
-		}
-	}
+	// Simplified implementation - no flattening needed
 }
 
 // fallbackToLSP falls back to actual LSP server when cache fails
 func (q *SCIPQueryManager) fallbackToLSP(ctx context.Context, method string, params interface{}) (interface{}, error) {
-	q.circuitBreaker.recordFailure()
 
 	if q.fallbackLSP == nil {
 		return nil, fmt.Errorf("cache miss and no fallback LSP available for method: %s", method)
@@ -695,11 +332,9 @@ func (q *SCIPQueryManager) fallbackToLSP(ctx context.Context, method string, par
 	common.LSPLogger.Debug("Falling back to LSP server for method: %s", method)
 	result, err := q.fallbackLSP.ProcessRequest(ctx, method, params)
 	if err != nil {
-		q.circuitBreaker.recordFailure()
 		return nil, fmt.Errorf("LSP fallback failed: %w", err)
 	}
 
-	q.circuitBreaker.recordSuccess()
 	return result, nil
 }
 
@@ -789,47 +424,6 @@ func (q *SCIPQueryManager) updateMetrics(duration time.Duration) {
 		// Exponential moving average
 		alpha := 0.1
 		q.metrics.AvgResponseTime = time.Duration(float64(q.metrics.AvgResponseTime)*(1-alpha) + float64(duration)*alpha)
-	}
-}
-
-// Circuit breaker implementation
-
-// allowRequest checks if circuit breaker allows the request
-func (cb *QueryCircuitBreaker) allowRequest() bool {
-	cb.mu.RLock()
-	defer cb.mu.RUnlock()
-
-	switch cb.state {
-	case "closed":
-		return true
-	case "open":
-		return time.Since(cb.lastFailure) > cb.timeout
-	case "half-open":
-		return true
-	default:
-		return true
-	}
-}
-
-// recordSuccess records a successful request
-func (cb *QueryCircuitBreaker) recordSuccess() {
-	cb.mu.Lock()
-	defer cb.mu.Unlock()
-
-	cb.failures = 0
-	cb.state = "closed"
-}
-
-// recordFailure records a failed request
-func (cb *QueryCircuitBreaker) recordFailure() {
-	cb.mu.Lock()
-	defer cb.mu.Unlock()
-
-	cb.failures++
-	cb.lastFailure = time.Now()
-
-	if cb.failures >= cb.threshold {
-		cb.state = "open"
 	}
 }
 

@@ -470,16 +470,35 @@ func (m *CacheIsolationManager) GenerateIsolatedConfig(servers map[string]interf
 		}
 	}
 
-	// Add isolated cache configuration
-	configContent += "\n# Isolated SCIP Cache Configuration\n"
+	// Add isolated unified cache configuration
+	configContent += "\n# Isolated Unified Cache Configuration\n"
 	configContent += "cache:\n"
 	configContent += "  enabled: true\n"
 	configContent += fmt.Sprintf("  storage_path: \"%s\"\n", m.cacheDir)
 	configContent += fmt.Sprintf("  max_memory_mb: %d\n", config.MaxCacheSize/(1024*1024))
-	configContent += fmt.Sprintf("  ttl: \"%s\"\n", config.TTL)
+	
+	// Convert duration string to hours (simplified units)
+	ttlHours := 1 // Default to 1 hour
+	if config.TTL == "10m" {
+		ttlHours = 1 // Round up short durations to 1 hour
+	} else if config.TTL == "24h" {
+		ttlHours = 24
+	}
+	configContent += fmt.Sprintf("  ttl_hours: %d\n", ttlHours)
+	
 	configContent += "  languages: [\"go\", \"python\", \"typescript\", \"java\"]\n"
 	configContent += fmt.Sprintf("  background_index: %t\n", config.BackgroundIndexing)
-	configContent += fmt.Sprintf("  health_check_interval: \"%s\"\n", config.HealthCheckInterval)
+	
+	// Convert health check interval to minutes (simplified units)
+	healthMinutes := 1 // Default to 1 minute
+	if config.HealthCheckInterval == "1m" {
+		healthMinutes = 1
+	} else if config.HealthCheckInterval == "5m" {
+		healthMinutes = 5
+	}
+	configContent += fmt.Sprintf("  health_check_minutes: %d\n", healthMinutes)
+	configContent += "  eviction_policy: \"lru\"\n"
+	configContent += "  disk_cache: false\n"
 	configContent += "\n# Test isolation metadata\n"
 	configContent += fmt.Sprintf("# test_id: \"%s\"\n", m.testID)
 	configContent += fmt.Sprintf("# isolation_level: \"%d\"\n", config.IsolationLevel)

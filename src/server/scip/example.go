@@ -8,20 +8,17 @@ import (
 	"lsp-gateway/src/internal/common"
 )
 
-// ExampleUsage demonstrates how to use the SCIP storage manager
+// ExampleUsage demonstrates how to use the simple SCIP storage
 func ExampleUsage() error {
 	// Create configuration
 	config := SCIPStorageConfig{
-		MemoryLimit:        256 * 1024 * 1024, // 256MB
-		DiskCacheDir:       "/tmp/lsp-gateway-scip",
-		CompressionType:    "gzip",
-		CompactionInterval: 30 * time.Minute,
-		MaxDocumentAge:     24 * time.Hour,
-		EnableMetrics:      true,
+		MemoryLimit:   256 * 1024 * 1024, // 256MB
+		DiskCacheDir:  "/tmp/lsp-gateway-scip",
+		EnableMetrics: true,
 	}
 
-	// Create storage manager
-	storage, err := NewSCIPStorageManager(config)
+	// Create simple storage
+	storage, err := NewSimpleSCIPStorage(config)
 	if err != nil {
 		return err
 	}
@@ -122,11 +119,11 @@ func ExampleUsage() error {
 		common.LSPLogger.Info("Storage health check passed")
 	}
 
-	// Trigger compaction
+	// Trigger compaction (no-op for simple storage)
 	if err := storage.Compact(ctx); err != nil {
 		common.LSPLogger.Error("Compaction failed: %v", err)
 	} else {
-		common.LSPLogger.Info("Storage compaction completed")
+		common.LSPLogger.Info("Storage compaction completed (no-op)")
 	}
 
 	return nil
@@ -135,11 +132,8 @@ func ExampleUsage() error {
 // DefaultSCIPStorageConfig returns a default configuration suitable for most use cases
 func DefaultSCIPStorageConfig() SCIPStorageConfig {
 	return SCIPStorageConfig{
-		MemoryLimit:        256 * 1024 * 1024, // 256MB
-		DiskCacheDir:       filepath.Join("/tmp", "lsp-gateway-scip-cache"),
-		CompressionType:    "gzip",
-		CompactionInterval: 30 * time.Minute,
-		MaxDocumentAge:     24 * time.Hour,
-		EnableMetrics:      true,
+		MemoryLimit:   256 * 1024 * 1024, // 256MB
+		DiskCacheDir:  filepath.Join("/tmp", "lsp-gateway-scip-cache"),
+		EnableMetrics: true,
 	}
 }

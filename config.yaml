@@ -37,16 +37,18 @@ servers:
     working_dir: ""
     initialization_options: {}
 
-# SCIP Cache Configuration (Enabled by default)
-# Standard production settings for improved performance
+# Unified Cache Configuration (Enabled by default)  
+# Standard production settings with simple units for improved performance
 cache:
   enabled: true                               # Enabled by default for improved performance
-  storage_path: ".lsp-gateway/scip-cache"     # Cache storage directory (relative to project root)
-  max_memory_mb: 256                          # Memory limit in MB (adjust based on system)
-  ttl: "24h"                                  # Cache time-to-live (24h for daily dev workflow)
+  storage_path: ".lsp-gateway/cache"          # Cache storage directory (relative to project root)
+  max_memory_mb: 256                          # Memory limit in MB (simple units)
+  ttl_hours: 24                               # Cache time-to-live in hours (simple units - 24h for daily dev workflow)
   languages: ["go", "python", "typescript", "java"]  # Languages to cache
   background_index: true                      # Enable background indexing for better performance
-  health_check_interval: "5m"                # Health check interval (5m, 10m, etc.)
+  health_check_minutes: 5                     # Health check interval in minutes (simple units)
+  eviction_policy: "lru"                      # Cache eviction policy (lru, simple)
+  disk_cache: false                           # Enable disk persistence (false for in-memory only)
 
 # Cache Configuration Notes:
 #
@@ -66,9 +68,10 @@ cache:
 #    - Consider other applications when setting limits
 #
 # 4. Performance Tuning:
-#    - ttl: 24h TTL optimized for daily development workflow
+#    - ttl_hours: 24 hours TTL optimized for daily development workflow (simple units)
 #    - background_index: Enable for better responsiveness
-#    - health_check_interval: Monitor cache health periodically
+#    - health_check_minutes: 5 minutes to monitor cache health periodically (simple units)
+#    - eviction_policy: LRU for intelligent cache management
 #
 # 5. Language Support:
 #    - Only supported languages: go, python, javascript, typescript, java

@@ -21,7 +21,7 @@ func TestGetDefaultConfig_CacheEnabledByDefault(t *testing.T) {
 	}
 
 	// Verify default cache settings
-	expectedStoragePath := ".lsp-gateway/scip-cache"
+	expectedStoragePath := ".lsp-gateway/cache"
 	if !containsPath(cfg.Cache.StoragePath, expectedStoragePath) {
 		t.Errorf("Expected storage path to contain %s, got %s", expectedStoragePath, cfg.Cache.StoragePath)
 	}
@@ -30,35 +30,35 @@ func TestGetDefaultConfig_CacheEnabledByDefault(t *testing.T) {
 		t.Errorf("Expected max memory to be 256MB, got %d", cfg.Cache.MaxMemoryMB)
 	}
 
-	if cfg.Cache.TTL != 24*time.Hour {
-		t.Errorf("Expected TTL to be 24 hours, got %v", cfg.Cache.TTL)
+	if cfg.Cache.TTLHours != 24 {
+		t.Errorf("Expected TTL to be 24 hours, got %d", cfg.Cache.TTLHours)
 	}
 
 	if !cfg.Cache.BackgroundIndex {
 		t.Error("Expected background index to be enabled by default")
 	}
 
-	if cfg.Cache.HealthCheckInterval != 5*time.Minute {
-		t.Errorf("Expected health check interval to be 5 minutes, got %v", cfg.Cache.HealthCheckInterval)
+	if cfg.Cache.HealthCheckMinutes != 5 {
+		t.Errorf("Expected health check interval to be 5 minutes, got %d", cfg.Cache.HealthCheckMinutes)
 	}
 }
 
-func TestGetDefaultSCIPConfig_EnabledByDefault(t *testing.T) {
-	scipConfig := config.GetDefaultSCIPConfig()
+func TestGetDefaultCacheConfig_EnabledByDefault(t *testing.T) {
+	cacheConfig := config.GetDefaultCacheConfig()
 
-	if !scipConfig.Enabled {
-		t.Error("Expected SCIP config to be enabled by default")
+	if !cacheConfig.Enabled {
+		t.Error("Expected cache config to be enabled by default")
 	}
 
 	// Check languages include the core supported languages
 	expectedLanguages := []string{"go", "python", "typescript", "java"}
-	if len(scipConfig.Languages) != len(expectedLanguages) {
-		t.Errorf("Expected %d languages, got %d", len(expectedLanguages), len(scipConfig.Languages))
+	if len(cacheConfig.Languages) != len(expectedLanguages) {
+		t.Errorf("Expected %d languages, got %d", len(expectedLanguages), len(cacheConfig.Languages))
 	}
 
 	for _, lang := range expectedLanguages {
 		found := false
-		for _, configLang := range scipConfig.Languages {
+		for _, configLang := range cacheConfig.Languages {
 			if configLang == lang {
 				found = true
 				break

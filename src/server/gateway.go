@@ -14,12 +14,12 @@ import (
 	"lsp-gateway/src/server/cache"
 )
 
-// HTTPGateway provides a simple HTTP JSON-RPC gateway to LSP servers
+// HTTPGateway provides a simple HTTP JSON-RPC gateway to LSP servers with unified cache config
 type HTTPGateway struct {
 	lspManager  *LSPManager
 	server      *http.Server
 	scipCache   cache.SCIPCache
-	cacheConfig *config.SCIPConfig
+	cacheConfig *config.CacheConfig
 	mu          sync.RWMutex
 }
 
@@ -54,7 +54,7 @@ func NewHTTPGateway(addr string, cfg *config.Config) (*HTTPGateway, error) {
 		cfg.EnableCache()
 	} else if !cfg.IsCacheEnabled() {
 		cfg.EnableCache()
-		common.GatewayLogger.Info("Enabling mandatory SCIP cache for HTTP gateway")
+		common.GatewayLogger.Info("Enabling unified cache for HTTP gateway")
 	}
 
 	// Create LSP manager - cache is now always created internally
@@ -94,7 +94,7 @@ func (g *HTTPGateway) Start(ctx context.Context) error {
 		return fmt.Errorf("failed to start LSP manager: %w", err)
 	}
 
-	common.GatewayLogger.Info("Starting HTTP gateway with SCIP cache on %s", g.server.Addr)
+	common.GatewayLogger.Info("Starting HTTP gateway with unified cache on %s", g.server.Addr)
 
 	go func() {
 		if err := g.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -124,10 +124,10 @@ func (g *HTTPGateway) Stop() error {
 		lastErr = err
 	}
 
-	// Stop SCIP cache
+	// Stop unified cache
 	if g.scipCache != nil {
 		if err := g.scipCache.Stop(); err != nil {
-			common.GatewayLogger.Error("SCIP cache stop error: %v", err)
+			common.GatewayLogger.Error("Cache stop error: %v", err)
 			lastErr = err
 		}
 	}

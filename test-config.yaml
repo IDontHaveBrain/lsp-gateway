@@ -1,9 +1,0 @@
-# Test Configuration for LSP Gateway
-# Used for testing purposes
-
-servers:
-  go:
-    command: "gopls"
-    args: []
-    working_dir: ""
-    initialization_options: {}
