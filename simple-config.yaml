@@ -7,3 +7,13 @@ servers:
     args: ["serve"]
     working_dir: ""
     initialization_options: {}
+
+# SCIP Cache Configuration (Enabled by default)
+cache:
+  enabled: true
+  storage_path: ".lsp-gateway/scip-cache"
+  max_memory_mb: 256
+  ttl: "30m"
+  languages: ["go"]
+  background_index: true
+  health_check_interval: "5m"

@@ -36,3 +36,41 @@ servers:
     args: []
     working_dir: ""
     initialization_options: {}
+
+# SCIP Cache Configuration (Enabled by default)
+# Standard production settings for improved performance
+cache:
+  enabled: true                               # Enabled by default for improved performance
+  storage_path: ".lsp-gateway/scip-cache"     # Cache storage directory (relative to project root)
+  max_memory_mb: 256                          # Memory limit in MB (adjust based on system)
+  ttl: "30m"                                  # Cache time-to-live (30m, 1h, 2h, etc.)
+  languages: ["go", "python", "typescript", "java"]  # Languages to cache
+  background_index: true                      # Enable background indexing for better performance
+  health_check_interval: "5m"                # Health check interval (5m, 10m, etc.)
+
+# Cache Configuration Notes:
+#
+# 1. Performance & Safety:
+#    - Cache is ENABLED by default for improved performance
+#    - Set 'enabled: false' to disable if needed
+#    - Validates memory limits against system resources
+#
+# 2. Storage:
+#    - storage_path is relative to project root or absolute path
+#    - Directory will be created automatically if it doesn't exist
+#    - Ensure sufficient disk space for cache storage
+#
+# 3. Memory Management:
+#    - max_memory_mb should be reasonable for your system
+#    - System will warn if > 50% of available memory
+#    - Consider other applications when setting limits
+#
+# 4. Performance Tuning:
+#    - ttl: Longer TTL = less frequent updates, better performance
+#    - background_index: Enable for better responsiveness
+#    - health_check_interval: Monitor cache health periodically
+#
+# 5. Language Support:
+#    - Only supported languages: go, python, javascript, typescript, java
+#    - Cache works best with languages that have stable symbol information
+#    - Remove languages you don't use to save resources

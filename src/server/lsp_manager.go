@@ -15,6 +15,7 @@ import (
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/security"
 	"lsp-gateway/src/server/aggregators"
+	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/capabilities"
 	"lsp-gateway/src/server/documents"
 	"lsp-gateway/src/server/errors"
@@ -92,12 +93,44 @@ type LSPManager struct {
 	mu                  sync.RWMutex
 	documentManager     documents.DocumentManager
 	workspaceAggregator aggregators.WorkspaceSymbolAggregator
+
+	// Mandatory SCIP cache integration - always present
+	scipCache cache.SCIPCache
 }
 
-// NewLSPManager creates a new LSP manager
+// convertConfigToCache converts application-level SCIPConfig to cache-level SCIPConfig
+func convertConfigToCache(appConfig *config.SCIPConfig) *cache.SCIPConfig {
+	if appConfig == nil {
+		// Return default cache config when no app config provided
+		return cache.DefaultSCIPConfig()
+	}
+
+	return &cache.SCIPConfig{
+		Enabled:        appConfig.Enabled,
+		MaxSize:        int64(appConfig.MaxMemoryMB) * 1024 * 1024, // Convert MB to bytes
+		TTL:            appConfig.TTL,
+		EvictionPolicy: "lru", // Default eviction policy
+		BackgroundSync: appConfig.BackgroundIndex,
+		HealthCheckTTL: appConfig.HealthCheckInterval,
+	}
+}
+
+// NewLSPManager creates a new LSP manager with mandatory SCIP cache
 func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 	if cfg == nil {
 		cfg = config.GetDefaultConfig()
+	}
+
+	// Always create cache - convert config to cache-specific format
+	cacheConfig := convertConfigToCache(cfg.Cache)
+	scipCache, err := cache.NewSCIPCacheManager(cacheConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create SCIP cache: %w", err)
+	}
+
+	// Initialize the cache
+	if err := scipCache.Initialize(cacheConfig); err != nil {
+		return nil, fmt.Errorf("failed to initialize SCIP cache: %w", err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -110,13 +143,21 @@ func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 		cancel:              cancel,
 		documentManager:     documents.NewLSPDocumentManager(),
 		workspaceAggregator: aggregators.NewWorkspaceSymbolAggregator(),
+		scipCache:           scipCache,
 	}
 
+	common.LSPLogger.Info("LSP manager initialized with mandatory SCIP cache integration")
 	return manager, nil
 }
 
 // Start initializes and starts all configured LSP clients
 func (m *LSPManager) Start(ctx context.Context) error {
+	// Start cache - always present and required
+	if err := m.scipCache.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start SCIP cache: %w", err)
+	}
+	common.LSPLogger.Info("SCIP cache started successfully")
+
 	common.LSPLogger.Info("Starting LSP manager with %d servers", len(m.config.Servers))
 
 	// Start clients with individual timeouts to prevent hanging
@@ -171,6 +212,13 @@ func (m *LSPManager) Start(ctx context.Context) error {
 // Stop stops all LSP clients
 func (m *LSPManager) Stop() error {
 	m.cancel()
+
+	// Stop cache - always present
+	if err := m.scipCache.Stop(); err != nil {
+		common.LSPLogger.Warn("Failed to stop SCIP cache: %v", err)
+	} else {
+		common.LSPLogger.Info("SCIP cache stopped successfully")
+	}
 
 	m.mu.Lock()
 	clients := make(map[string]LSPClient)
@@ -251,6 +299,17 @@ func (m *LSPManager) CheckServerAvailability() map[string]ClientStatus {
 
 // ProcessRequest processes a JSON-RPC request by routing it to the appropriate LSP client
 func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params interface{}) (interface{}, error) {
+	// Try cache lookup first - cache is always present and method is cacheable
+	if m.isCacheableMethod(method) {
+		if result, found, err := m.scipCache.Lookup(method, params); err == nil && found {
+			common.LSPLogger.Debug("Cache hit for method=%s", method)
+			return result, nil
+		} else if err != nil {
+			// Log cache error but continue with LSP fallback
+			common.LSPLogger.Debug("Cache lookup failed for method=%s: %v", method, err)
+		}
+	}
+
 	// Extract file URI from params to determine language
 	uri, err := m.documentManager.ExtractURI(params)
 	if err != nil {
@@ -262,7 +321,18 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 				clients[k] = v
 			}
 			m.mu.RUnlock()
-			return m.workspaceAggregator.ProcessWorkspaceSymbol(ctx, clients, params)
+			result, err := m.workspaceAggregator.ProcessWorkspaceSymbol(ctx, clients, params)
+
+			// Cache the result if successful - cache is always available
+			if err == nil && m.isCacheableMethod(method) {
+				if cacheErr := m.scipCache.Store(method, params, result); cacheErr != nil {
+					common.LSPLogger.Debug("Failed to cache workspace/symbol result: %v", cacheErr)
+				} else {
+					common.LSPLogger.Debug("Cached result for workspace/symbol")
+				}
+			}
+
+			return result, err
 		}
 		return nil, fmt.Errorf("failed to extract URI from params: %w", err)
 	}
@@ -294,7 +364,19 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 		m.ensureDocumentOpen(client, uri, params)
 	}
 
-	return client.SendRequest(ctx, method, params)
+	// Send request to LSP server
+	result, err := client.SendRequest(ctx, method, params)
+
+	// Cache the result if successful - cache is always available
+	if err == nil && m.isCacheableMethod(method) {
+		if cacheErr := m.scipCache.Store(method, params, result); cacheErr != nil {
+			common.LSPLogger.Debug("Failed to cache LSP response for method=%s: %v", method, cacheErr)
+		} else {
+			common.LSPLogger.Debug("Cached LSP response for method=%s", method)
+		}
+	}
+
+	return result, err
 }
 
 // ClientStatus represents the status of an LSP client
@@ -451,6 +533,37 @@ func (m *LSPManager) getClient(language string) (LSPClient, error) {
 // GetClient returns the LSP client for a given language (public method for testing)
 func (m *LSPManager) GetClient(language string) (LSPClient, error) {
 	return m.getClient(language)
+}
+
+// isCacheableMethod determines if an LSP method should be cached
+func (m *LSPManager) isCacheableMethod(method string) bool {
+	// Cache the 6 supported LSP methods that benefit from caching
+	cacheableMethods := map[string]bool{
+		"textDocument/definition":     true,
+		"textDocument/references":     true,
+		"textDocument/hover":          true,
+		"textDocument/documentSymbol": true,
+		"workspace/symbol":            true,
+		"textDocument/completion":     true,
+	}
+
+	return cacheableMethods[method]
+}
+
+// InvalidateCache invalidates cached entries for a document
+func (m *LSPManager) InvalidateCache(uri string) error {
+	common.LSPLogger.Debug("Invalidating cache for document: %s", uri)
+	return m.scipCache.InvalidateDocument(uri)
+}
+
+// GetCacheMetrics returns cache performance metrics
+func (m *LSPManager) GetCacheMetrics() interface{} {
+	return m.scipCache.GetMetrics()
+}
+
+// GetCache returns the SCIP cache instance for external access
+func (m *LSPManager) GetCache() cache.SCIPCache {
+	return m.scipCache
 }
 
 // ensureDocumentOpen sends a textDocument/didOpen notification if needed

@@ -19,7 +19,7 @@ func (suite *TypeScriptRealClientComprehensiveE2ETestSuite) SetupSuite() {
 	suite.Config = base.LanguageConfig{
 		Language:      "typescript",
 		DisplayName:   "TypeScript",
-		HasRepoMgmt:   false,
+		HasRepoMgmt:   true,
 		HasAllLSPTest: true,
 	}
 
