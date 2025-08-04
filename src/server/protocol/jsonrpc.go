@@ -91,7 +91,10 @@ func (p *LSPJSONRPCProtocol) HandleResponses(reader io.Reader, messageHandler Me
 		for {
 			line, err := bufReader.ReadString('\n')
 			if err != nil {
-				return err // EOF or error
+				if err == io.EOF {
+					return fmt.Errorf("LSP server connection closed unexpectedly (EOF)")
+				}
+				return err
 			}
 
 			line = strings.TrimSpace(line)

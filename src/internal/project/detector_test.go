@@ -1,7 +1,6 @@
 package project
 
 import (
-	"fmt"
 	"os"
 	"testing"
 )
@@ -17,7 +16,7 @@ func TestDetectLanguages(t *testing.T) {
 		t.Fatalf("Error detecting languages: %v", err)
 	}
 
-	fmt.Printf("Detected languages in repo root: %v\n", langs)
+	t.Logf("Detected languages in repo root: %v", langs)
 
 	// Should detect Go (because of go.mod and .go files)
 	found := false
@@ -38,7 +37,7 @@ func TestDetectLanguages(t *testing.T) {
 		if err != nil {
 			t.Errorf("Error detecting languages in test-multi-lang: %v", err)
 		} else {
-			fmt.Printf("Detected languages in test-multi-lang: %v\n", langs2)
+			t.Logf("Detected languages in test-multi-lang: %v", langs2)
 			// Should detect multiple languages
 			if len(langs2) == 0 {
 				t.Error("Expected to detect at least one language in test-multi-lang")
@@ -52,10 +51,10 @@ func TestIsLSPServerAvailable(t *testing.T) {
 	// Test supported languages
 	languages := []string{"go", "python", "javascript", "typescript", "java"}
 
-	fmt.Println("LSP server availability:")
+	t.Log("LSP server availability:")
 	for _, lang := range languages {
 		available := IsLSPServerAvailable(lang)
-		fmt.Printf("  %s: %t\n", lang, available)
+		t.Logf("  %s: %t", lang, available)
 	}
 }
 
@@ -68,7 +67,7 @@ func TestGetAvailableLanguages(t *testing.T) {
 		t.Fatalf("Error getting available languages: %v", err)
 	}
 
-	fmt.Printf("Available languages (with LSP servers): %v\n", available)
+	t.Logf("Available languages (with LSP servers): %v", available)
 }
 
 // TestDetectPrimaryLanguage tests primary language detection
@@ -77,8 +76,8 @@ func TestDetectPrimaryLanguage(t *testing.T) {
 
 	primary, err := DetectPrimaryLanguage(repoRoot)
 	if err != nil {
-		fmt.Printf("Primary language detection: %v\n", err)
+		t.Logf("Primary language detection: %v", err)
 	} else {
-		fmt.Printf("Primary language: %s\n", primary)
+		t.Logf("Primary language: %s", primary)
 	}
 }

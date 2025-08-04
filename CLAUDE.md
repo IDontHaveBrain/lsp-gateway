@@ -36,7 +36,7 @@ LSP Gateway is a dual-protocol Language Server Protocol gateway with integrated 
 **Language Servers** (manual installation required):
 ```bash
 go install golang.org/x/tools/gopls@latest                    # Go
-npm install -g pyright                                        # Python  
+pip install python-lsp-server                               # Python
 npm install -g typescript-language-server typescript         # TypeScript/JS
 # Java: Eclipse JDT Language Server - install manually via Eclipse downloads
 ```
@@ -51,6 +51,7 @@ make local                    # Build and install globally
 
 # 2. Install language servers (optional - for specific languages)
 go install golang.org/x/tools/gopls@latest
+pip install python-lsp-server
 npm install -g typescript-language-server typescript
 
 # 3. Test availability  
@@ -130,7 +131,7 @@ cache:
   storage_path: ~/.lsp-gateway/cache  # Cache directory
   eviction_policy: "lru"        # LRU eviction (default)
   disk_cache: false             # Optional disk persistence (default: false)
-  languages: ["go", "python", "typescript", "java"]  # Cached languages
+  languages: ["go", "python", "typescript", "java"]  # Languages to cache (uses pylsp for Python)
 ```
 
 ## Usage Examples
@@ -338,7 +339,7 @@ go test -v ./tests/e2e/...
   - Java: `spring-projects/spring-petclinic` (v2.7.3)
 - **Repository Manager**: `testutils/repo_manager.go` handles cloning and test position management
 - **All 6 LSP Methods**: Comprehensive testing of definition, references, hover, documentSymbol, workspace/symbol, completion
-- **Real LSP Integration**: Tests with actual LSP servers (gopls, pyright, typescript-language-server)
+- **Real LSP Integration**: Tests with actual LSP servers (gopls, pylsp, typescript-language-server)
 - **Server Lifecycle**: Graceful shutdown testing and health monitoring
 - **Reproducible**: Fixed commit hashes ensure consistent test environments
 

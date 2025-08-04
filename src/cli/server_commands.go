@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
@@ -32,21 +31,21 @@ func RunServer(addr string, configPath string) error {
 		return fmt.Errorf("failed to start gateway: %w", err)
 	}
 
-	log.Printf("✅ Simple LSP Gateway started on %s", addr)
+	common.CLILogger.Info("Simple LSP Gateway started on %s", addr)
 
 	// Display SCIP cache status
 	displayGatewayCacheStatus(gateway)
 
-	log.Printf("📡 Available languages: go, python, nodejs, typescript, java")
-	log.Printf("🔗 HTTP JSON-RPC endpoint: http://%s/jsonrpc", addr)
-	log.Printf("❤️  Health check endpoint: http://%s/health", addr)
+	common.CLILogger.Info("Available languages: go, python, nodejs, typescript, java")
+	common.CLILogger.Info("HTTP JSON-RPC endpoint: http://%s/jsonrpc", addr)
+	common.CLILogger.Info("Health check endpoint: http://%s/health", addr)
 
 	// Wait for interrupt signal
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	<-sigChan
-	log.Printf("🛑 Received shutdown signal, stopping gateway...")
+	common.CLILogger.Info("Received shutdown signal, stopping gateway...")
 
 	// Graceful shutdown
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -60,12 +59,12 @@ func RunServer(addr string, configPath string) error {
 	select {
 	case err := <-done:
 		if err != nil {
-			log.Printf("⚠️  Gateway stopped with error: %v", err)
+			common.CLILogger.Warn("Gateway stopped with error: %v", err)
 		} else {
-			log.Printf("✅ Gateway stopped successfully")
+			common.CLILogger.Info("Gateway stopped successfully")
 		}
 	case <-shutdownCtx.Done():
-		log.Printf("⚠️  Shutdown timeout exceeded")
+		common.CLILogger.Warn("Shutdown timeout exceeded")
 		return fmt.Errorf("shutdown timeout")
 	}
 

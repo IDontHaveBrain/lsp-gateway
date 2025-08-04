@@ -6,6 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/types"
 	versionpkg "lsp-gateway/src/internal/version"
 )
@@ -505,10 +506,10 @@ func runTestCmd(cmd *cobra.Command, args []string) error {
 
 func runVersionCmd(cmd *cobra.Command, args []string) error {
 	if verbose {
-		fmt.Println(versionpkg.GetFullVersionInfo())
+		common.CLILogger.Info("%s", versionpkg.GetFullVersionInfo())
 		return nil
 	}
-	fmt.Printf("lsp-gateway %s\n", versionpkg.GetVersion())
+	common.CLILogger.Info("lsp-gateway %s", versionpkg.GetVersion())
 	return nil
 }
 

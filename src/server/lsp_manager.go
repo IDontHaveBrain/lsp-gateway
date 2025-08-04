@@ -55,9 +55,54 @@ func (e *MethodNotSupportedError) Error() string {
 
 // Timeout constants for basic operation
 const (
-	RequestTimeout = 30 * time.Second
-	WriteTimeout   = 10 * time.Second
+	DefaultRequestTimeout = 30 * time.Second
+	JavaRequestTimeout    = 60 * time.Second
+	PythonRequestTimeout  = 30 * time.Second
+	GoTSRequestTimeout    = 15 * time.Second
+	WriteTimeout          = 10 * time.Second
 )
+
+// getRequestTimeout returns language-specific timeout for LSP requests
+func (c *StdioClient) getRequestTimeout(method string) time.Duration {
+	switch c.language {
+	case "java":
+		return JavaRequestTimeout
+	case "python":
+		return PythonRequestTimeout
+	case "go", "javascript", "typescript":
+		return GoTSRequestTimeout
+	default:
+		return DefaultRequestTimeout
+	}
+}
+
+// getInitializeTimeout returns language-specific timeout for initialize requests
+func (c *StdioClient) getInitializeTimeout() time.Duration {
+	switch c.language {
+	case "java":
+		// Java LSP server needs significantly more time to initialize
+		return 60 * time.Second
+	case "python":
+		return 30 * time.Second
+	default:
+		return 15 * time.Second
+	}
+}
+
+// getClientActiveWaitIterations returns language-specific wait iterations for client to become active
+func (m *LSPManager) getClientActiveWaitIterations(language string) int {
+	switch language {
+	case "java":
+		// Java LSP server needs up to 15 seconds (150 iterations * 100ms)
+		return 150
+	case "python":
+		// Python LSP server needs moderate time (50 iterations * 100ms = 5s)
+		return 50
+	default:
+		// Default 3 seconds (30 iterations * 100ms)
+		return 30
+	}
+}
 
 // pendingRequest stores context for pending LSP requests
 type pendingRequest struct {
@@ -456,7 +501,8 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 
 	// Wait for client to become active with timeout
 	if activeClient, ok := client.(interface{ IsActive() bool }); ok {
-		for i := 0; i < 30; i++ { // Wait up to 3 seconds
+		maxWaitIterations := m.getClientActiveWaitIterations(language)
+		for i := 0; i < maxWaitIterations; i++ {
 			select {
 			case <-ctx.Done():
 				return fmt.Errorf("context cancelled while waiting for client to become active")
@@ -660,6 +706,13 @@ func (c *StdioClient) Start(ctx context.Context) error {
 		c.mu.Lock()
 		c.active = false
 		c.mu.Unlock()
+
+		// Log process exit for debugging EOF issues
+		if err != nil {
+			common.LSPLogger.Error("LSP server process exited with error: language=%s, error=%v", c.language, err)
+		} else {
+			common.LSPLogger.Warn("LSP server process exited normally: language=%s", c.language)
+		}
 	})
 
 	// Initialize LSP server
@@ -753,11 +806,14 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 	common.LSPLogger.Debug("Sending LSP request: method=%s, id=%s", method, id)
 
 	if err := c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, msg); err != nil {
-		// If we get a broken pipe error, mark client as inactive
-		if strings.Contains(err.Error(), "broken pipe") || strings.Contains(err.Error(), "write: connection reset by peer") {
+		// If we get connection errors, mark client as inactive
+		if strings.Contains(err.Error(), "broken pipe") ||
+			strings.Contains(err.Error(), "write: connection reset by peer") ||
+			strings.Contains(err.Error(), "EOF") {
 			c.mu.Lock()
 			c.active = false
 			c.mu.Unlock()
+			common.LSPLogger.Warn("LSP client connection lost, marking as inactive: method=%s, id=%s, error=%v", method, id, err)
 		}
 		common.LSPLogger.Error("Failed to send LSP request: method=%s, id=%s, error=%v", method, id, err)
 		return nil, fmt.Errorf("failed to send request: %w", err)
@@ -766,10 +822,10 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 	common.LSPLogger.Debug("LSP request sent successfully: method=%s, id=%s", method, id)
 
 	// Wait for response with appropriate timeout
-	timeoutDuration := RequestTimeout
+	timeoutDuration := c.getRequestTimeout(method)
 	if method == "initialize" {
 		// Use longer timeout for initialize - LSP servers can be slow to start
-		timeoutDuration = 15 * time.Second
+		timeoutDuration = c.getInitializeTimeout()
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, timeoutDuration)

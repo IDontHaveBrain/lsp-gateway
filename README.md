@@ -13,7 +13,7 @@
 
 ## Quick Start (5 Minutes)
 
-**Requirements**: Go 1.24+, Node.js 18+, language servers installed
+**Requirements**: Go 1.24+, Node.js 18+
 
 ```bash
 # 1. Clone and build
@@ -21,7 +21,11 @@ git clone <repository-url>
 cd lsp-gateway
 make local                    # Builds + creates global 'lsp-gateway' command
 
-# 2. Install language servers (choose what you need)
+# 2. Install language servers (choose one method)
+# Option A: Automated installation (recommended)
+lsp-gateway install all       # Install all language servers automatically
+
+# Option B: Manual installation
 go install golang.org/x/tools/gopls@latest                    # Go
 pip install python-lsp-server                               # Python  
 npm install -g typescript-language-server typescript         # TypeScript/JS
@@ -40,6 +44,14 @@ lsp-gateway server             # Start HTTP Gateway (port 8080)
 lsp-gateway mcp                # Start MCP Server for AI assistants
 lsp-gateway status             # Show LSP server status  
 lsp-gateway test               # Test LSP server connections
+```
+
+### Setup & Management
+```bash
+lsp-gateway install all        # Install all language servers
+lsp-gateway install python     # Install specific language server
+lsp-gateway cache status       # Check cache performance
+lsp-gateway version            # Show version info
 ```
 
 ### Development
@@ -107,6 +119,7 @@ Configure AI tools (Claude Desktop, etc.):
 ```bash
 lsp-gateway status                # Check LSP server status
 lsp-gateway test                  # Test LSP server connections
+lsp-gateway install status        # Check language server installations
 curl http://localhost:8080/health # HTTP Gateway health check
 ```
 
@@ -119,6 +132,7 @@ make clean && make local          # Clean rebuild
 lsp-gateway server --port 8081    # Use different port
 
 # Language server not found
+lsp-gateway install <language>    # Auto-install missing server
 which gopls                       # Check if language server is in PATH
 ```
 
