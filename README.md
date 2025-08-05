@@ -5,7 +5,7 @@
 - **MCP Server**: AI assistant integration for Claude, GPT, etc.
 - **Cross-platform CLI**: Essential commands for LSP server management
 
-**Focus**: 6 core LSP features • 4 languages • Local development tool
+**Focus**: 6 core LSP features • 5 languages • Local development tool
 
 **Complete Guide**: [CLAUDE.md](CLAUDE.md) for architecture and development workflows
 
@@ -28,7 +28,7 @@ lsp-gateway install all       # Install all language servers automatically
 # Option B: Manual installation
 go install golang.org/x/tools/gopls@latest                    # Go
 pip install python-lsp-server                               # Python  
-npm install -g typescript-language-server typescript         # TypeScript/JS
+npm install -g typescript-language-server typescript         # TypeScript & JavaScript
 # Java: Install Eclipse JDT Language Server manually
 
 # 3. Start using
@@ -49,7 +49,11 @@ lsp-gateway test               # Test LSP server connections
 ### Setup & Management
 ```bash
 lsp-gateway install all        # Install all language servers
-lsp-gateway install python     # Install specific language server
+lsp-gateway install go         # Install specific language server
+lsp-gateway install python     
+lsp-gateway install javascript
+lsp-gateway install typescript
+lsp-gateway install java
 lsp-gateway cache status       # Check cache performance
 lsp-gateway version            # Show version info
 ```
@@ -74,7 +78,7 @@ make quality      # Essential checks (format + vet)
 | `workspace/symbol` | Workspace symbol search |
 | `textDocument/completion` | Code completion |
 
-**Languages**: Go, Python, JavaScript/TypeScript, Java
+**Languages**: Go, Python, JavaScript, TypeScript, Java
 
 ## Usage
 

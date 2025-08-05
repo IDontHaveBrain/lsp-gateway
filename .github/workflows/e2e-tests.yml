@@ -9,6 +9,7 @@ on:
 jobs:
   e2e-tests:
     name: End-to-End Tests (${{ matrix.os }})
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]') }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     strategy:
@@ -326,6 +327,7 @@ jobs:
 
   build-quality:
     name: Build Quality Checks
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]') }}
     runs-on: ubuntu-latest
     
     steps:
