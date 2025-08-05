@@ -19,16 +19,21 @@ type SimpleIndexStats struct {
 	TotalErrors      int
 }
 
+// QueryManager interface for indexing operations
+type QueryManager interface {
+	UpdateIndex(uri string, symbols []*lsp.SymbolInformation, documentSymbols []*lsp.DocumentSymbol) error
+}
+
 // SimpleIndexer manages direct synchronous SCIP indexing
 type SimpleIndexer struct {
-	queryManager *SCIPQueryManager
+	queryManager QueryManager
 	lspFallback  LSPFallback
 	stats        SimpleIndexStats
 	mu           sync.RWMutex
 }
 
 // NewSimpleIndexer creates a new simple SCIP indexer
-func NewSimpleIndexer(queryManager *SCIPQueryManager, lspFallback LSPFallback) *SimpleIndexer {
+func NewSimpleIndexer(queryManager QueryManager, lspFallback LSPFallback) *SimpleIndexer {
 	return &SimpleIndexer{
 		queryManager: queryManager,
 		lspFallback:  lspFallback,

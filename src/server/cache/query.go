@@ -96,9 +96,10 @@ type FastSCIPQuery interface {
 
 // SCIPQueryManager - DEPRECATED: Complex query wrapper removed, use direct cache operations
 type SCIPQueryManager struct {
-	fallbackLSP LSPFallback // Direct fallback to LSP servers
-	metrics     *QueryMetrics
-	mu          sync.RWMutex
+	fallbackLSP   LSPFallback // Direct fallback to LSP servers
+	semanticCache *SemanticCacheManager // NEW: Optional semantic cache for LLM features
+	metrics       *QueryMetrics
+	mu            sync.RWMutex
 }
 
 // LSPFallback interface for fallback to actual LSP servers
@@ -110,11 +111,21 @@ type LSPFallback interface {
 func NewSCIPQueryManager(fallback LSPFallback) *SCIPQueryManager {
 	common.LSPLogger.Warn("SCIPQueryManager is deprecated - use direct LSPManager cache integration")
 	return &SCIPQueryManager{
-		fallbackLSP: fallback,
+		fallbackLSP:   fallback,
+		semanticCache: nil, // Will be set later if semantic indexing is enabled
 		metrics: &QueryMetrics{
 			LastResetTime: time.Now(),
 		},
 	}
+}
+
+// SetSemanticCache enables semantic indexing for LLM features
+func (q *SCIPQueryManager) SetSemanticCache(semanticCache *SemanticCacheManager) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	
+	q.semanticCache = semanticCache
+	common.LSPLogger.Info("Semantic cache enabled for LLM features")
 }
 
 // GetDefinition - DEPRECATED: Direct LSP fallback (complex indexing removed)
@@ -189,9 +200,25 @@ func (q *SCIPQueryManager) GetCompletion(ctx context.Context, params *lsp.Comple
 	return q.fallbackToLSPCompletion(ctx, params)
 }
 
-// UpdateIndex - DEPRECATED: No-op method (complex indexing removed)
+// UpdateIndex integrates with semantic cache manager for LLM features
 func (q *SCIPQueryManager) UpdateIndex(uri string, symbols []*lsp.SymbolInformation, documentSymbols []*lsp.DocumentSymbol) error {
-	common.LSPLogger.Debug("UpdateIndex called for URI: %s (no-op in simplified implementation)", uri)
+	common.LSPLogger.Debug("UpdateIndex called for URI: %s", uri)
+	
+	// If semantic cache manager is available, use it for semantic indexing
+	if q.semanticCache != nil {
+		// Convert DocumentSymbol to interface{} for semantic indexing
+		params := map[string]interface{}{
+			"textDocument": map[string]interface{}{
+				"uri": uri,
+			},
+		}
+		
+		// Store semantic information
+		return q.semanticCache.StoreWithSemanticIndexing("textDocument/documentSymbol", params, documentSymbols)
+	}
+	
+	// Fallback to no-op for backward compatibility
+	common.LSPLogger.Debug("No semantic cache available, skipping semantic indexing for URI: %s", uri)
 	return nil
 }
 

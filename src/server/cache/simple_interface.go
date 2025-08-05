@@ -6,7 +6,7 @@ import (
 	"lsp-gateway/src/internal/common"
 )
 
-// SimpleCache provides a direct, streamlined cache interface without complex abstractions
+// SimpleCache provides a direct, streamlined cache interface with integrated SCIP indexing
 // This replaces the deprecated wrapper layers (SimpleCacheIntegration, SCIPQueryManager)
 type SimpleCache interface {
 	// Core cache operations - direct and simple
@@ -25,6 +25,12 @@ type SimpleCache interface {
 
 	// Compatibility methods for SCIPCache interface - use proper config type
 	Initialize(config *config.CacheConfig) error
+	
+	// SCIP indexing capabilities - integrated as core functionality
+	IndexDocument(ctx context.Context, uri string, language string, content []byte) error
+	QueryIndex(ctx context.Context, query *IndexQuery) (*IndexResult, error)
+	GetIndexStats() *IndexStats
+	UpdateIndex(ctx context.Context, files []string) error
 }
 
 // DirectCacheIntegration demonstrates the new simplified integration pattern

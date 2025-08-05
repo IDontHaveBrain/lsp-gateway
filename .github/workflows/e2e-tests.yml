@@ -8,9 +8,13 @@ on:
 
 jobs:
   e2e-tests:
-    name: End-to-End Tests
-    runs-on: ubuntu-latest
+    name: End-to-End Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
 
     steps:
     - name: Checkout code
@@ -37,13 +41,51 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-go-
 
+    - name: Cache Java LSP server (JDK + Eclipse JDT) - Linux/macOS
+      if: runner.os != 'Windows'
+      id: cache-java-lsp-unix
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.lsp-gateway/tools/java
+        key: ${{ runner.os }}-java-lsp-v1
+        restore-keys: |
+          ${{ runner.os }}-java-lsp-
+
+    - name: Cache Java LSP server (JDK + Eclipse JDT) - Windows
+      if: runner.os == 'Windows'
+      id: cache-java-lsp-windows
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~\.lsp-gateway\tools\java
+        key: ${{ runner.os }}-java-lsp-v1
+        restore-keys: |
+          ${{ runner.os }}-java-lsp-
+
     - name: Install Go dependencies
       run: go mod download
 
-    - name: Build LSP Gateway
+    - name: Build LSP Gateway - Linux/macOS
+      if: runner.os != 'Windows'
       run: make local
 
-    - name: Install LSP servers
+    - name: Build LSP Gateway - Windows
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # Build for Windows
+        $env:GOOS = "windows"
+        $env:GOARCH = "amd64"
+        go build -o bin\lsp-gateway.exe .\src\cmd\lsp-gateway
+        
+        # Create necessary directories
+        if (!(Test-Path bin)) {
+          New-Item -ItemType Directory -Path bin
+        }
+
+    - name: Install LSP servers - Linux/macOS
+      if: runner.os != 'Windows'
       run: |
         # Install Go LSP server
         go install golang.org/x/tools/gopls@latest
@@ -54,13 +96,17 @@ jobs:
         # Install TypeScript/JavaScript LSP server
         npm install -g typescript-language-server typescript
         
-        # Install Java LSP server using lsp-gateway install command
-        echo "Installing Java LSP server (JDK + Eclipse JDT)..."
-        if timeout 25m ./bin/lsp-gateway install java; then
-          echo "✅ Java LSP server installation completed"
+        # Install Java LSP server only if not cached
+        if [ "${{ steps.cache-java-lsp-unix.outputs.cache-hit }}" != "true" ]; then
+          echo "📦 Installing Java LSP server (JDK + Eclipse JDT)..."
+          if timeout 25m ./bin/lsp-gateway install java; then
+            echo "✅ Java LSP server installation completed"
+          else
+            echo "❌ Java LSP server installation failed or timed out"
+            exit 1
+          fi
         else
-          echo "❌ Java LSP server installation failed or timed out"
-          exit 1
+          echo "✅ Using cached Java LSP server (JDK + Eclipse JDT)"
         fi
         
         # Verify installations
@@ -72,7 +118,45 @@ jobs:
         # Check Java installation
         ./bin/lsp-gateway status
 
-    - name: Run E2E tests
+    - name: Install LSP servers - Windows
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        # Install Go LSP server
+        go install golang.org/x/tools/gopls@latest
+        
+        # Install Python LSP server
+        pip install python-lsp-server
+        
+        # Install TypeScript/JavaScript LSP server
+        npm install -g typescript-language-server typescript
+        
+        # Install Java LSP server only if not cached
+        $cacheHit = "${{ steps.cache-java-lsp-windows.outputs.cache-hit }}"
+        if ($cacheHit -ne "true") {
+          Write-Host "📦 Installing Java LSP server (JDK + Eclipse JDT)..."
+          $process = Start-Process -FilePath ".\bin\lsp-gateway.exe" -ArgumentList "install", "java" -PassThru -NoNewWindow -Wait -Timeout 1500
+          if ($process.ExitCode -eq 0) {
+            Write-Host "✅ Java LSP server installation completed"
+          } else {
+            Write-Host "❌ Java LSP server installation failed"
+            exit 1
+          }
+        } else {
+          Write-Host "✅ Using cached Java LSP server (JDK + Eclipse JDT)"
+        }
+        
+        # Verify installations
+        Write-Host "Checking LSP server installations..."
+        gopls version
+        pylsp --version
+        typescript-language-server --version
+        
+        # Check Java installation
+        .\bin\lsp-gateway.exe status
+
+    - name: Run E2E tests - Linux/macOS
+      if: runner.os != 'Windows'
       run: |
         cd tests/e2e
         
@@ -131,6 +215,73 @@ jobs:
           echo "💥 Some E2E tests failed - see logs above for details"
           exit $EXIT_CODE
         fi
+
+    - name: Run E2E tests - Windows
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        cd tests\e2e
+        
+        # Set exit code tracking
+        $exitCode = 0
+        
+        # Run Go E2E tests
+        Write-Host "🧪 Running Go E2E tests..."
+        go test -v -timeout 600s -run "TestGoRealClientComprehensiveE2ETestSuite" .
+        if ($LASTEXITCODE -eq 0) {
+          Write-Host "✅ Go E2E tests passed"
+        } else {
+          Write-Host "❌ Go E2E tests failed"
+          $exitCode = 1
+        }
+        
+        # Run Python E2E tests
+        Write-Host "🧪 Running Python E2E tests..."
+        go test -v -timeout 600s -run "TestPythonRealClientComprehensiveE2ETestSuite" .
+        if ($LASTEXITCODE -eq 0) {
+          Write-Host "✅ Python E2E tests passed"
+        } else {
+          Write-Host "❌ Python E2E tests failed"
+          $exitCode = 1
+        }
+        
+        # Run TypeScript E2E tests
+        Write-Host "🧪 Running TypeScript E2E tests..."
+        go test -v -timeout 600s -run "TestTypeScriptRealClientComprehensiveE2ETestSuite" .
+        if ($LASTEXITCODE -eq 0) {
+          Write-Host "✅ TypeScript E2E tests passed"
+        } else {
+          Write-Host "❌ TypeScript E2E tests failed"
+          $exitCode = 1
+        }
+        
+        # Run JavaScript E2E tests
+        Write-Host "🧪 Running JavaScript E2E tests..."
+        go test -v -timeout 600s -run "TestJavaScriptRealClientComprehensiveE2ETestSuite" .
+        if ($LASTEXITCODE -eq 0) {
+          Write-Host "✅ JavaScript E2E tests passed"
+        } else {
+          Write-Host "❌ JavaScript E2E tests failed"
+          $exitCode = 1
+        }
+        
+        # Java E2E tests
+        Write-Host "🧪 Running Java E2E tests..."
+        go test -v -timeout 600s -run "TestJavaRealClientComprehensiveE2ETestSuite" .
+        if ($LASTEXITCODE -eq 0) {
+          Write-Host "✅ Java E2E tests passed"
+        } else {
+          Write-Host "❌ Java E2E tests failed"
+          $exitCode = 1
+        }
+        
+        # Summary
+        if ($exitCode -eq 0) {
+          Write-Host "🎉 All E2E tests passed (Go, Python, TypeScript, JavaScript, Java)!"
+        } else {
+          Write-Host "💥 Some E2E tests failed - see logs above for details"
+          exit $exitCode
+        }
 
     - name: Upload test results
       uses: actions/upload-artifact@v4

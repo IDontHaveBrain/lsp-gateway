@@ -14,11 +14,12 @@ import (
 
 // SimpleInvalidationManager implements basic cache invalidation with file modification time checking
 type SimpleInvalidationManager struct {
-	storage    SCIPStorage
-	docManager documents.DocumentManager
-	lastSeen   map[string]time.Time
-	mu         sync.RWMutex
-	started    bool
+	storage     SCIPStorage
+	docManager  documents.DocumentManager
+	lastSeen    map[string]time.Time
+	fileWatcher *FileWatcher
+	mu          sync.RWMutex
+	started     bool
 }
 
 // NewSimpleInvalidationManager creates a new simple invalidation manager
@@ -49,7 +50,17 @@ func (m *SimpleInvalidationManager) Stop() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	// Stop file watcher if running (regardless of started state)
+	if m.fileWatcher != nil {
+		if err := m.fileWatcher.Stop(); err != nil {
+			common.LSPLogger.Error("Error stopping file watcher: %v", err)
+		}
+		m.fileWatcher = nil
+	}
+
+	// Only skip the rest if not started
 	if !m.started {
+		common.LSPLogger.Info("Simple invalidation manager stopped (was not started)")
 		return nil
 	}
 
@@ -126,6 +137,96 @@ func (m *SimpleInvalidationManager) InvalidateIfChanged(uri string) {
 	}
 }
 
+// SetupFileWatcher implements the SCIPInvalidation interface
+func (m *SimpleInvalidationManager) SetupFileWatcher(projectRoot string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.fileWatcher != nil {
+		return fmt.Errorf("file watcher already set up")
+	}
+
+	// Create file watcher with this invalidation manager
+	// Note: semanticCache will be set later when available
+	m.fileWatcher = NewFileWatcher(nil, m)
+
+	// Start the file watcher
+	ctx := context.Background()
+	if err := m.fileWatcher.Start(ctx, projectRoot); err != nil {
+		return fmt.Errorf("failed to start file watcher: %w", err)
+	}
+
+	// Add project root to watched directories
+	if err := m.fileWatcher.AddWatchPath(projectRoot); err != nil {
+		common.LSPLogger.Warn("Failed to add project root to watch paths: %v", err)
+	}
+
+	common.LSPLogger.Info("File watcher set up successfully for project: %s", projectRoot)
+	return nil
+}
+
+// SetSemanticCache enables semantic indexing for real-time updates
+func (m *SimpleInvalidationManager) SetSemanticCache(semanticCache *SemanticCacheManager) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.fileWatcher != nil {
+		m.fileWatcher.semanticCache = semanticCache
+		common.LSPLogger.Info("Semantic cache enabled for file watcher")
+	}
+}
+
+// GetDependencies returns dependent files for a given URI (placeholder implementation)
+func (m *SimpleInvalidationManager) GetDependencies(uri string) ([]string, error) {
+	// Placeholder implementation - in a real system this would analyze imports/dependencies
+	return []string{}, nil
+}
+
+// CascadeInvalidate invalidates multiple URIs and their dependencies
+func (m *SimpleInvalidationManager) CascadeInvalidate(uris []string) error {
+	common.LSPLogger.Info("Cascade invalidating %d URIs", len(uris))
+
+	for _, uri := range uris {
+		if err := m.InvalidateDocument(uri); err != nil {
+			common.LSPLogger.Error("Failed to invalidate URI %s: %v", uri, err)
+		}
+
+		// Get dependencies and invalidate them too
+		if deps, err := m.GetDependencies(uri); err == nil {
+			for _, dep := range deps {
+				if err := m.InvalidateDocument(dep); err != nil {
+					common.LSPLogger.Error("Failed to invalidate dependency %s: %v", dep, err)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// GetFileWatcher returns the file watcher instance (for testing/debugging)
+func (m *SimpleInvalidationManager) GetFileWatcher() *FileWatcher {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.fileWatcher
+}
+
+// StopFileWatcher stops the file watcher if running
+func (m *SimpleInvalidationManager) StopFileWatcher() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.fileWatcher != nil {
+		if err := m.fileWatcher.Stop(); err != nil {
+			return err
+		}
+		m.fileWatcher = nil
+		common.LSPLogger.Info("File watcher stopped")
+	}
+
+	return nil
+}
+
 // GetStats returns simplified invalidation manager statistics
 func (m *SimpleInvalidationManager) GetStats() map[string]interface{} {
 	m.mu.RLock()
@@ -135,6 +236,11 @@ func (m *SimpleInvalidationManager) GetStats() map[string]interface{} {
 		"type":          "simple",
 		"tracked_files": len(m.lastSeen),
 		"started":       m.started,
+	}
+
+	// Add file watcher stats if available
+	if m.fileWatcher != nil {
+		stats["file_watcher"] = m.fileWatcher.GetStats()
 	}
 
 	return stats
