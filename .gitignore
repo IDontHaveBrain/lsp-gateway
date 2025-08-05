@@ -96,6 +96,13 @@ java-spring-petclinic/
 
 # Legacy test repository paths (kept for compatibility)
 test-repositories/
+
+# Java LSP workspace metadata
+.metadata/
+.jdt-workspace/
+workspace/
+worktrees/
+
 # Exclude documentation files except README.md and files in docs folder
 *.md
 !README.md
