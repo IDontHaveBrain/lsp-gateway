@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -344,7 +345,13 @@ func (suite *ComprehensiveTestBaseSuite) startGatewayServer() error {
 	// Get path to lsp-gateway binary
 	pwd, _ := os.Getwd()
 	projectRoot := filepath.Dir(filepath.Dir(pwd)) // go up from tests/e2e to project root
-	binaryPath := filepath.Join(projectRoot, "bin", "lsp-gateway")
+	
+	// Construct binary path with platform-specific extension
+	binaryName := "lsp-gateway"
+	if runtime.GOOS == "windows" {
+		binaryName = "lsp-gateway.exe"
+	}
+	binaryPath := filepath.Join(projectRoot, "bin", binaryName)
 
 	// Check if binary exists
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {

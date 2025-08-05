@@ -68,21 +68,43 @@ jobs:
 
     - name: Build LSP Gateway - Linux/macOS
       if: runner.os != 'Windows'
-      run: make local
+      run: |
+        # Explicitly build for the current platform architecture
+        if [ "${{ runner.os }}" = "Linux" ]; then
+          GOOS=linux GOARCH=amd64 go build -tags "cache_enabled" -o bin/lsp-gateway ./src/cmd/lsp-gateway
+        elif [ "${{ runner.os }}" = "macOS" ]; then
+          # macOS runners can be either amd64 or arm64
+          ARCH=$(uname -m)
+          if [ "$ARCH" = "x86_64" ]; then
+            GOOS=darwin GOARCH=amd64 go build -tags "cache_enabled" -o bin/lsp-gateway ./src/cmd/lsp-gateway
+          else
+            GOOS=darwin GOARCH=arm64 go build -tags "cache_enabled" -o bin/lsp-gateway ./src/cmd/lsp-gateway
+          fi
+        fi
+        
+        # Make the binary executable
+        chmod +x bin/lsp-gateway
+        
+        # Verify the binary was built correctly
+        file bin/lsp-gateway
+        ls -la bin/
 
     - name: Build LSP Gateway - Windows
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        # Build for Windows
-        $env:GOOS = "windows"
-        $env:GOARCH = "amd64"
-        go build -o bin\lsp-gateway.exe .\src\cmd\lsp-gateway
-        
-        # Create necessary directories
+        # Create necessary directories first
         if (!(Test-Path bin)) {
           New-Item -ItemType Directory -Path bin
         }
+        
+        # Build for Windows with cache support
+        $env:GOOS = "windows"
+        $env:GOARCH = "amd64"
+        go build -tags "cache_enabled" -o bin\lsp-gateway.exe .\src\cmd\lsp-gateway
+        
+        # Verify the binary was built correctly
+        Get-ChildItem bin\
 
     - name: Install LSP servers - Linux/macOS
       if: runner.os != 'Windows'
@@ -135,7 +157,7 @@ jobs:
         $cacheHit = "${{ steps.cache-java-lsp-windows.outputs.cache-hit }}"
         if ($cacheHit -ne "true") {
           Write-Host "📦 Installing Java LSP server (JDK + Eclipse JDT)..."
-          $process = Start-Process -FilePath ".\bin\lsp-gateway.exe" -ArgumentList "install", "java" -PassThru -NoNewWindow -Wait -Timeout 1500
+          $process = Start-Process -FilePath ".\bin\lsp-gateway.exe" -ArgumentList "install", "java" -PassThru -NoNewWindow -Wait
           if ($process.ExitCode -eq 0) {
             Write-Host "✅ Java LSP server installation completed"
           } else {

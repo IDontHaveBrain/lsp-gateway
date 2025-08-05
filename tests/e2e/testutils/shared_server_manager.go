@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"syscall"
 	"testing"
@@ -107,7 +108,13 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 	// Get project root and binary path
 	pwd, _ := os.Getwd()
 	mgr.projectRoot = filepath.Dir(filepath.Dir(pwd))
-	binaryPath := filepath.Join(mgr.projectRoot, "bin", "lsp-gateway")
+	
+	// Construct binary path with platform-specific extension
+	binaryName := "lsp-gateway"
+	if runtime.GOOS == "windows" {
+		binaryName = "lsp-gateway.exe"
+	}
+	binaryPath := filepath.Join(mgr.projectRoot, "bin", binaryName)
 
 	// Check if binary exists
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
