@@ -23,7 +23,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24.0'
+        go-version: '1.24.5'
         check-latest: true
 
     - name: Set up Node.js
@@ -335,7 +335,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.24.0'
+        go-version: '1.24.5'
         check-latest: true
 
     - name: Cache Go modules
