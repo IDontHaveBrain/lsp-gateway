@@ -415,14 +415,14 @@ func IsCacheHealthyFromManager(manager *server.LSPManager) bool {
 func DisplayCacheStatus(manager *server.LSPManager) {
 	if manager == nil {
 		common.CLILogger.Info("")
-		common.CLILogger.Info("🗄️  SCIP Cache Status:")
+		common.CLILogger.Info("🗄️  Cache Status:")
 		common.CLILogger.Info("%s", strings.Repeat(CacheSubSeparator, CacheSubSepLen))
 		common.CLILogger.Info("%s Cache: Manager not available", CacheIconError)
 		return
 	}
 
 	common.CLILogger.Info("")
-	common.CLILogger.Info("🗄️  SCIP Cache Status:")
+	common.CLILogger.Info("🗄️  Cache Status:")
 	common.CLILogger.Info("%s", strings.Repeat(CacheSubSeparator, CacheSubSepLen))
 
 	metrics, err := GetCacheMetricsFromManager(manager)

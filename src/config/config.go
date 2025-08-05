@@ -290,7 +290,7 @@ func GetDefaultCacheConfig() *CacheConfig {
 		BackgroundIndex:    true,
 		HealthCheckMinutes: 5, // 5 minutes
 		EvictionPolicy:     "lru",
-		DiskCache:          false, // Simple in-memory cache by default
+		DiskCache:          true, // Enable disk persistence by default for index data
 	}
 }
 

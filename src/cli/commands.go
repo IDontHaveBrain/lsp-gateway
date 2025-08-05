@@ -21,10 +21,7 @@ const (
 	CmdInstall        = "install"
 	CmdVersion        = "version"
 	CmdCache          = "cache"
-	CmdCacheStatus    = "status"
 	CmdCacheClear     = "clear"
-	CmdCacheHealth    = "health"
-	CmdCacheStats     = "stats"
 	CmdCacheIndex     = "index"
 	FlagConfig        = "config"
 	FlagMode          = "mode"
@@ -227,18 +224,14 @@ for repeated requests. The cache is automatically managed but can be monitored
 and controlled through these commands.
 
 Available commands:
-  lsp-gateway cache status      # Show cache status and basic metrics
-  lsp-gateway cache health      # Show detailed cache health diagnostics  
-  lsp-gateway cache stats       # Show performance statistics
+  lsp-gateway cache info        # Show cache information and statistics
   lsp-gateway cache clear       # Clear all cached entries
   lsp-gateway cache index       # Proactively index files for cache
 
 Examples:
-  lsp-gateway cache status
-  lsp-gateway cache health --config config.yaml
-  lsp-gateway cache stats
-  lsp-gateway cache clear --force
-  lsp-gateway cache index --verbose`,
+  lsp-gateway cache info
+  lsp-gateway cache clear
+  lsp-gateway cache index`,
 		RunE: runCacheCmd,
 	}
 )
@@ -319,18 +312,17 @@ Examples:
 
 // Cache subcommands
 var (
-	cacheStatusCmd = &cobra.Command{
-		Use:   CmdCacheStatus,
-		Short: "Show cache status",
-		Long: `Display current SCIP cache status and basic metrics.
+	cacheInfoCmd = &cobra.Command{
+		Use:   "info",
+		Short: "Show cache information and statistics",
+		Long: `Display cache information including indexed documents and symbols.
 
-Shows cache health status, entry count, hit/miss ratio, and storage usage.
-This is a quick overview of cache performance without detailed diagnostics.
+Shows cache statistics, indexed file counts, and language breakdown.
 
 Examples:
-  lsp-gateway cache status
-  lsp-gateway cache status --config custom.yaml`,
-		RunE: runCacheStatusCmd,
+  lsp-gateway cache info
+  lsp-gateway cache info --config custom.yaml`,
+		RunE: runCacheInfoCmd,
 	}
 
 	cacheClearCmd = &cobra.Command{
@@ -349,33 +341,6 @@ Examples:
 		RunE: runCacheClearCmd,
 	}
 
-	cacheHealthCmd = &cobra.Command{
-		Use:   CmdCacheHealth,
-		Short: "Show cache health diagnostics",
-		Long: `Display detailed SCIP cache health diagnostics and metrics.
-
-Provides comprehensive health information including error rates, performance
-metrics, circuit breaker status, and detailed statistics for troubleshooting.
-
-Examples:
-  lsp-gateway cache health
-  lsp-gateway cache health --config custom.yaml`,
-		RunE: runCacheHealthCmd,
-	}
-
-	cacheStatsCmd = &cobra.Command{
-		Use:   CmdCacheStats,
-		Short: "Show cache performance statistics",
-		Long: `Display detailed SCIP cache performance statistics.
-
-Shows hit/miss ratios, response times, storage utilization, eviction counts,
-and performance ratings to help evaluate cache effectiveness.
-
-Examples:
-  lsp-gateway cache stats
-  lsp-gateway cache stats --config custom.yaml`,
-		RunE: runCacheStatsCmd,
-	}
 
 	cacheIndexCmd = &cobra.Command{
 		Use:   CmdCacheIndex,
@@ -448,19 +413,13 @@ func init() {
 	installCmd.AddCommand(installUpdateConfigCmd)
 
 	// Cache command flags
-	cacheStatusCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
+	cacheInfoCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
 	cacheClearCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
-	cacheClearCmd.Flags().BoolVarP(&force, FlagForce, "f", false, "Skip confirmation prompt")
-	cacheHealthCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
-	cacheStatsCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
 	cacheIndexCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
-	cacheIndexCmd.Flags().BoolVarP(&verbose, FlagVerbose, "v", false, "Show detailed indexing progress")
 
 	// Cache subcommands
-	cacheCmd.AddCommand(cacheStatusCmd)
+	cacheCmd.AddCommand(cacheInfoCmd)
 	cacheCmd.AddCommand(cacheClearCmd)
-	cacheCmd.AddCommand(cacheHealthCmd)
-	cacheCmd.AddCommand(cacheStatsCmd)
 	cacheCmd.AddCommand(cacheIndexCmd)
 
 	// Add commands to root
@@ -555,24 +514,16 @@ func runCacheCmd(cmd *cobra.Command, args []string) error {
 	return cmd.Help()
 }
 
-func runCacheStatusCmd(cmd *cobra.Command, args []string) error {
-	return ShowCacheStatus(configPath)
+func runCacheInfoCmd(cmd *cobra.Command, args []string) error {
+	return ShowCacheInfo(configPath)
 }
 
 func runCacheClearCmd(cmd *cobra.Command, args []string) error {
-	return ClearCache(configPath, force)
-}
-
-func runCacheHealthCmd(cmd *cobra.Command, args []string) error {
-	return ShowCacheHealth(configPath)
-}
-
-func runCacheStatsCmd(cmd *cobra.Command, args []string) error {
-	return ShowCacheStats(configPath)
+	return ClearCache(configPath)
 }
 
 func runCacheIndexCmd(cmd *cobra.Command, args []string) error {
-	return IndexCacheProactively(configPath, verbose)
+	return IndexCache(configPath)
 }
 
 // Execute runs the root command

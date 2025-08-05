@@ -17,8 +17,7 @@
     "cache-verify": "make cache-verify",
     "cache-test": "make cache-test",
     "cache-clean": "make cache-clean",
-    "build-with-cache": "make local cache-verify",
-    "postinstall": "node lib/installer.js || node -e \"console.log('Binary setup will be handled on first run')\""
+    "build-with-cache": "make local cache-verify"
   },
   "keywords": [
     "lsp",

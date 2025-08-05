@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -149,6 +150,7 @@ type SCIPCache interface {
 	InvalidateDocument(uri string) error
 	HealthCheck() (*CacheMetrics, error)
 	GetMetrics() *CacheMetrics
+	Clear() error  // Clear all cache entries
 	
 	// SCIP indexing capabilities - integrated as core functionality
 	IndexDocument(ctx context.Context, uri string, language string, content []byte) error
@@ -172,6 +174,13 @@ type SimpleCacheManager struct {
 	languageIndex map[string]map[string]*SCIPSymbol // language -> symbol name -> symbol
 	indexStats    *IndexStats
 	indexMu       sync.RWMutex
+	
+	// File watching for real-time index updates
+	fileModTimes   map[string]time.Time  // file path -> last modification time
+	watcherTicker  *time.Ticker          // periodic file change checker
+	watcherStop    chan struct{}         // signal to stop file watcher
+	projectRoot    string                // root directory to watch
+	watcherRunning bool                  // whether file watcher is active
 }
 
 // NewSCIPCacheManager creates a simple cache manager with unified config
@@ -190,6 +199,9 @@ func NewSCIPCacheManager(configParam *config.CacheConfig) (*SimpleCacheManager, 
 		scipIndex:     make(map[string]*SCIPSymbol),
 		documentIndex: make(map[string][]string),
 		languageIndex: make(map[string]map[string]*SCIPSymbol),
+		
+		// Initialize file watching
+		fileModTimes:  make(map[string]time.Time),
 		indexStats: &IndexStats{
 			DocumentCount:    0,
 			SymbolCount:      0,
@@ -199,6 +211,13 @@ func NewSCIPCacheManager(configParam *config.CacheConfig) (*SimpleCacheManager, 
 			IndexedLanguages: []string{},
 			Status:           "initialized",
 		},
+	}
+
+	// Load index from disk if disk cache is enabled
+	if manager.enabled && configParam.DiskCache && configParam.StoragePath != "" {
+		if err := manager.LoadIndexFromDisk(); err != nil {
+			common.LSPLogger.Warn("Failed to load index from disk, starting with empty index: %v", err)
+		}
 	}
 
 	// Auto-initialize on creation - no separate Initialize() call needed
@@ -251,6 +270,15 @@ func (m *SimpleCacheManager) Start(ctx context.Context) error {
 	}
 
 	m.started = true
+	
+	// Start file watcher for real-time index updates
+	if m.config.BackgroundIndex {
+		if err := m.startFileWatcher(); err != nil {
+			common.LSPLogger.Warn("Failed to start file watcher: %v", err)
+			// Continue without file watching
+		}
+	}
+	
 	common.LSPLogger.Info("Simple cache manager started successfully")
 	return nil
 }
@@ -262,6 +290,11 @@ func (m *SimpleCacheManager) Stop() error {
 
 	if !m.started {
 		return nil
+	}
+
+	// Stop file watcher if running
+	if m.watcherRunning {
+		m.stopFileWatcher()
 	}
 
 	m.started = false
@@ -397,7 +430,10 @@ func (m *SimpleCacheManager) HealthCheck() (*CacheMetrics, error) {
 	defer m.mu.RUnlock()
 
 	if !m.enabled {
-		return &CacheMetrics{}, nil
+		return &CacheMetrics{
+			HealthStatus:    "DISABLED",
+			LastHealthCheck: time.Now(),
+		}, nil
 	}
 
 	// Convert simple stats to CacheMetrics format
@@ -408,7 +444,7 @@ func (m *SimpleCacheManager) HealthCheck() (*CacheMetrics, error) {
 		TotalSize:       m.stats.TotalSize,
 		EntryCount:      m.stats.EntryCount,
 		EvictionCount:   0, // Not tracked in simple version
-		HealthStatus:    "healthy",
+		HealthStatus:    "OK",
 		LastHealthCheck: time.Now(),
 	}
 
@@ -420,6 +456,13 @@ func (m *SimpleCacheManager) GetMetrics() *CacheMetrics {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
+	if !m.enabled {
+		return &CacheMetrics{
+			HealthStatus:    "DISABLED",
+			LastHealthCheck: time.Now(),
+		}
+	}
+
 	// Convert simple stats to CacheMetrics format
 	metrics := &CacheMetrics{
 		HitCount:        m.stats.HitCount,
@@ -428,7 +471,7 @@ func (m *SimpleCacheManager) GetMetrics() *CacheMetrics {
 		TotalSize:       m.stats.TotalSize,
 		EntryCount:      m.stats.EntryCount,
 		EvictionCount:   0, // Not tracked in simple version
-		HealthStatus:    "healthy",
+		HealthStatus:    "OK",
 		LastHealthCheck: time.Now(),
 	}
 
@@ -656,18 +699,45 @@ func (m *SimpleCacheManager) UpdateIndex(ctx context.Context, files []string) er
 		return nil
 	}
 	
-	for _, file := range files {
-		// In a real implementation, this would read the file content
-		// For now, we'll simulate with a simple approach
+	common.LSPLogger.Info("Indexing %d files...", len(files))
+	
+	for i, file := range files {
+		// Check context cancellation
+		select {
+		case <-ctx.Done():
+			common.LSPLogger.Warn("Index update cancelled after %d/%d files", i, len(files))
+			return ctx.Err()
+		default:
+		}
+		
 		language := m.detectLanguageFromFile(file)
 		if language == "" {
 			continue
 		}
 		
-		// Simulate reading file content
-		content := []byte("// placeholder content")
+		// Read actual file content
+		content, err := os.ReadFile(file)
+		if err != nil {
+			common.LSPLogger.Warn("Failed to read file %s: %v", file, err)
+			continue
+		}
+		
+		// Skip empty files
+		if len(content) == 0 {
+			continue
+		}
+		
 		if err := m.IndexDocument(ctx, file, language, content); err != nil {
 			common.LSPLogger.Warn("Failed to index file %s: %v", file, err)
+		}
+	}
+	
+	common.LSPLogger.Info("Indexed %d documents with %d symbols", len(m.documentIndex), len(m.scipIndex))
+	
+	// Save index to disk if disk cache is enabled
+	if m.config.DiskCache && m.config.StoragePath != "" {
+		if err := m.SaveIndexToDisk(); err != nil {
+			common.LSPLogger.Warn("Failed to save index to disk: %v", err)
 		}
 	}
 	
@@ -872,6 +942,252 @@ func (m *SimpleCacheManager) updateIndexStats(language string, symbolCount int) 
 		m.indexStats.IndexedLanguages = append(m.indexStats.IndexedLanguages, language)
 	}
 	m.indexStats.LanguageStats[language] += int64(symbolCount)
+}
+
+// SaveIndexToDisk saves the SCIP index data to disk as JSON files
+func (m *SimpleCacheManager) SaveIndexToDisk() error {
+	if m.config.StoragePath == "" {
+		return fmt.Errorf("storage path not configured")
+	}
+	
+	// Create storage directory if it doesn't exist
+	if err := os.MkdirAll(m.config.StoragePath, 0755); err != nil {
+		return fmt.Errorf("failed to create storage directory: %v", err)
+	}
+	
+	m.indexMu.RLock()
+	defer m.indexMu.RUnlock()
+	
+	// Save SCIP index
+	scipIndexPath := filepath.Join(m.config.StoragePath, "scip_index.json")
+	scipIndexData, err := json.MarshalIndent(m.scipIndex, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal SCIP index: %v", err)
+	}
+	
+	if err := os.WriteFile(scipIndexPath, scipIndexData, 0644); err != nil {
+		return fmt.Errorf("failed to write SCIP index file: %v", err)
+	}
+	
+	// Save document index
+	documentIndexPath := filepath.Join(m.config.StoragePath, "document_index.json")
+	documentIndexData, err := json.MarshalIndent(m.documentIndex, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal document index: %v", err)
+	}
+	
+	if err := os.WriteFile(documentIndexPath, documentIndexData, 0644); err != nil {
+		return fmt.Errorf("failed to write document index file: %v", err)
+	}
+	
+	common.LSPLogger.Debug("Saved index to disk: %d symbols, %d documents", len(m.scipIndex), len(m.documentIndex))
+	return nil
+}
+
+// LoadIndexFromDisk loads the SCIP index data from disk JSON files
+func (m *SimpleCacheManager) LoadIndexFromDisk() error {
+	if m.config.StoragePath == "" {
+		return fmt.Errorf("storage path not configured")
+	}
+	
+	scipIndexPath := filepath.Join(m.config.StoragePath, "scip_index.json")
+	documentIndexPath := filepath.Join(m.config.StoragePath, "document_index.json")
+	
+	m.indexMu.Lock()
+	defer m.indexMu.Unlock()
+	
+	// Load SCIP index if it exists
+	if _, err := os.Stat(scipIndexPath); err == nil {
+		scipIndexData, err := os.ReadFile(scipIndexPath)
+		if err != nil {
+			return fmt.Errorf("failed to read SCIP index file: %v", err)
+		}
+		
+		if err := json.Unmarshal(scipIndexData, &m.scipIndex); err != nil {
+			return fmt.Errorf("failed to unmarshal SCIP index: %v", err)
+		}
+	}
+	
+	// Load document index if it exists
+	if _, err := os.Stat(documentIndexPath); err == nil {
+		documentIndexData, err := os.ReadFile(documentIndexPath)
+		if err != nil {
+			return fmt.Errorf("failed to read document index file: %v", err)
+		}
+		
+		if err := json.Unmarshal(documentIndexData, &m.documentIndex); err != nil {
+			return fmt.Errorf("failed to unmarshal document index: %v", err)
+		}
+	}
+	
+	// Rebuild language index from loaded data
+	m.languageIndex = make(map[string]map[string]*SCIPSymbol)
+	for _, symbol := range m.scipIndex {
+		if m.languageIndex[symbol.Language] == nil {
+			m.languageIndex[symbol.Language] = make(map[string]*SCIPSymbol)
+		}
+		m.languageIndex[symbol.Language][symbol.Name] = symbol
+	}
+	
+	// Update index stats
+	m.indexStats.SymbolCount = int64(len(m.scipIndex))
+	m.indexStats.DocumentCount = int64(len(m.documentIndex))
+	m.indexStats.Status = "loaded"
+	
+	// Update language stats
+	languageStats := make(map[string]int64)
+	indexedLanguages := []string{}
+	for language, symbols := range m.languageIndex {
+		languageStats[language] = int64(len(symbols))
+		indexedLanguages = append(indexedLanguages, language)
+	}
+	m.indexStats.LanguageStats = languageStats
+	m.indexStats.IndexedLanguages = indexedLanguages
+	
+	common.LSPLogger.Info("Loaded index from disk: %d symbols, %d documents", len(m.scipIndex), len(m.documentIndex))
+	return nil
+}
+
+// File watching methods for real-time index updates
+
+// startFileWatcher starts periodic file change detection
+func (m *SimpleCacheManager) startFileWatcher() error {
+	// Get working directory as project root
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+	m.projectRoot = wd
+	
+	// Initialize stop channel
+	m.watcherStop = make(chan struct{})
+	
+	// Create ticker for periodic checks (every 5 seconds)
+	m.watcherTicker = time.NewTicker(5 * time.Second)
+	m.watcherRunning = true
+	
+	// Start goroutine for file watching
+	go m.fileWatcherLoop()
+	
+	common.LSPLogger.Info("Started file watcher for project: %s", m.projectRoot)
+	return nil
+}
+
+// stopFileWatcher stops the file watcher
+func (m *SimpleCacheManager) stopFileWatcher() {
+	if m.watcherTicker != nil {
+		m.watcherTicker.Stop()
+	}
+	if m.watcherRunning {
+		close(m.watcherStop)
+		m.watcherRunning = false
+	}
+	common.LSPLogger.Info("Stopped file watcher")
+}
+
+// fileWatcherLoop runs the file watching loop
+func (m *SimpleCacheManager) fileWatcherLoop() {
+	for {
+		select {
+		case <-m.watcherTicker.C:
+			m.scanAndIndexChangedFiles()
+		case <-m.watcherStop:
+			return
+		}
+	}
+}
+
+// scanAndIndexChangedFiles scans for changed files and re-indexes them
+func (m *SimpleCacheManager) scanAndIndexChangedFiles() {
+	extensions := []string{".go", ".py", ".js", ".ts", ".tsx", ".java"}
+	changedFiles := []string{}
+	
+	// Walk through project directory
+	err := filepath.Walk(m.projectRoot, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil // Skip errors
+		}
+		
+		// Skip directories and non-source files
+		if info.IsDir() {
+			name := info.Name()
+			// Skip common non-source directories
+			if strings.HasPrefix(name, ".") || name == "node_modules" || name == "vendor" || 
+			   name == "build" || name == "dist" || name == "target" || name == "__pycache__" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		
+		// Check if file has relevant extension
+		ext := filepath.Ext(path)
+		isRelevant := false
+		for _, validExt := range extensions {
+			if ext == validExt {
+				isRelevant = true
+				break
+			}
+		}
+		
+		if !isRelevant {
+			return nil
+		}
+		
+		// Check if file has been modified
+		m.mu.RLock()
+		lastModTime, exists := m.fileModTimes[path]
+		m.mu.RUnlock()
+		
+		if !exists || info.ModTime().After(lastModTime) {
+			changedFiles = append(changedFiles, path)
+			
+			// Update modification time
+			m.mu.Lock()
+			m.fileModTimes[path] = info.ModTime()
+			m.mu.Unlock()
+		}
+		
+		return nil
+	})
+	
+	if err != nil {
+		common.LSPLogger.Warn("Error scanning files: %v", err)
+		return
+	}
+	
+	// Re-index changed files
+	if len(changedFiles) > 0 {
+		common.LSPLogger.Info("Detected %d file changes, re-indexing...", len(changedFiles))
+		ctx := context.Background()
+		
+		for _, file := range changedFiles {
+			language := m.detectLanguageFromFile(file)
+			if language == "" {
+				continue
+			}
+			
+			// Read file content
+			content, err := os.ReadFile(file)
+			if err != nil {
+				common.LSPLogger.Warn("Failed to read changed file %s: %v", file, err)
+				continue
+			}
+			
+			// Re-index the file
+			if err := m.IndexDocument(ctx, file, language, content); err != nil {
+				common.LSPLogger.Warn("Failed to re-index file %s: %v", file, err)
+			}
+		}
+		
+		// Save index to disk if disk cache is enabled
+		if m.config.DiskCache && m.config.StoragePath != "" {
+			if err := m.SaveIndexToDisk(); err != nil {
+				common.LSPLogger.Warn("Failed to save updated index to disk: %v", err)
+			}
+		}
+		
+		common.LSPLogger.Info("Re-indexed %d changed files", len(changedFiles))
+	}
 }
 
 // SCIPStorage interface implementation

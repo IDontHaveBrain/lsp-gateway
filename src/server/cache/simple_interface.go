@@ -13,6 +13,7 @@ type SimpleCache interface {
 	Lookup(method string, params interface{}) (interface{}, bool, error)
 	Store(method string, params interface{}, response interface{}) error
 	InvalidateDocument(uri string) error
+	Clear() error  // Clear all cache entries
 
 	// Lifecycle management
 	Start(ctx context.Context) error

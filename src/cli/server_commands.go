@@ -143,9 +143,9 @@ func TestConnection(configPath string) error {
 	}
 	defer manager.Stop()
 
-	// Display initial SCIP cache status
+	// Display initial cache status
 	common.CLILogger.Info("")
-	common.CLILogger.Info("🗄️  SCIP Cache Status:")
+	common.CLILogger.Info("🗄️  Cache Status:")
 	common.CLILogger.Info("%s", strings.Repeat("-", 30))
 
 	cache := manager.GetCache()
