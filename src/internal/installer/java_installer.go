@@ -10,6 +10,7 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/security"
 )
 
 // JavaInstaller handles Java language server (jdtls) and JDK installation
@@ -167,6 +168,13 @@ func (j *JavaInstaller) createJDTLSWrapper(installPath, jdkPath, jdtlsPath strin
 	}
 
 	common.CLILogger.Info("JDTLS wrapper created at %s", wrapperPath)
+	
+	// Ensure file is synced to disk on Windows
+	if j.platform.GetPlatform() == "windows" {
+		// Small delay to ensure file system sync on Windows
+		time.Sleep(100 * time.Millisecond)
+	}
+	
 	return nil
 }
 
@@ -338,6 +346,7 @@ func (j *JavaInstaller) IsInstalled() bool {
 	}
 
 	if !j.fileExists(wrapperPath) {
+		common.CLILogger.Debug("Java wrapper script not found at: %s", wrapperPath)
 		return false
 	}
 
@@ -349,12 +358,18 @@ func (j *JavaInstaller) IsInstalled() bool {
 	}
 
 	if !j.fileExists(javaExe) {
+		common.CLILogger.Debug("Java executable not found at: %s", javaExe)
 		return false
 	}
 
 	// Check for JDTLS
 	jdtlsPath := filepath.Join(installPath, "jdtls")
-	return j.fileExists(jdtlsPath)
+	if !j.fileExists(jdtlsPath) {
+		common.CLILogger.Debug("JDTLS directory not found at: %s", jdtlsPath)
+		return false
+	}
+	
+	return true
 }
 
 // GetServerConfig returns the updated server configuration with custom paths
@@ -383,9 +398,9 @@ func (j *JavaInstaller) GetServerConfig() *config.ServerConfig {
 
 // ValidateInstallation performs comprehensive validation
 func (j *JavaInstaller) ValidateInstallation() error {
-	// Basic validation from base
-	if err := j.BaseInstaller.ValidateInstallation(); err != nil {
-		return err
+	// Check if installed using our custom IsInstalled logic
+	if !j.IsInstalled() {
+		return fmt.Errorf("java language server installation validation failed: not installed")
 	}
 
 	installPath := j.GetInstallPath()
@@ -408,6 +423,19 @@ func (j *JavaInstaller) ValidateInstallation() error {
 	jdtlsPath := filepath.Join(installPath, "jdtls")
 	if !j.fileExists(jdtlsPath) {
 		return fmt.Errorf("JDTLS installation not found at %s", jdtlsPath)
+	}
+
+	// Validate wrapper script security
+	binDir := filepath.Join(installPath, "bin")
+	var wrapperPath string
+	if j.platform.GetPlatform() == "windows" {
+		wrapperPath = filepath.Join(binDir, "jdtls.bat")
+	} else {
+		wrapperPath = filepath.Join(binDir, "jdtls")
+	}
+
+	if err := security.ValidateCommand(wrapperPath, []string{}); err != nil {
+		return fmt.Errorf("security validation failed for java wrapper: %w", err)
 	}
 
 	common.CLILogger.Info("Java development environment validation successful")
