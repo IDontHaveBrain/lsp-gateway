@@ -19,8 +19,8 @@ type CallGraphNode struct {
 
 // PathIndex organizes symbols by file path segments for hierarchical queries
 type PathIndex struct {
-	Path    string                     // File path segment (e.g., "src/server", "src/cli")
-	Symbols []*lsp.SymbolInformation  // Top-level symbols in this path
+	Path    string                              // File path segment (e.g., "src/server", "src/cli")
+	Symbols []*lsp.SymbolInformation            // Top-level symbols in this path
 	Files   map[string][]*lsp.SymbolInformation // symbols by file within path
 }
 
@@ -29,9 +29,9 @@ type SignatureInfo struct {
 	Symbol     *lsp.SymbolInformation
 	Parameters []ParameterInfo `json:"parameters,omitempty"`
 	ReturnType string          `json:"return_type,omitempty"`
-	ClassName  string          `json:"class_name,omitempty"`    // For methods
-	Package    string          `json:"package,omitempty"`       // Package/namespace
-	Generics   []string        `json:"generics,omitempty"`      // Generic type parameters
+	ClassName  string          `json:"class_name,omitempty"` // For methods
+	Package    string          `json:"package,omitempty"`    // Package/namespace
+	Generics   []string        `json:"generics,omitempty"`   // Generic type parameters
 }
 
 type ParameterInfo struct {
@@ -41,14 +41,14 @@ type ParameterInfo struct {
 
 // SemanticCacheManager enhances basic cache with semantic indexing
 type SemanticCacheManager struct {
-	responseCache *SimpleCacheManager                    // Raw LSP response cache
-	scipStorage   scip.SCIPDocumentStorage              // Semantic storage (from existing code)
-	
+	responseCache *SimpleCacheManager      // Raw LSP response cache
+	scipStorage   scip.SCIPDocumentStorage // Semantic storage (from existing code)
+
 	// New semantic indexes for LLM features
-	callGraph     map[string]*CallGraphNode              // Symbol ID -> call relationships
-	pathIndex     map[string]*PathIndex                  // Path segment -> symbols
-	signatures    map[string]*SignatureInfo              // Symbol ID -> rich signature info
-	defRefLinks   map[string][]*lsp.Location             // Symbol ID -> all reference locations
+	callGraph   map[string]*CallGraphNode  // Symbol ID -> call relationships
+	pathIndex   map[string]*PathIndex      // Path segment -> symbols
+	signatures  map[string]*SignatureInfo  // Symbol ID -> rich signature info
+	defRefLinks map[string][]*lsp.Location // Symbol ID -> all reference locations
 }
 
 // NewSemanticCacheManager creates enhanced cache with existing components
@@ -69,7 +69,7 @@ func (m *SemanticCacheManager) StoreWithSemanticIndexing(method string, params i
 	if err := m.responseCache.Store(method, params, response); err != nil {
 		return err
 	}
-	
+
 	// Extract and store semantic information based on LSP method
 	switch method {
 	case "textDocument/documentSymbol":
@@ -79,7 +79,7 @@ func (m *SemanticCacheManager) StoreWithSemanticIndexing(method string, params i
 	case "textDocument/hover":
 		return m.indexHoverSignatures(params, response)
 	}
-	
+
 	return nil
 }
 
@@ -91,20 +91,20 @@ func (m *SemanticCacheManager) GetCallGraph(symbolID string) (*CallGraphNode, er
 	return nil, fmt.Errorf("call graph not found for symbol: %s", symbolID)
 }
 
-// GetSymbolsByPath returns top-level symbols under path hierarchy  
+// GetSymbolsByPath returns top-level symbols under path hierarchy
 func (m *SemanticCacheManager) GetSymbolsByPath(pathPattern string) ([]*lsp.SymbolInformation, error) {
 	var results []*lsp.SymbolInformation
-	
+
 	for path, index := range m.pathIndex {
 		if matched, _ := filepath.Match(pathPattern, path); matched {
 			results = append(results, index.Symbols...)
 		}
 	}
-	
+
 	if len(results) == 0 {
 		return nil, fmt.Errorf("no symbols found for path pattern: %s", pathPattern)
 	}
-	
+
 	return results, nil
 }
 
@@ -132,19 +132,19 @@ func (m *SemanticCacheManager) indexDocumentSymbols(params interface{}, response
 	if err != nil {
 		return err
 	}
-	
+
 	// Parse document symbols from response
 	symbols, ok := response.([]*lsp.DocumentSymbol)
 	if !ok {
 		return fmt.Errorf("invalid document symbol response type")
 	}
-	
+
 	// Build path index
 	m.buildPathIndex(uri, symbols)
-	
+
 	// Extract call relationships (basic implementation)
 	m.buildCallGraph(symbols)
-	
+
 	common.LSPLogger.Debug("Indexed semantic information for %s: %d symbols", uri, len(symbols))
 	return nil
 }
@@ -169,7 +169,7 @@ func (m *SemanticCacheManager) indexReferences(params interface{}, response inte
 	if !ok {
 		return fmt.Errorf("invalid references response type")
 	}
-	
+
 	// Use first location as definition, rest as references
 	if len(locations) > 0 && locations[0] != nil {
 		symbolID := m.generateSymbolID(locations[0])
@@ -184,7 +184,7 @@ func (m *SemanticCacheManager) indexReferences(params interface{}, response inte
 			m.defRefLinks[symbolID] = validLocations
 		}
 	}
-	
+
 	return nil
 }
 
@@ -194,10 +194,10 @@ func (m *SemanticCacheManager) indexHoverSignatures(params interface{}, response
 	if !ok {
 		return nil // Not all hovers contain signature info
 	}
-	
+
 	// Parse signature from hover contents and store
 	// This would extract parameter types, return types, etc.
-	
+
 	return nil
 }
 
@@ -207,11 +207,11 @@ func (m *SemanticCacheManager) buildPathIndex(uri string, symbols []*lsp.Documen
 	filePath := strings.TrimPrefix(uri, "file://")
 	dir := filepath.Dir(filePath)
 	pathSegments := strings.Split(dir, "/")
-	
+
 	// Build hierarchical index by path depth
 	for i := 1; i <= len(pathSegments); i++ {
 		pathKey := strings.Join(pathSegments[:i], "/")
-		
+
 		if _, exists := m.pathIndex[pathKey]; !exists {
 			m.pathIndex[pathKey] = &PathIndex{
 				Path:    pathKey,
@@ -219,7 +219,7 @@ func (m *SemanticCacheManager) buildPathIndex(uri string, symbols []*lsp.Documen
 				Files:   make(map[string][]*lsp.SymbolInformation),
 			}
 		}
-		
+
 		// Convert DocumentSymbol to SymbolInformation for storage
 		for _, docSymbol := range symbols {
 			if isTopLevelSymbol(docSymbol) { // Only top-level symbols for path index
@@ -236,7 +236,7 @@ func (m *SemanticCacheManager) buildCallGraph(symbols []*lsp.DocumentSymbol) {
 	for _, symbol := range symbols {
 		if symbol.Kind == lsp.Function || symbol.Kind == lsp.Method {
 			symbolID := m.generateSymbolIDFromDocSymbol(symbol)
-			
+
 			if _, exists := m.callGraph[symbolID]; !exists {
 				m.callGraph[symbolID] = &CallGraphNode{
 					Symbol:   documentSymbolToSymbolInfo(symbol, ""),
@@ -263,9 +263,9 @@ func (m *SemanticCacheManager) generateSymbolIDFromDocSymbol(symbol *lsp.Documen
 
 func isTopLevelSymbol(symbol *lsp.DocumentSymbol) bool {
 	// Consider classes, functions, constants as top-level
-	return symbol.Kind == lsp.Class || symbol.Kind == lsp.Function || 
-		   symbol.Kind == lsp.Variable || symbol.Kind == lsp.Constant ||
-		   symbol.Kind == lsp.Interface || symbol.Kind == lsp.Enum
+	return symbol.Kind == lsp.Class || symbol.Kind == lsp.Function ||
+		symbol.Kind == lsp.Variable || symbol.Kind == lsp.Constant ||
+		symbol.Kind == lsp.Interface || symbol.Kind == lsp.Enum
 }
 
 func documentSymbolToSymbolInfo(docSymbol *lsp.DocumentSymbol, uri string) *lsp.SymbolInformation {

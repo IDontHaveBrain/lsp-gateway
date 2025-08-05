@@ -413,17 +413,3 @@ func GetAvailableLanguages(workingDir string) ([]string, error) {
 
 	return available, nil
 }
-
-// DetectPrimaryLanguage returns the most likely primary language for the project
-func DetectPrimaryLanguage(workingDir string) (string, error) {
-	languages, err := GetAvailableLanguages(workingDir)
-	if err != nil {
-		return "", err
-	}
-
-	if len(languages) == 0 {
-		return "", fmt.Errorf("no supported languages detected or LSP servers unavailable")
-	}
-
-	return languages[0], nil
-}

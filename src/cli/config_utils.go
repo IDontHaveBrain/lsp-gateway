@@ -8,7 +8,6 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/project"
 )
 
 // LoadConfigWithFallback loads configuration with automatic fallback
@@ -41,64 +40,6 @@ func LoadConfigWithFallback(configPath string) *config.Config {
 
 	// Auto-detect installed servers if using default configurations
 	autoDetectInstalledServers(cfg)
-
-	return cfg
-}
-
-// LoadConfigWithAutoDetection loads configuration with auto-detection like MCP server
-func LoadConfigWithAutoDetection(configPath string) *config.Config {
-	var cfg *config.Config
-
-	if configPath != "" {
-		loadedConfig, err := config.LoadConfig(configPath)
-		if err != nil {
-			common.CLILogger.Warn("Failed to load config from %s, using auto-detection: %v", configPath, err)
-			cfg = config.GetDefaultConfig()
-		} else {
-			cfg = loadedConfig
-		}
-	} else {
-		// Try to load from default config file if it exists
-		defaultConfigPath := config.GetDefaultConfigPath()
-		if _, err := os.Stat(defaultConfigPath); err == nil {
-			if loadedConfig, err := config.LoadConfig(defaultConfigPath); err == nil {
-				cfg = loadedConfig
-			} else {
-				// Auto-detect languages in current directory
-				cfg = autoDetectConfig()
-			}
-		} else {
-			// Auto-detect languages in current directory
-			cfg = autoDetectConfig()
-		}
-	}
-
-	// Auto-detect installed servers if using default configurations
-	autoDetectInstalledServers(cfg)
-
-	return cfg
-}
-
-// autoDetectConfig generates configuration based on detected languages
-func autoDetectConfig() *config.Config {
-	wd, err := os.Getwd()
-	if err != nil {
-		common.CLILogger.Warn("Failed to get working directory, using defaults: %v", err)
-		return config.GetDefaultConfig()
-	}
-
-	common.CLILogger.Info("Auto-detecting languages in: %s", wd)
-	cfg := config.GenerateAutoConfig(wd, project.GetAvailableLanguages)
-	if cfg == nil || len(cfg.Servers) == 0 {
-		common.CLILogger.Warn("No languages detected or LSP servers unavailable, using defaults")
-		return config.GetDefaultConfig()
-	}
-
-	languages := make([]string, 0, len(cfg.Servers))
-	for lang := range cfg.Servers {
-		languages = append(languages, lang)
-	}
-	common.CLILogger.Info("Auto-detected languages: %v", languages)
 
 	return cfg
 }

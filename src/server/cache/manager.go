@@ -20,13 +20,13 @@ import (
 
 // IndexQuery represents a query to the SCIP index
 type IndexQuery struct {
-	Type      string                 `json:"type"`      // "symbol", "definition", "references", etc.
-	Symbol    string                 `json:"symbol,omitempty"`
-	URI       string                 `json:"uri,omitempty"`
-	Position  *Position              `json:"position,omitempty"`
-	Language  string                 `json:"language,omitempty"`
-	Filters   map[string]interface{} `json:"filters,omitempty"`
-	MaxDepth  int                    `json:"max_depth,omitempty"`
+	Type     string                 `json:"type"` // "symbol", "definition", "references", etc.
+	Symbol   string                 `json:"symbol,omitempty"`
+	URI      string                 `json:"uri,omitempty"`
+	Position *Position              `json:"position,omitempty"`
+	Language string                 `json:"language,omitempty"`
+	Filters  map[string]interface{} `json:"filters,omitempty"`
+	MaxDepth int                    `json:"max_depth,omitempty"`
 }
 
 // Position represents a position in a document
@@ -45,24 +45,24 @@ type IndexResult struct {
 
 // IndexStats represents statistics about the SCIP index
 type IndexStats struct {
-	DocumentCount    int64                      `json:"document_count"`
-	SymbolCount      int64                      `json:"symbol_count"`
-	IndexSize        int64                      `json:"index_size_bytes"`
-	LastUpdate       time.Time                  `json:"last_update"`
-	LanguageStats    map[string]int64           `json:"language_stats"`
-	IndexedLanguages []string                   `json:"indexed_languages"`
-	Status           string                     `json:"status"`
+	DocumentCount    int64            `json:"document_count"`
+	SymbolCount      int64            `json:"symbol_count"`
+	IndexSize        int64            `json:"index_size_bytes"`
+	LastUpdate       time.Time        `json:"last_update"`
+	LanguageStats    map[string]int64 `json:"language_stats"`
+	IndexedLanguages []string         `json:"indexed_languages"`
+	Status           string           `json:"status"`
 }
 
 // SCIPSymbol represents a symbol in the SCIP index
 type SCIPSymbol struct {
-	Name          string            `json:"name"`
-	Kind          string            `json:"kind"`
-	Language      string            `json:"language"`
-	URI           string            `json:"uri"`
-	Range         *Range            `json:"range,omitempty"`
-	Documentation []string          `json:"documentation,omitempty"`
-	Signature     string            `json:"signature,omitempty"`
+	Name          string              `json:"name"`
+	Kind          string              `json:"kind"`
+	Language      string              `json:"language"`
+	URI           string              `json:"uri"`
+	Range         *Range              `json:"range,omitempty"`
+	Documentation []string            `json:"documentation,omitempty"`
+	Signature     string              `json:"signature,omitempty"`
 	Relationships map[string][]string `json:"relationships,omitempty"`
 }
 
@@ -150,8 +150,8 @@ type SCIPCache interface {
 	InvalidateDocument(uri string) error
 	HealthCheck() (*CacheMetrics, error)
 	GetMetrics() *CacheMetrics
-	Clear() error  // Clear all cache entries
-	
+	Clear() error // Clear all cache entries
+
 	// SCIP indexing capabilities - integrated as core functionality
 	IndexDocument(ctx context.Context, uri string, language string, content []byte) error
 	QueryIndex(ctx context.Context, query *IndexQuery) (*IndexResult, error)
@@ -167,20 +167,20 @@ type SimpleCacheManager struct {
 	mu      sync.RWMutex
 	enabled bool
 	started bool
-	
+
 	// SCIP indexing - integrated as core functionality
-	scipIndex     map[string]*SCIPSymbol         // symbol name -> symbol info
-	documentIndex map[string][]string            // uri -> symbol names in document
+	scipIndex     map[string]*SCIPSymbol            // symbol name -> symbol info
+	documentIndex map[string][]string               // uri -> symbol names in document
 	languageIndex map[string]map[string]*SCIPSymbol // language -> symbol name -> symbol
 	indexStats    *IndexStats
 	indexMu       sync.RWMutex
-	
+
 	// File watching for real-time index updates
-	fileModTimes   map[string]time.Time  // file path -> last modification time
-	watcherTicker  *time.Ticker          // periodic file change checker
-	watcherStop    chan struct{}         // signal to stop file watcher
-	projectRoot    string                // root directory to watch
-	watcherRunning bool                  // whether file watcher is active
+	fileModTimes   map[string]time.Time // file path -> last modification time
+	watcherTicker  *time.Ticker         // periodic file change checker
+	watcherStop    chan struct{}        // signal to stop file watcher
+	projectRoot    string               // root directory to watch
+	watcherRunning bool                 // whether file watcher is active
 }
 
 // NewSCIPCacheManager creates a simple cache manager with unified config
@@ -194,14 +194,14 @@ func NewSCIPCacheManager(configParam *config.CacheConfig) (*SimpleCacheManager, 
 		config:  configParam,
 		stats:   &SimpleCacheStats{},
 		enabled: configParam.Enabled,
-		
+
 		// Initialize SCIP indexing
 		scipIndex:     make(map[string]*SCIPSymbol),
 		documentIndex: make(map[string][]string),
 		languageIndex: make(map[string]map[string]*SCIPSymbol),
-		
+
 		// Initialize file watching
-		fileModTimes:  make(map[string]time.Time),
+		fileModTimes: make(map[string]time.Time),
 		indexStats: &IndexStats{
 			DocumentCount:    0,
 			SymbolCount:      0,
@@ -270,7 +270,7 @@ func (m *SimpleCacheManager) Start(ctx context.Context) error {
 	}
 
 	m.started = true
-	
+
 	// Start file watcher for real-time index updates
 	if m.config.BackgroundIndex {
 		if err := m.startFileWatcher(); err != nil {
@@ -278,7 +278,7 @@ func (m *SimpleCacheManager) Start(ctx context.Context) error {
 			// Continue without file watching
 		}
 	}
-	
+
 	common.LSPLogger.Info("Simple cache manager started successfully")
 	return nil
 }
@@ -599,40 +599,40 @@ func (m *SimpleCacheManager) IndexDocument(ctx context.Context, uri string, lang
 	if !m.enabled {
 		return nil // Graceful degradation when cache is disabled
 	}
-	
+
 	m.indexMu.Lock()
 	defer m.indexMu.Unlock()
-	
+
 	// Clear existing symbols for this document
 	if existingSymbols, exists := m.documentIndex[uri]; exists {
 		for _, symbolName := range existingSymbols {
 			delete(m.scipIndex, symbolName)
 		}
 	}
-	
+
 	// Extract symbols from document content based on language
 	symbols := m.extractSymbolsFromContent(uri, language, content)
-	
+
 	// Store symbols in index
 	symbolNames := make([]string, 0, len(symbols))
 	for _, symbol := range symbols {
 		symbolKey := fmt.Sprintf("%s:%s", symbol.Language, symbol.Name)
 		m.scipIndex[symbolKey] = symbol
 		symbolNames = append(symbolNames, symbolKey)
-		
+
 		// Update language index
 		if m.languageIndex[language] == nil {
 			m.languageIndex[language] = make(map[string]*SCIPSymbol)
 		}
 		m.languageIndex[language][symbol.Name] = symbol
 	}
-	
+
 	// Update document index
 	m.documentIndex[uri] = symbolNames
-	
+
 	// Update statistics
 	m.updateIndexStats(language, len(symbols))
-	
+
 	common.LSPLogger.Debug("Indexed %d symbols from %s (%s)", len(symbols), uri, language)
 	return nil
 }
@@ -647,12 +647,12 @@ func (m *SimpleCacheManager) QueryIndex(ctx context.Context, query *IndexQuery) 
 			Timestamp: time.Now(),
 		}, nil
 	}
-	
+
 	m.indexMu.RLock()
 	defer m.indexMu.RUnlock()
-	
+
 	var results []interface{}
-	
+
 	switch query.Type {
 	case "symbol":
 		results = m.querySymbols(query)
@@ -665,7 +665,7 @@ func (m *SimpleCacheManager) QueryIndex(ctx context.Context, query *IndexQuery) 
 	default:
 		return nil, fmt.Errorf("unsupported query type: %s", query.Type)
 	}
-	
+
 	return &IndexResult{
 		Type:    query.Type,
 		Results: results,
@@ -682,10 +682,10 @@ func (m *SimpleCacheManager) GetIndexStats() *IndexStats {
 	if !m.enabled {
 		return &IndexStats{Status: "disabled"}
 	}
-	
+
 	m.indexMu.RLock()
 	defer m.indexMu.RUnlock()
-	
+
 	// Create a copy to avoid race conditions
 	stats := *m.indexStats
 	stats.SymbolCount = int64(len(m.scipIndex))
@@ -698,9 +698,9 @@ func (m *SimpleCacheManager) UpdateIndex(ctx context.Context, files []string) er
 	if !m.enabled {
 		return nil
 	}
-	
+
 	common.LSPLogger.Info("Indexing %d files...", len(files))
-	
+
 	for i, file := range files {
 		// Check context cancellation
 		select {
@@ -709,38 +709,38 @@ func (m *SimpleCacheManager) UpdateIndex(ctx context.Context, files []string) er
 			return ctx.Err()
 		default:
 		}
-		
+
 		language := m.detectLanguageFromFile(file)
 		if language == "" {
 			continue
 		}
-		
+
 		// Read actual file content
 		content, err := os.ReadFile(file)
 		if err != nil {
 			common.LSPLogger.Warn("Failed to read file %s: %v", file, err)
 			continue
 		}
-		
+
 		// Skip empty files
 		if len(content) == 0 {
 			continue
 		}
-		
+
 		if err := m.IndexDocument(ctx, file, language, content); err != nil {
 			common.LSPLogger.Warn("Failed to index file %s: %v", file, err)
 		}
 	}
-	
+
 	common.LSPLogger.Info("Indexed %d documents with %d symbols", len(m.documentIndex), len(m.scipIndex))
-	
+
 	// Save index to disk if disk cache is enabled
 	if m.config.DiskCache && m.config.StoragePath != "" {
 		if err := m.SaveIndexToDisk(); err != nil {
 			common.LSPLogger.Warn("Failed to save index to disk: %v", err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -750,7 +750,7 @@ func (m *SimpleCacheManager) extractSymbolsFromContent(uri, language string, con
 	// Pragmatic symbol extraction based on language
 	var symbols []*SCIPSymbol
 	contentStr := string(content)
-	
+
 	switch language {
 	case "go":
 		symbols = m.extractGoSymbols(uri, contentStr)
@@ -761,13 +761,13 @@ func (m *SimpleCacheManager) extractSymbolsFromContent(uri, language string, con
 	case "java":
 		symbols = m.extractJavaSymbols(uri, contentStr)
 	}
-	
+
 	return symbols
 }
 
 func (m *SimpleCacheManager) extractGoSymbols(uri, content string) []*SCIPSymbol {
 	var symbols []*SCIPSymbol
-	
+
 	// Simple regex patterns for Go symbols
 	patterns := map[string]string{
 		"function": `func\s+(?:\([^)]*\)\s+)?(\w+)\s*\([^)]*\)`, // Handles both functions and methods with receivers
@@ -775,7 +775,7 @@ func (m *SimpleCacheManager) extractGoSymbols(uri, content string) []*SCIPSymbol
 		"const":    `const\s+(\w+)\s*=`,
 		"var":      `var\s+(\w+)\s+`,
 	}
-	
+
 	for kind, pattern := range patterns {
 		re := regexp.MustCompile(pattern)
 		matches := re.FindAllStringSubmatch(content, -1)
@@ -791,18 +791,18 @@ func (m *SimpleCacheManager) extractGoSymbols(uri, content string) []*SCIPSymbol
 			}
 		}
 	}
-	
+
 	return symbols
 }
 
 func (m *SimpleCacheManager) extractPythonSymbols(uri, content string) []*SCIPSymbol {
 	var symbols []*SCIPSymbol
-	
+
 	patterns := map[string]string{
 		"function": `def\s+(\w+)\s*\(`,
 		"class":    `class\s+(\w+)\s*[\(:]`,
 	}
-	
+
 	for kind, pattern := range patterns {
 		re := regexp.MustCompile(pattern)
 		matches := re.FindAllStringSubmatch(content, -1)
@@ -817,13 +817,13 @@ func (m *SimpleCacheManager) extractPythonSymbols(uri, content string) []*SCIPSy
 			}
 		}
 	}
-	
+
 	return symbols
 }
 
 func (m *SimpleCacheManager) extractJSSymbols(uri, content string) []*SCIPSymbol {
 	var symbols []*SCIPSymbol
-	
+
 	patterns := map[string]string{
 		"function": `function\s+(\w+)\s*\(`,
 		"class":    `class\s+(\w+)\s*{`,
@@ -831,7 +831,7 @@ func (m *SimpleCacheManager) extractJSSymbols(uri, content string) []*SCIPSymbol
 		"let":      `let\s+(\w+)\s*=`,
 		"var":      `var\s+(\w+)\s*=`,
 	}
-	
+
 	for kind, pattern := range patterns {
 		re := regexp.MustCompile(pattern)
 		matches := re.FindAllStringSubmatch(content, -1)
@@ -846,19 +846,19 @@ func (m *SimpleCacheManager) extractJSSymbols(uri, content string) []*SCIPSymbol
 			}
 		}
 	}
-	
+
 	return symbols
 }
 
 func (m *SimpleCacheManager) extractJavaSymbols(uri, content string) []*SCIPSymbol {
 	var symbols []*SCIPSymbol
-	
+
 	patterns := map[string]string{
-		"class":    `class\s+(\w+)\s*{`,
+		"class":     `class\s+(\w+)\s*{`,
 		"interface": `interface\s+(\w+)\s*{`,
-		"method":   `(?:public|private|protected)?\s*(?:static)?\s*\w+\s+(\w+)\s*\(`,
+		"method":    `(?:public|private|protected)?\s*(?:static)?\s*\w+\s+(\w+)\s*\(`,
 	}
-	
+
 	for kind, pattern := range patterns {
 		re := regexp.MustCompile(pattern)
 		matches := re.FindAllStringSubmatch(content, -1)
@@ -873,13 +873,13 @@ func (m *SimpleCacheManager) extractJavaSymbols(uri, content string) []*SCIPSymb
 			}
 		}
 	}
-	
+
 	return symbols
 }
 
 func (m *SimpleCacheManager) querySymbols(query *IndexQuery) []interface{} {
 	var results []interface{}
-	
+
 	if query.Language != "" {
 		// Query specific language
 		if langIndex, exists := m.languageIndex[query.Language]; exists {
@@ -897,7 +897,7 @@ func (m *SimpleCacheManager) querySymbols(query *IndexQuery) []interface{} {
 			}
 		}
 	}
-	
+
 	return results
 }
 
@@ -937,7 +937,7 @@ func (m *SimpleCacheManager) detectLanguageFromFile(file string) string {
 func (m *SimpleCacheManager) updateIndexStats(language string, symbolCount int) {
 	m.indexStats.LastUpdate = time.Now()
 	m.indexStats.Status = "active"
-	
+
 	if m.indexStats.LanguageStats[language] == 0 {
 		m.indexStats.IndexedLanguages = append(m.indexStats.IndexedLanguages, language)
 	}
@@ -949,37 +949,37 @@ func (m *SimpleCacheManager) SaveIndexToDisk() error {
 	if m.config.StoragePath == "" {
 		return fmt.Errorf("storage path not configured")
 	}
-	
+
 	// Create storage directory if it doesn't exist
 	if err := os.MkdirAll(m.config.StoragePath, 0755); err != nil {
 		return fmt.Errorf("failed to create storage directory: %v", err)
 	}
-	
+
 	m.indexMu.RLock()
 	defer m.indexMu.RUnlock()
-	
+
 	// Save SCIP index
 	scipIndexPath := filepath.Join(m.config.StoragePath, "scip_index.json")
 	scipIndexData, err := json.MarshalIndent(m.scipIndex, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal SCIP index: %v", err)
 	}
-	
+
 	if err := os.WriteFile(scipIndexPath, scipIndexData, 0644); err != nil {
 		return fmt.Errorf("failed to write SCIP index file: %v", err)
 	}
-	
+
 	// Save document index
 	documentIndexPath := filepath.Join(m.config.StoragePath, "document_index.json")
 	documentIndexData, err := json.MarshalIndent(m.documentIndex, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal document index: %v", err)
 	}
-	
+
 	if err := os.WriteFile(documentIndexPath, documentIndexData, 0644); err != nil {
 		return fmt.Errorf("failed to write document index file: %v", err)
 	}
-	
+
 	common.LSPLogger.Debug("Saved index to disk: %d symbols, %d documents", len(m.scipIndex), len(m.documentIndex))
 	return nil
 }
@@ -989,37 +989,37 @@ func (m *SimpleCacheManager) LoadIndexFromDisk() error {
 	if m.config.StoragePath == "" {
 		return fmt.Errorf("storage path not configured")
 	}
-	
+
 	scipIndexPath := filepath.Join(m.config.StoragePath, "scip_index.json")
 	documentIndexPath := filepath.Join(m.config.StoragePath, "document_index.json")
-	
+
 	m.indexMu.Lock()
 	defer m.indexMu.Unlock()
-	
+
 	// Load SCIP index if it exists
 	if _, err := os.Stat(scipIndexPath); err == nil {
 		scipIndexData, err := os.ReadFile(scipIndexPath)
 		if err != nil {
 			return fmt.Errorf("failed to read SCIP index file: %v", err)
 		}
-		
+
 		if err := json.Unmarshal(scipIndexData, &m.scipIndex); err != nil {
 			return fmt.Errorf("failed to unmarshal SCIP index: %v", err)
 		}
 	}
-	
+
 	// Load document index if it exists
 	if _, err := os.Stat(documentIndexPath); err == nil {
 		documentIndexData, err := os.ReadFile(documentIndexPath)
 		if err != nil {
 			return fmt.Errorf("failed to read document index file: %v", err)
 		}
-		
+
 		if err := json.Unmarshal(documentIndexData, &m.documentIndex); err != nil {
 			return fmt.Errorf("failed to unmarshal document index: %v", err)
 		}
 	}
-	
+
 	// Rebuild language index from loaded data
 	m.languageIndex = make(map[string]map[string]*SCIPSymbol)
 	for _, symbol := range m.scipIndex {
@@ -1028,12 +1028,12 @@ func (m *SimpleCacheManager) LoadIndexFromDisk() error {
 		}
 		m.languageIndex[symbol.Language][symbol.Name] = symbol
 	}
-	
+
 	// Update index stats
 	m.indexStats.SymbolCount = int64(len(m.scipIndex))
 	m.indexStats.DocumentCount = int64(len(m.documentIndex))
 	m.indexStats.Status = "loaded"
-	
+
 	// Update language stats
 	languageStats := make(map[string]int64)
 	indexedLanguages := []string{}
@@ -1043,7 +1043,7 @@ func (m *SimpleCacheManager) LoadIndexFromDisk() error {
 	}
 	m.indexStats.LanguageStats = languageStats
 	m.indexStats.IndexedLanguages = indexedLanguages
-	
+
 	common.LSPLogger.Info("Loaded index from disk: %d symbols, %d documents", len(m.scipIndex), len(m.documentIndex))
 	return nil
 }
@@ -1058,17 +1058,17 @@ func (m *SimpleCacheManager) startFileWatcher() error {
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
 	m.projectRoot = wd
-	
+
 	// Initialize stop channel
 	m.watcherStop = make(chan struct{})
-	
+
 	// Create ticker for periodic checks (every 5 seconds)
 	m.watcherTicker = time.NewTicker(5 * time.Second)
 	m.watcherRunning = true
-	
+
 	// Start goroutine for file watching
 	go m.fileWatcherLoop()
-	
+
 	common.LSPLogger.Info("Started file watcher for project: %s", m.projectRoot)
 	return nil
 }
@@ -1101,24 +1101,24 @@ func (m *SimpleCacheManager) fileWatcherLoop() {
 func (m *SimpleCacheManager) scanAndIndexChangedFiles() {
 	extensions := []string{".go", ".py", ".js", ".ts", ".tsx", ".java"}
 	changedFiles := []string{}
-	
+
 	// Walk through project directory
 	err := filepath.Walk(m.projectRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // Skip errors
 		}
-		
+
 		// Skip directories and non-source files
 		if info.IsDir() {
 			name := info.Name()
 			// Skip common non-source directories
-			if strings.HasPrefix(name, ".") || name == "node_modules" || name == "vendor" || 
-			   name == "build" || name == "dist" || name == "target" || name == "__pycache__" {
+			if strings.HasPrefix(name, ".") || name == "node_modules" || name == "vendor" ||
+				name == "build" || name == "dist" || name == "target" || name == "__pycache__" {
 				return filepath.SkipDir
 			}
 			return nil
 		}
-		
+
 		// Check if file has relevant extension
 		ext := filepath.Ext(path)
 		isRelevant := false
@@ -1128,64 +1128,64 @@ func (m *SimpleCacheManager) scanAndIndexChangedFiles() {
 				break
 			}
 		}
-		
+
 		if !isRelevant {
 			return nil
 		}
-		
+
 		// Check if file has been modified
 		m.mu.RLock()
 		lastModTime, exists := m.fileModTimes[path]
 		m.mu.RUnlock()
-		
+
 		if !exists || info.ModTime().After(lastModTime) {
 			changedFiles = append(changedFiles, path)
-			
+
 			// Update modification time
 			m.mu.Lock()
 			m.fileModTimes[path] = info.ModTime()
 			m.mu.Unlock()
 		}
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		common.LSPLogger.Warn("Error scanning files: %v", err)
 		return
 	}
-	
+
 	// Re-index changed files
 	if len(changedFiles) > 0 {
 		common.LSPLogger.Info("Detected %d file changes, re-indexing...", len(changedFiles))
 		ctx := context.Background()
-		
+
 		for _, file := range changedFiles {
 			language := m.detectLanguageFromFile(file)
 			if language == "" {
 				continue
 			}
-			
+
 			// Read file content
 			content, err := os.ReadFile(file)
 			if err != nil {
 				common.LSPLogger.Warn("Failed to read changed file %s: %v", file, err)
 				continue
 			}
-			
+
 			// Re-index the file
 			if err := m.IndexDocument(ctx, file, language, content); err != nil {
 				common.LSPLogger.Warn("Failed to re-index file %s: %v", file, err)
 			}
 		}
-		
+
 		// Save index to disk if disk cache is enabled
 		if m.config.DiskCache && m.config.StoragePath != "" {
 			if err := m.SaveIndexToDisk(); err != nil {
 				common.LSPLogger.Warn("Failed to save updated index to disk: %v", err)
 			}
 		}
-		
+
 		common.LSPLogger.Info("Re-indexed %d changed files", len(changedFiles))
 	}
 }

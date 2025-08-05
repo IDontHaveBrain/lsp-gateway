@@ -13,7 +13,7 @@ type SimpleCache interface {
 	Lookup(method string, params interface{}) (interface{}, bool, error)
 	Store(method string, params interface{}, response interface{}) error
 	InvalidateDocument(uri string) error
-	Clear() error  // Clear all cache entries
+	Clear() error // Clear all cache entries
 
 	// Lifecycle management
 	Start(ctx context.Context) error
@@ -26,7 +26,7 @@ type SimpleCache interface {
 
 	// Compatibility methods for SCIPCache interface - use proper config type
 	Initialize(config *config.CacheConfig) error
-	
+
 	// SCIP indexing capabilities - integrated as core functionality
 	IndexDocument(ctx context.Context, uri string, language string, content []byte) error
 	QueryIndex(ctx context.Context, query *IndexQuery) (*IndexResult, error)

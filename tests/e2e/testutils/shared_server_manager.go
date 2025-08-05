@@ -108,7 +108,7 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 	// Get project root and binary path
 	pwd, _ := os.Getwd()
 	mgr.projectRoot = filepath.Dir(filepath.Dir(pwd))
-	
+
 	// Construct binary path with platform-specific extension
 	binaryName := "lsp-gateway"
 	if runtime.GOOS == "windows" {

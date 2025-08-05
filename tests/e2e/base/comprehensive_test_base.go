@@ -345,7 +345,7 @@ func (suite *ComprehensiveTestBaseSuite) startGatewayServer() error {
 	// Get path to lsp-gateway binary
 	pwd, _ := os.Getwd()
 	projectRoot := filepath.Dir(filepath.Dir(pwd)) // go up from tests/e2e to project root
-	
+
 	// Construct binary path with platform-specific extension
 	binaryName := "lsp-gateway"
 	if runtime.GOOS == "windows" {

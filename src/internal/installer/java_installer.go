@@ -168,13 +168,13 @@ func (j *JavaInstaller) createJDTLSWrapper(installPath, jdkPath, jdtlsPath strin
 	}
 
 	common.CLILogger.Info("JDTLS wrapper created at %s", wrapperPath)
-	
+
 	// Ensure file is synced to disk on Windows
 	if j.platform.GetPlatform() == "windows" {
 		// Small delay to ensure file system sync on Windows
 		time.Sleep(100 * time.Millisecond)
 	}
-	
+
 	return nil
 }
 
@@ -368,7 +368,7 @@ func (j *JavaInstaller) IsInstalled() bool {
 		common.CLILogger.Debug("JDTLS directory not found at: %s", jdtlsPath)
 		return false
 	}
-	
+
 	return true
 }
 

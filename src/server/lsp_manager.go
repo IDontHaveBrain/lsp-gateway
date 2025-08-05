@@ -412,7 +412,7 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 		} else {
 			common.LSPLogger.Debug("Cached LSP response for method=%s", method)
 		}
-		
+
 		// Perform SCIP indexing for document-related operations
 		m.performSCIPIndexing(ctx, method, uri, language, params, result)
 	} else {
@@ -615,14 +615,14 @@ func (m *LSPManager) GetCacheMetrics() interface{} {
 	if m.scipCache == nil {
 		return nil
 	}
-	
+
 	cacheMetrics := m.scipCache.GetMetrics()
 	indexStats := m.scipCache.GetIndexStats()
-	
+
 	return map[string]interface{}{
-		"cache":       cacheMetrics,
-		"scip_index":  indexStats,
-		"integrated":  true,
+		"cache":      cacheMetrics,
+		"scip_index": indexStats,
+		"integrated": true,
 	}
 }
 
@@ -1171,7 +1171,7 @@ func (m *LSPManager) performSCIPIndexing(ctx context.Context, method, uri, langu
 	if m.scipCache == nil {
 		return
 	}
-	
+
 	// Only index for specific methods that provide useful data
 	switch method {
 	case "textDocument/documentSymbol":
@@ -1202,7 +1202,7 @@ func (m *LSPManager) indexDefinitions(ctx context.Context, uri, language string,
 	common.LSPLogger.Debug("Processing definition data for SCIP index: %s", uri)
 }
 
-// indexReferences indexes reference information  
+// indexReferences indexes reference information
 func (m *LSPManager) indexReferences(ctx context.Context, uri, language string, result interface{}) {
 	// For now, just log - in a full implementation this would extract reference data
 	common.LSPLogger.Debug("Processing reference data for SCIP index: %s", uri)
@@ -1220,20 +1220,20 @@ func (m *LSPManager) ProcessEnhancedQuery(ctx context.Context, queryType, uri, l
 		// Fall back to regular LSP processing
 		return m.ProcessRequest(ctx, queryType, params)
 	}
-	
+
 	// Query SCIP index first for enhanced data
 	indexQuery := &cache.IndexQuery{
 		Type:     queryType,
 		URI:      uri,
 		Language: language,
 	}
-	
+
 	indexResult, err := m.scipCache.QueryIndex(ctx, indexQuery)
 	if err == nil && len(indexResult.Results) > 0 {
 		common.LSPLogger.Debug("Using SCIP index data for enhanced query: %s", queryType)
 		return indexResult, nil
 	}
-	
+
 	// Fall back to LSP
 	common.LSPLogger.Debug("Falling back to LSP for query: %s", queryType)
 	return m.ProcessRequest(ctx, queryType, params)
@@ -1244,7 +1244,7 @@ func (m *LSPManager) GetIndexStats() interface{} {
 	if m.scipCache == nil {
 		return map[string]interface{}{"status": "disabled"}
 	}
-	
+
 	return m.scipCache.GetIndexStats()
 }
 
@@ -1253,7 +1253,7 @@ func (m *LSPManager) RefreshIndex(ctx context.Context, files []string) error {
 	if m.scipCache == nil {
 		return fmt.Errorf("SCIP cache not available")
 	}
-	
+
 	return m.scipCache.UpdateIndex(ctx, files)
 }
 

@@ -40,11 +40,6 @@ func NewSafeLogger(prefix string) *SafeLogger {
 	}
 }
 
-// SetLevel sets the minimum log level
-func (l *SafeLogger) SetLevel(level LogLevel) {
-	l.level = level
-}
-
 // log writes a message to stderr with timestamp and level
 func (l *SafeLogger) log(level LogLevel, format string, args ...interface{}) {
 	if level < l.level {
@@ -78,34 +73,12 @@ func (l *SafeLogger) Error(format string, args ...interface{}) {
 	l.log(LogError, format, args...)
 }
 
-// Fatal logs a fatal message and exits
-func (l *SafeLogger) Fatal(format string, args ...interface{}) {
-	l.log(LogFatal, format, args...)
-	os.Exit(1)
-}
-
 // Global logger instances for convenience
 var (
 	LSPLogger     = NewSafeLogger("LSP")
 	GatewayLogger = NewSafeLogger("Gateway")
 	CLILogger     = NewSafeLogger("CLI")
 )
-
-// Package-level convenience functions
-func SafeLog(format string, args ...interface{}) {
-	logger := NewSafeLogger("SAFE")
-	logger.Info(format, args...)
-}
-
-func SafeError(format string, args ...interface{}) {
-	logger := NewSafeLogger("SAFE")
-	logger.Error(format, args...)
-}
-
-func SafeDebug(format string, args ...interface{}) {
-	logger := NewSafeLogger("SAFE")
-	logger.Debug(format, args...)
-}
 
 // SanitizeErrorForLogging removes stack traces and verbose details from error messages
 func SanitizeErrorForLogging(err interface{}) string {

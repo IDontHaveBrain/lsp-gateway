@@ -16,24 +16,24 @@ import (
 // FileWatcher provides automatic file change detection and real-time indexing
 type FileWatcher struct {
 	// Core components
-	semanticCache  *SemanticCacheManager
-	invalidation   *SimpleInvalidationManager
-	
+	semanticCache *SemanticCacheManager
+	invalidation  *SimpleInvalidationManager
+
 	// File watching state
 	watchedDirs    map[string]bool
 	pendingUpdates map[string]time.Time // debouncing
-	
+
 	// Configuration
-	projectRoot    string
-	debounceDelay  time.Duration
-	extensions     []string // file extensions to watch
-	
+	projectRoot   string
+	debounceDelay time.Duration
+	extensions    []string // file extensions to watch
+
 	// Control
-	ctx           context.Context
-	cancel        context.CancelFunc
-	wg            sync.WaitGroup
-	mu            sync.RWMutex
-	started       bool
+	ctx     context.Context
+	cancel  context.CancelFunc
+	wg      sync.WaitGroup
+	mu      sync.RWMutex
+	started bool
 }
 
 // FileChangeEvent represents a file system change event
@@ -50,7 +50,7 @@ func NewFileWatcher(semanticCache *SemanticCacheManager, invalidation *SimpleInv
 		invalidation:   invalidation,
 		watchedDirs:    make(map[string]bool),
 		pendingUpdates: make(map[string]time.Time),
-		debounceDelay:  500 * time.Millisecond, // 500ms debounce
+		debounceDelay:  500 * time.Millisecond,                                // 500ms debounce
 		extensions:     []string{".go", ".py", ".js", ".ts", ".tsx", ".java"}, // supported languages
 	}
 }
@@ -59,25 +59,25 @@ func NewFileWatcher(semanticCache *SemanticCacheManager, invalidation *SimpleInv
 func (fw *FileWatcher) Start(ctx context.Context, projectRoot string) error {
 	fw.mu.Lock()
 	defer fw.mu.Unlock()
-	
+
 	if fw.started {
 		return fmt.Errorf("file watcher already started")
 	}
-	
+
 	fw.projectRoot = projectRoot
 	fw.ctx, fw.cancel = context.WithCancel(ctx)
-	
+
 	// Start the debounce processor
 	fw.wg.Add(1)
 	go fw.debounceProcessor()
-	
+
 	// Start file system watching
 	fw.wg.Add(1)
 	go fw.fileSystemWatcher()
-	
+
 	fw.started = true
 	common.LSPLogger.Info("File watcher started for project: %s", projectRoot)
-	
+
 	return nil
 }
 
@@ -85,19 +85,19 @@ func (fw *FileWatcher) Start(ctx context.Context, projectRoot string) error {
 func (fw *FileWatcher) Stop() error {
 	fw.mu.Lock()
 	defer fw.mu.Unlock()
-	
+
 	if !fw.started {
 		return nil
 	}
-	
+
 	common.LSPLogger.Info("Stopping file watcher...")
-	
+
 	fw.cancel()
 	fw.wg.Wait()
-	
+
 	fw.started = false
 	common.LSPLogger.Info("File watcher stopped successfully")
-	
+
 	return nil
 }
 
@@ -110,14 +110,14 @@ func (fw *FileWatcher) SetupFileWatcher(projectRoot string) error {
 func (fw *FileWatcher) AddWatchPath(path string) error {
 	fw.mu.Lock()
 	defer fw.mu.Unlock()
-	
+
 	if fw.watchedDirs[path] {
 		return nil // already watching
 	}
-	
+
 	fw.watchedDirs[path] = true
 	common.LSPLogger.Debug("Added watch path: %s", path)
-	
+
 	return nil
 }
 
@@ -125,25 +125,25 @@ func (fw *FileWatcher) AddWatchPath(path string) error {
 func (fw *FileWatcher) RemoveWatchPath(path string) error {
 	fw.mu.Lock()
 	defer fw.mu.Unlock()
-	
+
 	delete(fw.watchedDirs, path)
 	common.LSPLogger.Debug("Removed watch path: %s", path)
-	
+
 	return nil
 }
 
 // fileSystemWatcher runs the actual file system monitoring
 func (fw *FileWatcher) fileSystemWatcher() {
 	defer fw.wg.Done()
-	
+
 	// Implementation note: This is a placeholder for fsnotify integration
 	// In a real implementation, this would use github.com/fsnotify/fsnotify
-	
+
 	ticker := time.NewTicker(1 * time.Second) // Fallback polling approach
 	defer ticker.Stop()
-	
+
 	common.LSPLogger.Debug("File system watcher started (using polling fallback)")
-	
+
 	for {
 		select {
 		case <-fw.ctx.Done():
@@ -162,7 +162,7 @@ func (fw *FileWatcher) checkFileChanges() {
 		watchedDirs = append(watchedDirs, dir)
 	}
 	fw.mu.RUnlock()
-	
+
 	for _, dir := range watchedDirs {
 		fw.scanDirectory(dir)
 	}
@@ -174,29 +174,29 @@ func (fw *FileWatcher) scanDirectory(dir string) {
 		if err != nil {
 			return nil // continue on errors
 		}
-		
+
 		if info.IsDir() {
 			return nil
 		}
-		
+
 		// Check if file extension is supported
 		if !fw.isSupportedFile(path) {
 			return nil
 		}
-		
+
 		uri := "file://" + path
-		
+
 		// Check if file was modified using the invalidation manager's logic
 		if fw.invalidation != nil {
 			fw.invalidation.InvalidateIfChanged(uri)
 		}
-		
+
 		// Queue for real-time indexing
 		fw.queueForIndexing(uri)
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		common.LSPLogger.Error("Error scanning directory %s: %v", dir, err)
 	}
@@ -217,19 +217,19 @@ func (fw *FileWatcher) isSupportedFile(path string) bool {
 func (fw *FileWatcher) queueForIndexing(uri string) {
 	fw.mu.Lock()
 	defer fw.mu.Unlock()
-	
+
 	fw.pendingUpdates[uri] = time.Now()
 }
 
 // debounceProcessor processes pending updates after debounce delay
 func (fw *FileWatcher) debounceProcessor() {
 	defer fw.wg.Done()
-	
+
 	ticker := time.NewTicker(100 * time.Millisecond) // Check every 100ms
 	defer ticker.Stop()
-	
+
 	common.LSPLogger.Debug("Debounce processor started")
-	
+
 	for {
 		select {
 		case <-fw.ctx.Done():
@@ -245,7 +245,7 @@ func (fw *FileWatcher) processDebounced() {
 	fw.mu.Lock()
 	now := time.Now()
 	readyFiles := make([]string, 0)
-	
+
 	for uri, timestamp := range fw.pendingUpdates {
 		if now.Sub(timestamp) >= fw.debounceDelay {
 			readyFiles = append(readyFiles, uri)
@@ -253,7 +253,7 @@ func (fw *FileWatcher) processDebounced() {
 		}
 	}
 	fw.mu.Unlock()
-	
+
 	// Process ready files outside the lock
 	for _, uri := range readyFiles {
 		fw.performRealTimeIndexing(uri)
@@ -263,20 +263,20 @@ func (fw *FileWatcher) processDebounced() {
 // performRealTimeIndexing performs actual indexing for a changed file
 func (fw *FileWatcher) performRealTimeIndexing(uri string) {
 	common.LSPLogger.Debug("Performing real-time indexing for: %s", uri)
-	
+
 	// Skip if semantic cache is not available
 	if fw.semanticCache == nil {
 		common.LSPLogger.Debug("Semantic cache not available, skipping real-time indexing for: %s", uri)
 		return
 	}
-	
+
 	// Create parameters for document symbol request
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": uri,
 		},
 	}
-	
+
 	// Trigger semantic indexing for the changed file
 	// This creates a placeholder document symbol response for immediate indexing
 	// In a production system, this would request actual symbols from LSP servers
@@ -284,7 +284,7 @@ func (fw *FileWatcher) performRealTimeIndexing(uri string) {
 		common.LSPLogger.Error("Failed to trigger semantic indexing for %s: %v", uri, err)
 		return
 	}
-	
+
 	common.LSPLogger.Debug("Real-time indexing completed for: %s", uri)
 }
 
@@ -292,10 +292,10 @@ func (fw *FileWatcher) performRealTimeIndexing(uri string) {
 func (fw *FileWatcher) triggerSemanticIndexing(uri string, params map[string]interface{}) error {
 	// For immediate indexing, we'll create a placeholder response
 	// In a production system, this would make actual LSP calls
-	
+
 	// Create placeholder document symbols (this would come from LSP server)
 	placeholderSymbols := fw.createPlaceholderSymbols(uri)
-	
+
 	// Store with semantic indexing
 	return fw.semanticCache.StoreWithSemanticIndexing("textDocument/documentSymbol", params, placeholderSymbols)
 }
@@ -304,11 +304,11 @@ func (fw *FileWatcher) triggerSemanticIndexing(uri string, params map[string]int
 func (fw *FileWatcher) createPlaceholderSymbols(uri string) []*lsp.DocumentSymbol {
 	// This is a placeholder implementation
 	// In production, this would be replaced with actual LSP server responses
-	
+
 	// Import the LSP types from the project
 	// For now, return empty slice - the real implementation would parse the file
 	// or request symbols from the appropriate LSP server
-	
+
 	return []*lsp.DocumentSymbol{}
 }
 
@@ -329,7 +329,7 @@ func (fw *FileWatcher) SetLSPManager(lspManager interface{}) {
 func (fw *FileWatcher) GetStats() map[string]interface{} {
 	fw.mu.RLock()
 	defer fw.mu.RUnlock()
-	
+
 	return map[string]interface{}{
 		"started":         fw.started,
 		"project_root":    fw.projectRoot,
@@ -344,7 +344,7 @@ func (fw *FileWatcher) GetStats() map[string]interface{} {
 func (fw *FileWatcher) UpdateExtensions(extensions []string) {
 	fw.mu.Lock()
 	defer fw.mu.Unlock()
-	
+
 	fw.extensions = extensions
 	common.LSPLogger.Info("Updated file extensions to watch: %v", extensions)
 }
@@ -353,7 +353,7 @@ func (fw *FileWatcher) UpdateExtensions(extensions []string) {
 func (fw *FileWatcher) SetDebounceDelay(delay time.Duration) {
 	fw.mu.Lock()
 	defer fw.mu.Unlock()
-	
+
 	fw.debounceDelay = delay
 	common.LSPLogger.Info("Updated debounce delay to: %v", delay)
 }
@@ -362,7 +362,7 @@ func (fw *FileWatcher) SetDebounceDelay(delay time.Duration) {
 func (fw *FileWatcher) IsWatching() bool {
 	fw.mu.RLock()
 	defer fw.mu.RUnlock()
-	
+
 	return fw.started
 }
 
@@ -370,12 +370,12 @@ func (fw *FileWatcher) IsWatching() bool {
 func (fw *FileWatcher) GetWatchedDirectories() []string {
 	fw.mu.RLock()
 	defer fw.mu.RUnlock()
-	
+
 	dirs := make([]string, 0, len(fw.watchedDirs))
 	for dir := range fw.watchedDirs {
 		dirs = append(dirs, dir)
 	}
-	
+
 	return dirs
 }
 

@@ -17,7 +17,7 @@ func ValidateCommand(command string, args []string) error {
 		"node":                       true,
 		"node.exe":                   true,
 		"python":                     true,
-		"python.exe":                  true,
+		"python.exe":                 true,
 		"python3":                    true,
 		"python3.exe":                true,
 		"pylsp":                      true,
@@ -25,27 +25,27 @@ func ValidateCommand(command string, args []string) error {
 		"jdtls.bat":                  true,
 		"jdtls.py":                   true,
 		// Installation tools
-		"go":         true,
-		"go.exe":     true,
-		"npm":        true,
-		"npm.cmd":    true,
-		"npx":        true,
-		"npx.cmd":    true,
-		"pip":        true,
-		"pip.exe":    true,
-		"pip3":       true,
-		"pip3.exe":   true,
-		"curl":       true,
-		"curl.exe":   true,
-		"wget":       true,
-		"wget.exe":   true,
-		"tar":        true,
-		"tar.exe":    true,
-		"unzip":      true,
-		"unzip.exe":  true,
-		"apt-get":    true,
-		"brew":       true,
-		"echo":       true,
+		"go":        true,
+		"go.exe":    true,
+		"npm":       true,
+		"npm.cmd":   true,
+		"npx":       true,
+		"npx.cmd":   true,
+		"pip":       true,
+		"pip.exe":   true,
+		"pip3":      true,
+		"pip3.exe":  true,
+		"curl":      true,
+		"curl.exe":  true,
+		"wget":      true,
+		"wget.exe":  true,
+		"tar":       true,
+		"tar.exe":   true,
+		"unzip":     true,
+		"unzip.exe": true,
+		"apt-get":   true,
+		"brew":      true,
+		"echo":      true,
 	}
 
 	baseName := filepath.Base(command)
@@ -70,23 +70,6 @@ cmdAllowed:
 			strings.Contains(arg, "$") || strings.Contains(arg, "$(") {
 			return fmt.Errorf("shell injection detected in argument: %s", arg)
 		}
-	}
-
-	return nil
-}
-
-func ValidateFilePath(path string) error {
-	if path == "" {
-		return fmt.Errorf("file path cannot be empty")
-	}
-
-	if strings.Contains(path, "..") {
-		return fmt.Errorf("path traversal not allowed: %s", path)
-	}
-
-	cleanPath := filepath.Clean(path)
-	if strings.Contains(cleanPath, "..") {
-		return fmt.Errorf("path traversal detected after cleaning: %s", cleanPath)
 	}
 
 	return nil

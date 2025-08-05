@@ -69,15 +69,3 @@ func TestGetAvailableLanguages(t *testing.T) {
 
 	t.Logf("Available languages (with LSP servers): %v", available)
 }
-
-// TestDetectPrimaryLanguage tests primary language detection
-func TestDetectPrimaryLanguage(t *testing.T) {
-	repoRoot := "../../../"
-
-	primary, err := DetectPrimaryLanguage(repoRoot)
-	if err != nil {
-		t.Logf("Primary language detection: %v", err)
-	} else {
-		t.Logf("Primary language: %s", primary)
-	}
-}

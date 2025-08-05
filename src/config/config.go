@@ -139,12 +139,6 @@ func SaveConfig(config *Config, path string) error {
 	return nil
 }
 
-// GenerateDefaultConfig generates a default configuration file
-func GenerateDefaultConfig(path string) error {
-	config := GetDefaultConfig()
-	return SaveConfig(config, path)
-}
-
 // validateConfig validates the configuration
 func validateConfig(config *Config) error {
 	if config.Servers == nil {

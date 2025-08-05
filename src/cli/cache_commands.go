@@ -90,7 +90,7 @@ func IndexCache(configPath string) error {
 	}
 
 	common.CLILogger.Info("✅ Cache index rebuilt successfully")
-	
+
 	// Show updated stats
 	if updatedMetrics, err := cache.HealthCheck(); err == nil && updatedMetrics != nil {
 		common.CLILogger.Info("📊 Updated cache stats: %d entries", updatedMetrics.EntryCount)
@@ -118,8 +118,8 @@ func scanWorkspaceFiles(workingDir string, languages []string) ([]string, error)
 		// Skip hidden directories and common non-source directories
 		if d.IsDir() {
 			name := d.Name()
-			if strings.HasPrefix(name, ".") || name == "node_modules" || name == "vendor" || 
-			   name == "build" || name == "dist" || name == "target" || name == "__pycache__" {
+			if strings.HasPrefix(name, ".") || name == "node_modules" || name == "vendor" ||
+				name == "build" || name == "dist" || name == "target" || name == "__pycache__" {
 				return fs.SkipDir
 			}
 
@@ -259,7 +259,7 @@ func ShowCacheInfo(configPath string) error {
 	common.CLILogger.Info("📈 Cache Statistics:")
 	common.CLILogger.Info("  • Entries: %d", metrics.EntryCount)
 	common.CLILogger.Info("  • Memory: %s", formatBytes(metrics.TotalSize))
-	
+
 	// Hit/Miss ratio
 	totalRequests := metrics.HitCount + metrics.MissCount
 	if totalRequests > 0 {
@@ -282,11 +282,11 @@ func ShowCacheInfo(configPath string) error {
 			common.CLILogger.Info("📑 Index Statistics:")
 			common.CLILogger.Info("  • Indexed Documents: %d", indexStats.DocumentCount)
 			common.CLILogger.Info("  • Indexed Symbols: %d", indexStats.SymbolCount)
-			
+
 			if indexStats.IndexSize > 0 {
 				common.CLILogger.Info("  • Index Size: %s", formatBytes(indexStats.IndexSize))
 			}
-			
+
 			// Display per-language statistics if available
 			if len(indexStats.LanguageStats) > 0 {
 				common.CLILogger.Info("  • Languages:")
@@ -294,7 +294,7 @@ func ShowCacheInfo(configPath string) error {
 					common.CLILogger.Info("    - %s: %d symbols", lang, count)
 				}
 			}
-			
+
 			// Display last update time if available
 			if !indexStats.LastUpdate.IsZero() {
 				timeSinceUpdate := time.Since(indexStats.LastUpdate)

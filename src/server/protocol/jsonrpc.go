@@ -199,16 +199,3 @@ func CreateResponse(id interface{}, result interface{}, err *RPCError) JSONRPCMe
 		Error:   err,
 	}
 }
-
-// CreateErrorResponse creates a JSON-RPC error response
-func CreateErrorResponse(id interface{}, code int, message string, data interface{}) JSONRPCMessage {
-	return JSONRPCMessage{
-		JSONRPC: JSONRPCVersion,
-		ID:      id,
-		Error: &RPCError{
-			Code:    code,
-			Message: message,
-			Data:    data,
-		},
-	}
-}

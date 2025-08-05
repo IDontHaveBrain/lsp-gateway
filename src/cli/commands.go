@@ -341,7 +341,6 @@ Examples:
 		RunE: runCacheClearCmd,
 	}
 
-
 	cacheIndexCmd = &cobra.Command{
 		Use:   CmdCacheIndex,
 		Short: "Index files proactively for cache",

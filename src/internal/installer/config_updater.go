@@ -92,38 +92,6 @@ func (u *ConfigUpdater) UpdateConfigWithInstalledServers(cfg *config.Config) (*c
 	return updatedConfig, nil
 }
 
-// GenerateConfigForInstalledServers creates a new config with only installed servers
-func (u *ConfigUpdater) GenerateConfigForInstalledServers() (*config.Config, error) {
-	cfg := &config.Config{
-		Servers: make(map[string]*config.ServerConfig),
-	}
-
-	status := u.manager.GetStatus()
-
-	for language, installStatus := range status {
-		if !installStatus.Installed {
-			continue
-		}
-
-		installer, err := u.manager.GetInstaller(language)
-		if err != nil {
-			continue
-		}
-
-		serverConfig := installer.GetServerConfig()
-		if serverConfig != nil {
-			cfg.Servers[language] = &config.ServerConfig{
-				Command:               serverConfig.Command,
-				Args:                  append([]string{}, serverConfig.Args...),
-				WorkingDir:            serverConfig.WorkingDir,
-				InitializationOptions: serverConfig.InitializationOptions,
-			}
-		}
-	}
-
-	return cfg, nil
-}
-
 // SaveUpdatedConfig saves an updated configuration to file
 func (u *ConfigUpdater) SaveUpdatedConfig(cfg *config.Config, configPath string) error {
 	if configPath == "" {
@@ -147,15 +115,6 @@ func (u *ConfigUpdater) SaveUpdatedConfig(cfg *config.Config, configPath string)
 
 	common.CLILogger.Info("Updated configuration saved to %s", configPath)
 	return nil
-}
-
-// GetRecommendedConfig returns a configuration that includes both default and installed servers
-func (u *ConfigUpdater) GetRecommendedConfig() (*config.Config, error) {
-	// Start with default config
-	defaultConfig := config.GetDefaultConfig()
-
-	// Update with installed servers
-	return u.UpdateConfigWithInstalledServers(defaultConfig)
 }
 
 // copyFile copies a file from src to dst

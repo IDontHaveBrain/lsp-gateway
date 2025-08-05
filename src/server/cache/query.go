@@ -96,7 +96,7 @@ type FastSCIPQuery interface {
 
 // SCIPQueryManager - DEPRECATED: Complex query wrapper removed, use direct cache operations
 type SCIPQueryManager struct {
-	fallbackLSP   LSPFallback // Direct fallback to LSP servers
+	fallbackLSP   LSPFallback           // Direct fallback to LSP servers
 	semanticCache *SemanticCacheManager // NEW: Optional semantic cache for LLM features
 	metrics       *QueryMetrics
 	mu            sync.RWMutex
@@ -123,7 +123,7 @@ func NewSCIPQueryManager(fallback LSPFallback) *SCIPQueryManager {
 func (q *SCIPQueryManager) SetSemanticCache(semanticCache *SemanticCacheManager) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	
+
 	q.semanticCache = semanticCache
 	common.LSPLogger.Info("Semantic cache enabled for LLM features")
 }
@@ -203,7 +203,7 @@ func (q *SCIPQueryManager) GetCompletion(ctx context.Context, params *lsp.Comple
 // UpdateIndex integrates with semantic cache manager for LLM features
 func (q *SCIPQueryManager) UpdateIndex(uri string, symbols []*lsp.SymbolInformation, documentSymbols []*lsp.DocumentSymbol) error {
 	common.LSPLogger.Debug("UpdateIndex called for URI: %s", uri)
-	
+
 	// If semantic cache manager is available, use it for semantic indexing
 	if q.semanticCache != nil {
 		// Convert DocumentSymbol to interface{} for semantic indexing
@@ -212,11 +212,11 @@ func (q *SCIPQueryManager) UpdateIndex(uri string, symbols []*lsp.SymbolInformat
 				"uri": uri,
 			},
 		}
-		
+
 		// Store semantic information
 		return q.semanticCache.StoreWithSemanticIndexing("textDocument/documentSymbol", params, documentSymbols)
 	}
-	
+
 	// Fallback to no-op for backward compatibility
 	common.LSPLogger.Debug("No semantic cache available, skipping semantic indexing for URI: %s", uri)
 	return nil

@@ -58,11 +58,6 @@ type ToolContent struct {
 	MimeType string      `json:"mimeType,omitempty"`
 }
 
-// NewMCPServer creates a new MCP server with always-on SCIP cache for optimal LLM performance
-func NewMCPServer(cfg *config.Config) (*MCPServer, error) {
-	return NewMCPServerWithMode(cfg, types.DefaultMCPMode)
-}
-
 func NewMCPServerWithMode(cfg *config.Config, mode types.MCPMode) (*MCPServer, error) {
 	if cfg == nil {
 		cfg = config.GetDefaultConfig()
