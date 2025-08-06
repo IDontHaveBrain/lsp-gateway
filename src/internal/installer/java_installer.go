@@ -311,10 +311,8 @@ func (j *JavaInstaller) GetVersion() (string, error) {
 		return "", fmt.Errorf("Java development environment not installed")
 	}
 
-	// Get version from wrapper script
+	// Get version from custom Java installation
 	installPath := j.GetInstallPath()
-
-	// Also check Java version
 	jdkPath := filepath.Join(installPath, "jdk", "current")
 	javaExe := filepath.Join(jdkPath, "bin", "java")
 	if j.platform.GetPlatform() == "windows" {

@@ -10,7 +10,6 @@ import (
 
 	"gopkg.in/yaml.v3"
 	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/types"
 )
 
 // Config contains LSP server configuration, unified cache settings, and MCP configuration
@@ -22,7 +21,8 @@ type Config struct {
 
 // MCPConfig contains MCP server specific configuration
 type MCPConfig struct {
-	Mode types.MCPMode `yaml:"mode,omitempty"`
+	// Currently no MCP-specific configuration fields
+	// Enhanced mode is always used
 }
 
 // ServerConfig contains configuration for a single LSP server
@@ -91,6 +91,17 @@ func expandServerPaths(config *Config) error {
 			serverConfig.WorkingDir = expandedWorkingDir
 		}
 	}
+
+	// Also expand cache storage path if present
+	if config.Cache != nil && config.Cache.StoragePath != "" {
+		expandedStoragePath, err := ExpandPath(config.Cache.StoragePath)
+		if err != nil {
+			return fmt.Errorf("failed to expand cache storage path '%s': %w",
+				config.Cache.StoragePath, err)
+		}
+		config.Cache.StoragePath = expandedStoragePath
+	}
+
 	return nil
 }
 
@@ -158,12 +169,7 @@ func validateConfig(config *Config) error {
 		}
 	}
 
-	// Validate MCP config if present
-	if config.MCP != nil {
-		if config.MCP.Mode != "" && !config.MCP.Mode.IsValid() {
-			return fmt.Errorf("invalid MCP mode: %s", config.MCP.Mode)
-		}
-	}
+	// MCP config validation (currently no fields to validate)
 
 	return nil
 }
@@ -266,9 +272,7 @@ func GetDefaultConfig() *Config {
 		},
 		// Cache is enabled by default with standard settings
 		Cache: GetDefaultCacheConfig(),
-		MCP: &MCPConfig{
-			Mode: types.DefaultMCPMode,
-		},
+		MCP:   &MCPConfig{},
 	}
 }
 
@@ -277,8 +281,8 @@ func GetDefaultCacheConfig() *CacheConfig {
 	home, _ := os.UserHomeDir()
 	return &CacheConfig{
 		Enabled:            true, // Enabled by default for improved performance
-		StoragePath:        filepath.Join(home, ".lsp-gateway", "cache"),
-		MaxMemoryMB:        256,
+		StoragePath:        filepath.Join(home, ".lsp-gateway", "scip-cache"),
+		MaxMemoryMB:        512,
 		TTLHours:           24, // 24 hours for daily development workflow
 		Languages:          []string{"go", "python", "typescript", "java"},
 		BackgroundIndex:    true,
@@ -343,9 +347,7 @@ func GenerateConfigForLanguages(languages []string) *Config {
 	config := &Config{
 		Servers: make(map[string]*ServerConfig),
 		Cache:   GetDefaultCacheConfig(),
-		MCP: &MCPConfig{
-			Mode: types.DefaultMCPMode,
-		},
+		MCP:     &MCPConfig{},
 	}
 
 	for _, language := range languages {
@@ -503,12 +505,4 @@ func (c *Config) SetCacheLanguages(languages []string) error {
 
 	c.Cache.Languages = languages
 	return nil
-}
-
-// GetMCPMode returns the MCP mode from config, falling back to default if not set
-func (c *Config) GetMCPMode() types.MCPMode {
-	if c.MCP != nil && c.MCP.Mode != "" {
-		return c.MCP.Mode
-	}
-	return types.DefaultMCPMode
 }

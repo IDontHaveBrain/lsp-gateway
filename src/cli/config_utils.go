@@ -8,6 +8,7 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/project"
 )
 
 // LoadConfigWithFallback loads configuration with automatic fallback
@@ -17,8 +18,13 @@ func LoadConfigWithFallback(configPath string) *config.Config {
 	if configPath != "" {
 		loadedConfig, err := config.LoadConfig(configPath)
 		if err != nil {
-			common.CLILogger.Warn("Failed to load config from %s, using defaults: %v", configPath, err)
-			cfg = config.GetDefaultConfig()
+			common.CLILogger.Warn("Failed to load config from %s, using auto-config: %v", configPath, err)
+			// Use auto-config which sets project-specific cache path
+			wd, _ := os.Getwd()
+			cfg = config.GenerateAutoConfig(wd, project.GetAvailableLanguages)
+			if cfg == nil || len(cfg.Servers) == 0 {
+				cfg = config.GetDefaultConfig()
+			}
 		} else {
 			cfg = loadedConfig
 		}
@@ -28,13 +34,23 @@ func LoadConfigWithFallback(configPath string) *config.Config {
 		if _, err := os.Stat(defaultConfigPath); err == nil {
 			loadedConfig, err := config.LoadConfig(defaultConfigPath)
 			if err != nil {
-				common.CLILogger.Warn("Failed to load default config from %s, using defaults: %v", defaultConfigPath, err)
-				cfg = config.GetDefaultConfig()
+				common.CLILogger.Warn("Failed to load default config from %s, using auto-config: %v", defaultConfigPath, err)
+				// Use auto-config which sets project-specific cache path
+				wd, _ := os.Getwd()
+				cfg = config.GenerateAutoConfig(wd, project.GetAvailableLanguages)
+				if cfg == nil || len(cfg.Servers) == 0 {
+					cfg = config.GetDefaultConfig()
+				}
 			} else {
 				cfg = loadedConfig
 			}
 		} else {
-			cfg = config.GetDefaultConfig()
+			// Use auto-config which sets project-specific cache path
+			wd, _ := os.Getwd()
+			cfg = config.GenerateAutoConfig(wd, project.GetAvailableLanguages)
+			if cfg == nil || len(cfg.Servers) == 0 {
+				cfg = config.GetDefaultConfig()
+			}
 		}
 	}
 

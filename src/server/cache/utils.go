@@ -6,10 +6,11 @@ import (
 
 	"go.lsp.dev/protocol"
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/types"
 )
 
 // ExtractURIFromParams extracts the URI from LSP method parameters
-// This consolidates the duplicate URI extraction logic from SCIPQueryManager and SCIPQueryWrapper
+// This provides centralized URI extraction logic for cache operations
 func ExtractURIFromParams(method string, params interface{}) (string, error) {
 	if params == nil {
 		return "", fmt.Errorf("no parameters provided")
@@ -106,12 +107,12 @@ func extractURIFromGeneric(params interface{}) (string, error) {
 // IsSupported6LSPMethod checks if a method is one of the 6 core supported LSP methods
 func IsSupported6LSPMethod(method string) bool {
 	switch method {
-	case "textDocument/definition",
-		"textDocument/references",
-		"textDocument/hover",
-		"textDocument/documentSymbol",
-		"workspace/symbol",
-		"textDocument/completion":
+	case types.MethodTextDocumentDefinition,
+		types.MethodTextDocumentReferences,
+		types.MethodTextDocumentHover,
+		types.MethodTextDocumentDocumentSymbol,
+		types.MethodWorkspaceSymbol,
+		types.MethodTextDocumentCompletion:
 		return true
 	default:
 		return false
@@ -126,12 +127,12 @@ func IsCacheableMethod(method string) bool {
 // GetMethodPriority returns priority level for different LSP methods (for caching/indexing)
 func GetMethodPriority(method string) int {
 	priorities := map[string]int{
-		"textDocument/definition":     10, // High priority - user navigation
-		"textDocument/references":     9,  // High priority - user navigation
-		"textDocument/hover":          8,  // High priority - immediate feedback
-		"textDocument/completion":     7,  // Medium-high priority - typing assistance
-		"textDocument/documentSymbol": 5,  // Medium priority - outline view
-		"workspace/symbol":            3,  // Lower priority - search functionality
+		types.MethodTextDocumentDefinition:     10, // High priority - user navigation
+		types.MethodTextDocumentReferences:     9,  // High priority - user navigation
+		types.MethodTextDocumentHover:          8,  // High priority - immediate feedback
+		types.MethodTextDocumentCompletion:     7,  // Medium-high priority - typing assistance
+		types.MethodTextDocumentDocumentSymbol: 5,  // Medium priority - outline view
+		types.MethodWorkspaceSymbol:            3,  // Lower priority - search functionality
 	}
 
 	if priority, exists := priorities[method]; exists {
@@ -155,21 +156,21 @@ func GetLSPMethodInfo(method string) *LSPMethodInfo {
 		Method:      method,
 		Cacheable:   IsSupported6LSPMethod(method),
 		Priority:    GetMethodPriority(method),
-		RequiresURI: method != "workspace/symbol",
+		RequiresURI: method != types.MethodWorkspaceSymbol,
 	}
 
 	switch method {
-	case "textDocument/definition":
+	case types.MethodTextDocumentDefinition:
 		info.ParameterType = "*protocol.DefinitionParams"
-	case "textDocument/references":
+	case types.MethodTextDocumentReferences:
 		info.ParameterType = "*protocol.ReferenceParams"
-	case "textDocument/hover":
+	case types.MethodTextDocumentHover:
 		info.ParameterType = "*protocol.HoverParams"
-	case "textDocument/documentSymbol":
+	case types.MethodTextDocumentDocumentSymbol:
 		info.ParameterType = "*protocol.DocumentSymbolParams"
-	case "workspace/symbol":
+	case types.MethodWorkspaceSymbol:
 		info.ParameterType = "*protocol.WorkspaceSymbolParams"
-	case "textDocument/completion":
+	case types.MethodTextDocumentCompletion:
 		info.ParameterType = "*protocol.CompletionParams"
 	default:
 		info.ParameterType = "interface{}"
@@ -181,11 +182,11 @@ func GetLSPMethodInfo(method string) *LSPMethodInfo {
 // GetAllSupportedMethods returns a list of all 6 supported LSP methods
 func GetAllSupportedMethods() []string {
 	return []string{
-		"textDocument/definition",
-		"textDocument/references",
-		"textDocument/hover",
-		"textDocument/documentSymbol",
-		"workspace/symbol",
-		"textDocument/completion",
+		types.MethodTextDocumentDefinition,
+		types.MethodTextDocumentReferences,
+		types.MethodTextDocumentHover,
+		types.MethodTextDocumentDocumentSymbol,
+		types.MethodWorkspaceSymbol,
+		types.MethodTextDocumentCompletion,
 	}
 }

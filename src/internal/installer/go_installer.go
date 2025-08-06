@@ -69,36 +69,18 @@ func (g *GoInstaller) Uninstall() error {
 
 // GetVersion returns the installed gopls version
 func (g *GoInstaller) GetVersion() (string, error) {
-	if !g.IsInstalled() {
-		return "", fmt.Errorf("gopls not installed")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	output, err := g.RunCommandWithOutput(ctx, "gopls", "version")
-	if err != nil {
-		return "", fmt.Errorf("failed to get gopls version: %w", err)
-	}
-
-	return output, nil
+	return g.GetVersionByCommand("gopls", "version")
 }
 
 // IsInstalled checks if gopls is installed and working
 func (g *GoInstaller) IsInstalled() bool {
-	// Check if gopls exists in PATH
-	if _, err := exec.LookPath("gopls"); err != nil {
-		return false
-	}
-
-	// Quick validation that gopls works
-	return g.validateServerCommand("gopls")
+	return g.IsInstalledByCommand("gopls")
 }
 
 // ValidateInstallation performs comprehensive validation
 func (g *GoInstaller) ValidateInstallation() error {
-	// Basic validation from base
-	if err := g.BaseInstaller.ValidateInstallation(); err != nil {
+	// Basic validation using generic method
+	if err := g.ValidateByCommand("gopls"); err != nil {
 		return err
 	}
 

@@ -9,18 +9,14 @@ import (
 	"time"
 
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/types"
 )
-
-// LSPClient interface for LSP communication (minimal interface needed for document management)
-type LSPClient interface {
-	SendNotification(ctx context.Context, method string, params interface{}) error
-}
 
 // DocumentManager interface for document-related operations
 type DocumentManager interface {
 	DetectLanguage(uri string) string
 	ExtractURI(params interface{}) (string, error)
-	EnsureOpen(client LSPClient, uri string, params interface{}) error
+	EnsureOpen(client types.LSPClient, uri string, params interface{}) error
 }
 
 // LSPDocumentManager implements document management functionality
@@ -61,9 +57,9 @@ func (dm *LSPDocumentManager) ExtractURI(params interface{}) (string, error) {
 		return "", fmt.Errorf("no parameters provided")
 	}
 
-	paramsMap, ok := params.(map[string]interface{})
-	if !ok {
-		return "", fmt.Errorf("params is not a map")
+	paramsMap, err := common.ValidateParamMap(params)
+	if err != nil {
+		return "", common.WrapProcessingError("failed to validate params", err)
 	}
 
 	// Try textDocument.uri first
@@ -82,7 +78,7 @@ func (dm *LSPDocumentManager) ExtractURI(params interface{}) (string, error) {
 }
 
 // EnsureOpen sends a textDocument/didOpen notification if needed
-func (dm *LSPDocumentManager) EnsureOpen(client LSPClient, uri string, params interface{}) error {
+func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, params interface{}) error {
 	common.LSPLogger.Info("Ensuring document is open: %s", uri)
 
 	// Read actual file content for proper LSP functionality
@@ -114,10 +110,10 @@ func (dm *LSPDocumentManager) EnsureOpen(client LSPClient, uri string, params in
 
 	// Send notification (ignore errors as this is optional)
 	common.LSPLogger.Info("Sending textDocument/didOpen notification for %s", uri)
-	err := client.SendNotification(context.Background(), "textDocument/didOpen", didOpenParams)
+	err := client.SendNotification(context.Background(), types.MethodTextDocumentDidOpen, didOpenParams)
 	if err != nil {
 		common.LSPLogger.Error("Failed to send didOpen notification for %s: %v", uri, err)
-		return fmt.Errorf("failed to send didOpen notification: %w", err)
+		return common.WrapProcessingError("failed to send didOpen notification", err)
 	}
 
 	common.LSPLogger.Info("Successfully sent didOpen notification for %s", uri)

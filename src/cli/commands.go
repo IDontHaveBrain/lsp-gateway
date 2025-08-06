@@ -2,12 +2,10 @@ package cli
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/types"
 	versionpkg "lsp-gateway/src/internal/version"
 )
 
@@ -24,7 +22,7 @@ const (
 	CmdCacheClear     = "clear"
 	CmdCacheIndex     = "index"
 	FlagConfig        = "config"
-	FlagMode          = "mode"
+	FlagLSP           = "lsp"
 	FlagPort          = "port"
 	FlagForce         = "force"
 	FlagOffline       = "offline"
@@ -36,7 +34,7 @@ const (
 // CLI Variables
 var (
 	configPath  string
-	mcpMode     string
+	lspOnly     bool
 	port        int
 	force       bool
 	offline     bool
@@ -101,7 +99,10 @@ var (
 		Short: "Start the simple LSP Gateway server",
 		Long: `Start the simplified LSP Gateway server with automatic configuration and SCIP cache.
 
-The server provides HTTP JSON-RPC endpoints with intelligent caching for improved performance.`,
+The server provides HTTP JSON-RPC endpoints with intelligent caching for improved performance.
+
+By default, includes all 6 basic LSP functions plus additional enhanced features.
+Use --lsp flag to restrict to only the 6 basic LSP functions.`,
 		RunE: runServerCmd,
 	}
 
@@ -111,29 +112,18 @@ The server provides HTTP JSON-RPC endpoints with intelligent caching for improve
 		Long: `Start the Model Context Protocol (MCP) server for AI assistant integration.
 
 The MCP server provides a standardized interface for AI assistants like Claude to access
-LSP functionality through a structured tool-based protocol.
+enhanced development tools through a structured tool-based protocol.
+
+This mode provides only enhanced tools and does NOT include the basic 6 LSP functions.
+Use 'lsp-gateway server' for basic LSP functionality.
 
 Cache Integration:
-The MCP server includes SCIP cache support that improves response times for:
-- Definition lookups and symbol navigation
-- Reference searches across codebases  
-- Hover information and documentation
-- Code completion suggestions
-
-Modes:
-  lsp       Direct LSP mapping with minimal processing (default)
-  enhanced  AI-optimized tools with processed, structured responses
+The MCP server includes SCIP cache support that improves response times for
+enhanced development operations.
 
 Usage Examples:
-  lsp-gateway mcp                           # Start in default mode (lsp)
-  lsp-gateway mcp --mode=enhanced           # Start in enhanced mode
+  lsp-gateway mcp                           # Start MCP server with enhanced tools
   lsp-gateway mcp --config custom.yaml     # Start with custom configuration
-  lsp-gateway mcp --mode=enhanced --config custom.yaml  # Combined usage
-
-Configuration Priority (highest to lowest):
-1. CLI flag (--mode)
-2. Configuration file (mcp.mode)
-3. Default (lsp)
 
 Configuration:
 The MCP server uses the same configuration file as the HTTP gateway, supporting
@@ -143,15 +133,7 @@ AI Assistant Integration:
 Configure your AI assistant to connect to this MCP server:
 - Protocol: STDIO
 - Command: lsp-gateway mcp
-- Working Directory: Your project root
-
-Supported Tools (behavior varies by mode):
-- goto_definition: Navigate to symbol definitions
-- find_references: Find all symbol references  
-- get_hover_info: Get symbol documentation
-- get_document_symbols: List document symbols
-- search_workspace_symbols: Search workspace symbols
-- get_completion: Get code completion suggestions`,
+- Working Directory: Your project root`,
 		RunE: runMCPCmd,
 	}
 
@@ -367,24 +349,14 @@ Examples:
 	}
 )
 
-// getModeStrings returns a slice of valid mode strings for help text
-func getModeStrings() []string {
-	modes := types.ValidModes()
-	strs := make([]string, len(modes))
-	for i, mode := range modes {
-		strs[i] = string(mode)
-	}
-	return strs
-}
-
 func init() {
 	// Server command flags
 	serverCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional, will use defaults if not provided)")
 	serverCmd.Flags().IntVarP(&port, FlagPort, "p", DefaultServerPort, "Server port")
+	serverCmd.Flags().BoolVar(&lspOnly, FlagLSP, false, "Provide only the 6 basic LSP functions")
 
 	// MCP command flags
 	mcpCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
-	mcpCmd.Flags().StringVar(&mcpMode, FlagMode, "", fmt.Sprintf("MCP server mode (%s)", strings.Join(getModeStrings(), "|")))
 
 	// Status command flags
 	statusCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
@@ -439,19 +411,11 @@ func runServerCmd(cmd *cobra.Command, args []string) error {
 	if configPath != "" {
 		configFile = configPath
 	}
-	return RunServer(addr, configFile)
+	return RunServer(addr, configFile, lspOnly)
 }
 
 func runMCPCmd(cmd *cobra.Command, args []string) error {
-	var parsedMode types.MCPMode
-	if mcpMode != "" {
-		var err error
-		parsedMode, err = types.ParseMCPMode(mcpMode)
-		if err != nil {
-			return fmt.Errorf("invalid mode: %w", err)
-		}
-	}
-	return RunMCPServer(configPath, parsedMode)
+	return RunMCPServer(configPath)
 }
 
 func runStatusCmd(cmd *cobra.Command, args []string) error {

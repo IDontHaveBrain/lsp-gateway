@@ -8,14 +8,9 @@ import (
 	"time"
 
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/errors"
 )
-
-// LSPClient interface for LSP communication required by aggregators
-type LSPClient interface {
-	Supports(method string) bool
-	SendRequest(ctx context.Context, method string, params interface{}) (json.RawMessage, error)
-}
 
 // WorkspaceSymbolAggregator handles workspace symbol queries across multiple LSP clients
 type WorkspaceSymbolAggregator interface {
@@ -37,20 +32,20 @@ func NewWorkspaceSymbolAggregator() *LSPWorkspaceSymbolAggregator {
 // ProcessWorkspaceSymbol processes workspace/symbol requests across all clients
 // For multi-repo support, collects results from all active clients and merges them
 func (w *LSPWorkspaceSymbolAggregator) ProcessWorkspaceSymbol(ctx context.Context, clients map[string]interface{}, params interface{}) (interface{}, error) {
-	clientList := make([]LSPClient, 0, len(clients))
+	clientList := make([]types.LSPClient, 0, len(clients))
 	languages := make([]string, 0, len(clients))
 	unsupportedClients := make([]string, 0)
 
 	for lang, clientInterface := range clients {
 		// Type assert to LSPClient interface
-		client, ok := clientInterface.(LSPClient)
+		client, ok := clientInterface.(types.LSPClient)
 		if !ok {
 			unsupportedClients = append(unsupportedClients, lang)
 			continue
 		}
 
 		// Only include clients that support workspace/symbol
-		if client.Supports("workspace/symbol") {
+		if client.Supports(types.MethodWorkspaceSymbol) {
 			clientList = append(clientList, client)
 			languages = append(languages, lang)
 		} else {
@@ -67,7 +62,7 @@ func (w *LSPWorkspaceSymbolAggregator) ProcessWorkspaceSymbol(ctx context.Contex
 		if len(unsupportedClients) > 0 {
 			return nil, fmt.Errorf("no LSP servers support workspace/symbol. Unsupported servers: %v. %s",
 				unsupportedClients,
-				w.errorTranslator.GetMethodSuggestion(unsupportedClients[0], "workspace/symbol"))
+				w.errorTranslator.GetMethodSuggestion(unsupportedClients[0], types.MethodWorkspaceSymbol))
 		}
 		return nil, fmt.Errorf("no active LSP clients available")
 	}
@@ -83,13 +78,13 @@ func (w *LSPWorkspaceSymbolAggregator) ProcessWorkspaceSymbol(ctx context.Contex
 
 	// Query all clients in parallel with individual timeouts
 	for i, client := range clientList {
-		go func(lang string, c LSPClient) {
+		go func(lang string, c types.LSPClient) {
 			// Create a timeout context for this individual client request
 			// Use longer timeout for workspace/symbol as it can be slow on large codebases
 			clientCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 			defer cancel()
 
-			result, err := c.SendRequest(clientCtx, "workspace/symbol", params)
+			result, err := c.SendRequest(clientCtx, types.MethodWorkspaceSymbol, params)
 
 			// Always send a result, even if it's an error
 			select {

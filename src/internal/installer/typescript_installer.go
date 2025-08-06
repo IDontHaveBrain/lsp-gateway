@@ -83,36 +83,18 @@ func (t *TypeScriptInstaller) Uninstall() error {
 
 // GetVersion returns the installed typescript-language-server version
 func (t *TypeScriptInstaller) GetVersion() (string, error) {
-	if !t.IsInstalled() {
-		return "", fmt.Errorf("typescript-language-server not installed")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	output, err := t.RunCommandWithOutput(ctx, "typescript-language-server", "--version")
-	if err != nil {
-		return "", fmt.Errorf("failed to get typescript-language-server version: %w", err)
-	}
-
-	return output, nil
+	return t.GetVersionByCommand("typescript-language-server", "--version")
 }
 
 // IsInstalled checks if typescript-language-server is installed and working
 func (t *TypeScriptInstaller) IsInstalled() bool {
-	// Check if typescript-language-server exists in PATH
-	if _, err := exec.LookPath("typescript-language-server"); err != nil {
-		return false
-	}
-
-	// Quick validation that typescript-language-server works
-	return t.validateServerCommand("typescript-language-server")
+	return t.IsInstalledByCommand("typescript-language-server")
 }
 
 // ValidateInstallation performs comprehensive validation
 func (t *TypeScriptInstaller) ValidateInstallation() error {
-	// Basic validation from base
-	if err := t.BaseInstaller.ValidateInstallation(); err != nil {
+	// Basic validation using generic method
+	if err := t.ValidateByCommand("typescript-language-server"); err != nil {
 		return err
 	}
 

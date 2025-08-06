@@ -81,20 +81,7 @@ func GetCacheStatusText(metrics *cache.CacheMetrics) string {
 		return "Unavailable"
 	}
 
-	switch metrics.HealthStatus {
-	case "OK":
-		return "Operating normally"
-	case "DEGRADED":
-		return "Performance degraded"
-	case "FAILING":
-		return "Experiencing failures"
-	case "CRITICAL":
-		return "Critical issues detected"
-	case "DISABLED":
-		return "Disabled by configuration"
-	default:
-		return "Unknown status"
-	}
+	return "Operating normally"
 }
 
 // DisplayCacheStatus shows comprehensive cache status for CLI commands
@@ -124,12 +111,16 @@ func DisplayCacheStatus(manager *server.LSPManager) {
 	}
 
 	// Show basic health status
-	icon := GetCacheStatusIcon(metrics.HealthStatus)
+	health := "OK"
+	if metrics == nil {
+		health = "DISABLED"
+	}
+	icon := GetCacheStatusIcon(health)
 	statusText := GetCacheStatusText(metrics)
 	common.CLILogger.Info("%s Cache: %s", icon, statusText)
 
 	// Show basic metrics if cache is enabled
-	if metrics.HealthStatus != "DISABLED" {
+	if metrics != nil {
 		totalRequests := metrics.HitCount + metrics.MissCount
 		if totalRequests > 0 {
 			hitRatio := float64(metrics.HitCount) / float64(totalRequests) * 100

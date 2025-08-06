@@ -1,6 +1,7 @@
 package installer
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -142,13 +143,25 @@ func (b *BaseInstaller) RunCommand(ctx context.Context, name string, args ...str
 
 	common.CLILogger.Info("Running command: %s %v", name, args)
 
-	// Set up output handling
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// Capture output for STDIO-safe logging
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 
 	// Run command
 	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			common.CLILogger.Error("Command stderr: %s", stderr.String())
+		}
 		return fmt.Errorf("command failed: %s %v: %w", name, args, err)
+	}
+
+	// Log output to stderr using CLILogger
+	if stdout.Len() > 0 {
+		common.CLILogger.Info("Command output: %s", stdout.String())
+	}
+	if stderr.Len() > 0 {
+		common.CLILogger.Warn("Command stderr: %s", stderr.String())
 	}
 
 	return nil
@@ -192,11 +205,24 @@ func (b *BaseInstaller) DownloadFile(ctx context.Context, url, destPath string) 
 		return fmt.Errorf("neither curl nor wget available for download")
 	}
 
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// Capture output for STDIO-safe logging
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
+		if stderr.Len() > 0 {
+			common.CLILogger.Error("Download stderr: %s", stderr.String())
+		}
 		return fmt.Errorf("download failed: %w", err)
+	}
+
+	// Log download output if any
+	if stdout.Len() > 0 {
+		common.CLILogger.Info("Download output: %s", stdout.String())
+	}
+	if stderr.Len() > 0 {
+		common.CLILogger.Warn("Download stderr: %s", stderr.String())
 	}
 
 	common.CLILogger.Info("Download completed: %s", destPath)
@@ -306,4 +332,51 @@ func (b *BaseInstaller) tryGetVersion(command, flag string) string {
 	}
 
 	return ""
+}
+
+// Generic methods for common installer patterns
+
+// IsInstalledByCommand checks if a command is installed and working
+func (b *BaseInstaller) IsInstalledByCommand(command string) bool {
+	// Check if command exists in PATH
+	if _, err := exec.LookPath(command); err != nil {
+		return false
+	}
+
+	// Quick validation that command works
+	return b.validateServerCommand(command)
+}
+
+// GetVersionByCommand returns version using a specific command and version flag
+func (b *BaseInstaller) GetVersionByCommand(command string, versionFlag string) (string, error) {
+	if !b.IsInstalledByCommand(command) {
+		return "", fmt.Errorf("%s not installed", command)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	output, err := b.RunCommandWithOutput(ctx, command, versionFlag)
+	if err != nil {
+		return "", fmt.Errorf("failed to get %s version: %w", command, err)
+	}
+
+	return output, nil
+}
+
+// ValidateByCommand performs basic validation for a command
+func (b *BaseInstaller) ValidateByCommand(command string) error {
+	if !b.IsInstalledByCommand(command) {
+		return fmt.Errorf("%s installation validation failed: not installed", command)
+	}
+
+	// Validate security
+	if b.serverConfig != nil {
+		if err := security.ValidateCommand(command, b.serverConfig.Args); err != nil {
+			return fmt.Errorf("security validation failed for %s: %w", command, err)
+		}
+	}
+
+	common.CLILogger.Info("Installation validation successful for %s", command)
+	return nil
 }

@@ -1,0 +1,33 @@
+package common
+
+import "fmt"
+
+// ValidateParams validates that params is not nil
+func ValidateParams(params interface{}) error {
+	if params == nil {
+		return fmt.Errorf("no parameters provided")
+	}
+	return nil
+}
+
+// ValidateParamMap validates that params is not nil and converts it to a map[string]interface{}
+func ValidateParamMap(params interface{}) (map[string]interface{}, error) {
+	if params == nil {
+		return nil, fmt.Errorf("no parameters provided")
+	}
+
+	paramMap, ok := params.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("params is not a map")
+	}
+
+	return paramMap, nil
+}
+
+// WrapProcessingError wraps an error with operation context for better error messages
+func WrapProcessingError(operation string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s: %w", operation, err)
+}

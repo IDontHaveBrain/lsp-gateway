@@ -21,7 +21,7 @@ type SimpleIndexStats struct {
 
 // QueryManager interface for indexing operations
 type QueryManager interface {
-	UpdateIndex(uri string, symbols []*lsp.SymbolInformation, documentSymbols []*lsp.DocumentSymbol) error
+	UpdateSymbolIndex(uri string, symbols []*lsp.SymbolInformation, documentSymbols []*lsp.DocumentSymbol) error
 }
 
 // SimpleIndexer manages direct synchronous SCIP indexing
@@ -65,7 +65,7 @@ func (idx *SimpleIndexer) IndexDocument(ctx context.Context, uri, language strin
 	symbolInfos := idx.extractSymbolInformation(documentSymbols, workspaceSymbols, uri)
 
 	// Update the query index
-	err = idx.queryManager.UpdateIndex(uri, symbolInfos, documentSymbols)
+	err = idx.queryManager.UpdateSymbolIndex(uri, symbolInfos, documentSymbols)
 	if err != nil {
 		idx.mu.Lock()
 		idx.stats.TotalErrors++

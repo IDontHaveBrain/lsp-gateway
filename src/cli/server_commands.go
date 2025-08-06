@@ -10,16 +10,15 @@ import (
 	"time"
 
 	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server"
 )
 
 // RunServer starts the simplified LSP gateway server
-func RunServer(addr string, configPath string) error {
+func RunServer(addr string, configPath string, lspOnly bool) error {
 	cfg := LoadConfigWithFallback(configPath)
 
 	// Create and start gateway
-	gateway, err := server.NewHTTPGateway(addr, cfg)
+	gateway, err := server.NewHTTPGateway(addr, cfg, lspOnly)
 	if err != nil {
 		return fmt.Errorf("failed to create gateway: %w", err)
 	}
@@ -72,11 +71,12 @@ func RunServer(addr string, configPath string) error {
 }
 
 // RunMCPServer starts the MCP server
-func RunMCPServer(configPath string, mode types.MCPMode) error {
+func RunMCPServer(configPath string) error {
 	// Display cache status before starting MCP server
 	displayMCPCacheStatus(configPath)
 
-	return server.RunMCPServer(configPath, mode)
+	// Always run in enhanced mode
+	return server.RunMCPServer(configPath)
 }
 
 // ShowStatus displays the current status of LSP clients
@@ -154,7 +154,7 @@ func TestConnection(configPath string) error {
 		common.CLILogger.Error("❌ Cache: Health check failed (%v)", healthErr)
 	} else if initialMetrics != nil {
 		common.CLILogger.Info("✅ Cache: Enabled and Ready")
-		common.CLILogger.Info("   Health: %s", initialMetrics.HealthStatus)
+		common.CLILogger.Info("   Health: OK")
 		common.CLILogger.Info("   Initial Stats: %d entries, %.1fMB used",
 			initialMetrics.EntryCount, float64(initialMetrics.TotalSize)/(1024*1024))
 	} else {
@@ -205,7 +205,7 @@ func TestConnection(configPath string) error {
 	common.CLILogger.Info("📋 Multi-Repo workspace/symbol Test:")
 	common.CLILogger.Info("%s", strings.Repeat("-", 40))
 
-	result, err := testWorkspaceSymbolForLanguage(manager, ctx, "", params)
+	result, err := testWorkspaceSymbol(manager, ctx, params)
 	successCount := 0
 	if err != nil {
 		common.CLILogger.Error("❌ workspace/symbol (multi-repo): %v", err)
@@ -282,11 +282,9 @@ func TestConnection(configPath string) error {
 	}
 }
 
-// testWorkspaceSymbolForLanguage tests workspace/symbol for multi-repo support
-// This function now tests the complete multi-repo functionality by querying all servers
-func testWorkspaceSymbolForLanguage(manager *server.LSPManager, ctx context.Context, language string, params interface{}) (interface{}, error) {
-	// For multi-repo support, use ProcessRequest which queries all active servers
-	// The language parameter is kept for backward compatibility but the test now covers all servers
+// testWorkspaceSymbol tests workspace/symbol for multi-repo support
+// Queries all active servers for comprehensive symbol search
+func testWorkspaceSymbol(manager *server.LSPManager, ctx context.Context, params interface{}) (interface{}, error) {
 	return manager.ProcessRequest(ctx, "workspace/symbol", params)
 }
 

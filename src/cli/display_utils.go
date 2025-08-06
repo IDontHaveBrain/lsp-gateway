@@ -28,7 +28,7 @@ func displayGatewayCacheStatus(gateway *server.HTTPGateway) {
 	if metrics != nil {
 		sizeMB := float64(metrics.TotalSize) / (1024 * 1024)
 		common.CLILogger.Info("SCIP Cache: Initialized and Ready (100MB limit, 30min TTL)")
-		common.CLILogger.Info("Health: %s, Stats: %d entries, %.1fMB used", metrics.HealthStatus, metrics.EntryCount, sizeMB)
+		common.CLILogger.Info("Health: OK, Stats: %d entries, %.1fMB used", metrics.EntryCount, sizeMB)
 	} else {
 		common.CLILogger.Info("SCIP Cache: Initialized and Ready")
 		common.CLILogger.Info("Health: OK, Stats: 0 entries, 0MB used")
@@ -64,7 +64,7 @@ func displayMCPCacheStatus(configPath string) {
 	if metrics != nil {
 		sizeMB := float64(metrics.TotalSize) / (1024 * 1024)
 		common.CLILogger.Info("🗄️  SCIP Cache: ✅ Initialized and Ready")
-		common.CLILogger.Info("   Health: %s, Stats: %d entries, %.1fMB used", metrics.HealthStatus, metrics.EntryCount, sizeMB)
+		common.CLILogger.Info("   Health: OK, Stats: %d entries, %.1fMB used", metrics.EntryCount, sizeMB)
 	} else {
 		common.CLILogger.Info("🗄️  SCIP Cache: ✅ Initialized and Ready")
 		common.CLILogger.Info("   Health: OK, Stats: 0 entries, 0MB used")

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/types"
 )
 
 // ExampleUsage demonstrates how to use the simple SCIP storage
@@ -30,33 +31,31 @@ func ExampleUsage() error {
 	}
 	defer storage.Stop(ctx)
 
-	// Create a sample SCIP document
+	// Create a sample occurrence-centric SCIP document
 	doc := &SCIPDocument{
 		URI:      "file:///example/main.go",
 		Language: "go",
 		Content:  []byte("package main\n\nfunc main() {}\n"),
-		Symbols: []SCIPSymbol{
+		Occurrences: []SCIPOccurrence{
 			{
-				ID:   "main.main",
-				Name: "main",
-				Kind: 12, // Function kind
-				Range: SCIPRange{
-					Start: SCIPPosition{Line: 2, Character: 5},
-					End:   SCIPPosition{Line: 2, Character: 9},
+				Range: types.Range{
+					Start: types.Position{Line: 2, Character: 5},
+					End:   types.Position{Line: 2, Character: 9},
 				},
-				Definition: SCIPRange{
-					Start: SCIPPosition{Line: 2, Character: 5},
-					End:   SCIPPosition{Line: 2, Character: 9},
-				},
-				Documentation: "Main function",
+				Symbol:      "main.main",
+				SymbolRoles: types.SymbolRoleDefinition,
+				SyntaxKind:  types.SyntaxKindIdentifierFunction,
 			},
 		},
-		References: []SCIPReference{
+		SymbolInformation: []SCIPSymbolInformation{
 			{
-				Symbol: "main.main",
-				Range: SCIPRange{
-					Start: SCIPPosition{Line: 2, Character: 5},
-					End:   SCIPPosition{Line: 2, Character: 9},
+				Symbol:        "main.main",
+				Kind:          SCIPSymbolKindFunction,
+				DisplayName:   "main",
+				Documentation: []string{"Main function"},
+				SignatureDocumentation: SCIPSignatureDocumentation{
+					Text:     "func main()",
+					Language: "go",
 				},
 			},
 		},
@@ -81,23 +80,41 @@ func ExampleUsage() error {
 
 	common.LSPLogger.Info("Successfully retrieved document: %s", retrievedDoc.URI)
 
-	// Get symbols by name
-	symbols, err := storage.GetSymbolsByName(ctx, "main")
+	// Get occurrences in the document
+	occurrences, err := storage.GetOccurrences(ctx, doc.URI)
 	if err != nil {
-		common.LSPLogger.Error("Failed to get symbols by name: %v", err)
+		common.LSPLogger.Error("Failed to get occurrences: %v", err)
 		return err
 	}
 
-	common.LSPLogger.Info("Found %d symbols named 'main'", len(symbols))
+	common.LSPLogger.Info("Found %d occurrences in document", len(occurrences))
 
-	// Get references
-	references, err := storage.GetReferences(ctx, "main.main")
+	// Get symbol information by name
+	symbolInfo, err := storage.GetSymbolInformationByName(ctx, "main")
 	if err != nil {
-		common.LSPLogger.Error("Failed to get references: %v", err)
+		common.LSPLogger.Error("Failed to get symbol information by name: %v", err)
 		return err
 	}
 
-	common.LSPLogger.Info("Found %d references for symbol 'main.main'", len(references))
+	common.LSPLogger.Info("Found %d symbol information entries for 'main'", len(symbolInfo))
+
+	// Get definition occurrence
+	definition, err := storage.GetDefinitionOccurrence(ctx, "main.main")
+	if err != nil {
+		common.LSPLogger.Error("Failed to get definition occurrence: %v", err)
+		return err
+	}
+
+	common.LSPLogger.Info("Found definition for symbol 'main.main' at line %d", definition.Range.Start.Line)
+
+	// Search symbols
+	searchResults, err := storage.SearchSymbols(ctx, "main", 10)
+	if err != nil {
+		common.LSPLogger.Error("Failed to search symbols: %v", err)
+		return err
+	}
+
+	common.LSPLogger.Info("Found %d symbols matching 'main'", len(searchResults))
 
 	// Get storage statistics
 	stats, err := storage.GetStats(ctx)
@@ -106,10 +123,12 @@ func ExampleUsage() error {
 		return err
 	}
 
-	common.LSPLogger.Info("Storage stats - Memory: %d MB, Disk: %d MB, Documents: %d, Hit Rate: %.2f%%",
+	common.LSPLogger.Info("Storage stats - Memory: %d MB, Disk: %d MB, Documents: %d, Occurrences: %d, Symbols: %d, Hit Rate: %.2f%%",
 		stats.MemoryUsage/(1024*1024),
 		stats.DiskUsage/(1024*1024),
 		stats.CachedDocuments,
+		stats.TotalOccurrences,
+		stats.TotalSymbols,
 		stats.HitRate*100)
 
 	// Perform health check

@@ -45,8 +45,8 @@ servers:
 # Standard production settings with simple units for improved performance
 cache:
   enabled: true                               # Enabled by default for improved performance
-  storage_path: ".lsp-gateway/cache"          # Cache storage directory
-  max_memory_mb: 256                          # Memory limit in MB (simple units)
+  storage_path: ".lsp-gateway/scip-cache"     # Cache storage directory
+  max_memory_mb: 512                          # Memory limit in MB (simple units)
   ttl_hours: 24                               # Cache time-to-live in hours (simple units - 24h for daily dev workflow)
   languages: ["go", "python", "typescript", "java"]  # Languages to cache
   background_index: true                      # Enable background indexing

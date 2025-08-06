@@ -1,0 +1,163 @@
+package cache
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+// detectPackageInfo detects package information from the document URI and language
+func (m *SimpleCacheManager) detectPackageInfo(uri string, language string) (packageName string, version string) {
+	// Default values for transition period
+	defaultPackage := "main"
+	defaultVersion := "v1.0.0"
+
+	if uri == "" || language == "" {
+		return defaultPackage, defaultVersion
+	}
+
+	// Extract file path from URI
+	filePath := strings.TrimPrefix(uri, "file://")
+	dir := filepath.Dir(filePath)
+
+	// Language-specific package detection
+	switch language {
+	case "go":
+		// Look for go.mod file
+		if packageName, version := m.detectGoPackageInfo(dir); packageName != "" {
+			return packageName, version
+		}
+	case "python":
+		// Look for setup.py, pyproject.toml, or __init__.py
+		if packageName := m.detectPythonPackageInfo(dir); packageName != "" {
+			return packageName, defaultVersion
+		}
+	case "javascript", "typescript":
+		// Look for package.json
+		if packageName, version := m.detectNodePackageInfo(dir); packageName != "" {
+			return packageName, version
+		}
+	case "java":
+		// Look for pom.xml or build.gradle
+		if packageName, version := m.detectJavaPackageInfo(dir); packageName != "" {
+			return packageName, version
+		}
+	}
+
+	// Fallback to directory-based detection
+	if dirName := filepath.Base(dir); dirName != "" && dirName != "." && dirName != "/" {
+		return dirName, defaultVersion
+	}
+
+	return defaultPackage, defaultVersion
+}
+
+// detectGoPackageInfo detects Go package info from go.mod
+func (m *SimpleCacheManager) detectGoPackageInfo(dir string) (string, string) {
+	for currentDir := dir; currentDir != "/" && currentDir != "."; currentDir = filepath.Dir(currentDir) {
+		goModPath := filepath.Join(currentDir, "go.mod")
+		if _, err := os.Stat(goModPath); err == nil {
+			// Simple go.mod parsing - look for module line
+			if content, err := os.ReadFile(goModPath); err == nil {
+				lines := strings.Split(string(content), "\n")
+				for _, line := range lines {
+					line = strings.TrimSpace(line)
+					if strings.HasPrefix(line, "module ") {
+						moduleName := strings.TrimSpace(strings.TrimPrefix(line, "module"))
+						return moduleName, "v1.0.0" // Default version for now
+					}
+				}
+			}
+		}
+		if currentDir == filepath.Dir(currentDir) { // Reached root
+			break
+		}
+	}
+	return "", ""
+}
+
+// detectPythonPackageInfo detects Python package info
+func (m *SimpleCacheManager) detectPythonPackageInfo(dir string) string {
+	// Look for setup.py or pyproject.toml in parent directories
+	for currentDir := dir; currentDir != "/" && currentDir != "."; currentDir = filepath.Dir(currentDir) {
+		// Check for setup.py
+		if _, err := os.Stat(filepath.Join(currentDir, "setup.py")); err == nil {
+			return filepath.Base(currentDir)
+		}
+		// Check for pyproject.toml
+		if _, err := os.Stat(filepath.Join(currentDir, "pyproject.toml")); err == nil {
+			return filepath.Base(currentDir)
+		}
+		if currentDir == filepath.Dir(currentDir) { // Reached root
+			break
+		}
+	}
+	return ""
+}
+
+// detectNodePackageInfo detects Node.js package info from package.json
+func (m *SimpleCacheManager) detectNodePackageInfo(dir string) (string, string) {
+	for currentDir := dir; currentDir != "/" && currentDir != "."; currentDir = filepath.Dir(currentDir) {
+		packageJsonPath := filepath.Join(currentDir, "package.json")
+		if _, err := os.Stat(packageJsonPath); err == nil {
+			// Simple package.json parsing - look for name and version
+			if content, err := os.ReadFile(packageJsonPath); err == nil {
+				var packageData map[string]interface{}
+				if json.Unmarshal(content, &packageData) == nil {
+					name := ""
+					version := "v1.0.0"
+					if n, ok := packageData["name"].(string); ok {
+						name = n
+					}
+					if v, ok := packageData["version"].(string); ok && v != "" {
+						version = v
+						if !strings.HasPrefix(version, "v") {
+							version = "v" + version
+						}
+					}
+					if name != "" {
+						return name, version
+					}
+				}
+			}
+		}
+		if currentDir == filepath.Dir(currentDir) { // Reached root
+			break
+		}
+	}
+	return "", ""
+}
+
+// detectJavaPackageInfo detects Java package info from pom.xml or build.gradle
+func (m *SimpleCacheManager) detectJavaPackageInfo(dir string) (string, string) {
+	for currentDir := dir; currentDir != "/" && currentDir != "."; currentDir = filepath.Dir(currentDir) {
+		// Check for pom.xml (Maven)
+		pomPath := filepath.Join(currentDir, "pom.xml")
+		if _, err := os.Stat(pomPath); err == nil {
+			// Simple XML parsing - look for artifactId
+			if content, err := os.ReadFile(pomPath); err == nil {
+				contentStr := string(content)
+				if start := strings.Index(contentStr, "<artifactId>"); start != -1 {
+					start += len("<artifactId>")
+					if end := strings.Index(contentStr[start:], "</artifactId>"); end != -1 {
+						artifactId := strings.TrimSpace(contentStr[start : start+end])
+						if artifactId != "" {
+							return artifactId, "v1.0.0"
+						}
+					}
+				}
+			}
+		}
+
+		// Check for build.gradle (Gradle)
+		if _, err := os.Stat(filepath.Join(currentDir, "build.gradle")); err == nil {
+			return filepath.Base(currentDir), "v1.0.0"
+		}
+
+		if currentDir == filepath.Dir(currentDir) { // Reached root
+			break
+		}
+	}
+	return "", ""
+}

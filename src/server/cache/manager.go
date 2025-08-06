@@ -5,15 +5,16 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"sync"
 	"time"
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/models/lsp"
+	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/server/scip"
 )
 
 // SCIP indexing data structures
@@ -54,16 +55,19 @@ type IndexStats struct {
 	Status           string           `json:"status"`
 }
 
-// SCIPSymbol represents a symbol in the SCIP index
+// SCIPSymbol wraps LSP SymbolInformation with enhanced SCIP metadata
 type SCIPSymbol struct {
-	Name          string              `json:"name"`
-	Kind          string              `json:"kind"`
-	Language      string              `json:"language"`
-	URI           string              `json:"uri"`
-	Range         *Range              `json:"range,omitempty"`
-	Documentation []string            `json:"documentation,omitempty"`
-	Signature     string              `json:"signature,omitempty"`
-	Relationships map[string][]string `json:"relationships,omitempty"`
+	SymbolInfo          lsp.SymbolInformation  `json:"symbol_info"`
+	Language            string                 `json:"language"`
+	Score               float64                `json:"score,omitempty"`
+	FullRange           *Range                 `json:"full_range,omitempty"`           // Full range from document symbols
+	Documentation       string                 `json:"documentation,omitempty"`        // Documentation from hover
+	Signature           string                 `json:"signature,omitempty"`            // Signature from hover
+	RelatedSymbols      []string               `json:"related_symbols,omitempty"`      // Related symbol names
+	DefinitionLocations []lsp.Location         `json:"definition_locations,omitempty"` // Definition locations for this symbol
+	ReferenceLocations  []lsp.Location         `json:"reference_locations,omitempty"`  // Reference locations for this symbol
+	UsageCount          int                    `json:"usage_count,omitempty"`          // Number of references to this symbol
+	Metadata            map[string]interface{} `json:"metadata,omitempty"`             // Additional SCIP metadata
 }
 
 // Range represents a range in a document
@@ -99,7 +103,7 @@ type SimpleCacheStats struct {
 	EntryCount int64 `json:"entry_count"`
 }
 
-// CacheMetrics represents cache performance metrics (compatibility alias)
+// CacheMetrics represents cache performance metrics
 type CacheMetrics struct {
 	HitCount        int64         `json:"hit_count"`
 	MissCount       int64         `json:"miss_count"`
@@ -109,8 +113,6 @@ type CacheMetrics struct {
 	EntryCount      int64         `json:"entry_count"`
 	AverageHitTime  time.Duration `json:"average_hit_time"`
 	AverageMissTime time.Duration `json:"average_miss_time"`
-	HealthStatus    string        `json:"health_status"`     // Compatibility field
-	LastHealthCheck time.Time     `json:"last_health_check"` // Compatibility field
 }
 
 // SCIPStorage interface for cache storage operations
@@ -142,7 +144,6 @@ type SCIPInvalidation interface {
 
 // SCIPCache interface for the main cache operations with integrated SCIP indexing
 type SCIPCache interface {
-	Initialize(config *config.CacheConfig) error
 	Start(ctx context.Context) error
 	Stop() error
 	Lookup(method string, params interface{}) (interface{}, bool, error)
@@ -153,13 +154,13 @@ type SCIPCache interface {
 	Clear() error // Clear all cache entries
 
 	// SCIP indexing capabilities - integrated as core functionality
-	IndexDocument(ctx context.Context, uri string, language string, content []byte) error
+	IndexDocument(ctx context.Context, uri string, language string, symbols []lsp.SymbolInformation) error
 	QueryIndex(ctx context.Context, query *IndexQuery) (*IndexResult, error)
 	GetIndexStats() *IndexStats
 	UpdateIndex(ctx context.Context, files []string) error
 }
 
-// SimpleCacheManager implements simple in-memory cache with integrated SCIP indexing
+// SimpleCacheManager implements simple in-memory cache with occurrence-centric SCIP storage
 type SimpleCacheManager struct {
 	entries map[string]*CacheEntry
 	config  *config.CacheConfig
@@ -168,19 +169,10 @@ type SimpleCacheManager struct {
 	enabled bool
 	started bool
 
-	// SCIP indexing - integrated as core functionality
-	scipIndex     map[string]*SCIPSymbol            // symbol name -> symbol info
-	documentIndex map[string][]string               // uri -> symbol names in document
-	languageIndex map[string]map[string]*SCIPSymbol // language -> symbol name -> symbol
-	indexStats    *IndexStats
-	indexMu       sync.RWMutex
-
-	// File watching for real-time index updates
-	fileModTimes   map[string]time.Time // file path -> last modification time
-	watcherTicker  *time.Ticker         // periodic file change checker
-	watcherStop    chan struct{}        // signal to stop file watcher
-	projectRoot    string               // root directory to watch
-	watcherRunning bool                 // whether file watcher is active
+	// SCIP storage - occurrence-centric architecture
+	scipStorage scip.SCIPDocumentStorage
+	indexStats  *IndexStats
+	indexMu     sync.RWMutex
 }
 
 // NewSCIPCacheManager creates a simple cache manager with unified config
@@ -189,19 +181,26 @@ func NewSCIPCacheManager(configParam *config.CacheConfig) (*SimpleCacheManager, 
 		configParam = config.GetDefaultCacheConfig()
 	}
 
+	// Create SCIP storage with occurrence-centric architecture
+	scipConfig := scip.SCIPStorageConfig{
+		MemoryLimit:        int64(configParam.MaxMemoryMB) * 1024 * 1024,
+		DiskCacheDir:       configParam.StoragePath,
+		EnableMetrics:      true,
+		MaxDocumentAge:     time.Duration(configParam.TTLHours) * time.Hour,
+		CompactionInterval: 5 * time.Minute,
+	}
+
+	scipStorage, err := scip.NewSimpleSCIPStorage(scipConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create SCIP storage: %w", err)
+	}
+
 	manager := &SimpleCacheManager{
-		entries: make(map[string]*CacheEntry),
-		config:  configParam,
-		stats:   &SimpleCacheStats{},
-		enabled: configParam.Enabled,
-
-		// Initialize SCIP indexing
-		scipIndex:     make(map[string]*SCIPSymbol),
-		documentIndex: make(map[string][]string),
-		languageIndex: make(map[string]map[string]*SCIPSymbol),
-
-		// Initialize file watching
-		fileModTimes: make(map[string]time.Time),
+		entries:     make(map[string]*CacheEntry),
+		config:      configParam,
+		stats:       &SimpleCacheStats{},
+		enabled:     configParam.Enabled,
+		scipStorage: scipStorage,
 		indexStats: &IndexStats{
 			DocumentCount:    0,
 			SymbolCount:      0,
@@ -213,10 +212,10 @@ func NewSCIPCacheManager(configParam *config.CacheConfig) (*SimpleCacheManager, 
 		},
 	}
 
-	// Load index from disk if disk cache is enabled
-	if manager.enabled && configParam.DiskCache && configParam.StoragePath != "" {
-		if err := manager.LoadIndexFromDisk(); err != nil {
-			common.LSPLogger.Warn("Failed to load index from disk, starting with empty index: %v", err)
+	// Start SCIP storage if enabled
+	if manager.enabled {
+		if err := manager.scipStorage.Start(context.Background()); err != nil {
+			common.LSPLogger.Warn("Failed to start SCIP storage: %v", err)
 		}
 	}
 
@@ -249,12 +248,6 @@ func NewSimpleCache(maxMemoryMB int) (*SimpleCacheManager, error) {
 	return NewSCIPCacheManager(config)
 }
 
-// Initialize - DEPRECATED: Auto-initialization happens in constructor (simplified initialization)
-func (m *SimpleCacheManager) Initialize(config *config.CacheConfig) error {
-	common.LSPLogger.Warn("Initialize() is deprecated - cache auto-initializes in constructor")
-	return nil // No-op - initialization happens in NewSCIPCacheManager
-}
-
 // Start begins cache operations
 func (m *SimpleCacheManager) Start(ctx context.Context) error {
 	m.mu.Lock()
@@ -269,16 +262,14 @@ func (m *SimpleCacheManager) Start(ctx context.Context) error {
 		return nil
 	}
 
-	m.started = true
-
-	// Start file watcher for real-time index updates
-	if m.config.BackgroundIndex {
-		if err := m.startFileWatcher(); err != nil {
-			common.LSPLogger.Warn("Failed to start file watcher: %v", err)
-			// Continue without file watching
+	// Start SCIP storage if not already started
+	if m.scipStorage != nil {
+		if err := m.scipStorage.Start(ctx); err != nil {
+			common.LSPLogger.Warn("Failed to start SCIP storage: %v", err)
 		}
 	}
 
+	m.started = true
 	common.LSPLogger.Info("Simple cache manager started successfully")
 	return nil
 }
@@ -292,9 +283,11 @@ func (m *SimpleCacheManager) Stop() error {
 		return nil
 	}
 
-	// Stop file watcher if running
-	if m.watcherRunning {
-		m.stopFileWatcher()
+	// Stop SCIP storage
+	if m.scipStorage != nil {
+		if err := m.scipStorage.Stop(context.Background()); err != nil {
+			common.LSPLogger.Warn("Failed to stop SCIP storage: %v", err)
+		}
 	}
 
 	m.started = false
@@ -419,8 +412,30 @@ func (m *SimpleCacheManager) InvalidateDocument(uri string) error {
 		}
 	}
 
+	// Clean up SCIP storage
+	if m.scipStorage != nil {
+		if err := m.scipStorage.RemoveDocument(context.Background(), uri); err != nil {
+			common.LSPLogger.Debug("Failed to remove document from SCIP storage: %v", err)
+		}
+	}
+
 	m.updateStats()
-	common.LSPLogger.Debug("Invalidated %d cache entries for document: %s", removedCount, uri)
+	common.LSPLogger.Debug("Invalidated %d cache entries and cleaned SCIP indexes for document: %s", removedCount, uri)
+	return nil
+}
+
+// Clear removes all cache entries
+func (m *SimpleCacheManager) Clear() error {
+	if !m.isEnabled() {
+		return nil
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	common.LSPLogger.Info("Clearing all cache entries")
+	m.entries = make(map[string]*CacheEntry)
+	m.updateStats()
 	return nil
 }
 
@@ -430,22 +445,17 @@ func (m *SimpleCacheManager) HealthCheck() (*CacheMetrics, error) {
 	defer m.mu.RUnlock()
 
 	if !m.enabled {
-		return &CacheMetrics{
-			HealthStatus:    "DISABLED",
-			LastHealthCheck: time.Now(),
-		}, nil
+		return &CacheMetrics{}, nil
 	}
 
 	// Convert simple stats to CacheMetrics format
 	metrics := &CacheMetrics{
-		HitCount:        m.stats.HitCount,
-		MissCount:       m.stats.MissCount,
-		ErrorCount:      m.stats.ErrorCount,
-		TotalSize:       m.stats.TotalSize,
-		EntryCount:      m.stats.EntryCount,
-		EvictionCount:   0, // Not tracked in simple version
-		HealthStatus:    "OK",
-		LastHealthCheck: time.Now(),
+		HitCount:      m.stats.HitCount,
+		MissCount:     m.stats.MissCount,
+		ErrorCount:    m.stats.ErrorCount,
+		TotalSize:     m.stats.TotalSize,
+		EntryCount:    m.stats.EntryCount,
+		EvictionCount: 0, // Not tracked in simple version
 	}
 
 	return metrics, nil
@@ -457,30 +467,20 @@ func (m *SimpleCacheManager) GetMetrics() *CacheMetrics {
 	defer m.mu.RUnlock()
 
 	if !m.enabled {
-		return &CacheMetrics{
-			HealthStatus:    "DISABLED",
-			LastHealthCheck: time.Now(),
-		}
+		return &CacheMetrics{}
 	}
 
 	// Convert simple stats to CacheMetrics format
 	metrics := &CacheMetrics{
-		HitCount:        m.stats.HitCount,
-		MissCount:       m.stats.MissCount,
-		ErrorCount:      m.stats.ErrorCount,
-		TotalSize:       m.stats.TotalSize,
-		EntryCount:      m.stats.EntryCount,
-		EvictionCount:   0, // Not tracked in simple version
-		HealthStatus:    "OK",
-		LastHealthCheck: time.Now(),
+		HitCount:      m.stats.HitCount,
+		MissCount:     m.stats.MissCount,
+		ErrorCount:    m.stats.ErrorCount,
+		TotalSize:     m.stats.TotalSize,
+		EntryCount:    m.stats.EntryCount,
+		EvictionCount: 0, // Not tracked in simple version
 	}
 
 	return metrics
-}
-
-// SetInvalidation sets the invalidation component (compatibility method)
-func (m *SimpleCacheManager) SetInvalidation(invalidation SCIPInvalidation) {
-	// No-op for simple cache - invalidation is handled directly
 }
 
 // isEnabled checks if cache is enabled and properly initialized
@@ -566,80 +566,636 @@ func (m *SimpleCacheManager) performSimpleEviction() {
 	}
 }
 
-// Compatibility stubs for removed enterprise features
-
-// CacheWarmupManager provides compatibility stub for cache warmup (no-op in simple version)
-type CacheWarmupManager struct{}
-
-// NewCacheWarmupManager creates a new cache warmup manager (no-op stub)
-func NewCacheWarmupManager(manager *SimpleCacheManager) *CacheWarmupManager {
-	return &CacheWarmupManager{}
-}
-
-// Start is a no-op for simple cache
-func (w *CacheWarmupManager) Start() error {
-	return nil
-}
-
-// Stop is a no-op for simple cache
-func (w *CacheWarmupManager) Stop() error {
-	return nil
-}
-
-// NewCachedLSPManager creates a new cached LSP manager with unified config (compatibility stub)
-func NewCachedLSPManager(lspManager interface{}) *SimpleCacheManager {
-	manager, _ := NewSCIPCacheManager(config.GetDefaultCacheConfig())
-	return manager
-}
-
 // SCIP Indexing Implementation
 
-// IndexDocument indexes a document's symbols for SCIP queries
-func (m *SimpleCacheManager) IndexDocument(ctx context.Context, uri string, language string, content []byte) error {
-	if !m.enabled {
+// IndexDocument indexes LSP symbols using occurrence-centric SCIP storage
+func (m *SimpleCacheManager) IndexDocument(ctx context.Context, uri string, language string, symbols []lsp.SymbolInformation) error {
+	if !m.enabled || m.scipStorage == nil {
 		return nil // Graceful degradation when cache is disabled
 	}
 
 	m.indexMu.Lock()
 	defer m.indexMu.Unlock()
 
-	// Clear existing symbols for this document
-	if existingSymbols, exists := m.documentIndex[uri]; exists {
-		for _, symbolName := range existingSymbols {
-			delete(m.scipIndex, symbolName)
-		}
+	// Convert LSP symbols to SCIP document with occurrences
+	scipDoc, err := m.convertLSPSymbolsToSCIPDocument(uri, language, symbols)
+	if err != nil {
+		return fmt.Errorf("failed to convert LSP symbols to SCIP document: %w", err)
 	}
 
-	// Extract symbols from document content based on language
-	symbols := m.extractSymbolsFromContent(uri, language, content)
-
-	// Store symbols in index
-	symbolNames := make([]string, 0, len(symbols))
-	for _, symbol := range symbols {
-		symbolKey := fmt.Sprintf("%s:%s", symbol.Language, symbol.Name)
-		m.scipIndex[symbolKey] = symbol
-		symbolNames = append(symbolNames, symbolKey)
-
-		// Update language index
-		if m.languageIndex[language] == nil {
-			m.languageIndex[language] = make(map[string]*SCIPSymbol)
-		}
-		m.languageIndex[language][symbol.Name] = symbol
+	// Store in SCIP storage
+	if err := m.scipStorage.StoreDocument(ctx, scipDoc); err != nil {
+		return fmt.Errorf("failed to store SCIP document: %w", err)
 	}
-
-	// Update document index
-	m.documentIndex[uri] = symbolNames
 
 	// Update statistics
 	m.updateIndexStats(language, len(symbols))
 
-	common.LSPLogger.Debug("Indexed %d symbols from %s (%s)", len(symbols), uri, language)
+	common.LSPLogger.Debug("Indexed %d symbols as SCIP occurrences from %s (%s)", len(symbols), uri, language)
 	return nil
 }
 
-// QueryIndex queries the SCIP index for symbols and relationships
-func (m *SimpleCacheManager) QueryIndex(ctx context.Context, query *IndexQuery) (*IndexResult, error) {
+// UpdateSymbolIndex implements the QueryManager interface with DocumentSymbol support
+// This method converts LSP symbols to SCIP occurrences with enhanced range information
+func (m *SimpleCacheManager) UpdateSymbolIndex(uri string, symbols []*lsp.SymbolInformation, documentSymbols []*lsp.DocumentSymbol) error {
 	if !m.enabled {
+		return nil
+	}
+
+	// Build a map of DocumentSymbol ranges by name for efficient lookup
+	docSymbolMap := make(map[string]*lsp.DocumentSymbol)
+	if documentSymbols != nil {
+		m.flattenDocumentSymbols(documentSymbols, docSymbolMap, "")
+	}
+
+	// Detect language from file extension
+	language := m.detectLanguageFromURI(uri)
+
+	// Convert pointers to values and enhance with DocumentSymbol ranges
+	enhancedSymbols := make([]lsp.SymbolInformation, 0, len(symbols))
+	for _, sym := range symbols {
+		if sym != nil {
+			enhancedSym := *sym
+
+			// Try to find matching DocumentSymbol for full range
+			if docSym, found := docSymbolMap[sym.Name]; found {
+				// Use the full range from DocumentSymbol
+				enhancedSym.Location.Range = docSym.Range
+			}
+
+			enhancedSymbols = append(enhancedSymbols, enhancedSym)
+		}
+	}
+
+	// Index using occurrence-centric approach
+	return m.IndexDocument(context.Background(), uri, language, enhancedSymbols)
+}
+
+// flattenDocumentSymbols recursively flattens DocumentSymbols into a map
+func (m *SimpleCacheManager) flattenDocumentSymbols(symbols []*lsp.DocumentSymbol, result map[string]*lsp.DocumentSymbol, parentPath string) {
+	for _, sym := range symbols {
+		if sym != nil {
+			fullPath := sym.Name
+			if parentPath != "" {
+				fullPath = parentPath + "/" + sym.Name
+			}
+
+			// Store both with simple name and full path
+			result[sym.Name] = sym
+			result[fullPath] = sym
+
+			if sym.Children != nil {
+				m.flattenDocumentSymbols(sym.Children, result, fullPath)
+			}
+		}
+	}
+}
+
+// detectLanguageFromURI detects language from file extension
+func (m *SimpleCacheManager) detectLanguageFromURI(uri string) string {
+	ext := filepath.Ext(uri)
+	switch ext {
+	case ".go":
+		return "go"
+	case ".py":
+		return "python"
+	case ".js", ".jsx":
+		return "javascript"
+	case ".ts", ".tsx":
+		return "typescript"
+	case ".java":
+		return "java"
+	default:
+		return "unknown"
+	}
+}
+
+// Helper methods for LSP to SCIP conversion
+
+// convertLSPSymbolsToSCIPDocument converts LSP symbols to a SCIP document with occurrences
+func (m *SimpleCacheManager) convertLSPSymbolsToSCIPDocument(uri string, language string, symbols []lsp.SymbolInformation) (*scip.SCIPDocument, error) {
+	scipDoc := &scip.SCIPDocument{
+		URI:               uri,
+		Language:          language,
+		LastModified:      time.Now(),
+		Size:              int64(len(symbols) * 100), // Rough estimate
+		Occurrences:       make([]scip.SCIPOccurrence, 0, len(symbols)),
+		SymbolInformation: make([]scip.SCIPSymbolInformation, 0, len(symbols)),
+	}
+
+	// Detect package information for SCIP ID generation
+	packageName, version := m.detectPackageInfo(uri, language)
+
+	for _, symbol := range symbols {
+		// Generate SCIP symbol ID
+		symbolDescriptor := symbol.Name
+		if symbol.ContainerName != "" {
+			symbolDescriptor = symbol.ContainerName + "/" + symbol.Name
+		}
+		scipID := fmt.Sprintf("scip-%s %s %s %s", language, packageName, version, symbolDescriptor)
+
+		// Create SCIP occurrence (assumed to be definition since from documentSymbol)
+		occurrence := scip.SCIPOccurrence{
+			Range: types.Range{
+				Start: types.Position{
+					Line:      int32(symbol.Location.Range.Start.Line),
+					Character: int32(symbol.Location.Range.Start.Character),
+				},
+				End: types.Position{
+					Line:      int32(symbol.Location.Range.End.Line),
+					Character: int32(symbol.Location.Range.End.Character),
+				},
+			},
+			Symbol:      scipID,
+			SymbolRoles: types.SymbolRoleDefinition, // DocumentSymbols are typically definitions
+			SyntaxKind:  m.convertLSPSymbolKindToSyntaxKind(symbol.Kind),
+		}
+		scipDoc.Occurrences = append(scipDoc.Occurrences, occurrence)
+
+		// Create SCIP symbol information
+		symbolInfo := scip.SCIPSymbolInformation{
+			Symbol:      scipID,
+			DisplayName: symbol.Name,
+			Kind:        m.convertLSPSymbolKindToSCIPKind(symbol.Kind),
+		}
+		scipDoc.SymbolInformation = append(scipDoc.SymbolInformation, symbolInfo)
+	}
+
+	return scipDoc, nil
+}
+
+// storeDefinitionResult stores definition results as SCIP occurrences
+func (m *SimpleCacheManager) storeDefinitionResult(uri string, response interface{}) error {
+	locations, ok := response.([]lsp.Location)
+	if !ok {
+		return fmt.Errorf("invalid definition response type")
+	}
+
+	for _, location := range locations {
+		// Generate symbol ID from location (simplified)
+		symbolID := fmt.Sprintf("symbol_%s_%d_%d", location.URI,
+			location.Range.Start.Line, location.Range.Start.Character)
+
+		// Create SCIP occurrence
+		occurrence := scip.SCIPOccurrence{
+			Range: types.Range{
+				Start: types.Position{
+					Line:      int32(location.Range.Start.Line),
+					Character: int32(location.Range.Start.Character),
+				},
+				End: types.Position{
+					Line:      int32(location.Range.End.Line),
+					Character: int32(location.Range.End.Character),
+				},
+			},
+			Symbol:      symbolID,
+			SymbolRoles: types.SymbolRoleDefinition,
+		}
+
+		// Store as single-occurrence document
+		scipDoc := &scip.SCIPDocument{
+			URI:          location.URI,
+			Language:     m.detectLanguageFromURI(location.URI),
+			Occurrences:  []scip.SCIPOccurrence{occurrence},
+			LastModified: time.Now(),
+			Size:         100,
+		}
+
+		if err := m.scipStorage.StoreDocument(context.Background(), scipDoc); err != nil {
+			return fmt.Errorf("failed to store definition: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// storeReferencesResult stores reference results as SCIP occurrences
+func (m *SimpleCacheManager) storeReferencesResult(uri string, response interface{}) error {
+	locations, ok := response.([]lsp.Location)
+	if !ok {
+		return fmt.Errorf("invalid references response type")
+	}
+
+	// Group locations by document
+	docOccurrences := make(map[string][]scip.SCIPOccurrence)
+
+	for _, location := range locations {
+		// Generate symbol ID (simplified)
+		symbolID := fmt.Sprintf("symbol_%s_%d_%d", uri,
+			location.Range.Start.Line, location.Range.Start.Character)
+
+		// Create SCIP occurrence
+		occurrence := scip.SCIPOccurrence{
+			Range: types.Range{
+				Start: types.Position{
+					Line:      int32(location.Range.Start.Line),
+					Character: int32(location.Range.Start.Character),
+				},
+				End: types.Position{
+					Line:      int32(location.Range.End.Line),
+					Character: int32(location.Range.End.Character),
+				},
+			},
+			Symbol:      symbolID,
+			SymbolRoles: types.SymbolRoleReadAccess, // References are read access
+		}
+
+		docOccurrences[location.URI] = append(docOccurrences[location.URI], occurrence)
+	}
+
+	// Store each document
+	for docURI, occurrences := range docOccurrences {
+		scipDoc := &scip.SCIPDocument{
+			URI:          docURI,
+			Language:     m.detectLanguageFromURI(docURI),
+			Occurrences:  occurrences,
+			LastModified: time.Now(),
+			Size:         int64(len(occurrences) * 50),
+		}
+
+		if err := m.scipStorage.StoreDocument(context.Background(), scipDoc); err != nil {
+			return fmt.Errorf("failed to store references: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// storeHoverResult stores hover information as symbol metadata
+func (m *SimpleCacheManager) storeHoverResult(uri string, params, response interface{}) error {
+	hover, ok := response.(*lsp.Hover)
+	if !ok {
+		return fmt.Errorf("invalid hover response type")
+	}
+
+	// Extract position from parameters
+	position, err := m.extractPositionFromParams(params)
+	if err != nil {
+		return fmt.Errorf("failed to extract position: %w", err)
+	}
+
+	// Generate symbol ID
+	symbolID := fmt.Sprintf("symbol_%s_%d_%d", uri, position.Line, position.Character)
+
+	// Create or update symbol information with documentation
+	var docText string
+	if strContent, ok := hover.Contents.(string); ok {
+		docText = strContent
+	} else {
+		docText = "hover information"
+	}
+
+	symbolInfo := scip.SCIPSymbolInformation{
+		Symbol:        symbolID,
+		DisplayName:   "hover_symbol", // Could be extracted from hover contents
+		Documentation: []string{docText},
+	}
+
+	if err := m.scipStorage.StoreSymbolInformation(context.Background(), &symbolInfo); err != nil {
+		return fmt.Errorf("failed to store hover information: %w", err)
+	}
+
+	return nil
+}
+
+// storeDocumentSymbolResult stores document symbols as definition occurrences
+func (m *SimpleCacheManager) storeDocumentSymbolResult(uri string, response interface{}) error {
+	symbols, ok := response.([]lsp.SymbolInformation)
+	if !ok {
+		return fmt.Errorf("invalid document symbol response type")
+	}
+
+	language := m.detectLanguageFromURI(uri)
+	scipDoc, err := m.convertLSPSymbolsToSCIPDocument(uri, language, symbols)
+	if err != nil {
+		return fmt.Errorf("failed to convert symbols: %w", err)
+	}
+
+	if err := m.scipStorage.StoreDocument(context.Background(), scipDoc); err != nil {
+		return fmt.Errorf("failed to store document symbols: %w", err)
+	}
+
+	return nil
+}
+
+// storeWorkspaceSymbolResult stores workspace symbols
+func (m *SimpleCacheManager) storeWorkspaceSymbolResult(response interface{}) error {
+	symbols, ok := response.([]lsp.SymbolInformation)
+	if !ok {
+		return fmt.Errorf("invalid workspace symbol response type")
+	}
+
+	// Group symbols by document
+	docSymbols := make(map[string][]lsp.SymbolInformation)
+	for _, symbol := range symbols {
+		docSymbols[symbol.Location.URI] = append(docSymbols[symbol.Location.URI], symbol)
+	}
+
+	// Store each document
+	for uri, symbols := range docSymbols {
+		language := m.detectLanguageFromURI(uri)
+		scipDoc, err := m.convertLSPSymbolsToSCIPDocument(uri, language, symbols)
+		if err != nil {
+			common.LSPLogger.Warn("Failed to convert workspace symbols for %s: %v", uri, err)
+			continue
+		}
+
+		if err := m.scipStorage.StoreDocument(context.Background(), scipDoc); err != nil {
+			common.LSPLogger.Warn("Failed to store workspace symbols for %s: %v", uri, err)
+		}
+	}
+
+	return nil
+}
+
+// storeCompletionResult stores completion items (not typically cached as occurrences)
+func (m *SimpleCacheManager) storeCompletionResult(uri string, params, response interface{}) error {
+	// Completion items are typically not stored as occurrences
+	// This is a placeholder for potential future enhancements
+	common.LSPLogger.Debug("Completion result storage not implemented for occurrence-centric cache")
+	return nil
+}
+
+// Helper methods for conversion between LSP and SCIP types
+
+// convertLSPSymbolKindToSCIPKind converts LSP symbol kind to SCIP symbol kind
+func (m *SimpleCacheManager) convertLSPSymbolKindToSCIPKind(kind lsp.SymbolKind) scip.SCIPSymbolKind {
+	switch kind {
+	case lsp.File:
+		return scip.SCIPSymbolKindFile
+	case lsp.Module:
+		return scip.SCIPSymbolKindModule
+	case lsp.Namespace:
+		return scip.SCIPSymbolKindNamespace
+	case lsp.Package:
+		return scip.SCIPSymbolKindPackage
+	case lsp.Class:
+		return scip.SCIPSymbolKindClass
+	case lsp.Method:
+		return scip.SCIPSymbolKindMethod
+	case lsp.Property:
+		return scip.SCIPSymbolKindProperty
+	case lsp.Field:
+		return scip.SCIPSymbolKindField
+	case lsp.Constructor:
+		return scip.SCIPSymbolKindConstructor
+	case lsp.Enum:
+		return scip.SCIPSymbolKindEnum
+	case lsp.Interface:
+		return scip.SCIPSymbolKindInterface
+	case lsp.Function:
+		return scip.SCIPSymbolKindFunction
+	case lsp.Variable:
+		return scip.SCIPSymbolKindVariable
+	case lsp.Constant:
+		return scip.SCIPSymbolKindConstant
+	default:
+		return scip.SCIPSymbolKindUnknown
+	}
+}
+
+// convertSCIPSymbolKindToLSP converts SCIP symbol kind back to LSP
+func (m *SimpleCacheManager) convertSCIPSymbolKindToLSP(kind scip.SCIPSymbolKind) lsp.SymbolKind {
+	switch kind {
+	case scip.SCIPSymbolKindFile:
+		return lsp.File
+	case scip.SCIPSymbolKindModule:
+		return lsp.Module
+	case scip.SCIPSymbolKindNamespace:
+		return lsp.Namespace
+	case scip.SCIPSymbolKindPackage:
+		return lsp.Package
+	case scip.SCIPSymbolKindClass:
+		return lsp.Class
+	case scip.SCIPSymbolKindMethod:
+		return lsp.Method
+	case scip.SCIPSymbolKindProperty:
+		return lsp.Property
+	case scip.SCIPSymbolKindField:
+		return lsp.Field
+	case scip.SCIPSymbolKindConstructor:
+		return lsp.Constructor
+	case scip.SCIPSymbolKindEnum:
+		return lsp.Enum
+	case scip.SCIPSymbolKindInterface:
+		return lsp.Interface
+	case scip.SCIPSymbolKindFunction:
+		return lsp.Function
+	case scip.SCIPSymbolKindVariable:
+		return lsp.Variable
+	case scip.SCIPSymbolKindConstant:
+		return lsp.Constant
+	default:
+		return lsp.Variable
+	}
+}
+
+// convertLSPSymbolKindToSyntaxKind converts LSP symbol kind to syntax kind for highlighting
+func (m *SimpleCacheManager) convertLSPSymbolKindToSyntaxKind(kind lsp.SymbolKind) types.SyntaxKind {
+	switch kind {
+	case lsp.Function, lsp.Method:
+		return types.SyntaxKindIdentifierFunction
+	case lsp.Class:
+		return types.SyntaxKindIdentifierType
+	case lsp.Variable:
+		return types.SyntaxKindIdentifierLocal
+	case lsp.Constant:
+		return types.SyntaxKindIdentifierConstant
+	case lsp.Module, lsp.Namespace:
+		return types.SyntaxKindIdentifierNamespace
+	default:
+		return types.SyntaxKindUnspecified
+	}
+}
+
+// convertSCIPSymbolKindToCompletionItemKind converts SCIP symbol kind to completion item kind
+func (m *SimpleCacheManager) convertSCIPSymbolKindToCompletionItemKind(kind scip.SCIPSymbolKind) lsp.CompletionItemKind {
+	switch kind {
+	case scip.SCIPSymbolKindFunction:
+		return lsp.FunctionComp
+	case scip.SCIPSymbolKindMethod:
+		return lsp.MethodComp
+	case scip.SCIPSymbolKindClass:
+		return lsp.ClassComp
+	case scip.SCIPSymbolKindVariable:
+		return lsp.VariableComp
+	case scip.SCIPSymbolKindConstant:
+		return lsp.ConstantComp
+	case scip.SCIPSymbolKindModule:
+		return lsp.ModuleComp
+	case scip.SCIPSymbolKindInterface:
+		return lsp.InterfaceComp
+	default:
+		return lsp.Text
+	}
+}
+
+// formatHoverFromSCIPSymbolInfo formats SCIP symbol information for hover display
+func (m *SimpleCacheManager) formatHoverFromSCIPSymbolInfo(symbolInfo *scip.SCIPSymbolInformation) string {
+	var content strings.Builder
+
+	// Add symbol name and kind
+	content.WriteString(fmt.Sprintf("**%s**\n\n", symbolInfo.DisplayName))
+
+	// Add documentation
+	if len(symbolInfo.Documentation) > 0 {
+		content.WriteString(strings.Join(symbolInfo.Documentation, "\n"))
+	}
+
+	// Add signature documentation if available
+	if symbolInfo.SignatureDocumentation.Text != "" {
+		content.WriteString("\n\n---\n\n")
+		content.WriteString(symbolInfo.SignatureDocumentation.Text)
+	}
+
+	return content.String()
+}
+
+// formatSymbolDetail formats symbol detail for completion items
+func (m *SimpleCacheManager) formatSymbolDetail(symbolInfo *scip.SCIPSymbolInformation) string {
+	if symbolInfo.SignatureDocumentation.Text != "" {
+		return symbolInfo.SignatureDocumentation.Text
+	}
+	return fmt.Sprintf("%d", symbolInfo.Kind)
+}
+
+// extractURIFromOccurrence extracts document URI from a SCIP occurrence
+func (m *SimpleCacheManager) extractURIFromOccurrence(occ *scip.SCIPOccurrence) string {
+	// In occurrence-centric design, we need to find which document contains this occurrence
+	// This is a simplified approach - in practice, you'd track this more efficiently
+	if m.scipStorage == nil {
+		return ""
+	}
+
+	docs, err := m.scipStorage.ListDocuments(context.Background())
+	if err != nil {
+		return ""
+	}
+
+	for _, docURI := range docs {
+		docOccs, err := m.scipStorage.GetOccurrences(context.Background(), docURI)
+		if err != nil {
+			continue
+		}
+
+		for _, docOcc := range docOccs {
+			if docOcc.Symbol == occ.Symbol &&
+				docOcc.Range.Start.Line == occ.Range.Start.Line &&
+				docOcc.Range.Start.Character == occ.Range.Start.Character {
+				return docURI
+			}
+		}
+	}
+
+	return ""
+}
+
+// extractPositionFromParams extracts position from LSP parameters
+func (m *SimpleCacheManager) extractPositionFromParams(params interface{}) (types.Position, error) {
+	// This is a simplified extraction - in practice you'd handle different parameter types
+	paramsMap, ok := params.(map[string]interface{})
+	if !ok {
+		return types.Position{}, fmt.Errorf("invalid parameters format")
+	}
+
+	positionMap, ok := paramsMap["position"].(map[string]interface{})
+	if !ok {
+		return types.Position{}, fmt.Errorf("no position in parameters")
+	}
+
+	line, ok := positionMap["line"].(float64)
+	if !ok {
+		return types.Position{}, fmt.Errorf("invalid line in position")
+	}
+
+	character, ok := positionMap["character"].(float64)
+	if !ok {
+		return types.Position{}, fmt.Errorf("invalid character in position")
+	}
+
+	return types.Position{
+		Line:      int32(line),
+		Character: int32(character),
+	}, nil
+}
+
+// Query methods for SCIP storage
+
+// querySymbolsFromSCIP queries symbols using SCIP storage
+func (m *SimpleCacheManager) querySymbolsFromSCIP(ctx context.Context, query *IndexQuery) ([]interface{}, error) {
+	if query.Symbol == "" {
+		return []interface{}{}, nil
+	}
+
+	symbolInfos, err := m.scipStorage.SearchSymbols(ctx, query.Symbol, 100)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]interface{}, len(symbolInfos))
+	for i, info := range symbolInfos {
+		results[i] = info
+	}
+
+	return results, nil
+}
+
+// queryDefinitionsFromSCIP queries definitions using SCIP storage
+func (m *SimpleCacheManager) queryDefinitionsFromSCIP(ctx context.Context, query *IndexQuery) ([]interface{}, error) {
+	if query.Symbol == "" {
+		return []interface{}{}, nil
+	}
+
+	defOcc, err := m.scipStorage.GetDefinitionOccurrence(ctx, query.Symbol)
+	if err != nil {
+		return []interface{}{}, nil // No error, just no results
+	}
+
+	return []interface{}{*defOcc}, nil
+}
+
+// queryReferencesFromSCIP queries references using SCIP storage
+func (m *SimpleCacheManager) queryReferencesFromSCIP(ctx context.Context, query *IndexQuery) ([]interface{}, error) {
+	if query.Symbol == "" {
+		return []interface{}{}, nil
+	}
+
+	refOccs, err := m.scipStorage.GetReferenceOccurrences(ctx, query.Symbol)
+	if err != nil {
+		return []interface{}{}, nil // No error, just no results
+	}
+
+	results := make([]interface{}, len(refOccs))
+	for i, occ := range refOccs {
+		results[i] = occ
+	}
+
+	return results, nil
+}
+
+// queryWorkspaceSymbolsFromSCIP queries workspace symbols using SCIP storage
+func (m *SimpleCacheManager) queryWorkspaceSymbolsFromSCIP(ctx context.Context, query *IndexQuery) ([]interface{}, error) {
+	searchQuery := ""
+	if query.Symbol != "" {
+		searchQuery = query.Symbol
+	}
+
+	symbolInfos, err := m.scipStorage.GetWorkspaceSymbols(ctx, searchQuery)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]interface{}, len(symbolInfos))
+	for i, info := range symbolInfos {
+		results[i] = info
+	}
+
+	return results, nil
+}
+
+// QueryIndex queries the SCIP storage for symbols and relationships
+func (m *SimpleCacheManager) QueryIndex(ctx context.Context, query *IndexQuery) (*IndexResult, error) {
+	if !m.enabled || m.scipStorage == nil {
 		return &IndexResult{
 			Type:      query.Type,
 			Results:   []interface{}{},
@@ -652,32 +1208,46 @@ func (m *SimpleCacheManager) QueryIndex(ctx context.Context, query *IndexQuery) 
 	defer m.indexMu.RUnlock()
 
 	var results []interface{}
+	var err error
 
 	switch query.Type {
 	case "symbol":
-		results = m.querySymbols(query)
+		results, err = m.querySymbolsFromSCIP(ctx, query)
 	case "definition":
-		results = m.queryDefinitions(query)
+		results, err = m.queryDefinitionsFromSCIP(ctx, query)
 	case "references":
-		results = m.queryReferences(query)
+		results, err = m.queryReferencesFromSCIP(ctx, query)
 	case "workspace":
-		results = m.queryWorkspaceSymbols(query)
+		results, err = m.queryWorkspaceSymbolsFromSCIP(ctx, query)
 	default:
 		return nil, fmt.Errorf("unsupported query type: %s", query.Type)
 	}
 
+	if err != nil {
+		return nil, fmt.Errorf("query failed: %w", err)
+	}
+
+	// Get metadata from SCIP storage
+	metadata := map[string]interface{}{
+		"query_language": query.Language,
+		"query_type":     query.Type,
+	}
+
+	if stats, err := m.scipStorage.GetStats(ctx); err == nil {
+		metadata["total_symbols"] = stats.TotalSymbols
+		metadata["total_documents"] = stats.CachedDocuments
+		metadata["total_occurrences"] = stats.TotalOccurrences
+	}
+
 	return &IndexResult{
-		Type:    query.Type,
-		Results: results,
-		Metadata: map[string]interface{}{
-			"indexed_symbols": len(m.scipIndex),
-			"query_language":  query.Language,
-		},
+		Type:      query.Type,
+		Results:   results,
+		Metadata:  metadata,
 		Timestamp: time.Now(),
 	}, nil
 }
 
-// GetIndexStats returns current index statistics
+// GetIndexStats returns current index statistics from SCIP storage
 func (m *SimpleCacheManager) GetIndexStats() *IndexStats {
 	if !m.enabled {
 		return &IndexStats{Status: "disabled"}
@@ -688,250 +1258,32 @@ func (m *SimpleCacheManager) GetIndexStats() *IndexStats {
 
 	// Create a copy to avoid race conditions
 	stats := *m.indexStats
-	stats.SymbolCount = int64(len(m.scipIndex))
-	stats.DocumentCount = int64(len(m.documentIndex))
+
+	// Get current stats from SCIP storage
+	if m.scipStorage != nil {
+		if scipStats, err := m.scipStorage.GetStats(context.Background()); err == nil {
+			stats.SymbolCount = scipStats.TotalSymbols
+			stats.DocumentCount = int64(scipStats.CachedDocuments)
+			stats.IndexSize = scipStats.MemoryUsage
+		}
+	}
+
 	return &stats
 }
 
-// UpdateIndex updates the index with the given files
+// UpdateIndex updates the index with the given files (SimpleCache interface)
 func (m *SimpleCacheManager) UpdateIndex(ctx context.Context, files []string) error {
 	if !m.enabled {
 		return nil
 	}
 
-	common.LSPLogger.Info("Indexing %d files...", len(files))
+	// This method triggers reindexing of specified files in SCIP storage
+	// The actual indexing is done when LSP symbols are received and converted to occurrences
+	common.LSPLogger.Debug("UpdateIndex called with %d files - occurrence-based indexing active", len(files))
 
-	for i, file := range files {
-		// Check context cancellation
-		select {
-		case <-ctx.Done():
-			common.LSPLogger.Warn("Index update cancelled after %d/%d files", i, len(files))
-			return ctx.Err()
-		default:
-		}
-
-		language := m.detectLanguageFromFile(file)
-		if language == "" {
-			continue
-		}
-
-		// Read actual file content
-		content, err := os.ReadFile(file)
-		if err != nil {
-			common.LSPLogger.Warn("Failed to read file %s: %v", file, err)
-			continue
-		}
-
-		// Skip empty files
-		if len(content) == 0 {
-			continue
-		}
-
-		if err := m.IndexDocument(ctx, file, language, content); err != nil {
-			common.LSPLogger.Warn("Failed to index file %s: %v", file, err)
-		}
-	}
-
-	common.LSPLogger.Info("Indexed %d documents with %d symbols", len(m.documentIndex), len(m.scipIndex))
-
-	// Save index to disk if disk cache is enabled
-	if m.config.DiskCache && m.config.StoragePath != "" {
-		if err := m.SaveIndexToDisk(); err != nil {
-			common.LSPLogger.Warn("Failed to save index to disk: %v", err)
-		}
-	}
-
+	// For occurrence-centric approach, we don't proactively index files
+	// Instead, indexing happens when LSP methods return symbol information
 	return nil
-}
-
-// Helper methods for SCIP indexing
-
-func (m *SimpleCacheManager) extractSymbolsFromContent(uri, language string, content []byte) []*SCIPSymbol {
-	// Pragmatic symbol extraction based on language
-	var symbols []*SCIPSymbol
-	contentStr := string(content)
-
-	switch language {
-	case "go":
-		symbols = m.extractGoSymbols(uri, contentStr)
-	case "python":
-		symbols = m.extractPythonSymbols(uri, contentStr)
-	case "javascript", "typescript":
-		symbols = m.extractJSSymbols(uri, contentStr)
-	case "java":
-		symbols = m.extractJavaSymbols(uri, contentStr)
-	}
-
-	return symbols
-}
-
-func (m *SimpleCacheManager) extractGoSymbols(uri, content string) []*SCIPSymbol {
-	var symbols []*SCIPSymbol
-
-	// Simple regex patterns for Go symbols
-	patterns := map[string]string{
-		"function": `func\s+(?:\([^)]*\)\s+)?(\w+)\s*\([^)]*\)`, // Handles both functions and methods with receivers
-		"type":     `type\s+(\w+)\s+`,
-		"const":    `const\s+(\w+)\s*=`,
-		"var":      `var\s+(\w+)\s+`,
-	}
-
-	for kind, pattern := range patterns {
-		re := regexp.MustCompile(pattern)
-		matches := re.FindAllStringSubmatch(content, -1)
-		for _, match := range matches {
-			if len(match) > 1 {
-				symbols = append(symbols, &SCIPSymbol{
-					Name:     match[1],
-					Kind:     kind,
-					Language: "go",
-					URI:      uri,
-					Range:    nil, // Would need more sophisticated parsing for exact positions
-				})
-			}
-		}
-	}
-
-	return symbols
-}
-
-func (m *SimpleCacheManager) extractPythonSymbols(uri, content string) []*SCIPSymbol {
-	var symbols []*SCIPSymbol
-
-	patterns := map[string]string{
-		"function": `def\s+(\w+)\s*\(`,
-		"class":    `class\s+(\w+)\s*[\(:]`,
-	}
-
-	for kind, pattern := range patterns {
-		re := regexp.MustCompile(pattern)
-		matches := re.FindAllStringSubmatch(content, -1)
-		for _, match := range matches {
-			if len(match) > 1 {
-				symbols = append(symbols, &SCIPSymbol{
-					Name:     match[1],
-					Kind:     kind,
-					Language: "python",
-					URI:      uri,
-				})
-			}
-		}
-	}
-
-	return symbols
-}
-
-func (m *SimpleCacheManager) extractJSSymbols(uri, content string) []*SCIPSymbol {
-	var symbols []*SCIPSymbol
-
-	patterns := map[string]string{
-		"function": `function\s+(\w+)\s*\(`,
-		"class":    `class\s+(\w+)\s*{`,
-		"const":    `const\s+(\w+)\s*=`,
-		"let":      `let\s+(\w+)\s*=`,
-		"var":      `var\s+(\w+)\s*=`,
-	}
-
-	for kind, pattern := range patterns {
-		re := regexp.MustCompile(pattern)
-		matches := re.FindAllStringSubmatch(content, -1)
-		for _, match := range matches {
-			if len(match) > 1 {
-				symbols = append(symbols, &SCIPSymbol{
-					Name:     match[1],
-					Kind:     kind,
-					Language: strings.TrimSuffix(filepath.Ext(uri), "script"), // js or ts
-					URI:      uri,
-				})
-			}
-		}
-	}
-
-	return symbols
-}
-
-func (m *SimpleCacheManager) extractJavaSymbols(uri, content string) []*SCIPSymbol {
-	var symbols []*SCIPSymbol
-
-	patterns := map[string]string{
-		"class":     `class\s+(\w+)\s*{`,
-		"interface": `interface\s+(\w+)\s*{`,
-		"method":    `(?:public|private|protected)?\s*(?:static)?\s*\w+\s+(\w+)\s*\(`,
-	}
-
-	for kind, pattern := range patterns {
-		re := regexp.MustCompile(pattern)
-		matches := re.FindAllStringSubmatch(content, -1)
-		for _, match := range matches {
-			if len(match) > 1 {
-				symbols = append(symbols, &SCIPSymbol{
-					Name:     match[1],
-					Kind:     kind,
-					Language: "java",
-					URI:      uri,
-				})
-			}
-		}
-	}
-
-	return symbols
-}
-
-func (m *SimpleCacheManager) querySymbols(query *IndexQuery) []interface{} {
-	var results []interface{}
-
-	if query.Language != "" {
-		// Query specific language
-		if langIndex, exists := m.languageIndex[query.Language]; exists {
-			for _, symbol := range langIndex {
-				if query.Symbol == "" || strings.Contains(symbol.Name, query.Symbol) {
-					results = append(results, symbol)
-				}
-			}
-		}
-	} else {
-		// Query all languages
-		for _, symbol := range m.scipIndex {
-			if query.Symbol == "" || strings.Contains(symbol.Name, query.Symbol) {
-				results = append(results, symbol)
-			}
-		}
-	}
-
-	return results
-}
-
-func (m *SimpleCacheManager) queryDefinitions(query *IndexQuery) []interface{} {
-	// For now, return symbols matching the query
-	// In a full implementation, this would return definition locations
-	return m.querySymbols(query)
-}
-
-func (m *SimpleCacheManager) queryReferences(query *IndexQuery) []interface{} {
-	// For now, return empty - references require more sophisticated analysis
-	return []interface{}{}
-}
-
-func (m *SimpleCacheManager) queryWorkspaceSymbols(query *IndexQuery) []interface{} {
-	return m.querySymbols(query)
-}
-
-func (m *SimpleCacheManager) detectLanguageFromFile(file string) string {
-	ext := strings.ToLower(filepath.Ext(file))
-	switch ext {
-	case ".go":
-		return "go"
-	case ".py":
-		return "python"
-	case ".js":
-		return "javascript"
-	case ".ts":
-		return "typescript"
-	case ".java":
-		return "java"
-	default:
-		return ""
-	}
 }
 
 func (m *SimpleCacheManager) updateIndexStats(language string, symbolCount int) {
@@ -940,408 +1292,271 @@ func (m *SimpleCacheManager) updateIndexStats(language string, symbolCount int) 
 
 	if m.indexStats.LanguageStats[language] == 0 {
 		m.indexStats.IndexedLanguages = append(m.indexStats.IndexedLanguages, language)
+		common.LSPLogger.Debug("First indexing for language: %s", language)
 	}
 	m.indexStats.LanguageStats[language] += int64(symbolCount)
-}
 
-// SaveIndexToDisk saves the SCIP index data to disk as JSON files
-func (m *SimpleCacheManager) SaveIndexToDisk() error {
-	if m.config.StoragePath == "" {
-		return fmt.Errorf("storage path not configured")
+	// Get stats from SCIP storage if available
+	if m.scipStorage != nil {
+		if stats, err := m.scipStorage.GetStats(context.Background()); err == nil {
+			m.indexStats.SymbolCount = stats.TotalSymbols
+			m.indexStats.DocumentCount = int64(stats.CachedDocuments)
+		}
 	}
 
-	// Create storage directory if it doesn't exist
-	if err := os.MkdirAll(m.config.StoragePath, 0755); err != nil {
-		return fmt.Errorf("failed to create storage directory: %v", err)
+	common.LSPLogger.Debug("Index stats updated - language: %s, added: %d symbols, total: %d symbols, %d documents",
+		language, symbolCount, m.indexStats.SymbolCount, m.indexStats.DocumentCount)
+}
+
+// GetCachedDefinition retrieves definition occurrences for a symbol using SCIP storage
+func (m *SimpleCacheManager) GetCachedDefinition(symbolID string) ([]lsp.Location, bool) {
+	if !m.enabled || m.scipStorage == nil {
+		return nil, false
 	}
 
 	m.indexMu.RLock()
 	defer m.indexMu.RUnlock()
 
-	// Save SCIP index
-	scipIndexPath := filepath.Join(m.config.StoragePath, "scip_index.json")
-	scipIndexData, err := json.MarshalIndent(m.scipIndex, "", "  ")
+	// Get definition occurrence from SCIP storage
+	definitionOcc, err := m.scipStorage.GetDefinitionOccurrence(context.Background(), symbolID)
 	if err != nil {
-		return fmt.Errorf("failed to marshal SCIP index: %v", err)
+		return nil, false
 	}
 
-	if err := os.WriteFile(scipIndexPath, scipIndexData, 0644); err != nil {
-		return fmt.Errorf("failed to write SCIP index file: %v", err)
+	// Convert SCIP occurrence to LSP location
+	location := lsp.Location{
+		URI: m.extractURIFromOccurrence(definitionOcc),
+		Range: lsp.Range{
+			Start: lsp.Position{
+				Line:      int(definitionOcc.Range.Start.Line),
+				Character: int(definitionOcc.Range.Start.Character),
+			},
+			End: lsp.Position{
+				Line:      int(definitionOcc.Range.End.Line),
+				Character: int(definitionOcc.Range.End.Character),
+			},
+		},
 	}
 
-	// Save document index
-	documentIndexPath := filepath.Join(m.config.StoragePath, "document_index.json")
-	documentIndexData, err := json.MarshalIndent(m.documentIndex, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal document index: %v", err)
-	}
-
-	if err := os.WriteFile(documentIndexPath, documentIndexData, 0644); err != nil {
-		return fmt.Errorf("failed to write document index file: %v", err)
-	}
-
-	common.LSPLogger.Debug("Saved index to disk: %d symbols, %d documents", len(m.scipIndex), len(m.documentIndex))
-	return nil
+	return []lsp.Location{location}, true
 }
 
-// LoadIndexFromDisk loads the SCIP index data from disk JSON files
-func (m *SimpleCacheManager) LoadIndexFromDisk() error {
-	if m.config.StoragePath == "" {
-		return fmt.Errorf("storage path not configured")
+// GetCachedReferences retrieves reference occurrences for a symbol using SCIP storage
+func (m *SimpleCacheManager) GetCachedReferences(symbolID string) ([]lsp.Location, bool) {
+	if !m.enabled || m.scipStorage == nil {
+		return nil, false
 	}
 
-	scipIndexPath := filepath.Join(m.config.StoragePath, "scip_index.json")
-	documentIndexPath := filepath.Join(m.config.StoragePath, "document_index.json")
+	m.indexMu.RLock()
+	defer m.indexMu.RUnlock()
 
-	m.indexMu.Lock()
-	defer m.indexMu.Unlock()
+	// Get reference occurrences from SCIP storage
+	referenceOccs, err := m.scipStorage.GetReferenceOccurrences(context.Background(), symbolID)
+	if err != nil || len(referenceOccs) == 0 {
+		return nil, false
+	}
 
-	// Load SCIP index if it exists
-	if _, err := os.Stat(scipIndexPath); err == nil {
-		scipIndexData, err := os.ReadFile(scipIndexPath)
+	// Convert SCIP occurrences to LSP locations
+	locations := make([]lsp.Location, 0, len(referenceOccs))
+	for _, occ := range referenceOccs {
+		location := lsp.Location{
+			URI: m.extractURIFromOccurrence(&occ),
+			Range: lsp.Range{
+				Start: lsp.Position{
+					Line:      int(occ.Range.Start.Line),
+					Character: int(occ.Range.Start.Character),
+				},
+				End: lsp.Position{
+					Line:      int(occ.Range.End.Line),
+					Character: int(occ.Range.End.Character),
+				},
+			},
+		}
+		locations = append(locations, location)
+	}
+
+	return locations, true
+}
+
+// GetCachedHover retrieves hover information using symbol information from SCIP storage
+func (m *SimpleCacheManager) GetCachedHover(symbolID string) (*lsp.Hover, bool) {
+	if !m.enabled || m.scipStorage == nil {
+		return nil, false
+	}
+
+	m.indexMu.RLock()
+	defer m.indexMu.RUnlock()
+
+	// Get symbol information from SCIP storage
+	symbolInfo, err := m.scipStorage.GetSymbolInformation(context.Background(), symbolID)
+	if err != nil {
+		return nil, false
+	}
+
+	// Convert SCIP symbol information to LSP hover
+	hover := &lsp.Hover{
+		Contents: m.formatHoverFromSCIPSymbolInfo(symbolInfo),
+	}
+
+	return hover, true
+}
+
+// GetCachedDocumentSymbols retrieves document symbols using SCIP storage
+func (m *SimpleCacheManager) GetCachedDocumentSymbols(uri string) ([]lsp.SymbolInformation, bool) {
+	if !m.enabled || m.scipStorage == nil {
+		return nil, false
+	}
+
+	m.indexMu.RLock()
+	defer m.indexMu.RUnlock()
+
+	// Get document symbols from SCIP storage
+	symbolInfos, err := m.scipStorage.GetDocumentSymbols(context.Background(), uri)
+	if err != nil || len(symbolInfos) == 0 {
+		return nil, false
+	}
+
+	// Convert SCIP symbol information to LSP symbol information
+	symbols := make([]lsp.SymbolInformation, 0, len(symbolInfos))
+	for _, scipSymbol := range symbolInfos {
+		// Get definition occurrence for location
+		defOcc, err := m.scipStorage.GetDefinitionOccurrence(context.Background(), scipSymbol.Symbol)
 		if err != nil {
-			return fmt.Errorf("failed to read SCIP index file: %v", err)
+			continue
 		}
 
-		if err := json.Unmarshal(scipIndexData, &m.scipIndex); err != nil {
-			return fmt.Errorf("failed to unmarshal SCIP index: %v", err)
+		symbol := lsp.SymbolInformation{
+			Name: scipSymbol.DisplayName,
+			Kind: m.convertSCIPSymbolKindToLSP(scipSymbol.Kind),
+			Location: lsp.Location{
+				URI: uri,
+				Range: lsp.Range{
+					Start: lsp.Position{
+						Line:      int(defOcc.Range.Start.Line),
+						Character: int(defOcc.Range.Start.Character),
+					},
+					End: lsp.Position{
+						Line:      int(defOcc.Range.End.Line),
+						Character: int(defOcc.Range.End.Character),
+					},
+				},
+			},
 		}
+		symbols = append(symbols, symbol)
 	}
 
-	// Load document index if it exists
-	if _, err := os.Stat(documentIndexPath); err == nil {
-		documentIndexData, err := os.ReadFile(documentIndexPath)
+	return symbols, true
+}
+
+// GetCachedWorkspaceSymbols retrieves workspace symbols using SCIP storage
+func (m *SimpleCacheManager) GetCachedWorkspaceSymbols(query string) ([]lsp.SymbolInformation, bool) {
+	if !m.enabled || m.scipStorage == nil {
+		return nil, false
+	}
+
+	m.indexMu.RLock()
+	defer m.indexMu.RUnlock()
+
+	// Search symbols in SCIP storage
+	symbolInfos, err := m.scipStorage.GetWorkspaceSymbols(context.Background(), query)
+	if err != nil || len(symbolInfos) == 0 {
+		return nil, false
+	}
+
+	// Convert SCIP symbol information to LSP symbol information
+	symbols := make([]lsp.SymbolInformation, 0, len(symbolInfos))
+	for _, scipSymbol := range symbolInfos {
+		// Get definition occurrence for location
+		defOcc, err := m.scipStorage.GetDefinitionOccurrence(context.Background(), scipSymbol.Symbol)
 		if err != nil {
-			return fmt.Errorf("failed to read document index file: %v", err)
+			continue
 		}
 
-		if err := json.Unmarshal(documentIndexData, &m.documentIndex); err != nil {
-			return fmt.Errorf("failed to unmarshal document index: %v", err)
+		symbol := lsp.SymbolInformation{
+			Name: scipSymbol.DisplayName,
+			Kind: m.convertSCIPSymbolKindToLSP(scipSymbol.Kind),
+			Location: lsp.Location{
+				URI: m.extractURIFromOccurrence(defOcc),
+				Range: lsp.Range{
+					Start: lsp.Position{
+						Line:      int(defOcc.Range.Start.Line),
+						Character: int(defOcc.Range.Start.Character),
+					},
+					End: lsp.Position{
+						Line:      int(defOcc.Range.End.Line),
+						Character: int(defOcc.Range.End.Character),
+					},
+				},
+			},
 		}
+		symbols = append(symbols, symbol)
 	}
 
-	// Rebuild language index from loaded data
-	m.languageIndex = make(map[string]map[string]*SCIPSymbol)
-	for _, symbol := range m.scipIndex {
-		if m.languageIndex[symbol.Language] == nil {
-			m.languageIndex[symbol.Language] = make(map[string]*SCIPSymbol)
-		}
-		m.languageIndex[symbol.Language][symbol.Name] = symbol
+	return symbols, true
+}
+
+// GetCachedCompletion retrieves completion items using symbol information from SCIP storage
+func (m *SimpleCacheManager) GetCachedCompletion(uri string, position lsp.Position) ([]lsp.CompletionItem, bool) {
+	if !m.enabled || m.scipStorage == nil {
+		return nil, false
 	}
 
-	// Update index stats
-	m.indexStats.SymbolCount = int64(len(m.scipIndex))
-	m.indexStats.DocumentCount = int64(len(m.documentIndex))
-	m.indexStats.Status = "loaded"
+	m.indexMu.RLock()
+	defer m.indexMu.RUnlock()
 
-	// Update language stats
-	languageStats := make(map[string]int64)
-	indexedLanguages := []string{}
-	for language, symbols := range m.languageIndex {
-		languageStats[language] = int64(len(symbols))
-		indexedLanguages = append(indexedLanguages, language)
-	}
-	m.indexStats.LanguageStats = languageStats
-	m.indexStats.IndexedLanguages = indexedLanguages
-
-	common.LSPLogger.Info("Loaded index from disk: %d symbols, %d documents", len(m.scipIndex), len(m.documentIndex))
-	return nil
-}
-
-// File watching methods for real-time index updates
-
-// startFileWatcher starts periodic file change detection
-func (m *SimpleCacheManager) startFileWatcher() error {
-	// Get working directory as project root
-	wd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("failed to get working directory: %w", err)
-	}
-	m.projectRoot = wd
-
-	// Initialize stop channel
-	m.watcherStop = make(chan struct{})
-
-	// Create ticker for periodic checks (every 5 seconds)
-	m.watcherTicker = time.NewTicker(5 * time.Second)
-	m.watcherRunning = true
-
-	// Start goroutine for file watching
-	go m.fileWatcherLoop()
-
-	common.LSPLogger.Info("Started file watcher for project: %s", m.projectRoot)
-	return nil
-}
-
-// stopFileWatcher stops the file watcher
-func (m *SimpleCacheManager) stopFileWatcher() {
-	if m.watcherTicker != nil {
-		m.watcherTicker.Stop()
-	}
-	if m.watcherRunning {
-		close(m.watcherStop)
-		m.watcherRunning = false
-	}
-	common.LSPLogger.Info("Stopped file watcher")
-}
-
-// fileWatcherLoop runs the file watching loop
-func (m *SimpleCacheManager) fileWatcherLoop() {
-	for {
-		select {
-		case <-m.watcherTicker.C:
-			m.scanAndIndexChangedFiles()
-		case <-m.watcherStop:
-			return
-		}
-	}
-}
-
-// scanAndIndexChangedFiles scans for changed files and re-indexes them
-func (m *SimpleCacheManager) scanAndIndexChangedFiles() {
-	extensions := []string{".go", ".py", ".js", ".ts", ".tsx", ".java"}
-	changedFiles := []string{}
-
-	// Walk through project directory
-	err := filepath.Walk(m.projectRoot, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil // Skip errors
-		}
-
-		// Skip directories and non-source files
-		if info.IsDir() {
-			name := info.Name()
-			// Skip common non-source directories
-			if strings.HasPrefix(name, ".") || name == "node_modules" || name == "vendor" ||
-				name == "build" || name == "dist" || name == "target" || name == "__pycache__" {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-
-		// Check if file has relevant extension
-		ext := filepath.Ext(path)
-		isRelevant := false
-		for _, validExt := range extensions {
-			if ext == validExt {
-				isRelevant = true
-				break
-			}
-		}
-
-		if !isRelevant {
-			return nil
-		}
-
-		// Check if file has been modified
-		m.mu.RLock()
-		lastModTime, exists := m.fileModTimes[path]
-		m.mu.RUnlock()
-
-		if !exists || info.ModTime().After(lastModTime) {
-			changedFiles = append(changedFiles, path)
-
-			// Update modification time
-			m.mu.Lock()
-			m.fileModTimes[path] = info.ModTime()
-			m.mu.Unlock()
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		common.LSPLogger.Warn("Error scanning files: %v", err)
-		return
+	// Get document symbols for completion context
+	symbolInfos, err := m.scipStorage.GetDocumentSymbols(context.Background(), uri)
+	if err != nil || len(symbolInfos) == 0 {
+		return nil, false
 	}
 
-	// Re-index changed files
-	if len(changedFiles) > 0 {
-		common.LSPLogger.Info("Detected %d file changes, re-indexing...", len(changedFiles))
-		ctx := context.Background()
-
-		for _, file := range changedFiles {
-			language := m.detectLanguageFromFile(file)
-			if language == "" {
-				continue
-			}
-
-			// Read file content
-			content, err := os.ReadFile(file)
-			if err != nil {
-				common.LSPLogger.Warn("Failed to read changed file %s: %v", file, err)
-				continue
-			}
-
-			// Re-index the file
-			if err := m.IndexDocument(ctx, file, language, content); err != nil {
-				common.LSPLogger.Warn("Failed to re-index file %s: %v", file, err)
-			}
+	// Convert symbol information to completion items
+	items := make([]lsp.CompletionItem, 0, len(symbolInfos))
+	for _, scipSymbol := range symbolInfos {
+		item := lsp.CompletionItem{
+			Label:  scipSymbol.DisplayName,
+			Kind:   m.convertSCIPSymbolKindToCompletionItemKind(scipSymbol.Kind),
+			Detail: m.formatSymbolDetail(&scipSymbol),
 		}
 
-		// Save index to disk if disk cache is enabled
-		if m.config.DiskCache && m.config.StoragePath != "" {
-			if err := m.SaveIndexToDisk(); err != nil {
-				common.LSPLogger.Warn("Failed to save updated index to disk: %v", err)
-			}
+		if len(scipSymbol.Documentation) > 0 {
+			item.Documentation = strings.Join(scipSymbol.Documentation, "\n")
 		}
 
-		common.LSPLogger.Info("Re-indexed %d changed files", len(changedFiles))
+		items = append(items, item)
 	}
+
+	return items, true
 }
 
-// SCIPStorage interface implementation
-
-// StorageAdapter creates an SCIPStorage adapter for SimpleCacheManager
-type StorageAdapter struct {
-	manager *SimpleCacheManager
-}
-
-// NewStorageAdapter creates a new storage adapter
-func NewStorageAdapter(manager *SimpleCacheManager) SCIPStorage {
-	return &StorageAdapter{manager: manager}
-}
-
-// Store implements SCIPStorage.Store
-func (a *StorageAdapter) Store(key CacheKey, entry *CacheEntry) error {
-	return a.manager.StoreEntry(key, entry)
-}
-
-// Retrieve implements SCIPStorage.Retrieve
-func (a *StorageAdapter) Retrieve(key CacheKey) (*CacheEntry, error) {
-	return a.manager.Retrieve(key)
-}
-
-// Delete implements SCIPStorage.Delete
-func (a *StorageAdapter) Delete(key CacheKey) error {
-	return a.manager.Delete(key)
-}
-
-// Clear implements SCIPStorage.Clear
-func (a *StorageAdapter) Clear() error {
-	return a.manager.Clear()
-}
-
-// Size implements SCIPStorage.Size
-func (a *StorageAdapter) Size() int64 {
-	return a.manager.Size()
-}
-
-// EntryCount implements SCIPStorage.EntryCount
-func (a *StorageAdapter) EntryCount() int64 {
-	return a.manager.EntryCount()
-}
-
-// StoreEntry stores a cache entry with the given key (internal method)
-func (m *SimpleCacheManager) StoreEntry(key CacheKey, entry *CacheEntry) error {
-	if !m.isEnabled() {
+// StoreMethodResult stores LSP method results as SCIP occurrences with proper roles
+func (m *SimpleCacheManager) StoreMethodResult(method string, params interface{}, response interface{}) error {
+	if !m.enabled || m.scipStorage == nil {
 		return nil
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	keyStr := fmt.Sprintf("%s:%s:%s", key.Method, key.URI, key.Hash)
-	m.entries[keyStr] = entry
-	m.updateStats()
-	return nil
-}
-
-// Retrieve retrieves a cache entry by key (SCIPStorage interface)
-func (m *SimpleCacheManager) Retrieve(key CacheKey) (*CacheEntry, error) {
-	if !m.isEnabled() {
-		return nil, nil
+	// Extract URI from parameters
+	uri := m.extractURI(params)
+	if uri == "" {
+		return fmt.Errorf("could not extract URI from parameters")
 	}
 
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-
-	keyStr := fmt.Sprintf("%s:%s:%s", key.Method, key.URI, key.Hash)
-	entry, exists := m.entries[keyStr]
-	if !exists {
-		return nil, nil
-	}
-
-	// Check TTL
-	ttl := time.Duration(m.config.TTLHours) * time.Hour
-	if !m.isValidEntry(entry, ttl) {
-		return nil, nil
-	}
-
-	return entry, nil
-}
-
-// Delete removes a cache entry by key (SCIPStorage interface)
-func (m *SimpleCacheManager) Delete(key CacheKey) error {
-	if !m.isEnabled() {
+	// Convert LSP response to SCIP occurrences based on method type
+	switch method {
+	case "textDocument/definition":
+		return m.storeDefinitionResult(uri, response)
+	case "textDocument/references":
+		return m.storeReferencesResult(uri, response)
+	case "textDocument/hover":
+		return m.storeHoverResult(uri, params, response)
+	case "textDocument/documentSymbol":
+		return m.storeDocumentSymbolResult(uri, response)
+	case "workspace/symbol":
+		return m.storeWorkspaceSymbolResult(response)
+	case "textDocument/completion":
+		return m.storeCompletionResult(uri, params, response)
+	default:
+		common.LSPLogger.Debug("Method %s not supported for SCIP storage", method)
 		return nil
 	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	keyStr := fmt.Sprintf("%s:%s:%s", key.Method, key.URI, key.Hash)
-	delete(m.entries, keyStr)
-	m.updateStats()
-	return nil
-}
-
-// Clear removes all cache entries (SCIPStorage interface)
-func (m *SimpleCacheManager) Clear() error {
-	if !m.isEnabled() {
-		return nil
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	common.LSPLogger.Info("Clearing all cache entries")
-	m.entries = make(map[string]*CacheEntry)
-	m.updateStats()
-	return nil
-}
-
-// Size returns the total size of cached data (SCIPStorage interface)
-func (m *SimpleCacheManager) Size() int64 {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return m.getTotalSize()
-}
-
-// EntryCount returns the number of cache entries (SCIPStorage interface)
-func (m *SimpleCacheManager) EntryCount() int64 {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
-	return int64(len(m.entries))
-}
-
-// MockSCIPStorageAdapter - Simple adapter for invalidation manager testing
-type MockSCIPStorageAdapter struct{}
-
-func NewMockSCIPStorageAdapter() SCIPStorage {
-	return &MockSCIPStorageAdapter{}
-}
-
-func (a *MockSCIPStorageAdapter) Store(key CacheKey, entry *CacheEntry) error {
-	return nil
-}
-
-func (a *MockSCIPStorageAdapter) Retrieve(key CacheKey) (*CacheEntry, error) {
-	return nil, nil
-}
-
-func (a *MockSCIPStorageAdapter) Delete(key CacheKey) error {
-	return nil
-}
-
-func (a *MockSCIPStorageAdapter) Clear() error {
-	return nil
-}
-
-func (a *MockSCIPStorageAdapter) Size() int64 {
-	return 0
-}
-
-func (a *MockSCIPStorageAdapter) EntryCount() int64 {
-	return 0
 }

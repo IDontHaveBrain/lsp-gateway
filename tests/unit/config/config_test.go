@@ -20,13 +20,13 @@ func TestGetDefaultConfig_CacheEnabledByDefault(t *testing.T) {
 	}
 
 	// Verify default cache settings
-	expectedStoragePath := ".lsp-gateway/cache"
+	expectedStoragePath := ".lsp-gateway/scip-cache"
 	if !containsPath(cfg.Cache.StoragePath, expectedStoragePath) {
 		t.Errorf("Expected storage path to contain %s, got %s", expectedStoragePath, cfg.Cache.StoragePath)
 	}
 
-	if cfg.Cache.MaxMemoryMB != 256 {
-		t.Errorf("Expected max memory to be 256MB, got %d", cfg.Cache.MaxMemoryMB)
+	if cfg.Cache.MaxMemoryMB != 512 {
+		t.Errorf("Expected max memory to be 512MB, got %d", cfg.Cache.MaxMemoryMB)
 	}
 
 	if cfg.Cache.TTLHours != 24 {

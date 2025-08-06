@@ -77,42 +77,24 @@ func (p *PythonInstaller) Uninstall() error {
 
 // GetVersion returns the installed python-lsp-server version
 func (p *PythonInstaller) GetVersion() (string, error) {
-	if !p.IsInstalled() {
-		return "", fmt.Errorf("python-lsp-server not installed")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// Get pylsp version
-	output, err := p.RunCommandWithOutput(ctx, "pylsp", "--version")
-	if err != nil {
-		return "", fmt.Errorf("failed to get python-lsp-server version: %w", err)
-	}
-
-	return output, nil
+	return p.GetVersionByCommand("pylsp", "--version")
 }
 
 // IsInstalled checks if python-lsp-server is installed and working
 func (p *PythonInstaller) IsInstalled() bool {
-	// Check if pylsp exists in PATH
-	if _, err := exec.LookPath("pylsp"); err == nil {
-		return p.validateServerCommand("pylsp")
-	}
-
-	return false
+	return p.IsInstalledByCommand("pylsp")
 }
 
 // ValidateInstallation performs comprehensive validation
 func (p *PythonInstaller) ValidateInstallation() error {
+	// Basic validation using generic method
+	if err := p.ValidateByCommand("pylsp"); err != nil {
+		return err
+	}
+
 	// Python-specific validation
 	if !p.isPipInstalled() {
 		return fmt.Errorf("pip is not available but python-lsp-server may be present - this may cause issues")
-	}
-
-	// Check if pylsp is installed and working
-	if !p.IsInstalled() {
-		return fmt.Errorf("python-lsp-server installation validation failed: not installed")
 	}
 
 	common.CLILogger.Info("python-lsp-server validation successful")

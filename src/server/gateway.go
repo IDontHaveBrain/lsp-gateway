@@ -20,6 +20,7 @@ type HTTPGateway struct {
 	server      *http.Server
 	scipCache   cache.SCIPCache
 	cacheConfig *config.CacheConfig
+	lspOnly     bool
 	mu          sync.RWMutex
 }
 
@@ -47,7 +48,7 @@ type RPCError struct {
 }
 
 // NewHTTPGateway creates a new simple HTTP gateway with mandatory cache
-func NewHTTPGateway(addr string, cfg *config.Config) (*HTTPGateway, error) {
+func NewHTTPGateway(addr string, cfg *config.Config, lspOnly bool) (*HTTPGateway, error) {
 	// Ensure cache is enabled - HTTP gateway requires cache for performance
 	if cfg == nil {
 		cfg = config.GetDefaultConfigWithCache()
@@ -67,6 +68,7 @@ func NewHTTPGateway(addr string, cfg *config.Config) (*HTTPGateway, error) {
 		lspManager:  lspManager,
 		scipCache:   lspManager.GetCache(), // Get cache from LSP manager
 		cacheConfig: cfg.Cache,
+		lspOnly:     lspOnly,
 	}
 
 	mux := http.NewServeMux()
@@ -165,6 +167,22 @@ func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 
 	common.GatewayLogger.Debug("Processing request: %s", req.Method)
 
+	// If lspOnly mode, restrict to the 6 basic LSP methods
+	if g.lspOnly {
+		allowedMethods := map[string]bool{
+			"textDocument/definition":     true,
+			"textDocument/references":     true,
+			"textDocument/hover":          true,
+			"textDocument/documentSymbol": true,
+			"workspace/symbol":            true,
+			"textDocument/completion":     true,
+		}
+		if !allowedMethods[req.Method] {
+			g.writeError(w, req.ID, -32601, "Method not found", fmt.Sprintf("Method '%s' is not available in LSP-only mode", req.Method))
+			return
+		}
+	}
+
 	// Track request timing for performance metrics
 	startTime := time.Now()
 	cacheMetricsBefore := g.getCacheMetricsSnapshot()
@@ -213,12 +231,11 @@ func (g *HTTPGateway) handleHealth(w http.ResponseWriter, r *http.Request) {
 			}
 
 			health["cache"] = map[string]interface{}{
-				"enabled":           true,
-				"status":            cacheMetrics.HealthStatus,
-				"hit_rate_percent":  hitRate,
-				"entry_count":       cacheMetrics.EntryCount,
-				"total_requests":    totalRequests,
-				"last_health_check": cacheMetrics.LastHealthCheck,
+				"enabled":          true,
+				"status":           "OK",
+				"hit_rate_percent": hitRate,
+				"entry_count":      cacheMetrics.EntryCount,
+				"total_requests":   totalRequests,
 			}
 		} else {
 			health["cache"] = map[string]interface{}{
@@ -318,8 +335,6 @@ func (g *HTTPGateway) handleCacheStats(w http.ResponseWriter, r *http.Request) {
 		"entry_count":       metrics.EntryCount,
 		"average_hit_time":  metrics.AverageHitTime.String(),
 		"average_miss_time": metrics.AverageMissTime.String(),
-		"last_health_check": metrics.LastHealthCheck,
-		"health_status":     metrics.HealthStatus,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -354,8 +369,6 @@ func (g *HTTPGateway) handleCacheHealth(w http.ResponseWriter, r *http.Request) 
 	health := map[string]interface{}{
 		"status":          "healthy",
 		"enabled":         true,
-		"health_status":   metrics.HealthStatus,
-		"last_check":      metrics.LastHealthCheck,
 		"total_size":      metrics.TotalSize,
 		"entry_count":     metrics.EntryCount,
 		"uptime_requests": metrics.HitCount + metrics.MissCount,
