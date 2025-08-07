@@ -24,12 +24,9 @@ func TestSearchSymbolReferences(t *testing.T) {
 	// Test basic symbol reference search
 	t.Run("BasicReferenceSearch", func(t *testing.T) {
 		query := server.SymbolReferenceQuery{
-			SymbolName:        "TestFunction",
-			FilePattern:       "**/*.go",
-			IncludeDefinition: true,
-			MaxResults:        10,
-			IncludeCode:       false,
-			ExactMatch:        false,
+			Pattern:     "TestFunction",
+			FilePattern: "**/*.go",
+			MaxResults:  10,
 		}
 
 		result, err := manager.SearchSymbolReferences(ctx, query)
@@ -48,15 +45,12 @@ func TestSearchSymbolReferences(t *testing.T) {
 		}
 	})
 
-	// Test with exact match
+	// Test with exact match pattern
 	t.Run("ExactMatchReferenceSearch", func(t *testing.T) {
 		query := server.SymbolReferenceQuery{
-			SymbolName:        "main",
-			FilePattern:       "**/*.go",
-			IncludeDefinition: false,
-			MaxResults:        5,
-			IncludeCode:       true,
-			ExactMatch:        true,
+			Pattern:     "^main$",
+			FilePattern: "**/*.go",
+			MaxResults:  5,
 		}
 
 		result, err := manager.SearchSymbolReferences(ctx, query)
@@ -69,16 +63,16 @@ func TestSearchSymbolReferences(t *testing.T) {
 		}
 	})
 
-	// Test empty symbol name
-	t.Run("EmptySymbolName", func(t *testing.T) {
+	// Test empty pattern
+	t.Run("EmptyPattern", func(t *testing.T) {
 		query := server.SymbolReferenceQuery{
-			SymbolName:  "",
+			Pattern:     "",
 			FilePattern: "**/*.go",
 		}
 
 		_, err := manager.SearchSymbolReferences(ctx, query)
 		if err == nil {
-			t.Error("Expected error for empty symbol name")
+			t.Error("Expected error for empty pattern")
 		}
 	})
 }

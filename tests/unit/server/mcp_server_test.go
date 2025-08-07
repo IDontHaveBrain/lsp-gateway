@@ -111,7 +111,7 @@ func TestMCPServerToolsList(t *testing.T) {
 	}
 
 	// Test the expected tool names are correctly defined
-	expectedTools := []string{"findSymbols", "findReferences", "findDefinitions", "getSymbolInfo"}
+	expectedTools := []string{"findSymbols", "findReferences"}
 	for _, tool := range expectedTools {
 		if tool == "" {
 			t.Errorf("Tool name should not be empty")
@@ -139,7 +139,8 @@ func TestMCPServerToolsCall(t *testing.T) {
 			name:     "findReferences with valid params",
 			toolName: "findReferences",
 			arguments: map[string]interface{}{
-				"symbolName": "TestFunction",
+				"pattern":     "TestFunction",
+				"filePattern": "**/*.go",
 			},
 			valid: true,
 		},

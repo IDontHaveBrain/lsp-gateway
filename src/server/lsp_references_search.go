@@ -13,22 +13,11 @@ import (
 	"lsp-gateway/src/server/scip"
 )
 
-// SymbolReferenceQuery defines parameters for searching symbol references with occurrence-based filtering
+// SymbolReferenceQuery defines parameters for searching symbol references
 type SymbolReferenceQuery struct {
-	SymbolName        string `json:"symbolName"`
-	FilePattern       string `json:"filePattern"`
-	IncludeDefinition bool   `json:"includeDefinition"`
-	MaxResults        int    `json:"maxResults"`
-	IncludeCode       bool   `json:"includeCode"`
-	ExactMatch        bool   `json:"exactMatch"`
-
-	// Occurrence-based filtering options
-	FilterByRole     *types.SymbolRole `json:"filterByRole,omitempty"` // Filter by specific symbol roles
-	OnlyReadAccess   bool              `json:"onlyReadAccess"`         // Only show read accesses
-	OnlyWriteAccess  bool              `json:"onlyWriteAccess"`        // Only show write accesses
-	ExcludeGenerated bool              `json:"excludeGenerated"`       // Exclude generated code
-	ExcludeTest      bool              `json:"excludeTest"`            // Exclude test code
-	IncludeRelated   bool              `json:"includeRelated"`         // Include implementation relationships
+	Pattern     string `json:"pattern"`
+	FilePattern string `json:"filePattern"`
+	MaxResults  int    `json:"maxResults"`
 }
 
 // SymbolReferenceResult contains the results of a symbol reference search with occurrence metadata
@@ -69,11 +58,11 @@ type ReferenceInfo struct {
 	Range          *types.Range     `json:"range,omitempty"`         // Full range of the occurrence
 }
 
-// SearchSymbolReferences searches for all references to a symbol using occurrence-based search
+// SearchSymbolReferences searches for all references to symbols matching a pattern
 func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolReferenceQuery) (*SymbolReferenceResult, error) {
 
-	if query.SymbolName == "" {
-		return nil, fmt.Errorf("symbolName cannot be empty")
+	if query.Pattern == "" {
+		return nil, fmt.Errorf("pattern cannot be empty")
 	}
 	if query.FilePattern == "" {
 		query.FilePattern = "**/*"
@@ -96,78 +85,48 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 		// Get SCIP storage for direct occurrence queries
 		scipStorage := m.getScipStorageFromCache()
 		if scipStorage != nil {
-			// First find the symbol to get its SCIP ID
-			symbolPattern := query.SymbolName
-			if query.ExactMatch {
-				symbolPattern = "^" + query.SymbolName + "$"
-			}
+			// Use the pattern directly for symbol search
+			symbolPattern := query.Pattern
 
 			// Search for symbol information to get the symbol ID
 			symbolInfos, err := scipStorage.SearchSymbols(ctx, symbolPattern, 10) // Get a few candidates
 			if err == nil && len(symbolInfos) > 0 {
 				// Process each symbol found
 				for _, symbolInfo := range symbolInfos {
-					if m.matchesSymbolName(symbolInfo.DisplayName, query.SymbolName, query.ExactMatch) {
-						// Get all reference occurrences for this symbol
-						refOccurrences, refErr := scipStorage.GetReferenceOccurrences(ctx, symbolInfo.Symbol)
-						if refErr == nil {
+					// Get all reference occurrences for this symbol
+					refOccurrences, refErr := scipStorage.GetReferenceOccurrences(ctx, symbolInfo.Symbol)
+					if refErr == nil {
 
-							// Convert SCIP occurrences to ReferenceInfo with role-based filtering
-							for _, occurrence := range refOccurrences {
-								refInfo := m.createReferenceFromOccurrence(ctx, scipStorage, occurrence, &symbolInfo, query)
-								if refInfo != nil && m.passesRoleFilter(*refInfo, query) {
-									references = append(references, *refInfo)
-									usedOccurrenceSearch = true
+						// Convert SCIP occurrences to ReferenceInfo
+						for _, occurrence := range refOccurrences {
+							refInfo := m.createReferenceFromOccurrence(ctx, scipStorage, occurrence, &symbolInfo)
+							if refInfo != nil {
+								references = append(references, *refInfo)
+								usedOccurrenceSearch = true
 
-									// Update counters
-									if refInfo.IsDefinition {
-										definitionCount++
-									}
-									if refInfo.IsReadAccess {
-										readAccessCount++
-									}
-									if refInfo.IsWriteAccess {
-										writeAccessCount++
-									}
+								// Update counters
+								if refInfo.IsDefinition {
+									definitionCount++
+								}
+								if refInfo.IsReadAccess {
+									readAccessCount++
+								}
+								if refInfo.IsWriteAccess {
+									writeAccessCount++
 								}
 							}
 						}
+					}
 
-						// Get definition occurrence if requested
-						if query.IncludeDefinition {
-							defOccurrence, defErr := scipStorage.GetDefinitionOccurrence(ctx, symbolInfo.Symbol)
-							if defErr == nil && defOccurrence != nil {
-								defRefInfo := m.createReferenceFromOccurrence(ctx, scipStorage, *defOccurrence, &symbolInfo, query)
-								if defRefInfo != nil && m.passesRoleFilter(*defRefInfo, query) {
-									// Check for duplicates
-									if !m.isDuplicateReference(references, *defRefInfo) {
-										references = append(references, *defRefInfo)
-										definitionCount++
-									}
-								}
-							}
-						}
-
-						// Get implementation relationships if requested
-						if query.IncludeRelated {
-							implOccurrences, implErr := scipStorage.GetImplementations(ctx, symbolInfo.Symbol)
-							if implErr == nil {
-								for _, implOcc := range implOccurrences {
-									implRefInfo := m.createReferenceFromOccurrence(ctx, scipStorage, implOcc, &symbolInfo, query)
-									if implRefInfo != nil {
-										implementations = append(implementations, *implRefInfo)
-									}
-								}
-							}
-
-							// Get related symbols through relationships
-							relationships, relErr := scipStorage.GetSymbolRelationships(ctx, symbolInfo.Symbol)
-							if relErr == nil {
-								for _, rel := range relationships {
-									if !m.containsString(relatedSymbols, rel.Symbol) {
-										relatedSymbols = append(relatedSymbols, rel.Symbol)
-									}
-								}
+					// Get definition occurrence
+					defOccurrence, defErr := scipStorage.GetDefinitionOccurrence(ctx, symbolInfo.Symbol)
+					if defErr == nil && defOccurrence != nil {
+						defRefInfo := m.createReferenceFromOccurrence(ctx, scipStorage, *defOccurrence, &symbolInfo)
+						if defRefInfo != nil {
+							// Check for duplicates
+							if !m.isDuplicateReference(references, *defRefInfo) {
+								references = append(references, *defRefInfo)
+								definitionCount++
 							}
 						}
 					}
@@ -176,10 +135,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 		} else {
 
 			// Fallback to cache query approach
-			symbolPattern := query.SymbolName
-			if query.ExactMatch {
-				symbolPattern = "^" + query.SymbolName + "$"
-			}
+			symbolPattern := query.Pattern
 
 			// Use workspace query to find all occurrences
 			indexQuery := &cache.IndexQuery{
@@ -211,16 +167,13 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 
 					if symbolInfo != nil && symbolInfo.Location.URI != "" {
 						// Check if name matches (for exact match filtering)
-						nameMatches := m.matchesSymbolName(symbolInfo.Name, query.SymbolName, query.ExactMatch)
+						// Pattern matching is already done by the cache query
+						refInfo := m.createLegacyReferenceInfo(*symbolInfo)
 
-						if nameMatches {
-							refInfo := m.createLegacyReferenceInfo(*symbolInfo, query)
-
-							// Check file pattern and role filters
-							if m.matchesFilePattern(refInfo.FilePath, query.FilePattern) && m.passesRoleFilter(refInfo, query) {
-								references = append(references, refInfo)
-								usedOccurrenceSearch = true
-							}
+						// Check file pattern
+						if m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
+							references = append(references, refInfo)
+							usedOccurrenceSearch = true
 						}
 					}
 				}
@@ -229,23 +182,23 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 			// Also try to get references from the reference index directly
 			// Try various key formats that might be used
 			symbolKeys := []string{
-				fmt.Sprintf("go:%s", query.SymbolName),
-				fmt.Sprintf("python:%s", query.SymbolName),
-				fmt.Sprintf("javascript:%s", query.SymbolName),
-				fmt.Sprintf("typescript:%s", query.SymbolName),
-				fmt.Sprintf("java:%s", query.SymbolName),
+				fmt.Sprintf("go:%s", query.Pattern),
+				fmt.Sprintf("python:%s", query.Pattern),
+				fmt.Sprintf("javascript:%s", query.Pattern),
+				fmt.Sprintf("typescript:%s", query.Pattern),
+				fmt.Sprintf("java:%s", query.Pattern),
 			}
 
 			for _, symbolKey := range symbolKeys {
 				refQuery := &cache.IndexQuery{
 					Type:     "references",
-					Symbol:   query.SymbolName,
+					Symbol:   query.Pattern,
 					Language: strings.Split(symbolKey, ":")[0],
 				}
 				if refResult, err := m.scipCache.QueryIndex(ctx, refQuery); err == nil && refResult != nil {
 					for _, ref := range refResult.Results {
 						if loc, ok := ref.(lsp.Location); ok {
-							refInfo := m.locationToReferenceInfo(loc, query.IncludeCode)
+							refInfo := m.locationToReferenceInfo(loc)
 							if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
 								// Check for duplicates before adding
 								isDuplicate := false
@@ -274,15 +227,10 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 
 		// Find the symbol first using SearchSymbolPattern
 		symbolQuery := types.SymbolPatternQuery{
-			Pattern:     query.SymbolName,
+			Pattern:     query.Pattern,
 			FilePattern: query.FilePattern,
 			MaxResults:  1, // We only need one matching symbol to find its references
 			IncludeCode: false,
-		}
-
-		// If exact match is requested, wrap pattern in anchors
-		if query.ExactMatch {
-			symbolQuery.Pattern = "^" + query.SymbolName + "$"
 		}
 
 		// Find the symbol first
@@ -310,7 +258,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 					"character": symbol.Location.Range.Start.Character,
 				},
 				"context": map[string]interface{}{
-					"includeDeclaration": query.IncludeDefinition,
+					"includeDeclaration": false,
 				},
 			}
 
@@ -322,12 +270,12 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 				case []interface{}:
 					for _, ref := range refs {
 						if location, ok := ref.(map[string]interface{}); ok {
-							refInfo := m.parseReferenceLocation(location, query.IncludeCode)
+							refInfo := m.parseReferenceLocation(location)
 							if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
 								references = append(references, *refInfo)
 							}
 						} else if loc, ok := ref.(lsp.Location); ok {
-							refInfo := m.locationToReferenceInfo(loc, query.IncludeCode)
+							refInfo := m.locationToReferenceInfo(loc)
 							if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
 								references = append(references, *refInfo)
 							}
@@ -335,7 +283,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 					}
 				case []lsp.Location:
 					for _, loc := range refs {
-						refInfo := m.locationToReferenceInfo(loc, query.IncludeCode)
+						refInfo := m.locationToReferenceInfo(loc)
 						if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
 							references = append(references, *refInfo)
 						}
@@ -375,15 +323,8 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 	searchMetadata := map[string]interface{}{
 		"search_type":           "occurrence_based",
 		"used_scip_storage":     usedOccurrenceSearch,
-		"symbol_pattern":        query.SymbolName,
-		"exact_match":           query.ExactMatch,
+		"symbol_pattern":        query.Pattern,
 		"file_pattern":          query.FilePattern,
-		"include_definition":    query.IncludeDefinition,
-		"include_related":       query.IncludeRelated,
-		"filter_read_only":      query.OnlyReadAccess,
-		"filter_write_only":     query.OnlyWriteAccess,
-		"exclude_generated":     query.ExcludeGenerated,
-		"exclude_test":          query.ExcludeTest,
 		"related_symbols_count": len(relatedSymbols),
 		"implementations_count": len(implementations),
 	}
@@ -402,7 +343,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 }
 
 // parseReferenceLocation parses a location map into ReferenceInfo
-func (m *LSPManager) parseReferenceLocation(location map[string]interface{}, includeCode bool) *ReferenceInfo {
+func (m *LSPManager) parseReferenceLocation(location map[string]interface{}) *ReferenceInfo {
 	var uri string
 	var line, character int
 
@@ -429,41 +370,15 @@ func (m *LSPManager) parseReferenceLocation(location map[string]interface{}, inc
 		Column:     character,
 	}
 
-	// Read code context if requested
-	if includeCode && uri != "" {
-		r := lsp.Range{
-			Start: lsp.Position{Line: line, Character: character},
-			End:   lsp.Position{Line: line, Character: character + 50}, // Read 50 chars for context
-		}
-		if code, err := m.readSymbolCode(refInfo.FilePath, r); err == nil {
-			refInfo.Code = strings.TrimSpace(code)
-			// Also get the full line as context
-			if fullLine, err := m.readFullLine(refInfo.FilePath, line); err == nil {
-				refInfo.Context = strings.TrimSpace(fullLine)
-			}
-		}
-	}
-
 	return refInfo
 }
 
 // locationToReferenceInfo converts an lsp.Location to ReferenceInfo
-func (m *LSPManager) locationToReferenceInfo(loc lsp.Location, includeCode bool) *ReferenceInfo {
+func (m *LSPManager) locationToReferenceInfo(loc lsp.Location) *ReferenceInfo {
 	refInfo := &ReferenceInfo{
 		FilePath:   strings.TrimPrefix(loc.URI, "file://"),
 		LineNumber: loc.Range.Start.Line,
 		Column:     loc.Range.Start.Character,
-	}
-
-	// Read code context if requested
-	if includeCode && loc.URI != "" {
-		if code, err := m.readSymbolCode(refInfo.FilePath, loc.Range); err == nil {
-			refInfo.Code = strings.TrimSpace(code)
-			// Also get the full line as context
-			if fullLine, err := m.readFullLine(refInfo.FilePath, loc.Range.Start.Line); err == nil {
-				refInfo.Context = strings.TrimSpace(fullLine)
-			}
-		}
 	}
 
 	return refInfo
@@ -534,7 +449,7 @@ func (m *LSPManager) getScipStorageFromCache() scip.SCIPDocumentStorage {
 }
 
 // createReferenceFromOccurrence creates a ReferenceInfo from a SCIP occurrence
-func (m *LSPManager) createReferenceFromOccurrence(ctx context.Context, scipStorage scip.SCIPDocumentStorage, occurrence scip.SCIPOccurrence, symbolInfo *scip.SCIPSymbolInformation, query SymbolReferenceQuery) *ReferenceInfo {
+func (m *LSPManager) createReferenceFromOccurrence(ctx context.Context, scipStorage scip.SCIPDocumentStorage, occurrence scip.SCIPOccurrence, symbolInfo *scip.SCIPSymbolInformation) *ReferenceInfo {
 	// Convert SCIP range to LSP-compatible format
 	refInfo := &ReferenceInfo{
 		FilePath:       "", // Need to determine from document context
@@ -568,26 +483,11 @@ func (m *LSPManager) createReferenceFromOccurrence(ctx context.Context, scipStor
 		}
 	}
 
-	// Read code context if requested
-	if query.IncludeCode && refInfo.FilePath != "" {
-		lspRange := lsp.Range{
-			Start: lsp.Position{Line: refInfo.LineNumber, Character: refInfo.Column},
-			End:   lsp.Position{Line: int(occurrence.Range.End.Line), Character: int(occurrence.Range.End.Character)},
-		}
-		if code, err := m.readSymbolCode(refInfo.FilePath, lspRange); err == nil {
-			refInfo.Code = strings.TrimSpace(code)
-			// Also get the full line as context
-			if fullLine, err := m.readFullLine(refInfo.FilePath, refInfo.LineNumber); err == nil {
-				refInfo.Context = strings.TrimSpace(fullLine)
-			}
-		}
-	}
-
 	return refInfo
 }
 
 // createLegacyReferenceInfo creates ReferenceInfo from LSP SymbolInformation (fallback)
-func (m *LSPManager) createLegacyReferenceInfo(symbolInfo lsp.SymbolInformation, query SymbolReferenceQuery) ReferenceInfo {
+func (m *LSPManager) createLegacyReferenceInfo(symbolInfo lsp.SymbolInformation) ReferenceInfo {
 	refInfo := ReferenceInfo{
 		FilePath:   strings.TrimPrefix(symbolInfo.Location.URI, "file://"),
 		LineNumber: symbolInfo.Location.Range.Start.Line,
@@ -607,17 +507,6 @@ func (m *LSPManager) createLegacyReferenceInfo(symbolInfo lsp.SymbolInformation,
 		IsReadAccess: true, // Assume references are read access by default
 	}
 
-	// Read code context if requested
-	if query.IncludeCode && symbolInfo.Location.URI != "" {
-		if code, err := m.readSymbolCode(refInfo.FilePath, symbolInfo.Location.Range); err == nil {
-			refInfo.Code = strings.TrimSpace(code)
-			// Also get the full line as context
-			if fullLine, err := m.readFullLine(refInfo.FilePath, symbolInfo.Location.Range.Start.Line); err == nil {
-				refInfo.Context = strings.TrimSpace(fullLine)
-			}
-		}
-	}
-
 	return refInfo
 }
 
@@ -627,38 +516,6 @@ func (m *LSPManager) matchesSymbolName(symbolName string, queryName string, exac
 		return symbolName == queryName
 	}
 	return strings.Contains(strings.ToLower(symbolName), strings.ToLower(queryName))
-}
-
-// passesRoleFilter checks if a reference passes the role-based filters
-func (m *LSPManager) passesRoleFilter(refInfo ReferenceInfo, query SymbolReferenceQuery) bool {
-	// Filter by specific role if provided
-	if query.FilterByRole != nil {
-		if !refInfo.OccurrenceRole.HasRole(*query.FilterByRole) {
-			return false
-		}
-	}
-
-	// Filter for read access only
-	if query.OnlyReadAccess && !refInfo.IsReadAccess {
-		return false
-	}
-
-	// Filter for write access only
-	if query.OnlyWriteAccess && !refInfo.IsWriteAccess {
-		return false
-	}
-
-	// Exclude generated code
-	if query.ExcludeGenerated && refInfo.IsGenerated {
-		return false
-	}
-
-	// Exclude test code
-	if query.ExcludeTest && refInfo.IsTest {
-		return false
-	}
-
-	return true
 }
 
 // isDuplicateReference checks if a reference is already in the results

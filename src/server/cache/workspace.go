@@ -31,7 +31,7 @@ func NewWorkspaceIndexer(lspFallback LSPFallback) *WorkspaceIndexer {
 // and extracting their complete symbol hierarchies for enhanced cache population
 func (w *WorkspaceIndexer) IndexWorkspaceFiles(ctx context.Context, workspaceDir string, languages []string, maxFiles int) error {
 	common.LSPLogger.Debug("IndexWorkspaceFiles called: workspaceDir=%s, languages=%v, maxFiles=%d", workspaceDir, languages, maxFiles)
-	
+
 	// Check if LSP fallback is nil
 	if w.lspFallback == nil {
 		common.LSPLogger.Error("IndexWorkspaceFiles: lspFallback is nil!")
@@ -148,7 +148,7 @@ func (w *WorkspaceIndexer) GetLanguageExtensions(languages []string) []string {
 func (w *WorkspaceIndexer) ScanWorkspaceSourceFiles(dir string, extensions []string, maxFiles int) []string {
 	var files []string
 	count := 0
-	
+
 	common.LSPLogger.Debug("ScanWorkspaceSourceFiles: Starting scan of %s, looking for extensions: %v, maxFiles: %d", dir, extensions, maxFiles)
 
 	filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {

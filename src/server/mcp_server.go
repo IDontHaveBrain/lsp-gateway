@@ -266,107 +266,24 @@ func (m *MCPServer) handleToolsList(req *MCPRequest) *MCPResponse {
 		},
 		{
 			"name":        "findReferences",
-			"description": "Find all references to a specific symbol in the codebase. Returns locations where the symbol is used.",
+			"description": "Find all references to symbols matching a pattern in the codebase. Returns locations where matching symbols are used.",
 			"inputSchema": map[string]interface{}{
 				"type": "object",
 				"properties": map[string]interface{}{
-					"symbolName": map[string]interface{}{
+					"pattern": map[string]interface{}{
 						"type":        "string",
-						"description": "Name of the symbol to find references for. Examples: 'handleRequest', 'UserService', 'calculateTotal'",
+						"description": "Symbol name or regex pattern to search. Use (?i) prefix for case-insensitive. Examples: 'handleRequest', '(?i)test.*', '^get[A-Z]', 'process.*Event$'",
 					},
 					"filePattern": map[string]interface{}{
 						"type":        "string",
-						"description": "File filter to limit search scope. Examples: 'src/', '*.go', '**/*.ts'. Default: '**/*' (all files)",
-					},
-					"exactMatch": map[string]interface{}{
-						"type":        "boolean",
-						"description": "Require exact symbol name match (default: false)",
-					},
-					"includeDefinition": map[string]interface{}{
-						"type":        "boolean",
-						"description": "Include the symbol definition in results (default: false)",
-					},
-					"includeRelated": map[string]interface{}{
-						"type":        "boolean",
-						"description": "Include related symbols through implementation/inheritance relationships (default: false)",
-					},
-					"includeCode": map[string]interface{}{
-						"type":        "boolean",
-						"description": "Include code context for each reference (default: false)",
+						"description": "File filter using directory path, glob pattern, or regex. Default: '**/*' (all files). Examples: '.', 'src/', 'tests/unit/', '*.java', 'src/**/*.py', '(?i)test.*\\.js$', '**/internal/*.go'",
 					},
 					"maxResults": map[string]interface{}{
 						"type":        "number",
 						"description": "Maximum number of references to return (default: 100)",
 					},
-					"symbolRoles": map[string]interface{}{
-						"type": "array",
-						"items": map[string]interface{}{
-							"type": "string",
-						},
-						"description": "Filter by occurrence roles: 'definition', 'reference', 'import', 'write', 'read', 'generated', 'test'. Leave empty for all roles.",
-					},
 				},
-				"required": []string{"symbolName"},
-			},
-		},
-		{
-			"name":        "findDefinitions",
-			"description": "Find symbol definitions in the codebase. Returns only the definition occurrences of symbols.",
-			"inputSchema": map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"symbolName": map[string]interface{}{
-						"type":        "string",
-						"description": "Name of the symbol to find definitions for. Examples: 'handleRequest', 'UserService', 'calculateTotal'",
-					},
-					"filePattern": map[string]interface{}{
-						"type":        "string",
-						"description": "File filter to limit search scope. Examples: 'src/', '*.go', '**/*.ts'. Default: '**/*' (all files)",
-					},
-					"exactMatch": map[string]interface{}{
-						"type":        "boolean",
-						"description": "Require exact symbol name match (default: false)",
-					},
-					"includeCode": map[string]interface{}{
-						"type":        "boolean",
-						"description": "Include code context for each definition (default: false)",
-					},
-					"maxResults": map[string]interface{}{
-						"type":        "number",
-						"description": "Maximum number of definitions to return (default: 100)",
-					},
-				},
-				"required": []string{"symbolName"},
-			},
-		},
-		{
-			"name":        "getSymbolInfo",
-			"description": "Get detailed information about a specific symbol including documentation, relationships, and metadata.",
-			"inputSchema": map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"symbolName": map[string]interface{}{
-						"type":        "string",
-						"description": "Name of the symbol to get information for. Examples: 'handleRequest', 'UserService', 'calculateTotal'",
-					},
-					"filePattern": map[string]interface{}{
-						"type":        "string",
-						"description": "File filter to limit search scope. Examples: 'src/', '*.go', '**/*.ts'. Default: '**/*' (all files)",
-					},
-					"exactMatch": map[string]interface{}{
-						"type":        "boolean",
-						"description": "Require exact symbol name match (default: false)",
-					},
-					"includeDocumentation": map[string]interface{}{
-						"type":        "boolean",
-						"description": "Include symbol documentation and signature information (default: true)",
-					},
-					"includeRelationships": map[string]interface{}{
-						"type":        "boolean",
-						"description": "Include symbol relationships (implements, extends, calls, etc.) (default: true)",
-					},
-				},
-				"required": []string{"symbolName"},
+				"required": []string{"pattern"},
 			},
 		},
 	}

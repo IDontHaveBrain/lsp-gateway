@@ -103,12 +103,12 @@ func IndexCache(configPath string) error {
 		common.CLILogger.Error("   • LSP servers are returning document symbols (enable LSP_GATEWAY_DEBUG=true)")
 		common.CLILogger.Error("   • Cache is properly enabled and configured")
 		common.CLILogger.Error("   • Files exist in the workspace")
-		
+
 		// Show updated stats even on failure
 		if updatedMetrics, err := cacheInstance.HealthCheck(); err == nil && updatedMetrics != nil {
 			common.CLILogger.Info("📊 Updated cache stats: %d entries", updatedMetrics.EntryCount)
 		}
-		
+
 		return fmt.Errorf("cache indexing failed: no symbols were indexed")
 	}
 

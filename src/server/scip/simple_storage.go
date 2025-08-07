@@ -159,11 +159,11 @@ func (s *SimpleSCIPStorage) StoreDocument(ctx context.Context, doc *SCIPDocument
 	s.currentSize += doc.Size
 	s.addToAccessOrder(doc.URI)
 	s.updateOccurrenceIndexes(doc)
-	
+
 	// Debug: Check symbol info index size after update
 	common.LSPLogger.Debug("StoreDocument: Stored doc %s with %d occurrences and %d symbol infos. Total symbols in index: %d",
 		doc.URI, len(doc.Occurrences), len(doc.SymbolInformation), len(s.symbolInfoIndex))
-	
+
 	return nil
 }
 
@@ -1212,8 +1212,8 @@ func (s *SimpleSCIPStorage) loadFromDisk() error {
 	s.currentSize = data.CurrentSize
 	s.hitCount = data.HitCount
 	s.missCount = data.MissCount
-	
-	common.LSPLogger.Debug("Loaded SCIP cache from disk: %d documents, %d symbols", 
+
+	common.LSPLogger.Debug("Loaded SCIP cache from disk: %d documents, %d symbols",
 		len(s.documents), len(data.SymbolInfoIndex))
 
 	// Restore document index or initialize if not present

@@ -1,8 +1,10 @@
 package server
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"lsp-gateway/src/internal/common"
@@ -53,10 +55,6 @@ func (m *MCPServer) delegateToolCall(req *MCPRequest) *MCPResponse {
 		result, err = m.handleFindSymbols(params)
 	case "findReferences":
 		result, err = m.handleFindSymbolReferences(params)
-	case "findDefinitions":
-		result, err = m.handleFindDefinitions(params)
-	case "getSymbolInfo":
-		result, err = m.handleGetSymbolInfo(params)
 	default:
 		return &MCPResponse{
 			JSONRPC: "2.0",
@@ -174,19 +172,19 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 					// Extract symbol info and occurrence
 					var symbolInfo scip.SCIPSymbolInformation
 					var occurrence *scip.SCIPOccurrence
-					
+
 					if si, ok := enhancedData["symbolInfo"].(scip.SCIPSymbolInformation); ok {
 						symbolInfo = si
 					}
 					if occ, ok := enhancedData["occurrence"].(*scip.SCIPOccurrence); ok {
 						occurrence = occ
 					}
-					
+
 					// Extract file path and range from occurrence
 					filePath := ""
 					lineNumber := 0
 					endLine := 0
-					
+
 					if occurrence != nil {
 						// Get file path from document URI
 						if docURI, ok := enhancedData["filePath"].(string); ok {
@@ -196,12 +194,12 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 								filePath = docURI
 							}
 						}
-						
+
 						// Extract line range from occurrence
 						lineNumber = int(occurrence.Range.Start.Line)
 						endLine = int(occurrence.Range.End.Line)
 					}
-					
+
 					// Convert SCIP kind to LSP kind
 					lspKind := lsp.Variable // Default
 					switch symbolInfo.Kind {
@@ -232,13 +230,13 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 					case scip.SCIPSymbolKindStruct:
 						lspKind = lsp.Struct
 					}
-					
+
 					// Extract documentation
 					documentation := ""
 					if len(symbolInfo.Documentation) > 0 {
 						documentation = strings.Join(symbolInfo.Documentation, "\n")
 					}
-					
+
 					// Extract container name from symbol ID if available
 					containerName := ""
 					if parts := strings.Fields(symbolInfo.Symbol); len(parts) > 3 {
@@ -247,7 +245,7 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 							containerName = parts[1] // Package name
 						}
 					}
-					
+
 					// Create enhanced symbol info
 					enhanced := types.EnhancedSymbolInfo{
 						SymbolInformation: lsp.SymbolInformation{
@@ -273,7 +271,7 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 					// Fallback: handle plain SCIPSymbolInformation without occurrence data
 					symbolName := scipSymbol.DisplayName
 					symbolID := scipSymbol.Symbol
-					
+
 					// Convert SCIP kind to LSP kind
 					lspKind := lsp.Variable // Default
 					switch scipSymbol.Kind {
@@ -304,18 +302,18 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 					case scip.SCIPSymbolKindStruct:
 						lspKind = lsp.Struct
 					}
-					
+
 					// Extract documentation
 					documentation := ""
 					if len(scipSymbol.Documentation) > 0 {
 						documentation = strings.Join(scipSymbol.Documentation, "\n")
 					}
-					
+
 					// Fallback: use symbol ID as file path
 					filePath := symbolID
 					lineNumber := 0
 					endLine := 0
-					
+
 					// Create enhanced symbol info
 					enhanced := types.EnhancedSymbolInfo{
 						SymbolInformation: lsp.SymbolInformation{
@@ -367,26 +365,28 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 		filteredSymbols = m.filterSymbolsByRole(result.Symbols, *roleFilter)
 	}
 
+	// Add code snippets if requested
+	if query.IncludeCode {
+		for i := range filteredSymbols {
+			if filteredSymbols[i].FilePath != "" && filteredSymbols[i].LineNumber > 0 && filteredSymbols[i].EndLine > 0 {
+				code, err := extractCodeLines(filteredSymbols[i].FilePath, filteredSymbols[i].LineNumber, filteredSymbols[i].EndLine)
+				if err == nil {
+					filteredSymbols[i].Code = code
+				}
+			}
+		}
+	}
+
 	// Format the result for MCP with enhanced occurrence metadata
 	formattedResult := map[string]interface{}{
 		"symbols":    formatEnhancedSymbolsForMCP(filteredSymbols, roleFilter != nil),
 		"totalCount": len(filteredSymbols),
 		"truncated":  result.Truncated,
-		"searchMetadata": map[string]interface{}{
-			"pattern":     pattern,
-			"filePattern": filePattern,
-			"roleFilter":  formatRoleFilter(roleFilter),
-			"searchType":  "enhanced_pattern_search",
-		},
 	}
 
 	// Wrap result in content array for MCP response
 	return map[string]interface{}{
 		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": fmt.Sprintf("Found %d symbols matching pattern '%s'", len(filteredSymbols), pattern),
-			},
 			{
 				"type": "text",
 				"text": formatStructuredResult(formattedResult, "findSymbols"),
@@ -395,7 +395,7 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 	}, nil
 }
 
-// handleFindSymbolReferences handles the findReferences tool for finding all references to a symbol
+// handleFindSymbolReferences handles the findReferences tool for finding all references to symbols matching a pattern
 func (m *MCPServer) handleFindSymbolReferences(params map[string]interface{}) (interface{}, error) {
 
 	arguments, ok := params["arguments"].(map[string]interface{})
@@ -404,25 +404,19 @@ func (m *MCPServer) handleFindSymbolReferences(params map[string]interface{}) (i
 		return nil, fmt.Errorf("missing or invalid arguments")
 	}
 
-	symbolName, ok := arguments["symbolName"].(string)
-	if !ok || symbolName == "" {
-		return nil, fmt.Errorf("symbolName is required and must be a string")
+	pattern, ok := arguments["pattern"].(string)
+	if !ok || pattern == "" {
+		return nil, fmt.Errorf("pattern is required and must be a string")
+	}
+
+	filePattern := "**/*" // Default to all files
+	if fp, ok := arguments["filePattern"].(string); ok && fp != "" {
+		filePattern = fp
 	}
 
 	query := SymbolReferenceQuery{
-		SymbolName: symbolName,
-	}
-
-	// Parse file pattern
-	if filePattern, ok := arguments["filePattern"].(string); ok {
-		query.FilePattern = filePattern
-	} else {
-		query.FilePattern = "**/*"
-	}
-
-	// Parse include definition
-	if includeDefinition, ok := arguments["includeDefinition"].(bool); ok {
-		query.IncludeDefinition = includeDefinition
+		Pattern:     pattern,
+		FilePattern: filePattern,
 	}
 
 	// Parse max results
@@ -432,115 +426,28 @@ func (m *MCPServer) handleFindSymbolReferences(params map[string]interface{}) (i
 		query.MaxResults = 100
 	}
 
-	// Parse include code
-	if includeCode, ok := arguments["includeCode"].(bool); ok {
-		query.IncludeCode = includeCode
-	}
-
-	// Parse exact match
-	if exactMatch, ok := arguments["exactMatch"].(bool); ok {
-		query.ExactMatch = exactMatch
-	}
-
-	// Parse include related
-	if includeRelated, ok := arguments["includeRelated"].(bool); ok {
-		query.IncludeRelated = includeRelated
-	}
-
-	// Parse symbol roles for enhanced filtering
-	if roles, ok := arguments["symbolRoles"].([]interface{}); ok {
-		var combinedRole types.SymbolRole
-		for _, r := range roles {
-			if roleStr, ok := r.(string); ok {
-				role := parseSymbolRole(roleStr)
-				if role != 0 {
-					combinedRole = combinedRole.AddRole(role)
-				}
-			}
-		}
-		if combinedRole != 0 {
-			query.FilterByRole = &combinedRole
-		}
-	}
-
 	// Execute the search using SCIP cache directly with fallback
 	ctx := context.Background()
 	var result *SymbolReferenceResult
 	var err error
 
-	// Try direct SCIP cache first for better performance
-	if m.scipCache != nil {
-		scipResults, scipErr := m.scipCache.SearchReferences(ctx, symbolName, query.FilePattern, query.MaxResults)
-		if scipErr == nil && len(scipResults) > 0 {
-			// Convert SCIP results to SymbolReferenceResult format
-			references := make([]ReferenceInfo, 0, len(scipResults))
-			definitionCount := 0
-			readAccessCount := 0
-			writeAccessCount := 0
-
-			for _, scipResult := range scipResults {
-				// Create a basic ReferenceInfo from SCIP result
-				// This is a simplified conversion - could be enhanced
-				refInfo := ReferenceInfo{
-					FilePath:   fmt.Sprintf("scip_ref_%v", scipResult),
-					LineNumber: 0, // Would need to extract from SCIP occurrence
-					Column:     0,
-					Text:       fmt.Sprintf("Reference: %v", scipResult),
-				}
-				references = append(references, refInfo)
-
-				// Count different types - simplified logic
-				readAccessCount++ // Assume all are read access for now
-			}
-
-			result = &SymbolReferenceResult{
-				References:       references,
-				TotalCount:       len(references),
-				Truncated:        len(scipResults) >= query.MaxResults,
-				DefinitionCount:  definitionCount,
-				ReadAccessCount:  readAccessCount,
-				WriteAccessCount: writeAccessCount,
-				SearchMetadata:   map[string]interface{}{"source": "scip_cache"},
-			}
-		} else {
-			// Log cache miss and fall back to LSP manager
-			common.LSPLogger.Debug("SCIP cache references search failed or returned no results, falling back to LSP: %v", scipErr)
-			result, err = m.lspManager.SearchSymbolReferences(ctx, query)
-			if err != nil {
-				common.LSPLogger.Error("SearchSymbolReferences fallback failed: %v", err)
-				return nil, fmt.Errorf("symbol references search failed: %w", err)
-			}
-		}
-	} else {
-		// No cache available, use LSP manager directly
-		result, err = m.lspManager.SearchSymbolReferences(ctx, query)
-		if err != nil {
-			common.LSPLogger.Error("SearchSymbolReferences failed: %v", err)
-			return nil, fmt.Errorf("symbol references search failed: %w", err)
-		}
+	// Always use LSP manager for now (SCIP cache conversion needs fixing)
+	result, err = m.lspManager.SearchSymbolReferences(ctx, query)
+	if err != nil {
+		common.LSPLogger.Error("SearchSymbolReferences failed: %v", err)
+		return nil, fmt.Errorf("symbol references search failed: %w", err)
 	}
 
-	// Format the result for MCP with enhanced metadata
+	// Format the result for MCP with simplified response
 	formattedResult := map[string]interface{}{
-		"references":       formatEnhancedReferencesForMCP(result.References),
-		"totalCount":       result.TotalCount,
-		"truncated":        result.Truncated,
-		"definitionCount":  result.DefinitionCount,
-		"readAccessCount":  result.ReadAccessCount,
-		"writeAccessCount": result.WriteAccessCount,
-		"implementations":  formatEnhancedReferencesForMCP(result.Implementations),
-		"relatedSymbols":   result.RelatedSymbols,
-		"searchMetadata":   result.SearchMetadata,
+		"references": formatSimpleReferencesForMCP(result.References),
+		"totalCount": result.TotalCount,
+		"truncated":  result.Truncated,
 	}
 
 	// Wrap result in content array for MCP response
 	return map[string]interface{}{
 		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": fmt.Sprintf("Found %d references to symbol '%s' (%d definitions, %d reads, %d writes)",
-					result.TotalCount, symbolName, result.DefinitionCount, result.ReadAccessCount, result.WriteAccessCount),
-			},
 			{
 				"type": "text",
 				"text": formatStructuredResult(formattedResult, "findReferences"),
@@ -562,13 +469,17 @@ func (m *MCPServer) handleFindDefinitions(params map[string]interface{}) (interf
 		return nil, fmt.Errorf("symbolName is required and must be a string")
 	}
 
-	// Create a reference query that only includes definitions
+	// Create a reference query for definitions using the symbol name as pattern
+	pattern := symbolName
+	// If exact match is requested, wrap in anchors
+	if exactMatch, ok := arguments["exactMatch"].(bool); ok && exactMatch {
+		pattern = "^" + symbolName + "$"
+	}
+
 	query := SymbolReferenceQuery{
-		SymbolName:        symbolName,
-		FilePattern:       "**/*",
-		IncludeDefinition: true,
-		MaxResults:        100,
-		ExactMatch:        false,
+		Pattern:     pattern,
+		FilePattern: "**/*",
+		MaxResults:  100,
 	}
 
 	// Set file pattern if provided
@@ -576,24 +487,10 @@ func (m *MCPServer) handleFindDefinitions(params map[string]interface{}) (interf
 		query.FilePattern = filePattern
 	}
 
-	// Set exact match if provided
-	if exactMatch, ok := arguments["exactMatch"].(bool); ok {
-		query.ExactMatch = exactMatch
-	}
-
 	// Set max results if provided
 	if maxResults, ok := arguments["maxResults"].(float64); ok {
 		query.MaxResults = int(maxResults)
 	}
-
-	// Set include code if provided
-	if includeCode, ok := arguments["includeCode"].(bool); ok {
-		query.IncludeCode = includeCode
-	}
-
-	// Filter only definition roles
-	definitionRole := types.SymbolRoleDefinition
-	query.FilterByRole = &definitionRole
 
 	// Execute the search using SCIP cache directly with fallback
 	ctx := context.Background()
@@ -654,11 +551,6 @@ func (m *MCPServer) handleFindDefinitions(params map[string]interface{}) (interf
 		"definitions": formatEnhancedReferencesForMCP(definitions),
 		"totalCount":  len(definitions),
 		"truncated":   result.Truncated,
-		"searchMetadata": map[string]interface{}{
-			"symbolName": symbolName,
-			"searchType": "definitions_only",
-			"exactMatch": query.ExactMatch,
-		},
 	}
 
 	return map[string]interface{}{
@@ -757,13 +649,16 @@ func (m *MCPServer) handleGetSymbolInfo(params map[string]interface{}) (interfac
 	var relatedSymbols []string
 
 	if includeRelationships {
+		// Create pattern for reference search
+		pattern := symbolName
+		if exactMatch {
+			pattern = "^" + symbolName + "$"
+		}
+
 		refQuery := SymbolReferenceQuery{
-			SymbolName:        symbolName,
-			FilePattern:       filePattern,
-			IncludeDefinition: true,
-			IncludeRelated:    true,
-			MaxResults:        50, // Limit for detailed info
-			ExactMatch:        exactMatch,
+			Pattern:     pattern,
+			FilePattern: filePattern,
+			MaxResults:  50, // Limit for detailed info
 		}
 
 		// Try SCIP cache first for references
@@ -849,13 +744,6 @@ func (m *MCPServer) handleGetSymbolInfo(params map[string]interface{}) (interfac
 
 	formattedResult := map[string]interface{}{
 		"symbolInfo": symbolInfo,
-		"searchMetadata": map[string]interface{}{
-			"symbolName":           symbolName,
-			"searchType":           "detailed_symbol_info",
-			"includeRelationships": includeRelationships,
-			"includeDocumentation": includeDocumentation,
-			"exactMatch":           exactMatch,
-		},
 	}
 
 	return map[string]interface{}{
@@ -881,4 +769,33 @@ func (m *MCPServer) filterSymbolsByRole(symbols []types.EnhancedSymbolInfo, role
 	// For now, return all symbols since we don't have role data in EnhancedSymbolInfo
 	// This would need to be enhanced with actual occurrence-based filtering
 	return symbols
+}
+
+// extractCodeLines reads lines from a file between start and end line numbers (1-indexed)
+func extractCodeLines(filePath string, startLine, endLine int) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	var lines []string
+	currentLine := 1
+
+	for scanner.Scan() {
+		if currentLine >= startLine && currentLine <= endLine {
+			lines = append(lines, scanner.Text())
+		}
+		if currentLine > endLine {
+			break
+		}
+		currentLine++
+	}
+
+	if err := scanner.Err(); err != nil {
+		return "", err
+	}
+
+	return strings.Join(lines, "\n"), nil
 }

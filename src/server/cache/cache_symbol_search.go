@@ -96,12 +96,11 @@ type EnhancedSymbolSearchResult struct {
 
 // ReferenceSearchOptions represents options for reference searching
 type ReferenceSearchOptions struct {
-	IncludeDefinition bool                  `json:"include_definition"`
-	MaxResults        int                   `json:"max_results,omitempty"`
-	SymbolRoles       []types.SymbolRole    `json:"symbol_roles,omitempty"`
-	SymbolKinds       []scip.SCIPSymbolKind `json:"symbol_kinds,omitempty"`
-	IncludeCode       bool                  `json:"include_code"`
-	SortBy            string                `json:"sort_by,omitempty"` // "location", "relevance", "file"
+	MaxResults  int                   `json:"max_results,omitempty"`
+	SymbolRoles []types.SymbolRole    `json:"symbol_roles,omitempty"`
+	SymbolKinds []scip.SCIPSymbolKind `json:"symbol_kinds,omitempty"`
+	IncludeCode bool                  `json:"include_code"`
+	SortBy      string                `json:"sort_by,omitempty"` // "location", "relevance", "file"
 }
 
 // ReferenceSearchResult represents reference search results with occurrence details

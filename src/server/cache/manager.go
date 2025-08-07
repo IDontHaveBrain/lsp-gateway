@@ -440,7 +440,7 @@ func (m *SCIPCacheManager) Clear() error {
 
 	common.LSPLogger.Debug("Clearing all cache entries")
 	m.entries = make(map[string]*CacheEntry)
-	
+
 	// Stop SCIP storage to ensure it doesn't save on shutdown
 	if m.scipStorage != nil {
 		ctx := context.Background()
@@ -448,12 +448,12 @@ func (m *SCIPCacheManager) Clear() error {
 			common.LSPLogger.Debug("Failed to stop SCIP storage: %v", err)
 		}
 	}
-	
+
 	// Delete persisted SCIP storage cache file
 	if m.config.DiskCache && m.config.StoragePath != "" {
 		// The SCIP storage saves to simple_cache.json in the storage path
 		cacheFile := filepath.Join(m.config.StoragePath, "simple_cache.json")
-		
+
 		// Check if file exists before deletion
 		if _, err := os.Stat(cacheFile); err == nil {
 			if err := os.Remove(cacheFile); err != nil {
@@ -465,7 +465,7 @@ func (m *SCIPCacheManager) Clear() error {
 			common.LSPLogger.Warn("Error checking cache file: %v", err)
 		}
 	}
-	
+
 	// Recreate SCIP storage with empty data
 	if m.scipStorage != nil {
 		scipConfig := scip.SCIPStorageConfig{
@@ -484,7 +484,7 @@ func (m *SCIPCacheManager) Clear() error {
 			}
 		}
 	}
-	
+
 	// Reset index stats
 	m.indexStats = &IndexStats{
 		Status:        "cleared",
@@ -494,7 +494,7 @@ func (m *SCIPCacheManager) Clear() error {
 		SymbolCount:   0,
 		IndexSize:     0,
 	}
-	
+
 	m.updateStats()
 	return nil
 }
@@ -641,15 +641,15 @@ func (m *SCIPCacheManager) IndexDocument(ctx context.Context, uri string, langua
 	if err != nil {
 		return fmt.Errorf("failed to convert LSP symbols to SCIP document: %w", err)
 	}
-	
-	common.LSPLogger.Debug("IndexDocument: Created SCIP doc for %s with %d occurrences and %d symbol infos", 
+
+	common.LSPLogger.Debug("IndexDocument: Created SCIP doc for %s with %d occurrences and %d symbol infos",
 		uri, len(scipDoc.Occurrences), len(scipDoc.SymbolInformation))
 
 	// Store in SCIP storage
 	if err := m.scipStorage.StoreDocument(ctx, scipDoc); err != nil {
 		return fmt.Errorf("failed to store SCIP document: %w", err)
 	}
-	
+
 	common.LSPLogger.Debug("IndexDocument: Successfully stored SCIP document for %s", uri)
 
 	// Update statistics
@@ -1548,8 +1548,8 @@ func (m *SCIPCacheManager) SearchReferencesEnhanced(ctx context.Context, symbolN
 			}
 		}
 
-		// Get definition if requested
-		if options.IncludeDefinition && definition == nil {
+		// Get definition
+		if definition == nil {
 			if defOcc, err := m.scipStorage.GetDefinitionOccurrence(ctx, symbolInfo.Symbol); err == nil {
 				docURI := m.extractURIFromOccurrence(defOcc)
 				if filePattern == "" || m.matchFilePattern(docURI, filePattern) {
@@ -2069,7 +2069,7 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern string, fi
 			results = append(results, symbolInfo)
 			continue
 		}
-		
+
 		// Find the document URI that contains this occurrence
 		// We need to search through all documents to find which one has this occurrence
 		documentURI := ""
@@ -2086,7 +2086,7 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern string, fi
 				break
 			}
 		}
-		
+
 		// Create enhanced result with both symbol info and occurrence data
 		enhancedResult := map[string]interface{}{
 			"symbolInfo": symbolInfo,

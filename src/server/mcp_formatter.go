@@ -10,9 +10,15 @@ import (
 )
 
 // formatStructuredResult formats any result as indented JSON for MCP responses
+// For findSymbols tool, it uses raw code blocks to reduce token usage
 func formatStructuredResult(result interface{}, toolName string) string {
 	if result == nil {
 		return fmt.Sprintf("Tool '%s' returned no results", toolName)
+	}
+
+	// Special handling for findSymbols to use raw code blocks
+	if toolName == "findSymbols" {
+		return formatSymbolsWithRawCode(result)
 	}
 
 	data, err := json.MarshalIndent(result, "", "  ")
@@ -21,6 +27,86 @@ func formatStructuredResult(result interface{}, toolName string) string {
 	}
 
 	return string(data)
+}
+
+// formatSymbolsWithRawCode formats symbol results with raw code blocks to minimize tokens
+func formatSymbolsWithRawCode(result interface{}) string {
+	// First marshal to JSON to get the structure
+	data, err := json.Marshal(result)
+	if err != nil {
+		return fmt.Sprintf("Error formatting symbols: %v", err)
+	}
+
+	// Parse back to extract code fields
+	var parsed map[string]interface{}
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		return string(data) // Fallback to regular JSON
+	}
+
+	// Build custom output with raw code blocks
+	var output strings.Builder
+	output.WriteString("{\n")
+
+	// Process each field
+	for key, value := range parsed {
+		if key == "symbols" {
+			output.WriteString(`  "symbols": [`)
+			if symbols, ok := value.([]interface{}); ok {
+				for i, sym := range symbols {
+					if i > 0 {
+						output.WriteString(",")
+					}
+					output.WriteString("\n    {")
+					if symMap, ok := sym.(map[string]interface{}); ok {
+						first := true
+						for k, v := range symMap {
+							if !first {
+								output.WriteString(",")
+							}
+							first = false
+							output.WriteString("\n      \"")
+							output.WriteString(k)
+							output.WriteString("\": ")
+
+							if k == "code" && v != nil {
+								// Use raw code block with custom delimiters
+								if codeStr, ok := v.(string); ok && codeStr != "" {
+									output.WriteString("<<<CODE_BLOCK>>>\n")
+									output.WriteString(codeStr)
+									if !strings.HasSuffix(codeStr, "\n") {
+										output.WriteString("\n")
+									}
+									output.WriteString("<<<CODE_BLOCK>>>")
+								} else {
+									output.WriteString("null")
+								}
+							} else {
+								// Regular JSON encoding for other fields
+								valBytes, _ := json.Marshal(v)
+								output.Write(valBytes)
+							}
+						}
+					}
+					output.WriteString("\n    }")
+				}
+			}
+			output.WriteString("\n  ],\n")
+		} else {
+			output.WriteString("  \"")
+			output.WriteString(key)
+			output.WriteString("\": ")
+			valBytes, _ := json.Marshal(value)
+			output.Write(valBytes)
+			output.WriteString(",\n")
+		}
+	}
+
+	// Remove trailing comma and close
+	resultStr := output.String()
+	if strings.HasSuffix(resultStr, ",\n") {
+		resultStr = resultStr[:len(resultStr)-2] + "\n"
+	}
+	return resultStr + "}"
 }
 
 // getSymbolKindName returns the string representation of a symbol kind
@@ -164,14 +250,6 @@ func formatEnhancedSymbolsForMCP(symbols []types.EnhancedSymbolInfo, hasRoleFilt
 			result["code"] = sym.Code
 		}
 
-		// Add enhanced metadata for SCIP features (placeholder)
-		result["occurrenceMetadata"] = map[string]interface{}{
-			"filePath":      sym.FilePath,
-			"lineNumber":    sym.LineNumber,
-			"endLine":       sym.EndLine,
-			"hasRoleFilter": hasRoleFilter,
-		}
-
 		formatted[i] = result
 	}
 
@@ -198,70 +276,20 @@ func formatEnhancedReferencesForMCP(references []ReferenceInfo) []map[string]int
 			result["context"] = ref.Context
 		}
 
-		// Enhanced SCIP occurrence metadata
-		occurrenceMetadata := map[string]interface{}{
-			"symbolId": ref.SymbolID,
-		}
-
-		// Role-based metadata
-		var roles []string
-		if ref.IsDefinition {
-			roles = append(roles, "definition")
-		}
-		if ref.IsReadAccess {
-			roles = append(roles, "read")
-		}
-		if ref.IsWriteAccess {
-			roles = append(roles, "write")
-		}
-		if ref.IsImport {
-			roles = append(roles, "import")
-		}
-		if ref.IsGenerated {
-			roles = append(roles, "generated")
-		}
-		if ref.IsTest {
-			roles = append(roles, "test")
-		}
-
-		if len(roles) > 0 {
-			occurrenceMetadata["roles"] = roles
-		}
-
-		// Role indicator flags for easier filtering
-		occurrenceMetadata["isDefinition"] = ref.IsDefinition
-		occurrenceMetadata["isReadAccess"] = ref.IsReadAccess
-		occurrenceMetadata["isWriteAccess"] = ref.IsWriteAccess
-		occurrenceMetadata["isImport"] = ref.IsImport
-		occurrenceMetadata["isGenerated"] = ref.IsGenerated
-		occurrenceMetadata["isTest"] = ref.IsTest
-
-		// Add relationships if available
-		if len(ref.Relationships) > 0 {
-			occurrenceMetadata["relationships"] = ref.Relationships
-		}
-
-		// Add documentation if available
-		if len(ref.Documentation) > 0 {
-			occurrenceMetadata["documentation"] = ref.Documentation
-		}
-
-		// Add range information if available
-		if ref.Range != nil {
-			occurrenceMetadata["range"] = map[string]interface{}{
-				"start": map[string]interface{}{
-					"line":      ref.Range.Start.Line,
-					"character": ref.Range.Start.Character,
-				},
-				"end": map[string]interface{}{
-					"line":      ref.Range.End.Line,
-					"character": ref.Range.End.Character,
-				},
-			}
-		}
-
-		result["occurrenceMetadata"] = occurrenceMetadata
 		formatted[i] = result
+	}
+
+	return formatted
+}
+
+// formatSimpleReferencesForMCP formats references with only location information
+func formatSimpleReferencesForMCP(references []ReferenceInfo) []map[string]interface{} {
+	formatted := make([]map[string]interface{}, len(references))
+
+	for i, ref := range references {
+		formatted[i] = map[string]interface{}{
+			"location": fmt.Sprintf("%s:%d", ref.FilePath, ref.LineNumber),
+		}
 	}
 
 	return formatted

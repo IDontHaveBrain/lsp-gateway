@@ -37,7 +37,7 @@ func (m *LSPManager) performSCIPIndexing(ctx context.Context, method, uri, langu
 // indexDocumentSymbolsAsOccurrences indexes document symbols as SCIP occurrences with definition roles
 func (m *LSPManager) indexDocumentSymbolsAsOccurrences(ctx context.Context, uri, language string, result interface{}) {
 	common.LSPLogger.Debug("indexDocumentSymbolsAsOccurrences called for uri=%s, language=%s", uri, language)
-	
+
 	var symbols []lsp.SymbolInformation
 	var conversionFailures, jsonFailures int
 
