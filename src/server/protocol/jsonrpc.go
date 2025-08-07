@@ -95,7 +95,8 @@ func (p *LSPJSONRPCProtocol) HandleResponses(reader io.Reader, messageHandler Me
 			line, err := bufReader.ReadString('\n')
 			if err != nil {
 				if err == io.EOF {
-					return fmt.Errorf("LSP server connection closed unexpectedly (EOF)")
+					// EOF is expected during shutdown
+					return nil
 				}
 				return err
 			}

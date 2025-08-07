@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strings"
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/types"
@@ -13,13 +14,15 @@ import (
 
 // ProcessInfo holds information about a running LSP server process
 type ProcessInfo struct {
-	Cmd      *exec.Cmd
-	Stdin    io.WriteCloser
-	Stdout   io.ReadCloser
-	Stderr   io.ReadCloser
-	StopCh   chan struct{}
-	Active   bool
-	Language string
+	Cmd               *exec.Cmd
+	Stdin             io.WriteCloser
+	Stdout            io.ReadCloser
+	Stderr            io.ReadCloser
+	StopCh            chan struct{}
+	Active            bool
+	Language          string
+	IntentionalStop   bool // Flag to indicate intentional shutdown
+	ProcessExited     bool // Flag to indicate process has already exited
 }
 
 // ShutdownSender interface for sending LSP shutdown messages
@@ -106,22 +109,38 @@ func (pm *LSPProcessManager) MonitorProcess(info *ProcessInfo, onExit func(error
 
 	// Wait for process to finish
 	err := info.Cmd.Wait()
+	
+	// Mark process as exited
+	info.ProcessExited = true
 
 	// Check if client was active when process exited (helps identify crashes vs normal shutdown)
 	wasActive := info.Active
 
 	// Enhanced error reporting based on process state
-	if err != nil {
-		if wasActive {
-			common.LSPLogger.Error("LSP server %s crashed unexpectedly: %v", info.Language, err)
+	// Only log errors if this wasn't an intentional stop
+	if !info.IntentionalStop {
+		if err != nil {
+			errStr := err.Error()
+			// Filter out common shutdown errors on all platforms
+			isCommonShutdownError := strings.Contains(errStr, "signal: killed") ||
+				strings.Contains(errStr, "waitid: no child processes") ||
+				strings.Contains(errStr, "process already finished") ||
+				strings.Contains(errStr, "exit status 1") ||  // Common on Windows
+				strings.Contains(errStr, "exit status 0xc000013a")  // Windows CTRL_C_EVENT
+				
+			if !isCommonShutdownError {
+				if wasActive {
+					common.LSPLogger.Error("LSP server %s crashed unexpectedly: %v", info.Language, err)
+				} else {
+					common.LSPLogger.Warn("LSP server %s failed to start: %v", info.Language, err)
+				}
+			}
 		} else {
-			common.LSPLogger.Warn("LSP server %s failed to start: %v", info.Language, err)
-		}
-	} else {
-		if wasActive {
-			common.LSPLogger.Info("LSP server %s exited normally", info.Language)
-		} else {
-			common.LSPLogger.Info("LSP server %s stopped during initialization", info.Language)
+			if wasActive {
+				common.LSPLogger.Info("LSP server %s exited normally", info.Language)
+			} else {
+				common.LSPLogger.Info("LSP server %s stopped during initialization", info.Language)
+			}
 		}
 	}
 

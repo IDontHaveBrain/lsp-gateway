@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -96,7 +97,10 @@ func (c *StdioClient) Start(ctx context.Context) error {
 	// Start response handler using protocol module
 	go func() {
 		if err := c.jsonrpcProtocol.HandleResponses(c.processInfo.Stdout, c, c.processInfo.StopCh); err != nil {
-			common.LSPLogger.Error("Error handling responses for %s: %v", c.language, err)
+			// Only log errors if this wasn't an intentional stop
+			if !c.processInfo.IntentionalStop && err != io.EOF {
+				common.LSPLogger.Error("Error handling responses for %s: %v", c.language, err)
+			}
 		}
 	}()
 
@@ -111,10 +115,19 @@ func (c *StdioClient) Start(ctx context.Context) error {
 		c.mu.Unlock()
 
 		// Log process exit for debugging EOF issues
-		if err != nil {
-			common.LSPLogger.Error("LSP server process exited with error: language=%s, error=%v", c.language, err)
-		} else {
-			common.LSPLogger.Warn("LSP server process exited normally: language=%s", c.language)
+		// Only log errors if this wasn't an intentional stop
+		if !c.processInfo.IntentionalStop {
+			if err != nil {
+				// Filter out common shutdown errors
+				errStr := err.Error()
+				if !strings.Contains(errStr, "signal: killed") && 
+				   !strings.Contains(errStr, "waitid: no child processes") &&
+				   !strings.Contains(errStr, "process already finished") &&
+				   !strings.Contains(errStr, "exit status 1") &&  // Common on Windows
+				   !strings.Contains(errStr, "exit status 0xc000013a") {  // Windows CTRL_C_EVENT
+					common.LSPLogger.Error("LSP server process exited with error: language=%s, error=%v", c.language, err)
+				}
+			}
 		}
 	})
 
@@ -236,7 +249,12 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 		common.LSPLogger.Error("LSP request timeout: method=%s, id=%s, timeout=%v", method, id, timeoutDuration)
 		return nil, fmt.Errorf("request timeout after %v for method %s", timeoutDuration, method)
 	case <-processInfo.StopCh:
-		common.LSPLogger.Warn("LSP client stopped during request: method=%s, id=%s", method, id)
+		// During shutdown, this is expected behavior
+		if method == "shutdown" || processInfo.IntentionalStop {
+			common.LSPLogger.Debug("LSP client stopped during request: method=%s, id=%s", method, id)
+		} else {
+			common.LSPLogger.Warn("LSP client stopped during request: method=%s, id=%s", method, id)
+		}
 		return nil, fmt.Errorf("client stopped")
 	}
 }

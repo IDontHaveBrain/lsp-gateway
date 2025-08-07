@@ -20,6 +20,9 @@ func (pm *LSPProcessManager) StopProcess(info *ProcessInfo, sender ShutdownSende
 		return nil
 	}
 
+	// Mark this as an intentional stop
+	info.IntentionalStop = true
+
 	// Close stop channel to signal goroutines to stop
 	select {
 	case <-info.StopCh:
@@ -45,7 +48,8 @@ func (pm *LSPProcessManager) StopProcess(info *ProcessInfo, sender ShutdownSende
 	info.Active = false
 
 	// On Windows, we can't send signals to other processes, so we kill immediately
-	if info.Cmd != nil && info.Cmd.Process != nil {
+	// Only kill if the process hasn't already exited (avoid duplicate operations)
+	if info.Cmd != nil && info.Cmd.Process != nil && !info.ProcessExited {
 		// Kill the process immediately on Windows
 		if err := info.Cmd.Process.Kill(); err != nil {
 			// If kill fails, the process might already be dead
@@ -55,6 +59,11 @@ func (pm *LSPProcessManager) StopProcess(info *ProcessInfo, sender ShutdownSende
 		// Wait for the process to actually exit
 		done := make(chan error, 1)
 		go func() {
+			// Check if process already exited
+			if info.ProcessExited {
+				done <- nil
+				return
+			}
 			done <- info.Cmd.Wait()
 		}()
 
@@ -63,9 +72,8 @@ func (pm *LSPProcessManager) StopProcess(info *ProcessInfo, sender ShutdownSende
 		case <-done:
 			// Process exited
 		case <-time.After(2 * time.Second):
-			// Process still not dead after kill, log but continue
-			common.LSPLogger.Warn("LSP server %s process did not terminate after kill", info.Language)
-		}
+			// Process still not dead after kill, log but continue (debug level for tests)
+			common.LSPLogger.Debug("LSP server %s process did not terminate after kill", info.Language)
 	}
 
 	// Close pipes

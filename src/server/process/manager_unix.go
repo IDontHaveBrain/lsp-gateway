@@ -5,6 +5,7 @@ package process
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"lsp-gateway/src/internal/common"
@@ -16,6 +17,9 @@ func (pm *LSPProcessManager) StopProcess(info *ProcessInfo, sender ShutdownSende
 	if info == nil {
 		return nil
 	}
+
+	// Mark this as an intentional stop
+	info.IntentionalStop = true
 
 	// Close stop channel to signal goroutines to stop
 	select {
@@ -34,10 +38,16 @@ func (pm *LSPProcessManager) StopProcess(info *ProcessInfo, sender ShutdownSende
 	info.Active = false
 
 	// Wait for graceful shutdown with proper timeout
-	if info.Cmd != nil && info.Cmd.Process != nil {
+	// Only wait if the process hasn't already exited (avoid duplicate Wait() calls)
+	if info.Cmd != nil && info.Cmd.Process != nil && !info.ProcessExited {
 		// Create channel to track process completion
 		done := make(chan error, 1)
 		go func() {
+			// Check if process already exited
+			if info.ProcessExited {
+				done <- nil
+				return
+			}
 			done <- info.Cmd.Wait()
 		}()
 
@@ -47,9 +57,15 @@ func (pm *LSPProcessManager) StopProcess(info *ProcessInfo, sender ShutdownSende
 			// Process exited gracefully
 		case <-time.After(constants.ProcessShutdownTimeout):
 			// Timeout - force kill only after waiting
-			common.LSPLogger.Warn("LSP server %s did not exit gracefully within %v, force killing", info.Language, constants.ProcessShutdownTimeout)
+			// Debug level for intentional stops, warn for unexpected
+			common.LSPLogger.Debug("LSP server %s did not exit within %v, force killing", info.Language, constants.ProcessShutdownTimeout)
 			if err := info.Cmd.Process.Kill(); err != nil {
-				common.LSPLogger.Error("Failed to kill LSP server %s: %v", info.Language, err)
+				// Ignore errors if process already exited
+				if !strings.Contains(err.Error(), "process already finished") && 
+				   !strings.Contains(err.Error(), "no child processes") &&
+				   !strings.Contains(err.Error(), "no such process") {
+					common.LSPLogger.Debug("Failed to kill LSP server %s: %v", info.Language, err)
+				}
 			}
 			// Wait for process to actually die
 			<-done
