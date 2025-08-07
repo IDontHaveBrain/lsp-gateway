@@ -48,6 +48,13 @@ const (
 	FileWatchDebounceDelay = 500 * time.Millisecond
 )
 
+// Protocol constants
+const (
+	// LSPResponseBufferSize is the buffer size for reading LSP responses
+	// Use 1MB to handle large responses like workspace/symbol results
+	LSPResponseBufferSize = 1024 * 1024 // 1MB
+)
+
 // Supported file extensions by language
 var SupportedExtensions = map[string][]string{
 	"go":         {".go"},

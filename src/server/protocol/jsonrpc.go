@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/constants"
 )
 
 // JSON-RPC protocol constants
@@ -75,7 +76,9 @@ func (p *LSPJSONRPCProtocol) WriteMessage(writer io.Writer, msg JSONRPCMessage) 
 
 // HandleResponses processes responses from the LSP server using Content-Length header parsing
 func (p *LSPJSONRPCProtocol) HandleResponses(reader io.Reader, messageHandler MessageHandler, stopCh <-chan struct{}) error {
-	bufReader := bufio.NewReader(reader)
+	// Use a larger buffer size (1MB) to handle large LSP responses, especially workspace/symbol
+	// which can return many results. This fixes Windows CI failures with truncated JSON.
+	bufReader := bufio.NewReaderSize(reader, constants.LSPResponseBufferSize)
 
 	for {
 		select {
