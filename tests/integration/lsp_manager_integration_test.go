@@ -11,8 +11,8 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
-	"lsp-gateway/src/utils"
 	"lsp-gateway/src/server/cache"
+	"lsp-gateway/src/utils"
 
 	"github.com/stretchr/testify/require"
 	"go.lsp.dev/protocol"

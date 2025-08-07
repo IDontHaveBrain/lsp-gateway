@@ -93,7 +93,7 @@ func main() {
 		time.Sleep(100 * time.Millisecond)
 	}
 	require.True(t, serverReady, "Gateway server failed to start within 3 seconds")
-	
+
 	defer gateway.Stop()
 
 	client := &http.Client{
@@ -264,7 +264,7 @@ func main() {
 			time.Sleep(100 * time.Millisecond)
 		}
 		require.True(t, serverReady, "Gateway server failed to start within 3 seconds")
-		
+
 		defer gatewayWithCache.Stop()
 
 		// Even with cache disabled in config, HTTP gateway should have cache available

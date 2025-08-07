@@ -15,7 +15,7 @@ func URIToFilePath(uri string) string {
 
 	// Remove the file:// prefix
 	path := strings.TrimPrefix(uri, "file://")
-	
+
 	// Decode URL-encoded characters
 	decoded, err := url.PathUnescape(path)
 	if err == nil {
@@ -41,21 +41,21 @@ func URIToFilePath(uri string) string {
 func FilePathToURI(path string) string {
 	// Clean the path first
 	path = filepath.Clean(path)
-	
+
 	// Convert to forward slashes for URI
 	path = filepath.ToSlash(path)
-	
+
 	// On Windows, we need to handle absolute paths specially
 	if runtime.GOOS == "windows" && filepath.IsAbs(path) {
 		// Windows absolute paths like C:/Users/... need to become file:///C:/Users/...
 		return "file:///" + path
 	}
-	
+
 	// Unix absolute paths like /home/user/... need to become file:///home/user/...
 	if strings.HasPrefix(path, "/") {
 		return "file://" + path
 	}
-	
+
 	// Relative paths (shouldn't happen in practice but handle gracefully)
 	return "file://" + path
 }
