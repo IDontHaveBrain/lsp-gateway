@@ -33,7 +33,7 @@ func NewLSPDocumentManager() *LSPDocumentManager {
 // DetectLanguage detects the programming language from a file URI
 func (dm *LSPDocumentManager) DetectLanguage(uri string) string {
 	// Remove file:// prefix and get extension
-	path := strings.TrimPrefix(uri, "file://")
+	path := common.URIToFilePath(uri)
 	ext := strings.ToLower(filepath.Ext(path))
 
 	switch ext {
@@ -115,7 +115,7 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 
 	// Extract file path from URI
 	if strings.HasPrefix(uri, "file://") {
-		filePath := strings.TrimPrefix(uri, "file://")
+		filePath := common.URIToFilePath(uri)
 		if content, err := os.ReadFile(filePath); err == nil {
 			fileContent = string(content)
 		} else {

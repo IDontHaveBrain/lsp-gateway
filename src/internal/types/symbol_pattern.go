@@ -1,6 +1,7 @@
 package types
 
 import (
+	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/models/lsp"
 	"regexp"
 	"strings"
@@ -82,7 +83,7 @@ func MatchSymbolPattern(symbol lsp.SymbolInformation, query SymbolPatternQuery) 
 	}
 
 	if query.FilePattern != "" {
-		filePath := strings.TrimPrefix(symbol.Location.URI, "file://")
+		filePath := common.URIToFilePath(symbol.Location.URI)
 		if !matchFilePattern(filePath, query.FilePattern) {
 			return false, 0
 		}

@@ -549,7 +549,7 @@ func (m *LSPManager) extractPositionAndSymbolFromParams(params interface{}) (typ
 // getPackageInfoForDocument gets package information for a document URI
 func (m *LSPManager) getPackageInfoForDocument(uri, language string) *project.PackageInfo {
 	// Extract directory from URI
-	filePath := strings.TrimPrefix(uri, "file://")
+	filePath := common.URIToFilePath(uri)
 	workingDir := filepath.Dir(filePath)
 
 	// Get package info
@@ -589,7 +589,7 @@ func (m *LSPManager) generateSCIPSymbolIDFromName(language string, packageInfo *
 	}
 
 	// Extract filename for descriptor context
-	filename := filepath.Base(strings.TrimPrefix(uri, "file://"))
+	filename := filepath.Base(common.URIToFilePath(uri))
 	descriptor := fmt.Sprintf("`%s`/%s", filename, symbolName)
 
 	return fmt.Sprintf("scip-%s %s %s %s", language, packageName, version, descriptor)

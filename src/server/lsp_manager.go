@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -405,20 +407,74 @@ func (m *LSPManager) getClientActiveWaitIterations(language string) int {
 	}
 }
 
+// resolveCommandPath resolves the command path, checking custom installations first
+func (m *LSPManager) resolveCommandPath(language, command string) string {
+	// For Java, check if custom installation exists
+	if language == "java" && command == "jdtls" {
+		homeDir, err := os.UserHomeDir()
+		if err == nil {
+			var customPath string
+			if runtime.GOOS == "windows" {
+				customPath = filepath.Join(homeDir, ".lsp-gateway", "tools", "java", "bin", "jdtls.bat")
+			} else {
+				customPath = filepath.Join(homeDir, ".lsp-gateway", "tools", "java", "bin", "jdtls")
+			}
+
+			// Check if the custom installation exists
+			if _, err := os.Stat(customPath); err == nil {
+				common.LSPLogger.Debug("Using custom jdtls installation at %s", customPath)
+				return customPath
+			}
+		}
+	}
+
+	// Check for other language custom installations
+	if command == "gopls" || command == "pylsp" || command == "typescript-language-server" {
+		homeDir, err := os.UserHomeDir()
+		if err == nil {
+			// Map of commands to their installation paths
+			customPaths := map[string]string{
+				"gopls":                      filepath.Join(homeDir, ".lsp-gateway", "tools", "go", "bin", "gopls"),
+				"pylsp":                      filepath.Join(homeDir, ".lsp-gateway", "tools", "python", "bin", "pylsp"),
+				"typescript-language-server": filepath.Join(homeDir, ".lsp-gateway", "tools", "typescript", "bin", "typescript-language-server"),
+			}
+
+			if customPath, exists := customPaths[command]; exists {
+				if runtime.GOOS == "windows" && command != "gopls" {
+					// Add .cmd extension for Node.js based tools on Windows
+					customPath = customPath + ".cmd"
+				}
+
+				// Check if the custom installation exists
+				if _, err := os.Stat(customPath); err == nil {
+					common.LSPLogger.Debug("Using custom %s installation at %s", command, customPath)
+					return customPath
+				}
+			}
+		}
+	}
+
+	// Return the original command (will be resolved via PATH)
+	return command
+}
+
 // startClientWithTimeout starts a single LSP client with timeout
 func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string, cfg *config.ServerConfig) error {
+	// Resolve the command path (check custom installations first)
+	resolvedCommand := m.resolveCommandPath(language, cfg.Command)
+
 	// Validate LSP server command for security
-	if err := security.ValidateCommand(cfg.Command, cfg.Args); err != nil {
+	if err := security.ValidateCommand(resolvedCommand, cfg.Args); err != nil {
 		return fmt.Errorf("invalid LSP server command for %s: %w", language, err)
 	}
 
 	// Check if LSP server executable is available
-	if _, err := exec.LookPath(cfg.Command); err != nil {
-		return fmt.Errorf("LSP server executable not found for %s: %s", language, cfg.Command)
+	if _, err := exec.LookPath(resolvedCommand); err != nil {
+		return fmt.Errorf("LSP server executable not found for %s: %s", language, resolvedCommand)
 	}
 
 	clientConfig := types.ClientConfig{
-		Command: cfg.Command,
+		Command: resolvedCommand,
 		Args:    cfg.Args,
 	}
 

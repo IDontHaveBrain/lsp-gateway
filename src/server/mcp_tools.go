@@ -188,11 +188,7 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 					if occurrence != nil {
 						// Get file path from document URI
 						if docURI, ok := enhancedData["filePath"].(string); ok {
-							if strings.HasPrefix(docURI, "file://") {
-								filePath = strings.TrimPrefix(docURI, "file://")
-							} else {
-								filePath = docURI
-							}
+							filePath = common.URIToFilePath(docURI)
 						}
 
 						// Extract line range from occurrence

@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 
+	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/cache"
@@ -365,7 +366,7 @@ func (m *LSPManager) parseReferenceLocation(location map[string]interface{}) *Re
 	}
 
 	refInfo := &ReferenceInfo{
-		FilePath:   strings.TrimPrefix(uri, "file://"),
+		FilePath:   common.URIToFilePath(uri),
 		LineNumber: line,
 		Column:     character,
 	}
@@ -376,7 +377,7 @@ func (m *LSPManager) parseReferenceLocation(location map[string]interface{}) *Re
 // locationToReferenceInfo converts an lsp.Location to ReferenceInfo
 func (m *LSPManager) locationToReferenceInfo(loc lsp.Location) *ReferenceInfo {
 	refInfo := &ReferenceInfo{
-		FilePath:   strings.TrimPrefix(loc.URI, "file://"),
+		FilePath:   common.URIToFilePath(loc.URI),
 		LineNumber: loc.Range.Start.Line,
 		Column:     loc.Range.Start.Character,
 	}
@@ -489,7 +490,7 @@ func (m *LSPManager) createReferenceFromOccurrence(ctx context.Context, scipStor
 // createLegacyReferenceInfo creates ReferenceInfo from LSP SymbolInformation (fallback)
 func (m *LSPManager) createLegacyReferenceInfo(symbolInfo lsp.SymbolInformation) ReferenceInfo {
 	refInfo := ReferenceInfo{
-		FilePath:   strings.TrimPrefix(symbolInfo.Location.URI, "file://"),
+		FilePath:   common.URIToFilePath(symbolInfo.Location.URI),
 		LineNumber: symbolInfo.Location.Range.Start.Line,
 		Column:     symbolInfo.Location.Range.Start.Character,
 		SymbolID:   fmt.Sprintf("lsp:%s", symbolInfo.Name), // Legacy format

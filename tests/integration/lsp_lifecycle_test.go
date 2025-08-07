@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -173,7 +174,14 @@ func testFunction(param string) string {
 	})
 
 	t.Run("CacheStartFailure", func(t *testing.T) {
-		invalidCacheDir := "/invalid/path/that/does/not/exist/cache"
+		var invalidCacheDir string
+		if runtime.GOOS == "windows" {
+			// Use a path that's guaranteed to be invalid on Windows
+			// Using an invalid drive letter and special characters
+			invalidCacheDir = "ZZ:\\<>|invalid*path?/cache"
+		} else {
+			invalidCacheDir = "/invalid/path/that/does/not/exist/cache"
+		}
 		cacheConfig := &config.CacheConfig{
 			Enabled:     true,
 			StoragePath: invalidCacheDir,

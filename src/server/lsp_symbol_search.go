@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/scip"
@@ -196,7 +197,7 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 			enhancedInfo := types.EnhancedSymbolInfo{
 				SymbolInformation: symbol,
 				Score:             finalScore,
-				FilePath:          strings.TrimPrefix(symbol.Location.URI, "file://"),
+				FilePath:          common.URIToFilePath(symbol.Location.URI),
 				LineNumber:        symbol.Location.Range.Start.Line, // Keep 0-indexed
 				EndLine:           symbol.Location.Range.End.Line,   // Keep 0-indexed
 				Signature:         enrichedSymbol.Signature,
@@ -496,7 +497,7 @@ func (m *LSPManager) createEnrichedSymbolResult(ctx context.Context, scipStorage
 		Signature:         symbolInfo.SignatureDocumentation.Text,
 		Relationships:     symbolInfo.Relationships,
 		OccurrenceCount:   len(occurrences),
-		FilePath:          strings.TrimPrefix(lspSymbol.Location.URI, "file://"),
+		FilePath:          common.URIToFilePath(lspSymbol.Location.URI),
 		LineNumber:        lspSymbol.Location.Range.Start.Line,
 		EndLine:           lspSymbol.Location.Range.End.Line,
 	}
@@ -552,7 +553,7 @@ func (m *LSPManager) createEnrichedResultFromOccurrence(ctx context.Context, sci
 		Documentation:     symbolInfo.Documentation,
 		Signature:         symbolInfo.SignatureDocumentation.Text,
 		Relationships:     symbolInfo.Relationships,
-		FilePath:          strings.TrimPrefix(lspSymbol.Location.URI, "file://"),
+		FilePath:          common.URIToFilePath(lspSymbol.Location.URI),
 		LineNumber:        lspSymbol.Location.Range.Start.Line,
 		EndLine:           lspSymbol.Location.Range.End.Line,
 		IsDefinition:      occurrence.SymbolRoles.HasRole(types.SymbolRoleDefinition),
@@ -579,7 +580,7 @@ func (m *LSPManager) convertToEnrichedResult(symbol lsp.SymbolInformation, query
 	return &EnhancedSymbolResult{
 		SymbolInformation: symbol,
 		SymbolID:          fmt.Sprintf("lsp:%s", symbol.Name), // Simple ID for LSP symbols
-		FilePath:          strings.TrimPrefix(symbol.Location.URI, "file://"),
+		FilePath:          common.URIToFilePath(symbol.Location.URI),
 		LineNumber:        symbol.Location.Range.Start.Line,
 		EndLine:           symbol.Location.Range.End.Line,
 		OccurrenceCount:   1, // Single occurrence from LSP

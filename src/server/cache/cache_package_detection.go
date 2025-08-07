@@ -2,6 +2,7 @@ package cache
 
 import (
 	"encoding/json"
+	"lsp-gateway/src/internal/common"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,7 +19,7 @@ func (m *SCIPCacheManager) detectPackageInfo(uri string, language string) (packa
 	}
 
 	// Extract file path from URI
-	filePath := strings.TrimPrefix(uri, "file://")
+	filePath := common.URIToFilePath(uri)
 	dir := filepath.Dir(filePath)
 
 	// Language-specific package detection
