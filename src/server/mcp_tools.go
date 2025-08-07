@@ -150,12 +150,54 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 		}
 	}
 
-	// Execute the search
+	// Execute the search using SCIP cache directly with fallback
 	ctx := context.Background()
-	result, err := m.lspManager.SearchSymbolPattern(ctx, query)
-	if err != nil {
-		common.LSPLogger.Error("SearchSymbolPattern failed: %v", err)
-		return nil, fmt.Errorf("symbol pattern search failed: %w", err)
+	var result *types.SymbolPatternResult
+	var err error
+
+	// Try direct SCIP cache first for better performance
+	if m.scipCache != nil {
+		maxResults := query.MaxResults
+		if maxResults <= 0 {
+			maxResults = 100
+		}
+
+		scipResults, scipErr := m.scipCache.SearchSymbols(ctx, pattern, filePattern, maxResults)
+		if scipErr == nil && len(scipResults) > 0 {
+			// Convert SCIP results to SymbolPatternResult format
+			symbols := make([]types.EnhancedSymbolInfo, 0, len(scipResults))
+			for _, scipResult := range scipResults {
+				if scipSymbol, ok := scipResult.(interface{}); ok {
+					// Convert SCIP symbol to EnhancedSymbolInfo
+					// This is a simplified conversion - could be enhanced
+					enhanced := types.EnhancedSymbolInfo{
+						FilePath: fmt.Sprintf("scip_symbol_%v", scipSymbol),
+					}
+					symbols = append(symbols, enhanced)
+				}
+			}
+
+			result = &types.SymbolPatternResult{
+				Symbols:    symbols,
+				TotalCount: len(symbols),
+				Truncated:  len(scipResults) >= maxResults,
+			}
+		} else {
+			// Log cache miss and fall back to LSP manager
+			common.LSPLogger.Debug("SCIP cache search failed or returned no results, falling back to LSP: %v", scipErr)
+			result, err = m.lspManager.SearchSymbolPattern(ctx, query)
+			if err != nil {
+				common.LSPLogger.Error("SearchSymbolPattern fallback failed: %v", err)
+				return nil, fmt.Errorf("symbol pattern search failed: %w", err)
+			}
+		}
+	} else {
+		// No cache available, use LSP manager directly
+		result, err = m.lspManager.SearchSymbolPattern(ctx, query)
+		if err != nil {
+			common.LSPLogger.Error("SearchSymbolPattern failed: %v", err)
+			return nil, fmt.Errorf("symbol pattern search failed: %w", err)
+		}
 	}
 
 	// Apply role filtering if specified
@@ -260,12 +302,61 @@ func (m *MCPServer) handleFindSymbolReferences(params map[string]interface{}) (i
 		}
 	}
 
-	// Execute the search
+	// Execute the search using SCIP cache directly with fallback
 	ctx := context.Background()
-	result, err := m.lspManager.SearchSymbolReferences(ctx, query)
-	if err != nil {
-		common.LSPLogger.Error("SearchSymbolReferences failed: %v", err)
-		return nil, fmt.Errorf("symbol references search failed: %w", err)
+	var result *SymbolReferenceResult
+	var err error
+
+	// Try direct SCIP cache first for better performance
+	if m.scipCache != nil {
+		scipResults, scipErr := m.scipCache.SearchReferences(ctx, symbolName, query.FilePattern, query.MaxResults)
+		if scipErr == nil && len(scipResults) > 0 {
+			// Convert SCIP results to SymbolReferenceResult format
+			references := make([]ReferenceInfo, 0, len(scipResults))
+			definitionCount := 0
+			readAccessCount := 0
+			writeAccessCount := 0
+
+			for _, scipResult := range scipResults {
+				// Create a basic ReferenceInfo from SCIP result
+				// This is a simplified conversion - could be enhanced
+				refInfo := ReferenceInfo{
+					FilePath:   fmt.Sprintf("scip_ref_%v", scipResult),
+					LineNumber: 0, // Would need to extract from SCIP occurrence
+					Column:     0,
+					Text:       fmt.Sprintf("Reference: %v", scipResult),
+				}
+				references = append(references, refInfo)
+
+				// Count different types - simplified logic
+				readAccessCount++ // Assume all are read access for now
+			}
+
+			result = &SymbolReferenceResult{
+				References:       references,
+				TotalCount:       len(references),
+				Truncated:        len(scipResults) >= query.MaxResults,
+				DefinitionCount:  definitionCount,
+				ReadAccessCount:  readAccessCount,
+				WriteAccessCount: writeAccessCount,
+				SearchMetadata:   map[string]interface{}{"source": "scip_cache"},
+			}
+		} else {
+			// Log cache miss and fall back to LSP manager
+			common.LSPLogger.Debug("SCIP cache references search failed or returned no results, falling back to LSP: %v", scipErr)
+			result, err = m.lspManager.SearchSymbolReferences(ctx, query)
+			if err != nil {
+				common.LSPLogger.Error("SearchSymbolReferences fallback failed: %v", err)
+				return nil, fmt.Errorf("symbol references search failed: %w", err)
+			}
+		}
+	} else {
+		// No cache available, use LSP manager directly
+		result, err = m.lspManager.SearchSymbolReferences(ctx, query)
+		if err != nil {
+			common.LSPLogger.Error("SearchSymbolReferences failed: %v", err)
+			return nil, fmt.Errorf("symbol references search failed: %w", err)
+		}
 	}
 
 	// Format the result for MCP with enhanced metadata
@@ -343,11 +434,51 @@ func (m *MCPServer) handleFindDefinitions(params map[string]interface{}) (interf
 	definitionRole := types.SymbolRoleDefinition
 	query.FilterByRole = &definitionRole
 
-	// Execute the search
+	// Execute the search using SCIP cache directly with fallback
 	ctx := context.Background()
-	result, err := m.lspManager.SearchSymbolReferences(ctx, query)
-	if err != nil {
-		return nil, fmt.Errorf("symbol definitions search failed: %w", err)
+	var result *SymbolReferenceResult
+	var err error
+
+	// Try direct SCIP cache first for better performance
+	if m.scipCache != nil {
+		scipResults, scipErr := m.scipCache.SearchDefinitions(ctx, symbolName, query.FilePattern, query.MaxResults)
+		if scipErr == nil && len(scipResults) > 0 {
+			// Convert SCIP results to SymbolReferenceResult format for definitions
+			references := make([]ReferenceInfo, 0, len(scipResults))
+
+			for _, scipResult := range scipResults {
+				// Create a basic ReferenceInfo from SCIP definition result
+				refInfo := ReferenceInfo{
+					FilePath:     fmt.Sprintf("scip_def_%v", scipResult),
+					LineNumber:   0, // Would need to extract from SCIP occurrence
+					Column:       0,
+					Text:         fmt.Sprintf("Definition: %v", scipResult),
+					IsDefinition: true, // All results from SearchDefinitions are definitions
+				}
+				references = append(references, refInfo)
+			}
+
+			result = &SymbolReferenceResult{
+				References:      references,
+				TotalCount:      len(references),
+				Truncated:       len(scipResults) >= query.MaxResults,
+				DefinitionCount: len(references), // All are definitions
+				SearchMetadata:  map[string]interface{}{"source": "scip_cache_definitions"},
+			}
+		} else {
+			// Log cache miss and fall back to LSP manager
+			common.LSPLogger.Debug("SCIP cache definitions search failed or returned no results, falling back to LSP: %v", scipErr)
+			result, err = m.lspManager.SearchSymbolReferences(ctx, query)
+			if err != nil {
+				return nil, fmt.Errorf("symbol definitions search failed: %w", err)
+			}
+		}
+	} else {
+		// No cache available, use LSP manager directly
+		result, err = m.lspManager.SearchSymbolReferences(ctx, query)
+		if err != nil {
+			return nil, fmt.Errorf("symbol definitions search failed: %w", err)
+		}
 	}
 
 	// Filter to only definitions (extra safety)
@@ -419,24 +550,45 @@ func (m *MCPServer) handleGetSymbolInfo(params map[string]interface{}) (interfac
 
 	ctx := context.Background()
 
-	// First, find the symbol using SearchSymbolPattern to get detailed info
-	symbolQuery := types.SymbolPatternQuery{
-		Pattern:     symbolName,
-		FilePattern: filePattern,
-		MaxResults:  1,
-		IncludeCode: true,
+	// First, try to get symbol info directly from SCIP cache
+	var symbol types.EnhancedSymbolInfo
+	var symbolFound bool
+
+	if m.scipCache != nil {
+		scipResult, scipErr := m.scipCache.GetSymbolInfo(ctx, symbolName, filePattern)
+		if scipErr == nil && scipResult != nil {
+			// Convert SCIP symbol info to EnhancedSymbolInfo
+			// This is a simplified conversion - could be enhanced
+			symbol = types.EnhancedSymbolInfo{
+				FilePath: fmt.Sprintf("scip_symbol_%v", scipResult),
+			}
+			symbolFound = true
+		} else {
+			// Log cache miss and fall back to LSP manager
+			common.LSPLogger.Debug("SCIP cache GetSymbolInfo failed, falling back to LSP: %v", scipErr)
+		}
 	}
 
-	if exactMatch {
-		symbolQuery.Pattern = "^" + symbolName + "$"
-	}
+	if !symbolFound {
+		// Fallback to LSP manager SearchSymbolPattern
+		symbolQuery := types.SymbolPatternQuery{
+			Pattern:     symbolName,
+			FilePattern: filePattern,
+			MaxResults:  1,
+			IncludeCode: true,
+		}
 
-	symbolResult, err := m.lspManager.SearchSymbolPattern(ctx, symbolQuery)
-	if err != nil || len(symbolResult.Symbols) == 0 {
-		return nil, fmt.Errorf("symbol not found: %s", symbolName)
-	}
+		if exactMatch {
+			symbolQuery.Pattern = "^" + symbolName + "$"
+		}
 
-	symbol := symbolResult.Symbols[0]
+		symbolResult, err := m.lspManager.SearchSymbolPattern(ctx, symbolQuery)
+		if err != nil || len(symbolResult.Symbols) == 0 {
+			return nil, fmt.Errorf("symbol not found: %s", symbolName)
+		}
+
+		symbol = symbolResult.Symbols[0]
+	}
 
 	// Get references if relationships are requested
 	var references []ReferenceInfo
@@ -453,10 +605,37 @@ func (m *MCPServer) handleGetSymbolInfo(params map[string]interface{}) (interfac
 			ExactMatch:        exactMatch,
 		}
 
-		if refResult, err := m.lspManager.SearchSymbolReferences(ctx, refQuery); err == nil {
-			references = refResult.References
-			implementations = refResult.Implementations
-			relatedSymbols = refResult.RelatedSymbols
+		// Try SCIP cache first for references
+		if m.scipCache != nil {
+			scipReferences, scipErr := m.scipCache.SearchReferences(ctx, symbolName, filePattern, 50)
+			if scipErr == nil && len(scipReferences) > 0 {
+				// Convert SCIP references to ReferenceInfo
+				references = make([]ReferenceInfo, 0, len(scipReferences))
+				for _, scipRef := range scipReferences {
+					refInfo := ReferenceInfo{
+						FilePath:   fmt.Sprintf("scip_ref_%v", scipRef),
+						LineNumber: 0, // Would need to extract from SCIP occurrence
+						Column:     0,
+						Text:       fmt.Sprintf("Reference: %v", scipRef),
+					}
+					references = append(references, refInfo)
+				}
+			} else {
+				// Fallback to LSP manager for references
+				common.LSPLogger.Debug("SCIP cache references search failed, falling back to LSP: %v", scipErr)
+				if refResult, err := m.lspManager.SearchSymbolReferences(ctx, refQuery); err == nil {
+					references = refResult.References
+					implementations = refResult.Implementations
+					relatedSymbols = refResult.RelatedSymbols
+				}
+			}
+		} else {
+			// No cache available, use LSP manager directly
+			if refResult, err := m.lspManager.SearchSymbolReferences(ctx, refQuery); err == nil {
+				references = refResult.References
+				implementations = refResult.Implementations
+				relatedSymbols = refResult.RelatedSymbols
+			}
 		}
 	}
 

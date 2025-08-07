@@ -8,7 +8,7 @@ import (
 )
 
 // detectPackageInfo detects package information from the document URI and language
-func (m *SimpleCacheManager) detectPackageInfo(uri string, language string) (packageName string, version string) {
+func (m *SCIPCacheManager) detectPackageInfo(uri string, language string) (packageName string, version string) {
 	// Default values for transition period
 	defaultPackage := "main"
 	defaultVersion := "v1.0.0"
@@ -54,7 +54,7 @@ func (m *SimpleCacheManager) detectPackageInfo(uri string, language string) (pac
 }
 
 // detectGoPackageInfo detects Go package info from go.mod
-func (m *SimpleCacheManager) detectGoPackageInfo(dir string) (string, string) {
+func (m *SCIPCacheManager) detectGoPackageInfo(dir string) (string, string) {
 	for currentDir := dir; currentDir != "/" && currentDir != "."; currentDir = filepath.Dir(currentDir) {
 		goModPath := filepath.Join(currentDir, "go.mod")
 		if _, err := os.Stat(goModPath); err == nil {
@@ -78,7 +78,7 @@ func (m *SimpleCacheManager) detectGoPackageInfo(dir string) (string, string) {
 }
 
 // detectPythonPackageInfo detects Python package info
-func (m *SimpleCacheManager) detectPythonPackageInfo(dir string) string {
+func (m *SCIPCacheManager) detectPythonPackageInfo(dir string) string {
 	// Look for setup.py or pyproject.toml in parent directories
 	for currentDir := dir; currentDir != "/" && currentDir != "."; currentDir = filepath.Dir(currentDir) {
 		// Check for setup.py
@@ -97,7 +97,7 @@ func (m *SimpleCacheManager) detectPythonPackageInfo(dir string) string {
 }
 
 // detectNodePackageInfo detects Node.js package info from package.json
-func (m *SimpleCacheManager) detectNodePackageInfo(dir string) (string, string) {
+func (m *SCIPCacheManager) detectNodePackageInfo(dir string) (string, string) {
 	for currentDir := dir; currentDir != "/" && currentDir != "."; currentDir = filepath.Dir(currentDir) {
 		packageJsonPath := filepath.Join(currentDir, "package.json")
 		if _, err := os.Stat(packageJsonPath); err == nil {
@@ -130,7 +130,7 @@ func (m *SimpleCacheManager) detectNodePackageInfo(dir string) (string, string) 
 }
 
 // detectJavaPackageInfo detects Java package info from pom.xml or build.gradle
-func (m *SimpleCacheManager) detectJavaPackageInfo(dir string) (string, string) {
+func (m *SCIPCacheManager) detectJavaPackageInfo(dir string) (string, string) {
 	for currentDir := dir; currentDir != "/" && currentDir != "."; currentDir = filepath.Dir(currentDir) {
 		// Check for pom.xml (Maven)
 		pomPath := filepath.Join(currentDir, "pom.xml")

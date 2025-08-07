@@ -101,8 +101,8 @@ func NewHandler(s *Server) *Handler {
 
 	cacheInterface := lspManager.GetCache()
 	require.NotNil(t, cacheInterface)
-	scipCache, ok := cacheInterface.(*cache.SimpleCacheManager)
-	require.True(t, ok, "Cache should be of type *cache.SimpleCacheManager")
+	scipCache, ok := cacheInterface.(*cache.SCIPCacheManager)
+	require.True(t, ok, "Cache should be of type *cache.SCIPCacheManager")
 
 	ctx := context.Background()
 	err = lspManager.Start(ctx)

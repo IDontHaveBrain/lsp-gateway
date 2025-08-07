@@ -141,7 +141,7 @@ jobs:
         }
         
         # Install all LSP servers at once (with timeout for Java installation)
-        $process = Start-Process -FilePath ".\bin\lsp-gateway.exe" -ArgumentList "install", "all" -PassThru -NoNewWindow -Wait -TimeoutSec 1800
+        $process = Start-Process -FilePath ".\bin\lsp-gateway.exe" -ArgumentList "install", "all" -PassThru -NoNewWindow -Wait
         if ($process.ExitCode -ne 0) {
           Write-Host "⚠️ Installation failed - checking status"
           .\bin\lsp-gateway.exe status

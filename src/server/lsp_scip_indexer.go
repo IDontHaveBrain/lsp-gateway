@@ -54,6 +54,9 @@ func (m *LSPManager) indexDocumentSymbolsAsOccurrences(ctx context.Context, uri,
 	// Get package information for SCIP symbol generation
 	packageInfo := m.getPackageInfoForDocument(uri, language)
 
+	// Expand symbol ranges if they appear to be single-line
+	symbols = m.expandSymbolRanges(ctx, symbols, uri, language)
+
 	// Convert symbols to SCIP occurrences with definition roles
 	occurrences := make([]scip.SCIPOccurrence, 0, len(symbols))
 	symbolInfos := make([]scip.SCIPSymbolInformation, 0, len(symbols))
@@ -80,11 +83,13 @@ func (m *LSPManager) indexDocumentSymbolsAsOccurrences(ctx context.Context, uri,
 		}
 		occurrences = append(occurrences, occurrence)
 
-		// Create symbol information
+		// Create symbol information with enhanced metadata
 		symbolInfo := scip.SCIPSymbolInformation{
-			Symbol:      symbolID,
-			DisplayName: symbol.Name,
-			Kind:        m.mapLSPSymbolKindToSCIPKind(symbol.Kind),
+			Symbol:        symbolID,
+			DisplayName:   symbol.Name,
+			Kind:          m.mapLSPSymbolKindToSCIPKind(symbol.Kind),
+			Documentation: m.getSymbolDocumentation(ctx, uri, symbol.Location.Range.Start),
+			Relationships: m.getSymbolRelationships(ctx, uri, symbol.Name, symbol.Kind),
 		}
 		symbolInfos = append(symbolInfos, symbolInfo)
 	}
@@ -139,11 +144,13 @@ func (m *LSPManager) indexDefinitionsAsOccurrences(ctx context.Context, uri, lan
 		}
 		occurrences = append(occurrences, occurrence)
 
-		// Create symbol information
+		// Create symbol information with enhanced metadata
 		symbolInfo := scip.SCIPSymbolInformation{
-			Symbol:      symbolID,
-			DisplayName: symbolName,
-			Kind:        scip.SCIPSymbolKindFunction, // Default to function, can be refined
+			Symbol:        symbolID,
+			DisplayName:   symbolName,
+			Kind:          scip.SCIPSymbolKindFunction, // Default to function, can be refined
+			Documentation: m.getSymbolDocumentation(ctx, location.URI, location.Range.Start),
+			Relationships: m.getSymbolRelationships(ctx, location.URI, symbolName, lsp.Function),
 		}
 		symbolInfos = append(symbolInfos, symbolInfo)
 	}
@@ -203,12 +210,16 @@ func (m *LSPManager) indexReferencesAsOccurrences(ctx context.Context, uri, lang
 		occurrences = append(occurrences, occurrence)
 	}
 
-	// Create symbol information once for the referenced symbol
-	if len(occurrences) > 0 {
+	// Create symbol information once for the referenced symbol with enhanced metadata
+	if len(occurrences) > 0 && len(locations) > 0 {
+		// Use the first location to get documentation
+		firstLocation := locations[0]
 		symbolInfo := scip.SCIPSymbolInformation{
-			Symbol:      occurrences[0].Symbol,
-			DisplayName: symbolName,
-			Kind:        scip.SCIPSymbolKindFunction, // Default to function, can be refined
+			Symbol:        occurrences[0].Symbol,
+			DisplayName:   symbolName,
+			Kind:          scip.SCIPSymbolKindFunction, // Default to function, can be refined
+			Documentation: m.getSymbolDocumentation(ctx, firstLocation.URI, firstLocation.Range.Start),
+			Relationships: m.getSymbolRelationships(ctx, firstLocation.URI, symbolName, lsp.Function),
 		}
 		symbolInfos = append(symbolInfos, symbolInfo)
 	}
@@ -256,6 +267,9 @@ func (m *LSPManager) indexWorkspaceSymbolsAsOccurrences(ctx context.Context, lan
 	for uri, uriSymbols := range symbolsByURI {
 		packageInfo := m.getPackageInfoForDocument(uri, language)
 
+		// Expand symbol ranges to get full definitions
+		uriSymbols = m.expandSymbolRanges(ctx, uriSymbols, uri, language)
+
 		// Convert symbols to SCIP occurrences with definition roles
 		occurrences := make([]scip.SCIPOccurrence, 0, len(uriSymbols))
 		symbolInfos := make([]scip.SCIPSymbolInformation, 0, len(uriSymbols))
@@ -282,11 +296,13 @@ func (m *LSPManager) indexWorkspaceSymbolsAsOccurrences(ctx context.Context, lan
 			}
 			occurrences = append(occurrences, occurrence)
 
-			// Create symbol information
+			// Create symbol information with enhanced metadata
 			symbolInfo := scip.SCIPSymbolInformation{
-				Symbol:      symbolID,
-				DisplayName: symbol.Name,
-				Kind:        m.mapLSPSymbolKindToSCIPKind(symbol.Kind),
+				Symbol:        symbolID,
+				DisplayName:   symbol.Name,
+				Kind:          m.mapLSPSymbolKindToSCIPKind(symbol.Kind),
+				Documentation: m.getSymbolDocumentation(ctx, uri, symbol.Location.Range.Start),
+				Relationships: m.getSymbolRelationships(ctx, uri, symbol.Name, symbol.Kind),
 			}
 			symbolInfos = append(symbolInfos, symbolInfo)
 		}
@@ -301,6 +317,90 @@ func (m *LSPManager) indexWorkspaceSymbolsAsOccurrences(ctx context.Context, lan
 }
 
 // Helper methods for SCIP symbol generation and occurrence management
+
+// expandSymbolRanges expands single-line symbol ranges to their full extent
+// This is necessary because many LSP servers return only the symbol name range
+// rather than the full definition range for workspace/symbol results
+func (m *LSPManager) expandSymbolRanges(ctx context.Context, symbols []lsp.SymbolInformation, uri, language string) []lsp.SymbolInformation {
+	// Group symbols that need expansion
+	needsExpansion := false
+	for _, symbol := range symbols {
+		if symbol.Location.Range.Start.Line == symbol.Location.Range.End.Line {
+			needsExpansion = true
+			break
+		}
+	}
+
+	if !needsExpansion {
+		return symbols
+	}
+
+	// Try to get full ranges via textDocument/documentSymbol
+	params := map[string]interface{}{
+		"textDocument": map[string]interface{}{
+			"uri": uri,
+		},
+	}
+
+	docSymbolResult, err := m.ProcessRequest(ctx, types.MethodTextDocumentDocumentSymbol, params)
+	if err != nil || docSymbolResult == nil {
+		// If we can't get document symbols, return original symbols
+		return symbols
+	}
+
+	// Parse the document symbols to get full ranges
+	var fullRangeSymbols []*lsp.DocumentSymbol
+	switch v := docSymbolResult.(type) {
+	case []lsp.DocumentSymbol:
+		for i := range v {
+			fullRangeSymbols = append(fullRangeSymbols, &v[i])
+		}
+	case []*lsp.DocumentSymbol:
+		fullRangeSymbols = v
+	case []interface{}:
+		for _, item := range v {
+			if data, err := json.Marshal(item); err == nil {
+				var docSymbol lsp.DocumentSymbol
+				if err := json.Unmarshal(data, &docSymbol); err == nil && docSymbol.Name != "" {
+					fullRangeSymbols = append(fullRangeSymbols, &docSymbol)
+				}
+			}
+		}
+	}
+
+	// Create a map of symbol names to their full ranges
+	fullRangeMap := make(map[string]lsp.Range)
+	m.collectFullRanges(fullRangeSymbols, fullRangeMap)
+
+	// Update symbols with full ranges
+	expandedSymbols := make([]lsp.SymbolInformation, len(symbols))
+	for i, symbol := range symbols {
+		expandedSymbols[i] = symbol
+		if fullRange, exists := fullRangeMap[symbol.Name]; exists {
+			// Only update if the full range is actually larger
+			if fullRange.End.Line > symbol.Location.Range.End.Line ||
+				(fullRange.End.Line == symbol.Location.Range.End.Line &&
+					fullRange.End.Character > symbol.Location.Range.End.Character) {
+				expandedSymbols[i].Location.Range = fullRange
+			}
+		}
+	}
+
+	return expandedSymbols
+}
+
+// collectFullRanges recursively collects full ranges from DocumentSymbol hierarchy
+func (m *LSPManager) collectFullRanges(symbols []*lsp.DocumentSymbol, rangeMap map[string]lsp.Range) {
+	for _, symbol := range symbols {
+		// Store the full range for this symbol
+		rangeMap[symbol.Name] = symbol.Range
+
+		// Recursively process children
+		if len(symbol.Children) > 0 {
+			m.collectFullRanges(symbol.Children, rangeMap)
+		}
+	}
+}
 
 // parseDocumentSymbols parses document symbols from various response formats
 func (m *LSPManager) parseDocumentSymbols(result interface{}, uri string, conversionFailures, jsonFailures *int) []lsp.SymbolInformation {
@@ -603,7 +703,74 @@ func (m *LSPManager) mapLSPSymbolKindToSyntaxKind(lspKind lsp.SymbolKind) types.
 
 // storeDocumentOccurrences stores SCIP occurrences as a document
 func (m *LSPManager) storeDocumentOccurrences(ctx context.Context, uri, language string, occurrences []scip.SCIPOccurrence, symbolInfos []scip.SCIPSymbolInformation) {
-	// SCIP document storage is not available due to interface conflicts
+	if m.scipCache == nil {
+		return
+	}
+
+	// Convert SCIP occurrences to LSP SymbolInformation for SimpleCache compatibility
+	var symbols []lsp.SymbolInformation
+	for i, occ := range occurrences {
+		// Find corresponding symbol info
+		var displayName string
+		var kind lsp.SymbolKind
+		if i < len(symbolInfos) {
+			displayName = symbolInfos[i].DisplayName
+			kind = m.mapSCIPKindToLSPSymbolKind(symbolInfos[i].Kind)
+		} else {
+			displayName = occ.Symbol
+			kind = lsp.Variable // Default
+		}
+
+		symbol := lsp.SymbolInformation{
+			Name: displayName,
+			Kind: kind,
+			Location: lsp.Location{
+				URI: uri,
+				Range: lsp.Range{
+					Start: lsp.Position{
+						Line:      int(occ.Range.Start.Line),
+						Character: int(occ.Range.Start.Character),
+					},
+					End: lsp.Position{
+						Line:      int(occ.Range.End.Line),
+						Character: int(occ.Range.End.Character),
+					},
+				},
+			},
+		}
+		symbols = append(symbols, symbol)
+	}
+
+	// Store using SimpleCache interface
+	if simpleCache, ok := m.scipCache.(cache.SimpleCache); ok {
+		if err := simpleCache.IndexDocument(ctx, uri, language, symbols); err != nil {
+			common.LSPLogger.Debug("Failed to index document symbols for %s: %v", uri, err)
+		}
+
+		// Store enhanced SCIP metadata separately for each symbol
+		// This preserves relationships and documentation
+		for i, symbolInfo := range symbolInfos {
+			if i < len(symbols) {
+				// Store documentation as hover result
+				if len(symbolInfo.Documentation) > 0 {
+					hoverParams := map[string]interface{}{
+						"textDocument": map[string]interface{}{"uri": uri},
+						"position": map[string]interface{}{
+							"line":      symbols[i].Location.Range.Start.Line,
+							"character": symbols[i].Location.Range.Start.Character,
+						},
+					}
+					hoverResult := &lsp.Hover{
+						Contents: map[string]interface{}{
+							"kind":  "markdown",
+							"value": strings.Join(symbolInfo.Documentation, "\n"),
+						},
+					}
+					simpleCache.Store("textDocument/hover", hoverParams, hoverResult)
+				}
+			}
+		}
+	}
 }
 
 // storeOccurrencesByDocument stores occurrences grouped by document URI
@@ -662,4 +829,156 @@ func (m *LSPManager) RefreshIndex(ctx context.Context, files []string) error {
 	}
 
 	return fmt.Errorf("cache does not support index updates")
+}
+
+// mapSCIPKindToLSPSymbolKind maps SCIP symbol kinds back to LSP symbol kinds
+func (m *LSPManager) mapSCIPKindToLSPSymbolKind(kind scip.SCIPSymbolKind) lsp.SymbolKind {
+	switch kind {
+	case scip.SCIPSymbolKindFile:
+		return lsp.File
+	case scip.SCIPSymbolKindModule:
+		return lsp.Module
+	case scip.SCIPSymbolKindNamespace:
+		return lsp.Namespace
+	case scip.SCIPSymbolKindPackage:
+		return lsp.Package
+	case scip.SCIPSymbolKindClass:
+		return lsp.Class
+	case scip.SCIPSymbolKindMethod:
+		return lsp.Method
+	case scip.SCIPSymbolKindProperty:
+		return lsp.Property
+	case scip.SCIPSymbolKindField:
+		return lsp.Field
+	case scip.SCIPSymbolKindConstructor:
+		return lsp.Constructor
+	case scip.SCIPSymbolKindEnum:
+		return lsp.Enum
+	case scip.SCIPSymbolKindInterface:
+		return lsp.Interface
+	case scip.SCIPSymbolKindFunction:
+		return lsp.Function
+	case scip.SCIPSymbolKindVariable:
+		return lsp.Variable
+	case scip.SCIPSymbolKindConstant:
+		return lsp.Constant
+	case scip.SCIPSymbolKindString:
+		return lsp.String
+	case scip.SCIPSymbolKindNumber:
+		return lsp.Number
+	case scip.SCIPSymbolKindBoolean:
+		return lsp.Boolean
+	case scip.SCIPSymbolKindArray:
+		return lsp.Array
+	case scip.SCIPSymbolKindObject:
+		return lsp.Object
+	case scip.SCIPSymbolKindKey:
+		return lsp.Key
+	case scip.SCIPSymbolKindNull:
+		return lsp.Null
+	case scip.SCIPSymbolKindEnumMember:
+		return lsp.EnumMember
+	case scip.SCIPSymbolKindStruct:
+		return lsp.Struct
+	case scip.SCIPSymbolKindEvent:
+		return lsp.Event
+	case scip.SCIPSymbolKindOperator:
+		return lsp.Operator
+	case scip.SCIPSymbolKindTypeParameter:
+		return lsp.TypeParameter
+	default:
+		return lsp.Variable
+	}
+}
+
+// getSymbolDocumentation retrieves documentation for a symbol using hover
+func (m *LSPManager) getSymbolDocumentation(ctx context.Context, uri string, position lsp.Position) []string {
+	// Use hover to get symbol documentation
+	params := map[string]interface{}{
+		"textDocument": map[string]interface{}{
+			"uri": uri,
+		},
+		"position": map[string]interface{}{
+			"line":      position.Line,
+			"character": position.Character,
+		},
+	}
+
+	hoverResult, err := m.ProcessRequest(ctx, types.MethodTextDocumentHover, params)
+	if err != nil || hoverResult == nil {
+		return nil
+	}
+
+	// Parse hover result to extract documentation
+	var documentation []string
+	switch v := hoverResult.(type) {
+	case map[string]interface{}:
+		if contents, ok := v["contents"]; ok {
+			switch c := contents.(type) {
+			case string:
+				documentation = append(documentation, c)
+			case map[string]interface{}:
+				if value, ok := c["value"].(string); ok {
+					documentation = append(documentation, value)
+				}
+			case []interface{}:
+				for _, item := range c {
+					if str, ok := item.(string); ok {
+						documentation = append(documentation, str)
+					}
+				}
+			}
+		}
+	}
+
+	return documentation
+}
+
+// getSymbolRelationships retrieves relationships for a symbol
+func (m *LSPManager) getSymbolRelationships(ctx context.Context, uri string, symbolName string, kind lsp.SymbolKind) []scip.SCIPRelationship {
+	var relationships []scip.SCIPRelationship
+
+	// For classes and interfaces, try to find implementations
+	if kind == lsp.Class || kind == lsp.Interface {
+		implementations := m.findImplementations(ctx, uri, symbolName)
+		for _, impl := range implementations {
+			relationships = append(relationships, scip.SCIPRelationship{
+				Symbol:           impl,
+				IsImplementation: true,
+			})
+		}
+	}
+
+	// For methods, try to find the type they belong to
+	if kind == lsp.Method || kind == lsp.Function {
+		typeDefinition := m.findTypeDefinition(ctx, uri, symbolName)
+		if typeDefinition != "" {
+			relationships = append(relationships, scip.SCIPRelationship{
+				Symbol:           typeDefinition,
+				IsTypeDefinition: true,
+			})
+		}
+	}
+
+	return relationships
+}
+
+// findImplementations finds implementations of an interface or class
+func (m *LSPManager) findImplementations(ctx context.Context, uri string, symbolName string) []string {
+	// Try to use textDocument/implementation if available
+	// This is a simplified version - in reality, we'd need to find the symbol position first
+	var implementations []string
+
+	// For now, return empty - this would require more complex logic
+	// to track type hierarchies across the codebase
+	return implementations
+}
+
+// findTypeDefinition finds the type definition for a method or field
+func (m *LSPManager) findTypeDefinition(ctx context.Context, uri string, symbolName string) string {
+	// Try to use textDocument/typeDefinition if available
+	// This is a simplified version - in reality, we'd need to find the symbol position first
+
+	// For now, return empty - this would require more complex logic
+	return ""
 }

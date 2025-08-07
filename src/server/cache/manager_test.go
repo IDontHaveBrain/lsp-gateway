@@ -68,7 +68,7 @@ func TestNewSCIPCacheManager(t *testing.T) {
 				assert.NotNil(t, manager)
 			}
 
-			// No cleanup needed for SimpleCacheManager
+			// No cleanup needed for SCIPCacheManager
 		})
 	}
 }

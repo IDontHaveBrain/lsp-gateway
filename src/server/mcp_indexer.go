@@ -52,7 +52,7 @@ func (m *MCPServer) performInitialIndexing() {
 	m.performWorkspaceIndexing(ctx)
 
 	// Save the index to disk for persistence
-	if cacheManager, ok := m.scipCache.(*cache.SimpleCacheManager); ok {
+	if cacheManager, ok := m.scipCache.(*cache.SCIPCacheManager); ok {
 		if err := cacheManager.SaveIndexToDisk(); err != nil {
 			common.LSPLogger.Error("MCP server: Failed to save index to disk: %v", err)
 		} else {
@@ -71,7 +71,7 @@ func (m *MCPServer) performWorkspaceIndexing(ctx context.Context) {
 	}
 
 	// Delegate to cache module's workspace indexing with MCP-specific limits
-	if _, ok := m.scipCache.(*cache.SimpleCacheManager); ok {
+	if _, ok := m.scipCache.(*cache.SCIPCacheManager); ok {
 		// Create a limited workspace indexer for MCP mode
 		indexer := cache.NewWorkspaceIndexer(m.lspManager)
 

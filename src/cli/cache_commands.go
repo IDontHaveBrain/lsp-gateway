@@ -73,7 +73,7 @@ func IndexCache(configPath string) error {
 	}
 
 	// Use the cache manager's workspace indexing method
-	if cacheManager, ok := cacheInstance.(*cache.SimpleCacheManager); ok {
+	if cacheManager, ok := cacheInstance.(*cache.SCIPCacheManager); ok {
 		if err := cacheManager.PerformWorkspaceIndexing(ctx, wd, manager); err != nil {
 			common.CLILogger.Error("❌ Failed to perform workspace indexing: %v", err)
 			return err

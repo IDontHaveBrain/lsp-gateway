@@ -10,7 +10,7 @@ import (
 )
 
 // SaveIndexToDisk saves the SCIP index data to disk as JSON files
-func (m *SimpleCacheManager) SaveIndexToDisk() error {
+func (m *SCIPCacheManager) SaveIndexToDisk() error {
 	if m.config.StoragePath == "" {
 		return fmt.Errorf("storage path not configured")
 	}
@@ -34,7 +34,7 @@ func (m *SimpleCacheManager) SaveIndexToDisk() error {
 }
 
 // LoadIndexFromDisk loads the SCIP index data from disk JSON files
-func (m *SimpleCacheManager) LoadIndexFromDisk() error {
+func (m *SCIPCacheManager) LoadIndexFromDisk() error {
 	if m.config.StoragePath == "" {
 		return fmt.Errorf("storage path not configured")
 	}
@@ -68,7 +68,7 @@ func (m *SimpleCacheManager) LoadIndexFromDisk() error {
 }
 
 // PerformWorkspaceIndexing performs initial workspace indexing
-func (m *SimpleCacheManager) PerformWorkspaceIndexing(ctx context.Context, workingDir string, lspFallback LSPFallback) error {
+func (m *SCIPCacheManager) PerformWorkspaceIndexing(ctx context.Context, workingDir string, lspFallback LSPFallback) error {
 	if !m.enabled {
 		return nil
 	}

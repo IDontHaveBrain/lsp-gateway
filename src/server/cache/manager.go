@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -158,10 +160,16 @@ type SCIPCache interface {
 	QueryIndex(ctx context.Context, query *IndexQuery) (*IndexResult, error)
 	GetIndexStats() *IndexStats
 	UpdateIndex(ctx context.Context, files []string) error
+
+	// Direct SCIP search methods for MCP tools
+	SearchSymbols(ctx context.Context, pattern string, filePattern string, maxResults int) ([]interface{}, error)
+	SearchReferences(ctx context.Context, symbolName string, filePattern string, maxResults int) ([]interface{}, error)
+	SearchDefinitions(ctx context.Context, symbolName string, filePattern string, maxResults int) ([]interface{}, error)
+	GetSymbolInfo(ctx context.Context, symbolName string, filePattern string) (interface{}, error)
 }
 
-// SimpleCacheManager implements simple in-memory cache with occurrence-centric SCIP storage
-type SimpleCacheManager struct {
+// SCIPCacheManager implements simple in-memory cache with occurrence-centric SCIP storage
+type SCIPCacheManager struct {
 	entries map[string]*CacheEntry
 	config  *config.CacheConfig
 	stats   *SimpleCacheStats
@@ -176,7 +184,7 @@ type SimpleCacheManager struct {
 }
 
 // NewSCIPCacheManager creates a simple cache manager with unified config
-func NewSCIPCacheManager(configParam *config.CacheConfig) (*SimpleCacheManager, error) {
+func NewSCIPCacheManager(configParam *config.CacheConfig) (*SCIPCacheManager, error) {
 	if configParam == nil {
 		configParam = config.GetDefaultCacheConfig()
 	}
@@ -195,7 +203,7 @@ func NewSCIPCacheManager(configParam *config.CacheConfig) (*SimpleCacheManager, 
 		return nil, fmt.Errorf("failed to create SCIP storage: %w", err)
 	}
 
-	manager := &SimpleCacheManager{
+	manager := &SCIPCacheManager{
 		entries:     make(map[string]*CacheEntry),
 		config:      configParam,
 		stats:       &SimpleCacheStats{},
@@ -231,7 +239,7 @@ func NewSCIPCacheManager(configParam *config.CacheConfig) (*SimpleCacheManager, 
 }
 
 // NewSimpleCache creates a cache manager with basic MB-based configuration using unified config
-func NewSimpleCache(maxMemoryMB int) (*SimpleCacheManager, error) {
+func NewSimpleCache(maxMemoryMB int) (*SCIPCacheManager, error) {
 	if maxMemoryMB <= 0 {
 		maxMemoryMB = 256 // Default 256MB
 	}
@@ -250,7 +258,7 @@ func NewSimpleCache(maxMemoryMB int) (*SimpleCacheManager, error) {
 }
 
 // Start begins cache operations
-func (m *SimpleCacheManager) Start(ctx context.Context) error {
+func (m *SCIPCacheManager) Start(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -278,7 +286,7 @@ func (m *SimpleCacheManager) Start(ctx context.Context) error {
 }
 
 // Stop gracefully shuts down the cache manager
-func (m *SimpleCacheManager) Stop() error {
+func (m *SCIPCacheManager) Stop() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -298,7 +306,7 @@ func (m *SimpleCacheManager) Stop() error {
 }
 
 // Lookup retrieves a cached response if available
-func (m *SimpleCacheManager) Lookup(method string, params interface{}) (interface{}, bool, error) {
+func (m *SCIPCacheManager) Lookup(method string, params interface{}) (interface{}, bool, error) {
 	if !m.isEnabled() {
 		return nil, false, nil
 	}
@@ -338,7 +346,7 @@ func (m *SimpleCacheManager) Lookup(method string, params interface{}) (interfac
 }
 
 // Store caches an LSP response
-func (m *SimpleCacheManager) Store(method string, params interface{}, response interface{}) error {
+func (m *SCIPCacheManager) Store(method string, params interface{}, response interface{}) error {
 	if !m.isEnabled() {
 		return nil
 	}
@@ -389,7 +397,7 @@ func (m *SimpleCacheManager) Store(method string, params interface{}, response i
 }
 
 // InvalidateDocument removes all cached entries for a specific document
-func (m *SimpleCacheManager) InvalidateDocument(uri string) error {
+func (m *SCIPCacheManager) InvalidateDocument(uri string) error {
 	if !m.isEnabled() {
 		return nil
 	}
@@ -419,7 +427,7 @@ func (m *SimpleCacheManager) InvalidateDocument(uri string) error {
 }
 
 // Clear removes all cache entries
-func (m *SimpleCacheManager) Clear() error {
+func (m *SCIPCacheManager) Clear() error {
 	if !m.isEnabled() {
 		return nil
 	}
@@ -434,7 +442,7 @@ func (m *SimpleCacheManager) Clear() error {
 }
 
 // HealthCheck returns current cache health metrics
-func (m *SimpleCacheManager) HealthCheck() (*CacheMetrics, error) {
+func (m *SCIPCacheManager) HealthCheck() (*CacheMetrics, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -456,7 +464,7 @@ func (m *SimpleCacheManager) HealthCheck() (*CacheMetrics, error) {
 }
 
 // GetMetrics returns current cache metrics
-func (m *SimpleCacheManager) GetMetrics() *CacheMetrics {
+func (m *SCIPCacheManager) GetMetrics() *CacheMetrics {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -478,19 +486,19 @@ func (m *SimpleCacheManager) GetMetrics() *CacheMetrics {
 }
 
 // isEnabled checks if cache is enabled and properly initialized
-func (m *SimpleCacheManager) isEnabled() bool {
+func (m *SCIPCacheManager) isEnabled() bool {
 	return m.enabled && m.started
 }
 
 // IsEnabled returns simple enabled/disabled status of the cache
-func (m *SimpleCacheManager) IsEnabled() bool {
+func (m *SCIPCacheManager) IsEnabled() bool {
 	return m.enabled && m.started
 }
 
 // Helper methods for simple cache implementation
 
 // buildKey creates a cache key from method and parameters
-func (m *SimpleCacheManager) buildKey(method string, params interface{}) (string, error) {
+func (m *SCIPCacheManager) buildKey(method string, params interface{}) (string, error) {
 	// Create hash of method and parameters
 	data, err := json.Marshal(map[string]interface{}{
 		"method": method,
@@ -506,13 +514,13 @@ func (m *SimpleCacheManager) buildKey(method string, params interface{}) (string
 }
 
 // extractURI extracts URI from parameters for invalidation
-func (m *SimpleCacheManager) extractURI(params interface{}) string {
+func (m *SCIPCacheManager) extractURI(params interface{}) string {
 	uri, _ := ExtractURIFromParams("", params)
 	return uri
 }
 
 // isValidEntry checks if cache entry is still valid based on TTL
-func (m *SimpleCacheManager) isValidEntry(entry *CacheEntry, ttl time.Duration) bool {
+func (m *SCIPCacheManager) isValidEntry(entry *CacheEntry, ttl time.Duration) bool {
 	if entry == nil {
 		return false
 	}
@@ -520,7 +528,7 @@ func (m *SimpleCacheManager) isValidEntry(entry *CacheEntry, ttl time.Duration) 
 }
 
 // getTotalSize calculates total size of all cache entries
-func (m *SimpleCacheManager) getTotalSize() int64 {
+func (m *SCIPCacheManager) getTotalSize() int64 {
 	var total int64
 	for _, entry := range m.entries {
 		total += entry.Size
@@ -529,13 +537,13 @@ func (m *SimpleCacheManager) getTotalSize() int64 {
 }
 
 // updateStats recalculates cache statistics
-func (m *SimpleCacheManager) updateStats() {
+func (m *SCIPCacheManager) updateStats() {
 	m.stats.TotalSize = m.getTotalSize()
 	m.stats.EntryCount = int64(len(m.entries))
 }
 
 // performSimpleEviction removes oldest entries when cache is full
-func (m *SimpleCacheManager) performSimpleEviction() {
+func (m *SCIPCacheManager) performSimpleEviction() {
 	if len(m.entries) == 0 {
 		return
 	}
@@ -562,7 +570,7 @@ func (m *SimpleCacheManager) performSimpleEviction() {
 // SCIP Indexing Implementation
 
 // IndexDocument indexes LSP symbols using occurrence-centric SCIP storage
-func (m *SimpleCacheManager) IndexDocument(ctx context.Context, uri string, language string, symbols []lsp.SymbolInformation) error {
+func (m *SCIPCacheManager) IndexDocument(ctx context.Context, uri string, language string, symbols []lsp.SymbolInformation) error {
 	if !m.enabled || m.scipStorage == nil {
 		return nil // Graceful degradation when cache is disabled
 	}
@@ -589,7 +597,7 @@ func (m *SimpleCacheManager) IndexDocument(ctx context.Context, uri string, lang
 
 // UpdateSymbolIndex implements the QueryManager interface with DocumentSymbol support
 // This method converts LSP symbols to SCIP occurrences with enhanced range information
-func (m *SimpleCacheManager) UpdateSymbolIndex(uri string, symbols []*lsp.SymbolInformation, documentSymbols []*lsp.DocumentSymbol) error {
+func (m *SCIPCacheManager) UpdateSymbolIndex(uri string, symbols []*lsp.SymbolInformation, documentSymbols []*lsp.DocumentSymbol) error {
 	if !m.enabled {
 		return nil
 	}
@@ -624,7 +632,7 @@ func (m *SimpleCacheManager) UpdateSymbolIndex(uri string, symbols []*lsp.Symbol
 }
 
 // flattenDocumentSymbols recursively flattens DocumentSymbols into a map
-func (m *SimpleCacheManager) flattenDocumentSymbols(symbols []*lsp.DocumentSymbol, result map[string]*lsp.DocumentSymbol, parentPath string) {
+func (m *SCIPCacheManager) flattenDocumentSymbols(symbols []*lsp.DocumentSymbol, result map[string]*lsp.DocumentSymbol, parentPath string) {
 	for _, sym := range symbols {
 		if sym != nil {
 			fullPath := sym.Name
@@ -644,7 +652,7 @@ func (m *SimpleCacheManager) flattenDocumentSymbols(symbols []*lsp.DocumentSymbo
 }
 
 // detectLanguageFromURI detects language from file extension
-func (m *SimpleCacheManager) detectLanguageFromURI(uri string) string {
+func (m *SCIPCacheManager) detectLanguageFromURI(uri string) string {
 	ext := filepath.Ext(uri)
 	switch ext {
 	case ".go":
@@ -665,7 +673,7 @@ func (m *SimpleCacheManager) detectLanguageFromURI(uri string) string {
 // Helper methods for LSP to SCIP conversion
 
 // convertLSPSymbolsToSCIPDocument converts LSP symbols to a SCIP document with occurrences
-func (m *SimpleCacheManager) convertLSPSymbolsToSCIPDocument(uri string, language string, symbols []lsp.SymbolInformation) (*scip.SCIPDocument, error) {
+func (m *SCIPCacheManager) convertLSPSymbolsToSCIPDocument(uri string, language string, symbols []lsp.SymbolInformation) (*scip.SCIPDocument, error) {
 	scipDoc := &scip.SCIPDocument{
 		URI:               uri,
 		Language:          language,
@@ -717,7 +725,7 @@ func (m *SimpleCacheManager) convertLSPSymbolsToSCIPDocument(uri string, languag
 }
 
 // storeDefinitionResult stores definition results as SCIP occurrences
-func (m *SimpleCacheManager) storeDefinitionResult(uri string, response interface{}) error {
+func (m *SCIPCacheManager) storeDefinitionResult(uri string, response interface{}) error {
 	locations, ok := response.([]lsp.Location)
 	if !ok {
 		return fmt.Errorf("invalid definition response type")
@@ -762,7 +770,7 @@ func (m *SimpleCacheManager) storeDefinitionResult(uri string, response interfac
 }
 
 // storeReferencesResult stores reference results as SCIP occurrences
-func (m *SimpleCacheManager) storeReferencesResult(uri string, response interface{}) error {
+func (m *SCIPCacheManager) storeReferencesResult(uri string, response interface{}) error {
 	locations, ok := response.([]lsp.Location)
 	if !ok {
 		return fmt.Errorf("invalid references response type")
@@ -814,7 +822,7 @@ func (m *SimpleCacheManager) storeReferencesResult(uri string, response interfac
 }
 
 // storeHoverResult stores hover information as symbol metadata
-func (m *SimpleCacheManager) storeHoverResult(uri string, params, response interface{}) error {
+func (m *SCIPCacheManager) storeHoverResult(uri string, params, response interface{}) error {
 	hover, ok := response.(*lsp.Hover)
 	if !ok {
 		return fmt.Errorf("invalid hover response type")
@@ -851,7 +859,7 @@ func (m *SimpleCacheManager) storeHoverResult(uri string, params, response inter
 }
 
 // storeDocumentSymbolResult stores document symbols as definition occurrences
-func (m *SimpleCacheManager) storeDocumentSymbolResult(uri string, response interface{}) error {
+func (m *SCIPCacheManager) storeDocumentSymbolResult(uri string, response interface{}) error {
 	symbols, ok := response.([]lsp.SymbolInformation)
 	if !ok {
 		return fmt.Errorf("invalid document symbol response type")
@@ -871,7 +879,7 @@ func (m *SimpleCacheManager) storeDocumentSymbolResult(uri string, response inte
 }
 
 // storeWorkspaceSymbolResult stores workspace symbols
-func (m *SimpleCacheManager) storeWorkspaceSymbolResult(response interface{}) error {
+func (m *SCIPCacheManager) storeWorkspaceSymbolResult(response interface{}) error {
 	symbols, ok := response.([]lsp.SymbolInformation)
 	if !ok {
 		return fmt.Errorf("invalid workspace symbol response type")
@@ -901,7 +909,7 @@ func (m *SimpleCacheManager) storeWorkspaceSymbolResult(response interface{}) er
 }
 
 // storeCompletionResult stores completion items (not typically cached as occurrences)
-func (m *SimpleCacheManager) storeCompletionResult(uri string, params, response interface{}) error {
+func (m *SCIPCacheManager) storeCompletionResult(uri string, params, response interface{}) error {
 	// Completion items are typically not stored as occurrences
 	// This is a placeholder for potential future enhancements
 	common.LSPLogger.Debug("Completion result storage not implemented for occurrence-centric cache")
@@ -911,7 +919,7 @@ func (m *SimpleCacheManager) storeCompletionResult(uri string, params, response 
 // Helper methods for conversion between LSP and SCIP types
 
 // convertLSPSymbolKindToSCIPKind converts LSP symbol kind to SCIP symbol kind
-func (m *SimpleCacheManager) convertLSPSymbolKindToSCIPKind(kind lsp.SymbolKind) scip.SCIPSymbolKind {
+func (m *SCIPCacheManager) convertLSPSymbolKindToSCIPKind(kind lsp.SymbolKind) scip.SCIPSymbolKind {
 	switch kind {
 	case lsp.File:
 		return scip.SCIPSymbolKindFile
@@ -947,7 +955,7 @@ func (m *SimpleCacheManager) convertLSPSymbolKindToSCIPKind(kind lsp.SymbolKind)
 }
 
 // convertSCIPSymbolKindToLSP converts SCIP symbol kind back to LSP
-func (m *SimpleCacheManager) convertSCIPSymbolKindToLSP(kind scip.SCIPSymbolKind) lsp.SymbolKind {
+func (m *SCIPCacheManager) convertSCIPSymbolKindToLSP(kind scip.SCIPSymbolKind) lsp.SymbolKind {
 	switch kind {
 	case scip.SCIPSymbolKindFile:
 		return lsp.File
@@ -983,7 +991,7 @@ func (m *SimpleCacheManager) convertSCIPSymbolKindToLSP(kind scip.SCIPSymbolKind
 }
 
 // convertLSPSymbolKindToSyntaxKind converts LSP symbol kind to syntax kind for highlighting
-func (m *SimpleCacheManager) convertLSPSymbolKindToSyntaxKind(kind lsp.SymbolKind) types.SyntaxKind {
+func (m *SCIPCacheManager) convertLSPSymbolKindToSyntaxKind(kind lsp.SymbolKind) types.SyntaxKind {
 	switch kind {
 	case lsp.Function, lsp.Method:
 		return types.SyntaxKindIdentifierFunction
@@ -1001,7 +1009,7 @@ func (m *SimpleCacheManager) convertLSPSymbolKindToSyntaxKind(kind lsp.SymbolKin
 }
 
 // convertSCIPSymbolKindToCompletionItemKind converts SCIP symbol kind to completion item kind
-func (m *SimpleCacheManager) convertSCIPSymbolKindToCompletionItemKind(kind scip.SCIPSymbolKind) lsp.CompletionItemKind {
+func (m *SCIPCacheManager) convertSCIPSymbolKindToCompletionItemKind(kind scip.SCIPSymbolKind) lsp.CompletionItemKind {
 	switch kind {
 	case scip.SCIPSymbolKindFunction:
 		return lsp.FunctionComp
@@ -1023,7 +1031,7 @@ func (m *SimpleCacheManager) convertSCIPSymbolKindToCompletionItemKind(kind scip
 }
 
 // formatHoverFromSCIPSymbolInfo formats SCIP symbol information for hover display
-func (m *SimpleCacheManager) formatHoverFromSCIPSymbolInfo(symbolInfo *scip.SCIPSymbolInformation) string {
+func (m *SCIPCacheManager) formatHoverFromSCIPSymbolInfo(symbolInfo *scip.SCIPSymbolInformation) string {
 	var content strings.Builder
 
 	// Add symbol name and kind
@@ -1044,7 +1052,7 @@ func (m *SimpleCacheManager) formatHoverFromSCIPSymbolInfo(symbolInfo *scip.SCIP
 }
 
 // formatSymbolDetail formats symbol detail for completion items
-func (m *SimpleCacheManager) formatSymbolDetail(symbolInfo *scip.SCIPSymbolInformation) string {
+func (m *SCIPCacheManager) formatSymbolDetail(symbolInfo *scip.SCIPSymbolInformation) string {
 	if symbolInfo.SignatureDocumentation.Text != "" {
 		return symbolInfo.SignatureDocumentation.Text
 	}
@@ -1052,7 +1060,7 @@ func (m *SimpleCacheManager) formatSymbolDetail(symbolInfo *scip.SCIPSymbolInfor
 }
 
 // extractURIFromOccurrence extracts document URI from a SCIP occurrence
-func (m *SimpleCacheManager) extractURIFromOccurrence(occ *scip.SCIPOccurrence) string {
+func (m *SCIPCacheManager) extractURIFromOccurrence(occ *scip.SCIPOccurrence) string {
 	// In occurrence-centric design, we need to find which document contains this occurrence
 	// This is a simplified approach - in practice, you'd track this more efficiently
 	if m.scipStorage == nil {
@@ -1083,7 +1091,7 @@ func (m *SimpleCacheManager) extractURIFromOccurrence(occ *scip.SCIPOccurrence) 
 }
 
 // extractPositionFromParams extracts position from LSP parameters
-func (m *SimpleCacheManager) extractPositionFromParams(params interface{}) (types.Position, error) {
+func (m *SCIPCacheManager) extractPositionFromParams(params interface{}) (types.Position, error) {
 	// This is a simplified extraction - in practice you'd handle different parameter types
 	paramsMap, ok := params.(map[string]interface{})
 	if !ok {
@@ -1114,7 +1122,7 @@ func (m *SimpleCacheManager) extractPositionFromParams(params interface{}) (type
 // Query methods for SCIP storage
 
 // querySymbolsFromSCIP queries symbols using SCIP storage
-func (m *SimpleCacheManager) querySymbolsFromSCIP(ctx context.Context, query *IndexQuery) ([]interface{}, error) {
+func (m *SCIPCacheManager) querySymbolsFromSCIP(ctx context.Context, query *IndexQuery) ([]interface{}, error) {
 	if query.Symbol == "" {
 		return []interface{}{}, nil
 	}
@@ -1133,7 +1141,7 @@ func (m *SimpleCacheManager) querySymbolsFromSCIP(ctx context.Context, query *In
 }
 
 // queryDefinitionsFromSCIP queries definitions using SCIP storage
-func (m *SimpleCacheManager) queryDefinitionsFromSCIP(ctx context.Context, query *IndexQuery) ([]interface{}, error) {
+func (m *SCIPCacheManager) queryDefinitionsFromSCIP(ctx context.Context, query *IndexQuery) ([]interface{}, error) {
 	if query.Symbol == "" {
 		return []interface{}{}, nil
 	}
@@ -1147,7 +1155,7 @@ func (m *SimpleCacheManager) queryDefinitionsFromSCIP(ctx context.Context, query
 }
 
 // queryReferencesFromSCIP queries references using SCIP storage
-func (m *SimpleCacheManager) queryReferencesFromSCIP(ctx context.Context, query *IndexQuery) ([]interface{}, error) {
+func (m *SCIPCacheManager) queryReferencesFromSCIP(ctx context.Context, query *IndexQuery) ([]interface{}, error) {
 	if query.Symbol == "" {
 		return []interface{}{}, nil
 	}
@@ -1166,7 +1174,7 @@ func (m *SimpleCacheManager) queryReferencesFromSCIP(ctx context.Context, query 
 }
 
 // queryWorkspaceSymbolsFromSCIP queries workspace symbols using SCIP storage
-func (m *SimpleCacheManager) queryWorkspaceSymbolsFromSCIP(ctx context.Context, query *IndexQuery) ([]interface{}, error) {
+func (m *SCIPCacheManager) queryWorkspaceSymbolsFromSCIP(ctx context.Context, query *IndexQuery) ([]interface{}, error) {
 	searchQuery := ""
 	if query.Symbol != "" {
 		searchQuery = query.Symbol
@@ -1186,7 +1194,7 @@ func (m *SimpleCacheManager) queryWorkspaceSymbolsFromSCIP(ctx context.Context, 
 }
 
 // QueryIndex queries the SCIP storage for symbols and relationships
-func (m *SimpleCacheManager) QueryIndex(ctx context.Context, query *IndexQuery) (*IndexResult, error) {
+func (m *SCIPCacheManager) QueryIndex(ctx context.Context, query *IndexQuery) (*IndexResult, error) {
 	if !m.enabled || m.scipStorage == nil {
 		return &IndexResult{
 			Type:      query.Type,
@@ -1240,7 +1248,7 @@ func (m *SimpleCacheManager) QueryIndex(ctx context.Context, query *IndexQuery) 
 }
 
 // GetIndexStats returns current index statistics from SCIP storage
-func (m *SimpleCacheManager) GetIndexStats() *IndexStats {
+func (m *SCIPCacheManager) GetIndexStats() *IndexStats {
 	if !m.enabled {
 		return &IndexStats{Status: "disabled"}
 	}
@@ -1264,7 +1272,7 @@ func (m *SimpleCacheManager) GetIndexStats() *IndexStats {
 }
 
 // UpdateIndex updates the index with the given files (SimpleCache interface)
-func (m *SimpleCacheManager) UpdateIndex(ctx context.Context, files []string) error {
+func (m *SCIPCacheManager) UpdateIndex(ctx context.Context, files []string) error {
 	if !m.enabled {
 		return nil
 	}
@@ -1277,7 +1285,426 @@ func (m *SimpleCacheManager) UpdateIndex(ctx context.Context, files []string) er
 	return nil
 }
 
-func (m *SimpleCacheManager) updateIndexStats(language string, symbolCount int) {
+// Direct SCIP Search Methods - Added after QueryIndex method for direct occurrence-based searching
+
+// SearchSymbolsEnhanced performs direct SCIP symbol search using occurrence indexes with enhanced results
+func (m *SCIPCacheManager) SearchSymbolsEnhanced(ctx context.Context, query *EnhancedSymbolQuery) (*EnhancedSymbolSearchResult, error) {
+	if !m.enabled || m.scipStorage == nil {
+		return &EnhancedSymbolSearchResult{
+			Symbols:   []EnhancedSymbolResult{},
+			Total:     0,
+			Truncated: false,
+			Query:     query,
+			Metadata:  map[string]interface{}{"cache_disabled": true},
+			Timestamp: time.Now(),
+		}, nil
+	}
+
+	m.indexMu.RLock()
+	defer m.indexMu.RUnlock()
+
+	// Set default limits
+	maxResults := 100
+	if query.MaxResults > 0 {
+		maxResults = query.MaxResults
+	}
+
+	// Search symbols using SCIP storage with pattern matching
+	searchSymbols, err := m.scipStorage.SearchSymbols(ctx, query.Pattern, maxResults*2) // Get more for filtering
+	if err != nil {
+		return nil, fmt.Errorf("failed to search symbols in SCIP storage: %w", err)
+	}
+
+	var enhancedResults []EnhancedSymbolResult
+	processedCount := 0
+
+	for _, symbolInfo := range searchSymbols {
+		if processedCount >= maxResults {
+			break
+		}
+
+		// Filter by symbol kinds if specified
+		if len(query.SymbolKinds) > 0 {
+			kindMatched := false
+			for _, kind := range query.SymbolKinds {
+				if symbolInfo.Kind == kind {
+					kindMatched = true
+					break
+				}
+			}
+			if !kindMatched {
+				continue
+			}
+		}
+
+		// Get all occurrences for this symbol
+		occurrences, err := m.scipStorage.GetOccurrencesBySymbol(ctx, symbolInfo.Symbol)
+		if err != nil {
+			continue
+		}
+
+		// Filter by symbol roles if specified
+		if len(query.SymbolRoles) > 0 {
+			filteredOccurrences := []scip.SCIPOccurrence{}
+			for _, occ := range occurrences {
+				for _, role := range query.SymbolRoles {
+					if occ.SymbolRoles.HasRole(role) {
+						filteredOccurrences = append(filteredOccurrences, occ)
+						break
+					}
+				}
+			}
+			occurrences = filteredOccurrences
+		}
+
+		// Apply minimum occurrence filter
+		if query.MinOccurrences > 0 && len(occurrences) < query.MinOccurrences {
+			continue
+		}
+
+		// Apply maximum occurrence filter
+		if query.MaxOccurrences > 0 && len(occurrences) > query.MaxOccurrences {
+			continue
+		}
+
+		// Only include symbols with definition if requested
+		if query.OnlyWithDefinition {
+			hasDefinition := false
+			for _, occ := range occurrences {
+				if occ.SymbolRoles.HasRole(types.SymbolRoleDefinition) {
+					hasDefinition = true
+					break
+				}
+			}
+			if !hasDefinition {
+				continue
+			}
+		}
+
+		// Build enhanced result
+		enhancedResult := m.buildEnhancedSymbolResult(&symbolInfo, occurrences, query)
+		enhancedResults = append(enhancedResults, enhancedResult)
+		processedCount++
+	}
+
+	// Sort results if requested
+	if query.SortBy != "" {
+		m.sortEnhancedResults(enhancedResults, query.SortBy)
+	}
+
+	result := &EnhancedSymbolSearchResult{
+		Symbols:   enhancedResults,
+		Total:     len(enhancedResults),
+		Truncated: len(searchSymbols) > maxResults,
+		Query:     query,
+		Metadata: map[string]interface{}{
+			"scip_enabled":     true,
+			"total_candidates": len(searchSymbols),
+		},
+		Timestamp: time.Now(),
+	}
+
+	return result, nil
+}
+
+// SearchReferencesEnhanced performs direct SCIP reference search using occurrence indexes with enhanced results
+func (m *SCIPCacheManager) SearchReferencesEnhanced(ctx context.Context, symbolName string, filePattern string, options *ReferenceSearchOptions) (*ReferenceSearchResult, error) {
+	if !m.enabled || m.scipStorage == nil {
+		return &ReferenceSearchResult{
+			SymbolName: symbolName,
+			References: []SCIPOccurrenceInfo{},
+			TotalCount: 0,
+			FileCount:  0,
+			Options:    options,
+			Metadata:   map[string]interface{}{"cache_disabled": true},
+			Timestamp:  time.Now(),
+		}, nil
+	}
+
+	if options == nil {
+		options = &ReferenceSearchOptions{MaxResults: 100}
+	}
+
+	m.indexMu.RLock()
+	defer m.indexMu.RUnlock()
+
+	// Find symbols by name first
+	symbolInfos, err := m.scipStorage.GetSymbolInformationByName(ctx, symbolName)
+	if err != nil || len(symbolInfos) == 0 {
+		return &ReferenceSearchResult{
+			SymbolName: symbolName,
+			References: []SCIPOccurrenceInfo{},
+			TotalCount: 0,
+			FileCount:  0,
+			Options:    options,
+			Metadata:   map[string]interface{}{"symbols_found": 0},
+			Timestamp:  time.Now(),
+		}, nil
+	}
+
+	var allReferences []SCIPOccurrenceInfo
+	var definition *SCIPOccurrenceInfo
+	fileSet := make(map[string]bool)
+	symbolID := ""
+
+	// Process each matching symbol (handle overloaded symbols)
+	for _, symbolInfo := range symbolInfos {
+		symbolID = symbolInfo.Symbol
+
+		// Get reference occurrences
+		refOccurrences, err := m.scipStorage.GetReferenceOccurrences(ctx, symbolInfo.Symbol)
+		if err == nil {
+			for _, occ := range refOccurrences {
+				// Filter by file pattern if specified
+				docURI := m.extractURIFromOccurrence(&occ)
+				if filePattern != "" && !m.matchFilePattern(docURI, filePattern) {
+					continue
+				}
+
+				// Filter by symbol roles if specified
+				if len(options.SymbolRoles) > 0 {
+					roleMatched := false
+					for _, role := range options.SymbolRoles {
+						if occ.SymbolRoles.HasRole(role) {
+							roleMatched = true
+							break
+						}
+					}
+					if !roleMatched {
+						continue
+					}
+				}
+
+				occInfo := m.buildOccurrenceInfo(&occ, docURI)
+				allReferences = append(allReferences, occInfo)
+				fileSet[docURI] = true
+
+				if options.MaxResults > 0 && len(allReferences) >= options.MaxResults {
+					break
+				}
+			}
+		}
+
+		// Get definition if requested
+		if options.IncludeDefinition && definition == nil {
+			if defOcc, err := m.scipStorage.GetDefinitionOccurrence(ctx, symbolInfo.Symbol); err == nil {
+				docURI := m.extractURIFromOccurrence(defOcc)
+				if filePattern == "" || m.matchFilePattern(docURI, filePattern) {
+					definition = &SCIPOccurrenceInfo{}
+					*definition = m.buildOccurrenceInfo(defOcc, docURI)
+					fileSet[docURI] = true
+				}
+			}
+		}
+
+		// Break if we have enough results
+		if options.MaxResults > 0 && len(allReferences) >= options.MaxResults {
+			break
+		}
+	}
+
+	// Sort results if requested
+	if options.SortBy != "" {
+		m.sortOccurrenceResults(allReferences, options.SortBy)
+	}
+
+	result := &ReferenceSearchResult{
+		SymbolName: symbolName,
+		SymbolID:   symbolID,
+		References: allReferences,
+		Definition: definition,
+		TotalCount: len(allReferences),
+		FileCount:  len(fileSet),
+		Options:    options,
+		Metadata: map[string]interface{}{
+			"scip_enabled":  true,
+			"symbols_found": len(symbolInfos),
+			"file_pattern":  filePattern,
+		},
+		Timestamp: time.Now(),
+	}
+
+	return result, nil
+}
+
+// SearchDefinitionsEnhanced performs direct SCIP definition search using occurrence indexes with enhanced results
+func (m *SCIPCacheManager) SearchDefinitionsEnhanced(ctx context.Context, symbolName string, filePattern string) (*DefinitionSearchResult, error) {
+	if !m.enabled || m.scipStorage == nil {
+		return &DefinitionSearchResult{
+			SymbolName:  symbolName,
+			Definitions: []SCIPOccurrenceInfo{},
+			TotalCount:  0,
+			FileCount:   0,
+			Metadata:    map[string]interface{}{"cache_disabled": true},
+			Timestamp:   time.Now(),
+		}, nil
+	}
+
+	m.indexMu.RLock()
+	defer m.indexMu.RUnlock()
+
+	// Find symbols by name
+	symbolInfos, err := m.scipStorage.GetSymbolInformationByName(ctx, symbolName)
+	if err != nil || len(symbolInfos) == 0 {
+		return &DefinitionSearchResult{
+			SymbolName:  symbolName,
+			Definitions: []SCIPOccurrenceInfo{},
+			TotalCount:  0,
+			FileCount:   0,
+			Metadata:    map[string]interface{}{"symbols_found": 0},
+			Timestamp:   time.Now(),
+		}, nil
+	}
+
+	var allDefinitions []SCIPOccurrenceInfo
+	fileSet := make(map[string]bool)
+	symbolID := ""
+
+	// Get definitions for each matching symbol
+	for _, symbolInfo := range symbolInfos {
+		symbolID = symbolInfo.Symbol
+
+		if defOcc, err := m.scipStorage.GetDefinitionOccurrence(ctx, symbolInfo.Symbol); err == nil {
+			docURI := m.extractURIFromOccurrence(defOcc)
+
+			// Filter by file pattern if specified
+			if filePattern != "" && !m.matchFilePattern(docURI, filePattern) {
+				continue
+			}
+
+			occInfo := m.buildOccurrenceInfo(defOcc, docURI)
+			allDefinitions = append(allDefinitions, occInfo)
+			fileSet[docURI] = true
+		}
+	}
+
+	result := &DefinitionSearchResult{
+		SymbolName:  symbolName,
+		SymbolID:    symbolID,
+		Definitions: allDefinitions,
+		TotalCount:  len(allDefinitions),
+		FileCount:   len(fileSet),
+		Metadata: map[string]interface{}{
+			"scip_enabled":  true,
+			"symbols_found": len(symbolInfos),
+			"file_pattern":  filePattern,
+		},
+		Timestamp: time.Now(),
+	}
+
+	return result, nil
+}
+
+// GetSymbolInfoEnhanced performs direct SCIP symbol information retrieval with occurrence details and enhanced results
+func (m *SCIPCacheManager) GetSymbolInfoEnhanced(ctx context.Context, symbolName string, filePattern string) (*SymbolInfoResult, error) {
+	if !m.enabled || m.scipStorage == nil {
+		return &SymbolInfoResult{
+			SymbolName:      symbolName,
+			Kind:            scip.SCIPSymbolKindUnknown,
+			Documentation:   []string{},
+			Occurrences:     []SCIPOccurrenceInfo{},
+			OccurrenceCount: 0,
+			DefinitionCount: 0,
+			ReferenceCount:  0,
+			FileCount:       0,
+			Metadata:        map[string]interface{}{"cache_disabled": true},
+			Timestamp:       time.Now(),
+		}, nil
+	}
+
+	m.indexMu.RLock()
+	defer m.indexMu.RUnlock()
+
+	// Find symbols by name
+	symbolInfos, err := m.scipStorage.GetSymbolInformationByName(ctx, symbolName)
+	if err != nil || len(symbolInfos) == 0 {
+		return &SymbolInfoResult{
+			SymbolName:      symbolName,
+			Kind:            scip.SCIPSymbolKindUnknown,
+			Documentation:   []string{},
+			Occurrences:     []SCIPOccurrenceInfo{},
+			OccurrenceCount: 0,
+			DefinitionCount: 0,
+			ReferenceCount:  0,
+			FileCount:       0,
+			Metadata:        map[string]interface{}{"symbols_found": 0},
+			Timestamp:       time.Now(),
+		}, nil
+	}
+
+	// Use the first matching symbol (could be enhanced to handle multiple)
+	symbolInfo := symbolInfos[0]
+	symbolID := symbolInfo.Symbol
+
+	// Get all occurrences for this symbol
+	allOccurrences, err := m.scipStorage.GetOccurrencesBySymbol(ctx, symbolID)
+	if err != nil {
+		allOccurrences = []scip.SCIPOccurrence{}
+	}
+
+	// Filter occurrences by file pattern and build occurrence info
+	var filteredOccurrences []SCIPOccurrenceInfo
+	fileSet := make(map[string]bool)
+	definitionCount := 0
+	referenceCount := 0
+
+	for _, occ := range allOccurrences {
+		docURI := m.extractURIFromOccurrence(&occ)
+
+		// Filter by file pattern if specified
+		if filePattern != "" && !m.matchFilePattern(docURI, filePattern) {
+			continue
+		}
+
+		occInfo := m.buildOccurrenceInfo(&occ, docURI)
+		filteredOccurrences = append(filteredOccurrences, occInfo)
+		fileSet[docURI] = true
+
+		// Count role types
+		if occ.SymbolRoles.HasRole(types.SymbolRoleDefinition) {
+			definitionCount++
+		}
+		if occ.SymbolRoles.HasRole(types.SymbolRoleReadAccess) || occ.SymbolRoles.HasRole(types.SymbolRoleWriteAccess) {
+			referenceCount++
+		}
+	}
+
+	// Get relationships
+	relationships, err := m.scipStorage.GetSymbolRelationships(ctx, symbolID)
+	if err != nil {
+		relationships = []scip.SCIPRelationship{}
+	}
+
+	// Format signature from symbol information
+	signature := m.formatSymbolDetail(&symbolInfo)
+
+	result := &SymbolInfoResult{
+		SymbolName:      symbolName,
+		SymbolID:        symbolID,
+		SymbolInfo:      &symbolInfo,
+		Kind:            symbolInfo.Kind,
+		Documentation:   symbolInfo.Documentation,
+		Signature:       signature,
+		Relationships:   relationships,
+		Occurrences:     filteredOccurrences,
+		OccurrenceCount: len(filteredOccurrences),
+		DefinitionCount: definitionCount,
+		ReferenceCount:  referenceCount,
+		FileCount:       len(fileSet),
+		Metadata: map[string]interface{}{
+			"scip_enabled":         true,
+			"symbols_found":        len(symbolInfos),
+			"total_occurrences":    len(allOccurrences),
+			"filtered_occurrences": len(filteredOccurrences),
+			"file_pattern":         filePattern,
+		},
+		Timestamp: time.Now(),
+	}
+
+	return result, nil
+}
+
+func (m *SCIPCacheManager) updateIndexStats(language string, symbolCount int) {
 	m.indexStats.LastUpdate = time.Now()
 	m.indexStats.Status = "active"
 
@@ -1297,7 +1724,7 @@ func (m *SimpleCacheManager) updateIndexStats(language string, symbolCount int) 
 }
 
 // GetCachedDefinition retrieves definition occurrences for a symbol using SCIP storage
-func (m *SimpleCacheManager) GetCachedDefinition(symbolID string) ([]lsp.Location, bool) {
+func (m *SCIPCacheManager) GetCachedDefinition(symbolID string) ([]lsp.Location, bool) {
 	if !m.enabled || m.scipStorage == nil {
 		return nil, false
 	}
@@ -1330,7 +1757,7 @@ func (m *SimpleCacheManager) GetCachedDefinition(symbolID string) ([]lsp.Locatio
 }
 
 // GetCachedReferences retrieves reference occurrences for a symbol using SCIP storage
-func (m *SimpleCacheManager) GetCachedReferences(symbolID string) ([]lsp.Location, bool) {
+func (m *SCIPCacheManager) GetCachedReferences(symbolID string) ([]lsp.Location, bool) {
 	if !m.enabled || m.scipStorage == nil {
 		return nil, false
 	}
@@ -1367,7 +1794,7 @@ func (m *SimpleCacheManager) GetCachedReferences(symbolID string) ([]lsp.Locatio
 }
 
 // GetCachedHover retrieves hover information using symbol information from SCIP storage
-func (m *SimpleCacheManager) GetCachedHover(symbolID string) (*lsp.Hover, bool) {
+func (m *SCIPCacheManager) GetCachedHover(symbolID string) (*lsp.Hover, bool) {
 	if !m.enabled || m.scipStorage == nil {
 		return nil, false
 	}
@@ -1390,7 +1817,7 @@ func (m *SimpleCacheManager) GetCachedHover(symbolID string) (*lsp.Hover, bool) 
 }
 
 // GetCachedDocumentSymbols retrieves document symbols using SCIP storage
-func (m *SimpleCacheManager) GetCachedDocumentSymbols(uri string) ([]lsp.SymbolInformation, bool) {
+func (m *SCIPCacheManager) GetCachedDocumentSymbols(uri string) ([]lsp.SymbolInformation, bool) {
 	if !m.enabled || m.scipStorage == nil {
 		return nil, false
 	}
@@ -1437,7 +1864,7 @@ func (m *SimpleCacheManager) GetCachedDocumentSymbols(uri string) ([]lsp.SymbolI
 }
 
 // GetCachedWorkspaceSymbols retrieves workspace symbols using SCIP storage
-func (m *SimpleCacheManager) GetCachedWorkspaceSymbols(query string) ([]lsp.SymbolInformation, bool) {
+func (m *SCIPCacheManager) GetCachedWorkspaceSymbols(query string) ([]lsp.SymbolInformation, bool) {
 	if !m.enabled || m.scipStorage == nil {
 		return nil, false
 	}
@@ -1484,7 +1911,7 @@ func (m *SimpleCacheManager) GetCachedWorkspaceSymbols(query string) ([]lsp.Symb
 }
 
 // GetCachedCompletion retrieves completion items using symbol information from SCIP storage
-func (m *SimpleCacheManager) GetCachedCompletion(uri string, position lsp.Position) ([]lsp.CompletionItem, bool) {
+func (m *SCIPCacheManager) GetCachedCompletion(uri string, position lsp.Position) ([]lsp.CompletionItem, bool) {
 	if !m.enabled || m.scipStorage == nil {
 		return nil, false
 	}
@@ -1518,7 +1945,7 @@ func (m *SimpleCacheManager) GetCachedCompletion(uri string, position lsp.Positi
 }
 
 // StoreMethodResult stores LSP method results as SCIP occurrences with proper roles
-func (m *SimpleCacheManager) StoreMethodResult(method string, params interface{}, response interface{}) error {
+func (m *SCIPCacheManager) StoreMethodResult(method string, params interface{}, response interface{}) error {
 	if !m.enabled || m.scipStorage == nil {
 		return nil
 	}
@@ -1546,5 +1973,298 @@ func (m *SimpleCacheManager) StoreMethodResult(method string, params interface{}
 	default:
 		common.LSPLogger.Debug("Method %s not supported for SCIP storage", method)
 		return nil
+	}
+}
+
+// =============================================================================
+// Direct SCIP Search Methods for MCP Tools
+// =============================================================================
+
+// SearchSymbols provides direct access to SCIP symbol search for MCP tools
+func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern string, filePattern string, maxResults int) ([]interface{}, error) {
+	if !m.enabled || m.scipStorage == nil {
+		return nil, fmt.Errorf("cache disabled or SCIP storage unavailable")
+	}
+
+	if maxResults <= 0 {
+		maxResults = 100
+	}
+
+	// Search using SCIP storage directly
+	symbolInfos, err := m.scipStorage.SearchSymbols(ctx, pattern, maxResults)
+	if err != nil {
+		return nil, fmt.Errorf("SCIP symbol search failed: %w", err)
+	}
+
+	// Convert to interface{} slice for MCP compatibility
+	results := make([]interface{}, len(symbolInfos))
+	for i, symbolInfo := range symbolInfos {
+		results[i] = symbolInfo
+	}
+
+	return results, nil
+}
+
+// SearchReferences provides direct access to SCIP reference search for MCP tools
+func (m *SCIPCacheManager) SearchReferences(ctx context.Context, symbolName string, filePattern string, maxResults int) ([]interface{}, error) {
+	if !m.enabled || m.scipStorage == nil {
+		return nil, fmt.Errorf("cache disabled or SCIP storage unavailable")
+	}
+
+	if maxResults <= 0 {
+		maxResults = 100
+	}
+
+	// First find symbol by name to get symbol ID
+	symbolInfos, err := m.scipStorage.GetSymbolInformationByName(ctx, symbolName)
+	if err != nil || len(symbolInfos) == 0 {
+		return []interface{}{}, nil // No error, just empty results
+	}
+
+	var allReferences []interface{}
+
+	// Get references for all matching symbol IDs
+	for _, symbolInfo := range symbolInfos {
+		// Get reference occurrences
+		refOccurrences, err := m.scipStorage.GetReferenceOccurrences(ctx, symbolInfo.Symbol)
+		if err != nil {
+			continue
+		}
+
+		// Also include definition if requested (include by default)
+		defOccurrence, err := m.scipStorage.GetDefinitionOccurrence(ctx, symbolInfo.Symbol)
+		if err == nil {
+			allReferences = append(allReferences, *defOccurrence)
+		}
+
+		// Add reference occurrences
+		for _, refOcc := range refOccurrences {
+			allReferences = append(allReferences, refOcc)
+		}
+
+		// Limit results
+		if len(allReferences) >= maxResults {
+			allReferences = allReferences[:maxResults]
+			break
+		}
+	}
+
+	return allReferences, nil
+}
+
+// SearchDefinitions provides direct access to SCIP definition search for MCP tools
+func (m *SCIPCacheManager) SearchDefinitions(ctx context.Context, symbolName string, filePattern string, maxResults int) ([]interface{}, error) {
+	if !m.enabled || m.scipStorage == nil {
+		return nil, fmt.Errorf("cache disabled or SCIP storage unavailable")
+	}
+
+	if maxResults <= 0 {
+		maxResults = 100
+	}
+
+	// First find symbol by name to get symbol ID
+	symbolInfos, err := m.scipStorage.GetSymbolInformationByName(ctx, symbolName)
+	if err != nil || len(symbolInfos) == 0 {
+		return []interface{}{}, nil // No error, just empty results
+	}
+
+	var allDefinitions []interface{}
+
+	// Get definitions for all matching symbol IDs
+	for _, symbolInfo := range symbolInfos {
+		// Get definition occurrence
+		defOccurrence, err := m.scipStorage.GetDefinitionOccurrence(ctx, symbolInfo.Symbol)
+		if err != nil {
+			continue
+		}
+
+		allDefinitions = append(allDefinitions, *defOccurrence)
+
+		// Limit results
+		if len(allDefinitions) >= maxResults {
+			allDefinitions = allDefinitions[:maxResults]
+			break
+		}
+	}
+
+	return allDefinitions, nil
+}
+
+// GetSymbolInfo provides direct access to SCIP symbol information for MCP tools
+func (m *SCIPCacheManager) GetSymbolInfo(ctx context.Context, symbolName string, filePattern string) (interface{}, error) {
+	if !m.enabled || m.scipStorage == nil {
+		return nil, fmt.Errorf("cache disabled or SCIP storage unavailable")
+	}
+
+	// First find symbol by name to get symbol ID
+	symbolInfos, err := m.scipStorage.GetSymbolInformationByName(ctx, symbolName)
+	if err != nil || len(symbolInfos) == 0 {
+		return nil, fmt.Errorf("symbol not found: %s", symbolName)
+	}
+
+	// Return the first matching symbol info for now
+	// TODO: Could enhance to handle multiple matches or exact matching
+	return symbolInfos[0], nil
+}
+
+// =============================================================================
+// Helper Methods for Enhanced Direct SCIP Search
+// =============================================================================
+
+// buildEnhancedSymbolResult creates an enhanced symbol result from SCIP data
+func (m *SCIPCacheManager) buildEnhancedSymbolResult(symbolInfo *scip.SCIPSymbolInformation, occurrences []scip.SCIPOccurrence, query *EnhancedSymbolQuery) EnhancedSymbolResult {
+	result := EnhancedSymbolResult{
+		SymbolInfo:      symbolInfo,
+		SymbolID:        symbolInfo.Symbol,
+		DisplayName:     symbolInfo.DisplayName,
+		Kind:            symbolInfo.Kind,
+		OccurrenceCount: len(occurrences),
+	}
+
+	// Include occurrences if requested
+	if query != nil && (query.IncludeDocumentation || len(occurrences) < 50) { // Avoid large arrays
+		result.Occurrences = occurrences
+	}
+
+	// Count roles and collect metadata
+	fileSet := make(map[string]bool)
+	var allRoles types.SymbolRole
+
+	for _, occ := range occurrences {
+		allRoles |= occ.SymbolRoles
+
+		if occ.SymbolRoles.HasRole(types.SymbolRoleDefinition) {
+			result.DefinitionCount++
+			result.HasDefinition = true
+		}
+		if occ.SymbolRoles.HasRole(types.SymbolRoleReadAccess) {
+			result.ReadAccessCount++
+			result.HasReferences = true
+		}
+		if occ.SymbolRoles.HasRole(types.SymbolRoleWriteAccess) {
+			result.WriteAccessCount++
+		}
+
+		// Extract document URI from occurrence
+		docURI := m.extractURIFromOccurrence(&occ)
+		if docURI != "" {
+			fileSet[docURI] = true
+		}
+	}
+
+	result.AllRoles = allRoles
+	result.ReferenceCount = result.ReadAccessCount + result.WriteAccessCount
+	result.FileCount = len(fileSet)
+	result.DocumentURIs = make([]string, 0, len(fileSet))
+	for uri := range fileSet {
+		result.DocumentURIs = append(result.DocumentURIs, uri)
+	}
+
+	// Include documentation and relationships if requested
+	if query != nil && query.IncludeDocumentation {
+		result.Documentation = symbolInfo.Documentation
+		if query.IncludeRelationships {
+			if relationships, err := m.scipStorage.GetSymbolRelationships(context.Background(), symbolInfo.Symbol); err == nil {
+				result.Relationships = relationships
+			}
+		}
+	}
+
+	// Calculate basic scoring
+	result.PopularityScore = float64(result.OccurrenceCount)
+	result.RelevanceScore = 1.0 // Basic relevance - could be enhanced with pattern matching
+	result.FinalScore = result.RelevanceScore * (1.0 + result.PopularityScore/100.0)
+
+	return result
+}
+
+// buildOccurrenceInfo creates occurrence info with context
+func (m *SCIPCacheManager) buildOccurrenceInfo(occ *scip.SCIPOccurrence, docURI string) SCIPOccurrenceInfo {
+	return SCIPOccurrenceInfo{
+		Occurrence:  *occ,
+		DocumentURI: docURI,
+		SymbolRoles: occ.SymbolRoles,
+		SyntaxKind:  occ.SyntaxKind,
+		LineNumber:  occ.Range.Start.Line,
+		Score:       1.0, // Basic score
+		// Context could be added by reading file content around the occurrence
+	}
+}
+
+// matchFilePattern checks if a file URI matches a pattern
+func (m *SCIPCacheManager) matchFilePattern(uri, pattern string) bool {
+	if pattern == "" {
+		return true
+	}
+
+	// Simple pattern matching - could be enhanced with glob patterns
+	if strings.Contains(pattern, "*") {
+		// Basic wildcard support
+		pattern = strings.ReplaceAll(pattern, "*", ".*")
+		if matched, err := regexp.MatchString(pattern, uri); err == nil {
+			return matched
+		}
+	}
+
+	// Exact or substring match
+	return strings.Contains(uri, pattern)
+}
+
+// sortEnhancedResults sorts enhanced symbol results by the specified criteria
+func (m *SCIPCacheManager) sortEnhancedResults(results []EnhancedSymbolResult, sortBy string) {
+	switch sortBy {
+	case "name":
+		sort.Slice(results, func(i, j int) bool {
+			return results[i].DisplayName < results[j].DisplayName
+		})
+	case "relevance":
+		sort.Slice(results, func(i, j int) bool {
+			return results[i].RelevanceScore > results[j].RelevanceScore
+		})
+	case "occurrences":
+		sort.Slice(results, func(i, j int) bool {
+			return results[i].OccurrenceCount > results[j].OccurrenceCount
+		})
+	case "kind":
+		sort.Slice(results, func(i, j int) bool {
+			return results[i].Kind < results[j].Kind
+		})
+	default:
+		// Default to final score
+		sort.Slice(results, func(i, j int) bool {
+			return results[i].FinalScore > results[j].FinalScore
+		})
+	}
+}
+
+// sortOccurrenceResults sorts occurrence results by the specified criteria
+func (m *SCIPCacheManager) sortOccurrenceResults(results []SCIPOccurrenceInfo, sortBy string) {
+	switch sortBy {
+	case "location":
+		sort.Slice(results, func(i, j int) bool {
+			if results[i].DocumentURI != results[j].DocumentURI {
+				return results[i].DocumentURI < results[j].DocumentURI
+			}
+			if results[i].LineNumber != results[j].LineNumber {
+				return results[i].LineNumber < results[j].LineNumber
+			}
+			return results[i].Occurrence.Range.Start.Character < results[j].Occurrence.Range.Start.Character
+		})
+	case "file":
+		sort.Slice(results, func(i, j int) bool {
+			return results[i].DocumentURI < results[j].DocumentURI
+		})
+	case "relevance":
+		sort.Slice(results, func(i, j int) bool {
+			return results[i].Score > results[j].Score
+		})
+	default:
+		// Default to location
+		sort.Slice(results, func(i, j int) bool {
+			if results[i].DocumentURI != results[j].DocumentURI {
+				return results[i].DocumentURI < results[j].DocumentURI
+			}
+			return results[i].LineNumber < results[j].LineNumber
+		})
 	}
 }

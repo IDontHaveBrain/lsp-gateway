@@ -1,6 +1,8 @@
 package config_test
 
 import (
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"lsp-gateway/src/config"
@@ -107,7 +109,9 @@ func TestGetDefaultConfigWithCache_ReturnsDefaultConfig(t *testing.T) {
 
 // Helper function to check if a path contains the expected substring
 func containsPath(actualPath, expectedSubstring string) bool {
-	return len(actualPath) > 0 && (actualPath == expectedSubstring ||
-		len(actualPath) > len(expectedSubstring) &&
-			actualPath[len(actualPath)-len(expectedSubstring):] == expectedSubstring)
+	// Normalize paths to use forward slashes for comparison
+	normalizedActual := filepath.ToSlash(actualPath)
+	normalizedExpected := filepath.ToSlash(expectedSubstring)
+
+	return strings.HasSuffix(normalizedActual, normalizedExpected)
 }

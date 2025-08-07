@@ -529,7 +529,7 @@ func (m *LSPManager) getScipStorageFromCache() scip.SCIPDocumentStorage {
 	}
 
 	// For now, return nil and handle gracefully - need proper accessor method
-	// TODO: Add proper accessor method to SimpleCacheManager or use direct interface
+	// TODO: Add proper accessor method to SCIPCacheManager or use direct interface
 	return nil
 }
 

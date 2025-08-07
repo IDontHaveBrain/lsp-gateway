@@ -146,7 +146,7 @@ func (m *LSPManager) Start(ctx context.Context) error {
 			indexCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 			defer cancel()
 
-			if cacheManager, ok := m.scipCache.(*cache.SimpleCacheManager); ok {
+			if cacheManager, ok := m.scipCache.(*cache.SCIPCacheManager); ok {
 				if err := cacheManager.PerformWorkspaceIndexing(indexCtx, wd, m); err != nil {
 					common.LSPLogger.Warn("Failed to perform workspace indexing: %v", err)
 				} else {
