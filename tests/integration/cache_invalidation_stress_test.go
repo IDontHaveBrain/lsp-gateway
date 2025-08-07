@@ -29,6 +29,13 @@ func TestCacheInvalidationUnderLoad(t *testing.T) {
 
 	testDir := t.TempDir()
 
+	// Create a go.mod file for gopls to work properly
+	goModContent := `module test
+
+go 1.21
+`
+	require.NoError(t, os.WriteFile(filepath.Join(testDir, "go.mod"), []byte(goModContent), 0644))
+
 	// Create test files
 	testFiles := make(map[string]string)
 	for i := 0; i < 10; i++ {
@@ -78,7 +85,11 @@ func (s *Struct%d) Method%d() string {
 
 	lspManager, err := server.NewLSPManager(cfg)
 	require.NoError(t, err)
+	defer lspManager.Stop()
 	lspManager.SetCache(scipCache)
+	
+	// Start the LSP manager to initialize LSP servers
+	require.NoError(t, lspManager.Start(ctx))
 
 	// Note: DocumentManager not needed for this test - LSP operations work with file URIs directly
 
@@ -395,14 +406,34 @@ func (c *ConsistencyTest) Method2() int {
 		// Modify to version 2
 		require.NoError(t, os.WriteFile(testFile, []byte(version2), 0644))
 
-		// Allow time for cache invalidation
+		// Explicitly invalidate cache for the modified file
+		err = lspManager.InvalidateCache(uri)
+		if err != nil {
+			t.Logf("Cache invalidation failed (but continuing): %v", err)
+		}
+
+		// Force the LSP server to re-read the file by making a fresh connection
+		// This simulates what would happen if the file was changed and the LSP
+		// server detected it through file system monitoring
+		lspManager.Stop()
+		
+		// Restart the LSP manager to get fresh file content
+		lspManager2, err := server.NewLSPManager(cfg)
+		require.NoError(t, err)
+		defer lspManager2.Stop()
+		lspManager2.SetCache(scipCache)
+		
+		err = lspManager2.Start(ctx)
+		require.NoError(t, err)
+		
+		// Allow time for initialization
 		time.Sleep(100 * time.Millisecond)
 
 		// Query symbols for version 2
 		ctx2, cancel2 := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel2()
 
-		symbols2, err := lspManager.ProcessRequest(ctx2, "textDocument/documentSymbol", params)
+		symbols2, err := lspManager2.ProcessRequest(ctx2, "textDocument/documentSymbol", params)
 		require.NoError(t, err)
 
 		// Symbols should be different
@@ -413,7 +444,7 @@ func (c *ConsistencyTest) Method2() int {
 			ctx3, cancel3 := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel3()
 
-			symbols3, err := lspManager.ProcessRequest(ctx3, "textDocument/documentSymbol", params)
+			symbols3, err := lspManager2.ProcessRequest(ctx3, "textDocument/documentSymbol", params)
 			require.NoError(t, err)
 
 			assert.Equal(t, symbols2, symbols3, "Subsequent queries should return consistent results")

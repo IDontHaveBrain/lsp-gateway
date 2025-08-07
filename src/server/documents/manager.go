@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"go.lsp.dev/protocol"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/types"
 )
@@ -57,6 +58,35 @@ func (dm *LSPDocumentManager) ExtractURI(params interface{}) (string, error) {
 		return "", fmt.Errorf("no parameters provided")
 	}
 
+	// Handle typed protocol structs first (most efficient for tests)
+	switch p := params.(type) {
+	case *protocol.DefinitionParams:
+		return string(p.TextDocument.URI), nil
+	case protocol.DefinitionParams:
+		return string(p.TextDocument.URI), nil
+	case *protocol.ReferenceParams:
+		return string(p.TextDocument.URI), nil
+	case protocol.ReferenceParams:
+		return string(p.TextDocument.URI), nil
+	case *protocol.HoverParams:
+		return string(p.TextDocument.URI), nil
+	case protocol.HoverParams:
+		return string(p.TextDocument.URI), nil
+	case *protocol.DocumentSymbolParams:
+		return string(p.TextDocument.URI), nil
+	case protocol.DocumentSymbolParams:
+		return string(p.TextDocument.URI), nil
+	case *protocol.CompletionParams:
+		return string(p.TextDocument.URI), nil
+	case protocol.CompletionParams:
+		return string(p.TextDocument.URI), nil
+	case *protocol.WorkspaceSymbolParams:
+		return "", nil // Workspace symbols don't have a specific URI
+	case protocol.WorkspaceSymbolParams:
+		return "", nil // Workspace symbols don't have a specific URI
+	}
+
+	// Handle untyped map parameters (from HTTP gateway)
 	paramsMap, err := common.ValidateParamMap(params)
 	if err != nil {
 		return "", common.WrapProcessingError("failed to validate params", err)

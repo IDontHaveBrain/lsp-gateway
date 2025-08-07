@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -26,6 +28,50 @@ func TestDualProtocolConcurrentOperation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
+
+	// Create test workspace
+	testDir := t.TempDir()
+	testFile := filepath.Join(testDir, "main.go")
+	
+	// Create go.mod file
+	goModContent := `module test
+
+go 1.21
+`
+	err := os.WriteFile(filepath.Join(testDir, "go.mod"), []byte(goModContent), 0644)
+	require.NoError(t, err)
+
+	// Create test Go file with enough lines for testing
+	testFileContent := `package main
+
+import (
+	"fmt"
+	"os"
+)
+
+func main() {
+	fmt.Println("Hello, World!")
+}
+
+func processData(data string) string {
+	if len(data) == 0 {
+		return "empty"
+	}
+	return fmt.Sprintf("processed: %s", data)
+}
+
+func handleError(err error) {
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
+}
+`
+	err = os.WriteFile(testFile, []byte(testFileContent), 0644)
+	require.NoError(t, err)
+
+	// Create proper URI for HTTP requests
+	testFileURI := "file://" + testFile
 
 	cfg := &config.Config{
 		Cache: &config.CacheConfig{
@@ -94,11 +140,11 @@ func TestDualProtocolConcurrentOperation(t *testing.T) {
 				"id":      fmt.Sprintf("http-%d", id),
 				"params": map[string]interface{}{
 					"textDocument": map[string]interface{}{
-						"uri": "file:///test/main.go",
+						"uri": testFileURI,
 					},
 					"position": map[string]interface{}{
-						"line":      10,
-						"character": 5,
+						"line":      15, // Line with "fmt.Sprintf" call 
+						"character": 9,  // Character position at "fmt"
 					},
 				},
 			}
@@ -133,7 +179,7 @@ func TestDualProtocolConcurrentOperation(t *testing.T) {
 				"params": map[string]interface{}{
 					"name": "findSymbols",
 					"arguments": map[string]interface{}{
-						"pattern":     "test",
+						"pattern":     "processData",
 						"filePattern": "**/*.go",
 						"maxResults":  10,
 					},
@@ -189,11 +235,11 @@ func TestDualProtocolConcurrentOperation(t *testing.T) {
 		"id":      "final-test",
 		"params": map[string]interface{}{
 			"textDocument": map[string]interface{}{
-				"uri": "file:///test/main.go",
+				"uri": testFileURI,
 			},
 			"position": map[string]interface{}{
-				"line":      10,
-				"character": 5,
+				"line":      15, // Line with "fmt.Sprintf" call
+				"character": 9,  // Character position at "fmt"
 			},
 		},
 	}
@@ -321,11 +367,17 @@ func TestDualProtocolResourceContention(t *testing.T) {
 	}
 
 	peakMemory := getMemoryUsage()
-	memoryIncrease := peakMemory - baseMemory
-	memoryIncreaseMB := memoryIncrease / 1024 / 1024
+	var memoryIncreaseMB uint64
+	if peakMemory >= baseMemory {
+		memoryIncrease := peakMemory - baseMemory
+		memoryIncreaseMB = memoryIncrease / 1024 / 1024
+	} else {
+		// Handle case where peak < base (should not happen but protects from underflow)
+		memoryIncreaseMB = 0
+	}
 	t.Logf("Peak memory usage: %d MB (increase: %d MB)", peakMemory/1024/1024, memoryIncreaseMB)
 
-	assert.Less(t, memoryIncreaseMB, int64(100), "Memory increase should be reasonable under load")
+	assert.Less(t, memoryIncreaseMB, uint64(100), "Memory increase should be reasonable under load")
 
 	cacheMetrics := scipCache.GetMetrics()
 	t.Logf("Cache stats - Entries: %d, Size: %d KB, Evictions: %d",

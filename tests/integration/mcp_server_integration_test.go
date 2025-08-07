@@ -6,7 +6,7 @@ import (
 
 func TestMCPServerIntegration(t *testing.T) {
 	t.Skip("MCP server integration tests disabled - MCP server uses continuous STDIO protocol that is difficult to test in isolation. MCP functionality is covered by unit tests and dual-protocol integration tests.")
-	
+
 	// This test is intentionally skipped. The MCP server is designed as a continuous
 	// STDIO service that reads from stdin and writes to stdout in a blocking manner.
 	// Testing this requires complex setup with pipes and goroutines that is not

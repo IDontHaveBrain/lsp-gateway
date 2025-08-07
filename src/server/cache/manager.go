@@ -215,7 +215,10 @@ func NewSCIPCacheManager(configParam *config.CacheConfig) (*SimpleCacheManager, 
 	// Start SCIP storage if enabled
 	if manager.enabled {
 		if err := manager.scipStorage.Start(context.Background()); err != nil {
-			common.LSPLogger.Warn("Failed to start SCIP storage: %v", err)
+			// Ignore "storage already started" error - it's expected if already running
+			if err.Error() != "storage already started" {
+				return nil, fmt.Errorf("failed to start SCIP storage: %w", err)
+			}
 		}
 	}
 
@@ -263,7 +266,10 @@ func (m *SimpleCacheManager) Start(ctx context.Context) error {
 	// Start SCIP storage if not already started
 	if m.scipStorage != nil {
 		if err := m.scipStorage.Start(ctx); err != nil {
-			common.LSPLogger.Warn("Failed to start SCIP storage: %v", err)
+			// Ignore "storage already started" error - it's expected if already running
+			if err.Error() != "storage already started" {
+				common.LSPLogger.Warn("Failed to start SCIP storage: %v", err)
+			}
 		}
 	}
 

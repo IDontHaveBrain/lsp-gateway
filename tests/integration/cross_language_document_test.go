@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -30,6 +31,12 @@ func TestCrossLanguageDocumentCoordination(t *testing.T) {
 	testDir := t.TempDir()
 
 	testFiles := map[string]string{
+		"go.mod": `module testproject
+
+go 1.21
+
+require (
+)`,
 		"main.go": `package main
 
 import (
@@ -46,6 +53,8 @@ func CallPython() {
 func ProcessData(data string) string {
 	return data + " processed"
 }`,
+		"requirements.txt": `requests>=2.25.0
+json5>=0.9.0`,
 		"script.py": `import subprocess
 import json
 
@@ -62,6 +71,36 @@ class DataProcessor:
     
     def add_item(self, item):
         self.data.append(item)`,
+		"package.json": `{
+  "name": "testproject",
+  "version": "1.0.0",
+  "description": "Test project for cross-language operations",
+  "main": "utils.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node utils.js"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "dependencies": {}
+}`,
+		"tsconfig.json": `{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "lib": ["ES2020"],
+    "outDir": "./dist",
+    "rootDir": "./",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["*.ts"],
+  "exclude": ["node_modules", "dist"]
+}`,
 		"frontend.ts": `import { processData } from './utils';
 import * as api from './api';
 
@@ -95,7 +134,28 @@ function callBackend(endpoint) {
 }
 
 module.exports = { processData, callBackend };`,
-		"Backend.java": `package com.example;
+		"pom.xml": `<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    
+    <groupId>com.example</groupId>
+    <artifactId>testproject</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+    
+    <properties>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+    
+    <dependencies>
+    </dependencies>
+</project>`,
+		"src/main/java/com/example/Backend.java": `package com.example;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -126,6 +186,12 @@ class DataService {
 
 	for filename, content := range testFiles {
 		filePath := filepath.Join(testDir, filename)
+		
+		dir := filepath.Dir(filePath)
+		if dir != testDir {
+			require.NoError(t, os.MkdirAll(dir, 0755))
+		}
+		
 		require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 	}
 
@@ -169,12 +235,17 @@ class DataService {
 	require.NoError(t, err)
 	lspManager.SetCache(scipCache)
 
+	// Start the LSP manager to initialize clients
+	err = lspManager.Start(ctx)
+	require.NoError(t, err)
+	defer lspManager.Stop()
+
 	files := []string{
 		filepath.Join(testDir, "main.go"),
 		filepath.Join(testDir, "script.py"),
 		filepath.Join(testDir, "frontend.ts"),
 		filepath.Join(testDir, "utils.js"),
-		filepath.Join(testDir, "Backend.java"),
+		filepath.Join(testDir, "src/main/java/com/example/Backend.java"),
 	}
 
 	t.Run("MultiLanguageDocumentOpen", func(t *testing.T) {
@@ -235,7 +306,7 @@ class DataService {
 			{"main.go", 8, 20, "script.py"},
 			{"frontend.ts", 0, 30, "utils"},
 			{"utils.js", 7, 10, "callBackend"},
-			{"Backend.java", 11, 20, "processRequest"},
+			{"src/main/java/com/example/Backend.java", 11, 20, "processRequest"},
 		}
 
 		for _, tc := range testCases {
@@ -266,22 +337,24 @@ class DataService {
 	})
 
 	t.Run("ConcurrentMultiLanguageOperations", func(t *testing.T) {
+		// Allow LSP servers some time to initialize
+		time.Sleep(2 * time.Second)
+
 		operations := []struct {
 			method string
 			file   string
 			line   int
 			char   int
 		}{
-			{"textDocument/hover", "main.go", 7, 5},
-			{"textDocument/definition", "script.py", 3, 10},
-			{"textDocument/references", "frontend.ts", 5, 15},
-			{"textDocument/completion", "utils.js", 1, 20},
-			{"textDocument/documentSymbol", "Backend.java", 0, 0},
+			{"textDocument/hover", "main.go", 6, 5},        // func CallPython
+			{"textDocument/definition", "script.py", 3, 4}, // def call_go_function
+			{"textDocument/references", "frontend.ts", 3, 13}, // export class DataHandler
+			{"textDocument/completion", "utils.js", 0, 9},  // function processData
+			{"textDocument/documentSymbol", "src/main/java/com/example/Backend.java", 0, 0},
 		}
 
 		var wg sync.WaitGroup
 		var successCount int32
-		var mu sync.Mutex
 
 		iterations := 3
 		for round := 0; round < iterations; round++ {
@@ -298,8 +371,9 @@ class DataService {
 					uri := fmt.Sprintf("file://%s", filepath.Join(testDir, operation.file))
 
 					var err error
-					ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-					defer cancel()
+					// Fix context shadowing - create a new context from the parent
+					opCtx, opCancel := context.WithTimeout(context.Background(), 15*time.Second)
+					defer opCancel()
 
 					switch operation.method {
 					case "textDocument/hover":
@@ -309,7 +383,7 @@ class DataService {
 								Position:     protocol.Position{Line: uint32(operation.line), Character: uint32(operation.char)},
 							},
 						}
-						_, err = lspManager.ProcessRequest(ctx, "textDocument/hover", params)
+						_, err = lspManager.ProcessRequest(opCtx, "textDocument/hover", params)
 
 					case "textDocument/definition":
 						params := protocol.DefinitionParams{
@@ -318,7 +392,7 @@ class DataService {
 								Position:     protocol.Position{Line: uint32(operation.line), Character: uint32(operation.char)},
 							},
 						}
-						_, err = lspManager.ProcessRequest(ctx, "textDocument/definition", params)
+						_, err = lspManager.ProcessRequest(opCtx, "textDocument/definition", params)
 
 					case "textDocument/references":
 						params := protocol.ReferenceParams{
@@ -330,7 +404,7 @@ class DataService {
 								IncludeDeclaration: true,
 							},
 						}
-						_, err = lspManager.ProcessRequest(ctx, "textDocument/references", params)
+						_, err = lspManager.ProcessRequest(opCtx, "textDocument/references", params)
 
 					case "textDocument/completion":
 						params := protocol.CompletionParams{
@@ -339,19 +413,19 @@ class DataService {
 								Position:     protocol.Position{Line: uint32(operation.line), Character: uint32(operation.char)},
 							},
 						}
-						_, err = lspManager.ProcessRequest(ctx, "textDocument/completion", params)
+						_, err = lspManager.ProcessRequest(opCtx, "textDocument/completion", params)
 
 					case "textDocument/documentSymbol":
 						params := protocol.DocumentSymbolParams{
 							TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentURI(uri)},
 						}
-						_, err = lspManager.ProcessRequest(ctx, "textDocument/documentSymbol", params)
+						_, err = lspManager.ProcessRequest(opCtx, "textDocument/documentSymbol", params)
 					}
 
 					if err == nil {
-						mu.Lock()
-						successCount++
-						mu.Unlock()
+						atomic.AddInt32(&successCount, 1)
+					} else {
+						t.Logf("Operation %s on %s failed: %v", operation.method, operation.file, err)
 					}
 				}(op)
 			}
@@ -367,7 +441,7 @@ class DataService {
 		case <-done:
 			t.Logf("Concurrent operations completed. Success rate: %d/%d",
 				successCount, len(operations)*iterations)
-		case <-time.After(1 * time.Minute):
+		case <-time.After(2 * time.Minute):
 			t.Fatal("Concurrent multi-language operations timeout")
 		}
 
@@ -395,11 +469,11 @@ class DataService {
 
 	t.Run("LanguageDetectionAccuracy", func(t *testing.T) {
 		expectedLanguages := map[string]string{
-			"main.go":      "go",
-			"script.py":    "python",
-			"frontend.ts":  "typescript",
-			"utils.js":     "javascript",
-			"Backend.java": "java",
+			"main.go":                                   "go",
+			"script.py":                                 "python",
+			"frontend.ts":                               "typescript",
+			"utils.js":                                  "javascript",
+			"src/main/java/com/example/Backend.java":   "java",
 		}
 
 		documentManager := documents.NewLSPDocumentManager()

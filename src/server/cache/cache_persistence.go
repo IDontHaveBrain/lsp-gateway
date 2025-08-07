@@ -51,7 +51,10 @@ func (m *SimpleCacheManager) LoadIndexFromDisk() error {
 	// We just initialize the storage which loads any existing data
 	ctx := context.Background()
 	if err := m.scipStorage.Start(ctx); err != nil {
-		common.LSPLogger.Warn("Failed to start SCIP storage during load: %v", err)
+		// Ignore "storage already started" error - it's expected if already running
+		if err.Error() != "storage already started" {
+			common.LSPLogger.Warn("Failed to start SCIP storage during load: %v", err)
+		}
 	}
 
 	// Update index stats from SCIP storage

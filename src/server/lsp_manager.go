@@ -315,8 +315,8 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 	}
 
 	// Send textDocument/didOpen notification if needed for methods that require opened documents
-	// documentSymbol works on file system and doesn't need didOpen
-	needsDidOpen := method != types.MethodWorkspaceSymbol && method != types.MethodTextDocumentDocumentSymbol
+	// Only workspace/symbol doesn't need a specific document open
+	needsDidOpen := method != types.MethodWorkspaceSymbol
 	if needsDidOpen {
 		m.ensureDocumentOpen(client, uri, params)
 	}
