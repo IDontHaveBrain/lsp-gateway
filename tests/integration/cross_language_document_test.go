@@ -28,7 +28,7 @@ func TestCrossLanguageDocumentCoordination(t *testing.T) {
 	defer cancel()
 
 	testDir := t.TempDir()
-	
+
 	testFiles := map[string]string{
 		"main.go": `package main
 
@@ -187,28 +187,28 @@ class DataService {
 
 	t.Run("CrossLanguageSymbolSearch", func(t *testing.T) {
 		symbols := []string{
-			"CallPython",     
-			"call_go_function", 
-			"DataHandler",    
-			"processData",    
-			"Backend",        
+			"CallPython",
+			"call_go_function",
+			"DataHandler",
+			"processData",
+			"Backend",
 		}
 
 		var wg sync.WaitGroup
 		symbolResults := make([]int, len(symbols))
-		
+
 		for i, symbol := range symbols {
 			wg.Add(1)
 			go func(idx int, sym string) {
 				defer wg.Done()
-				
+
 				request := &protocol.WorkspaceSymbolParams{
 					Query: sym,
 				}
-				
+
 				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 				defer cancel()
-				
+
 				results, err := lspManager.ProcessRequest(ctx, "workspace/symbol", request)
 				if err == nil && results != nil {
 					if symbols, ok := results.([]interface{}); ok {
@@ -217,9 +217,9 @@ class DataService {
 				}
 			}(i, symbol)
 		}
-		
+
 		wg.Wait()
-		
+
 		for i, count := range symbolResults {
 			t.Logf("Symbol %s found %d times", symbols[i], count)
 		}
@@ -232,15 +232,15 @@ class DataService {
 			char     int
 			expected string
 		}{
-			{"main.go", 8, 20, "script.py"},         
-			{"frontend.ts", 0, 30, "utils"},         
-			{"utils.js", 7, 10, "callBackend"},      
-			{"Backend.java", 11, 20, "processRequest"}, 
+			{"main.go", 8, 20, "script.py"},
+			{"frontend.ts", 0, 30, "utils"},
+			{"utils.js", 7, 10, "callBackend"},
+			{"Backend.java", 11, 20, "processRequest"},
 		}
 
 		for _, tc := range testCases {
 			uri := fmt.Sprintf("file://%s", filepath.Join(testDir, tc.file))
-			
+
 			request := protocol.DefinitionParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{
@@ -252,10 +252,10 @@ class DataService {
 					},
 				},
 			}
-			
+
 			ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			defer cancel()
-			
+
 			_, err := lspManager.ProcessRequest(ctx, "textDocument/definition", request)
 			if err != nil {
 				t.Logf("Definition request for %s failed: %v", tc.file, err)
@@ -282,7 +282,7 @@ class DataService {
 		var wg sync.WaitGroup
 		var successCount int32
 		var mu sync.Mutex
-		
+
 		iterations := 3
 		for round := 0; round < iterations; round++ {
 			for _, op := range operations {
@@ -294,13 +294,13 @@ class DataService {
 					char   int
 				}) {
 					defer wg.Done()
-					
+
 					uri := fmt.Sprintf("file://%s", filepath.Join(testDir, operation.file))
-					
+
 					var err error
 					ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 					defer cancel()
-					
+
 					switch operation.method {
 					case "textDocument/hover":
 						params := protocol.HoverParams{
@@ -310,7 +310,7 @@ class DataService {
 							},
 						}
 						_, err = lspManager.ProcessRequest(ctx, "textDocument/hover", params)
-						
+
 					case "textDocument/definition":
 						params := protocol.DefinitionParams{
 							TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -319,7 +319,7 @@ class DataService {
 							},
 						}
 						_, err = lspManager.ProcessRequest(ctx, "textDocument/definition", params)
-						
+
 					case "textDocument/references":
 						params := protocol.ReferenceParams{
 							TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -331,7 +331,7 @@ class DataService {
 							},
 						}
 						_, err = lspManager.ProcessRequest(ctx, "textDocument/references", params)
-						
+
 					case "textDocument/completion":
 						params := protocol.CompletionParams{
 							TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -340,14 +340,14 @@ class DataService {
 							},
 						}
 						_, err = lspManager.ProcessRequest(ctx, "textDocument/completion", params)
-						
+
 					case "textDocument/documentSymbol":
 						params := protocol.DocumentSymbolParams{
 							TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentURI(uri)},
 						}
 						_, err = lspManager.ProcessRequest(ctx, "textDocument/documentSymbol", params)
 					}
-					
+
 					if err == nil {
 						mu.Lock()
 						successCount++
@@ -356,23 +356,23 @@ class DataService {
 				}(op)
 			}
 		}
-		
+
 		done := make(chan struct{})
 		go func() {
 			wg.Wait()
 			close(done)
 		}()
-		
+
 		select {
 		case <-done:
-			t.Logf("Concurrent operations completed. Success rate: %d/%d", 
+			t.Logf("Concurrent operations completed. Success rate: %d/%d",
 				successCount, len(operations)*iterations)
 		case <-time.After(1 * time.Minute):
 			t.Fatal("Concurrent multi-language operations timeout")
 		}
-		
+
 		expectedMinSuccess := len(operations) * iterations / 2
-		assert.GreaterOrEqual(t, int(successCount), expectedMinSuccess, 
+		assert.GreaterOrEqual(t, int(successCount), expectedMinSuccess,
 			"At least 50% of operations should succeed")
 	})
 
@@ -380,41 +380,41 @@ class DataService {
 		for _, file := range files {
 			originalContent := testFiles[filepath.Base(file)]
 			modifiedContent := originalContent + "\n// Modified"
-			
+
 			err := os.WriteFile(file, []byte(modifiedContent), 0644)
 			assert.NoError(t, err, "File update should succeed")
-			
+
 			currentContentBytes, err := os.ReadFile(file)
 			assert.NoError(t, err, "Should be able to read file")
-			assert.Equal(t, modifiedContent, string(currentContentBytes), 
+			assert.Equal(t, modifiedContent, string(currentContentBytes),
 				"File content should match after update")
 		}
-		
+
 		t.Logf("All %d files updated successfully", len(files))
 	})
 
 	t.Run("LanguageDetectionAccuracy", func(t *testing.T) {
 		expectedLanguages := map[string]string{
-			"main.go":     "go",
-			"script.py":   "python",
-			"frontend.ts": "typescript",
-			"utils.js":    "javascript",
+			"main.go":      "go",
+			"script.py":    "python",
+			"frontend.ts":  "typescript",
+			"utils.js":     "javascript",
 			"Backend.java": "java",
 		}
-		
+
 		documentManager := documents.NewLSPDocumentManager()
 		for filename, expectedLang := range expectedLanguages {
 			uri := fmt.Sprintf("file://%s", filepath.Join(testDir, filename))
 			detectedLang := documentManager.DetectLanguage(uri)
-			assert.Equal(t, expectedLang, detectedLang, 
+			assert.Equal(t, expectedLang, detectedLang,
 				"Language detection should be accurate for %s", filename)
 		}
 	})
 
 	cacheMetrics := scipCache.GetMetrics()
 	t.Logf("Final cache stats - Entries: %d, Size: %d KB, Hit Rate: %.2f%%",
-		cacheMetrics.EntryCount, cacheMetrics.TotalSize/1024, 
+		cacheMetrics.EntryCount, cacheMetrics.TotalSize/1024,
 		float64(cacheMetrics.HitCount)/float64(cacheMetrics.HitCount+cacheMetrics.MissCount)*100)
-	
+
 	t.Logf("Cache should contain cross-language symbol data")
 }

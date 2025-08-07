@@ -48,18 +48,18 @@ func testFunction(param string) string {
 				},
 			},
 		}
-		
+
 		lspManager, err := server.NewLSPManager(cfg)
 		require.NoError(t, err)
-		
+
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		
+
 		err = lspManager.Start(ctx)
 		// Manager starts successfully even if individual servers fail
 		require.NoError(t, err)
 		defer lspManager.Stop()
-		
+
 		// Try to process a request for the invalid language
 		testURI := uri.File(testFile)
 		params := &protocol.DefinitionParams{
@@ -73,7 +73,7 @@ func testFunction(param string) string {
 				},
 			},
 		}
-		
+
 		_, err = lspManager.ProcessRequest(ctx, "textDocument/definition", params)
 		// Should get an error since no valid LSP server is running
 		require.Error(t, err)
@@ -88,15 +88,15 @@ func testFunction(param string) string {
 				},
 			},
 		}
-		
+
 		lspManager, err := server.NewLSPManager(cfg)
 		require.NoError(t, err)
-		
+
 		ctx := context.Background()
 		err = lspManager.Start(ctx)
 		require.NoError(t, err)
 		defer lspManager.Stop()
-		
+
 		// Test normal operation
 		testURI := uri.File(testFile)
 		params := &protocol.HoverParams{
@@ -110,7 +110,7 @@ func testFunction(param string) string {
 				},
 			},
 		}
-		
+
 		result, err := lspManager.ProcessRequest(ctx, "textDocument/hover", params)
 		require.NoError(t, err)
 		require.NotNil(t, result)
@@ -125,22 +125,22 @@ func testFunction(param string) string {
 				},
 			},
 		}
-		
+
 		lspManager, err := server.NewLSPManager(cfg)
 		require.NoError(t, err)
-		
+
 		ctx := context.Background()
 		err = lspManager.Start(ctx)
 		require.NoError(t, err)
 		defer lspManager.Stop()
-		
+
 		requestCtx, cancel := context.WithCancel(context.Background())
-		
+
 		go func() {
 			time.Sleep(50 * time.Millisecond)
 			cancel()
 		}()
-		
+
 		testURI := uri.File(testFile)
 		params := &protocol.HoverParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -153,7 +153,7 @@ func testFunction(param string) string {
 				},
 			},
 		}
-		
+
 		// This might succeed if it completes before cancellation
 		_, err = lspManager.ProcessRequest(requestCtx, "textDocument/hover", params)
 		if err != nil {
@@ -164,14 +164,14 @@ func testFunction(param string) string {
 	t.Run("CacheStartFailure", func(t *testing.T) {
 		invalidCacheDir := "/invalid/path/that/does/not/exist/cache"
 		cacheConfig := &config.CacheConfig{
-			Enabled:      true,
-			StoragePath:  invalidCacheDir,
-			MaxMemoryMB:  64,
-			TTLHours:     1,
-			Languages:    []string{"go"},
-			DiskCache:    true,
+			Enabled:     true,
+			StoragePath: invalidCacheDir,
+			MaxMemoryMB: 64,
+			TTLHours:    1,
+			Languages:   []string{"go"},
+			DiskCache:   true,
 		}
-		
+
 		_, err := cache.NewSCIPCacheManager(cacheConfig)
 		require.Error(t, err)
 	})
@@ -196,11 +196,11 @@ func cacheTest() string {
 
 	cfg := &config.Config{
 		Cache: &config.CacheConfig{
-			Enabled:      true,
-			StoragePath:  cacheDir,
-			MaxMemoryMB:  64,
-			TTLHours:     1,
-			Languages:    []string{"go"},
+			Enabled:     true,
+			StoragePath: cacheDir,
+			MaxMemoryMB: 64,
+			TTLHours:    1,
+			Languages:   []string{"go"},
 		},
 		Servers: map[string]*config.ServerConfig{
 			"go": {
@@ -209,10 +209,10 @@ func cacheTest() string {
 			},
 		},
 	}
-	
+
 	lspManager, err := server.NewLSPManager(cfg)
 	require.NoError(t, err)
-	
+
 	ctx := context.Background()
 	err = lspManager.Start(ctx)
 	require.NoError(t, err)
@@ -231,12 +231,12 @@ func cacheTest() string {
 				},
 			},
 		}
-		
+
 		// First request - should go to LSP server
 		result1, err := lspManager.ProcessRequest(ctx, "textDocument/hover", params)
 		require.NoError(t, err)
 		require.NotNil(t, result1)
-		
+
 		// Second request - might be cached
 		result2, err := lspManager.ProcessRequest(ctx, "textDocument/hover", params)
 		require.NoError(t, err)

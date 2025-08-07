@@ -1,0 +1,115 @@
+name: Build & Quality Checks
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-quality:
+    name: Build & Quality (${{ matrix.os }})
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') && !contains(github.event.head_commit.message, '[ci skip]') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24.5'
+        check-latest: true
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install dependencies
+      run: go mod download
+
+    - name: Run quality checks - Linux/macOS
+      if: runner.os != 'Windows'
+      run: |
+        echo "📋 Running code formatting..."
+        make format
+        
+        echo "🔍 Running go vet..."
+        make vet
+        
+        # Check if code is properly formatted
+        if [ -n "$(gofmt -l .)" ]; then
+          echo "❌ Code is not formatted. Please run 'make format'"
+          exit 1
+        fi
+        
+        echo "✅ Quality checks passed"
+
+    - name: Run quality checks - Windows
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Write-Host "📋 Running code formatting..."
+        go fmt ./...
+        
+        Write-Host "🔍 Running go vet..."
+        go vet ./src/... 2>&1 | Out-String
+        
+        Write-Host "✅ Quality checks completed"
+
+    - name: Build for current platform - Linux/macOS
+      if: runner.os != 'Windows'
+      run: |
+        echo "🔨 Building for current platform..."
+        make local
+        
+        # Verify binary was created
+        ls -la bin/
+        file bin/lsp-gateway || true
+
+    - name: Build for current platform - Windows
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Write-Host "🔨 Building for current platform..."
+        
+        # Create bin directory
+        if (!(Test-Path bin)) {
+          New-Item -ItemType Directory -Path bin
+        }
+        
+        # Build with cache enabled
+        $env:GOOS = "windows"
+        $env:GOARCH = "amd64"
+        go build -tags "cache_enabled" -o bin\lsp-gateway.exe .\src\cmd\lsp-gateway
+        
+        # Verify binary was created
+        Get-ChildItem bin\
+
+    - name: Build for all platforms - Linux only
+      if: runner.os == 'Linux'
+      run: |
+        echo "🌍 Building for all platforms..."
+        make build
+        
+        echo "📦 Build artifacts:"
+        ls -la bin/
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-${{ matrix.os }}
+        path: bin/
+        retention-days: 7

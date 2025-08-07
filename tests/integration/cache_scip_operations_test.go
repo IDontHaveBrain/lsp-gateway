@@ -26,7 +26,7 @@ func TestSCIPCacheOperations(t *testing.T) {
 
 	testDir := t.TempDir()
 	cacheDir := filepath.Join(testDir, "cache")
-	
+
 	testFile1 := filepath.Join(testDir, "main.go")
 	err = os.WriteFile(testFile1, []byte(`package main
 
@@ -97,12 +97,12 @@ func NewHandler(s *Server) *Handler {
 
 	lspManager, err := server.NewLSPManager(cfg)
 	require.NoError(t, err)
-	
+
 	cacheInterface := lspManager.GetCache()
 	require.NotNil(t, cacheInterface)
 	scipCache, ok := cacheInterface.(*cache.SimpleCacheManager)
 	require.True(t, ok)
-	
+
 	ctx := context.Background()
 	err = lspManager.Start(ctx)
 	require.NoError(t, err)
@@ -110,7 +110,7 @@ func NewHandler(s *Server) *Handler {
 
 	t.Run("SCIPDefinitionStorage", func(t *testing.T) {
 		testURI := uri.File(testFile1)
-		
+
 		params := &protocol.DefinitionParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{
@@ -122,22 +122,22 @@ func NewHandler(s *Server) *Handler {
 				},
 			},
 		}
-		
+
 		result, err := lspManager.ProcessRequest(ctx, "textDocument/definition", params)
 		require.NoError(t, err)
 		require.NotNil(t, result)
-		
+
 		_, ok := result.(protocol.Location)
 		if !ok {
 			locations, ok := result.([]protocol.Location)
 			require.True(t, ok)
 			require.NotEmpty(t, locations)
 		}
-		
+
 		cachedLocations, found := scipCache.GetCachedDefinition("NewServer")
 		require.True(t, found)
 		require.NotEmpty(t, cachedLocations)
-		
+
 		for _, loc := range cachedLocations {
 			require.NotEmpty(t, loc.URI)
 			require.GreaterOrEqual(t, loc.Range.Start.Line, 0)
@@ -147,7 +147,7 @@ func NewHandler(s *Server) *Handler {
 
 	t.Run("SCIPReferencesStorage", func(t *testing.T) {
 		testURI := uri.File(testFile1)
-		
+
 		params := &protocol.ReferenceParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{
@@ -162,19 +162,19 @@ func NewHandler(s *Server) *Handler {
 				IncludeDeclaration: true,
 			},
 		}
-		
+
 		result, err := lspManager.ProcessRequest(ctx, "textDocument/references", params)
 		require.NoError(t, err)
 		require.NotNil(t, result)
-		
+
 		locations, ok := result.([]protocol.Location)
 		require.True(t, ok)
 		require.NotEmpty(t, locations)
-		
+
 		cachedLocations, found := scipCache.GetCachedReferences("Server")
 		require.True(t, found)
 		require.NotEmpty(t, cachedLocations)
-		
+
 		for _, loc := range cachedLocations {
 			require.NotEmpty(t, loc.URI)
 			require.GreaterOrEqual(t, loc.Range.Start.Line, 0)
@@ -184,7 +184,7 @@ func NewHandler(s *Server) *Handler {
 
 	t.Run("SCIPMethodResultStorage", func(t *testing.T) {
 		testURI := uri.File(testFile1)
-		
+
 		hoverParams := &protocol.HoverParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{
@@ -196,22 +196,22 @@ func NewHandler(s *Server) *Handler {
 				},
 			},
 		}
-		
+
 		hoverResult, err := lspManager.ProcessRequest(ctx, "textDocument/hover", hoverParams)
 		require.NoError(t, err)
 		require.NotNil(t, hoverResult)
-		
+
 		hover, ok := hoverResult.(*protocol.Hover)
 		require.True(t, ok)
 		require.NotNil(t, hover.Contents)
-		
+
 		err = scipCache.StoreMethodResult(
 			"textDocument/hover",
 			hoverParams,
 			hoverResult,
 		)
 		require.NoError(t, err)
-		
+
 		cachedHover, found := scipCache.GetCachedHover("Start")
 		require.True(t, found)
 		require.NotNil(t, cachedHover)
@@ -221,7 +221,7 @@ func NewHandler(s *Server) *Handler {
 		testURI2 := uri.File(testFile2)
 		err = scipCache.IndexDocument(ctx, string(testURI2), "go", nil)
 		require.NoError(t, err)
-		
+
 		params := &protocol.ReferenceParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{
@@ -236,15 +236,15 @@ func NewHandler(s *Server) *Handler {
 				IncludeDeclaration: true,
 			},
 		}
-		
+
 		result, err := lspManager.ProcessRequest(ctx, "textDocument/references", params)
 		require.NoError(t, err)
 		require.NotNil(t, result)
-		
+
 		locations, ok := result.([]protocol.Location)
 		require.True(t, ok)
 		require.NotEmpty(t, locations)
-		
+
 		var mainFileRef bool
 		var handlerFileRef bool
 		for _, loc := range locations {
@@ -263,24 +263,24 @@ func NewHandler(s *Server) *Handler {
 		testURI1 := uri.File(testFile1)
 		err = scipCache.IndexDocument(ctx, string(testURI1), "go", nil)
 		require.NoError(t, err)
-		
+
 		query := &cache.IndexQuery{
 			Type:     "symbol",
 			Symbol:   "Server",
 			Language: "go",
 		}
-		
+
 		result, err := scipCache.QueryIndex(ctx, query)
 		require.NoError(t, err)
 		require.NotNil(t, result)
-		
+
 		require.NotEmpty(t, result.Results)
 		require.Equal(t, "symbol", result.Type)
 	})
 
 	t.Run("SCIPCacheInvalidation", func(t *testing.T) {
 		testURI := uri.File(testFile1)
-		
+
 		hoverParams := &protocol.HoverParams{
 			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 				TextDocument: protocol.TextDocumentIdentifier{
@@ -292,18 +292,18 @@ func NewHandler(s *Server) *Handler {
 				},
 			},
 		}
-		
+
 		result1, err := lspManager.ProcessRequest(ctx, "textDocument/hover", hoverParams)
 		require.NoError(t, err)
 		require.NotNil(t, result1)
-		
+
 		err = scipCache.InvalidateDocument(string(testURI))
 		require.NoError(t, err)
-		
+
 		cachedHover2, found := scipCache.GetCachedHover("Server")
 		require.False(t, found)
 		require.Nil(t, cachedHover2)
-		
+
 		result2, err := lspManager.ProcessRequest(ctx, "textDocument/hover", hoverParams)
 		require.NoError(t, err)
 		require.NotNil(t, result2)
@@ -316,7 +316,7 @@ func NewHandler(s *Server) *Handler {
 			char   int
 			method string
 		}
-		
+
 		testCases := []testCase{
 			{"definition1", 21, 12, "textDocument/definition"},
 			{"hover1", 4, 6, "textDocument/hover"},
@@ -324,13 +324,13 @@ func NewHandler(s *Server) *Handler {
 			{"definition2", 13, 10, "textDocument/definition"},
 			{"hover2", 21, 12, "textDocument/hover"},
 		}
-		
+
 		resultChan := make(chan error, len(testCases))
-		
+
 		for _, tc := range testCases {
 			go func(tc testCase) {
 				testURI := uri.File(testFile1)
-				
+
 				var params interface{}
 				switch tc.method {
 				case "textDocument/definition":
@@ -356,12 +356,12 @@ func NewHandler(s *Server) *Handler {
 						Context: protocol.ReferenceContext{IncludeDeclaration: true},
 					}
 				}
-				
+
 				_, err := lspManager.ProcessRequest(ctx, tc.method, params)
 				resultChan <- err
 			}(tc)
 		}
-		
+
 		timeout := time.After(10 * time.Second)
 		for i := 0; i < len(testCases); i++ {
 			select {
@@ -384,11 +384,11 @@ func NewHandler(s *Server) *Handler {
 			DiskCache:       false,
 			EvictionPolicy:  "lru",
 		}
-		
+
 		smallCache, err := cache.NewSCIPCacheManager(smallCacheConfig)
 		require.NoError(t, err)
 		defer smallCache.Stop()
-		
+
 		for i := 0; i < 100; i++ {
 			tempFile := filepath.Join(testDir, fmt.Sprintf("temp%d.go", i))
 			content := fmt.Sprintf(`package main
@@ -396,12 +396,12 @@ func Temp%d() {}
 `, i)
 			err = os.WriteFile(tempFile, []byte(content), 0644)
 			require.NoError(t, err)
-			
+
 			tempURI := uri.File(tempFile)
 			err = smallCache.IndexDocument(ctx, string(tempURI), "go", nil)
 			require.NoError(t, err)
 		}
-		
+
 		metrics := smallCache.GetMetrics()
 		require.NotNil(t, metrics)
 		require.Greater(t, metrics.EvictionCount, int64(0))
