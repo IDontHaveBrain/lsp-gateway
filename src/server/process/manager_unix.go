@@ -61,9 +61,9 @@ func (pm *LSPProcessManager) StopProcess(info *ProcessInfo, sender ShutdownSende
 			common.LSPLogger.Debug("LSP server %s did not exit within %v, force killing", info.Language, constants.ProcessShutdownTimeout)
 			if err := info.Cmd.Process.Kill(); err != nil {
 				// Ignore errors if process already exited
-				if !strings.Contains(err.Error(), "process already finished") && 
-				   !strings.Contains(err.Error(), "no child processes") &&
-				   !strings.Contains(err.Error(), "no such process") {
+				if !strings.Contains(err.Error(), "process already finished") &&
+					!strings.Contains(err.Error(), "no child processes") &&
+					!strings.Contains(err.Error(), "no such process") {
 					common.LSPLogger.Debug("Failed to kill LSP server %s: %v", info.Language, err)
 				}
 			}

@@ -173,7 +173,7 @@ func NewHandler(s *Server) *Handler {
 				"main.NewServer",
 				fmt.Sprintf("symbol_%s_%d_%d", testFile1, 13, 5), // Based on the position
 			}
-			
+
 			for _, id := range alternativeIDs {
 				cachedLocations, found = scipCache.GetCachedDefinition(id)
 				if found {
@@ -182,13 +182,13 @@ func NewHandler(s *Server) *Handler {
 				}
 			}
 		}
-		
+
 		if !found {
 			t.Logf("Could not find cached definition with any symbol ID, skipping cache validation")
 			// Skip the cache validation for now, as the main LSP functionality works
 			return
 		}
-		
+
 		require.NotEmpty(t, cachedLocations)
 
 		for _, loc := range cachedLocations {
@@ -419,7 +419,7 @@ func NewHandler(s *Server) *Handler {
 				handlerFileRef = true
 			}
 		}
-		
+
 		// At least one file should have references
 		if !mainFileRef && !handlerFileRef {
 			t.Logf("No references found in main.go or handler.go from %d locations", len(locations))
@@ -579,7 +579,7 @@ func Temp%d() {}
 
 		metrics := smallCache.GetMetrics()
 		require.NotNil(t, metrics)
-		
+
 		// Evictions might not occur if the cache entries are very small
 		if metrics.EvictionCount > 0 {
 			t.Logf("Evictions occurred as expected: %d", metrics.EvictionCount)

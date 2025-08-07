@@ -186,12 +186,12 @@ class DataService {
 
 	for filename, content := range testFiles {
 		filePath := filepath.Join(testDir, filename)
-		
+
 		dir := filepath.Dir(filePath)
 		if dir != testDir {
 			require.NoError(t, os.MkdirAll(dir, 0755))
 		}
-		
+
 		require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
 	}
 
@@ -346,10 +346,10 @@ class DataService {
 			line   int
 			char   int
 		}{
-			{"textDocument/hover", "main.go", 6, 5},        // func CallPython
-			{"textDocument/definition", "script.py", 3, 4}, // def call_go_function
+			{"textDocument/hover", "main.go", 6, 5},           // func CallPython
+			{"textDocument/definition", "script.py", 3, 4},    // def call_go_function
 			{"textDocument/references", "frontend.ts", 3, 13}, // export class DataHandler
-			{"textDocument/completion", "utils.js", 0, 9},  // function processData
+			{"textDocument/completion", "utils.js", 0, 9},     // function processData
 			{"textDocument/documentSymbol", "src/main/java/com/example/Backend.java", 0, 0},
 		}
 
@@ -469,11 +469,11 @@ class DataService {
 
 	t.Run("LanguageDetectionAccuracy", func(t *testing.T) {
 		expectedLanguages := map[string]string{
-			"main.go":                                   "go",
-			"script.py":                                 "python",
-			"frontend.ts":                               "typescript",
-			"utils.js":                                  "javascript",
-			"src/main/java/com/example/Backend.java":   "java",
+			"main.go":                                "go",
+			"script.py":                              "python",
+			"frontend.ts":                            "typescript",
+			"utils.js":                               "javascript",
+			"src/main/java/com/example/Backend.java": "java",
 		}
 
 		documentManager := documents.NewLSPDocumentManager()

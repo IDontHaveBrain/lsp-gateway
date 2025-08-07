@@ -87,7 +87,7 @@ func (s *Struct%d) Method%d() string {
 	require.NoError(t, err)
 	defer lspManager.Stop()
 	lspManager.SetCache(scipCache)
-	
+
 	// Start the LSP manager to initialize LSP servers
 	require.NoError(t, lspManager.Start(ctx))
 
@@ -416,16 +416,16 @@ func (c *ConsistencyTest) Method2() int {
 		// This simulates what would happen if the file was changed and the LSP
 		// server detected it through file system monitoring
 		lspManager.Stop()
-		
+
 		// Restart the LSP manager to get fresh file content
 		lspManager2, err := server.NewLSPManager(cfg)
 		require.NoError(t, err)
 		defer lspManager2.Stop()
 		lspManager2.SetCache(scipCache)
-		
+
 		err = lspManager2.Start(ctx)
 		require.NoError(t, err)
-		
+
 		// Allow time for initialization
 		time.Sleep(100 * time.Millisecond)
 

@@ -14,15 +14,15 @@ import (
 
 // ProcessInfo holds information about a running LSP server process
 type ProcessInfo struct {
-	Cmd               *exec.Cmd
-	Stdin             io.WriteCloser
-	Stdout            io.ReadCloser
-	Stderr            io.ReadCloser
-	StopCh            chan struct{}
-	Active            bool
-	Language          string
-	IntentionalStop   bool // Flag to indicate intentional shutdown
-	ProcessExited     bool // Flag to indicate process has already exited
+	Cmd             *exec.Cmd
+	Stdin           io.WriteCloser
+	Stdout          io.ReadCloser
+	Stderr          io.ReadCloser
+	StopCh          chan struct{}
+	Active          bool
+	Language        string
+	IntentionalStop bool // Flag to indicate intentional shutdown
+	ProcessExited   bool // Flag to indicate process has already exited
 }
 
 // ShutdownSender interface for sending LSP shutdown messages
@@ -109,7 +109,7 @@ func (pm *LSPProcessManager) MonitorProcess(info *ProcessInfo, onExit func(error
 
 	// Wait for process to finish
 	err := info.Cmd.Wait()
-	
+
 	// Mark process as exited
 	info.ProcessExited = true
 
@@ -125,9 +125,9 @@ func (pm *LSPProcessManager) MonitorProcess(info *ProcessInfo, onExit func(error
 			isCommonShutdownError := strings.Contains(errStr, "signal: killed") ||
 				strings.Contains(errStr, "waitid: no child processes") ||
 				strings.Contains(errStr, "process already finished") ||
-				strings.Contains(errStr, "exit status 1") ||  // Common on Windows
-				strings.Contains(errStr, "exit status 0xc000013a")  // Windows CTRL_C_EVENT
-				
+				strings.Contains(errStr, "exit status 1") || // Common on Windows
+				strings.Contains(errStr, "exit status 0xc000013a") // Windows CTRL_C_EVENT
+
 			if !isCommonShutdownError {
 				if wasActive {
 					common.LSPLogger.Error("LSP server %s crashed unexpectedly: %v", info.Language, err)

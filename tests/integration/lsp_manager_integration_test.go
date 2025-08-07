@@ -198,7 +198,7 @@ func helperFunction() {
 		default:
 			require.Fail(t, "Unexpected result type", "Expected []protocol.Location, got %T", result)
 		}
-		
+
 		if len(locations) == 0 {
 			t.Log("No references found, which may be expected depending on test file content")
 		} else {
@@ -219,7 +219,7 @@ func helperFunction() {
 
 		result, err := lspManager.ProcessRequest(ctx, "textDocument/hover", params)
 		require.NoError(t, err)
-		
+
 		if result == nil {
 			t.Log("No hover information available at this position")
 			return
@@ -252,7 +252,7 @@ func helperFunction() {
 		default:
 			require.Fail(t, "Unexpected result type", "Expected *protocol.Hover, got %T", result)
 		}
-		
+
 		if hover != nil {
 			t.Log("Hover information retrieved successfully")
 		} else {
@@ -293,7 +293,7 @@ func helperFunction() {
 		default:
 			require.Fail(t, "Unexpected result type", "Expected []interface{} or json.RawMessage, got %T", result)
 		}
-		
+
 		if symbolCount == 0 {
 			t.Log("No document symbols found, which may be expected")
 		} else {
@@ -371,7 +371,7 @@ func helperFunction() {
 
 		result1, err := lspManager.ProcessRequest(ctx, "textDocument/hover", params1)
 		require.NoError(t, err)
-		
+
 		if result1 == nil {
 			t.Log("No hover information available, skipping cache test")
 			return
@@ -379,7 +379,7 @@ func helperFunction() {
 
 		result2, err := lspManager.ProcessRequest(ctx, "textDocument/hover", params1)
 		require.NoError(t, err)
-		
+
 		if result2 == nil {
 			t.Log("Second hover request returned nil, cache might not be working")
 		} else {

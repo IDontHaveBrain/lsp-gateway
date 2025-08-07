@@ -120,11 +120,11 @@ func (c *StdioClient) Start(ctx context.Context) error {
 			if err != nil {
 				// Filter out common shutdown errors
 				errStr := err.Error()
-				if !strings.Contains(errStr, "signal: killed") && 
-				   !strings.Contains(errStr, "waitid: no child processes") &&
-				   !strings.Contains(errStr, "process already finished") &&
-				   !strings.Contains(errStr, "exit status 1") &&  // Common on Windows
-				   !strings.Contains(errStr, "exit status 0xc000013a") {  // Windows CTRL_C_EVENT
+				if !strings.Contains(errStr, "signal: killed") &&
+					!strings.Contains(errStr, "waitid: no child processes") &&
+					!strings.Contains(errStr, "process already finished") &&
+					!strings.Contains(errStr, "exit status 1") && // Common on Windows
+					!strings.Contains(errStr, "exit status 0xc000013a") { // Windows CTRL_C_EVENT
 					common.LSPLogger.Error("LSP server process exited with error: language=%s, error=%v", c.language, err)
 				}
 			}

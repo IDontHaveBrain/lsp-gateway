@@ -32,7 +32,7 @@ func TestDualProtocolConcurrentOperation(t *testing.T) {
 	// Create test workspace
 	testDir := t.TempDir()
 	testFile := filepath.Join(testDir, "main.go")
-	
+
 	// Create go.mod file
 	goModContent := `module test
 
@@ -143,7 +143,7 @@ func handleError(err error) {
 						"uri": testFileURI,
 					},
 					"position": map[string]interface{}{
-						"line":      15, // Line with "fmt.Sprintf" call 
+						"line":      15, // Line with "fmt.Sprintf" call
 						"character": 9,  // Character position at "fmt"
 					},
 				},

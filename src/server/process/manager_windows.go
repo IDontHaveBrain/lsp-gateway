@@ -74,6 +74,7 @@ func (pm *LSPProcessManager) StopProcess(info *ProcessInfo, sender ShutdownSende
 		case <-time.After(2 * time.Second):
 			// Process still not dead after kill, log but continue (debug level for tests)
 			common.LSPLogger.Debug("LSP server %s process did not terminate after kill", info.Language)
+		}
 	}
 
 	// Close pipes
