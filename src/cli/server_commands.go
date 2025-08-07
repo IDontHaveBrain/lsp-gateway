@@ -81,7 +81,7 @@ func RunMCPServer(configPath string) error {
 
 // ShowStatus displays the current status of LSP clients
 func ShowStatus(configPath string) error {
-	cfg := LoadConfigWithFallback(configPath)
+	cfg := LoadConfigForCLI(configPath)
 
 	common.CLILogger.Info("🔍 LSP Gateway Status")
 	common.CLILogger.Info("%s", strings.Repeat("=", 50))
@@ -124,7 +124,7 @@ func ShowStatus(configPath string) error {
 
 // TestConnection tests connection to LSP servers
 func TestConnection(configPath string) error {
-	cfg := LoadConfigWithFallback(configPath)
+	cfg := LoadConfigForCLI(configPath)
 
 	common.CLILogger.Info("🧪 Testing LSP Server Connections")
 	common.CLILogger.Info("%s", strings.Repeat("=", 50))

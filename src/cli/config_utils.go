@@ -11,8 +11,19 @@ import (
 	"lsp-gateway/src/internal/project"
 )
 
-// LoadConfigWithFallback loads configuration with automatic fallback
+// LoadConfigWithFallback loads configuration with automatic fallback (for servers)
 func LoadConfigWithFallback(configPath string) *config.Config {
+	return loadConfigInternal(configPath, false)
+}
+
+// LoadConfigForCLI loads configuration for CLI commands with background indexing disabled
+// This prevents duplicate indexing when CLI commands create temporary LSP managers
+func LoadConfigForCLI(configPath string) *config.Config {
+	return loadConfigInternal(configPath, true)
+}
+
+// loadConfigInternal is the shared implementation for config loading
+func loadConfigInternal(configPath string, disableBackgroundIndex bool) *config.Config {
 	var cfg *config.Config
 
 	if configPath != "" {
@@ -56,6 +67,11 @@ func LoadConfigWithFallback(configPath string) *config.Config {
 
 	// Auto-detect installed servers if using default configurations
 	autoDetectInstalledServers(cfg)
+
+	// Disable background indexing for CLI commands to prevent duplicate work
+	if disableBackgroundIndex && cfg.Cache != nil {
+		cfg.Cache.BackgroundIndex = false
+	}
 
 	return cfg
 }

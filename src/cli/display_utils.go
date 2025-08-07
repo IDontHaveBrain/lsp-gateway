@@ -37,7 +37,7 @@ func displayGatewayCacheStatus(gateway *server.HTTPGateway) {
 
 // displayMCPCacheStatus displays SCIP cache status for MCP server startup
 func displayMCPCacheStatus(configPath string) {
-	cfg := LoadConfigWithFallback(configPath)
+	cfg := LoadConfigForCLI(configPath)
 
 	manager, err := server.NewLSPManager(cfg)
 	if err != nil {

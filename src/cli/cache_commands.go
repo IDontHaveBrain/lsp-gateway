@@ -14,7 +14,7 @@ import (
 
 // IndexCache rebuilds the cache index by processing workspace files
 func IndexCache(configPath string) error {
-	cfg := LoadConfigWithFallback(configPath)
+	cfg := LoadConfigForCLI(configPath)
 
 	// Create LSP manager to access cache
 	manager, err := server.NewLSPManager(cfg)
@@ -122,7 +122,7 @@ func IndexCache(configPath string) error {
 
 // ClearCache clears all cache entries
 func ClearCache(configPath string) error {
-	cfg := LoadConfigWithFallback(configPath)
+	cfg := LoadConfigForCLI(configPath)
 
 	// Create LSP manager to access cache
 	manager, err := server.NewLSPManager(cfg)
@@ -163,7 +163,7 @@ func ClearCache(configPath string) error {
 
 // ShowCacheInfo displays brief statistics about cached data
 func ShowCacheInfo(configPath string) error {
-	cfg := LoadConfigWithFallback(configPath)
+	cfg := LoadConfigForCLI(configPath)
 
 	// Create LSP manager to access cache
 	manager, err := server.NewLSPManager(cfg)
