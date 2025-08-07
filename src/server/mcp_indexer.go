@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
-	// "os"  // TEMPORARILY COMMENTED for debugging
+	"os"
 	"time"
 
 	"lsp-gateway/src/internal/common"
@@ -65,30 +65,28 @@ func (m *MCPServer) performInitialIndexing() {
 // MCP-specific file count limits for optimized initial indexing performance
 func (m *MCPServer) performWorkspaceIndexing(ctx context.Context) {
 	// Get workspace directory
-	// workspaceDir, err := os.Getwd()
-	// if err != nil {
-	// 	workspaceDir = "."
-	// }
+	workspaceDir, err := os.Getwd()
+	if err != nil {
+		workspaceDir = "."
+	}
 
 	// Delegate to cache module's workspace indexing with MCP-specific limits
-	// TEMPORARILY DISABLED to debug cache indexing issue
-	// if _, ok := m.scipCache.(*cache.SCIPCacheManager); ok {
-	// 	// Create a limited workspace indexer for MCP mode
-	// 	indexer := cache.NewWorkspaceIndexer(m.lspManager)
+	if _, ok := m.scipCache.(*cache.SCIPCacheManager); ok {
+		// Create a limited workspace indexer for MCP mode
+		indexer := cache.NewWorkspaceIndexer(m.lspManager)
 
-	// 	// Get configured languages for extension mapping
-	// 	configuredLangs := []string{}
-	// 	for lang := range m.lspManager.GetConfiguredServers() {
-	// 		configuredLangs = append(configuredLangs, lang)
-	// 	}
+		// Get configured languages for extension mapping
+		configuredLangs := []string{}
+		for lang := range m.lspManager.GetConfiguredServers() {
+			configuredLangs = append(configuredLangs, lang)
+		}
 
-	// 	// Use MCP-specific file limit for initial indexing
-	// 	err := indexer.IndexWorkspaceFiles(ctx, workspaceDir, configuredLangs, constants.MCPMaxIndexFiles)
-	// 	if err != nil {
-	// 		common.LSPLogger.Error("MCP server: Workspace indexing failed: %v", err)
-	// 	} else {
-	// 	}
-	// } else {
-	// 	common.LSPLogger.Warn("MCP server: Cache not available for workspace indexing")
-	// }
+		// Use MCP-specific file limit for initial indexing
+		err := indexer.IndexWorkspaceFiles(ctx, workspaceDir, configuredLangs, constants.MCPMaxIndexFiles)
+		if err != nil {
+			common.LSPLogger.Error("MCP server: Workspace indexing failed: %v", err)
+		}
+	} else {
+		common.LSPLogger.Warn("MCP server: Cache not available for workspace indexing")
+	}
 }

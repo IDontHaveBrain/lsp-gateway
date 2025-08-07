@@ -3,7 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
-	// "os"  // TEMPORARILY COMMENTED for debugging
+	"os"
 	"os/exec"
 	"sync"
 	"time"
@@ -130,31 +130,29 @@ func (m *LSPManager) Start(ctx context.Context) error {
 	}
 
 	// Perform workspace indexing if cache is enabled and background indexing is configured
-	// TEMPORARILY DISABLED to debug cache indexing issue
-	// if m.scipCache != nil && m.config.Cache != nil && m.config.Cache.BackgroundIndex {
-	// 	go func() {
-	// 		// Wait a bit for LSP servers to fully initialize
-	// 		time.Sleep(2 * time.Second)
+	if m.scipCache != nil && m.config.Cache != nil && m.config.Cache.BackgroundIndex {
+		go func() {
+			// Wait a bit for LSP servers to fully initialize
+			time.Sleep(2 * time.Second)
 
-	// 		// Get working directory
-	// 		wd, err := os.Getwd()
-	// 		if err != nil {
-	// 			common.LSPLogger.Warn("Failed to get working directory for indexing: %v", err)
-	// 			return
-	// 		}
+			// Get working directory
+			wd, err := os.Getwd()
+			if err != nil {
+				common.LSPLogger.Warn("Failed to get working directory for indexing: %v", err)
+				return
+			}
 
-	// 		// Perform workspace indexing
-	// 		indexCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	// 		defer cancel()
+			// Perform workspace indexing
+			indexCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
 
-	// 		if cacheManager, ok := m.scipCache.(*cache.SCIPCacheManager); ok {
-	// 			if err := cacheManager.PerformWorkspaceIndexing(indexCtx, wd, m); err != nil {
-	// 				common.LSPLogger.Warn("Failed to perform workspace indexing: %v", err)
-	// 			} else {
-	// 			}
-	// 		}
-	// 	}()
-	// }
+			if cacheManager, ok := m.scipCache.(*cache.SCIPCacheManager); ok {
+				if err := cacheManager.PerformWorkspaceIndexing(indexCtx, wd, m); err != nil {
+					common.LSPLogger.Warn("Failed to perform workspace indexing: %v", err)
+				}
+			}
+		}()
+	}
 
 	return nil
 }

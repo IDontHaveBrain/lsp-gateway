@@ -1176,11 +1176,11 @@ func (s *SimpleSCIPStorage) loadFromDisk() error {
 		return nil
 	}
 
-	common.LSPLogger.Info("Attempting to load SCIP cache from disk: %s", s.diskFile)
+	common.LSPLogger.Debug("Attempting to load SCIP cache from disk: %s", s.diskFile)
 	file, err := os.Open(s.diskFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			common.LSPLogger.Info("SCIP cache file does not exist (starting fresh): %s", s.diskFile)
+			common.LSPLogger.Debug("SCIP cache file does not exist (starting fresh): %s", s.diskFile)
 		} else {
 			common.LSPLogger.Warn("Failed to open SCIP cache file: %v", err)
 		}
@@ -1213,7 +1213,7 @@ func (s *SimpleSCIPStorage) loadFromDisk() error {
 	s.hitCount = data.HitCount
 	s.missCount = data.MissCount
 	
-	common.LSPLogger.Info("Loaded SCIP cache from disk: %d documents, %d symbols", 
+	common.LSPLogger.Debug("Loaded SCIP cache from disk: %d documents, %d symbols", 
 		len(s.documents), len(data.SymbolInfoIndex))
 
 	// Restore document index or initialize if not present

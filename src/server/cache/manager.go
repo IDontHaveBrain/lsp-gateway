@@ -430,26 +430,22 @@ func (m *SCIPCacheManager) InvalidateDocument(uri string) error {
 
 // Clear removes all cache entries
 func (m *SCIPCacheManager) Clear() error {
-	common.LSPLogger.Info("Clear() method called")
-	
 	// Don't check started state for Clear - it should work even if not started
 	if !m.enabled {
-		common.LSPLogger.Info("Cache is not enabled, returning early")
 		return nil
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	common.LSPLogger.Info("Clearing all cache entries")
+	common.LSPLogger.Debug("Clearing all cache entries")
 	m.entries = make(map[string]*CacheEntry)
 	
 	// Stop SCIP storage to ensure it doesn't save on shutdown
 	if m.scipStorage != nil {
-		common.LSPLogger.Info("Stopping SCIP storage before clearing")
 		ctx := context.Background()
 		if err := m.scipStorage.Stop(ctx); err != nil {
-			common.LSPLogger.Warn("Failed to stop SCIP storage: %v", err)
+			common.LSPLogger.Debug("Failed to stop SCIP storage: %v", err)
 		}
 	}
 	
@@ -457,26 +453,21 @@ func (m *SCIPCacheManager) Clear() error {
 	if m.config.DiskCache && m.config.StoragePath != "" {
 		// The SCIP storage saves to simple_cache.json in the storage path
 		cacheFile := filepath.Join(m.config.StoragePath, "simple_cache.json")
-		common.LSPLogger.Info("Attempting to remove cache file: %s", cacheFile)
 		
 		// Check if file exists before deletion
 		if _, err := os.Stat(cacheFile); err == nil {
-			common.LSPLogger.Info("Cache file exists, removing: %s", cacheFile)
 			if err := os.Remove(cacheFile); err != nil {
 				common.LSPLogger.Error("Failed to remove persisted SCIP cache: %v", err)
 			} else {
-				common.LSPLogger.Info("Successfully removed persisted SCIP cache file: %s", cacheFile)
+				common.LSPLogger.Debug("Successfully removed persisted SCIP cache file: %s", cacheFile)
 			}
-		} else if os.IsNotExist(err) {
-			common.LSPLogger.Info("Cache file does not exist: %s", cacheFile)
-		} else {
+		} else if !os.IsNotExist(err) {
 			common.LSPLogger.Warn("Error checking cache file: %v", err)
 		}
 	}
 	
 	// Recreate SCIP storage with empty data
 	if m.scipStorage != nil {
-		common.LSPLogger.Info("Recreating SCIP storage with empty data")
 		scipConfig := scip.SCIPStorageConfig{
 			DiskCacheDir: m.config.StoragePath,
 			MemoryLimit:  int64(m.config.MaxMemoryMB) * 1024 * 1024,
