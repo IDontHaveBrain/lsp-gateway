@@ -102,15 +102,13 @@ func helperFunction() {
 	time.Sleep(2 * time.Second)
 
 	t.Run("TextDocument Definition", func(t *testing.T) {
-		params := protocol.DefinitionParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{
-					URI: protocol.DocumentURI("file://" + testFile),
-				},
-				Position: protocol.Position{
-					Line:      17,
-					Character: 20,
-				},
+		params := map[string]interface{}{
+			"textDocument": map[string]interface{}{
+				"uri": "file://" + testFile,
+			},
+			"position": map[string]interface{}{
+				"line":      17,
+				"character": 20,
 			},
 		}
 
@@ -130,18 +128,16 @@ func helperFunction() {
 	})
 
 	t.Run("TextDocument References", func(t *testing.T) {
-		params := protocol.ReferenceParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{
-					URI: protocol.DocumentURI("file://" + testFile),
-				},
-				Position: protocol.Position{
-					Line:      23,
-					Character: 5,
-				},
+		params := map[string]interface{}{
+			"textDocument": map[string]interface{}{
+				"uri": "file://" + testFile,
 			},
-			Context: protocol.ReferenceContext{
-				IncludeDeclaration: true,
+			"position": map[string]interface{}{
+				"line":      23,
+				"character": 5,
+			},
+			"context": map[string]interface{}{
+				"includeDeclaration": true,
 			},
 		}
 
@@ -155,15 +151,13 @@ func helperFunction() {
 	})
 
 	t.Run("TextDocument Hover", func(t *testing.T) {
-		params := protocol.HoverParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{
-					URI: protocol.DocumentURI("file://" + testFile),
-				},
-				Position: protocol.Position{
-					Line:      14,
-					Character: 10,
-				},
+		params := map[string]interface{}{
+			"textDocument": map[string]interface{}{
+				"uri": "file://" + testFile,
+			},
+			"position": map[string]interface{}{
+				"line":      14,
+				"character": 10,
 			},
 		}
 
@@ -177,9 +171,9 @@ func helperFunction() {
 	})
 
 	t.Run("TextDocument DocumentSymbol", func(t *testing.T) {
-		params := protocol.DocumentSymbolParams{
-			TextDocument: protocol.TextDocumentIdentifier{
-				URI: protocol.DocumentURI("file://" + testFile),
+		params := map[string]interface{}{
+			"textDocument": map[string]interface{}{
+				"uri": "file://" + testFile,
 			},
 		}
 
@@ -193,8 +187,8 @@ func helperFunction() {
 	})
 
 	t.Run("Workspace Symbol", func(t *testing.T) {
-		params := protocol.WorkspaceSymbolParams{
-			Query: "Test",
+		params := map[string]interface{}{
+			"query": "Test",
 		}
 
 		result, err := lspManager.ProcessRequest(ctx, "workspace/symbol", params)
@@ -212,15 +206,13 @@ func helperFunction() {
 	})
 
 	t.Run("TextDocument Completion", func(t *testing.T) {
-		params := protocol.CompletionParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{
-					URI: protocol.DocumentURI("file://" + testFile),
-				},
-				Position: protocol.Position{
-					Line:      17,
-					Character: 10,
-				},
+		params := map[string]interface{}{
+			"textDocument": map[string]interface{}{
+				"uri": "file://" + testFile,
+			},
+			"position": map[string]interface{}{
+				"line":      17,
+				"character": 10,
 			},
 		}
 
@@ -240,15 +232,13 @@ func helperFunction() {
 	})
 
 	t.Run("Cache Integration", func(t *testing.T) {
-		params1 := protocol.HoverParams{
-			TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-				TextDocument: protocol.TextDocumentIdentifier{
-					URI: protocol.DocumentURI("file://" + testFile),
-				},
-				Position: protocol.Position{
-					Line:      14,
-					Character: 10,
-				},
+		params1 := map[string]interface{}{
+			"textDocument": map[string]interface{}{
+				"uri": "file://" + testFile,
+			},
+			"position": map[string]interface{}{
+				"line":      14,
+				"character": 10,
 			},
 		}
 
@@ -279,9 +269,9 @@ if __name__ == "__main__":
 
 		_, pythonErr := exec.LookPath("pylsp")
 		if pythonErr == nil {
-			params := protocol.DocumentSymbolParams{
-				TextDocument: protocol.TextDocumentIdentifier{
-					URI: protocol.DocumentURI("file://" + pythonFile),
+			params := map[string]interface{}{
+				"textDocument": map[string]interface{}{
+					"uri": "file://" + pythonFile,
 				},
 			}
 

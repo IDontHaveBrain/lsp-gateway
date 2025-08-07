@@ -81,10 +81,10 @@ jobs:
       shell: pwsh
       run: |
         Write-Host "🧪 Running unit tests..."
-        go test -v -short -timeout 120s ./tests/unit/... 2>&1 | Out-String
+        go test -v -short -timeout 120s ./tests/unit/...
         if ($LASTEXITCODE -ne 0) {
-          Write-Host "Some unit tests may have failed, checking simple tests..."
-          go test -v -short -timeout 120s -run "TestGetDefaultConfig|TestLoadConfig|TestDetectLanguageFromFile|TestServerConfig_Validation|TestConfig_GetServerForLanguage" ./simple/...
+          Write-Host "❌ Unit tests failed"
+          exit 1
         }
 
     - name: Run integration tests - Linux/macOS

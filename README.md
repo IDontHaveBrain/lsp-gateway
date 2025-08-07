@@ -65,8 +65,13 @@ curl -X POST localhost:8080/jsonrpc \
 make local                  # Build + npm link
 make quality               # Format + vet
 make quality-full          # Format + vet + lint + security
-make test-unit             # Unit tests
-make test-e2e              # End-to-end tests (uses real repos)
+
+# Testing - Automatically discovers and runs all tests
+make test                  # Run ALL tests (unit + integration + e2e)
+make test-fast             # Quick tests only (unit + integration)
+make test-unit             # Unit tests only
+make test-integration      # Integration tests only
+make test-e2e              # E2E tests only (uses real GitHub repos)
 ```
 
 ## Configuration

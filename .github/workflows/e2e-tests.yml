@@ -181,129 +181,32 @@ jobs:
     - name: Run E2E tests - Linux/macOS
       if: runner.os != 'Windows'
       run: |
-        cd tests/e2e
+        echo "🧪 Running all E2E tests..."
         
-        # Set exit code tracking
-        EXIT_CODE=0
-        
-        # Run Go E2E tests
-        echo "🧪 Running Go E2E tests..."
-        if go test -v -timeout 600s -run "TestGoRealClientComprehensiveE2ETestSuite" .; then
-          echo "✅ Go E2E tests passed"
-        else
-          echo "❌ Go E2E tests failed"
-          EXIT_CODE=1
-        fi
-        
-        # Run Python E2E tests
-        echo "🧪 Running Python E2E tests..."
-        if go test -v -timeout 600s -run "TestPythonRealClientComprehensiveE2ETestSuite" .; then
-          echo "✅ Python E2E tests passed"
-        else
-          echo "❌ Python E2E tests failed"
-          EXIT_CODE=1
-        fi
-        
-        # Run TypeScript E2E tests
-        echo "🧪 Running TypeScript E2E tests..."
-        if go test -v -timeout 600s -run "TestTypeScriptRealClientComprehensiveE2ETestSuite" .; then
-          echo "✅ TypeScript E2E tests passed"
-        else
-          echo "❌ TypeScript E2E tests failed"
-          EXIT_CODE=1
-        fi
-        
-        # Run JavaScript E2E tests
-        echo "🧪 Running JavaScript E2E tests..."
-        if go test -v -timeout 600s -run "TestJavaScriptRealClientComprehensiveE2ETestSuite" .; then
-          echo "✅ JavaScript E2E tests passed"
-        else
-          echo "❌ JavaScript E2E tests failed"
-          EXIT_CODE=1
-        fi
-        
-        # Java E2E tests
-        echo "🧪 Running Java E2E tests..."
-        if go test -v -timeout 600s -run "TestJavaRealClientComprehensiveE2ETestSuite" .; then
-          echo "✅ Java E2E tests passed"
-        else
-          echo "❌ Java E2E tests failed"
-          EXIT_CODE=1
-        fi
-        
-        # Summary
-        if [ $EXIT_CODE -eq 0 ]; then
-          echo "🎉 All E2E tests passed (Go, Python, TypeScript, JavaScript, Java)!"
+        # Run all E2E tests in the directory
+        # This will automatically discover and run all Test* functions
+        if go test -v -timeout 1800s ./tests/e2e/...; then
+          echo "🎉 All E2E tests passed!"
         else
           echo "💥 Some E2E tests failed - see logs above for details"
-          exit $EXIT_CODE
+          exit 1
         fi
 
     - name: Run E2E tests - Windows
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        cd tests\e2e
+        Write-Host "🧪 Running all E2E tests..."
         
-        # Set exit code tracking
-        $exitCode = 0
+        # Run all E2E tests in the directory
+        # This will automatically discover and run all Test* functions
+        go test -v -timeout 1800s ./tests/e2e/...
         
-        # Run Go E2E tests
-        Write-Host "🧪 Running Go E2E tests..."
-        go test -v -timeout 600s -run "TestGoRealClientComprehensiveE2ETestSuite" .
         if ($LASTEXITCODE -eq 0) {
-          Write-Host "✅ Go E2E tests passed"
-        } else {
-          Write-Host "❌ Go E2E tests failed"
-          $exitCode = 1
-        }
-        
-        # Run Python E2E tests
-        Write-Host "🧪 Running Python E2E tests..."
-        go test -v -timeout 600s -run "TestPythonRealClientComprehensiveE2ETestSuite" .
-        if ($LASTEXITCODE -eq 0) {
-          Write-Host "✅ Python E2E tests passed"
-        } else {
-          Write-Host "❌ Python E2E tests failed"
-          $exitCode = 1
-        }
-        
-        # Run TypeScript E2E tests
-        Write-Host "🧪 Running TypeScript E2E tests..."
-        go test -v -timeout 600s -run "TestTypeScriptRealClientComprehensiveE2ETestSuite" .
-        if ($LASTEXITCODE -eq 0) {
-          Write-Host "✅ TypeScript E2E tests passed"
-        } else {
-          Write-Host "❌ TypeScript E2E tests failed"
-          $exitCode = 1
-        }
-        
-        # Run JavaScript E2E tests
-        Write-Host "🧪 Running JavaScript E2E tests..."
-        go test -v -timeout 600s -run "TestJavaScriptRealClientComprehensiveE2ETestSuite" .
-        if ($LASTEXITCODE -eq 0) {
-          Write-Host "✅ JavaScript E2E tests passed"
-        } else {
-          Write-Host "❌ JavaScript E2E tests failed"
-          $exitCode = 1
-        }
-        
-        # Java E2E tests
-        Write-Host "🧪 Running Java E2E tests..."
-        go test -v -timeout 600s -run "TestJavaRealClientComprehensiveE2ETestSuite" .
-        if ($LASTEXITCODE -eq 0) {
-          Write-Host "✅ Java E2E tests passed"
-        } else {
-          Write-Host "❌ Java E2E tests failed"
-          $exitCode = 1
-        }
-        
-        # Summary
-        if ($exitCode -eq 0) {
-          Write-Host "🎉 All E2E tests passed (Go, Python, TypeScript, JavaScript, Java)!"
+          Write-Host "🎉 All E2E tests passed!"
         } else {
           Write-Host "💥 Some E2E tests failed - see logs above for details"
-          exit $exitCode
+          exit 1
         }
 
     - name: Upload test results

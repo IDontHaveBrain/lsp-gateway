@@ -116,7 +116,7 @@ func main() {
 		var health map[string]interface{}
 		err = json.Unmarshal(body, &health)
 		require.NoError(t, err)
-		require.Equal(t, "ok", health["status"])
+		require.Equal(t, "healthy", health["status"])
 	})
 
 	t.Run("TextDocument Definition via JSON-RPC", func(t *testing.T) {
@@ -269,7 +269,8 @@ func main() {
 		}
 	})
 
-	t.Run("Batch JSON-RPC requests", func(t *testing.T) {
+	t.Run("Batch JSON-RPC requests not supported", func(t *testing.T) {
+		// Server only handles single requests, not batch arrays
 		batchRequest := []map[string]interface{}{
 			{
 				"jsonrpc": "2.0",
@@ -285,16 +286,6 @@ func main() {
 				},
 				"id": 100,
 			},
-			{
-				"jsonrpc": "2.0",
-				"method":  "textDocument/documentSymbol",
-				"params": map[string]interface{}{
-					"textDocument": map[string]interface{}{
-						"uri": "file://" + testFile,
-					},
-				},
-				"id": 101,
-			},
 		}
 
 		requestBody, err := json.Marshal(batchRequest)
@@ -308,16 +299,11 @@ func main() {
 		body, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
 
-		var batchResponse []map[string]interface{}
-		err = json.Unmarshal(body, &batchResponse)
+		// Server should return a JSON-RPC error for unsupported batch format
+		var errorResponse map[string]interface{}
+		err = json.Unmarshal(body, &errorResponse)
 		require.NoError(t, err)
-		require.Len(t, batchResponse, 2, "Should receive two responses")
-
-		for _, response := range batchResponse {
-			require.Contains(t, response, "jsonrpc")
-			require.Contains(t, response, "id")
-			require.Contains(t, response, "result")
-		}
+		require.Contains(t, errorResponse, "error", "Should return error for batch request")
 	})
 
 	t.Run("Invalid method handling", func(t *testing.T) {

@@ -52,10 +52,12 @@ make tidy           # Tidy go modules
 make quality        # format + vet
 make quality-full   # format + vet + lint + security
 
-# Testing
-go test -v ./tests/unit/...         # Unit tests
-go test -v ./tests/integration/...  # Integration tests  
-make test-e2e                        # E2E tests (uses real GitHub repos)
+# Testing - Automatically discovers and runs all tests
+make test                            # Run ALL tests (unit + integration + e2e)
+make test-fast                       # Unit + integration only (quick feedback)
+go test -v ./tests/unit/...         # Unit tests only  
+go test -v ./tests/integration/...  # Integration tests only
+go test -v ./tests/e2e/...          # E2E tests only (30min timeout)
 make cache-test                      # Cache tests
 
 # LSP server installation (required)

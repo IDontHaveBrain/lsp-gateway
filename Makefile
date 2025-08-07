@@ -166,9 +166,27 @@ format:
 	@echo "Formatting code..."
 	$(GOCMD) fmt ./...
 
-test:
-	@echo "Running all tests..."
-	$(GOTEST) -v -timeout 600s ./tests/e2e/... ./tests/integration/... ./simple/...
+# Run all tests (unit + integration + e2e)
+test: test-all
+
+test-all:
+	@echo "🧪 Running all tests (unit + integration + e2e)..."
+	@echo "================================================"
+	@echo "1/3: Unit Tests"
+	@echo "================================================"
+	@$(GOTEST) -v -short -timeout 120s ./tests/unit/... || (echo "❌ Unit tests failed" && exit 1)
+	@echo ""
+	@echo "================================================"
+	@echo "2/3: Integration Tests"
+	@echo "================================================"
+	@$(GOTEST) -v -timeout 600s ./tests/integration/... || (echo "❌ Integration tests failed" && exit 1)
+	@echo ""
+	@echo "================================================"
+	@echo "3/3: E2E Tests"
+	@echo "================================================"
+	@$(GOTEST) -v -timeout 1800s ./tests/e2e/... || (echo "❌ E2E tests failed" && exit 1)
+	@echo ""
+	@echo "✅ All tests passed!"
 
 test-unit:
 	@echo "Running unit tests..."
@@ -181,15 +199,22 @@ test-unit:
 
 test-integration:
 	@echo "Running integration tests..."
-	$(GOTEST) -v -timeout 600s -run Integration ./...
+	$(GOTEST) -v -timeout 600s ./tests/integration/...
 
 test-e2e:
 	@echo "Running E2E tests..."
-	$(GOTEST) -v -timeout 600s ./tests/e2e/...
+	$(GOTEST) -v -timeout 1800s ./tests/e2e/...
 
 test-quick:
 	@echo "Running quick validation tests..."
 	$(GOTEST) -v -short -timeout 120s -run "TestGetDefaultConfig|TestLoadConfig" ./simple/...
+
+# Run tests without E2E (faster for development)
+test-fast:
+	@echo "🚀 Running fast tests (unit + integration)..."
+	@$(GOTEST) -v -short -timeout 120s ./tests/unit/...
+	@$(GOTEST) -v -timeout 600s ./tests/integration/...
+	@echo "✅ Fast tests passed!"
 
 # =============================================================================
 # CODE QUALITY
@@ -262,10 +287,12 @@ help:
 	@echo "  format    - Format code"
 	@echo ""
 	@echo "Testing Commands:"
-	@echo "  test               - Run all tests"
-	@echo "  test-unit          - Run unit tests"
-	@echo "  test-integration   - Run integration tests"
-	@echo "  test-e2e           - Run E2E tests"
+	@echo "  test               - Run all tests (unit + integration + e2e)"
+	@echo "  test-all           - Run all tests (same as 'test')"
+	@echo "  test-fast          - Run unit and integration tests only (no e2e)"
+	@echo "  test-unit          - Run unit tests only"
+	@echo "  test-integration   - Run integration tests only"
+	@echo "  test-e2e           - Run E2E tests only (30min timeout)"
 	@echo "  test-quick         - Run quick validation tests"
 	@echo ""
 	@echo "Quality Commands:"
