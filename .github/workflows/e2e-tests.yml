@@ -31,6 +31,17 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
 
     - name: Cache Java LSP server (JDK + Eclipse JDT) - Linux/macOS
       if: runner.os != 'Windows'
@@ -100,72 +111,44 @@ jobs:
     - name: Install LSP servers - Linux/macOS
       if: runner.os != 'Windows'
       run: |
-        # Install Go LSP server
-        go install golang.org/x/tools/gopls@latest
+        echo "📦 Installing all LSP servers..."
         
-        # Install Python LSP server
-        pip install python-lsp-server
-        
-        # Install TypeScript/JavaScript LSP server
-        npm install -g typescript-language-server typescript
-        
-        # Install Java LSP server only if not cached
-        if [ "${{ steps.cache-java-lsp-unix.outputs.cache-hit }}" != "true" ]; then
-          echo "📦 Installing Java LSP server (JDK + Eclipse JDT)..."
-          if timeout 25m ./bin/lsp-gateway install java; then
-            echo "✅ Java LSP server installation completed"
-          else
-            echo "❌ Java LSP server installation failed or timed out"
-            exit 1
-          fi
-        else
+        # Note if Java is cached to save time
+        if [ "${{ steps.cache-java-lsp-unix.outputs.cache-hit }}" == "true" ]; then
           echo "✅ Using cached Java LSP server (JDK + Eclipse JDT)"
         fi
         
-        # Verify installations
-        echo "Checking LSP server installations..."
-        gopls version || echo "gopls installation failed"
-        pylsp --version || echo "pylsp installation failed"
-        typescript-language-server --version || echo "typescript-language-server installation failed"
+        # Install all LSP servers at once (with timeout for Java installation)
+        timeout 30m ./bin/lsp-gateway install all || {
+          echo "⚠️ Installation timed out or failed - checking status"
+          ./bin/lsp-gateway status
+          exit 1
+        }
         
-        # Check Java installation
+        echo "✅ Verifying LSP server installations..."
         ./bin/lsp-gateway status
 
     - name: Install LSP servers - Windows
       if: runner.os == 'Windows'
       shell: pwsh
       run: |
-        # Install Go LSP server
-        go install golang.org/x/tools/gopls@latest
+        Write-Host "📦 Installing all LSP servers..."
         
-        # Install Python LSP server
-        pip install python-lsp-server
-        
-        # Install TypeScript/JavaScript LSP server
-        npm install -g typescript-language-server typescript
-        
-        # Install Java LSP server only if not cached
+        # Note if Java is cached to save time
         $cacheHit = "${{ steps.cache-java-lsp-windows.outputs.cache-hit }}"
-        if ($cacheHit -ne "true") {
-          Write-Host "📦 Installing Java LSP server (JDK + Eclipse JDT)..."
-          $process = Start-Process -FilePath ".\bin\lsp-gateway.exe" -ArgumentList "install", "java" -PassThru -NoNewWindow -Wait
-          if ($process.ExitCode -eq 0) {
-            Write-Host "✅ Java LSP server installation completed"
-          } else {
-            Write-Host "❌ Java LSP server installation failed"
-            exit 1
-          }
-        } else {
+        if ($cacheHit -eq "true") {
           Write-Host "✅ Using cached Java LSP server (JDK + Eclipse JDT)"
         }
         
-        # Verify installations
-        Write-Host "Checking LSP server installations..."
-        gopls version
-        pylsp --version
-        typescript-language-server --version
+        # Install all LSP servers at once (with timeout for Java installation)
+        $process = Start-Process -FilePath ".\bin\lsp-gateway.exe" -ArgumentList "install", "all" -PassThru -NoNewWindow -Wait -TimeoutSec 1800
+        if ($process.ExitCode -ne 0) {
+          Write-Host "⚠️ Installation failed - checking status"
+          .\bin\lsp-gateway.exe status
+          exit 1
+        }
         
-        # Check Java installation
+        Write-Host "✅ Verifying LSP server installations..."
         .\bin\lsp-gateway.exe status
 
     - name: Run E2E tests - Linux/macOS

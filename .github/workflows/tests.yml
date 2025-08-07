@@ -27,6 +27,44 @@ jobs:
         go-version: '1.24.5'
         check-latest: true
 
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Set up Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '17'
+
+    - name: Cache Java LSP server (JDK + Eclipse JDT) - Linux/macOS
+      if: runner.os != 'Windows'
+      id: cache-java-lsp-unix
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.lsp-gateway/tools/java
+        key: ${{ runner.os }}-java-lsp-v1
+        restore-keys: |
+          ${{ runner.os }}-java-lsp-
+
+    - name: Cache Java LSP server (JDK + Eclipse JDT) - Windows
+      if: runner.os == 'Windows'
+      id: cache-java-lsp-windows
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~\.lsp-gateway\tools\java
+        key: ${{ runner.os }}-java-lsp-v1
+        restore-keys: |
+          ${{ runner.os }}-java-lsp-
+
     - name: Install dependencies
       run: go mod download
 
@@ -52,13 +90,39 @@ jobs:
         
         Get-ChildItem bin\
 
-    - name: Install Go LSP server for tests
+    - name: Install LSP servers - Linux/macOS
+      if: runner.os != 'Windows'
       run: |
-        echo "📦 Installing gopls for tests..."
-        go install golang.org/x/tools/gopls@latest
+        echo "📦 Installing all LSP servers..."
         
-        # Verify installation
-        gopls version || echo "gopls installation failed"
+        # Note if Java is cached to save time
+        if [ "${{ steps.cache-java-lsp-unix.outputs.cache-hit }}" == "true" ]; then
+          echo "✅ Using cached Java LSP server (JDK + Eclipse JDT)"
+        fi
+        
+        # Install all LSP servers at once
+        ./bin/lsp-gateway install all
+        
+        echo "✅ Verifying LSP server installations..."
+        ./bin/lsp-gateway status
+    
+    - name: Install LSP servers - Windows
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Write-Host "📦 Installing all LSP servers..."
+        
+        # Note if Java is cached to save time
+        $cacheHit = "${{ steps.cache-java-lsp-windows.outputs.cache-hit }}"
+        if ($cacheHit -eq "true") {
+          Write-Host "✅ Using cached Java LSP server (JDK + Eclipse JDT)"
+        }
+        
+        # Install all LSP servers at once
+        .\bin\lsp-gateway.exe install all
+        
+        Write-Host "✅ Verifying LSP server installations..."
+        .\bin\lsp-gateway.exe status
 
     - name: Run unit tests - Linux/macOS
       if: runner.os != 'Windows'
