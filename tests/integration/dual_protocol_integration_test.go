@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
 
@@ -71,7 +72,7 @@ func handleError(err error) {
 	require.NoError(t, err)
 
 	// Create proper URI for HTTP requests
-	testFileURI := "file://" + testFile
+	testFileURI := common.FilePathToURI(testFile)
 
 	cfg := &config.Config{
 		Cache: &config.CacheConfig{

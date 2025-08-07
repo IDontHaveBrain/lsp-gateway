@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
 
@@ -111,7 +112,7 @@ func (s *Struct%d) Method%d() string {
 						return
 					default:
 						fileIdx := workerID % 10
-						uri := fmt.Sprintf("file://%s", filepath.Join(testDir, fmt.Sprintf("file%d.go", fileIdx)))
+						uri := common.FilePathToURI(filepath.Join(testDir, fmt.Sprintf("file%d.go", fileIdx)))
 
 						// Random operation
 						operations := []string{"definition", "references", "hover", "documentSymbol"}
@@ -253,7 +254,7 @@ func NewFunction%d() {
 
 	t.Run("RapidFileModificationStress", func(t *testing.T) {
 		targetFile := filepath.Join(testDir, "stress_test.go")
-		uri := fmt.Sprintf("file://%s", targetFile)
+		uri := common.FilePathToURI(targetFile)
 
 		initialContent := `package main
 
@@ -362,7 +363,7 @@ func NewMethod%d() {
 	t.Run("CacheConsistencyAfterInvalidation", func(t *testing.T) {
 		// Pick a file to test
 		testFile := filepath.Join(testDir, "consistency_test.go")
-		uri := fmt.Sprintf("file://%s", testFile)
+		uri := common.FilePathToURI(testFile)
 
 		version1 := `package main
 

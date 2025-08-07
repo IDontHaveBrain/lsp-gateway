@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server/cache"
 
 	"github.com/stretchr/testify/require"
@@ -97,7 +98,7 @@ func (u *User) Validate() bool {
 		// Query indexed symbols
 		query := &cache.IndexQuery{
 			Type: "symbol",
-			URI:  "file://" + mainFile,
+			URI:  common.FilePathToURI(mainFile),
 		}
 		result, err := scipCache.QueryIndex(ctx, query)
 		require.NoError(t, err)
@@ -167,7 +168,7 @@ func NewFunction() string {
 		// Query indexed symbols
 		query := &cache.IndexQuery{
 			Type: "symbol",
-			URI:  "file://" + mainFile,
+			URI:  common.FilePathToURI(mainFile),
 		}
 		_, err = scipCache.QueryIndex(ctx, query)
 		require.NoError(t, err)

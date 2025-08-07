@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server"
 )
 
@@ -77,7 +78,22 @@ func main() {
 		}
 	}()
 
-	time.Sleep(100 * time.Millisecond)
+	// Wait for server to be ready with retry logic
+	var serverReady bool
+	for i := 0; i < 30; i++ { // Try for up to 3 seconds
+		resp, err := http.Get("http://localhost:18080/health")
+		if err == nil && resp.StatusCode == http.StatusOK {
+			resp.Body.Close()
+			serverReady = true
+			break
+		}
+		if resp != nil {
+			resp.Body.Close()
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	require.True(t, serverReady, "Gateway server failed to start within 3 seconds")
+	
 	defer gateway.Stop()
 
 	client := &http.Client{
@@ -91,7 +107,7 @@ func main() {
 			"method":  "textDocument/hover",
 			"params": map[string]interface{}{
 				"textDocument": map[string]interface{}{
-					"uri": fmt.Sprintf("file://%s", testFile),
+					"uri": common.FilePathToURI(testFile),
 				},
 				"position": map[string]interface{}{
 					"line":      4,
@@ -233,7 +249,22 @@ func main() {
 			}
 		}()
 
-		time.Sleep(100 * time.Millisecond)
+		// Wait for server to be ready with retry logic
+		var serverReady bool
+		for i := 0; i < 30; i++ { // Try for up to 3 seconds
+			resp, err := http.Get("http://localhost:18081/health")
+			if err == nil && resp.StatusCode == http.StatusOK {
+				resp.Body.Close()
+				serverReady = true
+				break
+			}
+			if resp != nil {
+				resp.Body.Close()
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		require.True(t, serverReady, "Gateway server failed to start within 3 seconds")
+		
 		defer gatewayWithCache.Stop()
 
 		// Even with cache disabled in config, HTTP gateway should have cache available
@@ -333,7 +364,7 @@ func main() {
 				"method":  "textDocument/hover",
 				"params": map[string]interface{}{
 					"textDocument": map[string]interface{}{
-						"uri": fmt.Sprintf("file://%s", testFile),
+						"uri": common.FilePathToURI(testFile),
 					},
 					"position": map[string]interface{}{
 						"line":      4,
@@ -398,7 +429,7 @@ func main() {
 				"method":  "textDocument/definition",
 				"params": map[string]interface{}{
 					"textDocument": map[string]interface{}{
-						"uri": fmt.Sprintf("file://%s", testFile),
+						"uri": common.FilePathToURI(testFile),
 					},
 					"position": map[string]interface{}{
 						"line":      4,
@@ -452,7 +483,7 @@ func main() {
 			"method":  "textDocument/hover",
 			"params": map[string]interface{}{
 				"textDocument": map[string]interface{}{
-					"uri": fmt.Sprintf("file://%s", testFile),
+					"uri": common.FilePathToURI(testFile),
 				},
 				"position": map[string]interface{}{
 					"line":      4,

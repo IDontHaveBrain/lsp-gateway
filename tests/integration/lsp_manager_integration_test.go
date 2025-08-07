@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
 
@@ -105,7 +106,7 @@ func helperFunction() {
 	t.Run("TextDocument Definition", func(t *testing.T) {
 		params := map[string]interface{}{
 			"textDocument": map[string]interface{}{
-				"uri": "file://" + testFile,
+				"uri": common.FilePathToURI(testFile),
 			},
 			"position": map[string]interface{}{
 				"line":      17,
@@ -154,7 +155,7 @@ func helperFunction() {
 	t.Run("TextDocument References", func(t *testing.T) {
 		params := map[string]interface{}{
 			"textDocument": map[string]interface{}{
-				"uri": "file://" + testFile,
+				"uri": common.FilePathToURI(testFile),
 			},
 			"position": map[string]interface{}{
 				"line":      23,
@@ -209,7 +210,7 @@ func helperFunction() {
 	t.Run("TextDocument Hover", func(t *testing.T) {
 		params := map[string]interface{}{
 			"textDocument": map[string]interface{}{
-				"uri": "file://" + testFile,
+				"uri": common.FilePathToURI(testFile),
 			},
 			"position": map[string]interface{}{
 				"line":      14,
@@ -263,7 +264,7 @@ func helperFunction() {
 	t.Run("TextDocument DocumentSymbol", func(t *testing.T) {
 		params := map[string]interface{}{
 			"textDocument": map[string]interface{}{
-				"uri": "file://" + testFile,
+				"uri": common.FilePathToURI(testFile),
 			},
 		}
 
@@ -323,7 +324,7 @@ func helperFunction() {
 	t.Run("TextDocument Completion", func(t *testing.T) {
 		params := map[string]interface{}{
 			"textDocument": map[string]interface{}{
-				"uri": "file://" + testFile,
+				"uri": common.FilePathToURI(testFile),
 			},
 			"position": map[string]interface{}{
 				"line":      17,
@@ -361,7 +362,7 @@ func helperFunction() {
 	t.Run("Cache Integration", func(t *testing.T) {
 		params1 := map[string]interface{}{
 			"textDocument": map[string]interface{}{
-				"uri": "file://" + testFile,
+				"uri": common.FilePathToURI(testFile),
 			},
 			"position": map[string]interface{}{
 				"line":      14,
@@ -407,7 +408,7 @@ if __name__ == "__main__":
 		if pythonErr == nil {
 			params := map[string]interface{}{
 				"textDocument": map[string]interface{}{
-					"uri": "file://" + pythonFile,
+					"uri": common.FilePathToURI(pythonFile),
 				},
 			}
 

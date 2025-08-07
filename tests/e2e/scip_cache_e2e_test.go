@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
 
@@ -161,7 +162,7 @@ func (suite *SCIPCacheE2ETestSuite) TearDownTest() {
 func (suite *SCIPCacheE2ETestSuite) TestCacheStoreAndRetrieve() {
 	ctx := context.Background()
 
-	uri := fmt.Sprintf("file://%s/main.go", suite.testProjectDir)
+	uri := common.FilePathToURI(filepath.Join(suite.testProjectDir, "main.go"))
 
 	definitionParams := map[string]interface{}{
 		"textDocument": map[string]interface{}{
@@ -198,7 +199,7 @@ func (suite *SCIPCacheE2ETestSuite) TestCacheStoreAndRetrieve() {
 func (suite *SCIPCacheE2ETestSuite) TestCacheInvalidation() {
 	ctx := context.Background()
 
-	uri := fmt.Sprintf("file://%s/main.go", suite.testProjectDir)
+	uri := common.FilePathToURI(filepath.Join(suite.testProjectDir, "main.go"))
 
 	hoverParams := map[string]interface{}{
 		"textDocument": map[string]interface{}{
@@ -237,7 +238,7 @@ func (suite *SCIPCacheE2ETestSuite) TestMultiFileCache() {
 	files := []string{"main.go", "utils/helper.go", "handlers/user.go"}
 
 	for _, file := range files {
-		uri := fmt.Sprintf("file://%s/%s", suite.testProjectDir, file)
+		uri := common.FilePathToURI(filepath.Join(suite.testProjectDir, file))
 
 		symbolParams := map[string]interface{}{
 			"textDocument": map[string]interface{}{
@@ -262,7 +263,7 @@ func (suite *SCIPCacheE2ETestSuite) TestMultiFileCache() {
 
 func (suite *SCIPCacheE2ETestSuite) TestCacheConcurrency() {
 	ctx := context.Background()
-	uri := fmt.Sprintf("file://%s/main.go", suite.testProjectDir)
+	uri := common.FilePathToURI(filepath.Join(suite.testProjectDir, "main.go"))
 
 	done := make(chan bool, 3)
 	errors := make(chan error, 3)
