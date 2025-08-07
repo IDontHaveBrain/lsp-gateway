@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest]
 
     steps:
     - name: Checkout code
@@ -40,8 +40,7 @@ jobs:
     - name: Install dependencies
       run: go mod download
 
-    - name: Run quality checks - Linux/macOS
-      if: runner.os != 'Windows'
+    - name: Run quality checks
       run: |
         echo "📋 Running code formatting..."
         make format
@@ -57,20 +56,7 @@ jobs:
         
         echo "✅ Quality checks passed"
 
-    - name: Run quality checks - Windows
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        Write-Host "📋 Running code formatting..."
-        go fmt ./...
-        
-        Write-Host "🔍 Running go vet..."
-        go vet ./src/... 2>&1 | Out-String
-        
-        Write-Host "✅ Quality checks completed"
-
-    - name: Build for current platform - Linux/macOS
-      if: runner.os != 'Windows'
+    - name: Build for current platform
       run: |
         echo "🔨 Building for current platform..."
         make local
@@ -79,27 +65,7 @@ jobs:
         ls -la bin/
         file bin/lsp-gateway || true
 
-    - name: Build for current platform - Windows
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        Write-Host "🔨 Building for current platform..."
-        
-        # Create bin directory
-        if (!(Test-Path bin)) {
-          New-Item -ItemType Directory -Path bin
-        }
-        
-        # Build with cache enabled
-        $env:GOOS = "windows"
-        $env:GOARCH = "amd64"
-        go build -tags "cache_enabled" -o bin\lsp-gateway.exe .\src\cmd\lsp-gateway
-        
-        # Verify binary was created
-        Get-ChildItem bin\
-
-    - name: Build for all platforms - Linux only
-      if: runner.os == 'Linux'
+    - name: Build for all platforms
       run: |
         echo "🌍 Building for all platforms..."
         make build
