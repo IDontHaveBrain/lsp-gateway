@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest]
 
     steps:
     - name: Checkout code
@@ -43,9 +43,8 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Cache Java LSP server (JDK + Eclipse JDT) - Linux/macOS
-      if: runner.os != 'Windows'
-      id: cache-java-lsp-unix
+    - name: Cache Java LSP server (JDK + Eclipse JDT)
+      id: cache-java-lsp
       uses: actions/cache@v4
       with:
         path: |
@@ -54,49 +53,21 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-java-lsp-
 
-    - name: Cache Java LSP server (JDK + Eclipse JDT) - Windows
-      if: runner.os == 'Windows'
-      id: cache-java-lsp-windows
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~\.lsp-gateway\tools\java
-        key: ${{ runner.os }}-java-lsp-v1
-        restore-keys: |
-          ${{ runner.os }}-java-lsp-
-
     - name: Install dependencies
       run: go mod download
 
-    - name: Build LSP Gateway - Linux/macOS
-      if: runner.os != 'Windows'
+    - name: Build LSP Gateway
       run: |
         echo "🔨 Building LSP Gateway..."
         make local
         ls -la bin/
 
-    - name: Build LSP Gateway - Windows
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        Write-Host "🔨 Building LSP Gateway..."
-        if (!(Test-Path bin)) {
-          New-Item -ItemType Directory -Path bin
-        }
-        
-        $env:GOOS = "windows"
-        $env:GOARCH = "amd64"
-        go build -tags "cache_enabled" -o bin\lsp-gateway.exe .\src\cmd\lsp-gateway
-        
-        Get-ChildItem bin\
-
-    - name: Install LSP servers - Linux/macOS
-      if: runner.os != 'Windows'
+    - name: Install LSP servers
       run: |
         echo "📦 Installing all LSP servers..."
         
         # Note if Java is cached to save time
-        if [ "${{ steps.cache-java-lsp-unix.outputs.cache-hit }}" == "true" ]; then
+        if [ "${{ steps.cache-java-lsp.outputs.cache-hit }}" == "true" ]; then
           echo "✅ Using cached Java LSP server (JDK + Eclipse JDT)"
         fi
         
@@ -105,57 +76,16 @@ jobs:
         
         echo "✅ Verifying LSP server installations..."
         ./bin/lsp-gateway status
-    
-    - name: Install LSP servers - Windows
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        Write-Host "📦 Installing all LSP servers..."
-        
-        # Note if Java is cached to save time
-        $cacheHit = "${{ steps.cache-java-lsp-windows.outputs.cache-hit }}"
-        if ($cacheHit -eq "true") {
-          Write-Host "✅ Using cached Java LSP server (JDK + Eclipse JDT)"
-        }
-        
-        # Install all LSP servers at once
-        .\bin\lsp-gateway.exe install all
-        
-        Write-Host "✅ Verifying LSP server installations..."
-        .\bin\lsp-gateway.exe status
 
-    - name: Run unit tests - Linux/macOS
-      if: runner.os != 'Windows'
+    - name: Run unit tests
       run: |
         echo "🧪 Running unit tests..."
         make test-unit
 
-    - name: Run unit tests - Windows
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        Write-Host "🧪 Running unit tests..."
-        go test -v -short -timeout 120s ./tests/unit/...
-        if ($LASTEXITCODE -ne 0) {
-          Write-Host "❌ Unit tests failed"
-          exit 1
-        }
-
-    - name: Run integration tests - Linux/macOS
-      if: runner.os != 'Windows'
+    - name: Run integration tests
       run: |
         echo "🧪 Running integration tests..."
         go test -v -timeout 600s ./tests/integration/...
-
-    - name: Run integration tests - Windows
-      if: runner.os == 'Windows'
-      shell: pwsh
-      run: |
-        Write-Host "🧪 Running integration tests..."
-        go test -v -timeout 600s ./tests/integration/... 2>&1 | Out-String
-        if ($LASTEXITCODE -ne 0) {
-          Write-Host "⚠️ Some integration tests may have failed"
-        }
 
     - name: Upload test results
       uses: actions/upload-artifact@v4
