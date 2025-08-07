@@ -2,14 +2,6 @@ package common
 
 import "fmt"
 
-// ValidateParams validates that params is not nil
-func ValidateParams(params interface{}) error {
-	if params == nil {
-		return fmt.Errorf("no parameters provided")
-	}
-	return nil
-}
-
 // ValidateParamMap validates that params is not nil and converts it to a map[string]interface{}
 func ValidateParamMap(params interface{}) (map[string]interface{}, error) {
 	if params == nil {

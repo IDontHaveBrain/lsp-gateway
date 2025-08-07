@@ -6,17 +6,12 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"strings"
 	"time"
 
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/constants"
+	"lsp-gateway/src/internal/types"
 )
-
-// ClientConfig contains configuration for an LSP client process
-type ClientConfig struct {
-	Command string
-	Args    []string
-}
 
 // ProcessInfo holds information about a running LSP server process
 type ProcessInfo struct {
@@ -37,7 +32,7 @@ type ShutdownSender interface {
 
 // ProcessManager interface for LSP server process lifecycle management
 type ProcessManager interface {
-	StartProcess(config ClientConfig, language string) (*ProcessInfo, error)
+	StartProcess(config types.ClientConfig, language string) (*ProcessInfo, error)
 	StopProcess(info *ProcessInfo, sender ShutdownSender) error
 	MonitorProcess(info *ProcessInfo, onExit func(error))
 	CleanupProcess(info *ProcessInfo)
@@ -52,7 +47,7 @@ func NewLSPProcessManager() *LSPProcessManager {
 }
 
 // StartProcess initializes and starts an LSP server process
-func (pm *LSPProcessManager) StartProcess(config ClientConfig, language string) (*ProcessInfo, error) {
+func (pm *LSPProcessManager) StartProcess(config types.ClientConfig, language string) (*ProcessInfo, error) {
 	// Create command
 	cmd := exec.Command(config.Command, config.Args...)
 
@@ -131,16 +126,13 @@ func (pm *LSPProcessManager) StopProcess(info *ProcessInfo, sender ShutdownSende
 			done <- info.Cmd.Wait()
 		}()
 
-		// Wait up to 5 seconds for graceful exit
+		// Wait up to ProcessShutdownTimeout for graceful exit
 		select {
-		case err := <-done:
+		case <-done:
 			// Process exited gracefully
-			if err != nil && !strings.Contains(err.Error(), "signal: killed") {
-				common.LSPLogger.Debug("LSP server %s exited with error: %v", info.Language, err)
-			}
-		case <-time.After(5 * time.Second):
+		case <-time.After(constants.ProcessShutdownTimeout):
 			// Timeout - force kill only after waiting
-			common.LSPLogger.Warn("LSP server %s did not exit gracefully within 5 seconds, force killing", info.Language)
+			common.LSPLogger.Warn("LSP server %s did not exit gracefully within %v, force killing", info.Language, constants.ProcessShutdownTimeout)
 			if err := info.Cmd.Process.Kill(); err != nil {
 				common.LSPLogger.Error("Failed to kill LSP server %s: %v", info.Language, err)
 			}
@@ -226,17 +218,11 @@ func (pm *LSPProcessManager) sendShutdown(sender ShutdownSender) {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer shutdownCancel()
 
-	err := sender.SendShutdownRequest(shutdownCtx)
-	if err != nil {
-		common.LSPLogger.Debug("Failed to send shutdown request: %v", err)
-	}
+	sender.SendShutdownRequest(shutdownCtx)
 
 	// Send exit notification with its own timeout
 	exitCtx, exitCancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer exitCancel()
 
-	err = sender.SendExitNotification(exitCtx)
-	if err != nil {
-		common.LSPLogger.Debug("Failed to send exit notification: %v", err)
-	}
+	sender.SendExitNotification(exitCtx)
 }

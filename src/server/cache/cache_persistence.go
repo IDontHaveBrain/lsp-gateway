@@ -4,11 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/project"
-	"lsp-gateway/src/internal/types"
 )
 
 // SaveIndexToDisk saves the SCIP index data to disk as JSON files
@@ -32,7 +30,6 @@ func (m *SimpleCacheManager) SaveIndexToDisk() error {
 
 	// SCIP storage handles its own persistence internally
 	// We just trigger a save operation if the storage supports it
-	common.LSPLogger.Info("SCIP storage handles persistence internally at %s", m.config.StoragePath)
 	return nil
 }
 
@@ -64,7 +61,6 @@ func (m *SimpleCacheManager) LoadIndexFromDisk() error {
 		m.indexStats.DocumentCount = int64(stats.CachedDocuments)
 	}
 
-	common.LSPLogger.Info("SCIP storage loaded from %s", m.config.StoragePath)
 	return nil
 }
 
@@ -81,51 +77,17 @@ func (m *SimpleCacheManager) PerformWorkspaceIndexing(ctx context.Context, worki
 		detectedLanguages = []string{}
 	}
 
-	// Get workspace files for indexing based on detected languages
-	workspaceFiles, err := project.ScanWorkspaceFiles(workingDir, detectedLanguages)
+	// Create workspace indexer with LSP fallback
+	indexer := NewWorkspaceIndexer(lspFallback)
+
+	// Use unlimited maxFiles for comprehensive HTTP gateway indexing
+	const maxFiles = 100000
+
+	// Index workspace files using the new WorkspaceIndexer
+	err = indexer.IndexWorkspaceFiles(ctx, workingDir, detectedLanguages, maxFiles)
 	if err != nil {
-		return fmt.Errorf("failed to scan workspace files: %w", err)
+		return fmt.Errorf("workspace indexing failed: %w", err)
 	}
-
-	if len(workspaceFiles) == 0 {
-		common.LSPLogger.Info("No files to index in workspace")
-		return nil
-	}
-
-	common.LSPLogger.Info("Starting workspace indexing: %d files found", len(workspaceFiles))
-
-	// Index each file by fetching document symbols
-	processedCount := 0
-	errorCount := 0
-	for i, file := range workspaceFiles {
-		// Convert to file URI
-		absPath, err := filepath.Abs(file)
-		if err != nil {
-			errorCount++
-			continue
-		}
-		uri := "file://" + absPath
-
-		// Get document symbols for this file
-		params := map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri": uri,
-			},
-		}
-
-		if i%100 == 0 {
-			common.LSPLogger.Debug("Indexing progress: %d/%d files", i, len(workspaceFiles))
-		}
-
-		_, err = lspFallback.ProcessRequest(ctx, types.MethodTextDocumentDocumentSymbol, params)
-		if err == nil {
-			processedCount++
-		} else {
-			errorCount++
-		}
-	}
-
-	common.LSPLogger.Info("Workspace indexing completed: %d/%d files processed, %d errors", processedCount, len(workspaceFiles), errorCount)
 
 	// Save the index to disk if disk cache is enabled
 	if m.config.DiskCache && m.config.StoragePath != "" {

@@ -48,7 +48,7 @@ cache:
   storage_path: ".lsp-gateway/scip-cache"     # Cache storage directory
   max_memory_mb: 512                          # Memory limit in MB (simple units)
   ttl_hours: 24                               # Cache time-to-live in hours (simple units - 24h for daily dev workflow)
-  languages: ["go", "python", "typescript", "java"]  # Languages to cache
+  languages: ["*"]                           # Wildcard for all supported languages
   background_index: true                      # Enable background indexing
   health_check_minutes: 5                     # Health check interval in minutes (simple units)
   eviction_policy: "lru"                      # Cache eviction policy (lru, simple)

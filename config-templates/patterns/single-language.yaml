@@ -77,6 +77,21 @@ servers:
 # Usage: lsp-gateway server --config config.yaml
 
 # =============================================================================
+# CACHE CONFIGURATION (Optional)
+# =============================================================================
+# Uncomment to enable SCIP cache for sub-millisecond responses
+# cache:
+#   enabled: true
+#   storage_path: ".lsp-gateway/scip-cache"
+#   max_memory_mb: 512
+#   ttl_hours: 24
+#   languages: ["*"]           # Use "*" for all languages or specify individual ones
+#   background_index: true
+#   health_check_minutes: 5
+#   eviction_policy: "lru"
+#   disk_cache: true
+
+# =============================================================================
 # CONFIGURATION NOTES
 # =============================================================================
 #

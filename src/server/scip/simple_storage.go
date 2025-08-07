@@ -89,20 +89,15 @@ func (s *SimpleSCIPStorage) Start(ctx context.Context) error {
 		return fmt.Errorf("storage already started")
 	}
 
-	common.LSPLogger.Info("Starting simple SCIP storage with memory limit: %d MB", s.config.MemoryLimit/(1024*1024))
-
 	// Create directory
 	if err := os.MkdirAll(s.config.DiskCacheDir, 0755); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
 	// Load from disk if available
-	if err := s.loadFromDisk(); err != nil {
-		common.LSPLogger.Debug("No existing cache found, starting fresh: %v", err)
-	}
+	s.loadFromDisk()
 
 	s.started = true
-	common.LSPLogger.Info("Simple SCIP storage started successfully")
 	return nil
 }
 
@@ -115,15 +110,12 @@ func (s *SimpleSCIPStorage) Stop(ctx context.Context) error {
 		return nil
 	}
 
-	common.LSPLogger.Info("Stopping simple SCIP storage")
-
 	// Save to disk
 	if err := s.saveToDisk(); err != nil {
 		common.LSPLogger.Error("Error saving cache during shutdown: %v", err)
 	}
 
 	s.started = false
-	common.LSPLogger.Info("Simple SCIP storage stopped")
 	return nil
 }
 
@@ -135,8 +127,6 @@ func (s *SimpleSCIPStorage) StoreDocument(ctx context.Context, doc *SCIPDocument
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-
-	common.LSPLogger.Debug("Storing document: %s (%d bytes)", doc.URI, doc.Size)
 
 	// Evict if necessary to make space
 	for s.currentSize+doc.Size > s.config.MemoryLimit && len(s.documents) > 0 {
@@ -155,8 +145,6 @@ func (s *SimpleSCIPStorage) StoreDocument(ctx context.Context, doc *SCIPDocument
 	s.currentSize += doc.Size
 	s.addToAccessOrder(doc.URI)
 	s.updateOccurrenceIndexes(doc)
-
-	common.LSPLogger.Debug("Successfully stored document: %s", doc.URI)
 	return nil
 }
 
@@ -175,8 +163,6 @@ func (s *SimpleSCIPStorage) GetDocument(ctx context.Context, uri string) (*SCIPD
 	s.removeFromAccessOrder(uri)
 	s.addToAccessOrder(uri)
 	s.hitCount++
-
-	common.LSPLogger.Debug("Document found in cache: %s", uri)
 	return s.cloneDocument(doc), nil
 }
 
@@ -185,16 +171,12 @@ func (s *SimpleSCIPStorage) RemoveDocument(ctx context.Context, uri string) erro
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	common.LSPLogger.Debug("Removing document: %s", uri)
-
 	if doc, found := s.documents[uri]; found {
 		s.currentSize -= doc.Size
 		delete(s.documents, uri)
 		s.removeFromAccessOrder(uri)
 		s.removeFromOccurrenceIndexes(uri)
 	}
-
-	common.LSPLogger.Debug("Successfully removed document: %s", uri)
 	return nil
 }
 
@@ -226,8 +208,6 @@ func (s *SimpleSCIPStorage) GetOccurrences(ctx context.Context, uri string) ([]S
 
 	result := make([]SCIPOccurrence, len(occurrences))
 	copy(result, occurrences)
-
-	common.LSPLogger.Debug("Found %d occurrences in document: %s", len(result), uri)
 	return result, nil
 }
 
@@ -247,8 +227,6 @@ func (s *SimpleSCIPStorage) GetOccurrencesInRange(ctx context.Context, uri strin
 			result = append(result, occ)
 		}
 	}
-
-	common.LSPLogger.Debug("Found %d occurrences in range for %s", len(result), uri)
 	return result, nil
 }
 
@@ -264,8 +242,6 @@ func (s *SimpleSCIPStorage) GetOccurrencesBySymbol(ctx context.Context, symbolID
 
 	result := make([]SCIPOccurrence, len(occurrences))
 	copy(result, occurrences)
-
-	common.LSPLogger.Debug("Found %d occurrences for symbol: %s", len(result), symbolID)
 	return result, nil
 }
 
@@ -278,8 +254,6 @@ func (s *SimpleSCIPStorage) GetDefinitionOccurrence(ctx context.Context, symbolI
 	if !found {
 		return nil, fmt.Errorf("definition not found for symbol: %s", symbolID)
 	}
-
-	common.LSPLogger.Debug("Found definition for symbol: %s", symbolID)
 	result := *definition
 	return &result, nil
 }
@@ -296,8 +270,6 @@ func (s *SimpleSCIPStorage) GetReferenceOccurrences(ctx context.Context, symbolI
 
 	result := make([]SCIPOccurrence, len(references))
 	copy(result, references)
-
-	common.LSPLogger.Debug("Found %d reference occurrences for symbol: %s", len(result), symbolID)
 	return result, nil
 }
 
@@ -312,8 +284,6 @@ func (s *SimpleSCIPStorage) GetSymbolInformation(ctx context.Context, symbolID s
 	if !found {
 		return nil, fmt.Errorf("symbol information not found: %s", symbolID)
 	}
-
-	common.LSPLogger.Debug("Found symbol information for: %s", symbolID)
 	result := *info
 	return &result, nil
 }
@@ -332,8 +302,6 @@ func (s *SimpleSCIPStorage) GetSymbolInformationByName(ctx context.Context, name
 	for i, info := range infos {
 		result[i] = *info
 	}
-
-	common.LSPLogger.Debug("Found %d symbol information entries for name: %s", len(result), name)
 	return result, nil
 }
 
@@ -351,8 +319,6 @@ func (s *SimpleSCIPStorage) StoreSymbolInformation(ctx context.Context, info *SC
 
 	// Store in symbol name index
 	s.symbolNameIndex[info.DisplayName] = append(s.symbolNameIndex[info.DisplayName], info)
-
-	common.LSPLogger.Debug("Stored symbol information for: %s", info.Symbol)
 	return nil
 }
 
@@ -370,8 +336,6 @@ func (s *SimpleSCIPStorage) GetSymbolRelationships(ctx context.Context, symbolID
 
 	result := make([]SCIPRelationship, len(relationships))
 	copy(result, relationships)
-
-	common.LSPLogger.Debug("Found %d relationships for symbol: %s", len(result), symbolID)
 	return result, nil
 }
 
@@ -394,8 +358,6 @@ func (s *SimpleSCIPStorage) GetImplementations(ctx context.Context, symbolID str
 			}
 		}
 	}
-
-	common.LSPLogger.Debug("Found %d implementations for symbol: %s", len(implementations), symbolID)
 	return implementations, nil
 }
 
@@ -408,7 +370,6 @@ func (s *SimpleSCIPStorage) GetTypeDefinition(ctx context.Context, symbolID stri
 		for _, rel := range relationships {
 			if rel.IsTypeDefinition {
 				if definition, defFound := s.definitionIndex[rel.Symbol]; defFound {
-					common.LSPLogger.Debug("Found type definition for symbol: %s", symbolID)
 					result := *definition
 					return &result, nil
 				}
@@ -440,8 +401,6 @@ func (s *SimpleSCIPStorage) SearchSymbols(ctx context.Context, query string, lim
 			}
 		}
 	}
-
-	common.LSPLogger.Debug("Found %d symbols matching query: %s", len(results), query)
 	return results, nil
 }
 
@@ -466,8 +425,6 @@ func (s *SimpleSCIPStorage) SearchOccurrences(ctx context.Context, symbolPattern
 			}
 		}
 	}
-
-	common.LSPLogger.Debug("Found %d occurrences matching pattern: %s", len(results), symbolPattern)
 	return results, nil
 }
 
@@ -494,8 +451,6 @@ func (s *SimpleSCIPStorage) GetDocumentSymbols(ctx context.Context, uri string) 
 			results = append(results, *info)
 		}
 	}
-
-	common.LSPLogger.Debug("Found %d document symbols in: %s", len(results), uri)
 	return results, nil
 }
 
@@ -525,8 +480,6 @@ func (s *SimpleSCIPStorage) StoreIndex(ctx context.Context, index *SCIPIndex) er
 		s.symbolInfoIndex[symbolInfo.Symbol] = &symbolCopy
 		s.symbolNameIndex[symbolInfo.DisplayName] = append(s.symbolNameIndex[symbolInfo.DisplayName], &symbolCopy)
 	}
-
-	common.LSPLogger.Info("Stored SCIP index with %d documents and %d external symbols", len(index.Documents), len(index.ExternalSymbols))
 	return nil
 }
 
@@ -556,8 +509,6 @@ func (s *SimpleSCIPStorage) GetIndex(ctx context.Context) (*SCIPIndex, error) {
 			index.ExternalSymbols = append(index.ExternalSymbols, *info)
 		}
 	}
-
-	common.LSPLogger.Debug("Retrieved SCIP index with %d documents and %d external symbols", len(index.Documents), len(index.ExternalSymbols))
 	return index, nil
 }
 
@@ -568,13 +519,11 @@ func (s *SimpleSCIPStorage) Flush(ctx context.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	common.LSPLogger.Info("Flushing simple SCIP storage to disk")
 	return s.saveToDisk()
 }
 
 // Compact is a no-op for simple storage (no background processes)
 func (s *SimpleSCIPStorage) Compact(ctx context.Context) error {
-	common.LSPLogger.Debug("Compact called on simple storage (no-op)")
 	return nil
 }
 
@@ -619,7 +568,6 @@ func (s *SimpleSCIPStorage) SetConfig(config SCIPStorageConfig) error {
 	defer s.mutex.Unlock()
 
 	s.config = config
-	common.LSPLogger.Info("Updated simple SCIP storage configuration")
 	return nil
 }
 
@@ -653,7 +601,6 @@ func (s *SimpleSCIPStorage) evictLRU() {
 		s.currentSize -= doc.Size
 		delete(s.documents, oldestURI)
 		s.removeFromOccurrenceIndexes(oldestURI)
-		common.LSPLogger.Debug("Evicted LRU document: %s", oldestURI)
 	}
 	s.accessOrder = s.accessOrder[1:]
 }
@@ -885,8 +832,6 @@ func (s *SimpleSCIPStorage) saveToDisk() error {
 	if err := encoder.Encode(data); err != nil {
 		return fmt.Errorf("failed to encode cache data: %w", err)
 	}
-
-	common.LSPLogger.Debug("Saved occurrence-centric cache with %d documents to %s", len(s.documents), s.diskFile)
 	return nil
 }
 
@@ -962,9 +907,6 @@ func (s *SimpleSCIPStorage) loadFromDisk() error {
 	for _, doc := range s.documents {
 		s.updateOccurrenceIndexes(doc)
 	}
-
-	common.LSPLogger.Info("Loaded occurrence-centric cache with %d documents from %s (saved at %v)",
-		len(s.documents), s.diskFile, data.SavedAt)
 	return nil
 }
 

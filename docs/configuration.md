@@ -5,12 +5,12 @@ LSP Gateway provides flexible configuration for Language Server Protocol integra
 ## Overview
 
 LSP Gateway supports three configuration methods:
-- **Auto-detection** (recommended for MCP mode): Automatically detects languages and available LSP servers
-- **YAML configuration**: Complete control over server settings, cache configuration, and MCP mode
+- **Auto-detection** (recommended): Automatically detects languages and available LSP servers
+- **YAML configuration**: Complete control over server settings and cache configuration
 - **Template-based**: Use provided templates as starting points
 
 The configuration system features:
-- **4 supported languages**: Go, Python, JavaScript/TypeScript, Java
+- **5 supported languages**: Go, Python, JavaScript, TypeScript, Java
 - **SCIP cache integration**: Sub-millisecond symbol lookups (enabled by default)
 - **Security validation**: Whitelist-based LSP server command validation
 - **Project isolation**: Auto-generated project-specific cache paths
@@ -33,8 +33,8 @@ servers:
 cache:
   enabled: true
   storage_path: ".lsp-gateway/scip-cache"
-  max_memory_mb: 256
-  ttl: "24h"
+  max_memory_mb: 512
+  ttl_hours: 24
 ```
 
 ## Configuration Reference
@@ -78,20 +78,35 @@ SCIP cache provides sub-millisecond symbol lookups optimized for AI assistant us
 
 ```yaml
 cache:
-  enabled: true                           # Default: true (always enabled)
+  enabled: true                           # Default: true
   storage_path: ".lsp-gateway/scip-cache" # Default: ~/.lsp-gateway/scip-cache
-  max_memory_mb: 256                      # Default: 256 MB
-  ttl: "24h"                              # Default: 24 hours
-  languages: ["go", "python", "typescript", "java"]  # Default: all supported
+  max_memory_mb: 512                      # Default: 512 MB
+  ttl_hours: 24                           # Default: 24 hours
+  languages: ["*"]                        # Default: "*" (all supported languages)
   background_index: true                  # Default: true
-  health_check_interval: "5m"             # Default: 5 minutes
+  health_check_minutes: 5                 # Default: 5 minutes
+  eviction_policy: "lru"                  # Default: "lru" (or "simple")
+  disk_cache: true                        # Default: true (persistent cache)
+```
+
+#### Language Configuration Examples
+
+```yaml
+# Cache all supported languages (recommended)
+languages: ["*"]
+
+# Cache specific languages only
+languages: ["go", "python"]
+
+# Cache single language
+languages: ["typescript"]
 ```
 
 #### Cache Configuration Fields
 
 - **`enabled`** (boolean): Enable/disable SCIP cache
-  - **Default**: `true` (mandatory for optimal performance)
-  - Cache is always recommended for sub-millisecond responses
+  - **Default**: `true`
+  - Always enabled for HTTP gateway and MCP server modes
 
 - **`storage_path`** (string): Cache storage directory
   - **Default**: `~/.lsp-gateway/scip-cache`
@@ -99,26 +114,37 @@ cache:
   - Format: `{base-path}/{project-name}-{hash8}`
 
 - **`max_memory_mb`** (integer): Memory limit in megabytes
-  - **Default**: `256` MB
-  - **Validation**: Must be > 0
-  - **Warning**: Issues warning if > 50% of system memory
+  - **Default**: `512` MB
+  - **MCP mode**: Always uses 512 MB
+  - **Validation**: Must be > 0, warns if > 50% of system memory
 
-- **`ttl`** (duration): Cache time-to-live
-  - **Default**: `"24h"` (24 hours for daily development workflow)
-  - **Validation**: Must be ≥ 1 minute
-  - **Format**: Go duration format (`1h`, `30m`, `24h`)
+- **`ttl_hours`** (integer): Cache time-to-live in hours
+  - **Default**: `24` hours
+  - **MCP mode**: Overridden to 1 hour
+  - **Validation**: Must be ≥ 1 hour
 
 - **`languages`** (array): Languages to cache
-  - **Default**: `["go", "python", "typescript", "java"]`
+  - **Default**: `["*"]` (wildcard for all supported languages)
+  - **Wildcard**: Use `["*"]` to include all supported languages
+  - **Explicit**: Specify individual languages: `["go", "python", "javascript", "typescript", "java"]`
   - **Validation**: Only supported languages allowed
 
 - **`background_index`** (boolean): Enable background cache optimization
   - **Default**: `true`
-  - Improves cache performance through predictive indexing
+  - **MCP mode**: Always enabled
 
-- **`health_check_interval`** (duration): Health monitoring frequency
-  - **Default**: `"5m"` (5 minutes)
+- **`health_check_minutes`** (integer): Health monitoring frequency in minutes
+  - **Default**: `5` minutes
+  - **MCP mode**: Overridden to 2 minutes
   - **Validation**: Must be ≥ 1 minute
+
+- **`eviction_policy`** (string): Cache eviction strategy
+  - **Default**: `"lru"` (Least Recently Used)
+  - **Options**: `"lru"` or `"simple"`
+
+- **`disk_cache`** (boolean): Enable persistent disk cache
+  - **Default**: `true`
+  - Persists cache to JSON files for faster startup
 
 #### Cache Architecture
 
@@ -129,22 +155,17 @@ cache:
 
 ### MCP Configuration
 
-Configure Model Context Protocol mode for AI assistant integration:
+MCP (Model Context Protocol) server mode automatically runs in enhanced mode with optimized settings:
 
-```yaml
-mcp:
-  mode: "lsp"      # Default: "lsp" (raw LSP responses)
-```
+#### MCP Mode Behavior
 
-#### MCP Modes
-
-- **`lsp`** (default): Direct 1:1 LSP method mapping
-  - Raw LSP responses for compatibility
-  - Maintains backward compatibility
-
-- **`enhanced`**: AI-optimized tools
-  - Processed, context-rich responses
-  - Optimized for LLM consumption
+- Always runs in **enhanced mode** (AI-optimized)
+- Automatically overrides cache settings:
+  - `max_memory_mb`: 512 MB
+  - `ttl_hours`: 1 hour (for stable symbols)
+  - `health_check_minutes`: 2 minutes
+  - `languages`: All 5 supported languages
+  - `background_index`: Always enabled
 
 ## Configuration Templates
 
@@ -155,14 +176,14 @@ Use provided templates as starting points:
 cp config-templates/multi-language-template.yaml config.yaml
 ```
 
-Complete setup with all 4 supported languages and comprehensive cache configuration.
+Complete setup with all 5 supported languages and comprehensive cache configuration.
 
 ### Single-Language Template
 ```bash
 cp config-templates/patterns/single-language.yaml config.yaml
 ```
 
-Focused single-language configuration with alternatives and examples.
+Focused single-language configuration with examples for each supported language.
 
 ## Usage Examples
 
@@ -188,11 +209,9 @@ curl -X POST http://localhost:8080/jsonrpc \
   }'
 ```
 
-Health check with cache status:
+Health check:
 ```bash
 curl http://localhost:8080/health
-curl http://localhost:8080/cache/stats    # Cache statistics
-curl http://localhost:8080/cache/health   # Cache health status
 ```
 
 ### MCP Server Integration
@@ -276,18 +295,18 @@ lsp-gateway status    # Shows available vs configured servers
 LSP Gateway loads configuration in this order:
 
 1. **Explicit config**: `--config path/to/config.yaml`
-2. **Default config file**: `~/.lsp-gateway/config.yaml`
+2. **Default config file**: `~/.lsp-gateway/config.yaml` (if exists)
 3. **Auto-detection**: Language detection + LSP server availability
 4. **Default fallback**: All supported languages with defaults
+
+When config loading fails, auto-detection with project-specific cache paths is used.
 
 ## Cache Management Commands
 
 Monitor and manage SCIP cache:
 
 ```bash
-lsp-gateway cache status     # Cache status and configuration
-lsp-gateway cache health     # Detailed health diagnostics
-lsp-gateway cache stats      # Performance statistics
+lsp-gateway cache info       # Cache status and statistics
 lsp-gateway cache clear      # Clear cache contents
 lsp-gateway cache index      # Proactively index files
 ```
@@ -318,12 +337,11 @@ lsp-gateway test            # Test LSP connections
 
 **Cache diagnostics:**
 ```bash
-lsp-gateway cache health     # Health check with detailed metrics
-lsp-gateway cache stats      # Performance statistics
+lsp-gateway cache info       # Cache information and statistics
 ```
 
 **Cache problems:**
-- **Low hit rates**: Check `ttl` settings and file modification patterns
+- **Low hit rates**: Check `ttl_hours` settings and file modification patterns
 - **Memory issues**: Adjust `max_memory_mb` limit
 - **Storage issues**: Verify `storage_path` permissions and disk space
 - **Performance**: Enable `background_index` for optimization
@@ -389,10 +407,5 @@ Whitelist validation prevents execution of:
 3. **Review MCP mode**: Choose between `lsp` and `enhanced` modes
 4. **Test configuration**: Use `lsp-gateway status` to verify setup
 
-### Configuration Conversion
-Convert from auto-detection to explicit configuration:
-```bash
-lsp-gateway mcp --generate-config > config.yaml
-```
-
-This creates a configuration file based on detected languages and available servers.
+### From Auto-Detection to Explicit Config
+To create an explicit configuration file, start with the templates in `config-templates/` directory and customize based on your project's needs.

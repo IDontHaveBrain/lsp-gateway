@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-
-	"lsp-gateway/src/internal/common"
 )
 
 type ServerCapabilities struct {
@@ -38,18 +36,8 @@ func (d *LSPCapabilityDetector) ParseCapabilities(response json.RawMessage, serv
 		return ServerCapabilities{}, fmt.Errorf("failed to unmarshal initialize response: %w", err)
 	}
 
-	common.LSPLogger.Debug("Server %s capabilities: workspaceSymbol=%v, definition=%v, references=%v, hover=%v, documentSymbol=%v, completion=%v",
-		serverCommand,
-		initResponse.Capabilities.WorkspaceSymbolProvider,
-		initResponse.Capabilities.DefinitionProvider,
-		initResponse.Capabilities.ReferencesProvider,
-		initResponse.Capabilities.HoverProvider,
-		initResponse.Capabilities.DocumentSymbolProvider,
-		initResponse.Capabilities.CompletionProvider)
-
 	// Special handling for jdtls - it supports all textDocument methods but may not report them correctly
 	if strings.Contains(serverCommand, "jdtls") {
-		common.LSPLogger.Info("Detected jdtls - enabling all textDocument capabilities")
 		initResponse.Capabilities.DefinitionProvider = true
 		initResponse.Capabilities.ReferencesProvider = true
 		initResponse.Capabilities.HoverProvider = true

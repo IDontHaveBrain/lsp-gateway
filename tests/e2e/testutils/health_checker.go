@@ -29,10 +29,3 @@ func QuickConnectivityCheck(url string) error {
 	}
 	return nil
 }
-
-// IsServerFailed checks if server is definitely failed
-func IsServerFailed(port int) bool {
-	url := fmt.Sprintf("http://localhost:%d/health", port)
-	err := QuickConnectivityCheck(url)
-	return err != nil
-}

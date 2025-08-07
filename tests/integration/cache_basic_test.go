@@ -368,5 +368,4 @@ func TestConcurrentCacheAccess(t *testing.T) {
 
 	metrics := scipCache.GetMetrics()
 	require.NotNil(t, metrics)
-	t.Logf("Final metrics after concurrent operations: %+v", metrics)
 }

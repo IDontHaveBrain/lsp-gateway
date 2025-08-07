@@ -49,23 +49,9 @@ func TestGetDefaultCacheConfig_EnabledByDefault(t *testing.T) {
 		t.Error("Expected cache config to be enabled by default")
 	}
 
-	// Check languages include the core supported languages
-	expectedLanguages := []string{"go", "python", "typescript", "java"}
-	if len(cacheConfig.Languages) != len(expectedLanguages) {
-		t.Errorf("Expected %d languages, got %d", len(expectedLanguages), len(cacheConfig.Languages))
-	}
-
-	for _, lang := range expectedLanguages {
-		found := false
-		for _, configLang := range cacheConfig.Languages {
-			if configLang == lang {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Errorf("Expected language %s to be in default config", lang)
-		}
+	// Check languages is set to wildcard for all supported languages
+	if len(cacheConfig.Languages) != 1 || cacheConfig.Languages[0] != "*" {
+		t.Errorf("Expected languages to be [\"*\"], got %v", cacheConfig.Languages)
 	}
 }
 

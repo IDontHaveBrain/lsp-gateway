@@ -141,8 +141,6 @@ func (b *BaseInstaller) RunCommand(ctx context.Context, name string, args ...str
 	// Create command with context for timeout
 	cmd := exec.CommandContext(ctx, name, args...)
 
-	common.CLILogger.Info("Running command: %s %v", name, args)
-
 	// Capture output for STDIO-safe logging
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -157,9 +155,6 @@ func (b *BaseInstaller) RunCommand(ctx context.Context, name string, args ...str
 	}
 
 	// Log output to stderr using CLILogger
-	if stdout.Len() > 0 {
-		common.CLILogger.Info("Command output: %s", stdout.String())
-	}
 	if stderr.Len() > 0 {
 		common.CLILogger.Warn("Command stderr: %s", stderr.String())
 	}
@@ -218,9 +213,6 @@ func (b *BaseInstaller) DownloadFile(ctx context.Context, url, destPath string) 
 	}
 
 	// Log download output if any
-	if stdout.Len() > 0 {
-		common.CLILogger.Info("Download output: %s", stdout.String())
-	}
 	if stderr.Len() > 0 {
 		common.CLILogger.Warn("Download stderr: %s", stderr.String())
 	}
@@ -379,4 +371,146 @@ func (b *BaseInstaller) ValidateByCommand(command string) error {
 
 	common.CLILogger.Info("Installation validation successful for %s", command)
 	return nil
+}
+
+// ValidateWithPackageManager performs validation with package manager checks
+func (b *BaseInstaller) ValidateWithPackageManager(command string, packageManager string) error {
+	// Basic validation using generic method
+	if err := b.ValidateByCommand(command); err != nil {
+		return err
+	}
+
+	// Package manager specific validation
+	switch packageManager {
+	case "go":
+		if !b.isGoInstalled() {
+			return fmt.Errorf("Go is not installed but %s is present - this may cause issues", command)
+		}
+	case "pip", "pip3":
+		if !b.isPipInstalled() {
+			return fmt.Errorf("pip is not available but %s is present - this may cause issues", command)
+		}
+	case "npm":
+		if !b.isNpmInstalled() {
+			return fmt.Errorf("npm is not available but %s is present - this may cause issues", command)
+		}
+	}
+
+	common.CLILogger.Info("%s validation successful", command)
+	return nil
+}
+
+// Package manager helpers
+
+// isGoInstalled checks if Go is installed
+func (b *BaseInstaller) isGoInstalled() bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if _, err := b.RunCommandWithOutput(ctx, "go", "version"); err != nil {
+		return false
+	}
+	return true
+}
+
+// isPipInstalled checks if pip is installed
+func (b *BaseInstaller) isPipInstalled() bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Try pip3 first, then pip
+	if _, err := b.RunCommandWithOutput(ctx, "pip3", "--version"); err == nil {
+		return true
+	}
+	if _, err := b.RunCommandWithOutput(ctx, "pip", "--version"); err == nil {
+		return true
+	}
+	return false
+}
+
+// isNpmInstalled checks if npm is installed
+func (b *BaseInstaller) isNpmInstalled() bool {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if _, err := b.RunCommandWithOutput(ctx, "npm", "--version"); err != nil {
+		return false
+	}
+	return true
+}
+
+// InstallWithPackageManager handles common package manager installation patterns
+func (b *BaseInstaller) InstallWithPackageManager(ctx context.Context, packageManager string, packageName string, version string) error {
+	common.CLILogger.Info("Installing %s language server (%s)...", b.language, packageName)
+
+	switch packageManager {
+	case "go":
+		if !b.isGoInstalled() {
+			return fmt.Errorf("Go is not installed. Please install Go first from https://golang.org/dl/")
+		}
+		installTarget := fmt.Sprintf("%s@%s", packageName, version)
+		if version == "" || version == "latest" {
+			installTarget = fmt.Sprintf("%s@latest", packageName)
+		}
+		return b.RunCommand(ctx, "go", "install", installTarget)
+
+	case "pip", "pip3":
+		if !b.isPipInstalled() {
+			return fmt.Errorf("pip is not installed. Please install Python and pip first")
+		}
+		pip := "pip"
+		if _, err := exec.LookPath("pip3"); err == nil {
+			pip = "pip3"
+		}
+		installPackage := packageName
+		if version != "" && version != "latest" {
+			installPackage = fmt.Sprintf("%s==%s", packageName, version)
+		}
+		return b.RunCommand(ctx, pip, "install", "--user", installPackage)
+
+	case "npm":
+		if !b.isNpmInstalled() {
+			return fmt.Errorf("npm is not installed. Please install Node.js and npm first")
+		}
+		installPackage := packageName
+		if version != "" && version != "latest" {
+			installPackage = fmt.Sprintf("%s@%s", packageName, version)
+		}
+		return b.RunCommand(ctx, "npm", "install", "-g", installPackage)
+
+	default:
+		return fmt.Errorf("unsupported package manager: %s", packageManager)
+	}
+}
+
+// UninstallWithPackageManager handles common package manager uninstallation patterns
+func (b *BaseInstaller) UninstallWithPackageManager(packageManager string, packageName string) error {
+	common.CLILogger.Info("Uninstalling %s language server...", b.language)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	switch packageManager {
+	case "go":
+		return fmt.Errorf("Go doesn't provide built-in uninstall for %s. Please manually remove $GOBIN/%s", packageName, b.serverConfig.Command)
+
+	case "pip", "pip3":
+		if !b.isPipInstalled() {
+			return fmt.Errorf("pip not available for uninstalling %s", packageName)
+		}
+		pip := "pip"
+		if _, err := exec.LookPath("pip3"); err == nil {
+			pip = "pip3"
+		}
+		return b.RunCommand(ctx, pip, "uninstall", "-y", packageName)
+
+	case "npm":
+		if !b.isNpmInstalled() {
+			return fmt.Errorf("npm not available for uninstalling %s", packageName)
+		}
+		return b.RunCommand(ctx, "npm", "uninstall", "-g", packageName)
+
+	default:
+		return fmt.Errorf("unsupported package manager: %s", packageManager)
+	}
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/constants"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/capabilities"
 	"lsp-gateway/src/server/errors"
@@ -18,46 +19,14 @@ import (
 	"lsp-gateway/src/server/protocol"
 )
 
-// ClientConfig contains configuration for an LSP client
-type ClientConfig struct {
-	Command string
-	Args    []string
-}
-
-// Timeout constants for basic operation
-const (
-	DefaultRequestTimeout = 30 * time.Second
-	JavaRequestTimeout    = 60 * time.Second
-	PythonRequestTimeout  = 30 * time.Second
-	GoTSRequestTimeout    = 15 * time.Second
-	WriteTimeout          = 10 * time.Second
-)
-
 // getRequestTimeout returns language-specific timeout for LSP requests
 func (c *StdioClient) getRequestTimeout(method string) time.Duration {
-	switch c.language {
-	case "java":
-		return JavaRequestTimeout
-	case "python":
-		return PythonRequestTimeout
-	case "go", "javascript", "typescript":
-		return GoTSRequestTimeout
-	default:
-		return DefaultRequestTimeout
-	}
+	return constants.GetRequestTimeout(c.language)
 }
 
 // getInitializeTimeout returns language-specific timeout for initialize requests
 func (c *StdioClient) getInitializeTimeout() time.Duration {
-	switch c.language {
-	case "java":
-		// Java LSP server needs significantly more time to initialize
-		return 60 * time.Second
-	case "python":
-		return 30 * time.Second
-	default:
-		return 15 * time.Second
-	}
+	return constants.GetInitializeTimeout(c.language)
 }
 
 // pendingRequest stores context for pending LSP requests
@@ -68,7 +37,7 @@ type pendingRequest struct {
 
 // StdioClient implements LSP communication over STDIO
 type StdioClient struct {
-	config          ClientConfig
+	config          types.ClientConfig
 	language        string // Language identifier for unique request IDs
 	capabilities    capabilities.ServerCapabilities
 	errorTranslator errors.ErrorTranslator
@@ -85,7 +54,7 @@ type StdioClient struct {
 }
 
 // NewStdioClient creates a new STDIO LSP client
-func NewStdioClient(config ClientConfig, language string) (types.LSPClient, error) {
+func NewStdioClient(config types.ClientConfig, language string) (types.LSPClient, error) {
 	client := &StdioClient{
 		config:          config,
 		language:        language,
@@ -108,8 +77,8 @@ func (c *StdioClient) Start(ctx context.Context) error {
 	}
 	c.mu.Unlock()
 
-	// Convert ClientConfig to process.ClientConfig
-	processConfig := process.ClientConfig{
+	// Use shared ClientConfig type
+	processConfig := types.ClientConfig{
 		Command: c.config.Command,
 		Args:    c.config.Args,
 	}
@@ -236,9 +205,6 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 	// Create and send message using protocol module
 	msg := protocol.CreateMessage(method, id, params)
 
-	// Log request details for debugging
-	common.LSPLogger.Debug("Sending LSP request: method=%s, id=%s", method, id)
-
 	if err := c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, msg); err != nil {
 		// If we get connection errors, mark client as inactive
 		if strings.Contains(err.Error(), "broken pipe") ||
@@ -253,8 +219,6 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 		return nil, fmt.Errorf("failed to send request: %w", err)
 	}
 
-	common.LSPLogger.Debug("LSP request sent successfully: method=%s, id=%s", method, id)
-
 	// Wait for response with appropriate timeout
 	timeoutDuration := c.getRequestTimeout(method)
 	if method == types.MethodInitialize {
@@ -265,11 +229,8 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 	ctx, cancel := context.WithTimeout(ctx, timeoutDuration)
 	defer cancel()
 
-	common.LSPLogger.Debug("Waiting for LSP response: method=%s, id=%s, timeout=%v", method, id, timeoutDuration)
-
 	select {
 	case response := <-request.respCh:
-		common.LSPLogger.Debug("Received LSP response successfully: method=%s, id=%s", method, id)
 		return response, nil
 	case <-ctx.Done():
 		common.LSPLogger.Error("LSP request timeout: method=%s, id=%s, timeout=%v", method, id, timeoutDuration)
@@ -322,7 +283,6 @@ func (c *StdioClient) SendExitNotification(ctx context.Context) error {
 
 // HandleRequest implements the MessageHandler interface for server-initiated requests
 func (c *StdioClient) HandleRequest(method string, id interface{}, params interface{}) error {
-	common.LSPLogger.Debug("Received server request: method=%s, id=%v from %s", method, id, c.language)
 
 	// Handle specific server requests
 	if method == "workspace/configuration" {
@@ -373,7 +333,6 @@ func (c *StdioClient) HandleResponse(id interface{}, result json.RawMessage, err
 
 // HandleNotification implements the MessageHandler interface for server-initiated notifications
 func (c *StdioClient) HandleNotification(method string, params interface{}) error {
-	common.LSPLogger.Debug("Received server notification: method=%s from %s", method, c.language)
 	// Log and safely ignore notifications without stalling message processing
 	return nil
 }
@@ -501,12 +460,10 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 	}
 
 	// Send initialized notification
-	common.LSPLogger.Debug("Sending initialized notification for %s", c.language)
 	if err := c.SendNotification(ctx, "initialized", map[string]interface{}{}); err != nil {
 		common.LSPLogger.Error("Failed to send initialized notification for %s: %v", c.language, err)
 		return err
 	}
-	common.LSPLogger.Debug("Successfully sent initialized notification for %s", c.language)
 	return nil
 }
 
@@ -560,9 +517,6 @@ func (c *StdioClient) logStderr() {
 				errorContext = nil // Reset context after processing
 				continue
 			}
-
-			// Log ALL stderr output for debugging hover issues
-			common.LSPLogger.Info("LSP %s stderr: %s", c.language, line)
 
 			// Log other errors normally
 			if strings.Contains(line, "error") || strings.Contains(line, "Error") ||

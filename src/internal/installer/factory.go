@@ -17,8 +17,6 @@ func CreateInstallManager() *LSPInstallManager {
 	// Register all language installers
 	registerAllInstallers(manager, platform)
 
-	common.CLILogger.Info("Install manager initialized with %d language installers", len(manager.GetSupportedLanguages()))
-
 	return manager
 }
 

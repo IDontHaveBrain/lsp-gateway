@@ -10,6 +10,8 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/constants"
+	errorspkg "lsp-gateway/src/internal/errors"
 	"lsp-gateway/src/internal/security"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/aggregators"
@@ -17,18 +19,6 @@ import (
 	"lsp-gateway/src/server/documents"
 	"lsp-gateway/src/server/errors"
 )
-
-// MethodNotSupportedError represents a user-friendly error for unsupported LSP methods
-type MethodNotSupportedError struct {
-	Server     string
-	Method     string
-	Suggestion string
-}
-
-func (e *MethodNotSupportedError) Error() string {
-	return fmt.Sprintf("LSP server '%s' does not support '%s'. %s",
-		e.Server, e.Method, e.Suggestion)
-}
 
 // ClientStatus represents the status of an LSP client
 type ClientStatus struct {
@@ -78,12 +68,7 @@ func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 			common.LSPLogger.Warn("Failed to create cache (continuing without cache): %v", err)
 		} else {
 			manager.scipCache = scipCache
-			common.LSPLogger.Info("LSP manager initialized with unified cache integration")
 		}
-	}
-
-	if manager.scipCache == nil {
-		common.LSPLogger.Info("LSP manager initialized without cache - using direct LSP mode")
 	}
 
 	return manager, nil
@@ -96,12 +81,8 @@ func (m *LSPManager) Start(ctx context.Context) error {
 		if err := m.scipCache.Start(ctx); err != nil {
 			common.LSPLogger.Warn("Failed to start SCIP cache (continuing without cache): %v", err)
 			m.scipCache = nil // Disable cache on start failure
-		} else {
-			common.LSPLogger.Info("SCIP cache started successfully")
 		}
 	}
-
-	common.LSPLogger.Info("Starting LSP manager with %d servers", len(m.config.Servers))
 
 	// Start clients with individual timeouts to prevent hanging
 	results := make(chan struct {
@@ -125,7 +106,7 @@ func (m *LSPManager) Start(ctx context.Context) error {
 	}
 
 	// Collect results with overall timeout
-	timeout := time.After(15 * time.Second)
+	timeout := time.After(constants.DefaultInitializeTimeout)
 	completed := 0
 
 	for completed < len(m.config.Servers) {
@@ -138,7 +119,6 @@ func (m *LSPManager) Start(ctx context.Context) error {
 				m.clientErrors[result.language] = result.err
 				m.mu.Unlock()
 			} else {
-				common.LSPLogger.Info("Started %s LSP client", result.language)
 			}
 		case <-timeout:
 			common.LSPLogger.Warn("Timeout reached, %d/%d clients started", completed, len(m.config.Servers))
@@ -151,7 +131,6 @@ func (m *LSPManager) Start(ctx context.Context) error {
 
 	// Perform workspace indexing if cache is enabled and background indexing is configured
 	if m.scipCache != nil && m.config.Cache != nil && m.config.Cache.BackgroundIndex {
-		common.LSPLogger.Info("Starting background workspace indexing")
 		go func() {
 			// Wait a bit for LSP servers to fully initialize
 			time.Sleep(2 * time.Second)
@@ -171,7 +150,6 @@ func (m *LSPManager) Start(ctx context.Context) error {
 				if err := cacheManager.PerformWorkspaceIndexing(indexCtx, wd, m); err != nil {
 					common.LSPLogger.Warn("Failed to perform workspace indexing: %v", err)
 				} else {
-					common.LSPLogger.Info("Background workspace indexing completed")
 				}
 			}
 		}()
@@ -189,7 +167,6 @@ func (m *LSPManager) Stop() error {
 		if err := m.scipCache.Stop(); err != nil {
 			common.LSPLogger.Warn("Failed to stop SCIP cache: %v", err)
 		} else {
-			common.LSPLogger.Info("SCIP cache stopped successfully")
 		}
 	}
 
@@ -213,8 +190,8 @@ func (m *LSPManager) Stop() error {
 		}(language, client)
 	}
 
-	// Wait for all clients to stop with timeout (allow for 5s graceful shutdown + buffer)
-	timeout := time.After(6 * time.Second)
+	// Wait for all clients to stop with timeout (allow for graceful shutdown + buffer)
+	timeout := time.After(constants.ProcessShutdownTimeout + 1*time.Second)
 	completed := 0
 	var lastErr error
 
@@ -275,11 +252,9 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 	// Try cache lookup first if cache is available and method is cacheable
 	if m.scipCache != nil && m.isCacheableMethod(method) {
 		if result, found, err := m.scipCache.Lookup(method, params); err == nil && found {
-			common.LSPLogger.Debug("Cache hit for method=%s", method)
 			return result, nil
 		} else if err != nil {
-			// Log cache error but continue with LSP fallback
-			common.LSPLogger.Debug("Cache lookup failed for method=%s: %v", method, err)
+			// Cache lookup failed, continue with LSP fallback
 		}
 	}
 
@@ -307,9 +282,9 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 				// Cache the result if cacheable
 				if m.isCacheableMethod(method) {
 					if cacheErr := m.scipCache.Store(method, params, result); cacheErr != nil {
-						common.LSPLogger.Debug("Failed to cache workspace/symbol result: %v", cacheErr)
+						// Cache store failed
 					} else {
-						common.LSPLogger.Debug("Cached result for workspace/symbol")
+						// Cache stored successfully
 					}
 				}
 			}
@@ -332,11 +307,11 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 	// Check if server supports the requested method
 	if !client.Supports(method) {
 		errorTranslator := errors.NewLSPErrorTranslator()
-		return nil, &MethodNotSupportedError{
-			Server:     language,
-			Method:     method,
-			Suggestion: errorTranslator.GetMethodSuggestion(language, method),
-		}
+		return nil, errorspkg.NewMethodNotSupportedError(
+			language,
+			method,
+			errorTranslator.GetMethodSuggestion(language, method),
+		)
 	}
 
 	// Send textDocument/didOpen notification if needed for methods that require opened documents
@@ -351,23 +326,11 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 
 	// Cache the result and perform SCIP indexing if successful and cache is available
 	if err == nil && m.scipCache != nil && m.isCacheableMethod(method) {
-		if cacheErr := m.scipCache.Store(method, params, result); cacheErr != nil {
-			common.LSPLogger.Debug("Failed to cache LSP response for method=%s: %v", method, cacheErr)
-		} else {
-			common.LSPLogger.Debug("Cached LSP response for method=%s", method)
-		}
+		m.scipCache.Store(method, params, result)
 
 		// Perform SCIP indexing for document-related operations
 		m.performSCIPIndexing(ctx, method, uri, language, params, result)
 	} else {
-		// Debug why caching didn't happen
-		if err != nil {
-			common.LSPLogger.Debug("LSP request failed for method=%s: %v", method, err)
-		} else if m.scipCache == nil {
-			common.LSPLogger.Debug("Cache is nil for method=%s", method)
-		} else if !m.isCacheableMethod(method) {
-			common.LSPLogger.Debug("Method %s is not cacheable", method)
-		}
 	}
 
 	return result, err
@@ -445,7 +408,7 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 		return fmt.Errorf("LSP server executable not found for %s: %s", language, cfg.Command)
 	}
 
-	clientConfig := ClientConfig{
+	clientConfig := types.ClientConfig{
 		Command: cfg.Command,
 		Args:    cfg.Args,
 	}
@@ -478,44 +441,6 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 			}
 		}
 		return fmt.Errorf("client did not become active within timeout")
-	}
-
-	return nil
-}
-
-// startClient starts a single LSP client for a language
-func (m *LSPManager) startClient(language string, cfg *config.ServerConfig) error {
-	// Validate LSP server command for security
-	if err := security.ValidateCommand(cfg.Command, cfg.Args); err != nil {
-		return fmt.Errorf("invalid LSP server command for %s: %w", language, err)
-	}
-
-	clientConfig := ClientConfig{
-		Command: cfg.Command,
-		Args:    cfg.Args,
-	}
-
-	client, err := NewStdioClient(clientConfig, language)
-	if err != nil {
-		return fmt.Errorf("failed to create client: %w", err)
-	}
-
-	if err := client.Start(m.ctx); err != nil {
-		return fmt.Errorf("failed to start client: %w", err)
-	}
-
-	m.mu.Lock()
-	m.clients[language] = client
-	m.mu.Unlock()
-
-	// Wait for client to become active
-	if activeClient, ok := client.(interface{ IsActive() bool }); ok {
-		for i := 0; i < 50; i++ { // Wait up to 5 seconds
-			if activeClient.IsActive() {
-				break
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
 	}
 
 	return nil

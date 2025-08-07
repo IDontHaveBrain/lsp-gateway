@@ -79,7 +79,6 @@ func (dm *LSPDocumentManager) ExtractURI(params interface{}) (string, error) {
 
 // EnsureOpen sends a textDocument/didOpen notification if needed
 func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, params interface{}) error {
-	common.LSPLogger.Info("Ensuring document is open: %s", uri)
 
 	// Read actual file content for proper LSP functionality
 	var fileContent string
@@ -89,7 +88,6 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 		filePath := strings.TrimPrefix(uri, "file://")
 		if content, err := os.ReadFile(filePath); err == nil {
 			fileContent = string(content)
-			common.LSPLogger.Info("Successfully read file content for %s: %d bytes", uri, len(fileContent))
 		} else {
 			// If we can't read the file, log but continue with empty content
 			common.LSPLogger.Error("Failed to read file content for %s: %v", uri, err)
@@ -109,14 +107,12 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 	}
 
 	// Send notification (ignore errors as this is optional)
-	common.LSPLogger.Info("Sending textDocument/didOpen notification for %s", uri)
 	err := client.SendNotification(context.Background(), types.MethodTextDocumentDidOpen, didOpenParams)
 	if err != nil {
 		common.LSPLogger.Error("Failed to send didOpen notification for %s: %v", uri, err)
 		return common.WrapProcessingError("failed to send didOpen notification", err)
 	}
 
-	common.LSPLogger.Info("Successfully sent didOpen notification for %s", uri)
 	// Give LSP server more time to process the didOpen notification and analyze file
 	time.Sleep(500 * time.Millisecond)
 

@@ -6,7 +6,6 @@ import (
 
 	"go.lsp.dev/protocol"
 	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/types"
 )
 
 // ExtractURIFromParams extracts the URI from LSP method parameters
@@ -102,91 +101,4 @@ func extractURIFromGeneric(params interface{}) (string, error) {
 	}
 
 	return "", fmt.Errorf("unable to extract URI from parameters type: %T", params)
-}
-
-// IsSupported6LSPMethod checks if a method is one of the 6 core supported LSP methods
-func IsSupported6LSPMethod(method string) bool {
-	switch method {
-	case types.MethodTextDocumentDefinition,
-		types.MethodTextDocumentReferences,
-		types.MethodTextDocumentHover,
-		types.MethodTextDocumentDocumentSymbol,
-		types.MethodWorkspaceSymbol,
-		types.MethodTextDocumentCompletion:
-		return true
-	default:
-		return false
-	}
-}
-
-// IsCacheableMethod determines if a given LSP method should be cached
-func IsCacheableMethod(method string) bool {
-	return IsSupported6LSPMethod(method)
-}
-
-// GetMethodPriority returns priority level for different LSP methods (for caching/indexing)
-func GetMethodPriority(method string) int {
-	priorities := map[string]int{
-		types.MethodTextDocumentDefinition:     10, // High priority - user navigation
-		types.MethodTextDocumentReferences:     9,  // High priority - user navigation
-		types.MethodTextDocumentHover:          8,  // High priority - immediate feedback
-		types.MethodTextDocumentCompletion:     7,  // Medium-high priority - typing assistance
-		types.MethodTextDocumentDocumentSymbol: 5,  // Medium priority - outline view
-		types.MethodWorkspaceSymbol:            3,  // Lower priority - search functionality
-	}
-
-	if priority, exists := priorities[method]; exists {
-		return priority
-	}
-	return 1 // Default low priority
-}
-
-// LSPMethodInfo provides metadata about LSP methods
-type LSPMethodInfo struct {
-	Method        string
-	RequiresURI   bool
-	Priority      int
-	Cacheable     bool
-	ParameterType string
-}
-
-// GetLSPMethodInfo returns comprehensive information about a given LSP method
-func GetLSPMethodInfo(method string) *LSPMethodInfo {
-	info := &LSPMethodInfo{
-		Method:      method,
-		Cacheable:   IsSupported6LSPMethod(method),
-		Priority:    GetMethodPriority(method),
-		RequiresURI: method != types.MethodWorkspaceSymbol,
-	}
-
-	switch method {
-	case types.MethodTextDocumentDefinition:
-		info.ParameterType = "*protocol.DefinitionParams"
-	case types.MethodTextDocumentReferences:
-		info.ParameterType = "*protocol.ReferenceParams"
-	case types.MethodTextDocumentHover:
-		info.ParameterType = "*protocol.HoverParams"
-	case types.MethodTextDocumentDocumentSymbol:
-		info.ParameterType = "*protocol.DocumentSymbolParams"
-	case types.MethodWorkspaceSymbol:
-		info.ParameterType = "*protocol.WorkspaceSymbolParams"
-	case types.MethodTextDocumentCompletion:
-		info.ParameterType = "*protocol.CompletionParams"
-	default:
-		info.ParameterType = "interface{}"
-	}
-
-	return info
-}
-
-// GetAllSupportedMethods returns a list of all 6 supported LSP methods
-func GetAllSupportedMethods() []string {
-	return []string{
-		types.MethodTextDocumentDefinition,
-		types.MethodTextDocumentReferences,
-		types.MethodTextDocumentHover,
-		types.MethodTextDocumentDocumentSymbol,
-		types.MethodWorkspaceSymbol,
-		types.MethodTextDocumentCompletion,
-	}
 }

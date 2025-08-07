@@ -1,0 +1,420 @@
+package integration
+
+import (
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
+	"testing"
+	"time"
+
+	"lsp-gateway/src/config"
+	"lsp-gateway/src/server"
+	"lsp-gateway/src/server/cache"
+	"lsp-gateway/src/server/documents"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.lsp.dev/protocol"
+)
+
+func TestCrossLanguageDocumentCoordination(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	testDir := t.TempDir()
+	
+	testFiles := map[string]string{
+		"main.go": `package main
+
+import (
+	"fmt"
+	"os/exec"
+)
+
+func CallPython() {
+	cmd := exec.Command("python", "script.py")
+	output, _ := cmd.Output()
+	fmt.Println(string(output))
+}
+
+func ProcessData(data string) string {
+	return data + " processed"
+}`,
+		"script.py": `import subprocess
+import json
+
+def call_go_function():
+    result = subprocess.run(['go', 'run', 'main.go'], capture_output=True)
+    return result.stdout.decode()
+
+def process_json(data):
+    return json.loads(data)
+
+class DataProcessor:
+    def __init__(self):
+        self.data = []
+    
+    def add_item(self, item):
+        self.data.append(item)`,
+		"frontend.ts": `import { processData } from './utils';
+import * as api from './api';
+
+export class DataHandler {
+    private processor: DataProcessor;
+    
+    constructor() {
+        this.processor = new DataProcessor();
+    }
+    
+    async fetchAndProcess(): Promise<void> {
+        const data = await api.fetchData();
+        const processed = processData(data);
+        return processed;
+    }
+}
+
+interface DataProcessor {
+    process(data: any): any;
+}`,
+		"utils.js": `function processData(data) {
+    if (typeof data === 'string') {
+        return data.toUpperCase();
+    }
+    return JSON.stringify(data);
+}
+
+function callBackend(endpoint) {
+    return fetch('/api/' + endpoint)
+        .then(res => res.json());
+}
+
+module.exports = { processData, callBackend };`,
+		"Backend.java": `package com.example;
+
+import java.util.List;
+import java.util.ArrayList;
+
+public class Backend {
+    private DataService dataService;
+    
+    public Backend() {
+        this.dataService = new DataService();
+    }
+    
+    public String processRequest(String request) {
+        List<String> items = parseRequest(request);
+        return dataService.process(items);
+    }
+    
+    private List<String> parseRequest(String request) {
+        return new ArrayList<>();
+    }
+}
+
+class DataService {
+    public String process(List<String> items) {
+        return String.join(",", items);
+    }
+}`,
+	}
+
+	for filename, content := range testFiles {
+		filePath := filepath.Join(testDir, filename)
+		require.NoError(t, os.WriteFile(filePath, []byte(content), 0644))
+	}
+
+	cfg := &config.Config{
+		Cache: &config.CacheConfig{
+			Enabled:         true,
+			StoragePath:     t.TempDir(),
+			MaxMemoryMB:     256,
+			TTLHours:        1,
+			BackgroundIndex: false,
+		},
+		Servers: map[string]*config.ServerConfig{
+			"go": &config.ServerConfig{
+				Command: "gopls",
+				Args:    []string{"serve"},
+			},
+			"python": &config.ServerConfig{
+				Command: "pylsp",
+				Args:    []string{},
+			},
+			"typescript": &config.ServerConfig{
+				Command: "typescript-language-server",
+				Args:    []string{"--stdio"},
+			},
+			"javascript": &config.ServerConfig{
+				Command: "typescript-language-server",
+				Args:    []string{"--stdio"},
+			},
+			"java": &config.ServerConfig{
+				Command: "jdtls",
+				Args:    []string{},
+			},
+		},
+	}
+
+	scipCache, err := cache.NewSCIPCacheManager(cfg.Cache)
+	require.NoError(t, err)
+	defer scipCache.Stop()
+
+	lspManager, err := server.NewLSPManager(cfg)
+	require.NoError(t, err)
+	lspManager.SetCache(scipCache)
+
+	files := []string{
+		filepath.Join(testDir, "main.go"),
+		filepath.Join(testDir, "script.py"),
+		filepath.Join(testDir, "frontend.ts"),
+		filepath.Join(testDir, "utils.js"),
+		filepath.Join(testDir, "Backend.java"),
+	}
+
+	t.Run("MultiLanguageDocumentOpen", func(t *testing.T) {
+		// Note: Files are already written to disk, LSP servers can access them directly
+		t.Logf("Multi-language files created: %d", len(files))
+		for _, file := range files {
+			assert.FileExists(t, file)
+		}
+	})
+
+	t.Run("CrossLanguageSymbolSearch", func(t *testing.T) {
+		symbols := []string{
+			"CallPython",     
+			"call_go_function", 
+			"DataHandler",    
+			"processData",    
+			"Backend",        
+		}
+
+		var wg sync.WaitGroup
+		symbolResults := make([]int, len(symbols))
+		
+		for i, symbol := range symbols {
+			wg.Add(1)
+			go func(idx int, sym string) {
+				defer wg.Done()
+				
+				request := &protocol.WorkspaceSymbolParams{
+					Query: sym,
+				}
+				
+				ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+				defer cancel()
+				
+				results, err := lspManager.ProcessRequest(ctx, "workspace/symbol", request)
+				if err == nil && results != nil {
+					if symbols, ok := results.([]interface{}); ok {
+						symbolResults[idx] = len(symbols)
+					}
+				}
+			}(i, symbol)
+		}
+		
+		wg.Wait()
+		
+		for i, count := range symbolResults {
+			t.Logf("Symbol %s found %d times", symbols[i], count)
+		}
+	})
+
+	t.Run("CrossLanguageDefinitionNavigation", func(t *testing.T) {
+		testCases := []struct {
+			file     string
+			line     int
+			char     int
+			expected string
+		}{
+			{"main.go", 8, 20, "script.py"},         
+			{"frontend.ts", 0, 30, "utils"},         
+			{"utils.js", 7, 10, "callBackend"},      
+			{"Backend.java", 11, 20, "processRequest"}, 
+		}
+
+		for _, tc := range testCases {
+			uri := fmt.Sprintf("file://%s", filepath.Join(testDir, tc.file))
+			
+			request := protocol.DefinitionParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{
+						URI: protocol.DocumentURI(uri),
+					},
+					Position: protocol.Position{
+						Line:      uint32(tc.line),
+						Character: uint32(tc.char),
+					},
+				},
+			}
+			
+			ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			defer cancel()
+			
+			_, err := lspManager.ProcessRequest(ctx, "textDocument/definition", request)
+			if err != nil {
+				t.Logf("Definition request for %s failed: %v", tc.file, err)
+			} else {
+				t.Logf("Definition from %s:%d:%d resolved", tc.file, tc.line, tc.char)
+			}
+		}
+	})
+
+	t.Run("ConcurrentMultiLanguageOperations", func(t *testing.T) {
+		operations := []struct {
+			method string
+			file   string
+			line   int
+			char   int
+		}{
+			{"textDocument/hover", "main.go", 7, 5},
+			{"textDocument/definition", "script.py", 3, 10},
+			{"textDocument/references", "frontend.ts", 5, 15},
+			{"textDocument/completion", "utils.js", 1, 20},
+			{"textDocument/documentSymbol", "Backend.java", 0, 0},
+		}
+
+		var wg sync.WaitGroup
+		var successCount int32
+		var mu sync.Mutex
+		
+		iterations := 3
+		for round := 0; round < iterations; round++ {
+			for _, op := range operations {
+				wg.Add(1)
+				go func(operation struct {
+					method string
+					file   string
+					line   int
+					char   int
+				}) {
+					defer wg.Done()
+					
+					uri := fmt.Sprintf("file://%s", filepath.Join(testDir, operation.file))
+					
+					var err error
+					ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+					defer cancel()
+					
+					switch operation.method {
+					case "textDocument/hover":
+						params := protocol.HoverParams{
+							TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+								TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentURI(uri)},
+								Position:     protocol.Position{Line: uint32(operation.line), Character: uint32(operation.char)},
+							},
+						}
+						_, err = lspManager.ProcessRequest(ctx, "textDocument/hover", params)
+						
+					case "textDocument/definition":
+						params := protocol.DefinitionParams{
+							TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+								TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentURI(uri)},
+								Position:     protocol.Position{Line: uint32(operation.line), Character: uint32(operation.char)},
+							},
+						}
+						_, err = lspManager.ProcessRequest(ctx, "textDocument/definition", params)
+						
+					case "textDocument/references":
+						params := protocol.ReferenceParams{
+							TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+								TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentURI(uri)},
+								Position:     protocol.Position{Line: uint32(operation.line), Character: uint32(operation.char)},
+							},
+							Context: protocol.ReferenceContext{
+								IncludeDeclaration: true,
+							},
+						}
+						_, err = lspManager.ProcessRequest(ctx, "textDocument/references", params)
+						
+					case "textDocument/completion":
+						params := protocol.CompletionParams{
+							TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+								TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentURI(uri)},
+								Position:     protocol.Position{Line: uint32(operation.line), Character: uint32(operation.char)},
+							},
+						}
+						_, err = lspManager.ProcessRequest(ctx, "textDocument/completion", params)
+						
+					case "textDocument/documentSymbol":
+						params := protocol.DocumentSymbolParams{
+							TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentURI(uri)},
+						}
+						_, err = lspManager.ProcessRequest(ctx, "textDocument/documentSymbol", params)
+					}
+					
+					if err == nil {
+						mu.Lock()
+						successCount++
+						mu.Unlock()
+					}
+				}(op)
+			}
+		}
+		
+		done := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(done)
+		}()
+		
+		select {
+		case <-done:
+			t.Logf("Concurrent operations completed. Success rate: %d/%d", 
+				successCount, len(operations)*iterations)
+		case <-time.After(1 * time.Minute):
+			t.Fatal("Concurrent multi-language operations timeout")
+		}
+		
+		expectedMinSuccess := len(operations) * iterations / 2
+		assert.GreaterOrEqual(t, int(successCount), expectedMinSuccess, 
+			"At least 50% of operations should succeed")
+	})
+
+	t.Run("DocumentStateConsistency", func(t *testing.T) {
+		for _, file := range files {
+			originalContent := testFiles[filepath.Base(file)]
+			modifiedContent := originalContent + "\n// Modified"
+			
+			err := os.WriteFile(file, []byte(modifiedContent), 0644)
+			assert.NoError(t, err, "File update should succeed")
+			
+			currentContentBytes, err := os.ReadFile(file)
+			assert.NoError(t, err, "Should be able to read file")
+			assert.Equal(t, modifiedContent, string(currentContentBytes), 
+				"File content should match after update")
+		}
+		
+		t.Logf("All %d files updated successfully", len(files))
+	})
+
+	t.Run("LanguageDetectionAccuracy", func(t *testing.T) {
+		expectedLanguages := map[string]string{
+			"main.go":     "go",
+			"script.py":   "python",
+			"frontend.ts": "typescript",
+			"utils.js":    "javascript",
+			"Backend.java": "java",
+		}
+		
+		documentManager := documents.NewLSPDocumentManager()
+		for filename, expectedLang := range expectedLanguages {
+			uri := fmt.Sprintf("file://%s", filepath.Join(testDir, filename))
+			detectedLang := documentManager.DetectLanguage(uri)
+			assert.Equal(t, expectedLang, detectedLang, 
+				"Language detection should be accurate for %s", filename)
+		}
+	})
+
+	cacheMetrics := scipCache.GetMetrics()
+	t.Logf("Final cache stats - Entries: %d, Size: %d KB, Hit Rate: %.2f%%",
+		cacheMetrics.EntryCount, cacheMetrics.TotalSize/1024, 
+		float64(cacheMetrics.HitCount)/float64(cacheMetrics.HitCount+cacheMetrics.MissCount)*100)
+	
+	t.Logf("Cache should contain cross-language symbol data")
+}

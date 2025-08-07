@@ -174,8 +174,35 @@ func validateConfig(config *Config) error {
 	return nil
 }
 
+// GetAllSupportedLanguages returns all supported languages
+func GetAllSupportedLanguages() []string {
+	return []string{"go", "python", "javascript", "typescript", "java"}
+}
+
+// GetSupportedLanguagesMap returns supported languages as a map for validation
+func GetSupportedLanguagesMap() map[string]bool {
+	return map[string]bool{
+		"go":         true,
+		"python":     true,
+		"javascript": true,
+		"typescript": true,
+		"java":       true,
+	}
+}
+
+// expandLanguageWildcard expands "*" wildcard to all supported languages
+func expandLanguageWildcard(languages []string) []string {
+	if len(languages) == 1 && languages[0] == "*" {
+		return GetAllSupportedLanguages()
+	}
+	return languages
+}
+
 // validateCacheConfig validates unified cache configuration with simple units
 func validateCacheConfig(cache *CacheConfig) error {
+	// Expand wildcard before validation
+	cache.Languages = expandLanguageWildcard(cache.Languages)
+
 	// Memory validation
 	if cache.MaxMemoryMB <= 0 {
 		return fmt.Errorf("max_memory_mb must be greater than 0, got %d", cache.MaxMemoryMB)
@@ -196,17 +223,11 @@ func validateCacheConfig(cache *CacheConfig) error {
 	}
 
 	// TTL validation (in hours)
-	if cache.TTLHours <= 0 {
-		return fmt.Errorf("ttl_hours must be greater than 0, got %d", cache.TTLHours)
-	}
 	if cache.TTLHours < 1 {
 		return fmt.Errorf("ttl_hours must be at least 1 hour, got %d", cache.TTLHours)
 	}
 
 	// Health check interval validation (in minutes)
-	if cache.HealthCheckMinutes <= 0 {
-		return fmt.Errorf("health_check_minutes must be greater than 0, got %d", cache.HealthCheckMinutes)
-	}
 	if cache.HealthCheckMinutes < 1 {
 		return fmt.Errorf("health_check_minutes must be at least 1 minute, got %d", cache.HealthCheckMinutes)
 	}
@@ -220,14 +241,8 @@ func validateCacheConfig(cache *CacheConfig) error {
 		return fmt.Errorf("invalid eviction_policy: %s (must be 'lru' or 'simple')", cache.EvictionPolicy)
 	}
 
-	// Language validation - ensure only supported languages
-	supportedLanguages := map[string]bool{
-		"go":         true,
-		"python":     true,
-		"javascript": true,
-		"typescript": true,
-		"java":       true,
-	}
+	// Language validation - ensure only supported languages (after wildcard expansion)
+	supportedLanguages := GetSupportedLanguagesMap()
 
 	for _, lang := range cache.Languages {
 		if !supportedLanguages[lang] {
@@ -283,8 +298,8 @@ func GetDefaultCacheConfig() *CacheConfig {
 		Enabled:            true, // Enabled by default for improved performance
 		StoragePath:        filepath.Join(home, ".lsp-gateway", "scip-cache"),
 		MaxMemoryMB:        512,
-		TTLHours:           24, // 24 hours for daily development workflow
-		Languages:          []string{"go", "python", "typescript", "java"},
+		TTLHours:           24,            // 24 hours for daily development workflow
+		Languages:          []string{"*"}, // Wildcard for all supported languages
 		BackgroundIndex:    true,
 		HealthCheckMinutes: 5, // 5 minutes
 		EvictionPolicy:     "lru",
@@ -421,6 +436,13 @@ func GenerateAutoConfig(workingDir string, getAvailableLanguages func(string) ([
 
 // Cache Management Functions
 
+// ensureCache ensures cache config exists with defaults if nil
+func (c *Config) ensureCache() {
+	if c.Cache == nil {
+		c.Cache = GetDefaultCacheConfig()
+	}
+}
+
 // HasCache returns true if the configuration has cache settings
 func (c *Config) HasCache() bool {
 	return c.Cache != nil
@@ -433,9 +455,7 @@ func (c *Config) IsCacheEnabled() bool {
 
 // EnableCache enables cache with default settings if not present
 func (c *Config) EnableCache() {
-	if c.Cache == nil {
-		c.Cache = GetDefaultCacheConfig()
-	}
+	c.ensureCache()
 	c.Cache.Enabled = true
 }
 
@@ -448,17 +468,13 @@ func (c *Config) DisableCache() {
 
 // SetCacheStoragePath sets the cache storage path
 func (c *Config) SetCacheStoragePath(path string) {
-	if c.Cache == nil {
-		c.Cache = GetDefaultCacheConfig()
-	}
+	c.ensureCache()
 	c.Cache.StoragePath = path
 }
 
 // SetCacheMemoryLimit sets the cache memory limit in MB
 func (c *Config) SetCacheMemoryLimit(memoryMB int) error {
-	if c.Cache == nil {
-		c.Cache = GetDefaultCacheConfig()
-	}
+	c.ensureCache()
 
 	if memoryMB <= 0 {
 		return fmt.Errorf("memory limit must be greater than 0, got %d", memoryMB)
@@ -470,9 +486,7 @@ func (c *Config) SetCacheMemoryLimit(memoryMB int) error {
 
 // SetCacheTTLHours sets the cache TTL in hours (simple units)
 func (c *Config) SetCacheTTLHours(hours int) error {
-	if c.Cache == nil {
-		c.Cache = GetDefaultCacheConfig()
-	}
+	c.ensureCache()
 
 	if hours < 1 {
 		return fmt.Errorf("TTL must be at least 1 hour, got %d", hours)
@@ -484,18 +498,10 @@ func (c *Config) SetCacheTTLHours(hours int) error {
 
 // SetCacheLanguages sets the languages for cache
 func (c *Config) SetCacheLanguages(languages []string) error {
-	if c.Cache == nil {
-		c.Cache = GetDefaultCacheConfig()
-	}
+	c.ensureCache()
 
 	// Validate languages
-	supportedLanguages := map[string]bool{
-		"go":         true,
-		"python":     true,
-		"javascript": true,
-		"typescript": true,
-		"java":       true,
-	}
+	supportedLanguages := GetSupportedLanguagesMap()
 
 	for _, lang := range languages {
 		if !supportedLanguages[lang] {

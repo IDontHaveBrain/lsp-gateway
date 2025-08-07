@@ -26,7 +26,6 @@ func (m *LSPManager) InvalidateCache(uri string) error {
 	if m.scipCache == nil {
 		return nil // No cache to invalidate
 	}
-	common.LSPLogger.Debug("Invalidating cache for document: %s", uri)
 	return m.scipCache.InvalidateDocument(uri)
 }
 
@@ -69,7 +68,6 @@ func (m *LSPManager) ensureDocumentOpen(client types.LSPClient, uri string, para
 		stdioClient.mu.Lock()
 		if stdioClient.openDocs[uri] {
 			stdioClient.mu.Unlock()
-			common.LSPLogger.Debug("Document already open, skipping didOpen: %s", uri)
 			return
 		}
 		stdioClient.mu.Unlock()

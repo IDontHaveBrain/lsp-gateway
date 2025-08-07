@@ -36,7 +36,6 @@ func TestSearchSymbolReferences(t *testing.T) {
 		if err != nil {
 			// This is expected to fail if no LSP servers are running
 			// Just check that the method exists and is callable
-			t.Logf("SearchSymbolReferences returned error (expected if no LSP servers): %v", err)
 			return
 		}
 
@@ -62,7 +61,6 @@ func TestSearchSymbolReferences(t *testing.T) {
 
 		result, err := manager.SearchSymbolReferences(ctx, query)
 		if err != nil {
-			t.Logf("SearchSymbolReferences returned error (expected if no LSP servers): %v", err)
 			return
 		}
 
@@ -126,7 +124,6 @@ func TestMatchesFilePattern(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// Test logic would go here if we could access the private method
 			// For now, this is just a placeholder showing test structure
-			t.Logf("Test case: %s", tc.name)
 		})
 	}
 }

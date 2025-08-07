@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strings"
 
-	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/cache"
@@ -72,7 +71,6 @@ type ReferenceInfo struct {
 
 // SearchSymbolReferences searches for all references to a symbol using occurrence-based search
 func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolReferenceQuery) (*SymbolReferenceResult, error) {
-	common.LSPLogger.Debug("SearchSymbolReferences called with query: %+v", query)
 
 	if query.SymbolName == "" {
 		return nil, fmt.Errorf("symbolName cannot be empty")
@@ -94,7 +92,6 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 
 	// First try occurrence-based reference search with SCIP storage
 	if m.scipCache != nil {
-		common.LSPLogger.Debug("Using occurrence-based SCIP search for references")
 
 		// Get SCIP storage for direct occurrence queries
 		scipStorage := m.getScipStorageFromCache()
@@ -114,7 +111,6 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 						// Get all reference occurrences for this symbol
 						refOccurrences, refErr := scipStorage.GetReferenceOccurrences(ctx, symbolInfo.Symbol)
 						if refErr == nil {
-							common.LSPLogger.Info("Found %d reference occurrences for symbol %s", len(refOccurrences), symbolInfo.Symbol)
 
 							// Convert SCIP occurrences to ReferenceInfo with role-based filtering
 							for _, occurrence := range refOccurrences {
@@ -176,11 +172,8 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 						}
 					}
 				}
-			} else if err != nil {
-				common.LSPLogger.Debug("SCIP symbol search failed: %v", err)
 			}
 		} else {
-			common.LSPLogger.Debug("SCIP storage not available, falling back to cache query")
 
 			// Fallback to cache query approach
 			symbolPattern := query.SymbolName
@@ -198,7 +191,6 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 			}
 
 			if indexResult, err := m.scipCache.QueryIndex(ctx, indexQuery); err == nil && indexResult != nil {
-				common.LSPLogger.Info("SCIP index query returned %d results for references", len(indexResult.Results))
 
 				// Process each result as a potential reference with legacy format
 				for _, result := range indexResult.Results {
@@ -279,7 +271,6 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 
 	// If no SCIP occurrence results or SCIP not available, fall back to LSP
 	if !usedOccurrenceSearch || len(references) == 0 {
-		common.LSPLogger.Debug("Falling back to LSP for reference search (usedOccurrenceSearch=%v, references=%d)", usedOccurrenceSearch, len(references))
 
 		// Find the symbol first using SearchSymbolPattern
 		symbolQuery := types.SymbolPatternQuery{
@@ -297,7 +288,6 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 		// Find the symbol first
 		symbolResult, err := m.SearchSymbolPattern(ctx, symbolQuery)
 		if err != nil {
-			common.LSPLogger.Debug("Failed to find symbol for references: %v", err)
 			// Don't fail completely, just return empty results
 			return &SymbolReferenceResult{
 				References: []ReferenceInfo{},
@@ -326,9 +316,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 
 			// Send references request
 			result, err := m.ProcessRequest(ctx, types.MethodTextDocumentReferences, params)
-			if err != nil {
-				common.LSPLogger.Debug("LSP references request failed: %v", err)
-			} else {
+			if err == nil {
 				// Parse the result
 				switch refs := result.(type) {
 				case []interface{}:
@@ -399,9 +387,6 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 		"related_symbols_count": len(relatedSymbols),
 		"implementations_count": len(implementations),
 	}
-
-	common.LSPLogger.Debug("SearchSymbolReferences returning %d references, %d definitions, %d read access, %d write access (truncated=%v)",
-		totalCount, definitionCount, readAccessCount, writeAccessCount, truncated)
 
 	return &SymbolReferenceResult{
 		References:       references,

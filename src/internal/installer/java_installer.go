@@ -344,7 +344,6 @@ func (j *JavaInstaller) IsInstalled() bool {
 	}
 
 	if !j.fileExists(wrapperPath) {
-		common.CLILogger.Debug("Java wrapper script not found at: %s", wrapperPath)
 		return false
 	}
 
@@ -356,14 +355,12 @@ func (j *JavaInstaller) IsInstalled() bool {
 	}
 
 	if !j.fileExists(javaExe) {
-		common.CLILogger.Debug("Java executable not found at: %s", javaExe)
 		return false
 	}
 
 	// Check for JDTLS
 	jdtlsPath := filepath.Join(installPath, "jdtls")
 	if !j.fileExists(jdtlsPath) {
-		common.CLILogger.Debug("JDTLS directory not found at: %s", jdtlsPath)
 		return false
 	}
 

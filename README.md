@@ -1,108 +1,72 @@
 # LSP Gateway
 
-**LSP Gateway** is a dual-protocol Language Server Protocol gateway for local development:
-- **HTTP JSON-RPC Gateway**: REST API at `localhost:8080/jsonrpc` for IDEs
-- **MCP Server**: AI assistant integration for Claude, GPT, etc.
-- **Cross-platform CLI**: Essential commands for LSP server management
+Language Server Protocol gateway for local development with dual-protocol support:
+- **HTTP JSON-RPC Gateway** at `localhost:8080/jsonrpc` for IDE integration
+- **MCP Server** for AI assistants (Claude, GPT, etc.) with enhanced caching
+- **SCIP Cache** for sub-millisecond symbol lookups
 
-**Focus**: 6 core LSP features • 5 languages • Local development tool
-
-**Complete Guide**: [CLAUDE.md](CLAUDE.md) for architecture and development workflows
-
----
-
-## Quick Start (5 Minutes)
+## Quick Start
 
 **Requirements**: Go 1.24+, Node.js 18+
 
 ```bash
-# 1. Clone and build
-git clone <repository-url>
+# Clone and build
+git clone https://github.com/yourusername/lsp-gateway
 cd lsp-gateway
-make local                    # Builds + creates global 'lsp-gateway' command
+make local                    # Build + install globally
 
-# 2. Install language servers (choose one method)
-# Option A: Automated installation (recommended)
-lsp-gateway install all       # Install all language servers automatically
+# Install language servers
+lsp-gateway install all       # Install all 5 language servers
 
-# Option B: Manual installation
-go install golang.org/x/tools/gopls@latest                    # Go
-pip install python-lsp-server                               # Python  
-npm install -g typescript-language-server typescript         # TypeScript & JavaScript
-# Java: Install Eclipse JDT Language Server manually
-
-# 3. Start using
-lsp-gateway server            # HTTP Gateway (port 8080)
-lsp-gateway mcp               # MCP Server for AI assistants
+# Start using
+lsp-gateway server           # HTTP Gateway (port 8080)
+lsp-gateway mcp             # MCP Server for AI assistants
 ```
 
 ## Core Commands
 
-### Server Operations
 ```bash
-lsp-gateway server             # Start HTTP Gateway (port 8080)
-lsp-gateway mcp                # Start MCP Server for AI assistants
-lsp-gateway status             # Show LSP server status  
-lsp-gateway test               # Test LSP server connections
+# Server operations
+lsp-gateway server          # HTTP Gateway at localhost:8080/jsonrpc
+lsp-gateway mcp             # MCP Server (STDIO, auto-detects languages)
+lsp-gateway status          # Check LSP server availability
+lsp-gateway test            # Test LSP connections
+
+# Setup & management
+lsp-gateway install all     # Install all language servers
+lsp-gateway install go      # Install specific language (go/python/typescript/javascript/java)
+lsp-gateway cache info      # Show cache statistics
+lsp-gateway cache clear     # Clear cache entries
+
+# Development
+make local                  # Build + npm global link
+make quality               # Format + vet checks
+make test-unit             # Run unit tests
 ```
 
-### Setup & Management
-```bash
-lsp-gateway install all        # Install all language servers
-lsp-gateway install go         # Install specific language server
-lsp-gateway install python     
-lsp-gateway install javascript
-lsp-gateway install typescript
-lsp-gateway install java
-lsp-gateway cache status       # Check cache performance
-lsp-gateway version            # Show version info
-```
+## Features
 
-### Development
-```bash
-make local        # Build + create global 'lsp-gateway' command
-make unlink       # Remove global 'lsp-gateway' command  
-make quality      # Essential checks (format + vet)
-```
+- **Languages**: Go, Python, JavaScript, TypeScript, Java
+- **LSP Methods**: definition, references, hover, documentSymbol, workspace/symbol, completion
+- **MCP Tools**: findSymbols, findReferences, findDefinitions, getSymbolInfo
+- **Cache**: 512MB SCIP-based LRU cache with sub-millisecond lookups
+- **Auto-detection**: Scans for go.mod, package.json, *.py, pom.xml
 
-## Supported LSP Features
-
-**Exactly 6 core LSP features** for essential developer productivity:
-
-| **LSP Method** | **Description** |
-|----------------|-----------------|
-| `textDocument/definition` | Go to definition |
-| `textDocument/references` | Find all references |
-| `textDocument/hover` | Hover information |
-| `textDocument/documentSymbol` | Document symbols |
-| `workspace/symbol` | Workspace symbol search |
-| `textDocument/completion` | Code completion |
-
-**Languages**: Go, Python, JavaScript, TypeScript, Java
-
-## Usage
+## Usage Examples
 
 ### HTTP Gateway
-Send JSON-RPC requests to `http://localhost:8080/jsonrpc`:
-
 ```bash
 curl -X POST http://localhost:8080/jsonrpc \
   -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "id": 1,
-    "method": "workspace/symbol",
-    "params": {"query": "main"}
-  }'
+  -d '{"jsonrpc":"2.0","id":1,"method":"workspace/symbol","params":{"query":"main"}}'
 ```
 
-### MCP Server for AI Integration
-Configure AI tools (Claude Desktop, etc.):
+### MCP Server Configuration
 ```json
 {
   "mcpServers": {
     "lsp-gateway": {
-      "command": "lsp-gateway", 
+      "command": "lsp-gateway",
       "args": ["mcp"]
     }
   }
@@ -111,42 +75,55 @@ Configure AI tools (Claude Desktop, etc.):
 
 ## Configuration
 
-**Auto-detection mode** (recommended): `lsp-gateway mcp` automatically detects languages and available LSP servers.
+LSP Gateway works out-of-the-box with auto-detection. For custom settings, create `~/.lsp-gateway/config.yaml`:
 
-**Custom configuration**: Create `config.yaml` for advanced settings, cache configuration, and server customization.
+```yaml
+cache:
+  max_memory_mb: 512
+  ttl_hours: 24
+servers:
+  go:
+    command: "gopls"
+    args: ["serve"]
+```
 
-**Complete guide**: [docs/configuration.md](docs/configuration.md) covers all configuration options, templates, and examples.
+See [docs/configuration.md](docs/configuration.md) for full options.
 
 ## Troubleshooting
 
-### Quick Diagnostics
 ```bash
-lsp-gateway status                # Check LSP server status
-lsp-gateway test                  # Test LSP server connections
-lsp-gateway install status        # Check language server installations
-curl http://localhost:8080/health # HTTP Gateway health check
+# Diagnostics
+lsp-gateway status               # Check LSP servers
+lsp-gateway test                 # Test connections
+export LSP_GATEWAY_DEBUG=true    # Enable debug logging
+
+# Common fixes
+lsp-gateway install all          # Reinstall LSP servers
+lsp-gateway server --port 8081   # Use different port
+make clean && make local         # Clean rebuild
 ```
 
-### Common Issues
+## Development
+
 ```bash
-# Build problems
-make clean && make local          # Clean rebuild
+# Build commands
+make build          # Build for all platforms
+make linux          # Linux build
+make macos          # macOS build
+make windows        # Windows build
 
-# Port conflicts  
-lsp-gateway server --port 8081    # Use different port
-
-# Language server not found
-lsp-gateway install <language>    # Auto-install missing server
-which gopls                       # Check if language server is in PATH
+# Quality & testing
+make quality-full   # Complete checks (format + vet + lint + security)
+make test          # Run all tests
+make cache-test    # Cache-specific tests
 ```
 
-### IDE Integration
-Point your IDE's LSP client to `http://localhost:8080/jsonrpc` after starting the HTTP gateway.
+## Requirements
 
-### Additional Endpoints
-```bash
-curl http://localhost:8080/health       # Health check
-curl http://localhost:8080/cache/stats  # Cache performance metrics
-```
+- Go 1.24.0+ (with toolchain go1.24.5)
+- Node.js 18+
+- Platform: Linux, macOS (x64/arm64), Windows (x64)
 
-**Platforms**: Linux, macOS (x64/arm64), Windows (x64)
+## License
+
+MIT

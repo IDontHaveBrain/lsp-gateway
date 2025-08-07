@@ -221,9 +221,7 @@ func NewSCIPCacheManager(configParam *config.CacheConfig) (*SimpleCacheManager, 
 
 	// Auto-initialize on creation - no separate Initialize() call needed
 	if manager.enabled {
-		common.LSPLogger.Info("Simple cache manager auto-initialized with max_memory=%d MB", configParam.MaxMemoryMB)
 	} else {
-		common.LSPLogger.Info("Simple cache manager created but disabled")
 	}
 
 	return manager, nil
@@ -270,7 +268,6 @@ func (m *SimpleCacheManager) Start(ctx context.Context) error {
 	}
 
 	m.started = true
-	common.LSPLogger.Info("Simple cache manager started successfully")
 	return nil
 }
 
@@ -291,7 +288,6 @@ func (m *SimpleCacheManager) Stop() error {
 	}
 
 	m.started = false
-	common.LSPLogger.Info("Simple cache manager stopped successfully")
 	return nil
 }
 
@@ -331,7 +327,6 @@ func (m *SimpleCacheManager) Lookup(method string, params interface{}) (interfac
 	// Update access time
 	entry.AccessedAt = time.Now()
 	m.stats.HitCount++
-	common.LSPLogger.Debug("Cache hit for method=%s", method)
 
 	return entry.Response, true, nil
 }
@@ -339,7 +334,6 @@ func (m *SimpleCacheManager) Lookup(method string, params interface{}) (interfac
 // Store caches an LSP response
 func (m *SimpleCacheManager) Store(method string, params interface{}, response interface{}) error {
 	if !m.isEnabled() {
-		common.LSPLogger.Debug("Store called but cache not enabled")
 		return nil
 	}
 
@@ -353,8 +347,6 @@ func (m *SimpleCacheManager) Store(method string, params interface{}, response i
 		common.LSPLogger.Error("Failed to build cache key for storage: %v", err)
 		return nil
 	}
-
-	common.LSPLogger.Debug("Attempting to store cache entry for method=%s, key=%s", method, keyStr)
 
 	// Calculate entry size
 	data, err := json.Marshal(response)
@@ -380,7 +372,6 @@ func (m *SimpleCacheManager) Store(method string, params interface{}, response i
 	// Check if we need to evict entries (convert MB to bytes)
 	maxSizeBytes := int64(m.config.MaxMemoryMB) * 1024 * 1024
 	if m.getTotalSize()+entry.Size > maxSizeBytes {
-		common.LSPLogger.Debug("Cache size limit reached, performing simple eviction")
 		m.performSimpleEviction()
 	}
 
@@ -388,7 +379,6 @@ func (m *SimpleCacheManager) Store(method string, params interface{}, response i
 	m.entries[keyStr] = entry
 	m.updateStats()
 
-	common.LSPLogger.Debug("Cached response for method=%s, size=%d bytes", method, entry.Size)
 	return nil
 }
 
@@ -415,12 +405,10 @@ func (m *SimpleCacheManager) InvalidateDocument(uri string) error {
 	// Clean up SCIP storage
 	if m.scipStorage != nil {
 		if err := m.scipStorage.RemoveDocument(context.Background(), uri); err != nil {
-			common.LSPLogger.Debug("Failed to remove document from SCIP storage: %v", err)
 		}
 	}
 
 	m.updateStats()
-	common.LSPLogger.Debug("Invalidated %d cache entries and cleaned SCIP indexes for document: %s", removedCount, uri)
 	return nil
 }
 
@@ -562,7 +550,6 @@ func (m *SimpleCacheManager) performSimpleEviction() {
 	// Remove oldest entry
 	if oldestKey != "" {
 		delete(m.entries, oldestKey)
-		common.LSPLogger.Debug("Evicted oldest cache entry: %s", oldestKey)
 	}
 }
 
@@ -591,7 +578,6 @@ func (m *SimpleCacheManager) IndexDocument(ctx context.Context, uri string, lang
 	// Update statistics
 	m.updateIndexStats(language, len(symbols))
 
-	common.LSPLogger.Debug("Indexed %d symbols as SCIP occurrences from %s (%s)", len(symbols), uri, language)
 	return nil
 }
 
@@ -1279,7 +1265,6 @@ func (m *SimpleCacheManager) UpdateIndex(ctx context.Context, files []string) er
 
 	// This method triggers reindexing of specified files in SCIP storage
 	// The actual indexing is done when LSP symbols are received and converted to occurrences
-	common.LSPLogger.Debug("UpdateIndex called with %d files - occurrence-based indexing active", len(files))
 
 	// For occurrence-centric approach, we don't proactively index files
 	// Instead, indexing happens when LSP methods return symbol information
@@ -1292,7 +1277,6 @@ func (m *SimpleCacheManager) updateIndexStats(language string, symbolCount int) 
 
 	if m.indexStats.LanguageStats[language] == 0 {
 		m.indexStats.IndexedLanguages = append(m.indexStats.IndexedLanguages, language)
-		common.LSPLogger.Debug("First indexing for language: %s", language)
 	}
 	m.indexStats.LanguageStats[language] += int64(symbolCount)
 
@@ -1304,8 +1288,6 @@ func (m *SimpleCacheManager) updateIndexStats(language string, symbolCount int) 
 		}
 	}
 
-	common.LSPLogger.Debug("Index stats updated - language: %s, added: %d symbols, total: %d symbols, %d documents",
-		language, symbolCount, m.indexStats.SymbolCount, m.indexStats.DocumentCount)
 }
 
 // GetCachedDefinition retrieves definition occurrences for a symbol using SCIP storage

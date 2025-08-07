@@ -53,11 +53,6 @@ func (w *LSPWorkspaceSymbolAggregator) ProcessWorkspaceSymbol(ctx context.Contex
 		}
 	}
 
-	// Log which servers are being skipped for workspace/symbol
-	if len(unsupportedClients) > 0 {
-		common.LSPLogger.Debug("Skipping servers that don't support workspace/symbol: %v", unsupportedClients)
-	}
-
 	if len(clientList) == 0 {
 		if len(unsupportedClients) > 0 {
 			return nil, fmt.Errorf("no LSP servers support workspace/symbol. Unsupported servers: %v. %s",

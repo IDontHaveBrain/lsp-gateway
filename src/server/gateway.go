@@ -11,6 +11,7 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/constants"
 	"lsp-gateway/src/server/cache"
 )
 
@@ -55,7 +56,6 @@ func NewHTTPGateway(addr string, cfg *config.Config, lspOnly bool) (*HTTPGateway
 		cfg.EnableCache()
 	} else if !cfg.IsCacheEnabled() {
 		cfg.EnableCache()
-		common.GatewayLogger.Info("Enabling unified cache for HTTP gateway")
 	}
 
 	// Create LSP manager - cache is now always created internally
@@ -82,8 +82,8 @@ func NewHTTPGateway(addr string, cfg *config.Config, lspOnly bool) (*HTTPGateway
 	gateway.server = &http.Server{
 		Addr:         addr,
 		Handler:      mux,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
+		ReadTimeout:  constants.DefaultRequestTimeout,
+		WriteTimeout: constants.DefaultRequestTimeout,
 	}
 
 	return gateway, nil
@@ -95,8 +95,6 @@ func (g *HTTPGateway) Start(ctx context.Context) error {
 	if err := g.lspManager.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start LSP manager: %w", err)
 	}
-
-	common.GatewayLogger.Info("Starting HTTP gateway with unified cache on %s", g.server.Addr)
 
 	go func() {
 		if err := g.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -164,8 +162,6 @@ func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 		g.writeError(w, req.ID, -32600, "Invalid Request", "jsonrpc must be 2.0")
 		return
 	}
-
-	common.GatewayLogger.Debug("Processing request: %s", req.Method)
 
 	// If lspOnly mode, restrict to the 6 basic LSP methods
 	if g.lspOnly {

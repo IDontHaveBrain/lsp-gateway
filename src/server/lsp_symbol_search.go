@@ -8,10 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
-	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/scip"
 )
 
@@ -48,7 +46,6 @@ type EnhancedSymbolResult struct {
 
 // SearchSymbolPattern searches for symbols matching a pattern using occurrence-based search
 func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.SymbolPatternQuery) (*types.SymbolPatternResult, error) {
-	common.LSPLogger.Debug("SearchSymbolPattern called with query: %+v", query)
 
 	if query.Pattern == "" {
 		return nil, fmt.Errorf("pattern cannot be empty")
@@ -67,7 +64,6 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 	usedOccurrenceSearch := false
 
 	if m.scipCache != nil {
-		common.LSPLogger.Debug("Using occurrence-based SCIP search for symbol pattern")
 
 		// Use direct SCIP storage methods for occurrence-based search
 		scipStorage := m.getScipStorage()
@@ -75,7 +71,6 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 			// Search symbols using SCIP storage SearchSymbols method
 			symbolInfos, err := scipStorage.SearchSymbols(ctx, query.Pattern, query.MaxResults*2) // Get more for filtering
 			if err == nil && len(symbolInfos) > 0 {
-				common.LSPLogger.Info("SCIP occurrence search returned %d symbol information entries", len(symbolInfos))
 
 				// Convert SCIP symbol information to enriched results with occurrence data
 				for _, symbolInfo := range symbolInfos {
@@ -89,7 +84,6 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 				// Also search occurrences directly for pattern matching
 				occurrences, err := scipStorage.SearchOccurrences(ctx, query.Pattern, query.MaxResults)
 				if err == nil && len(occurrences) > 0 {
-					common.LSPLogger.Info("SCIP occurrence search returned %d occurrences", len(occurrences))
 
 					// Process occurrences to extract symbols with role-based scoring
 					for _, occurrence := range occurrences {
@@ -102,15 +96,12 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 						}
 					}
 				}
-			} else if err != nil {
-				common.LSPLogger.Debug("SCIP occurrence search failed: %v", err)
 			}
 		}
 	}
 
 	// If no occurrence search results or SCIP not available, fall back to traditional LSP search
 	if !usedOccurrenceSearch || len(enrichedSymbols) == 0 {
-		common.LSPLogger.Debug("Falling back to workspace/symbol query (usedOccurrenceSearch=%v, symbols=%d)", usedOccurrenceSearch, len(enrichedSymbols))
 		// Get all active clients for aggregation
 		m.mu.RLock()
 		clients := make(map[string]interface{})
@@ -118,7 +109,6 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 			clients[k] = v
 		}
 		m.mu.RUnlock()
-		common.LSPLogger.Debug("Found %d active LSP clients", len(clients))
 
 		// Use the workspace aggregator to get symbols from all language servers
 		// Convert regex patterns to something LSP servers can handle
@@ -158,22 +148,16 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 		})
 
 		if err != nil {
-			common.LSPLogger.Debug("Failed to aggregate workspace symbols: %v", err)
+			// Workspace symbol aggregation failed
 			// Continue with empty results rather than failing completely
 		} else if aggregatedResult != nil {
 			// Convert aggregated result to enriched symbol array
 			if symbols, ok := aggregatedResult.([]interface{}); ok {
-				common.LSPLogger.Debug("Got %d symbols from workspace aggregator", len(symbols))
-				for i, sym := range symbols {
+				for _, sym := range symbols {
 					if symbolMap, ok := sym.(map[string]interface{}); ok {
-						common.LSPLogger.Debug("Symbol %d map: %+v", i, symbolMap)
 						// Convert map to SymbolInformation and create enriched result
 						symbolInfo := m.mapToSymbolInfo(symbolMap)
 						if symbolInfo != nil {
-							common.LSPLogger.Debug("Converted symbol: %s at %s:%d-%d",
-								symbolInfo.Name, symbolInfo.Location.URI,
-								symbolInfo.Location.Range.Start.Line,
-								symbolInfo.Location.Range.End.Line)
 							// Convert to enriched format for consistency
 							enrichedResult := m.convertToEnrichedResult(*symbolInfo, query)
 							if enrichedResult != nil {
@@ -194,7 +178,6 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 
 	// Apply pattern matching, filtering, and role-based scoring
 	var matchedSymbols []types.EnhancedSymbolInfo
-	common.LSPLogger.Debug("Processing %d enriched symbols for pattern matching (usedOccurrenceSearch=%v)", len(enrichedSymbols), usedOccurrenceSearch)
 
 	// Cache document symbols to get full ranges (only used for fallback LSP symbols)
 	var docSymbolsCache map[string][]lsp.DocumentSymbol
@@ -204,10 +187,6 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 
 	for _, enrichedSymbol := range enrichedSymbols {
 		symbol := enrichedSymbol.SymbolInformation
-		common.LSPLogger.Info("Processing symbol %s: URI=%s, Range=%d:%d-%d:%d",
-			symbol.Name, symbol.Location.URI,
-			symbol.Location.Range.Start.Line, symbol.Location.Range.Start.Character,
-			symbol.Location.Range.End.Line, symbol.Location.Range.End.Character)
 
 		matched, baseScore := types.MatchSymbolPattern(symbol, query)
 		if matched {
@@ -227,8 +206,6 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 			// Only perform runtime enhancement for symbols from fallback LSP queries
 			// SCIP occurrence-based symbols should already be enhanced at search-time
 			if !usedOccurrenceSearch && enhancedInfo.LineNumber == enhancedInfo.EndLine && symbol.Location.URI != "" {
-				common.LSPLogger.Debug("Symbol %s from LSP fallback has single line range (%d-%d), fetching full range via documentSymbol",
-					symbol.Name, enhancedInfo.LineNumber, enhancedInfo.EndLine)
 				// Check cache first
 				if _, cached := docSymbolsCache[symbol.Location.URI]; !cached {
 					// Fetch document symbols for this file
@@ -239,45 +216,22 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 					}
 					// Get the appropriate client for this file's language
 					fileLanguage := m.documentManager.DetectLanguage(symbol.Location.URI)
-					common.LSPLogger.Debug("Detected language %s for URI %s", fileLanguage, symbol.Location.URI)
 					if client, err := m.getClient(fileLanguage); err == nil {
-						common.LSPLogger.Debug("Sending textDocument/documentSymbol request for %s", symbol.Location.URI)
 						if docResult, err := client.SendRequest(ctx, types.MethodTextDocumentDocumentSymbol, params); err == nil {
-							common.LSPLogger.Debug("Received documentSymbol response for %s", symbol.Location.URI)
 							if docSymbols := m.parseDocumentSymbolsToDocumentSymbol(docResult); docSymbols != nil {
-								common.LSPLogger.Debug("Parsed %d document symbols for %s", len(docSymbols), symbol.Location.URI)
 								docSymbolsCache[symbol.Location.URI] = docSymbols
-							} else {
-								common.LSPLogger.Debug("Failed to parse document symbols for %s", symbol.Location.URI)
 							}
-						} else {
-							common.LSPLogger.Debug("Failed to get document symbols for %s: %v", symbol.Location.URI, err)
 						}
-					} else {
-						common.LSPLogger.Debug("Failed to get client for language %s: %v", fileLanguage, err)
 					}
 				}
 
 				// Find matching symbol in document symbols to get full range
 				if docSymbols, ok := docSymbolsCache[symbol.Location.URI]; ok {
-					common.LSPLogger.Debug("Searching for %s in %d cached document symbols", symbol.Name, len(docSymbols))
 					if fullRange := m.findSymbolRange(symbol.Name, symbol.Location.Range.Start.Line, docSymbols); fullRange != nil {
 						enhancedInfo.EndLine = fullRange.End.Line
-						common.LSPLogger.Info("Enhanced fallback symbol %s with full range: %d-%d",
-							symbol.Name, enhancedInfo.LineNumber, enhancedInfo.EndLine)
-					} else {
-						common.LSPLogger.Debug("Could not find matching symbol %s at line %d", symbol.Name, symbol.Location.Range.Start.Line)
 					}
-				} else {
-					common.LSPLogger.Debug("No cached document symbols for %s", symbol.Location.URI)
 				}
-			} else if usedOccurrenceSearch {
-				common.LSPLogger.Debug("Symbol %s from SCIP occurrence search already enhanced (Range: %d-%d)",
-					symbol.Name, enhancedInfo.LineNumber, enhancedInfo.EndLine)
 			}
-
-			common.LSPLogger.Debug("Matched symbol %s: LineNumber=%d, EndLine=%d",
-				symbol.Name, enhancedInfo.LineNumber, enhancedInfo.EndLine)
 
 			if symbol.ContainerName != "" {
 				enhancedInfo.Container = symbol.ContainerName
@@ -316,7 +270,6 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 		Truncated:  truncated,
 	}
 
-	common.LSPLogger.Debug("SearchSymbolPattern returning %d matched symbols (truncated=%v)", len(matchedSymbols), truncated)
 	return result, nil
 }
 
@@ -479,16 +432,6 @@ func (m *LSPManager) readSymbolCode(filePath string, r lsp.Range) (string, error
 	}
 
 	return strings.Join(lines, "\n"), nil
-}
-
-// scipSymbolToLSP converts a SCIP symbol to LSP SymbolInformation
-func (m *LSPManager) scipSymbolToLSP(scipSymbol *cache.SCIPSymbol) *lsp.SymbolInformation {
-	if scipSymbol == nil {
-		return nil
-	}
-
-	// Return the wrapped LSP SymbolInformation directly
-	return &scipSymbol.SymbolInfo
 }
 
 // Helper methods for occurrence-based search

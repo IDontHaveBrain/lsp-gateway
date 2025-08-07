@@ -70,8 +70,6 @@ func IndexCache(configPath string) error {
 	if initialStats != nil {
 		initialSymbolCount = initialStats.SymbolCount
 		initialDocCount = initialStats.DocumentCount
-		common.CLILogger.Debug("Initial index stats - symbols: %d, documents: %d, status: %s",
-			initialSymbolCount, initialDocCount, initialStats.Status)
 	}
 
 	// Use the cache manager's workspace indexing method
@@ -96,10 +94,6 @@ func IndexCache(configPath string) error {
 	}
 
 	// Report results based on actual indexing success
-	if finalStats != nil {
-		common.CLILogger.Debug("Final index stats - symbols: %d, documents: %d, status: %s",
-			finalStats.SymbolCount, finalStats.DocumentCount, finalStats.Status)
-	}
 
 	if actuallyIndexedSymbols > 0 {
 		common.CLILogger.Info("✅ Cache index rebuilt successfully - indexed %d symbols from %d documents", actuallyIndexedSymbols, actuallyIndexedDocs)

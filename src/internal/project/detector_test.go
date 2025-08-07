@@ -16,8 +16,6 @@ func TestDetectLanguages(t *testing.T) {
 		t.Fatalf("Error detecting languages: %v", err)
 	}
 
-	t.Logf("Detected languages in repo root: %v", langs)
-
 	// Should detect Go (because of go.mod and .go files)
 	found := false
 	for _, lang := range langs {
@@ -37,7 +35,6 @@ func TestDetectLanguages(t *testing.T) {
 		if err != nil {
 			t.Errorf("Error detecting languages in test-multi-lang: %v", err)
 		} else {
-			t.Logf("Detected languages in test-multi-lang: %v", langs2)
 			// Should detect multiple languages
 			if len(langs2) == 0 {
 				t.Error("Expected to detect at least one language in test-multi-lang")
@@ -51,10 +48,8 @@ func TestIsLSPServerAvailable(t *testing.T) {
 	// Test supported languages
 	languages := []string{"go", "python", "javascript", "typescript", "java"}
 
-	t.Log("LSP server availability:")
 	for _, lang := range languages {
-		available := IsLSPServerAvailable(lang)
-		t.Logf("  %s: %t", lang, available)
+		_ = IsLSPServerAvailable(lang)
 	}
 }
 
@@ -67,5 +62,8 @@ func TestGetAvailableLanguages(t *testing.T) {
 		t.Fatalf("Error getting available languages: %v", err)
 	}
 
-	t.Logf("Available languages (with LSP servers): %v", available)
+	// Verify we got some languages
+	if len(available) == 0 {
+		t.Error("Expected at least one available language")
+	}
 }

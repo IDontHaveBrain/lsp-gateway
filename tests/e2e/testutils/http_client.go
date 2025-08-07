@@ -72,65 +72,6 @@ func (c *HttpClient) FastHealthCheck() error {
 // Note: Removed typed LSP methods to avoid internal package dependencies
 // Use MakeRawJSONRPCRequest for E2E testing instead
 
-// sendLSPRequest sends a JSON-RPC LSP request
-func (c *HttpClient) sendLSPRequest(ctx context.Context, method string, params interface{}, result interface{}) error {
-	requestBody := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  method,
-		"params":  params,
-	}
-
-	jsonData, err := json.Marshal(requestBody)
-	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	url := fmt.Sprintf("%s/jsonrpc", c.config.BaseURL)
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", c.config.UserAgent)
-	if c.config.WorkspaceID != "" {
-		req.Header.Set("X-Workspace-ID", c.config.WorkspaceID)
-	}
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return fmt.Errorf("request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var response map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-		return fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	if errField, ok := response["error"]; ok && errField != nil {
-		return fmt.Errorf("LSP error: %v", errField)
-	}
-
-	if result != nil && response["result"] != nil {
-		resultBytes, err := json.Marshal(response["result"])
-		if err != nil {
-			return fmt.Errorf("failed to marshal result: %w", err)
-		}
-		if err := json.Unmarshal(resultBytes, result); err != nil {
-			return fmt.Errorf("failed to unmarshal result: %w", err)
-		}
-	}
-
-	return nil
-}
-
 // Close cleans up the HttpClient resources
 func (c *HttpClient) Close() error {
 	// Nothing to cleanup for simplified client

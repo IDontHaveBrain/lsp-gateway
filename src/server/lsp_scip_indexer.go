@@ -39,8 +39,6 @@ func (m *LSPManager) indexDocumentSymbolsAsOccurrences(ctx context.Context, uri,
 	var symbols []lsp.SymbolInformation
 	var conversionFailures, jsonFailures int
 
-	common.LSPLogger.Debug("Processing document symbols as occurrences for %s (type: %T)", uri, result)
-
 	// Parse document symbols from various response formats
 	symbols = m.parseDocumentSymbols(result, uri, &conversionFailures, &jsonFailures)
 
@@ -50,7 +48,6 @@ func (m *LSPManager) indexDocumentSymbolsAsOccurrences(ctx context.Context, uri,
 	}
 
 	if len(symbols) == 0 {
-		common.LSPLogger.Debug("No symbols to index for %s", uri)
 		return
 	}
 
@@ -95,17 +92,14 @@ func (m *LSPManager) indexDocumentSymbolsAsOccurrences(ctx context.Context, uri,
 	// Store as SCIP document
 	m.storeDocumentOccurrences(ctx, uri, language, occurrences, symbolInfos)
 
-	common.LSPLogger.Debug("Successfully indexed %d document symbols as occurrences for %s", len(occurrences), uri)
 }
 
 // indexDefinitionsAsOccurrences indexes definition results as SCIP occurrences with definition roles
 func (m *LSPManager) indexDefinitionsAsOccurrences(ctx context.Context, uri, language string, params, result interface{}) {
-	common.LSPLogger.Debug("Processing definitions as occurrences for %s", uri)
 
 	// Parse definition result - can be Location | Location[] | LocationLink[]
 	locations := m.parseLocationResult(result)
 	if len(locations) == 0 {
-		common.LSPLogger.Debug("No definition locations found for %s", uri)
 		return
 	}
 
@@ -157,17 +151,14 @@ func (m *LSPManager) indexDefinitionsAsOccurrences(ctx context.Context, uri, lan
 	// Store occurrences grouped by document URI
 	m.storeOccurrencesByDocument(ctx, occurrences, symbolInfos)
 
-	common.LSPLogger.Debug("Successfully indexed %d definition occurrences for %s", len(occurrences), uri)
 }
 
 // indexReferencesAsOccurrences indexes reference results as SCIP occurrences with reference roles
 func (m *LSPManager) indexReferencesAsOccurrences(ctx context.Context, uri, language string, params, result interface{}) {
-	common.LSPLogger.Debug("Processing references as occurrences for %s", uri)
 
 	// Parse reference result - should be Location[]
 	locations := m.parseLocationResult(result)
 	if len(locations) == 0 {
-		common.LSPLogger.Debug("No reference locations found for %s", uri)
 		return
 	}
 
@@ -225,12 +216,10 @@ func (m *LSPManager) indexReferencesAsOccurrences(ctx context.Context, uri, lang
 	// Store occurrences grouped by document URI
 	m.storeOccurrencesByDocument(ctx, occurrences, symbolInfos)
 
-	common.LSPLogger.Debug("Successfully indexed %d reference occurrences for %s", len(occurrences), uri)
 }
 
 // indexWorkspaceSymbolsAsOccurrences indexes workspace symbols as SCIP occurrences with definition roles
 func (m *LSPManager) indexWorkspaceSymbolsAsOccurrences(ctx context.Context, language string, result interface{}) {
-	common.LSPLogger.Debug("Processing workspace symbols as occurrences for language: %s (type: %T)", language, result)
 
 	var symbols []lsp.SymbolInformation
 
@@ -238,9 +227,7 @@ func (m *LSPManager) indexWorkspaceSymbolsAsOccurrences(ctx context.Context, lan
 	switch v := result.(type) {
 	case []lsp.SymbolInformation:
 		symbols = v
-		common.LSPLogger.Debug("Got []lsp.SymbolInformation with %d symbols", len(symbols))
 	case []interface{}:
-		common.LSPLogger.Debug("Got []interface{} with %d items", len(v))
 		for _, item := range v {
 			if data, err := json.Marshal(item); err == nil {
 				var symbol lsp.SymbolInformation
@@ -250,11 +237,9 @@ func (m *LSPManager) indexWorkspaceSymbolsAsOccurrences(ctx context.Context, lan
 			}
 		}
 	default:
-		common.LSPLogger.Debug("Unknown result type for workspace symbols: %T", result)
 	}
 
 	if len(symbols) == 0 {
-		common.LSPLogger.Debug("No workspace symbols to index for language: %s", language)
 		return
 	}
 
@@ -312,7 +297,6 @@ func (m *LSPManager) indexWorkspaceSymbolsAsOccurrences(ctx context.Context, lan
 	}
 
 	if totalIndexed > 0 {
-		common.LSPLogger.Info("Successfully indexed %d workspace symbol occurrences for language: %s", totalIndexed, language)
 	}
 }
 
@@ -347,7 +331,6 @@ func (m *LSPManager) parseDocumentSymbols(result interface{}, uri string, conver
 			})
 		}
 	case nil:
-		common.LSPLogger.Debug("Received nil response for document symbols from %s", uri)
 	default:
 		common.LSPLogger.Warn("Unexpected response type %T for document symbols from %s", result, uri)
 	}
@@ -359,7 +342,7 @@ func (m *LSPManager) parseDocumentSymbols(result interface{}, uri string, conver
 func (m *LSPManager) parseSymbolArray(items []interface{}, uri string, conversionFailures, jsonFailures *int) []lsp.SymbolInformation {
 	var symbols []lsp.SymbolInformation
 
-	for i, item := range items {
+	for _, item := range items {
 		if data, err := json.Marshal(item); err == nil {
 			var symbol lsp.SymbolInformation
 			if err := json.Unmarshal(data, &symbol); err == nil && symbol.Name != "" {
@@ -378,12 +361,10 @@ func (m *LSPManager) parseSymbolArray(items []interface{}, uri string, conversio
 					})
 				} else {
 					*conversionFailures++
-					common.LSPLogger.Debug("Failed to convert item %d for %s", i, uri)
 				}
 			}
 		} else {
 			*jsonFailures++
-			common.LSPLogger.Debug("Failed to marshal item %d for %s: %v", i, uri, err)
 		}
 	}
 
@@ -468,7 +449,6 @@ func (m *LSPManager) getPackageInfoForDocument(uri, language string) *project.Pa
 	// Get package info
 	packageInfo, err := project.GetPackageInfo(workingDir, language)
 	if err != nil {
-		common.LSPLogger.Debug("Failed to get package info for %s: %v, using defaults", uri, err)
 		return &project.PackageInfo{
 			Name:     "unknown-project",
 			Version:  "0.0.0",
@@ -624,7 +604,6 @@ func (m *LSPManager) mapLSPSymbolKindToSyntaxKind(lspKind lsp.SymbolKind) types.
 // storeDocumentOccurrences stores SCIP occurrences as a document
 func (m *LSPManager) storeDocumentOccurrences(ctx context.Context, uri, language string, occurrences []scip.SCIPOccurrence, symbolInfos []scip.SCIPSymbolInformation) {
 	// SCIP document storage is not available due to interface conflicts
-	common.LSPLogger.Debug("SCIP document storage not available for %s", uri)
 }
 
 // storeOccurrencesByDocument stores occurrences grouped by document URI
@@ -653,7 +632,6 @@ func (m *LSPManager) ProcessEnhancedQuery(ctx context.Context, queryType, uri, l
 	}
 
 	// SCIP storage queries not available due to interface conflicts, fall back to regular LSP
-	common.LSPLogger.Debug("Falling back to LSP for query: %s", queryType)
 	return m.ProcessRequest(ctx, queryType, params)
 }
 

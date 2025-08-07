@@ -27,7 +27,6 @@ func (m *LSPInstallManager) RegisterInstaller(language string, installer Languag
 	defer m.mutex.Unlock()
 
 	m.installers[language] = installer
-	common.CLILogger.Info("Registered installer for %s", language)
 }
 
 // GetInstaller returns installer for a specific language

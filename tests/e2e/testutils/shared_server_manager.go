@@ -59,7 +59,6 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 	defer mgr.mu.Unlock()
 
 	if mgr.serverStarted {
-		t.Logf("🔄 Reusing existing shared LSP gateway server on port %d", mgr.gatewayPort)
 		return nil
 	}
 
@@ -134,10 +133,6 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 
-	t.Logf("🚀 Starting shared LSP gateway server on port %d", port)
-	t.Logf("📁 Working directory: %s", cmd.Dir)
-	t.Logf("⚙️  Config: %s", configPath)
-
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start shared server: %w", err)
 	}
@@ -179,7 +174,6 @@ func (mgr *SharedServerManager) waitForServerReady(t *testing.T) error {
 			// Check if LSP clients are active by making a health check
 			if err := mgr.httpClient.HealthCheck(); err == nil {
 				// Server is responding and healthy
-				t.Logf("✅ Shared server is ready after %d seconds", i+1)
 				return nil
 			}
 		}
@@ -211,8 +205,6 @@ func (mgr *SharedServerManager) RegisterTest(testName string, t *testing.T) {
 
 	mgr.activeTests[testName] = true
 	mgr.testCount++
-
-	t.Logf("📝 Registered test '%s' with shared server (active tests: %d)", testName, len(mgr.activeTests))
 }
 
 // UnregisterTest unregisters a test from using the shared server
@@ -221,8 +213,6 @@ func (mgr *SharedServerManager) UnregisterTest(testName string, t *testing.T) {
 	defer mgr.mu.Unlock()
 
 	delete(mgr.activeTests, testName)
-
-	t.Logf("📝 Unregistered test '%s' from shared server (active tests: %d)", testName, len(mgr.activeTests))
 }
 
 // IsServerRunning returns true if the shared server is running
@@ -245,8 +235,6 @@ func (mgr *SharedServerManager) stopSharedServer(t *testing.T) error {
 	if !mgr.serverStarted || mgr.gatewayCmd == nil {
 		return nil
 	}
-
-	t.Logf("🛑 Stopping shared LSP gateway server...")
 
 	// Cancel context to stop any ongoing operations
 	mgr.cancel()
@@ -273,10 +261,9 @@ func (mgr *SharedServerManager) stopSharedServer(t *testing.T) error {
 		select {
 		case err := <-done:
 			if err != nil {
-				t.Logf("ℹ️  Shared server exited with: %v", err)
+				// Server exited
 			}
 		case <-time.After(10 * time.Second):
-			t.Logf("⚠️  Shared server did not shut down gracefully, killing...")
 			mgr.gatewayCmd.Process.Kill()
 			mgr.gatewayCmd.Wait()
 		}
@@ -285,7 +272,6 @@ func (mgr *SharedServerManager) stopSharedServer(t *testing.T) error {
 	mgr.gatewayCmd = nil
 	mgr.serverStarted = false
 
-	t.Logf("✅ Shared LSP gateway server stopped successfully")
 	return nil
 }
 
