@@ -36,11 +36,14 @@ func (m *LSPManager) performSCIPIndexing(ctx context.Context, method, uri, langu
 
 // indexDocumentSymbolsAsOccurrences indexes document symbols as SCIP occurrences with definition roles
 func (m *LSPManager) indexDocumentSymbolsAsOccurrences(ctx context.Context, uri, language string, result interface{}) {
+	common.LSPLogger.Debug("indexDocumentSymbolsAsOccurrences called for uri=%s, language=%s", uri, language)
+	
 	var symbols []lsp.SymbolInformation
 	var conversionFailures, jsonFailures int
 
 	// Parse document symbols from various response formats
 	symbols = m.parseDocumentSymbols(result, uri, &conversionFailures, &jsonFailures)
+	common.LSPLogger.Debug("Parsed %d symbols from document %s", len(symbols), uri)
 
 	// Report conversion issues
 	if jsonFailures > 0 || conversionFailures > 0 {
@@ -48,6 +51,7 @@ func (m *LSPManager) indexDocumentSymbolsAsOccurrences(ctx context.Context, uri,
 	}
 
 	if len(symbols) == 0 {
+		common.LSPLogger.Debug("No symbols found for %s, returning early", uri)
 		return
 	}
 
@@ -95,7 +99,9 @@ func (m *LSPManager) indexDocumentSymbolsAsOccurrences(ctx context.Context, uri,
 	}
 
 	// Store as SCIP document
+	common.LSPLogger.Debug("Storing %d occurrences and %d symbol infos for %s", len(occurrences), len(symbolInfos), uri)
 	m.storeDocumentOccurrences(ctx, uri, language, occurrences, symbolInfos)
+	common.LSPLogger.Debug("Successfully stored document occurrences for %s", uri)
 
 }
 

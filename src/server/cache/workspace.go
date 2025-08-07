@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,6 +30,13 @@ func NewWorkspaceIndexer(lspFallback LSPFallback) *WorkspaceIndexer {
 // This method provides comprehensive symbol indexing by analyzing individual source files
 // and extracting their complete symbol hierarchies for enhanced cache population
 func (w *WorkspaceIndexer) IndexWorkspaceFiles(ctx context.Context, workspaceDir string, languages []string, maxFiles int) error {
+	common.LSPLogger.Debug("IndexWorkspaceFiles called: workspaceDir=%s, languages=%v, maxFiles=%d", workspaceDir, languages, maxFiles)
+	
+	// Check if LSP fallback is nil
+	if w.lspFallback == nil {
+		common.LSPLogger.Error("IndexWorkspaceFiles: lspFallback is nil!")
+		return fmt.Errorf("lspFallback is nil")
+	}
 
 	// Use current directory if not provided
 	if workspaceDir == "" {
@@ -41,9 +49,12 @@ func (w *WorkspaceIndexer) IndexWorkspaceFiles(ctx context.Context, workspaceDir
 
 	// Get file extensions for the configured languages
 	extensions := w.GetLanguageExtensions(languages)
+	common.LSPLogger.Debug("Workspace indexer: Detected languages: %v", languages)
+	common.LSPLogger.Debug("Workspace indexer: Looking for extensions: %v", extensions)
 
 	// Scan for source files
 	files := w.ScanWorkspaceSourceFiles(workspaceDir, extensions, maxFiles)
+	common.LSPLogger.Debug("Workspace indexer: Found %d source files in %s", len(files), workspaceDir)
 
 	if len(files) == 0 {
 		common.LSPLogger.Warn("Workspace indexer: No source files found for indexing")
@@ -52,13 +63,19 @@ func (w *WorkspaceIndexer) IndexWorkspaceFiles(ctx context.Context, workspaceDir
 
 	// Index each file's document symbols
 	indexedCount := 0
-	for _, file := range files {
+	failedFiles := []string{}
+	common.LSPLogger.Debug("Workspace indexer: Starting to process %d files", len(files))
+	for i, file := range files {
+		common.LSPLogger.Debug("Workspace indexer: Processing file %d/%d: %s", i+1, len(files), file)
 		// Convert to file URI
 		absPath, err := filepath.Abs(file)
 		if err != nil {
+			common.LSPLogger.Warn("Failed to get absolute path for %s: %v", file, err)
+			failedFiles = append(failedFiles, file)
 			continue
 		}
 		uri := "file://" + absPath
+		common.LSPLogger.Debug("Workspace indexer: Calling ProcessRequest for URI: %s", uri)
 
 		// Get document symbols for this file
 		params := map[string]interface{}{
@@ -70,6 +87,7 @@ func (w *WorkspaceIndexer) IndexWorkspaceFiles(ctx context.Context, workspaceDir
 		result, err := w.lspFallback.ProcessRequest(ctx, types.MethodTextDocumentDocumentSymbol, params)
 		if err != nil {
 			common.LSPLogger.Debug("Failed to get document symbols for %s: %v", file, err)
+			failedFiles = append(failedFiles, file)
 			continue
 		}
 
@@ -80,6 +98,21 @@ func (w *WorkspaceIndexer) IndexWorkspaceFiles(ctx context.Context, workspaceDir
 		}
 	}
 
+	// Report partial failures if any
+	if len(failedFiles) > 0 {
+		common.LSPLogger.Warn("Failed to index %d out of %d files", len(failedFiles), len(files))
+		if len(failedFiles) <= 10 {
+			// Show specific files if not too many
+			for _, file := range failedFiles {
+				common.LSPLogger.Debug("  Failed: %s", file)
+			}
+		} else {
+			// Just show count if too many
+			common.LSPLogger.Debug("  First few failed files: %v...", failedFiles[:5])
+		}
+	}
+
+	common.LSPLogger.Debug("Workspace indexer: Completed processing. Indexed %d files, %d failed", indexedCount, len(failedFiles))
 	return nil
 }
 
@@ -115,6 +148,8 @@ func (w *WorkspaceIndexer) GetLanguageExtensions(languages []string) []string {
 func (w *WorkspaceIndexer) ScanWorkspaceSourceFiles(dir string, extensions []string, maxFiles int) []string {
 	var files []string
 	count := 0
+	
+	common.LSPLogger.Debug("ScanWorkspaceSourceFiles: Starting scan of %s, looking for extensions: %v, maxFiles: %d", dir, extensions, maxFiles)
 
 	filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
@@ -122,6 +157,7 @@ func (w *WorkspaceIndexer) ScanWorkspaceSourceFiles(dir string, extensions []str
 			if d != nil && d.IsDir() {
 				name := d.Name()
 				if strings.HasPrefix(name, ".") || constants.SkipDirectories[name] {
+					common.LSPLogger.Debug("ScanWorkspaceSourceFiles: Skipping directory: %s", path)
 					return filepath.SkipDir
 				}
 			}
@@ -139,6 +175,7 @@ func (w *WorkspaceIndexer) ScanWorkspaceSourceFiles(dir string, extensions []str
 			if ext == validExt {
 				files = append(files, path)
 				count++
+				common.LSPLogger.Debug("ScanWorkspaceSourceFiles: Found file #%d: %s", count, path)
 				break
 			}
 		}
@@ -146,5 +183,6 @@ func (w *WorkspaceIndexer) ScanWorkspaceSourceFiles(dir string, extensions []str
 		return nil
 	})
 
+	common.LSPLogger.Debug("ScanWorkspaceSourceFiles: Scan complete. Found %d files", len(files))
 	return files
 }

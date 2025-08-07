@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -419,6 +420,7 @@ func (m *SCIPCacheManager) InvalidateDocument(uri string) error {
 	// Clean up SCIP storage
 	if m.scipStorage != nil {
 		if err := m.scipStorage.RemoveDocument(context.Background(), uri); err != nil {
+			common.LSPLogger.Error("Failed to remove document from SCIP storage: %v", err)
 		}
 	}
 
@@ -428,7 +430,11 @@ func (m *SCIPCacheManager) InvalidateDocument(uri string) error {
 
 // Clear removes all cache entries
 func (m *SCIPCacheManager) Clear() error {
-	if !m.isEnabled() {
+	common.LSPLogger.Info("Clear() method called")
+	
+	// Don't check started state for Clear - it should work even if not started
+	if !m.enabled {
+		common.LSPLogger.Info("Cache is not enabled, returning early")
 		return nil
 	}
 
@@ -437,6 +443,67 @@ func (m *SCIPCacheManager) Clear() error {
 
 	common.LSPLogger.Info("Clearing all cache entries")
 	m.entries = make(map[string]*CacheEntry)
+	
+	// Stop SCIP storage to ensure it doesn't save on shutdown
+	if m.scipStorage != nil {
+		common.LSPLogger.Info("Stopping SCIP storage before clearing")
+		ctx := context.Background()
+		if err := m.scipStorage.Stop(ctx); err != nil {
+			common.LSPLogger.Warn("Failed to stop SCIP storage: %v", err)
+		}
+	}
+	
+	// Delete persisted SCIP storage cache file
+	if m.config.DiskCache && m.config.StoragePath != "" {
+		// The SCIP storage saves to simple_cache.json in the storage path
+		cacheFile := filepath.Join(m.config.StoragePath, "simple_cache.json")
+		common.LSPLogger.Info("Attempting to remove cache file: %s", cacheFile)
+		
+		// Check if file exists before deletion
+		if _, err := os.Stat(cacheFile); err == nil {
+			common.LSPLogger.Info("Cache file exists, removing: %s", cacheFile)
+			if err := os.Remove(cacheFile); err != nil {
+				common.LSPLogger.Error("Failed to remove persisted SCIP cache: %v", err)
+			} else {
+				common.LSPLogger.Info("Successfully removed persisted SCIP cache file: %s", cacheFile)
+			}
+		} else if os.IsNotExist(err) {
+			common.LSPLogger.Info("Cache file does not exist: %s", cacheFile)
+		} else {
+			common.LSPLogger.Warn("Error checking cache file: %v", err)
+		}
+	}
+	
+	// Recreate SCIP storage with empty data
+	if m.scipStorage != nil {
+		common.LSPLogger.Info("Recreating SCIP storage with empty data")
+		scipConfig := scip.SCIPStorageConfig{
+			DiskCacheDir: m.config.StoragePath,
+			MemoryLimit:  int64(m.config.MaxMemoryMB) * 1024 * 1024,
+		}
+		newStorage, err := scip.NewSimpleSCIPStorage(scipConfig)
+		if err != nil {
+			common.LSPLogger.Warn("Failed to recreate SCIP storage: %v", err)
+		} else {
+			m.scipStorage = newStorage
+			// Start the new storage but don't load from disk (file was deleted)
+			ctx := context.Background()
+			if err := m.scipStorage.Start(ctx); err != nil {
+				common.LSPLogger.Warn("Failed to start new SCIP storage: %v", err)
+			}
+		}
+	}
+	
+	// Reset index stats
+	m.indexStats = &IndexStats{
+		Status:        "cleared",
+		LanguageStats: make(map[string]int64),
+		LastUpdate:    time.Now(),
+		DocumentCount: 0,
+		SymbolCount:   0,
+		IndexSize:     0,
+	}
+	
 	m.updateStats()
 	return nil
 }
@@ -583,11 +650,16 @@ func (m *SCIPCacheManager) IndexDocument(ctx context.Context, uri string, langua
 	if err != nil {
 		return fmt.Errorf("failed to convert LSP symbols to SCIP document: %w", err)
 	}
+	
+	common.LSPLogger.Debug("IndexDocument: Created SCIP doc for %s with %d occurrences and %d symbol infos", 
+		uri, len(scipDoc.Occurrences), len(scipDoc.SymbolInformation))
 
 	// Store in SCIP storage
 	if err := m.scipStorage.StoreDocument(ctx, scipDoc); err != nil {
 		return fmt.Errorf("failed to store SCIP document: %w", err)
 	}
+	
+	common.LSPLogger.Debug("IndexDocument: Successfully stored SCIP document for %s", uri)
 
 	// Update statistics
 	m.updateIndexStats(language, len(symbols))
@@ -1996,10 +2068,42 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern string, fi
 		return nil, fmt.Errorf("SCIP symbol search failed: %w", err)
 	}
 
-	// Convert to interface{} slice for MCP compatibility
-	results := make([]interface{}, len(symbolInfos))
-	for i, symbolInfo := range symbolInfos {
-		results[i] = symbolInfo
+	// Enhance results with occurrence data for proper file locations
+	results := make([]interface{}, 0, len(symbolInfos))
+	for _, symbolInfo := range symbolInfos {
+		// Get definition occurrence for this symbol to get file location
+		defOcc, err := m.scipStorage.GetDefinitionOccurrence(ctx, symbolInfo.Symbol)
+		if err != nil || defOcc == nil {
+			// If no definition found, include basic symbol info
+			results = append(results, symbolInfo)
+			continue
+		}
+		
+		// Find the document URI that contains this occurrence
+		// We need to search through all documents to find which one has this occurrence
+		documentURI := ""
+		docs, _ := m.scipStorage.ListDocuments(ctx)
+		for _, docURI := range docs {
+			occs, _ := m.scipStorage.GetOccurrences(ctx, docURI)
+			for _, occ := range occs {
+				if occ.Symbol == defOcc.Symbol && occ.Range == defOcc.Range {
+					documentURI = docURI
+					break
+				}
+			}
+			if documentURI != "" {
+				break
+			}
+		}
+		
+		// Create enhanced result with both symbol info and occurrence data
+		enhancedResult := map[string]interface{}{
+			"symbolInfo": symbolInfo,
+			"occurrence": defOcc,
+			"filePath":   documentURI,
+			"range":      defOcc.Range,
+		}
+		results = append(results, enhancedResult)
 	}
 
 	return results, nil

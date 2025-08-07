@@ -3,10 +3,12 @@ package server
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/server/scip"
 )
 
 // =============================================================================
@@ -167,11 +169,170 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 			// Convert SCIP results to SymbolPatternResult format
 			symbols := make([]types.EnhancedSymbolInfo, 0, len(scipResults))
 			for _, scipResult := range scipResults {
-				if scipSymbol, ok := scipResult.(interface{}); ok {
-					// Convert SCIP symbol to EnhancedSymbolInfo
-					// This is a simplified conversion - could be enhanced
+				// Handle enhanced result format with occurrence data
+				if enhancedData, ok := scipResult.(map[string]interface{}); ok {
+					// Extract symbol info and occurrence
+					var symbolInfo scip.SCIPSymbolInformation
+					var occurrence *scip.SCIPOccurrence
+					
+					if si, ok := enhancedData["symbolInfo"].(scip.SCIPSymbolInformation); ok {
+						symbolInfo = si
+					}
+					if occ, ok := enhancedData["occurrence"].(*scip.SCIPOccurrence); ok {
+						occurrence = occ
+					}
+					
+					// Extract file path and range from occurrence
+					filePath := ""
+					lineNumber := 0
+					endLine := 0
+					
+					if occurrence != nil {
+						// Get file path from document URI
+						if docURI, ok := enhancedData["filePath"].(string); ok {
+							if strings.HasPrefix(docURI, "file://") {
+								filePath = strings.TrimPrefix(docURI, "file://")
+							} else {
+								filePath = docURI
+							}
+						}
+						
+						// Extract line range from occurrence
+						lineNumber = int(occurrence.Range.Start.Line)
+						endLine = int(occurrence.Range.End.Line)
+					}
+					
+					// Convert SCIP kind to LSP kind
+					lspKind := lsp.Variable // Default
+					switch symbolInfo.Kind {
+					case scip.SCIPSymbolKindClass:
+						lspKind = lsp.Class
+					case scip.SCIPSymbolKindMethod:
+						lspKind = lsp.Method
+					case scip.SCIPSymbolKindFunction:
+						lspKind = lsp.Function
+					case scip.SCIPSymbolKindNamespace:
+						lspKind = lsp.Namespace
+					case scip.SCIPSymbolKindModule:
+						lspKind = lsp.Module
+					case scip.SCIPSymbolKindInterface:
+						lspKind = lsp.Interface
+					case scip.SCIPSymbolKindEnum:
+						lspKind = lsp.Enum
+					case scip.SCIPSymbolKindField:
+						lspKind = lsp.Field
+					case scip.SCIPSymbolKindProperty:
+						lspKind = lsp.Property
+					case scip.SCIPSymbolKindConstructor:
+						lspKind = lsp.Constructor
+					case scip.SCIPSymbolKindVariable:
+						lspKind = lsp.Variable
+					case scip.SCIPSymbolKindConstant:
+						lspKind = lsp.Constant
+					case scip.SCIPSymbolKindStruct:
+						lspKind = lsp.Struct
+					}
+					
+					// Extract documentation
+					documentation := ""
+					if len(symbolInfo.Documentation) > 0 {
+						documentation = strings.Join(symbolInfo.Documentation, "\n")
+					}
+					
+					// Extract container name from symbol ID if available
+					containerName := ""
+					if parts := strings.Fields(symbolInfo.Symbol); len(parts) > 3 {
+						// Try to extract package/module info as container
+						if len(parts) > 1 {
+							containerName = parts[1] // Package name
+						}
+					}
+					
+					// Create enhanced symbol info
 					enhanced := types.EnhancedSymbolInfo{
-						FilePath: fmt.Sprintf("scip_symbol_%v", scipSymbol),
+						SymbolInformation: lsp.SymbolInformation{
+							Name: symbolInfo.DisplayName,
+							Kind: lspKind,
+							Location: lsp.Location{
+								URI: "file://" + filePath,
+								Range: lsp.Range{
+									Start: lsp.Position{Line: lineNumber, Character: 0},
+									End:   lsp.Position{Line: endLine, Character: 0},
+								},
+							},
+							ContainerName: containerName,
+						},
+						FilePath:      filePath,
+						LineNumber:    lineNumber,
+						EndLine:       endLine,
+						Container:     containerName,
+						Documentation: documentation,
+					}
+					symbols = append(symbols, enhanced)
+				} else if scipSymbol, ok := scipResult.(scip.SCIPSymbolInformation); ok {
+					// Fallback: handle plain SCIPSymbolInformation without occurrence data
+					symbolName := scipSymbol.DisplayName
+					symbolID := scipSymbol.Symbol
+					
+					// Convert SCIP kind to LSP kind
+					lspKind := lsp.Variable // Default
+					switch scipSymbol.Kind {
+					case scip.SCIPSymbolKindClass:
+						lspKind = lsp.Class
+					case scip.SCIPSymbolKindMethod:
+						lspKind = lsp.Method
+					case scip.SCIPSymbolKindFunction:
+						lspKind = lsp.Function
+					case scip.SCIPSymbolKindNamespace:
+						lspKind = lsp.Namespace
+					case scip.SCIPSymbolKindModule:
+						lspKind = lsp.Module
+					case scip.SCIPSymbolKindInterface:
+						lspKind = lsp.Interface
+					case scip.SCIPSymbolKindEnum:
+						lspKind = lsp.Enum
+					case scip.SCIPSymbolKindField:
+						lspKind = lsp.Field
+					case scip.SCIPSymbolKindProperty:
+						lspKind = lsp.Property
+					case scip.SCIPSymbolKindConstructor:
+						lspKind = lsp.Constructor
+					case scip.SCIPSymbolKindVariable:
+						lspKind = lsp.Variable
+					case scip.SCIPSymbolKindConstant:
+						lspKind = lsp.Constant
+					case scip.SCIPSymbolKindStruct:
+						lspKind = lsp.Struct
+					}
+					
+					// Extract documentation
+					documentation := ""
+					if len(scipSymbol.Documentation) > 0 {
+						documentation = strings.Join(scipSymbol.Documentation, "\n")
+					}
+					
+					// Fallback: use symbol ID as file path
+					filePath := symbolID
+					lineNumber := 0
+					endLine := 0
+					
+					// Create enhanced symbol info
+					enhanced := types.EnhancedSymbolInfo{
+						SymbolInformation: lsp.SymbolInformation{
+							Name: symbolName,
+							Kind: lspKind,
+							Location: lsp.Location{
+								URI: "file://" + filePath,
+								Range: lsp.Range{
+									Start: lsp.Position{Line: lineNumber, Character: 0},
+									End:   lsp.Position{Line: endLine, Character: 0},
+								},
+							},
+						},
+						FilePath:      filePath,
+						LineNumber:    lineNumber,
+						EndLine:       endLine,
+						Documentation: documentation,
 					}
 					symbols = append(symbols, enhanced)
 				}

@@ -34,9 +34,13 @@ type SafeLogger struct {
 
 // NewSafeLogger creates a new safe logger with the given prefix
 func NewSafeLogger(prefix string) *SafeLogger {
+	level := LogInfo // Default to INFO level
+	if os.Getenv("LSP_GATEWAY_DEBUG") == "true" {
+		level = LogDebug
+	}
 	return &SafeLogger{
 		prefix: prefix,
-		level:  LogInfo, // Default to INFO level
+		level:  level,
 	}
 }
 
