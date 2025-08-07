@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"lsp-gateway/src/config"
-	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server"
+	"lsp-gateway/src/utils"
 	"lsp-gateway/src/server/cache"
 
 	"github.com/stretchr/testify/assert"
@@ -112,7 +112,7 @@ func (s *Struct%d) Method%d() string {
 						return
 					default:
 						fileIdx := workerID % 10
-						uri := common.FilePathToURI(filepath.Join(testDir, fmt.Sprintf("file%d.go", fileIdx)))
+						uri := utils.FilePathToURI(filepath.Join(testDir, fmt.Sprintf("file%d.go", fileIdx)))
 
 						// Random operation
 						operations := []string{"definition", "references", "hover", "documentSymbol"}
@@ -254,7 +254,7 @@ func NewFunction%d() {
 
 	t.Run("RapidFileModificationStress", func(t *testing.T) {
 		targetFile := filepath.Join(testDir, "stress_test.go")
-		uri := common.FilePathToURI(targetFile)
+		uri := utils.FilePathToURI(targetFile)
 
 		initialContent := `package main
 
@@ -363,7 +363,7 @@ func NewMethod%d() {
 	t.Run("CacheConsistencyAfterInvalidation", func(t *testing.T) {
 		// Pick a file to test
 		testFile := filepath.Join(testDir, "consistency_test.go")
-		uri := common.FilePathToURI(testFile)
+		uri := utils.FilePathToURI(testFile)
 
 		version1 := `package main
 

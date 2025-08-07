@@ -16,8 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"lsp-gateway/src/config"
-	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server"
+	"lsp-gateway/src/utils"
 )
 
 func TestGatewayMonitoringEndpoints(t *testing.T) {
@@ -107,7 +107,7 @@ func main() {
 			"method":  "textDocument/hover",
 			"params": map[string]interface{}{
 				"textDocument": map[string]interface{}{
-					"uri": common.FilePathToURI(testFile),
+					"uri": utils.FilePathToURI(testFile),
 				},
 				"position": map[string]interface{}{
 					"line":      4,
@@ -364,7 +364,7 @@ func main() {
 				"method":  "textDocument/hover",
 				"params": map[string]interface{}{
 					"textDocument": map[string]interface{}{
-						"uri": common.FilePathToURI(testFile),
+						"uri": utils.FilePathToURI(testFile),
 					},
 					"position": map[string]interface{}{
 						"line":      4,
@@ -429,7 +429,7 @@ func main() {
 				"method":  "textDocument/definition",
 				"params": map[string]interface{}{
 					"textDocument": map[string]interface{}{
-						"uri": common.FilePathToURI(testFile),
+						"uri": utils.FilePathToURI(testFile),
 					},
 					"position": map[string]interface{}{
 						"line":      4,
@@ -483,7 +483,7 @@ func main() {
 			"method":  "textDocument/hover",
 			"params": map[string]interface{}{
 				"textDocument": map[string]interface{}{
-					"uri": common.FilePathToURI(testFile),
+					"uri": utils.FilePathToURI(testFile),
 				},
 				"position": map[string]interface{}{
 					"line":      4,

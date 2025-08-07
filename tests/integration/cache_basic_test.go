@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"lsp-gateway/src/config"
-	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server/cache"
+	"lsp-gateway/src/utils"
 
 	"github.com/stretchr/testify/require"
 )
@@ -172,7 +172,7 @@ func TestFunction() {
 	defer scipCache.Stop()
 
 	t.Run("Index document with symbols", func(t *testing.T) {
-		uri := common.FilePathToURI(testFile)
+		uri := utils.FilePathToURI(testFile)
 		// Index document without symbol details (use nil)
 		err := scipCache.IndexDocument(ctx, uri, "go", nil)
 		require.NoError(t, err)
@@ -185,7 +185,7 @@ func TestFunction() {
 		query := &cache.IndexQuery{
 			Type:   "symbol",
 			Symbol: "Test",
-			URI:    common.FilePathToURI(testFile),
+			URI:    utils.FilePathToURI(testFile),
 		}
 
 		result, err := scipCache.QueryIndex(ctx, query)

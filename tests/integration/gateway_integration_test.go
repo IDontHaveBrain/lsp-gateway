@@ -14,8 +14,8 @@ import (
 	"time"
 
 	"lsp-gateway/src/config"
-	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server"
+	"lsp-gateway/src/utils"
 
 	"github.com/stretchr/testify/require"
 )
@@ -126,7 +126,7 @@ func main() {
 			"method":  "textDocument/definition",
 			"params": map[string]interface{}{
 				"textDocument": map[string]interface{}{
-					"uri": common.FilePathToURI(testFile),
+					"uri": utils.FilePathToURI(testFile),
 				},
 				"position": map[string]interface{}{
 					"line":      24,
@@ -148,7 +148,7 @@ func main() {
 			"method":  "textDocument/hover",
 			"params": map[string]interface{}{
 				"textDocument": map[string]interface{}{
-					"uri": common.FilePathToURI(testFile),
+					"uri": utils.FilePathToURI(testFile),
 				},
 				"position": map[string]interface{}{
 					"line":      13,
@@ -176,7 +176,7 @@ func main() {
 			"method":  "textDocument/documentSymbol",
 			"params": map[string]interface{}{
 				"textDocument": map[string]interface{}{
-					"uri": common.FilePathToURI(testFile),
+					"uri": utils.FilePathToURI(testFile),
 				},
 			},
 			"id": 3,
@@ -215,7 +215,7 @@ func main() {
 			"method":  "textDocument/references",
 			"params": map[string]interface{}{
 				"textDocument": map[string]interface{}{
-					"uri": common.FilePathToURI(testFile),
+					"uri": utils.FilePathToURI(testFile),
 				},
 				"position": map[string]interface{}{
 					"line":      8,
@@ -243,7 +243,7 @@ func main() {
 			"method":  "textDocument/completion",
 			"params": map[string]interface{}{
 				"textDocument": map[string]interface{}{
-					"uri": common.FilePathToURI(testFile),
+					"uri": utils.FilePathToURI(testFile),
 				},
 				"position": map[string]interface{}{
 					"line":      24,
@@ -278,7 +278,7 @@ func main() {
 				"method":  "textDocument/hover",
 				"params": map[string]interface{}{
 					"textDocument": map[string]interface{}{
-						"uri": common.FilePathToURI(testFile),
+						"uri": utils.FilePathToURI(testFile),
 					},
 					"position": map[string]interface{}{
 						"line":      13,
@@ -337,7 +337,7 @@ func main() {
 					"method":  "textDocument/hover",
 					"params": map[string]interface{}{
 						"textDocument": map[string]interface{}{
-							"uri": common.FilePathToURI(testFile),
+							"uri": utils.FilePathToURI(testFile),
 						},
 						"position": map[string]interface{}{
 							"line":      13,

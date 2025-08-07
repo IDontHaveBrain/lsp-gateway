@@ -2,7 +2,6 @@ package integration
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -11,10 +10,10 @@ import (
 	"time"
 
 	"lsp-gateway/src/config"
-	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/documents"
+	"lsp-gateway/src/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -311,7 +310,7 @@ class DataService {
 		}
 
 		for _, tc := range testCases {
-			uri := common.FilePathToURI(filepath.Join(testDir, tc.file))
+			uri := utils.FilePathToURI(filepath.Join(testDir, tc.file))
 
 			request := protocol.DefinitionParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
@@ -369,7 +368,7 @@ class DataService {
 				}) {
 					defer wg.Done()
 
-					uri := common.FilePathToURI(filepath.Join(testDir, operation.file))
+					uri := utils.FilePathToURI(filepath.Join(testDir, operation.file))
 
 					var err error
 					// Fix context shadowing - create a new context from the parent
@@ -479,7 +478,7 @@ class DataService {
 
 		documentManager := documents.NewLSPDocumentManager()
 		for filename, expectedLang := range expectedLanguages {
-			uri := common.FilePathToURI(filepath.Join(testDir, filename))
+			uri := utils.FilePathToURI(filepath.Join(testDir, filename))
 			detectedLang := documentManager.DetectLanguage(uri)
 			assert.Equal(t, expectedLang, detectedLang,
 				"Language detection should be accurate for %s", filename)
