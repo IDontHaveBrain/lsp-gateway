@@ -118,15 +118,28 @@ func (w *LSPWorkspaceSymbolAggregator) ProcessWorkspaceSymbol(ctx context.Contex
 				continue
 			}
 
-			// Parse the result - handle both array and object responses
+			// Parse the result - handle null, empty, array, and object responses
 			var symbols []interface{}
+
+			// Check if result is null or empty
+			if len(result.result) == 0 || string(result.result) == "null" {
+				// Empty or null result - no symbols found, which is valid
+				common.LSPLogger.Debug("No symbols returned from %s (null/empty response)", result.language)
+				successCount++
+				continue
+			}
 
 			// First try to unmarshal as array (standard LSP response)
 			if err := json.Unmarshal(result.result, &symbols); err != nil {
 				// If that fails, try to unmarshal as a single object and wrap it in an array
 				var singleSymbol interface{}
 				if err2 := json.Unmarshal(result.result, &singleSymbol); err2 != nil {
-					errorsList = append(errorsList, fmt.Sprintf("%s: failed to parse symbols as array or object: %v", result.language, err))
+					// Log the actual response for debugging Windows CI issues
+					responsePreview := string(result.result)
+					if len(responsePreview) > 100 {
+						responsePreview = responsePreview[:100] + "..."
+					}
+					errorsList = append(errorsList, fmt.Sprintf("%s: failed to parse symbols (response: %s): %v", result.language, responsePreview, err))
 					continue
 				}
 				// Wrap single object in array
