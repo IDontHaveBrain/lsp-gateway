@@ -240,10 +240,10 @@ func (m *SCIPCacheManager) Start(ctx context.Context) error {
 		return fmt.Errorf("cache manager already started")
 	}
 
-	if !m.enabled {
-		common.LSPLogger.Info("Cache is disabled, skipping start")
-		return nil
-	}
+    if !m.enabled {
+        common.LSPLogger.Debug("Cache is disabled, skipping start")
+        return nil
+    }
 
 	if err := m.scipStorage.Start(ctx); err != nil && err.Error() != "storage already started" {
 		common.LSPLogger.Warn("Failed to start SCIP storage: %v", err)
@@ -382,7 +382,7 @@ func (m *SCIPCacheManager) InvalidateDocument(uri string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	common.LSPLogger.Info("Invalidating cache for document: %s (affects %d other documents)", uri, len(affectedDocs))
+    common.LSPLogger.Debug("Invalidating cache for document: %s (affects %d other documents)", uri, len(affectedDocs))
 
 	m.invalidateSingleDocument(uri)
 	for _, affectedURI := range affectedDocs {
@@ -2228,7 +2228,7 @@ func (m *SCIPCacheManager) reindexDocuments(uris []string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	common.LSPLogger.Info("Starting background reindexing for %d documents", len(uris))
+    common.LSPLogger.Debug("Starting background reindexing for %d documents", len(uris))
 
 	successCount := 0
 	errorCount := 0
@@ -2237,7 +2237,7 @@ func (m *SCIPCacheManager) reindexDocuments(uris []string) {
 		// Skip if context is cancelled
 		select {
 		case <-ctx.Done():
-			common.LSPLogger.Warn("Reindexing cancelled after %d/%d documents", successCount, len(uris))
+            common.LSPLogger.Warn("Reindexing cancelled after %d/%d documents", successCount, len(uris))
 			return
 		default:
 		}
@@ -2274,7 +2274,7 @@ func (m *SCIPCacheManager) reindexDocuments(uris []string) {
 		successCount++
 	}
 
-	common.LSPLogger.Info("Background reindexing completed: %d successful, %d errors", successCount, errorCount)
+    common.LSPLogger.Debug("Background reindexing completed: %d successful, %d errors", successCount, errorCount)
 }
 
 // GetSCIPStorage returns the underlying SCIP storage for direct access

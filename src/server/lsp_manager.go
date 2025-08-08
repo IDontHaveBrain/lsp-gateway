@@ -94,7 +94,7 @@ func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 
 // Start initializes and starts all configured LSP clients
 func (m *LSPManager) Start(ctx context.Context) error {
-	common.LSPLogger.Info("[LSPManager.Start] Starting LSP manager, scipCache=%v", m.cacheIntegrator.IsEnabled())
+    common.LSPLogger.Debug("[LSPManager.Start] Starting LSP manager, scipCache=%v", m.cacheIntegrator.IsEnabled())
 
 	// Start cache through integrator - handles graceful degradation internally
 	if err := m.cacheIntegrator.StartCache(ctx); err != nil {
@@ -154,8 +154,8 @@ func (m *LSPManager) Start(ctx context.Context) error {
 		if cacheManager, ok := m.scipCache.(*cache.SCIPCacheManager); ok {
 			stats := cacheManager.GetIndexStats()
 			if stats != nil && (stats.SymbolCount > 0 || stats.ReferenceCount > 0 || stats.DocumentCount > 0) {
-				common.LSPLogger.Info("LSP Manager: Cache already populated with %d symbols, %d references, %d documents - skipping background indexing",
-					stats.SymbolCount, stats.ReferenceCount, stats.DocumentCount)
+                common.LSPLogger.Debug("LSP Manager: Cache already populated with %d symbols, %d references, %d documents - skipping background indexing",
+                    stats.SymbolCount, stats.ReferenceCount, stats.DocumentCount)
 			} else {
 				// Only index if cache is truly empty
 				go func() {
@@ -164,10 +164,10 @@ func (m *LSPManager) Start(ctx context.Context) error {
 
 					// Double-check cache status
 					recheckStats := cacheManager.GetIndexStats()
-					if recheckStats != nil && (recheckStats.SymbolCount > 0 || recheckStats.ReferenceCount > 0 || recheckStats.DocumentCount > 0) {
-						common.LSPLogger.Info("LSP Manager: Cache was populated while waiting - skipping background indexing")
-						return
-					}
+                        if recheckStats != nil && (recheckStats.SymbolCount > 0 || recheckStats.ReferenceCount > 0 || recheckStats.DocumentCount > 0) {
+                            common.LSPLogger.Debug("LSP Manager: Cache was populated while waiting - skipping background indexing")
+                            return
+                        }
 
 					// Get working directory
 					wd, err := os.Getwd()
@@ -176,8 +176,8 @@ func (m *LSPManager) Start(ctx context.Context) error {
 						return
 					}
 
-					// Perform workspace indexing
-					common.LSPLogger.Info("LSP Manager: Performing background workspace indexing")
+                        // Perform workspace indexing
+                        common.LSPLogger.Debug("LSP Manager: Performing background workspace indexing")
 					indexCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 					defer cancel()
 

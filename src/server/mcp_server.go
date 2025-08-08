@@ -72,11 +72,11 @@ func (m *MCPServer) Start() error {
 	if cache != nil {
 		// Check immediately if cache has data (it loads synchronously in Start())
 		stats := cache.GetIndexStats()
-		if stats != nil && (stats.SymbolCount > 0 || stats.ReferenceCount > 0 || stats.DocumentCount > 0) {
-			common.LSPLogger.Info("MCP server: Using existing cache with %d symbols, %d references, %d documents",
-				stats.SymbolCount, stats.ReferenceCount, stats.DocumentCount)
-			// Don't perform any indexing - use existing cache
-		} else {
+        if stats != nil && (stats.SymbolCount > 0 || stats.ReferenceCount > 0 || stats.DocumentCount > 0) {
+            common.LSPLogger.Debug("MCP server: Using existing cache with %d symbols, %d references, %d documents",
+                stats.SymbolCount, stats.ReferenceCount, stats.DocumentCount)
+            // Don't perform any indexing - use existing cache
+        } else {
 			// Only perform initial indexing if cache is truly empty
 			// Wait for LSP servers to be ready before indexing
 			go func() {
@@ -89,14 +89,14 @@ func (m *MCPServer) Start() error {
 					return
 				}
 				recheckStats := currentCache.GetIndexStats()
-				if recheckStats != nil && (recheckStats.SymbolCount > 0 || recheckStats.ReferenceCount > 0 || recheckStats.DocumentCount > 0) {
-					common.LSPLogger.Info("MCP server: Cache was populated while waiting (symbols=%d, refs=%d, docs=%d), skipping indexing",
-						recheckStats.SymbolCount, recheckStats.ReferenceCount, recheckStats.DocumentCount)
-					return
-				}
+                if recheckStats != nil && (recheckStats.SymbolCount > 0 || recheckStats.ReferenceCount > 0 || recheckStats.DocumentCount > 0) {
+                    common.LSPLogger.Debug("MCP server: Cache was populated while waiting (symbols=%d, refs=%d, docs=%d), skipping indexing",
+                        recheckStats.SymbolCount, recheckStats.ReferenceCount, recheckStats.DocumentCount)
+                    return
+                }
 
-				common.LSPLogger.Info("MCP server: Cache is empty, performing initial indexing")
-				m.performInitialIndexing()
+                common.LSPLogger.Debug("MCP server: Cache is empty, performing initial indexing")
+                m.performInitialIndexing()
 			}()
 		}
 	} else {

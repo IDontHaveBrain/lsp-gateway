@@ -78,7 +78,7 @@ func NewRouter() *Router {
 }
 
 func (r *Router) Handle(path string) {
-	fmt.Println("Handling", path)
+	_ = path
 }
 
 func main() {
@@ -144,7 +144,7 @@ func (ts *TestStruct) GetName() string {
 
 func TestFunction() {
 	ts := NewTestStruct("test")
-	println(ts.GetName())
+	_ = ts.GetName()
 }
 `
 	return w.WriteGoFile(t, "test_struct.go", content)

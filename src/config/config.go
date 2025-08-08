@@ -374,7 +374,7 @@ func GenerateConfigForLanguages(languages []string) *Config {
 				WorkingDir:            serverConfig.WorkingDir,
 				InitializationOptions: serverConfig.InitializationOptions,
 			}
-			common.CLILogger.Info("Added %s server configuration", language)
+            common.CLILogger.Debug("Added %s server configuration", language)
 		} else {
 			common.CLILogger.Warn("No default configuration found for language: %s", language)
 		}
@@ -416,13 +416,13 @@ func DetectAndGenerateConfig(workingDir string, detector func(string) ([]string,
 		return GetDefaultConfig()
 	}
 
-	common.CLILogger.Info("Detected languages: %v", languages)
+    common.CLILogger.Debug("Detected languages: %v", languages)
 	config := GenerateConfigForLanguages(languages)
 
 	// Set project-specific cache path for multiple instance support
 	projectCachePath := GetProjectSpecificCachePath(workingDir)
 	config.SetCacheStoragePath(projectCachePath)
-	common.CLILogger.Info("Using project-specific cache path: %s", projectCachePath)
+    common.CLILogger.Debug("Using project-specific cache path: %s", projectCachePath)
 
 	return config
 }
