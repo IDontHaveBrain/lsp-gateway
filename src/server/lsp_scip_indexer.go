@@ -11,6 +11,7 @@ import (
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/scip"
 	"lsp-gateway/src/utils"
 )
@@ -772,74 +773,66 @@ func (m *LSPManager) mapLSPSymbolKindToSyntaxKind(lspKind types.SymbolKind) type
 
 // storeDocumentOccurrences stores SCIP occurrences as a document
 func (m *LSPManager) storeDocumentOccurrences(ctx context.Context, uri, language string, occurrences []scip.SCIPOccurrence, symbolInfos []scip.SCIPSymbolInformation) {
-	if m.scipCache == nil {
-		return
-	}
+    if m.scipCache == nil {
+        return
+    }
 
-	// Convert SCIP occurrences to LSP SymbolInformation for SimpleCache compatibility
-	var symbols []lsp.SymbolInformation
-	for i, occ := range occurrences {
-		// Find corresponding symbol info
-		var displayName string
-		var kind types.SymbolKind
-		if i < len(symbolInfos) {
-			displayName = symbolInfos[i].DisplayName
-			kind = m.mapSCIPKindToLSPSymbolKind(symbolInfos[i].Kind)
-		} else {
-			displayName = occ.Symbol
-			kind = types.Variable // Default
-		}
+    // If we only have occurrences (e.g., references), add them directly to SCIP storage
+    if len(occurrences) > 0 && len(symbolInfos) == 0 {
+        if mgr, ok := m.scipCache.(*cache.SCIPCacheManager); ok {
+            _ = mgr.AddOccurrences(ctx, uri, occurrences)
+            return
+        }
+    }
 
-		symbol := lsp.SymbolInformation{
-			Name: displayName,
-			Kind: kind,
-			Location: types.Location{
-				URI: uri,
-				Range: types.Range{
-					Start: types.Position{
-						Line:      int32(occ.Range.Start.Line),
-						Character: int32(occ.Range.Start.Character),
-					},
-					End: types.Position{
-						Line:      int32(occ.Range.End.Line),
-						Character: int32(occ.Range.End.Character),
-					},
-				},
-			},
-		}
-		symbols = append(symbols, symbol)
-	}
+    // Otherwise, convert to SymbolInformation and index (keeps definitions + metadata)
+    var symbols []lsp.SymbolInformation
+    for i, occ := range occurrences {
+        var displayName string
+        var kind types.SymbolKind
+        if i < len(symbolInfos) {
+            displayName = symbolInfos[i].DisplayName
+            kind = m.mapSCIPKindToLSPSymbolKind(symbolInfos[i].Kind)
+        } else {
+            displayName = occ.Symbol
+            kind = types.Variable
+        }
 
-	// Store using SCIPCache interface
-	if m.scipCache != nil {
-		if err := m.scipCache.IndexDocument(ctx, uri, language, symbols); err != nil {
-			common.LSPLogger.Debug("Failed to index document symbols for %s: %v", uri, err)
-		}
+        symbols = append(symbols, lsp.SymbolInformation{
+            Name: displayName,
+            Kind: kind,
+            Location: types.Location{
+                URI: uri,
+                Range: types.Range{
+                    Start: types.Position{Line: int32(occ.Range.Start.Line), Character: int32(occ.Range.Start.Character)},
+                    End:   types.Position{Line: int32(occ.Range.End.Line), Character: int32(occ.Range.End.Character)},
+                },
+            },
+        })
+    }
 
-		// Store enhanced SCIP metadata separately for each symbol
-		// This preserves relationships and documentation
-		for i, symbolInfo := range symbolInfos {
-			if i < len(symbols) {
-				// Store documentation as hover result
-				if len(symbolInfo.Documentation) > 0 {
-					hoverParams := map[string]interface{}{
-						"textDocument": map[string]interface{}{"uri": uri},
-						"position": map[string]interface{}{
-							"line":      symbols[i].Location.Range.Start.Line,
-							"character": symbols[i].Location.Range.Start.Character,
-						},
-					}
-					hoverResult := &lsp.Hover{
-						Contents: map[string]interface{}{
-							"kind":  "markdown",
-							"value": strings.Join(symbolInfo.Documentation, "\n"),
-						},
-					}
-					m.scipCache.Store("textDocument/hover", hoverParams, hoverResult)
-				}
-			}
-		}
-	}
+    if err := m.scipCache.IndexDocument(ctx, uri, language, symbols); err != nil {
+        common.LSPLogger.Debug("Failed to index document symbols for %s: %v", uri, err)
+    }
+
+    for i, symbolInfo := range symbolInfos {
+        if i < len(symbols) && len(symbolInfo.Documentation) > 0 {
+            hoverParams := map[string]interface{}{
+                "textDocument": map[string]interface{}{"uri": uri},
+                "position": map[string]interface{}{
+                    "line":      symbols[i].Location.Range.Start.Line,
+                    "character": symbols[i].Location.Range.Start.Character,
+                },
+            }
+            hoverResult := &lsp.Hover{
+                Contents: map[string]interface{}{
+                    "kind":  "markdown",
+                    "value": strings.Join(symbolInfo.Documentation, "\n"),
+                },
+            }
+            m.scipCache.Store("textDocument/hover", hoverParams, hoverResult)
+        }
+    }
 }
 
 // ProcessEnhancedQuery processes a query that combines LSP and SCIP data
