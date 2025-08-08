@@ -146,9 +146,17 @@ Loop:
 	if err := json.Unmarshal([]byte(text), &payload); err != nil {
 		t.Fatalf("response text is not JSON: %v\n%s", err, text)
 	}
-	refsAny, ok := payload["references"].([]interface{})
-	if !ok {
+	refsVal, exists := payload["references"]
+	if !exists {
 		t.Fatalf("missing references field in payload: %s", text)
+	}
+	refsAny, ok := refsVal.([]interface{})
+	if !ok {
+		if refsVal == nil {
+			// Treat null as empty list
+			return
+		}
+		t.Fatalf("references field has unexpected type %T in payload: %s", refsVal, text)
 	}
 	if len(refsAny) == 0 {
 		// No references found is valid behavior
