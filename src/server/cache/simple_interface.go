@@ -2,7 +2,6 @@ package cache
 
 import (
 	"context"
-	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
 )
@@ -42,58 +41,4 @@ type SimpleCache interface {
 	GetCachedDocumentSymbols(uri string) ([]types.SymbolInformation, bool)
 	GetCachedWorkspaceSymbols(query string) ([]types.SymbolInformation, bool)
 	StoreMethodResult(method string, params interface{}, response interface{}) error
-}
-
-// DirectCacheIntegration demonstrates the new simplified integration pattern
-// Use this as an example for integrating cache directly with LSP managers
-type DirectCacheIntegration struct {
-	cache   SimpleCache
-	enabled bool
-}
-
-// NewDirectCacheIntegration creates a direct cache integration (simplified pattern)
-func NewDirectCacheIntegration(cache SimpleCache) *DirectCacheIntegration {
-	return &DirectCacheIntegration{
-		cache:   cache,
-		enabled: cache != nil && cache.IsEnabled(),
-	}
-}
-
-// ProcessRequest demonstrates the optimal cache-first, LSP-fallback pattern
-func (d *DirectCacheIntegration) ProcessRequest(ctx context.Context, method string, params interface{}, lspFallback func() (interface{}, error)) (interface{}, error) {
-	// Optional cache check - graceful degradation if no cache
-	if d.enabled && d.isCacheableMethod(method) {
-		if result, found, err := d.cache.Lookup(method, params); err == nil && found {
-			common.LSPLogger.Debug("Direct cache hit for method=%s", method)
-			return result, nil
-		}
-	}
-
-	// LSP fallback
-	result, err := lspFallback()
-	if err != nil {
-		return nil, err
-	}
-
-	// Optional cache store - graceful degradation if no cache
-	if d.enabled && d.isCacheableMethod(method) {
-		if storeErr := d.cache.Store(method, params, result); storeErr != nil {
-			common.LSPLogger.Debug("Failed to cache result for method=%s: %v", method, storeErr)
-		}
-	}
-
-	return result, nil
-}
-
-// isCacheableMethod checks if a method should be cached
-func (d *DirectCacheIntegration) isCacheableMethod(method string) bool {
-	cacheableMethods := map[string]bool{
-		"textDocument/definition":     true,
-		"textDocument/references":     true,
-		"textDocument/hover":          true,
-		"textDocument/documentSymbol": true,
-		"workspace/symbol":            true,
-		"textDocument/completion":     true,
-	}
-	return cacheableMethods[method]
 }

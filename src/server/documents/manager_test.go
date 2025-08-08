@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -568,25 +567,6 @@ func TestClientNotificationFailure(t *testing.T) {
 	if err == nil {
 		t.Error("EnsureOpen() expected error when client notification fails")
 	}
-}
-
-// Mock reader/writer for testing I/O scenarios
-type mockReadCloser struct {
-	data []byte
-	pos  int
-}
-
-func (m *mockReadCloser) Read(p []byte) (n int, err error) {
-	if m.pos >= len(m.data) {
-		return 0, io.EOF
-	}
-	n = copy(p, m.data[m.pos:])
-	m.pos += n
-	return n, nil
-}
-
-func (m *mockReadCloser) Close() error {
-	return nil
 }
 
 func TestConcurrentDocumentOperations(t *testing.T) {

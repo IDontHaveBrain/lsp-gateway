@@ -73,7 +73,12 @@ func TestOptionalCacheIntegrationVerification(t *testing.T) {
 
 	t.Run("Simple cache creation and lifecycle", func(t *testing.T) {
 		// Test simple cache creation
-		simpleCache, err := cache.NewSimpleCache(128)
+		simpleCache, err := cache.NewSCIPCacheManager(&config.CacheConfig{
+			Enabled:     true,
+			MaxMemoryMB: 128,
+			TTLHours:    1,
+			StoragePath: t.TempDir(),
+		})
 		require.NoError(t, err, "Should create simple cache")
 		require.NotNil(t, simpleCache, "Simple cache should not be nil")
 
@@ -103,7 +108,12 @@ func TestOptionalCacheIntegrationVerification(t *testing.T) {
 		assert.Nil(t, cacheInstance, "Should have no cache initially")
 
 		// Inject cache
-		simpleCache, err := cache.NewSimpleCache(64)
+		simpleCache, err := cache.NewSCIPCacheManager(&config.CacheConfig{
+			Enabled:     true,
+			MaxMemoryMB: 64,
+			TTLHours:    1,
+			StoragePath: t.TempDir(),
+		})
 		require.NoError(t, err, "Should create simple cache for injection")
 
 		manager.SetCache(simpleCache)

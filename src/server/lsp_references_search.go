@@ -138,7 +138,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 		} else {
 			common.LSPLogger.Debug("SCIP cache returned no references for '%s', will try fallback", query.Pattern)
 		}
-		
+
 		// Always try to get a definition for potential LSP fallback
 		if len(references) == 0 || fallbackDefRef == nil {
 			if defs, derr := m.scipCache.SearchDefinitions(ctx, query.Pattern, query.FilePattern, 1); derr == nil && len(defs) > 0 {
@@ -769,26 +769,6 @@ func (m *LSPManager) createLegacyReferenceInfo(symbolInfo lsp.SymbolInformation)
 	return refInfo
 }
 
-// matchesSymbolName checks if a symbol name matches the query pattern
-func (m *LSPManager) matchesSymbolName(symbolName string, queryName string, exactMatch bool) bool {
-	if exactMatch {
-		return symbolName == queryName
-	}
-	return strings.Contains(strings.ToLower(symbolName), strings.ToLower(queryName))
-}
-
-// isDuplicateReference checks if a reference is already in the results
-func (m *LSPManager) isDuplicateReference(references []ReferenceInfo, newRef ReferenceInfo) bool {
-	for _, ref := range references {
-		if ref.FilePath == newRef.FilePath &&
-			ref.LineNumber == newRef.LineNumber &&
-			ref.Column == newRef.Column {
-			return true
-		}
-	}
-	return false
-}
-
 // compareReferenceRelevance compares two references for sorting by relevance
 func (m *LSPManager) compareReferenceRelevance(a, b ReferenceInfo) bool {
 	// Definitions get highest priority
@@ -830,16 +810,6 @@ func (m *LSPManager) compareReferenceRelevance(a, b ReferenceInfo) bool {
 	return a.LineNumber < b.LineNumber
 }
 
-// containsString checks if a string slice contains a specific string
-func (m *LSPManager) containsString(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
-}
-
 // readFileContent reads the content of a file
 func (m *LSPManager) readFileContent(filePath string) ([]byte, error) {
 	return os.ReadFile(filePath)
@@ -864,4 +834,3 @@ func (m *LSPManager) detectLanguageFromURI(uri string) string {
 		return "plaintext"
 	}
 }
-

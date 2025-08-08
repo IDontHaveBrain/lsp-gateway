@@ -1241,15 +1241,5 @@ func (s *SimpleSCIPStorage) GetAllDocuments() map[string]*SCIPDocument {
 	return docs
 }
 
-// containsString checks if a string slice contains a value
-func containsString(slice []string, value string) bool {
-	for _, item := range slice {
-		if item == value {
-			return true
-		}
-	}
-	return false
-}
-
 // Interface compliance verification
 var _ SCIPDocumentStorage = (*SimpleSCIPStorage)(nil)

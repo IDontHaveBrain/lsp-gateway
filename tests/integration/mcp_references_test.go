@@ -55,7 +55,13 @@ func main() {
 	defer os.Chdir(orig)
 
 	cfg := &config.Config{
-		Cache:   &config.CacheConfig{Enabled: true, MaxMemoryMB: 64, TTLHours: 1, BackgroundIndex: true},
+		Cache:   &config.CacheConfig{
+			Enabled: true, 
+			MaxMemoryMB: 64, 
+			TTLHours: 1, 
+			BackgroundIndex: true,
+			StoragePath: filepath.Join(tmpDir, "cache"),
+		},
 		Servers: map[string]*config.ServerConfig{"go": {Command: "gopls", Args: []string{"serve"}}},
 	}
 
@@ -99,7 +105,7 @@ func main() {
 	b, _ = json.Marshal(symCall)
 	pwIn.Write(append(b, '\n'))
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	refCall := mcpReq{JSONRPC: "2.0", ID: 3, Method: "tools/call", Params: map[string]interface{}{
 		"name": "findReferences",
@@ -150,8 +156,8 @@ Loop:
 	if !ok || len(refsAny) == 0 {
 		t.Fatalf("missing references in payload: %s", text)
 	}
-    foundLineOnly := false
-    verifiedTextOnly := false
+	foundLineOnly := false
+	verifiedTextOnly := false
 	for _, r := range refsAny {
 		m := r.(map[string]interface{})
 		loc := m["location"].(string)
@@ -164,17 +170,17 @@ Loop:
 		if regexp.MustCompile(`:(\d+)$`).MatchString(loc) {
 			foundLineOnly = true
 		}
-        if txt, ok := m["text"].(string); ok && txt != "" {
-            if _, exists := m["code"]; exists {
-                t.Fatalf("code field should not be present: %v", m)
-            }
-            verifiedTextOnly = true
-        }
+		if txt, ok := m["text"].(string); ok && txt != "" {
+			if _, exists := m["code"]; exists {
+				t.Fatalf("code field should not be present: %v", m)
+			}
+			verifiedTextOnly = true
+		}
 	}
 	if !foundLineOnly {
 		t.Fatalf("no location with file:line found in %s", text)
 	}
-    if !verifiedTextOnly {
-        t.Fatalf("text for the line not present in %s", text)
-    }
+	if !verifiedTextOnly {
+		t.Fatalf("text for the line not present in %s", text)
+	}
 }

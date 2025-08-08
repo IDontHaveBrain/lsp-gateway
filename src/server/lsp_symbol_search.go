@@ -1,18 +1,18 @@
 package server
 
 import (
-    "bufio"
-    "context"
-    "encoding/json"
-    "fmt"
-    "os"
-    "strings"
+	"bufio"
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
 
-    "lsp-gateway/src/internal/models/lsp"
-    "lsp-gateway/src/internal/types"
-    "lsp-gateway/src/utils"
-    "lsp-gateway/src/server/scip"
-    "lsp-gateway/src/utils/jsonutil"
+	"lsp-gateway/src/internal/models/lsp"
+	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/server/scip"
+	"lsp-gateway/src/utils"
+	"lsp-gateway/src/utils/jsonutil"
 )
 
 // EnhancedSymbolResult contains rich symbol information with occurrence data and role-based scoring
@@ -333,26 +333,26 @@ func (m *LSPManager) parseDocumentSymbolsToDocumentSymbol(result interface{}) []
 	switch v := result.(type) {
 	case []lsp.DocumentSymbol:
 		return v
-    case json.RawMessage:
-        if err := json.Unmarshal(v, &symbols); err == nil {
-            return symbols
-        }
-        var rawData []interface{}
-        if err := json.Unmarshal(v, &rawData); err == nil {
-            for _, item := range rawData {
-                if docSymbol, err := jsonutil.Convert[lsp.DocumentSymbol](item); err == nil && docSymbol.Name != "" {
-                    symbols = append(symbols, docSymbol)
-                    symbols = append(symbols, m.flattenDocumentSymbols(docSymbol.Children)...)
-                }
-            }
-        }
-    case []interface{}:
-        for _, item := range v {
-            if docSymbol, err := jsonutil.Convert[lsp.DocumentSymbol](item); err == nil && docSymbol.Name != "" {
-                symbols = append(symbols, docSymbol)
-                symbols = append(symbols, m.flattenDocumentSymbols(docSymbol.Children)...)
-            }
-        }
+	case json.RawMessage:
+		if err := json.Unmarshal(v, &symbols); err == nil {
+			return symbols
+		}
+		var rawData []interface{}
+		if err := json.Unmarshal(v, &rawData); err == nil {
+			for _, item := range rawData {
+				if docSymbol, err := jsonutil.Convert[lsp.DocumentSymbol](item); err == nil && docSymbol.Name != "" {
+					symbols = append(symbols, docSymbol)
+					symbols = append(symbols, m.flattenDocumentSymbols(docSymbol.Children)...)
+				}
+			}
+		}
+	case []interface{}:
+		for _, item := range v {
+			if docSymbol, err := jsonutil.Convert[lsp.DocumentSymbol](item); err == nil && docSymbol.Name != "" {
+				symbols = append(symbols, docSymbol)
+				symbols = append(symbols, m.flattenDocumentSymbols(docSymbol.Children)...)
+			}
+		}
 	}
 
 	return symbols
@@ -471,7 +471,7 @@ func (m *LSPManager) createEnrichedSymbolResult(ctx context.Context, scipStorage
 		Name: symbolInfo.DisplayName,
 		Kind: m.mapSCIPKindToLSP(symbolInfo.Kind),
 		Location: types.Location{
-			URI:   "",          // Need to determine URI from symbol context
+			URI:   "",            // Need to determine URI from symbol context
 			Range: types.Range{}, // Need to extract from occurrences
 		},
 	}
@@ -542,73 +542,6 @@ func (m *LSPManager) createEnrichedSymbolResult(ctx context.Context, scipStorage
 	return enrichedResult, nil
 }
 
-// createEnrichedResultFromOccurrence creates enriched result from SCIP occurrence
-func (m *LSPManager) createEnrichedResultFromOccurrence(ctx context.Context, scipStorage scip.SCIPDocumentStorage, occurrence scip.SCIPOccurrence, query types.SymbolPatternQuery) *EnhancedSymbolResult {
-	// Get symbol information for this occurrence
-	symbolInfo, err := scipStorage.GetSymbolInfo(ctx, occurrence.Symbol)
-	if err != nil {
-		return nil
-	}
-
-	// Create enriched result from occurrence and symbol info
-	lspSymbol := lsp.SymbolInformation{
-		Name: symbolInfo.DisplayName,
-		Kind: m.mapSCIPKindToLSP(symbolInfo.Kind),
-		Location: types.Location{
-			URI: "", // Need to determine from context
-			Range: types.Range{
-				Start: types.Position{
-					Line:      occurrence.Range.Start.Line,
-					Character: occurrence.Range.Start.Character,
-				},
-				End: types.Position{
-					Line:      occurrence.Range.End.Line,
-					Character: occurrence.Range.End.Character,
-				},
-			},
-		},
-	}
-
-	// Convert lsp.SymbolInformation to types.SymbolInformation
-	typesSymbol := types.SymbolInformation{
-		Name:           lspSymbol.Name,
-		Kind:           lspSymbol.Kind,
-		Tags:           lspSymbol.Tags,
-		Deprecated:     lspSymbol.Deprecated,
-		Location:       lspSymbol.Location,
-		ContainerName:  lspSymbol.ContainerName,
-		SelectionRange: lspSymbol.SelectionRange,
-	}
-
-	enrichedResult := &EnhancedSymbolResult{
-		SymbolInformation: typesSymbol,
-		SymbolID:          occurrence.Symbol,
-		OccurrenceRoles:   occurrence.SymbolRoles,
-		Documentation:     symbolInfo.Documentation,
-		Signature:         symbolInfo.SignatureDocumentation.Text,
-		Relationships:     symbolInfo.Relationships,
-		FilePath:          utils.URIToFilePath(lspSymbol.Location.URI),
-		LineNumber:        int(lspSymbol.Location.Range.Start.Line),
-		EndLine:           int(lspSymbol.Location.Range.End.Line),
-		IsDefinition:      occurrence.SymbolRoles.HasRole(types.SymbolRoleDefinition),
-		IsGenerated:       occurrence.SymbolRoles.HasRole(types.SymbolRoleGenerated),
-		IsTest:            occurrence.SymbolRoles.HasRole(types.SymbolRoleTest),
-	}
-
-	return enrichedResult
-}
-
-// isDuplicateEnrichedResult checks if enriched result is duplicate
-func (m *LSPManager) isDuplicateEnrichedResult(existing []EnhancedSymbolResult, new EnhancedSymbolResult) bool {
-	for _, result := range existing {
-		if result.SymbolID == new.SymbolID && result.FilePath == new.FilePath &&
-			result.LineNumber == new.LineNumber {
-			return true
-		}
-	}
-	return false
-}
-
 // convertToEnrichedResult converts LSP symbol to enriched result (for fallback cases)
 func (m *LSPManager) convertToEnrichedResult(symbol lsp.SymbolInformation, query types.SymbolPatternQuery) *EnhancedSymbolResult {
 	// Convert lsp.SymbolInformation to types.SymbolInformation
@@ -621,7 +554,7 @@ func (m *LSPManager) convertToEnrichedResult(symbol lsp.SymbolInformation, query
 		ContainerName:  symbol.ContainerName,
 		SelectionRange: symbol.SelectionRange,
 	}
-	
+
 	return &EnhancedSymbolResult{
 		SymbolInformation: typesSymbol,
 		SymbolID:          fmt.Sprintf("lsp:%s", symbol.Name), // Simple ID for LSP symbols

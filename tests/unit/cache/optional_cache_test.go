@@ -121,7 +121,12 @@ func TestSimpleCacheCreation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Test the new simplified cache creation
-			simpleCache, err := cache.NewSimpleCache(tt.memoryMB)
+			simpleCache, err := cache.NewSCIPCacheManager(&config.CacheConfig{
+				Enabled:     true,
+				MaxMemoryMB: tt.memoryMB,
+				TTLHours:    1,
+				StoragePath: t.TempDir(),
+			})
 
 			if tt.expectErr {
 				assert.Error(t, err)
@@ -181,10 +186,10 @@ func TestCacheOptionalMethods(t *testing.T) {
 
 // TestCacheIntegrationPattern tests cache integration
 func TestCacheIntegrationPattern(t *testing.T) {
-	// Create cache configuration  
+	// Create cache configuration
 	tempDir := t.TempDir()
 	cacheConfig := shared.CreateBasicCacheConfig(tempDir)
-	
+
 	// Start cache manager
 	cacheManager := shared.StartCacheManager(t, cacheConfig)
 	defer cacheManager.Stop()
@@ -209,7 +214,7 @@ func TestCacheIntegrationPattern(t *testing.T) {
 
 	// Second lookup should hit
 	result, found, err = cacheManager.Lookup(method, params)
-	assert.NoError(t, err) 
+	assert.NoError(t, err)
 	assert.True(t, found, "Cache should have stored result")
 	assert.NotNil(t, result)
 

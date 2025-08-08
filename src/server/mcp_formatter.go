@@ -192,37 +192,6 @@ func parseSymbolRole(roleStr string) types.SymbolRole {
 	}
 }
 
-// formatRoleFilter formats a role filter for metadata display
-func formatRoleFilter(roleFilter *types.SymbolRole) []string {
-	if roleFilter == nil {
-		return []string{}
-	}
-
-	var roles []string
-	if roleFilter.HasRole(types.SymbolRoleDefinition) {
-		roles = append(roles, "definition")
-	}
-	if roleFilter.HasRole(types.SymbolRoleImport) {
-		roles = append(roles, "import")
-	}
-	if roleFilter.HasRole(types.SymbolRoleWriteAccess) {
-		roles = append(roles, "write")
-	}
-	if roleFilter.HasRole(types.SymbolRoleReadAccess) {
-		roles = append(roles, "read")
-	}
-	if roleFilter.HasRole(types.SymbolRoleGenerated) {
-		roles = append(roles, "generated")
-	}
-	if roleFilter.HasRole(types.SymbolRoleTest) {
-		roles = append(roles, "test")
-	}
-	if roleFilter.HasRole(types.SymbolRoleForwardDefinition) {
-		roles = append(roles, "forward")
-	}
-	return roles
-}
-
 // formatEnhancedSymbolsForMCP formats symbols with enhanced metadata including occurrence roles
 func formatEnhancedSymbolsForMCP(symbols []types.EnhancedSymbolInfo, hasRoleFilter bool) []map[string]interface{} {
 	formatted := make([]map[string]interface{}, len(symbols))
@@ -259,35 +228,22 @@ func formatEnhancedSymbolsForMCP(symbols []types.EnhancedSymbolInfo, hasRoleFilt
 func formatEnhancedReferencesForMCP(references []ReferenceInfo) []map[string]interface{} {
 	formatted := make([]map[string]interface{}, len(references))
 
-    for i, ref := range references {
-        result := map[string]interface{}{
-            "location": fmt.Sprintf("%s:%d", ref.FilePath, ref.LineNumber),
-        }
-
-        lineText, _ := extractCodeLines(ref.FilePath, ref.LineNumber+1, ref.LineNumber+1)
-        if lineText != "" {
-            result["text"] = lineText
-        } else if ref.Text != "" {
-            result["text"] = ref.Text
-        }
-        if ref.Context != "" {
-            result["context"] = ref.Context
-        }
-
-        formatted[i] = result
-    }
-
-	return formatted
-}
-
-// formatSimpleReferencesForMCP formats references with only location information
-func formatSimpleReferencesForMCP(references []ReferenceInfo) []map[string]interface{} {
-	formatted := make([]map[string]interface{}, len(references))
-
 	for i, ref := range references {
-		formatted[i] = map[string]interface{}{
+		result := map[string]interface{}{
 			"location": fmt.Sprintf("%s:%d", ref.FilePath, ref.LineNumber),
 		}
+
+		lineText, _ := extractCodeLines(ref.FilePath, ref.LineNumber+1, ref.LineNumber+1)
+		if lineText != "" {
+			result["text"] = lineText
+		} else if ref.Text != "" {
+			result["text"] = ref.Text
+		}
+		if ref.Context != "" {
+			result["context"] = ref.Context
+		}
+
+		formatted[i] = result
 	}
 
 	return formatted

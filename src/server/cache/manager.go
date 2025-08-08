@@ -68,8 +68,8 @@ type SCIPSymbol struct {
 	Documentation       string                 `json:"documentation,omitempty"`        // Documentation from hover
 	Signature           string                 `json:"signature,omitempty"`            // Signature from hover
 	RelatedSymbols      []string               `json:"related_symbols,omitempty"`      // Related symbol names
-	DefinitionLocations []types.Location         `json:"definition_locations,omitempty"` // Definition locations for this symbol
-	ReferenceLocations  []types.Location         `json:"reference_locations,omitempty"`  // Reference locations for this symbol
+	DefinitionLocations []types.Location       `json:"definition_locations,omitempty"` // Definition locations for this symbol
+	ReferenceLocations  []types.Location       `json:"reference_locations,omitempty"`  // Reference locations for this symbol
 	UsageCount          int                    `json:"usage_count,omitempty"`          // Number of references to this symbol
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`             // Additional SCIP metadata
 }
@@ -229,25 +229,6 @@ func NewSCIPCacheManager(configParam *config.CacheConfig) (*SCIPCacheManager, er
 	}
 
 	return manager, nil
-}
-
-// NewSimpleCache creates a cache manager with basic MB-based configuration
-func NewSimpleCache(maxMemoryMB int) (*SCIPCacheManager, error) {
-	if maxMemoryMB <= 0 {
-		maxMemoryMB = 256
-	}
-
-	config := &config.CacheConfig{
-		Enabled:            true,
-		MaxMemoryMB:        maxMemoryMB,
-		TTLHours:           24,
-		EvictionPolicy:     "simple",
-		BackgroundIndex:    false,
-		HealthCheckMinutes: 5,
-		DiskCache:          false,
-	}
-
-	return NewSCIPCacheManager(config)
 }
 
 // Start begins cache operations
@@ -1452,7 +1433,7 @@ func (m *SCIPCacheManager) SearchReferences(ctx context.Context, symbolName stri
 
 	// First, try to find symbols by exact or partial name match
 	var matchedSymbols []scip.SCIPSymbolInformation
-	
+
 	// Try exact match first
 	if symbols, found := m.scipStorage.(*scip.SimpleSCIPStorage); found {
 		symbolInfos, _ := symbols.SearchSymbols(ctx, symbolName, maxResults)
@@ -1482,14 +1463,14 @@ func (m *SCIPCacheManager) SearchReferences(ctx context.Context, symbolName stri
 					occInfo := m.buildOccurrenceInfo(&occ, docURI)
 					allReferences = append(allReferences, occInfo)
 					fileSet[docURI] = true
-					
+
 					if len(allReferences) >= maxResults {
 						return allReferences, nil
 					}
 				}
 			}
 		}
-		
+
 		// Also check occurrences by symbol for more complete results
 		if occurrences, found := m.scipStorage.(*scip.SimpleSCIPStorage); found {
 			if occs, err := occurrences.GetOccurrences(ctx, symbolInfo.Symbol); err == nil {
@@ -1501,7 +1482,7 @@ func (m *SCIPCacheManager) SearchReferences(ctx context.Context, symbolName stri
 							occInfo := m.buildOccurrenceInfo(&occ, docURI)
 							allReferences = append(allReferences, occInfo)
 							fileSet[docURI] = true
-							
+
 							if len(allReferences) >= maxResults {
 								return allReferences, nil
 							}

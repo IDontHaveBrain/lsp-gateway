@@ -102,7 +102,14 @@ func CreateAndStartSimpleCache(t *testing.T, memoryMB int) cache.SCIPCache {
 		memoryMB = 64
 	}
 
-	simpleCache, err := cache.NewSimpleCache(memoryMB)
+	cfg := &config.CacheConfig{
+		Enabled:     true,
+		MaxMemoryMB: memoryMB,
+		TTLHours:    1,
+		StoragePath: t.TempDir(),
+	}
+
+	simpleCache, err := cache.NewSCIPCacheManager(cfg)
 	require.NoError(t, err)
 	require.NotNil(t, simpleCache)
 

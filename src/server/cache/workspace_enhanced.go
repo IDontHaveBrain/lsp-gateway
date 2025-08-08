@@ -59,7 +59,7 @@ func (w *WorkspaceIndexer) IndexWorkspaceFilesWithReferences(ctx context.Context
 
 	common.LSPLogger.Info("Indexing complete: %d symbols, %d references", len(symbols), totalReferences)
 
-	return scipCache.SaveIndexToDisk()
+	return nil
 }
 
 func (w *WorkspaceIndexer) collectUniqueDefinitions(documents map[string]*scip.SCIPDocument) []indexedSymbol {
@@ -139,7 +139,7 @@ func (w *WorkspaceIndexer) processReferenceBatch(ctx context.Context, symbols []
 				"text":       string(content),
 			},
 		}
-		
+
 		_, openErr := w.lspFallback.ProcessRequest(ctx, "textDocument/didOpen", openParams)
 		if openErr != nil {
 			// If the language server doesn't support didOpen, skip this file's references
@@ -213,46 +213,6 @@ func (w *WorkspaceIndexer) getReferencesForSymbolInOpenFile(ctx context.Context,
 	}
 
 	return w.parseLocationResponse(result)
-}
-
-// getReferencesForSymbol opens a file and gets references for a symbol
-// This is kept for compatibility but processReferenceBatch is more efficient
-func (w *WorkspaceIndexer) getReferencesForSymbol(ctx context.Context, symbol indexedSymbol) ([]types.Location, error) {
-	// Read file content to open it in LSP server
-	filePath := utils.URIToFilePath(symbol.uri)
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		// Skip files that can't be read
-		return []types.Location{}, nil
-	}
-
-	// Open the document in LSP server
-	openParams := map[string]interface{}{
-		"textDocument": map[string]interface{}{
-			"uri":        symbol.uri,
-			"languageId": w.detectLanguageFromURI(symbol.uri),
-			"version":    1,
-			"text":       string(content),
-		},
-	}
-	
-	_, openErr := w.lspFallback.ProcessRequest(ctx, "textDocument/didOpen", openParams)
-	if openErr != nil {
-		// Some LSP servers don't require didOpen, try anyway
-		common.LSPLogger.Debug("Failed to open document %s: %v", symbol.uri, openErr)
-	}
-	
-	// Ensure we close the document when done
-	defer func() {
-		closeParams := map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri": symbol.uri,
-			},
-		}
-		_, _ = w.lspFallback.ProcessRequest(ctx, "textDocument/didClose", closeParams)
-	}()
-
-	return w.getReferencesForSymbolInOpenFile(ctx, symbol)
 }
 
 func (w *WorkspaceIndexer) parseLocationResponse(result interface{}) ([]types.Location, error) {

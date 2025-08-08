@@ -258,11 +258,6 @@ func NewMethodNotFoundError(data interface{}) *RPCError {
 	return NewRPCError(MethodNotFound, "Method not found", data)
 }
 
-// NewInvalidParamsError creates an invalid params error (-32602)
-func NewInvalidParamsError(data interface{}) *RPCError {
-	return NewRPCError(InvalidParams, "Invalid params", data)
-}
-
 // NewInternalError creates an internal error (-32603)
 func NewInternalError(data interface{}) *RPCError {
 	return NewRPCError(InternalError, "Internal error", data)
