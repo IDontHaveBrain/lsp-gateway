@@ -23,7 +23,7 @@ func TestFilePathToURI(t *testing.T) {
 		{
 			name:     "Unix path with spaces",
 			path:     "/home/user name/my file.go",
-			expected: "file:///home/user name/my file.go",
+			expected: "file:///home/user%20name/my%20file.go",
 			os:       "linux",
 		},
 		{
@@ -35,7 +35,7 @@ func TestFilePathToURI(t *testing.T) {
 		{
 			name:     "Windows path with spaces",
 			path:     `C:\Program Files\app\file.go`,
-			expected: "file:///C:/Program Files/app/file.go",
+			expected: "file:///C:/Program%20Files/app/file.go",
 			os:       "windows",
 		},
 	}
@@ -66,7 +66,7 @@ func TestURIToFilePath(t *testing.T) {
 		},
 		{
 			name:     "Unix file URI with spaces",
-			uri:      "file:///home/user name/my file.go",
+			uri:      "file:///home/user%20name/my%20file.go",
 			expected: "/home/user name/my file.go",
 			os:       "linux",
 		},
@@ -78,7 +78,7 @@ func TestURIToFilePath(t *testing.T) {
 		},
 		{
 			name:     "Windows file URI with spaces",
-			uri:      "file:///C:/Program Files/app/file.go",
+			uri:      "file:///C:/Program%20Files/app/file.go",
 			expected: `C:\Program Files\app\file.go`,
 			os:       "windows",
 		},
