@@ -14,6 +14,7 @@ import (
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/documents"
 	"lsp-gateway/src/utils"
+	"lsp-gateway/tests/shared"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,6 +25,8 @@ func TestCrossLanguageDocumentCoordination(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}
+
+	shared.CheckLSPAvailability(t, "go", "python", "typescript", "javascript", "java")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
