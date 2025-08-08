@@ -59,10 +59,10 @@ func (m *SCIPCacheManager) LoadIndexFromDisk() error {
 
 	// Update index stats from SCIP storage
 	m.indexStats.Status = "loaded"
-	if stats, err := m.scipStorage.GetStats(ctx); err == nil {
-		m.indexStats.SymbolCount = stats.TotalSymbols
-		m.indexStats.DocumentCount = int64(stats.CachedDocuments)
-	}
+	stats := m.scipStorage.GetIndexStats()
+	m.indexStats.SymbolCount = stats.TotalSymbols
+	m.indexStats.DocumentCount = int64(stats.TotalDocuments)
+	m.indexStats.ReferenceCount = stats.TotalOccurrences // Use occurrences as reference count
 
 	return nil
 }
@@ -80,16 +80,38 @@ func (m *SCIPCacheManager) PerformWorkspaceIndexing(ctx context.Context, working
 		detectedLanguages = []string{}
 	}
 
-	// Create workspace indexer with LSP fallback
-	indexer := NewWorkspaceIndexer(lspFallback)
-
 	// Use unlimited maxFiles for comprehensive HTTP gateway indexing
 	const maxFiles = 100000
 
-	// Index workspace files using the new WorkspaceIndexer
-	err = indexer.IndexWorkspaceFiles(ctx, workingDir, detectedLanguages, maxFiles)
+	// Perform full indexing with references
+	return m.PerformFullIndexing(ctx, workingDir, detectedLanguages, maxFiles, lspFallback)
+}
+
+// PerformFullIndexing performs both basic and enhanced reference indexing
+// This is the common indexing logic used by both CLI and MCP server
+func (m *SCIPCacheManager) PerformFullIndexing(ctx context.Context, workingDir string, languages []string, maxFiles int, lspFallback LSPFallback) error {
+	if !m.enabled {
+		return nil
+	}
+
+	// Create workspace indexer with LSP fallback
+	indexer := NewWorkspaceIndexer(lspFallback)
+
+	// Step 1: Basic symbol indexing
+	common.LSPLogger.Debug("Starting basic symbol indexing")
+	err := indexer.IndexWorkspaceFiles(ctx, workingDir, languages, maxFiles)
 	if err != nil {
 		return fmt.Errorf("workspace indexing failed: %w", err)
+	}
+
+	// Step 2: Enhanced reference indexing
+	common.LSPLogger.Debug("Starting enhanced reference indexing")
+	err = indexer.IndexWorkspaceFilesWithReferences(ctx, workingDir, languages, maxFiles, m)
+	if err != nil {
+		common.LSPLogger.Error("Enhanced reference indexing failed: %v", err)
+		// Don't fail completely, basic indexing is still useful
+	} else {
+		common.LSPLogger.Debug("Enhanced reference indexing complete")
 	}
 
 	// Save the index to disk if disk cache is enabled

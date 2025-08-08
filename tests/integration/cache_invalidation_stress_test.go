@@ -99,7 +99,7 @@ func (s *Struct%d) Method%d() string {
 		// Reduce expectations for CI environments where resources are limited
 		isCI := os.Getenv("CI") != ""
 		isWindows := runtime.GOOS == "windows"
-		
+
 		// Adjust concurrency and expectations based on environment
 		numReaders := 20
 		expectedRequests := int32(100)
@@ -115,7 +115,7 @@ func (s *Struct%d) Method%d() string {
 			expectedRequests = int32(50)
 			t.Logf("Running in CI environment - using reduced expectations")
 		}
-		
+
 		var wg sync.WaitGroup
 		var requestCount atomic.Int32
 		var invalidations atomic.Int32

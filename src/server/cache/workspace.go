@@ -77,6 +77,30 @@ func (w *WorkspaceIndexer) IndexWorkspaceFiles(ctx context.Context, workspaceDir
 		uri := "file://" + absPath
 		common.LSPLogger.Debug("Workspace indexer: Calling ProcessRequest for URI: %s", uri)
 
+		// First open the document
+		fileContent, readErr := os.ReadFile(absPath)
+		if readErr != nil {
+			common.LSPLogger.Debug("Failed to read file %s: %v", file, readErr)
+			failedFiles = append(failedFiles, file)
+			continue
+		}
+
+		// Open document first
+		openParams := map[string]interface{}{
+			"textDocument": map[string]interface{}{
+				"uri":        uri,
+				"languageId": detectLanguageID(file),
+				"version":    1,
+				"text":       string(fileContent),
+			},
+		}
+
+		_, openErr := w.lspFallback.ProcessRequest(ctx, types.MethodTextDocumentDidOpen, openParams)
+		if openErr != nil {
+			common.LSPLogger.Debug("Failed to open document %s: %v", file, openErr)
+			// Continue anyway, some LSP servers don't require didOpen
+		}
+
 		// Get document symbols for this file
 		params := map[string]interface{}{
 			"textDocument": map[string]interface{}{
@@ -85,6 +109,14 @@ func (w *WorkspaceIndexer) IndexWorkspaceFiles(ctx context.Context, workspaceDir
 		}
 
 		result, err := w.lspFallback.ProcessRequest(ctx, types.MethodTextDocumentDocumentSymbol, params)
+
+		// Close the document after processing
+		closeParams := map[string]interface{}{
+			"textDocument": map[string]interface{}{
+				"uri": uri,
+			},
+		}
+		w.lspFallback.ProcessRequest(ctx, "textDocument/didClose", closeParams)
 		if err != nil {
 			common.LSPLogger.Debug("Failed to get document symbols for %s: %v", file, err)
 			failedFiles = append(failedFiles, file)
@@ -114,6 +146,25 @@ func (w *WorkspaceIndexer) IndexWorkspaceFiles(ctx context.Context, workspaceDir
 
 	common.LSPLogger.Debug("Workspace indexer: Completed processing. Indexed %d files, %d failed", indexedCount, len(failedFiles))
 	return nil
+}
+
+// detectLanguageID detects the language ID from file extension
+func detectLanguageID(filePath string) string {
+	ext := filepath.Ext(filePath)
+	switch ext {
+	case ".go":
+		return "go"
+	case ".py":
+		return "python"
+	case ".js", ".jsx", ".mjs":
+		return "javascript"
+	case ".ts", ".tsx":
+		return "typescript"
+	case ".java":
+		return "java"
+	default:
+		return "plaintext"
+	}
 }
 
 // GetLanguageExtensions returns file extensions for the specified languages

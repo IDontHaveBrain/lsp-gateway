@@ -8,8 +8,8 @@ Dual-protocol Language Server Protocol gateway for local development.
 # Requirements: Go 1.24+, Node.js 18+
 git clone https://github.com/IDontHaveBrain/lsp-gateway
 cd lsp-gateway
-make local                    # Build + npm link globally
-lsp-gateway install all       # Install language servers
+make local                   # Build + npm link globally
+lsp-gateway install all      # Install language servers
 lsp-gateway server           # Start HTTP Gateway on :8080
 ```
 
@@ -19,13 +19,14 @@ lsp-gateway server           # Start HTTP Gateway on :8080
 - **Dual Protocol**: HTTP Gateway (port 8080) + MCP Server (STDIO)
 - **Auto-detection**: Scans for go.mod, package.json, *.py, pom.xml
 - **SCIP Cache**: 512MB LRU cache, sub-millisecond lookups
+- **LSP Methods**: definition, references, hover, documentSymbol, workspace/symbol, completion
 
 ## Commands
 
 ```bash
 # Servers
 lsp-gateway server          # HTTP Gateway at localhost:8080/jsonrpc
-lsp-gateway mcp             # MCP Server for AI assistants
+lsp-gateway mcp             # MCP Server for AI assistants (2 enhanced tools)
 lsp-gateway status          # Check LSP server availability
 lsp-gateway test            # Test connections
 
@@ -47,7 +48,8 @@ curl -X POST localhost:8080/jsonrpc \
   -d '{"jsonrpc":"2.0","id":1,"method":"workspace/symbol","params":{"query":"main"}}'
 ```
 
-### MCP Configuration
+### MCP Server
+Configure in your AI assistant:
 ```json
 {
   "mcpServers": {
@@ -58,20 +60,20 @@ curl -X POST localhost:8080/jsonrpc \
   }
 }
 ```
+**MCP Tools**: `findSymbols`, `findReferences` - Enhanced SCIP-based symbol search with regex patterns and role filtering.
 
 ## Development
 
 ```bash
 make local                  # Build + npm link
-make quality               # Format + vet
-make quality-full          # Format + vet + lint + security
+make quality                # Format + vet
+make quality-full           # Format + vet + lint + security
 
-# Testing - Automatically discovers and runs all tests
-make test                  # Run ALL tests (unit + integration + e2e)
-make test-fast             # Quick tests only (unit + integration)
-make test-unit             # Unit tests only
-make test-integration      # Integration tests only
-make test-e2e              # E2E tests only (uses real GitHub repos)
+# Testing
+make test                   # Run ALL tests (unit + integration + e2e)
+make test-fast              # Quick tests only (unit + integration)
+go test -v ./tests/unit/... # Unit tests only
+go test -v ./tests/e2e/...  # E2E tests only (30min, uses real GitHub repos)
 ```
 
 ## Configuration
@@ -82,7 +84,7 @@ Auto-detects projects. Optional config at `~/.lsp-gateway/config.yaml`:
 cache:
   enabled: true
   max_memory_mb: 512
-  ttl_hours: 24
+  ttl_hours: 24         # MCP overrides to 1hr
 servers:
   go:
     command: "gopls"

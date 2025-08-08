@@ -82,21 +82,24 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 					}
 				}
 
-				// Also search occurrences directly for pattern matching
-				occurrences, err := scipStorage.SearchOccurrences(ctx, query.Pattern, query.MaxResults)
-				if err == nil && len(occurrences) > 0 {
+				// SearchOccurrences not available in simplified interface
+				// TODO: Could be enhanced by getting symbols and then their occurrences
+				/*
+					occurrences, err := scipStorage.SearchOccurrences(ctx, query.Pattern, query.MaxResults)
+					if err == nil && len(occurrences) > 0 {
 
-					// Process occurrences to extract symbols with role-based scoring
-					for _, occurrence := range occurrences {
-						if enrichedResult := m.createEnrichedResultFromOccurrence(ctx, scipStorage, occurrence, query); enrichedResult != nil {
-							// Check for duplicates based on symbol ID and URI
-							if !m.isDuplicateEnrichedResult(enrichedSymbols, *enrichedResult) {
-								enrichedSymbols = append(enrichedSymbols, *enrichedResult)
-								usedOccurrenceSearch = true
+						// Process occurrences to extract symbols with role-based scoring
+						for _, occurrence := range occurrences {
+							if enrichedResult := m.createEnrichedResultFromOccurrence(ctx, scipStorage, occurrence, query); enrichedResult != nil {
+								// Check for duplicates based on symbol ID and URI
+								if !m.isDuplicateEnrichedResult(enrichedSymbols, *enrichedResult) {
+									enrichedSymbols = append(enrichedSymbols, *enrichedResult)
+									usedOccurrenceSearch = true
+								}
 							}
 						}
 					}
-				}
+				*/
 			}
 		}
 	}
@@ -120,26 +123,28 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 			lspQuery = strings.TrimPrefix(lspQuery, "(?i)")
 		}
 
+		// Handle anchored exact-match patterns like ^Foo$
+		if strings.HasPrefix(lspQuery, "^") && strings.HasSuffix(lspQuery, "$") {
+			inner := strings.TrimSuffix(strings.TrimPrefix(lspQuery, "^"), "$")
+			if strings.IndexAny(inner, ".*?[]()+|^$\\") == -1 {
+				lspQuery = inner
+			}
+		}
+
 		// For regex patterns, try to extract a usable part for the LSP query
 		// LSP servers typically do fuzzy/substring matching, not regex
-		if strings.Contains(lspQuery, "*") || strings.Contains(lspQuery, "?") || strings.Contains(lspQuery, "[") || strings.Contains(lspQuery, ".") {
-			// Try to extract a literal prefix before any regex metacharacters
-			// For patterns like "New.*" extract "New"
+		if strings.IndexAny(lspQuery, ".*?[]()+|^$\\") != -1 {
 			prefixEnd := strings.IndexAny(lspQuery, ".*?[]()+|^$\\")
 			if prefixEnd > 0 {
 				lspQuery = lspQuery[:prefixEnd]
 			} else if prefixEnd == 0 {
-				// Pattern starts with metacharacter (like ".*Manager")
-				// Try to extract a suffix after the metacharacters
 				if strings.HasPrefix(lspQuery, ".*") {
 					lspQuery = strings.TrimPrefix(lspQuery, ".*")
-					// Remove any remaining regex chars from the suffix
 					if idx := strings.IndexAny(lspQuery, ".*?[]()+|^$\\"); idx > 0 {
 						lspQuery = lspQuery[:idx]
 					}
 				} else {
-					// Can't extract a useful query, use a common letter
-					lspQuery = "e" // Common letter to get many symbols
+					lspQuery = strings.Trim(lspQuery, "^$")
 				}
 			}
 		}
@@ -327,6 +332,26 @@ func (m *LSPManager) parseDocumentSymbolsToDocumentSymbol(result interface{}) []
 	switch v := result.(type) {
 	case []lsp.DocumentSymbol:
 		return v
+	case json.RawMessage:
+		// Handle json.RawMessage type (common in LSP responses)
+		// First try to unmarshal directly as []lsp.DocumentSymbol
+		if err := json.Unmarshal(v, &symbols); err == nil {
+			return symbols
+		}
+		// If that fails, try as []interface{} and parse each item
+		var rawData []interface{}
+		if err := json.Unmarshal(v, &rawData); err == nil {
+			for _, item := range rawData {
+				if data, err := json.Marshal(item); err == nil {
+					var docSymbol lsp.DocumentSymbol
+					if err := json.Unmarshal(data, &docSymbol); err == nil && docSymbol.Name != "" {
+						symbols = append(symbols, docSymbol)
+						// Add children recursively
+						symbols = append(symbols, m.flattenDocumentSymbols(docSymbol.Children)...)
+					}
+				}
+			}
+		}
 	case []interface{}:
 		for _, item := range v {
 			if data, err := json.Marshal(item); err == nil {
@@ -442,10 +467,7 @@ func (m *LSPManager) getScipStorage() scip.SCIPDocumentStorage {
 	if m.scipCache == nil {
 		return nil
 	}
-
-	// For now, return nil and handle gracefully - need proper accessor method
-	// TODO: Add proper accessor method to SCIPCacheManager or use direct interface
-	return nil
+	return m.scipCache.GetSCIPStorage()
 }
 
 // createEnrichedSymbolResult creates enriched result from SCIP symbol information
@@ -465,7 +487,7 @@ func (m *LSPManager) createEnrichedSymbolResult(ctx context.Context, scipStorage
 	}
 
 	// Get occurrences for this symbol to extract location information
-	occurrences, err := scipStorage.GetOccurrencesBySymbol(ctx, symbolInfo.Symbol)
+	occurrences, err := scipStorage.GetOccurrences(ctx, symbolInfo.Symbol)
 	if err == nil && len(occurrences) > 0 {
 		// Use the first occurrence for location (definition preferred)
 		firstOcc := occurrences[0]
@@ -522,7 +544,7 @@ func (m *LSPManager) createEnrichedSymbolResult(ctx context.Context, scipStorage
 // createEnrichedResultFromOccurrence creates enriched result from SCIP occurrence
 func (m *LSPManager) createEnrichedResultFromOccurrence(ctx context.Context, scipStorage scip.SCIPDocumentStorage, occurrence scip.SCIPOccurrence, query types.SymbolPatternQuery) *EnhancedSymbolResult {
 	// Get symbol information for this occurrence
-	symbolInfo, err := scipStorage.GetSymbolInformation(ctx, occurrence.Symbol)
+	symbolInfo, err := scipStorage.GetSymbolInfo(ctx, occurrence.Symbol)
 	if err != nil {
 		return nil
 	}

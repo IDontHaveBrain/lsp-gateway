@@ -71,20 +71,20 @@ func (m *MCPServer) performWorkspaceIndexing(ctx context.Context) {
 	}
 
 	// Delegate to cache module's workspace indexing with MCP-specific limits
-	if _, ok := m.scipCache.(*cache.SCIPCacheManager); ok {
-		// Create a limited workspace indexer for MCP mode
-		indexer := cache.NewWorkspaceIndexer(m.lspManager)
-
+	if cacheManager, ok := m.scipCache.(*cache.SCIPCacheManager); ok {
 		// Get configured languages for extension mapping
 		configuredLangs := []string{}
 		for lang := range m.lspManager.GetConfiguredServers() {
 			configuredLangs = append(configuredLangs, lang)
 		}
 
-		// Use MCP-specific file limit for initial indexing
-		err := indexer.IndexWorkspaceFiles(ctx, workspaceDir, configuredLangs, constants.MCPMaxIndexFiles)
+		// Use the common full indexing method (basic + enhanced references)
+		common.LSPLogger.Debug("MCP server: Starting full workspace indexing")
+		err := cacheManager.PerformFullIndexing(ctx, workspaceDir, configuredLangs, constants.MCPMaxIndexFiles, m.lspManager)
 		if err != nil {
-			common.LSPLogger.Error("MCP server: Workspace indexing failed: %v", err)
+			common.LSPLogger.Error("MCP server: Full workspace indexing failed: %v", err)
+		} else {
+			common.LSPLogger.Debug("MCP server: Full workspace indexing complete")
 		}
 	} else {
 		common.LSPLogger.Warn("MCP server: Cache not available for workspace indexing")

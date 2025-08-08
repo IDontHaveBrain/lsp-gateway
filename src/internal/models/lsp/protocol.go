@@ -52,12 +52,13 @@ const (
 )
 
 type SymbolInformation struct {
-	Name          string     `json:"name"`
-	Kind          SymbolKind `json:"kind"`
-	Tags          []int      `json:"tags,omitempty"`
-	Deprecated    bool       `json:"deprecated,omitempty"`
-	Location      Location   `json:"location"`
-	ContainerName string     `json:"containerName,omitempty"`
+	Name           string     `json:"name"`
+	Kind           SymbolKind `json:"kind"`
+	Tags           []int      `json:"tags,omitempty"`
+	Deprecated     bool       `json:"deprecated,omitempty"`
+	Location       Location   `json:"location"`
+	ContainerName  string     `json:"containerName,omitempty"`
+	SelectionRange *Range     `json:"-"` // Not part of LSP spec, used internally for DocumentSymbol conversion
 }
 
 type DocumentSymbol struct {

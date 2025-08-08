@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
@@ -61,16 +62,42 @@ func NewMCPServer(cfg *config.Config) (*MCPServer, error) {
 
 // Start starts the MCP server with cache warming for optimal LLM performance
 func (m *MCPServer) Start() error {
+	common.LSPLogger.Info("[MCPServer.Start] Starting MCP server, scipCache=%v", m.scipCache != nil)
+
 	// Start LSP manager (which handles SCIP cache startup internally)
 	if err := m.lspManager.Start(m.ctx); err != nil {
 		return fmt.Errorf("failed to start LSP manager: %w", err)
 	}
 
-	// Log cache status after LSP manager has started
+	// Check cache status and perform indexing if needed
 	if m.scipCache != nil {
+		// Check immediately if cache has data (it loads synchronously in Start())
+		stats := m.scipCache.GetIndexStats()
+		common.LSPLogger.Debug("MCP server: Initial cache stats - symbols=%d, refs=%d, docs=%d",
+			stats.SymbolCount, stats.ReferenceCount, stats.DocumentCount)
+		if stats != nil && (stats.SymbolCount > 0 || stats.ReferenceCount > 0 || stats.DocumentCount > 0) {
+			common.LSPLogger.Info("MCP server: Using existing cache with %d symbols, %d references, %d documents",
+				stats.SymbolCount, stats.ReferenceCount, stats.DocumentCount)
+			// Don't perform any indexing - use existing cache
+		} else {
+			// Only perform initial indexing if cache is truly empty
+			// Wait for LSP servers to be ready before indexing
+			go func() {
+				// Wait for LSP servers to fully initialize
+				time.Sleep(3 * time.Second)
 
-		// Perform initial workspace symbol indexing (delegated to indexer)
-		go m.performInitialIndexing()
+				// Double-check that cache is still empty (in case something else indexed it)
+				recheckStats := m.scipCache.GetIndexStats()
+				if recheckStats != nil && (recheckStats.SymbolCount > 0 || recheckStats.ReferenceCount > 0 || recheckStats.DocumentCount > 0) {
+					common.LSPLogger.Info("MCP server: Cache was populated while waiting (symbols=%d, refs=%d, docs=%d), skipping indexing",
+						recheckStats.SymbolCount, recheckStats.ReferenceCount, recheckStats.DocumentCount)
+					return
+				}
+
+				common.LSPLogger.Info("MCP server: Cache is empty, performing initial indexing")
+				m.performInitialIndexing()
+			}()
+		}
 	} else {
 		common.LSPLogger.Warn("MCP server: Starting without SCIP cache (cache unavailable)")
 	}
@@ -325,6 +352,14 @@ func RunMCPServer(configPath string) error {
 					languages = append(languages, lang)
 				}
 			}
+		}
+	}
+
+	// Ensure cache path is project-specific so MCP shares the same cache as CLI
+	if cfg != nil && cfg.Cache != nil {
+		if wd, err := os.Getwd(); err == nil {
+			projectPath := config.GetProjectSpecificCachePath(wd)
+			cfg.SetCacheStoragePath(projectPath)
 		}
 	}
 

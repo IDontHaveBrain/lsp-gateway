@@ -22,9 +22,6 @@ lsp-gateway status           # Check LSP server availability
 make quality                  # Format + vet
 make quality-full            # Format + vet + lint + security  
 go test -v ./tests/unit/...  # Unit tests
-
-# Debug mode
-export LSP_GATEWAY_DEBUG=true
 ```
 
 ## Project Overview
@@ -37,7 +34,7 @@ LSP Gateway provides dual-protocol access to Language Server Protocol servers:
 
 **Languages**: Go, Python, JavaScript, TypeScript, Java (5 total)
 **LSP Methods**: definition, references, hover, documentSymbol, workspace/symbol, completion (6 total)
-**MCP Tools**: findSymbols, findReferences, findDefinitions, getSymbolInfo (4 total)
+**MCP Tools**: findSymbols, findReferences (2 enhanced tools)
 
 ## Build & Development
 
@@ -82,7 +79,7 @@ src/
 │   ├── lsp_manager.go       # LSP orchestration with optional SCIP cache
 │   ├── gateway.go           # HTTP JSON-RPC gateway
 │   ├── mcp_server.go        # MCP server (enhanced mode)
-│   ├── mcp_tools.go         # 4 MCP tool handlers
+│   ├── mcp_tools.go         # 2 MCP tool handlers (findSymbols, findReferences)
 │   ├── cache/               # SCIP cache system
 │   ├── process/             # LSP server lifecycle
 │   └── protocol/            # JSON-RPC handling
@@ -185,7 +182,7 @@ curl -X POST localhost:8080/jsonrpc \
 
 - **5 languages**: Go, Python, JavaScript, TypeScript, Java
 - **6 LSP methods**: definition, references, hover, documentSymbol, workspace/symbol, completion
-- **4 MCP tools**: findSymbols, findReferences, findDefinitions, getSymbolInfo
+- **2 MCP tools**: findSymbols, findReferences (enhanced SCIP-based tools)
 - **Local only**: No enterprise features (auth, monitoring, distributed)
 - **Untyped JSON-RPC**: Uses `interface{}` for params/results
 

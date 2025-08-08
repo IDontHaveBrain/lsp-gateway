@@ -223,6 +223,7 @@ func ShowCacheInfo(configPath string) error {
 		common.CLILogger.Info("📑 Index Statistics:")
 		common.CLILogger.Info("  • Indexed Documents: %d", indexStats.DocumentCount)
 		common.CLILogger.Info("  • Indexed Symbols: %d", indexStats.SymbolCount)
+		common.CLILogger.Info("  • Indexed References: %d", indexStats.ReferenceCount)
 
 		if indexStats.IndexSize > 0 {
 			common.CLILogger.Info("  • Index Size: %s", formatBytes(indexStats.IndexSize))

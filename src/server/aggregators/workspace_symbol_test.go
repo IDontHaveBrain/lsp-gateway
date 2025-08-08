@@ -58,7 +58,7 @@ func TestWorkspaceSymbolAggregator_HandlesNullResponse(t *testing.T) {
 
 	result, err := aggregator.ProcessWorkspaceSymbol(context.Background(), clients, params)
 	require.NoError(t, err, "Should handle null response without error")
-	
+
 	// Result should be an empty array
 	symbols, ok := result.([]interface{})
 	assert.True(t, ok, "Result should be an array")
@@ -83,7 +83,7 @@ func TestWorkspaceSymbolAggregator_HandlesEmptyResponse(t *testing.T) {
 
 	result, err := aggregator.ProcessWorkspaceSymbol(context.Background(), clients, params)
 	require.NoError(t, err, "Should handle empty response without error")
-	
+
 	// Result should be an empty array
 	symbols, ok := result.([]interface{})
 	assert.True(t, ok, "Result should be an array")
@@ -109,7 +109,7 @@ func TestWorkspaceSymbolAggregator_HandlesValidArrayResponse(t *testing.T) {
 
 	result, err := aggregator.ProcessWorkspaceSymbol(context.Background(), clients, params)
 	require.NoError(t, err, "Should handle valid array response without error")
-	
+
 	// Result should be an array with one symbol
 	symbols, ok := result.([]interface{})
 	assert.True(t, ok, "Result should be an array")
@@ -134,7 +134,7 @@ func TestWorkspaceSymbolAggregator_HandlesEmptyArrayResponse(t *testing.T) {
 
 	result, err := aggregator.ProcessWorkspaceSymbol(context.Background(), clients, params)
 	require.NoError(t, err, "Should handle empty array response without error")
-	
+
 	// Result should be an empty array
 	symbols, ok := result.([]interface{})
 	assert.True(t, ok, "Result should be an array")

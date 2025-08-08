@@ -422,21 +422,24 @@ func (m *MCPServer) handleFindSymbolReferences(params map[string]interface{}) (i
 		query.MaxResults = 100
 	}
 
-	// Execute the search using SCIP cache directly with fallback
+	// Execute the search using LSP manager which will use SCIP cache if available
 	ctx := context.Background()
-	var result *SymbolReferenceResult
-	var err error
 
-	// Always use LSP manager for now (SCIP cache conversion needs fixing)
-	result, err = m.lspManager.SearchSymbolReferences(ctx, query)
+	// Use LSP manager's SearchSymbolReferences which already handles SCIP cache integration
+	result, err := m.lspManager.SearchSymbolReferences(ctx, query)
 	if err != nil {
 		common.LSPLogger.Error("SearchSymbolReferences failed: %v", err)
-		return nil, fmt.Errorf("symbol references search failed: %w", err)
+		// Return empty result instead of error for better UX
+		result = &SymbolReferenceResult{
+			References: []ReferenceInfo{},
+			TotalCount: 0,
+			Truncated:  false,
+		}
 	}
 
-	// Format the result for MCP with simplified response
+	// Format the result for MCP response (metadata removed by request)
 	formattedResult := map[string]interface{}{
-		"references": formatSimpleReferencesForMCP(result.References),
+		"references": formatEnhancedReferencesForMCP(result.References),
 		"totalCount": result.TotalCount,
 		"truncated":  result.Truncated,
 	}

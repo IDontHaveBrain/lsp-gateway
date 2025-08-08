@@ -23,6 +23,12 @@ const (
 	MaxSymbolSearchResults = 500
 )
 
+// OccurrenceWithDocument wraps an occurrence with its document URI
+type OccurrenceWithDocument struct {
+	SCIPOccurrence
+	DocumentURI string
+}
+
 // SimpleSCIPStorage implements SCIPDocumentStorage with occurrence-centric architecture
 type SimpleSCIPStorage struct {
 	config SCIPStorageConfig
@@ -36,8 +42,9 @@ type SimpleSCIPStorage struct {
 	// Occurrence-centric indexes for fast lookup
 	occurrencesByURI    map[string][]SCIPOccurrence         // document URI -> occurrences
 	occurrencesBySymbol map[string][]SCIPOccurrence         // symbol ID -> occurrences across all documents
-	definitionIndex     map[string]*SCIPOccurrence          // symbol ID -> definition occurrence
+	definitionIndex     map[string][]*SCIPOccurrence        // symbol ID -> definition occurrences
 	referenceIndex      map[string][]SCIPOccurrence         // symbol ID -> reference occurrences
+	referenceWithDocs   map[string][]OccurrenceWithDocument // symbol ID -> references with doc URIs
 	symbolInfoIndex     map[string]*SCIPSymbolInformation   // symbol ID -> symbol information
 	symbolNameIndex     map[string][]*SCIPSymbolInformation // symbol name -> symbol information list
 	relationshipIndex   map[string][]SCIPRelationship       // symbol ID -> relationships
@@ -51,14 +58,9 @@ type SimpleSCIPStorage struct {
 	// Optional persistence
 	diskFile string
 
-	// SCIP index for workspace operations
-	scipIndex *SCIPIndex
-
 	// Performance optimizations for MCP tools
-	patternCache      map[string]*regexp.Regexp   // Compiled regex cache
-	patternCacheLRU   []string                    // LRU order for pattern cache
-	symbolPrefixIndex map[string][]string         // prefix -> symbol IDs for fast prefix search
-	symbolKindIndex   map[SCIPSymbolKind][]string // kind -> symbol IDs for kind-based filtering
+	patternCache    map[string]*regexp.Regexp // Compiled regex cache
+	patternCacheLRU []string                  // LRU order for pattern cache
 }
 
 // NewSimpleSCIPStorage creates a new simple SCIP storage with occurrence-centric indexes
@@ -76,19 +78,17 @@ func NewSimpleSCIPStorage(config SCIPStorageConfig) (*SimpleSCIPStorage, error) 
 		accessOrder:         make([]string, 0),
 		occurrencesByURI:    make(map[string][]SCIPOccurrence),
 		occurrencesBySymbol: make(map[string][]SCIPOccurrence),
-		definitionIndex:     make(map[string]*SCIPOccurrence),
+		definitionIndex:     make(map[string][]*SCIPOccurrence),
 		referenceIndex:      make(map[string][]SCIPOccurrence),
+		referenceWithDocs:   make(map[string][]OccurrenceWithDocument),
 		symbolInfoIndex:     make(map[string]*SCIPSymbolInformation),
 		symbolNameIndex:     make(map[string][]*SCIPSymbolInformation),
 		relationshipIndex:   make(map[string][]SCIPRelationship),
 		documentIndex:       make(map[string][]string),
 		diskFile:            filepath.Join(config.DiskCacheDir, "simple_cache.json"),
-		scipIndex:           &SCIPIndex{},
-		// Performance optimization indexes
-		patternCache:      make(map[string]*regexp.Regexp),
-		patternCacheLRU:   make([]string, 0),
-		symbolPrefixIndex: make(map[string][]string),
-		symbolKindIndex:   make(map[SCIPSymbolKind][]string),
+		// Pattern cache for SearchSymbols
+		patternCache:    make(map[string]*regexp.Regexp),
+		patternCacheLRU: make([]string, 0),
 	}
 
 	return storage, nil
@@ -100,8 +100,11 @@ func (s *SimpleSCIPStorage) Start(ctx context.Context) error {
 	defer s.mutex.Unlock()
 
 	if s.started {
+		common.LSPLogger.Info("[SimpleSCIPStorage.Start] Storage already started, returning")
 		return fmt.Errorf("storage already started")
 	}
+
+	common.LSPLogger.Info("[SimpleSCIPStorage.Start] Starting SCIP storage, disk file: %s", s.diskFile)
 
 	// Create directory
 	if err := os.MkdirAll(s.config.DiskCacheDir, 0755); err != nil {
@@ -112,6 +115,7 @@ func (s *SimpleSCIPStorage) Start(ctx context.Context) error {
 	s.loadFromDisk()
 
 	s.started = true
+	common.LSPLogger.Info("[SimpleSCIPStorage.Start] Storage started successfully with %d symbols in symbolNameIndex", len(s.symbolNameIndex))
 	return nil
 }
 
@@ -133,7 +137,7 @@ func (s *SimpleSCIPStorage) Stop(ctx context.Context) error {
 	return nil
 }
 
-// StoreDocument stores a document with occurrence-centric indexing
+// StoreDocument stores a document with occurrence-centric indexing and merging support
 func (s *SimpleSCIPStorage) StoreDocument(ctx context.Context, doc *SCIPDocument) error {
 	if doc == nil {
 		return fmt.Errorf("document cannot be nil")
@@ -142,16 +146,24 @@ func (s *SimpleSCIPStorage) StoreDocument(ctx context.Context, doc *SCIPDocument
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	// Evict if necessary to make space
-	for s.currentSize+doc.Size > s.config.MemoryLimit && len(s.documents) > 0 {
-		s.evictLRU()
-	}
+	return s.storeDocumentUnsafe(doc)
+}
 
-	// Remove existing entry if present
+// storeDocumentUnsafe stores a document without mutex locking (internal use)
+func (s *SimpleSCIPStorage) storeDocumentUnsafe(doc *SCIPDocument) error {
+	// Check if document exists and merge occurrences
 	if existing, found := s.documents[doc.URI]; found {
+		// Merge occurrences instead of replacing
+		merged := s.mergeDocuments(existing, doc)
 		s.currentSize -= existing.Size
 		s.removeFromAccessOrder(doc.URI)
 		s.removeFromOccurrenceIndexes(doc.URI)
+		doc = merged
+	}
+
+	// Evict if necessary to make space
+	for s.currentSize+doc.Size > s.config.MemoryLimit && len(s.documents) > 0 {
+		s.evictLRU()
 	}
 
 	// Store document
@@ -215,81 +227,40 @@ func (s *SimpleSCIPStorage) ListDocuments(ctx context.Context) ([]string, error)
 
 // Occurrence operations - core occurrence-centric queries
 
-// GetOccurrences retrieves all occurrences in a document
-// Optimized with direct index access for sub-millisecond performance
-func (s *SimpleSCIPStorage) GetOccurrences(ctx context.Context, uri string) ([]SCIPOccurrence, error) {
+// GetOccurrences retrieves all occurrences of a specific symbol across documents
+func (s *SimpleSCIPStorage) GetOccurrences(ctx context.Context, symbolID string) ([]SCIPOccurrence, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	// Direct index lookup - pre-indexed for performance
-	occurrences, found := s.occurrencesByURI[uri]
-	if !found {
-		s.missCount++
-		return []SCIPOccurrence{}, nil
-	}
-
-	s.hitCount++
-	// Use pre-allocated slice if possible to avoid allocation
-	result := make([]SCIPOccurrence, len(occurrences))
-	copy(result, occurrences)
-	return result, nil
-}
-
-// GetOccurrencesInRange retrieves occurrences within a specific range
-func (s *SimpleSCIPStorage) GetOccurrencesInRange(ctx context.Context, uri string, start, end types.Position) ([]SCIPOccurrence, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	occurrences, found := s.occurrencesByURI[uri]
-	if !found {
-		return []SCIPOccurrence{}, nil
-	}
-
-	var result []SCIPOccurrence
-	for _, occ := range occurrences {
-		if s.isPositionInRange(occ.Range, start, end) {
-			result = append(result, occ)
-		}
-	}
-	return result, nil
-}
-
-// GetOccurrencesBySymbol retrieves all occurrences of a specific symbol across documents
-// Optimized for MCP tools with pattern matching support
-func (s *SimpleSCIPStorage) GetOccurrencesBySymbol(ctx context.Context, symbolID string) ([]SCIPOccurrence, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	// Fast path: direct symbol lookup
+	// Direct symbol lookup
 	if occurrences, found := s.occurrencesBySymbol[symbolID]; found {
 		result := make([]SCIPOccurrence, len(occurrences))
 		copy(result, occurrences)
 		return result, nil
 	}
 
-	// Pattern matching path: check if symbolID contains regex patterns
-	if s.containsRegexPattern(symbolID) {
-		return s.searchOccurrencesByPattern(symbolID)
-	}
-
 	return []SCIPOccurrence{}, nil
 }
 
-// GetDefinitionOccurrence retrieves the definition occurrence of a symbol
-func (s *SimpleSCIPStorage) GetDefinitionOccurrence(ctx context.Context, symbolID string) (*SCIPOccurrence, error) {
+// GetDefinitions retrieves all definition occurrences of a symbol
+func (s *SimpleSCIPStorage) GetDefinitions(ctx context.Context, symbolID string) ([]SCIPOccurrence, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	definition, found := s.definitionIndex[symbolID]
+	definitions, found := s.definitionIndex[symbolID]
 	if !found {
-		return nil, fmt.Errorf("definition not found for symbol: %s", symbolID)
+		return []SCIPOccurrence{}, nil
 	}
-	result := *definition
-	return &result, nil
+
+	result := make([]SCIPOccurrence, len(definitions))
+	for i, def := range definitions {
+		result[i] = *def
+	}
+	return result, nil
 }
 
-// GetReferenceOccurrences retrieves all reference occurrences of a symbol
-func (s *SimpleSCIPStorage) GetReferenceOccurrences(ctx context.Context, symbolID string) ([]SCIPOccurrence, error) {
+// GetReferences retrieves all reference occurrences of a symbol
+func (s *SimpleSCIPStorage) GetReferences(ctx context.Context, symbolID string) ([]SCIPOccurrence, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -303,10 +274,25 @@ func (s *SimpleSCIPStorage) GetReferenceOccurrences(ctx context.Context, symbolI
 	return result, nil
 }
 
+// GetReferencesWithDocuments retrieves all reference occurrences with their document URIs
+func (s *SimpleSCIPStorage) GetReferencesWithDocuments(ctx context.Context, symbolID string) ([]OccurrenceWithDocument, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	references, found := s.referenceWithDocs[symbolID]
+	if !found {
+		return []OccurrenceWithDocument{}, nil
+	}
+
+	result := make([]OccurrenceWithDocument, len(references))
+	copy(result, references)
+	return result, nil
+}
+
 // Symbol information operations - metadata about symbols
 
-// GetSymbolInformation retrieves symbol information by symbol ID
-func (s *SimpleSCIPStorage) GetSymbolInformation(ctx context.Context, symbolID string) (*SCIPSymbolInformation, error) {
+// GetSymbolInfo retrieves symbol information by symbol ID
+func (s *SimpleSCIPStorage) GetSymbolInfo(ctx context.Context, symbolID string) (*SCIPSymbolInformation, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -318,101 +304,11 @@ func (s *SimpleSCIPStorage) GetSymbolInformation(ctx context.Context, symbolID s
 	return &result, nil
 }
 
-// GetSymbolInformationByName retrieves symbol information by name
-func (s *SimpleSCIPStorage) GetSymbolInformationByName(ctx context.Context, name string) ([]SCIPSymbolInformation, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	infos, found := s.symbolNameIndex[name]
-	if !found {
-		return []SCIPSymbolInformation{}, nil
-	}
-
-	result := make([]SCIPSymbolInformation, len(infos))
-	for i, info := range infos {
-		result[i] = *info
-	}
-	return result, nil
-}
-
-// StoreSymbolInformation stores symbol information
-func (s *SimpleSCIPStorage) StoreSymbolInformation(ctx context.Context, info *SCIPSymbolInformation) error {
-	if info == nil {
-		return fmt.Errorf("symbol information cannot be nil")
-	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	// Store in symbol info index
-	s.symbolInfoIndex[info.Symbol] = info
-
-	// Store in symbol name index
-	s.symbolNameIndex[info.DisplayName] = append(s.symbolNameIndex[info.DisplayName], info)
-	return nil
-}
-
 // Relationship operations - symbol relationships
-
-// GetSymbolRelationships retrieves relationships for a symbol
-func (s *SimpleSCIPStorage) GetSymbolRelationships(ctx context.Context, symbolID string) ([]SCIPRelationship, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	relationships, found := s.relationshipIndex[symbolID]
-	if !found {
-		return []SCIPRelationship{}, nil
-	}
-
-	result := make([]SCIPRelationship, len(relationships))
-	copy(result, relationships)
-	return result, nil
-}
-
-// GetImplementations finds implementation occurrences for a symbol
-func (s *SimpleSCIPStorage) GetImplementations(ctx context.Context, symbolID string) ([]SCIPOccurrence, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	var implementations []SCIPOccurrence
-	if relationships, found := s.relationshipIndex[symbolID]; found {
-		for _, rel := range relationships {
-			if rel.IsImplementation {
-				if occurrences, occFound := s.occurrencesBySymbol[rel.Symbol]; occFound {
-					for _, occ := range occurrences {
-						if occ.SymbolRoles.HasRole(types.SymbolRoleDefinition) {
-							implementations = append(implementations, occ)
-						}
-					}
-				}
-			}
-		}
-	}
-	return implementations, nil
-}
-
-// GetTypeDefinition finds type definition occurrence for a symbol
-func (s *SimpleSCIPStorage) GetTypeDefinition(ctx context.Context, symbolID string) (*SCIPOccurrence, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	if relationships, found := s.relationshipIndex[symbolID]; found {
-		for _, rel := range relationships {
-			if rel.IsTypeDefinition {
-				if definition, defFound := s.definitionIndex[rel.Symbol]; defFound {
-					result := *definition
-					return &result, nil
-				}
-			}
-		}
-	}
-
-	return nil, fmt.Errorf("type definition not found for symbol: %s", symbolID)
-}
 
 // Search operations - finding symbols across documents
 
-// SearchSymbols searches symbols by name pattern with optimized performance
+// SearchSymbols searches symbols by name pattern with simplified implementation
 func (s *SimpleSCIPStorage) SearchSymbols(ctx context.Context, query string, limit int) ([]SCIPSymbolInformation, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -421,278 +317,125 @@ func (s *SimpleSCIPStorage) SearchSymbols(ctx context.Context, query string, lim
 		limit = MaxSymbolSearchResults
 	}
 
-	// Fast path: exact name match
-	if infos, found := s.symbolNameIndex[query]; found {
-		results := make([]SCIPSymbolInformation, 0, len(infos))
-		for _, info := range infos {
-			results = append(results, *info)
-			if len(results) >= limit {
+	common.LSPLogger.Info("[SCIP] SearchSymbols called with query: %q, limit: %d", query, limit)
+	common.LSPLogger.Info("[SCIP] Total symbols in index: %d, in name index: %d", len(s.symbolInfoIndex), len(s.symbolNameIndex))
+
+	// Debug: Log first 5 names in symbolNameIndex to verify it's populated
+	if len(s.symbolNameIndex) > 0 {
+		var sampleNames []string
+		count := 0
+		for name := range s.symbolNameIndex {
+			sampleNames = append(sampleNames, name)
+			count++
+			if count >= 5 {
 				break
 			}
 		}
-		return results, nil
+		common.LSPLogger.Info("[SCIP] Sample names in symbolNameIndex: %v", sampleNames)
 	}
 
-	// Optimized prefix search
-	if !s.containsRegexPattern(query) {
-		return s.searchSymbolsByPrefix(query, limit)
+	// Check if query is a regex pattern
+	var pattern *regexp.Regexp
+	var err error
+	if s.containsRegexPattern(query) {
+		pattern, err = s.getCachedPattern(query)
+		if err != nil {
+			return nil, fmt.Errorf("invalid search pattern: %w", err)
+		}
 	}
 
-	// Pattern matching search
-	pattern, err := s.getCachedPattern(query)
-	if err != nil {
-		return nil, fmt.Errorf("invalid search pattern: %w", err)
-	}
-
+	// Search through all symbol information
 	var results []SCIPSymbolInformation
-	for _, info := range s.symbolInfoIndex {
-		if pattern.MatchString(info.DisplayName) {
-			results = append(results, *info)
-			if len(results) >= limit {
-				break
+	seenSymbols := make(map[string]bool) // Track symbols we've already added
+
+	// First, check symbolNameIndex for direct name lookups
+	if pattern == nil {
+		// Log what we're looking for
+		common.LSPLogger.Info("[SCIP] Looking for exact match: %q in symbolNameIndex with %d entries", query, len(s.symbolNameIndex))
+
+		// Check if the query exists in the index
+		if _, exists := s.symbolNameIndex[query]; exists {
+			common.LSPLogger.Info("[SCIP] Query %q EXISTS in symbolNameIndex!", query)
+		} else {
+			common.LSPLogger.Info("[SCIP] Query %q NOT FOUND in symbolNameIndex", query)
+		}
+
+		// Try exact match first from symbolNameIndex
+		if symbols, found := s.symbolNameIndex[query]; found {
+			common.LSPLogger.Info("[SCIP] Found exact match in symbolNameIndex: %d symbols", len(symbols))
+			for _, sym := range symbols {
+				if sym != nil && !seenSymbols[sym.Symbol] {
+					results = append(results, *sym)
+					seenSymbols[sym.Symbol] = true
+					if len(results) >= limit {
+						return results, nil
+					}
+				}
 			}
 		}
-	}
-	return results, nil
-}
 
-// SearchOccurrences searches occurrences by symbol pattern
-func (s *SimpleSCIPStorage) SearchOccurrences(ctx context.Context, symbolPattern string, limit int) ([]SCIPOccurrence, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	var results []SCIPOccurrence
-	pattern, err := s.compileSearchPattern(symbolPattern)
-	if err != nil {
-		return nil, fmt.Errorf("invalid symbol pattern: %w", err)
-	}
-
-	for symbolID, occurrences := range s.occurrencesBySymbol {
-		if pattern.MatchString(symbolID) {
-			for _, occ := range occurrences {
-				results = append(results, occ)
-				if len(results) >= limit {
-					return results, nil
+		// Also try case-insensitive match
+		for name, symbols := range s.symbolNameIndex {
+			if strings.EqualFold(name, query) && name != query {
+				common.LSPLogger.Debug("[SCIP] Found case-insensitive match: %s", name)
+				for _, sym := range symbols {
+					if sym != nil && !seenSymbols[sym.Symbol] {
+						results = append(results, *sym)
+						seenSymbols[sym.Symbol] = true
+						if len(results) >= limit {
+							return results, nil
+						}
+					}
+				}
+			}
+		}
+	} else {
+		// Pattern-based search through symbolNameIndex
+		for name, symbols := range s.symbolNameIndex {
+			if pattern.MatchString(name) {
+				for _, sym := range symbols {
+					if sym != nil && !seenSymbols[sym.Symbol] {
+						results = append(results, *sym)
+						seenSymbols[sym.Symbol] = true
+						if len(results) >= limit {
+							return results, nil
+						}
+					}
 				}
 			}
 		}
 	}
+
+	// If still need more results, search through symbolInfoIndex for prefix matches
+	if len(results) < limit && pattern == nil {
+		lowerQuery := strings.ToLower(query)
+		for _, info := range s.symbolInfoIndex {
+			if info != nil && !seenSymbols[info.Symbol] {
+				if strings.HasPrefix(strings.ToLower(info.DisplayName), lowerQuery) {
+					results = append(results, *info)
+					seenSymbols[info.Symbol] = true
+					if len(results) >= limit {
+						break
+					}
+				}
+			}
+		}
+	}
+
+	common.LSPLogger.Debug("[SCIP] SearchSymbols returning %d results", len(results))
 	return results, nil
 }
 
 // Workspace operations - project-level queries
 
-// GetWorkspaceSymbols retrieves workspace symbols matching query with enhanced performance
-func (s *SimpleSCIPStorage) GetWorkspaceSymbols(ctx context.Context, query string) ([]SCIPSymbolInformation, error) {
-	// Use optimized search with higher limit for workspace symbols
-	return s.SearchSymbols(ctx, query, MaxSymbolSearchResults)
-}
-
 // MCP Tool Direct Lookup Methods - Sub-millisecond performance
-
-// FindSymbolsByPattern performs fast pattern-based symbol search for MCP findSymbols tool
-func (s *SimpleSCIPStorage) FindSymbolsByPattern(ctx context.Context, pattern string, limit int) ([]SCIPSymbolInformation, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	if limit <= 0 {
-		limit = MaxSymbolSearchResults
-	}
-
-	// Use cached pattern compilation for repeated searches
-	return s.SearchSymbols(ctx, pattern, limit)
-}
-
-// FindSymbolsByKind performs fast kind-based symbol filtering for MCP tools
-func (s *SimpleSCIPStorage) FindSymbolsByKind(ctx context.Context, kind SCIPSymbolKind, limit int) ([]SCIPSymbolInformation, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	if limit <= 0 {
-		limit = MaxSymbolSearchResults
-	}
-
-	// Direct kind index lookup - O(1) access
-	symbolIDs, found := s.symbolKindIndex[kind]
-	if !found {
-		return []SCIPSymbolInformation{}, nil
-	}
-
-	results := make([]SCIPSymbolInformation, 0, len(symbolIDs))
-	for _, symbolID := range symbolIDs {
-		if info, infoFound := s.symbolInfoIndex[symbolID]; infoFound {
-			results = append(results, *info)
-			if len(results) >= limit {
-				break
-			}
-		}
-	}
-	return results, nil
-}
-
-// GetDefinitionsFast performs ultra-fast definition lookup for MCP findDefinitions tool
-func (s *SimpleSCIPStorage) GetDefinitionsFast(ctx context.Context, symbolID string) ([]*SCIPOccurrence, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	// Direct definition index access - sub-millisecond performance
-	if definition, found := s.definitionIndex[symbolID]; found {
-		s.hitCount++
-		result := *definition
-		return []*SCIPOccurrence{&result}, nil
-	}
-
-	s.missCount++
-	return []*SCIPOccurrence{}, nil
-}
-
-// GetReferencesFast performs ultra-fast reference lookup for MCP findReferences tool
-func (s *SimpleSCIPStorage) GetReferencesFast(ctx context.Context, symbolID string) ([]SCIPOccurrence, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	// Direct reference index access - sub-millisecond performance
-	if references, found := s.referenceIndex[symbolID]; found {
-		s.hitCount++
-		result := make([]SCIPOccurrence, len(references))
-		copy(result, references)
-		return result, nil
-	}
-
-	s.missCount++
-	return []SCIPOccurrence{}, nil
-}
-
-// GetSymbolInfoFast performs ultra-fast symbol information lookup for MCP getSymbolInfo tool
-func (s *SimpleSCIPStorage) GetSymbolInfoFast(ctx context.Context, symbolID string) (*SCIPSymbolInformation, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	// Direct symbol info index access - sub-millisecond performance
-	if info, found := s.symbolInfoIndex[symbolID]; found {
-		s.hitCount++
-		result := *info
-		return &result, nil
-	}
-
-	s.missCount++
-	return nil, fmt.Errorf("symbol information not found: %s", symbolID)
-}
-
-// GetAllSymbolsInDocument performs fast document symbol retrieval
-func (s *SimpleSCIPStorage) GetAllSymbolsInDocument(ctx context.Context, uri string) ([]SCIPSymbolInformation, []SCIPOccurrence, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	// Get symbols
-	symbols, err := s.GetDocumentSymbols(ctx, uri)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	// Get occurrences
-	occurrences, err := s.GetOccurrences(ctx, uri)
-	if err != nil {
-		return symbols, nil, err
-	}
-
-	return symbols, occurrences, nil
-}
-
-// GetDocumentSymbols retrieves all symbols defined in a document
-func (s *SimpleSCIPStorage) GetDocumentSymbols(ctx context.Context, uri string) ([]SCIPSymbolInformation, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	symbolIDs, found := s.documentIndex[uri]
-	if !found {
-		return []SCIPSymbolInformation{}, nil
-	}
-
-	var results []SCIPSymbolInformation
-	for _, symbolID := range symbolIDs {
-		if info, infoFound := s.symbolInfoIndex[symbolID]; infoFound {
-			results = append(results, *info)
-		}
-	}
-	return results, nil
-}
 
 // Index operations - SCIP index management
 
-// StoreIndex stores the complete SCIP index
-func (s *SimpleSCIPStorage) StoreIndex(ctx context.Context, index *SCIPIndex) error {
-	if index == nil {
-		return fmt.Errorf("index cannot be nil")
-	}
-
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	s.scipIndex = index
-
-	// Store all documents from the index
-	for _, doc := range index.Documents {
-		docCopy := doc
-		s.documents[doc.URI] = &docCopy
-		s.updateOccurrenceIndexes(&docCopy)
-	}
-
-	// Store external symbols
-	for _, symbolInfo := range index.ExternalSymbols {
-		symbolCopy := symbolInfo
-		s.symbolInfoIndex[symbolInfo.Symbol] = &symbolCopy
-		s.symbolNameIndex[symbolInfo.DisplayName] = append(s.symbolNameIndex[symbolInfo.DisplayName], &symbolCopy)
-	}
-	return nil
-}
-
-// GetIndex retrieves the complete SCIP index
-func (s *SimpleSCIPStorage) GetIndex(ctx context.Context) (*SCIPIndex, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	if s.scipIndex == nil {
-		return nil, fmt.Errorf("no SCIP index available")
-	}
-
-	// Create a copy with current documents
-	index := &SCIPIndex{
-		Metadata: s.scipIndex.Metadata,
-	}
-
-	// Add all current documents
-	for _, doc := range s.documents {
-		index.Documents = append(index.Documents, *doc)
-	}
-
-	// Add external symbols
-	for _, info := range s.symbolInfoIndex {
-		// Check if this is an external symbol (basic heuristic)
-		if strings.Contains(info.Symbol, " ") && !strings.HasPrefix(info.Symbol, "local ") {
-			index.ExternalSymbols = append(index.ExternalSymbols, *info)
-		}
-	}
-	return index, nil
-}
-
 // Cache management - storage optimization
 
-// Flush saves all cached documents to disk (optional persistence)
-func (s *SimpleSCIPStorage) Flush(ctx context.Context) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
-	return s.saveToDisk()
-}
-
-// Compact is a no-op for simple storage (no background processes)
-func (s *SimpleSCIPStorage) Compact(ctx context.Context) error {
-	return nil
-}
-
-// GetStats returns occurrence-centric storage statistics
-func (s *SimpleSCIPStorage) GetStats(ctx context.Context) (*SCIPStorageStats, error) {
+// GetIndexStats returns simple storage statistics
+func (s *SimpleSCIPStorage) GetIndexStats() IndexStats {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -702,51 +445,71 @@ func (s *SimpleSCIPStorage) GetStats(ctx context.Context) (*SCIPStorageStats, er
 		hitRate = float64(s.hitCount) / float64(totalRequests)
 	}
 
-	// Calculate total occurrences and symbols
+	// Calculate total occurrences from multiple sources
 	totalOccurrences := int64(0)
-	for _, occurrences := range s.occurrencesByURI {
-		totalOccurrences += int64(len(occurrences))
+
+	// Count from occurrencesByURI if available
+	if len(s.occurrencesByURI) > 0 {
+		for _, occurrences := range s.occurrencesByURI {
+			totalOccurrences += int64(len(occurrences))
+		}
 	}
 
-	stats := &SCIPStorageStats{
-		MemoryUsage:      s.currentSize,
-		DiskUsage:        0, // No separate disk storage in simple implementation
-		MemoryLimit:      s.config.MemoryLimit,
-		HitRate:          hitRate,
-		CachedDocuments:  len(s.documents),
+	// If occurrencesByURI is empty but we have documents, count from documents
+	if totalOccurrences == 0 && len(s.documents) > 0 {
+		for _, doc := range s.documents {
+			if doc != nil {
+				totalOccurrences += int64(len(doc.Occurrences))
+			}
+		}
+	}
+
+	// Count references from referenceWithDocs as a fallback
+	totalReferences := int64(0)
+	for _, refs := range s.referenceWithDocs {
+		totalReferences += int64(len(refs))
+	}
+
+	// Use the maximum of occurrences or references
+	if totalReferences > totalOccurrences {
+		totalOccurrences = totalReferences
+	}
+
+	common.LSPLogger.Debug("[GetIndexStats] docs=%d, symbols=%d, occurrences=%d, refs=%d, symbolNames=%d",
+		len(s.documents), len(s.symbolInfoIndex), totalOccurrences, totalReferences, len(s.symbolNameIndex))
+
+	return IndexStats{
+		TotalDocuments:   len(s.documents),
 		TotalOccurrences: totalOccurrences,
 		TotalSymbols:     int64(len(s.symbolInfoIndex)),
-		UniqueSymbols:    len(s.occurrencesBySymbol),
-		HotCacheSize:     len(s.documents), // All documents are in single cache
-		CacheHits:        s.hitCount,
-		CacheMisses:      s.missCount,
-		EvictionCount:    0, // Track separately if needed
+		MemoryUsage:      s.currentSize,
+		HitRate:          hitRate,
 	}
-
-	return stats, nil
 }
 
-// SetConfig updates the storage configuration
-func (s *SimpleSCIPStorage) SetConfig(config SCIPStorageConfig) error {
+// ClearIndex clears all cached data
+func (s *SimpleSCIPStorage) ClearIndex(ctx context.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	s.config = config
-	return nil
-}
+	// Clear all maps and slices
+	s.documents = make(map[string]*SCIPDocument)
+	s.accessOrder = make([]string, 0)
+	s.occurrencesByURI = make(map[string][]SCIPOccurrence)
+	s.occurrencesBySymbol = make(map[string][]SCIPOccurrence)
+	s.definitionIndex = make(map[string][]*SCIPOccurrence)
+	s.referenceIndex = make(map[string][]SCIPOccurrence)
+	s.referenceWithDocs = make(map[string][]OccurrenceWithDocument)
+	s.symbolInfoIndex = make(map[string]*SCIPSymbolInformation)
+	s.symbolNameIndex = make(map[string][]*SCIPSymbolInformation)
+	s.documentIndex = make(map[string][]string)
+	s.patternCache = make(map[string]*regexp.Regexp)
+	s.patternCacheLRU = make([]string, 0)
 
-// HealthCheck performs a simple health check
-func (s *SimpleSCIPStorage) HealthCheck(ctx context.Context) error {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-
-	if !s.started {
-		return fmt.Errorf("storage not started")
-	}
-
-	if s.currentSize > s.config.MemoryLimit {
-		return fmt.Errorf("memory usage (%d) exceeds limit (%d)", s.currentSize, s.config.MemoryLimit)
-	}
+	// Reset counters
+	s.currentSize = 0
+	s.hitCount = 0
+	s.missCount = 0
 
 	return nil
 }
@@ -784,40 +547,45 @@ func (s *SimpleSCIPStorage) removeFromAccessOrder(uri string) {
 	}
 }
 
-// updateOccurrenceIndexes updates occurrence-centric indexes
+// updateOccurrenceIndexes updates simplified occurrence-centric indexes
 func (s *SimpleSCIPStorage) updateOccurrenceIndexes(doc *SCIPDocument) {
 	symbolIDs := make([]string, 0, len(doc.Occurrences)+len(doc.SymbolInformation))
 
-	// Index occurrences by document URI
-	s.occurrencesByURI[doc.URI] = doc.Occurrences
+	// Clear existing indexes for this URI to avoid duplicates
+	s.occurrencesByURI[doc.URI] = make([]SCIPOccurrence, len(doc.Occurrences))
+	copy(s.occurrencesByURI[doc.URI], doc.Occurrences)
 
 	// Index occurrences by symbol ID and role
-	for _, occ := range doc.Occurrences {
+	for i := range doc.Occurrences {
+		occ := &doc.Occurrences[i]
+
 		// Add to symbol-based occurrence index
-		s.occurrencesBySymbol[occ.Symbol] = append(s.occurrencesBySymbol[occ.Symbol], occ)
+		s.occurrencesBySymbol[occ.Symbol] = append(s.occurrencesBySymbol[occ.Symbol], *occ)
 
 		// Index definitions and references separately
 		if occ.SymbolRoles.HasRole(types.SymbolRoleDefinition) {
-			s.definitionIndex[occ.Symbol] = &occ
+			s.definitionIndex[occ.Symbol] = append(s.definitionIndex[occ.Symbol], occ)
 		} else {
-			s.referenceIndex[occ.Symbol] = append(s.referenceIndex[occ.Symbol], occ)
+			s.referenceIndex[occ.Symbol] = append(s.referenceIndex[occ.Symbol], *occ)
+			// Also store with document URI for easy lookup
+			s.referenceWithDocs[occ.Symbol] = append(s.referenceWithDocs[occ.Symbol], OccurrenceWithDocument{
+				SCIPOccurrence: *occ,
+				DocumentURI:    doc.URI,
+			})
 		}
 
 		symbolIDs = append(symbolIDs, occ.Symbol)
 	}
 
-	// Index symbol information with performance optimizations
-	for _, symbolInfo := range doc.SymbolInformation {
-		s.symbolInfoIndex[symbolInfo.Symbol] = &symbolInfo
-		s.symbolNameIndex[symbolInfo.DisplayName] = append(s.symbolNameIndex[symbolInfo.DisplayName], &symbolInfo)
+	// Index symbol information with additional indexes
+	for i := range doc.SymbolInformation {
+		symbolInfo := &doc.SymbolInformation[i]
+		s.symbolInfoIndex[symbolInfo.Symbol] = symbolInfo
 
-		// Build prefix index for fast prefix search
-		s.buildPrefixIndex(symbolInfo.DisplayName, symbolInfo.Symbol)
+		// Update symbol name index
+		s.symbolNameIndex[symbolInfo.DisplayName] = append(s.symbolNameIndex[symbolInfo.DisplayName], symbolInfo)
 
-		// Build kind index for fast kind-based filtering
-		s.symbolKindIndex[symbolInfo.Kind] = append(s.symbolKindIndex[symbolInfo.Kind], symbolInfo.Symbol)
-
-		// Index relationships
+		// Update relationship index if relationships exist
 		if len(symbolInfo.Relationships) > 0 {
 			s.relationshipIndex[symbolInfo.Symbol] = symbolInfo.Relationships
 		}
@@ -860,10 +628,18 @@ func (s *SimpleSCIPStorage) removeFromOccurrenceIndexes(uri string) {
 		}
 
 		// Clean up definition index
-		if def, defFound := s.definitionIndex[symbolID]; defFound {
-			defDocURI := s.extractDocumentURIFromOccurrence(*def)
-			if defDocURI == uri {
+		if definitions, defFound := s.definitionIndex[symbolID]; defFound {
+			filteredDefs := make([]*SCIPOccurrence, 0, len(definitions))
+			for _, def := range definitions {
+				defDocURI := s.extractDocumentURIFromOccurrence(*def)
+				if defDocURI != uri {
+					filteredDefs = append(filteredDefs, def)
+				}
+			}
+			if len(filteredDefs) == 0 {
 				delete(s.definitionIndex, symbolID)
+			} else {
+				s.definitionIndex[symbolID] = filteredDefs
 			}
 		}
 
@@ -883,22 +659,67 @@ func (s *SimpleSCIPStorage) removeFromOccurrenceIndexes(uri string) {
 			}
 		}
 
-		// Clean up symbol information that belongs to this document
-		if info, infoFound := s.symbolInfoIndex[symbolID]; infoFound {
-			// Remove from prefix index
-			s.removePrefixIndexEntries(info.DisplayName, symbolID)
-
-			// Remove from kind index
-			s.removeKindIndexEntry(info.Kind, symbolID)
-
-			// Only remove if this was the only document defining this symbol
-			// For now, keep symbol information as it might be used across documents
-			_ = info // Keep for future reference
-		}
+		// Note: Symbol information is kept as it might be used across documents
 	}
 
 	// Remove document from documentIndex
 	delete(s.documentIndex, uri)
+}
+
+// GetAffectedDocuments returns all documents that reference symbols defined in the given document
+// This is used for cascading cache invalidation when a file changes
+func (s *SimpleSCIPStorage) GetAffectedDocuments(uri string) []string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	affectedDocs := make(map[string]bool)
+
+	// 1. Get all symbols defined in this document
+	symbolIDs, exists := s.documentIndex[uri]
+	if !exists {
+		return []string{}
+	}
+
+	// 2. For each symbol defined in this document, find all documents that reference it
+	for _, symbolID := range symbolIDs {
+		// Check if this symbol has its definition in the current document
+		if definitions, found := s.definitionIndex[symbolID]; found {
+			for _, def := range definitions {
+				defURI := s.extractDocumentURIFromOccurrence(*def)
+				if defURI == uri {
+					// This symbol is defined in our document
+					// Find all references to this symbol in other documents
+					if refs, found := s.referenceIndex[symbolID]; found {
+						for _, ref := range refs {
+							refURI := s.extractDocumentURIFromOccurrence(ref)
+							if refURI != "" && refURI != uri {
+								affectedDocs[refURI] = true
+							}
+						}
+					}
+
+					// Also check occurrences by symbol for completeness
+					if occs, found := s.occurrencesBySymbol[symbolID]; found {
+						for _, occ := range occs {
+							occURI := s.extractDocumentURIFromOccurrence(occ)
+							if occURI != "" && occURI != uri {
+								affectedDocs[occURI] = true
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// 3. Convert map to slice
+	result := make([]string, 0, len(affectedDocs))
+	for doc := range affectedDocs {
+		result = append(result, doc)
+	}
+
+	common.LSPLogger.Debug("Document %s affects %d other documents", uri, len(result))
+	return result
 }
 
 // Helper method to extract document URI from occurrence (heuristic)
@@ -922,12 +743,6 @@ func (s *SimpleSCIPStorage) occurrencesEqual(occ1, occ2 SCIPOccurrence) bool {
 		occ1.Range.Start.Character == occ2.Range.Start.Character &&
 		occ1.Range.End.Line == occ2.Range.End.Line &&
 		occ1.Range.End.Character == occ2.Range.End.Character
-}
-
-// isPositionInRange checks if occurrence range is within specified bounds
-func (s *SimpleSCIPStorage) isPositionInRange(occRange types.Range, start, end types.Position) bool {
-	return (occRange.Start.Line >= start.Line && occRange.Start.Character >= start.Character) &&
-		(occRange.End.Line <= end.Line && occRange.End.Character <= end.Character)
 }
 
 // compileSearchPattern compiles a search pattern with case-insensitive support
@@ -972,52 +787,6 @@ func (s *SimpleSCIPStorage) containsRegexPattern(pattern string) bool {
 	return strings.ContainsAny(pattern, ".*+?^${}()|[]\\")
 }
 
-// searchSymbolsByPrefix performs optimized prefix search
-func (s *SimpleSCIPStorage) searchSymbolsByPrefix(prefix string, limit int) ([]SCIPSymbolInformation, error) {
-	// Check prefix index first
-	if symbolIDs, found := s.symbolPrefixIndex[prefix]; found {
-		results := make([]SCIPSymbolInformation, 0, len(symbolIDs))
-		for _, symbolID := range symbolIDs {
-			if info, infoFound := s.symbolInfoIndex[symbolID]; infoFound {
-				results = append(results, *info)
-				if len(results) >= limit {
-					break
-				}
-			}
-		}
-		return results, nil
-	}
-
-	// Fallback to linear scan with prefix matching
-	var results []SCIPSymbolInformation
-	lowerPrefix := strings.ToLower(prefix)
-	for _, info := range s.symbolInfoIndex {
-		if strings.HasPrefix(strings.ToLower(info.DisplayName), lowerPrefix) {
-			results = append(results, *info)
-			if len(results) >= limit {
-				break
-			}
-		}
-	}
-	return results, nil
-}
-
-// searchOccurrencesByPattern performs pattern-based occurrence search
-func (s *SimpleSCIPStorage) searchOccurrencesByPattern(symbolPattern string) ([]SCIPOccurrence, error) {
-	pattern, err := s.getCachedPattern(symbolPattern)
-	if err != nil {
-		return nil, err
-	}
-
-	var results []SCIPOccurrence
-	for symbolID, occurrences := range s.occurrencesBySymbol {
-		if pattern.MatchString(symbolID) {
-			results = append(results, occurrences...)
-		}
-	}
-	return results, nil
-}
-
 // Pattern cache management for performance
 
 // addPatternToCache adds a compiled pattern to cache with LRU eviction
@@ -1053,56 +822,6 @@ func (s *SimpleSCIPStorage) evictOldestPattern() {
 	}
 }
 
-// buildPrefixIndex builds prefix indexes for fast symbol lookup
-func (s *SimpleSCIPStorage) buildPrefixIndex(displayName, symbolID string) {
-	name := strings.ToLower(displayName)
-	// Build prefixes of different lengths for efficient search
-	for i := 1; i <= len(name) && i <= 10; i++ { // Limit prefix length for memory efficiency
-		prefix := name[:i]
-		s.symbolPrefixIndex[prefix] = append(s.symbolPrefixIndex[prefix], symbolID)
-	}
-}
-
-// removePrefixIndexEntries removes symbol from all prefix indexes
-func (s *SimpleSCIPStorage) removePrefixIndexEntries(displayName, symbolID string) {
-	name := strings.ToLower(displayName)
-	for i := 1; i <= len(name) && i <= 10; i++ {
-		prefix := name[:i]
-		if symbolIDs, found := s.symbolPrefixIndex[prefix]; found {
-			// Remove symbolID from the slice
-			filtered := make([]string, 0, len(symbolIDs)-1)
-			for _, id := range symbolIDs {
-				if id != symbolID {
-					filtered = append(filtered, id)
-				}
-			}
-			if len(filtered) == 0 {
-				delete(s.symbolPrefixIndex, prefix)
-			} else {
-				s.symbolPrefixIndex[prefix] = filtered
-			}
-		}
-	}
-}
-
-// removeKindIndexEntry removes symbol from kind index
-func (s *SimpleSCIPStorage) removeKindIndexEntry(kind SCIPSymbolKind, symbolID string) {
-	if symbolIDs, found := s.symbolKindIndex[kind]; found {
-		// Remove symbolID from the slice
-		filtered := make([]string, 0, len(symbolIDs)-1)
-		for _, id := range symbolIDs {
-			if id != symbolID {
-				filtered = append(filtered, id)
-			}
-		}
-		if len(filtered) == 0 {
-			delete(s.symbolKindIndex, kind)
-		} else {
-			s.symbolKindIndex[kind] = filtered
-		}
-	}
-}
-
 // cloneDocument creates a deep copy of the occurrence-centric document
 func (s *SimpleSCIPStorage) cloneDocument(doc *SCIPDocument) *SCIPDocument {
 	cloned := *doc
@@ -1132,17 +851,30 @@ func (s *SimpleSCIPStorage) saveToDisk() error {
 		return nil
 	}
 
+	common.LSPLogger.Debug("[saveToDisk] Saving cache with %d documents, %d symbols", len(s.documents), len(s.symbolInfoIndex))
+
+	// Convert symbolNameIndex pointers to values for JSON serialization
+	symbolNameData := make(map[string][]SCIPSymbolInformation)
+	for name, symbols := range s.symbolNameIndex {
+		for _, sym := range symbols {
+			if sym != nil {
+				symbolNameData[name] = append(symbolNameData[name], *sym)
+			}
+		}
+	}
+
 	data := struct {
-		Documents         map[string]*SCIPDocument          `json:"documents"`
-		AccessOrder       []string                          `json:"access_order"`
-		CurrentSize       int64                             `json:"current_size"`
-		HitCount          int64                             `json:"hit_count"`
-		MissCount         int64                             `json:"miss_count"`
-		DocumentIndex     map[string][]string               `json:"document_index"`
-		OccurrencesByURI  map[string][]SCIPOccurrence       `json:"occurrences_by_uri"`
-		SymbolInfoIndex   map[string]*SCIPSymbolInformation `json:"symbol_info_index"`
-		RelationshipIndex map[string][]SCIPRelationship     `json:"relationship_index"`
-		SavedAt           time.Time                         `json:"saved_at"`
+		Documents         map[string]*SCIPDocument           `json:"documents"`
+		AccessOrder       []string                           `json:"access_order"`
+		CurrentSize       int64                              `json:"current_size"`
+		HitCount          int64                              `json:"hit_count"`
+		MissCount         int64                              `json:"miss_count"`
+		DocumentIndex     map[string][]string                `json:"document_index"`
+		OccurrencesByURI  map[string][]SCIPOccurrence        `json:"occurrences_by_uri"`
+		SymbolInfoIndex   map[string]*SCIPSymbolInformation  `json:"symbol_info_index"`
+		SymbolNameIndex   map[string][]SCIPSymbolInformation `json:"symbol_name_index"`
+		RelationshipIndex map[string][]SCIPRelationship      `json:"relationship_index"`
+		SavedAt           time.Time                          `json:"saved_at"`
 	}{
 		Documents:         s.documents,
 		AccessOrder:       s.accessOrder,
@@ -1152,6 +884,7 @@ func (s *SimpleSCIPStorage) saveToDisk() error {
 		DocumentIndex:     s.documentIndex,
 		OccurrencesByURI:  s.occurrencesByURI,
 		SymbolInfoIndex:   s.symbolInfoIndex,
+		SymbolNameIndex:   symbolNameData,
 		RelationshipIndex: s.relationshipIndex,
 		SavedAt:           time.Now(),
 	}
@@ -1189,16 +922,17 @@ func (s *SimpleSCIPStorage) loadFromDisk() error {
 	defer file.Close()
 
 	var data struct {
-		Documents         map[string]*SCIPDocument          `json:"documents"`
-		AccessOrder       []string                          `json:"access_order"`
-		CurrentSize       int64                             `json:"current_size"`
-		HitCount          int64                             `json:"hit_count"`
-		MissCount         int64                             `json:"miss_count"`
-		DocumentIndex     map[string][]string               `json:"document_index"`
-		OccurrencesByURI  map[string][]SCIPOccurrence       `json:"occurrences_by_uri"`
-		SymbolInfoIndex   map[string]*SCIPSymbolInformation `json:"symbol_info_index"`
-		RelationshipIndex map[string][]SCIPRelationship     `json:"relationship_index"`
-		SavedAt           time.Time                         `json:"saved_at"`
+		Documents         map[string]*SCIPDocument           `json:"documents"`
+		AccessOrder       []string                           `json:"access_order"`
+		CurrentSize       int64                              `json:"current_size"`
+		HitCount          int64                              `json:"hit_count"`
+		MissCount         int64                              `json:"miss_count"`
+		DocumentIndex     map[string][]string                `json:"document_index"`
+		OccurrencesByURI  map[string][]SCIPOccurrence        `json:"occurrences_by_uri"`
+		SymbolInfoIndex   map[string]*SCIPSymbolInformation  `json:"symbol_info_index"`
+		SymbolNameIndex   map[string][]SCIPSymbolInformation `json:"symbol_name_index"`
+		RelationshipIndex map[string][]SCIPRelationship      `json:"relationship_index"`
+		SavedAt           time.Time                          `json:"saved_at"`
 	}
 
 	decoder := json.NewDecoder(file)
@@ -1223,35 +957,298 @@ func (s *SimpleSCIPStorage) loadFromDisk() error {
 		s.documentIndex = make(map[string][]string)
 	}
 
-	// Restore occurrence-centric indexes or rebuild
+	// Restore occurrences by URI
 	if data.OccurrencesByURI != nil {
 		s.occurrencesByURI = data.OccurrencesByURI
 	} else {
 		s.occurrencesByURI = make(map[string][]SCIPOccurrence)
 	}
 
+	// Restore symbol info index
 	if data.SymbolInfoIndex != nil {
 		s.symbolInfoIndex = data.SymbolInfoIndex
+		common.LSPLogger.Debug("[loadFromDisk] Loaded %d symbols from disk", len(s.symbolInfoIndex))
+		// Log a sample of symbols for debugging
+		count := 0
+		for id, info := range s.symbolInfoIndex {
+			if count < 5 && info != nil {
+				common.LSPLogger.Debug("[loadFromDisk] Sample symbol: ID=%s, DisplayName=%s", id, info.DisplayName)
+				count++
+			}
+		}
 	} else {
 		s.symbolInfoIndex = make(map[string]*SCIPSymbolInformation)
+		common.LSPLogger.Debug("[loadFromDisk] No symbol info index in saved data")
 	}
 
+	// Restore relationship index
 	if data.RelationshipIndex != nil {
 		s.relationshipIndex = data.RelationshipIndex
 	} else {
 		s.relationshipIndex = make(map[string][]SCIPRelationship)
 	}
 
-	// Rebuild occurrence-based indexes from documents if not present in cache
-	s.occurrencesBySymbol = make(map[string][]SCIPOccurrence)
-	s.definitionIndex = make(map[string]*SCIPOccurrence)
-	s.referenceIndex = make(map[string][]SCIPOccurrence)
-	s.symbolNameIndex = make(map[string][]*SCIPSymbolInformation)
-
-	for _, doc := range s.documents {
-		s.updateOccurrenceIndexes(doc)
+	// Restore symbolNameIndex if present
+	if data.SymbolNameIndex != nil && len(data.SymbolNameIndex) > 0 {
+		common.LSPLogger.Info("[loadFromDisk] Loading symbolNameIndex from disk with %d entries", len(data.SymbolNameIndex))
+		s.symbolNameIndex = make(map[string][]*SCIPSymbolInformation)
+		for name, symbols := range data.SymbolNameIndex {
+			for i := range symbols {
+				// Create pointer to the symbol from the loaded data
+				sym := symbols[i]
+				s.symbolNameIndex[name] = append(s.symbolNameIndex[name], &sym)
+			}
+		}
+		common.LSPLogger.Info("[loadFromDisk] Loaded symbolNameIndex with %d unique names", len(s.symbolNameIndex))
+	} else {
+		common.LSPLogger.Info("[loadFromDisk] No symbolNameIndex in saved data, will rebuild from symbolInfoIndex")
+		s.symbolNameIndex = make(map[string][]*SCIPSymbolInformation)
 	}
+
+	// Rebuild the other indexes from documents
+	common.LSPLogger.Info("[loadFromDisk] About to rebuild other indexes from documents, symbolInfoIndex has %d entries", len(s.symbolInfoIndex))
+	s.rebuildIndexesFromDocuments()
+
+	// Log statistics after loading
+	common.LSPLogger.Info("[loadFromDisk] SCIP storage loaded: %d documents, %d symbols, %d symbol names in index, %d occurrences",
+		len(s.documents), len(s.symbolInfoIndex), len(s.symbolNameIndex), len(s.occurrencesByURI))
+
+	// Check if NewLSPManager is in the symbolNameIndex
+	if symbols, found := s.symbolNameIndex["NewLSPManager"]; found {
+		common.LSPLogger.Info("[loadFromDisk] NewLSPManager found in symbolNameIndex with %d entries", len(symbols))
+	} else {
+		common.LSPLogger.Warn("[loadFromDisk] NewLSPManager NOT found in symbolNameIndex!")
+	}
+
 	return nil
+}
+
+// rebuildIndexesFromDocuments rebuilds the in-memory indexes from loaded documents
+func (s *SimpleSCIPStorage) rebuildIndexesFromDocuments() {
+	// Initialize indexes that aren't persisted
+	s.occurrencesBySymbol = make(map[string][]SCIPOccurrence)
+	s.definitionIndex = make(map[string][]*SCIPOccurrence)
+	s.referenceIndex = make(map[string][]SCIPOccurrence)
+	s.referenceWithDocs = make(map[string][]OccurrenceWithDocument)
+
+	// Only rebuild symbolNameIndex if it's empty (wasn't loaded from disk)
+	if len(s.symbolNameIndex) == 0 {
+		s.symbolNameIndex = make(map[string][]*SCIPSymbolInformation)
+
+		// Rebuild from symbol info index
+		common.LSPLogger.Info("[rebuildIndexesFromDocuments] Rebuilding symbolNameIndex from %d symbols in symbolInfoIndex", len(s.symbolInfoIndex))
+		addedCount := 0
+		for symbolID, symbolInfo := range s.symbolInfoIndex {
+			if symbolInfo != nil && symbolInfo.DisplayName != "" {
+				s.symbolNameIndex[symbolInfo.DisplayName] = append(s.symbolNameIndex[symbolInfo.DisplayName], symbolInfo)
+				addedCount++
+				if symbolInfo.DisplayName == "NewLSPManager" {
+					common.LSPLogger.Info("[rebuildIndexesFromDocuments] Found NewLSPManager! Symbol ID: %s", symbolID)
+				}
+			} else if symbolInfo != nil {
+				common.LSPLogger.Info("[rebuildIndexesFromDocuments] Symbol %s has empty DisplayName", symbolID)
+			}
+		}
+		common.LSPLogger.Info("[rebuildIndexesFromDocuments] Rebuilt symbolNameIndex with %d unique names from %d symbols", len(s.symbolNameIndex), addedCount)
+	} else {
+		common.LSPLogger.Info("[rebuildIndexesFromDocuments] symbolNameIndex already loaded from disk with %d entries, skipping rebuild", len(s.symbolNameIndex))
+	}
+
+	// Rebuild occurrence indexes from documents
+	for uri, doc := range s.documents {
+		if doc != nil {
+			// Index occurrences by symbol
+			for i := range doc.Occurrences {
+				occ := &doc.Occurrences[i]
+				s.occurrencesBySymbol[occ.Symbol] = append(s.occurrencesBySymbol[occ.Symbol], *occ)
+
+				// Index definitions and references separately
+				if occ.SymbolRoles.HasRole(types.SymbolRoleDefinition) {
+					s.definitionIndex[occ.Symbol] = append(s.definitionIndex[occ.Symbol], occ)
+				} else {
+					s.referenceIndex[occ.Symbol] = append(s.referenceIndex[occ.Symbol], *occ)
+					// Also store with document URI for easy lookup
+					s.referenceWithDocs[occ.Symbol] = append(s.referenceWithDocs[occ.Symbol], OccurrenceWithDocument{
+						SCIPOccurrence: *occ,
+						DocumentURI:    uri,
+					})
+				}
+			}
+		}
+	}
+
+	common.LSPLogger.Debug("Rebuilt indexes: %d symbol names, %d occurrences by symbol, %d references with docs",
+		len(s.symbolNameIndex), len(s.occurrencesBySymbol), len(s.referenceWithDocs))
+}
+
+// occurrenceKey provides a struct-based key for occurrence deduplication
+type occurrenceKey struct {
+	symbol string
+	line   int32
+	char   int32
+}
+
+// mergeDocuments efficiently merges occurrences and symbols from two documents
+func (s *SimpleSCIPStorage) mergeDocuments(existing, new *SCIPDocument) *SCIPDocument {
+	// Create merged document
+	merged := &SCIPDocument{
+		URI:          existing.URI,
+		Language:     existing.Language,
+		LastModified: new.LastModified,
+	}
+
+	// Use struct key for better performance than string concatenation
+	occMap := make(map[occurrenceKey]SCIPOccurrence)
+
+	// Add existing occurrences
+	for _, occ := range existing.Occurrences {
+		key := occurrenceKey{
+			symbol: occ.Symbol,
+			line:   occ.Range.Start.Line,
+			char:   occ.Range.Start.Character,
+		}
+		occMap[key] = occ
+	}
+
+	// Add/update with new occurrences
+	for _, occ := range new.Occurrences {
+		key := occurrenceKey{
+			symbol: occ.Symbol,
+			line:   occ.Range.Start.Line,
+			char:   occ.Range.Start.Character,
+		}
+		occMap[key] = occ // Overwrites if exists
+	}
+
+	// Convert back to slice with pre-allocated capacity
+	merged.Occurrences = make([]SCIPOccurrence, 0, len(occMap))
+	for _, occ := range occMap {
+		merged.Occurrences = append(merged.Occurrences, occ)
+	}
+
+	// Merge symbol information using symbol ID as key
+	symbolMap := make(map[string]SCIPSymbolInformation)
+	for _, si := range existing.SymbolInformation {
+		symbolMap[si.Symbol] = si
+	}
+	for _, si := range new.SymbolInformation {
+		symbolMap[si.Symbol] = si
+	}
+
+	// Convert back to slice with pre-allocated capacity
+	merged.SymbolInformation = make([]SCIPSymbolInformation, 0, len(symbolMap))
+	for _, si := range symbolMap {
+		merged.SymbolInformation = append(merged.SymbolInformation, si)
+	}
+
+	// Calculate size
+	merged.Size = s.calculateDocumentSize(merged)
+
+	return merged
+}
+
+// AddOccurrences efficiently adds occurrences to a document in batch
+func (s *SimpleSCIPStorage) AddOccurrences(ctx context.Context, uri string, occurrences []SCIPOccurrence) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	doc, found := s.documents[uri]
+	if !found {
+		// Create new document with just these occurrences
+		doc = &SCIPDocument{
+			URI:         uri,
+			Occurrences: occurrences,
+		}
+		doc.Size = s.calculateDocumentSize(doc)
+		return s.storeDocumentUnsafe(doc)
+	}
+
+	// Build occurrence map for efficient duplicate detection using struct keys
+	occMap := make(map[occurrenceKey]bool)
+	for _, occ := range doc.Occurrences {
+		key := occurrenceKey{
+			symbol: occ.Symbol,
+			line:   occ.Range.Start.Line,
+			char:   occ.Range.Start.Character,
+		}
+		occMap[key] = true
+	}
+
+	// Add only new occurrences
+	newOccurrences := make([]SCIPOccurrence, 0, len(occurrences))
+	for _, occ := range occurrences {
+		key := occurrenceKey{
+			symbol: occ.Symbol,
+			line:   occ.Range.Start.Line,
+			char:   occ.Range.Start.Character,
+		}
+		if !occMap[key] {
+			newOccurrences = append(newOccurrences, occ)
+		}
+	}
+
+	if len(newOccurrences) == 0 {
+		return nil // No new occurrences to add
+	}
+
+	// Update document size calculation
+	s.currentSize -= doc.Size
+	doc.Occurrences = append(doc.Occurrences, newOccurrences...)
+	doc.Size = s.calculateDocumentSize(doc)
+	s.currentSize += doc.Size
+
+	// Update indexes
+	s.updateOccurrenceIndexes(doc)
+
+	return nil
+}
+
+// calculateDocumentSize calculates the memory footprint of a document
+func (s *SimpleSCIPStorage) calculateDocumentSize(doc *SCIPDocument) int64 {
+	if doc == nil {
+		return 0
+	}
+
+	// Base size for document structure
+	size := int64(len(doc.URI)) + 64 // URI + overhead
+
+	// Add occurrences size
+	size += int64(len(doc.Occurrences)) * 128 // Estimate per occurrence
+
+	// Add symbol information size
+	for _, si := range doc.SymbolInformation {
+		size += int64(len(si.Symbol)) + int64(len(si.DisplayName)) + 64
+	}
+
+	// Add content size if present
+	if doc.Content != nil {
+		size += int64(len(doc.Content))
+	}
+
+	return size
+}
+
+// GetAllDocuments returns all documents in storage
+func (s *SimpleSCIPStorage) GetAllDocuments() map[string]*SCIPDocument {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	// Create a copy to avoid external modifications
+	docs := make(map[string]*SCIPDocument)
+	for uri, doc := range s.documents {
+		docs[uri] = doc
+	}
+	return docs
+}
+
+// containsString checks if a string slice contains a value
+func containsString(slice []string, value string) bool {
+	for _, item := range slice {
+		if item == value {
+			return true
+		}
+	}
+	return false
 }
 
 // Interface compliance verification

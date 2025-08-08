@@ -41,6 +41,10 @@ type SCIPOccurrence struct {
 	// Range specifies the text range where this symbol occurrence appears
 	Range types.Range
 
+	// SelectionRange specifies the range of just the identifier itself (optional)
+	// This is useful when Range includes surrounding syntax (like "func" keyword)
+	SelectionRange *types.Range
+
 	// Symbol is the unique SCIP symbol identifier (e.g., "go package main/", "go method main.Function")
 	Symbol string
 
@@ -260,6 +264,7 @@ type SCIPStorageStats struct {
 	CachedDocuments  int
 	TotalOccurrences int64
 	TotalSymbols     int64
+	TotalReferences  int64
 	UniqueSymbols    int
 
 	// Cache performance
@@ -279,55 +284,43 @@ type SCIPStorageConfig struct {
 	EnableMetrics      bool          // Enable metrics collection
 }
 
-// SCIPDocumentStorage interface defines the storage operations for SCIP indexes.
-// This interface is designed around the occurrence-centric SCIP model where
-// documents contain occurrences and symbol information.
+// IndexStats provides statistics about the SCIP storage
+type IndexStats struct {
+	TotalDocuments   int
+	TotalOccurrences int64
+	TotalSymbols     int64
+	MemoryUsage      int64
+	HitRate          float64
+}
+
+// SCIPDocumentStorage interface defines the simplified storage operations for SCIP indexes.
+// This interface focuses on core functionality with consistent method naming.
 type SCIPDocumentStorage interface {
-	// Document operations - core document management
+	// Lifecycle
+	Start(ctx context.Context) error
+	Stop(ctx context.Context) error
+
+	// Document operations
 	StoreDocument(ctx context.Context, doc *SCIPDocument) error
 	GetDocument(ctx context.Context, uri string) (*SCIPDocument, error)
 	RemoveDocument(ctx context.Context, uri string) error
 	ListDocuments(ctx context.Context) ([]string, error)
 
-	// Occurrence operations - occurrence-centric queries
-	GetOccurrences(ctx context.Context, uri string) ([]SCIPOccurrence, error)
-	GetOccurrencesInRange(ctx context.Context, uri string, start, end types.Position) ([]SCIPOccurrence, error)
-	GetOccurrencesBySymbol(ctx context.Context, symbolID string) ([]SCIPOccurrence, error)
-	GetDefinitionOccurrence(ctx context.Context, symbolID string) (*SCIPOccurrence, error)
-	GetReferenceOccurrences(ctx context.Context, symbolID string) ([]SCIPOccurrence, error)
+	// Occurrence operations - Always return arrays
+	GetDefinitions(ctx context.Context, symbolID string) ([]SCIPOccurrence, error)
+	GetReferences(ctx context.Context, symbolID string) ([]SCIPOccurrence, error)
+	GetOccurrences(ctx context.Context, symbolID string) ([]SCIPOccurrence, error)
 
-	// Symbol information operations - metadata about symbols
-	GetSymbolInformation(ctx context.Context, symbolID string) (*SCIPSymbolInformation, error)
-	GetSymbolInformationByName(ctx context.Context, name string) ([]SCIPSymbolInformation, error)
-	StoreSymbolInformation(ctx context.Context, info *SCIPSymbolInformation) error
-
-	// Relationship operations - symbol relationships
-	GetSymbolRelationships(ctx context.Context, symbolID string) ([]SCIPRelationship, error)
-	GetImplementations(ctx context.Context, symbolID string) ([]SCIPOccurrence, error)
-	GetTypeDefinition(ctx context.Context, symbolID string) (*SCIPOccurrence, error)
-
-	// Search operations - finding symbols across documents
+	// Symbol operations
+	GetSymbolInfo(ctx context.Context, symbolID string) (*SCIPSymbolInformation, error)
 	SearchSymbols(ctx context.Context, query string, limit int) ([]SCIPSymbolInformation, error)
-	SearchOccurrences(ctx context.Context, symbolPattern string, limit int) ([]SCIPOccurrence, error)
 
-	// Workspace operations - project-level queries
-	GetWorkspaceSymbols(ctx context.Context, query string) ([]SCIPSymbolInformation, error)
-	GetDocumentSymbols(ctx context.Context, uri string) ([]SCIPSymbolInformation, error)
+	// Batch operations
+	AddOccurrences(ctx context.Context, uri string, occurrences []SCIPOccurrence) error
 
-	// Index operations - SCIP index management
-	StoreIndex(ctx context.Context, index *SCIPIndex) error
-	GetIndex(ctx context.Context) (*SCIPIndex, error)
-
-	// Cache management - storage optimization
-	Flush(ctx context.Context) error
-	Compact(ctx context.Context) error
-	GetStats(ctx context.Context) (*SCIPStorageStats, error)
-	SetConfig(config SCIPStorageConfig) error
-
-	// Lifecycle - storage lifecycle management
-	Start(ctx context.Context) error
-	Stop(ctx context.Context) error
-	HealthCheck(ctx context.Context) error
+	// Index management
+	GetIndexStats() IndexStats
+	ClearIndex(ctx context.Context) error
 }
 
 // SCIPCacheManager interface for cache-specific operations

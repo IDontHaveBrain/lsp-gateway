@@ -14,6 +14,7 @@ import (
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
 	errorspkg "lsp-gateway/src/internal/errors"
+	"lsp-gateway/src/internal/project"
 	"lsp-gateway/src/internal/security"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/aggregators"
@@ -42,6 +43,9 @@ type LSPManager struct {
 
 	// Optional SCIP cache integration - can be nil for simple usage
 	scipCache cache.SCIPCache
+
+	// Project information for consistent symbol ID generation
+	projectInfo *project.PackageInfo
 }
 
 // NewLSPManager creates a new LSP manager with unified cache configuration
@@ -61,6 +65,7 @@ func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 		documentManager:     documents.NewLSPDocumentManager(),
 		workspaceAggregator: aggregators.NewWorkspaceSymbolAggregator(),
 		scipCache:           nil, // Optional cache - set to nil initially
+		projectInfo:         nil, // Will be initialized when needed
 	}
 
 	// Try to create cache with unified config - graceful degradation if it fails
@@ -73,16 +78,37 @@ func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 		}
 	}
 
+	// Initialize project info for consistent symbol ID generation
+	if wd, err := os.Getwd(); err == nil {
+		// Try to determine the primary language by looking at project files
+		language := manager.detectPrimaryLanguage(wd)
+		if projectInfo, err := project.GetPackageInfo(wd, language); err == nil {
+			manager.projectInfo = projectInfo
+		} else {
+			// Fallback to basic project info
+			manager.projectInfo = &project.PackageInfo{
+				Name:     filepath.Base(wd),
+				Version:  "0.0.0",
+				Language: language,
+			}
+		}
+	}
+
 	return manager, nil
 }
 
 // Start initializes and starts all configured LSP clients
 func (m *LSPManager) Start(ctx context.Context) error {
+	common.LSPLogger.Info("[LSPManager.Start] Starting LSP manager, scipCache=%v", m.scipCache != nil)
+
 	// Start cache if available - optional integration
 	if m.scipCache != nil {
+		common.LSPLogger.Info("[LSPManager.Start] Starting SCIP cache")
 		if err := m.scipCache.Start(ctx); err != nil {
 			common.LSPLogger.Warn("Failed to start SCIP cache (continuing without cache): %v", err)
 			m.scipCache = nil // Disable cache on start failure
+		} else {
+			common.LSPLogger.Info("[LSPManager.Start] SCIP cache started successfully")
 		}
 	}
 
@@ -133,27 +159,43 @@ func (m *LSPManager) Start(ctx context.Context) error {
 
 	// Perform workspace indexing if cache is enabled and background indexing is configured
 	if m.scipCache != nil && m.config.Cache != nil && m.config.Cache.BackgroundIndex {
-		go func() {
-			// Wait a bit for LSP servers to fully initialize
-			time.Sleep(2 * time.Second)
+		// Check immediately if cache already has data (loads synchronously)
+		if cacheManager, ok := m.scipCache.(*cache.SCIPCacheManager); ok {
+			stats := cacheManager.GetIndexStats()
+			if stats != nil && (stats.SymbolCount > 0 || stats.ReferenceCount > 0 || stats.DocumentCount > 0) {
+				common.LSPLogger.Info("LSP Manager: Cache already populated with %d symbols, %d references, %d documents - skipping background indexing",
+					stats.SymbolCount, stats.ReferenceCount, stats.DocumentCount)
+			} else {
+				// Only index if cache is truly empty
+				go func() {
+					// Wait for LSP servers to fully initialize
+					time.Sleep(3 * time.Second)
 
-			// Get working directory
-			wd, err := os.Getwd()
-			if err != nil {
-				common.LSPLogger.Warn("Failed to get working directory for indexing: %v", err)
-				return
+					// Double-check cache status
+					recheckStats := cacheManager.GetIndexStats()
+					if recheckStats != nil && (recheckStats.SymbolCount > 0 || recheckStats.ReferenceCount > 0 || recheckStats.DocumentCount > 0) {
+						common.LSPLogger.Info("LSP Manager: Cache was populated while waiting - skipping background indexing")
+						return
+					}
+
+					// Get working directory
+					wd, err := os.Getwd()
+					if err != nil {
+						common.LSPLogger.Warn("Failed to get working directory for indexing: %v", err)
+						return
+					}
+
+					// Perform workspace indexing
+					common.LSPLogger.Info("LSP Manager: Performing background workspace indexing")
+					indexCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+					defer cancel()
+
+					if err := cacheManager.PerformWorkspaceIndexing(indexCtx, wd, m); err != nil {
+						common.LSPLogger.Warn("Failed to perform workspace indexing: %v", err)
+					}
+				}()
 			}
-
-			// Perform workspace indexing
-			indexCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-			defer cancel()
-
-			if cacheManager, ok := m.scipCache.(*cache.SCIPCacheManager); ok {
-				if err := cacheManager.PerformWorkspaceIndexing(indexCtx, wd, m); err != nil {
-					common.LSPLogger.Warn("Failed to perform workspace indexing: %v", err)
-				}
-			}
-		}()
+		}
 	}
 
 	return nil
@@ -531,4 +573,66 @@ func (m *LSPManager) GetClient(language string) (types.LSPClient, error) {
 // GetConfiguredServers returns the map of configured servers
 func (m *LSPManager) GetConfiguredServers() map[string]*config.ServerConfig {
 	return m.config.Servers
+}
+
+// detectPrimaryLanguage detects the primary language of a project directory
+func (m *LSPManager) detectPrimaryLanguage(workingDir string) string {
+	// Check for project marker files in order of preference
+	projectMarkers := []struct {
+		files    []string
+		language string
+	}{
+		{[]string{"go.mod", "go.work"}, "go"},
+		{[]string{"package.json", "tsconfig.json"}, "typescript"},
+		{[]string{"package.json"}, "javascript"},
+		{[]string{"pyproject.toml", "setup.py", "requirements.txt"}, "python"},
+		{[]string{"pom.xml", "build.gradle", "build.gradle.kts"}, "java"},
+	}
+
+	for _, marker := range projectMarkers {
+		for _, file := range marker.files {
+			if _, err := os.Stat(filepath.Join(workingDir, file)); err == nil {
+				return marker.language
+			}
+		}
+	}
+
+	// Fallback: look at file extensions in directory
+	if files, err := os.ReadDir(workingDir); err == nil {
+		langCounts := make(map[string]int)
+		for _, file := range files {
+			if file.IsDir() {
+				continue
+			}
+			ext := filepath.Ext(file.Name())
+			switch ext {
+			case ".go":
+				langCounts["go"]++
+			case ".py":
+				langCounts["python"]++
+			case ".js", ".mjs":
+				langCounts["javascript"]++
+			case ".ts":
+				langCounts["typescript"]++
+			case ".java":
+				langCounts["java"]++
+			}
+		}
+
+		// Return the language with the most files
+		maxCount := 0
+		var primaryLang string
+		for lang, count := range langCounts {
+			if count > maxCount {
+				maxCount = count
+				primaryLang = lang
+			}
+		}
+		if primaryLang != "" {
+			return primaryLang
+		}
+	}
+
+	// Default fallback
+	return "unknown"
 }

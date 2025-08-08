@@ -162,7 +162,10 @@ func (p *LSPJSONRPCProtocol) HandleMessage(data []byte, messageHandler MessageHa
 		if msg.Error != nil {
 			rpcError = msg.Error
 			sanitizedError := common.SanitizeErrorForLogging(msg.Error)
-			common.LSPLogger.Warn("LSP response contains error: id=%v, error=%s", msg.ID, sanitizedError)
+			// Suppress "no identifier found" warnings during indexing as they are expected
+			if !strings.Contains(sanitizedError, "no identifier found") {
+				common.LSPLogger.Warn("LSP response contains error: id=%v, error=%s", msg.ID, sanitizedError)
+			}
 		} else if msg.Result != nil {
 			result, _ = json.Marshal(msg.Result)
 		}

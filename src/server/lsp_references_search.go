@@ -2,9 +2,13 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"lsp-gateway/src/internal/common"
@@ -75,65 +79,182 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 	var references []ReferenceInfo
 	var implementations []ReferenceInfo
 	var relatedSymbols []string
-	usedOccurrenceSearch := false
+	// Capture a definition location (from SCIP) for potential LSP fallback
+	var fallbackDefRef *ReferenceInfo
 
 	// Counters for different types of occurrences
 	var definitionCount, readAccessCount, writeAccessCount int
 
-	// First try occurrence-based reference search with SCIP storage
+	// Preferred: use SCIP cache manager to retrieve references directly
 	if m.scipCache != nil {
-
-		// Get SCIP storage for direct occurrence queries
-		scipStorage := m.getScipStorageFromCache()
-		if scipStorage != nil {
-			// Use the pattern directly for symbol search
-			symbolPattern := query.Pattern
-
-			// Search for symbol information to get the symbol ID
-			symbolInfos, err := scipStorage.SearchSymbols(ctx, symbolPattern, 10) // Get a few candidates
-			if err == nil && len(symbolInfos) > 0 {
-				// Process each symbol found
-				for _, symbolInfo := range symbolInfos {
-					// Get all reference occurrences for this symbol
-					refOccurrences, refErr := scipStorage.GetReferenceOccurrences(ctx, symbolInfo.Symbol)
-					if refErr == nil {
-
-						// Convert SCIP occurrences to ReferenceInfo
-						for _, occurrence := range refOccurrences {
-							refInfo := m.createReferenceFromOccurrence(ctx, scipStorage, occurrence, &symbolInfo)
-							if refInfo != nil {
-								references = append(references, *refInfo)
-								usedOccurrenceSearch = true
-
-								// Update counters
-								if refInfo.IsDefinition {
-									definitionCount++
-								}
-								if refInfo.IsReadAccess {
+		scipRefs, err := m.scipCache.SearchReferences(ctx, query.Pattern, query.FilePattern, query.MaxResults)
+		if err == nil && len(scipRefs) > 0 {
+			common.LSPLogger.Debug("SCIP cache returned %d references for '%s'", len(scipRefs), query.Pattern)
+			for _, r := range scipRefs {
+				switch v := r.(type) {
+				case cache.SCIPOccurrenceInfo:
+					ref := ReferenceInfo{
+						FilePath:      common.URIToFilePath(v.DocumentURI),
+						LineNumber:    int(v.Occurrence.Range.Start.Line),
+						Column:        int(v.Occurrence.Range.Start.Character),
+						SymbolID:      v.Occurrence.Symbol,
+						IsDefinition:  v.SymbolRoles.HasRole(types.SymbolRoleDefinition),
+						IsReadAccess:  v.SymbolRoles.HasRole(types.SymbolRoleReadAccess),
+						IsWriteAccess: v.SymbolRoles.HasRole(types.SymbolRoleWriteAccess),
+						IsImport:      v.SymbolRoles.HasRole(types.SymbolRoleImport),
+						IsGenerated:   v.SymbolRoles.HasRole(types.SymbolRoleGenerated),
+						IsTest:        v.SymbolRoles.HasRole(types.SymbolRoleTest),
+						Range:         &types.Range{Start: v.Occurrence.Range.Start, End: v.Occurrence.Range.End},
+					}
+					references = append(references, ref)
+					if ref.IsDefinition {
+						definitionCount++
+					}
+					if ref.IsReadAccess {
+						readAccessCount++
+					}
+					if ref.IsWriteAccess {
+						writeAccessCount++
+					}
+				case map[string]interface{}:
+					if uri, ok := v["document_uri"].(string); ok {
+						if occ, ok := v["occurrence"].(map[string]interface{}); ok {
+							if rmap, ok := occ["range"].(map[string]interface{}); ok {
+								if start, ok := rmap["start"].(map[string]interface{}); ok {
+									line, _ := start["line"].(float64)
+									char, _ := start["character"].(float64)
+									references = append(references, ReferenceInfo{
+										FilePath:     common.URIToFilePath(uri),
+										LineNumber:   int(line),
+										Column:       int(char),
+										IsReadAccess: true,
+									})
 									readAccessCount++
 								}
-								if refInfo.IsWriteAccess {
-									writeAccessCount++
-								}
-							}
-						}
-					}
-
-					// Get definition occurrence
-					defOccurrence, defErr := scipStorage.GetDefinitionOccurrence(ctx, symbolInfo.Symbol)
-					if defErr == nil && defOccurrence != nil {
-						defRefInfo := m.createReferenceFromOccurrence(ctx, scipStorage, *defOccurrence, &symbolInfo)
-						if defRefInfo != nil {
-							// Check for duplicates
-							if !m.isDuplicateReference(references, *defRefInfo) {
-								references = append(references, *defRefInfo)
-								definitionCount++
 							}
 						}
 					}
 				}
 			}
 		} else {
+			common.LSPLogger.Debug("SCIP cache returned no references for '%s', will try fallback", query.Pattern)
+		}
+		
+		// Always try to get a definition for potential LSP fallback
+		if len(references) == 0 || fallbackDefRef == nil {
+			if defs, derr := m.scipCache.SearchDefinitions(ctx, query.Pattern, query.FilePattern, 1); derr == nil && len(defs) > 0 {
+				switch d := defs[0].(type) {
+				case cache.SCIPOccurrenceInfo:
+					fallbackDefRef = &ReferenceInfo{
+						FilePath:   common.URIToFilePath(d.DocumentURI),
+						LineNumber: int(d.Occurrence.Range.Start.Line),
+						Column:     int(d.Occurrence.Range.Start.Character),
+						SymbolID:   d.Occurrence.Symbol,
+					}
+				case map[string]interface{}:
+					if uri, ok := d["document_uri"].(string); ok {
+						if occ, ok := d["occurrence"].(map[string]interface{}); ok {
+							if rmap, ok := occ["range"].(map[string]interface{}); ok {
+								if start, ok := rmap["start"].(map[string]interface{}); ok {
+									line, _ := start["line"].(float64)
+									char, _ := start["character"].(float64)
+									fallbackDefRef = &ReferenceInfo{
+										FilePath:   common.URIToFilePath(uri),
+										LineNumber: int(line),
+										Column:     int(char),
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// First try occurrence-based reference search with SCIP storage
+	if m.scipCache != nil {
+		common.LSPLogger.Debug("SCIP cache is available for reference search")
+
+		// Get SCIP storage for direct occurrence queries
+		scipStorage := m.getScipStorageFromCache()
+		if scipStorage != nil {
+			common.LSPLogger.Debug("Got SCIP storage for direct occurrence queries")
+			// Use the pattern directly for symbol search
+			symbolPattern := query.Pattern
+
+			// Search for symbol information to get the symbol ID
+			symbolInfos, err := scipStorage.SearchSymbols(ctx, symbolPattern, 10) // Get a few candidates
+			common.LSPLogger.Debug("SCIP SearchSymbols for '%s' returned %d results (err: %v)", symbolPattern, len(symbolInfos), err)
+			if err == nil && len(symbolInfos) > 0 {
+				// Process each symbol found
+				for _, symbolInfo := range symbolInfos {
+					common.LSPLogger.Debug("Processing symbol: %s (ID: %s)", symbolInfo.DisplayName, symbolInfo.Symbol)
+
+					// Try to get references with documents first (more efficient)
+					if simpleStorage, ok := scipStorage.(*scip.SimpleSCIPStorage); ok {
+						refWithDocs, refErr := simpleStorage.GetReferencesWithDocuments(ctx, symbolInfo.Symbol)
+						common.LSPLogger.Debug("GetReferencesWithDocuments returned %d occurrences (err: %v)", len(refWithDocs), refErr)
+						if refErr == nil {
+							for _, occWithDoc := range refWithDocs {
+								refInfo := m.createReferenceFromOccurrenceWithDoc(occWithDoc, &symbolInfo)
+								if refInfo != nil {
+									references = append(references, *refInfo)
+
+									// Update counters
+									if refInfo.IsDefinition {
+										definitionCount++
+									}
+									if refInfo.IsReadAccess {
+										readAccessCount++
+									}
+									if refInfo.IsWriteAccess {
+										writeAccessCount++
+									}
+								}
+							}
+						}
+					} else {
+						// Fallback to regular GetReferences
+						refOccurrences, refErr := scipStorage.GetReferences(ctx, symbolInfo.Symbol)
+						common.LSPLogger.Debug("GetReferences returned %d occurrences (err: %v)", len(refOccurrences), refErr)
+						if refErr == nil {
+							// Convert SCIP occurrences to ReferenceInfo
+							for _, occurrence := range refOccurrences {
+								refInfo := m.createReferenceFromOccurrence(ctx, scipStorage, occurrence, &symbolInfo)
+								if refInfo != nil {
+									references = append(references, *refInfo)
+
+									// Update counters
+									if refInfo.IsDefinition {
+										definitionCount++
+									}
+									if refInfo.IsReadAccess {
+										readAccessCount++
+									}
+									if refInfo.IsWriteAccess {
+										writeAccessCount++
+									}
+								}
+							}
+						}
+					}
+
+					// Capture a definition occurrence for LSP fallback (do not include as a reference result)
+					defOccurrences, defErr := scipStorage.GetDefinitions(ctx, symbolInfo.Symbol)
+					common.LSPLogger.Debug("GetDefinitions returned %d occurrences (err: %v)", len(defOccurrences), defErr)
+					if defErr == nil && len(defOccurrences) > 0 && fallbackDefRef == nil {
+						defOccurrence := defOccurrences[0]
+						defRefInfo := m.createReferenceFromOccurrence(ctx, scipStorage, defOccurrence, &symbolInfo)
+						common.LSPLogger.Debug("createReferenceFromOccurrence for definition (for fallback) returned: %v", defRefInfo != nil)
+						if defRefInfo != nil {
+							fallbackDefRef = defRefInfo
+						}
+					}
+				}
+			}
+		} else {
+			common.LSPLogger.Debug("SCIP storage not available, using fallback cache query")
 
 			// Fallback to cache query approach
 			symbolPattern := query.Pattern
@@ -174,7 +295,6 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 						// Check file pattern
 						if m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
 							references = append(references, refInfo)
-							usedOccurrenceSearch = true
 						}
 					}
 				}
@@ -213,7 +333,6 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 								}
 								if !isDuplicate {
 									references = append(references, *refInfo)
-									usedOccurrenceSearch = true
 								}
 							}
 						}
@@ -223,70 +342,143 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 		}
 	}
 
-	// If no SCIP occurrence results or SCIP not available, fall back to LSP
-	if !usedOccurrenceSearch || len(references) == 0 {
+	// If we have very few references, try text-based search as well
+	if len(references) < 10 {
+		common.LSPLogger.Debug("Only %d references found, trying text-based search for '%s'", len(references), query.Pattern)
+		// Try text-based search to find more occurrences
+		textRefs := m.searchReferencesInFiles(ctx, query.Pattern, query.FilePattern, query.MaxResults)
+		for _, textRef := range textRefs {
+			// Check if we already have this reference
+			duplicate := false
+			for _, existingRef := range references {
+				if existingRef.FilePath == textRef.FilePath && 
+				   existingRef.LineNumber == textRef.LineNumber &&
+				   existingRef.Column == textRef.Column {
+					duplicate = true
+					break
+				}
+			}
+			if !duplicate {
+				textRef.IsReadAccess = true
+				references = append(references, textRef)
+				readAccessCount++
+			}
+		}
+		common.LSPLogger.Debug("Text-based search added %d more references", len(textRefs))
+	}
 
-		// Find the symbol first using SearchSymbolPattern
-		symbolQuery := types.SymbolPatternQuery{
-			Pattern:     query.Pattern,
-			FilePattern: query.FilePattern,
-			MaxResults:  1, // We only need one matching symbol to find its references
-			IncludeCode: false,
+	// If still no references OR we only have definitions, fall back to LSP
+	onlyDefinitions := true
+	for _, ref := range references {
+		if !ref.IsDefinition {
+			onlyDefinitions = false
+			break
+		}
+	}
+
+	common.LSPLogger.Debug("Before LSP fallback: references=%d, onlyDefinitions=%v, definitionCount=%d",
+		len(references), onlyDefinitions, definitionCount)
+
+	if len(references) == 0 || (onlyDefinitions && definitionCount > 0) {
+		// Ensure we don't return definitions-only results
+		references = []ReferenceInfo{}
+		definitionCount = 0
+		readAccessCount = 0
+		writeAccessCount = 0
+
+		// If we don't already have a def position, try to fetch one now from SCIP
+		if fallbackDefRef == nil && m.scipCache != nil {
+			if scipStorage := m.getScipStorageFromCache(); scipStorage != nil {
+				if syms, err := scipStorage.SearchSymbols(ctx, query.Pattern, 1); err == nil && len(syms) > 0 {
+					if defs, derr := scipStorage.GetDefinitions(ctx, syms[0].Symbol); derr == nil && len(defs) > 0 {
+						if defRef := m.createReferenceFromOccurrence(ctx, scipStorage, defs[0], &syms[0]); defRef != nil {
+							fallbackDefRef = defRef
+						}
+					}
+				}
+			}
 		}
 
-		// Find the symbol first
-		symbolResult, err := m.SearchSymbolPattern(ctx, symbolQuery)
-		if err != nil {
-			// Don't fail completely, just return empty results
-			return &SymbolReferenceResult{
-				References: []ReferenceInfo{},
-				TotalCount: 0,
-				Truncated:  false,
-			}, nil
-		}
+		if fallbackDefRef != nil {
+			// Use SCIP def position to ask LSP for references
+			uri := common.FilePathToURI(fallbackDefRef.FilePath)
+			filePath := fallbackDefRef.FilePath
 
-		if len(symbolResult.Symbols) > 0 {
-			// Get the first matching symbol
-			symbol := symbolResult.Symbols[0]
+			// Read the file content to open it in LSP server
+			content, readErr := m.readFileContent(filePath)
+			if readErr == nil {
+				didOpenParams := map[string]interface{}{
+					"textDocument": map[string]interface{}{
+						"uri":        uri,
+						"languageId": m.detectLanguageFromURI(uri),
+						"version":    1,
+						"text":       string(content),
+					},
+				}
+				_, _ = m.ProcessRequest(ctx, "textDocument/didOpen", didOpenParams)
+				defer func() {
+					didCloseParams := map[string]interface{}{
+						"textDocument": map[string]interface{}{
+							"uri": uri,
+						},
+					}
+					_, _ = m.ProcessRequest(ctx, "textDocument/didClose", didCloseParams)
+				}()
+			}
 
-			// Prepare textDocument/references request
 			params := map[string]interface{}{
 				"textDocument": map[string]interface{}{
-					"uri": symbol.Location.URI,
+					"uri": uri,
 				},
 				"position": map[string]interface{}{
-					"line":      symbol.Location.Range.Start.Line,
-					"character": symbol.Location.Range.Start.Character,
+					"line":      fallbackDefRef.LineNumber,
+					"character": fallbackDefRef.Column,
 				},
 				"context": map[string]interface{}{
-					"includeDeclaration": false,
+					"includeDeclaration": true,
 				},
 			}
 
 			// Send references request
 			result, err := m.ProcessRequest(ctx, types.MethodTextDocumentReferences, params)
-			if err == nil {
-				// Parse the result
-				switch refs := result.(type) {
-				case []interface{}:
-					for _, ref := range refs {
-						if location, ok := ref.(map[string]interface{}); ok {
-							refInfo := m.parseReferenceLocation(location)
-							if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
-								references = append(references, *refInfo)
-							}
-						} else if loc, ok := ref.(lsp.Location); ok {
-							refInfo := m.locationToReferenceInfo(loc)
-							if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
-								references = append(references, *refInfo)
-							}
+			common.LSPLogger.Debug("LSP references result type: %T, err: %v", result, err)
+			if err == nil && result != nil {
+				// Parse the result - handle various response types
+				var parsedLocations []interface{}
+
+				if rawMsg, ok := result.(json.RawMessage); ok {
+					var locations []map[string]interface{}
+					if jsonErr := json.Unmarshal(rawMsg, &locations); jsonErr == nil {
+						for _, loc := range locations {
+							parsedLocations = append(parsedLocations, loc)
 						}
 					}
-				case []lsp.Location:
-					for _, loc := range refs {
+				} else if bytes, ok := result.([]byte); ok {
+					var locations []map[string]interface{}
+					if jsonErr := json.Unmarshal(bytes, &locations); jsonErr == nil {
+						for _, loc := range locations {
+							parsedLocations = append(parsedLocations, loc)
+						}
+					}
+				} else if locs, ok := result.([]interface{}); ok {
+					parsedLocations = locs
+				}
+
+				// Process parsed locations
+				for _, ref := range parsedLocations {
+					if location, ok := ref.(map[string]interface{}); ok {
+						refInfo := m.parseReferenceLocation(location)
+						if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
+							refInfo.IsReadAccess = true
+							references = append(references, *refInfo)
+							readAccessCount++
+						}
+					} else if loc, ok := ref.(lsp.Location); ok {
 						refInfo := m.locationToReferenceInfo(loc)
 						if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
+							refInfo.IsReadAccess = true
 							references = append(references, *refInfo)
+							readAccessCount++
 						}
 					}
 				}
@@ -320,16 +512,6 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 
 	totalCount := len(references)
 
-	// Create enhanced search metadata
-	searchMetadata := map[string]interface{}{
-		"search_type":           "occurrence_based",
-		"used_scip_storage":     usedOccurrenceSearch,
-		"symbol_pattern":        query.Pattern,
-		"file_pattern":          query.FilePattern,
-		"related_symbols_count": len(relatedSymbols),
-		"implementations_count": len(implementations),
-	}
-
 	return &SymbolReferenceResult{
 		References:       references,
 		TotalCount:       totalCount,
@@ -339,7 +521,6 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 		WriteAccessCount: writeAccessCount,
 		Implementations:  implementations,
 		RelatedSymbols:   relatedSymbols,
-		SearchMetadata:   searchMetadata,
 	}, nil
 }
 
@@ -392,6 +573,18 @@ func (m *LSPManager) matchesFilePattern(filePath, pattern string) bool {
 		return true
 	}
 
+	// Convert absolute path to relative if needed for pattern matching
+	// If filePath is absolute and pattern is relative, make filePath relative
+	normalizedPath := filePath
+	if filepath.IsAbs(filePath) && !filepath.IsAbs(pattern) {
+		// Try to make the path relative to the working directory
+		if wd, err := os.Getwd(); err == nil {
+			if relPath, err := filepath.Rel(wd, filePath); err == nil {
+				normalizedPath = relPath
+			}
+		}
+	}
+
 	// Convert glob pattern to filepath.Match pattern
 	if strings.Contains(pattern, "**") {
 		// For ** patterns, check if the path contains the pattern part
@@ -400,41 +593,49 @@ func (m *LSPManager) matchesFilePattern(filePath, pattern string) bool {
 			prefix := strings.TrimSuffix(parts[0], "/")
 			suffix := strings.TrimPrefix(parts[1], "/")
 
-			if prefix != "" && !strings.HasPrefix(filePath, prefix) {
-				return false
+			// Check both the normalized path and the original path
+			for _, pathToCheck := range []string{normalizedPath, filePath} {
+				matches := true
+				if prefix != "" && !strings.Contains(pathToCheck, prefix) {
+					matches = false
+				}
+				if matches && suffix != "" && suffix != "*" {
+					matched, _ := filepath.Match(suffix, filepath.Base(pathToCheck))
+					if !matched {
+						matches = false
+					}
+				}
+				if matches {
+					return true
+				}
 			}
-			if suffix != "" && suffix != "*" {
-				matched, _ := filepath.Match(suffix, filepath.Base(filePath))
-				return matched
-			}
-			return true
+			return false
 		}
 	}
 
 	// Check if it's a directory pattern
 	if strings.HasSuffix(pattern, "/") {
-		return strings.HasPrefix(filePath, pattern)
+		return strings.HasPrefix(normalizedPath, pattern) || strings.HasPrefix(filePath, pattern)
 	}
 
-	// Try direct glob match
-	matched, _ := filepath.Match(pattern, filePath)
-	if matched {
-		return true
+	// Try direct glob match on both normalized and original paths
+	for _, pathToCheck := range []string{normalizedPath, filePath} {
+		matched, _ := filepath.Match(pattern, pathToCheck)
+		if matched {
+			return true
+		}
+		// Try matching against the base name
+		matched, _ = filepath.Match(pattern, filepath.Base(pathToCheck))
+		if matched {
+			return true
+		}
 	}
 
-	// Try matching against the base name
-	matched, _ = filepath.Match(pattern, filepath.Base(filePath))
-	return matched
+	return false
 }
 
 // readFullLine reads a complete line from a file
-func (m *LSPManager) readFullLine(filePath string, lineNumber int) (string, error) {
-	r := lsp.Range{
-		Start: lsp.Position{Line: lineNumber, Character: 0},
-		End:   lsp.Position{Line: lineNumber, Character: 1000}, // Read up to 1000 chars
-	}
-	return m.readSymbolCode(filePath, r)
-}
+// readFullLine helper was removed as unused
 
 // Helper methods for occurrence-based reference search
 
@@ -444,16 +645,89 @@ func (m *LSPManager) getScipStorageFromCache() scip.SCIPDocumentStorage {
 		return nil
 	}
 
-	// For now, return nil and handle gracefully - need proper accessor method
-	// TODO: Add proper accessor method to SCIPCacheManager or use direct interface
-	return nil
+	// Use the GetSCIPStorage method to access the underlying storage
+	return m.scipCache.GetSCIPStorage()
+}
+
+// createReferenceFromOccurrenceWithDoc creates ReferenceInfo from a SCIP occurrence with document URI
+func (m *LSPManager) createReferenceFromOccurrenceWithDoc(occWithDoc scip.OccurrenceWithDocument, symbolInfo *scip.SCIPSymbolInformation) *ReferenceInfo {
+	filePath := common.URIToFilePath(occWithDoc.DocumentURI)
+
+	// Convert SCIP range to LSP-compatible format
+	refInfo := &ReferenceInfo{
+		FilePath:       filePath,
+		LineNumber:     int(occWithDoc.Range.Start.Line),
+		Column:         int(occWithDoc.Range.Start.Character),
+		SymbolID:       occWithDoc.Symbol,
+		OccurrenceRole: occWithDoc.SymbolRoles,
+		IsDefinition:   occWithDoc.SymbolRoles.HasRole(types.SymbolRoleDefinition),
+		IsReadAccess:   occWithDoc.SymbolRoles.HasRole(types.SymbolRoleReadAccess),
+		IsWriteAccess:  occWithDoc.SymbolRoles.HasRole(types.SymbolRoleWriteAccess),
+		IsImport:       occWithDoc.SymbolRoles.HasRole(types.SymbolRoleImport),
+		IsGenerated:    occWithDoc.SymbolRoles.HasRole(types.SymbolRoleGenerated),
+		IsTest:         occWithDoc.SymbolRoles.HasRole(types.SymbolRoleTest),
+		Documentation:  symbolInfo.Documentation,
+		Range: &types.Range{
+			Start: types.Position{
+				Line:      occWithDoc.Range.Start.Line,
+				Character: occWithDoc.Range.Start.Character,
+			},
+			End: types.Position{
+				Line:      occWithDoc.Range.End.Line,
+				Character: occWithDoc.Range.End.Character,
+			},
+		},
+	}
+
+	// Get related symbols from relationships
+	if symbolInfo.Relationships != nil {
+		for _, rel := range symbolInfo.Relationships {
+			refInfo.Relationships = append(refInfo.Relationships, rel.Symbol)
+		}
+	}
+
+	return refInfo
 }
 
 // createReferenceFromOccurrence creates a ReferenceInfo from a SCIP occurrence
 func (m *LSPManager) createReferenceFromOccurrence(ctx context.Context, scipStorage scip.SCIPDocumentStorage, occurrence scip.SCIPOccurrence, symbolInfo *scip.SCIPSymbolInformation) *ReferenceInfo {
+	// NOTE: The occurrence should ideally contain document URI information
+	// For now, we need to find which document contains this occurrence
+	// This is inefficient but necessary with the current SCIP storage interface
+
+	// Find the document URI that contains this occurrence
+	filePath := ""
+	docs, err := scipStorage.ListDocuments(ctx)
+	if err == nil {
+		// TODO: Optimize this by having occurrences store their document URI
+		for _, docURI := range docs {
+			doc, docErr := scipStorage.GetDocument(ctx, docURI)
+			if docErr == nil && doc != nil {
+				// Check if this document contains the occurrence
+				for _, docOcc := range doc.Occurrences {
+					if m.occurrencesMatch(docOcc, occurrence) {
+						filePath = common.URIToFilePath(docURI)
+						break
+					}
+				}
+				if filePath != "" {
+					break
+				}
+			}
+		}
+	}
+
+	// If we still don't have a file path, skip this occurrence
+	if filePath == "" {
+		// This can happen if the occurrence doesn't have associated document info
+		// Log for debugging
+		common.LSPLogger.Debug("Could not find document for occurrence with symbol: %s", occurrence.Symbol)
+		return nil
+	}
+
 	// Convert SCIP range to LSP-compatible format
 	refInfo := &ReferenceInfo{
-		FilePath:       "", // Need to determine from document context
+		FilePath:       filePath,
 		LineNumber:     int(occurrence.Range.Start.Line),
 		Column:         int(occurrence.Range.Start.Character),
 		SymbolID:       occurrence.Symbol,
@@ -485,6 +759,16 @@ func (m *LSPManager) createReferenceFromOccurrence(ctx context.Context, scipStor
 	}
 
 	return refInfo
+}
+
+// occurrencesMatch checks if two occurrences are the same
+func (m *LSPManager) occurrencesMatch(a, b scip.SCIPOccurrence) bool {
+	return a.Symbol == b.Symbol &&
+		a.Range.Start.Line == b.Range.Start.Line &&
+		a.Range.Start.Character == b.Range.Start.Character &&
+		a.Range.End.Line == b.Range.End.Line &&
+		a.Range.End.Character == b.Range.End.Character &&
+		a.SymbolRoles == b.SymbolRoles
 }
 
 // createLegacyReferenceInfo creates ReferenceInfo from LSP SymbolInformation (fallback)
@@ -580,4 +864,78 @@ func (m *LSPManager) containsString(slice []string, item string) bool {
 		}
 	}
 	return false
+}
+
+// readFileContent reads the content of a file
+func (m *LSPManager) readFileContent(filePath string) ([]byte, error) {
+	return os.ReadFile(filePath)
+}
+
+// detectLanguageFromURI detects the language from a URI based on file extension
+func (m *LSPManager) detectLanguageFromURI(uri string) string {
+	filePath := common.URIToFilePath(uri)
+	ext := filepath.Ext(filePath)
+	switch ext {
+	case ".go":
+		return "go"
+	case ".js", ".jsx", ".mjs":
+		return "javascript"
+	case ".ts", ".tsx":
+		return "typescript"
+	case ".py":
+		return "python"
+	case ".java":
+		return "java"
+	default:
+		return "plaintext"
+	}
+}
+
+// searchReferencesInFiles performs a text-based search for references
+func (m *LSPManager) searchReferencesInFiles(ctx context.Context, pattern string, filePattern string, maxResults int) []ReferenceInfo {
+	var references []ReferenceInfo
+	
+	// Use ripgrep to find occurrences
+	cmd := fmt.Sprintf("rg -n --no-heading --with-filename '\\b%s\\b' %s 2>/dev/null | head -n %d", 
+		pattern, filePattern, maxResults)
+	
+	output, err := exec.CommandContext(ctx, "sh", "-c", cmd).Output()
+	if err != nil {
+		return references
+	}
+	
+	lines := strings.Split(string(output), "\n")
+	for _, line := range lines {
+		if line == "" {
+			continue
+		}
+		
+		// Parse format: filename:line:column:text
+		parts := strings.SplitN(line, ":", 3)
+		if len(parts) < 3 {
+			continue
+		}
+		
+		filePath := parts[0]
+		lineNum, err := strconv.Atoi(parts[1])
+		if err != nil {
+			continue
+		}
+		
+		text := parts[2]
+		column := strings.Index(text, pattern)
+		if column == -1 {
+			column = 0
+		}
+		
+		references = append(references, ReferenceInfo{
+			FilePath:     filePath,
+			LineNumber:   lineNum - 1, // Convert to 0-based
+			Column:       column,
+			Text:         strings.TrimSpace(text),
+			IsReadAccess: true,
+		})
+	}
+	
+	return references
 }

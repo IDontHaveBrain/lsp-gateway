@@ -329,7 +329,10 @@ func (c *StdioClient) HandleResponse(id interface{}, result json.RawMessage, err
 			errorData, _ := json.Marshal(err)
 			responseData = errorData
 			sanitizedError := common.SanitizeErrorForLogging(err)
-			common.LSPLogger.Warn("LSP response contains error: id=%s, error=%s", idStr, sanitizedError)
+			// Suppress "no identifier found" warnings during indexing as they are expected
+			if !strings.Contains(sanitizedError, "no identifier found") {
+				common.LSPLogger.Warn("LSP response contains error: id=%s, error=%s", idStr, sanitizedError)
+			}
 		} else {
 			responseData = result
 		}

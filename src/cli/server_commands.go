@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server"
 )
@@ -16,6 +17,14 @@ import (
 // RunServer starts the simplified LSP gateway server
 func RunServer(addr string, configPath string, lspOnly bool) error {
 	cfg := LoadConfigWithFallback(configPath)
+
+	// Ensure cache path is project-specific so it matches CLI indexing
+	if cfg != nil && cfg.Cache != nil {
+		if wd, err := os.Getwd(); err == nil {
+			projectPath := config.GetProjectSpecificCachePath(wd)
+			cfg.SetCacheStoragePath(projectPath)
+		}
+	}
 
 	// Create and start gateway
 	gateway, err := server.NewHTTPGateway(addr, cfg, lspOnly)
