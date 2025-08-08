@@ -351,8 +351,18 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 			}
 			
 			// For each symbol found, try to get references from its location
+			// Limit the number of LSP requests to avoid overwhelming the server
+			maxLSPRequests := 5
+			lspRequestCount := 0
+			
 			for _, wsSymbol := range wsSymbols {
+				// Stop making LSP requests if we've hit the limit
+				if lspRequestCount >= maxLSPRequests {
+					break
+				}
+				
 				if symbolMap, ok := wsSymbol.(map[string]interface{}); ok {
+					// First add the symbol itself as a reference
 					if location, hasLocation := symbolMap["location"].(map[string]interface{}); hasLocation {
 						if uri, hasURI := location["uri"].(string); hasURI {
 							if rangeMap, hasRange := location["range"].(map[string]interface{}); hasRange {
@@ -360,43 +370,74 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 									line, _ := start["line"].(float64)
 									char, _ := start["character"].(float64)
 									
-									// Try to get references from this position
-									refParams := map[string]interface{}{
-										"textDocument": map[string]interface{}{
-											"uri": uri,
-										},
-										"position": map[string]interface{}{
-											"line":      int(line),
-											"character": int(char),
-										},
-										"context": map[string]interface{}{
-											"includeDeclaration": true,
-										},
-									}
-									
-									if refResult, refErr := m.ProcessRequest(ctx, "textDocument/references", refParams); refErr == nil && refResult != nil {
-										// Parse reference results
-										var parsedLocations []interface{}
-										
-										if rawMsg, ok := refResult.(json.RawMessage); ok {
-											var locations []map[string]interface{}
-											if jsonErr := json.Unmarshal(rawMsg, &locations); jsonErr == nil {
-												for _, loc := range locations {
-													parsedLocations = append(parsedLocations, loc)
-												}
-											}
-										} else if locs, ok := refResult.([]interface{}); ok {
-											parsedLocations = locs
+									// Add the symbol location itself as a reference
+									filePath := m.convertURIToPath(uri)
+									if filePath != "" && m.matchesFilePattern(filePath, query.FilePattern) {
+										refInfo := ReferenceInfo{
+											FilePath:     filePath,
+											LineNumber:   int(line) + 1,
+											Column:       int(char) + 1,
+											IsDefinition: false,
+											IsReadAccess: true,
 										}
 										
-										// Process parsed locations
-										for _, ref := range parsedLocations {
-											if location, ok := ref.(map[string]interface{}); ok {
-												refInfo := m.parseReferenceLocation(location)
-												if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
-													refInfo.IsReadAccess = true
-													references = append(references, *refInfo)
-													readAccessCount++
+										// Check for duplicates
+										isDuplicate := false
+										for _, existing := range references {
+											if existing.FilePath == refInfo.FilePath &&
+												existing.LineNumber == refInfo.LineNumber &&
+												existing.Column == refInfo.Column {
+												isDuplicate = true
+												break
+											}
+										}
+										if !isDuplicate {
+											references = append(references, refInfo)
+										}
+									}
+									
+									// Only try to get actual references for a limited number of symbols
+									if lspRequestCount < maxLSPRequests {
+										lspRequestCount++
+										
+										// Try to get references from this position
+										refParams := map[string]interface{}{
+											"textDocument": map[string]interface{}{
+												"uri": uri,
+											},
+											"position": map[string]interface{}{
+												"line":      int(line),
+												"character": int(char),
+											},
+											"context": map[string]interface{}{
+												"includeDeclaration": true,
+											},
+										}
+										
+										if refResult, refErr := m.ProcessRequest(ctx, "textDocument/references", refParams); refErr == nil && refResult != nil {
+											// Parse reference results
+											var parsedLocations []interface{}
+											
+											if rawMsg, ok := refResult.(json.RawMessage); ok {
+												var locations []map[string]interface{}
+												if jsonErr := json.Unmarshal(rawMsg, &locations); jsonErr == nil {
+													for _, loc := range locations {
+														parsedLocations = append(parsedLocations, loc)
+													}
+												}
+											} else if locs, ok := refResult.([]interface{}); ok {
+												parsedLocations = locs
+											}
+											
+											// Process parsed locations
+											for _, ref := range parsedLocations {
+												if location, ok := ref.(map[string]interface{}); ok {
+													refInfo := m.parseReferenceLocation(location)
+													if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
+														refInfo.IsReadAccess = true
+														references = append(references, *refInfo)
+														readAccessCount++
+													}
 												}
 											}
 										}
