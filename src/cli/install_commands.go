@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"lsp-gateway/src/config"
@@ -13,8 +12,7 @@ import (
 
 // ShowInstallStatus displays installation status for all language servers
 func ShowInstallStatus() error {
-	common.CLILogger.Info("🔍 Language Server Installation Status")
-	common.CLILogger.Info("%s", strings.Repeat("=", 50))
+	common.CLILogger.Info("Language Server Installation Status")
 
 	manager := installer.GetDefaultInstallManager()
 	status := manager.GetStatus()
@@ -26,16 +24,14 @@ func ShowInstallStatus() error {
 
 	installedCount := 0
 	for language, installStatus := range status {
-		statusIcon := "❌"
 		statusText := "Not Installed"
 
 		if installStatus.Installed {
-			statusIcon = "✅"
 			statusText = "Installed"
 			installedCount++
 		}
 
-		common.CLILogger.Info("%s %s: %s", statusIcon, language, statusText)
+		common.CLILogger.Info("%s: %s", language, statusText)
 
 		if installStatus.Version != "" {
 			common.CLILogger.Info("   Version: %s", installStatus.Version)
@@ -48,14 +44,14 @@ func ShowInstallStatus() error {
 		common.CLILogger.Info("")
 	}
 
-	common.CLILogger.Info("📊 Summary: %d/%d language servers installed", installedCount, len(status))
+	common.CLILogger.Info("Summary: %d/%d language servers installed", installedCount, len(status))
 
 	return nil
 }
 
 // InstallAll installs all supported language servers
 func InstallAll(installPath, version string, force, offline bool) error {
-	common.CLILogger.Info("🚀 Installing all language servers...")
+	common.CLILogger.Info("Installing all language servers...")
 
 	manager := installer.GetDefaultInstallManager()
 
@@ -75,13 +71,13 @@ func InstallAll(installPath, version string, force, offline bool) error {
 		return fmt.Errorf("installation failed: %w", err)
 	}
 
-	common.CLILogger.Info("✅ All language servers installation completed")
+	common.CLILogger.Info("All language servers installation completed")
 	return nil
 }
 
 // InstallLanguage installs a specific language server
 func InstallLanguage(language, installPath, version string, force, offline bool) error {
-	common.CLILogger.Info("🚀 Installing %s language server...", language)
+	common.CLILogger.Info("Installing %s language server...", language)
 
 	manager := installer.GetDefaultInstallManager()
 
@@ -101,13 +97,13 @@ func InstallLanguage(language, installPath, version string, force, offline bool)
 		return fmt.Errorf("failed to install %s: %w", language, err)
 	}
 
-	common.CLILogger.Info("✅ %s language server installation completed", language)
+	common.CLILogger.Info("%s language server installation completed", language)
 	return nil
 }
 
 // UpdateConfigWithInstalled updates configuration with installed language servers
 func UpdateConfigWithInstalled(configPath string) error {
-	common.CLILogger.Info("🔧 Updating configuration with installed language servers...")
+	common.CLILogger.Info("Updating configuration with installed language servers...")
 
 	manager := installer.GetDefaultInstallManager()
 	updater := installer.NewConfigUpdater(manager)
@@ -141,6 +137,6 @@ func UpdateConfigWithInstalled(configPath string) error {
 		return fmt.Errorf("failed to save updated config: %w", err)
 	}
 
-	common.CLILogger.Info("✅ Configuration updated successfully")
+	common.CLILogger.Info("Configuration updated successfully")
 	return nil
 }

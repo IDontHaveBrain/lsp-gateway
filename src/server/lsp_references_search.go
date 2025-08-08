@@ -88,7 +88,6 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 	if m.scipCache != nil {
 		scipRefs, err := m.scipCache.SearchReferences(ctx, query.Pattern, query.FilePattern, query.MaxResults)
 		if err == nil && len(scipRefs) > 0 {
-			common.LSPLogger.Debug("SCIP cache returned %d references for '%s'", len(scipRefs), query.Pattern)
 			for _, r := range scipRefs {
 				switch v := r.(type) {
 				case cache.SCIPOccurrenceInfo:
@@ -135,8 +134,6 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 					}
 				}
 			}
-		} else {
-			common.LSPLogger.Debug("SCIP cache returned no references for '%s', will try fallback", query.Pattern)
 		}
 
 		// Always try to get a definition for potential LSP fallback
@@ -173,27 +170,22 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 
 	// First try occurrence-based reference search with SCIP storage
 	if m.scipCache != nil {
-		common.LSPLogger.Debug("SCIP cache is available for reference search")
 
 		// Get SCIP storage for direct occurrence queries
 		scipStorage := m.getScipStorageFromCache()
 		if scipStorage != nil {
-			common.LSPLogger.Debug("Got SCIP storage for direct occurrence queries")
 			// Use the pattern directly for symbol search
 			symbolPattern := query.Pattern
 
 			// Search for symbol information to get the symbol ID
 			symbolInfos, err := scipStorage.SearchSymbols(ctx, symbolPattern, 10) // Get a few candidates
-			common.LSPLogger.Debug("SCIP SearchSymbols for '%s' returned %d results (err: %v)", symbolPattern, len(symbolInfos), err)
 			if err == nil && len(symbolInfos) > 0 {
 				// Process each symbol found
 				for _, symbolInfo := range symbolInfos {
-					common.LSPLogger.Debug("Processing symbol: %s (ID: %s)", symbolInfo.DisplayName, symbolInfo.Symbol)
 
 					// Try to get references with documents first (more efficient)
 					if simpleStorage, ok := scipStorage.(*scip.SimpleSCIPStorage); ok {
 						refWithDocs, refErr := simpleStorage.GetReferencesWithDocuments(ctx, symbolInfo.Symbol)
-						common.LSPLogger.Debug("GetReferencesWithDocuments returned %d occurrences (err: %v)", len(refWithDocs), refErr)
 						if refErr == nil {
 							for _, occWithDoc := range refWithDocs {
 								refInfo := m.createReferenceFromOccurrenceWithDoc(occWithDoc, &symbolInfo)
@@ -216,7 +208,6 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 					} else {
 						// Fallback to regular GetReferences
 						refOccurrences, refErr := scipStorage.GetReferences(ctx, symbolInfo.Symbol)
-						common.LSPLogger.Debug("GetReferences returned %d occurrences (err: %v)", len(refOccurrences), refErr)
 						if refErr == nil {
 							// Convert SCIP occurrences to ReferenceInfo
 							for _, occurrence := range refOccurrences {
@@ -241,11 +232,9 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 
 					// Capture a definition occurrence for LSP fallback (do not include as a reference result)
 					defOccurrences, defErr := scipStorage.GetDefinitions(ctx, symbolInfo.Symbol)
-					common.LSPLogger.Debug("GetDefinitions returned %d occurrences (err: %v)", len(defOccurrences), defErr)
 					if defErr == nil && len(defOccurrences) > 0 && fallbackDefRef == nil {
 						defOccurrence := defOccurrences[0]
 						defRefInfo := m.createReferenceFromOccurrence(ctx, scipStorage, defOccurrence, &symbolInfo)
-						common.LSPLogger.Debug("createReferenceFromOccurrence for definition (for fallback) returned: %v", defRefInfo != nil)
 						if defRefInfo != nil {
 							fallbackDefRef = defRefInfo
 						}
@@ -253,7 +242,6 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 				}
 			}
 		} else {
-			common.LSPLogger.Debug("SCIP storage not available, using fallback cache query")
 
 			// Fallback to cache query approach
 			symbolPattern := query.Pattern
@@ -350,8 +338,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 		}
 	}
 
-	common.LSPLogger.Debug("Before LSP fallback: references=%d, onlyDefinitions=%v, definitionCount=%d",
-		len(references), onlyDefinitions, definitionCount)
+	// Check if we need LSP fallback
 
 	if len(references) == 0 || (onlyDefinitions && definitionCount > 0) {
 		// Ensure we don't return definitions-only results
@@ -415,7 +402,6 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 
 			// Send references request
 			result, err := m.ProcessRequest(ctx, types.MethodTextDocumentReferences, params)
-			common.LSPLogger.Debug("LSP references result type: %T, err: %v", result, err)
 			if err == nil && result != nil {
 				// Parse the result - handle various response types
 				var parsedLocations []interface{}

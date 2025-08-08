@@ -61,7 +61,7 @@ func NewMCPServer(cfg *config.Config) (*MCPServer, error) {
 // Start starts the MCP server with cache warming for optimal LLM performance
 func (m *MCPServer) Start() error {
 	cache := m.lspManager.GetCache()
-	common.LSPLogger.Info("[MCPServer.Start] Starting MCP server, scipCache=%v", cache != nil)
+	// MCP server starting with cache optimization
 
 	// Start LSP manager (which handles SCIP cache startup internally)
 	if err := m.lspManager.Start(m.ctx); err != nil {
@@ -72,8 +72,6 @@ func (m *MCPServer) Start() error {
 	if cache != nil {
 		// Check immediately if cache has data (it loads synchronously in Start())
 		stats := cache.GetIndexStats()
-		common.LSPLogger.Debug("MCP server: Initial cache stats - symbols=%d, refs=%d, docs=%d",
-			stats.SymbolCount, stats.ReferenceCount, stats.DocumentCount)
 		if stats != nil && (stats.SymbolCount > 0 || stats.ReferenceCount > 0 || stats.DocumentCount > 0) {
 			common.LSPLogger.Info("MCP server: Using existing cache with %d symbols, %d references, %d documents",
 				stats.SymbolCount, stats.ReferenceCount, stats.DocumentCount)

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -93,8 +92,7 @@ func RunMCPServer(configPath string) error {
 func ShowStatus(configPath string) error {
 	cfg := configloader.LoadForCLI(configPath)
 
-	common.CLILogger.Info("🔍 LSP Gateway Status")
-	common.CLILogger.Info("%s", strings.Repeat("=", 50))
+	common.CLILogger.Info("LSP Gateway Status")
 
 	manager, err := server.NewLSPManager(cfg)
 	if err != nil {
@@ -104,19 +102,17 @@ func ShowStatus(configPath string) error {
 	// Check server availability without starting them (fast, non-destructive)
 	status := manager.CheckServerAvailability()
 
-	common.CLILogger.Info("📊 Configured Languages: %d\n", len(cfg.Servers))
+	common.CLILogger.Info("Configured Languages: %d\n", len(cfg.Servers))
 
 	for language, serverConfig := range cfg.Servers {
 		clientStatus := status[language]
-		statusIcon := "❌"
 		statusText := "Unavailable"
 
 		if clientStatus.Available {
-			statusIcon = "✅"
 			statusText = "Available"
 		}
 
-		common.CLILogger.Info("%s %s: %s", statusIcon, language, statusText)
+		common.CLILogger.Info("%s: %s", language, statusText)
 		common.CLILogger.Info("   Command: %s %v", serverConfig.Command, serverConfig.Args)
 
 		if !clientStatus.Available && clientStatus.Error != nil {
@@ -136,8 +132,7 @@ func ShowStatus(configPath string) error {
 func TestConnection(configPath string) error {
 	cfg := configloader.LoadForCLI(configPath)
 
-	common.CLILogger.Info("🧪 Testing LSP Server Connections")
-	common.CLILogger.Info("%s", strings.Repeat("=", 50))
+	common.CLILogger.Info("Testing LSP Server Connections")
 
 	manager, err := server.NewLSPManager(cfg)
 	if err != nil {
@@ -147,7 +142,7 @@ func TestConnection(configPath string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	common.CLILogger.Info("🚀 Starting LSP Manager...")
+	common.CLILogger.Info("Starting LSP Manager...")
 	if err := manager.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start LSP manager: %w", err)
 	}
@@ -155,20 +150,19 @@ func TestConnection(configPath string) error {
 
 	// Display initial cache status
 	common.CLILogger.Info("")
-	common.CLILogger.Info("🗄️  Cache Status:")
-	common.CLILogger.Info("%s", strings.Repeat("-", 30))
+	common.CLILogger.Info("Cache Status:")
 
 	cache := manager.GetCache()
 	initialMetrics, healthErr := cache.HealthCheck()
 	if healthErr != nil {
-		common.CLILogger.Error("❌ Cache: Health check failed (%v)", healthErr)
+		common.CLILogger.Error("Cache: Health check failed (%v)", healthErr)
 	} else if initialMetrics != nil {
-		common.CLILogger.Info("✅ Cache: Enabled and Ready")
+		common.CLILogger.Info("Cache: Enabled and Ready")
 		common.CLILogger.Info("   Health: OK")
 		common.CLILogger.Info("   Initial Stats: %d entries, %.1fMB used",
 			initialMetrics.EntryCount, float64(initialMetrics.TotalSize)/(1024*1024))
 	} else {
-		common.CLILogger.Info("✅ Cache: Enabled and Ready")
+		common.CLILogger.Info("Cache: Enabled and Ready")
 		common.CLILogger.Info("   Health: OK")
 		common.CLILogger.Info("   Initial Stats: 0 entries, 0MB used")
 	}
@@ -177,24 +171,21 @@ func TestConnection(configPath string) error {
 	status := manager.GetClientStatus()
 
 	common.CLILogger.Info("")
-	common.CLILogger.Info("📊 LSP Server Status:")
-	common.CLILogger.Info("%s", strings.Repeat("-", 30))
+	common.CLILogger.Info("LSP Server Status:")
 
 	activeLanguages := []string{}
 	for language, clientStatus := range status {
-		statusIcon := "❌"
 		statusText := "Inactive"
 
 		if clientStatus.Active {
-			statusIcon = "✅"
 			statusText = "Active"
 			activeLanguages = append(activeLanguages, language)
 		}
 
 		if clientStatus.Error != nil {
-			common.CLILogger.Error("%s %s: %s (%v)", statusIcon, language, statusText, clientStatus.Error)
+			common.CLILogger.Error("%s: %s (%v)", language, statusText, clientStatus.Error)
 		} else {
-			common.CLILogger.Info("%s %s: %s", statusIcon, language, statusText)
+			common.CLILogger.Info("%s: %s", language, statusText)
 		}
 	}
 
@@ -203,8 +194,7 @@ func TestConnection(configPath string) error {
 	}
 
 	common.CLILogger.Info("")
-	common.CLILogger.Info("🔍 Testing Multi-Repo workspace/symbol functionality...")
-	common.CLILogger.Info("%s", strings.Repeat("-", 50))
+	common.CLILogger.Info("Testing Multi-Repo workspace/symbol functionality...")
 
 	// Test workspace/symbol for multi-repo support (queries all active servers)
 	params := map[string]interface{}{
@@ -212,19 +202,18 @@ func TestConnection(configPath string) error {
 	}
 
 	common.CLILogger.Info("")
-	common.CLILogger.Info("📋 Multi-Repo workspace/symbol Test:")
-	common.CLILogger.Info("%s", strings.Repeat("-", 40))
+	common.CLILogger.Info("Multi-Repo workspace/symbol Test:")
 
 	result, err := testWorkspaceSymbol(manager, ctx, params)
 	successCount := 0
 	if err != nil {
-		common.CLILogger.Error("❌ workspace/symbol (multi-repo): %v", err)
+		common.CLILogger.Error("workspace/symbol (multi-repo): %v", err)
 	} else {
-		common.CLILogger.Info("✅ workspace/symbol (multi-repo): Success (%T)", result)
+		common.CLILogger.Info("workspace/symbol (multi-repo): Success (%T)", result)
 		if result != nil {
 			// Try to parse and show symbol count if possible
 			if symbols, ok := parseSymbolResult(result); ok {
-				common.CLILogger.Info("   📊 Total symbols found across all servers: %d", len(symbols))
+				common.CLILogger.Info("   Total symbols found across all servers: %d", len(symbols))
 			}
 		}
 		successCount = 1
@@ -232,27 +221,26 @@ func TestConnection(configPath string) error {
 
 	// Show which servers contributed to the results
 	common.CLILogger.Info("")
-	common.CLILogger.Info("📈 Active servers contributing to results: %d", len(activeLanguages))
+	common.CLILogger.Info("Active servers contributing to results: %d", len(activeLanguages))
 	for _, language := range activeLanguages {
 		common.CLILogger.Info("   • %s server: Active", language)
 	}
 
 	common.CLILogger.Info("")
-	common.CLILogger.Info("%s", strings.Repeat("=", 50))
-	common.CLILogger.Info("📈 Test Summary:")
+	common.CLILogger.Info("Test Summary:")
 	common.CLILogger.Info("   • Active Servers: %d/%d", len(activeLanguages), len(cfg.Servers))
 	common.CLILogger.Info("   • Multi-Repo Test: %s", func() string {
 		if successCount > 0 {
-			return "✅ Success"
+			return "Success"
 		}
-		return "❌ Failed"
+		return "Failed"
 	}())
 
 	// Display cache performance after testing
 	finalCacheMetrics := manager.GetCacheMetrics()
 	if finalCacheMetrics != nil {
 		common.CLILogger.Info("")
-		common.CLILogger.Info("📈 Cache Performance:")
+		common.CLILogger.Info("Cache Performance:")
 
 		// Access the cache directly to get proper metrics
 		cache := manager.GetCache()
@@ -269,25 +257,25 @@ func TestConnection(configPath string) error {
 				healthMetrics.EntryCount, float64(healthMetrics.TotalSize)/(1024*1024))
 
 			if totalRequests > 0 {
-				common.CLILogger.Info("   Cache Contributed: ✅ Improved response times")
+				common.CLILogger.Info("   Cache Contributed: Improved response times")
 			} else {
-				common.CLILogger.Info("   Cache Contributed: ⚠️  No cache activity during test")
+				common.CLILogger.Info("   Cache Contributed: No cache activity during test")
 			}
 		} else {
 			// Fallback when health check fails
-			common.CLILogger.Info("   Cache Status: ✅ Active and monitoring")
+			common.CLILogger.Info("   Cache Status: Active and monitoring")
 		}
 	}
 
 	if successCount > 0 {
 		common.CLILogger.Info("")
-		common.CLILogger.Info("🎉 Multi-repo workspace/symbol functionality is working correctly!")
-		common.CLILogger.Info("💡 All %d active LSP servers are contributing to search results.", len(activeLanguages))
+		common.CLILogger.Info("Multi-repo workspace/symbol functionality is working correctly!")
+		common.CLILogger.Info("All %d active LSP servers are contributing to search results.", len(activeLanguages))
 		return nil
 	} else {
 		common.CLILogger.Warn("")
-		common.CLILogger.Warn("⚠️  Multi-repo workspace/symbol test failed.")
-		common.CLILogger.Warn("🔧 Check individual server logs for debugging.")
+		common.CLILogger.Warn("Multi-repo workspace/symbol test failed.")
+		common.CLILogger.Warn("Check individual server logs for debugging.")
 		return nil // Don't fail the test completely
 	}
 }

@@ -280,18 +280,13 @@ func (m *LSPManager) CheckServerAvailability() map[string]ClientStatus {
 
 // ProcessRequest processes a JSON-RPC request by routing it to the appropriate LSP client
 func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params interface{}) (interface{}, error) {
-	common.LSPLogger.Debug("ProcessRequest: method=%s", method)
 
 	// Try cache lookup first if cache is available and method is cacheable
 	if m.scipCache != nil && m.isCacheableMethod(method) {
 		if result, found, err := m.scipCache.Lookup(method, params); err == nil && found {
-			common.LSPLogger.Debug("ProcessRequest: cache hit for method=%s", method)
 			return result, nil
 		} else if err != nil {
-			common.LSPLogger.Debug("ProcessRequest: cache lookup error for method=%s: %v", method, err)
 			// Cache lookup failed, continue with LSP fallback
-		} else {
-			common.LSPLogger.Debug("ProcessRequest: cache miss for method=%s", method)
 		}
 	}
 
@@ -332,18 +327,14 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 	}
 
 	language := m.documentManager.DetectLanguage(uri)
-	common.LSPLogger.Debug("ProcessRequest: uri=%s, detected language=%s", uri, language)
 	if language == "" {
-		common.LSPLogger.Debug("ProcessRequest: unsupported file type: %s", uri)
 		return nil, fmt.Errorf("unsupported file type: %s", uri)
 	}
 
 	client, err := m.getClient(language)
 	if err != nil {
-		common.LSPLogger.Debug("ProcessRequest: no LSP client for language %s: %v", language, err)
 		return nil, fmt.Errorf("no LSP client for language %s: %w", language, err)
 	}
-	common.LSPLogger.Debug("ProcessRequest: got client for language=%s", language)
 
 	// Check if server supports the requested method
 	if !client.Supports(method) {
@@ -371,7 +362,6 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 
 		// Perform SCIP indexing for document-related operations
 		m.performSCIPIndexing(ctx, method, uri, language, params, result)
-	} else {
 	}
 
 	return result, err

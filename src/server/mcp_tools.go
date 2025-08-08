@@ -96,7 +96,6 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 
 	arguments, ok := params["arguments"].(map[string]interface{})
 	if !ok {
-		common.LSPLogger.Error("Failed to get arguments from params: %+v", params)
 		return nil, fmt.Errorf("missing or invalid arguments")
 	}
 
@@ -339,11 +338,9 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 				Truncated:  len(scipResults) >= maxResults,
 			}
 		} else {
-			// Log cache miss and fall back to LSP manager
-			common.LSPLogger.Debug("SCIP cache search failed or returned no results, falling back to LSP: %v", scipErr)
+			// Cache miss, falling back to LSP manager
 			result, err = m.lspManager.SearchSymbolPattern(ctx, query)
 			if err != nil {
-				common.LSPLogger.Error("SearchSymbolPattern fallback failed: %v", err)
 				return nil, fmt.Errorf("symbol pattern search failed: %w", err)
 			}
 		}
@@ -351,7 +348,6 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 		// No cache available, use LSP manager directly
 		result, err = m.lspManager.SearchSymbolPattern(ctx, query)
 		if err != nil {
-			common.LSPLogger.Error("SearchSymbolPattern failed: %v", err)
 			return nil, fmt.Errorf("symbol pattern search failed: %w", err)
 		}
 	}
@@ -397,7 +393,6 @@ func (m *MCPServer) handleFindSymbolReferences(params map[string]interface{}) (i
 
 	arguments, ok := params["arguments"].(map[string]interface{})
 	if !ok {
-		common.LSPLogger.Error("Failed to get arguments from params: %+v", params)
 		return nil, fmt.Errorf("missing or invalid arguments")
 	}
 

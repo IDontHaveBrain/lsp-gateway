@@ -65,8 +65,7 @@ func (w *WorkspaceIndexer) IndexWorkspaceFiles(ctx context.Context, workspaceDir
 	indexedCount := 0
 	failedFiles := []string{}
 	common.LSPLogger.Debug("Workspace indexer: Starting to process %d files", len(files))
-	for i, file := range files {
-		common.LSPLogger.Debug("Workspace indexer: Processing file %d/%d: %s", i+1, len(files), file)
+	for _, file := range files {
 		// Convert to file URI
 		absPath, err := filepath.Abs(file)
 		if err != nil {
@@ -75,7 +74,6 @@ func (w *WorkspaceIndexer) IndexWorkspaceFiles(ctx context.Context, workspaceDir
 			continue
 		}
 		uri := "file://" + absPath
-		common.LSPLogger.Debug("Workspace indexer: Calling ProcessRequest for URI: %s", uri)
 
 		// First open the document
 		fileContent, readErr := os.ReadFile(absPath)
@@ -226,7 +224,6 @@ func (w *WorkspaceIndexer) ScanWorkspaceSourceFiles(dir string, extensions []str
 			if ext == validExt {
 				files = append(files, path)
 				count++
-				common.LSPLogger.Debug("ScanWorkspaceSourceFiles: Found file #%d: %s", count, path)
 				break
 			}
 		}

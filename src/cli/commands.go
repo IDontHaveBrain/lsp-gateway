@@ -50,19 +50,19 @@ var rootCmd = &cobra.Command{
 	Long: `LSP Gateway provides a unified JSON-RPC interface for multiple Language Server Protocol (LSP) servers
 with Model Context Protocol (MCP) server functionality for AI assistant integration.
 
-🚀 QUICK START:
+QUICK START:
   lsp-gateway server                       # Start HTTP Gateway (port 8080)
   lsp-gateway mcp                          # Start MCP Server for AI assistants
 
-📋 CORE FEATURES:
-  • Multi-language LSP server management (Go, Python, TypeScript, Java)
-  • SCIP Cache system for improved response times and performance
-  • HTTP JSON-RPC Gateway for IDE/editor integration
-  • MCP Server for AI assistant integration (Claude, ChatGPT, etc.)
-  • Automatic server detection and configuration
-  • Simplified architecture focused on core functionality
+CORE FEATURES:
+  - Multi-language LSP server management (Go, Python, TypeScript, Java)
+  - SCIP Cache system for improved response times and performance
+  - HTTP JSON-RPC Gateway for IDE/editor integration
+  - MCP Server for AI assistant integration (Claude, ChatGPT, etc.)
+  - Automatic server detection and configuration
+  - Simplified architecture focused on core functionality
 
-🔧 AVAILABLE COMMANDS:
+AVAILABLE COMMANDS:
 
   Core Operations:
     lsp-gateway server                     # Start HTTP Gateway on port 8080
@@ -77,15 +77,15 @@ with Model Context Protocol (MCP) server functionality for AI assistant integrat
     lsp-gateway cache health               # Cache health diagnostics
     lsp-gateway cache stats                # Performance statistics
 
-🎯 INTEGRATION MODES:
-  • HTTP Gateway: JSON-RPC endpoint at http://localhost:8080/jsonrpc
-  • MCP Server: AI assistant integration via Model Context Protocol
+INTEGRATION MODES:
+  - HTTP Gateway: JSON-RPC endpoint at http://localhost:8080/jsonrpc
+  - MCP Server: AI assistant integration via Model Context Protocol
 
-💡 SUPPORTED LANGUAGES:
-  • Go (gopls) - Definition lookup, references, symbols, hover
-  • Python (pylsp) - Code analysis, completion, diagnostics  
-  • TypeScript/JavaScript (typescript-language-server) - Full language support
-  • Java (jdtls) - Enterprise-grade Java development
+SUPPORTED LANGUAGES:
+  - Go (gopls) - Definition lookup, references, symbols, hover
+  - Python (pylsp) - Code analysis, completion, diagnostics  
+  - TypeScript/JavaScript (typescript-language-server) - Full language support
+  - Java (jdtls) - Enterprise-grade Java development
 
 Use 'lsp-gateway <command> --help' for detailed command information.`,
 	SilenceUsage:  true,

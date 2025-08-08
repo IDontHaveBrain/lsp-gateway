@@ -11,30 +11,25 @@ import (
 
 // Cache display constants
 const (
-	CacheIconHealthy  = "✅"
-	CacheIconWarning  = "⚠️"
-	CacheIconError    = "❌"
-	CacheIconDisabled = "⚫"
-	CacheIconUnknown  = "❓"
 	CacheSeparator    = "="
 	CacheSubSeparator = "-"
 	CacheSeparatorLen = 50
 	CacheSubSepLen    = 30
 )
 
-// GetCacheStatusIcon returns appropriate status icons based on health status
-func GetCacheStatusIcon(health string) string {
+// GetHealthStatusText returns appropriate status text based on health status
+func GetHealthStatusText(health string) string {
 	switch strings.ToUpper(health) {
 	case "OK":
-		return CacheIconHealthy
+		return "Healthy"
 	case "DEGRADED":
-		return CacheIconWarning
+		return "Warning"
 	case "FAILING", "CRITICAL":
-		return CacheIconError
+		return "Error"
 	case "DISABLED":
-		return CacheIconDisabled
+		return "Disabled"
 	default:
-		return CacheIconUnknown
+		return "Unknown"
 	}
 }
 
@@ -89,57 +84,50 @@ func GetCacheStatusText(metrics *cache.CacheMetrics) string {
 func DisplayCacheStatus(manager *server.LSPManager) {
 	if manager == nil {
 		common.CLILogger.Info("")
-		common.CLILogger.Info("🗄️  Cache Status:")
-		common.CLILogger.Info("%s", strings.Repeat(CacheSubSeparator, CacheSubSepLen))
-		common.CLILogger.Info("%s Cache: Manager not available", CacheIconError)
+		common.CLILogger.Info("Cache Status:")
+		common.CLILogger.Info("Cache: Manager not available")
 		return
 	}
 
 	common.CLILogger.Info("")
-	common.CLILogger.Info("🗄️  Cache Status:")
-	common.CLILogger.Info("%s", strings.Repeat(CacheSubSeparator, CacheSubSepLen))
+	common.CLILogger.Info("Cache Status:")
 
 	metrics, err := GetCacheMetricsFromManager(manager)
 	if err != nil {
-		common.CLILogger.Info("%s Cache: Unable to get metrics (%v)", CacheIconError, err)
+		common.CLILogger.Info("Cache: Unable to get metrics (%v)", err)
 		return
 	}
 
 	if metrics == nil {
-		common.CLILogger.Info("%s Cache: No metrics available", CacheIconUnknown)
+		common.CLILogger.Info("Cache: No metrics available")
 		return
 	}
 
-	// Show basic health status
-	health := "OK"
-	if metrics == nil {
-		health = "DISABLED"
-	}
-	icon := GetCacheStatusIcon(health)
+	// Show basic cache status
 	statusText := GetCacheStatusText(metrics)
-	common.CLILogger.Info("%s Cache: %s", icon, statusText)
+	common.CLILogger.Info("Cache: %s", statusText)
 
 	// Show basic metrics if cache is enabled
 	if metrics != nil {
 		totalRequests := metrics.HitCount + metrics.MissCount
 		if totalRequests > 0 {
 			hitRatio := float64(metrics.HitCount) / float64(totalRequests) * 100
-			common.CLILogger.Info("   📊 Stats: %d entries, %.1f%% hit rate (%d/%d requests)",
+			common.CLILogger.Info("   Stats: %d entries, %.1f%% hit rate (%d/%d requests)",
 				metrics.EntryCount, hitRatio, metrics.HitCount, totalRequests)
 		} else {
-			common.CLILogger.Info("   📊 Stats: %d entries, no requests processed yet", metrics.EntryCount)
+			common.CLILogger.Info("   Stats: %d entries, no requests processed yet", metrics.EntryCount)
 		}
 
 		if metrics.TotalSize > 0 {
-			common.CLILogger.Info("   💾 Size: %s", formatBytes(metrics.TotalSize))
+			common.CLILogger.Info("   Size: %s", formatBytes(metrics.TotalSize))
 		}
 
 		// Show any errors or evictions
 		if metrics.ErrorCount > 0 {
-			common.CLILogger.Info("   ⚠️  Errors: %d", metrics.ErrorCount)
+			common.CLILogger.Info("   Errors: %d", metrics.ErrorCount)
 		}
 		if metrics.EvictionCount > 0 {
-			common.CLILogger.Info("   🔄 Evictions: %d", metrics.EvictionCount)
+			common.CLILogger.Info("   Evictions: %d", metrics.EvictionCount)
 		}
 	}
 }

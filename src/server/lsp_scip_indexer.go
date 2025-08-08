@@ -563,7 +563,7 @@ func (m *LSPManager) parseLocationResult(result interface{}) []types.Location {
 				}
 			}
 		} else {
-			common.LSPLogger.Debug("Failed to unmarshal json.RawMessage in parseLocationResult: %v", err)
+			// Failed to unmarshal json.RawMessage in parseLocationResult
 		}
 		return locations
 	case []interface{}:
@@ -578,7 +578,7 @@ func (m *LSPManager) parseLocationResult(result interface{}) []types.Location {
 		}
 		return locations
 	default:
-		common.LSPLogger.Debug("Unexpected type in parseLocationResult: %T", result)
+		// Unexpected type in parseLocationResult
 		return nil
 	}
 }
@@ -773,66 +773,66 @@ func (m *LSPManager) mapLSPSymbolKindToSyntaxKind(lspKind types.SymbolKind) type
 
 // storeDocumentOccurrences stores SCIP occurrences as a document
 func (m *LSPManager) storeDocumentOccurrences(ctx context.Context, uri, language string, occurrences []scip.SCIPOccurrence, symbolInfos []scip.SCIPSymbolInformation) {
-    if m.scipCache == nil {
-        return
-    }
+	if m.scipCache == nil {
+		return
+	}
 
-    // If we only have occurrences (e.g., references), add them directly to SCIP storage
-    if len(occurrences) > 0 && len(symbolInfos) == 0 {
-        if mgr, ok := m.scipCache.(*cache.SCIPCacheManager); ok {
-            _ = mgr.AddOccurrences(ctx, uri, occurrences)
-            return
-        }
-    }
+	// If we only have occurrences (e.g., references), add them directly to SCIP storage
+	if len(occurrences) > 0 && len(symbolInfos) == 0 {
+		if mgr, ok := m.scipCache.(*cache.SCIPCacheManager); ok {
+			_ = mgr.AddOccurrences(ctx, uri, occurrences)
+			return
+		}
+	}
 
-    // Otherwise, convert to SymbolInformation and index (keeps definitions + metadata)
-    var symbols []lsp.SymbolInformation
-    for i, occ := range occurrences {
-        var displayName string
-        var kind types.SymbolKind
-        if i < len(symbolInfos) {
-            displayName = symbolInfos[i].DisplayName
-            kind = m.mapSCIPKindToLSPSymbolKind(symbolInfos[i].Kind)
-        } else {
-            displayName = occ.Symbol
-            kind = types.Variable
-        }
+	// Otherwise, convert to SymbolInformation and index (keeps definitions + metadata)
+	var symbols []lsp.SymbolInformation
+	for i, occ := range occurrences {
+		var displayName string
+		var kind types.SymbolKind
+		if i < len(symbolInfos) {
+			displayName = symbolInfos[i].DisplayName
+			kind = m.mapSCIPKindToLSPSymbolKind(symbolInfos[i].Kind)
+		} else {
+			displayName = occ.Symbol
+			kind = types.Variable
+		}
 
-        symbols = append(symbols, lsp.SymbolInformation{
-            Name: displayName,
-            Kind: kind,
-            Location: types.Location{
-                URI: uri,
-                Range: types.Range{
-                    Start: types.Position{Line: int32(occ.Range.Start.Line), Character: int32(occ.Range.Start.Character)},
-                    End:   types.Position{Line: int32(occ.Range.End.Line), Character: int32(occ.Range.End.Character)},
-                },
-            },
-        })
-    }
+		symbols = append(symbols, lsp.SymbolInformation{
+			Name: displayName,
+			Kind: kind,
+			Location: types.Location{
+				URI: uri,
+				Range: types.Range{
+					Start: types.Position{Line: int32(occ.Range.Start.Line), Character: int32(occ.Range.Start.Character)},
+					End:   types.Position{Line: int32(occ.Range.End.Line), Character: int32(occ.Range.End.Character)},
+				},
+			},
+		})
+	}
 
-    if err := m.scipCache.IndexDocument(ctx, uri, language, symbols); err != nil {
-        common.LSPLogger.Debug("Failed to index document symbols for %s: %v", uri, err)
-    }
+	if err := m.scipCache.IndexDocument(ctx, uri, language, symbols); err != nil {
+		common.LSPLogger.Warn("Failed to index document symbols for %s: %v", uri, err)
+	}
 
-    for i, symbolInfo := range symbolInfos {
-        if i < len(symbols) && len(symbolInfo.Documentation) > 0 {
-            hoverParams := map[string]interface{}{
-                "textDocument": map[string]interface{}{"uri": uri},
-                "position": map[string]interface{}{
-                    "line":      symbols[i].Location.Range.Start.Line,
-                    "character": symbols[i].Location.Range.Start.Character,
-                },
-            }
-            hoverResult := &lsp.Hover{
-                Contents: map[string]interface{}{
-                    "kind":  "markdown",
-                    "value": strings.Join(symbolInfo.Documentation, "\n"),
-                },
-            }
-            m.scipCache.Store("textDocument/hover", hoverParams, hoverResult)
-        }
-    }
+	for i, symbolInfo := range symbolInfos {
+		if i < len(symbols) && len(symbolInfo.Documentation) > 0 {
+			hoverParams := map[string]interface{}{
+				"textDocument": map[string]interface{}{"uri": uri},
+				"position": map[string]interface{}{
+					"line":      symbols[i].Location.Range.Start.Line,
+					"character": symbols[i].Location.Range.Start.Character,
+				},
+			}
+			hoverResult := &lsp.Hover{
+				Contents: map[string]interface{}{
+					"kind":  "markdown",
+					"value": strings.Join(symbolInfo.Documentation, "\n"),
+				},
+			}
+			m.scipCache.Store("textDocument/hover", hoverParams, hoverResult)
+		}
+	}
 }
 
 // ProcessEnhancedQuery processes a query that combines LSP and SCIP data

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"lsp-gateway/src/internal/common"
@@ -25,39 +24,38 @@ func IndexCache(configPath string) error {
 
 	cacheInstance := manager.GetCache()
 	if cacheInstance == nil {
-		common.CLILogger.Info("❌ Cache: Not available")
+		common.CLILogger.Info("Cache: Not available")
 		return nil
 	}
 
 	metrics, err := cacheInstance.HealthCheck()
 	if err != nil {
-		common.CLILogger.Error("❌ Cache: Unable to get status (%v)", err)
+		common.CLILogger.Error("Cache: Unable to get status (%v)", err)
 		return err
 	}
 
 	if metrics == nil {
-		common.CLILogger.Info("⚫ Cache: Disabled by configuration")
+		common.CLILogger.Info("Cache: Disabled by configuration")
 		return nil
 	}
 
-	common.CLILogger.Info("🔄 Cache Index")
-	common.CLILogger.Info("%s", strings.Repeat("=", 50))
-	common.CLILogger.Info("📋 Starting cache index rebuild...")
+	common.CLILogger.Info("Cache Index")
+	common.CLILogger.Info("Starting cache index rebuild...")
 
 	// Get working directory
 	wd, err := os.Getwd()
 	if err != nil {
-		common.CLILogger.Error("❌ Failed to get working directory: %v", err)
+		common.CLILogger.Error("Failed to get working directory: %v", err)
 		return err
 	}
-	common.CLILogger.Info("🔍 Scanning workspace: %s", wd)
+	common.CLILogger.Info("Scanning workspace: %s", wd)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	// Start LSP manager to fetch document symbols
 	if err := manager.Start(ctx); err != nil {
-		common.CLILogger.Error("❌ Failed to start LSP manager: %v", err)
+		common.CLILogger.Error("Failed to start LSP manager: %v", err)
 		return err
 	}
 	defer manager.Stop()
@@ -79,9 +77,9 @@ func IndexCache(configPath string) error {
 			common.CLILogger.Error("❌ Failed to perform workspace indexing: %v", err)
 			return err
 		}
-		common.CLILogger.Info("💾 Index saved to disk")
+		common.CLILogger.Info("Index saved to disk")
 	} else {
-		common.CLILogger.Error("❌ Cache manager doesn't support workspace indexing")
+		common.CLILogger.Error("Cache manager doesn't support workspace indexing")
 		return fmt.Errorf("cache manager doesn't support workspace indexing")
 	}
 
@@ -97,17 +95,17 @@ func IndexCache(configPath string) error {
 	// Report results based on actual indexing success
 
 	if actuallyIndexedSymbols > 0 {
-		common.CLILogger.Info("✅ Cache index rebuilt successfully - indexed %d symbols from %d documents", actuallyIndexedSymbols, actuallyIndexedDocs)
+		common.CLILogger.Info("Cache index rebuilt successfully - indexed %d symbols from %d documents", actuallyIndexedSymbols, actuallyIndexedDocs)
 	} else {
-		common.CLILogger.Warn("⚠️  Cache indexing completed but no symbols were indexed")
-		common.CLILogger.Error("❌ No symbols indexed - check:")
+		common.CLILogger.Warn("Cache indexing completed but no symbols were indexed")
+		common.CLILogger.Error("No symbols indexed - check:")
 		common.CLILogger.Error("   • LSP servers are returning document symbols (enable LSP_GATEWAY_DEBUG=true)")
 		common.CLILogger.Error("   • Cache is properly enabled and configured")
 		common.CLILogger.Error("   • Files exist in the workspace")
 
 		// Show updated stats even on failure
 		if updatedMetrics, err := cacheInstance.HealthCheck(); err == nil && updatedMetrics != nil {
-			common.CLILogger.Info("📊 Updated cache stats: %d entries", updatedMetrics.EntryCount)
+			common.CLILogger.Info("Updated cache stats: %d entries", updatedMetrics.EntryCount)
 		}
 
 		return fmt.Errorf("cache indexing failed: no symbols were indexed")
@@ -115,7 +113,7 @@ func IndexCache(configPath string) error {
 
 	// Show updated stats
 	if updatedMetrics, err := cacheInstance.HealthCheck(); err == nil && updatedMetrics != nil {
-		common.CLILogger.Info("📊 Updated cache stats: %d entries", updatedMetrics.EntryCount)
+		common.CLILogger.Info("Updated cache stats: %d entries", updatedMetrics.EntryCount)
 	}
 
 	return nil
@@ -133,31 +131,30 @@ func ClearCache(configPath string) error {
 
 	cache := manager.GetCache()
 	if cache == nil {
-		common.CLILogger.Info("❌ Cache: Not available")
+		common.CLILogger.Info("Cache: Not available")
 		return nil
 	}
 
 	metrics, err := cache.HealthCheck()
 	if err != nil {
-		common.CLILogger.Error("❌ Cache: Unable to get status (%v)", err)
+		common.CLILogger.Error("Cache: Unable to get status (%v)", err)
 		return err
 	}
 
 	if metrics == nil {
-		common.CLILogger.Info("⚫ Cache: Disabled by configuration")
+		common.CLILogger.Info("Cache: Disabled by configuration")
 		return nil
 	}
 
-	common.CLILogger.Info("🧹 Cache Clear")
-	common.CLILogger.Info("%s", strings.Repeat("=", 50))
+	common.CLILogger.Info("Cache Clear")
 
 	// Clear the cache
 	if err := cache.Clear(); err != nil {
-		common.CLILogger.Error("❌ Failed to clear cache: %v", err)
+		common.CLILogger.Error("Failed to clear cache: %v", err)
 		return err
 	}
 
-	common.CLILogger.Info("✅ Cache cleared successfully")
+	common.CLILogger.Info("Cache cleared successfully")
 
 	return nil
 }
@@ -174,32 +171,31 @@ func ShowCacheInfo(configPath string) error {
 
 	cacheInstance := manager.GetCache()
 	if cacheInstance == nil {
-		common.CLILogger.Info("❌ Cache: Not available")
+		common.CLILogger.Info("Cache: Not available")
 		return nil
 	}
 
 	metrics, err := cacheInstance.HealthCheck()
 	if err != nil {
-		common.CLILogger.Error("❌ Cache: Unable to get status (%v)", err)
+		common.CLILogger.Error("Cache: Unable to get status (%v)", err)
 		return err
 	}
 
-	common.CLILogger.Info("📊 Cache Info")
-	common.CLILogger.Info("%s", strings.Repeat("=", 50))
+	common.CLILogger.Info("Cache Info")
 
 	if metrics == nil {
-		common.CLILogger.Info("❌ No cache metrics available")
+		common.CLILogger.Info("No cache metrics available")
 		return nil
 	}
 
 	// Display cache status
 	if metrics == nil {
-		common.CLILogger.Info("⚫ Status: Disabled")
+		common.CLILogger.Info("Status: Disabled")
 		return nil
 	}
 
 	// Basic statistics
-	common.CLILogger.Info("📈 Cache Statistics:")
+	common.CLILogger.Info("Cache Statistics:")
 	common.CLILogger.Info("  • Entries: %d", metrics.EntryCount)
 	common.CLILogger.Info("  • Memory: %s", formatBytes(metrics.TotalSize))
 
@@ -221,7 +217,7 @@ func ShowCacheInfo(configPath string) error {
 	indexStats := cacheInstance.GetIndexStats()
 	if indexStats != nil && indexStats.Status != "disabled" {
 		common.CLILogger.Info("")
-		common.CLILogger.Info("📑 Index Statistics:")
+		common.CLILogger.Info("Index Statistics:")
 		common.CLILogger.Info("  • Indexed Documents: %d", indexStats.DocumentCount)
 		common.CLILogger.Info("  • Indexed Symbols: %d", indexStats.SymbolCount)
 		common.CLILogger.Info("  • Indexed References: %d", indexStats.ReferenceCount)

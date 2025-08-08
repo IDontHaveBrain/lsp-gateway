@@ -252,7 +252,7 @@ func (m *SCIPCacheManager) Start(ctx context.Context) error {
 	// Load index from disk if available
 	if m.config.DiskCache && m.config.StoragePath != "" {
 		if err := m.LoadIndexFromDisk(); err != nil {
-			common.LSPLogger.Debug("No existing index found or failed to load: %v", err)
+			// Index will be built as needed
 		}
 	}
 
@@ -386,7 +386,6 @@ func (m *SCIPCacheManager) InvalidateDocument(uri string) error {
 
 	m.invalidateSingleDocument(uri)
 	for _, affectedURI := range affectedDocs {
-		common.LSPLogger.Debug("Invalidating affected document: %s", affectedURI)
 		m.invalidateSingleDocument(affectedURI)
 	}
 
@@ -411,9 +410,7 @@ func (m *SCIPCacheManager) invalidateSingleDocument(uri string) {
 		}
 	}
 
-	if removedCount > 0 {
-		common.LSPLogger.Debug("Removed %d cache entries for %s", removedCount, uri)
-	}
+	// Cache entries removed
 
 	// Clean up SCIP storage
 	if m.scipStorage != nil {
@@ -432,7 +429,6 @@ func (m *SCIPCacheManager) Clear() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	common.LSPLogger.Debug("Clearing all cache entries")
 	m.entries = make(map[string]*CacheEntry)
 
 	if err := m.scipStorage.Stop(context.Background()); err != nil {
@@ -969,7 +965,7 @@ func (m *SCIPCacheManager) storeWorkspaceSymbolResult(response interface{}) erro
 func (m *SCIPCacheManager) storeCompletionResult(uri string, params, response interface{}) error {
 	// Completion items are typically not stored as occurrences
 	// This is a placeholder for potential future enhancements
-	common.LSPLogger.Debug("Completion result storage not implemented for occurrence-centric cache")
+	// Completion items not stored in occurrence cache
 	return nil
 }
 
@@ -2013,7 +2009,7 @@ func (m *SCIPCacheManager) StoreMethodResult(method string, params interface{}, 
 	case "textDocument/completion":
 		return m.storeCompletionResult(uri, params, response)
 	default:
-		common.LSPLogger.Debug("Method %s not supported for SCIP storage", method)
+		// Method not cached in SCIP storage
 		return nil
 	}
 }

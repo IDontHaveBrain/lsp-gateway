@@ -172,9 +172,7 @@ func (s *SimpleSCIPStorage) storeDocumentUnsafe(doc *SCIPDocument) error {
 	s.addToAccessOrder(doc.URI)
 	s.updateOccurrenceIndexes(doc)
 
-	// Debug: Check symbol info index size after update
-	common.LSPLogger.Debug("StoreDocument: Stored doc %s with %d occurrences and %d symbol infos. Total symbols in index: %d",
-		doc.URI, len(doc.Occurrences), len(doc.SymbolInformation), len(s.symbolInfoIndex))
+	// Document stored and indexed
 
 	return nil
 }
@@ -317,22 +315,9 @@ func (s *SimpleSCIPStorage) SearchSymbols(ctx context.Context, query string, lim
 		limit = MaxSymbolSearchResults
 	}
 
-	common.LSPLogger.Info("[SCIP] SearchSymbols called with query: %q, limit: %d", query, limit)
-	common.LSPLogger.Info("[SCIP] Total symbols in index: %d, in name index: %d", len(s.symbolInfoIndex), len(s.symbolNameIndex))
+	// Symbol search initiated
 
-	// Debug: Log first 5 names in symbolNameIndex to verify it's populated
-	if len(s.symbolNameIndex) > 0 {
-		var sampleNames []string
-		count := 0
-		for name := range s.symbolNameIndex {
-			sampleNames = append(sampleNames, name)
-			count++
-			if count >= 5 {
-				break
-			}
-		}
-		common.LSPLogger.Info("[SCIP] Sample names in symbolNameIndex: %v", sampleNames)
-	}
+	// Symbol name index populated
 
 	// Check if query is a regex pattern
 	var pattern *regexp.Regexp
@@ -350,19 +335,10 @@ func (s *SimpleSCIPStorage) SearchSymbols(ctx context.Context, query string, lim
 
 	// First, check symbolNameIndex for direct name lookups
 	if pattern == nil {
-		// Log what we're looking for
-		common.LSPLogger.Info("[SCIP] Looking for exact match: %q in symbolNameIndex with %d entries", query, len(s.symbolNameIndex))
-
-		// Check if the query exists in the index
-		if _, exists := s.symbolNameIndex[query]; exists {
-			common.LSPLogger.Info("[SCIP] Query %q EXISTS in symbolNameIndex!", query)
-		} else {
-			common.LSPLogger.Info("[SCIP] Query %q NOT FOUND in symbolNameIndex", query)
-		}
+		// Check for exact match in symbol name index
 
 		// Try exact match first from symbolNameIndex
 		if symbols, found := s.symbolNameIndex[query]; found {
-			common.LSPLogger.Info("[SCIP] Found exact match in symbolNameIndex: %d symbols", len(symbols))
 			for _, sym := range symbols {
 				if sym != nil && !seenSymbols[sym.Symbol] {
 					results = append(results, *sym)
@@ -422,7 +398,7 @@ func (s *SimpleSCIPStorage) SearchSymbols(ctx context.Context, query string, lim
 		}
 	}
 
-	common.LSPLogger.Debug("[SCIP] SearchSymbols returning %d results", len(results))
+	// Search completed
 	return results, nil
 }
 
@@ -475,8 +451,7 @@ func (s *SimpleSCIPStorage) GetIndexStats() IndexStats {
 		totalOccurrences = totalReferences
 	}
 
-	common.LSPLogger.Debug("[GetIndexStats] docs=%d, symbols=%d, occurrences=%d, refs=%d, symbolNames=%d",
-		len(s.documents), len(s.symbolInfoIndex), totalOccurrences, totalReferences, len(s.symbolNameIndex))
+	// Index statistics calculated
 
 	return IndexStats{
 		TotalDocuments:   len(s.documents),
@@ -967,15 +942,7 @@ func (s *SimpleSCIPStorage) loadFromDisk() error {
 	// Restore symbol info index
 	if data.SymbolInfoIndex != nil {
 		s.symbolInfoIndex = data.SymbolInfoIndex
-		common.LSPLogger.Debug("[loadFromDisk] Loaded %d symbols from disk", len(s.symbolInfoIndex))
-		// Log a sample of symbols for debugging
-		count := 0
-		for id, info := range s.symbolInfoIndex {
-			if count < 5 && info != nil {
-				common.LSPLogger.Debug("[loadFromDisk] Sample symbol: ID=%s, DisplayName=%s", id, info.DisplayName)
-				count++
-			}
-		}
+		// Symbol index loaded from disk
 	} else {
 		s.symbolInfoIndex = make(map[string]*SCIPSymbolInformation)
 		common.LSPLogger.Debug("[loadFromDisk] No symbol info index in saved data")
