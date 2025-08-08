@@ -55,12 +55,12 @@ func main() {
 	defer os.Chdir(orig)
 
 	cfg := &config.Config{
-		Cache:   &config.CacheConfig{
-			Enabled: true, 
-			MaxMemoryMB: 64, 
-			TTLHours: 1, 
+		Cache: &config.CacheConfig{
+			Enabled:         true,
+			MaxMemoryMB:     64,
+			TTLHours:        1,
 			BackgroundIndex: true,
-			StoragePath: filepath.Join(tmpDir, "cache"),
+			StoragePath:     filepath.Join(tmpDir, "cache"),
 		},
 		Servers: map[string]*config.ServerConfig{"go": {Command: "gopls", Args: []string{"serve"}}},
 	}

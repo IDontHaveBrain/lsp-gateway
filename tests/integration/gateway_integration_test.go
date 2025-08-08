@@ -72,7 +72,7 @@ func TestGatewayIntegration(t *testing.T) {
 		hoverReq := shared.CreateHoverRequestFromFile(testFile, 13, 15, 100)
 		batchRequest := shared.CreateBatchRequest(hoverReq)
 
-		response := shared.SendJSONRPCRequestRaw(t, client, gatewaySetup.GetJSONRPCURL(), 
+		response := shared.SendJSONRPCRequestRaw(t, client, gatewaySetup.GetJSONRPCURL(),
 			map[string]interface{}{"batch": batchRequest})
 		shared.AssertJSONRPCError(t, response)
 	})

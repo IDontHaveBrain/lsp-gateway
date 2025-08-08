@@ -166,62 +166,62 @@ func (setup *LSPManagerSetup) CloseDocument(t *testing.T, uri string) {
 // IndexDocument requests document symbols and ensures they are properly indexed into the cache
 func (setup *LSPManagerSetup) IndexDocument(t *testing.T, uri string) interface{} {
 	t.Logf("IndexDocument: Starting document symbol indexing for %s", uri)
-	
+
 	// Check cache stats before
 	if setup.Cache != nil {
 		beforeStats := setup.Cache.GetIndexStats()
 		if beforeStats != nil {
-			t.Logf("IndexDocument: Before - %d documents, %d symbols, %d references", 
+			t.Logf("IndexDocument: Before - %d documents, %d symbols, %d references",
 				beforeStats.DocumentCount, beforeStats.SymbolCount, beforeStats.ReferenceCount)
 		}
 	}
-	
+
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": uri,
 		},
 	}
-	
+
 	t.Logf("IndexDocument: Calling ProcessRequest with textDocument/documentSymbol")
 	result, err := setup.Manager.ProcessRequest(setup.Context, "textDocument/documentSymbol", params)
 	if err != nil {
 		t.Errorf("documentSymbol indexing failed: %v", err)
 		return nil
 	}
-	
+
 	t.Logf("IndexDocument: ProcessRequest succeeded, result type: %T", result)
-	
+
 	// Ensure cache gets populated - wait longer for automatic indexing
 	if setup.Cache != nil {
 		t.Logf("IndexDocument: Waiting for automatic indexing to complete...")
-		
+
 		// Try multiple times with increasing delays
 		maxAttempts := 10
 		for attempt := 1; attempt <= maxAttempts; attempt++ {
 			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
-			
+
 			stats := setup.Cache.GetIndexStats()
 			if stats != nil {
-				t.Logf("IndexDocument: Attempt %d - Cache has %d documents, %d symbols, %d references", 
+				t.Logf("IndexDocument: Attempt %d - Cache has %d documents, %d symbols, %d references",
 					attempt, stats.DocumentCount, stats.SymbolCount, stats.ReferenceCount)
-				
+
 				if stats.SymbolCount > 0 {
 					t.Logf("IndexDocument: Success! Symbols indexed automatically")
 					return result
 				}
 			}
 		}
-		
+
 		// If automatic indexing didn't work, try forcing it by calling ProcessRequest again
 		t.Logf("IndexDocument: Automatic indexing didn't work after %d attempts, trying to force indexing", maxAttempts)
-		
+
 		// Try calling ProcessRequest again - sometimes the first call doesn't trigger indexing
 		t.Logf("IndexDocument: Calling ProcessRequest again to force indexing")
 		_, err2 := setup.Manager.ProcessRequest(setup.Context, "textDocument/documentSymbol", params)
 		if err2 != nil {
 			t.Logf("IndexDocument: Second ProcessRequest failed: %v", err2)
 		}
-		
+
 		// Wait and check again
 		time.Sleep(2 * time.Second)
 		finalStats := setup.Cache.GetIndexStats()
@@ -229,7 +229,7 @@ func (setup *LSPManagerSetup) IndexDocument(t *testing.T, uri string) interface{
 			t.Logf("IndexDocument: Success! Second call resulted in %d symbols", finalStats.SymbolCount)
 			return result
 		}
-		
+
 		// Log result details for debugging
 		t.Logf("IndexDocument: Still no symbols after second attempt. Result type: %T, is nil: %v", result, result == nil)
 		if result != nil {
@@ -238,7 +238,7 @@ func (setup *LSPManagerSetup) IndexDocument(t *testing.T, uri string) interface{
 			}
 		}
 	}
-	
+
 	return result
 }
 
@@ -248,8 +248,6 @@ func min(a, b int) int {
 	}
 	return b
 }
-
-
 
 // WaitForInitialization waits for LSP server initialization
 func (setup *LSPManagerSetup) WaitForInitialization() {

@@ -1,20 +1,20 @@
 package server
 
 import (
-    "bufio"
-    "context"
-    "encoding/json"
-    "fmt"
-    "io"
-    "os"
-    "time"
+	"bufio"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"time"
 
-    "lsp-gateway/src/config"
-    "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/constants"
-    versionpkg "lsp-gateway/src/internal/version"
-    "lsp-gateway/src/server/protocol"
-    "lsp-gateway/src/utils/configloader"
+	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/constants"
+	versionpkg "lsp-gateway/src/internal/version"
+	"lsp-gateway/src/server/protocol"
+	"lsp-gateway/src/utils/configloader"
 )
 
 // MCPServer provides Model Context Protocol bridge to LSP functionality
@@ -330,15 +330,15 @@ func (m *MCPServer) handleToolsList(req *MCPRequest) *MCPResponse {
 
 // RunMCPServer starts an MCP server with the specified configuration
 func RunMCPServer(configPath string) error {
-    cfg := configloader.LoadOrAuto(configPath)
+	cfg := configloader.LoadOrAuto(configPath)
 
 	// Ensure cache path is project-specific so MCP shares the same cache as CLI
-    if cfg != nil && cfg.Cache != nil {
-        if wd, err := os.Getwd(); err == nil {
-            projectPath := config.GetProjectSpecificCachePath(wd)
-            cfg.SetCacheStoragePath(projectPath)
-        }
-    }
+	if cfg != nil && cfg.Cache != nil {
+		if wd, err := os.Getwd(); err == nil {
+			projectPath := config.GetProjectSpecificCachePath(wd)
+			cfg.SetCacheStoragePath(projectPath)
+		}
+	}
 
 	server, err := NewMCPServer(cfg)
 	if err != nil {

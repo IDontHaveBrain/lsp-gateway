@@ -1,11 +1,11 @@
 package cache
 
 import (
-    "fmt"
+	"fmt"
 
-    "go.lsp.dev/protocol"
-    "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/utils/jsonutil"
+	"go.lsp.dev/protocol"
+	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/utils/jsonutil"
 )
 
 // ExtractURIFromParams extracts the URI from LSP method parameters
@@ -86,12 +86,14 @@ func extractURIFromUntyped(params map[string]interface{}) (string, error) {
 
 // extractURIFromGeneric handles other parameter types using JSON marshaling/unmarshaling
 func extractURIFromGeneric(params interface{}) (string, error) {
-    type td struct{
-        TextDocument struct{ URI string `json:"uri"` } `json:"textDocument"`
-    }
-    v, err := jsonutil.Convert[td](params)
-    if err == nil && v.TextDocument.URI != "" {
-        return v.TextDocument.URI, nil
-    }
-    return "", fmt.Errorf("unable to extract URI from parameters type: %T", params)
+	type td struct {
+		TextDocument struct {
+			URI string `json:"uri"`
+		} `json:"textDocument"`
+	}
+	v, err := jsonutil.Convert[td](params)
+	if err == nil && v.TextDocument.URI != "" {
+		return v.TextDocument.URI, nil
+	}
+	return "", fmt.Errorf("unable to extract URI from parameters type: %T", params)
 }
