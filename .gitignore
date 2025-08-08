@@ -103,6 +103,10 @@ test-repositories/
 workspace/
 worktrees/
 
+# Java build output
+target/
+*.class
+
 # Exclude documentation files except README.md and files in docs folder
 *.md
 !README.md
