@@ -371,7 +371,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 									char, _ := start["character"].(float64)
 									
 									// Add the symbol location itself as a reference
-									filePath := m.convertURIToPath(uri)
+									filePath := utils.URIToFilePath(uri)
 									if filePath != "" && m.matchesFilePattern(filePath, query.FilePattern) {
 										refInfo := ReferenceInfo{
 											FilePath:     filePath,
