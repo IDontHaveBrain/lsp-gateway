@@ -260,24 +260,23 @@ func formatEnhancedSymbolsForMCP(symbols []types.EnhancedSymbolInfo, hasRoleFilt
 func formatEnhancedReferencesForMCP(references []ReferenceInfo) []map[string]interface{} {
 	formatted := make([]map[string]interface{}, len(references))
 
-	for i, ref := range references {
-		result := map[string]interface{}{
-			"location": fmt.Sprintf("%s:%d:%d", ref.FilePath, ref.LineNumber, ref.Column),
-		}
+    for i, ref := range references {
+        result := map[string]interface{}{
+            "location": fmt.Sprintf("%s:%d", ref.FilePath, ref.LineNumber),
+        }
 
-		// Include basic text fields if available
-		if ref.Text != "" {
-			result["text"] = ref.Text
-		}
-		if ref.Code != "" {
-			result["code"] = ref.Code
-		}
-		if ref.Context != "" {
-			result["context"] = ref.Context
-		}
+        lineText, _ := extractCodeLines(ref.FilePath, ref.LineNumber+1, ref.LineNumber+1)
+        if lineText != "" {
+            result["text"] = lineText
+        } else if ref.Text != "" {
+            result["text"] = ref.Text
+        }
+        if ref.Context != "" {
+            result["context"] = ref.Context
+        }
 
-		formatted[i] = result
-	}
+        formatted[i] = result
+    }
 
 	return formatted
 }
