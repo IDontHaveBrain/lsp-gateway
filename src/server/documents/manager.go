@@ -11,6 +11,7 @@ import (
 	"go.lsp.dev/protocol"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/utils"
 )
 
 // DocumentManager interface for document-related operations
@@ -33,7 +34,7 @@ func NewLSPDocumentManager() *LSPDocumentManager {
 // DetectLanguage detects the programming language from a file URI
 func (dm *LSPDocumentManager) DetectLanguage(uri string) string {
 	// Remove file:// prefix and get extension
-	path := common.URIToFilePath(uri)
+	path := utils.URIToFilePath(uri)
 	ext := strings.ToLower(filepath.Ext(path))
 
 	switch ext {
@@ -115,7 +116,7 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 
 	// Extract file path from URI
 	if strings.HasPrefix(uri, "file://") {
-		filePath := common.URIToFilePath(uri)
+		filePath := utils.URIToFilePath(uri)
 		if content, err := os.ReadFile(filePath); err == nil {
 			fileContent = string(content)
 		} else {

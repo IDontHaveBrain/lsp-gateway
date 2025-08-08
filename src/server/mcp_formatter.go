@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
 )
 
@@ -110,59 +109,59 @@ func formatSymbolsWithRawCode(result interface{}) string {
 }
 
 // getSymbolKindName returns the string representation of a symbol kind
-func getSymbolKindName(kind lsp.SymbolKind) string {
+func getSymbolKindName(kind types.SymbolKind) string {
 	switch kind {
-	case lsp.File:
+	case types.File:
 		return "File"
-	case lsp.Module:
+	case types.Module:
 		return "Module"
-	case lsp.Namespace:
+	case types.Namespace:
 		return "Namespace"
-	case lsp.Package:
+	case types.Package:
 		return "Package"
-	case lsp.Class:
+	case types.Class:
 		return "Class"
-	case lsp.Method:
+	case types.Method:
 		return "Method"
-	case lsp.Property:
+	case types.Property:
 		return "Property"
-	case lsp.Field:
+	case types.Field:
 		return "Field"
-	case lsp.Constructor:
+	case types.Constructor:
 		return "Constructor"
-	case lsp.Enum:
+	case types.Enum:
 		return "Enum"
-	case lsp.Interface:
+	case types.Interface:
 		return "Interface"
-	case lsp.Function:
+	case types.Function:
 		return "Function"
-	case lsp.Variable:
+	case types.Variable:
 		return "Variable"
-	case lsp.Constant:
+	case types.Constant:
 		return "Constant"
-	case lsp.String:
+	case types.String:
 		return "String"
-	case lsp.Number:
+	case types.Number:
 		return "Number"
-	case lsp.Boolean:
+	case types.Boolean:
 		return "Boolean"
-	case lsp.Array:
+	case types.Array:
 		return "Array"
-	case lsp.Object:
+	case types.Object:
 		return "Object"
-	case lsp.Key:
+	case types.Key:
 		return "Key"
-	case lsp.Null:
+	case types.Null:
 		return "Null"
-	case lsp.EnumMember:
+	case types.EnumMember:
 		return "EnumMember"
-	case lsp.Struct:
+	case types.Struct:
 		return "Struct"
-	case lsp.Event:
+	case types.Event:
 		return "Event"
-	case lsp.Operator:
+	case types.Operator:
 		return "Operator"
-	case lsp.TypeParameter:
+	case types.TypeParameter:
 		return "TypeParameter"
 	default:
 		return "Unknown"

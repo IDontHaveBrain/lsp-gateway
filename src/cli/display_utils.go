@@ -3,6 +3,7 @@ package cli
 import (
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server"
+	"lsp-gateway/src/utils/configloader"
 )
 
 // displayGatewayCacheStatus displays SCIP cache status for HTTP Gateway startup
@@ -37,7 +38,7 @@ func displayGatewayCacheStatus(gateway *server.HTTPGateway) {
 
 // displayMCPCacheStatus displays SCIP cache status for MCP server startup
 func displayMCPCacheStatus(configPath string) {
-	cfg := LoadConfigForCLI(configPath)
+	cfg := configloader.LoadForCLI(configPath)
 
 	manager, err := server.NewLSPManager(cfg)
 	if err != nil {

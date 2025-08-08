@@ -11,7 +11,7 @@ import (
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
-	"lsp-gateway/src/server/cache"
+	"lsp-gateway/src/utils"
 	"lsp-gateway/src/server/scip"
 )
 
@@ -79,12 +79,12 @@ func (m *LSPManager) indexDocumentSymbolsAsOccurrences(ctx context.Context, uri,
 		occurrence := scip.SCIPOccurrence{
 			Range: types.Range{
 				Start: types.Position{
-					Line:      int32(occurrenceRange.Start.Line),
-					Character: int32(occurrenceRange.Start.Character),
+					Line:      occurrenceRange.Start.Line,
+					Character: occurrenceRange.Start.Character,
 				},
 				End: types.Position{
-					Line:      int32(occurrenceRange.End.Line),
-					Character: int32(occurrenceRange.End.Character),
+					Line:      occurrenceRange.End.Line,
+					Character: occurrenceRange.End.Character,
 				},
 			},
 			Symbol:      symbolID,
@@ -96,12 +96,12 @@ func (m *LSPManager) indexDocumentSymbolsAsOccurrences(ctx context.Context, uri,
 		if symbol.SelectionRange != nil && symbol.SelectionRange != &symbol.Location.Range {
 			occurrence.SelectionRange = &types.Range{
 				Start: types.Position{
-					Line:      int32(symbol.Location.Range.Start.Line),
-					Character: int32(symbol.Location.Range.Start.Character),
+					Line:      symbol.Location.Range.Start.Line,
+					Character: symbol.Location.Range.Start.Character,
 				},
 				End: types.Position{
-					Line:      int32(symbol.Location.Range.End.Line),
-					Character: int32(symbol.Location.Range.End.Character),
+					Line:      symbol.Location.Range.End.Line,
+					Character: symbol.Location.Range.End.Character,
 				},
 			}
 		}
@@ -153,7 +153,7 @@ func (m *LSPManager) indexDefinitionsAsOccurrences(ctx context.Context, uri, lan
 
 	for _, location := range locations {
 		// Generate SCIP symbol ID
-		symbolID := m.generateSymbolID(language, location.URI, symbolName, lsp.Function)
+		symbolID := m.generateSymbolID(language, location.URI, symbolName, types.Function)
 
 		// Create SCIP occurrence with definition role
 		occurrence := scip.SCIPOccurrence{
@@ -179,7 +179,7 @@ func (m *LSPManager) indexDefinitionsAsOccurrences(ctx context.Context, uri, lan
 			DisplayName:   symbolName,
 			Kind:          scip.SCIPSymbolKindFunction, // Default to function, can be refined
 			Documentation: m.getSymbolDocumentation(ctx, location.URI, location.Range.Start),
-			Relationships: m.getSymbolRelationships(ctx, location.URI, symbolName, lsp.Function),
+			Relationships: m.getSymbolRelationships(ctx, location.URI, symbolName, types.Function),
 		}
 		symbolInfos = append(symbolInfos, symbolInfo)
 	}
@@ -237,7 +237,7 @@ func (m *LSPManager) indexReferencesAsOccurrences(ctx context.Context, uri, lang
 	}
 	if stableSymbolID == "" {
 		// Fallback: generate an ID based on the definition URI (not the reference document)
-		stableSymbolID = m.generateSymbolID(language, uri, symbolName, lsp.Function)
+		stableSymbolID = m.generateSymbolID(language, uri, symbolName, types.Function)
 	}
 
 	occurrences := make([]scip.SCIPOccurrence, 0, len(locations))
@@ -264,7 +264,7 @@ func (m *LSPManager) indexReferencesAsOccurrences(ctx context.Context, uri, lang
 			DisplayName:   symbolName,
 			Kind:          scip.SCIPSymbolKindFunction,
 			Documentation: m.getSymbolDocumentation(ctx, uri, first.Range.Start),
-			Relationships: m.getSymbolRelationships(ctx, uri, symbolName, lsp.Function),
+			Relationships: m.getSymbolRelationships(ctx, uri, symbolName, types.Function),
 		})
 	}
 
@@ -425,7 +425,7 @@ func (m *LSPManager) expandSymbolRanges(ctx context.Context, symbols []lsp.Symbo
 	}
 
 	// Create a map of symbol names to their full ranges
-	fullRangeMap := make(map[string]lsp.Range)
+	fullRangeMap := make(map[string]types.Range)
 	m.collectFullRanges(fullRangeSymbols, fullRangeMap)
 
 	// Update symbols with full ranges
@@ -446,7 +446,7 @@ func (m *LSPManager) expandSymbolRanges(ctx context.Context, symbols []lsp.Symbo
 }
 
 // collectFullRanges recursively collects full ranges from DocumentSymbol hierarchy
-func (m *LSPManager) collectFullRanges(symbols []*lsp.DocumentSymbol, rangeMap map[string]lsp.Range) {
+func (m *LSPManager) collectFullRanges(symbols []*lsp.DocumentSymbol, rangeMap map[string]types.Range) {
 	for _, symbol := range symbols {
 		// Store the full range for this symbol
 		rangeMap[symbol.Name] = symbol.Range
@@ -473,7 +473,7 @@ func (m *LSPManager) parseSymbols(result interface{}, uri string) []lsp.SymbolIn
 			symbolInfo := lsp.SymbolInformation{
 				Name: docSymbol.Name,
 				Kind: docSymbol.Kind,
-				Location: lsp.Location{
+				Location: types.Location{
 					URI:   uri,
 					Range: docSymbol.Range,
 				},
@@ -520,7 +520,7 @@ func (m *LSPManager) parseSymbolsArray(items []interface{}, uri string) []lsp.Sy
 			symbolInfo := lsp.SymbolInformation{
 				Name: docSymbol.Name,
 				Kind: docSymbol.Kind,
-				Location: lsp.Location{
+				Location: types.Location{
 					URI:   uri,
 					Range: docSymbol.Range,
 				},
@@ -535,18 +535,18 @@ func (m *LSPManager) parseSymbolsArray(items []interface{}, uri string) []lsp.Sy
 }
 
 // parseLocationResult parses location results from various response formats
-func (m *LSPManager) parseLocationResult(result interface{}) []lsp.Location {
+func (m *LSPManager) parseLocationResult(result interface{}) []types.Location {
 	switch v := result.(type) {
 	case nil:
 		return nil
-	case lsp.Location:
-		return []lsp.Location{v}
-	case []lsp.Location:
+	case types.Location:
+		return []types.Location{v}
+	case []types.Location:
 		return v
 	case json.RawMessage:
 		// Handle json.RawMessage type (common in LSP responses)
-		var locations []lsp.Location
-		// First try to unmarshal directly as []lsp.Location
+		var locations []types.Location
+		// First try to unmarshal directly as []types.Location
 		if err := json.Unmarshal(v, &locations); err == nil {
 			return locations
 		}
@@ -555,7 +555,7 @@ func (m *LSPManager) parseLocationResult(result interface{}) []lsp.Location {
 		if err := json.Unmarshal(v, &rawData); err == nil {
 			for _, item := range rawData {
 				if data, err := json.Marshal(item); err == nil {
-					var location lsp.Location
+					var location types.Location
 					if err := json.Unmarshal(data, &location); err == nil && location.URI != "" {
 						locations = append(locations, location)
 					}
@@ -566,10 +566,10 @@ func (m *LSPManager) parseLocationResult(result interface{}) []lsp.Location {
 		}
 		return locations
 	case []interface{}:
-		var locations []lsp.Location
+		var locations []types.Location
 		for _, item := range v {
 			if data, err := json.Marshal(item); err == nil {
-				var location lsp.Location
+				var location types.Location
 				if err := json.Unmarshal(data, &location); err == nil && location.URI != "" {
 					locations = append(locations, location)
 				}
@@ -604,9 +604,9 @@ func (m *LSPManager) extractPositionAndSymbolFromParams(params interface{}) (typ
 }
 
 // generateSymbolID generates a unified SCIP symbol ID from symbol information
-func (m *LSPManager) generateSymbolID(language, uri, symbolName string, symbolKind lsp.SymbolKind) string {
+func (m *LSPManager) generateSymbolID(language, uri, symbolName string, symbolKind types.SymbolKind) string {
 	workspaceRoot := m.findWorkspaceRoot(uri)
-	filePath := common.URIToFilePath(uri)
+	filePath := utils.URIToFilePath(uri)
 	relPath, _ := filepath.Rel(workspaceRoot, filePath)
 	if relPath == "" || strings.HasPrefix(relPath, "..") {
 		relPath = filepath.Base(filePath)
@@ -627,11 +627,11 @@ func (m *LSPManager) generateSymbolID(language, uri, symbolName string, symbolKi
 }
 
 // getSymbolSuffix returns the appropriate suffix for a symbol kind
-func (m *LSPManager) getSymbolSuffix(kind lsp.SymbolKind) string {
+func (m *LSPManager) getSymbolSuffix(kind types.SymbolKind) string {
 	switch kind {
-	case lsp.Function, lsp.Method:
+	case types.Function, types.Method:
 		return "()"
-	case lsp.Class, lsp.Interface:
+	case types.Class, types.Interface:
 		return "#"
 	default:
 		return "."
@@ -640,7 +640,7 @@ func (m *LSPManager) getSymbolSuffix(kind lsp.SymbolKind) string {
 
 // findWorkspaceRoot finds the workspace root for a given URI
 func (m *LSPManager) findWorkspaceRoot(uri string) string {
-	filePath := common.URIToFilePath(uri)
+	filePath := utils.URIToFilePath(uri)
 	return m.findWorkspaceRootFromPath(filePath)
 }
 
@@ -683,59 +683,59 @@ func (m *LSPManager) findWorkspaceRootFromPath(filePath string) string {
 }
 
 // mapLSPSymbolKindToSCIPKind maps LSP symbol kinds to SCIP symbol kinds
-func (m *LSPManager) mapLSPSymbolKindToSCIPKind(lspKind lsp.SymbolKind) scip.SCIPSymbolKind {
+func (m *LSPManager) mapLSPSymbolKindToSCIPKind(lspKind types.SymbolKind) scip.SCIPSymbolKind {
 	switch lspKind {
-	case lsp.File:
+	case types.File:
 		return scip.SCIPSymbolKindFile
-	case lsp.Module:
+	case types.Module:
 		return scip.SCIPSymbolKindModule
-	case lsp.Namespace:
+	case types.Namespace:
 		return scip.SCIPSymbolKindNamespace
-	case lsp.Package:
+	case types.Package:
 		return scip.SCIPSymbolKindPackage
-	case lsp.Class:
+	case types.Class:
 		return scip.SCIPSymbolKindClass
-	case lsp.Method:
+	case types.Method:
 		return scip.SCIPSymbolKindMethod
-	case lsp.Property:
+	case types.Property:
 		return scip.SCIPSymbolKindProperty
-	case lsp.Field:
+	case types.Field:
 		return scip.SCIPSymbolKindField
-	case lsp.Constructor:
+	case types.Constructor:
 		return scip.SCIPSymbolKindConstructor
-	case lsp.Enum:
+	case types.Enum:
 		return scip.SCIPSymbolKindEnum
-	case lsp.Interface:
+	case types.Interface:
 		return scip.SCIPSymbolKindInterface
-	case lsp.Function:
+	case types.Function:
 		return scip.SCIPSymbolKindFunction
-	case lsp.Variable:
+	case types.Variable:
 		return scip.SCIPSymbolKindVariable
-	case lsp.Constant:
+	case types.Constant:
 		return scip.SCIPSymbolKindConstant
-	case lsp.String:
+	case types.String:
 		return scip.SCIPSymbolKindString
-	case lsp.Number:
+	case types.Number:
 		return scip.SCIPSymbolKindNumber
-	case lsp.Boolean:
+	case types.Boolean:
 		return scip.SCIPSymbolKindBoolean
-	case lsp.Array:
+	case types.Array:
 		return scip.SCIPSymbolKindArray
-	case lsp.Object:
+	case types.Object:
 		return scip.SCIPSymbolKindObject
-	case lsp.Key:
+	case types.Key:
 		return scip.SCIPSymbolKindKey
-	case lsp.Null:
+	case types.Null:
 		return scip.SCIPSymbolKindNull
-	case lsp.EnumMember:
+	case types.EnumMember:
 		return scip.SCIPSymbolKindEnumMember
-	case lsp.Struct:
+	case types.Struct:
 		return scip.SCIPSymbolKindStruct
-	case lsp.Event:
+	case types.Event:
 		return scip.SCIPSymbolKindEvent
-	case lsp.Operator:
+	case types.Operator:
 		return scip.SCIPSymbolKindOperator
-	case lsp.TypeParameter:
+	case types.TypeParameter:
 		return scip.SCIPSymbolKindTypeParameter
 	default:
 		return scip.SCIPSymbolKindUnknown
@@ -743,27 +743,27 @@ func (m *LSPManager) mapLSPSymbolKindToSCIPKind(lspKind lsp.SymbolKind) scip.SCI
 }
 
 // mapLSPSymbolKindToSyntaxKind maps LSP symbol kinds to SCIP syntax kinds
-func (m *LSPManager) mapLSPSymbolKindToSyntaxKind(lspKind lsp.SymbolKind) types.SyntaxKind {
+func (m *LSPManager) mapLSPSymbolKindToSyntaxKind(lspKind types.SymbolKind) types.SyntaxKind {
 	switch lspKind {
-	case lsp.Function:
+	case types.Function:
 		return types.SyntaxKindIdentifierFunctionDefinition
-	case lsp.Method:
+	case types.Method:
 		return types.SyntaxKindIdentifierFunctionDefinition
-	case lsp.Class:
+	case types.Class:
 		return types.SyntaxKindIdentifierType
-	case lsp.Interface:
+	case types.Interface:
 		return types.SyntaxKindIdentifierType
-	case lsp.Variable:
+	case types.Variable:
 		return types.SyntaxKindIdentifierLocal
-	case lsp.Constant:
+	case types.Constant:
 		return types.SyntaxKindIdentifierConstant
-	case lsp.Field:
+	case types.Field:
 		return types.SyntaxKindIdentifierLocal
-	case lsp.Property:
+	case types.Property:
 		return types.SyntaxKindIdentifierLocal
-	case lsp.Namespace:
+	case types.Namespace:
 		return types.SyntaxKindIdentifierNamespace
-	case lsp.Module:
+	case types.Module:
 		return types.SyntaxKindIdentifierModule
 	default:
 		return types.SyntaxKindUnspecified
@@ -781,28 +781,28 @@ func (m *LSPManager) storeDocumentOccurrences(ctx context.Context, uri, language
 	for i, occ := range occurrences {
 		// Find corresponding symbol info
 		var displayName string
-		var kind lsp.SymbolKind
+		var kind types.SymbolKind
 		if i < len(symbolInfos) {
 			displayName = symbolInfos[i].DisplayName
 			kind = m.mapSCIPKindToLSPSymbolKind(symbolInfos[i].Kind)
 		} else {
 			displayName = occ.Symbol
-			kind = lsp.Variable // Default
+			kind = types.Variable // Default
 		}
 
 		symbol := lsp.SymbolInformation{
 			Name: displayName,
 			Kind: kind,
-			Location: lsp.Location{
+			Location: types.Location{
 				URI: uri,
-				Range: lsp.Range{
-					Start: lsp.Position{
-						Line:      int(occ.Range.Start.Line),
-						Character: int(occ.Range.Start.Character),
+				Range: types.Range{
+					Start: types.Position{
+						Line:      int32(occ.Range.Start.Line),
+						Character: int32(occ.Range.Start.Character),
 					},
-					End: lsp.Position{
-						Line:      int(occ.Range.End.Line),
-						Character: int(occ.Range.End.Character),
+					End: types.Position{
+						Line:      int32(occ.Range.End.Line),
+						Character: int32(occ.Range.End.Character),
 					},
 				},
 			},
@@ -810,9 +810,9 @@ func (m *LSPManager) storeDocumentOccurrences(ctx context.Context, uri, language
 		symbols = append(symbols, symbol)
 	}
 
-	// Store using SimpleCache interface
-	if simpleCache, ok := m.scipCache.(cache.SimpleCache); ok {
-		if err := simpleCache.IndexDocument(ctx, uri, language, symbols); err != nil {
+	// Store using SCIPCache interface
+	if m.scipCache != nil {
+		if err := m.scipCache.IndexDocument(ctx, uri, language, symbols); err != nil {
 			common.LSPLogger.Debug("Failed to index document symbols for %s: %v", uri, err)
 		}
 
@@ -835,7 +835,7 @@ func (m *LSPManager) storeDocumentOccurrences(ctx context.Context, uri, language
 							"value": strings.Join(symbolInfo.Documentation, "\n"),
 						},
 					}
-					simpleCache.Store("textDocument/hover", hoverParams, hoverResult)
+					m.scipCache.Store("textDocument/hover", hoverParams, hoverResult)
 				}
 			}
 		}
@@ -883,7 +883,7 @@ func (m *LSPManager) storeOccurrencesByDocumentWithMap(ctx context.Context, occu
 	for uri, uriOccurrences := range occurrencesByURI {
 		language := "unknown"
 		if uri != "unknown" {
-			filePath := common.URIToFilePath(uri)
+			filePath := utils.URIToFilePath(uri)
 			ext := filepath.Ext(filePath)
 			switch ext {
 			case ".go":
@@ -921,9 +921,9 @@ func (m *LSPManager) GetIndexStats() interface{} {
 
 	// SCIP storage stats not available due to interface conflicts
 
-	// Fallback to simple cache interface
-	if simpleCache, ok := m.scipCache.(cache.SimpleCache); ok {
-		return simpleCache.GetIndexStats()
+	// Use SCIPCache interface
+	if m.scipCache != nil {
+		return m.scipCache.GetIndexStats()
 	}
 
 	return map[string]interface{}{"status": "unknown"}
@@ -935,75 +935,75 @@ func (m *LSPManager) RefreshIndex(ctx context.Context, files []string) error {
 		return fmt.Errorf("SCIP cache not available")
 	}
 
-	if simpleCache, ok := m.scipCache.(cache.SimpleCache); ok {
-		return simpleCache.UpdateIndex(ctx, files)
+	if m.scipCache != nil {
+		return m.scipCache.UpdateIndex(ctx, files)
 	}
 
 	return fmt.Errorf("cache does not support index updates")
 }
 
 // mapSCIPKindToLSPSymbolKind maps SCIP symbol kinds back to LSP symbol kinds
-func (m *LSPManager) mapSCIPKindToLSPSymbolKind(kind scip.SCIPSymbolKind) lsp.SymbolKind {
+func (m *LSPManager) mapSCIPKindToLSPSymbolKind(kind scip.SCIPSymbolKind) types.SymbolKind {
 	switch kind {
 	case scip.SCIPSymbolKindFile:
-		return lsp.File
+		return types.File
 	case scip.SCIPSymbolKindModule:
-		return lsp.Module
+		return types.Module
 	case scip.SCIPSymbolKindNamespace:
-		return lsp.Namespace
+		return types.Namespace
 	case scip.SCIPSymbolKindPackage:
-		return lsp.Package
+		return types.Package
 	case scip.SCIPSymbolKindClass:
-		return lsp.Class
+		return types.Class
 	case scip.SCIPSymbolKindMethod:
-		return lsp.Method
+		return types.Method
 	case scip.SCIPSymbolKindProperty:
-		return lsp.Property
+		return types.Property
 	case scip.SCIPSymbolKindField:
-		return lsp.Field
+		return types.Field
 	case scip.SCIPSymbolKindConstructor:
-		return lsp.Constructor
+		return types.Constructor
 	case scip.SCIPSymbolKindEnum:
-		return lsp.Enum
+		return types.Enum
 	case scip.SCIPSymbolKindInterface:
-		return lsp.Interface
+		return types.Interface
 	case scip.SCIPSymbolKindFunction:
-		return lsp.Function
+		return types.Function
 	case scip.SCIPSymbolKindVariable:
-		return lsp.Variable
+		return types.Variable
 	case scip.SCIPSymbolKindConstant:
-		return lsp.Constant
+		return types.Constant
 	case scip.SCIPSymbolKindString:
-		return lsp.String
+		return types.String
 	case scip.SCIPSymbolKindNumber:
-		return lsp.Number
+		return types.Number
 	case scip.SCIPSymbolKindBoolean:
-		return lsp.Boolean
+		return types.Boolean
 	case scip.SCIPSymbolKindArray:
-		return lsp.Array
+		return types.Array
 	case scip.SCIPSymbolKindObject:
-		return lsp.Object
+		return types.Object
 	case scip.SCIPSymbolKindKey:
-		return lsp.Key
+		return types.Key
 	case scip.SCIPSymbolKindNull:
-		return lsp.Null
+		return types.Null
 	case scip.SCIPSymbolKindEnumMember:
-		return lsp.EnumMember
+		return types.EnumMember
 	case scip.SCIPSymbolKindStruct:
-		return lsp.Struct
+		return types.Struct
 	case scip.SCIPSymbolKindEvent:
-		return lsp.Event
+		return types.Event
 	case scip.SCIPSymbolKindOperator:
-		return lsp.Operator
+		return types.Operator
 	case scip.SCIPSymbolKindTypeParameter:
-		return lsp.TypeParameter
+		return types.TypeParameter
 	default:
-		return lsp.Variable
+		return types.Variable
 	}
 }
 
 // getSymbolDocumentation retrieves documentation for a symbol using hover
-func (m *LSPManager) getSymbolDocumentation(ctx context.Context, uri string, position lsp.Position) []string {
+func (m *LSPManager) getSymbolDocumentation(ctx context.Context, uri string, position types.Position) []string {
 	// Use hover to get symbol documentation
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
@@ -1046,11 +1046,11 @@ func (m *LSPManager) getSymbolDocumentation(ctx context.Context, uri string, pos
 }
 
 // getSymbolRelationships retrieves relationships for a symbol
-func (m *LSPManager) getSymbolRelationships(ctx context.Context, uri string, symbolName string, kind lsp.SymbolKind) []scip.SCIPRelationship {
+func (m *LSPManager) getSymbolRelationships(ctx context.Context, uri string, symbolName string, kind types.SymbolKind) []scip.SCIPRelationship {
 	var relationships []scip.SCIPRelationship
 
 	// For classes and interfaces, try to find implementations
-	if kind == lsp.Class || kind == lsp.Interface {
+	if kind == types.Class || kind == types.Interface {
 		implementations := m.findImplementations(ctx, uri, symbolName)
 		for _, impl := range implementations {
 			relationships = append(relationships, scip.SCIPRelationship{
@@ -1061,7 +1061,7 @@ func (m *LSPManager) getSymbolRelationships(ctx context.Context, uri string, sym
 	}
 
 	// For methods, try to find the type they belong to
-	if kind == lsp.Method || kind == lsp.Function {
+	if kind == types.Method || kind == types.Function {
 		typeDefinition := m.findTypeDefinition(ctx, uri, symbolName)
 		if typeDefinition != "" {
 			relationships = append(relationships, scip.SCIPRelationship{
@@ -1241,7 +1241,7 @@ func (m *LSPManager) extractSymbolFromHoverText(text, language string) string {
 }
 
 // enrichReferenceWithContext analyzes reference context to determine access type and add metadata
-func (m *LSPManager) enrichReferenceWithContext(ctx context.Context, location lsp.Location, symbolName, symbolID, language string) scip.SCIPOccurrence {
+func (m *LSPManager) enrichReferenceWithContext(ctx context.Context, location types.Location, symbolName, symbolID, language string) scip.SCIPOccurrence {
 	// Determine access type based on context analysis
 	role := m.analyzeReferenceContext(ctx, location, symbolName, language)
 
@@ -1266,7 +1266,7 @@ func (m *LSPManager) enrichReferenceWithContext(ctx context.Context, location ls
 }
 
 // analyzeReferenceContext analyzes the context around a reference to determine access type
-func (m *LSPManager) analyzeReferenceContext(ctx context.Context, location lsp.Location, symbolName, language string) types.SymbolRole {
+func (m *LSPManager) analyzeReferenceContext(ctx context.Context, location types.Location, symbolName, language string) types.SymbolRole {
 	// Default to read access
 	defaultRole := types.SymbolRoleReadAccess
 
@@ -1361,7 +1361,7 @@ func (m *LSPManager) determineSyntaxKind(symbolName string, role types.SymbolRol
 }
 
 // groupReferencesByDocument groups occurrences by their document URIs with metadata
-func (m *LSPManager) groupReferencesByDocument(occurrences []scip.SCIPOccurrence, locations []lsp.Location) map[string][]scip.SCIPOccurrence {
+func (m *LSPManager) groupReferencesByDocument(occurrences []scip.SCIPOccurrence, locations []types.Location) map[string][]scip.SCIPOccurrence {
 	documentGroups := make(map[string][]scip.SCIPOccurrence)
 
 	// Group occurrences by document URI from corresponding locations
@@ -1560,8 +1560,8 @@ func (m *LSPManager) isKeyword(str string) bool {
 	return keywords[strings.ToLower(str)]
 }
 
-func (m *LSPManager) getIdentifierFromLocation(ctx context.Context, location lsp.Location) string {
-	path := common.URIToFilePath(location.URI)
+func (m *LSPManager) getIdentifierFromLocation(ctx context.Context, location types.Location) string {
+	path := utils.URIToFilePath(location.URI)
 	if path == "" {
 		return ""
 	}
@@ -1572,37 +1572,37 @@ func (m *LSPManager) getIdentifierFromLocation(ctx context.Context, location lsp
 	lines := strings.Split(string(data), "\n")
 	sl := location.Range.Start.Line
 	el := location.Range.End.Line
-	if sl < 0 || sl >= len(lines) {
+	if sl < 0 || sl >= int32(len(lines)) {
 		return ""
 	}
 	if el < sl {
 		el = sl
 	}
-	if el >= len(lines) {
-		el = len(lines) - 1
+	if el >= int32(len(lines)) {
+		el = int32(len(lines)) - 1
 	}
 	sc := location.Range.Start.Character
 	ec := location.Range.End.Character
 	if sl == el {
 		line := lines[sl]
-		if sc < 0 || sc > len(line) {
+		if sc < 0 || sc > int32(len(line)) {
 			sc = 0
 		}
-		if ec < sc || ec > len(line) {
+		if ec < sc || ec > int32(len(line)) {
 			ec = sc
 		}
 		return m.sanitizeIdentifier(line[sc:ec])
 	}
 	var b strings.Builder
 	first := lines[sl]
-	if sc >= 0 && sc <= len(first) {
+	if sc >= 0 && sc <= int32(len(first)) {
 		b.WriteString(first[sc:])
 	}
 	for i := sl + 1; i < el; i++ {
 		b.WriteString(lines[i])
 	}
 	last := lines[el]
-	if ec >= 0 && ec <= len(last) {
+	if ec >= 0 && ec <= int32(len(last)) {
 		b.WriteString(last[:ec])
 	}
 	return m.sanitizeIdentifier(b.String())

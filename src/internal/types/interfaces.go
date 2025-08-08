@@ -268,3 +268,46 @@ type Location struct {
 	// Range is the text range in the file
 	Range Range `json:"range"`
 }
+
+// SymbolKind represents the kind of a symbol in LSP
+type SymbolKind int
+
+const (
+	File          SymbolKind = 1
+	Module        SymbolKind = 2
+	Namespace     SymbolKind = 3
+	Package       SymbolKind = 4
+	Class         SymbolKind = 5
+	Method        SymbolKind = 6
+	Property      SymbolKind = 7
+	Field         SymbolKind = 8
+	Constructor   SymbolKind = 9
+	Enum          SymbolKind = 10
+	Interface     SymbolKind = 11
+	Function      SymbolKind = 12
+	Variable      SymbolKind = 13
+	Constant      SymbolKind = 14
+	String        SymbolKind = 15
+	Number        SymbolKind = 16
+	Boolean       SymbolKind = 17
+	Array         SymbolKind = 18
+	Object        SymbolKind = 19
+	Key           SymbolKind = 20
+	Null          SymbolKind = 21
+	EnumMember    SymbolKind = 22
+	Struct        SymbolKind = 23
+	Event         SymbolKind = 24
+	Operator      SymbolKind = 25
+	TypeParameter SymbolKind = 26
+)
+
+// SymbolInformation represents information about a symbol from LSP
+type SymbolInformation struct {
+	Name           string     `json:"name"`
+	Kind           SymbolKind `json:"kind"`
+	Tags           []int      `json:"tags,omitempty"`
+	Deprecated     bool       `json:"deprecated,omitempty"`
+	Location       Location   `json:"location"`
+	ContainerName  string     `json:"containerName,omitempty"`
+	SelectionRange *Range     `json:"-"` // Not part of LSP spec, used internally for DocumentSymbol conversion
+}

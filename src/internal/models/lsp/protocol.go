@@ -1,74 +1,32 @@
 package lsp
 
-type Position struct {
-	Line      int `json:"line"`
-	Character int `json:"character"`
-}
-
-type Range struct {
-	Start Position `json:"start"`
-	End   Position `json:"end"`
-}
-
-type Location struct {
-	URI   string `json:"uri"`
-	Range Range  `json:"range"`
-}
-
-type Hover struct {
-	Contents interface{} `json:"contents"`
-	Range    *Range      `json:"range,omitempty"`
-}
-
-type SymbolKind int
-
-const (
-	File          SymbolKind = 1
-	Module        SymbolKind = 2
-	Namespace     SymbolKind = 3
-	Package       SymbolKind = 4
-	Class         SymbolKind = 5
-	Method        SymbolKind = 6
-	Property      SymbolKind = 7
-	Field         SymbolKind = 8
-	Constructor   SymbolKind = 9
-	Enum          SymbolKind = 10
-	Interface     SymbolKind = 11
-	Function      SymbolKind = 12
-	Variable      SymbolKind = 13
-	Constant      SymbolKind = 14
-	String        SymbolKind = 15
-	Number        SymbolKind = 16
-	Boolean       SymbolKind = 17
-	Array         SymbolKind = 18
-	Object        SymbolKind = 19
-	Key           SymbolKind = 20
-	Null          SymbolKind = 21
-	EnumMember    SymbolKind = 22
-	Struct        SymbolKind = 23
-	Event         SymbolKind = 24
-	Operator      SymbolKind = 25
-	TypeParameter SymbolKind = 26
+import (
+	"lsp-gateway/src/internal/types"
 )
 
+type Hover struct {
+	Contents interface{}   `json:"contents"`
+	Range    *types.Range `json:"range,omitempty"`
+}
+
 type SymbolInformation struct {
-	Name           string     `json:"name"`
-	Kind           SymbolKind `json:"kind"`
+	Name           string           `json:"name"`
+	Kind           types.SymbolKind `json:"kind"`
 	Tags           []int      `json:"tags,omitempty"`
 	Deprecated     bool       `json:"deprecated,omitempty"`
-	Location       Location   `json:"location"`
-	ContainerName  string     `json:"containerName,omitempty"`
-	SelectionRange *Range     `json:"-"` // Not part of LSP spec, used internally for DocumentSymbol conversion
+	Location       types.Location `json:"location"`
+	ContainerName  string         `json:"containerName,omitempty"`
+	SelectionRange *types.Range   `json:"-"` // Not part of LSP spec, used internally for DocumentSymbol conversion
 }
 
 type DocumentSymbol struct {
 	Name           string            `json:"name"`
 	Detail         string            `json:"detail,omitempty"`
-	Kind           SymbolKind        `json:"kind"`
+	Kind           types.SymbolKind  `json:"kind"`
 	Tags           []int             `json:"tags,omitempty"`
 	Deprecated     bool              `json:"deprecated,omitempty"`
-	Range          Range             `json:"range"`
-	SelectionRange Range             `json:"selectionRange"`
+	Range          types.Range       `json:"range"`
+	SelectionRange types.Range       `json:"selectionRange"`
 	Children       []*DocumentSymbol `json:"children,omitempty"`
 }
 
@@ -132,7 +90,7 @@ type TextDocumentIdentifier struct {
 
 type TextDocumentPositionParams struct {
 	TextDocument TextDocumentIdentifier `json:"textDocument"`
-	Position     Position               `json:"position"`
+	Position     types.Position         `json:"position"`
 }
 
 type WorkspaceSymbolParams struct {

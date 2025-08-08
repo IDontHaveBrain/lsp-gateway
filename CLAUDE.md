@@ -1,12 +1,12 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working with this LSP Gateway repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with this LSP Gateway repository.
 
 ## Quick Reference
 
 ```bash
 # Prerequisites
-go version      # Requires Go 1.24.0+
+go version      # Requires Go 1.24.0+ (toolchain 1.24.5)
 node --version  # Requires Node.js 18+
 
 # Build and install
@@ -57,17 +57,27 @@ go test -v ./tests/integration/...  # Integration tests only
 go test -v ./tests/e2e/...          # E2E tests only (30min timeout)
 make cache-test                      # Cache tests
 
+# Run a single test
+go test -v -run TestFunctionName ./tests/unit/...  # Single unit test
+go test -v -run TestFunctionName ./tests/e2e/...   # Single E2E test
+
 # LSP server installation (required)
 lsp-gateway install all              # Install all 5 language servers
-lsp-gateway install go               # Install specific language
+lsp-gateway install go               # Install Go LSP (gopls)
+lsp-gateway install python           # Install Python LSP
+lsp-gateway install typescript       # Install TypeScript LSP
+lsp-gateway install javascript       # Install JavaScript LSP
+lsp-gateway install java             # Install Java LSP (jdtls)
 
 # Runtime commands
 lsp-gateway server                   # HTTP Gateway on :8080
 lsp-gateway mcp                      # MCP Server (STDIO)
 lsp-gateway status                   # Check LSP availability
 lsp-gateway test                     # Test connections
+lsp-gateway version                  # Show version information
 lsp-gateway cache info               # Cache statistics
 lsp-gateway cache clear              # Clear cache
+lsp-gateway cache index              # Index cache for faster lookups
 ```
 
 ## Architecture
@@ -75,22 +85,34 @@ lsp-gateway cache clear              # Clear cache
 ### Core Structure
 ```
 src/
+├── cmd/lsp-gateway/  # CLI entry point (main.go)
 ├── server/           # Server implementations
 │   ├── lsp_manager.go       # LSP orchestration with optional SCIP cache
 │   ├── gateway.go           # HTTP JSON-RPC gateway
 │   ├── mcp_server.go        # MCP server (enhanced mode)
 │   ├── mcp_tools.go         # 2 MCP tool handlers (findSymbols, findReferences)
+│   ├── aggregators/         # Workspace symbol aggregation
+│   ├── capabilities/        # LSP capability detection
+│   ├── documents/           # Document management
+│   ├── errors/              # Error translation
 │   ├── cache/               # SCIP cache system
+│   ├── scip/                # SCIP protocol implementation
 │   ├── process/             # LSP server lifecycle
 │   └── protocol/            # JSON-RPC handling
 ├── cli/              # CLI commands
-│   ├── server_commands.go   # server, mcp, status, test
+│   ├── server_commands.go   # server, mcp, status, test, version
 │   ├── install_commands.go  # LSP server installers
 │   └── cache_commands.go    # cache info, clear, index
 ├── config/           # YAML config and auto-detection
+├── utils/            # URI utilities
 └── internal/
     ├── installer/    # Language-specific installers
     ├── project/      # Language detection, package info
+    ├── models/       # LSP protocol models
+    ├── types/        # Shared type definitions
+    ├── errors/       # Error type definitions
+    ├── security/     # Command validation
+    ├── version/      # Version management
     ├── constants/    # System limits and timeouts
     └── common/       # STDIO-safe logging
 
@@ -129,7 +151,7 @@ if cfg.Cache != nil && cfg.Cache.Enabled {
 ## System Constants
 
 - **Timeouts**: Java 60s, Python 30s, Go/JS/TS 15s
-- **Cache**: 512MB memory, 24h TTL (1h for MCP), 5min health checks
+- **Cache**: 512MB memory, 24h TTL (1h for MCP), 5min health checks (2min for MCP)
 - **Process**: 5s graceful shutdown
 - **Scanning**: 3-level directory depth, skips vendor/node_modules
 - **MCP**: 50 files auto-index limit, enhanced mode only

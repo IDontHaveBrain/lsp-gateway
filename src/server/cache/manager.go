@@ -68,8 +68,8 @@ type SCIPSymbol struct {
 	Documentation       string                 `json:"documentation,omitempty"`        // Documentation from hover
 	Signature           string                 `json:"signature,omitempty"`            // Signature from hover
 	RelatedSymbols      []string               `json:"related_symbols,omitempty"`      // Related symbol names
-	DefinitionLocations []lsp.Location         `json:"definition_locations,omitempty"` // Definition locations for this symbol
-	ReferenceLocations  []lsp.Location         `json:"reference_locations,omitempty"`  // Reference locations for this symbol
+	DefinitionLocations []types.Location         `json:"definition_locations,omitempty"` // Definition locations for this symbol
+	ReferenceLocations  []types.Location         `json:"reference_locations,omitempty"`  // Reference locations for this symbol
 	UsageCount          int                    `json:"usage_count,omitempty"`          // Number of references to this symbol
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`             // Additional SCIP metadata
 }
@@ -766,12 +766,12 @@ func (m *SCIPCacheManager) createSCIPDocument(uri, language string, symbols []ls
 		if symbol.SelectionRange != nil {
 			occurrence.SelectionRange = &types.Range{
 				Start: types.Position{
-					Line:      int32(symbol.SelectionRange.Start.Line),
-					Character: int32(symbol.SelectionRange.Start.Character),
+					Line:      symbol.SelectionRange.Start.Line,
+					Character: symbol.SelectionRange.Start.Character,
 				},
 				End: types.Position{
-					Line:      int32(symbol.SelectionRange.End.Line),
-					Character: int32(symbol.SelectionRange.End.Character),
+					Line:      symbol.SelectionRange.End.Line,
+					Character: symbol.SelectionRange.End.Character,
 				},
 			}
 		}
@@ -792,7 +792,7 @@ func (m *SCIPCacheManager) createSCIPDocument(uri, language string, symbols []ls
 
 // storeDefinitionResult stores definition results as SCIP occurrences
 func (m *SCIPCacheManager) storeDefinitionResult(uri string, response interface{}) error {
-	locations, ok := response.([]lsp.Location)
+	locations, ok := response.([]types.Location)
 	if !ok {
 		return fmt.Errorf("invalid definition response type")
 	}
@@ -806,12 +806,12 @@ func (m *SCIPCacheManager) storeDefinitionResult(uri string, response interface{
 		occurrence := scip.SCIPOccurrence{
 			Range: types.Range{
 				Start: types.Position{
-					Line:      int32(location.Range.Start.Line),
-					Character: int32(location.Range.Start.Character),
+					Line:      location.Range.Start.Line,
+					Character: location.Range.Start.Character,
 				},
 				End: types.Position{
-					Line:      int32(location.Range.End.Line),
-					Character: int32(location.Range.End.Character),
+					Line:      location.Range.End.Line,
+					Character: location.Range.End.Character,
 				},
 			},
 			Symbol:      symbolID,
@@ -837,7 +837,7 @@ func (m *SCIPCacheManager) storeDefinitionResult(uri string, response interface{
 
 // storeReferencesResult stores reference results as SCIP occurrences
 func (m *SCIPCacheManager) storeReferencesResult(uri string, response interface{}) error {
-	locations, ok := response.([]lsp.Location)
+	locations, ok := response.([]types.Location)
 	if !ok {
 		return fmt.Errorf("invalid references response type")
 	}
@@ -854,12 +854,12 @@ func (m *SCIPCacheManager) storeReferencesResult(uri string, response interface{
 		occurrence := scip.SCIPOccurrence{
 			Range: types.Range{
 				Start: types.Position{
-					Line:      int32(location.Range.Start.Line),
-					Character: int32(location.Range.Start.Character),
+					Line:      location.Range.Start.Line,
+					Character: location.Range.Start.Character,
 				},
 				End: types.Position{
-					Line:      int32(location.Range.End.Line),
-					Character: int32(location.Range.End.Character),
+					Line:      location.Range.End.Line,
+					Character: location.Range.End.Character,
 				},
 			},
 			Symbol:      symbolID,
@@ -1035,12 +1035,12 @@ func (m *SCIPCacheManager) convertLSPSymbolsToSCIPDocument(uri, language string,
 		if symbol.SelectionRange != nil {
 			occurrence.SelectionRange = &types.Range{
 				Start: types.Position{
-					Line:      int32(symbol.SelectionRange.Start.Line),
-					Character: int32(symbol.SelectionRange.Start.Character),
+					Line:      symbol.SelectionRange.Start.Line,
+					Character: symbol.SelectionRange.Start.Character,
 				},
 				End: types.Position{
-					Line:      int32(symbol.SelectionRange.End.Line),
-					Character: int32(symbol.SelectionRange.End.Character),
+					Line:      symbol.SelectionRange.End.Line,
+					Character: symbol.SelectionRange.End.Character,
 				},
 			}
 		}
@@ -1062,35 +1062,35 @@ func (m *SCIPCacheManager) convertLSPSymbolsToSCIPDocument(uri, language string,
 // Helper methods for conversion between LSP and SCIP types
 
 // convertLSPSymbolKindToSCIPKind converts LSP symbol kind to SCIP symbol kind
-func (m *SCIPCacheManager) convertLSPSymbolKindToSCIPKind(kind lsp.SymbolKind) scip.SCIPSymbolKind {
+func (m *SCIPCacheManager) convertLSPSymbolKindToSCIPKind(kind types.SymbolKind) scip.SCIPSymbolKind {
 	switch kind {
-	case lsp.File:
+	case types.File:
 		return scip.SCIPSymbolKindFile
-	case lsp.Module:
+	case types.Module:
 		return scip.SCIPSymbolKindModule
-	case lsp.Namespace:
+	case types.Namespace:
 		return scip.SCIPSymbolKindNamespace
-	case lsp.Package:
+	case types.Package:
 		return scip.SCIPSymbolKindPackage
-	case lsp.Class:
+	case types.Class:
 		return scip.SCIPSymbolKindClass
-	case lsp.Method:
+	case types.Method:
 		return scip.SCIPSymbolKindMethod
-	case lsp.Property:
+	case types.Property:
 		return scip.SCIPSymbolKindProperty
-	case lsp.Field:
+	case types.Field:
 		return scip.SCIPSymbolKindField
-	case lsp.Constructor:
+	case types.Constructor:
 		return scip.SCIPSymbolKindConstructor
-	case lsp.Enum:
+	case types.Enum:
 		return scip.SCIPSymbolKindEnum
-	case lsp.Interface:
+	case types.Interface:
 		return scip.SCIPSymbolKindInterface
-	case lsp.Function:
+	case types.Function:
 		return scip.SCIPSymbolKindFunction
-	case lsp.Variable:
+	case types.Variable:
 		return scip.SCIPSymbolKindVariable
-	case lsp.Constant:
+	case types.Constant:
 		return scip.SCIPSymbolKindConstant
 	default:
 		return scip.SCIPSymbolKindUnknown
@@ -1098,53 +1098,53 @@ func (m *SCIPCacheManager) convertLSPSymbolKindToSCIPKind(kind lsp.SymbolKind) s
 }
 
 // convertSCIPSymbolKindToLSP converts SCIP symbol kind back to LSP
-func (m *SCIPCacheManager) convertSCIPSymbolKindToLSP(kind scip.SCIPSymbolKind) lsp.SymbolKind {
+func (m *SCIPCacheManager) convertSCIPSymbolKindToLSP(kind scip.SCIPSymbolKind) types.SymbolKind {
 	switch kind {
 	case scip.SCIPSymbolKindFile:
-		return lsp.File
+		return types.File
 	case scip.SCIPSymbolKindModule:
-		return lsp.Module
+		return types.Module
 	case scip.SCIPSymbolKindNamespace:
-		return lsp.Namespace
+		return types.Namespace
 	case scip.SCIPSymbolKindPackage:
-		return lsp.Package
+		return types.Package
 	case scip.SCIPSymbolKindClass:
-		return lsp.Class
+		return types.Class
 	case scip.SCIPSymbolKindMethod:
-		return lsp.Method
+		return types.Method
 	case scip.SCIPSymbolKindProperty:
-		return lsp.Property
+		return types.Property
 	case scip.SCIPSymbolKindField:
-		return lsp.Field
+		return types.Field
 	case scip.SCIPSymbolKindConstructor:
-		return lsp.Constructor
+		return types.Constructor
 	case scip.SCIPSymbolKindEnum:
-		return lsp.Enum
+		return types.Enum
 	case scip.SCIPSymbolKindInterface:
-		return lsp.Interface
+		return types.Interface
 	case scip.SCIPSymbolKindFunction:
-		return lsp.Function
+		return types.Function
 	case scip.SCIPSymbolKindVariable:
-		return lsp.Variable
+		return types.Variable
 	case scip.SCIPSymbolKindConstant:
-		return lsp.Constant
+		return types.Constant
 	default:
-		return lsp.Variable
+		return types.Variable
 	}
 }
 
 // convertLSPSymbolKindToSyntaxKind converts LSP symbol kind to syntax kind for highlighting
-func (m *SCIPCacheManager) convertLSPSymbolKindToSyntaxKind(kind lsp.SymbolKind) types.SyntaxKind {
+func (m *SCIPCacheManager) convertLSPSymbolKindToSyntaxKind(kind types.SymbolKind) types.SyntaxKind {
 	switch kind {
-	case lsp.Function, lsp.Method:
+	case types.Function, types.Method:
 		return types.SyntaxKindIdentifierFunction
-	case lsp.Class:
+	case types.Class:
 		return types.SyntaxKindIdentifierType
-	case lsp.Variable:
+	case types.Variable:
 		return types.SyntaxKindIdentifierLocal
-	case lsp.Constant:
+	case types.Constant:
 		return types.SyntaxKindIdentifierConstant
-	case lsp.Module, lsp.Namespace:
+	case types.Module, types.Namespace:
 		return types.SyntaxKindIdentifierNamespace
 	default:
 		return types.SyntaxKindUnspecified
@@ -1786,7 +1786,7 @@ func (m *SCIPCacheManager) updateIndexStats(language string, symbolCount int) {
 }
 
 // GetCachedDefinition retrieves definition occurrences for a symbol using SCIP storage
-func (m *SCIPCacheManager) GetCachedDefinition(symbolID string) ([]lsp.Location, bool) {
+func (m *SCIPCacheManager) GetCachedDefinition(symbolID string) ([]types.Location, bool) {
 	if !m.enabled {
 		return nil, false
 	}
@@ -1800,25 +1800,25 @@ func (m *SCIPCacheManager) GetCachedDefinition(symbolID string) ([]lsp.Location,
 	}
 	definitionOcc := definitionOccs[0]
 
-	location := lsp.Location{
+	location := types.Location{
 		URI: m.extractURIFromOccurrence(&definitionOcc),
-		Range: lsp.Range{
-			Start: lsp.Position{
-				Line:      int(definitionOcc.Range.Start.Line),
-				Character: int(definitionOcc.Range.Start.Character),
+		Range: types.Range{
+			Start: types.Position{
+				Line:      int32(definitionOcc.Range.Start.Line),
+				Character: int32(definitionOcc.Range.Start.Character),
 			},
-			End: lsp.Position{
-				Line:      int(definitionOcc.Range.End.Line),
-				Character: int(definitionOcc.Range.End.Character),
+			End: types.Position{
+				Line:      int32(definitionOcc.Range.End.Line),
+				Character: int32(definitionOcc.Range.End.Character),
 			},
 		},
 	}
 
-	return []lsp.Location{location}, true
+	return []types.Location{location}, true
 }
 
 // GetCachedReferences retrieves reference occurrences for a symbol using SCIP storage
-func (m *SCIPCacheManager) GetCachedReferences(symbolID string) ([]lsp.Location, bool) {
+func (m *SCIPCacheManager) GetCachedReferences(symbolID string) ([]types.Location, bool) {
 	if !m.enabled {
 		return nil, false
 	}
@@ -1831,18 +1831,18 @@ func (m *SCIPCacheManager) GetCachedReferences(symbolID string) ([]lsp.Location,
 		return nil, false
 	}
 
-	locations := make([]lsp.Location, 0, len(referenceOccs))
+	locations := make([]types.Location, 0, len(referenceOccs))
 	for _, occ := range referenceOccs {
-		location := lsp.Location{
+		location := types.Location{
 			URI: m.extractURIFromOccurrence(&occ),
-			Range: lsp.Range{
-				Start: lsp.Position{
-					Line:      int(occ.Range.Start.Line),
-					Character: int(occ.Range.Start.Character),
+			Range: types.Range{
+				Start: types.Position{
+					Line:      int32(occ.Range.Start.Line),
+					Character: int32(occ.Range.Start.Character),
 				},
-				End: lsp.Position{
-					Line:      int(occ.Range.End.Line),
-					Character: int(occ.Range.End.Character),
+				End: types.Position{
+					Line:      int32(occ.Range.End.Line),
+					Character: int32(occ.Range.End.Character),
 				},
 			},
 		}
@@ -1903,16 +1903,16 @@ func (m *SCIPCacheManager) GetCachedDocumentSymbols(uri string) ([]lsp.SymbolInf
 		symbol := lsp.SymbolInformation{
 			Name: scipSymbol.DisplayName,
 			Kind: m.convertSCIPSymbolKindToLSP(scipSymbol.Kind),
-			Location: lsp.Location{
+			Location: types.Location{
 				URI: uri,
-				Range: lsp.Range{
-					Start: lsp.Position{
-						Line:      int(defOcc.Range.Start.Line),
-						Character: int(defOcc.Range.Start.Character),
+				Range: types.Range{
+					Start: types.Position{
+						Line:      int32(defOcc.Range.Start.Line),
+						Character: int32(defOcc.Range.Start.Character),
 					},
-					End: lsp.Position{
-						Line:      int(defOcc.Range.End.Line),
-						Character: int(defOcc.Range.End.Character),
+					End: types.Position{
+						Line:      int32(defOcc.Range.End.Line),
+						Character: int32(defOcc.Range.End.Character),
 					},
 				},
 			},
@@ -1948,16 +1948,16 @@ func (m *SCIPCacheManager) GetCachedWorkspaceSymbols(query string) ([]lsp.Symbol
 		symbol := lsp.SymbolInformation{
 			Name: scipSymbol.DisplayName,
 			Kind: m.convertSCIPSymbolKindToLSP(scipSymbol.Kind),
-			Location: lsp.Location{
+			Location: types.Location{
 				URI: m.extractURIFromOccurrence(&defOcc),
-				Range: lsp.Range{
-					Start: lsp.Position{
-						Line:      int(defOcc.Range.Start.Line),
-						Character: int(defOcc.Range.Start.Character),
+				Range: types.Range{
+					Start: types.Position{
+						Line:      int32(defOcc.Range.Start.Line),
+						Character: int32(defOcc.Range.Start.Character),
 					},
-					End: lsp.Position{
-						Line:      int(defOcc.Range.End.Line),
-						Character: int(defOcc.Range.End.Character),
+					End: types.Position{
+						Line:      int32(defOcc.Range.End.Line),
+						Character: int32(defOcc.Range.End.Character),
 					},
 				},
 			},
@@ -1969,7 +1969,7 @@ func (m *SCIPCacheManager) GetCachedWorkspaceSymbols(query string) ([]lsp.Symbol
 }
 
 // GetCachedCompletion retrieves completion items using symbol information from SCIP storage
-func (m *SCIPCacheManager) GetCachedCompletion(uri string, position lsp.Position) ([]lsp.CompletionItem, bool) {
+func (m *SCIPCacheManager) GetCachedCompletion(uri string, position types.Position) ([]lsp.CompletionItem, bool) {
 	if !m.enabled || m.scipStorage == nil {
 		return nil, false
 	}

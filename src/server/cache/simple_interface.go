@@ -4,6 +4,7 @@ import (
 	"context"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/models/lsp"
+	"lsp-gateway/src/internal/types"
 )
 
 // LSPFallback interface for fallback to actual LSP servers
@@ -35,11 +36,11 @@ type SimpleCache interface {
 	UpdateIndex(ctx context.Context, files []string) error
 
 	// Cached retrieval methods
-	GetCachedDefinition(symbolID string) ([]lsp.Location, bool)
-	GetCachedReferences(symbolID string) ([]lsp.Location, bool)
+	GetCachedDefinition(symbolID string) ([]types.Location, bool)
+	GetCachedReferences(symbolID string) ([]types.Location, bool)
 	GetCachedHover(symbolID string) (*lsp.Hover, bool)
-	GetCachedDocumentSymbols(uri string) ([]lsp.SymbolInformation, bool)
-	GetCachedWorkspaceSymbols(query string) ([]lsp.SymbolInformation, bool)
+	GetCachedDocumentSymbols(uri string) ([]types.SymbolInformation, bool)
+	GetCachedWorkspaceSymbols(query string) ([]types.SymbolInformation, bool)
 	StoreMethodResult(method string, params interface{}, response interface{}) error
 }
 

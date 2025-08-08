@@ -17,12 +17,37 @@ const (
 	JSONRPCVersion = "2.0"
 )
 
+// JSON-RPC error codes (RFC 7309)
+const (
+	ParseError     = -32700 // Invalid JSON was received by the server
+	InvalidRequest = -32600 // The JSON sent is not a valid Request object
+	MethodNotFound = -32601 // The method does not exist / is not available
+	InvalidParams  = -32602 // Invalid method parameter(s)
+	InternalError  = -32603 // Internal JSON-RPC error
+)
+
 // JSONRPCMessage represents a JSON-RPC 2.0 message
 type JSONRPCMessage struct {
 	JSONRPC string      `json:"jsonrpc"`
 	ID      interface{} `json:"id,omitempty"`
 	Method  string      `json:"method,omitempty"`
 	Params  interface{} `json:"params,omitempty"`
+	Result  interface{} `json:"result,omitempty"`
+	Error   *RPCError   `json:"error,omitempty"`
+}
+
+// JSONRPCRequest represents a JSON-RPC 2.0 request
+type JSONRPCRequest struct {
+	JSONRPC string      `json:"jsonrpc"`
+	ID      interface{} `json:"id"`
+	Method  string      `json:"method"`
+	Params  interface{} `json:"params,omitempty"`
+}
+
+// JSONRPCResponse represents a JSON-RPC 2.0 response
+type JSONRPCResponse struct {
+	JSONRPC string      `json:"jsonrpc"`
+	ID      interface{} `json:"id"`
 	Result  interface{} `json:"result,omitempty"`
 	Error   *RPCError   `json:"error,omitempty"`
 }
@@ -205,4 +230,40 @@ func CreateResponse(id interface{}, result interface{}, err *RPCError) JSONRPCMe
 		Result:  result,
 		Error:   err,
 	}
+}
+
+// Helper functions for creating error responses
+
+// NewRPCError creates a new RPCError with the specified code and message
+func NewRPCError(code int, message string, data interface{}) *RPCError {
+	return &RPCError{
+		Code:    code,
+		Message: message,
+		Data:    data,
+	}
+}
+
+// NewParseError creates a parse error (-32700)
+func NewParseError(data interface{}) *RPCError {
+	return NewRPCError(ParseError, "Parse error", data)
+}
+
+// NewInvalidRequestError creates an invalid request error (-32600)
+func NewInvalidRequestError(data interface{}) *RPCError {
+	return NewRPCError(InvalidRequest, "Invalid Request", data)
+}
+
+// NewMethodNotFoundError creates a method not found error (-32601)
+func NewMethodNotFoundError(data interface{}) *RPCError {
+	return NewRPCError(MethodNotFound, "Method not found", data)
+}
+
+// NewInvalidParamsError creates an invalid params error (-32602)
+func NewInvalidParamsError(data interface{}) *RPCError {
+	return NewRPCError(InvalidParams, "Invalid params", data)
+}
+
+// NewInternalError creates an internal error (-32603)
+func NewInternalError(data interface{}) *RPCError {
+	return NewRPCError(InternalError, "Internal error", data)
 }

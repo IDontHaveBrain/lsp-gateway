@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/scip"
+	"lsp-gateway/src/utils"
 )
 
 // indexedSymbol represents a symbol found during indexing
@@ -123,7 +123,7 @@ func (w *WorkspaceIndexer) processReferenceBatch(ctx context.Context, symbols []
 	// Process each file and its symbols together
 	for fileURI, fileSymbols := range symbolsByFile {
 		// Open the file once for all symbols in it
-		filePath := common.URIToFilePath(fileURI)
+		filePath := utils.URIToFilePath(fileURI)
 		content, err := os.ReadFile(filePath)
 		if err != nil {
 			common.LSPLogger.Debug("Skipping file %s: %v", fileURI, err)
@@ -188,7 +188,7 @@ func (w *WorkspaceIndexer) processReferenceBatch(ctx context.Context, symbols []
 	return totalAdded
 }
 
-func (w *WorkspaceIndexer) getReferencesForSymbolInOpenFile(ctx context.Context, symbol indexedSymbol) ([]lsp.Location, error) {
+func (w *WorkspaceIndexer) getReferencesForSymbolInOpenFile(ctx context.Context, symbol indexedSymbol) ([]types.Location, error) {
 	// Call textDocument/references (assumes file is already open)
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
@@ -207,7 +207,7 @@ func (w *WorkspaceIndexer) getReferencesForSymbolInOpenFile(ctx context.Context,
 	if err != nil {
 		// Silently skip "no identifier found" errors - these are expected for some positions
 		if strings.Contains(err.Error(), "no identifier found") {
-			return []lsp.Location{}, nil
+			return []types.Location{}, nil
 		}
 		return nil, err
 	}
@@ -217,13 +217,13 @@ func (w *WorkspaceIndexer) getReferencesForSymbolInOpenFile(ctx context.Context,
 
 // getReferencesForSymbol opens a file and gets references for a symbol
 // This is kept for compatibility but processReferenceBatch is more efficient
-func (w *WorkspaceIndexer) getReferencesForSymbol(ctx context.Context, symbol indexedSymbol) ([]lsp.Location, error) {
+func (w *WorkspaceIndexer) getReferencesForSymbol(ctx context.Context, symbol indexedSymbol) ([]types.Location, error) {
 	// Read file content to open it in LSP server
-	filePath := common.URIToFilePath(symbol.uri)
+	filePath := utils.URIToFilePath(symbol.uri)
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		// Skip files that can't be read
-		return []lsp.Location{}, nil
+		return []types.Location{}, nil
 	}
 
 	// Open the document in LSP server
@@ -255,8 +255,8 @@ func (w *WorkspaceIndexer) getReferencesForSymbol(ctx context.Context, symbol in
 	return w.getReferencesForSymbolInOpenFile(ctx, symbol)
 }
 
-func (w *WorkspaceIndexer) parseLocationResponse(result interface{}) ([]lsp.Location, error) {
-	locations := []lsp.Location{}
+func (w *WorkspaceIndexer) parseLocationResponse(result interface{}) ([]types.Location, error) {
+	locations := []types.Location{}
 
 	switch refs := result.(type) {
 	case json.RawMessage:
@@ -264,7 +264,7 @@ func (w *WorkspaceIndexer) parseLocationResponse(result interface{}) ([]lsp.Loca
 		if err := json.Unmarshal(refs, &refArray); err == nil {
 			for _, ref := range refArray {
 				if refData, err := json.Marshal(ref); err == nil {
-					var loc lsp.Location
+					var loc types.Location
 					if err := json.Unmarshal(refData, &loc); err == nil {
 						locations = append(locations, loc)
 					}
@@ -274,7 +274,7 @@ func (w *WorkspaceIndexer) parseLocationResponse(result interface{}) ([]lsp.Loca
 	case []interface{}:
 		for _, ref := range refs {
 			if refMap, ok := ref.(map[string]interface{}); ok {
-				loc := lsp.Location{}
+				loc := types.Location{}
 				if uri, ok := refMap["uri"].(string); ok {
 					loc.URI = uri
 				}
@@ -284,53 +284,53 @@ func (w *WorkspaceIndexer) parseLocationResponse(result interface{}) ([]lsp.Loca
 				locations = append(locations, loc)
 			}
 		}
-	case []lsp.Location:
+	case []types.Location:
 		locations = refs
 	}
 
 	return locations, nil
 }
 
-func (w *WorkspaceIndexer) parseRange(rangeData map[string]interface{}) lsp.Range {
-	r := lsp.Range{}
+func (w *WorkspaceIndexer) parseRange(rangeData map[string]interface{}) types.Range {
+	r := types.Range{}
 
 	if start, ok := rangeData["start"].(map[string]interface{}); ok {
 		if line, ok := start["line"].(float64); ok {
-			r.Start.Line = int(line)
+			r.Start.Line = int32(line)
 		}
 		if char, ok := start["character"].(float64); ok {
-			r.Start.Character = int(char)
+			r.Start.Character = int32(char)
 		}
 	}
 
 	if end, ok := rangeData["end"].(map[string]interface{}); ok {
 		if line, ok := end["line"].(float64); ok {
-			r.End.Line = int(line)
+			r.End.Line = int32(line)
 		}
 		if char, ok := end["character"].(float64); ok {
-			r.End.Character = int(char)
+			r.End.Character = int32(char)
 		}
 	}
 
 	return r
 }
 
-func (w *WorkspaceIndexer) isSelfReference(ref lsp.Location, symbol indexedSymbol) bool {
+func (w *WorkspaceIndexer) isSelfReference(ref types.Location, symbol indexedSymbol) bool {
 	return ref.URI == symbol.uri &&
-		int32(ref.Range.Start.Line) == symbol.position.Line &&
-		int32(ref.Range.Start.Character) == symbol.position.Character
+		ref.Range.Start.Line == symbol.position.Line &&
+		ref.Range.Start.Character == symbol.position.Character
 }
 
-func (w *WorkspaceIndexer) createReferenceOccurrence(ref lsp.Location, symbol indexedSymbol) scip.SCIPOccurrence {
+func (w *WorkspaceIndexer) createReferenceOccurrence(ref types.Location, symbol indexedSymbol) scip.SCIPOccurrence {
 	return scip.SCIPOccurrence{
 		Range: types.Range{
 			Start: types.Position{
-				Line:      int32(ref.Range.Start.Line),
-				Character: int32(ref.Range.Start.Character),
+				Line:      ref.Range.Start.Line,
+				Character: ref.Range.Start.Character,
 			},
 			End: types.Position{
-				Line:      int32(ref.Range.End.Line),
-				Character: int32(ref.Range.End.Character),
+				Line:      ref.Range.End.Line,
+				Character: ref.Range.End.Character,
 			},
 		},
 		Symbol:      symbol.symbolID,

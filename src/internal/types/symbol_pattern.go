@@ -1,18 +1,17 @@
 package types
 
 import (
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/models/lsp"
+	"lsp-gateway/src/utils"
 	"regexp"
 	"strings"
 )
 
 type SymbolPatternQuery struct {
-	Pattern     string           `json:"pattern"`
-	SymbolKinds []lsp.SymbolKind `json:"symbolKinds,omitempty"`
-	FilePattern string           `json:"filePattern,omitempty"`
-	MaxResults  int              `json:"maxResults,omitempty"`
-	IncludeCode bool             `json:"includeCode,omitempty"`
+	Pattern     string       `json:"pattern"`
+	SymbolKinds []SymbolKind `json:"symbolKinds,omitempty"`
+	FilePattern string       `json:"filePattern,omitempty"`
+	MaxResults  int          `json:"maxResults,omitempty"`
+	IncludeCode bool         `json:"includeCode,omitempty"`
 }
 
 type SymbolPatternResult struct {
@@ -22,7 +21,7 @@ type SymbolPatternResult struct {
 }
 
 type EnhancedSymbolInfo struct {
-	lsp.SymbolInformation
+	SymbolInformation
 	Signature     string  `json:"signature,omitempty"`
 	Documentation string  `json:"documentation,omitempty"`
 	FilePath      string  `json:"filePath"`
@@ -34,7 +33,7 @@ type EnhancedSymbolInfo struct {
 }
 
 // MatchSymbolPattern matches a symbol against a pattern query and returns match status and score for sorting
-func MatchSymbolPattern(symbol lsp.SymbolInformation, query SymbolPatternQuery) (bool, float64) {
+func MatchSymbolPattern(symbol SymbolInformation, query SymbolPatternQuery) (bool, float64) {
 	pattern := query.Pattern
 
 	// Check for case-insensitive flag (?i)
@@ -83,7 +82,7 @@ func MatchSymbolPattern(symbol lsp.SymbolInformation, query SymbolPatternQuery) 
 	}
 
 	if query.FilePattern != "" {
-		filePath := common.URIToFilePath(symbol.Location.URI)
+		filePath := utils.URIToFilePath(symbol.Location.URI)
 		if !matchFilePattern(filePath, query.FilePattern) {
 			return false, 0
 		}
@@ -179,7 +178,7 @@ func matchFilePattern(filePath, pattern string) bool {
 	return re.MatchString(filePath)
 }
 
-func calculateMatchScore(symbolName, pattern string, kind lsp.SymbolKind) float64 {
+func calculateMatchScore(symbolName, pattern string, kind SymbolKind) float64 {
 	baseScore := 1.0
 
 	if strings.EqualFold(symbolName, pattern) {
@@ -189,9 +188,9 @@ func calculateMatchScore(symbolName, pattern string, kind lsp.SymbolKind) float6
 	}
 
 	switch kind {
-	case lsp.Class, lsp.Interface, lsp.Function:
+	case Class, Interface, Function:
 		baseScore += 0.5
-	case lsp.Method, lsp.Constructor:
+	case Method, Constructor:
 		baseScore += 0.3
 	}
 

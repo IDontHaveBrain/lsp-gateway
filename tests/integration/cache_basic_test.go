@@ -7,47 +7,21 @@ import (
 	"testing"
 	"time"
 
-	"lsp-gateway/src/config"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/utils"
+	"lsp-gateway/tests/shared"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestBasicCacheOperations(t *testing.T) {
 	tempDir := t.TempDir()
-	cacheDir := filepath.Join(tempDir, "basic-cache")
-
-	cacheConfig := &config.CacheConfig{
-		Enabled:         true,
-		StoragePath:     cacheDir,
-		MaxMemoryMB:     64,
-		TTLHours:        1,
-		Languages:       []string{"go"},
-		BackgroundIndex: false,
-		DiskCache:       true,
-		EvictionPolicy:  "lru",
-	}
-
-	scipCache, err := cache.NewSCIPCacheManager(cacheConfig)
-	require.NoError(t, err)
-	require.NotNil(t, scipCache)
-
-	ctx := context.Background()
-	err = scipCache.Start(ctx)
-	require.NoError(t, err)
-	defer scipCache.Stop()
+	cacheConfig := shared.CreateBasicCacheConfig(tempDir)
+	scipCache := shared.StartCacheManager(t, cacheConfig)
+	defer shared.CleanupCache(scipCache)
 
 	t.Run("Store and retrieve basic cache entry", func(t *testing.T) {
-		method := "textDocument/definition"
-		params := map[string]interface{}{
-			"textDocument": map[string]string{"uri": "file:///test.go"},
-			"position":     map[string]int{"line": 10, "character": 5},
-		}
-		response := map[string]interface{}{
-			"uri":   "file:///test.go",
-			"range": map[string]interface{}{"start": map[string]int{"line": 10, "character": 5}},
-		}
+		method, params, response := shared.CreateCacheTestData()
 
 		err := scipCache.Store(method, params, response)
 		require.NoError(t, err)
@@ -133,7 +107,6 @@ func TestBasicCacheOperations(t *testing.T) {
 
 func TestCacheWithIndexing(t *testing.T) {
 	tempDir := t.TempDir()
-	cacheDir := filepath.Join(tempDir, "index-cache")
 	projectDir := filepath.Join(tempDir, "project")
 
 	err := os.MkdirAll(projectDir, 0755)
@@ -152,24 +125,11 @@ func TestFunction() {
 	err = os.WriteFile(testFile, []byte(content), 0644)
 	require.NoError(t, err)
 
-	cacheConfig := &config.CacheConfig{
-		Enabled:         true,
-		StoragePath:     cacheDir,
-		MaxMemoryMB:     64,
-		TTLHours:        1,
-		Languages:       []string{"go"},
-		BackgroundIndex: false,
-		DiskCache:       true,
-		EvictionPolicy:  "lru",
-	}
-
-	scipCache, err := cache.NewSCIPCacheManager(cacheConfig)
-	require.NoError(t, err)
+	cacheConfig := shared.CreateBasicCacheConfig(tempDir)
+	scipCache := shared.StartCacheManager(t, cacheConfig)
+	defer shared.CleanupCache(scipCache)
 
 	ctx := context.Background()
-	err = scipCache.Start(ctx)
-	require.NoError(t, err)
-	defer scipCache.Stop()
 
 	t.Run("Index document with symbols", func(t *testing.T) {
 		uri := utils.FilePathToURI(testFile)
@@ -214,18 +174,8 @@ func AnotherFunction() {
 
 func TestCachePersistence(t *testing.T) {
 	tempDir := t.TempDir()
-	cacheDir := filepath.Join(tempDir, "persist-cache")
 
-	cacheConfig := &config.CacheConfig{
-		Enabled:         true,
-		StoragePath:     cacheDir,
-		MaxMemoryMB:     32,
-		TTLHours:        24,
-		Languages:       []string{"go", "python"},
-		BackgroundIndex: false,
-		DiskCache:       true,
-		EvictionPolicy:  "lru",
-	}
+	cacheConfig := shared.CreateMultiLangCacheConfig(tempDir)
 
 	ctx := context.Background()
 
@@ -288,26 +238,10 @@ func TestCachePersistence(t *testing.T) {
 
 func TestConcurrentCacheAccess(t *testing.T) {
 	tempDir := t.TempDir()
-	cacheDir := filepath.Join(tempDir, "concurrent-cache")
 
-	cacheConfig := &config.CacheConfig{
-		Enabled:         true,
-		StoragePath:     cacheDir,
-		MaxMemoryMB:     64,
-		TTLHours:        1,
-		Languages:       []string{"go"},
-		BackgroundIndex: false,
-		DiskCache:       false,
-		EvictionPolicy:  "lru",
-	}
-
-	scipCache, err := cache.NewSCIPCacheManager(cacheConfig)
-	require.NoError(t, err)
-
-	ctx := context.Background()
-	err = scipCache.Start(ctx)
-	require.NoError(t, err)
-	defer scipCache.Stop()
+	cacheConfig := shared.CreateMemOnlyCacheConfig(tempDir)
+	scipCache := shared.StartCacheManager(t, cacheConfig)
+	defer shared.CleanupCache(scipCache)
 
 	numGoroutines := 10
 	numOperations := 20

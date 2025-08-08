@@ -8,8 +8,9 @@ import (
 	"strings"
 
 	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/models/lsp"
+	"lsp-gateway/src/utils"
 	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/server/protocol"
 	"lsp-gateway/src/server/scip"
 )
 
@@ -25,7 +26,7 @@ func (m *MCPServer) delegateToolCall(req *MCPRequest) *MCPResponse {
 			JSONRPC: "2.0",
 			ID:      req.ID,
 			Error: &MCPError{
-				Code:    -32602,
+				Code:    protocol.InvalidParams,
 				Message: "Invalid params: expected object",
 				Data:    map[string]interface{}{"received": fmt.Sprintf("%T", req.Params)},
 			},
@@ -38,7 +39,7 @@ func (m *MCPServer) delegateToolCall(req *MCPRequest) *MCPResponse {
 			JSONRPC: "2.0",
 			ID:      req.ID,
 			Error: &MCPError{
-				Code:    -32602,
+				Code:    protocol.InvalidParams,
 				Message: "Missing required parameter: name",
 				Data:    map[string]interface{}{"parameter": "name"},
 			},
@@ -60,7 +61,7 @@ func (m *MCPServer) delegateToolCall(req *MCPRequest) *MCPResponse {
 			JSONRPC: "2.0",
 			ID:      req.ID,
 			Error: &MCPError{
-				Code:    -32601,
+				Code:    protocol.MethodNotFound,
 				Message: fmt.Sprintf("Tool not found: %s", name),
 				Data:    map[string]interface{}{"tool": name},
 			},
@@ -72,7 +73,7 @@ func (m *MCPServer) delegateToolCall(req *MCPRequest) *MCPResponse {
 			JSONRPC: "2.0",
 			ID:      req.ID,
 			Error: &MCPError{
-				Code:    -32603,
+				Code:    protocol.InternalError,
 				Message: err.Error(),
 				Data:    map[string]interface{}{"tool": name},
 			},
@@ -118,7 +119,7 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 	if kinds, ok := arguments["symbolKinds"].([]interface{}); ok {
 		for _, k := range kinds {
 			if kind, ok := k.(float64); ok {
-				query.SymbolKinds = append(query.SymbolKinds, lsp.SymbolKind(kind))
+				query.SymbolKinds = append(query.SymbolKinds, types.SymbolKind(kind))
 			}
 		}
 	}
@@ -156,13 +157,13 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 	var err error
 
 	// Try direct SCIP cache first for better performance
-	if m.scipCache != nil {
+	if m.lspManager.scipCache != nil {
 		maxResults := query.MaxResults
 		if maxResults <= 0 {
 			maxResults = 100
 		}
 
-		scipResults, scipErr := m.scipCache.SearchSymbols(ctx, pattern, filePattern, maxResults)
+		scipResults, scipErr := m.lspManager.scipCache.SearchSymbols(ctx, pattern, filePattern, maxResults)
 		if scipErr == nil && len(scipResults) > 0 {
 			// Convert SCIP results to SymbolPatternResult format
 			symbols := make([]types.EnhancedSymbolInfo, 0, len(scipResults))
@@ -188,7 +189,7 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 					if occurrence != nil {
 						// Get file path from document URI
 						if docURI, ok := enhancedData["filePath"].(string); ok {
-							filePath = common.URIToFilePath(docURI)
+							filePath = utils.URIToFilePath(docURI)
 						}
 
 						// Extract line range from occurrence
@@ -197,34 +198,34 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 					}
 
 					// Convert SCIP kind to LSP kind
-					lspKind := lsp.Variable // Default
+					lspKind := types.Variable // Default
 					switch symbolInfo.Kind {
 					case scip.SCIPSymbolKindClass:
-						lspKind = lsp.Class
+						lspKind = types.Class
 					case scip.SCIPSymbolKindMethod:
-						lspKind = lsp.Method
+						lspKind = types.Method
 					case scip.SCIPSymbolKindFunction:
-						lspKind = lsp.Function
+						lspKind = types.Function
 					case scip.SCIPSymbolKindNamespace:
-						lspKind = lsp.Namespace
+						lspKind = types.Namespace
 					case scip.SCIPSymbolKindModule:
-						lspKind = lsp.Module
+						lspKind = types.Module
 					case scip.SCIPSymbolKindInterface:
-						lspKind = lsp.Interface
+						lspKind = types.Interface
 					case scip.SCIPSymbolKindEnum:
-						lspKind = lsp.Enum
+						lspKind = types.Enum
 					case scip.SCIPSymbolKindField:
-						lspKind = lsp.Field
+						lspKind = types.Field
 					case scip.SCIPSymbolKindProperty:
-						lspKind = lsp.Property
+						lspKind = types.Property
 					case scip.SCIPSymbolKindConstructor:
-						lspKind = lsp.Constructor
+						lspKind = types.Constructor
 					case scip.SCIPSymbolKindVariable:
-						lspKind = lsp.Variable
+						lspKind = types.Variable
 					case scip.SCIPSymbolKindConstant:
-						lspKind = lsp.Constant
+						lspKind = types.Constant
 					case scip.SCIPSymbolKindStruct:
-						lspKind = lsp.Struct
+						lspKind = types.Struct
 					}
 
 					// Extract documentation
@@ -244,14 +245,14 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 
 					// Create enhanced symbol info
 					enhanced := types.EnhancedSymbolInfo{
-						SymbolInformation: lsp.SymbolInformation{
+						SymbolInformation: types.SymbolInformation{
 							Name: symbolInfo.DisplayName,
 							Kind: lspKind,
-							Location: lsp.Location{
+							Location: types.Location{
 								URI: "file://" + filePath,
-								Range: lsp.Range{
-									Start: lsp.Position{Line: lineNumber, Character: 0},
-									End:   lsp.Position{Line: endLine, Character: 0},
+								Range: types.Range{
+									Start: types.Position{Line: int32(lineNumber), Character: 0},
+									End:   types.Position{Line: int32(endLine), Character: 0},
 								},
 							},
 							ContainerName: containerName,
@@ -269,34 +270,34 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 					symbolID := scipSymbol.Symbol
 
 					// Convert SCIP kind to LSP kind
-					lspKind := lsp.Variable // Default
+					lspKind := types.Variable // Default
 					switch scipSymbol.Kind {
 					case scip.SCIPSymbolKindClass:
-						lspKind = lsp.Class
+						lspKind = types.Class
 					case scip.SCIPSymbolKindMethod:
-						lspKind = lsp.Method
+						lspKind = types.Method
 					case scip.SCIPSymbolKindFunction:
-						lspKind = lsp.Function
+						lspKind = types.Function
 					case scip.SCIPSymbolKindNamespace:
-						lspKind = lsp.Namespace
+						lspKind = types.Namespace
 					case scip.SCIPSymbolKindModule:
-						lspKind = lsp.Module
+						lspKind = types.Module
 					case scip.SCIPSymbolKindInterface:
-						lspKind = lsp.Interface
+						lspKind = types.Interface
 					case scip.SCIPSymbolKindEnum:
-						lspKind = lsp.Enum
+						lspKind = types.Enum
 					case scip.SCIPSymbolKindField:
-						lspKind = lsp.Field
+						lspKind = types.Field
 					case scip.SCIPSymbolKindProperty:
-						lspKind = lsp.Property
+						lspKind = types.Property
 					case scip.SCIPSymbolKindConstructor:
-						lspKind = lsp.Constructor
+						lspKind = types.Constructor
 					case scip.SCIPSymbolKindVariable:
-						lspKind = lsp.Variable
+						lspKind = types.Variable
 					case scip.SCIPSymbolKindConstant:
-						lspKind = lsp.Constant
+						lspKind = types.Constant
 					case scip.SCIPSymbolKindStruct:
-						lspKind = lsp.Struct
+						lspKind = types.Struct
 					}
 
 					// Extract documentation
@@ -312,14 +313,14 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 
 					// Create enhanced symbol info
 					enhanced := types.EnhancedSymbolInfo{
-						SymbolInformation: lsp.SymbolInformation{
+						SymbolInformation: types.SymbolInformation{
 							Name: symbolName,
 							Kind: lspKind,
-							Location: lsp.Location{
+							Location: types.Location{
 								URI: "file://" + filePath,
-								Range: lsp.Range{
-									Start: lsp.Position{Line: lineNumber, Character: 0},
-									End:   lsp.Position{Line: endLine, Character: 0},
+								Range: types.Range{
+									Start: types.Position{Line: int32(lineNumber), Character: 0},
+									End:   types.Position{Line: int32(endLine), Character: 0},
 								},
 							},
 						},
@@ -497,8 +498,8 @@ func (m *MCPServer) handleFindDefinitions(params map[string]interface{}) (interf
 	var err error
 
 	// Try direct SCIP cache first for better performance
-	if m.scipCache != nil {
-		scipResults, scipErr := m.scipCache.SearchDefinitions(ctx, symbolName, query.FilePattern, query.MaxResults)
+	if m.lspManager.scipCache != nil {
+		scipResults, scipErr := m.lspManager.scipCache.SearchDefinitions(ctx, symbolName, query.FilePattern, query.MaxResults)
 		if scipErr == nil && len(scipResults) > 0 {
 			// Convert SCIP results to SymbolReferenceResult format for definitions
 			references := make([]ReferenceInfo, 0, len(scipResults))
@@ -606,8 +607,8 @@ func (m *MCPServer) handleGetSymbolInfo(params map[string]interface{}) (interfac
 	var symbol types.EnhancedSymbolInfo
 	var symbolFound bool
 
-	if m.scipCache != nil {
-		scipResult, scipErr := m.scipCache.GetSymbolInfo(ctx, symbolName, filePattern)
+	if m.lspManager.scipCache != nil {
+		scipResult, scipErr := m.lspManager.scipCache.GetSymbolInfo(ctx, symbolName, filePattern)
 		if scipErr == nil && scipResult != nil {
 			// Convert SCIP symbol info to EnhancedSymbolInfo
 			// This is a simplified conversion - could be enhanced
@@ -661,8 +662,8 @@ func (m *MCPServer) handleGetSymbolInfo(params map[string]interface{}) (interfac
 		}
 
 		// Try SCIP cache first for references
-		if m.scipCache != nil {
-			scipReferences, scipErr := m.scipCache.SearchReferences(ctx, symbolName, filePattern, 50)
+		if m.lspManager.scipCache != nil {
+			scipReferences, scipErr := m.lspManager.scipCache.SearchReferences(ctx, symbolName, filePattern, 50)
 			if scipErr == nil && len(scipReferences) > 0 {
 				// Convert SCIP references to ReferenceInfo
 				references = make([]ReferenceInfo, 0, len(scipReferences))

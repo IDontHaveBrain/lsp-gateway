@@ -1,27 +1,26 @@
 package server
 
 import (
-	"bufio"
-	"context"
-	"encoding/json"
-	"fmt"
-	"io"
-	"os"
-	"time"
+    "bufio"
+    "context"
+    "encoding/json"
+    "fmt"
+    "io"
+    "os"
+    "time"
 
-	"lsp-gateway/src/config"
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/constants"
-	"lsp-gateway/src/internal/project"
-	versionpkg "lsp-gateway/src/internal/version"
-	"lsp-gateway/src/server/cache"
+    "lsp-gateway/src/config"
+    "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/constants"
+    versionpkg "lsp-gateway/src/internal/version"
+    "lsp-gateway/src/server/protocol"
+    "lsp-gateway/src/utils/configloader"
 )
 
 // MCPServer provides Model Context Protocol bridge to LSP functionality
 // Always uses SCIP cache for maximum LLM query performance
 type MCPServer struct {
 	lspManager *LSPManager
-	scipCache  cache.SCIPCache
 	ctx        context.Context
 	cancel     context.CancelFunc
 	// Always operates in enhanced mode
@@ -54,7 +53,6 @@ func NewMCPServer(cfg *config.Config) (*MCPServer, error) {
 
 	return &MCPServer{
 		lspManager: lspManager,
-		scipCache:  lspManager.GetCache(), // Get cache from LSP manager
 		ctx:        ctx,
 		cancel:     cancel,
 	}, nil
@@ -62,7 +60,8 @@ func NewMCPServer(cfg *config.Config) (*MCPServer, error) {
 
 // Start starts the MCP server with cache warming for optimal LLM performance
 func (m *MCPServer) Start() error {
-	common.LSPLogger.Info("[MCPServer.Start] Starting MCP server, scipCache=%v", m.scipCache != nil)
+	cache := m.lspManager.GetCache()
+	common.LSPLogger.Info("[MCPServer.Start] Starting MCP server, scipCache=%v", cache != nil)
 
 	// Start LSP manager (which handles SCIP cache startup internally)
 	if err := m.lspManager.Start(m.ctx); err != nil {
@@ -70,9 +69,9 @@ func (m *MCPServer) Start() error {
 	}
 
 	// Check cache status and perform indexing if needed
-	if m.scipCache != nil {
+	if cache != nil {
 		// Check immediately if cache has data (it loads synchronously in Start())
-		stats := m.scipCache.GetIndexStats()
+		stats := cache.GetIndexStats()
 		common.LSPLogger.Debug("MCP server: Initial cache stats - symbols=%d, refs=%d, docs=%d",
 			stats.SymbolCount, stats.ReferenceCount, stats.DocumentCount)
 		if stats != nil && (stats.SymbolCount > 0 || stats.ReferenceCount > 0 || stats.DocumentCount > 0) {
@@ -87,7 +86,11 @@ func (m *MCPServer) Start() error {
 				time.Sleep(3 * time.Second)
 
 				// Double-check that cache is still empty (in case something else indexed it)
-				recheckStats := m.scipCache.GetIndexStats()
+				currentCache := m.lspManager.GetCache()
+				if currentCache == nil {
+					return
+				}
+				recheckStats := currentCache.GetIndexStats()
 				if recheckStats != nil && (recheckStats.SymbolCount > 0 || recheckStats.ReferenceCount > 0 || recheckStats.DocumentCount > 0) {
 					common.LSPLogger.Info("MCP server: Cache was populated while waiting (symbols=%d, refs=%d, docs=%d), skipping indexing",
 						recheckStats.SymbolCount, recheckStats.ReferenceCount, recheckStats.DocumentCount)
@@ -186,7 +189,7 @@ func (m *MCPServer) handleRequest(req *MCPRequest) *MCPResponse {
 			JSONRPC: "2.0",
 			ID:      req.ID,
 			Error: &MCPError{
-				Code:    -32601,
+				Code:    protocol.MethodNotFound,
 				Message: fmt.Sprintf("method not found: %s", req.Method),
 				Data:    map[string]interface{}{"method": req.Method},
 			},
@@ -201,8 +204,9 @@ func (m *MCPServer) handleInitialize(req *MCPRequest) *MCPResponse {
 		"optimization": "LLM_queries",
 	}
 
-	if m.scipCache != nil {
-		cacheMetrics := m.scipCache.GetMetrics()
+	cache := m.lspManager.GetCache()
+	if cache != nil {
+		cacheMetrics := cache.GetMetrics()
 		cacheInfo["enabled"] = true
 		if cacheMetrics != nil {
 			cacheInfo["health"] = "OK"
@@ -326,42 +330,15 @@ func (m *MCPServer) handleToolsList(req *MCPRequest) *MCPResponse {
 
 // RunMCPServer starts an MCP server with the specified configuration
 func RunMCPServer(configPath string) error {
-	var cfg *config.Config
-	if configPath != "" {
-		loadedConfig, err := config.LoadConfig(configPath)
-		if err != nil {
-			common.LSPLogger.Warn("Failed to load config from %s, using defaults: %v", configPath, err)
-			cfg = config.GetDefaultConfig()
-		} else {
-			cfg = loadedConfig
-		}
-	} else {
-		// Auto-detect languages in current directory
-		wd, err := os.Getwd()
-		if err != nil {
-			common.LSPLogger.Warn("Failed to get working directory, using defaults: %v", err)
-			cfg = config.GetDefaultConfig()
-		} else {
-			cfg = config.GenerateAutoConfig(wd, project.GetAvailableLanguages)
-			if cfg == nil || len(cfg.Servers) == 0 {
-				common.LSPLogger.Warn("No languages detected or LSP servers unavailable, using defaults")
-				cfg = config.GetDefaultConfig()
-			} else {
-				languages := make([]string, 0, len(cfg.Servers))
-				for lang := range cfg.Servers {
-					languages = append(languages, lang)
-				}
-			}
-		}
-	}
+    cfg := configloader.LoadOrAuto(configPath)
 
 	// Ensure cache path is project-specific so MCP shares the same cache as CLI
-	if cfg != nil && cfg.Cache != nil {
-		if wd, err := os.Getwd(); err == nil {
-			projectPath := config.GetProjectSpecificCachePath(wd)
-			cfg.SetCacheStoragePath(projectPath)
-		}
-	}
+    if cfg != nil && cfg.Cache != nil {
+        if wd, err := os.Getwd(); err == nil {
+            projectPath := config.GetProjectSpecificCachePath(wd)
+            cfg.SetCacheStoragePath(projectPath)
+        }
+    }
 
 	server, err := NewMCPServer(cfg)
 	if err != nil {

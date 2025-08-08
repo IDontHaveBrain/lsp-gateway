@@ -7,6 +7,7 @@ import (
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
+	"lsp-gateway/tests/shared"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -35,15 +36,8 @@ func TestOptionalCacheIntegration(t *testing.T) {
 			description: "LSP manager should work fine when cache is explicitly disabled",
 		},
 		{
-			name: "Cache enabled - should work with cache",
-			cacheConfig: &config.CacheConfig{
-				Enabled:     true,
-				MaxMemoryMB: 64,
-				TTLHours:    1,
-				StoragePath: "/tmp/test-cache",
-				Languages:   []string{"go"},
-				DiskCache:   false,
-			},
+			name:        "Cache enabled - should work with cache",
+			cacheConfig: shared.CreateMemOnlyCacheConfig("/tmp"),
 			expectCache: true,
 			description: "LSP manager should work with cache when properly configured",
 		},
@@ -52,15 +46,8 @@ func TestOptionalCacheIntegration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create config with optional cache
-			cfg := &config.Config{
-				Servers: map[string]*config.ServerConfig{
-					"go": {
-						Command: "gopls",
-						Args:    []string{},
-					},
-				},
-				Cache: tt.cacheConfig,
-			}
+			cfg := shared.CreateBasicConfig()
+			cfg.Cache = tt.cacheConfig
 
 			// Create LSP manager with optional cache
 			manager, err := server.NewLSPManager(cfg)
@@ -89,22 +76,9 @@ func TestOptionalCacheIntegration(t *testing.T) {
 // TestCacheGracefulDegradation verifies cache failures don't prevent LSP manager operation
 func TestCacheGracefulDegradation(t *testing.T) {
 	// Create config with cache pointing to invalid/inaccessible path
-	cfg := &config.Config{
-		Servers: map[string]*config.ServerConfig{
-			"go": {
-				Command: "gopls",
-				Args:    []string{},
-			},
-		},
-		Cache: &config.CacheConfig{
-			Enabled:     true,
-			MaxMemoryMB: 64,
-			TTLHours:    1,
-			StoragePath: "/invalid/path/that/does/not/exist",
-			Languages:   []string{"go"},
-			DiskCache:   true, // This might fail due to invalid path
-		},
-	}
+	cfg := shared.CreateBasicConfig()
+	invalidCacheConfig := shared.CreateBasicCacheConfig("/invalid/path/that/does/not/exist")
+	cfg.Cache = invalidCacheConfig
 
 	// Create LSP manager - should succeed even if cache fails
 	manager, err := server.NewLSPManager(cfg)
@@ -174,15 +148,8 @@ func TestSimpleCacheCreation(t *testing.T) {
 // TestCacheOptionalMethods verifies cache methods handle nil cache gracefully
 func TestCacheOptionalMethods(t *testing.T) {
 	// Create LSP manager without cache
-	cfg := &config.Config{
-		Servers: map[string]*config.ServerConfig{
-			"go": {
-				Command: "gopls",
-				Args:    []string{},
-			},
-		},
-		Cache: nil, // No cache
-	}
+	cfg := shared.CreateBasicConfig()
+	cfg.Cache = nil // No cache
 
 	manager, err := server.NewLSPManager(cfg)
 	require.NoError(t, err)
@@ -199,8 +166,8 @@ func TestCacheOptionalMethods(t *testing.T) {
 	assert.Nil(t, currentCache, "GetCache should return nil when no cache is configured")
 
 	// Test SetCache method for optional injection
-	simpleCache, err := cache.NewSimpleCache(64)
-	require.NoError(t, err)
+	simpleCache := shared.CreateAndStartSimpleCache(t, 64)
+	defer simpleCache.Stop()
 
 	manager.SetCache(simpleCache)
 	retrievedCache := manager.GetCache()
@@ -212,44 +179,45 @@ func TestCacheOptionalMethods(t *testing.T) {
 	assert.Nil(t, retrievedCache, "Cache should be nil after removal")
 }
 
-// TestDirectCacheIntegrationPattern tests the new direct integration pattern
-func TestDirectCacheIntegrationPattern(t *testing.T) {
-	// Create simple cache
-	simpleCache, err := cache.NewSimpleCache(64)
-	require.NoError(t, err)
-	require.NotNil(t, simpleCache)
+// TestCacheIntegrationPattern tests cache integration
+func TestCacheIntegrationPattern(t *testing.T) {
+	// Create cache configuration  
+	tempDir := t.TempDir()
+	cacheConfig := shared.CreateBasicCacheConfig(tempDir)
+	
+	// Start cache manager
+	cacheManager := shared.StartCacheManager(t, cacheConfig)
+	defer cacheManager.Stop()
 
-	// Create direct integration
-	integration := cache.NewDirectCacheIntegration(simpleCache)
-	require.NotNil(t, integration)
-
-	// Test cache-first, LSP-fallback pattern
-	ctx := context.Background()
+	// Test basic cache operations
 	method := "textDocument/definition"
 	params := map[string]interface{}{
 		"textDocument": map[string]string{"uri": "file://test.go"},
 		"position":     map[string]int{"line": 10, "character": 5},
 	}
 
-	// Mock LSP fallback function
-	fallbackCalled := false
-	lspFallback := func() (interface{}, error) {
-		fallbackCalled = true
-		return "definition result", nil
-	}
-
-	// First call should hit LSP fallback (cache miss)
-	result, err := integration.ProcessRequest(ctx, method, params, lspFallback)
+	// First lookup should miss
+	result, found, err := cacheManager.Lookup(method, params)
 	assert.NoError(t, err)
-	assert.Equal(t, "definition result", result)
-	assert.True(t, fallbackCalled, "LSP fallback should be called on cache miss")
+	assert.False(t, found, "Empty cache should not have results")
+	assert.Nil(t, result)
 
-	// Reset fallback flag
-	fallbackCalled = false
-
-	// Second call should hit cache (if caching works)
-	result2, err := integration.ProcessRequest(ctx, method, params, lspFallback)
+	// Store a result
+	response := map[string]interface{}{"result": "definition result"}
+	err = cacheManager.Store(method, params, response)
 	assert.NoError(t, err)
-	assert.NotNil(t, result2)
-	// Note: Cache hit behavior depends on cache implementation details
+
+	// Second lookup should hit
+	result, found, err = cacheManager.Lookup(method, params)
+	assert.NoError(t, err) 
+	assert.True(t, found, "Cache should have stored result")
+	assert.NotNil(t, result)
+
+	// Test invalidation
+	err = cacheManager.InvalidateDocument("file://test.go")
+	assert.NoError(t, err)
+
+	// Note: Document invalidation may not affect all cached LSP methods
+	// This depends on the specific cache implementation
+	// The test verifies that invalidation doesn't cause errors
 }

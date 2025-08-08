@@ -41,8 +41,9 @@ type LSPManager struct {
 	documentManager     documents.DocumentManager
 	workspaceAggregator aggregators.WorkspaceSymbolAggregator
 
-	// Optional SCIP cache integration - can be nil for simple usage
-	scipCache cache.SCIPCache
+	// Optional SCIP cache integration - managed through CacheIntegrator
+	cacheIntegrator *cache.CacheIntegrator
+	scipCache       cache.SCIPCache // Convenience accessor, gets cache from integrator
 
 	// Project information for consistent symbol ID generation
 	projectInfo *project.PackageInfo
@@ -56,6 +57,9 @@ func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	// Create cache integrator for unified cache management
+	cacheIntegrator := cache.NewCacheIntegrator(cfg, common.LSPLogger)
+
 	manager := &LSPManager{
 		clients:             make(map[string]types.LSPClient),
 		clientErrors:        make(map[string]error),
@@ -64,18 +68,9 @@ func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 		cancel:              cancel,
 		documentManager:     documents.NewLSPDocumentManager(),
 		workspaceAggregator: aggregators.NewWorkspaceSymbolAggregator(),
-		scipCache:           nil, // Optional cache - set to nil initially
-		projectInfo:         nil, // Will be initialized when needed
-	}
-
-	// Try to create cache with unified config - graceful degradation if it fails
-	if cfg.Cache != nil && cfg.Cache.Enabled {
-		scipCache, err := cache.NewSCIPCacheManager(cfg.Cache)
-		if err != nil {
-			common.LSPLogger.Warn("Failed to create cache (continuing without cache): %v", err)
-		} else {
-			manager.scipCache = scipCache
-		}
+		cacheIntegrator:     cacheIntegrator,
+		scipCache:           cacheIntegrator.GetCache(), // Set convenience accessor
+		projectInfo:         nil,                        // Will be initialized when needed
 	}
 
 	// Initialize project info for consistent symbol ID generation
@@ -99,18 +94,14 @@ func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 
 // Start initializes and starts all configured LSP clients
 func (m *LSPManager) Start(ctx context.Context) error {
-	common.LSPLogger.Info("[LSPManager.Start] Starting LSP manager, scipCache=%v", m.scipCache != nil)
+	common.LSPLogger.Info("[LSPManager.Start] Starting LSP manager, scipCache=%v", m.cacheIntegrator.IsEnabled())
 
-	// Start cache if available - optional integration
-	if m.scipCache != nil {
-		common.LSPLogger.Info("[LSPManager.Start] Starting SCIP cache")
-		if err := m.scipCache.Start(ctx); err != nil {
-			common.LSPLogger.Warn("Failed to start SCIP cache (continuing without cache): %v", err)
-			m.scipCache = nil // Disable cache on start failure
-		} else {
-			common.LSPLogger.Info("[LSPManager.Start] SCIP cache started successfully")
-		}
+	// Start cache through integrator - handles graceful degradation internally
+	if err := m.cacheIntegrator.StartCache(ctx); err != nil {
+		return fmt.Errorf("unexpected cache start error: %w", err)
 	}
+	// Update convenience accessor after potential cache disabling
+	m.scipCache = m.cacheIntegrator.GetCache()
 
 	// Start clients with individual timeouts to prevent hanging
 	results := make(chan struct {
@@ -205,12 +196,9 @@ func (m *LSPManager) Start(ctx context.Context) error {
 func (m *LSPManager) Stop() error {
 	m.cancel()
 
-	// Stop cache if available - optional integration
-	if m.scipCache != nil {
-		if err := m.scipCache.Stop(); err != nil {
-			common.LSPLogger.Warn("Failed to stop SCIP cache: %v", err)
-		} else {
-		}
+	// Stop cache through integrator
+	if err := m.cacheIntegrator.StopCache(); err != nil {
+		common.LSPLogger.Warn("Failed to stop SCIP cache: %v", err)
 	}
 
 	m.mu.Lock()

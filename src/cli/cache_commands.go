@@ -10,11 +10,12 @@ import (
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
+	"lsp-gateway/src/utils/configloader"
 )
 
 // IndexCache rebuilds the cache index by processing workspace files
 func IndexCache(configPath string) error {
-	cfg := LoadConfigForCLI(configPath)
+	cfg := configloader.LoadForCLI(configPath)
 
 	// Create LSP manager to access cache
 	manager, err := server.NewLSPManager(cfg)
@@ -122,7 +123,7 @@ func IndexCache(configPath string) error {
 
 // ClearCache clears all cache entries
 func ClearCache(configPath string) error {
-	cfg := LoadConfigForCLI(configPath)
+	cfg := configloader.LoadForCLI(configPath)
 
 	// Create LSP manager to access cache
 	manager, err := server.NewLSPManager(cfg)
@@ -163,7 +164,7 @@ func ClearCache(configPath string) error {
 
 // ShowCacheInfo displays brief statistics about cached data
 func ShowCacheInfo(configPath string) error {
-	cfg := LoadConfigForCLI(configPath)
+	cfg := configloader.LoadForCLI(configPath)
 
 	// Create LSP manager to access cache
 	manager, err := server.NewLSPManager(cfg)

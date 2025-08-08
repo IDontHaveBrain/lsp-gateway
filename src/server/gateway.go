@@ -13,40 +13,22 @@ import (
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
 	"lsp-gateway/src/server/cache"
+	"lsp-gateway/src/server/protocol"
 )
 
 // HTTPGateway provides a simple HTTP JSON-RPC gateway to LSP servers with unified cache config
 type HTTPGateway struct {
 	lspManager  *LSPManager
 	server      *http.Server
-	scipCache   cache.SCIPCache
 	cacheConfig *config.CacheConfig
 	lspOnly     bool
 	mu          sync.RWMutex
 }
 
-// JSONRPCRequest represents a JSON-RPC 2.0 request
-type JSONRPCRequest struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      interface{} `json:"id"`
-	Method  string      `json:"method"`
-	Params  interface{} `json:"params,omitempty"`
-}
-
-// JSONRPCResponse represents a JSON-RPC 2.0 response
-type JSONRPCResponse struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      interface{} `json:"id"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   *RPCError   `json:"error,omitempty"`
-}
-
-// RPCError represents a JSON-RPC error
-type RPCError struct {
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data,omitempty"`
-}
+// Alias types from protocol package for backward compatibility
+type JSONRPCRequest = protocol.JSONRPCRequest
+type JSONRPCResponse = protocol.JSONRPCResponse
+type RPCError = protocol.RPCError
 
 // NewHTTPGateway creates a new simple HTTP gateway with mandatory cache
 func NewHTTPGateway(addr string, cfg *config.Config, lspOnly bool) (*HTTPGateway, error) {
@@ -66,7 +48,6 @@ func NewHTTPGateway(addr string, cfg *config.Config, lspOnly bool) (*HTTPGateway
 
 	gateway := &HTTPGateway{
 		lspManager:  lspManager,
-		scipCache:   lspManager.GetCache(), // Get cache from LSP manager
 		cacheConfig: cfg.Cache,
 		lspOnly:     lspOnly,
 	}
@@ -124,13 +105,7 @@ func (g *HTTPGateway) Stop() error {
 		lastErr = err
 	}
 
-	// Stop unified cache
-	if g.scipCache != nil {
-		if err := g.scipCache.Stop(); err != nil {
-			common.GatewayLogger.Error("Cache stop error: %v", err)
-			lastErr = err
-		}
-	}
+	// Cache is stopped automatically by LSP manager
 
 	return lastErr
 }
@@ -143,23 +118,23 @@ func (g *HTTPGateway) GetLSPManager() *LSPManager {
 // handleJSONRPC handles JSON-RPC requests with cache performance tracking
 func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		g.writeError(w, nil, -32600, "Invalid Request", "Only POST method allowed")
+		g.writeErrorRPC(w, nil, protocol.NewInvalidRequestError("Only POST method allowed"))
 		return
 	}
 
 	if r.Header.Get("Content-Type") != "application/json" {
-		g.writeError(w, nil, -32600, "Invalid Request", "Content-Type must be application/json")
+		g.writeErrorRPC(w, nil, protocol.NewInvalidRequestError("Content-Type must be application/json"))
 		return
 	}
 
 	var req JSONRPCRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		g.writeError(w, nil, -32700, "Parse error", err.Error())
+		g.writeErrorRPC(w, nil, protocol.NewParseError(err.Error()))
 		return
 	}
 
 	if req.JSONRPC != "2.0" {
-		g.writeError(w, req.ID, -32600, "Invalid Request", "jsonrpc must be 2.0")
+		g.writeErrorRPC(w, req.ID, protocol.NewInvalidRequestError("jsonrpc must be 2.0"))
 		return
 	}
 
@@ -174,7 +149,7 @@ func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 			"textDocument/completion":     true,
 		}
 		if !allowedMethods[req.Method] {
-			g.writeError(w, req.ID, -32601, "Method not found", fmt.Sprintf("Method '%s' is not available in LSP-only mode", req.Method))
+			g.writeErrorRPC(w, req.ID, protocol.NewMethodNotFoundError(fmt.Sprintf("Method '%s' is not available in LSP-only mode", req.Method)))
 			return
 		}
 	}
@@ -185,7 +160,7 @@ func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 
 	result, err := g.lspManager.ProcessRequest(r.Context(), req.Method, req.Params)
 	if err != nil {
-		g.writeError(w, req.ID, -32603, "Internal error", err.Error())
+		g.writeErrorRPC(w, req.ID, protocol.NewInternalError(err.Error()))
 		return
 	}
 
@@ -217,7 +192,7 @@ func (g *HTTPGateway) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add cache health information
-	if g.scipCache != nil {
+	if g.lspManager.scipCache != nil {
 		cacheMetrics := g.getCacheMetricsSnapshot()
 		if cacheMetrics != nil {
 			totalRequests := cacheMetrics.HitCount + cacheMetrics.MissCount
@@ -250,16 +225,12 @@ func (g *HTTPGateway) handleHealth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(health)
 }
 
-// writeError writes a JSON-RPC error response
-func (g *HTTPGateway) writeError(w http.ResponseWriter, id interface{}, code int, message, data string) {
+// writeErrorRPC writes a JSON-RPC error response using the protocol types
+func (g *HTTPGateway) writeErrorRPC(w http.ResponseWriter, id interface{}, rpcErr *protocol.RPCError) {
 	response := JSONRPCResponse{
 		JSONRPC: "2.0",
 		ID:      id,
-		Error: &RPCError{
-			Code:    code,
-			Message: message,
-			Data:    data,
-		},
+		Error:   rpcErr,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -269,10 +240,11 @@ func (g *HTTPGateway) writeError(w http.ResponseWriter, id interface{}, code int
 
 // getCacheMetricsSnapshot captures current cache metrics for comparison
 func (g *HTTPGateway) getCacheMetricsSnapshot() *cache.CacheMetrics {
-	if g.scipCache == nil {
+	cache := g.lspManager.GetCache()
+	if cache == nil {
 		return nil
 	}
-	return g.scipCache.GetMetrics()
+	return cache.GetMetrics()
 }
 
 // determineCacheStatus determines if the request was a cache hit or miss
@@ -344,12 +316,13 @@ func (g *HTTPGateway) handleCacheHealth(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if g.scipCache == nil {
+	cache := g.lspManager.GetCache()
+	if cache == nil {
 		http.Error(w, "Cache not available", http.StatusServiceUnavailable)
 		return
 	}
 
-	metrics, err := g.scipCache.HealthCheck()
+	metrics, err := cache.HealthCheck()
 	if err != nil {
 		health := map[string]interface{}{
 			"status":  "unhealthy",
@@ -381,7 +354,8 @@ func (g *HTTPGateway) handleCacheClear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if g.scipCache == nil {
+	cache := g.lspManager.GetCache()
+	if cache == nil {
 		http.Error(w, "Cache not available", http.StatusServiceUnavailable)
 		return
 	}

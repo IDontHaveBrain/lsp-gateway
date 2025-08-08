@@ -1,23 +1,24 @@
 package server
 
 import (
-	"bufio"
-	"context"
-	"encoding/json"
-	"fmt"
-	"os"
-	"strings"
+    "bufio"
+    "context"
+    "encoding/json"
+    "fmt"
+    "os"
+    "strings"
 
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/models/lsp"
-	"lsp-gateway/src/internal/types"
-	"lsp-gateway/src/server/scip"
+    "lsp-gateway/src/internal/models/lsp"
+    "lsp-gateway/src/internal/types"
+    "lsp-gateway/src/utils"
+    "lsp-gateway/src/server/scip"
+    "lsp-gateway/src/utils/jsonutil"
 )
 
 // EnhancedSymbolResult contains rich symbol information with occurrence data and role-based scoring
 type EnhancedSymbolResult struct {
 	// Base symbol information
-	lsp.SymbolInformation
+	types.SymbolInformation
 
 	// Enhanced metadata from SCIP
 	SymbolID        string                  `json:"symbol_id"`
@@ -202,9 +203,9 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 			enhancedInfo := types.EnhancedSymbolInfo{
 				SymbolInformation: symbol,
 				Score:             finalScore,
-				FilePath:          common.URIToFilePath(symbol.Location.URI),
-				LineNumber:        symbol.Location.Range.Start.Line, // Keep 0-indexed
-				EndLine:           symbol.Location.Range.End.Line,   // Keep 0-indexed
+				FilePath:          utils.URIToFilePath(symbol.Location.URI),
+				LineNumber:        int(symbol.Location.Range.Start.Line), // Keep 0-indexed
+				EndLine:           int(symbol.Location.Range.End.Line),   // Keep 0-indexed
 				Signature:         enrichedSymbol.Signature,
 				Documentation:     strings.Join(enrichedSymbol.Documentation, "\n"),
 			}
@@ -233,8 +234,8 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 
 				// Find matching symbol in document symbols to get full range
 				if docSymbols, ok := docSymbolsCache[symbol.Location.URI]; ok {
-					if fullRange := m.findSymbolRange(symbol.Name, symbol.Location.Range.Start.Line, docSymbols); fullRange != nil {
-						enhancedInfo.EndLine = fullRange.End.Line
+					if fullRange := m.findSymbolRange(symbol.Name, int(symbol.Location.Range.Start.Line), docSymbols); fullRange != nil {
+						enhancedInfo.EndLine = int(fullRange.End.Line)
 					}
 				}
 			}
@@ -290,7 +291,7 @@ func (m *LSPManager) mapToSymbolInfo(symbolMap map[string]interface{}) *lsp.Symb
 	}
 
 	if kind, ok := symbolMap["kind"].(float64); ok {
-		symbol.Kind = lsp.SymbolKind(kind)
+		symbol.Kind = types.SymbolKind(kind)
 	}
 
 	if location, ok := symbolMap["location"].(map[string]interface{}); ok {
@@ -301,18 +302,18 @@ func (m *LSPManager) mapToSymbolInfo(symbolMap map[string]interface{}) *lsp.Symb
 		if rangeMap, ok := location["range"].(map[string]interface{}); ok {
 			if start, ok := rangeMap["start"].(map[string]interface{}); ok {
 				if line, ok := start["line"].(float64); ok {
-					symbol.Location.Range.Start.Line = int(line)
+					symbol.Location.Range.Start.Line = int32(line)
 				}
 				if char, ok := start["character"].(float64); ok {
-					symbol.Location.Range.Start.Character = int(char)
+					symbol.Location.Range.Start.Character = int32(char)
 				}
 			}
 			if end, ok := rangeMap["end"].(map[string]interface{}); ok {
 				if line, ok := end["line"].(float64); ok {
-					symbol.Location.Range.End.Line = int(line)
+					symbol.Location.Range.End.Line = int32(line)
 				}
 				if char, ok := end["character"].(float64); ok {
-					symbol.Location.Range.End.Character = int(char)
+					symbol.Location.Range.End.Character = int32(char)
 				}
 			}
 		}
@@ -332,37 +333,26 @@ func (m *LSPManager) parseDocumentSymbolsToDocumentSymbol(result interface{}) []
 	switch v := result.(type) {
 	case []lsp.DocumentSymbol:
 		return v
-	case json.RawMessage:
-		// Handle json.RawMessage type (common in LSP responses)
-		// First try to unmarshal directly as []lsp.DocumentSymbol
-		if err := json.Unmarshal(v, &symbols); err == nil {
-			return symbols
-		}
-		// If that fails, try as []interface{} and parse each item
-		var rawData []interface{}
-		if err := json.Unmarshal(v, &rawData); err == nil {
-			for _, item := range rawData {
-				if data, err := json.Marshal(item); err == nil {
-					var docSymbol lsp.DocumentSymbol
-					if err := json.Unmarshal(data, &docSymbol); err == nil && docSymbol.Name != "" {
-						symbols = append(symbols, docSymbol)
-						// Add children recursively
-						symbols = append(symbols, m.flattenDocumentSymbols(docSymbol.Children)...)
-					}
-				}
-			}
-		}
-	case []interface{}:
-		for _, item := range v {
-			if data, err := json.Marshal(item); err == nil {
-				var docSymbol lsp.DocumentSymbol
-				if err := json.Unmarshal(data, &docSymbol); err == nil && docSymbol.Name != "" {
-					symbols = append(symbols, docSymbol)
-					// Add children recursively
-					symbols = append(symbols, m.flattenDocumentSymbols(docSymbol.Children)...)
-				}
-			}
-		}
+    case json.RawMessage:
+        if err := json.Unmarshal(v, &symbols); err == nil {
+            return symbols
+        }
+        var rawData []interface{}
+        if err := json.Unmarshal(v, &rawData); err == nil {
+            for _, item := range rawData {
+                if docSymbol, err := jsonutil.Convert[lsp.DocumentSymbol](item); err == nil && docSymbol.Name != "" {
+                    symbols = append(symbols, docSymbol)
+                    symbols = append(symbols, m.flattenDocumentSymbols(docSymbol.Children)...)
+                }
+            }
+        }
+    case []interface{}:
+        for _, item := range v {
+            if docSymbol, err := jsonutil.Convert[lsp.DocumentSymbol](item); err == nil && docSymbol.Name != "" {
+                symbols = append(symbols, docSymbol)
+                symbols = append(symbols, m.flattenDocumentSymbols(docSymbol.Children)...)
+            }
+        }
 	}
 
 	return symbols
@@ -383,12 +373,12 @@ func (m *LSPManager) flattenDocumentSymbols(symbols []*lsp.DocumentSymbol) []lsp
 }
 
 // findSymbolRange finds the full range of a symbol from document symbols
-func (m *LSPManager) findSymbolRange(name string, startLine int, docSymbols []lsp.DocumentSymbol) *lsp.Range {
+func (m *LSPManager) findSymbolRange(name string, startLine int, docSymbols []lsp.DocumentSymbol) *types.Range {
 	for _, sym := range docSymbols {
 		// Match by name and approximate start line (within 2 lines tolerance)
 		if sym.Name == name &&
-			sym.Range.Start.Line >= startLine-2 &&
-			sym.Range.Start.Line <= startLine+2 {
+			sym.Range.Start.Line >= int32(startLine)-2 &&
+			sym.Range.Start.Line <= int32(startLine)+2 {
 			return &sym.Range
 		}
 	}
@@ -407,7 +397,7 @@ func sortSymbolsByScore(symbols []types.EnhancedSymbolInfo) {
 }
 
 // readSymbolCode reads the source code for a symbol from the file with character-level precision
-func (m *LSPManager) readSymbolCode(filePath string, r lsp.Range) (string, error) {
+func (m *LSPManager) readSymbolCode(filePath string, r types.Range) (string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return "", err
@@ -421,34 +411,34 @@ func (m *LSPManager) readSymbolCode(filePath string, r lsp.Range) (string, error
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		if lineNum == r.Start.Line && lineNum == r.End.Line {
+		if lineNum == int(r.Start.Line) && lineNum == int(r.End.Line) {
 			// Single line symbol - extract from start to end character
-			if r.Start.Character < len(line) {
+			if r.Start.Character < int32(len(line)) {
 				endChar := r.End.Character
-				if endChar > len(line) {
-					endChar = len(line)
+				if endChar > int32(len(line)) {
+					endChar = int32(len(line))
 				}
 				lines = append(lines, line[r.Start.Character:endChar])
 			}
-		} else if lineNum == r.Start.Line {
+		} else if lineNum == int(r.Start.Line) {
 			// First line - extract from start character to end of line
-			if r.Start.Character < len(line) {
+			if r.Start.Character < int32(len(line)) {
 				lines = append(lines, line[r.Start.Character:])
 			}
-		} else if lineNum == r.End.Line {
+		} else if lineNum == int(r.End.Line) {
 			// Last line - extract from beginning to end character
 			endChar := r.End.Character
-			if endChar > len(line) {
-				endChar = len(line)
+			if endChar > int32(len(line)) {
+				endChar = int32(len(line))
 			}
 			lines = append(lines, line[:endChar])
-		} else if lineNum > r.Start.Line && lineNum < r.End.Line {
+		} else if lineNum > int(r.Start.Line) && lineNum < int(r.End.Line) {
 			// Middle lines - include entire line
 			lines = append(lines, line)
 		}
 
 		lineNum++
-		if lineNum > r.End.Line {
+		if lineNum > int(r.End.Line) {
 			break
 		}
 	}
@@ -480,9 +470,9 @@ func (m *LSPManager) createEnrichedSymbolResult(ctx context.Context, scipStorage
 	lspSymbol := lsp.SymbolInformation{
 		Name: symbolInfo.DisplayName,
 		Kind: m.mapSCIPKindToLSP(symbolInfo.Kind),
-		Location: lsp.Location{
+		Location: types.Location{
 			URI:   "",          // Need to determine URI from symbol context
-			Range: lsp.Range{}, // Need to extract from occurrences
+			Range: types.Range{}, // Need to extract from occurrences
 		},
 	}
 
@@ -500,28 +490,39 @@ func (m *LSPManager) createEnrichedSymbolResult(ctx context.Context, scipStorage
 		}
 
 		// Convert SCIP range to LSP range
-		lspSymbol.Location.Range = lsp.Range{
-			Start: lsp.Position{
-				Line:      int(firstOcc.Range.Start.Line),
-				Character: int(firstOcc.Range.Start.Character),
+		lspSymbol.Location.Range = types.Range{
+			Start: types.Position{
+				Line:      firstOcc.Range.Start.Line,
+				Character: firstOcc.Range.Start.Character,
 			},
-			End: lsp.Position{
-				Line:      int(firstOcc.Range.End.Line),
-				Character: int(firstOcc.Range.End.Character),
+			End: types.Position{
+				Line:      firstOcc.Range.End.Line,
+				Character: firstOcc.Range.End.Character,
 			},
 		}
 	}
 
+	// Convert lsp.SymbolInformation to types.SymbolInformation
+	typesSymbol := types.SymbolInformation{
+		Name:           lspSymbol.Name,
+		Kind:           lspSymbol.Kind,
+		Tags:           lspSymbol.Tags,
+		Deprecated:     lspSymbol.Deprecated,
+		Location:       lspSymbol.Location,
+		ContainerName:  lspSymbol.ContainerName,
+		SelectionRange: lspSymbol.SelectionRange,
+	}
+
 	enrichedResult := &EnhancedSymbolResult{
-		SymbolInformation: lspSymbol,
+		SymbolInformation: typesSymbol,
 		SymbolID:          symbolInfo.Symbol,
 		Documentation:     symbolInfo.Documentation,
 		Signature:         symbolInfo.SignatureDocumentation.Text,
 		Relationships:     symbolInfo.Relationships,
 		OccurrenceCount:   len(occurrences),
-		FilePath:          common.URIToFilePath(lspSymbol.Location.URI),
-		LineNumber:        lspSymbol.Location.Range.Start.Line,
-		EndLine:           lspSymbol.Location.Range.End.Line,
+		FilePath:          utils.URIToFilePath(lspSymbol.Location.URI),
+		LineNumber:        int(lspSymbol.Location.Range.Start.Line),
+		EndLine:           int(lspSymbol.Location.Range.End.Line),
 	}
 
 	// Set role flags based on occurrences
@@ -553,31 +554,42 @@ func (m *LSPManager) createEnrichedResultFromOccurrence(ctx context.Context, sci
 	lspSymbol := lsp.SymbolInformation{
 		Name: symbolInfo.DisplayName,
 		Kind: m.mapSCIPKindToLSP(symbolInfo.Kind),
-		Location: lsp.Location{
+		Location: types.Location{
 			URI: "", // Need to determine from context
-			Range: lsp.Range{
-				Start: lsp.Position{
-					Line:      int(occurrence.Range.Start.Line),
-					Character: int(occurrence.Range.Start.Character),
+			Range: types.Range{
+				Start: types.Position{
+					Line:      occurrence.Range.Start.Line,
+					Character: occurrence.Range.Start.Character,
 				},
-				End: lsp.Position{
-					Line:      int(occurrence.Range.End.Line),
-					Character: int(occurrence.Range.End.Character),
+				End: types.Position{
+					Line:      occurrence.Range.End.Line,
+					Character: occurrence.Range.End.Character,
 				},
 			},
 		},
 	}
 
+	// Convert lsp.SymbolInformation to types.SymbolInformation
+	typesSymbol := types.SymbolInformation{
+		Name:           lspSymbol.Name,
+		Kind:           lspSymbol.Kind,
+		Tags:           lspSymbol.Tags,
+		Deprecated:     lspSymbol.Deprecated,
+		Location:       lspSymbol.Location,
+		ContainerName:  lspSymbol.ContainerName,
+		SelectionRange: lspSymbol.SelectionRange,
+	}
+
 	enrichedResult := &EnhancedSymbolResult{
-		SymbolInformation: lspSymbol,
+		SymbolInformation: typesSymbol,
 		SymbolID:          occurrence.Symbol,
 		OccurrenceRoles:   occurrence.SymbolRoles,
 		Documentation:     symbolInfo.Documentation,
 		Signature:         symbolInfo.SignatureDocumentation.Text,
 		Relationships:     symbolInfo.Relationships,
-		FilePath:          common.URIToFilePath(lspSymbol.Location.URI),
-		LineNumber:        lspSymbol.Location.Range.Start.Line,
-		EndLine:           lspSymbol.Location.Range.End.Line,
+		FilePath:          utils.URIToFilePath(lspSymbol.Location.URI),
+		LineNumber:        int(lspSymbol.Location.Range.Start.Line),
+		EndLine:           int(lspSymbol.Location.Range.End.Line),
 		IsDefinition:      occurrence.SymbolRoles.HasRole(types.SymbolRoleDefinition),
 		IsGenerated:       occurrence.SymbolRoles.HasRole(types.SymbolRoleGenerated),
 		IsTest:            occurrence.SymbolRoles.HasRole(types.SymbolRoleTest),
@@ -599,12 +611,23 @@ func (m *LSPManager) isDuplicateEnrichedResult(existing []EnhancedSymbolResult, 
 
 // convertToEnrichedResult converts LSP symbol to enriched result (for fallback cases)
 func (m *LSPManager) convertToEnrichedResult(symbol lsp.SymbolInformation, query types.SymbolPatternQuery) *EnhancedSymbolResult {
+	// Convert lsp.SymbolInformation to types.SymbolInformation
+	typesSymbol := types.SymbolInformation{
+		Name:           symbol.Name,
+		Kind:           symbol.Kind,
+		Tags:           symbol.Tags,
+		Deprecated:     symbol.Deprecated,
+		Location:       symbol.Location,
+		ContainerName:  symbol.ContainerName,
+		SelectionRange: symbol.SelectionRange,
+	}
+	
 	return &EnhancedSymbolResult{
-		SymbolInformation: symbol,
+		SymbolInformation: typesSymbol,
 		SymbolID:          fmt.Sprintf("lsp:%s", symbol.Name), // Simple ID for LSP symbols
-		FilePath:          common.URIToFilePath(symbol.Location.URI),
-		LineNumber:        symbol.Location.Range.Start.Line,
-		EndLine:           symbol.Location.Range.End.Line,
+		FilePath:          utils.URIToFilePath(symbol.Location.URI),
+		LineNumber:        int(symbol.Location.Range.Start.Line),
+		EndLine:           int(symbol.Location.Range.End.Line),
 		OccurrenceCount:   1, // Single occurrence from LSP
 	}
 }
@@ -654,61 +677,61 @@ func (m *LSPManager) calculateEnhancedScore(enrichedSymbol EnhancedSymbolResult,
 }
 
 // mapSCIPKindToLSP maps SCIP symbol kind to LSP symbol kind
-func (m *LSPManager) mapSCIPKindToLSP(scipKind scip.SCIPSymbolKind) lsp.SymbolKind {
+func (m *LSPManager) mapSCIPKindToLSP(scipKind scip.SCIPSymbolKind) types.SymbolKind {
 	switch scipKind {
 	case scip.SCIPSymbolKindFile:
-		return lsp.File
+		return types.File
 	case scip.SCIPSymbolKindModule:
-		return lsp.Module
+		return types.Module
 	case scip.SCIPSymbolKindNamespace:
-		return lsp.Namespace
+		return types.Namespace
 	case scip.SCIPSymbolKindPackage:
-		return lsp.Package
+		return types.Package
 	case scip.SCIPSymbolKindClass:
-		return lsp.Class
+		return types.Class
 	case scip.SCIPSymbolKindMethod:
-		return lsp.Method
+		return types.Method
 	case scip.SCIPSymbolKindProperty:
-		return lsp.Property
+		return types.Property
 	case scip.SCIPSymbolKindField:
-		return lsp.Field
+		return types.Field
 	case scip.SCIPSymbolKindConstructor:
-		return lsp.Constructor
+		return types.Constructor
 	case scip.SCIPSymbolKindEnum:
-		return lsp.Enum
+		return types.Enum
 	case scip.SCIPSymbolKindInterface:
-		return lsp.Interface
+		return types.Interface
 	case scip.SCIPSymbolKindFunction:
-		return lsp.Function
+		return types.Function
 	case scip.SCIPSymbolKindVariable:
-		return lsp.Variable
+		return types.Variable
 	case scip.SCIPSymbolKindConstant:
-		return lsp.Constant
+		return types.Constant
 	case scip.SCIPSymbolKindString:
-		return lsp.String
+		return types.String
 	case scip.SCIPSymbolKindNumber:
-		return lsp.Number
+		return types.Number
 	case scip.SCIPSymbolKindBoolean:
-		return lsp.Boolean
+		return types.Boolean
 	case scip.SCIPSymbolKindArray:
-		return lsp.Array
+		return types.Array
 	case scip.SCIPSymbolKindObject:
-		return lsp.Object
+		return types.Object
 	case scip.SCIPSymbolKindKey:
-		return lsp.Key
+		return types.Key
 	case scip.SCIPSymbolKindNull:
-		return lsp.Null
+		return types.Null
 	case scip.SCIPSymbolKindEnumMember:
-		return lsp.EnumMember
+		return types.EnumMember
 	case scip.SCIPSymbolKindStruct:
-		return lsp.Struct
+		return types.Struct
 	case scip.SCIPSymbolKindEvent:
-		return lsp.Event
+		return types.Event
 	case scip.SCIPSymbolKindOperator:
-		return lsp.Operator
+		return types.Operator
 	case scip.SCIPSymbolKindTypeParameter:
-		return lsp.TypeParameter
+		return types.TypeParameter
 	default:
-		return lsp.Variable // Default fallback
+		return types.Variable // Default fallback
 	}
 }

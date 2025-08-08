@@ -11,9 +11,10 @@ import (
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/models/lsp"
+	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/scip"
-	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/utils"
 )
 
 // SymbolReferenceQuery defines parameters for searching symbol references
@@ -92,7 +93,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 				switch v := r.(type) {
 				case cache.SCIPOccurrenceInfo:
 					ref := ReferenceInfo{
-						FilePath:      common.URIToFilePath(v.DocumentURI),
+						FilePath:      utils.URIToFilePath(v.DocumentURI),
 						LineNumber:    int(v.Occurrence.Range.Start.Line),
 						Column:        int(v.Occurrence.Range.Start.Character),
 						SymbolID:      v.Occurrence.Symbol,
@@ -122,7 +123,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 									line, _ := start["line"].(float64)
 									char, _ := start["character"].(float64)
 									references = append(references, ReferenceInfo{
-										FilePath:     common.URIToFilePath(uri),
+										FilePath:     utils.URIToFilePath(uri),
 										LineNumber:   int(line),
 										Column:       int(char),
 										IsReadAccess: true,
@@ -144,7 +145,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 				switch d := defs[0].(type) {
 				case cache.SCIPOccurrenceInfo:
 					fallbackDefRef = &ReferenceInfo{
-						FilePath:   common.URIToFilePath(d.DocumentURI),
+						FilePath:   utils.URIToFilePath(d.DocumentURI),
 						LineNumber: int(d.Occurrence.Range.Start.Line),
 						Column:     int(d.Occurrence.Range.Start.Character),
 						SymbolID:   d.Occurrence.Symbol,
@@ -157,7 +158,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 									line, _ := start["line"].(float64)
 									char, _ := start["character"].(float64)
 									fallbackDefRef = &ReferenceInfo{
-										FilePath:   common.URIToFilePath(uri),
+										FilePath:   utils.URIToFilePath(uri),
 										LineNumber: int(line),
 										Column:     int(char),
 									}
@@ -316,7 +317,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 				}
 				if refResult, err := m.scipCache.QueryIndex(ctx, refQuery); err == nil && refResult != nil {
 					for _, ref := range refResult.Results {
-						if loc, ok := ref.(lsp.Location); ok {
+						if loc, ok := ref.(types.Location); ok {
 							refInfo := m.locationToReferenceInfo(loc)
 							if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
 								// Check for duplicates before adding
@@ -374,7 +375,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 
 		if fallbackDefRef != nil {
 			// Use SCIP def position to ask LSP for references
-			uri := common.FilePathToURI(fallbackDefRef.FilePath)
+			uri := utils.FilePathToURI(fallbackDefRef.FilePath)
 			filePath := fallbackDefRef.FilePath
 
 			// Read the file content to open it in LSP server
@@ -446,7 +447,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 							references = append(references, *refInfo)
 							readAccessCount++
 						}
-					} else if loc, ok := ref.(lsp.Location); ok {
+					} else if loc, ok := ref.(types.Location); ok {
 						refInfo := m.locationToReferenceInfo(loc)
 						if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
 							refInfo.IsReadAccess = true
@@ -520,7 +521,7 @@ func (m *LSPManager) parseReferenceLocation(location map[string]interface{}) *Re
 	}
 
 	refInfo := &ReferenceInfo{
-		FilePath:   common.URIToFilePath(uri),
+		FilePath:   utils.URIToFilePath(uri),
 		LineNumber: line,
 		Column:     character,
 	}
@@ -528,12 +529,12 @@ func (m *LSPManager) parseReferenceLocation(location map[string]interface{}) *Re
 	return refInfo
 }
 
-// locationToReferenceInfo converts an lsp.Location to ReferenceInfo
-func (m *LSPManager) locationToReferenceInfo(loc lsp.Location) *ReferenceInfo {
+// locationToReferenceInfo converts a types.Location to ReferenceInfo
+func (m *LSPManager) locationToReferenceInfo(loc types.Location) *ReferenceInfo {
 	refInfo := &ReferenceInfo{
-		FilePath:   common.URIToFilePath(loc.URI),
-		LineNumber: loc.Range.Start.Line,
-		Column:     loc.Range.Start.Character,
+		FilePath:   utils.URIToFilePath(loc.URI),
+		LineNumber: int(loc.Range.Start.Line),
+		Column:     int(loc.Range.Start.Character),
 	}
 
 	return refInfo
@@ -624,7 +625,7 @@ func (m *LSPManager) getScipStorageFromCache() scip.SCIPDocumentStorage {
 
 // createReferenceFromOccurrenceWithDoc creates ReferenceInfo from a SCIP occurrence with document URI
 func (m *LSPManager) createReferenceFromOccurrenceWithDoc(occWithDoc scip.OccurrenceWithDocument, symbolInfo *scip.SCIPSymbolInformation) *ReferenceInfo {
-	filePath := common.URIToFilePath(occWithDoc.DocumentURI)
+	filePath := utils.URIToFilePath(occWithDoc.DocumentURI)
 
 	// Convert SCIP range to LSP-compatible format
 	refInfo := &ReferenceInfo{
@@ -679,7 +680,7 @@ func (m *LSPManager) createReferenceFromOccurrence(ctx context.Context, scipStor
 				// Check if this document contains the occurrence
 				for _, docOcc := range doc.Occurrences {
 					if m.occurrencesMatch(docOcc, occurrence) {
-						filePath = common.URIToFilePath(docURI)
+						filePath = utils.URIToFilePath(docURI)
 						break
 					}
 				}
@@ -747,18 +748,18 @@ func (m *LSPManager) occurrencesMatch(a, b scip.SCIPOccurrence) bool {
 // createLegacyReferenceInfo creates ReferenceInfo from LSP SymbolInformation (fallback)
 func (m *LSPManager) createLegacyReferenceInfo(symbolInfo lsp.SymbolInformation) ReferenceInfo {
 	refInfo := ReferenceInfo{
-		FilePath:   common.URIToFilePath(symbolInfo.Location.URI),
-		LineNumber: symbolInfo.Location.Range.Start.Line,
-		Column:     symbolInfo.Location.Range.Start.Character,
+		FilePath:   utils.URIToFilePath(symbolInfo.Location.URI),
+		LineNumber: int(symbolInfo.Location.Range.Start.Line),
+		Column:     int(symbolInfo.Location.Range.Start.Character),
 		SymbolID:   fmt.Sprintf("lsp:%s", symbolInfo.Name), // Legacy format
 		Range: &types.Range{
 			Start: types.Position{
-				Line:      int32(symbolInfo.Location.Range.Start.Line),
-				Character: int32(symbolInfo.Location.Range.Start.Character),
+				Line:      symbolInfo.Location.Range.Start.Line,
+				Character: symbolInfo.Location.Range.Start.Character,
 			},
 			End: types.Position{
-				Line:      int32(symbolInfo.Location.Range.End.Line),
-				Character: int32(symbolInfo.Location.Range.End.Character),
+				Line:      symbolInfo.Location.Range.End.Line,
+				Character: symbolInfo.Location.Range.End.Character,
 			},
 		},
 		// Default role assumptions for LSP symbols
@@ -846,7 +847,7 @@ func (m *LSPManager) readFileContent(filePath string) ([]byte, error) {
 
 // detectLanguageFromURI detects the language from a URI based on file extension
 func (m *LSPManager) detectLanguageFromURI(uri string) string {
-	filePath := common.URIToFilePath(uri)
+	filePath := utils.URIToFilePath(uri)
 	ext := filepath.Ext(filePath)
 	switch ext {
 	case ".go":

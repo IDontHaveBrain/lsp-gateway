@@ -1,20 +1,19 @@
 package types
 
 import (
-	"lsp-gateway/src/internal/models/lsp"
 	"testing"
 )
 
 func TestMatchSymbolPattern(t *testing.T) {
 	// Create test symbol
-	symbol := lsp.SymbolInformation{
+	symbol := SymbolInformation{
 		Name: "NewLSPManager",
-		Kind: lsp.Function,
-		Location: lsp.Location{
+		Kind: Function,
+		Location: Location{
 			URI: "file:///home/test/file.go",
-			Range: lsp.Range{
-				Start: lsp.Position{Line: 10, Character: 0},
-				End:   lsp.Position{Line: 20, Character: 0},
+			Range: Range{
+				Start: Position{Line: 10, Character: 0},
+				End:   Position{Line: 20, Character: 0},
 			},
 		},
 	}

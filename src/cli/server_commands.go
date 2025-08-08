@@ -12,11 +12,12 @@ import (
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server"
+	"lsp-gateway/src/utils/configloader"
 )
 
 // RunServer starts the simplified LSP gateway server
 func RunServer(addr string, configPath string, lspOnly bool) error {
-	cfg := LoadConfigWithFallback(configPath)
+	cfg := configloader.LoadForServer(configPath)
 
 	// Ensure cache path is project-specific so it matches CLI indexing
 	if cfg != nil && cfg.Cache != nil {
@@ -90,7 +91,7 @@ func RunMCPServer(configPath string) error {
 
 // ShowStatus displays the current status of LSP clients
 func ShowStatus(configPath string) error {
-	cfg := LoadConfigForCLI(configPath)
+	cfg := configloader.LoadForCLI(configPath)
 
 	common.CLILogger.Info("🔍 LSP Gateway Status")
 	common.CLILogger.Info("%s", strings.Repeat("=", 50))
@@ -133,7 +134,7 @@ func ShowStatus(configPath string) error {
 
 // TestConnection tests connection to LSP servers
 func TestConnection(configPath string) error {
-	cfg := LoadConfigForCLI(configPath)
+	cfg := configloader.LoadForCLI(configPath)
 
 	common.CLILogger.Info("🧪 Testing LSP Server Connections")
 	common.CLILogger.Info("%s", strings.Repeat("=", 50))
