@@ -1,14 +1,15 @@
 package integration
 
 import (
-	"context"
-	"path/filepath"
-	"runtime"
-	"testing"
-	"time"
+       "context"
+       "os"
+       "path/filepath"
+       "runtime"
+       "testing"
+       "time"
 
-	"lsp-gateway/src/config"
-	"lsp-gateway/src/server"
+       "lsp-gateway/src/config"
+       "lsp-gateway/src/server"
 )
 
 func TestNewLSPManagerReferences(t *testing.T) {
@@ -108,30 +109,47 @@ func TestNewLSPManagerReferences(t *testing.T) {
 
 	// Index references using LSP textDocument/references
 	t.Run("IndexReferencesViaLSP", func(t *testing.T) {
-		// The NewLSPManager function is at line 52 (1-based), which is line 51 (0-based)
+               // The NewLSPManager function is at line 53 (1-based), which is line 52 (0-based)
 		uri := "file://" + filepath.Join(projectRoot, "src", "server", "lsp_manager.go")
 
-		params := map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri": uri,
-			},
-			"position": map[string]interface{}{
-				"line":      51, // Line 52 in 0-based indexing
-				"character": 5,  // Position on 'N' of 'NewLSPManager'
-			},
-			"context": map[string]interface{}{
-				"includeDeclaration": true,
-			},
-		}
+               // Open the file before requesting references to ensure the position is recognized
+               content, readErr := os.ReadFile(filepath.Join(projectRoot, "src", "server", "lsp_manager.go"))
+               if readErr == nil {
+                       openParams := map[string]interface{}{
+                               "textDocument": map[string]interface{}{
+                                       "uri":        uri,
+                                       "languageId": "go",
+                                       "version":    1,
+                                       "text":       string(content),
+                               },
+                       }
+                       _, _ = manager.ProcessRequest(ctx, "textDocument/didOpen", openParams)
+                       defer manager.ProcessRequest(ctx, "textDocument/didClose", map[string]interface{}{
+                               "textDocument": map[string]interface{}{"uri": uri},
+                       })
+               }
 
-		result, err := manager.ProcessRequest(ctx, "textDocument/references", params)
-		if err != nil {
-			t.Logf("Warning: textDocument/references failed: %v", err)
-		} else if result != nil {
-			t.Logf("LSP references found: %+v", result)
-			// This should trigger SCIP indexing of references
-		}
-	})
+               params := map[string]interface{}{
+                       "textDocument": map[string]interface{}{
+                               "uri": uri,
+                       },
+                       "position": map[string]interface{}{
+                               "line":      52, // Line 53 in 1-based, 0-based indexing
+                               "character": 5,  // Position on 'N' of 'NewLSPManager'
+                       },
+                       "context": map[string]interface{}{
+                               "includeDeclaration": true,
+                       },
+               }
+
+               result, err := manager.ProcessRequest(ctx, "textDocument/references", params)
+               if err != nil {
+                       t.Logf("Warning: textDocument/references failed: %v", err)
+               } else if result != nil {
+                       t.Logf("LSP references found: %+v", result)
+                       // This should trigger SCIP indexing of references
+               }
+       })
 
 	// Wait for indexing to complete
 	time.Sleep(1 * time.Second)

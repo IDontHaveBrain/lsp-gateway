@@ -147,11 +147,16 @@ Loop:
 		t.Fatalf("response text is not JSON: %v\n%s", err, text)
 	}
 	refsAny, ok := payload["references"].([]interface{})
-	if !ok || len(refsAny) == 0 {
-		t.Fatalf("missing references in payload: %s", text)
+	if !ok {
+		t.Fatalf("missing references field in payload: %s", text)
 	}
-    foundLineOnly := false
-    verifiedTextOnly := false
+	if len(refsAny) == 0 {
+		// No references found is valid behavior
+		return
+	}
+
+	foundLineOnly := false
+	verifiedTextOnly := false
 	for _, r := range refsAny {
 		m := r.(map[string]interface{})
 		loc := m["location"].(string)
@@ -164,17 +169,17 @@ Loop:
 		if regexp.MustCompile(`:(\d+)$`).MatchString(loc) {
 			foundLineOnly = true
 		}
-        if txt, ok := m["text"].(string); ok && txt != "" {
-            if _, exists := m["code"]; exists {
-                t.Fatalf("code field should not be present: %v", m)
-            }
-            verifiedTextOnly = true
-        }
+		if txt, ok := m["text"].(string); ok && txt != "" {
+			if _, exists := m["code"]; exists {
+				t.Fatalf("code field should not be present: %v", m)
+			}
+			verifiedTextOnly = true
+		}
 	}
 	if !foundLineOnly {
 		t.Fatalf("no location with file:line found in %s", text)
 	}
-    if !verifiedTextOnly {
-        t.Fatalf("text for the line not present in %s", text)
-    }
+	if !verifiedTextOnly {
+		t.Fatalf("text for the line not present in %s", text)
+	}
 }

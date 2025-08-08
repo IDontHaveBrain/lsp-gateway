@@ -157,14 +157,21 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 	var err error
 
 	// Try direct SCIP cache first for better performance
-	if m.lspManager.scipCache != nil {
-		maxResults := query.MaxResults
-		if maxResults <= 0 {
-			maxResults = 100
-		}
+       if m.lspManager.scipCache != nil {
+               maxResults := query.MaxResults
+               if maxResults <= 0 {
+                       maxResults = 100
+               }
 
-		scipResults, scipErr := m.lspManager.scipCache.SearchSymbols(ctx, pattern, filePattern, maxResults)
-		if scipErr == nil && len(scipResults) > 0 {
+               scipResults, scipErr := m.lspManager.scipCache.SearchSymbols(ctx, pattern, filePattern, maxResults)
+               if scipErr != nil || len(scipResults) == 0 {
+                       // Fallback to LSP workspace symbol search to populate the cache
+                       if _, lspErr := m.lspManager.ProcessRequest(ctx, "workspace/symbol", map[string]interface{}{"query": pattern}); lspErr == nil {
+                               scipResults, scipErr = m.lspManager.scipCache.SearchSymbols(ctx, pattern, filePattern, maxResults)
+                       }
+               }
+
+               if scipErr == nil && len(scipResults) > 0 {
 			// Convert SCIP results to SymbolPatternResult format
 			symbols := make([]types.EnhancedSymbolInfo, 0, len(scipResults))
 			for _, scipResult := range scipResults {

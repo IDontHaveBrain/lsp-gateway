@@ -138,7 +138,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 		} else {
 			common.LSPLogger.Debug("SCIP cache returned no references for '%s', will try fallback", query.Pattern)
 		}
-		
+
 		// Always try to get a definition for potential LSP fallback
 		if len(references) == 0 || fallbackDefRef == nil {
 			if defs, derr := m.scipCache.SearchDefinitions(ctx, query.Pattern, query.FilePattern, 1); derr == nil && len(defs) > 0 {
@@ -185,6 +185,12 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 			// Search for symbol information to get the symbol ID
 			symbolInfos, err := scipStorage.SearchSymbols(ctx, symbolPattern, 10) // Get a few candidates
 			common.LSPLogger.Debug("SCIP SearchSymbols for '%s' returned %d results (err: %v)", symbolPattern, len(symbolInfos), err)
+			if err != nil || len(symbolInfos) == 0 {
+				// Fallback: use LSP workspace symbol search to populate the cache
+				if _, lspErr := m.ProcessRequest(ctx, "workspace/symbol", map[string]interface{}{"query": query.Pattern}); lspErr == nil {
+					symbolInfos, err = scipStorage.SearchSymbols(ctx, symbolPattern, 10)
+				}
+			}
 			if err == nil && len(symbolInfos) > 0 {
 				// Process each symbol found
 				for _, symbolInfo := range symbolInfos {
@@ -864,4 +870,3 @@ func (m *LSPManager) detectLanguageFromURI(uri string) string {
 		return "plaintext"
 	}
 }
-
