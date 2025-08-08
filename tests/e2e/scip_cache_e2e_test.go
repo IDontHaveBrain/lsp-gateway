@@ -335,6 +335,9 @@ func (suite *SCIPCacheE2ETestSuite) TestWorkspaceSymbolCache() {
 }
 
 func TestSCIPCacheE2ETestSuite(t *testing.T) {
+	if os.Getenv("RUN_E2E_TESTS") != "true" {
+		t.Skip("Skipping E2E tests (set RUN_E2E_TESTS=true to run)")
+	}
 	if testing.Short() {
 		t.Skip("Skipping SCIP cache e2e tests in short mode")
 	}

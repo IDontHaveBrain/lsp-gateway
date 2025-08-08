@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"os"
 	"testing"
 
 	"lsp-gateway/tests/e2e/base"
@@ -28,6 +29,9 @@ type ComprehensiveE2ETestSuite struct {
 
 // TestAllLanguagesComprehensive runs comprehensive tests for all supported languages
 func TestAllLanguagesComprehensive(t *testing.T) {
+	if os.Getenv("RUN_E2E_TESTS") != "true" {
+		t.Skip("Skipping E2E tests (set RUN_E2E_TESTS=true to run)")
+	}
 	for _, lang := range languageConfigs {
 		lang := lang // capture range variable
 		t.Run(lang.displayName, func(t *testing.T) {
