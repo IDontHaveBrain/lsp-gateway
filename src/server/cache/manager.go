@@ -68,8 +68,8 @@ type SCIPSymbol struct {
 	Documentation       string                 `json:"documentation,omitempty"`        // Documentation from hover
 	Signature           string                 `json:"signature,omitempty"`            // Signature from hover
 	RelatedSymbols      []string               `json:"related_symbols,omitempty"`      // Related symbol names
-	DefinitionLocations []types.Location         `json:"definition_locations,omitempty"` // Definition locations for this symbol
-	ReferenceLocations  []types.Location         `json:"reference_locations,omitempty"`  // Reference locations for this symbol
+	DefinitionLocations []types.Location       `json:"definition_locations,omitempty"` // Definition locations for this symbol
+	ReferenceLocations  []types.Location       `json:"reference_locations,omitempty"`  // Reference locations for this symbol
 	UsageCount          int                    `json:"usage_count,omitempty"`          // Number of references to this symbol
 	Metadata            map[string]interface{} `json:"metadata,omitempty"`             // Additional SCIP metadata
 }
@@ -837,61 +837,61 @@ func (m *SCIPCacheManager) storeDefinitionResult(uri string, response interface{
 
 // storeReferencesResult stores reference results as SCIP occurrences
 func (m *SCIPCacheManager) storeReferencesResult(uri string, defPos types.Position, response interface{}) error {
-       locations, ok := response.([]types.Location)
-       if !ok {
-               return fmt.Errorf("invalid references response type")
-       }
+	locations, ok := response.([]types.Location)
+	if !ok {
+		return fmt.Errorf("invalid references response type")
+	}
 
-       // Determine the symbol ID for the definition at the provided position
-       symbolID := fmt.Sprintf("symbol_%s_%d_%d", uri, defPos.Line, defPos.Character)
-       if doc, err := m.scipStorage.GetDocument(context.Background(), uri); err == nil {
-               for _, occ := range doc.Occurrences {
-                       if occ.Range.Start.Line == defPos.Line && occ.Range.Start.Character == defPos.Character && occ.SymbolRoles.HasRole(types.SymbolRoleDefinition) {
-                               symbolID = occ.Symbol
-                               break
-                       }
-               }
-       }
+	// Determine the symbol ID for the definition at the provided position
+	symbolID := fmt.Sprintf("symbol_%s_%d_%d", uri, defPos.Line, defPos.Character)
+	if doc, err := m.scipStorage.GetDocument(context.Background(), uri); err == nil {
+		for _, occ := range doc.Occurrences {
+			if occ.Range.Start.Line == defPos.Line && occ.Range.Start.Character == defPos.Character && occ.SymbolRoles.HasRole(types.SymbolRoleDefinition) {
+				symbolID = occ.Symbol
+				break
+			}
+		}
+	}
 
-       // Group locations by document
-       docOccurrences := make(map[string][]scip.SCIPOccurrence)
+	// Group locations by document
+	docOccurrences := make(map[string][]scip.SCIPOccurrence)
 
-       for _, location := range locations {
-               // Create SCIP occurrence for the reference location using the resolved symbol ID
-               occurrence := scip.SCIPOccurrence{
-                       Range: types.Range{
-                               Start: types.Position{
-                                       Line:      location.Range.Start.Line,
-                                       Character: location.Range.Start.Character,
-                               },
-                               End: types.Position{
-                                       Line:      location.Range.End.Line,
-                                       Character: location.Range.End.Character,
-                               },
-                       },
-                       Symbol:      symbolID,
-                       SymbolRoles: types.SymbolRoleReadAccess, // References are read access
-               }
+	for _, location := range locations {
+		// Create SCIP occurrence for the reference location using the resolved symbol ID
+		occurrence := scip.SCIPOccurrence{
+			Range: types.Range{
+				Start: types.Position{
+					Line:      location.Range.Start.Line,
+					Character: location.Range.Start.Character,
+				},
+				End: types.Position{
+					Line:      location.Range.End.Line,
+					Character: location.Range.End.Character,
+				},
+			},
+			Symbol:      symbolID,
+			SymbolRoles: types.SymbolRoleReadAccess, // References are read access
+		}
 
-               docOccurrences[location.URI] = append(docOccurrences[location.URI], occurrence)
-       }
+		docOccurrences[location.URI] = append(docOccurrences[location.URI], occurrence)
+	}
 
-       // Store each document with its reference occurrences
-       for docURI, occurrences := range docOccurrences {
-               scipDoc := &scip.SCIPDocument{
-                       URI:          docURI,
-                        Language:     m.detectLanguageFromURI(docURI),
-                        Occurrences:  occurrences,
-                        LastModified: time.Now(),
-                        Size:         int64(len(occurrences) * 50),
-                }
+	// Store each document with its reference occurrences
+	for docURI, occurrences := range docOccurrences {
+		scipDoc := &scip.SCIPDocument{
+			URI:          docURI,
+			Language:     m.detectLanguageFromURI(docURI),
+			Occurrences:  occurrences,
+			LastModified: time.Now(),
+			Size:         int64(len(occurrences) * 50),
+		}
 
-                if err := m.scipStorage.StoreDocument(context.Background(), scipDoc); err != nil {
-                        return fmt.Errorf("failed to store references: %w", err)
-                }
-        }
+		if err := m.scipStorage.StoreDocument(context.Background(), scipDoc); err != nil {
+			return fmt.Errorf("failed to store references: %w", err)
+		}
+	}
 
-        return nil
+	return nil
 }
 
 // storeHoverResult stores hover information as symbol metadata
@@ -1459,10 +1459,22 @@ func (m *SCIPCacheManager) SearchReferences(ctx context.Context, symbolName stri
 
 	// First, try to find symbols by exact or partial name match
 	var matchedSymbols []scip.SCIPSymbolInformation
-	
+
+	// Use a larger search limit than the final maxResults to account for
+	// duplicate symbol name entries in the index. This helps ensure we scan
+	// all potential symbol IDs to locate the one that actually has
+	// references.
+	symbolSearchLimit := maxResults * 5
+	if symbolSearchLimit < 50 {
+		symbolSearchLimit = 50
+	}
+	if symbolSearchLimit > scip.MaxSymbolSearchResults {
+		symbolSearchLimit = scip.MaxSymbolSearchResults
+	}
+
 	// Try exact match first
 	if symbols, found := m.scipStorage.(*scip.SimpleSCIPStorage); found {
-		symbolInfos, _ := symbols.SearchSymbols(ctx, symbolName, maxResults)
+		symbolInfos, _ := symbols.SearchSymbols(ctx, symbolName, symbolSearchLimit)
 		matchedSymbols = append(matchedSymbols, symbolInfos...)
 	}
 
@@ -1471,7 +1483,7 @@ func (m *SCIPCacheManager) SearchReferences(ctx context.Context, symbolName stri
 		if symbols, found := m.scipStorage.(*scip.SimpleSCIPStorage); found {
 			// Try searching with pattern matching
 			patternSearch := ".*" + symbolName + ".*"
-			symbolInfos, _ := symbols.SearchSymbols(ctx, patternSearch, maxResults)
+			symbolInfos, _ := symbols.SearchSymbols(ctx, patternSearch, symbolSearchLimit)
 			matchedSymbols = append(matchedSymbols, symbolInfos...)
 		}
 	}
@@ -1489,14 +1501,14 @@ func (m *SCIPCacheManager) SearchReferences(ctx context.Context, symbolName stri
 					occInfo := m.buildOccurrenceInfo(&occ, docURI)
 					allReferences = append(allReferences, occInfo)
 					fileSet[docURI] = true
-					
+
 					if len(allReferences) >= maxResults {
 						return allReferences, nil
 					}
 				}
 			}
 		}
-		
+
 		// Also check occurrences by symbol for more complete results
 		if occurrences, found := m.scipStorage.(*scip.SimpleSCIPStorage); found {
 			if occs, err := occurrences.GetOccurrences(ctx, symbolInfo.Symbol); err == nil {
@@ -1508,7 +1520,7 @@ func (m *SCIPCacheManager) SearchReferences(ctx context.Context, symbolName stri
 							occInfo := m.buildOccurrenceInfo(&occ, docURI)
 							allReferences = append(allReferences, occInfo)
 							fileSet[docURI] = true
-							
+
 							if len(allReferences) >= maxResults {
 								return allReferences, nil
 							}
@@ -2025,20 +2037,20 @@ func (m *SCIPCacheManager) StoreMethodResult(method string, params interface{}, 
 		return fmt.Errorf("could not extract URI from parameters")
 	}
 
-       switch method {
-       case "textDocument/definition":
-               return m.storeDefinitionResult(uri, response)
-       case "textDocument/references":
-               // Extract definition position so references share the same symbol ID
-               defPos, err := m.extractPositionFromParams(params)
-               if err != nil {
-                       return fmt.Errorf("failed to extract position for references: %w", err)
-               }
-               return m.storeReferencesResult(uri, defPos, response)
-       case "textDocument/hover":
-               return m.storeHoverResult(uri, params, response)
-       case "textDocument/documentSymbol":
-               return m.storeDocumentSymbolResult(uri, response)
+	switch method {
+	case "textDocument/definition":
+		return m.storeDefinitionResult(uri, response)
+	case "textDocument/references":
+		// Extract definition position so references share the same symbol ID
+		defPos, err := m.extractPositionFromParams(params)
+		if err != nil {
+			return fmt.Errorf("failed to extract position for references: %w", err)
+		}
+		return m.storeReferencesResult(uri, defPos, response)
+	case "textDocument/hover":
+		return m.storeHoverResult(uri, params, response)
+	case "textDocument/documentSymbol":
+		return m.storeDocumentSymbolResult(uri, response)
 	case "workspace/symbol":
 		return m.storeWorkspaceSymbolResult(response)
 	case "textDocument/completion":

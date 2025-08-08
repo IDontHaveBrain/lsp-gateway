@@ -182,13 +182,23 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 			// Use the pattern directly for symbol search
 			symbolPattern := query.Pattern
 
-			// Search for symbol information to get the symbol ID
-			symbolInfos, err := scipStorage.SearchSymbols(ctx, symbolPattern, 10) // Get a few candidates
+			// Search for symbol information to get the symbol ID. Use a larger
+			// search limit than the caller requested references to account for
+			// potential duplicate symbol name entries in the cache.
+			symbolSearchLimit := query.MaxResults * 5
+			if symbolSearchLimit < 50 {
+				symbolSearchLimit = 50
+			}
+			if symbolSearchLimit > scip.MaxSymbolSearchResults {
+				symbolSearchLimit = scip.MaxSymbolSearchResults
+			}
+
+			symbolInfos, err := scipStorage.SearchSymbols(ctx, symbolPattern, symbolSearchLimit) // Get a wider set of candidates
 			common.LSPLogger.Debug("SCIP SearchSymbols for '%s' returned %d results (err: %v)", symbolPattern, len(symbolInfos), err)
 			if err != nil || len(symbolInfos) == 0 {
 				// Fallback: use LSP workspace symbol search to populate the cache
 				if _, lspErr := m.ProcessRequest(ctx, "workspace/symbol", map[string]interface{}{"query": query.Pattern}); lspErr == nil {
-					symbolInfos, err = scipStorage.SearchSymbols(ctx, symbolPattern, 10)
+					symbolInfos, err = scipStorage.SearchSymbols(ctx, symbolPattern, symbolSearchLimit)
 				}
 			}
 			if err == nil && len(symbolInfos) > 0 {
