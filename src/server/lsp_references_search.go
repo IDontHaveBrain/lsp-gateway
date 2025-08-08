@@ -5,17 +5,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/models/lsp"
-	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/scip"
+	"lsp-gateway/src/internal/types"
 )
 
 // SymbolReferenceQuery defines parameters for searching symbol references
@@ -342,32 +340,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 		}
 	}
 
-	// If we have very few references, try text-based search as well
-	if len(references) < 10 {
-		common.LSPLogger.Debug("Only %d references found, trying text-based search for '%s'", len(references), query.Pattern)
-		// Try text-based search to find more occurrences
-		textRefs := m.searchReferencesInFiles(ctx, query.Pattern, query.FilePattern, query.MaxResults)
-		for _, textRef := range textRefs {
-			// Check if we already have this reference
-			duplicate := false
-			for _, existingRef := range references {
-				if existingRef.FilePath == textRef.FilePath && 
-				   existingRef.LineNumber == textRef.LineNumber &&
-				   existingRef.Column == textRef.Column {
-					duplicate = true
-					break
-				}
-			}
-			if !duplicate {
-				textRef.IsReadAccess = true
-				references = append(references, textRef)
-				readAccessCount++
-			}
-		}
-		common.LSPLogger.Debug("Text-based search added %d more references", len(textRefs))
-	}
-
-	// If still no references OR we only have definitions, fall back to LSP
+	// If no references found OR we only have definitions (no actual references), fall back to LSP
 	onlyDefinitions := true
 	for _, ref := range references {
 		if !ref.IsDefinition {
@@ -891,51 +864,3 @@ func (m *LSPManager) detectLanguageFromURI(uri string) string {
 	}
 }
 
-// searchReferencesInFiles performs a text-based search for references
-func (m *LSPManager) searchReferencesInFiles(ctx context.Context, pattern string, filePattern string, maxResults int) []ReferenceInfo {
-	var references []ReferenceInfo
-	
-	// Use ripgrep to find occurrences
-	cmd := fmt.Sprintf("rg -n --no-heading --with-filename '\\b%s\\b' %s 2>/dev/null | head -n %d", 
-		pattern, filePattern, maxResults)
-	
-	output, err := exec.CommandContext(ctx, "sh", "-c", cmd).Output()
-	if err != nil {
-		return references
-	}
-	
-	lines := strings.Split(string(output), "\n")
-	for _, line := range lines {
-		if line == "" {
-			continue
-		}
-		
-		// Parse format: filename:line:column:text
-		parts := strings.SplitN(line, ":", 3)
-		if len(parts) < 3 {
-			continue
-		}
-		
-		filePath := parts[0]
-		lineNum, err := strconv.Atoi(parts[1])
-		if err != nil {
-			continue
-		}
-		
-		text := parts[2]
-		column := strings.Index(text, pattern)
-		if column == -1 {
-			column = 0
-		}
-		
-		references = append(references, ReferenceInfo{
-			FilePath:     filePath,
-			LineNumber:   lineNum - 1, // Convert to 0-based
-			Column:       column,
-			Text:         strings.TrimSpace(text),
-			IsReadAccess: true,
-		})
-	}
-	
-	return references
-}

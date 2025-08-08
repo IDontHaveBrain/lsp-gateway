@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -111,23 +112,69 @@ func (w *WorkspaceIndexer) collectUniqueDefinitions(documents map[string]*scip.S
 }
 
 func (w *WorkspaceIndexer) processReferenceBatch(ctx context.Context, symbols []indexedSymbol, scipCache *SCIPCacheManager) int {
+	// Group symbols by file to optimize file open/close operations
+	symbolsByFile := make(map[string][]indexedSymbol)
+	for _, symbol := range symbols {
+		symbolsByFile[symbol.uri] = append(symbolsByFile[symbol.uri], symbol)
+	}
+
 	referencesByDoc := make(map[string][]scip.SCIPOccurrence)
 
-	for _, symbol := range symbols {
-		references, err := w.getReferencesForSymbol(ctx, symbol)
+	// Process each file and its symbols together
+	for fileURI, fileSymbols := range symbolsByFile {
+		// Open the file once for all symbols in it
+		filePath := common.URIToFilePath(fileURI)
+		content, err := os.ReadFile(filePath)
 		if err != nil {
+			common.LSPLogger.Debug("Skipping file %s: %v", fileURI, err)
 			continue
 		}
 
-		for _, ref := range references {
-			// Skip self-references
-			if w.isSelfReference(ref, symbol) {
+		// Open the document in LSP server
+		openParams := map[string]interface{}{
+			"textDocument": map[string]interface{}{
+				"uri":        fileURI,
+				"languageId": w.detectLanguageFromURI(fileURI),
+				"version":    1,
+				"text":       string(content),
+			},
+		}
+		
+		_, openErr := w.lspFallback.ProcessRequest(ctx, "textDocument/didOpen", openParams)
+		if openErr != nil {
+			// If the language server doesn't support didOpen, skip this file's references
+			if strings.Contains(openErr.Error(), "Unhandled method") {
+				common.LSPLogger.Debug("Language server doesn't support didOpen for %s, skipping references", fileURI)
+				continue
+			}
+			common.LSPLogger.Debug("Failed to open document %s: %v", fileURI, openErr)
+		}
+
+		// Process all symbols in this file
+		for _, symbol := range fileSymbols {
+			references, err := w.getReferencesForSymbolInOpenFile(ctx, symbol)
+			if err != nil {
 				continue
 			}
 
-			occurrence := w.createReferenceOccurrence(ref, symbol)
-			referencesByDoc[ref.URI] = append(referencesByDoc[ref.URI], occurrence)
+			for _, ref := range references {
+				// Skip self-references
+				if w.isSelfReference(ref, symbol) {
+					continue
+				}
+
+				occurrence := w.createReferenceOccurrence(ref, symbol)
+				referencesByDoc[ref.URI] = append(referencesByDoc[ref.URI], occurrence)
+			}
 		}
+
+		// Close the document after processing all its symbols
+		closeParams := map[string]interface{}{
+			"textDocument": map[string]interface{}{
+				"uri": fileURI,
+			},
+		}
+		_, _ = w.lspFallback.ProcessRequest(ctx, "textDocument/didClose", closeParams)
 	}
 
 	// Batch update all documents
@@ -141,9 +188,8 @@ func (w *WorkspaceIndexer) processReferenceBatch(ctx context.Context, symbols []
 	return totalAdded
 }
 
-func (w *WorkspaceIndexer) getReferencesForSymbol(ctx context.Context, symbol indexedSymbol) ([]lsp.Location, error) {
-
-	// Call textDocument/references directly
+func (w *WorkspaceIndexer) getReferencesForSymbolInOpenFile(ctx context.Context, symbol indexedSymbol) ([]lsp.Location, error) {
+	// Call textDocument/references (assumes file is already open)
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": symbol.uri,
@@ -167,6 +213,46 @@ func (w *WorkspaceIndexer) getReferencesForSymbol(ctx context.Context, symbol in
 	}
 
 	return w.parseLocationResponse(result)
+}
+
+// getReferencesForSymbol opens a file and gets references for a symbol
+// This is kept for compatibility but processReferenceBatch is more efficient
+func (w *WorkspaceIndexer) getReferencesForSymbol(ctx context.Context, symbol indexedSymbol) ([]lsp.Location, error) {
+	// Read file content to open it in LSP server
+	filePath := common.URIToFilePath(symbol.uri)
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		// Skip files that can't be read
+		return []lsp.Location{}, nil
+	}
+
+	// Open the document in LSP server
+	openParams := map[string]interface{}{
+		"textDocument": map[string]interface{}{
+			"uri":        symbol.uri,
+			"languageId": w.detectLanguageFromURI(symbol.uri),
+			"version":    1,
+			"text":       string(content),
+		},
+	}
+	
+	_, openErr := w.lspFallback.ProcessRequest(ctx, "textDocument/didOpen", openParams)
+	if openErr != nil {
+		// Some LSP servers don't require didOpen, try anyway
+		common.LSPLogger.Debug("Failed to open document %s: %v", symbol.uri, openErr)
+	}
+	
+	// Ensure we close the document when done
+	defer func() {
+		closeParams := map[string]interface{}{
+			"textDocument": map[string]interface{}{
+				"uri": symbol.uri,
+			},
+		}
+		_, _ = w.lspFallback.ProcessRequest(ctx, "textDocument/didClose", closeParams)
+	}()
+
+	return w.getReferencesForSymbolInOpenFile(ctx, symbol)
 }
 
 func (w *WorkspaceIndexer) parseLocationResponse(result interface{}) ([]lsp.Location, error) {
