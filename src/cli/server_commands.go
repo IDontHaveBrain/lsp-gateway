@@ -35,7 +35,7 @@ func RunServer(addr string, configPath string, lspOnly bool) error {
 	// Display SCIP cache status
 	displayGatewayCacheStatus(gateway)
 
-	common.CLILogger.Info("Available languages: go, python, nodejs, typescript, java")
+	common.CLILogger.Info("Available languages: go, python, javascript, typescript, java")
 	common.CLILogger.Info("HTTP JSON-RPC endpoint: http://%s/jsonrpc", addr)
 	common.CLILogger.Info("Health check endpoint: http://%s/health", addr)
 
