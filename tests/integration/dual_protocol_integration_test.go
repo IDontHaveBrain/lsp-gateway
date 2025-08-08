@@ -118,6 +118,22 @@ func handleError(err error) {
 	require.NoError(t, err)
 	defer gateway.Stop()
 
+	// Wait for HTTP gateway to be ready
+	time.Sleep(100 * time.Millisecond)
+
+	// Verify gateway is ready
+	for i := 0; i < 10; i++ {
+		resp, err := http.Get("http://localhost:18888/health")
+		if err == nil && resp.StatusCode == http.StatusOK {
+			resp.Body.Close()
+			break
+		}
+		if i == 9 {
+			t.Fatal("HTTP gateway failed to start")
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
 	mcpServer, err := server.NewMCPServer(cfg)
 	require.NoError(t, err)
 	require.NotNil(t, mcpServer)

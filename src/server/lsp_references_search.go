@@ -329,6 +329,87 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 		}
 	}
 
+	// If no references found, use a more robust search approach
+	if len(references) == 0 && m.scipCache != nil {
+		// Use LSP workspace/symbol to find all symbols with this name across the workspace
+		wsParams := map[string]interface{}{
+			"query": query.Pattern,
+		}
+		
+		if wsResult, wsErr := m.ProcessRequest(ctx, "workspace/symbol", wsParams); wsErr == nil && wsResult != nil {
+			// Parse workspace symbol results
+			var wsSymbols []interface{}
+			if rawBytes, ok := wsResult.(json.RawMessage); ok {
+				var symbols []map[string]interface{}
+				if jsonErr := json.Unmarshal(rawBytes, &symbols); jsonErr == nil {
+					for _, sym := range symbols {
+						wsSymbols = append(wsSymbols, sym)
+					}
+				}
+			} else if symbols, ok := wsResult.([]interface{}); ok {
+				wsSymbols = symbols
+			}
+			
+			// For each symbol found, try to get references from its location
+			for _, wsSymbol := range wsSymbols {
+				if symbolMap, ok := wsSymbol.(map[string]interface{}); ok {
+					if location, hasLocation := symbolMap["location"].(map[string]interface{}); hasLocation {
+						if uri, hasURI := location["uri"].(string); hasURI {
+							if rangeMap, hasRange := location["range"].(map[string]interface{}); hasRange {
+								if start, hasStart := rangeMap["start"].(map[string]interface{}); hasStart {
+									line, _ := start["line"].(float64)
+									char, _ := start["character"].(float64)
+									
+									// Try to get references from this position
+									refParams := map[string]interface{}{
+										"textDocument": map[string]interface{}{
+											"uri": uri,
+										},
+										"position": map[string]interface{}{
+											"line":      int(line),
+											"character": int(char),
+										},
+										"context": map[string]interface{}{
+											"includeDeclaration": true,
+										},
+									}
+									
+									if refResult, refErr := m.ProcessRequest(ctx, "textDocument/references", refParams); refErr == nil && refResult != nil {
+										// Parse reference results
+										var parsedLocations []interface{}
+										
+										if rawMsg, ok := refResult.(json.RawMessage); ok {
+											var locations []map[string]interface{}
+											if jsonErr := json.Unmarshal(rawMsg, &locations); jsonErr == nil {
+												for _, loc := range locations {
+													parsedLocations = append(parsedLocations, loc)
+												}
+											}
+										} else if locs, ok := refResult.([]interface{}); ok {
+											parsedLocations = locs
+										}
+										
+										// Process parsed locations
+										for _, ref := range parsedLocations {
+											if location, ok := ref.(map[string]interface{}); ok {
+												refInfo := m.parseReferenceLocation(location)
+												if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
+													refInfo.IsReadAccess = true
+													references = append(references, *refInfo)
+													readAccessCount++
+												}
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	// If no references found OR we only have definitions (no actual references), fall back to LSP
 	onlyDefinitions := true
 	for _, ref := range references {
@@ -354,6 +435,53 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 					if defs, derr := scipStorage.GetDefinitions(ctx, syms[0].Symbol); derr == nil && len(defs) > 0 {
 						if defRef := m.createReferenceFromOccurrence(ctx, scipStorage, defs[0], &syms[0]); defRef != nil {
 							fallbackDefRef = defRef
+						}
+					}
+				}
+			}
+		}
+
+		// If no cache available, try to find definition via LSP workspace symbols
+		if fallbackDefRef == nil && m.scipCache == nil {
+			common.LSPLogger.Debug("[SearchSymbolReferences] No cache available, trying workspace symbol search for pattern: %s", query.Pattern)
+			
+			// Use workspace/symbol LSP request to find symbols matching the pattern
+			wsParams := map[string]interface{}{
+				"query": query.Pattern,
+			}
+			
+			wsResult, wsErr := m.ProcessRequest(ctx, "workspace/symbol", wsParams)
+			if wsErr == nil && wsResult != nil {
+				// Parse workspace symbol result
+				var symbols []interface{}
+				
+				if rawMsg, ok := wsResult.(json.RawMessage); ok {
+					if err := json.Unmarshal([]byte(rawMsg), &symbols); err == nil {
+						for _, sym := range symbols {
+							if symMap, ok := sym.(map[string]interface{}); ok {
+								if name, ok := symMap["name"].(string); ok && name == query.Pattern {
+									if location, ok := symMap["location"].(map[string]interface{}); ok {
+										if uri, ok := location["uri"].(string); ok {
+											if rng, ok := location["range"].(map[string]interface{}); ok {
+												if start, ok := rng["start"].(map[string]interface{}); ok {
+													if line, ok := start["line"].(float64); ok {
+														if char, ok := start["character"].(float64); ok {
+															fallbackDefRef = &ReferenceInfo{
+																FilePath:     utils.URIToFilePath(uri),
+																LineNumber:   int(line),
+																Column:       int(char),
+																IsDefinition: true,
+															}
+															common.LSPLogger.Debug("[SearchSymbolReferences] Found definition via workspace symbol: %s:%d:%d", fallbackDefRef.FilePath, fallbackDefRef.LineNumber, fallbackDefRef.Column)
+															break
+														}
+													}
+												}
+											}
+										}
+									}
+								}
+							}
 						}
 					}
 				}

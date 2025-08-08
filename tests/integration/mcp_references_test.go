@@ -69,6 +69,7 @@ func main() {
 	if err != nil {
 		t.Fatalf("new mcp: %v", err)
 	}
+	t.Logf("Created MCP server with cache enabled, background indexing: %v", cfg.Cache.BackgroundIndex)
 
 	prIn, pwIn := io.Pipe()
 	prOut, pwOut := io.Pipe()
@@ -92,8 +93,10 @@ func main() {
 	initReq := mcpReq{JSONRPC: "2.0", ID: 1, Method: "initialize", Params: map[string]interface{}{"capabilities": map[string]interface{}{}}}
 	b, _ := json.Marshal(initReq)
 	pwIn.Write(append(b, '\n'))
+	t.Logf("Sent initialize request")
 
 	time.Sleep(1500 * time.Millisecond)
+	t.Logf("Waited 1.5s for initialization, now sending findSymbols")
 
 	symCall := mcpReq{JSONRPC: "2.0", ID: 2, Method: "tools/call", Params: map[string]interface{}{
 		"name": "findSymbols",
@@ -105,7 +108,16 @@ func main() {
 	b, _ = json.Marshal(symCall)
 	pwIn.Write(append(b, '\n'))
 
-	time.Sleep(5 * time.Second)
+	// Wait for findSymbols response and verify indexing worked
+	if !waitForFindSymbolsResponse(t, lines, 15*time.Second) {
+		t.Fatalf("findSymbols did not return expected results within timeout")
+	}
+	t.Logf("findSymbols succeeded, waiting for reference indexing to complete")
+	
+	// Wait additional time for enhanced reference indexing to complete
+	// Background indexing includes both symbols and references
+	time.Sleep(10 * time.Second)
+	t.Logf("Completed wait for reference indexing, now sending findReferences")
 
 	refCall := mcpReq{JSONRPC: "2.0", ID: 3, Method: "tools/call", Params: map[string]interface{}{
 		"name": "findReferences",
@@ -182,5 +194,69 @@ Loop:
 	}
 	if !verifiedTextOnly {
 		t.Fatalf("text for the line not present in %s", text)
+	}
+}
+
+// waitForFindSymbolsResponse waits for findSymbols to return results with the expected symbol
+func waitForFindSymbolsResponse(t *testing.T, lines <-chan []byte, timeout time.Duration) bool {
+	deadline := time.After(timeout)
+
+	for {
+		select {
+		case <-deadline:
+			t.Logf("Timeout waiting for findSymbols response")
+			return false
+		case line, ok := <-lines:
+			if !ok {
+				t.Logf("Channel closed while waiting for findSymbols response")
+				return false
+			}
+			if bytes.Contains(line, []byte("\"id\":2")) {
+				var resp mcpResp
+				if err := json.Unmarshal(line, &resp); err != nil {
+					t.Logf("Failed to decode findSymbols response: %v", err)
+					return false
+				}
+				
+				// Check for errors first
+				if resp.Error != nil {
+					t.Logf("findSymbols returned error: %v", resp.Error)
+					return false
+				}
+				
+				// Check if we got symbols
+				content, ok := resp.Result["content"].([]interface{})
+				if !ok || len(content) == 0 {
+					t.Logf("No content in findSymbols response")
+					return false
+				}
+				
+				text := content[0].(map[string]interface{})["text"].(string)
+				var payload map[string]interface{}
+				if err := json.Unmarshal([]byte(text), &payload); err != nil {
+					t.Logf("Response text is not JSON: %v\nRaw text: %s", err, text)
+					return false
+				}
+				
+				symbols, ok := payload["symbols"].([]interface{})
+				if !ok || len(symbols) == 0 {
+					t.Logf("findSymbols returned empty symbols, cache may not be ready yet: %s", text)
+					return false
+				}
+				
+				// Verify we found the Foo function
+				for _, sym := range symbols {
+					if symMap, ok := sym.(map[string]interface{}); ok {
+						if name, ok := symMap["name"].(string); ok && name == "Foo" {
+							t.Logf("Successfully found Foo symbol via findSymbols")
+							return true
+						}
+					}
+				}
+				
+				t.Logf("findSymbols returned %d symbols but no 'Foo' found: %s", len(symbols), text)
+				return false
+			}
+		}
 	}
 }

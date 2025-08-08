@@ -822,9 +822,9 @@ func (s *SimpleSCIPStorage) cloneDocument(doc *SCIPDocument) *SCIPDocument {
 
 // saveToDisk saves the occurrence-centric cache to disk as JSON (optional persistence)
 func (s *SimpleSCIPStorage) saveToDisk() error {
-	if s.diskFile == "" {
-		return nil
-	}
+    if s.diskFile == "" {
+        return nil
+    }
 
 	common.LSPLogger.Debug("[saveToDisk] Saving cache with %d documents, %d symbols", len(s.documents), len(s.symbolInfoIndex))
 
@@ -864,7 +864,11 @@ func (s *SimpleSCIPStorage) saveToDisk() error {
 		SavedAt:           time.Now(),
 	}
 
-	file, err := os.Create(s.diskFile)
+    // Ensure parent directory exists in case it was removed
+    if err := os.MkdirAll(filepath.Dir(s.diskFile), 0755); err != nil {
+        return fmt.Errorf("failed to create cache directory: %w", err)
+    }
+    file, err := os.Create(s.diskFile)
 	if err != nil {
 		return fmt.Errorf("failed to create cache file: %w", err)
 	}

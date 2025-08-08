@@ -111,22 +111,34 @@ func (dm *LSPDocumentManager) ExtractURI(params interface{}) (string, error) {
 // EnsureOpen sends a textDocument/didOpen notification if needed
 func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, params interface{}) error {
 
-	// Read actual file content for proper LSP functionality
-	var fileContent string
+    // Read actual file content for proper LSP functionality
+    var fileContent string
 
-	// Extract file path from URI
-	if strings.HasPrefix(uri, "file://") {
-		filePath := utils.URIToFilePath(uri)
-		if content, err := os.ReadFile(filePath); err == nil {
-			fileContent = string(content)
-		} else {
-			// If we can't read the file, log but continue with empty content
-			common.LSPLogger.Error("Failed to read file content for %s: %v", uri, err)
-			fileContent = ""
-		}
-	} else {
-		common.LSPLogger.Warn("URI does not start with file://: %s", uri)
-	}
+    // Extract file path from URI
+    if strings.HasPrefix(uri, "file://") {
+        filePath := utils.URIToFilePath(uri)
+        // Ensure the file's directory is part of the workspace folders for servers like gopls
+        dir := filepath.Dir(filePath)
+        wsURI := "file://" + dir
+        changeParams := map[string]interface{}{
+            "event": map[string]interface{}{
+                "added": []map[string]interface{}{
+                    {"uri": wsURI, "name": filepath.Base(dir)},
+                },
+                "removed": []map[string]interface{}{},
+            },
+        }
+        _ = client.SendNotification(context.Background(), "workspace/didChangeWorkspaceFolders", changeParams)
+        if content, err := os.ReadFile(filePath); err == nil {
+            fileContent = string(content)
+        } else {
+            // If we can't read the file, log but continue with empty content
+            common.LSPLogger.Error("Failed to read file content for %s: %v", uri, err)
+            fileContent = ""
+        }
+    } else {
+        common.LSPLogger.Warn("URI does not start with file://: %s", uri)
+    }
 
 	didOpenParams := map[string]interface{}{
 		"textDocument": map[string]interface{}{
