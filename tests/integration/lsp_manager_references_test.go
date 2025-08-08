@@ -11,9 +11,12 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
+	"lsp-gateway/tests/shared"
 )
 
 func TestNewLSPManagerReferences(t *testing.T) {
+	shared.CheckLSPAvailability(t)
+
 	// Get the project root directory (two levels up from tests/integration)
 	_, currentFile, _, _ := runtime.Caller(0)
 	projectRoot := filepath.Join(filepath.Dir(currentFile), "..", "..")

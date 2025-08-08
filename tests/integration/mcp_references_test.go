@@ -13,6 +13,7 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
+	"lsp-gateway/tests/shared"
 )
 
 type mcpReq struct {
@@ -30,6 +31,8 @@ type mcpResp struct {
 }
 
 func TestMCPFindReferences_UsesSCIPAndPrintsRefs(t *testing.T) {
+	shared.CheckLSPAvailability(t)
+
 	wd, _ := os.Getwd()
 	tmpDir := filepath.Join(wd, "..", "..", "tmp-mcp-refs")
 	_ = os.MkdirAll(tmpDir, 0755)
