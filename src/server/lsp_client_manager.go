@@ -384,6 +384,9 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 			wd = "/tmp"
 		}
 	}
+	
+	// Ensure path is absolute and clean
+	wd, _ = filepath.Abs(wd)
 
 	// Send initialize request according to LSP specification
 	initParams := map[string]interface{}{
@@ -400,7 +403,10 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 				"name": filepath.Base(wd),
 			},
 		},
-		"initializationOptions": nil,
+		"initializationOptions": map[string]interface{}{
+			"usePlaceholders": false,
+			"completeUnimported": true,
+		},
 		"capabilities": map[string]interface{}{
 			"workspace": map[string]interface{}{
 				"applyEdit":              true,
