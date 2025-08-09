@@ -47,6 +47,8 @@ type LSPManager struct {
 
 	// Project information for consistent symbol ID generation
 	projectInfo *project.PackageInfo
+
+	hoverMemo sync.Map
 }
 
 // NewLSPManager creates a new LSP manager with unified cache configuration

@@ -387,6 +387,7 @@ func init() {
 	cacheInfoCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
 	cacheClearCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
 	cacheIndexCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
+	cacheIndexCmd.Flags().BoolVarP(&verbose, FlagVerbose, "v", false, "Show detailed progress")
 
 	// Cache subcommands
 	cacheCmd.AddCommand(cacheInfoCmd)

@@ -134,31 +134,14 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 		query.IncludeCode = includeCode
 	}
 
-	// Parse symbol roles for enhanced filtering
-	var roleFilter *types.SymbolRole
-	if roles, ok := arguments["symbolRoles"].([]interface{}); ok {
-		var combinedRole types.SymbolRole
-		for _, r := range roles {
-			if roleStr, ok := r.(string); ok {
-				role := parseSymbolRole(roleStr)
-				if role != 0 {
-					combinedRole = combinedRole.AddRole(role)
-				}
-			}
-		}
-		if combinedRole != 0 {
-			roleFilter = &combinedRole
-		}
-	}
-
 	// Execute the search using SCIP cache directly with fallback
 	ctx, cancel := common.CreateContext(5 * time.Second)
 	defer cancel()
 	var result *types.SymbolPatternResult
 	var err error
 
-	// Try direct SCIP cache first for better performance
-	if m.lspManager.scipCache != nil {
+        // Try direct SCIP cache first for better performance
+        if m.lspManager.scipCache != nil {
 		maxResults := query.MaxResults
 		if maxResults <= 0 {
 			maxResults = 100
@@ -168,35 +151,65 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 		if scipErr == nil && len(scipResults) > 0 {
 			// Convert SCIP results to SymbolPatternResult format
 			symbols := make([]types.EnhancedSymbolInfo, 0, len(scipResults))
-			for _, scipResult := range scipResults {
-				// Handle enhanced result format with occurrence data
-				if enhancedData, ok := scipResult.(map[string]interface{}); ok {
-					// Extract symbol info and occurrence
-					var symbolInfo scip.SCIPSymbolInformation
-					var occurrence *scip.SCIPOccurrence
+            for _, scipResult := range scipResults {
+                // Handle enhanced result format with occurrence data
+                if enhancedData, ok := scipResult.(map[string]interface{}); ok {
+                    // Extract symbol info and occurrence
+                    var symbolInfo scip.SCIPSymbolInformation
+                    var occurrence *scip.SCIPOccurrence
+                    var rng types.Range
 
-					if si, ok := enhancedData["symbolInfo"].(scip.SCIPSymbolInformation); ok {
-						symbolInfo = si
-					}
-					if occ, ok := enhancedData["occurrence"].(*scip.SCIPOccurrence); ok {
-						occurrence = occ
-					}
+                    if si, ok := enhancedData["symbolInfo"].(scip.SCIPSymbolInformation); ok {
+                        symbolInfo = si
+                    }
+                    if occ, ok := enhancedData["occurrence"].(*scip.SCIPOccurrence); ok {
+                        occurrence = occ
+                    }
+                    // Also try to extract a plain range if provided
+                    if r, ok := enhancedData["range"].(types.Range); ok {
+                        rng = r
+                    } else if rmap, ok := enhancedData["range"].(map[string]interface{}); ok {
+                        // Defensive: parse map form if present
+                        if s, ok := rmap["start"].(map[string]interface{}); ok {
+                            if v, ok := s["line"].(float64); ok {
+                                rng.Start.Line = int32(v)
+                            }
+                            if v, ok := s["character"].(float64); ok {
+                                rng.Start.Character = int32(v)
+                            }
+                        }
+                        if e, ok := rmap["end"].(map[string]interface{}); ok {
+                            if v, ok := e["line"].(float64); ok {
+                                rng.End.Line = int32(v)
+                            }
+                            if v, ok := e["character"].(float64); ok {
+                                rng.End.Character = int32(v)
+                            }
+                        }
+                    }
 
-					// Extract file path and range from occurrence
-					filePath := ""
-					lineNumber := 0
-					endLine := 0
+                    // Extract file path and range from occurrence/range
+                    filePath := ""
+                    // Prefer explicit documentURI if present
+                    if docURI, ok := enhancedData["documentURI"].(string); ok && docURI != "" {
+                        filePath = utils.URIToFilePath(docURI)
+                    } else if fp, ok := enhancedData["filePath"].(string); ok && fp != "" {
+                        filePath = utils.URIToFilePath(fp)
+                    }
 
-					if occurrence != nil {
-						// Get file path from document URI
-						if docURI, ok := enhancedData["filePath"].(string); ok {
-							filePath = utils.URIToFilePath(docURI)
-						}
-
-						// Extract line range from occurrence
-						lineNumber = int(occurrence.Range.Start.Line)
-						endLine = int(occurrence.Range.End.Line)
-					}
+                    // Determine line range
+                    lineNumber := 0
+                    endLine := 0
+                    if occurrence != nil {
+                        lineNumber = int(occurrence.Range.Start.Line)
+                        endLine = int(occurrence.Range.End.Line)
+                    } else if (rng.Start.Line != 0 || rng.End.Line != 0) || (rng.Start.Character != 0 || rng.End.Character != 0) {
+                        lineNumber = int(rng.Start.Line)
+                        endLine = int(rng.End.Line)
+                    }
+                    if endLine < lineNumber {
+                        endLine = lineNumber
+                    }
 
 					// Convert SCIP kind to LSP kind
 					lspKind := types.Variable // Default
@@ -244,28 +257,28 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 						}
 					}
 
-					// Create enhanced symbol info
-					enhanced := types.EnhancedSymbolInfo{
-						SymbolInformation: types.SymbolInformation{
-							Name: symbolInfo.DisplayName,
-							Kind: lspKind,
-							Location: types.Location{
-								URI: "file://" + filePath,
-								Range: types.Range{
-									Start: types.Position{Line: int32(lineNumber), Character: 0},
-									End:   types.Position{Line: int32(endLine), Character: 0},
-								},
-							},
-							ContainerName: containerName,
-						},
-						FilePath:      filePath,
-						LineNumber:    lineNumber,
-						EndLine:       endLine,
-						Container:     containerName,
-						Documentation: documentation,
-					}
-					symbols = append(symbols, enhanced)
-				} else if scipSymbol, ok := scipResult.(scip.SCIPSymbolInformation); ok {
+                    // Create enhanced symbol info
+                    enhanced := types.EnhancedSymbolInfo{
+                        SymbolInformation: types.SymbolInformation{
+                            Name: symbolInfo.DisplayName,
+                            Kind: lspKind,
+                            Location: types.Location{
+                                URI: "file://" + filePath,
+                                Range: types.Range{
+                                    Start: types.Position{Line: int32(lineNumber), Character: 0},
+                                    End:   types.Position{Line: int32(endLine), Character: 0},
+                                },
+                            },
+                            ContainerName: containerName,
+                        },
+                        FilePath:      filePath,
+                        LineNumber:    lineNumber,
+                        EndLine:       endLine,
+                        Container:     containerName,
+                        Documentation: documentation,
+                    }
+                    symbols = append(symbols, enhanced)
+                } else if scipSymbol, ok := scipResult.(scip.SCIPSymbolInformation); ok {
 					// Fallback: handle plain SCIPSymbolInformation without occurrence data
 					symbolName := scipSymbol.DisplayName
 					symbolID := scipSymbol.Symbol
@@ -354,17 +367,19 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 		}
 	}
 
-	// Apply role filtering if specified
+	// No role filtering (symbolRoles removed)
 	filteredSymbols := result.Symbols
-	if roleFilter != nil {
-		filteredSymbols = m.filterSymbolsByRole(result.Symbols, *roleFilter)
-	}
 
 	// Add code snippets if requested
 	if query.IncludeCode {
 		for i := range filteredSymbols {
-			if filteredSymbols[i].FilePath != "" && filteredSymbols[i].LineNumber > 0 && filteredSymbols[i].EndLine > 0 {
-				code, err := extractCodeLines(filteredSymbols[i].FilePath, filteredSymbols[i].LineNumber, filteredSymbols[i].EndLine)
+			if filteredSymbols[i].FilePath != "" {
+				start := filteredSymbols[i].LineNumber + 1
+				end := filteredSymbols[i].EndLine + 1
+				if end < start {
+					end = start
+				}
+				code, err := extractCodeLines(filteredSymbols[i].FilePath, start, end)
 				if err == nil {
 					filteredSymbols[i].Code = code
 				}
@@ -374,7 +389,7 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 
 	// Format the result for MCP with enhanced occurrence metadata
 	formattedResult := map[string]interface{}{
-		"symbols":    formatEnhancedSymbolsForMCP(filteredSymbols, roleFilter != nil),
+		"symbols":    formatEnhancedSymbolsForMCP(filteredSymbols),
 		"totalCount": len(filteredSymbols),
 		"truncated":  result.Truncated,
 	}
@@ -457,12 +472,7 @@ func (m *MCPServer) handleFindSymbolReferences(params map[string]interface{}) (i
 // Helper Functions
 // =============================================================================
 
-// filterSymbolsByRole filters symbols based on role (placeholder implementation)
-func (m *MCPServer) filterSymbolsByRole(symbols []types.EnhancedSymbolInfo, roleFilter types.SymbolRole) []types.EnhancedSymbolInfo {
-	// For now, return all symbols since we don't have role data in EnhancedSymbolInfo
-	// This would need to be enhanced with actual occurrence-based filtering
-	return symbols
-}
+// Role-based filtering removed (symbolRoles parameter deprecated)
 
 // extractCodeLines reads lines from a file between start and end line numbers (1-indexed)
 func extractCodeLines(filePath string, startLine, endLine int) (string, error) {

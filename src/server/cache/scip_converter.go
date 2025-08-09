@@ -219,11 +219,13 @@ func (c *SCIPConverter) CreateSCIPOccurrenceFromLocation(ctx *ConversionContext,
 }
 
 // CreateSCIPSymbolInfo creates SCIP symbol information
-func (c *SCIPConverter) CreateSCIPSymbolInfo(symbolID, displayName string, kind scip.SCIPSymbolKind) scip.SCIPSymbolInformation {
+func (c *SCIPConverter) CreateSCIPSymbolInfo(symbolID, displayName string, kind scip.SCIPSymbolKind, r types.Range, sel *types.Range) scip.SCIPSymbolInformation {
 	return scip.SCIPSymbolInformation{
-		Symbol:      symbolID,
-		DisplayName: displayName,
-		Kind:        kind,
+		Symbol:         symbolID,
+		DisplayName:    displayName,
+		Kind:           kind,
+		Range:          r,
+		SelectionRange: sel,
 	}
 }
 
@@ -274,8 +276,8 @@ func (c *SCIPConverter) ConvertLSPSymbolToSCIP(ctx *ConversionContext, symbol ty
 		occurrence.SelectionRange = symbol.SelectionRange
 	}
 
-	// Create symbol info
-	symbolInfo := c.CreateSCIPSymbolInfo(symbolID, symbol.Name, scipKind)
+	// Create symbol info with both full range and selection range
+	symbolInfo := c.CreateSCIPSymbolInfo(symbolID, symbol.Name, scipKind, symbol.Location.Range, symbol.SelectionRange)
 
 	return LSPSymbolConversionResult{
 		Occurrence: occurrence,

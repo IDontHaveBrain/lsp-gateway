@@ -274,13 +274,6 @@ func (m *MCPServer) handleToolsList(req *MCPRequest) *MCPResponse {
 						},
 						"description": "Filter by symbol kinds. Common: 5=Class, 6=Method, 11=Interface, 12=Function, 13=Variable. Full list: 1=File, 2=Module, 3=Namespace, 4=Package, 7=Property, 8=Field, 9=Constructor, 10=Enum, 14=Constant, 23=Struct",
 					},
-					"symbolRoles": map[string]interface{}{
-						"type": "array",
-						"items": map[string]interface{}{
-							"type": "string",
-						},
-						"description": "Filter by symbol roles: 'definition', 'reference', 'import', 'write', 'read', 'generated', 'test'. Can combine multiple roles.",
-					},
 					"maxResults": map[string]interface{}{
 						"type":        "number",
 						"description": "Maximum number of results to return (default: 100)",

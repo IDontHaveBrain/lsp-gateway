@@ -80,10 +80,8 @@ func (m *SCIPCacheManager) PerformWorkspaceIndexing(ctx context.Context, working
 		detectedLanguages = []string{}
 	}
 
-	// Use unlimited maxFiles for comprehensive HTTP gateway indexing
 	const maxFiles = 100000
 
-	// Perform full indexing with references
 	return m.PerformFullIndexing(ctx, workingDir, detectedLanguages, maxFiles, lspFallback)
 }
 
@@ -94,17 +92,14 @@ func (m *SCIPCacheManager) PerformFullIndexing(ctx context.Context, workingDir s
 		return nil
 	}
 
-	// Create workspace indexer with LSP fallback
 	indexer := NewWorkspaceIndexer(lspFallback)
 
-	// Step 1: Basic symbol indexing
 	common.LSPLogger.Debug("Starting basic symbol indexing")
 	err := indexer.IndexWorkspaceFiles(ctx, workingDir, languages, maxFiles)
 	if err != nil {
 		return fmt.Errorf("workspace indexing failed: %w", err)
 	}
 
-	// Step 2: Enhanced reference indexing
 	common.LSPLogger.Debug("Starting enhanced reference indexing")
 	err = indexer.IndexWorkspaceFilesWithReferences(ctx, workingDir, languages, maxFiles, m)
 	if err != nil {
@@ -114,12 +109,49 @@ func (m *SCIPCacheManager) PerformFullIndexing(ctx context.Context, workingDir s
 		common.LSPLogger.Debug("Enhanced reference indexing complete")
 	}
 
-	// Save the index to disk if disk cache is enabled
 	if m.config.DiskCache && m.config.StoragePath != "" {
 		if err := m.SaveIndexToDisk(); err != nil {
 			common.LSPLogger.Warn("Failed to save index to disk: %v", err)
 		}
 	}
 
+	return nil
+}
+
+func (m *SCIPCacheManager) PerformWorkspaceIndexingWithProgress(ctx context.Context, workingDir string, lspFallback LSPFallback, progress IndexProgressFunc) error {
+	if !m.enabled {
+		return nil
+	}
+	detectedLanguages, err := project.DetectLanguages(workingDir)
+	if err != nil {
+		common.LSPLogger.Warn("Failed to detect languages for indexing: %v", err)
+		detectedLanguages = []string{}
+	}
+	const maxFiles = 100000
+	return m.PerformFullIndexingWithProgress(ctx, workingDir, detectedLanguages, maxFiles, lspFallback, progress)
+}
+
+func (m *SCIPCacheManager) PerformFullIndexingWithProgress(ctx context.Context, workingDir string, languages []string, maxFiles int, lspFallback LSPFallback, progress IndexProgressFunc) error {
+	if !m.enabled {
+		return nil
+	}
+	indexer := NewWorkspaceIndexer(lspFallback)
+	common.LSPLogger.Debug("Starting basic symbol indexing")
+	err := indexer.IndexWorkspaceFilesWithProgress(ctx, workingDir, languages, maxFiles, progress)
+	if err != nil {
+		return fmt.Errorf("workspace indexing failed: %w", err)
+	}
+	common.LSPLogger.Debug("Starting enhanced reference indexing")
+	err = indexer.IndexWorkspaceFilesWithReferencesProgress(ctx, workingDir, languages, maxFiles, m, progress)
+	if err != nil {
+		common.LSPLogger.Error("Enhanced reference indexing failed: %v", err)
+	} else {
+		common.LSPLogger.Debug("Enhanced reference indexing complete")
+	}
+	if m.config.DiskCache && m.config.StoragePath != "" {
+		if err := m.SaveIndexToDisk(); err != nil {
+			common.LSPLogger.Warn("Failed to save index to disk: %v", err)
+		}
+	}
 	return nil
 }

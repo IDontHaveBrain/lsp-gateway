@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
@@ -30,15 +32,19 @@ func NewWorkspaceIndexer(lspFallback LSPFallback) *WorkspaceIndexer {
 // This method provides comprehensive symbol indexing by analyzing individual source files
 // and extracting their complete symbol hierarchies for enhanced cache population
 func (w *WorkspaceIndexer) IndexWorkspaceFiles(ctx context.Context, workspaceDir string, languages []string, maxFiles int) error {
-	common.LSPLogger.Debug("IndexWorkspaceFiles called: workspaceDir=%s, languages=%v, maxFiles=%d", workspaceDir, languages, maxFiles)
+	return w.indexWorkspaceFilesCore(ctx, workspaceDir, languages, maxFiles, nil)
+}
 
-	// Check if LSP fallback is nil
+func (w *WorkspaceIndexer) IndexWorkspaceFilesWithProgress(ctx context.Context, workspaceDir string, languages []string, maxFiles int, progress IndexProgressFunc) error {
+	return w.indexWorkspaceFilesCore(ctx, workspaceDir, languages, maxFiles, progress)
+}
+
+func (w *WorkspaceIndexer) indexWorkspaceFilesCore(ctx context.Context, workspaceDir string, languages []string, maxFiles int, progress IndexProgressFunc) error {
+	common.LSPLogger.Debug("IndexWorkspaceFiles called: workspaceDir=%s, languages=%v, maxFiles=%d", workspaceDir, languages, maxFiles)
 	if w.lspFallback == nil {
 		common.LSPLogger.Error("IndexWorkspaceFiles: lspFallback is nil!")
 		return fmt.Errorf("lspFallback is nil")
 	}
-
-	// Use current directory if not provided
 	if workspaceDir == "" {
 		var err error
 		workspaceDir, err = os.Getwd()
@@ -46,103 +52,92 @@ func (w *WorkspaceIndexer) IndexWorkspaceFiles(ctx context.Context, workspaceDir
 			workspaceDir = "."
 		}
 	}
-
-	// Get file extensions for the configured languages
 	extensions := w.GetLanguageExtensions(languages)
 	common.LSPLogger.Debug("Workspace indexer: Detected languages: %v", languages)
 	common.LSPLogger.Debug("Workspace indexer: Looking for extensions: %v", extensions)
-
-	// Scan for source files
 	files := w.ScanWorkspaceSourceFiles(workspaceDir, extensions, maxFiles)
 	common.LSPLogger.Debug("Workspace indexer: Found %d source files in %s", len(files), workspaceDir)
-
 	if len(files) == 0 {
 		common.LSPLogger.Warn("Workspace indexer: No source files found for indexing")
 		return nil
 	}
-
-	// Index each file's document symbols
+	if progress != nil {
+		progress("index_start", 0, len(files), "")
+	}
 	indexedCount := 0
 	failedFiles := []string{}
 	common.LSPLogger.Debug("Workspace indexer: Starting to process %d files", len(files))
-	for _, file := range files {
-		// Convert to file URI
-		absPath, err := filepath.Abs(file)
-		if err != nil {
-			common.LSPLogger.Warn("Failed to get absolute path for %s: %v", file, err)
-			failedFiles = append(failedFiles, file)
-			continue
-		}
-		uri := "file://" + absPath
 
-		// First open the document
-		fileContent, readErr := os.ReadFile(absPath)
-		if readErr != nil {
-			common.LSPLogger.Debug("Failed to read file %s: %v", file, readErr)
-			failedFiles = append(failedFiles, file)
-			continue
-		}
-
-		// Open document first
-		openParams := map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri":        uri,
-				"languageId": detectLanguageID(file),
-				"version":    1,
-				"text":       string(fileContent),
-			},
-		}
-
-		_, openErr := w.lspFallback.ProcessRequest(ctx, types.MethodTextDocumentDidOpen, openParams)
-		if openErr != nil {
-			common.LSPLogger.Debug("Failed to open document %s: %v", file, openErr)
-			// Continue anyway, some LSP servers don't require didOpen
-		}
-
-		// Get document symbols for this file
-		params := map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri": uri,
-			},
-		}
-
-		result, err := w.lspFallback.ProcessRequest(ctx, types.MethodTextDocumentDocumentSymbol, params)
-
-		// Close the document after processing
-		closeParams := map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri": uri,
-			},
-		}
-		w.lspFallback.ProcessRequest(ctx, "textDocument/didClose", closeParams)
-		if err != nil {
-			common.LSPLogger.Debug("Failed to get document symbols for %s: %v", file, err)
-			failedFiles = append(failedFiles, file)
-			continue
-		}
-
-		// The ProcessRequest will automatically trigger indexing via indexDocumentSymbols
-		// But let's log the result to see what we got
-		if result != nil {
-			indexedCount++
-		}
+	workers := runtime.NumCPU()
+	if workers < 2 {
+		workers = 2
 	}
+	if workers > 16 {
+		workers = 16
+	}
+	var mu sync.Mutex
+	jobs := make(chan int, workers)
+	total := len(files)
 
-	// Report partial failures if any
+	var wg sync.WaitGroup
+	for wkr := 0; wkr < workers; wkr++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for idx := range jobs {
+				file := files[idx]
+				absPath, err := filepath.Abs(file)
+				if err != nil {
+					mu.Lock()
+					failedFiles = append(failedFiles, file)
+					if progress != nil {
+						progress("index_file", idx+1, total, file)
+					}
+					mu.Unlock()
+					continue
+				}
+				uri := "file://" + absPath
+				// Use shared context to avoid missing indexes due to per-file timeouts
+				fctx, cancel := context.WithCancel(ctx)
+				params := map[string]interface{}{
+					"textDocument": map[string]interface{}{
+						"uri": uri,
+					},
+				}
+				result, err := w.lspFallback.ProcessRequest(fctx, types.MethodTextDocumentDocumentSymbol, params)
+				cancel()
+				mu.Lock()
+				if err != nil {
+					failedFiles = append(failedFiles, file)
+				} else if result != nil {
+					indexedCount++
+				}
+				if progress != nil {
+					progress("index_file", idx+1, total, file)
+				}
+				mu.Unlock()
+			}
+		}()
+	}
+	for i := range files {
+		jobs <- i
+	}
+	close(jobs)
+	wg.Wait()
 	if len(failedFiles) > 0 {
 		common.LSPLogger.Warn("Failed to index %d out of %d files", len(failedFiles), len(files))
 		if len(failedFiles) <= 10 {
-			// Show specific files if not too many
 			for _, file := range failedFiles {
 				common.LSPLogger.Debug("  Failed: %s", file)
 			}
 		} else {
-			// Just show count if too many
 			common.LSPLogger.Debug("  First few failed files: %v...", failedFiles[:5])
 		}
 	}
-
 	common.LSPLogger.Debug("Workspace indexer: Completed processing. Indexed %d files, %d failed", indexedCount, len(failedFiles))
+	if progress != nil {
+		progress("index_complete", indexedCount, len(files), "")
+	}
 	return nil
 }
 

@@ -3,11 +3,13 @@ package cli
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	clicommon "lsp-gateway/src/cli/common"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server/cache"
+	"lsp-gateway/src/server/scip"
 )
 
 // IndexCache rebuilds the cache index by processing workspace files
@@ -58,9 +60,32 @@ func IndexCache(configPath string) error {
 		initialDocCount = initialStats.DocumentCount
 	}
 
-	// Use the cache manager's workspace indexing method
 	if cacheManager, ok := cacheInstance.(*cache.SCIPCacheManager); ok {
-		if err := cacheManager.PerformWorkspaceIndexing(ctx, wd, manager); err != nil {
+		progress := func(phase string, current, total int, detail string) {
+			switch phase {
+			case "index_start":
+				common.CLILogger.Info("Indexing %d files", total)
+			case "index_file":
+				if verbose {
+					common.CLILogger.Info("Indexed %d/%d: %s", current, total, detail)
+				} else if current%50 == 0 || current == total {
+					common.CLILogger.Info("Indexed %d/%d files", current, total)
+				}
+			case "index_complete":
+				common.CLILogger.Info("Indexed %d/%d files", current, total)
+			case "references_start":
+				common.CLILogger.Info("Processing references for %d symbols", total)
+			case "references":
+				if verbose {
+					common.CLILogger.Info("References %d/%d", current, total)
+				} else if current%100 == 0 || current == total {
+					common.CLILogger.Info("References %d/%d", current, total)
+				}
+			case "references_complete":
+				common.CLILogger.Info("References processed: %d", current)
+			}
+		}
+		if err := cacheManager.PerformWorkspaceIndexingWithProgress(ctx, wd, manager, progress); err != nil {
 			common.CLILogger.Error("❌ Failed to perform workspace indexing: %v", err)
 			return err
 		}
@@ -188,6 +213,7 @@ func ShowCacheInfo(configPath string) error {
 	if indexStats != nil && indexStats.Status != "disabled" {
 		common.CLILogger.Info("")
 		common.CLILogger.Info("Index Statistics:")
+		common.CLILogger.Info("  • Status: %s", indexStats.Status)
 		common.CLILogger.Info("  • Indexed Documents: %d", indexStats.DocumentCount)
 		common.CLILogger.Info("  • Indexed Symbols: %d", indexStats.SymbolCount)
 		common.CLILogger.Info("  • Indexed References: %d", indexStats.ReferenceCount)
@@ -196,11 +222,35 @@ func ShowCacheInfo(configPath string) error {
 			common.CLILogger.Info("  • Index Size: %s", clicommon.FormatBytes(indexStats.IndexSize))
 		}
 
+		// Derived metrics
+		if indexStats.DocumentCount > 0 && indexStats.SymbolCount > 0 {
+			avgSymsPerDoc := float64(indexStats.SymbolCount) / float64(indexStats.DocumentCount)
+			common.CLILogger.Info("  • Symbols per Doc: %.1f", avgSymsPerDoc)
+		}
+		if indexStats.SymbolCount > 0 && indexStats.ReferenceCount > 0 {
+			avgRefsPerSym := float64(indexStats.ReferenceCount) / float64(indexStats.SymbolCount)
+			common.CLILogger.Info("  • Refs per Symbol: %.1f", avgRefsPerSym)
+		}
+		if indexStats.DocumentCount > 0 && indexStats.ReferenceCount > 0 {
+			avgRefsPerDoc := float64(indexStats.ReferenceCount) / float64(indexStats.DocumentCount)
+			common.CLILogger.Info("  • Refs per Doc: %.1f", avgRefsPerDoc)
+		}
+
 		// Display per-language statistics if available
 		if len(indexStats.LanguageStats) > 0 {
-			common.CLILogger.Info("  • Languages:")
+			// Sort languages by symbol count desc
+			type langCount struct {
+				lang  string
+				count int64
+			}
+			list := make([]langCount, 0, len(indexStats.LanguageStats))
 			for lang, count := range indexStats.LanguageStats {
-				common.CLILogger.Info("    - %s: %d symbols", lang, count)
+				list = append(list, langCount{lang, count})
+			}
+			sort.Slice(list, func(i, j int) bool { return list[i].count > list[j].count })
+			common.CLILogger.Info("  • Languages (%d):", len(list))
+			for _, lc := range list {
+				common.CLILogger.Info("    - %s: %d symbols", lc.lang, lc.count)
 			}
 		}
 
@@ -213,6 +263,28 @@ func ShowCacheInfo(configPath string) error {
 				common.CLILogger.Info("  • Last Updated: %d minutes ago", int(timeSinceUpdate.Minutes()))
 			} else {
 				common.CLILogger.Info("  • Last Updated: %d hours ago", int(timeSinceUpdate.Hours()))
+			}
+		}
+
+		// Storage details and index hit rate
+		if cfg != nil && cfg.Cache != nil {
+			disk := "disabled"
+			if cfg.Cache.DiskCache {
+				disk = "enabled"
+			}
+			if cfg.Cache.StoragePath != "" {
+				common.CLILogger.Info("  • Disk Cache: %s (%s)", disk, cfg.Cache.StoragePath)
+			} else {
+				common.CLILogger.Info("  • Disk Cache: %s", disk)
+			}
+		}
+
+		if scipStorage := cacheInstance.GetSCIPStorage(); scipStorage != nil {
+			if sstats, ok := scipStorage.(scip.SCIPDocumentStorage); ok {
+				s := sstats.GetIndexStats()
+				if s.HitRate > 0 {
+					common.CLILogger.Info("  • Index Hit Rate: %.1f%%", s.HitRate*100)
+				}
 			}
 		}
 	}
