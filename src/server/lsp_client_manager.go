@@ -488,12 +488,6 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 			},
 		},
 		"trace": "off",
-		"workspaceFolders": []map[string]interface{}{
-			{
-				"uri":  "file://" + wd,
-				"name": "workspace",
-			},
-		},
 	}
 
 	result, err := c.SendRequest(ctx, types.MethodInitialize, initParams)
