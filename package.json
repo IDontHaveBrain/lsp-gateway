@@ -1,6 +1,6 @@
 {
-  "name": "lsp-gateway", 
-  "version": "0.0.4",
+  "name": "lsp-gateway",
+  "version": "0.0.5",
   "description": "Local LSP gateway for development - HTTP JSON-RPC and MCP server for 5 languages",
   "main": "lib/index.js",
   "bin": {
@@ -8,7 +8,7 @@
   },
   "scripts": {
     "server": "node bin/lsp-gateway.js server",
-    "mcp": "node bin/lsp-gateway.js mcp", 
+    "mcp": "node bin/lsp-gateway.js mcp",
     "status": "node bin/lsp-gateway.js status",
     "test": "node bin/lsp-gateway.js test",
     "version": "node bin/lsp-gateway.js version",
@@ -26,10 +26,10 @@
     "gateway",
     "local-development",
     "development-tools",
-    "go", 
+    "go",
     "python",
     "typescript",
-    "javascript", 
+    "javascript",
     "java",
     "gopls",
     "pylsp",
@@ -54,7 +54,7 @@
   },
   "os": [
     "darwin",
-    "linux", 
+    "linux",
     "win32"
   ],
   "cpu": [
