@@ -175,16 +175,17 @@ type SCIPCache interface {
 
 // SCIPCacheManager implements simple in-memory cache with occurrence-centric SCIP storage
 type SCIPCacheManager struct {
-	entries     map[string]*CacheEntry
-	config      *config.CacheConfig
-	stats       *SimpleCacheStats
-	mu          sync.RWMutex
-	enabled     bool
-	started     bool
-	scipStorage scip.SCIPDocumentStorage
-	indexStats  *IndexStats
-	indexMu     sync.RWMutex
-	converter   *SCIPConverter
+	entries      map[string]*CacheEntry
+	config       *config.CacheConfig
+	stats        *SimpleCacheStats
+	mu           sync.RWMutex
+	enabled      bool
+	started      bool
+	scipStorage  scip.SCIPDocumentStorage
+	indexStats   *IndexStats
+	indexMu      sync.RWMutex
+	converter    *SCIPConverter
+	fileTracker  *FileChangeTracker
 }
 
 // NewSCIPCacheManager creates a simple cache manager with unified config
@@ -221,6 +222,7 @@ func NewSCIPCacheManager(configParam *config.CacheConfig) (*SCIPCacheManager, er
 			IndexedLanguages: []string{},
 			Status:           "initialized",
 		},
+		fileTracker: NewFileChangeTracker(),
 	}
 
 	// Initialize the generic SCIP converter with package detection
@@ -258,6 +260,11 @@ func (m *SCIPCacheManager) Start(ctx context.Context) error {
 		if err := m.LoadIndexFromDisk(); err != nil {
 			// Index will be built as needed
 		}
+		// Load file tracker metadata
+		metadataPath := filepath.Join(m.config.StoragePath, "file_metadata.json")
+		if err := m.fileTracker.LoadFromFile(metadataPath); err != nil {
+			common.LSPLogger.Warn("Failed to load file metadata: %v", err)
+		}
 	}
 
 	m.started = true
@@ -271,6 +278,14 @@ func (m *SCIPCacheManager) Stop() error {
 
 	if !m.started {
 		return nil
+	}
+
+	// Save file tracker metadata before stopping
+	if m.config.DiskCache && m.config.StoragePath != "" {
+		metadataPath := filepath.Join(m.config.StoragePath, "file_metadata.json")
+		if err := m.fileTracker.SaveToFile(metadataPath); err != nil {
+			common.LSPLogger.Warn("Failed to save file metadata: %v", err)
+		}
 	}
 
 	if err := m.scipStorage.Stop(context.Background()); err != nil {
@@ -434,6 +449,11 @@ func (m *SCIPCacheManager) Clear() error {
 	defer m.mu.Unlock()
 
 	m.entries = make(map[string]*CacheEntry)
+	
+	// Clear file tracker
+	if m.fileTracker != nil {
+		m.fileTracker.Clear()
+	}
 
 	if err := m.scipStorage.Stop(context.Background()); err != nil {
 		common.LSPLogger.Debug("Failed to stop SCIP storage: %v", err)
@@ -1991,4 +2011,12 @@ func (m *SCIPCacheManager) GetSCIPStorage() scip.SCIPDocumentStorage {
 		return nil
 	}
 	return m.scipStorage
+}
+
+// GetTrackedFileCount returns the number of files tracked for incremental indexing
+func (m *SCIPCacheManager) GetTrackedFileCount() int {
+	if m == nil || m.fileTracker == nil {
+		return 0
+	}
+	return m.fileTracker.GetIndexedFileCount()
 }

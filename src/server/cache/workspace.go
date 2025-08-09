@@ -229,3 +229,97 @@ func (w *WorkspaceIndexer) ScanWorkspaceSourceFiles(dir string, extensions []str
 	common.LSPLogger.Debug("ScanWorkspaceSourceFiles: Scan complete. Found %d files", len(files))
 	return files
 }
+
+// IndexSpecificFiles indexes only the specified files
+func (w *WorkspaceIndexer) IndexSpecificFiles(ctx context.Context, files []string, progress IndexProgressFunc) error {
+	if w.lspFallback == nil {
+		return fmt.Errorf("lspFallback is nil")
+	}
+
+	if len(files) == 0 {
+		common.LSPLogger.Debug("IndexSpecificFiles: No files to index")
+		return nil
+	}
+
+	common.LSPLogger.Debug("IndexSpecificFiles: Indexing %d specific files", len(files))
+
+	if progress != nil {
+		progress("index_start", 0, len(files), "")
+	}
+
+	indexedCount := 0
+	failedFiles := []string{}
+
+	workers := runtime.NumCPU()
+	if workers < 2 {
+		workers = 2
+	}
+	if workers > 16 {
+		workers = 16
+	}
+
+	var mu sync.Mutex
+	jobs := make(chan int, workers)
+	total := len(files)
+
+	var wg sync.WaitGroup
+	for wkr := 0; wkr < workers; wkr++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for idx := range jobs {
+				file := files[idx]
+				absPath, err := filepath.Abs(file)
+				if err != nil {
+					mu.Lock()
+					failedFiles = append(failedFiles, file)
+					if progress != nil {
+						progress("index_file", idx+1, total, file)
+					}
+					mu.Unlock()
+					continue
+				}
+
+				uri := "file://" + absPath
+				fctx, cancel := context.WithCancel(ctx)
+				params := map[string]interface{}{
+					"textDocument": map[string]interface{}{
+						"uri": uri,
+					},
+				}
+
+				result, err := w.lspFallback.ProcessRequest(fctx, types.MethodTextDocumentDocumentSymbol, params)
+				cancel()
+
+				mu.Lock()
+				if err != nil {
+					failedFiles = append(failedFiles, file)
+				} else if result != nil {
+					indexedCount++
+				}
+				if progress != nil {
+					progress("index_file", idx+1, total, file)
+				}
+				mu.Unlock()
+			}
+		}()
+	}
+
+	for i := range files {
+		jobs <- i
+	}
+	close(jobs)
+	wg.Wait()
+
+	if len(failedFiles) > 0 {
+		common.LSPLogger.Warn("Failed to index %d out of %d files", len(failedFiles), len(files))
+	}
+
+	common.LSPLogger.Debug("IndexSpecificFiles: Completed. Indexed %d files, %d failed", indexedCount, len(failedFiles))
+
+	if progress != nil {
+		progress("index_complete", indexedCount, len(files), "")
+	}
+
+	return nil
+}
