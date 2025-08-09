@@ -328,13 +328,18 @@ func (suite *SCIPCacheE2ETestSuite) TestCacheConcurrency() {
 func (suite *SCIPCacheE2ETestSuite) TestWorkspaceSymbolCache() {
 	ctx := context.Background()
 
+	// On Windows, give gopls more time to initialize workspace
+	if runtime.GOOS == "windows" {
+		time.Sleep(2 * time.Second)
+	}
+
 	workspaceParams := map[string]interface{}{
 		"query": "Server",
 	}
 
 	result1, err := suite.manager.ProcessRequest(ctx, "workspace/symbol", workspaceParams)
 	suite.Require().NoError(err)
-	suite.Require().NotNil(result1)
+	suite.Require().NotNil(result1, "workspace/symbol should return non-nil result")
 
 	time.Sleep(100 * time.Millisecond)
 

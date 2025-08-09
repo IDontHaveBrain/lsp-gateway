@@ -489,12 +489,25 @@ func (m *LSPManager) parseSymbols(result interface{}, uri string) []types.Symbol
 		}
 		return symbols
 	case json.RawMessage:
+		// First try to unmarshal as array
 		var rawData []interface{}
-		if err := json.Unmarshal(v, &rawData); err != nil {
-			common.LSPLogger.Warn("Failed to unmarshal json.RawMessage for %s: %v", uri, err)
+		if err := json.Unmarshal(v, &rawData); err == nil {
+			return m.parseSymbolsArray(rawData, uri)
+		}
+		
+		// If array unmarshal failed, try as object (error response)
+		var errorResp map[string]interface{}
+		if err := json.Unmarshal(v, &errorResp); err == nil {
+			if errMsg, ok := errorResp["error"]; ok {
+				common.LSPLogger.Warn("Document symbol error response for %s: %v", uri, errMsg)
+			} else {
+				common.LSPLogger.Warn("Unexpected object response for document symbols from %s", uri)
+			}
 			return symbols
 		}
-		return m.parseSymbolsArray(rawData, uri)
+		
+		common.LSPLogger.Warn("Failed to unmarshal json.RawMessage for %s", uri)
+		return symbols
 	case []interface{}:
 		return m.parseSymbolsArray(v, uri)
 	default:

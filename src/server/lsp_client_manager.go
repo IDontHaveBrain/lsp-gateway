@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -376,7 +378,11 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 	// Use current working directory, but fallback to /tmp if needed
 	wd, err := os.Getwd()
 	if err != nil {
-		wd = "/tmp"
+		if runtime.GOOS == "windows" {
+			wd = "C:\\temp"
+		} else {
+			wd = "/tmp"
+		}
 	}
 
 	// Send initialize request according to LSP specification
@@ -387,6 +393,13 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 			"version": "1.0.0",
 		},
 		"rootUri":               utils.FilePathToURI(wd),
+		"rootPath":              wd,
+		"workspaceFolders": []map[string]interface{}{
+			{
+				"uri":  utils.FilePathToURI(wd),
+				"name": filepath.Base(wd),
+			},
+		},
 		"initializationOptions": nil,
 		"capabilities": map[string]interface{}{
 			"workspace": map[string]interface{}{
