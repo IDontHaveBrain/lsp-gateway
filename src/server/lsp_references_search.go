@@ -10,7 +10,6 @@ import (
 	"strings"
 
 	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/scip"
@@ -259,16 +258,16 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 
 				// Process each result as a potential reference with legacy format
 				for _, result := range indexResult.Results {
-					var symbolInfo *lsp.SymbolInformation
+					var symbolInfo *types.SymbolInformation
 
 					// Extract symbol information from various result types
 					if scipSymbol, ok := result.(*cache.SCIPSymbol); ok {
 						symbolInfo = &scipSymbol.SymbolInfo
-					} else if si, ok := result.(lsp.SymbolInformation); ok {
+					} else if si, ok := result.(types.SymbolInformation); ok {
 						symbolInfo = &si
 					} else if resultMap, ok := result.(map[string]interface{}); ok {
 						if symbolInfoData, hasSymbolInfo := resultMap["symbol_info"]; hasSymbolInfo {
-							if si, ok := symbolInfoData.(lsp.SymbolInformation); ok {
+							if si, ok := symbolInfoData.(types.SymbolInformation); ok {
 								symbolInfo = &si
 							}
 						}
@@ -335,7 +334,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 		wsParams := map[string]interface{}{
 			"query": query.Pattern,
 		}
-		
+
 		if wsResult, wsErr := m.ProcessRequest(ctx, "workspace/symbol", wsParams); wsErr == nil && wsResult != nil {
 			// Parse workspace symbol results
 			var wsSymbols []interface{}
@@ -349,18 +348,18 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 			} else if symbols, ok := wsResult.([]interface{}); ok {
 				wsSymbols = symbols
 			}
-			
+
 			// For each symbol found, try to get references from its location
 			// Limit the number of LSP requests to avoid overwhelming the server
 			maxLSPRequests := 5
 			lspRequestCount := 0
-			
+
 			for _, wsSymbol := range wsSymbols {
 				// Stop making LSP requests if we've hit the limit
 				if lspRequestCount >= maxLSPRequests {
 					break
 				}
-				
+
 				if symbolMap, ok := wsSymbol.(map[string]interface{}); ok {
 					// First add the symbol itself as a reference
 					if location, hasLocation := symbolMap["location"].(map[string]interface{}); hasLocation {
@@ -369,7 +368,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 								if start, hasStart := rangeMap["start"].(map[string]interface{}); hasStart {
 									line, _ := start["line"].(float64)
 									char, _ := start["character"].(float64)
-									
+
 									// Add the symbol location itself as a reference
 									filePath := utils.URIToFilePath(uri)
 									if filePath != "" && m.matchesFilePattern(filePath, query.FilePattern) {
@@ -380,7 +379,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 											IsDefinition: false,
 											IsReadAccess: true,
 										}
-										
+
 										// Check for duplicates
 										isDuplicate := false
 										for _, existing := range references {
@@ -395,11 +394,11 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 											references = append(references, refInfo)
 										}
 									}
-									
+
 									// Only try to get actual references for a limited number of symbols
 									if lspRequestCount < maxLSPRequests {
 										lspRequestCount++
-										
+
 										// Try to get references from this position
 										refParams := map[string]interface{}{
 											"textDocument": map[string]interface{}{
@@ -413,11 +412,11 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 												"includeDeclaration": true,
 											},
 										}
-										
+
 										if refResult, refErr := m.ProcessRequest(ctx, "textDocument/references", refParams); refErr == nil && refResult != nil {
 											// Parse reference results
 											var parsedLocations []interface{}
-											
+
 											if rawMsg, ok := refResult.(json.RawMessage); ok {
 												var locations []map[string]interface{}
 												if jsonErr := json.Unmarshal(rawMsg, &locations); jsonErr == nil {
@@ -428,7 +427,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 											} else if locs, ok := refResult.([]interface{}); ok {
 												parsedLocations = locs
 											}
-											
+
 											// Process parsed locations
 											for _, ref := range parsedLocations {
 												if location, ok := ref.(map[string]interface{}); ok {
@@ -485,17 +484,17 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 		// If no cache available, try to find definition via LSP workspace symbols
 		if fallbackDefRef == nil && m.scipCache == nil {
 			common.LSPLogger.Debug("[SearchSymbolReferences] No cache available, trying workspace symbol search for pattern: %s", query.Pattern)
-			
+
 			// Use workspace/symbol LSP request to find symbols matching the pattern
 			wsParams := map[string]interface{}{
 				"query": query.Pattern,
 			}
-			
+
 			wsResult, wsErr := m.ProcessRequest(ctx, "workspace/symbol", wsParams)
 			if wsErr == nil && wsResult != nil {
 				// Parse workspace symbol result
 				var symbols []interface{}
-				
+
 				if rawMsg, ok := wsResult.(json.RawMessage); ok {
 					if err := json.Unmarshal([]byte(rawMsg), &symbols); err == nil {
 						for _, sym := range symbols {
@@ -901,7 +900,7 @@ func (m *LSPManager) occurrencesMatch(a, b scip.SCIPOccurrence) bool {
 }
 
 // createLegacyReferenceInfo creates ReferenceInfo from LSP SymbolInformation (fallback)
-func (m *LSPManager) createLegacyReferenceInfo(symbolInfo lsp.SymbolInformation) ReferenceInfo {
+func (m *LSPManager) createLegacyReferenceInfo(symbolInfo types.SymbolInformation) ReferenceInfo {
 	refInfo := ReferenceInfo{
 		FilePath:   utils.URIToFilePath(symbolInfo.Location.URI),
 		LineNumber: int(symbolInfo.Location.Range.Start.Line),

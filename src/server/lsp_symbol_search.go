@@ -171,7 +171,7 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 								enrichedSymbols = append(enrichedSymbols, *enrichedResult)
 							}
 						}
-					} else if symbolInfo, ok := sym.(lsp.SymbolInformation); ok {
+					} else if symbolInfo, ok := sym.(types.SymbolInformation); ok {
 						// Convert to enriched format for consistency
 						enrichedResult := m.convertToEnrichedResult(symbolInfo, query)
 						if enrichedResult != nil {
@@ -281,8 +281,8 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 }
 
 // mapToSymbolInfo converts a map to SymbolInformation
-func (m *LSPManager) mapToSymbolInfo(symbolMap map[string]interface{}) *lsp.SymbolInformation {
-	symbol := &lsp.SymbolInformation{}
+func (m *LSPManager) mapToSymbolInfo(symbolMap map[string]interface{}) *types.SymbolInformation {
+	symbol := &types.SymbolInformation{}
 
 	if name, ok := symbolMap["name"].(string); ok {
 		symbol.Name = name
@@ -467,7 +467,7 @@ func (m *LSPManager) createEnrichedSymbolResult(ctx context.Context, scipStorage
 	}
 
 	// Convert SCIP symbol information to LSP format for consistency
-	lspSymbol := lsp.SymbolInformation{
+	lspSymbol := types.SymbolInformation{
 		Name: symbolInfo.DisplayName,
 		Kind: m.mapSCIPKindToLSP(symbolInfo.Kind),
 		Location: types.Location{
@@ -502,7 +502,7 @@ func (m *LSPManager) createEnrichedSymbolResult(ctx context.Context, scipStorage
 		}
 	}
 
-	// Convert lsp.SymbolInformation to types.SymbolInformation
+	// Convert types.SymbolInformation to types.SymbolInformation
 	typesSymbol := types.SymbolInformation{
 		Name:           lspSymbol.Name,
 		Kind:           lspSymbol.Kind,
@@ -543,8 +543,8 @@ func (m *LSPManager) createEnrichedSymbolResult(ctx context.Context, scipStorage
 }
 
 // convertToEnrichedResult converts LSP symbol to enriched result (for fallback cases)
-func (m *LSPManager) convertToEnrichedResult(symbol lsp.SymbolInformation, query types.SymbolPatternQuery) *EnhancedSymbolResult {
-	// Convert lsp.SymbolInformation to types.SymbolInformation
+func (m *LSPManager) convertToEnrichedResult(symbol types.SymbolInformation, query types.SymbolPatternQuery) *EnhancedSymbolResult {
+	// Convert types.SymbolInformation to types.SymbolInformation
 	typesSymbol := types.SymbolInformation{
 		Name:           symbol.Name,
 		Kind:           symbol.Kind,

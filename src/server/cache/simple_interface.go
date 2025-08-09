@@ -29,7 +29,7 @@ type SimpleCache interface {
 	IsEnabled() bool
 
 	// SCIP indexing capabilities - integrated as core functionality
-	IndexDocument(ctx context.Context, uri string, language string, symbols []lsp.SymbolInformation) error
+	IndexDocument(ctx context.Context, uri string, language string, symbols []types.SymbolInformation) error
 	QueryIndex(ctx context.Context, query *IndexQuery) (*IndexResult, error)
 	GetIndexStats() *IndexStats
 	UpdateIndex(ctx context.Context, files []string) error

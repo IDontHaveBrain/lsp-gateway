@@ -1,6 +1,10 @@
 package constants
 
-import "time"
+import (
+	"time"
+
+	"lsp-gateway/src/internal/registry"
+)
 
 // Timeout constants for LSP operations
 const (
@@ -56,12 +60,16 @@ const (
 )
 
 // Supported file extensions by language
-var SupportedExtensions = map[string][]string{
-	"go":         {".go"},
-	"python":     {".py", ".pyi"},
-	"javascript": {".js", ".jsx", ".mjs"},
-	"typescript": {".ts", ".tsx", ".d.ts"},
-	"java":       {".java"},
+var SupportedExtensions map[string][]string
+
+// init initializes SupportedExtensions from registry on package load
+func init() {
+	SupportedExtensions = registry.GetSupportedExtensions()
+}
+
+// getSupportedExtensions returns the SupportedExtensions map
+func getSupportedExtensions() map[string][]string {
+	return SupportedExtensions
 }
 
 // Directories to skip during file scanning
@@ -82,9 +90,10 @@ var SkipDirectories = map[string]bool{
 
 // GetAllSupportedExtensions returns all supported file extensions
 func GetAllSupportedExtensions() []string {
+	supportedExts := getSupportedExtensions()
 	extensions := make([]string, 0)
 	seen := make(map[string]bool)
-	for _, exts := range SupportedExtensions {
+	for _, exts := range supportedExts {
 		for _, ext := range exts {
 			if !seen[ext] {
 				extensions = append(extensions, ext)

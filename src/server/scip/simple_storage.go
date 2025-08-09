@@ -99,12 +99,12 @@ func (s *SimpleSCIPStorage) Start(ctx context.Context) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-    if s.started {
-        common.LSPLogger.Debug("[SimpleSCIPStorage.Start] Storage already started, returning")
-        return fmt.Errorf("storage already started")
-    }
+	if s.started {
+		common.LSPLogger.Debug("[SimpleSCIPStorage.Start] Storage already started, returning")
+		return fmt.Errorf("storage already started")
+	}
 
-    common.LSPLogger.Debug("[SimpleSCIPStorage.Start] Starting SCIP storage, disk file: %s", s.diskFile)
+	common.LSPLogger.Debug("[SimpleSCIPStorage.Start] Starting SCIP storage, disk file: %s", s.diskFile)
 
 	// Create directory
 	if err := os.MkdirAll(s.config.DiskCacheDir, 0755); err != nil {
@@ -114,9 +114,9 @@ func (s *SimpleSCIPStorage) Start(ctx context.Context) error {
 	// Load from disk if available
 	s.loadFromDisk()
 
-    s.started = true
-    common.LSPLogger.Debug("[SimpleSCIPStorage.Start] Storage started successfully with %d symbols in symbolNameIndex", len(s.symbolNameIndex))
-    return nil
+	s.started = true
+	common.LSPLogger.Debug("[SimpleSCIPStorage.Start] Storage started successfully with %d symbols in symbolNameIndex", len(s.symbolNameIndex))
+	return nil
 }
 
 // Stop gracefully shuts down the storage
@@ -822,9 +822,9 @@ func (s *SimpleSCIPStorage) cloneDocument(doc *SCIPDocument) *SCIPDocument {
 
 // saveToDisk saves the occurrence-centric cache to disk as JSON (optional persistence)
 func (s *SimpleSCIPStorage) saveToDisk() error {
-    if s.diskFile == "" {
-        return nil
-    }
+	if s.diskFile == "" {
+		return nil
+	}
 
 	common.LSPLogger.Debug("[saveToDisk] Saving cache with %d documents, %d symbols", len(s.documents), len(s.symbolInfoIndex))
 
@@ -864,11 +864,11 @@ func (s *SimpleSCIPStorage) saveToDisk() error {
 		SavedAt:           time.Now(),
 	}
 
-    // Ensure parent directory exists in case it was removed
-    if err := os.MkdirAll(filepath.Dir(s.diskFile), 0755); err != nil {
-        return fmt.Errorf("failed to create cache directory: %w", err)
-    }
-    file, err := os.Create(s.diskFile)
+	// Ensure parent directory exists in case it was removed
+	if err := os.MkdirAll(filepath.Dir(s.diskFile), 0755); err != nil {
+		return fmt.Errorf("failed to create cache directory: %w", err)
+	}
+	file, err := os.Create(s.diskFile)
 	if err != nil {
 		return fmt.Errorf("failed to create cache file: %w", err)
 	}
@@ -961,7 +961,7 @@ func (s *SimpleSCIPStorage) loadFromDisk() error {
 
 	// Restore symbolNameIndex if present
 	if data.SymbolNameIndex != nil && len(data.SymbolNameIndex) > 0 {
-        common.LSPLogger.Debug("[loadFromDisk] Loading symbolNameIndex from disk with %d entries", len(data.SymbolNameIndex))
+		common.LSPLogger.Debug("[loadFromDisk] Loading symbolNameIndex from disk with %d entries", len(data.SymbolNameIndex))
 		s.symbolNameIndex = make(map[string][]*SCIPSymbolInformation)
 		for name, symbols := range data.SymbolNameIndex {
 			for i := range symbols {
@@ -970,23 +970,23 @@ func (s *SimpleSCIPStorage) loadFromDisk() error {
 				s.symbolNameIndex[name] = append(s.symbolNameIndex[name], &sym)
 			}
 		}
-        common.LSPLogger.Debug("[loadFromDisk] Loaded symbolNameIndex with %d unique names", len(s.symbolNameIndex))
+		common.LSPLogger.Debug("[loadFromDisk] Loaded symbolNameIndex with %d unique names", len(s.symbolNameIndex))
 	} else {
-        common.LSPLogger.Debug("[loadFromDisk] No symbolNameIndex in saved data, will rebuild from symbolInfoIndex")
+		common.LSPLogger.Debug("[loadFromDisk] No symbolNameIndex in saved data, will rebuild from symbolInfoIndex")
 		s.symbolNameIndex = make(map[string][]*SCIPSymbolInformation)
 	}
 
 	// Rebuild the other indexes from documents
-    common.LSPLogger.Debug("[loadFromDisk] About to rebuild other indexes from documents, symbolInfoIndex has %d entries", len(s.symbolInfoIndex))
+	common.LSPLogger.Debug("[loadFromDisk] About to rebuild other indexes from documents, symbolInfoIndex has %d entries", len(s.symbolInfoIndex))
 	s.rebuildIndexesFromDocuments()
 
 	// Log statistics after loading
-    common.LSPLogger.Debug("[loadFromDisk] SCIP storage loaded: %d documents, %d symbols, %d symbol names in index, %d occurrences",
-        len(s.documents), len(s.symbolInfoIndex), len(s.symbolNameIndex), len(s.occurrencesByURI))
+	common.LSPLogger.Debug("[loadFromDisk] SCIP storage loaded: %d documents, %d symbols, %d symbol names in index, %d occurrences",
+		len(s.documents), len(s.symbolInfoIndex), len(s.symbolNameIndex), len(s.occurrencesByURI))
 
 	// Check if NewLSPManager is in the symbolNameIndex
 	if symbols, found := s.symbolNameIndex["NewLSPManager"]; found {
-        common.LSPLogger.Debug("[loadFromDisk] NewLSPManager found in symbolNameIndex with %d entries", len(symbols))
+		common.LSPLogger.Debug("[loadFromDisk] NewLSPManager found in symbolNameIndex with %d entries", len(symbols))
 	} else {
 		common.LSPLogger.Warn("[loadFromDisk] NewLSPManager NOT found in symbolNameIndex!")
 	}
@@ -1007,22 +1007,22 @@ func (s *SimpleSCIPStorage) rebuildIndexesFromDocuments() {
 		s.symbolNameIndex = make(map[string][]*SCIPSymbolInformation)
 
 		// Rebuild from symbol info index
-        common.LSPLogger.Debug("[rebuildIndexesFromDocuments] Rebuilding symbolNameIndex from %d symbols in symbolInfoIndex", len(s.symbolInfoIndex))
+		common.LSPLogger.Debug("[rebuildIndexesFromDocuments] Rebuilding symbolNameIndex from %d symbols in symbolInfoIndex", len(s.symbolInfoIndex))
 		addedCount := 0
 		for symbolID, symbolInfo := range s.symbolInfoIndex {
 			if symbolInfo != nil && symbolInfo.DisplayName != "" {
 				s.symbolNameIndex[symbolInfo.DisplayName] = append(s.symbolNameIndex[symbolInfo.DisplayName], symbolInfo)
 				addedCount++
 				if symbolInfo.DisplayName == "NewLSPManager" {
-                    common.LSPLogger.Debug("[rebuildIndexesFromDocuments] Found NewLSPManager! Symbol ID: %s", symbolID)
+					common.LSPLogger.Debug("[rebuildIndexesFromDocuments] Found NewLSPManager! Symbol ID: %s", symbolID)
 				}
 			} else if symbolInfo != nil {
-                common.LSPLogger.Debug("[rebuildIndexesFromDocuments] Symbol %s has empty DisplayName", symbolID)
+				common.LSPLogger.Debug("[rebuildIndexesFromDocuments] Symbol %s has empty DisplayName", symbolID)
 			}
 		}
-        common.LSPLogger.Debug("[rebuildIndexesFromDocuments] Rebuilt symbolNameIndex with %d unique names from %d symbols", len(s.symbolNameIndex), addedCount)
+		common.LSPLogger.Debug("[rebuildIndexesFromDocuments] Rebuilt symbolNameIndex with %d unique names from %d symbols", len(s.symbolNameIndex), addedCount)
 	} else {
-        common.LSPLogger.Debug("[rebuildIndexesFromDocuments] symbolNameIndex already loaded from disk with %d entries, skipping rebuild", len(s.symbolNameIndex))
+		common.LSPLogger.Debug("[rebuildIndexesFromDocuments] symbolNameIndex already loaded from disk with %d entries, skipping rebuild", len(s.symbolNameIndex))
 	}
 
 	// Rebuild occurrence indexes from documents

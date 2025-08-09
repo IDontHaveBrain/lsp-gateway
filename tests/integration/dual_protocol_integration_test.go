@@ -17,6 +17,7 @@ import (
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
+	"lsp-gateway/src/tests/shared/testconfig"
 	"lsp-gateway/src/utils"
 
 	"runtime"
@@ -74,30 +75,17 @@ func handleError(err error) {
 	// Create proper URI for HTTP requests
 	testFileURI := utils.FilePathToURI(testFile)
 
-	cfg := &config.Config{
-		Cache: &config.CacheConfig{
-			Enabled:            true,
-			StoragePath:        t.TempDir(),
-			MaxMemoryMB:        128,
-			TTLHours:           1,
-			BackgroundIndex:    false,
-			HealthCheckMinutes: 5,
-			EvictionPolicy:     "lru",
-		},
-		Servers: map[string]*config.ServerConfig{
-			"go": &config.ServerConfig{
-				Command: "gopls",
-				Args:    []string{"serve"},
-			},
-			"python": &config.ServerConfig{
-				Command: "pylsp",
-				Args:    []string{},
-			},
-			"typescript": &config.ServerConfig{
-				Command: "typescript-language-server",
-				Args:    []string{"--stdio"},
-			},
-		},
+	cfg := testconfig.NewMultiLangConfig([]string{"go", "python", "typescript"})
+	cfg.Cache = &config.CacheConfig{
+		Enabled:            true,
+		StoragePath:        t.TempDir(),
+		MaxMemoryMB:        128,
+		TTLHours:           1,
+		BackgroundIndex:    false,
+		HealthCheckMinutes: 5,
+		EvictionPolicy:     "lru",
+		Languages:          []string{"go", "python", "typescript"},
+		DiskCache:          false,
 	}
 
 	scipCache, err := cache.NewSCIPCacheManager(cfg.Cache)
@@ -278,20 +266,8 @@ func TestDualProtocolResourceContention(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 
-	cfg := &config.Config{
-		Cache: &config.CacheConfig{
-			Enabled:     true,
-			StoragePath: t.TempDir(),
-			MaxMemoryMB: 8,
-			TTLHours:    1,
-		},
-		Servers: map[string]*config.ServerConfig{
-			"go": &config.ServerConfig{
-				Command: "gopls",
-				Args:    []string{"serve"},
-			},
-		},
-	}
+	cfg := testconfig.NewBasicGoConfig()
+	cfg.Cache = testconfig.NewCustomCacheConfig(true, 8, 1, t.TempDir())
 
 	scipCache, err := cache.NewSCIPCacheManager(cfg.Cache)
 	require.NoError(t, err)

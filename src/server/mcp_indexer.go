@@ -19,7 +19,7 @@ func (m *MCPServer) performInitialIndexing() {
 	// Wait a bit for LSP servers to fully initialize
 	time.Sleep(constants.MCPInitialIndexingDelay)
 
-	ctx, cancel := context.WithTimeout(context.Background(), constants.MCPIndexingTimeout)
+	ctx, cancel := common.CreateContext(constants.MCPIndexingTimeout)
 	defer cancel()
 
 	// First, try to get all workspace symbols using a broad query

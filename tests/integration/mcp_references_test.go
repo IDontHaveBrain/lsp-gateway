@@ -113,7 +113,7 @@ func main() {
 		t.Fatalf("findSymbols did not return expected results within timeout")
 	}
 	t.Logf("findSymbols succeeded, waiting for reference indexing to complete")
-	
+
 	// Wait additional time for enhanced reference indexing to complete
 	// Background indexing includes both symbols and references
 	time.Sleep(10 * time.Second)
@@ -217,33 +217,33 @@ func waitForFindSymbolsResponse(t *testing.T, lines <-chan []byte, timeout time.
 					t.Logf("Failed to decode findSymbols response: %v", err)
 					return false
 				}
-				
+
 				// Check for errors first
 				if resp.Error != nil {
 					t.Logf("findSymbols returned error: %v", resp.Error)
 					return false
 				}
-				
+
 				// Check if we got symbols
 				content, ok := resp.Result["content"].([]interface{})
 				if !ok || len(content) == 0 {
 					t.Logf("No content in findSymbols response")
 					return false
 				}
-				
+
 				text := content[0].(map[string]interface{})["text"].(string)
 				var payload map[string]interface{}
 				if err := json.Unmarshal([]byte(text), &payload); err != nil {
 					t.Logf("Response text is not JSON: %v\nRaw text: %s", err, text)
 					return false
 				}
-				
+
 				symbols, ok := payload["symbols"].([]interface{})
 				if !ok || len(symbols) == 0 {
 					t.Logf("findSymbols returned empty symbols, cache may not be ready yet: %s", text)
 					return false
 				}
-				
+
 				// Verify we found the Foo function
 				for _, sym := range symbols {
 					if symMap, ok := sym.(map[string]interface{}); ok {
@@ -253,7 +253,7 @@ func waitForFindSymbolsResponse(t *testing.T, lines <-chan []byte, timeout time.
 						}
 					}
 				}
-				
+
 				t.Logf("findSymbols returned %d symbols but no 'Foo' found: %s", len(symbols), text)
 				return false
 			}

@@ -2,13 +2,13 @@ package project
 
 import (
 	"bufio"
-	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"lsp-gateway/src/internal/common"
 )
 
 // PackageInfo represents package metadata extracted from project files
@@ -21,12 +21,9 @@ type PackageInfo struct {
 
 // GetPackageInfo extracts package information for a given directory and language
 func GetPackageInfo(workingDir, language string) (*PackageInfo, error) {
-	if workingDir == "" {
-		var err error
-		workingDir, err = os.Getwd()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get working directory: %w", err)
-		}
+	workingDir, err := common.ValidateAndGetWorkingDir(workingDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	// Convert to absolute path for consistency
@@ -53,20 +50,21 @@ func GetPackageInfo(workingDir, language string) (*PackageInfo, error) {
 // getGoPackageInfo extracts Go module information from go.mod
 func getGoPackageInfo(workingDir string) (*PackageInfo, error) {
 	goModPath := filepath.Join(workingDir, "go.mod")
-	content, err := os.ReadFile(goModPath)
+	if !common.FileExists(goModPath) {
+		return &PackageInfo{
+			Name:     "unknown-go-project",
+			Version:  "",
+			Language: "go",
+		}, nil
+	}
+
+	data, err := common.SafeReadFile(goModPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return &PackageInfo{
-				Name:     "unknown-go-project",
-				Version:  "",
-				Language: "go",
-			}, nil
-		}
 		return nil, fmt.Errorf("failed to read go.mod: %w", err)
 	}
 
 	var modulePath, version string
-	scanner := bufio.NewScanner(strings.NewReader(string(content)))
+	scanner := bufio.NewScanner(strings.NewReader(string(data)))
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -138,18 +136,22 @@ func getPythonPackageInfo(workingDir string) (*PackageInfo, error) {
 // tryPyprojectToml attempts to extract package info from pyproject.toml
 func tryPyprojectToml(workingDir string) *PackageInfo {
 	pyprojectPath := filepath.Join(workingDir, "pyproject.toml")
-	content, err := os.ReadFile(pyprojectPath)
+	if !common.FileExists(pyprojectPath) {
+		return nil
+	}
+	data, err := common.SafeReadFile(pyprojectPath)
 	if err != nil {
 		return nil
 	}
+	content := string(data)
 
 	// Try [tool.poetry] section first (more specific)
-	if info := tryPyprojectSection(string(content), "[tool.poetry]"); info != nil {
+	if info := tryPyprojectSection(content, "[tool.poetry]"); info != nil {
 		return info
 	}
 
 	// Fallback to [project] section
-	if info := tryPyprojectSection(string(content), "[project]"); info != nil {
+	if info := tryPyprojectSection(content, "[project]"); info != nil {
 		return info
 	}
 
@@ -200,12 +202,15 @@ func tryPyprojectSection(content, sectionName string) *PackageInfo {
 // trySetupPy attempts to extract package info from setup.py
 func trySetupPy(workingDir string) *PackageInfo {
 	setupPath := filepath.Join(workingDir, "setup.py")
-	content, err := os.ReadFile(setupPath)
-	if err != nil {
+	if !common.FileExists(setupPath) {
 		return nil
 	}
 
-	contentStr := string(content)
+	data, err := common.SafeReadFile(setupPath)
+	if err != nil {
+		return nil
+	}
+	contentStr := string(data)
 
 	// Extract name from setup() call
 	nameRegex := regexp.MustCompile(`name\s*=\s*['"](.*?)['"]`)
@@ -241,12 +246,15 @@ func trySetupPy(workingDir string) *PackageInfo {
 // tryPythonInit attempts to extract version from __init__.py
 func tryPythonInit(workingDir string) *PackageInfo {
 	initPath := filepath.Join(workingDir, "__init__.py")
-	content, err := os.ReadFile(initPath)
-	if err != nil {
+	if !common.FileExists(initPath) {
 		return nil
 	}
 
-	contentStr := string(content)
+	data, err := common.SafeReadFile(initPath)
+	if err != nil {
+		return nil
+	}
+	contentStr := string(data)
 	versionRegex := regexp.MustCompile(`__version__\s*=\s*['"](.*?)['"]`)
 
 	if matches := versionRegex.FindStringSubmatch(contentStr); len(matches) > 1 {
@@ -264,20 +272,16 @@ func tryPythonInit(workingDir string) *PackageInfo {
 // getNodePackageInfo extracts Node.js package information from package.json
 func getNodePackageInfo(workingDir, language string) (*PackageInfo, error) {
 	packageJsonPath := filepath.Join(workingDir, "package.json")
-	content, err := os.ReadFile(packageJsonPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return &PackageInfo{
-				Name:     "unknown-node-project",
-				Version:  "",
-				Language: language,
-			}, nil
-		}
-		return nil, fmt.Errorf("failed to read package.json: %w", err)
+	if !common.FileExists(packageJsonPath) {
+		return &PackageInfo{
+			Name:     "unknown-node-project",
+			Version:  "",
+			Language: language,
+		}, nil
 	}
 
 	var packageData map[string]interface{}
-	if err := json.Unmarshal(content, &packageData); err != nil {
+	if err := common.ReadJSONFile(packageJsonPath, &packageData); err != nil {
 		return nil, fmt.Errorf("failed to parse package.json: %w", err)
 	}
 
@@ -339,7 +343,11 @@ func getJavaPackageInfo(workingDir string) (*PackageInfo, error) {
 // tryMavenPom attempts to extract package info from pom.xml
 func tryMavenPom(workingDir string) *PackageInfo {
 	pomPath := filepath.Join(workingDir, "pom.xml")
-	content, err := os.ReadFile(pomPath)
+	if !common.FileExists(pomPath) {
+		return nil
+	}
+
+	content, err := common.SafeReadFile(pomPath)
 	if err != nil {
 		return nil
 	}
@@ -391,12 +399,15 @@ func tryGradleBuild(workingDir string) *PackageInfo {
 	}
 
 	for _, gradlePath := range gradlePaths {
-		content, err := os.ReadFile(gradlePath)
-		if err != nil {
+		if !common.FileExists(gradlePath) {
 			continue
 		}
 
-		contentStr := string(content)
+		data, err := common.SafeReadFile(gradlePath)
+		if err != nil {
+			continue
+		}
+		contentStr := string(data)
 		var name, version string
 
 		// Extract group and name from Gradle build script

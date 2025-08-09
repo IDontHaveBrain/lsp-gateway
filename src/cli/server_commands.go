@@ -5,26 +5,19 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
-	"lsp-gateway/src/config"
+	clicommon "lsp-gateway/src/cli/common"
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/registry"
 	"lsp-gateway/src/server"
-	"lsp-gateway/src/utils/configloader"
 )
 
 // RunServer starts the simplified LSP gateway server
 func RunServer(addr string, configPath string, lspOnly bool) error {
-	cfg := configloader.LoadForServer(configPath)
-
-	// Ensure cache path is project-specific so it matches CLI indexing
-	if cfg != nil && cfg.Cache != nil {
-		if wd, err := os.Getwd(); err == nil {
-			projectPath := config.GetProjectSpecificCachePath(wd)
-			cfg.SetCacheStoragePath(projectPath)
-		}
-	}
+	cfg := clicommon.LoadConfigForServer(configPath)
 
 	// Create and start gateway
 	gateway, err := server.NewHTTPGateway(addr, cfg, lspOnly)
@@ -42,9 +35,9 @@ func RunServer(addr string, configPath string, lspOnly bool) error {
 	common.CLILogger.Info("Simple LSP Gateway started on %s", addr)
 
 	// Display SCIP cache status
-	displayGatewayCacheStatus(gateway)
+	clicommon.DisplayCacheStatus(common.CLILogger, gateway.GetLSPManager().GetCache(), "gateway")
 
-	common.CLILogger.Info("Available languages: go, python, javascript, typescript, java")
+	common.CLILogger.Info("Available languages: %s", strings.Join(registry.GetLanguageNames(), ", "))
 	common.CLILogger.Info("HTTP JSON-RPC endpoint: http://%s/jsonrpc", addr)
 	common.CLILogger.Info("Health check endpoint: http://%s/health", addr)
 
@@ -82,7 +75,15 @@ func RunServer(addr string, configPath string, lspOnly bool) error {
 // RunMCPServer starts the MCP server
 func RunMCPServer(configPath string) error {
 	// Display cache status before starting MCP server
-	displayMCPCacheStatus(configPath)
+	cfg := clicommon.LoadConfigForServer(configPath)
+	manager, err := clicommon.CreateLSPManager(cfg)
+	if err == nil {
+		clicommon.DisplayCacheStatus(common.CLILogger, manager.GetCache(), "mcp")
+	} else {
+		common.CLILogger.Info("Starting MCP Server...")
+		common.CLILogger.Warn("SCIP Cache: Unable to check status (%v)", err)
+	}
+	common.CLILogger.Info("MCP Server ready for AI assistant integration")
 
 	// Always run in enhanced mode
 	return server.RunMCPServer(configPath)
@@ -90,11 +91,11 @@ func RunMCPServer(configPath string) error {
 
 // ShowStatus displays the current status of LSP clients
 func ShowStatus(configPath string) error {
-	cfg := configloader.LoadForCLI(configPath)
+	cfg := clicommon.LoadConfigForCLI(configPath)
 
 	common.CLILogger.Info("LSP Gateway Status")
 
-	manager, err := server.NewLSPManager(cfg)
+	manager, err := clicommon.CreateLSPManager(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create LSP manager: %w", err)
 	}
@@ -123,18 +124,19 @@ func ShowStatus(configPath string) error {
 	}
 
 	// Display SCIP cache status
-	displayCacheStatus(manager)
+	cache := manager.GetCache()
+	clicommon.DisplayCacheStatus(common.CLILogger, cache, "cli")
 
 	return nil
 }
 
 // TestConnection tests connection to LSP servers
 func TestConnection(configPath string) error {
-	cfg := configloader.LoadForCLI(configPath)
+	cfg := clicommon.LoadConfigForCLI(configPath)
 
 	common.CLILogger.Info("Testing LSP Server Connections")
 
-	manager, err := server.NewLSPManager(cfg)
+	manager, err := clicommon.CreateLSPManager(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create LSP manager: %w", err)
 	}

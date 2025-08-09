@@ -4,7 +4,6 @@
 package process
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"time"
@@ -34,12 +33,12 @@ func (pm *LSPProcessManager) StopProcess(info *ProcessInfo, sender ShutdownSende
 	// Send shutdown and exit notifications
 	if sender != nil {
 		// Send shutdown request with timeout
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		shutdownCtx, shutdownCancel := common.CreateContext(2 * time.Second)
 		sender.SendShutdownRequest(shutdownCtx)
 		shutdownCancel()
 
 		// Send exit notification with timeout
-		exitCtx, exitCancel := context.WithTimeout(context.Background(), 1*time.Second)
+		exitCtx, exitCancel := common.CreateContext(1 * time.Second)
 		sender.SendExitNotification(exitCtx)
 		exitCancel()
 	}

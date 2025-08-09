@@ -18,11 +18,12 @@ import (
 
 // HTTPGateway provides a simple HTTP JSON-RPC gateway to LSP servers with unified cache config
 type HTTPGateway struct {
-	lspManager  *LSPManager
-	server      *http.Server
-	cacheConfig *config.CacheConfig
-	lspOnly     bool
-	mu          sync.RWMutex
+	lspManager      *LSPManager
+	server          *http.Server
+	cacheConfig     *config.CacheConfig
+	lspOnly         bool
+	responseFactory *protocol.ResponseFactory
+	mu              sync.RWMutex
 }
 
 // Alias types from protocol package for backward compatibility
@@ -47,9 +48,10 @@ func NewHTTPGateway(addr string, cfg *config.Config, lspOnly bool) (*HTTPGateway
 	}
 
 	gateway := &HTTPGateway{
-		lspManager:  lspManager,
-		cacheConfig: cfg.Cache,
-		lspOnly:     lspOnly,
+		lspManager:      lspManager,
+		cacheConfig:     cfg.Cache,
+		lspOnly:         lspOnly,
+		responseFactory: protocol.NewResponseFactory(),
 	}
 
 	mux := http.NewServeMux()
@@ -88,7 +90,7 @@ func (g *HTTPGateway) Start(ctx context.Context) error {
 
 // Stop stops the HTTP gateway and cache
 func (g *HTTPGateway) Stop() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := common.CreateContext(30 * time.Second)
 	defer cancel()
 
 	var lastErr error
@@ -118,23 +120,23 @@ func (g *HTTPGateway) GetLSPManager() *LSPManager {
 // handleJSONRPC handles JSON-RPC requests with cache performance tracking
 func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		g.writeErrorRPC(w, nil, protocol.NewInvalidRequestError("Only POST method allowed"))
+		g.writeResponse(w, g.responseFactory.CreateInvalidRequest(nil, "Only POST method allowed"))
 		return
 	}
 
 	if r.Header.Get("Content-Type") != "application/json" {
-		g.writeErrorRPC(w, nil, protocol.NewInvalidRequestError("Content-Type must be application/json"))
+		g.writeResponse(w, g.responseFactory.CreateInvalidRequest(nil, "Content-Type must be application/json"))
 		return
 	}
 
 	var req JSONRPCRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		g.writeErrorRPC(w, nil, protocol.NewParseError(err.Error()))
+		g.writeResponse(w, g.responseFactory.CreateParseError(nil))
 		return
 	}
 
 	if req.JSONRPC != "2.0" {
-		g.writeErrorRPC(w, req.ID, protocol.NewInvalidRequestError("jsonrpc must be 2.0"))
+		g.writeResponse(w, g.responseFactory.CreateInvalidRequest(req.ID, "jsonrpc must be 2.0"))
 		return
 	}
 
@@ -149,7 +151,7 @@ func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 			"textDocument/completion":     true,
 		}
 		if !allowedMethods[req.Method] {
-			g.writeErrorRPC(w, req.ID, protocol.NewMethodNotFoundError(fmt.Sprintf("Method '%s' is not available in LSP-only mode", req.Method)))
+			g.writeResponse(w, g.responseFactory.CreateMethodNotFound(req.ID, fmt.Sprintf("Method '%s' is not available in LSP-only mode", req.Method)))
 			return
 		}
 	}
@@ -160,7 +162,7 @@ func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 
 	result, err := g.lspManager.ProcessRequest(r.Context(), req.Method, req.Params)
 	if err != nil {
-		g.writeErrorRPC(w, req.ID, protocol.NewInternalError(err.Error()))
+		g.writeResponse(w, g.responseFactory.CreateInternalError(req.ID, err))
 		return
 	}
 
@@ -169,11 +171,7 @@ func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 	cacheMetricsAfter := g.getCacheMetricsSnapshot()
 	cacheStatus := g.determineCacheStatus(cacheMetricsBefore, cacheMetricsAfter)
 
-	response := JSONRPCResponse{
-		JSONRPC: "2.0",
-		ID:      req.ID,
-		Result:  result,
-	}
+	response := g.responseFactory.CreateSuccess(req.ID, result)
 
 	// Add cache performance headers
 	w.Header().Set("Content-Type", "application/json")
@@ -225,14 +223,8 @@ func (g *HTTPGateway) handleHealth(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(health)
 }
 
-// writeErrorRPC writes a JSON-RPC error response using the protocol types
-func (g *HTTPGateway) writeErrorRPC(w http.ResponseWriter, id interface{}, rpcErr *protocol.RPCError) {
-	response := JSONRPCResponse{
-		JSONRPC: "2.0",
-		ID:      id,
-		Error:   rpcErr,
-	}
-
+// writeResponse writes a JSON-RPC response (success or error) to the HTTP response writer
+func (g *HTTPGateway) writeResponse(w http.ResponseWriter, response JSONRPCResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK) // JSON-RPC errors still return 200
 	json.NewEncoder(w).Encode(response)

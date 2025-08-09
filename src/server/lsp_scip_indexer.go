@@ -278,16 +278,16 @@ func (m *LSPManager) indexReferencesAsOccurrences(ctx context.Context, uri, lang
 // indexWorkspaceSymbolsAsOccurrences indexes workspace symbols as SCIP occurrences with definition roles
 func (m *LSPManager) indexWorkspaceSymbolsAsOccurrences(ctx context.Context, language string, result interface{}) {
 
-	var symbols []lsp.SymbolInformation
+	var symbols []types.SymbolInformation
 
 	// Handle different response types from workspace/symbol
 	switch v := result.(type) {
-	case []lsp.SymbolInformation:
+	case []types.SymbolInformation:
 		symbols = v
 	case []interface{}:
 		for _, item := range v {
 			if data, err := json.Marshal(item); err == nil {
-				var symbol lsp.SymbolInformation
+				var symbol types.SymbolInformation
 				if err := json.Unmarshal(data, &symbol); err == nil && symbol.Name != "" {
 					symbols = append(symbols, symbol)
 				}
@@ -301,7 +301,7 @@ func (m *LSPManager) indexWorkspaceSymbolsAsOccurrences(ctx context.Context, lan
 	}
 
 	// Group symbols by URI for batch processing
-	symbolsByURI := make(map[string][]lsp.SymbolInformation)
+	symbolsByURI := make(map[string][]types.SymbolInformation)
 	for _, symbol := range symbols {
 		if symbol.Location.URI != "" {
 			symbolsByURI[symbol.Location.URI] = append(symbolsByURI[symbol.Location.URI], symbol)
@@ -378,7 +378,7 @@ func (m *LSPManager) indexWorkspaceSymbolsAsOccurrences(ctx context.Context, lan
 // expandSymbolRanges expands single-line symbol ranges to their full extent
 // This is necessary because many LSP servers return only the symbol name range
 // rather than the full definition range for workspace/symbol results
-func (m *LSPManager) expandSymbolRanges(ctx context.Context, symbols []lsp.SymbolInformation, uri, language string) []lsp.SymbolInformation {
+func (m *LSPManager) expandSymbolRanges(ctx context.Context, symbols []types.SymbolInformation, uri, language string) []types.SymbolInformation {
 	// Group symbols that need expansion
 	needsExpansion := false
 	for _, symbol := range symbols {
@@ -430,7 +430,7 @@ func (m *LSPManager) expandSymbolRanges(ctx context.Context, symbols []lsp.Symbo
 	m.collectFullRanges(fullRangeSymbols, fullRangeMap)
 
 	// Update symbols with full ranges
-	expandedSymbols := make([]lsp.SymbolInformation, len(symbols))
+	expandedSymbols := make([]types.SymbolInformation, len(symbols))
 	for i, symbol := range symbols {
 		expandedSymbols[i] = symbol
 		if fullRange, exists := fullRangeMap[symbol.Name]; exists {
@@ -460,18 +460,18 @@ func (m *LSPManager) collectFullRanges(symbols []*lsp.DocumentSymbol, rangeMap m
 }
 
 // parseSymbols parses document symbols from various response formats
-func (m *LSPManager) parseSymbols(result interface{}, uri string) []lsp.SymbolInformation {
-	var symbols []lsp.SymbolInformation
+func (m *LSPManager) parseSymbols(result interface{}, uri string) []types.SymbolInformation {
+	var symbols []types.SymbolInformation
 
 	// Handle different response types
 	switch v := result.(type) {
 	case nil:
 		return symbols
-	case []lsp.SymbolInformation:
+	case []types.SymbolInformation:
 		return v
 	case []lsp.DocumentSymbol:
 		for _, docSymbol := range v {
-			symbolInfo := lsp.SymbolInformation{
+			symbolInfo := types.SymbolInformation{
 				Name: docSymbol.Name,
 				Kind: docSymbol.Kind,
 				Location: types.Location{
@@ -500,8 +500,8 @@ func (m *LSPManager) parseSymbols(result interface{}, uri string) []lsp.SymbolIn
 }
 
 // parseSymbolsArray parses an array of interface{} into SymbolInformation
-func (m *LSPManager) parseSymbolsArray(items []interface{}, uri string) []lsp.SymbolInformation {
-	var symbols []lsp.SymbolInformation
+func (m *LSPManager) parseSymbolsArray(items []interface{}, uri string) []types.SymbolInformation {
+	var symbols []types.SymbolInformation
 
 	for _, item := range items {
 		data, err := json.Marshal(item)
@@ -509,7 +509,7 @@ func (m *LSPManager) parseSymbolsArray(items []interface{}, uri string) []lsp.Sy
 			continue
 		}
 
-		var symbol lsp.SymbolInformation
+		var symbol types.SymbolInformation
 		if err := json.Unmarshal(data, &symbol); err == nil && symbol.Name != "" {
 			symbols = append(symbols, symbol)
 			continue
@@ -518,7 +518,7 @@ func (m *LSPManager) parseSymbolsArray(items []interface{}, uri string) []lsp.Sy
 		// Try DocumentSymbol format
 		var docSymbol lsp.DocumentSymbol
 		if err := json.Unmarshal(data, &docSymbol); err == nil && docSymbol.Name != "" {
-			symbolInfo := lsp.SymbolInformation{
+			symbolInfo := types.SymbolInformation{
 				Name: docSymbol.Name,
 				Kind: docSymbol.Kind,
 				Location: types.Location{
@@ -786,7 +786,7 @@ func (m *LSPManager) storeDocumentOccurrences(ctx context.Context, uri, language
 	}
 
 	// Otherwise, convert to SymbolInformation and index (keeps definitions + metadata)
-	var symbols []lsp.SymbolInformation
+	var symbols []types.SymbolInformation
 	for i, occ := range occurrences {
 		var displayName string
 		var kind types.SymbolKind
@@ -798,7 +798,7 @@ func (m *LSPManager) storeDocumentOccurrences(ctx context.Context, uri, language
 			kind = types.Variable
 		}
 
-		symbols = append(symbols, lsp.SymbolInformation{
+		symbols = append(symbols, types.SymbolInformation{
 			Name: displayName,
 			Kind: kind,
 			Location: types.Location{

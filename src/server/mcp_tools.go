@@ -1,12 +1,12 @@
 package server
 
 import (
-    "bufio"
-    "context"
-    "fmt"
-    "os"
-    "strings"
-    "time"
+	"bufio"
+	"context"
+	"fmt"
+	"os"
+	"strings"
+	"time"
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/types"
@@ -152,8 +152,8 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 	}
 
 	// Execute the search using SCIP cache directly with fallback
-    ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-    defer cancel()
+	ctx, cancel := common.CreateContext(5 * time.Second)
+	defer cancel()
 	var result *types.SymbolPatternResult
 	var err error
 

@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
+	"lsp-gateway/src/tests/shared/testconfig"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,12 +15,8 @@ import (
 // TestOptionalCacheIntegrationVerification verifies the core optional cache functionality
 func TestOptionalCacheIntegrationVerification(t *testing.T) {
 	t.Run("No cache config - LSP manager works without cache", func(t *testing.T) {
-		cfg := &config.Config{
-			Servers: map[string]*config.ServerConfig{
-				"go": {Command: "gopls", Args: []string{}},
-			},
-			Cache: nil, // No cache
-		}
+		cfg := testconfig.NewBasicGoConfig()
+		cfg.Cache = nil // No cache
 
 		manager, err := server.NewLSPManager(cfg)
 		require.NoError(t, err, "Should create LSP manager without cache")
@@ -31,14 +27,8 @@ func TestOptionalCacheIntegrationVerification(t *testing.T) {
 	})
 
 	t.Run("Disabled cache - LSP manager works without cache", func(t *testing.T) {
-		cfg := &config.Config{
-			Servers: map[string]*config.ServerConfig{
-				"go": {Command: "gopls", Args: []string{}},
-			},
-			Cache: &config.CacheConfig{
-				Enabled: false,
-			},
-		}
+		cfg := testconfig.NewBasicGoConfig()
+		cfg.Cache = testconfig.NewCustomCacheConfig(false, 64, 1, "/tmp/test-cache")
 
 		manager, err := server.NewLSPManager(cfg)
 		require.NoError(t, err, "Should create LSP manager with disabled cache")
@@ -49,19 +39,7 @@ func TestOptionalCacheIntegrationVerification(t *testing.T) {
 	})
 
 	t.Run("Enabled cache - LSP manager works with cache", func(t *testing.T) {
-		cfg := &config.Config{
-			Servers: map[string]*config.ServerConfig{
-				"go": {Command: "gopls", Args: []string{}},
-			},
-			Cache: &config.CacheConfig{
-				Enabled:     true,
-				MaxMemoryMB: 64,
-				TTLHours:    1,
-				StoragePath: "/tmp/test-cache",
-				Languages:   []string{"go"},
-				DiskCache:   false,
-			},
-		}
+		cfg := testconfig.NewBasicGoConfigWithCache()
 
 		manager, err := server.NewLSPManager(cfg)
 		require.NoError(t, err, "Should create LSP manager with enabled cache")
@@ -73,12 +51,8 @@ func TestOptionalCacheIntegrationVerification(t *testing.T) {
 
 	t.Run("Simple cache creation and lifecycle", func(t *testing.T) {
 		// Test simple cache creation
-		simpleCache, err := cache.NewSCIPCacheManager(&config.CacheConfig{
-			Enabled:     true,
-			MaxMemoryMB: 128,
-			TTLHours:    1,
-			StoragePath: t.TempDir(),
-		})
+		cacheConfig := testconfig.NewCacheConfig(t.TempDir())
+		simpleCache, err := cache.NewSCIPCacheManager(cacheConfig)
 		require.NoError(t, err, "Should create simple cache")
 		require.NotNil(t, simpleCache, "Simple cache should not be nil")
 
@@ -93,12 +67,8 @@ func TestOptionalCacheIntegrationVerification(t *testing.T) {
 
 	t.Run("Optional cache injection", func(t *testing.T) {
 		// Create manager without cache
-		cfg := &config.Config{
-			Servers: map[string]*config.ServerConfig{
-				"go": {Command: "gopls", Args: []string{}},
-			},
-			Cache: nil,
-		}
+		cfg := testconfig.NewBasicGoConfig()
+		cfg.Cache = nil
 
 		manager, err := server.NewLSPManager(cfg)
 		require.NoError(t, err, "Should create LSP manager")
@@ -108,12 +78,8 @@ func TestOptionalCacheIntegrationVerification(t *testing.T) {
 		assert.Nil(t, cacheInstance, "Should have no cache initially")
 
 		// Inject cache
-		simpleCache, err := cache.NewSCIPCacheManager(&config.CacheConfig{
-			Enabled:     true,
-			MaxMemoryMB: 64,
-			TTLHours:    1,
-			StoragePath: t.TempDir(),
-		})
+		cacheConfig := testconfig.NewCustomCacheConfig(true, 64, 1, t.TempDir())
+		simpleCache, err := cache.NewSCIPCacheManager(cacheConfig)
 		require.NoError(t, err, "Should create simple cache for injection")
 
 		manager.SetCache(simpleCache)

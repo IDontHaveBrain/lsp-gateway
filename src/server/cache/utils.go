@@ -12,7 +12,7 @@ import (
 // This provides centralized URI extraction logic for cache operations
 func ExtractURIFromParams(method string, params interface{}) (string, error) {
 	if params == nil {
-		return "", fmt.Errorf("no parameters provided")
+		return "", common.NoParametersError()
 	}
 
 	// Handle typed LSP parameters first (most efficient path)
@@ -39,7 +39,7 @@ func ExtractURIFromParams(method string, params interface{}) (string, error) {
 // extractURIFromUntyped handles untyped parameter maps (from CLI cache indexing)
 func extractURIFromUntyped(params map[string]interface{}) (string, error) {
 	if params == nil {
-		return "", fmt.Errorf("no parameters provided")
+		return "", common.NoParametersError()
 	}
 
 	// Try textDocument.uri first (most common case)
@@ -81,7 +81,7 @@ func extractURIFromUntyped(params map[string]interface{}) (string, error) {
 		keys = append(keys, k)
 	}
 
-	return "", fmt.Errorf("no URI found in untyped parameters, available keys: %v", keys)
+	return "", common.ParameterValidationError(fmt.Sprintf("no URI found in untyped parameters, available keys: %v", keys))
 }
 
 // extractURIFromGeneric handles other parameter types using JSON marshaling/unmarshaling
@@ -95,5 +95,5 @@ func extractURIFromGeneric(params interface{}) (string, error) {
 	if err == nil && v.TextDocument.URI != "" {
 		return v.TextDocument.URI, nil
 	}
-	return "", fmt.Errorf("unable to extract URI from parameters type: %T", params)
+	return "", common.ParameterValidationError(fmt.Sprintf("unable to extract URI from parameters type: %T", params))
 }

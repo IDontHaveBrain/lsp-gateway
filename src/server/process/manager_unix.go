@@ -4,7 +4,6 @@
 package process
 
 import (
-	"context"
 	"strings"
 	"time"
 
@@ -81,13 +80,13 @@ func (pm *LSPProcessManager) StopProcess(info *ProcessInfo, sender ShutdownSende
 // sendShutdown sends shutdown sequence to LSP server through the ShutdownSender
 func (pm *LSPProcessManager) sendShutdown(sender ShutdownSender) {
 	// Send shutdown request with its own timeout
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	shutdownCtx, shutdownCancel := common.CreateContext(2 * time.Second)
 	defer shutdownCancel()
 
 	sender.SendShutdownRequest(shutdownCtx)
 
 	// Send exit notification with its own timeout
-	exitCtx, exitCancel := context.WithTimeout(context.Background(), 1*time.Second)
+	exitCtx, exitCancel := common.CreateContext(1 * time.Second)
 	defer exitCancel()
 
 	sender.SendExitNotification(exitCtx)

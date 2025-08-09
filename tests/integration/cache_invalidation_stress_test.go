@@ -91,11 +91,11 @@ func (s *Struct%d) Method%d() string {
 		HealthCheckMinutes: 1, // Fast health checks for testing
 		EvictionPolicy:     "lru",
 	}
-	
+
 	scipCache, err := cache.NewSCIPCacheManager(cacheConfig)
 	require.NoError(t, err)
 	defer scipCache.Stop()
-	
+
 	// Start the cache before using it
 	err = scipCache.Start(ctx)
 	require.NoError(t, err)
@@ -107,48 +107,48 @@ func (s *Struct%d) Method%d() string {
 
 	// Start the LSP manager to initialize LSP servers
 	require.NoError(t, lspManager.Start(ctx))
-	
+
 	// Simple test: verify cache is working with a basic request
 	testURI := utils.FilePathToURI(filepath.Join(testDir, "file0.go"))
 	params := protocol.DocumentSymbolParams{
 		TextDocument: protocol.TextDocumentIdentifier{URI: protocol.DocumentURI(testURI)},
 	}
-	
+
 	// Verify cache is enabled before using it
 	cacheMetrics := scipCache.GetMetrics()
-	t.Logf("Cache enabled check - IsEnabled: %v, Current metrics: Entries=%d, Hits=%d, Misses=%d", 
+	t.Logf("Cache enabled check - IsEnabled: %v, Current metrics: Entries=%d, Hits=%d, Misses=%d",
 		scipCache != nil, cacheMetrics.EntryCount, cacheMetrics.HitCount, cacheMetrics.MissCount)
-	
+
 	// Test direct cache operations to verify it works
 	testResult := []interface{}{map[string]interface{}{"name": "TestSymbol", "kind": 12}}
 	err = scipCache.Store("textDocument/documentSymbol", params, testResult)
 	t.Logf("Direct cache store result: %v", err)
-	
+
 	// Check if store worked
 	afterStore := scipCache.GetMetrics()
 	t.Logf("Cache after direct store - Entries: %d", afterStore.EntryCount)
-	
+
 	// Test direct cache lookup
 	cachedResult, found, lookupErr := scipCache.Lookup("textDocument/documentSymbol", params)
 	t.Logf("Direct cache lookup - Found: %v, Error: %v, Result: %v", found, lookupErr, cachedResult != nil)
-	
+
 	// First request - should miss cache and populate it
 	result1, err := lspManager.ProcessRequest(ctx, "textDocument/documentSymbol", params)
 	require.NoError(t, err)
-	
+
 	// Check cache after first request
 	afterFirstReq := scipCache.GetMetrics()
-	t.Logf("Cache after first request - Entries: %d, Hits: %d, Misses: %d", 
+	t.Logf("Cache after first request - Entries: %d, Hits: %d, Misses: %d",
 		afterFirstReq.EntryCount, afterFirstReq.HitCount, afterFirstReq.MissCount)
-	
-	// Second identical request - should hit cache  
+
+	// Second identical request - should hit cache
 	result2, err := lspManager.ProcessRequest(ctx, "textDocument/documentSymbol", params)
 	require.NoError(t, err)
 	require.Equal(t, result1, result2)
-	
+
 	// Check cache after second request
 	afterSecondReq := scipCache.GetMetrics()
-	t.Logf("Cache after second request - Entries: %d, Hits: %d, Misses: %d", 
+	t.Logf("Cache after second request - Entries: %d, Hits: %d, Misses: %d",
 		afterSecondReq.EntryCount, afterSecondReq.HitCount, afterSecondReq.MissCount)
 
 	// Note: DocumentManager not needed for this test - LSP operations work with file URIs directly
@@ -157,7 +157,7 @@ func (s *Struct%d) Method%d() string {
 		// Check cache state at the beginning of first subtest
 		initialMetrics := scipCache.GetMetrics()
 		t.Logf("Cache metrics at start of first subtest - Entry count: %d", initialMetrics.EntryCount)
-		
+
 		// Reduce expectations for CI environments where resources are limited
 		isCI := os.Getenv("CI") != ""
 		isWindows := runtime.GOOS == "windows"
@@ -337,10 +337,10 @@ func NewFunction%d() {
 
 		assert.Greater(t, requestCount.Load(), expectedRequests, "Should process many requests")
 		assert.Greater(t, invalidations.Load(), expectedModifications, "Should have multiple file modifications")
-		
+
 		// Check cache state after first subtest
 		afterFirstMetrics := scipCache.GetMetrics()
-		t.Logf("Cache metrics after first subtest - Entry count: %d, Hit count: %d, Miss count: %d", 
+		t.Logf("Cache metrics after first subtest - Entry count: %d, Hit count: %d, Miss count: %d",
 			afterFirstMetrics.EntryCount, afterFirstMetrics.HitCount, afterFirstMetrics.MissCount)
 	})
 
@@ -450,10 +450,10 @@ func NewMethod%d() {
 
 		// Error rate should be reasonable
 		assert.Less(t, readErrors.Load(), int32(100), "Read errors should be limited")
-		
+
 		// Check cache state after second subtest
 		afterSecondMetrics := scipCache.GetMetrics()
-		t.Logf("Cache metrics after second subtest - Entry count: %d, Hit count: %d, Miss count: %d", 
+		t.Logf("Cache metrics after second subtest - Entry count: %d, Hit count: %d, Miss count: %d",
 			afterSecondMetrics.EntryCount, afterSecondMetrics.HitCount, afterSecondMetrics.MissCount)
 	})
 
@@ -521,7 +521,7 @@ func (c *ConsistencyTest) Method2() int {
 		defer lspManager2.Stop()
 		lspManager2.SetCache(scipCache)
 
-		// Restart the cache since it was stopped with the previous manager  
+		// Restart the cache since it was stopped with the previous manager
 		// Note: Cache might already be started, so only start if not already started
 		err = scipCache.Start(ctx)
 		if err != nil && err.Error() != "cache manager already started" {
@@ -554,10 +554,10 @@ func (c *ConsistencyTest) Method2() int {
 
 			assert.Equal(t, symbols2, symbols3, "Subsequent queries should return consistent results")
 		}
-		
+
 		// Check cache state after third subtest
 		afterThirdMetrics := scipCache.GetMetrics()
-		t.Logf("Cache metrics after third subtest - Entry count: %d, Hit count: %d, Miss count: %d", 
+		t.Logf("Cache metrics after third subtest - Entry count: %d, Hit count: %d, Miss count: %d",
 			afterThirdMetrics.EntryCount, afterThirdMetrics.HitCount, afterThirdMetrics.MissCount)
 	})
 

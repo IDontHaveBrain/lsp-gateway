@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/registry"
 	"lsp-gateway/src/internal/security"
 )
 
@@ -23,12 +25,9 @@ type DetectedLanguage struct {
 // DetectLanguages detects programming languages in the given directory
 // Returns languages sorted by confidence (highest first)
 func DetectLanguages(workingDir string) ([]string, error) {
-	if workingDir == "" {
-		var err error
-		workingDir, err = os.Getwd()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get working directory: %w", err)
-		}
+	workingDir, err := common.ValidateAndGetWorkingDir(workingDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	// Convert to absolute path for consistency
@@ -95,21 +94,16 @@ func analyzeFile(filePath, workingDir string, detected map[string]*DetectedLangu
 	fileName := filepath.Base(filePath)
 	ext := strings.ToLower(filepath.Ext(fileName))
 
-	// File extension detection
-	switch ext {
-	case ".go":
-		addDetection(detected, "go", 10, fmt.Sprintf("*.go file: %s", fileName))
-	case ".py":
-		addDetection(detected, "python", 10, fmt.Sprintf("*.py file: %s", fileName))
-	case ".js", ".jsx":
-		// Only detect JavaScript if it's not a build/infrastructure file
-		if !isInfrastructureJSFile(filePath, workingDir) {
-			addDetection(detected, "javascript", 10, fmt.Sprintf("*.js file: %s", fileName))
+	// File extension detection using registry
+	if langInfo, found := registry.GetLanguageByExtension(ext); found {
+		// Special handling for JavaScript files to exclude infrastructure files
+		if langInfo.Name == "javascript" {
+			if !isInfrastructureJSFile(filePath, workingDir) {
+				addDetection(detected, langInfo.Name, 10, fmt.Sprintf("*%s file: %s", ext, fileName))
+			}
+		} else {
+			addDetection(detected, langInfo.Name, 10, fmt.Sprintf("*%s file: %s", ext, fileName))
 		}
-	case ".ts", ".tsx":
-		addDetection(detected, "typescript", 10, fmt.Sprintf("*.ts file: %s", fileName))
-	case ".java":
-		addDetection(detected, "java", 10, fmt.Sprintf("*.java file: %s", fileName))
 	}
 
 	// Project structure detection
@@ -358,12 +352,26 @@ func addDetection(detected map[string]*DetectedLanguage, language string, confid
 // sortLanguagesByPriority sorts languages by priority/confidence
 func sortLanguagesByPriority(languages []string) {
 	// Simple priority order based on common usage patterns
-	priority := map[string]int{
-		"go":         4,
-		"typescript": 3,
-		"javascript": 2,
-		"python":     1,
-		"java":       0,
+	// Only include supported languages from registry
+	priority := make(map[string]int)
+	supportedLanguages := registry.GetLanguageNames()
+
+	// Assign priorities based on common usage patterns
+	for i, lang := range supportedLanguages {
+		switch lang {
+		case "go":
+			priority[lang] = 4
+		case "typescript":
+			priority[lang] = 3
+		case "javascript":
+			priority[lang] = 2
+		case "python":
+			priority[lang] = 1
+		case "java":
+			priority[lang] = 0
+		default:
+			priority[lang] = i // Use index as fallback priority
+		}
 	}
 
 	// Sort using a simple bubble sort for clarity
@@ -380,6 +388,11 @@ func sortLanguagesByPriority(languages []string) {
 
 // IsLSPServerAvailable checks if the LSP server for a language is available
 func IsLSPServerAvailable(language string) bool {
+	// First validate that the language is supported
+	if !registry.IsLanguageSupported(language) {
+		return false
+	}
+
 	// Get default configuration to find server command
 	defaultConfig := config.GetDefaultConfig()
 	serverConfig, exists := defaultConfig.Servers[language]

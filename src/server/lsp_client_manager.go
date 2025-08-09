@@ -47,28 +47,28 @@ type StdioClient struct {
 	processInfo     *process.ProcessInfo
 	jsonrpcProtocol protocol.JSONRPCProtocol
 
-	mu       sync.RWMutex
-	active   bool
-    requests map[string]*pendingRequest
-    nextID   int
-    openDocs map[string]bool // Track opened documents to prevent duplicate didOpen
-    workspaceFolders map[string]bool // Track added workspace folders
+	mu               sync.RWMutex
+	active           bool
+	requests         map[string]*pendingRequest
+	nextID           int
+	openDocs         map[string]bool // Track opened documents to prevent duplicate didOpen
+	workspaceFolders map[string]bool // Track added workspace folders
 }
 
 // NewStdioClient creates a new STDIO LSP client
 func NewStdioClient(config types.ClientConfig, language string) (types.LSPClient, error) {
-    client := &StdioClient{
-        config:          config,
-        language:        language,
-        requests:        make(map[string]*pendingRequest),
-        openDocs:        make(map[string]bool),
-        workspaceFolders: make(map[string]bool),
-        errorTranslator: errors.NewLSPErrorTranslator(),
-        capDetector:     capabilities.NewLSPCapabilityDetector(),
-        processManager:  process.NewLSPProcessManager(),
-        jsonrpcProtocol: protocol.NewLSPJSONRPCProtocol(language),
-    }
-    return client, nil
+	client := &StdioClient{
+		config:           config,
+		language:         language,
+		requests:         make(map[string]*pendingRequest),
+		openDocs:         make(map[string]bool),
+		workspaceFolders: make(map[string]bool),
+		errorTranslator:  errors.NewLSPErrorTranslator(),
+		capDetector:      capabilities.NewLSPCapabilityDetector(),
+		processManager:   process.NewLSPProcessManager(),
+		jsonrpcProtocol:  protocol.NewLSPJSONRPCProtocol(language),
+	}
+	return client, nil
 }
 
 // Start initializes and starts the LSP server process
@@ -433,13 +433,13 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 				"documentHighlight": map[string]interface{}{
 					"dynamicRegistration": true,
 				},
-            "documentSymbol": map[string]interface{}{
-                "dynamicRegistration": true,
-                "hierarchicalDocumentSymbolSupport": true,
-                "symbolKind": map[string]interface{}{
-                    "valueSet": []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26},
-                },
-            },
+				"documentSymbol": map[string]interface{}{
+					"dynamicRegistration":               true,
+					"hierarchicalDocumentSymbolSupport": true,
+					"symbolKind": map[string]interface{}{
+						"valueSet": []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26},
+					},
+				},
 				"codeAction": map[string]interface{}{
 					"dynamicRegistration": true,
 					"codeActionLiteralSupport": map[string]interface{}{

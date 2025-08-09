@@ -94,7 +94,7 @@ func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 
 // Start initializes and starts all configured LSP clients
 func (m *LSPManager) Start(ctx context.Context) error {
-    common.LSPLogger.Debug("[LSPManager.Start] Starting LSP manager, scipCache=%v", m.cacheIntegrator.IsEnabled())
+	common.LSPLogger.Debug("[LSPManager.Start] Starting LSP manager, scipCache=%v", m.cacheIntegrator.IsEnabled())
 
 	// Start cache through integrator - handles graceful degradation internally
 	if err := m.cacheIntegrator.StartCache(ctx); err != nil {
@@ -154,8 +154,8 @@ func (m *LSPManager) Start(ctx context.Context) error {
 		if cacheManager, ok := m.scipCache.(*cache.SCIPCacheManager); ok {
 			stats := cacheManager.GetIndexStats()
 			if stats != nil && (stats.SymbolCount > 0 || stats.ReferenceCount > 0 || stats.DocumentCount > 0) {
-                common.LSPLogger.Debug("LSP Manager: Cache already populated with %d symbols, %d references, %d documents - skipping background indexing",
-                    stats.SymbolCount, stats.ReferenceCount, stats.DocumentCount)
+				common.LSPLogger.Debug("LSP Manager: Cache already populated with %d symbols, %d references, %d documents - skipping background indexing",
+					stats.SymbolCount, stats.ReferenceCount, stats.DocumentCount)
 			} else {
 				// Only index if cache is truly empty
 				go func() {
@@ -164,10 +164,10 @@ func (m *LSPManager) Start(ctx context.Context) error {
 
 					// Double-check cache status
 					recheckStats := cacheManager.GetIndexStats()
-                        if recheckStats != nil && (recheckStats.SymbolCount > 0 || recheckStats.ReferenceCount > 0 || recheckStats.DocumentCount > 0) {
-                            common.LSPLogger.Debug("LSP Manager: Cache was populated while waiting - skipping background indexing")
-                            return
-                        }
+					if recheckStats != nil && (recheckStats.SymbolCount > 0 || recheckStats.ReferenceCount > 0 || recheckStats.DocumentCount > 0) {
+						common.LSPLogger.Debug("LSP Manager: Cache was populated while waiting - skipping background indexing")
+						return
+					}
 
 					// Get working directory
 					wd, err := os.Getwd()
@@ -176,9 +176,9 @@ func (m *LSPManager) Start(ctx context.Context) error {
 						return
 					}
 
-                        // Perform workspace indexing
-                        common.LSPLogger.Debug("LSP Manager: Performing background workspace indexing")
-					indexCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+					// Perform workspace indexing
+					common.LSPLogger.Debug("LSP Manager: Performing background workspace indexing")
+					indexCtx, cancel := common.CreateContext(5 * time.Minute)
 					defer cancel()
 
 					if err := cacheManager.PerformWorkspaceIndexing(indexCtx, wd, m); err != nil {
@@ -431,45 +431,39 @@ func (m *LSPManager) getClientActiveWaitIterations(language string) int {
 func (m *LSPManager) resolveCommandPath(language, command string) string {
 	// For Java, check if custom installation exists
 	if language == "java" && command == "jdtls" {
-		homeDir, err := os.UserHomeDir()
-		if err == nil {
-			var customPath string
-			if runtime.GOOS == "windows" {
-				customPath = filepath.Join(homeDir, ".lsp-gateway", "tools", "java", "bin", "jdtls.bat")
-			} else {
-				customPath = filepath.Join(homeDir, ".lsp-gateway", "tools", "java", "bin", "jdtls")
-			}
+		var customPath string
+		if runtime.GOOS == "windows" {
+			customPath = common.GetLSPToolPath("java", "jdtls.bat")
+		} else {
+			customPath = common.GetLSPToolPath("java", "jdtls")
+		}
 
-			// Check if the custom installation exists
-			if _, err := os.Stat(customPath); err == nil {
-				common.LSPLogger.Debug("Using custom jdtls installation at %s", customPath)
-				return customPath
-			}
+		// Check if the custom installation exists
+		if common.FileExists(customPath) {
+			common.LSPLogger.Debug("Using custom jdtls installation at %s", customPath)
+			return customPath
 		}
 	}
 
 	// Check for other language custom installations
 	if command == "gopls" || command == "pylsp" || command == "typescript-language-server" {
-		homeDir, err := os.UserHomeDir()
-		if err == nil {
-			// Map of commands to their installation paths
-			customPaths := map[string]string{
-				"gopls":                      filepath.Join(homeDir, ".lsp-gateway", "tools", "go", "bin", "gopls"),
-				"pylsp":                      filepath.Join(homeDir, ".lsp-gateway", "tools", "python", "bin", "pylsp"),
-				"typescript-language-server": filepath.Join(homeDir, ".lsp-gateway", "tools", "typescript", "bin", "typescript-language-server"),
+		// Map of commands to their languages for path construction
+		languageMap := map[string]string{
+			"gopls":                      "go",
+			"pylsp":                      "python",
+			"typescript-language-server": "typescript",
+		}
+		if lang, exists := languageMap[command]; exists {
+			customPath := common.GetLSPToolPath(lang, command)
+			if runtime.GOOS == "windows" && command != "gopls" {
+				// Add .cmd extension for Node.js based tools on Windows
+				customPath = customPath + ".cmd"
 			}
 
-			if customPath, exists := customPaths[command]; exists {
-				if runtime.GOOS == "windows" && command != "gopls" {
-					// Add .cmd extension for Node.js based tools on Windows
-					customPath = customPath + ".cmd"
-				}
-
-				// Check if the custom installation exists
-				if _, err := os.Stat(customPath); err == nil {
-					common.LSPLogger.Debug("Using custom %s installation at %s", command, customPath)
-					return customPath
-				}
+			// Check if the custom installation exists
+			if common.FileExists(customPath) {
+				common.LSPLogger.Debug("Using custom %s installation at %s", command, customPath)
+				return customPath
 			}
 		}
 	}
@@ -569,7 +563,7 @@ func (m *LSPManager) detectPrimaryLanguage(workingDir string) string {
 
 	for _, marker := range projectMarkers {
 		for _, file := range marker.files {
-			if _, err := os.Stat(filepath.Join(workingDir, file)); err == nil {
+			if common.FileExists(filepath.Join(workingDir, file)) {
 				return marker.language
 			}
 		}

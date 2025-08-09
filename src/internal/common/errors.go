@@ -23,3 +23,13 @@ func WrapProcessingError(operation string, err error) error {
 	}
 	return fmt.Errorf("%s: %w", operation, err)
 }
+
+// ParameterValidationError creates a formatted parameter validation error
+func ParameterValidationError(msg string) error {
+	return fmt.Errorf("parameter validation error: %s", msg)
+}
+
+// NoParametersError returns a standardized "no parameters provided" error
+func NoParametersError() error {
+	return fmt.Errorf("no parameters provided")
+}

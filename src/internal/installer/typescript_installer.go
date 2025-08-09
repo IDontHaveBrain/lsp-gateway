@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"time"
 
-	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
 )
 
@@ -17,12 +16,7 @@ type TypeScriptInstaller struct {
 
 // NewTypeScriptInstaller creates a new TypeScript installer
 func NewTypeScriptInstaller(platform PlatformInfo) *TypeScriptInstaller {
-	serverConfig := &config.ServerConfig{
-		Command: "typescript-language-server",
-		Args:    []string{"--stdio"},
-	}
-
-	base := NewBaseInstaller("typescript", serverConfig, platform)
+	base := CreateSimpleInstaller("typescript", "typescript-language-server", []string{"--stdio"}, platform)
 
 	return &TypeScriptInstaller{
 		BaseInstaller: base,

@@ -6,10 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"gopkg.in/yaml.v3"
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/registry"
 )
 
 // Config contains LSP server configuration, unified cache settings, and MCP configuration
@@ -46,28 +46,6 @@ type CacheConfig struct {
 	DiskCache          bool     `yaml:"disk_cache"`           // Enable disk persistence
 }
 
-// ExpandPath expands ~ to the user's home directory in file paths
-func ExpandPath(path string) (string, error) {
-	if !strings.HasPrefix(path, "~") {
-		return path, nil
-	}
-
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return path, fmt.Errorf("failed to get user home directory: %w", err)
-	}
-
-	if path == "~" {
-		return homeDir, nil
-	}
-
-	if strings.HasPrefix(path, "~/") {
-		return filepath.Join(homeDir, path[2:]), nil
-	}
-
-	return path, nil
-}
-
 // expandServerPaths expands ~ paths in server configurations
 func expandServerPaths(config *Config) error {
 	for serverName, serverConfig := range config.Servers {
@@ -75,7 +53,7 @@ func expandServerPaths(config *Config) error {
 			continue
 		}
 
-		expandedCommand, err := ExpandPath(serverConfig.Command)
+		expandedCommand, err := common.ExpandPath(serverConfig.Command)
 		if err != nil {
 			return fmt.Errorf("failed to expand path for server %s command '%s': %w",
 				serverName, serverConfig.Command, err)
@@ -83,7 +61,7 @@ func expandServerPaths(config *Config) error {
 		serverConfig.Command = expandedCommand
 
 		if serverConfig.WorkingDir != "" {
-			expandedWorkingDir, err := ExpandPath(serverConfig.WorkingDir)
+			expandedWorkingDir, err := common.ExpandPath(serverConfig.WorkingDir)
 			if err != nil {
 				return fmt.Errorf("failed to expand working directory for server %s: %w",
 					serverName, err)
@@ -94,7 +72,7 @@ func expandServerPaths(config *Config) error {
 
 	// Also expand cache storage path if present
 	if config.Cache != nil && config.Cache.StoragePath != "" {
-		expandedStoragePath, err := ExpandPath(config.Cache.StoragePath)
+		expandedStoragePath, err := common.ExpandPath(config.Cache.StoragePath)
 		if err != nil {
 			return fmt.Errorf("failed to expand cache storage path '%s': %w",
 				config.Cache.StoragePath, err)
@@ -107,7 +85,7 @@ func expandServerPaths(config *Config) error {
 
 // LoadConfig loads configuration from a YAML file
 func LoadConfig(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
+	data, err := common.SafeReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
 	}
@@ -176,18 +154,17 @@ func validateConfig(config *Config) error {
 
 // GetAllSupportedLanguages returns all supported languages
 func GetAllSupportedLanguages() []string {
-	return []string{"go", "python", "javascript", "typescript", "java"}
+	return registry.GetLanguageNames()
 }
 
 // GetSupportedLanguagesMap returns supported languages as a map for validation
 func GetSupportedLanguagesMap() map[string]bool {
-	return map[string]bool{
-		"go":         true,
-		"python":     true,
-		"javascript": true,
-		"typescript": true,
-		"java":       true,
+	languages := registry.GetLanguageNames()
+	langMap := make(map[string]bool, len(languages))
+	for _, lang := range languages {
+		langMap[lang] = true
 	}
+	return langMap
 }
 
 // expandLanguageWildcard expands "*" wildcard to all supported languages
@@ -374,7 +351,7 @@ func GenerateConfigForLanguages(languages []string) *Config {
 				WorkingDir:            serverConfig.WorkingDir,
 				InitializationOptions: serverConfig.InitializationOptions,
 			}
-            common.CLILogger.Debug("Added %s server configuration", language)
+			common.CLILogger.Debug("Added %s server configuration", language)
 		} else {
 			common.CLILogger.Warn("No default configuration found for language: %s", language)
 		}
@@ -395,13 +372,10 @@ func DetectAndGenerateConfig(workingDir string, detector func(string) ([]string,
 		return GetDefaultConfig()
 	}
 
-	if workingDir == "" {
-		var err error
-		workingDir, err = os.Getwd()
-		if err != nil {
-			common.CLILogger.Error("Failed to get working directory: %v", err)
-			return GetDefaultConfig()
-		}
+	workingDir, err := common.ValidateAndGetWorkingDir(workingDir)
+	if err != nil {
+		common.CLILogger.Error("Failed to get working directory: %v", err)
+		return GetDefaultConfig()
 	}
 
 	// Detect available languages using the provided detector
@@ -416,13 +390,13 @@ func DetectAndGenerateConfig(workingDir string, detector func(string) ([]string,
 		return GetDefaultConfig()
 	}
 
-    common.CLILogger.Debug("Detected languages: %v", languages)
+	common.CLILogger.Debug("Detected languages: %v", languages)
 	config := GenerateConfigForLanguages(languages)
 
 	// Set project-specific cache path for multiple instance support
 	projectCachePath := GetProjectSpecificCachePath(workingDir)
 	config.SetCacheStoragePath(projectCachePath)
-    common.CLILogger.Debug("Using project-specific cache path: %s", projectCachePath)
+	common.CLILogger.Debug("Using project-specific cache path: %s", projectCachePath)
 
 	return config
 }

@@ -3,47 +3,34 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
+	clicommon "lsp-gateway/src/cli/common"
 	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
-	"lsp-gateway/src/utils/configloader"
 )
 
 // IndexCache rebuilds the cache index by processing workspace files
 func IndexCache(configPath string) error {
-	cfg := configloader.LoadForCLI(configPath)
+	cfg := clicommon.LoadConfigForCLI(configPath)
 
 	// Create LSP manager to access cache
-	manager, err := server.NewLSPManager(cfg)
+	manager, err := clicommon.CreateLSPManager(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create LSP manager: %w", err)
 	}
 
 	cacheInstance := manager.GetCache()
-	if cacheInstance == nil {
-		common.CLILogger.Info("Cache: Not available")
-		return nil
-	}
-
-	metrics, err := cacheInstance.HealthCheck()
+	_, err = clicommon.CheckCacheHealth(cacheInstance)
 	if err != nil {
-		common.CLILogger.Error("Cache: Unable to get status (%v)", err)
-		return err
-	}
-
-	if metrics == nil {
-		common.CLILogger.Info("Cache: Disabled by configuration")
-		return nil
+		return nil // CheckCacheHealth already logged the appropriate message
 	}
 
 	common.CLILogger.Info("Cache Index")
 	common.CLILogger.Info("Starting cache index rebuild...")
 
 	// Get working directory
-	wd, err := os.Getwd()
+	wd, err := common.ValidateAndGetWorkingDir("")
 	if err != nil {
 		common.CLILogger.Error("Failed to get working directory: %v", err)
 		return err
@@ -121,29 +108,18 @@ func IndexCache(configPath string) error {
 
 // ClearCache clears all cache entries
 func ClearCache(configPath string) error {
-	cfg := configloader.LoadForCLI(configPath)
+	cfg := clicommon.LoadConfigForCLI(configPath)
 
 	// Create LSP manager to access cache
-	manager, err := server.NewLSPManager(cfg)
+	manager, err := clicommon.CreateLSPManager(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create LSP manager: %w", err)
 	}
 
 	cache := manager.GetCache()
-	if cache == nil {
-		common.CLILogger.Info("Cache: Not available")
-		return nil
-	}
-
-	metrics, err := cache.HealthCheck()
+	_, err = clicommon.CheckCacheHealth(cache)
 	if err != nil {
-		common.CLILogger.Error("Cache: Unable to get status (%v)", err)
-		return err
-	}
-
-	if metrics == nil {
-		common.CLILogger.Info("Cache: Disabled by configuration")
-		return nil
+		return nil // CheckCacheHealth already logged the appropriate message
 	}
 
 	common.CLILogger.Info("Cache Clear")
@@ -161,24 +137,18 @@ func ClearCache(configPath string) error {
 
 // ShowCacheInfo displays brief statistics about cached data
 func ShowCacheInfo(configPath string) error {
-	cfg := configloader.LoadForCLI(configPath)
+	cfg := clicommon.LoadConfigForCLI(configPath)
 
 	// Create LSP manager to access cache
-	manager, err := server.NewLSPManager(cfg)
+	manager, err := clicommon.CreateLSPManager(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to create LSP manager: %w", err)
 	}
 
 	cacheInstance := manager.GetCache()
-	if cacheInstance == nil {
-		common.CLILogger.Info("Cache: Not available")
-		return nil
-	}
-
-	metrics, err := cacheInstance.HealthCheck()
+	metrics, err := clicommon.CheckCacheHealth(cacheInstance)
 	if err != nil {
-		common.CLILogger.Error("Cache: Unable to get status (%v)", err)
-		return err
+		return nil // CheckCacheHealth already logged the appropriate message
 	}
 
 	common.CLILogger.Info("Cache Info")
@@ -197,7 +167,7 @@ func ShowCacheInfo(configPath string) error {
 	// Basic statistics
 	common.CLILogger.Info("Cache Statistics:")
 	common.CLILogger.Info("  • Entries: %d", metrics.EntryCount)
-	common.CLILogger.Info("  • Memory: %s", formatBytes(metrics.TotalSize))
+	common.CLILogger.Info("  • Memory: %s", clicommon.FormatBytes(metrics.TotalSize))
 
 	// Hit/Miss ratio
 	totalRequests := metrics.HitCount + metrics.MissCount
@@ -223,7 +193,7 @@ func ShowCacheInfo(configPath string) error {
 		common.CLILogger.Info("  • Indexed References: %d", indexStats.ReferenceCount)
 
 		if indexStats.IndexSize > 0 {
-			common.CLILogger.Info("  • Index Size: %s", formatBytes(indexStats.IndexSize))
+			common.CLILogger.Info("  • Index Size: %s", clicommon.FormatBytes(indexStats.IndexSize))
 		}
 
 		// Display per-language statistics if available

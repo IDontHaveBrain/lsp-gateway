@@ -2,8 +2,6 @@ package documents
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -56,7 +54,7 @@ func (dm *LSPDocumentManager) DetectLanguage(uri string) string {
 // ExtractURI extracts the file URI from request parameters
 func (dm *LSPDocumentManager) ExtractURI(params interface{}) (string, error) {
 	if params == nil {
-		return "", fmt.Errorf("no parameters provided")
+		return "", common.NoParametersError()
 	}
 
 	// Handle typed protocol structs first (most efficient for tests)
@@ -105,40 +103,39 @@ func (dm *LSPDocumentManager) ExtractURI(params interface{}) (string, error) {
 		return uri, nil
 	}
 
-	return "", fmt.Errorf("no URI found in parameters")
+	return "", common.ParameterValidationError("no URI found in parameters")
 }
 
 // EnsureOpen sends a textDocument/didOpen notification if needed
 func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, params interface{}) error {
 
-    // Read actual file content for proper LSP functionality
-    var fileContent string
+	// Read actual file content for proper LSP functionality
+	var fileContent string
 
-    // Extract file path from URI
-    if strings.HasPrefix(uri, "file://") {
-        filePath := utils.URIToFilePath(uri)
-        // Ensure the file's directory is part of the workspace folders for servers like gopls
-        dir := filepath.Dir(filePath)
-        wsURI := "file://" + dir
-        changeParams := map[string]interface{}{
-            "event": map[string]interface{}{
-                "added": []map[string]interface{}{
-                    {"uri": wsURI, "name": filepath.Base(dir)},
-                },
-                "removed": []map[string]interface{}{},
-            },
-        }
-        _ = client.SendNotification(context.Background(), "workspace/didChangeWorkspaceFolders", changeParams)
-        if content, err := os.ReadFile(filePath); err == nil {
-            fileContent = string(content)
-        } else {
-            // If we can't read the file, log but continue with empty content
-            common.LSPLogger.Error("Failed to read file content for %s: %v", uri, err)
-            fileContent = ""
-        }
-    } else {
-        common.LSPLogger.Warn("URI does not start with file://: %s", uri)
-    }
+	// Extract file path from URI
+	if strings.HasPrefix(uri, "file://") {
+		filePath := utils.URIToFilePath(uri)
+		// Ensure the file's directory is part of the workspace folders for servers like gopls
+		dir := filepath.Dir(filePath)
+		wsURI := "file://" + dir
+		changeParams := map[string]interface{}{
+			"event": map[string]interface{}{
+				"added": []map[string]interface{}{
+					{"uri": wsURI, "name": filepath.Base(dir)},
+				},
+				"removed": []map[string]interface{}{},
+			},
+		}
+		_ = client.SendNotification(context.Background(), "workspace/didChangeWorkspaceFolders", changeParams)
+		if data, err := common.SafeReadFile(filePath); err == nil {
+			fileContent = string(data)
+		} else {
+			common.LSPLogger.Error("Failed to read file content for %s: %v", uri, err)
+			fileContent = ""
+		}
+	} else {
+		common.LSPLogger.Warn("URI does not start with file://: %s", uri)
+	}
 
 	didOpenParams := map[string]interface{}{
 		"textDocument": map[string]interface{}{

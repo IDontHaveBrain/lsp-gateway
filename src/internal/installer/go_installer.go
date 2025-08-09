@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
 )
 
@@ -15,12 +14,7 @@ type GoInstaller struct {
 
 // NewGoInstaller creates a new Go installer
 func NewGoInstaller(platform PlatformInfo) *GoInstaller {
-	serverConfig := &config.ServerConfig{
-		Command: "gopls",
-		Args:    []string{"serve"},
-	}
-
-	base := NewBaseInstaller("go", serverConfig, platform)
+	base := CreateSimpleInstaller("go", "gopls", []string{"serve"}, platform)
 
 	return &GoInstaller{
 		BaseInstaller: base,

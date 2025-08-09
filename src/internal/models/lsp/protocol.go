@@ -9,16 +9,6 @@ type Hover struct {
 	Range    *types.Range `json:"range,omitempty"`
 }
 
-type SymbolInformation struct {
-	Name           string           `json:"name"`
-	Kind           types.SymbolKind `json:"kind"`
-	Tags           []int            `json:"tags,omitempty"`
-	Deprecated     bool             `json:"deprecated,omitempty"`
-	Location       types.Location   `json:"location"`
-	ContainerName  string           `json:"containerName,omitempty"`
-	SelectionRange *types.Range     `json:"-"` // Not part of LSP spec, used internally for DocumentSymbol conversion
-}
-
 type DocumentSymbol struct {
 	Name           string            `json:"name"`
 	Detail         string            `json:"detail,omitempty"`

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
 )
@@ -56,20 +55,6 @@ func GetCacheMetricsFromManager(manager *server.LSPManager) (*cache.CacheMetrics
 
 // Helper functions
 
-// formatBytes converts bytes to human-readable format
-func formatBytes(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
-}
-
 // GetCacheStatusText returns a human-readable cache status description
 func GetCacheStatusText(metrics *cache.CacheMetrics) string {
 	if metrics == nil {
@@ -77,63 +62,4 @@ func GetCacheStatusText(metrics *cache.CacheMetrics) string {
 	}
 
 	return "Operating normally"
-}
-
-// DisplayCacheStatus shows comprehensive cache status for CLI commands
-// This is the main function called by CLI commands like status, test, etc.
-func DisplayCacheStatus(manager *server.LSPManager) {
-	if manager == nil {
-		common.CLILogger.Info("")
-		common.CLILogger.Info("Cache Status:")
-		common.CLILogger.Info("Cache: Manager not available")
-		return
-	}
-
-	common.CLILogger.Info("")
-	common.CLILogger.Info("Cache Status:")
-
-	metrics, err := GetCacheMetricsFromManager(manager)
-	if err != nil {
-		common.CLILogger.Info("Cache: Unable to get metrics (%v)", err)
-		return
-	}
-
-	if metrics == nil {
-		common.CLILogger.Info("Cache: No metrics available")
-		return
-	}
-
-	// Show basic cache status
-	statusText := GetCacheStatusText(metrics)
-	common.CLILogger.Info("Cache: %s", statusText)
-
-	// Show basic metrics if cache is enabled
-	if metrics != nil {
-		totalRequests := metrics.HitCount + metrics.MissCount
-		if totalRequests > 0 {
-			hitRatio := float64(metrics.HitCount) / float64(totalRequests) * 100
-			common.CLILogger.Info("   Stats: %d entries, %.1f%% hit rate (%d/%d requests)",
-				metrics.EntryCount, hitRatio, metrics.HitCount, totalRequests)
-		} else {
-			common.CLILogger.Info("   Stats: %d entries, no requests processed yet", metrics.EntryCount)
-		}
-
-		if metrics.TotalSize > 0 {
-			common.CLILogger.Info("   Size: %s", formatBytes(metrics.TotalSize))
-		}
-
-		// Show any errors or evictions
-		if metrics.ErrorCount > 0 {
-			common.CLILogger.Info("   Errors: %d", metrics.ErrorCount)
-		}
-		if metrics.EvictionCount > 0 {
-			common.CLILogger.Info("   Evictions: %d", metrics.EvictionCount)
-		}
-	}
-}
-
-// displayCacheStatus is a convenience wrapper for DisplayCacheStatus to match
-// the naming convention used in commands.go
-func displayCacheStatus(manager *server.LSPManager) {
-	DisplayCacheStatus(manager)
 }

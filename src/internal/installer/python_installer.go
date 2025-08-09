@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
 )
 
@@ -15,12 +14,7 @@ type PythonInstaller struct {
 
 // NewPythonInstaller creates a new Python installer
 func NewPythonInstaller(platform PlatformInfo) *PythonInstaller {
-	serverConfig := &config.ServerConfig{
-		Command: "pylsp",
-		Args:    []string{},
-	}
-
-	base := NewBaseInstaller("python", serverConfig, platform)
+	base := CreateSimpleInstaller("python", "pylsp", []string{}, platform)
 
 	return &PythonInstaller{
 		BaseInstaller: base,

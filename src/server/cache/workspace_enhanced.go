@@ -39,7 +39,7 @@ func (w *WorkspaceIndexer) IndexWorkspaceFilesWithReferences(ctx context.Context
 	documents := scipCache.GetAllDocuments()
 	symbols := w.collectUniqueDefinitions(documents)
 
-    common.LSPLogger.Debug("Found %d unique symbols to process", len(symbols))
+	common.LSPLogger.Debug("Found %d unique symbols to process", len(symbols))
 
 	// Step 3: Process in batches
 	const batchSize = 50
@@ -52,12 +52,12 @@ func (w *WorkspaceIndexer) IndexWorkspaceFilesWithReferences(ctx context.Context
 		added := w.processReferenceBatch(ctx, batch, scipCache)
 		totalReferences += added
 
-        if totalReferences > 0 && totalReferences%100 == 0 {
-            common.LSPLogger.Debug("Added %d references so far...", totalReferences)
-        }
+		if totalReferences > 0 && totalReferences%100 == 0 {
+			common.LSPLogger.Debug("Added %d references so far...", totalReferences)
+		}
 	}
 
-    common.LSPLogger.Debug("Indexing complete: %d symbols, %d references", len(symbols), totalReferences)
+	common.LSPLogger.Debug("Indexing complete: %d symbols, %d references", len(symbols), totalReferences)
 
 	return nil
 }

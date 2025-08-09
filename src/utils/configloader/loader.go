@@ -3,7 +3,6 @@ package configloader
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 
 	"lsp-gateway/src/config"
@@ -19,7 +18,7 @@ func LoadOrAuto(configPath string) *config.Config {
 	}
 
 	defaultPath := config.GetDefaultConfigPath()
-	if _, err := os.Stat(defaultPath); err == nil {
+	if common.FileExists(defaultPath) {
 		if loaded, err := config.LoadConfig(defaultPath); err == nil {
 			return loaded
 		}
@@ -95,9 +94,9 @@ func getInstalledJdtlsPath(homeDir string) string {
 	var jdtlsPath string
 
 	if runtime.GOOS == "windows" {
-		jdtlsPath = filepath.Join(homeDir, ".lsp-gateway", "tools", "java", "bin", "jdtls.bat")
+		jdtlsPath = common.GetLSPToolPath("java", "jdtls.bat")
 	} else {
-		jdtlsPath = filepath.Join(homeDir, ".lsp-gateway", "tools", "java", "bin", "jdtls")
+		jdtlsPath = common.GetLSPToolPath("java", "jdtls")
 	}
 
 	// Check if the file exists and is executable

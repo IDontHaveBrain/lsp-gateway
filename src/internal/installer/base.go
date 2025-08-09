@@ -403,35 +403,37 @@ func (b *BaseInstaller) ValidateWithPackageManager(command string, packageManage
 
 // Package manager helpers
 
-// isGoInstalled checks if Go is installed
-func (b *BaseInstaller) isGoInstalled() bool {
+// isCommandInstalled checks if a command is installed by running it with specified args
+func (b *BaseInstaller) isCommandInstalled(command string, args ...string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if _, err := b.RunCommandWithOutput(ctx, "go", "version"); err != nil {
+	if _, err := b.RunCommandWithOutput(ctx, command, args...); err != nil {
 		return false
 	}
 	return true
 }
 
+// isGoInstalled checks if Go is installed
+func (b *BaseInstaller) isGoInstalled() bool {
+	return b.isCommandInstalled("go", "version")
+}
+
 // isPipInstalled checks if pip is installed
 func (b *BaseInstaller) isPipInstalled() bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
 	// Try pip3 first, then pip
-	if _, err := b.RunCommandWithOutput(ctx, "pip3", "--version"); err == nil {
+	if b.isCommandInstalled("pip3", "--version") {
 		return true
 	}
-	if _, err := b.RunCommandWithOutput(ctx, "pip", "--version"); err == nil {
+	if b.isCommandInstalled("pip", "--version") {
 		return true
 	}
 	// On Windows, pip might only be available through python -m pip
 	if runtime.GOOS == "windows" {
-		if _, err := b.RunCommandWithOutput(ctx, "python", "-m", "pip", "--version"); err == nil {
+		if b.isCommandInstalled("python", "-m", "pip", "--version") {
 			return true
 		}
-		if _, err := b.RunCommandWithOutput(ctx, "python3", "-m", "pip", "--version"); err == nil {
+		if b.isCommandInstalled("python3", "-m", "pip", "--version") {
 			return true
 		}
 	}
@@ -440,13 +442,7 @@ func (b *BaseInstaller) isPipInstalled() bool {
 
 // isNpmInstalled checks if npm is installed
 func (b *BaseInstaller) isNpmInstalled() bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if _, err := b.RunCommandWithOutput(ctx, "npm", "--version"); err != nil {
-		return false
-	}
-	return true
+	return b.isCommandInstalled("npm", "--version")
 }
 
 // InstallWithPackageManager handles common package manager installation patterns
@@ -468,7 +464,7 @@ func (b *BaseInstaller) InstallWithPackageManager(ctx context.Context, packageMa
 		if !b.isPipInstalled() {
 			return fmt.Errorf("pip is not installed. Please install Python and pip first")
 		}
-		
+
 		// Determine the best way to run pip
 		var pipCmd []string
 		if _, err := exec.LookPath("pip3"); err == nil {
@@ -483,16 +479,16 @@ func (b *BaseInstaller) InstallWithPackageManager(ctx context.Context, packageMa
 				pipCmd = []string{"python3", "-m", "pip"}
 			}
 		}
-		
+
 		if len(pipCmd) == 0 {
 			return fmt.Errorf("pip command not found")
 		}
-		
+
 		installPackage := packageName
 		if version != "" && version != "latest" {
 			installPackage = fmt.Sprintf("%s==%s", packageName, version)
 		}
-		
+
 		// Build the full command
 		args := append(pipCmd, "install", "--user", installPackage)
 		return b.RunCommand(ctx, args[0], args[1:]...)

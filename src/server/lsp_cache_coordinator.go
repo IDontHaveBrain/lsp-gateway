@@ -52,12 +52,12 @@ func (m *LSPManager) GetCache() cache.SCIPCache {
 
 // SetCache allows optional cache injection for flexible integration
 func (m *LSPManager) SetCache(cache cache.SCIPCache) {
-    m.scipCache = cache
-    if cache != nil {
-        common.LSPLogger.Debug("Cache injected into LSP manager")
-    } else {
-        common.LSPLogger.Debug("Cache removed from LSP manager")
-    }
+	m.scipCache = cache
+	if cache != nil {
+		common.LSPLogger.Debug("Cache injected into LSP manager")
+	} else {
+		common.LSPLogger.Debug("Cache removed from LSP manager")
+	}
 }
 
 // ensureDocumentOpen sends a textDocument/didOpen notification if needed

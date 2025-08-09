@@ -1,6 +1,7 @@
 package installer
 
 import (
+	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
 )
 
@@ -44,4 +45,14 @@ func registerAllInstallers(manager *LSPInstallManager, platform PlatformInfo) {
 // This is the main entry point for other packages
 func GetDefaultInstallManager() *LSPInstallManager {
 	return CreateInstallManager()
+}
+
+// CreateSimpleInstaller creates a BaseInstaller with the provided command and args
+func CreateSimpleInstaller(language string, command string, args []string, platform PlatformInfo) *BaseInstaller {
+	serverConfig := &config.ServerConfig{
+		Command: command,
+		Args:    args,
+	}
+
+	return NewBaseInstaller(language, serverConfig, platform)
 }
