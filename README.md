@@ -1,22 +1,22 @@
 # LSP Gateway
 
-Local Language Server Protocol gateway providing HTTP and MCP interfaces to 5 language servers.
+Language Server Protocol gateway providing HTTP and MCP interfaces to 5 language servers with SCIP caching.
 
 ## Quick Start
 
 ```bash
-# Requirements: Go 1.24+, Node.js 18+
+# Prerequisites: Go 1.24.0+, Node.js 18+
 git clone https://github.com/IDontHaveBrain/lsp-gateway
 cd lsp-gateway
 make local                   # Build + npm link globally
-lsp-gateway install all      # Install language servers
+lsp-gateway install all      # Install all 5 language servers
 lsp-gateway server           # Start HTTP Gateway on :8080
 ```
 
-Test it's working:
+Verify installation:
 ```bash
 lsp-gateway status           # Check installed servers
-curl localhost:8080/jsonrpc  # Verify HTTP gateway
+curl localhost:8080/jsonrpc  # Test HTTP gateway
 ```
 
 ## Features
@@ -54,14 +54,22 @@ lsp-gateway cache index     # Index files for faster lookups
 ## Usage
 
 ### HTTP Gateway
+
 ```bash
+# Find symbol definition
 curl -X POST localhost:8080/jsonrpc \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"workspace/symbol","params":{"query":"main"}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"textDocument/definition","params":{"textDocument":{"uri":"file:///path/to/file.go"},"position":{"line":10,"character":5}}}'
+
+# Search workspace symbols
+curl -X POST localhost:8080/jsonrpc \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"workspace/symbol","params":{"query":"Router"}}'
 ```
 
 ### MCP Server
-Configure in your AI assistant:
+
+Add to your AI assistant's configuration:
 ```json
 {
   "mcpServers": {
@@ -72,37 +80,73 @@ Configure in your AI assistant:
   }
 }
 ```
-**MCP Tools**: `findSymbols`, `findReferences` - Enhanced symbol search with SCIP caching.
+
+**MCP Tools**: 
+- `findSymbols` - Search code symbols with regex patterns
+- `findReferences` - Find all references to symbols
 
 ## Development
 
+### Building
 ```bash
-make local                  # Build + npm link
+make local                  # Primary workflow: build + npm link
+make build                  # Build for all platforms
 make clean                  # Clean build artifacts
-make quality                # Format + vet
-make quality-full           # Format + vet + lint + security
 
-# Testing
-make test                   # All tests (unit + integration + e2e)
-make test-fast              # Quick tests (skip e2e)
-go test -v ./tests/unit/... # Unit tests only
+# Platform-specific
+make linux                  # Linux amd64
+make macos                  # Darwin amd64  
+make macos-arm64           # Darwin arm64 (M1/M2)
+make windows               # Windows amd64
+```
+
+### Testing
+```bash
+make test                   # Complete suite (30+ min)
+make test-fast              # Unit + integration only (8-10 min)
+go test -v ./tests/unit/... # Unit tests only (2 min)
 go test -v -run TestName ./tests/... # Run specific test
+```
+
+### Code Quality
+```bash
+make quality                # Essential: format + vet
+make quality-full           # Complete: format + vet + lint + security
 ```
 
 ## Configuration
 
-Auto-detects projects. Optional config at `~/.lsp-gateway/config.yaml`:
+Auto-detects projects by scanning for: `go.mod`, `package.json`, `*.py`, `pom.xml`, `build.gradle`
 
+Optional config at `~/.lsp-gateway/config.yaml`:
 ```yaml
 cache:
   enabled: true
   max_memory_mb: 512
-  ttl_hours: 24         # MCP overrides to 1hr
+  ttl_hours: 24         # MCP mode overrides to 1hr
 servers:
   go:
     command: "gopls"
     args: ["serve"]
+  python:
+    command: "pylsp"
 ```
+
+## Architecture
+
+```
+src/
+├── server/           # HTTP Gateway, MCP Server, LSP Manager
+├── cli/              # Command implementations
+├── internal/         # Core types, models, constants
+└── tests/            # Unit, integration, E2E tests
+```
+
+Key Components:
+- **LSP Manager**: Orchestrates 5 language servers with SCIP cache
+- **HTTP Gateway**: JSON-RPC endpoint at `:8080/jsonrpc`
+- **MCP Server**: STDIO protocol for AI assistants
+- **SCIP Cache**: 512MB LRU cache for sub-millisecond lookups
 
 ## Troubleshooting
 
@@ -110,9 +154,10 @@ servers:
 |-------|----------|
 | LSP server not found | `lsp-gateway install all` |
 | Port 8080 in use | `lsp-gateway server --port 8081` |
-| Debug issues | `export LSP_GATEWAY_DEBUG=true` |
-| Cache problems | `lsp-gateway cache clear` |
-| Check status | `lsp-gateway status` |
+| Debug mode | `export LSP_GATEWAY_DEBUG=true` |
+| Cache issues | `lsp-gateway cache clear` |
+| Check server status | `lsp-gateway status` |
+| Java timeout errors | Known issue - initialization takes 60s |
 
 ## License
 

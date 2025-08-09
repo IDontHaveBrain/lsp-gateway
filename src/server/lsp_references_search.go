@@ -767,7 +767,6 @@ func (m *LSPManager) matchesFilePattern(filePath, pattern string) bool {
 
 // Helper methods for occurrence-based reference search
 
-
 // createReferenceFromOccurrenceWithDoc creates ReferenceInfo from a SCIP occurrence with document URI
 func (m *LSPManager) createReferenceFromOccurrenceWithDoc(occWithDoc scip.OccurrenceWithDocument, symbolInfo *scip.SCIPSymbolInformation) *ReferenceInfo {
 	filePath := utils.URIToFilePath(occWithDoc.DocumentURI)
