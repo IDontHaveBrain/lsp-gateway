@@ -61,49 +61,31 @@ func (m *LSPManager) indexDocumentSymbolsAsOccurrences(ctx context.Context, uri,
 			continue
 		}
 
-		// Generate SCIP symbol ID
-		symbolID := m.generateSymbolID(language, uri, symbol.Name, symbol.Kind)
-
-		// Use SelectionRange if available for more precise position, otherwise use Range
+		// Use SelectionRange start when available to generate stable IDs
 		symbolPosition := symbol.Location.Range.Start
 		if symbol.SelectionRange != nil {
 			symbolPosition = symbol.SelectionRange.Start
 		}
 
-		// Create SCIP occurrence with definition role
-		// Use SelectionRange for the occurrence if available (more precise identifier location)
-		occurrenceRange := symbol.Location.Range
-		if symbol.SelectionRange != nil {
-			occurrenceRange = *symbol.SelectionRange
-		}
+		// Generate SCIP symbol ID with precise position
+		symbolID := m.generateSymbolID(language, uri, symbol.Name, symbol.Kind, &symbolPosition)
 
+		// Create SCIP occurrence with definition role
+		// Range should be the full symbol range; SelectionRange holds the precise identifier span
 		occurrence := scip.SCIPOccurrence{
 			Range: types.Range{
-				Start: types.Position{
-					Line:      occurrenceRange.Start.Line,
-					Character: occurrenceRange.Start.Character,
-				},
-				End: types.Position{
-					Line:      occurrenceRange.End.Line,
-					Character: occurrenceRange.End.Character,
-				},
+				Start: types.Position{Line: symbol.Location.Range.Start.Line, Character: symbol.Location.Range.Start.Character},
+				End:   types.Position{Line: symbol.Location.Range.End.Line, Character: symbol.Location.Range.End.Character},
 			},
 			Symbol:      symbolID,
 			SymbolRoles: types.SymbolRoleDefinition,
 			SyntaxKind:  m.mapLSPSymbolKindToSyntaxKind(symbol.Kind),
 		}
-
-		// Store the full range as SelectionRange for context
-		if symbol.SelectionRange != nil && symbol.SelectionRange != &symbol.Location.Range {
+		if symbol.SelectionRange != nil {
+			sel := *symbol.SelectionRange
 			occurrence.SelectionRange = &types.Range{
-				Start: types.Position{
-					Line:      symbol.Location.Range.Start.Line,
-					Character: symbol.Location.Range.Start.Character,
-				},
-				End: types.Position{
-					Line:      symbol.Location.Range.End.Line,
-					Character: symbol.Location.Range.End.Character,
-				},
+				Start: types.Position{Line: sel.Start.Line, Character: sel.Start.Character},
+				End:   types.Position{Line: sel.End.Line, Character: sel.End.Character},
 			}
 		}
 
@@ -111,11 +93,13 @@ func (m *LSPManager) indexDocumentSymbolsAsOccurrences(ctx context.Context, uri,
 
 		// Create symbol information with enhanced metadata using precise position
 		symbolInfo := scip.SCIPSymbolInformation{
-			Symbol:        symbolID,
-			DisplayName:   symbol.Name,
-			Kind:          m.mapLSPSymbolKindToSCIPKind(symbol.Kind),
-			Documentation: m.getSymbolDocumentation(ctx, uri, symbolPosition),
-			Relationships: m.getSymbolRelationships(ctx, uri, symbol.Name, symbol.Kind),
+			Symbol:         symbolID,
+			DisplayName:    symbol.Name,
+			Kind:           m.mapLSPSymbolKindToSCIPKind(symbol.Kind),
+			Documentation:  m.getSymbolDocumentation(ctx, uri, symbolPosition),
+			Relationships:  m.getSymbolRelationships(ctx, uri, symbol.Name, symbol.Kind),
+			Range:          symbol.Location.Range,
+			SelectionRange: symbol.SelectionRange,
 		}
 		symbolInfos = append(symbolInfos, symbolInfo)
 	}
@@ -153,8 +137,9 @@ func (m *LSPManager) indexDefinitionsAsOccurrences(ctx context.Context, uri, lan
 	symbolInfos := make([]scip.SCIPSymbolInformation, 0, len(locations))
 
 	for _, location := range locations {
-		// Generate SCIP symbol ID
-		symbolID := m.generateSymbolID(language, location.URI, symbolName, types.Function)
+		// Generate SCIP symbol ID (use definition start position)
+		startPos := types.Position{Line: int32(location.Range.Start.Line), Character: int32(location.Range.Start.Character)}
+		symbolID := m.generateSymbolID(language, location.URI, symbolName, types.Function, &startPos)
 
 		// Create SCIP occurrence with definition role
 		occurrence := scip.SCIPOccurrence{
@@ -237,8 +222,8 @@ func (m *LSPManager) indexReferencesAsOccurrences(ctx context.Context, uri, lang
 		}
 	}
 	if stableSymbolID == "" {
-		// Fallback: generate an ID based on the definition URI (not the reference document)
-		stableSymbolID = m.generateSymbolID(language, uri, symbolName, types.Function)
+		// Fallback: generate an ID using position for stability
+		stableSymbolID = m.generateSymbolID(language, uri, symbolName, types.Function, &position)
 	}
 
 	occurrences := make([]scip.SCIPOccurrence, 0, len(locations))
@@ -260,13 +245,15 @@ func (m *LSPManager) indexReferencesAsOccurrences(ctx context.Context, uri, lang
 	// Create symbol info once using the document of the definition (uri)
 	if len(occurrences) > 0 {
 		first := locations[0]
-		symbolInfos = append(symbolInfos, scip.SCIPSymbolInformation{
+		si := scip.SCIPSymbolInformation{
 			Symbol:        stableSymbolID,
 			DisplayName:   symbolName,
 			Kind:          scip.SCIPSymbolKindFunction,
 			Documentation: m.getSymbolDocumentation(ctx, uri, first.Range.Start),
 			Relationships: m.getSymbolRelationships(ctx, uri, symbolName, types.Function),
-		})
+			Range:         types.Range{Start: first.Range.Start, End: first.Range.End},
+		}
+		symbolInfos = append(symbolInfos, si)
 	}
 
 	documentGroups := m.groupReferencesByDocument(occurrences, locations)
@@ -324,42 +311,54 @@ func (m *LSPManager) indexWorkspaceSymbolsAsOccurrences(ctx context.Context, lan
 				continue
 			}
 
-			// Generate SCIP symbol ID
-			symbolID := m.generateSymbolID(language, uri, symbol.Name, symbol.Kind)
-
-			// Use SelectionRange if available for more precise position
+			// Generate SCIP symbol ID with precise position
 			symbolPosition := symbol.Location.Range.Start
-			occurrenceRange := symbol.Location.Range
 			if symbol.SelectionRange != nil {
 				symbolPosition = symbol.SelectionRange.Start
-				occurrenceRange = *symbol.SelectionRange
 			}
+			symbolID := m.generateSymbolID(language, uri, symbol.Name, symbol.Kind, &symbolPosition)
 
-			// Create SCIP occurrence with definition role using precise position
-			occurrence := scip.SCIPOccurrence{
-				Range: types.Range{
-					Start: types.Position{
-						Line:      int32(occurrenceRange.Start.Line),
-						Character: int32(occurrenceRange.Start.Character),
-					},
-					End: types.Position{
-						Line:      int32(occurrenceRange.End.Line),
-						Character: int32(occurrenceRange.End.Character),
-					},
-				},
-				Symbol:      symbolID,
-				SymbolRoles: types.SymbolRoleDefinition,
-				SyntaxKind:  m.mapLSPSymbolKindToSyntaxKind(symbol.Kind),
-			}
+        // Always use full symbol range for occurrence; carry SelectionRange separately
+        symbolPosition = symbol.Location.Range.Start
+        occurrenceRange := symbol.Location.Range
+        if symbol.SelectionRange != nil {
+            symbolPosition = symbol.SelectionRange.Start
+        }
+
+        // Create SCIP occurrence with definition role using full range
+        occurrence := scip.SCIPOccurrence{
+            Range: types.Range{
+                Start: types.Position{
+                    Line:      int32(occurrenceRange.Start.Line),
+                    Character: int32(occurrenceRange.Start.Character),
+                },
+                End: types.Position{
+                    Line:      int32(occurrenceRange.End.Line),
+                    Character: int32(occurrenceRange.End.Character),
+                },
+            },
+            Symbol:      symbolID,
+            SymbolRoles: types.SymbolRoleDefinition,
+            SyntaxKind:  m.mapLSPSymbolKindToSyntaxKind(symbol.Kind),
+        }
+        if symbol.SelectionRange != nil {
+            sel := *symbol.SelectionRange
+            occurrence.SelectionRange = &types.Range{
+                Start: types.Position{Line: sel.Start.Line, Character: sel.Start.Character},
+                End:   types.Position{Line: sel.End.Line, Character: sel.End.Character},
+            }
+        }
 			occurrences = append(occurrences, occurrence)
 
 			// Create symbol information with enhanced metadata using precise position
 			symbolInfo := scip.SCIPSymbolInformation{
-				Symbol:        symbolID,
-				DisplayName:   symbol.Name,
-				Kind:          m.mapLSPSymbolKindToSCIPKind(symbol.Kind),
-				Documentation: m.getSymbolDocumentation(ctx, uri, symbolPosition),
-				Relationships: m.getSymbolRelationships(ctx, uri, symbol.Name, symbol.Kind),
+				Symbol:         symbolID,
+				DisplayName:    symbol.Name,
+				Kind:           m.mapLSPSymbolKindToSCIPKind(symbol.Kind),
+				Documentation:  m.getSymbolDocumentation(ctx, uri, symbolPosition),
+				Relationships:  m.getSymbolRelationships(ctx, uri, symbol.Name, symbol.Kind),
+				Range:          symbol.Location.Range,
+				SelectionRange: symbol.SelectionRange,
 			}
 			symbolInfos = append(symbolInfos, symbolInfo)
 		}
@@ -425,21 +424,26 @@ func (m *LSPManager) expandSymbolRanges(ctx context.Context, symbols []types.Sym
 		}
 	}
 
-	// Create a map of symbol names to their full ranges
-	fullRangeMap := make(map[string]types.Range)
+	// Create a map of symbol names to their full ranges (multiple per name)
+	fullRangeMap := make(map[string][]types.Range)
 	m.collectFullRanges(fullRangeSymbols, fullRangeMap)
 
 	// Update symbols with full ranges
 	expandedSymbols := make([]types.SymbolInformation, len(symbols))
 	for i, symbol := range symbols {
 		expandedSymbols[i] = symbol
-		if fullRange, exists := fullRangeMap[symbol.Name]; exists {
-			// Only update if the full range is actually larger
-			if fullRange.End.Line > symbol.Location.Range.End.Line ||
-				(fullRange.End.Line == symbol.Location.Range.End.Line &&
-					fullRange.End.Character > symbol.Location.Range.End.Character) {
-				expandedSymbols[i].Location.Range = fullRange
+		if ranges, exists := fullRangeMap[symbol.Name]; exists {
+			orig := symbol.Location.Range
+			best := orig
+			for _, fr := range ranges {
+				if (fr.Start.Line < orig.Start.Line || (fr.Start.Line == orig.Start.Line && fr.Start.Character <= orig.Start.Character)) &&
+					(fr.End.Line > orig.End.Line || (fr.End.Line == orig.End.Line && fr.End.Character >= orig.End.Character)) {
+					if fr.End.Line > best.End.Line || (fr.End.Line == best.End.Line && fr.End.Character > best.End.Character) {
+						best = fr
+					}
+				}
 			}
+			expandedSymbols[i].Location.Range = best
 		}
 	}
 
@@ -447,10 +451,10 @@ func (m *LSPManager) expandSymbolRanges(ctx context.Context, symbols []types.Sym
 }
 
 // collectFullRanges recursively collects full ranges from DocumentSymbol hierarchy
-func (m *LSPManager) collectFullRanges(symbols []*lsp.DocumentSymbol, rangeMap map[string]types.Range) {
+func (m *LSPManager) collectFullRanges(symbols []*lsp.DocumentSymbol, rangeMap map[string][]types.Range) {
 	for _, symbol := range symbols {
-		// Store the full range for this symbol
-		rangeMap[symbol.Name] = symbol.Range
+		key := symbol.Name
+		rangeMap[key] = append(rangeMap[key], symbol.Range)
 
 		// Recursively process children
 		if len(symbol.Children) > 0 {
@@ -501,38 +505,48 @@ func (m *LSPManager) parseSymbols(result interface{}, uri string) []types.Symbol
 
 // parseSymbolsArray parses an array of interface{} into SymbolInformation
 func (m *LSPManager) parseSymbolsArray(items []interface{}, uri string) []types.SymbolInformation {
-	var symbols []types.SymbolInformation
+    var symbols []types.SymbolInformation
 
-	for _, item := range items {
-		data, err := json.Marshal(item)
-		if err != nil {
-			continue
-		}
+    for _, item := range items {
+        data, err := json.Marshal(item)
+        if err != nil {
+            continue
+        }
 
-		var symbol types.SymbolInformation
-		if err := json.Unmarshal(data, &symbol); err == nil && symbol.Name != "" {
-			symbols = append(symbols, symbol)
-			continue
-		}
+        // Prefer DocumentSymbol to capture full range + selectionRange
+        var docSymbol lsp.DocumentSymbol
+        if err := json.Unmarshal(data, &docSymbol); err == nil && docSymbol.Name != "" {
+            symbolInfo := types.SymbolInformation{
+                Name: docSymbol.Name,
+                Kind: docSymbol.Kind,
+                Location: types.Location{
+                    URI:   uri,
+                    Range: docSymbol.Range,
+                },
+            }
+            symbolInfo.SelectionRange = &docSymbol.SelectionRange
+            symbols = append(symbols, symbolInfo)
+            continue
+        }
 
-		// Try DocumentSymbol format
-		var docSymbol lsp.DocumentSymbol
-		if err := json.Unmarshal(data, &docSymbol); err == nil && docSymbol.Name != "" {
-			symbolInfo := types.SymbolInformation{
-				Name: docSymbol.Name,
-				Kind: docSymbol.Kind,
-				Location: types.Location{
-					URI:   uri,
-					Range: docSymbol.Range,
-				},
-			}
-			// Store SelectionRange for later use
-			symbolInfo.SelectionRange = &docSymbol.SelectionRange
-			symbols = append(symbols, symbolInfo)
-		}
-	}
+        // Fallback: SymbolInformation format must include a valid location range
+        var symbol types.SymbolInformation
+        if err := json.Unmarshal(data, &symbol); err == nil && symbol.Name != "" {
+            // Ensure URI is set
+            if symbol.Location.URI == "" {
+                symbol.Location.URI = uri
+            }
+            // Accept only if range appears initialized (end >= start)
+            if symbol.Location.Range.End.Line > 0 || symbol.Location.Range.Start.Line > 0 || symbol.Location.Range.End.Character > 0 || symbol.Location.Range.Start.Character > 0 {
+                symbols = append(symbols, symbol)
+            } else {
+                // Skip invalid range entries
+                continue
+            }
+        }
+    }
 
-	return symbols
+    return symbols
 }
 
 // parseLocationResult parses location results from various response formats
@@ -605,7 +619,7 @@ func (m *LSPManager) extractPositionAndSymbolFromParams(params interface{}) (typ
 }
 
 // generateSymbolID generates a unified SCIP symbol ID from symbol information
-func (m *LSPManager) generateSymbolID(language, uri, symbolName string, symbolKind types.SymbolKind) string {
+func (m *LSPManager) generateSymbolID(language, uri, symbolName string, symbolKind types.SymbolKind, pos *types.Position) string {
 	workspaceRoot := m.findWorkspaceRoot(uri)
 	filePath := utils.URIToFilePath(uri)
 	relPath, _ := filepath.Rel(workspaceRoot, filePath)
@@ -613,7 +627,18 @@ func (m *LSPManager) generateSymbolID(language, uri, symbolName string, symbolKi
 		relPath = filepath.Base(filePath)
 	}
 
-	// Simple, consistent descriptor format
+	// Include position when available to stabilize ID for same-named symbols
+	if pos != nil {
+		descriptor := fmt.Sprintf("`%s`:%d:%d/%s%s", relPath, pos.Line, pos.Character, symbolName, m.getSymbolSuffix(symbolKind))
+		packageName := "local"
+		version := "0.0.0"
+		if m.projectInfo != nil {
+			packageName = m.projectInfo.Name
+			version = m.projectInfo.Version
+		}
+		return fmt.Sprintf("scip-%s %s %s %s", language, packageName, version, descriptor)
+	}
+	// Fallback: path + name only
 	descriptor := fmt.Sprintf("`%s`/%s%s", relPath, symbolName, m.getSymbolSuffix(symbolKind))
 
 	// Use consistent package info
@@ -937,6 +962,14 @@ func (m *LSPManager) mapSCIPKindToLSPSymbolKind(kind scip.SCIPSymbolKind) types.
 
 // getSymbolDocumentation retrieves documentation for a symbol using hover
 func (m *LSPManager) getSymbolDocumentation(ctx context.Context, uri string, position types.Position) []string {
+	// Memoization to avoid duplicate hover lookups
+	key := fmt.Sprintf("%s:%d:%d", uri, position.Line, position.Character)
+	if v, ok := m.hoverMemo.Load(key); ok {
+		if cached, ok2 := v.([]string); ok2 {
+			return cached
+		}
+	}
+
 	// Use hover to get symbol documentation
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
@@ -975,6 +1008,9 @@ func (m *LSPManager) getSymbolDocumentation(ctx context.Context, uri string, pos
 		}
 	}
 
+	if len(documentation) > 0 {
+		m.hoverMemo.Store(key, documentation)
+	}
 	return documentation
 }
 

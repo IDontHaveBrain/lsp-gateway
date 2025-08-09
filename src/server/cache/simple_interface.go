@@ -42,3 +42,5 @@ type SimpleCache interface {
 	GetCachedWorkspaceSymbols(query string) ([]types.SymbolInformation, bool)
 	StoreMethodResult(method string, params interface{}, response interface{}) error
 }
+
+type IndexProgressFunc func(phase string, current, total int, detail string)

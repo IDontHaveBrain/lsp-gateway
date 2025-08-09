@@ -235,6 +235,7 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 				// Find matching symbol in document symbols to get full range
 				if docSymbols, ok := docSymbolsCache[symbol.Location.URI]; ok {
 					if fullRange := m.findSymbolRange(symbol.Name, int(symbol.Location.Range.Start.Line), docSymbols); fullRange != nil {
+						enhancedInfo.LineNumber = int(fullRange.Start.Line)
 						enhancedInfo.EndLine = int(fullRange.End.Line)
 					}
 				}
@@ -477,28 +478,20 @@ func (m *LSPManager) createEnrichedSymbolResult(ctx context.Context, scipStorage
 	}
 
 	// Get occurrences for this symbol to extract location information
-	occurrences, err := scipStorage.GetOccurrences(ctx, symbolInfo.Symbol)
+	occurrences, err := scipStorage.GetOccurrencesWithDocuments(ctx, symbolInfo.Symbol)
 	if err == nil && len(occurrences) > 0 {
 		// Use the first occurrence for location (definition preferred)
-		firstOcc := occurrences[0]
-		// Find definition occurrence if available
+		first := occurrences[0]
 		for _, occ := range occurrences {
 			if occ.SymbolRoles.HasRole(types.SymbolRoleDefinition) {
-				firstOcc = occ
+				first = occ
 				break
 			}
 		}
-
-		// Convert SCIP range to LSP range
+		lspSymbol.Location.URI = first.DocumentURI
 		lspSymbol.Location.Range = types.Range{
-			Start: types.Position{
-				Line:      firstOcc.Range.Start.Line,
-				Character: firstOcc.Range.Start.Character,
-			},
-			End: types.Position{
-				Line:      firstOcc.Range.End.Line,
-				Character: firstOcc.Range.End.Character,
-			},
+			Start: types.Position{Line: first.Range.Start.Line, Character: first.Range.Start.Character},
+			End:   types.Position{Line: first.Range.End.Line, Character: first.Range.End.Character},
 		}
 	}
 

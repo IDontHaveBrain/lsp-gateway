@@ -1,17 +1,21 @@
 package cache
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
+    "bufio"
+    "context"
+    "encoding/json"
+    "fmt"
+    "os"
+    "path/filepath"
+    "runtime"
+    "strings"
+    "sync"
+    "time"
 
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/types"
-	"lsp-gateway/src/server/scip"
-	"lsp-gateway/src/utils"
+    "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/types"
+    "lsp-gateway/src/server/scip"
+    "lsp-gateway/src/utils"
 )
 
 // indexedSymbol represents a symbol found during indexing
@@ -26,44 +30,165 @@ type indexedSymbol struct {
 // symbol definitions AND their references. This creates a complete SCIP index suitable
 // for findReferences operations.
 func (w *WorkspaceIndexer) IndexWorkspaceFilesWithReferences(ctx context.Context, workspaceDir string, languages []string, maxFiles int, scipCache *SCIPCacheManager) error {
-	// Step 1: Basic indexing
-	if err := w.IndexWorkspaceFiles(ctx, workspaceDir, languages, maxFiles); err != nil {
-		return fmt.Errorf("failed to index workspace files: %w", err)
-	}
-
 	if scipCache == nil {
 		return nil
 	}
-
-	// Step 2: Collect unique definitions
 	documents := scipCache.GetAllDocuments()
 	symbols := w.collectUniqueDefinitions(documents)
-
 	common.LSPLogger.Debug("Found %d unique symbols to process", len(symbols))
-
-	// Step 3: Process in batches
-	const batchSize = 50
-	totalReferences := 0
-
-	for i := 0; i < len(symbols); i += batchSize {
-		end := min(i+batchSize, len(symbols))
-		batch := symbols[i:end]
-
-		added := w.processReferenceBatch(ctx, batch, scipCache)
-		totalReferences += added
-
-		if totalReferences > 0 && totalReferences%100 == 0 {
-			common.LSPLogger.Debug("Added %d references so far...", totalReferences)
-		}
+	symbolsByFile := make(map[string][]indexedSymbol)
+	for _, s := range symbols {
+		symbolsByFile[s.uri] = append(symbolsByFile[s.uri], s)
 	}
-
-	common.LSPLogger.Debug("Indexing complete: %d symbols, %d references", len(symbols), totalReferences)
-
+	files := make([]string, 0, len(symbolsByFile))
+	for k := range symbolsByFile {
+		files = append(files, k)
+	}
+	workers := runtime.NumCPU()
+	if workers < 2 {
+		workers = 2
+	}
+	if workers > 16 {
+		workers = 16
+	}
+	jobs := make(chan int, workers)
+	var wg sync.WaitGroup
+	for wkr := 0; wkr < workers; wkr++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for idx := range jobs {
+				fileURI := files[idx]
+				fileSymbols := symbolsByFile[fileURI]
+				// Rely on LSP manager to ensure didOpen via DocumentManager
+				localRefs := make(map[string][]scip.SCIPOccurrence)
+				for _, symbol := range fileSymbols {
+					refs, err := w.getReferencesForSymbolInOpenFile(ctx, symbol)
+					if err != nil {
+						continue
+					}
+					for _, ref := range refs {
+						if w.isSelfReference(ref, symbol) {
+							continue
+						}
+						occ := w.createReferenceOccurrence(ref, symbol)
+						localRefs[ref.URI] = append(localRefs[ref.URI], occ)
+					}
+				}
+				// Flush per-doc to storage to bound memory (no global lock needed)
+				for uri, occs := range localRefs {
+					occs = dedupOccurrences(occs)
+					_ = scipCache.AddOccurrences(ctx, uri, occs)
+				}
+			}
+		}()
+	}
+	for i := range files {
+		jobs <- i
+	}
+	close(jobs)
+	wg.Wait()
+	common.LSPLogger.Debug("Indexing complete: %d symbols (references flushed per doc)", len(symbols))
 	return nil
 }
 
+func (w *WorkspaceIndexer) IndexWorkspaceFilesWithReferencesProgress(ctx context.Context, workspaceDir string, languages []string, maxFiles int, scipCache *SCIPCacheManager, progress IndexProgressFunc) error {
+	if scipCache == nil {
+		return nil
+	}
+	documents := scipCache.GetAllDocuments()
+	symbols := w.collectUniqueDefinitions(documents)
+	symbolsByFile := make(map[string][]indexedSymbol)
+	for _, s := range symbols {
+		symbolsByFile[s.uri] = append(symbolsByFile[s.uri], s)
+	}
+	files := make([]string, 0, len(symbolsByFile))
+	for k := range symbolsByFile {
+		files = append(files, k)
+	}
+	if progress != nil {
+		progress("references_start", 0, len(symbols), "")
+	}
+	workers := runtime.NumCPU()
+	if workers < 2 {
+		workers = 2
+	}
+	if workers > 16 {
+		workers = 16
+	}
+	var mu sync.Mutex
+	jobs := make(chan int, workers)
+	processed := 0
+	totalSymbols := len(symbols)
+	var wg sync.WaitGroup
+    for wkr := 0; wkr < workers; wkr++ {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            for idx := range jobs {
+                fileURI := files[idx]
+                fileSymbols := symbolsByFile[fileURI]
+                // Rely on LSPManager.ensureDocumentOpen via ProcessRequest
+                localRefs := make(map[string][]scip.SCIPOccurrence)
+                for _, symbol := range fileSymbols {
+                    refs, err := w.getReferencesForSymbolInOpenFile(ctx, symbol)
+                    if err != nil {
+                        continue
+                    }
+                    for _, ref := range refs {
+                        if w.isSelfReference(ref, symbol) {
+                            continue
+                        }
+                        occ := w.createReferenceOccurrence(ref, symbol)
+                        localRefs[ref.URI] = append(localRefs[ref.URI], occ)
+                    }
+                }
+                // Flush per-doc to storage to bound memory (no global lock needed)
+                for uri, occs := range localRefs {
+                    occs = dedupOccurrences(occs)
+                    _ = scipCache.AddOccurrences(ctx, uri, occs)
+                }
+                // No explicit didClose; let LSP manager track lifecycle
+                mu.Lock()
+                processed += len(fileSymbols)
+                if progress != nil {
+                    progress("references", processed, totalSymbols, "")
+                }
+                mu.Unlock()
+            }
+        }()
+    }
+	for i := range files {
+		jobs <- i
+	}
+	close(jobs)
+	wg.Wait()
+	if progress != nil {
+		// We don't track exact added count after dedup/flush; report completion
+		progress("references_complete", processed, totalSymbols, "")
+	}
+	return nil
+}
+
+func dedupOccurrences(occs []scip.SCIPOccurrence) []scip.SCIPOccurrence {
+	if len(occs) < 2 {
+		return occs
+	}
+	seen := make(map[string]struct{}, len(occs))
+	out := make([]scip.SCIPOccurrence, 0, len(occs))
+	for _, o := range occs {
+		key := fmt.Sprintf("%d:%d:%d:%d:%s", o.Range.Start.Line, o.Range.Start.Character, o.Range.End.Line, o.Range.End.Character, o.Symbol)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, o)
+	}
+	return out
+}
+
 func (w *WorkspaceIndexer) collectUniqueDefinitions(documents map[string]*scip.SCIPDocument) []indexedSymbol {
-	uniqueSymbols := make(map[string]indexedSymbol)
+    uniqueSymbols := make(map[string]indexedSymbol)
 
 	for docURI, doc := range documents {
 		if doc == nil {
@@ -91,14 +216,18 @@ func (w *WorkspaceIndexer) collectUniqueDefinitions(documents map[string]*scip.S
 				continue
 			}
 
-			// Use the occurrence range start position (which should be SelectionRange if available)
-			// This ensures we're using the precise identifier location, not the full symbol range
-			uniqueSymbols[occ.Symbol] = indexedSymbol{
-				uri:        docURI,
-				symbolID:   occ.Symbol,
-				position:   occ.Range.Start, // This is now the precise position from SelectionRange
-				syntaxKind: occ.SyntaxKind,
-			}
+            // Use precise identifier position when available and clamp to file bounds
+            pos := occ.Range.Start
+            if occ.SelectionRange != nil {
+                pos = occ.SelectionRange.Start
+            }
+            pos = w.clampPositionToFile(docURI, pos)
+            uniqueSymbols[occ.Symbol] = indexedSymbol{
+                uri:        docURI,
+                symbolID:   occ.Symbol,
+                position:   pos,
+                syntaxKind: occ.SyntaxKind,
+            }
 		}
 	}
 
@@ -140,7 +269,10 @@ func (w *WorkspaceIndexer) processReferenceBatch(ctx context.Context, symbols []
 			},
 		}
 
-		_, openErr := w.lspFallback.ProcessRequest(ctx, "textDocument/didOpen", openParams)
+        // Bound open request time
+        openCtx, openCancel := context.WithTimeout(ctx, 2*time.Second)
+        _, openErr := w.lspFallback.ProcessRequest(openCtx, "textDocument/didOpen", openParams)
+        openCancel()
 		if openErr != nil {
 			// If the language server doesn't support didOpen, skip this file's references
 			if strings.Contains(openErr.Error(), "Unhandled method") {
@@ -174,7 +306,9 @@ func (w *WorkspaceIndexer) processReferenceBatch(ctx context.Context, symbols []
 				"uri": fileURI,
 			},
 		}
-		_, _ = w.lspFallback.ProcessRequest(ctx, "textDocument/didClose", closeParams)
+        closeCtx, closeCancel := context.WithTimeout(ctx, 1*time.Second)
+        _, _ = w.lspFallback.ProcessRequest(closeCtx, "textDocument/didClose", closeParams)
+        closeCancel()
 	}
 
 	// Batch update all documents
@@ -189,30 +323,42 @@ func (w *WorkspaceIndexer) processReferenceBatch(ctx context.Context, symbols []
 }
 
 func (w *WorkspaceIndexer) getReferencesForSymbolInOpenFile(ctx context.Context, symbol indexedSymbol) ([]types.Location, error) {
-	// Call textDocument/references (assumes file is already open)
-	params := map[string]interface{}{
-		"textDocument": map[string]interface{}{
-			"uri": symbol.uri,
-		},
-		"position": map[string]interface{}{
-			"line":      symbol.position.Line,
-			"character": symbol.position.Character,
-		},
-		"context": map[string]interface{}{
-			"includeDeclaration": true,
-		},
-	}
+    // Clamp position to file bounds to avoid LSP server line-number errors
+    safePos := w.clampPositionToFile(symbol.uri, symbol.position)
 
-	result, err := w.lspFallback.ProcessRequest(ctx, types.MethodTextDocumentReferences, params)
-	if err != nil {
-		// Silently skip "no identifier found" errors - these are expected for some positions
-		if strings.Contains(err.Error(), "no identifier found") {
-			return []types.Location{}, nil
-		}
-		return nil, err
-	}
+    // Call textDocument/references (assumes file is already open)
+    params := map[string]interface{}{
+        "textDocument": map[string]interface{}{
+            "uri": symbol.uri,
+        },
+        "position": map[string]interface{}{
+            "line":      safePos.Line,
+            "character": safePos.Character,
+        },
+        "context": map[string]interface{}{
+            "includeDeclaration": true,
+        },
+    }
 
-	return w.parseLocationResponse(result)
+    // Per-request timeout to prevent hangs on problematic positions
+    reqCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+    defer cancel()
+
+    result, err := w.lspFallback.ProcessRequest(reqCtx, types.MethodTextDocumentReferences, params)
+    if err != nil {
+        // Silently skip "no identifier found" errors - these are expected for some positions
+        if strings.Contains(err.Error(), "no identifier found") {
+            return []types.Location{}, nil
+        }
+        // Skip invalid line/position errors from language servers
+        lower := strings.ToLower(err.Error())
+        if strings.Contains(lower, "bad line number") || strings.Contains(lower, "line number") {
+            return []types.Location{}, nil
+        }
+        return nil, err
+    }
+
+    return w.parseLocationResponse(result)
 }
 
 func (w *WorkspaceIndexer) parseLocationResponse(result interface{}) ([]types.Location, error) {
@@ -273,6 +419,37 @@ func (w *WorkspaceIndexer) parseRange(rangeData map[string]interface{}) types.Ra
 	}
 
 	return r
+}
+
+// clampPositionToFile ensures the given position is within the file's line bounds
+func (w *WorkspaceIndexer) clampPositionToFile(uri string, pos types.Position) types.Position {
+    path := utils.URIToFilePath(uri)
+    f, err := os.Open(path)
+    if err != nil {
+        return pos
+    }
+    defer f.Close()
+
+    // Robust line counting using scanner; last valid 0-based index = max(0, count-1)
+    var count int32 = 0
+    scanner := bufio.NewScanner(f)
+    for scanner.Scan() {
+        count++
+    }
+    var maxLine int32 = 0
+    if count > 0 {
+        maxLine = count - 1
+    }
+    if pos.Line > maxLine {
+        pos.Line = maxLine
+    }
+    if pos.Line < 0 {
+        pos.Line = 0
+    }
+    if pos.Character < 0 {
+        pos.Character = 0
+    }
+    return pos
 }
 
 func (w *WorkspaceIndexer) isSelfReference(ref types.Location, symbol indexedSymbol) bool {

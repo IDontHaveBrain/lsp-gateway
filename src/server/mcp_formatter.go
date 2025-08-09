@@ -193,15 +193,24 @@ func parseSymbolRole(roleStr string) types.SymbolRole {
 }
 
 // formatEnhancedSymbolsForMCP formats symbols with enhanced metadata including occurrence roles
-func formatEnhancedSymbolsForMCP(symbols []types.EnhancedSymbolInfo, hasRoleFilter bool) []map[string]interface{} {
+func formatEnhancedSymbolsForMCP(symbols []types.EnhancedSymbolInfo) []map[string]interface{} {
 	formatted := make([]map[string]interface{}, len(symbols))
 
 	for i, sym := range symbols {
 		// Build enhanced response with SCIP-style occurrence metadata
+		start := sym.LineNumber + 1
+		end := sym.EndLine + 1
+		if end < start {
+			end = start
+		}
+		loc := fmt.Sprintf("%s:%d", sym.FilePath, start)
+		if end > start {
+			loc = fmt.Sprintf("%s:%d-%d", sym.FilePath, start, end)
+		}
 		result := map[string]interface{}{
 			"name":     sym.Name,
 			"kind":     getSymbolKindName(sym.Kind),
-			"location": fmt.Sprintf("%s:%d-%d", sym.FilePath, sym.LineNumber, sym.EndLine),
+			"location": loc,
 		}
 
 		// Add optional fields
@@ -230,7 +239,7 @@ func formatEnhancedReferencesForMCP(references []ReferenceInfo) []map[string]int
 
 	for i, ref := range references {
 		result := map[string]interface{}{
-			"location": fmt.Sprintf("%s:%d", ref.FilePath, ref.LineNumber),
+			"location": fmt.Sprintf("%s:%d", ref.FilePath, ref.LineNumber+1),
 		}
 
 		lineText, _ := extractCodeLines(ref.FilePath, ref.LineNumber+1, ref.LineNumber+1)

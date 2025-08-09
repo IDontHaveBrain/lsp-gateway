@@ -82,6 +82,12 @@ type SCIPSymbolInformation struct {
 
 	// SignatureDocumentation provides signature-specific documentation
 	SignatureDocumentation SCIPSignatureDocumentation
+
+	// Range is the full range of the symbol (definition span)
+	Range types.Range
+
+	// SelectionRange is the precise identifier span within Range
+	SelectionRange *types.Range
 }
 
 // SCIPRelationship describes how one symbol relates to another.
@@ -135,6 +141,12 @@ const (
 	SCIPSymbolKindOperator
 	SCIPSymbolKindTypeParameter
 )
+
+// OccurrenceWithDocument pairs an occurrence with its document URI for fast lookup
+type OccurrenceWithDocument struct {
+	SCIPOccurrence
+	DocumentURI string
+}
 
 // SCIPSignatureDocumentation provides detailed signature documentation
 type SCIPSignatureDocumentation struct {
@@ -321,6 +333,12 @@ type SCIPDocumentStorage interface {
 	// Index management
 	GetIndexStats() IndexStats
 	ClearIndex(ctx context.Context) error
+
+	// Convenience: retrieve occurrences with document URIs
+	GetReferencesWithDocuments(ctx context.Context, symbolID string) ([]OccurrenceWithDocument, error)
+	GetDefinitionsWithDocuments(ctx context.Context, symbolID string) ([]OccurrenceWithDocument, error)
+	// Optional: all occurrences with document URIs
+	GetOccurrencesWithDocuments(ctx context.Context, symbolID string) ([]OccurrenceWithDocument, error)
 }
 
 // SCIPCacheManager interface for cache-specific operations

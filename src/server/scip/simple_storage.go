@@ -24,10 +24,7 @@ const (
 )
 
 // OccurrenceWithDocument wraps an occurrence with its document URI
-type OccurrenceWithDocument struct {
-	SCIPOccurrence
-	DocumentURI string
-}
+// OccurrenceWithDocument type moved to interfaces.go for public access
 
 // SimpleSCIPStorage implements SCIPDocumentStorage with occurrence-centric architecture
 type SimpleSCIPStorage struct {
@@ -285,6 +282,44 @@ func (s *SimpleSCIPStorage) GetReferencesWithDocuments(ctx context.Context, symb
 	result := make([]OccurrenceWithDocument, len(references))
 	copy(result, references)
 	return result, nil
+}
+
+// GetDefinitionsWithDocuments retrieves definition occurrences with their document URIs
+func (s *SimpleSCIPStorage) GetDefinitionsWithDocuments(ctx context.Context, symbolID string) ([]OccurrenceWithDocument, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	defs, found := s.definitionIndex[symbolID]
+	if !found {
+		return []OccurrenceWithDocument{}, nil
+	}
+
+	out := make([]OccurrenceWithDocument, 0, len(defs))
+	for _, def := range defs {
+		if def == nil {
+			continue
+		}
+		uri := s.extractDocumentURIFromOccurrence(*def)
+		out = append(out, OccurrenceWithDocument{SCIPOccurrence: *def, DocumentURI: uri})
+	}
+	return out, nil
+}
+
+// GetOccurrencesWithDocuments retrieves all occurrences with resolved document URIs
+func (s *SimpleSCIPStorage) GetOccurrencesWithDocuments(ctx context.Context, symbolID string) ([]OccurrenceWithDocument, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	occs, found := s.occurrencesBySymbol[symbolID]
+	if !found {
+		return []OccurrenceWithDocument{}, nil
+	}
+	out := make([]OccurrenceWithDocument, 0, len(occs))
+	for _, occ := range occs {
+		uri := s.extractDocumentURIFromOccurrence(occ)
+		out = append(out, OccurrenceWithDocument{SCIPOccurrence: occ, DocumentURI: uri})
+	}
+	return out, nil
 }
 
 // Symbol information operations - metadata about symbols
