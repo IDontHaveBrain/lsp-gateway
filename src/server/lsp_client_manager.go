@@ -38,21 +38,22 @@ type pendingRequest struct {
 
 // StdioClient implements LSP communication over STDIO
 type StdioClient struct {
-	config          types.ClientConfig
-	language        string // Language identifier for unique request IDs
-	capabilities    capabilities.ServerCapabilities
-	errorTranslator errors.ErrorTranslator
-	capDetector     capabilities.CapabilityDetector
-	processManager  process.ProcessManager
-	processInfo     *process.ProcessInfo
-	jsonrpcProtocol protocol.JSONRPCProtocol
+    config          types.ClientConfig
+    language        string // Language identifier for unique request IDs
+    capabilities    capabilities.ServerCapabilities
+    errorTranslator errors.ErrorTranslator
+    capDetector     capabilities.CapabilityDetector
+    processManager  process.ProcessManager
+    processInfo     *process.ProcessInfo
+    jsonrpcProtocol protocol.JSONRPCProtocol
 
-	mu               sync.RWMutex
-	active           bool
-	requests         map[string]*pendingRequest
-	nextID           int
-	openDocs         map[string]bool // Track opened documents to prevent duplicate didOpen
-	workspaceFolders map[string]bool // Track added workspace folders
+    mu               sync.RWMutex
+    writeMu          sync.Mutex
+    active           bool
+    requests         map[string]*pendingRequest
+    nextID           int
+    openDocs         map[string]bool // Track opened documents to prevent duplicate didOpen
+    workspaceFolders map[string]bool // Track added workspace folders
 }
 
 // NewStdioClient creates a new STDIO LSP client
@@ -220,19 +221,22 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 	// Create and send message using protocol module
 	msg := protocol.CreateMessage(method, id, params)
 
-	if err := c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, msg); err != nil {
-		// If we get connection errors, mark client as inactive
-		if strings.Contains(err.Error(), "broken pipe") ||
-			strings.Contains(err.Error(), "write: connection reset by peer") ||
-			strings.Contains(err.Error(), "EOF") {
-			c.mu.Lock()
-			c.active = false
-			c.mu.Unlock()
-			common.LSPLogger.Warn("LSP client connection lost, marking as inactive: method=%s, id=%s, error=%v", method, id, err)
-		}
-		common.LSPLogger.Error("Failed to send LSP request: method=%s, id=%s, error=%v", method, id, err)
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
+    c.writeMu.Lock()
+    writeErr := c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, msg)
+    c.writeMu.Unlock()
+    if writeErr != nil {
+        // If we get connection errors, mark client as inactive
+        if strings.Contains(writeErr.Error(), "broken pipe") ||
+            strings.Contains(writeErr.Error(), "write: connection reset by peer") ||
+            strings.Contains(writeErr.Error(), "EOF") {
+            c.mu.Lock()
+            c.active = false
+            c.mu.Unlock()
+            common.LSPLogger.Warn("LSP client connection lost, marking as inactive: method=%s, id=%s, error=%v", method, id, writeErr)
+        }
+        common.LSPLogger.Error("Failed to send LSP request: method=%s, id=%s, error=%v", method, id, writeErr)
+        return nil, fmt.Errorf("failed to send request: %w", writeErr)
+    }
 
 	// Wait for response with appropriate timeout
 	timeoutDuration := c.getRequestTimeout(method)
@@ -272,7 +276,9 @@ func (c *StdioClient) SendNotification(ctx context.Context, method string, param
 
 	msg := protocol.CreateNotification(method, params)
 
-	return c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, msg)
+    c.writeMu.Lock()
+    defer c.writeMu.Unlock()
+    return c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, msg)
 }
 
 // IsActive returns true if the client is active
@@ -307,13 +313,17 @@ func (c *StdioClient) HandleRequest(method string, id interface{}, params interf
 	// Handle specific server requests
 	if method == "workspace/configuration" {
 		// Respond with empty configuration
-		response := protocol.CreateResponse(id, []interface{}{map[string]interface{}{}}, nil)
-		return c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, response)
-	} else {
-		// For other server requests, send null result
-		response := protocol.CreateResponse(id, nil, nil)
-		return c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, response)
-	}
+        response := protocol.CreateResponse(id, []interface{}{map[string]interface{}{}}, nil)
+        c.writeMu.Lock()
+        defer c.writeMu.Unlock()
+        return c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, response)
+    } else {
+        // For other server requests, send null result
+        response := protocol.CreateResponse(id, nil, nil)
+        c.writeMu.Lock()
+        defer c.writeMu.Unlock()
+        return c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, response)
+    }
 }
 
 // HandleResponse implements the MessageHandler interface for client responses
