@@ -4,10 +4,30 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/project"
 )
+
+// detectLanguageFromPath detects the language ID from file extension
+func detectLanguageFromPath(filePath string) string {
+	ext := filepath.Ext(filePath)
+	switch ext {
+	case ".go":
+		return "go"
+	case ".py":
+		return "python"
+	case ".js", ".jsx", ".mjs":
+		return "javascript"
+	case ".ts", ".tsx":
+		return "typescript"
+	case ".java":
+		return "java"
+	default:
+		return "plaintext"
+	}
+}
 
 // SaveIndexToDisk saves the SCIP index data to disk as JSON files
 func (m *SCIPCacheManager) SaveIndexToDisk() error {
@@ -153,5 +173,129 @@ func (m *SCIPCacheManager) PerformFullIndexingWithProgress(ctx context.Context, 
 			common.LSPLogger.Warn("Failed to save index to disk: %v", err)
 		}
 	}
+	return nil
+}
+
+// PerformIncrementalIndexing performs incremental workspace indexing
+// Only indexes new or modified files since last indexing
+func (m *SCIPCacheManager) PerformIncrementalIndexing(ctx context.Context, workingDir string, lspFallback LSPFallback) error {
+	return m.PerformIncrementalIndexingWithProgress(ctx, workingDir, lspFallback, nil)
+}
+
+// PerformIncrementalIndexingWithProgress performs incremental indexing with progress callback
+func (m *SCIPCacheManager) PerformIncrementalIndexingWithProgress(ctx context.Context, workingDir string, lspFallback LSPFallback, progress IndexProgressFunc) error {
+	if !m.enabled {
+		return nil
+	}
+
+	// Detect languages in the workspace
+	detectedLanguages, err := project.DetectLanguages(workingDir)
+	if err != nil {
+		common.LSPLogger.Warn("Failed to detect languages for indexing: %v", err)
+		detectedLanguages = []string{}
+	}
+
+	const maxFiles = 100000
+	return m.performIncrementalIndexingCore(ctx, workingDir, detectedLanguages, maxFiles, lspFallback, progress)
+}
+
+// performIncrementalIndexingCore performs incremental indexing with all parameters
+func (m *SCIPCacheManager) performIncrementalIndexingCore(ctx context.Context, workingDir string, languages []string, maxFiles int, lspFallback LSPFallback, progress IndexProgressFunc) error {
+	if !m.enabled {
+		return nil
+	}
+
+	indexer := NewWorkspaceIndexer(lspFallback)
+	
+	// Get file extensions for the languages
+	extensions := indexer.GetLanguageExtensions(languages)
+	
+	// Scan all workspace files
+	allFiles := indexer.ScanWorkspaceSourceFiles(workingDir, extensions, maxFiles)
+	common.LSPLogger.Debug("Incremental indexing: Found %d total files in workspace", len(allFiles))
+	
+	// Determine which files need reindexing
+	newFiles, modifiedFiles, unchangedFiles, err := m.fileTracker.GetChangedFiles(ctx, allFiles)
+	if err != nil {
+		return fmt.Errorf("failed to detect changed files: %w", err)
+	}
+	
+	common.LSPLogger.Info("Incremental indexing: %d new, %d modified, %d unchanged files", 
+		len(newFiles), len(modifiedFiles), len(unchangedFiles))
+	
+	// Check for deleted files
+	currentFileMap := make(map[string]bool)
+	for _, file := range allFiles {
+		absPath, _ := filepath.Abs(file)
+		currentFileMap[absPath] = true
+	}
+	deletedFiles := m.fileTracker.GetDeletedFiles(currentFileMap)
+	
+	if len(deletedFiles) > 0 {
+		common.LSPLogger.Info("Incremental indexing: Removing %d deleted files from index", len(deletedFiles))
+		for _, uri := range deletedFiles {
+			// Remove from SCIP storage
+			if m.scipStorage != nil {
+				if err := m.scipStorage.RemoveDocument(ctx, uri); err != nil {
+					common.LSPLogger.Warn("Failed to remove document %s: %v", uri, err)
+				}
+			}
+		}
+		// Remove from file tracker
+		m.fileTracker.RemoveFileMetadata(deletedFiles)
+	}
+	
+	// Combine new and modified files for indexing
+	filesToIndex := append(newFiles, modifiedFiles...)
+	
+	if len(filesToIndex) == 0 {
+		common.LSPLogger.Info("Incremental indexing: No files need reindexing")
+		return nil
+	}
+	
+	common.LSPLogger.Info("Incremental indexing: Indexing %d files", len(filesToIndex))
+	
+	// Perform the indexing (IndexSpecificFiles will handle progress reporting)
+	err = indexer.IndexSpecificFiles(ctx, filesToIndex, progress)
+	if err != nil {
+		return fmt.Errorf("incremental indexing failed: %w", err)
+	}
+	
+	// Update file metadata for indexed files
+	for _, file := range filesToIndex {
+		absPath, err := filepath.Abs(file)
+		if err != nil {
+			continue
+		}
+		fileInfo, err := os.Stat(absPath)
+		if err != nil {
+			continue
+		}
+		uri := "file://" + absPath
+		language := detectLanguageFromPath(file)
+		m.fileTracker.UpdateFileMetadata(uri, absPath, fileInfo.ModTime(), fileInfo.Size(), language)
+	}
+	
+	// Save file tracker metadata
+	if m.config.DiskCache && m.config.StoragePath != "" {
+		metadataPath := filepath.Join(m.config.StoragePath, "file_metadata.json")
+		if err := m.fileTracker.SaveToFile(metadataPath); err != nil {
+			common.LSPLogger.Warn("Failed to save file metadata: %v", err)
+		}
+		
+		if err := m.SaveIndexToDisk(); err != nil {
+			common.LSPLogger.Warn("Failed to save index to disk: %v", err)
+		}
+	}
+	
+	// Process references for changed files if needed
+	if len(filesToIndex) > 0 {
+		common.LSPLogger.Debug("Starting enhanced reference indexing for changed files")
+		err = indexer.IndexSpecificFilesWithReferences(ctx, filesToIndex, m, progress)
+		if err != nil {
+			common.LSPLogger.Error("Enhanced reference indexing failed: %v", err)
+		}
+	}
+	
 	return nil
 }

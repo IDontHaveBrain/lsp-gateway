@@ -85,8 +85,10 @@ func IndexCache(configPath string) error {
 				common.CLILogger.Info("References processed: %d", current)
 			}
 		}
-		if err := cacheManager.PerformWorkspaceIndexingWithProgress(ctx, wd, manager, progress); err != nil {
-			common.CLILogger.Error("❌ Failed to perform workspace indexing: %v", err)
+		// Use incremental indexing by default
+		common.CLILogger.Info("Performing incremental indexing (checking for changes)...")
+		if err := cacheManager.PerformIncrementalIndexingWithProgress(ctx, wd, manager, progress); err != nil {
+			common.CLILogger.Error("❌ Failed to perform incremental indexing: %v", err)
 			return err
 		}
 		common.CLILogger.Info("Index saved to disk")
@@ -109,18 +111,29 @@ func IndexCache(configPath string) error {
 	if actuallyIndexedSymbols > 0 {
 		common.CLILogger.Info("Cache index rebuilt successfully - indexed %d symbols from %d documents", actuallyIndexedSymbols, actuallyIndexedDocs)
 	} else {
-		common.CLILogger.Warn("Cache indexing completed but no symbols were indexed")
-		common.CLILogger.Error("No symbols indexed - check:")
-		common.CLILogger.Error("   • LSP servers are returning document symbols (enable LSP_GATEWAY_DEBUG=true)")
-		common.CLILogger.Error("   • Cache is properly enabled and configured")
-		common.CLILogger.Error("   • Files exist in the workspace")
-
-		// Show updated stats even on failure
-		if updatedMetrics, err := cacheInstance.HealthCheck(); err == nil && updatedMetrics != nil {
-			common.CLILogger.Info("Updated cache stats: %d entries", updatedMetrics.EntryCount)
+		// Check if this was incremental indexing with no changes
+		if cacheManager, ok := cacheInstance.(*cache.SCIPCacheManager); ok {
+			trackedCount := cacheManager.GetTrackedFileCount()
+			if trackedCount > 0 {
+				// Files are already indexed, no changes detected
+				common.CLILogger.Info("Incremental indexing complete - no changes detected in %d tracked files", trackedCount)
+				
+				// Show current cache stats
+				if finalStats != nil {
+					common.CLILogger.Info("Current index contains %d symbols from %d documents", 
+						finalStats.SymbolCount, finalStats.DocumentCount)
+				}
+			} else {
+				// No files tracked and no symbols indexed - likely an error
+				common.CLILogger.Warn("Cache indexing completed but no symbols were indexed")
+				common.CLILogger.Error("No symbols indexed - check:")
+				common.CLILogger.Error("   • LSP servers are returning document symbols (enable LSP_GATEWAY_DEBUG=true)")
+				common.CLILogger.Error("   • Cache is properly enabled and configured")
+				common.CLILogger.Error("   • Files exist in the workspace")
+				
+				return fmt.Errorf("cache indexing failed: no symbols were indexed")
+			}
 		}
-
-		return fmt.Errorf("cache indexing failed: no symbols were indexed")
 	}
 
 	// Show updated stats

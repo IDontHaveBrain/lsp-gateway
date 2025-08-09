@@ -148,14 +148,14 @@ func (s *SimpleSCIPStorage) StoreDocument(ctx context.Context, doc *SCIPDocument
 
 // storeDocumentUnsafe stores a document without mutex locking (internal use)
 func (s *SimpleSCIPStorage) storeDocumentUnsafe(doc *SCIPDocument) error {
-	// Check if document exists and merge occurrences
+	// Check if document exists - replace completely for accurate reference tracking
 	if existing, found := s.documents[doc.URI]; found {
-		// Merge occurrences instead of replacing
-		merged := s.mergeDocuments(existing, doc)
+		// For modified files, we need complete replacement to ensure
+		// removed references are properly cleaned up
 		s.currentSize -= existing.Size
 		s.removeFromAccessOrder(doc.URI)
 		s.removeFromOccurrenceIndexes(doc.URI)
-		doc = merged
+		// Note: We're NOT merging - complete replacement ensures accuracy
 	}
 
 	// Evict if necessary to make space

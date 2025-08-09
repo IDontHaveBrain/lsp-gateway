@@ -21,6 +21,7 @@ import (
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/documents"
 	"lsp-gateway/src/server/errors"
+	"lsp-gateway/src/server/watcher"
 )
 
 // ClientStatus represents the status of an LSP client
@@ -47,6 +48,10 @@ type LSPManager struct {
 
 	// Project information for consistent symbol ID generation
 	projectInfo *project.PackageInfo
+	
+	// File watcher for real-time change detection
+	fileWatcher *watcher.FileWatcher
+	watcherMu   sync.Mutex
 
 	hoverMemo sync.Map
 }
@@ -190,6 +195,13 @@ func (m *LSPManager) Start(ctx context.Context) error {
 			}
 		}
 	}
+	
+	// Start file watcher for real-time change detection
+	if m.config.Cache != nil && m.config.Cache.BackgroundIndex {
+		if err := m.startFileWatcher(); err != nil {
+			common.LSPLogger.Warn("Failed to start file watcher: %v", err)
+		}
+	}
 
 	return nil
 }
@@ -197,6 +209,13 @@ func (m *LSPManager) Start(ctx context.Context) error {
 // Stop stops all LSP clients
 func (m *LSPManager) Stop() error {
 	m.cancel()
+	
+	// Stop file watcher
+	if m.fileWatcher != nil {
+		if err := m.fileWatcher.Stop(); err != nil {
+			common.LSPLogger.Warn("Failed to stop file watcher: %v", err)
+		}
+	}
 
 	// Stop cache through integrator
 	if err := m.cacheIntegrator.StopCache(); err != nil {
@@ -609,4 +628,113 @@ func (m *LSPManager) detectPrimaryLanguage(workingDir string) string {
 
 	// Default fallback
 	return "unknown"
+}
+
+// startFileWatcher initializes and starts the file watcher
+func (m *LSPManager) startFileWatcher() error {
+	m.watcherMu.Lock()
+	defer m.watcherMu.Unlock()
+
+	// Get supported extensions
+	extensions := constants.GetAllSupportedExtensions()
+	
+	// Create file watcher
+	fw, err := watcher.NewFileWatcher(extensions, m.handleFileChanges)
+	if err != nil {
+		return fmt.Errorf("failed to create file watcher: %w", err)
+	}
+	
+	// Get working directory
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get working directory: %w", err)
+	}
+	
+	// Add working directory to watch
+	if err := fw.AddPath(wd); err != nil {
+		return fmt.Errorf("failed to add watch path: %w", err)
+	}
+	
+	// Start watching
+	fw.Start()
+	m.fileWatcher = fw
+	
+	common.LSPLogger.Info("File watcher started for real-time change detection")
+	return nil
+}
+
+// handleFileChanges processes file change events and triggers incremental indexing
+func (m *LSPManager) handleFileChanges(events []watcher.FileChangeEvent) {
+	if len(events) == 0 {
+		return
+	}
+	
+	// Check if cache is available
+	if m.scipCache == nil {
+		return
+	}
+	
+	// Group events by operation
+	var modifiedFiles []string
+	var deletedFiles []string
+	
+	for _, event := range events {
+		switch event.Operation {
+		case "write", "create":
+			modifiedFiles = append(modifiedFiles, event.Path)
+		case "remove":
+			deletedFiles = append(deletedFiles, event.Path)
+		}
+	}
+	
+	common.LSPLogger.Debug("File changes detected: %d modified, %d deleted", 
+		len(modifiedFiles), len(deletedFiles))
+	
+	// Handle deleted files
+	for _, path := range deletedFiles {
+		uri := "file://" + path
+		if err := m.scipCache.InvalidateDocument(uri); err != nil {
+			common.LSPLogger.Warn("Failed to invalidate deleted document %s: %v", uri, err)
+		}
+	}
+	
+	// Trigger incremental indexing for modified files
+	if len(modifiedFiles) > 0 {
+		go m.performIncrementalReindex(modifiedFiles)
+	}
+}
+
+// performIncrementalReindex performs incremental reindexing for changed files
+func (m *LSPManager) performIncrementalReindex(files []string) {
+	// Check cache manager type
+	cacheManager, ok := m.scipCache.(*cache.SCIPCacheManager)
+	if !ok {
+		common.LSPLogger.Warn("Cache manager doesn't support incremental indexing")
+		return
+	}
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	
+	// Get working directory
+	wd, err := os.Getwd()
+	if err != nil {
+		common.LSPLogger.Error("Failed to get working directory: %v", err)
+		return
+	}
+	
+	common.LSPLogger.Info("Performing incremental reindex for %d changed files", len(files))
+	
+	// Perform incremental indexing
+	if err := cacheManager.PerformIncrementalIndexing(ctx, wd, m); err != nil {
+		common.LSPLogger.Error("Incremental reindexing failed: %v", err)
+	} else {
+		common.LSPLogger.Info("Incremental reindex completed successfully")
+		
+		// Log updated cache stats
+		if stats := cacheManager.GetIndexStats(); stats != nil {
+			common.LSPLogger.Debug("Cache stats after reindex: %d symbols, %d documents", 
+				stats.SymbolCount, stats.DocumentCount)
+		}
+	}
 }
