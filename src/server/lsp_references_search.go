@@ -171,7 +171,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 	if m.scipCache != nil {
 
 		// Get SCIP storage for direct occurrence queries
-		scipStorage := m.getScipStorageFromCache()
+		scipStorage := m.getScipStorage()
 		if scipStorage != nil {
 			// Use the pattern directly for symbol search
 			symbolPattern := query.Pattern
@@ -470,7 +470,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 
 		// If we don't already have a def position, try to fetch one now from SCIP
 		if fallbackDefRef == nil && m.scipCache != nil {
-			if scipStorage := m.getScipStorageFromCache(); scipStorage != nil {
+			if scipStorage := m.getScipStorage(); scipStorage != nil {
 				if syms, err := scipStorage.SearchSymbols(ctx, query.Pattern, 1); err == nil && len(syms) > 0 {
 					if defs, derr := scipStorage.GetDefinitions(ctx, syms[0].Symbol); derr == nil && len(defs) > 0 {
 						if defRef := m.createReferenceFromOccurrence(ctx, scipStorage, defs[0], &syms[0]); defRef != nil {
@@ -767,15 +767,6 @@ func (m *LSPManager) matchesFilePattern(filePath, pattern string) bool {
 
 // Helper methods for occurrence-based reference search
 
-// getScipStorageFromCache extracts SCIP storage from cache manager
-func (m *LSPManager) getScipStorageFromCache() scip.SCIPDocumentStorage {
-	if m.scipCache == nil {
-		return nil
-	}
-
-	// Use the GetSCIPStorage method to access the underlying storage
-	return m.scipCache.GetSCIPStorage()
-}
 
 // createReferenceFromOccurrenceWithDoc creates ReferenceInfo from a SCIP occurrence with document URI
 func (m *LSPManager) createReferenceFromOccurrenceWithDoc(occWithDoc scip.OccurrenceWithDocument, symbolInfo *scip.SCIPSymbolInformation) *ReferenceInfo {

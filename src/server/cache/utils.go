@@ -97,3 +97,15 @@ func extractURIFromGeneric(params interface{}) (string, error) {
 	}
 	return "", common.ParameterValidationError(fmt.Sprintf("unable to extract URI from parameters type: %T", params))
 }
+
+// HitRate calculates the cache hit rate percentage from metrics
+func HitRate(m *CacheMetrics) float64 {
+	if m == nil {
+		return 0
+	}
+	total := m.HitCount + m.MissCount
+	if total == 0 {
+		return 0
+	}
+	return float64(m.HitCount) / float64(total) * 100
+}

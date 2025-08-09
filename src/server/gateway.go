@@ -194,10 +194,7 @@ func (g *HTTPGateway) handleHealth(w http.ResponseWriter, r *http.Request) {
 		cacheMetrics := g.getCacheMetricsSnapshot()
 		if cacheMetrics != nil {
 			totalRequests := cacheMetrics.HitCount + cacheMetrics.MissCount
-			hitRate := float64(0)
-			if totalRequests > 0 {
-				hitRate = float64(cacheMetrics.HitCount) / float64(totalRequests) * 100
-			}
+			hitRate := cache.HitRate(cacheMetrics)
 
 			health["cache"] = map[string]interface{}{
 				"enabled":          true,
@@ -278,11 +275,7 @@ func (g *HTTPGateway) handleCacheStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Calculate hit rate
-	totalRequests := metrics.HitCount + metrics.MissCount
-	hitRate := float64(0)
-	if totalRequests > 0 {
-		hitRate = float64(metrics.HitCount) / float64(totalRequests) * 100
-	}
+	hitRate := cache.HitRate(metrics)
 
 	stats := map[string]interface{}{
 		"cache_enabled":     true,
