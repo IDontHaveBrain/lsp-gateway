@@ -18,6 +18,7 @@ import (
 	"lsp-gateway/src/server/errors"
 	"lsp-gateway/src/server/process"
 	"lsp-gateway/src/server/protocol"
+	"lsp-gateway/src/utils"
 )
 
 // getRequestTimeout returns language-specific timeout for LSP requests
@@ -385,7 +386,7 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 			"name":    "lsp-gateway",
 			"version": "1.0.0",
 		},
-		"rootUri":               "file://" + wd,
+		"rootUri":               utils.FilePathToURI(wd),
 		"initializationOptions": nil,
 		"capabilities": map[string]interface{}{
 			"workspace": map[string]interface{}{

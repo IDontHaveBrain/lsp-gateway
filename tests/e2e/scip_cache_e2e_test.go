@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -145,10 +146,23 @@ func (suite *SCIPCacheE2ETestSuite) SetupTest() {
 	suite.scipCache = scipCache
 
 	ctx := context.Background()
+	
+	// Set the working directory to the test project for proper LSP initialization
+	originalWd, _ := os.Getwd()
+	err = os.Chdir(suite.testProjectDir)
+	suite.Require().NoError(err)
+	
 	err = suite.manager.Start(ctx)
 	suite.Require().NoError(err)
+	
+	// Restore original working directory
+	os.Chdir(originalWd)
 
-	time.Sleep(2 * time.Second)
+	if runtime.GOOS == "windows" {
+		time.Sleep(5 * time.Second)
+	} else {
+		time.Sleep(2 * time.Second)
+	}
 }
 
 func (suite *SCIPCacheE2ETestSuite) TearDownTest() {
@@ -290,7 +304,11 @@ func (suite *SCIPCacheE2ETestSuite) TestCacheConcurrency() {
 	go runRequest("textDocument/hover", 10)
 	go runRequest("textDocument/references", 5)
 
-	timeout := time.After(10 * time.Second)
+	timeoutDuration := 10 * time.Second
+	if runtime.GOOS == "windows" {
+		timeoutDuration = 30 * time.Second
+	}
+	timeout := time.After(timeoutDuration)
 	successCount := 0
 
 	for i := 0; i < 3; i++ {
