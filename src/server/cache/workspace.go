@@ -68,12 +68,35 @@ func (w *WorkspaceIndexer) indexWorkspaceFilesCore(ctx context.Context, workspac
 	failedFiles := []string{}
 	common.LSPLogger.Debug("Workspace indexer: Starting to process %d files", len(files))
 
+	// Determine worker count based on environment and project type
 	workers := runtime.NumCPU()
-	if workers < 2 {
-		workers = 2
+	
+	// Special handling for Java projects on Windows to prevent LSP server overload
+	hasJava := false
+	for _, lang := range languages {
+		if lang == "java" {
+			hasJava = true
+			break
+		}
 	}
-	if workers > 16 {
-		workers = 16
+	
+	if hasJava && runtime.GOOS == "windows" {
+		// Java LSP (jdtls) on Windows cannot handle concurrent requests well
+		// Use single worker to prevent overwhelming the server
+		workers = 1
+		common.LSPLogger.Debug("Using single worker for Java project on Windows to prevent LSP overload")
+	} else if hasJava {
+		// Even on non-Windows, Java LSP benefits from limited concurrency
+		workers = 2
+		common.LSPLogger.Debug("Using limited workers (2) for Java project")
+	} else {
+		// For non-Java projects, use normal worker limits
+		if workers < 2 {
+			workers = 2
+		}
+		if workers > 16 {
+			workers = 16
+		}
 	}
 	var mu sync.Mutex
 	jobs := make(chan int, workers)
@@ -250,12 +273,35 @@ func (w *WorkspaceIndexer) IndexSpecificFiles(ctx context.Context, files []strin
 	indexedCount := 0
 	failedFiles := []string{}
 
+	// Determine worker count based on environment and file types
 	workers := runtime.NumCPU()
-	if workers < 2 {
-		workers = 2
+	
+	// Check if we're indexing Java files by looking at extensions
+	hasJava := false
+	for _, file := range files {
+		if strings.HasSuffix(file, ".java") {
+			hasJava = true
+			break
+		}
 	}
-	if workers > 16 {
-		workers = 16
+	
+	if hasJava && runtime.GOOS == "windows" {
+		// Java LSP (jdtls) on Windows cannot handle concurrent requests well
+		// Use single worker to prevent overwhelming the server
+		workers = 1
+		common.LSPLogger.Debug("Using single worker for Java project on Windows to prevent LSP overload")
+	} else if hasJava {
+		// Even on non-Windows, Java LSP benefits from limited concurrency
+		workers = 2
+		common.LSPLogger.Debug("Using limited workers (2) for Java project")
+	} else {
+		// For non-Java projects, use normal worker limits
+		if workers < 2 {
+			workers = 2
+		}
+		if workers > 16 {
+			workers = 16
+		}
 	}
 
 	var mu sync.Mutex
