@@ -1,19 +1,18 @@
 package server
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
-	"sort"
-	"strings"
+    "context"
+    "fmt"
+    "os"
+    "path/filepath"
+    "sort"
+    "strings"
 
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/types"
-	"lsp-gateway/src/server/cache"
-	"lsp-gateway/src/server/scip"
-	"lsp-gateway/src/utils"
+    "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/types"
+    "lsp-gateway/src/server/cache"
+    "lsp-gateway/src/server/scip"
+    "lsp-gateway/src/utils"
     "lsp-gateway/src/utils/jsonutil"
     "lsp-gateway/src/utils/lspconv"
 )
@@ -338,31 +337,91 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 		}
 
 		if wsResult, wsErr := m.ProcessRequest(ctx, "workspace/symbol", wsParams); wsErr == nil && wsResult != nil {
-			// Parse workspace symbol results
-			var wsSymbols []interface{}
-			if rawBytes, ok := wsResult.(json.RawMessage); ok {
-				var symbols []map[string]interface{}
-				if jsonErr := json.Unmarshal(rawBytes, &symbols); jsonErr == nil {
-					for _, sym := range symbols {
-						wsSymbols = append(wsSymbols, sym)
-					}
-				}
-			} else if symbols, ok := wsResult.([]interface{}); ok {
-				wsSymbols = symbols
-			}
+            var symbolInfos []types.SymbolInformation
+            if converted, err := jsonutil.Convert[[]types.SymbolInformation](wsResult); err == nil {
+                symbolInfos = converted
+            } else if items, ok := wsResult.([]interface{}); ok {
+                for _, it := range items {
+                    if si, err := jsonutil.Convert[types.SymbolInformation](it); err == nil && si.Name != "" {
+                        symbolInfos = append(symbolInfos, si)
+                    }
+                }
+            }
 
 			// For each symbol found, try to get references from its location
 			// Limit the number of LSP requests to avoid overwhelming the server
 			maxLSPRequests := 5
 			lspRequestCount := 0
 
-			for _, wsSymbol := range wsSymbols {
-				// Stop making LSP requests if we've hit the limit
-				if lspRequestCount >= maxLSPRequests {
-					break
-				}
+            for _, si := range symbolInfos {
+                // Stop making LSP requests if we've hit the limit
+                if lspRequestCount >= maxLSPRequests {
+                    break
+                }
 
-				if symbolMap, ok := wsSymbol.(map[string]interface{}); ok {
+                if si.Location.URI != "" {
+                    filePath := utils.URIToFilePath(si.Location.URI)
+                    if filePath != "" && m.matchesFilePattern(filePath, query.FilePattern) {
+                        refInfo := ReferenceInfo{
+                            FilePath:     filePath,
+                            LineNumber:   int(si.Location.Range.Start.Line),
+                            Column:       int(si.Location.Range.Start.Character),
+                            IsDefinition: false,
+                            IsReadAccess: true,
+                        }
+                        isDuplicate := false
+                        for _, existing := range references {
+                            if existing.FilePath == refInfo.FilePath && existing.LineNumber == refInfo.LineNumber && existing.Column == refInfo.Column {
+                                isDuplicate = true
+                                break
+                            }
+                        }
+                        if !isDuplicate {
+                            references = append(references, refInfo)
+                        }
+                    }
+                }
+
+                if lspRequestCount < maxLSPRequests && si.Location.URI != "" {
+                    lspRequestCount++
+                    refParams := map[string]interface{}{
+                        "textDocument": map[string]interface{}{
+                            "uri": si.Location.URI,
+                        },
+                        "position": map[string]interface{}{
+                            "line":      int(si.Location.Range.Start.Line),
+                            "character": int(si.Location.Range.Start.Character),
+                        },
+                        "context": map[string]interface{}{
+                            "includeDeclaration": true,
+                        },
+                    }
+                    if refResult, refErr := m.ProcessRequest(ctx, "textDocument/references", refParams); refErr == nil && refResult != nil {
+                        locs := lspconv.ParseLocations(refResult)
+                        for _, loc := range locs {
+                            refInfo := m.locationToReferenceInfo(loc)
+                            if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
+                                refInfo.IsReadAccess = true
+                                references = append(references, *refInfo)
+                                readAccessCount++
+                            }
+                        }
+                    }
+                }
+
+                if si.Name == query.Pattern && si.Location.URI != "" && fallbackDefRef == nil {
+                    fallbackDefRef = &ReferenceInfo{
+                        FilePath:     utils.URIToFilePath(si.Location.URI),
+                        LineNumber:   int(si.Location.Range.Start.Line),
+                        Column:       int(si.Location.Range.Start.Character),
+                        IsDefinition: true,
+                    }
+                    common.LSPLogger.Debug("[SearchSymbolReferences] Found definition via workspace symbol: %s:%d:%d", fallbackDefRef.FilePath, fallbackDefRef.LineNumber, fallbackDefRef.Column)
+                }
+
+                continue
+
+                if symbolMap, ok := interface{}(si).(map[string]interface{}); ok {
 					// First add the symbol itself as a reference
 					if location, hasLocation := symbolMap["location"].(map[string]interface{}); hasLocation {
 						if uri, hasURI := location["uri"].(string); hasURI {
