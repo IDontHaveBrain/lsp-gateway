@@ -161,20 +161,8 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 			// Convert aggregated result to enriched symbol array
 			if symbols, ok := aggregatedResult.([]interface{}); ok {
 				for _, sym := range symbols {
-					if symbolMap, ok := sym.(map[string]interface{}); ok {
-						// Convert map to SymbolInformation and create enriched result
-						symbolInfo := m.mapToSymbolInfo(symbolMap)
-						if symbolInfo != nil {
-							// Convert to enriched format for consistency
-							enrichedResult := m.convertToEnrichedResult(*symbolInfo, query)
-							if enrichedResult != nil {
-								enrichedSymbols = append(enrichedSymbols, *enrichedResult)
-							}
-						}
-					} else if symbolInfo, ok := sym.(types.SymbolInformation); ok {
-						// Convert to enriched format for consistency
-						enrichedResult := m.convertToEnrichedResult(symbolInfo, query)
-						if enrichedResult != nil {
+					if symbolInfo, err := jsonutil.Convert[types.SymbolInformation](sym); err == nil && symbolInfo.Name != "" {
+						if enrichedResult := m.convertToEnrichedResult(symbolInfo, query); enrichedResult != nil {
 							enrichedSymbols = append(enrichedSymbols, *enrichedResult)
 						}
 					}
@@ -283,50 +271,7 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 }
 
 // mapToSymbolInfo converts a map to SymbolInformation
-func (m *LSPManager) mapToSymbolInfo(symbolMap map[string]interface{}) *types.SymbolInformation {
-	symbol := &types.SymbolInformation{}
-
-	if name, ok := symbolMap["name"].(string); ok {
-		symbol.Name = name
-	} else {
-		return nil
-	}
-
-	if kind, ok := symbolMap["kind"].(float64); ok {
-		symbol.Kind = types.SymbolKind(kind)
-	}
-
-	if location, ok := symbolMap["location"].(map[string]interface{}); ok {
-		if uri, ok := location["uri"].(string); ok {
-			symbol.Location.URI = uri
-		}
-
-		if rangeMap, ok := location["range"].(map[string]interface{}); ok {
-			if start, ok := rangeMap["start"].(map[string]interface{}); ok {
-				if line, ok := start["line"].(float64); ok {
-					symbol.Location.Range.Start.Line = int32(line)
-				}
-				if char, ok := start["character"].(float64); ok {
-					symbol.Location.Range.Start.Character = int32(char)
-				}
-			}
-			if end, ok := rangeMap["end"].(map[string]interface{}); ok {
-				if line, ok := end["line"].(float64); ok {
-					symbol.Location.Range.End.Line = int32(line)
-				}
-				if char, ok := end["character"].(float64); ok {
-					symbol.Location.Range.End.Character = int32(char)
-				}
-			}
-		}
-	}
-
-	if containerName, ok := symbolMap["containerName"].(string); ok {
-		symbol.ContainerName = containerName
-	}
-
-	return symbol
-}
+// mapToSymbolInfo removed: generic conversion via jsonutil.Convert used instead
 
 // parseDocumentSymbolsToDocumentSymbol converts document symbol response to DocumentSymbol array
 func (m *LSPManager) parseDocumentSymbolsToDocumentSymbol(result interface{}) []lsp.DocumentSymbol {
