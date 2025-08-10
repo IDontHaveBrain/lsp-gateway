@@ -135,7 +135,7 @@ func (m *LSPManager) Start(ctx context.Context) error {
 		go func(lang string, cfg *config.ServerConfig) {
 			// Individual timeout per server - use language-specific timeout
 			timeout := constants.GetInitializeTimeout(lang)
-			clientCtx, cancel := context.WithTimeout(ctx, timeout)
+			clientCtx, cancel := common.WithTimeout(ctx, timeout)
 			defer cancel()
 
 			err := m.startClientWithTimeout(clientCtx, lang, cfg)
@@ -890,7 +890,7 @@ func (m *LSPManager) performIncrementalReindex(files []string) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+ctx, cancel := common.CreateContext(2 * time.Minute)
 	defer cancel()
 
 	// Get working directory

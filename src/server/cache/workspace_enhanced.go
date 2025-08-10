@@ -16,6 +16,7 @@ import (
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/scip"
 	"lsp-gateway/src/utils"
+    "lsp-gateway/src/utils/lspconv"
 )
 
 // indexedSymbol represents a symbol found during indexing
@@ -260,7 +261,7 @@ func (w *WorkspaceIndexer) processReferenceBatch(ctx context.Context, symbols []
 		}
 
 		// Bound open request time
-		openCtx, openCancel := context.WithTimeout(ctx, 2*time.Second)
+    openCtx, openCancel := common.WithTimeout(ctx, 2*time.Second)
 		_, openErr := w.lspFallback.ProcessRequest(openCtx, "textDocument/didOpen", openParams)
 		openCancel()
 		if openErr != nil {
@@ -296,7 +297,7 @@ func (w *WorkspaceIndexer) processReferenceBatch(ctx context.Context, symbols []
 				"uri": fileURI,
 			},
 		}
-		closeCtx, closeCancel := context.WithTimeout(ctx, 1*time.Second)
+    closeCtx, closeCancel := common.WithTimeout(ctx, 1*time.Second)
 		_, _ = w.lspFallback.ProcessRequest(closeCtx, "textDocument/didClose", closeParams)
 		closeCancel()
 	}
@@ -331,7 +332,7 @@ func (w *WorkspaceIndexer) getReferencesForSymbolInOpenFile(ctx context.Context,
 	}
 
 	// Per-request timeout to prevent hangs on problematic positions
-	reqCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+    reqCtx, cancel := common.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
 	result, err := w.lspFallback.ProcessRequest(reqCtx, types.MethodTextDocumentReferences, params)
@@ -388,27 +389,10 @@ func (w *WorkspaceIndexer) parseLocationResponse(result interface{}) ([]types.Lo
 }
 
 func (w *WorkspaceIndexer) parseRange(rangeData map[string]interface{}) types.Range {
-	r := types.Range{}
-
-	if start, ok := rangeData["start"].(map[string]interface{}); ok {
-		if line, ok := start["line"].(float64); ok {
-			r.Start.Line = int32(line)
-		}
-		if char, ok := start["character"].(float64); ok {
-			r.Start.Character = int32(char)
-		}
-	}
-
-	if end, ok := rangeData["end"].(map[string]interface{}); ok {
-		if line, ok := end["line"].(float64); ok {
-			r.End.Line = int32(line)
-		}
-		if char, ok := end["character"].(float64); ok {
-			r.End.Character = int32(char)
-		}
-	}
-
-	return r
+    if r, ok := lspconv.ParseRangeFromMap(rangeData); ok {
+        return r
+    }
+    return types.Range{}
 }
 
 // clampPositionToFile ensures the given position is within the file's line bounds

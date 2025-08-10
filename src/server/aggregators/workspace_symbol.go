@@ -1,15 +1,15 @@
 package aggregators
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"strings"
-	"time"
+    "context"
+    "encoding/json"
+    "fmt"
+    "strings"
+    "time"
 
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/types"
-	"lsp-gateway/src/server/errors"
+    "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/types"
+    "lsp-gateway/src/server/errors"
 )
 
 // WorkspaceSymbolAggregator handles workspace symbol queries across multiple LSP clients
@@ -76,7 +76,7 @@ func (w *LSPWorkspaceSymbolAggregator) ProcessWorkspaceSymbol(ctx context.Contex
 		go func(lang string, c types.LSPClient) {
 			// Create a timeout context for this individual client request
 			// Use longer timeout for workspace/symbol as it can be slow on large codebases
-			clientCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+            clientCtx, cancel := common.WithTimeout(ctx, 20*time.Second)
 			defer cancel()
 
 			result, err := c.SendRequest(clientCtx, types.MethodWorkspaceSymbol, params)
