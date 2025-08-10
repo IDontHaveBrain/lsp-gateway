@@ -1,16 +1,17 @@
 package documents
 
 import (
-	"context"
-	"path/filepath"
-	"strings"
-	"time"
+    "context"
+    "path/filepath"
+    "strings"
+    "time"
 
-	"go.lsp.dev/protocol"
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/types"
-	"lsp-gateway/src/utils"
-	"runtime"
+    "go.lsp.dev/protocol"
+    "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/registry"
+    "lsp-gateway/src/internal/types"
+    "lsp-gateway/src/utils"
+    "runtime"
 )
 
 // DocumentManager interface for document-related operations
@@ -32,26 +33,12 @@ func NewLSPDocumentManager() *LSPDocumentManager {
 
 // DetectLanguage detects the programming language from a file URI
 func (dm *LSPDocumentManager) DetectLanguage(uri string) string {
-	// Remove file:// prefix and get extension
-	path := utils.URIToFilePath(uri)
-	ext := strings.ToLower(filepath.Ext(path))
-
-	switch ext {
-	case ".go":
-		return "go"
-	case ".py":
-		return "python"
-	case ".js", ".jsx":
-		return "javascript"
-	case ".ts", ".tsx":
-		return "typescript"
-	case ".java":
-		return "java"
-	case ".rs":
-		return "rust"
-	default:
-		return ""
-	}
+    path := utils.URIToFilePath(uri)
+    ext := strings.ToLower(filepath.Ext(path))
+    if lang, ok := registry.GetLanguageByExtension(ext); ok {
+        return lang.Name
+    }
+    return ""
 }
 
 // ExtractURI extracts the file URI from request parameters

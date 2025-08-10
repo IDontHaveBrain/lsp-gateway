@@ -1,30 +1,31 @@
 package server
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"math/rand"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"sync"
-	"time"
+    "context"
+    "encoding/json"
+    "fmt"
+    "math/rand"
+    "os"
+    "os/exec"
+    "path/filepath"
+    "runtime"
+    "sync"
+    "time"
 
-	"lsp-gateway/src/config"
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/constants"
-	errorspkg "lsp-gateway/src/internal/errors"
-	"lsp-gateway/src/internal/project"
-	"lsp-gateway/src/internal/security"
-	"lsp-gateway/src/internal/types"
-	"lsp-gateway/src/server/aggregators"
-	"lsp-gateway/src/server/cache"
-	"lsp-gateway/src/server/documents"
-	"lsp-gateway/src/server/errors"
-	"lsp-gateway/src/server/watcher"
-	"strings"
+    "lsp-gateway/src/config"
+    "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/constants"
+    errorspkg "lsp-gateway/src/internal/errors"
+    "lsp-gateway/src/internal/project"
+    "lsp-gateway/src/internal/security"
+    "lsp-gateway/src/internal/types"
+    "lsp-gateway/src/server/aggregators"
+    "lsp-gateway/src/server/cache"
+    "lsp-gateway/src/server/documents"
+    "lsp-gateway/src/server/errors"
+    "lsp-gateway/src/server/watcher"
+    "strings"
+    "lsp-gateway/src/utils"
 )
 
 // ClientStatus represents the status of an LSP client
@@ -863,12 +864,12 @@ func (m *LSPManager) handleFileChanges(events []watcher.FileChangeEvent) {
 		len(modifiedFiles), len(deletedFiles))
 
 	// Handle deleted files
-	for _, path := range deletedFiles {
-		uri := "file://" + path
-		if err := m.scipCache.InvalidateDocument(uri); err != nil {
-			common.LSPLogger.Warn("Failed to invalidate deleted document %s: %v", uri, err)
-		}
-	}
+    for _, path := range deletedFiles {
+        uri := utils.FilePathToURI(path)
+        if err := m.scipCache.InvalidateDocument(uri); err != nil {
+            common.LSPLogger.Warn("Failed to invalidate deleted document %s: %v", uri, err)
+        }
+    }
 
 	// Trigger incremental indexing for modified files
 	if len(modifiedFiles) > 0 {

@@ -239,18 +239,18 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 						documentation = strings.Join(symbolInfo.Documentation, "\n")
 					}
 
-					// Create enhanced symbol info
-					enhanced := types.EnhancedSymbolInfo{
-						SymbolInformation: types.SymbolInformation{
-							Name: symbolInfo.DisplayName,
-							Kind: lspKind,
-							Location: types.Location{
-								URI: "file://" + filePath,
-								Range: types.Range{
-									Start: types.Position{Line: int32(lineNumber), Character: 0},
-									End:   types.Position{Line: int32(endLine), Character: 0},
-								},
-							},
+                    // Create enhanced symbol info
+                    enhanced := types.EnhancedSymbolInfo{
+                        SymbolInformation: types.SymbolInformation{
+                            Name: symbolInfo.DisplayName,
+                            Kind: lspKind,
+                            Location: types.Location{
+                                URI: utils.FilePathToURI(filePath),
+                                Range: types.Range{
+                                    Start: types.Position{Line: int32(lineNumber), Character: 0},
+                                    End:   types.Position{Line: int32(endLine), Character: 0},
+                                },
+                            },
 						},
 						FilePath:      filePath,
 						LineNumber:    lineNumber,
@@ -340,7 +340,7 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 					if filePath == "" {
 						continue
 					}
-					uri := "file://" + filePath
+                    uri := utils.FilePathToURI(filePath)
 
 					enhanced := types.EnhancedSymbolInfo{
 						SymbolInformation: types.SymbolInformation{
