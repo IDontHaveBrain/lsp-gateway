@@ -59,7 +59,7 @@ func NewSCIPCacheManager(configParam *config.CacheConfig) (*SCIPCacheManager, er
 			DocumentCount:    0,
 			SymbolCount:      0,
 			IndexSize:        0,
-			LastUpdate:       time.Now(),
+			LastUpdate:       time.Time{},
 			LanguageStats:    make(map[string]int64),
 			IndexedLanguages: []string{},
 			Status:           "initialized",
