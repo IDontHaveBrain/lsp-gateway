@@ -13,8 +13,8 @@ import (
     "lsp-gateway/src/server/cache"
     "lsp-gateway/src/server/scip"
     "lsp-gateway/src/utils"
-    "lsp-gateway/src/utils/jsonutil"
     "lsp-gateway/src/utils/lspconv"
+    "lsp-gateway/src/utils/filepattern"
 )
 
 // SymbolReferenceQuery defines parameters for searching symbol references
@@ -336,17 +336,8 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 			"query": query.Pattern,
 		}
 
-		if wsResult, wsErr := m.ProcessRequest(ctx, "workspace/symbol", wsParams); wsErr == nil && wsResult != nil {
-            var symbolInfos []types.SymbolInformation
-            if converted, err := jsonutil.Convert[[]types.SymbolInformation](wsResult); err == nil {
-                symbolInfos = converted
-            } else if items, ok := wsResult.([]interface{}); ok {
-                for _, it := range items {
-                    if si, err := jsonutil.Convert[types.SymbolInformation](it); err == nil && si.Name != "" {
-                        symbolInfos = append(symbolInfos, si)
-                    }
-                }
-            }
+        if wsResult, wsErr := m.ProcessRequest(ctx, "workspace/symbol", wsParams); wsErr == nil && wsResult != nil {
+            symbolInfos := lspconv.ParseWorkspaceSymbols(wsResult)
 
 			// For each symbol found, try to get references from its location
 			// Limit the number of LSP requests to avoid overwhelming the server
@@ -537,18 +528,16 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 
         wsResult, wsErr := m.ProcessRequest(ctx, "workspace/symbol", wsParams)
         if wsErr == nil && wsResult != nil {
-            if symbolInfos, err := jsonutil.Convert[[]types.SymbolInformation](wsResult); err == nil {
-                for _, si := range symbolInfos {
-                    if si.Name == query.Pattern && si.Location.URI != "" {
-                        fallbackDefRef = &ReferenceInfo{
-                            FilePath:     utils.URIToFilePath(si.Location.URI),
-                            LineNumber:   int(si.Location.Range.Start.Line),
-                            Column:       int(si.Location.Range.Start.Character),
-                            IsDefinition: true,
-                        }
-                        common.LSPLogger.Debug("[SearchSymbolReferences] Found definition via workspace symbol: %s:%d:%d", fallbackDefRef.FilePath, fallbackDefRef.LineNumber, fallbackDefRef.Column)
-                        break
+            for _, si := range lspconv.ParseWorkspaceSymbols(wsResult) {
+                if si.Name == query.Pattern && si.Location.URI != "" {
+                    fallbackDefRef = &ReferenceInfo{
+                        FilePath:     utils.URIToFilePath(si.Location.URI),
+                        LineNumber:   int(si.Location.Range.Start.Line),
+                        Column:       int(si.Location.Range.Start.Character),
+                        IsDefinition: true,
                     }
+                    common.LSPLogger.Debug("[SearchSymbolReferences] Found definition via workspace symbol: %s:%d:%d", fallbackDefRef.FilePath, fallbackDefRef.LineNumber, fallbackDefRef.Column)
+                    break
                 }
             }
         }
@@ -643,70 +632,7 @@ func (m *LSPManager) locationToReferenceInfo(loc types.Location) *ReferenceInfo 
 
 // matchesFilePattern checks if a file path matches the given pattern
 func (m *LSPManager) matchesFilePattern(filePath, pattern string) bool {
-	// Handle special patterns
-	if pattern == "" || pattern == "**/*" || pattern == "*" {
-		return true
-	}
-
-	// Convert absolute path to relative if needed for pattern matching
-	// If filePath is absolute and pattern is relative, make filePath relative
-	normalizedPath := filePath
-	if filepath.IsAbs(filePath) && !filepath.IsAbs(pattern) {
-		// Try to make the path relative to the working directory
-		if wd, err := os.Getwd(); err == nil {
-			if relPath, err := filepath.Rel(wd, filePath); err == nil {
-				normalizedPath = relPath
-			}
-		}
-	}
-
-	// Convert glob pattern to filepath.Match pattern
-	if strings.Contains(pattern, "**") {
-		// For ** patterns, check if the path contains the pattern part
-		parts := strings.Split(pattern, "**")
-		if len(parts) == 2 {
-			prefix := strings.TrimSuffix(parts[0], "/")
-			suffix := strings.TrimPrefix(parts[1], "/")
-
-			// Check both the normalized path and the original path
-			for _, pathToCheck := range []string{normalizedPath, filePath} {
-				matches := true
-				if prefix != "" && !strings.Contains(pathToCheck, prefix) {
-					matches = false
-				}
-				if matches && suffix != "" && suffix != "*" {
-					matched, _ := filepath.Match(suffix, filepath.Base(pathToCheck))
-					if !matched {
-						matches = false
-					}
-				}
-				if matches {
-					return true
-				}
-			}
-			return false
-		}
-	}
-
-	// Check if it's a directory pattern
-	if strings.HasSuffix(pattern, "/") {
-		return strings.HasPrefix(normalizedPath, pattern) || strings.HasPrefix(filePath, pattern)
-	}
-
-	// Try direct glob match on both normalized and original paths
-	for _, pathToCheck := range []string{normalizedPath, filePath} {
-		matched, _ := filepath.Match(pattern, pathToCheck)
-		if matched {
-			return true
-		}
-		// Try matching against the base name
-		matched, _ = filepath.Match(pattern, filepath.Base(pathToCheck))
-		if matched {
-			return true
-		}
-	}
-
-	return false
+    return filepattern.Match(filePath, pattern)
 }
 
 // readFullLine reads a complete line from a file

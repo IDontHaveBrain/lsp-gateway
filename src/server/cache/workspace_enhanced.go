@@ -348,16 +348,14 @@ func (w *WorkspaceIndexer) getReferencesForSymbolInOpenFile(ctx context.Context,
 		return nil, err
 	}
 
-	return w.parseLocationResponse(result)
-}
-
-func (w *WorkspaceIndexer) parseLocationResponse(result interface{}) ([]types.Location, error) {
     locs := lspconv.ParseLocations(result)
     if locs == nil {
         return []types.Location{}, nil
     }
     return locs, nil
 }
+
+// parseLocationResponse removed; use lspconv.ParseLocations directly
 
 func (w *WorkspaceIndexer) parseRange(rangeData map[string]interface{}) types.Range {
     if r, ok := lspconv.ParseRangeFromMap(rangeData); ok {
