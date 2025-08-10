@@ -57,6 +57,9 @@ type LSPManager struct {
 	watcherMu   sync.Mutex
 
 	hoverMemo sync.Map
+
+    // Limit concurrent indexing tasks to avoid request-path blocking
+    indexLimiter chan struct{}
 }
 
 // NewLSPManager creates a new LSP manager with unified cache configuration
@@ -82,6 +85,13 @@ func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 		scipCache:           cacheIntegrator.GetCache(), // Set convenience accessor
 		projectInfo:         nil,                        // Will be initialized when needed
 	}
+
+	// Initialize indexing concurrency limiter (tighter on Windows)
+	limiterSize := 2
+	if runtime.GOOS == "windows" {
+		limiterSize = 1
+	}
+	manager.indexLimiter = make(chan struct{}, limiterSize)
 
 	// Initialize project info for consistent symbol ID generation
 	if wd, err := os.Getwd(); err == nil {
@@ -183,7 +193,14 @@ func (m *LSPManager) Start(ctx context.Context) error {
 				// Only index if cache is truly empty
 				go func() {
 					// Wait for LSP servers to fully initialize
-					time.Sleep(3 * time.Second)
+					delay := 3 * time.Second
+					if runtime.GOOS == "windows" {
+					delay = 12 * time.Second
+					if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
+						delay = 20 * time.Second
+					}
+					}
+					time.Sleep(delay)
 
 					// Double-check cache status
 					recheckStats := cacheManager.GetIndexStats()
@@ -392,16 +409,55 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 
 	result, err := m.sendRequestWithRetry(ctx, client, method, params, uri, language)
 
-	// Cache the result and perform SCIP indexing if successful and cache is available
-	if err == nil && m.scipCache != nil && m.isCacheableMethod(method) {
-		m.scipCache.Store(method, params, result)
+    // Cache the result and schedule SCIP indexing asynchronously if successful
+    if err == nil && m.scipCache != nil && m.isCacheableMethod(method) {
+        m.scipCache.Store(method, params, result)
 
-		// Perform SCIP indexing for document-related operations
-		m.performSCIPIndexing(ctx, method, uri, language, params, result)
+        // Schedule non-blocking indexing with bounded concurrency and timeout
+        m.scheduleIndexing(method, uri, language, params, result)
+    }
+
+    return result, err
+}
+
+
+// scheduleIndexing runs performSCIPIndexing asynchronously with bounded concurrency and timeouts
+func (m *LSPManager) scheduleIndexing(method, uri, language string, params, result interface{}) {
+	select {
+	case m.indexLimiter <- struct{}{}:
+		// acquired slot
+	default:
+		// best-effort: if limiter full, skip scheduling to avoid piling up
+		common.LSPLogger.Debug("Indexing skipped due to limiter saturation: %s", method)
+		return
 	}
 
-	return result, err
+	go func() {
+		defer func() { <-m.indexLimiter }()
+
+		// Derive timeout per method (short to avoid impacting request latency)
+		timeout := 10 * time.Second
+		switch method {
+		case types.MethodWorkspaceSymbol:
+			timeout = 20 * time.Second
+		case types.MethodTextDocumentReferences:
+			timeout = 15 * time.Second
+		case types.MethodTextDocumentDocumentSymbol:
+			timeout = 12 * time.Second
+		case types.MethodTextDocumentDefinition, types.MethodTextDocumentCompletion, types.MethodTextDocumentHover:
+			timeout = 10 * time.Second
+		}
+		if runtime.GOOS == "windows" {
+			// Allow a bit more time on Windows without blocking too long
+			timeout = time.Duration(float64(timeout) * 1.5)
+		}
+
+		idxCtx, cancel := common.CreateContext(timeout)
+		defer cancel()
+		m.performSCIPIndexing(idxCtx, method, uri, language, params, result)
+	}()
 }
+
 
 // sendRequestWithRetry sends a request and retries with exponential backoff on transient "no views" errors (common on Windows/gopls)
 func (m *LSPManager) sendRequestWithRetry(ctx context.Context, client types.LSPClient, method string, params interface{}, uri string, language string) (json.RawMessage, error) {
@@ -806,6 +862,15 @@ func (m *LSPManager) handleFileChanges(events []watcher.FileChangeEvent) {
 
 // performIncrementalReindex performs incremental reindexing for changed files
 func (m *LSPManager) performIncrementalReindex(files []string) {
+	// Bound concurrency with shared indexing limiter (best-effort)
+	select {
+	case m.indexLimiter <- struct{}{}:
+	default:
+		common.LSPLogger.Debug("Skip incremental reindex due to limiter saturation (%d files)", len(files))
+		return
+	}
+	defer func() { <-m.indexLimiter }()
+
 	// Check cache manager type
 	cacheManager, ok := m.scipCache.(*cache.SCIPCacheManager)
 	if !ok {
