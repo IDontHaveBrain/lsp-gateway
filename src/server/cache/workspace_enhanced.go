@@ -3,19 +3,19 @@ package cache
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
 
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/registry"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/scip"
 	"lsp-gateway/src/utils"
+    "lsp-gateway/src/utils/lspconv"
 )
 
 // indexedSymbol represents a symbol found during indexing
@@ -44,36 +44,8 @@ func (w *WorkspaceIndexer) IndexWorkspaceFilesWithReferences(ctx context.Context
 	for k := range symbolsByFile {
 		files = append(files, k)
 	}
-	// Determine worker count based on environment and project type
-	workers := runtime.NumCPU()
-
-	// Special handling for Java projects on Windows to prevent LSP server overload
-	hasJava := false
-	for _, lang := range languages {
-		if lang == "java" {
-			hasJava = true
-			break
-		}
-	}
-
-	if hasJava && runtime.GOOS == "windows" {
-		// Java LSP (jdtls) on Windows cannot handle concurrent requests well
-		// Use single worker to prevent overwhelming the server
-		workers = 1
-		common.LSPLogger.Debug("Using single worker for Java project on Windows to prevent LSP overload")
-	} else if hasJava {
-		// Even on non-Windows, Java LSP benefits from limited concurrency
-		workers = 2
-		common.LSPLogger.Debug("Using limited workers (2) for Java project")
-	} else {
-		// For non-Java projects, use normal worker limits
-		if workers < 2 {
-			workers = 2
-		}
-		if workers > 16 {
-			workers = 16
-		}
-	}
+    // Determine worker count based on environment and project type
+    workers := computeWorkers(hasJavaInLangs(languages))
 	jobs := make(chan int, workers)
 	var wg sync.WaitGroup
 	for wkr := 0; wkr < workers; wkr++ {
@@ -132,36 +104,8 @@ func (w *WorkspaceIndexer) IndexWorkspaceFilesWithReferencesProgress(ctx context
 	if progress != nil {
 		progress("references_start", 0, len(symbols), "")
 	}
-	// Determine worker count based on environment and project type
-	workers := runtime.NumCPU()
-
-	// Special handling for Java projects on Windows to prevent LSP server overload
-	hasJava := false
-	for _, lang := range languages {
-		if lang == "java" {
-			hasJava = true
-			break
-		}
-	}
-
-	if hasJava && runtime.GOOS == "windows" {
-		// Java LSP (jdtls) on Windows cannot handle concurrent requests well
-		// Use single worker to prevent overwhelming the server
-		workers = 1
-		common.LSPLogger.Debug("Using single worker for Java project on Windows to prevent LSP overload")
-	} else if hasJava {
-		// Even on non-Windows, Java LSP benefits from limited concurrency
-		workers = 2
-		common.LSPLogger.Debug("Using limited workers (2) for Java project")
-	} else {
-		// For non-Java projects, use normal worker limits
-		if workers < 2 {
-			workers = 2
-		}
-		if workers > 16 {
-			workers = 16
-		}
-	}
+    // Determine worker count based on environment and project type
+    workers := computeWorkers(hasJavaInLangs(languages))
 	var mu sync.Mutex
 	jobs := make(chan int, workers)
 	processed := 0
@@ -316,7 +260,7 @@ func (w *WorkspaceIndexer) processReferenceBatch(ctx context.Context, symbols []
 		}
 
 		// Bound open request time
-		openCtx, openCancel := context.WithTimeout(ctx, 2*time.Second)
+    openCtx, openCancel := common.WithTimeout(ctx, 2*time.Second)
 		_, openErr := w.lspFallback.ProcessRequest(openCtx, "textDocument/didOpen", openParams)
 		openCancel()
 		if openErr != nil {
@@ -352,7 +296,7 @@ func (w *WorkspaceIndexer) processReferenceBatch(ctx context.Context, symbols []
 				"uri": fileURI,
 			},
 		}
-		closeCtx, closeCancel := context.WithTimeout(ctx, 1*time.Second)
+    closeCtx, closeCancel := common.WithTimeout(ctx, 1*time.Second)
 		_, _ = w.lspFallback.ProcessRequest(closeCtx, "textDocument/didClose", closeParams)
 		closeCancel()
 	}
@@ -387,7 +331,7 @@ func (w *WorkspaceIndexer) getReferencesForSymbolInOpenFile(ctx context.Context,
 	}
 
 	// Per-request timeout to prevent hangs on problematic positions
-	reqCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+    reqCtx, cancel := common.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 
 	result, err := w.lspFallback.ProcessRequest(reqCtx, types.MethodTextDocumentReferences, params)
@@ -404,67 +348,20 @@ func (w *WorkspaceIndexer) getReferencesForSymbolInOpenFile(ctx context.Context,
 		return nil, err
 	}
 
-	return w.parseLocationResponse(result)
+    locs := lspconv.ParseLocations(result)
+    if locs == nil {
+        return []types.Location{}, nil
+    }
+    return locs, nil
 }
 
-func (w *WorkspaceIndexer) parseLocationResponse(result interface{}) ([]types.Location, error) {
-	locations := []types.Location{}
-
-	switch refs := result.(type) {
-	case json.RawMessage:
-		var refArray []interface{}
-		if err := json.Unmarshal(refs, &refArray); err == nil {
-			for _, ref := range refArray {
-				if refData, err := json.Marshal(ref); err == nil {
-					var loc types.Location
-					if err := json.Unmarshal(refData, &loc); err == nil {
-						locations = append(locations, loc)
-					}
-				}
-			}
-		}
-	case []interface{}:
-		for _, ref := range refs {
-			if refMap, ok := ref.(map[string]interface{}); ok {
-				loc := types.Location{}
-				if uri, ok := refMap["uri"].(string); ok {
-					loc.URI = uri
-				}
-				if rangeData, ok := refMap["range"].(map[string]interface{}); ok {
-					loc.Range = w.parseRange(rangeData)
-				}
-				locations = append(locations, loc)
-			}
-		}
-	case []types.Location:
-		locations = refs
-	}
-
-	return locations, nil
-}
+// parseLocationResponse removed; use lspconv.ParseLocations directly
 
 func (w *WorkspaceIndexer) parseRange(rangeData map[string]interface{}) types.Range {
-	r := types.Range{}
-
-	if start, ok := rangeData["start"].(map[string]interface{}); ok {
-		if line, ok := start["line"].(float64); ok {
-			r.Start.Line = int32(line)
-		}
-		if char, ok := start["character"].(float64); ok {
-			r.Start.Character = int32(char)
-		}
-	}
-
-	if end, ok := rangeData["end"].(map[string]interface{}); ok {
-		if line, ok := end["line"].(float64); ok {
-			r.End.Line = int32(line)
-		}
-		if char, ok := end["character"].(float64); ok {
-			r.End.Character = int32(char)
-		}
-	}
-
-	return r
+    if r, ok := lspconv.ParseRangeFromMap(rangeData); ok {
+        return r
+    }
+    return types.Range{}
 }
 
 // clampPositionToFile ensures the given position is within the file's line bounds
@@ -523,21 +420,12 @@ func (w *WorkspaceIndexer) createReferenceOccurrence(ref types.Location, symbol 
 }
 
 func (w *WorkspaceIndexer) detectLanguageFromURI(uri string) string {
-	ext := filepath.Ext(uri)
-	switch ext {
-	case ".go":
-		return "go"
-	case ".js", ".jsx", ".mjs":
-		return "javascript"
-	case ".ts", ".tsx":
-		return "typescript"
-	case ".py":
-		return "python"
-	case ".java":
-		return "java"
-	default:
-		return "unknown"
-	}
+    path := utils.URIToFilePath(uri)
+    ext := filepath.Ext(path)
+    if lang, ok := registry.GetLanguageByExtension(ext); ok {
+        return lang.Name
+    }
+    return "unknown"
 }
 
 func (w *WorkspaceIndexer) isValidIdentifierSyntaxKind(syntaxKind types.SyntaxKind) bool {
@@ -667,7 +555,7 @@ func (w *WorkspaceIndexer) IndexSpecificFilesWithReferences(ctx context.Context,
 		if err != nil {
 			continue
 		}
-		uri := "file://" + absPath
+        uri := utils.FilePathToURI(absPath)
 
 		doc, err := scipCache.scipStorage.GetDocument(ctx, uri)
 		if err == nil && doc != nil {
@@ -698,35 +586,8 @@ func (w *WorkspaceIndexer) IndexSpecificFilesWithReferences(ctx context.Context,
 		filesToProcess = append(filesToProcess, k)
 	}
 
-	// Determine worker count - limit for Java projects to prevent LSP overload
-	workers := runtime.NumCPU()
-
-	// Check if any file is Java to apply special handling
-	hasJava := false
-	for _, fileURI := range filesToProcess {
-		if strings.HasSuffix(fileURI, ".java") {
-			hasJava = true
-			break
-		}
-	}
-
-	if hasJava && runtime.GOOS == "windows" {
-		// Java LSP (jdtls) on Windows cannot handle concurrent requests well
-		workers = 1
-		common.LSPLogger.Debug("Using single worker for Java files on Windows to prevent LSP overload")
-	} else if hasJava {
-		// Even on non-Windows, Java LSP benefits from limited concurrency
-		workers = 2
-		common.LSPLogger.Debug("Using limited workers (2) for Java files")
-	} else {
-		// For non-Java projects, use normal worker limits
-		if workers < 2 {
-			workers = 2
-		}
-		if workers > 8 {
-			workers = 8
-		}
-	}
+    // Determine worker count - limit for Java projects to prevent LSP overload
+    workers := computeWorkers(hasJavaInURIs(filesToProcess))
 
 	// Process references
 	var wg sync.WaitGroup

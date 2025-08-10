@@ -249,7 +249,7 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 		timeoutDuration = c.getInitializeTimeout()
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, timeoutDuration)
+    ctx, cancel := common.WithTimeout(ctx, timeoutDuration)
 	defer cancel()
 
 	select {

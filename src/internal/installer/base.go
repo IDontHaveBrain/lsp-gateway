@@ -1,19 +1,20 @@
 package installer
 
 import (
-	"bytes"
-	"context"
-	"fmt"
-	"os"
-	"os/exec"
+    "bytes"
+    "context"
+    "fmt"
+    "os"
+    "os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
 
-	"lsp-gateway/src/config"
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/security"
+    "lsp-gateway/src/config"
+    icommon "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/security"
 )
 
 // BaseInstaller provides common functionality for language installers
@@ -259,7 +260,7 @@ func (b *BaseInstaller) validateServerCommand(command string) bool {
 
 	// Additional check: try to execute the command with a quick timeout
 	// This ensures the binary is not corrupted
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+    ctx, cancel := icommon.CreateContext(2 * time.Second)
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, command, "--version")
@@ -299,7 +300,7 @@ func (b *BaseInstaller) getExecutableCommand() string {
 
 // tryGetVersion attempts to get version using a specific flag
 func (b *BaseInstaller) tryGetVersion(command, flag string) string {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+    ctx, cancel := icommon.CreateContext(3 * time.Second)
 	defer cancel()
 
 	output, err := b.RunCommandWithOutput(ctx, command, flag)
@@ -346,7 +347,7 @@ func (b *BaseInstaller) GetVersionByCommand(command string, versionFlag string) 
 		return "", fmt.Errorf("%s not installed", command)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    ctx, cancel := icommon.CreateContext(5 * time.Second)
 	defer cancel()
 
 	output, err := b.RunCommandWithOutput(ctx, command, versionFlag)
@@ -405,7 +406,7 @@ func (b *BaseInstaller) ValidateWithPackageManager(command string, packageManage
 
 // isCommandInstalled checks if a command is installed by running it with specified args
 func (b *BaseInstaller) isCommandInstalled(command string, args ...string) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+    ctx, cancel := icommon.CreateContext(5 * time.Second)
 	defer cancel()
 
 	if _, err := b.RunCommandWithOutput(ctx, command, args...); err != nil {
@@ -512,7 +513,7 @@ func (b *BaseInstaller) InstallWithPackageManager(ctx context.Context, packageMa
 func (b *BaseInstaller) UninstallWithPackageManager(packageManager string, packageName string) error {
 	common.CLILogger.Info("Uninstalling %s language server...", b.language)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    ctx, cancel := icommon.CreateContext(30 * time.Second)
 	defer cancel()
 
 	switch packageManager {

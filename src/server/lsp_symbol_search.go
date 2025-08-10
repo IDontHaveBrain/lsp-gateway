@@ -1,18 +1,19 @@
 package server
 
 import (
-	"bufio"
-	"context"
-	"encoding/json"
-	"fmt"
-	"os"
-	"strings"
+    "bufio"
+    "context"
+    "encoding/json"
+    "fmt"
+    "os"
+    "strings"
 
-	"lsp-gateway/src/internal/models/lsp"
-	"lsp-gateway/src/internal/types"
-	"lsp-gateway/src/server/scip"
-	"lsp-gateway/src/utils"
-	"lsp-gateway/src/utils/jsonutil"
+    "lsp-gateway/src/internal/models/lsp"
+    "lsp-gateway/src/internal/types"
+    "lsp-gateway/src/server/scip"
+    "lsp-gateway/src/utils"
+    "lsp-gateway/src/utils/jsonutil"
+    "lsp-gateway/src/utils/lspconv"
 )
 
 // EnhancedSymbolResult contains rich symbol information with occurrence data and role-based scoring
@@ -157,30 +158,14 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 		if err != nil {
 			// Workspace symbol aggregation failed
 			// Continue with empty results rather than failing completely
-		} else if aggregatedResult != nil {
-			// Convert aggregated result to enriched symbol array
-			if symbols, ok := aggregatedResult.([]interface{}); ok {
-				for _, sym := range symbols {
-					if symbolMap, ok := sym.(map[string]interface{}); ok {
-						// Convert map to SymbolInformation and create enriched result
-						symbolInfo := m.mapToSymbolInfo(symbolMap)
-						if symbolInfo != nil {
-							// Convert to enriched format for consistency
-							enrichedResult := m.convertToEnrichedResult(*symbolInfo, query)
-							if enrichedResult != nil {
-								enrichedSymbols = append(enrichedSymbols, *enrichedResult)
-							}
-						}
-					} else if symbolInfo, ok := sym.(types.SymbolInformation); ok {
-						// Convert to enriched format for consistency
-						enrichedResult := m.convertToEnrichedResult(symbolInfo, query)
-						if enrichedResult != nil {
-							enrichedSymbols = append(enrichedSymbols, *enrichedResult)
-						}
-					}
-				}
-			}
-		}
+        } else if aggregatedResult != nil {
+            // Convert aggregated result to enriched symbol array
+            for _, symbolInfo := range lspconv.ParseWorkspaceSymbols(aggregatedResult) {
+                if enrichedResult := m.convertToEnrichedResult(symbolInfo, query); enrichedResult != nil {
+                    enrichedSymbols = append(enrichedSymbols, *enrichedResult)
+                }
+            }
+        }
 	}
 
 	// Apply pattern matching, filtering, and role-based scoring
@@ -283,50 +268,7 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 }
 
 // mapToSymbolInfo converts a map to SymbolInformation
-func (m *LSPManager) mapToSymbolInfo(symbolMap map[string]interface{}) *types.SymbolInformation {
-	symbol := &types.SymbolInformation{}
-
-	if name, ok := symbolMap["name"].(string); ok {
-		symbol.Name = name
-	} else {
-		return nil
-	}
-
-	if kind, ok := symbolMap["kind"].(float64); ok {
-		symbol.Kind = types.SymbolKind(kind)
-	}
-
-	if location, ok := symbolMap["location"].(map[string]interface{}); ok {
-		if uri, ok := location["uri"].(string); ok {
-			symbol.Location.URI = uri
-		}
-
-		if rangeMap, ok := location["range"].(map[string]interface{}); ok {
-			if start, ok := rangeMap["start"].(map[string]interface{}); ok {
-				if line, ok := start["line"].(float64); ok {
-					symbol.Location.Range.Start.Line = int32(line)
-				}
-				if char, ok := start["character"].(float64); ok {
-					symbol.Location.Range.Start.Character = int32(char)
-				}
-			}
-			if end, ok := rangeMap["end"].(map[string]interface{}); ok {
-				if line, ok := end["line"].(float64); ok {
-					symbol.Location.Range.End.Line = int32(line)
-				}
-				if char, ok := end["character"].(float64); ok {
-					symbol.Location.Range.End.Character = int32(char)
-				}
-			}
-		}
-	}
-
-	if containerName, ok := symbolMap["containerName"].(string); ok {
-		symbol.ContainerName = containerName
-	}
-
-	return symbol
-}
+// mapToSymbolInfo removed: generic conversion via jsonutil.Convert used instead
 
 // parseDocumentSymbolsToDocumentSymbol converts document symbol response to DocumentSymbol array
 func (m *LSPManager) parseDocumentSymbolsToDocumentSymbol(result interface{}) []lsp.DocumentSymbol {

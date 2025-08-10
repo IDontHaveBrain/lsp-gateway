@@ -13,6 +13,7 @@ import (
 	"lsp-gateway/src/server/protocol"
 	"lsp-gateway/src/server/scip"
 	"lsp-gateway/src/utils"
+	"lsp-gateway/src/utils/lspconv"
 )
 
 // =============================================================================
@@ -156,28 +157,14 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 					if occ, ok := enhancedData["occurrence"].(*scip.SCIPOccurrence); ok {
 						occurrence = occ
 					}
-					// Also try to extract a plain range if provided
-					if r, ok := enhancedData["range"].(types.Range); ok {
-						rng = r
-					} else if rmap, ok := enhancedData["range"].(map[string]interface{}); ok {
-						// Defensive: parse map form if present
-						if s, ok := rmap["start"].(map[string]interface{}); ok {
-							if v, ok := s["line"].(float64); ok {
-								rng.Start.Line = int32(v)
-							}
-							if v, ok := s["character"].(float64); ok {
-								rng.Start.Character = int32(v)
-							}
-						}
-						if e, ok := rmap["end"].(map[string]interface{}); ok {
-							if v, ok := e["line"].(float64); ok {
-								rng.End.Line = int32(v)
-							}
-							if v, ok := e["character"].(float64); ok {
-								rng.End.Character = int32(v)
-							}
-						}
-					}
+                // Also try to extract a plain range if provided
+                if r, ok := enhancedData["range"].(types.Range); ok {
+                    rng = r
+                } else if rmap, ok := enhancedData["range"].(map[string]interface{}); ok {
+                    if pr, ok := lspconv.ParseRangeFromMap(rmap); ok {
+                        rng = pr
+                    }
+                }
 
 					// Extract file path and range from occurrence/range
 					filePath := ""
@@ -239,18 +226,18 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 						documentation = strings.Join(symbolInfo.Documentation, "\n")
 					}
 
-					// Create enhanced symbol info
-					enhanced := types.EnhancedSymbolInfo{
-						SymbolInformation: types.SymbolInformation{
-							Name: symbolInfo.DisplayName,
-							Kind: lspKind,
-							Location: types.Location{
-								URI: "file://" + filePath,
-								Range: types.Range{
-									Start: types.Position{Line: int32(lineNumber), Character: 0},
-									End:   types.Position{Line: int32(endLine), Character: 0},
-								},
-							},
+                    // Create enhanced symbol info
+                    enhanced := types.EnhancedSymbolInfo{
+                        SymbolInformation: types.SymbolInformation{
+                            Name: symbolInfo.DisplayName,
+                            Kind: lspKind,
+                            Location: types.Location{
+                                URI: utils.FilePathToURI(filePath),
+                                Range: types.Range{
+                                    Start: types.Position{Line: int32(lineNumber), Character: 0},
+                                    End:   types.Position{Line: int32(endLine), Character: 0},
+                                },
+                            },
 						},
 						FilePath:      filePath,
 						LineNumber:    lineNumber,
@@ -340,7 +327,7 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 					if filePath == "" {
 						continue
 					}
-					uri := "file://" + filePath
+                    uri := utils.FilePathToURI(filePath)
 
 					enhanced := types.EnhancedSymbolInfo{
 						SymbolInformation: types.SymbolInformation{

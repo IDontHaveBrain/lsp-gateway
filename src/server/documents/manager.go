@@ -1,16 +1,17 @@
 package documents
 
 import (
-	"context"
-	"path/filepath"
-	"strings"
-	"time"
+    "context"
+    "path/filepath"
+    "strings"
+    "time"
 
-	"go.lsp.dev/protocol"
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/types"
-	"lsp-gateway/src/utils"
-	"runtime"
+    "go.lsp.dev/protocol"
+    "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/constants"
+    "lsp-gateway/src/internal/registry"
+    "lsp-gateway/src/internal/types"
+    "lsp-gateway/src/utils"
 )
 
 // DocumentManager interface for document-related operations
@@ -32,26 +33,12 @@ func NewLSPDocumentManager() *LSPDocumentManager {
 
 // DetectLanguage detects the programming language from a file URI
 func (dm *LSPDocumentManager) DetectLanguage(uri string) string {
-	// Remove file:// prefix and get extension
-	path := utils.URIToFilePath(uri)
-	ext := strings.ToLower(filepath.Ext(path))
-
-	switch ext {
-	case ".go":
-		return "go"
-	case ".py":
-		return "python"
-	case ".js", ".jsx":
-		return "javascript"
-	case ".ts", ".tsx":
-		return "typescript"
-	case ".java":
-		return "java"
-	case ".rs":
-		return "rust"
-	default:
-		return ""
-	}
+    path := utils.URIToFilePath(uri)
+    ext := strings.ToLower(filepath.Ext(path))
+    if lang, ok := registry.GetLanguageByExtension(ext); ok {
+        return lang.Name
+    }
+    return ""
 }
 
 // ExtractURI extracts the file URI from request parameters
@@ -116,40 +103,15 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 	var fileContent string
 	language := dm.DetectLanguage(uri)
 
-	// Extract file path from URI
-	if strings.HasPrefix(uri, "file://") {
-		filePath := utils.URIToFilePath(uri)
-		// Ensure the file's directory is part of the workspace folders for servers like gopls
-		dir := filepath.Dir(filePath)
-		wsURI := utils.FilePathToURI(dir)
-		changeParams := map[string]interface{}{
-			"event": map[string]interface{}{
-				"added": []map[string]interface{}{
-					{"uri": wsURI, "name": filepath.Base(dir)},
-				},
-				"removed": []map[string]interface{}{},
-			},
-		}
-		_ = client.SendNotification(context.Background(), "workspace/didChangeWorkspaceFolders", changeParams)
-
-		// Apply language-aware workspace folder synchronization delay
-		if runtime.GOOS == "windows" {
-			// Java LSP already has long initialization times, reduce synchronization overhead
-			if language == "java" {
-				time.Sleep(150 * time.Millisecond)
-			} else {
-				time.Sleep(700 * time.Millisecond)
-			}
-		} else {
-			time.Sleep(150 * time.Millisecond)
-		}
-
-		if data, err := common.SafeReadFile(filePath); err == nil {
-			fileContent = string(data)
-		} else {
-			common.LSPLogger.Error("Failed to read file content for %s: %v", uri, err)
-			fileContent = ""
-		}
+    // Extract file path from URI
+    if strings.HasPrefix(uri, "file://") {
+        filePath := utils.URIToFilePath(uri)
+        if data, err := common.SafeReadFile(filePath); err == nil {
+            fileContent = string(data)
+        } else {
+            common.LSPLogger.Error("Failed to read file content for %s: %v", uri, err)
+            fileContent = ""
+        }
 	} else {
 		common.LSPLogger.Warn("URI does not start with file://: %s", uri)
 	}
@@ -170,17 +132,8 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 		return common.WrapProcessingError("failed to send didOpen notification", err)
 	}
 
-	// Apply language-aware document analysis delay
-	if runtime.GOOS == "windows" {
-		// Java LSP handles its own internal synchronization, reduce external delays
-		if language == "java" {
-			time.Sleep(200 * time.Millisecond)
-		} else {
-			time.Sleep(1200 * time.Millisecond)
-		}
-	} else {
-		time.Sleep(400 * time.Millisecond)
-	}
+    // Apply language-aware document analysis delay
+    time.Sleep(constants.GetDocumentAnalysisDelay(language))
 
 	return nil
 }

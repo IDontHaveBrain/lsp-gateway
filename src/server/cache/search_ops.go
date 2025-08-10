@@ -1,16 +1,16 @@
 package cache
 
 import (
-	"context"
-	"fmt"
-	"regexp"
-	"sort"
-	"strings"
-	"time"
+    "context"
+    "fmt"
+    "sort"
+    "strings"
+    "time"
 
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/types"
-	"lsp-gateway/src/server/scip"
+    "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/types"
+    "lsp-gateway/src/server/scip"
+    "lsp-gateway/src/utils/filepattern"
 )
 
 // QueryIndex queries the SCIP storage for symbols and relationships
@@ -707,21 +707,7 @@ func (m *SCIPCacheManager) extractURIFromOccurrence(occ *scip.SCIPOccurrence) st
 
 // matchFilePattern checks if a file URI matches a pattern
 func (m *SCIPCacheManager) matchFilePattern(uri, pattern string) bool {
-	if pattern == "" {
-		return true
-	}
-
-	// Simple pattern matching - could be enhanced with glob patterns
-	if strings.Contains(pattern, "*") {
-		// Basic wildcard support
-		pattern = strings.ReplaceAll(pattern, "*", ".*")
-		if matched, err := regexp.MatchString(pattern, uri); err == nil {
-			return matched
-		}
-	}
-
-	// Exact or substring match
-	return strings.Contains(uri, pattern)
+    return filepattern.Match(uri, pattern)
 }
 
 // sortEnhancedResults sorts enhanced symbol results by the specified criteria

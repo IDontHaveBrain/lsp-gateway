@@ -1,30 +1,31 @@
 package server
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"math/rand"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"sync"
-	"time"
+    "context"
+    "encoding/json"
+    "fmt"
+    "math/rand"
+    "os"
+    "os/exec"
+    "path/filepath"
+    "runtime"
+    "sync"
+    "time"
 
-	"lsp-gateway/src/config"
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/constants"
-	errorspkg "lsp-gateway/src/internal/errors"
-	"lsp-gateway/src/internal/project"
-	"lsp-gateway/src/internal/security"
-	"lsp-gateway/src/internal/types"
-	"lsp-gateway/src/server/aggregators"
-	"lsp-gateway/src/server/cache"
-	"lsp-gateway/src/server/documents"
-	"lsp-gateway/src/server/errors"
-	"lsp-gateway/src/server/watcher"
-	"strings"
+    "lsp-gateway/src/config"
+    "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/constants"
+    errorspkg "lsp-gateway/src/internal/errors"
+    "lsp-gateway/src/internal/project"
+    "lsp-gateway/src/internal/security"
+    "lsp-gateway/src/internal/types"
+    "lsp-gateway/src/server/aggregators"
+    "lsp-gateway/src/server/cache"
+    "lsp-gateway/src/server/documents"
+    "lsp-gateway/src/server/errors"
+    "lsp-gateway/src/server/watcher"
+    "strings"
+    "lsp-gateway/src/utils"
 )
 
 // ClientStatus represents the status of an LSP client
@@ -134,7 +135,7 @@ func (m *LSPManager) Start(ctx context.Context) error {
 		go func(lang string, cfg *config.ServerConfig) {
 			// Individual timeout per server - use language-specific timeout
 			timeout := constants.GetInitializeTimeout(lang)
-			clientCtx, cancel := context.WithTimeout(ctx, timeout)
+			clientCtx, cancel := common.WithTimeout(ctx, timeout)
 			defer cancel()
 
 			err := m.startClientWithTimeout(clientCtx, lang, cfg)
@@ -191,16 +192,9 @@ func (m *LSPManager) Start(ctx context.Context) error {
 					stats.SymbolCount, stats.ReferenceCount, stats.DocumentCount)
 			} else {
 				// Only index if cache is truly empty
-				go func() {
-					// Wait for LSP servers to fully initialize
-					delay := 3 * time.Second
-					if runtime.GOOS == "windows" {
-						delay = 12 * time.Second
-						if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
-							delay = 20 * time.Second
-						}
-					}
-					time.Sleep(delay)
+            go func() {
+                // Wait for LSP servers to fully initialize
+                time.Sleep(constants.GetBackgroundIndexingDelay())
 
 					// Double-check cache status
 					recheckStats := cacheManager.GetIndexStats()
@@ -425,10 +419,7 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 
 		// For document symbols, index synchronously to ensure workspace indexing correctness
 		if method == types.MethodTextDocumentDocumentSymbol {
-			timeout := 12 * time.Second
-			if runtime.GOOS == "windows" {
-				timeout = time.Duration(float64(timeout) * 1.5)
-			}
+            timeout := constants.AdjustDurationForWindows(12*time.Second, 1.5)
 			idxCtx, cancel := common.CreateContext(timeout)
 			defer cancel()
 			m.performSCIPIndexing(idxCtx, method, uri, language, params, result)
@@ -461,9 +452,7 @@ func (m *LSPManager) scheduleIndexing(method, uri, language string, params, resu
 		case types.MethodTextDocumentDefinition, types.MethodTextDocumentCompletion, types.MethodTextDocumentHover:
 			timeout = 10 * time.Second
 		}
-		if runtime.GOOS == "windows" {
-			timeout = time.Duration(float64(timeout) * 1.5)
-		}
+        timeout = constants.AdjustDurationForWindows(timeout, 1.5)
 
 		idxCtx, cancel := common.CreateContext(timeout)
 		defer cancel()
@@ -863,12 +852,12 @@ func (m *LSPManager) handleFileChanges(events []watcher.FileChangeEvent) {
 		len(modifiedFiles), len(deletedFiles))
 
 	// Handle deleted files
-	for _, path := range deletedFiles {
-		uri := "file://" + path
-		if err := m.scipCache.InvalidateDocument(uri); err != nil {
-			common.LSPLogger.Warn("Failed to invalidate deleted document %s: %v", uri, err)
-		}
-	}
+    for _, path := range deletedFiles {
+        uri := utils.FilePathToURI(path)
+        if err := m.scipCache.InvalidateDocument(uri); err != nil {
+            common.LSPLogger.Warn("Failed to invalidate deleted document %s: %v", uri, err)
+        }
+    }
 
 	// Trigger incremental indexing for modified files
 	if len(modifiedFiles) > 0 {
@@ -889,7 +878,7 @@ func (m *LSPManager) performIncrementalReindex(files []string) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+ctx, cancel := common.CreateContext(2 * time.Minute)
 	defer cancel()
 
 	// Get working directory

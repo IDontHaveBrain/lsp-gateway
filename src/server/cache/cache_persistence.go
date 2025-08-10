@@ -1,34 +1,19 @@
 package cache
 
 import (
-	"context"
-	"fmt"
-	"os"
-	"path/filepath"
-	"time"
+    "context"
+    "fmt"
+    "os"
+    "path/filepath"
+    "time"
 
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/project"
+    "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/project"
+    "lsp-gateway/src/utils"
+    "lsp-gateway/src/internal/registry"
 )
 
-// detectLanguageFromPath detects the language ID from file extension
-func detectLanguageFromPath(filePath string) string {
-	ext := filepath.Ext(filePath)
-	switch ext {
-	case ".go":
-		return "go"
-	case ".py":
-		return "python"
-	case ".js", ".jsx", ".mjs":
-		return "javascript"
-	case ".ts", ".tsx":
-		return "typescript"
-	case ".java":
-		return "java"
-	default:
-		return "plaintext"
-	}
-}
+// (legacy detectLanguageFromPath removed; use registry.GetLanguageByExtension)
 
 // SaveIndexToDisk saves the SCIP index data to disk as JSON files
 func (m *SCIPCacheManager) SaveIndexToDisk() error {
@@ -287,9 +272,12 @@ func (m *SCIPCacheManager) performIncrementalIndexingCore(ctx context.Context, w
 		if err != nil {
 			continue
 		}
-		uri := "file://" + absPath
-		language := detectLanguageFromPath(file)
-		m.fileTracker.UpdateFileMetadata(uri, absPath, fileInfo.ModTime(), fileInfo.Size(), language)
+        uri := utils.FilePathToURI(absPath)
+        language := "plaintext"
+        if lang, ok := registry.GetLanguageByExtension(filepath.Ext(file)); ok {
+            language = lang.Name
+        }
+        m.fileTracker.UpdateFileMetadata(uri, absPath, fileInfo.ModTime(), fileInfo.Size(), language)
 	}
 
 	// Save file tracker metadata
