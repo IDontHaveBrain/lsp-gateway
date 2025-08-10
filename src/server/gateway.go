@@ -62,9 +62,9 @@ func NewHTTPGateway(addr string, cfg *config.Config, lspOnly bool) (*HTTPGateway
 	mux.HandleFunc("/cache/health", gateway.handleCacheHealth)
 	mux.HandleFunc("/cache/clear", gateway.handleCacheClear)
 
-    // Use a WriteTimeout that safely exceeds the slowest LSP request
-    // Add a generous buffer to cover CI variance and server-side processing
-    writeTimeout := constants.GetRequestTimeout("java") + 60*time.Second
+	// Use a WriteTimeout that safely exceeds the slowest LSP request
+	// Add a generous buffer to cover CI variance and server-side processing
+	writeTimeout := constants.GetRequestTimeout("java") + 60*time.Second
 	gateway.server = &http.Server{
 		Addr:         addr,
 		Handler:      mux,

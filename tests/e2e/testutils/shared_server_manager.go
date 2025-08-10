@@ -142,16 +142,16 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 
 	// Create HTTP client for the shared server with timeout long enough for Java LSP server
 	// Determine timeout based on environment - should be longer than server's internal timeout
-    var httpTimeout time.Duration
-    if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
-        if runtime.GOOS == "windows" {
-            httpTimeout = 210 * time.Second
-        } else {
-            httpTimeout = 120 * time.Second
-        }
-    } else {
-        httpTimeout = 120 * time.Second
-    }
+	var httpTimeout time.Duration
+	if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
+		if runtime.GOOS == "windows" {
+			httpTimeout = 210 * time.Second
+		} else {
+			httpTimeout = 120 * time.Second
+		}
+	} else {
+		httpTimeout = 120 * time.Second
+	}
 
 	mgr.httpClient = NewHttpClient(HttpClientConfig{
 		BaseURL: fmt.Sprintf("http://localhost:%d", port),

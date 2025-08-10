@@ -148,14 +148,20 @@ func (s *SimpleSCIPStorage) StoreDocument(ctx context.Context, doc *SCIPDocument
 
 // storeDocumentUnsafe stores a document without mutex locking (internal use)
 func (s *SimpleSCIPStorage) storeDocumentUnsafe(doc *SCIPDocument) error {
-	// Check if document exists - replace completely for accurate reference tracking
+	// Check if document exists - completely replace to ensure reference accuracy
 	if existing, found := s.documents[doc.URI]; found {
-		// For modified files, we need complete replacement to ensure
-		// removed references are properly cleaned up
+		// For file changes, we should replace entirely, not merge
+		// This ensures old references are properly removed
+
+		// Only merge symbol information (definitions) to preserve incremental indexing
+		// But occurrences (references) should be replaced entirely
+		mergedSymbolInfo := s.mergeSymbolInfo(existing.SymbolInformation, doc.SymbolInformation)
+		doc.SymbolInformation = mergedSymbolInfo
+
+		// Update size and indexes
 		s.currentSize -= existing.Size
 		s.removeFromAccessOrder(doc.URI)
 		s.removeFromOccurrenceIndexes(doc.URI)
-		// Note: We're NOT merging - complete replacement ensures accuracy
 	}
 
 	// Evict if necessary to make space
@@ -170,6 +176,10 @@ func (s *SimpleSCIPStorage) storeDocumentUnsafe(doc *SCIPDocument) error {
 	s.updateOccurrenceIndexes(doc)
 
 	// Document stored and indexed
+	common.LSPLogger.Debug("[SCIP Storage] Document stored: URI=%s, Occurrences=%d, SymbolInfo=%d",
+		doc.URI, len(doc.Occurrences), len(doc.SymbolInformation))
+	common.LSPLogger.Debug("[SCIP Storage] After storing - Total documents=%d, Total symbols in index=%d",
+		len(s.documents), len(s.symbolInfoIndex))
 
 	return nil
 }
@@ -371,9 +381,12 @@ func (s *SimpleSCIPStorage) SearchSymbols(ctx context.Context, query string, lim
 	// First, check symbolNameIndex for direct name lookups
 	if pattern == nil {
 		// Check for exact match in symbol name index
+		common.LSPLogger.Debug("[SCIP SearchSymbols] Looking for exact match: %s", query)
+		common.LSPLogger.Debug("[SCIP SearchSymbols] Total symbols in index: %d", len(s.symbolNameIndex))
 
 		// Try exact match first from symbolNameIndex
 		if symbols, found := s.symbolNameIndex[query]; found {
+			common.LSPLogger.Debug("[SCIP SearchSymbols] Found exact match for %s: %d symbols", query, len(symbols))
 			for _, sym := range symbols {
 				if sym != nil && !seenSymbols[sym.Symbol] {
 					results = append(results, *sym)
@@ -594,6 +607,9 @@ func (s *SimpleSCIPStorage) updateOccurrenceIndexes(doc *SCIPDocument) {
 
 		// Update symbol name index
 		s.symbolNameIndex[symbolInfo.DisplayName] = append(s.symbolNameIndex[symbolInfo.DisplayName], symbolInfo)
+		if symbolInfo.DisplayName == "LSPManager" || strings.Contains(symbolInfo.DisplayName, "LSPManager") {
+			common.LSPLogger.Debug("[SCIP Storage] Storing LSPManager symbol: DisplayName=%s, Symbol=%s", symbolInfo.DisplayName, symbolInfo.Symbol)
+		}
 
 		// Update relationship index if relationships exist
 		if len(symbolInfo.Relationships) > 0 {
@@ -830,6 +846,56 @@ func (s *SimpleSCIPStorage) evictOldestPattern() {
 		delete(s.patternCache, oldest)
 		s.patternCacheLRU = s.patternCacheLRU[1:]
 	}
+}
+
+// mergeOccurrences merges two occurrence lists, avoiding duplicates
+func (s *SimpleSCIPStorage) mergeOccurrences(existing, new []SCIPOccurrence) []SCIPOccurrence {
+	// Track existing occurrences by their unique key
+	occMap := make(map[string]SCIPOccurrence)
+
+	// Add existing occurrences
+	for _, occ := range existing {
+		key := fmt.Sprintf("%s:%d:%d", occ.Symbol, occ.Range.Start.Line, occ.Range.Start.Character)
+		occMap[key] = occ
+	}
+
+	// Add new occurrences (will overwrite if duplicate)
+	for _, occ := range new {
+		key := fmt.Sprintf("%s:%d:%d", occ.Symbol, occ.Range.Start.Line, occ.Range.Start.Character)
+		occMap[key] = occ
+	}
+
+	// Convert back to slice
+	merged := make([]SCIPOccurrence, 0, len(occMap))
+	for _, occ := range occMap {
+		merged = append(merged, occ)
+	}
+
+	return merged
+}
+
+// mergeSymbolInfo merges two symbol information lists, avoiding duplicates
+func (s *SimpleSCIPStorage) mergeSymbolInfo(existing, new []SCIPSymbolInformation) []SCIPSymbolInformation {
+	// Track existing symbols by their ID
+	symMap := make(map[string]SCIPSymbolInformation)
+
+	// Add existing symbols
+	for _, sym := range existing {
+		symMap[sym.Symbol] = sym
+	}
+
+	// Add new symbols (will overwrite if duplicate)
+	for _, sym := range new {
+		symMap[sym.Symbol] = sym
+	}
+
+	// Convert back to slice
+	merged := make([]SCIPSymbolInformation, 0, len(symMap))
+	for _, sym := range symMap {
+		merged = append(merged, sym)
+	}
+
+	return merged
 }
 
 // cloneDocument creates a deep copy of the occurrence-centric document

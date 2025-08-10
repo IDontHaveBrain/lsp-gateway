@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/utils"
 )
 
 // formatStructuredResult formats any result as indented JSON for MCP responses
@@ -198,25 +199,28 @@ func formatEnhancedSymbolsForMCP(symbols []types.EnhancedSymbolInfo) []map[strin
 
 	for i, sym := range symbols {
 		// Build enhanced response with SCIP-style occurrence metadata
-		start := sym.LineNumber + 1
-		end := sym.EndLine + 1
+		start := sym.LineNumber
+		end := sym.EndLine
 		if end < start {
 			end = start
 		}
-		loc := fmt.Sprintf("%s:%d", sym.FilePath, start)
+		filePath := sym.FilePath
+		if filePath == "" && sym.Location.URI != "" {
+			filePath = utils.URIToFilePath(sym.Location.URI)
+		}
+		if filePath == "" {
+			filePath = "unknown"
+		}
+		loc := fmt.Sprintf("%s:%d", filePath, start)
 		if end > start {
-			loc = fmt.Sprintf("%s:%d-%d", sym.FilePath, start, end)
+			loc = fmt.Sprintf("%s:%d-%d", filePath, start, end)
 		}
 		result := map[string]interface{}{
 			"name":     sym.Name,
-			"kind":     getSymbolKindName(sym.Kind),
 			"location": loc,
 		}
 
 		// Add optional fields
-		if sym.Container != "" {
-			result["container"] = sym.Container
-		}
 		if sym.Signature != "" {
 			result["signature"] = sym.Signature
 		}
@@ -239,10 +243,10 @@ func formatEnhancedReferencesForMCP(references []ReferenceInfo) []map[string]int
 
 	for i, ref := range references {
 		result := map[string]interface{}{
-			"location": fmt.Sprintf("%s:%d", ref.FilePath, ref.LineNumber+1),
+			"location": fmt.Sprintf("%s:%d", ref.FilePath, ref.LineNumber),
 		}
 
-		lineText, _ := extractCodeLines(ref.FilePath, ref.LineNumber+1, ref.LineNumber+1)
+		lineText, _ := extractCodeLines(ref.FilePath, ref.LineNumber, ref.LineNumber)
 		if lineText != "" {
 			result["text"] = lineText
 		} else if ref.Text != "" {

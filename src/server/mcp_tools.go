@@ -115,15 +115,6 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 		FilePattern: filePattern,
 	}
 
-	// Parse symbol kinds
-	if kinds, ok := arguments["symbolKinds"].([]interface{}); ok {
-		for _, k := range kinds {
-			if kind, ok := k.(float64); ok {
-				query.SymbolKinds = append(query.SymbolKinds, types.SymbolKind(kind))
-			}
-		}
-	}
-
 	// Parse max results
 	if maxResults, ok := arguments["maxResults"].(float64); ok {
 		query.MaxResults = int(maxResults)
@@ -248,15 +239,6 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 						documentation = strings.Join(symbolInfo.Documentation, "\n")
 					}
 
-					// Extract container name from symbol ID if available
-					containerName := ""
-					if parts := strings.Fields(symbolInfo.Symbol); len(parts) > 3 {
-						// Try to extract package/module info as container
-						if len(parts) > 1 {
-							containerName = parts[1] // Package name
-						}
-					}
-
 					// Create enhanced symbol info
 					enhanced := types.EnhancedSymbolInfo{
 						SymbolInformation: types.SymbolInformation{
@@ -269,17 +251,15 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 									End:   types.Position{Line: int32(endLine), Character: 0},
 								},
 							},
-							ContainerName: containerName,
 						},
 						FilePath:      filePath,
 						LineNumber:    lineNumber,
 						EndLine:       endLine,
-						Container:     containerName,
 						Documentation: documentation,
 					}
 					symbols = append(symbols, enhanced)
 				} else if scipSymbol, ok := scipResult.(scip.SCIPSymbolInformation); ok {
-					// Fallback: handle plain SCIPSymbolInformation without occurrence data
+					// Fallback: handle plain SCIPSymbolInformation; resolve file/lines via storage
 					symbolName := scipSymbol.DisplayName
 					symbolID := scipSymbol.Symbol
 
@@ -320,18 +300,54 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 						documentation = strings.Join(scipSymbol.Documentation, "\n")
 					}
 
-					// Fallback: use symbol ID as file path
-					filePath := symbolID
-					lineNumber := 0
-					endLine := 0
+					// Resolve path via definitions/occurrences; fall back to scanning symbol info
+					filePath := ""
+					lineNumber := int(scipSymbol.Range.Start.Line)
+					endLine := int(scipSymbol.Range.End.Line)
+					if m.lspManager != nil && m.lspManager.scipCache != nil {
+						if storage := m.lspManager.scipCache.GetSCIPStorage(); storage != nil {
+							if defs, _ := storage.GetDefinitionsWithDocuments(context.Background(), symbolID); len(defs) > 0 {
+								filePath = utils.URIToFilePath(defs[0].DocumentURI)
+								lineNumber = int(defs[0].Range.Start.Line)
+								endLine = int(defs[0].Range.End.Line)
+							} else if occs, _ := storage.GetOccurrencesWithDocuments(context.Background(), symbolID); len(occs) > 0 {
+								filePath = utils.URIToFilePath(occs[0].DocumentURI)
+								lineNumber = int(occs[0].Range.Start.Line)
+								endLine = int(occs[0].Range.End.Line)
+							} else if uris, e := storage.ListDocuments(context.Background()); e == nil {
+								for _, uri := range uris {
+									if doc, de := storage.GetDocument(context.Background(), uri); de == nil && doc != nil {
+										for _, si := range doc.SymbolInformation {
+											if si.Symbol == symbolID {
+												filePath = utils.URIToFilePath(uri)
+												if si.Range.Start.Line != 0 || si.Range.End.Line != 0 || si.Range.Start.Character != 0 || si.Range.End.Character != 0 {
+													lineNumber = int(si.Range.Start.Line)
+													endLine = int(si.Range.End.Line)
+												}
+												break
+											}
+										}
+									}
+									if filePath != "" {
+										break
+									}
+								}
+							}
+						}
+					}
 
-					// Create enhanced symbol info
+					// Skip unresolved entries to avoid unknown locations
+					if filePath == "" {
+						continue
+					}
+					uri := "file://" + filePath
+
 					enhanced := types.EnhancedSymbolInfo{
 						SymbolInformation: types.SymbolInformation{
 							Name: symbolName,
 							Kind: lspKind,
 							Location: types.Location{
-								URI: "file://" + filePath,
+								URI: uri,
 								Range: types.Range{
 									Start: types.Position{Line: int32(lineNumber), Character: 0},
 									End:   types.Position{Line: int32(endLine), Character: 0},
@@ -374,8 +390,8 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 	if query.IncludeCode {
 		for i := range filteredSymbols {
 			if filteredSymbols[i].FilePath != "" {
-				start := filteredSymbols[i].LineNumber + 1
-				end := filteredSymbols[i].EndLine + 1
+				start := filteredSymbols[i].LineNumber
+				end := filteredSymbols[i].EndLine
 				if end < start {
 					end = start
 				}
@@ -484,7 +500,7 @@ func extractCodeLines(filePath string, startLine, endLine int) (string, error) {
 
 	scanner := bufio.NewScanner(file)
 	var lines []string
-	currentLine := 1
+	currentLine := 0
 
 	for scanner.Scan() {
 		if currentLine >= startLine && currentLine <= endLine {

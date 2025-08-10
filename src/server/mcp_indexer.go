@@ -16,6 +16,8 @@ import (
 // This method runs asynchronously after LSP servers are initialized to populate the cache
 // with commonly accessed symbols, reducing query latency for LLM interactions
 func (m *MCPServer) performInitialIndexing() {
+	common.LSPLogger.Info("MCP: Starting initial indexing")
+
 	// Wait a bit for LSP servers to fully initialize
 	time.Sleep(constants.MCPInitialIndexingDelay)
 
@@ -27,6 +29,7 @@ func (m *MCPServer) performInitialIndexing() {
 	patterns := []string{"", "a", "e", "s", "t", "i", "n", "r", "o"}
 	allSymbols := make(map[string]bool) // Track unique symbols by key
 
+	common.LSPLogger.Info("MCP: Searching workspace symbols with patterns")
 	for _, pattern := range patterns {
 		query := types.SymbolPatternQuery{
 			Pattern:     pattern,
@@ -36,6 +39,7 @@ func (m *MCPServer) performInitialIndexing() {
 
 		result, err := m.lspManager.SearchSymbolPattern(ctx, query)
 		if err != nil {
+			common.LSPLogger.Debug("MCP: Pattern search failed for '%s': %v", pattern, err)
 			continue
 		}
 
@@ -44,11 +48,13 @@ func (m *MCPServer) performInitialIndexing() {
 			key := fmt.Sprintf("%s:%s:%d", sym.FilePath, sym.Name, sym.LineNumber)
 			allSymbols[key] = true
 		}
-
+		common.LSPLogger.Debug("MCP: Pattern '%s' found %d symbols", pattern, len(result.Symbols))
 	}
+	common.LSPLogger.Info("MCP: Found %d unique symbols from pattern search", len(allSymbols))
 
 	// Additionally, scan workspace files and index them directly
 	// This ensures we get document symbols with full ranges
+	common.LSPLogger.Info("MCP: Starting workspace file indexing")
 	m.performWorkspaceIndexing(ctx)
 
 	// Save the index to disk for persistence
@@ -69,6 +75,7 @@ func (m *MCPServer) performWorkspaceIndexing(ctx context.Context) {
 	if err != nil {
 		workspaceDir = "."
 	}
+	common.LSPLogger.Info("MCP: Workspace directory: %s", workspaceDir)
 
 	// Delegate to cache module's workspace indexing with MCP-specific limits
 	if cacheManager, ok := m.lspManager.scipCache.(*cache.SCIPCacheManager); ok {

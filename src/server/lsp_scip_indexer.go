@@ -96,7 +96,7 @@ func (m *LSPManager) indexDocumentSymbolsAsOccurrences(ctx context.Context, uri,
 			Symbol:         symbolID,
 			DisplayName:    symbol.Name,
 			Kind:           m.mapLSPSymbolKindToSCIPKind(symbol.Kind),
-			Documentation:  m.getSymbolDocumentation(ctx, uri, symbolPosition),
+			Documentation:  nil, // Skip documentation to avoid hover overhead during indexing
 			Relationships:  m.getSymbolRelationships(ctx, uri, symbol.Name, symbol.Kind),
 			Range:          symbol.Location.Range,
 			SelectionRange: symbol.SelectionRange,
@@ -106,6 +106,12 @@ func (m *LSPManager) indexDocumentSymbolsAsOccurrences(ctx context.Context, uri,
 
 	// Store as SCIP document
 	common.LSPLogger.Debug("Storing %d occurrences and %d symbol infos for %s", len(occurrences), len(symbolInfos), uri)
+	// Log first few symbols for debugging
+	for i, info := range symbolInfos {
+		if i < 3 {
+			common.LSPLogger.Debug("  Symbol %d: DisplayName=%s, Symbol=%s, Kind=%v", i, info.DisplayName, info.Symbol, info.Kind)
+		}
+	}
 	m.storeDocumentOccurrences(ctx, uri, language, occurrences, symbolInfos)
 	common.LSPLogger.Debug("Successfully stored document occurrences for %s", uri)
 
@@ -121,10 +127,8 @@ func (m *LSPManager) indexDefinitionsAsOccurrences(ctx context.Context, uri, lan
 	}
 
 	// Extract position from params to determine the symbol being defined
-	position, symbolName := m.extractPositionAndSymbolFromParams(params)
-	if symbolName == "" {
-		symbolName = m.getSymbolNameAtPosition(ctx, uri, position, language)
-	}
+	_, symbolName := m.extractPositionAndSymbolFromParams(params)
+	// Skip hover fallback to avoid overhead during indexing
 	if symbolName == "" && len(locations) > 0 {
 		symbolName = m.getIdentifierFromLocation(ctx, locations[0])
 	}
@@ -164,7 +168,7 @@ func (m *LSPManager) indexDefinitionsAsOccurrences(ctx context.Context, uri, lan
 			Symbol:        symbolID,
 			DisplayName:   symbolName,
 			Kind:          scip.SCIPSymbolKindFunction, // Default to function, can be refined
-			Documentation: m.getSymbolDocumentation(ctx, location.URI, location.Range.Start),
+			Documentation: nil,                         // Skip documentation to avoid hover overhead during indexing
 			Relationships: m.getSymbolRelationships(ctx, location.URI, symbolName, types.Function),
 		}
 		symbolInfos = append(symbolInfos, symbolInfo)
@@ -185,11 +189,9 @@ func (m *LSPManager) indexReferencesAsOccurrences(ctx context.Context, uri, lang
 		return
 	}
 
-	// Extract position and resolve a stable symbol name via hover if possible
+	// Extract position and resolve a stable symbol name
 	position, symbolName := m.extractPositionAndSymbolFromParams(params)
-	if symbolName == "" {
-		symbolName = m.getSymbolNameAtPosition(ctx, uri, position, language)
-	}
+	// Skip hover fallback to avoid overhead during indexing
 	if symbolName == "" && len(locations) > 0 {
 		symbolName = m.getIdentifierFromLocation(ctx, locations[0])
 	}
@@ -249,7 +251,7 @@ func (m *LSPManager) indexReferencesAsOccurrences(ctx context.Context, uri, lang
 			Symbol:        stableSymbolID,
 			DisplayName:   symbolName,
 			Kind:          scip.SCIPSymbolKindFunction,
-			Documentation: m.getSymbolDocumentation(ctx, uri, first.Range.Start),
+			Documentation: nil, // Skip documentation to avoid hover overhead during indexing
 			Relationships: m.getSymbolRelationships(ctx, uri, symbolName, types.Function),
 			Range:         types.Range{Start: first.Range.Start, End: first.Range.End},
 		}
@@ -355,7 +357,7 @@ func (m *LSPManager) indexWorkspaceSymbolsAsOccurrences(ctx context.Context, lan
 				Symbol:         symbolID,
 				DisplayName:    symbol.Name,
 				Kind:           m.mapLSPSymbolKindToSCIPKind(symbol.Kind),
-				Documentation:  m.getSymbolDocumentation(ctx, uri, symbolPosition),
+				Documentation:  nil, // Skip documentation to avoid hover overhead during indexing
 				Relationships:  m.getSymbolRelationships(ctx, uri, symbol.Name, symbol.Kind),
 				Range:          symbol.Location.Range,
 				SelectionRange: symbol.SelectionRange,
@@ -867,28 +869,20 @@ func (m *LSPManager) storeDocumentOccurrences(ctx context.Context, uri, language
 		})
 	}
 
-	if err := m.scipCache.IndexDocument(ctx, uri, language, symbols); err != nil {
-		common.LSPLogger.Warn("Failed to index document symbols for %s: %v", uri, err)
-	}
-
-	for i, symbolInfo := range symbolInfos {
-		if i < len(symbols) && len(symbolInfo.Documentation) > 0 {
-			hoverParams := map[string]interface{}{
-				"textDocument": map[string]interface{}{"uri": uri},
-				"position": map[string]interface{}{
-					"line":      symbols[i].Location.Range.Start.Line,
-					"character": symbols[i].Location.Range.Start.Character,
-				},
-			}
-			hoverResult := &lsp.Hover{
-				Contents: map[string]interface{}{
-					"kind":  "markdown",
-					"value": strings.Join(symbolInfo.Documentation, "\n"),
-				},
-			}
-			m.scipCache.Store("textDocument/hover", hoverParams, hoverResult)
+	common.LSPLogger.Debug("Converting %d occurrences to symbols for IndexDocument", len(symbols))
+	// Log first few symbols being indexed
+	for i, sym := range symbols {
+		if i < 3 {
+			common.LSPLogger.Debug("  IndexDocument symbol %d: Name=%s, Kind=%v, URI=%s", i, sym.Name, sym.Kind, sym.Location.URI)
 		}
 	}
+	if err := m.scipCache.IndexDocument(ctx, uri, language, symbols); err != nil {
+		common.LSPLogger.Warn("Failed to index document symbols for %s: %v", uri, err)
+	} else {
+		common.LSPLogger.Debug("Successfully called IndexDocument for %s with %d symbols", uri, len(symbols))
+	}
+
+	// Skip hover result caching during indexing to avoid overhead
 }
 
 // ProcessEnhancedQuery processes a query that combines LSP and SCIP data
@@ -991,59 +985,7 @@ func (m *LSPManager) mapSCIPKindToLSPSymbolKind(kind scip.SCIPSymbolKind) types.
 	}
 }
 
-// getSymbolDocumentation retrieves documentation for a symbol using hover
-func (m *LSPManager) getSymbolDocumentation(ctx context.Context, uri string, position types.Position) []string {
-	// Memoization to avoid duplicate hover lookups
-	key := fmt.Sprintf("%s:%d:%d", uri, position.Line, position.Character)
-	if v, ok := m.hoverMemo.Load(key); ok {
-		if cached, ok2 := v.([]string); ok2 {
-			return cached
-		}
-	}
-
-	// Use hover to get symbol documentation
-	params := map[string]interface{}{
-		"textDocument": map[string]interface{}{
-			"uri": uri,
-		},
-		"position": map[string]interface{}{
-			"line":      position.Line,
-			"character": position.Character,
-		},
-	}
-
-	hoverResult, err := m.ProcessRequest(ctx, types.MethodTextDocumentHover, params)
-	if err != nil || hoverResult == nil {
-		return nil
-	}
-
-	// Parse hover result to extract documentation
-	var documentation []string
-	switch v := hoverResult.(type) {
-	case map[string]interface{}:
-		if contents, ok := v["contents"]; ok {
-			switch c := contents.(type) {
-			case string:
-				documentation = append(documentation, c)
-			case map[string]interface{}:
-				if value, ok := c["value"].(string); ok {
-					documentation = append(documentation, value)
-				}
-			case []interface{}:
-				for _, item := range c {
-					if str, ok := item.(string); ok {
-						documentation = append(documentation, str)
-					}
-				}
-			}
-		}
-	}
-
-	if len(documentation) > 0 {
-		m.hoverMemo.Store(key, documentation)
-	}
-	return documentation
-}
+// Removed getSymbolDocumentation - hover not needed during indexing
 
 // getSymbolRelationships retrieves relationships for a symbol
 func (m *LSPManager) getSymbolRelationships(ctx context.Context, uri string, symbolName string, kind types.SymbolKind) []scip.SCIPRelationship {
@@ -1094,151 +1036,7 @@ func (m *LSPManager) findTypeDefinition(ctx context.Context, uri string, symbolN
 	return ""
 }
 
-// getSymbolNameAtPosition extracts symbol name from document content at a specific position
-func (m *LSPManager) getSymbolNameAtPosition(ctx context.Context, uri string, position types.Position, language string) string {
-	// Try to get document content at the position using hover
-	hoverParams := map[string]interface{}{
-		"textDocument": map[string]interface{}{
-			"uri": uri,
-		},
-		"position": map[string]interface{}{
-			"line":      position.Line,
-			"character": position.Character,
-		},
-	}
-
-	hoverResult, err := m.ProcessRequest(ctx, types.MethodTextDocumentHover, hoverParams)
-	if err != nil || hoverResult == nil {
-		common.LSPLogger.Debug("Failed to get hover information for symbol at %s:%d:%d", uri, position.Line, position.Character)
-		return ""
-	}
-
-	// Extract symbol name from hover contents
-	if hoverMap, ok := hoverResult.(map[string]interface{}); ok {
-		if contents, exists := hoverMap["contents"]; exists {
-			switch c := contents.(type) {
-			case string:
-				return m.extractSymbolFromHoverText(c, language)
-			case map[string]interface{}:
-				if value, ok := c["value"].(string); ok {
-					return m.extractSymbolFromHoverText(value, language)
-				}
-			}
-		}
-	}
-
-	return ""
-}
-
-// extractSymbolFromHoverText extracts symbol name from hover text content
-func (m *LSPManager) extractSymbolFromHoverText(text, language string) string {
-	if text == "" {
-		return ""
-	}
-
-	switch language {
-	case "go":
-		// Go hover format: "func functionName(params) returnType" or "var variableName type"
-		lines := strings.Split(text, "\n")
-		if len(lines) > 0 {
-			firstLine := strings.TrimSpace(lines[0])
-			if strings.HasPrefix(firstLine, "func ") {
-				// Extract function name
-				parts := strings.Fields(firstLine)
-				if len(parts) >= 2 {
-					funcName := parts[1]
-					if parenIndex := strings.Index(funcName, "("); parenIndex != -1 {
-						return funcName[:parenIndex]
-					}
-					return funcName
-				}
-			} else if strings.HasPrefix(firstLine, "var ") || strings.HasPrefix(firstLine, "const ") {
-				// Extract variable/constant name
-				parts := strings.Fields(firstLine)
-				if len(parts) >= 2 {
-					return parts[1]
-				}
-			} else if strings.Contains(firstLine, " ") {
-				// Try to extract the symbol name (often the last part before type info)
-				parts := strings.Fields(firstLine)
-				if len(parts) >= 1 {
-					return parts[0]
-				}
-			}
-		}
-	case "python":
-		// Python hover format varies, try to extract from common patterns
-		lines := strings.Split(text, "\n")
-		if len(lines) > 0 {
-			firstLine := strings.TrimSpace(lines[0])
-			if strings.HasPrefix(firstLine, "def ") {
-				// Extract function name
-				parts := strings.Fields(firstLine)
-				if len(parts) >= 2 {
-					funcName := parts[1]
-					if parenIndex := strings.Index(funcName, "("); parenIndex != -1 {
-						return funcName[:parenIndex]
-					}
-					return funcName
-				}
-			} else if strings.HasPrefix(firstLine, "class ") {
-				// Extract class name
-				parts := strings.Fields(firstLine)
-				if len(parts) >= 2 {
-					className := parts[1]
-					if colonIndex := strings.Index(className, ":"); colonIndex != -1 {
-						return className[:colonIndex]
-					}
-					return className
-				}
-			}
-		}
-	case "javascript", "typescript":
-		// JS/TS hover format varies, try common patterns
-		lines := strings.Split(text, "\n")
-		if len(lines) > 0 {
-			firstLine := strings.TrimSpace(lines[0])
-			if strings.HasPrefix(firstLine, "function ") {
-				// Extract function name
-				parts := strings.Fields(firstLine)
-				if len(parts) >= 2 {
-					funcName := parts[1]
-					if parenIndex := strings.Index(funcName, "("); parenIndex != -1 {
-						return funcName[:parenIndex]
-					}
-					return funcName
-				}
-			} else if strings.Contains(firstLine, ":") {
-				// Try TypeScript type annotation format
-				if colonIndex := strings.Index(firstLine, ":"); colonIndex > 0 {
-					symbolName := strings.TrimSpace(firstLine[:colonIndex])
-					return symbolName
-				}
-			}
-		}
-	}
-
-	// Fallback: try to extract the first word that looks like an identifier
-	words := strings.Fields(text)
-	for _, word := range words {
-		if len(word) > 0 && (word[0] >= 'a' && word[0] <= 'z' || word[0] >= 'A' && word[0] <= 'Z' || word[0] == '_') {
-			// Remove non-identifier characters
-			var result strings.Builder
-			for _, r := range word {
-				if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' {
-					result.WriteRune(r)
-				} else {
-					break
-				}
-			}
-			if result.Len() > 0 {
-				return result.String()
-			}
-		}
-	}
-
-	return ""
-}
+// Removed getSymbolNameAtPosition and extractSymbolFromHoverText - hover not needed during indexing
 
 // groupReferencesByDocument groups occurrences by their document URIs with metadata
 func (m *LSPManager) groupReferencesByDocument(occurrences []scip.SCIPOccurrence, locations []types.Location) map[string][]scip.SCIPOccurrence {

@@ -46,7 +46,7 @@ func (w *WorkspaceIndexer) IndexWorkspaceFilesWithReferences(ctx context.Context
 	}
 	// Determine worker count based on environment and project type
 	workers := runtime.NumCPU()
-	
+
 	// Special handling for Java projects on Windows to prevent LSP server overload
 	hasJava := false
 	for _, lang := range languages {
@@ -55,7 +55,7 @@ func (w *WorkspaceIndexer) IndexWorkspaceFilesWithReferences(ctx context.Context
 			break
 		}
 	}
-	
+
 	if hasJava && runtime.GOOS == "windows" {
 		// Java LSP (jdtls) on Windows cannot handle concurrent requests well
 		// Use single worker to prevent overwhelming the server
@@ -134,7 +134,7 @@ func (w *WorkspaceIndexer) IndexWorkspaceFilesWithReferencesProgress(ctx context
 	}
 	// Determine worker count based on environment and project type
 	workers := runtime.NumCPU()
-	
+
 	// Special handling for Java projects on Windows to prevent LSP server overload
 	hasJava := false
 	for _, lang := range languages {
@@ -143,7 +143,7 @@ func (w *WorkspaceIndexer) IndexWorkspaceFilesWithReferencesProgress(ctx context
 			break
 		}
 	}
-	
+
 	if hasJava && runtime.GOOS == "windows" {
 		// Java LSP (jdtls) on Windows cannot handle concurrent requests well
 		// Use single worker to prevent overwhelming the server
@@ -700,7 +700,7 @@ func (w *WorkspaceIndexer) IndexSpecificFilesWithReferences(ctx context.Context,
 
 	// Determine worker count - limit for Java projects to prevent LSP overload
 	workers := runtime.NumCPU()
-	
+
 	// Check if any file is Java to apply special handling
 	hasJava := false
 	for _, fileURI := range filesToProcess {
@@ -709,7 +709,7 @@ func (w *WorkspaceIndexer) IndexSpecificFilesWithReferences(ctx context.Context,
 			break
 		}
 	}
-	
+
 	if hasJava && runtime.GOOS == "windows" {
 		// Java LSP (jdtls) on Windows cannot handle concurrent requests well
 		workers = 1

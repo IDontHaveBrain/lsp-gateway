@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/scip"
 )
@@ -493,6 +494,8 @@ func (m *SCIPCacheManager) GetSymbolInfo(ctx context.Context, symbolName, filePa
 
 // SearchSymbols provides direct access to SCIP symbol search for MCP tools
 func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePattern string, maxResults int) ([]interface{}, error) {
+	common.LSPLogger.Info("[SearchSymbols] Called with pattern='%s', filePattern='%s', maxResults=%d", pattern, filePattern, maxResults)
+
 	if !m.enabled {
 		return nil, fmt.Errorf("cache disabled or SCIP storage unavailable")
 	}
@@ -505,28 +508,83 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePatte
 	if err != nil {
 		return nil, fmt.Errorf("SCIP symbol search failed: %w", err)
 	}
+	common.LSPLogger.Info("[SearchSymbols] SCIP storage returned %d symbol infos", len(symbolInfos))
 
 	results := make([]interface{}, 0, len(symbolInfos))
 	for _, symbolInfo := range symbolInfos {
+		common.LSPLogger.Debug("[SearchSymbols] Processing symbol: %s (DisplayName: %s)",
+			symbolInfo.Symbol, symbolInfo.DisplayName)
+
 		// Prefer definition; else any occurrence
 		var occWithDoc *scip.OccurrenceWithDocument
-		if defs, _ := m.scipStorage.GetDefinitionsWithDocuments(ctx, symbolInfo.Symbol); len(defs) > 0 {
+		defs, defErr := m.scipStorage.GetDefinitionsWithDocuments(ctx, symbolInfo.Symbol)
+		common.LSPLogger.Debug("[SearchSymbols] GetDefinitionsWithDocuments for %s: %d results, err=%v",
+			symbolInfo.Symbol, len(defs), defErr)
+		if len(defs) > 0 {
 			occWithDoc = &defs[0]
-		} else if occs, _ := m.scipStorage.GetOccurrencesWithDocuments(ctx, symbolInfo.Symbol); len(occs) > 0 {
-			occWithDoc = &occs[0]
+		} else {
+			occs, occErr := m.scipStorage.GetOccurrencesWithDocuments(ctx, symbolInfo.Symbol)
+			common.LSPLogger.Debug("[SearchSymbols] GetOccurrencesWithDocuments for %s: %d results, err=%v",
+				symbolInfo.Symbol, len(occs), occErr)
+			if len(occs) > 0 {
+				occWithDoc = &occs[0]
+			}
 		}
+
 		if occWithDoc == nil {
-			results = append(results, symbolInfo)
+			common.LSPLogger.Debug("[SearchSymbols] No occurrences found, scanning documents")
+			// Fallback: scan documents' symbol information to resolve a document URI
+			if uris, err := m.scipStorage.ListDocuments(ctx); err == nil {
+				common.LSPLogger.Debug("[SearchSymbols] Scanning %d documents", len(uris))
+				found := false
+				for _, uri := range uris {
+					if doc, de := m.scipStorage.GetDocument(ctx, uri); de == nil && doc != nil {
+						for _, si := range doc.SymbolInformation {
+							if si.Symbol == symbolInfo.Symbol {
+								common.LSPLogger.Debug("[SearchSymbols] Found matching symbol in doc %s: %s == %s",
+									uri, si.Symbol, symbolInfo.Symbol)
+								// Apply file filter on document URI if provided
+								if filePattern != "" && !m.matchFilePattern(uri, filePattern) {
+									common.LSPLogger.Debug("[SearchSymbols] Symbol filtered out by filePattern")
+									found = true // resolved but filtered out; skip symbol
+									break
+								}
+								enhanced := map[string]interface{}{
+									"symbolInfo":  symbolInfo,
+									"filePath":    m.convertURIToFilePath(uri),
+									"documentURI": uri,
+									"range":       si.Range,
+								}
+								results = append(results, enhanced)
+								found = true
+								break
+							}
+						}
+					}
+					if found {
+						break
+					}
+				}
+				if found {
+					continue
+				}
+			}
+			// If we cannot resolve a document URI, skip this symbol to avoid unknown locations
 			continue
 		}
 		// Apply file filter
-		if filePattern != "" && !m.matchFilePattern(occWithDoc.DocumentURI, filePattern) {
-			continue
+		if filePattern != "" {
+			matches := m.matchFilePattern(occWithDoc.DocumentURI, filePattern)
+			common.LSPLogger.Debug("[SearchSymbols] File filter check: URI=%s, pattern=%s, matches=%v",
+				occWithDoc.DocumentURI, filePattern, matches)
+			if !matches {
+				continue
+			}
 		}
 		enhancedResult := map[string]interface{}{
 			"symbolInfo":  symbolInfo,
 			"occurrence":  &occWithDoc.SCIPOccurrence,
-			"filePath":    occWithDoc.DocumentURI,
+			"filePath":    m.convertURIToFilePath(occWithDoc.DocumentURI),
 			"documentURI": occWithDoc.DocumentURI,
 			"range":       occWithDoc.Range,
 		}
@@ -723,4 +781,23 @@ func (m *SCIPCacheManager) sortOccurrenceResults(results []SCIPOccurrenceInfo, s
 			return results[i].LineNumber < results[j].LineNumber
 		})
 	}
+}
+
+// convertURIToFilePath converts a URI to a file path
+func (m *SCIPCacheManager) convertURIToFilePath(uri string) string {
+	if !strings.HasPrefix(uri, "file://") {
+		return uri
+	}
+
+	// Remove the file:// prefix
+	path := strings.TrimPrefix(uri, "file://")
+
+	// On Windows, file URIs look like file:///C:/path/to/file
+	// After removing file://, we have /C:/path/to/file
+	// We need to remove the leading slash for Windows absolute paths
+	if strings.HasPrefix(path, "/") && len(path) > 2 && path[2] == ':' {
+		path = path[1:]
+	}
+
+	return path
 }

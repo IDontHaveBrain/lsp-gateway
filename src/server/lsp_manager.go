@@ -56,10 +56,10 @@ type LSPManager struct {
 	fileWatcher *watcher.FileWatcher
 	watcherMu   sync.Mutex
 
-	hoverMemo sync.Map
+	// hoverMemo removed - hover not needed during indexing
 
-    // Limit concurrent indexing tasks to avoid request-path blocking
-    indexLimiter chan struct{}
+	// Limit concurrent indexing tasks to avoid request-path blocking
+	indexLimiter chan struct{}
 }
 
 // NewLSPManager creates a new LSP manager with unified cache configuration
@@ -195,10 +195,10 @@ func (m *LSPManager) Start(ctx context.Context) error {
 					// Wait for LSP servers to fully initialize
 					delay := 3 * time.Second
 					if runtime.GOOS == "windows" {
-					delay = 12 * time.Second
-					if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
-						delay = 20 * time.Second
-					}
+						delay = 12 * time.Second
+						if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
+							delay = 20 * time.Second
+						}
 					}
 					time.Sleep(delay)
 
@@ -409,33 +409,37 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 
 	result, err := m.sendRequestWithRetry(ctx, client, method, params, uri, language)
 
-    // Cache the result and schedule SCIP indexing asynchronously if successful
-    if err == nil && m.scipCache != nil && m.isCacheableMethod(method) {
-        m.scipCache.Store(method, params, result)
+	// Cache the result and perform/schedule SCIP indexing if successful
+	if err == nil && m.scipCache != nil && m.isCacheableMethod(method) {
+		m.scipCache.Store(method, params, result)
 
-        // Schedule non-blocking indexing with bounded concurrency and timeout
-        m.scheduleIndexing(method, uri, language, params, result)
-    }
+		// For document symbols, index synchronously to ensure workspace indexing correctness
+		if method == types.MethodTextDocumentDocumentSymbol {
+			timeout := 12 * time.Second
+			if runtime.GOOS == "windows" {
+				timeout = time.Duration(float64(timeout) * 1.5)
+			}
+			idxCtx, cancel := common.CreateContext(timeout)
+			defer cancel()
+			m.performSCIPIndexing(idxCtx, method, uri, language, params, result)
+		} else {
+			// Schedule non-blocking indexing for other methods
+			m.scheduleIndexing(method, uri, language, params, result)
+		}
+	}
 
-    return result, err
+	return result, err
 }
-
 
 // scheduleIndexing runs performSCIPIndexing asynchronously with bounded concurrency and timeouts
 func (m *LSPManager) scheduleIndexing(method, uri, language string, params, result interface{}) {
-	select {
-	case m.indexLimiter <- struct{}{}:
-		// acquired slot
-	default:
-		// best-effort: if limiter full, skip scheduling to avoid piling up
-		common.LSPLogger.Debug("Indexing skipped due to limiter saturation: %s", method)
-		return
-	}
-
+	// Always enqueue work in a goroutine; limiter bounds concurrency without dropping tasks
 	go func() {
+		// Acquire slot (blocks until available to avoid silent drops)
+		m.indexLimiter <- struct{}{}
 		defer func() { <-m.indexLimiter }()
 
-		// Derive timeout per method (short to avoid impacting request latency)
+		// Derive timeout per method
 		timeout := 10 * time.Second
 		switch method {
 		case types.MethodWorkspaceSymbol:
@@ -448,7 +452,6 @@ func (m *LSPManager) scheduleIndexing(method, uri, language string, params, resu
 			timeout = 10 * time.Second
 		}
 		if runtime.GOOS == "windows" {
-			// Allow a bit more time on Windows without blocking too long
 			timeout = time.Duration(float64(timeout) * 1.5)
 		}
 
@@ -457,7 +460,6 @@ func (m *LSPManager) scheduleIndexing(method, uri, language string, params, resu
 		m.performSCIPIndexing(idxCtx, method, uri, language, params, result)
 	}()
 }
-
 
 // sendRequestWithRetry sends a request and retries with exponential backoff on transient "no views" errors (common on Windows/gopls)
 func (m *LSPManager) sendRequestWithRetry(ctx context.Context, client types.LSPClient, method string, params interface{}, uri string, language string) (json.RawMessage, error) {
@@ -862,13 +864,8 @@ func (m *LSPManager) handleFileChanges(events []watcher.FileChangeEvent) {
 
 // performIncrementalReindex performs incremental reindexing for changed files
 func (m *LSPManager) performIncrementalReindex(files []string) {
-	// Bound concurrency with shared indexing limiter (best-effort)
-	select {
-	case m.indexLimiter <- struct{}{}:
-	default:
-		common.LSPLogger.Debug("Skip incremental reindex due to limiter saturation (%d files)", len(files))
-		return
-	}
+	// Bound concurrency with shared indexing limiter without dropping tasks
+	m.indexLimiter <- struct{}{}
 	defer func() { <-m.indexLimiter }()
 
 	// Check cache manager type

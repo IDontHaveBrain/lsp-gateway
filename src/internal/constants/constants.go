@@ -11,15 +11,15 @@ import (
 // Timeout constants for LSP operations
 const (
 	// Request timeouts by language
-    DefaultRequestTimeout = 30 * time.Second
-    JavaRequestTimeout    = 90 * time.Second
+	DefaultRequestTimeout = 30 * time.Second
+	JavaRequestTimeout    = 90 * time.Second
 	PythonRequestTimeout  = 30 * time.Second
 	GoTSRequestTimeout    = 15 * time.Second
 	WriteTimeout          = 10 * time.Second
 
 	// Initialize timeouts by language
-    DefaultInitializeTimeout = 15 * time.Second
-    JavaInitializeTimeout    = 90 * time.Second
+	DefaultInitializeTimeout = 15 * time.Second
+	JavaInitializeTimeout    = 90 * time.Second
 	PythonInitializeTimeout  = 30 * time.Second
 
 	// Process management timeouts

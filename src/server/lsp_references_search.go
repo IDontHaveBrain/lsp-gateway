@@ -374,8 +374,8 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 									if filePath != "" && m.matchesFilePattern(filePath, query.FilePattern) {
 										refInfo := ReferenceInfo{
 											FilePath:     filePath,
-											LineNumber:   int(line) + 1,
-											Column:       int(char) + 1,
+											LineNumber:   int(line),
+											Column:       int(char),
 											IsDefinition: false,
 											IsReadAccess: true,
 										}

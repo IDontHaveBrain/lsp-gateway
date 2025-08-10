@@ -494,6 +494,26 @@ func (m *LSPManager) createEnrichedSymbolResult(ctx context.Context, scipStorage
 			Start: types.Position{Line: first.Range.Start.Line, Character: first.Range.Start.Character},
 			End:   types.Position{Line: first.Range.End.Line, Character: first.Range.End.Character},
 		}
+	} else {
+		// Fallback: resolve location via document scan (symbol info in documents)
+		if uris, e := scipStorage.ListDocuments(ctx); e == nil {
+			for _, uri := range uris {
+				if doc, de := scipStorage.GetDocument(ctx, uri); de == nil && doc != nil {
+					for _, si := range doc.SymbolInformation {
+						if si.Symbol == symbolInfo.Symbol {
+							lspSymbol.Location.URI = uri
+							if si.Range.Start.Line != 0 || si.Range.End.Line != 0 || si.Range.Start.Character != 0 || si.Range.End.Character != 0 {
+								lspSymbol.Location.Range = si.Range
+							}
+							break
+						}
+					}
+				}
+				if lspSymbol.Location.URI != "" {
+					break
+				}
+			}
+		}
 	}
 
 	// Convert types.SymbolInformation to types.SymbolInformation

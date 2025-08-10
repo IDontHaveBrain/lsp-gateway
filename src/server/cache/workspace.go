@@ -40,7 +40,7 @@ func (w *WorkspaceIndexer) IndexWorkspaceFilesWithProgress(ctx context.Context, 
 }
 
 func (w *WorkspaceIndexer) indexWorkspaceFilesCore(ctx context.Context, workspaceDir string, languages []string, maxFiles int, progress IndexProgressFunc) error {
-	common.LSPLogger.Debug("IndexWorkspaceFiles called: workspaceDir=%s, languages=%v, maxFiles=%d", workspaceDir, languages, maxFiles)
+	common.LSPLogger.Info("IndexWorkspaceFiles called: workspaceDir=%s, languages=%v, maxFiles=%d", workspaceDir, languages, maxFiles)
 	if w.lspFallback == nil {
 		common.LSPLogger.Error("IndexWorkspaceFiles: lspFallback is nil!")
 		return fmt.Errorf("lspFallback is nil")
@@ -53,10 +53,16 @@ func (w *WorkspaceIndexer) indexWorkspaceFilesCore(ctx context.Context, workspac
 		}
 	}
 	extensions := w.GetLanguageExtensions(languages)
-	common.LSPLogger.Debug("Workspace indexer: Detected languages: %v", languages)
-	common.LSPLogger.Debug("Workspace indexer: Looking for extensions: %v", extensions)
+	common.LSPLogger.Info("Workspace indexer: Detected languages: %v", languages)
+	common.LSPLogger.Info("Workspace indexer: Looking for extensions: %v", extensions)
 	files := w.ScanWorkspaceSourceFiles(workspaceDir, extensions, maxFiles)
-	common.LSPLogger.Debug("Workspace indexer: Found %d source files in %s", len(files), workspaceDir)
+	common.LSPLogger.Info("Workspace indexer: Found %d source files in %s", len(files), workspaceDir)
+	// Log first few files found
+	for i, file := range files {
+		if i < 5 {
+			common.LSPLogger.Info("  File %d: %s", i, file)
+		}
+	}
 	if len(files) == 0 {
 		common.LSPLogger.Warn("Workspace indexer: No source files found for indexing")
 		return nil
@@ -70,7 +76,7 @@ func (w *WorkspaceIndexer) indexWorkspaceFilesCore(ctx context.Context, workspac
 
 	// Determine worker count based on environment and project type
 	workers := runtime.NumCPU()
-	
+
 	// Special handling for Java projects on Windows to prevent LSP server overload
 	hasJava := false
 	for _, lang := range languages {
@@ -79,7 +85,7 @@ func (w *WorkspaceIndexer) indexWorkspaceFilesCore(ctx context.Context, workspac
 			break
 		}
 	}
-	
+
 	if hasJava && runtime.GOOS == "windows" {
 		// Java LSP (jdtls) on Windows cannot handle concurrent requests well
 		// Use single worker to prevent overwhelming the server
@@ -275,7 +281,7 @@ func (w *WorkspaceIndexer) IndexSpecificFiles(ctx context.Context, files []strin
 
 	// Determine worker count based on environment and file types
 	workers := runtime.NumCPU()
-	
+
 	// Check if we're indexing Java files by looking at extensions
 	hasJava := false
 	for _, file := range files {
@@ -284,7 +290,7 @@ func (w *WorkspaceIndexer) IndexSpecificFiles(ctx context.Context, files []strin
 			break
 		}
 	}
-	
+
 	if hasJava && runtime.GOOS == "windows" {
 		// Java LSP (jdtls) on Windows cannot handle concurrent requests well
 		// Use single worker to prevent overwhelming the server

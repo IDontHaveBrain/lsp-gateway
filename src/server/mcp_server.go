@@ -248,65 +248,59 @@ func (m *MCPServer) handleInitialize(req *MCPRequest) *MCPResponse {
 // handleToolsList returns available enhanced tools (no basic LSP tools)
 func (m *MCPServer) handleToolsList(req *MCPRequest) *MCPResponse {
 	// MCP server provides enhanced SCIP-based tools with occurrence metadata and role filtering
+	// Ensure required parameters appear first by using ordered JSON via json.RawMessage
+	findSymbolsSchema := json.RawMessage(`{
+        "type": "object",
+        "properties": {
+            "pattern": {
+                "type": "string",
+                "description": "Symbol name or regex pattern to search. Use (?i) prefix for case-insensitive. Examples: 'handleRequest', '(?i)test.*', '^get[A-Z]', 'process.*Event$'"
+            },
+            "filePattern": {
+                "type": "string",
+                "description": "File filter using directory path, glob pattern, or regex. Examples: '.', 'src/', 'tests/unit/', '*.java', 'src/**/*.py', '(?i)test.*\\.js$', '**/internal/*.go'"
+            },
+            "maxResults": {
+                "type": "number",
+                "description": "Maximum number of results to return (default: 100)"
+            },
+            "includeCode": {
+                "type": "boolean",
+                "description": "Include source code for each symbol (default: false)"
+            }
+        },
+        "required": ["pattern", "filePattern"]
+    }`)
+
+	findReferencesSchema := json.RawMessage(`{
+        "type": "object",
+        "properties": {
+            "pattern": {
+                "type": "string",
+                "description": "Symbol name or regex pattern to search. Use (?i) prefix for case-insensitive. Examples: 'handleRequest', '(?i)test.*', '^get[A-Z]', 'process.*Event$'"
+            },
+            "filePattern": {
+                "type": "string",
+                "description": "File filter using directory path, glob pattern, or regex. Default: '**/*' (all files). Examples: '.', 'src/', 'tests/unit/', '*.java', 'src/**/*.py', '(?i)test.*\\.js$', '**/internal/*.go'"
+            },
+            "maxResults": {
+                "type": "number",
+                "description": "Maximum number of references to return (default: 100)"
+            }
+        },
+        "required": ["pattern"]
+    }`)
+
 	tools := []map[string]interface{}{
 		{
 			"name":        "findSymbols",
 			"description": "Find code symbols (functions, classes, variables) in specified files. Returns scored and ranked results matching your pattern.",
-			"inputSchema": map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"pattern": map[string]interface{}{
-						"type":        "string",
-						"description": "Symbol name or regex pattern to search. Use (?i) prefix for case-insensitive. Examples: 'handleRequest', '(?i)test.*', '^get[A-Z]', 'process.*Event$'",
-					},
-					"filePattern": map[string]interface{}{
-						"type":        "string",
-						"description": "File filter using directory path, glob pattern, or regex. Examples: '.', 'src/', 'tests/unit/', '*.java', 'src/**/*.py', '(?i)test.*\\.js$', '**/internal/*.go'",
-					},
-					"containerPattern": map[string]interface{}{
-						"type":        "string",
-						"description": "Parent container filter (class/module name). Supports regex with (?i) for case-insensitive. Examples: 'MyClass', '(?i).*controller', 'Test.*'",
-					},
-					"symbolKinds": map[string]interface{}{
-						"type": "array",
-						"items": map[string]interface{}{
-							"type": "number",
-						},
-						"description": "Filter by symbol kinds. Common: 5=Class, 6=Method, 11=Interface, 12=Function, 13=Variable. Full list: 1=File, 2=Module, 3=Namespace, 4=Package, 7=Property, 8=Field, 9=Constructor, 10=Enum, 14=Constant, 23=Struct",
-					},
-					"maxResults": map[string]interface{}{
-						"type":        "number",
-						"description": "Maximum number of results to return (default: 100)",
-					},
-					"includeCode": map[string]interface{}{
-						"type":        "boolean",
-						"description": "Include source code for each symbol (default: false)",
-					},
-				},
-				"required": []string{"pattern", "filePattern"},
-			},
+			"inputSchema": findSymbolsSchema,
 		},
 		{
 			"name":        "findReferences",
 			"description": "Find all references to symbols matching a pattern in the codebase. Returns locations where matching symbols are used.",
-			"inputSchema": map[string]interface{}{
-				"type": "object",
-				"properties": map[string]interface{}{
-					"pattern": map[string]interface{}{
-						"type":        "string",
-						"description": "Symbol name or regex pattern to search. Use (?i) prefix for case-insensitive. Examples: 'handleRequest', '(?i)test.*', '^get[A-Z]', 'process.*Event$'",
-					},
-					"filePattern": map[string]interface{}{
-						"type":        "string",
-						"description": "File filter using directory path, glob pattern, or regex. Default: '**/*' (all files). Examples: '.', 'src/', 'tests/unit/', '*.java', 'src/**/*.py', '(?i)test.*\\.js$', '**/internal/*.go'",
-					},
-					"maxResults": map[string]interface{}{
-						"type":        "number",
-						"description": "Maximum number of references to return (default: 100)",
-					},
-				},
-				"required": []string{"pattern"},
-			},
+			"inputSchema": findReferencesSchema,
 		},
 	}
 
