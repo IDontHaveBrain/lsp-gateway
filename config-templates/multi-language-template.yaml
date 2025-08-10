@@ -1,7 +1,7 @@
 # Simple Multi-Language Configuration
-# Use Case: Projects using multiple supported languages (Go, Python, JavaScript/TypeScript, Java)
+# Use Case: Projects using multiple supported languages (Go, Python, JavaScript/TypeScript, Java, Rust)
 # Architecture: Simplified CLI with basic LSP server integration
-# Supported Languages: Go, Python, JavaScript, TypeScript, Java (4 languages only)
+# Supported Languages: Go, Python, JavaScript, TypeScript, Java, Rust
 # Supported Features: 6 essential LSP features (definition, references, hover, documentSymbol, workspace/symbol, completion)
 
 # Basic server configuration for all supported languages
@@ -41,6 +41,13 @@ servers:
     working_dir: ""
     initialization_options: {}
 
+  # Rust Language Server
+  rust:
+    command: "rust-analyzer"
+    args: []
+    working_dir: ""
+    initialization_options: {}
+
 # Unified Cache Configuration (Enabled by default)
 # Standard production settings with simple units for improved performance
 cache:
@@ -62,6 +69,7 @@ cache:
 #    - .js, .jsx files -> javascript server
 #    - .ts, .tsx files -> typescript server
 #    - .java files -> java server
+#    - .rs files -> rust server
 #
 # 2. Server Commands:
 #    - Ensure language servers are installed on your system
@@ -69,6 +77,9 @@ cache:
 #    - pylsp: pip install python-lsp-server
 #    - typescript-language-server: npm install -g typescript-language-server typescript
 #    - jdtls: Download from Eclipse JDT LS releases
+#    - rust-analyzer: rustup component add rust-analyzer
+#      If unavailable on stable: rustup toolchain install nightly && rustup component add rust-analyzer --toolchain nightly
+#      Some systems use: rustup component add rust-analyzer-preview [--toolchain nightly]
 #
 # 3. Working Directory:
 #    - Leave empty to use project root

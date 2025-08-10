@@ -26,7 +26,7 @@ func TestSCIPIndexAndFindReferences(t *testing.T) {
 	defer repoManager.Cleanup()
 
 	// Test each language
-	languages := []string{"go", "python", "javascript", "typescript"}
+	languages := []string{"go", "python", "javascript", "typescript", "rust"}
 
 	for _, language := range languages {
 		t.Run(language, func(t *testing.T) {
@@ -182,6 +182,8 @@ func testSCIPReferencesForLanguage(t *testing.T, repoManager *testutils.RepoMana
 			filePattern = "**/*.js"
 		case "typescript":
 			filePattern = "**/*.ts"
+		case "rust":
+			filePattern = "**/*.rs"
 		default:
 			filePattern = "**/*"
 		}
@@ -224,6 +226,8 @@ func getLSPCommandForLanguage(language string) (string, []string) {
 		return "typescript-language-server", []string{"--stdio"}
 	case "typescript":
 		return "typescript-language-server", []string{"--stdio"}
+	case "rust":
+		return "rust-analyzer", []string{}
 	default:
 		return "", nil
 	}
@@ -269,6 +273,8 @@ func getTestFilesForLanguage(t *testing.T, repoManager *testutils.RepoManager, l
 			pattern = "*.js"
 		case "typescript":
 			pattern = "*.ts"
+		case "rust":
+			pattern = "*.rs"
 		}
 
 		// Find up to 3 files
@@ -313,6 +319,8 @@ func getKnownSymbolForLanguage(language string) string {
 		return "map" // Common in ramda
 	case "typescript":
 		return "is" // Main export in sindresorhus/is
+	case "rust":
+		return "Buffer"
 	default:
 		return "main"
 	}

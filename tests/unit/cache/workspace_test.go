@@ -79,7 +79,7 @@ func TestGetLanguageExtensions(t *testing.T) {
 		{
 			name:      "Empty languages",
 			languages: []string{},
-			expected:  []string{".go", ".py", ".pyi", ".js", ".jsx", ".mjs", ".ts", ".tsx", ".d.ts", ".java"}, // Returns all supported extensions
+			expected:  []string{".go", ".py", ".pyi", ".js", ".jsx", ".mjs", ".ts", ".tsx", ".d.ts", ".java", ".rs"}, // Returns all supported extensions
 		},
 	}
 

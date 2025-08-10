@@ -1,6 +1,6 @@
 # LSP Gateway
 
-Language Server Protocol gateway providing HTTP and MCP interfaces to 5 language servers with SCIP caching.
+Language Server Protocol gateway providing HTTP and MCP interfaces to multiple language servers with SCIP caching.
 
 ## Quick Start
 
@@ -9,7 +9,7 @@ Language Server Protocol gateway providing HTTP and MCP interfaces to 5 language
 git clone https://github.com/IDontHaveBrain/lsp-gateway
 cd lsp-gateway
 make local                   # Build + npm link globally
-lsp-gateway install all      # Install all 5 language servers
+lsp-gateway install all      # Install all supported language servers
 lsp-gateway server           # Start HTTP Gateway on :8080
 ```
 
@@ -21,7 +21,7 @@ curl localhost:8080/jsonrpc  # Test HTTP gateway
 
 ## Features
 
-- **5 Languages**: Go, Python, JavaScript, TypeScript, Java
+- **Languages**: Go, Python, JavaScript, TypeScript, Java, Rust
 - **Dual Protocol**: HTTP Gateway (port 8080) + MCP Server (STDIO)
 - **Auto-detection**: Scans for go.mod, package.json, *.py, pom.xml
 - **SCIP Cache**: 512MB LRU cache, sub-millisecond lookups
@@ -38,12 +38,13 @@ lsp-gateway test            # Test connections
 lsp-gateway version         # Show version info
 
 # Installation
-lsp-gateway install all        # Install all 5 language servers
+lsp-gateway install all        # Install all supported language servers
 lsp-gateway install go         # Install gopls
 lsp-gateway install python     # Install python-lsp-server
 lsp-gateway install typescript # Install typescript-language-server
 lsp-gateway install javascript # Install typescript-language-server
 lsp-gateway install java       # Install jdtls
+lsp-gateway install rust       # Install rust-analyzer
 
 # Cache Management
 lsp-gateway cache info      # Show cache statistics
@@ -143,7 +144,7 @@ src/
 ```
 
 Key Components:
-- **LSP Manager**: Orchestrates 5 language servers with SCIP cache
+- **LSP Manager**: Orchestrates language servers with SCIP cache
 - **HTTP Gateway**: JSON-RPC endpoint at `:8080/jsonrpc`
 - **MCP Server**: STDIO protocol for AI assistants
 - **SCIP Cache**: 512MB LRU cache for sub-millisecond lookups

@@ -375,6 +375,8 @@ func (c *SCIPConverter) DetectLanguageFromURI(uri string) string {
 		return "typescript"
 	} else if strings.HasSuffix(uri, ".java") {
 		return "java"
+	} else if strings.HasSuffix(uri, ".rs") {
+		return "rust"
 	}
 	return "unknown"
 }

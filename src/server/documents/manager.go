@@ -47,6 +47,8 @@ func (dm *LSPDocumentManager) DetectLanguage(uri string) string {
 		return "typescript"
 	case ".java":
 		return "java"
+	case ".rs":
+		return "rust"
 	default:
 		return ""
 	}

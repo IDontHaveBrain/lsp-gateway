@@ -131,6 +131,22 @@ func GetTestRepositories() map[string]*TestRepository {
 				},
 			},
 		},
+		"rust": {
+			Language:   "rust",
+			Name:       "itoa",
+			URL:        "https://github.com/dtolnay/itoa.git",
+			CommitHash: "1.0.15", // stable small crate
+			TestFiles: []TestFile{
+				{
+					Path:          "src/lib.rs",
+					DefinitionPos: Position{Line: 62, Character: 12}, // pub struct Buffer { .. } (0-based line)
+					ReferencePos:  Position{Line: 67, Character: 20}, // impl Default for Buffer { .. }
+					HoverPos:      Position{Line: 97, Character: 11}, // pub fn format<I: Integer>
+					CompletionPos: Position{Line: 89, Character: 8},  // inside Buffer::new()
+					SymbolQuery:   "Buffer",
+				},
+			},
+		},
 	}
 }
 

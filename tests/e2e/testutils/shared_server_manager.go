@@ -91,6 +91,10 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 			"command": "~/.lsp-gateway/tools/java/bin/jdtls",
 			"args":    []string{},
 		},
+		"rust": map[string]interface{}{
+			"command": "rust-analyzer",
+			"args":    []string{},
+		},
 	}
 
 	// Use a shared cache configuration that can be isolated per test
