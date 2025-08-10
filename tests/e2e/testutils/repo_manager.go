@@ -5,7 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
+
+	"lsp-gateway/src/utils"
 )
 
 // TestRepository defines a test repository configuration
@@ -238,12 +239,16 @@ func (rm *RepoManager) GetFileURI(language string, testFileIndex int) (string, e
 
 	fullPath := filepath.Join(repoPath, testFile.Path)
 
-	// Convert to file URI
-	if !strings.HasPrefix(fullPath, "/") {
-		fullPath = "/" + fullPath
+	// Convert to file URI using proper URI conversion that handles Windows paths
+	// This ensures proper handling of drive letters and path separators on Windows
+	absPath, err := filepath.Abs(fullPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
-	return "file://" + fullPath, nil
+	// Use the utils.FilePathToURI function which properly handles Windows paths
+	// Note: We need to import the utils package for this
+	return utils.FilePathToURI(absPath), nil
 }
 
 // VerifyFileExists checks if a test file exists

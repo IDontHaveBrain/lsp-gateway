@@ -413,7 +413,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 											},
 										}
 
-								if refResult, refErr := m.ProcessRequest(ctx, "textDocument/references", refParams); refErr == nil && refResult != nil {
+										if refResult, refErr := m.ProcessRequest(ctx, "textDocument/references", refParams); refErr == nil && refResult != nil {
 											// Parse reference results
 											var parsedLocations []interface{}
 
@@ -530,7 +530,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 
 		if fallbackDefRef != nil {
 			// Use SCIP def position to ask LSP for references
-        uri := utils.FilePathToURI(fallbackDefRef.FilePath)
+			uri := utils.FilePathToURI(fallbackDefRef.FilePath)
 
 			// Do not send didOpen/didClose here; LSPManager ensures document open automatically
 

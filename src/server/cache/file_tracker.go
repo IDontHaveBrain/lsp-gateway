@@ -48,7 +48,7 @@ func (t *FileChangeTracker) GetFileMetadata(uri string) (*FileMetadata, bool) {
 func (t *FileChangeTracker) UpdateFileMetadata(uri string, path string, modTime time.Time, size int64, language string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	
+
 	t.metadata[uri] = &FileMetadata{
 		URI:          uri,
 		Path:         path,
@@ -245,7 +245,7 @@ func (t *FileChangeTracker) GetIndexedFileCount() int {
 func (t *FileChangeTracker) GetAllMetadata() map[string]*FileMetadata {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
-	
+
 	result := make(map[string]*FileMetadata, len(t.metadata))
 	for k, v := range t.metadata {
 		// Create a copy to avoid external modifications

@@ -26,12 +26,12 @@ type FileWatcher struct {
 	extensions    []string
 	onChange      func([]FileChangeEvent)
 	debounceDelay time.Duration
-	
+
 	// Debouncing
 	pendingEvents map[string]*FileChangeEvent
 	eventMutex    sync.Mutex
 	debounceTimer *time.Timer
-	
+
 	// Control
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -76,7 +76,7 @@ func (fw *FileWatcher) AddPath(path string) error {
 
 	fw.watchPaths = append(fw.watchPaths, absPath)
 	common.LSPLogger.Debug("FileWatcher: Added watch path: %s", absPath)
-	
+
 	// If it's a directory, walk and add subdirectories
 	if err := fw.addSubdirectories(absPath); err != nil {
 		common.LSPLogger.Warn("Failed to add subdirectories for %s: %v", absPath, err)
@@ -94,8 +94,8 @@ func (fw *FileWatcher) addSubdirectories(root string) error {
 
 		// Skip common directories that shouldn't be watched
 		base := filepath.Base(path)
-		if base == ".git" || base == "node_modules" || base == "vendor" || 
-		   base == ".vscode" || base == ".idea" || strings.HasPrefix(base, ".") {
+		if base == ".git" || base == "node_modules" || base == "vendor" ||
+			base == ".vscode" || base == ".idea" || strings.HasPrefix(base, ".") {
 			if info.IsDir() {
 				return filepath.SkipDir
 			}
@@ -131,7 +131,7 @@ func (fw *FileWatcher) watchLoop() {
 			if !ok {
 				return
 			}
-			
+
 			// Filter by extension
 			if !fw.shouldProcess(event.Name) {
 				continue
@@ -233,16 +233,16 @@ func (fw *FileWatcher) flushEvents() {
 // Stop stops the file watcher
 func (fw *FileWatcher) Stop() error {
 	fw.cancel()
-	
+
 	// Flush any remaining events
 	fw.flushEvents()
-	
+
 	// Close the watcher
 	err := fw.watcher.Close()
-	
+
 	// Wait for the watch loop to finish
 	<-fw.done
-	
+
 	return err
 }
 

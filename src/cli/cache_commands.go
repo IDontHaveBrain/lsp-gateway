@@ -117,10 +117,10 @@ func IndexCache(configPath string) error {
 			if trackedCount > 0 {
 				// Files are already indexed, no changes detected
 				common.CLILogger.Info("Incremental indexing complete - no changes detected in %d tracked files", trackedCount)
-				
+
 				// Show current cache stats
 				if finalStats != nil {
-					common.CLILogger.Info("Current index contains %d symbols from %d documents", 
+					common.CLILogger.Info("Current index contains %d symbols from %d documents",
 						finalStats.SymbolCount, finalStats.DocumentCount)
 				}
 			} else {
@@ -130,7 +130,7 @@ func IndexCache(configPath string) error {
 				common.CLILogger.Error("   • LSP servers are returning document symbols (enable LSP_GATEWAY_DEBUG=true)")
 				common.CLILogger.Error("   • Cache is properly enabled and configured")
 				common.CLILogger.Error("   • Files exist in the workspace")
-				
+
 				return fmt.Errorf("cache indexing failed: no symbols were indexed")
 			}
 		}

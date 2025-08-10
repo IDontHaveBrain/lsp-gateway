@@ -17,17 +17,17 @@ import (
 
 // SCIPCacheManager implements simple in-memory cache with occurrence-centric SCIP storage
 type SCIPCacheManager struct {
-	entries      map[string]*CacheEntry
-	config       *config.CacheConfig
-	stats        *SimpleCacheStats
-	mu           sync.RWMutex
-	enabled      bool
-	started      bool
-	scipStorage  scip.SCIPDocumentStorage
-	indexStats   *IndexStats
-	indexMu      sync.RWMutex
-	converter    *SCIPConverter
-	fileTracker  *FileChangeTracker
+	entries     map[string]*CacheEntry
+	config      *config.CacheConfig
+	stats       *SimpleCacheStats
+	mu          sync.RWMutex
+	enabled     bool
+	started     bool
+	scipStorage scip.SCIPDocumentStorage
+	indexStats  *IndexStats
+	indexMu     sync.RWMutex
+	converter   *SCIPConverter
+	fileTracker *FileChangeTracker
 }
 
 // NewSCIPCacheManager creates a simple cache manager with unified config
@@ -239,7 +239,7 @@ func (m *SCIPCacheManager) Clear() error {
 	defer m.mu.Unlock()
 
 	m.entries = make(map[string]*CacheEntry)
-	
+
 	// Clear file tracker
 	if m.fileTracker != nil {
 		m.fileTracker.Clear()

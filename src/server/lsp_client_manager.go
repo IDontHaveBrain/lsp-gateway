@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -18,6 +20,7 @@ import (
 	"lsp-gateway/src/server/errors"
 	"lsp-gateway/src/server/process"
 	"lsp-gateway/src/server/protocol"
+	"lsp-gateway/src/utils"
 )
 
 // getRequestTimeout returns language-specific timeout for LSP requests
@@ -375,7 +378,17 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 	// Use current working directory, but fallback to /tmp if needed
 	wd, err := os.Getwd()
 	if err != nil {
-		wd = "/tmp"
+		if runtime.GOOS == "windows" {
+			wd = "C:\\temp"
+		} else {
+			wd = "/tmp"
+		}
+	}
+
+	// Ensure path is absolute and clean
+	wd, _ = filepath.Abs(wd)
+	if runtime.GOOS == "windows" {
+		wd = utils.URIToFilePath(utils.FilePathToURI(wd))
 	}
 
 	// Send initialize request according to LSP specification
@@ -385,8 +398,18 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 			"name":    "lsp-gateway",
 			"version": "1.0.0",
 		},
-		"rootUri":               "file://" + wd,
-		"initializationOptions": nil,
+		"rootUri":  utils.FilePathToURI(wd),
+		"rootPath": wd,
+		"workspaceFolders": []map[string]interface{}{
+			{
+				"uri":  utils.FilePathToURI(wd),
+				"name": filepath.Base(wd),
+			},
+		},
+		"initializationOptions": map[string]interface{}{
+			"usePlaceholders":    false,
+			"completeUnimported": true,
+		},
 		"capabilities": map[string]interface{}{
 			"workspace": map[string]interface{}{
 				"applyEdit":              true,
@@ -474,12 +497,6 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 			},
 		},
 		"trace": "off",
-		"workspaceFolders": []map[string]interface{}{
-			{
-				"uri":  "file://" + wd,
-				"name": "workspace",
-			},
-		},
 	}
 
 	result, err := c.SendRequest(ctx, types.MethodInitialize, initParams)

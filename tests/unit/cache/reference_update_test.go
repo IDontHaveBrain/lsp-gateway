@@ -21,7 +21,7 @@ func TestReferenceUpdateOnFileModification(t *testing.T) {
 	// Create test files
 	fileA := filepath.Join(tempDir, "file_a.go")
 	fileB := filepath.Join(tempDir, "file_b.go")
-	
+
 	// Initial content - File A references FunctionB
 	contentA_v1 := `package main
 
@@ -86,7 +86,7 @@ func FunctionC() string {
 		documentSymbols: make(map[string]interface{}),
 		references:      make(map[string][]string),
 	}
-	
+
 	// Initially, FunctionB has reference from file_a.go
 	mockLSP.references["FunctionB"] = []string{fileA}
 	mockLSP.references["FunctionC"] = []string{}
@@ -97,7 +97,7 @@ func FunctionC() string {
 		if err != nil {
 			t.Errorf("Initial indexing failed: %v", err)
 		}
-		
+
 		// Verify initial state
 		if len(mockLSP.references["FunctionB"]) != 1 {
 			t.Errorf("Expected FunctionB to have 1 reference initially")
@@ -110,11 +110,11 @@ func FunctionC() string {
 		if err := os.WriteFile(fileA, []byte(contentA_v2), 0644); err != nil {
 			t.Fatalf("Failed to update file A: %v", err)
 		}
-		
+
 		// Update mock references to reflect the change
 		mockLSP.references["FunctionB"] = []string{}      // No longer referenced
 		mockLSP.references["FunctionC"] = []string{fileA} // Now referenced
-		
+
 		// Re-index
 		err := cacheManager.PerformIncrementalIndexing(ctx, tempDir, mockLSP)
 		if err != nil {
@@ -124,17 +124,17 @@ func FunctionC() string {
 
 	// Step 3: Verify reference update
 	t.Run("VerifyReferenceUpdate", func(t *testing.T) {
-		// This is a conceptual test - in real implementation, 
+		// This is a conceptual test - in real implementation,
 		// we would query the cache for references
-		
+
 		// The key point is that after re-indexing a modified file:
 		// 1. Old references should be removed (FunctionB no longer referenced by fileA)
 		// 2. New references should be added (FunctionC now referenced by fileA)
-		
+
 		if len(mockLSP.references["FunctionB"]) != 0 {
 			t.Errorf("FunctionB should have no references after file modification")
 		}
-		
+
 		if len(mockLSP.references["FunctionC"]) != 1 {
 			t.Errorf("FunctionC should have 1 reference after file modification")
 		}
@@ -151,8 +151,8 @@ func (m *mockLSPFallbackWithReferences) ProcessRequest(ctx context.Context, meth
 	// Return mock document symbols
 	return []interface{}{
 		map[string]interface{}{
-			"name":  "MockSymbol",
-			"kind":  12,
+			"name": "MockSymbol",
+			"kind": 12,
 			"range": map[string]interface{}{
 				"start": map[string]interface{}{"line": 0, "character": 0},
 				"end":   map[string]interface{}{"line": 1, "character": 0},

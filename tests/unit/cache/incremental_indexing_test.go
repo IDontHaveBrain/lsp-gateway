@@ -22,7 +22,7 @@ func TestIncrementalIndexing(t *testing.T) {
 	// Create test files
 	file1 := filepath.Join(tempDir, "file1.go")
 	file2 := filepath.Join(tempDir, "file2.go")
-	
+
 	// Write initial content
 	content1 := `package main
 func Hello() string {
@@ -32,7 +32,7 @@ func Hello() string {
 func World() string {
 	return "World"
 }`
-	
+
 	if err := os.WriteFile(file1, []byte(content1), 0644); err != nil {
 		t.Fatalf("Failed to write file1: %v", err)
 	}
@@ -159,8 +159,8 @@ func (m *mockLSPFallback) ProcessRequest(ctx context.Context, method string, par
 	// Return mock document symbols
 	return []interface{}{
 		map[string]interface{}{
-			"name":  "MockSymbol",
-			"kind":  12,
+			"name": "MockSymbol",
+			"kind": 12,
 			"range": map[string]interface{}{
 				"start": map[string]interface{}{"line": 0, "character": 0},
 				"end":   map[string]interface{}{"line": 1, "character": 0},

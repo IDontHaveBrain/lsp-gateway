@@ -10,6 +10,7 @@ import (
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/utils"
+	"runtime"
 )
 
 // DocumentManager interface for document-related operations
@@ -111,13 +112,14 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 
 	// Read actual file content for proper LSP functionality
 	var fileContent string
+	language := dm.DetectLanguage(uri)
 
 	// Extract file path from URI
 	if strings.HasPrefix(uri, "file://") {
 		filePath := utils.URIToFilePath(uri)
 		// Ensure the file's directory is part of the workspace folders for servers like gopls
 		dir := filepath.Dir(filePath)
-		wsURI := "file://" + dir
+		wsURI := utils.FilePathToURI(dir)
 		changeParams := map[string]interface{}{
 			"event": map[string]interface{}{
 				"added": []map[string]interface{}{
@@ -127,6 +129,19 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 			},
 		}
 		_ = client.SendNotification(context.Background(), "workspace/didChangeWorkspaceFolders", changeParams)
+
+		// Apply language-aware workspace folder synchronization delay
+		if runtime.GOOS == "windows" {
+			// Java LSP already has long initialization times, reduce synchronization overhead
+			if language == "java" {
+				time.Sleep(150 * time.Millisecond)
+			} else {
+				time.Sleep(700 * time.Millisecond)
+			}
+		} else {
+			time.Sleep(150 * time.Millisecond)
+		}
+
 		if data, err := common.SafeReadFile(filePath); err == nil {
 			fileContent = string(data)
 		} else {
@@ -140,7 +155,7 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 	didOpenParams := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri":        uri,
-			"languageId": dm.DetectLanguage(uri),
+			"languageId": language,
 			"version":    1,
 			"text":       fileContent, // Use actual file content
 		},
@@ -153,8 +168,17 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 		return common.WrapProcessingError("failed to send didOpen notification", err)
 	}
 
-	// Give LSP server more time to process the didOpen notification and analyze file
-	time.Sleep(500 * time.Millisecond)
+	// Apply language-aware document analysis delay
+	if runtime.GOOS == "windows" {
+		// Java LSP handles its own internal synchronization, reduce external delays
+		if language == "java" {
+			time.Sleep(200 * time.Millisecond)
+		} else {
+			time.Sleep(1200 * time.Millisecond)
+		}
+	} else {
+		time.Sleep(400 * time.Millisecond)
+	}
 
 	return nil
 }

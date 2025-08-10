@@ -1,6 +1,8 @@
 package constants
 
 import (
+	"os"
+	"runtime"
 	"time"
 
 	"lsp-gateway/src/internal/registry"
@@ -104,28 +106,70 @@ func GetAllSupportedExtensions() []string {
 	return extensions
 }
 
+// isCI detects if running in CI environment
+func isCI() bool {
+	return os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true"
+}
+
+// isWindowsCI detects if running in Windows CI environment
+func isWindowsCI() bool {
+	return runtime.GOOS == "windows" && isCI()
+}
+
 // GetRequestTimeout returns language-specific timeout for LSP requests
 func GetRequestTimeout(language string) time.Duration {
+	var baseTimeout time.Duration
+
 	switch language {
 	case "java":
-		return JavaRequestTimeout
+		baseTimeout = JavaRequestTimeout
 	case "python":
-		return PythonRequestTimeout
+		baseTimeout = PythonRequestTimeout
 	case "go", "javascript", "typescript":
-		return GoTSRequestTimeout
+		baseTimeout = GoTSRequestTimeout
 	default:
-		return DefaultRequestTimeout
+		baseTimeout = DefaultRequestTimeout
 	}
+
+	// Apply CI environment multipliers
+	if isWindowsCI() {
+		// Windows CI is significantly slower, especially for Java
+		if language == "java" {
+			return baseTimeout * 2 // Double timeout for Java on Windows CI (120s)
+		}
+		return time.Duration(float64(baseTimeout) * 1.5) // 50% more for other languages
+	} else if isCI() {
+		// Non-Windows CI environments also need more time
+		return time.Duration(float64(baseTimeout) * 1.2) // 20% more time
+	}
+
+	return baseTimeout
 }
 
 // GetInitializeTimeout returns language-specific timeout for initialize requests
 func GetInitializeTimeout(language string) time.Duration {
+	var baseTimeout time.Duration
+
 	switch language {
 	case "java":
-		return JavaInitializeTimeout
+		baseTimeout = JavaInitializeTimeout
 	case "python":
-		return PythonInitializeTimeout
+		baseTimeout = PythonInitializeTimeout
 	default:
-		return DefaultInitializeTimeout
+		baseTimeout = DefaultInitializeTimeout
 	}
+
+	// Apply CI environment multipliers
+	if isWindowsCI() {
+		// Windows CI is significantly slower
+		if language == "java" {
+			return baseTimeout * 2 // Double timeout for Java on Windows CI (120s)
+		}
+		return time.Duration(float64(baseTimeout) * 1.5) // 50% more for other languages
+	} else if isCI() {
+		// Non-Windows CI environments also need more time
+		return time.Duration(float64(baseTimeout) * 1.2) // 20% more time
+	}
+
+	return baseTimeout
 }

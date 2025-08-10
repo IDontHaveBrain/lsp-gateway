@@ -206,23 +206,23 @@ func (m *SCIPCacheManager) performIncrementalIndexingCore(ctx context.Context, w
 	}
 
 	indexer := NewWorkspaceIndexer(lspFallback)
-	
+
 	// Get file extensions for the languages
 	extensions := indexer.GetLanguageExtensions(languages)
-	
+
 	// Scan all workspace files
 	allFiles := indexer.ScanWorkspaceSourceFiles(workingDir, extensions, maxFiles)
 	common.LSPLogger.Debug("Incremental indexing: Found %d total files in workspace", len(allFiles))
-	
+
 	// Determine which files need reindexing
 	newFiles, modifiedFiles, unchangedFiles, err := m.fileTracker.GetChangedFiles(ctx, allFiles)
 	if err != nil {
 		return fmt.Errorf("failed to detect changed files: %w", err)
 	}
-	
-	common.LSPLogger.Info("Incremental indexing: %d new, %d modified, %d unchanged files", 
+
+	common.LSPLogger.Info("Incremental indexing: %d new, %d modified, %d unchanged files",
 		len(newFiles), len(modifiedFiles), len(unchangedFiles))
-	
+
 	// Check for deleted files
 	currentFileMap := make(map[string]bool)
 	for _, file := range allFiles {
@@ -230,7 +230,7 @@ func (m *SCIPCacheManager) performIncrementalIndexingCore(ctx context.Context, w
 		currentFileMap[absPath] = true
 	}
 	deletedFiles := m.fileTracker.GetDeletedFiles(currentFileMap)
-	
+
 	if len(deletedFiles) > 0 {
 		common.LSPLogger.Info("Incremental indexing: Removing %d deleted files from index", len(deletedFiles))
 		for _, uri := range deletedFiles {
@@ -244,23 +244,23 @@ func (m *SCIPCacheManager) performIncrementalIndexingCore(ctx context.Context, w
 		// Remove from file tracker
 		m.fileTracker.RemoveFileMetadata(deletedFiles)
 	}
-	
+
 	// Combine new and modified files for indexing
 	filesToIndex := append(newFiles, modifiedFiles...)
-	
+
 	if len(filesToIndex) == 0 {
 		common.LSPLogger.Info("Incremental indexing: No files need reindexing")
 		return nil
 	}
-	
+
 	common.LSPLogger.Info("Incremental indexing: Indexing %d files", len(filesToIndex))
-	
+
 	// Perform the indexing (IndexSpecificFiles will handle progress reporting)
 	err = indexer.IndexSpecificFiles(ctx, filesToIndex, progress)
 	if err != nil {
 		return fmt.Errorf("incremental indexing failed: %w", err)
 	}
-	
+
 	// Update file metadata for indexed files
 	for _, file := range filesToIndex {
 		absPath, err := filepath.Abs(file)
@@ -275,19 +275,19 @@ func (m *SCIPCacheManager) performIncrementalIndexingCore(ctx context.Context, w
 		language := detectLanguageFromPath(file)
 		m.fileTracker.UpdateFileMetadata(uri, absPath, fileInfo.ModTime(), fileInfo.Size(), language)
 	}
-	
+
 	// Save file tracker metadata
 	if m.config.DiskCache && m.config.StoragePath != "" {
 		metadataPath := filepath.Join(m.config.StoragePath, "file_metadata.json")
 		if err := m.fileTracker.SaveToFile(metadataPath); err != nil {
 			common.LSPLogger.Warn("Failed to save file metadata: %v", err)
 		}
-		
+
 		if err := m.SaveIndexToDisk(); err != nil {
 			common.LSPLogger.Warn("Failed to save index to disk: %v", err)
 		}
 	}
-	
+
 	// Process references for changed files if needed
 	if len(filesToIndex) > 0 {
 		common.LSPLogger.Debug("Starting enhanced reference indexing for changed files")
@@ -296,6 +296,6 @@ func (m *SCIPCacheManager) performIncrementalIndexingCore(ctx context.Context, w
 			common.LSPLogger.Error("Enhanced reference indexing failed: %v", err)
 		}
 	}
-	
+
 	return nil
 }

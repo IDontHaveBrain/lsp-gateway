@@ -224,7 +224,8 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 					// Get the appropriate client for this file's language
 					fileLanguage := m.documentManager.DetectLanguage(symbol.Location.URI)
 					if client, err := m.getClient(fileLanguage); err == nil {
-						if docResult, err := client.SendRequest(ctx, types.MethodTextDocumentDocumentSymbol, params); err == nil {
+						m.ensureDocumentOpen(client, symbol.Location.URI, params)
+						if docResult, err := m.sendRequestWithRetry(ctx, client, types.MethodTextDocumentDocumentSymbol, params, symbol.Location.URI, fileLanguage); err == nil {
 							if docSymbols := m.parseDocumentSymbolsToDocumentSymbol(docResult); docSymbols != nil {
 								docSymbolsCache[symbol.Location.URI] = docSymbols
 							}

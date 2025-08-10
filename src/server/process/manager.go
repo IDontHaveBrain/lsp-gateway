@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 
 	"lsp-gateway/src/internal/common"
@@ -52,11 +53,15 @@ func (pm *LSPProcessManager) StartProcess(config types.ClientConfig, language st
 	// Create command
 	cmd := exec.Command(config.Command, config.Args...)
 
-	// Use current working directory, but fallback to /tmp if needed
+	// Use current working directory, but fallback to temp directory if needed
 	if wd, err := os.Getwd(); err == nil {
 		cmd.Dir = wd
 	} else {
-		cmd.Dir = "/tmp"
+		if runtime.GOOS == "windows" {
+			cmd.Dir = os.TempDir()
+		} else {
+			cmd.Dir = "/tmp"
+		}
 	}
 
 	// Create process info

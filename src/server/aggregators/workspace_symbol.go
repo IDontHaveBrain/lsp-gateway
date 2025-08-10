@@ -100,7 +100,7 @@ func (w *LSPWorkspaceSymbolAggregator) ProcessWorkspaceSymbol(ctx context.Contex
 	}
 
 	// Collect results from all clients with overall timeout
-	var allSymbols []interface{}
+	allSymbols := make([]interface{}, 0)
 	var errorsList []string
 	successCount := 0
 
@@ -172,6 +172,5 @@ collectDone:
 		common.LSPLogger.Warn("Some LSP clients failed during workspace/symbol query: %s", strings.Join(errorsList, "; "))
 	}
 
-	// Return combined results from all successful clients
 	return allSymbols, nil
 }

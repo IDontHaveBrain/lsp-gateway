@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,6 +24,7 @@ import (
 	"lsp-gateway/src/server/documents"
 	"lsp-gateway/src/server/errors"
 	"lsp-gateway/src/server/watcher"
+	"strings"
 )
 
 // ClientStatus represents the status of an LSP client
@@ -48,7 +51,7 @@ type LSPManager struct {
 
 	// Project information for consistent symbol ID generation
 	projectInfo *project.PackageInfo
-	
+
 	// File watcher for real-time change detection
 	fileWatcher *watcher.FileWatcher
 	watcherMu   sync.Mutex
@@ -119,8 +122,9 @@ func (m *LSPManager) Start(ctx context.Context) error {
 	// Start each client in a separate goroutine
 	for language, serverConfig := range m.config.Servers {
 		go func(lang string, cfg *config.ServerConfig) {
-			// Individual timeout per server
-			clientCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			// Individual timeout per server - use language-specific timeout
+			timeout := constants.GetInitializeTimeout(lang)
+			clientCtx, cancel := context.WithTimeout(ctx, timeout)
 			defer cancel()
 
 			err := m.startClientWithTimeout(clientCtx, lang, cfg)
@@ -131,8 +135,20 @@ func (m *LSPManager) Start(ctx context.Context) error {
 		}(language, serverConfig)
 	}
 
-	// Collect results with overall timeout
-	timeout := time.After(constants.DefaultInitializeTimeout)
+	// Collect results with overall timeout - calculate maximum timeout needed across all configured languages
+	maxTimeout := time.Duration(0)
+	for lang := range m.config.Servers {
+		langTimeout := constants.GetInitializeTimeout(lang)
+		if langTimeout > maxTimeout {
+			maxTimeout = langTimeout
+		}
+	}
+	if maxTimeout == 0 {
+		maxTimeout = constants.DefaultInitializeTimeout
+	}
+
+	common.LSPLogger.Debug("[LSPManager.Start] Using overall collection timeout of %v for %d servers", maxTimeout, len(m.config.Servers))
+	timeout := time.After(maxTimeout)
 	completed := 0
 
 	for completed < len(m.config.Servers) {
@@ -195,7 +211,7 @@ func (m *LSPManager) Start(ctx context.Context) error {
 			}
 		}
 	}
-	
+
 	// Start file watcher for real-time change detection
 	if m.config.Cache != nil && m.config.Cache.BackgroundIndex {
 		if err := m.startFileWatcher(); err != nil {
@@ -209,7 +225,7 @@ func (m *LSPManager) Start(ctx context.Context) error {
 // Stop stops all LSP clients
 func (m *LSPManager) Stop() error {
 	m.cancel()
-	
+
 	// Stop file watcher
 	if m.fileWatcher != nil {
 		if err := m.fileWatcher.Stop(); err != nil {
@@ -374,8 +390,7 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 		m.ensureDocumentOpen(client, uri, params)
 	}
 
-	// Send request to LSP server
-	result, err := client.SendRequest(ctx, method, params)
+	result, err := m.sendRequestWithRetry(ctx, client, method, params, uri, language)
 
 	// Cache the result and perform SCIP indexing if successful and cache is available
 	if err == nil && m.scipCache != nil && m.isCacheableMethod(method) {
@@ -386,6 +401,77 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 	}
 
 	return result, err
+}
+
+// sendRequestWithRetry sends a request and retries with exponential backoff on transient "no views" errors (common on Windows/gopls)
+func (m *LSPManager) sendRequestWithRetry(ctx context.Context, client types.LSPClient, method string, params interface{}, uri string, language string) (json.RawMessage, error) {
+	maxRetries := 3
+	baseDelay := 200 * time.Millisecond
+	if runtime.GOOS == "windows" {
+		baseDelay = 500 * time.Millisecond
+		maxRetries = 4 // Extra retry on Windows due to slower view establishment
+	}
+
+	var lastRes json.RawMessage
+	var lastErr error
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		res, err := client.SendRequest(ctx, method, params)
+		lastRes = res
+		lastErr = err
+
+		if err != nil {
+			return res, err
+		}
+
+		if !isNoViewsRPCError(res) {
+			// Success - no "no views" error
+			return res, nil
+		}
+
+		// Don't retry if no URI provided or this is the last attempt
+		if uri == "" || attempt == maxRetries-1 {
+			if attempt == maxRetries-1 && uri != "" {
+				common.LSPLogger.Warn("'no views' error persisted after %d retries for %s (language: %s, method: %s)",
+					maxRetries, uri, language, method)
+			}
+			return res, nil
+		}
+
+		// Log retry attempt
+		if attempt == 0 {
+			common.LSPLogger.Debug("Encountered 'no views' error for %s, retrying with exponential backoff...", uri)
+		}
+
+		// Re-establish workspace folder and document
+		m.ensureDocumentOpen(client, uri, params)
+
+		// Exponential backoff with jitter
+		delay := time.Duration(attempt+1) * baseDelay
+		// Add small jitter to prevent synchronized retries
+		jitter := time.Duration(rand.Intn(100)) * time.Millisecond
+		time.Sleep(delay + jitter)
+	}
+
+	return lastRes, lastErr
+}
+
+// isNoViewsRPCError detects a JSON-RPC error payload with "no views" message
+func isNoViewsRPCError(raw json.RawMessage) bool {
+	if len(raw) == 0 {
+		return false
+	}
+	var e struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(raw, &e); err != nil {
+		return false
+	}
+	if e.Message == "" {
+		return false
+	}
+	return strings.Contains(strings.ToLower(e.Message), "no views")
 }
 
 // GetClientStatus returns the status of all LSP clients
@@ -435,17 +521,18 @@ func (m *LSPManager) GetClientStatus() map[string]ClientStatus {
 
 // getClientActiveWaitIterations returns language-specific wait iterations for client to become active
 func (m *LSPManager) getClientActiveWaitIterations(language string) int {
-	switch language {
-	case "java":
-		// Java LSP server needs up to 15 seconds (150 iterations * 100ms)
-		return 150
-	case "python":
-		// Python LSP server needs moderate time (50 iterations * 100ms = 5s)
-		return 50
-	default:
-		// Default 3 seconds (30 iterations * 100ms)
-		return 30
+	// Calculate max wait time based on language initialization timeout
+	maxWaitTime := constants.GetInitializeTimeout(language)
+
+	// Convert to iterations (100ms per iteration)
+	maxIterations := int(maxWaitTime.Seconds() * 10) // 100ms = 0.1s, so 10 iterations per second
+
+	// Ensure minimum wait time of 3 seconds
+	if maxIterations < 30 {
+		maxIterations = 30
 	}
+
+	return maxIterations
 }
 
 // resolveCommandPath resolves the command path, checking custom installations first
@@ -463,6 +550,19 @@ func (m *LSPManager) resolveCommandPath(language, command string) string {
 		if common.FileExists(customPath) {
 			common.LSPLogger.Debug("Using custom jdtls installation at %s", customPath)
 			return customPath
+		}
+	}
+
+	// Windows: if a full path to jdtls is provided without extension, prefer .bat/.cmd
+	if language == "java" && runtime.GOOS == "windows" {
+		lower := strings.ToLower(command)
+		if strings.HasSuffix(lower, "\\jdtls") || strings.HasSuffix(lower, "/jdtls") || lower == "jdtls" {
+			if common.FileExists(command + ".bat") {
+				return command + ".bat"
+			}
+			if common.FileExists(command + ".cmd") {
+				return command + ".cmd"
+			}
 		}
 	}
 
@@ -637,28 +737,28 @@ func (m *LSPManager) startFileWatcher() error {
 
 	// Get supported extensions
 	extensions := constants.GetAllSupportedExtensions()
-	
+
 	// Create file watcher
 	fw, err := watcher.NewFileWatcher(extensions, m.handleFileChanges)
 	if err != nil {
 		return fmt.Errorf("failed to create file watcher: %w", err)
 	}
-	
+
 	// Get working directory
 	wd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
 	}
-	
+
 	// Add working directory to watch
 	if err := fw.AddPath(wd); err != nil {
 		return fmt.Errorf("failed to add watch path: %w", err)
 	}
-	
+
 	// Start watching
 	fw.Start()
 	m.fileWatcher = fw
-	
+
 	common.LSPLogger.Info("File watcher started for real-time change detection")
 	return nil
 }
@@ -668,16 +768,16 @@ func (m *LSPManager) handleFileChanges(events []watcher.FileChangeEvent) {
 	if len(events) == 0 {
 		return
 	}
-	
+
 	// Check if cache is available
 	if m.scipCache == nil {
 		return
 	}
-	
+
 	// Group events by operation
 	var modifiedFiles []string
 	var deletedFiles []string
-	
+
 	for _, event := range events {
 		switch event.Operation {
 		case "write", "create":
@@ -686,10 +786,10 @@ func (m *LSPManager) handleFileChanges(events []watcher.FileChangeEvent) {
 			deletedFiles = append(deletedFiles, event.Path)
 		}
 	}
-	
-	common.LSPLogger.Debug("File changes detected: %d modified, %d deleted", 
+
+	common.LSPLogger.Debug("File changes detected: %d modified, %d deleted",
 		len(modifiedFiles), len(deletedFiles))
-	
+
 	// Handle deleted files
 	for _, path := range deletedFiles {
 		uri := "file://" + path
@@ -697,7 +797,7 @@ func (m *LSPManager) handleFileChanges(events []watcher.FileChangeEvent) {
 			common.LSPLogger.Warn("Failed to invalidate deleted document %s: %v", uri, err)
 		}
 	}
-	
+
 	// Trigger incremental indexing for modified files
 	if len(modifiedFiles) > 0 {
 		go m.performIncrementalReindex(modifiedFiles)
@@ -712,28 +812,28 @@ func (m *LSPManager) performIncrementalReindex(files []string) {
 		common.LSPLogger.Warn("Cache manager doesn't support incremental indexing")
 		return
 	}
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
-	
+
 	// Get working directory
 	wd, err := os.Getwd()
 	if err != nil {
 		common.LSPLogger.Error("Failed to get working directory: %v", err)
 		return
 	}
-	
+
 	common.LSPLogger.Info("Performing incremental reindex for %d changed files", len(files))
-	
+
 	// Perform incremental indexing
 	if err := cacheManager.PerformIncrementalIndexing(ctx, wd, m); err != nil {
 		common.LSPLogger.Error("Incremental reindexing failed: %v", err)
 	} else {
 		common.LSPLogger.Info("Incremental reindex completed successfully")
-		
+
 		// Log updated cache stats
 		if stats := cacheManager.GetIndexStats(); stats != nil {
-			common.LSPLogger.Debug("Cache stats after reindex: %d symbols, %d documents", 
+			common.LSPLogger.Debug("Cache stats after reindex: %d symbols, %d documents",
 				stats.SymbolCount, stats.DocumentCount)
 		}
 	}

@@ -141,9 +141,26 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 	mgr.serverStarted = true
 
 	// Create HTTP client for the shared server with timeout long enough for Java LSP server
+	// Determine timeout based on environment - should be longer than server's internal timeout
+	var httpTimeout time.Duration
+	if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
+		// CI environments need more time, especially Windows
+		if runtime.GOOS == "windows" {
+			// Server internal timeout for Java on Windows CI is 120s (60s * 2)
+			// HTTP client should wait longer than that
+			httpTimeout = 150 * time.Second // Windows CI: 2.5 minutes
+		} else {
+			// Server internal timeout for Java on other CI is 72s (60s * 1.2)
+			httpTimeout = 90 * time.Second // Other CI: 1.5 minutes
+		}
+	} else {
+		// Local development - server internal timeout is 60s for Java
+		httpTimeout = 80 * time.Second // 80s for local development
+	}
+
 	mgr.httpClient = NewHttpClient(HttpClientConfig{
 		BaseURL: fmt.Sprintf("http://localhost:%d", port),
-		Timeout: 70 * time.Second, // Increased to accommodate Java LSP server (60s) + buffer
+		Timeout: httpTimeout,
 	})
 
 	// Wait for server to be ready

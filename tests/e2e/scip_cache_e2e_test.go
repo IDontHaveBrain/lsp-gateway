@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -20,6 +21,7 @@ type SCIPCacheE2ETestSuite struct {
 	tempDir        string
 	cacheDir       string
 	testProjectDir string
+	originalWd     string
 	manager        *server.LSPManager
 	scipCache      cache.SCIPCache
 }
@@ -116,6 +118,15 @@ go 1.21
 }
 
 func (suite *SCIPCacheE2ETestSuite) SetupTest() {
+	// Change to test project directory before creating manager
+	// This ensures gopls initializes with the correct workspace
+	originalWd, err := os.Getwd()
+	suite.Require().NoError(err)
+	suite.originalWd = originalWd
+
+	err = os.Chdir(suite.testProjectDir)
+	suite.Require().NoError(err)
+
 	cfg := &config.Config{
 		Servers: map[string]*config.ServerConfig{
 			"go": {
@@ -129,7 +140,7 @@ func (suite *SCIPCacheE2ETestSuite) SetupTest() {
 			MaxMemoryMB:        128,
 			TTLHours:           1,
 			Languages:          []string{"go"},
-			BackgroundIndex:    true,
+			BackgroundIndex:    false, // Disable background indexing in tests
 			DiskCache:          true,
 			EvictionPolicy:     "lru",
 			HealthCheckMinutes: 1,
@@ -148,13 +159,22 @@ func (suite *SCIPCacheE2ETestSuite) SetupTest() {
 	err = suite.manager.Start(ctx)
 	suite.Require().NoError(err)
 
-	time.Sleep(2 * time.Second)
+	if runtime.GOOS == "windows" {
+		time.Sleep(5 * time.Second)
+	} else {
+		time.Sleep(2 * time.Second)
+	}
 }
 
 func (suite *SCIPCacheE2ETestSuite) TearDownTest() {
 	if suite.manager != nil {
 		err := suite.manager.Stop()
 		suite.Assert().NoError(err)
+	}
+
+	// Restore original working directory
+	if suite.originalWd != "" {
+		os.Chdir(suite.originalWd)
 	}
 }
 
@@ -290,7 +310,11 @@ func (suite *SCIPCacheE2ETestSuite) TestCacheConcurrency() {
 	go runRequest("textDocument/hover", 10)
 	go runRequest("textDocument/references", 5)
 
-	timeout := time.After(10 * time.Second)
+	timeoutDuration := 10 * time.Second
+	if runtime.GOOS == "windows" {
+		timeoutDuration = 30 * time.Second
+	}
+	timeout := time.After(timeoutDuration)
 	successCount := 0
 
 	for i := 0; i < 3; i++ {
@@ -310,13 +334,34 @@ func (suite *SCIPCacheE2ETestSuite) TestCacheConcurrency() {
 func (suite *SCIPCacheE2ETestSuite) TestWorkspaceSymbolCache() {
 	ctx := context.Background()
 
+	// On Windows, give gopls more time to initialize workspace
+	if runtime.GOOS == "windows" {
+		time.Sleep(3 * time.Second)
+	}
+
+	// First, ensure gopls can see our test files
+	testFileUri := utils.FilePathToURI(filepath.Join(suite.testProjectDir, "main.go"))
+	symbolParams := map[string]interface{}{
+		"textDocument": map[string]interface{}{
+			"uri": testFileUri,
+		},
+	}
+
+	// Try to get document symbols first to ensure gopls is ready
+	docResult, err := suite.manager.ProcessRequest(ctx, "textDocument/documentSymbol", symbolParams)
+	if err != nil || docResult == nil {
+		suite.T().Logf("Warning: gopls may not be ready, documentSymbol returned error: %v", err)
+		// Give more time for gopls to initialize
+		time.Sleep(2 * time.Second)
+	}
+
 	workspaceParams := map[string]interface{}{
 		"query": "Server",
 	}
 
 	result1, err := suite.manager.ProcessRequest(ctx, "workspace/symbol", workspaceParams)
-	suite.Require().NoError(err)
-	suite.Require().NotNil(result1)
+	suite.Require().NoError(err, "workspace/symbol should not return error")
+	suite.Require().NotNil(result1, "workspace/symbol should return non-nil result")
 
 	time.Sleep(100 * time.Millisecond)
 
