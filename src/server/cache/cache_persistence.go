@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/project"
@@ -83,6 +84,21 @@ func (m *SCIPCacheManager) LoadIndexFromDisk() error {
 	m.indexStats.SymbolCount = stats.TotalSymbols
 	m.indexStats.DocumentCount = int64(stats.TotalDocuments)
 	m.indexStats.ReferenceCount = stats.TotalOccurrences // Use occurrences as reference count
+
+	// Determine last update time from stored files
+	latest := time.Time{}
+	err := filepath.Walk(m.config.StoragePath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !info.IsDir() && info.ModTime().After(latest) {
+			latest = info.ModTime()
+		}
+		return nil
+	})
+	if err == nil && !latest.IsZero() {
+		m.indexStats.LastUpdate = latest
+	}
 
 	return nil
 }
