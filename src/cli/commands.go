@@ -55,7 +55,7 @@ QUICK START:
   lsp-gateway mcp                          # Start MCP Server for AI assistants
 
 CORE FEATURES:
-  - Multi-language LSP server management (Go, Python, TypeScript, Java)
+  - Multi-language LSP server management (Go, Python, TypeScript, Java, Rust)
   - SCIP Cache system for improved response times and performance
   - HTTP JSON-RPC Gateway for IDE/editor integration
   - MCP Server for AI assistant integration (Claude, ChatGPT, etc.)
@@ -86,6 +86,7 @@ SUPPORTED LANGUAGES:
   - Python (pylsp) - Code analysis, completion, diagnostics  
   - TypeScript/JavaScript (typescript-language-server) - Full language support
   - Java (jdtls) - Enterprise-grade Java development
+  - Rust (rust-analyzer) - Modern Rust language support
 
 Use 'lsp-gateway <command> --help' for detailed command information.`,
 	SilenceUsage:  true,
@@ -180,6 +181,7 @@ Available commands:
   lsp-gateway install typescript    # Install TypeScript language server
   lsp-gateway install javascript    # Install JavaScript language server (same as TypeScript)
   lsp-gateway install java          # Install Java JDK + Eclipse JDT Language Server
+  lsp-gateway install rust          # Install Rust language server (rust-analyzer)
   lsp-gateway install status        # Show installation status
   lsp-gateway install update-config # Update configuration with installed servers
 
@@ -290,6 +292,13 @@ Examples:
   lsp-gateway install update-config --config custom.yaml`,
 		RunE: runInstallUpdateConfigCmd,
 	}
+
+	installRustCmd = &cobra.Command{
+		Use:   "rust",
+		Short: "Install Rust language server",
+		Long:  `Install Rust language server (rust-analyzer) using rustup.`,
+		RunE:  runInstallRustCmd,
+	}
 )
 
 // Cache subcommands
@@ -381,6 +390,7 @@ func init() {
 	installCmd.AddCommand(installTypeScriptCmd)
 	installCmd.AddCommand(installJavaScriptCmd)
 	installCmd.AddCommand(installJavaCmd)
+	installCmd.AddCommand(installRustCmd)
 	installCmd.AddCommand(installUpdateConfigCmd)
 
 	// Cache command flags
@@ -467,6 +477,10 @@ func runInstallJavaScriptCmd(cmd *cobra.Command, args []string) error {
 
 func runInstallJavaCmd(cmd *cobra.Command, args []string) error {
 	return InstallLanguage("java", installPath, version, force, offline)
+}
+
+func runInstallRustCmd(cmd *cobra.Command, args []string) error {
+	return InstallLanguage("rust", installPath, version, force, offline)
 }
 
 func runInstallUpdateConfigCmd(cmd *cobra.Command, args []string) error {

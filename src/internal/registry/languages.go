@@ -50,6 +50,13 @@ var languageRegistry = map[string]LanguageInfo{
 		DefaultArgs:       []string{},
 		InstallerRequired: true,
 	},
+	"rust": {
+		Name:              "rust",
+		Extensions:        []string{".rs"},
+		DefaultCommand:    "rust-analyzer",
+		DefaultArgs:       []string{},
+		InstallerRequired: true,
+	},
 }
 
 // Extension to language mapping for efficient lookups
@@ -64,6 +71,7 @@ var extensionToLanguage = map[string]string{
 	".tsx":  "typescript",
 	".d.ts": "typescript",
 	".java": "java",
+	".rs":   "rust",
 }
 
 // Allowed commands for security validation
@@ -77,6 +85,8 @@ var allowedCommands = []string{
 	"jdtls",
 	"jdtls.bat",
 	"jdtls.py",
+	"rust-analyzer",
+	"rust-analyzer.exe",
 	// Runtime tools
 	"java",
 	"java.exe",
@@ -86,6 +96,12 @@ var allowedCommands = []string{
 	"python.exe",
 	"python3",
 	"python3.exe",
+	"rustup",
+	"rustup.exe",
+	"cargo",
+	"cargo.exe",
+	"rustc",
+	"rustc.exe",
 	// Installation tools
 	"go",
 	"go.exe",

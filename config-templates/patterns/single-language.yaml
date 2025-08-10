@@ -77,6 +77,22 @@ servers:
 # Usage: lsp-gateway server --config config.yaml
 
 # =============================================================================
+# RUST LANGUAGE SERVER (Alternative - comment out sections above)
+# =============================================================================
+# servers:
+#   rust:
+#     command: "rust-analyzer"
+#     args: []
+#     working_dir: ""
+#     initialization_options: {}
+
+# Prerequisites: Install Rust via rustup and run: rustup component add rust-analyzer
+# If unavailable on stable: rustup toolchain install nightly && rustup component add rust-analyzer --toolchain nightly
+# Some systems use: rustup component add rust-analyzer-preview [--toolchain nightly]
+# File types: .rs
+# Usage: lsp-gateway server --config config.yaml
+
+# =============================================================================
 # CACHE CONFIGURATION (Optional)
 # =============================================================================
 # Uncomment to enable SCIP cache for sub-millisecond responses

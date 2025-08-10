@@ -10,7 +10,7 @@ LSP Gateway supports three configuration methods:
 - **Template-based**: Use provided templates as starting points
 
 The configuration system features:
-- **5 supported languages**: Go, Python, JavaScript, TypeScript, Java
+- **6 supported languages**: Go, Python, JavaScript, TypeScript, Java, Rust
 - **SCIP cache integration**: Sub-millisecond symbol lookups (enabled by default)
 - **Security validation**: Whitelist-based LSP server command validation
 - **Project isolation**: Auto-generated project-specific cache paths
@@ -61,6 +61,7 @@ servers:
 | `javascript` | `typescript-language-server` | `["--stdio"]`    | JavaScript support |
 | `typescript` | `typescript-language-server` | `["--stdio"]`    | TypeScript support |
 | `java`     | `jdtls`                        | `[]`             | Java language server |
+| `rust`     | `rust-analyzer`                | `[]`             | Rust language server |
 
 #### Server Configuration Fields
 
@@ -126,7 +127,7 @@ languages: ["typescript"]
 - **`languages`** (array): Languages to cache
   - **Default**: `["*"]` (wildcard for all supported languages)
   - **Wildcard**: Use `["*"]` to include all supported languages
-  - **Explicit**: Specify individual languages: `["go", "python", "javascript", "typescript", "java"]`
+  - **Explicit**: Specify individual languages: `["go", "python", "javascript", "typescript", "java", "rust"]`
   - **Validation**: Only supported languages allowed
 
 - **`background_index`** (boolean): Enable background cache optimization
@@ -164,7 +165,7 @@ MCP (Model Context Protocol) server mode automatically runs in enhanced mode wit
   - `max_memory_mb`: 512 MB
   - `ttl_hours`: 1 hour (for stable symbols)
   - `health_check_minutes`: 2 minutes
-  - `languages`: All 5 supported languages
+  - `languages`: All 6 supported languages
   - `background_index`: Always enabled
 
 ## Configuration Templates
@@ -176,7 +177,7 @@ Use provided templates as starting points:
 cp config-templates/multi-language-template.yaml config.yaml
 ```
 
-Complete setup with all 5 supported languages and comprehensive cache configuration.
+Complete setup with all 6 supported languages and comprehensive cache configuration.
 
 ### Single-Language Template
 ```bash
@@ -265,12 +266,14 @@ LSP Gateway automatically detects languages based on:
 - **JavaScript**: `.js`, `.jsx`
 - **TypeScript**: `.ts`, `.tsx`
 - **Java**: `.java`
+- **Rust**: `.rs`
 
 #### Project Files (Higher Confidence)
 - **Go**: `go.mod`, `go.sum`
 - **Python**: `setup.py`, `requirements.txt`, `pyproject.toml`
 - **JavaScript/TypeScript**: `package.json`, `tsconfig.json`
 - **Java**: `pom.xml`, `build.gradle`
+ - **Rust**: `Cargo.toml`, `Cargo.lock`
 
 #### Detection Priority
 1. **Go** (priority 4)

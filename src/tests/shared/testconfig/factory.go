@@ -45,6 +45,14 @@ func NewJavaServerConfig() *config.ServerConfig {
 	}
 }
 
+// NewRustServerConfig returns a standard Rust server configuration for testing
+func NewRustServerConfig() *config.ServerConfig {
+	return &config.ServerConfig{
+		Command: "rust-analyzer",
+		Args:    []string{},
+	}
+}
+
 // NewMultiLangConfig creates a configuration with the specified languages
 func NewMultiLangConfig(languages []string) *config.Config {
 	servers := make(map[string]*config.ServerConfig)
@@ -61,6 +69,8 @@ func NewMultiLangConfig(languages []string) *config.Config {
 			servers["javascript"] = NewJavaScriptServerConfig()
 		case "java":
 			servers["java"] = NewJavaServerConfig()
+		case "rust":
+			servers["rust"] = NewRustServerConfig()
 		}
 	}
 
@@ -69,7 +79,7 @@ func NewMultiLangConfig(languages []string) *config.Config {
 	}
 }
 
-// NewTestConfig creates a configuration with all 5 supported languages
+// NewTestConfig creates a configuration with all supported languages
 func NewTestConfig() *config.Config {
 	return NewMultiLangConfig(registry.GetLanguageNames())
 }

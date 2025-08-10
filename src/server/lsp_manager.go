@@ -738,6 +738,7 @@ func (m *LSPManager) detectPrimaryLanguage(workingDir string) string {
 		{[]string{"package.json"}, "javascript"},
 		{[]string{"pyproject.toml", "setup.py", "requirements.txt"}, "python"},
 		{[]string{"pom.xml", "build.gradle", "build.gradle.kts"}, "java"},
+		{[]string{"Cargo.toml", "Cargo.lock"}, "rust"},
 	}
 
 	for _, marker := range projectMarkers {
@@ -767,6 +768,8 @@ func (m *LSPManager) detectPrimaryLanguage(workingDir string) string {
 				langCounts["typescript"]++
 			case ".java":
 				langCounts["java"]++
+			case ".rs":
+				langCounts["rust"]++
 			}
 		}
 

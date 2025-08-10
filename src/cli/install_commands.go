@@ -97,6 +97,24 @@ func InstallLanguage(language, installPath, version string, force, offline bool)
 		return fmt.Errorf("failed to install %s: %w", language, err)
 	}
 
+	// Auto-update config with installed servers (writes to default config path)
+	updater := installer.NewConfigUpdater(manager)
+	var currentConfig *config.Config
+	// Try loading existing default config; fall back to default config template
+	if loaded, err := config.LoadConfig(config.GetDefaultConfigPath()); err == nil {
+		currentConfig = loaded
+	} else {
+		currentConfig = config.GetDefaultConfig()
+	}
+
+	if updated, err := updater.UpdateConfigWithInstalledServers(currentConfig); err == nil {
+		if err := updater.SaveUpdatedConfig(updated, config.GetDefaultConfigPath()); err != nil {
+			common.CLILogger.Warn("Failed to save updated config: %v", err)
+		}
+	} else {
+		common.CLILogger.Warn("Failed to update config with installed servers: %v", err)
+	}
+
 	common.CLILogger.Info("%s language server installation completed", language)
 	return nil
 }

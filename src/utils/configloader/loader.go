@@ -83,6 +83,24 @@ func autoDetectInstalledServers(cfg *config.Config) {
 					common.CLILogger.Info("Auto-detected installed jdtls at: %s", installedJdtlsPath)
 					javaServer.Command = installedJdtlsPath
 				}
+
+				// Rust auto-detection: if rust-analyzer not in PATH but rustup nightly has it,
+				// configure to use 'rustup run nightly rust-analyzer'
+				if rustServer, exists := cfg.Servers["rust"]; exists {
+					if rustServer.Command == "rust-analyzer" {
+						if _, err := exec.LookPath("rust-analyzer"); err != nil {
+							if _, err := exec.LookPath("rustup"); err == nil {
+								// Check if nightly rust-analyzer exists
+								cmd := exec.Command("rustup", "which", "--toolchain", "nightly", "rust-analyzer")
+								if out, err := cmd.CombinedOutput(); err == nil && len(out) > 0 {
+									common.CLILogger.Info("Auto-configured Rust to use 'rustup run nightly rust-analyzer'")
+									rustServer.Command = "rustup"
+									rustServer.Args = []string{"run", "nightly", "rust-analyzer"}
+								}
+							}
+						}
+					}
+				}
 			}
 		}
 	}

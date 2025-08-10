@@ -261,6 +261,10 @@ func GetDefaultConfig() *Config {
 				Command: "jdtls",
 				Args:    []string{},
 			},
+			"rust": {
+				Command: "rust-analyzer",
+				Args:    []string{},
+			},
 		},
 		// Cache is enabled by default with standard settings
 		Cache: GetDefaultCacheConfig(),

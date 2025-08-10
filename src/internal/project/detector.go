@@ -131,6 +131,10 @@ func analyzeFile(filePath, workingDir string, detected map[string]*DetectedLangu
 		addDetection(detected, "java", 30, "pom.xml file")
 	case "build.gradle", "build.gradle.kts":
 		addDetection(detected, "java", 25, "Gradle build file")
+	case "Cargo.toml":
+		addDetection(detected, "rust", 30, "Cargo.toml file")
+	case "Cargo.lock":
+		addDetection(detected, "rust", 15, "Cargo.lock file")
 	}
 }
 
@@ -369,6 +373,8 @@ func sortLanguagesByPriority(languages []string) {
 			priority[lang] = 1
 		case "java":
 			priority[lang] = 0
+		case "rust":
+			priority[lang] = 2
 		default:
 			priority[lang] = i // Use index as fallback priority
 		}

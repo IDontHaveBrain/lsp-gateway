@@ -19,6 +19,7 @@ var languageConfigs = []LanguageTestConfig{
 	{name: "javascript", displayName: "JavaScript"},
 	{name: "typescript", displayName: "TypeScript"},
 	{name: "java", displayName: "Java"},
+	{name: "rust", displayName: "Rust"},
 }
 
 // ComprehensiveE2ETestSuite tests all 6 supported LSP methods for all languages

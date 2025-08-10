@@ -108,6 +108,11 @@ func TestDetectLanguage(t *testing.T) {
 			expected: "java",
 		},
 		{
+			name:     "Rust file",
+			uri:      "file:///test/main.rs",
+			expected: "rust",
+		},
+		{
 			name:     "JSX file",
 			uri:      "file:///test/component.jsx",
 			expected: "javascript",
