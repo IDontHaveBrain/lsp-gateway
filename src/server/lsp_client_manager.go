@@ -86,8 +86,9 @@ func (c *StdioClient) Start(ctx context.Context) error {
 
 	// Use shared ClientConfig type
 	processConfig := types.ClientConfig{
-		Command: c.config.Command,
-		Args:    c.config.Args,
+		Command:    c.config.Command,
+		Args:       c.config.Args,
+		WorkingDir: c.config.WorkingDir,
 	}
 
 	// Start process using process manager
@@ -375,13 +376,19 @@ func (c *StdioClient) HandleNotification(method string, params interface{}) erro
 
 // initializeLSP sends the initialize request to start LSP communication
 func (c *StdioClient) initializeLSP(ctx context.Context) error {
-	// Use current working directory, but fallback to /tmp if needed
-	wd, err := os.Getwd()
-	if err != nil {
-		if runtime.GOOS == "windows" {
-			wd = "C:\\temp"
-		} else {
-			wd = "/tmp"
+	// Use configured working directory if specified, otherwise use current directory
+	var wd string
+	if c.config.WorkingDir != "" {
+		wd = c.config.WorkingDir
+	} else {
+		var err error
+		wd, err = os.Getwd()
+		if err != nil {
+			if runtime.GOOS == "windows" {
+				wd = "C:\\temp"
+			} else {
+				wd = "/tmp"
+			}
 		}
 	}
 
@@ -406,10 +413,7 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 				"name": filepath.Base(wd),
 			},
 		},
-		"initializationOptions": map[string]interface{}{
-			"usePlaceholders":    false,
-			"completeUnimported": true,
-		},
+		"initializationOptions": c.getInitializationOptions(),
 		"capabilities": map[string]interface{}{
 			"workspace": map[string]interface{}{
 				"applyEdit":              true,
@@ -509,6 +513,11 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 		common.LSPLogger.Warn("Failed to parse server capabilities for %s: %v", c.config.Command, err)
 		// Continue anyway - capability detection failure shouldn't prevent initialization
 	}
+	
+	// Log capabilities for rust-analyzer
+	if c.language == "rust" {
+		common.LSPLogger.Info("rust-analyzer capabilities: %s", string(result))
+	}
 
 	// Send initialized notification
 	if err := c.SendNotification(ctx, "initialized", map[string]interface{}{}); err != nil {
@@ -516,6 +525,42 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+// getInitializationOptions returns language-specific initialization options
+func (c *StdioClient) getInitializationOptions() map[string]interface{} {
+	// Language-specific initialization options
+	switch c.language {
+	case "rust":
+		// rust-analyzer specific options
+		return map[string]interface{}{
+			"cargo": map[string]interface{}{
+				"features": []string{},
+				"allFeatures": false,
+				"noDefaultFeatures": false,
+			},
+			"checkOnSave": map[string]interface{}{
+				"enable": true,
+				"command": "check",
+			},
+			"procMacro": map[string]interface{}{
+				"enable": true,
+			},
+			"inlayHints": map[string]interface{}{
+				"enable": true,
+			},
+		}
+	case "go":
+		return map[string]interface{}{
+			"usePlaceholders":    false,
+			"completeUnimported": true,
+		}
+	default:
+		return map[string]interface{}{
+			"usePlaceholders":    false,
+			"completeUnimported": true,
+		}
+	}
 }
 
 // parseServerCapabilities parses the server capabilities from initialize response

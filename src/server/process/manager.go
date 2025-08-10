@@ -53,8 +53,10 @@ func (pm *LSPProcessManager) StartProcess(config types.ClientConfig, language st
 	// Create command
 	cmd := exec.Command(config.Command, config.Args...)
 
-	// Use current working directory, but fallback to temp directory if needed
-	if wd, err := os.Getwd(); err == nil {
+	// Use configured working directory if specified, otherwise use current directory
+	if config.WorkingDir != "" {
+		cmd.Dir = config.WorkingDir
+	} else if wd, err := os.Getwd(); err == nil {
 		cmd.Dir = wd
 	} else {
 		if runtime.GOOS == "windows" {
@@ -62,6 +64,13 @@ func (pm *LSPProcessManager) StartProcess(config types.ClientConfig, language st
 		} else {
 			cmd.Dir = "/tmp"
 		}
+	}
+
+	// Set environment variables for rust-analyzer
+	cmd.Env = os.Environ()
+	if language == "rust" && config.WorkingDir != "" {
+		// Ensure rust-analyzer finds the Cargo.toml
+		cmd.Env = append(cmd.Env, "CARGO_MANIFEST_DIR="+config.WorkingDir)
 	}
 
 	// Create process info

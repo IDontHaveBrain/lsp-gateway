@@ -139,10 +139,10 @@ func GetTestRepositories() map[string]*TestRepository {
 			TestFiles: []TestFile{
 				{
 					Path:          "src/lib.rs",
-					DefinitionPos: Position{Line: 62, Character: 12}, // pub struct Buffer { .. } (0-based line)
-					ReferencePos:  Position{Line: 67, Character: 20}, // impl Default for Buffer { .. }
-					HoverPos:      Position{Line: 97, Character: 11}, // pub fn format<I: Integer>
-					CompletionPos: Position{Line: 89, Character: 8},  // inside Buffer::new()
+					DefinitionPos: Position{Line: 62, Character: 12},
+					ReferencePos:  Position{Line: 69, Character: 8},  // "Buffer::new()" usage in default impl
+					HoverPos:      Position{Line: 97, Character: 11},
+					CompletionPos: Position{Line: 89, Character: 8},
 					SymbolQuery:   "Buffer",
 				},
 			},

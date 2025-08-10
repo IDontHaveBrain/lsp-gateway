@@ -1,5 +1,7 @@
 package protocol
 
+import "encoding/json"
+
 // ResponseFactory provides a centralized way to create JSON-RPC responses
 // eliminating duplication and ensuring consistent response formatting
 type ResponseFactory struct{}
@@ -11,11 +13,19 @@ func NewResponseFactory() *ResponseFactory {
 
 // CreateSuccess creates a successful JSON-RPC response with result data
 func (rf *ResponseFactory) CreateSuccess(id interface{}, result interface{}) JSONRPCResponse {
-	return JSONRPCResponse{
-		JSONRPC: JSONRPCVersion,
-		ID:      id,
-		Result:  result,
-	}
+    // Ensure result field is always present (use explicit null when empty)
+    if result == nil {
+        result = json.RawMessage("null")
+    } else if raw, ok := result.(json.RawMessage); ok {
+        if len(raw) == 0 {
+            result = json.RawMessage("null")
+        }
+    }
+    return JSONRPCResponse{
+        JSONRPC: JSONRPCVersion,
+        ID:      id,
+        Result:  result,
+    }
 }
 
 // CreateError creates a JSON-RPC error response with custom error code and message

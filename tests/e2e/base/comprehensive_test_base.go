@@ -313,24 +313,34 @@ func (suite *ComprehensiveTestBaseSuite) startGatewayServer() error {
 	// Generate isolated config using cache isolation manager
 	servers := map[string]interface{}{
 		"go": map[string]interface{}{
-			"command": "gopls",
-			"args":    []string{"serve"},
+			"command":     "gopls",
+			"args":        []string{"serve"},
+			"working_dir": suite.repoDir,
 		},
 		"python": map[string]interface{}{
-			"command": "pylsp",
-			"args":    []string{},
+			"command":     "pylsp",
+			"args":        []string{},
+			"working_dir": suite.repoDir,
 		},
 		"javascript": map[string]interface{}{
-			"command": "typescript-language-server",
-			"args":    []string{"--stdio"},
+			"command":     "typescript-language-server",
+			"args":        []string{"--stdio"},
+			"working_dir": suite.repoDir,
 		},
 		"typescript": map[string]interface{}{
-			"command": "typescript-language-server",
-			"args":    []string{"--stdio"},
+			"command":     "typescript-language-server",
+			"args":        []string{"--stdio"},
+			"working_dir": suite.repoDir,
 		},
 		"java": map[string]interface{}{
-			"command": "~/.lsp-gateway/tools/java/bin/jdtls",
-			"args":    []string{},
+			"command":     "~/.lsp-gateway/tools/java/bin/jdtls",
+			"args":        []string{},
+			"working_dir": suite.repoDir,
+		},
+		"rust": map[string]interface{}{
+			"command":     "rust-analyzer",
+			"args":        []string{},
+			"working_dir": suite.repoDir,
 		},
 	}
 
