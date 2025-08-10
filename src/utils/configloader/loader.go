@@ -13,6 +13,7 @@ import (
 func LoadOrAuto(configPath string) *config.Config {
 	if configPath != "" {
 		if loaded, err := config.LoadConfig(configPath); err == nil {
+			common.CLILogger.Debug("Loaded config from path: %s (cache=%v)", configPath, loaded.Cache != nil)
 			return loaded
 		}
 	}
@@ -20,6 +21,7 @@ func LoadOrAuto(configPath string) *config.Config {
 	defaultPath := config.GetDefaultConfigPath()
 	if common.FileExists(defaultPath) {
 		if loaded, err := config.LoadConfig(defaultPath); err == nil {
+			common.CLILogger.Debug("Loaded config from default path: %s (cache=%v)", defaultPath, loaded.Cache != nil)
 			return loaded
 		}
 	}
@@ -27,6 +29,7 @@ func LoadOrAuto(configPath string) *config.Config {
 	wd, _ := os.Getwd()
 	auto := config.GenerateAutoConfig(wd, project.GetAvailableLanguages)
 	if auto != nil && len(auto.Servers) > 0 {
+		common.CLILogger.Debug("Using auto-generated config (cache=%v, servers=%d)", auto.Cache != nil, len(auto.Servers))
 		return auto
 	}
 

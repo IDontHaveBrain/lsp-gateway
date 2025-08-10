@@ -779,7 +779,7 @@ func (s *SimpleSCIPStorage) compileSearchPattern(pattern string) (*regexp.Regexp
 		// Pattern already has case-insensitive flag
 	} else {
 		// Add case-insensitive flag by default for better search experience
-		finalPattern = "(?i)" + regexp.QuoteMeta(pattern)
+		finalPattern = "(?i)" + pattern
 	}
 
 	return regexp.Compile(finalPattern)

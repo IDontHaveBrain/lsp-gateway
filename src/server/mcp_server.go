@@ -60,13 +60,13 @@ func NewMCPServer(cfg *config.Config) (*MCPServer, error) {
 
 // Start starts the MCP server with cache warming for optimal LLM performance
 func (m *MCPServer) Start() error {
-	cache := m.lspManager.GetCache()
-	// MCP server starting with cache optimization
-
 	// Start LSP manager (which handles SCIP cache startup internally)
 	if err := m.lspManager.Start(m.ctx); err != nil {
 		return fmt.Errorf("failed to start LSP manager: %w", err)
 	}
+
+	// Get cache AFTER starting LSP manager (cache is initialized during Start)
+	cache := m.lspManager.GetCache()
 
 	// Check cache status and perform indexing if needed
 	if cache != nil {
@@ -254,11 +254,11 @@ func (m *MCPServer) handleToolsList(req *MCPRequest) *MCPResponse {
         "properties": {
             "pattern": {
                 "type": "string",
-                "description": "Symbol name or regex pattern to search. Use (?i) prefix for case-insensitive. Examples: 'handleRequest', '(?i)test.*', '^get[A-Z]', 'process.*Event$'"
+                "description": "Symbol name or regex pattern. Supports: exact match ('Logger'), regex ('Log.*'), case-insensitive ('(?i)logger'), anchors ('^get'), OR ('getData|setData')"
             },
             "filePattern": {
                 "type": "string",
-                "description": "File filter using directory path, glob pattern, or regex. Examples: '.', 'src/', 'tests/unit/', '*.java', 'src/**/*.py', '(?i)test.*\\.js$', '**/internal/*.go'"
+                "description": "Glob pattern to filter files. Use '*.go' for Go files, 'src/**/*.py' for Python in src/, '**/*' for all files. NOT regex - use glob syntax only"
             },
             "maxResults": {
                 "type": "number",
@@ -277,11 +277,11 @@ func (m *MCPServer) handleToolsList(req *MCPRequest) *MCPResponse {
         "properties": {
             "pattern": {
                 "type": "string",
-                "description": "Symbol name or regex pattern to search. Use (?i) prefix for case-insensitive. Examples: 'handleRequest', '(?i)test.*', '^get[A-Z]', 'process.*Event$'"
+                "description": "Symbol name or regex pattern. Supports: exact match ('Logger'), regex ('Log.*'), case-insensitive ('(?i)logger'), anchors ('^get'), OR ('getData|setData')"
             },
             "filePattern": {
                 "type": "string",
-                "description": "File filter using directory path, glob pattern, or regex. Default: '**/*' (all files). Examples: '.', 'src/', 'tests/unit/', '*.java', 'src/**/*.py', '(?i)test.*\\.js$', '**/internal/*.go'"
+                "description": "Optional glob pattern to filter search scope. Default '**/*' searches all files. Use '*.go' for Go files, 'src/**/*.ts' for TypeScript in src/"
             },
             "maxResults": {
                 "type": "number",
@@ -294,12 +294,12 @@ func (m *MCPServer) handleToolsList(req *MCPRequest) *MCPResponse {
 	tools := []map[string]interface{}{
 		{
 			"name":        "findSymbols",
-			"description": "Find code symbols (functions, classes, variables) in specified files. Returns scored and ranked results matching your pattern.",
+			"description": "Search for symbol definitions (functions, classes, methods, variables) across the codebase. Use this to locate where symbols are defined/declared. Returns symbol name, location, and optionally source code.",
 			"inputSchema": findSymbolsSchema,
 		},
 		{
 			"name":        "findReferences",
-			"description": "Find all references to symbols matching a pattern in the codebase. Returns locations where matching symbols are used.",
+			"description": "Find all usage locations of symbols in the codebase. Use this to see where and how symbols are called/referenced. Returns file paths and line numbers where symbols are used.",
 			"inputSchema": findReferencesSchema,
 		},
 	}

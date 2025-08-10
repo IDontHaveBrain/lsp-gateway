@@ -105,6 +105,12 @@ func LoadConfig(path string) (*Config, error) {
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
+	// Ensure cache configuration exists with defaults if missing
+	if config.Cache == nil {
+		config.Cache = GetDefaultCacheConfig()
+		common.CLILogger.Debug("Added default cache configuration to loaded config")
+	}
+
 	return &config, nil
 }
 

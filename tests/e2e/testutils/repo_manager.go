@@ -140,7 +140,7 @@ func GetTestRepositories() map[string]*TestRepository {
 				{
 					Path:          "src/lib.rs",
 					DefinitionPos: Position{Line: 62, Character: 12},
-					ReferencePos:  Position{Line: 69, Character: 8},  // "Buffer::new()" usage in default impl
+					ReferencePos:  Position{Line: 69, Character: 8}, // "Buffer::new()" usage in default impl
 					HoverPos:      Position{Line: 97, Character: 11},
 					CompletionPos: Position{Line: 89, Character: 8},
 					SymbolQuery:   "Buffer",

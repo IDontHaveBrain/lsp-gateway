@@ -407,17 +407,17 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 		m.ensureDocumentOpen(client, uri, params)
 	}
 
-    result, err := m.sendRequestWithRetry(ctx, client, method, params, uri, language)
+	result, err := m.sendRequestWithRetry(ctx, client, method, params, uri, language)
 
-    // Normalize LSP results for better client/test compatibility
-    if err == nil {
-        // For textDocument/references, always return an array (not null)
-        if method == types.MethodTextDocumentReferences {
-            if len(result) == 0 || strings.TrimSpace(string(result)) == "null" {
-                result = json.RawMessage("[]")
-            }
-        }
-    }
+	// Normalize LSP results for better client/test compatibility
+	if err == nil {
+		// For textDocument/references, always return an array (not null)
+		if method == types.MethodTextDocumentReferences {
+			if len(result) == 0 || strings.TrimSpace(string(result)) == "null" {
+				result = json.RawMessage("[]")
+			}
+		}
+	}
 
 	// Cache the result and perform/schedule SCIP indexing if successful
 	if err == nil && m.scipCache != nil && m.isCacheableMethod(method) {

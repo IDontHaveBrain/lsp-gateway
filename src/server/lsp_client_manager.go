@@ -513,7 +513,7 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 		common.LSPLogger.Warn("Failed to parse server capabilities for %s: %v", c.config.Command, err)
 		// Continue anyway - capability detection failure shouldn't prevent initialization
 	}
-	
+
 	// Log capabilities for rust-analyzer
 	if c.language == "rust" {
 		common.LSPLogger.Info("rust-analyzer capabilities: %s", string(result))
@@ -535,12 +535,12 @@ func (c *StdioClient) getInitializationOptions() map[string]interface{} {
 		// rust-analyzer specific options
 		return map[string]interface{}{
 			"cargo": map[string]interface{}{
-				"features": []string{},
-				"allFeatures": false,
+				"features":          []string{},
+				"allFeatures":       false,
 				"noDefaultFeatures": false,
 			},
 			"checkOnSave": map[string]interface{}{
-				"enable": true,
+				"enable":  true,
 				"command": "check",
 			},
 			"procMacro": map[string]interface{}{

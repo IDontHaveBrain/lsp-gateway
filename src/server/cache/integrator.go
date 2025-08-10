@@ -25,6 +25,7 @@ func NewCacheIntegrator(cfg *config.Config, logger *common.SafeLogger) *CacheInt
 
 	// Try to create cache with unified config - graceful degradation if it fails
 	if cfg != nil && cfg.Cache != nil && cfg.Cache.Enabled {
+		logger.Debug("Creating SCIP cache manager (enabled=%v, path=%s)", cfg.Cache.Enabled, cfg.Cache.StoragePath)
 		scipCache, err := NewSCIPCacheManager(cfg.Cache)
 		if err != nil {
 			logger.Warn("Failed to create cache (continuing without cache): %v", err)
@@ -32,6 +33,12 @@ func NewCacheIntegrator(cfg *config.Config, logger *common.SafeLogger) *CacheInt
 			integrator.cache = scipCache
 			integrator.config = cfg.Cache
 			integrator.enabled = true
+			logger.Debug("SCIP cache manager created successfully")
+		}
+	} else {
+		logger.Debug("Cache not enabled or config missing (cfg=%v, cache=%v)", cfg != nil, cfg != nil && cfg.Cache != nil)
+		if cfg != nil && cfg.Cache != nil {
+			logger.Debug("Cache enabled flag: %v", cfg.Cache.Enabled)
 		}
 	}
 

@@ -1,6 +1,6 @@
 # LSP Gateway
 
-Language Server Protocol gateway providing HTTP and MCP interfaces to multiple language servers with SCIP caching.
+Language Server Protocol gateway with HTTP and MCP interfaces for 6 languages.
 
 ## Quick Start
 
@@ -22,9 +22,9 @@ curl localhost:8080/jsonrpc  # Test HTTP gateway
 ## Features
 
 - **Languages**: Go, Python, JavaScript, TypeScript, Java, Rust
-- **Dual Protocol**: HTTP Gateway (port 8080) + MCP Server (STDIO)
-- **Auto-detection**: Scans for go.mod, package.json, *.py, pom.xml
-- **SCIP Cache**: 512MB LRU cache, sub-millisecond lookups
+- **Protocols**: HTTP Gateway (port 8080) + MCP Server (STDIO)
+- **Auto-detection**: go.mod, package.json, *.py, pom.xml, Cargo.toml
+- **SCIP Cache**: 512MB LRU cache for sub-millisecond lookups
 - **LSP Methods**: definition, references, hover, documentSymbol, workspace/symbol, completion
 
 ## Commands
@@ -117,7 +117,7 @@ make quality-full           # Complete: format + vet + lint + security
 
 ## Configuration
 
-Auto-detects projects by scanning for: `go.mod`, `package.json`, `*.py`, `pom.xml`, `build.gradle`
+Auto-detects projects by scanning for: `go.mod`, `package.json`, `*.py`, `pom.xml`, `build.gradle`, `Cargo.toml`
 
 Optional config at `~/.lsp-gateway/config.yaml`:
 ```yaml
@@ -131,23 +131,18 @@ servers:
     args: ["serve"]
   python:
     command: "pylsp"
+  rust:
+    command: "rust-analyzer"
 ```
 
 ## Architecture
 
-```
-src/
-├── server/           # HTTP Gateway, MCP Server, LSP Manager
-├── cli/              # Command implementations
-├── internal/         # Core types, models, constants
-└── tests/            # Unit, integration, E2E tests
-```
-
-Key Components:
 - **LSP Manager**: Orchestrates language servers with SCIP cache
-- **HTTP Gateway**: JSON-RPC endpoint at `:8080/jsonrpc`
+- **HTTP Gateway**: JSON-RPC endpoint at `:8080/jsonrpc`  
 - **MCP Server**: STDIO protocol for AI assistants
 - **SCIP Cache**: 512MB LRU cache for sub-millisecond lookups
+
+See `src/` for implementation: `server/` (core services), `cli/` (commands), `internal/` (shared types), `tests/` (test suites)
 
 ## Troubleshooting
 
@@ -158,7 +153,7 @@ Key Components:
 | Debug mode | `export LSP_GATEWAY_DEBUG=true` |
 | Cache issues | `lsp-gateway cache clear` |
 | Check server status | `lsp-gateway status` |
-| Java timeout errors | Known issue - initialization takes 60s |
+| Java timeout errors | Java requires 90s initialization timeout |
 
 ## License
 

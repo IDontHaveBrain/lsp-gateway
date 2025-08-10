@@ -22,6 +22,24 @@ func IndexCache(configPath string) error {
 		return fmt.Errorf("failed to create LSP manager: %w", err)
 	}
 
+	// Get working directory
+	wd, err := common.ValidateAndGetWorkingDir("")
+	if err != nil {
+		common.CLILogger.Error("Failed to get working directory: %v", err)
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	// Start LSP manager to fetch document symbols (this also initializes the cache)
+	if err := manager.Start(ctx); err != nil {
+		common.CLILogger.Error("Failed to start LSP manager: %v", err)
+		return err
+	}
+	defer manager.Stop()
+
+	// Get cache AFTER starting LSP manager
 	cacheInstance := manager.GetCache()
 	_, err = clicommon.CheckCacheHealth(cacheInstance)
 	if err != nil {
@@ -30,24 +48,7 @@ func IndexCache(configPath string) error {
 
 	common.CLILogger.Info("Cache Index")
 	common.CLILogger.Info("Starting cache index rebuild...")
-
-	// Get working directory
-	wd, err := common.ValidateAndGetWorkingDir("")
-	if err != nil {
-		common.CLILogger.Error("Failed to get working directory: %v", err)
-		return err
-	}
 	common.CLILogger.Info("Scanning workspace: %s", wd)
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-
-	// Start LSP manager to fetch document symbols
-	if err := manager.Start(ctx); err != nil {
-		common.CLILogger.Error("Failed to start LSP manager: %v", err)
-		return err
-	}
-	defer manager.Stop()
 
 	// Wait for LSP servers to initialize
 	time.Sleep(2 * time.Second)
@@ -154,6 +155,16 @@ func ClearCache(configPath string) error {
 		return fmt.Errorf("failed to create LSP manager: %w", err)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Start LSP manager to initialize cache
+	if err := manager.Start(ctx); err != nil {
+		common.CLILogger.Error("Failed to start LSP manager: %v", err)
+		return err
+	}
+	defer manager.Stop()
+
 	cache := manager.GetCache()
 	_, err = clicommon.CheckCacheHealth(cache)
 	if err != nil {
@@ -182,6 +193,16 @@ func ShowCacheInfo(configPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create LSP manager: %w", err)
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Start LSP manager to initialize cache
+	if err := manager.Start(ctx); err != nil {
+		common.CLILogger.Error("Failed to start LSP manager: %v", err)
+		return err
+	}
+	defer manager.Stop()
 
 	cacheInstance := manager.GetCache()
 	metrics, err := clicommon.CheckCacheHealth(cacheInstance)
