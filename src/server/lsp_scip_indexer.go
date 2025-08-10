@@ -14,6 +14,8 @@ import (
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/scip"
 	"lsp-gateway/src/utils"
+    "lsp-gateway/src/utils/jsonutil"
+    "lsp-gateway/src/utils/lspconv"
 )
 
 // performSCIPIndexing performs SCIP indexing based on LSP method and response using occurrence-centric approach
@@ -273,15 +275,12 @@ func (m *LSPManager) indexWorkspaceSymbolsAsOccurrences(ctx context.Context, lan
 	switch v := result.(type) {
 	case []types.SymbolInformation:
 		symbols = v
-	case []interface{}:
-		for _, item := range v {
-			if data, err := json.Marshal(item); err == nil {
-				var symbol types.SymbolInformation
-				if err := json.Unmarshal(data, &symbol); err == nil && symbol.Name != "" {
-					symbols = append(symbols, symbol)
-				}
-			}
-		}
+    case []interface{}:
+        for _, item := range v {
+            if symbol, err := jsonutil.Convert[types.SymbolInformation](item); err == nil && symbol.Name != "" {
+                symbols = append(symbols, symbol)
+            }
+        }
 	default:
 	}
 
@@ -416,14 +415,11 @@ func (m *LSPManager) expandSymbolRanges(ctx context.Context, symbols []types.Sym
 	case []*lsp.DocumentSymbol:
 		fullRangeSymbols = v
 	case []interface{}:
-		for _, item := range v {
-			if data, err := json.Marshal(item); err == nil {
-				var docSymbol lsp.DocumentSymbol
-				if err := json.Unmarshal(data, &docSymbol); err == nil && docSymbol.Name != "" {
-					fullRangeSymbols = append(fullRangeSymbols, &docSymbol)
-				}
-			}
-		}
+        for _, item := range v {
+            if docSymbol, err := jsonutil.Convert[lsp.DocumentSymbol](item); err == nil && docSymbol.Name != "" {
+                fullRangeSymbols = append(fullRangeSymbols, &docSymbol)
+            }
+        }
 	}
 
 	// Create a map of symbol names to their full ranges (multiple per name)
@@ -540,94 +536,38 @@ func (m *LSPManager) parseSymbols(result interface{}, uri string) []types.Symbol
 func (m *LSPManager) parseSymbolsArray(items []interface{}, uri string) []types.SymbolInformation {
 	var symbols []types.SymbolInformation
 
-	for _, item := range items {
-		data, err := json.Marshal(item)
-		if err != nil {
-			continue
-		}
-
-		// Prefer DocumentSymbol to capture full range + selectionRange
-		var docSymbol lsp.DocumentSymbol
-		if err := json.Unmarshal(data, &docSymbol); err == nil && docSymbol.Name != "" {
-			symbolInfo := types.SymbolInformation{
-				Name: docSymbol.Name,
-				Kind: docSymbol.Kind,
-				Location: types.Location{
-					URI:   uri,
-					Range: docSymbol.Range,
-				},
-			}
-			symbolInfo.SelectionRange = &docSymbol.SelectionRange
-			symbols = append(symbols, symbolInfo)
-			continue
-		}
-
-		// Fallback: SymbolInformation format must include a valid location range
-		var symbol types.SymbolInformation
-		if err := json.Unmarshal(data, &symbol); err == nil && symbol.Name != "" {
-			// Ensure URI is set
-			if symbol.Location.URI == "" {
-				symbol.Location.URI = uri
-			}
-			// Accept only if range appears initialized (end >= start)
-			if symbol.Location.Range.End.Line > 0 || symbol.Location.Range.Start.Line > 0 || symbol.Location.Range.End.Character > 0 || symbol.Location.Range.Start.Character > 0 {
-				symbols = append(symbols, symbol)
-			} else {
-				// Skip invalid range entries
-				continue
-			}
-		}
-	}
+    for _, item := range items {
+        if docSymbol, err := jsonutil.Convert[lsp.DocumentSymbol](item); err == nil && docSymbol.Name != "" {
+            symbolInfo := types.SymbolInformation{
+                Name: docSymbol.Name,
+                Kind: docSymbol.Kind,
+                Location: types.Location{
+                    URI:   uri,
+                    Range: docSymbol.Range,
+                },
+            }
+            symbolInfo.SelectionRange = &docSymbol.SelectionRange
+            symbols = append(symbols, symbolInfo)
+            continue
+        }
+        if symbol, err := jsonutil.Convert[types.SymbolInformation](item); err == nil && symbol.Name != "" {
+            if symbol.Location.URI == "" {
+                symbol.Location.URI = uri
+            }
+            if symbol.Location.Range.End.Line > 0 || symbol.Location.Range.Start.Line > 0 || symbol.Location.Range.End.Character > 0 || symbol.Location.Range.Start.Character > 0 {
+                symbols = append(symbols, symbol)
+            } else {
+                continue
+            }
+        }
+    }
 
 	return symbols
 }
 
 // parseLocationResult parses location results from various response formats
 func (m *LSPManager) parseLocationResult(result interface{}) []types.Location {
-	switch v := result.(type) {
-	case nil:
-		return nil
-	case types.Location:
-		return []types.Location{v}
-	case []types.Location:
-		return v
-	case json.RawMessage:
-		// Handle json.RawMessage type (common in LSP responses)
-		var locations []types.Location
-		// First try to unmarshal directly as []types.Location
-		if err := json.Unmarshal(v, &locations); err == nil {
-			return locations
-		}
-		// If that fails, try as []interface{} and parse each item
-		var rawData []interface{}
-		if err := json.Unmarshal(v, &rawData); err == nil {
-			for _, item := range rawData {
-				if data, err := json.Marshal(item); err == nil {
-					var location types.Location
-					if err := json.Unmarshal(data, &location); err == nil && location.URI != "" {
-						locations = append(locations, location)
-					}
-				}
-			}
-		} else {
-			// Failed to unmarshal json.RawMessage in parseLocationResult
-		}
-		return locations
-	case []interface{}:
-		var locations []types.Location
-		for _, item := range v {
-			if data, err := json.Marshal(item); err == nil {
-				var location types.Location
-				if err := json.Unmarshal(data, &location); err == nil && location.URI != "" {
-					locations = append(locations, location)
-				}
-			}
-		}
-		return locations
-	default:
-		// Unexpected type in parseLocationResult
-		return nil
-	}
+    return lspconv.ParseLocations(result)
 }
 
 // extractPositionAndSymbolFromParams extracts position and symbol name from LSP params

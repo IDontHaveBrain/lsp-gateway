@@ -192,16 +192,9 @@ func (m *LSPManager) Start(ctx context.Context) error {
 					stats.SymbolCount, stats.ReferenceCount, stats.DocumentCount)
 			} else {
 				// Only index if cache is truly empty
-				go func() {
-					// Wait for LSP servers to fully initialize
-					delay := 3 * time.Second
-					if runtime.GOOS == "windows" {
-						delay = 12 * time.Second
-						if os.Getenv("CI") == "true" || os.Getenv("GITHUB_ACTIONS") == "true" {
-							delay = 20 * time.Second
-						}
-					}
-					time.Sleep(delay)
+            go func() {
+                // Wait for LSP servers to fully initialize
+                time.Sleep(constants.GetBackgroundIndexingDelay())
 
 					// Double-check cache status
 					recheckStats := cacheManager.GetIndexStats()
@@ -426,10 +419,7 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 
 		// For document symbols, index synchronously to ensure workspace indexing correctness
 		if method == types.MethodTextDocumentDocumentSymbol {
-			timeout := 12 * time.Second
-			if runtime.GOOS == "windows" {
-				timeout = time.Duration(float64(timeout) * 1.5)
-			}
+            timeout := constants.AdjustDurationForWindows(12*time.Second, 1.5)
 			idxCtx, cancel := common.CreateContext(timeout)
 			defer cancel()
 			m.performSCIPIndexing(idxCtx, method, uri, language, params, result)
@@ -462,9 +452,7 @@ func (m *LSPManager) scheduleIndexing(method, uri, language string, params, resu
 		case types.MethodTextDocumentDefinition, types.MethodTextDocumentCompletion, types.MethodTextDocumentHover:
 			timeout = 10 * time.Second
 		}
-		if runtime.GOOS == "windows" {
-			timeout = time.Duration(float64(timeout) * 1.5)
-		}
+        timeout = constants.AdjustDurationForWindows(timeout, 1.5)
 
 		idxCtx, cancel := common.CreateContext(timeout)
 		defer cancel()

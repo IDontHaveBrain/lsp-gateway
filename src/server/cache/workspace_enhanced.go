@@ -3,7 +3,6 @@ package cache
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -353,39 +352,11 @@ func (w *WorkspaceIndexer) getReferencesForSymbolInOpenFile(ctx context.Context,
 }
 
 func (w *WorkspaceIndexer) parseLocationResponse(result interface{}) ([]types.Location, error) {
-	locations := []types.Location{}
-
-	switch refs := result.(type) {
-	case json.RawMessage:
-		var refArray []interface{}
-		if err := json.Unmarshal(refs, &refArray); err == nil {
-			for _, ref := range refArray {
-				if refData, err := json.Marshal(ref); err == nil {
-					var loc types.Location
-					if err := json.Unmarshal(refData, &loc); err == nil {
-						locations = append(locations, loc)
-					}
-				}
-			}
-		}
-	case []interface{}:
-		for _, ref := range refs {
-			if refMap, ok := ref.(map[string]interface{}); ok {
-				loc := types.Location{}
-				if uri, ok := refMap["uri"].(string); ok {
-					loc.URI = uri
-				}
-				if rangeData, ok := refMap["range"].(map[string]interface{}); ok {
-					loc.Range = w.parseRange(rangeData)
-				}
-				locations = append(locations, loc)
-			}
-		}
-	case []types.Location:
-		locations = refs
-	}
-
-	return locations, nil
+    locs := lspconv.ParseLocations(result)
+    if locs == nil {
+        return []types.Location{}, nil
+    }
+    return locs, nil
 }
 
 func (w *WorkspaceIndexer) parseRange(rangeData map[string]interface{}) types.Range {

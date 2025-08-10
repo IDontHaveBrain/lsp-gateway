@@ -8,10 +8,10 @@ import (
 
     "go.lsp.dev/protocol"
     "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/constants"
     "lsp-gateway/src/internal/registry"
     "lsp-gateway/src/internal/types"
     "lsp-gateway/src/utils"
-    "runtime"
 )
 
 // DocumentManager interface for document-related operations
@@ -119,17 +119,8 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 		}
 		_ = client.SendNotification(context.Background(), "workspace/didChangeWorkspaceFolders", changeParams)
 
-		// Apply language-aware workspace folder synchronization delay
-		if runtime.GOOS == "windows" {
-			// Java LSP already has long initialization times, reduce synchronization overhead
-			if language == "java" {
-				time.Sleep(150 * time.Millisecond)
-			} else {
-				time.Sleep(700 * time.Millisecond)
-			}
-		} else {
-			time.Sleep(150 * time.Millisecond)
-		}
+        // Apply language-aware workspace folder synchronization delay
+        time.Sleep(constants.GetWorkspaceFolderSyncDelay(language))
 
 		if data, err := common.SafeReadFile(filePath); err == nil {
 			fileContent = string(data)
@@ -157,17 +148,8 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 		return common.WrapProcessingError("failed to send didOpen notification", err)
 	}
 
-	// Apply language-aware document analysis delay
-	if runtime.GOOS == "windows" {
-		// Java LSP handles its own internal synchronization, reduce external delays
-		if language == "java" {
-			time.Sleep(200 * time.Millisecond)
-		} else {
-			time.Sleep(1200 * time.Millisecond)
-		}
-	} else {
-		time.Sleep(400 * time.Millisecond)
-	}
+    // Apply language-aware document analysis delay
+    time.Sleep(constants.GetDocumentAnalysisDelay(language))
 
 	return nil
 }
