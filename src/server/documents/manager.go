@@ -103,31 +103,15 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 	var fileContent string
 	language := dm.DetectLanguage(uri)
 
-	// Extract file path from URI
-	if strings.HasPrefix(uri, "file://") {
-		filePath := utils.URIToFilePath(uri)
-		// Ensure the file's directory is part of the workspace folders for servers like gopls
-		dir := filepath.Dir(filePath)
-		wsURI := utils.FilePathToURI(dir)
-		changeParams := map[string]interface{}{
-			"event": map[string]interface{}{
-				"added": []map[string]interface{}{
-					{"uri": wsURI, "name": filepath.Base(dir)},
-				},
-				"removed": []map[string]interface{}{},
-			},
-		}
-		_ = client.SendNotification(context.Background(), "workspace/didChangeWorkspaceFolders", changeParams)
-
-        // Apply language-aware workspace folder synchronization delay
-        time.Sleep(constants.GetWorkspaceFolderSyncDelay(language))
-
-		if data, err := common.SafeReadFile(filePath); err == nil {
-			fileContent = string(data)
-		} else {
-			common.LSPLogger.Error("Failed to read file content for %s: %v", uri, err)
-			fileContent = ""
-		}
+    // Extract file path from URI
+    if strings.HasPrefix(uri, "file://") {
+        filePath := utils.URIToFilePath(uri)
+        if data, err := common.SafeReadFile(filePath); err == nil {
+            fileContent = string(data)
+        } else {
+            common.LSPLogger.Error("Failed to read file content for %s: %v", uri, err)
+            fileContent = ""
+        }
 	} else {
 		common.LSPLogger.Warn("URI does not start with file://: %s", uri)
 	}
