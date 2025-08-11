@@ -15,6 +15,7 @@ import (
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/utils"
+	"lsp-gateway/tests/e2e/testutils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -310,8 +311,10 @@ func NewFunction%d() {
 			}(i)
 		}
 
-		// Let the test run for a while
-		time.Sleep(5 * time.Second)
+		// Let the test run for a while - use context-based wait instead of sleep
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		<-ctx.Done()
 
 		// Stop all workers
 		close(stopReaders)
@@ -532,7 +535,13 @@ func (c *ConsistencyTest) Method2() int {
 		require.NoError(t, err)
 
 		// Allow time for initialization
-		time.Sleep(100 * time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		predicate := func() bool {
+			return lspManager2 != nil // Manager initialized
+		}
+		err = testutils.WaitUntil(ctx, 50*time.Millisecond, 1*time.Second, predicate)
+		require.NoError(t, err, "Manager initialization timeout")
 
 		// Query symbols for version 2
 		ctx2, cancel2 := context.WithTimeout(ctx, 5*time.Second)

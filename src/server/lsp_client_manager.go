@@ -4,17 +4,21 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
+	"lsp-gateway/src/internal/registry"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/capabilities"
 	"lsp-gateway/src/server/errors"
@@ -230,9 +234,29 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 	c.writeMu.Unlock()
 	if writeErr != nil {
 		// If we get connection errors, mark client as inactive
-		if strings.Contains(writeErr.Error(), "broken pipe") ||
-			strings.Contains(writeErr.Error(), "write: connection reset by peer") ||
-			strings.Contains(writeErr.Error(), "EOF") {
+		isConnectionError := false
+
+		// Check for broken pipe
+		if stderrors.Is(writeErr, syscall.EPIPE) || stderrors.Is(writeErr, io.ErrClosedPipe) {
+			isConnectionError = true
+		}
+
+		// Check for connection reset errors
+		var opErr *net.OpError
+		if stderrors.As(writeErr, &opErr) {
+			if syscallErr, ok := opErr.Err.(*os.SyscallError); ok {
+				if syscallErr.Err == syscall.ECONNRESET {
+					isConnectionError = true
+				}
+			}
+		}
+
+		// Check for EOF errors
+		if stderrors.Is(writeErr, io.EOF) {
+			isConnectionError = true
+		}
+
+		if isConnectionError {
 			c.mu.Lock()
 			c.active = false
 			c.mu.Unlock()
@@ -249,7 +273,7 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 		timeoutDuration = c.getInitializeTimeout()
 	}
 
-    ctx, cancel := common.WithTimeout(ctx, timeoutDuration)
+	ctx, cancel := common.WithTimeout(ctx, timeoutDuration)
 	defer cancel()
 
 	select {
@@ -344,9 +368,9 @@ func (c *StdioClient) HandleResponse(id interface{}, result json.RawMessage, err
 		if err != nil {
 			errorData, _ := json.Marshal(err)
 			responseData = errorData
-			sanitizedError := common.SanitizeErrorForLogging(err)
-			// Suppress "no identifier found" warnings during indexing as they are expected
-			if !strings.Contains(sanitizedError, "no identifier found") {
+			// Suppress expected errors during indexing operations
+			if !protocol.IsExpectedSuppressibleError(err) {
+				sanitizedError := common.SanitizeErrorForLogging(err)
 				common.LSPLogger.Warn("LSP response contains error: id=%s, error=%s", idStr, sanitizedError)
 			}
 		} else {
@@ -529,38 +553,15 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 
 // getInitializationOptions returns language-specific initialization options
 func (c *StdioClient) getInitializationOptions() map[string]interface{} {
-	// Language-specific initialization options
-	switch c.language {
-	case "rust":
-		// rust-analyzer specific options
-		return map[string]interface{}{
-			"cargo": map[string]interface{}{
-				"features":          []string{},
-				"allFeatures":       false,
-				"noDefaultFeatures": false,
-			},
-			"checkOnSave": map[string]interface{}{
-				"enable":  true,
-				"command": "check",
-			},
-			"procMacro": map[string]interface{}{
-				"enable": true,
-			},
-			"inlayHints": map[string]interface{}{
-				"enable": true,
-			},
-		}
-	case "go":
-		return map[string]interface{}{
-			"usePlaceholders":    false,
-			"completeUnimported": true,
-		}
-	default:
+	langInfo, exists := registry.GetLanguageByName(c.language)
+	if !exists {
+		common.LSPLogger.Warn("Unknown language %s, using default initialization options", c.language)
 		return map[string]interface{}{
 			"usePlaceholders":    false,
 			"completeUnimported": true,
 		}
 	}
+	return langInfo.GetInitOptions()
 }
 
 // parseServerCapabilities parses the server capabilities from initialize response

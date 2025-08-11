@@ -2,7 +2,14 @@ package registry
 
 import (
 	"fmt"
+	"time"
 )
+
+// ErrorPattern defines an error pattern with associated suggestion message
+type ErrorPattern struct {
+	Pattern string // Error pattern to match (can be regex)
+	Message string // Suggestion message for this error
+}
 
 // LanguageInfo contains comprehensive information about a supported language
 type LanguageInfo struct {
@@ -11,6 +18,13 @@ type LanguageInfo struct {
 	DefaultCommand    string   // Default LSP server command
 	DefaultArgs       []string // Default arguments for the LSP server
 	InstallerRequired bool     // Whether installer is required for this language
+
+	// Configuration fields
+	InitializationOptions map[string]interface{} // LSP initialization options
+	RequestTimeout        time.Duration          // Request timeout duration
+	InitializeTimeout     time.Duration          // Initialize timeout duration
+	EnvironmentVars       map[string]string      // Environment variables to set
+	ErrorPatterns         []ErrorPattern         // Error patterns and suggestions
 }
 
 // Global language registry containing all supported languages
@@ -21,6 +35,14 @@ var languageRegistry = map[string]LanguageInfo{
 		DefaultCommand:    "gopls",
 		DefaultArgs:       []string{"serve"},
 		InstallerRequired: true,
+		InitializationOptions: map[string]interface{}{
+			"usePlaceholders":    false,
+			"completeUnimported": true,
+		},
+		RequestTimeout:    15 * time.Second,
+		InitializeTimeout: 15 * time.Second,
+		EnvironmentVars:   map[string]string{},
+		ErrorPatterns:     []ErrorPattern{},
 	},
 	"python": {
 		Name:              "python",
@@ -28,6 +50,23 @@ var languageRegistry = map[string]LanguageInfo{
 		DefaultCommand:    "pylsp",
 		DefaultArgs:       []string{},
 		InstallerRequired: true,
+		InitializationOptions: map[string]interface{}{
+			"usePlaceholders":    false,
+			"completeUnimported": true,
+		},
+		RequestTimeout:    30 * time.Second,
+		InitializeTimeout: 30 * time.Second,
+		EnvironmentVars:   map[string]string{},
+		ErrorPatterns: []ErrorPattern{
+			{
+				Pattern: "workspace/symbol",
+				Message: "Ensure 'pylsp' is installed via 'pip install python-lsp-server' for better workspace symbol support.",
+			},
+			{
+				Pattern: "semanticTokens",
+				Message: "Ensure 'pylsp' is installed via 'pip install python-lsp-server' for semantic token support.",
+			},
+		},
 	},
 	"javascript": {
 		Name:              "javascript",
@@ -35,6 +74,14 @@ var languageRegistry = map[string]LanguageInfo{
 		DefaultCommand:    "typescript-language-server",
 		DefaultArgs:       []string{"--stdio"},
 		InstallerRequired: true,
+		InitializationOptions: map[string]interface{}{
+			"usePlaceholders":    false,
+			"completeUnimported": true,
+		},
+		RequestTimeout:    15 * time.Second,
+		InitializeTimeout: 15 * time.Second,
+		EnvironmentVars:   map[string]string{},
+		ErrorPatterns:     []ErrorPattern{},
 	},
 	"typescript": {
 		Name:              "typescript",
@@ -42,6 +89,14 @@ var languageRegistry = map[string]LanguageInfo{
 		DefaultCommand:    "typescript-language-server",
 		DefaultArgs:       []string{"--stdio"},
 		InstallerRequired: true,
+		InitializationOptions: map[string]interface{}{
+			"usePlaceholders":    false,
+			"completeUnimported": true,
+		},
+		RequestTimeout:    15 * time.Second,
+		InitializeTimeout: 15 * time.Second,
+		EnvironmentVars:   map[string]string{},
+		ErrorPatterns:     []ErrorPattern{},
 	},
 	"java": {
 		Name:              "java",
@@ -49,6 +104,14 @@ var languageRegistry = map[string]LanguageInfo{
 		DefaultCommand:    "jdtls",
 		DefaultArgs:       []string{},
 		InstallerRequired: true,
+		InitializationOptions: map[string]interface{}{
+			"usePlaceholders":    false,
+			"completeUnimported": true,
+		},
+		RequestTimeout:    90 * time.Second,
+		InitializeTimeout: 90 * time.Second,
+		EnvironmentVars:   map[string]string{},
+		ErrorPatterns:     []ErrorPattern{},
 	},
 	"rust": {
 		Name:              "rust",
@@ -56,6 +119,29 @@ var languageRegistry = map[string]LanguageInfo{
 		DefaultCommand:    "rust-analyzer",
 		DefaultArgs:       []string{},
 		InstallerRequired: true,
+		InitializationOptions: map[string]interface{}{
+			"cargo": map[string]interface{}{
+				"features":          []string{},
+				"allFeatures":       false,
+				"noDefaultFeatures": false,
+			},
+			"checkOnSave": map[string]interface{}{
+				"enable":  true,
+				"command": "check",
+			},
+			"procMacro": map[string]interface{}{
+				"enable": true,
+			},
+			"inlayHints": map[string]interface{}{
+				"enable": true,
+			},
+		},
+		RequestTimeout:    15 * time.Second,
+		InitializeTimeout: 15 * time.Second,
+		EnvironmentVars: map[string]string{
+			"CARGO_MANIFEST_DIR": "${workingDir}",
+		},
+		ErrorPatterns: []ErrorPattern{},
 	},
 }
 
@@ -224,4 +310,67 @@ func ValidateExtension(ext string) error {
 		return fmt.Errorf("unsupported extension: %s (supported: %v)", ext, GetAllExtensions())
 	}
 	return nil
+}
+
+// Helper methods for accessing language configurations
+
+// GetInitOptions returns the initialization options for this language
+func (l *LanguageInfo) GetInitOptions() map[string]interface{} {
+	if l.InitializationOptions == nil {
+		return map[string]interface{}{}
+	}
+	// Return a copy to prevent modification
+	result := make(map[string]interface{})
+	for k, v := range l.InitializationOptions {
+		result[k] = v
+	}
+	return result
+}
+
+// GetTimeouts returns the request and initialize timeout durations for this language
+func (l *LanguageInfo) GetTimeouts() (requestTimeout time.Duration, initializeTimeout time.Duration) {
+	return l.RequestTimeout, l.InitializeTimeout
+}
+
+// GetEnvironment returns the environment variables for this language
+func (l *LanguageInfo) GetEnvironment() map[string]string {
+	if l.EnvironmentVars == nil {
+		return map[string]string{}
+	}
+	// Return a copy to prevent modification
+	result := make(map[string]string)
+	for k, v := range l.EnvironmentVars {
+		result[k] = v
+	}
+	return result
+}
+
+// GetEnvironmentWithWorkingDir returns environment variables with workingDir substituted
+func (l *LanguageInfo) GetEnvironmentWithWorkingDir(workingDir string) map[string]string {
+	envVars := l.GetEnvironment()
+	if workingDir == "" {
+		return envVars
+	}
+
+	// Substitute ${workingDir} template
+	result := make(map[string]string)
+	for k, v := range envVars {
+		if v == "${workingDir}" {
+			result[k] = workingDir
+		} else {
+			result[k] = v
+		}
+	}
+	return result
+}
+
+// GetErrorPatterns returns the error patterns for this language
+func (l *LanguageInfo) GetErrorPatterns() []ErrorPattern {
+	if l.ErrorPatterns == nil {
+		return []ErrorPattern{}
+	}
+	// Return a copy to prevent modification
+	result := make([]ErrorPattern, len(l.ErrorPatterns))
+	copy(result, l.ErrorPatterns)
+	return result
 }

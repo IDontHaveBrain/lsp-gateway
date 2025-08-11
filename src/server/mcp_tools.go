@@ -10,7 +10,6 @@ import (
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/types"
-	"lsp-gateway/src/server/protocol"
 	"lsp-gateway/src/server/scip"
 	"lsp-gateway/src/utils"
 	"lsp-gateway/src/utils/lspconv"
@@ -24,28 +23,14 @@ import (
 func (m *MCPServer) delegateToolCall(req *MCPRequest) *MCPResponse {
 	params, ok := req.Params.(map[string]interface{})
 	if !ok {
-		return &MCPResponse{
-			JSONRPC: "2.0",
-			ID:      req.ID,
-			Error: &MCPError{
-				Code:    protocol.InvalidParams,
-				Message: "Invalid params: expected object",
-				Data:    map[string]interface{}{"received": fmt.Sprintf("%T", req.Params)},
-			},
-		}
+		response := m.responseFactory.CreateInvalidParams(req.ID, fmt.Sprintf("expected object, got %T", req.Params))
+		return &response
 	}
 
 	name, ok := params["name"].(string)
 	if !ok {
-		return &MCPResponse{
-			JSONRPC: "2.0",
-			ID:      req.ID,
-			Error: &MCPError{
-				Code:    protocol.InvalidParams,
-				Message: "Missing required parameter: name",
-				Data:    map[string]interface{}{"parameter": "name"},
-			},
-		}
+		response := m.responseFactory.CreateInvalidParams(req.ID, "missing required parameter: name")
+		return &response
 	}
 
 	// MCP server only handles enhanced tools, not basic LSP methods
@@ -59,34 +44,17 @@ func (m *MCPServer) delegateToolCall(req *MCPRequest) *MCPResponse {
 	case "findReferences":
 		result, err = m.handleFindSymbolReferences(params)
 	default:
-		return &MCPResponse{
-			JSONRPC: "2.0",
-			ID:      req.ID,
-			Error: &MCPError{
-				Code:    protocol.MethodNotFound,
-				Message: fmt.Sprintf("Tool not found: %s", name),
-				Data:    map[string]interface{}{"tool": name},
-			},
-		}
+		response := m.responseFactory.CreateMethodNotFound(req.ID, fmt.Sprintf("tool not found: %s", name))
+		return &response
 	}
 
 	if err != nil {
-		return &MCPResponse{
-			JSONRPC: "2.0",
-			ID:      req.ID,
-			Error: &MCPError{
-				Code:    protocol.InternalError,
-				Message: err.Error(),
-				Data:    map[string]interface{}{"tool": name},
-			},
-		}
+		response := m.responseFactory.CreateInternalError(req.ID, err)
+		return &response
 	}
 
-	return &MCPResponse{
-		JSONRPC: "2.0",
-		ID:      req.ID,
-		Result:  result,
-	}
+	response := m.responseFactory.CreateSuccess(req.ID, result)
+	return &response
 }
 
 // =============================================================================
@@ -157,14 +125,14 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 					if occ, ok := enhancedData["occurrence"].(*scip.SCIPOccurrence); ok {
 						occurrence = occ
 					}
-                // Also try to extract a plain range if provided
-                if r, ok := enhancedData["range"].(types.Range); ok {
-                    rng = r
-                } else if rmap, ok := enhancedData["range"].(map[string]interface{}); ok {
-                    if pr, ok := lspconv.ParseRangeFromMap(rmap); ok {
-                        rng = pr
-                    }
-                }
+					// Also try to extract a plain range if provided
+					if r, ok := enhancedData["range"].(types.Range); ok {
+						rng = r
+					} else if rmap, ok := enhancedData["range"].(map[string]interface{}); ok {
+						if pr, ok := lspconv.ParseRangeFromMap(rmap); ok {
+							rng = pr
+						}
+					}
 
 					// Extract file path and range from occurrence/range
 					filePath := ""
@@ -226,18 +194,18 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 						documentation = strings.Join(symbolInfo.Documentation, "\n")
 					}
 
-                    // Create enhanced symbol info
-                    enhanced := types.EnhancedSymbolInfo{
-                        SymbolInformation: types.SymbolInformation{
-                            Name: symbolInfo.DisplayName,
-                            Kind: lspKind,
-                            Location: types.Location{
-                                URI: utils.FilePathToURI(filePath),
-                                Range: types.Range{
-                                    Start: types.Position{Line: int32(lineNumber), Character: 0},
-                                    End:   types.Position{Line: int32(endLine), Character: 0},
-                                },
-                            },
+					// Create enhanced symbol info
+					enhanced := types.EnhancedSymbolInfo{
+						SymbolInformation: types.SymbolInformation{
+							Name: symbolInfo.DisplayName,
+							Kind: lspKind,
+							Location: types.Location{
+								URI: utils.FilePathToURI(filePath),
+								Range: types.Range{
+									Start: types.Position{Line: int32(lineNumber), Character: 0},
+									End:   types.Position{Line: int32(endLine), Character: 0},
+								},
+							},
 						},
 						FilePath:      filePath,
 						LineNumber:    lineNumber,
@@ -327,7 +295,7 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 					if filePath == "" {
 						continue
 					}
-                    uri := utils.FilePathToURI(filePath)
+					uri := utils.FilePathToURI(filePath)
 
 					enhanced := types.EnhancedSymbolInfo{
 						SymbolInformation: types.SymbolInformation{

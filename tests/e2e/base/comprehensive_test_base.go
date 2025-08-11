@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"lsp-gateway/tests/e2e/testutils"
+	"lsp-gateway/tests/shared"
 
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -409,28 +410,34 @@ func (suite *ComprehensiveTestBaseSuite) waitForServerReady() error {
 		suite.T().Logf("Warning: Failed to record server startup state: %v", err)
 	}
 
-	for i := 0; i < 30; i++ { // Wait up to 30 seconds
-		if err := testutils.QuickConnectivityCheck(healthURL); err == nil {
-			// Health endpoint is responding, now check if LSP clients are active
-			if suite.checkLSPClientsActive(healthURL) {
-				// Record ready state
-				if err := suite.cacheIsolationMgr.RecordCacheState(healthURL, "SERVER_READY"); err != nil {
-					suite.T().Logf("Warning: Failed to record server ready state: %v", err)
-				}
+	// Use polling to wait for server readiness
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-				// Wait for cache stabilization
-				if err := suite.cacheIsolationMgr.WaitForCacheStabilization(healthURL, 15*time.Second); err != nil {
-					suite.T().Logf("Warning: Cache stabilization timeout: %v", err)
-				}
-
-				suite.T().Logf("✅ Server and LSP clients are ready after %d seconds", i+1)
-				return nil
-			}
+	predicate := func() bool {
+		if err := testutils.QuickConnectivityCheck(healthURL); err != nil {
+			return false
 		}
-		time.Sleep(1 * time.Second)
+		// Health endpoint is responding, now check if LSP clients are active
+		return suite.checkLSPClientsActive(healthURL)
 	}
 
-	return fmt.Errorf("server did not become ready within 30 seconds")
+	if err := testutils.WaitUntil(ctx, 1*time.Second, 30*time.Second, predicate); err != nil {
+		return fmt.Errorf("server did not become ready within 30 seconds: %w", err)
+	}
+
+	// Record ready state
+	if err := suite.cacheIsolationMgr.RecordCacheState(healthURL, "SERVER_READY"); err != nil {
+		suite.T().Logf("Warning: Failed to record server ready state: %v", err)
+	}
+
+	// Wait for cache stabilization
+	if err := suite.cacheIsolationMgr.WaitForCacheStabilization(healthURL, 15*time.Second); err != nil {
+		suite.T().Logf("Warning: Cache stabilization timeout: %v", err)
+	}
+
+	suite.T().Logf("✅ Server and LSP clients are ready")
+	return nil
 }
 
 // checkLSPClientsActive checks if required LSP clients are active and cache is working
@@ -568,6 +575,16 @@ func (suite *ComprehensiveTestBaseSuite) validateCachePerformance() {
 	}
 }
 
+// requestToMap converts a JSONRPCRequest struct to map[string]interface{}
+func (suite *ComprehensiveTestBaseSuite) requestToMap(req *shared.JSONRPCRequest) map[string]interface{} {
+	return map[string]interface{}{
+		"jsonrpc": req.JSONRPC,
+		"method":  req.Method,
+		"params":  req.Params,
+		"id":      req.ID,
+	}
+}
+
 // makeJSONRPCRequest makes a raw JSON-RPC request to the LSP gateway
 func (suite *ComprehensiveTestBaseSuite) makeJSONRPCRequest(ctx context.Context, httpClient *testutils.HttpClient, request map[string]interface{}) (map[string]interface{}, error) {
 	return httpClient.MakeRawJSONRPCRequest(ctx, request)
@@ -607,20 +624,7 @@ func (suite *ComprehensiveTestBaseSuite) TestDefinitionComprehensive() {
 		// Continue anyway, the request might still work
 	}
 
-	definitionRequest := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "textDocument/definition",
-		"params": map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri": fileURI,
-			},
-			"position": map[string]interface{}{
-				"line":      testFile.DefinitionPos.Line,
-				"character": testFile.DefinitionPos.Character,
-			},
-		},
-	}
+	definitionRequest := suite.requestToMap(shared.CreateDefinitionRequest(fileURI, testFile.DefinitionPos.Line, testFile.DefinitionPos.Character, 1))
 
 	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
@@ -669,25 +673,12 @@ func (suite *ComprehensiveTestBaseSuite) TestReferencesComprehensive() {
 	testFile, err := suite.repoManager.GetTestFile(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get test file")
 
-	time.Sleep(5 * time.Second)
+	// Wait for LSP server to be ready
+	ctx := context.Background()
+	err = testutils.WaitForLSPReady(ctx, httpClient, suite.Config.Language)
+	require.NoError(suite.T(), err, "Failed to wait for LSP server to be ready")
 
-	referencesRequest := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "textDocument/references",
-		"params": map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri": fileURI,
-			},
-			"position": map[string]interface{}{
-				"line":      testFile.ReferencePos.Line,
-				"character": testFile.ReferencePos.Character,
-			},
-			"context": map[string]interface{}{
-				"includeDeclaration": true,
-			},
-		},
-	}
+	referencesRequest := suite.requestToMap(shared.CreateReferencesRequest(fileURI, testFile.ReferencePos.Line, testFile.ReferencePos.Character, true, 1))
 
 	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
@@ -738,23 +729,12 @@ func (suite *ComprehensiveTestBaseSuite) TestHoverComprehensive() {
 
 	// Give LSP server time to initialize
 	suite.T().Logf("Waiting for LSP server to fully initialize...")
-	time.Sleep(5 * time.Second)
+	ctx := context.Background()
+	err = testutils.WaitForLSPReady(ctx, httpClient, suite.Config.Language)
+	require.NoError(suite.T(), err, "Failed to wait for LSP server to be ready")
 
 	// Test hover request
-	hoverRequest := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "textDocument/hover",
-		"params": map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri": fileURI,
-			},
-			"position": map[string]interface{}{
-				"line":      testFile.HoverPos.Line,
-				"character": testFile.HoverPos.Character,
-			},
-		},
-	}
+	hoverRequest := suite.requestToMap(shared.CreateHoverRequest(fileURI, testFile.HoverPos.Line, testFile.HoverPos.Character, 1))
 
 	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
@@ -803,18 +783,12 @@ func (suite *ComprehensiveTestBaseSuite) TestDocumentSymbolComprehensive() {
 	fileURI, err := suite.repoManager.GetFileURI(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get file URI")
 
-	time.Sleep(5 * time.Second)
+	// Wait for LSP server to be ready
+	ctx := context.Background()
+	err = testutils.WaitForLSPReady(ctx, httpClient, suite.Config.Language)
+	require.NoError(suite.T(), err, "Failed to wait for LSP server to be ready")
 
-	documentSymbolRequest := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "textDocument/documentSymbol",
-		"params": map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri": fileURI,
-			},
-		},
-	}
+	documentSymbolRequest := suite.requestToMap(shared.CreateDocumentSymbolRequest(fileURI, 1))
 
 	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
@@ -855,16 +829,12 @@ func (suite *ComprehensiveTestBaseSuite) TestWorkspaceSymbolComprehensive() {
 	testFile, err := suite.repoManager.GetTestFile(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get test file")
 
-	time.Sleep(5 * time.Second)
+	// Wait for LSP server to be ready
+	ctx := context.Background()
+	err = testutils.WaitForLSPReady(ctx, httpClient, suite.Config.Language)
+	require.NoError(suite.T(), err, "Failed to wait for LSP server to be ready")
 
-	workspaceSymbolRequest := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "workspace/symbol",
-		"params": map[string]interface{}{
-			"query": testFile.SymbolQuery,
-		},
-	}
+	workspaceSymbolRequest := suite.requestToMap(shared.CreateWorkspaceSymbolRequest(testFile.SymbolQuery, 1))
 
 	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
@@ -925,22 +895,12 @@ func (suite *ComprehensiveTestBaseSuite) TestCompletionComprehensive() {
 	testFile, err := suite.repoManager.GetTestFile(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get test file")
 
-	time.Sleep(5 * time.Second)
+	// Wait for LSP server to be ready
+	ctx := context.Background()
+	err = testutils.WaitForLSPReady(ctx, httpClient, suite.Config.Language)
+	require.NoError(suite.T(), err, "Failed to wait for LSP server to be ready")
 
-	completionRequest := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "textDocument/completion",
-		"params": map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri": fileURI,
-			},
-			"position": map[string]interface{}{
-				"line":      testFile.CompletionPos.Line,
-				"character": testFile.CompletionPos.Character,
-			},
-		},
-	}
+	completionRequest := suite.requestToMap(shared.CreateCompletionRequest(fileURI, testFile.CompletionPos.Line, testFile.CompletionPos.Character, 1))
 
 	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()

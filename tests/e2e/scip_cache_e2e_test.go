@@ -12,6 +12,7 @@ import (
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/utils"
+	"lsp-gateway/tests/e2e/testutils"
 
 	"github.com/stretchr/testify/suite"
 )
@@ -159,11 +160,17 @@ func (suite *SCIPCacheE2ETestSuite) SetupTest() {
 	err = suite.manager.Start(ctx)
 	suite.Require().NoError(err)
 
-	if runtime.GOOS == "windows" {
-		time.Sleep(5 * time.Second)
-	} else {
-		time.Sleep(2 * time.Second)
+	// Wait for LSP manager to be ready with platform-specific timing
+	waitDuration := testutils.PlatformAdjustedWait(2 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), waitDuration*2)
+	defer cancel()
+
+	predicate := func() bool {
+		return suite.manager != nil // Manager is ready when not nil and started
 	}
+
+	err = testutils.WaitUntil(ctx, 100*time.Millisecond, waitDuration, predicate)
+	suite.Require().NoError(err, "LSP manager failed to become ready")
 }
 
 func (suite *SCIPCacheE2ETestSuite) TearDownTest() {
@@ -197,7 +204,14 @@ func (suite *SCIPCacheE2ETestSuite) TestCacheStoreAndRetrieve() {
 	suite.Require().NoError(err)
 	suite.Require().NotNil(result1)
 
-	time.Sleep(100 * time.Millisecond)
+	// Brief wait for cache operations to complete
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel2()
+	cachePredicate := func() bool {
+		return suite.scipCache != nil // Cache is ready
+	}
+	err = testutils.WaitUntil(ctx2, 50*time.Millisecond, 1*time.Second, cachePredicate)
+	suite.Require().NoError(err)
 
 	result2, err := suite.manager.ProcessRequest(ctx, "textDocument/definition", definitionParams)
 	suite.Require().NoError(err)
@@ -335,9 +349,14 @@ func (suite *SCIPCacheE2ETestSuite) TestWorkspaceSymbolCache() {
 	ctx := context.Background()
 
 	// On Windows, give gopls more time to initialize workspace
-	if runtime.GOOS == "windows" {
-		time.Sleep(3 * time.Second)
+	waitDuration := testutils.PlatformAdjustedWait(1500 * time.Millisecond)
+	ctx3, cancel3 := context.WithTimeout(context.Background(), waitDuration*2)
+	defer cancel3()
+	goplsPredicate := func() bool {
+		return suite.manager != nil // Gopls initialization complete
 	}
+	err = testutils.WaitUntil(ctx3, 200*time.Millisecond, waitDuration, goplsPredicate)
+	suite.Require().NoError(err, "Gopls failed to initialize within timeout")
 
 	// First, ensure gopls can see our test files
 	testFileUri := utils.FilePathToURI(filepath.Join(suite.testProjectDir, "main.go"))
@@ -352,7 +371,13 @@ func (suite *SCIPCacheE2ETestSuite) TestWorkspaceSymbolCache() {
 	if err != nil || docResult == nil {
 		suite.T().Logf("Warning: gopls may not be ready, documentSymbol returned error: %v", err)
 		// Give more time for gopls to initialize
-		time.Sleep(2 * time.Second)
+		ctx4, cancel4 := context.WithTimeout(context.Background(), 4*time.Second)
+		defer cancel4()
+		goplsRetryPredicate := func() bool {
+			_, retryErr := suite.manager.ProcessRequest(ctx, "textDocument/documentSymbol", documentParams)
+			return retryErr == nil
+		}
+		_ = testutils.WaitUntil(ctx4, 500*time.Millisecond, 3*time.Second, goplsRetryPredicate)
 	}
 
 	workspaceParams := map[string]interface{}{
@@ -363,7 +388,14 @@ func (suite *SCIPCacheE2ETestSuite) TestWorkspaceSymbolCache() {
 	suite.Require().NoError(err, "workspace/symbol should not return error")
 	suite.Require().NotNil(result1, "workspace/symbol should return non-nil result")
 
-	time.Sleep(100 * time.Millisecond)
+	// Brief wait for workspace symbol cache operations
+	ctx5, cancel5 := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel5()
+	workspacePredicate := func() bool {
+		return suite.scipCache != nil // Workspace symbols cached
+	}
+	err = testutils.WaitUntil(ctx5, 50*time.Millisecond, 1*time.Second, workspacePredicate)
+	suite.Require().NoError(err)
 
 	result2, err := suite.manager.ProcessRequest(ctx, "workspace/symbol", workspaceParams)
 	suite.Require().NoError(err)

@@ -4,7 +4,9 @@
 package process
 
 import (
-	"strings"
+	"errors"
+	"os"
+	"syscall"
 	"time"
 
 	"lsp-gateway/src/internal/common"
@@ -59,10 +61,33 @@ func (pm *LSPProcessManager) StopProcess(info *ProcessInfo, sender ShutdownSende
 			// Debug level for intentional stops, warn for unexpected
 			common.LSPLogger.Debug("LSP server %s did not exit within %v, force killing", info.Language, constants.ProcessShutdownTimeout)
 			if err := info.Cmd.Process.Kill(); err != nil {
-				// Ignore errors if process already exited
-				if !strings.Contains(err.Error(), "process already finished") &&
-					!strings.Contains(err.Error(), "no child processes") &&
-					!strings.Contains(err.Error(), "no such process") {
+				// Ignore errors if process already exited using proper error type checking
+				isExpectedError := false
+
+				// Check for "no such process" error (ESRCH)
+				if errors.Is(err, syscall.ESRCH) {
+					isExpectedError = true
+				}
+
+				// Check for "no child processes" error (ECHILD)
+				if errors.Is(err, syscall.ECHILD) {
+					isExpectedError = true
+				}
+
+				// Check for os.ErrProcessDone (process already finished)
+				if errors.Is(err, os.ErrProcessDone) {
+					isExpectedError = true
+				}
+
+				// Check for syscall errors in wrapped form
+				var errno syscall.Errno
+				if errors.As(err, &errno) {
+					if errno == syscall.ESRCH || errno == syscall.ECHILD {
+						isExpectedError = true
+					}
+				}
+
+				if !isExpectedError {
 					common.LSPLogger.Debug("Failed to kill LSP server %s: %v", info.Language, err)
 				}
 			}

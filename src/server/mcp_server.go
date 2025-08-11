@@ -20,9 +20,10 @@ import (
 // MCPServer provides Model Context Protocol bridge to LSP functionality
 // Always uses SCIP cache for maximum LLM query performance
 type MCPServer struct {
-	lspManager *LSPManager
-	ctx        context.Context
-	cancel     context.CancelFunc
+	lspManager      *LSPManager
+	responseFactory *protocol.ResponseFactory
+	ctx             context.Context
+	cancel          context.CancelFunc
 	// Always operates in enhanced mode
 }
 
@@ -52,9 +53,10 @@ func NewMCPServer(cfg *config.Config) (*MCPServer, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &MCPServer{
-		lspManager: lspManager,
-		ctx:        ctx,
-		cancel:     cancel,
+		lspManager:      lspManager,
+		responseFactory: protocol.NewResponseFactory(),
+		ctx:             ctx,
+		cancel:          cancel,
 	}, nil
 }
 
@@ -131,6 +133,9 @@ func (m *MCPServer) Run(input io.Reader, output io.Writer) error {
 
 	// Use line-based I/O as required by MCP STDIO transport spec
 	scanner := bufio.NewScanner(input)
+	// Configure scanner buffer: 64KB initial, 4MB max - prevents large request failures
+	// This matches LSP buffer configuration approach but with larger limits for MCP payloads
+	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024) // 64KB initial, 4MB max
 
 	for scanner.Scan() {
 		select {
@@ -175,6 +180,12 @@ func (m *MCPServer) Run(input io.Reader, output io.Writer) error {
 
 // handleRequest processes MCP requests
 func (m *MCPServer) handleRequest(req *MCPRequest) *MCPResponse {
+	// Validate JSON-RPC version to match HTTP gateway behavior
+	if req.JSONRPC != "2.0" {
+		response := m.responseFactory.CreateInvalidRequest(req.ID, "jsonrpc must be 2.0")
+		return &response
+	}
+
 	switch req.Method {
 	case "initialize":
 		return m.handleInitialize(req)
@@ -183,15 +194,8 @@ func (m *MCPServer) handleRequest(req *MCPRequest) *MCPResponse {
 	case "tools/call":
 		return m.delegateToolCall(req)
 	default:
-		return &MCPResponse{
-			JSONRPC: "2.0",
-			ID:      req.ID,
-			Error: &MCPError{
-				Code:    protocol.MethodNotFound,
-				Message: fmt.Sprintf("method not found: %s", req.Method),
-				Data:    map[string]interface{}{"method": req.Method},
-			},
-		}
+		response := m.responseFactory.CreateMethodNotFound(req.ID, fmt.Sprintf("method not found: %s", req.Method))
+		return &response
 	}
 }
 
@@ -217,32 +221,31 @@ func (m *MCPServer) handleInitialize(req *MCPRequest) *MCPResponse {
 		cacheInfo["fallback"] = "direct_LSP"
 	}
 
-	return &MCPResponse{
-		JSONRPC: "2.0",
-		ID:      req.ID,
-		Result: map[string]interface{}{
-			"protocolVersion": "2025-06-18",
-			"capabilities": map[string]interface{}{
-				"tools": map[string]interface{}{
-					"listChanged": true,
-				},
-				"logging": map[string]interface{}{},
+	result := map[string]interface{}{
+		"protocolVersion": "2025-06-18",
+		"capabilities": map[string]interface{}{
+			"tools": map[string]interface{}{
+				"listChanged": true,
 			},
-			"serverInfo": map[string]interface{}{
-				"name":    "lsp-gateway-mcp-cached",
-				"version": versionpkg.GetVersion(),
-				"title":   "LSP Gateway MCP Server (SCIP Cache Enabled)",
-			},
-			"_meta": map[string]interface{}{
-				"lsp-gateway": map[string]interface{}{
-					"supportedLanguages": config.GetAllSupportedLanguages(),
-					"lspFeatures":        []string{"definition", "references", "hover", "documentSymbol", "workspaceSymbol", "completion"},
-					"cache":              cacheInfo,
-					"performance_target": "sub_millisecond_cached_responses",
-				},
+			"logging": map[string]interface{}{},
+		},
+		"serverInfo": map[string]interface{}{
+			"name":    "lsp-gateway-mcp-cached",
+			"version": versionpkg.GetVersion(),
+			"title":   "LSP Gateway MCP Server (SCIP Cache Enabled)",
+		},
+		"_meta": map[string]interface{}{
+			"lsp-gateway": map[string]interface{}{
+				"supportedLanguages": config.GetAllSupportedLanguages(),
+				"lspFeatures":        []string{"definition", "references", "hover", "documentSymbol", "workspaceSymbol", "completion"},
+				"cache":              cacheInfo,
+				"performance_target": "sub_millisecond_cached_responses",
 			},
 		},
 	}
+
+	response := m.responseFactory.CreateSuccess(req.ID, result)
+	return &response
 }
 
 // handleToolsList returns available enhanced tools (no basic LSP tools)
@@ -304,13 +307,12 @@ func (m *MCPServer) handleToolsList(req *MCPRequest) *MCPResponse {
 		},
 	}
 
-	return &MCPResponse{
-		JSONRPC: "2.0",
-		ID:      req.ID,
-		Result: map[string]interface{}{
-			"tools": tools,
-		},
+	result := map[string]interface{}{
+		"tools": tools,
 	}
+
+	response := m.responseFactory.CreateSuccess(req.ID, result)
+	return &response
 }
 
 // RunMCPServer starts an MCP server with the specified configuration

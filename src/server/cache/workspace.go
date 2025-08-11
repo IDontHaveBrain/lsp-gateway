@@ -1,17 +1,17 @@
 package cache
 
 import (
-    "context"
-    "fmt"
-    "os"
-    "path/filepath"
-    "strings"
-    "sync"
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
 
-    "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/constants"
-    "lsp-gateway/src/internal/types"
-    "lsp-gateway/src/utils"
+	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/constants"
+	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/utils"
 )
 
 // WorkspaceIndexer provides common workspace file scanning and indexing functionality
@@ -74,8 +74,8 @@ func (w *WorkspaceIndexer) indexWorkspaceFilesCore(ctx context.Context, workspac
 	failedFiles := []string{}
 	common.LSPLogger.Debug("Workspace indexer: Starting to process %d files", len(files))
 
-    // Determine worker count based on environment and project type
-    workers := computeWorkers(hasJavaInLangs(languages))
+	// Determine worker count based on environment and project type
+	workers := computeWorkers(hasJavaInLangs(languages))
 	var mu sync.Mutex
 	jobs := make(chan int, workers)
 	total := len(files)
@@ -97,12 +97,12 @@ func (w *WorkspaceIndexer) indexWorkspaceFilesCore(ctx context.Context, workspac
 					mu.Unlock()
 					continue
 				}
-                uri := utils.FilePathToURI(absPath)
-                // Use shared context to avoid missing indexes due to per-file timeouts
-                fctx, cancel := context.WithCancel(ctx)
-                params := map[string]interface{}{
-                    "textDocument": map[string]interface{}{
-                        "uri": uri,
+				uri := utils.FilePathToURI(absPath)
+				// Use shared context to avoid missing indexes due to per-file timeouts
+				fctx, cancel := context.WithCancel(ctx)
+				params := map[string]interface{}{
+					"textDocument": map[string]interface{}{
+						"uri": uri,
 					},
 				}
 				result, err := w.lspFallback.ProcessRequest(fctx, types.MethodTextDocumentDocumentSymbol, params)
@@ -235,8 +235,8 @@ func (w *WorkspaceIndexer) IndexSpecificFiles(ctx context.Context, files []strin
 	indexedCount := 0
 	failedFiles := []string{}
 
-    // Determine worker count based on environment and file types
-    workers := computeWorkers(hasJavaInFiles(files))
+	// Determine worker count based on environment and file types
+	workers := computeWorkers(hasJavaInFiles(files))
 
 	var mu sync.Mutex
 	jobs := make(chan int, workers)
@@ -260,11 +260,11 @@ func (w *WorkspaceIndexer) IndexSpecificFiles(ctx context.Context, files []strin
 					continue
 				}
 
-                uri := utils.FilePathToURI(absPath)
-                fctx, cancel := context.WithCancel(ctx)
-                params := map[string]interface{}{
-                    "textDocument": map[string]interface{}{
-                        "uri": uri,
+				uri := utils.FilePathToURI(absPath)
+				fctx, cancel := context.WithCancel(ctx)
+				params := map[string]interface{}{
+					"textDocument": map[string]interface{}{
+						"uri": uri,
 					},
 				}
 

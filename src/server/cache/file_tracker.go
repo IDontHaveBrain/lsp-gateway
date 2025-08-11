@@ -1,16 +1,16 @@
 package cache
 
 import (
-    "context"
-    "encoding/json"
-    "fmt"
-    "os"
-    "path/filepath"
-    "sync"
-    "time"
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
 
-    "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/utils"
+	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/utils"
 )
 
 // FileMetadata stores metadata about indexed files
@@ -76,7 +76,7 @@ func (t *FileChangeTracker) IsFileChanged(path string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-    uri := utils.FilePathToURI(absPath)
+	uri := utils.FilePathToURI(absPath)
 
 	t.mu.RLock()
 	defer t.mu.RUnlock()
@@ -117,7 +117,7 @@ func (t *FileChangeTracker) GetChangedFiles(ctx context.Context, files []string)
 			continue
 		}
 
-        uri := utils.FilePathToURI(absPath)
+		uri := utils.FilePathToURI(absPath)
 
 		t.mu.RLock()
 		meta, exists := t.metadata[uri]
@@ -168,8 +168,8 @@ func (t *FileChangeTracker) RemoveFileMetadata(uris []string) {
 
 // SaveToFile persists metadata to a JSON file
 func (t *FileChangeTracker) SaveToFile(path string) error {
-	t.mu.RLock()
-	defer t.mu.RUnlock()
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
 	if !t.dirty {
 		return nil // No changes to save

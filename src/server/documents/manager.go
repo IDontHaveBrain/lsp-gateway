@@ -1,17 +1,17 @@
 package documents
 
 import (
-    "context"
-    "path/filepath"
-    "strings"
-    "time"
+	"context"
+	"path/filepath"
+	"strings"
+	"time"
 
-    "go.lsp.dev/protocol"
-    "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/constants"
-    "lsp-gateway/src/internal/registry"
-    "lsp-gateway/src/internal/types"
-    "lsp-gateway/src/utils"
+	"go.lsp.dev/protocol"
+	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/constants"
+	"lsp-gateway/src/internal/registry"
+	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/utils"
 )
 
 // DocumentManager interface for document-related operations
@@ -33,12 +33,12 @@ func NewLSPDocumentManager() *LSPDocumentManager {
 
 // DetectLanguage detects the programming language from a file URI
 func (dm *LSPDocumentManager) DetectLanguage(uri string) string {
-    path := utils.URIToFilePath(uri)
-    ext := strings.ToLower(filepath.Ext(path))
-    if lang, ok := registry.GetLanguageByExtension(ext); ok {
-        return lang.Name
-    }
-    return ""
+	path := utils.URIToFilePath(uri)
+	ext := strings.ToLower(filepath.Ext(path))
+	if lang, ok := registry.GetLanguageByExtension(ext); ok {
+		return lang.Name
+	}
+	return ""
 }
 
 // ExtractURI extracts the file URI from request parameters
@@ -103,15 +103,15 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 	var fileContent string
 	language := dm.DetectLanguage(uri)
 
-    // Extract file path from URI
-    if strings.HasPrefix(uri, "file://") {
-        filePath := utils.URIToFilePath(uri)
-        if data, err := common.SafeReadFile(filePath); err == nil {
-            fileContent = string(data)
-        } else {
-            common.LSPLogger.Error("Failed to read file content for %s: %v", uri, err)
-            fileContent = ""
-        }
+	// Extract file path from URI
+	if strings.HasPrefix(uri, "file://") {
+		filePath := utils.URIToFilePath(uri)
+		if data, err := common.SafeReadFile(filePath); err == nil {
+			fileContent = string(data)
+		} else {
+			common.LSPLogger.Error("Failed to read file content for %s: %v", uri, err)
+			fileContent = ""
+		}
 	} else {
 		common.LSPLogger.Warn("URI does not start with file://: %s", uri)
 	}
@@ -132,8 +132,8 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 		return common.WrapProcessingError("failed to send didOpen notification", err)
 	}
 
-    // Apply language-aware document analysis delay
-    time.Sleep(constants.GetDocumentAnalysisDelay(language))
+	// Apply language-aware document analysis delay
+	time.Sleep(constants.GetDocumentAnalysisDelay(language))
 
 	return nil
 }

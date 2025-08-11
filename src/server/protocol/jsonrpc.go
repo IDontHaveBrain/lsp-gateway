@@ -10,6 +10,7 @@ import (
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
+	"lsp-gateway/src/internal/errors"
 )
 
 // JSON-RPC protocol constants
@@ -186,9 +187,9 @@ func (p *LSPJSONRPCProtocol) HandleMessage(data []byte, messageHandler MessageHa
 
 		if msg.Error != nil {
 			rpcError = msg.Error
-			sanitizedError := common.SanitizeErrorForLogging(msg.Error)
-			// Suppress "no identifier found" warnings during indexing as they are expected
-			if !strings.Contains(sanitizedError, "no identifier found") {
+			// Suppress expected errors during indexing operations
+			if !IsExpectedSuppressibleError(rpcError) {
+				sanitizedError := common.SanitizeErrorForLogging(msg.Error)
 				common.LSPLogger.Warn("LSP response contains error: id=%v, error=%s", msg.ID, sanitizedError)
 			}
 		} else if msg.Result != nil {
@@ -261,4 +262,172 @@ func NewMethodNotFoundError(data interface{}) *RPCError {
 // NewInternalError creates an internal error (-32603)
 func NewInternalError(data interface{}) *RPCError {
 	return NewRPCError(InternalError, "Internal error", data)
+}
+
+// IsExpectedSuppressibleError checks if an error should be suppressed based on its structure and message
+func IsExpectedSuppressibleError(err interface{}) bool {
+	if err == nil {
+		return false
+	}
+
+	// Handle RPCError types
+	if rpcErr, ok := err.(*RPCError); ok {
+		return isRPCErrorSuppressible(rpcErr)
+	}
+
+	// Handle regular errors by checking error message
+	if regularErr, ok := err.(error); ok {
+		return isErrorMessageSuppressible(regularErr.Error())
+	}
+
+	// Handle any other types by converting to string
+	errMsg := fmt.Sprintf("%v", err)
+	return isErrorMessageSuppressible(errMsg)
+}
+
+// isRPCErrorSuppressible checks if an RPCError should be suppressed
+func isRPCErrorSuppressible(rpcError *RPCError) bool {
+	if rpcError == nil {
+		return false
+	}
+	return isErrorMessageSuppressible(rpcError.Message)
+}
+
+// isErrorMessageSuppressible checks if an error message contains suppression patterns
+func isErrorMessageSuppressible(message string) bool {
+	msg := strings.ToLower(message)
+
+	// Common patterns to suppress during indexing operations
+	suppressPatterns := []string{
+		"no identifier found",
+		"identifier not found",
+		"symbol not found",
+		"no symbol at position",
+		"position out of range",
+		"bad line number",
+		"line number",
+	}
+
+	for _, pattern := range suppressPatterns {
+		if strings.Contains(msg, pattern) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// Unified error system integration functions
+
+// NewUnifiedRPCError creates an RPCError from a unified error
+func NewUnifiedRPCError(err error) *RPCError {
+	if err == nil {
+		return nil
+	}
+
+	// Handle unified error types
+	if lspErr, ok := err.(*errors.LSPError); ok {
+		return &RPCError{
+			Code:    lspErr.Code,
+			Message: lspErr.Message,
+			Data:    lspErr.Data,
+		}
+	}
+
+	if valErr, ok := err.(*errors.ValidationError); ok {
+		return NewRPCError(InvalidParams, valErr.Error(), map[string]string{
+			"parameter": valErr.Parameter,
+		})
+	}
+
+	if connErr, ok := err.(*errors.ConnectionError); ok {
+		return NewRPCError(errors.ConnectionFailure, connErr.Error(), map[string]string{
+			"language": connErr.Language,
+			"type":     connErr.Type,
+		})
+	}
+
+	if timeoutErr, ok := err.(*errors.TimeoutError); ok {
+		return NewRPCError(errors.OperationTimeout, timeoutErr.Error(), map[string]string{
+			"operation": timeoutErr.Operation,
+			"language":  timeoutErr.Language,
+		})
+	}
+
+	if methodErr, ok := err.(*errors.MethodNotSupportedError); ok {
+		return NewRPCError(MethodNotFound, methodErr.Error(), map[string]string{
+			"server":     methodErr.Server,
+			"method":     methodErr.Method,
+			"suggestion": methodErr.Suggestion,
+		})
+	}
+
+	if procErr, ok := err.(*errors.ProcessError); ok {
+		var code int
+		switch procErr.Type {
+		case "start":
+			code = errors.ProcessStartFailure
+		case "stop":
+			code = errors.ProcessStopFailure
+		default:
+			code = errors.CommunicationError
+		}
+		return NewRPCError(code, procErr.Error(), map[string]string{
+			"language": procErr.Language,
+			"command":  procErr.Command,
+			"type":     procErr.Type,
+		})
+	}
+
+	// Default to internal error for unknown types
+	return NewInternalError(err.Error())
+}
+
+// CreateUnifiedErrorResponse creates a JSON-RPC error response from a unified error
+func CreateUnifiedErrorResponse(id interface{}, err error) JSONRPCMessage {
+	rpcError := NewUnifiedRPCError(err)
+	return CreateResponse(id, nil, rpcError)
+}
+
+// NewValidationRPCError creates an RPCError for parameter validation failures
+func NewValidationRPCError(parameter, message string) *RPCError {
+	return NewRPCError(InvalidParams,
+		fmt.Sprintf("Invalid parameter '%s': %s", parameter, message),
+		map[string]string{"parameter": parameter})
+}
+
+// NewConnectionRPCError creates an RPCError for connection failures
+func NewConnectionRPCError(language string, cause error) *RPCError {
+	message := fmt.Sprintf("Connection failed to %s server", language)
+	if cause != nil {
+		message = fmt.Sprintf("%s: %v", message, cause)
+	}
+	return NewRPCError(errors.ConnectionFailure, message, map[string]string{
+		"language": language,
+	})
+}
+
+// NewTimeoutRPCError creates an RPCError for timeout errors
+func NewTimeoutRPCError(operation, language string) *RPCError {
+	message := fmt.Sprintf("Operation timeout: %s", operation)
+	if language != "" {
+		message = fmt.Sprintf("%s (language: %s)", message, language)
+	}
+	return NewRPCError(errors.OperationTimeout, message, map[string]string{
+		"operation": operation,
+		"language":  language,
+	})
+}
+
+// IsUnifiedError checks if an error is from the unified error system
+func IsUnifiedError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return errors.IsConnectionError(err) ||
+		errors.IsValidationError(err) ||
+		errors.IsTimeoutError(err) ||
+		errors.IsMethodNotSupportedError(err) ||
+		errors.IsProcessError(err)
 }

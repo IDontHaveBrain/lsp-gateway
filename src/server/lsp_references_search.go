@@ -1,20 +1,20 @@
 package server
 
 import (
-    "context"
-    "fmt"
-    "os"
-    "path/filepath"
-    "sort"
-    "strings"
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 
-    "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/types"
-    "lsp-gateway/src/server/cache"
-    "lsp-gateway/src/server/scip"
-    "lsp-gateway/src/utils"
-    "lsp-gateway/src/utils/lspconv"
-    "lsp-gateway/src/utils/filepattern"
+	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/server/cache"
+	"lsp-gateway/src/server/scip"
+	"lsp-gateway/src/utils"
+	"lsp-gateway/src/utils/filepattern"
+	"lsp-gateway/src/utils/lspconv"
 )
 
 // SymbolReferenceQuery defines parameters for searching symbol references
@@ -336,83 +336,83 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 			"query": query.Pattern,
 		}
 
-        if wsResult, wsErr := m.ProcessRequest(ctx, "workspace/symbol", wsParams); wsErr == nil && wsResult != nil {
-            symbolInfos := lspconv.ParseWorkspaceSymbols(wsResult)
+		if wsResult, wsErr := m.ProcessRequest(ctx, "workspace/symbol", wsParams); wsErr == nil && wsResult != nil {
+			symbolInfos := lspconv.ParseWorkspaceSymbols(wsResult)
 
 			// For each symbol found, try to get references from its location
 			// Limit the number of LSP requests to avoid overwhelming the server
 			maxLSPRequests := 5
 			lspRequestCount := 0
 
-            for _, si := range symbolInfos {
-                // Stop making LSP requests if we've hit the limit
-                if lspRequestCount >= maxLSPRequests {
-                    break
-                }
+			for _, si := range symbolInfos {
+				// Stop making LSP requests if we've hit the limit
+				if lspRequestCount >= maxLSPRequests {
+					break
+				}
 
-                if si.Location.URI != "" {
-                    filePath := utils.URIToFilePath(si.Location.URI)
-                    if filePath != "" && m.matchesFilePattern(filePath, query.FilePattern) {
-                        refInfo := ReferenceInfo{
-                            FilePath:     filePath,
-                            LineNumber:   int(si.Location.Range.Start.Line),
-                            Column:       int(si.Location.Range.Start.Character),
-                            IsDefinition: false,
-                            IsReadAccess: true,
-                        }
-                        isDuplicate := false
-                        for _, existing := range references {
-                            if existing.FilePath == refInfo.FilePath && existing.LineNumber == refInfo.LineNumber && existing.Column == refInfo.Column {
-                                isDuplicate = true
-                                break
-                            }
-                        }
-                        if !isDuplicate {
-                            references = append(references, refInfo)
-                        }
-                    }
-                }
+				if si.Location.URI != "" {
+					filePath := utils.URIToFilePath(si.Location.URI)
+					if filePath != "" && m.matchesFilePattern(filePath, query.FilePattern) {
+						refInfo := ReferenceInfo{
+							FilePath:     filePath,
+							LineNumber:   int(si.Location.Range.Start.Line),
+							Column:       int(si.Location.Range.Start.Character),
+							IsDefinition: false,
+							IsReadAccess: true,
+						}
+						isDuplicate := false
+						for _, existing := range references {
+							if existing.FilePath == refInfo.FilePath && existing.LineNumber == refInfo.LineNumber && existing.Column == refInfo.Column {
+								isDuplicate = true
+								break
+							}
+						}
+						if !isDuplicate {
+							references = append(references, refInfo)
+						}
+					}
+				}
 
-                if lspRequestCount < maxLSPRequests && si.Location.URI != "" {
-                    lspRequestCount++
-                    refParams := map[string]interface{}{
-                        "textDocument": map[string]interface{}{
-                            "uri": si.Location.URI,
-                        },
-                        "position": map[string]interface{}{
-                            "line":      int(si.Location.Range.Start.Line),
-                            "character": int(si.Location.Range.Start.Character),
-                        },
-                        "context": map[string]interface{}{
-                            "includeDeclaration": true,
-                        },
-                    }
-                    if refResult, refErr := m.ProcessRequest(ctx, "textDocument/references", refParams); refErr == nil && refResult != nil {
-                        locs := lspconv.ParseLocations(refResult)
-                        for _, loc := range locs {
-                            refInfo := m.locationToReferenceInfo(loc)
-                            if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
-                                refInfo.IsReadAccess = true
-                                references = append(references, *refInfo)
-                                readAccessCount++
-                            }
-                        }
-                    }
-                }
+				if lspRequestCount < maxLSPRequests && si.Location.URI != "" {
+					lspRequestCount++
+					refParams := map[string]interface{}{
+						"textDocument": map[string]interface{}{
+							"uri": si.Location.URI,
+						},
+						"position": map[string]interface{}{
+							"line":      int(si.Location.Range.Start.Line),
+							"character": int(si.Location.Range.Start.Character),
+						},
+						"context": map[string]interface{}{
+							"includeDeclaration": true,
+						},
+					}
+					if refResult, refErr := m.ProcessRequest(ctx, "textDocument/references", refParams); refErr == nil && refResult != nil {
+						locs := lspconv.ParseLocations(refResult)
+						for _, loc := range locs {
+							refInfo := m.locationToReferenceInfo(loc)
+							if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
+								refInfo.IsReadAccess = true
+								references = append(references, *refInfo)
+								readAccessCount++
+							}
+						}
+					}
+				}
 
-                if si.Name == query.Pattern && si.Location.URI != "" && fallbackDefRef == nil {
-                    fallbackDefRef = &ReferenceInfo{
-                        FilePath:     utils.URIToFilePath(si.Location.URI),
-                        LineNumber:   int(si.Location.Range.Start.Line),
-                        Column:       int(si.Location.Range.Start.Character),
-                        IsDefinition: true,
-                    }
-                    common.LSPLogger.Debug("[SearchSymbolReferences] Found definition via workspace symbol: %s:%d:%d", fallbackDefRef.FilePath, fallbackDefRef.LineNumber, fallbackDefRef.Column)
-                }
+				if si.Name == query.Pattern && si.Location.URI != "" && fallbackDefRef == nil {
+					fallbackDefRef = &ReferenceInfo{
+						FilePath:     utils.URIToFilePath(si.Location.URI),
+						LineNumber:   int(si.Location.Range.Start.Line),
+						Column:       int(si.Location.Range.Start.Character),
+						IsDefinition: true,
+					}
+					common.LSPLogger.Debug("[SearchSymbolReferences] Found definition via workspace symbol: %s:%d:%d", fallbackDefRef.FilePath, fallbackDefRef.LineNumber, fallbackDefRef.Column)
+				}
 
-                continue
+				continue
 
-                if symbolMap, ok := interface{}(si).(map[string]interface{}); ok {
+				if symbolMap, ok := interface{}(si).(map[string]interface{}); ok {
 					// First add the symbol itself as a reference
 					if location, hasLocation := symbolMap["location"].(map[string]interface{}); hasLocation {
 						if uri, hasURI := location["uri"].(string); hasURI {
@@ -465,17 +465,17 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 											},
 										}
 
-                    if refResult, refErr := m.ProcessRequest(ctx, "textDocument/references", refParams); refErr == nil && refResult != nil {
-                        locs := lspconv.ParseLocations(refResult)
-                        for _, loc := range locs {
-                            refInfo := m.locationToReferenceInfo(loc)
-                            if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
-                                refInfo.IsReadAccess = true
-                                references = append(references, *refInfo)
-                                readAccessCount++
-                            }
-                        }
-                    }
+										if refResult, refErr := m.ProcessRequest(ctx, "textDocument/references", refParams); refErr == nil && refResult != nil {
+											locs := lspconv.ParseLocations(refResult)
+											for _, loc := range locs {
+												refInfo := m.locationToReferenceInfo(loc)
+												if refInfo != nil && m.matchesFilePattern(refInfo.FilePath, query.FilePattern) {
+													refInfo.IsReadAccess = true
+													references = append(references, *refInfo)
+													readAccessCount++
+												}
+											}
+										}
 									}
 								}
 							}
@@ -526,21 +526,21 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 				"query": query.Pattern,
 			}
 
-        wsResult, wsErr := m.ProcessRequest(ctx, "workspace/symbol", wsParams)
-        if wsErr == nil && wsResult != nil {
-            for _, si := range lspconv.ParseWorkspaceSymbols(wsResult) {
-                if si.Name == query.Pattern && si.Location.URI != "" {
-                    fallbackDefRef = &ReferenceInfo{
-                        FilePath:     utils.URIToFilePath(si.Location.URI),
-                        LineNumber:   int(si.Location.Range.Start.Line),
-                        Column:       int(si.Location.Range.Start.Character),
-                        IsDefinition: true,
-                    }
-                    common.LSPLogger.Debug("[SearchSymbolReferences] Found definition via workspace symbol: %s:%d:%d", fallbackDefRef.FilePath, fallbackDefRef.LineNumber, fallbackDefRef.Column)
-                    break
-                }
-            }
-        }
+			wsResult, wsErr := m.ProcessRequest(ctx, "workspace/symbol", wsParams)
+			if wsErr == nil && wsResult != nil {
+				for _, si := range lspconv.ParseWorkspaceSymbols(wsResult) {
+					if si.Name == query.Pattern && si.Location.URI != "" {
+						fallbackDefRef = &ReferenceInfo{
+							FilePath:     utils.URIToFilePath(si.Location.URI),
+							LineNumber:   int(si.Location.Range.Start.Line),
+							Column:       int(si.Location.Range.Start.Character),
+							IsDefinition: true,
+						}
+						common.LSPLogger.Debug("[SearchSymbolReferences] Found definition via workspace symbol: %s:%d:%d", fallbackDefRef.FilePath, fallbackDefRef.LineNumber, fallbackDefRef.Column)
+						break
+					}
+				}
+			}
 		}
 
 		if fallbackDefRef != nil {
@@ -632,7 +632,7 @@ func (m *LSPManager) locationToReferenceInfo(loc types.Location) *ReferenceInfo 
 
 // matchesFilePattern checks if a file path matches the given pattern
 func (m *LSPManager) matchesFilePattern(filePath, pattern string) bool {
-    return filepattern.Match(filePath, pattern)
+	return filepattern.Match(filePath, pattern)
 }
 
 // readFullLine reads a complete line from a file

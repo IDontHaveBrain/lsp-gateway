@@ -1,16 +1,16 @@
 package installer
 
 import (
-    "context"
-    "fmt"
-    "os"
-    "os/exec"
-    "path/filepath"
-    "strings"
-    "time"
+	"context"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"time"
 
-    icommon "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/common"
+	icommon "lsp-gateway/src/internal/common"
 )
 
 // RustInstaller handles Rust language server (rust-analyzer) installation
@@ -29,7 +29,7 @@ func (r *RustInstaller) Install(ctx context.Context, options InstallOptions) err
 	// Check if rustup is available
 	if _, err := exec.LookPath("rustup"); err != nil {
 		// If rustup is not available, check if rust-analyzer works standalone
-        testCtx, cancel := icommon.WithTimeout(ctx, 5*time.Second)
+		testCtx, cancel := icommon.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		if output, err := r.RunCommandWithOutput(testCtx, "rust-analyzer", "--version"); err == nil {
 			if !options.Force {
@@ -43,7 +43,7 @@ func (r *RustInstaller) Install(ctx context.Context, options InstallOptions) err
 
 	// If not forcing and rust-analyzer already works, skip installation
 	if !options.Force {
-        testCtx, cancel := icommon.WithTimeout(ctx, 5*time.Second)
+		testCtx, cancel := icommon.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		if output, err := r.RunCommandWithOutput(testCtx, "rust-analyzer", "--version"); err == nil {
 			common.CLILogger.Info("rust-analyzer already available and working: %s", strings.TrimSpace(output))
@@ -58,7 +58,7 @@ func (r *RustInstaller) Install(ctx context.Context, options InstallOptions) err
 	err := r.RunCommand(ctx, "rustup", "component", "add", "rust-analyzer")
 	if err == nil {
 		// Verify it works
-        testCtx, cancel := icommon.WithTimeout(ctx, 5*time.Second)
+		testCtx, cancel := icommon.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		if output, err := r.RunCommandWithOutput(testCtx, "rust-analyzer", "--version"); err == nil {
 			common.CLILogger.Info("rust-analyzer installed and working via rustup (stable): %s", strings.TrimSpace(output))
@@ -70,7 +70,7 @@ func (r *RustInstaller) Install(ctx context.Context, options InstallOptions) err
 	common.CLILogger.Info("Trying rust-analyzer-preview component...")
 	err = r.RunCommand(ctx, "rustup", "component", "add", "rust-analyzer-preview")
 	if err == nil {
-        testCtx, cancel := icommon.WithTimeout(ctx, 5*time.Second)
+		testCtx, cancel := icommon.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		if output, err := r.RunCommandWithOutput(testCtx, "rust-analyzer", "--version"); err == nil {
 			common.CLILogger.Info("rust-analyzer-preview installed and working via rustup (stable): %s", strings.TrimSpace(output))
@@ -92,7 +92,7 @@ func (r *RustInstaller) Install(ctx context.Context, options InstallOptions) err
 		r.serverConfig.Args = []string{"run", "nightly", "rust-analyzer"}
 
 		// Verify it works
-        testCtx, cancel := icommon.WithTimeout(ctx, 5*time.Second)
+		testCtx, cancel := icommon.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		if output, err := r.RunCommandWithOutput(testCtx, "rustup", "run", "nightly", "rust-analyzer", "--version"); err == nil {
 			common.CLILogger.Info("rust-analyzer installed and working via rustup (nightly): %s", strings.TrimSpace(output))
@@ -109,7 +109,7 @@ func (r *RustInstaller) Install(ctx context.Context, options InstallOptions) err
 		r.serverConfig.Command = "rustup"
 		r.serverConfig.Args = []string{"run", "nightly", "rust-analyzer"}
 
-    testCtx, cancel := icommon.WithTimeout(ctx, 5*time.Second)
+		testCtx, cancel := icommon.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		if output, err := r.RunCommandWithOutput(testCtx, "rustup", "run", "nightly", "rust-analyzer", "--version"); err == nil {
 			common.CLILogger.Info("rust-analyzer-preview installed and working via rustup (nightly): %s", strings.TrimSpace(output))
@@ -126,8 +126,8 @@ func (r *RustInstaller) Install(ctx context.Context, options InstallOptions) err
 // Uninstall removes rust-analyzer using rustup if available
 func (r *RustInstaller) Uninstall() error {
 	if _, err := exec.LookPath("rustup"); err == nil {
-    ctx := context.Background()
-    return r.RunCommand(ctx, "rustup", "component", "remove", "rust-analyzer")
+		ctx := context.Background()
+		return r.RunCommand(ctx, "rustup", "component", "remove", "rust-analyzer")
 	}
 	return nil
 }
@@ -135,7 +135,7 @@ func (r *RustInstaller) Uninstall() error {
 // IsInstalled checks if rust-analyzer is properly installed and working
 func (r *RustInstaller) IsInstalled() bool {
 	// Try to actually run rust-analyzer with --version
-    ctx, cancel := icommon.CreateContext(5 * time.Second)
+	ctx, cancel := icommon.CreateContext(5 * time.Second)
 	defer cancel()
 
 	// Check if rust-analyzer actually works (not just wrapper exists)
@@ -157,7 +157,7 @@ func (r *RustInstaller) IsInstalled() bool {
 // ValidateInstallation performs comprehensive validation
 func (r *RustInstaller) ValidateInstallation() error {
 	// Try to actually run rust-analyzer
-    ctx, cancel := icommon.CreateContext(5 * time.Second)
+	ctx, cancel := icommon.CreateContext(5 * time.Second)
 	defer cancel()
 
 	// First try direct execution

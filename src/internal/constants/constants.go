@@ -118,16 +118,12 @@ func isWindowsCI() bool {
 
 // GetRequestTimeout returns language-specific timeout for LSP requests
 func GetRequestTimeout(language string) time.Duration {
+	langInfo, exists := registry.GetLanguageByName(language)
 	var baseTimeout time.Duration
-
-	switch language {
-	case "java":
-		baseTimeout = JavaRequestTimeout
-	case "python":
-		baseTimeout = PythonRequestTimeout
-	case "go", "javascript", "typescript":
-		baseTimeout = GoTSRequestTimeout
-	default:
+	if exists {
+		requestTimeout, _ := langInfo.GetTimeouts()
+		baseTimeout = requestTimeout
+	} else {
 		baseTimeout = DefaultRequestTimeout
 	}
 
@@ -148,14 +144,12 @@ func GetRequestTimeout(language string) time.Duration {
 
 // GetInitializeTimeout returns language-specific timeout for initialize requests
 func GetInitializeTimeout(language string) time.Duration {
+	langInfo, exists := registry.GetLanguageByName(language)
 	var baseTimeout time.Duration
-
-	switch language {
-	case "java":
-		baseTimeout = JavaInitializeTimeout
-	case "python":
-		baseTimeout = PythonInitializeTimeout
-	default:
+	if exists {
+		_, initializeTimeout := langInfo.GetTimeouts()
+		baseTimeout = initializeTimeout
+	} else {
 		baseTimeout = DefaultInitializeTimeout
 	}
 
