@@ -69,12 +69,12 @@ func (w *LSPWorkspaceSymbolAggregator) ProcessWorkspaceSymbol(ctx context.Contex
 
 	// Create timeout manager for workspace symbol operations
 	timeoutManager := base.NewTimeoutManager().ForOperation(base.OperationRequest)
-	
+
 	// Calculate overall timeout based on languages
 	overallTimeout := timeoutManager.GetOverallTimeout(languages)
 	// Add 25% buffer for overall timeout
 	overallTimeout = time.Duration(float64(overallTimeout) * 1.25)
-	
+
 	// Create aggregator with dynamic timeouts
 	aggregator := base.NewParallelAggregator[interface{}, []interface{}](0, overallTimeout)
 

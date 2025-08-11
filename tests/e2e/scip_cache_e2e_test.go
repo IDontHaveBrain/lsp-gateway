@@ -355,7 +355,7 @@ func (suite *SCIPCacheE2ETestSuite) TestWorkspaceSymbolCache() {
 	goplsPredicate := func() bool {
 		return suite.manager != nil // Gopls initialization complete
 	}
-	err = testutils.WaitUntil(ctx3, 200*time.Millisecond, waitDuration, goplsPredicate)
+	err := testutils.WaitUntil(ctx3, 200*time.Millisecond, waitDuration, goplsPredicate)
 	suite.Require().NoError(err, "Gopls failed to initialize within timeout")
 
 	// First, ensure gopls can see our test files
@@ -374,7 +374,7 @@ func (suite *SCIPCacheE2ETestSuite) TestWorkspaceSymbolCache() {
 		ctx4, cancel4 := context.WithTimeout(context.Background(), 4*time.Second)
 		defer cancel4()
 		goplsRetryPredicate := func() bool {
-			_, retryErr := suite.manager.ProcessRequest(ctx, "textDocument/documentSymbol", documentParams)
+			_, retryErr := suite.manager.ProcessRequest(ctx, "textDocument/documentSymbol", symbolParams)
 			return retryErr == nil
 		}
 		_ = testutils.WaitUntil(ctx4, 500*time.Millisecond, 3*time.Second, goplsRetryPredicate)

@@ -289,9 +289,15 @@ func (m *LSPManager) Stop() error {
 	m.clients = make(map[string]types.LSPClient)
 	m.mu.Unlock()
 
+	// If no clients to stop, return successfully
+	if len(clients) == 0 {
+		return nil
+	}
+
 	// Stop clients in parallel using ParallelAggregator framework
-	individualTimeout := constants.ProcessShutdownTimeout
-	overallTimeout := constants.ProcessShutdownTimeout + 1*time.Second
+	// Use more generous timeouts for shutdown to allow LSP servers to exit gracefully
+	individualTimeout := constants.ProcessShutdownTimeout * 3 // 15 seconds per client
+	overallTimeout := individualTimeout + 5*time.Second       // 20 seconds overall
 
 	aggregator := base.NewParallelAggregator[struct{}, error](individualTimeout, overallTimeout)
 

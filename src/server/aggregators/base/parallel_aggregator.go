@@ -102,7 +102,7 @@ func (a *ParallelAggregator[TRequest, TResponse]) Execute(
 		case <-overallTimeout:
 			// Overall timeout reached - add errors for clients that didn't respond
 			common.LSPLogger.Warn("Overall timeout reached while collecting parallel results, returning partial results (%d/%d clients responded)", responsesReceived, len(clients))
-			
+
 			// Add errors for clients that didn't respond
 			for language := range clients {
 				if !respondedClients[language] {
@@ -205,7 +205,7 @@ func (a *ParallelAggregator[TRequest, TResponse]) ExecuteWithLanguageTimeouts(
 		case <-overallTimeout:
 			// Overall timeout reached - add errors for clients that didn't respond
 			common.LSPLogger.Warn("Overall timeout reached while collecting parallel results, returning partial results (%d/%d clients responded)", responsesReceived, len(clients))
-			
+
 			// Add errors for clients that didn't respond
 			for language := range clients {
 				if !respondedClients[language] {

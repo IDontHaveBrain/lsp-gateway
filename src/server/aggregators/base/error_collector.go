@@ -5,7 +5,7 @@ import (
 	"strings"
 	"sync"
 	"time"
-	
+
 	internalErrors "lsp-gateway/src/internal/errors"
 )
 
