@@ -291,7 +291,23 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 		timeoutDuration = c.getInitializeTimeout()
 	}
 
-	ctx, cancel := common.WithTimeout(ctx, timeoutDuration)
+	// Respect existing context deadline if it's shorter than our timeout
+	var cancel context.CancelFunc
+	if deadline, ok := ctx.Deadline(); ok {
+		// Context already has a deadline, use the shorter timeout
+		remainingTime := time.Until(deadline)
+		if remainingTime < timeoutDuration {
+			// Use existing deadline as is
+			cancel = func() {} // No-op since we're not creating a new context
+			common.LSPLogger.Debug("Using existing context deadline (%v) for %s request %s", remainingTime, method, id)
+		} else {
+			// Our timeout is shorter, create new context with our timeout
+			ctx, cancel = common.WithTimeout(ctx, timeoutDuration)
+		}
+	} else {
+		// No existing deadline, use our timeout
+		ctx, cancel = common.WithTimeout(ctx, timeoutDuration)
+	}
 	defer cancel()
 
 	select {

@@ -118,7 +118,9 @@ func (w *WorkspaceIndexer) getReferencesForSymbolInOpenFile(ctx context.Context,
 	}
 
 	// Per-request timeout to prevent hangs on problematic positions
-	reqCtx, cancel := common.WithTimeout(ctx, 2*time.Second)
+	// Use a reasonable timeout for indexing operations (10s should be enough for most cases)
+	// This timeout will be respected by the LSP client after our fix
+	reqCtx, cancel := common.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	result, err := w.lspFallback.ProcessRequest(reqCtx, types.MethodTextDocumentReferences, params)
