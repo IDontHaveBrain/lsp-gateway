@@ -74,14 +74,14 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 		return nil, fmt.Errorf("pattern is required and must be a string")
 	}
 
-	filePattern, ok := arguments["filePattern"].(string)
-	if !ok || filePattern == "" {
-		return nil, fmt.Errorf("filePattern is required and must be a string")
+	filePath, ok := arguments["filePath"].(string)
+	if !ok || filePath == "" {
+		return nil, fmt.Errorf("filePath is required and must be a string")
 	}
 
 	query := types.SymbolPatternQuery{
 		Pattern:     pattern,
-		FilePattern: filePattern,
+		FilePattern: filePath,
 	}
 
 	// Parse max results
@@ -107,7 +107,7 @@ func (m *MCPServer) handleFindSymbols(params map[string]interface{}) (interface{
 			maxResults = 100
 		}
 
-		scipResults, scipErr := m.lspManager.scipCache.SearchSymbols(ctx, pattern, filePattern, maxResults)
+		scipResults, scipErr := m.lspManager.scipCache.SearchSymbols(ctx, pattern, query.FilePattern, maxResults)
 		if scipErr == nil && len(scipResults) > 0 {
 			// Convert SCIP results to SymbolPatternResult format
 			symbols := make([]types.EnhancedSymbolInfo, 0, len(scipResults))
@@ -389,14 +389,14 @@ func (m *MCPServer) handleFindSymbolReferences(params map[string]interface{}) (i
 		return nil, fmt.Errorf("pattern is required and must be a string")
 	}
 
-	filePattern := "**/*" // Default to all files
-	if fp, ok := arguments["filePattern"].(string); ok && fp != "" {
-		filePattern = fp
+	filePath := "**/*" // Default to all files
+	if fp, ok := arguments["filePath"].(string); ok && fp != "" {
+		filePath = fp
 	}
 
 	query := SymbolReferenceQuery{
 		Pattern:     pattern,
-		FilePattern: filePattern,
+		FilePattern: filePath,
 	}
 
 	// Parse max results

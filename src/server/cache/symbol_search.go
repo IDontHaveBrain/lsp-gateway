@@ -174,7 +174,7 @@ func (m *SCIPCacheManager) searchSymbolsEnhancedInternal(ctx context.Context, qu
 
 // SearchSymbols provides direct access to SCIP symbol search for MCP tools
 func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePattern string, maxResults int) ([]interface{}, error) {
-	common.LSPLogger.Info("[SearchSymbols] Called with pattern='%s', filePattern='%s', maxResults=%d", pattern, filePattern, maxResults)
+	common.LSPLogger.Debug("[SearchSymbols] Called with pattern='%s', filePattern='%s', maxResults=%d", pattern, filePattern, maxResults)
 
 	if !m.enabled {
 		return nil, fmt.Errorf("cache disabled or SCIP storage unavailable")
@@ -184,11 +184,21 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePatte
 		maxResults = 100
 	}
 
-	symbolInfos, err := m.scipStorage.SearchSymbols(ctx, pattern, maxResults)
+	// When file filter is provided, fetch more symbols to account for filtering
+	searchLimit := maxResults
+	if filePattern != "" {
+		// Fetch 10x more symbols when filtering to ensure enough results after filtering
+		searchLimit = maxResults * 10
+		if searchLimit > 1000 {
+			searchLimit = 1000
+		}
+	}
+
+	symbolInfos, err := m.scipStorage.SearchSymbols(ctx, pattern, searchLimit)
 	if err != nil {
 		return nil, fmt.Errorf("SCIP symbol search failed: %w", err)
 	}
-	common.LSPLogger.Info("[SearchSymbols] SCIP storage returned %d symbol infos", len(symbolInfos))
+	common.LSPLogger.Debug("[SearchSymbols] SCIP storage returned %d symbol infos", len(symbolInfos))
 
 	results := make([]interface{}, 0, len(symbolInfos))
 	for _, symbolInfo := range symbolInfos {
@@ -225,7 +235,7 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePatte
 									uri, si.Symbol, symbolInfo.Symbol)
 								// Apply file filter on document URI if provided
 								if filePattern != "" && !m.matchFilePattern(uri, filePattern) {
-									common.LSPLogger.Debug("[SearchSymbols] Symbol filtered out by filePattern")
+									common.LSPLogger.Debug("[SearchSymbols] Symbol filtered out by filePattern: URI=%s, pattern=%s", uri, filePattern)
 									found = true // resolved but filtered out; skip symbol
 									break
 								}
@@ -237,6 +247,11 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePatte
 								}
 								results = append(results, enhanced)
 								found = true
+								// Check if we have reached maxResults after filtering
+								if len(results) >= maxResults {
+									common.LSPLogger.Debug("[SearchSymbols] Reached maxResults limit (%d) in fallback, stopping", maxResults)
+									return results, nil
+								}
 								break
 							}
 						}
@@ -255,7 +270,7 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePatte
 		// Apply file filter
 		if filePattern != "" {
 			matches := m.matchFilePattern(occWithDoc.DocumentURI, filePattern)
-			common.LSPLogger.Debug("[SearchSymbols] File filter check: URI=%s, pattern=%s, matches=%v",
+			common.LSPLogger.Debug("[SearchSymbols] File filter: URI=%s, pattern=%s, matches=%v",
 				occWithDoc.DocumentURI, filePattern, matches)
 			if !matches {
 				continue
@@ -269,6 +284,12 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePatte
 			"range":       occWithDoc.Range,
 		}
 		results = append(results, enhancedResult)
+		
+		// Check if we have reached maxResults after filtering
+		if len(results) >= maxResults {
+			common.LSPLogger.Debug("[SearchSymbols] Reached maxResults limit (%d), stopping", maxResults)
+			break
+		}
 	}
 
 	return results, nil

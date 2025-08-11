@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
@@ -72,6 +73,27 @@ func CheckCacheHealth(cacheInstance cache.SCIPCache) (*cache.CacheMetrics, error
 	}
 
 	return metrics, nil
+}
+
+// CreateCacheOnly creates and starts just the cache without LSP servers
+// Used for cache-only operations like clear and info
+func CreateCacheOnly(cfg *config.Config) (cache.SCIPCache, error) {
+	if cfg == nil || cfg.Cache == nil || !cfg.Cache.Enabled {
+		return nil, fmt.Errorf("cache is not enabled")
+	}
+
+	// Create cache integrator
+	cacheIntegrator := cache.NewCacheIntegrator(cfg, common.LSPLogger)
+
+	// Start cache
+	ctx, cancel := common.CreateContext(30 * time.Second)
+	defer cancel()
+
+	if err := cacheIntegrator.StartCache(ctx); err != nil {
+		return nil, fmt.Errorf("failed to start cache: %w", err)
+	}
+
+	return cacheIntegrator.GetCache(), nil
 }
 
 // setupProjectSpecificCachePath ensures cache path is project-specific

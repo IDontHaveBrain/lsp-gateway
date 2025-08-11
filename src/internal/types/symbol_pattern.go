@@ -2,6 +2,7 @@ package types
 
 import (
 	"lsp-gateway/src/utils"
+	"lsp-gateway/src/utils/filepattern"
 	"regexp"
 	"strings"
 )
@@ -93,89 +94,8 @@ func MatchSymbolPattern(symbol SymbolInformation, query SymbolPatternQuery) (boo
 }
 
 func matchFilePattern(filePath, pattern string) bool {
-	// Handle special case for current directory
-	if pattern == "." || pattern == "./" {
-		// Match all files (current directory)
-		return true
-	}
-
-	// Handle directory patterns (e.g., "src/", "tests/internal/", "src")
-	if strings.HasSuffix(pattern, "/") {
-		// Explicit directory pattern with trailing slash
-		return strings.Contains(filePath, pattern)
-	}
-
-	// If pattern looks like a directory path (contains slash but no glob/regex patterns)
-	if strings.Contains(pattern, "/") && !strings.Contains(pattern, "*") && !strings.Contains(pattern, "?") && !strings.Contains(pattern, "[") && !strings.Contains(pattern, "(") {
-		// Check if it's meant to be a directory (no file extension)
-		lastPart := pattern[strings.LastIndex(pattern, "/")+1:]
-		if !strings.Contains(lastPart, ".") {
-			// Treat as directory prefix - add trailing slash
-			pattern = pattern + "/"
-			return strings.Contains(filePath, pattern)
-		}
-	}
-
-	// Check for case-insensitive flag (?i)
-	caseInsensitive := false
-	if strings.HasPrefix(pattern, "(?i)") {
-		caseInsensitive = true
-		pattern = strings.TrimPrefix(pattern, "(?i)")
-	}
-
-	// Convert common glob patterns to regex
-	regexPattern := pattern
-
-	// Handle common glob patterns
-	if strings.Contains(pattern, "*") || strings.Contains(pattern, "?") {
-		// Convert glob to regex (order matters!)
-		// First escape dots
-		regexPattern = strings.ReplaceAll(regexPattern, ".", "\\.")
-
-		// Then handle ** patterns specially
-		if strings.Contains(regexPattern, "**") {
-			// Replace **/ with a pattern that matches any number of directories
-			regexPattern = strings.ReplaceAll(regexPattern, "**/", "@@RECURSE@@")
-			// Replace /** with a pattern that matches any number of directories
-			regexPattern = strings.ReplaceAll(regexPattern, "/**", "/@@FULLRECURSE@@")
-		}
-
-		// Now handle remaining single * and ? patterns
-		regexPattern = strings.ReplaceAll(regexPattern, "*", "[^/]*")
-		regexPattern = strings.ReplaceAll(regexPattern, "?", ".")
-
-		// Finally replace the recursive markers with the actual regex
-		regexPattern = strings.ReplaceAll(regexPattern, "@@RECURSE@@", "(?:.*/)?")
-		regexPattern = strings.ReplaceAll(regexPattern, "@@FULLRECURSE@@", ".*")
-
-		// Add anchors for better matching
-		if !strings.HasPrefix(regexPattern, "^") {
-			if !strings.Contains(pattern, "/") {
-				// For patterns like "*.go", match at any depth
-				regexPattern = "(^|.*/)" + regexPattern + "$"
-			} else if strings.HasPrefix(pattern, "**/") {
-				// For patterns like "**/*.go", already has (?:.*/)?  prefix
-				regexPattern = "^" + regexPattern + "$"
-			} else {
-				// For patterns with path like "src/*.go" or "src/**/*.go"
-				// Allow matching at any directory level
-				regexPattern = "(^|.*/)" + regexPattern + "$"
-			}
-		}
-	}
-
-	// Apply case insensitive flag if needed
-	if caseInsensitive {
-		regexPattern = "(?i)" + regexPattern
-	}
-
-	re, err := regexp.Compile(regexPattern)
-	if err != nil {
-		// If pattern is not valid regex, fall back to simple contains
-		return strings.Contains(filePath, pattern)
-	}
-
-	return re.MatchString(filePath)
+	// Use the unified glob pattern matching from filepattern package
+	return filepattern.Match(filePath, pattern)
 }
 
 func calculateMatchScore(symbolName, pattern string, kind SymbolKind) float64 {

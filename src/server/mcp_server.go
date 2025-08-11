@@ -259,9 +259,9 @@ func (m *MCPServer) handleToolsList(req *MCPRequest) *MCPResponse {
                 "type": "string",
                 "description": "Symbol name or regex pattern. Supports: exact match ('Logger'), regex ('Log.*'), case-insensitive ('(?i)logger'), anchors ('^get'), OR ('getData|setData')"
             },
-            "filePattern": {
+            "filePath": {
                 "type": "string",
-                "description": "Glob pattern to filter files. Use '*.go' for Go files, 'src/**/*.py' for Python in src/, '**/*' for all files. NOT regex - use glob syntax only"
+                "description": "Glob pattern to filter files. Examples: '*.go' (all Go files), 'src/server/*.go' (Go files in src/server), 'src/**/*.py' (Python files in src/ and subdirs), '**/*' (all files)"
             },
             "maxResults": {
                 "type": "number",
@@ -272,7 +272,7 @@ func (m *MCPServer) handleToolsList(req *MCPRequest) *MCPResponse {
                 "description": "Include source code for each symbol (default: false)"
             }
         },
-        "required": ["pattern", "filePattern"]
+        "required": ["pattern", "filePath"]
     }`)
 
 	findReferencesSchema := json.RawMessage(`{
@@ -282,9 +282,9 @@ func (m *MCPServer) handleToolsList(req *MCPRequest) *MCPResponse {
                 "type": "string",
                 "description": "Symbol name or regex pattern. Supports: exact match ('Logger'), regex ('Log.*'), case-insensitive ('(?i)logger'), anchors ('^get'), OR ('getData|setData')"
             },
-            "filePattern": {
+            "filePath": {
                 "type": "string",
-                "description": "Optional glob pattern to filter search scope. Default '**/*' searches all files. Use '*.go' for Go files, 'src/**/*.ts' for TypeScript in src/"
+                "description": "Optional glob pattern to filter search scope. Default '**/*' searches all files. Examples: '*.go' (all Go files), 'src/server/*.ts' (TS files in src/server), 'src/**/*.py' (Python files in src/ and subdirs)"
             },
             "maxResults": {
                 "type": "number",

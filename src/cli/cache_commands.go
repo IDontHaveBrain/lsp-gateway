@@ -149,24 +149,18 @@ func IndexCache(configPath string) error {
 func ClearCache(configPath string) error {
 	cfg := clicommon.LoadConfigForCLI(configPath)
 
-	// Create LSP manager to access cache
-	manager, err := clicommon.CreateLSPManager(cfg)
+	// Create and start cache only (no LSP servers needed)
+	cacheInstance, err := clicommon.CreateCacheOnly(cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create LSP manager: %w", err)
+		return fmt.Errorf("failed to create cache: %w", err)
 	}
+	defer func() {
+		if cacheInstance != nil {
+			cacheInstance.Stop()
+		}
+	}()
 
-	ctx, cancel := icommon.CreateContext(30 * time.Second)
-	defer cancel()
-
-	// Start LSP manager to initialize cache
-	if err := manager.Start(ctx); err != nil {
-		common.CLILogger.Error("Failed to start LSP manager: %v", err)
-		return err
-	}
-	defer manager.Stop()
-
-	cache := manager.GetCache()
-	_, err = clicommon.CheckCacheHealth(cache)
+	_, err = clicommon.CheckCacheHealth(cacheInstance)
 	if err != nil {
 		return nil // CheckCacheHealth already logged the appropriate message
 	}
@@ -174,7 +168,7 @@ func ClearCache(configPath string) error {
 	common.CLILogger.Info("Cache Clear")
 
 	// Clear the cache
-	if err := cache.Clear(); err != nil {
+	if err := cacheInstance.Clear(); err != nil {
 		common.CLILogger.Error("Failed to clear cache: %v", err)
 		return err
 	}
@@ -188,23 +182,17 @@ func ClearCache(configPath string) error {
 func ShowCacheInfo(configPath string) error {
 	cfg := clicommon.LoadConfigForCLI(configPath)
 
-	// Create LSP manager to access cache
-	manager, err := clicommon.CreateLSPManager(cfg)
+	// Create and start cache only (no LSP servers needed)
+	cacheInstance, err := clicommon.CreateCacheOnly(cfg)
 	if err != nil {
-		return fmt.Errorf("failed to create LSP manager: %w", err)
+		return fmt.Errorf("failed to create cache: %w", err)
 	}
+	defer func() {
+		if cacheInstance != nil {
+			cacheInstance.Stop()
+		}
+	}()
 
-	ctx, cancel := icommon.CreateContext(30 * time.Second)
-	defer cancel()
-
-	// Start LSP manager to initialize cache
-	if err := manager.Start(ctx); err != nil {
-		common.CLILogger.Error("Failed to start LSP manager: %v", err)
-		return err
-	}
-	defer manager.Stop()
-
-	cacheInstance := manager.GetCache()
 	metrics, err := clicommon.CheckCacheHealth(cacheInstance)
 	if err != nil {
 		return nil // CheckCacheHealth already logged the appropriate message
