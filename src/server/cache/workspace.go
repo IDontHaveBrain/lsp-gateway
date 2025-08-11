@@ -10,6 +10,7 @@ import (
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
+	"lsp-gateway/src/internal/gitignore"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/utils"
 )
@@ -173,14 +174,15 @@ func (w *WorkspaceIndexer) GetLanguageExtensions(languages []string) []string {
 
 // ScanWorkspaceSourceFiles scans directory for source files with given extensions
 // This method performs a recursive directory traversal to locate source files
-// for indexing, respecting common exclusion patterns and file count limits
+// for indexing, respecting gitignore patterns and file count limits
 func (w *WorkspaceIndexer) ScanWorkspaceSourceFiles(dir string, extensions []string, maxFiles int) []string {
 	var files []string
 	count := 0
 
 	common.LSPLogger.Debug("ScanWorkspaceSourceFiles: Starting scan of %s, looking for extensions: %v, maxFiles: %d", dir, extensions, maxFiles)
 
-	filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+	walker := gitignore.NewWalker(dir)
+	walker.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {
 			// Skip hidden directories and common non-source directories
 			if d != nil && d.IsDir() {

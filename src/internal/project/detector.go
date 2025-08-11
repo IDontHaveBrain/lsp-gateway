@@ -11,6 +11,7 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/gitignore"
 	"lsp-gateway/src/internal/registry"
 	"lsp-gateway/src/internal/security"
 )
@@ -44,21 +45,15 @@ func DetectLanguages(workingDir string) ([]string, error) {
 
 	detected := make(map[string]*DetectedLanguage)
 
-	// Walk through directory tree (up to 3 levels deep for performance)
-	err = filepath.WalkDir(workingDir, func(path string, d fs.DirEntry, err error) error {
+	// Walk through directory tree using gitignore-aware walker
+	walker := gitignore.NewWalker(workingDir)
+	err = walker.WalkDir(workingDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil // Skip errors, continue walking
 		}
 
-		// Skip hidden directories and common build/cache directories
+		// Skip directories (already handled by gitignore walker)
 		if d.IsDir() {
-			name := d.Name()
-			if strings.HasPrefix(name, ".") && name != "." ||
-				name == "node_modules" || name == "target" || name == "__pycache__" ||
-				name == "build" || name == "dist" {
-				return fs.SkipDir
-			}
-
 			// Limit depth to 3 levels for performance
 			relPath, _ := filepath.Rel(workingDir, path)
 			if strings.Count(relPath, string(os.PathSeparator)) >= 3 {
