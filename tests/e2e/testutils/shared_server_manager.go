@@ -172,12 +172,12 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 		mgr.stopSharedServer(t)
 		return fmt.Errorf("shared server failed to become ready: %w", err)
 	}
-	
+
 	// Double-check that the process is still running
 	if mgr.gatewayCmd == nil || mgr.gatewayCmd.Process == nil {
 		return fmt.Errorf("shared server process terminated unexpectedly")
 	}
-	
+
 	// Try to check if process exited (non-blocking)
 	processExited := make(chan bool, 1)
 	go func() {
@@ -191,7 +191,7 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 			return
 		}
 	}()
-	
+
 	select {
 	case <-processExited:
 		return fmt.Errorf("shared server process exited immediately after startup")
@@ -224,7 +224,7 @@ func (mgr *SharedServerManager) waitForServerReady(t *testing.T) error {
 			time.Sleep(1 * time.Second)
 			continue
 		}
-		
+
 		var health map[string]interface{}
 		if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {
 			resp.Body.Close()
@@ -232,7 +232,7 @@ func (mgr *SharedServerManager) waitForServerReady(t *testing.T) error {
 			continue
 		}
 		resp.Body.Close()
-		
+
 		// Check if required LSP clients are active
 		lspClients, ok := health["lsp_clients"].(map[string]interface{})
 		if !ok {
@@ -240,7 +240,7 @@ func (mgr *SharedServerManager) waitForServerReady(t *testing.T) error {
 			time.Sleep(1 * time.Second)
 			continue
 		}
-		
+
 		// Check if at least one LSP client is active
 		// Since we don't know which language is being tested in shared mode,
 		// we wait for any client to be active
@@ -255,7 +255,7 @@ func (mgr *SharedServerManager) waitForServerReady(t *testing.T) error {
 				}
 			}
 		}
-		
+
 		if hasActiveClient {
 			// At least one client is ready, server can start accepting requests
 			return nil

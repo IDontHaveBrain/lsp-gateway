@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -156,28 +157,43 @@ func (r *RustInstaller) IsInstalled() bool {
 
 // ValidateInstallation performs comprehensive validation
 func (r *RustInstaller) ValidateInstallation() error {
-	// Try to actually run rust-analyzer
-	ctx, cancel := icommon.CreateContext(5 * time.Second)
+	ctx, cancel := icommon.CreateContext(8 * time.Second)
 	defer cancel()
 
-	// First try direct execution
 	if _, err := r.RunCommandWithOutput(ctx, "rust-analyzer", "--version"); err == nil {
 		return nil
 	}
 
-	// Try wrapper path
 	wrapperPath := filepath.Join(r.GetInstallPath(), "bin", "rust-analyzer")
+	if runtime.GOOS == "windows" {
+		wrapperPath += ".cmd"
+	}
 	if _, err := os.Stat(wrapperPath); err == nil {
 		if _, err := r.RunCommandWithOutput(ctx, wrapperPath, "--version"); err == nil {
 			return nil
 		}
 	}
 
-	// Try via rustup run if configured
 	if r.serverConfig.Command == "rustup" && len(r.serverConfig.Args) > 0 {
 		args := append(r.serverConfig.Args, "--version")
 		if _, err := r.RunCommandWithOutput(ctx, "rustup", args...); err == nil {
 			return nil
+		}
+	}
+
+	if _, err := exec.LookPath("rustup"); err == nil {
+		if out, err := r.RunCommandWithOutput(ctx, "rustup", "which", "--toolchain", "stable", "rust-analyzer"); err == nil && out != "" {
+			if _, err := r.RunCommandWithOutput(ctx, out, "--version"); err == nil {
+				return nil
+			}
+		}
+		if out, err := r.RunCommandWithOutput(ctx, "rustup", "which", "--toolchain", "nightly", "rust-analyzer"); err == nil && out != "" {
+			if _, err := r.RunCommandWithOutput(ctx, out, "--version"); err == nil {
+				return nil
+			}
+			if _, err := os.Stat(out); err == nil {
+				return nil
+			}
 		}
 	}
 
@@ -189,8 +205,17 @@ func (r *RustInstaller) ensureRustAnalyzerWrapper() error {
 	if err := os.MkdirAll(binDir, 0755); err != nil {
 		return err
 	}
-	wrapperPath := filepath.Join(binDir, "rust-analyzer")
-	script := "#!/usr/bin/env bash\nset -e\nif command -v rustup >/dev/null 2>&1; then\n  if rustup component list --installed --toolchain stable 2>/dev/null | grep -q '^rust-analyzer'; then\n    exec rustup run stable rust-analyzer \"$@\"\n  elif rustup which --toolchain nightly rust-analyzer >/dev/null 2>&1; then\n    exec rustup run nightly rust-analyzer \"$@\"\n  fi\nfi\necho 'rust-analyzer not available in stable or nightly via rustup' 1>&2\nexit 1\n"
+	wrapperName := "rust-analyzer"
+	if runtime.GOOS == "windows" {
+		wrapperName += ".cmd"
+	}
+	wrapperPath := filepath.Join(binDir, wrapperName)
+	var script string
+	if runtime.GOOS == "windows" {
+		script = "@echo off\r\nsetlocal\r\nwhere rustup >nul 2>&1 || goto :no_ra\r\nrustup component list --installed --toolchain stable 2>nul | findstr /b /c:\"rust-analyzer\" >nul && (\r\n  rustup run stable rust-analyzer %*\r\n  exit /b %ERRORLEVEL%\r\n)\r\nrustup which --toolchain nightly rust-analyzer >nul 2>&1 && (\r\n  rustup run nightly rust-analyzer %*\r\n  exit /b %ERRORLEVEL%\r\n)\r\n:no_ra\r\necho rust-analyzer not available in stable or nightly via rustup 1>&2\r\nexit /b 1\r\n"
+	} else {
+		script = "#!/usr/bin/env bash\nset -e\nif command -v rustup >/dev/null 2>&1; then\n  if rustup component list --installed --toolchain stable 2>/dev/null | grep -q '^rust-analyzer'; then\n    exec rustup run stable rust-analyzer \"$@\"\n  elif rustup which --toolchain nightly rust-analyzer >/dev/null 2>&1; then\n    exec rustup run nightly rust-analyzer \"$@\"\n  fi\nfi\necho 'rust-analyzer not available in stable or nightly via rustup' 1>&2\nexit 1\n"
+	}
 	if err := os.WriteFile(wrapperPath, []byte(script), 0755); err != nil {
 		return err
 	}
