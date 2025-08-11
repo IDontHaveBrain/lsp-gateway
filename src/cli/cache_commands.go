@@ -1,15 +1,15 @@
 package cli
 
 import (
-    "fmt"
-    "sort"
-    "time"
+	"fmt"
+	"sort"
+	"time"
 
-    clicommon "lsp-gateway/src/cli/common"
-    icommon "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/server/cache"
-    "lsp-gateway/src/server/scip"
+	clicommon "lsp-gateway/src/cli/common"
+	"lsp-gateway/src/internal/common"
+	icommon "lsp-gateway/src/internal/common"
+	"lsp-gateway/src/server/cache"
+	"lsp-gateway/src/server/scip"
 )
 
 // IndexCache rebuilds the cache index by processing workspace files
@@ -29,7 +29,7 @@ func IndexCache(configPath string) error {
 		return err
 	}
 
-    ctx, cancel := icommon.CreateContext(5 * time.Minute)
+	ctx, cancel := icommon.CreateContext(5 * time.Minute)
 	defer cancel()
 
 	// Start LSP manager to fetch document symbols (this also initializes the cache)
@@ -155,7 +155,7 @@ func ClearCache(configPath string) error {
 		return fmt.Errorf("failed to create LSP manager: %w", err)
 	}
 
-    ctx, cancel := icommon.CreateContext(30 * time.Second)
+	ctx, cancel := icommon.CreateContext(30 * time.Second)
 	defer cancel()
 
 	// Start LSP manager to initialize cache
@@ -194,7 +194,7 @@ func ShowCacheInfo(configPath string) error {
 		return fmt.Errorf("failed to create LSP manager: %w", err)
 	}
 
-    ctx, cancel := icommon.CreateContext(30 * time.Second)
+	ctx, cancel := icommon.CreateContext(30 * time.Second)
 	defer cancel()
 
 	// Start LSP manager to initialize cache

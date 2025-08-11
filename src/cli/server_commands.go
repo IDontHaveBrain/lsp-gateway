@@ -1,19 +1,19 @@
 package cli
 
 import (
-    "context"
-    "fmt"
-    "os"
-    "os/signal"
-    "strings"
-    "syscall"
-    "time"
+	"context"
+	"fmt"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
 
-    clicommon "lsp-gateway/src/cli/common"
-    "lsp-gateway/src/internal/common"
-    icommon "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/registry"
-    "lsp-gateway/src/server"
+	clicommon "lsp-gateway/src/cli/common"
+	"lsp-gateway/src/internal/common"
+	icommon "lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/registry"
+	"lsp-gateway/src/server"
 )
 
 // RunServer starts the simplified LSP gateway server
@@ -50,7 +50,7 @@ func RunServer(addr string, configPath string, lspOnly bool) error {
 	common.CLILogger.Info("Received shutdown signal, stopping gateway...")
 
 	// Graceful shutdown
-    shutdownCtx, shutdownCancel := icommon.CreateContext(30 * time.Second)
+	shutdownCtx, shutdownCancel := icommon.CreateContext(30 * time.Second)
 	defer shutdownCancel()
 
 	done := make(chan error, 1)
@@ -142,7 +142,7 @@ func TestConnection(configPath string) error {
 		return fmt.Errorf("failed to create LSP manager: %w", err)
 	}
 
-    ctx, cancel := icommon.CreateContext(60 * time.Second)
+	ctx, cancel := icommon.CreateContext(60 * time.Second)
 	defer cancel()
 
 	common.CLILogger.Info("Starting LSP Manager...")

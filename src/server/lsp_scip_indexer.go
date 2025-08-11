@@ -1,19 +1,19 @@
 package server
 
 import (
-    "context"
-    "fmt"
-    "os"
-    "path/filepath"
-    "strings"
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
-    "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/models/lsp"
-    "lsp-gateway/src/internal/types"
-    "lsp-gateway/src/server/cache"
-    "lsp-gateway/src/server/scip"
-    "lsp-gateway/src/utils"
-    "lsp-gateway/src/utils/lspconv"
+	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/models/lsp"
+	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/server/cache"
+	"lsp-gateway/src/server/scip"
+	"lsp-gateway/src/utils"
+	"lsp-gateway/src/utils/lspconv"
 )
 
 // performSCIPIndexing performs SCIP indexing based on LSP method and response using occurrence-centric approach
@@ -39,8 +39,8 @@ func (m *LSPManager) performSCIPIndexing(ctx context.Context, method, uri, langu
 func (m *LSPManager) indexDocumentSymbolsAsOccurrences(ctx context.Context, uri, language string, result interface{}) {
 	common.LSPLogger.Debug("indexDocumentSymbolsAsOccurrences called for uri=%s, language=%s", uri, language)
 
-    // Parse document symbols from various response formats
-    symbols := lspconv.ParseDocumentSymbolsToSymbolInformation(result, uri)
+	// Parse document symbols from various response formats
+	symbols := lspconv.ParseDocumentSymbolsToSymbolInformation(result, uri)
 	common.LSPLogger.Debug("Parsed %d symbols from document %s", len(symbols), uri)
 
 	if len(symbols) == 0 {
@@ -267,7 +267,7 @@ func (m *LSPManager) indexReferencesAsOccurrences(ctx context.Context, uri, lang
 // indexWorkspaceSymbolsAsOccurrences indexes workspace symbols as SCIP occurrences with definition roles
 func (m *LSPManager) indexWorkspaceSymbolsAsOccurrences(ctx context.Context, language string, result interface{}) {
 
-    symbols := lspconv.ParseWorkspaceSymbols(result)
+	symbols := lspconv.ParseWorkspaceSymbols(result)
 
 	if len(symbols) == 0 {
 		return
@@ -391,7 +391,7 @@ func (m *LSPManager) expandSymbolRanges(ctx context.Context, symbols []types.Sym
 	}
 
 	// Parse the document symbols to get full ranges
-    fullRangeSymbols := lspconv.ParseDocumentSymbols(docSymbolResult)
+	fullRangeSymbols := lspconv.ParseDocumentSymbols(docSymbolResult)
 
 	// Create a map of symbol names to their full ranges (multiple per name)
 	fullRangeMap := make(map[string][]types.Range)
@@ -437,7 +437,7 @@ func (m *LSPManager) collectFullRanges(symbols []*lsp.DocumentSymbol, rangeMap m
 
 // parseLocationResult parses location results from various response formats
 func (m *LSPManager) parseLocationResult(result interface{}) []types.Location {
-    return lspconv.ParseLocations(result)
+	return lspconv.ParseLocations(result)
 }
 
 // extractPositionAndSymbolFromParams extracts position and symbol name from LSP params

@@ -1,16 +1,16 @@
 package cache
 
 import (
-    "context"
-    "fmt"
-    "os"
-    "path/filepath"
-    "time"
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"time"
 
-    "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/project"
-    "lsp-gateway/src/utils"
-    "lsp-gateway/src/internal/registry"
+	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/project"
+	"lsp-gateway/src/internal/registry"
+	"lsp-gateway/src/utils"
 )
 
 // (legacy detectLanguageFromPath removed; use registry.GetLanguageByExtension)
@@ -272,12 +272,12 @@ func (m *SCIPCacheManager) performIncrementalIndexingCore(ctx context.Context, w
 		if err != nil {
 			continue
 		}
-        uri := utils.FilePathToURI(absPath)
-        language := "plaintext"
-        if lang, ok := registry.GetLanguageByExtension(filepath.Ext(file)); ok {
-            language = lang.Name
-        }
-        m.fileTracker.UpdateFileMetadata(uri, absPath, fileInfo.ModTime(), fileInfo.Size(), language)
+		uri := utils.FilePathToURI(absPath)
+		language := "plaintext"
+		if lang, ok := registry.GetLanguageByExtension(filepath.Ext(file)); ok {
+			language = lang.Name
+		}
+		m.fileTracker.UpdateFileMetadata(uri, absPath, fileInfo.ModTime(), fileInfo.Size(), language)
 	}
 
 	// Save file tracker metadata

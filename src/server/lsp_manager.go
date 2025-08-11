@@ -1,31 +1,32 @@
 package server
 
 import (
-    "context"
-    "encoding/json"
-    "fmt"
-    "math/rand"
-    "os"
-    "os/exec"
-    "path/filepath"
-    "runtime"
-    "sync"
-    "time"
+	"context"
+	"encoding/json"
+	"fmt"
+	"math/rand"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"sync"
+	"time"
 
-    "lsp-gateway/src/config"
-    "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/constants"
-    errorspkg "lsp-gateway/src/internal/errors"
-    "lsp-gateway/src/internal/project"
-    "lsp-gateway/src/internal/security"
-    "lsp-gateway/src/internal/types"
-    "lsp-gateway/src/server/aggregators"
-    "lsp-gateway/src/server/cache"
-    "lsp-gateway/src/server/documents"
-    "lsp-gateway/src/server/errors"
-    "lsp-gateway/src/server/watcher"
-    "strings"
-    "lsp-gateway/src/utils"
+	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/constants"
+	errorspkg "lsp-gateway/src/internal/errors"
+	"lsp-gateway/src/internal/project"
+	"lsp-gateway/src/internal/security"
+	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/server/aggregators"
+	"lsp-gateway/src/server/aggregators/base"
+	"lsp-gateway/src/server/cache"
+	"lsp-gateway/src/server/documents"
+	"lsp-gateway/src/server/errors"
+	"lsp-gateway/src/server/watcher"
+	"lsp-gateway/src/utils"
+	"strings"
 )
 
 // ClientStatus represents the status of an LSP client
@@ -34,6 +35,23 @@ type ClientStatus struct {
 	Error     error
 	Available bool // Whether the server command is available on system
 }
+
+// serverConfigWrapper wraps server config to implement LSPClient interface for aggregator compatibility
+type serverConfigWrapper struct {
+	language string
+	config   *config.ServerConfig
+}
+
+func (w *serverConfigWrapper) Start(ctx context.Context) error { return nil }
+func (w *serverConfigWrapper) Stop() error                     { return nil }
+func (w *serverConfigWrapper) SendRequest(ctx context.Context, method string, params interface{}) (json.RawMessage, error) {
+	return nil, nil
+}
+func (w *serverConfigWrapper) SendNotification(ctx context.Context, method string, params interface{}) error {
+	return nil
+}
+func (w *serverConfigWrapper) Supports(method string) bool { return false }
+func (w *serverConfigWrapper) IsActive() bool              { return false }
 
 // LSPManager manages LSP clients for different languages
 type LSPManager struct {
@@ -124,62 +142,76 @@ func (m *LSPManager) Start(ctx context.Context) error {
 	// Update convenience accessor after potential cache disabling
 	m.scipCache = m.cacheIntegrator.GetCache()
 
-	// Start clients with individual timeouts to prevent hanging
-	results := make(chan struct {
-		language string
-		err      error
-	}, len(m.config.Servers))
+	// Start clients using ParallelAggregator framework with language-specific timeouts
+	// Create timeout manager for initialize operations
+	timeoutMgr := base.NewTimeoutManager().ForOperation(base.OperationInitialize)
 
-	// Start each client in a separate goroutine
-	for language, serverConfig := range m.config.Servers {
-		go func(lang string, cfg *config.ServerConfig) {
-			// Individual timeout per server - use language-specific timeout
-			timeout := constants.GetInitializeTimeout(lang)
-			clientCtx, cancel := common.WithTimeout(ctx, timeout)
-			defer cancel()
-
-			err := m.startClientWithTimeout(clientCtx, lang, cfg)
-			results <- struct {
-				language string
-				err      error
-			}{lang, err}
-		}(language, serverConfig)
-	}
-
-	// Collect results with overall timeout - calculate maximum timeout needed across all configured languages
-	maxTimeout := time.Duration(0)
+	// Calculate overall timeout as maximum of all language timeouts
+	languages := make([]string, 0, len(m.config.Servers))
 	for lang := range m.config.Servers {
-		langTimeout := constants.GetInitializeTimeout(lang)
-		if langTimeout > maxTimeout {
-			maxTimeout = langTimeout
+		languages = append(languages, lang)
+	}
+	overallTimeout := timeoutMgr.GetOverallTimeout(languages)
+
+	common.LSPLogger.Debug("[LSPManager.Start] Using overall collection timeout of %v for %d servers", overallTimeout, len(m.config.Servers))
+
+	// Create aggregator with calculated overall timeout
+	aggregator := base.NewParallelAggregator[*config.ServerConfig, error](0, overallTimeout)
+
+	// Convert server configs to clients map for framework compatibility
+	serverConfigs := make(map[string]types.LSPClient)
+	for lang, cfg := range m.config.Servers {
+		// Use a placeholder client that holds the server config
+		serverConfigs[lang] = &serverConfigWrapper{language: lang, config: cfg}
+	}
+
+	// Create executor function that calls startClientWithTimeout
+	executor := func(ctx context.Context, client types.LSPClient, _ *config.ServerConfig) (error, error) {
+		// Extract language and config from wrapper
+		wrapper := client.(*serverConfigWrapper)
+		err := m.startClientWithTimeout(ctx, wrapper.language, wrapper.config)
+		return err, err
+	}
+
+	// Execute parallel client startup with language-specific timeouts
+	_, errors := aggregator.ExecuteWithLanguageTimeouts(ctx, serverConfigs, nil, executor, timeoutMgr.GetTimeout)
+
+	// Process results and populate clientErrors map to preserve exact behavior
+	completed := len(m.config.Servers) - len(errors)
+
+	// Map framework errors back to the clientErrors structure
+	m.mu.Lock()
+	for _, err := range errors {
+		// Extract language from error string format "language: error"
+		errStr := err.Error()
+		if colonIndex := strings.Index(errStr, ": "); colonIndex > 0 {
+			language := errStr[:colonIndex]
+			actualErr := fmt.Errorf("%s", errStr[colonIndex+2:])
+			m.clientErrors[language] = actualErr
+			common.LSPLogger.Error("Failed to start %s client: %v", language, actualErr)
 		}
 	}
-	if maxTimeout == 0 {
-		maxTimeout = constants.DefaultInitializeTimeout
-	}
+	m.mu.Unlock()
 
-	common.LSPLogger.Debug("[LSPManager.Start] Using overall collection timeout of %v for %d servers", maxTimeout, len(m.config.Servers))
-	timeout := time.After(maxTimeout)
-	completed := 0
-
-	for completed < len(m.config.Servers) {
-		select {
-		case result := <-results:
-			completed++
-			if result.err != nil {
-				common.LSPLogger.Error("Failed to start %s client: %v", result.language, result.err)
-				m.mu.Lock()
-				m.clientErrors[result.language] = result.err
-				m.mu.Unlock()
-			} else {
+	// Handle timeout/cancellation cases exactly as before
+	if len(errors) > 0 {
+		// Check for timeout by examining error messages
+		for _, err := range errors {
+			errStr := err.Error()
+			if strings.Contains(errStr, "timeout") || strings.Contains(errStr, "Overall timeout reached") {
+				common.LSPLogger.Warn("Timeout reached, %d/%d clients started", completed, len(m.config.Servers))
+				return nil
 			}
-		case <-timeout:
-			common.LSPLogger.Warn("Timeout reached, %d/%d clients started", completed, len(m.config.Servers))
-			return nil
-		case <-ctx.Done():
-			common.LSPLogger.Warn("Context cancelled, %d/%d clients started", completed, len(m.config.Servers))
-			return nil
 		}
+	}
+
+	// Check for context cancellation
+	select {
+	case <-ctx.Done():
+		common.LSPLogger.Warn("Context cancelled, %d/%d clients started", completed, len(m.config.Servers))
+		return nil
+	default:
+		// Context not cancelled, continue
 	}
 
 	// Perform workspace indexing if cache is enabled and background indexing is configured
@@ -192,9 +224,9 @@ func (m *LSPManager) Start(ctx context.Context) error {
 					stats.SymbolCount, stats.ReferenceCount, stats.DocumentCount)
 			} else {
 				// Only index if cache is truly empty
-            go func() {
-                // Wait for LSP servers to fully initialize
-                time.Sleep(constants.GetBackgroundIndexingDelay())
+				go func() {
+					// Wait for LSP servers to fully initialize
+					time.Sleep(constants.GetBackgroundIndexingDelay())
 
 					// Double-check cache status
 					recheckStats := cacheManager.GetIndexStats()
@@ -257,37 +289,37 @@ func (m *LSPManager) Stop() error {
 	m.clients = make(map[string]types.LSPClient)
 	m.mu.Unlock()
 
-	// Stop clients in parallel for faster shutdown
-	done := make(chan error, len(clients))
-	for language, client := range clients {
-		go func(lang string, c types.LSPClient) {
-			err := c.Stop()
-			if err != nil {
-				common.LSPLogger.Error("Error stopping %s client: %v", lang, err)
-			}
-			done <- err
-		}(language, client)
+	// If no clients to stop, return successfully
+	if len(clients) == 0 {
+		return nil
 	}
 
-	// Wait for all clients to stop with timeout (allow for graceful shutdown + buffer)
-	timeout := time.After(constants.ProcessShutdownTimeout + 1*time.Second)
-	completed := 0
-	var lastErr error
+	// Stop clients in parallel using ParallelAggregator framework
+	// Use more generous timeouts for shutdown to allow LSP servers to exit gracefully
+	individualTimeout := constants.ProcessShutdownTimeout * 3 // 15 seconds per client
+	overallTimeout := individualTimeout + 5*time.Second       // 20 seconds overall
 
-	for completed < len(clients) {
-		select {
-		case err := <-done:
-			completed++
-			if err != nil {
-				lastErr = err
-			}
-		case <-timeout:
-			common.LSPLogger.Warn("Timeout stopping LSP clients, %d/%d completed", completed, len(clients))
-			return fmt.Errorf("timeout stopping LSP clients")
-		}
+	aggregator := base.NewParallelAggregator[struct{}, error](individualTimeout, overallTimeout)
+
+	ctx := context.Background()
+	results, errors := aggregator.Execute(ctx, clients, struct{}{}, func(ctx context.Context, client types.LSPClient, _ struct{}) (error, error) {
+		err := client.Stop()
+		return err, err
+	})
+
+	// Check for timeout - if we got fewer responses than clients, it likely timed out
+	totalResponses := len(results) + len(errors)
+	if totalResponses < len(clients) {
+		common.LSPLogger.Warn("Timeout stopping LSP clients, %d/%d completed", totalResponses, len(clients))
+		return fmt.Errorf("timeout stopping LSP clients")
 	}
 
-	return lastErr
+	// Return last error to preserve original behavior
+	if len(errors) > 0 {
+		return errors[len(errors)-1]
+	}
+
+	return nil
 }
 
 // CheckServerAvailability checks if LSP server commands are available without starting them
@@ -419,7 +451,7 @@ func (m *LSPManager) ProcessRequest(ctx context.Context, method string, params i
 
 		// For document symbols, index synchronously to ensure workspace indexing correctness
 		if method == types.MethodTextDocumentDocumentSymbol {
-            timeout := constants.AdjustDurationForWindows(12*time.Second, 1.5)
+			timeout := constants.AdjustDurationForWindows(12*time.Second, 1.5)
 			idxCtx, cancel := common.CreateContext(timeout)
 			defer cancel()
 			m.performSCIPIndexing(idxCtx, method, uri, language, params, result)
@@ -452,7 +484,7 @@ func (m *LSPManager) scheduleIndexing(method, uri, language string, params, resu
 		case types.MethodTextDocumentDefinition, types.MethodTextDocumentCompletion, types.MethodTextDocumentHover:
 			timeout = 10 * time.Second
 		}
-        timeout = constants.AdjustDurationForWindows(timeout, 1.5)
+		timeout = constants.AdjustDurationForWindows(timeout, 1.5)
 
 		idxCtx, cancel := common.CreateContext(timeout)
 		defer cancel()
@@ -666,9 +698,10 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 	}
 
 	clientConfig := types.ClientConfig{
-		Command:    resolvedCommand,
-		Args:       cfg.Args,
-		WorkingDir: cfg.WorkingDir,
+		Command:               resolvedCommand,
+		Args:                  cfg.Args,
+		WorkingDir:            cfg.WorkingDir,
+		InitializationOptions: cfg.InitializationOptions,
 	}
 
 	client, err := NewStdioClient(clientConfig, language)
@@ -852,12 +885,12 @@ func (m *LSPManager) handleFileChanges(events []watcher.FileChangeEvent) {
 		len(modifiedFiles), len(deletedFiles))
 
 	// Handle deleted files
-    for _, path := range deletedFiles {
-        uri := utils.FilePathToURI(path)
-        if err := m.scipCache.InvalidateDocument(uri); err != nil {
-            common.LSPLogger.Warn("Failed to invalidate deleted document %s: %v", uri, err)
-        }
-    }
+	for _, path := range deletedFiles {
+		uri := utils.FilePathToURI(path)
+		if err := m.scipCache.InvalidateDocument(uri); err != nil {
+			common.LSPLogger.Warn("Failed to invalidate deleted document %s: %v", uri, err)
+		}
+	}
 
 	// Trigger incremental indexing for modified files
 	if len(modifiedFiles) > 0 {
@@ -878,7 +911,7 @@ func (m *LSPManager) performIncrementalReindex(files []string) {
 		return
 	}
 
-ctx, cancel := common.CreateContext(2 * time.Minute)
+	ctx, cancel := common.CreateContext(2 * time.Minute)
 	defer cancel()
 
 	// Get working directory

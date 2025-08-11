@@ -1,15 +1,14 @@
 package aggregators
 
 import (
-    "context"
-    "fmt"
-    "strings"
-    "time"
+	"context"
+	"fmt"
+	"time"
 
-    "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/types"
-    "lsp-gateway/src/server/errors"
-    "lsp-gateway/src/utils/jsonutil"
+	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/server/aggregators/base"
+	"lsp-gateway/src/server/errors"
+	"lsp-gateway/src/utils/jsonutil"
 )
 
 // WorkspaceSymbolAggregator handles workspace symbol queries across multiple LSP clients
@@ -62,96 +61,59 @@ func (w *LSPWorkspaceSymbolAggregator) ProcessWorkspaceSymbol(ctx context.Contex
 		return nil, fmt.Errorf("no active LSP clients available")
 	}
 
-	// Use channels to collect results from all clients in parallel
-    type clientResult struct {
-        language string
-        result   []interface{}
-        err      error
-    }
-
-	resultCh := make(chan clientResult, len(clientList))
-
-	// Query all clients in parallel with individual timeouts
+	// Convert clients map to proper type for framework
+	clientMap := make(map[string]types.LSPClient)
 	for i, client := range clientList {
-        go func(lang string, c types.LSPClient) {
-            // Create a timeout context for this individual client request
-            // Use longer timeout for workspace/symbol as it can be slow on large codebases
-            clientCtx, cancel := common.WithTimeout(ctx, 20*time.Second)
-            defer cancel()
+		clientMap[languages[i]] = client
+	}
 
-            raw, err := c.SendRequest(clientCtx, types.MethodWorkspaceSymbol, params)
+	// Create timeout manager for workspace symbol operations
+	timeoutManager := base.NewTimeoutManager().ForOperation(base.OperationRequest)
 
-            // Always send a result, even if it's an error
-            select {
-            case resultCh <- func() clientResult {
-                if err != nil {
-                    return clientResult{language: lang, result: nil, err: err}
-                }
-                if raw == nil || string(raw) == "null" || len(raw) == 0 {
-                    return clientResult{language: lang, result: []interface{}{}, err: nil}
-                }
-                if arr, convErr := jsonutil.Convert[[]interface{}](raw); convErr == nil {
-                    return clientResult{language: lang, result: arr, err: nil}
-                }
-                if one, convErr := jsonutil.Convert[map[string]interface{}](raw); convErr == nil {
-                    return clientResult{language: lang, result: []interface{}{one}, err: nil}
-                }
-                return clientResult{language: lang, result: nil, err: fmt.Errorf("failed to parse symbols")}
-            }():
-            case <-clientCtx.Done():
-                // Context cancelled, send timeout error
-                resultCh <- clientResult{
-                    language: lang,
-                    result:   nil,
-                    err:      fmt.Errorf("client request timeout"),
-                }
-            }
-        }(languages[i], client)
-    }
+	// Calculate overall timeout based on languages
+	overallTimeout := timeoutManager.GetOverallTimeout(languages)
+	// Add 25% buffer for overall timeout
+	overallTimeout = time.Duration(float64(overallTimeout) * 1.25)
 
-	// Collect results from all clients with overall timeout
-	allSymbols := make([]interface{}, 0)
-	var errorsList []string
-	successCount := 0
+	// Create aggregator with dynamic timeouts
+	aggregator := base.NewParallelAggregator[interface{}, []interface{}](0, overallTimeout)
 
-	// Overall timeout for collecting all responses (longer than individual client timeout)
-	overallTimeout := time.After(25 * time.Second)
-	responsesReceived := 0
-
-	for responsesReceived < len(clientList) {
-		select {
-        case result := <-resultCh:
-            responsesReceived++
-
-            if result.err != nil {
-                errorsList = append(errorsList, fmt.Sprintf("%s: %v", result.language, result.err))
-                continue
-            }
-
-            allSymbols = append(allSymbols, result.result...)
-            successCount++
-
-		case <-overallTimeout:
-			// Overall timeout reached - return what we have
-			common.LSPLogger.Warn("Overall timeout reached while collecting workspace symbols, returning partial results (%d/%d clients responded)", responsesReceived, len(clientList))
-			goto collectDone
-
-		case <-ctx.Done():
-			return nil, fmt.Errorf("context cancelled while collecting workspace symbols")
+	// Define executor function to handle LSP request and JSON parsing
+	executor := func(ctx context.Context, client types.LSPClient, params interface{}) ([]interface{}, error) {
+		raw, err := client.SendRequest(ctx, types.MethodWorkspaceSymbol, params)
+		if err != nil {
+			return nil, err
 		}
+
+		// Handle null/empty responses
+		if raw == nil || string(raw) == "null" || len(raw) == 0 {
+			return []interface{}{}, nil
+		}
+
+		// Try parsing as array first
+		if arr, convErr := jsonutil.Convert[[]interface{}](raw); convErr == nil {
+			return arr, nil
+		}
+
+		// Try parsing as single object
+		if one, convErr := jsonutil.Convert[map[string]interface{}](raw); convErr == nil {
+			return []interface{}{one}, nil
+		}
+
+		return nil, fmt.Errorf("failed to parse symbols")
 	}
 
-collectDone:
-
-	// If no clients succeeded, return error
-	if successCount == 0 {
-		return nil, fmt.Errorf("no workspace symbol results found - all clients failed: %s", strings.Join(errorsList, "; "))
+	// Define timeout function for language-specific timeouts
+	timeoutFunc := func(language string) time.Duration {
+		return timeoutManager.GetTimeout(language)
 	}
 
-	// Log errors but don't fail if some clients succeeded
-	if len(errorsList) > 0 {
-		common.LSPLogger.Warn("Some LSP clients failed during workspace/symbol query: %s", strings.Join(errorsList, "; "))
-	}
+	// Execute parallel requests with language-specific timeouts and partial success support
+	results, _ := aggregator.ExecuteWithLanguageTimeouts(ctx, clientMap, params, executor, timeoutFunc)
+
+	// Use SliceMerger to combine all results
+	merger := base.NewSliceMerger[interface{}](nil)
+	allSymbols := merger.Merge(results)
 
 	return allSymbols, nil
 }

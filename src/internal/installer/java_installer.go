@@ -1,17 +1,17 @@
 package installer
 
 import (
-    "context"
-    "fmt"
-    "os"
-    "path/filepath"
-    "strings"
-    "time"
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
-    "lsp-gateway/src/config"
-    icommon "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/security"
+	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/common"
+	icommon "lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/security"
 )
 
 // JavaInstaller handles Java language server (jdtls) and JDK installation
@@ -320,7 +320,7 @@ func (j *JavaInstaller) GetVersion() (string, error) {
 		javaExe += ".exe"
 	}
 
-    ctx, cancel := icommon.CreateContext(5 * time.Second)
+	ctx, cancel := icommon.CreateContext(5 * time.Second)
 	defer cancel()
 
 	if javaVersion, err := j.RunCommandWithOutput(ctx, javaExe, "-version"); err == nil {
@@ -408,7 +408,7 @@ func (j *JavaInstaller) ValidateInstallation() error {
 		javaExe += ".exe"
 	}
 
-    ctx, cancel := icommon.CreateContext(5 * time.Second)
+	ctx, cancel := icommon.CreateContext(5 * time.Second)
 	defer cancel()
 
 	if _, err := j.RunCommandWithOutput(ctx, javaExe, "-version"); err != nil {

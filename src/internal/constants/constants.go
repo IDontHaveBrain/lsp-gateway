@@ -18,9 +18,11 @@ const (
 	WriteTimeout          = 10 * time.Second
 
 	// Initialize timeouts by language
-	DefaultInitializeTimeout = 15 * time.Second
-	JavaInitializeTimeout    = 90 * time.Second
-	PythonInitializeTimeout  = 30 * time.Second
+	DefaultInitializeTimeout    = 30 * time.Second
+	JavaInitializeTimeout       = 90 * time.Second
+	PythonInitializeTimeout     = 30 * time.Second
+	GoInitializeTimeout         = 30 * time.Second
+	TypeScriptInitializeTimeout = 30 * time.Second
 
 	// Process management timeouts
 	ProcessShutdownTimeout = 5 * time.Second
@@ -118,16 +120,12 @@ func isWindowsCI() bool {
 
 // GetRequestTimeout returns language-specific timeout for LSP requests
 func GetRequestTimeout(language string) time.Duration {
+	langInfo, exists := registry.GetLanguageByName(language)
 	var baseTimeout time.Duration
-
-	switch language {
-	case "java":
-		baseTimeout = JavaRequestTimeout
-	case "python":
-		baseTimeout = PythonRequestTimeout
-	case "go", "javascript", "typescript":
-		baseTimeout = GoTSRequestTimeout
-	default:
+	if exists {
+		requestTimeout, _ := langInfo.GetTimeouts()
+		baseTimeout = requestTimeout
+	} else {
 		baseTimeout = DefaultRequestTimeout
 	}
 
@@ -135,7 +133,7 @@ func GetRequestTimeout(language string) time.Duration {
 	if isWindowsCI() {
 		// Windows CI is significantly slower, especially for Java
 		if language == "java" {
-			return baseTimeout * 2 // Double timeout for Java on Windows CI (120s)
+			return baseTimeout * 3 // Triple timeout for Java on Windows CI (270s)
 		}
 		return time.Duration(float64(baseTimeout) * 1.5) // 50% more for other languages
 	} else if isCI() {
@@ -148,14 +146,12 @@ func GetRequestTimeout(language string) time.Duration {
 
 // GetInitializeTimeout returns language-specific timeout for initialize requests
 func GetInitializeTimeout(language string) time.Duration {
+	langInfo, exists := registry.GetLanguageByName(language)
 	var baseTimeout time.Duration
-
-	switch language {
-	case "java":
-		baseTimeout = JavaInitializeTimeout
-	case "python":
-		baseTimeout = PythonInitializeTimeout
-	default:
+	if exists {
+		_, initializeTimeout := langInfo.GetTimeouts()
+		baseTimeout = initializeTimeout
+	} else {
 		baseTimeout = DefaultInitializeTimeout
 	}
 
@@ -163,7 +159,7 @@ func GetInitializeTimeout(language string) time.Duration {
 	if isWindowsCI() {
 		// Windows CI is significantly slower
 		if language == "java" {
-			return baseTimeout * 2 // Double timeout for Java on Windows CI (120s)
+			return baseTimeout * 3 // Triple timeout for Java on Windows CI (270s)
 		}
 		return time.Duration(float64(baseTimeout) * 1.5) // 50% more for other languages
 	} else if isCI() {

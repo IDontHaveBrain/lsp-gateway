@@ -4,17 +4,21 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
+	"lsp-gateway/src/internal/registry"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/capabilities"
 	"lsp-gateway/src/server/errors"
@@ -25,7 +29,22 @@ import (
 
 // getRequestTimeout returns language-specific timeout for LSP requests
 func (c *StdioClient) getRequestTimeout(method string) time.Duration {
-	return constants.GetRequestTimeout(c.language)
+	baseTimeout := constants.GetRequestTimeout(c.language)
+
+	// Method-specific overrides for Java
+	if c.language == "java" {
+		switch method {
+		case types.MethodTextDocumentReferences:
+			// Java references can be particularly slow due to project-wide search
+			// On Windows CI, this becomes 270s * 2 = 540s (9 minutes)
+			return baseTimeout * 2
+		case types.MethodWorkspaceSymbol:
+			// Workspace symbol search can also be slow for large Java projects
+			return time.Duration(float64(baseTimeout) * 1.5)
+		}
+	}
+
+	return baseTimeout
 }
 
 // getInitializeTimeout returns language-specific timeout for initialize requests
@@ -41,36 +60,41 @@ type pendingRequest struct {
 
 // StdioClient implements LSP communication over STDIO
 type StdioClient struct {
-	config          types.ClientConfig
-	language        string // Language identifier for unique request IDs
-	capabilities    capabilities.ServerCapabilities
-	errorTranslator errors.ErrorTranslator
-	capDetector     capabilities.CapabilityDetector
-	processManager  process.ProcessManager
-	processInfo     *process.ProcessInfo
-	jsonrpcProtocol protocol.JSONRPCProtocol
+	config                types.ClientConfig
+	language              string // Language identifier for unique request IDs
+	capabilities          capabilities.ServerCapabilities
+	errorTranslator       errors.ErrorTranslator
+	capDetector           capabilities.CapabilityDetector
+	processManager        process.ProcessManager
+	processInfo           *process.ProcessInfo
+	jsonrpcProtocol       protocol.JSONRPCProtocol
+	initializationOptions interface{} // Initialization options from config
 
 	mu               sync.RWMutex
 	writeMu          sync.Mutex
 	active           bool
 	requests         map[string]*pendingRequest
 	nextID           int
-	openDocs         map[string]bool // Track opened documents to prevent duplicate didOpen
+	openDocs         map[string]bool      // Track opened documents to prevent duplicate didOpen
+	recentTimeouts   map[string]time.Time // Track recently timed-out requests
+	timeoutsMu       sync.RWMutex
 	workspaceFolders map[string]bool // Track added workspace folders
 }
 
 // NewStdioClient creates a new STDIO LSP client
 func NewStdioClient(config types.ClientConfig, language string) (types.LSPClient, error) {
 	client := &StdioClient{
-		config:           config,
-		language:         language,
-		requests:         make(map[string]*pendingRequest),
-		openDocs:         make(map[string]bool),
-		workspaceFolders: make(map[string]bool),
-		errorTranslator:  errors.NewLSPErrorTranslator(),
-		capDetector:      capabilities.NewLSPCapabilityDetector(),
-		processManager:   process.NewLSPProcessManager(),
-		jsonrpcProtocol:  protocol.NewLSPJSONRPCProtocol(language),
+		config:                config,
+		language:              language,
+		requests:              make(map[string]*pendingRequest),
+		openDocs:              make(map[string]bool),
+		workspaceFolders:      make(map[string]bool),
+		recentTimeouts:        make(map[string]time.Time),
+		errorTranslator:       errors.NewLSPErrorTranslator(),
+		capDetector:           capabilities.NewLSPCapabilityDetector(),
+		processManager:        process.NewLSPProcessManager(),
+		jsonrpcProtocol:       protocol.NewLSPJSONRPCProtocol(language),
+		initializationOptions: config.InitializationOptions,
 	}
 	return client, nil
 }
@@ -230,9 +254,29 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 	c.writeMu.Unlock()
 	if writeErr != nil {
 		// If we get connection errors, mark client as inactive
-		if strings.Contains(writeErr.Error(), "broken pipe") ||
-			strings.Contains(writeErr.Error(), "write: connection reset by peer") ||
-			strings.Contains(writeErr.Error(), "EOF") {
+		isConnectionError := false
+
+		// Check for broken pipe
+		if stderrors.Is(writeErr, syscall.EPIPE) || stderrors.Is(writeErr, io.ErrClosedPipe) {
+			isConnectionError = true
+		}
+
+		// Check for connection reset errors
+		var opErr *net.OpError
+		if stderrors.As(writeErr, &opErr) {
+			if syscallErr, ok := opErr.Err.(*os.SyscallError); ok {
+				if syscallErr.Err == syscall.ECONNRESET {
+					isConnectionError = true
+				}
+			}
+		}
+
+		// Check for EOF errors
+		if stderrors.Is(writeErr, io.EOF) {
+			isConnectionError = true
+		}
+
+		if isConnectionError {
 			c.mu.Lock()
 			c.active = false
 			c.mu.Unlock()
@@ -249,13 +293,46 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 		timeoutDuration = c.getInitializeTimeout()
 	}
 
-    ctx, cancel := common.WithTimeout(ctx, timeoutDuration)
+	// Respect existing context deadline if it's shorter than our timeout
+	var cancel context.CancelFunc
+	if deadline, ok := ctx.Deadline(); ok {
+		// Context already has a deadline, use the shorter timeout
+		remainingTime := time.Until(deadline)
+		if remainingTime < timeoutDuration {
+			// Use existing deadline as is
+			cancel = func() {} // No-op since we're not creating a new context
+			common.LSPLogger.Debug("Using existing context deadline (%v) for %s request %s", remainingTime, method, id)
+		} else {
+			// Our timeout is shorter, create new context with our timeout
+			ctx, cancel = common.WithTimeout(ctx, timeoutDuration)
+		}
+	} else {
+		// No existing deadline, use our timeout
+		ctx, cancel = common.WithTimeout(ctx, timeoutDuration)
+	}
 	defer cancel()
 
 	select {
 	case response := <-request.respCh:
 		return response, nil
 	case <-ctx.Done():
+		// Track this as a recently timed-out request
+		c.timeoutsMu.Lock()
+		c.recentTimeouts[id] = time.Now()
+		// Clean up old timeout entries (older than 30 seconds)
+		for reqID, timeoutTime := range c.recentTimeouts {
+			if time.Since(timeoutTime) > 30*time.Second {
+				delete(c.recentTimeouts, reqID)
+			}
+		}
+		c.timeoutsMu.Unlock()
+
+		// Send cancellation request to LSP server
+		cancelParams := map[string]interface{}{"id": id}
+		if cancelErr := c.SendNotification(context.Background(), "$/cancelRequest", cancelParams); cancelErr != nil {
+			common.LSPLogger.Debug("Failed to send cancel request for id=%s: %v", id, cancelErr)
+		}
+
 		common.LSPLogger.Error("LSP request timeout: method=%s, id=%s, timeout=%v", method, id, timeoutDuration)
 		return nil, fmt.Errorf("request timeout after %v for method %s", timeoutDuration, method)
 	case <-processInfo.StopCh:
@@ -344,9 +421,9 @@ func (c *StdioClient) HandleResponse(id interface{}, result json.RawMessage, err
 		if err != nil {
 			errorData, _ := json.Marshal(err)
 			responseData = errorData
-			sanitizedError := common.SanitizeErrorForLogging(err)
-			// Suppress "no identifier found" warnings during indexing as they are expected
-			if !strings.Contains(sanitizedError, "no identifier found") {
+			// Suppress expected errors during indexing operations
+			if !protocol.IsExpectedSuppressibleError(err) {
+				sanitizedError := common.SanitizeErrorForLogging(err)
 				common.LSPLogger.Warn("LSP response contains error: id=%s, error=%s", idStr, sanitizedError)
 			}
 		} else {
@@ -362,7 +439,16 @@ func (c *StdioClient) HandleResponse(id interface{}, result json.RawMessage, err
 			common.LSPLogger.Warn("Client stopped when trying to deliver response: id=%s", idStr)
 		}
 	} else {
-		common.LSPLogger.Warn("No matching request found for response: id=%s", idStr)
+		// Check if this was a recently timed-out request
+		c.timeoutsMu.RLock()
+		timeoutTime, wasTimeout := c.recentTimeouts[idStr]
+		c.timeoutsMu.RUnlock()
+
+		if wasTimeout && time.Since(timeoutTime) < 30*time.Second {
+			common.LSPLogger.Debug("Received late response for previously timed-out request: id=%s (timed out %v ago)", idStr, time.Since(timeoutTime))
+		} else {
+			common.LSPLogger.Warn("No matching request found for response: id=%s", idStr)
+		}
 	}
 
 	return nil
@@ -398,6 +484,16 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 		wd = utils.URIToFilePath(utils.FilePathToURI(wd))
 	}
 
+	// Get initialization options
+	initOptions := c.getInitializationOptions()
+
+	// Log initialization options for rust to debug cargo issues
+	if c.language == "rust" {
+		if optionsJSON, err := json.Marshal(initOptions); err == nil {
+			common.LSPLogger.Info("rust-analyzer initialization options: %s", string(optionsJSON))
+		}
+	}
+
 	// Send initialize request according to LSP specification
 	initParams := map[string]interface{}{
 		"processId": os.Getpid(),
@@ -413,7 +509,7 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 				"name": filepath.Base(wd),
 			},
 		},
-		"initializationOptions": c.getInitializationOptions(),
+		"initializationOptions": initOptions,
 		"capabilities": map[string]interface{}{
 			"workspace": map[string]interface{}{
 				"applyEdit":              true,
@@ -529,37 +625,66 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 
 // getInitializationOptions returns language-specific initialization options
 func (c *StdioClient) getInitializationOptions() map[string]interface{} {
-	// Language-specific initialization options
-	switch c.language {
-	case "rust":
-		// rust-analyzer specific options
-		return map[string]interface{}{
-			"cargo": map[string]interface{}{
-				"features":          []string{},
-				"allFeatures":       false,
-				"noDefaultFeatures": false,
-			},
-			"checkOnSave": map[string]interface{}{
-				"enable":  true,
-				"command": "check",
-			},
-			"procMacro": map[string]interface{}{
-				"enable": true,
-			},
-			"inlayHints": map[string]interface{}{
-				"enable": true,
-			},
+	// Use initialization options from config if provided
+	if c.initializationOptions != nil {
+		switch opts := c.initializationOptions.(type) {
+		case map[string]interface{}:
+			// Recursively convert any nested map[interface{}]interface{} values
+			return convertToStringMap(opts)
+		case map[interface{}]interface{}:
+			// Convert map[interface{}]interface{} to map[string]interface{} (YAML unmarshaling)
+			return convertInterfaceMap(opts)
 		}
-	case "go":
+	}
+
+	// Fall back to defaults from language registry
+	langInfo, exists := registry.GetLanguageByName(c.language)
+	if !exists {
+		common.LSPLogger.Warn("Unknown language %s, using default initialization options", c.language)
 		return map[string]interface{}{
 			"usePlaceholders":    false,
 			"completeUnimported": true,
 		}
+	}
+	return langInfo.GetInitOptions()
+}
+
+// convertInterfaceMap recursively converts map[interface{}]interface{} to map[string]interface{}
+func convertInterfaceMap(m map[interface{}]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+	for k, v := range m {
+		if key, ok := k.(string); ok {
+			result[key] = convertValue(v)
+		}
+	}
+	return result
+}
+
+// convertToStringMap recursively ensures all nested maps are map[string]interface{}
+func convertToStringMap(m map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+	for k, v := range m {
+		result[k] = convertValue(v)
+	}
+	return result
+}
+
+// convertValue recursively converts values to ensure proper types
+func convertValue(v interface{}) interface{} {
+	switch val := v.(type) {
+	case map[interface{}]interface{}:
+		return convertInterfaceMap(val)
+	case map[string]interface{}:
+		return convertToStringMap(val)
+	case []interface{}:
+		// Convert slices recursively
+		result := make([]interface{}, len(val))
+		for i, item := range val {
+			result[i] = convertValue(item)
+		}
+		return result
 	default:
-		return map[string]interface{}{
-			"usePlaceholders":    false,
-			"completeUnimported": true,
-		}
+		return v
 	}
 }
 

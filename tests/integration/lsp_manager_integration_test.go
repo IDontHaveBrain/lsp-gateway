@@ -2,7 +2,6 @@ package integration
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +12,7 @@ import (
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/utils"
+	"lsp-gateway/tests/shared"
 
 	"github.com/stretchr/testify/require"
 	"go.lsp.dev/protocol"
@@ -118,35 +118,9 @@ func helperFunction() {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 
-		// Handle different response types from LSP server
-		var locations []protocol.Location
-		switch res := result.(type) {
-		case protocol.Location:
-			locations = []protocol.Location{res}
-		case []protocol.Location:
-			locations = res
-		case json.RawMessage:
-			// Try to unmarshal as array first
-			err := json.Unmarshal(res, &locations)
-			if err != nil {
-				// Try as single location
-				var singleLoc protocol.Location
-				if err2 := json.Unmarshal(res, &singleLoc); err2 == nil {
-					locations = []protocol.Location{singleLoc}
-				}
-			}
-		case []interface{}:
-			for _, item := range res {
-				if data, err := json.Marshal(item); err == nil {
-					var loc protocol.Location
-					if json.Unmarshal(data, &loc) == nil {
-						locations = append(locations, loc)
-					}
-				}
-			}
-		default:
-			require.Fail(t, "Unexpected result type", "Expected protocol.Location or []protocol.Location, got %T", result)
-		}
+		// Parse definition response using helper
+		locations := shared.ParseDefinitionResponse(t, result)
+		shared.LogResponseSummary(t, "textDocument/definition", result)
 
 		require.Greater(t, len(locations), 0, "Should find definition")
 		require.Contains(t, string(locations[0].URI), "test.go")
@@ -170,35 +144,9 @@ func helperFunction() {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 
-		// Handle different response types from LSP server
-		var locations []protocol.Location
-		switch res := result.(type) {
-		case []protocol.Location:
-			locations = res
-		case json.RawMessage:
-			// Handle null or empty responses
-			jsonStr := string(res)
-			if jsonStr == "null" || jsonStr == "[]" {
-				locations = []protocol.Location{}
-			} else {
-				err := json.Unmarshal(res, &locations)
-				if err != nil {
-					t.Logf("Failed to unmarshal references JSON: %s", jsonStr)
-					locations = []protocol.Location{}
-				}
-			}
-		case []interface{}:
-			for _, item := range res {
-				if data, err := json.Marshal(item); err == nil {
-					var loc protocol.Location
-					if json.Unmarshal(data, &loc) == nil {
-						locations = append(locations, loc)
-					}
-				}
-			}
-		default:
-			require.Fail(t, "Unexpected result type", "Expected []protocol.Location, got %T", result)
-		}
+		// Parse references response using helper
+		locations := shared.ParseReferencesResponse(t, result)
+		shared.LogResponseSummary(t, "textDocument/references", result)
 
 		if len(locations) == 0 {
 			t.Log("No references found, which may be expected depending on test file content")
@@ -226,32 +174,12 @@ func helperFunction() {
 			return
 		}
 
-		// Handle different response types from LSP server
-		var hover *protocol.Hover
-		switch res := result.(type) {
-		case *protocol.Hover:
-			hover = res
-		case protocol.Hover:
-			hover = &res
-		case json.RawMessage:
-			jsonStr := string(res)
-			if jsonStr == "null" {
-				t.Log("No hover information available")
-				return
-			}
-			hover = &protocol.Hover{}
-			err := json.Unmarshal(res, hover)
-			if err != nil {
-				t.Logf("Failed to unmarshal hover JSON: %s", jsonStr)
-				return
-			}
-		case map[string]interface{}:
-			if data, err := json.Marshal(res); err == nil {
-				hover = &protocol.Hover{}
-				json.Unmarshal(data, hover)
-			}
-		default:
-			require.Fail(t, "Unexpected result type", "Expected *protocol.Hover, got %T", result)
+		// Parse hover response using helper
+		hover := shared.ParseHoverResponse(t, result)
+		shared.LogResponseSummary(t, "textDocument/hover", result)
+		if hover == nil {
+			t.Log("No hover information available")
+			return
 		}
 
 		if hover != nil {
@@ -272,28 +200,10 @@ func helperFunction() {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 
-		// Handle different response types from LSP server
-		var symbolCount int
-		switch res := result.(type) {
-		case []interface{}:
-			symbolCount = len(res)
-		case json.RawMessage:
-			jsonStr := string(res)
-			if jsonStr == "null" || jsonStr == "[]" {
-				symbolCount = 0
-			} else {
-				var symbols []interface{}
-				err := json.Unmarshal(res, &symbols)
-				if err != nil {
-					t.Logf("Failed to unmarshal document symbols JSON: %s", jsonStr)
-					symbolCount = 0
-				} else {
-					symbolCount = len(symbols)
-				}
-			}
-		default:
-			require.Fail(t, "Unexpected result type", "Expected []interface{} or json.RawMessage, got %T", result)
-		}
+		// Parse document symbols response using helper
+		symbols := shared.ParseDocumentSymbolResponse(t, result)
+		shared.LogResponseSummary(t, "textDocument/documentSymbol", result)
+		symbolCount := len(symbols)
 
 		if symbolCount == 0 {
 			t.Log("No document symbols found, which may be expected")
@@ -335,27 +245,13 @@ func helperFunction() {
 		result, err := lspManager.ProcessRequest(ctx, "textDocument/completion", params)
 		require.NoError(t, err)
 
-		if result != nil {
-			// Handle different response types from LSP server
-			switch res := result.(type) {
-			case *protocol.CompletionList:
-				t.Log("Received CompletionList")
-			case []protocol.CompletionItem:
-				t.Logf("Received %d completion items", len(res))
-			case json.RawMessage:
-				jsonStr := string(res)
-				if jsonStr == "null" || jsonStr == "[]" {
-					t.Log("No completion results available")
-				} else {
-					t.Log("Received completion data as JSON")
-				}
-			case []interface{}:
-				t.Logf("Received %d completion items as interfaces", len(res))
-			default:
-				t.Logf("Received completion result of type %T", result)
-			}
+		// Parse completion response using helper
+		completion := shared.ParseCompletionResponse(t, result)
+		shared.LogResponseSummary(t, "textDocument/completion", result)
+		if len(completion.Items) > 0 {
+			t.Logf("Received %d completion items", len(completion.Items))
 		} else {
-			t.Log("No completion results available")
+			t.Log("No completion results")
 		}
 	})
 

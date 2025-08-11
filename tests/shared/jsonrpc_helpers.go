@@ -278,3 +278,43 @@ func CreateBatchRequest(requests ...*JSONRPCRequest) []*JSONRPCRequest {
 func CreateInvalidMethodRequest(id interface{}) *JSONRPCRequest {
 	return CreateJSONRPCRequest("invalid/method", map[string]interface{}{}, id)
 }
+
+// CreateInitializeRequest creates an initialize request for LSP server initialization
+func CreateInitializeRequest(rootURI string, capabilities map[string]interface{}, id interface{}) *JSONRPCRequest {
+	params := map[string]interface{}{
+		"processId":    nil,
+		"rootUri":      rootURI,
+		"capabilities": capabilities,
+	}
+	return CreateJSONRPCRequest("initialize", params, id)
+}
+
+// CreateDidChangeRequest creates a textDocument/didChange notification
+func CreateDidChangeRequest(fileURI string, version int, changes []map[string]interface{}) *JSONRPCRequest {
+	params := map[string]interface{}{
+		"textDocument": map[string]interface{}{
+			"uri":     fileURI,
+			"version": version,
+		},
+		"contentChanges": changes,
+	}
+	return CreateJSONRPCRequest("textDocument/didChange", params, nil)
+}
+
+// CreateEnhancedCompletionRequest creates a textDocument/completion request with trigger parameters
+func CreateEnhancedCompletionRequest(fileURI string, line, character int, triggerKind int, triggerCharacter string, id interface{}) *JSONRPCRequest {
+	params := map[string]interface{}{
+		"textDocument": map[string]interface{}{
+			"uri": fileURI,
+		},
+		"position": map[string]interface{}{
+			"line":      line,
+			"character": character,
+		},
+		"context": map[string]interface{}{
+			"triggerKind":      triggerKind,
+			"triggerCharacter": triggerCharacter,
+		},
+	}
+	return CreateJSONRPCRequest("textDocument/completion", params, id)
+}

@@ -17,6 +17,7 @@ import (
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
+	"lsp-gateway/tests/shared"
 )
 
 func TestSCIPCacheOperations(t *testing.T) {
@@ -128,32 +129,8 @@ func NewHandler(s *Server) *Handler {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 
-		// Handle different response types from LSP server
-		var locations []protocol.Location
-		switch res := result.(type) {
-		case protocol.Location:
-			locations = []protocol.Location{res}
-		case []protocol.Location:
-			locations = res
-		case json.RawMessage:
-			// Unmarshal raw JSON response
-			var rawLocations []protocol.Location
-			err := json.Unmarshal(res, &rawLocations)
-			require.NoError(t, err, "Failed to unmarshal JSON response")
-			locations = rawLocations
-		case []interface{}:
-			// Handle generic interface slice
-			for _, item := range res {
-				if data, err := json.Marshal(item); err == nil {
-					var loc protocol.Location
-					if json.Unmarshal(data, &loc) == nil {
-						locations = append(locations, loc)
-					}
-				}
-			}
-		default:
-			require.Fail(t, "Unexpected result type", "Expected protocol.Location or []protocol.Location, got %T", result)
-		}
+		// Parse definition response using helper
+		locations := shared.ParseDefinitionResponse(t, result)
 		require.NotEmpty(t, locations, "Should find definition locations")
 
 		// Test cache storage and retrieval through the standard cache interface first
@@ -220,42 +197,8 @@ func NewHandler(s *Server) *Handler {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 
-		// Handle different response types from LSP server
-		var locations []protocol.Location
-		switch res := result.(type) {
-		case []protocol.Location:
-			locations = res
-		case json.RawMessage:
-			// Handle different JSON response formats
-			var jsonStr = string(res)
-			if jsonStr == "null" || jsonStr == "{}" {
-				// Empty or null response, no locations found
-				locations = []protocol.Location{}
-			} else {
-				err := json.Unmarshal(res, &locations)
-				if err != nil {
-					// Try to unmarshal as a single location
-					var singleLoc protocol.Location
-					if err2 := json.Unmarshal(res, &singleLoc); err2 == nil {
-						locations = []protocol.Location{singleLoc}
-					} else {
-						t.Logf("Failed to unmarshal JSON as locations or single location: %s", jsonStr)
-						locations = []protocol.Location{}
-					}
-				}
-			}
-		case []interface{}:
-			for _, item := range res {
-				if data, err := json.Marshal(item); err == nil {
-					var loc protocol.Location
-					if json.Unmarshal(data, &loc) == nil {
-						locations = append(locations, loc)
-					}
-				}
-			}
-		default:
-			require.Fail(t, "Unexpected result type", "Expected []protocol.Location, got %T", result)
-		}
+		// Parse references response using helper
+		locations := shared.ParseReferencesResponse(t, result)
 		require.NotEmpty(t, locations, "Should find reference locations")
 
 		// Test standard cache lookup first
@@ -367,42 +310,8 @@ func NewHandler(s *Server) *Handler {
 		require.NoError(t, err)
 		require.NotNil(t, result)
 
-		// Handle different response types from LSP server
-		var locations []protocol.Location
-		switch res := result.(type) {
-		case []protocol.Location:
-			locations = res
-		case json.RawMessage:
-			// Handle different JSON response formats
-			var jsonStr = string(res)
-			if jsonStr == "null" || jsonStr == "{}" {
-				// Empty or null response, no locations found
-				locations = []protocol.Location{}
-			} else {
-				err := json.Unmarshal(res, &locations)
-				if err != nil {
-					// Try to unmarshal as a single location
-					var singleLoc protocol.Location
-					if err2 := json.Unmarshal(res, &singleLoc); err2 == nil {
-						locations = []protocol.Location{singleLoc}
-					} else {
-						t.Logf("Failed to unmarshal JSON as locations or single location: %s", jsonStr)
-						locations = []protocol.Location{}
-					}
-				}
-			}
-		case []interface{}:
-			for _, item := range res {
-				if data, err := json.Marshal(item); err == nil {
-					var loc protocol.Location
-					if json.Unmarshal(data, &loc) == nil {
-						locations = append(locations, loc)
-					}
-				}
-			}
-		default:
-			require.Fail(t, "Unexpected result type", "Expected []protocol.Location, got %T", result)
-		}
+		// Parse references response using helper
+		locations := shared.ParseReferencesResponse(t, result)
 		// Cross-file references might not always be available depending on LSP server state
 		if len(locations) == 0 {
 			t.Log("No cross-file references found, which may be expected")

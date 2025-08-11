@@ -430,6 +430,36 @@ func (m *CacheIsolationManager) GetConfigPath() string {
 	return m.configPath
 }
 
+// formatInitOptions formats initialization options as YAML
+func formatInitOptions(options map[string]interface{}, indent string) string {
+	var result string
+	for key, value := range options {
+		result += fmt.Sprintf("%s%s:\n", indent, key)
+		switch v := value.(type) {
+		case map[string]interface{}:
+			result += formatInitOptions(v, indent+"  ")
+		case []string:
+			result += fmt.Sprintf("%s  [", indent)
+			for i, item := range v {
+				if i > 0 {
+					result += ", "
+				}
+				result += fmt.Sprintf("\"%s\"", item)
+			}
+			result += "]\n"
+		case bool:
+			result += fmt.Sprintf("%s  %t\n", indent, v)
+		case string:
+			result += fmt.Sprintf("%s  \"%s\"\n", indent, v)
+		case int, int32, int64:
+			result += fmt.Sprintf("%s  %d\n", indent, v)
+		default:
+			result += fmt.Sprintf("%s  %v\n", indent, v)
+		}
+	}
+	return result
+}
+
 // GenerateIsolatedConfig creates a test-specific configuration with isolated cache
 func (m *CacheIsolationManager) GenerateIsolatedConfig(servers map[string]interface{}, config CacheIsolationConfig) (string, error) {
 	m.mu.Lock()
@@ -466,7 +496,16 @@ func (m *CacheIsolationManager) GenerateIsolatedConfig(servers map[string]interf
 				}
 			}
 			configContent += "    working_dir: \"\"\n"
-			configContent += "    initialization_options: {}\n"
+
+			// Add initialization_options if present
+			if initOpts, hasInitOpts := server["initialization_options"]; hasInitOpts {
+				configContent += "    initialization_options:\n"
+				if initOptsMap, ok := initOpts.(map[string]interface{}); ok {
+					configContent += formatInitOptions(initOptsMap, "      ")
+				}
+			} else {
+				configContent += "    initialization_options: {}\n"
+			}
 		}
 	}
 

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/registry"
 	"lsp-gateway/src/internal/types"
 )
 
@@ -66,11 +67,13 @@ func (pm *LSPProcessManager) StartProcess(config types.ClientConfig, language st
 		}
 	}
 
-	// Set environment variables for rust-analyzer
+	// Set environment variables
 	cmd.Env = os.Environ()
-	if language == "rust" && config.WorkingDir != "" {
-		// Ensure rust-analyzer finds the Cargo.toml
-		cmd.Env = append(cmd.Env, "CARGO_MANIFEST_DIR="+config.WorkingDir)
+	if langInfo, exists := registry.GetLanguageByName(language); exists {
+		langEnvVars := langInfo.GetEnvironmentWithWorkingDir(config.WorkingDir)
+		for key, value := range langEnvVars {
+			cmd.Env = append(cmd.Env, key+"="+value)
+		}
 	}
 
 	// Create process info

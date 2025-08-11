@@ -1,19 +1,19 @@
 package server
 
 import (
-    "bufio"
-    "context"
-    "encoding/json"
-    "fmt"
-    "os"
-    "strings"
+	"bufio"
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
 
-    "lsp-gateway/src/internal/models/lsp"
-    "lsp-gateway/src/internal/types"
-    "lsp-gateway/src/server/scip"
-    "lsp-gateway/src/utils"
-    "lsp-gateway/src/utils/jsonutil"
-    "lsp-gateway/src/utils/lspconv"
+	"lsp-gateway/src/internal/models/lsp"
+	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/server/scip"
+	"lsp-gateway/src/utils"
+	"lsp-gateway/src/utils/jsonutil"
+	"lsp-gateway/src/utils/lspconv"
 )
 
 // EnhancedSymbolResult contains rich symbol information with occurrence data and role-based scoring
@@ -158,14 +158,14 @@ func (m *LSPManager) SearchSymbolPattern(ctx context.Context, query types.Symbol
 		if err != nil {
 			// Workspace symbol aggregation failed
 			// Continue with empty results rather than failing completely
-        } else if aggregatedResult != nil {
-            // Convert aggregated result to enriched symbol array
-            for _, symbolInfo := range lspconv.ParseWorkspaceSymbols(aggregatedResult) {
-                if enrichedResult := m.convertToEnrichedResult(symbolInfo, query); enrichedResult != nil {
-                    enrichedSymbols = append(enrichedSymbols, *enrichedResult)
-                }
-            }
-        }
+		} else if aggregatedResult != nil {
+			// Convert aggregated result to enriched symbol array
+			for _, symbolInfo := range lspconv.ParseWorkspaceSymbols(aggregatedResult) {
+				if enrichedResult := m.convertToEnrichedResult(symbolInfo, query); enrichedResult != nil {
+					enrichedSymbols = append(enrichedSymbols, *enrichedResult)
+				}
+			}
+		}
 	}
 
 	// Apply pattern matching, filtering, and role-based scoring

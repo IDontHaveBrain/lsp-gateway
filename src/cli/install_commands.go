@@ -1,13 +1,13 @@
 package cli
 
 import (
-    "fmt"
-    "time"
+	"fmt"
+	"time"
 
-    "lsp-gateway/src/config"
-    icommon "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/installer"
+	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/common"
+	icommon "lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/installer"
 )
 
 // ShowInstallStatus displays installation status for all language servers
@@ -64,7 +64,7 @@ func InstallAll(installPath, version string, force, offline bool) error {
 		UpdateConfig:   true,
 	}
 
-    ctx, cancel := icommon.CreateContext(30 * time.Minute)
+	ctx, cancel := icommon.CreateContext(30 * time.Minute)
 	defer cancel()
 
 	if err := manager.InstallAll(ctx, options); err != nil {
@@ -90,7 +90,7 @@ func InstallLanguage(language, installPath, version string, force, offline bool)
 		UpdateConfig:   true,
 	}
 
-    ctx, cancel := icommon.CreateContext(20 * time.Minute)
+	ctx, cancel := icommon.CreateContext(20 * time.Minute)
 	defer cancel()
 
 	if err := manager.InstallLanguage(ctx, language, options); err != nil {

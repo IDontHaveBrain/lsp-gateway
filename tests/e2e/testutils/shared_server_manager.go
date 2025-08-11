@@ -2,7 +2,9 @@ package testutils
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -94,6 +96,35 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 		"rust": map[string]interface{}{
 			"command": "rust-analyzer",
 			"args":    []string{},
+			// Disable cargo operations during tests to prevent Windows file locking issues
+			"initialization_options": map[string]interface{}{
+				"checkOnSave": map[string]interface{}{
+					"enable": false, // Disable cargo check on save
+				},
+				"cargo": map[string]interface{}{
+					"buildScripts": map[string]interface{}{
+						"enable": false, // Disable build script execution
+					},
+					"runBuildScripts":      false, // Alternative way to disable build scripts
+					"noDefaultFeatures":    true,  // Disable default features
+					"allFeatures":          false, // Don't enable all features
+					"target":               nil,   // No specific target
+					"autoreload":           false, // Disable automatic reload on Cargo.toml changes
+					"loadOutDirsFromCheck": false, // Don't run cargo check to load OUT_DIRs
+				},
+				"diagnostics": map[string]interface{}{
+					"disabled": []string{"unresolved-proc-macro"}, // Disable proc-macro errors
+				},
+				"procMacro": map[string]interface{}{
+					"enable": false, // Disable proc macro support completely
+				},
+				"files": map[string]interface{}{
+					"watcher": "client", // Use client-side file watching to avoid conflicts
+				},
+				"rustfmt": map[string]interface{}{
+					"enableRangeFormatting": false, // Disable rustfmt operations
+				},
+			},
 		},
 	}
 
@@ -132,10 +163,13 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 		fmt.Sprintf("GOPATH=%s", os.Getenv("GOPATH")),
 	)
 
-	// In shared mode, we don't want to pollute test output
-	// Instead, we'll capture output for debugging if needed
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+	// Capture output for debugging
+	// We'll redirect to os.Stderr so it doesn't interfere with test output
+	// but we can still see errors if the server fails
+	if testing.Verbose() || os.Getenv("DEBUG") != "" {
+		cmd.Stdout = os.Stderr
+		cmd.Stderr = os.Stderr
+	}
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("failed to start shared server: %w", err)
@@ -168,6 +202,33 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 		return fmt.Errorf("shared server failed to become ready: %w", err)
 	}
 
+	// Double-check that the process is still running
+	if mgr.gatewayCmd == nil || mgr.gatewayCmd.Process == nil {
+		return fmt.Errorf("shared server process terminated unexpectedly")
+	}
+
+	// Try to check if process exited (non-blocking)
+	processExited := make(chan bool, 1)
+	go func() {
+		select {
+		case <-time.After(500 * time.Millisecond):
+			// Check if process is still running
+			if mgr.gatewayCmd.ProcessState != nil {
+				processExited <- true
+			}
+		case <-mgr.ctx.Done():
+			return
+		}
+	}()
+
+	select {
+	case <-processExited:
+		return fmt.Errorf("shared server process exited immediately after startup")
+	case <-time.After(1 * time.Second):
+		// Process is still running, continue
+		t.Logf("✅ Shared server process is still running after 1 second")
+	}
+
 	t.Logf("✅ Shared LSP gateway server is ready and serving")
 	return nil
 }
@@ -186,12 +247,47 @@ func (mgr *SharedServerManager) waitForServerReady(t *testing.T) error {
 		default:
 		}
 
-		if err := QuickConnectivityCheck(healthURL); err == nil {
-			// Check if LSP clients are active by making a health check
-			if err := mgr.httpClient.HealthCheck(); err == nil {
-				// Server is responding and healthy
-				return nil
+		// Parse actual health response to check LSP client status
+		resp, err := http.Get(healthURL)
+		if err != nil {
+			time.Sleep(1 * time.Second)
+			continue
+		}
+
+		var health map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&health); err != nil {
+			resp.Body.Close()
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		resp.Body.Close()
+
+		// Check if required LSP clients are active
+		lspClients, ok := health["lsp_clients"].(map[string]interface{})
+		if !ok {
+			t.Logf("Waiting for LSP clients to initialize...")
+			time.Sleep(1 * time.Second)
+			continue
+		}
+
+		// Check if at least one LSP client is active
+		// Since we don't know which language is being tested in shared mode,
+		// we wait for any client to be active
+		hasActiveClient := false
+		for lang, langClient := range lspClients {
+			if clientMap, ok := langClient.(map[string]interface{}); ok {
+				if active, ok := clientMap["Active"].(bool); ok && active {
+					hasActiveClient = true
+					t.Logf("✅ %s LSP client is active", lang)
+				} else {
+					t.Logf("⏳ %s LSP client is still initializing...", lang)
+				}
 			}
+		}
+
+		if hasActiveClient {
+			// At least one client is ready, server can start accepting requests
+			return nil
 		}
 
 		time.Sleep(1 * time.Second)

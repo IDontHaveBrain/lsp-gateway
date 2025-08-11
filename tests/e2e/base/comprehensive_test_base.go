@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"lsp-gateway/tests/e2e/testutils"
+	"lsp-gateway/tests/shared"
 
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -341,6 +342,35 @@ func (suite *ComprehensiveTestBaseSuite) startGatewayServer() error {
 			"command":     "rust-analyzer",
 			"args":        []string{},
 			"working_dir": suite.repoDir,
+			// Disable cargo operations during tests to prevent Windows file locking issues
+			"initialization_options": map[string]interface{}{
+				"checkOnSave": map[string]interface{}{
+					"enable": false, // Disable cargo check on save
+				},
+				"cargo": map[string]interface{}{
+					"buildScripts": map[string]interface{}{
+						"enable": false, // Disable build script execution
+					},
+					"runBuildScripts":      false, // Alternative way to disable build scripts
+					"noDefaultFeatures":    true,  // Disable default features
+					"allFeatures":          false, // Don't enable all features
+					"target":               nil,   // No specific target
+					"autoreload":           false, // Disable automatic reload on Cargo.toml changes
+					"loadOutDirsFromCheck": false, // Don't run cargo check to load OUT_DIRs
+				},
+				"diagnostics": map[string]interface{}{
+					"disabled": []string{"unresolved-proc-macro"}, // Disable proc-macro errors
+				},
+				"procMacro": map[string]interface{}{
+					"enable": false, // Disable proc macro support completely
+				},
+				"files": map[string]interface{}{
+					"watcher": "client", // Use client-side file watching to avoid conflicts
+				},
+				"rustfmt": map[string]interface{}{
+					"enableRangeFormatting": false, // Disable rustfmt operations
+				},
+			},
 		},
 	}
 
@@ -409,28 +439,34 @@ func (suite *ComprehensiveTestBaseSuite) waitForServerReady() error {
 		suite.T().Logf("Warning: Failed to record server startup state: %v", err)
 	}
 
-	for i := 0; i < 30; i++ { // Wait up to 30 seconds
-		if err := testutils.QuickConnectivityCheck(healthURL); err == nil {
-			// Health endpoint is responding, now check if LSP clients are active
-			if suite.checkLSPClientsActive(healthURL) {
-				// Record ready state
-				if err := suite.cacheIsolationMgr.RecordCacheState(healthURL, "SERVER_READY"); err != nil {
-					suite.T().Logf("Warning: Failed to record server ready state: %v", err)
-				}
+	// Use polling to wait for server readiness
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-				// Wait for cache stabilization
-				if err := suite.cacheIsolationMgr.WaitForCacheStabilization(healthURL, 15*time.Second); err != nil {
-					suite.T().Logf("Warning: Cache stabilization timeout: %v", err)
-				}
-
-				suite.T().Logf("✅ Server and LSP clients are ready after %d seconds", i+1)
-				return nil
-			}
+	predicate := func() bool {
+		if err := testutils.QuickConnectivityCheck(healthURL); err != nil {
+			return false
 		}
-		time.Sleep(1 * time.Second)
+		// Health endpoint is responding, now check if LSP clients are active
+		return suite.checkLSPClientsActive(healthURL)
 	}
 
-	return fmt.Errorf("server did not become ready within 30 seconds")
+	if err := testutils.WaitUntil(ctx, 1*time.Second, 30*time.Second, predicate); err != nil {
+		return fmt.Errorf("server did not become ready within 30 seconds: %w", err)
+	}
+
+	// Record ready state
+	if err := suite.cacheIsolationMgr.RecordCacheState(healthURL, "SERVER_READY"); err != nil {
+		suite.T().Logf("Warning: Failed to record server ready state: %v", err)
+	}
+
+	// Wait for cache stabilization
+	if err := suite.cacheIsolationMgr.WaitForCacheStabilization(healthURL, 15*time.Second); err != nil {
+		suite.T().Logf("Warning: Cache stabilization timeout: %v", err)
+	}
+
+	suite.T().Logf("✅ Server and LSP clients are ready")
+	return nil
 }
 
 // checkLSPClientsActive checks if required LSP clients are active and cache is working
@@ -568,6 +604,16 @@ func (suite *ComprehensiveTestBaseSuite) validateCachePerformance() {
 	}
 }
 
+// requestToMap converts a JSONRPCRequest struct to map[string]interface{}
+func (suite *ComprehensiveTestBaseSuite) requestToMap(req *shared.JSONRPCRequest) map[string]interface{} {
+	return map[string]interface{}{
+		"jsonrpc": req.JSONRPC,
+		"method":  req.Method,
+		"params":  req.Params,
+		"id":      req.ID,
+	}
+}
+
 // makeJSONRPCRequest makes a raw JSON-RPC request to the LSP gateway
 func (suite *ComprehensiveTestBaseSuite) makeJSONRPCRequest(ctx context.Context, httpClient *testutils.HttpClient, request map[string]interface{}) (map[string]interface{}, error) {
 	return httpClient.MakeRawJSONRPCRequest(ctx, request)
@@ -607,20 +653,7 @@ func (suite *ComprehensiveTestBaseSuite) TestDefinitionComprehensive() {
 		// Continue anyway, the request might still work
 	}
 
-	definitionRequest := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "textDocument/definition",
-		"params": map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri": fileURI,
-			},
-			"position": map[string]interface{}{
-				"line":      testFile.DefinitionPos.Line,
-				"character": testFile.DefinitionPos.Character,
-			},
-		},
-	}
+	definitionRequest := suite.requestToMap(shared.CreateDefinitionRequest(fileURI, testFile.DefinitionPos.Line, testFile.DefinitionPos.Character, 1))
 
 	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
@@ -669,25 +702,12 @@ func (suite *ComprehensiveTestBaseSuite) TestReferencesComprehensive() {
 	testFile, err := suite.repoManager.GetTestFile(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get test file")
 
-	time.Sleep(5 * time.Second)
+	// Wait for LSP server to be ready
+	ctx := context.Background()
+	err = testutils.WaitForLSPReady(ctx, httpClient, suite.Config.Language)
+	require.NoError(suite.T(), err, "Failed to wait for LSP server to be ready")
 
-	referencesRequest := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "textDocument/references",
-		"params": map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri": fileURI,
-			},
-			"position": map[string]interface{}{
-				"line":      testFile.ReferencePos.Line,
-				"character": testFile.ReferencePos.Character,
-			},
-			"context": map[string]interface{}{
-				"includeDeclaration": true,
-			},
-		},
-	}
+	referencesRequest := suite.requestToMap(shared.CreateReferencesRequest(fileURI, testFile.ReferencePos.Line, testFile.ReferencePos.Character, true, 1))
 
 	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
@@ -738,23 +758,12 @@ func (suite *ComprehensiveTestBaseSuite) TestHoverComprehensive() {
 
 	// Give LSP server time to initialize
 	suite.T().Logf("Waiting for LSP server to fully initialize...")
-	time.Sleep(5 * time.Second)
+	ctx := context.Background()
+	err = testutils.WaitForLSPReady(ctx, httpClient, suite.Config.Language)
+	require.NoError(suite.T(), err, "Failed to wait for LSP server to be ready")
 
 	// Test hover request
-	hoverRequest := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "textDocument/hover",
-		"params": map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri": fileURI,
-			},
-			"position": map[string]interface{}{
-				"line":      testFile.HoverPos.Line,
-				"character": testFile.HoverPos.Character,
-			},
-		},
-	}
+	hoverRequest := suite.requestToMap(shared.CreateHoverRequest(fileURI, testFile.HoverPos.Line, testFile.HoverPos.Character, 1))
 
 	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
@@ -803,18 +812,12 @@ func (suite *ComprehensiveTestBaseSuite) TestDocumentSymbolComprehensive() {
 	fileURI, err := suite.repoManager.GetFileURI(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get file URI")
 
-	time.Sleep(5 * time.Second)
+	// Wait for LSP server to be ready
+	ctx := context.Background()
+	err = testutils.WaitForLSPReady(ctx, httpClient, suite.Config.Language)
+	require.NoError(suite.T(), err, "Failed to wait for LSP server to be ready")
 
-	documentSymbolRequest := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "textDocument/documentSymbol",
-		"params": map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri": fileURI,
-			},
-		},
-	}
+	documentSymbolRequest := suite.requestToMap(shared.CreateDocumentSymbolRequest(fileURI, 1))
 
 	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
@@ -855,16 +858,12 @@ func (suite *ComprehensiveTestBaseSuite) TestWorkspaceSymbolComprehensive() {
 	testFile, err := suite.repoManager.GetTestFile(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get test file")
 
-	time.Sleep(5 * time.Second)
+	// Wait for LSP server to be ready
+	ctx := context.Background()
+	err = testutils.WaitForLSPReady(ctx, httpClient, suite.Config.Language)
+	require.NoError(suite.T(), err, "Failed to wait for LSP server to be ready")
 
-	workspaceSymbolRequest := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "workspace/symbol",
-		"params": map[string]interface{}{
-			"query": testFile.SymbolQuery,
-		},
-	}
+	workspaceSymbolRequest := suite.requestToMap(shared.CreateWorkspaceSymbolRequest(testFile.SymbolQuery, 1))
 
 	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
@@ -925,22 +924,12 @@ func (suite *ComprehensiveTestBaseSuite) TestCompletionComprehensive() {
 	testFile, err := suite.repoManager.GetTestFile(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get test file")
 
-	time.Sleep(5 * time.Second)
+	// Wait for LSP server to be ready
+	ctx := context.Background()
+	err = testutils.WaitForLSPReady(ctx, httpClient, suite.Config.Language)
+	require.NoError(suite.T(), err, "Failed to wait for LSP server to be ready")
 
-	completionRequest := map[string]interface{}{
-		"jsonrpc": "2.0",
-		"id":      1,
-		"method":  "textDocument/completion",
-		"params": map[string]interface{}{
-			"textDocument": map[string]interface{}{
-				"uri": fileURI,
-			},
-			"position": map[string]interface{}{
-				"line":      testFile.CompletionPos.Line,
-				"character": testFile.CompletionPos.Character,
-			},
-		},
-	}
+	completionRequest := suite.requestToMap(shared.CreateCompletionRequest(fileURI, testFile.CompletionPos.Line, testFile.CompletionPos.Character, 1))
 
 	ctx, cancel := context.WithTimeout(context.Background(), suite.getLanguageTimeout())
 	defer cancel()
@@ -1051,12 +1040,20 @@ func (suite *ComprehensiveTestBaseSuite) testMethodSequentially(httpClient *test
 
 	response, err := suite.makeJSONRPCRequest(ctx, httpClient, request)
 	if err != nil {
-		suite.T().Logf("  ❌ %s failed: %v", method, err)
+		if suite.Config.Language == "java" && isWindowsCI() && method == "textDocument/definition" {
+			suite.T().Logf("  ⚠️ %s encountered error on Windows CI (Java): %v", method, err)
+			return
+		}
+		suite.T().Errorf("  ❌ %s failed: %v", method, err)
 		return
 	}
 
 	if errorField, hasError := response["error"]; hasError && errorField != nil {
-		suite.T().Logf("  ❌ %s LSP error: %v", method, errorField)
+		if suite.Config.Language == "java" && isWindowsCI() && method == "textDocument/definition" {
+			suite.T().Logf("  ⚠️ %s returned LSP error on Windows CI (Java): %v", method, errorField)
+			return
+		}
+		suite.T().Errorf("  ❌ %s LSP error: %v", method, errorField)
 		return
 	}
 
@@ -1083,12 +1080,12 @@ func (suite *ComprehensiveTestBaseSuite) testDocumentSymbolSequentially(httpClie
 
 	response, err := suite.makeJSONRPCRequest(ctx, httpClient, request)
 	if err != nil {
-		suite.T().Logf("  ❌ textDocument/documentSymbol failed: %v", err)
+		suite.T().Errorf("  ❌ textDocument/documentSymbol failed: %v", err)
 		return
 	}
 
 	if errorField, hasError := response["error"]; hasError && errorField != nil {
-		suite.T().Logf("  ❌ textDocument/documentSymbol LSP error: %v", errorField)
+		suite.T().Errorf("  ❌ textDocument/documentSymbol LSP error: %v", errorField)
 		return
 	}
 
@@ -1113,12 +1110,28 @@ func (suite *ComprehensiveTestBaseSuite) testWorkspaceSymbolSequentially(httpCli
 
 	response, err := suite.makeJSONRPCRequest(ctx, httpClient, request)
 	if err != nil {
-		suite.T().Logf("  ❌ workspace/symbol failed: %v", err)
+		// Treat unsupported or missing method as acceptable for certain servers (e.g., Python)
+		errMsg := fmt.Sprintf("%v", err)
+		if strings.Contains(errMsg, "no LSP servers support workspace/symbol") ||
+			strings.Contains(errMsg, "Method not found") ||
+			strings.Contains(errMsg, "not supported") {
+			suite.T().Logf("  ⚠️ workspace/symbol not supported: %v", err)
+			return
+		}
+		suite.T().Errorf("  ❌ workspace/symbol failed: %v", err)
 		return
 	}
 
 	if errorField, hasError := response["error"]; hasError && errorField != nil {
-		suite.T().Logf("  ❌ workspace/symbol LSP error: %v", errorField)
+		// Tolerate unsupported method errors similar to comprehensive test
+		errorMsg := fmt.Sprintf("%v", errorField)
+		if strings.Contains(errorMsg, "no LSP servers support workspace/symbol") ||
+			strings.Contains(errorMsg, "Method not found") ||
+			strings.Contains(errorMsg, "not supported") {
+			suite.T().Logf("  ⚠️ workspace/symbol not supported by %s LSP server: %v", suite.Config.Language, errorField)
+			return
+		}
+		suite.T().Errorf("  ❌ workspace/symbol LSP error: %v", errorField)
 		return
 	}
 
@@ -1233,9 +1246,9 @@ func (suite *ComprehensiveTestBaseSuite) getLanguageTimeout() time.Duration {
 	if isWindowsCI() {
 		// Windows CI is significantly slower, especially for Java
 		if suite.Config.Language == "java" {
-			// Base timeout + document sync overhead + buffer
-			// 75s base * 2 + 30s buffer for document operations
-			return baseTimeout*2 + 30*time.Second
+			// Match server timeout (90s * 3 = 270s) + buffer for HTTP overhead
+			// This ensures test doesn't timeout before server responds
+			return baseTimeout*3 + 60*time.Second // 330s total
 		}
 		return time.Duration(float64(baseTimeout) * 1.5) // 50% more for other languages
 	} else if isCI() {
@@ -1248,22 +1261,24 @@ func (suite *ComprehensiveTestBaseSuite) getLanguageTimeout() time.Duration {
 
 // getBaseLanguageTimeout returns base timeout without CI adjustments
 func (suite *ComprehensiveTestBaseSuite) getBaseLanguageTimeout() time.Duration {
+	// Use the actual timeouts from the server configuration
+	// These should match what's in src/internal/registry/languages.go
 	switch suite.Config.Language {
 	case "java":
-		// Java LSP server (jdtls) is significantly slower
-		if runtime.GOOS == "windows" {
-			return 75 * time.Second
-		}
-		return 65 * time.Second
+		// Java uses 90s timeout in the server
+		return 90 * time.Second
 	case "python":
-		// Python LSP server can be slow for large projects
-		return 35 * time.Second
+		// Python uses 30s timeout in the server
+		return 30 * time.Second
 	case "go", "javascript", "typescript":
-		// These are generally faster
-		return 20 * time.Second
+		// These use 15s timeout in the server
+		return 15 * time.Second
+	case "rust":
+		// Rust uses 15s timeout in the server
+		return 15 * time.Second
 	default:
 		// Default timeout for unknown languages
-		return 25 * time.Second
+		return 20 * time.Second
 	}
 }
 
