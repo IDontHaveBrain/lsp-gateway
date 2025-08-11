@@ -18,9 +18,11 @@ const (
 	WriteTimeout          = 10 * time.Second
 
 	// Initialize timeouts by language
-	DefaultInitializeTimeout = 15 * time.Second
-	JavaInitializeTimeout    = 90 * time.Second
-	PythonInitializeTimeout  = 30 * time.Second
+	DefaultInitializeTimeout    = 30 * time.Second
+	JavaInitializeTimeout       = 90 * time.Second
+	PythonInitializeTimeout     = 30 * time.Second
+	GoInitializeTimeout         = 30 * time.Second
+	TypeScriptInitializeTimeout = 30 * time.Second
 
 	// Process management timeouts
 	ProcessShutdownTimeout = 5 * time.Second

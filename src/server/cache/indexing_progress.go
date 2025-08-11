@@ -238,7 +238,13 @@ func (m *SCIPCacheManager) AddOccurrences(ctx context.Context, uri string, occur
 	result := m.WithIndexWriteLock(func() interface{} {
 		return m.addOccurrencesInternal(ctx, uri, occurrences)
 	})
-	return result.(error)
+	if result == nil {
+		return nil
+	}
+	if err, ok := result.(error); ok {
+		return err
+	}
+	return nil
 }
 
 // addOccurrencesInternal contains the actual logic without locks
