@@ -29,7 +29,21 @@ import (
 
 // getRequestTimeout returns language-specific timeout for LSP requests
 func (c *StdioClient) getRequestTimeout(method string) time.Duration {
-	return constants.GetRequestTimeout(c.language)
+	baseTimeout := constants.GetRequestTimeout(c.language)
+
+	// Method-specific overrides for Java
+	if c.language == "java" {
+		switch method {
+		case types.MethodTextDocumentReferences:
+			// Java references can be particularly slow due to project-wide search
+			return baseTimeout * 2 // 180 seconds for Java references
+		case types.MethodWorkspaceSymbol:
+			// Workspace symbol search can also be slow for large Java projects
+			return time.Duration(float64(baseTimeout) * 1.5) // 135 seconds
+		}
+	}
+
+	return baseTimeout
 }
 
 // getInitializeTimeout returns language-specific timeout for initialize requests
@@ -59,7 +73,9 @@ type StdioClient struct {
 	active           bool
 	requests         map[string]*pendingRequest
 	nextID           int
-	openDocs         map[string]bool // Track opened documents to prevent duplicate didOpen
+	openDocs         map[string]bool      // Track opened documents to prevent duplicate didOpen
+	recentTimeouts   map[string]time.Time // Track recently timed-out requests
+	timeoutsMu       sync.RWMutex
 	workspaceFolders map[string]bool // Track added workspace folders
 }
 
@@ -71,6 +87,7 @@ func NewStdioClient(config types.ClientConfig, language string) (types.LSPClient
 		requests:         make(map[string]*pendingRequest),
 		openDocs:         make(map[string]bool),
 		workspaceFolders: make(map[string]bool),
+		recentTimeouts:   make(map[string]time.Time),
 		errorTranslator:  errors.NewLSPErrorTranslator(),
 		capDetector:      capabilities.NewLSPCapabilityDetector(),
 		processManager:   process.NewLSPProcessManager(),
@@ -280,6 +297,23 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 	case response := <-request.respCh:
 		return response, nil
 	case <-ctx.Done():
+		// Track this as a recently timed-out request
+		c.timeoutsMu.Lock()
+		c.recentTimeouts[id] = time.Now()
+		// Clean up old timeout entries (older than 30 seconds)
+		for reqID, timeoutTime := range c.recentTimeouts {
+			if time.Since(timeoutTime) > 30*time.Second {
+				delete(c.recentTimeouts, reqID)
+			}
+		}
+		c.timeoutsMu.Unlock()
+
+		// Send cancellation request to LSP server
+		cancelParams := map[string]interface{}{"id": id}
+		if cancelErr := c.SendNotification(context.Background(), "$/cancelRequest", cancelParams); cancelErr != nil {
+			common.LSPLogger.Debug("Failed to send cancel request for id=%s: %v", id, cancelErr)
+		}
+
 		common.LSPLogger.Error("LSP request timeout: method=%s, id=%s, timeout=%v", method, id, timeoutDuration)
 		return nil, fmt.Errorf("request timeout after %v for method %s", timeoutDuration, method)
 	case <-processInfo.StopCh:
@@ -386,7 +420,16 @@ func (c *StdioClient) HandleResponse(id interface{}, result json.RawMessage, err
 			common.LSPLogger.Warn("Client stopped when trying to deliver response: id=%s", idStr)
 		}
 	} else {
-		common.LSPLogger.Warn("No matching request found for response: id=%s", idStr)
+		// Check if this was a recently timed-out request
+		c.timeoutsMu.RLock()
+		timeoutTime, wasTimeout := c.recentTimeouts[idStr]
+		c.timeoutsMu.RUnlock()
+
+		if wasTimeout && time.Since(timeoutTime) < 30*time.Second {
+			common.LSPLogger.Debug("Received late response for previously timed-out request: id=%s (timed out %v ago)", idStr, time.Since(timeoutTime))
+		} else {
+			common.LSPLogger.Warn("No matching request found for response: id=%s", idStr)
+		}
 	}
 
 	return nil

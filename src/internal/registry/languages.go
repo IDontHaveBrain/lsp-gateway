@@ -173,7 +173,7 @@ var allowedCommands = []string{
 	"jdtls.py",
 	"rust-analyzer",
 	"rust-analyzer.exe",
-		"rust-analyzer.cmd",
+	"rust-analyzer.cmd",
 	// Runtime tools
 	"java",
 	"java.exe",

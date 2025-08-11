@@ -1011,12 +1011,12 @@ func (suite *ComprehensiveTestBaseSuite) testMethodSequentially(httpClient *test
 
 	response, err := suite.makeJSONRPCRequest(ctx, httpClient, request)
 	if err != nil {
-		suite.T().Logf("  ❌ %s failed: %v", method, err)
+		suite.T().Errorf("  ❌ %s failed: %v", method, err)
 		return
 	}
 
 	if errorField, hasError := response["error"]; hasError && errorField != nil {
-		suite.T().Logf("  ❌ %s LSP error: %v", method, errorField)
+		suite.T().Errorf("  ❌ %s LSP error: %v", method, errorField)
 		return
 	}
 
@@ -1043,12 +1043,12 @@ func (suite *ComprehensiveTestBaseSuite) testDocumentSymbolSequentially(httpClie
 
 	response, err := suite.makeJSONRPCRequest(ctx, httpClient, request)
 	if err != nil {
-		suite.T().Logf("  ❌ textDocument/documentSymbol failed: %v", err)
+		suite.T().Errorf("  ❌ textDocument/documentSymbol failed: %v", err)
 		return
 	}
 
 	if errorField, hasError := response["error"]; hasError && errorField != nil {
-		suite.T().Logf("  ❌ textDocument/documentSymbol LSP error: %v", errorField)
+		suite.T().Errorf("  ❌ textDocument/documentSymbol LSP error: %v", errorField)
 		return
 	}
 
@@ -1073,12 +1073,12 @@ func (suite *ComprehensiveTestBaseSuite) testWorkspaceSymbolSequentially(httpCli
 
 	response, err := suite.makeJSONRPCRequest(ctx, httpClient, request)
 	if err != nil {
-		suite.T().Logf("  ❌ workspace/symbol failed: %v", err)
+		suite.T().Errorf("  ❌ workspace/symbol failed: %v", err)
 		return
 	}
 
 	if errorField, hasError := response["error"]; hasError && errorField != nil {
-		suite.T().Logf("  ❌ workspace/symbol LSP error: %v", errorField)
+		suite.T().Errorf("  ❌ workspace/symbol LSP error: %v", errorField)
 		return
 	}
 
@@ -1208,22 +1208,24 @@ func (suite *ComprehensiveTestBaseSuite) getLanguageTimeout() time.Duration {
 
 // getBaseLanguageTimeout returns base timeout without CI adjustments
 func (suite *ComprehensiveTestBaseSuite) getBaseLanguageTimeout() time.Duration {
+	// Use the actual timeouts from the server configuration
+	// These should match what's in src/internal/registry/languages.go
 	switch suite.Config.Language {
 	case "java":
-		// Java LSP server (jdtls) is significantly slower
-		if runtime.GOOS == "windows" {
-			return 75 * time.Second
-		}
-		return 65 * time.Second
+		// Java uses 90s timeout in the server
+		return 90 * time.Second
 	case "python":
-		// Python LSP server can be slow for large projects
-		return 35 * time.Second
+		// Python uses 30s timeout in the server
+		return 30 * time.Second
 	case "go", "javascript", "typescript":
-		// These are generally faster
-		return 20 * time.Second
+		// These use 15s timeout in the server
+		return 15 * time.Second
+	case "rust":
+		// Rust uses 15s timeout in the server
+		return 15 * time.Second
 	default:
 		// Default timeout for unknown languages
-		return 25 * time.Second
+		return 20 * time.Second
 	}
 }
 
