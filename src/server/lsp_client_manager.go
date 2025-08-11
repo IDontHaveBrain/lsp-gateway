@@ -484,6 +484,16 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 		wd = utils.URIToFilePath(utils.FilePathToURI(wd))
 	}
 
+	// Get initialization options
+	initOptions := c.getInitializationOptions()
+
+	// Log initialization options for rust to debug cargo issues
+	if c.language == "rust" {
+		if optionsJSON, err := json.Marshal(initOptions); err == nil {
+			common.LSPLogger.Info("rust-analyzer initialization options: %s", string(optionsJSON))
+		}
+	}
+
 	// Send initialize request according to LSP specification
 	initParams := map[string]interface{}{
 		"processId": os.Getpid(),
@@ -499,7 +509,7 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 				"name": filepath.Base(wd),
 			},
 		},
-		"initializationOptions": c.getInitializationOptions(),
+		"initializationOptions": initOptions,
 		"capabilities": map[string]interface{}{
 			"workspace": map[string]interface{}{
 				"applyEdit":              true,
@@ -619,16 +629,11 @@ func (c *StdioClient) getInitializationOptions() map[string]interface{} {
 	if c.initializationOptions != nil {
 		switch opts := c.initializationOptions.(type) {
 		case map[string]interface{}:
-			return opts
+			// Recursively convert any nested map[interface{}]interface{} values
+			return convertToStringMap(opts)
 		case map[interface{}]interface{}:
 			// Convert map[interface{}]interface{} to map[string]interface{} (YAML unmarshaling)
-			result := make(map[string]interface{})
-			for k, v := range opts {
-				if key, ok := k.(string); ok {
-					result[key] = v
-				}
-			}
-			return result
+			return convertInterfaceMap(opts)
 		}
 	}
 
@@ -642,6 +647,45 @@ func (c *StdioClient) getInitializationOptions() map[string]interface{} {
 		}
 	}
 	return langInfo.GetInitOptions()
+}
+
+// convertInterfaceMap recursively converts map[interface{}]interface{} to map[string]interface{}
+func convertInterfaceMap(m map[interface{}]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+	for k, v := range m {
+		if key, ok := k.(string); ok {
+			result[key] = convertValue(v)
+		}
+	}
+	return result
+}
+
+// convertToStringMap recursively ensures all nested maps are map[string]interface{}
+func convertToStringMap(m map[string]interface{}) map[string]interface{} {
+	result := make(map[string]interface{})
+	for k, v := range m {
+		result[k] = convertValue(v)
+	}
+	return result
+}
+
+// convertValue recursively converts values to ensure proper types
+func convertValue(v interface{}) interface{} {
+	switch val := v.(type) {
+	case map[interface{}]interface{}:
+		return convertInterfaceMap(val)
+	case map[string]interface{}:
+		return convertToStringMap(val)
+	case []interface{}:
+		// Convert slices recursively
+		result := make([]interface{}, len(val))
+		for i, item := range val {
+			result[i] = convertValue(item)
+		}
+		return result
+	default:
+		return v
+	}
 }
 
 // parseServerCapabilities parses the server capabilities from initialize response
