@@ -101,8 +101,8 @@ func main() {
 	symCall := mcpReq{JSONRPC: "2.0", ID: 2, Method: "tools/call", Params: map[string]interface{}{
 		"name": "findSymbols",
 		"arguments": map[string]interface{}{
-			"pattern":     "Foo",
-			"filePattern": "*.go",
+			"pattern":  "Foo",
+			"filePath": "*.go",
 		},
 	}}
 	b, _ = json.Marshal(symCall)
@@ -122,9 +122,9 @@ func main() {
 	refCall := mcpReq{JSONRPC: "2.0", ID: 3, Method: "tools/call", Params: map[string]interface{}{
 		"name": "findReferences",
 		"arguments": map[string]interface{}{
-			"pattern":     "Foo",
-			"filePattern": "*.go",
-			"maxResults":  20,
+			"pattern":    "Foo",
+			"filePath":   "*.go",
+			"maxResults": 20,
 		},
 	}}
 	b, _ = json.Marshal(refCall)
