@@ -342,6 +342,21 @@ func (suite *ComprehensiveTestBaseSuite) startGatewayServer() error {
 			"command":     "rust-analyzer",
 			"args":        []string{},
 			"working_dir": suite.repoDir,
+			// Disable cargo operations during tests to prevent Windows file locking issues
+			"initialization_options": map[string]interface{}{
+				"checkOnSave": map[string]interface{}{
+					"enable": false, // Disable cargo check on save
+				},
+				"cargo": map[string]interface{}{
+					"buildScripts": map[string]interface{}{
+						"enable": false, // Disable build script execution
+					},
+					"runBuildScripts": false, // Alternative way to disable build scripts
+				},
+				"diagnostics": map[string]interface{}{
+					"disabled": []string{"unresolved-proc-macro"}, // Disable proc-macro errors
+				},
+			},
 		},
 	}
 
