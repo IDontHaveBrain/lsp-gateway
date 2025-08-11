@@ -351,10 +351,24 @@ func (suite *ComprehensiveTestBaseSuite) startGatewayServer() error {
 					"buildScripts": map[string]interface{}{
 						"enable": false, // Disable build script execution
 					},
-					"runBuildScripts": false, // Alternative way to disable build scripts
+					"runBuildScripts":      false, // Alternative way to disable build scripts
+					"noDefaultFeatures":    true,  // Disable default features
+					"allFeatures":          false, // Don't enable all features
+					"target":               nil,   // No specific target
+					"autoreload":           false, // Disable automatic reload on Cargo.toml changes
+					"loadOutDirsFromCheck": false, // Don't run cargo check to load OUT_DIRs
 				},
 				"diagnostics": map[string]interface{}{
 					"disabled": []string{"unresolved-proc-macro"}, // Disable proc-macro errors
+				},
+				"procMacro": map[string]interface{}{
+					"enable": false, // Disable proc macro support completely
+				},
+				"files": map[string]interface{}{
+					"watcher": "client", // Use client-side file watching to avoid conflicts
+				},
+				"rustfmt": map[string]interface{}{
+					"enableRangeFormatting": false, // Disable rustfmt operations
 				},
 			},
 		},

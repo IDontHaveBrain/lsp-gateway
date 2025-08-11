@@ -60,14 +60,15 @@ type pendingRequest struct {
 
 // StdioClient implements LSP communication over STDIO
 type StdioClient struct {
-	config          types.ClientConfig
-	language        string // Language identifier for unique request IDs
-	capabilities    capabilities.ServerCapabilities
-	errorTranslator errors.ErrorTranslator
-	capDetector     capabilities.CapabilityDetector
-	processManager  process.ProcessManager
-	processInfo     *process.ProcessInfo
-	jsonrpcProtocol protocol.JSONRPCProtocol
+	config                types.ClientConfig
+	language              string // Language identifier for unique request IDs
+	capabilities          capabilities.ServerCapabilities
+	errorTranslator       errors.ErrorTranslator
+	capDetector           capabilities.CapabilityDetector
+	processManager        process.ProcessManager
+	processInfo           *process.ProcessInfo
+	jsonrpcProtocol       protocol.JSONRPCProtocol
+	initializationOptions interface{} // Initialization options from config
 
 	mu               sync.RWMutex
 	writeMu          sync.Mutex
@@ -83,16 +84,17 @@ type StdioClient struct {
 // NewStdioClient creates a new STDIO LSP client
 func NewStdioClient(config types.ClientConfig, language string) (types.LSPClient, error) {
 	client := &StdioClient{
-		config:           config,
-		language:         language,
-		requests:         make(map[string]*pendingRequest),
-		openDocs:         make(map[string]bool),
-		workspaceFolders: make(map[string]bool),
-		recentTimeouts:   make(map[string]time.Time),
-		errorTranslator:  errors.NewLSPErrorTranslator(),
-		capDetector:      capabilities.NewLSPCapabilityDetector(),
-		processManager:   process.NewLSPProcessManager(),
-		jsonrpcProtocol:  protocol.NewLSPJSONRPCProtocol(language),
+		config:                config,
+		language:              language,
+		requests:              make(map[string]*pendingRequest),
+		openDocs:              make(map[string]bool),
+		workspaceFolders:      make(map[string]bool),
+		recentTimeouts:        make(map[string]time.Time),
+		errorTranslator:       errors.NewLSPErrorTranslator(),
+		capDetector:           capabilities.NewLSPCapabilityDetector(),
+		processManager:        process.NewLSPProcessManager(),
+		jsonrpcProtocol:       protocol.NewLSPJSONRPCProtocol(language),
+		initializationOptions: config.InitializationOptions,
 	}
 	return client, nil
 }
@@ -613,6 +615,24 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 
 // getInitializationOptions returns language-specific initialization options
 func (c *StdioClient) getInitializationOptions() map[string]interface{} {
+	// Use initialization options from config if provided
+	if c.initializationOptions != nil {
+		switch opts := c.initializationOptions.(type) {
+		case map[string]interface{}:
+			return opts
+		case map[interface{}]interface{}:
+			// Convert map[interface{}]interface{} to map[string]interface{} (YAML unmarshaling)
+			result := make(map[string]interface{})
+			for k, v := range opts {
+				if key, ok := k.(string); ok {
+					result[key] = v
+				}
+			}
+			return result
+		}
+	}
+
+	// Fall back to defaults from language registry
 	langInfo, exists := registry.GetLanguageByName(c.language)
 	if !exists {
 		common.LSPLogger.Warn("Unknown language %s, using default initialization options", c.language)

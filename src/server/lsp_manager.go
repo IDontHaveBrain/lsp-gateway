@@ -698,9 +698,10 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 	}
 
 	clientConfig := types.ClientConfig{
-		Command:    resolvedCommand,
-		Args:       cfg.Args,
-		WorkingDir: cfg.WorkingDir,
+		Command:               resolvedCommand,
+		Args:                  cfg.Args,
+		WorkingDir:            cfg.WorkingDir,
+		InitializationOptions: cfg.InitializationOptions,
 	}
 
 	client, err := NewStdioClient(clientConfig, language)

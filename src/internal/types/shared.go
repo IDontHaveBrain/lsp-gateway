@@ -6,9 +6,10 @@ import (
 
 // ClientConfig contains configuration for an LSP client
 type ClientConfig struct {
-	Command    string
-	Args       []string
-	WorkingDir string
+	Command               string
+	Args                  []string
+	WorkingDir            string
+	InitializationOptions interface{} // Optional initialization options from config
 }
 
 type ServerInstallOptions struct {
