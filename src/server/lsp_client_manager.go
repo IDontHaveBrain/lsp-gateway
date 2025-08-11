@@ -36,10 +36,11 @@ func (c *StdioClient) getRequestTimeout(method string) time.Duration {
 		switch method {
 		case types.MethodTextDocumentReferences:
 			// Java references can be particularly slow due to project-wide search
-			return baseTimeout * 2 // 180 seconds for Java references
+			// On Windows CI, this becomes 270s * 2 = 540s (9 minutes)
+			return baseTimeout * 2
 		case types.MethodWorkspaceSymbol:
 			// Workspace symbol search can also be slow for large Java projects
-			return time.Duration(float64(baseTimeout) * 1.5) // 135 seconds
+			return time.Duration(float64(baseTimeout) * 1.5)
 		}
 	}
 

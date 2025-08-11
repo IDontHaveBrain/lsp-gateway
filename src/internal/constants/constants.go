@@ -133,7 +133,7 @@ func GetRequestTimeout(language string) time.Duration {
 	if isWindowsCI() {
 		// Windows CI is significantly slower, especially for Java
 		if language == "java" {
-			return baseTimeout * 2 // Double timeout for Java on Windows CI (120s)
+			return baseTimeout * 3 // Triple timeout for Java on Windows CI (270s)
 		}
 		return time.Duration(float64(baseTimeout) * 1.5) // 50% more for other languages
 	} else if isCI() {
@@ -159,7 +159,7 @@ func GetInitializeTimeout(language string) time.Duration {
 	if isWindowsCI() {
 		// Windows CI is significantly slower
 		if language == "java" {
-			return baseTimeout * 2 // Double timeout for Java on Windows CI (120s)
+			return baseTimeout * 3 // Triple timeout for Java on Windows CI (270s)
 		}
 		return time.Duration(float64(baseTimeout) * 1.5) // 50% more for other languages
 	} else if isCI() {
