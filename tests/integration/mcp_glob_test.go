@@ -14,7 +14,7 @@ import (
 
 func TestMCPGlobPatterns(t *testing.T) {
 	t.Skip("Test implementation incomplete - handleToolCallForTest is a stub. Needs proper MCP server integration with pipes like mcp_references_test.go")
-	
+
 	// Create a temporary workspace for testing
 	tmpDir, err := os.MkdirTemp("", "mcp_glob_test")
 	if err != nil {
@@ -66,7 +66,7 @@ func ExternalFunc() {}`,
 	// Setup MCP server with cache
 	cfg := config.GetDefaultConfigWithCache()
 	cfg.EnableCache()
-	
+
 	mcpServer, err := server.NewMCPServer(cfg)
 	if err != nil {
 		t.Fatalf("Failed to create MCP server: %v", err)
@@ -196,7 +196,7 @@ func ExternalFunc() {}`,
 
 			// Use delegateToolCall directly for testing
 			response := handleToolCallForTest(mcpServer, req)
-			
+
 			if response == nil {
 				t.Fatalf("Got nil response")
 			}
@@ -225,8 +225,8 @@ func ExternalFunc() {}`,
 			// Parse the JSON response
 			var symbolResult struct {
 				Symbols    []interface{} `json:"symbols"`
-				TotalCount int          `json:"totalCount"`
-				Truncated  bool         `json:"truncated"`
+				TotalCount int           `json:"totalCount"`
+				Truncated  bool          `json:"truncated"`
 			}
 
 			// The text contains formatted JSON, parse it

@@ -284,7 +284,7 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePatte
 			"range":       occWithDoc.Range,
 		}
 		results = append(results, enhancedResult)
-		
+
 		// Check if we have reached maxResults after filtering
 		if len(results) >= maxResults {
 			common.LSPLogger.Debug("[SearchSymbols] Reached maxResults limit (%d), stopping", maxResults)

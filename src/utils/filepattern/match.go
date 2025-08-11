@@ -80,7 +80,7 @@ func Match(pathOrURI, pattern string) bool {
 						matched = true
 					}
 				}
-				
+
 				if matched {
 					if ok, _ := path.Match(patternFile, candFile); ok {
 						return true
@@ -148,13 +148,13 @@ func normalizeRelative(path string) string {
 	if !filepath.IsAbs(filepath.FromSlash(path)) {
 		return path
 	}
-	
+
 	// Try to find the project root by looking for go.mod
 	wd, err := os.Getwd()
 	if err != nil {
 		return path
 	}
-	
+
 	// Start from current directory and walk up to find project root
 	projectRoot := wd
 	for {
@@ -170,13 +170,13 @@ func normalizeRelative(path string) string {
 		}
 		projectRoot = parent
 	}
-	
+
 	// Convert back to native path for Rel calculation
 	nativePath := filepath.FromSlash(path)
 	if rel, err := filepath.Rel(projectRoot, nativePath); err == nil {
 		// Convert result back to forward slashes
 		return filepath.ToSlash(rel)
 	}
-	
+
 	return path
 }

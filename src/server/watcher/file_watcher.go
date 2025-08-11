@@ -10,6 +10,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/gitignore"
 )
 
 // FileChangeEvent represents a file change event
@@ -26,6 +27,7 @@ type FileWatcher struct {
 	extensions    []string
 	onChange      func([]FileChangeEvent)
 	debounceDelay time.Duration
+	gitManager    *gitignore.Manager
 
 	// Debouncing
 	pendingEvents map[string]*FileChangeEvent
@@ -69,6 +71,11 @@ func (fw *FileWatcher) AddPath(path string) error {
 		return err
 	}
 
+	// Initialize gitignore manager for the root path if not already done
+	if fw.gitManager == nil {
+		fw.gitManager = gitignore.NewManager(absPath)
+	}
+
 	// Add to watcher
 	if err := fw.watcher.Add(absPath); err != nil {
 		return err
@@ -92,7 +99,15 @@ func (fw *FileWatcher) addSubdirectories(root string) error {
 			return nil // Skip errors
 		}
 
-		// Skip common directories that shouldn't be watched
+		// Use gitignore manager to check if path should be ignored
+		if fw.gitManager != nil && fw.gitManager.ShouldIgnore(path) {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Also check default patterns for backward compatibility
 		base := filepath.Base(path)
 		if base == ".git" || base == "node_modules" || base == "vendor" ||
 			base == ".vscode" || base == ".idea" || strings.HasPrefix(base, ".") {
@@ -149,8 +164,13 @@ func (fw *FileWatcher) watchLoop() {
 	}
 }
 
-// shouldProcess checks if a file should be processed based on extension
+// shouldProcess checks if a file should be processed based on extension and gitignore
 func (fw *FileWatcher) shouldProcess(path string) bool {
+	// Check gitignore first
+	if fw.gitManager != nil && fw.gitManager.ShouldIgnore(path) {
+		return false
+	}
+
 	// Check if it's a directory operation
 	if info, err := os.Stat(path); err == nil && info.IsDir() {
 		// Handle new directories
