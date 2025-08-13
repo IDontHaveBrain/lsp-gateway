@@ -9,7 +9,7 @@ Language Server Protocol gateway with HTTP and MCP interfaces for 6 languages.
 git clone https://github.com/IDontHaveBrain/lsp-gateway
 cd lsp-gateway
 make local                   # Build + npm link globally
-lsp-gateway install all      # Install all supported language servers
+lsp-gateway install all      # Install all language servers
 lsp-gateway server           # Start HTTP Gateway on :8080
 ```
 
@@ -21,38 +21,44 @@ curl localhost:8080/jsonrpc  # Test HTTP gateway
 
 ## Features
 
-- **Languages**: Go, Python, JavaScript, TypeScript, Java, Rust
-- **Protocols**: HTTP Gateway (port 8080) + MCP Server (STDIO)
-- **Auto-detection**: go.mod, package.json, *.py, pom.xml, Cargo.toml
-- **SCIP Cache**: 512MB LRU cache for sub-millisecond lookups
+- **6 Languages**: Go, Python, JavaScript, TypeScript, Java, Rust
+- **Dual Protocols**: HTTP Gateway (:8080) + MCP Server (STDIO)
+- **Auto-detection**: Scans for go.mod, package.json, *.py, pom.xml, Cargo.toml
+- **SCIP Cache**: Sub-millisecond symbol lookups with 512MB LRU cache
 - **LSP Methods**: definition, references, hover, documentSymbol, workspace/symbol, completion
 
-## Commands
+## Installation
+
+### Language Servers
 
 ```bash
-# Servers
-lsp-gateway server          # HTTP Gateway at localhost:8080/jsonrpc
-lsp-gateway mcp             # MCP Server for AI assistants
-lsp-gateway status          # Check LSP server availability
-lsp-gateway test            # Test connections
-lsp-gateway version         # Show version info
-
-# Installation
-lsp-gateway install all        # Install all supported language servers
+lsp-gateway install all        # Install all supported servers
 lsp-gateway install go         # Install gopls
 lsp-gateway install python     # Install python-lsp-server
 lsp-gateway install typescript # Install typescript-language-server
 lsp-gateway install javascript # Install typescript-language-server
 lsp-gateway install java       # Install jdtls
 lsp-gateway install rust       # Install rust-analyzer
+```
+
+## Usage
+
+### Commands
+
+```bash
+# Servers
+lsp-gateway server          # HTTP Gateway at localhost:8080/jsonrpc
+lsp-gateway server --port 8081  # Alternative port
+lsp-gateway mcp             # MCP Server for AI assistants
+lsp-gateway status          # Check LSP server availability
+lsp-gateway test            # Test server connections
+lsp-gateway version         # Show version info
 
 # Cache Management
 lsp-gateway cache info      # Show cache statistics
 lsp-gateway cache clear     # Clear all cache
-lsp-gateway cache index     # Index files for faster lookups
+lsp-gateway cache index     # Index workspace for faster lookups
 ```
-
-## Usage
 
 ### HTTP Gateway
 
@@ -70,7 +76,7 @@ curl -X POST localhost:8080/jsonrpc \
 
 ### MCP Server
 
-Add to your AI assistant's configuration:
+Add to your AI assistant configuration:
 ```json
 {
   "mcpServers": {
@@ -83,12 +89,13 @@ Add to your AI assistant's configuration:
 ```
 
 **MCP Tools**: 
-- `findSymbols` - Search code symbols with regex patterns
+- `findSymbols` - Search symbols with regex patterns
 - `findReferences` - Find all references to symbols
 
 ## Development
 
-### Building
+### Build
+
 ```bash
 make local                  # Primary workflow: build + npm link
 make build                  # Build for all platforms
@@ -101,30 +108,30 @@ make macos-arm64           # Darwin arm64 (M1/M2)
 make windows               # Windows amd64
 ```
 
-### Testing
+### Test
+
 ```bash
 make test                   # Complete suite (30+ min)
 make test-fast              # Unit + integration only (8-10 min)
 go test -v ./tests/unit/... # Unit tests only (2 min)
-go test -v -run TestName ./tests/... # Run specific test
+go test -v -run TestName ./tests/... # Specific test
 ```
 
 ### Code Quality
+
 ```bash
-make quality                # Essential: format + vet
-make quality-full           # Complete: format + vet + lint + security
+make quality                # Format + vet
+make quality-full           # Format + vet + lint + security
 ```
 
 ## Configuration
-
-Auto-detects projects by scanning for: `go.mod`, `package.json`, `*.py`, `pom.xml`, `build.gradle`, `Cargo.toml`
 
 Optional config at `~/.lsp-gateway/config.yaml`:
 ```yaml
 cache:
   enabled: true
   max_memory_mb: 512
-  ttl_hours: 24         # MCP mode overrides to 1hr
+  ttl_hours: 24         # MCP mode uses 1hr
 servers:
   go:
     command: "gopls"
@@ -137,12 +144,19 @@ servers:
 
 ## Architecture
 
+```
+src/
+├── server/         # Core services (LSP manager, HTTP gateway, MCP server)
+├── cli/            # Command implementations
+├── internal/       # Shared types and utilities
+└── tests/          # Test suites
+```
+
+Key components:
 - **LSP Manager**: Orchestrates language servers with SCIP cache
 - **HTTP Gateway**: JSON-RPC endpoint at `:8080/jsonrpc`  
 - **MCP Server**: STDIO protocol for AI assistants
-- **SCIP Cache**: 512MB LRU cache for sub-millisecond lookups
-
-See `src/` for implementation: `server/` (core services), `cli/` (commands), `internal/` (shared types), `tests/` (test suites)
+- **SCIP Cache**: Memory-efficient symbol indexing
 
 ## Troubleshooting
 
@@ -153,7 +167,7 @@ See `src/` for implementation: `server/` (core services), `cli/` (commands), `in
 | Debug mode | `export LSP_GATEWAY_DEBUG=true` |
 | Cache issues | `lsp-gateway cache clear` |
 | Check server status | `lsp-gateway status` |
-| Java timeout errors | Java requires 90s initialization timeout |
+| Java timeout errors | Normal - Java requires 90s initialization |
 
 ## License
 
