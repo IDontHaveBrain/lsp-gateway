@@ -1,175 +1,105 @@
 package cache
 
 import (
-	"context"
-	"fmt"
-	"time"
+    "context"
+    "fmt"
 
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/server/scip"
+    "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/constants"
+    "lsp-gateway/src/server/cache/search"
+    "lsp-gateway/src/server/scip"
+    "lsp-gateway/src/utils"
 )
 
 // Symbol search operations - handles symbol queries, enhanced searching, and direct symbol access
 
+// convertEnhancedSymbolResults converts search.EnhancedSymbolResult to cache.EnhancedSymbolResult
+func convertEnhancedSymbolResults(searchResults []search.EnhancedSymbolResult) []EnhancedSymbolResult {
+    // Types unified; return as-is
+    return searchResults
+}
+
 // QueryIndex queries the SCIP storage for symbols and relationships
 func (m *SCIPCacheManager) QueryIndex(ctx context.Context, query *IndexQuery) (*IndexResult, error) {
 	return m.WithIndexResult(query.Type, func() (*IndexResult, error) {
-		result := m.WithIndexReadLock(func() interface{} {
-			return m.queryIndexInternal(ctx, query)
-		})
-		if result == nil {
-			return nil, fmt.Errorf("failed to query index")
+		request := &search.SearchRequest{
+			Context:    ctx,
+			Type:       search.SearchType(query.Type),
+			SymbolName: query.Symbol,
+			MaxResults: constants.DefaultMaxResults,
 		}
-		return result.(*IndexResult), nil
+
+		response, err := m.searchService.ExecuteSearch(request)
+		if err != nil {
+			return nil, err
+		}
+
+		// Convert SearchResponse to IndexResult
+		metadata := map[string]interface{}{
+			"query_language": query.Language,
+			"query_type":     query.Type,
+		}
+		if response.Metadata != nil {
+			if response.Metadata.IndexStats != nil {
+				metadata["total_symbols"] = response.Metadata.IndexStats.TotalSymbols
+				metadata["total_documents"] = response.Metadata.IndexStats.TotalDocuments
+				metadata["total_occurrences"] = response.Metadata.IndexStats.TotalOccurrences
+			}
+		}
+
+		return &IndexResult{
+			Type:      query.Type,
+			Results:   response.Results,
+			Metadata:  metadata,
+			Timestamp: response.Timestamp,
+		}, nil
 	})
-}
-
-// queryIndexInternal contains the actual query logic without guards or locks
-func (m *SCIPCacheManager) queryIndexInternal(ctx context.Context, query *IndexQuery) *IndexResult {
-
-	var results []interface{}
-	var err error
-
-	switch query.Type {
-	case "symbol":
-		sciPSymbols, err := m.scipStorage.SearchSymbols(ctx, query.Symbol, 100)
-		if err == nil {
-			results = make([]interface{}, len(sciPSymbols))
-			for i, sym := range sciPSymbols {
-				results[i] = sym
-			}
-		}
-	case "definition":
-		if defOccs, err := m.scipStorage.GetDefinitions(ctx, query.Symbol); err == nil && len(defOccs) > 0 {
-			results = []interface{}{defOccs[0]}
-		}
-	case "references":
-		if refOccs, err := m.scipStorage.GetReferences(ctx, query.Symbol); err == nil {
-			for _, occ := range refOccs {
-				results = append(results, occ)
-			}
-		}
-	case "workspace":
-		sciPSymbols, err := m.scipStorage.SearchSymbols(ctx, query.Symbol, 100)
-		if err == nil {
-			results = make([]interface{}, len(sciPSymbols))
-			for i, sym := range sciPSymbols {
-				results[i] = sym
-			}
-		}
-	default:
-		return &IndexResult{
-			Type:      query.Type,
-			Results:   []interface{}{},
-			Metadata:  map[string]interface{}{"error": fmt.Sprintf("unsupported query type: %s", query.Type)},
-			Timestamp: time.Now(),
-		}
-	}
-
-	if err != nil {
-		return &IndexResult{
-			Type:      query.Type,
-			Results:   []interface{}{},
-			Metadata:  map[string]interface{}{"error": err.Error()},
-			Timestamp: time.Now(),
-		}
-	}
-
-	metadata := map[string]interface{}{
-		"query_language": query.Language,
-		"query_type":     query.Type,
-	}
-
-	stats := m.scipStorage.GetIndexStats()
-	metadata["total_symbols"] = stats.TotalSymbols
-	metadata["total_documents"] = stats.TotalDocuments
-	metadata["total_occurrences"] = stats.TotalOccurrences
-
-	return &IndexResult{
-		Type:      query.Type,
-		Results:   results,
-		Metadata:  metadata,
-		Timestamp: time.Now(),
-	}
 }
 
 // SearchSymbolsEnhanced performs direct SCIP symbol search with enhanced results
 func (m *SCIPCacheManager) SearchSymbolsEnhanced(ctx context.Context, query *EnhancedSymbolQuery) (*EnhancedSymbolSearchResult, error) {
 	return m.WithEnhancedSymbolResult(query, func() (*EnhancedSymbolSearchResult, error) {
-		result := m.WithIndexReadLock(func() interface{} {
-			return m.searchSymbolsEnhancedInternal(ctx, query)
-		})
-		return result.(*EnhancedSymbolSearchResult), nil
-	})
-}
-
-// searchSymbolsEnhancedInternal contains the actual search logic without guards or locks
-func (m *SCIPCacheManager) searchSymbolsEnhancedInternal(ctx context.Context, query *EnhancedSymbolQuery) *EnhancedSymbolSearchResult {
-
-	maxResults := 100
-	if query.MaxResults > 0 {
-		maxResults = query.MaxResults
-	}
-
-	searchSymbols, err := m.scipStorage.SearchSymbols(ctx, query.Pattern, maxResults*2)
-	if err != nil {
-		return &EnhancedSymbolSearchResult{
-			Symbols:   []EnhancedSymbolResult{},
-			Total:     0,
-			Truncated: false,
-			Query:     query,
-			Metadata:  map[string]interface{}{"error": fmt.Sprintf("failed to search symbols in SCIP storage: %v", err)},
-			Timestamp: time.Now(),
-		}
-	}
-
-	var enhancedResults []EnhancedSymbolResult
-	for i, symbolInfo := range searchSymbols {
-		if i >= maxResults {
-			break
+		// Convert cache EnhancedSymbolQuery to search EnhancedSymbolQuery
+		searchQuery := &search.EnhancedSymbolQuery{
+			Pattern:              query.Pattern,
+			FilePattern:          query.FilePattern,
+			Language:             query.Language,
+			MaxResults:           query.MaxResults,
+			QueryType:            search.OccurrenceQueryType(query.QueryType),
+			SymbolRoles:          query.SymbolRoles,
+			SymbolKinds:          query.SymbolKinds,
+			ExcludeRoles:         query.ExcludeRoles,
+			MinOccurrences:       query.MinOccurrences,
+			MaxOccurrences:       query.MaxOccurrences,
+			IncludeDocumentation: query.IncludeDocumentation,
+			IncludeRelationships: query.IncludeRelationships,
+			OnlyWithDefinition:   query.OnlyWithDefinition,
+			SortBy:               query.SortBy,
+			IncludeScore:         query.IncludeScore,
 		}
 
-		// Apply filters
-		if len(query.SymbolKinds) > 0 {
-			kindMatched := false
-			for _, kind := range query.SymbolKinds {
-				if symbolInfo.Kind == kind {
-					kindMatched = true
-					break
-				}
-			}
-			if !kindMatched {
-				continue
-			}
+		response, err := m.searchService.ExecuteEnhancedSymbolSearch(searchQuery)
+		if err != nil {
+			return nil, err
 		}
 
-		occurrences, _ := m.scipStorage.GetOccurrences(ctx, symbolInfo.Symbol)
-
-		if query.MinOccurrences > 0 && len(occurrences) < query.MinOccurrences {
-			continue
+		// Convert search response to cache response
+		metadata := map[string]interface{}{
+			"scip_enabled": true,
 		}
-		if query.MaxOccurrences > 0 && len(occurrences) > query.MaxOccurrences {
-			continue
+		if response.Metadata != nil {
+			metadata["total_candidates"] = response.Metadata.TotalCandidates
 		}
 
-		enhancedResults = append(enhancedResults, m.buildEnhancedSymbolResult(&symbolInfo, occurrences, query))
-	}
-
-	if query.SortBy != "" {
-		m.sortEnhancedResults(enhancedResults, query.SortBy)
-	}
-
-	return &EnhancedSymbolSearchResult{
-		Symbols:   enhancedResults,
-		Total:     len(enhancedResults),
-		Truncated: len(searchSymbols) > maxResults,
-		Query:     query,
-		Metadata: map[string]interface{}{
-			"scip_enabled":     true,
-			"total_candidates": len(searchSymbols),
-		},
-		Timestamp: time.Now(),
-	}
+        return &EnhancedSymbolSearchResult{
+            Symbols:   response.Symbols,
+            Total:     response.Total,
+            Truncated: response.Truncated,
+            Query:     query,
+            Metadata:  metadata,
+            Timestamp: response.Timestamp,
+        }, nil
+    })
 }
 
 // SearchSymbols provides direct access to SCIP symbol search for MCP tools
@@ -181,8 +111,43 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePatte
 	}
 
 	if maxResults <= 0 {
-		maxResults = 100
+		maxResults = constants.DefaultMaxResults
 	}
+
+	// Try SearchService first
+	request := &search.SearchRequest{
+		Context:     ctx,
+		Type:        search.SearchTypeSymbol,
+		SymbolName:  pattern,
+		FilePattern: filePattern,
+		MaxResults:  maxResults,
+	}
+
+	response, err := m.searchService.ExecuteSymbolSearch(request)
+	if err == nil && len(response.Results) > 0 {
+		// Convert results to include filePath field for backward compatibility
+		convertedResults := make([]interface{}, 0, len(response.Results))
+		for _, result := range response.Results {
+			if resultMap, ok := result.(map[string]interface{}); ok {
+				// Add filePath field using utils.URIToFilePath if not present
+                if _, hasFilePath := resultMap["filePath"]; !hasFilePath {
+                    if docURI, hasURI := resultMap["documentURI"]; hasURI {
+                        if uriStr, ok := docURI.(string); ok {
+                            resultMap["filePath"] = utils.URIToFilePathCached(uriStr)
+                        }
+                    }
+                }
+				convertedResults = append(convertedResults, resultMap)
+			} else {
+				convertedResults = append(convertedResults, result)
+			}
+		}
+		common.LSPLogger.Debug("[SearchSymbols] SearchService returned %d results", len(convertedResults))
+		return convertedResults, nil
+	}
+
+	// Fallback to complex document scanning logic when SearchService fails or returns no results
+	common.LSPLogger.Debug("[SearchSymbols] SearchService failed or returned no results, falling back to document scanning")
 
 	// When file filter is provided, fetch more symbols to account for filtering
 	searchLimit := maxResults
@@ -241,7 +206,7 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePatte
 								}
 								enhanced := map[string]interface{}{
 									"symbolInfo":  symbolInfo,
-									"filePath":    m.convertURIToFilePath(uri),
+                "filePath":    utils.URIToFilePathCached(uri),
 									"documentURI": uri,
 									"range":       si.Range,
 								}
@@ -279,7 +244,7 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePatte
 		enhancedResult := map[string]interface{}{
 			"symbolInfo":  symbolInfo,
 			"occurrence":  &occWithDoc.SCIPOccurrence,
-			"filePath":    m.convertURIToFilePath(occWithDoc.DocumentURI),
+            "filePath":    utils.URIToFilePathCached(occWithDoc.DocumentURI),
 			"documentURI": occWithDoc.DocumentURI,
 			"range":       occWithDoc.Range,
 		}

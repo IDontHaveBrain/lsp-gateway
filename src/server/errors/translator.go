@@ -6,6 +6,7 @@ import (
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/errors"
 	"lsp-gateway/src/internal/registry"
+	"lsp-gateway/src/internal/types"
 )
 
 type ErrorTranslator interface {
@@ -27,7 +28,7 @@ func (t *LSPErrorTranslator) TranslateAndLogError(serverName, line string, conte
 		if hasWorkspaceSymbol || serverName == "pylsp" {
 			common.LSPLogger.Warn("LSP %s: Server doesn't support workspace/symbol feature. %s",
 				serverName,
-				t.GetMethodSuggestion(serverName, "workspace/symbol"))
+				t.GetMethodSuggestion(serverName, types.MethodWorkspaceSymbol))
 			return true
 		}
 	}
@@ -79,12 +80,12 @@ func (t *LSPErrorTranslator) GetMethodSuggestion(serverName, method string) stri
 
 func (t *LSPErrorTranslator) extractMethodFromError(errorLine string) string {
 	patterns := []string{
-		"workspace/symbol",
-		"textDocument/definition",
-		"textDocument/references",
-		"textDocument/hover",
-		"textDocument/completion",
-		"textDocument/documentSymbol",
+		types.MethodWorkspaceSymbol,
+		types.MethodTextDocumentDefinition,
+		types.MethodTextDocumentReferences,
+		types.MethodTextDocumentHover,
+		types.MethodTextDocumentCompletion,
+		types.MethodTextDocumentDocumentSymbol,
 	}
 
 	for _, pattern := range patterns {
@@ -103,8 +104,8 @@ func (t *LSPErrorTranslator) CreateUnifiedError(serverName, line string, context
 			strings.Contains(strings.Join(context, " "), "symbol")
 
 		if hasWorkspaceSymbol || serverName == "pylsp" {
-			suggestion := t.GetMethodSuggestion(serverName, "workspace/symbol")
-			return errors.NewMethodNotSupportedError(serverName, "workspace/symbol", suggestion)
+			suggestion := t.GetMethodSuggestion(serverName, types.MethodWorkspaceSymbol)
+			return errors.NewMethodNotSupportedError(serverName, types.MethodWorkspaceSymbol, suggestion)
 		}
 	}
 

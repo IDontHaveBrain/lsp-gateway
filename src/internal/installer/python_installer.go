@@ -1,42 +1,28 @@
 package installer
 
-import (
-	"context"
-	"fmt"
-
-	"lsp-gateway/src/internal/common"
-)
-
 // PythonInstaller handles Python language server (python-lsp-server/pylsp) installation
 type PythonInstaller struct {
-	*BaseInstaller
+	*GenericPackageInstaller
 }
 
 // NewPythonInstaller creates a new Python installer
 func NewPythonInstaller(platform PlatformInfo) *PythonInstaller {
-	base := CreateSimpleInstaller("python", "pylsp", []string{}, platform)
+	generic, err := NewGenericInstaller("python", platform)
+	if err != nil {
+		// Fallback to manual creation if generic fails
+		base := CreateSimpleInstaller("python", "pylsp", []string{}, platform)
+		return &PythonInstaller{
+			GenericPackageInstaller: &GenericPackageInstaller{
+				BaseInstaller: base,
+				config: PackageConfig{
+					Manager:  "pip",
+					Packages: []string{"python-lsp-server[all]"},
+				},
+			},
+		}
+	}
 
 	return &PythonInstaller{
-		BaseInstaller: base,
+		GenericPackageInstaller: generic,
 	}
-}
-
-// Install installs python-lsp-server using pip
-func (p *PythonInstaller) Install(ctx context.Context, options InstallOptions) error {
-	if err := p.InstallWithPackageManager(ctx, "pip", "python-lsp-server[all]", options.Version); err != nil {
-		return fmt.Errorf("failed to install python-lsp-server: %w", err)
-	}
-
-	common.CLILogger.Info("python-lsp-server installation completed")
-	return nil
-}
-
-// Uninstall removes python-lsp-server
-func (p *PythonInstaller) Uninstall() error {
-	return p.UninstallWithPackageManager("pip", "python-lsp-server")
-}
-
-// ValidateInstallation performs comprehensive validation
-func (p *PythonInstaller) ValidateInstallation() error {
-	return p.ValidateWithPackageManager("pylsp", "pip")
 }

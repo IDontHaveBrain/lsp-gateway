@@ -29,7 +29,7 @@ func (w *WorkspaceIndexer) processReferenceBatch(ctx context.Context, symbols []
 	// Process each file and its symbols together
 	for fileURI, fileSymbols := range symbolsByFile {
 		// Open the file once for all symbols in it
-		filePath := utils.URIToFilePath(fileURI)
+        filePath := utils.URIToFilePathCached(fileURI)
 		content, err := os.ReadFile(filePath)
 		if err != nil {
 			common.LSPLogger.Debug("Skipping file %s: %v", fileURI, err)
@@ -103,7 +103,7 @@ func (w *WorkspaceIndexer) getReferencesForSymbolInOpenFile(ctx context.Context,
 	// Clamp position to file bounds to avoid LSP server line-number errors
 	safePos := w.clampPositionToFile(symbol.uri, symbol.position)
 
-	// Call textDocument/references (assumes file is already open)
+	// Call types.MethodTextDocumentReferences (assumes file is already open)
 	params := map[string]interface{}{
 		"textDocument": map[string]interface{}{
 			"uri": symbol.uri,

@@ -1,10 +1,11 @@
 package cache
 
 import (
-	"time"
+    "time"
 
-	"lsp-gateway/src/internal/types"
-	"lsp-gateway/src/server/scip"
+    "lsp-gateway/src/internal/types"
+    "lsp-gateway/src/server/cache/search"
+    "lsp-gateway/src/server/scip"
 )
 
 // Enhanced occurrence-based query types
@@ -46,43 +47,7 @@ type EnhancedSymbolQuery struct {
 }
 
 // EnhancedSymbolResult represents an enhanced symbol search result with occurrence metadata
-type EnhancedSymbolResult struct {
-	// Symbol information
-	SymbolInfo  *scip.SCIPSymbolInformation `json:"symbol_info"`
-	SymbolID    string                      `json:"symbol_id"`
-	DisplayName string                      `json:"display_name"`
-	Kind        scip.SCIPSymbolKind         `json:"kind"`
-
-	// Occurrence metadata
-	Occurrences      []scip.SCIPOccurrence `json:"occurrences,omitempty"`
-	OccurrenceCount  int                   `json:"occurrence_count"`
-	DefinitionCount  int                   `json:"definition_count"`
-	ReferenceCount   int                   `json:"reference_count"`
-	WriteAccessCount int                   `json:"write_access_count"`
-	ReadAccessCount  int                   `json:"read_access_count"`
-
-	// Role aggregation
-	AllRoles        types.SymbolRole `json:"all_roles"`
-	HasDefinition   bool             `json:"has_definition"`
-	HasReferences   bool             `json:"has_references"`
-	InGeneratedCode bool             `json:"in_generated_code"`
-	InTestCode      bool             `json:"in_test_code"`
-
-	// Documentation and relationships
-	Documentation  []string                `json:"documentation,omitempty"`
-	Signature      string                  `json:"signature,omitempty"`
-	Relationships  []scip.SCIPRelationship `json:"relationships,omitempty"`
-	RelatedSymbols []string                `json:"related_symbols,omitempty"`
-
-	// Scoring and relevance
-	RelevanceScore  float64 `json:"relevance_score"`
-	PopularityScore float64 `json:"popularity_score"`
-	FinalScore      float64 `json:"final_score"`
-
-	// File distribution
-	DocumentURIs []string `json:"document_uris,omitempty"`
-	FileCount    int      `json:"file_count"`
-}
+type EnhancedSymbolResult = search.EnhancedSymbolResult
 
 // EnhancedSymbolSearchResult wraps multiple enhanced symbol results with metadata
 type EnhancedSymbolSearchResult struct {

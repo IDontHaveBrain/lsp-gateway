@@ -13,7 +13,9 @@ import (
 	"lsp-gateway/src/internal/common"
 	icommon "lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/registry"
+	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server"
+	"lsp-gateway/src/server/cache"
 )
 
 // RunServer starts the simplified LSP gateway server
@@ -92,21 +94,20 @@ func RunMCPServer(configPath string) error {
 
 // ShowStatus displays the current status of LSP clients
 func ShowStatus(configPath string) error {
-	cfg := clicommon.LoadConfigForCLI(configPath)
+	cmdCtx, err := clicommon.NewManagerContext(configPath, 30*time.Second)
+	if err != nil {
+		return err
+	}
+	defer cmdCtx.Cleanup()
 
 	common.CLILogger.Info("LSP Gateway Status")
 
-	manager, err := clicommon.CreateLSPManager(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to create LSP manager: %w", err)
-	}
-
 	// Check server availability without starting them (fast, non-destructive)
-	status := manager.CheckServerAvailability()
+	status := cmdCtx.Manager.CheckServerAvailability()
 
-	common.CLILogger.Info("Configured Languages: %d\n", len(cfg.Servers))
+	common.CLILogger.Info("Configured Languages: %d\n", len(cmdCtx.Config.Servers))
 
-	for language, serverConfig := range cfg.Servers {
+	for language, serverConfig := range cmdCtx.Config.Servers {
 		clientStatus := status[language]
 		statusText := "Unavailable"
 
@@ -125,7 +126,7 @@ func ShowStatus(configPath string) error {
 	}
 
 	// Display SCIP cache status
-	cache := manager.GetCache()
+	cache := cmdCtx.Manager.GetCache()
 	clicommon.DisplayCacheStatus(common.CLILogger, cache, "cli")
 
 	return nil
@@ -133,37 +134,28 @@ func ShowStatus(configPath string) error {
 
 // TestConnection tests connection to LSP servers
 func TestConnection(configPath string) error {
-	cfg := clicommon.LoadConfigForCLI(configPath)
+	cmdCtx, err := clicommon.NewCommandContext(configPath, 60*time.Second)
+	if err != nil {
+		return err
+	}
+	defer cmdCtx.Cleanup()
 
 	common.CLILogger.Info("Testing LSP Server Connections")
-
-	manager, err := clicommon.CreateLSPManager(cfg)
-	if err != nil {
-		return fmt.Errorf("failed to create LSP manager: %w", err)
-	}
-
-	ctx, cancel := icommon.CreateContext(60 * time.Second)
-	defer cancel()
-
 	common.CLILogger.Info("Starting LSP Manager...")
-	if err := manager.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start LSP manager: %w", err)
-	}
-	defer manager.Stop()
 
 	// Display initial cache status
 	common.CLILogger.Info("")
 	common.CLILogger.Info("Cache Status:")
 
-	cache := manager.GetCache()
-	initialMetrics, healthErr := cache.HealthCheck()
+	scipCache := cmdCtx.Manager.GetCache()
+	initialMetrics, healthErr := scipCache.HealthCheck()
 	if healthErr != nil {
 		common.CLILogger.Error("Cache: Health check failed (%v)", healthErr)
 	} else if initialMetrics != nil {
 		common.CLILogger.Info("Cache: Enabled and Ready")
 		common.CLILogger.Info("   Health: OK")
-		common.CLILogger.Info("   Initial Stats: %d entries, %.1fMB used",
-			initialMetrics.EntryCount, float64(initialMetrics.TotalSize)/(1024*1024))
+		common.CLILogger.Info("   Initial Stats: %d entries, %s used",
+			initialMetrics.EntryCount, clicommon.FormatBytes(initialMetrics.TotalSize))
 	} else {
 		common.CLILogger.Info("Cache: Enabled and Ready")
 		common.CLILogger.Info("   Health: OK")
@@ -171,7 +163,7 @@ func TestConnection(configPath string) error {
 	}
 
 	// Get client status to see which servers started successfully
-	status := manager.GetClientStatus()
+	status := cmdCtx.Manager.GetClientStatus()
 
 	common.CLILogger.Info("")
 	common.CLILogger.Info("LSP Server Status:")
@@ -207,7 +199,7 @@ func TestConnection(configPath string) error {
 	common.CLILogger.Info("")
 	common.CLILogger.Info("Multi-Repo workspace/symbol Test:")
 
-	result, err := testWorkspaceSymbol(manager, ctx, params)
+	result, err := testWorkspaceSymbol(cmdCtx.Manager, cmdCtx.Context, params)
 	successCount := 0
 	if err != nil {
 		common.CLILogger.Error("workspace/symbol (multi-repo): %v", err)
@@ -231,7 +223,7 @@ func TestConnection(configPath string) error {
 
 	common.CLILogger.Info("")
 	common.CLILogger.Info("Test Summary:")
-	common.CLILogger.Info("   • Active Servers: %d/%d", len(activeLanguages), len(cfg.Servers))
+	common.CLILogger.Info("   • Active Servers: %d/%d", len(activeLanguages), len(cmdCtx.Config.Servers))
 	common.CLILogger.Info("   • Multi-Repo Test: %s", func() string {
 		if successCount > 0 {
 			return "Success"
@@ -240,26 +232,22 @@ func TestConnection(configPath string) error {
 	}())
 
 	// Display cache performance after testing
-	finalCacheMetrics := manager.GetCacheMetrics()
+	finalCacheMetrics := cmdCtx.Manager.GetCacheMetrics()
 	if finalCacheMetrics != nil {
 		common.CLILogger.Info("")
 		common.CLILogger.Info("Cache Performance:")
 
 		// Access the cache directly to get proper metrics
-		cache := manager.GetCache()
-		if healthMetrics, healthErr := cache.HealthCheck(); healthErr == nil && healthMetrics != nil {
-			hitRate := float64(0)
-			totalRequests := healthMetrics.HitCount + healthMetrics.MissCount
-			if totalRequests > 0 {
-				hitRate = float64(healthMetrics.HitCount) / float64(totalRequests) * 100
-			}
+		scipCache := cmdCtx.Manager.GetCache()
+		if healthMetrics, healthErr := scipCache.HealthCheck(); healthErr == nil && healthMetrics != nil {
+			hitRate := cache.HitRate(healthMetrics)
 
 			common.CLILogger.Info("   Cache Hits: %d (%.1f%% hit rate)", healthMetrics.HitCount, hitRate)
 			common.CLILogger.Info("   Cache Misses: %d", healthMetrics.MissCount)
-			common.CLILogger.Info("   New Entries: %d (%.1fMB cached)",
-				healthMetrics.EntryCount, float64(healthMetrics.TotalSize)/(1024*1024))
+			common.CLILogger.Info("   New Entries: %d (%s cached)",
+				healthMetrics.EntryCount, clicommon.FormatBytes(healthMetrics.TotalSize))
 
-			if totalRequests > 0 {
+			if healthMetrics.HitCount+healthMetrics.MissCount > 0 {
 				common.CLILogger.Info("   Cache Contributed: Improved response times")
 			} else {
 				common.CLILogger.Info("   Cache Contributed: No cache activity during test")
@@ -286,7 +274,7 @@ func TestConnection(configPath string) error {
 // testWorkspaceSymbol tests workspace/symbol for multi-repo support
 // Queries all active servers for comprehensive symbol search
 func testWorkspaceSymbol(manager *server.LSPManager, ctx context.Context, params interface{}) (interface{}, error) {
-	return manager.ProcessRequest(ctx, "workspace/symbol", params)
+	return manager.ProcessRequest(ctx, types.MethodWorkspaceSymbol, params)
 }
 
 // parseSymbolResult tries to parse the symbol result to count items

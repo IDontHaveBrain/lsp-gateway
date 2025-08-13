@@ -12,6 +12,7 @@ import (
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
+	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/protocol"
 )
@@ -146,12 +147,12 @@ func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 	// If lspOnly mode, restrict to the 6 basic LSP methods
 	if g.lspOnly {
 		allowedMethods := map[string]bool{
-			"textDocument/definition":     true,
-			"textDocument/references":     true,
-			"textDocument/hover":          true,
-			"textDocument/documentSymbol": true,
-			"workspace/symbol":            true,
-			"textDocument/completion":     true,
+			types.MethodTextDocumentDefinition:     true,
+			types.MethodTextDocumentReferences:     true,
+			types.MethodTextDocumentHover:          true,
+			types.MethodTextDocumentDocumentSymbol: true,
+			types.MethodWorkspaceSymbol:            true,
+			types.MethodTextDocumentCompletion:     true,
 		}
 		if !allowedMethods[req.Method] {
 			g.writeResponse(w, g.responseFactory.CreateMethodNotFound(req.ID, fmt.Sprintf("Method '%s' is not available in LSP-only mode", req.Method)))

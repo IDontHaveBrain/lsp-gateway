@@ -9,68 +9,45 @@ import (
 
 // buildEnhancedSymbolResult creates an enhanced symbol result from SCIP data
 func (m *SCIPCacheManager) buildEnhancedSymbolResult(symbolInfo *scip.SCIPSymbolInformation, occurrences []scip.SCIPOccurrence, query *EnhancedSymbolQuery) EnhancedSymbolResult {
-	result := EnhancedSymbolResult{
-		SymbolInfo:      symbolInfo,
-		SymbolID:        symbolInfo.Symbol,
-		DisplayName:     symbolInfo.DisplayName,
-		Kind:            symbolInfo.Kind,
-		OccurrenceCount: len(occurrences),
-	}
+    result := EnhancedSymbolResult{
+        SymbolInfo:      symbolInfo,
+        SymbolID:        symbolInfo.Symbol,
+        DisplayName:     symbolInfo.DisplayName,
+        Kind:            symbolInfo.Kind,
+        OccurrenceCount: len(occurrences),
+    }
 
-	// Include occurrences if requested
-	if query != nil && (query.IncludeDocumentation || len(occurrences) < 50) { // Avoid large arrays
-		result.Occurrences = occurrences
-	}
+    // Include occurrences if requested or small
+    if query != nil && (query.IncludeDocumentation || len(occurrences) < 50) {
+        result.Occurrences = occurrences
+    }
 
-	// Count roles and collect metadata
-	fileSet := make(map[string]bool)
-	var allRoles types.SymbolRole
+    // Count roles
+    for _, occ := range occurrences {
+        if occ.SymbolRoles.HasRole(types.SymbolRoleDefinition) {
+            result.DefinitionCount++
+        }
+        if occ.SymbolRoles.HasRole(types.SymbolRoleReadAccess) {
+            result.ReadAccessCount++
+        }
+        if occ.SymbolRoles.HasRole(types.SymbolRoleWriteAccess) {
+            result.WriteAccessCount++
+        }
+    }
+    result.ReferenceCount = result.ReadAccessCount + result.WriteAccessCount
 
-	for _, occ := range occurrences {
-		allRoles |= occ.SymbolRoles
+    // Basic metadata
+    result.FileCount = 0 // not tracked here; could be derived from occurrences' documents
+    if query != nil && query.IncludeDocumentation {
+        result.Documentation = symbolInfo.Documentation
+    }
 
-		if occ.SymbolRoles.HasRole(types.SymbolRoleDefinition) {
-			result.DefinitionCount++
-			result.HasDefinition = true
-		}
-		if occ.SymbolRoles.HasRole(types.SymbolRoleReadAccess) {
-			result.ReadAccessCount++
-			result.HasReferences = true
-		}
-		if occ.SymbolRoles.HasRole(types.SymbolRoleWriteAccess) {
-			result.WriteAccessCount++
-		}
+    // Scoring: map to search type fields
+    result.UsageFrequency = result.OccurrenceCount
+    result.Relevance = 1.0
+    result.Score = result.Relevance * (1.0 + float64(result.UsageFrequency)/100.0)
 
-		// Extract document URI from occurrence
-		docURI := m.extractURIFromOccurrence(&occ)
-		if docURI != "" {
-			fileSet[docURI] = true
-		}
-	}
-
-	result.AllRoles = allRoles
-	result.ReferenceCount = result.ReadAccessCount + result.WriteAccessCount
-	result.FileCount = len(fileSet)
-	result.DocumentURIs = make([]string, 0, len(fileSet))
-	for uri := range fileSet {
-		result.DocumentURIs = append(result.DocumentURIs, uri)
-	}
-
-	// Include documentation and relationships if requested
-	if query != nil && query.IncludeDocumentation {
-		result.Documentation = symbolInfo.Documentation
-		if query.IncludeRelationships {
-			// Note: Relationships not available in simplified interface
-			// result.Relationships = relationships
-		}
-	}
-
-	// Calculate basic scoring
-	result.PopularityScore = float64(result.OccurrenceCount)
-	result.RelevanceScore = 1.0 // Basic relevance - could be enhanced with pattern matching
-	result.FinalScore = result.RelevanceScore * (1.0 + result.PopularityScore/100.0)
-
-	return result
+    return result
 }
 
 // buildOccurrenceInfo creates occurrence info with context

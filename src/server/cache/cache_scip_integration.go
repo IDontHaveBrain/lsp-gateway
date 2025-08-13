@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"lsp-gateway/src/config"
+	"lsp-gateway/src/server/cache/search"
 	"lsp-gateway/src/server/scip"
 )
 
@@ -14,19 +15,66 @@ import (
 // This module handles SCIP-specific operations, storage integration,
 // and the main cache manager construction with SCIP storage setup.
 
+// scipStorageAdapter adapts scip.SCIPDocumentStorage to search.StorageAccess interface
+type scipStorageAdapter struct {
+	storage scip.SCIPDocumentStorage
+}
+
+func (s *scipStorageAdapter) SearchSymbols(ctx context.Context, pattern string, maxResults int) ([]scip.SCIPSymbolInformation, error) {
+	return s.storage.SearchSymbols(ctx, pattern, maxResults)
+}
+
+func (s *scipStorageAdapter) GetDefinitions(ctx context.Context, symbolID string) ([]scip.SCIPOccurrence, error) {
+	return s.storage.GetDefinitions(ctx, symbolID)
+}
+
+func (s *scipStorageAdapter) GetDefinitionsWithDocuments(ctx context.Context, symbolID string) ([]scip.OccurrenceWithDocument, error) {
+	return s.storage.GetDefinitionsWithDocuments(ctx, symbolID)
+}
+
+func (s *scipStorageAdapter) GetReferences(ctx context.Context, symbolID string) ([]scip.SCIPOccurrence, error) {
+	return s.storage.GetReferences(ctx, symbolID)
+}
+
+func (s *scipStorageAdapter) GetReferencesWithDocuments(ctx context.Context, symbolID string) ([]scip.OccurrenceWithDocument, error) {
+	return s.storage.GetReferencesWithDocuments(ctx, symbolID)
+}
+
+func (s *scipStorageAdapter) GetOccurrences(ctx context.Context, symbolID string) ([]scip.SCIPOccurrence, error) {
+	return s.storage.GetOccurrences(ctx, symbolID)
+}
+
+func (s *scipStorageAdapter) GetOccurrencesWithDocuments(ctx context.Context, symbolID string) ([]scip.OccurrenceWithDocument, error) {
+	return s.storage.GetOccurrencesWithDocuments(ctx, symbolID)
+}
+
+func (s *scipStorageAdapter) GetIndexStats() *scip.IndexStats {
+	stats := s.storage.GetIndexStats()
+	return &stats
+}
+
+func (s *scipStorageAdapter) ListDocuments(ctx context.Context) ([]string, error) {
+	return s.storage.ListDocuments(ctx)
+}
+
+func (s *scipStorageAdapter) GetDocument(ctx context.Context, uri string) (*scip.SCIPDocument, error) {
+	return s.storage.GetDocument(ctx, uri)
+}
+
 // SCIPCacheManager implements simple in-memory cache with occurrence-centric SCIP storage
 type SCIPCacheManager struct {
-	entries     map[string]*CacheEntry
-	config      *config.CacheConfig
-	stats       *SimpleCacheStats
-	mu          sync.RWMutex
-	enabled     bool
-	started     bool
-	scipStorage scip.SCIPDocumentStorage
-	indexStats  *IndexStats
-	indexMu     sync.RWMutex
-	converter   *SCIPConverter
-	fileTracker *FileChangeTracker
+	entries       map[string]*CacheEntry
+	config        *config.CacheConfig
+	stats         *SimpleCacheStats
+	mu            sync.RWMutex
+	enabled       bool
+	started       bool
+	scipStorage   scip.SCIPDocumentStorage
+	indexStats    *IndexStats
+	indexMu       sync.RWMutex
+	converter     *SCIPConverter
+	fileTracker   *FileChangeTracker
+	searchService *search.SearchService
 }
 
 // NewSCIPCacheManager creates a simple cache manager with unified config
@@ -68,6 +116,20 @@ func NewSCIPCacheManager(configParam *config.CacheConfig) (*SCIPCacheManager, er
 
 	// Initialize the generic SCIP converter with package detection
 	manager.converter = NewSCIPConverter(manager.detectPackageInfo)
+
+	// Initialize the search service with a storage adapter
+	storageAdapter := &scipStorageAdapter{storage: scipStorage}
+	searchConfig := &search.SearchServiceConfig{
+		Storage:            storageAdapter,
+		Enabled:            configParam.Enabled,
+		IndexMutex:         &manager.indexMu,
+		MatchFilePatternFn: manager.matchFilePattern,
+		BuildOccurrenceInfoFn: func(occ *scip.SCIPOccurrence, docURI string) interface{} {
+			return manager.buildOccurrenceInfo(occ, docURI)
+		},
+		FormatSymbolDetailFn: manager.formatSymbolDetail,
+	}
+	manager.searchService = search.NewSearchService(searchConfig)
 
 	if manager.enabled {
 		if err := manager.scipStorage.Start(context.Background()); err != nil && err.Error() != "storage already started" {

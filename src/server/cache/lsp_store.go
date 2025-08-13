@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/errors"
 	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/scip"
@@ -20,21 +21,21 @@ func (m *SCIPCacheManager) StoreMethodResult(method string, params interface{}, 
 
 	uri := m.extractURI(params)
 	if uri == "" {
-		return common.ParameterValidationError("could not extract URI from parameters")
+		return errors.NewValidationError("parameter", "could not extract URI from parameters")
 	}
 
 	switch method {
-	case "textDocument/definition":
+	case types.MethodTextDocumentDefinition:
 		return m.storeDefinitionResult(uri, response)
-	case "textDocument/references":
+	case types.MethodTextDocumentReferences:
 		return m.storeReferencesResult(uri, response)
-	case "textDocument/hover":
+	case types.MethodTextDocumentHover:
 		return m.storeHoverResult(uri, params, response)
-	case "textDocument/documentSymbol":
+	case types.MethodTextDocumentDocumentSymbol:
 		return m.storeDocumentSymbolResult(uri, response)
-	case "workspace/symbol":
+	case types.MethodWorkspaceSymbol:
 		return m.storeWorkspaceSymbolResult(response)
-	case "textDocument/completion":
+	case types.MethodTextDocumentCompletion:
 		return m.storeCompletionResult(uri, params, response)
 	default:
 		// Method not cached in SCIP storage
@@ -215,22 +216,22 @@ func (m *SCIPCacheManager) extractPositionFromParams(params interface{}) (types.
 	// This is a simplified extraction - in practice you'd handle different parameter types
 	paramsMap, ok := params.(map[string]interface{})
 	if !ok {
-		return types.Position{}, common.ParameterValidationError("invalid parameters format")
+		return types.Position{}, errors.NewValidationError("parameter", "invalid parameters format")
 	}
 
 	positionMap, ok := paramsMap["position"].(map[string]interface{})
 	if !ok {
-		return types.Position{}, common.ParameterValidationError("no position in parameters")
+		return types.Position{}, errors.NewValidationError("parameter", "no position in parameters")
 	}
 
 	line, ok := positionMap["line"].(float64)
 	if !ok {
-		return types.Position{}, common.ParameterValidationError("invalid line in position")
+		return types.Position{}, errors.NewValidationError("parameter", "invalid line in position")
 	}
 
 	character, ok := positionMap["character"].(float64)
 	if !ok {
-		return types.Position{}, common.ParameterValidationError("invalid character in position")
+		return types.Position{}, errors.NewValidationError("parameter", "invalid character in position")
 	}
 
 	return types.Position{

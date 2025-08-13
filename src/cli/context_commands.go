@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
@@ -16,11 +15,11 @@ import (
 	"github.com/spf13/cobra"
 	clicommon "lsp-gateway/src/cli/common"
 	"lsp-gateway/src/internal/common"
-	icommon "lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/scip"
 	"lsp-gateway/src/utils"
+	"lsp-gateway/src/utils/lspconv"
 )
 
 type contextNode struct {
@@ -52,11 +51,10 @@ type FileRelation struct {
 	Symbols      int      `json:"symbols_count"`
 }
 
-
 type DependencyInfo struct {
-	File         string         `json:"file"`
-	Exports      []ExportSymbol `json:"exports"`
-	SymbolCount  int            `json:"symbol_count"`
+	File        string         `json:"file"`
+	Exports     []ExportSymbol `json:"exports"`
+	SymbolCount int            `json:"symbol_count"`
 }
 
 type ExportSymbol struct {
@@ -64,34 +62,23 @@ type ExportSymbol struct {
 	Kind string `json:"kind"`
 }
 
-
 // GenerateContextSignatureMap creates a .txt signature map from indexed data
 func GenerateContextSignatureMap(configPath, outputPath string) error {
-	cfg := clicommon.LoadConfigForCLI(configPath)
-
-	manager, err := clicommon.CreateLSPManager(cfg)
+	cmdCtx, err := clicommon.NewCommandContext(configPath, 3*time.Minute)
 	if err != nil {
-		return fmt.Errorf("failed to create LSP manager: %w", err)
+		return err
 	}
+	defer cmdCtx.Cleanup()
 
-	ctx, cancel := icommon.CreateContext(3 * time.Minute)
-	defer cancel()
-
-	if err := manager.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start LSP manager: %w", err)
-	}
-	defer manager.Stop()
-
-	cache := manager.GetCache()
-	if cache == nil {
+	if cmdCtx.Cache == nil {
 		return fmt.Errorf("cache unavailable")
 	}
 
-	if _, err := clicommon.CheckCacheHealth(cache); err != nil {
+	if _, err := cmdCtx.CheckCacheHealth(); err != nil {
 		return fmt.Errorf("cache health check failed: %w", err)
 	}
 
-	storage := cache.GetSCIPStorage()
+	storage := cmdCtx.Cache.GetSCIPStorage()
 	if storage == nil {
 		return fmt.Errorf("scip storage unavailable")
 	}
@@ -139,7 +126,7 @@ func GenerateContextSignatureMap(configPath, outputPath string) error {
 				StartC:    int(si.Range.Start.Character),
 				EndL:      int(si.Range.End.Line),
 				EndC:      int(si.Range.End.Character),
-				Kind:      strings.ToLower(kindToString(si.Kind)),
+				Kind:      lspconv.SCIPSymbolKindToString(si.Kind, lspconv.StyleLowercase),
 				Children:  nil,
 			}
 			grouped[file] = append(grouped[file], nd)
@@ -238,37 +225,6 @@ func runContextDependenciesCmd(cmd *cobra.Command, args []string) error {
 	return AnalyzeDependencies(configPath, files, formatJSON)
 }
 
-func kindToString(k scip.SCIPSymbolKind) string {
-	switch k {
-	case scip.SCIPSymbolKindClass:
-		return "class"
-	case scip.SCIPSymbolKindInterface:
-		return "interface"
-	case scip.SCIPSymbolKindFunction:
-		return "function"
-	case scip.SCIPSymbolKindMethod:
-		return "method"
-	case scip.SCIPSymbolKindVariable:
-		return "variable"
-	case scip.SCIPSymbolKindField:
-		return "field"
-	case scip.SCIPSymbolKindProperty:
-		return "property"
-	case scip.SCIPSymbolKindEnum:
-		return "enum"
-	case scip.SCIPSymbolKindStruct:
-		return "struct"
-	case scip.SCIPSymbolKindModule:
-		return "module"
-	case scip.SCIPSymbolKindNamespace:
-		return "namespace"
-	case scip.SCIPSymbolKindPackage:
-		return "package"
-	default:
-		return "symbol"
-	}
-}
-
 func containsRange(p, c *contextNode) bool {
 	if c.StartL < p.StartL || (c.StartL == p.StartL && c.StartC < p.StartC) {
 		return false
@@ -314,107 +270,98 @@ func writeNodes(w *bufio.Writer, nodes []*contextNode, depth int) {
 
 // parseDocumentSymbolsResult normalizes an LSP documentSymbol result into []lsp.DocumentSymbol
 func parseDocumentSymbolsResult(result interface{}) ([]lsp.DocumentSymbol, error) {
-    if result == nil {
-        return nil, nil
-    }
-    switch v := result.(type) {
-    case []lsp.DocumentSymbol:
-        return v, nil
-    case []*lsp.DocumentSymbol:
-        out := make([]lsp.DocumentSymbol, 0, len(v))
-        for _, p := range v {
-            if p != nil {
-                out = append(out, *p)
-            }
-        }
-        return out, nil
-    case json.RawMessage:
-        if len(v) == 0 || string(v) == "null" {
-            return nil, nil
-        }
-        var ds []lsp.DocumentSymbol
-        if err := json.Unmarshal(v, &ds); err == nil {
-            return ds, nil
-        }
-        var si []types.SymbolInformation
-        if err := json.Unmarshal(v, &si); err == nil {
-            out := make([]lsp.DocumentSymbol, 0, len(si))
-            for _, s := range si {
-                out = append(out, lsp.DocumentSymbol{
-                    Name:           s.Name,
-                    Kind:           s.Kind,
-                    Range:          s.Location.Range,
-                    SelectionRange: s.Location.Range,
-                })
-            }
-            return out, nil
-        }
-        return nil, fmt.Errorf("unable to parse document symbols result")
-    case []byte:
-        return parseDocumentSymbolsResult(json.RawMessage(v))
-    case string:
-        return parseDocumentSymbolsResult(json.RawMessage([]byte(v)))
-    default:
-        return nil, fmt.Errorf("unsupported document symbols result type: %T", result)
-    }
+	if result == nil {
+		return nil, nil
+	}
+	switch v := result.(type) {
+	case []lsp.DocumentSymbol:
+		return v, nil
+	case []*lsp.DocumentSymbol:
+		out := make([]lsp.DocumentSymbol, 0, len(v))
+		for _, p := range v {
+			if p != nil {
+				out = append(out, *p)
+			}
+		}
+		return out, nil
+	case json.RawMessage:
+		if len(v) == 0 || string(v) == "null" {
+			return nil, nil
+		}
+		var ds []lsp.DocumentSymbol
+		if err := json.Unmarshal(v, &ds); err == nil {
+			return ds, nil
+		}
+		var si []types.SymbolInformation
+		if err := json.Unmarshal(v, &si); err == nil {
+			out := make([]lsp.DocumentSymbol, 0, len(si))
+			for _, s := range si {
+				out = append(out, lsp.DocumentSymbol{
+					Name:           s.Name,
+					Kind:           s.Kind,
+					Range:          s.Location.Range,
+					SelectionRange: s.Location.Range,
+				})
+			}
+			return out, nil
+		}
+		return nil, fmt.Errorf("unable to parse document symbols result")
+	case []byte:
+		return parseDocumentSymbolsResult(json.RawMessage(v))
+	case string:
+		return parseDocumentSymbolsResult(json.RawMessage([]byte(v)))
+	default:
+		return nil, fmt.Errorf("unsupported document symbols result type: %T", result)
+	}
 }
 
 // parseReferencesResult normalizes an LSP references result into []types.Location
 func parseReferencesResult(result interface{}) ([]types.Location, error) {
-    if result == nil {
-        return nil, nil
-    }
-    switch v := result.(type) {
-    case []types.Location:
-        return v, nil
-    case []*types.Location:
-        out := make([]types.Location, 0, len(v))
-        for _, p := range v {
-            if p != nil {
-                out = append(out, *p)
-            }
-        }
-        return out, nil
-    case json.RawMessage:
-        if len(v) == 0 || string(v) == "null" {
-            return nil, nil
-        }
-        var locs []types.Location
-        if err := json.Unmarshal(v, &locs); err == nil {
-            return locs, nil
-        }
-        return nil, fmt.Errorf("unable to parse references result")
-    case []byte:
-        return parseReferencesResult(json.RawMessage(v))
-    case string:
-        return parseReferencesResult(json.RawMessage([]byte(v)))
-    default:
-        return nil, fmt.Errorf("unsupported references result type: %T", result)
-    }
+	if result == nil {
+		return nil, nil
+	}
+	switch v := result.(type) {
+	case []types.Location:
+		return v, nil
+	case []*types.Location:
+		out := make([]types.Location, 0, len(v))
+		for _, p := range v {
+			if p != nil {
+				out = append(out, *p)
+			}
+		}
+		return out, nil
+	case json.RawMessage:
+		if len(v) == 0 || string(v) == "null" {
+			return nil, nil
+		}
+		var locs []types.Location
+		if err := json.Unmarshal(v, &locs); err == nil {
+			return locs, nil
+		}
+		return nil, fmt.Errorf("unable to parse references result")
+	case []byte:
+		return parseReferencesResult(json.RawMessage(v))
+	case string:
+		return parseReferencesResult(json.RawMessage([]byte(v)))
+	default:
+		return nil, fmt.Errorf("unsupported references result type: %T", result)
+	}
 }
 
 // GenerateContextSignatureMapJSON creates a JSON signature map from indexed data
 func GenerateContextSignatureMapJSON(configPath, outputPath string) error {
-	cfg := clicommon.LoadConfigForCLI(configPath)
-	manager, err := clicommon.CreateLSPManager(cfg)
+	cmdCtx, err := clicommon.NewCommandContext(configPath, 3*time.Minute)
 	if err != nil {
-		return fmt.Errorf("failed to create LSP manager: %w", err)
+		return err
 	}
+	defer cmdCtx.Cleanup()
 
-	ctx, cancel := icommon.CreateContext(3 * time.Minute)
-	defer cancel()
-
-	if err := manager.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start LSP manager: %w", err)
-	}
-	defer manager.Stop()
-
-	cache := manager.GetCache()
-	if cache == nil {
+	if cmdCtx.Cache == nil {
 		return fmt.Errorf("cache unavailable")
 	}
 
-	storage := cache.GetSCIPStorage()
+	storage := cmdCtx.Cache.GetSCIPStorage()
 	if storage == nil {
 		return fmt.Errorf("scip storage unavailable")
 	}
@@ -457,7 +404,7 @@ func GenerateContextSignatureMapJSON(configPath, outputPath string) error {
 				StartC:    int(si.Range.Start.Character),
 				EndL:      int(si.Range.End.Line),
 				EndC:      int(si.Range.End.Character),
-				Kind:      strings.ToLower(kindToString(si.Kind)),
+				Kind:      lspconv.SCIPSymbolKindToString(si.Kind, lspconv.StyleLowercase),
 			}
 			nodes = append(nodes, nd)
 			output.Total++
@@ -497,24 +444,20 @@ func GenerateContextSignatureMapJSON(configPath, outputPath string) error {
 
 // FindRelatedFiles finds files related to the given input files
 func FindRelatedFiles(configPath string, inputFiles []string, formatJSON bool, maxDepth int) error {
-	cfg := clicommon.LoadConfigForCLI(configPath)
-	manager, err := clicommon.CreateLSPManager(cfg)
+	cmdCtx, err := clicommon.NewCommandContext(configPath, 3*time.Minute)
 	if err != nil {
-		return fmt.Errorf("failed to create LSP manager: %w", err)
+		return err
 	}
+	defer cmdCtx.Cleanup()
 
-	ctx, cancel := icommon.CreateContext(3 * time.Minute)
-	defer cancel()
-
-	if err := manager.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start LSP manager: %w", err)
+	var storage scip.SCIPDocumentStorage
+	if cmdCtx.Cache != nil {
+		storage = cmdCtx.Cache.GetSCIPStorage()
 	}
-	defer manager.Stop()
 
 	relatedFiles := make(map[string]*FileRelation)
 	visited := make(map[string]bool)
 
-	// Convert input files to absolute paths
 	var targetFiles []string
 	for _, f := range inputFiles {
 		absPath, err := filepath.Abs(f)
@@ -524,74 +467,101 @@ func FindRelatedFiles(configPath string, inputFiles []string, formatJSON bool, m
 		}
 	}
 
-	// Find references and dependencies
 	for depth := 0; depth < maxDepth; depth++ {
 		var newFiles []string
 		for _, file := range targetFiles {
 			uri := utils.FilePathToURI(file)
 
-			// Get document symbols
-			result, err := manager.ProcessRequest(ctx, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{
-				TextDocument: lsp.TextDocumentIdentifier{URI: uri},
-			})
-            if err == nil && result != nil {
-                // Count symbols from result (including children)
-                symbolCount := 0
-                if symbols, err := parseDocumentSymbolsResult(result); err == nil && len(symbols) > 0 {
-                    symbolCount = countSymbols(symbols)
-                }
-				
-				if relation, ok := relatedFiles[file]; ok {
-					relation.Symbols += symbolCount
-				} else {
-					relatedFiles[file] = &FileRelation{
-						File:    file,
-						Symbols: symbolCount,
+			symbolCount := 0
+			refSet := make(map[string]bool)
+			refBySet := make(map[string]bool)
+
+			if storage != nil {
+				if doc, err := storage.GetDocument(context.Background(), uri); err == nil && doc != nil {
+					symbolCount = len(doc.SymbolInformation)
+
+					defSymbols := make(map[string]bool)
+					for _, occ := range doc.Occurrences {
+						if occ.SymbolRoles.HasRole(types.SymbolRoleDefinition) {
+							defSymbols[occ.Symbol] = true
+						}
+						if occ.SymbolRoles.HasRole(types.SymbolRoleReadAccess) || occ.SymbolRoles.HasRole(types.SymbolRoleImport) || occ.SymbolRoles.HasRole(types.SymbolRoleWriteAccess) {
+							if defs, err := storage.GetDefinitionsWithDocuments(context.Background(), occ.Symbol); err == nil {
+								for _, d := range defs {
+									defURI := utils.URIToFilePath(d.DocumentURI)
+									if defURI != "" && defURI != file {
+										refSet[defURI] = true
+									}
+								}
+							}
+						}
+					}
+
+					for sym := range defSymbols {
+						if refs, err := storage.GetReferencesWithDocuments(context.Background(), sym); err == nil {
+							for _, r := range refs {
+								refURI := utils.URIToFilePath(r.DocumentURI)
+								if refURI != "" && refURI != file {
+									refBySet[refURI] = true
+									if !visited[refURI] {
+										newFiles = append(newFiles, refURI)
+										visited[refURI] = true
+									}
+								}
+							}
+						}
+					}
+				}
+			} else {
+				// Fallback to LSP if no storage available
+				result, err := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{
+					TextDocument: lsp.TextDocumentIdentifier{URI: uri},
+				})
+				if err == nil && result != nil {
+					if symbols, err := parseDocumentSymbolsResult(result); err == nil && len(symbols) > 0 {
+						symbolCount = countSymbols(symbols)
+					}
+				}
+
+				if content, err := os.ReadFile(file); err == nil {
+					lines := strings.Split(string(content), "\n")
+					for lineNum := range lines {
+						refsResult, err := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentReferences, &lsp.ReferenceParams{
+							TextDocumentPositionParams: lsp.TextDocumentPositionParams{
+								TextDocument: lsp.TextDocumentIdentifier{URI: uri},
+								Position:     types.Position{Line: int32(lineNum), Character: 0},
+							},
+							Context: lsp.ReferenceContext{IncludeDeclaration: true},
+						})
+						if err == nil && refsResult != nil {
+							if refs, err := parseReferencesResult(refsResult); err == nil {
+								for _, ref := range refs {
+									refFile := utils.URIToFilePath(ref.URI)
+									if refFile != file && !visited[refFile] {
+										newFiles = append(newFiles, refFile)
+										visited[refFile] = true
+										refSet[refFile] = true
+										refBySet[refFile] = true
+									}
+								}
+							}
+						}
 					}
 				}
 			}
 
-			// Find references from this file
-			fileContent, err := os.ReadFile(file)
-			if err == nil {
-				lines := strings.Split(string(fileContent), "\n")
-				for lineNum, line := range lines {
-					if strings.Contains(line, "import") || strings.Contains(line, "require") {
-						// Try to find references at this position
-						refsResult, err := manager.ProcessRequest(ctx, types.MethodTextDocumentReferences, &lsp.ReferenceParams{
-							TextDocumentPositionParams: lsp.TextDocumentPositionParams{
-								TextDocument: lsp.TextDocumentIdentifier{URI: uri},
-								Position: types.Position{
-									Line:      int32(lineNum),
-									Character: 0,
-								},
-							},
-							Context: lsp.ReferenceContext{IncludeDeclaration: true},
-						})
-                    if err == nil && refsResult != nil {
-                        if refs, err := parseReferencesResult(refsResult); err == nil {
-                            for _, ref := range refs {
-                                refFile := utils.URIToFilePath(ref.URI)
-                                if refFile != file && !visited[refFile] {
-                                    newFiles = append(newFiles, refFile)
-                                    visited[refFile] = true
+			if relation, ok := relatedFiles[file]; ok {
+				relation.Symbols += symbolCount
+			} else {
+				relatedFiles[file] = &FileRelation{File: file, Symbols: symbolCount}
+			}
 
-                                    if rel, ok := relatedFiles[file]; ok {
-                                        rel.References = append(rel.References, refFile)
-                                    }
-                                    if rel, ok := relatedFiles[refFile]; !ok {
-                                        relatedFiles[refFile] = &FileRelation{
-                                            File:         refFile,
-                                            ReferencedBy: []string{file},
-                                        }
-                                    } else {
-                                        rel.ReferencedBy = append(rel.ReferencedBy, file)
-                                    }
-                                }
-                            }
-                        }
-                    }
-					}
+			if rel := relatedFiles[file]; rel != nil {
+				for f := range refSet {
+					rel.References = append(rel.References, f)
+				}
+				for f := range refBySet {
+					rel.ReferencedBy = append(rel.ReferencedBy, f)
 				}
 			}
 		}
@@ -602,7 +572,6 @@ func FindRelatedFiles(configPath string, inputFiles []string, formatJSON bool, m
 		targetFiles = newFiles
 	}
 
-	// Output results
 	if formatJSON {
 		data, err := json.MarshalIndent(relatedFiles, "", "  ")
 		if err != nil {
@@ -612,17 +581,10 @@ func FindRelatedFiles(configPath string, inputFiles []string, formatJSON bool, m
 	} else {
 		fmt.Println("# Related Files Analysis")
 		fmt.Printf("# Found %d related files\n\n", len(relatedFiles))
-
 		for _, rel := range relatedFiles {
 			fmt.Printf("File: %s\n", rel.File)
 			if rel.Symbols > 0 {
 				fmt.Printf("  Symbols: %d\n", rel.Symbols)
-			}
-			if len(rel.Imports) > 0 {
-				fmt.Printf("  Imports: %s\n", strings.Join(rel.Imports, ", "))
-			}
-			if len(rel.ImportedBy) > 0 {
-				fmt.Printf("  Imported by: %s\n", strings.Join(rel.ImportedBy, ", "))
 			}
 			if len(rel.References) > 0 {
 				fmt.Printf("  References: %s\n", strings.Join(rel.References, ", "))
@@ -639,32 +601,23 @@ func FindRelatedFiles(configPath string, inputFiles []string, formatJSON bool, m
 
 // ExtractSymbols extracts symbols from specified files
 func ExtractSymbols(configPath string, files []string, formatJSON bool, includeRefs bool) error {
-	cfg := clicommon.LoadConfigForCLI(configPath)
-	manager, err := clicommon.CreateLSPManager(cfg)
+	cmdCtx, err := clicommon.NewCommandContext(configPath, 3*time.Minute)
 	if err != nil {
-		return fmt.Errorf("failed to create LSP manager: %w", err)
+		return err
 	}
-
-	ctx, cancel := icommon.CreateContext(3 * time.Minute)
-	defer cancel()
-
-	if err := manager.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start LSP manager: %w", err)
-	}
-	defer manager.Stop()
+	defer cmdCtx.Cleanup()
 
 	var symbols []SymbolInfo
 
-	// If no files specified, get all indexed files
-	if len(files) == 0 {
-		cache := manager.GetCache()
-		if cache != nil {
-			storage := cache.GetSCIPStorage()
-			if storage != nil {
-				uris, _ := storage.ListDocuments(context.Background())
-				for _, uri := range uris {
-					files = append(files, utils.URIToFilePath(uri))
-				}
+	var storage scip.SCIPDocumentStorage
+	if cmdCtx.Cache != nil {
+		storage = cmdCtx.Cache.GetSCIPStorage()
+	}
+
+	if len(files) == 0 && storage != nil {
+		if uris, _ := storage.ListDocuments(context.Background()); len(uris) > 0 {
+			for _, uri := range uris {
+				files = append(files, utils.URIToFilePath(uri))
 			}
 		}
 	}
@@ -673,67 +626,76 @@ func ExtractSymbols(configPath string, files []string, formatJSON bool, includeR
 		absPath, _ := filepath.Abs(file)
 		uri := utils.FilePathToURI(absPath)
 
-		// Get document symbols
-		result, err := manager.ProcessRequest(ctx, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{
-			TextDocument: lsp.TextDocumentIdentifier{URI: uri},
-		})
+		if storage != nil {
+			if doc, err := storage.GetDocument(context.Background(), uri); err == nil && doc != nil {
+				for _, si := range doc.SymbolInformation {
+					info := SymbolInfo{
+						Name:      si.DisplayName,
+						Kind:      lspconv.SCIPSymbolKindToString(si.Kind, lspconv.StyleLowercase),
+						File:      absPath,
+						Line:      int(si.Range.Start.Line),
+						Signature: si.SignatureDocumentation.Text,
+					}
+					if includeRefs {
+						if refs, err := storage.GetReferencesWithDocuments(context.Background(), si.Symbol); err == nil {
+							for _, r := range refs {
+								refFile := utils.URIToFilePath(r.DocumentURI)
+								info.References = append(info.References, fmt.Sprintf("%s:%d", refFile, r.Range.Start.Line))
+							}
+						}
+					}
+					symbols = append(symbols, info)
+				}
+				continue
+			}
+		}
+
+		// Fallback to LSP
+		result, err := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{TextDocument: lsp.TextDocumentIdentifier{URI: uri}})
 		if err != nil {
 			continue
 		}
-
-            // Convert document symbols to our format
-            var extractSymbols func([]lsp.DocumentSymbol, string)
-            extractSymbols = func(syms []lsp.DocumentSymbol, parent string) {
-                for _, sym := range syms {
-                    info := SymbolInfo{
-                        Name:      sym.Name,
-                        Kind:      symbolKindToString(sym.Kind),
-                        File:      absPath,
-                        Line:      int(sym.Range.Start.Line),
-                        Signature: sym.Detail,
-                    }
-
-                    // Find references if requested
-                    if includeRefs {
-                        refsResult, err := manager.ProcessRequest(ctx, types.MethodTextDocumentReferences, &lsp.ReferenceParams{
-                            TextDocumentPositionParams: lsp.TextDocumentPositionParams{
-                                TextDocument: lsp.TextDocumentIdentifier{URI: uri},
-                                Position:     sym.Range.Start,
-                            },
-                            Context: lsp.ReferenceContext{IncludeDeclaration: false},
-                        })
-                        if err == nil && refsResult != nil {
-                            if refs, err := parseReferencesResult(refsResult); err == nil {
-                                for _, ref := range refs {
-                                    refFile := utils.URIToFilePath(ref.URI)
-                                    info.References = append(info.References, fmt.Sprintf("%s:%d", refFile, ref.Range.Start.Line))
-                                }
-                            }
-                        }
-                    }
-
+		var extractSymbols func([]lsp.DocumentSymbol)
+		extractSymbols = func(syms []lsp.DocumentSymbol) {
+			for _, sym := range syms {
+				info := SymbolInfo{
+					Name:      sym.Name,
+					Kind:      lspconv.LSPSymbolKindToString(sym.Kind, lspconv.StyleLowercase),
+					File:      absPath,
+					Line:      int(sym.Range.Start.Line),
+					Signature: sym.Detail,
+				}
+				if includeRefs {
+					refsResult, err := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentReferences, &lsp.ReferenceParams{
+						TextDocumentPositionParams: lsp.TextDocumentPositionParams{TextDocument: lsp.TextDocumentIdentifier{URI: uri}, Position: sym.Range.Start},
+						Context:                    lsp.ReferenceContext{IncludeDeclaration: false},
+					})
+					if err == nil && refsResult != nil {
+						if refs, err := parseReferencesResult(refsResult); err == nil {
+							for _, ref := range refs {
+								refFile := utils.URIToFilePath(ref.URI)
+								info.References = append(info.References, fmt.Sprintf("%s:%d", refFile, ref.Range.Start.Line))
+							}
+						}
+					}
+				}
 				symbols = append(symbols, info)
-
-				// Process children
 				if len(sym.Children) > 0 {
-					// Convert pointers to values
 					children := make([]lsp.DocumentSymbol, 0, len(sym.Children))
 					for _, child := range sym.Children {
 						if child != nil {
 							children = append(children, *child)
 						}
 					}
-					extractSymbols(children, sym.Name)
+					extractSymbols(children)
 				}
 			}
 		}
-
-        // Parse result and extract symbols
-        if result != nil {
-            if docSymbols, err := parseDocumentSymbolsResult(result); err == nil && len(docSymbols) > 0 {
-                extractSymbols(docSymbols, "")
-            }
-        }
+		if result != nil {
+			if docSymbols, err := parseDocumentSymbolsResult(result); err == nil && len(docSymbols) > 0 {
+				extractSymbols(docSymbols)
+			}
+		}
 	}
 
 	// Output results
@@ -766,67 +728,6 @@ func ExtractSymbols(configPath string, files []string, formatJSON bool, includeR
 	return nil
 }
 
-// Helper function to convert symbol kind to string
-func symbolKindToString(kind types.SymbolKind) string {
-	switch kind {
-	case types.File:
-		return "file"
-	case types.Module:
-		return "module"
-	case types.Namespace:
-		return "namespace"
-	case types.Package:
-		return "package"
-	case types.Class:
-		return "class"
-	case types.Method:
-		return "method"
-	case types.Property:
-		return "property"
-	case types.Field:
-		return "field"
-	case types.Constructor:
-		return "constructor"
-	case types.Enum:
-		return "enum"
-	case types.Interface:
-		return "interface"
-	case types.Function:
-		return "function"
-	case types.Variable:
-		return "variable"
-	case types.Constant:
-		return "constant"
-	case types.String:
-		return "string"
-	case types.Number:
-		return "number"
-	case types.Boolean:
-		return "boolean"
-	case types.Array:
-		return "array"
-	case types.Object:
-		return "object"
-	case types.Key:
-		return "key"
-	case types.Null:
-		return "null"
-	case types.EnumMember:
-		return "enummember"
-	case types.Struct:
-		return "struct"
-	case types.Event:
-		return "event"
-	case types.Operator:
-		return "operator"
-	case types.TypeParameter:
-		return "typeparameter"
-	default:
-		return "unknown"
-	}
-}
-
-
 // Helper function to count symbols recursively
 func countSymbols(symbols []lsp.DocumentSymbol) int {
 	count := len(symbols)
@@ -847,21 +748,12 @@ func countSymbols(symbols []lsp.DocumentSymbol) int {
 
 // AnalyzeDependencies analyzes dependencies for specified files using only LSP data
 func AnalyzeDependencies(configPath string, files []string, formatJSON bool) error {
-	cfg := clicommon.LoadConfigForCLI(configPath)
-	manager, err := clicommon.CreateLSPManager(cfg)
+	cmdCtx, err := clicommon.NewCommandContext(configPath, 3*time.Minute)
 	if err != nil {
-		return fmt.Errorf("failed to create LSP manager: %w", err)
+		return err
 	}
+	defer cmdCtx.Cleanup()
 
-	ctx, cancel := icommon.CreateContext(3 * time.Minute)
-	defer cancel()
-
-	if err := manager.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start LSP manager: %w", err)
-	}
-	defer manager.Stop()
-
-	// Get working directory
 	workingDir, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get working directory: %w", err)
@@ -869,21 +761,16 @@ func AnalyzeDependencies(configPath string, files []string, formatJSON bool) err
 
 	dependencies := make(map[string]*DependencyInfo)
 
-	// If no files specified, analyze all source files
-	if len(files) == 0 {
-		err := filepath.WalkDir(workingDir, func(path string, d fs.DirEntry, err error) error {
-			if err != nil || d.IsDir() {
-				return nil
-			}
+	var storage scip.SCIPDocumentStorage
+	if cmdCtx.Cache != nil {
+		storage = cmdCtx.Cache.GetSCIPStorage()
+	}
 
-			ext := filepath.Ext(path)
-			if ext == ".go" || ext == ".py" || ext == ".js" || ext == ".ts" || ext == ".java" || ext == ".rs" {
-				files = append(files, path)
+	if len(files) == 0 && storage != nil {
+		if uris, _ := storage.ListDocuments(context.Background()); len(uris) > 0 {
+			for _, uri := range uris {
+				files = append(files, utils.URIToFilePath(uri))
 			}
-			return nil
-		})
-		if err != nil {
-			return fmt.Errorf("failed to walk directory: %w", err)
 		}
 	}
 
@@ -891,54 +778,60 @@ func AnalyzeDependencies(configPath string, files []string, formatJSON bool) err
 		absPath, _ := filepath.Abs(file)
 		uri := utils.FilePathToURI(absPath)
 
-		dep := &DependencyInfo{
-			File:        absPath,
-			Exports:     []ExportSymbol{},
-			SymbolCount: 0,
+		dep := &DependencyInfo{File: absPath, Exports: []ExportSymbol{}, SymbolCount: 0}
+
+		if storage != nil {
+			if doc, err := storage.GetDocument(context.Background(), uri); err == nil && doc != nil {
+				dep.SymbolCount = len(doc.SymbolInformation)
+				// Determine exported symbols by definition in this file and uppercase heuristic
+				defSymbols := make(map[string]bool)
+				for _, occ := range doc.Occurrences {
+					if occ.SymbolRoles&types.SymbolRoleDefinition != 0 {
+						defSymbols[occ.Symbol] = true
+					}
+				}
+				for _, si := range doc.SymbolInformation {
+					if !defSymbols[si.Symbol] {
+						continue
+					}
+					name := si.DisplayName
+					if name != "" && unicode.IsUpper(rune(name[0])) {
+						dep.Exports = append(dep.Exports, ExportSymbol{Name: name, Kind: lspconv.SCIPSymbolKindToString(si.Kind, lspconv.StyleLowercase)})
+					}
+				}
+				dependencies[absPath] = dep
+				continue
+			}
 		}
 
-		// Get document symbols for exports
-		result, err := manager.ProcessRequest(ctx, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{
-			TextDocument: lsp.TextDocumentIdentifier{URI: uri},
-		})
-        if err == nil && result != nil {
-            var processSymbols func([]lsp.DocumentSymbol)
-            processSymbols = func(symbols []lsp.DocumentSymbol) {
-                for _, sym := range symbols {
-                    dep.SymbolCount++
-                    // Check if symbol is exported (public)
-                    if sym.Name != "" && unicode.IsUpper(rune(sym.Name[0])) {
-                        dep.Exports = append(dep.Exports, ExportSymbol{
-                            Name: sym.Name,
-                            Kind: symbolKindToString(sym.Kind),
-                        })
-                    }
-                    // Process children recursively
-                    if len(sym.Children) > 0 {
-                        // Convert pointers to values
-                        children := make([]lsp.DocumentSymbol, 0, len(sym.Children))
-                        for _, child := range sym.Children {
-                            if child != nil {
-                                children = append(children, *child)
-                            }
-                        }
-                        processSymbols(children)
-                    }
-                }
-            }
-            if docSymbols, err := parseDocumentSymbolsResult(result); err == nil && len(docSymbols) > 0 {
-                processSymbols(docSymbols)
-            }
-        }
-
-		// Note: LSP doesn't provide direct import information
-		// We can only get exported symbols from the document symbols
-		// Import analysis would require language-specific parsing which we want to avoid
-
+		// Fallback to LSP
+		result, err := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{TextDocument: lsp.TextDocumentIdentifier{URI: uri}})
+		if err == nil && result != nil {
+			var processSymbols func([]lsp.DocumentSymbol)
+			processSymbols = func(syms []lsp.DocumentSymbol) {
+				for _, sym := range syms {
+					dep.SymbolCount++
+					if sym.Name != "" && unicode.IsUpper(rune(sym.Name[0])) {
+						dep.Exports = append(dep.Exports, ExportSymbol{Name: sym.Name, Kind: lspconv.LSPSymbolKindToString(sym.Kind, lspconv.StyleLowercase)})
+					}
+					if len(sym.Children) > 0 {
+						children := make([]lsp.DocumentSymbol, 0, len(sym.Children))
+						for _, child := range sym.Children {
+							if child != nil {
+								children = append(children, *child)
+							}
+						}
+						processSymbols(children)
+					}
+				}
+			}
+			if docSymbols, err := parseDocumentSymbolsResult(result); err == nil && len(docSymbols) > 0 {
+				processSymbols(docSymbols)
+			}
+		}
 		dependencies[absPath] = dep
 	}
 
-	// Output results
 	if formatJSON {
 		data, err := json.MarshalIndent(dependencies, "", "  ")
 		if err != nil {
@@ -947,19 +840,16 @@ func AnalyzeDependencies(configPath string, files []string, formatJSON bool) err
 		fmt.Println(string(data))
 	} else {
 		fmt.Printf("# Dependencies Analysis (%d files)\n\n", len(dependencies))
-
 		for file, dep := range dependencies {
 			relPath, _ := filepath.Rel(workingDir, file)
 			fmt.Printf("File: %s\n", relPath)
 			fmt.Printf("  Total Symbols: %d\n", dep.SymbolCount)
-
 			if len(dep.Exports) > 0 {
 				fmt.Printf("  Exported Symbols (%d):\n", len(dep.Exports))
 				for _, exp := range dep.Exports {
 					fmt.Printf("    - %s %s\n", exp.Kind, exp.Name)
 				}
 			}
-
 			fmt.Println()
 		}
 	}

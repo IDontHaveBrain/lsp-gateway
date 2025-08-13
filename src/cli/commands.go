@@ -431,7 +431,6 @@ Examples:
   lsp-gateway context dependencies --json`,
 		RunE: runContextDependenciesCmd,
 	}
-
 )
 
 func init() {

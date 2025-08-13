@@ -1,7 +1,7 @@
 package cache
 
 import (
-	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/errors"
 	"lsp-gateway/src/server/documents"
 )
 
@@ -9,7 +9,7 @@ import (
 // This provides centralized URI extraction logic for cache operations
 func ExtractURIFromParams(method string, params interface{}) (string, error) {
 	if params == nil {
-		return "", common.NoParametersError()
+		return "", errors.NewValidationError("params", "no parameters provided")
 	}
 	dm := documents.NewLSPDocumentManager()
 	return dm.ExtractURI(params)

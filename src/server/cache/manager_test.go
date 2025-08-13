@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/types"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -82,7 +83,7 @@ func TestCacheKey_Generation(t *testing.T) {
 	}{
 		{
 			name:   "Simple params",
-			method: "textDocument/definition",
+			method: types.MethodTextDocumentDefinition,
 			uri:    "file:///test.go",
 			params: map[string]interface{}{
 				"position": map[string]interface{}{
@@ -93,7 +94,7 @@ func TestCacheKey_Generation(t *testing.T) {
 		},
 		{
 			name:   "Complex params",
-			method: "workspace/symbol",
+			method: types.MethodWorkspaceSymbol,
 			uri:    "",
 			params: map[string]interface{}{
 				"query": "TestFunction",
@@ -102,7 +103,7 @@ func TestCacheKey_Generation(t *testing.T) {
 		},
 		{
 			name:   "Nil params",
-			method: "textDocument/hover",
+			method: types.MethodTextDocumentHover,
 			uri:    "file:///test.py",
 			params: nil,
 		},
@@ -136,31 +137,31 @@ func TestCacheKey_Generation(t *testing.T) {
 }
 
 func TestPosition_Comparison(t *testing.T) {
-	tests := []struct {
-		name     string
-		p1       Position
-		p2       Position
-		expected int // -1: p1 < p2, 0: p1 == p2, 1: p1 > p2
-	}{
-		{
-			name:     "Equal positions",
-			p1:       Position{Line: 10, Character: 5},
-			p2:       Position{Line: 10, Character: 5},
-			expected: 0,
-		},
-		{
-			name:     "Different lines",
-			p1:       Position{Line: 5, Character: 10},
-			p2:       Position{Line: 10, Character: 5},
-			expected: -1,
-		},
-		{
-			name:     "Same line, different character",
-			p1:       Position{Line: 10, Character: 15},
-			p2:       Position{Line: 10, Character: 5},
-			expected: 1,
-		},
-	}
+    tests := []struct {
+        name     string
+        p1       types.Position
+        p2       types.Position
+        expected int // -1: p1 < p2, 0: p1 == p2, 1: p1 > p2
+    }{
+        {
+            name:     "Equal positions",
+            p1:       types.Position{Line: 10, Character: 5},
+            p2:       types.Position{Line: 10, Character: 5},
+            expected: 0,
+        },
+        {
+            name:     "Different lines",
+            p1:       types.Position{Line: 5, Character: 10},
+            p2:       types.Position{Line: 10, Character: 5},
+            expected: -1,
+        },
+        {
+            name:     "Same line, different character",
+            p1:       types.Position{Line: 10, Character: 15},
+            p2:       types.Position{Line: 10, Character: 5},
+            expected: 1,
+        },
+    }
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -179,52 +180,52 @@ func TestPosition_Comparison(t *testing.T) {
 }
 
 func TestRange_Contains(t *testing.T) {
-	r := Range{
-		Start: Position{Line: 10, Character: 5},
-		End:   Position{Line: 15, Character: 20},
-	}
+    r := types.Range{
+        Start: types.Position{Line: 10, Character: 5},
+        End:   types.Position{Line: 15, Character: 20},
+    }
 
-	tests := []struct {
-		name     string
-		position Position
-		contains bool
-	}{
-		{
-			name:     "Inside range",
-			position: Position{Line: 12, Character: 10},
-			contains: true,
-		},
-		{
-			name:     "At start",
-			position: Position{Line: 10, Character: 5},
-			contains: true,
-		},
-		{
-			name:     "At end",
-			position: Position{Line: 15, Character: 20},
-			contains: true,
-		},
-		{
-			name:     "Before range",
-			position: Position{Line: 9, Character: 0},
-			contains: false,
-		},
-		{
-			name:     "After range",
-			position: Position{Line: 16, Character: 0},
-			contains: false,
-		},
-		{
-			name:     "Same line, before character",
-			position: Position{Line: 10, Character: 3},
-			contains: false,
-		},
-		{
-			name:     "Same line, after character",
-			position: Position{Line: 15, Character: 25},
-			contains: false,
-		},
-	}
+    tests := []struct {
+        name     string
+        position types.Position
+        contains bool
+    }{
+        {
+            name:     "Inside range",
+            position: types.Position{Line: 12, Character: 10},
+            contains: true,
+        },
+        {
+            name:     "At start",
+            position: types.Position{Line: 10, Character: 5},
+            contains: true,
+        },
+        {
+            name:     "At end",
+            position: types.Position{Line: 15, Character: 20},
+            contains: true,
+        },
+        {
+            name:     "Before range",
+            position: types.Position{Line: 9, Character: 0},
+            contains: false,
+        },
+        {
+            name:     "After range",
+            position: types.Position{Line: 16, Character: 0},
+            contains: false,
+        },
+        {
+            name:     "Same line, before character",
+            position: types.Position{Line: 10, Character: 3},
+            contains: false,
+        },
+        {
+            name:     "Same line, after character",
+            position: types.Position{Line: 15, Character: 25},
+            contains: false,
+        },
+    }
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

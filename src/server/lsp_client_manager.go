@@ -481,7 +481,7 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 	// Ensure path is absolute and clean
 	wd, _ = filepath.Abs(wd)
 	if runtime.GOOS == "windows" {
-		wd = utils.URIToFilePath(utils.FilePathToURI(wd))
+        wd = utils.URIToFilePathCached(utils.FilePathToURI(wd))
 	}
 
 	// Get initialization options

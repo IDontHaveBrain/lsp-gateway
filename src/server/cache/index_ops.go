@@ -8,6 +8,8 @@ import (
 	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/scip"
+	"lsp-gateway/src/utils"
+	"os"
 )
 
 // IndexDocument indexes LSP symbols using occurrence-centric SCIP storage
@@ -120,7 +122,26 @@ func (m *SCIPCacheManager) UpdateIndex(ctx context.Context, files []string) erro
 	if !m.enabled {
 		return nil
 	}
-	// Indexing happens when LSP methods return symbol information
+	// Handle deletions: remove documents that no longer exist on disk
+	if m.scipStorage != nil {
+		uris, err := m.scipStorage.ListDocuments(ctx)
+		if err == nil {
+			for _, uri := range uris {
+            path := utils.URIToFilePathCached(uri)
+				if path == "" {
+					continue
+				}
+				if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
+					_ = m.scipStorage.RemoveDocument(ctx, uri)
+					if m.fileTracker != nil {
+						m.fileTracker.RemoveFileMetadata([]string{uri})
+					}
+				}
+			}
+		}
+	}
+
+	// For additions/changes, actual re-indexing occurs as LSP results arrive
 	return nil
 }
 

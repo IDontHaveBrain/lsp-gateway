@@ -7,41 +7,26 @@ import (
 
 	clicommon "lsp-gateway/src/cli/common"
 	"lsp-gateway/src/internal/common"
-	icommon "lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/scip"
 )
 
 // IndexCache rebuilds the cache index by processing workspace files
 func IndexCache(configPath string) error {
-	cfg := clicommon.LoadConfigForCLI(configPath)
-
-	// Create LSP manager to access cache
-	manager, err := clicommon.CreateLSPManager(cfg)
+	cmdCtx, err := clicommon.NewCommandContext(configPath, 5*time.Minute)
 	if err != nil {
-		return fmt.Errorf("failed to create LSP manager: %w", err)
+		return err
 	}
+	defer cmdCtx.Cleanup()
 
 	// Get working directory
-	wd, err := common.ValidateAndGetWorkingDir("")
+	wd, err := cmdCtx.GetWorkingDir()
 	if err != nil {
 		common.CLILogger.Error("Failed to get working directory: %v", err)
 		return err
 	}
 
-	ctx, cancel := icommon.CreateContext(5 * time.Minute)
-	defer cancel()
-
-	// Start LSP manager to fetch document symbols (this also initializes the cache)
-	if err := manager.Start(ctx); err != nil {
-		common.CLILogger.Error("Failed to start LSP manager: %v", err)
-		return err
-	}
-	defer manager.Stop()
-
-	// Get cache AFTER starting LSP manager
-	cacheInstance := manager.GetCache()
-	_, err = clicommon.CheckCacheHealth(cacheInstance)
+	_, err = cmdCtx.CheckCacheHealth()
 	if err != nil {
 		return nil // CheckCacheHealth already logged the appropriate message
 	}
@@ -51,17 +36,17 @@ func IndexCache(configPath string) error {
 	common.CLILogger.Info("Scanning workspace: %s", wd)
 
 	// Wait for LSP servers to initialize
-	time.Sleep(2 * time.Second)
+	cmdCtx.WaitForInitialization()
 
 	// Get initial index stats to track actual indexing success
 	var initialSymbolCount, initialDocCount int64
-	initialStats := cacheInstance.GetIndexStats()
+	initialStats := cmdCtx.Cache.GetIndexStats()
 	if initialStats != nil {
 		initialSymbolCount = initialStats.SymbolCount
 		initialDocCount = initialStats.DocumentCount
 	}
 
-	if cacheManager, ok := cacheInstance.(*cache.SCIPCacheManager); ok {
+	if cacheManager, ok := cmdCtx.Cache.(*cache.SCIPCacheManager); ok {
 		progress := func(phase string, current, total int, detail string) {
 			switch phase {
 			case "index_start":
@@ -88,7 +73,7 @@ func IndexCache(configPath string) error {
 		}
 		// Use incremental indexing by default
 		common.CLILogger.Info("Performing incremental indexing (checking for changes)...")
-		if err := cacheManager.PerformIncrementalIndexingWithProgress(ctx, wd, manager, progress); err != nil {
+		if err := cacheManager.PerformIncrementalIndexingWithProgress(cmdCtx.Context, wd, cmdCtx.Manager, progress); err != nil {
 			common.CLILogger.Error("❌ Failed to perform incremental indexing: %v", err)
 			return err
 		}
@@ -101,7 +86,7 @@ func IndexCache(configPath string) error {
 	// Get final index stats to check actual indexing results
 	var actuallyIndexedSymbols int64 = 0
 	var actuallyIndexedDocs int64 = 0
-	finalStats := cacheInstance.GetIndexStats()
+	finalStats := cmdCtx.Cache.GetIndexStats()
 	if finalStats != nil {
 		actuallyIndexedSymbols = finalStats.SymbolCount - initialSymbolCount
 		actuallyIndexedDocs = finalStats.DocumentCount - initialDocCount
@@ -113,7 +98,7 @@ func IndexCache(configPath string) error {
 		common.CLILogger.Info("Cache index rebuilt successfully - indexed %d symbols from %d documents", actuallyIndexedSymbols, actuallyIndexedDocs)
 	} else {
 		// Check if this was incremental indexing with no changes
-		if cacheManager, ok := cacheInstance.(*cache.SCIPCacheManager); ok {
+		if cacheManager, ok := cmdCtx.Cache.(*cache.SCIPCacheManager); ok {
 			trackedCount := cacheManager.GetTrackedFileCount()
 			if trackedCount > 0 {
 				// Files are already indexed, no changes detected
@@ -138,7 +123,7 @@ func IndexCache(configPath string) error {
 	}
 
 	// Show updated stats
-	if updatedMetrics, err := cacheInstance.HealthCheck(); err == nil && updatedMetrics != nil {
+	if updatedMetrics, err := cmdCtx.Cache.HealthCheck(); err == nil && updatedMetrics != nil {
 		common.CLILogger.Info("Updated cache stats: %d entries", updatedMetrics.EntryCount)
 	}
 
@@ -147,20 +132,13 @@ func IndexCache(configPath string) error {
 
 // ClearCache clears all cache entries
 func ClearCache(configPath string) error {
-	cfg := clicommon.LoadConfigForCLI(configPath)
-
-	// Create and start cache only (no LSP servers needed)
-	cacheInstance, err := clicommon.CreateCacheOnly(cfg)
+	cmdCtx, err := clicommon.NewCacheOnlyContext(configPath, 30*time.Second)
 	if err != nil {
-		return fmt.Errorf("failed to create cache: %w", err)
+		return err
 	}
-	defer func() {
-		if cacheInstance != nil {
-			cacheInstance.Stop()
-		}
-	}()
+	defer cmdCtx.Cleanup()
 
-	_, err = clicommon.CheckCacheHealth(cacheInstance)
+	_, err = cmdCtx.CheckCacheHealth()
 	if err != nil {
 		return nil // CheckCacheHealth already logged the appropriate message
 	}
@@ -168,7 +146,7 @@ func ClearCache(configPath string) error {
 	common.CLILogger.Info("Cache Clear")
 
 	// Clear the cache
-	if err := cacheInstance.Clear(); err != nil {
+	if err := cmdCtx.Cache.Clear(); err != nil {
 		common.CLILogger.Error("Failed to clear cache: %v", err)
 		return err
 	}
@@ -180,20 +158,13 @@ func ClearCache(configPath string) error {
 
 // ShowCacheInfo displays brief statistics about cached data
 func ShowCacheInfo(configPath string) error {
-	cfg := clicommon.LoadConfigForCLI(configPath)
-
-	// Create and start cache only (no LSP servers needed)
-	cacheInstance, err := clicommon.CreateCacheOnly(cfg)
+	cmdCtx, err := clicommon.NewCacheOnlyContext(configPath, 30*time.Second)
 	if err != nil {
-		return fmt.Errorf("failed to create cache: %w", err)
+		return err
 	}
-	defer func() {
-		if cacheInstance != nil {
-			cacheInstance.Stop()
-		}
-	}()
+	defer cmdCtx.Cleanup()
 
-	metrics, err := clicommon.CheckCacheHealth(cacheInstance)
+	metrics, err := cmdCtx.CheckCacheHealth()
 	if err != nil {
 		return nil // CheckCacheHealth already logged the appropriate message
 	}
@@ -219,7 +190,7 @@ func ShowCacheInfo(configPath string) error {
 	// Hit/Miss ratio
 	totalRequests := metrics.HitCount + metrics.MissCount
 	if totalRequests > 0 {
-		hitRatio := float64(metrics.HitCount) / float64(totalRequests) * 100
+		hitRatio := cache.HitRate(metrics)
 		common.CLILogger.Info("  • Hit Rate: %.1f%% (%d/%d)", hitRatio, metrics.HitCount, totalRequests)
 	} else {
 		common.CLILogger.Info("  • Hit Rate: No requests yet")
@@ -231,7 +202,7 @@ func ShowCacheInfo(configPath string) error {
 	}
 
 	// Get and display index statistics
-	indexStats := cacheInstance.GetIndexStats()
+	indexStats := cmdCtx.Cache.GetIndexStats()
 	if indexStats != nil && indexStats.Status != "disabled" {
 		common.CLILogger.Info("")
 		common.CLILogger.Info("Index Statistics:")
@@ -289,19 +260,19 @@ func ShowCacheInfo(configPath string) error {
 		}
 
 		// Storage details and index hit rate
-		if cfg != nil && cfg.Cache != nil {
+		if cmdCtx.Config != nil && cmdCtx.Config.Cache != nil {
 			disk := "disabled"
-			if cfg.Cache.DiskCache {
+			if cmdCtx.Config.Cache.DiskCache {
 				disk = "enabled"
 			}
-			if cfg.Cache.StoragePath != "" {
-				common.CLILogger.Info("  • Disk Cache: %s (%s)", disk, cfg.Cache.StoragePath)
+			if cmdCtx.Config.Cache.StoragePath != "" {
+				common.CLILogger.Info("  • Disk Cache: %s (%s)", disk, cmdCtx.Config.Cache.StoragePath)
 			} else {
 				common.CLILogger.Info("  • Disk Cache: %s", disk)
 			}
 		}
 
-		if scipStorage := cacheInstance.GetSCIPStorage(); scipStorage != nil {
+		if scipStorage := cmdCtx.Cache.GetSCIPStorage(); scipStorage != nil {
 			if sstats, ok := scipStorage.(scip.SCIPDocumentStorage); ok {
 				s := sstats.GetIndexStats()
 				if s.HitRate > 0 {

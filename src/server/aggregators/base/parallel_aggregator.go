@@ -32,14 +32,14 @@ func NewParallelAggregator[TRequest, TResponse any](individualTimeout, overallTi
 	}
 }
 
-// Execute runs parallel operations across LSP clients and aggregates results.
-// Returns a map of successful responses by language and any errors encountered.
-// Supports graceful degradation - partial success is allowed.
-func (a *ParallelAggregator[TRequest, TResponse]) Execute(
+// executeInternal runs parallel operations across LSP clients with a configurable timeout provider.
+// The timeoutProvider function is called for each language to determine its individual timeout.
+func (a *ParallelAggregator[TRequest, TResponse]) executeInternal(
 	ctx context.Context,
 	clients map[string]types.LSPClient,
 	request TRequest,
 	executor func(context.Context, types.LSPClient, TRequest) (TResponse, error),
+	timeoutProvider func(language string) time.Duration,
 ) (map[string]TResponse, []error) {
 	if len(clients) == 0 {
 		return make(map[string]TResponse), []error{fmt.Errorf("no clients provided")}
@@ -51,110 +51,8 @@ func (a *ParallelAggregator[TRequest, TResponse]) Execute(
 	// Launch parallel goroutines for each client
 	for language, client := range clients {
 		go func(lang string, c types.LSPClient) {
-			// Create individual timeout context for this client request
-			clientCtx, cancel := common.WithTimeout(ctx, a.individualTimeout)
-			defer cancel()
-
-			// Execute the operation
-			response, err := executor(clientCtx, c, request)
-
-			// Always send a result, even if it's an error
-			select {
-			case resultCh <- result[TResponse]{
-				language: lang,
-				response: response,
-				err:      err,
-			}:
-			case <-clientCtx.Done():
-				// Context cancelled, send timeout error
-				var zeroResponse TResponse
-				resultCh <- result[TResponse]{
-					language: lang,
-					response: zeroResponse,
-					err:      fmt.Errorf("client request timeout"),
-				}
-			}
-		}(language, client)
-	}
-
-	// Collect results with overall timeout
-	results := make(map[string]TResponse)
-	var errorsList []string
-	responsesReceived := 0
-	respondedClients := make(map[string]bool)
-
-	// Set up overall timeout
-	overallTimeout := time.After(a.overallTimeout)
-
-	for responsesReceived < len(clients) {
-		select {
-		case result := <-resultCh:
-			responsesReceived++
-			respondedClients[result.language] = true
-
-			if result.err != nil {
-				errorsList = append(errorsList, fmt.Sprintf("%s: %v", result.language, result.err))
-				continue
-			}
-
-			results[result.language] = result.response
-
-		case <-overallTimeout:
-			// Overall timeout reached - add errors for clients that didn't respond
-			common.LSPLogger.Warn("Overall timeout reached while collecting parallel results, returning partial results (%d/%d clients responded)", responsesReceived, len(clients))
-
-			// Add errors for clients that didn't respond
-			for language := range clients {
-				if !respondedClients[language] {
-					errorsList = append(errorsList, fmt.Sprintf("%s: overall timeout - no response received", language))
-				}
-			}
-			goto collectDone
-
-		case <-ctx.Done():
-			// Context cancelled
-			var contextErrors []error
-			contextErrors = append(contextErrors, fmt.Errorf("context cancelled while collecting parallel results"))
-			return results, contextErrors
-		}
-	}
-
-collectDone:
-	// Convert error strings to error slice
-	var errors []error
-	for _, errStr := range errorsList {
-		errors = append(errors, fmt.Errorf("%s", errStr))
-	}
-
-	// Log errors but don't fail if some clients succeeded
-	if len(errorsList) > 0 {
-		common.LSPLogger.Warn("Some LSP clients failed during parallel operation: %s", strings.Join(errorsList, "; "))
-	}
-
-	return results, errors
-}
-
-// ExecuteWithLanguageTimeouts runs parallel operations with language-specific individual timeouts.
-// The timeoutFunc is called for each language to determine its individual timeout.
-func (a *ParallelAggregator[TRequest, TResponse]) ExecuteWithLanguageTimeouts(
-	ctx context.Context,
-	clients map[string]types.LSPClient,
-	request TRequest,
-	executor func(context.Context, types.LSPClient, TRequest) (TResponse, error),
-	timeoutFunc func(string) time.Duration,
-) (map[string]TResponse, []error) {
-	if len(clients) == 0 {
-		return make(map[string]TResponse), []error{fmt.Errorf("no clients provided")}
-	}
-
-	// Create channel for result collection
-	resultCh := make(chan result[TResponse], len(clients))
-
-	// Launch parallel goroutines for each client
-	for language, client := range clients {
-		go func(lang string, c types.LSPClient) {
-			// Use language-specific timeout
-			individualTimeout := timeoutFunc(lang)
+			// Get timeout for this specific language
+			individualTimeout := timeoutProvider(lang)
 			clientCtx, cancel := common.WithTimeout(ctx, individualTimeout)
 			defer cancel()
 
@@ -202,17 +100,10 @@ func (a *ParallelAggregator[TRequest, TResponse]) ExecuteWithLanguageTimeouts(
 
 			results[result.language] = result.response
 
-		case <-overallTimeout:
-			// Overall timeout reached - add errors for clients that didn't respond
-			common.LSPLogger.Warn("Overall timeout reached while collecting parallel results, returning partial results (%d/%d clients responded)", responsesReceived, len(clients))
-
-			// Add errors for clients that didn't respond
-			for language := range clients {
-				if !respondedClients[language] {
-					errorsList = append(errorsList, fmt.Sprintf("%s: overall timeout - no response received", language))
-				}
-			}
-			goto collectDone
+        case <-overallTimeout:
+            // Overall timeout reached - return partial results without per-client errors
+            common.LSPLogger.Warn("Overall timeout reached while collecting parallel results, returning partial results (%d/%d clients responded)", responsesReceived, len(clients))
+            goto collectDone
 
 		case <-ctx.Done():
 			// Context cancelled
@@ -235,6 +126,32 @@ collectDone:
 	}
 
 	return results, errors
+}
+
+// Execute runs parallel operations across LSP clients and aggregates results.
+// Returns a map of successful responses by language and any errors encountered.
+// Supports graceful degradation - partial success is allowed.
+func (a *ParallelAggregator[TRequest, TResponse]) Execute(
+	ctx context.Context,
+	clients map[string]types.LSPClient,
+	request TRequest,
+	executor func(context.Context, types.LSPClient, TRequest) (TResponse, error),
+) (map[string]TResponse, []error) {
+	return a.executeInternal(ctx, clients, request, executor, func(language string) time.Duration {
+		return a.individualTimeout
+	})
+}
+
+// ExecuteWithLanguageTimeouts runs parallel operations with language-specific individual timeouts.
+// The timeoutFunc is called for each language to determine its individual timeout.
+func (a *ParallelAggregator[TRequest, TResponse]) ExecuteWithLanguageTimeouts(
+	ctx context.Context,
+	clients map[string]types.LSPClient,
+	request TRequest,
+	executor func(context.Context, types.LSPClient, TRequest) (TResponse, error),
+	timeoutFunc func(string) time.Duration,
+) (map[string]TResponse, []error) {
+	return a.executeInternal(ctx, clients, request, executor, timeoutFunc)
 }
 
 // ExecuteAll runs operations across all clients and only succeeds if ALL clients succeed.

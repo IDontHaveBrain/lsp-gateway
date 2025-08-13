@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"lsp-gateway/src/internal/types"
 )
 
 func TestMethodNotSupportedError(t *testing.T) {
@@ -24,7 +26,7 @@ func TestMethodNotSupportedError(t *testing.T) {
 		{
 			name:       "Empty suggestion",
 			server:     "pyright",
-			method:     "workspace/symbol",
+			method:     types.MethodWorkspaceSymbol,
 			suggestion: "",
 			expected:   "LSP server 'pyright' does not support 'workspace/symbol'. ",
 		},
@@ -38,7 +40,7 @@ func TestMethodNotSupportedError(t *testing.T) {
 		{
 			name:       "Special characters in server name",
 			server:     "java-lsp/server",
-			method:     "textDocument/hover",
+			method:     types.MethodTextDocumentHover,
 			suggestion: "Check server configuration.",
 			expected:   "LSP server 'java-lsp/server' does not support 'textDocument/hover'. Check server configuration.",
 		},
@@ -101,7 +103,7 @@ func TestMethodNotSupportedError_EdgeCases(t *testing.T) {
 		{
 			name:       "Empty server name",
 			server:     "",
-			method:     "textDocument/hover",
+			method:     types.MethodTextDocumentHover,
 			suggestion: "Server not specified",
 			expected:   "LSP server '' does not support 'textDocument/hover'. Server not specified",
 		},

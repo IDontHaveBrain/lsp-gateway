@@ -83,7 +83,7 @@ func MatchSymbolPattern(symbol SymbolInformation, query SymbolPatternQuery) (boo
 	}
 
 	if query.FilePattern != "" {
-		filePath := utils.URIToFilePath(symbol.Location.URI)
+    filePath := utils.URIToFilePathCached(symbol.Location.URI)
 		if !matchFilePattern(filePath, query.FilePattern) {
 			return false, 0
 		}
