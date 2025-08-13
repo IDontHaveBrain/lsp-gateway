@@ -29,47 +29,47 @@ func (m *MCPServer) performInitialIndexing() {
 	allSymbols := make(map[string]bool) // Track unique symbols by key
 
 	common.LSPLogger.Info("MCP: Searching workspace symbols with patterns")
-    for _, pattern := range patterns {
-        found := 0
-        // Prefer cache search service when available
-        if m.lspManager != nil && m.lspManager.scipCache != nil {
-            // Try enhanced symbols via concrete manager if possible
-            if cm, ok := m.lspManager.scipCache.(*cache.SCIPCacheManager); ok {
-                if res, err := cm.SearchSymbolsEnhanced(ctx, &cache.EnhancedSymbolQuery{Pattern: pattern, MaxResults: constants.MCPMaxSymbolResults}); err == nil && res != nil {
-                    for _, s := range res.Symbols {
-                        key := fmt.Sprintf("%s:%s", s.SymbolID, s.DisplayName)
-                        allSymbols[key] = true
-                        found++
-                    }
-                    common.LSPLogger.Debug("MCP: Pattern '%s' found %d symbols (enhanced)", pattern, found)
-                    continue
-                }
-            }
-            // Fallback to simple symbol search
-            if syms, err := m.lspManager.scipCache.SearchSymbols(ctx, pattern, "**/*", constants.MCPMaxSymbolResults); err == nil && syms != nil {
-                for _, it := range syms {
-                    if m, ok := it.(map[string]interface{}); ok {
-                        name, _ := m["displayName"].(string)
-                        if name == "" {
-                            if info, ok2 := m["symbol_info"].(map[string]interface{}); ok2 {
-                                if dn, ok3 := info["displayName"].(string); ok3 {
-                                    name = dn
-                                }
-                            }
-                        }
-                        id, _ := m["symbol"].(string)
-                        key := fmt.Sprintf("%s:%s", id, name)
-                        allSymbols[key] = true
-                        found++
-                    }
-                }
-                common.LSPLogger.Debug("MCP: Pattern '%s' found %d symbols (simple)", pattern, found)
-                continue
-            }
-        }
-        // No cache available; skip LSP fallback to maintain single search pathway
-        common.LSPLogger.Debug("MCP: Cache unavailable; skipping LSP fallback for pattern '%s'", pattern)
-    }
+	for _, pattern := range patterns {
+		found := 0
+		// Prefer cache search service when available
+		if m.lspManager != nil && m.lspManager.scipCache != nil {
+			// Try enhanced symbols via concrete manager if possible
+			if cm, ok := m.lspManager.scipCache.(*cache.SCIPCacheManager); ok {
+				if res, err := cm.SearchSymbolsEnhanced(ctx, &cache.EnhancedSymbolQuery{Pattern: pattern, MaxResults: constants.MCPMaxSymbolResults}); err == nil && res != nil {
+					for _, s := range res.Symbols {
+						key := fmt.Sprintf("%s:%s", s.SymbolID, s.DisplayName)
+						allSymbols[key] = true
+						found++
+					}
+					common.LSPLogger.Debug("MCP: Pattern '%s' found %d symbols (enhanced)", pattern, found)
+					continue
+				}
+			}
+			// Fallback to simple symbol search
+			if syms, err := m.lspManager.scipCache.SearchSymbols(ctx, pattern, "**/*", constants.MCPMaxSymbolResults); err == nil && syms != nil {
+				for _, it := range syms {
+					if m, ok := it.(map[string]interface{}); ok {
+						name, _ := m["displayName"].(string)
+						if name == "" {
+							if info, ok2 := m["symbol_info"].(map[string]interface{}); ok2 {
+								if dn, ok3 := info["displayName"].(string); ok3 {
+									name = dn
+								}
+							}
+						}
+						id, _ := m["symbol"].(string)
+						key := fmt.Sprintf("%s:%s", id, name)
+						allSymbols[key] = true
+						found++
+					}
+				}
+				common.LSPLogger.Debug("MCP: Pattern '%s' found %d symbols (simple)", pattern, found)
+				continue
+			}
+		}
+		// No cache available; skip LSP fallback to maintain single search pathway
+		common.LSPLogger.Debug("MCP: Cache unavailable; skipping LSP fallback for pattern '%s'", pattern)
+	}
 	common.LSPLogger.Info("MCP: Found %d unique symbols from pattern search", len(allSymbols))
 
 	// Additionally, scan workspace files and index them directly

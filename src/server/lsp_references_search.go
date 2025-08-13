@@ -93,7 +93,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 				switch v := r.(type) {
 				case cache.SCIPOccurrenceInfo:
 					ref := ReferenceInfo{
-                        FilePath:      utils.URIToFilePathCached(v.DocumentURI),
+						FilePath:      utils.URIToFilePathCached(v.DocumentURI),
 						LineNumber:    int(v.Occurrence.Range.Start.Line),
 						Column:        int(v.Occurrence.Range.Start.Character),
 						SymbolID:      v.Occurrence.Symbol,
@@ -123,7 +123,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 									line, _ := start["line"].(float64)
 									char, _ := start["character"].(float64)
 									references = append(references, ReferenceInfo{
-                                            FilePath:     utils.URIToFilePathCached(uri),
+										FilePath:     utils.URIToFilePathCached(uri),
 										LineNumber:   int(line),
 										Column:       int(char),
 										IsReadAccess: true,
@@ -143,7 +143,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 				switch d := defs[0].(type) {
 				case cache.SCIPOccurrenceInfo:
 					fallbackDefRef = &ReferenceInfo{
-                        FilePath:   utils.URIToFilePathCached(d.DocumentURI),
+						FilePath:   utils.URIToFilePathCached(d.DocumentURI),
 						LineNumber: int(d.Occurrence.Range.Start.Line),
 						Column:     int(d.Occurrence.Range.Start.Character),
 						SymbolID:   d.Occurrence.Symbol,
@@ -156,7 +156,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 									line, _ := start["line"].(float64)
 									char, _ := start["character"].(float64)
 									fallbackDefRef = &ReferenceInfo{
-                                            FilePath:   utils.URIToFilePathCached(uri),
+										FilePath:   utils.URIToFilePathCached(uri),
 										LineNumber: int(line),
 										Column:     int(char),
 									}
@@ -352,7 +352,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 				}
 
 				if si.Location.URI != "" {
-                    filePath := utils.URIToFilePathCached(si.Location.URI)
+					filePath := utils.URIToFilePathCached(si.Location.URI)
 					if filePath != "" && m.matchesFilePattern(filePath, query.FilePattern) {
 						refInfo := ReferenceInfo{
 							FilePath:     filePath,
@@ -403,7 +403,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 
 				if si.Name == query.Pattern && si.Location.URI != "" && fallbackDefRef == nil {
 					fallbackDefRef = &ReferenceInfo{
-                            FilePath:     utils.URIToFilePathCached(si.Location.URI),
+						FilePath:     utils.URIToFilePathCached(si.Location.URI),
 						LineNumber:   int(si.Location.Range.Start.Line),
 						Column:       int(si.Location.Range.Start.Character),
 						IsDefinition: true,
@@ -461,7 +461,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 				for _, si := range lspconv.ParseWorkspaceSymbols(wsResult) {
 					if si.Name == query.Pattern && si.Location.URI != "" {
 						fallbackDefRef = &ReferenceInfo{
-                                    FilePath:     utils.URIToFilePathCached(si.Location.URI),
+							FilePath:     utils.URIToFilePathCached(si.Location.URI),
 							LineNumber:   int(si.Location.Range.Start.Line),
 							Column:       int(si.Location.Range.Start.Character),
 							IsDefinition: true,
@@ -552,7 +552,7 @@ func (m *LSPManager) SearchSymbolReferences(ctx context.Context, query SymbolRef
 // locationToReferenceInfo converts a types.Location to ReferenceInfo
 func (m *LSPManager) locationToReferenceInfo(loc types.Location) *ReferenceInfo {
 	refInfo := &ReferenceInfo{
-    FilePath:   utils.URIToFilePathCached(loc.URI),
+		FilePath:   utils.URIToFilePathCached(loc.URI),
 		LineNumber: int(loc.Range.Start.Line),
 		Column:     int(loc.Range.Start.Character),
 	}
@@ -572,7 +572,7 @@ func (m *LSPManager) matchesFilePattern(filePath, pattern string) bool {
 
 // createReferenceFromOccurrenceWithDoc creates ReferenceInfo from a SCIP occurrence with document URI
 func (m *LSPManager) createReferenceFromOccurrenceWithDoc(occWithDoc scip.OccurrenceWithDocument, symbolInfo *scip.SCIPSymbolInformation) *ReferenceInfo {
-    filePath := utils.URIToFilePathCached(occWithDoc.DocumentURI)
+	filePath := utils.URIToFilePathCached(occWithDoc.DocumentURI)
 
 	// Convert SCIP range to LSP-compatible format
 	refInfo := &ReferenceInfo{
@@ -620,11 +620,11 @@ func (m *LSPManager) createReferenceFromOccurrence(ctx context.Context, scipStor
 	// This is inefficient but necessary with the current SCIP storage interface
 
 	// Find the document URI using optimized common function
-    uri, err := scip.GetDocumentURIFromOccurrence(scipStorage, &occurrence)
-    filePath := ""
-    if err == nil && uri != "" {
-        filePath = utils.URIToFilePathCached(uri)
-    }
+	uri, err := scip.GetDocumentURIFromOccurrence(scipStorage, &occurrence)
+	filePath := ""
+	if err == nil && uri != "" {
+		filePath = utils.URIToFilePathCached(uri)
+	}
 
 	// If we still don't have a file path, skip this occurrence
 	if filePath == "" {
@@ -682,8 +682,8 @@ func (m *LSPManager) occurrencesMatch(a, b scip.SCIPOccurrence) bool {
 
 // createLegacyReferenceInfo creates ReferenceInfo from LSP SymbolInformation (fallback)
 func (m *LSPManager) createLegacyReferenceInfo(symbolInfo types.SymbolInformation) ReferenceInfo {
-    refInfo := ReferenceInfo{
-        FilePath:   utils.URIToFilePathCached(symbolInfo.Location.URI),
+	refInfo := ReferenceInfo{
+		FilePath:   utils.URIToFilePathCached(symbolInfo.Location.URI),
 		LineNumber: int(symbolInfo.Location.Range.Start.Line),
 		Column:     int(symbolInfo.Location.Range.Start.Character),
 		SymbolID:   fmt.Sprintf("lsp:%s", symbolInfo.Name), // Legacy format
@@ -752,7 +752,7 @@ func (m *LSPManager) readFileContent(filePath string) ([]byte, error) {
 
 // detectLanguageFromURI detects the language from a URI based on file extension
 func (m *LSPManager) detectLanguageFromURI(uri string) string {
-filePath := utils.URIToFilePathCached(uri)
+	filePath := utils.URIToFilePathCached(uri)
 	ext := filepath.Ext(filePath)
 	switch ext {
 	case ".go":

@@ -1,22 +1,22 @@
 package cache
 
 import (
-    "context"
-    "time"
+	"context"
+	"time"
 
-    "lsp-gateway/src/internal/types"
-    "lsp-gateway/src/server/scip"
+	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/server/scip"
 )
 
 // IndexQuery represents a query to the SCIP index
 type IndexQuery struct {
-    Type     string                 `json:"type"` // "symbol", "definition", "references", etc.
-    Symbol   string                 `json:"symbol,omitempty"`
-    URI      string                 `json:"uri,omitempty"`
-    Position *types.Position        `json:"position,omitempty"`
-    Language string                 `json:"language,omitempty"`
-    Filters  map[string]interface{} `json:"filters,omitempty"`
-    MaxDepth int                    `json:"max_depth,omitempty"`
+	Type     string                 `json:"type"` // "symbol", "definition", "references", etc.
+	Symbol   string                 `json:"symbol,omitempty"`
+	URI      string                 `json:"uri,omitempty"`
+	Position *types.Position        `json:"position,omitempty"`
+	Language string                 `json:"language,omitempty"`
+	Filters  map[string]interface{} `json:"filters,omitempty"`
+	MaxDepth int                    `json:"max_depth,omitempty"`
 }
 
 // IndexResult represents the result of an index query
@@ -41,17 +41,17 @@ type IndexStats struct {
 
 // SCIPSymbol wraps LSP SymbolInformation with enhanced SCIP metadata
 type SCIPSymbol struct {
-    SymbolInfo          types.SymbolInformation `json:"symbol_info"`
-    Language            string                  `json:"language"`
-    Score               float64                 `json:"score,omitempty"`
-    FullRange           *types.Range            `json:"full_range,omitempty"`
-    Documentation       string                  `json:"documentation,omitempty"`        // Documentation from hover
-    Signature           string                  `json:"signature,omitempty"`            // Signature from hover
-    RelatedSymbols      []string                `json:"related_symbols,omitempty"`      // Related symbol names
-    DefinitionLocations []types.Location        `json:"definition_locations,omitempty"` // Definition locations for this symbol
-    ReferenceLocations  []types.Location        `json:"reference_locations,omitempty"`  // Reference locations for this symbol
-    UsageCount          int                     `json:"usage_count,omitempty"`          // Number of references to this symbol
-    Metadata            map[string]interface{}  `json:"metadata,omitempty"`             // Additional SCIP metadata
+	SymbolInfo          types.SymbolInformation `json:"symbol_info"`
+	Language            string                  `json:"language"`
+	Score               float64                 `json:"score,omitempty"`
+	FullRange           *types.Range            `json:"full_range,omitempty"`
+	Documentation       string                  `json:"documentation,omitempty"`        // Documentation from hover
+	Signature           string                  `json:"signature,omitempty"`            // Signature from hover
+	RelatedSymbols      []string                `json:"related_symbols,omitempty"`      // Related symbol names
+	DefinitionLocations []types.Location        `json:"definition_locations,omitempty"` // Definition locations for this symbol
+	ReferenceLocations  []types.Location        `json:"reference_locations,omitempty"`  // Reference locations for this symbol
+	UsageCount          int                     `json:"usage_count,omitempty"`          // Number of references to this symbol
+	Metadata            map[string]interface{}  `json:"metadata,omitempty"`             // Additional SCIP metadata
 }
 
 // CacheKey represents a unique identifier for cached LSP responses

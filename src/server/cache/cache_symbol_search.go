@@ -1,11 +1,11 @@
 package cache
 
 import (
-    "time"
+	"time"
 
-    "lsp-gateway/src/internal/types"
-    "lsp-gateway/src/server/cache/search"
-    "lsp-gateway/src/server/scip"
+	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/server/cache/search"
+	"lsp-gateway/src/server/scip"
 )
 
 // Enhanced occurrence-based query types

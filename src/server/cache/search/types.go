@@ -1,11 +1,11 @@
 package search
 
 import (
-    "context"
-    "time"
+	"context"
+	"time"
 
-    "lsp-gateway/src/internal/types"
-    "lsp-gateway/src/server/scip"
+	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/server/scip"
 )
 
 // SearchType defines the type of search operation
@@ -29,9 +29,9 @@ type SearchRequest struct {
 	MaxResults  int             `json:"max_results,omitempty" validate:"min=0,max=10000"`
 	Context     context.Context `json:"-"`
 
-    // Position-based parameters (for hover, completion, etc.)
-    URI      string          `json:"uri,omitempty"`
-    Position *types.Position `json:"position,omitempty"`
+	// Position-based parameters (for hover, completion, etc.)
+	URI      string          `json:"uri,omitempty"`
+	Position *types.Position `json:"position,omitempty"`
 
 	// Language filtering
 	Language string `json:"language,omitempty"`
@@ -118,10 +118,10 @@ type SearchMetadata struct {
 	DocumentsScanned int `json:"documents_scanned"`
 	FilesMatched     int `json:"files_matched"`
 
-    // Index statistics
-    IndexStats       *scip.IndexStats `json:"index_stats,omitempty"`
-	IndexedLanguages []string    `json:"indexed_languages,omitempty"`
-	IndexStatus      string      `json:"index_status,omitempty"`
+	// Index statistics
+	IndexStats       *scip.IndexStats `json:"index_stats,omitempty"`
+	IndexedLanguages []string         `json:"indexed_languages,omitempty"`
+	IndexStatus      string           `json:"index_status,omitempty"`
 
 	// Search context
 	SearchPattern  string                 `json:"search_pattern,omitempty"`

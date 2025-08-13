@@ -29,7 +29,7 @@ func (w *WorkspaceIndexer) processReferenceBatch(ctx context.Context, symbols []
 	// Process each file and its symbols together
 	for fileURI, fileSymbols := range symbolsByFile {
 		// Open the file once for all symbols in it
-        filePath := utils.URIToFilePathCached(fileURI)
+		filePath := utils.URIToFilePathCached(fileURI)
 		content, err := os.ReadFile(filePath)
 		if err != nil {
 			common.LSPLogger.Debug("Skipping file %s: %v", fileURI, err)

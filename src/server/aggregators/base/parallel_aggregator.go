@@ -100,10 +100,10 @@ func (a *ParallelAggregator[TRequest, TResponse]) executeInternal(
 
 			results[result.language] = result.response
 
-        case <-overallTimeout:
-            // Overall timeout reached - return partial results without per-client errors
-            common.LSPLogger.Warn("Overall timeout reached while collecting parallel results, returning partial results (%d/%d clients responded)", responsesReceived, len(clients))
-            goto collectDone
+		case <-overallTimeout:
+			// Overall timeout reached - return partial results without per-client errors
+			common.LSPLogger.Warn("Overall timeout reached while collecting parallel results, returning partial results (%d/%d clients responded)", responsesReceived, len(clients))
+			goto collectDone
 
 		case <-ctx.Done():
 			// Context cancelled

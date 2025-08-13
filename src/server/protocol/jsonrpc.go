@@ -18,13 +18,13 @@ const (
 	JSONRPCVersion = "2.0"
 )
 
-// JSON-RPC error codes (RFC 7309)
+// JSON-RPC error codes (RFC 7309) - alias to internal/errors single source
 const (
-	ParseError     = -32700 // Invalid JSON was received by the server
-	InvalidRequest = -32600 // The JSON sent is not a valid Request object
-	MethodNotFound = -32601 // The method does not exist / is not available
-	InvalidParams  = -32602 // Invalid method parameter(s)
-	InternalError  = -32603 // Internal JSON-RPC error
+	ParseError     = errors.ParseError
+	InvalidRequest = errors.InvalidRequest
+	MethodNotFound = errors.MethodNotFound
+	InvalidParams  = errors.InvalidParams
+	InternalError  = errors.InternalError
 )
 
 // JSONRPCMessage represents a JSON-RPC 2.0 message

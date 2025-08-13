@@ -225,13 +225,13 @@ func IsMethodNotSupportedError(err error) bool {
 		return true
 	}
 
-    errMsg := strings.ToLower(err.Error())
-    return strings.Contains(errMsg, "not supported") ||
-        strings.Contains(errMsg, "unsupported") ||
-        strings.Contains(errMsg, "method not found") ||
-        strings.Contains(errMsg, "methodnotfound") ||
-        strings.Contains(errMsg, "not implemented") ||
-        strings.Contains(errMsg, "capability not available")
+	errMsg := strings.ToLower(err.Error())
+	return strings.Contains(errMsg, "not supported") ||
+		strings.Contains(errMsg, "unsupported") ||
+		strings.Contains(errMsg, "method not found") ||
+		strings.Contains(errMsg, "methodnotfound") ||
+		strings.Contains(errMsg, "not implemented") ||
+		strings.Contains(errMsg, "capability not available")
 }
 
 // IsProcessError checks if the error is a process-related error

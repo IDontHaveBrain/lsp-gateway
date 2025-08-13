@@ -18,16 +18,16 @@ import (
 // The matcher normalizes absolute paths to a relative path against the current
 // working directory when the pattern is relative, and also tests the basename.
 func Match(pathOrURI, pattern string) bool {
-    if pattern == "" || pattern == "**/*" || pattern == "*" {
-        return true
-    }
+	if pattern == "" || pattern == "**/*" || pattern == "*" {
+		return true
+	}
 
-    if pattern == "." || pattern == "./" {
-        return true
-    }
+	if pattern == "." || pattern == "./" {
+		return true
+	}
 
 	// Normalize potential file URI to filesystem path
-    filePath := utils.URIToFilePathCached(pathOrURI)
+	filePath := utils.URIToFilePathCached(pathOrURI)
 
 	// Normalize Windows backslashes to forward slashes for consistent matching
 	// Note: filepath.ToSlash doesn't work on Linux for backslash paths, so we replace manually
@@ -35,15 +35,15 @@ func Match(pathOrURI, pattern string) bool {
 	pattern = strings.ReplaceAll(pattern, "\\", "/")
 
 	// If the pattern ends with a slash, treat as directory prefix
-    if strings.HasSuffix(pattern, "/") {
-        dir := strings.TrimSuffix(pattern, "/")
-        rel := normalizeRelative(filePath)
-        if strings.HasPrefix(filePath, pattern) || strings.HasPrefix(rel, pattern) {
-            return true
-        }
-        // Also match if the directory segment appears anywhere in the path
-        return strings.Contains("/"+filePath+"/", "/"+dir+"/") || strings.Contains("/"+rel+"/", "/"+dir+"/")
-    }
+	if strings.HasSuffix(pattern, "/") {
+		dir := strings.TrimSuffix(pattern, "/")
+		rel := normalizeRelative(filePath)
+		if strings.HasPrefix(filePath, pattern) || strings.HasPrefix(rel, pattern) {
+			return true
+		}
+		// Also match if the directory segment appears anywhere in the path
+		return strings.Contains("/"+filePath+"/", "/"+dir+"/") || strings.Contains("/"+rel+"/", "/"+dir+"/")
+	}
 
 	// If pattern is relative and path is absolute, also try relative to cwd
 	candidates := []string{filePath}
@@ -97,19 +97,19 @@ func Match(pathOrURI, pattern string) bool {
 					}
 				}
 			}
-        } else {
-            // Pattern without directory separator
-            // 1) glob against basename
-            if ok, _ := path.Match(pattern, path.Base(cand)); ok {
-                return true
-            }
-            // 2) if plain directory token (no wildcard, no dot), match directory segment anywhere
-            if !strings.ContainsAny(pattern, "*?[]") && !strings.Contains(pattern, "/") && !strings.Contains(pattern, ".") {
-                if strings.Contains("/"+cand+"/", "/"+pattern+"/") {
-                    return true
-                }
-            }
-        }
+		} else {
+			// Pattern without directory separator
+			// 1) glob against basename
+			if ok, _ := path.Match(pattern, path.Base(cand)); ok {
+				return true
+			}
+			// 2) if plain directory token (no wildcard, no dot), match directory segment anywhere
+			if !strings.ContainsAny(pattern, "*?[]") && !strings.Contains(pattern, "/") && !strings.Contains(pattern, ".") {
+				if strings.Contains("/"+cand+"/", "/"+pattern+"/") {
+					return true
+				}
+			}
+		}
 
 		// Handle ** split pattern: prefix**/suffix simplified check
 		if strings.Contains(pattern, "**") {

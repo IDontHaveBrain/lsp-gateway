@@ -105,7 +105,7 @@ func (w *WorkspaceIndexer) parseRange(rangeData map[string]interface{}) types.Ra
 
 // clampPositionToFile ensures the given position is within the file's line bounds
 func (w *WorkspaceIndexer) clampPositionToFile(uri string, pos types.Position) types.Position {
-    path := utils.URIToFilePathCached(uri)
+	path := utils.URIToFilePathCached(uri)
 	f, err := os.Open(path)
 	if err != nil {
 		return pos
@@ -135,7 +135,7 @@ func (w *WorkspaceIndexer) clampPositionToFile(uri string, pos types.Position) t
 }
 
 func (w *WorkspaceIndexer) detectLanguageFromURI(uri string) string {
-    path := utils.URIToFilePathCached(uri)
+	path := utils.URIToFilePathCached(uri)
 	ext := filepath.Ext(path)
 	if lang, ok := registry.GetLanguageByExtension(ext); ok {
 		return lang.Name

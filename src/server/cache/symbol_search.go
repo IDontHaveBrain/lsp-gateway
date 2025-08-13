@@ -1,22 +1,22 @@
 package cache
 
 import (
-    "context"
-    "fmt"
+	"context"
+	"fmt"
 
-    "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/constants"
-    "lsp-gateway/src/server/cache/search"
-    "lsp-gateway/src/server/scip"
-    "lsp-gateway/src/utils"
+	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/constants"
+	"lsp-gateway/src/server/cache/search"
+	"lsp-gateway/src/server/scip"
+	"lsp-gateway/src/utils"
 )
 
 // Symbol search operations - handles symbol queries, enhanced searching, and direct symbol access
 
 // convertEnhancedSymbolResults converts search.EnhancedSymbolResult to cache.EnhancedSymbolResult
 func convertEnhancedSymbolResults(searchResults []search.EnhancedSymbolResult) []EnhancedSymbolResult {
-    // Types unified; return as-is
-    return searchResults
+	// Types unified; return as-is
+	return searchResults
 }
 
 // QueryIndex queries the SCIP storage for symbols and relationships
@@ -91,15 +91,15 @@ func (m *SCIPCacheManager) SearchSymbolsEnhanced(ctx context.Context, query *Enh
 			metadata["total_candidates"] = response.Metadata.TotalCandidates
 		}
 
-        return &EnhancedSymbolSearchResult{
-            Symbols:   response.Symbols,
-            Total:     response.Total,
-            Truncated: response.Truncated,
-            Query:     query,
-            Metadata:  metadata,
-            Timestamp: response.Timestamp,
-        }, nil
-    })
+		return &EnhancedSymbolSearchResult{
+			Symbols:   response.Symbols,
+			Total:     response.Total,
+			Truncated: response.Truncated,
+			Query:     query,
+			Metadata:  metadata,
+			Timestamp: response.Timestamp,
+		}, nil
+	})
 }
 
 // SearchSymbols provides direct access to SCIP symbol search for MCP tools
@@ -130,13 +130,13 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePatte
 		for _, result := range response.Results {
 			if resultMap, ok := result.(map[string]interface{}); ok {
 				// Add filePath field using utils.URIToFilePath if not present
-                if _, hasFilePath := resultMap["filePath"]; !hasFilePath {
-                    if docURI, hasURI := resultMap["documentURI"]; hasURI {
-                        if uriStr, ok := docURI.(string); ok {
-                            resultMap["filePath"] = utils.URIToFilePathCached(uriStr)
-                        }
-                    }
-                }
+				if _, hasFilePath := resultMap["filePath"]; !hasFilePath {
+					if docURI, hasURI := resultMap["documentURI"]; hasURI {
+						if uriStr, ok := docURI.(string); ok {
+							resultMap["filePath"] = utils.URIToFilePathCached(uriStr)
+						}
+					}
+				}
 				convertedResults = append(convertedResults, resultMap)
 			} else {
 				convertedResults = append(convertedResults, result)
@@ -206,7 +206,7 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePatte
 								}
 								enhanced := map[string]interface{}{
 									"symbolInfo":  symbolInfo,
-                "filePath":    utils.URIToFilePathCached(uri),
+									"filePath":    utils.URIToFilePathCached(uri),
 									"documentURI": uri,
 									"range":       si.Range,
 								}
@@ -244,7 +244,7 @@ func (m *SCIPCacheManager) SearchSymbols(ctx context.Context, pattern, filePatte
 		enhancedResult := map[string]interface{}{
 			"symbolInfo":  symbolInfo,
 			"occurrence":  &occWithDoc.SCIPOccurrence,
-            "filePath":    utils.URIToFilePathCached(occWithDoc.DocumentURI),
+			"filePath":    utils.URIToFilePathCached(occWithDoc.DocumentURI),
 			"documentURI": occWithDoc.DocumentURI,
 			"range":       occWithDoc.Range,
 		}

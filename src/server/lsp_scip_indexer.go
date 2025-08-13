@@ -464,7 +464,7 @@ func (m *LSPManager) extractPositionAndSymbolFromParams(params interface{}) (typ
 // generateSymbolID generates a unified SCIP symbol ID from symbol information
 func (m *LSPManager) generateSymbolID(language, uri, symbolName string, symbolKind types.SymbolKind, pos *types.Position) string {
 	workspaceRoot := m.findWorkspaceRoot(uri)
-    filePath := utils.URIToFilePathCached(uri)
+	filePath := utils.URIToFilePathCached(uri)
 	relPath, _ := filepath.Rel(workspaceRoot, filePath)
 	if relPath == "" || strings.HasPrefix(relPath, "..") {
 		relPath = filepath.Base(filePath)
@@ -509,7 +509,7 @@ func (m *LSPManager) getSymbolSuffix(kind types.SymbolKind) string {
 
 // findWorkspaceRoot finds the workspace root for a given URI
 func (m *LSPManager) findWorkspaceRoot(uri string) string {
-    filePath := utils.URIToFilePathCached(uri)
+	filePath := utils.URIToFilePathCached(uri)
 	return m.findWorkspaceRootFromPath(filePath)
 }
 
@@ -898,7 +898,7 @@ func (m *LSPManager) isBuiltinType(symbolName string) bool {
 }
 
 func (m *LSPManager) getIdentifierFromLocation(ctx context.Context, location types.Location) string {
-    path := utils.URIToFilePathCached(location.URI)
+	path := utils.URIToFilePathCached(location.URI)
 	if path == "" {
 		return ""
 	}

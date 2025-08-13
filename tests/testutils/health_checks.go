@@ -1,12 +1,12 @@
 package testutils
 
 import (
-    "bytes"
-    "context"
-    "encoding/json"
-    "fmt"
-    "io"
-    "net"
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"runtime"
 	"testing"
@@ -391,7 +391,7 @@ func checkJSONRPCEndpointResponse(url string, client *http.Client) bool {
 		return false
 	}
 
-    resp, err := client.Post(url, "application/json", bytes.NewReader(requestBody))
+	resp, err := client.Post(url, "application/json", bytes.NewReader(requestBody))
 	if err != nil {
 		return false
 	}
@@ -481,7 +481,7 @@ func WaitForHTTPCacheReady(t *testing.T, baseURL string, timeout time.Duration) 
 			return false
 		}
 
-        resp, err := client.Post(jsonrpcURL, "application/json", bytes.NewReader(requestBody))
+		resp, err := client.Post(jsonrpcURL, "application/json", bytes.NewReader(requestBody))
 		if err != nil {
 			return false
 		}

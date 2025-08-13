@@ -127,7 +127,7 @@ func (m *SCIPCacheManager) UpdateIndex(ctx context.Context, files []string) erro
 		uris, err := m.scipStorage.ListDocuments(ctx)
 		if err == nil {
 			for _, uri := range uris {
-            path := utils.URIToFilePathCached(uri)
+				path := utils.URIToFilePathCached(uri)
 				if path == "" {
 					continue
 				}

@@ -146,7 +146,7 @@ func formatEnhancedSymbolsForMCP(symbols []types.EnhancedSymbolInfo) []map[strin
 		}
 		filePath := sym.FilePath
 		if filePath == "" && sym.Location.URI != "" {
-                filePath = utils.URIToFilePathCached(sym.Location.URI)
+			filePath = utils.URIToFilePathCached(sym.Location.URI)
 		}
 		if filePath == "" {
 			filePath = "unknown"

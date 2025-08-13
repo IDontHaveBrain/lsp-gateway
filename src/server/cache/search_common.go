@@ -34,10 +34,10 @@ func (m *SCIPCacheManager) sortEnhancedResults(results []EnhancedSymbolResult, s
 		sort.Slice(results, func(i, j int) bool {
 			return results[i].DisplayName < results[j].DisplayName
 		})
-    case "relevance":
-        sort.Slice(results, func(i, j int) bool {
-            return results[i].Relevance > results[j].Relevance
-        })
+	case "relevance":
+		sort.Slice(results, func(i, j int) bool {
+			return results[i].Relevance > results[j].Relevance
+		})
 	case "occurrences":
 		sort.Slice(results, func(i, j int) bool {
 			return results[i].OccurrenceCount > results[j].OccurrenceCount
@@ -46,11 +46,11 @@ func (m *SCIPCacheManager) sortEnhancedResults(results []EnhancedSymbolResult, s
 		sort.Slice(results, func(i, j int) bool {
 			return results[i].Kind < results[j].Kind
 		})
-    default:
-        // Default to score
-        sort.Slice(results, func(i, j int) bool {
-            return results[i].Score > results[j].Score
-        })
+	default:
+		// Default to score
+		sort.Slice(results, func(i, j int) bool {
+			return results[i].Score > results[j].Score
+		})
 	}
 }
 

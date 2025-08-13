@@ -1,11 +1,11 @@
 package search
 
 import (
-    "fmt"
-    "time"
+	"fmt"
+	"time"
 
-    "lsp-gateway/src/server/scip"
-    "lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/server/scip"
 )
 
 // SearchGuard provides centralized guard logic for SearchService operations.
@@ -31,7 +31,7 @@ func (g *SearchGuard) WithEnabledGuard(fn func() (interface{}, error)) (interfac
 // WithEnabledGuardTyped is a generic version that provides type safety.
 // Returns the zero value of type T if service is disabled.
 func WithEnabledGuardTyped[T any](g *SearchGuard, fn func() (T, error)) (T, error) {
-    return common.WithEnabledGuard[T](g.enabled, fn)
+	return common.WithEnabledGuard[T](g.enabled, fn)
 }
 
 // MustBeEnabled returns an error if the service is disabled.

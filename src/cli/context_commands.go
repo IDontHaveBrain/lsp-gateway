@@ -108,7 +108,7 @@ func GenerateContextSignatureMap(configPath, outputPath string) error {
 			continue
 		}
 
-		file := utils.URIToFilePath(uri)
+		file := utils.URIToFilePathCached(uri)
 		if file == "" {
 			file = uri
 		}
@@ -388,7 +388,7 @@ func GenerateContextSignatureMapJSON(configPath, outputPath string) error {
 			continue
 		}
 
-		file := utils.URIToFilePath(uri)
+		file := utils.URIToFilePathCached(uri)
 		var nodes []*contextNode
 
 		for _, si := range doc.SymbolInformation {
@@ -470,7 +470,7 @@ func FindRelatedFiles(configPath string, inputFiles []string, formatJSON bool, m
 	for depth := 0; depth < maxDepth; depth++ {
 		var newFiles []string
 		for _, file := range targetFiles {
-			uri := utils.FilePathToURI(file)
+			uri := utils.FilePathToURICached(file)
 
 			symbolCount := 0
 			refSet := make(map[string]bool)
@@ -488,7 +488,7 @@ func FindRelatedFiles(configPath string, inputFiles []string, formatJSON bool, m
 						if occ.SymbolRoles.HasRole(types.SymbolRoleReadAccess) || occ.SymbolRoles.HasRole(types.SymbolRoleImport) || occ.SymbolRoles.HasRole(types.SymbolRoleWriteAccess) {
 							if defs, err := storage.GetDefinitionsWithDocuments(context.Background(), occ.Symbol); err == nil {
 								for _, d := range defs {
-									defURI := utils.URIToFilePath(d.DocumentURI)
+									defURI := utils.URIToFilePathCached(d.DocumentURI)
 									if defURI != "" && defURI != file {
 										refSet[defURI] = true
 									}
@@ -500,7 +500,7 @@ func FindRelatedFiles(configPath string, inputFiles []string, formatJSON bool, m
 					for sym := range defSymbols {
 						if refs, err := storage.GetReferencesWithDocuments(context.Background(), sym); err == nil {
 							for _, r := range refs {
-								refURI := utils.URIToFilePath(r.DocumentURI)
+								refURI := utils.URIToFilePathCached(r.DocumentURI)
 								if refURI != "" && refURI != file {
 									refBySet[refURI] = true
 									if !visited[refURI] {
@@ -536,7 +536,7 @@ func FindRelatedFiles(configPath string, inputFiles []string, formatJSON bool, m
 						if err == nil && refsResult != nil {
 							if refs, err := parseReferencesResult(refsResult); err == nil {
 								for _, ref := range refs {
-									refFile := utils.URIToFilePath(ref.URI)
+									refFile := utils.URIToFilePathCached(ref.URI)
 									if refFile != file && !visited[refFile] {
 										newFiles = append(newFiles, refFile)
 										visited[refFile] = true
@@ -617,14 +617,14 @@ func ExtractSymbols(configPath string, files []string, formatJSON bool, includeR
 	if len(files) == 0 && storage != nil {
 		if uris, _ := storage.ListDocuments(context.Background()); len(uris) > 0 {
 			for _, uri := range uris {
-				files = append(files, utils.URIToFilePath(uri))
+				files = append(files, utils.URIToFilePathCached(uri))
 			}
 		}
 	}
 
 	for _, file := range files {
 		absPath, _ := filepath.Abs(file)
-		uri := utils.FilePathToURI(absPath)
+		uri := utils.FilePathToURICached(absPath)
 
 		if storage != nil {
 			if doc, err := storage.GetDocument(context.Background(), uri); err == nil && doc != nil {
@@ -639,7 +639,7 @@ func ExtractSymbols(configPath string, files []string, formatJSON bool, includeR
 					if includeRefs {
 						if refs, err := storage.GetReferencesWithDocuments(context.Background(), si.Symbol); err == nil {
 							for _, r := range refs {
-								refFile := utils.URIToFilePath(r.DocumentURI)
+								refFile := utils.URIToFilePathCached(r.DocumentURI)
 								info.References = append(info.References, fmt.Sprintf("%s:%d", refFile, r.Range.Start.Line))
 							}
 						}
@@ -673,7 +673,7 @@ func ExtractSymbols(configPath string, files []string, formatJSON bool, includeR
 					if err == nil && refsResult != nil {
 						if refs, err := parseReferencesResult(refsResult); err == nil {
 							for _, ref := range refs {
-								refFile := utils.URIToFilePath(ref.URI)
+								refFile := utils.URIToFilePathCached(ref.URI)
 								info.References = append(info.References, fmt.Sprintf("%s:%d", refFile, ref.Range.Start.Line))
 							}
 						}
@@ -769,14 +769,14 @@ func AnalyzeDependencies(configPath string, files []string, formatJSON bool) err
 	if len(files) == 0 && storage != nil {
 		if uris, _ := storage.ListDocuments(context.Background()); len(uris) > 0 {
 			for _, uri := range uris {
-				files = append(files, utils.URIToFilePath(uri))
+				files = append(files, utils.URIToFilePathCached(uri))
 			}
 		}
 	}
 
 	for _, file := range files {
 		absPath, _ := filepath.Abs(file)
-		uri := utils.FilePathToURI(absPath)
+		uri := utils.FilePathToURICached(absPath)
 
 		dep := &DependencyInfo{File: absPath, Exports: []ExportSymbol{}, SymbolCount: 0}
 

@@ -280,18 +280,18 @@ func (h *WorkspaceSearchHandler) Handle(request *SearchRequest) (*SearchResponse
 		results[i] = sym
 	}
 
-    stats := h.storage.GetIndexStats()
+	stats := h.storage.GetIndexStats()
 
 	return &SearchResponse{
 		Type:      SearchTypeWorkspace,
 		Results:   results,
 		Total:     len(results),
 		Truncated: false,
-        Metadata: &SearchMetadata{
-            SCIPEnabled:  true,
-            CacheEnabled: true,
-            IndexStats:  stats,
-        },
+		Metadata: &SearchMetadata{
+			SCIPEnabled:  true,
+			CacheEnabled: true,
+			IndexStats:   stats,
+		},
 		Timestamp: time.Now(),
 		Success:   true,
 	}, nil

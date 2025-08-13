@@ -310,14 +310,14 @@ func (s *SearchService) executeWorkspaceSearchInternal(request *SearchRequest) (
 		results[i] = sym
 	}
 
-    stats := s.storage.GetIndexStats()
-    metadata := &SearchMetadata{
-        ExecutionTime: time.Since(startTime),
-        SymbolsFound:  len(symbolInfos),
-        CacheEnabled:  true,
-        SCIPEnabled:   true,
-        IndexStats:  stats,
-    }
+	stats := s.storage.GetIndexStats()
+	metadata := &SearchMetadata{
+		ExecutionTime: time.Since(startTime),
+		SymbolsFound:  len(symbolInfos),
+		CacheEnabled:  true,
+		SCIPEnabled:   true,
+		IndexStats:    stats,
+	}
 
 	return s.buildSearchResponse(SearchTypeWorkspace, results, metadata, request), nil
 }
@@ -385,7 +385,11 @@ func (s *SearchService) executeEnhancedSymbolSearchInternal(query *EnhancedSymbo
 			continue
 		}
 
-		enhancedResults = append(enhancedResults, s.buildEnhancedSymbolResult(&symbolInfo, occurrences, query))
+		sig := ""
+		if s.formatSymbolDetailFn != nil {
+			sig = s.formatSymbolDetailFn(&symbolInfo)
+		}
+		enhancedResults = append(enhancedResults, BuildEnhancedSymbolResult(&symbolInfo, occurrences, sig, query != nil && query.IncludeDocumentation, false))
 	}
 
 	// Apply sorting if specified
@@ -547,49 +551,6 @@ func (s *SearchService) buildSearchResponse(searchType SearchType, results []int
 		Metadata:  metadata,
 		Timestamp: time.Now(),
 		Success:   true,
-	}
-}
-
-// buildEnhancedSymbolResult constructs enhanced symbol result with metadata
-func (s *SearchService) buildEnhancedSymbolResult(symbolInfo *scip.SCIPSymbolInformation, occurrences []scip.SCIPOccurrence, query *EnhancedSymbolQuery) EnhancedSymbolResult {
-	definitionCount := 0
-	referenceCount := 0
-	writeAccessCount := 0
-	readAccessCount := 0
-
-	for _, occ := range occurrences {
-		if occ.SymbolRoles.HasRole(types.SymbolRoleDefinition) {
-			definitionCount++
-		}
-		if occ.SymbolRoles.HasRole(types.SymbolRoleWriteAccess) {
-			writeAccessCount++
-		}
-		if occ.SymbolRoles.HasRole(types.SymbolRoleReadAccess) {
-			readAccessCount++
-		}
-		if occ.SymbolRoles.HasRole(types.SymbolRoleReadAccess) || occ.SymbolRoles.HasRole(types.SymbolRoleWriteAccess) {
-			referenceCount++
-		}
-	}
-
-	signature := ""
-	if s.formatSymbolDetailFn != nil {
-		signature = s.formatSymbolDetailFn(symbolInfo)
-	}
-
-	return EnhancedSymbolResult{
-		SymbolInfo:       symbolInfo,
-		SymbolID:         symbolInfo.Symbol,
-		DisplayName:      symbolInfo.DisplayName,
-		Kind:             symbolInfo.Kind,
-		Occurrences:      occurrences,
-		OccurrenceCount:  len(occurrences),
-		DefinitionCount:  definitionCount,
-		ReferenceCount:   referenceCount,
-		WriteAccessCount: writeAccessCount,
-		ReadAccessCount:  readAccessCount,
-		Documentation:    symbolInfo.Documentation,
-		Signature:        signature,
 	}
 }
 

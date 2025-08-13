@@ -21,7 +21,7 @@ const (
 	DefaultInitializeTimeout    = 30 * time.Second
 	JavaInitializeTimeout       = 90 * time.Second
 	PythonInitializeTimeout     = 30 * time.Second
-    GoInitializeTimeout         = 15 * time.Second
+	GoInitializeTimeout         = 15 * time.Second
 	TypeScriptInitializeTimeout = 30 * time.Second
 
 	// Process management timeouts

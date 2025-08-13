@@ -19,7 +19,7 @@ func (m *SCIPCacheManager) detectPackageInfo(uri string, language string) (packa
 	}
 
 	// Extract file path from URI
-    filePath := utils.URIToFilePathCached(uri)
+	filePath := utils.URIToFilePathCached(uri)
 	dir := filepath.Dir(filePath)
 
 	// Language-specific package detection

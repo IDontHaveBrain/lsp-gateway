@@ -3,12 +3,15 @@ package cache
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"lsp-gateway/src/internal/models/lsp"
+	"lsp-gateway/src/internal/registry"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/scip"
+	"lsp-gateway/src/utils"
 )
 
 // ConversionContext holds context information for conversions
@@ -364,19 +367,10 @@ func (c *SCIPConverter) ValidateAndStore(storage scip.SCIPDocumentStorage, doc *
 
 // DetectLanguageFromURI detects language from file extension
 func (c *SCIPConverter) DetectLanguageFromURI(uri string) string {
-	// This is a simple implementation - could be enhanced
-	if strings.HasSuffix(uri, ".go") {
-		return "go"
-	} else if strings.HasSuffix(uri, ".py") {
-		return "python"
-	} else if strings.HasSuffix(uri, ".js") || strings.HasSuffix(uri, ".jsx") {
-		return "javascript"
-	} else if strings.HasSuffix(uri, ".ts") || strings.HasSuffix(uri, ".tsx") {
-		return "typescript"
-	} else if strings.HasSuffix(uri, ".java") {
-		return "java"
-	} else if strings.HasSuffix(uri, ".rs") {
-		return "rust"
+	path := utils.URIToFilePathCached(uri)
+	ext := strings.ToLower(filepath.Ext(path))
+	if lang, ok := registry.GetLanguageByExtension(ext); ok {
+		return lang.Name
 	}
 	return "unknown"
 }
