@@ -9,8 +9,8 @@ import (
 
 // DisplayCacheStatus displays cache status in different modes for various contexts
 // mode options: "gateway", "mcp", "cli"
-func DisplayCacheStatus(logger *common.SafeLogger, cache cache.SCIPCache, mode string) {
-	if cache == nil {
+func DisplayCacheStatus(logger *common.SafeLogger, scipCache cache.SCIPCache, mode string) {
+	if scipCache == nil {
 		switch mode {
 		case "gateway":
 			logger.Warn("SCIP Cache: Not available")
@@ -24,7 +24,7 @@ func DisplayCacheStatus(logger *common.SafeLogger, cache cache.SCIPCache, mode s
 		return
 	}
 
-	metrics, healthErr := cache.HealthCheck()
+	metrics, healthErr := scipCache.HealthCheck()
 	if healthErr != nil {
 		switch mode {
 		case "gateway":
@@ -52,9 +52,8 @@ func DisplayCacheStatus(logger *common.SafeLogger, cache cache.SCIPCache, mode s
 // displayGatewayCache displays cache status for HTTP Gateway startup
 func displayGatewayCache(logger *common.SafeLogger, metrics *cache.CacheMetrics) {
 	if metrics != nil {
-		sizeMB := float64(metrics.TotalSize) / (1024 * 1024)
 		logger.Info("SCIP Cache: Initialized and Ready (100MB limit, 30min TTL)")
-		logger.Info("Health: OK, Stats: %d entries, %.1fMB used", metrics.EntryCount, sizeMB)
+		logger.Info("Health: OK, Stats: %d entries, %s used", metrics.EntryCount, FormatBytes(metrics.TotalSize))
 	} else {
 		logger.Info("SCIP Cache: Initialized and Ready")
 		logger.Info("Health: OK, Stats: 0 entries, 0MB used")
@@ -64,9 +63,8 @@ func displayGatewayCache(logger *common.SafeLogger, metrics *cache.CacheMetrics)
 // displayMCPCache displays cache status for MCP server startup
 func displayMCPCache(logger *common.SafeLogger, metrics *cache.CacheMetrics) {
 	if metrics != nil {
-		sizeMB := float64(metrics.TotalSize) / (1024 * 1024)
 		logger.Info("SCIP Cache: Initialized and Ready")
-		logger.Info("   Health: OK, Stats: %d entries, %.1fMB used", metrics.EntryCount, sizeMB)
+		logger.Info("   Health: OK, Stats: %d entries, %s used", metrics.EntryCount, FormatBytes(metrics.TotalSize))
 	} else {
 		logger.Info("SCIP Cache: Initialized and Ready")
 		logger.Info("   Health: OK, Stats: 0 entries, 0MB used")
@@ -87,7 +85,7 @@ func displayCLICache(logger *common.SafeLogger, metrics *cache.CacheMetrics) {
 
 	totalRequests := metrics.HitCount + metrics.MissCount
 	if totalRequests > 0 {
-		hitRatio := float64(metrics.HitCount) / float64(totalRequests) * 100
+		hitRatio := cache.HitRate(metrics)
 		logger.Info("   Stats: %d entries, %.1f%% hit rate (%d/%d requests)",
 			metrics.EntryCount, hitRatio, metrics.HitCount, totalRequests)
 	} else {
@@ -114,7 +112,7 @@ func FormatCacheMetrics(metrics *cache.CacheMetrics) string {
 
 	totalRequests := metrics.HitCount + metrics.MissCount
 	if totalRequests > 0 {
-		hitRatio := float64(metrics.HitCount) / float64(totalRequests) * 100
+		hitRatio := cache.HitRate(metrics)
 		return fmt.Sprintf("%d entries, %.1f%% hit rate (%d/%d requests), %s",
 			metrics.EntryCount, hitRatio, metrics.HitCount, totalRequests, FormatBytes(metrics.TotalSize))
 	}

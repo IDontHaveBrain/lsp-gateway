@@ -109,66 +109,6 @@ func formatSymbolsWithRawCode(result interface{}) string {
 	return resultStr + "}"
 }
 
-// getSymbolKindName returns the string representation of a symbol kind
-func getSymbolKindName(kind types.SymbolKind) string {
-	switch kind {
-	case types.File:
-		return "File"
-	case types.Module:
-		return "Module"
-	case types.Namespace:
-		return "Namespace"
-	case types.Package:
-		return "Package"
-	case types.Class:
-		return "Class"
-	case types.Method:
-		return "Method"
-	case types.Property:
-		return "Property"
-	case types.Field:
-		return "Field"
-	case types.Constructor:
-		return "Constructor"
-	case types.Enum:
-		return "Enum"
-	case types.Interface:
-		return "Interface"
-	case types.Function:
-		return "Function"
-	case types.Variable:
-		return "Variable"
-	case types.Constant:
-		return "Constant"
-	case types.String:
-		return "String"
-	case types.Number:
-		return "Number"
-	case types.Boolean:
-		return "Boolean"
-	case types.Array:
-		return "Array"
-	case types.Object:
-		return "Object"
-	case types.Key:
-		return "Key"
-	case types.Null:
-		return "Null"
-	case types.EnumMember:
-		return "EnumMember"
-	case types.Struct:
-		return "Struct"
-	case types.Event:
-		return "Event"
-	case types.Operator:
-		return "Operator"
-	case types.TypeParameter:
-		return "TypeParameter"
-	default:
-		return "Unknown"
-	}
-}
-
 // parseSymbolRole converts a string role name to SymbolRole bitflag
 func parseSymbolRole(roleStr string) types.SymbolRole {
 	switch strings.ToLower(roleStr) {
@@ -206,7 +146,7 @@ func formatEnhancedSymbolsForMCP(symbols []types.EnhancedSymbolInfo) []map[strin
 		}
 		filePath := sym.FilePath
 		if filePath == "" && sym.Location.URI != "" {
-			filePath = utils.URIToFilePath(sym.Location.URI)
+                filePath = utils.URIToFilePathCached(sym.Location.URI)
 		}
 		if filePath == "" {
 			filePath = "unknown"

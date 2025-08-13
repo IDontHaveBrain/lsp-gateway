@@ -3,6 +3,8 @@ package registry
 import (
 	"fmt"
 	"time"
+
+	"lsp-gateway/src/internal/types"
 )
 
 // ErrorPattern defines an error pattern with associated suggestion message
@@ -39,8 +41,8 @@ var languageRegistry = map[string]LanguageInfo{
 			"usePlaceholders":    false,
 			"completeUnimported": true,
 		},
-		RequestTimeout:    15 * time.Second,
-		InitializeTimeout: 30 * time.Second,
+        RequestTimeout:    15 * time.Second,
+        InitializeTimeout: 15 * time.Second,
 		EnvironmentVars:   map[string]string{},
 		ErrorPatterns:     []ErrorPattern{},
 	},
@@ -59,7 +61,7 @@ var languageRegistry = map[string]LanguageInfo{
 		EnvironmentVars:   map[string]string{},
 		ErrorPatterns: []ErrorPattern{
 			{
-				Pattern: "workspace/symbol",
+				Pattern: types.MethodWorkspaceSymbol,
 				Message: "Ensure 'pylsp' is installed via 'pip install python-lsp-server' for better workspace symbol support.",
 			},
 			{

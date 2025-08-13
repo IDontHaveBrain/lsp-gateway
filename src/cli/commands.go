@@ -14,6 +14,7 @@ const (
 	DefaultServerPort = 8080
 	CmdServer         = "server"
 	CmdMCP            = "mcp"
+	CmdContext        = "context"
 	CmdStatus         = "status"
 	CmdTest           = "test"
 	CmdInstall        = "install"
@@ -29,6 +30,7 @@ const (
 	FlagVersion       = "version"
 	FlagInstallPath   = "install-path"
 	FlagVerbose       = "verbose"
+	FlagOut           = "out"
 )
 
 // CLI Variables
@@ -41,6 +43,11 @@ var (
 	version     string
 	installPath string
 	verbose     bool
+	outPath     string
+	formatJSON  bool
+	targetFiles []string
+	maxDepth    int
+	includeRefs bool
 )
 
 // Root command
@@ -136,6 +143,13 @@ Configure your AI assistant to connect to this MCP server:
 - Command: lsp-gateway mcp
 - Working Directory: Your project root`,
 		RunE: runMCPCmd,
+	}
+
+	contextCmd = &cobra.Command{
+		Use:   CmdContext,
+		Short: "Context-related utilities",
+		Long:  `Tools for generating and exporting project context artifacts from indexed data.`,
+		RunE:  runContextCmd,
 	}
 
 	statusCmd = &cobra.Command{
@@ -358,6 +372,67 @@ Examples:
 	}
 )
 
+// Context subcommands
+var (
+	contextMapCmd = &cobra.Command{
+		Use:   "map",
+		Short: "Generate signature map file",
+		Long: `Generate a signature map .txt file based on indexed data.
+
+The command scans the indexed symbols and writes a plain-text map suitable for context ingestion.`,
+		RunE: runContextMapCmd,
+	}
+
+	contextRelatedCmd = &cobra.Command{
+		Use:   "related [files...]",
+		Short: "Find files related to specified files",
+		Long: `Find and analyze files related to the specified input files.
+
+This command identifies files that import, export, or reference the given files,
+helping to understand the dependency graph and impact analysis.
+
+Examples:
+  lsp-gateway context related src/main.go
+  lsp-gateway context related src/server/*.go --json
+  lsp-gateway context related file1.ts file2.ts --max-depth 3`,
+		RunE: runContextRelatedCmd,
+	}
+
+	contextSymbolsCmd = &cobra.Command{
+		Use:   "symbols [files...]",
+		Short: "Extract symbols from files",
+		Long: `Extract and display symbols (functions, classes, methods, etc.) from specified files.
+
+If no files are specified, extracts symbols from all indexed files.
+Supports both text and JSON output formats.
+
+Examples:
+  lsp-gateway context symbols
+  lsp-gateway context symbols src/main.go
+  lsp-gateway context symbols --json --include-refs`,
+		RunE: runContextSymbolsCmd,
+	}
+
+	contextDependenciesCmd = &cobra.Command{
+		Use:   "dependencies [files...]",
+		Short: "Analyze code structure and exports",
+		Long: `Analyze code structure and exported symbols for specified files.
+
+Examines files using LSP to identify:
+- Total symbol count per file
+- Exported symbols (public APIs)
+- Code organization metrics
+
+If no files specified, analyzes all source files in the project.
+
+Examples:
+  lsp-gateway context dependencies
+  lsp-gateway context dependencies src/*.go
+  lsp-gateway context dependencies --json`,
+		RunE: runContextDependenciesCmd,
+	}
+)
+
 func init() {
 	// Server command flags
 	serverCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional, will use defaults if not provided)")
@@ -404,9 +479,34 @@ func init() {
 	cacheCmd.AddCommand(cacheClearCmd)
 	cacheCmd.AddCommand(cacheIndexCmd)
 
+	// Context command flags
+	contextMapCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
+	contextMapCmd.Flags().StringVarP(&outPath, FlagOut, "o", "context-signature-map.txt", "Output file path")
+	contextMapCmd.Flags().BoolVar(&formatJSON, "json", false, "Output in JSON format")
+
+	contextRelatedCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
+	contextRelatedCmd.Flags().BoolVar(&formatJSON, "json", false, "Output in JSON format")
+	contextRelatedCmd.Flags().IntVar(&maxDepth, "max-depth", 2, "Maximum depth for related file search")
+
+	contextSymbolsCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
+	contextSymbolsCmd.Flags().BoolVar(&formatJSON, "json", false, "Output in JSON format")
+	contextSymbolsCmd.Flags().BoolVar(&includeRefs, "include-refs", false, "Include reference locations for each symbol")
+	contextSymbolsCmd.Flags().StringSliceVar(&targetFiles, "files", []string{}, "Specific files to analyze")
+
+	contextDependenciesCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
+	contextDependenciesCmd.Flags().BoolVar(&formatJSON, "json", false, "Output in JSON format")
+	contextDependenciesCmd.Flags().StringSliceVar(&targetFiles, "files", []string{}, "Specific files to analyze")
+
+	// Context subcommands
+	contextCmd.AddCommand(contextMapCmd)
+	contextCmd.AddCommand(contextRelatedCmd)
+	contextCmd.AddCommand(contextSymbolsCmd)
+	contextCmd.AddCommand(contextDependenciesCmd)
+
 	// Add commands to root
 	rootCmd.AddCommand(serverCmd)
 	rootCmd.AddCommand(mcpCmd)
+	rootCmd.AddCommand(contextCmd)
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(testCmd)
 	rootCmd.AddCommand(versionCmd)

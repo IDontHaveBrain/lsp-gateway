@@ -28,7 +28,7 @@ func NewWorkspaceSymbolAggregator() *LSPWorkspaceSymbolAggregator {
 	}
 }
 
-// ProcessWorkspaceSymbol processes workspace/symbol requests across all clients
+// ProcessWorkspaceSymbol processes types.MethodWorkspaceSymbol requests across all clients
 // For multi-repo support, collects results from all active clients and merges them
 func (w *LSPWorkspaceSymbolAggregator) ProcessWorkspaceSymbol(ctx context.Context, clients map[string]interface{}, params interface{}) (interface{}, error) {
 	clientList := make([]types.LSPClient, 0, len(clients))
@@ -43,7 +43,7 @@ func (w *LSPWorkspaceSymbolAggregator) ProcessWorkspaceSymbol(ctx context.Contex
 			continue
 		}
 
-		// Only include clients that support workspace/symbol
+		// Only include clients that support types.MethodWorkspaceSymbol
 		if client.Supports(types.MethodWorkspaceSymbol) {
 			clientList = append(clientList, client)
 			languages = append(languages, lang)
@@ -54,7 +54,8 @@ func (w *LSPWorkspaceSymbolAggregator) ProcessWorkspaceSymbol(ctx context.Contex
 
 	if len(clientList) == 0 {
 		if len(unsupportedClients) > 0 {
-			return nil, fmt.Errorf("no LSP servers support workspace/symbol. Unsupported servers: %v. %s",
+			return nil, fmt.Errorf("no LSP servers support %s. Unsupported servers: %v. %s",
+				types.MethodWorkspaceSymbol,
 				unsupportedClients,
 				w.errorTranslator.GetMethodSuggestion(unsupportedClients[0], types.MethodWorkspaceSymbol))
 		}

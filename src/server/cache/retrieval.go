@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 
+	"lsp-gateway/src/internal/constants"
 	"lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/types"
 )
@@ -128,7 +129,7 @@ func (m *SCIPCacheManager) GetCachedWorkspaceSymbols(query string) ([]types.Symb
 	m.indexMu.RLock()
 	defer m.indexMu.RUnlock()
 
-	symbolInfos, err := m.scipStorage.SearchSymbols(context.Background(), query, 100)
+	symbolInfos, err := m.scipStorage.SearchSymbols(context.Background(), query, constants.DefaultMaxResults)
 	if err != nil || len(symbolInfos) == 0 {
 		return nil, false
 	}

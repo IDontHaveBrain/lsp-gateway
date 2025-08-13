@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"lsp-gateway/src/internal/types"
 )
 
 type ServerCapabilities struct {
@@ -52,19 +54,19 @@ func (d *LSPCapabilityDetector) ParseCapabilities(response json.RawMessage, serv
 
 func (d *LSPCapabilityDetector) SupportsMethod(caps ServerCapabilities, method string) bool {
 	switch method {
-	case "initialize", "shutdown", "exit":
+	case types.MethodInitialize, types.MethodShutdown, types.MethodExit:
 		return true
-	case "workspace/symbol":
+	case types.MethodWorkspaceSymbol:
 		return d.isCapabilitySupported(caps.WorkspaceSymbolProvider)
-	case "textDocument/definition":
+	case types.MethodTextDocumentDefinition:
 		return d.isCapabilitySupported(caps.DefinitionProvider)
-	case "textDocument/references":
+	case types.MethodTextDocumentReferences:
 		return d.isCapabilitySupported(caps.ReferencesProvider)
-	case "textDocument/hover":
+	case types.MethodTextDocumentHover:
 		return d.isCapabilitySupported(caps.HoverProvider)
-	case "textDocument/documentSymbol":
+	case types.MethodTextDocumentDocumentSymbol:
 		return d.isCapabilitySupported(caps.DocumentSymbolProvider)
-	case "textDocument/completion":
+	case types.MethodTextDocumentCompletion:
 		return d.isCapabilitySupported(caps.CompletionProvider)
 	default:
 		return true

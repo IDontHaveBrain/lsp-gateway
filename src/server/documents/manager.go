@@ -9,6 +9,8 @@ import (
 	"go.lsp.dev/protocol"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
+	"lsp-gateway/src/internal/errors"
+	lsp "lsp-gateway/src/internal/models/lsp"
 	"lsp-gateway/src/internal/registry"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/utils"
@@ -33,7 +35,7 @@ func NewLSPDocumentManager() *LSPDocumentManager {
 
 // DetectLanguage detects the programming language from a file URI
 func (dm *LSPDocumentManager) DetectLanguage(uri string) string {
-	path := utils.URIToFilePath(uri)
+    path := utils.URIToFilePathCached(uri)
 	ext := strings.ToLower(filepath.Ext(path))
 	if lang, ok := registry.GetLanguageByExtension(ext); ok {
 		return lang.Name
@@ -44,7 +46,7 @@ func (dm *LSPDocumentManager) DetectLanguage(uri string) string {
 // ExtractURI extracts the file URI from request parameters
 func (dm *LSPDocumentManager) ExtractURI(params interface{}) (string, error) {
 	if params == nil {
-		return "", common.NoParametersError()
+		return "", errors.NewValidationError("params", "no parameters provided")
 	}
 
 	// Handle typed protocol structs first (most efficient for tests)
@@ -73,12 +75,29 @@ func (dm *LSPDocumentManager) ExtractURI(params interface{}) (string, error) {
 		return "", nil // Workspace symbols don't have a specific URI
 	case protocol.WorkspaceSymbolParams:
 		return "", nil // Workspace symbols don't have a specific URI
+	// Support internal LSP model params used by CLI context commands
+	case *lsp.DocumentSymbolParams:
+		return p.TextDocument.URI, nil
+	case lsp.DocumentSymbolParams:
+		return p.TextDocument.URI, nil
+	case *lsp.ReferenceParams:
+		return p.TextDocument.URI, nil
+	case lsp.ReferenceParams:
+		return p.TextDocument.URI, nil
+	case *lsp.HoverParams:
+		return p.TextDocument.URI, nil
+	case lsp.HoverParams:
+		return p.TextDocument.URI, nil
+	case *lsp.CompletionParams:
+		return p.TextDocument.URI, nil
+	case lsp.CompletionParams:
+		return p.TextDocument.URI, nil
 	}
 
 	// Handle untyped map parameters (from HTTP gateway)
-	paramsMap, err := common.ValidateParamMap(params)
+	paramsMap, err := errors.ValidateParamMap(params)
 	if err != nil {
-		return "", common.WrapProcessingError("failed to validate params", err)
+		return "", errors.WrapWithContext("failed to validate params", err)
 	}
 
 	// Try textDocument.uri first
@@ -93,7 +112,7 @@ func (dm *LSPDocumentManager) ExtractURI(params interface{}) (string, error) {
 		return uri, nil
 	}
 
-	return "", common.ParameterValidationError("no URI found in parameters")
+	return "", errors.NewValidationError("parameter", "no URI found in parameters")
 }
 
 // EnsureOpen sends a textDocument/didOpen notification if needed
@@ -105,7 +124,7 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 
 	// Extract file path from URI
 	if strings.HasPrefix(uri, "file://") {
-		filePath := utils.URIToFilePath(uri)
+        filePath := utils.URIToFilePathCached(uri)
 		if data, err := common.SafeReadFile(filePath); err == nil {
 			fileContent = string(data)
 		} else {
@@ -129,7 +148,7 @@ func (dm *LSPDocumentManager) EnsureOpen(client types.LSPClient, uri string, par
 	err := client.SendNotification(context.Background(), types.MethodTextDocumentDidOpen, didOpenParams)
 	if err != nil {
 		common.LSPLogger.Error("Failed to send didOpen notification for %s: %v", uri, err)
-		return common.WrapProcessingError("failed to send didOpen notification", err)
+		return errors.WrapWithContext("failed to send didOpen notification", err)
 	}
 
 	// Apply language-aware document analysis delay

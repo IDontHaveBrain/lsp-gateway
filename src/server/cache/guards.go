@@ -1,8 +1,9 @@
 package cache
 
 import (
-	"fmt"
-	"time"
+    "fmt"
+    "time"
+    "lsp-gateway/src/internal/common"
 )
 
 // WithEnabledGuard executes the provided function only if the cache is enabled.
@@ -17,11 +18,7 @@ func (m *SCIPCacheManager) WithEnabledGuard(fn func() (interface{}, error)) (int
 // WithEnabledGuardTyped is a generic version of WithEnabledGuard that provides type safety.
 // Returns the zero value of type T if cache is disabled.
 func WithEnabledGuardTyped[T any](m *SCIPCacheManager, fn func() (T, error)) (T, error) {
-	var zero T
-	if !m.enabled {
-		return zero, nil
-	}
-	return fn()
+    return common.WithEnabledGuard[T](m.enabled, fn)
 }
 
 // MustBeEnabled returns an error if the cache is disabled.

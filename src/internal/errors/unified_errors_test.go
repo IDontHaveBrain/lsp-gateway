@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"lsp-gateway/src/internal/types"
 )
 
 func TestLSPError(t *testing.T) {
@@ -73,7 +75,7 @@ func TestTimeoutError(t *testing.T) {
 }
 
 func TestMethodNotSupportedErrorUnified(t *testing.T) {
-	err := NewMethodNotSupportedError("pylsp", "workspace/symbol", "Consider using jedi-language-server")
+	err := NewMethodNotSupportedError("pylsp", types.MethodWorkspaceSymbol, "Consider using jedi-language-server")
 
 	// Test that the error is correctly identified as a method not supported error
 	if !IsMethodNotSupportedError(err) {
@@ -91,7 +93,7 @@ func TestMethodNotSupportedErrorUnified(t *testing.T) {
 			t.Errorf("Expected server 'pylsp', got %s", methodErr.Server)
 		}
 
-		if methodErr.Method != "workspace/symbol" {
+		if methodErr.Method != types.MethodWorkspaceSymbol {
 			t.Errorf("Expected method 'workspace/symbol', got %s", methodErr.Method)
 		}
 

@@ -1,7 +1,6 @@
 package installer
 
 import (
-	"context"
 	"fmt"
 	"os/exec"
 	"time"
@@ -12,44 +11,29 @@ import (
 
 // TypeScriptInstaller handles TypeScript/JavaScript language server installation
 type TypeScriptInstaller struct {
-	*BaseInstaller
+	*GenericPackageInstaller
 }
 
 // NewTypeScriptInstaller creates a new TypeScript installer
 func NewTypeScriptInstaller(platform PlatformInfo) *TypeScriptInstaller {
-	base := CreateSimpleInstaller("typescript", "typescript-language-server", []string{"--stdio"}, platform)
+	generic, err := NewGenericInstaller("typescript", platform)
+	if err != nil {
+		// Fallback to manual creation if generic fails
+		base := CreateSimpleInstaller("typescript", "typescript-language-server", []string{"--stdio"}, platform)
+		return &TypeScriptInstaller{
+			GenericPackageInstaller: &GenericPackageInstaller{
+				BaseInstaller: base,
+				config: PackageConfig{
+					Manager:  "npm",
+					Packages: []string{"typescript-language-server", "typescript"},
+				},
+			},
+		}
+	}
 
 	return &TypeScriptInstaller{
-		BaseInstaller: base,
+		GenericPackageInstaller: generic,
 	}
-}
-
-// Install installs typescript-language-server using npm
-func (t *TypeScriptInstaller) Install(ctx context.Context, options InstallOptions) error {
-	// Install typescript-language-server
-	if err := t.InstallWithPackageManager(ctx, "npm", "typescript-language-server", options.Version); err != nil {
-		return fmt.Errorf("failed to install TypeScript language server: %w", err)
-	}
-
-	// Also install typescript compiler
-	if err := t.InstallWithPackageManager(ctx, "npm", "typescript", options.Version); err != nil {
-		common.CLILogger.Warn("Failed to install TypeScript compiler: %v", err)
-	}
-
-	common.CLILogger.Info("TypeScript language server installation completed")
-	return nil
-}
-
-// Uninstall removes typescript-language-server and typescript
-func (t *TypeScriptInstaller) Uninstall() error {
-	if err := t.UninstallWithPackageManager("npm", "typescript-language-server"); err != nil {
-		return err
-	}
-	// Also uninstall typescript compiler
-	if err := t.UninstallWithPackageManager("npm", "typescript"); err != nil {
-		common.CLILogger.Warn("Failed to uninstall TypeScript compiler: %v", err)
-	}
-	return nil
 }
 
 // ValidateInstallation performs comprehensive validation

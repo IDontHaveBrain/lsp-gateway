@@ -21,7 +21,7 @@ const (
 	DefaultInitializeTimeout    = 30 * time.Second
 	JavaInitializeTimeout       = 90 * time.Second
 	PythonInitializeTimeout     = 30 * time.Second
-	GoInitializeTimeout         = 30 * time.Second
+    GoInitializeTimeout         = 15 * time.Second
 	TypeScriptInitializeTimeout = 30 * time.Second
 
 	// Process management timeouts
@@ -45,6 +45,12 @@ const (
 	MCPIndexingTimeout      = 60 * time.Second
 	MCPMaxIndexFiles        = 50
 	MCPMaxSymbolResults     = 5000
+
+	// MaxResults constants for queries
+	DefaultMaxResults            = 100
+	DefaultMaxResultsSymbols     = 100
+	DefaultMaxResultsReferences  = 100
+	DefaultMaxResultsDefinitions = 100
 )
 
 // File and directory constants

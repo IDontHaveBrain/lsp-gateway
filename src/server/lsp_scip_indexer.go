@@ -362,7 +362,7 @@ func (m *LSPManager) indexWorkspaceSymbolsAsOccurrences(ctx context.Context, lan
 
 // expandSymbolRanges expands single-line symbol ranges to their full extent
 // This is necessary because many LSP servers return only the symbol name range
-// rather than the full definition range for workspace/symbol results
+// rather than the full definition range for types.MethodWorkspaceSymbol results
 func (m *LSPManager) expandSymbolRanges(ctx context.Context, symbols []types.SymbolInformation, uri, language string) []types.SymbolInformation {
 	// Group symbols that need expansion
 	needsExpansion := false
@@ -464,7 +464,7 @@ func (m *LSPManager) extractPositionAndSymbolFromParams(params interface{}) (typ
 // generateSymbolID generates a unified SCIP symbol ID from symbol information
 func (m *LSPManager) generateSymbolID(language, uri, symbolName string, symbolKind types.SymbolKind, pos *types.Position) string {
 	workspaceRoot := m.findWorkspaceRoot(uri)
-	filePath := utils.URIToFilePath(uri)
+    filePath := utils.URIToFilePathCached(uri)
 	relPath, _ := filepath.Rel(workspaceRoot, filePath)
 	if relPath == "" || strings.HasPrefix(relPath, "..") {
 		relPath = filepath.Base(filePath)
@@ -509,7 +509,7 @@ func (m *LSPManager) getSymbolSuffix(kind types.SymbolKind) string {
 
 // findWorkspaceRoot finds the workspace root for a given URI
 func (m *LSPManager) findWorkspaceRoot(uri string) string {
-	filePath := utils.URIToFilePath(uri)
+    filePath := utils.URIToFilePathCached(uri)
 	return m.findWorkspaceRootFromPath(filePath)
 }
 
@@ -898,7 +898,7 @@ func (m *LSPManager) isBuiltinType(symbolName string) bool {
 }
 
 func (m *LSPManager) getIdentifierFromLocation(ctx context.Context, location types.Location) string {
-	path := utils.URIToFilePath(location.URI)
+    path := utils.URIToFilePathCached(location.URI)
 	if path == "" {
 		return ""
 	}
