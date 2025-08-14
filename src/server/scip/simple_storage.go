@@ -876,26 +876,120 @@ func (s *SimpleSCIPStorage) mergeOccurrences(existing, new []SCIPOccurrence) []S
 
 // mergeSymbolInfo merges two symbol information lists, avoiding duplicates
 func (s *SimpleSCIPStorage) mergeSymbolInfo(existing, new []SCIPSymbolInformation) []SCIPSymbolInformation {
-	// Track existing symbols by their ID
-	symMap := make(map[string]SCIPSymbolInformation)
+    // Helper comparators
+    rangeSize := func(r types.Range) int64 {
+        // Prefer more lines first, then characters
+        return int64(r.End.Line-r.Start.Line)*1_000_000 + int64(r.End.Character-r.Start.Character)
+    }
+    isZeroRange := func(r types.Range) bool {
+        return r.Start.Line == 0 && r.Start.Character == 0 && r.End.Line == 0 && r.End.Character == 0
+    }
+    // Merge two symbol infos for the same symbol ID
+    mergeOne := func(a, b SCIPSymbolInformation) SCIPSymbolInformation {
+        out := a
+        // Prefer non-empty display name
+        if b.DisplayName != "" {
+            out.DisplayName = b.DisplayName
+        }
+        // Prefer known kind
+        if b.Kind != SCIPSymbolKindUnknown {
+            out.Kind = b.Kind
+        }
+        // Choose better range: prefer the larger one; if either zero, use the other
+        if isZeroRange(out.Range) {
+            out.Range = b.Range
+        } else if !isZeroRange(b.Range) {
+            if rangeSize(b.Range) > rangeSize(out.Range) {
+                out.Range = b.Range
+            } else {
+                // If ranges don't contain each other but differ slightly, take a conservative union
+                // Start = min starts, End = max ends
+                start := out.Range.Start
+                if b.Range.Start.Line < start.Line || (b.Range.Start.Line == start.Line && b.Range.Start.Character < start.Character) {
+                    start = b.Range.Start
+                }
+                end := out.Range.End
+                if b.Range.End.Line > end.Line || (b.Range.End.Line == end.Line && b.Range.End.Character > end.Character) {
+                    end = b.Range.End
+                }
+                // If union is strictly larger than current and at least as large as b, adopt it
+                union := types.Range{Start: start, End: end}
+                if rangeSize(union) >= rangeSize(out.Range) && rangeSize(union) >= rangeSize(b.Range) {
+                    out.Range = union
+                }
+            }
+        }
+        // SelectionRange: prefer non-nil; if both set, pick the smaller (more precise)
+        if b.SelectionRange != nil {
+            if out.SelectionRange == nil {
+                out.SelectionRange = b.SelectionRange
+            } else {
+                br := *b.SelectionRange
+                ar := *out.SelectionRange
+                if rangeSize(br) < rangeSize(ar) {
+                    out.SelectionRange = &br
+                }
+            }
+        }
+        // Merge documentation (append unique strings)
+        if len(b.Documentation) > 0 {
+            seen := make(map[string]bool, len(out.Documentation))
+            for _, d := range out.Documentation {
+                seen[d] = true
+            }
+            for _, d := range b.Documentation {
+                if !seen[d] {
+                    out.Documentation = append(out.Documentation, d)
+                }
+            }
+        }
+        // Merge relationships by symbol key (avoid duplicates while preserving flags)
+        if len(b.Relationships) > 0 {
+            relMap := make(map[string]SCIPRelationship)
+            for _, r := range out.Relationships {
+                relMap[r.Symbol] = r
+            }
+            for _, r := range b.Relationships {
+                if exist, ok := relMap[r.Symbol]; ok {
+                    exist.IsReference = exist.IsReference || r.IsReference
+                    exist.IsImplementation = exist.IsImplementation || r.IsImplementation
+                    exist.IsTypeDefinition = exist.IsTypeDefinition || r.IsTypeDefinition
+                    exist.IsDefinition = exist.IsDefinition || r.IsDefinition
+                    relMap[r.Symbol] = exist
+                } else {
+                    relMap[r.Symbol] = r
+                }
+            }
+            // Rebuild slice
+            out.Relationships = out.Relationships[:0]
+            for _, r := range relMap {
+                out.Relationships = append(out.Relationships, r)
+            }
+        }
+        // Signature documentation: prefer non-empty text
+        if b.SignatureDocumentation.Text != "" {
+            out.SignatureDocumentation = b.SignatureDocumentation
+        }
+        return out
+    }
 
-	// Add existing symbols
-	for _, sym := range existing {
-		symMap[sym.Symbol] = sym
-	}
+    symMap := make(map[string]SCIPSymbolInformation)
+    for _, sym := range existing {
+        symMap[sym.Symbol] = sym
+    }
+    for _, sym := range new {
+        if cur, ok := symMap[sym.Symbol]; ok {
+            symMap[sym.Symbol] = mergeOne(cur, sym)
+        } else {
+            symMap[sym.Symbol] = sym
+        }
+    }
 
-	// Add new symbols (will overwrite if duplicate)
-	for _, sym := range new {
-		symMap[sym.Symbol] = sym
-	}
-
-	// Convert back to slice
-	merged := make([]SCIPSymbolInformation, 0, len(symMap))
-	for _, sym := range symMap {
-		merged = append(merged, sym)
-	}
-
-	return merged
+    merged := make([]SCIPSymbolInformation, 0, len(symMap))
+    for _, sym := range symMap {
+        merged = append(merged, sym)
+    }
+    return merged
 }
 
 // cloneDocument creates a deep copy of the occurrence-centric document

@@ -93,29 +93,28 @@ func (m *SCIPCacheManager) GetCachedDocumentSymbols(uri string) ([]types.SymbolI
 	if err != nil {
 		return nil, false
 	}
-	symbolInfos := doc.SymbolInformation
-	if err != nil || len(symbolInfos) == 0 {
-		return nil, false
-	}
+    symbolInfos := doc.SymbolInformation
+    if err != nil || len(symbolInfos) == 0 {
+        return nil, false
+    }
 
-	symbols := make([]types.SymbolInformation, 0, len(symbolInfos))
-	for _, scipSymbol := range symbolInfos {
-		defs, err := m.scipStorage.GetDefinitionsWithDocuments(context.Background(), scipSymbol.Symbol)
-		if err != nil || len(defs) == 0 {
-			continue
-		}
-		defOcc := defs[0]
-
-		symbol := types.SymbolInformation{
-			Name: scipSymbol.DisplayName,
-			Kind: m.convertSCIPSymbolKindToLSP(scipSymbol.Kind),
-			Location: types.Location{
-				URI:   uri,
-				Range: types.Range{Start: types.Position{Line: int32(defOcc.Range.Start.Line), Character: int32(defOcc.Range.Start.Character)}, End: types.Position{Line: int32(defOcc.Range.End.Line), Character: int32(defOcc.Range.End.Character)}},
-			},
-		}
-		symbols = append(symbols, symbol)
-	}
+    symbols := make([]types.SymbolInformation, 0, len(symbolInfos))
+    for _, scipSymbol := range symbolInfos {
+        r := scipSymbol.Range
+        symbol := types.SymbolInformation{
+            Name: scipSymbol.DisplayName,
+            Kind: m.convertSCIPSymbolKindToLSP(scipSymbol.Kind),
+            Location: types.Location{
+                URI:   uri,
+                Range: types.Range{Start: types.Position{Line: r.Start.Line, Character: r.Start.Character}, End: types.Position{Line: r.End.Line, Character: r.End.Character}},
+            },
+        }
+        if scipSymbol.SelectionRange != nil {
+            sr := *scipSymbol.SelectionRange
+            symbol.SelectionRange = &types.Range{Start: types.Position{Line: sr.Start.Line, Character: sr.Start.Character}, End: types.Position{Line: sr.End.Line, Character: sr.End.Character}}
+        }
+        symbols = append(symbols, symbol)
+    }
 
 	return symbols, true
 }

@@ -375,12 +375,11 @@ Examples:
 // Context subcommands
 var (
 	contextMapCmd = &cobra.Command{
-		Use:   "map",
-		Short: "Generate signature map file",
-		Long: `Generate a signature map .txt file based on indexed data.
-
-The command scans the indexed symbols and writes a plain-text map suitable for context ingestion.`,
-		RunE: runContextMapCmd,
+		Use:   "map <file>",
+		Short: "Print code of referenced files",
+		Long:  `Given a source file path, find files it references and print their code.`,
+		Args:  cobra.ExactArgs(1),
+		RunE:  runContextMapCmd,
 	}
 
 	contextRelatedCmd = &cobra.Command{
@@ -481,8 +480,6 @@ func init() {
 
 	// Context command flags
 	contextMapCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
-	contextMapCmd.Flags().StringVarP(&outPath, FlagOut, "o", "context-signature-map.txt", "Output file path")
-	contextMapCmd.Flags().BoolVar(&formatJSON, "json", false, "Output in JSON format")
 
 	contextRelatedCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
 	contextRelatedCmd.Flags().BoolVar(&formatJSON, "json", false, "Output in JSON format")

@@ -92,6 +92,10 @@ func (dm *LSPDocumentManager) ExtractURI(params interface{}) (string, error) {
 		return p.TextDocument.URI, nil
 	case lsp.CompletionParams:
 		return p.TextDocument.URI, nil
+	case *lsp.DefinitionParams:
+		return p.TextDocument.URI, nil
+	case lsp.DefinitionParams:
+		return p.TextDocument.URI, nil
 	}
 
 	// Handle untyped map parameters (from HTTP gateway)

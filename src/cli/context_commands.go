@@ -196,10 +196,607 @@ func runContextCmd(cmd *cobra.Command, args []string) error {
 }
 
 func runContextMapCmd(cmd *cobra.Command, args []string) error {
-	if formatJSON {
-		return GenerateContextSignatureMapJSON(configPath, outPath)
+	if len(args) != 1 {
+		return fmt.Errorf("please provide exactly one file path")
 	}
-	return GenerateContextSignatureMap(configPath, outPath)
+	return PrintReferencedFilesCode(configPath, args[0])
+}
+
+func PrintReferencedFilesCode(configPath string, inputFile string) error {
+	cmdCtx, err := clicommon.NewCommandContext(configPath, 3*time.Minute)
+	if err != nil {
+		return err
+	}
+	defer cmdCtx.Cleanup()
+
+	absPath, err := filepath.Abs(inputFile)
+	if err != nil {
+		return fmt.Errorf("invalid file path: %w", err)
+	}
+	if st, err := os.Stat(absPath); err != nil || st.IsDir() {
+		return fmt.Errorf("file not found or is a directory: %s", absPath)
+	}
+
+	uri := utils.FilePathToURICached(absPath)
+	// Determine project root for filtering (prefer repo root with go.mod/.git)
+	workspaceRoot := ""
+	fileExists := func(p string) bool {
+		if st, err := os.Stat(p); err == nil && st.IsDir() || (err == nil && !st.IsDir()) {
+			return true
+		}
+		return false
+	}
+	root := filepath.Dir(absPath)
+	for {
+		if fileExists(filepath.Join(root, ".git")) || fileExists(filepath.Join(root, "go.mod")) {
+			workspaceRoot = root
+			break
+		}
+		parent := filepath.Dir(root)
+		if parent == root { // reached filesystem root
+			break
+		}
+		root = parent
+	}
+	if workspaceRoot == "" {
+		if wd, err := os.Getwd(); err == nil {
+			workspaceRoot = wd
+		}
+	}
+	hostRootToken := string(os.PathSeparator) + "work" + string(os.PathSeparator) + "lsp-gateway" + string(os.PathSeparator)
+
+	var storage scip.SCIPDocumentStorage
+	if cmdCtx.Cache != nil {
+		storage = cmdCtx.Cache.GetSCIPStorage()
+	}
+	if storage == nil {
+		return fmt.Errorf("index unavailable; run 'lsp-gateway cache index' and try again")
+	}
+
+	type snippet struct {
+		file   string
+		name   string
+		startL int
+		startC int
+		endL   int
+		endC   int
+	}
+
+	// Collect referenced symbol definitions -> snippets
+	doc, err := storage.GetDocument(context.Background(), uri)
+	if err != nil || doc == nil {
+		return fmt.Errorf("document not indexed: %s", absPath)
+	}
+
+	// Map: file -> list of snippets
+	snippetMap := make(map[string][]snippet)
+	// Dedup by (file, symbol)
+	seen := make(map[string]bool)
+
+	// Range helpers and language-agnostic expansion to full symbol range
+	rangeContains := func(outer, inner types.Range) bool {
+		if inner.Start.Line < outer.Start.Line || (inner.Start.Line == outer.Start.Line && inner.Start.Character < outer.Start.Character) {
+			return false
+		}
+		if inner.End.Line > outer.End.Line || (inner.End.Line == outer.End.Line && inner.End.Character > outer.End.Character) {
+			return false
+		}
+		return true
+	}
+	rangeSize := func(r types.Range) int64 {
+		return int64(r.End.Line-r.Start.Line)*100000 + int64(r.End.Character-r.Start.Character)
+	}
+	expandRangeToSymbol := func(defPath string, base types.Range, name string) types.Range {
+		best := base
+		defURI := utils.FilePathToURICached(defPath)
+		if storage != nil && defURI != "" {
+			if ddoc, err := storage.GetDocument(context.Background(), defURI); err == nil && ddoc != nil {
+				for _, si := range ddoc.SymbolInformation {
+					if rangeContains(si.Range, best) {
+						if name == "" || strings.EqualFold(si.DisplayName, name) {
+							if rangeSize(si.Range) >= rangeSize(best) {
+								best = si.Range
+							}
+						} else if rangeSize(si.Range) > rangeSize(best) {
+							best = si.Range
+						}
+					}
+				}
+			}
+		}
+		if cmdCtx.Manager != nil && defURI != "" {
+			if res, err := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{TextDocument: lsp.TextDocumentIdentifier{URI: defURI}}); err == nil && res != nil {
+				if syms, err2 := parseDocumentSymbolsResult(res); err2 == nil {
+					var walk func([]lsp.DocumentSymbol)
+					walk = func(list []lsp.DocumentSymbol) {
+						for _, ds := range list {
+							if rangeContains(ds.Range, best) && rangeSize(ds.Range) >= rangeSize(best) {
+								if name == "" || strings.EqualFold(ds.Name, name) {
+									best = ds.Range
+								} else if rangeSize(ds.Range) > rangeSize(best) {
+									best = ds.Range
+								}
+							}
+							if len(ds.Children) > 0 {
+								tmp := make([]lsp.DocumentSymbol, 0, len(ds.Children))
+								for _, ch := range ds.Children {
+									if ch != nil {
+										tmp = append(tmp, *ch)
+									}
+								}
+								if len(tmp) > 0 {
+									walk(tmp)
+								}
+							}
+						}
+					}
+					walk(syms)
+				}
+			}
+		}
+		return best
+	}
+
+	for _, occ := range doc.Occurrences {
+		if occ.Symbol == "" {
+			continue
+		}
+		if occ.SymbolRoles.HasRole(types.SymbolRoleDefinition) || occ.SymbolRoles.HasRole(types.SymbolRoleGenerated) {
+			continue
+		}
+
+		defs, err := storage.GetDefinitionsWithDocuments(context.Background(), occ.Symbol)
+		if err == nil && len(defs) > 0 {
+			symInfo, _ := storage.GetSymbolInfo(context.Background(), occ.Symbol)
+			for _, d := range defs {
+				defPath := utils.URIToFilePathCached(d.DocumentURI)
+				if defPath == "" || defPath == absPath {
+					continue
+				}
+				if workspaceRoot != "" {
+					rp, _ := filepath.Abs(defPath)
+					rr, _ := filepath.Abs(workspaceRoot)
+					if (!strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr) || (hostRootToken != "" && !strings.Contains(rp, hostRootToken)) {
+						continue
+					}
+				}
+				key := defPath + "::" + occ.Symbol
+				if seen[key] {
+					continue
+				}
+				seen[key] = true
+
+				rng := d.Range
+				name := occ.Symbol
+				if symInfo != nil {
+					rng = symInfo.Range
+					if symInfo.DisplayName != "" {
+						name = symInfo.DisplayName
+					}
+				}
+				rng = expandRangeToSymbol(defPath, rng, name)
+
+				sn := snippet{
+					file:   defPath,
+					name:   name,
+					startL: int(rng.Start.Line),
+					startC: int(rng.Start.Character),
+					endL:   int(rng.End.Line),
+					endC:   int(rng.End.Character),
+				}
+				snippetMap[defPath] = append(snippetMap[defPath], sn)
+			}
+			continue
+		}
+
+		if cmdCtx.Manager != nil {
+			pos := occ.Range.Start
+			defResult, derr := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDefinition, &lsp.TextDocumentPositionParams{
+				TextDocument: lsp.TextDocumentIdentifier{URI: uri},
+				Position:     pos,
+			})
+			if derr == nil && defResult != nil {
+				if locs, perr := parseDefinitionResult(defResult); perr == nil {
+					for _, loc := range locs {
+						defPath := utils.URIToFilePathCached(loc.URI)
+						if defPath == "" || defPath == absPath {
+							continue
+						}
+						if workspaceRoot != "" {
+							rp, _ := filepath.Abs(defPath)
+							rr, _ := filepath.Abs(workspaceRoot)
+							if (!strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr) || (hostRootToken != "" && !strings.Contains(rp, hostRootToken)) {
+								continue
+							}
+						}
+						key := defPath + "::" + occ.Symbol
+						if seen[key] {
+							continue
+						}
+						seen[key] = true
+
+						name := occ.Symbol
+						if si, _ := storage.GetSymbolInfo(context.Background(), occ.Symbol); si != nil && si.DisplayName != "" {
+							name = si.DisplayName
+						}
+						// expand to full symbol range using doc symbols/scip when available
+						full := expandRangeToSymbol(defPath, loc.Range, name)
+						sn := snippet{
+							file:   defPath,
+							name:   name,
+							startL: int(full.Start.Line),
+							startC: int(full.Start.Character),
+							endL:   int(full.End.Line),
+							endC:   int(full.End.Character),
+						}
+						snippetMap[defPath] = append(snippetMap[defPath], sn)
+					}
+				}
+			}
+		}
+	}
+
+	for _, si := range doc.SymbolInformation {
+		if si.Symbol == "" {
+			continue
+		}
+		defs, err := storage.GetDefinitionsWithDocuments(context.Background(), si.Symbol)
+		if err != nil || len(defs) == 0 {
+			continue
+		}
+		for _, d := range defs {
+			defPath := utils.URIToFilePathCached(d.DocumentURI)
+			if defPath == "" || defPath == absPath {
+				continue
+			}
+			if workspaceRoot != "" {
+				rp, _ := filepath.Abs(defPath)
+				rr, _ := filepath.Abs(workspaceRoot)
+				if (!strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr) || (hostRootToken != "" && !strings.Contains(rp, hostRootToken)) {
+					continue
+				}
+			}
+			key := defPath + "::" + si.Symbol
+			if seen[key] {
+				continue
+			}
+			seen[key] = true
+			rng := si.Range
+			if rng.Start.Line == 0 && rng.End.Line == 0 {
+				rng = d.Range
+			}
+			name := si.DisplayName
+			if name == "" {
+				name = si.Symbol
+			}
+			rng = expandRangeToSymbol(defPath, rng, name)
+			sn := snippet{
+				file:   defPath,
+				name:   name,
+				startL: int(rng.Start.Line),
+				startC: int(rng.Start.Character),
+				endL:   int(rng.End.Line),
+				endC:   int(rng.End.Character),
+			}
+			snippetMap[defPath] = append(snippetMap[defPath], sn)
+		}
+	}
+
+	// defer empty-check until after LSP fallback scan
+
+	// Defer computing files until after potential LSP fallback augmentation
+	var files []string
+
+	// Helper: merge overlapping/adjacent snippets per file
+	merge := func(list []snippet) []snippet {
+		sort.Slice(list, func(i, j int) bool {
+			if list[i].startL == list[j].startL {
+				return list[i].startC < list[j].startC
+			}
+			return list[i].startL < list[j].startL
+		})
+		var out []snippet
+		for _, s := range list {
+			if len(out) == 0 {
+				out = append(out, s)
+				continue
+			}
+			last := &out[len(out)-1]
+			// Overlap check
+			if s.startL < last.endL || (s.startL == last.endL && s.startC <= last.endC) {
+				// extend end if needed
+				if s.endL > last.endL || (s.endL == last.endL && s.endC > last.endC) {
+					last.endL = s.endL
+					last.endC = s.endC
+				}
+				continue
+			}
+			out = append(out, s)
+		}
+		return out
+	}
+
+	// Helper: extract full lines covering the range (print entire code lines)
+	extract := func(content []byte, s snippet) string {
+		lines := strings.Split(string(content), "\n")
+		if s.startL < 0 {
+			s.startL = 0
+		}
+		if s.endL >= len(lines) {
+			s.endL = len(lines) - 1
+		}
+		var b strings.Builder
+		for ln := s.startL; ln <= s.endL && ln < len(lines); ln++ {
+			b.WriteString(lines[ln])
+			if ln < s.endL {
+				b.WriteByte('\n')
+			}
+		}
+		return b.String()
+	}
+
+	// Fallback LSP scan: walk tokens and resolve definitions when storage misses
+    // No token refinement; keep full ranges
+
+	addSnippet := func(path, name string, r types.Range) {
+		if path == "" || path == absPath {
+			return
+		}
+		if workspaceRoot != "" {
+			rp, _ := filepath.Abs(path)
+			rr, _ := filepath.Abs(workspaceRoot)
+			if (!strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr) || (hostRootToken != "" && !strings.Contains(rp, hostRootToken)) {
+				return
+			}
+		}
+        // Expand to full symbol range when possible
+        r = expandRangeToSymbol(path, r, name)
+
+		key := path + "::" + name + fmt.Sprintf("@%d:%d-%d:%d", r.Start.Line, r.Start.Character, r.End.Line, r.End.Character)
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		snippetMap[path] = append(snippetMap[path], snippet{
+			file:   path,
+			name:   name,
+			startL: int(r.Start.Line),
+			startC: int(r.Start.Character),
+			endL:   int(r.End.Line),
+			endC:   int(r.End.Character),
+		})
+	}
+
+	// If we have few or no snippets from storage, probe via LSP
+	if cmdCtx.Manager != nil {
+		data, _ := os.ReadFile(absPath)
+		content := string(data)
+		lines := strings.Split(content, "\n")
+		for ln, line := range lines {
+			// Simple token scan
+			i := 0
+			for i < len(line) {
+				r := rune(line[i])
+				if unicode.IsLetter(r) || r == '_' || unicode.IsDigit(r) {
+					start := i
+					for i < len(line) {
+						r2 := rune(line[i])
+						if unicode.IsLetter(r2) || unicode.IsDigit(r2) || r2 == '_' {
+							i++
+							continue
+						}
+						break
+					}
+					token := line[start:i]
+
+					// Only consider selector-style references: preceding '.'
+					if start == 0 || line[start-1] != '.' {
+						continue
+					}
+					// Query definition at token start
+					defRes, derr := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDefinition, &lsp.DefinitionParams{
+						TextDocumentPositionParams: lsp.TextDocumentPositionParams{
+							TextDocument: lsp.TextDocumentIdentifier{URI: uri},
+							Position:     types.Position{Line: int32(ln), Character: int32(start)},
+						},
+					})
+
+					if derr == nil && defRes != nil {
+						if locs, perr := parseDefinitionResult(defRes); perr == nil {
+							for _, loc := range locs {
+								defPath := utils.URIToFilePathCached(loc.URI)
+								addSnippet(defPath, token, loc.Range)
+							}
+						} else {
+							_ = perr
+						}
+					} else if derr != nil {
+						_ = derr
+					}
+
+				} else {
+					i++
+				}
+			}
+		}
+	}
+
+	// If still empty after LSP fallback, report error
+	if len(snippetMap) == 0 {
+		return fmt.Errorf("no referenced code found for: %s", absPath)
+	}
+
+	// Compute files now (after augmentation) and print snippets grouped by file
+	files = make([]string, 0, len(snippetMap))
+	for f := range snippetMap {
+		files = append(files, f)
+	}
+	sort.Strings(files)
+	// Expand snippet ranges per file using on-demand LSP document symbols
+	if cmdCtx.Manager != nil {
+		for _, f := range files {
+			defURI := utils.FilePathToURICached(f)
+			if defURI == "" {
+				continue
+			}
+			if res, err := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{TextDocument: lsp.TextDocumentIdentifier{URI: defURI}}); err == nil && res != nil {
+				if syms, perr := parseDocumentSymbolsResult(res); perr == nil && len(syms) > 0 {
+					list := snippetMap[f]
+					for i := range list {
+						base := types.Range{Start: types.Position{Line: int32(list[i].startL), Character: int32(list[i].startC)}, End: types.Position{Line: int32(list[i].endL), Character: int32(list[i].endC)}}
+						best := base
+						var walk func([]lsp.DocumentSymbol)
+						walk = func(nodes []lsp.DocumentSymbol) {
+							for _, ds := range nodes {
+								r := ds.Range
+								if r.Start.Line <= best.Start.Line && (r.Start.Line < best.Start.Line || r.Start.Character <= best.Start.Character) &&
+									(r.End.Line > best.End.Line || (r.End.Line == best.End.Line && r.End.Character >= best.End.Character)) {
+									// Prefer larger ranges
+									if (r.End.Line-r.Start.Line) > (best.End.Line-best.Start.Line) || ((r.End.Line-r.Start.Line) == (best.End.Line-best.Start.Line) && (r.End.Character-r.Start.Character) > (best.End.Character-best.Start.Character)) {
+										best = r
+									}
+								}
+								if len(ds.Children) > 0 {
+									tmp := make([]lsp.DocumentSymbol, 0, len(ds.Children))
+									for _, ch := range ds.Children {
+										if ch != nil {
+											tmp = append(tmp, *ch)
+										}
+									}
+									if len(tmp) > 0 {
+										walk(tmp)
+									}
+								}
+							}
+						}
+						// Update expanded range
+						list[i].startL = int(best.Start.Line)
+						list[i].startC = int(best.Start.Character)
+						list[i].endL = int(best.End.Line)
+						list[i].endC = int(best.End.Character)
+					}
+					snippetMap[f] = list
+				}
+			}
+		}
+	}
+
+	// Print snippets grouped by file, using indexed content
+	for _, f := range files {
+		// Skip stdlib dirs
+		if strings.Contains(f, string(os.PathSeparator)+".g"+string(os.PathSeparator)+"go"+string(os.PathSeparator)+"src"+string(os.PathSeparator)) {
+			continue
+		}
+		if workspaceRoot != "" {
+			rp, _ := filepath.Abs(f)
+			rr, _ := filepath.Abs(workspaceRoot)
+			if (!strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr) || (hostRootToken != "" && !strings.Contains(rp, hostRootToken)) {
+				continue
+			}
+		}
+		merged := merge(snippetMap[f])
+		fmt.Printf("\n# FILE: %s\n", f)
+		// Always read from disk to ensure latest content and full lines
+		data, derr := os.ReadFile(f)
+		if derr != nil {
+			fmt.Printf("# (unreadable)\n")
+			continue
+		}
+		for _, sn := range merged {
+			fmt.Printf("# SNIPPET %s [%d:%d-%d:%d]\n", sn.name, sn.startL, sn.startC, sn.endL, sn.endC)
+            text := extract(data, sn)
+            fmt.Print(text)
+			fmt.Print("\n")
+		}
+	}
+
+	return nil
+}
+
+func parseDefinitionResult(result interface{}) ([]types.Location, error) {
+	if result == nil {
+		return nil, nil
+	}
+	switch v := result.(type) {
+	case types.Location:
+		return []types.Location{v}, nil
+	case *types.Location:
+		if v == nil {
+			return nil, nil
+		}
+		return []types.Location{*v}, nil
+	case []types.Location:
+		return v, nil
+	case []*types.Location:
+		out := make([]types.Location, 0, len(v))
+		for _, p := range v {
+			if p != nil {
+				out = append(out, *p)
+			}
+		}
+		return out, nil
+	case json.RawMessage:
+		if len(v) == 0 || string(v) == "null" {
+			return nil, nil
+		}
+		var arr []types.Location
+		if err := json.Unmarshal(v, &arr); err == nil {
+			return arr, nil
+		}
+		var single types.Location
+		if err := json.Unmarshal(v, &single); err == nil {
+			return []types.Location{single}, nil
+		}
+		// Try LocationLink[]: { targetUri, targetRange, targetSelectionRange }
+        type locationLink struct {
+            TargetURI            string      `json:"targetUri"`
+            TargetRange          types.Range `json:"targetRange"`
+            TargetSelectionRange types.Range `json:"targetSelectionRange"`
+        }
+        var links []locationLink
+        if err := json.Unmarshal(v, &links); err == nil && len(links) > 0 {
+            out := make([]types.Location, 0, len(links))
+            for _, l := range links {
+                // Prefer full targetRange; use selection if full is absent
+                rng := l.TargetRange
+                if rng.Start.Line == 0 && rng.End.Line == 0 && rng.Start.Character == 0 && rng.End.Character == 0 {
+                    rng = l.TargetSelectionRange
+                }
+                out = append(out, types.Location{URI: l.TargetURI, Range: rng})
+            }
+            return out, nil
+        }
+        // Try single LocationLink
+        var link locationLink
+        if err := json.Unmarshal(v, &link); err == nil && link.TargetURI != "" {
+            rng := link.TargetRange
+            if rng.Start.Line == 0 && rng.End.Line == 0 && rng.Start.Character == 0 && rng.End.Character == 0 {
+                rng = link.TargetSelectionRange
+            }
+            return []types.Location{{URI: link.TargetURI, Range: rng}}, nil
+        }
+		return nil, fmt.Errorf("unable to parse definition result")
+	case []byte:
+		return parseDefinitionResult(json.RawMessage(v))
+	case string:
+		return parseDefinitionResult(json.RawMessage([]byte(v)))
+	default:
+		return nil, fmt.Errorf("unsupported definition result type: %T", result)
+	}
+}
+
+func clamp(v, min, max int) int {
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
+	return v
+}
+
+func isIdentChar(r rune) bool {
+	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
 }
 
 func runContextRelatedCmd(cmd *cobra.Command, args []string) error {
