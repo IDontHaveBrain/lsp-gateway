@@ -1,4 +1,4 @@
-# LSP Gateway
+# LSP Gateway (BETA)
 
 Language Server Protocol gateway with HTTP and MCP interfaces for 6 languages.
 
