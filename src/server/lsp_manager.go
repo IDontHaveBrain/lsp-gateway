@@ -656,11 +656,12 @@ func (m *LSPManager) resolveCommandPath(language, command string) string {
 	}
 
 	// Check for other language custom installations
-	if command == "gopls" || command == "pylsp" || command == "typescript-language-server" {
+	if command == "gopls" || command == "pylsp" || command == "jedi-language-server" || command == "typescript-language-server" {
 		// Map of commands to their languages for path construction
 		languageMap := map[string]string{
 			"gopls":                      "go",
 			"pylsp":                      "python",
+			"jedi-language-server":       "python",
 			"typescript-language-server": "typescript",
 		}
 		if lang, exists := languageMap[command]; exists {
@@ -686,6 +687,8 @@ func (m *LSPManager) resolveCommandPath(language, command string) string {
 func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string, cfg *config.ServerConfig) error {
 	// Resolve the command path (check custom installations first)
 	resolvedCommand := m.resolveCommandPath(language, cfg.Command)
+
+	// No special transport enforcement needed for Python when using jedi-language-server
 
 	// Validate LSP server command for security
 	if err := security.ValidateCommand(resolvedCommand, cfg.Args); err != nil {

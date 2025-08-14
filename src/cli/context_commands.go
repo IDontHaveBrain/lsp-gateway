@@ -536,7 +536,7 @@ func PrintReferencedFilesCode(configPath string, inputFile string) error {
 	}
 
 	// Fallback LSP scan: walk tokens and resolve definitions when storage misses
-    // No token refinement; keep full ranges
+	// No token refinement; keep full ranges
 
 	addSnippet := func(path, name string, r types.Range) {
 		if path == "" || path == absPath {
@@ -549,8 +549,8 @@ func PrintReferencedFilesCode(configPath string, inputFile string) error {
 				return
 			}
 		}
-        // Expand to full symbol range when possible
-        r = expandRangeToSymbol(path, r, name)
+		// Expand to full symbol range when possible
+		r = expandRangeToSymbol(path, r, name)
 
 		key := path + "::" + name + fmt.Sprintf("@%d:%d-%d:%d", r.Start.Line, r.Start.Character, r.End.Line, r.End.Character)
 		if seen[key] {
@@ -704,8 +704,8 @@ func PrintReferencedFilesCode(configPath string, inputFile string) error {
 		}
 		for _, sn := range merged {
 			fmt.Printf("# SNIPPET %s [%d:%d-%d:%d]\n", sn.name, sn.startL, sn.startC, sn.endL, sn.endC)
-            text := extract(data, sn)
-            fmt.Print(text)
+			text := extract(data, sn)
+			fmt.Print(text)
 			fmt.Print("\n")
 		}
 	}
@@ -748,33 +748,33 @@ func parseDefinitionResult(result interface{}) ([]types.Location, error) {
 			return []types.Location{single}, nil
 		}
 		// Try LocationLink[]: { targetUri, targetRange, targetSelectionRange }
-        type locationLink struct {
-            TargetURI            string      `json:"targetUri"`
-            TargetRange          types.Range `json:"targetRange"`
-            TargetSelectionRange types.Range `json:"targetSelectionRange"`
-        }
-        var links []locationLink
-        if err := json.Unmarshal(v, &links); err == nil && len(links) > 0 {
-            out := make([]types.Location, 0, len(links))
-            for _, l := range links {
-                // Prefer full targetRange; use selection if full is absent
-                rng := l.TargetRange
-                if rng.Start.Line == 0 && rng.End.Line == 0 && rng.Start.Character == 0 && rng.End.Character == 0 {
-                    rng = l.TargetSelectionRange
-                }
-                out = append(out, types.Location{URI: l.TargetURI, Range: rng})
-            }
-            return out, nil
-        }
-        // Try single LocationLink
-        var link locationLink
-        if err := json.Unmarshal(v, &link); err == nil && link.TargetURI != "" {
-            rng := link.TargetRange
-            if rng.Start.Line == 0 && rng.End.Line == 0 && rng.Start.Character == 0 && rng.End.Character == 0 {
-                rng = link.TargetSelectionRange
-            }
-            return []types.Location{{URI: link.TargetURI, Range: rng}}, nil
-        }
+		type locationLink struct {
+			TargetURI            string      `json:"targetUri"`
+			TargetRange          types.Range `json:"targetRange"`
+			TargetSelectionRange types.Range `json:"targetSelectionRange"`
+		}
+		var links []locationLink
+		if err := json.Unmarshal(v, &links); err == nil && len(links) > 0 {
+			out := make([]types.Location, 0, len(links))
+			for _, l := range links {
+				// Prefer full targetRange; use selection if full is absent
+				rng := l.TargetRange
+				if rng.Start.Line == 0 && rng.End.Line == 0 && rng.Start.Character == 0 && rng.End.Character == 0 {
+					rng = l.TargetSelectionRange
+				}
+				out = append(out, types.Location{URI: l.TargetURI, Range: rng})
+			}
+			return out, nil
+		}
+		// Try single LocationLink
+		var link locationLink
+		if err := json.Unmarshal(v, &link); err == nil && link.TargetURI != "" {
+			rng := link.TargetRange
+			if rng.Start.Line == 0 && rng.End.Line == 0 && rng.Start.Character == 0 && rng.End.Character == 0 {
+				rng = link.TargetSelectionRange
+			}
+			return []types.Location{{URI: link.TargetURI, Range: rng}}, nil
+		}
 		return nil, fmt.Errorf("unable to parse definition result")
 	case []byte:
 		return parseDefinitionResult(json.RawMessage(v))

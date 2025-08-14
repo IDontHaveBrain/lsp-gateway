@@ -15,7 +15,7 @@ servers:
 
   # Python Language Server  
   python:
-    command: "pylsp"
+    command: "jedi-language-server"
     args: []
     working_dir: ""
     initialization_options: {}
@@ -74,7 +74,7 @@ cache:
 # 2. Server Commands:
 #    - Ensure language servers are installed on your system
 #    - gopls: go install golang.org/x/tools/gopls@latest
-#    - pylsp: pip install python-lsp-server
+#    - jedi-language-server: pip install jedi-language-server
 #    - typescript-language-server: npm install -g typescript-language-server typescript
 #    - jdtls: Download from Eclipse JDT LS releases
 #    - rust-analyzer: rustup component add rust-analyzer

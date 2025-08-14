@@ -209,7 +209,7 @@ class DataService {
 				Args:    []string{"serve"},
 			},
 			"python": &config.ServerConfig{
-				Command: "pylsp",
+				Command: "jedi-language-server",
 				Args:    []string{},
 			},
 			"typescript": &config.ServerConfig{

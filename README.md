@@ -34,7 +34,7 @@ curl localhost:8080/jsonrpc  # Test HTTP gateway
 ```bash
 lsp-gateway install all        # Install all supported servers
 lsp-gateway install go         # Install gopls
-lsp-gateway install python     # Install python-lsp-server
+lsp-gateway install python     # Install jedi-language-server
 lsp-gateway install typescript # Install typescript-language-server
 lsp-gateway install javascript # Install typescript-language-server
 lsp-gateway install java       # Install jdtls
@@ -137,7 +137,8 @@ servers:
     command: "gopls"
     args: ["serve"]
   python:
-    command: "pylsp"
+    command: "jedi-language-server"
+    args: []
   rust:
     command: "rust-analyzer"
 ```

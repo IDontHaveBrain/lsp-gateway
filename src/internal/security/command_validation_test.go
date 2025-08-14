@@ -1,28 +1,28 @@
 package security
 
 import (
-    "testing"
+	"testing"
 )
 
 func TestValidateCommand_AllowsWhitelisted(t *testing.T) {
-    if err := ValidateCommand("gopls", []string{"serve"}); err != nil {
-        t.Fatalf("unexpected error: %v", err)
-    }
+	if err := ValidateCommand("gopls", []string{"serve"}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 }
 
 func TestValidateCommand_RejectsUnknown(t *testing.T) {
-    if err := ValidateCommand("rm", []string{"-rf", "/"}); err == nil {
-        t.Fatalf("expected error for unknown command")
-    }
+	if err := ValidateCommand("rm", []string{"-rf", "/"}); err == nil {
+		t.Fatalf("expected error for unknown command")
+	}
 }
 
 func TestValidateCommand_BlocksBasicInjection(t *testing.T) {
-    cases := [][]string{{"$(whoami)"}, {";", "rm", "-rf", "/"}}
-    for _, args := range cases {
-        if err := ValidateCommand("gopls", args); err == nil {
-            t.Fatalf("expected rejection for %v", args)
-        }
-    }
+	cases := [][]string{{"$(whoami)"}, {";", "rm", "-rf", "/"}}
+	for _, args := range cases {
+		if err := ValidateCommand("gopls", args); err == nil {
+			t.Fatalf("expected rejection for %v", args)
+		}
+	}
 }
 
 func TestValidateCommand_FuzzingStylePatterns(t *testing.T) {

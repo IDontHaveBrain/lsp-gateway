@@ -29,7 +29,7 @@ language_pools:
       pylsp-test:
         name: "pylsp-test"
         languages: ["python"]
-        command: "pylsp"
+        command: "jedi-language-server"
         args: []
         transport: "stdio"
         priority: 3
@@ -50,7 +50,7 @@ language_pools:
       pylsp-fallback:
         name: "pylsp-fallback"
         languages: ["python"]
-        command: "pylsp"
+        command: "jedi-language-server"
         args: []
         transport: "stdio"
         priority: 1
@@ -83,7 +83,7 @@ language_pools:
 servers:
   - name: "python-patterns-test-pool"
     languages: ["python"]
-    command: "pylsp"
+    command: "jedi-language-server"
     args: []
     transport: "stdio"
     root_markers: ["patterns/", "*.py"]

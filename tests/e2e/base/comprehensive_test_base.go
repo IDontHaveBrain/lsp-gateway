@@ -319,7 +319,7 @@ func (suite *ComprehensiveTestBaseSuite) startGatewayServer() error {
 			"working_dir": suite.repoDir,
 		},
 		"python": map[string]interface{}{
-			"command":     "pylsp",
+			"command":     "jedi-language-server",
 			"args":        []string{},
 			"working_dir": suite.repoDir,
 		},

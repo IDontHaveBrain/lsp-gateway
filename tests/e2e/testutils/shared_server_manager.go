@@ -78,7 +78,7 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 			"args":    []string{"serve"},
 		},
 		"python": map[string]interface{}{
-			"command": "pylsp",
+			"command": "jedi-language-server",
 			"args":    []string{},
 		},
 		"javascript": map[string]interface{}{

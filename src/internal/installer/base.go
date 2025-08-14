@@ -492,7 +492,17 @@ func (b *BaseInstaller) InstallWithPackageManager(ctx context.Context, packageMa
 
 		// Build the full command
 		args := append(pipCmd, "install", "--user", installPackage)
-		return b.RunCommand(ctx, args[0], args[1:]...)
+		if err := b.RunCommand(ctx, args[0], args[1:]...); err != nil {
+			// Fallback: handle PEP 668 externally-managed environment by using pipx
+			if _, lookErr := exec.LookPath("pipx"); lookErr == nil {
+				pipxPkg := installPackage
+				// pipx supports ==version syntax as well
+				common.CLILogger.Info("pip install failed; attempting pipx install for %s", pipxPkg)
+				return b.RunCommand(ctx, "pipx", "install", pipxPkg)
+			}
+			return err
+		}
+		return nil
 
 	case "npm":
 		if !b.isNpmInstalled() {

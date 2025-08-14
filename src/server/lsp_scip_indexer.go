@@ -655,34 +655,34 @@ func (m *LSPManager) storeDocumentOccurrences(ctx context.Context, uri, language
 
 	// Otherwise, convert to SymbolInformation and index (keeps definitions + metadata)
 	var symbols []types.SymbolInformation
-    for i, occ := range occurrences {
-        var displayName string
-        var kind types.SymbolKind
-        if i < len(symbolInfos) {
-            displayName = symbolInfos[i].DisplayName
-            kind = m.mapSCIPKindToLSPSymbolKind(symbolInfos[i].Kind)
-        } else {
-            displayName = occ.Symbol
-            kind = types.Variable
-        }
+	for i, occ := range occurrences {
+		var displayName string
+		var kind types.SymbolKind
+		if i < len(symbolInfos) {
+			displayName = symbolInfos[i].DisplayName
+			kind = m.mapSCIPKindToLSPSymbolKind(symbolInfos[i].Kind)
+		} else {
+			displayName = occ.Symbol
+			kind = types.Variable
+		}
 
-        si := types.SymbolInformation{
-            Name: displayName,
-            Kind: kind,
-            Location: types.Location{
-                URI: uri,
-                Range: types.Range{
-                    Start: types.Position{Line: int32(occ.Range.Start.Line), Character: int32(occ.Range.Start.Character)},
-                    End:   types.Position{Line: int32(occ.Range.End.Line), Character: int32(occ.Range.End.Character)},
-                },
-            },
-        }
-        if occ.SelectionRange != nil {
-            sr := *occ.SelectionRange
-            si.SelectionRange = &types.Range{Start: types.Position{Line: sr.Start.Line, Character: sr.Start.Character}, End: types.Position{Line: sr.End.Line, Character: sr.End.Character}}
-        }
-        symbols = append(symbols, si)
-    }
+		si := types.SymbolInformation{
+			Name: displayName,
+			Kind: kind,
+			Location: types.Location{
+				URI: uri,
+				Range: types.Range{
+					Start: types.Position{Line: int32(occ.Range.Start.Line), Character: int32(occ.Range.Start.Character)},
+					End:   types.Position{Line: int32(occ.Range.End.Line), Character: int32(occ.Range.End.Character)},
+				},
+			},
+		}
+		if occ.SelectionRange != nil {
+			sr := *occ.SelectionRange
+			si.SelectionRange = &types.Range{Start: types.Position{Line: sr.Start.Line, Character: sr.Start.Character}, End: types.Position{Line: sr.End.Line, Character: sr.End.Character}}
+		}
+		symbols = append(symbols, si)
+	}
 
 	common.LSPLogger.Debug("Converting %d occurrences to symbols for IndexDocument", len(symbols))
 	// Log first few symbols being indexed

@@ -11,7 +11,7 @@ func TestLSPCapabilityDetector_ParseAndSupports_Standard(t *testing.T) {
 	det := NewLSPCapabilityDetector()
 	init := map[string]interface{}{"capabilities": map[string]interface{}{"workspaceSymbolProvider": true, "completionProvider": map[string]interface{}{"triggerCharacters": []string{"."}}, "definitionProvider": true, "referencesProvider": false}}
 	raw, _ := json.Marshal(init)
-	caps, err := det.ParseCapabilities(raw, "pylsp")
+	caps, err := det.ParseCapabilities(raw, "jedi-language-server")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}

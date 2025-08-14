@@ -57,7 +57,7 @@ servers:
 | Language   | Command                        | Default Args     | Purpose |
 |------------|--------------------------------|------------------|---------|
 | `go`       | `gopls`                        | `["serve"]`      | Go language server |
-| `python`   | `pylsp`                        | `[]`             | Python LSP server |
+| `python`   | `jedi-language-server`         | `[]`             | Python LSP server (default; supports workspace/symbol) |
 | `javascript` | `typescript-language-server` | `["--stdio"]`    | JavaScript support |
 | `typescript` | `typescript-language-server` | `["--stdio"]`    | TypeScript support |
 | `java`     | `jdtls`                        | `[]`             | Java language server |
@@ -412,3 +412,7 @@ Whitelist validation prevents execution of:
 
 ### From Auto-Detection to Explicit Config
 To create an explicit configuration file, start with the templates in `config-templates/` directory and customize based on your project's needs.
+
+## Python Server
+
+Default server: `jedi-language-server` (supports `workspace/symbol`).

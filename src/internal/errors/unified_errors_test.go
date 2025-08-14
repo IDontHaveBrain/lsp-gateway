@@ -75,22 +75,22 @@ func TestTimeoutError(t *testing.T) {
 }
 
 func TestMethodNotSupportedErrorUnified(t *testing.T) {
-	err := NewMethodNotSupportedError("pylsp", types.MethodWorkspaceSymbol, "Consider using jedi-language-server")
+	err := NewMethodNotSupportedError("jedi-language-server", types.MethodWorkspaceSymbol, "Consider using jedi-language-server")
 
 	// Test that the error is correctly identified as a method not supported error
 	if !IsMethodNotSupportedError(err) {
 		t.Error("Expected IsMethodNotSupportedError to return true")
 	}
 
-	expectedError := "LSP server 'pylsp' does not support 'workspace/symbol'. Consider using jedi-language-server"
+	expectedError := "LSP server 'jedi-language-server' does not support 'workspace/symbol'. Consider using jedi-language-server"
 	if err.Error() != expectedError {
 		t.Errorf("Expected error string %s, got %s", expectedError, err.Error())
 	}
 
 	// Test type assertion to access fields
 	if methodErr, ok := err.(*MethodNotSupportedError); ok {
-		if methodErr.Server != "pylsp" {
-			t.Errorf("Expected server 'pylsp', got %s", methodErr.Server)
+		if methodErr.Server != "jedi-language-server" {
+			t.Errorf("Expected server 'jedi-language-server', got %s", methodErr.Server)
 		}
 
 		if methodErr.Method != types.MethodWorkspaceSymbol {

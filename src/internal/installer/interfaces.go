@@ -69,6 +69,10 @@ type InstallOptions struct {
 
 	// UpdateConfig automatically updates configuration files
 	UpdateConfig bool
+
+	// Server selects variant when multiple LSP servers exist for a language
+	// e.g., for python: "jedi" only
+	Server string
 }
 
 // InstallStatus represents installation status for a language

@@ -11,7 +11,7 @@ servers:
 
   # Python Language Server  
   python:
-    command: "pylsp"
+    command: "jedi-language-server"
     args: []
     working_dir: ""
     initialization_options: {}

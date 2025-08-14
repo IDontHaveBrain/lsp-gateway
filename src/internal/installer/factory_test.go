@@ -189,7 +189,7 @@ func TestFactoryCreateSimpleInstaller(t *testing.T) {
 		{
 			name:        "valid python installer",
 			language:    "python",
-			command:     "pylsp",
+			command:     "jedi-language-server",
 			args:        []string{},
 			expectValid: true,
 		},
@@ -315,7 +315,7 @@ func TestFactoryWithCustomConfig(t *testing.T) {
 		{
 			name: "python with verbose",
 			config: &config.ServerConfig{
-				Command: "pylsp",
+				Command: "jedi-language-server",
 				Args:    []string{"-v"},
 			},
 			language: "python",

@@ -221,10 +221,11 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 		}
 	}
 
-	// Generate request ID with language prefix to ensure uniqueness across all clients
+	// Generate numeric request ID (per-client) to maximize compatibility
 	c.mu.Lock()
 	c.nextID++
-	id := fmt.Sprintf("%s-%d", c.language, c.nextID)
+	idVal := c.nextID
+	id := fmt.Sprintf("%d", idVal)
 	c.mu.Unlock()
 
 	// Create request
@@ -247,7 +248,8 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 	}()
 
 	// Create and send message using protocol module
-	msg := protocol.CreateMessage(method, id, params)
+	// Use numeric ID in wire protocol
+	msg := protocol.CreateMessage(method, idVal, params)
 
 	c.writeMu.Lock()
 	writeErr := c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, msg)
@@ -328,7 +330,7 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 		c.timeoutsMu.Unlock()
 
 		// Send cancellation request to LSP server
-		cancelParams := map[string]interface{}{"id": id}
+		cancelParams := map[string]interface{}{"id": idVal}
 		if cancelErr := c.SendNotification(context.Background(), "$/cancelRequest", cancelParams); cancelErr != nil {
 			common.LSPLogger.Debug("Failed to send cancel request for id=%s: %v", id, cancelErr)
 		}
@@ -399,8 +401,9 @@ func (c *StdioClient) HandleRequest(method string, id interface{}, params interf
 		defer c.writeMu.Unlock()
 		return c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, response)
 	} else {
-		// For other server requests, send null result
-		response := protocol.CreateResponse(id, nil, nil)
+		// For other server requests, send explicit null result (result: null)
+		var nullResult json.RawMessage = json.RawMessage("null")
+		response := protocol.CreateResponse(id, nullResult, nil)
 		c.writeMu.Lock()
 		defer c.writeMu.Unlock()
 		return c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, response)

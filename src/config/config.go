@@ -252,7 +252,7 @@ func GetDefaultConfig() *Config {
 				Args:    []string{"serve"},
 			},
 			"python": {
-				Command: "pylsp",
+				Command: "jedi-language-server",
 				Args:    []string{},
 			},
 			"javascript": {

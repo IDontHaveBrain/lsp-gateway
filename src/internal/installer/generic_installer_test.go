@@ -33,10 +33,10 @@ func TestNewGenericInstaller(t *testing.T) {
 			name:           "python language",
 			language:       "python",
 			expectError:    false,
-			expectedCmd:    "pylsp",
+			expectedCmd:    "jedi-language-server",
 			expectedArgs:   []string{},
 			expectedPkgMgr: "pip",
-			expectedPkgs:   []string{"python-lsp-server[all]"},
+			expectedPkgs:   []string{"jedi-language-server"},
 		},
 		{
 			name:           "typescript language",
@@ -139,7 +139,7 @@ func TestGenericInstallerPackageConfigs(t *testing.T) {
 		{
 			language: "python",
 			manager:  "pip",
-			packages: []string{"python-lsp-server[all]"},
+			packages: []string{"jedi-language-server"},
 		},
 		{
 			language: "typescript",
@@ -396,7 +396,7 @@ func TestGenericInstallerValidateInstallation(t *testing.T) {
 		{
 			name:        "python validation",
 			language:    "python",
-			expectError: true, // Will fail since pylsp not installed
+			expectError: true, // Will fail since jedi-language-server not installed
 		},
 		{
 			name:        "typescript validation",
@@ -446,7 +446,7 @@ func TestGenericInstallerPackageManagerCommandGeneration(t *testing.T) {
 			name:            "python configuration",
 			language:        "python",
 			expectedManager: "pip",
-			expectedCommand: "pylsp",
+			expectedCommand: "jedi-language-server",
 		},
 		{
 			name:            "typescript configuration",

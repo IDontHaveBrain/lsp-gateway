@@ -261,8 +261,6 @@ func TestHTTPGateway_handleJSONRPC_ProtocolValidation(t *testing.T) {
 	}
 }
 
- 
-
 // Test handleHealth endpoint - simplified to test cache logic only
 func TestHTTPGateway_handleHealth_CacheLogic(t *testing.T) {
 	t.Run("cache status with metrics", func(t *testing.T) {

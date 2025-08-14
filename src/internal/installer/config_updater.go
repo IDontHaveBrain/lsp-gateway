@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
@@ -65,11 +66,21 @@ func (u *ConfigUpdater) UpdateConfigWithInstalledServers(cfg *config.Config) (*c
 
 		// Update the config if the installed version has different settings
 		if existingConfig, exists := updatedConfig.Servers[language]; exists {
-			// Check if we need to update the command path
+			// Update command and args if they differ
+			changed := false
 			if installerConfig.Command != existingConfig.Command {
 				common.CLILogger.Info("Updating %s command path: %s -> %s",
 					language, existingConfig.Command, installerConfig.Command)
 				existingConfig.Command = installerConfig.Command
+				changed = true
+			}
+			if !reflect.DeepEqual(installerConfig.Args, existingConfig.Args) {
+				common.CLILogger.Info("Updating %s args: %v -> %v",
+					language, existingConfig.Args, installerConfig.Args)
+				existingConfig.Args = append([]string{}, installerConfig.Args...)
+				changed = true
+			}
+			if changed {
 				updatedCount++
 			}
 		} else {

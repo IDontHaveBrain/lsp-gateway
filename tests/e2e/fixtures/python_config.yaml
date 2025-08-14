@@ -23,7 +23,7 @@ project_context:
 servers:
   - name: "pylsp-server"
     languages: ["python"]
-    command: "pylsp"
+    command: "jedi-language-server"
     args: []
     transport: "stdio"
     priority: 3

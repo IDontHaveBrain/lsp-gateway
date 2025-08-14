@@ -27,7 +27,7 @@ var packageConfigs = map[string]PackageConfig{
 	},
 	"python": {
 		Manager:  "pip",
-		Packages: []string{"python-lsp-server[all]"},
+		Packages: []string{"jedi-language-server"},
 	},
 	"typescript": {
 		Manager:  "npm",
@@ -50,7 +50,7 @@ func NewGenericInstaller(language string, platform PlatformInfo) (*GenericPackag
 		command = "gopls"
 		args = []string{"serve"}
 	case "python":
-		command = "pylsp"
+		command = "jedi-language-server"
 		args = []string{}
 	case "typescript":
 		command = "typescript-language-server"

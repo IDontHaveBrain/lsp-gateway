@@ -25,10 +25,10 @@ func TestMethodNotSupportedError(t *testing.T) {
 		},
 		{
 			name:       "Empty suggestion",
-			server:     "pyright",
+			server:     "jedi-language-server",
 			method:     types.MethodWorkspaceSymbol,
 			suggestion: "",
-			expected:   "LSP server 'pyright' does not support 'workspace/symbol'. ",
+			expected:   "LSP server 'jedi-language-server' does not support 'workspace/symbol'. ",
 		},
 		{
 			name:       "Long method name",

@@ -76,7 +76,7 @@ func InstallAll(installPath, version string, force, offline bool) error {
 }
 
 // InstallLanguage installs a specific language server
-func InstallLanguage(language, installPath, version string, force, offline bool) error {
+func InstallLanguage(language, installPath, version string, force, offline bool, server string) error {
 	common.CLILogger.Info("Installing %s language server...", language)
 
 	manager := installer.GetDefaultInstallManager()
@@ -88,6 +88,7 @@ func InstallLanguage(language, installPath, version string, force, offline bool)
 		Offline:        offline,
 		SkipValidation: false,
 		UpdateConfig:   true,
+		Server:         server,
 	}
 
 	ctx, cancel := icommon.CreateContext(20 * time.Minute)

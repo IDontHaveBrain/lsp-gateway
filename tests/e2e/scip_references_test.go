@@ -221,7 +221,7 @@ func getLSPCommandForLanguage(language string) (string, []string) {
 	case "go":
 		return "gopls", []string{"serve"}
 	case "python":
-		return "pylsp", []string{}
+		return "jedi-language-server", []string{}
 	case "javascript":
 		return "typescript-language-server", []string{"--stdio"}
 	case "typescript":

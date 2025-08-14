@@ -314,9 +314,9 @@ func CheckLSPAvailability(t *testing.T, languages ...string) {
 				t.Skip("Go LSP server (gopls) not installed, skipping test")
 			}
 		case "python":
-			_, err := exec.LookPath("pylsp")
+			_, err := exec.LookPath("jedi-language-server")
 			if err != nil {
-				t.Skip("Python LSP server (pylsp) not installed, skipping test")
+				t.Skip("Python LSP server (jedi-language-server) not installed, skipping test")
 			}
 		case "typescript", "javascript":
 			_, err := exec.LookPath("typescript-language-server")

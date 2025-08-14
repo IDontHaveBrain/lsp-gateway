@@ -49,7 +49,7 @@ var languageRegistry = map[string]LanguageInfo{
 	"python": {
 		Name:              "python",
 		Extensions:        []string{".py", ".pyi"},
-		DefaultCommand:    "pylsp",
+		DefaultCommand:    "jedi-language-server",
 		DefaultArgs:       []string{},
 		InstallerRequired: true,
 		InitializationOptions: map[string]interface{}{
@@ -62,11 +62,11 @@ var languageRegistry = map[string]LanguageInfo{
 		ErrorPatterns: []ErrorPattern{
 			{
 				Pattern: types.MethodWorkspaceSymbol,
-				Message: "Ensure 'pylsp' is installed via 'pip install python-lsp-server' for better workspace symbol support.",
+				Message: "Ensure 'jedi-language-server' is installed via 'pip install jedi-language-server'",
 			},
 			{
 				Pattern: "semanticTokens",
-				Message: "Ensure 'pylsp' is installed via 'pip install python-lsp-server' for semantic token support.",
+				Message: "Ensure 'jedi-language-server' is installed via 'pip install jedi-language-server'",
 			},
 		},
 	},
@@ -170,6 +170,7 @@ var allowedCommands = []string{
 	"typescript-language-server",
 	"tsserver",
 	"pylsp",
+	"jedi-language-server",
 	"jdtls",
 	"jdtls.bat",
 	"jdtls.py",
@@ -202,6 +203,10 @@ var allowedCommands = []string{
 	"pip.exe",
 	"pip3",
 	"pip3.exe",
+	"pipx",
+	"pipx.exe",
+	"uv",
+	"uv.exe",
 	"curl",
 	"curl.exe",
 	"wget",

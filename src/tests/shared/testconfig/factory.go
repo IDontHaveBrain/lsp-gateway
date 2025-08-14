@@ -16,7 +16,7 @@ func NewGoServerConfig() *config.ServerConfig {
 // NewPythonServerConfig returns a standard Python server configuration for testing
 func NewPythonServerConfig() *config.ServerConfig {
 	return &config.ServerConfig{
-		Command: "pylsp",
+		Command: "jedi-language-server",
 		Args:    []string{},
 	}
 }

@@ -90,7 +90,7 @@ INTEGRATION MODES:
 
 SUPPORTED LANGUAGES:
   - Go (gopls) - Definition lookup, references, symbols, hover
-  - Python (pylsp) - Code analysis, completion, diagnostics  
+  - Python (jedi-language-server) - Code analysis, completion, diagnostics  
   - TypeScript/JavaScript (typescript-language-server) - Full language support
   - Java (jdtls) - Enterprise-grade Java development
   - Rust (rust-analyzer) - Modern Rust language support
@@ -191,7 +191,7 @@ For Java, it downloads and installs a complete JDK along with Eclipse JDT Langua
 Available commands:
   lsp-gateway install all           # Install all supported language servers
   lsp-gateway install go            # Install Go language server (gopls)
-  lsp-gateway install python        # Install Python language server (pylsp)
+    lsp-gateway install python        # Install Python language server (jedi-language-server)
   lsp-gateway install typescript    # Install TypeScript language server
   lsp-gateway install javascript    # Install JavaScript language server (same as TypeScript)
   lsp-gateway install java          # Install Java JDK + Eclipse JDT Language Server
@@ -260,7 +260,7 @@ var (
 	installPythonCmd = &cobra.Command{
 		Use:   "python",
 		Short: "Install Python language server",
-		Long:  `Install Python language server (pylsp) using pip.`,
+		Long:  `Install Python language server (jedi-language-server) using pip.`,
 		RunE:  runInstallPythonCmd,
 	}
 
@@ -557,27 +557,27 @@ func runInstallAllCmd(cmd *cobra.Command, args []string) error {
 }
 
 func runInstallGoCmd(cmd *cobra.Command, args []string) error {
-	return InstallLanguage("go", installPath, version, force, offline)
+	return InstallLanguage("go", installPath, version, force, offline, "")
 }
 
 func runInstallPythonCmd(cmd *cobra.Command, args []string) error {
-	return InstallLanguage("python", installPath, version, force, offline)
+	return InstallLanguage("python", installPath, version, force, offline, "")
 }
 
 func runInstallTypeScriptCmd(cmd *cobra.Command, args []string) error {
-	return InstallLanguage("typescript", installPath, version, force, offline)
+	return InstallLanguage("typescript", installPath, version, force, offline, "")
 }
 
 func runInstallJavaScriptCmd(cmd *cobra.Command, args []string) error {
-	return InstallLanguage("javascript", installPath, version, force, offline)
+	return InstallLanguage("javascript", installPath, version, force, offline, "")
 }
 
 func runInstallJavaCmd(cmd *cobra.Command, args []string) error {
-	return InstallLanguage("java", installPath, version, force, offline)
+	return InstallLanguage("java", installPath, version, force, offline, "")
 }
 
 func runInstallRustCmd(cmd *cobra.Command, args []string) error {
-	return InstallLanguage("rust", installPath, version, force, offline)
+	return InstallLanguage("rust", installPath, version, force, offline, "")
 }
 
 func runInstallUpdateConfigCmd(cmd *cobra.Command, args []string) error {

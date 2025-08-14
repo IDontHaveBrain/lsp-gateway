@@ -300,7 +300,7 @@ if __name__ == "__main__":
 		err := os.WriteFile(pythonFile, pythonContent, 0644)
 		require.NoError(t, err)
 
-		_, pythonErr := exec.LookPath("pylsp")
+		_, pythonErr := exec.LookPath("jedi-language-server")
 		if pythonErr == nil {
 			params := map[string]interface{}{
 				"textDocument": map[string]interface{}{

@@ -17,9 +17,9 @@ import (
 
 // SaveIndexToDisk saves the SCIP index data to disk as JSON files
 func (m *SCIPCacheManager) SaveIndexToDisk() error {
-    if m.config.StoragePath == "" {
-        return fmt.Errorf("storage path not configured")
-    }
+	if m.config.StoragePath == "" {
+		return fmt.Errorf("storage path not configured")
+	}
 
 	// Create storage directory if it doesn't exist (already project-specific from config)
 	if err := os.MkdirAll(m.config.StoragePath, 0755); err != nil {
@@ -34,16 +34,16 @@ func (m *SCIPCacheManager) SaveIndexToDisk() error {
 		return fmt.Errorf("SCIP storage not available")
 	}
 
-    // Persist by cycling storage (Stop triggers save; Start reloads metadata)
-    ctx := context.Background()
-    if err := m.scipStorage.Stop(ctx); err != nil {
-        return fmt.Errorf("failed to stop storage for save: %v", err)
-    }
-    if err := m.scipStorage.Start(ctx); err != nil {
-        return fmt.Errorf("failed to restart storage after save: %v", err)
-    }
+	// Persist by cycling storage (Stop triggers save; Start reloads metadata)
+	ctx := context.Background()
+	if err := m.scipStorage.Stop(ctx); err != nil {
+		return fmt.Errorf("failed to stop storage for save: %v", err)
+	}
+	if err := m.scipStorage.Start(ctx); err != nil {
+		return fmt.Errorf("failed to restart storage after save: %v", err)
+	}
 
-    return nil
+	return nil
 }
 
 // LoadIndexFromDisk loads the SCIP index data from disk JSON files
