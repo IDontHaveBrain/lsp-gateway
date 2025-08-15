@@ -1,13 +1,14 @@
 package configloader
 
 import (
-	"os"
-	"os/exec"
-	"runtime"
+    "os"
+    "os/exec"
+    "runtime"
 
-	"lsp-gateway/src/config"
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/project"
+    "lsp-gateway/src/config"
+    "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/javautil"
+    "lsp-gateway/src/internal/project"
 )
 
 func LoadOrAuto(configPath string) *config.Config {
@@ -74,18 +75,22 @@ func autoDetectInstalledServers(cfg *config.Config) {
 		return // Skip auto-detection if can't get home directory
 	}
 
-	// Check Java server specifically
-	if javaServer, exists := cfg.Servers["java"]; exists {
-		// Only auto-detect if using the default "jdtls" command
-		if javaServer.Command == "jdtls" {
-			// Check if jdtls is available in PATH
-			if _, err := exec.LookPath("jdtls"); err != nil {
-				// jdtls not found in PATH, check for installed version
-				installedJdtlsPath := getInstalledJdtlsPath(homeDir)
-				if installedJdtlsPath != "" {
-					common.CLILogger.Info("Auto-detected installed jdtls at: %s", installedJdtlsPath)
-					javaServer.Command = installedJdtlsPath
-				}
+    // Check Java server specifically
+    if javaServer, exists := cfg.Servers["java"]; exists {
+        // Only auto-detect if using the default "jdtls" command
+        if javaServer.Command == "jdtls" {
+            // Check if jdtls is available in PATH
+            if _, err := exec.LookPath("jdtls"); err != nil {
+                // jdtls not found in PATH, check for installed version
+                installedJdtlsPath := getInstalledJdtlsPath(homeDir)
+                if installedJdtlsPath != "" {
+                    common.CLILogger.Info("Auto-detected installed jdtls at: %s", installedJdtlsPath)
+                    javaServer.Command = installedJdtlsPath
+                } else {
+                    if javautil.ConfigureJavaFromLocalDownloads(homeDir, javaServer) {
+                        common.CLILogger.Info("Auto-configured Java using local JDK + JDTLS under ~/.lsp-gateway")
+                    }
+                }
 
 				// Rust auto-detection: if rust-analyzer not in PATH but rustup nightly has it,
 				// configure to use 'rustup run nightly rust-analyzer'
@@ -133,3 +138,5 @@ func getInstalledJdtlsPath(homeDir string) string {
 
 	return "" // Not found
 }
+
+//

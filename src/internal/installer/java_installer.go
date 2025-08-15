@@ -1,17 +1,18 @@
 package installer
 
 import (
-	"context"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
+    "context"
+    "fmt"
+    "os"
+    "path/filepath"
+    "strings"
+    "time"
 
-	"lsp-gateway/src/config"
-	"lsp-gateway/src/internal/common"
-	icommon "lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/security"
+    "lsp-gateway/src/config"
+    "lsp-gateway/src/internal/common"
+    icommon "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/javautil"
+    "lsp-gateway/src/internal/security"
 )
 
 // JavaInstaller handles Java language server (jdtls) and JDK installation
@@ -308,64 +309,71 @@ func (j *JavaInstaller) Uninstall() error {
 
 // GetVersion returns the installed Java version
 func (j *JavaInstaller) GetVersion() (string, error) {
-	if !j.IsInstalled() {
-		return "", fmt.Errorf("Java development environment not installed")
-	}
+    // Prefer wrapper-based installation
+    if j.IsInstalled() {
+        installPath := j.GetInstallPath()
+        jdkPath := filepath.Join(installPath, "jdk", "current")
+        javaExe := filepath.Join(jdkPath, "bin", "java")
+        if j.platform.GetPlatform() == "windows" {
+            javaExe += ".exe"
+        }
+        ctx, cancel := icommon.CreateContext(5 * time.Second)
+        defer cancel()
+        if javaVersion, err := j.RunCommandWithOutput(ctx, javaExe, "-version"); err == nil {
+            return fmt.Sprintf("Java: %s, JDTLS: installed", strings.Split(javaVersion, "\n")[0]), nil
+        }
+        return "JDTLS installed (version unknown)", nil
+    }
 
-	// Get version from custom Java installation
-	installPath := j.GetInstallPath()
-	jdkPath := filepath.Join(installPath, "jdk", "current")
-	javaExe := filepath.Join(jdkPath, "bin", "java")
-	if j.platform.GetPlatform() == "windows" {
-		javaExe += ".exe"
-	}
-
-	ctx, cancel := icommon.CreateContext(5 * time.Second)
-	defer cancel()
-
-	if javaVersion, err := j.RunCommandWithOutput(ctx, javaExe, "-version"); err == nil {
-		return fmt.Sprintf("Java: %s, JDTLS: installed", strings.Split(javaVersion, "\n")[0]), nil
-	}
-
-	return "JDTLS installed (version unknown)", nil
+    // Fallback: detect manual install under ~/.lsp-gateway
+    homeDir, _ := os.UserHomeDir()
+    base := filepath.Join(homeDir, ".lsp-gateway")
+    javaExe := javautil.FindLocalJavaExecutable(base)
+    if javaExe == "" {
+        return "", fmt.Errorf("Java development environment not installed")
+    }
+    ctx, cancel := icommon.CreateContext(5 * time.Second)
+    defer cancel()
+    if javaVersion, err := j.RunCommandWithOutput(ctx, javaExe, "-version"); err == nil {
+        return fmt.Sprintf("Java: %s, JDTLS: detected", strings.Split(javaVersion, "\n")[0]), nil
+    }
+    return "JDTLS detected (version unknown)", nil
 }
 
 // IsInstalled checks if Java development environment is installed
 func (j *JavaInstaller) IsInstalled() bool {
-	installPath := j.GetInstallPath()
+    installPath := j.GetInstallPath()
 
-	// Check for wrapper script
-	binDir := filepath.Join(installPath, "bin")
+    binDir := filepath.Join(installPath, "bin")
+    var wrapperPath string
+    if j.platform.GetPlatform() == "windows" {
+        wrapperPath = filepath.Join(binDir, "jdtls.bat")
+    } else {
+        wrapperPath = filepath.Join(binDir, "jdtls")
+    }
 
-	var wrapperPath string
-	if j.platform.GetPlatform() == "windows" {
-		wrapperPath = filepath.Join(binDir, "jdtls.bat")
-	} else {
-		wrapperPath = filepath.Join(binDir, "jdtls")
-	}
+    jdkPath := filepath.Join(installPath, "jdk", "current")
+    javaExe := filepath.Join(jdkPath, "bin", "java")
+    if j.platform.GetPlatform() == "windows" {
+        javaExe += ".exe"
+    }
 
-	if !j.fileExists(wrapperPath) {
-		return false
-	}
+    jdtlsPath := filepath.Join(installPath, "jdtls")
 
-	// Check for JDK
-	jdkPath := filepath.Join(installPath, "jdk", "current")
-	javaExe := filepath.Join(jdkPath, "bin", "java")
-	if j.platform.GetPlatform() == "windows" {
-		javaExe += ".exe"
-	}
+    if j.fileExists(wrapperPath) && j.fileExists(javaExe) && j.fileExists(jdtlsPath) {
+        return true
+    }
 
-	if !j.fileExists(javaExe) {
-		return false
-	}
-
-	// Check for JDTLS
-	jdtlsPath := filepath.Join(installPath, "jdtls")
-	if !j.fileExists(jdtlsPath) {
-		return false
-	}
-
-	return true
+    homeDir, _ := os.UserHomeDir()
+    base := filepath.Join(homeDir, ".lsp-gateway")
+    localJava := javautil.FindLocalJavaExecutable(base)
+    if localJava == "" {
+        return false
+    }
+    if launcher, cfg := javautil.FindLocalJDTLSLauncher(base); launcher != "" && cfg != "" {
+        return true
+    }
+    return false
 }
 
 // GetServerConfig returns the updated server configuration with custom paths

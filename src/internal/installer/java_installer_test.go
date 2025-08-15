@@ -823,6 +823,49 @@ func TestJavaInstallerValidateInstallation(t *testing.T) {
 	}
 }
 
+func TestJavaInstaller_IsInstalled_FallbackManual(t *testing.T) {
+    tmpHome := t.TempDir()
+    t.Setenv("HOME", tmpHome)
+
+    // Create manual JDK/JDTLS layout under ~/.lsp-gateway
+    base := filepath.Join(tmpHome, ".lsp-gateway")
+    jdkJava := filepath.Join(base, "jdk", "current", "bin", "java")
+    if runtime.GOOS == "windows" {
+        jdkJava += ".exe"
+    }
+    if err := os.MkdirAll(filepath.Dir(jdkJava), 0755); err != nil {
+        t.Fatalf("mkdir jdk: %v", err)
+    }
+    if err := os.WriteFile(jdkJava, []byte("java"), 0755); err != nil {
+        t.Fatalf("write java: %v", err)
+    }
+
+    jdtlsBase := filepath.Join(base, "jdtls")
+    plugins := filepath.Join(jdtlsBase, "plugins")
+    if err := os.MkdirAll(plugins, 0755); err != nil {
+        t.Fatalf("mkdir plugins: %v", err)
+    }
+    if err := os.WriteFile(filepath.Join(plugins, "org.eclipse.equinox.launcher_1.0.0.jar"), []byte("jar"), 0644); err != nil {
+        t.Fatalf("write jar: %v", err)
+    }
+    cfgDir := filepath.Join(jdtlsBase, map[string]string{"windows": "config_win", "darwin": "config_mac"}[runtime.GOOS])
+    if cfgDir == filepath.Join(jdtlsBase, "") { // default linux
+        cfgDir = filepath.Join(jdtlsBase, "config_linux")
+    }
+    if err := os.MkdirAll(cfgDir, 0755); err != nil {
+        t.Fatalf("mkdir cfg: %v", err)
+    }
+
+    mockPlatform := &MockPlatformInfo{platform: runtime.GOOS, arch: "amd64", supported: true}
+    real := NewJavaInstaller(mockPlatform)
+    // Use an empty install path so wrapper is absent
+    real.SetInstallPath(filepath.Join(tmpHome, "no-tools-here"))
+
+    if !real.IsInstalled() {
+        t.Fatalf("expected IsInstalled to detect manual install under ~/.lsp-gateway")
+    }
+}
+
 func TestJavaInstallerUninstall(t *testing.T) {
 	tempDir := t.TempDir()
 
