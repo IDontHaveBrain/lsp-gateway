@@ -1179,12 +1179,7 @@ func (s *SimpleSCIPStorage) loadFromDisk() error {
 	common.LSPLogger.Debug("[loadFromDisk] SCIP storage loaded: %d documents, %d symbols, %d symbol names in index, %d occurrences",
 		len(s.documents), len(s.symbolInfoIndex), len(s.symbolNameIndex), len(s.occurrencesByURI))
 
-	// Check if NewLSPManager is in the symbolNameIndex
-	if symbols, found := s.symbolNameIndex["NewLSPManager"]; found {
-		common.LSPLogger.Debug("[loadFromDisk] NewLSPManager found in symbolNameIndex with %d entries", len(symbols))
-	} else {
-		common.LSPLogger.Warn("[loadFromDisk] NewLSPManager NOT found in symbolNameIndex!")
-	}
+	// removed hardcoded symbol presence check
 
 	return nil
 }
@@ -1208,9 +1203,6 @@ func (s *SimpleSCIPStorage) rebuildIndexesFromDocuments() {
 			if symbolInfo != nil && symbolInfo.DisplayName != "" {
 				s.symbolNameIndex[symbolInfo.DisplayName] = append(s.symbolNameIndex[symbolInfo.DisplayName], symbolInfo)
 				addedCount++
-				if symbolInfo.DisplayName == "NewLSPManager" {
-					common.LSPLogger.Debug("[rebuildIndexesFromDocuments] Found NewLSPManager! Symbol ID: %s", symbolID)
-				}
 			} else if symbolInfo != nil {
 				common.LSPLogger.Debug("[rebuildIndexesFromDocuments] Symbol %s has empty DisplayName", symbolID)
 			}

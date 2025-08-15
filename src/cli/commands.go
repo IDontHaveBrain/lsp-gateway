@@ -35,19 +35,20 @@ const (
 
 // CLI Variables
 var (
-	configPath  string
-	lspOnly     bool
-	port        int
-	force       bool
-	offline     bool
-	version     string
-	installPath string
-	verbose     bool
-	outPath     string
-	formatJSON  bool
-	targetFiles []string
-	maxDepth    int
-	includeRefs bool
+    configPath  string
+    lspOnly     bool
+    port        int
+    force       bool
+    offline     bool
+    version     string
+    installPath string
+    verbose     bool
+    outPath     string
+    formatJSON  bool
+    targetFiles []string
+    maxDepth    int
+    includeRefs bool
+    scipOnly    bool
 )
 
 // Root command
@@ -480,6 +481,7 @@ func init() {
 
 	// Context command flags
 	contextMapCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
+	contextMapCmd.Flags().BoolVar(&scipOnly, "scip-only", false, "Use only SCIP index (no LSP)")
 
 	contextRelatedCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
 	contextRelatedCmd.Flags().BoolVar(&formatJSON, "json", false, "Output in JSON format")

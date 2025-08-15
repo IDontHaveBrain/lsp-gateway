@@ -196,18 +196,26 @@ func runContextCmd(cmd *cobra.Command, args []string) error {
 }
 
 func runContextMapCmd(cmd *cobra.Command, args []string) error {
-	if len(args) != 1 {
-		return fmt.Errorf("please provide exactly one file path")
-	}
-	return PrintReferencedFilesCode(configPath, args[0])
+    if len(args) != 1 {
+        return fmt.Errorf("please provide exactly one file path")
+    }
+    return PrintReferencedFilesCode(configPath, args[0], scipOnly)
 }
 
-func PrintReferencedFilesCode(configPath string, inputFile string) error {
-	cmdCtx, err := clicommon.NewCommandContext(configPath, 3*time.Minute)
-	if err != nil {
-		return err
-	}
-	defer cmdCtx.Cleanup()
+func PrintReferencedFilesCode(configPath string, inputFile string, scipOnly bool) error {
+    var (
+        cmdCtx *clicommon.CommandContext
+        err    error
+    )
+    if scipOnly {
+        cmdCtx, err = clicommon.NewCacheOnlyContext(configPath, 3*time.Minute)
+    } else {
+        cmdCtx, err = clicommon.NewCommandContext(configPath, 3*time.Minute)
+    }
+    if err != nil {
+        return err
+    }
+    defer cmdCtx.Cleanup()
 
 	absPath, err := filepath.Abs(inputFile)
 	if err != nil {
@@ -243,7 +251,7 @@ func PrintReferencedFilesCode(configPath string, inputFile string) error {
 			workspaceRoot = wd
 		}
 	}
-	hostRootToken := string(os.PathSeparator) + "work" + string(os.PathSeparator) + "lsp-gateway" + string(os.PathSeparator)
+    
 
 	var storage scip.SCIPDocumentStorage
 	if cmdCtx.Cache != nil {
@@ -289,27 +297,27 @@ func PrintReferencedFilesCode(configPath string, inputFile string) error {
 	expandRangeToSymbol := func(defPath string, base types.Range, name string) types.Range {
 		best := base
 		defURI := utils.FilePathToURICached(defPath)
-		if storage != nil && defURI != "" {
-			if ddoc, err := storage.GetDocument(context.Background(), defURI); err == nil && ddoc != nil {
-				for _, si := range ddoc.SymbolInformation {
-					if rangeContains(si.Range, best) {
-						if name == "" || strings.EqualFold(si.DisplayName, name) {
-							if rangeSize(si.Range) >= rangeSize(best) {
-								best = si.Range
-							}
-						} else if rangeSize(si.Range) > rangeSize(best) {
-							best = si.Range
-						}
-					}
-				}
-			}
-		}
-		if cmdCtx.Manager != nil && defURI != "" {
-			if res, err := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{TextDocument: lsp.TextDocumentIdentifier{URI: defURI}}); err == nil && res != nil {
-				if syms, err2 := parseDocumentSymbolsResult(res); err2 == nil {
-					var walk func([]lsp.DocumentSymbol)
-					walk = func(list []lsp.DocumentSymbol) {
-						for _, ds := range list {
+        if storage != nil && defURI != "" {
+            if ddoc, err := storage.GetDocument(context.Background(), defURI); err == nil && ddoc != nil {
+                for _, si := range ddoc.SymbolInformation {
+                    if rangeContains(si.Range, best) {
+                        if name == "" || strings.EqualFold(si.DisplayName, name) {
+                            if rangeSize(si.Range) >= rangeSize(best) {
+                                best = si.Range
+                            }
+                        } else if rangeSize(si.Range) > rangeSize(best) {
+                            best = si.Range
+                        }
+                    }
+                }
+            }
+        }
+        if !scipOnly && cmdCtx.Manager != nil && defURI != "" {
+            if res, err := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{TextDocument: lsp.TextDocumentIdentifier{URI: defURI}}); err == nil && res != nil {
+                if syms, err2 := parseDocumentSymbolsResult(res); err2 == nil {
+                    var walk func([]lsp.DocumentSymbol)
+                    walk = func(list []lsp.DocumentSymbol) {
+                        for _, ds := range list {
 							if rangeContains(ds.Range, best) && rangeSize(ds.Range) >= rangeSize(best) {
 								if name == "" || strings.EqualFold(ds.Name, name) {
 									best = ds.Range
@@ -346,22 +354,22 @@ func PrintReferencedFilesCode(configPath string, inputFile string) error {
 		}
 
 		defs, err := storage.GetDefinitionsWithDocuments(context.Background(), occ.Symbol)
-		if err == nil && len(defs) > 0 {
-			symInfo, _ := storage.GetSymbolInfo(context.Background(), occ.Symbol)
-			for _, d := range defs {
-				defPath := utils.URIToFilePathCached(d.DocumentURI)
-				if defPath == "" || defPath == absPath {
-					continue
-				}
-				if workspaceRoot != "" {
-					rp, _ := filepath.Abs(defPath)
-					rr, _ := filepath.Abs(workspaceRoot)
-					if (!strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr) || (hostRootToken != "" && !strings.Contains(rp, hostRootToken)) {
-						continue
-					}
-				}
-				key := defPath + "::" + occ.Symbol
-				if seen[key] {
+        if err == nil && len(defs) > 0 {
+            symInfo, _ := storage.GetSymbolInfo(context.Background(), occ.Symbol)
+            for _, d := range defs {
+                defPath := utils.URIToFilePathCached(d.DocumentURI)
+                if defPath == "" || defPath == absPath {
+                    continue
+                }
+                if workspaceRoot != "" {
+                    rp, _ := filepath.Abs(defPath)
+                    rr, _ := filepath.Abs(workspaceRoot)
+                    if (!strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr) {
+                        continue
+                    }
+                }
+                key := defPath + "::" + occ.Symbol
+                if seen[key] {
 					continue
 				}
 				seen[key] = true
@@ -389,12 +397,12 @@ func PrintReferencedFilesCode(configPath string, inputFile string) error {
 			continue
 		}
 
-		if cmdCtx.Manager != nil {
-			pos := occ.Range.Start
-			defResult, derr := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDefinition, &lsp.TextDocumentPositionParams{
-				TextDocument: lsp.TextDocumentIdentifier{URI: uri},
-				Position:     pos,
-			})
+        if !scipOnly && cmdCtx.Manager != nil {
+            pos := occ.Range.Start
+            defResult, derr := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDefinition, &lsp.TextDocumentPositionParams{
+                TextDocument: lsp.TextDocumentIdentifier{URI: uri},
+                Position:     pos,
+            })
 			if derr == nil && defResult != nil {
 				if locs, perr := parseDefinitionResult(defResult); perr == nil {
 					for _, loc := range locs {
@@ -405,9 +413,9 @@ func PrintReferencedFilesCode(configPath string, inputFile string) error {
 						if workspaceRoot != "" {
 							rp, _ := filepath.Abs(defPath)
 							rr, _ := filepath.Abs(workspaceRoot)
-							if (!strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr) || (hostRootToken != "" && !strings.Contains(rp, hostRootToken)) {
-								continue
-							}
+						if (!strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr) {
+							continue
+						}
 						}
 						key := defPath + "::" + occ.Symbol
 						if seen[key] {
@@ -452,7 +460,7 @@ func PrintReferencedFilesCode(configPath string, inputFile string) error {
 			if workspaceRoot != "" {
 				rp, _ := filepath.Abs(defPath)
 				rr, _ := filepath.Abs(workspaceRoot)
-				if (!strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr) || (hostRootToken != "" && !strings.Contains(rp, hostRootToken)) {
+				if (!strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr) {
 					continue
 				}
 			}
@@ -542,13 +550,13 @@ func PrintReferencedFilesCode(configPath string, inputFile string) error {
 		if path == "" || path == absPath {
 			return
 		}
-		if workspaceRoot != "" {
-			rp, _ := filepath.Abs(path)
-			rr, _ := filepath.Abs(workspaceRoot)
-			if (!strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr) || (hostRootToken != "" && !strings.Contains(rp, hostRootToken)) {
-				return
-			}
-		}
+        if workspaceRoot != "" {
+            rp, _ := filepath.Abs(path)
+            rr, _ := filepath.Abs(workspaceRoot)
+            if (!strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr) {
+                return
+            }
+        }
 		// Expand to full symbol range when possible
 		r = expandRangeToSymbol(path, r, name)
 
@@ -568,12 +576,12 @@ func PrintReferencedFilesCode(configPath string, inputFile string) error {
 	}
 
 	// If we have few or no snippets from storage, probe via LSP
-	if cmdCtx.Manager != nil {
-		data, _ := os.ReadFile(absPath)
-		content := string(data)
-		lines := strings.Split(content, "\n")
-		for ln, line := range lines {
-			// Simple token scan
+    if !scipOnly && cmdCtx.Manager != nil {
+        data, _ := os.ReadFile(absPath)
+        content := string(data)
+        lines := strings.Split(content, "\n")
+        for ln, line := range lines {
+            // Simple token scan
 			i := 0
 			for i < len(line) {
 				r := rune(line[i])
@@ -622,9 +630,9 @@ func PrintReferencedFilesCode(configPath string, inputFile string) error {
 	}
 
 	// If still empty after LSP fallback, report error
-	if len(snippetMap) == 0 {
-		return fmt.Errorf("no referenced code found for: %s", absPath)
-	}
+    if len(snippetMap) == 0 {
+        return fmt.Errorf("no referenced code found for: %s", absPath)
+    }
 
 	// Compute files now (after augmentation) and print snippets grouped by file
 	files = make([]string, 0, len(snippetMap))
@@ -633,12 +641,12 @@ func PrintReferencedFilesCode(configPath string, inputFile string) error {
 	}
 	sort.Strings(files)
 	// Expand snippet ranges per file using on-demand LSP document symbols
-	if cmdCtx.Manager != nil {
-		for _, f := range files {
-			defURI := utils.FilePathToURICached(f)
-			if defURI == "" {
-				continue
-			}
+    if !scipOnly && cmdCtx.Manager != nil {
+        for _, f := range files {
+            defURI := utils.FilePathToURICached(f)
+            if defURI == "" {
+                continue
+            }
 			if res, err := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{TextDocument: lsp.TextDocumentIdentifier{URI: defURI}}); err == nil && res != nil {
 				if syms, perr := parseDocumentSymbolsResult(res); perr == nil && len(syms) > 0 {
 					list := snippetMap[f]
@@ -687,13 +695,13 @@ func PrintReferencedFilesCode(configPath string, inputFile string) error {
 		if strings.Contains(f, string(os.PathSeparator)+".g"+string(os.PathSeparator)+"go"+string(os.PathSeparator)+"src"+string(os.PathSeparator)) {
 			continue
 		}
-		if workspaceRoot != "" {
-			rp, _ := filepath.Abs(f)
-			rr, _ := filepath.Abs(workspaceRoot)
-			if (!strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr) || (hostRootToken != "" && !strings.Contains(rp, hostRootToken)) {
-				continue
-			}
-		}
+        if workspaceRoot != "" {
+            rp, _ := filepath.Abs(f)
+            rr, _ := filepath.Abs(workspaceRoot)
+            if (!strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr) {
+                continue
+            }
+        }
 		merged := merge(snippetMap[f])
 		fmt.Printf("\n# FILE: %s\n", f)
 		// Always read from disk to ensure latest content and full lines
