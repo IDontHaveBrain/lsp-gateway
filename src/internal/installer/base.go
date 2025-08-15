@@ -236,6 +236,16 @@ func (b *BaseInstaller) ExtractArchive(ctx context.Context, archivePath, destPat
 	if strings.HasSuffix(archivePath, ".tar.gz") || strings.HasSuffix(archivePath, ".tgz") {
 		return b.RunCommand(ctx, "tar", "-xzf", archivePath, "-C", destPath)
 	} else if strings.HasSuffix(archivePath, ".zip") {
+		// On Windows, use tar (available on Windows 10 1803+) or PowerShell
+		if runtime.GOOS == "windows" {
+			// Try tar first (faster and available on modern Windows)
+			if err := b.RunCommand(ctx, "tar", "-xf", archivePath, "-C", destPath); err == nil {
+				return nil
+			}
+			// Fallback to PowerShell
+			return b.RunCommand(ctx, "powershell", "-NoProfile", "-Command",
+				fmt.Sprintf("Expand-Archive -Path '%s' -DestinationPath '%s' -Force", archivePath, destPath))
+		}
 		return b.RunCommand(ctx, "unzip", "-q", archivePath, "-d", destPath)
 	} else {
 		return fmt.Errorf("unsupported archive format: %s", archivePath)
