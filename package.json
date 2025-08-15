@@ -1,6 +1,6 @@
 {
   "name": "lsp-gateway",
-  "version": "0.0.15",
+  "version": "0.0.16",
   "description": "Local LSP gateway for development - HTTP JSON-RPC and MCP server for multiple languages",
   "main": "lib/index.js",
   "bin": {
@@ -17,7 +17,8 @@
     "cache-verify": "make cache-verify",
     "cache-test": "make cache-test",
     "cache-clean": "make cache-clean",
-    "build-with-cache": "make local cache-verify"
+    "build-with-cache": "make local cache-verify",
+    "prepublishOnly": "node scripts/prepare-npm-binaries.js"
   },
   "keywords": [
     "lsp",
