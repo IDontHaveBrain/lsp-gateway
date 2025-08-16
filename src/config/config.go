@@ -245,8 +245,8 @@ func GetDefaultConfigPath() string {
 // GetDefaultConfig returns a default configuration for common LSP servers
 // Cache is enabled by default with standard production settings
 func GetDefaultConfig() *Config {
-	return &Config{
-		Servers: map[string]*ServerConfig{
+    return &Config{
+        Servers: map[string]*ServerConfig{
 			"go": {
 				Command: "gopls",
 				Args:    []string{"serve"},
@@ -267,11 +267,15 @@ func GetDefaultConfig() *Config {
 				Command: "jdtls",
 				Args:    []string{},
 			},
-			"rust": {
-				Command: "rust-analyzer",
-				Args:    []string{},
-			},
-		},
+            "rust": {
+                Command: "rust-analyzer",
+                Args:    []string{},
+            },
+            "csharp": {
+                Command: "csharp-ls",
+                Args:    []string{},
+            },
+        },
 		// Cache is enabled by default with standard settings
 		Cache: GetDefaultCacheConfig(),
 		MCP:   &MCPConfig{},
