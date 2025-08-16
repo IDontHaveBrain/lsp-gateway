@@ -115,12 +115,12 @@ var languageRegistry = map[string]LanguageInfo{
 		EnvironmentVars:   map[string]string{},
 		ErrorPatterns:     []ErrorPattern{},
 	},
-	"rust": {
-		Name:              "rust",
-		Extensions:        []string{".rs"},
-		DefaultCommand:    "rust-analyzer",
-		DefaultArgs:       []string{},
-		InstallerRequired: true,
+    "rust": {
+        Name:              "rust",
+        Extensions:        []string{".rs"},
+        DefaultCommand:    "rust-analyzer",
+        DefaultArgs:       []string{},
+        InstallerRequired: true,
 		InitializationOptions: map[string]interface{}{
 			"cargo": map[string]interface{}{
 				"features":          []string{},
@@ -143,8 +143,23 @@ var languageRegistry = map[string]LanguageInfo{
 		EnvironmentVars: map[string]string{
 			"CARGO_MANIFEST_DIR": "${workingDir}",
 		},
-		ErrorPatterns: []ErrorPattern{},
-	},
+        ErrorPatterns: []ErrorPattern{},
+    },
+    "csharp": {
+        Name:              "csharp",
+        Extensions:        []string{".cs"},
+        DefaultCommand:    "csharp-ls",
+        DefaultArgs:       []string{},
+        InstallerRequired: true,
+        InitializationOptions: map[string]interface{}{
+            "usePlaceholders":    false,
+            "completeUnimported": true,
+        },
+        RequestTimeout:    30 * time.Second,
+        InitializeTimeout: 45 * time.Second,
+        EnvironmentVars:   map[string]string{},
+        ErrorPatterns:     []ErrorPattern{},
+    },
 }
 
 // Extension to language mapping for efficient lookups
@@ -158,8 +173,9 @@ var extensionToLanguage = map[string]string{
 	".ts":   "typescript",
 	".tsx":  "typescript",
 	".d.ts": "typescript",
-	".java": "java",
-	".rs":   "rust",
+    ".java": "java",
+    ".rs":   "rust",
+    ".cs":   "csharp",
 }
 
 // Allowed commands for security validation
@@ -174,14 +190,16 @@ var allowedCommands = []string{
 	"jdtls",
 	"jdtls.bat",
 	"jdtls.py",
-	"rust-analyzer",
-	"rust-analyzer.exe",
-	"rust-analyzer.cmd",
-	// Runtime tools
-	"java",
-	"java.exe",
-	"node",
-	"node.exe",
+    "rust-analyzer",
+    "rust-analyzer.exe",
+    "rust-analyzer.cmd",
+    "csharp-ls",
+    "csharp-ls.exe",
+    // Runtime tools
+    "java",
+    "java.exe",
+    "node",
+    "node.exe",
 	"python",
 	"python.exe",
 	"python3",
@@ -190,10 +208,12 @@ var allowedCommands = []string{
 	"rustup.exe",
 	"cargo",
 	"cargo.exe",
-	"rustc",
-	"rustc.exe",
-	// Installation tools
-	"go",
+    "rustc",
+    "rustc.exe",
+    "dotnet",
+    "dotnet.exe",
+    // Installation tools
+    "go",
 	"go.exe",
 	"npm",
 	"npm.cmd",

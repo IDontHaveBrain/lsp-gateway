@@ -18,12 +18,12 @@ func TestCreateInstallManager(t *testing.T) {
 		t.Error("CreateInstallManager() created manager with no installers")
 	}
 
-	expectedLanguageCount := 6
+    expectedLanguageCount := 7
 	if len(supportedLanguages) != expectedLanguageCount {
 		t.Errorf("Expected %d supported languages, got %d", expectedLanguageCount, len(supportedLanguages))
 	}
 
-	expectedLanguages := []string{"go", "python", "typescript", "javascript", "java", "rust"}
+    expectedLanguages := []string{"go", "python", "typescript", "javascript", "java", "rust", "csharp"}
 	languageMap := make(map[string]bool)
 	for _, lang := range supportedLanguages {
 		languageMap[lang] = true
@@ -43,16 +43,16 @@ func TestRegisterAllInstallers(t *testing.T) {
 	registerAllInstallers(manager, platform)
 
 	supportedLanguages := manager.GetSupportedLanguages()
-	expectedCount := 6
+    expectedCount := 7
 	if len(supportedLanguages) != expectedCount {
 		t.Errorf("Expected %d installers registered, got %d", expectedCount, len(supportedLanguages))
 	}
 
-	tests := []struct {
-		name     string
-		language string
-		wantErr  bool
-	}{
+    tests := []struct {
+        name     string
+        language string
+        wantErr  bool
+    }{
 		{
 			name:     "go installer registered",
 			language: "go",
@@ -78,16 +78,21 @@ func TestRegisterAllInstallers(t *testing.T) {
 			language: "java",
 			wantErr:  false,
 		},
-		{
-			name:     "rust installer registered",
-			language: "rust",
-			wantErr:  false,
-		},
-		{
-			name:     "unregistered language",
-			language: "nonexistent",
-			wantErr:  true,
-		},
+        {
+            name:     "rust installer registered",
+            language: "rust",
+            wantErr:  false,
+        },
+        {
+            name:     "csharp installer registered",
+            language: "csharp",
+            wantErr:  false,
+        },
+        {
+            name:     "unregistered language",
+            language: "nonexistent",
+            wantErr:  true,
+        },
 	}
 
 	for _, tt := range tests {
@@ -152,12 +157,12 @@ func TestGetDefaultInstallManager(t *testing.T) {
 	}
 
 	supportedLanguages := manager.GetSupportedLanguages()
-	expectedCount := 6
+    expectedCount := 7
 	if len(supportedLanguages) != expectedCount {
 		t.Errorf("Expected %d supported languages, got %d", expectedCount, len(supportedLanguages))
 	}
 
-	testLanguages := []string{"go", "python", "typescript", "javascript", "java", "rust"}
+    testLanguages := []string{"go", "python", "typescript", "javascript", "java", "rust", "csharp"}
 	for _, lang := range testLanguages {
 		installer, err := manager.GetInstaller(lang)
 		if err != nil {

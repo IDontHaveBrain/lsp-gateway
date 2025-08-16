@@ -40,9 +40,13 @@ func registerAllInstallers(manager *LSPInstallManager, platform PlatformInfo) {
 	javaInstaller := NewJavaInstaller(platform)
 	manager.RegisterInstaller("java", javaInstaller)
 
-	// Rust installer
-	rustInstaller := NewRustInstaller(platform)
-	manager.RegisterInstaller("rust", rustInstaller)
+    // Rust installer
+    rustInstaller := NewRustInstaller(platform)
+    manager.RegisterInstaller("rust", rustInstaller)
+
+    // C# installer
+    csharpInstaller := NewCSharpInstaller(platform)
+    manager.RegisterInstaller("csharp", csharpInstaller)
 }
 
 // GetDefaultInstallManager returns a pre-configured install manager

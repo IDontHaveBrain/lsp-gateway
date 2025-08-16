@@ -95,6 +95,7 @@ SUPPORTED LANGUAGES:
   - TypeScript/JavaScript (typescript-language-server) - Full language support
   - Java (jdtls) - Enterprise-grade Java development
   - Rust (rust-analyzer) - Modern Rust language support
+  - C# (csharp-ls) - C# language support via .NET tool
 
 Use 'lsp-gateway <command> --help' for detailed command information.`,
 	SilenceUsage:  true,
@@ -197,6 +198,7 @@ Available commands:
   lsp-gateway install javascript    # Install JavaScript language server (same as TypeScript)
   lsp-gateway install java          # Install Java JDK + Eclipse JDT Language Server
   lsp-gateway install rust          # Install Rust language server (rust-analyzer)
+  lsp-gateway install csharp        # Install C# language server (csharp-ls)
   lsp-gateway install status        # Show installation status
   lsp-gateway install update-config # Update configuration with installed servers
 
@@ -279,7 +281,7 @@ var (
 		RunE:  runInstallJavaScriptCmd,
 	}
 
-	installJavaCmd = &cobra.Command{
+    installJavaCmd = &cobra.Command{
 		Use:   "java",
 		Short: "Install Java development environment",
 		Long: `Install Java development environment including JDK and Eclipse JDT Language Server.
@@ -292,9 +294,9 @@ This command will:
 
 The installed JDK will not interfere with any system Java installation.`,
 		RunE: runInstallJavaCmd,
-	}
+    }
 
-	installUpdateConfigCmd = &cobra.Command{
+    installUpdateConfigCmd = &cobra.Command{
 		Use:   "update-config",
 		Short: "Update configuration with installed language servers",
 		Long: `Update the LSP Gateway configuration file with paths to installed language servers.
@@ -306,14 +308,21 @@ Examples:
   lsp-gateway install update-config
   lsp-gateway install update-config --config custom.yaml`,
 		RunE: runInstallUpdateConfigCmd,
-	}
+    }
 
-	installRustCmd = &cobra.Command{
-		Use:   "rust",
-		Short: "Install Rust language server",
-		Long:  `Install Rust language server (rust-analyzer) using rustup.`,
-		RunE:  runInstallRustCmd,
-	}
+    installRustCmd = &cobra.Command{
+        Use:   "rust",
+        Short: "Install Rust language server",
+        Long:  `Install Rust language server (rust-analyzer) using rustup.`,
+        RunE:  runInstallRustCmd,
+    }
+
+    installCSharpCmd = &cobra.Command{
+        Use:   "csharp",
+        Short: "Install C# language server",
+        Long:  `Install C# language server (csharp-ls) using .NET global tool.`,
+        RunE:  runInstallCSharpCmd,
+    }
 )
 
 // Cache subcommands
@@ -464,9 +473,10 @@ func init() {
 	installCmd.AddCommand(installPythonCmd)
 	installCmd.AddCommand(installTypeScriptCmd)
 	installCmd.AddCommand(installJavaScriptCmd)
-	installCmd.AddCommand(installJavaCmd)
-	installCmd.AddCommand(installRustCmd)
-	installCmd.AddCommand(installUpdateConfigCmd)
+    installCmd.AddCommand(installJavaCmd)
+    installCmd.AddCommand(installRustCmd)
+    installCmd.AddCommand(installCSharpCmd)
+    installCmd.AddCommand(installUpdateConfigCmd)
 
 	// Cache command flags
 	cacheInfoCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
@@ -579,7 +589,11 @@ func runInstallJavaCmd(cmd *cobra.Command, args []string) error {
 }
 
 func runInstallRustCmd(cmd *cobra.Command, args []string) error {
-	return InstallLanguage("rust", installPath, version, force, offline, "")
+    return InstallLanguage("rust", installPath, version, force, offline, "")
+}
+
+func runInstallCSharpCmd(cmd *cobra.Command, args []string) error {
+    return InstallLanguage("csharp", installPath, version, force, offline, "")
 }
 
 func runInstallUpdateConfigCmd(cmd *cobra.Command, args []string) error {
