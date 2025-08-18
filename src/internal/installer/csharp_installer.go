@@ -58,42 +58,78 @@ func (c *CSharpInstaller) Install(ctx context.Context, options InstallOptions) e
 	}
 	// Ensure executable bit on Linux/macOS
 	if runtime.GOOS != "windows" {
-		_ = os.Chmod(filepath.Join(installBin, "omnisharp"), 0755)
-		_ = os.Chmod(filepath.Join(installBin, "OmniSharp"), 0755)
+		// Set permissions on the actual binary that was extracted
+		omnisharpPath := filepath.Join(installBin, "omnisharp")
+		OmniSharpPath := filepath.Join(installBin, "OmniSharp")
+		
+		// Check which binary exists and set permissions
+		if _, err := os.Stat(omnisharpPath); err == nil {
+			os.Chmod(omnisharpPath, 0755)
+		}
+		if _, err := os.Stat(OmniSharpPath); err == nil {
+			os.Chmod(OmniSharpPath, 0755)
+		}
+		
+		// Also check for the actual omnisharp binary in the extraction
+		// Some archives contain the binary directly, others in subdirectories
+		if err := filepath.WalkDir(installBin, func(path string, d os.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
+			}
+			name := d.Name()
+			if name == "omnisharp" || name == "OmniSharp" {
+				os.Chmod(path, 0755)
+			}
+			return nil
+		}); err != nil {
+			// Ignore walk errors
+		}
 	}
 	return nil
+}
+
+// IsInstalled checks if OmniSharp is properly installed
+func (c *CSharpInstaller) IsInstalled() bool {
+	installBin := filepath.Join(c.GetInstallPath(), "bin")
+	
+	// Check for various possible binary names
+	candidates := []string{"omnisharp", "OmniSharp"}
+	if runtime.GOOS == "windows" {
+		for i, name := range candidates {
+			candidates[i] = name + ".exe"
+		}
+	}
+	
+	// Check if any of the candidate binaries exist
+	for _, candidate := range candidates {
+		binaryPath := filepath.Join(installBin, candidate)
+		if info, err := os.Stat(binaryPath); err == nil {
+			// On Unix, also check if it's executable
+			if runtime.GOOS == "windows" {
+				return true
+			}
+			// Check if file has execute permission for owner
+			if info.Mode()&0100 != 0 {
+				return true
+			}
+		}
+	}
+	
+	// Also check if it's available in PATH
+	for _, cmd := range []string{"omnisharp", "OmniSharp"} {
+		if c.IsInstalledByCommand(cmd) {
+			return true
+		}
+	}
+	
+	return false
 }
 
 func (c *CSharpInstaller) GetVersion() (string, error) {
 	if !c.IsInstalled() {
 		return "", fmt.Errorf("csharp language server not installed")
 	}
-
-	// OmniSharp doesn't support traditional version flags
-	// Check if we can determine version from installation
-	installBin := filepath.Join(c.GetInstallPath(), "bin")
-
-	// Check if OmniSharp binary exists
-	omnisharpPath := filepath.Join(installBin, "omnisharp")
-	if runtime.GOOS == "windows" {
-		omnisharpPath += ".exe"
-	}
-
-	if _, err := os.Stat(omnisharpPath); err == nil {
-		return "OmniSharp-Roslyn LSP (installed)", nil
-	}
-
-	// Fallback check for OmniSharp with capital O
-	omnisharpPath = filepath.Join(installBin, "OmniSharp")
-	if runtime.GOOS == "windows" {
-		omnisharpPath += ".exe"
-	}
-
-	if _, err := os.Stat(omnisharpPath); err == nil {
-		return "OmniSharp-Roslyn LSP (installed)", nil
-	}
-
-	return "unknown", nil
+	return "OmniSharp-Roslyn LSP (installed)", nil
 }
 
 func (c *CSharpInstaller) Uninstall() error {

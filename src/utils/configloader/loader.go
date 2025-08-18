@@ -112,6 +112,28 @@ func autoDetectInstalledServers(cfg *config.Config) {
 			}
 		}
 	}
+	
+	// Check C# server specifically
+	if csharpServer, exists := cfg.Servers["csharp"]; exists {
+		// Only auto-detect if using the default "omnisharp" command
+		if csharpServer.Command == "omnisharp" {
+			// Check if omnisharp is available in PATH
+			if _, err := exec.LookPath("omnisharp"); err != nil {
+				// Try OmniSharp with capital O
+				if _, err := exec.LookPath("OmniSharp"); err == nil {
+					common.CLILogger.Info("Auto-detected OmniSharp (capital O) in PATH")
+					csharpServer.Command = "OmniSharp"
+				} else {
+					// Check for installed version
+					installedOmniSharpPath := getInstalledOmniSharpPath(homeDir)
+					if installedOmniSharpPath != "" {
+						common.CLILogger.Info("Auto-detected installed OmniSharp at: %s", installedOmniSharpPath)
+						csharpServer.Command = installedOmniSharpPath
+					}
+				}
+			}
+		}
+	}
 }
 
 // getInstalledJdtlsPath returns the path to installed jdtls if it exists
@@ -136,6 +158,34 @@ func getInstalledJdtlsPath(homeDir string) string {
 		return jdtlsPath
 	}
 
+	return "" // Not found
+}
+
+// getInstalledOmniSharpPath returns the path to installed OmniSharp if it exists
+func getInstalledOmniSharpPath(homeDir string) string {
+	// Check both "omnisharp" and "OmniSharp" binary names
+	candidates := []string{"omnisharp", "OmniSharp"}
+	
+	for _, name := range candidates {
+		var omnisharpPath string
+		if runtime.GOOS == "windows" {
+			omnisharpPath = common.GetLSPToolPath("csharp", name+".exe")
+		} else {
+			omnisharpPath = common.GetLSPToolPath("csharp", name)
+		}
+		
+		// Check if the file exists and is executable
+		if fileInfo, err := os.Stat(omnisharpPath); err == nil {
+			// Check if it's executable (on Unix systems)
+			if runtime.GOOS != "windows" {
+				if fileInfo.Mode()&0111 == 0 {
+					continue // Not executable, try next candidate
+				}
+			}
+			return omnisharpPath
+		}
+	}
+	
 	return "" // Not found
 }
 
