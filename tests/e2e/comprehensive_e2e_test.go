@@ -1,7 +1,6 @@
 package e2e_test
 
 import (
-	"os/exec"
 	"testing"
 
 	"lsp-gateway/tests/e2e/base"
@@ -22,10 +21,7 @@ func getLanguageConfigs() []LanguageTestConfig {
         {name: "typescript", displayName: "TypeScript"},
         {name: "java", displayName: "Java"},
         {name: "rust", displayName: "Rust"},
-    }
-
-    if _, err := exec.LookPath("omnisharp"); err == nil {
-        configs = append(configs, LanguageTestConfig{name: "csharp", displayName: "CSharp"})
+        {name: "csharp", displayName: "CSharp"},  // Always include C# in tests
     }
     return configs
 }
