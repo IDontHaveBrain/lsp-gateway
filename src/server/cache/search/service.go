@@ -1,11 +1,10 @@
 package search
 
 import (
-	"context"
-	"fmt"
-	"sort"
-	"sync"
-	"time"
+    "context"
+    "fmt"
+    "sync"
+    "time"
 
 	"lsp-gateway/src/internal/constants"
 	"lsp-gateway/src/internal/types"
@@ -77,250 +76,47 @@ func (s *SearchService) ExecuteSearch(request *SearchRequest) (*SearchResponse, 
 
 // ExecuteDefinitionSearch consolidates definition search logic
 func (s *SearchService) ExecuteDefinitionSearch(request *SearchRequest) (*SearchResponse, error) {
-	return s.guard.WithSearchResponse(SearchTypeDefinition, func() (*SearchResponse, error) {
-		return s.withIndexReadLock(func() (*SearchResponse, error) {
-			return s.executeDefinitionSearchInternal(request)
-		})
-	})
+    return s.guard.WithSearchResponse(SearchTypeDefinition, func() (*SearchResponse, error) {
+        return s.withIndexReadLock(func() (*SearchResponse, error) {
+            h := &DefinitionSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
+            return h.Handle(request)
+        })
+    })
 }
 
-// executeDefinitionSearchInternal contains the actual definition search logic
-func (s *SearchService) executeDefinitionSearchInternal(request *SearchRequest) (*SearchResponse, error) {
-	maxResults := s.normalizeMaxResults(request.MaxResults)
-	startTime := time.Now()
-
-	symbolInfos, err := s.storage.SearchSymbols(request.Context, request.SymbolName, 10)
-	if err != nil || len(symbolInfos) == 0 {
-		return s.buildSearchResponse(SearchTypeDefinition, []interface{}{}, &SearchMetadata{
-			ExecutionTime: time.Since(startTime),
-			SymbolsFound:  0,
-			CacheEnabled:  true,
-			SCIPEnabled:   true,
-		}, request), nil
-	}
-
-	var allDefinitions []interface{}
-	fileSet := make(map[string]bool)
-
-	for _, symbolInfo := range symbolInfos {
-		defOccs, err := s.storage.GetDefinitionsWithDocuments(request.Context, symbolInfo.Symbol)
-		if err != nil || len(defOccs) == 0 {
-			continue
-		}
-
-		defOcc := &defOccs[0]
-		docURI := defOcc.DocumentURI
-
-		if request.FilePattern != "" && !s.matchFilePatternFn(docURI, request.FilePattern) {
-			continue
-		}
-
-		occInfo := s.buildOccurrenceInfoFn(&defOcc.SCIPOccurrence, docURI)
-		allDefinitions = append(allDefinitions, occInfo)
-		fileSet[docURI] = true
-
-		if len(allDefinitions) >= maxResults {
-			break
-		}
-	}
-
-	metadata := &SearchMetadata{
-		ExecutionTime:   time.Since(startTime),
-		SymbolsFound:    len(symbolInfos),
-		FilesMatched:    len(fileSet),
-		FilteredResults: len(allDefinitions),
-		CacheEnabled:    true,
-		SCIPEnabled:     true,
-		FilePattern:     request.FilePattern,
-	}
-
-	return s.buildSearchResponse(SearchTypeDefinition, allDefinitions, metadata, request), nil
-}
 
 // ExecuteReferenceSearch consolidates reference search logic
 func (s *SearchService) ExecuteReferenceSearch(request *SearchRequest) (*SearchResponse, error) {
-	return s.guard.WithSearchResponse(SearchTypeReference, func() (*SearchResponse, error) {
-		return s.withIndexReadLock(func() (*SearchResponse, error) {
-			return s.executeReferenceSearchInternal(request)
-		})
-	})
+    return s.guard.WithSearchResponse(SearchTypeReference, func() (*SearchResponse, error) {
+        return s.withIndexReadLock(func() (*SearchResponse, error) {
+            h := &ReferenceSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
+            return h.Handle(request)
+        })
+    })
 }
 
-// executeReferenceSearchInternal contains the actual reference search logic
-func (s *SearchService) executeReferenceSearchInternal(request *SearchRequest) (*SearchResponse, error) {
-	maxResults := s.normalizeMaxResults(request.MaxResults)
-	startTime := time.Now()
-
-	symbolInfos, err := s.storage.SearchSymbols(request.Context, request.SymbolName, 10)
-	if err != nil || len(symbolInfos) == 0 {
-		return s.buildSearchResponse(SearchTypeReference, []interface{}{}, &SearchMetadata{
-			ExecutionTime: time.Since(startTime),
-			SymbolsFound:  0,
-			CacheEnabled:  true,
-			SCIPEnabled:   true,
-		}, request), nil
-	}
-
-	var allReferences []interface{}
-	fileSet := make(map[string]bool)
-
-	for _, symbolInfo := range symbolInfos {
-		refOccs, err := s.storage.GetReferencesWithDocuments(request.Context, symbolInfo.Symbol)
-		if err != nil {
-			continue
-		}
-
-		for _, occWithDoc := range refOccs {
-			docURI := occWithDoc.DocumentURI
-			if request.FilePattern != "" && !s.matchFilePatternFn(docURI, request.FilePattern) {
-				continue
-			}
-
-			occInfo := s.buildOccurrenceInfoFn(&occWithDoc.SCIPOccurrence, docURI)
-			allReferences = append(allReferences, occInfo)
-			fileSet[docURI] = true
-
-			if len(allReferences) >= maxResults {
-				goto doneRefs
-			}
-		}
-	}
-
-doneRefs:
-	metadata := &SearchMetadata{
-		ExecutionTime:   time.Since(startTime),
-		SymbolsFound:    len(symbolInfos),
-		FilesMatched:    len(fileSet),
-		FilteredResults: len(allReferences),
-		CacheEnabled:    true,
-		SCIPEnabled:     true,
-		FilePattern:     request.FilePattern,
-	}
-
-	return s.buildSearchResponse(SearchTypeReference, allReferences, metadata, request), nil
-}
 
 // ExecuteSymbolSearch consolidates symbol search logic
 func (s *SearchService) ExecuteSymbolSearch(request *SearchRequest) (*SearchResponse, error) {
-	return s.guard.WithSearchResponse(SearchTypeSymbol, func() (*SearchResponse, error) {
-		return s.withIndexReadLock(func() (*SearchResponse, error) {
-			return s.executeSymbolSearchInternal(request)
-		})
-	})
+    return s.guard.WithSearchResponse(SearchTypeSymbol, func() (*SearchResponse, error) {
+        return s.withIndexReadLock(func() (*SearchResponse, error) {
+            h := &SymbolSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
+            return h.Handle(request)
+        })
+    })
 }
 
-// executeSymbolSearchInternal contains the actual symbol search logic
-func (s *SearchService) executeSymbolSearchInternal(request *SearchRequest) (*SearchResponse, error) {
-	maxResults := s.normalizeMaxResults(request.MaxResults)
-	startTime := time.Now()
-
-	searchLimit := maxResults
-	if request.FilePattern != "" {
-		searchLimit = maxResults * 10
-		if searchLimit > 1000 {
-			searchLimit = 1000
-		}
-	}
-
-	symbolInfos, err := s.storage.SearchSymbols(request.Context, request.SymbolName, searchLimit)
-	if err != nil {
-		return s.buildSearchResponse(SearchTypeSymbol, []interface{}{}, &SearchMetadata{
-			ExecutionTime: time.Since(startTime),
-			CacheEnabled:  true,
-			SCIPEnabled:   true,
-			Errors:        []string{err.Error()},
-		}, request), nil
-	}
-
-	var results []interface{}
-	for _, symbolInfo := range symbolInfos {
-		var occWithDoc *scip.OccurrenceWithDocument
-
-		// Prefer definition; else any occurrence
-		defs, defErr := s.storage.GetDefinitionsWithDocuments(request.Context, symbolInfo.Symbol)
-		if len(defs) > 0 && defErr == nil {
-			occWithDoc = &defs[0]
-		} else {
-			occs, occErr := s.storage.GetOccurrencesWithDocuments(request.Context, symbolInfo.Symbol)
-			if len(occs) > 0 && occErr == nil {
-				occWithDoc = &occs[0]
-			}
-		}
-
-		if occWithDoc == nil {
-			continue
-		}
-
-		// Apply file filter
-		if request.FilePattern != "" && !s.matchFilePatternFn(occWithDoc.DocumentURI, request.FilePattern) {
-			continue
-		}
-
-		enhancedResult := map[string]interface{}{
-			"symbolInfo":  symbolInfo,
-			"occurrence":  &occWithDoc.SCIPOccurrence,
-			"documentURI": occWithDoc.DocumentURI,
-			"range":       occWithDoc.Range,
-		}
-		results = append(results, enhancedResult)
-
-		if len(results) >= maxResults {
-			break
-		}
-	}
-
-	metadata := &SearchMetadata{
-		ExecutionTime:   time.Since(startTime),
-		TotalCandidates: len(symbolInfos),
-		FilteredResults: len(results),
-		CacheEnabled:    true,
-		SCIPEnabled:     true,
-		FilePattern:     request.FilePattern,
-	}
-
-	return s.buildSearchResponse(SearchTypeSymbol, results, metadata, request), nil
-}
 
 // ExecuteWorkspaceSearch consolidates workspace search logic
 func (s *SearchService) ExecuteWorkspaceSearch(request *SearchRequest) (*SearchResponse, error) {
-	return s.guard.WithSearchResponse(SearchTypeWorkspace, func() (*SearchResponse, error) {
-		return s.withIndexReadLock(func() (*SearchResponse, error) {
-			return s.executeWorkspaceSearchInternal(request)
-		})
-	})
+    return s.guard.WithSearchResponse(SearchTypeWorkspace, func() (*SearchResponse, error) {
+        return s.withIndexReadLock(func() (*SearchResponse, error) {
+            h := &WorkspaceSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
+            return h.Handle(request)
+        })
+    })
 }
 
-// executeWorkspaceSearchInternal contains the actual workspace search logic
-func (s *SearchService) executeWorkspaceSearchInternal(request *SearchRequest) (*SearchResponse, error) {
-	maxResults := s.normalizeMaxResults(request.MaxResults)
-	startTime := time.Now()
-
-	symbolInfos, err := s.storage.SearchSymbols(request.Context, request.SymbolName, maxResults)
-	if err != nil {
-		return s.buildSearchResponse(SearchTypeWorkspace, []interface{}{}, &SearchMetadata{
-			ExecutionTime: time.Since(startTime),
-			CacheEnabled:  true,
-			SCIPEnabled:   true,
-			Errors:        []string{err.Error()},
-		}, request), nil
-	}
-
-	results := make([]interface{}, len(symbolInfos))
-	for i, sym := range symbolInfos {
-		results[i] = sym
-	}
-
-	stats := s.storage.GetIndexStats()
-	metadata := &SearchMetadata{
-		ExecutionTime: time.Since(startTime),
-		SymbolsFound:  len(symbolInfos),
-		CacheEnabled:  true,
-		SCIPEnabled:   true,
-		IndexStats:    stats,
-	}
-
-	return s.buildSearchResponse(SearchTypeWorkspace, results, metadata, request), nil
-}
 
 // Enhanced search operations for specialized use cases
 
@@ -394,7 +190,7 @@ func (s *SearchService) executeEnhancedSymbolSearchInternal(query *EnhancedSymbo
 
 	// Apply sorting if specified
 	if query.SortBy != "" {
-		s.sortEnhancedResults(enhancedResults, query.SortBy)
+        SortEnhancedResults(enhancedResults, query.SortBy)
 	}
 
 	return &EnhancedSymbolSearchResponse{
@@ -495,7 +291,7 @@ func (s *SearchService) executeReferenceSearchEnhancedInternal(symbolName, fileP
 
 	// Apply sorting if specified
 	if options.SortBy != "" {
-		s.sortOccurrenceResults(allReferences, options.SortBy)
+        SortOccurrenceResults(allReferences, options.SortBy)
 	}
 
 	return &ReferenceSearchResponse{
@@ -542,75 +338,16 @@ func (s *SearchService) normalizeMaxResults(maxResults int) int {
 
 // buildSearchResponse constructs a standardized SearchResponse
 func (s *SearchService) buildSearchResponse(searchType SearchType, results []interface{}, metadata *SearchMetadata, request *SearchRequest) *SearchResponse {
-	return &SearchResponse{
-		Type:      searchType,
-		RequestID: request.RequestID,
-		Results:   results,
-		Total:     len(results),
-		Truncated: false,
-		Metadata:  metadata,
-		Timestamp: time.Now(),
-		Success:   true,
-	}
-}
-
-// sortEnhancedResults sorts enhanced symbol results by specified criteria
-func (s *SearchService) sortEnhancedResults(results []EnhancedSymbolResult, sortBy string) {
-	switch sortBy {
-	case "name":
-		sort.Slice(results, func(i, j int) bool {
-			return results[i].DisplayName < results[j].DisplayName
-		})
-	case "relevance":
-		sort.Slice(results, func(i, j int) bool {
-			return results[i].Score > results[j].Score
-		})
-	case "occurrences":
-		sort.Slice(results, func(i, j int) bool {
-			return results[i].OccurrenceCount > results[j].OccurrenceCount
-		})
-	case "kind":
-		sort.Slice(results, func(i, j int) bool {
-			return results[i].Kind < results[j].Kind
-		})
-	default:
-		// Default to relevance score
-		sort.Slice(results, func(i, j int) bool {
-			return results[i].Score > results[j].Score
-		})
-	}
-}
-
-// sortOccurrenceResults sorts occurrence results by specified criteria
-func (s *SearchService) sortOccurrenceResults(results []SCIPOccurrenceInfo, sortBy string) {
-	switch sortBy {
-	case "location":
-		sort.Slice(results, func(i, j int) bool {
-			if results[i].DocumentURI != results[j].DocumentURI {
-				return results[i].DocumentURI < results[j].DocumentURI
-			}
-			if results[i].LineNumber != results[j].LineNumber {
-				return results[i].LineNumber < results[j].LineNumber
-			}
-			return results[i].Occurrence.Range.Start.Character < results[j].Occurrence.Range.Start.Character
-		})
-	case "file":
-		sort.Slice(results, func(i, j int) bool {
-			return results[i].DocumentURI < results[j].DocumentURI
-		})
-	case "relevance":
-		sort.Slice(results, func(i, j int) bool {
-			return results[i].Score > results[j].Score
-		})
-	default:
-		// Default to location
-		sort.Slice(results, func(i, j int) bool {
-			if results[i].DocumentURI != results[j].DocumentURI {
-				return results[i].DocumentURI < results[j].DocumentURI
-			}
-			return results[i].LineNumber < results[j].LineNumber
-		})
-	}
+    return &SearchResponse{
+        Type:      searchType,
+        RequestID: request.RequestID,
+        Results:   results,
+        Total:     len(results),
+        Truncated: false,
+        Metadata:  metadata,
+        Timestamp: time.Now(),
+        Success:   true,
+    }
 }
 
 // IsEnabled returns whether the search service is enabled

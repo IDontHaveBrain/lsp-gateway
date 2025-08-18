@@ -58,30 +58,11 @@ func (m *SCIPCacheManager) QueryIndex(ctx context.Context, query *IndexQuery) (*
 
 // SearchSymbolsEnhanced performs direct SCIP symbol search with enhanced results
 func (m *SCIPCacheManager) SearchSymbolsEnhanced(ctx context.Context, query *EnhancedSymbolQuery) (*EnhancedSymbolSearchResult, error) {
-	return m.WithEnhancedSymbolResult(query, func() (*EnhancedSymbolSearchResult, error) {
-		// Convert cache EnhancedSymbolQuery to search EnhancedSymbolQuery
-		searchQuery := &search.EnhancedSymbolQuery{
-			Pattern:              query.Pattern,
-			FilePattern:          query.FilePattern,
-			Language:             query.Language,
-			MaxResults:           query.MaxResults,
-			QueryType:            search.OccurrenceQueryType(query.QueryType),
-			SymbolRoles:          query.SymbolRoles,
-			SymbolKinds:          query.SymbolKinds,
-			ExcludeRoles:         query.ExcludeRoles,
-			MinOccurrences:       query.MinOccurrences,
-			MaxOccurrences:       query.MaxOccurrences,
-			IncludeDocumentation: query.IncludeDocumentation,
-			IncludeRelationships: query.IncludeRelationships,
-			OnlyWithDefinition:   query.OnlyWithDefinition,
-			SortBy:               query.SortBy,
-			IncludeScore:         query.IncludeScore,
-		}
-
-		response, err := m.searchService.ExecuteEnhancedSymbolSearch(searchQuery)
-		if err != nil {
-			return nil, err
-		}
+    return m.WithEnhancedSymbolResult(query, func() (*EnhancedSymbolSearchResult, error) {
+        response, err := m.searchService.ExecuteEnhancedSymbolSearch(query)
+        if err != nil {
+            return nil, err
+        }
 
 		// Convert search response to cache response
 		metadata := map[string]interface{}{
@@ -95,11 +76,11 @@ func (m *SCIPCacheManager) SearchSymbolsEnhanced(ctx context.Context, query *Enh
 			Symbols:   response.Symbols,
 			Total:     response.Total,
 			Truncated: response.Truncated,
-			Query:     query,
-			Metadata:  metadata,
-			Timestamp: response.Timestamp,
-		}, nil
-	})
+            Query:     query,
+            Metadata:  metadata,
+            Timestamp: response.Timestamp,
+        }, nil
+    })
 }
 
 // SearchSymbols provides direct access to SCIP symbol search for MCP tools

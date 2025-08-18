@@ -1,50 +1,13 @@
 package cache
 
 import (
-	"time"
+    "time"
 
-	"lsp-gateway/src/internal/types"
-	"lsp-gateway/src/server/cache/search"
-	"lsp-gateway/src/server/scip"
+    "lsp-gateway/src/server/cache/search"
+    "lsp-gateway/src/server/scip"
 )
 
-// Enhanced occurrence-based query types
-type OccurrenceQueryType string
-
-const (
-	QueryTypeSymbols             OccurrenceQueryType = "symbols"
-	QueryTypeWriteAccesses       OccurrenceQueryType = "write_accesses"
-	QueryTypeImportStatements    OccurrenceQueryType = "import_statements"
-	QueryTypeForwardDeclarations OccurrenceQueryType = "forward_declarations"
-	QueryTypeGeneratedCode       OccurrenceQueryType = "generated_code"
-	QueryTypeTestCode            OccurrenceQueryType = "test_code"
-	QueryTypeImplementations     OccurrenceQueryType = "implementations"
-	QueryTypeRelatedSymbols      OccurrenceQueryType = "related_symbols"
-)
-
-// EnhancedSymbolQuery represents an enhanced symbol query with occurrence-based filtering
-type EnhancedSymbolQuery struct {
-	// Basic query parameters
-	Pattern     string `json:"pattern"`
-	FilePattern string `json:"file_pattern,omitempty"`
-	Language    string `json:"language,omitempty"`
-	MaxResults  int    `json:"max_results,omitempty"`
-
-	// Occurrence-based filtering
-	QueryType      OccurrenceQueryType   `json:"query_type,omitempty"`
-	SymbolRoles    []types.SymbolRole    `json:"symbol_roles,omitempty"`
-	SymbolKinds    []scip.SCIPSymbolKind `json:"symbol_kinds,omitempty"`
-	ExcludeRoles   []types.SymbolRole    `json:"exclude_roles,omitempty"`
-	MinOccurrences int                   `json:"min_occurrences,omitempty"`
-	MaxOccurrences int                   `json:"max_occurrences,omitempty"`
-
-	// Advanced filtering
-	IncludeDocumentation bool   `json:"include_documentation"`
-	IncludeRelationships bool   `json:"include_relationships"`
-	OnlyWithDefinition   bool   `json:"only_with_definition"`
-	SortBy               string `json:"sort_by,omitempty"` // "relevance", "name", "occurrences", "kind"
-	IncludeScore         bool   `json:"include_score"`
-}
+type EnhancedSymbolQuery = search.EnhancedSymbolQuery
 
 // EnhancedSymbolResult represents an enhanced symbol search result with occurrence metadata
 type EnhancedSymbolResult = search.EnhancedSymbolResult
@@ -59,14 +22,8 @@ type EnhancedSymbolSearchResult struct {
 	Timestamp time.Time              `json:"timestamp"`
 }
 
-// ReferenceSearchOptions represents options for reference searching
-type ReferenceSearchOptions struct {
-	MaxResults  int                   `json:"max_results,omitempty"`
-	SymbolRoles []types.SymbolRole    `json:"symbol_roles,omitempty"`
-	SymbolKinds []scip.SCIPSymbolKind `json:"symbol_kinds,omitempty"`
-	IncludeCode bool                  `json:"include_code"`
-	SortBy      string                `json:"sort_by,omitempty"` // "location", "relevance", "file"
-}
+// ReferenceSearchOptions: reuse unified search options
+type ReferenceSearchOptions = search.ReferenceSearchOptions
 
 // ReferenceSearchResult represents reference search results with occurrence details
 type ReferenceSearchResult struct {
@@ -110,13 +67,5 @@ type SymbolInfoResult struct {
 	Timestamp       time.Time                   `json:"timestamp"`
 }
 
-// SCIPOccurrenceInfo represents occurrence information with context
-type SCIPOccurrenceInfo struct {
-	Occurrence  scip.SCIPOccurrence `json:"occurrence"`
-	DocumentURI string              `json:"document_uri"`
-	SymbolRoles types.SymbolRole    `json:"symbol_roles"`
-	SyntaxKind  types.SyntaxKind    `json:"syntax_kind"`
-	Context     string              `json:"context,omitempty"` // Surrounding code context
-	LineNumber  int32               `json:"line_number"`
-	Score       float64             `json:"score,omitempty"` // Relevance score
-}
+// SCIPOccurrenceInfo: reuse unified occurrence info type
+type SCIPOccurrenceInfo = search.SCIPOccurrenceInfo
