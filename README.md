@@ -1,6 +1,6 @@
-# LSP Gateway (BETA)
+# LSP Gateway
 
-Language Server Protocol gateway with HTTP and MCP interfaces for 6 languages.
+Language Server Protocol gateway with HTTP and MCP interfaces for 7 languages.
 
 ## Quick Start
 
@@ -21,9 +21,9 @@ curl localhost:8080/jsonrpc  # Test HTTP gateway
 
 ## Features
 
-- **6 Languages**: Go, Python, JavaScript, TypeScript, Java, Rust
+- **7 Languages**: Go, Python, JavaScript, TypeScript, Java, Rust, C#
 - **Dual Protocols**: HTTP Gateway (:8080) + MCP Server (STDIO)
-- **Auto-detection**: Scans for go.mod, package.json, *.py, pom.xml, Cargo.toml
+- **Auto-detection**: Scans for go.mod, package.json, *.py, pom.xml, Cargo.toml, *.csproj
 - **SCIP Cache**: Sub-millisecond symbol lookups with 512MB LRU cache
 - **LSP Methods**: definition, references, hover, documentSymbol, workspace/symbol, completion
 
@@ -39,6 +39,7 @@ lsp-gateway install typescript # Install typescript-language-server
 lsp-gateway install javascript # Install typescript-language-server
 lsp-gateway install java       # Install jdtls
 lsp-gateway install rust       # Install rust-analyzer
+lsp-gateway install csharp     # Install omnisharp
 ```
 
 ## Usage
