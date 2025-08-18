@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-LSP Gateway development reference for Claude Code - v0.0.16
+LSP Gateway development reference for Claude Code - v0.0.17
 
 ## Core Commands
 

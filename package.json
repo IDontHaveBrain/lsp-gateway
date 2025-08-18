@@ -1,6 +1,6 @@
 {
   "name": "lsp-gateway",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "description": "Local LSP gateway for development - HTTP JSON-RPC and MCP server for multiple languages",
   "main": "lib/index.js",
   "bin": {
