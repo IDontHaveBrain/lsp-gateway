@@ -504,19 +504,31 @@ func (m *LSPManager) sendRequestWithRetry(ctx context.Context, client types.LSPC
 	var lastRes json.RawMessage
 	var lastErr error
 
-	for attempt := 0; attempt < maxRetries; attempt++ {
-		res, err := client.SendRequest(ctx, method, params)
-		lastRes = res
-		lastErr = err
+    for attempt := 0; attempt < maxRetries; attempt++ {
+        res, err := client.SendRequest(ctx, method, params)
+        lastRes = res
+        lastErr = err
 
-		if err != nil {
-			return res, err
-		}
+        if err != nil {
+            return res, err
+        }
 
-		if !isNoViewsRPCError(res) {
-			// Success - no "no views" error
-			return res, nil
-		}
+        // Retry on transient content-modified errors commonly returned by some servers (e.g., OmniSharp)
+        if isContentModifiedRPCError(res) {
+            if uri == "" || attempt == maxRetries-1 {
+                return res, nil
+            }
+            delay := time.Duration(attempt+1) * baseDelay
+            time.Sleep(delay)
+            // Re-ensure document open to stabilize
+            m.ensureDocumentOpen(client, uri, params)
+            continue
+        }
+
+        if !isNoViewsRPCError(res) {
+            // Success - no "no views" error
+            return res, nil
+        }
 
 		// Don't retry if no URI provided or this is the last attempt
 		if uri == "" || attempt == maxRetries-1 {
@@ -542,7 +554,7 @@ func (m *LSPManager) sendRequestWithRetry(ctx context.Context, client types.LSPC
 		time.Sleep(delay + jitter)
 	}
 
-	return lastRes, lastErr
+    return lastRes, lastErr
 }
 
 // isNoViewsRPCError detects a JSON-RPC error payload with "no views" message
@@ -560,7 +572,28 @@ func isNoViewsRPCError(raw json.RawMessage) bool {
 	if e.Message == "" {
 		return false
 	}
-	return strings.Contains(strings.ToLower(e.Message), "no views")
+    return strings.Contains(strings.ToLower(e.Message), "no views")
+}
+
+// isContentModifiedRPCError detects a JSON-RPC error payload with Content Modified (-32801)
+func isContentModifiedRPCError(raw json.RawMessage) bool {
+    if len(raw) == 0 {
+        return false
+    }
+    var e struct {
+        Code    int    `json:"code"`
+        Message string `json:"message"`
+    }
+    if err := json.Unmarshal(raw, &e); err != nil {
+        return false
+    }
+    if e.Message == "" {
+        return false
+    }
+    if e.Code == -32801 {
+        return true
+    }
+    return strings.Contains(strings.ToLower(e.Message), "content modified")
 }
 
 // GetClientStatus returns the status of all LSP clients

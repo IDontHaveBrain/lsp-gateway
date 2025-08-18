@@ -155,10 +155,10 @@ func GetTestRepositories() map[string]*TestRepository {
 			TestFiles: []TestFile{
 				{
 					Path:          "Src/Newtonsoft.Json/JsonConvert.cs",
-					DefinitionPos: Position{Line: 50, Character: 20},  // SerializeObject method
-					ReferencePos:  Position{Line: 100, Character: 25}, // Reference to DefaultSettings
-					HoverPos:      Position{Line: 50, Character: 25},  // SerializeObject method name
-					CompletionPos: Position{Line: 55, Character: 12},  // inside method for completion
+					DefinitionPos: Position{Line: 900, Character: 25},
+					ReferencePos:  Position{Line: 527, Character: 35},
+					HoverPos:      Position{Line: 528, Character: 35},
+					CompletionPos: Position{Line: 530, Character: 25},
 					SymbolQuery:   "JsonConvert",
 				},
 			},

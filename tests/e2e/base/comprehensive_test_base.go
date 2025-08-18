@@ -374,9 +374,10 @@ func (suite *ComprehensiveTestBaseSuite) startGatewayServer() error {
 		},
 	}
 
-	cacheConfig := testutils.DefaultCacheIsolationConfig()
-	cacheConfig.IsolationLevel = suite.cacheIsolationLevel
-	cacheConfig.MaxCacheSize = 128 * 1024 * 1024 // 128MB
+    cacheConfig := testutils.DefaultCacheIsolationConfig()
+    cacheConfig.IsolationLevel = suite.cacheIsolationLevel
+    cacheConfig.MaxCacheSize = 128 * 1024 * 1024 // 128MB
+    cacheConfig.BackgroundIndexing = false       // Avoid background indexing during E2E steps
 
 	configPath, err := suite.cacheIsolationMgr.GenerateIsolatedConfig(servers, cacheConfig)
 	if err != nil {
@@ -702,10 +703,11 @@ func (suite *ComprehensiveTestBaseSuite) TestReferencesComprehensive() {
 	testFile, err := suite.repoManager.GetTestFile(suite.Config.Language, 0)
 	require.NoError(suite.T(), err, "Failed to get test file")
 
-	// Wait for LSP server to be ready
-	ctx := context.Background()
-	err = testutils.WaitForLSPReady(ctx, httpClient, suite.Config.Language)
-	require.NoError(suite.T(), err, "Failed to wait for LSP server to be ready")
+    // Wait for LSP server to be ready
+    ctx := context.Background()
+    err = testutils.WaitForLSPReady(ctx, httpClient, suite.Config.Language)
+    require.NoError(suite.T(), err, "Failed to wait for LSP server to be ready")
+    _ = suite.waitForLSPServerReady(httpClient, fileURI)
 
 	referencesRequest := suite.requestToMap(shared.CreateReferencesRequest(fileURI, testFile.ReferencePos.Line, testFile.ReferencePos.Character, true, 1))
 
