@@ -126,6 +126,10 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 				},
 			},
 		},
+		"csharp": map[string]interface{}{
+			"command": "omnisharp",
+			"args":    []string{"-lsp"},
+		},
 	}
 
 	// Use a shared cache configuration that can be isolated per test

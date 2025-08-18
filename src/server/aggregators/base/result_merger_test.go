@@ -834,7 +834,7 @@ func TestResultMerger_NilHandling(t *testing.T) {
 func TestDefaultMergeConfig(t *testing.T) {
 	config := DefaultMergeConfig()
 
-	expectedPriority := []string{"go", "typescript", "javascript", "python", "java", "rust"}
+	expectedPriority := []string{"go", "typescript", "javascript", "python", "java", "rust", "csharp"}
 	if !reflect.DeepEqual(config.LanguagePriority, expectedPriority) {
 		t.Errorf("Expected priority %v, got %v", expectedPriority, config.LanguagePriority)
 	}

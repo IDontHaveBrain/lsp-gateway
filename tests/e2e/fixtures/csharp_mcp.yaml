@@ -1,0 +1,76 @@
+# C# MCP Integration Test Configuration
+# Optimized for MCP testing with simplified server config
+port: ${TEST_PORT}
+timeout: "30s"
+max_concurrent_requests: 50
+project_aware: true
+
+# Single C# server for MCP testing
+servers:
+  - name: "omnisharp"
+    languages: ["csharp"]
+    command: "omnisharp"
+    args: ["-lsp"]
+    transport: "stdio"
+    root_markers: ["*.csproj", "*.sln"]
+    
+    settings:
+      csharp:
+        enableCodeLens: false
+        enableReferences: true
+        enableImplementations: true
+    
+    environment:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
+      DOTNET_NOLOGO: "1"
+
+# MCP-specific configuration
+mcp:
+  enabled: true
+  tools:
+    - "textDocument/definition"
+    - "textDocument/references"
+    - "textDocument/hover"
+    - "textDocument/documentSymbol"
+    - "workspace/symbol"
+    - "textDocument/completion"
+  
+  transport:
+    type: "stdio"
+    timeout: "30s"
+    
+  protocol:
+    version: "2025-06-18"
+    capabilities:
+      tools: true
+      resources: false
+      prompts: false
+
+# Test-specific settings
+test_settings:
+  timeouts:
+    server_startup: "30s"
+    lsp_request: "10s"
+  
+  supported_methods:
+    - "textDocument/definition"
+    - "textDocument/references"
+    - "textDocument/hover"
+    - "textDocument/completion"
+    - "textDocument/documentSymbol"
+    - "workspace/symbol"
+
+# Integration settings
+performance_config:
+  scip:
+    enabled: true
+    timeout: "15s"
+  cache:
+    enabled: true
+    memory_limit: "512MB"
+
+# Logging
+logging:
+  level: "info"
+  enable_request_logging: true

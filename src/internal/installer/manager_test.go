@@ -93,6 +93,7 @@ func (m *MockInstaller) ValidateInstallation() error {
 	}
 
 	if m.validationError != nil {
+		m.installed = false
 		return m.validationError
 	}
 
@@ -258,7 +259,7 @@ func TestInstallLanguage(t *testing.T) {
 			},
 			options:         InstallOptions{},
 			expectError:     true,
-			expectInstalled: true,
+			expectInstalled: false,
 		},
 		{
 			name: "skip validation",

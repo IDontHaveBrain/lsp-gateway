@@ -204,6 +204,13 @@ func (w *WorkspaceIndexer) ScanWorkspaceSourceFiles(dir string, extensions []str
 		ext := filepath.Ext(path)
 		for _, validExt := range extensions {
 			if ext == validExt {
+				// Skip UWP-specific C# files on non-Windows
+				if strings.EqualFold(validExt, ".cs") {
+					lower := strings.ToLower(path)
+					if strings.Contains(lower, ".uwp") || strings.Contains(lower, "/uwp/") || strings.Contains(lower, "\\uwp\\") {
+						break
+					}
+				}
 				files = append(files, path)
 				count++
 				break

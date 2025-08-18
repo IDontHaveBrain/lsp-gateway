@@ -1,6 +1,7 @@
 package e2e_test
 
 import (
+	"os/exec"
 	"testing"
 
 	"lsp-gateway/tests/e2e/base"
@@ -9,35 +10,42 @@ import (
 )
 
 type LanguageTestConfig struct {
-	name        string
-	displayName string
+    name        string
+    displayName string
 }
 
-var languageConfigs = []LanguageTestConfig{
-	{name: "go", displayName: "Go"},
-	{name: "python", displayName: "Python"},
-	{name: "javascript", displayName: "JavaScript"},
-	{name: "typescript", displayName: "TypeScript"},
-	{name: "java", displayName: "Java"},
-	{name: "rust", displayName: "Rust"},
+func getLanguageConfigs() []LanguageTestConfig {
+    configs := []LanguageTestConfig{
+        {name: "go", displayName: "Go"},
+        {name: "python", displayName: "Python"},
+        {name: "javascript", displayName: "JavaScript"},
+        {name: "typescript", displayName: "TypeScript"},
+        {name: "java", displayName: "Java"},
+        {name: "rust", displayName: "Rust"},
+    }
+
+    if _, err := exec.LookPath("omnisharp"); err == nil {
+        configs = append(configs, LanguageTestConfig{name: "csharp", displayName: "CSharp"})
+    }
+    return configs
 }
 
-// ComprehensiveE2ETestSuite tests all 6 supported LSP methods for all languages
+// ComprehensiveE2ETestSuite tests all supported LSP methods for all languages
 type ComprehensiveE2ETestSuite struct {
 	base.ComprehensiveTestBaseSuite
 }
 
 // TestAllLanguagesComprehensive runs comprehensive tests for all supported languages
 func TestAllLanguagesComprehensive(t *testing.T) {
-	for _, lang := range languageConfigs {
-		lang := lang // capture range variable
-		t.Run(lang.displayName, func(t *testing.T) {
-			suite.Run(t, &LanguageSpecificSuite{
-				language:    lang.name,
-				displayName: lang.displayName,
-			})
-		})
-	}
+    for _, lang := range getLanguageConfigs() {
+        lang := lang // capture range variable
+        t.Run(lang.displayName, func(t *testing.T) {
+            suite.Run(t, &LanguageSpecificSuite{
+                language:    lang.name,
+                displayName: lang.displayName,
+            })
+        })
+    }
 }
 
 // LanguageSpecificSuite is a test suite for a specific language

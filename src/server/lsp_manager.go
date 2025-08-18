@@ -656,25 +656,26 @@ func (m *LSPManager) resolveCommandPath(language, command string) string {
 	}
 
 	// Check for other language custom installations
-    if command == "gopls" || command == "pylsp" || command == "jedi-language-server" || command == "typescript-language-server" || command == "csharp-ls" {
+	if command == "gopls" || command == "pylsp" || command == "jedi-language-server" || command == "typescript-language-server" || command == "omnisharp" || command == "OmniSharp" {
 		// Map of commands to their languages for path construction
-        languageMap := map[string]string{
-            "gopls":                      "go",
-            "pylsp":                      "python",
-            "jedi-language-server":       "python",
-            "typescript-language-server": "typescript",
-            "csharp-ls":                  "csharp",
-        }
+		languageMap := map[string]string{
+			"gopls":                      "go",
+			"pylsp":                      "python",
+			"jedi-language-server":       "python",
+			"typescript-language-server": "typescript",
+			"omnisharp":                  "csharp",
+			"OmniSharp":                  "csharp",
+		}
 		if lang, exists := languageMap[command]; exists {
 			customPath := common.GetLSPToolPath(lang, command)
-            if runtime.GOOS == "windows" {
-                // Add extension for platform-specific shims
-                if command == "typescript-language-server" || command == "pylsp" || command == "jedi-language-server" {
-                    customPath = customPath + ".cmd"
-                } else if command == "csharp-ls" {
-                    customPath = customPath + ".exe"
-                }
-            }
+			if runtime.GOOS == "windows" {
+				// Add extension for platform-specific shims
+				if command == "typescript-language-server" || command == "pylsp" || command == "jedi-language-server" {
+					customPath = customPath + ".cmd"
+				} else if command == "omnisharp" || command == "OmniSharp" {
+					customPath = customPath + ".exe"
+				}
+			}
 
 			// Check if the custom installation exists
 			if common.FileExists(customPath) {

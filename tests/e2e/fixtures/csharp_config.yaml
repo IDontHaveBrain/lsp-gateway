@@ -1,0 +1,349 @@
+# C# LSP E2E Test Configuration
+# Optimized for testing C# LSP features with Humanizer repository
+# Supports: definition, references, hover, document symbols, workspace symbols, completion
+
+# Gateway configuration for test scenarios
+port: ${TEST_PORT:-8080}
+timeout: "30s"
+max_concurrent_requests: 50
+project_aware: true
+enable_concurrent_servers: false
+max_concurrent_servers_per_language: 2
+
+# Test project context for Humanizer repository
+project_context:
+  project_type: "single-language"
+  root_directory: "/tmp/test-workspace"
+  detected_at: "2024-01-01T00:00:00Z"
+  languages:
+    - language: "csharp"
+      frameworks: ["dotnet", "netstandard"]
+      file_patterns: ["*.cs", "*.csproj", "*.sln"]
+      root_markers: ["*.csproj", "*.sln"]
+
+# C# language server pool optimized for testing
+language_pools:
+  - language: "csharp"
+    default_server: "omnisharp-test"
+    servers:
+      # Primary test server with essential features
+      omnisharp-test:
+        name: "omnisharp-test"
+        languages: ["csharp"]
+        command: "omnisharp"
+        args: ["-lsp"]
+        transport: "stdio"
+        priority: 3
+        weight: 3.0
+        max_concurrent_requests: 30
+        root_markers: ["*.csproj", "*.sln"]
+        
+        # Test-optimized C# LS configuration
+        settings:
+          csharp:
+            # Essential features for testing
+            enableCodeLens: false
+            enableReferences: true
+            enableImplementations: true
+              
+        # Test environment
+        environment:
+          DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+          DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
+          
+      # Fallback server for error scenarios
+      omnisharp-fallback:
+        name: "omnisharp-fallback"
+        languages: ["csharp"]
+        command: "omnisharp"
+        args: ["-lsp"]
+        transport: "stdio"
+        priority: 1
+        weight: 1.0
+        max_concurrent_requests: 20
+        root_markers: ["*.csproj"]
+        
+        # Minimal configuration for fallback
+        settings:
+          csharp:
+            enableCodeLens: false
+            
+        environment:
+          DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+          
+    # Load balancing for test scenarios
+    load_balancing:
+      strategy: "round_robin"
+      health_threshold: 0.70
+      weight_factors:
+        omnisharp-test: 3.0
+        omnisharp-fallback: 1.0
+        
+    # Resource limits for test environment
+    resource_limits:
+      max_memory_mb: 2048
+      max_concurrent_requests: 50
+      max_processes: 3
+      request_timeout_seconds: 45
+
+# Enhanced pool configuration for C# test servers
+servers:
+  - name: "csharp-humanizer-test-pool"
+    languages: ["csharp"]
+    command: "omnisharp"
+    args: ["-lsp"]
+    transport: "stdio"
+    root_markers: ["*.csproj", "*.sln"]
+    
+    # Pool configuration optimized for testing
+    pool_config:
+      min_size: 1
+      max_size: 3
+      warmup_size: 1
+      
+      # Conservative scaling for test stability
+      enable_dynamic_sizing: false
+      
+      # Test-appropriate lifecycle
+      max_lifetime: 15m
+      idle_timeout: 5m
+      health_check_interval: 1m
+      
+      # Retry configuration for test reliability
+      max_retries: 3
+      base_delay: 100ms
+      circuit_timeout: 20s
+      
+      # Memory limits for test environment
+      memory_limit_mb: 1024
+      cpu_limit_percent: 50.0
+      
+      transport_type: "stdio"
+      custom_config:
+        process_isolation: true
+        test_mode: true
+        
+    # Health monitoring for test stability
+    health_check_settings:
+      enabled: true
+      interval: 30s
+      timeout: 5s
+      failure_threshold: 2
+      success_threshold: 1
+      method: "initialize"
+      enable_auto_restart: true
+      restart_delay: 5s
+      max_consecutive_fails: 2
+      
+    # Test environment
+    environment:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "1"
+      DOTNET_NOLOGO: "1"
+
+# Smart routing optimized for test scenarios
+enable_smart_routing: true
+enable_enhancements: false
+smart_router_config:
+  default_strategy: "single_target_with_fallback"
+  method_strategies:
+    "textDocument/definition": "single_target_with_fallback"
+    "textDocument/references": "single_target_with_fallback"
+    "textDocument/hover": "single_target_with_fallback"
+    "textDocument/completion": "single_target_with_fallback"
+    "textDocument/documentSymbol": "single_target_with_fallback"
+    "workspace/symbol": "single_target_with_fallback"
+  enable_performance_monitoring: true
+  enable_circuit_breaker: true
+  circuit_breaker_threshold: 3
+  circuit_breaker_timeout: "20s"
+
+# Test-specific optimizations
+optimizations:
+  csharp:
+    # .NET project handling
+    project:
+      auto_detect: true
+      solution_support: true
+      
+    # Humanizer project structure
+    project_structure:
+      source_directories: ["src", "src/Humanizer"]
+      
+    # Build tools for tests
+    build_tools:
+      - name: "dotnet"
+        enabled: true
+        settings:
+          restore_on_open: false
+          
+    # Code quality tools disabled for test performance
+    linting: []
+    
+    # Testing frameworks (minimal)
+    testing:
+      - name: "xunit"
+        enabled: false
+
+# Test repository configurations for C# projects
+test_repositories:
+  # Main Humanizer repository
+  humanizer:
+    repo_url: "https://github.com/Humanizr/Humanizer.git"
+    workspace_path: "${TEST_WORKSPACE}/Humanizer"
+    source_dirs: ["src", "src/Humanizer"]
+    test_files_pattern: "**/*.cs"
+    commit_hash: "${COMMIT_HASH:-v2.14.1}"
+
+# Test-optimized SCIP performance configuration
+performance_config:
+  # SCIP enabled for mandatory cache functionality
+  scip:
+    enabled: true
+    index_path: ".scip"
+    batch_size: 500
+    memory_limit: "256MB"
+    timeout: "15s"
+    cache_ttl: "15m"
+    max_file_size_mb: 10
+    enable_compression: true
+    
+  # Test-focused caching
+  cache:
+    enabled: true
+    memory_limit: "512MB"
+    ttl: "30m"
+    
+  # Test monitoring
+  monitoring:
+    enabled: true
+    collect_detailed_metrics: false
+
+# Logging configuration for test scenarios
+logging:
+  level: "info"
+  enable_request_logging: true
+  enable_performance_logging: true
+  levels:
+    omnisharp: "info"
+    humanizer: "info"
+    test_runner: "debug"
+
+# MCP-specific configuration
+mcp:
+  enabled: true
+  tools:
+    - "textDocument/definition"
+    - "textDocument/references"
+    - "textDocument/hover"
+    - "textDocument/documentSymbol"
+    - "workspace/symbol"
+    - "textDocument/completion"
+  
+  # MCP transport settings
+  transport:
+    type: "stdio"
+    timeout: "20s"
+    
+  # MCP protocol settings
+  protocol:
+    version: "2025-06-18"
+    capabilities:
+      tools: true
+      resources: false
+      prompts: false
+
+# Test-specific settings
+test_settings:
+  # Timeout settings optimized for test scenarios
+  timeouts:
+    server_startup: "30s"
+    health_check: "5s"
+    lsp_request: "10s"
+    definition: "8s"
+    references: "10s"
+    hover: "5s"
+    completion: "8s"
+    document_symbols: "8s"
+    workspace_symbols: "10s"
+    
+  # Performance expectations for tests
+  performance:
+    max_response_time_ms: 8000
+    max_memory_usage_mb: 1024
+    max_startup_time_ms: 30000
+    
+  # Test file patterns
+  file_patterns:
+    include:
+      - "**/*.cs"
+      - "*.csproj"
+      - "*.sln"
+    exclude:
+      - "bin/**"
+      - "obj/**"
+      - ".git/**"
+      - "packages/**"
+      - "*Test.cs"
+      
+  # LSP method validation
+  supported_methods:
+    - "textDocument/definition"
+    - "textDocument/references" 
+    - "textDocument/hover"
+    - "textDocument/completion"
+    - "textDocument/documentSymbol"
+    - "workspace/symbol"
+    
+  # Test data expectations
+  test_expectations:
+    min_cs_files: 5
+    expected_directories:
+      - "src"
+      - "src/Humanizer"
+    required_symbols:
+      - "class"
+      - "interface"
+      - "method"
+      - "property"
+
+# Integration with repository manager
+repo_manager_integration:
+  # Repository management settings
+  repository:
+    clone_timeout: "300s"
+    checkout_timeout: "60s"
+    validation_timeout: "30s"
+    
+  # Workspace management
+  workspace:
+    base_dir: "/tmp/lsp-gateway-csharp-e2e-tests"
+    cleanup_on_exit: true
+    preserve_on_error: false
+    
+  # File discovery settings
+  file_discovery:
+    source_dirs: ["src", "src/Humanizer"]
+    recursive: true
+    include_cs_files: true
+    max_files: 300
+
+# Error handling and recovery for tests
+error_handling:
+  # Test-appropriate error recovery
+  recovery:
+    max_retry_attempts: 2
+    retry_delay: "3s"
+    exponential_backoff: false
+    
+  # Error reporting for test diagnostics
+  reporting:
+    log_all_errors: true
+    include_stack_traces: true
+    error_context_size: 3
+    
+  # Bypass strategies for test stability
+  bypass_strategies:
+    server_failure: "fallback_server"
+    timeout: "fail_fast"
+    memory_limit: "restart_server"

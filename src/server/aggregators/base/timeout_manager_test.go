@@ -455,7 +455,7 @@ func TestTimeoutManager_GetSupportedLanguages(t *testing.T) {
 	tm := NewTimeoutManager()
 	languages := tm.GetSupportedLanguages()
 
-	expected := []string{"java", "python", "go", "javascript", "typescript", "rust"}
+	expected := []string{"java", "python", "go", "javascript", "typescript", "rust", "csharp"}
 	if len(languages) != len(expected) {
 		t.Errorf("Expected %d languages, got %d", len(expected), len(languages))
 	}

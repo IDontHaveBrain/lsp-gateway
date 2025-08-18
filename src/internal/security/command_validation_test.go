@@ -1,8 +1,8 @@
 package security
 
 import (
-    "fmt"
-    "testing"
+	"fmt"
+	"testing"
 )
 
 func TestValidateCommand_AllowsWhitelisted(t *testing.T) {

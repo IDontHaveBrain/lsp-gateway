@@ -33,7 +33,7 @@ type MergeConfig struct {
 func DefaultMergeConfig() *MergeConfig {
 	return &MergeConfig{
 		MaxSize:           1000,
-		LanguagePriority:  []string{"go", "typescript", "javascript", "python", "java", "rust"},
+		LanguagePriority:  []string{"go", "typescript", "javascript", "python", "java", "rust", "csharp"},
 		DeduplicationKey:  "",
 		FailureThreshold:  0.5, // Allow up to 50% failures
 		CustomMetadata:    make(map[string]string),

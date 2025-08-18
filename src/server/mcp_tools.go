@@ -11,6 +11,7 @@ import (
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
 	"lsp-gateway/src/internal/types"
+	"lsp-gateway/src/server/protocol"
 	"lsp-gateway/src/server/scip"
 	"lsp-gateway/src/utils"
 	"lsp-gateway/src/utils/filepattern"
@@ -46,7 +47,7 @@ func (m *MCPServer) delegateToolCall(req *MCPRequest) *MCPResponse {
 	case "findReferences":
 		result, err = m.handleFindSymbolReferences(params)
 	default:
-		response := m.responseFactory.CreateMethodNotFound(req.ID, fmt.Sprintf("tool not found: %s", name))
+		response := m.responseFactory.CreateError(req.ID, protocol.MethodNotFound, fmt.Sprintf("tool not found: %s", name))
 		return &response
 	}
 

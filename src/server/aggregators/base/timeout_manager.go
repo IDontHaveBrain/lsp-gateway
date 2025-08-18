@@ -116,5 +116,5 @@ func (tm *TimeoutManager) LogTimeoutInfo(language string) {
 }
 
 func (tm *TimeoutManager) GetSupportedLanguages() []string {
-	return []string{"java", "python", "go", "javascript", "typescript", "rust"}
+	return []string{"java", "python", "go", "javascript", "typescript", "rust", "csharp"}
 }
