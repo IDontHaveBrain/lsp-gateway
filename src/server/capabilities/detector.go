@@ -38,16 +38,36 @@ func (d *LSPCapabilityDetector) ParseCapabilities(response json.RawMessage, serv
 		return ServerCapabilities{}, fmt.Errorf("failed to unmarshal initialize response: %w", err)
 	}
 
-	// Special handling for jdtls - it supports all textDocument methods but may not report them correctly
-	if strings.Contains(serverCommand, "jdtls") {
-		initResponse.Capabilities.DefinitionProvider = true
-		initResponse.Capabilities.ReferencesProvider = true
-		initResponse.Capabilities.HoverProvider = true
-		initResponse.Capabilities.DocumentSymbolProvider = true
-		if initResponse.Capabilities.CompletionProvider == nil {
-			initResponse.Capabilities.CompletionProvider = true
-		}
-	}
+    // Special handling for jdtls - it supports all textDocument methods but may not report them correctly
+    if strings.Contains(serverCommand, "jdtls") {
+        initResponse.Capabilities.DefinitionProvider = true
+        initResponse.Capabilities.ReferencesProvider = true
+        initResponse.Capabilities.HoverProvider = true
+        initResponse.Capabilities.DocumentSymbolProvider = true
+        if initResponse.Capabilities.CompletionProvider == nil {
+            initResponse.Capabilities.CompletionProvider = true
+        }
+    }
+
+    // Special handling for OmniSharp (C#) - known to sometimes under-report capabilities
+    // Ensure core textDocument features are treated as supported
+    if strings.Contains(strings.ToLower(serverCommand), "omnisharp") {
+        if initResponse.Capabilities.DefinitionProvider == nil {
+            initResponse.Capabilities.DefinitionProvider = true
+        }
+        if initResponse.Capabilities.ReferencesProvider == nil {
+            initResponse.Capabilities.ReferencesProvider = true
+        }
+        if initResponse.Capabilities.HoverProvider == nil {
+            initResponse.Capabilities.HoverProvider = true
+        }
+        if initResponse.Capabilities.DocumentSymbolProvider == nil {
+            initResponse.Capabilities.DocumentSymbolProvider = true
+        }
+        if initResponse.Capabilities.CompletionProvider == nil {
+            initResponse.Capabilities.CompletionProvider = true
+        }
+    }
 
 	return initResponse.Capabilities, nil
 }

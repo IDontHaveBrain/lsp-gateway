@@ -44,3 +44,19 @@ func TestLSPCapabilityDetector_JDTLSOverrides(t *testing.T) {
 		}
 	}
 }
+
+func TestLSPCapabilityDetector_OmniSharpOverrides(t *testing.T) {
+    det := NewLSPCapabilityDetector()
+    init := map[string]interface{}{"capabilities": map[string]interface{}{}}
+    raw, _ := json.Marshal(init)
+    caps, err := det.ParseCapabilities(raw, "omnisharp")
+    if err != nil {
+        t.Fatalf("parse: %v", err)
+    }
+    methods := []string{types.MethodTextDocumentDefinition, types.MethodTextDocumentReferences, types.MethodTextDocumentHover, types.MethodTextDocumentDocumentSymbol, types.MethodTextDocumentCompletion}
+    for _, m := range methods {
+        if !det.SupportsMethod(caps, m) {
+            t.Fatalf("omnisharp should support %s", m)
+        }
+    }
+}
