@@ -14,6 +14,7 @@ import (
 	"time"
 	
 	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/security"
 )
 
 type CSharpInstaller struct {
@@ -123,6 +124,70 @@ func (c *CSharpInstaller) GetVersion() (string, error) {
 		return "", fmt.Errorf("csharp language server not installed")
 	}
 	return "OmniSharp-Roslyn LSP (installed)", nil
+}
+
+// ValidateInstallation performs post-install validation for C#
+func (c *CSharpInstaller) ValidateInstallation() error {
+	if !c.IsInstalled() {
+		return fmt.Errorf("csharp language server installation validation failed: not installed")
+	}
+	
+	// Find the actual executable path and update server config
+	installBin := filepath.Join(c.GetInstallPath(), "bin")
+	var executablePath string
+	
+	// Check for wrapper script first (for .dll installations)
+	if runtime.GOOS == "windows" {
+		wrapperPath := filepath.Join(installBin, "omnisharp.cmd")
+		if _, err := os.Stat(wrapperPath); err == nil {
+			executablePath = wrapperPath
+		}
+	} else {
+		wrapperPath := filepath.Join(installBin, "omnisharp")
+		if _, err := os.Stat(wrapperPath); err == nil {
+			executablePath = wrapperPath
+		}
+	}
+	
+	// If no wrapper, look for native binary
+	if executablePath == "" {
+		var candidates []string
+		if runtime.GOOS == "windows" {
+			candidates = []string{"OmniSharp.exe", "omnisharp.exe"}
+		} else {
+			candidates = []string{"OmniSharp", "omnisharp"}
+		}
+		
+		for _, candidate := range candidates {
+			path := filepath.Join(installBin, candidate)
+			if _, err := os.Stat(path); err == nil {
+				executablePath = path
+				break
+			}
+		}
+	}
+	
+	if executablePath == "" {
+		return fmt.Errorf("csharp language server executable not found")
+	}
+	
+	// Update server config to use the actual path
+	if c.serverConfig != nil {
+		c.serverConfig.Command = executablePath
+	}
+	
+	// Validate security
+	args := []string{"-lsp"}
+	if c.serverConfig != nil {
+		args = c.serverConfig.Args
+	}
+	if err := security.ValidateCommand(executablePath, args); err != nil {
+		return fmt.Errorf("security validation failed for csharp: %w", err)
+	}
+	
+	common.CLILogger.Info("Installation validation successful for omnisharp")
+	common.CLILogger.Info("C# validation successful")
+	return nil
 }
 
 func (c *CSharpInstaller) Uninstall() error {
