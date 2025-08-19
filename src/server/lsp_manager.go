@@ -133,37 +133,72 @@ func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 
 // Start initializes and starts all configured LSP clients
 func (m *LSPManager) Start(ctx context.Context) error {
-	common.LSPLogger.Debug("[LSPManager.Start] Starting LSP manager, scipCache=%v", m.cacheIntegrator.IsEnabled())
+    common.LSPLogger.Debug("[LSPManager.Start] Starting LSP manager, scipCache=%v", m.cacheIntegrator.IsEnabled())
 
-	// Start cache through integrator - handles graceful degradation internally
-	if err := m.cacheIntegrator.StartCache(ctx); err != nil {
-		return fmt.Errorf("unexpected cache start error: %w", err)
-	}
-	// Update convenience accessor after potential cache disabling
-	m.scipCache = m.cacheIntegrator.GetCache()
+    // Start cache through integrator - handles graceful degradation internally
+    if err := m.cacheIntegrator.StartCache(ctx); err != nil {
+        return fmt.Errorf("unexpected cache start error: %w", err)
+    }
+    // Update convenience accessor after potential cache disabling
+    m.scipCache = m.cacheIntegrator.GetCache()
 
-	// Start clients using ParallelAggregator framework with language-specific timeouts
-	// Create timeout manager for initialize operations
-	timeoutMgr := base.NewTimeoutManager().ForOperation(base.OperationInitialize)
+    // Detect workspace languages and filter servers to start
+    // Only start LSP servers for languages actually present in the current working directory
+    languagesToStart := make([]string, 0)
+    serversToStart := make(map[string]*config.ServerConfig)
 
-	// Calculate overall timeout as maximum of all language timeouts
-	languages := make([]string, 0, len(m.config.Servers))
-	for lang := range m.config.Servers {
-		languages = append(languages, lang)
-	}
-	overallTimeout := timeoutMgr.GetOverallTimeout(languages)
+    if wd, err := os.Getwd(); err == nil {
+        if detected, derr := project.DetectLanguages(wd); derr == nil && len(detected) > 0 {
+            detectedSet := make(map[string]bool, len(detected))
+            for _, lang := range detected {
+                detectedSet[lang] = true
+            }
+            for lang, cfg := range m.config.Servers {
+                if detectedSet[lang] {
+                    serversToStart[lang] = cfg
+                    languagesToStart = append(languagesToStart, lang)
+                }
+            }
+            common.LSPLogger.Info("Detected workspace languages: %v", detected)
+            common.LSPLogger.Info("Starting LSP servers for detected languages only: %v", languagesToStart)
+        } else {
+            // No languages detected; do not start any servers
+            common.LSPLogger.Warn("No languages detected in workspace; skipping LSP server startup")
+        }
+    } else {
+        // Unable to get working directory; conservative: skip starting servers
+        common.LSPLogger.Warn("Failed to get working directory; skipping LSP server startup")
+    }
 
-	common.LSPLogger.Debug("[LSPManager.Start] Using overall collection timeout of %v for %d servers", overallTimeout, len(m.config.Servers))
+    // If nothing to start, return after initializing cache and watchers as appropriate
+    if len(serversToStart) == 0 {
+        // Start file watcher for real-time change detection (still useful for cache indexing triggers)
+        if m.config.Cache != nil && m.config.Cache.BackgroundIndex {
+            if err := m.startFileWatcher(); err != nil {
+                common.LSPLogger.Warn("Failed to start file watcher: %v", err)
+            }
+        }
+        return nil
+    }
 
-	// Create aggregator with calculated overall timeout
-	aggregator := base.NewParallelAggregator[*config.ServerConfig, error](0, overallTimeout)
+    // Start clients using ParallelAggregator framework with language-specific timeouts
+    // Create timeout manager for initialize operations
+    timeoutMgr := base.NewTimeoutManager().ForOperation(base.OperationInitialize)
 
-	// Convert server configs to clients map for framework compatibility
-	serverConfigs := make(map[string]types.LSPClient)
-	for lang, cfg := range m.config.Servers {
-		// Use a placeholder client that holds the server config
-		serverConfigs[lang] = &serverConfigWrapper{language: lang, config: cfg}
-	}
+    // Calculate overall timeout as maximum of all language timeouts for filtered set
+    overallTimeout := timeoutMgr.GetOverallTimeout(languagesToStart)
+
+    common.LSPLogger.Debug("[LSPManager.Start] Using overall collection timeout of %v for %d servers", overallTimeout, len(serversToStart))
+
+    // Create aggregator with calculated overall timeout
+    aggregator := base.NewParallelAggregator[*config.ServerConfig, error](0, overallTimeout)
+
+    // Convert server configs to clients map for framework compatibility
+    serverConfigs := make(map[string]types.LSPClient)
+    for lang, cfg := range serversToStart {
+        // Use a placeholder client that holds the server config
+        serverConfigs[lang] = &serverConfigWrapper{language: lang, config: cfg}
+    }
 
 	// Create executor function that calls startClientWithTimeout
 	executor := func(ctx context.Context, client types.LSPClient, _ *config.ServerConfig) (error, error) {
@@ -173,11 +208,11 @@ func (m *LSPManager) Start(ctx context.Context) error {
 		return err, err
 	}
 
-	// Execute parallel client startup with language-specific timeouts
-	_, errors := aggregator.ExecuteWithLanguageTimeouts(ctx, serverConfigs, nil, executor, timeoutMgr.GetTimeout)
+    // Execute parallel client startup with language-specific timeouts
+    _, errors := aggregator.ExecuteWithLanguageTimeouts(ctx, serverConfigs, nil, executor, timeoutMgr.GetTimeout)
 
-	// Process results and populate clientErrors map to preserve exact behavior
-	completed := len(m.config.Servers) - len(errors)
+    // Process results and populate clientErrors map to preserve exact behavior
+    completed := len(serversToStart) - len(errors)
 
 	// Map framework errors back to the clientErrors structure
 	m.mu.Lock()
@@ -193,26 +228,26 @@ func (m *LSPManager) Start(ctx context.Context) error {
 	}
 	m.mu.Unlock()
 
-	// Handle timeout/cancellation cases exactly as before
-	if len(errors) > 0 {
-		// Check for timeout by examining error messages
-		for _, err := range errors {
-			errStr := err.Error()
-			if strings.Contains(errStr, "timeout") || strings.Contains(errStr, "Overall timeout reached") {
-				common.LSPLogger.Warn("Timeout reached, %d/%d clients started", completed, len(m.config.Servers))
-				return nil
-			}
-		}
-	}
+    // Handle timeout/cancellation cases exactly as before
+    if len(errors) > 0 {
+        // Check for timeout by examining error messages
+        for _, err := range errors {
+            errStr := err.Error()
+            if strings.Contains(errStr, "timeout") || strings.Contains(errStr, "Overall timeout reached") {
+                common.LSPLogger.Warn("Timeout reached, %d/%d clients started", completed, len(serversToStart))
+                return nil
+            }
+        }
+    }
 
 	// Check for context cancellation
 	select {
-	case <-ctx.Done():
-		common.LSPLogger.Warn("Context cancelled, %d/%d clients started", completed, len(m.config.Servers))
-		return nil
-	default:
-		// Context not cancelled, continue
-	}
+    case <-ctx.Done():
+        common.LSPLogger.Warn("Context cancelled, %d/%d clients started", completed, len(serversToStart))
+        return nil
+    default:
+        // Context not cancelled, continue
+    }
 
 	// Perform workspace indexing if cache is enabled and background indexing is configured
 	if m.scipCache != nil && m.config.Cache != nil && m.config.Cache.BackgroundIndex {
