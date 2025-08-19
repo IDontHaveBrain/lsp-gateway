@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -42,6 +43,13 @@ type SymbolInfo struct {
 	References []string `json:"references,omitempty"`
 }
 
+type SymbolRef struct {
+	Name    string `json:"name"`
+	Kind    string `json:"kind"`
+	DefFile string `json:"def_file"`
+	DefLine int    `json:"def_line"`
+}
+
 type FileRelation struct {
 	File         string   `json:"file"`
 	Imports      []string `json:"imports,omitempty"`
@@ -64,7 +72,7 @@ type ExportSymbol struct {
 
 // GenerateContextSignatureMap creates a .txt signature map from indexed data
 func GenerateContextSignatureMap(configPath, outputPath string) error {
-	cmdCtx, err := clicommon.NewCommandContext(configPath, 3*time.Minute)
+	cmdCtx, err := clicommon.NewCacheOnlyContext(configPath, 3*time.Minute)
 	if err != nil {
 		return err
 	}
@@ -199,19 +207,15 @@ func runContextMapCmd(cmd *cobra.Command, args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("please provide exactly one file path")
 	}
-	return PrintReferencedFilesCode(configPath, args[0], scipOnly)
+	return PrintReferencedFilesCode(configPath, args[0])
 }
 
-func PrintReferencedFilesCode(configPath string, inputFile string, scipOnly bool) error {
+func PrintReferencedFilesCode(configPath string, inputFile string) error {
 	var (
 		cmdCtx *clicommon.CommandContext
 		err    error
 	)
-	if scipOnly {
-		cmdCtx, err = clicommon.NewCacheOnlyContext(configPath, 3*time.Minute)
-	} else {
-		cmdCtx, err = clicommon.NewCommandContext(configPath, 3*time.Minute)
-	}
+	cmdCtx, err = clicommon.NewCacheOnlyContext(configPath, 3*time.Minute)
 	if err != nil {
 		return err
 	}
@@ -260,29 +264,8 @@ func PrintReferencedFilesCode(configPath string, inputFile string, scipOnly bool
 		return fmt.Errorf("index unavailable; run 'lsp-gateway cache index' and try again")
 	}
 
-	// Determine if a document in the index is missing or stale vs. filesystem
-	isURIOutdated := func(u string) bool {
-		if u == "" {
-			return true
-		}
-		d, _ := storage.GetDocument(context.Background(), u)
-		if d == nil {
-			return true
-		}
-		p := utils.URIToFilePathCached(u)
-		if p == "" {
-			return false
-		}
-		if st, err := os.Stat(p); err == nil {
-			if st.ModTime().After(d.LastModified) {
-				return true
-			}
-		}
-		return false
-	}
-
-    // Heuristic: trivial header range (likely module jump) — first line small span
-    isTrivialHeaderRange := func(r types.Range) bool {
+	// Heuristic: trivial header range (likely module jump) — first line small span
+	isTrivialHeaderRange := func(r types.Range) bool {
 		if r.End.Line < r.Start.Line {
 			return true
 		}
@@ -314,16 +297,16 @@ func PrintReferencedFilesCode(configPath string, inputFile string, scipOnly bool
 			}
 		}
 		return false
-    }
+	}
 
-    shouldDropTrivialHeader := func(path string, r types.Range, name string) bool {
-        return isTrivialHeaderRange(r) && !hasSymbolByName(path, name)
-    }
+	shouldDropTrivialHeader := func(path string, r types.Range, name string) bool {
+		return isTrivialHeaderRange(r) && !hasSymbolByName(path, name)
+	}
 
-    // Generic single-line check to trigger LSP refinement when needed
-    isSingleLineRange := func(r types.Range) bool {
-        return r.Start.Line == r.End.Line
-    }
+	// Generic single-line check to trigger LSP refinement when needed
+	isSingleLineRange := func(r types.Range) bool {
+		return r.Start.Line == r.End.Line
+	}
 
 	// Skip noisy/non-source files from results
 	isSkippablePath := func(path string) bool {
@@ -346,18 +329,8 @@ func PrintReferencedFilesCode(configPath string, inputFile string, scipOnly bool
 		endC   int
 	}
 
-	// Ensure input document is indexed and fresh; refresh via LSP only when needed
-	if !scipOnly && cmdCtx.Manager != nil && isURIOutdated(uri) {
-		_, _ = cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{TextDocument: lsp.TextDocumentIdentifier{URI: uri}})
-	}
-
 	// Collect referenced symbol definitions -> snippets
 	doc, err := storage.GetDocument(context.Background(), uri)
-	if (err != nil || doc == nil) && !scipOnly && cmdCtx.Manager != nil {
-		if _, derr := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{TextDocument: lsp.TextDocumentIdentifier{URI: uri}}); derr == nil {
-			doc, _ = storage.GetDocument(context.Background(), uri)
-		}
-	}
 	if err != nil || doc == nil {
 		return fmt.Errorf("document not indexed: %s", absPath)
 	}
@@ -413,7 +386,6 @@ func PrintReferencedFilesCode(configPath string, inputFile string, scipOnly bool
 		best := base
 		defURI := utils.FilePathToURICached(defPath)
 		// Try SCIP index ranges first
-		scipMatched := false
 		if storage != nil && defURI != "" {
 			if ddoc, err := storage.GetDocument(context.Background(), defURI); err == nil && ddoc != nil {
 				matchBest := best
@@ -438,7 +410,6 @@ func PrintReferencedFilesCode(configPath string, inputFile string, scipOnly bool
 					}
 				}
 				if len(insideBase) > 0 {
-					scipMatched = true
 					// choose largest candidate inside base (likely full method rather than selection)
 					chosen := insideBase[0]
 					for _, r := range insideBase[1:] {
@@ -448,7 +419,6 @@ func PrintReferencedFilesCode(configPath string, inputFile string, scipOnly bool
 					}
 					matchBest = chosen
 				} else if len(containsBase) > 0 {
-					scipMatched = true
 					// choose smallest candidate that still contains the base
 					chosen := containsBase[0]
 					for _, r := range containsBase[1:] {
@@ -463,56 +433,9 @@ func PrintReferencedFilesCode(configPath string, inputFile string, scipOnly bool
 				best = matchBest
 			}
 		}
-		// Optionally refine with LSP document symbols when SCIP didn't match, or file is missing/stale, or trivial header
-        if !scipOnly && cmdCtx.Manager != nil && defURI != "" && (!scipMatched || isURIOutdated(defURI) || isSingleLineRange(best)) {
-			if res, err := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{TextDocument: lsp.TextDocumentIdentifier{URI: defURI}}); err == nil && res != nil {
-				if syms, err2 := parseDocumentSymbolsResult(res); err2 == nil {
-					matched := false
-					matchBest := best
-					containerSet := false
-					var containerBest types.Range
-					var walk func([]lsp.DocumentSymbol)
-					walk = func(list []lsp.DocumentSymbol) {
-						for _, ds := range list {
-							r := ds.Range
-							if nameMatches(ds.Name, name) {
-								if rangeContains(best, r) || rangeIntersects(r, best) || rangeContains(r, best) {
-									matched = true
-									if rangeSize(matchBest) == rangeSize(best) || rangeSize(r) <= rangeSize(matchBest) {
-										matchBest = r
-									}
-								}
-							}
-							if rangeContains(r, best) {
-								if !containerSet || rangeSize(r) < rangeSize(containerBest) {
-									containerBest = r
-									containerSet = true
-								}
-							}
-							if len(ds.Children) > 0 {
-								tmp := make([]lsp.DocumentSymbol, 0, len(ds.Children))
-								for _, ch := range ds.Children {
-									if ch != nil {
-										tmp = append(tmp, *ch)
-									}
-								}
-								if len(tmp) > 0 {
-									walk(tmp)
-								}
-							}
-						}
-					}
-					walk(syms)
-					if matched {
-						best = matchBest
-					} else if containerSet && rangeSize(containerBest) > rangeSize(best) {
-						best = containerBest
-					}
-				}
-			}
-		}
+
 		// If still trivial header but index has a symbol with this name, snap to it
-        if isSingleLineRange(best) && name != "" && storage != nil && defURI != "" {
+		if isSingleLineRange(best) && name != "" && storage != nil && defURI != "" {
 			if ddoc, err := storage.GetDocument(context.Background(), defURI); err == nil && ddoc != nil {
 				for _, si := range ddoc.SymbolInformation {
 					if strings.EqualFold(si.DisplayName, name) {
@@ -535,119 +458,62 @@ func PrintReferencedFilesCode(configPath string, inputFile string, scipOnly bool
 		}
 		referenced[occ.Symbol] = true
 
-        defs, err := storage.GetDefinitionsWithDocuments(context.Background(), occ.Symbol)
-        if err == nil && len(defs) > 0 {
-            symInfo, _ := storage.GetSymbolInfo(context.Background(), occ.Symbol)
-            if symInfo != nil {
-                if symInfo.Kind == scip.SCIPSymbolKindModule || symInfo.Kind == scip.SCIPSymbolKindFile || symInfo.Kind == scip.SCIPSymbolKindPackage || symInfo.Kind == scip.SCIPSymbolKindNamespace {
-                    continue
-                }
-            }
-            // Prefer the largest full range per definition path for this symbol
-            bestByPath := make(map[string]types.Range)
-            name := ""
-            if symInfo != nil && symInfo.DisplayName != "" {
-                name = symInfo.DisplayName
-            }
-            for _, d := range defs {
-                defPath := utils.URIToFilePathCached(d.DocumentURI)
-                if defPath == "" || defPath == absPath {
-                    continue
-                }
-                if isSkippablePath(defPath) {
-                    continue
-                }
-                if workspaceRoot != "" {
-                    rp, _ := filepath.Abs(defPath)
-                    rr, _ := filepath.Abs(workspaceRoot)
-                    if !strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr {
-                        continue
-                    }
-                }
-                cand := expandRangeToSymbol(defPath, d.Range, name)
-                cur, ok := bestByPath[defPath]
-                if !ok || rangeSize(cand) > rangeSize(cur) {
-                    bestByPath[defPath] = cand
-                }
-            }
-            for defPath, rng := range bestByPath {
-                key := defPath + "::" + occ.Symbol
-                if seen[key] {
-                    continue
-                }
-                if shouldDropTrivialHeader(defPath, rng, name) {
-                    continue
-                }
-                seen[key] = true
-                snippetMap[defPath] = append(snippetMap[defPath], snippet{
-                    file:   defPath,
-                    name:   name,
-                    startL: int(rng.Start.Line),
-                    startC: int(rng.Start.Character),
-                    endL:   int(rng.End.Line),
-                    endC:   int(rng.End.Character),
-                })
-            }
-            continue
-        }
-
-		if !scipOnly && cmdCtx.Manager != nil {
-			pos := occ.Range.Start
-			defResult, derr := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDefinition, &lsp.TextDocumentPositionParams{
-				TextDocument: lsp.TextDocumentIdentifier{URI: uri},
-				Position:     pos,
-			})
-			if derr == nil && defResult != nil {
-				if locs, perr := parseDefinitionResult(defResult); perr == nil {
-                    // Prefer best per path as well
-                    bestByPath := make(map[string]types.Range)
-                    name := ""
-                    if si, _ := storage.GetSymbolInfo(context.Background(), occ.Symbol); si != nil {
-                        if si.Kind == scip.SCIPSymbolKindModule || si.Kind == scip.SCIPSymbolKindFile || si.Kind == scip.SCIPSymbolKindPackage || si.Kind == scip.SCIPSymbolKindNamespace {
-                            // skip modules/files
-                        } else if si.DisplayName != "" {
-                            name = si.DisplayName
-                        }
-                    }
-                    for _, loc := range locs {
-                        defPath := utils.URIToFilePathCached(loc.URI)
-                        if defPath == "" || defPath == absPath || isSkippablePath(defPath) {
-                            continue
-                        }
-                        if workspaceRoot != "" {
-                            rp, _ := filepath.Abs(defPath)
-                            rr, _ := filepath.Abs(workspaceRoot)
-                            if !strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr {
-                                continue
-                            }
-                        }
-                        cand := expandRangeToSymbol(defPath, loc.Range, name)
-                        cur, ok := bestByPath[defPath]
-                        if !ok || rangeSize(cand) > rangeSize(cur) {
-                            bestByPath[defPath] = cand
-                        }
-                    }
-                    for defPath, full := range bestByPath {
-                        key := defPath + "::" + occ.Symbol
-                        if seen[key] {
-                            continue
-                        }
-                        if shouldDropTrivialHeader(defPath, full, name) {
-                            continue
-                        }
-                        seen[key] = true
-                        snippetMap[defPath] = append(snippetMap[defPath], snippet{
-                            file:   defPath,
-                            name:   name,
-                            startL: int(full.Start.Line),
-                            startC: int(full.Start.Character),
-                            endL:   int(full.End.Line),
-                            endC:   int(full.End.Character),
-                        })
-                    }
+		defs, err := storage.GetDefinitionsWithDocuments(context.Background(), occ.Symbol)
+		if err == nil && len(defs) > 0 {
+			symInfo, _ := storage.GetSymbolInfo(context.Background(), occ.Symbol)
+			if symInfo != nil {
+				if symInfo.Kind == scip.SCIPSymbolKindModule || symInfo.Kind == scip.SCIPSymbolKindFile || symInfo.Kind == scip.SCIPSymbolKindPackage || symInfo.Kind == scip.SCIPSymbolKindNamespace {
+					continue
 				}
 			}
+			// Prefer the largest full range per definition path for this symbol
+			bestByPath := make(map[string]types.Range)
+			name := ""
+			if symInfo != nil && symInfo.DisplayName != "" {
+				name = symInfo.DisplayName
+			}
+			for _, d := range defs {
+				defPath := utils.URIToFilePathCached(d.DocumentURI)
+				if defPath == "" || defPath == absPath {
+					continue
+				}
+				if isSkippablePath(defPath) {
+					continue
+				}
+				if workspaceRoot != "" {
+					rp, _ := filepath.Abs(defPath)
+					rr, _ := filepath.Abs(workspaceRoot)
+					if !strings.HasPrefix(rp, rr+string(os.PathSeparator)) && rp != rr {
+						continue
+					}
+				}
+				cand := expandRangeToSymbol(defPath, d.Range, name)
+				cur, ok := bestByPath[defPath]
+				if !ok || rangeSize(cand) > rangeSize(cur) {
+					bestByPath[defPath] = cand
+				}
+			}
+			for defPath, rng := range bestByPath {
+				key := defPath + "::" + occ.Symbol
+				if seen[key] {
+					continue
+				}
+				if shouldDropTrivialHeader(defPath, rng, name) {
+					continue
+				}
+				seen[key] = true
+				snippetMap[defPath] = append(snippetMap[defPath], snippet{
+					file:   defPath,
+					name:   name,
+					startL: int(rng.Start.Line),
+					startC: int(rng.Start.Character),
+					endL:   int(rng.End.Line),
+					endC:   int(rng.End.Character),
+				})
+			}
+			continue
 		}
+
 	}
 
 	for _, si := range doc.SymbolInformation {
@@ -761,7 +627,7 @@ func PrintReferencedFilesCode(configPath string, inputFile string, scipOnly bool
 	// Fallback LSP scan: walk tokens and resolve definitions when storage misses
 	// No token refinement; keep full ranges
 
-	addSnippet := func(path, name string, r types.Range) {
+	_ = func(path, name string, r types.Range) {
 		if path == "" || path == absPath {
 			return
 		}
@@ -796,65 +662,6 @@ func PrintReferencedFilesCode(configPath string, inputFile string, scipOnly bool
 		})
 	}
 
-	// Probe via LSP only when no snippets were found from index
-	if len(snippetMap) == 0 && !scipOnly && cmdCtx.Manager != nil {
-		data, _ := os.ReadFile(absPath)
-		content := string(data)
-		lines := strings.Split(content, "\n")
-		for ln, line := range lines {
-			i := 0
-			for i < len(line) {
-				r := rune(line[i])
-				if unicode.IsLetter(r) || r == '_' || unicode.IsDigit(r) {
-					start := i
-					for i < len(line) {
-						r2 := rune(line[i])
-						if unicode.IsLetter(r2) || unicode.IsDigit(r2) || r2 == '_' {
-							i++
-							continue
-						}
-						break
-					}
-					token := line[start:i]
-
-					// Consider selector refs (preceding '.') or identifiers on import lines
-					eligible := false
-					if start > 0 && line[start-1] == '.' {
-						eligible = true
-					} else {
-						low := strings.ToLower(line)
-						trim := strings.TrimSpace(low)
-						if strings.Contains(low, "import ") || strings.HasPrefix(trim, "from ") {
-							eligible = true
-						}
-					}
-					if !eligible {
-						continue
-					}
-
-					defRes, derr := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDefinition, &lsp.DefinitionParams{
-						TextDocumentPositionParams: lsp.TextDocumentPositionParams{
-							TextDocument: lsp.TextDocumentIdentifier{URI: uri},
-							Position:     types.Position{Line: int32(ln), Character: int32(start)},
-						},
-					})
-
-					if derr == nil && defRes != nil {
-						if locs, perr := parseDefinitionResult(defRes); perr == nil {
-							for _, loc := range locs {
-								defPath := utils.URIToFilePathCached(loc.URI)
-								addSnippet(defPath, token, loc.Range)
-							}
-						}
-					}
-
-				} else {
-					i++
-				}
-			}
-		}
-	}
-
 	// If still empty after LSP fallback, report error
 	if len(snippetMap) == 0 {
 		return fmt.Errorf("no referenced code found for: %s", absPath)
@@ -866,54 +673,6 @@ func PrintReferencedFilesCode(configPath string, inputFile string, scipOnly bool
 		files = append(files, f)
 	}
 	sort.Strings(files)
-	// Expand snippet ranges per file using on-demand LSP document symbols only if missing/stale
-	if !scipOnly && cmdCtx.Manager != nil {
-		for _, f := range files {
-			defURI := utils.FilePathToURICached(f)
-			if defURI == "" || !isURIOutdated(defURI) {
-				continue
-			}
-			if res, err := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{TextDocument: lsp.TextDocumentIdentifier{URI: defURI}}); err == nil && res != nil {
-				if syms, perr := parseDocumentSymbolsResult(res); perr == nil && len(syms) > 0 {
-					list := snippetMap[f]
-					for i := range list {
-						base := types.Range{Start: types.Position{Line: int32(list[i].startL), Character: int32(list[i].startC)}, End: types.Position{Line: int32(list[i].endL), Character: int32(list[i].endC)}}
-						best := base
-						var walk func([]lsp.DocumentSymbol)
-						walk = func(nodes []lsp.DocumentSymbol) {
-							for _, ds := range nodes {
-								r := ds.Range
-								if r.Start.Line <= best.Start.Line && (r.Start.Line < best.Start.Line || r.Start.Character <= best.Start.Character) &&
-									(r.End.Line > best.End.Line || (r.End.Line == best.End.Line && r.End.Character >= best.End.Character)) {
-									// Prefer larger ranges
-									if (r.End.Line-r.Start.Line) > (best.End.Line-best.Start.Line) || ((r.End.Line-r.Start.Line) == (best.End.Line-best.Start.Line) && (r.End.Character-r.Start.Character) > (best.End.Character-best.Start.Character)) {
-										best = r
-									}
-								}
-								if len(ds.Children) > 0 {
-									tmp := make([]lsp.DocumentSymbol, 0, len(ds.Children))
-									for _, ch := range ds.Children {
-										if ch != nil {
-											tmp = append(tmp, *ch)
-										}
-									}
-									if len(tmp) > 0 {
-										walk(tmp)
-									}
-								}
-							}
-						}
-						// Update expanded range
-						list[i].startL = int(best.Start.Line)
-						list[i].startC = int(best.Start.Character)
-						list[i].endL = int(best.End.Line)
-						list[i].endC = int(best.End.Character)
-					}
-					snippetMap[f] = list
-				}
-			}
-		}
-	}
 
 	// Print snippets grouped by file, using indexed content
 	for _, f := range files {
@@ -1036,11 +795,164 @@ func isIdentChar(r rune) bool {
 	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
 }
 
-func runContextRelatedCmd(cmd *cobra.Command, args []string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("please provide at least one file path")
+func extractFileDefsRefsWithContext(cmdCtx *clicommon.CommandContext, file string, formatJSON bool) error {
+	absPath, _ := filepath.Abs(file)
+	uri := utils.FilePathToURICached(absPath)
+
+	var storage scip.SCIPDocumentStorage
+	if cmdCtx.Cache != nil {
+		storage = cmdCtx.Cache.GetSCIPStorage()
 	}
-	return FindRelatedFiles(configPath, args, formatJSON, maxDepth)
+
+	if storage == nil {
+		return fmt.Errorf("index unavailable; run 'lsp-gateway cache index' and try again")
+	}
+
+	doc, _ := storage.GetDocument(context.Background(), uri)
+	if doc == nil {
+		return fmt.Errorf("document not indexed: %s", absPath)
+	}
+
+	defs := make([]SymbolInfo, 0, len(doc.SymbolInformation))
+	for _, si := range doc.SymbolInformation {
+		defs = append(defs, SymbolInfo{
+			Name:      si.DisplayName,
+			Kind:      lspconv.SCIPSymbolKindToString(si.Kind, lspconv.StyleLowercase),
+			File:      absPath,
+			Line:      int(si.Range.Start.Line),
+			Signature: si.SignatureDocumentation.Text,
+		})
+	}
+
+	refs := []SymbolRef{}
+	seen := make(map[string]bool)
+	parseLocationSymbol := func(sym string) (string, int, bool) {
+		const prefix = "symbol_"
+		if !strings.HasPrefix(sym, prefix) {
+			return "", 0, false
+		}
+		rest := sym[len(prefix):]
+		i2 := strings.LastIndex(rest, "_")
+		if i2 <= 0 {
+			return "", 0, false
+		}
+		i1 := strings.LastIndex(rest[:i2], "_")
+		if i1 <= 0 {
+			return "", 0, false
+		}
+		uriPart := rest[:i1]
+		linePart := rest[i1+1 : i2]
+		defPath := utils.URIToFilePathCached(uriPart)
+		if defPath == "" {
+			defPath = uriPart
+		}
+		defLine := 0
+		allDigits := true
+		for _, ch := range linePart {
+			if ch < '0' || ch > '9' {
+				allDigits = false
+				break
+			}
+		}
+		if allDigits {
+			if n, err := strconv.Atoi(linePart); err == nil {
+				defLine = n
+			}
+		}
+		return defPath, defLine, true
+	}
+	for _, occ := range doc.Occurrences {
+		if occ.Symbol == "" {
+			continue
+		}
+		if occ.SymbolRoles.HasRole(types.SymbolRoleDefinition) || occ.SymbolRoles.HasRole(types.SymbolRoleGenerated) {
+			continue
+		}
+		if seen[occ.Symbol] {
+			continue
+		}
+		symInfo, _ := storage.GetSymbolInfo(context.Background(), occ.Symbol)
+		if symInfo != nil {
+			if symInfo.Kind == scip.SCIPSymbolKindModule || symInfo.Kind == scip.SCIPSymbolKindFile || symInfo.Kind == scip.SCIPSymbolKindPackage || symInfo.Kind == scip.SCIPSymbolKindNamespace {
+				continue
+			}
+		}
+		defsWithDocs, err := storage.GetDefinitionsWithDocuments(context.Background(), occ.Symbol)
+		var defPath string
+		var defLine int
+		if err == nil && len(defsWithDocs) > 0 {
+			for _, d := range defsWithDocs {
+				p := utils.URIToFilePathCached(d.DocumentURI)
+				if p == "" {
+					continue
+				}
+				defPath = p
+				defLine = int(d.Range.Start.Line)
+				break
+			}
+		}
+		if defPath == "" {
+			if pth, ln, ok := parseLocationSymbol(occ.Symbol); ok {
+				defPath = pth
+				defLine = ln
+			}
+		}
+		if defPath == "" {
+			continue
+		}
+		name := occ.Symbol
+		kind := ""
+		if symInfo != nil {
+			if symInfo.DisplayName != "" {
+				name = symInfo.DisplayName
+			}
+			kind = lspconv.SCIPSymbolKindToString(symInfo.Kind, lspconv.StyleLowercase)
+		}
+		refs = append(refs, SymbolRef{Name: name, Kind: kind, DefFile: defPath, DefLine: defLine})
+		seen[occ.Symbol] = true
+	}
+
+	if formatJSON {
+		payload := map[string]interface{}{
+			"file": absPath,
+			"defs": defs,
+			"refs": refs,
+		}
+		data, jerr := json.MarshalIndent(payload, "", "  ")
+		if jerr != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", jerr)
+		}
+		fmt.Println(string(data))
+		return nil
+	}
+
+	fmt.Printf("File: %s\n", absPath)
+	fmt.Println("Defs:")
+	for _, d := range defs {
+		if d.Signature != "" {
+			fmt.Printf("  %s %s (line %d): %s\n", d.Kind, d.Name, d.Line, d.Signature)
+		} else {
+			fmt.Printf("  %s %s (line %d)\n", d.Kind, d.Name, d.Line)
+		}
+	}
+	fmt.Println("Refs:")
+	for _, r := range refs {
+		if r.Kind != "" {
+			fmt.Printf("  %s %s -> %s:%d\n", r.Kind, r.Name, r.DefFile, r.DefLine)
+		} else {
+			fmt.Printf("  %s -> %s:%d\n", r.Name, r.DefFile, r.DefLine)
+		}
+	}
+	return nil
+}
+
+func ExtractFileDefsRefs(configPath string, file string, formatJSON bool) error {
+	cmdCtx, err := clicommon.NewCacheOnlyContext(configPath, 3*time.Minute)
+	if err != nil {
+		return err
+	}
+	defer cmdCtx.Cleanup()
+	return extractFileDefsRefsWithContext(cmdCtx, file, formatJSON)
 }
 
 func runContextSymbolsCmd(cmd *cobra.Command, args []string) error {
@@ -1048,15 +960,44 @@ func runContextSymbolsCmd(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		files = args
 	}
-	return ExtractSymbols(configPath, files, formatJSON, includeRefs)
-}
+	if len(files) == 0 {
+		cmdCtx, err := clicommon.NewCacheOnlyContext(configPath, 3*time.Minute)
+		if err != nil {
+			return err
+		}
+		defer cmdCtx.Cleanup()
 
-func runContextDependenciesCmd(cmd *cobra.Command, args []string) error {
-	files := targetFiles
-	if len(args) > 0 {
-		files = args
+		var storage scip.SCIPDocumentStorage
+		if cmdCtx.Cache != nil {
+			storage = cmdCtx.Cache.GetSCIPStorage()
+		}
+		if storage == nil {
+			return fmt.Errorf("index unavailable; run 'lsp-gateway cache index' and try again")
+		}
+		uris, err := storage.ListDocuments(context.Background())
+		if err != nil {
+			return err
+		}
+		allFiles := make([]string, 0, len(uris))
+		for _, uri := range uris {
+			p := utils.URIToFilePathCached(uri)
+			if p == "" {
+				p = uri
+			}
+			allFiles = append(allFiles, p)
+		}
+		sort.Strings(allFiles)
+		for _, f := range allFiles {
+			if err := extractFileDefsRefsWithContext(cmdCtx, f, formatJSON); err != nil {
+				continue
+			}
+		}
+		return nil
 	}
-	return AnalyzeDependencies(configPath, files, formatJSON)
+	if len(files) == 1 {
+		return ExtractFileDefsRefs(configPath, files[0], formatJSON)
+	}
+	return ExtractSymbols(configPath, files, formatJSON, includeRefs)
 }
 
 func containsRange(p, c *contextNode) bool {
@@ -1185,7 +1126,7 @@ func parseReferencesResult(result interface{}) ([]types.Location, error) {
 
 // GenerateContextSignatureMapJSON creates a JSON signature map from indexed data
 func GenerateContextSignatureMapJSON(configPath, outputPath string) error {
-	cmdCtx, err := clicommon.NewCommandContext(configPath, 3*time.Minute)
+	cmdCtx, err := clicommon.NewCacheOnlyContext(configPath, 3*time.Minute)
 	if err != nil {
 		return err
 	}
@@ -1278,7 +1219,7 @@ func GenerateContextSignatureMapJSON(configPath, outputPath string) error {
 
 // FindRelatedFiles finds files related to the given input files
 func FindRelatedFiles(configPath string, inputFiles []string, formatJSON bool, maxDepth int) error {
-	cmdCtx, err := clicommon.NewCommandContext(configPath, 3*time.Minute)
+	cmdCtx, err := clicommon.NewCacheOnlyContext(configPath, 3*time.Minute)
 	if err != nil {
 		return err
 	}
@@ -1346,42 +1287,6 @@ func FindRelatedFiles(configPath string, inputFiles []string, formatJSON bool, m
 						}
 					}
 				}
-			} else {
-				// Fallback to LSP if no storage available
-				result, err := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{
-					TextDocument: lsp.TextDocumentIdentifier{URI: uri},
-				})
-				if err == nil && result != nil {
-					if symbols, err := parseDocumentSymbolsResult(result); err == nil && len(symbols) > 0 {
-						symbolCount = countSymbols(symbols)
-					}
-				}
-
-				if content, err := os.ReadFile(file); err == nil {
-					lines := strings.Split(string(content), "\n")
-					for lineNum := range lines {
-						refsResult, err := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentReferences, &lsp.ReferenceParams{
-							TextDocumentPositionParams: lsp.TextDocumentPositionParams{
-								TextDocument: lsp.TextDocumentIdentifier{URI: uri},
-								Position:     types.Position{Line: int32(lineNum), Character: 0},
-							},
-							Context: lsp.ReferenceContext{IncludeDeclaration: true},
-						})
-						if err == nil && refsResult != nil {
-							if refs, err := parseReferencesResult(refsResult); err == nil {
-								for _, ref := range refs {
-									refFile := utils.URIToFilePathCached(ref.URI)
-									if refFile != file && !visited[refFile] {
-										newFiles = append(newFiles, refFile)
-										visited[refFile] = true
-										refSet[refFile] = true
-										refBySet[refFile] = true
-									}
-								}
-							}
-						}
-					}
-				}
 			}
 
 			if relation, ok := relatedFiles[file]; ok {
@@ -1435,7 +1340,7 @@ func FindRelatedFiles(configPath string, inputFiles []string, formatJSON bool, m
 
 // ExtractSymbols extracts symbols from specified files
 func ExtractSymbols(configPath string, files []string, formatJSON bool, includeRefs bool) error {
-	cmdCtx, err := clicommon.NewCommandContext(configPath, 3*time.Minute)
+	cmdCtx, err := clicommon.NewCacheOnlyContext(configPath, 3*time.Minute)
 	if err != nil {
 		return err
 	}
@@ -1484,52 +1389,6 @@ func ExtractSymbols(configPath string, files []string, formatJSON bool, includeR
 			}
 		}
 
-		// Fallback to LSP
-		result, err := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{TextDocument: lsp.TextDocumentIdentifier{URI: uri}})
-		if err != nil {
-			continue
-		}
-		var extractSymbols func([]lsp.DocumentSymbol)
-		extractSymbols = func(syms []lsp.DocumentSymbol) {
-			for _, sym := range syms {
-				info := SymbolInfo{
-					Name:      sym.Name,
-					Kind:      lspconv.LSPSymbolKindToString(sym.Kind, lspconv.StyleLowercase),
-					File:      absPath,
-					Line:      int(sym.Range.Start.Line),
-					Signature: sym.Detail,
-				}
-				if includeRefs {
-					refsResult, err := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentReferences, &lsp.ReferenceParams{
-						TextDocumentPositionParams: lsp.TextDocumentPositionParams{TextDocument: lsp.TextDocumentIdentifier{URI: uri}, Position: sym.Range.Start},
-						Context:                    lsp.ReferenceContext{IncludeDeclaration: false},
-					})
-					if err == nil && refsResult != nil {
-						if refs, err := parseReferencesResult(refsResult); err == nil {
-							for _, ref := range refs {
-								refFile := utils.URIToFilePathCached(ref.URI)
-								info.References = append(info.References, fmt.Sprintf("%s:%d", refFile, ref.Range.Start.Line))
-							}
-						}
-					}
-				}
-				symbols = append(symbols, info)
-				if len(sym.Children) > 0 {
-					children := make([]lsp.DocumentSymbol, 0, len(sym.Children))
-					for _, child := range sym.Children {
-						if child != nil {
-							children = append(children, *child)
-						}
-					}
-					extractSymbols(children)
-				}
-			}
-		}
-		if result != nil {
-			if docSymbols, err := parseDocumentSymbolsResult(result); err == nil && len(docSymbols) > 0 {
-				extractSymbols(docSymbols)
-			}
-		}
 	}
 
 	// Output results
@@ -1582,7 +1441,7 @@ func countSymbols(symbols []lsp.DocumentSymbol) int {
 
 // AnalyzeDependencies analyzes dependencies for specified files using only LSP data
 func AnalyzeDependencies(configPath string, files []string, formatJSON bool) error {
-	cmdCtx, err := clicommon.NewCommandContext(configPath, 3*time.Minute)
+	cmdCtx, err := clicommon.NewCacheOnlyContext(configPath, 3*time.Minute)
 	if err != nil {
 		return err
 	}
@@ -1638,31 +1497,6 @@ func AnalyzeDependencies(configPath string, files []string, formatJSON bool) err
 			}
 		}
 
-		// Fallback to LSP
-		result, err := cmdCtx.Manager.ProcessRequest(cmdCtx.Context, types.MethodTextDocumentDocumentSymbol, &lsp.DocumentSymbolParams{TextDocument: lsp.TextDocumentIdentifier{URI: uri}})
-		if err == nil && result != nil {
-			var processSymbols func([]lsp.DocumentSymbol)
-			processSymbols = func(syms []lsp.DocumentSymbol) {
-				for _, sym := range syms {
-					dep.SymbolCount++
-					if sym.Name != "" && unicode.IsUpper(rune(sym.Name[0])) {
-						dep.Exports = append(dep.Exports, ExportSymbol{Name: sym.Name, Kind: lspconv.LSPSymbolKindToString(sym.Kind, lspconv.StyleLowercase)})
-					}
-					if len(sym.Children) > 0 {
-						children := make([]lsp.DocumentSymbol, 0, len(sym.Children))
-						for _, child := range sym.Children {
-							if child != nil {
-								children = append(children, *child)
-							}
-						}
-						processSymbols(children)
-					}
-				}
-			}
-			if docSymbols, err := parseDocumentSymbolsResult(result); err == nil && len(docSymbols) > 0 {
-				processSymbols(docSymbols)
-			}
-		}
 		dependencies[absPath] = dep
 	}
 
