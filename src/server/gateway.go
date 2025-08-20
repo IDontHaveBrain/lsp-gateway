@@ -12,6 +12,7 @@ import (
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/constants"
+	"lsp-gateway/src/internal/registry"
 	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/protocol"
@@ -58,6 +59,7 @@ func NewHTTPGateway(addr string, cfg *config.Config, lspOnly bool) (*HTTPGateway
 	mux := http.NewServeMux()
 	mux.HandleFunc("/jsonrpc", gateway.handleJSONRPC)
 	mux.HandleFunc("/health", gateway.handleHealth)
+	mux.HandleFunc("/languages", gateway.handleLanguages)
 	// Cache monitoring endpoints
 	mux.HandleFunc("/cache/stats", gateway.handleCacheStats)
 	mux.HandleFunc("/cache/health", gateway.handleCacheHealth)
@@ -222,6 +224,25 @@ func (g *HTTPGateway) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(health)
+}
+
+// handleLanguages returns supported language names and their file extensions
+func (g *HTTPGateway) handleLanguages(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodGet {
+        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+        return
+    }
+
+    languages := config.GetAllSupportedLanguages()
+    extensions := registry.GetSupportedExtensions()
+
+    result := map[string]interface{}{
+        "languages":  languages,
+        "extensions": extensions,
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(result)
 }
 
 // writeResponse writes a JSON-RPC response (success or error) to the HTTP response writer

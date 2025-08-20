@@ -75,6 +75,26 @@ curl -X POST localhost:8080/jsonrpc \
   -d '{"jsonrpc":"2.0","id":1,"method":"workspace/symbol","params":{"query":"Router"}}'
 ```
 
+Additional endpoints:
+
+- GET `/languages`: Supported language names and extensions
+
+```bash
+curl -s localhost:8080/languages | jq
+# {
+#   "languages": ["go","python","javascript","typescript","java","rust","csharp"],
+#   "extensions": {
+#     "go": [".go"],
+#     "python": [".py", ".pyi"],
+#     "javascript": [".js", ".jsx", ".mjs"],
+#     "typescript": [".ts", ".tsx", ".d.ts"],
+#     "java": [".java"],
+#     "rust": [".rs"],
+#     "csharp": [".cs"]
+#   }
+# }
+```
+
 ### MCP Server
 
 Add to your AI assistant configuration:
