@@ -47,11 +47,11 @@ var languageRegistry = map[string]LanguageInfo{
 		ErrorPatterns:     []ErrorPattern{},
 	},
 	"python": {
-		Name:              "python",
-		Extensions:        []string{".py", ".pyi"},
-		DefaultCommand:    "basedpyright-langserver",
-		DefaultArgs:       []string{"--stdio"},
-		InstallerRequired: true,
+		Name:                  "python",
+		Extensions:            []string{".py", ".pyi"},
+		DefaultCommand:        "basedpyright-langserver",
+		DefaultArgs:           []string{"--stdio"},
+		InstallerRequired:     true,
 		InitializationOptions: map[string]interface{}{
 			// Basedpyright expects empty initialization options
 			// Configuration is sent via workspace/didChangeConfiguration after initialization
@@ -95,11 +95,11 @@ var languageRegistry = map[string]LanguageInfo{
 		},
 	},
 	"python-pyright": {
-		Name:              "python",
-		Extensions:        []string{".py", ".pyi"},
-		DefaultCommand:    "pyright-langserver",
-		DefaultArgs:       []string{"--stdio"},
-		InstallerRequired: true,
+		Name:                  "python",
+		Extensions:            []string{".py", ".pyi"},
+		DefaultCommand:        "pyright-langserver",
+		DefaultArgs:           []string{"--stdio"},
+		InstallerRequired:     true,
 		InitializationOptions: map[string]interface{}{
 			// Pyright expects empty initialization options
 			// Configuration is sent via workspace/didChangeConfiguration after initialization

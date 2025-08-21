@@ -252,8 +252,8 @@ func GetDefaultConfig() *Config {
 				Args:    []string{"serve"},
 			},
 			"python": {
-				Command: "jedi-language-server",
-				Args:    []string{},
+				Command: "basedpyright-langserver",
+				Args:    []string{"--stdio"},
 			},
 			"javascript": {
 				Command: "typescript-language-server",

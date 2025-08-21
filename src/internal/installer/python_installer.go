@@ -43,7 +43,7 @@ func (p *PythonInstaller) Install(ctx context.Context, options InstallOptions) e
 		p.BaseInstaller.serverConfig.Args = []string{"--stdio"}
 		p.config.Manager = "pip"
 		p.config.Packages = []string{"basedpyright"}
-		
+
 	case "jedi", "jedi-language-server":
 		// Use jedi-language-server
 		p.BaseInstaller.serverConfig.Command = "jedi-language-server"
@@ -71,17 +71,17 @@ func (p *PythonInstaller) IsInstalled() bool {
 	if p.BaseInstaller.IsInstalledByCommand("basedpyright-langserver") {
 		return true
 	}
-	
+
 	// Check for jedi-language-server
 	if p.BaseInstaller.IsInstalledByCommand("jedi-language-server") {
 		return true
 	}
-	
+
 	// Check for pyright-langserver
 	if p.BaseInstaller.IsInstalledByCommand("pyright-langserver") {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -93,7 +93,7 @@ func (p *PythonInstaller) GetVersion() (string, error) {
 		// Note: basedpyright-langserver doesn't have --version, but basedpyright does
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		
+
 		cmd := exec.CommandContext(ctx, "basedpyright", "--version")
 		output, err := cmd.Output()
 		if err == nil {
@@ -106,18 +106,18 @@ func (p *PythonInstaller) GetVersion() (string, error) {
 				return version, nil
 			}
 		}
-		
+
 		// If basedpyright command isn't available but basedpyright-langserver is, report as installed
 		return "basedpyright (installed)", nil
 	}
-	
+
 	// Check for pyright-langserver
 	if p.BaseInstaller.IsInstalledByCommand("pyright-langserver") {
 		// Try to get version from pyright command
 		// Note: pyright-langserver doesn't have --version, but pyright does
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		
+
 		cmd := exec.CommandContext(ctx, "pyright", "--version")
 		output, err := cmd.Output()
 		if err == nil {
@@ -130,11 +130,11 @@ func (p *PythonInstaller) GetVersion() (string, error) {
 				return version, nil
 			}
 		}
-		
+
 		// If pyright command isn't available but pyright-langserver is, report as installed
 		return "pyright (installed)", nil
 	}
-	
+
 	// Check for jedi-language-server
 	if p.BaseInstaller.IsInstalledByCommand("jedi-language-server") {
 		version, err := p.BaseInstaller.GetVersionByCommand("jedi-language-server", "--version")
@@ -153,6 +153,6 @@ func (p *PythonInstaller) GetVersion() (string, error) {
 			return version, nil
 		}
 	}
-	
+
 	return "", fmt.Errorf("python language server not installed")
 }

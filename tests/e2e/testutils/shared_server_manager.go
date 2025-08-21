@@ -71,6 +71,51 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 	}
 	mgr.gatewayPort = port
 
+	// Use a shared cache configuration that can be isolated per test
+	cacheConfig := DefaultCacheIsolationConfig()
+	cacheConfig.IsolationLevel = BasicIsolation  // Use basic isolation for shared server
+	cacheConfig.MaxCacheSize = 256 * 1024 * 1024 // 256MB for shared server
+	cacheConfig.BackgroundIndexing = false       // Disable background indexing to reduce LSP contention
+
+	// Get project root and binary path
+	pwd, _ := os.Getwd()
+	mgr.projectRoot = filepath.Dir(filepath.Dir(pwd))
+
+	binaryName := "lsp-gateway"
+	if runtime.GOOS == "windows" {
+		binaryName = "lsp-gateway.exe"
+	}
+	binaryPath := filepath.Join(mgr.projectRoot, "bin", binaryName)
+
+	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
+		return fmt.Errorf("lsp-gateway binary not found at %s. Run 'make local' first", binaryPath)
+	}
+
+	// If no Python LSP available, attempt to install basedpyright quickly
+	if _, _, ok := detectAvailablePythonLSP(); !ok {
+		ctx, cancel := context.WithTimeout(mgr.ctx, 45*time.Second)
+		_ = ctx // context passed via CommandContext below
+		installCmd := exec.CommandContext(mgr.ctx, binaryPath, "install", "python", "--server", "basedpyright")
+		installCmd.Dir = mgr.repoDir
+		installCmd.Env = append(os.Environ(),
+			"GO111MODULE=on",
+			fmt.Sprintf("GOPATH=%s", os.Getenv("GOPATH")),
+		)
+		if testing.Verbose() || os.Getenv("DEBUG") != "" {
+			installCmd.Stdout = os.Stderr
+			installCmd.Stderr = os.Stderr
+		}
+		_ = installCmd.Run()
+		cancel()
+	}
+
+	// Determine an available Python LSP server (fallback order)
+	pythonCmd := "jedi-language-server"
+	pythonArgs := []string{}
+	if cmd, args, ok := detectAvailablePythonLSP(); ok {
+		pythonCmd, pythonArgs = cmd, args
+	}
+
 	// Generate shared server config
 	servers := map[string]interface{}{
 		"go": map[string]interface{}{
@@ -78,8 +123,8 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 			"args":    []string{"serve"},
 		},
 		"python": map[string]interface{}{
-			"command": "jedi-language-server",
-			"args":    []string{},
+			"command": pythonCmd,
+			"args":    pythonArgs,
 		},
 		"javascript": map[string]interface{}{
 			"command": "typescript-language-server",
@@ -132,33 +177,11 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 		},
 	}
 
-	// Use a shared cache configuration that can be isolated per test
-	cacheConfig := DefaultCacheIsolationConfig()
-	cacheConfig.IsolationLevel = BasicIsolation  // Use basic isolation for shared server
-	cacheConfig.MaxCacheSize = 256 * 1024 * 1024 // 256MB for shared server
-	cacheConfig.BackgroundIndexing = false       // Disable background indexing to reduce LSP contention
-
 	configPath, err := mgr.cacheIsolationMgr.GenerateIsolatedConfig(servers, cacheConfig)
 	if err != nil {
 		return fmt.Errorf("failed to generate shared server config: %w", err)
 	}
 	mgr.configPath = configPath
-
-	// Get project root and binary path
-	pwd, _ := os.Getwd()
-	mgr.projectRoot = filepath.Dir(filepath.Dir(pwd))
-
-	// Construct binary path with platform-specific extension
-	binaryName := "lsp-gateway"
-	if runtime.GOOS == "windows" {
-		binaryName = "lsp-gateway.exe"
-	}
-	binaryPath := filepath.Join(mgr.projectRoot, "bin", binaryName)
-
-	// Check if binary exists
-	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
-		return fmt.Errorf("lsp-gateway binary not found at %s. Run 'make local' first", binaryPath)
-	}
 
 	// Start the shared server
 	cmd := exec.CommandContext(mgr.ctx, binaryPath, "server", "--config", configPath, "--port", fmt.Sprintf("%d", port))
@@ -236,6 +259,51 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 
 	t.Logf("✅ Shared LSP gateway server is ready and serving")
 	return nil
+}
+
+// detectAvailablePythonLSP tries to find an available Python LSP server executable
+// in preferred order and returns its command and args.
+func detectAvailablePythonLSP() (string, []string, bool) {
+	type cand struct {
+		cmd  string
+		args []string
+	}
+	candidates := []cand{
+		{"basedpyright-langserver", []string{"--stdio"}},
+		{"pyright-langserver", []string{"--stdio"}},
+		{"pylsp", []string{}},
+		{"jedi-language-server", []string{}},
+	}
+
+	// helper to check PATH and common custom install dir
+	exists := func(name string) bool {
+		if p, err := exec.LookPath(name); err == nil && p != "" {
+			return true
+		}
+		// Check ~/.lsp-gateway/tools/python/<name> (and Windows .cmd)
+		if home, err := os.UserHomeDir(); err == nil {
+			base := filepath.Join(home, ".lsp-gateway", "tools", "python", name)
+			if fi, err2 := os.Stat(base); err2 == nil && !fi.IsDir() {
+				return true
+			}
+			if runtime.GOOS == "windows" {
+				if fi, err2 := os.Stat(base + ".cmd"); err2 == nil && !fi.IsDir() {
+					return true
+				}
+				if fi, err2 := os.Stat(base + ".exe"); err2 == nil && !fi.IsDir() {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	for _, c := range candidates {
+		if exists(c.cmd) {
+			return c.cmd, c.args, true
+		}
+	}
+	return "", nil, false
 }
 
 // waitForServerReady waits for the shared server to be ready

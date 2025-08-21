@@ -623,28 +623,28 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 		common.LSPLogger.Error("Failed to send initialized notification for %s: %v", c.language, err)
 		return err
 	}
-	
+
 	// Special handling for pyright/basedpyright - send workspace configuration after initialization
 	if c.config.Command == "pyright-langserver" || c.config.Command == "basedpyright-langserver" {
 		// Mark client as active before sending configuration
 		c.active = true
-		
+
 		serverName := "pyright"
 		configPrefix := "python"
 		if c.config.Command == "basedpyright-langserver" {
 			serverName = "basedpyright"
 			configPrefix = "basedpyright"
 		}
-		
+
 		common.LSPLogger.Debug("Sending workspace/didChangeConfiguration for %s", serverName)
 		configParams := map[string]interface{}{
 			"settings": map[string]interface{}{
 				configPrefix: map[string]interface{}{
 					"analysis": map[string]interface{}{
-						"autoImportCompletions": true,
-						"autoSearchPaths":       true,
-						"diagnosticMode":        "openFilesOnly", // Start with openFilesOnly to avoid timeout
-						"typeCheckingMode":      "basic",
+						"autoImportCompletions":  true,
+						"autoSearchPaths":        true,
+						"diagnosticMode":         "openFilesOnly", // Start with openFilesOnly to avoid timeout
+						"typeCheckingMode":       "basic",
 						"useLibraryCodeForTypes": true,
 					},
 				},
@@ -654,11 +654,11 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 			common.LSPLogger.Warn("Failed to send workspace/didChangeConfiguration for %s: %v", serverName, err)
 			// Don't fail initialization even if configuration fails
 		}
-		
+
 		// Reset active state - it will be set properly later
 		c.active = false
 	}
-	
+
 	return nil
 }
 

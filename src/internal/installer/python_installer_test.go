@@ -116,4 +116,3 @@ func TestPythonInstallerPyrightSupport(t *testing.T) {
 		})
 	}
 }
-

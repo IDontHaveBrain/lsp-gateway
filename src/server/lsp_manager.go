@@ -761,24 +761,65 @@ func (m *LSPManager) resolveCommandPath(language, command string) string {
 
 // startClientWithTimeout starts a single LSP client with timeout
 func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string, cfg *config.ServerConfig) error {
-	// Resolve the command path (check custom installations first)
 	resolvedCommand := m.resolveCommandPath(language, cfg.Command)
 
-	// No special transport enforcement needed for Python when using jedi-language-server
+	argsToUse := cfg.Args
 
-	// Validate LSP server command for security
-	if err := security.ValidateCommand(resolvedCommand, cfg.Args); err != nil {
+	// Validate initial command/args
+	if err := security.ValidateCommand(resolvedCommand, argsToUse); err != nil {
 		return fmt.Errorf("invalid LSP server command for %s: %w", language, err)
 	}
 
-	// Check if LSP server executable is available
+	// Ensure executable exists; if not, try language-specific fallbacks
 	if _, err := exec.LookPath(resolvedCommand); err != nil {
-		return fmt.Errorf("LSP server executable not found for %s: %s", language, resolvedCommand)
+		// Python: attempt alternative servers if the configured one is missing
+		if language == "python" {
+			type candidate struct {
+				cmd  string
+				args []string
+			}
+			// Build candidate list, de-duplicated, preferring modern servers
+			seen := map[string]bool{}
+			candidates := []candidate{}
+			add := func(cmd string, args []string) {
+				if cmd == "" || seen[cmd] {
+					return
+				}
+				seen[cmd] = true
+				candidates = append(candidates, candidate{cmd: cmd, args: args})
+			}
+			add(cfg.Command, cfg.Args)
+			add("basedpyright-langserver", []string{"--stdio"})
+			add("pyright-langserver", []string{"--stdio"})
+			add("pylsp", []string{})
+			add("jedi-language-server", []string{})
+
+			found := false
+			for _, c := range candidates {
+				rc := m.resolveCommandPath(language, c.cmd)
+				// Re-validate command with candidate args
+				if vErr := security.ValidateCommand(rc, c.args); vErr != nil {
+					continue
+				}
+				if _, lErr := exec.LookPath(rc); lErr == nil {
+					resolvedCommand = rc
+					argsToUse = c.args
+					found = true
+					common.LSPLogger.Info("Using fallback Python LSP server: %s", rc)
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("LSP server executable not found for %s: %s", language, resolvedCommand)
+			}
+		} else {
+			return fmt.Errorf("LSP server executable not found for %s: %s", language, resolvedCommand)
+		}
 	}
 
 	clientConfig := types.ClientConfig{
 		Command:               resolvedCommand,
-		Args:                  cfg.Args,
+		Args:                  argsToUse,
 		WorkingDir:            cfg.WorkingDir,
 		InitializationOptions: cfg.InitializationOptions,
 	}
