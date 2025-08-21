@@ -445,9 +445,24 @@ class DataService {
 			t.Fatal("Concurrent multi-language operations timeout")
 		}
 
-		expectedMinSuccess := len(operations) * iterations / 2
+		dm := documents.NewLSPDocumentManager()
+		availableOps := 0
+		for _, op := range operations {
+			uri := utils.FilePathToURI(filepath.Join(testDir, op.file))
+			lang := dm.DetectLanguage(uri)
+			if _, err := lspManager.GetClient(lang); err == nil {
+				availableOps++
+			}
+		}
+		if availableOps == 0 {
+			t.Skip("No available LSP servers for tested languages; skipping success ratio assertion")
+		}
+		expectedMinSuccess := (availableOps * iterations) / 2
+		if expectedMinSuccess < 1 {
+			expectedMinSuccess = 1
+		}
 		assert.GreaterOrEqual(t, int(successCount), expectedMinSuccess,
-			"At least 50% of operations should succeed")
+			"At least 50% of operations for available languages should succeed")
 	})
 
 	t.Run("DocumentStateConsistency", func(t *testing.T) {
