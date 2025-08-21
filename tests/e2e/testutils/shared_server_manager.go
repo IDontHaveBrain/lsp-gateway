@@ -133,10 +133,10 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 	}
 
 	// Use a shared cache configuration that can be isolated per test
-    cacheConfig := DefaultCacheIsolationConfig()
-    cacheConfig.IsolationLevel = BasicIsolation  // Use basic isolation for shared server
-    cacheConfig.MaxCacheSize = 256 * 1024 * 1024 // 256MB for shared server
-    cacheConfig.BackgroundIndexing = false      // Disable background indexing to reduce LSP contention
+	cacheConfig := DefaultCacheIsolationConfig()
+	cacheConfig.IsolationLevel = BasicIsolation  // Use basic isolation for shared server
+	cacheConfig.MaxCacheSize = 256 * 1024 * 1024 // 256MB for shared server
+	cacheConfig.BackgroundIndexing = false       // Disable background indexing to reduce LSP contention
 
 	configPath, err := mgr.cacheIsolationMgr.GenerateIsolatedConfig(servers, cacheConfig)
 	if err != nil {

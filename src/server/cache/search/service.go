@@ -1,10 +1,10 @@
 package search
 
 import (
-    "context"
-    "fmt"
-    "sync"
-    "time"
+	"context"
+	"fmt"
+	"sync"
+	"time"
 
 	"lsp-gateway/src/internal/constants"
 	"lsp-gateway/src/internal/types"
@@ -76,47 +76,43 @@ func (s *SearchService) ExecuteSearch(request *SearchRequest) (*SearchResponse, 
 
 // ExecuteDefinitionSearch consolidates definition search logic
 func (s *SearchService) ExecuteDefinitionSearch(request *SearchRequest) (*SearchResponse, error) {
-    return s.guard.WithSearchResponse(SearchTypeDefinition, func() (*SearchResponse, error) {
-        return s.withIndexReadLock(func() (*SearchResponse, error) {
-            h := &DefinitionSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
-            return h.Handle(request)
-        })
-    })
+	return s.guard.WithSearchResponse(SearchTypeDefinition, func() (*SearchResponse, error) {
+		return s.withIndexReadLock(func() (*SearchResponse, error) {
+			h := &DefinitionSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
+			return h.Handle(request)
+		})
+	})
 }
-
 
 // ExecuteReferenceSearch consolidates reference search logic
 func (s *SearchService) ExecuteReferenceSearch(request *SearchRequest) (*SearchResponse, error) {
-    return s.guard.WithSearchResponse(SearchTypeReference, func() (*SearchResponse, error) {
-        return s.withIndexReadLock(func() (*SearchResponse, error) {
-            h := &ReferenceSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
-            return h.Handle(request)
-        })
-    })
+	return s.guard.WithSearchResponse(SearchTypeReference, func() (*SearchResponse, error) {
+		return s.withIndexReadLock(func() (*SearchResponse, error) {
+			h := &ReferenceSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
+			return h.Handle(request)
+		})
+	})
 }
-
 
 // ExecuteSymbolSearch consolidates symbol search logic
 func (s *SearchService) ExecuteSymbolSearch(request *SearchRequest) (*SearchResponse, error) {
-    return s.guard.WithSearchResponse(SearchTypeSymbol, func() (*SearchResponse, error) {
-        return s.withIndexReadLock(func() (*SearchResponse, error) {
-            h := &SymbolSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
-            return h.Handle(request)
-        })
-    })
+	return s.guard.WithSearchResponse(SearchTypeSymbol, func() (*SearchResponse, error) {
+		return s.withIndexReadLock(func() (*SearchResponse, error) {
+			h := &SymbolSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
+			return h.Handle(request)
+		})
+	})
 }
-
 
 // ExecuteWorkspaceSearch consolidates workspace search logic
 func (s *SearchService) ExecuteWorkspaceSearch(request *SearchRequest) (*SearchResponse, error) {
-    return s.guard.WithSearchResponse(SearchTypeWorkspace, func() (*SearchResponse, error) {
-        return s.withIndexReadLock(func() (*SearchResponse, error) {
-            h := &WorkspaceSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
-            return h.Handle(request)
-        })
-    })
+	return s.guard.WithSearchResponse(SearchTypeWorkspace, func() (*SearchResponse, error) {
+		return s.withIndexReadLock(func() (*SearchResponse, error) {
+			h := &WorkspaceSearchHandler{BaseSearchHandler: BaseSearchHandler{storage: s.storage, matchFilePatternFn: s.matchFilePatternFn, buildOccurrenceInfoFn: s.buildOccurrenceInfoFn}}
+			return h.Handle(request)
+		})
+	})
 }
-
 
 // Enhanced search operations for specialized use cases
 
@@ -190,7 +186,7 @@ func (s *SearchService) executeEnhancedSymbolSearchInternal(query *EnhancedSymbo
 
 	// Apply sorting if specified
 	if query.SortBy != "" {
-        SortEnhancedResults(enhancedResults, query.SortBy)
+		SortEnhancedResults(enhancedResults, query.SortBy)
 	}
 
 	return &EnhancedSymbolSearchResponse{
@@ -291,7 +287,7 @@ func (s *SearchService) executeReferenceSearchEnhancedInternal(symbolName, fileP
 
 	// Apply sorting if specified
 	if options.SortBy != "" {
-        SortOccurrenceResults(allReferences, options.SortBy)
+		SortOccurrenceResults(allReferences, options.SortBy)
 	}
 
 	return &ReferenceSearchResponse{
@@ -338,16 +334,16 @@ func (s *SearchService) normalizeMaxResults(maxResults int) int {
 
 // buildSearchResponse constructs a standardized SearchResponse
 func (s *SearchService) buildSearchResponse(searchType SearchType, results []interface{}, metadata *SearchMetadata, request *SearchRequest) *SearchResponse {
-    return &SearchResponse{
-        Type:      searchType,
-        RequestID: request.RequestID,
-        Results:   results,
-        Total:     len(results),
-        Truncated: false,
-        Metadata:  metadata,
-        Timestamp: time.Now(),
-        Success:   true,
-    }
+	return &SearchResponse{
+		Type:      searchType,
+		RequestID: request.RequestID,
+		Results:   results,
+		Total:     len(results),
+		Truncated: false,
+		Metadata:  metadata,
+		Timestamp: time.Now(),
+		Success:   true,
+	}
 }
 
 // IsEnabled returns whether the search service is enabled

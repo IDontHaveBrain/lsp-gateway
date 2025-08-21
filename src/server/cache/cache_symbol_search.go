@@ -1,10 +1,10 @@
 package cache
 
 import (
-    "time"
+	"time"
 
-    "lsp-gateway/src/server/cache/search"
-    "lsp-gateway/src/server/scip"
+	"lsp-gateway/src/server/cache/search"
+	"lsp-gateway/src/server/scip"
 )
 
 type EnhancedSymbolQuery = search.EnhancedSymbolQuery

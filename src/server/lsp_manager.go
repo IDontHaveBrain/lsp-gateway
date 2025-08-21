@@ -133,72 +133,72 @@ func NewLSPManager(cfg *config.Config) (*LSPManager, error) {
 
 // Start initializes and starts all configured LSP clients
 func (m *LSPManager) Start(ctx context.Context) error {
-    common.LSPLogger.Debug("[LSPManager.Start] Starting LSP manager, scipCache=%v", m.cacheIntegrator.IsEnabled())
+	common.LSPLogger.Debug("[LSPManager.Start] Starting LSP manager, scipCache=%v", m.cacheIntegrator.IsEnabled())
 
-    // Start cache through integrator - handles graceful degradation internally
-    if err := m.cacheIntegrator.StartCache(ctx); err != nil {
-        return fmt.Errorf("unexpected cache start error: %w", err)
-    }
-    // Update convenience accessor after potential cache disabling
-    m.scipCache = m.cacheIntegrator.GetCache()
+	// Start cache through integrator - handles graceful degradation internally
+	if err := m.cacheIntegrator.StartCache(ctx); err != nil {
+		return fmt.Errorf("unexpected cache start error: %w", err)
+	}
+	// Update convenience accessor after potential cache disabling
+	m.scipCache = m.cacheIntegrator.GetCache()
 
-    // Detect workspace languages and filter servers to start
-    // Only start LSP servers for languages actually present in the current working directory
-    languagesToStart := make([]string, 0)
-    serversToStart := make(map[string]*config.ServerConfig)
+	// Detect workspace languages and filter servers to start
+	// Only start LSP servers for languages actually present in the current working directory
+	languagesToStart := make([]string, 0)
+	serversToStart := make(map[string]*config.ServerConfig)
 
-    if wd, err := os.Getwd(); err == nil {
-        if detected, derr := project.DetectLanguages(wd); derr == nil && len(detected) > 0 {
-            detectedSet := make(map[string]bool, len(detected))
-            for _, lang := range detected {
-                detectedSet[lang] = true
-            }
-            for lang, cfg := range m.config.Servers {
-                if detectedSet[lang] {
-                    serversToStart[lang] = cfg
-                    languagesToStart = append(languagesToStart, lang)
-                }
-            }
-            common.LSPLogger.Info("Detected workspace languages: %v", detected)
-            common.LSPLogger.Info("Starting LSP servers for detected languages only: %v", languagesToStart)
-        } else {
-            // No languages detected; do not start any servers
-            common.LSPLogger.Warn("No languages detected in workspace; skipping LSP server startup")
-        }
-    } else {
-        // Unable to get working directory; conservative: skip starting servers
-        common.LSPLogger.Warn("Failed to get working directory; skipping LSP server startup")
-    }
+	if wd, err := os.Getwd(); err == nil {
+		if detected, derr := project.DetectLanguages(wd); derr == nil && len(detected) > 0 {
+			detectedSet := make(map[string]bool, len(detected))
+			for _, lang := range detected {
+				detectedSet[lang] = true
+			}
+			for lang, cfg := range m.config.Servers {
+				if detectedSet[lang] {
+					serversToStart[lang] = cfg
+					languagesToStart = append(languagesToStart, lang)
+				}
+			}
+			common.LSPLogger.Info("Detected workspace languages: %v", detected)
+			common.LSPLogger.Info("Starting LSP servers for detected languages only: %v", languagesToStart)
+		} else {
+			// No languages detected; do not start any servers
+			common.LSPLogger.Warn("No languages detected in workspace; skipping LSP server startup")
+		}
+	} else {
+		// Unable to get working directory; conservative: skip starting servers
+		common.LSPLogger.Warn("Failed to get working directory; skipping LSP server startup")
+	}
 
-    // If nothing to start, return after initializing cache and watchers as appropriate
-    if len(serversToStart) == 0 {
-        // Start file watcher for real-time change detection (still useful for cache indexing triggers)
-        if m.config.Cache != nil && m.config.Cache.BackgroundIndex {
-            if err := m.startFileWatcher(); err != nil {
-                common.LSPLogger.Warn("Failed to start file watcher: %v", err)
-            }
-        }
-        return nil
-    }
+	// If nothing to start, return after initializing cache and watchers as appropriate
+	if len(serversToStart) == 0 {
+		// Start file watcher for real-time change detection (still useful for cache indexing triggers)
+		if m.config.Cache != nil && m.config.Cache.BackgroundIndex {
+			if err := m.startFileWatcher(); err != nil {
+				common.LSPLogger.Warn("Failed to start file watcher: %v", err)
+			}
+		}
+		return nil
+	}
 
-    // Start clients using ParallelAggregator framework with language-specific timeouts
-    // Create timeout manager for initialize operations
-    timeoutMgr := base.NewTimeoutManager().ForOperation(base.OperationInitialize)
+	// Start clients using ParallelAggregator framework with language-specific timeouts
+	// Create timeout manager for initialize operations
+	timeoutMgr := base.NewTimeoutManager().ForOperation(base.OperationInitialize)
 
-    // Calculate overall timeout as maximum of all language timeouts for filtered set
-    overallTimeout := timeoutMgr.GetOverallTimeout(languagesToStart)
+	// Calculate overall timeout as maximum of all language timeouts for filtered set
+	overallTimeout := timeoutMgr.GetOverallTimeout(languagesToStart)
 
-    common.LSPLogger.Debug("[LSPManager.Start] Using overall collection timeout of %v for %d servers", overallTimeout, len(serversToStart))
+	common.LSPLogger.Debug("[LSPManager.Start] Using overall collection timeout of %v for %d servers", overallTimeout, len(serversToStart))
 
-    // Create aggregator with calculated overall timeout
-    aggregator := base.NewParallelAggregator[*config.ServerConfig, error](0, overallTimeout)
+	// Create aggregator with calculated overall timeout
+	aggregator := base.NewParallelAggregator[*config.ServerConfig, error](0, overallTimeout)
 
-    // Convert server configs to clients map for framework compatibility
-    serverConfigs := make(map[string]types.LSPClient)
-    for lang, cfg := range serversToStart {
-        // Use a placeholder client that holds the server config
-        serverConfigs[lang] = &serverConfigWrapper{language: lang, config: cfg}
-    }
+	// Convert server configs to clients map for framework compatibility
+	serverConfigs := make(map[string]types.LSPClient)
+	for lang, cfg := range serversToStart {
+		// Use a placeholder client that holds the server config
+		serverConfigs[lang] = &serverConfigWrapper{language: lang, config: cfg}
+	}
 
 	// Create executor function that calls startClientWithTimeout
 	executor := func(ctx context.Context, client types.LSPClient, _ *config.ServerConfig) (error, error) {
@@ -208,11 +208,11 @@ func (m *LSPManager) Start(ctx context.Context) error {
 		return err, err
 	}
 
-    // Execute parallel client startup with language-specific timeouts
-    _, errors := aggregator.ExecuteWithLanguageTimeouts(ctx, serverConfigs, nil, executor, timeoutMgr.GetTimeout)
+	// Execute parallel client startup with language-specific timeouts
+	_, errors := aggregator.ExecuteWithLanguageTimeouts(ctx, serverConfigs, nil, executor, timeoutMgr.GetTimeout)
 
-    // Process results and populate clientErrors map to preserve exact behavior
-    completed := len(serversToStart) - len(errors)
+	// Process results and populate clientErrors map to preserve exact behavior
+	completed := len(serversToStart) - len(errors)
 
 	// Map framework errors back to the clientErrors structure
 	m.mu.Lock()
@@ -228,26 +228,26 @@ func (m *LSPManager) Start(ctx context.Context) error {
 	}
 	m.mu.Unlock()
 
-    // Handle timeout/cancellation cases exactly as before
-    if len(errors) > 0 {
-        // Check for timeout by examining error messages
-        for _, err := range errors {
-            errStr := err.Error()
-            if strings.Contains(errStr, "timeout") || strings.Contains(errStr, "Overall timeout reached") {
-                common.LSPLogger.Warn("Timeout reached, %d/%d clients started", completed, len(serversToStart))
-                return nil
-            }
-        }
-    }
+	// Handle timeout/cancellation cases exactly as before
+	if len(errors) > 0 {
+		// Check for timeout by examining error messages
+		for _, err := range errors {
+			errStr := err.Error()
+			if strings.Contains(errStr, "timeout") || strings.Contains(errStr, "Overall timeout reached") {
+				common.LSPLogger.Warn("Timeout reached, %d/%d clients started", completed, len(serversToStart))
+				return nil
+			}
+		}
+	}
 
 	// Check for context cancellation
 	select {
-    case <-ctx.Done():
-        common.LSPLogger.Warn("Context cancelled, %d/%d clients started", completed, len(serversToStart))
-        return nil
-    default:
-        // Context not cancelled, continue
-    }
+	case <-ctx.Done():
+		common.LSPLogger.Warn("Context cancelled, %d/%d clients started", completed, len(serversToStart))
+		return nil
+	default:
+		// Context not cancelled, continue
+	}
 
 	// Perform workspace indexing if cache is enabled and background indexing is configured
 	if m.scipCache != nil && m.config.Cache != nil && m.config.Cache.BackgroundIndex {
@@ -539,31 +539,31 @@ func (m *LSPManager) sendRequestWithRetry(ctx context.Context, client types.LSPC
 	var lastRes json.RawMessage
 	var lastErr error
 
-    for attempt := 0; attempt < maxRetries; attempt++ {
-        res, err := client.SendRequest(ctx, method, params)
-        lastRes = res
-        lastErr = err
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		res, err := client.SendRequest(ctx, method, params)
+		lastRes = res
+		lastErr = err
 
-        if err != nil {
-            return res, err
-        }
+		if err != nil {
+			return res, err
+		}
 
-        // Retry on transient content-modified errors commonly returned by some servers (e.g., OmniSharp)
-        if isContentModifiedRPCError(res) {
-            if uri == "" || attempt == maxRetries-1 {
-                return res, nil
-            }
-            delay := time.Duration(attempt+1) * baseDelay
-            time.Sleep(delay)
-            // Re-ensure document open to stabilize
-            m.ensureDocumentOpen(client, uri, params)
-            continue
-        }
+		// Retry on transient content-modified errors commonly returned by some servers (e.g., OmniSharp)
+		if isContentModifiedRPCError(res) {
+			if uri == "" || attempt == maxRetries-1 {
+				return res, nil
+			}
+			delay := time.Duration(attempt+1) * baseDelay
+			time.Sleep(delay)
+			// Re-ensure document open to stabilize
+			m.ensureDocumentOpen(client, uri, params)
+			continue
+		}
 
-        if !isNoViewsRPCError(res) {
-            // Success - no "no views" error
-            return res, nil
-        }
+		if !isNoViewsRPCError(res) {
+			// Success - no "no views" error
+			return res, nil
+		}
 
 		// Don't retry if no URI provided or this is the last attempt
 		if uri == "" || attempt == maxRetries-1 {
@@ -589,7 +589,7 @@ func (m *LSPManager) sendRequestWithRetry(ctx context.Context, client types.LSPC
 		time.Sleep(delay + jitter)
 	}
 
-    return lastRes, lastErr
+	return lastRes, lastErr
 }
 
 // isNoViewsRPCError detects a JSON-RPC error payload with "no views" message
@@ -607,28 +607,28 @@ func isNoViewsRPCError(raw json.RawMessage) bool {
 	if e.Message == "" {
 		return false
 	}
-    return strings.Contains(strings.ToLower(e.Message), "no views")
+	return strings.Contains(strings.ToLower(e.Message), "no views")
 }
 
 // isContentModifiedRPCError detects a JSON-RPC error payload with Content Modified (-32801)
 func isContentModifiedRPCError(raw json.RawMessage) bool {
-    if len(raw) == 0 {
-        return false
-    }
-    var e struct {
-        Code    int    `json:"code"`
-        Message string `json:"message"`
-    }
-    if err := json.Unmarshal(raw, &e); err != nil {
-        return false
-    }
-    if e.Message == "" {
-        return false
-    }
-    if e.Code == -32801 {
-        return true
-    }
-    return strings.Contains(strings.ToLower(e.Message), "content modified")
+	if len(raw) == 0 {
+		return false
+	}
+	var e struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(raw, &e); err != nil {
+		return false
+	}
+	if e.Message == "" {
+		return false
+	}
+	if e.Code == -32801 {
+		return true
+	}
+	return strings.Contains(strings.ToLower(e.Message), "content modified")
 }
 
 // GetClientStatus returns the status of all LSP clients
@@ -724,12 +724,14 @@ func (m *LSPManager) resolveCommandPath(language, command string) string {
 	}
 
 	// Check for other language custom installations
-	if command == "gopls" || command == "pylsp" || command == "jedi-language-server" || command == "typescript-language-server" || command == "omnisharp" || command == "OmniSharp" {
+	if command == "gopls" || command == "pylsp" || command == "jedi-language-server" || command == "pyright-langserver" || command == "basedpyright-langserver" || command == "typescript-language-server" || command == "omnisharp" || command == "OmniSharp" {
 		// Map of commands to their languages for path construction
 		languageMap := map[string]string{
 			"gopls":                      "go",
 			"pylsp":                      "python",
 			"jedi-language-server":       "python",
+			"pyright-langserver":         "python",
+			"basedpyright-langserver":    "python",
 			"typescript-language-server": "typescript",
 			"omnisharp":                  "csharp",
 			"OmniSharp":                  "csharp",

@@ -665,62 +665,62 @@ func TestHTTPGateway_addCacheHeaders_NilMetrics(t *testing.T) {
 
 // Test handleLanguages endpoint
 func TestHTTPGateway_handleLanguages(t *testing.T) {
-    gateway := &HTTPGateway{
-        lspManager:      &LSPManager{},
-        cacheConfig:     &config.CacheConfig{Enabled: true},
-        lspOnly:         false,
-        responseFactory: protocol.NewResponseFactory(),
-    }
+	gateway := &HTTPGateway{
+		lspManager:      &LSPManager{},
+		cacheConfig:     &config.CacheConfig{Enabled: true},
+		lspOnly:         false,
+		responseFactory: protocol.NewResponseFactory(),
+	}
 
-    t.Run("GET returns languages and extensions", func(t *testing.T) {
-        req := httptest.NewRequest("GET", "/languages", nil)
-        w := httptest.NewRecorder()
+	t.Run("GET returns languages and extensions", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/languages", nil)
+		w := httptest.NewRecorder()
 
-        gateway.handleLanguages(w, req)
+		gateway.handleLanguages(w, req)
 
-        assert.Equal(t, 200, w.Code)
-        assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+		assert.Equal(t, 200, w.Code)
+		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
 
-        var resp map[string]interface{}
-        err := json.Unmarshal(w.Body.Bytes(), &resp)
-        require.NoError(t, err)
+		var resp map[string]interface{}
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		require.NoError(t, err)
 
-        langs, ok := resp["languages"].([]interface{})
-        require.True(t, ok)
-        require.Greater(t, len(langs), 0)
+		langs, ok := resp["languages"].([]interface{})
+		require.True(t, ok)
+		require.Greater(t, len(langs), 0)
 
-        foundGo := false
-        for _, l := range langs {
-            if s, ok := l.(string); ok && s == "go" {
-                foundGo = true
-                break
-            }
-        }
-        assert.True(t, foundGo)
+		foundGo := false
+		for _, l := range langs {
+			if s, ok := l.(string); ok && s == "go" {
+				foundGo = true
+				break
+			}
+		}
+		assert.True(t, foundGo)
 
-        exts, ok := resp["extensions"].(map[string]interface{})
-        require.True(t, ok)
-        goExts, ok := exts["go"].([]interface{})
-        require.True(t, ok)
+		exts, ok := resp["extensions"].(map[string]interface{})
+		require.True(t, ok)
+		goExts, ok := exts["go"].([]interface{})
+		require.True(t, ok)
 
-        containsGo := false
-        for _, e := range goExts {
-            if s, ok := e.(string); ok && s == ".go" {
-                containsGo = true
-                break
-            }
-        }
-        assert.True(t, containsGo)
-    })
+		containsGo := false
+		for _, e := range goExts {
+			if s, ok := e.(string); ok && s == ".go" {
+				containsGo = true
+				break
+			}
+		}
+		assert.True(t, containsGo)
+	})
 
-    t.Run("method not allowed", func(t *testing.T) {
-        req := httptest.NewRequest("POST", "/languages", nil)
-        w := httptest.NewRecorder()
+	t.Run("method not allowed", func(t *testing.T) {
+		req := httptest.NewRequest("POST", "/languages", nil)
+		w := httptest.NewRecorder()
 
-        gateway.handleLanguages(w, req)
-        assert.Equal(t, 405, w.Code)
-        assert.Contains(t, w.Body.String(), "Method not allowed")
-    })
+		gateway.handleLanguages(w, req)
+		assert.Equal(t, 405, w.Code)
+		assert.Contains(t, w.Body.String(), "Method not allowed")
+	})
 }
 
 // Test error response formatting

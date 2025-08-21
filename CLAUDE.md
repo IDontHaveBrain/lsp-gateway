@@ -82,12 +82,49 @@ type CacheIntegrator interface {
 | Language | Extensions | LSP Server | Timeout | Detection |
 |----------|------------|------------|---------|-----------|
 | Go | .go | gopls | 15s | go.mod |
-| Python | .py, .pyi | jedi-language-server | 30s | *.py |
+| Python | .py, .pyi | basedpyright (default), pyright, or jedi-language-server | 30s/45s init | *.py |
 | JavaScript | .js, .jsx, .mjs | typescript-language-server | 15s/30s init | package.json |
 | TypeScript | .ts, .tsx, .d.ts | typescript-language-server | 15s/30s init | package.json |
 | Java | .java | jdtls | 90s | pom.xml, build.gradle |
 | Rust | .rs | rust-analyzer | 15s | Cargo.toml |
 | C# | .cs | omnisharp | 30s/45s init | *.csproj, *.sln |
+
+### Python LSP Server Options
+
+The gateway supports three Python LSP servers:
+
+1. **basedpyright** (default) - Enhanced fork of pyright, installed via pip
+2. **pyright** - Microsoft's type checker, installed via npm
+3. **jedi-language-server** - Lightweight Python LSP, installed via pip
+
+To install specific Python LSP servers:
+```bash
+# Install basedpyright (default)
+lsp-gateway install python
+
+# Install pyright
+lsp-gateway install python --server pyright
+
+# Install jedi-language-server
+lsp-gateway install python --server jedi
+```
+
+To configure in `~/.lsp-gateway/config.yaml`:
+```yaml
+servers:
+  python:
+    # For basedpyright (default)
+    command: "basedpyright-langserver"
+    args: ["--stdio"]
+    
+    # For pyright
+    # command: "pyright-langserver"
+    # args: ["--stdio"]
+    
+    # For jedi
+    # command: "jedi-language-server"
+    # args: []
+```
 
 ## Critical: STDIO-Safe Logging
 

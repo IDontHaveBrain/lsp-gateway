@@ -12,7 +12,7 @@ import (
 	"runtime"
 	"strings"
 	"time"
-	
+
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/security"
 )
@@ -59,19 +59,19 @@ func (c *CSharpInstaller) Install(ctx context.Context, options InstallOptions) e
 	if err := c.ExtractArchive(ctx, archivePath, installBin); err != nil {
 		return err
 	}
-	
+
 	// Find and ensure the OmniSharp binary is executable
 	if err := c.ensureOmniSharpExecutable(installBin); err != nil {
 		return fmt.Errorf("failed to setup OmniSharp binary: %w", err)
 	}
-	
+
 	return nil
 }
 
 // IsInstalled checks if OmniSharp is properly installed
 func (c *CSharpInstaller) IsInstalled() bool {
 	installBin := filepath.Join(c.GetInstallPath(), "bin")
-	
+
 	// Check for various possible binary names including wrapper scripts
 	var candidates []string
 	if runtime.GOOS == "windows" {
@@ -79,7 +79,7 @@ func (c *CSharpInstaller) IsInstalled() bool {
 	} else {
 		candidates = []string{"omnisharp", "OmniSharp"}
 	}
-	
+
 	// Check if any of the candidate binaries exist
 	for _, candidate := range candidates {
 		binaryPath := filepath.Join(installBin, candidate)
@@ -94,7 +94,7 @@ func (c *CSharpInstaller) IsInstalled() bool {
 			}
 		}
 	}
-	
+
 	// Also check for OmniSharp.dll with dotnet wrapper
 	dllPath := filepath.Join(installBin, "OmniSharp.dll")
 	if _, err := os.Stat(dllPath); err == nil {
@@ -108,14 +108,14 @@ func (c *CSharpInstaller) IsInstalled() bool {
 			return true
 		}
 	}
-	
+
 	// Also check if it's available in PATH
 	for _, cmd := range []string{"omnisharp", "OmniSharp"} {
 		if c.IsInstalledByCommand(cmd) {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -131,11 +131,11 @@ func (c *CSharpInstaller) ValidateInstallation() error {
 	if !c.IsInstalled() {
 		return fmt.Errorf("csharp language server installation validation failed: not installed")
 	}
-	
+
 	// Find the actual executable path and update server config
 	installBin := filepath.Join(c.GetInstallPath(), "bin")
 	var executablePath string
-	
+
 	// Check for wrapper script first (for .dll installations)
 	if runtime.GOOS == "windows" {
 		wrapperPath := filepath.Join(installBin, "omnisharp.cmd")
@@ -148,7 +148,7 @@ func (c *CSharpInstaller) ValidateInstallation() error {
 			executablePath = wrapperPath
 		}
 	}
-	
+
 	// If no wrapper, look for native binary
 	if executablePath == "" {
 		var candidates []string
@@ -157,7 +157,7 @@ func (c *CSharpInstaller) ValidateInstallation() error {
 		} else {
 			candidates = []string{"OmniSharp", "omnisharp"}
 		}
-		
+
 		for _, candidate := range candidates {
 			path := filepath.Join(installBin, candidate)
 			if _, err := os.Stat(path); err == nil {
@@ -166,16 +166,16 @@ func (c *CSharpInstaller) ValidateInstallation() error {
 			}
 		}
 	}
-	
+
 	if executablePath == "" {
 		return fmt.Errorf("csharp language server executable not found")
 	}
-	
+
 	// Update server config to use the actual path
 	if c.serverConfig != nil {
 		c.serverConfig.Command = executablePath
 	}
-	
+
 	// Validate security
 	args := []string{"-lsp"}
 	if c.serverConfig != nil {
@@ -184,7 +184,7 @@ func (c *CSharpInstaller) ValidateInstallation() error {
 	if err := security.ValidateCommand(executablePath, args); err != nil {
 		return fmt.Errorf("security validation failed for csharp: %w", err)
 	}
-	
+
 	common.CLILogger.Info("Installation validation successful for omnisharp")
 	common.CLILogger.Info("C# validation successful")
 	return nil
@@ -363,13 +363,13 @@ func copyDirContents(srcDir, dstDir string) error {
 func (c *CSharpInstaller) ensureOmniSharpExecutable(installBin string) error {
 	var foundBinary string
 	var candidates []string
-	
+
 	if runtime.GOOS == "windows" {
 		candidates = []string{"OmniSharp.exe", "omnisharp.exe", "OmniSharp.dll"}
 	} else {
 		candidates = []string{"OmniSharp", "omnisharp", "OmniSharp.dll"}
 	}
-	
+
 	// First check in the root of installBin
 	for _, candidate := range candidates {
 		path := filepath.Join(installBin, candidate)
@@ -378,7 +378,7 @@ func (c *CSharpInstaller) ensureOmniSharpExecutable(installBin string) error {
 			break
 		}
 	}
-	
+
 	// If not found, search recursively
 	if foundBinary == "" {
 		err := filepath.WalkDir(installBin, func(path string, d os.DirEntry, err error) error {
@@ -398,24 +398,24 @@ func (c *CSharpInstaller) ensureOmniSharpExecutable(installBin string) error {
 			return fmt.Errorf("error searching for OmniSharp binary: %w", err)
 		}
 	}
-	
+
 	if foundBinary == "" {
 		return fmt.Errorf("OmniSharp binary not found after extraction")
 	}
-	
+
 	common.CLILogger.Info("Found OmniSharp binary at: %s", foundBinary)
-	
+
 	// For .dll files, we need to create a wrapper script
 	if strings.HasSuffix(foundBinary, ".dll") {
 		return c.createDotNetWrapper(foundBinary, installBin)
 	}
-	
+
 	// For native binaries, ensure they're executable
 	if runtime.GOOS != "windows" {
 		if err := os.Chmod(foundBinary, 0755); err != nil {
 			return fmt.Errorf("failed to make binary executable: %w", err)
 		}
-		
+
 		// Create a symlink with lowercase name if the binary has uppercase name
 		baseName := filepath.Base(foundBinary)
 		if baseName == "OmniSharp" {
@@ -428,14 +428,14 @@ func (c *CSharpInstaller) ensureOmniSharpExecutable(installBin string) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
 // createDotNetWrapper creates a wrapper script for .dll based OmniSharp
 func (c *CSharpInstaller) createDotNetWrapper(dllPath string, installBin string) error {
 	wrapperPath := filepath.Join(installBin, "omnisharp")
-	
+
 	if runtime.GOOS == "windows" {
 		wrapperPath += ".cmd"
 		content := fmt.Sprintf(`@echo off

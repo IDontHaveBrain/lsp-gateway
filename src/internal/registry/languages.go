@@ -49,6 +49,30 @@ var languageRegistry = map[string]LanguageInfo{
 	"python": {
 		Name:              "python",
 		Extensions:        []string{".py", ".pyi"},
+		DefaultCommand:    "basedpyright-langserver",
+		DefaultArgs:       []string{"--stdio"},
+		InstallerRequired: true,
+		InitializationOptions: map[string]interface{}{
+			// Basedpyright expects empty initialization options
+			// Configuration is sent via workspace/didChangeConfiguration after initialization
+		},
+		RequestTimeout:    30 * time.Second,
+		InitializeTimeout: 45 * time.Second, // Basedpyright can take longer to initialize
+		EnvironmentVars:   map[string]string{},
+		ErrorPatterns: []ErrorPattern{
+			{
+				Pattern: types.MethodWorkspaceSymbol,
+				Message: "Ensure 'basedpyright' is installed via 'pip install basedpyright'",
+			},
+			{
+				Pattern: "semanticTokens",
+				Message: "Ensure 'basedpyright' is installed via 'pip install basedpyright'",
+			},
+		},
+	},
+	"python-jedi": {
+		Name:              "python",
+		Extensions:        []string{".py", ".pyi"},
 		DefaultCommand:    "jedi-language-server",
 		DefaultArgs:       []string{},
 		InstallerRequired: true,
@@ -67,6 +91,30 @@ var languageRegistry = map[string]LanguageInfo{
 			{
 				Pattern: "semanticTokens",
 				Message: "Ensure 'jedi-language-server' is installed via 'pip install jedi-language-server'",
+			},
+		},
+	},
+	"python-pyright": {
+		Name:              "python",
+		Extensions:        []string{".py", ".pyi"},
+		DefaultCommand:    "pyright-langserver",
+		DefaultArgs:       []string{"--stdio"},
+		InstallerRequired: true,
+		InitializationOptions: map[string]interface{}{
+			// Pyright expects empty initialization options
+			// Configuration is sent via workspace/didChangeConfiguration after initialization
+		},
+		RequestTimeout:    30 * time.Second,
+		InitializeTimeout: 45 * time.Second, // Pyright can take longer to initialize
+		EnvironmentVars:   map[string]string{},
+		ErrorPatterns: []ErrorPattern{
+			{
+				Pattern: types.MethodWorkspaceSymbol,
+				Message: "Ensure 'pyright' is installed via 'npm install -g pyright'",
+			},
+			{
+				Pattern: "semanticTokens",
+				Message: "Ensure 'pyright' is installed via 'npm install -g pyright'",
 			},
 		},
 	},
@@ -191,6 +239,8 @@ var allowedCommands = []string{
 	"tsserver",
 	"pylsp",
 	"jedi-language-server",
+	"pyright-langserver",
+	"basedpyright-langserver",
 	"jdtls",
 	"jdtls.bat",
 	"jdtls.py",

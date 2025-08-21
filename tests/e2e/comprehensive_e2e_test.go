@@ -9,21 +9,21 @@ import (
 )
 
 type LanguageTestConfig struct {
-    name        string
-    displayName string
+	name        string
+	displayName string
 }
 
 func getLanguageConfigs() []LanguageTestConfig {
-    configs := []LanguageTestConfig{
-        {name: "go", displayName: "Go"},
-        {name: "python", displayName: "Python"},
-        {name: "javascript", displayName: "JavaScript"},
-        {name: "typescript", displayName: "TypeScript"},
-        {name: "java", displayName: "Java"},
-        {name: "rust", displayName: "Rust"},
-        {name: "csharp", displayName: "CSharp"},  // Always include C# in tests
-    }
-    return configs
+	configs := []LanguageTestConfig{
+		{name: "go", displayName: "Go"},
+		{name: "python", displayName: "Python"},
+		{name: "javascript", displayName: "JavaScript"},
+		{name: "typescript", displayName: "TypeScript"},
+		{name: "java", displayName: "Java"},
+		{name: "rust", displayName: "Rust"},
+		{name: "csharp", displayName: "CSharp"}, // Always include C# in tests
+	}
+	return configs
 }
 
 // ComprehensiveE2ETestSuite tests all supported LSP methods for all languages
@@ -33,15 +33,15 @@ type ComprehensiveE2ETestSuite struct {
 
 // TestAllLanguagesComprehensive runs comprehensive tests for all supported languages
 func TestAllLanguagesComprehensive(t *testing.T) {
-    for _, lang := range getLanguageConfigs() {
-        lang := lang // capture range variable
-        t.Run(lang.displayName, func(t *testing.T) {
-            suite.Run(t, &LanguageSpecificSuite{
-                language:    lang.name,
-                displayName: lang.displayName,
-            })
-        })
-    }
+	for _, lang := range getLanguageConfigs() {
+		lang := lang // capture range variable
+		t.Run(lang.displayName, func(t *testing.T) {
+			suite.Run(t, &LanguageSpecificSuite{
+				language:    lang.name,
+				displayName: lang.displayName,
+			})
+		})
+	}
 }
 
 // LanguageSpecificSuite is a test suite for a specific language

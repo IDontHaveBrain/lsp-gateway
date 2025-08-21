@@ -35,19 +35,19 @@ const (
 
 // CLI Variables
 var (
-    configPath  string
-    lspOnly     bool
-    port        int
-    force       bool
-    offline     bool
-    version     string
-    installPath string
-    verbose     bool
-    outPath     string
-    formatJSON  bool
-    targetFiles []string
-    includeRefs bool
-    
+	configPath   string
+	lspOnly      bool
+	port         int
+	force        bool
+	offline      bool
+	version      string
+	installPath  string
+	verbose      bool
+	outPath      string
+	formatJSON   bool
+	targetFiles  []string
+	includeRefs  bool
+	pythonServer string
 )
 
 // Root command
@@ -262,8 +262,13 @@ var (
 	installPythonCmd = &cobra.Command{
 		Use:   "python",
 		Short: "Install Python language server",
-		Long:  `Install Python language server (jedi-language-server) using pip.`,
-		RunE:  runInstallPythonCmd,
+		Long: `Install Python language server. Supports both jedi-language-server (default) and pyright.
+
+Examples:
+  lsp-gateway install python                  # Install jedi-language-server (default)
+  lsp-gateway install python --server jedi    # Install jedi-language-server
+  lsp-gateway install python --server pyright # Install pyright`,
+		RunE: runInstallPythonCmd,
 	}
 
 	installTypeScriptCmd = &cobra.Command{
@@ -398,9 +403,8 @@ var (
 
 Uses the SCIP cache and LSP to enumerate symbols in each file and, when requested,
 lists reference locations across the workspace.`,
-		RunE:  runContextSymbolsCmd,
+		RunE: runContextSymbolsCmd,
 	}
-
 )
 
 func init() {
@@ -439,6 +443,9 @@ func init() {
 	installCmd.AddCommand(installCSharpCmd)
 	installCmd.AddCommand(installUpdateConfigCmd)
 
+	// Python install specific flags
+	installPythonCmd.Flags().StringVar(&pythonServer, "server", "", "Python LSP server to install (jedi or pyright)")
+
 	// Cache command flags
 	cacheInfoCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
 	cacheClearCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
@@ -450,17 +457,17 @@ func init() {
 	cacheCmd.AddCommand(cacheClearCmd)
 	cacheCmd.AddCommand(cacheIndexCmd)
 
-    // Context command flags
-    contextMapCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
+	// Context command flags
+	contextMapCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
 
-    contextSymbolsCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
-    contextSymbolsCmd.Flags().BoolVar(&formatJSON, "json", false, "Output in JSON format")
-    contextSymbolsCmd.Flags().BoolVar(&includeRefs, "include-refs", true, "Include reference locations for each symbol")
-    contextSymbolsCmd.Flags().StringSliceVar(&targetFiles, "files", []string{}, "Specific files to analyze")
+	contextSymbolsCmd.Flags().StringVarP(&configPath, FlagConfig, "c", "", "Configuration file path (optional)")
+	contextSymbolsCmd.Flags().BoolVar(&formatJSON, "json", false, "Output in JSON format")
+	contextSymbolsCmd.Flags().BoolVar(&includeRefs, "include-refs", true, "Include reference locations for each symbol")
+	contextSymbolsCmd.Flags().StringSliceVar(&targetFiles, "files", []string{}, "Specific files to analyze")
 
-    // Context subcommands
-    contextCmd.AddCommand(contextMapCmd)
-    contextCmd.AddCommand(contextSymbolsCmd)
+	// Context subcommands
+	contextCmd.AddCommand(contextMapCmd)
+	contextCmd.AddCommand(contextSymbolsCmd)
 
 	// Add commands to root
 	rootCmd.AddCommand(serverCmd)
@@ -523,7 +530,7 @@ func runInstallGoCmd(cmd *cobra.Command, args []string) error {
 }
 
 func runInstallPythonCmd(cmd *cobra.Command, args []string) error {
-	return InstallLanguage("python", installPath, version, force, offline, "")
+	return InstallLanguage("python", installPath, version, force, offline, pythonServer)
 }
 
 func runInstallTypeScriptCmd(cmd *cobra.Command, args []string) error {

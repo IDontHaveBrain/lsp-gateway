@@ -228,21 +228,21 @@ func (g *HTTPGateway) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 // handleLanguages returns supported language names and their file extensions
 func (g *HTTPGateway) handleLanguages(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodGet {
-        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-        return
-    }
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 
-    languages := config.GetAllSupportedLanguages()
-    extensions := registry.GetSupportedExtensions()
+	languages := config.GetAllSupportedLanguages()
+	extensions := registry.GetSupportedExtensions()
 
-    result := map[string]interface{}{
-        "languages":  languages,
-        "extensions": extensions,
-    }
+	result := map[string]interface{}{
+		"languages":  languages,
+		"extensions": extensions,
+	}
 
-    w.Header().Set("Content-Type", "application/json")
-    json.NewEncoder(w).Encode(result)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
 }
 
 // writeResponse writes a JSON-RPC response (success or error) to the HTTP response writer

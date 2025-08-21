@@ -1,8 +1,8 @@
 package cache
 
 import (
-    "lsp-gateway/src/server/scip"
-    "lsp-gateway/src/utils/filepattern"
+	"lsp-gateway/src/server/scip"
+	"lsp-gateway/src/utils/filepattern"
 )
 
 // Common search utilities - shared helper functions for search operations
