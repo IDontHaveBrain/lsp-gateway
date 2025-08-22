@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+    "net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -779,9 +780,79 @@ func (m *LSPManager) resolveCommandPath(language, command string) string {
 
 // startClientWithTimeout starts a single LSP client with timeout
 func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string, cfg *config.ServerConfig) error {
-	resolvedCommand := m.resolveCommandPath(language, cfg.Command)
+    resolvedCommand := m.resolveCommandPath(language, cfg.Command)
 
-	argsToUse := cfg.Args
+    argsToUse := cfg.Args
+
+    // Kotlin on Windows: force socket mode (allow opt-in via env for testing)
+    forceKotlinSocket := os.Getenv("LSPGW_FORCE_KOTLIN_SOCKET") == "1"
+    if language == "kotlin" && (runtime.GOOS == "windows" || forceKotlinSocket) {
+        // Pick a free local port
+        ln, err := net.Listen("tcp", "127.0.0.1:0")
+        if err != nil {
+            return fmt.Errorf("kotlin socket listen failed: %w", err)
+        }
+        addr := ln.Addr().String()
+        ln.Close()
+
+        filtered := make([]string, 0, len(argsToUse))
+        skipNext := false
+        for i := 0; i < len(argsToUse); i++ {
+            if skipNext {
+                skipNext = false
+                continue
+            }
+            a := argsToUse[i]
+            if a == "--stdio" {
+                continue
+            }
+            if a == "--client" {
+                continue
+            }
+            if a == "--socket" {
+                // Skip the value if present
+                if i+1 < len(argsToUse) {
+                    skipNext = true
+                }
+                continue
+            }
+            filtered = append(filtered, a)
+        }
+        argsToUse = append(filtered, "--socket", addr)
+
+        clientConfig := types.ClientConfig{
+            Command:               resolvedCommand,
+            Args:                  argsToUse,
+            WorkingDir:            cfg.WorkingDir,
+            InitializationOptions: cfg.InitializationOptions,
+        }
+
+        if err := security.ValidateCommand(resolvedCommand, argsToUse); err != nil {
+            return fmt.Errorf("invalid LSP server command for %s: %w", language, err)
+        }
+
+        client, err := NewSocketClient(clientConfig, language, addr)
+        if err != nil {
+            return fmt.Errorf("failed to create client: %w", err)
+        }
+        if err := client.Start(ctx); err != nil {
+            return fmt.Errorf("failed to start client: %w", err)
+        }
+        m.mu.Lock()
+        m.clients[language] = client
+        m.mu.Unlock()
+
+        if activeClient, ok := client.(interface{ IsActive() bool }); ok {
+            maxWaitIterations := m.getClientActiveWaitIterations(language)
+            for i := 0; i < maxWaitIterations; i++ {
+                if activeClient.IsActive() {
+                    break
+                }
+                time.Sleep(100 * time.Millisecond)
+            }
+        }
+        return nil
+    }
 
 	// Validate initial command/args
 	if err := security.ValidateCommand(resolvedCommand, argsToUse); err != nil {
@@ -842,7 +913,7 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 		InitializationOptions: cfg.InitializationOptions,
 	}
 
-	client, err := NewStdioClient(clientConfig, language)
+    client, err := NewStdioClient(clientConfig, language)
 	if err != nil {
 		return fmt.Errorf("failed to create client: %w", err)
 	}
