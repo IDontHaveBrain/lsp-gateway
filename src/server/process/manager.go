@@ -51,35 +51,35 @@ func NewLSPProcessManager() *LSPProcessManager {
 
 // StartProcess initializes and starts an LSP server process
 func (pm *LSPProcessManager) StartProcess(config types.ClientConfig, language string) (*ProcessInfo, error) {
-    // Create command
-    cmd := exec.Command(config.Command, config.Args...)
+	// Create command
+	cmd := exec.Command(config.Command, config.Args...)
 
-    // Use configured working directory if specified, otherwise use current directory
-    var actualWorkingDir string
-    if config.WorkingDir != "" {
-        cmd.Dir = config.WorkingDir
-        actualWorkingDir = config.WorkingDir
-    } else if wd, err := os.Getwd(); err == nil {
-        cmd.Dir = wd
-        actualWorkingDir = wd
-    } else {
-        if runtime.GOOS == "windows" {
-            cmd.Dir = os.TempDir()
-        } else {
-            cmd.Dir = "/tmp"
-        }
-        actualWorkingDir = cmd.Dir
-    }
+	// Use configured working directory if specified, otherwise use current directory
+	var actualWorkingDir string
+	if config.WorkingDir != "" {
+		cmd.Dir = config.WorkingDir
+		actualWorkingDir = config.WorkingDir
+	} else if wd, err := os.Getwd(); err == nil {
+		cmd.Dir = wd
+		actualWorkingDir = wd
+	} else {
+		if runtime.GOOS == "windows" {
+			cmd.Dir = os.TempDir()
+		} else {
+			cmd.Dir = "/tmp"
+		}
+		actualWorkingDir = cmd.Dir
+	}
 
 	// Set environment variables
 	cmd.Env = os.Environ()
-    if langInfo, exists := registry.GetLanguageByName(language); exists {
-        // Substitute env vars using the actual working directory the process will run in
-        langEnvVars := langInfo.GetEnvironmentWithWorkingDir(actualWorkingDir)
-        for key, value := range langEnvVars {
-            cmd.Env = append(cmd.Env, key+"="+value)
-        }
-    }
+	if langInfo, exists := registry.GetLanguageByName(language); exists {
+		// Substitute env vars using the actual working directory the process will run in
+		langEnvVars := langInfo.GetEnvironmentWithWorkingDir(actualWorkingDir)
+		for key, value := range langEnvVars {
+			cmd.Env = append(cmd.Env, key+"="+value)
+		}
+	}
 
 	// Create process info
 	info := &ProcessInfo{

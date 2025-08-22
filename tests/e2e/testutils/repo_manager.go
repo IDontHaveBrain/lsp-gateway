@@ -115,19 +115,19 @@ func GetTestRepositories() map[string]*TestRepository {
 				},
 			},
 		},
-        "java": {
-            Language:   "java",
-            Name:       "spring-petclinic",
-            URL:        "https://github.com/spring-projects/spring-petclinic.git",
-            CommitHash: "30aab0ae764ad845b5eedd76028756835fec771f", // pinned for stable line positions
+		"java": {
+			Language:   "java",
+			Name:       "spring-petclinic",
+			URL:        "https://github.com/spring-projects/spring-petclinic.git",
+			CommitHash: "30aab0ae764ad845b5eedd76028756835fec771f", // pinned for stable line positions
 			TestFiles: []TestFile{
 				{
 					Path:          "src/main/java/org/springframework/samples/petclinic/PetClinicApplication.java",
-                DefinitionPos: Position{Line: 28, Character: 20}, // PetClinicRuntimeHints in @ImportRuntimeHints(...)
-                ReferencePos:  Position{Line: 28, Character: 20}, // same token to find definition+usages
-                HoverPos:      Position{Line: 27, Character: 1},  // @SpringBootApplication annotation (Line 28, 0-based = 27)
-                CompletionPos: Position{Line: 32, Character: 30}, // inside main method
-                SymbolQuery:   "PetClinicRuntimeHints",
+					DefinitionPos: Position{Line: 28, Character: 20}, // PetClinicRuntimeHints in @ImportRuntimeHints(...)
+					ReferencePos:  Position{Line: 28, Character: 20}, // same token to find definition+usages
+					HoverPos:      Position{Line: 27, Character: 1},  // @SpringBootApplication annotation (Line 28, 0-based = 27)
+					CompletionPos: Position{Line: 32, Character: 30}, // inside main method
+					SymbolQuery:   "PetClinicRuntimeHints",
 				},
 			},
 		},
@@ -207,21 +207,21 @@ func (rm *RepoManager) SetupRepository(language string) (string, error) {
 		return "", fmt.Errorf("failed to clone repository: %w", err)
 	}
 
-    // Checkout specific commit
-    if err := rm.checkoutCommit(repoDir, repo.CommitHash); err != nil {
-        return "", fmt.Errorf("failed to checkout commit: %w", err)
-    }
+	// Checkout specific commit
+	if err := rm.checkoutCommit(repoDir, repo.CommitHash); err != nil {
+		return "", fmt.Errorf("failed to checkout commit: %w", err)
+	}
 
-    // Language-specific preparation
-    switch language {
-    case "java":
-        // Try to generate Eclipse project files for JDTLS to index reliably
-        // Prefer Gradle wrapper if present; fall back to Maven wrapper
-        rm.prepareJavaProject(repoDir)
-    }
+	// Language-specific preparation
+	switch language {
+	case "java":
+		// Try to generate Eclipse project files for JDTLS to index reliably
+		// Prefer Gradle wrapper if present; fall back to Maven wrapper
+		rm.prepareJavaProject(repoDir)
+	}
 
-    rm.repos[language] = repo
-    return repoDir, nil
+	rm.repos[language] = repo
+	return repoDir, nil
 }
 
 // GetTestFile returns test file configuration for a language
@@ -283,26 +283,26 @@ func (rm *RepoManager) checkoutCommit(repoDir, commitHash string) error {
 
 // prepareJavaProject attempts to set up Eclipse project metadata to help jdtls
 func (rm *RepoManager) prepareJavaProject(repoDir string) {
-    // Try Gradle eclipse
-    try := func(name string, args ...string) bool {
-        cmd := exec.Command(name, args...)
-        cmd.Dir = repoDir
-        if out, err := cmd.CombinedOutput(); err == nil {
-            _ = out
-            return true
-        }
-        return false
-    }
-    // Make gradlew executable if present
-    _ = os.Chmod(filepath.Join(repoDir, "gradlew"), 0755)
-    if try("./gradlew", "-q", "eclipse") || try("gradlew", "-q", "eclipse") || try("./gradlew", "eclipse") {
-        return
-    }
-    // Fallback to Maven wrapper generating eclipse files if plugin is available
-    _ = os.Chmod(filepath.Join(repoDir, "mvnw"), 0755)
-    if try("./mvnw", "-q", "-DskipTests", "eclipse:eclipse") || try("mvn", "-q", "-DskipTests", "eclipse:eclipse") {
-        return
-    }
+	// Try Gradle eclipse
+	try := func(name string, args ...string) bool {
+		cmd := exec.Command(name, args...)
+		cmd.Dir = repoDir
+		if out, err := cmd.CombinedOutput(); err == nil {
+			_ = out
+			return true
+		}
+		return false
+	}
+	// Make gradlew executable if present
+	_ = os.Chmod(filepath.Join(repoDir, "gradlew"), 0755)
+	if try("./gradlew", "-q", "eclipse") || try("gradlew", "-q", "eclipse") || try("./gradlew", "eclipse") {
+		return
+	}
+	// Fallback to Maven wrapper generating eclipse files if plugin is available
+	_ = os.Chmod(filepath.Join(repoDir, "mvnw"), 0755)
+	if try("./mvnw", "-q", "-DskipTests", "eclipse:eclipse") || try("mvn", "-q", "-DskipTests", "eclipse:eclipse") {
+		return
+	}
 }
 
 // GetFileURI returns the file URI for a test file

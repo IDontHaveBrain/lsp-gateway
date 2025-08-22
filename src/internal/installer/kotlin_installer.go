@@ -24,8 +24,8 @@ type KotlinInstaller struct {
 
 // NewKotlinInstaller creates a new Kotlin installer
 func NewKotlinInstaller(platform PlatformInfo) *KotlinInstaller {
-    base := CreateSimpleInstaller("kotlin", "kotlin-lsp", []string{"--stdio"}, platform)
-    return &KotlinInstaller{BaseInstaller: base}
+	base := CreateSimpleInstaller("kotlin", "kotlin-lsp", []string{"--stdio"}, platform)
+	return &KotlinInstaller{BaseInstaller: base}
 }
 
 // Install installs Kotlin LSP using brew on macOS or GitHub releases on other platforms
@@ -197,80 +197,80 @@ func (k *KotlinInstaller) setupBinary(extractPath, installPath string) error {
 		return fmt.Errorf("failed to copy kotlin-lsp files: %w", err)
 	}
 
-    // Ensure bin directory exists for consistent layout
-    binDir := filepath.Join(installPath, "bin")
-    if err := os.MkdirAll(binDir, 0755); err != nil {
-        return fmt.Errorf("failed to create bin directory: %w", err)
-    }
+	// Ensure bin directory exists for consistent layout
+	binDir := filepath.Join(installPath, "bin")
+	if err := os.MkdirAll(binDir, 0755); err != nil {
+		return fmt.Errorf("failed to create bin directory: %w", err)
+	}
 
-    // Set up the appropriate command based on platform
-    if runtime.GOOS == "windows" {
-        // Prefer .cmd, then .bat, then fallback
-        cmdPath := filepath.Join(installPath, "kotlin-lsp.cmd")
-        if _, err := os.Stat(cmdPath); err == nil {
-            // Copy shim into bin for stable path
-            dest := filepath.Join(binDir, "kotlin-lsp.cmd")
-            if err := copyFile(cmdPath, dest); err == nil {
-                k.serverConfig.Command = dest
-            } else {
-                k.serverConfig.Command = cmdPath
-            }
-        } else {
-            batPath := filepath.Join(installPath, "kotlin-lsp.bat")
-            if _, err := os.Stat(batPath); err == nil {
-                dest := filepath.Join(binDir, "kotlin-lsp.bat")
-                if err := copyFile(batPath, dest); err == nil {
-                    k.serverConfig.Command = dest
-                } else {
-                    k.serverConfig.Command = batPath
-                }
-            } else {
-                // Fallback to .sh script even on Windows (might work with Git Bash/WSL)
-                shPath := filepath.Join(installPath, "kotlin-lsp.sh")
-                if _, err := os.Stat(shPath); err == nil {
-                    dest := filepath.Join(binDir, "kotlin-lsp.sh")
-                    if err := copyFile(shPath, dest); err == nil {
-                        k.serverConfig.Command = dest
-                    } else {
-                        k.serverConfig.Command = shPath
-                    }
-                } else {
-                    return fmt.Errorf("kotlin-lsp executable not found")
-                }
-            }
-        }
-    } else {
-        // Unix-like systems use the .sh script
-        shPath := filepath.Join(installPath, "kotlin-lsp.sh")
-        if _, err := os.Stat(shPath); err != nil {
-            return fmt.Errorf("kotlin-lsp.sh not found in extracted content")
-        }
+	// Set up the appropriate command based on platform
+	if runtime.GOOS == "windows" {
+		// Prefer .cmd, then .bat, then fallback
+		cmdPath := filepath.Join(installPath, "kotlin-lsp.cmd")
+		if _, err := os.Stat(cmdPath); err == nil {
+			// Copy shim into bin for stable path
+			dest := filepath.Join(binDir, "kotlin-lsp.cmd")
+			if err := copyFile(cmdPath, dest); err == nil {
+				k.serverConfig.Command = dest
+			} else {
+				k.serverConfig.Command = cmdPath
+			}
+		} else {
+			batPath := filepath.Join(installPath, "kotlin-lsp.bat")
+			if _, err := os.Stat(batPath); err == nil {
+				dest := filepath.Join(binDir, "kotlin-lsp.bat")
+				if err := copyFile(batPath, dest); err == nil {
+					k.serverConfig.Command = dest
+				} else {
+					k.serverConfig.Command = batPath
+				}
+			} else {
+				// Fallback to .sh script even on Windows (might work with Git Bash/WSL)
+				shPath := filepath.Join(installPath, "kotlin-lsp.sh")
+				if _, err := os.Stat(shPath); err == nil {
+					dest := filepath.Join(binDir, "kotlin-lsp.sh")
+					if err := copyFile(shPath, dest); err == nil {
+						k.serverConfig.Command = dest
+					} else {
+						k.serverConfig.Command = shPath
+					}
+				} else {
+					return fmt.Errorf("kotlin-lsp executable not found")
+				}
+			}
+		}
+	} else {
+		// Unix-like systems use the .sh script
+		shPath := filepath.Join(installPath, "kotlin-lsp.sh")
+		if _, err := os.Stat(shPath); err != nil {
+			return fmt.Errorf("kotlin-lsp.sh not found in extracted content")
+		}
 
-        // Make executable
-        if err := os.Chmod(shPath, 0755); err != nil {
-            return fmt.Errorf("failed to make kotlin-lsp.sh executable: %w", err)
-        }
+		// Make executable
+		if err := os.Chmod(shPath, 0755); err != nil {
+			return fmt.Errorf("failed to make kotlin-lsp.sh executable: %w", err)
+		}
 
-        // Create a symlink in bin without .sh extension
-        linkPath := filepath.Join(binDir, "kotlin-lsp")
-        os.Remove(linkPath) // Remove if exists
-        if err := os.Symlink(shPath, linkPath); err != nil {
-            // If symlink fails, copy the script as bin/kotlin-lsp
-            common.CLILogger.Warn("Failed to create symlink, copying script to bin: %v", err)
-            if err := copyFile(shPath, linkPath); err != nil {
-                // Fallback: use the .sh path directly
-                k.serverConfig.Command = shPath
-            } else {
-                if err := os.Chmod(linkPath, 0755); err == nil {
-                    k.serverConfig.Command = linkPath
-                } else {
-                    k.serverConfig.Command = shPath
-                }
-            }
-        } else {
-            k.serverConfig.Command = linkPath
-        }
-    }
+		// Create a symlink in bin without .sh extension
+		linkPath := filepath.Join(binDir, "kotlin-lsp")
+		os.Remove(linkPath) // Remove if exists
+		if err := os.Symlink(shPath, linkPath); err != nil {
+			// If symlink fails, copy the script as bin/kotlin-lsp
+			common.CLILogger.Warn("Failed to create symlink, copying script to bin: %v", err)
+			if err := copyFile(shPath, linkPath); err != nil {
+				// Fallback: use the .sh path directly
+				k.serverConfig.Command = shPath
+			} else {
+				if err := os.Chmod(linkPath, 0755); err == nil {
+					k.serverConfig.Command = linkPath
+				} else {
+					k.serverConfig.Command = shPath
+				}
+			}
+		} else {
+			k.serverConfig.Command = linkPath
+		}
+	}
 
 	common.CLILogger.Info("kotlin-lsp setup completed at %s", installPath)
 	return nil
@@ -278,90 +278,90 @@ func (k *KotlinInstaller) setupBinary(extractPath, installPath string) error {
 
 // testKotlinLSP tests if kotlin-lsp is working
 func (k *KotlinInstaller) testKotlinLSP(ctx context.Context) bool {
-    testCtx, cancel := icommon.WithTimeout(ctx, 5*time.Second)
-    defer cancel()
+	testCtx, cancel := icommon.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
 
-    // 1) Try configured command directly (absolute or relative path)
-    if cmd := strings.TrimSpace(k.serverConfig.Command); cmd != "" {
-        if _, err := k.RunCommandWithOutput(testCtx, cmd, "--version"); err == nil {
-            return true
-        }
-        // If version flag fails, consider presence of executable sufficient
-        if _, err := exec.LookPath(cmd); err == nil {
-            return true
-        }
-    }
+	// 1) Try configured command directly (absolute or relative path)
+	if cmd := strings.TrimSpace(k.serverConfig.Command); cmd != "" {
+		if _, err := k.RunCommandWithOutput(testCtx, cmd, "--version"); err == nil {
+			return true
+		}
+		// If version flag fails, consider presence of executable sufficient
+		if _, err := exec.LookPath(cmd); err == nil {
+			return true
+		}
+	}
 
-    // 2) Try standard PATH commands
-    if _, err := k.RunCommandWithOutput(testCtx, "kotlin-lsp", "--version"); err == nil {
-        k.serverConfig.Command = "kotlin-lsp"
-        return true
-    }
-    if _, err := exec.LookPath("kotlin-lsp"); err == nil {
-        k.serverConfig.Command = "kotlin-lsp"
-        return true
-    }
+	// 2) Try standard PATH commands
+	if _, err := k.RunCommandWithOutput(testCtx, "kotlin-lsp", "--version"); err == nil {
+		k.serverConfig.Command = "kotlin-lsp"
+		return true
+	}
+	if _, err := exec.LookPath("kotlin-lsp"); err == nil {
+		k.serverConfig.Command = "kotlin-lsp"
+		return true
+	}
 
-    // 3) Try known variants
-    if _, err := k.RunCommandWithOutput(testCtx, "kotlin-lsp.sh", "--version"); err == nil {
-        k.serverConfig.Command = "kotlin-lsp.sh"
-        return true
-    }
-    if _, err := exec.LookPath("kotlin-lsp.sh"); err == nil {
-        k.serverConfig.Command = "kotlin-lsp.sh"
-        return true
-    }
+	// 3) Try known variants
+	if _, err := k.RunCommandWithOutput(testCtx, "kotlin-lsp.sh", "--version"); err == nil {
+		k.serverConfig.Command = "kotlin-lsp.sh"
+		return true
+	}
+	if _, err := exec.LookPath("kotlin-lsp.sh"); err == nil {
+		k.serverConfig.Command = "kotlin-lsp.sh"
+		return true
+	}
 
-    if runtime.GOOS == "windows" {
-        if _, err := k.RunCommandWithOutput(testCtx, "kotlin-lsp.cmd", "--version"); err == nil {
-            k.serverConfig.Command = "kotlin-lsp.cmd"
-            return true
-        }
-        if _, err := exec.LookPath("kotlin-lsp.cmd"); err == nil {
-            k.serverConfig.Command = "kotlin-lsp.cmd"
-            return true
-        }
-        if _, err := k.RunCommandWithOutput(testCtx, "kotlin-lsp.bat", "--version"); err == nil {
-            k.serverConfig.Command = "kotlin-lsp.bat"
-            return true
-        }
-        if _, err := exec.LookPath("kotlin-lsp.bat"); err == nil {
-            k.serverConfig.Command = "kotlin-lsp.bat"
-            return true
-        }
-        if _, err := k.RunCommandWithOutput(testCtx, "kotlin-lsp.exe", "--version"); err == nil {
-            k.serverConfig.Command = "kotlin-lsp.exe"
-            return true
-        }
-        if _, err := exec.LookPath("kotlin-lsp.exe"); err == nil {
-            k.serverConfig.Command = "kotlin-lsp.exe"
-            return true
-        }
-    }
+	if runtime.GOOS == "windows" {
+		if _, err := k.RunCommandWithOutput(testCtx, "kotlin-lsp.cmd", "--version"); err == nil {
+			k.serverConfig.Command = "kotlin-lsp.cmd"
+			return true
+		}
+		if _, err := exec.LookPath("kotlin-lsp.cmd"); err == nil {
+			k.serverConfig.Command = "kotlin-lsp.cmd"
+			return true
+		}
+		if _, err := k.RunCommandWithOutput(testCtx, "kotlin-lsp.bat", "--version"); err == nil {
+			k.serverConfig.Command = "kotlin-lsp.bat"
+			return true
+		}
+		if _, err := exec.LookPath("kotlin-lsp.bat"); err == nil {
+			k.serverConfig.Command = "kotlin-lsp.bat"
+			return true
+		}
+		if _, err := k.RunCommandWithOutput(testCtx, "kotlin-lsp.exe", "--version"); err == nil {
+			k.serverConfig.Command = "kotlin-lsp.exe"
+			return true
+		}
+		if _, err := exec.LookPath("kotlin-lsp.exe"); err == nil {
+			k.serverConfig.Command = "kotlin-lsp.exe"
+			return true
+		}
+	}
 
-    installPath := k.GetInstallPath()
-    if cmd := common.FirstExistingExecutable(installPath, []string{"kotlin-lsp"}); cmd != "" {
-        if _, err := k.RunCommandWithOutput(testCtx, cmd, "--version"); err == nil {
-            k.serverConfig.Command = cmd
-            return true
-        }
-        k.serverConfig.Command = cmd
-        return true
-    }
+	installPath := k.GetInstallPath()
+	if cmd := common.FirstExistingExecutable(installPath, []string{"kotlin-lsp"}); cmd != "" {
+		if _, err := k.RunCommandWithOutput(testCtx, cmd, "--version"); err == nil {
+			k.serverConfig.Command = cmd
+			return true
+		}
+		k.serverConfig.Command = cmd
+		return true
+	}
 
-    return false
+	return false
 }
 
 // IsInstalled checks if Kotlin LSP is properly installed and working
 func (k *KotlinInstaller) IsInstalled() bool {
-    // Prefer BaseInstaller logic which checks PATH and installPath and tolerates LSP semantics
-    if k.BaseInstaller.IsInstalled() {
-        return true
-    }
+	// Prefer BaseInstaller logic which checks PATH and installPath and tolerates LSP semantics
+	if k.BaseInstaller.IsInstalled() {
+		return true
+	}
 
-    ctx, cancel := icommon.CreateContext(5 * time.Second)
-    defer cancel()
-    return k.testKotlinLSP(ctx)
+	ctx, cancel := icommon.CreateContext(5 * time.Second)
+	defer cancel()
+	return k.testKotlinLSP(ctx)
 }
 
 // GetVersion returns the version of the installed Kotlin LSP

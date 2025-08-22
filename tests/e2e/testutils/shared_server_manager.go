@@ -1,12 +1,12 @@
 package testutils
 
 import (
-    "crypto/md5"
-    "context"
-    "encoding/json"
-    "fmt"
-    "net/http"
-    "os"
+	"context"
+	"crypto/md5"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -117,13 +117,13 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 		pythonCmd, pythonArgs = cmd, args
 	}
 
-    // Compute per-repo JDTLS workspace to avoid cross-project interference
-    javaWorkspace := filepath.Join(os.Getenv("HOME"), ".lsp-gateway", "jdtls-workspaces", fmt.Sprintf("%s-%x", filepath.Base(mgr.repoDir), md5.Sum([]byte(mgr.repoDir))))
-    if err := os.MkdirAll(javaWorkspace, 0o755); err != nil {
-        return fmt.Errorf("failed to create java workspace: %w", err)
-    }
+	// Compute per-repo JDTLS workspace to avoid cross-project interference
+	javaWorkspace := filepath.Join(os.Getenv("HOME"), ".lsp-gateway", "jdtls-workspaces", fmt.Sprintf("%s-%x", filepath.Base(mgr.repoDir), md5.Sum([]byte(mgr.repoDir))))
+	if err := os.MkdirAll(javaWorkspace, 0o755); err != nil {
+		return fmt.Errorf("failed to create java workspace: %w", err)
+	}
 
-    // Generate shared server config
+	// Generate shared server config
 	servers := map[string]interface{}{
 		"go": map[string]interface{}{
 			"command": "gopls",
@@ -141,14 +141,14 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 			"command": "typescript-language-server",
 			"args":    []string{"--stdio"},
 		},
-        "java": map[string]interface{}{
-            "command": "~/.lsp-gateway/tools/java/bin/jdtls",
-            "args":    []string{javaWorkspace},
-        },
-        "rust": map[string]interface{}{
-            "command": "rust-analyzer",
-            "args":    []string{},
-        },
+		"java": map[string]interface{}{
+			"command": "~/.lsp-gateway/tools/java/bin/jdtls",
+			"args":    []string{javaWorkspace},
+		},
+		"rust": map[string]interface{}{
+			"command": "rust-analyzer",
+			"args":    []string{},
+		},
 		"csharp": map[string]interface{}{
 			"command": "omnisharp",
 			"args":    []string{"-lsp"},
@@ -294,9 +294,9 @@ func (mgr *SharedServerManager) waitForServerReady(t *testing.T) error {
 
 	t.Logf("⏳ Waiting for shared server to be ready at %s...", healthURL)
 
-    // Allow more time for heavier language servers (e.g., Java/Kotlin on large repos)
-    // Use a conservative 120s to avoid premature timeouts during initialization.
-    maxRetries := 120
+	// Allow more time for heavier language servers (e.g., Java/Kotlin on large repos)
+	// Use a conservative 120s to avoid premature timeouts during initialization.
+	maxRetries := 120
 	for i := 0; i < maxRetries; i++ {
 		select {
 		case <-mgr.ctx.Done():

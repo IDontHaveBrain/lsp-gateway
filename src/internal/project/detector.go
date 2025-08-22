@@ -424,11 +424,11 @@ func IsLSPServerAvailable(language string) bool {
 func checkInstalledLSPServer(language string) bool {
 	switch language {
 	case "java":
-    home, _ := os.UserHomeDir()
-    installRoot := filepath.Join(home, ".lsp-gateway", "tools", "java")
-    if common.HasAnyExecutable(installRoot, []string{"jdtls"}) {
-        return true
-    }
+		home, _ := os.UserHomeDir()
+		installRoot := filepath.Join(home, ".lsp-gateway", "tools", "java")
+		if common.HasAnyExecutable(installRoot, []string{"jdtls"}) {
+			return true
+		}
 	case "csharp":
 		home, _ := os.UserHomeDir()
 		installRoot := filepath.Join(home, ".lsp-gateway", "tools", "csharp")

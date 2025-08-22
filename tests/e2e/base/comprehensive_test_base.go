@@ -1,12 +1,12 @@
 package base
 
 import (
-    "crypto/md5"
-    "context"
-    "encoding/json"
-    "fmt"
-    "io/ioutil"
-    "net/http"
+	"context"
+	"crypto/md5"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -312,13 +312,13 @@ func (suite *ComprehensiveTestBaseSuite) startGatewayServer() error {
 	}
 	suite.gatewayPort = port
 
-    // Generate isolated config using cache isolation manager
-    // Compute per-repo JDTLS workspace to avoid cross-project interference
-    javaWorkspace := filepath.Join(os.Getenv("HOME"), ".lsp-gateway", "jdtls-workspaces", fmt.Sprintf("%s-%x", filepath.Base(suite.repoDir), md5.Sum([]byte(suite.repoDir))))
-    if err := os.MkdirAll(javaWorkspace, 0o755); err != nil {
-        return fmt.Errorf("failed to create java workspace: %w", err)
-    }
-    servers := map[string]interface{}{
+	// Generate isolated config using cache isolation manager
+	// Compute per-repo JDTLS workspace to avoid cross-project interference
+	javaWorkspace := filepath.Join(os.Getenv("HOME"), ".lsp-gateway", "jdtls-workspaces", fmt.Sprintf("%s-%x", filepath.Base(suite.repoDir), md5.Sum([]byte(suite.repoDir))))
+	if err := os.MkdirAll(javaWorkspace, 0o755); err != nil {
+		return fmt.Errorf("failed to create java workspace: %w", err)
+	}
+	servers := map[string]interface{}{
 		"go": map[string]interface{}{
 			"command":     "gopls",
 			"args":        []string{"serve"},
@@ -339,16 +339,16 @@ func (suite *ComprehensiveTestBaseSuite) startGatewayServer() error {
 			"args":        []string{"--stdio"},
 			"working_dir": suite.repoDir,
 		},
-        "java": map[string]interface{}{
-            "command":     "~/.lsp-gateway/tools/java/bin/jdtls",
-            "args":        []string{javaWorkspace},
-            "working_dir": suite.repoDir,
-        },
-        "rust": map[string]interface{}{
-            "command":     "rust-analyzer",
-            "args":        []string{},
-            "working_dir": suite.repoDir,
-        },
+		"java": map[string]interface{}{
+			"command":     "~/.lsp-gateway/tools/java/bin/jdtls",
+			"args":        []string{javaWorkspace},
+			"working_dir": suite.repoDir,
+		},
+		"rust": map[string]interface{}{
+			"command":     "rust-analyzer",
+			"args":        []string{},
+			"working_dir": suite.repoDir,
+		},
 		"kotlin": map[string]interface{}{
 			"command":     "kotlin-lsp",
 			"args":        []string{},

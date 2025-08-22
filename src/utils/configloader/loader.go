@@ -1,15 +1,15 @@
 package configloader
 
 import (
-    "os"
-    "os/exec"
-    "runtime"
-    "path/filepath"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 
-    "lsp-gateway/src/config"
-    "lsp-gateway/src/internal/common"
-    "lsp-gateway/src/internal/javautil"
-    "lsp-gateway/src/internal/project"
+	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/common"
+	"lsp-gateway/src/internal/javautil"
+	"lsp-gateway/src/internal/project"
 )
 
 func LoadOrAuto(configPath string) *config.Config {
@@ -208,49 +208,49 @@ func getInstalledOmniSharpPath(homeDir string) string {
 
 // getInstalledKotlinLSPPath returns the path to installed kotlin-lsp if it exists
 func getInstalledKotlinLSPPath(homeDir string) string {
-    // Preferred installation path: ~/.lsp-gateway/tools/kotlin/bin/kotlin-lsp(.cmd/.bat)
-    // Also support legacy layout without bin and .sh script
-    candidates := []string{}
-    if runtime.GOOS == "windows" {
-        // Prefer native .exe if available (more reliable for stdio on Windows)
-        candidates = append(candidates,
-            common.GetLSPToolPath("kotlin", "kotlin-lsp.exe"),
-        )
-        candidates = append(candidates,
-            common.GetLSPToolPath("kotlin", "kotlin-lsp.cmd"),
-            common.GetLSPToolPath("kotlin", "kotlin-lsp.bat"),
-        )
-        // Legacy (no bin)
-        root := common.GetLSPToolRoot("kotlin")
-        candidates = append(candidates,
-            filepath.Join(root, "kotlin-lsp.exe"),
-            filepath.Join(root, "kotlin-lsp.cmd"),
-            filepath.Join(root, "kotlin-lsp.bat"),
-        )
-    } else {
-        candidates = append(candidates,
-            common.GetLSPToolPath("kotlin", "kotlin-lsp"),
-        )
-        // Legacy (no bin) + direct .sh
-        root := common.GetLSPToolRoot("kotlin")
-        candidates = append(candidates,
-            filepath.Join(root, "kotlin-lsp"),
-            filepath.Join(root, "kotlin-lsp.sh"),
-        )
-    }
+	// Preferred installation path: ~/.lsp-gateway/tools/kotlin/bin/kotlin-lsp(.cmd/.bat)
+	// Also support legacy layout without bin and .sh script
+	candidates := []string{}
+	if runtime.GOOS == "windows" {
+		// Prefer native .exe if available (more reliable for stdio on Windows)
+		candidates = append(candidates,
+			common.GetLSPToolPath("kotlin", "kotlin-lsp.exe"),
+		)
+		candidates = append(candidates,
+			common.GetLSPToolPath("kotlin", "kotlin-lsp.cmd"),
+			common.GetLSPToolPath("kotlin", "kotlin-lsp.bat"),
+		)
+		// Legacy (no bin)
+		root := common.GetLSPToolRoot("kotlin")
+		candidates = append(candidates,
+			filepath.Join(root, "kotlin-lsp.exe"),
+			filepath.Join(root, "kotlin-lsp.cmd"),
+			filepath.Join(root, "kotlin-lsp.bat"),
+		)
+	} else {
+		candidates = append(candidates,
+			common.GetLSPToolPath("kotlin", "kotlin-lsp"),
+		)
+		// Legacy (no bin) + direct .sh
+		root := common.GetLSPToolRoot("kotlin")
+		candidates = append(candidates,
+			filepath.Join(root, "kotlin-lsp"),
+			filepath.Join(root, "kotlin-lsp.sh"),
+		)
+	}
 
-    for _, p := range candidates {
-        if fileInfo, err := os.Stat(p); err == nil {
-            if runtime.GOOS != "windows" {
-                if fileInfo.Mode()&0111 == 0 {
-                    continue
-                }
-            }
-            return p
-        }
-    }
+	for _, p := range candidates {
+		if fileInfo, err := os.Stat(p); err == nil {
+			if runtime.GOOS != "windows" {
+				if fileInfo.Mode()&0111 == 0 {
+					continue
+				}
+			}
+			return p
+		}
+	}
 
-    return ""
+	return ""
 }
 
 //

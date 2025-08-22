@@ -624,20 +624,20 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 		return err
 	}
 
-    // Special handling for pyright/basedpyright - send workspace configuration after initialization
-    // Also support uvx execution where command is "uvx" and first arg is the langserver
-    isPyright := c.config.Command == "pyright-langserver" || (c.config.Command == "uvx" && len(c.config.Args) > 0 && c.config.Args[0] == "pyright-langserver")
-    isBasedPyright := c.config.Command == "basedpyright-langserver" || (c.config.Command == "uvx" && len(c.config.Args) > 0 && c.config.Args[0] == "basedpyright-langserver")
-    if isPyright || isBasedPyright {
+	// Special handling for pyright/basedpyright - send workspace configuration after initialization
+	// Also support uvx execution where command is "uvx" and first arg is the langserver
+	isPyright := c.config.Command == "pyright-langserver" || (c.config.Command == "uvx" && len(c.config.Args) > 0 && c.config.Args[0] == "pyright-langserver")
+	isBasedPyright := c.config.Command == "basedpyright-langserver" || (c.config.Command == "uvx" && len(c.config.Args) > 0 && c.config.Args[0] == "basedpyright-langserver")
+	if isPyright || isBasedPyright {
 		// Mark client as active before sending configuration
 		c.active = true
 
-        serverName := "pyright"
-        configPrefix := "python"
-        if isBasedPyright {
-            serverName = "basedpyright"
-            configPrefix = "basedpyright"
-        }
+		serverName := "pyright"
+		configPrefix := "python"
+		if isBasedPyright {
+			serverName = "basedpyright"
+			configPrefix = "basedpyright"
+		}
 
 		common.LSPLogger.Debug("Sending workspace/didChangeConfiguration for %s", serverName)
 		configParams := map[string]interface{}{

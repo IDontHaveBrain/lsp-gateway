@@ -694,19 +694,19 @@ func (m *LSPManager) getClientActiveWaitIterations(language string) int {
 
 // resolveCommandPath resolves the command path, checking custom installations first
 func (m *LSPManager) resolveCommandPath(language, command string) string {
-    // Prefer custom installation under ~/.lsp-gateway/tools/{language}
-    if root := common.GetLSPToolRoot(language); root != "" {
-        if resolved := common.FirstExistingExecutable(root, []string{command}); resolved != "" {
-            common.LSPLogger.Debug("Using installed %s command at %s", language, resolved)
-            return resolved
-        }
-    }
+	// Prefer custom installation under ~/.lsp-gateway/tools/{language}
+	if root := common.GetLSPToolRoot(language); root != "" {
+		if resolved := common.FirstExistingExecutable(root, []string{command}); resolved != "" {
+			common.LSPLogger.Debug("Using installed %s command at %s", language, resolved)
+			return resolved
+		}
+	}
 
-    // For Java, check if custom installation exists
-    if language == "java" && command == "jdtls" {
-        var customPath string
-        if runtime.GOOS == "windows" {
-            customPath = common.GetLSPToolPath("java", "jdtls.bat")
+	// For Java, check if custom installation exists
+	if language == "java" && command == "jdtls" {
+		var customPath string
+		if runtime.GOOS == "windows" {
+			customPath = common.GetLSPToolPath("java", "jdtls.bat")
 		} else {
 			customPath = common.GetLSPToolPath("java", "jdtls")
 		}
@@ -731,47 +731,47 @@ func (m *LSPManager) resolveCommandPath(language, command string) string {
 		}
 	}
 
-    // Check for other language custom installations
-    if command == "gopls" || command == "pylsp" || command == "jedi-language-server" || command == "pyright-langserver" || command == "basedpyright-langserver" || command == "typescript-language-server" || command == "omnisharp" || command == "OmniSharp" || command == "kotlin-lsp" {
-        // Map of commands to their languages for path construction
-        languageMap := map[string]string{
-            "gopls":                      "go",
-            "pylsp":                      "python",
-            "jedi-language-server":       "python",
-            "pyright-langserver":         "python",
-            "basedpyright-langserver":    "python",
-            "typescript-language-server": "typescript",
-            "omnisharp":                  "csharp",
-            "OmniSharp":                  "csharp",
-            "kotlin-lsp":                 "kotlin",
-        }
-        if lang, exists := languageMap[command]; exists {
-            customPath := common.GetLSPToolPath(lang, command)
-            if runtime.GOOS == "windows" {
-                // Add extension for platform-specific shims
-                if command == "typescript-language-server" || command == "pylsp" || command == "jedi-language-server" {
-                    customPath = customPath + ".cmd"
-                } else if command == "omnisharp" || command == "OmniSharp" {
-                    customPath = customPath + ".exe"
-                } else if command == "kotlin-lsp" {
-                    // Prefer native .exe on Windows for reliable stdio
-                    exePath := common.GetLSPToolPath("kotlin", "kotlin-lsp.exe")
-                    if common.FileExists(exePath) {
-                        customPath = exePath
-                    } else {
-                        // Fall back to .cmd if no .exe present
-                        customPath = customPath + ".cmd"
-                    }
-                }
-            }
+	// Check for other language custom installations
+	if command == "gopls" || command == "pylsp" || command == "jedi-language-server" || command == "pyright-langserver" || command == "basedpyright-langserver" || command == "typescript-language-server" || command == "omnisharp" || command == "OmniSharp" || command == "kotlin-lsp" {
+		// Map of commands to their languages for path construction
+		languageMap := map[string]string{
+			"gopls":                      "go",
+			"pylsp":                      "python",
+			"jedi-language-server":       "python",
+			"pyright-langserver":         "python",
+			"basedpyright-langserver":    "python",
+			"typescript-language-server": "typescript",
+			"omnisharp":                  "csharp",
+			"OmniSharp":                  "csharp",
+			"kotlin-lsp":                 "kotlin",
+		}
+		if lang, exists := languageMap[command]; exists {
+			customPath := common.GetLSPToolPath(lang, command)
+			if runtime.GOOS == "windows" {
+				// Add extension for platform-specific shims
+				if command == "typescript-language-server" || command == "pylsp" || command == "jedi-language-server" {
+					customPath = customPath + ".cmd"
+				} else if command == "omnisharp" || command == "OmniSharp" {
+					customPath = customPath + ".exe"
+				} else if command == "kotlin-lsp" {
+					// Prefer native .exe on Windows for reliable stdio
+					exePath := common.GetLSPToolPath("kotlin", "kotlin-lsp.exe")
+					if common.FileExists(exePath) {
+						customPath = exePath
+					} else {
+						// Fall back to .cmd if no .exe present
+						customPath = customPath + ".cmd"
+					}
+				}
+			}
 
-            // Check if the custom installation exists
-            if common.FileExists(customPath) {
-                common.LSPLogger.Debug("Using custom %s installation at %s", command, customPath)
-                return customPath
-            }
-        }
-    }
+			// Check if the custom installation exists
+			if common.FileExists(customPath) {
+				common.LSPLogger.Debug("Using custom %s installation at %s", command, customPath)
+				return customPath
+			}
+		}
+	}
 
 	// Return the original command (will be resolved via PATH)
 	return command
@@ -779,36 +779,9 @@ func (m *LSPManager) resolveCommandPath(language, command string) string {
 
 // startClientWithTimeout starts a single LSP client with timeout
 func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string, cfg *config.ServerConfig) error {
-    resolvedCommand := m.resolveCommandPath(language, cfg.Command)
+	resolvedCommand := m.resolveCommandPath(language, cfg.Command)
 
-    argsToUse := cfg.Args
-
-    // Windows-specific hardened startup for Kotlin: avoid .cmd/.bat wrappers
-    if language == "kotlin" && runtime.GOOS == "windows" {
-        // Prefer native .exe if present
-        exePath := common.GetLSPToolPath("kotlin", "kotlin-lsp.exe")
-        if common.FileExists(exePath) {
-            resolvedCommand = exePath
-        } else {
-            // If resolved command is a .cmd/.bat, try to locate the LSP jar and run via java -jar
-            lower := strings.ToLower(resolvedCommand)
-            if strings.HasSuffix(lower, ".cmd") || strings.HasSuffix(lower, ".bat") || lower == "kotlin-lsp" {
-                jarPath := findKotlinLSPJar()
-                if jarPath == "" && (strings.HasSuffix(lower, ".cmd") || strings.HasSuffix(lower, ".bat")) {
-                    // Try to parse jar from wrapper script content
-                    if p := findKotlinLSPJarFromScript(resolvedCommand); p != "" {
-                        jarPath = p
-                    }
-                }
-                if jarPath != "" {
-                    // Switch to java -jar <jar> --stdio
-                    resolvedCommand = "java"
-                    argsToUse = []string{"-jar", jarPath, "--stdio"}
-                    common.LSPLogger.Info("Using java -jar for Kotlin LSP: %s", jarPath)
-                }
-            }
-        }
-    }
+	argsToUse := cfg.Args
 
 	// Validate initial command/args
 	if err := security.ValidateCommand(resolvedCommand, argsToUse); err != nil {
@@ -900,89 +873,6 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 	}
 
 	return nil
-}
-
-// findKotlinLSPJar attempts to locate a kotlin-lsp jar under the standard tools directory
-func findKotlinLSPJar() string {
-    root := common.GetLSPToolRoot("kotlin")
-    // Candidate locations and simple glob patterns
-    candidates := []string{
-        filepath.Join(root, "kotlin-lsp.jar"),
-    }
-
-    for _, c := range candidates {
-        if common.FileExists(c) {
-            return c
-        }
-    }
-
-    // Fallback: shallow scan for kotlin-lsp*.jar in root and immediate subdirs
-    dirs := []string{root}
-    if entries, err := os.ReadDir(root); err == nil {
-        for _, e := range entries {
-            if e.IsDir() {
-                dirs = append(dirs, filepath.Join(root, e.Name()))
-            }
-        }
-    }
-    for _, d := range dirs {
-        if entries, err := os.ReadDir(d); err == nil {
-            for _, e := range entries {
-                name := e.Name()
-                if strings.HasSuffix(strings.ToLower(name), ".jar") && strings.Contains(strings.ToLower(name), "kotlin-lsp") {
-                    full := filepath.Join(d, name)
-                    if common.FileExists(full) {
-                        return full
-                    }
-                }
-            }
-        }
-    }
-    return ""
-}
-
-// findKotlinLSPJarFromScript attempts to extract a jar path from a .cmd/.bat wrapper
-func findKotlinLSPJarFromScript(scriptPath string) string {
-    data, err := os.ReadFile(scriptPath)
-    if err != nil {
-        return ""
-    }
-    content := strings.ReplaceAll(string(data), "\\", "/")
-    // Look for a pattern like "java -jar <path>kotlin-lsp*.jar"
-    // Do a simple search for occurrences of 'kotlin-lsp' and take the surrounding token ending with .jar
-    idx := strings.Index(strings.ToLower(content), "kotlin-lsp")
-    for idx != -1 {
-        // Find start of the token (after quote or space)
-        start := idx
-        for start > 0 && content[start-1] != '"' && content[start-1] != '\'' && content[start-1] != ' ' {
-            start--
-        }
-        // Find end of .jar
-        end := strings.Index(strings.ToLower(content[idx:]), ".jar")
-        if end != -1 {
-            end = idx + end + len(".jar")
-            // Extract and clean
-            token := content[start:end]
-            token = strings.Trim(token, " \"'\r\n")
-            // Convert backslashes to platform path
-            token = filepath.FromSlash(token)
-            if common.FileExists(token) {
-                return token
-            }
-            // Try relative to script directory
-            base := filepath.Dir(scriptPath)
-            cand := filepath.Join(base, token)
-            if common.FileExists(cand) {
-                return cand
-            }
-        }
-        next := strings.Index(strings.ToLower(content[idx+1:]), "kotlin-lsp")
-        if next == -1 {
-            break
-        }
-        idx = idx + 1 + next
-    }
-    return ""
 }
 
 // getClient returns the LSP client for a given language
