@@ -51,8 +51,20 @@ func NewLSPProcessManager() *LSPProcessManager {
 
 // StartProcess initializes and starts an LSP server process
 func (pm *LSPProcessManager) StartProcess(config types.ClientConfig, language string) (*ProcessInfo, error) {
+	// On Windows, wrap .cmd and .bat files with cmd.exe for proper execution
+	command := config.Command
+	args := config.Args
+	if runtime.GOOS == "windows" {
+		lower := strings.ToLower(command)
+		if strings.HasSuffix(lower, ".cmd") || strings.HasSuffix(lower, ".bat") {
+			// Use cmd.exe /c to run batch scripts
+			args = append([]string{"/c", command}, args...)
+			command = "cmd.exe"
+		}
+	}
+	
 	// Create command
-	cmd := exec.Command(config.Command, config.Args...)
+	cmd := exec.Command(command, args...)
 
 	// Use configured working directory if specified, otherwise use current directory
 	var actualWorkingDir string
