@@ -517,6 +517,47 @@ console.log(processData(testInstance));
 	return setup.CreateTestFile(t, "test.ts", content)
 }
 
+// CreateKotlinTestFile creates a standard Kotlin test file
+func (setup *LSPManagerTestSetup) CreateKotlinTestFile(t *testing.T) string {
+	content := `package com.example.test
+
+import kotlinx.coroutines.*
+
+data class TestData(
+    val name: String,
+    val value: Int
+)
+
+class TestClass(private val data: TestData) {
+    fun getName(): String = data.name
+    
+    fun processData(): String {
+        return data.name.uppercase()
+    }
+    
+    suspend fun asyncOperation(): String = withContext(Dispatchers.IO) {
+        delay(100)
+        "Processed: ${data.name}"
+    }
+}
+
+fun main() {
+    val testData = TestData("test", 42)
+    val testInstance = TestClass(testData)
+    println(testInstance.processData())
+    
+    runBlocking {
+        println(testInstance.asyncOperation())
+    }
+}
+
+fun helperFunction(input: String): String {
+    return input.lowercase()
+}
+`
+	return setup.CreateTestFile(t, "test.kt", content)
+}
+
 // createDefaultCacheConfig creates a default cache configuration for testing
 func createDefaultCacheConfig(tempDir string) *config.CacheConfig {
 	cacheDir := filepath.Join(tempDir, "lsp-cache")
@@ -525,7 +566,7 @@ func createDefaultCacheConfig(tempDir string) *config.CacheConfig {
 		StoragePath:     cacheDir,
 		MaxMemoryMB:     64,
 		TTLHours:        1,
-		Languages:       []string{"go", "python", "typescript", "javascript"},
+		Languages:       []string{"go", "python", "typescript", "javascript", "kotlin"},
 		BackgroundIndex: false,
 		DiskCache:       true,
 		EvictionPolicy:  "lru",

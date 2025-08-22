@@ -275,6 +275,10 @@ func GetDefaultConfig() *Config {
 				Command: "omnisharp",
 				Args:    []string{"-lsp"},
 			},
+			"kotlin": {
+				Command: "kotlin-lsp",
+				Args:    []string{"--stdio"},
+			},
 		},
 		// Cache is enabled by default with standard settings
 		Cache: GetDefaultCacheConfig(),

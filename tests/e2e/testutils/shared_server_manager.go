@@ -1,11 +1,12 @@
 package testutils
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"os"
+    "crypto/md5"
+    "context"
+    "encoding/json"
+    "fmt"
+    "net/http"
+    "os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -116,7 +117,13 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 		pythonCmd, pythonArgs = cmd, args
 	}
 
-	// Generate shared server config
+    // Compute per-repo JDTLS workspace to avoid cross-project interference
+    javaWorkspace := filepath.Join(os.Getenv("HOME"), ".lsp-gateway", "jdtls-workspaces", fmt.Sprintf("%s-%x", filepath.Base(mgr.repoDir), md5.Sum([]byte(mgr.repoDir))))
+    if err := os.MkdirAll(javaWorkspace, 0o755); err != nil {
+        return fmt.Errorf("failed to create java workspace: %w", err)
+    }
+
+    // Generate shared server config
 	servers := map[string]interface{}{
 		"go": map[string]interface{}{
 			"command": "gopls",
@@ -134,46 +141,21 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 			"command": "typescript-language-server",
 			"args":    []string{"--stdio"},
 		},
-		"java": map[string]interface{}{
-			"command": "~/.lsp-gateway/tools/java/bin/jdtls",
-			"args":    []string{},
-		},
-		"rust": map[string]interface{}{
-			"command": "rust-analyzer",
-			"args":    []string{},
-			// Disable cargo operations during tests to prevent Windows file locking issues
-			"initialization_options": map[string]interface{}{
-				"checkOnSave": map[string]interface{}{
-					"enable": false, // Disable cargo check on save
-				},
-				"cargo": map[string]interface{}{
-					"buildScripts": map[string]interface{}{
-						"enable": false, // Disable build script execution
-					},
-					"runBuildScripts":      false, // Alternative way to disable build scripts
-					"noDefaultFeatures":    true,  // Disable default features
-					"allFeatures":          false, // Don't enable all features
-					"target":               nil,   // No specific target
-					"autoreload":           false, // Disable automatic reload on Cargo.toml changes
-					"loadOutDirsFromCheck": false, // Don't run cargo check to load OUT_DIRs
-				},
-				"diagnostics": map[string]interface{}{
-					"disabled": []string{"unresolved-proc-macro"}, // Disable proc-macro errors
-				},
-				"procMacro": map[string]interface{}{
-					"enable": false, // Disable proc macro support completely
-				},
-				"files": map[string]interface{}{
-					"watcher": "client", // Use client-side file watching to avoid conflicts
-				},
-				"rustfmt": map[string]interface{}{
-					"enableRangeFormatting": false, // Disable rustfmt operations
-				},
-			},
-		},
+        "java": map[string]interface{}{
+            "command": "~/.lsp-gateway/tools/java/bin/jdtls",
+            "args":    []string{javaWorkspace},
+        },
+        "rust": map[string]interface{}{
+            "command": "rust-analyzer",
+            "args":    []string{},
+        },
 		"csharp": map[string]interface{}{
 			"command": "omnisharp",
 			"args":    []string{"-lsp"},
+		},
+		"kotlin": map[string]interface{}{
+			"command": "kotlin-lsp",
+			"args":    []string{"--stdio"},
 		},
 	}
 

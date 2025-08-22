@@ -765,6 +765,8 @@ func (m *LSPManager) detectLanguageFromURI(uri string) string {
 		return "python"
 	case ".java":
 		return "java"
+	case ".kt", ".kts":
+		return "kotlin"
 	default:
 		return "plaintext"
 	}

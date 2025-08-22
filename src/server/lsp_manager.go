@@ -694,11 +694,19 @@ func (m *LSPManager) getClientActiveWaitIterations(language string) int {
 
 // resolveCommandPath resolves the command path, checking custom installations first
 func (m *LSPManager) resolveCommandPath(language, command string) string {
-	// For Java, check if custom installation exists
-	if language == "java" && command == "jdtls" {
-		var customPath string
-		if runtime.GOOS == "windows" {
-			customPath = common.GetLSPToolPath("java", "jdtls.bat")
+    // Prefer custom installation under ~/.lsp-gateway/tools/{language}
+    if root := common.GetLSPToolRoot(language); root != "" {
+        if resolved := common.FirstExistingExecutable(root, []string{command}); resolved != "" {
+            common.LSPLogger.Debug("Using installed %s command at %s", language, resolved)
+            return resolved
+        }
+    }
+
+    // For Java, check if custom installation exists
+    if language == "java" && command == "jdtls" {
+        var customPath string
+        if runtime.GOOS == "windows" {
+            customPath = common.GetLSPToolPath("java", "jdtls.bat")
 		} else {
 			customPath = common.GetLSPToolPath("java", "jdtls")
 		}

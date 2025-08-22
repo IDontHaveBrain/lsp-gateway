@@ -1,6 +1,6 @@
 # LSP Gateway
 
-Language Server Protocol gateway with HTTP and MCP interfaces for 7 languages.
+Language Server Protocol gateway with HTTP and MCP interfaces for 8 languages.
 
 ## Quick Start
 
@@ -21,7 +21,7 @@ curl localhost:8080/jsonrpc  # Test HTTP gateway
 
 ## Features
 
-- **7 Languages**: Go, Python, JavaScript, TypeScript, Java, Rust, C#
+- **8 Languages**: Go, Python, JavaScript, TypeScript, Java, Rust, C#, Kotlin
 - **Dual Protocols**: HTTP Gateway (:8080) + MCP Server (STDIO)
 - **Auto-detection**: Scans for go.mod, package.json, *.py, pom.xml, Cargo.toml, *.csproj
 - **SCIP Cache**: Sub-millisecond symbol lookups with 512MB LRU cache
@@ -40,6 +40,7 @@ lsp-gateway install javascript # Install typescript-language-server
 lsp-gateway install java       # Install jdtls
 lsp-gateway install rust       # Install rust-analyzer
 lsp-gateway install csharp     # Install omnisharp
+lsp-gateway install kotlin     # Install kotlin-lsp (official JetBrains)
 ```
 
 ## Usage
@@ -82,7 +83,7 @@ Additional endpoints:
 ```bash
 curl -s localhost:8080/languages | jq
 # {
-#   "languages": ["go","python","javascript","typescript","java","rust","csharp"],
+#   "languages": ["go","python","javascript","typescript","java","rust","csharp","kotlin"],
 #   "extensions": {
 #     "go": [".go"],
 #     "python": [".py", ".pyi"],
@@ -90,7 +91,8 @@ curl -s localhost:8080/languages | jq
 #     "typescript": [".ts", ".tsx", ".d.ts"],
 #     "java": [".java"],
 #     "rust": [".rs"],
-#     "csharp": [".cs"]
+#     "csharp": [".cs"],
+#     "kotlin": [".kt", ".kts"]
 #   }
 # }
 ```

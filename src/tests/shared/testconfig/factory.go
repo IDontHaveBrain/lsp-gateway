@@ -53,6 +53,14 @@ func NewRustServerConfig() *config.ServerConfig {
 	}
 }
 
+// NewKotlinServerConfig returns a standard Kotlin server configuration for testing
+func NewKotlinServerConfig() *config.ServerConfig {
+	return &config.ServerConfig{
+		Command: "kotlin-language-server",
+		Args:    []string{},
+	}
+}
+
 // NewMultiLangConfig creates a configuration with the specified languages
 func NewMultiLangConfig(languages []string) *config.Config {
 	servers := make(map[string]*config.ServerConfig)
@@ -71,6 +79,8 @@ func NewMultiLangConfig(languages []string) *config.Config {
 			servers["java"] = NewJavaServerConfig()
 		case "rust":
 			servers["rust"] = NewRustServerConfig()
+		case "kotlin":
+			servers["kotlin"] = NewKotlinServerConfig()
 		}
 	}
 

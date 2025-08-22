@@ -1,11 +1,12 @@
 package base
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
-	"net/http"
+    "crypto/md5"
+    "context"
+    "encoding/json"
+    "fmt"
+    "io/ioutil"
+    "net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -311,8 +312,13 @@ func (suite *ComprehensiveTestBaseSuite) startGatewayServer() error {
 	}
 	suite.gatewayPort = port
 
-	// Generate isolated config using cache isolation manager
-	servers := map[string]interface{}{
+    // Generate isolated config using cache isolation manager
+    // Compute per-repo JDTLS workspace to avoid cross-project interference
+    javaWorkspace := filepath.Join(os.Getenv("HOME"), ".lsp-gateway", "jdtls-workspaces", fmt.Sprintf("%s-%x", filepath.Base(suite.repoDir), md5.Sum([]byte(suite.repoDir))))
+    if err := os.MkdirAll(javaWorkspace, 0o755); err != nil {
+        return fmt.Errorf("failed to create java workspace: %w", err)
+    }
+    servers := map[string]interface{}{
 		"go": map[string]interface{}{
 			"command":     "gopls",
 			"args":        []string{"serve"},
@@ -333,44 +339,20 @@ func (suite *ComprehensiveTestBaseSuite) startGatewayServer() error {
 			"args":        []string{"--stdio"},
 			"working_dir": suite.repoDir,
 		},
-		"java": map[string]interface{}{
-			"command":     "~/.lsp-gateway/tools/java/bin/jdtls",
+        "java": map[string]interface{}{
+            "command":     "~/.lsp-gateway/tools/java/bin/jdtls",
+            "args":        []string{javaWorkspace},
+            "working_dir": suite.repoDir,
+        },
+        "rust": map[string]interface{}{
+            "command":     "rust-analyzer",
+            "args":        []string{},
+            "working_dir": suite.repoDir,
+        },
+		"kotlin": map[string]interface{}{
+			"command":     "kotlin-lsp",
 			"args":        []string{},
 			"working_dir": suite.repoDir,
-		},
-		"rust": map[string]interface{}{
-			"command":     "rust-analyzer",
-			"args":        []string{},
-			"working_dir": suite.repoDir,
-			// Disable cargo operations during tests to prevent Windows file locking issues
-			"initialization_options": map[string]interface{}{
-				"checkOnSave": map[string]interface{}{
-					"enable": false, // Disable cargo check on save
-				},
-				"cargo": map[string]interface{}{
-					"buildScripts": map[string]interface{}{
-						"enable": false, // Disable build script execution
-					},
-					"runBuildScripts":      false, // Alternative way to disable build scripts
-					"noDefaultFeatures":    true,  // Disable default features
-					"allFeatures":          false, // Don't enable all features
-					"target":               nil,   // No specific target
-					"autoreload":           false, // Disable automatic reload on Cargo.toml changes
-					"loadOutDirsFromCheck": false, // Don't run cargo check to load OUT_DIRs
-				},
-				"diagnostics": map[string]interface{}{
-					"disabled": []string{"unresolved-proc-macro"}, // Disable proc-macro errors
-				},
-				"procMacro": map[string]interface{}{
-					"enable": false, // Disable proc macro support completely
-				},
-				"files": map[string]interface{}{
-					"watcher": "client", // Use client-side file watching to avoid conflicts
-				},
-				"rustfmt": map[string]interface{}{
-					"enableRangeFormatting": false, // Disable rustfmt operations
-				},
-			},
 		},
 	}
 
@@ -1272,6 +1254,9 @@ func (suite *ComprehensiveTestBaseSuite) getBaseLanguageTimeout() time.Duration 
 	case "python":
 		// Python uses 30s timeout in the server
 		return 30 * time.Second
+	case "kotlin":
+		// Kotlin uses 30s timeout in the server (JVM-based but faster than Java)
+		return 45 * time.Second
 	case "go", "javascript", "typescript":
 		// These use 15s timeout in the server
 		return 15 * time.Second

@@ -18,12 +18,12 @@ func TestCreateInstallManager(t *testing.T) {
 		t.Error("CreateInstallManager() created manager with no installers")
 	}
 
-	expectedLanguageCount := 7
+	expectedLanguageCount := 8
 	if len(supportedLanguages) != expectedLanguageCount {
 		t.Errorf("Expected %d supported languages, got %d", expectedLanguageCount, len(supportedLanguages))
 	}
 
-	expectedLanguages := []string{"go", "python", "typescript", "javascript", "java", "rust", "csharp"}
+	expectedLanguages := []string{"go", "python", "typescript", "javascript", "java", "rust", "csharp", "kotlin"}
 	languageMap := make(map[string]bool)
 	for _, lang := range supportedLanguages {
 		languageMap[lang] = true
@@ -43,7 +43,7 @@ func TestRegisterAllInstallers(t *testing.T) {
 	registerAllInstallers(manager, platform)
 
 	supportedLanguages := manager.GetSupportedLanguages()
-	expectedCount := 7
+	expectedCount := 8
 	if len(supportedLanguages) != expectedCount {
 		t.Errorf("Expected %d installers registered, got %d", expectedCount, len(supportedLanguages))
 	}
@@ -86,6 +86,11 @@ func TestRegisterAllInstallers(t *testing.T) {
 		{
 			name:     "csharp installer registered",
 			language: "csharp",
+			wantErr:  false,
+		},
+		{
+			name:     "kotlin installer registered",
+			language: "kotlin",
 			wantErr:  false,
 		},
 		{
@@ -157,12 +162,12 @@ func TestGetDefaultInstallManager(t *testing.T) {
 	}
 
 	supportedLanguages := manager.GetSupportedLanguages()
-	expectedCount := 7
+	expectedCount := 8
 	if len(supportedLanguages) != expectedCount {
 		t.Errorf("Expected %d supported languages, got %d", expectedCount, len(supportedLanguages))
 	}
 
-	testLanguages := []string{"go", "python", "typescript", "javascript", "java", "rust", "csharp"}
+	testLanguages := []string{"go", "python", "typescript", "javascript", "java", "rust", "csharp", "kotlin"}
 	for _, lang := range testLanguages {
 		installer, err := manager.GetInstaller(lang)
 		if err != nil {
@@ -412,7 +417,7 @@ func TestFactoryRegistrationCompleteness(t *testing.T) {
 	registerAllInstallers(manager, platform)
 
 	supportedLanguages := manager.GetSupportedLanguages()
-	expectedLanguages := []string{"go", "python", "typescript", "javascript", "java", "rust", "csharp"}
+	expectedLanguages := []string{"go", "python", "typescript", "javascript", "java", "rust", "csharp", "kotlin"}
 
 	if len(supportedLanguages) != len(expectedLanguages) {
 		t.Errorf("Expected %d languages after registration, got %d", len(expectedLanguages), len(supportedLanguages))

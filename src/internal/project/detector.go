@@ -124,8 +124,11 @@ func analyzeFile(filePath, workingDir string, detected map[string]*DetectedLangu
 		addDetection(detected, "python", 20, "pyproject.toml file")
 	case "pom.xml":
 		addDetection(detected, "java", 30, "pom.xml file")
-	case "build.gradle", "build.gradle.kts":
+	case "build.gradle":
 		addDetection(detected, "java", 25, "Gradle build file")
+	case "build.gradle.kts":
+		addDetection(detected, "kotlin", 25, "Kotlin Gradle DSL")
+		addDetection(detected, "java", 20, "Gradle build file") // Lower priority for Java
 	case "Cargo.toml":
 		addDetection(detected, "rust", 30, "Cargo.toml file")
 	case "Cargo.lock":
@@ -370,6 +373,8 @@ func sortLanguagesByPriority(languages []string) {
 			priority[lang] = 0
 		case "rust":
 			priority[lang] = 2
+		case "kotlin":
+			priority[lang] = 2 // Same tier as TypeScript/Rust
 		default:
 			priority[lang] = i // Use index as fallback priority
 		}
@@ -407,8 +412,37 @@ func IsLSPServerAvailable(language string) bool {
 	}
 
 	// Check if command exists in PATH
-	_, err := exec.LookPath(serverConfig.Command)
-	return err == nil
+	if _, err := exec.LookPath(serverConfig.Command); err == nil {
+		return true
+	}
+
+	// Check for installed version for specific languages
+	return checkInstalledLSPServer(language)
+}
+
+// checkInstalledLSPServer checks if the LSP server is installed in the standard tool directory
+func checkInstalledLSPServer(language string) bool {
+	switch language {
+	case "java":
+    home, _ := os.UserHomeDir()
+    installRoot := filepath.Join(home, ".lsp-gateway", "tools", "java")
+    if common.HasAnyExecutable(installRoot, []string{"jdtls"}) {
+        return true
+    }
+	case "csharp":
+		home, _ := os.UserHomeDir()
+		installRoot := filepath.Join(home, ".lsp-gateway", "tools", "csharp")
+		if common.HasAnyExecutable(installRoot, []string{"omnisharp", "OmniSharp"}) {
+			return true
+		}
+	case "kotlin":
+		home, _ := os.UserHomeDir()
+		installRoot := filepath.Join(home, ".lsp-gateway", "tools", "kotlin")
+		if common.HasAnyExecutable(installRoot, []string{"kotlin-lsp"}) {
+			return true
+		}
+	}
+	return false
 }
 
 // GetAvailableLanguages returns only languages that have LSP servers available

@@ -1,20 +1,20 @@
 package installer
 
 import (
-	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"net/http"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"strings"
-	"time"
+    "context"
+    "encoding/json"
+    "errors"
+    "fmt"
+    "net/http"
+    "os"
+    "os/exec"
+    "path/filepath"
+    "runtime"
+    "strings"
+    "time"
 
-	"lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/security"
+    "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/security"
 )
 
 type CSharpInstaller struct {
@@ -70,53 +70,27 @@ func (c *CSharpInstaller) Install(ctx context.Context, options InstallOptions) e
 
 // IsInstalled checks if OmniSharp is properly installed
 func (c *CSharpInstaller) IsInstalled() bool {
-	installBin := filepath.Join(c.GetInstallPath(), "bin")
-
-	// Check for various possible binary names including wrapper scripts
-	var candidates []string
-	if runtime.GOOS == "windows" {
-		candidates = []string{"omnisharp.cmd", "omnisharp.exe", "OmniSharp.exe"}
-	} else {
-		candidates = []string{"omnisharp", "OmniSharp"}
-	}
-
-	// Check if any of the candidate binaries exist
-	for _, candidate := range candidates {
-		binaryPath := filepath.Join(installBin, candidate)
-		if info, err := os.Stat(binaryPath); err == nil {
-			// On Unix, also check if it's executable
-			if runtime.GOOS == "windows" {
-				return true
-			}
-			// Check if file has execute permission for owner
-			if info.Mode()&0100 != 0 {
-				return true
-			}
-		}
-	}
-
-	// Also check for OmniSharp.dll with dotnet wrapper
-	dllPath := filepath.Join(installBin, "OmniSharp.dll")
-	if _, err := os.Stat(dllPath); err == nil {
-		// Check if wrapper script exists
-		wrapperName := "omnisharp"
-		if runtime.GOOS == "windows" {
-			wrapperName = "omnisharp.cmd"
-		}
-		wrapperPath := filepath.Join(installBin, wrapperName)
-		if _, err := os.Stat(wrapperPath); err == nil {
-			return true
-		}
-	}
-
-	// Also check if it's available in PATH
-	for _, cmd := range []string{"omnisharp", "OmniSharp"} {
-		if c.IsInstalledByCommand(cmd) {
-			return true
-		}
-	}
-
-	return false
+    installRoot := c.GetInstallPath()
+    if common.HasAnyExecutable(installRoot, []string{"omnisharp", "OmniSharp"}) {
+        return true
+    }
+    installBin := filepath.Join(installRoot, "bin")
+    dllPath := filepath.Join(installBin, "OmniSharp.dll")
+    if _, err := os.Stat(dllPath); err == nil {
+        wrapper := "omnisharp"
+        if runtime.GOOS == "windows" {
+            wrapper = "omnisharp.cmd"
+        }
+        if _, err := os.Stat(filepath.Join(installBin, wrapper)); err == nil {
+            return true
+        }
+    }
+    for _, cmd := range []string{"omnisharp", "OmniSharp"} {
+        if c.IsInstalledByCommand(cmd) {
+            return true
+        }
+    }
+    return false
 }
 
 func (c *CSharpInstaller) GetVersion() (string, error) {
@@ -132,40 +106,23 @@ func (c *CSharpInstaller) ValidateInstallation() error {
 		return fmt.Errorf("csharp language server installation validation failed: not installed")
 	}
 
-	// Find the actual executable path and update server config
-	installBin := filepath.Join(c.GetInstallPath(), "bin")
-	var executablePath string
-
-	// Check for wrapper script first (for .dll installations)
-	if runtime.GOOS == "windows" {
-		wrapperPath := filepath.Join(installBin, "omnisharp.cmd")
-		if _, err := os.Stat(wrapperPath); err == nil {
-			executablePath = wrapperPath
-		}
-	} else {
-		wrapperPath := filepath.Join(installBin, "omnisharp")
-		if _, err := os.Stat(wrapperPath); err == nil {
-			executablePath = wrapperPath
-		}
-	}
-
-	// If no wrapper, look for native binary
-	if executablePath == "" {
-		var candidates []string
-		if runtime.GOOS == "windows" {
-			candidates = []string{"OmniSharp.exe", "omnisharp.exe"}
-		} else {
-			candidates = []string{"OmniSharp", "omnisharp"}
-		}
-
-		for _, candidate := range candidates {
-			path := filepath.Join(installBin, candidate)
-			if _, err := os.Stat(path); err == nil {
-				executablePath = path
-				break
-			}
-		}
-	}
+    // Resolve actual executable path and update server config
+    var executablePath string
+    if resolved := common.FirstExistingExecutable(c.GetInstallPath(), []string{"omnisharp", "OmniSharp"}); resolved != "" {
+        executablePath = resolved
+    } else {
+        // Fallback to wrapper inside bin for dll layout
+        installBin := filepath.Join(c.GetInstallPath(), "bin")
+        if runtime.GOOS == "windows" {
+            if _, err := os.Stat(filepath.Join(installBin, "omnisharp.cmd")); err == nil {
+                executablePath = filepath.Join(installBin, "omnisharp.cmd")
+            }
+        } else {
+            if _, err := os.Stat(filepath.Join(installBin, "omnisharp")); err == nil {
+                executablePath = filepath.Join(installBin, "omnisharp")
+            }
+        }
+    }
 
 	if executablePath == "" {
 		return fmt.Errorf("csharp language server executable not found")

@@ -1,20 +1,20 @@
 package installer
 
 import (
-	"bytes"
-	"context"
-	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"runtime"
-	"strings"
-	"time"
+    "bytes"
+    "context"
+    "fmt"
+    "os"
+    "os/exec"
+    "path/filepath"
+    "runtime"
+    "strings"
+    "time"
 
-	"lsp-gateway/src/config"
-	"lsp-gateway/src/internal/common"
-	icommon "lsp-gateway/src/internal/common"
-	"lsp-gateway/src/internal/security"
+    "lsp-gateway/src/config"
+    "lsp-gateway/src/internal/common"
+    icommon "lsp-gateway/src/internal/common"
+    "lsp-gateway/src/internal/security"
 )
 
 // BaseInstaller provides common functionality for language installers
@@ -70,20 +70,11 @@ func (b *BaseInstaller) IsInstalled() bool {
 		return false
 	}
 
-	// Check if command exists in PATH or at install path
-	command := b.serverConfig.Command
-
-	// First check PATH
-	if _, err := exec.LookPath(command); err == nil {
-		return b.validateServerCommand(command)
-	}
-
-	// Check install path
-	installPath := b.GetInstallPath()
-	customCommand := filepath.Join(installPath, "bin", command)
-	if b.fileExists(customCommand) {
-		return b.validateServerCommand(customCommand)
-	}
+    // Resolve command via PATH, install root, then bin using shared util
+    command := b.serverConfig.Command
+    if resolved := common.FirstExistingExecutable(b.GetInstallPath(), []string{command}); resolved != "" {
+        return b.validateServerCommand(resolved)
+    }
 
 	return false
 }
@@ -291,21 +282,12 @@ func (b *BaseInstaller) validateServerCommand(command string) bool {
 
 // getExecutableCommand returns the command to execute
 func (b *BaseInstaller) getExecutableCommand() string {
-	command := b.serverConfig.Command
+    command := b.serverConfig.Command
 
-	// Check if it's in PATH first
-	if _, err := exec.LookPath(command); err == nil {
-		return command
-	}
-
-	// Check install path
-	installPath := b.GetInstallPath()
-	customCommand := filepath.Join(installPath, "bin", command)
-	if b.fileExists(customCommand) {
-		return customCommand
-	}
-
-	return command // Fallback to original
+    if resolved := common.FirstExistingExecutable(b.GetInstallPath(), []string{command}); resolved != "" {
+        return resolved
+    }
+    return command
 }
 
 // tryGetVersion attempts to get version using a specific flag
@@ -458,14 +440,47 @@ func (b *BaseInstaller) isNpmInstalled() bool {
 
 // InstallWithPackageManager handles common package manager installation patterns
 func (b *BaseInstaller) InstallWithPackageManager(ctx context.Context, packageManager string, packageName string, version string) error {
-	common.CLILogger.Info("Installing %s language server (%s)...", b.language, packageName)
+    common.CLILogger.Info("Installing %s language server (%s)...", b.language, packageName)
 
-	switch packageManager {
-	case "go":
-		if !b.isGoInstalled() {
-			return fmt.Errorf("Go is not installed. Please install Go first from https://golang.org/dl/")
-		}
-		installTarget := fmt.Sprintf("%s@%s", packageName, version)
+    switch packageManager {
+    case "uvx", "uv":
+        // Prefer uvx/uv execution for Python CLIs when available
+        // Validate availability
+        runner := ""
+        if _, err := exec.LookPath("uvx"); err == nil {
+            runner = "uvx"
+        } else if _, err := exec.LookPath("uv"); err == nil {
+            runner = "uv"
+        }
+        if runner == "" {
+            return fmt.Errorf("uv/uvx is not installed. Please install uv from https://docs.astral.sh/uv/")
+        }
+
+        // Simple verification: run the package's CLI with --version to warm/cache and validate
+        // We call the tool by its console script name (packageName for jedi-language-server/basedpyright)
+        target := packageName
+        // If a specific version was requested, pin it using --from syntax
+        if runner == "uvx" {
+            args := []string{}
+            if version != "" && version != "latest" {
+                args = append(args, "--from", fmt.Sprintf("%s==%s", packageName, version), target, "--version")
+            } else {
+                args = append(args, target, "--version")
+            }
+            return b.RunCommand(ctx, runner, args...)
+        }
+        // runner == "uv": emulate uvx via `uv tool run`
+        args := []string{"tool", "run"}
+        if version != "" && version != "latest" {
+            args = append(args, "--from", fmt.Sprintf("%s==%s", packageName, version))
+        }
+        args = append(args, target, "--version")
+        return b.RunCommand(ctx, "uv", args...)
+    case "go":
+        if !b.isGoInstalled() {
+            return fmt.Errorf("Go is not installed. Please install Go first from https://golang.org/dl/")
+        }
+        installTarget := fmt.Sprintf("%s@%s", packageName, version)
 		if version == "" || version == "latest" {
 			installTarget = fmt.Sprintf("%s@latest", packageName)
 		}
@@ -495,24 +510,24 @@ func (b *BaseInstaller) InstallWithPackageManager(ctx context.Context, packageMa
 			return fmt.Errorf("pip command not found")
 		}
 
-		installPackage := packageName
-		if version != "" && version != "latest" {
-			installPackage = fmt.Sprintf("%s==%s", packageName, version)
-		}
+        installPackage := packageName
+        if version != "" && version != "latest" {
+            installPackage = fmt.Sprintf("%s==%s", packageName, version)
+        }
 
-		// Build the full command
-		args := append(pipCmd, "install", "--user", installPackage)
-		if err := b.RunCommand(ctx, args[0], args[1:]...); err != nil {
-			// Fallback: handle PEP 668 externally-managed environment by using pipx
-			if _, lookErr := exec.LookPath("pipx"); lookErr == nil {
-				pipxPkg := installPackage
-				// pipx supports ==version syntax as well
-				common.CLILogger.Info("pip install failed; attempting pipx install for %s", pipxPkg)
-				return b.RunCommand(ctx, "pipx", "install", pipxPkg)
-			}
-			return err
-		}
-		return nil
+        // Build the full command
+        args := append(pipCmd, "install", "--user", installPackage)
+        if err := b.RunCommand(ctx, args[0], args[1:]...); err != nil {
+            // Fallback: handle PEP 668 externally-managed environment by using pipx
+            if _, lookErr := exec.LookPath("pipx"); lookErr == nil {
+                pipxPkg := installPackage
+                // pipx supports ==version syntax as well
+                common.CLILogger.Info("pip install failed; attempting pipx install for %s", pipxPkg)
+                return b.RunCommand(ctx, "pipx", "install", pipxPkg)
+            }
+            return err
+        }
+        return nil
 
 	case "npm":
 		if !b.isNpmInstalled() {

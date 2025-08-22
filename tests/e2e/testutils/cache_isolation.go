@@ -525,7 +525,7 @@ func (m *CacheIsolationManager) GenerateIsolatedConfig(servers map[string]interf
 	}
 	configContent += fmt.Sprintf("  ttl_hours: %d\n", ttlHours)
 
-	configContent += "  languages: [\"go\", \"python\", \"typescript\", \"java\"]\n"
+	configContent += "  languages: [\"go\", \"python\", \"typescript\", \"java\", \"kotlin\"]\n"
 	configContent += fmt.Sprintf("  background_index: %t\n", config.BackgroundIndexing)
 
 	// Convert health check interval to minutes (simplified units)
