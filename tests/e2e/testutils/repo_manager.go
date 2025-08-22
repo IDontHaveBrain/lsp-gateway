@@ -165,17 +165,17 @@ func GetTestRepositories() map[string]*TestRepository {
 		},
 		"kotlin": {
 			Language:   "kotlin",
-			Name:       "kotlinx-coroutines",
-			URL:        "https://github.com/Kotlin/kotlinx.coroutines.git",
-			CommitHash: "1.7.3", // Use stable release
+			Name:       "kotlinpoet",
+			URL:        "https://github.com/square/kotlinpoet.git",
+			CommitHash: "1.14.2", // Stable release - lightweight code generation library
 			TestFiles: []TestFile{
 				{
-					Path:          "kotlinx-coroutines-core/common/src/flow/Builders.kt",
-					DefinitionPos: Position{Line: 55, Character: 85}, // 'Flow<T>' return type in flow builder - should go to Flow definition
-					ReferencePos:  Position{Line: 55, Character: 15}, // 'flow' function name - find references to flow builder
-					HoverPos:      Position{Line: 55, Character: 15}, // 'flow' function name for hover info
-					CompletionPos: Position{Line: 60, Character: 8}, // Inside SafeFlow class for completion
-					SymbolQuery:   "flow",
+					Path:          "kotlinpoet/src/main/java/com/squareup/kotlinpoet/FileSpec.kt",
+					DefinitionPos: Position{Line: 44, Character: 13}, // 'FileSpec' class definition
+					ReferencePos:  Position{Line: 64, Character: 10}, // 'CodeWriter' reference - should find usages
+					HoverPos:      Position{Line: 44, Character: 13}, // 'FileSpec' class name for hover
+					CompletionPos: Position{Line: 66, Character: 4},  // Inside emit function for completion
+					SymbolQuery:   "FileSpec",
 				},
 			},
 		},
