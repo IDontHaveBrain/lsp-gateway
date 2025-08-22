@@ -165,17 +165,17 @@ func GetTestRepositories() map[string]*TestRepository {
 		},
 		"kotlin": {
 			Language:   "kotlin",
-			Name:       "kotlinpoet",
-			URL:        "https://github.com/square/kotlinpoet.git",
-			CommitHash: "1.14.2", // Stable release - lightweight code generation library
+			Name:       "kotlin-result",
+			URL:        "https://github.com/michaelbull/kotlin-result.git",
+			CommitHash: "1.1.18", // Stable release - minimal Result type library (pure Kotlin)
 			TestFiles: []TestFile{
 				{
-					Path:          "kotlinpoet/src/main/java/com/squareup/kotlinpoet/FileSpec.kt",
-					DefinitionPos: Position{Line: 44, Character: 13}, // 'FileSpec' class definition
-					ReferencePos:  Position{Line: 64, Character: 10}, // 'CodeWriter' reference - should find usages
-					HoverPos:      Position{Line: 44, Character: 13}, // 'FileSpec' class name for hover
-					CompletionPos: Position{Line: 66, Character: 4},  // Inside emit function for completion
-					SymbolQuery:   "FileSpec",
+					Path:          "kotlin-result/src/commonMain/kotlin/com/github/michaelbull/result/Result.kt",
+					DefinitionPos: Position{Line: 9, Character: 21},  // 'Result' sealed class definition
+					ReferencePos:  Position{Line: 33, Character: 40}, // 'Result' in Ok class declaration
+					HoverPos:      Position{Line: 33, Character: 13}, // 'Ok' class name for hover
+					CompletionPos: Position{Line: 35, Character: 4},  // Inside Ok class for completion
+					SymbolQuery:   "Result",
 				},
 			},
 		},
