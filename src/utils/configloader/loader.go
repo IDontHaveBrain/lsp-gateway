@@ -212,6 +212,10 @@ func getInstalledKotlinLSPPath(homeDir string) string {
     // Also support legacy layout without bin and .sh script
     candidates := []string{}
     if runtime.GOOS == "windows" {
+        // Prefer native .exe if available (more reliable for stdio on Windows)
+        candidates = append(candidates,
+            common.GetLSPToolPath("kotlin", "kotlin-lsp.exe"),
+        )
         candidates = append(candidates,
             common.GetLSPToolPath("kotlin", "kotlin-lsp.cmd"),
             common.GetLSPToolPath("kotlin", "kotlin-lsp.bat"),
@@ -219,6 +223,7 @@ func getInstalledKotlinLSPPath(homeDir string) string {
         // Legacy (no bin)
         root := common.GetLSPToolRoot("kotlin")
         candidates = append(candidates,
+            filepath.Join(root, "kotlin-lsp.exe"),
             filepath.Join(root, "kotlin-lsp.cmd"),
             filepath.Join(root, "kotlin-lsp.bat"),
         )

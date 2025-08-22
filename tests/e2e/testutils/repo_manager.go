@@ -171,9 +171,9 @@ func GetTestRepositories() map[string]*TestRepository {
 			TestFiles: []TestFile{
 				{
 					Path:          "kotlin-result/src/commonMain/kotlin/com/github/michaelbull/result/Result.kt",
-					DefinitionPos: Position{Line: 9, Character: 21},  // 'Result' sealed class definition
-					ReferencePos:  Position{Line: 33, Character: 40}, // 'Result' in Ok class declaration
-					HoverPos:      Position{Line: 33, Character: 13}, // 'Ok' class name for hover
+					DefinitionPos: Position{Line: 34, Character: 50}, // 'Result' usage in Ok extends clause -> definition jumps to sealed class
+					ReferencePos:  Position{Line: 34, Character: 50}, // Same 'Result' usage ensures non-empty cross-file references
+					HoverPos:      Position{Line: 21, Character: 30}, // 'of' function name hover (has KDoc/deprecation)
 					CompletionPos: Position{Line: 35, Character: 4},  // Inside Ok class for completion
 					SymbolQuery:   "Result",
 				},

@@ -731,37 +731,47 @@ func (m *LSPManager) resolveCommandPath(language, command string) string {
 		}
 	}
 
-	// Check for other language custom installations
-	if command == "gopls" || command == "pylsp" || command == "jedi-language-server" || command == "pyright-langserver" || command == "basedpyright-langserver" || command == "typescript-language-server" || command == "omnisharp" || command == "OmniSharp" {
-		// Map of commands to their languages for path construction
-		languageMap := map[string]string{
-			"gopls":                      "go",
-			"pylsp":                      "python",
-			"jedi-language-server":       "python",
-			"pyright-langserver":         "python",
-			"basedpyright-langserver":    "python",
-			"typescript-language-server": "typescript",
-			"omnisharp":                  "csharp",
-			"OmniSharp":                  "csharp",
-		}
-		if lang, exists := languageMap[command]; exists {
-			customPath := common.GetLSPToolPath(lang, command)
-			if runtime.GOOS == "windows" {
-				// Add extension for platform-specific shims
-				if command == "typescript-language-server" || command == "pylsp" || command == "jedi-language-server" {
-					customPath = customPath + ".cmd"
-				} else if command == "omnisharp" || command == "OmniSharp" {
-					customPath = customPath + ".exe"
-				}
-			}
+    // Check for other language custom installations
+    if command == "gopls" || command == "pylsp" || command == "jedi-language-server" || command == "pyright-langserver" || command == "basedpyright-langserver" || command == "typescript-language-server" || command == "omnisharp" || command == "OmniSharp" || command == "kotlin-lsp" {
+        // Map of commands to their languages for path construction
+        languageMap := map[string]string{
+            "gopls":                      "go",
+            "pylsp":                      "python",
+            "jedi-language-server":       "python",
+            "pyright-langserver":         "python",
+            "basedpyright-langserver":    "python",
+            "typescript-language-server": "typescript",
+            "omnisharp":                  "csharp",
+            "OmniSharp":                  "csharp",
+            "kotlin-lsp":                 "kotlin",
+        }
+        if lang, exists := languageMap[command]; exists {
+            customPath := common.GetLSPToolPath(lang, command)
+            if runtime.GOOS == "windows" {
+                // Add extension for platform-specific shims
+                if command == "typescript-language-server" || command == "pylsp" || command == "jedi-language-server" {
+                    customPath = customPath + ".cmd"
+                } else if command == "omnisharp" || command == "OmniSharp" {
+                    customPath = customPath + ".exe"
+                } else if command == "kotlin-lsp" {
+                    // Prefer native .exe on Windows for reliable stdio
+                    exePath := common.GetLSPToolPath("kotlin", "kotlin-lsp.exe")
+                    if common.FileExists(exePath) {
+                        customPath = exePath
+                    } else {
+                        // Fall back to .cmd if no .exe present
+                        customPath = customPath + ".cmd"
+                    }
+                }
+            }
 
-			// Check if the custom installation exists
-			if common.FileExists(customPath) {
-				common.LSPLogger.Debug("Using custom %s installation at %s", command, customPath)
-				return customPath
-			}
-		}
-	}
+            // Check if the custom installation exists
+            if common.FileExists(customPath) {
+                common.LSPLogger.Debug("Using custom %s installation at %s", command, customPath)
+                return customPath
+            }
+        }
+    }
 
 	// Return the original command (will be resolved via PATH)
 	return command
