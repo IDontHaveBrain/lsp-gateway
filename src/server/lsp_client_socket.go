@@ -126,11 +126,39 @@ func (c *SocketClient) Start(ctx context.Context) error {
 
     go c.logStderr()
 
-    dialCtx, cancel := common.WithTimeout(ctx, constants.ProcessStartTimeout)
+    // Kotlin on Windows needs time to initialize before opening socket
+    if c.language == "kotlin" && runtime.GOOS == "windows" {
+        initialDelay := 5 * time.Second
+        if common.IsCI() {
+            initialDelay = 10 * time.Second
+        }
+        common.LSPLogger.Info("Waiting %v for Kotlin LSP to initialize before connecting...", initialDelay)
+        time.Sleep(initialDelay)
+    }
+
+    // Kotlin needs more time to start, similar to Java
+    timeout := constants.ProcessStartTimeout
+    if c.language == "kotlin" || c.language == "java" {
+        timeout = 90 * time.Second
+        if common.IsCI() {
+            if runtime.GOOS == "windows" {
+                timeout = time.Duration(float64(timeout) * 3.0) // Windows CI: 3x multiplier for JVM languages
+            } else {
+                timeout = time.Duration(float64(timeout) * 1.2) // Regular CI: 1.2x multiplier
+            }
+        }
+    }
+
+    dialCtx, cancel := common.WithTimeout(ctx, timeout)
     defer cancel()
 
     var conn net.Conn
     var lastErr error
+    retryInterval := 200 * time.Millisecond
+    if c.language == "kotlin" {
+        retryInterval = 500 * time.Millisecond // Slower retry for Kotlin
+    }
+    
     for {
         if dialCtx.Err() != nil {
             break
@@ -139,7 +167,7 @@ func (c *SocketClient) Start(ctx context.Context) error {
         if lastErr == nil {
             break
         }
-        time.Sleep(200 * time.Millisecond)
+        time.Sleep(retryInterval)
     }
     if lastErr != nil {
         c.processManager.CleanupProcess(c.processInfo)
