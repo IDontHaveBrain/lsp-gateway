@@ -175,7 +175,7 @@ func GetTestRepositories() map[string]*TestRepository {
 					ReferencePos:  Position{Line: 34, Character: 50}, // Same 'Result' usage ensures non-empty cross-file references
 					HoverPos:      Position{Line: 21, Character: 30}, // 'of' function name hover (has KDoc/deprecation)
 					CompletionPos: Position{Line: 35, Character: 4},  // Inside Ok class for completion
-					SymbolQuery:   "Result",
+					SymbolQuery:   "combine",
 				},
 			},
 		},
