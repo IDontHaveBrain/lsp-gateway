@@ -294,7 +294,9 @@ func (mgr *SharedServerManager) waitForServerReady(t *testing.T) error {
 
 	t.Logf("⏳ Waiting for shared server to be ready at %s...", healthURL)
 
-	maxRetries := 60 // 60 seconds timeout
+    // Allow more time for heavier language servers (e.g., Java/Kotlin on large repos)
+    // Use a conservative 120s to avoid premature timeouts during initialization.
+    maxRetries := 120
 	for i := 0; i < maxRetries; i++ {
 		select {
 		case <-mgr.ctx.Done():
