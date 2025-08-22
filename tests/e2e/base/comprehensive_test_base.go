@@ -612,10 +612,10 @@ func (suite *ComprehensiveTestBaseSuite) TestComprehensiveServerLifecycle() {
 
 // TestDefinitionComprehensive tests textDocument/definition
 func (suite *ComprehensiveTestBaseSuite) TestDefinitionComprehensive() {
-	// Skip on Windows CI for Java only if environment explicitly requests it
+	// Skip on Windows CI for JVM-based languages only if environment explicitly requests it
 	// With improved timeouts, we should attempt the test unless forced to skip
-	if suite.Config.Language == "java" && isWindowsCI() && os.Getenv("SKIP_JAVA_WINDOWS_CI_TESTS") == "true" {
-		suite.T().Skip("Skipping Java definition test on Windows CI - explicitly disabled via SKIP_JAVA_WINDOWS_CI_TESTS")
+	if (suite.Config.Language == "java" || suite.Config.Language == "kotlin") && isWindowsCI() && os.Getenv("SKIP_JVM_WINDOWS_CI_TESTS") == "true" {
+		suite.T().Skipf("Skipping %s definition test on Windows CI - explicitly disabled via SKIP_JVM_WINDOWS_CI_TESTS", suite.Config.Language)
 		return
 	}
 	suite.T().Logf("Testing %s definition", suite.Config.DisplayName)
@@ -667,10 +667,10 @@ func (suite *ComprehensiveTestBaseSuite) TestDefinitionComprehensive() {
 
 // TestReferencesComprehensive tests textDocument/references
 func (suite *ComprehensiveTestBaseSuite) TestReferencesComprehensive() {
-	// Skip on Windows CI for Java only if environment explicitly requests it
+	// Skip on Windows CI for JVM-based languages only if environment explicitly requests it
 	// With improved timeouts, we should attempt the test unless forced to skip
-	if suite.Config.Language == "java" && isWindowsCI() && os.Getenv("SKIP_JAVA_WINDOWS_CI_TESTS") == "true" {
-		suite.T().Skip("Skipping Java references test on Windows CI - explicitly disabled via SKIP_JAVA_WINDOWS_CI_TESTS")
+	if (suite.Config.Language == "java" || suite.Config.Language == "kotlin") && isWindowsCI() && os.Getenv("SKIP_JVM_WINDOWS_CI_TESTS") == "true" {
+		suite.T().Skipf("Skipping %s references test on Windows CI - explicitly disabled via SKIP_JVM_WINDOWS_CI_TESTS", suite.Config.Language)
 		return
 	}
 	suite.T().Logf("Testing %s references", suite.Config.DisplayName)
@@ -719,10 +719,10 @@ func (suite *ComprehensiveTestBaseSuite) TestReferencesComprehensive() {
 
 // TestHoverComprehensive tests textDocument/hover
 func (suite *ComprehensiveTestBaseSuite) TestHoverComprehensive() {
-	// Skip on Windows CI for Java only if environment explicitly requests it
+	// Skip on Windows CI for JVM-based languages only if environment explicitly requests it
 	// With improved timeouts, we should attempt the test unless forced to skip
-	if suite.Config.Language == "java" && isWindowsCI() && os.Getenv("SKIP_JAVA_WINDOWS_CI_TESTS") == "true" {
-		suite.T().Skip("Skipping Java hover test on Windows CI - explicitly disabled via SKIP_JAVA_WINDOWS_CI_TESTS")
+	if (suite.Config.Language == "java" || suite.Config.Language == "kotlin") && isWindowsCI() && os.Getenv("SKIP_JVM_WINDOWS_CI_TESTS") == "true" {
+		suite.T().Skipf("Skipping %s hover test on Windows CI - explicitly disabled via SKIP_JVM_WINDOWS_CI_TESTS", suite.Config.Language)
 		return
 	}
 	suite.T().Logf("Testing %s hover - REAL E2E TEST", suite.Config.DisplayName)
@@ -781,10 +781,10 @@ func (suite *ComprehensiveTestBaseSuite) TestHoverComprehensive() {
 
 // TestDocumentSymbolComprehensive tests textDocument/documentSymbol
 func (suite *ComprehensiveTestBaseSuite) TestDocumentSymbolComprehensive() {
-	// Skip on Windows CI for Java only if environment explicitly requests it
+	// Skip on Windows CI for JVM-based languages only if environment explicitly requests it
 	// With improved timeouts, we should attempt the test unless forced to skip
-	if suite.Config.Language == "java" && isWindowsCI() && os.Getenv("SKIP_JAVA_WINDOWS_CI_TESTS") == "true" {
-		suite.T().Skip("Skipping Java document symbol test on Windows CI - explicitly disabled via SKIP_JAVA_WINDOWS_CI_TESTS")
+	if (suite.Config.Language == "java" || suite.Config.Language == "kotlin") && isWindowsCI() && os.Getenv("SKIP_JVM_WINDOWS_CI_TESTS") == "true" {
+		suite.T().Skipf("Skipping %s document symbol test on Windows CI - explicitly disabled via SKIP_JVM_WINDOWS_CI_TESTS", suite.Config.Language)
 		return
 	}
 	suite.T().Logf("Testing %s document symbols", suite.Config.DisplayName)
@@ -890,10 +890,10 @@ func (suite *ComprehensiveTestBaseSuite) TestWorkspaceSymbolComprehensive() {
 
 // TestCompletionComprehensive tests textDocument/completion
 func (suite *ComprehensiveTestBaseSuite) TestCompletionComprehensive() {
-	// Skip on Windows CI for Java only if environment explicitly requests it
+	// Skip on Windows CI for JVM-based languages only if environment explicitly requests it
 	// With improved timeouts, we should attempt the test unless forced to skip
-	if suite.Config.Language == "java" && isWindowsCI() && os.Getenv("SKIP_JAVA_WINDOWS_CI_TESTS") == "true" {
-		suite.T().Skip("Skipping Java completion test on Windows CI - explicitly disabled via SKIP_JAVA_WINDOWS_CI_TESTS")
+	if (suite.Config.Language == "java" || suite.Config.Language == "kotlin") && isWindowsCI() && os.Getenv("SKIP_JVM_WINDOWS_CI_TESTS") == "true" {
+		suite.T().Skipf("Skipping %s completion test on Windows CI - explicitly disabled via SKIP_JVM_WINDOWS_CI_TESTS", suite.Config.Language)
 		return
 	}
 	suite.T().Logf("Testing %s completion", suite.Config.DisplayName)
@@ -973,9 +973,9 @@ func (suite *ComprehensiveTestBaseSuite) TestAllLSPMethodsSequential() {
 	}
 
 	// Determine which tests to run based on environment
-	if suite.Config.Language == "java" && isWindowsCI() {
-		// On Windows CI with Java, only test critical methods to reduce timeout risk
-		suite.T().Logf("  Running reduced test set for Java on Windows CI")
+	if (suite.Config.Language == "java" || suite.Config.Language == "kotlin") && isWindowsCI() {
+		// On Windows CI with JVM-based languages, only test critical methods to reduce timeout risk
+		suite.T().Logf("  Running reduced test set for %s on Windows CI", suite.Config.Language)
 		suite.testMethodSequentially(httpClient, fileURI, testFile, "textDocument/definition", testFile.DefinitionPos)
 		suite.testWorkspaceSymbolSequentially(httpClient, testFile.SymbolQuery) // This usually works
 		// Skip the rest to avoid timeouts: references, hover, documentSymbol, completion
@@ -1024,8 +1024,8 @@ func (suite *ComprehensiveTestBaseSuite) testMethodSequentially(httpClient *test
 
 	response, err := suite.makeJSONRPCRequest(ctx, httpClient, request)
 	if err != nil {
-		if suite.Config.Language == "java" && isWindowsCI() && method == "textDocument/definition" {
-			suite.T().Logf("  ⚠️ %s encountered error on Windows CI (Java): %v", method, err)
+		if (suite.Config.Language == "java" || suite.Config.Language == "kotlin") && isWindowsCI() && method == "textDocument/definition" {
+			suite.T().Logf("  ⚠️ %s encountered error on Windows CI (%s): %v", method, suite.Config.Language, err)
 			return
 		}
 		suite.T().Errorf("  ❌ %s failed: %v", method, err)
@@ -1033,8 +1033,8 @@ func (suite *ComprehensiveTestBaseSuite) testMethodSequentially(httpClient *test
 	}
 
 	if errorField, hasError := response["error"]; hasError && errorField != nil {
-		if suite.Config.Language == "java" && isWindowsCI() && method == "textDocument/definition" {
-			suite.T().Logf("  ⚠️ %s returned LSP error on Windows CI (Java): %v", method, errorField)
+		if (suite.Config.Language == "java" || suite.Config.Language == "kotlin") && isWindowsCI() && method == "textDocument/definition" {
+			suite.T().Logf("  ⚠️ %s returned LSP error on Windows CI (%s): %v", method, suite.Config.Language, errorField)
 			return
 		}
 		suite.T().Errorf("  ❌ %s LSP error: %v", method, errorField)
@@ -1228,8 +1228,8 @@ func (suite *ComprehensiveTestBaseSuite) getLanguageTimeout() time.Duration {
 
 	// Apply multipliers for CI environments
 	if isWindowsCI() {
-		// Windows CI is significantly slower, especially for Java
-		if suite.Config.Language == "java" {
+		// Windows CI is significantly slower, especially for JVM-based languages
+		if suite.Config.Language == "java" || suite.Config.Language == "kotlin" {
 			// Match server timeout (90s * 3 = 270s) + buffer for HTTP overhead
 			// This ensures test doesn't timeout before server responds
 			return baseTimeout*3 + 60*time.Second // 330s total
@@ -1255,8 +1255,8 @@ func (suite *ComprehensiveTestBaseSuite) getBaseLanguageTimeout() time.Duration 
 		// Python uses 30s timeout in the server
 		return 30 * time.Second
 	case "kotlin":
-		// Kotlin uses 30s timeout in the server (JVM-based but faster than Java)
-		return 45 * time.Second
+		// Kotlin uses same timeout as Java (both JVM-based)
+		return 90 * time.Second
 	case "go", "javascript", "typescript":
 		// These use 15s timeout in the server
 		return 15 * time.Second
