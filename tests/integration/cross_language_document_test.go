@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"lsp-gateway/src/config"
-	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/documents"
@@ -23,23 +22,39 @@ import (
 )
 
 func getKotlinCommand() string {
-	// Use platform-specific command, trying to resolve installed path first
-	command := "kotlin-lsp"
-	candidates := []string{"kotlin-lsp"}
-	
+	// Use platform-specific command
 	if runtime.GOOS == "windows" {
-		command = "kotlin-language-server"
-		candidates = []string{"kotlin-language-server"}
+		// Check for installed kotlin-language-server first
+		homeDir, _ := os.UserHomeDir()
+		if homeDir != "" {
+			installedPath := filepath.Join(homeDir, ".lsp-gateway", "tools", "kotlin", "bin", "kotlin-language-server.bat")
+			if _, err := os.Stat(installedPath); err == nil {
+				return installedPath
+			}
+			// Try without .bat extension
+			installedPath = filepath.Join(homeDir, ".lsp-gateway", "tools", "kotlin", "bin", "kotlin-language-server")
+			if _, err := os.Stat(installedPath); err == nil {
+				return installedPath
+			}
+		}
+		return "kotlin-language-server"
 	}
 	
-	// Try to resolve to installed binary path
-	if root := common.GetLSPToolRoot("kotlin"); root != "" {
-		if resolved := common.FirstExistingExecutable(root, candidates); resolved != "" {
-			command = resolved
+	// Unix-like systems
+	homeDir, _ := os.UserHomeDir()
+	if homeDir != "" {
+		installedPath := filepath.Join(homeDir, ".lsp-gateway", "tools", "kotlin", "kotlin-lsp")
+		if _, err := os.Stat(installedPath); err == nil {
+			return installedPath
+		}
+		// Try bin directory
+		installedPath = filepath.Join(homeDir, ".lsp-gateway", "tools", "kotlin", "bin", "kotlin-lsp")
+		if _, err := os.Stat(installedPath); err == nil {
+			return installedPath
 		}
 	}
 	
-	return command
+	return "kotlin-lsp"
 }
 
 func TestCrossLanguageDocumentCoordination(t *testing.T) {
