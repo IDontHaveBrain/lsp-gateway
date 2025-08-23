@@ -138,7 +138,19 @@ func (c *StdioClient) Start(ctx context.Context) error {
 	// Start stderr logger
 	go c.logStderr()
 
-	// Start process monitor using process manager
+	// Initialize LSP server
+	if err := c.initializeLSP(ctx); err != nil {
+		// Ensure full termination to prevent goroutine leaks
+		_ = c.processManager.StopProcess(c.processInfo, c)
+		return fmt.Errorf("failed to initialize LSP server: %w", err)
+	}
+
+	// Mark as active after successful initialization
+	c.mu.Lock()
+	c.active = true
+	c.mu.Unlock()
+
+	// Start process monitor after successful initialization
 	go c.processManager.MonitorProcess(c.processInfo, func(err error) {
 		// Mark as inactive when process exits
 		c.mu.Lock()
@@ -161,17 +173,6 @@ func (c *StdioClient) Start(ctx context.Context) error {
 			}
 		}
 	})
-
-	// Initialize LSP server
-	if err := c.initializeLSP(ctx); err != nil {
-		c.processManager.CleanupProcess(c.processInfo)
-		return fmt.Errorf("failed to initialize LSP server: %w", err)
-	}
-
-	// Mark as active after successful initialization
-	c.mu.Lock()
-	c.active = true
-	c.mu.Unlock()
 
 	return nil
 }
@@ -412,48 +413,11 @@ func (c *StdioClient) HandleRequest(method string, id interface{}, params interf
 
 // HandleResponse implements the MessageHandler interface for client responses
 func (c *StdioClient) HandleResponse(id interface{}, result json.RawMessage, err *protocol.RPCError) error {
-	idStr := fmt.Sprintf("%v", id)
-
+	// Use shared helper to reduce duplication
 	c.mu.RLock()
-	req, exists := c.requests[idStr]
 	processInfo := c.processInfo
 	c.mu.RUnlock()
-
-	if exists {
-		var responseData json.RawMessage
-		if err != nil {
-			errorData, _ := json.Marshal(err)
-			responseData = errorData
-			// Suppress expected errors during indexing operations
-			if !protocol.IsExpectedSuppressibleError(err) {
-				sanitizedError := common.SanitizeErrorForLogging(err)
-				common.LSPLogger.Warn("LSP response contains error: id=%s, error=%s", idStr, sanitizedError)
-			}
-		} else {
-			responseData = result
-		}
-
-		select {
-		case req.respCh <- responseData:
-			// Response delivered successfully
-		case <-req.done:
-			common.LSPLogger.Warn("Request already completed when trying to deliver response: id=%s", idStr)
-		case <-processInfo.StopCh:
-			common.LSPLogger.Warn("Client stopped when trying to deliver response: id=%s", idStr)
-		}
-	} else {
-		// Check if this was a recently timed-out request
-		c.timeoutsMu.RLock()
-		timeoutTime, wasTimeout := c.recentTimeouts[idStr]
-		c.timeoutsMu.RUnlock()
-
-		if wasTimeout && time.Since(timeoutTime) < 30*time.Second {
-			common.LSPLogger.Debug("Received late response for previously timed-out request: id=%s (timed out %v ago)", idStr, time.Since(timeoutTime))
-		} else {
-			common.LSPLogger.Warn("No matching request found for response: id=%s", idStr)
-		}
-	}
-
+	deliverResponseCommon(id, result, err, c.requests, &c.mu, &c.timeoutsMu, c.recentTimeouts, processInfo.StopCh)
 	return nil
 }
 

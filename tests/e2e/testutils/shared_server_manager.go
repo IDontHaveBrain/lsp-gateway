@@ -14,7 +14,7 @@ import (
 	"syscall"
 	"testing"
 	"time"
-	
+
 	"lsp-gateway/src/tests/shared/testconfig"
 )
 
@@ -44,7 +44,6 @@ type SharedServerManager struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 }
-
 
 // NewSharedServerManager creates a new shared server manager
 func NewSharedServerManager(repoDir string, cacheIsolationMgr *CacheIsolationManager) *SharedServerManager {

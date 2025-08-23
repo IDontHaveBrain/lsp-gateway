@@ -379,40 +379,11 @@ func (c *SocketClient) HandleRequest(method string, id interface{}, params inter
 }
 
 func (c *SocketClient) HandleResponse(id interface{}, result json.RawMessage, err *protocol.RPCError) error {
-	idStr := fmt.Sprintf("%v", id)
+	// Use shared helper to reduce duplication
 	c.mu.RLock()
-	req, exists := c.requests[idStr]
 	processInfo := c.processInfo
 	c.mu.RUnlock()
-	if exists {
-		var responseData json.RawMessage
-		if err != nil {
-			errorData, _ := json.Marshal(err)
-			responseData = errorData
-			if !protocol.IsExpectedSuppressibleError(err) {
-				sanitizedError := common.SanitizeErrorForLogging(err)
-				common.LSPLogger.Warn("LSP response contains error: id=%s, error=%s", idStr, sanitizedError)
-			}
-		} else {
-			responseData = result
-		}
-		select {
-		case req.respCh <- responseData:
-		case <-req.done:
-			common.LSPLogger.Warn("Request already completed when trying to deliver response: id=%s", idStr)
-		case <-processInfo.StopCh:
-			common.LSPLogger.Warn("Client stopped when trying to deliver response: id=%s", idStr)
-		}
-	} else {
-		c.timeoutsMu.RLock()
-		timeoutTime, wasTimeout := c.recentTimeouts[idStr]
-		c.timeoutsMu.RUnlock()
-		if wasTimeout && time.Since(timeoutTime) < 30*time.Second {
-			common.LSPLogger.Debug("Received late response for previously timed-out request: id=%s (timed out %v ago)", idStr, time.Since(timeoutTime))
-		} else {
-			common.LSPLogger.Warn("No matching request found for response: id=%s", idStr)
-		}
-	}
+	deliverResponseCommon(id, result, err, c.requests, &c.mu, &c.timeoutsMu, c.recentTimeouts, processInfo.StopCh)
 	return nil
 }
 

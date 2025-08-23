@@ -27,12 +27,12 @@ func NewKotlinInstaller(platform PlatformInfo) *KotlinInstaller {
 	// Use kotlin-language-server on Windows, kotlin-lsp on other platforms
 	command := "kotlin-lsp"
 	args := []string{} // JetBrains kotlin-lsp defaults to socket mode on port 9999 when no args provided
-	
+
 	if runtime.GOOS == "windows" {
 		command = "kotlin-language-server"
 		args = []string{} // fwcd kotlin-language-server defaults to stdio mode
 	}
-	
+
 	base := CreateSimpleInstaller("kotlin", command, args, platform)
 	return &KotlinInstaller{BaseInstaller: base}
 }
@@ -259,11 +259,11 @@ func (k *KotlinInstaller) setupBinary(extractPath, installPath string) error {
 				os.RemoveAll(serverDir)
 			}
 		}
-		
+
 		// Now look for the batch file or executable
 		fwcdBatPath := filepath.Join(installPath, "bin", "kotlin-language-server.bat")
 		fwcdExePath := filepath.Join(installPath, "bin", "kotlin-language-server")
-		
+
 		if _, err := os.Stat(fwcdBatPath); err == nil {
 			k.serverConfig.Command = fwcdBatPath
 		} else if _, err := os.Stat(fwcdExePath); err == nil {
@@ -313,7 +313,7 @@ func (k *KotlinInstaller) setupBinary(extractPath, installPath string) error {
 		// JetBrains kotlin-lsp defaults to socket mode on port 9999 when no args provided
 		k.serverConfig.Args = []string{}
 	}
-	
+
 	// Log the actual command that will be used
 	common.CLILogger.Info("Kotlin Language Server setup completed at %s", installPath)
 	common.CLILogger.Info("Using command: %s with args: %v", k.serverConfig.Command, k.serverConfig.Args)

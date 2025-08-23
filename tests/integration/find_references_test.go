@@ -2,7 +2,6 @@ package integration
 
 import (
 	"testing"
-	"time"
 
 	"lsp-gateway/src/server"
 	"lsp-gateway/tests/shared"
@@ -52,9 +51,8 @@ func main() {
 	// Request document symbols to populate cache
 	symbolResult := setup.IndexDocument(t, fileURI)
 	t.Logf("Document symbols indexed: %v", symbolResult != nil)
-
-	// Wait for indexing
-	time.Sleep(1 * time.Second)
+	
+	// Indexing wait handled by IndexDocument; no extra sleep
 
 	// Test SearchSymbolReferences for "Router"
 	query := server.SymbolReferenceQuery{

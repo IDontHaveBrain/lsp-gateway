@@ -64,7 +64,6 @@ type ComprehensiveTestBaseSuite struct {
 	useSharedServer     bool // Flag to enable/disable shared server mode
 }
 
-
 // SetupSuite initializes the comprehensive test suite
 func (suite *ComprehensiveTestBaseSuite) SetupSuite() {
 	suite.testTimeout = 120 * time.Second

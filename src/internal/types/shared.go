@@ -18,7 +18,7 @@ type ClientConfig struct {
 	Args                  []string
 	WorkingDir            string
 	InitializationOptions interface{} // Optional initialization options from config
-	
+
 	// Transport configuration
 	Transport TransportMode
 	Host      string // For socket mode

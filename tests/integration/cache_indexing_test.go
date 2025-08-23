@@ -10,6 +10,7 @@ import (
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/utils"
+	"lsp-gateway/tests/testutils"
 
 	"github.com/stretchr/testify/require"
 )
@@ -93,7 +94,8 @@ func (u *User) Validate() bool {
 		err = scipCache.IndexDocument(ctx, "file://"+mainFile, "go", nil)
 		require.NoError(t, err)
 
-		time.Sleep(100 * time.Millisecond)
+		// Wait for indexing to reflect in index stats
+		testutils.WaitForIndexingComplete(t, scipCache, 2*time.Second)
 
 		// Query indexed symbols
 		query := &cache.IndexQuery{
@@ -120,7 +122,7 @@ func (u *User) Validate() bool {
 			require.NoError(t, err)
 		}
 
-		time.Sleep(200 * time.Millisecond)
+		testutils.WaitForIndexingComplete(t, scipCache, 2*time.Second)
 
 		metrics := scipCache.GetMetrics()
 		require.NotNil(t, metrics)
@@ -163,7 +165,7 @@ func NewFunction() string {
 		err = scipCache.IndexDocument(ctx, "file://"+mainFile, "go", nil)
 		require.NoError(t, err)
 
-		time.Sleep(100 * time.Millisecond)
+		testutils.WaitForIndexingComplete(t, scipCache, 2*time.Second)
 
 		// Query indexed symbols
 		query := &cache.IndexQuery{
@@ -240,7 +242,7 @@ func Process` + file[:len(file)-3] + `() error {
 	err = scipCache.UpdateIndex(ctx, files)
 	require.NoError(t, err)
 
-	time.Sleep(3 * time.Second)
+	testutils.WaitForIndexingComplete(t, scipCache, 5*time.Second)
 
 	metrics := scipCache.GetMetrics()
 	require.NotNil(t, metrics)

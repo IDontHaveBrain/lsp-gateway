@@ -248,10 +248,10 @@ func GetDefaultConfig() *Config {
 	// Platform-specific Kotlin LSP configuration
 	kotlinCommand := "kotlin-lsp"
 	kotlinArgs := []string{} // JetBrains kotlin-lsp defaults to socket mode on port 9999
-	
+
 	if runtime.GOOS == "windows" {
 		kotlinCommand = "kotlin-language-server" // fwcd version
-		kotlinArgs = []string{} // fwcd defaults to stdio mode
+		kotlinArgs = []string{}                  // fwcd defaults to stdio mode
 	}
 
 	return &Config{

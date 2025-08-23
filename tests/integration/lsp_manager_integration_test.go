@@ -13,6 +13,7 @@ import (
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/utils"
 	"lsp-gateway/tests/shared"
+	"lsp-gateway/tests/testutils"
 
 	"github.com/stretchr/testify/require"
 	"go.lsp.dev/protocol"
@@ -100,8 +101,8 @@ func helperFunction() {
 	err = lspManager.Start(ctx)
 	require.NoError(t, err)
 	defer lspManager.Stop()
-
-	time.Sleep(2 * time.Second)
+	// Wait for manager readiness instead of fixed sleep
+	testutils.WaitForLSPManagerReady(t, lspManager, 10*time.Second)
 
 	t.Run("TextDocument Definition", func(t *testing.T) {
 		params := map[string]interface{}{

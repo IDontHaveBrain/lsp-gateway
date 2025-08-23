@@ -18,11 +18,10 @@ func TestGatewayIntegration(t *testing.T) {
 	// Create HTTP gateway with cache
 	cacheConfig := shared.CreateLargeCacheConfig(workspace.TempDir)
 	cfg := shared.CreateConfigWithCache(cacheConfig)
-	gatewaySetup := shared.CreateHTTPGateway(t, ":18888", cfg)
+	gatewaySetup := shared.CreateHTTPGateway(t, "", cfg)
 	gatewaySetup.Start(t)
 	defer gatewaySetup.Stop()
-
-	shared.WaitForServer(3 * time.Second)
+	
 
 	client := shared.CreateHTTPClient(10 * time.Second)
 	testFile := workspace.GetFilePath("server.go")

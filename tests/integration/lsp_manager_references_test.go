@@ -9,6 +9,8 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
+	servercache "lsp-gateway/src/server/cache"
+	"lsp-gateway/tests/testutils"
 )
 
 func TestNewLSPManagerReferences(t *testing.T) {
@@ -45,8 +47,8 @@ func TestNewLSPManagerReferences(t *testing.T) {
 		t.Fatalf("Failed to start LSP manager: %v", err)
 	}
 
-	// Wait for gopls to initialize
-	time.Sleep(2 * time.Second)
+	// Wait for LSP manager readiness
+	testutils.WaitForLSPManagerReady(t, manager, 10*time.Second)
 
 	// First, index the file containing NewLSPManager definition
 	t.Run("IndexDefinition", func(t *testing.T) {
@@ -133,8 +135,48 @@ func TestNewLSPManagerReferences(t *testing.T) {
 		}
 	})
 
-	// Wait for indexing to complete
-	time.Sleep(1 * time.Second)
+	// Poll for indexing progress
+    deadline := time.Now().Add(5 * time.Second)
+    for {
+        stats := manager.GetIndexStats()
+        ready := false
+        if stats != nil {
+            switch s := stats.(type) {
+            case *servercache.IndexStats:
+                if s.ReferenceCount > 0 || s.SymbolCount > 0 {
+                    ready = true
+                }
+            case map[string]interface{}:
+                if v, ok := s["reference_count"]; ok {
+                    switch val := v.(type) {
+                    case int:
+                        if val > 0 { ready = true }
+                    case int64:
+                        if val > 0 { ready = true }
+                    case float64:
+                        if val > 0 { ready = true }
+                    }
+                }
+                if v, ok := s["symbol_count"]; !ready && ok {
+                    switch val := v.(type) {
+                    case int:
+                        if val > 0 { ready = true }
+                    case int64:
+                        if val > 0 { ready = true }
+                    case float64:
+                        if val > 0 { ready = true }
+                    }
+                }
+            }
+        }
+        if ready {
+            break
+        }
+        if time.Now().After(deadline) {
+            break
+        }
+        time.Sleep(100 * time.Millisecond)
+    }
 
 	// Test findReferences - this is failing
 	t.Run("FindReferences", func(t *testing.T) {

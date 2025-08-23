@@ -15,17 +15,13 @@ func ValidateCommand(command string, args []string) error {
 	}
 
 	baseName := filepath.Base(command)
+	// Also allow extensionless comparison (e.g., gopls vs gopls.exe)
+	nameNoExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
 
-	if !allowedCommands[baseName] {
-		for allowedCmd := range allowedCommands {
-			if strings.HasSuffix(baseName, allowedCmd) {
-				goto cmdAllowed
-			}
-		}
+	if !allowedCommands[baseName] && !allowedCommands[nameNoExt] {
 		return fmt.Errorf("command not in whitelist: %s", baseName)
 	}
 
-cmdAllowed:
 	for _, arg := range args {
 		if strings.Contains(arg, "..") {
 			return fmt.Errorf("path traversal detected in argument: %s", arg)

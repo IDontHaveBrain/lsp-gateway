@@ -2,7 +2,7 @@ package testconfig
 
 import (
 	"runtime"
-	
+
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/registry"
@@ -61,19 +61,19 @@ func NewKotlinServerConfig() *config.ServerConfig {
 	// Use platform-specific command, trying to resolve installed path first
 	command := "kotlin-lsp"
 	candidates := []string{"kotlin-lsp"}
-	
+
 	if runtime.GOOS == "windows" {
 		command = "kotlin-language-server"
 		candidates = []string{"kotlin-language-server"}
 	}
-	
+
 	// Try to resolve to installed binary path
 	if root := common.GetLSPToolRoot("kotlin"); root != "" {
 		if resolved := common.FirstExistingExecutable(root, candidates); resolved != "" {
 			command = resolved
 		}
 	}
-	
+
 	return &config.ServerConfig{
 		Command: command,
 		Args:    []string{},

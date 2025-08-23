@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http/httptest"
@@ -9,12 +10,134 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/types"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/protocol"
+	"lsp-gateway/src/server/scip"
 )
+
+// MockSCIPCache is a mock implementation of cache.SCIPCache interface for testing
+type MockSCIPCache struct {
+	mock.Mock
+}
+
+// NewMockSCIPCache creates a new mock SCIP cache for testing
+func NewMockSCIPCache() *MockSCIPCache {
+	return &MockSCIPCache{}
+}
+
+func (m *MockSCIPCache) Start(ctx context.Context) error {
+	args := m.Called(ctx)
+	return args.Error(0)
+}
+
+func (m *MockSCIPCache) Stop() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+func (m *MockSCIPCache) Lookup(method string, params interface{}) (interface{}, bool, error) {
+	args := m.Called(method, params)
+	return args.Get(0), args.Bool(1), args.Error(2)
+}
+
+func (m *MockSCIPCache) Store(method string, params interface{}, response interface{}) error {
+	args := m.Called(method, params, response)
+	return args.Error(0)
+}
+
+func (m *MockSCIPCache) InvalidateDocument(uri string) error {
+	args := m.Called(uri)
+	return args.Error(0)
+}
+
+func (m *MockSCIPCache) HealthCheck() (*cache.CacheMetrics, error) {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*cache.CacheMetrics), args.Error(1)
+}
+
+func (m *MockSCIPCache) GetMetrics() *cache.CacheMetrics {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).(*cache.CacheMetrics)
+}
+
+func (m *MockSCIPCache) Clear() error {
+	args := m.Called()
+	return args.Error(0)
+}
+
+func (m *MockSCIPCache) IndexDocument(ctx context.Context, uri string, language string, symbols []types.SymbolInformation) error {
+	args := m.Called(ctx, uri, language, symbols)
+	return args.Error(0)
+}
+
+func (m *MockSCIPCache) QueryIndex(ctx context.Context, query *cache.IndexQuery) (*cache.IndexResult, error) {
+	args := m.Called(ctx, query)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*cache.IndexResult), args.Error(1)
+}
+
+func (m *MockSCIPCache) GetIndexStats() *cache.IndexStats {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).(*cache.IndexStats)
+}
+
+func (m *MockSCIPCache) UpdateIndex(ctx context.Context, files []string) error {
+	args := m.Called(ctx, files)
+	return args.Error(0)
+}
+
+func (m *MockSCIPCache) SearchSymbols(ctx context.Context, pattern string, filePattern string, maxResults int) ([]interface{}, error) {
+	args := m.Called(ctx, pattern, filePattern, maxResults)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]interface{}), args.Error(1)
+}
+
+func (m *MockSCIPCache) SearchReferences(ctx context.Context, symbolName string, filePattern string, maxResults int) ([]interface{}, error) {
+	args := m.Called(ctx, symbolName, filePattern, maxResults)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]interface{}), args.Error(1)
+}
+
+func (m *MockSCIPCache) SearchDefinitions(ctx context.Context, symbolName string, filePattern string, maxResults int) ([]interface{}, error) {
+	args := m.Called(ctx, symbolName, filePattern, maxResults)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]interface{}), args.Error(1)
+}
+
+func (m *MockSCIPCache) GetSymbolInfo(ctx context.Context, symbolName string, filePattern string) (interface{}, error) {
+	args := m.Called(ctx, symbolName, filePattern)
+	return args.Get(0), args.Error(1)
+}
+
+func (m *MockSCIPCache) GetSCIPStorage() scip.SCIPDocumentStorage {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).(scip.SCIPDocumentStorage)
+}
 
 // Helper functions for creating test configurations
 func createTestGatewayConfig() *config.Config {
@@ -508,8 +631,11 @@ func TestHTTPGateway_handleCacheClear(t *testing.T) {
 				err := json.Unmarshal(w.Body.Bytes(), &response)
 				require.NoError(t, err)
 
-				assert.Equal(t, "requested", response["status"])
-				assert.Contains(t, response["message"], "Cache clear requested")
+				assert.Equal(t, "cleared", response["status"])
+				// Verify cache metrics are included in response
+				assert.Contains(t, response, "entry_count")
+				assert.Contains(t, response, "hit_count")
+				assert.Contains(t, response, "miss_count")
 			},
 		},
 		{
@@ -536,6 +662,12 @@ func TestHTTPGateway_handleCacheClear(t *testing.T) {
 			var lspManager *LSPManager
 			if tt.cacheAvailable {
 				mockCache := NewMockSCIPCache()
+				mockCache.On("Clear").Return(nil)
+				mockCache.On("GetMetrics").Return(&cache.CacheMetrics{
+					EntryCount: 100,
+					HitCount:   50,
+					MissCount:  10,
+				})
 				lspManager = &LSPManager{scipCache: mockCache}
 			} else {
 				lspManager = &LSPManager{scipCache: nil}

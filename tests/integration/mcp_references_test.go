@@ -93,10 +93,7 @@ func main() {
 	initReq := mcpReq{JSONRPC: "2.0", ID: 1, Method: "initialize", Params: map[string]interface{}{"capabilities": map[string]interface{}{}}}
 	b, _ := json.Marshal(initReq)
 	pwIn.Write(append(b, '\n'))
-	t.Logf("Sent initialize request")
-
-	time.Sleep(1500 * time.Millisecond)
-	t.Logf("Waited 1.5s for initialization, now sending findSymbols")
+	t.Logf("Sent initialize request; proceeding to send findSymbols")
 
 	symCall := mcpReq{JSONRPC: "2.0", ID: 2, Method: "tools/call", Params: map[string]interface{}{
 		"name": "findSymbols",
@@ -114,10 +111,8 @@ func main() {
 	}
 	t.Logf("findSymbols succeeded, waiting for reference indexing to complete")
 
-	// Wait additional time for enhanced reference indexing to complete
-	// Background indexing includes both symbols and references
-	time.Sleep(10 * time.Second)
-	t.Logf("Completed wait for reference indexing, now sending findReferences")
+	// Proceed to send findReferences; rely on response wait below
+	t.Logf("findSymbols succeeded; sending findReferences")
 
 	refCall := mcpReq{JSONRPC: "2.0", ID: 3, Method: "tools/call", Params: map[string]interface{}{
 		"name": "findReferences",

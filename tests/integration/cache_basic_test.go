@@ -214,9 +214,19 @@ func TestCachePersistence(t *testing.T) {
 		err = scipCache.Start(ctx)
 		require.NoError(t, err)
 		defer scipCache.Stop()
-
-		// Allow time for loading persisted data
-		time.Sleep(500 * time.Millisecond)
+		
+		// Poll for loading persisted data
+		deadline := time.Now().Add(2 * time.Second)
+		for {
+			metrics := scipCache.GetMetrics()
+			if metrics != nil {
+				break
+			}
+			if time.Now().After(deadline) {
+				break
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
 
 		metrics := scipCache.GetMetrics()
 		require.NotNil(t, metrics)

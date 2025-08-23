@@ -174,7 +174,7 @@ func TestTimeoutManager_GetTimeout_OperationTypes(t *testing.T) {
 		expected  time.Duration
 	}{
 		{OperationInitialize, "go", 15 * time.Second},
-		{OperationInitialize, "python", 30 * time.Second},
+		{OperationInitialize, "python", 45 * time.Second}, // basedpyright has 45s init timeout
 		{OperationInitialize, "java", 90 * time.Second},
 		{OperationRequest, "go", 15 * time.Second},
 		{OperationRequest, "python", 30 * time.Second},
@@ -647,7 +647,7 @@ func TestGetTimeout_RegularCI(t *testing.T) {
 			{"TypeScript Request CI", "typescript", OperationRequest, 15 * time.Second, time.Duration(float64(15*time.Second) * 1.2)},
 			{"Rust Request CI", "rust", OperationRequest, 15 * time.Second, time.Duration(float64(15*time.Second) * 1.2)},
 			{"Java Initialize CI", "java", OperationInitialize, 90 * time.Second, time.Duration(float64(90*time.Second) * 1.2)},
-			{"Python Initialize CI", "python", OperationInitialize, 30 * time.Second, time.Duration(float64(30*time.Second) * 1.2)},
+			{"Python Initialize CI", "python", OperationInitialize, 45 * time.Second, time.Duration(float64(45*time.Second) * 1.2)},
 			{"Go Initialize CI", "go", OperationInitialize, 15 * time.Second, time.Duration(float64(15*time.Second) * 1.2)},
 		}
 

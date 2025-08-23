@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os/exec"
 	"testing"
 	"time"
@@ -86,11 +87,30 @@ func (setup *LSPManagerSetup) Start(t *testing.T) {
 
 	err := setup.Manager.Start(setup.Context)
 	require.NoError(t, err, "Failed to start LSP manager")
-
+	
 	setup.Started = true
-
-	// Allow some time for initialization
-	time.Sleep(2 * time.Second)
+	// Poll for at least one active client or exit quickly if none configured
+	waitCtx, cancel := context.WithTimeout(setup.Context, 5*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-waitCtx.Done():
+			return
+		case <-ticker.C:
+			status := setup.Manager.GetClientStatus()
+			for _, st := range status {
+				if st.Active {
+					return
+				}
+			}
+			// If no servers configured, don't block
+			if len(status) == 0 {
+				return
+			}
+		}
+	}
 }
 
 // Stop stops the LSP manager and cache
@@ -174,35 +194,53 @@ func (setup *LSPManagerSetup) IndexDocument(t *testing.T, uri string) interface{
 	if setup.Cache != nil {
 		t.Logf("IndexDocument: Waiting for automatic indexing to complete...")
 
-		// Try multiple times with increasing delays
-		maxAttempts := 10
-		for attempt := 1; attempt <= maxAttempts; attempt++ {
-			time.Sleep(time.Duration(attempt*100) * time.Millisecond)
-
-			stats := setup.Cache.GetIndexStats()
-			if stats != nil {
-				t.Logf("IndexDocument: Attempt %d - Cache has %d documents, %d symbols, %d references",
-					attempt, stats.DocumentCount, stats.SymbolCount, stats.ReferenceCount)
-
-				if stats.SymbolCount > 0 {
-					t.Logf("IndexDocument: Success! Symbols indexed automatically")
-					return result
+		// Poll for a short period for symbol count > 0
+		pollCtx, cancel := context.WithTimeout(setup.Context, 2*time.Second)
+		defer cancel()
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-pollCtx.Done():
+				goto forceIndex
+			case <-ticker.C:
+				stats := setup.Cache.GetIndexStats()
+				if stats != nil {
+					t.Logf("IndexDocument: Cache has %d documents, %d symbols, %d references",
+						stats.DocumentCount, stats.SymbolCount, stats.ReferenceCount)
+					if stats.SymbolCount > 0 {
+						t.Logf("IndexDocument: Success! Symbols indexed automatically")
+						return result
+					}
 				}
 			}
 		}
-
-		// If automatic indexing didn't work, try forcing it by calling ProcessRequest again
-		t.Logf("IndexDocument: Automatic indexing didn't work after %d attempts, trying to force indexing", maxAttempts)
-
+forceIndex:
+        // If automatic indexing didn't work, try forcing it by calling ProcessRequest again
+        t.Logf("IndexDocument: Automatic indexing didn't complete in initial window; trying to force indexing")
+		
 		// Try calling ProcessRequest again - sometimes the first call doesn't trigger indexing
 		t.Logf("IndexDocument: Calling ProcessRequest again to force indexing")
 		_, err2 := setup.Manager.ProcessRequest(setup.Context, "textDocument/documentSymbol", params)
 		if err2 != nil {
 			t.Logf("IndexDocument: Second ProcessRequest failed: %v", err2)
 		}
-
-		// Wait and check again
-		time.Sleep(2 * time.Second)
+		
+		// Poll again after forced request
+		pollCtx2, cancel2 := context.WithTimeout(setup.Context, 2*time.Second)
+		defer cancel2()
+		for {
+			select {
+			case <-pollCtx2.Done():
+				break
+			case <-ticker.C:
+				finalStats := setup.Cache.GetIndexStats()
+				if finalStats != nil && finalStats.SymbolCount > 0 {
+					t.Logf("IndexDocument: Success! Second call resulted in %d symbols", finalStats.SymbolCount)
+					return result
+				}
+			}
+		}
 		finalStats := setup.Cache.GetIndexStats()
 		if finalStats != nil && finalStats.SymbolCount > 0 {
 			t.Logf("IndexDocument: Success! Second call resulted in %d symbols", finalStats.SymbolCount)
@@ -230,7 +268,26 @@ func min(a, b int) int {
 
 // WaitForInitialization waits for LSP server initialization
 func (setup *LSPManagerSetup) WaitForInitialization() {
-	time.Sleep(1 * time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			status := setup.Manager.GetClientStatus()
+			for _, st := range status {
+				if st.Active {
+					return
+				}
+			}
+			if len(status) == 0 {
+				return
+			}
+		}
+	}
 }
 
 // CreateHTTPGatewaySetup creates an HTTP gateway setup for testing
@@ -248,18 +305,20 @@ func CreateHTTPGateway(t *testing.T, port string, cfg *config.Config) *HTTPGatew
 	if cfg == nil {
 		cfg = CreateBasicConfig()
 	}
-
+	
 	if port == "" {
-		port = ":18888"
+		// Dynamic port binding
+		port = ":0"
 	}
-
+	
 	gateway, err := server.NewHTTPGateway(port, cfg, false)
 	require.NoError(t, err, "Failed to create HTTP gateway")
 	require.NotNil(t, gateway, "HTTP gateway should not be nil")
-
+	
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	serverAddr := "localhost" + port
-
+	// ServerURL is initialized after Start when actual port is known
+	serverAddr := ""
+	
 	return &HTTPGatewaySetup{
 		Gateway:   gateway,
 		Config:    cfg,
@@ -274,9 +333,16 @@ func CreateHTTPGateway(t *testing.T, port string, cfg *config.Config) *HTTPGatew
 func (setup *HTTPGatewaySetup) Start(t *testing.T) {
 	err := setup.Gateway.Start(setup.Context)
 	require.NoError(t, err, "Failed to start HTTP gateway")
-
+	
 	setup.Started = true
-	time.Sleep(2 * time.Second) // Wait for server to start
+	// Determine actual bound port and set server URL
+	port := setup.Gateway.Port()
+	require.NotEqual(t, 0, port, "Gateway should expose a listening port after start")
+	setup.ServerURL = fmt.Sprintf("127.0.0.1:%d", port)
+	// Wait for readiness using health endpoint
+	ctx, cancel := context.WithTimeout(setup.Context, 10*time.Second)
+	defer cancel()
+	require.NoError(t, WaitForHTTPReady(ctx, setup.GetHealthURL()), "Gateway did not become ready in time")
 }
 
 // Stop stops the HTTP gateway
@@ -298,6 +364,27 @@ func (setup *HTTPGatewaySetup) GetJSONRPCURL() string {
 // GetHealthURL returns the health endpoint URL
 func (setup *HTTPGatewaySetup) GetHealthURL() string {
 	return fmt.Sprintf("http://%s/health", setup.ServerURL)
+}
+ 
+// WaitForHTTPReady polls the given health URL until it returns HTTP 200 or the context is done.
+func WaitForHTTPReady(ctx context.Context, healthURL string) error {
+	client := &http.Client{Timeout: 2 * time.Second}
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			resp, err := client.Get(healthURL)
+			if err == nil {
+				resp.Body.Close()
+				if resp.StatusCode == http.StatusOK {
+					return nil
+				}
+			}
+		}
+	}
 }
 
 // CheckLSPAvailability checks if the required LSP servers are available

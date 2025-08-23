@@ -13,9 +13,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-
+	
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
+	"lsp-gateway/tests/shared"
 	"lsp-gateway/src/utils"
 )
 
@@ -51,30 +52,20 @@ func Foo() int { return 42 }
 		},
 	}
 
-	gw, err := server.NewHTTPGateway(":18090", cfg, true)
+	gw, err := server.NewHTTPGateway(":0", cfg, true)
 	require.NoError(t, err)
-
+	
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
 	require.NoError(t, gw.Start(ctx))
 	defer gw.Stop()
-
+	
 	// Wait for /health
 	client := &http.Client{Timeout: 5 * time.Second}
-	ready := false
-	for i := 0; i < 50; i++ {
-		resp, err := client.Get("http://localhost:18090/health")
-		if err == nil && resp.StatusCode == http.StatusOK {
-			resp.Body.Close()
-			ready = true
-			break
-		}
-		if resp != nil {
-			resp.Body.Close()
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	require.True(t, ready, "gateway not ready")
+	baseURL := "http://127.0.0.1:" + strconv.Itoa(gw.Port())
+	readyCtx, cancelReady := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelReady()
+	require.NoError(t, shared.WaitForHTTPReady(readyCtx, baseURL+"/health"))
 
 	// Allowed method: hover
 	uri := utils.FilePathToURI(filePath)
@@ -88,7 +79,7 @@ func Foo() int { return 42 }
 		},
 	}
 	body1, _ := json.Marshal(req1)
-	httpReq1, _ := http.NewRequest(http.MethodPost, "http://localhost:18090/jsonrpc", bytes.NewReader(body1))
+	httpReq1, _ := http.NewRequest(http.MethodPost, baseURL+"/jsonrpc", bytes.NewReader(body1))
 	httpReq1.Header.Set("Content-Type", "application/json")
 	resp1, err := client.Do(httpReq1)
 	require.NoError(t, err)
@@ -104,7 +95,7 @@ func Foo() int { return 42 }
 	resp1.Body.Close()
 
 	// Second identical request should be a cache hit
-	httpReq2, _ := http.NewRequest(http.MethodPost, "http://localhost:18090/jsonrpc", bytes.NewReader(body1))
+	httpReq2, _ := http.NewRequest(http.MethodPost, baseURL+"/jsonrpc", bytes.NewReader(body1))
 	httpReq2.Header.Set("Content-Type", "application/json")
 	resp2, err := client.Do(httpReq2)
 	require.NoError(t, err)
@@ -121,7 +112,7 @@ func Foo() int { return 42 }
 		"params":  map[string]interface{}{"command": "noop"},
 	}
 	body3, _ := json.Marshal(disallowed)
-	httpReq3, _ := http.NewRequest(http.MethodPost, "http://localhost:18090/jsonrpc", bytes.NewReader(body3))
+	httpReq3, _ := http.NewRequest(http.MethodPost, baseURL+"/jsonrpc", bytes.NewReader(body3))
 	httpReq3.Header.Set("Content-Type", "application/json")
 	resp3, err := client.Do(httpReq3)
 	require.NoError(t, err)

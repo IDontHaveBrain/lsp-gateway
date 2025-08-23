@@ -17,6 +17,7 @@ import (
 
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/server"
+	"lsp-gateway/tests/shared"
 	"lsp-gateway/src/utils"
 )
 
@@ -68,31 +69,16 @@ func main() {
 		},
 	}
 
-	gateway, err := server.NewHTTPGateway(":18080", gatewayConfig, false)
+	gateway, err := server.NewHTTPGateway(":0", gatewayConfig, false)
 	require.NoError(t, err)
 
-	go func() {
-		err := gateway.Start(context.Background())
-		if err != nil && err != http.ErrServerClosed {
-			t.Errorf("Gateway start error: %v", err)
-		}
-	}()
+    ctx := context.Background()
+    require.NoError(t, gateway.Start(ctx))
 
-	// Wait for server to be ready with retry logic
-	var serverReady bool
-	for i := 0; i < 30; i++ { // Try for up to 3 seconds
-		resp, err := http.Get("http://localhost:18080/health")
-		if err == nil && resp.StatusCode == http.StatusOK {
-			resp.Body.Close()
-			serverReady = true
-			break
-		}
-		if resp != nil {
-			resp.Body.Close()
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
-	require.True(t, serverReady, "Gateway server failed to start within 3 seconds")
+	baseURL := fmt.Sprintf("http://127.0.0.1:%d", gateway.Port())
+    readyCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	require.NoError(t, shared.WaitForHTTPReady(readyCtx, baseURL+"/health"))
 
 	defer gateway.Stop()
 
@@ -122,7 +108,7 @@ func main() {
 
 		req, err := http.NewRequest(
 			http.MethodPost,
-			"http://localhost:18080/jsonrpc",
+			baseURL+"/jsonrpc",
 			bytes.NewBuffer(jsonData),
 		)
 		require.NoError(t, err)
@@ -132,7 +118,7 @@ func main() {
 		require.NoError(t, err)
 		respInit.Body.Close()
 
-		resp, err := client.Get("http://localhost:18080/cache/stats")
+		resp, err := client.Get(baseURL+"/cache/stats")
 		require.NoError(t, err)
 		defer resp.Body.Close()
 
@@ -156,7 +142,7 @@ func main() {
 	})
 
 	t.Run("CacheHealthEndpoint", func(t *testing.T) {
-		resp, err := client.Get("http://localhost:18080/cache/health")
+		resp, err := client.Get(baseURL+"/cache/health")
 		require.NoError(t, err)
 		defer resp.Body.Close()
 
@@ -184,7 +170,7 @@ func main() {
 
 	t.Run("CacheClearEndpoint", func(t *testing.T) {
 		// First get initial stats
-		resp, err := client.Get("http://localhost:18080/cache/stats")
+		resp, err := client.Get(baseURL+"/cache/stats")
 		require.NoError(t, err)
 
 		var statsBefore map[string]interface{}
@@ -192,7 +178,7 @@ func main() {
 		resp.Body.Close()
 		require.NoError(t, err)
 
-		req, err := http.NewRequest(http.MethodPost, "http://localhost:18080/cache/clear", nil)
+		req, err := http.NewRequest(http.MethodPost, baseURL+"/cache/clear", nil)
 		require.NoError(t, err)
 
 		resp, err = client.Do(req)
@@ -207,26 +193,27 @@ func main() {
 		var result map[string]interface{}
 		err = json.Unmarshal(body, &result)
 		require.NoError(t, err)
-
-		require.Contains(t, result, "message")
-		message, ok := result["message"].(string)
+		// New behavior: /cache/clear actually clears all cache entries and returns metrics
+		require.Contains(t, result, "status")
+		status, ok := result["status"].(string)
 		require.True(t, ok)
-		require.Equal(t, "Cache clear requested - individual document invalidation required", message)
+		require.Equal(t, "cleared", status)
+		// Metrics may be present; if so, entry_count should be 0
+		if ec, ok := result["entry_count"].(float64); ok {
+			require.Equal(t, float64(0), ec)
+		}
 
-		// Note: Cache clear only returns a message but doesn't actually clear the cache
-		// This is a limitation of the current cache interface design as noted in the server
-		respAfter, err := client.Get("http://localhost:18080/cache/stats")
+		respAfter, err := client.Get(baseURL+"/cache/stats")
 		require.NoError(t, err)
 		defer respAfter.Body.Close()
 
 		var statsAfter map[string]interface{}
 		err = json.NewDecoder(respAfter.Body).Decode(&statsAfter)
 		require.NoError(t, err)
-
-		// Cache entries should still exist since clear doesn't actually clear
+		// After clear, cache entry count should be 0
 		totalEntriesAfter, ok := statsAfter["entry_count"].(float64)
 		require.True(t, ok)
-		require.GreaterOrEqual(t, totalEntriesAfter, float64(0))
+		require.Equal(t, float64(0), totalEntriesAfter)
 	})
 
 	t.Run("CacheAlwaysEnabledForHTTPGateway", func(t *testing.T) {
@@ -239,36 +226,20 @@ func main() {
 			Servers: gatewayConfig.Servers,
 		}
 
-		gatewayWithCache, err := server.NewHTTPGateway(":18081", configNoCache, true)
+		gatewayWithCache, err := server.NewHTTPGateway(":0", configNoCache, true)
 		require.NoError(t, err)
 
-		go func() {
-			err := gatewayWithCache.Start(context.Background())
-			if err != nil && err != http.ErrServerClosed {
-				t.Errorf("Gateway start error: %v", err)
-			}
-		}()
+		require.NoError(t, gatewayWithCache.Start(context.Background()))
 
-		// Wait for server to be ready with retry logic
-		var serverReady bool
-		for i := 0; i < 30; i++ { // Try for up to 3 seconds
-			resp, err := http.Get("http://localhost:18081/health")
-			if err == nil && resp.StatusCode == http.StatusOK {
-				resp.Body.Close()
-				serverReady = true
-				break
-			}
-			if resp != nil {
-				resp.Body.Close()
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-		require.True(t, serverReady, "Gateway server failed to start within 3 seconds")
+		baseURL2 := fmt.Sprintf("http://127.0.0.1:%d", gatewayWithCache.Port())
+		readyCtx2, cancel2 := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel2()
+		require.NoError(t, shared.WaitForHTTPReady(readyCtx2, baseURL2+"/health"))
 
 		defer gatewayWithCache.Stop()
 
 		// Even with cache disabled in config, HTTP gateway should have cache available
-		resp, err := client.Get("http://localhost:18081/cache/stats")
+		resp, err := client.Get(baseURL2 + "/cache/stats")
 		require.NoError(t, err)
 		defer resp.Body.Close()
 
@@ -298,7 +269,7 @@ func main() {
 
 		for _, tc := range testCases {
 			t.Run(fmt.Sprintf("%s_%s", tc.method, tc.endpoint), func(t *testing.T) {
-				req, err := http.NewRequest(tc.method, "http://localhost:18080"+tc.endpoint, nil)
+			req, err := http.NewRequest(tc.method, baseURL+tc.endpoint, nil)
 				require.NoError(t, err)
 
 				resp, err := client.Do(req)
@@ -329,7 +300,7 @@ func main() {
 
 		for _, endpoint := range endpoints {
 			go func(endpoint string) {
-				resp, err := client.Get("http://localhost:18080" + endpoint)
+				resp, err := client.Get(baseURL + endpoint)
 				if err != nil {
 					resultChan <- result{endpoint: endpoint, err: err}
 					return
@@ -373,24 +344,24 @@ func main() {
 				},
 				"id": i + 100,
 			}
-
+			
 			jsonData, err := json.Marshal(jsonReq)
 			require.NoError(t, err)
-
+			
 			req, err := http.NewRequest(
 				http.MethodPost,
-				"http://localhost:18080/jsonrpc",
+				baseURL+"/jsonrpc",
 				bytes.NewBuffer(jsonData),
 			)
 			require.NoError(t, err)
 			req.Header.Set("Content-Type", "application/json")
-
+			
 			respLoad, err := client.Do(req)
 			require.NoError(t, err)
 			respLoad.Body.Close()
 		}
-
-		resp, err := client.Get("http://localhost:18080/cache/health")
+		
+		resp, err := client.Get(baseURL + "/cache/health")
 		require.NoError(t, err)
 		defer resp.Body.Close()
 
@@ -415,9 +386,9 @@ func main() {
 
 	t.Run("StatsAccuracy", func(t *testing.T) {
 		// Clear cache first
-		req, err := http.NewRequest(http.MethodPost, "http://localhost:18080/cache/clear", nil)
+		req, err := http.NewRequest(http.MethodPost, baseURL+"/cache/clear", nil)
 		require.NoError(t, err)
-
+		
 		respClear, err := client.Do(req)
 		require.NoError(t, err)
 		respClear.Body.Close()
@@ -441,21 +412,21 @@ func main() {
 
 			jsonData, err := json.Marshal(jsonReq)
 			require.NoError(t, err)
-
+			
 			req, err := http.NewRequest(
 				http.MethodPost,
-				"http://localhost:18080/jsonrpc",
+				baseURL+"/jsonrpc",
 				bytes.NewBuffer(jsonData),
 			)
 			require.NoError(t, err)
 			req.Header.Set("Content-Type", "application/json")
-
+			
 			respDef, err := client.Do(req)
 			require.NoError(t, err)
 			respDef.Body.Close()
 		}
-
-		resp, err := client.Get("http://localhost:18080/cache/stats")
+		
+		resp, err := client.Get(baseURL + "/cache/stats")
 		require.NoError(t, err)
 		defer resp.Body.Close()
 
@@ -498,7 +469,7 @@ func main() {
 
 		req, err := http.NewRequest(
 			http.MethodPost,
-			"http://localhost:18080/jsonrpc",
+			baseURL+"/jsonrpc",
 			bytes.NewBuffer(jsonData),
 		)
 		require.NoError(t, err)
@@ -515,7 +486,7 @@ func main() {
 		require.NoError(t, err)
 		require.Contains(t, jsonResp, "result")
 
-		statsResp, err := client.Get("http://localhost:18080/cache/stats")
+		statsResp, err := client.Get(baseURL + "/cache/stats")
 		require.NoError(t, err)
 		defer statsResp.Body.Close()
 

@@ -246,11 +246,26 @@ func WaitForCacheManagerReady(t *testing.T, cacheManager cache.SCIPCache, timeou
 func ClearCacheAndWait(t *testing.T, cacheManager cache.SCIPCache) {
 	err := cacheManager.Clear()
 	require.NoError(t, err)
-
-	// Wait for clear to take effect
-	time.Sleep(50 * time.Millisecond)
-
+	
+	// Wait for clear to take effect using polling
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			t.Fatal("Timeout waiting for cache to clear")
+		case <-ticker.C:
+			metrics := cacheManager.GetMetrics()
+			if metrics != nil && metrics.EntryCount == 0 {
+				goto verified
+			}
+		}
+	}
+	
 	// Verify cache is empty
+verified:
 	metrics := cacheManager.GetMetrics()
 	require.NotNil(t, metrics)
 	require.Equal(t, int64(0), metrics.EntryCount, "Cache should be empty after clear")
@@ -277,14 +292,29 @@ func ValidateCacheMetrics(t *testing.T, cacheManager cache.SCIPCache) {
 // IndexTestFiles indexes a list of test files in the cache
 func IndexTestFiles(t *testing.T, cacheManager cache.SCIPCache, files []string) {
 	ctx := context.Background()
-
+	
 	err := cacheManager.UpdateIndex(ctx, files)
 	require.NoError(t, err, "Failed to index test files")
-
-	// Wait for indexing to complete
-	time.Sleep(200 * time.Millisecond)
-
+	
+	// Wait for indexing to complete via polling of index stats
+	ctxPoll, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctxPoll.Done():
+			t.Log("Timeout waiting for index stats after indexing")
+			goto done
+		case <-ticker.C:
+			if stats := cacheManager.GetIndexStats(); stats != nil {
+				goto done
+			}
+		}
+	}
+	
 	// Verify index stats show some progress
+done:
 	stats := cacheManager.GetIndexStats()
 	require.NotNil(t, stats, "Index stats should be available after indexing")
 }

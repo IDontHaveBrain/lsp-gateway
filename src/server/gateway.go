@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"mime"
 	"net/http"
 	"strconv"
-	"sync"
 	"time"
 
 	"lsp-gateway/src/config"
@@ -22,10 +23,10 @@ import (
 type HTTPGateway struct {
 	lspManager      *LSPManager
 	server          *http.Server
+	listener        net.Listener
 	cacheConfig     *config.CacheConfig
 	lspOnly         bool
 	responseFactory *protocol.ResponseFactory
-	mu              sync.RWMutex
 }
 
 // Alias types from protocol package for backward compatibility
@@ -84,13 +85,18 @@ func (g *HTTPGateway) Start(ctx context.Context) error {
 	if err := g.lspManager.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start LSP manager: %w", err)
 	}
-
+	ln, err := net.Listen("tcp", g.server.Addr)
+	if err != nil {
+		return fmt.Errorf("failed to listen on %s: %w", g.server.Addr, err)
+	}
+	g.listener = ln
+	
 	go func() {
-		if err := g.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := g.server.Serve(ln); err != nil && err != http.ErrServerClosed {
 			common.GatewayLogger.Error("HTTP server error: %v", err)
 		}
 	}()
-
+	
 	return nil
 }
 
@@ -117,6 +123,25 @@ func (g *HTTPGateway) Stop() error {
 
 	return lastErr
 }
+ 
+// Address returns the bound address of the HTTP server (host:port). If not yet started, returns configured Addr.
+func (g *HTTPGateway) Address() string {
+	if g.listener != nil {
+		return g.listener.Addr().String()
+	}
+	return g.server.Addr
+}
+ 
+// Port returns the actual TCP port the server is listening on, or 0 if unavailable.
+func (g *HTTPGateway) Port() int {
+	if g.listener == nil {
+		return 0
+	}
+	if addr, ok := g.listener.Addr().(*net.TCPAddr); ok {
+		return addr.Port
+	}
+	return 0
+}
 
 // GetLSPManager returns the LSP manager for cache status access
 func (g *HTTPGateway) GetLSPManager() *LSPManager {
@@ -130,7 +155,9 @@ func (g *HTTPGateway) handleJSONRPC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Header.Get("Content-Type") != "application/json" {
+	// Accept application/json with optional parameters (e.g., charset)
+	ct := r.Header.Get("Content-Type")
+	if mt, _, err := mime.ParseMediaType(ct); err != nil || mt != "application/json" {
 		g.writeResponse(w, g.responseFactory.CreateInvalidRequest(nil, "Content-Type must be application/json"))
 		return
 	}
@@ -223,7 +250,9 @@ func (g *HTTPGateway) handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(health)
+	if err := json.NewEncoder(w).Encode(health); err != nil {
+		common.GatewayLogger.Error("Failed to encode health response: %v", err)
+	}
 }
 
 // handleLanguages returns supported language names and their file extensions
@@ -242,14 +271,18 @@ func (g *HTTPGateway) handleLanguages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		common.GatewayLogger.Error("Failed to encode languages response: %v", err)
+	}
 }
 
 // writeResponse writes a JSON-RPC response (success or error) to the HTTP response writer
 func (g *HTTPGateway) writeResponse(w http.ResponseWriter, response JSONRPCResponse) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK) // JSON-RPC errors still return 200
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		common.GatewayLogger.Error("Failed to encode JSON-RPC response: %v", err)
+	}
 }
 
 // getCacheMetricsSnapshot captures current cache metrics for comparison
@@ -316,7 +349,9 @@ func (g *HTTPGateway) handleCacheStats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(stats)
+	if err := json.NewEncoder(w).Encode(stats); err != nil {
+		common.GatewayLogger.Error("Failed to encode cache stats response: %v", err)
+	}
 }
 
 // handleCacheHealth returns cache health status
@@ -341,7 +376,9 @@ func (g *HTTPGateway) handleCacheHealth(w http.ResponseWriter, r *http.Request) 
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusServiceUnavailable)
-		json.NewEncoder(w).Encode(health)
+		if encErr := json.NewEncoder(w).Encode(health); encErr != nil {
+			common.GatewayLogger.Error("Failed to encode cache health error response: %v", encErr)
+		}
 		return
 	}
 
@@ -354,7 +391,9 @@ func (g *HTTPGateway) handleCacheHealth(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(health)
+	if err := json.NewEncoder(w).Encode(health); err != nil {
+		common.GatewayLogger.Error("Failed to encode cache health response: %v", err)
+	}
 }
 
 // handleCacheClear clears the cache (for development/debugging)
@@ -370,14 +409,42 @@ func (g *HTTPGateway) handleCacheClear(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Note: Cache interface doesn't have Clear method, so we invalidate all documents
-	// This is a limitation of the current cache interface design
+	// Clear all cache entries using the cache interface
+	if err := cache.Clear(); err != nil {
+		http.Error(w, fmt.Sprintf("Failed to clear cache: %v", err), http.StatusInternalServerError)
+		return
+	}
+	metrics := cache.GetMetrics()
 	result := map[string]interface{}{
-		"status":  "requested",
-		"message": "Cache clear requested - individual document invalidation required",
-		"note":    "Use cache invalidation API for specific documents",
+		"status": "cleared",
+		"entry_count": func() int64 {
+			if metrics != nil {
+				return metrics.EntryCount
+			}
+			return 0
+		}(),
+		"total_size": func() int64 {
+			if metrics != nil {
+				return metrics.TotalSize
+			}
+			return 0
+		}(),
+		"hit_count": func() int64 {
+			if metrics != nil {
+				return metrics.HitCount
+			}
+			return 0
+		}(),
+		"miss_count": func() int64 {
+			if metrics != nil {
+				return metrics.MissCount
+			}
+			return 0
+		}(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+		common.GatewayLogger.Error("Failed to encode cache clear response: %v", err)
+	}
 }

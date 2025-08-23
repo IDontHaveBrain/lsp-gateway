@@ -258,6 +258,7 @@ func getInstalledKotlinLSPPath(homeDir string) string {
 
 	return ""
 }
+
 // getInstalledKotlinLanguageServerPath returns the path to installed fwcd kotlin-language-server if it exists
 func getInstalledKotlinLanguageServerPath(homeDir string) string {
 	// Standard installation path: ~/.lsp-gateway/tools/kotlin/bin/kotlin-language-server(.bat/.exe)

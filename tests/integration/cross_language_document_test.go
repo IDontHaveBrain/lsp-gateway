@@ -15,6 +15,7 @@ import (
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/documents"
 	"lsp-gateway/src/utils"
+	"lsp-gateway/tests/testutils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,7 +40,7 @@ func getKotlinCommand() string {
 		}
 		return "kotlin-language-server"
 	}
-	
+
 	// Unix-like systems
 	homeDir, _ := os.UserHomeDir()
 	if homeDir != "" {
@@ -53,7 +54,7 @@ func getKotlinCommand() string {
 			return installedPath
 		}
 	}
-	
+
 	return "kotlin-lsp"
 }
 
@@ -452,8 +453,8 @@ suspend fun main() {
 	})
 
 	t.Run("ConcurrentMultiLanguageOperations", func(t *testing.T) {
-		// Allow LSP servers some time to initialize
-		time.Sleep(2 * time.Second)
+		// Wait for LSP manager readiness
+		testutils.WaitForLSPManagerReady(t, lspManager, 15*time.Second)
 
 		operations := []struct {
 			method string

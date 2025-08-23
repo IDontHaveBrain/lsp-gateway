@@ -21,7 +21,7 @@ import (
 // Lookup retrieves a cached response if available
 func (m *SCIPCacheManager) Lookup(method string, params interface{}) (interface{}, bool, error) {
 	return m.WithManagerGuard(func() (interface{}, bool, error) {
-		resultMap := m.WithCacheReadLock(func() interface{} {
+		resultMap := m.WithCacheWriteLock(func() interface{} {
 			result, found := m.lookupInternal(method, params)
 			return map[string]interface{}{
 				"result": result,
