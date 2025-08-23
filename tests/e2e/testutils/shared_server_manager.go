@@ -294,9 +294,11 @@ func (mgr *SharedServerManager) waitForServerReady(t *testing.T) error {
 
 	t.Logf("⏳ Waiting for shared server to be ready at %s...", healthURL)
 
-	// Allow more time for heavier language servers (e.g., Java/Kotlin on large repos)
-	// Increase to 180s to accommodate socket-mode startup and CI variance.
+	// Allow more time for heavier language servers; extend further on Windows
 	maxRetries := 180
+	if runtime.GOOS == "windows" {
+		maxRetries = 330
+	}
 	for i := 0; i < maxRetries; i++ {
 		select {
 		case <-mgr.ctx.Done():
