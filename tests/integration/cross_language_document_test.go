@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/server"
 	"lsp-gateway/src/server/cache"
 	"lsp-gateway/src/server/documents"
@@ -22,10 +23,23 @@ import (
 )
 
 func getKotlinCommand() string {
+	// Use platform-specific command, trying to resolve installed path first
+	command := "kotlin-lsp"
+	candidates := []string{"kotlin-lsp"}
+	
 	if runtime.GOOS == "windows" {
-		return "kotlin-language-server"
+		command = "kotlin-language-server"
+		candidates = []string{"kotlin-language-server"}
 	}
-	return "kotlin-lsp"
+	
+	// Try to resolve to installed binary path
+	if root := common.GetLSPToolRoot("kotlin"); root != "" {
+		if resolved := common.FirstExistingExecutable(root, candidates); resolved != "" {
+			command = resolved
+		}
+	}
+	
+	return command
 }
 
 func TestCrossLanguageDocumentCoordination(t *testing.T) {

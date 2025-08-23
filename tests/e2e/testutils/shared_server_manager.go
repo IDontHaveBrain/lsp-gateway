@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+	
+	"lsp-gateway/src/tests/shared/testconfig"
 )
 
 // SharedServerManager manages a single LSP gateway server instance across multiple tests
@@ -42,6 +44,7 @@ type SharedServerManager struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 }
+
 
 // NewSharedServerManager creates a new shared server manager
 func NewSharedServerManager(repoDir string, cacheIsolationMgr *CacheIsolationManager) *SharedServerManager {
@@ -154,7 +157,7 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 			"args":    []string{"-lsp"},
 		},
 		"kotlin": map[string]interface{}{
-			"command": "kotlin-lsp",
+			"command": testconfig.NewKotlinServerConfig().Command,
 			"args":    []string{},
 		},
 	}

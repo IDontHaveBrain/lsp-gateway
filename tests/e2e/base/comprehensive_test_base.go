@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"lsp-gateway/src/tests/shared/testconfig"
 	"lsp-gateway/tests/e2e/testutils"
 	"lsp-gateway/tests/shared"
 
@@ -62,6 +63,7 @@ type ComprehensiveTestBaseSuite struct {
 	sharedServerManager *testutils.SharedServerManager
 	useSharedServer     bool // Flag to enable/disable shared server mode
 }
+
 
 // SetupSuite initializes the comprehensive test suite
 func (suite *ComprehensiveTestBaseSuite) SetupSuite() {
@@ -350,7 +352,7 @@ func (suite *ComprehensiveTestBaseSuite) startGatewayServer() error {
 			"working_dir": suite.repoDir,
 		},
 		"kotlin": map[string]interface{}{
-			"command":     "kotlin-lsp",
+			"command":     testconfig.NewKotlinServerConfig().Command,
 			"args":        []string{},
 			"working_dir": suite.repoDir,
 		},
