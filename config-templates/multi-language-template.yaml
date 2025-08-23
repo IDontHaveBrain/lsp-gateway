@@ -1,7 +1,7 @@
 # Simple Multi-Language Configuration
-# Use Case: Projects using multiple supported languages (Go, Python, JavaScript/TypeScript, Java, Rust)
+# Use Case: Projects using multiple supported languages (Go, Python, JavaScript/TypeScript, Java, Rust, C#, Kotlin)
 # Architecture: Simplified CLI with basic LSP server integration
-# Supported Languages: Go, Python, JavaScript, TypeScript, Java, Rust
+# Supported Languages: Go, Python, JavaScript, TypeScript, Java, Rust, C#, Kotlin
 # Supported Features: 6 essential LSP features (definition, references, hover, documentSymbol, workspace/symbol, completion)
 
 # Basic server configuration for all supported languages
@@ -48,6 +48,20 @@ servers:
     working_dir: ""
     initialization_options: {}
 
+  # C# Language Server
+  csharp:
+    command: "omnisharp"
+    args: []
+    working_dir: ""
+    initialization_options: {}
+
+  # Kotlin Language Server (official JetBrains)
+  kotlin:
+    command: "kotlin-lsp"
+    args: []
+    working_dir: ""
+    initialization_options: {}
+
 # Unified Cache Configuration (Enabled by default)
 # Standard production settings with simple units for improved performance
 cache:
@@ -70,6 +84,8 @@ cache:
 #    - .ts, .tsx files -> typescript server
 #    - .java files -> java server
 #    - .rs files -> rust server
+#    - .cs files -> csharp server
+#    - .kt, .kts files -> kotlin server
 #
 # 2. Server Commands:
 #    - Ensure language servers are installed on your system
@@ -80,6 +96,8 @@ cache:
 #    - rust-analyzer: rustup component add rust-analyzer
 #      If unavailable on stable: rustup toolchain install nightly && rustup component add rust-analyzer --toolchain nightly
 #      Some systems use: rustup component add rust-analyzer-preview [--toolchain nightly]
+#    - omnisharp: Download from OmniSharp releases or use dotnet tool install -g omnisharp
+#    - kotlin-lsp: Install via brew (macOS) or download from official Kotlin LSP releases
 #
 # 3. Working Directory:
 #    - Leave empty to use project root

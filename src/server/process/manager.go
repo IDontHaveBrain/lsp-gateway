@@ -51,26 +51,43 @@ func NewLSPProcessManager() *LSPProcessManager {
 
 // StartProcess initializes and starts an LSP server process
 func (pm *LSPProcessManager) StartProcess(config types.ClientConfig, language string) (*ProcessInfo, error) {
+	// On Windows, wrap .cmd and .bat files with cmd.exe for proper execution
+	command := config.Command
+	args := config.Args
+	if runtime.GOOS == "windows" {
+		lower := strings.ToLower(command)
+		if strings.HasSuffix(lower, ".cmd") || strings.HasSuffix(lower, ".bat") {
+			// Use cmd.exe /c to run batch scripts
+			args = append([]string{"/c", command}, args...)
+			command = "cmd.exe"
+		}
+	}
+
 	// Create command
-	cmd := exec.Command(config.Command, config.Args...)
+	cmd := exec.Command(command, args...)
 
 	// Use configured working directory if specified, otherwise use current directory
+	var actualWorkingDir string
 	if config.WorkingDir != "" {
 		cmd.Dir = config.WorkingDir
+		actualWorkingDir = config.WorkingDir
 	} else if wd, err := os.Getwd(); err == nil {
 		cmd.Dir = wd
+		actualWorkingDir = wd
 	} else {
 		if runtime.GOOS == "windows" {
 			cmd.Dir = os.TempDir()
 		} else {
 			cmd.Dir = "/tmp"
 		}
+		actualWorkingDir = cmd.Dir
 	}
 
 	// Set environment variables
 	cmd.Env = os.Environ()
 	if langInfo, exists := registry.GetLanguageByName(language); exists {
-		langEnvVars := langInfo.GetEnvironmentWithWorkingDir(config.WorkingDir)
+		// Substitute env vars using the actual working directory the process will run in
+		langEnvVars := langInfo.GetEnvironmentWithWorkingDir(actualWorkingDir)
 		for key, value := range langEnvVars {
 			cmd.Env = append(cmd.Env, key+"="+value)
 		}

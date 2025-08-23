@@ -3,6 +3,7 @@ package installer
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 
@@ -62,6 +63,26 @@ func (u *ConfigUpdater) UpdateConfigWithInstalledServers(cfg *config.Config) (*c
 		installerConfig := installer.GetServerConfig()
 		if installerConfig == nil {
 			continue
+		}
+
+		// Resolve to installed binary path when available (handles kotlin/java/csharp layouts)
+		if root := common.GetLSPToolRoot(language); root != "" {
+			if resolved := common.FirstExistingExecutable(root, []string{installerConfig.Command}); resolved != "" {
+				installerConfig = &config.ServerConfig{
+					Command:               resolved,
+					Args:                  append([]string{}, installerConfig.Args...),
+					WorkingDir:            installerConfig.WorkingDir,
+					InitializationOptions: installerConfig.InitializationOptions,
+				}
+			}
+		}
+
+		// Python: prefer basedpyright (via uvx if available), then pyright, then pylsp/jedi
+		if language == "python" {
+			best := chooseBestPythonConfig()
+			if best != nil {
+				installerConfig = best
+			}
 		}
 
 		// Update the config if the installed version has different settings
@@ -143,4 +164,42 @@ func copyFile(src, dst string) error {
 
 	// Write to destination
 	return os.WriteFile(dst, data, 0644)
+}
+
+// chooseBestPythonConfig selects the preferred Python LSP configuration based on availability
+// Priority: uvx basedpyright -> basedpyright-langserver -> pyright-langserver -> pylsp -> jedi-language-server
+func chooseBestPythonConfig() *config.ServerConfig {
+	// uvx/uv available -> prefer uvx basedpyright
+	if _, err := os.Stat("/dev/null"); err == nil {
+		// Use exec.LookPath to detect uvx/uv
+	}
+	if _, err := execLookPathSafe("uvx"); err == nil {
+		return &config.ServerConfig{Command: "uvx", Args: []string{"basedpyright-langserver", "--stdio"}}
+	}
+	if _, err := execLookPathSafe("uv"); err == nil {
+		// Still prefer uv (uv tool run) but for command config we keep uvx for consistency where available.
+		// If only uv is present, fall back to basedpyright directly if available; otherwise keep nil.
+	}
+	// direct basedpyright
+	if _, err := execLookPathSafe("basedpyright-langserver"); err == nil {
+		return &config.ServerConfig{Command: "basedpyright-langserver", Args: []string{"--stdio"}}
+	}
+	// pyright
+	if _, err := execLookPathSafe("pyright-langserver"); err == nil {
+		return &config.ServerConfig{Command: "pyright-langserver", Args: []string{"--stdio"}}
+	}
+	// pylsp
+	if _, err := execLookPathSafe("pylsp"); err == nil {
+		return &config.ServerConfig{Command: "pylsp", Args: []string{}}
+	}
+	// jedi
+	if _, err := execLookPathSafe("jedi-language-server"); err == nil {
+		return &config.ServerConfig{Command: "jedi-language-server", Args: []string{}}
+	}
+	return nil
+}
+
+// execLookPathSafe wraps exec.LookPath without adding a new import here
+func execLookPathSafe(name string) (string, error) {
+	return exec.LookPath(name)
 }

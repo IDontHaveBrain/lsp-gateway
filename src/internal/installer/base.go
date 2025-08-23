@@ -70,19 +70,10 @@ func (b *BaseInstaller) IsInstalled() bool {
 		return false
 	}
 
-	// Check if command exists in PATH or at install path
+	// Resolve command via PATH, install root, then bin using shared util
 	command := b.serverConfig.Command
-
-	// First check PATH
-	if _, err := exec.LookPath(command); err == nil {
-		return b.validateServerCommand(command)
-	}
-
-	// Check install path
-	installPath := b.GetInstallPath()
-	customCommand := filepath.Join(installPath, "bin", command)
-	if b.fileExists(customCommand) {
-		return b.validateServerCommand(customCommand)
+	if resolved := common.FirstExistingExecutable(b.GetInstallPath(), []string{command}); resolved != "" {
+		return b.validateServerCommand(resolved)
 	}
 
 	return false
@@ -293,19 +284,10 @@ func (b *BaseInstaller) validateServerCommand(command string) bool {
 func (b *BaseInstaller) getExecutableCommand() string {
 	command := b.serverConfig.Command
 
-	// Check if it's in PATH first
-	if _, err := exec.LookPath(command); err == nil {
-		return command
+	if resolved := common.FirstExistingExecutable(b.GetInstallPath(), []string{command}); resolved != "" {
+		return resolved
 	}
-
-	// Check install path
-	installPath := b.GetInstallPath()
-	customCommand := filepath.Join(installPath, "bin", command)
-	if b.fileExists(customCommand) {
-		return customCommand
-	}
-
-	return command // Fallback to original
+	return command
 }
 
 // tryGetVersion attempts to get version using a specific flag
@@ -461,6 +443,39 @@ func (b *BaseInstaller) InstallWithPackageManager(ctx context.Context, packageMa
 	common.CLILogger.Info("Installing %s language server (%s)...", b.language, packageName)
 
 	switch packageManager {
+	case "uvx", "uv":
+		// Prefer uvx/uv execution for Python CLIs when available
+		// Validate availability
+		runner := ""
+		if _, err := exec.LookPath("uvx"); err == nil {
+			runner = "uvx"
+		} else if _, err := exec.LookPath("uv"); err == nil {
+			runner = "uv"
+		}
+		if runner == "" {
+			return fmt.Errorf("uv/uvx is not installed. Please install uv from https://docs.astral.sh/uv/")
+		}
+
+		// Simple verification: run the package's CLI with --version to warm/cache and validate
+		// We call the tool by its console script name (packageName for jedi-language-server/basedpyright)
+		target := packageName
+		// If a specific version was requested, pin it using --from syntax
+		if runner == "uvx" {
+			args := []string{}
+			if version != "" && version != "latest" {
+				args = append(args, "--from", fmt.Sprintf("%s==%s", packageName, version), target, "--version")
+			} else {
+				args = append(args, target, "--version")
+			}
+			return b.RunCommand(ctx, runner, args...)
+		}
+		// runner == "uv": emulate uvx via `uv tool run`
+		args := []string{"tool", "run"}
+		if version != "" && version != "latest" {
+			args = append(args, "--from", fmt.Sprintf("%s==%s", packageName, version))
+		}
+		args = append(args, target, "--version")
+		return b.RunCommand(ctx, "uv", args...)
 	case "go":
 		if !b.isGoInstalled() {
 			return fmt.Errorf("Go is not installed. Please install Go first from https://golang.org/dl/")

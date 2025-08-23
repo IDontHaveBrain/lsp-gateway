@@ -167,7 +167,7 @@ func CreateMemOnlyCacheConfig() *config.CacheConfig {
 // CreateMultiLangCacheConfig creates cache configuration for multiple languages
 func CreateMultiLangCacheConfig() *config.CacheConfig {
 	return NewCacheConfigBuilder("").
-		WithLanguages("go", "python", "typescript", "javascript").
+		WithLanguages("go", "python", "typescript", "javascript", "kotlin").
 		WithMemoryLimit(128).
 		WithTTL(24).
 		WithBackgroundIndex(true).
@@ -179,7 +179,7 @@ func CreateLargeCacheConfig() *config.CacheConfig {
 	return NewCacheConfigBuilder("").
 		WithMemoryLimit(256).
 		WithTTL(48).
-		WithLanguages("go", "python", "typescript", "javascript", "java", "rust").
+		WithLanguages("go", "python", "typescript", "javascript", "java", "rust", "kotlin").
 		WithBackgroundIndex(true).
 		WithHealthCheckInterval(5).
 		Build()
@@ -362,6 +362,8 @@ func CreateCacheConfigForLanguage(language string, tempDir string) *config.Cache
 		return builder.WithMemoryLimit(80).WithTTL(6).WithBackgroundIndex(false).Build()
 	case "rust":
 		return builder.WithMemoryLimit(112).WithTTL(18).WithBackgroundIndex(true).Build()
+	case "kotlin":
+		return builder.WithMemoryLimit(96).WithTTL(12).WithBackgroundIndex(true).Build()
 	default:
 		return builder.Build()
 	}

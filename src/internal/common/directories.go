@@ -56,6 +56,16 @@ func GetLSPToolPath(language, tool string) string {
 	return filepath.Join(homeDir, ".lsp-gateway", "tools", language, "bin", tool)
 }
 
+// GetLSPToolRoot returns the base installation directory for a language
+// Format: ~/.lsp-gateway/tools/{language}
+func GetLSPToolRoot(language string) string {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(".", ".lsp-gateway", "tools", language)
+	}
+	return filepath.Join(homeDir, ".lsp-gateway", "tools", language)
+}
+
 // ExpandPath expands ~ to the user's home directory in file paths.
 // This function was moved from src/config/config.go for centralized path handling.
 func ExpandPath(path string) (string, error) {

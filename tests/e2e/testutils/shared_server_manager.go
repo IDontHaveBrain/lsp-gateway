@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,6 +14,8 @@ import (
 	"syscall"
 	"testing"
 	"time"
+	
+	"lsp-gateway/src/tests/shared/testconfig"
 )
 
 // SharedServerManager manages a single LSP gateway server instance across multiple tests
@@ -41,6 +44,7 @@ type SharedServerManager struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 }
+
 
 // NewSharedServerManager creates a new shared server manager
 func NewSharedServerManager(repoDir string, cacheIsolationMgr *CacheIsolationManager) *SharedServerManager {
@@ -116,6 +120,12 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 		pythonCmd, pythonArgs = cmd, args
 	}
 
+	// Compute per-repo JDTLS workspace to avoid cross-project interference
+	javaWorkspace := filepath.Join(os.Getenv("HOME"), ".lsp-gateway", "jdtls-workspaces", fmt.Sprintf("%s-%x", filepath.Base(mgr.repoDir), md5.Sum([]byte(mgr.repoDir))))
+	if err := os.MkdirAll(javaWorkspace, 0o755); err != nil {
+		return fmt.Errorf("failed to create java workspace: %w", err)
+	}
+
 	// Generate shared server config
 	servers := map[string]interface{}{
 		"go": map[string]interface{}{
@@ -136,44 +146,19 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 		},
 		"java": map[string]interface{}{
 			"command": "~/.lsp-gateway/tools/java/bin/jdtls",
-			"args":    []string{},
+			"args":    []string{javaWorkspace},
 		},
 		"rust": map[string]interface{}{
 			"command": "rust-analyzer",
 			"args":    []string{},
-			// Disable cargo operations during tests to prevent Windows file locking issues
-			"initialization_options": map[string]interface{}{
-				"checkOnSave": map[string]interface{}{
-					"enable": false, // Disable cargo check on save
-				},
-				"cargo": map[string]interface{}{
-					"buildScripts": map[string]interface{}{
-						"enable": false, // Disable build script execution
-					},
-					"runBuildScripts":      false, // Alternative way to disable build scripts
-					"noDefaultFeatures":    true,  // Disable default features
-					"allFeatures":          false, // Don't enable all features
-					"target":               nil,   // No specific target
-					"autoreload":           false, // Disable automatic reload on Cargo.toml changes
-					"loadOutDirsFromCheck": false, // Don't run cargo check to load OUT_DIRs
-				},
-				"diagnostics": map[string]interface{}{
-					"disabled": []string{"unresolved-proc-macro"}, // Disable proc-macro errors
-				},
-				"procMacro": map[string]interface{}{
-					"enable": false, // Disable proc macro support completely
-				},
-				"files": map[string]interface{}{
-					"watcher": "client", // Use client-side file watching to avoid conflicts
-				},
-				"rustfmt": map[string]interface{}{
-					"enableRangeFormatting": false, // Disable rustfmt operations
-				},
-			},
 		},
 		"csharp": map[string]interface{}{
 			"command": "omnisharp",
 			"args":    []string{"-lsp"},
+		},
+		"kotlin": map[string]interface{}{
+			"command": testconfig.NewKotlinServerConfig().Command,
+			"args":    []string{},
 		},
 	}
 
@@ -312,7 +297,11 @@ func (mgr *SharedServerManager) waitForServerReady(t *testing.T) error {
 
 	t.Logf("⏳ Waiting for shared server to be ready at %s...", healthURL)
 
-	maxRetries := 60 // 60 seconds timeout
+	// Allow more time for heavier language servers; extend further on Windows
+	maxRetries := 180
+	if runtime.GOOS == "windows" {
+		maxRetries = 330
+	}
 	for i := 0; i < maxRetries; i++ {
 		select {
 		case <-mgr.ctx.Done():

@@ -103,6 +103,32 @@
       ],
       "expected_symbols": ["Server", "start", "stop", "createServer", "Handler", "handleRequest", "createHandler"],
       "workspace_queries": ["Server", "Handler", "create", "start"]
+    },
+    "kotlin": {
+      "sample_files": [
+        {
+          "filename": "Gateway.kt",
+          "content": "package com.example.gateway\n\nimport kotlinx.coroutines.*\nimport java.util.concurrent.atomic.AtomicBoolean\n\n/**\n * LSP Gateway Server Implementation in Kotlin\n */\ndata class GatewayConfig(\n    val name: String,\n    val port: Int,\n    val timeout: Long = 30000L,\n    val maxConnections: Int = 100\n)\n\nclass Gateway(private val config: GatewayConfig) {\n    private val running = AtomicBoolean(false)\n    private var job: Job? = null\n    \n    suspend fun start(): Unit = withContext(Dispatchers.IO) {\n        if (running.compareAndSet(false, true)) {\n            println(\"Starting gateway ${config.name} on port ${config.port}\")\n            job = launch {\n                // Simulate server work\n                delay(Long.MAX_VALUE)\n            }\n        }\n    }\n    \n    suspend fun stop(): Unit = withContext(Dispatchers.IO) {\n        if (running.compareAndSet(true, false)) {\n            println(\"Stopping gateway ${config.name}\")\n            job?.cancel()\n            job = null\n        }\n    }\n    \n    fun isRunning(): Boolean = running.get()\n    \n    fun getConfig(): GatewayConfig = config\n    \n    companion object {\n        fun createGateway(name: String, port: Int): Gateway {\n            return Gateway(GatewayConfig(name, port))\n        }\n        \n        fun createGatewayWithConfig(config: GatewayConfig): Gateway {\n            return Gateway(config)\n        }\n    }\n}",
+          "test_positions": {
+            "definition": {"line": 42, "character": 15},
+            "references": {"line": 16, "character": 6},
+            "hover": {"line": 20, "character": 10},
+            "completion": {"line": 25, "character": 15}
+          }
+        },
+        {
+          "filename": "RequestHandler.kt",
+          "content": "package com.example.gateway\n\nimport kotlinx.coroutines.*\nimport kotlinx.serialization.Serializable\nimport kotlinx.serialization.json.Json\n\n/**\n * HTTP Request Handler for Kotlin Gateway\n */\n@Serializable\ndata class RequestInfo(\n    val method: String,\n    val path: String,\n    val headers: Map<String, String> = emptyMap(),\n    val timestamp: Long = System.currentTimeMillis()\n)\n\n@Serializable\ndata class ResponseInfo(\n    val status: Int,\n    val data: Map<String, String>,\n    val headers: Map<String, String> = emptyMap(),\n    val timestamp: Long = System.currentTimeMillis()\n)\n\nclass RequestHandler(private val gateway: Gateway) {\n    private val json = Json { prettyPrint = true }\n    \n    suspend fun handleRequest(request: RequestInfo): ResponseInfo = withContext(Dispatchers.IO) {\n        return@withContext when {\n            request.method == \"GET\" && request.path == \"/status\" -> {\n                ResponseInfo(\n                    status = 200,\n                    data = mapOf(\n                        \"gateway\" to gateway.getConfig().name,\n                        \"port\" to gateway.getConfig().port.toString(),\n                        \"running\" to gateway.isRunning().toString(),\n                        \"timestamp\" to System.currentTimeMillis().toString()\n                    )\n                )\n            }\n            request.method == \"GET\" && request.path == \"/health\" -> {\n                ResponseInfo(\n                    status = 200,\n                    data = mapOf(\n                        \"status\" to \"healthy\",\n                        \"uptime\" to \"running\"\n                    )\n                )\n            }\n            else -> {\n                ResponseInfo(\n                    status = 404,\n                    data = mapOf(\"error\" to \"Not found\")\n                )\n            }\n        }\n    }\n    \n    fun toJson(response: ResponseInfo): String {\n        return json.encodeToString(ResponseInfo.serializer(), response)\n    }\n    \n    companion object {\n        fun createHandler(gateway: Gateway): RequestHandler {\n            return RequestHandler(gateway)\n        }\n    }\n}",
+          "test_positions": {
+            "definition": {"line": 62, "character": 15},
+            "references": {"line": 26, "character": 6},
+            "hover": {"line": 29, "character": 10},
+            "completion": {"line": 35, "character": 25}
+          }
+        }
+      ],
+      "expected_symbols": ["Gateway", "start", "stop", "createGateway", "RequestHandler", "handleRequest", "ResponseInfo"],
+      "workspace_queries": ["Gateway", "Handler", "Config", "Request"]
     }
   },
   "test_configurations": {

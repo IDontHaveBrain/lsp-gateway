@@ -95,6 +95,7 @@ SUPPORTED LANGUAGES:
   - Java (jdtls) - Enterprise-grade Java development
   - Rust (rust-analyzer) - Modern Rust language support
   - C# (OmniSharp) - C# language support
+  - Kotlin (kotlin-lsp) - Kotlin language support
 
 Use 'lsp-gateway <command> --help' for detailed command information.`,
 	SilenceUsage:  true,
@@ -198,6 +199,7 @@ Available commands:
   lsp-gateway install java          # Install Java JDK + Eclipse JDT Language Server
   lsp-gateway install rust          # Install Rust language server (rust-analyzer)
   lsp-gateway install csharp        # Install C# language server (OmniSharp)
+  lsp-gateway install kotlin        # Install Kotlin language server (kotlin-lsp)
   lsp-gateway install status        # Show installation status
   lsp-gateway install update-config # Update configuration with installed servers
 
@@ -327,6 +329,21 @@ Examples:
 		Long:  `Install C# language server (OmniSharp).`,
 		RunE:  runInstallCSharpCmd,
 	}
+
+	installKotlinCmd = &cobra.Command{
+		Use:   "kotlin",
+		Short: "Install Kotlin language server",
+		Long: `Install Kotlin language server (kotlin-lsp).
+
+On macOS, will attempt to install via Homebrew first, then fall back to GitHub releases.
+On other platforms, will download from GitHub releases.
+
+Examples:
+  lsp-gateway install kotlin
+  lsp-gateway install kotlin --force
+  lsp-gateway install kotlin --install-path ~/dev/kotlin`,
+		RunE: runInstallKotlinCmd,
+	}
 )
 
 // Cache subcommands
@@ -441,6 +458,7 @@ func init() {
 	installCmd.AddCommand(installJavaCmd)
 	installCmd.AddCommand(installRustCmd)
 	installCmd.AddCommand(installCSharpCmd)
+	installCmd.AddCommand(installKotlinCmd)
 	installCmd.AddCommand(installUpdateConfigCmd)
 
 	// Python install specific flags
@@ -551,6 +569,10 @@ func runInstallRustCmd(cmd *cobra.Command, args []string) error {
 
 func runInstallCSharpCmd(cmd *cobra.Command, args []string) error {
 	return InstallLanguage("csharp", installPath, version, force, offline, "")
+}
+
+func runInstallKotlinCmd(cmd *cobra.Command, args []string) error {
+	return InstallLanguage("kotlin", installPath, version, force, offline, "")
 }
 
 func runInstallUpdateConfigCmd(cmd *cobra.Command, args []string) error {

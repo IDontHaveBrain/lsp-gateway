@@ -47,6 +47,10 @@ func registerAllInstallers(manager *LSPInstallManager, platform PlatformInfo) {
 	// C# installer
 	csharpInstaller := NewCSharpInstaller(platform)
 	manager.RegisterInstaller("csharp", csharpInstaller)
+
+	// Kotlin installer
+	kotlinInstaller := NewKotlinInstaller(platform)
+	manager.RegisterInstaller("kotlin", kotlinInstaller)
 }
 
 // GetDefaultInstallManager returns a pre-configured install manager

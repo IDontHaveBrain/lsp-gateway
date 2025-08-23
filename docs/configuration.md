@@ -10,7 +10,7 @@ LSP Gateway supports three configuration methods:
 - **Template-based**: Use provided templates as starting points
 
 The configuration system features:
-- **6 supported languages**: Go, Python, JavaScript, TypeScript, Java, Rust
+- **8 supported languages**: Go, Python, JavaScript, TypeScript, Java, Rust, C#, Kotlin
 - **SCIP cache integration**: Sub-millisecond symbol lookups (enabled by default)
 - **Security validation**: Whitelist-based LSP server command validation
 - **Project isolation**: Auto-generated project-specific cache paths
@@ -62,6 +62,7 @@ servers:
 | `typescript` | `typescript-language-server` | `["--stdio"]`    | TypeScript support |
 | `java`     | `jdtls`                        | `[]`             | Java language server |
 | `rust`     | `rust-analyzer`                | `[]`             | Rust language server |
+| `kotlin`   | `kotlin-lsp`                   | `[]`             | Kotlin language server (official JetBrains) |
 
 #### Server Configuration Fields
 

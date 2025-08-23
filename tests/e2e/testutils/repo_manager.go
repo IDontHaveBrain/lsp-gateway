@@ -107,10 +107,10 @@ func GetTestRepositories() map[string]*TestRepository {
 			TestFiles: []TestFile{
 				{
 					Path:          "source/compose.js",               // Pure JavaScript functional programming utilities
-					DefinitionPos: Position{Line: 23, Character: 23}, // export default compose function definition (Line 24, 0-based = 23)
-					ReferencePos:  Position{Line: 26, Character: 2},  // pipe function reference usage (Line 27, 0-based = 26)
-					HoverPos:      Position{Line: 23, Character: 28}, // compose function name
-					CompletionPos: Position{Line: 25, Character: 4},  // inside compose function for completion
+					DefinitionPos: Position{Line: 0, Character: 7},   // pipe import - should navigate to pipe.js definition
+					ReferencePos:  Position{Line: 33, Character: 9},  // pipe usage - should find references including import
+					HoverPos:      Position{Line: 29, Character: 25}, // compose function name
+					CompletionPos: Position{Line: 31, Character: 4},  // inside compose function for completion
 					SymbolQuery:   "compose",
 				},
 			},
@@ -119,15 +119,15 @@ func GetTestRepositories() map[string]*TestRepository {
 			Language:   "java",
 			Name:       "spring-petclinic",
 			URL:        "https://github.com/spring-projects/spring-petclinic.git",
-			CommitHash: "main", // using main branch since v2.7.3 tag doesn't exist
+			CommitHash: "30aab0ae764ad845b5eedd76028756835fec771f", // pinned for stable line positions
 			TestFiles: []TestFile{
 				{
 					Path:          "src/main/java/org/springframework/samples/petclinic/PetClinicApplication.java",
-					DefinitionPos: Position{Line: 29, Character: 13}, // public class PetClinicApplication (Line 30, 0-based = 29)
-					ReferencePos:  Position{Line: 32, Character: 16}, // SpringApplication.run(PetClinicApplication.class) usage (Line 33, 0-based = 32)
+					DefinitionPos: Position{Line: 28, Character: 20}, // PetClinicRuntimeHints in @ImportRuntimeHints(...)
+					ReferencePos:  Position{Line: 28, Character: 20}, // same token to find definition+usages
 					HoverPos:      Position{Line: 27, Character: 1},  // @SpringBootApplication annotation (Line 28, 0-based = 27)
-					CompletionPos: Position{Line: 32, Character: 20}, // inside main method for completion
-					SymbolQuery:   "PetClinicApplication",
+					CompletionPos: Position{Line: 32, Character: 30}, // inside main method
+					SymbolQuery:   "PetClinicRuntimeHints",
 				},
 			},
 		},
@@ -139,10 +139,10 @@ func GetTestRepositories() map[string]*TestRepository {
 			TestFiles: []TestFile{
 				{
 					Path:          "src/lib.rs",
-					DefinitionPos: Position{Line: 62, Character: 12},
-					ReferencePos:  Position{Line: 69, Character: 8}, // "Buffer::new()" usage in default impl
-					HoverPos:      Position{Line: 97, Character: 11},
-					CompletionPos: Position{Line: 89, Character: 8},
+					DefinitionPos: Position{Line: 69, Character: 8},  // "Buffer" in Buffer::new() call -> navigate to struct definition
+					ReferencePos:  Position{Line: 62, Character: 11}, // "Buffer" struct definition -> find all references across files
+					HoverPos:      Position{Line: 96, Character: 29}, // "Integer" in generic constraint -> show trait information
+					CompletionPos: Position{Line: 97, Character: 10}, // After "i." -> show available trait methods
 					SymbolQuery:   "Buffer",
 				},
 			},
@@ -160,6 +160,22 @@ func GetTestRepositories() map[string]*TestRepository {
 					HoverPos:      Position{Line: 528, Character: 35},
 					CompletionPos: Position{Line: 530, Character: 25},
 					SymbolQuery:   "JsonConvert",
+				},
+			},
+		},
+		"kotlin": {
+			Language:   "kotlin",
+			Name:       "kotlin-result",
+			URL:        "https://github.com/michaelbull/kotlin-result.git",
+			CommitHash: "1.1.18", // Stable release - minimal Result type library (pure Kotlin)
+			TestFiles: []TestFile{
+				{
+					Path:          "kotlin-result/src/commonMain/kotlin/com/github/michaelbull/result/Result.kt",
+					DefinitionPos: Position{Line: 34, Character: 50}, // 'Result' usage in Ok extends clause -> definition jumps to sealed class
+					ReferencePos:  Position{Line: 34, Character: 50}, // Same 'Result' usage ensures non-empty cross-file references
+					HoverPos:      Position{Line: 21, Character: 30}, // 'of' function name hover (has KDoc/deprecation)
+					CompletionPos: Position{Line: 35, Character: 4},  // Inside Ok class for completion
+					SymbolQuery:   "combine",
 				},
 			},
 		},
@@ -194,6 +210,14 @@ func (rm *RepoManager) SetupRepository(language string) (string, error) {
 	// Checkout specific commit
 	if err := rm.checkoutCommit(repoDir, repo.CommitHash); err != nil {
 		return "", fmt.Errorf("failed to checkout commit: %w", err)
+	}
+
+	// Language-specific preparation
+	switch language {
+	case "java":
+		// Try to generate Eclipse project files for JDTLS to index reliably
+		// Prefer Gradle wrapper if present; fall back to Maven wrapper
+		rm.prepareJavaProject(repoDir)
 	}
 
 	rm.repos[language] = repo
@@ -255,6 +279,30 @@ func (rm *RepoManager) checkoutCommit(repoDir, commitHash string) error {
 		return fmt.Errorf("git checkout failed: %w, output: %s", err, string(output))
 	}
 	return nil
+}
+
+// prepareJavaProject attempts to set up Eclipse project metadata to help jdtls
+func (rm *RepoManager) prepareJavaProject(repoDir string) {
+	// Try Gradle eclipse
+	try := func(name string, args ...string) bool {
+		cmd := exec.Command(name, args...)
+		cmd.Dir = repoDir
+		if out, err := cmd.CombinedOutput(); err == nil {
+			_ = out
+			return true
+		}
+		return false
+	}
+	// Make gradlew executable if present
+	_ = os.Chmod(filepath.Join(repoDir, "gradlew"), 0755)
+	if try("./gradlew", "-q", "eclipse") || try("gradlew", "-q", "eclipse") || try("./gradlew", "eclipse") {
+		return
+	}
+	// Fallback to Maven wrapper generating eclipse files if plugin is available
+	_ = os.Chmod(filepath.Join(repoDir, "mvnw"), 0755)
+	if try("./mvnw", "-q", "-DskipTests", "eclipse:eclipse") || try("mvn", "-q", "-DskipTests", "eclipse:eclipse") {
+		return
+	}
 }
 
 // GetFileURI returns the file URI for a test file

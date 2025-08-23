@@ -22,6 +22,7 @@ func getLanguageConfigs() []LanguageTestConfig {
 		{name: "java", displayName: "Java"},
 		{name: "rust", displayName: "Rust"},
 		{name: "csharp", displayName: "CSharp"}, // Always include C# in tests
+		{name: "kotlin", displayName: "Kotlin"},
 	}
 	return configs
 }

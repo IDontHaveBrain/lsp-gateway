@@ -694,6 +694,14 @@ func (m *LSPManager) getClientActiveWaitIterations(language string) int {
 
 // resolveCommandPath resolves the command path, checking custom installations first
 func (m *LSPManager) resolveCommandPath(language, command string) string {
+	// Prefer custom installation under ~/.lsp-gateway/tools/{language}
+	if root := common.GetLSPToolRoot(language); root != "" {
+		if resolved := common.FirstExistingExecutable(root, []string{command}); resolved != "" {
+			common.LSPLogger.Debug("Using installed %s command at %s", language, resolved)
+			return resolved
+		}
+	}
+
 	// For Java, check if custom installation exists
 	if language == "java" && command == "jdtls" {
 		var customPath string
@@ -724,7 +732,7 @@ func (m *LSPManager) resolveCommandPath(language, command string) string {
 	}
 
 	// Check for other language custom installations
-	if command == "gopls" || command == "pylsp" || command == "jedi-language-server" || command == "pyright-langserver" || command == "basedpyright-langserver" || command == "typescript-language-server" || command == "omnisharp" || command == "OmniSharp" {
+	if command == "gopls" || command == "pylsp" || command == "jedi-language-server" || command == "pyright-langserver" || command == "basedpyright-langserver" || command == "typescript-language-server" || command == "omnisharp" || command == "OmniSharp" || command == "kotlin-lsp" || command == "kotlin-language-server" {
 		// Map of commands to their languages for path construction
 		languageMap := map[string]string{
 			"gopls":                      "go",
@@ -735,6 +743,8 @@ func (m *LSPManager) resolveCommandPath(language, command string) string {
 			"typescript-language-server": "typescript",
 			"omnisharp":                  "csharp",
 			"OmniSharp":                  "csharp",
+			"kotlin-lsp":                 "kotlin",
+			"kotlin-language-server":     "kotlin",
 		}
 		if lang, exists := languageMap[command]; exists {
 			customPath := common.GetLSPToolPath(lang, command)
@@ -744,6 +754,26 @@ func (m *LSPManager) resolveCommandPath(language, command string) string {
 					customPath = customPath + ".cmd"
 				} else if command == "omnisharp" || command == "OmniSharp" {
 					customPath = customPath + ".exe"
+				} else if command == "kotlin-lsp" {
+					// Prefer native .exe on Windows for reliable stdio
+					exePath := common.GetLSPToolPath("kotlin", "kotlin-lsp.exe")
+					if common.FileExists(exePath) {
+						customPath = exePath
+					} else {
+						// Fall back to .cmd if no .exe present
+						customPath = customPath + ".cmd"
+					}
+				} else if command == "kotlin-language-server" {
+					// fwcd provides .bat on Windows; prefer .bat then .exe if present
+					batPath := common.GetLSPToolPath("kotlin", "kotlin-language-server.bat")
+					if common.FileExists(batPath) {
+						customPath = batPath
+					} else {
+						exePath := common.GetLSPToolPath("kotlin", "kotlin-language-server.exe")
+						if common.FileExists(exePath) {
+							customPath = exePath
+						}
+					}
 				}
 			}
 
@@ -764,6 +794,49 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 	resolvedCommand := m.resolveCommandPath(language, cfg.Command)
 
 	argsToUse := cfg.Args
+
+	// Kotlin: use socket mode for JetBrains kotlin-lsp on Linux/macOS, stdio for fwcd on Windows
+	if language == "kotlin" && runtime.GOOS != "windows" {
+		// JetBrains kotlin-lsp runs in socket mode on port 9999 by default (no arguments)
+		addr := "127.0.0.1:9999"
+
+		// Remove ALL arguments - kotlin-lsp.sh runs in socket mode on port 9999 when no args provided
+		argsToUse = []string{}
+		common.LSPLogger.Info("Launching JetBrains %s LSP in socket mode at %s", language, addr)
+
+		clientConfig := types.ClientConfig{
+			Command:               resolvedCommand,
+			Args:                  argsToUse,
+			WorkingDir:            cfg.WorkingDir,
+			InitializationOptions: cfg.InitializationOptions,
+		}
+
+		if err := security.ValidateCommand(resolvedCommand, argsToUse); err != nil {
+			return fmt.Errorf("invalid LSP server command for %s: %w", language, err)
+		}
+
+		client, err := NewSocketClient(clientConfig, language, addr)
+		if err != nil {
+			return fmt.Errorf("failed to create client: %w", err)
+		}
+		if err := client.Start(ctx); err != nil {
+			return fmt.Errorf("failed to start client: %w", err)
+		}
+		m.mu.Lock()
+		m.clients[language] = client
+		m.mu.Unlock()
+
+		if activeClient, ok := client.(interface{ IsActive() bool }); ok {
+			maxWaitIterations := m.getClientActiveWaitIterations(language)
+			for i := 0; i < maxWaitIterations; i++ {
+				if activeClient.IsActive() {
+					break
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+		}
+		return nil
+	}
 
 	// Validate initial command/args
 	if err := security.ValidateCommand(resolvedCommand, argsToUse); err != nil {
@@ -890,13 +963,27 @@ func (m *LSPManager) detectPrimaryLanguage(workingDir string) string {
 		{[]string{"package.json", "tsconfig.json"}, "typescript"},
 		{[]string{"package.json"}, "javascript"},
 		{[]string{"pyproject.toml", "setup.py", "requirements.txt"}, "python"},
-		{[]string{"pom.xml", "build.gradle", "build.gradle.kts"}, "java"},
+		{[]string{"pom.xml"}, "java"},
+		{[]string{"build.gradle.kts"}, "kotlin"},
+		{[]string{"build.gradle"}, "java"},
 		{[]string{"Cargo.toml", "Cargo.lock"}, "rust"},
 	}
 
 	for _, marker := range projectMarkers {
 		for _, file := range marker.files {
-			if common.FileExists(filepath.Join(workingDir, file)) {
+			full := filepath.Join(workingDir, file)
+			if common.FileExists(full) {
+				if file == "build.gradle" {
+					if data, err := os.ReadFile(full); err == nil {
+						lc := strings.ToLower(string(data))
+						if strings.Contains(lc, "org.jetbrains.kotlin") ||
+							strings.Contains(lc, "apply plugin: \"kotlin") ||
+							strings.Contains(lc, "apply plugin: 'kotlin") ||
+							strings.Contains(lc, "kotlin-stdlib") {
+							return "kotlin"
+						}
+					}
+				}
 				return marker.language
 			}
 		}

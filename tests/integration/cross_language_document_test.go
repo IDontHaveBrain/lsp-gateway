@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -19,6 +20,42 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.lsp.dev/protocol"
 )
+
+func getKotlinCommand() string {
+	// Use platform-specific command
+	if runtime.GOOS == "windows" {
+		// Check for installed kotlin-language-server first
+		homeDir, _ := os.UserHomeDir()
+		if homeDir != "" {
+			installedPath := filepath.Join(homeDir, ".lsp-gateway", "tools", "kotlin", "bin", "kotlin-language-server.bat")
+			if _, err := os.Stat(installedPath); err == nil {
+				return installedPath
+			}
+			// Try without .bat extension
+			installedPath = filepath.Join(homeDir, ".lsp-gateway", "tools", "kotlin", "bin", "kotlin-language-server")
+			if _, err := os.Stat(installedPath); err == nil {
+				return installedPath
+			}
+		}
+		return "kotlin-language-server"
+	}
+	
+	// Unix-like systems
+	homeDir, _ := os.UserHomeDir()
+	if homeDir != "" {
+		installedPath := filepath.Join(homeDir, ".lsp-gateway", "tools", "kotlin", "kotlin-lsp")
+		if _, err := os.Stat(installedPath); err == nil {
+			return installedPath
+		}
+		// Try bin directory
+		installedPath = filepath.Join(homeDir, ".lsp-gateway", "tools", "kotlin", "bin", "kotlin-lsp")
+		if _, err := os.Stat(installedPath); err == nil {
+			return installedPath
+		}
+	}
+	
+	return "kotlin-lsp"
+}
 
 func TestCrossLanguageDocumentCoordination(t *testing.T) {
 	if testing.Short() {
@@ -182,6 +219,76 @@ class DataService {
         return String.join(",", items);
     }
 }`,
+		"build.gradle.kts": `plugins {
+    kotlin("jvm") version "1.8.0"
+    application
+}
+
+group = "com.example"
+version = "1.0.0"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation(kotlin("stdlib"))
+}
+
+application {
+    mainClass.set("com.example.MainKt")
+}`,
+		"src/main/kotlin/com/example/Gateway.kt": `package com.example
+
+import kotlinx.coroutines.*
+
+data class GatewayConfig(
+    val name: String,
+    val port: Int,
+    val timeout: Long = 30000L
+)
+
+class Gateway(private val config: GatewayConfig) {
+    private var running = false
+    
+    suspend fun start(): Unit = withContext(Dispatchers.IO) {
+        println("Starting gateway ${config.name} on port ${config.port}")
+        running = true
+    }
+    
+    suspend fun stop(): Unit = withContext(Dispatchers.IO) {
+        println("Stopping gateway ${config.name}")
+        running = false
+    }
+    
+    fun isRunning(): Boolean = running
+    
+    companion object {
+        fun createGateway(name: String, port: Int): Gateway {
+            return Gateway(GatewayConfig(name, port))
+        }
+    }
+}
+
+class RequestHandler(private val gateway: Gateway) {
+    suspend fun handleRequest(method: String, path: String): Map<String, Any> {
+        return when {
+            method == "GET" && path == "/status" -> {
+                mapOf(
+                    "gateway" to gateway.config.name,
+                    "port" to gateway.config.port,
+                    "running" to gateway.isRunning()
+                )
+            }
+            else -> mapOf("error" to "Not found")
+        }
+    }
+}
+
+suspend fun main() {
+    val gateway = Gateway.createGateway("lsp-gateway", 8080)
+    gateway.start()
+}`,
 	}
 
 	for filename, content := range testFiles {
@@ -224,6 +331,10 @@ class DataService {
 				Command: "jdtls",
 				Args:    []string{},
 			},
+			"kotlin": &config.ServerConfig{
+				Command: getKotlinCommand(),
+				Args:    []string{},
+			},
 		},
 	}
 
@@ -246,6 +357,7 @@ class DataService {
 		filepath.Join(testDir, "frontend.ts"),
 		filepath.Join(testDir, "utils.js"),
 		filepath.Join(testDir, "src/main/java/com/example/Backend.java"),
+		filepath.Join(testDir, "src/main/kotlin/com/example/Gateway.kt"),
 	}
 
 	t.Run("MultiLanguageDocumentOpen", func(t *testing.T) {
@@ -263,6 +375,8 @@ class DataService {
 			"DataHandler",
 			"processData",
 			"Backend",
+			"Gateway",
+			"RequestHandler",
 		}
 
 		var wg sync.WaitGroup
@@ -307,6 +421,7 @@ class DataService {
 			{"frontend.ts", 0, 30, "utils"},
 			{"utils.js", 7, 10, "callBackend"},
 			{"src/main/java/com/example/Backend.java", 11, 20, "processRequest"},
+			{"src/main/kotlin/com/example/Gateway.kt", 30, 15, "createGateway"},
 		}
 
 		for _, tc := range testCases {
@@ -351,6 +466,7 @@ class DataService {
 			{"textDocument/references", "frontend.ts", 3, 13}, // export class DataHandler
 			{"textDocument/completion", "utils.js", 0, 9},     // function processData
 			{"textDocument/documentSymbol", "src/main/java/com/example/Backend.java", 0, 0},
+			{"textDocument/hover", "src/main/kotlin/com/example/Gateway.kt", 14, 5}, // class Gateway
 		}
 
 		var wg sync.WaitGroup
@@ -489,6 +605,7 @@ class DataService {
 			"frontend.ts":                            "typescript",
 			"utils.js":                               "javascript",
 			"src/main/java/com/example/Backend.java": "java",
+			"src/main/kotlin/com/example/Gateway.kt": "kotlin",
 		}
 
 		documentManager := documents.NewLSPDocumentManager()

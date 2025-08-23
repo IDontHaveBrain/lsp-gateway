@@ -1,5 +1,5 @@
 # Single Language Project Configuration
-# Use Case: Projects using one primary language (Go, Python, JavaScript/TypeScript, Java)
+# Use Case: Projects using one primary language (Go, Python, JavaScript/TypeScript, Java, Rust, C#, Kotlin)
 # Architecture: Simplified CLI with basic LSP server integration
 # Project Scale: Small to medium projects, local development
 # Supported Features: 6 essential LSP features (definition, references, hover, documentSymbol, workspace/symbol, completion)
@@ -90,6 +90,34 @@ servers:
 # If unavailable on stable: rustup toolchain install nightly && rustup component add rust-analyzer --toolchain nightly
 # Some systems use: rustup component add rust-analyzer-preview [--toolchain nightly]
 # File types: .rs
+# Usage: lsp-gateway server --config config.yaml
+
+# =============================================================================
+# C# LANGUAGE SERVER (Alternative - comment out sections above)
+# =============================================================================
+# servers:
+#   csharp:
+#     command: "omnisharp"
+#     args: []
+#     working_dir: ""
+#     initialization_options: {}
+
+# Prerequisites: Install OmniSharp via dotnet tool
+# File types: .cs
+# Usage: lsp-gateway server --config config.yaml
+
+# =============================================================================
+# KOTLIN LANGUAGE SERVER (Alternative - comment out sections above)
+# =============================================================================
+# servers:
+#   kotlin:
+#     command: "kotlin-lsp"
+#     args: []
+#     working_dir: ""
+#     initialization_options: {}
+
+# Prerequisites: Install kotlin-lsp (official JetBrains)
+# File types: .kt, .kts
 # Usage: lsp-gateway server --config config.yaml
 
 # =============================================================================

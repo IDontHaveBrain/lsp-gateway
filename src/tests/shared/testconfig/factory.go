@@ -1,7 +1,10 @@
 package testconfig
 
 import (
+	"runtime"
+	
 	"lsp-gateway/src/config"
+	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/registry"
 )
 
@@ -53,6 +56,30 @@ func NewRustServerConfig() *config.ServerConfig {
 	}
 }
 
+// NewKotlinServerConfig returns a standard Kotlin server configuration for testing
+func NewKotlinServerConfig() *config.ServerConfig {
+	// Use platform-specific command, trying to resolve installed path first
+	command := "kotlin-lsp"
+	candidates := []string{"kotlin-lsp"}
+	
+	if runtime.GOOS == "windows" {
+		command = "kotlin-language-server"
+		candidates = []string{"kotlin-language-server"}
+	}
+	
+	// Try to resolve to installed binary path
+	if root := common.GetLSPToolRoot("kotlin"); root != "" {
+		if resolved := common.FirstExistingExecutable(root, candidates); resolved != "" {
+			command = resolved
+		}
+	}
+	
+	return &config.ServerConfig{
+		Command: command,
+		Args:    []string{},
+	}
+}
+
 // NewMultiLangConfig creates a configuration with the specified languages
 func NewMultiLangConfig(languages []string) *config.Config {
 	servers := make(map[string]*config.ServerConfig)
@@ -71,6 +98,8 @@ func NewMultiLangConfig(languages []string) *config.Config {
 			servers["java"] = NewJavaServerConfig()
 		case "rust":
 			servers["rust"] = NewRustServerConfig()
+		case "kotlin":
+			servers["kotlin"] = NewKotlinServerConfig()
 		}
 	}
 

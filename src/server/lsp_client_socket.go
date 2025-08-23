@@ -9,7 +9,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -24,68 +23,38 @@ import (
 	"lsp-gateway/src/server/errors"
 	"lsp-gateway/src/server/process"
 	"lsp-gateway/src/server/protocol"
-	"lsp-gateway/src/utils"
 )
 
-// getRequestTimeout returns language-specific timeout for LSP requests
-func (c *StdioClient) getRequestTimeout(method string) time.Duration {
-	baseTimeout := constants.GetRequestTimeout(c.language)
-
-	// Method-specific overrides for Java
-	if c.language == "java" {
-		switch method {
-		case types.MethodTextDocumentReferences:
-			// Java references can be particularly slow due to project-wide search
-			// On Windows CI, this becomes 270s * 2 = 540s (9 minutes)
-			return baseTimeout * 2
-		case types.MethodWorkspaceSymbol:
-			// Workspace symbol search can also be slow for large Java projects
-			return time.Duration(float64(baseTimeout) * 1.5)
-		}
-	}
-
-	return baseTimeout
-}
-
-// getInitializeTimeout returns language-specific timeout for initialize requests
-func (c *StdioClient) getInitializeTimeout() time.Duration {
-	return constants.GetInitializeTimeout(c.language)
-}
-
-// pendingRequest stores context for pending LSP requests
-type pendingRequest struct {
-	respCh chan json.RawMessage
-	done   chan struct{}
-}
-
-// StdioClient implements LSP communication over STDIO
-type StdioClient struct {
+type SocketClient struct {
 	config                types.ClientConfig
-	language              string // Language identifier for unique request IDs
+	language              string
 	capabilities          capabilities.ServerCapabilities
 	errorTranslator       errors.ErrorTranslator
 	capDetector           capabilities.CapabilityDetector
 	processManager        process.ProcessManager
 	processInfo           *process.ProcessInfo
 	jsonrpcProtocol       protocol.JSONRPCProtocol
-	initializationOptions interface{} // Initialization options from config
+	initializationOptions interface{}
+
+	addr string
+	conn net.Conn
 
 	mu               sync.RWMutex
 	writeMu          sync.Mutex
 	active           bool
 	requests         map[string]*pendingRequest
 	nextID           int
-	openDocs         map[string]bool      // Track opened documents to prevent duplicate didOpen
-	recentTimeouts   map[string]time.Time // Track recently timed-out requests
+	openDocs         map[string]bool
+	recentTimeouts   map[string]time.Time
 	timeoutsMu       sync.RWMutex
-	workspaceFolders map[string]bool // Track added workspace folders
+	workspaceFolders map[string]bool
 }
 
-// NewStdioClient creates a new STDIO LSP client
-func NewStdioClient(config types.ClientConfig, language string) (types.LSPClient, error) {
-	client := &StdioClient{
+func NewSocketClient(config types.ClientConfig, language, addr string) (types.LSPClient, error) {
+	c := &SocketClient{
 		config:                config,
 		language:              language,
+		addr:                  addr,
 		requests:              make(map[string]*pendingRequest),
 		openDocs:              make(map[string]bool),
 		workspaceFolders:      make(map[string]bool),
@@ -96,11 +65,27 @@ func NewStdioClient(config types.ClientConfig, language string) (types.LSPClient
 		jsonrpcProtocol:       protocol.NewLSPJSONRPCProtocol(language),
 		initializationOptions: config.InitializationOptions,
 	}
-	return client, nil
+	return c, nil
 }
 
-// Start initializes and starts the LSP server process
-func (c *StdioClient) Start(ctx context.Context) error {
+func (c *SocketClient) getRequestTimeout(method string) time.Duration {
+	baseTimeout := constants.GetRequestTimeout(c.language)
+	if c.language == "java" {
+		switch method {
+		case types.MethodTextDocumentReferences:
+			return baseTimeout * 2
+		case types.MethodWorkspaceSymbol:
+			return time.Duration(float64(baseTimeout) * 1.5)
+		}
+	}
+	return baseTimeout
+}
+
+func (c *SocketClient) getInitializeTimeout() time.Duration {
+	return constants.GetInitializeTimeout(c.language)
+}
+
+func (c *SocketClient) Start(ctx context.Context) error {
 	c.mu.Lock()
 	if c.active {
 		c.mu.Unlock()
@@ -108,110 +93,140 @@ func (c *StdioClient) Start(ctx context.Context) error {
 	}
 	c.mu.Unlock()
 
-	// Use shared ClientConfig type
-	processConfig := types.ClientConfig{
+	procCfg := types.ClientConfig{
 		Command:    c.config.Command,
 		Args:       c.config.Args,
 		WorkingDir: c.config.WorkingDir,
 	}
 
-	// Start process using process manager
 	var err error
-	c.processInfo, err = c.processManager.StartProcess(processConfig, c.language)
+	c.processInfo, err = c.processManager.StartProcess(procCfg, c.language)
 	if err != nil {
 		return fmt.Errorf("failed to start LSP server: %w", err)
 	}
-
-	// Mark process as active
 	c.processInfo.Active = true
 
-	// Start response handler using protocol module
-	go func() {
-		if err := c.jsonrpcProtocol.HandleResponses(c.processInfo.Stdout, c, c.processInfo.StopCh); err != nil {
-			// Only log errors if this wasn't an intentional stop
-			if !c.processInfo.IntentionalStop && err != io.EOF {
-				common.LSPLogger.Error("Error handling responses for %s: %v", c.language, err)
-			}
-		}
-	}()
-
-	// Start stderr logger
-	go c.logStderr()
-
-	// Start process monitor using process manager
 	go c.processManager.MonitorProcess(c.processInfo, func(err error) {
-		// Mark as inactive when process exits
 		c.mu.Lock()
 		c.active = false
 		c.mu.Unlock()
-
-		// Log process exit for debugging EOF issues
-		// Only log errors if this wasn't an intentional stop
 		if !c.processInfo.IntentionalStop {
 			if err != nil {
-				// Filter out common shutdown errors
 				errStr := err.Error()
 				if !strings.Contains(errStr, "signal: killed") &&
 					!strings.Contains(errStr, "waitid: no child processes") &&
 					!strings.Contains(errStr, "process already finished") &&
-					!strings.Contains(errStr, "exit status 1") && // Common on Windows
-					!strings.Contains(errStr, "exit status 0xc000013a") { // Windows CTRL_C_EVENT
+					!strings.Contains(errStr, "exit status 1") &&
+					!strings.Contains(errStr, "exit status 0xc000013a") {
 					common.LSPLogger.Error("LSP server process exited with error: language=%s, error=%v", c.language, err)
 				}
 			}
 		}
 	})
 
-	// Initialize LSP server
+	go c.logStderr()
+
+	// Kotlin needs time to initialize before opening socket on Linux/macOS
+	// Windows uses stdio mode with fwcd/kotlin-language-server so doesn't need this
+	if c.language == "kotlin" && runtime.GOOS != "windows" {
+		initialDelay := 3 * time.Second
+		if common.IsCI() {
+			// Increase delay on CI to give Kotlin more time to bind the socket
+			initialDelay = 10 * time.Second
+		}
+		common.LSPLogger.Info("Waiting %v for Kotlin LSP to initialize before connecting...", initialDelay)
+		time.Sleep(initialDelay)
+	}
+
+	// Use the proper initialization timeout for socket connection
+	// This ensures the socket connection timeout doesn't exceed the overall initialization timeout
+	timeout := constants.GetInitializeTimeout(c.language)
+	// For non-JVM languages, use a shorter timeout for connection establishment
+	if c.language != "kotlin" && c.language != "java" {
+		// Use the smaller of ProcessStartTimeout or InitializeTimeout
+		if constants.ProcessStartTimeout < timeout {
+			timeout = constants.ProcessStartTimeout
+		}
+	}
+
+	dialCtx, cancel := common.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	var conn net.Conn
+	var lastErr error
+	retryInterval := 200 * time.Millisecond
+	if c.language == "kotlin" && runtime.GOOS == "windows" && common.IsCI() {
+		// More frequent retries on Windows CI to catch when the server is ready
+		retryInterval = 300 * time.Millisecond
+	} else if c.language == "kotlin" {
+		retryInterval = 500 * time.Millisecond // Slower retry for Kotlin in other environments
+	}
+
+	for {
+		if dialCtx.Err() != nil {
+			break
+		}
+		conn, lastErr = net.DialTimeout("tcp", c.addr, 2*time.Second)
+		if lastErr == nil {
+			break
+		}
+		time.Sleep(retryInterval)
+	}
+	if lastErr != nil {
+		c.processManager.CleanupProcess(c.processInfo)
+		return fmt.Errorf("failed to connect to server socket %s: %w", c.addr, lastErr)
+	}
+	c.conn = conn
+
+	go func() {
+		if err := c.jsonrpcProtocol.HandleResponses(c.conn, c, c.processInfo.StopCh); err != nil {
+			if !c.processInfo.IntentionalStop && err != io.EOF {
+				common.LSPLogger.Error("Error handling responses for %s: %v", c.language, err)
+			}
+		}
+	}()
+
 	if err := c.initializeLSP(ctx); err != nil {
 		c.processManager.CleanupProcess(c.processInfo)
+		c.conn.Close()
 		return fmt.Errorf("failed to initialize LSP server: %w", err)
 	}
 
-	// Mark as active after successful initialization
 	c.mu.Lock()
 	c.active = true
 	c.mu.Unlock()
-
 	return nil
 }
 
-// Stop terminates the LSP server process
-func (c *StdioClient) Stop() error {
+func (c *SocketClient) Stop() error {
 	c.mu.Lock()
 	if !c.active {
 		c.mu.Unlock()
+		if c.conn != nil {
+			c.conn.Close()
+		}
 		return nil
 	}
 	c.mu.Unlock()
 
-	// Use process manager to stop the process
 	err := c.processManager.StopProcess(c.processInfo, c)
-	if err != nil {
-		common.LSPLogger.Error("Error stopping process: %v", err)
+	if c.conn != nil {
+		c.conn.Close()
 	}
-
-	// Mark as inactive
 	c.mu.Lock()
 	c.active = false
 	c.mu.Unlock()
-
 	return err
 }
 
-// SendRequest sends a JSON-RPC request and waits for response
-func (c *StdioClient) SendRequest(ctx context.Context, method string, params interface{}) (json.RawMessage, error) {
+func (c *SocketClient) SendRequest(ctx context.Context, method string, params interface{}) (json.RawMessage, error) {
 	c.mu.RLock()
 	active := c.active
 	processInfo := c.processInfo
 	c.mu.RUnlock()
-
-	// Check if client is active and process is still running
 	if !active && method != types.MethodInitialize {
 		return nil, fmt.Errorf("client not active")
 	}
-
-	// Additional check: verify process is still alive
 	if processInfo != nil && processInfo.Cmd != nil && processInfo.Cmd.Process != nil {
 		if processState := processInfo.Cmd.ProcessState; processState != nil && processState.Exited() {
 			c.mu.Lock()
@@ -221,25 +236,16 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 		}
 	}
 
-	// Generate numeric request ID (per-client) to maximize compatibility
 	c.mu.Lock()
 	c.nextID++
 	idVal := c.nextID
 	id := fmt.Sprintf("%d", idVal)
 	c.mu.Unlock()
 
-	// Create request
-	request := &pendingRequest{
-		respCh: make(chan json.RawMessage, 1),
-		done:   make(chan struct{}),
-	}
-
-	// Store request
+	request := &pendingRequest{respCh: make(chan json.RawMessage, 1), done: make(chan struct{})}
 	c.mu.Lock()
 	c.requests[id] = request
 	c.mu.Unlock()
-
-	// Cleanup on exit
 	defer func() {
 		c.mu.Lock()
 		delete(c.requests, id)
@@ -247,37 +253,27 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 		close(request.done)
 	}()
 
-	// Create and send message using protocol module
-	// Use numeric ID in wire protocol
 	msg := protocol.CreateMessage(method, idVal, params)
-
 	c.writeMu.Lock()
-	writeErr := c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, msg)
+	writeErr := c.jsonrpcProtocol.WriteMessage(c.conn, msg)
 	c.writeMu.Unlock()
 	if writeErr != nil {
-		// If we get connection errors, mark client as inactive
 		isConnectionError := false
-
-		// Check for broken pipe
 		if stderrors.Is(writeErr, syscall.EPIPE) || stderrors.Is(writeErr, io.ErrClosedPipe) {
 			isConnectionError = true
 		}
-
-		// Check for connection reset errors
 		var opErr *net.OpError
 		if stderrors.As(writeErr, &opErr) {
-			if syscallErr, ok := opErr.Err.(*os.SyscallError); ok {
-				if syscallErr.Err == syscall.ECONNRESET {
-					isConnectionError = true
-				}
+			if runtime.GOOS == "windows" {
+				isConnectionError = true
+			}
+			if opErr.Timeout() {
+				isConnectionError = true
 			}
 		}
-
-		// Check for EOF errors
 		if stderrors.Is(writeErr, io.EOF) {
 			isConnectionError = true
 		}
-
 		if isConnectionError {
 			c.mu.Lock()
 			c.active = false
@@ -288,28 +284,19 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 		return nil, fmt.Errorf("failed to send request: %w", writeErr)
 	}
 
-	// Wait for response with appropriate timeout
 	timeoutDuration := c.getRequestTimeout(method)
 	if method == types.MethodInitialize {
-		// Use longer timeout for initialize - LSP servers can be slow to start
 		timeoutDuration = c.getInitializeTimeout()
 	}
-
-	// Respect existing context deadline if it's shorter than our timeout
 	var cancel context.CancelFunc
 	if deadline, ok := ctx.Deadline(); ok {
-		// Context already has a deadline, use the shorter timeout
-		remainingTime := time.Until(deadline)
-		if remainingTime < timeoutDuration {
-			// Use existing deadline as is
-			cancel = func() {} // No-op since we're not creating a new context
-			common.LSPLogger.Debug("Using existing context deadline (%v) for %s request %s", remainingTime, method, id)
+		remaining := time.Until(deadline)
+		if remaining < timeoutDuration {
+			cancel = func() {}
 		} else {
-			// Our timeout is shorter, create new context with our timeout
 			ctx, cancel = common.WithTimeout(ctx, timeoutDuration)
 		}
 	} else {
-		// No existing deadline, use our timeout
 		ctx, cancel = common.WithTimeout(ctx, timeoutDuration)
 	}
 	defer cancel()
@@ -318,27 +305,21 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 	case response := <-request.respCh:
 		return response, nil
 	case <-ctx.Done():
-		// Track this as a recently timed-out request
 		c.timeoutsMu.Lock()
 		c.recentTimeouts[id] = time.Now()
-		// Clean up old timeout entries (older than 30 seconds)
-		for reqID, timeoutTime := range c.recentTimeouts {
-			if time.Since(timeoutTime) > 30*time.Second {
+		for reqID, t := range c.recentTimeouts {
+			if time.Since(t) > 30*time.Second {
 				delete(c.recentTimeouts, reqID)
 			}
 		}
 		c.timeoutsMu.Unlock()
-
-		// Send cancellation request to LSP server
 		cancelParams := map[string]interface{}{"id": idVal}
 		if cancelErr := c.SendNotification(context.Background(), "$/cancelRequest", cancelParams); cancelErr != nil {
 			common.LSPLogger.Debug("Failed to send cancel request for id=%s: %v", id, cancelErr)
 		}
-
 		common.LSPLogger.Error("LSP request timeout: method=%s, id=%s, timeout=%v", method, id, timeoutDuration)
 		return nil, fmt.Errorf("request timeout after %v for method %s", timeoutDuration, method)
 	case <-processInfo.StopCh:
-		// During shutdown, this is expected behavior
 		if method == "shutdown" || processInfo.IntentionalStop {
 			common.LSPLogger.Debug("LSP client stopped during request: method=%s, id=%s", method, id)
 		} else {
@@ -348,83 +329,66 @@ func (c *StdioClient) SendRequest(ctx context.Context, method string, params int
 	}
 }
 
-// SendNotification sends a JSON-RPC notification (no response expected)
-func (c *StdioClient) SendNotification(ctx context.Context, method string, params interface{}) error {
+func (c *SocketClient) SendNotification(ctx context.Context, method string, params interface{}) error {
 	c.mu.RLock()
 	if !c.active && method != "initialized" {
 		c.mu.RUnlock()
 		return fmt.Errorf("client not active")
 	}
 	c.mu.RUnlock()
-
 	msg := protocol.CreateNotification(method, params)
-
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
-	return c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, msg)
+	return c.jsonrpcProtocol.WriteMessage(c.conn, msg)
 }
 
-// IsActive returns true if the client is active
-func (c *StdioClient) IsActive() bool {
+func (c *SocketClient) IsActive() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return c.active
 }
 
-// Supports checks if the LSP server supports a specific method
-func (c *StdioClient) Supports(method string) bool {
+func (c *SocketClient) Supports(method string) bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-
 	return c.capDetector.SupportsMethod(c.capabilities, method)
 }
 
-// SendShutdownRequest sends a shutdown request to the LSP server (ShutdownSender interface)
-func (c *StdioClient) SendShutdownRequest(ctx context.Context) error {
+func (c *SocketClient) SendShutdownRequest(ctx context.Context) error {
 	_, err := c.SendRequest(ctx, "shutdown", nil)
 	return err
 }
 
-// SendExitNotification sends an exit notification to the LSP server (ShutdownSender interface)
-func (c *StdioClient) SendExitNotification(ctx context.Context) error {
+func (c *SocketClient) SendExitNotification(ctx context.Context) error {
 	return c.SendNotification(ctx, "exit", nil)
 }
 
-// HandleRequest implements the MessageHandler interface for server-initiated requests
-func (c *StdioClient) HandleRequest(method string, id interface{}, params interface{}) error {
-
-	// Handle specific server requests
+func (c *SocketClient) HandleRequest(method string, id interface{}, params interface{}) error {
 	if method == "workspace/configuration" {
-		// Respond with empty configuration
 		response := protocol.CreateResponse(id, []interface{}{map[string]interface{}{}}, nil)
 		c.writeMu.Lock()
 		defer c.writeMu.Unlock()
-		return c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, response)
+		return c.jsonrpcProtocol.WriteMessage(c.conn, response)
 	} else {
-		// For other server requests, send explicit null result (result: null)
 		var nullResult json.RawMessage = json.RawMessage("null")
 		response := protocol.CreateResponse(id, nullResult, nil)
 		c.writeMu.Lock()
 		defer c.writeMu.Unlock()
-		return c.jsonrpcProtocol.WriteMessage(c.processInfo.Stdin, response)
+		return c.jsonrpcProtocol.WriteMessage(c.conn, response)
 	}
 }
 
-// HandleResponse implements the MessageHandler interface for client responses
-func (c *StdioClient) HandleResponse(id interface{}, result json.RawMessage, err *protocol.RPCError) error {
+func (c *SocketClient) HandleResponse(id interface{}, result json.RawMessage, err *protocol.RPCError) error {
 	idStr := fmt.Sprintf("%v", id)
-
 	c.mu.RLock()
 	req, exists := c.requests[idStr]
 	processInfo := c.processInfo
 	c.mu.RUnlock()
-
 	if exists {
 		var responseData json.RawMessage
 		if err != nil {
 			errorData, _ := json.Marshal(err)
 			responseData = errorData
-			// Suppress expected errors during indexing operations
 			if !protocol.IsExpectedSuppressibleError(err) {
 				sanitizedError := common.SanitizeErrorForLogging(err)
 				common.LSPLogger.Warn("LSP response contains error: id=%s, error=%s", idStr, sanitizedError)
@@ -432,40 +396,29 @@ func (c *StdioClient) HandleResponse(id interface{}, result json.RawMessage, err
 		} else {
 			responseData = result
 		}
-
 		select {
 		case req.respCh <- responseData:
-			// Response delivered successfully
 		case <-req.done:
 			common.LSPLogger.Warn("Request already completed when trying to deliver response: id=%s", idStr)
 		case <-processInfo.StopCh:
 			common.LSPLogger.Warn("Client stopped when trying to deliver response: id=%s", idStr)
 		}
 	} else {
-		// Check if this was a recently timed-out request
 		c.timeoutsMu.RLock()
 		timeoutTime, wasTimeout := c.recentTimeouts[idStr]
 		c.timeoutsMu.RUnlock()
-
 		if wasTimeout && time.Since(timeoutTime) < 30*time.Second {
 			common.LSPLogger.Debug("Received late response for previously timed-out request: id=%s (timed out %v ago)", idStr, time.Since(timeoutTime))
 		} else {
 			common.LSPLogger.Warn("No matching request found for response: id=%s", idStr)
 		}
 	}
-
 	return nil
 }
 
-// HandleNotification implements the MessageHandler interface for server-initiated notifications
-func (c *StdioClient) HandleNotification(method string, params interface{}) error {
-	// Log and safely ignore notifications without stalling message processing
-	return nil
-}
+func (c *SocketClient) HandleNotification(method string, params interface{}) error { return nil }
 
-// initializeLSP sends the initialize request to start LSP communication
-func (c *StdioClient) initializeLSP(ctx context.Context) error {
-	// Use configured working directory if specified, otherwise use current directory
+func (c *SocketClient) initializeLSP(ctx context.Context) error {
 	var wd string
 	if c.config.WorkingDir != "" {
 		wd = c.config.WorkingDir
@@ -474,49 +427,27 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 		wd, err = os.Getwd()
 		if err != nil {
 			if runtime.GOOS == "windows" {
-				wd = "C:\\temp"
+				wd = os.TempDir()
 			} else {
 				wd = "/tmp"
 			}
 		}
 	}
 
-	// Ensure path is absolute and clean
-	wd, _ = filepath.Abs(wd)
-	if runtime.GOOS == "windows" {
-		wd = utils.URIToFilePathCached(utils.FilePathToURI(wd))
-	}
-
-	// Get initialization options
-	initOptions := c.getInitializationOptions()
-
-	// Log initialization options for rust to debug cargo issues
-	if c.language == "rust" {
-		if optionsJSON, err := json.Marshal(initOptions); err == nil {
-			common.LSPLogger.Info("rust-analyzer initialization options: %s", string(optionsJSON))
-		}
-	}
-
-	// Send initialize request according to LSP specification
 	initParams := map[string]interface{}{
 		"processId": os.Getpid(),
-		"clientInfo": map[string]interface{}{
-			"name":    "lsp-gateway",
-			"version": "1.0.0",
+		"rootUri":   nil,
+		"rootPath":  nil,
+		"workspaceFolders": []interface{}{
+			map[string]interface{}{"uri": "file://" + wd, "name": filepathBase(wd)},
 		},
-		"rootUri":  utils.FilePathToURI(wd),
-		"rootPath": wd,
-		"workspaceFolders": []map[string]interface{}{
-			{
-				"uri":  utils.FilePathToURI(wd),
-				"name": filepath.Base(wd),
-			},
-		},
-		"initializationOptions": initOptions,
 		"capabilities": map[string]interface{}{
 			"workspace": map[string]interface{}{
-				"applyEdit":              true,
-				"workspaceEdit":          map[string]interface{}{"documentChanges": true},
+				"applyEdit": true,
+				"workspaceEdit": map[string]interface{}{
+					"documentChanges":    true,
+					"resourceOperations": []string{"create", "rename", "delete"},
+				},
 				"didChangeConfiguration": map[string]interface{}{"dynamicRegistration": true},
 				"didChangeWatchedFiles":  map[string]interface{}{"dynamicRegistration": true},
 				"symbol":                 map[string]interface{}{"dynamicRegistration": true},
@@ -602,43 +533,38 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 		"trace": "off",
 	}
 
+	if opts := c.getInitializationOptions(); opts != nil {
+		initParams["initializationOptions"] = opts
+	}
+
 	result, err := c.SendRequest(ctx, types.MethodInitialize, initParams)
 	if err != nil {
 		return err
 	}
 
-	// Parse server capabilities from initialize response
 	if err := c.parseServerCapabilities(result); err != nil {
 		common.LSPLogger.Warn("Failed to parse server capabilities for %s: %v", c.config.Command, err)
-		// Continue anyway - capability detection failure shouldn't prevent initialization
 	}
 
-	// Log capabilities for rust-analyzer
 	if c.language == "rust" {
 		common.LSPLogger.Info("rust-analyzer capabilities: %s", string(result))
 	}
 
-	// Send initialized notification
 	if err := c.SendNotification(ctx, "initialized", map[string]interface{}{}); err != nil {
 		common.LSPLogger.Error("Failed to send initialized notification for %s: %v", c.language, err)
 		return err
 	}
 
-	// Special handling for pyright/basedpyright - send workspace configuration after initialization
-	// Also support uvx execution where command is "uvx" and first arg is the langserver
 	isPyright := c.config.Command == "pyright-langserver" || (c.config.Command == "uvx" && len(c.config.Args) > 0 && c.config.Args[0] == "pyright-langserver")
 	isBasedPyright := c.config.Command == "basedpyright-langserver" || (c.config.Command == "uvx" && len(c.config.Args) > 0 && c.config.Args[0] == "basedpyright-langserver")
 	if isPyright || isBasedPyright {
-		// Mark client as active before sending configuration
 		c.active = true
-
 		serverName := "pyright"
 		configPrefix := "python"
 		if isBasedPyright {
 			serverName = "basedpyright"
 			configPrefix = "basedpyright"
 		}
-
 		common.LSPLogger.Debug("Sending workspace/didChangeConfiguration for %s", serverName)
 		configParams := map[string]interface{}{
 			"settings": map[string]interface{}{
@@ -646,7 +572,7 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 					"analysis": map[string]interface{}{
 						"autoImportCompletions":  true,
 						"autoSearchPaths":        true,
-						"diagnosticMode":         "openFilesOnly", // Start with openFilesOnly to avoid timeout
+						"diagnosticMode":         "openFilesOnly",
 						"typeCheckingMode":       "basic",
 						"useLibraryCodeForTypes": true,
 					},
@@ -655,34 +581,23 @@ func (c *StdioClient) initializeLSP(ctx context.Context) error {
 		}
 		if err := c.SendNotification(ctx, "workspace/didChangeConfiguration", configParams); err != nil {
 			common.LSPLogger.Warn("Failed to send workspace/didChangeConfiguration for %s: %v", serverName, err)
-			// Don't fail initialization even if configuration fails
 		}
-
-		// Reset active state - it will be set properly later
 		c.active = false
 	}
-
 	return nil
 }
 
-// getInitializationOptions returns language-specific initialization options
-func (c *StdioClient) getInitializationOptions() map[string]interface{} {
-	// Use initialization options from config if provided
+func (c *SocketClient) getInitializationOptions() map[string]interface{} {
 	if c.initializationOptions != nil {
 		switch opts := c.initializationOptions.(type) {
 		case map[string]interface{}:
-			// Recursively convert any nested map[interface{}]interface{} values
 			return convertToStringMap(opts)
 		case map[interface{}]interface{}:
-			// Convert map[interface{}]interface{} to map[string]interface{} (YAML unmarshaling)
 			return convertInterfaceMap(opts)
 		}
 	}
-
-	// Fall back to defaults from language registry
 	langInfo, exists := registry.GetLanguageByName(c.language)
 	if !exists {
-		common.LSPLogger.Warn("Unknown language %s, using default initialization options", c.language)
 		return map[string]interface{}{
 			"usePlaceholders":    false,
 			"completeUnimported": true,
@@ -691,104 +606,62 @@ func (c *StdioClient) getInitializationOptions() map[string]interface{} {
 	return langInfo.GetInitOptions()
 }
 
-// convertInterfaceMap recursively converts map[interface{}]interface{} to map[string]interface{}
-func convertInterfaceMap(m map[interface{}]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-	for k, v := range m {
-		if key, ok := k.(string); ok {
-			result[key] = convertValue(v)
-		}
-	}
-	return result
-}
-
-// convertToStringMap recursively ensures all nested maps are map[string]interface{}
-func convertToStringMap(m map[string]interface{}) map[string]interface{} {
-	result := make(map[string]interface{})
-	for k, v := range m {
-		result[k] = convertValue(v)
-	}
-	return result
-}
-
-// convertValue recursively converts values to ensure proper types
-func convertValue(v interface{}) interface{} {
-	switch val := v.(type) {
-	case map[interface{}]interface{}:
-		return convertInterfaceMap(val)
-	case map[string]interface{}:
-		return convertToStringMap(val)
-	case []interface{}:
-		// Convert slices recursively
-		result := make([]interface{}, len(val))
-		for i, item := range val {
-			result[i] = convertValue(item)
-		}
-		return result
-	default:
-		return v
-	}
-}
-
-// parseServerCapabilities parses the server capabilities from initialize response
-func (c *StdioClient) parseServerCapabilities(result json.RawMessage) error {
+func (c *SocketClient) parseServerCapabilities(result json.RawMessage) error {
 	caps, err := c.capDetector.ParseCapabilities(result, c.config.Command)
 	if err != nil {
 		return err
 	}
-
 	c.mu.Lock()
 	c.capabilities = caps
 	c.mu.Unlock()
-
 	return nil
 }
 
-// logStderr logs stderr output from the LSP server with intelligent error translation
-func (c *StdioClient) logStderr() {
+func (c *SocketClient) logStderr() {
 	c.mu.RLock()
 	processInfo := c.processInfo
 	c.mu.RUnlock()
-
 	if processInfo == nil || processInfo.Stderr == nil {
 		return
 	}
-
 	scanner := bufio.NewScanner(processInfo.Stderr)
 	var errorContext []string
-
 	for scanner.Scan() {
 		select {
 		case <-processInfo.StopCh:
 			return
 		default:
 			line := scanner.Text()
-
-			// Collect error context for better diagnosis
 			if strings.Contains(line, "Traceback") {
 				errorContext = []string{line}
 				continue
 			}
-
 			if len(errorContext) > 0 && (strings.HasPrefix(line, "  ") || strings.HasPrefix(line, "\t")) {
 				errorContext = append(errorContext, line)
 				continue
 			}
-
-			// Process specific error patterns with user-friendly messages
 			if c.errorTranslator.TranslateAndLogError(c.config.Command, line, errorContext) {
-				errorContext = nil // Reset context after processing
+				errorContext = nil
 				continue
 			}
-
-			// Log other errors normally
 			if strings.Contains(line, "error") || strings.Contains(line, "Error") ||
 				strings.Contains(line, "fatal") || strings.Contains(line, "Fatal") ||
 				strings.Contains(line, "Exception") {
 				common.LSPLogger.Error("LSP %s stderr ERROR: %s", c.config.Command, line)
 			}
-
-			errorContext = nil // Reset context if line doesn't match error patterns
+			errorContext = nil
 		}
 	}
+}
+
+func filepathBase(p string) string {
+	i := strings.LastIndex(p, "/")
+	j := strings.LastIndex(p, "\\")
+	if j > i {
+		i = j
+	}
+	if i >= 0 && i+1 < len(p) {
+		return p[i+1:]
+	}
+	return p
 }

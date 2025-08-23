@@ -212,6 +212,21 @@ var languageRegistry = map[string]LanguageInfo{
 		},
 		ErrorPatterns: []ErrorPattern{},
 	},
+	"kotlin": {
+		Name:              "kotlin",
+		Extensions:        []string{".kt", ".kts"},
+		DefaultCommand:    "kotlin-lsp",
+		DefaultArgs:       []string{}, // JetBrains kotlin-lsp defaults to socket mode on port 9999 when no args provided
+		InstallerRequired: true,
+		InitializationOptions: map[string]interface{}{
+			"usePlaceholders":    false,
+			"completeUnimported": true,
+		},
+		RequestTimeout:    30 * time.Second,
+		InitializeTimeout: 150 * time.Second, // Increased for Windows CI stability
+		EnvironmentVars:   map[string]string{},
+		ErrorPatterns:     []ErrorPattern{},
+	},
 }
 
 // Extension to language mapping for efficient lookups
@@ -228,6 +243,8 @@ var extensionToLanguage = map[string]string{
 	".java": "java",
 	".rs":   "rust",
 	".cs":   "csharp",
+	".kt":   "kotlin",
+	".kts":  "kotlin",
 }
 
 // Allowed commands for security validation
@@ -283,6 +300,8 @@ var allowedCommands = []string{
 	"pipx.exe",
 	"uv",
 	"uv.exe",
+	"uvx",
+	"uvx.exe",
 	"curl",
 	"curl.exe",
 	"wget",
@@ -294,6 +313,15 @@ var allowedCommands = []string{
 	"apt-get",
 	"brew",
 	"echo",
+	"kotlin-lsp",
+	"kotlin-lsp.sh",
+	"kotlin-lsp.bat",
+	"kotlin-lsp.cmd",
+	"kotlin-lsp.exe",
+	"kotlin-language-server",
+	"kotlin-language-server.bat",
+	"kotlin-language-server.cmd",
+	"kotlin-language-server.exe",
 }
 
 // GetSupportedLanguages returns all supported language information
