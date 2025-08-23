@@ -245,10 +245,14 @@ func GetDefaultConfigPath() string {
 // GetDefaultConfig returns a default configuration for common LSP servers
 // Cache is enabled by default with standard production settings
 func GetDefaultConfig() *Config {
-	// Temporarily use JetBrains kotlin-lsp on all platforms for socket mode testing
-	// TODO: Revert Windows to kotlin-language-server after testing
+	// Platform-specific Kotlin LSP configuration
 	kotlinCommand := "kotlin-lsp"
-	kotlinArgs := []string{} // JetBrains kotlin-lsp defaults to socket mode on port 9999 when no args provided
+	kotlinArgs := []string{} // JetBrains kotlin-lsp defaults to socket mode on port 9999
+	
+	if runtime.GOOS == "windows" {
+		kotlinCommand = "kotlin-language-server" // fwcd version
+		kotlinArgs = []string{} // fwcd defaults to stdio mode
+	}
 
 	return &Config{
 		Servers: map[string]*ServerConfig{

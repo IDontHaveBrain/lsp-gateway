@@ -295,6 +295,41 @@ application {
 			t.Error("Expected Kotlin to have higher priority than Java when build.gradle.kts is present")
 		}
 	})
+	// Test 5: Kotlin with Gradle Groovy DSL (build.gradle)
+	t.Run("KotlinGradleGroovy", func(t *testing.T) {
+		testDir := tempDir + "/kotlin-gradle-groovy"
+		if err := os.MkdirAll(testDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		gradleContent := `
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '1.9.0'
+}
+repositories {
+    mavenCentral()
+}
+dependencies {
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib'
+}
+`
+		if err := os.WriteFile(testDir+"/build.gradle", []byte(gradleContent), 0644); err != nil {
+			t.Fatal(err)
+		}
+		langs, err := DetectLanguages(testDir)
+		if err != nil {
+			t.Fatalf("Error detecting languages: %v", err)
+		}
+		foundKotlin := false
+		for _, lang := range langs {
+			if lang == "kotlin" {
+				foundKotlin = true
+				break
+			}
+		}
+		if !foundKotlin {
+			t.Error("Expected to detect Kotlin from build.gradle with Kotlin plugin")
+		}
+	})
 }
 
 // TestKotlinFileExtensions tests that Kotlin file extensions are properly recognized

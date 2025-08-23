@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -19,6 +20,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.lsp.dev/protocol"
 )
+
+func getKotlinCommand() string {
+	if runtime.GOOS == "windows" {
+		return "kotlin-language-server"
+	}
+	return "kotlin-lsp"
+}
 
 func TestCrossLanguageDocumentCoordination(t *testing.T) {
 	if testing.Short() {
@@ -295,9 +303,7 @@ suspend fun main() {
 				Args:    []string{},
 			},
 			"kotlin": &config.ServerConfig{
-				// Temporarily use JetBrains kotlin-lsp for socket mode testing
-				// TODO: Revert Windows to kotlin-language-server after testing
-				Command: "kotlin-lsp",
+				Command: getKotlinCommand(),
 				Args:    []string{},
 			},
 		},

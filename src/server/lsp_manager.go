@@ -783,9 +783,8 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 
 	argsToUse := cfg.Args
 
-	// Kotlin: use socket mode for JetBrains kotlin-lsp on all platforms (temporarily including Windows for testing)
-	// TODO: Revert Windows to stdio mode after testing
-	if language == "kotlin" {
+	// Kotlin: use socket mode for JetBrains kotlin-lsp on Linux/macOS, stdio for fwcd on Windows
+	if language == "kotlin" && runtime.GOOS != "windows" {
 		// JetBrains kotlin-lsp runs in socket mode on port 9999 by default (no arguments)
 		addr := "127.0.0.1:9999"
 
@@ -952,13 +951,27 @@ func (m *LSPManager) detectPrimaryLanguage(workingDir string) string {
 		{[]string{"package.json", "tsconfig.json"}, "typescript"},
 		{[]string{"package.json"}, "javascript"},
 		{[]string{"pyproject.toml", "setup.py", "requirements.txt"}, "python"},
-		{[]string{"pom.xml", "build.gradle", "build.gradle.kts"}, "java"},
+		{[]string{"pom.xml"}, "java"},
+		{[]string{"build.gradle.kts"}, "kotlin"},
+		{[]string{"build.gradle"}, "java"},
 		{[]string{"Cargo.toml", "Cargo.lock"}, "rust"},
 	}
 
 	for _, marker := range projectMarkers {
 		for _, file := range marker.files {
-			if common.FileExists(filepath.Join(workingDir, file)) {
+			full := filepath.Join(workingDir, file)
+			if common.FileExists(full) {
+				if file == "build.gradle" {
+					if data, err := os.ReadFile(full); err == nil {
+						lc := strings.ToLower(string(data))
+						if strings.Contains(lc, "org.jetbrains.kotlin") ||
+							strings.Contains(lc, "apply plugin: \"kotlin") ||
+							strings.Contains(lc, "apply plugin: 'kotlin") ||
+							strings.Contains(lc, "kotlin-stdlib") {
+							return "kotlin"
+						}
+					}
+				}
 				return marker.language
 			}
 		}

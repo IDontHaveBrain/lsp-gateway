@@ -1,6 +1,8 @@
 package testconfig
 
 import (
+	"runtime"
+	
 	"lsp-gateway/src/config"
 	"lsp-gateway/src/internal/registry"
 )
@@ -55,10 +57,13 @@ func NewRustServerConfig() *config.ServerConfig {
 
 // NewKotlinServerConfig returns a standard Kotlin server configuration for testing
 func NewKotlinServerConfig() *config.ServerConfig {
-	// Temporarily use JetBrains kotlin-lsp on all platforms for socket mode testing
-	// TODO: Revert Windows to kotlin-language-server after testing
+	// Use platform-specific command
+	command := "kotlin-lsp"
+	if runtime.GOOS == "windows" {
+		command = "kotlin-language-server"
+	}
 	return &config.ServerConfig{
-		Command: "kotlin-lsp",
+		Command: command,
 		Args:    []string{},
 	}
 }

@@ -126,20 +126,13 @@ func (c *SocketClient) Start(ctx context.Context) error {
 
 	go c.logStderr()
 
-	// Kotlin needs time to initialize before opening socket on all platforms
-	// TODO: Investigate if this delay can be reduced or made more dynamic
-	if c.language == "kotlin" {
+	// Kotlin needs time to initialize before opening socket on Linux/macOS
+	// Windows uses stdio mode with fwcd/kotlin-language-server so doesn't need this
+	if c.language == "kotlin" && runtime.GOOS != "windows" {
 		initialDelay := 3 * time.Second
-		if runtime.GOOS == "windows" {
-			initialDelay = 5 * time.Second
-		}
 		if common.IsCI() {
 			// Increase delay on CI to give Kotlin more time to bind the socket
-			if runtime.GOOS == "windows" {
-				initialDelay = 25 * time.Second
-			} else {
-				initialDelay = 10 * time.Second
-			}
+			initialDelay = 10 * time.Second
 		}
 		common.LSPLogger.Info("Waiting %v for Kotlin LSP to initialize before connecting...", initialDelay)
 		time.Sleep(initialDelay)

@@ -125,7 +125,12 @@ func analyzeFile(filePath, workingDir string, detected map[string]*DetectedLangu
 	case "pom.xml":
 		addDetection(detected, "java", 30, "pom.xml file")
 	case "build.gradle":
-		addDetection(detected, "java", 25, "Gradle build file")
+		if hasKotlinIndicatorsInGradle(filePath, workingDir) {
+			addDetection(detected, "kotlin", 25, "Gradle with Kotlin")
+			addDetection(detected, "java", 20, "Gradle build file")
+		} else {
+			addDetection(detected, "java", 25, "Gradle build file")
+		}
 	case "build.gradle.kts":
 		addDetection(detected, "kotlin", 25, "Kotlin Gradle DSL")
 		addDetection(detected, "java", 20, "Gradle build file") // Lower priority for Java
@@ -272,6 +277,40 @@ func hasJavaScriptIndicators(packageJsonPath string) bool {
 		}
 	}
 
+	return false
+}
+func hasKotlinIndicatorsInGradle(gradlePath, workingDir string) bool {
+	content, err := os.ReadFile(gradlePath)
+	if err == nil {
+		lc := strings.ToLower(string(content))
+		needles := []string{
+			"kotlin(\"",
+			"id(\"org.jetbrains.kotlin",
+			"id 'org.jetbrains.kotlin",
+			"apply plugin: \"kotlin",
+			"apply plugin: 'kotlin",
+			"org.jetbrains.kotlin:kotlin-gradle-plugin",
+			"org.jetbrains.kotlin:kotlin-stdlib",
+			"kotlin-stdlib",
+		}
+		for _, n := range needles {
+			if strings.Contains(lc, strings.ToLower(n)) {
+				return true
+			}
+		}
+	}
+	baseDir := filepath.Dir(gradlePath)
+	kotlinDirs := []string{
+		filepath.Join(baseDir, "src", "main", "kotlin"),
+		filepath.Join(baseDir, "src", "test", "kotlin"),
+		filepath.Join(workingDir, "src", "main", "kotlin"),
+		filepath.Join(workingDir, "src", "test", "kotlin"),
+	}
+	for _, d := range kotlinDirs {
+		if st, err := os.Stat(d); err == nil && st.IsDir() {
+			return true
+		}
+	}
 	return false
 }
 
