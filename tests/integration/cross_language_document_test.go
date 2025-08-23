@@ -295,7 +295,9 @@ suspend fun main() {
 				Args:    []string{},
 			},
 			"kotlin": &config.ServerConfig{
-				Command: "kotlin-language-server",
+				// Temporarily use JetBrains kotlin-lsp for socket mode testing
+				// TODO: Revert Windows to kotlin-language-server after testing
+				Command: "kotlin-lsp",
 				Args:    []string{},
 			},
 		},

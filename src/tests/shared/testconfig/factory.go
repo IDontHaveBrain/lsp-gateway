@@ -55,8 +55,10 @@ func NewRustServerConfig() *config.ServerConfig {
 
 // NewKotlinServerConfig returns a standard Kotlin server configuration for testing
 func NewKotlinServerConfig() *config.ServerConfig {
+	// Temporarily use JetBrains kotlin-lsp on all platforms for socket mode testing
+	// TODO: Revert Windows to kotlin-language-server after testing
 	return &config.ServerConfig{
-		Command: "kotlin-language-server",
+		Command: "kotlin-lsp",
 		Args:    []string{},
 	}
 }
