@@ -62,7 +62,7 @@ func (pm *LSPProcessManager) StartProcess(config types.ClientConfig, language st
 			command = "cmd.exe"
 		}
 	}
-	
+
 	// Create command
 	cmd := exec.Command(command, args...)
 

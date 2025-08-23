@@ -155,7 +155,7 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 		},
 		"kotlin": map[string]interface{}{
 			"command": "kotlin-lsp",
-			"args":    []string{"--stdio"},
+			"args":    []string{},
 		},
 	}
 
@@ -295,8 +295,8 @@ func (mgr *SharedServerManager) waitForServerReady(t *testing.T) error {
 	t.Logf("⏳ Waiting for shared server to be ready at %s...", healthURL)
 
 	// Allow more time for heavier language servers (e.g., Java/Kotlin on large repos)
-	// Use a conservative 120s to avoid premature timeouts during initialization.
-	maxRetries := 120
+	// Increase to 180s to accommodate socket-mode startup and CI variance.
+	maxRetries := 180
 	for i := 0; i < maxRetries; i++ {
 		select {
 		case <-mgr.ctx.Done():
