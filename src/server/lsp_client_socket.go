@@ -131,7 +131,7 @@ func (c *SocketClient) Start(ctx context.Context) error {
 		initialDelay := 5 * time.Second
 		if common.IsCI() {
 			// Increase delay on Windows CI to give Kotlin more time to bind the socket
-			initialDelay = 20 * time.Second
+			initialDelay = 25 * time.Second
 		}
 		common.LSPLogger.Info("Waiting %v for Kotlin LSP to initialize before connecting...", initialDelay)
 		time.Sleep(initialDelay)

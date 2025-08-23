@@ -223,7 +223,7 @@ var languageRegistry = map[string]LanguageInfo{
 			"completeUnimported": true,
 		},
 		RequestTimeout:    30 * time.Second,
-		InitializeTimeout: 120 * time.Second,
+		InitializeTimeout: 150 * time.Second, // Increased for Windows CI stability
 		EnvironmentVars:   map[string]string{},
 		ErrorPatterns:     []ErrorPattern{},
 	},
