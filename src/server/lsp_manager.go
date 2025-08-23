@@ -732,7 +732,7 @@ func (m *LSPManager) resolveCommandPath(language, command string) string {
 	}
 
 	// Check for other language custom installations
-	if command == "gopls" || command == "pylsp" || command == "jedi-language-server" || command == "pyright-langserver" || command == "basedpyright-langserver" || command == "typescript-language-server" || command == "omnisharp" || command == "OmniSharp" || command == "kotlin-lsp" {
+	if command == "gopls" || command == "pylsp" || command == "jedi-language-server" || command == "pyright-langserver" || command == "basedpyright-langserver" || command == "typescript-language-server" || command == "omnisharp" || command == "OmniSharp" || command == "kotlin-lsp" || command == "kotlin-language-server" {
 		// Map of commands to their languages for path construction
 		languageMap := map[string]string{
 			"gopls":                      "go",
@@ -744,6 +744,7 @@ func (m *LSPManager) resolveCommandPath(language, command string) string {
 			"omnisharp":                  "csharp",
 			"OmniSharp":                  "csharp",
 			"kotlin-lsp":                 "kotlin",
+			"kotlin-language-server":     "kotlin",
 		}
 		if lang, exists := languageMap[command]; exists {
 			customPath := common.GetLSPToolPath(lang, command)
@@ -761,6 +762,17 @@ func (m *LSPManager) resolveCommandPath(language, command string) string {
 					} else {
 						// Fall back to .cmd if no .exe present
 						customPath = customPath + ".cmd"
+					}
+				} else if command == "kotlin-language-server" {
+					// fwcd provides .bat on Windows; prefer .bat then .exe if present
+					batPath := common.GetLSPToolPath("kotlin", "kotlin-language-server.bat")
+					if common.FileExists(batPath) {
+						customPath = batPath
+					} else {
+						exePath := common.GetLSPToolPath("kotlin", "kotlin-language-server.exe")
+						if common.FileExists(exePath) {
+							customPath = exePath
+						}
 					}
 				}
 			}

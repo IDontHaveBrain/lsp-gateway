@@ -477,7 +477,8 @@ func checkInstalledLSPServer(language string) bool {
 	case "kotlin":
 		home, _ := os.UserHomeDir()
 		installRoot := filepath.Join(home, ".lsp-gateway", "tools", "kotlin")
-		if common.HasAnyExecutable(installRoot, []string{"kotlin-lsp"}) {
+		// Support both JetBrains (kotlin-lsp) and fwcd (kotlin-language-server)
+		if common.HasAnyExecutable(installRoot, []string{"kotlin-lsp", "kotlin-language-server"}) {
 			return true
 		}
 	}
