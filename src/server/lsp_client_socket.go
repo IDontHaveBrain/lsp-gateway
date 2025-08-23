@@ -130,22 +130,21 @@ func (c *SocketClient) Start(ctx context.Context) error {
 	if c.language == "kotlin" && runtime.GOOS == "windows" {
 		initialDelay := 5 * time.Second
 		if common.IsCI() {
-			initialDelay = 10 * time.Second
+			// Increase delay on Windows CI to give Kotlin more time to bind the socket
+			initialDelay = 20 * time.Second
 		}
 		common.LSPLogger.Info("Waiting %v for Kotlin LSP to initialize before connecting...", initialDelay)
 		time.Sleep(initialDelay)
 	}
 
-	// Kotlin needs more time to start, similar to Java
-	timeout := constants.ProcessStartTimeout
-	if c.language == "kotlin" || c.language == "java" {
-		timeout = 90 * time.Second
-		if common.IsCI() {
-			if runtime.GOOS == "windows" {
-				timeout = time.Duration(float64(timeout) * 3.0) // Windows CI: 3x multiplier for JVM languages
-			} else {
-				timeout = time.Duration(float64(timeout) * 1.2) // Regular CI: 1.2x multiplier
-			}
+	// Use the proper initialization timeout for socket connection
+	// This ensures the socket connection timeout doesn't exceed the overall initialization timeout
+	timeout := constants.GetInitializeTimeout(c.language)
+	// For non-JVM languages, use a shorter timeout for connection establishment
+	if c.language != "kotlin" && c.language != "java" {
+		// Use the smaller of ProcessStartTimeout or InitializeTimeout
+		if constants.ProcessStartTimeout < timeout {
+			timeout = constants.ProcessStartTimeout
 		}
 	}
 
@@ -155,8 +154,11 @@ func (c *SocketClient) Start(ctx context.Context) error {
 	var conn net.Conn
 	var lastErr error
 	retryInterval := 200 * time.Millisecond
-	if c.language == "kotlin" {
-		retryInterval = 500 * time.Millisecond // Slower retry for Kotlin
+	if c.language == "kotlin" && runtime.GOOS == "windows" && common.IsCI() {
+		// More frequent retries on Windows CI to catch when the server is ready
+		retryInterval = 300 * time.Millisecond
+	} else if c.language == "kotlin" {
+		retryInterval = 500 * time.Millisecond // Slower retry for Kotlin in other environments
 	}
 
 	for {
