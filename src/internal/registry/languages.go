@@ -216,7 +216,7 @@ var languageRegistry = map[string]LanguageInfo{
 		Name:              "kotlin",
 		Extensions:        []string{".kt", ".kts"},
 		DefaultCommand:    "kotlin-lsp",
-		DefaultArgs:       []string{"--stdio"}, // Default to stdio mode for JetBrains kotlin-lsp
+		DefaultArgs:       []string{}, // JetBrains kotlin-lsp defaults to socket mode on port 9999 when no args provided
 		InstallerRequired: true,
 		InitializationOptions: map[string]interface{}{
 			"usePlaceholders":    false,

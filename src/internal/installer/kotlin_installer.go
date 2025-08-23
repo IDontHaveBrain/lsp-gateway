@@ -24,14 +24,10 @@ type KotlinInstaller struct {
 
 // NewKotlinInstaller creates a new Kotlin installer
 func NewKotlinInstaller(platform PlatformInfo) *KotlinInstaller {
-	// Use kotlin-language-server on Windows, kotlin-lsp on other platforms
+	// Temporarily use JetBrains kotlin-lsp on all platforms for socket mode testing
+	// TODO: Revert Windows to kotlin-language-server after testing
 	command := "kotlin-lsp"
-	args := []string{"--stdio"} // JetBrains kotlin-lsp needs --stdio flag for stdio mode
-	
-	if runtime.GOOS == "windows" {
-		command = "kotlin-language-server"
-		args = []string{} // fwcd kotlin-language-server defaults to stdio mode
-	}
+	args := []string{} // JetBrains kotlin-lsp defaults to socket mode on port 9999 when no args provided
 	
 	base := CreateSimpleInstaller("kotlin", command, args, platform)
 	return &KotlinInstaller{BaseInstaller: base}
@@ -86,11 +82,9 @@ func (k *KotlinInstaller) tryBrewInstall(ctx context.Context) error {
 
 // installFromGitHub downloads and installs from GitHub releases
 func (k *KotlinInstaller) installFromGitHub(ctx context.Context, options InstallOptions) error {
-	if runtime.GOOS == "windows" {
-		common.CLILogger.Info("Installing kotlin-language-server from fwcd/kotlin-language-server GitHub releases...")
-	} else {
-		common.CLILogger.Info("Installing kotlin-lsp from JetBrains GitHub releases...")
-	}
+	// Temporarily install JetBrains kotlin-lsp on all platforms for socket mode testing
+	// TODO: Revert Windows to fwcd/kotlin-language-server after testing
+	common.CLILogger.Info("Installing kotlin-lsp from JetBrains GitHub releases...")
 
 	installPath := k.GetInstallPath()
 	if options.InstallPath != "" {
@@ -136,14 +130,9 @@ func (k *KotlinInstaller) installFromGitHub(ctx context.Context, options Install
 
 // getGitHubReleaseURL gets the download URL for the latest release
 func (k *KotlinInstaller) getGitHubReleaseURL(ctx context.Context) (string, error) {
-	var apiURL string
-
-	// Use fwcd/kotlin-language-server on Windows, JetBrains version on other platforms
-	if runtime.GOOS == "windows" {
-		apiURL = "https://api.github.com/repos/fwcd/kotlin-language-server/releases/latest"
-	} else {
-		apiURL = "https://api.github.com/repos/Kotlin/kotlin-lsp/releases/latest"
-	}
+	// Temporarily use JetBrains kotlin-lsp on all platforms for socket mode testing
+	// TODO: Revert Windows to fwcd/kotlin-language-server after testing
+	apiURL := "https://api.github.com/repos/Kotlin/kotlin-lsp/releases/latest"
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, apiURL, nil)
 	if err != nil {
@@ -164,75 +153,53 @@ func (k *KotlinInstaller) getGitHubReleaseURL(ctx context.Context) (string, erro
 		return "", fmt.Errorf("failed to fetch releases: %s", resp.Status)
 	}
 
-	// Handle different release formats based on the repository
-	if runtime.GOOS == "windows" {
-		// fwcd/kotlin-language-server has assets in the release
-		var release struct {
-			Assets []struct {
-				Name               string `json:"name"`
-				BrowserDownloadURL string `json:"browser_download_url"`
-			} `json:"assets"`
-		}
-
-		if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-			return "", err
-		}
-
-		// fwcd/kotlin-language-server provides a platform-independent server.zip
-		for _, asset := range release.Assets {
-			if asset.Name == "server.zip" {
-				return asset.BrowserDownloadURL, nil
-			}
-		}
-
-		return "", fmt.Errorf("no server.zip found in kotlin-language-server release")
-	} else {
-		// JetBrains Kotlin LSP for other platforms
-		var release struct {
-			Body string `json:"body"`
-		}
-
-		if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-			return "", err
-		}
-
-		// Extract the standalone zip URL from the release body
-		// Looking for [Download](URL) pattern in markdown
-		lines := strings.Split(release.Body, "\n")
-		for _, line := range lines {
-			// Look for lines containing "Standalone" and check the next download link
-			if strings.Contains(line, "Standalone") || strings.Contains(line, "kotlin-lsp") {
-				// Extract URL from markdown link format [Download](URL)
-				if strings.Contains(line, "[Download](") {
-					start := strings.Index(line, "[Download](") + len("[Download](")
-					end := strings.Index(line[start:], ")")
-					if end > 0 {
-						url := line[start : start+end]
-						if strings.HasSuffix(url, ".zip") && !strings.Contains(url, ".vsix") {
-							return url, nil
-						}
-					}
-				}
-			}
-			// Also check for direct download links in the line
-			if strings.Contains(line, "download-cdn.jetbrains.com/kotlin-lsp") {
-				// Try to extract URL from markdown link
-				startIdx := strings.Index(line, "(https://")
-				if startIdx != -1 {
-					startIdx += 1 // Skip the opening parenthesis
-					endIdx := strings.Index(line[startIdx:], ")")
-					if endIdx > 0 {
-						url := line[startIdx : startIdx+endIdx]
-						if strings.HasSuffix(url, ".zip") && !strings.Contains(url, ".vsix") {
-							return url, nil
-						}
-					}
-				}
-			}
-		}
-
-		return "", fmt.Errorf("no suitable kotlin-lsp download URL found in release")
+	// Temporarily use JetBrains release format for all platforms
+	// TODO: Revert Windows to fwcd format after testing
+	// JetBrains Kotlin LSP format
+	var release struct {
+		Body string `json:"body"`
 	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return "", err
+	}
+
+	// Extract the standalone zip URL from the release body
+	// Looking for [Download](URL) pattern in markdown
+	lines := strings.Split(release.Body, "\n")
+	for _, line := range lines {
+		// Look for lines containing "Standalone" and check the next download link
+		if strings.Contains(line, "Standalone") || strings.Contains(line, "kotlin-lsp") {
+			// Extract URL from markdown link format [Download](URL)
+			if strings.Contains(line, "[Download](") {
+				start := strings.Index(line, "[Download](") + len("[Download](")
+				end := strings.Index(line[start:], ")")
+				if end > 0 {
+					url := line[start : start+end]
+					if strings.HasSuffix(url, ".zip") && !strings.Contains(url, ".vsix") {
+						return url, nil
+					}
+				}
+			}
+		}
+		// Also check for direct download links in the line
+		if strings.Contains(line, "download-cdn.jetbrains.com/kotlin-lsp") {
+			// Try to extract URL from markdown link
+			startIdx := strings.Index(line, "(https://")
+			if startIdx != -1 {
+				startIdx += 1 // Skip the opening parenthesis
+				endIdx := strings.Index(line[startIdx:], ")")
+				if endIdx > 0 {
+					url := line[startIdx : startIdx+endIdx]
+					if strings.HasSuffix(url, ".zip") && !strings.Contains(url, ".vsix") {
+						return url, nil
+					}
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no suitable kotlin-lsp download URL found in release")
 }
 
 // setupBinary finds and sets up the kotlin-lsp binary and required files
@@ -248,62 +215,41 @@ func (k *KotlinInstaller) setupBinary(extractPath, installPath string) error {
 		return fmt.Errorf("failed to create bin directory: %w", err)
 	}
 
+	// Temporarily use JetBrains structure on all platforms for socket mode testing
+	// TODO: Revert Windows to fwcd structure after testing
+	
 	// Set up the appropriate command based on platform
 	if runtime.GOOS == "windows" {
-		// fwcd/kotlin-language-server structure: the extracted server has bin/kotlin-language-server.bat
-		// First check if there's a server subdirectory (common extraction pattern)
-		serverDir := filepath.Join(installPath, "server")
-		if _, err := os.Stat(serverDir); err == nil {
-			// Move contents of server directory to installPath
-			if err := copyDirContents(serverDir, installPath); err == nil {
-				os.RemoveAll(serverDir)
-			}
-		}
+		// Try JetBrains structure first (for temporary testing)
+		cmdPath := filepath.Join(installPath, "kotlin-lsp.cmd")
+		batPath := filepath.Join(installPath, "kotlin-lsp.bat")
+		shPath := filepath.Join(installPath, "kotlin-lsp.sh")
 		
-		// Now look for the batch file or executable
-		fwcdBatPath := filepath.Join(installPath, "bin", "kotlin-language-server.bat")
-		fwcdExePath := filepath.Join(installPath, "bin", "kotlin-language-server")
-		
-		if _, err := os.Stat(fwcdBatPath); err == nil {
-			k.serverConfig.Command = fwcdBatPath
-		} else if _, err := os.Stat(fwcdExePath); err == nil {
-			// Unix-style script might work with Git Bash/WSL on Windows
-			k.serverConfig.Command = fwcdExePath
-		} else {
-			// Fallback to JetBrains structure for compatibility
-			cmdPath := filepath.Join(installPath, "kotlin-lsp.cmd")
-			if _, err := os.Stat(cmdPath); err == nil {
-				// Copy shim into bin for stable path
-				dest := filepath.Join(binDir, "kotlin-lsp.cmd")
-				if err := copyFile(cmdPath, dest); err == nil {
-					k.serverConfig.Command = dest
-				} else {
-					k.serverConfig.Command = cmdPath
-				}
+		if _, err := os.Stat(cmdPath); err == nil {
+			// Copy shim into bin for stable path
+			dest := filepath.Join(binDir, "kotlin-lsp.cmd")
+			if err := copyFile(cmdPath, dest); err == nil {
+				k.serverConfig.Command = dest
 			} else {
-				batPath := filepath.Join(installPath, "kotlin-lsp.bat")
-				if _, err := os.Stat(batPath); err == nil {
-					dest := filepath.Join(binDir, "kotlin-lsp.bat")
-					if err := copyFile(batPath, dest); err == nil {
-						k.serverConfig.Command = dest
-					} else {
-						k.serverConfig.Command = batPath
-					}
-				} else {
-					// Fallback to .sh script even on Windows (might work with Git Bash/WSL)
-					shPath := filepath.Join(installPath, "kotlin-lsp.sh")
-					if _, err := os.Stat(shPath); err == nil {
-						dest := filepath.Join(binDir, "kotlin-lsp.sh")
-						if err := copyFile(shPath, dest); err == nil {
-							k.serverConfig.Command = dest
-						} else {
-							k.serverConfig.Command = shPath
-						}
-					} else {
-						return fmt.Errorf("kotlin-lsp executable not found")
-					}
-				}
+				k.serverConfig.Command = cmdPath
 			}
+		} else if _, err := os.Stat(batPath); err == nil {
+			dest := filepath.Join(binDir, "kotlin-lsp.bat")
+			if err := copyFile(batPath, dest); err == nil {
+				k.serverConfig.Command = dest
+			} else {
+				k.serverConfig.Command = batPath
+			}
+		} else if _, err := os.Stat(shPath); err == nil {
+			// .sh script might work with Git Bash/WSL on Windows
+			dest := filepath.Join(binDir, "kotlin-lsp.sh")
+			if err := copyFile(shPath, dest); err == nil {
+				k.serverConfig.Command = dest
+			} else {
+				k.serverConfig.Command = shPath
+			}
+		} else {
+			return fmt.Errorf("kotlin-lsp executable not found")
 		}
 	} else {
 		// Unix-like systems use the .sh script
@@ -338,14 +284,10 @@ func (k *KotlinInstaller) setupBinary(extractPath, installPath string) error {
 		}
 	}
 
-	// Set correct args based on the server type
-	if runtime.GOOS == "windows" {
-		// fwcd kotlin-language-server defaults to stdio mode
-		k.serverConfig.Args = []string{}
-	} else {
-		// JetBrains kotlin-lsp needs --stdio flag for stdio mode
-		k.serverConfig.Args = []string{"--stdio"}
-	}
+	// Temporarily use socket mode on all platforms for testing
+	// TODO: Revert Windows args after testing
+	// JetBrains kotlin-lsp defaults to socket mode on port 9999 when no args provided
+	k.serverConfig.Args = []string{}
 	
 	// Log the actual command that will be used
 	common.CLILogger.Info("Kotlin Language Server setup completed at %s", installPath)
@@ -390,24 +332,8 @@ func (k *KotlinInstaller) testKotlinLSP(ctx context.Context) bool {
 	}
 
 	if runtime.GOOS == "windows" {
-		// Check for fwcd kotlin-language-server first
-		if _, err := k.RunCommandWithOutput(testCtx, "kotlin-language-server", "--version"); err == nil {
-			k.serverConfig.Command = "kotlin-language-server"
-			return true
-		}
-		if _, err := exec.LookPath("kotlin-language-server"); err == nil {
-			k.serverConfig.Command = "kotlin-language-server"
-			return true
-		}
-		if _, err := k.RunCommandWithOutput(testCtx, "kotlin-language-server.bat", "--version"); err == nil {
-			k.serverConfig.Command = "kotlin-language-server.bat"
-			return true
-		}
-		if _, err := exec.LookPath("kotlin-language-server.bat"); err == nil {
-			k.serverConfig.Command = "kotlin-language-server.bat"
-			return true
-		}
-		// Then check for JetBrains kotlin-lsp
+		// Temporarily check for JetBrains kotlin-lsp first on Windows
+		// TODO: Revert to checking fwcd kotlin-language-server first after testing
 		if _, err := k.RunCommandWithOutput(testCtx, "kotlin-lsp.cmd", "--version"); err == nil {
 			k.serverConfig.Command = "kotlin-lsp.cmd"
 			return true

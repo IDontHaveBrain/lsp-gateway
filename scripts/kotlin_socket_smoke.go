@@ -43,7 +43,7 @@ class Hello {
 		Servers: map[string]*config.ServerConfig{
 			"kotlin": {
 				Command: "kotlin-lsp",
-				Args:    []string{"--stdio"},
+				Args:    []string{}, // Socket mode on port 9999 (no args)
 			},
 		},
 		Cache: &config.CacheConfig{Enabled: false},

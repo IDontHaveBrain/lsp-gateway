@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -784,41 +783,15 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 
 	argsToUse := cfg.Args
 
-	// Kotlin: always use socket mode on all platforms
+	// Kotlin: use socket mode for JetBrains kotlin-lsp on all platforms (temporarily including Windows for testing)
+	// TODO: Revert Windows to stdio mode after testing
 	if language == "kotlin" {
-		// Pick a free local port
-		ln, err := net.Listen("tcp", "127.0.0.1:0")
-		if err != nil {
-			return fmt.Errorf("kotlin socket listen failed: %w", err)
-		}
-		addr := ln.Addr().String()
-		ln.Close()
+		// JetBrains kotlin-lsp runs in socket mode on port 9999 by default (no arguments)
+		addr := "127.0.0.1:9999"
 
-		filtered := make([]string, 0, len(argsToUse))
-		skipNext := false
-		for i := 0; i < len(argsToUse); i++ {
-			if skipNext {
-				skipNext = false
-				continue
-			}
-			a := argsToUse[i]
-			if a == "--stdio" {
-				continue
-			}
-			if a == "--client" {
-				continue
-			}
-			if a == "--socket" {
-				// Skip the value if present
-				if i+1 < len(argsToUse) {
-					skipNext = true
-				}
-				continue
-			}
-			filtered = append(filtered, a)
-		}
-		argsToUse = append(filtered, "--socket", addr)
-		common.LSPLogger.Info("Launching %s LSP in socket mode at %s", language, addr)
+		// Remove ALL arguments - kotlin-lsp.sh runs in socket mode on port 9999 when no args provided
+		argsToUse = []string{}
+		common.LSPLogger.Info("Launching JetBrains %s LSP in socket mode at %s", language, addr)
 
 		clientConfig := types.ClientConfig{
 			Command:               resolvedCommand,
