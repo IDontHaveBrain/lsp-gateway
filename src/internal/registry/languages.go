@@ -216,7 +216,7 @@ var languageRegistry = map[string]LanguageInfo{
 		Name:              "kotlin",
 		Extensions:        []string{".kt", ".kts"},
 		DefaultCommand:    "kotlin-lsp",
-		DefaultArgs:       []string{"--stdio"},
+		DefaultArgs:       []string{"--stdio"}, // Default to stdio mode for JetBrains kotlin-lsp
 		InstallerRequired: true,
 		InitializationOptions: map[string]interface{}{
 			"usePlaceholders":    false,
@@ -318,6 +318,10 @@ var allowedCommands = []string{
 	"kotlin-lsp.bat",
 	"kotlin-lsp.cmd",
 	"kotlin-lsp.exe",
+	"kotlin-language-server",
+	"kotlin-language-server.bat",
+	"kotlin-language-server.cmd",
+	"kotlin-language-server.exe",
 }
 
 // GetSupportedLanguages returns all supported language information

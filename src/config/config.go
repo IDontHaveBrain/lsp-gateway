@@ -245,6 +245,15 @@ func GetDefaultConfigPath() string {
 // GetDefaultConfig returns a default configuration for common LSP servers
 // Cache is enabled by default with standard production settings
 func GetDefaultConfig() *Config {
+	// Platform-specific Kotlin LSP configuration
+	kotlinCommand := "kotlin-lsp"
+	kotlinArgs := []string{"--stdio"} // JetBrains kotlin-lsp needs --stdio
+	
+	if runtime.GOOS == "windows" {
+		kotlinCommand = "kotlin-language-server" // fwcd version
+		kotlinArgs = []string{} // fwcd defaults to stdio mode
+	}
+
 	return &Config{
 		Servers: map[string]*ServerConfig{
 			"go": {
@@ -276,8 +285,8 @@ func GetDefaultConfig() *Config {
 				Args:    []string{"-lsp"},
 			},
 			"kotlin": {
-				Command: "kotlin-lsp",
-				Args:    []string{"--stdio"},
+				Command: kotlinCommand,
+				Args:    kotlinArgs,
 			},
 		},
 		// Cache is enabled by default with standard settings
