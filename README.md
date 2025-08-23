@@ -5,7 +5,7 @@ Language Server Protocol gateway with HTTP and MCP interfaces for 8 languages.
 ## Quick Start
 
 ```bash
-# Prerequisites: Go 1.24.0+, Node.js 18+
+# Prerequisites: Go 1.24+, Node.js 18+
 git clone https://github.com/IDontHaveBrain/lsp-gateway
 cd lsp-gateway
 make local                   # Build + npm link globally
@@ -34,7 +34,7 @@ curl localhost:8080/jsonrpc  # Test HTTP gateway
 ```bash
 lsp-gateway install all        # Install all supported servers
 lsp-gateway install go         # Install gopls
-lsp-gateway install python     # Install jedi-language-server
+lsp-gateway install python     # Install basedpyright
 lsp-gateway install typescript # Install typescript-language-server
 lsp-gateway install javascript # Install typescript-language-server
 lsp-gateway install java       # Install jdtls
@@ -156,14 +156,12 @@ cache:
   max_memory_mb: 512
   ttl_hours: 24         # MCP mode uses 1hr
 servers:
+  python:
+    command: "basedpyright-langserver"
+    args: ["--stdio"]
   go:
     command: "gopls"
     args: ["serve"]
-  python:
-    command: "jedi-language-server"
-    args: []
-  rust:
-    command: "rust-analyzer"
 ```
 
 ## Architecture

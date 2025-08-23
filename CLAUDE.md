@@ -1,13 +1,13 @@
 # CLAUDE.md
 
-LSP Gateway development reference for Claude Code - v0.0.20
+LSP Gateway development reference - v0.0.20
 
 ## Core Commands
 
 ```bash
 # Build & Install
 make local                       # Primary dev: build + npm link (includes cache)
-lsp-gateway install all          # Install all 7 language servers
+lsp-gateway install all          # Install all 8 language servers
 
 # Run Servers
 lsp-gateway server               # HTTP Gateway on :8080/jsonrpc
@@ -20,9 +20,10 @@ lsp-gateway test                 # Test server connections
 lsp-gateway version              # Show version info
 
 # Cache Management
-lsp-gateway cache info           # Show cache statistics
+lsp-gateway cache status         # Show cache configuration and status
 lsp-gateway cache clear          # Clear SCIP cache
-lsp-gateway cache index          # Index workspace for fast lookups
+lsp-gateway cache stats          # Performance statistics
+lsp-gateway cache health         # Cache health diagnostics
 
 # Quality & Testing
 make quality                     # Format + vet (essential checks)
@@ -31,6 +32,7 @@ make test-fast                   # Unit + integration (8-10 min)
 make test                        # All tests including E2E (30+ min)
 go test -v ./tests/unit/...      # Unit tests only (2 min)
 go test -v -run TestName ./...   # Run specific test
+make test-quick                  # Quick validation tests
 ```
 
 ## Architecture Overview
@@ -55,76 +57,43 @@ src/
 └── tests/                       # Test suites
 ```
 
-### Key Interfaces
-```go
-// Core abstractions in src/internal/types/interfaces.go
-type LSPClient interface {
-    Start(ctx context.Context) error
-    Stop() error
-    SendRequest(ctx context.Context, method string, params interface{}) (json.RawMessage, error)
-    SendNotification(ctx context.Context, method string, params interface{}) error
-    Supports(method string) bool
-    IsActive() bool
-}
-
-type CacheIntegrator interface {
-    IndexWorkspace(ctx context.Context, rootPath string, language string, filePatterns []string) error
-    FindDefinitions(ctx context.Context, uri string, position Position) ([]*Location, error)
-    FindReferences(ctx context.Context, uri string, position Position) ([]*Location, error)
-    SearchSymbols(ctx context.Context, query string) ([]*WorkspaceSymbol, error)
-}
-```
+### Key Components
+- **LSP Manager** (`src/server/lsp_manager.go`): Central orchestration for all language servers
+- **Gateway** (`src/server/gateway.go`): HTTP JSON-RPC server on port 8080
+- **MCP Server** (`src/server/mcp_server.go`): STDIO protocol for AI assistants
+- **SCIP Cache** (`src/server/cache/`): 512MB LRU cache for fast symbol lookups
+- **Parallel Aggregator** (`src/server/aggregators/`): Concurrent multi-language operations
 
 ## Language Support
 
-7 languages with auto-detection and specific configurations:
+8 languages with auto-detection:
 
 | Language | Extensions | LSP Server | Timeout | Detection |
 |----------|------------|------------|---------|-----------|
 | Go | .go | gopls | 15s | go.mod |
-| Python | .py, .pyi | basedpyright (default), pyright, or jedi-language-server | 30s/45s init | *.py |
+| Python | .py, .pyi | basedpyright (default) | 30s/45s init | *.py |
 | JavaScript | .js, .jsx, .mjs | typescript-language-server | 15s/30s init | package.json |
 | TypeScript | .ts, .tsx, .d.ts | typescript-language-server | 15s/30s init | package.json |
 | Java | .java | jdtls | 90s | pom.xml, build.gradle |
 | Rust | .rs | rust-analyzer | 15s | Cargo.toml |
 | C# | .cs | omnisharp | 30s/45s init | *.csproj, *.sln |
+| Kotlin | .kt, .kts | kotlin-lsp (JetBrains/fwcd) | 15s | build.gradle.kts, *.kt |
 
 ### Python LSP Server Options
 
-The gateway supports three Python LSP servers:
+Default: **basedpyright** (enhanced pyright fork via pip)
 
-1. **basedpyright** (default) - Enhanced fork of pyright, installed via pip
-2. **pyright** - Microsoft's type checker, installed via npm
-3. **jedi-language-server** - Lightweight Python LSP, installed via pip
-
-To install specific Python LSP servers:
+Alternatives available:
 ```bash
-# Install basedpyright (default)
-lsp-gateway install python
-
-# Install pyright
-lsp-gateway install python --server pyright
-
-# Install jedi-language-server
-lsp-gateway install python --server jedi
+lsp-gateway install python --server pyright   # Microsoft's pyright via npm
+lsp-gateway install python --server jedi      # Jedi-language-server via pip
 ```
 
-To configure in `~/.lsp-gateway/config.yaml`:
-```yaml
-servers:
-  python:
-    # For basedpyright (default)
-    command: "basedpyright-langserver"
-    args: ["--stdio"]
-    
-    # For pyright
-    # command: "pyright-langserver"
-    # args: ["--stdio"]
-    
-    # For jedi
-    # command: "jedi-language-server"
-    # args: []
-```
+### Kotlin LSP Server
+
+Platform-specific selection:
+- macOS/Linux: JetBrains kotlin-lsp (official)
+- Windows: fwcd/kotlin-language-server (community)
 
 ## Critical: STDIO-Safe Logging
 
@@ -142,18 +111,11 @@ common.CLILogger.Warn("warning")     // CLI commands
 ## Security Model
 
 Whitelist-based command validation (`src/internal/security/command_validation.go`):
-- Only pre-approved LSP commands in `src/internal/registry/languages.go:186-247`
+- Only pre-approved LSP commands in registry
 - Blocks shell metacharacters (`|`, `&`, `;`, backticks, `$()`)
 - Rejects path traversal (`..`)
 
 ## Development Patterns
-
-### Constructor Pattern
-```go
-func NewLSPManager(cfg *config.Config) (*LSPManager, error)
-func NewMCPServer(cfg *config.Config) (*MCPServer, error)
-func NewGateway(manager *LSPManager, port int) (*Gateway, error)
-```
 
 ### Parallel Processing
 ```go
@@ -173,38 +135,15 @@ if m.scipCache != nil {
 // Graceful degradation when unavailable
 ```
 
-### Dynamic Capability Detection
-```go
-// Server-specific workarounds in src/server/capabilities/detector.go
-if client.Supports(types.MethodWorkspaceSymbol) {
-    // Safe to call workspace/symbol
-}
-// Special handling: jdtls (Java), OmniSharp (C#)
-```
-
 ## LSP Methods & MCP Tools
 
-**Implemented LSP Methods**:
-- textDocument/definition
-- textDocument/references
-- textDocument/hover
-- textDocument/documentSymbol
-- textDocument/completion
-- workspace/symbol
+**LSP Methods**: definition, references, hover, documentSymbol, completion, workspace/symbol
 
 **MCP Tools** (SCIP-enhanced):
-- `findSymbols` - Regex pattern search
+- `findSymbols` - Regex pattern search across workspace
 - `findReferences` - Find all references with context
 
 ## Configuration
-
-### Auto-detection Order
-1. go.mod → Go
-2. package.json → TypeScript/JavaScript
-3. *.py → Python
-4. pom.xml/build.gradle → Java
-5. Cargo.toml → Rust
-6. *.csproj/*.sln → C#
 
 ### Config File (`~/.lsp-gateway/config.yaml`)
 ```yaml
@@ -213,11 +152,9 @@ cache:
   max_memory_mb: 512
   ttl_hours: 24         # MCP mode: 1hr
 servers:
-  go:
-    command: "gopls"
-    args: ["serve"]
   python:
-    command: "jedi-language-server"
+    command: "basedpyright-langserver"  # Default
+    args: ["--stdio"]
 ```
 
 ### MCP Integration
@@ -234,50 +171,37 @@ servers:
 
 ## Platform-Specific Tuning
 
-### Timeouts (`src/internal/constants/`)
+### Timeouts
 - Java: 90s (all operations)
-- Python: 30s
-- Go/TS: 15s init, 30s operations
+- Python: 30s standard, 45s initialization
+- Go/TypeScript: 15s init, 30s operations
 - CI multipliers: Windows 3x (Java), 1.5x (others)
 
-### Background Indexing Delays
-- Windows: 12-20s (CI=20s)
-- Unix: 3s standard
-- Applied after didOpen notifications
-
-### Cache Limits
+### Cache Configuration
 - Memory: 512MB LRU
 - TTL: 24h (1h MCP mode)
 - Query limit: 100 (5000 MCP symbols)
-- Project isolation: MD5-based paths
 
 ## Testing Strategy
-
-### E2E Tests Clone Real Repos
-- Go: gorilla/mux
-- Python: psf/requests
-- JavaScript: ramda/ramda
-- TypeScript: sindresorhus/is
-- Java: spring-petclinic
-- Rust: tokio-rs/tokio
-- C#: dotnet/samples
 
 ### Test Execution
 ```bash
 make test-fast      # Dev cycle (8-10 min)
 make test           # Full suite (30+ min)
 make cache-test     # Cache-specific tests
+make test-quick     # Quick validation tests
 ```
+
+E2E tests use real repositories for validation.
 
 ## Common Development Tasks
 
 ### Adding New LSP Method
 1. Define types in `src/internal/models/lsp/protocol.go`
 2. Update capability detection in `src/server/capabilities/detector.go`
-3. Implement in `src/server/lsp_manager.go::ProcessRequest` (~line 300+)
+3. Implement in `src/server/lsp_manager.go::ProcessRequest`
 4. Add MCP tool handler in `src/server/mcp_tools.go` if needed
-5. Register in `src/internal/registry/languages.go` if language-specific
-6. Add tests in `tests/e2e/`
+5. Add tests in `tests/e2e/`
 
 ### Testing LSP Methods
 ```bash
@@ -285,9 +209,8 @@ make cache-test     # Cache-specific tests
 curl -X POST localhost:8080/jsonrpc -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"textDocument/definition","params":{"textDocument":{"uri":"file:///path/to/file.go"},"position":{"line":10,"character":5}}}'
 
-# Workspace symbols
-curl -X POST localhost:8080/jsonrpc -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"workspace/symbol","params":{"query":"Router"}}'
+# Check supported languages
+curl localhost:8080/languages
 ```
 
 ### Debug Mode
@@ -298,12 +221,6 @@ lsp-gateway server
 
 ## Build System
 
-### Multi-platform Support
-- Automatic binary naming: `lsp-gateway-{platform}[.exe]`
-- npm wrapper: `bin/lsp-gateway.js` with fallback
-- Build tags: `cache_enabled` for SCIP cache
-- Version injection: LDFlags at build time
-
 ### Platform Builds
 ```bash
 make linux          # Linux amd64
@@ -311,6 +228,10 @@ make macos          # Darwin amd64
 make macos-arm64    # Darwin arm64 (M1/M2)
 make windows        # Windows amd64
 ```
+
+- Automatic binary naming: `lsp-gateway-{platform}[.exe]`
+- npm wrapper: `bin/lsp-gateway.js` with fallback
+- Build tags: `cache_enabled` for SCIP cache
 
 ## Troubleshooting
 
@@ -328,9 +249,7 @@ make windows        # Windows amd64
 - Import: `lsp-gateway/src/...`
 
 ## Development Philosophy
-1. **Interface-First**: Clean separation through interfaces
-2. **Fail-Safe**: Graceful degradation on partial failures
-3. **Language-Aware**: Different timeouts per language
-4. **Cache-Optional**: Full functionality without cache
-5. **Security-First**: Whitelist-based validation
-6. **Dynamic Typing**: JSON-RPC uses `interface{}` for flexibility
+1. **Fail-Safe**: Graceful degradation on partial failures
+2. **Language-Aware**: Different timeouts per language
+3. **Cache-Optional**: Full functionality without cache
+4. **Security-First**: Whitelist-based validation
