@@ -1,5 +1,0 @@
-=== RUN   TestMCPGlobPatterns
-    mcp_glob_test.go:16: Test implementation incomplete - handleToolCallForTest is a stub. Needs proper MCP server integration with pipes like mcp_references_test.go
---- SKIP: TestMCPGlobPatterns (0.00s)
-PASS
-ok  	lsp-gateway/tests/integration	0.002s

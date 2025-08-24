@@ -1,5 +1,0 @@
-=== RUN   TestMCPServerIntegration
-    mcp_server_integration_test.go:8: MCP server integration tests disabled - MCP server uses continuous STDIO protocol that is difficult to test in isolation. MCP functionality is covered by unit tests and dual-protocol integration tests.
---- SKIP: TestMCPServerIntegration (0.00s)
-PASS
-ok  	lsp-gateway/tests/integration	0.002s

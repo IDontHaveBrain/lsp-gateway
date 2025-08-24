@@ -1,4 +1,0 @@
-./integration_verification_test.go
-./optional_cache_test.go
-./reference_update_test.go
-./workspace_test.go

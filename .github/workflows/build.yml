@@ -39,8 +39,10 @@ jobs:
         make vet
         
         # Check if code is properly formatted
-        if [ -n "$(gofmt -l .)" ]; then
+        UNFORMATTED="$(git ls-files '*.go' | grep -Ev '^\\.gomodcache/|^\\.gocache/|^vendor/|^\\.git/' | xargs -r gofmt -l)"
+        if [ -n "$UNFORMATTED" ]; then
           echo "❌ Code is not formatted. Please run 'make format'"
+          echo "$UNFORMATTED"
           exit 1
         fi
         

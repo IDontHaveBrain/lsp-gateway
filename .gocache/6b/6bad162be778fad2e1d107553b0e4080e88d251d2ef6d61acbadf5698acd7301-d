@@ -1,6 +1,0 @@
-# test log
-getenv CI
-getenv RUN_INTEGRATION_TESTS
-getenv TMPDIR
-open /tmp/position-test-2355906209.go
-open /tmp/position-test-2355906209.go

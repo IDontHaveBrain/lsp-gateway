@@ -1,6 +1,0 @@
-./interfaces.go
-./lsp_methods.go
-./shared.go
-./symbol_pattern.go
-./file_pattern_test.go
-./symbol_pattern_test.go

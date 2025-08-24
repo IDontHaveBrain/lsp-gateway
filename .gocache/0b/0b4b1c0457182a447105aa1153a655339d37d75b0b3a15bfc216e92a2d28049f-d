@@ -1,5 +1,0 @@
-=== RUN   TestSCIPIndexAndFindReferences
-    scip_references_test.go:20: Skipping E2E tests (set RUN_E2E_TESTS=true to run)
---- SKIP: TestSCIPIndexAndFindReferences (0.00s)
-PASS
-ok  	lsp-gateway/tests/e2e	0.002s

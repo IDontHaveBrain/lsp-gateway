@@ -1,9 +1,0 @@
-./codes.go
-./conn.go
-./errors.go
-./handler.go
-./jsonrpc2.go
-./message.go
-./serve.go
-./stream.go
-./wire.go

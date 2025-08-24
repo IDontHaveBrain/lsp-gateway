@@ -231,6 +231,10 @@ func (m *LSPManager) Start(ctx context.Context) error {
 		}
 	}
 	m.mu.Unlock()
+	// Fail fast if all clients failed to start
+	if len(serversToStart) > 0 && completed == 0 {
+		return fmt.Errorf("no LSP clients started: %d/%d failed", len(errors), len(serversToStart))
+	}
 
 	// Handle timeout/cancellation cases exactly as before
 	if len(errors) > 0 {

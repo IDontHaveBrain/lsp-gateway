@@ -1,4 +1,0 @@
-./jsonrpc.go
-./response_factory.go
-./jsonrpc_test.go
-./response_factory_test.go

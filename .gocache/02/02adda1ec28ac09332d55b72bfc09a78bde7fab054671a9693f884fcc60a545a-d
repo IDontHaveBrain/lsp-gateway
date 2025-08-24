@@ -1,7 +1,0 @@
-./directories.go
-./env.go
-./executable.go
-./filesystem.go
-./guards.go
-./logging.go
-./timeout.go

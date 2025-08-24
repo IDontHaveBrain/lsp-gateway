@@ -50,6 +50,40 @@ func TestParseLocations_Shapes(t *testing.T) {
 	if got := ParseLocations(json.RawMessage(raw)); len(got) != 1 || got[0].URI == "" {
 		t.Fatalf("raw array failed: %+v", got)
 	}
+
+	// LocationLink[] shape
+	ll := []map[string]interface{}{
+		{
+			"targetUri": "file:///b",
+			"targetRange": map[string]interface{}{
+				"start": map[string]interface{}{"line": float64(10), "character": float64(1)},
+				"end":   map[string]interface{}{"line": float64(12), "character": float64(0)},
+			},
+			"targetSelectionRange": map[string]interface{}{
+				"start": map[string]interface{}{"line": float64(10), "character": float64(5)},
+				"end":   map[string]interface{}{"line": float64(10), "character": float64(8)},
+			},
+		},
+	}
+	rawLL, _ := json.Marshal(ll)
+	gotLL := ParseLocations(json.RawMessage(rawLL))
+	if len(gotLL) != 1 || gotLL[0].URI != "file:///b" || gotLL[0].Range.Start.Line != 10 {
+		t.Fatalf("location link array failed: %+v", gotLL)
+	}
+
+	// Single LocationLink with only selection range
+	ll2 := map[string]interface{}{
+		"targetUri": "file:///c",
+		"targetSelectionRange": map[string]interface{}{
+			"start": map[string]interface{}{"line": float64(20), "character": float64(2)},
+			"end":   map[string]interface{}{"line": float64(20), "character": float64(4)},
+		},
+	}
+	rawLL2, _ := json.Marshal(ll2)
+	gotLL2 := ParseLocations(json.RawMessage(rawLL2))
+	if len(gotLL2) != 1 || gotLL2[0].URI != "file:///c" || gotLL2[0].Range.Start.Line != 20 {
+		t.Fatalf("single location link failed: %+v", gotLL2)
+	}
 }
 
 func TestKindStringConverters(t *testing.T) {

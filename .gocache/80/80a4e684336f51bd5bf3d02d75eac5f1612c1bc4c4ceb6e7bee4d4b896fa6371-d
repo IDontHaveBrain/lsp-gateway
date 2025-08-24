@@ -1,5 +1,0 @@
-./error_collector.go
-./examples.go
-./parallel_aggregator.go
-./result_merger.go
-./timeout_manager.go

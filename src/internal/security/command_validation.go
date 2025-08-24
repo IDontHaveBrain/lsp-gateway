@@ -19,7 +19,26 @@ func ValidateCommand(command string, args []string) error {
 	// Also allow extensionless comparison (e.g., gopls vs gopls.exe)
 	nameNoExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
 
-	if !allowedCommands[baseName] && !allowedCommands[nameNoExt] {
+	// Allow Windows cmd wrapper only for executing whitelisted scripts
+	skipBaseCheck := false
+	lowerBase := strings.ToLower(baseName)
+	if lowerBase == "cmd.exe" || lowerBase == "cmd" {
+		if len(args) < 2 {
+			return fmt.Errorf("invalid cmd wrapper usage: missing /c and target script")
+		}
+		first := strings.ToLower(args[0])
+		if first != "/c" {
+			return fmt.Errorf("invalid cmd wrapper usage: first arg must be /c")
+		}
+		script := filepath.Base(args[1])
+		scriptNoExt := strings.TrimSuffix(script, filepath.Ext(script))
+		if !allowedCommands[script] && !allowedCommands[scriptNoExt] {
+			return fmt.Errorf("command not in whitelist: %s", script)
+		}
+		skipBaseCheck = true
+	}
+
+	if !skipBaseCheck && !allowedCommands[baseName] && !allowedCommands[nameNoExt] {
 		return fmt.Errorf("command not in whitelist: %s", baseName)
 	}
 
