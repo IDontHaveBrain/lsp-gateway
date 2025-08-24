@@ -1,10 +1,12 @@
 package e2e_test
-
+ 
 import (
+	"os"
+	"strings"
 	"testing"
-
+ 
 	"lsp-gateway/tests/e2e/base"
-
+ 
 	"github.com/stretchr/testify/suite"
 )
 
@@ -14,7 +16,7 @@ type LanguageTestConfig struct {
 }
 
 func getLanguageConfigs() []LanguageTestConfig {
-	configs := []LanguageTestConfig{
+	all := []LanguageTestConfig{
 		{name: "go", displayName: "Go"},
 		{name: "python", displayName: "Python"},
 		{name: "javascript", displayName: "JavaScript"},
@@ -24,7 +26,34 @@ func getLanguageConfigs() []LanguageTestConfig {
 		{name: "csharp", displayName: "CSharp"}, // Always include C# in tests
 		{name: "kotlin", displayName: "Kotlin"},
 	}
-	return configs
+	langs := os.Getenv("E2E_LANGS")
+	if strings.TrimSpace(langs) == "" {
+		return all
+	}
+	allow := map[string]bool{}
+	for _, raw := range strings.Split(langs, ",") {
+		k := strings.TrimSpace(strings.ToLower(raw))
+		switch k {
+		case "js":
+			k = "javascript"
+		case "ts":
+			k = "typescript"
+		}
+		if k != "" {
+			allow[k] = true
+		}
+	}
+	var filtered []LanguageTestConfig
+	for _, c := range all {
+		if allow[strings.ToLower(c.name)] {
+			filtered = append(filtered, c)
+		}
+	}
+	// If filter produced empty, fall back to all
+	if len(filtered) == 0 {
+		return all
+	}
+	return filtered
 }
 
 // ComprehensiveE2ETestSuite tests all supported LSP methods for all languages
@@ -37,6 +66,9 @@ func TestAllLanguagesComprehensive(t *testing.T) {
 	for _, lang := range getLanguageConfigs() {
 		lang := lang // capture range variable
 		t.Run(lang.displayName, func(t *testing.T) {
+			if v := strings.ToLower(strings.TrimSpace(os.Getenv("E2E_PARALLEL"))); v == "1" || v == "true" || v == "yes" {
+				t.Parallel()
+			}
 			suite.Run(t, &LanguageSpecificSuite{
 				language:    lang.name,
 				displayName: lang.displayName,

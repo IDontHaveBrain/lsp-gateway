@@ -1,0 +1,44 @@
+# golangci-lint configuration for LSP Gateway
+# Open source individual project: Balanced quality maintenance for solo development
+
+version: "2"
+
+run:
+  timeout: 3m
+
+linters:
+  disable-all: true
+  enable:
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - misspell
+    - goconst
+    - errorlint
+    - durationcheck
+    - unconvert
+    - nolintlint
+  disable:
+    - unused
+linters-settings:
+  staticcheck:
+    checks: ["all", "-U1000"]
+  goconst:
+    min-len: 3
+    min-occurrences: 5
+  misspell:
+    locale: US
+    ignore-words:
+      - cancelled
+issues:
+  exclude-paths:
+    - vendor
+    - tests/temp
+  exclude-rules:
+    - linters:
+        - misspell
+      text: "cancelled.*misspelling.*canceled"
+    - path: src/server/aggregators/base/parallel_aggregator\\.go
+      linters:
+        - misspell

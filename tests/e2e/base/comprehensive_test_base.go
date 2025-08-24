@@ -34,7 +34,7 @@ type LanguageConfig struct {
 // ComprehensiveTestBaseSuite provides base functionality for comprehensive E2E tests
 type ComprehensiveTestBaseSuite struct {
 	suite.Suite
-
+ 
 	// Language configuration
 	Config LanguageConfig
 
@@ -62,23 +62,40 @@ type ComprehensiveTestBaseSuite struct {
 	// Shared server management (NEW)
 	sharedServerManager *testutils.SharedServerManager
 	useSharedServer     bool // Flag to enable/disable shared server mode
+	preserveRepos       bool // Preserve cloned repos when using cache dir
 }
 
 // SetupSuite initializes the comprehensive test suite
 func (suite *ComprehensiveTestBaseSuite) SetupSuite() {
 	suite.testTimeout = 120 * time.Second
 	suite.gatewayPort = 8080
+	var err error
 
 	// Enable shared server mode for better performance and reduce test overhead
 	suite.useSharedServer = true
 
-	// Create temp directory for repositories
-	tempDir, err := ioutil.TempDir("", "lsp-gateway-e2e-repos")
-	require.NoError(suite.T(), err, "Failed to create temp directory")
-	suite.tempDir = tempDir
+	// Create persistent or temp directory for repositories
+	// If a global server is running, reuse its base repo dir to avoid recloning.
+	if testutils.IsGlobalServerRunning() && testutils.GetGlobalReposBaseDir() != "" {
+		suite.tempDir = testutils.GetGlobalReposBaseDir()
+		suite.preserveRepos = true
+	} else if base := strings.TrimSpace(os.Getenv("E2E_REPO_CACHE_DIR")); base != "" {
+		if err := os.MkdirAll(base, 0o755); err == nil {
+			suite.tempDir = base
+			suite.preserveRepos = true
+		} else {
+			tmp, terr := ioutil.TempDir("", "lsp-gateway-e2e-repos")
+			require.NoError(suite.T(), terr, "Failed to create temp directory")
+			suite.tempDir = tmp
+		}
+	} else {
+		tmp, terr := ioutil.TempDir("", "lsp-gateway-e2e-repos")
+		require.NoError(suite.T(), terr, "Failed to create temp directory")
+		suite.tempDir = tmp
+	}
 
 	// Initialize repository manager
-	suite.repoManager = testutils.NewRepoManager(tempDir)
+	suite.repoManager = testutils.NewRepoManager(suite.tempDir)
 
 	// Basic project root setup
 	if cwd, err := os.Getwd(); err == nil {
@@ -93,33 +110,41 @@ func (suite *ComprehensiveTestBaseSuite) SetupSuite() {
 	suite.cacheIsolationLevel = testutils.BasicIsolation // Use basic isolation for shared server
 	cacheIsolationConfig := testutils.DefaultCacheIsolationConfig()
 	cacheIsolationConfig.IsolationLevel = suite.cacheIsolationLevel
-
-	suite.cacheIsolationMgr, err = testutils.NewCacheIsolationManager(tempDir, cacheIsolationConfig)
+ 
+	suite.cacheIsolationMgr, err = testutils.NewCacheIsolationManager(suite.tempDir, cacheIsolationConfig)
 	require.NoError(suite.T(), err, "Failed to create cache isolation manager")
 
 	// Setup isolated cache directory
 	suite.cacheDir = suite.cacheIsolationMgr.GetCacheDirectory()
 
 	// Initialize shared server manager if enabled
-	if suite.useSharedServer {
-		suite.sharedServerManager = testutils.NewSharedServerManager(suite.repoDir, suite.cacheIsolationMgr)
-
+	if suite.useSharedServer && !testutils.IsGlobalServerRunning() {
+		suite.sharedServerManager = testutils.NewSharedServerManager(suite.repoDir, suite.cacheIsolationMgr, suite.Config.Language)
+ 
 		// Start the shared server once for all tests in this suite
 		err = suite.sharedServerManager.StartSharedServer(suite.T())
 		require.NoError(suite.T(), err, "Failed to start shared LSP server")
-
+ 
 		suite.T().Logf("🚀 Shared server mode enabled for %s tests", suite.Config.DisplayName)
+	} else if testutils.IsGlobalServerRunning() {
+		suite.T().Logf("🚀 Using global shared server for %s tests", suite.Config.DisplayName)
 	}
 }
 
 // SetupTest prepares each test with isolated cache
 func (suite *ComprehensiveTestBaseSuite) SetupTest() {
 	testName := suite.T().Name()
-
+ 
 	// In shared server mode, register with the shared server
+	if testutils.IsGlobalServerRunning() {
+		suite.httpClient = testutils.GetGlobalHTTPClient()
+		suite.gatewayPort = testutils.GetGlobalServerPort()
+		suite.T().Logf("🔗 Test '%s' connected to global shared server on port %d", testName, suite.gatewayPort)
+		return
+	}
 	if suite.useSharedServer && suite.sharedServerManager != nil {
 		suite.sharedServerManager.RegisterTest(testName, suite.T())
-
+ 
 		// Update HTTP client and port from shared server
 		suite.httpClient = suite.sharedServerManager.GetHTTPClient()
 		suite.gatewayPort = suite.sharedServerManager.GetServerPort()
@@ -144,8 +169,12 @@ func (suite *ComprehensiveTestBaseSuite) SetupTest() {
 // TearDownTest cleans up after each test with cache isolation validation
 func (suite *ComprehensiveTestBaseSuite) TearDownTest() {
 	testName := suite.T().Name()
-
+ 
 	// In shared server mode, just unregister from shared server
+	if testutils.IsGlobalServerRunning() {
+		suite.T().Logf("🔗 Test '%s' disconnected from global shared server", testName)
+		return
+	}
 	if suite.useSharedServer && suite.sharedServerManager != nil {
 		suite.sharedServerManager.UnregisterTest(testName, suite.T())
 		suite.T().Logf("🔗 Test '%s' disconnected from shared server", testName)
@@ -188,18 +217,18 @@ func (suite *ComprehensiveTestBaseSuite) TearDownTest() {
 // TearDownSuite cleans up after all tests
 func (suite *ComprehensiveTestBaseSuite) TearDownSuite() {
 	// Stop shared server if it's running
-	if suite.useSharedServer && suite.sharedServerManager != nil {
+	if suite.useSharedServer && suite.sharedServerManager != nil && !testutils.IsGlobalServerRunning() {
 		if err := suite.sharedServerManager.StopSharedServer(suite.T()); err != nil {
 			suite.T().Logf("Warning: Failed to stop shared server: %v", err)
 		}
-
+ 
 		// Log shared server statistics
 		serverInfo := suite.sharedServerManager.GetServerInfo()
 		suite.T().Logf("📊 Shared server served %v total tests for %s", serverInfo["total_tests"], suite.Config.DisplayName)
 	}
-
-	if suite.repoManager != nil {
-		suite.repoManager.Cleanup()
+ 
+	if suite.repoManager != nil && !suite.preserveRepos && !testutils.IsGlobalServerRunning() {
+		_ = suite.repoManager.Cleanup()
 	}
 
 	// Final cache isolation cleanup
@@ -218,13 +247,20 @@ func (suite *ComprehensiveTestBaseSuite) TearDownSuite() {
 	}
 
 	// Clean up temp directory
-	if suite.tempDir != "" {
-		os.RemoveAll(suite.tempDir)
+	if suite.tempDir != "" && !suite.preserveRepos && !testutils.IsGlobalServerRunning() {
+		_ = os.RemoveAll(suite.tempDir)
 	}
 }
 
 // ensureServerAvailable ensures a server (shared or individual) is available for testing
 func (suite *ComprehensiveTestBaseSuite) ensureServerAvailable() (*testutils.HttpClient, error) {
+	if testutils.IsGlobalServerRunning() {
+		httpClient := testutils.GetGlobalHTTPClient()
+		if httpClient == nil {
+			return nil, fmt.Errorf("global shared server HTTP client is not available")
+		}
+		return httpClient, nil
+	}
 	if suite.useSharedServer && suite.sharedServerManager != nil {
 		// Shared server mode: Use existing shared server
 		if !suite.sharedServerManager.IsServerRunning() {
@@ -284,19 +320,24 @@ func (suite *ComprehensiveTestBaseSuite) stopGatewayServer() {
 
 // setupTestWorkspace sets up a real project workspace for testing
 func (suite *ComprehensiveTestBaseSuite) setupTestWorkspace() error {
-	// Setup repository for the language
-	repoDir, err := suite.repoManager.SetupRepository(suite.Config.Language)
-	if err != nil {
-		return fmt.Errorf("failed to setup repository for %s: %w", suite.Config.Language, err)
+	// If global server already prepared repos, reuse it to avoid reclone
+	if dir, ok := testutils.GetGlobalRepoDir(suite.Config.Language); ok && dir != "" {
+		suite.repoDir = dir
+	} else {
+		// Setup repository for the language
+		repoDir, err := suite.repoManager.SetupRepository(suite.Config.Language)
+		if err != nil {
+			return fmt.Errorf("failed to setup repository for %s: %w", suite.Config.Language, err)
+		}
+		suite.repoDir = repoDir
 	}
-	suite.repoDir = repoDir
 
 	// Verify test files exist
 	if err := suite.repoManager.VerifyFileExists(suite.Config.Language, 0); err != nil {
 		return fmt.Errorf("test file verification failed: %w", err)
 	}
 
-	suite.T().Logf("Set up test workspace for %s at: %s", suite.Config.Language, repoDir)
+	suite.T().Logf("Set up test workspace for %s at: %s", suite.Config.Language, suite.repoDir)
 	return nil
 }
 
@@ -319,42 +360,40 @@ func (suite *ComprehensiveTestBaseSuite) startGatewayServer() error {
 	if err := os.MkdirAll(javaWorkspace, 0o755); err != nil {
 		return fmt.Errorf("failed to create java workspace: %w", err)
 	}
-	servers := map[string]interface{}{
-		"go": map[string]interface{}{
-			"command":     "gopls",
-			"args":        []string{"serve"},
-			"working_dir": suite.repoDir,
-		},
-		"python": map[string]interface{}{
-			"command":     "jedi-language-server",
-			"args":        []string{},
-			"working_dir": suite.repoDir,
-		},
-		"javascript": map[string]interface{}{
-			"command":     "typescript-language-server",
-			"args":        []string{"--stdio"},
-			"working_dir": suite.repoDir,
-		},
-		"typescript": map[string]interface{}{
-			"command":     "typescript-language-server",
-			"args":        []string{"--stdio"},
-			"working_dir": suite.repoDir,
-		},
-		"java": map[string]interface{}{
-			"command":     "~/.lsp-gateway/tools/java/bin/jdtls",
-			"args":        []string{javaWorkspace},
-			"working_dir": suite.repoDir,
-		},
-		"rust": map[string]interface{}{
-			"command":     "rust-analyzer",
-			"args":        []string{},
-			"working_dir": suite.repoDir,
-		},
-		"kotlin": map[string]interface{}{
-			"command":     testconfig.NewKotlinServerConfig().Command,
-			"args":        []string{},
-			"working_dir": suite.repoDir,
-		},
+	var servers map[string]interface{}
+	switch suite.Config.Language {
+	case "go":
+		servers = map[string]interface{}{
+			"go": map[string]interface{}{"command": "gopls", "args": []string{"serve"}, "working_dir": suite.repoDir},
+		}
+	case "python":
+		servers = map[string]interface{}{
+			"python": map[string]interface{}{"command": "jedi-language-server", "args": []string{}, "working_dir": suite.repoDir},
+		}
+	case "javascript":
+		servers = map[string]interface{}{
+			"javascript": map[string]interface{}{"command": "typescript-language-server", "args": []string{"--stdio"}, "working_dir": suite.repoDir},
+		}
+	case "typescript":
+		servers = map[string]interface{}{
+			"typescript": map[string]interface{}{"command": "typescript-language-server", "args": []string{"--stdio"}, "working_dir": suite.repoDir},
+		}
+	case "java":
+		servers = map[string]interface{}{
+			"java": map[string]interface{}{"command": "~/.lsp-gateway/tools/java/bin/jdtls", "args": []string{javaWorkspace}, "working_dir": suite.repoDir},
+		}
+	case "rust":
+		servers = map[string]interface{}{
+			"rust": map[string]interface{}{"command": "rust-analyzer", "args": []string{}, "working_dir": suite.repoDir},
+		}
+	case "kotlin":
+		servers = map[string]interface{}{
+			"kotlin": map[string]interface{}{"command": testconfig.NewKotlinServerConfig().Command, "args": []string{}, "working_dir": suite.repoDir},
+		}
+	default:
+		servers = map[string]interface{}{
+			"go": map[string]interface{}{"command": "gopls", "args": []string{"serve"}, "working_dir": suite.repoDir},
+		}
 	}
 
 	cacheConfig := testutils.DefaultCacheIsolationConfig()

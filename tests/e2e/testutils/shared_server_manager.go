@@ -21,13 +21,14 @@ import (
 // SharedServerManager manages a single LSP gateway server instance across multiple tests
 type SharedServerManager struct {
 	mu sync.RWMutex
-
+ 
 	// Server process management
 	gatewayCmd    *exec.Cmd
 	gatewayPort   int
 	configPath    string
 	projectRoot   string
 	repoDir       string
+	language      string
 	serverStarted bool
 
 	// HTTP client for server communication
@@ -43,14 +44,17 @@ type SharedServerManager struct {
 	// Context for cancellation
 	ctx    context.Context
 	cancel context.CancelFunc
+	// Process exit notification
+	procExitedCh chan struct{}
 }
-
+ 
 // NewSharedServerManager creates a new shared server manager
-func NewSharedServerManager(repoDir string, cacheIsolationMgr *CacheIsolationManager) *SharedServerManager {
+func NewSharedServerManager(repoDir string, cacheIsolationMgr *CacheIsolationManager, language string) *SharedServerManager {
 	ctx, cancel := context.WithCancel(context.Background())
-
+ 
 	return &SharedServerManager{
 		repoDir:           repoDir,
+		language:          language,
 		cacheIsolationMgr: cacheIsolationMgr,
 		activeTests:       make(map[string]bool),
 		ctx:               ctx,
@@ -125,40 +129,27 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 		return fmt.Errorf("failed to create java workspace: %w", err)
 	}
 
-	// Generate shared server config
-	servers := map[string]interface{}{
-		"go": map[string]interface{}{
-			"command": "gopls",
-			"args":    []string{"serve"},
-		},
-		"python": map[string]interface{}{
-			"command": pythonCmd,
-			"args":    pythonArgs,
-		},
-		"javascript": map[string]interface{}{
-			"command": "typescript-language-server",
-			"args":    []string{"--stdio"},
-		},
-		"typescript": map[string]interface{}{
-			"command": "typescript-language-server",
-			"args":    []string{"--stdio"},
-		},
-		"java": map[string]interface{}{
-			"command": "~/.lsp-gateway/tools/java/bin/jdtls",
-			"args":    []string{javaWorkspace},
-		},
-		"rust": map[string]interface{}{
-			"command": "rust-analyzer",
-			"args":    []string{},
-		},
-		"csharp": map[string]interface{}{
-			"command": "omnisharp",
-			"args":    []string{"-lsp"},
-		},
-		"kotlin": map[string]interface{}{
-			"command": testconfig.NewKotlinServerConfig().Command,
-			"args":    []string{},
-		},
+	// Generate shared server config (single language)
+	var servers map[string]interface{}
+	switch mgr.language {
+	case "go":
+		servers = map[string]interface{}{"go": map[string]interface{}{"command": "gopls", "args": []string{"serve"}}}
+	case "python":
+		servers = map[string]interface{}{"python": map[string]interface{}{"command": pythonCmd, "args": pythonArgs}}
+	case "javascript":
+		servers = map[string]interface{}{"javascript": map[string]interface{}{"command": "typescript-language-server", "args": []string{"--stdio"}}}
+	case "typescript":
+		servers = map[string]interface{}{"typescript": map[string]interface{}{"command": "typescript-language-server", "args": []string{"--stdio"}}}
+	case "java":
+		servers = map[string]interface{}{"java": map[string]interface{}{"command": "~/.lsp-gateway/tools/java/bin/jdtls", "args": []string{javaWorkspace}}}
+	case "rust":
+		servers = map[string]interface{}{"rust": map[string]interface{}{"command": "rust-analyzer", "args": []string{}}}
+	case "csharp":
+		servers = map[string]interface{}{"csharp": map[string]interface{}{"command": "omnisharp", "args": []string{"-lsp"}}}
+	case "kotlin":
+		servers = map[string]interface{}{"kotlin": map[string]interface{}{"command": testconfig.NewKotlinServerConfig().Command, "args": []string{}}}
+	default:
+		servers = map[string]interface{}{"go": map[string]interface{}{"command": "gopls", "args": []string{"serve"}}}
 	}
 
 	configPath, err := mgr.cacheIsolationMgr.GenerateIsolatedConfig(servers, cacheConfig)
@@ -189,6 +180,15 @@ func (mgr *SharedServerManager) StartSharedServer(t *testing.T) error {
 
 	mgr.gatewayCmd = cmd
 	mgr.serverStarted = true
+	// Watch for early process exit to bail fast
+	mgr.procExitedCh = make(chan struct{}, 1)
+	go func(c *exec.Cmd, ch chan struct{}) {
+		_ = c.Wait()
+		select {
+		case ch <- struct{}{}:
+		default:
+		}
+	}(mgr.gatewayCmd, mgr.procExitedCh)
 
 	// Create HTTP client for the shared server with timeout long enough for Java LSP server
 	// Determine timeout based on environment - should be longer than server's internal timeout
@@ -302,10 +302,20 @@ func (mgr *SharedServerManager) waitForServerReady(t *testing.T) error {
 		maxRetries = 330
 	}
 	for i := 0; i < maxRetries; i++ {
+		// Fail immediately if process already exited
+		select {
+		case <-mgr.procExitedCh:
+			return fmt.Errorf("shared server process exited during startup")
+		default:
+		}
 		select {
 		case <-mgr.ctx.Done():
 			return fmt.Errorf("context cancelled while waiting for server")
 		default:
+		}
+		// Fast-fail if process already exited
+		if mgr.gatewayCmd != nil && mgr.gatewayCmd.ProcessState != nil {
+			return fmt.Errorf("shared server process exited during startup")
 		}
 
 		// Parse actual health response to check LSP client status
@@ -331,24 +341,39 @@ func (mgr *SharedServerManager) waitForServerReady(t *testing.T) error {
 			continue
 		}
 
-		// Check if at least one LSP client is active
-		// Since we don't know which language is being tested in shared mode,
-		// we wait for any client to be active
+		// Check if at least one client is active; if all failed, bail fast
 		hasActiveClient := false
+		allFailed := true
 		for lang, langClient := range lspClients {
 			if clientMap, ok := langClient.(map[string]interface{}); ok {
-				if active, ok := clientMap["Active"].(bool); ok && active {
+				active, _ := clientMap["Active"].(bool)
+				var errStr string
+				if ev, ok := clientMap["Error"]; ok && ev != nil {
+					switch v := ev.(type) {
+					case string:
+						errStr = v
+					default:
+						b, _ := json.Marshal(v)
+						errStr = string(b)
+					}
+				}
+				if active {
 					hasActiveClient = true
 					t.Logf("✅ %s LSP client is active", lang)
+				} else if errStr != "" {
+					t.Logf("❌ %s LSP client failed: %s", lang, errStr)
 				} else {
+					allFailed = false
 					t.Logf("⏳ %s LSP client is still initializing...", lang)
 				}
 			}
 		}
 
 		if hasActiveClient {
-			// At least one client is ready, server can start accepting requests
 			return nil
+		}
+		if allFailed && len(lspClients) > 0 {
+			return fmt.Errorf("all LSP clients failed to start")
 		}
 
 		time.Sleep(1 * time.Second)
@@ -444,6 +469,7 @@ func (mgr *SharedServerManager) stopSharedServer(t *testing.T) error {
 
 	mgr.gatewayCmd = nil
 	mgr.serverStarted = false
+	mgr.procExitedCh = nil
 
 	return nil
 }

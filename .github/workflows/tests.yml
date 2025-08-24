@@ -1,4 +1,4 @@
-name: Unit & Integration Tests
+name: Unit & Integration Only
 
 on:
   push:
@@ -41,7 +41,7 @@ jobs:
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
-        java-version: '17'
+        java-version: '21'
 
     - name: Cache Java LSP server (JDK + Eclipse JDT)
       id: cache-java-lsp

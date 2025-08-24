@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"lsp-gateway/src/utils"
 )
@@ -203,7 +205,7 @@ func (rm *RepoManager) SetupRepository(language string) (string, error) {
 	}
 
 	// Clone repository
-	if err := rm.cloneRepository(repo.URL, repoDir); err != nil {
+	if err := rm.cloneRepository(repo.URL, repoDir, repo.CommitHash); err != nil {
 		return "", fmt.Errorf("failed to clone repository: %w", err)
 	}
 
@@ -261,9 +263,40 @@ func (rm *RepoManager) Cleanup() error {
 	}
 	return nil
 }
-
-// cloneRepository clones a git repository
-func (rm *RepoManager) cloneRepository(url, targetDir string) error {
+ 
+// cloneRepository clones a git repository efficiently
+func (rm *RepoManager) cloneRepository(url, targetDir, commit string) error {
+	isSHA := regexp.MustCompile(`^[0-9a-f]{7,40}$`).MatchString(commit)
+	if !isSHA {
+		branch := strings.TrimSpace(commit)
+		if branch != "" {
+			cmd := exec.Command("git", "clone", "--depth", "1", "--filter=blob:none", "--branch", branch, url, targetDir)
+			if output, err := cmd.CombinedOutput(); err == nil {
+				_ = output
+				return nil
+			}
+			// fallthrough to full clone on failure
+		}
+	}
+	if isSHA {
+		if err := os.MkdirAll(targetDir, 0o755); err != nil {
+			return err
+		}
+		cmds := [][]string{
+			{"git", "init"},
+			{"git", "remote", "add", "origin", url},
+			{"git", "fetch", "--depth", "1", "--filter=blob:none", "origin", commit},
+			{"git", "checkout", "FETCH_HEAD"},
+		}
+		for _, args := range cmds {
+			cmd := exec.Command(args[0], args[1:]...)
+			cmd.Dir = targetDir
+			if output, err := cmd.CombinedOutput(); err != nil {
+				return fmt.Errorf("%s failed: %w, output: %s", strings.Join(args, " "), err, string(output))
+			}
+		}
+		return nil
+	}
 	cmd := exec.Command("git", "clone", url, targetDir)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("git clone failed: %w, output: %s", err, string(output))
@@ -283,6 +316,9 @@ func (rm *RepoManager) checkoutCommit(repoDir, commitHash string) error {
 
 // prepareJavaProject attempts to set up Eclipse project metadata to help jdtls
 func (rm *RepoManager) prepareJavaProject(repoDir string) {
+	if strings.TrimSpace(os.Getenv("SKIP_JAVA_PREPARE")) == "1" || strings.ToLower(strings.TrimSpace(os.Getenv("SKIP_JAVA_PREPARE"))) == "true" {
+		return
+	}
 	// Try Gradle eclipse
 	try := func(name string, args ...string) bool {
 		cmd := exec.Command(name, args...)
