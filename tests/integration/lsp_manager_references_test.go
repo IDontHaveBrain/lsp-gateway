@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -14,6 +15,11 @@ import (
 )
 
 func TestNewLSPManagerReferences(t *testing.T) {
+	// Skip if gopls is not available, to align with other integration tests
+	if _, err := exec.LookPath("gopls"); err != nil {
+		t.Skip("Go LSP server (gopls) not installed, skipping test")
+	}
+
 	// Get the project root directory (two levels up from tests/integration)
 	_, currentFile, _, _ := runtime.Caller(0)
 	projectRoot := filepath.Join(filepath.Dir(currentFile), "..", "..")

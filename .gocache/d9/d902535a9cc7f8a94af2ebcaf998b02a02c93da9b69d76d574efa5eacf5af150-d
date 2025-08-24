@@ -1,0 +1,16 @@
+# test log
+getenv HOME
+getenv HOME
+getenv HOME
+getenv TMPDIR
+getenv HOME
+open /tmp/TestLoadConfig_ExpandTildeAndValidate674550749/001/cfg.yaml
+open /tmp/TestLoadConfig_ExpandTildeAndValidate674550749/001/cfg.yaml
+getenv HOME
+open /tmp
+getenv HOME
+getenv HOME
+getenv HOME
+getenv HOME
+getenv HOME
+getenv HOME

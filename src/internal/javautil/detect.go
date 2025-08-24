@@ -1,3 +1,4 @@
+// Package javautil provides Java-related detection utilities.
 package javautil
 
 import (

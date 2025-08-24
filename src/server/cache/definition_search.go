@@ -55,9 +55,7 @@ func (m *SCIPCacheManager) GetSymbolInfo(ctx context.Context, symbolName, filePa
 
 	// Convert search.SCIPOccurrenceInfo to SCIPOccurrenceInfo for backward compatibility
 	var occurrences []SCIPOccurrenceInfo
-	for _, searchOcc := range response.Occurrences {
-		occurrences = append(occurrences, SCIPOccurrenceInfo(searchOcc))
-	}
+	occurrences = append(occurrences, response.Occurrences...)
 
 	return &SymbolInfoResult{
 		SymbolName:      response.SymbolName,

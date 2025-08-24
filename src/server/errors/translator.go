@@ -1,3 +1,4 @@
+// Package errors provides server-side error translation utilities.
 package errors
 
 import (

@@ -1,0 +1,21 @@
+# test log
+getenv PWD
+stat /home/skawn/work/lsp-gateway/tests/unit/go.mod
+stat /home/skawn/work/lsp-gateway/tests/go.mod
+stat /home/skawn/work/lsp-gateway/go.mod
+getenv PWD
+stat /home/skawn/work/lsp-gateway/tests/unit/go.mod
+stat /home/skawn/work/lsp-gateway/tests/go.mod
+stat /home/skawn/work/lsp-gateway/go.mod
+getenv PWD
+stat /home/skawn/work/lsp-gateway/tests/unit/go.mod
+stat /home/skawn/work/lsp-gateway/tests/go.mod
+stat /home/skawn/work/lsp-gateway/go.mod
+getenv PWD
+stat /home/skawn/work/lsp-gateway/tests/unit/go.mod
+stat /home/skawn/work/lsp-gateway/tests/go.mod
+stat /home/skawn/work/lsp-gateway/go.mod
+getenv PWD
+stat /home/skawn/work/lsp-gateway/tests/unit/go.mod
+stat /home/skawn/work/lsp-gateway/tests/go.mod
+stat /home/skawn/work/lsp-gateway/go.mod

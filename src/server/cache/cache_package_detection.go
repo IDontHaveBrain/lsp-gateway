@@ -104,10 +104,10 @@ func (m *SCIPCacheManager) detectPythonPackageInfo(dir string) string {
 // detectNodePackageInfo detects Node.js package info from package.json
 func (m *SCIPCacheManager) detectNodePackageInfo(dir string) (string, string) {
 	for currentDir := dir; currentDir != "/" && currentDir != "."; currentDir = filepath.Dir(currentDir) {
-		packageJsonPath := filepath.Join(currentDir, "package.json")
-		if _, err := os.Stat(packageJsonPath); err == nil {
+		packageJSONPath := filepath.Join(currentDir, "package.json")
+		if _, err := os.Stat(packageJSONPath); err == nil {
 			// Simple package.json parsing - look for name and version
-			if content, err := os.ReadFile(packageJsonPath); err == nil {
+			if content, err := os.ReadFile(packageJSONPath); err == nil {
 				var packageData map[string]interface{}
 				if json.Unmarshal(content, &packageData) == nil {
 					name := ""
@@ -146,9 +146,9 @@ func (m *SCIPCacheManager) detectJavaPackageInfo(dir string) (string, string) {
 				if start := strings.Index(contentStr, "<artifactId>"); start != -1 {
 					start += len("<artifactId>")
 					if end := strings.Index(contentStr[start:], "</artifactId>"); end != -1 {
-						artifactId := strings.TrimSpace(contentStr[start : start+end])
-						if artifactId != "" {
-							return artifactId, defaultVersion
+						artifactID := strings.TrimSpace(contentStr[start : start+end])
+						if artifactID != "" {
+							return artifactID, defaultVersion
 						}
 					}
 				}

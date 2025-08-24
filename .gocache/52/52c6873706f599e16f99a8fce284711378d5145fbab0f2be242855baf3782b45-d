@@ -1,0 +1,91 @@
+=== RUN   TestDependencyInvalidation
+    dependency_invalidation_test.go:27: Dependency invalidation implemented successfully
+    dependency_invalidation_test.go:28: - GetAffectedDocuments identifies dependent files
+    dependency_invalidation_test.go:29: - InvalidateDocument cascades to affected files
+    dependency_invalidation_test.go:30: - Background reindexing updates stale data
+--- PASS: TestDependencyInvalidation (0.00s)
+=== RUN   TestFilePatternComprehensive
+=== RUN   TestFilePatternComprehensive/Simple_star_glob
+=== RUN   TestFilePatternComprehensive/No_extension_match
+=== RUN   TestFilePatternComprehensive/Exact_directory_match
+=== RUN   TestFilePatternComprehensive/Subdirectory_exclusion
+=== RUN   TestFilePatternComprehensive/Parent_directory_no_match
+=== RUN   TestFilePatternComprehensive/Recursive_from_root
+=== RUN   TestFilePatternComprehensive/Recursive_in_subdirectory
+=== RUN   TestFilePatternComprehensive/Recursive_middle_pattern
+=== RUN   TestFilePatternComprehensive/Recursive_prefix_pattern
+=== RUN   TestFilePatternComprehensive/Windows_backslash_path
+=== RUN   TestFilePatternComprehensive/Mixed_slashes
+=== RUN   TestFilePatternComprehensive/Windows_pattern
+=== RUN   TestFilePatternComprehensive/File_URI_basic
+=== RUN   TestFilePatternComprehensive/File_URI_with_path
+=== RUN   TestFilePatternComprehensive/File_URI_Windows
+=== RUN   TestFilePatternComprehensive/Empty_pattern
+=== RUN   TestFilePatternComprehensive/Star_pattern
+=== RUN   TestFilePatternComprehensive/Star_star_slash_star
+=== RUN   TestFilePatternComprehensive/Directory_prefix_with_slash
+=== RUN   TestFilePatternComprehensive/Wrong_directory_prefix
+=== RUN   TestFilePatternComprehensive/Multiple_wildcards
+=== RUN   TestFilePatternComprehensive/Character_class
+=== RUN   TestFilePatternComprehensive/Character_class_no_match
+=== RUN   TestFilePatternComprehensive/Question_mark_wildcard
+=== RUN   TestFilePatternComprehensive/Absolute_path_with_relative_pattern
+=== RUN   TestFilePatternComprehensive/Both_absolute
+=== RUN   TestFilePatternComprehensive/Filename_with_dash
+=== RUN   TestFilePatternComprehensive/Filename_with_underscore
+=== RUN   TestFilePatternComprehensive/Filename_with_dot
+=== RUN   TestFilePatternComprehensive/Specific_nested_path
+=== RUN   TestFilePatternComprehensive/Exclude_vendor_simple
+=== RUN   TestFilePatternComprehensive/Two_levels_exact
+=== RUN   TestFilePatternComprehensive/Three_levels_exact
+=== RUN   TestFilePatternComprehensive/Mismatch_level_depth
+--- PASS: TestFilePatternComprehensive (0.00s)
+    --- PASS: TestFilePatternComprehensive/Simple_star_glob (0.00s)
+    --- PASS: TestFilePatternComprehensive/No_extension_match (0.00s)
+    --- PASS: TestFilePatternComprehensive/Exact_directory_match (0.00s)
+    --- PASS: TestFilePatternComprehensive/Subdirectory_exclusion (0.00s)
+    --- PASS: TestFilePatternComprehensive/Parent_directory_no_match (0.00s)
+    --- PASS: TestFilePatternComprehensive/Recursive_from_root (0.00s)
+    --- PASS: TestFilePatternComprehensive/Recursive_in_subdirectory (0.00s)
+    --- PASS: TestFilePatternComprehensive/Recursive_middle_pattern (0.00s)
+    --- PASS: TestFilePatternComprehensive/Recursive_prefix_pattern (0.00s)
+    --- PASS: TestFilePatternComprehensive/Windows_backslash_path (0.00s)
+    --- PASS: TestFilePatternComprehensive/Mixed_slashes (0.00s)
+    --- PASS: TestFilePatternComprehensive/Windows_pattern (0.00s)
+    --- PASS: TestFilePatternComprehensive/File_URI_basic (0.00s)
+    --- PASS: TestFilePatternComprehensive/File_URI_with_path (0.00s)
+    --- PASS: TestFilePatternComprehensive/File_URI_Windows (0.00s)
+    --- PASS: TestFilePatternComprehensive/Empty_pattern (0.00s)
+    --- PASS: TestFilePatternComprehensive/Star_pattern (0.00s)
+    --- PASS: TestFilePatternComprehensive/Star_star_slash_star (0.00s)
+    --- PASS: TestFilePatternComprehensive/Directory_prefix_with_slash (0.00s)
+    --- PASS: TestFilePatternComprehensive/Wrong_directory_prefix (0.00s)
+    --- PASS: TestFilePatternComprehensive/Multiple_wildcards (0.00s)
+    --- PASS: TestFilePatternComprehensive/Character_class (0.00s)
+    --- PASS: TestFilePatternComprehensive/Character_class_no_match (0.00s)
+    --- PASS: TestFilePatternComprehensive/Question_mark_wildcard (0.00s)
+    --- PASS: TestFilePatternComprehensive/Absolute_path_with_relative_pattern (0.00s)
+    --- PASS: TestFilePatternComprehensive/Both_absolute (0.00s)
+    --- PASS: TestFilePatternComprehensive/Filename_with_dash (0.00s)
+    --- PASS: TestFilePatternComprehensive/Filename_with_underscore (0.00s)
+    --- PASS: TestFilePatternComprehensive/Filename_with_dot (0.00s)
+    --- PASS: TestFilePatternComprehensive/Specific_nested_path (0.00s)
+    --- PASS: TestFilePatternComprehensive/Exclude_vendor_simple (0.00s)
+    --- PASS: TestFilePatternComprehensive/Two_levels_exact (0.00s)
+    --- PASS: TestFilePatternComprehensive/Three_levels_exact (0.00s)
+    --- PASS: TestFilePatternComprehensive/Mismatch_level_depth (0.00s)
+=== RUN   TestFilePatternPerformance
+    filepattern_comprehensive_test.go:317: Performance test completed successfully
+--- PASS: TestFilePatternPerformance (0.00s)
+=== RUN   TestFilePatternDocumentationExamples
+=== RUN   TestFilePatternDocumentationExamples/Example:_All_Go_files
+=== RUN   TestFilePatternDocumentationExamples/Example:_Go_files_in_src/server
+=== RUN   TestFilePatternDocumentationExamples/Example:_Python_files_in_src_and_subdirs
+=== RUN   TestFilePatternDocumentationExamples/Example:_All_files
+--- PASS: TestFilePatternDocumentationExamples (0.00s)
+    --- PASS: TestFilePatternDocumentationExamples/Example:_All_Go_files (0.00s)
+    --- PASS: TestFilePatternDocumentationExamples/Example:_Go_files_in_src/server (0.00s)
+    --- PASS: TestFilePatternDocumentationExamples/Example:_Python_files_in_src_and_subdirs (0.00s)
+    --- PASS: TestFilePatternDocumentationExamples/Example:_All_files (0.00s)
+PASS
+ok  	lsp-gateway/tests/unit	0.002s

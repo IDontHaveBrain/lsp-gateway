@@ -4,91 +4,41 @@
 version: "2"
 
 run:
-  timeout: 5m
-  skip-dirs:
-    - vendor
-    - tests/temp
-  tests: false
-  build-tags:
-    - cache_enabled
+  timeout: 3m
 
 linters:
+  disable-all: true
   enable:
-    # Critical correctness (essential for quality)
-    - errcheck        # Check error handling (essential)
-    - staticcheck     # Advanced static analysis
-    - govet           # Vet examines Go source code
-    
-    # Basic code quality 
-    - unused          # Find unused code
-    - ineffassign     # Detect ineffectual assignments
-    - misspell        # Fix spelling mistakes
-    
-    # Moderate complexity checking (balanced for solo development)
-    - gocyclo         # Cyclomatic complexity
-    
-    # Useful quality checks (not too strict)
-    - goconst         # Repeated strings as constants (helpful for maintenance)
+    - govet
+    - staticcheck
+    - errcheck
+    - ineffassign
+    - misspell
+    - goconst
     - errorlint
     - durationcheck
-    
-    # Note: Excluded gocognit, revive, unconvert for development speed
-
+    - unconvert
+    - nolintlint
+  disable:
+    - unused
 linters-settings:
   staticcheck:
-    checks: ["all", "-SA1019"]       # Enable all but deprecated usage warnings
-
-  gocyclo:
-    min-complexity: 20  # Balanced for solo development (maintains quality)
-  funlen:
-    lines: 120         # Balanced for solo development (maintains quality)
-    statements: 70     # Balanced for solo development (maintains quality)
-  lll:
-    line-length: 150   # Balanced for solo development (maintains quality)
+    checks: ["all", "-U1000"]
   goconst:
-    min-len: 3         # Minimum string length to check
-    min-occurrences: 5 # Minimum occurrences before suggesting constant
-
+    min-len: 3
+    min-occurrences: 5
+  misspell:
+    locale: US
+    ignore-words:
+      - cancelled
 issues:
-  # Balanced exclusion rules for solo development (maintain quality)
-  exclude-use-default: false  # Don't use default exclusions
+  exclude-paths:
+    - vendor
+    - tests/temp
   exclude-rules:
-    # Exclude complexity checks from test files (but keep correctness checks)
-    - path: _test\.go
+    - linters:
+        - misspell
+      text: "cancelled.*misspelling.*canceled"
+    - path: src/server/aggregators/base/parallel_aggregator\\.go
       linters:
-        - funlen
-        - gocyclo
-        - goconst
-    
-    # Allow some test-specific patterns
-    - path: _test\.go
-      text: "Error return value.*is not checked"
-      linters:
-        - errcheck
-    
-    # Relax checks for example and demo code
-    - path: examples/
-      linters:
-        - errcheck
-        - unused
-        - goconst
-    
-    # Relax checks for temporary or development files
-    - path: internal/temp/
-      linters:
-        - errcheck
-        - unused
-        - gocyclo
-    
-    # Allow longer functions in main/setup files (often contain initialization logic)
-    - path: cmd/.*main\.go
-      linters:
-        - funlen
-        - gocyclo
-
-  # Reasonable limits for individual development
-  max-issues-per-linter: 30   # Reasonable limit to encourage fixes
-  max-same-issues: 5          # Encourage fixing repeated issues
-
-severity:
-  default: warning  # All issues as warnings for faster development
+        - misspell

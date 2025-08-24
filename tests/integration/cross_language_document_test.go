@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -61,6 +62,9 @@ func getKotlinCommand() string {
 func TestCrossLanguageDocumentCoordination(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
+	}
+	if _, err := exec.LookPath("gopls"); err != nil {
+		t.Skip("Go LSP server (gopls) not installed, skipping test")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)

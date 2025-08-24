@@ -1,3 +1,4 @@
+// Package project detects languages and extracts package metadata.
 package project
 
 import (
@@ -71,6 +72,7 @@ func getGoPackageInfo(workingDir string) (*PackageInfo, error) {
 
 	var modulePath, version string
 	scanner := bufio.NewScanner(strings.NewReader(string(data)))
+	reVersionSuffix := regexp.MustCompile(`/v\d+$`)
 
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -78,9 +80,8 @@ func getGoPackageInfo(workingDir string) (*PackageInfo, error) {
 		// Extract module declaration
 		if strings.HasPrefix(line, "module ") {
 			modulePath = strings.TrimSpace(strings.TrimPrefix(line, "module"))
-			// Remove any version suffix if present
 			if idx := strings.LastIndex(modulePath, "/v"); idx > 0 {
-				if matched, _ := regexp.MatchString(`/v\d+$`, modulePath[idx:]); matched {
+				if reVersionSuffix.MatchString(modulePath[idx:]) {
 					version = modulePath[idx+2:] + ".x.x"
 					modulePath = modulePath[:idx]
 				}
@@ -277,8 +278,8 @@ func tryPythonInit(workingDir string) *PackageInfo {
 
 // getNodePackageInfo extracts Node.js package information from package.json
 func getNodePackageInfo(workingDir, language string) (*PackageInfo, error) {
-	packageJsonPath := filepath.Join(workingDir, "package.json")
-	if !common.FileExists(packageJsonPath) {
+	packageJSONPath := filepath.Join(workingDir, "package.json")
+	if !common.FileExists(packageJSONPath) {
 		return &PackageInfo{
 			Name:     "unknown-node-project",
 			Version:  "",
@@ -287,7 +288,7 @@ func getNodePackageInfo(workingDir, language string) (*PackageInfo, error) {
 	}
 
 	var packageData map[string]interface{}
-	if err := common.ReadJSONFile(packageJsonPath, &packageData); err != nil {
+	if err := common.ReadJSONFile(packageJSONPath, &packageData); err != nil {
 		return nil, fmt.Errorf("failed to parse package.json: %w", err)
 	}
 

@@ -1,0 +1,4 @@
+./doc.go
+./interfaces.go
+./stats.go
+./suite.go

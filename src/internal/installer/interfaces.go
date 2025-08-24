@@ -99,7 +99,7 @@ type InstallStatus struct {
 	ConfigUpdated bool
 }
 
-// Platform information interface
+// PlatformInfo provides platform detection and helper methods.
 type PlatformInfo interface {
 	// GetPlatform returns current platform (linux, darwin, windows)
 	GetPlatform() string

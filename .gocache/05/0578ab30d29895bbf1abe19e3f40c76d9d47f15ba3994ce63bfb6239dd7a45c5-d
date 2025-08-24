@@ -1,0 +1,3 @@
+./example_authentication_middleware_test.go
+./example_cors_method_middleware_test.go
+./example_route_test.go

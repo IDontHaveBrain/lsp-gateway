@@ -1,3 +1,4 @@
+// Package utils provides general utility helpers used across the project.
 package utils
 
 import (

@@ -248,7 +248,7 @@ func (c *SCIPConverter) CreateSCIPDocument(ctx *ConversionContext) *scip.SCIPDoc
 // High-Level Conversion Functions
 // =============================================================================
 
-// ConvertLSPSymbolToSCIP converts an LSP symbol to SCIP document components
+// LSPSymbolConversionResult is the result of converting an LSP symbol to SCIP.
 type LSPSymbolConversionResult struct {
 	Occurrence scip.SCIPOccurrence
 	SymbolInfo scip.SCIPSymbolInformation

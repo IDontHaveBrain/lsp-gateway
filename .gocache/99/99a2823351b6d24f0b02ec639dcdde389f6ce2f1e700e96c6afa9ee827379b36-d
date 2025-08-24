@@ -1,0 +1,2 @@
+./dependency_invalidation_test.go
+./filepattern_comprehensive_test.go

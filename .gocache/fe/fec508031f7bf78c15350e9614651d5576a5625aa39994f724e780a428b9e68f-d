@@ -1,0 +1,5 @@
+./detector.go
+./package_info.go
+./workspace_scanner.go
+./detector_test.go
+./package_info_test.go

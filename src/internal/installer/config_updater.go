@@ -157,13 +157,17 @@ func copyFile(src, dst string) error {
 	}
 
 	// Read source file
-	data, err := os.ReadFile(src)
+	data, err := common.SafeReadFileUnder(filepath.Dir(src), src)
 	if err != nil {
 		return err
 	}
 
 	// Write to destination
-	return os.WriteFile(dst, data, 0600)
+	dstResolved, err := common.ResolveUnder(filepath.Dir(dst), dst)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dstResolved, data, 0600)
 }
 
 // chooseBestPythonConfig selects the preferred Python LSP configuration based on availability

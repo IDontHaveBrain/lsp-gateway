@@ -1,0 +1,4 @@
+./interfaces.go
+./lsp_methods.go
+./shared.go
+./symbol_pattern.go

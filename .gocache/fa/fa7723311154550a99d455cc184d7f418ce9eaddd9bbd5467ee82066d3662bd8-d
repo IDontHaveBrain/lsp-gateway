@@ -1,0 +1,22 @@
+=== RUN   TestLSPManagerLifecycleErrorHandling
+=== RUN   TestLSPManagerLifecycleErrorHandling/StartupWithInvalidServer
+2025/08/23 13:30:27 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 13:30:27 [INFO] LSP: Starting LSP servers for detected languages only: []
+=== RUN   TestLSPManagerLifecycleErrorHandling/NormalOperationWithGopls
+2025/08/23 13:30:27 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 13:30:27 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 13:30:27 [INFO] LSP: Started LSP server process for go: PID 17590
+=== RUN   TestLSPManagerLifecycleErrorHandling/ContextCancellationDuringRequest
+2025/08/23 13:30:33 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 13:30:33 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 13:30:33 [INFO] LSP: Started LSP server process for go: PID 18625
+2025/08/23 13:30:34 [ERROR] LSP: LSP request timeout: method=textDocument/hover, id=2, timeout=15s
+    lsp_lifecycle_test.go:167: Request failed due to timeout (context cancellation may not have been fast enough)
+=== RUN   TestLSPManagerLifecycleErrorHandling/CacheStartFailure
+--- PASS: TestLSPManagerLifecycleErrorHandling (11.29s)
+    --- PASS: TestLSPManagerLifecycleErrorHandling/StartupWithInvalidServer (0.00s)
+    --- PASS: TestLSPManagerLifecycleErrorHandling/NormalOperationWithGopls (5.78s)
+    --- PASS: TestLSPManagerLifecycleErrorHandling/ContextCancellationDuringRequest (5.51s)
+    --- PASS: TestLSPManagerLifecycleErrorHandling/CacheStartFailure (0.00s)
+PASS
+ok  	lsp-gateway/tests/integration	11.293s

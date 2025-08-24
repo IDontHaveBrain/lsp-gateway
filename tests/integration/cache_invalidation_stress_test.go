@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -23,6 +24,9 @@ import (
 )
 
 func TestCacheInvalidationUnderLoad(t *testing.T) {
+	if _, err := exec.LookPath("gopls"); err != nil {
+		t.Skip("Go LSP server (gopls) not installed, skipping test")
+	}
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode")
 	}

@@ -23,6 +23,8 @@ import (
 	"lsp-gateway/src/utils/lspconv"
 )
 
+const jsonNullLiteral = "null"
+
 type contextNode struct {
 	Name      string         `json:"name,omitempty"`
 	Signature string         `json:"signature,omitempty"`
@@ -174,13 +176,10 @@ func GenerateContextSignatureMap(configPath, outputPath string) error {
 		return fmt.Errorf("scip storage unavailable")
 	}
 
-	// Ensure output dir exists
 	if outputPath == "" {
 		outputPath = "context-signature-map.txt"
 	}
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0750); err != nil && filepath.Dir(outputPath) != "." {
-		return fmt.Errorf("failed to create output directory: %w", err)
-	}
+	wd, _ := os.Getwd()
 
 	// Collect entries grouped by file
 	grouped := make(map[string][]*contextNode)
@@ -258,7 +257,7 @@ func GenerateContextSignatureMap(configPath, outputPath string) error {
 	}
 
 	// Write output
-	out, err := os.Create(outputPath)
+	out, err := common.CreateFileUnder(wd, outputPath, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to create output file: %w", err)
 	}
@@ -776,7 +775,7 @@ func PrintReferencedFilesCode(configPath string, inputFile string) error {
 		merged := merge(snippetMap[f])
 		fmt.Printf("\n# FILE: %s\n", f)
 		// Always read from disk to ensure latest content and full lines
-		data, derr := os.ReadFile(f)
+		data, derr := common.SafeReadFileUnder(workspaceRoot, f)
 		if derr != nil {
 			fmt.Printf("# (unreadable)\n")
 			continue
@@ -815,7 +814,7 @@ func parseDefinitionResult(result interface{}) ([]types.Location, error) {
 		}
 		return out, nil
 	case json.RawMessage:
-		if len(v) == 0 || string(v) == "null" {
+		if len(v) == 0 || string(v) == jsonNullLiteral {
 			return nil, nil
 		}
 		var arr []types.Location
@@ -1143,7 +1142,7 @@ func parseDocumentSymbolsResult(result interface{}) ([]lsp.DocumentSymbol, error
 		}
 		return out, nil
 	case json.RawMessage:
-		if len(v) == 0 || string(v) == "null" {
+		if len(v) == 0 || string(v) == jsonNullLiteral {
 			return nil, nil
 		}
 		var ds []lsp.DocumentSymbol
@@ -1190,7 +1189,7 @@ func parseReferencesResult(result interface{}) ([]types.Location, error) {
 		}
 		return out, nil
 	case json.RawMessage:
-		if len(v) == 0 || string(v) == "null" {
+		if len(v) == 0 || string(v) == jsonNullLiteral {
 			return nil, nil
 		}
 		var locs []types.Location
@@ -1292,7 +1291,12 @@ func GenerateContextSignatureMapJSON(configPath, outputPath string) error {
 		return fmt.Errorf("failed to marshal JSON: %w", err)
 	}
 
-	if err := os.WriteFile(outputPath, data, 0600); err != nil {
+	wd, _ := os.Getwd()
+	resolved, err := common.ResolveUnder(wd, outputPath)
+	if err != nil {
+		return fmt.Errorf("invalid output path: %w", err)
+	}
+	if err := os.WriteFile(resolved, data, 0600); err != nil {
 		return fmt.Errorf("failed to write output file: %w", err)
 	}
 

@@ -1,0 +1,3 @@
+./manager.go
+./parser.go
+./walker.go

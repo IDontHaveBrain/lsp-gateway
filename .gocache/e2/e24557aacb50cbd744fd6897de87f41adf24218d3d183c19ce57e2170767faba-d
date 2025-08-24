@@ -1,0 +1,15 @@
+=== RUN   TestMCPFindReferences_UsesSCIPAndPrintsRefs
+    mcp_references_test.go:72: Created MCP server with cache enabled, background indexing: true
+2025/08/23 13:31:46 [INFO] LSP: Starting SCIP cache
+2025/08/23 13:31:46 [INFO] LSP: SCIP cache started successfully
+2025/08/23 13:31:46 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 13:31:46 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 13:31:46 [INFO] LSP: Started LSP server process for go: PID 27630
+2025/08/23 13:31:46 [INFO] LSP: File watcher started for real-time change detection
+    mcp_references_test.go:96: Sent initialize request; proceeding to send findSymbols
+    mcp_references_test.go:246: Successfully found Foo symbol via findSymbols
+    mcp_references_test.go:112: findSymbols succeeded, waiting for reference indexing to complete
+    mcp_references_test.go:115: findSymbols succeeded; sending findReferences
+--- PASS: TestMCPFindReferences_UsesSCIPAndPrintsRefs (0.74s)
+PASS
+ok  	lsp-gateway/tests/integration	0.738s

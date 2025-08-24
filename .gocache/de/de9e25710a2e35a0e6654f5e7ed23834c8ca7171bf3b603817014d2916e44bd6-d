@@ -1,0 +1,5 @@
+=== RUN   TestBackgroundIndexing
+    cache_config.go:370: Warning: Timeout waiting for indexing to complete
+--- PASS: TestBackgroundIndexing (5.00s)
+PASS
+ok  	lsp-gateway/tests/integration	5.004s

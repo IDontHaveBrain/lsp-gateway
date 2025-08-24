@@ -1,3 +1,4 @@
+// Package project detects languages and extracts package metadata.
 package project
 
 import (
@@ -143,14 +144,14 @@ func analyzeFile(filePath, workingDir string, detected map[string]*DetectedLangu
 }
 
 // hasTypeScriptIndicators checks if package.json indicates actual TypeScript project usage
-func hasTypeScriptIndicators(packageJsonPath string) bool {
+func hasTypeScriptIndicators(packageJSONPath string) bool {
 	// First check if tsconfig.json exists in the same directory
-	dir := filepath.Dir(packageJsonPath)
+	dir := filepath.Dir(packageJSONPath)
 	if _, err := os.Stat(filepath.Join(dir, "tsconfig.json")); err == nil {
 		return true
 	}
 
-	content, err := os.ReadFile(packageJsonPath)
+	content, err := os.ReadFile(packageJSONPath)
 	if err != nil {
 		return false
 	}
@@ -192,8 +193,8 @@ func hasTypeScriptIndicators(packageJsonPath string) bool {
 }
 
 // hasJavaScriptIndicators checks if package.json indicates actual JavaScript project usage
-func hasJavaScriptIndicators(packageJsonPath string) bool {
-	content, err := os.ReadFile(packageJsonPath)
+func hasJavaScriptIndicators(packageJSONPath string) bool {
+	content, err := os.ReadFile(packageJSONPath)
 	if err != nil {
 		return false
 	}
@@ -258,7 +259,7 @@ func hasJavaScriptIndicators(packageJsonPath string) bool {
 	}
 
 	// Check if there are actual JavaScript source files in src/ directory
-	dir := filepath.Dir(packageJsonPath)
+	dir := filepath.Dir(packageJSONPath)
 	srcDir := filepath.Join(dir, "src")
 	if _, err := os.Stat(srcDir); err == nil {
 		// Check if src/ contains .js files that aren't build files

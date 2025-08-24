@@ -1,3 +1,4 @@
+// Package lsp defines core LSP protocol types used across the project.
 package lsp
 
 import (

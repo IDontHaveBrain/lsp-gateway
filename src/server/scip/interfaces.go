@@ -1,3 +1,4 @@
+// Package scip contains types and helpers for SCIP integration.
 package scip
 
 import (

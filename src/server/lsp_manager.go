@@ -2,9 +2,9 @@ package server
 
 import (
 	"context"
+	cryptoRand "crypto/rand"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -585,7 +585,9 @@ func (m *LSPManager) sendRequestWithRetry(ctx context.Context, client types.LSPC
 		// Exponential backoff with jitter
 		delay := time.Duration(attempt+1) * baseDelay
 		// Add small jitter to prevent synchronized retries
-		jitter := time.Duration(rand.Intn(100)) * time.Millisecond
+		var b [1]byte
+		_, _ = cryptoRand.Read(b[:])
+		jitter := time.Duration(int(b[0])%100) * time.Millisecond
 		time.Sleep(delay + jitter)
 	}
 

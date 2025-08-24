@@ -22,7 +22,7 @@ type EnhancedSymbolSearchResult struct {
 	Timestamp time.Time              `json:"timestamp"`
 }
 
-// ReferenceSearchOptions: reuse unified search options
+// ReferenceSearchOptions reuses unified search options.
 type ReferenceSearchOptions = search.ReferenceSearchOptions
 
 // ReferenceSearchResult represents reference search results with occurrence details
@@ -67,5 +67,5 @@ type SymbolInfoResult struct {
 	Timestamp       time.Time                   `json:"timestamp"`
 }
 
-// SCIPOccurrenceInfo: reuse unified occurrence info type
+// SCIPOccurrenceInfo reuses unified occurrence info type.
 type SCIPOccurrenceInfo = search.SCIPOccurrenceInfo

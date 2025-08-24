@@ -1,0 +1,7 @@
+./common_types.go
+./lsp_types.go
+./comprehensive_e2e_test.go
+./http_connection_test.go
+./rust_lsp_references_test.go
+./scip_cache_e2e_test.go
+./scip_references_test.go

@@ -1,3 +1,4 @@
+// Package common contains shared utilities for filesystem, logging, and timing.
 package common
 
 import (

@@ -1,3 +1,4 @@
+// Package errors provides unified error types and codes.
 package errors
 
 // Standard JSON-RPC error codes as defined in RFC 7309

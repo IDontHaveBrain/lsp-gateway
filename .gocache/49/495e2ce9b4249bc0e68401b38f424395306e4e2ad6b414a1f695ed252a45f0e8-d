@@ -1,0 +1,6 @@
+./manager.go
+./parser.go
+./walker.go
+./manager_test.go
+./parser_test.go
+./walker_test.go

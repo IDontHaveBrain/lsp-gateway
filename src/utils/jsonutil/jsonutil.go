@@ -1,3 +1,4 @@
+// Package jsonutil provides JSON helpers for encoding/decoding.
 package jsonutil
 
 import "encoding/json"

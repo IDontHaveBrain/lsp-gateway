@@ -1,0 +1,58 @@
+=== RUN   TestCrossLanguageDocumentCoordination
+2025/08/23 13:22:29 [INFO] LSP: Starting SCIP cache
+2025/08/23 13:22:29 [INFO] LSP: SCIP cache started successfully
+2025/08/23 13:22:29 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 13:22:29 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 13:22:29 [INFO] LSP: Started LSP server process for go: PID 82239
+=== RUN   TestCrossLanguageDocumentCoordination/MultiLanguageDocumentOpen
+    cross_language_document_test.go:366: Multi-language files created: 6
+=== RUN   TestCrossLanguageDocumentCoordination/CrossLanguageSymbolSearch
+    cross_language_document_test.go:410: Symbol CallPython found 0 times
+    cross_language_document_test.go:410: Symbol call_go_function found 0 times
+    cross_language_document_test.go:410: Symbol DataHandler found 0 times
+    cross_language_document_test.go:410: Symbol processData found 0 times
+    cross_language_document_test.go:410: Symbol Backend found 0 times
+    cross_language_document_test.go:410: Symbol Gateway found 0 times
+    cross_language_document_test.go:410: Symbol RequestHandler found 0 times
+=== RUN   TestCrossLanguageDocumentCoordination/CrossLanguageDefinitionNavigation
+    cross_language_document_test.go:450: Definition from main.go:8:20 resolved
+    cross_language_document_test.go:448: Definition request for frontend.ts failed: no LSP client for language typescript: no client for language: typescript
+    cross_language_document_test.go:448: Definition request for utils.js failed: no LSP client for language javascript: no client for language: javascript
+    cross_language_document_test.go:448: Definition request for src/main/java/com/example/Backend.java failed: no LSP client for language java: no client for language: java
+    cross_language_document_test.go:448: Definition request for src/main/kotlin/com/example/Gateway.kt failed: no LSP client for language kotlin: no client for language: kotlin
+=== RUN   TestCrossLanguageDocumentCoordination/ConcurrentMultiLanguageOperations
+    cross_language_document_test.go:545: Operation textDocument/definition on script.py failed: no LSP client for language python: no client for language: python
+    cross_language_document_test.go:545: Operation textDocument/completion on utils.js failed: no LSP client for language javascript: no client for language: javascript
+    cross_language_document_test.go:545: Operation textDocument/hover on src/main/kotlin/com/example/Gateway.kt failed: no LSP client for language kotlin: no client for language: kotlin
+    cross_language_document_test.go:545: Operation textDocument/definition on script.py failed: no LSP client for language python: no client for language: python
+2025/08/23 13:22:30 [WARN] LSP: LSP response contains error: id=3, error=&{0 column is beyond end of line <nil>}
+    cross_language_document_test.go:545: Operation textDocument/references on frontend.ts failed: no LSP client for language typescript: no client for language: typescript
+2025/08/23 13:22:30 [WARN] LSP: LSP response contains error: id=3, error=&{0 column is beyond end of line <nil>}
+    cross_language_document_test.go:545: Operation textDocument/completion on utils.js failed: no LSP client for language javascript: no client for language: javascript
+2025/08/23 13:22:30 [WARN] LSP: LSP response contains error: id=4, error=&{0 column is beyond end of line <nil>}
+2025/08/23 13:22:30 [WARN] LSP: LSP response contains error: id=4, error=&{0 column is beyond end of line <nil>}
+    cross_language_document_test.go:545: Operation textDocument/documentSymbol on src/main/java/com/example/Backend.java failed: no LSP client for language java: no client for language: java
+    cross_language_document_test.go:545: Operation textDocument/hover on src/main/kotlin/com/example/Gateway.kt failed: no LSP client for language kotlin: no client for language: kotlin
+    cross_language_document_test.go:545: Operation textDocument/documentSymbol on src/main/java/com/example/Backend.java failed: no LSP client for language java: no client for language: java
+    cross_language_document_test.go:545: Operation textDocument/completion on utils.js failed: no LSP client for language javascript: no client for language: javascript
+    cross_language_document_test.go:545: Operation textDocument/documentSymbol on src/main/java/com/example/Backend.java failed: no LSP client for language java: no client for language: java
+    cross_language_document_test.go:545: Operation textDocument/references on frontend.ts failed: no LSP client for language typescript: no client for language: typescript
+    cross_language_document_test.go:545: Operation textDocument/hover on src/main/kotlin/com/example/Gateway.kt failed: no LSP client for language kotlin: no client for language: kotlin
+    cross_language_document_test.go:545: Operation textDocument/definition on script.py failed: no LSP client for language python: no client for language: python
+    cross_language_document_test.go:545: Operation textDocument/references on frontend.ts failed: no LSP client for language typescript: no client for language: typescript
+    cross_language_document_test.go:559: Concurrent operations completed. Success rate: 3/18
+=== RUN   TestCrossLanguageDocumentCoordination/DocumentStateConsistency
+    cross_language_document_test.go:599: All 6 files updated successfully
+=== RUN   TestCrossLanguageDocumentCoordination/LanguageDetectionAccuracy
+=== NAME  TestCrossLanguageDocumentCoordination
+    cross_language_document_test.go:622: Final cache stats - Entries: 0, Size: 0 KB, Hit Rate: NaN%
+    cross_language_document_test.go:626: Cache should contain cross-language symbol data
+--- PASS: TestCrossLanguageDocumentCoordination (6.31s)
+    --- PASS: TestCrossLanguageDocumentCoordination/MultiLanguageDocumentOpen (0.00s)
+    --- PASS: TestCrossLanguageDocumentCoordination/CrossLanguageSymbolSearch (0.00s)
+    --- PASS: TestCrossLanguageDocumentCoordination/CrossLanguageDefinitionNavigation (0.72s)
+    --- PASS: TestCrossLanguageDocumentCoordination/ConcurrentMultiLanguageOperations (0.50s)
+    --- PASS: TestCrossLanguageDocumentCoordination/DocumentStateConsistency (0.00s)
+    --- PASS: TestCrossLanguageDocumentCoordination/LanguageDetectionAccuracy (0.00s)
+PASS
+ok  	lsp-gateway/tests/integration	6.308s

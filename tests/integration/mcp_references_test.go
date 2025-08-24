@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"testing"
@@ -30,6 +31,11 @@ type mcpResp struct {
 }
 
 func TestMCPFindReferences_UsesSCIPAndPrintsRefs(t *testing.T) {
+	// Skip if gopls is not available; MCP initial indexing relies on LSP fallback
+	if _, err := exec.LookPath("gopls"); err != nil {
+		t.Skip("Go LSP server (gopls) not installed, skipping test")
+	}
+
 	wd, _ := os.Getwd()
 	tmpDir := filepath.Join(wd, "..", "..", "tmp-mcp-refs")
 	_ = os.MkdirAll(tmpDir, 0755)

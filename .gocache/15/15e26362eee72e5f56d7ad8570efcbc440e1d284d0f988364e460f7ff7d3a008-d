@@ -1,0 +1,156 @@
+=== RUN   TestOptionalCacheIntegrationVerification
+=== RUN   TestOptionalCacheIntegrationVerification/No_cache_config_-_LSP_manager_works_without_cache
+=== RUN   TestOptionalCacheIntegrationVerification/Disabled_cache_-_LSP_manager_works_without_cache
+=== RUN   TestOptionalCacheIntegrationVerification/Enabled_cache_-_LSP_manager_works_with_cache
+=== RUN   TestOptionalCacheIntegrationVerification/Simple_cache_creation_and_lifecycle
+=== RUN   TestOptionalCacheIntegrationVerification/Optional_cache_injection
+--- PASS: TestOptionalCacheIntegrationVerification (0.00s)
+    --- PASS: TestOptionalCacheIntegrationVerification/No_cache_config_-_LSP_manager_works_without_cache (0.00s)
+    --- PASS: TestOptionalCacheIntegrationVerification/Disabled_cache_-_LSP_manager_works_without_cache (0.00s)
+    --- PASS: TestOptionalCacheIntegrationVerification/Enabled_cache_-_LSP_manager_works_with_cache (0.00s)
+    --- PASS: TestOptionalCacheIntegrationVerification/Simple_cache_creation_and_lifecycle (0.00s)
+    --- PASS: TestOptionalCacheIntegrationVerification/Optional_cache_injection (0.00s)
+=== RUN   TestOptionalCacheIntegration
+=== RUN   TestOptionalCacheIntegration/No_cache_config_-_should_work_without_cache
+2025/08/23 10:41:36 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:41:36 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:41:36 [INFO] LSP: Started LSP server process for go: PID 94368
+=== RUN   TestOptionalCacheIntegration/Cache_disabled_-_should_work_without_cache
+2025/08/23 10:41:41 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:41:41 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:41:41 [INFO] LSP: Started LSP server process for go: PID 95150
+=== RUN   TestOptionalCacheIntegration/Cache_enabled_-_should_work_with_cache
+2025/08/23 10:41:46 [INFO] LSP: Starting SCIP cache
+2025/08/23 10:41:46 [INFO] LSP: SCIP cache started successfully
+2025/08/23 10:41:46 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:41:46 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:41:46 [INFO] LSP: Started LSP server process for go: PID 95942
+--- PASS: TestOptionalCacheIntegration (15.22s)
+    --- PASS: TestOptionalCacheIntegration/No_cache_config_-_should_work_without_cache (5.07s)
+    --- PASS: TestOptionalCacheIntegration/Cache_disabled_-_should_work_without_cache (5.07s)
+    --- PASS: TestOptionalCacheIntegration/Cache_enabled_-_should_work_with_cache (5.08s)
+=== RUN   TestCacheGracefulDegradation
+2025/08/23 10:41:52 [WARN] LSP: Failed to create cache (continuing without cache): failed to start SCIP storage: failed to create cache directory: mkdir /invalid: permission denied
+2025/08/23 10:41:52 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:41:52 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:41:52 [INFO] LSP: Started LSP server process for go: PID 97108
+--- PASS: TestCacheGracefulDegradation (5.07s)
+=== RUN   TestSimpleCacheCreation
+=== RUN   TestSimpleCacheCreation/Default_cache_size
+=== RUN   TestSimpleCacheCreation/Custom_cache_size
+=== RUN   TestSimpleCacheCreation/Negative_cache_size
+--- PASS: TestSimpleCacheCreation (0.00s)
+    --- PASS: TestSimpleCacheCreation/Default_cache_size (0.00s)
+    --- PASS: TestSimpleCacheCreation/Custom_cache_size (0.00s)
+    --- PASS: TestSimpleCacheCreation/Negative_cache_size (0.00s)
+=== RUN   TestCacheOptionalMethods
+--- PASS: TestCacheOptionalMethods (0.00s)
+=== RUN   TestCacheIntegrationPattern
+--- PASS: TestCacheIntegrationPattern (0.00s)
+=== RUN   TestReferenceUpdateOnFileModification
+=== RUN   TestReferenceUpdateOnFileModification/InitialIndexing
+2025/08/23 10:41:57 [INFO] LSP: Incremental indexing: 2 new, 0 modified, 0 unchanged files
+2025/08/23 10:41:57 [INFO] LSP: Incremental indexing: Indexing 2 files
+=== RUN   TestReferenceUpdateOnFileModification/FileModification
+2025/08/23 10:41:57 [INFO] LSP: Incremental indexing: 0 new, 1 modified, 1 unchanged files
+2025/08/23 10:41:57 [INFO] LSP: Incremental indexing: Indexing 1 files
+=== RUN   TestReferenceUpdateOnFileModification/VerifyReferenceUpdate
+--- PASS: TestReferenceUpdateOnFileModification (0.00s)
+    --- PASS: TestReferenceUpdateOnFileModification/InitialIndexing (0.00s)
+    --- PASS: TestReferenceUpdateOnFileModification/FileModification (0.00s)
+    --- PASS: TestReferenceUpdateOnFileModification/VerifyReferenceUpdate (0.00s)
+=== RUN   TestNewWorkspaceIndexer
+--- PASS: TestNewWorkspaceIndexer (0.00s)
+=== RUN   TestGetLanguageExtensions
+=== RUN   TestGetLanguageExtensions/Go_language
+=== RUN   TestGetLanguageExtensions/Python_language
+=== RUN   TestGetLanguageExtensions/JavaScript_language
+=== RUN   TestGetLanguageExtensions/TypeScript_language
+=== RUN   TestGetLanguageExtensions/Java_language
+=== RUN   TestGetLanguageExtensions/Multiple_languages
+=== RUN   TestGetLanguageExtensions/Unknown_language
+=== RUN   TestGetLanguageExtensions/Mixed_known_and_unknown
+=== RUN   TestGetLanguageExtensions/Empty_languages
+--- PASS: TestGetLanguageExtensions (0.00s)
+    --- PASS: TestGetLanguageExtensions/Go_language (0.00s)
+    --- PASS: TestGetLanguageExtensions/Python_language (0.00s)
+    --- PASS: TestGetLanguageExtensions/JavaScript_language (0.00s)
+    --- PASS: TestGetLanguageExtensions/TypeScript_language (0.00s)
+    --- PASS: TestGetLanguageExtensions/Java_language (0.00s)
+    --- PASS: TestGetLanguageExtensions/Multiple_languages (0.00s)
+    --- PASS: TestGetLanguageExtensions/Unknown_language (0.00s)
+    --- PASS: TestGetLanguageExtensions/Mixed_known_and_unknown (0.00s)
+    --- PASS: TestGetLanguageExtensions/Empty_languages (0.00s)
+=== RUN   TestScanWorkspaceSourceFiles
+=== RUN   TestScanWorkspaceSourceFiles/Go_files_only
+=== RUN   TestScanWorkspaceSourceFiles/Python_files_only
+=== RUN   TestScanWorkspaceSourceFiles/Multiple_extensions
+=== RUN   TestScanWorkspaceSourceFiles/Max_files_limit
+=== RUN   TestScanWorkspaceSourceFiles/No_matching_files
+--- PASS: TestScanWorkspaceSourceFiles (0.00s)
+    --- PASS: TestScanWorkspaceSourceFiles/Go_files_only (0.00s)
+    --- PASS: TestScanWorkspaceSourceFiles/Python_files_only (0.00s)
+    --- PASS: TestScanWorkspaceSourceFiles/Multiple_extensions (0.00s)
+    --- PASS: TestScanWorkspaceSourceFiles/Max_files_limit (0.00s)
+    --- PASS: TestScanWorkspaceSourceFiles/No_matching_files (0.00s)
+=== RUN   TestIndexWorkspaceFiles
+=== RUN   TestIndexWorkspaceFiles/Successful_indexing
+2025/08/23 10:41:57 [INFO] LSP: IndexWorkspaceFiles called: workspaceDir=/tmp/workspace_index_test2600850222, languages=[go python], maxFiles=10
+2025/08/23 10:41:57 [INFO] LSP: Workspace indexer: Detected languages: [go python]
+2025/08/23 10:41:57 [INFO] LSP: Workspace indexer: Looking for extensions: [.go .py .pyi]
+2025/08/23 10:41:57 [INFO] LSP: Workspace indexer: Found 2 source files in /tmp/workspace_index_test2600850222
+2025/08/23 10:41:57 [INFO] LSP:   File 0: /tmp/workspace_index_test2600850222/main.go
+2025/08/23 10:41:57 [INFO] LSP:   File 1: /tmp/workspace_index_test2600850222/test.py
+=== RUN   TestIndexWorkspaceFiles/LSP_fallback_error
+2025/08/23 10:41:57 [INFO] LSP: IndexWorkspaceFiles called: workspaceDir=/tmp/workspace_index_test2600850222, languages=[go], maxFiles=10
+2025/08/23 10:41:57 [INFO] LSP: Workspace indexer: Detected languages: [go]
+2025/08/23 10:41:57 [INFO] LSP: Workspace indexer: Looking for extensions: [.go]
+2025/08/23 10:41:57 [INFO] LSP: Workspace indexer: Found 1 source files in /tmp/workspace_index_test2600850222
+2025/08/23 10:41:57 [INFO] LSP:   File 0: /tmp/workspace_index_test2600850222/main.go
+2025/08/23 10:41:57 [WARN] LSP: Failed to index 1 out of 1 files
+=== RUN   TestIndexWorkspaceFiles/Empty_languages
+2025/08/23 10:41:57 [INFO] LSP: IndexWorkspaceFiles called: workspaceDir=/tmp/workspace_index_test2600850222, languages=[], maxFiles=10
+2025/08/23 10:41:57 [INFO] LSP: Workspace indexer: Detected languages: []
+2025/08/23 10:41:57 [INFO] LSP: Workspace indexer: Looking for extensions: [.rs .go .py .pyi .cs .kt .kts .ts .tsx .d.ts .js .jsx .mjs .java]
+2025/08/23 10:41:57 [INFO] LSP: Workspace indexer: Found 2 source files in /tmp/workspace_index_test2600850222
+2025/08/23 10:41:57 [INFO] LSP:   File 0: /tmp/workspace_index_test2600850222/main.go
+2025/08/23 10:41:57 [INFO] LSP:   File 1: /tmp/workspace_index_test2600850222/test.py
+=== RUN   TestIndexWorkspaceFiles/Zero_max_files
+2025/08/23 10:41:57 [INFO] LSP: IndexWorkspaceFiles called: workspaceDir=/tmp/workspace_index_test2600850222, languages=[go], maxFiles=0
+2025/08/23 10:41:57 [INFO] LSP: Workspace indexer: Detected languages: [go]
+2025/08/23 10:41:57 [INFO] LSP: Workspace indexer: Looking for extensions: [.go]
+2025/08/23 10:41:57 [INFO] LSP: Workspace indexer: Found 0 source files in /tmp/workspace_index_test2600850222
+2025/08/23 10:41:57 [WARN] LSP: Workspace indexer: No source files found for indexing
+--- PASS: TestIndexWorkspaceFiles (0.00s)
+    --- PASS: TestIndexWorkspaceFiles/Successful_indexing (0.00s)
+    --- PASS: TestIndexWorkspaceFiles/LSP_fallback_error (0.00s)
+    --- PASS: TestIndexWorkspaceFiles/Empty_languages (0.00s)
+    --- PASS: TestIndexWorkspaceFiles/Zero_max_files (0.00s)
+=== RUN   TestIndexWorkspaceFiles_ContextCancellation
+2025/08/23 10:41:57 [INFO] LSP: IndexWorkspaceFiles called: workspaceDir=/tmp/workspace_cancel_test3207277688, languages=[go], maxFiles=10
+2025/08/23 10:41:57 [INFO] LSP: Workspace indexer: Detected languages: [go]
+2025/08/23 10:41:57 [INFO] LSP: Workspace indexer: Looking for extensions: [.go]
+2025/08/23 10:41:57 [INFO] LSP: Workspace indexer: Found 1 source files in /tmp/workspace_cancel_test3207277688
+2025/08/23 10:41:57 [INFO] LSP:   File 0: /tmp/workspace_cancel_test3207277688/test.go
+--- PASS: TestIndexWorkspaceFiles_ContextCancellation (0.00s)
+=== RUN   TestIncrementalIndexing
+=== RUN   TestIncrementalIndexing/InitialIndexing
+2025/08/23 10:41:57 [INFO] LSP: Incremental indexing: 2 new, 0 modified, 0 unchanged files
+2025/08/23 10:41:57 [INFO] LSP: Incremental indexing: Indexing 2 files
+=== RUN   TestIncrementalIndexing/FileModification
+2025/08/23 10:41:57 [INFO] LSP: Incremental indexing: 0 new, 1 modified, 1 unchanged files
+2025/08/23 10:41:57 [INFO] LSP: Incremental indexing: Indexing 1 files
+=== RUN   TestIncrementalIndexing/NewFile
+2025/08/23 10:41:57 [INFO] LSP: Incremental indexing: 1 new, 0 modified, 2 unchanged files
+2025/08/23 10:41:57 [INFO] LSP: Incremental indexing: Indexing 1 files
+=== RUN   TestIncrementalIndexing/FileDelection
+2025/08/23 10:41:57 [INFO] LSP: Incremental indexing: 0 new, 0 modified, 2 unchanged files
+2025/08/23 10:41:57 [INFO] LSP: Incremental indexing: Removing 1 deleted files from index
+2025/08/23 10:41:57 [INFO] LSP: Incremental indexing: No files need reindexing
+--- PASS: TestIncrementalIndexing (0.10s)
+    --- PASS: TestIncrementalIndexing/InitialIndexing (0.00s)
+    --- PASS: TestIncrementalIndexing/FileModification (0.00s)
+    --- PASS: TestIncrementalIndexing/NewFile (0.00s)
+    --- PASS: TestIncrementalIndexing/FileDelection (0.00s)
+PASS
+ok  	lsp-gateway/tests/unit/cache	20.409s

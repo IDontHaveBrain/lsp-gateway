@@ -23,8 +23,8 @@ func (m *SCIPCacheManager) GetCachedDefinition(symbolID string) ([]types.Locatio
 		location := types.Location{
 			URI: def.DocumentURI,
 			Range: types.Range{
-				Start: types.Position{Line: int32(def.Range.Start.Line), Character: int32(def.Range.Start.Character)},
-				End:   types.Position{Line: int32(def.Range.End.Line), Character: int32(def.Range.End.Character)},
+				Start: types.Position{Line: def.Range.Start.Line, Character: def.Range.Start.Character},
+				End:   types.Position{Line: def.Range.End.Line, Character: def.Range.End.Character},
 			},
 		}
 		return []types.Location{location}, true
@@ -50,8 +50,8 @@ func (m *SCIPCacheManager) GetCachedReferences(symbolID string) ([]types.Locatio
 		locations = append(locations, types.Location{
 			URI: ref.DocumentURI,
 			Range: types.Range{
-				Start: types.Position{Line: int32(ref.Range.Start.Line), Character: int32(ref.Range.Start.Character)},
-				End:   types.Position{Line: int32(ref.Range.End.Line), Character: int32(ref.Range.End.Character)},
+				Start: types.Position{Line: ref.Range.Start.Line, Character: ref.Range.Start.Character},
+				End:   types.Position{Line: ref.Range.End.Line, Character: ref.Range.End.Character},
 			},
 		})
 	}
@@ -146,7 +146,7 @@ func (m *SCIPCacheManager) GetCachedWorkspaceSymbols(query string) ([]types.Symb
 			Kind: m.convertSCIPSymbolKindToLSP(scipSymbol.Kind),
 			Location: types.Location{
 				URI:   defOcc.DocumentURI,
-				Range: types.Range{Start: types.Position{Line: int32(defOcc.Range.Start.Line), Character: int32(defOcc.Range.Start.Character)}, End: types.Position{Line: int32(defOcc.Range.End.Line), Character: int32(defOcc.Range.End.Character)}},
+				Range: types.Range{Start: types.Position{Line: defOcc.Range.Start.Line, Character: defOcc.Range.Start.Character}, End: types.Position{Line: defOcc.Range.End.Line, Character: defOcc.Range.End.Character}},
 			},
 		}
 		symbols = append(symbols, symbol)

@@ -1,3 +1,4 @@
+// Package filepattern provides path and URI glob-style matching helpers.
 package filepattern
 
 import (

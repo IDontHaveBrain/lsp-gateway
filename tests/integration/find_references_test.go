@@ -8,6 +8,7 @@ import (
 )
 
 func TestFindReferencesWithSCIPCache(t *testing.T) {
+	shared.CheckLSPAvailability(t, "go")
 	// Create test workspace with Go project
 	workspace := shared.CreateBasicGoProject(t, "testproject")
 	defer workspace.Cleanup()

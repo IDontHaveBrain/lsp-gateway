@@ -1,3 +1,4 @@
+// Package registry defines supported languages and metadata.
 package registry
 
 import (

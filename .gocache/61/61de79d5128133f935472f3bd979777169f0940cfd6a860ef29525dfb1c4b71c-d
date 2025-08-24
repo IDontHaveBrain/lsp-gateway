@@ -1,0 +1,576 @@
+=== RUN   TestBasicCacheOperations
+=== RUN   TestBasicCacheOperations/Store_and_retrieve_basic_cache_entry
+=== RUN   TestBasicCacheOperations/Cache_miss_for_non-existent_entry
+=== RUN   TestBasicCacheOperations/Document_invalidation
+=== RUN   TestBasicCacheOperations/Clear_cache
+=== RUN   TestBasicCacheOperations/Cache_metrics
+--- PASS: TestBasicCacheOperations (0.00s)
+    --- PASS: TestBasicCacheOperations/Store_and_retrieve_basic_cache_entry (0.00s)
+    --- PASS: TestBasicCacheOperations/Cache_miss_for_non-existent_entry (0.00s)
+    --- PASS: TestBasicCacheOperations/Document_invalidation (0.00s)
+    --- PASS: TestBasicCacheOperations/Clear_cache (0.00s)
+    --- PASS: TestBasicCacheOperations/Cache_metrics (0.00s)
+=== RUN   TestCacheWithIndexing
+=== RUN   TestCacheWithIndexing/Index_document_with_symbols
+=== RUN   TestCacheWithIndexing/Query_indexed_symbols
+=== RUN   TestCacheWithIndexing/Update_index_with_multiple_files
+--- PASS: TestCacheWithIndexing (0.00s)
+    --- PASS: TestCacheWithIndexing/Index_document_with_symbols (0.00s)
+    --- PASS: TestCacheWithIndexing/Query_indexed_symbols (0.00s)
+    --- PASS: TestCacheWithIndexing/Update_index_with_multiple_files (0.00s)
+=== RUN   TestCachePersistence
+=== RUN   TestCachePersistence/Store_data_and_persist
+=== RUN   TestCachePersistence/Recover_persisted_data
+--- PASS: TestCachePersistence (0.50s)
+    --- PASS: TestCachePersistence/Store_data_and_persist (0.00s)
+    --- PASS: TestCachePersistence/Recover_persisted_data (0.50s)
+=== RUN   TestConcurrentCacheAccess
+--- PASS: TestConcurrentCacheAccess (0.00s)
+=== RUN   TestCacheIndexing
+=== RUN   TestCacheIndexing/Manual_file_indexing
+=== RUN   TestCacheIndexing/Batch_indexing
+=== RUN   TestCacheIndexing/Symbol_search_after_indexing
+=== RUN   TestCacheIndexing/Index_update_on_file_modification
+--- PASS: TestCacheIndexing (0.40s)
+    --- PASS: TestCacheIndexing/Manual_file_indexing (0.10s)
+    --- PASS: TestCacheIndexing/Batch_indexing (0.20s)
+    --- PASS: TestCacheIndexing/Symbol_search_after_indexing (0.00s)
+    --- PASS: TestCacheIndexing/Index_update_on_file_modification (0.10s)
+=== RUN   TestBackgroundIndexing
+--- PASS: TestBackgroundIndexing (3.00s)
+=== RUN   TestCacheInvalidationUnderLoad
+2025/08/23 10:50:22 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:50:22 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:50:22 [INFO] LSP: Started LSP server process for go: PID 99402
+    cache_invalidation_stress_test.go:120: Cache enabled check - IsEnabled: true, Current metrics: Entries=0, Hits=0, Misses=0
+    cache_invalidation_stress_test.go:126: Direct cache store result: <nil>
+    cache_invalidation_stress_test.go:130: Cache after direct store - Entries: 1
+    cache_invalidation_stress_test.go:134: Direct cache lookup - Found: true, Error: <nil>, Result: true
+    cache_invalidation_stress_test.go:142: Cache after first request - Entries: 1, Hits: 1, Misses: 0
+    cache_invalidation_stress_test.go:152: Cache after second request - Entries: 1, Hits: 1, Misses: 0
+=== RUN   TestCacheInvalidationUnderLoad/ConcurrentRequestsWithFileModification
+    cache_invalidation_stress_test.go:160: Cache metrics at start of first subtest - Entry count: 1
+    cache_invalidation_stress_test.go:337: Cache stats after concurrent modifications:
+    cache_invalidation_stress_test.go:338:   Total requests: 4379
+    cache_invalidation_stress_test.go:339:   File modifications: 50
+    cache_invalidation_stress_test.go:346: Cache metrics after first subtest - Entry count: 1, Hit count: 1, Miss count: 0
+=== RUN   TestCacheInvalidationUnderLoad/RapidFileModificationStress
+    cache_invalidation_stress_test.go:442: Rapid modification results:
+    cache_invalidation_stress_test.go:443:   File writes: 60
+    cache_invalidation_stress_test.go:444:   Cache invalidations: 60
+    cache_invalidation_stress_test.go:445:   Read errors: 0
+    cache_invalidation_stress_test.go:459: Cache metrics after second subtest - Entry count: 1, Hit count: 1, Miss count: 0
+=== RUN   TestCacheInvalidationUnderLoad/CacheConsistencyAfterInvalidation
+2025/08/23 10:50:30 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:50:30 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:50:30 [INFO] LSP: Started LSP server process for go: PID 3826
+    cache_invalidation_stress_test.go:569: Cache metrics after third subtest - Entry count: 1, Hit count: 1, Miss count: 0
+=== NAME  TestCacheInvalidationUnderLoad
+    cache_invalidation_stress_test.go:575: Final cache statistics:
+    cache_invalidation_stress_test.go:576:   Entry count: 1
+    cache_invalidation_stress_test.go:577:   Total size: 0 KB
+    cache_invalidation_stress_test.go:578:   Hit rate: 100.00%
+    cache_invalidation_stress_test.go:579:   Eviction count: 0
+--- PASS: TestCacheInvalidationUnderLoad (9.47s)
+    --- PASS: TestCacheInvalidationUnderLoad/ConcurrentRequestsWithFileModification (5.01s)
+    --- PASS: TestCacheInvalidationUnderLoad/RapidFileModificationStress (1.45s)
+    --- PASS: TestCacheInvalidationUnderLoad/CacheConsistencyAfterInvalidation (2.54s)
+=== RUN   TestSCIPCacheOperations
+2025/08/23 10:50:32 [INFO] LSP: Starting SCIP cache
+2025/08/23 10:50:32 [INFO] LSP: SCIP cache started successfully
+2025/08/23 10:50:32 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:50:32 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:50:32 [INFO] LSP: Started LSP server process for go: PID 4322
+=== RUN   TestSCIPCacheOperations/SCIPDefinitionStorage
+    cache_scip_operations_test.go:139: Cache lookup succeeded: [91 123 34 114 97 110 103 101 34 58 123 34 101 110 100 34 58 123 34 99 104 97 114 97 99 116 101 114 34 58 49 52 44 34 108 105 110 101 34 58 49 51 125 44 34 115 116 97 114 116 34 58 123 34 99 104 97 114 97 99 116 101 114 34 58 53 44 34 108 105 110 101 34 58 49 51 125 125 44 34 117 114 105 34 58 34 102 105 108 101 58 47 47 47 116 109 112 47 84 101 115 116 83 67 73 80 67 97 99 104 101 79 112 101 114 97 116 105 111 110 115 50 56 50 52 49 54 50 55 54 50 47 48 48 49 47 109 97 105 110 46 103 111 34 125 93]
+    cache_scip_operations_test.go:164: Could not find cached definition with any symbol ID, skipping cache validation
+=== RUN   TestSCIPCacheOperations/SCIPReferencesStorage
+    cache_scip_operations_test.go:207: References cache lookup succeeded
+    cache_scip_operations_test.go:215: Symbol-specific references cache not found, skipping validation
+=== RUN   TestSCIPCacheOperations/SCIPMethodResultStorage
+    cache_scip_operations_test.go:270: Skipping StoreMethodResult test due to type constraints
+    cache_scip_operations_test.go:275: Hover cache lookup succeeded
+    cache_scip_operations_test.go:283: Symbol-specific hover cache not found, skipping validation
+=== RUN   TestSCIPCacheOperations/SCIPCrossFilerferences
+2025/08/23 10:50:33 [WARN] LSP: LSP response contains error: id=5, error=&{0 no object found for "Server" <nil>}
+2025/08/23 10:50:33 [WARN] LSP: LSP response contains error: id=5, error=&{0 no object found for "Server" <nil>}
+    lsp_response_helpers.go:101: Warning: Failed to unmarshal references response: json: cannot unmarshal object into Go value of type []protocol.Location
+    cache_scip_operations_test.go:317: No cross-file references found, which may be expected
+=== RUN   TestSCIPCacheOperations/SCIPSymbolQuery
+    cache_scip_operations_test.go:360: Found 1 symbols in SCIP query
+=== RUN   TestSCIPCacheOperations/SCIPCacheInvalidation
+=== RUN   TestSCIPCacheOperations/SCIPConcurrentOperations
+=== RUN   TestSCIPCacheOperations/SCIPEvictionPolicy
+    cache_scip_operations_test.go:496: No evictions occurred, possibly because entries are too small
+    cache_scip_operations_test.go:497: Cache metrics - Entries: 0, Size: 0 bytes
+--- PASS: TestSCIPCacheOperations (1.91s)
+    --- PASS: TestSCIPCacheOperations/SCIPDefinitionStorage (0.74s)
+    --- PASS: TestSCIPCacheOperations/SCIPReferencesStorage (0.00s)
+    --- PASS: TestSCIPCacheOperations/SCIPMethodResultStorage (0.00s)
+    --- PASS: TestSCIPCacheOperations/SCIPCrossFilerferences (0.73s)
+    --- PASS: TestSCIPCacheOperations/SCIPSymbolQuery (0.00s)
+    --- PASS: TestSCIPCacheOperations/SCIPCacheInvalidation (0.23s)
+    --- PASS: TestSCIPCacheOperations/SCIPConcurrentOperations (0.00s)
+    --- PASS: TestSCIPCacheOperations/SCIPEvictionPolicy (0.00s)
+=== RUN   TestCrossLanguageDocumentCoordination
+2025/08/23 10:50:34 [INFO] LSP: Starting SCIP cache
+2025/08/23 10:50:34 [INFO] LSP: SCIP cache started successfully
+2025/08/23 10:50:34 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:50:34 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:50:34 [INFO] LSP: Started LSP server process for go: PID 5314
+=== RUN   TestCrossLanguageDocumentCoordination/MultiLanguageDocumentOpen
+    cross_language_document_test.go:365: Multi-language files created: 6
+=== RUN   TestCrossLanguageDocumentCoordination/CrossLanguageSymbolSearch
+    cross_language_document_test.go:409: Symbol CallPython found 0 times
+    cross_language_document_test.go:409: Symbol call_go_function found 0 times
+    cross_language_document_test.go:409: Symbol DataHandler found 0 times
+    cross_language_document_test.go:409: Symbol processData found 0 times
+    cross_language_document_test.go:409: Symbol Backend found 0 times
+    cross_language_document_test.go:409: Symbol Gateway found 0 times
+    cross_language_document_test.go:409: Symbol RequestHandler found 0 times
+=== RUN   TestCrossLanguageDocumentCoordination/CrossLanguageDefinitionNavigation
+    cross_language_document_test.go:449: Definition from main.go:8:20 resolved
+    cross_language_document_test.go:447: Definition request for frontend.ts failed: no LSP client for language typescript: no client for language: typescript
+    cross_language_document_test.go:447: Definition request for utils.js failed: no LSP client for language javascript: no client for language: javascript
+    cross_language_document_test.go:447: Definition request for src/main/java/com/example/Backend.java failed: no LSP client for language java: no client for language: java
+    cross_language_document_test.go:447: Definition request for src/main/kotlin/com/example/Gateway.kt failed: no LSP client for language kotlin: no client for language: kotlin
+=== RUN   TestCrossLanguageDocumentCoordination/ConcurrentMultiLanguageOperations
+    cross_language_document_test.go:544: Operation textDocument/documentSymbol on src/main/java/com/example/Backend.java failed: no LSP client for language java: no client for language: java
+    cross_language_document_test.go:544: Operation textDocument/completion on utils.js failed: no LSP client for language javascript: no client for language: javascript
+    cross_language_document_test.go:544: Operation textDocument/hover on src/main/kotlin/com/example/Gateway.kt failed: no LSP client for language kotlin: no client for language: kotlin
+    cross_language_document_test.go:544: Operation textDocument/documentSymbol on src/main/java/com/example/Backend.java failed: no LSP client for language java: no client for language: java
+    cross_language_document_test.go:544: Operation textDocument/hover on src/main/kotlin/com/example/Gateway.kt failed: no LSP client for language kotlin: no client for language: kotlin
+    cross_language_document_test.go:544: Operation textDocument/definition on script.py failed: no LSP client for language python: no client for language: python
+    cross_language_document_test.go:544: Operation textDocument/definition on script.py failed: no LSP client for language python: no client for language: python
+    cross_language_document_test.go:544: Operation textDocument/references on frontend.ts failed: no LSP client for language typescript: no client for language: typescript
+    cross_language_document_test.go:544: Operation textDocument/references on frontend.ts failed: no LSP client for language typescript: no client for language: typescript
+    cross_language_document_test.go:544: Operation textDocument/completion on utils.js failed: no LSP client for language javascript: no client for language: javascript
+    cross_language_document_test.go:544: Operation textDocument/definition on script.py failed: no LSP client for language python: no client for language: python
+    cross_language_document_test.go:544: Operation textDocument/references on frontend.ts failed: no LSP client for language typescript: no client for language: typescript
+    cross_language_document_test.go:544: Operation textDocument/completion on utils.js failed: no LSP client for language javascript: no client for language: javascript
+    cross_language_document_test.go:544: Operation textDocument/documentSymbol on src/main/java/com/example/Backend.java failed: no LSP client for language java: no client for language: java
+    cross_language_document_test.go:544: Operation textDocument/hover on src/main/kotlin/com/example/Gateway.kt failed: no LSP client for language kotlin: no client for language: kotlin
+2025/08/23 10:50:36 [WARN] LSP: LSP response contains error: id=3, error=&{0 column is beyond end of line <nil>}
+2025/08/23 10:50:36 [WARN] LSP: LSP response contains error: id=3, error=&{0 column is beyond end of line <nil>}
+2025/08/23 10:50:36 [WARN] LSP: LSP response contains error: id=4, error=&{0 column is beyond end of line <nil>}
+2025/08/23 10:50:36 [WARN] LSP: LSP response contains error: id=4, error=&{0 column is beyond end of line <nil>}
+2025/08/23 10:50:36 [WARN] LSP: LSP response contains error: id=5, error=&{0 column is beyond end of line <nil>}
+2025/08/23 10:50:36 [WARN] LSP: LSP response contains error: id=5, error=&{0 column is beyond end of line <nil>}
+    cross_language_document_test.go:558: Concurrent operations completed. Success rate: 3/18
+=== RUN   TestCrossLanguageDocumentCoordination/DocumentStateConsistency
+    cross_language_document_test.go:598: All 6 files updated successfully
+=== RUN   TestCrossLanguageDocumentCoordination/LanguageDetectionAccuracy
+=== NAME  TestCrossLanguageDocumentCoordination
+    cross_language_document_test.go:621: Final cache stats - Entries: 0, Size: 0 KB, Hit Rate: NaN%
+    cross_language_document_test.go:625: Cache should contain cross-language symbol data
+2025/08/23 10:50:36 [WARN] LSP: No matching request found for response: id=6
+--- PASS: TestCrossLanguageDocumentCoordination (2.77s)
+    --- PASS: TestCrossLanguageDocumentCoordination/MultiLanguageDocumentOpen (0.00s)
+    --- PASS: TestCrossLanguageDocumentCoordination/CrossLanguageSymbolSearch (0.00s)
+    --- PASS: TestCrossLanguageDocumentCoordination/CrossLanguageDefinitionNavigation (0.70s)
+    --- PASS: TestCrossLanguageDocumentCoordination/ConcurrentMultiLanguageOperations (2.00s)
+    --- PASS: TestCrossLanguageDocumentCoordination/DocumentStateConsistency (0.00s)
+    --- PASS: TestCrossLanguageDocumentCoordination/LanguageDetectionAccuracy (0.00s)
+=== RUN   TestDualProtocolConcurrentOperation
+2025/08/23 10:50:36 [INFO] LSP: Starting SCIP cache
+2025/08/23 10:50:36 [INFO] LSP: SCIP cache started successfully
+2025/08/23 10:50:36 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:50:36 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:50:36 [INFO] LSP: Started LSP server process for go: PID 6206
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:195: Processing MCP request: tools/call
+    dual_protocol_integration_test.go:219: HTTP Gateway - Successes: 20, Errors: 0
+    dual_protocol_integration_test.go:221: MCP Server - Successes: 16, Errors: 4
+    dual_protocol_integration_test.go:233: Cache metrics after concurrent operations - Entries: 0
+2025/08/23 10:50:38 [WARN] LSP: No matching request found for response: id=23
+--- PASS: TestDualProtocolConcurrentOperation (1.85s)
+=== RUN   TestDualProtocolResourceContention
+2025/08/23 10:50:38 [INFO] LSP: Starting SCIP cache
+2025/08/23 10:50:38 [INFO] LSP: SCIP cache started successfully
+2025/08/23 10:50:38 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:50:38 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:50:38 [INFO] LSP: Started LSP server process for go: PID 6769
+    dual_protocol_integration_test.go:295: Base memory usage: 2 MB
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:345: Processing heavy MCP request: tools/call
+    dual_protocol_integration_test.go:371: Peak memory usage: 4 MB (increase: 2 MB)
+    dual_protocol_integration_test.go:376: Cache stats - Entries: 0, Size: 0 KB, Evictions: 0
+2025/08/23 10:50:39 [WARN] LSP: No matching request found for response: id=52
+--- PASS: TestDualProtocolResourceContention (0.68s)
+=== RUN   TestFileWatcherIncrementalIndexing
+2025/08/23 10:50:39 [INFO] LSP: Starting SCIP cache
+2025/08/23 10:50:39 [INFO] LSP: SCIP cache started successfully
+2025/08/23 10:50:39 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:50:39 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:50:39 [INFO] LSP: Started LSP server process for go: PID 7142
+2025/08/23 10:50:39 [INFO] LSP: File watcher started for real-time change detection
+2025/08/23 10:50:40 [INFO] LSP: Performing incremental reindex for 1 changed files
+2025/08/23 10:50:40 [INFO] LSP: Incremental indexing: 1 new, 0 modified, 0 unchanged files
+2025/08/23 10:50:40 [INFO] LSP: Incremental indexing: Indexing 1 files
+2025/08/23 10:50:40 [INFO] LSP: Incremental reindex completed successfully
+--- PASS: TestFileWatcherIncrementalIndexing (1.92s)
+=== RUN   TestFindReferencesWithSCIPCache
+2025/08/23 10:50:41 [INFO] LSP: Starting SCIP cache
+2025/08/23 10:50:41 [INFO] LSP: SCIP cache started successfully
+2025/08/23 10:50:41 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:50:41 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:50:41 [INFO] LSP: Started LSP server process for go: PID 7398
+    lsp_helpers.go:147: IndexDocument: Starting document symbol indexing for file:///tmp/lsp-gateway-test-1111422425/main.go
+    lsp_helpers.go:153: IndexDocument: Before - 0 documents, 0 symbols, 0 references
+    lsp_helpers.go:164: IndexDocument: Calling ProcessRequest with textDocument/documentSymbol
+    lsp_helpers.go:171: IndexDocument: ProcessRequest succeeded, result type: json.RawMessage
+    lsp_helpers.go:175: IndexDocument: Waiting for automatic indexing to complete...
+    lsp_helpers.go:184: IndexDocument: Attempt 1 - Cache has 0 documents, 0 symbols, 0 references
+    lsp_helpers.go:184: IndexDocument: Attempt 2 - Cache has 0 documents, 0 symbols, 0 references
+    lsp_helpers.go:184: IndexDocument: Attempt 3 - Cache has 0 documents, 0 symbols, 0 references
+    lsp_helpers.go:184: IndexDocument: Attempt 4 - Cache has 0 documents, 0 symbols, 0 references
+    lsp_helpers.go:184: IndexDocument: Attempt 5 - Cache has 0 documents, 0 symbols, 0 references
+    lsp_helpers.go:184: IndexDocument: Attempt 6 - Cache has 0 documents, 0 symbols, 0 references
+    lsp_helpers.go:184: IndexDocument: Attempt 7 - Cache has 0 documents, 0 symbols, 0 references
+    lsp_helpers.go:184: IndexDocument: Attempt 8 - Cache has 0 documents, 0 symbols, 0 references
+    lsp_helpers.go:184: IndexDocument: Attempt 9 - Cache has 0 documents, 0 symbols, 0 references
+    lsp_helpers.go:184: IndexDocument: Attempt 10 - Cache has 0 documents, 0 symbols, 0 references
+    lsp_helpers.go:195: IndexDocument: Automatic indexing didn't work after 10 attempts, trying to force indexing
+    lsp_helpers.go:198: IndexDocument: Calling ProcessRequest again to force indexing
+    lsp_helpers.go:213: IndexDocument: Still no symbols after second attempt. Result type: json.RawMessage, is nil: false
+    lsp_helpers.go:216: IndexDocument: Result JSON: [{"children":[{"detail":"map[string]string","kind":8,"name":"routes","range":{"end":{"character":25,"line":5},"start":{"character":1,"line":5}},"selectionRange":{"end":{"character":7,"line":5},"start":{"character":1,"line":5}}}],"detail":"struct{...}","kind":23,"name":"Router","range":{"end":{"character":1,"line":6},"start":{"character":5,"line":4}},"selectionRange":{"end":{"character":11,"line":4},"start":{"character":5,"line":4}}},{"detail":"func() *Router","kind":12,"name":"NewRouter","range"
+    find_references_test.go:54: Document symbols indexed: true
+    find_references_test.go:76: Found 13 references to 'Router'
+    find_references_test.go:77: Search metadata: map[]
+    find_references_test.go:93: Cache stats: 0 documents, 0 symbols, 0 references
+--- PASS: TestFindReferencesWithSCIPCache (12.48s)
+=== RUN   TestGatewayIntegration
+2025/08/23 10:50:53 [INFO] LSP: Starting SCIP cache
+2025/08/23 10:50:53 [INFO] LSP: SCIP cache started successfully
+2025/08/23 10:50:53 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:50:53 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:50:53 [INFO] LSP: Started LSP server process for go: PID 8472
+=== RUN   TestGatewayIntegration/Health_check
+=== RUN   TestGatewayIntegration/TextDocument_Definition_via_JSON-RPC
+=== RUN   TestGatewayIntegration/TextDocument_Hover_via_JSON-RPC
+=== RUN   TestGatewayIntegration/TextDocument_DocumentSymbol_via_JSON-RPC
+=== RUN   TestGatewayIntegration/Workspace_Symbol_via_JSON-RPC
+=== RUN   TestGatewayIntegration/TextDocument_References_via_JSON-RPC
+=== RUN   TestGatewayIntegration/TextDocument_Completion_via_JSON-RPC
+=== RUN   TestGatewayIntegration/Batch_JSON-RPC_requests_not_supported
+=== RUN   TestGatewayIntegration/Invalid_method_handling
+=== RUN   TestGatewayIntegration/Concurrent_requests
+2025/08/23 10:51:05 [WARN] LSP: No matching request found for response: id=8
+--- PASS: TestGatewayIntegration (11.32s)
+    --- PASS: TestGatewayIntegration/Health_check (0.00s)
+    --- PASS: TestGatewayIntegration/TextDocument_Definition_via_JSON-RPC (0.41s)
+    --- PASS: TestGatewayIntegration/TextDocument_Hover_via_JSON-RPC (0.00s)
+    --- PASS: TestGatewayIntegration/TextDocument_DocumentSymbol_via_JSON-RPC (0.00s)
+    --- PASS: TestGatewayIntegration/Workspace_Symbol_via_JSON-RPC (0.01s)
+    --- PASS: TestGatewayIntegration/TextDocument_References_via_JSON-RPC (0.00s)
+    --- PASS: TestGatewayIntegration/TextDocument_Completion_via_JSON-RPC (0.00s)
+    --- PASS: TestGatewayIntegration/Batch_JSON-RPC_requests_not_supported (0.00s)
+    --- PASS: TestGatewayIntegration/Invalid_method_handling (0.00s)
+    --- PASS: TestGatewayIntegration/Concurrent_requests (0.00s)
+=== RUN   TestGatewayLSPOneAndCacheHeaders
+2025/08/23 10:51:05 [INFO] LSP: Starting SCIP cache
+2025/08/23 10:51:05 [INFO] LSP: SCIP cache started successfully
+2025/08/23 10:51:05 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:51:05 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:51:05 [INFO] LSP: Started LSP server process for go: PID 9545
+2025/08/23 10:51:05 [WARN] LSP: LSP response contains error: id=2, error=&{0 column is beyond end of line <nil>}
+2025/08/23 10:51:05 [WARN] LSP: LSP response contains error: id=2, error=&{0 column is beyond end of line <nil>}
+--- PASS: TestGatewayLSPOneAndCacheHeaders (1.36s)
+=== RUN   TestGatewayMonitoringEndpoints
+2025/08/23 10:51:06 [INFO] LSP: Starting SCIP cache
+2025/08/23 10:51:06 [INFO] LSP: SCIP cache started successfully
+2025/08/23 10:51:06 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:51:06 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:51:06 [INFO] LSP: Started LSP server process for go: PID 9758
+=== RUN   TestGatewayMonitoringEndpoints/CacheStatsEndpoint
+=== RUN   TestGatewayMonitoringEndpoints/CacheHealthEndpoint
+=== RUN   TestGatewayMonitoringEndpoints/CacheClearEndpoint
+=== RUN   TestGatewayMonitoringEndpoints/CacheAlwaysEnabledForHTTPGateway
+2025/08/23 10:51:07 [INFO] LSP: Starting SCIP cache
+2025/08/23 10:51:07 [INFO] LSP: SCIP cache started successfully
+2025/08/23 10:51:07 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:51:07 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:51:07 [INFO] LSP: Started LSP server process for go: PID 10577
+=== RUN   TestGatewayMonitoringEndpoints/InvalidHTTPMethods
+=== RUN   TestGatewayMonitoringEndpoints/InvalidHTTPMethods/POST_/cache/stats
+=== RUN   TestGatewayMonitoringEndpoints/InvalidHTTPMethods/DELETE_/cache/health
+=== RUN   TestGatewayMonitoringEndpoints/InvalidHTTPMethods/GET_/cache/clear
+=== RUN   TestGatewayMonitoringEndpoints/ConcurrentMonitoringRequests
+=== RUN   TestGatewayMonitoringEndpoints/HealthCheckUnderLoad
+=== RUN   TestGatewayMonitoringEndpoints/StatsAccuracy
+=== RUN   TestGatewayMonitoringEndpoints/JSONRPCWithMonitoring
+2025/08/23 10:51:12 [WARN] LSP: No matching request found for response: id=6
+--- PASS: TestGatewayMonitoringEndpoints (5.90s)
+    --- PASS: TestGatewayMonitoringEndpoints/CacheStatsEndpoint (0.66s)
+    --- PASS: TestGatewayMonitoringEndpoints/CacheHealthEndpoint (0.00s)
+    --- PASS: TestGatewayMonitoringEndpoints/CacheClearEndpoint (0.00s)
+    --- PASS: TestGatewayMonitoringEndpoints/CacheAlwaysEnabledForHTTPGateway (5.12s)
+    --- PASS: TestGatewayMonitoringEndpoints/InvalidHTTPMethods (0.00s)
+        --- PASS: TestGatewayMonitoringEndpoints/InvalidHTTPMethods/POST_/cache/stats (0.00s)
+        --- PASS: TestGatewayMonitoringEndpoints/InvalidHTTPMethods/DELETE_/cache/health (0.00s)
+        --- PASS: TestGatewayMonitoringEndpoints/InvalidHTTPMethods/GET_/cache/clear (0.00s)
+    --- PASS: TestGatewayMonitoringEndpoints/ConcurrentMonitoringRequests (0.00s)
+    --- PASS: TestGatewayMonitoringEndpoints/HealthCheckUnderLoad (0.00s)
+    --- PASS: TestGatewayMonitoringEndpoints/StatsAccuracy (0.00s)
+    --- PASS: TestGatewayMonitoringEndpoints/JSONRPCWithMonitoring (0.00s)
+=== RUN   TestBuiltinTypeFilteringIntegration
+    indexing_fix_test.go:15: Skipping integration test in local environment (set RUN_INTEGRATION_TESTS=1 to run)
+--- SKIP: TestBuiltinTypeFilteringIntegration (0.00s)
+=== RUN   TestPositionValidationIntegration
+=== RUN   TestPositionValidationIntegration/Valid_position_at_function_name
+=== RUN   TestPositionValidationIntegration/Valid_position_at_line_start
+=== RUN   TestPositionValidationIntegration/Line_exceeds_file_length
+    indexing_fix_test.go:171: Line 100 exceeds file with 11 lines
+=== RUN   TestPositionValidationIntegration/Character_exceeds_line_length
+    indexing_fix_test.go:176: Character 200 exceeds line length 18
+=== RUN   TestPositionValidationIntegration/Last_line_position
+--- PASS: TestPositionValidationIntegration (0.00s)
+    --- PASS: TestPositionValidationIntegration/Valid_position_at_function_name (0.00s)
+    --- PASS: TestPositionValidationIntegration/Valid_position_at_line_start (0.00s)
+    --- PASS: TestPositionValidationIntegration/Line_exceeds_file_length (0.00s)
+    --- PASS: TestPositionValidationIntegration/Character_exceeds_line_length (0.00s)
+    --- PASS: TestPositionValidationIntegration/Last_line_position (0.00s)
+=== RUN   TestKeywordSkippingIntegration
+=== RUN   TestKeywordSkippingIntegration/Function_declaration
+=== RUN   TestKeywordSkippingIntegration/Method_with_receiver
+=== RUN   TestKeywordSkippingIntegration/Type_declaration
+=== RUN   TestKeywordSkippingIntegration/Variable_declaration
+=== RUN   TestKeywordSkippingIntegration/Constant_declaration
+=== RUN   TestKeywordSkippingIntegration/Interface_declaration
+--- PASS: TestKeywordSkippingIntegration (0.00s)
+    --- PASS: TestKeywordSkippingIntegration/Function_declaration (0.00s)
+    --- PASS: TestKeywordSkippingIntegration/Method_with_receiver (0.00s)
+    --- PASS: TestKeywordSkippingIntegration/Type_declaration (0.00s)
+    --- PASS: TestKeywordSkippingIntegration/Variable_declaration (0.00s)
+    --- PASS: TestKeywordSkippingIntegration/Constant_declaration (0.00s)
+    --- PASS: TestKeywordSkippingIntegration/Interface_declaration (0.00s)
+=== RUN   TestErrorFilteringLogic
+    indexing_fix_test.go:319: ✓ Correctly filtered: 'no identifier found at position 10:5' (shouldLog=false, reason: Expected error for missing identifier)
+    indexing_fix_test.go:319: ✓ Correctly filtered: 'cannot get references for builtin type 'string'' (shouldLog=false, reason: Expected error for builtin type)
+    indexing_fix_test.go:319: ✓ Correctly filtered: 'symbol 'int' not found in project' (shouldLog=false, reason: Expected error for builtin not found)
+    indexing_fix_test.go:319: ✓ Correctly filtered: 'failed to connect to LSP server: connection refused' (shouldLog=true, reason: Unexpected connection error)
+    indexing_fix_test.go:319: ✓ Correctly filtered: 'timeout waiting for LSP response' (shouldLog=true, reason: Unexpected timeout error)
+    indexing_fix_test.go:319: ✓ Correctly filtered: 'invalid JSON in LSP response' (shouldLog=true, reason: Unexpected parsing error)
+--- PASS: TestErrorFilteringLogic (0.00s)
+=== RUN   TestLSPManagerLifecycleErrorHandling
+=== RUN   TestLSPManagerLifecycleErrorHandling/StartupWithInvalidServer
+2025/08/23 10:51:12 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:51:12 [INFO] LSP: Starting LSP servers for detected languages only: []
+=== RUN   TestLSPManagerLifecycleErrorHandling/NormalOperationWithGopls
+2025/08/23 10:51:12 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:51:12 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:51:12 [INFO] LSP: Started LSP server process for go: PID 11121
+=== RUN   TestLSPManagerLifecycleErrorHandling/ContextCancellationDuringRequest
+2025/08/23 10:51:13 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:51:13 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:51:13 [INFO] LSP: Started LSP server process for go: PID 11723
+2025/08/23 10:51:14 [ERROR] LSP: LSP request timeout: method=textDocument/hover, id=2, timeout=15s
+    lsp_lifecycle_test.go:167: Request failed due to timeout (context cancellation may not have been fast enough)
+2025/08/23 10:51:14 [WARN] LSP: LSP response contains error: id=2, error=&{0 context canceled <nil>}
+=== RUN   TestLSPManagerLifecycleErrorHandling/CacheStartFailure
+--- PASS: TestLSPManagerLifecycleErrorHandling (3.08s)
+    --- PASS: TestLSPManagerLifecycleErrorHandling/StartupWithInvalidServer (0.00s)
+    --- PASS: TestLSPManagerLifecycleErrorHandling/NormalOperationWithGopls (1.51s)
+    --- PASS: TestLSPManagerLifecycleErrorHandling/ContextCancellationDuringRequest (1.57s)
+    --- PASS: TestLSPManagerLifecycleErrorHandling/CacheStartFailure (0.00s)
+=== RUN   TestLSPManagerWithCache
+2025/08/23 10:51:15 [INFO] LSP: Starting SCIP cache
+2025/08/23 10:51:15 [INFO] LSP: SCIP cache started successfully
+2025/08/23 10:51:15 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:51:15 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:51:15 [INFO] LSP: Started LSP server process for go: PID 12123
+=== RUN   TestLSPManagerWithCache/CacheIntegration
+2025/08/23 10:51:16 [WARN] LSP: LSP response contains error: id=2, error=&{0 no package metadata for file file:///tmp/TestLSPManagerWithCache4010231552/001/cache_test.go <nil>}
+2025/08/23 10:51:16 [WARN] LSP: LSP response contains error: id=2, error=&{0 no package metadata for file file:///tmp/TestLSPManagerWithCache4010231552/001/cache_test.go <nil>}
+--- PASS: TestLSPManagerWithCache (1.56s)
+    --- PASS: TestLSPManagerWithCache/CacheIntegration (0.69s)
+=== RUN   TestLSPManagerIntegration
+2025/08/23 10:51:16 [INFO] LSP: Starting SCIP cache
+2025/08/23 10:51:16 [INFO] LSP: SCIP cache started successfully
+2025/08/23 10:51:16 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:51:16 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:51:16 [INFO] LSP: Started LSP server process for go: PID 12717
+=== RUN   TestLSPManagerIntegration/TextDocument_Definition
+    lsp_response_helpers.go:457: textDocument/definition: Found 1 definition location(s)
+=== RUN   TestLSPManagerIntegration/TextDocument_References
+    lsp_response_helpers.go:101: Warning: Failed to unmarshal references response: json: cannot unmarshal object into Go value of type []protocol.Location
+    lsp_response_helpers.go:101: Warning: Failed to unmarshal references response: json: cannot unmarshal object into Go value of type []protocol.Location
+    lsp_response_helpers.go:465: textDocument/references: No references found
+    lsp_manager_integration_test.go:152: No references found, which may be expected depending on test file content
+=== RUN   TestLSPManagerIntegration/TextDocument_Hover
+    lsp_response_helpers.go:150: Warning: Failed to unmarshal hover response: unexpected end of JSON input
+    lsp_response_helpers.go:150: Warning: Failed to unmarshal hover response: unexpected end of JSON input
+    lsp_response_helpers.go:471: textDocument/hover: No hover information
+    lsp_manager_integration_test.go:181: No hover information available
+=== RUN   TestLSPManagerIntegration/TextDocument_DocumentSymbol
+    lsp_response_helpers.go:481: textDocument/documentSymbol: Found 4 document symbol(s)
+    lsp_manager_integration_test.go:211: Found 4 document symbols
+=== RUN   TestLSPManagerIntegration/Workspace_Symbol
+=== RUN   TestLSPManagerIntegration/TextDocument_Completion
+    lsp_response_helpers.go:487: textDocument/completion: Found 9 completion item(s)
+    lsp_manager_integration_test.go:252: Received 9 completion items
+=== RUN   TestLSPManagerIntegration/Cache_Integration
+    lsp_manager_integration_test.go:283: Cache integration test completed successfully
+=== RUN   TestLSPManagerIntegration/Multiple_Language_Support
+--- PASS: TestLSPManagerIntegration (3.08s)
+    --- PASS: TestLSPManagerIntegration/TextDocument_Definition (0.64s)
+    --- PASS: TestLSPManagerIntegration/TextDocument_References (0.00s)
+    --- PASS: TestLSPManagerIntegration/TextDocument_Hover (0.00s)
+    --- PASS: TestLSPManagerIntegration/TextDocument_DocumentSymbol (0.00s)
+    --- PASS: TestLSPManagerIntegration/Workspace_Symbol (0.01s)
+    --- PASS: TestLSPManagerIntegration/TextDocument_Completion (0.00s)
+    --- PASS: TestLSPManagerIntegration/Cache_Integration (0.00s)
+    --- PASS: TestLSPManagerIntegration/Multiple_Language_Support (0.00s)
+=== RUN   TestNewLSPManagerReferences
+2025/08/23 10:51:20 [INFO] LSP: Starting SCIP cache
+2025/08/23 10:51:20 [INFO] LSP: SCIP cache started successfully
+2025/08/23 10:51:20 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:51:20 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:51:20 [INFO] LSP: Started LSP server process for go: PID 13633
+=== RUN   TestNewLSPManagerReferences/IndexDefinition
+    lsp_manager_references_test.go:66: Successfully indexed lsp_manager.go
+=== RUN   TestNewLSPManagerReferences/IndexUsages
+    lsp_manager_references_test.go:90: Successfully indexed gateway.go
+    lsp_manager_references_test.go:90: Successfully indexed mcp_server.go
+    lsp_manager_references_test.go:90: Successfully indexed server_commands.go
+=== RUN   TestNewLSPManagerReferences/IndexWorkspace
+    lsp_manager_references_test.go:105: Workspace symbols found for NewLSPManager
+=== RUN   TestNewLSPManagerReferences/IndexReferencesViaLSP
+2025/08/23 10:51:23 [WARN] LSP: LSP response contains error: id=7, error=&{0 column is beyond end of line <nil>}
+2025/08/23 10:51:23 [WARN] LSP: LSP response contains error: id=7, error=&{0 column is beyond end of line <nil>}
+    lsp_manager_references_test.go:131: LSP references found: [123 34 99 111 100 101 34 58 48 44 34 109 101 115 115 97 103 101 34 58 34 99 111 108 117 109 110 32 105 115 32 98 101 121 111 110 100 32 101 110 100 32 111 102 32 108 105 110 101 34 125]
+=== RUN   TestNewLSPManagerReferences/FindReferences
+    lsp_manager_references_test.go:158: Cache stats: &{DocumentCount:31 SymbolCount:71 ReferenceCount:99 IndexSize:9900 LastUpdate:2025-08-23 10:51:26.008435744 +0000 UTC m=+67.235998610 LanguageStats:map[go:156] IndexedLanguages:[go] Status:active}
+    lsp_manager_references_test.go:188: ✓ Found 5 references to NewLSPManager
+    lsp_manager_references_test.go:191:   Reference 1: /home/skawn/work/lsp-gateway/scripts/kotlin_socket_smoke.go:51:20 (Def: false, Read: true, Write: false)
+    lsp_manager_references_test.go:191:   Reference 2: /home/skawn/work/lsp-gateway/src/cli/common/cli_helpers.go:48:24 (Def: false, Read: true, Write: false)
+    lsp_manager_references_test.go:191:   Reference 3: /home/skawn/work/lsp-gateway/src/server/gateway.go:45:20 (Def: false, Read: true, Write: false)
+    lsp_manager_references_test.go:191:   Reference 4: /home/skawn/work/lsp-gateway/src/server/lsp_manager.go:84:5 (Def: false, Read: true, Write: false)
+    lsp_manager_references_test.go:191:   Reference 5: /home/skawn/work/lsp-gateway/src/server/lsp_manager_unit_test.go:145:19 (Def: false, Read: true, Write: false)
+--- PASS: TestNewLSPManagerReferences (7.07s)
+    --- PASS: TestNewLSPManagerReferences/IndexDefinition (0.40s)
+    --- PASS: TestNewLSPManagerReferences/IndexUsages (1.21s)
+    --- PASS: TestNewLSPManagerReferences/IndexWorkspace (0.01s)
+    --- PASS: TestNewLSPManagerReferences/IndexReferencesViaLSP (0.01s)
+    --- PASS: TestNewLSPManagerReferences/FindReferences (1.66s)
+=== RUN   TestMCPGlobPatterns
+    mcp_glob_test.go:16: Test implementation incomplete - handleToolCallForTest is a stub. Needs proper MCP server integration with pipes like mcp_references_test.go
+--- SKIP: TestMCPGlobPatterns (0.00s)
+=== RUN   TestFilePatternCompatibility
+=== RUN   TestFilePatternCompatibility/Simple_glob
+=== RUN   TestFilePatternCompatibility/Recursive_glob
+=== RUN   TestFilePatternCompatibility/Directory_glob
+=== RUN   TestFilePatternCompatibility/Windows_path_normalization
+=== RUN   TestFilePatternCompatibility/Empty_defaults_to_all
+=== RUN   TestFilePatternCompatibility/Current_directory
+=== RUN   TestFilePatternCompatibility/Current_directory_with_slash
+=== RUN   TestFilePatternCompatibility/Directory_prefix
+--- PASS: TestFilePatternCompatibility (0.00s)
+    --- PASS: TestFilePatternCompatibility/Simple_glob (0.00s)
+    --- PASS: TestFilePatternCompatibility/Recursive_glob (0.00s)
+    --- PASS: TestFilePatternCompatibility/Directory_glob (0.00s)
+    --- PASS: TestFilePatternCompatibility/Windows_path_normalization (0.00s)
+    --- PASS: TestFilePatternCompatibility/Empty_defaults_to_all (0.00s)
+    --- PASS: TestFilePatternCompatibility/Current_directory (0.00s)
+    --- PASS: TestFilePatternCompatibility/Current_directory_with_slash (0.00s)
+    --- PASS: TestFilePatternCompatibility/Directory_prefix (0.00s)
+=== RUN   TestMCPFindReferences_UsesSCIPAndPrintsRefs
+    mcp_references_test.go:72: Created MCP server with cache enabled, background indexing: true
+2025/08/23 10:51:27 [INFO] LSP: Starting SCIP cache
+2025/08/23 10:51:27 [INFO] LSP: SCIP cache started successfully
+2025/08/23 10:51:27 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 10:51:27 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 10:51:27 [INFO] LSP: Started LSP server process for go: PID 14303
+2025/08/23 10:51:27 [INFO] LSP: File watcher started for real-time change detection
+    mcp_references_test.go:96: Sent initialize request
+    mcp_references_test.go:99: Waited 1.5s for initialization, now sending findSymbols
+    mcp_references_test.go:251: Successfully found Foo symbol via findSymbols
+    mcp_references_test.go:115: findSymbols succeeded, waiting for reference indexing to complete
+2025/08/23 10:51:30 [INFO] LSP: MCP: Starting initial indexing
+2025/08/23 10:51:30 [INFO] LSP: IndexWorkspaceFiles called: workspaceDir=/home/skawn/work/lsp-gateway/tmp-mcp-refs, languages=[go], maxFiles=100000
+2025/08/23 10:51:30 [INFO] LSP: Workspace indexer: Detected languages: [go]
+2025/08/23 10:51:30 [INFO] LSP: Workspace indexer: Looking for extensions: [.go]
+2025/08/23 10:51:30 [INFO] LSP: Workspace indexer: Found 1 source files in /home/skawn/work/lsp-gateway/tmp-mcp-refs
+2025/08/23 10:51:30 [INFO] LSP:   File 0: /home/skawn/work/lsp-gateway/tmp-mcp-refs/main.go
+2025/08/23 10:51:32 [INFO] LSP: MCP: Searching workspace symbols with patterns
+2025/08/23 10:51:32 [INFO] LSP: MCP: Found 3 unique symbols from pattern search
+2025/08/23 10:51:32 [INFO] LSP: MCP: Starting workspace file indexing
+2025/08/23 10:51:32 [INFO] LSP: MCP: Workspace directory: /home/skawn/work/lsp-gateway/tmp-mcp-refs
+2025/08/23 10:51:32 [INFO] LSP: IndexWorkspaceFiles called: workspaceDir=/home/skawn/work/lsp-gateway/tmp-mcp-refs, languages=[go], maxFiles=50
+2025/08/23 10:51:32 [INFO] LSP: Workspace indexer: Detected languages: [go]
+2025/08/23 10:51:32 [INFO] LSP: Workspace indexer: Looking for extensions: [.go]
+2025/08/23 10:51:32 [INFO] LSP: Workspace indexer: Found 1 source files in /home/skawn/work/lsp-gateway/tmp-mcp-refs
+2025/08/23 10:51:32 [INFO] LSP:   File 0: /home/skawn/work/lsp-gateway/tmp-mcp-refs/main.go
+    mcp_references_test.go:120: Completed wait for reference indexing, now sending findReferences
+--- PASS: TestMCPFindReferences_UsesSCIPAndPrintsRefs (11.57s)
+=== RUN   TestMCPServerIntegration
+    mcp_server_integration_test.go:8: MCP server integration tests disabled - MCP server uses continuous STDIO protocol that is difficult to test in isolation. MCP functionality is covered by unit tests and dual-protocol integration tests.
+--- SKIP: TestMCPServerIntegration (0.00s)
+PASS
+ok  	lsp-gateway/tests/integration	79.922s

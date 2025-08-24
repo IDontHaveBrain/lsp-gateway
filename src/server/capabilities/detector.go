@@ -1,3 +1,4 @@
+// Package capabilities detects and represents server capabilities.
 package capabilities
 
 import (

@@ -11,6 +11,7 @@ import (
 
 	"lsp-gateway/src/internal/common"
 	"lsp-gateway/src/internal/registry"
+	"lsp-gateway/src/internal/security"
 	"lsp-gateway/src/internal/types"
 )
 
@@ -63,6 +64,9 @@ func (pm *LSPProcessManager) StartProcess(config types.ClientConfig, language st
 		}
 	}
 
+	if err := security.ValidateCommand(command, args); err != nil {
+		return nil, fmt.Errorf("invalid command or args: %w", err)
+	}
 	// Create command
 	cmd := exec.Command(command, args...)
 

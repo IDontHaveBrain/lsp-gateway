@@ -1,3 +1,4 @@
+// Package security provides command validation and safety checks.
 package security
 
 import (

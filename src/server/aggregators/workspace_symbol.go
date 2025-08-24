@@ -1,3 +1,4 @@
+// Package aggregators provides aggregation logic for LSP results.
 package aggregators
 
 import (

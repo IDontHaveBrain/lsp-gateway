@@ -1,3 +1,4 @@
+// Package constants defines timeouts, cache defaults, and other constants.
 package constants
 
 import (
@@ -69,7 +70,7 @@ const (
 	LSPResponseBufferSize = 1024 * 1024 // 1MB
 )
 
-// Supported file extensions by language
+// SupportedExtensions lists supported file extensions by language.
 var SupportedExtensions map[string][]string
 
 // init initializes SupportedExtensions from registry on package load
@@ -82,7 +83,7 @@ func getSupportedExtensions() map[string][]string {
 	return SupportedExtensions
 }
 
-// Directories to skip during file scanning
+// SkipDirectories lists directories to skip during file scanning.
 var SkipDirectories = map[string]bool{
 	".":            true,
 	"node_modules": true,

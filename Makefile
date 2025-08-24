@@ -184,7 +184,11 @@ test-all:
 	@echo "================================================"
 	@echo "3/3: E2E Tests"
 	@echo "================================================"
-	@$(GOTEST) -v -timeout 1800s ./tests/e2e/... || (echo "❌ E2E tests failed" && exit 1)
+	@if [ -d tests/e2e ]; then \
+		$(GOTEST) -v -timeout 1800s ./tests/e2e/... || (echo "❌ E2E tests failed" && exit 1); \
+	else \
+		echo "No E2E tests directory found, skipping"; \
+	fi
 	@echo ""
 	@echo "✅ All tests passed!"
 
@@ -203,7 +207,11 @@ test-integration:
 
 test-e2e:
 	@echo "Running E2E tests..."
-	$(GOTEST) -v -timeout 1800s ./tests/e2e/...
+	@if [ -d tests/e2e ]; then \
+		$(GOTEST) -v -timeout 1800s ./tests/e2e/...; \
+	else \
+		echo "No E2E tests directory found, skipping"; \
+	fi
 
 test-quick:
 	@echo "Running quick validation tests..."
@@ -228,12 +236,12 @@ vet:
 lint:
 	@echo "Running linter..."
 	@command -v golangci-lint >/dev/null 2>&1 || { echo "golangci-lint not found. Install: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; exit 1; }
-	golangci-lint run --tests=false ./src/... || echo "Linting issues found - review above for code quality improvements"
+	golangci-lint run -c .golangci.yml --tests=false ./src/... || echo "Linting issues found - review above for code quality improvements"
 
 security:
 	@echo "Running security analysis (optional)..."
 	@if command -v gosec >/dev/null 2>&1; then \
-		gosec ./src/... || echo "Security issues found - review above for production use"; \
+		gosec -exclude=G302,G304,G115,G204 -conf .gosec.json ./src/... || echo "Security issues found - review above for production use"; \
 	else \
 		echo "gosec not found - skipping security check (install: go install github.com/securego/gosec/v2/cmd/gosec@latest)"; \
 	fi

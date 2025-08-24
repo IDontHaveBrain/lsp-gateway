@@ -1,3 +1,4 @@
+// Package gitignore provides gitignore-aware walking and filtering utilities.
 package gitignore
 
 import (

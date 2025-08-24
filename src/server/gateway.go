@@ -36,9 +36,13 @@ type HTTPGateway struct {
 	responseFactory *protocol.ResponseFactory
 }
 
-// Alias types from protocol package for backward compatibility
+// JSONRPCRequest is an alias to protocol.JSONRPCRequest for backward compatibility.
 type JSONRPCRequest = protocol.JSONRPCRequest
+
+// JSONRPCResponse is an alias to protocol.JSONRPCResponse for backward compatibility.
 type JSONRPCResponse = protocol.JSONRPCResponse
+
+// RPCError is an alias to protocol.RPCError for backward compatibility.
 type RPCError = protocol.RPCError
 
 // NewHTTPGateway creates a new simple HTTP gateway with mandatory cache

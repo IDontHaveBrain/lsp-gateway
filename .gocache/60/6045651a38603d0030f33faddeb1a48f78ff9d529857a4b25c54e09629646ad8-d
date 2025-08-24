@@ -1,0 +1,3 @@
+./manager.go
+./manager_unix.go
+./manager_test.go

@@ -1,0 +1,19 @@
+=== RUN   TestProjectSpecificCachePathDistinct
+--- PASS: TestProjectSpecificCachePathDistinct (0.00s)
+=== RUN   TestCacheSetters_Validation
+--- PASS: TestCacheSetters_Validation (0.00s)
+=== RUN   TestLoadConfig_ExpandTildeAndValidate
+2025/08/23 10:41:36 [WARN] CLI: Cache memory limit (64MB) is more than 50% of system memory (7MB)
+--- PASS: TestLoadConfig_ExpandTildeAndValidate (0.00s)
+=== RUN   TestGetDefaultConfig_CacheEnabledByDefault
+--- PASS: TestGetDefaultConfig_CacheEnabledByDefault (0.00s)
+=== RUN   TestGetDefaultCacheConfig_EnabledByDefault
+--- PASS: TestGetDefaultCacheConfig_EnabledByDefault (0.00s)
+=== RUN   TestConfig_IsCacheEnabled
+--- PASS: TestConfig_IsCacheEnabled (0.00s)
+=== RUN   TestConfig_HasCache
+--- PASS: TestConfig_HasCache (0.00s)
+=== RUN   TestGetDefaultConfigWithCache_ReturnsDefaultConfig
+--- PASS: TestGetDefaultConfigWithCache_ReturnsDefaultConfig (0.00s)
+PASS
+ok  	lsp-gateway/tests/unit/config	0.002s

@@ -1,3 +1,4 @@
+// Package types provides shared internal types and interfaces.
 package types
 
 import (

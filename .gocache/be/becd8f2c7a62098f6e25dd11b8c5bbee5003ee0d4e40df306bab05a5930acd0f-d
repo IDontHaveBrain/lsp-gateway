@@ -1,0 +1,39 @@
+=== RUN   TestSCIPCacheOperations
+2025/08/23 13:22:17 [INFO] LSP: Starting SCIP cache
+2025/08/23 13:22:17 [INFO] LSP: SCIP cache started successfully
+2025/08/23 13:22:17 [INFO] LSP: Detected workspace languages: [go]
+2025/08/23 13:22:17 [INFO] LSP: Starting LSP servers for detected languages only: [go]
+2025/08/23 13:22:17 [INFO] LSP: Started LSP server process for go: PID 79846
+=== RUN   TestSCIPCacheOperations/SCIPDefinitionStorage
+    cache_scip_operations_test.go:139: Cache lookup succeeded: [91 123 34 114 97 110 103 101 34 58 123 34 101 110 100 34 58 123 34 99 104 97 114 97 99 116 101 114 34 58 49 52 44 34 108 105 110 101 34 58 49 51 125 44 34 115 116 97 114 116 34 58 123 34 99 104 97 114 97 99 116 101 114 34 58 53 44 34 108 105 110 101 34 58 49 51 125 125 44 34 117 114 105 34 58 34 102 105 108 101 58 47 47 47 116 109 112 47 84 101 115 116 83 67 73 80 67 97 99 104 101 79 112 101 114 97 116 105 111 110 115 51 55 57 55 56 53 50 49 52 49 47 48 48 49 47 109 97 105 110 46 103 111 34 125 93]
+    cache_scip_operations_test.go:164: Could not find cached definition with any symbol ID, skipping cache validation
+=== RUN   TestSCIPCacheOperations/SCIPReferencesStorage
+    cache_scip_operations_test.go:207: References cache lookup succeeded
+    cache_scip_operations_test.go:215: Symbol-specific references cache not found, skipping validation
+=== RUN   TestSCIPCacheOperations/SCIPMethodResultStorage
+    cache_scip_operations_test.go:270: Skipping StoreMethodResult test due to type constraints
+    cache_scip_operations_test.go:275: Hover cache lookup succeeded
+    cache_scip_operations_test.go:283: Symbol-specific hover cache not found, skipping validation
+=== RUN   TestSCIPCacheOperations/SCIPCrossFilerferences
+2025/08/23 13:22:19 [WARN] LSP: LSP response contains error: id=5, error=&{0 no object found for "Server" <nil>}
+2025/08/23 13:22:19 [WARN] LSP: LSP response contains error: id=5, error=&{0 no object found for "Server" <nil>}
+    lsp_response_helpers.go:101: Warning: Failed to unmarshal references response: json: cannot unmarshal object into Go value of type []protocol.Location
+    cache_scip_operations_test.go:317: No cross-file references found, which may be expected
+=== RUN   TestSCIPCacheOperations/SCIPSymbolQuery
+    cache_scip_operations_test.go:360: Found 1 symbols in SCIP query
+=== RUN   TestSCIPCacheOperations/SCIPCacheInvalidation
+=== RUN   TestSCIPCacheOperations/SCIPConcurrentOperations
+=== RUN   TestSCIPCacheOperations/SCIPEvictionPolicy
+    cache_scip_operations_test.go:496: No evictions occurred, possibly because entries are too small
+    cache_scip_operations_test.go:497: Cache metrics - Entries: 0, Size: 0 bytes
+--- PASS: TestSCIPCacheOperations (1.90s)
+    --- PASS: TestSCIPCacheOperations/SCIPDefinitionStorage (0.69s)
+    --- PASS: TestSCIPCacheOperations/SCIPReferencesStorage (0.00s)
+    --- PASS: TestSCIPCacheOperations/SCIPMethodResultStorage (0.00s)
+    --- PASS: TestSCIPCacheOperations/SCIPCrossFilerferences (0.76s)
+    --- PASS: TestSCIPCacheOperations/SCIPSymbolQuery (0.00s)
+    --- PASS: TestSCIPCacheOperations/SCIPCacheInvalidation (0.31s)
+    --- PASS: TestSCIPCacheOperations/SCIPConcurrentOperations (0.00s)
+    --- PASS: TestSCIPCacheOperations/SCIPEvictionPolicy (0.00s)
+PASS
+ok  	lsp-gateway/tests/integration	1.902s

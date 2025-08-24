@@ -142,19 +142,19 @@ func (m *LSPManager) indexDefinitionsAsOccurrences(ctx context.Context, uri, lan
 
 	for _, location := range locations {
 		// Generate SCIP symbol ID (use definition start position)
-		startPos := types.Position{Line: int32(location.Range.Start.Line), Character: int32(location.Range.Start.Character)}
+		startPos := types.Position{Line: location.Range.Start.Line, Character: location.Range.Start.Character}
 		symbolID := m.generateSymbolID(language, location.URI, symbolName, types.Function, &startPos)
 
 		// Create SCIP occurrence with definition role
 		occurrence := scip.SCIPOccurrence{
 			Range: types.Range{
 				Start: types.Position{
-					Line:      int32(location.Range.Start.Line),
-					Character: int32(location.Range.Start.Character),
+					Line:      location.Range.Start.Line,
+					Character: location.Range.Start.Character,
 				},
 				End: types.Position{
-					Line:      int32(location.Range.End.Line),
-					Character: int32(location.Range.End.Character),
+					Line:      location.Range.End.Line,
+					Character: location.Range.End.Character,
 				},
 			},
 			Symbol:      symbolID,
@@ -234,8 +234,8 @@ func (m *LSPManager) indexReferencesAsOccurrences(ctx context.Context, uri, lang
 	for _, location := range locations {
 		occurrence := scip.SCIPOccurrence{
 			Range: types.Range{
-				Start: types.Position{Line: int32(location.Range.Start.Line), Character: int32(location.Range.Start.Character)},
-				End:   types.Position{Line: int32(location.Range.End.Line), Character: int32(location.Range.End.Character)},
+				Start: types.Position{Line: location.Range.Start.Line, Character: location.Range.Start.Character},
+				End:   types.Position{Line: location.Range.End.Line, Character: location.Range.End.Character},
 			},
 			Symbol:      stableSymbolID,
 			SymbolRoles: types.SymbolRoleReadAccess,
@@ -315,12 +315,12 @@ func (m *LSPManager) indexWorkspaceSymbolsAsOccurrences(ctx context.Context, lan
 			occurrence := scip.SCIPOccurrence{
 				Range: types.Range{
 					Start: types.Position{
-						Line:      int32(occurrenceRange.Start.Line),
-						Character: int32(occurrenceRange.Start.Character),
+						Line:      occurrenceRange.Start.Line,
+						Character: occurrenceRange.Start.Character,
 					},
 					End: types.Position{
-						Line:      int32(occurrenceRange.End.Line),
-						Character: int32(occurrenceRange.End.Character),
+						Line:      occurrenceRange.End.Line,
+						Character: occurrenceRange.End.Character,
 					},
 				},
 				Symbol:      symbolID,
@@ -670,8 +670,8 @@ func (m *LSPManager) storeDocumentOccurrences(ctx context.Context, uri, language
 			Location: types.Location{
 				URI: uri,
 				Range: types.Range{
-					Start: types.Position{Line: int32(occ.Range.Start.Line), Character: int32(occ.Range.Start.Character)},
-					End:   types.Position{Line: int32(occ.Range.End.Line), Character: int32(occ.Range.End.Character)},
+					Start: types.Position{Line: occ.Range.Start.Line, Character: occ.Range.Start.Character},
+					End:   types.Position{Line: occ.Range.End.Line, Character: occ.Range.End.Character},
 				},
 			},
 		}
