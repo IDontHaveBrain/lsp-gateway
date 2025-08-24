@@ -38,8 +38,8 @@ jobs:
         echo "🔍 Running go vet..."
         make vet
         
-        # Check if code is properly formatted
-        UNFORMATTED="$(git ls-files '*.go' | grep -Ev '^\\.gomodcache/|^\\.gocache/|^vendor/|^\\.git/' | xargs -r gofmt -l)"
+        # Check if code is properly formatted - only check repository source files
+        UNFORMATTED="$(find . -name '*.go' -not -path './.gomodcache/*' -not -path './.gocache/*' -not -path './vendor/*' -not -path './.git/*' -not -path './bin/*' | xargs -r gofmt -l)"
         if [ -n "$UNFORMATTED" ]; then
           echo "❌ Code is not formatted. Please run 'make format'"
           echo "$UNFORMATTED"
