@@ -147,12 +147,19 @@ func (m *LSPManager) Start(ctx context.Context) error {
 	m.scipCache = m.cacheIntegrator.GetCache()
 
 	// Detect workspace languages and filter servers to start
-	// Only start LSP servers for languages actually present in the current working directory
 	languagesToStart := make([]string, 0)
 	serversToStart := make(map[string]*config.ServerConfig)
 
 	if wd, err := os.Getwd(); err == nil {
-		if detected, derr := project.DetectLanguages(wd); derr == nil && len(detected) > 0 {
+		// Always include servers explicitly pinned to a working directory
+		for lang, cfg := range m.config.Servers {
+			if cfg != nil && cfg.WorkingDir != "" {
+				serversToStart[lang] = cfg
+				languagesToStart = append(languagesToStart, lang)
+			}
+		}
+		detected, derr := project.DetectLanguages(wd)
+		if derr == nil && len(detected) > 0 {
 			detectedSet := make(map[string]bool, len(detected))
 			for _, lang := range detected {
 				detectedSet[lang] = true
@@ -164,10 +171,17 @@ func (m *LSPManager) Start(ctx context.Context) error {
 				}
 			}
 			common.LSPLogger.Info("Detected workspace languages: %v", detected)
-			common.LSPLogger.Info("Starting LSP servers for detected languages only: %v", languagesToStart)
+			common.LSPLogger.Info("Starting LSP servers for detected and pinned languages: %v", languagesToStart)
 		} else {
-			// No languages detected; do not start any servers
-			common.LSPLogger.Warn("No languages detected in workspace; skipping LSP server startup")
+			// No languages detected; rely on explicitly pinned servers only
+			if derr != nil {
+				common.LSPLogger.Warn("Language detection failed: %v", derr)
+			}
+			if len(serversToStart) == 0 {
+				common.LSPLogger.Warn("No languages detected in workspace and no pinned servers; skipping LSP server startup")
+			} else {
+				common.LSPLogger.Info("Starting servers explicitly pinned to working directories: %v", languagesToStart)
+			}
 		}
 	} else {
 		// Unable to get working directory; conservative: skip starting servers
@@ -817,48 +831,87 @@ func (m *LSPManager) startClientWithTimeout(ctx context.Context, language string
 
 	argsToUse := cfg.Args
 
-	// Kotlin: use socket mode for JetBrains kotlin-lsp on Linux/macOS, stdio for fwcd on Windows
-	if language == langKotlin && runtime.GOOS != osWindows {
-		// JetBrains kotlin-lsp runs in socket mode on port 9999 by default (no arguments)
-		addr := "127.0.0.1:9999"
-
-		// Remove ALL arguments - kotlin-lsp.sh runs in socket mode on port 9999 when no args provided
-		argsToUse = []string{}
-		common.LSPLogger.Info("Launching JetBrains %s LSP in socket mode at %s", language, addr)
-
-		clientConfig := types.ClientConfig{
-			Command:               resolvedCommand,
-			Args:                  argsToUse,
-			WorkingDir:            cfg.WorkingDir,
-			InitializationOptions: cfg.InitializationOptions,
-		}
-
-		if err := security.ValidateCommand(resolvedCommand, argsToUse); err != nil {
-			return fmt.Errorf("invalid LSP server command for %s: %w", language, err)
-		}
-
-		client, err := NewSocketClient(clientConfig, language, addr)
-		if err != nil {
-			return fmt.Errorf("failed to create client: %w", err)
-		}
-		if err := client.Start(ctx); err != nil {
-			return fmt.Errorf("failed to start client: %w", err)
-		}
-		m.mu.Lock()
-		m.clients[language] = client
-		m.mu.Unlock()
-
-		if activeClient, ok := client.(interface{ IsActive() bool }); ok {
-			maxWaitIterations := m.getClientActiveWaitIterations(language)
-			for i := 0; i < maxWaitIterations; i++ {
-				if activeClient.IsActive() {
-					break
-				}
-				time.Sleep(100 * time.Millisecond)
-			}
-		}
-		return nil
-	}
+    // Kotlin: decide transport based on server variant
+    if language == langKotlin {
+        // Determine which Kotlin server is available/selected
+        // jetbrains: kotlin-lsp (socket on *nix), fwcd: kotlin-language-server (stdio)
+        base := filepath.Base(resolvedCommand)
+        isJetBrains := strings.Contains(base, "kotlin-lsp")
+        isFWCD := strings.Contains(base, "kotlin-language-server")
+        // If the resolved command isn't found, try to locate an alternative on PATH or in tool root
+        if _, err := exec.LookPath(resolvedCommand); err != nil {
+            if alt := m.resolveCommandPath(language, "kotlin-lsp"); alt != "" {
+                if _, e := exec.LookPath(alt); e == nil {
+                    resolvedCommand = alt
+                    isJetBrains = true
+                    isFWCD = false
+                }
+            }
+            if !isJetBrains {
+                if alt := m.resolveCommandPath(language, "kotlin-language-server"); alt != "" {
+                    if _, e := exec.LookPath(alt); e == nil {
+                        resolvedCommand = alt
+                        isJetBrains = false
+                        isFWCD = true
+                    }
+                }
+            }
+            if !isJetBrains && !isFWCD {
+                // Final PATH probes
+                if p, e := exec.LookPath("kotlin-lsp"); e == nil {
+                    resolvedCommand = p
+                    isJetBrains = true
+                } else if p2, e2 := exec.LookPath("kotlin-language-server"); e2 == nil {
+                    resolvedCommand = p2
+                    isFWCD = true
+                }
+            }
+        }
+        // On Windows always use stdio (fwcd or JetBrains exe/script in stdio mode)
+        if runtime.GOOS == osWindows || isFWCD {
+            // fall through to stdio flow below
+        } else if isJetBrains || runtime.GOOS != osWindows {
+            // JetBrains kotlin-lsp runs in socket mode on port 9999 by default (no arguments)
+            addr := "127.0.0.1:9999"
+ 
+            // Remove ALL arguments - kotlin-lsp.sh runs in socket mode on port 9999 when no args provided
+            argsToUse = []string{}
+            common.LSPLogger.Info("Launching JetBrains %s LSP in socket mode at %s", language, addr)
+ 
+            clientConfig := types.ClientConfig{
+                Command:               resolvedCommand,
+                Args:                  argsToUse,
+                WorkingDir:            cfg.WorkingDir,
+                InitializationOptions: cfg.InitializationOptions,
+            }
+ 
+            if err := security.ValidateCommand(resolvedCommand, argsToUse); err != nil {
+                return fmt.Errorf("invalid LSP server command for %s: %w", language, err)
+            }
+ 
+            client, err := NewSocketClient(clientConfig, language, addr)
+            if err != nil {
+                return fmt.Errorf("failed to create client: %w", err)
+            }
+            if err := client.Start(ctx); err != nil {
+                return fmt.Errorf("failed to start client: %w", err)
+            }
+            m.mu.Lock()
+            m.clients[language] = client
+            m.mu.Unlock()
+ 
+            if activeClient, ok := client.(interface{ IsActive() bool }); ok {
+                maxWaitIterations := m.getClientActiveWaitIterations(language)
+                for i := 0; i < maxWaitIterations; i++ {
+                    if activeClient.IsActive() {
+                        break
+                    }
+                    time.Sleep(100 * time.Millisecond)
+                }
+            }
+            return nil
+        }
+    }
 
 	// Validate initial command/args
 	if err := security.ValidateCommand(resolvedCommand, argsToUse); err != nil {
